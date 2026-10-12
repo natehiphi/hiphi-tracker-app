@@ -51,7 +51,7 @@ def to_alerts(p, extra=''):
 def story_to_soon(p):
     p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(1000)
     for _ in range(3): p.click('[data-stnext]'); p.wait_for_timeout(1300)
-    # the story hands straight on to Coming up (R-232: the address step left the first visit)
+    # the story hands straight on to One thing you can do (R-232, R-233)
     p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(700)
 # The "Mahalo!" page (R-140, Nate 11 Oct: a page that waits for Next): today's alerts step and the plans' sign-up are drawn
 # again in place as it; its Next is the step's own ([data-stnext] today, [data-obon] in the plans).
@@ -59,7 +59,8 @@ def mahalo_on(p):
     p.wait_for_selector('.st-thanks #st-h', timeout=8000); p.wait_for_timeout(400); m = text(p, '.st-thanks')
     p.click('.actionbar [data-stnext], .actionbar [data-obon]'); return m
 def to_end(p):
-    story_to_soon(p); p.click('[data-stnext]'); p.wait_for_selector('.st-did', timeout=8000); p.wait_for_timeout(2300)
+    # "Not now" on One thing you can do (R-233), Next once it is done
+    story_to_soon(p); p.locator('.st-bar [data-stskip], .st-bar [data-stnext]').first.click(); p.wait_for_selector('.st-did', timeout=8000); p.wait_for_timeout(2300)
 # A plan (Plan 5: topics, picks, the sign-up, the ending), up to its sign-up.
 def to_join(p, extra=''):
     p.goto(BASE + '?demo=1&restart&ab=onb.p5' + extra)

@@ -177,22 +177,26 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 .st-info-small .ic { flex: none; color: var(--p700); }
 
 /* ---- Stay connected, 2: coming up on your issues (the value), then the one ask ---- */
-/* Coming up on your issues (R-098, 10/10; Nate 10/5: "not prominent and looks like it should be skipped"): one card per item
-   that the eye reads first. The bill's name is in the heading face (A-19, 22px in the first visit), each date is labelled and
-   says its day in words. The cards open nothing in the first visit (R-247). One clear button only where testimony cannot wait (A-3). */
-.st-soon { list-style: none; margin: var(--s8) 0 0; padding: 0; display: grid; gap: var(--s12); }
-.st-cu { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12);
-  animation: st-rise .35s var(--ease) both; animation-delay: calc(var(--k) * 120ms); }
-.st-cu-go { display: grid; gap: 6px; padding: var(--s16); color: var(--n700); border-radius: var(--r12); }
-.st-cu-name { font: 600 var(--t18)/1.2 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
-.st-cu-meta { font-size: var(--t14); color: var(--n700); }
-.st-cu-dates { margin: var(--s4) 0 0; display: grid; gap: 4px; }
-.st-cu-dates > div { display: grid; gap: 0; }
-/* The labels are neutral, not blue: blue bold text reads as a link (A-5, A-12). */
-.st-cu-dates dt { font-size: var(--t14); font-weight: 700; color: var(--n700); }
-.st-cu-dates dd { margin: 0; font-size: var(--t16); color: var(--n900); }
-.st-cu-act { padding: 0 var(--s16) var(--s16); }
-.st-cu-act .btn { width: 100%; }
+/* One thing you can do (R-233, Nate 10/11): one card, the bill or issue as its heading (A-19), what it is about, the one date
+   that matters. The card opens nothing: its action is the filled button in the bar (A-3, A-12). Done, it turns green with a
+   tick (A-16). */
+.st-onecard { display: grid; gap: 6px; padding: var(--s16); background: var(--n0); border: 1.5px solid var(--p200); border-radius: var(--r12);
+  box-shadow: var(--sh2); animation: st-rise .35s var(--ease) both; }
+.st-one-name { font: 600 var(--t22)/1.2 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+.st-one-meta { font-size: var(--t14); color: var(--n700); }
+.st-one-when { display: flex; align-items: center; gap: 6px; margin-top: var(--s4); font-size: var(--t16); color: var(--n900); }
+.st-one-when .ic { width: 18px; height: 18px; flex: none; color: var(--n700); }
+.st-one-when.urgent, .st-one-when.urgent .ic { color: var(--warn-text); font-weight: 700; }   /* due within 24 hours (A-5), and its words say when */
+.st-onecard.done { background: var(--ok-wash); border-color: #BFE8C8; box-shadow: none; }
+.st-one-done { display: flex; align-items: center; gap: 6px; font-size: var(--t14); font-weight: 700; color: var(--ok-text); }
+.st-one-done .ic { width: 18px; height: 18px; flex: none; }
+/* The rest of what is coming up: one plain line each, quieter than the card (B-14: nothing hidden; A-13: one thing leads). */
+.st-rest { margin-top: var(--s24); }
+.st-rest-h { margin: 0 0 var(--s8); font-size: var(--t16); font-weight: 700; color: var(--n900); }
+.st-rest ul { list-style: none; margin: 0 0 var(--s8); padding: 0; display: grid; gap: var(--s8); }
+.st-rest li { font-size: var(--t16); color: var(--n700); line-height: 1.4; }
+.st-rest li b { color: var(--n900); }
+.st-rest p { margin: 0; }
 /* The one honest line where nothing is coming up: the place of the list, not an empty block. */
 .st-nothing { display: flex; gap: var(--s12); align-items: flex-start; padding: var(--s16); border-radius: var(--r12); background: var(--p50); border: 1px solid var(--p200); }
 .st-nothing p { margin: 0; font-size: var(--t16); color: var(--n900); }
@@ -205,7 +209,7 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 /* The email ask's one line (R-078, 9/29: it shared .st-promise with the first screen's three-column list, so on a phone it
    was squeezed into one narrow column and pushed the email box off the first screen). Full width, under the box. */
 .st-askline { margin: 0; font-size: var(--t14); color: var(--n700); }
-/* Three equal ways to help (Plan 1's choice, R-164; the test 'act', R-150): equal cards, one tap each, none styled as the "right" one (A-3, P-5). */
+/* Three equal ways to help (Plan 1's choice, R-164): equal cards, one tap each, none styled as the "right" one (A-3, P-5). */
 .ob-ways { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s12); }
 .ob-way { display: flex; width: 100%; gap: var(--s12); align-items: center; padding: var(--s16); text-align: left; min-height: 64px;
   border: 1px solid var(--n200); color: var(--n900); }
@@ -216,29 +220,6 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 .ob-way > .ic { width: 18px; height: 18px; color: var(--n400); flex: none; }
 .ob-wayic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--pill); background: var(--p50); color: var(--p700); flex: none; }
 .ob-wayic .ic { width: 20px; height: 20px; }
-/* The test 'act' (R-150): a way done keeps its place, with a tick (A-16); the story opens its field in the card. */
-/* The three ways (R-235): the card "Coming up" had until R-247, which made those plain notes; these open, so they keep it. A label
-   that says what you do, the bill or issue as a heading (A-19), one labelled date; the chevron says the card opens (A-12). */
-.st-ways { list-style: none; margin: var(--s8) 0 0; padding: 0; display: grid; gap: var(--s12); }
-.st-way { position: relative; display: grid; gap: 6px; width: 100%; margin: 0; padding: var(--s16) 44px var(--s16) var(--s16); text-align: left;
-  font: inherit; color: var(--n700); background: var(--n0); border: 1.5px solid var(--p200); border-radius: var(--r12); box-shadow: var(--sh2); }
-button.st-way { cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
-button.st-way:hover { background: var(--p50); border-color: var(--p400); }
-button.st-way:active { transform: scale(.99); }
-.st-way-act { display: flex; align-items: center; gap: var(--s8); font-size: var(--t14); font-weight: 700; color: var(--p700); }
-.st-way-act .ic { width: 20px; height: 20px; flex: none; }
-.st-way-min { font-weight: 400; color: var(--n700); }
-.st-way-name { font: 600 var(--t18)/1.2 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
-.st-way-when { display: flex; align-items: center; gap: 6px; font-size: var(--t14); color: var(--n900); }
-.st-way-when .ic { width: 18px; height: 18px; flex: none; color: var(--n700); }
-.st-way-when.urgent, .st-way-when.urgent .ic { color: var(--warn-text); font-weight: 700; }   /* due within 24 hours (A-5), and its words say when */
-.st-way-chev { position: absolute; top: 50%; right: var(--s12); width: 22px; height: 22px; margin-top: -11px; color: var(--p700); }
-.st-way.done { background: var(--ok-wash); border-color: #BFE8C8; box-shadow: none; }
-.st-way.done .st-way-act { color: var(--ok-text); }
-.st-waystory { gap: var(--s8); }
-.st-waystory label { font-size: var(--t16); font-weight: 700; color: var(--n900); }
-.st-waystory textarea { width: 100%; font: inherit; font-size: var(--t16); padding: var(--s12); border: 1px solid var(--n400); border-radius: var(--r12); resize: vertical; }
-.st-waystory .btnrow { display: flex; }
 .st-namerow { display: flex; gap: 8px; align-items: stretch; }
 .st-namerow input { flex: 1; min-width: 0; }
 .st-opt { font-weight: 400; color: var(--n500); }
@@ -402,7 +383,7 @@ button.st-way:active { transform: scale(.99); }
 /* Everything that moves here also works standing still (A-10, WCAG 2.3.3). */
 @media (prefers-reduced-motion: reduce) {
   .st-tchev, .st-what .ic, .st-morebtn .ic { transition: none; }
-  .st-picks > .st-pcard, .st-pcard.st-in, .st-soon li, .st-did li, .st-next3 li, .st-connect, .st-leg, .st-blooms span, .st-finart .st-sun, .st-standdone { animation: none; }
+  .st-picks > .st-pcard, .st-pcard.st-in, .st-onecard, .st-did li, .st-next3 li, .st-connect, .st-leg, .st-blooms span, .st-finart .st-sun, .st-standdone { animation: none; }
   .st-petals { display: none; }
   .st-scard, .st-issue, .st-pick { transition: none; }
 }

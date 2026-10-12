@@ -46,7 +46,7 @@ def to_alerts(p, extra=''):
 def story_to_soon(p):
     p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(1000)
     for _ in range(3): p.click('[data-stnext]'); p.wait_for_timeout(1300)
-    # the story hands straight on to Coming up (R-232: the address step left the first visit)
+    # the story hands straight on to One thing you can do (R-232, R-233)
     p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(700)
 
 with sync_playwright() as pw:
@@ -98,9 +98,9 @@ with sync_playwright() as pw:
     p.click('[data-stnext]'); p.wait_for_timeout(900)
     ok(moment(p) == '' and p.url.endswith('#/start/4'), 'Next from there: the story again, no moment over it')
     story_to_soon(p)
-    ok(p.locator('#st-a-phone, #st-eform, #st-email').count() == 0 and 'Want alerts' not in text(p), 'Coming up asks nothing (the number was given)')
+    ok(p.locator('#st-a-phone, #st-eform, #st-email').count() == 0 and 'Want alerts' not in text(p), 'One thing you can do asks nothing more (the number was given)')
     shot(p, '1d_soon')
-    p.click('[data-stnext]'); p.wait_for_selector('.st-did', timeout=8000); p.wait_for_timeout(600)
+    p.click('.st-bar [data-stskip]');   # "Not now" (R-233) p.wait_for_selector('.st-did', timeout=8000); p.wait_for_timeout(600)
     # D1-4 (R-180): a number not yet confirmed is "Almost set", never "on" (it said "Text alerts are on").
     ok('Alerts almost set' in text(p, '.st-did') and 'We’ll text (808) 555-0123 to confirm it’s your number.' in text(p, '.st-did') and 'alerts are on' not in text(p, '.st-did').lower(), 'the finale: "Alerts almost set" (not "Text alerts are on")')
     c.close()
@@ -120,7 +120,7 @@ with sync_playwright() as pw:
     m = thanks(p)
     ok('Mahalo!' in m and 'Link sent to leilani@example.com' in m and 'Tap it when you finish here' in m and 'Use a different email' in m, f'the "Mahalo!" page says where the link went and to finish first (C-6): {m[:160]!r}')
     p.click('.actionbar [data-stnext]'); story_to_soon(p)
-    p.click('[data-stnext]'); p.wait_for_selector('.st-did', timeout=8000); p.wait_for_timeout(500)
+    p.click('.st-bar [data-stskip]'); p.wait_for_selector('.st-did', timeout=8000); p.wait_for_timeout(500)
     ok('Alerts almost set' in text(p, '.st-did') and 'Tap the link we sent to leilani@example.com to turn on alerts.' in text(p, '.st-did'), 'the finale: "Almost set", tap the link (it said "Reminders: one tap to go")')
     c.close()
 
@@ -132,7 +132,7 @@ with sync_playwright() as pw:
     ok('Mahalo!' in m and 'text' not in m.lower() and 'bill' in m and p.locator('.st-alertdone').count() == 0, f'Skip: the "Mahalo!" page for the issues, with the bills line and no card: {m[:120]!r}')
     p.click('.actionbar [data-stnext]'); story_to_soon(p)
     ok('Want alerts by text or email?' in text(p) and p.locator('#st-a-phone').count() == 0, 'Coming up: one quiet line, no second ask')
-    p.click('[data-stnext]'); p.wait_for_selector('.st-did', timeout=8000); p.wait_for_timeout(400)
+    p.click('.st-bar [data-stskip]'); p.wait_for_selector('.st-did', timeout=8000); p.wait_for_timeout(400)
     ok('Alerts are off' in text(p, '.st-did') and p.locator('.st-did [data-alsheet]', has_text='Turn on alerts').count() == 1, 'the finale: "Alerts are off", with its own "Turn on alerts" (X10-4)')
     p.click('[data-stdone]'); p.wait_for_timeout(1500)
     # Home on the next load asks once: one quiet line (R-222), whose button opens the same box in the sheet.

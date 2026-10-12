@@ -404,6 +404,9 @@ function redirectFor(step, off) {
   if (n === 'alerts') return S.alertsShown || askAlerts() || S.stThanks ? 0 : step + 1;   // or its "Mahalo!" page (R-140)
   if (wiz().via) return n === 'followask' && (viaFollowed() || wiz().viaSkipAsk) ? step + 1 : 0;
   if (n === 'issues') return pickedIssues().length ? 0 : stepOf('topics', off);
+  // Following nothing, "One thing you can do" has nothing to offer and is passed over (R-233); in the version that ends on
+  // Home it is the last step, and says why it is empty.
+  if (n === 'soon' && step < T && !followedIssues().some(shown)) return step + 1;
   return 0;
 }
 

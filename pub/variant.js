@@ -37,10 +37,8 @@
 //          version fits only some asks, so each share picks one at random among the versions that are on AND have a share
 //          page for that bill and ask (pub/sharepic.js, share-fit.json), and shares that version's address (p/<version>/...).
 //          The friend's arrival is counted from the &pic= word the link carries.
-//   act    the page just before the end of the first visit (R-150, backend 151; Nate 10/6: "test it"): today's "Coming up
-//          on your issues" | three ways to help, one tap each: testimony, an email to the chair and Send to a friend, each
-//          on a different bill (between sessions: a hello to their legislators, Send to a friend, one sentence on why it
-//          matters). Met on that page (start-rest.js); the measure is acting that day, then coming back within 7 days.
+//   (act, the page just before the end of the first visit, R-150: stopped by Nate 10/11, R-233. One version for everyone,
+//          "One thing you can do" (start-rest.js stepSoon); a database row for it is ignored here.)
 //
 // How a browser gets a version:
 //   the coin toss   the first time a browser opens the tracker it gets one version of every test, each by its own toss,
@@ -78,12 +76,11 @@ export const TESTS = {
   join: { arms: ['shown', 'watch'], goal: ['email', 1], goal2: ['back', 14] },
   save: { arms: ['profile', 'alerts'], goal: ['email', 1], goal2: ['back', 14] },
   layout: { arms: ['calm', 'today', 'a'], goal: ['back', 14], goal2: ['acted', 14], page: true, multi: true },
-  act: { arms: ['today', 'three'], first: 'keep', goal: ['acted', 1], goal2: ['back', 7] },
   pic: { arms: ['today', 'issue', 'sign', 'calendar', 'letter', 'text', 'neighbors', 'islands', 'before', 'here', 'ticket', 'crowd', 'stand', 'postcard'], rate: true, multi: true },
 };
-const BUILT = { end: true, fv: true, rank: true, email: false, share: true, home: false, onb: false, join: false, save: false, layout: true, act: true, pic: true };
+const BUILT = { end: true, fv: true, rank: true, email: false, share: true, home: false, onb: false, join: false, save: false, layout: true, pic: true };
 // The tests that compare screens of today's first visit: a browser on one of the plans never meets them (R-164).
-const INSIDE_TODAY = ['end', 'fv', 'email', 'act'];
+const INSIDE_TODAY = ['end', 'fv', 'email'];
 const KEY = 'hiphi_ab', CFG = 'hiphi_ab_cfg';
 const BOT = (() => { try { return navigator.webdriver === true && window.__hiphiTossTests !== true; } catch { return false; } })();
 const today = () => hstDay(Date.now());
@@ -142,9 +139,6 @@ export function armOf(key) {
 function arm0(key, t) {
   try {
     const s = st(), a = s.arms?.[key];
-    // The three ways (R-150) are tested beside today's ending only, a tester's link included: the version that ends on Home
-    // already opens on what to do, so there it would offer the same ways twice and blur both tests' counts (the review).
-    if (key === 'act' && arm0('end', TESTS.end) === 'home') return t.arms[0];
     if (s.forced?.[key] && t.arms.includes(a)) return a;
     // A plan of the first-visit test replaces the screens these tests compare: today's version of each (R-164).
     if (INSIDE_TODAY.includes(key) && onPlan()) return t.arms[0];
@@ -161,7 +155,7 @@ function arm0(key, t) {
 }
 // Counted only when the version came from the toss of a test that is on, or from a tester's link; never a test inside
 // today's first visit while the browser is on a plan (R-164).
-const counted = key => (INSIDE_TODAY.includes(key) && onPlan()) || (key === 'home' && armOf('layout') !== 'today') || (key === 'act' && endHome()) ? false : isForced(key) || (!DEMO && !BOT && cfgOf(key).on);
+const counted = key => (INSIDE_TODAY.includes(key) && onPlan()) || (key === 'home' && armOf('layout') !== 'today') ? false : isForced(key) || (!DEMO && !BOT && cfgOf(key).on);
 // The plan this browser's first visit follows ('' for today's): Plan 1 to 5 of the first-visit test (R-164).
 function onPlan() { try { const a = armOf('onb'); return a && a !== 'today' ? a : ''; } catch { return ''; } }
 export const plan = onPlan;

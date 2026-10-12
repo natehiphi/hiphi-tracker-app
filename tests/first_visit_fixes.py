@@ -5,7 +5,7 @@
 # the issues screen's free line says "alert", the one word for the thing (C-15), never "email"; the chapter strip ticks a
 # chapter only when it was done: Skip with nothing picked leaves "Your issues" a plain dot that reads "(skipped)", Skip on
 # the story leaves "A bill's story" the same (C-7), while a chapter that was done keeps its tick; the Mahalo page's button
-# names the next part as the strip and the page do ("A Bill's Story", C-15); a "Coming up" card says the bill's name
+# names the next part as the strip and the page do ("A Bill's Story", C-15); the "One thing" card says the bill's name
 # once, with "Your issue:" only when the issue's name differs (A-14); with nothing followed the page says why and the way
 # out (B-8, B-3). No console errors.
 import os, sys
@@ -71,18 +71,12 @@ with sync_playwright() as pw:
     ok(len(s) == 3 and 'skipped' in s[0]['cls'] and not s[0]['tick'] and 'skipped' in s[0]['sr'] and 'done' not in s[0]['cls'], f'2: after Skip at the start the strip shows "Your issues" skipped, no tick (C-7): {s[0]}')
     ok('on' in s[1]['cls'], '2: and the story is the current chapter')
     p.screenshot(path=os.path.join(OUT, 'skipped-strip-375.png'))
-    # Skip on the story: it too is a plain dot, and the page says why nothing is coming up
-    p.click('[data-stskip]'); p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(800)
+    # Skip on the story: with nothing followed, "One thing you can do" has nothing to offer and is passed over (R-233); the
+    # strip on "You're all set!" keeps both skipped chapters plain dots
+    p.click('[data-stskip]'); p.wait_for_selector('[data-stdone]', timeout=10000); p.wait_for_timeout(800)
+    ok(p.locator('.st-soonpage').count() == 0, '2: following nothing, the page before the end is passed over (R-233)')
     s = strip(p)
     ok('skipped' in s[0]['cls'] and 'skipped' in s[1]['cls'] and not s[1]['tick'], f'2: Skip on the story leaves it a plain dot too: {s[1]}')
-    nothing = text(p, '.st-nothing')
-    ok('not following anything yet' in nothing and 'home page' in nothing, f'2: with nothing followed the page says why and where hearings will show (B-8): {nothing!r}')
-    ok('No hearing is set' not in nothing, '2: and no longer blames the calendar')
-    ok(p.locator('.st-quietask').count() == 0, '2: no "Want alerts" line about issues nobody follows (A-14; the critic)')
-    pick = p.locator('.st-pickagain button')
-    ok(pick.count() == 1 and 'Pick your issues' in pick.inner_text(), '2: a way back to the tiles, as a text button beside the one Next (B-3, A-3)')
-    pick.click(); p.wait_for_selector('.st-tile', timeout=10000); p.wait_for_timeout(300)
-    ok('#/start/1' in p.url, f'2: and it opens the topics screen: {p.url}')
     c.close()
 
     # 3. the ordinary road: the free line says alert, the chapters done are ticked, the Mahalo button names the story, the cards say the name once
@@ -97,12 +91,9 @@ with sync_playwright() as pw:
     ok(p.locator('.st-nothing').count() == 0 and p.locator('.st-pickagain').count() == 0, '3: with issues followed there is no empty-page note and no way-back button')
     s = strip(p)
     ok('done' in s[0]['cls'] and s[0]['tick'] and 'done' in s[1]['cls'] and s[1]['tick'], f'3: chapters that were done keep their ticks: {s[:2]}')
-    cards = p.evaluate("() => [...document.querySelectorAll('.st-cu')].map(li => ({ name: li.querySelector('.st-cu-name').textContent.trim(), metas: [...li.querySelectorAll('.st-cu-meta')].map(m => m.textContent.trim()) }))")
-    ok(len(cards) >= 2, f'3: the two topics give coming-up cards in the practice copy: {len(cards)}')
-    dup = [k for k in cards if any(m.startswith('Your issue:') and m[len('Your issue:'):].strip().lower() == k['name'].lower() for m in k['metas'])]
-    ok(not dup, f'3: no card repeats its own name as "Your issue" (A-14): {dup}')
-    kept = [k for k in cards if any(m.startswith('Your issue:') for m in k['metas'])]
-    ok(len(kept) >= 1 and all(any(m.startswith('Your issue:') and m[len('Your issue:'):].strip().lower() != k['name'].lower() for m in k['metas']) for k in kept), f'3: a card whose issue is named differently still says which issue it is for: {[k["name"] for k in kept]}')
+    # One thing you can do (R-233): the card says the bill's name once; the line under it names the bill and committee, not the name again (A-14)
+    card = p.evaluate("() => { const c = document.querySelector('.st-onecard'); return c && { name: c.querySelector('.st-one-name').textContent.trim(), meta: (c.querySelector('.st-one-meta') || {}).textContent || '' }; }")
+    ok(card and card['name'] and card['name'].lower() not in card['meta'].lower(), f'3: the one card names its bill once (A-14): {card}')
     p.screenshot(path=os.path.join(OUT, 'coming-up-375.png'), full_page=True)
     c.close()
     b.close()
