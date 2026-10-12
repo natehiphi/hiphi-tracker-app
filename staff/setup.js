@@ -615,6 +615,14 @@ const ROOM_MAX = 6;
 // is filed under that group however the groups are later moved, copied or removed (pub/testerlog.js, backend 150).
 const rid = n => { const a = crypto.getRandomValues(new Uint8Array(n)); return [...a].map(x => 'abcdefghijkmnpqrstuvwxyz23456789'[x % 32]).join(''); };
 const RID = /^[a-z0-9]{4,12}$/, GID = /^[a-z0-9]{2,8}$/;
+// A group's name (R-241, Nate 10/11: "I'd like to be able to rename each tester group"): its own words, or "Group 2" by
+// its place on the sheet when it has none. The name rides with the group, not its place, so removing one above it moves
+// the number but never the name; what its testers did stays filed under its id (R-193), so a rename keeps its results.
+const ROOM_NAME_MAX = 24;   // three cards across on a laptop: a longer name wraps a heading to three lines (the critic, 10/11)
+// A typed ' becomes ’ (the house apostrophe), so a name reads the same in a heading and in a screen reader's label.
+const cleanName = x => typeof x === 'string' ? x.trim().replace(/\s+/g, ' ').replace(/'/g, '’').slice(0, ROOM_NAME_MAX) : '';
+const gName = (g, i) => g.name || `Group ${i + 1}`;
+const fileSlug = x => x.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 // A plan of the first-visit test replaces the screens these compare (pub/variant.js INSIDE_TODAY); 'join' is met only on
 // a plan's sign-up.
 const ROOM_INSIDE = ['end', 'fv', 'email', 'act'], ROOM_PLAN_ONLY = ['join'];
@@ -672,7 +680,7 @@ function room() {
   const s = st(); if (s.room) return s.room;
   const kept = S.me?.prefs?.room, ok = kept && Array.isArray(kept.groups) && kept.groups.length;
   const r = ok ? { id: RID.test(kept.id || '') ? kept.id : rid(6), where: kept.where === 'live' ? 'live' : 'demo',
-    groups: kept.groups.slice(0, ROOM_MAX).map(g => ({ v: { ...(g?.v || {}) }, gid: GID.test(g?.gid || '') ? g.gid : rid(3) })) } : roomDefault();
+    groups: kept.groups.slice(0, ROOM_MAX).map(g => ({ v: { ...(g?.v || {}) }, gid: GID.test(g?.gid || '') ? g.gid : rid(3), name: cleanName(g?.name) })) } : roomDefault();
   // A sheet kept before R-193 gets its ids now, kept at the page's first wiring (roomKeep, never during a draw).
   if (ok && (r.id !== kept.id || r.groups.some((g, i) => g.gid !== kept.groups[i]?.gid))) s.roomFresh = true;
   for (const g of r.groups) for (const k of Object.keys(g.v)) { const t = roomTest(k); if (!t || !t.arms.includes(g.v[k]) || g.v[k] === t.arms[0]) delete g.v[k]; }
@@ -680,7 +688,7 @@ function room() {
 }
 function roomKeep() {
   const r = st().room; if (!r) return;
-  DB.patchPrefs({ room: { id: r.id, where: r.where, groups: r.groups.map(g => ({ v: g.v, gid: g.gid })) } }).catch(() => toast('Your groups could not be kept for next time. They stay on this page until you leave.', { err: true }));
+  DB.patchPrefs({ room: { id: r.id, where: r.where, groups: r.groups.map(g => ({ v: g.v, gid: g.gid, ...(g.name ? { name: g.name } : {}) })) } }).catch(() => toast('Your groups could not be kept for next time. They stay on this page until you leave.', { err: true }));
 }
 function roomUrl(g, where) {
   const T = roomTests();
@@ -758,7 +766,7 @@ function roomResults(r) {
   // changed between two sessions gets a row per set, so nothing is mixed. Today's version of a test is left out of the name.
   const vWords = v => v.split(',').map(x => { const [k, a] = x.split('.'), t = roomTest(k); return !t ? x : a === t.arms[0] ? '' : t.key === 'onb' ? armName(t, a).split(':')[0] : `${t.name}: ${armName(t, a)}`; }).filter(Boolean).join('; ') || 'today’s versions';
   const rows = r.groups.flatMap((g, i) => { const mine = P.filter(p => on(p, g)), sets = [...new Set(mine.map(p => p.versions || ''))];
-    return sets.length ? sets.map((v, j) => rowFor(`g${i}-${j}`, `Group ${i + 1} · ${vWords(v)}`, mine.filter(p => (p.versions || '') === v))) : [rowFor('g' + i, `Group ${i + 1}`, [])]; });
+    return sets.length ? sets.map((v, j) => rowFor(`g${i}-${j}`, `${gName(g, i)} · ${vWords(v)}`, mine.filter(p => (p.versions || '') === v))) : [rowFor('g' + i, gName(g, i), [])]; });
   const rest = P.filter(p => !r.groups.some(g => on(p, g))), byV = new Map();
   for (const p of rest) { const k = p.versions || 'today'; (byV.get(k) || byV.set(k, []).get(k)).push(p); }
   const earlier = [...byV.entries()].map(([v, ps], i) => rowFor('e' + i, `Earlier link · ${vWords(v)}`, ps));
@@ -767,7 +775,7 @@ function roomResults(r) {
 }
 const roomQr = new Map();   // link -> the code's SVG, so a redraw never flashes "Drawing the code"
 function roomCard(g, i, r) {
-  const where = r.where, onb = roomTest('onb'), diffs = roomDiffs(g), shown = roomShown(r), url = roomUrl(g, where), name = `Group ${i + 1}`;
+  const where = r.where, onb = roomTest('onb'), diffs = roomDiffs(g), shown = roomShown(r), url = roomUrl(g, where), name = gName(g, i);
   const more = roomTests().filter(t => t.key !== 'onb' && applies(g, t) && !shown.includes(t));
   const pick = (t, label) => { const a = armIn(g, t), today = a === t.arms[0];
     return `<div class="field${today && t.key !== 'onb' ? ' rm-istoday' : ''}"><span class="label" id="rm-l-${i}-${esc(t.key)}">${esc(label)}</span>
@@ -775,13 +783,13 @@ function roomCard(g, i, r) {
   const off = t => `<div class="field rm-istoday"><span class="label">${esc(t.name)}</span><span class="small muted">${offWhy(g, t)}</span></div>`;
   const same = !diffs.length && !onPlan(g);
   return `<li class="card rm-group">
-    <div class="rm-ghead"><h2 id="rm-h-${i}" tabindex="-1">${name}</h2>${iconBtn('ellipsis', `More for ${name}`, { 'data-rmmore': i, 'aria-haspopup': 'dialog' })}</div>
+    <div class="rm-ghead"><h2 id="rm-h-${i}" tabindex="-1">${esc(name)}</h2>${iconBtn('ellipsis', `More for ${name}`, { 'data-rmmore': i, 'aria-haspopup': 'dialog' })}</div>
     ${onb ? pick(onb, 'First visit') : ''}
     ${shown.map(t => applies(g, t) ? pick(t, t.name) : off(t)).join('')}
     ${same ? `<p class="small rm-same">${icon('flag')}<span>Today’s version of everything, to compare the others against.</span></p>` : ''}
     ${more.length ? `<div>${btn('Change another screen', { kind: 'text', sm: true, icon: 'plus', cls: 'rm-addscr', attrs: { 'data-rmscreen': i, 'aria-haspopup': 'dialog' } })}</div>` : ''}
     <div class="rm-qr">
-      <div class="rm-qrbox" data-rmqr="${i}" data-url="${esc(url)}" role="img" aria-label="QR code for ${name}">${roomQr.get(url) || '<span class="small muted">Drawing the code…</span>'}</div>
+      <div class="rm-qrbox" data-rmqr="${i}" data-url="${esc(url)}" role="img" aria-label="QR code for ${esc(name)}">${roomQr.get(url) || '<span class="small muted">Drawing the code…</span>'}</div>
       <div class="btnrow rm-acts">${btn('Open', { kind: 'secondary', sm: true, icon: 'external-link', href: url, target: '_blank', attrs: { 'aria-label': `Open ${name}’s link in a new tab` } })}${btn('Copy link', { kind: 'text', sm: true, icon: 'copy', attrs: { 'data-rmcopy': i } })}</div>
     </div>
   </li>`;
@@ -807,14 +815,14 @@ async function roomPrint() {
     .pg svg { width: 110mm; height: 110mm; } .pg .i { font-size: 20px; font-weight: 700; margin: 6mm 0 2mm; } .pg .i2 { font-size: 16px; margin: 0 auto; max-width: 140mm; }
     .pg .b { margin-top: 10mm; font-size: 12px; color: #5F6F76; }</style></head><body>
     <h1>Tester sheet</h1><p class="sub">${esc(day)} · ${r.groups.length} ${r.groups.length === 1 ? 'group' : 'groups'}. ${esc(whereLine)}</p>
-    <table><thead><tr><th scope="col">What they see</th>${r.groups.map((g, i) => `<th scope="col">Group ${i + 1}</th>`).join('')}</tr></thead>
+    <table><thead><tr><th scope="col">What they see</th>${r.groups.map((g, i) => `<th scope="col">${esc(gName(g, i))}</th>`).join('')}</tr></thead>
     <tbody>${onb ? rowOf(onb) : ''}${shown.map(rowOf).join('')}
       <tr class="lk"><th scope="row">The link</th>${r.groups.map(g => `<td>${esc(roomUrl(g, where))}</td>`).join('')}</tr>
       <tr class="saw"><th scope="row">What we saw</th>${r.groups.map(() => '<td></td>').join('')}</tr></tbody></table>
     ${tasks.length ? `<p class="note">Every group is also asked to:</p><ul class="tasks">${tasks.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
     <p class="note">Every other screen is today’s version for every group. Each group’s own page follows; it does not say which version it is.
       Each tester’s path (the screens in order, the seconds on each, what they did) is recorded under a random number and shows on the tester sheet, by group; their page tells them.</p>
-    ${r.groups.map((g, i) => `<div class="pg"><p class="g">Group ${i + 1}</p>${qrSvg(codes[i], 416)}
+    ${r.groups.map((g, i) => `<div class="pg"><p class="g">${esc(gName(g, i))}</p>${qrSvg(codes[i], 416)}
       <p class="i">Scan this with your phone’s camera, then tap the link.</p>
       <p class="i2">Go through it as if a friend had just sent it to you.${where === 'live' ? '' : ' It is a practice copy: nothing you type is saved.'}</p>
       <p class="b">For this test we note which screens you visit, in order, and how long you spend on each, under a random number: not your name, and nothing you type.</p>
@@ -1226,7 +1234,32 @@ const PAGES = {
         if (gone.length) setTimeout(() => toast(`${t.key === 'layout' ? (armIn(g, t) === 'a' ? 'Version A replaces' : 'The calm Home replaces') : onPlan(g) ? 'A plan replaces' : 'Today’s first visit never meets'} ${gone.join(' and ')}, so ${gone.length > 1 ? 'they were' : 'it was'} taken off.`,
           { undo: () => { g.v = before; roomKeep(); hooks.render(); } }));
       };
-      const versions = (g, i, t) => pickerSheet({ title: `Group ${i + 1}: ${t.key === 'onb' ? 'First visit' : t.name}`, value: armIn(g, t), help: esc(roomWhere(t)),
+      // Rename (R-241): blank gives the group back its number. Two groups never share a name, so the printed pages and
+      // What testers did can tell them apart.
+      const renameGroup = (g, i) => openSheet({ title: `Rename ${esc(gName(g, i))}`, size: 'auto',
+        body: `<form class="st-form" novalidate data-rmnform>
+          ${field('rm-name', 'Name', `<input id="rm-name" type="text" maxlength="${ROOM_NAME_MAX}" value="${esc(g.name || '')}" autocomplete="off" enterkeyhint="done" aria-describedby="rm-name-help" autofocus>`,
+            'Testers see this name at the top of their page, so do not name the version. Leave it blank to use the group’s number.')}
+          <button type="submit" hidden tabindex="-1" aria-hidden="true"></button></form>`,
+        foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-rmncancel': '1' } })}${btn('Save name', { attrs: { 'data-rmnsave': '1' } })}`,
+        wire: d => {
+          const input = d.querySelector('#rm-name');
+          d.querySelector('[data-rmncancel]').onclick = () => closeSheet();
+          const save = async () => {
+            d.querySelectorAll('.err').forEach(e => e.remove()); input.removeAttribute('aria-invalid');
+            const name = cleanName(input.value), was = g.name || '';
+            // "Group 4" typed as a name would collide with the next unnamed group's number (the critic, 10/11).
+            if (/^group \d+$/i.test(name)) return fieldErr(d, 'rm-name', 'That looks like a group number. Pick another name.');
+            if (name && r.groups.some((o, j) => j !== i && gName(o, j).toLowerCase() === name.toLowerCase())) return fieldErr(d, 'rm-name', 'Another group has that name.');
+            await closeSheet({ silent: true });
+            if (name === was) return;
+            change(`#rm-h-${i}`, () => { g.name = name; });
+            toast(name ? `Renamed to “${name}”.` : `Back to ${gName(g, i)}.`, { ok: true, undo: () => { g.name = was; roomKeep(); hooks.render(); } });
+          };
+          d.querySelector('[data-rmnsave]').onclick = save; d.querySelector('[data-rmnform]').onsubmit = e => { e.preventDefault(); save(); };
+          setTimeout(() => input.select(), 0);
+        } });
+      const versions = (g, i, t) => pickerSheet({ title: `${esc(gName(g, i))}: ${t.key === 'onb' ? 'First visit' : t.name}`, value: armIn(g, t), help: esc(roomWhere(t)),
         options: t.arms.map(x => [x, armName(t, x), null, x === t.arms[0] ? 'Today’s version' : t.key === 'onb' ? ROOM_PLAN_SUB[x] || '' : '']),
         onPick: arm => change(t.key === 'onb' || arm !== t.arms[0] ? `[data-rmpick="${i}|${t.key}"]` : `#rm-h-${i}`, () => setArm(g, t, arm)) });
       root.querySelectorAll('[data-seg="rmwhere"]').forEach(b => b.onclick = () => change(`[data-seg="rmwhere"][data-val="${b.dataset.val}"]`, () => { r.where = b.dataset.val === 'live' ? 'live' : 'demo'; }));
@@ -1242,13 +1275,14 @@ const PAGES = {
       root.querySelectorAll('[data-rmpick]').forEach(b => b.onclick = () => { const [i, k] = b.dataset.rmpick.split('|'), t = T.find(x => x.key === k); if (t) versions(r.groups[+i], +i, t); });
       root.querySelectorAll('[data-rmscreen]').forEach(b => b.onclick = () => { const i = +b.dataset.rmscreen, g = r.groups[i], diffs = roomDiffs(g);
         const more = T.filter(t => t.key !== 'onb' && applies(g, t) && !diffs.includes(t));
-        pickerSheet({ title: `Group ${i + 1}: change another screen`, value: '', help: 'Every screen you do not change stays today’s version.',
+        pickerSheet({ title: `${esc(gName(g, i))}: change another screen`, value: '', help: 'Every screen you do not change stays today’s version.',
           options: more.map(t => [t.key, t.name, null, roomWhere(t)]),
           onPick: async k => { await afterClose(); const t = T.find(x => x.key === k); if (t) versions(g, i, t); } }); });
       root.querySelectorAll('[data-rmcopy]').forEach(b => b.onclick = () => copyLink(roomUrl(r.groups[+b.dataset.rmcopy], r.where)));
-      root.querySelectorAll('[data-rmmore]').forEach(b => b.onclick = () => { const i = +b.dataset.rmmore, g = r.groups[i], name = `Group ${i + 1}`;
-        menuSheet({ title: name, items: [
-          { label: 'Download the QR code', icon: 'download', run: async () => { try { await qrPng(roomUrl(g, r.where), `hiphi-testers-group-${i + 1}`); toast('QR code downloaded.', { ok: true }); } catch { toast('The QR code could not be made. Copy the link instead.', { err: true }); } } },
+      root.querySelectorAll('[data-rmmore]').forEach(b => b.onclick = () => { const i = +b.dataset.rmmore, g = r.groups[i], name = gName(g, i);
+        menuSheet({ title: esc(name), items: [
+          { label: 'Rename this group', icon: 'pencil', run: () => renameGroup(g, i) },
+          { label: 'Download the QR code', icon: 'download', run: async () => { try { await qrPng(roomUrl(g, r.where), `hiphi-testers-${fileSlug(name) || `group-${i + 1}`}`); toast('QR code downloaded.', { ok: true }); } catch { toast('The QR code could not be made. Copy the link instead.', { err: true }); } } },
           { label: 'Copy this group', icon: 'copy', sub: 'A new group on the same versions, to change one thing', disabled: r.groups.length >= ROOM_MAX, reason: `${ROOM_MAX} groups at most.`,
             run: () => { change(`#rm-h-${r.groups.length}`, () => r.groups.push({ v: { ...g.v }, gid: rid(3) })); toast(`Group ${r.groups.length} added, a copy of ${name}.`, { ok: true }); } },
           { label: 'Remove this group', icon: 'trash-2', danger: true, disabled: r.groups.length < 2, reason: 'A sheet keeps at least one group.',
