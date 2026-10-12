@@ -1063,6 +1063,12 @@ export const DB = {
     const { data, error } = await S.supa.rpc('suggest_summary', { weeks: Math.round(+weeks || 12) });
     if (error) throw error; return data || [];
   },
+  // A later visit's one full-page ask, counted (170, R-237): per week and ask, shown, done and Not now. Staff only.
+  async laterAsksWeekly(weeks = 12) {
+    if (DEMO) return [];
+    const { data, error } = await S.supa.rpc('later_asks_weekly', { weeks: Math.round(+weeks || 12) });
+    if (error) throw error; return data || [];
+  },
   // The same visits by source and the campaign word of their link (069), so two flyers for one partner can be told apart.
   // Text sign-ups, confirmations and stops by day and source: counts only, never a number (backend 156, D1-7). Staff only.
   async textSignupCounts(days = 30) {

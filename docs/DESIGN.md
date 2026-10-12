@@ -820,7 +820,7 @@ Meet HIPHI, the asks right after an action (C-3's Mahalo order), and between ses
 
 *Reason.* Nate's decision; a card at the end of Home went unseen (R-232: about 5,700px down on a phone). Whether a page on
 arrival helps more than it annoys is a guess until real use: what settles it from January is how many later visits answer
-the page (done versus Not now, counted since 10/11: backend 170, `later_asks_weekly` for staff) and whether visitors who
+the page (done versus Not now, counted since 10/11: backend 170, Staff v2's First visit > "Asks on later visits") and whether visitors who
 met one come back less (`log_day` counts returns). A page on arrival costs a tap
 before Home, which is why it is one a visit, never in front of a deadline or a link, and always skippable.
 
