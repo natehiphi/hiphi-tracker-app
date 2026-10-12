@@ -38,7 +38,8 @@ def walk_to_soon(p, extra, topic='Food'):
     p.wait_for_selector('.st-thanks #st-h', timeout=8000); p.wait_for_timeout(300); p.click('.actionbar [data-stnext]')
     p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(1200)
     for _ in range(2): p.click('[data-stnext]'); p.wait_for_timeout(1500)
-    p.click('[data-stnext]')
+    # the story's two choices since R-255 (Nate 10/12): the first choice on each, then Next, which sleeps until a choice is made
+    for _ in range(2): p.click('.lx-doors [data-lx-pick]'); p.wait_for_timeout(900); p.click('[data-stnext]'); p.wait_for_timeout(1300)
     # the story hands straight on to Coming up (R-232: the address step left the first visit)
     p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(1000)
 

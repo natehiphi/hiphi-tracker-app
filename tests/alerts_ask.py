@@ -45,7 +45,9 @@ def to_alerts(p, extra=''):
 # From the story's first page to Coming up.
 def story_to_soon(p):
     p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(1000)
-    for _ in range(3): p.click('[data-stnext]'); p.wait_for_timeout(1300)
+    for _ in range(2): p.click('[data-stnext]'); p.wait_for_timeout(1300)
+    # the story's two choices since R-255 (Nate 10/12): the first choice on each, then Next, which sleeps until a choice is made
+    for _ in range(2): p.click('.lx-doors [data-lx-pick]'); p.wait_for_timeout(900); p.click('[data-stnext]'); p.wait_for_timeout(1300)
     # the story hands straight on to Coming up (R-232: the address step left the first visit)
     p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(700)
 
