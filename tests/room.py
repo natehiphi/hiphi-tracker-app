@@ -60,7 +60,7 @@ with sync_playwright() as p:
         # On today's first visit, the other screens include the first visit's own tests and not the plans' sign-up
         pg.locator('[data-rmscreen="2"]').click(); pg.wait_for_timeout(350)
         v = sheet_values(pg); close_sheet(pg)
-        ok({'end', 'fv', 'email', 'rank', 'share', 'home'} <= set(v) and 'join' not in v, f'{tag}: today’s first visit offers its own screens, not the plans’ sign-up: {v}')
+        ok({'end', 'fv', 'email', 'rank', 'share', 'layout'} <= set(v) and 'join' not in v, f'{tag}: today’s first visit offers its own screens, not the plans’ sign-up: {v}')
         pick(pg, '[data-rmpick="2|onb"]', 'p2')
         ok(pg.evaluate("document.activeElement?.dataset?.rmpick") == '2|onb', f'{tag}: focus comes back to the chip')
         pg.locator('[data-rmscreen="2"]').click(); pg.wait_for_timeout(350)
@@ -102,13 +102,34 @@ with sync_playwright() as p:
         pg.locator('[data-rmcopy="2"]').click(); pg.wait_for_timeout(400)
         clip = pg.evaluate("navigator.clipboard.readText()")
         ok(clip == urls(pg)[2], f'{tag}: Copy link copies Group 3’s link')
+        # Rename (R-241): the name replaces "Group 2" everywhere the team sees it; the link and the results stay the group's
+        def rename(i, text):
+            pg.locator(f'[data-rmmore="{i}"]').click(); pg.wait_for_timeout(350)
+            pg.locator('dialog .sv-menu button', has_text='Rename this group').click(); pg.wait_for_timeout(450)
+            pg.locator('#rm-name').fill(text); pg.keyboard.press('Enter'); pg.wait_for_timeout(500)
+        before = urls(pg)[1]
+        rename(1, '  Blue   table ')
+        ok(pg.locator('#rm-h-1').inner_text().strip() == 'Blue table', f'{tag}: Rename names the card, spaces tidied: {pg.locator("#rm-h-1").inner_text()!r}')
+        ok(urls(pg)[1] == before, f'{tag}: a renamed group keeps its link, so its results stay with it')
+        ok(pg.evaluate("document.activeElement?.id") == 'rm-h-1', f'{tag}: focus comes back to the renamed card')
+        ok('Renamed to “Blue table”' in pg.locator('#toast').inner_text(), f'{tag}: the toast says the new name')
+        ok(pg.locator('.rm-resrow b', has_text='Blue table').count() >= 1, f'{tag}: What testers did lists the group by its name')
+        rename(2, 'blue TABLE')
+        ok(pg.locator('dialog #rm-name-err').count() == 1 and 'Another group has that name' in pg.locator('dialog').inner_text(), f'{tag}: two groups cannot share a name')
+        pg.locator('#rm-name').fill('Group 4'); pg.keyboard.press('Enter'); pg.wait_for_timeout(500)
+        ok('looks like a group number' in pg.locator('dialog').inner_text(), f'{tag}: a name that reads as a group number is refused (it would collide with the next unnamed group)')
+        pg.locator('#rm-name').fill("Nate's room"); pg.keyboard.press('Enter'); pg.wait_for_timeout(500)
+        ok(pg.locator('#rm-h-2').inner_text().strip() == 'Nate’s room', f'{tag}: a typed apostrophe becomes ’')
+        rename(2, '')
+        ok(pg.locator('#rm-h-2').inner_text().strip() == 'Group 3' and 'Back to Group 3' in pg.locator('#toast').inner_text(), f'{tag}: a blank name gives the group back its number')
         pg.screenshot(path=f'{SHOTS}/room_{tag}.png', full_page=True)
 
         # The printed sheet: a page comparing the groups, then one page per group that never names its version
         pg.evaluate(CATCH_PRINT); pg.locator('[data-stsave]').click(); pg.wait_for_function('() => !!window.__printed', timeout=20000)
         html = pg.evaluate('window.__printed')
-        heads = re.findall(r'<th scope="col">(Group \d)</th>', html)
-        ok(heads == ['Group 1', 'Group 2', 'Group 3'], f'{tag}: the comparison has a column per group: {heads}')
+        heads = re.findall(r'<th scope="col">([^<]*)</th>', html)[1:]
+        ok(heads == ['Group 1', 'Blue table', 'Group 3'], f'{tag}: the comparison has a column per group, by name: {heads}')
+        ok(re.findall(r'<p class="g">([^<]*)</p>', html) == ['Group 1', 'Blue table', 'Group 3'], f'{tag}: each group’s page is headed with its name')
         ok('First visit' in html and 'The share message' in html and 'Plan 2: A bill’s journey' in html and 'Starts with the deadline' in html, f'{tag}: its rows are the first visit and the share message')
         pages = re.findall(r'<div class="pg">([\s\S]*?)</div>', html)
         ok(len(pages) == 3 and all('<svg' in x for x in pages), f'{tag}: one page per group, each with its QR code ({len(pages)})')
@@ -131,7 +152,7 @@ with sync_playwright() as p:
         # Remove a group, Undo; Start over, Undo
         pg.locator('[data-rmmore="1"]').click(); pg.wait_for_timeout(350)
         pg.locator('dialog .sv-menu button', has_text='Remove this group').click(); pg.wait_for_timeout(500)
-        ok(pg.locator('.rm-group').count() == 2 and 'moved up one' in pg.locator('#toast').inner_text(), f'{tag}: Remove takes Group 2 off and says the others moved up')
+        ok(pg.locator('.rm-group').count() == 2 and 'Blue table removed' in pg.locator('#toast').inner_text() and 'moved up one' in pg.locator('#toast').inner_text(), f'{tag}: Remove takes Blue table off and says the others moved up')
         pg.locator('#toast button', has_text='Undo').click(); pg.wait_for_timeout(500)
         ok(pg.locator('.rm-group').count() == 3 and urls(pg)[1].endswith('onb.p1'), f'{tag}: Undo puts it back')
         pg.locator('[data-rmreset]').click(); pg.wait_for_timeout(500)
@@ -144,6 +165,7 @@ with sync_playwright() as p:
         ok(link.count() == 1, f'{tag}: the Tests page has the way to the tester sheet')
         link.click(); pg.wait_for_selector('.rm-group'); pg.wait_for_timeout(400)
         ok(pg.locator('.rm-group').count() == 3, f'{tag}: the groups are still there after leaving the page')
+        ok(pg.locator('#rm-h-1').inner_text().strip() == 'Blue table', f'{tag}: and the name is kept with them')
         ok(not errs, f'{tag}: no page errors {errs[:2]}')
         ctx.close()
 

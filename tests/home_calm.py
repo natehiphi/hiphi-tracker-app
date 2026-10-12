@@ -85,13 +85,13 @@ with sync_playwright() as pw:
             ok(not m['selfnamed'], f"{tag}: no row repeats its issue's name {m['selfnamed'][:3]}")
             ok(m['rows'] == n, f"{tag}: one row per issue ({m['rows']} of {n})")
             if size == 'phone': ok(m['h'] <= (2 if n <= 3 else 3) * h, f"{tag}: under {2 if n <= 3 else 3} phone screens ({m['h']}px)")
-            ok(all(re.match(r'^(Testimony due|Your letter is started · due) (today|tomorrow)|^Needs a hearing by', t) for t in m['warn']), f"{tag}: amber only for what is due within a day {m['warn'][:3]}")
+            ok(all(re.match(r'^(Testimony due|Your letter is started · due) (today|tomorrow)|^Needs a hearing by|^Late testimony until (today|tomorrow)', t) for t in m['warn']), f"{tag}: amber only for what is due within a day {m['warn'][:3]}")
             if o.get('welcome'): ok(m['fresh'] == 0, f"{tag}: nothing marked New right after the first visit ({m['fresh']})")
             ok(not m['wide'], f'{tag}: no sideways scroll')
             ORDER = ['Due this week', 'Hearing coming up', 'Needs a hearing', 'Passed recently', 'Waiting', 'Became law', 'Did not advance']
             if n > 8 and not o.get('off'):
                 ok(m['groups'] and m['groups'] == sorted(m['groups'], key=ORDER.index), f"{tag}: grouped by where they stand, in order {m['groups']}")
-                hidden_due = pg.evaluate("() => [...document.querySelectorAll('#main [data-cm-more] .cm-rstat, #main li[data-cm-more] .cm-rstat')].filter(e => /^(Testimony due|Your letter is started · due)/.test(e.innerText) || e.closest('.cm-group')?.querySelector('.cm-gh')?.firstChild.textContent.trim() === 'Due this week').length")
+                hidden_due = pg.evaluate("() => [...document.querySelectorAll('#main [data-cm-more] .cm-rstat, #main li[data-cm-more] .cm-rstat')].filter(e => /^(Testimony due|Your letter is started · due|Late testimony until)/.test(e.innerText) || e.closest('.cm-group')?.querySelector('.cm-gh')?.firstChild.textContent.trim() === 'Due this week').length")
                 want = f'Show all {n} issues' + (f' · {hidden_due} more due this week' if hidden_due else '')
                 ok(m['shown'] == 8 and m['showall'] == [want], f"{tag}: the first 8 shown, then “{want}” ({m['shown']}, {m['showall']})")
                 pg.screenshot(path=os.path.join(OUT, f"{size}_{who}_{day}_folded.png"), full_page=True)
@@ -99,11 +99,54 @@ with sync_playwright() as pw:
                 m2 = pg.evaluate(MEASURE)
                 ok(m2['shown'] == n and not m2['showall'] and m2['groups'] == m['groups'], f"{tag}: Show all opens all {n}, still grouped ({m2['shown']})")
                 ok(pg.evaluate("document.activeElement?.classList.contains('cm-row')"), f'{tag}: the first row it opened takes the focus')
-                due = pg.evaluate("() => [...document.querySelectorAll('#main .cm-rows .cm-row')].map(r => /^(Testimony due|Your letter is started · due)/.test(r.querySelector('.cm-rstat').innerText))")
+                due = pg.evaluate("() => [...document.querySelectorAll('#main .cm-rows .cm-row')].map(r => /^(Testimony due|Your letter is started · due|Late testimony until)/.test(r.querySelector('.cm-rstat').innerText))")
                 ok(due == sorted(due, reverse=True), f'{tag}: nothing due this week is below an issue with nothing due {due}')
             elif not o.get('off'): ok(not m['groups'] and not m['showall'], f"{tag}: up to 8 issues, no headings and no Show all")
             ok(not errs, f'{tag}: no page errors {errs[:2]}')
             pg.screenshot(path=os.path.join(OUT, f"{size}_{who}_{day}{'_welcome' if o.get('welcome') else ''}{'_off' if o.get('off') else ''}.png"), full_page=True)
+            ctx.close()
+    # ---- R-250 (Nate 10/11, "Yes, go on R-250 as recommended"): what the calm Home first left out ----
+    # 1. Late testimony: HB 1562 is heard Monday 1:10 PM, its written deadline passed Sunday. Followed through its issue, with
+    #    nothing due on time, it is the card ("Send late testimony") and its row says so; the greeting never says nothing
+    #    needs you. 2. Bills followed on their own (HB 1563 and HB 1732 wait for a hearing; HB 1605 is on no issue): a row
+    #    each, named for the bill and opening its page, while the card is the soonest thing (C1-1, B-14, A-23, A-14).
+    import json
+    snap = json.load(open(os.path.join(ROOT, 'demo', 'snapshot.json')))
+    BID = {b['bill_number']: b['id'] for b in snap['bills']}; IID = {i['slug']: i['id'] for i in snap['issues']}
+    def follows(issues, bills):
+        return f"""(() => {{ if (sessionStorage.getItem('__set')) return; sessionStorage.setItem('__set', '1');
+  for (const k of Object.keys(localStorage)) if (k.startsWith('hiphi_')) localStorage.removeItem(k);
+  const set = (k, v) => localStorage.setItem(k + '_demo', JSON.stringify(v));
+  set('hiphi_issue_follows', {json.dumps(issues)}); set('hiphi_watch_ids', {json.dumps(bills)}); set('hiphi_cat_follows', []); set('hiphi_skips', []);
+  set('hiphi_wiz', {{ done: true, skipped: true }}); set('hiphi_onb', {{ lastVisit: new Date(Date.parse('2026-03-15T19:00:00-10:00')).toISOString() }});
+  localStorage.setItem('hiphi_tour_home_demo', '{{"how":"test"}}'); localStorage.setItem('hiphi_tour_bill_demo', '{{"how":"test"}}'); }})();"""
+    ROWS = "() => [...document.querySelectorAll('#main .cm-row')].map(r => [r.querySelector('.cm-rname').firstChild.textContent.trim(), r.querySelector('.cm-rstat').innerText.trim(), r.getAttribute('href')])"
+    for size, (w, h) in [('phone', (390, 844)), ('laptop', (1366, 900))]:
+        for label, iss, bills in [('late testimony', [IID['youth-mental-health-app']], []),
+                                  ('bills followed on their own', [], [BID['HB1563'], BID['HB1732'], BID['HB1605'], BID['HB1562']])]:
+            ctx = br.new_context(viewport={'width': w, 'height': h}, is_mobile=size == 'phone', has_touch=size == 'phone')
+            ctx.add_init_script("Object.defineProperty(Navigator.prototype,'globalPrivacyControl',{get:()=>true});")
+            ctx.add_init_script(follows(iss, bills))
+            pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+            pg.goto(f'{BASE}/track.html?demo=1&abrest=today&ab=layout.calm#/')
+            pg.wait_for_function("() => !!document.querySelector('#main .cm') && !document.querySelector('.skelpage')", timeout=60000); pg.wait_for_timeout(1500)
+            tag = f'{size} R-250 {label}'; m = pg.evaluate(MEASURE); rows = pg.evaluate(ROWS)
+            card = pg.evaluate("document.querySelector('#main .cm-card .acard .btn.primary')?.innerText.trim() || ''")
+            lede = pg.evaluate("document.querySelector('#main .cm-head .lede')?.innerText || ''")
+            ok(card == 'Send late testimony', f'{tag}: the card is HB 1562\'s late testimony ("{card}")')
+            ok('Nothing needs you' not in lede, f'{tag}: the greeting does not say nothing needs you ("{lede[:60]}")')
+            ok(m['filled'] == 1 and len(m['shapes']) <= 2 and m['blocks'] <= 4 and not m['twice'], f"{tag}: still inside the budget (A-23: {m['blocks']} blocks, {m['shapes']}, {m['filled']} filled, twice {m['twice'][:2]})")
+            if label == 'late testimony':
+                ok(rows and rows[0][1] == 'Late testimony until today 1:10 PM', f'{tag}: the issue row says late testimony is open ({rows})')
+            else:
+                hd = pg.evaluate("document.querySelector('#cm-iss-h')?.innerText.trim()")
+                hrefs = sorted(r[2] for r in rows)
+                ok(hd == 'Your bills' and hrefs == ['#/bill/HB1563', '#/bill/HB1605', '#/bill/HB1732'], f'{tag}: a row for each bill but the card\'s, opening the bill ("{hd}", {hrefs})')
+                st = {r[2]: r[1] for r in rows}
+                ok(st.get('#/bill/HB1563', '').startswith('HB 1563 · Needs a hearing by') and st.get('#/bill/HB1732', '').startswith('HB 1732 · Needs a hearing by'), f'{tag}: the waiting bills give their number and say they need a hearing ({st})')
+                ok('Nothing new on your bills' in lede or 'your issues' not in lede, f'{tag}: someone who follows only bills is not told about issues ("{lede[:60]}")')
+            ok(not m['wide'] and not errs, f'{tag}: no sideways scroll, no page errors {errs[:2]}')
+            pg.screenshot(path=os.path.join(OUT, f"{size}_r250_{label.split()[0]}.png"), full_page=True)
             ctx.close()
     br.close()
 print(f'\n{sum(res)}/{len(res)} passed')

@@ -532,7 +532,10 @@ which is A-1 again.
 On Home, every thing a person can do this week is on the page: the soonest as a full card, the rest one line each, none
 behind "Show more", "Ready now?" or a closed fold. On the calm Home (R-222, A-23) "one line each" is the issue's row: it
 names its soonest deadline and how many more are due that week ("Testimony due tomorrow 1:00 PM, and 1 more this
-week"), and "Show the next one" brings each up as the card; a row is never silent about something due. **One exception, at
+week"), and "Show the next one" brings each up as the card; a row is never silent about something due. Late testimony counts
+as something due (R-250, Nate 10/11): when nothing is due on time it is the card, and its row says "Late testimony until
+today 1:10 PM". A bill followed on its own has a row too, named for the bill with its number on the status line ("HB 1563 ·
+Needs a hearing by Mon, Mar 30"); the card's own bill has none. **One exception, at
 Nate's word (10/11):** a follower of more than 8 issues sees them grouped by where they stand ("Due this week" first) and
 the first 8, then "Show all N" in place; so something due is folded only when more than 8 issues have something due.
 Folds stay for what is done ("Done this week"), for results, and for detail inside one card or one bill. A button that leads to Home says what the person will do there, not the place: the

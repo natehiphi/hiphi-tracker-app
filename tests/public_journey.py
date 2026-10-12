@@ -71,7 +71,7 @@ with sync_playwright() as pw:
     shown = p.locator('.st-pcard').count()
     ok(p.locator('.st-topsec, .st-toph').count() == 0 and 1 <= shown <= 10, f'no separate "top issues" block, and at most ten issues in all ({shown})')
     ok(p.locator('.st-pmeta, .st-what, .st-ptop, .st-pcard .chip').count() == 0 and all(len(t) <= 80 for t in p.evaluate("[...document.querySelectorAll('.st-pwhat')].map(e => e.innerText)")), 'a card is the issue\'s name and one short line: no bill count, position, hearing chip or "What it does"')
-    ok('at most one email a day' in p.inner_text('.st-free') and 'free' in p.inner_text('.st-free').lower(), 'one line says following is free, with at most one email a day')
+    ok('at most one alert a day' in p.inner_text('.st-free') and 'free' in p.inner_text('.st-free').lower(), 'one line says following is free, with at most one alert a day (C-15, R-249)')
     # R-138 (Nate 10/4): "Most important first" confused visitors; the line asks for every issue they care about.
     lede2 = p.inner_text('.st2 .lede')
     ok('Tick every issue you care about' in lede2 and 'Most important' not in t2, f'the issues line asks for every issue you care about ("{lede2.strip()}")')
@@ -94,7 +94,7 @@ with sync_playwright() as pw:
     p.wait_for_selector('.st-thanks #st-h', timeout=5000); p.wait_for_timeout(400)
     ok(p.inner_text('#st-h') == 'Mahalo!' and p.locator('#fx-moment:not([hidden])').count() == 0 and p.evaluate('location.hash') == at, 'following shows the "Mahalo!" page in place of the box, with no moment over it')
     ok('Link sent to leilani@example.com' in p.inner_text('.st-thanks'), 'the "Mahalo!" says where the link went (C-6)')
-    ok(p.locator('.actionbar [data-stnext]').is_visible() and p.inner_text('.actionbar [data-stnext]').strip() == 'Next: How a Bill Becomes Law', 'its Next is there at once and names what follows (C-6, R-186)')
+    ok(p.locator('.actionbar [data-stnext]').is_visible() and p.inner_text('.actionbar [data-stnext]').strip() == 'Next: A Bill’s Story', 'its Next is there at once and names what follows (C-6, R-186, C-15)')
     std(p, 'mahalo', axe=True); shot(p, 'p_mahalo')
     p.wait_for_timeout(3000)
     ok(p.locator('.st-thanks #st-h').count() == 1 and p.evaluate('location.hash') == at, 'it is still there after 3 s: it moves on only with Next (R-140, Nate 11 Oct: a page that waits for Next)')
