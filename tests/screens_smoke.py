@@ -36,7 +36,7 @@ ROUTES = ['#/', '#/bills', '#/find', f'#/find/category/{cats[0]}', f"#/issue/{va
 INIT = ("Object.defineProperty(Navigator.prototype,'globalPrivacyControl',{get:()=>true});"
         "Object.defineProperty(Navigator.prototype,'doNotTrack',{get:()=>'1'});"
         "try{localStorage.setItem('hiphi_tour_bill','1');localStorage.setItem('hiphi_tour_bill_demo','1')}catch(e){}")
-# An interrupted fetch of the 5 MB sandbox file when a page reloads is the harness, not the app (frontend CLAUDE.md).
+# An interrupted fetch of the 5 MB sandbox file when a page reloads is the harness, not the app (frontend docs/MAP.md, Tests).
 BENIGN = ('Failed to fetch', 'ERR_FAILED', 'ERR_ABORTED', 'net::ERR')
 ok = fail = 0
 def check(c, m):
