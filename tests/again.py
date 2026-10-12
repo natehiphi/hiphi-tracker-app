@@ -45,7 +45,7 @@ with sync_playwright() as p:
     br = p.chromium.launch()
     for w, h, tag in ((390, 844, 'phone'), (1280, 900, 'laptop')):
         def ctx_for(*scripts, route=None):
-            c = br.new_context(viewport={'width': w, 'height': h}, is_mobile=(w < 600)); c.add_init_script(f"({SKIP})()")
+            c = br.new_context(viewport={'width': w, 'height': h}, is_mobile=(w < 600)); c.add_init_script(f"({SKIP})()"); c.add_init_script("try{localStorage.setItem('hiphi_voice','first');localStorage.setItem('hiphi_voice_demo','first')}catch(e){}")
             for s in scripts: c.add_init_script(f"({s})()")
             if route: c.route('**/demo/drafts.json*', route)
             pg = c.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e))); return c, pg, errs
