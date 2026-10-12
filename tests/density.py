@@ -69,6 +69,8 @@ SV = [
   ('today',       '/',             'the first thing due',  '.td-card, .td-root .row'),
   # the Week view exists from 1100px; a phone opening the same address gets the list, so its first card counts there
   ('week',        '/?view=week',   'the week\'s first entry', '.wk-blk, .wk-timed, .td-card'),
+  # R-263: a person comes here to see where their issues stand and what each of their bills needs
+  ('myissues',    '/my-issues',    'the first issue\'s bill', '.mi-iss .le-brow'),
   ('bills',       '/bills',        'the first bill',       '.bl-prow, .bl-grp .row, .bl-table tbody tr'),
   ('bill',        '/bill/HB1562',  'the bill status',      '.bw-ribwrap, .sv-rib, .bw-page .card'),
   # R-027: the Testimony tab; a person comes to see what HIPHI already wrote on this bill and its issue

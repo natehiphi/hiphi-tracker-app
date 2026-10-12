@@ -33,7 +33,7 @@ export const issuesOfBill = billId => { const on = new Set((S.billIssues || []).
 // billFrom reads the name back from the address. Without it (the catalogue, a shared link) Back goes to Issues.
 export const issueLinkHref = (i, b) => `#/issue/${encodeURIComponent(i.id)}?from=${encodeURIComponent(billRef(b))}`;
 export const billFrom = route => { const ref = route?.q?.from; return ref ? billByRef(ref) || null : null; };
-const billsOn = i => (S.billIssues || []).filter(x => x.issue_id === i.id).map(x => billById(x.bill_id)).filter(Boolean);
+export const billsOn = i => (S.billIssues || []).filter(x => x.issue_id === i.id).map(x => billById(x.bill_id)).filter(Boolean);
 const thisSession = b => !b.session_year || +b.session_year === +SESSION_YEAR;
 // Whether a bill reaches the people who follow its issues: the database's own test (follow_set, 063).
 export const whyNot = b => b.tracked === false ? 'No longer tracked, so its followers do not get it'
@@ -250,7 +250,7 @@ function indexBody(v) {
 const index = {
   tab: 'outreach',
   title: route => prepTitle(route) || fvTitle(route) || 'Outreach',
-  back: route => prepView(route) ? { href: '#/outreach/issues', label: 'Issues' } : fvBack(route),
+  back: route => prepView(route) === 'mine' ? { href: '#/my-issues', label: 'My issues' } : prepView(route) ? { href: '#/outreach/issues', label: 'Issues' } : fvBack(route),
   wide: route => !fvView(route),
   narrow: route => fvView(route) === 'links',
   render(route) {
@@ -305,7 +305,8 @@ const dayAt = d => dayOf(d + 'T12:00:00-10:00');
 // A bill's line on this issue's page (R-226): where it stands in one line, in the words the bill page uses (its stage, the
 // committee, the next hearing or the deadline with the days left, the testimony for that hearing, and the owner). Built
 // from the same helpers as the bill page, Today and the coalition page, so the line cannot disagree with them.
-export function standLine(b) {
+// `owner: 'others'` (My issues, R-263): the issue is already yours there, so only a bill someone else holds names them.
+export function standLine(b, { owner = 'all' } = {}) {
   if (diedish(b)) return 'Did not advance';
   const st = stopOf(b), h = hearingAhead(b), parts = [STAGE_LABEL[effStage(b)] || ''];
   if (h) {
@@ -319,7 +320,8 @@ export function standLine(b) {
   } else if (st.deadline) parts.push(`${st.deadline.label} ${dayAt(st.deadline.date)}, ${leftWord(st.deadline)}`);
   else if (st.committee) parts.push(`In ${st.committee}`);
   const who = ownerOf(b);
-  parts.push(who ? `Owner: ${who.id === S.me?.id ? 'You' : String(who.full_name || '').split(' ')[0]}` : 'No owner');
+  if (owner === 'others') { if (who && who.id !== S.me?.id) parts.push(`Owner: ${String(who.full_name || '').split(' ')[0]}`); }
+  else parts.push(who ? `Owner: ${who.id === S.me?.id ? 'You' : String(who.full_name || '').split(' ')[0]}` : 'No owner');
   return parts.filter(Boolean).join(' · ');
 }
 function billLine(i, b) {
@@ -371,7 +373,7 @@ function pageRender(route) {
   // Opened from a bill, Back returns to that bill and says so (R-226); from the catalogue it goes to Issues.
   const from = billFrom(route);
   return `<div class="le-page le-list is-page">
-    <a class="le-deskback" href="${from ? billRoute(from) : '#/outreach/issues'}" data-back${from ? ` aria-label="Back to ${esc(from.bill_number)}"` : ''}>${icon('chevron-left')}<span>${from ? `Back to ${esc(from.bill_number)}` : 'Issues'}</span></a>
+    <a class="le-deskback" href="${from ? billRoute(from) : route.q?.from === 'mine' ? '#/my-issues' : '#/outreach/issues'}" data-back${from ? ` aria-label="Back to ${esc(from.bill_number)}"` : ''}>${icon('chevron-left')}<span>${from ? `Back to ${esc(from.bill_number)}` : route.q?.from === 'mine' ? 'My issues' : 'Issues'}</span></a>
     <header class="le-lhead">
       <span class="le-licon">${icon(c?.icon || 'tag')}</span>
       <div class="le-lhbody"><h1>${esc(i.name)}</h1>
@@ -518,7 +520,8 @@ export const issuePage = {
   tab: 'outreach',
   title: route => issueById(route.id)?.name || 'Issue',
   // "Back to SB2175" fits on a phone too (R-226, the fresh-eyes review 10/10), so it keeps its words there: full.
-  back: route => { const from = billFrom(route); return from ? { href: billRoute(from), label: `Back to ${from.bill_number}`, full: true } : { href: '#/outreach/issues', label: 'Issues' }; },
+  // From My issues (R-263), Back returns there.
+  back: route => { const from = billFrom(route); return from ? { href: billRoute(from), label: `Back to ${from.bill_number}`, full: true } : route.q?.from === 'mine' ? { href: '#/my-issues', label: 'My issues' } : { href: '#/outreach/issues', label: 'Issues' }; },
   render: pageRender,
   wire(route, root) {
     const i = issueById(route.id); if (!i) return;

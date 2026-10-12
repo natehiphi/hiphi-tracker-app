@@ -3,7 +3,7 @@
 // (hearing scheduled, at risk, waiting, through committee, governor or law), with Monitoring and Did not advance
 // folded at the bottom. It replaces the current app's Tracked bills table, the board, the Did not advance page, the
 // Still alive and monitor chips, the Coalitions & lists menu and the Muted menu, and keeps what each of them did.
-import { S, DB, DEADLINES, esc, fmtDate, fmtDT, effStage, owners, isMuted, isOwner, daysAgo, STAGES, STAGE_LABEL, hooks } from './data.js';
+import { S, DB, DEADLINES, esc, fmtDate, fmtDT, effStage, owners, isMuted, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks } from './data.js';
 import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionClock, gateNeed, gateGloss, deadlineName } from './model.js';
 import { CHAMBER_NAME, HELD_RE, stoppedAt } from '../stops.js';
 import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, POS_ICON, POS_WORD, posIcons } from './ui.js';
@@ -281,7 +281,10 @@ function emptyState(q, nf) {
 // not you (a bill you follow) or no owner at all is drawn.
 export function blRow(b, { sub = '', href, selectable = false, selected = false, mine = false } = {}) {
   const pos = b.position || '', o = ownerOf(b), nick = b.nickname || '', sum = summaryOf(b), pw = pos ? POS_WORD[pos] || pos : posWord('');
-  const who = o ? (mine && o.id === S.me?.id ? '' : avatar(o)) : `<span class="bl-noown" title="No owner">${icon('circle-dashed')}<span class="sr">No owner</span></span>`;
+  // In Mine, a bill nobody holds that is yours through an issue (R-263) shows the issue's tag, not the no-owner circle.
+  const iss = mine && (!o || o.id === S.me?.id) ? myIssuesOf(b) : [];
+  const who = o ? (mine && o.id === S.me?.id ? '' : avatar(o)) : iss.length ? `<span class="bl-noown" title="On your issue ${esc(iss[0].name)}">${icon('tag')}<span class="sr">On your issue ${esc(iss[0].name)}</span></span>`
+    : `<span class="bl-noown" title="No owner">${icon('circle-dashed')}<span class="sr">No owner</span></span>`;
   const end = `<span class="sv-posic" role="img" title="${esc(pw)}" aria-label="${esc(pw)}">${posIcons(pos)}</span>${b.priority === 1 ? '<span class="sv-p1">P1</span>' : ''}${who}`;
   const box = selectable ? `<span class="sv-check" aria-hidden="true">${icon(selected ? 'square-check-big' : 'square')}</span>` : '';
   const inner = `${box}<span class="body"><span class="title bl-rt"><b>${esc(billNum(b))}</b> ${nick ? `<b class="bl-nk">${esc(nick)}</b> ` : ''}<span class="sv-t">${esc(sum)}</span></span>${sub ? `<span class="sub">${sub}</span>` : ''}</span><span class="end">${end}</span>`;
@@ -388,9 +391,11 @@ function table(groups) {
   const lines = ([l1, l2, t]) => `<span class="bl-lns"${t ? ` title="${esc(t)}"` : ''}><span class="bl-ln">${l1}</span>${l2 ? `<span class="bl-ln bl-l2">${l2}</span>` : ''}</span>`;
   const none = '<span class="bl-dash">None</span>';
   // Under Mine a bill you follow but do not own is the one row that is not simply yours: a bell (the bill page's
-  // "Following" mark) and whose it is, in words for a screen reader and on hover.
-  const folMark = b => { if (v.scope !== 'me' || isOwner(b)) return ''; const o = ownerOf(b), t = `You follow it. ${o ? `${o.full_name} owns it` : 'It has no owner'}.`;
-    return `<span class="bl-fol" role="img" aria-label="${esc(t)}" title="${esc(t)}">${icon('bell')}</span>`; };
+  // "Following" mark) and whose it is, in words for a screen reader and on hover. A bill that is yours because it is on
+  // an issue you own or help on (R-263) gets the issue's tag and the issue's name instead.
+  const folMark = b => { if (v.scope !== 'me' || isOwner(b)) return ''; const o = ownerOf(b), iss = myIssuesOf(b), who = o ? `${o.full_name} owns it` : 'It has no owner';
+    const t = iss.length ? `On your issue ${iss.map(i => i.name).join(' and ')}. ${who}.` : `You follow it. ${who}.`;
+    return `<span class="bl-fol" role="img" aria-label="${esc(t)}" title="${esc(t)}">${icon(iss.length ? 'tag' : 'bell')}</span>`; };
   const cell = (c, b) => {
     switch (c.k) {
       case 'sel': return `<td class="bl-ck"><label><input type="checkbox" data-sel="${b.id}" ${v.sel.has(b.id) ? 'checked' : ''} aria-label="Select ${esc(billNum(b))}"></label></td>`;

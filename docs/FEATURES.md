@@ -32,6 +32,12 @@ issue** (backend 094, R-093): `issues.stance` support / oppose / mixed or null, 
 on a bill's Public tab (`stanceChip`, `pickStance` in `staff/issues.js`); the public chip is `issuePos(bills, i)` in
 `pub/core.js`: the stance picks the side, the bills how strongly, and null falls back to working it out from the bills.
 Test: `tests/staff_stance.py`.
+**Staff own issues, and work bills** (R-263, Nate 10/12): every bill on an issue someone owns or helps on (`issues.owner_id`,
+`issue_helpers`, backend 091) is theirs too, worked out each time (`myIssueBills`, `isMine` in `staff/data.js`), so it is in
+Bills > Mine, Today and the menu's **My issues** (`#/my-issues`, `staff/myissues.js`: soonest work first, each issue's moving
+bills, the rest folded). The database's inbox and chat alerts agree from backend migration 172 (`issue_people`). To-dos and
+deadline reminders still go to the bill's own owner. The 2027 prep list is now "Your issues for 2027" (`?view=mine`).
+Test: `tests/staff_myissues.py`.
 
 **The first visit was rebuilt 9/21 (R-023; `../backend/HANDOFF.md` 3.25, the plan and every decision in
 `../backend/docs/FIRST-VISIT-PLAN.md`, the approved prototype in `../backend/docs/first-visit-prototype/`).** `pub/start.js`,

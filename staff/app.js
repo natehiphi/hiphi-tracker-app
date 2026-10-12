@@ -24,6 +24,7 @@ import supporters from './supporters.js';
 import person from './person.js';
 import lists from './lists.js';
 import issues, { issuePage as issue } from './issues.js';
+import myissues from './myissues.js';
 import list from './list.js';
 import emails from './emails.js';
 import composer from './composer.js';
@@ -37,7 +38,7 @@ import coalition from './coalition.js';
 keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen on a staff screen either (X9-1, X9-6)
 
 // ---- routes ----
-const SCREENS = { today, review, inbox, tasks, bill, bills, triage, memo, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition };
+const SCREENS = { today, myissues, review, inbox, tasks, bill, bills, triage, memo, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition };
 export function parseRoute(h = location.hash) {
   // A "%" that is not part of a code (a stray one in a pasted link) made decodeURIComponent throw, and the page never drew (R-152 D).
   let dh; try { dh = decodeURIComponent(h || ''); } catch { dh = String(h || '').replace(/%(?![0-9a-fA-F]{2})/g, '%25'); try { dh = decodeURIComponent(dh); } catch { dh = '#/'; } }
@@ -51,6 +52,7 @@ export function parseRoute(h = location.hash) {
     case undefined: return { name: 'today', q };
     case 'review': return { name: 'review', id: seg[1] || '', q };
     case 'inbox': return { name: 'inbox', q };
+    case 'my-issues': return { name: 'myissues', q };
     case 'tasks': return { name: 'tasks', q };
     case 'bills': return seg[1] === 'new' ? { name: 'triage', q } : seg[1] === 'memo' ? { name: 'memo', q } : { name: 'bills', muted: seg[1] === 'muted', q };
     // #/bill/HB2121 is the current session's bill; an earlier session's is #/bill/2026/HB2121 (R-152 B, as the public page since R-110).
@@ -72,7 +74,8 @@ export function parseRoute(h = location.hash) {
     default: return { name: 'today', q };
   }
 }
-const TABS = [['today', '#/', 'list-todo', 'Today'], ['bills', '#/bills', 'scroll-text', 'Bills'], ['legislators', '#/legislators', 'landmark', 'Legislators'], ['outreach', '#/outreach', 'megaphone', 'Outreach']];
+// My issues (R-263, Nate 10/12) sits beside Today: the issues a person owns or helps on are where their work is (B-13).
+const TABS = [['today', '#/', 'list-todo', 'Today'], ['myissues', '#/my-issues', 'tag', 'My issues'], ['bills', '#/bills', 'scroll-text', 'Bills'], ['legislators', '#/legislators', 'landmark', 'Legislators'], ['outreach', '#/outreach', 'megaphone', 'Outreach']];
 
 // go('#/bills') pushes history (Back works); { replace: true } swaps the current entry.
 let depth = 0;   // in-app steps behind this page (history.state.d), so a back link knows whether real Back stays in the app
@@ -123,6 +126,7 @@ function header(route, scr, pageH1 = false) {
 // away here: Review, the Inbox, Sort new bills, the weekly memo, Lists, Emails, setup and help.
 const SIDE = [
   ['today', '#/', 'list-todo', 'Today', [['review', '#/review', 'Review'], ['inbox', '#/inbox', 'Inbox'], ['tasks', '#/tasks', 'Tasks']]],
+  ['myissues', '#/my-issues', 'tag', 'My issues', []],
   ['bills', '#/bills', 'scroll-text', 'Bills', [['triage', '#/bills/new', 'Sort new bills'], ['memo', '#/bills/memo', 'Weekly memo']]],
   ['legislators', '#/legislators', 'landmark', 'Legislators', []],
   ['outreach', '#/outreach', 'megaphone', 'Outreach', [['supporters', '#/outreach', 'Supporters'], ['issues', '#/outreach/issues', 'Issues'], ['coalitions', '#/coalition', 'Coalitions'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]],

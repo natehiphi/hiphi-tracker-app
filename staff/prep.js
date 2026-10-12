@@ -85,14 +85,14 @@ export function todayPrepNotice() {
   const back = own.filter(i => stateOf(i) === 'sent_back').length;
   // After the due day the notice is for what came back, not a standing reminder (R-118: it had no end date).
   if (!back && Date.now() > dueDay().getTime() + 864e5) return '';
-  return notice(back ? 'warn' : 'info', 'clipboard-list', `<b>Your issues for 2027:</b> ${own.length - left.length} of ${own.length} ready${back ? `, ${back} sent back` : ''}. Due ${esc(dueText())}.`, btn('My issues', { kind: 'secondary', href: '#/outreach/issues?view=mine' }));
+  return notice(back ? 'warn' : 'info', 'clipboard-list', `<b>Your issues for 2027:</b> ${own.length - left.length} of ${own.length} ready${back ? `, ${back} sent back` : ''}. Due ${esc(dueText())}.`, btn('Open the list', { kind: 'secondary', href: '#/outreach/issues?view=mine' }));
 }
-// The two links under the Issues index heading.
-export function indexLinks() {
+// The two links under the Issues index heading; My issues (R-263) shows only the person's own, without the admins' board.
+export function indexLinks({ mineOnly = false } = {}) {
   const own = mine(), help = helping();
-  const a = own.length || help.length ? `<a class="is-fvlink" href="#/outreach/issues?view=mine">${icon('clipboard-list')}<span>My issues${own.length ? `: ${own.filter(i => ['ready', 'approved'].includes(stateOf(i))).length} of ${own.length} ready` : ''}</span></a>` : '';
+  const a = own.length || help.length ? `<a class="is-fvlink" href="#/outreach/issues?view=mine">${icon('clipboard-list')}<span>Your issues for 2027${own.length ? `: ${own.filter(i => ['ready', 'approved'].includes(stateOf(i))).length} of ${own.length} ready` : ''}</span></a>` : '';
   const ok = live().filter(i => !isDraft(i)), n = ok.filter(i => stateOf(i) === 'approved').length;
-  const b = isAdmin() ? `<a class="is-fvlink" href="#/outreach/issues?view=prep">${icon('clipboard-check')}<span>Prep board: ${n} of ${ok.length} approved</span></a>` : '';
+  const b = isAdmin() && !mineOnly ? `<a class="is-fvlink" href="#/outreach/issues?view=prep">${icon('clipboard-check')}<span>Prep board: ${n} of ${ok.length} approved</span></a>` : '';
   return a || b ? `<div class="pr-links">${a}${b}</div>` : '';
 }
 
@@ -292,7 +292,7 @@ function sendBack(i) {
 }
 
 // A sub-page of Issues, like the first visit's (firstvisit.js): the way back, and a heading of its own.
-const subHead = (title, lede) => `<a class="le-deskback" href="#/outreach/issues" data-back>${icon('chevron-left')}<span>Issues</span></a>
+const subHead = (title, lede, back = ['#/outreach/issues', 'Issues']) => `<a class="le-deskback" href="${back[0]}" data-back>${icon('chevron-left')}<span>${back[1]}</span></a>
   <header class="pr-top"><h1>${title}</h1><p class="le-lede">${lede}</p></header>`;
 
 // ---- My issues (?view=mine) ----
@@ -310,7 +310,7 @@ function mineRender() {
   const lede = own.length ? `${ready} of ${own.length} ready. Due ${esc(dueText())}${pastDue() ? ' (past due)' : ''}.` : 'Getting the issues ready for 2027.';
   const next = own.find(i => !['ready', 'approved'].includes(stateOf(i)));
   return `<div class="le-page pr-page">
-    ${subHead('My issues', lede)}
+    ${subHead('Your issues for 2027', lede, ['#/my-issues', 'My issues'])}
     ${next ? `<div class="pr-next">${btn(`Next: ${esc(next.name)}`, { iconEnd: 'arrow-right', href: '#/issue/' + encodeURIComponent(next.id) })}</div>` : ''}
     ${!own.length && !help.length && !drafts.length ? `<div class="le-empty">${empty({ title: 'No issues are yours yet', text: `${esc(Cap(adminWord()))} give${adminWord() === 'you' ? '' : 's'} out the issues. Any you own or help on show here.`, action: btn('See all issues', { kind: 'secondary', href: '#/outreach/issues' }) })}</div>` : ''}
     ${own.length ? `<section class="le-sec" aria-labelledby="pr-mine"><div class="le-sechead"><h2 id="pr-mine">Yours</h2></div><ul class="rows pr-rows">${own.map(i => prepRow(i)).join('')}</ul></section>` : ''}
@@ -360,7 +360,8 @@ function boardRender(route) {
 }
 
 export const prepView = route => ({ mine: 'mine', prep: 'prep' })[route?.q?.view] || null;
-export const prepTitle = route => ({ mine: 'My issues', prep: 'Prep board' })[prepView(route)] || '';
+// The prep list is "Your issues for 2027" since My issues became each person's issues and their bills (R-263).
+export const prepTitle = route => ({ mine: 'Your issues for 2027', prep: 'Prep board' })[prepView(route)] || '';
 export const renderPrep = route => prepView(route) === 'mine' ? mineRender() : boardRender(route);
 export function wirePrep(route, root) {
   if (prepView(route) !== 'prep') return;

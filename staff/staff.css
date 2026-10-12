@@ -27,7 +27,7 @@ body.staff2.wide main { max-width: 1200px; }
   font: 700 var(--t13)/1 var(--font); flex: none; letter-spacing: 0; }
 .sv-av.none { background: none; border: 1.5px dashed var(--n400); }
 .sv-av.me { background: var(--p50); color: var(--p800); }
-.sv-tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--n0); border-top: 1px solid var(--n200); display: grid; grid-template-columns: repeat(4, 1fr); padding: 4px 4px calc(4px + var(--safe-b)); }
+.sv-tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--n0); border-top: 1px solid var(--n200); display: grid; grid-template-columns: repeat(5, 1fr); padding: 4px 4px calc(4px + var(--safe-b)); }
 .sv-tabs a { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; text-decoration: none; color: var(--n500); font-size: var(--t13); font-weight: 700; border-radius: var(--r12); }
 .sv-tabs a .pill { display: flex; align-items: center; justify-content: center; width: min(56px, 100%); height: 30px; border-radius: var(--pill); }
 .sv-tabs a[aria-current="page"] { color: var(--p700); }
@@ -144,6 +144,8 @@ body.staff2 main.sv-login { width: 100%; max-width: 432px; margin: 10vh auto 0; 
   .sv-hdr .sv-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }   /* still the page's h1 for screen readers */
   .sv-hdr .sv-nav { display: flex; gap: 4px; flex: 1 1 auto; }
   .sv-hdr .sv-nav a { position: relative; min-height: 44px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: var(--pill); color: var(--n700); font-weight: 700; text-decoration: none; }
+  /* five tabs since My issues (R-263): a label never breaks onto two lines; the search box gives up the room */
+  .sv-hdr .sv-nav a { white-space: nowrap; }
   .sv-hdr .sv-nav a[aria-current="page"] { background: var(--p50); color: var(--p700); }
   .sv-hdr .sv-nav a:hover { background: var(--n100); }
   .sv-hdr .sv-nav .sv-badge { position: static; margin-left: 2px; }

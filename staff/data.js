@@ -305,7 +305,7 @@ export const DB = {
     S.follows = new Set(Object.entries(S.followersBy).filter(([, ids]) => S.me && ids.includes(S.me.id)).map(([id]) => id));
     S.mutes = new Set((mut?.data || []).filter(r => S.me && r.advocate_id === S.me.id).map(r => r.bill_id));
     // Nothing owned or followed yet: the empty "My bills" page helps nobody.
-    if (S.me && S.owner === 'me' && !S.bills.some(b => (S.assignments[b.id] || []).includes(S.me.id) || S.follows.has(b.id))) S.owner = 'all';
+    if (S.me && S.owner === 'me' && !S.bills.some(isMine)) S.owner = 'all';
     // The four that went out with the main load, in the same order as above.
     const [sr, ev, rc, iss] = await extras;
     if (!sr || sr.error) S.loadFailed.push('the sync status');
@@ -1540,6 +1540,9 @@ export async function demoInit() {
   // the admin. The snapshot is public, so it carries no owners, goals or points of its own.
   for (const i of S.issues) { const n = {}; for (const x of S.billIssues) if (x.issue_id === i.id) for (const a of sc.assignments[x.bill_id] || []) n[a] = (n[a] || 0) + 1;
     i.owner_id ??= Object.entries(n).sort((a, b) => b[1] - a[1])[0]?.[0] || S.me.id; }
+  // Two issues someone else owns, each with a hearing ahead, with this person as a helper, so the sandbox's My issues shows "You help on it" (R-263).
+  S.issueHelpers = S.issues.filter(i => i.owner_id !== S.me.id && S.billIssues.some(x => x.issue_id === i.id && (S.hearings || []).some(h => h.bill_id === x.bill_id && h.status === 'scheduled' && new Date(h.scheduled_at) > new Date(DEMO_ASOF)))).sort((x, y) => x.name.localeCompare(y.name)).slice(0, 2)
+    .map(i => ({ issue_id: i.id, advocate_id: S.me.id, added_by: i.owner_id, added_at: '2026-10-01T00:00:00Z' }));
   // Versions and outcomes are in the snapshot; one follow and one attendance
   // are seeded so those panels have something to show.
   S.follows = new Set(); S.mutes = new Set(); S.followersBy = {}; S.attend = {}; S.outcomes = Object.fromEntries(snap.outcomes.map(o => [o.hearing_id, o]));
@@ -1622,7 +1625,27 @@ export async function demoInit() {
 // per bill per render keeps that cheap.
 export const isOwner = b => !!S.me && (S.assignments[b.id] || []).includes(S.me.id);
 export const isMuted = b => !!S.mutes?.has(b.id);
-export const isMine = b => !!S.me && (isOwner(b) || !!S.follows?.has(b.id)) && !isMuted(b);
+// Staff own issues and work bills (R-263, Nate 10/12): every bill on an issue someone owns or helps on is theirs too, so it
+// is in their Mine, Today and alerts without anyone handing it over bill by bill (helpers too, his word). Worked out from
+// the issue's owner and helpers each time, never copied onto the bill, so a new owner or helper takes the bills with them.
+// The database's inbox and chat alerts do the same (backend migration 172). Muting a bill still takes it out.
+export const myIssueIds = () => {
+  if (!S.me) return new Set();
+  const help = new Set((S.issueHelpers || []).filter(h => h.advocate_id === S.me.id).map(h => String(h.issue_id)));
+  return new Set((S.issues || []).filter(i => !i.archived_at && (i.owner_id === S.me.id || help.has(String(i.id)))).map(i => String(i.id)));
+};
+// The bills on my issues, worked out once per change: isMine runs for every bill on every render.
+let MIB = { sig: '', ids: new Set() };
+export const myIssueBills = () => {
+  const mine = myIssueIds(), sig = `${S.me?.id}|${(S.billIssues || []).length}|${[...mine].join(',')}`;
+  if (sig !== MIB.sig) MIB = { sig, ids: new Set((S.billIssues || []).filter(x => mine.has(String(x.issue_id))).map(x => x.bill_id)) };
+  return MIB.ids;
+};
+export const viaMyIssue = b => !!S.me && myIssueBills().has(b.id);
+// The issues of mine a bill is on, by name: what a row says when the bill is mine because of them.
+export const myIssuesOf = b => { const mine = myIssueIds(), on = new Set((S.billIssues || []).filter(x => x.bill_id === b.id && mine.has(String(x.issue_id))).map(x => String(x.issue_id)));
+  return (S.issues || []).filter(i => on.has(String(i.id))).sort((x, y) => x.name.localeCompare(y.name)); };
+export const isMine = b => !!S.me && (isOwner(b) || !!S.follows?.has(b.id) || viaMyIssue(b)) && !isMuted(b);
 // The first hearing still ahead, which is what keeps a bill from being muted.
 export let SESSION_OVER = DEMO ? DEMO_OFF : true;   // set from the calendar at load: over once sine die has passed
 // Official session calendar (LRB, 2026). One place to update each December.

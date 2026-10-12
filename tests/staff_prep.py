@@ -27,7 +27,7 @@ with sync_playwright() as pw:
         p.on('request', lambda r: sup.append(r.url) if 'supabase.co' in r.url else None)
         p.goto(BASE + '#/outreach/issues'); p.reload(); p.wait_for_timeout(3500)
         links = p.evaluate("[...document.querySelectorAll('.pr-links a')].map(a => a.innerText.trim())")
-        ok(any(l.startswith('My issues') for l in links) and any(l.startswith('Prep board') for l in links), f'{tag}: Issues links My issues and the prep board ({links})')
+        ok(any(l.startswith('Your issues for 2027') for l in links) and any(l.startswith('Prep board') for l in links), f'{tag}: Issues links My issues and the prep board ({links})')
         # Today tells the owner what is left
         p.goto(BASE + '#/today'); p.wait_for_timeout(1500)
         t = p.evaluate("document.querySelector('.sv-notice')?.innerText || ''")
@@ -35,7 +35,7 @@ with sync_playwright() as pw:
         # My issues
         p.goto(BASE + '#/outreach/issues?view=mine'); p.wait_for_timeout(1200)
         rows = p.evaluate("document.querySelectorAll('.pr-row').length")
-        ok(rows > 0 and p.evaluate("document.querySelector('.pr-top h1')?.innerText") == 'My issues', f'{tag}: My issues lists {rows} issues under its own heading')
+        ok(rows > 0 and p.evaluate("document.querySelector('.pr-top h1')?.innerText") == 'Your issues for 2027', f'{tag}: Your issues for 2027 lists {rows} issues under its own heading')
         layout(p, tag, 'mine')
         # one issue: the five steps
         p.evaluate("document.querySelector('.pr-main').click()"); p.wait_for_timeout(1200)
