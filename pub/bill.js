@@ -12,7 +12,8 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, blurb, asSe
 import { draftName, draftRank, draftLabel, draftNotes, testifyLabel, mailLabel, letterOn } from './letters.js';
 // "Send my email to the Senate chairs" (R-153): who it goes to now, so "again" never reads as "my email failed".
 const sendTo = x => { const ch = CHAMBER_NAME[S.committees[(x.code || '').split('/')[0]]?.chamber] || ''; return `Send my email to the ${ch ? ch + ' ' : ''}${x.chairs.length > 1 ? 'chairs' : 'chair'}`; };
-import { pickTitle, aWords, needsSelf } from './titles.js';   // who is writing (R-147; one title by default, R-165)
+import { pickTitle } from './titles.js';
+import { vary, townWord, whoLine, standLine, ownLine } from './hello.js';   // the words every letter shares (R-259)   // who is writing (R-147; one title by default, R-165)
 import { myName, myTitles, signedIn } from './myprofile.js';   // one name and the profile's titles (R-156)
 import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { stoppedAt } from '../stops.js';
@@ -276,45 +277,49 @@ export function situation(b) {
 // name and town from the testimony helper when they have given them, the plain summary, and one clear ask.
 // mode 'own' is for someone who sees the bill differently from HIPHI: what the bill does, and room for their words.
 function mailFor(b, x, chairs, mode) {
-  const m = me(), p = posInfo(b), sp = spaced(b.bill_number);
-  const dear = chairs.length ? chairs.map(c => c.greet || `Chair ${c.last}`).join(' and ') : 'Chair';
+  const p = posInfo(b), sp = spaced(b.bill_number);
+  // R-259: a chair is greeted as people say it, "Senator Keohokapu-Lee Loy"; plain words, a few wordings each (hello.js).
+  const greetOf = c => c.greet || (c.leg ? `${c.leg.chamber === 'S' ? 'Senator' : 'Representative'} ${c.last}` : `Chair ${c.last}`);
+  const dear = chairs.length ? chairs.map(greetOf).join(' and ') : 'Chair', k = `${b.bill_number}|${mode}`;
   // Who is writing (R-147): their two titles that fit this bill, and where they live only when one of these lawmakers is
   // their own (Nate 10/4: most emails go to chairs who aren't theirs, so the town an older device kept is left out).
   // A joint hearing's email goes to two chairs: "your district" only when both are theirs, else the one chair by name
-  // (R-156, the review). One name and the titles from the profile (pub/myprofile.js).
-  const d = myDistricts(), mine = chairs.filter(c => mineLabel(c.leg || c.l, d)), name = myName();
-  const where = !mine.length ? '' : mine.length === chairs.length ? 'your district' : `${mine.map(c => c.greet || `Chair ${c.last}`).join(' and ')}’s district`;
+  // (R-156, the review). One name and the titles from the profile (pub/myprofile.js). The town, never a district number (R-259).
+  const d = myDistricts(), mine = chairs.filter(c => mineLabel(c.leg || c.l, d)), name = myName(), town = townWord();
+  const live = !mine.length ? '' : mine.length === chairs.length ? ownLine(k, chairs.length > 1) : `I live in ${town ? `${town}, in ` : ''}${mine.map(greetOf).join(' and ')}’s district.`;
   const two = pickTitle(myTitles(), { cats: (issuesOf(b) || []).map(i => i.category), text: [nick(b), b.hiphi_summary, b.title].filter(Boolean).join(' ') });
-  const who = name ? `My name is ${name}${two.length ? `, ${aWords(two)}${needsSelf(two) ? ' writing for myself' : ''}` : ''}${where ? `${two.length ? ',' : ''} and I live in ${where}` : ''}. ` : '';
+  const who = name ? [whoLine(name, two, k), live].join(' ').trim() + ' ' : '';
   const about = asSentence(blurb(b, 300).replace(/[.…\s]+$/, '') + '.');
   const ask = b.hiphi_action ? '\n\n' + b.hiphi_action.trim().replace(/([^.!?])$/, '$1.') : '';
   const dl = x.st.deadline && !x.st.deadline.missed ? dateLong(x.st.deadline.date + 'T12:00:00-10:00') : '';
   const h = x.act?.h || x.st.hearing, ahead = h && new Date(h.scheduled_at) > Date.now();
+  const stand = p ? standLine(b.hiphi_position, sp, k) : '';
   let subject, body;
   if (mode === 'own' || !p) {
     subject = sp;
-    body = `${who}I am writing about ${sp}. ${about}\n\n[Say whether you support or oppose it, and why.]`;
+    body = `${who}${vary(k + '|about', [`I’m writing about ${sp}.`, `I wanted to write to you about ${sp}.`])} ${about}\n\n[Say whether you support or oppose it, and why.]`;
   } else if (mode === 'ask') {
-    subject = `${sp}: please give it a hearing`;
-    body = `${who}I am writing to ask you to schedule a hearing for ${sp}. ${about}${ask}\n\n${dl ? `It needs a hearing by ${dl} to stay alive this session. ` : ''}Please give it a hearing so the public can weigh in.`;
+    subject = `${sp}: please schedule a hearing`;
+    body = `${who}${stand} ${about}${ask}\n\n${vary(k + '|ask', [`${sp} is waiting in your committee. ${dl ? `If it isn’t heard by ${dl}, it can’t move forward this year. ` : ''}Would you please schedule a hearing for it?`,
+      `${sp} still needs a hearing in your committee${dl ? `, and the deadline is ${dl}. After that it can’t move forward this year` : ''}. Please put it on the schedule.`])}`;
   } else if (mode === 'floor') {
     const yes = p.verb === 'oppose' ? 'no' : 'yes', ch = N[x.st.chamber] || 'full chamber';
     subject = `${sp}: please vote ${yes}`;
-    body = `${who}I am writing to ${p.verb} ${sp}. ${about}${ask}\n\nIt comes to a vote of the full ${ch} soon. Please vote ${yes}.`;
+    body = `${who}${stand} ${about}${ask}\n\n${vary(k + '|ask', [`It comes up for a vote in the full ${ch} soon. Please vote ${yes}.`, `The full ${ch} votes on it soon, and I hope you’ll vote ${yes}.`])}`;
   } else if (mode === 'conference') {
-    const want = p.verb === 'oppose' ? 'let it go' : 'agree on one version and pass it';
-    subject = `${sp}: please ${p.verb === 'oppose' ? 'let it go' : 'pass it'} in conference`;
-    body = `${who}I am writing to ${p.verb} ${sp}. ${about}${ask}\n\nThe House and Senate are working out one version in conference. ${x.conf ? 'Please' : 'Please urge the conference committee to'} ${want}.`;
+    const no = p.verb === 'oppose', want = no ? 'let it go' : 'agree on a final version and pass it';
+    subject = `${sp}: please ${no ? 'let it go' : 'pass it'}`;
+    body = `${who}${stand} ${about}${ask}\n\n${vary(k + '|conf', ['The House and Senate are now settling on one final version.', 'The House and Senate are working out the final version now.'])} ${x.conf ? 'Please' : 'Please ask the members working it out to'} ${want}.`;
   } else if (mode === 'hold') {
-    subject = `${sp}: please hold this bill`;
-    body = `${who}I am writing to oppose ${sp}. ${about}${ask}\n\nPlease do not schedule it for a hearing.`;
+    subject = `${sp}: please don’t schedule it`;
+    body = `${who}${stand} ${about}${ask}\n\n${vary(k + '|ask', ['Please don’t schedule it for a hearing.', 'I’m asking you not to give it a hearing this year.'])}`;
   } else {
-    const want = p.verb === 'oppose' ? 'hold' : p.verb === 'comment on' ? 'consider' : 'pass';
-    subject = `${sp}: please ${want} it`;
-    body = `${who}I am writing to ${p.verb} ${sp}. ${about}${ask}\n\nPlease ${want} this bill${ahead ? ` at the hearing on ${dateLong(h.scheduled_at)}` : ''}.`;
+    const no = p.verb === 'oppose', mixed = p.verb === 'comment on', on = ahead ? ` at the hearing on ${dateLong(h.scheduled_at)}` : '';
+    subject = `${sp}: ${mixed ? 'a few thoughts' : `please vote ${no ? 'no' : 'yes'}`}`;
+    body = `${who}${stand} ${about}${ask}\n\n${mixed ? `I hope you’ll keep these thoughts in mind${on}.` : no ? `Please vote no on it${on}.` : vary(k + '|ask', [`Please vote to pass it${on}.`, `I hope you’ll vote yes${on}.`])}`;
   }
   // The town signs off only to their own lawmakers (R-147; the review found it still went to every chair here).
-  const text = `Dear ${dear},\n\n${body}\n\nMahalo,\n${name || '[your name]'}${mine.length && m.town ? '\n' + m.town : ''}`;
+  const text = `${vary(k + '|dear', ['Aloha', 'Aloha', 'Dear'])} ${dear},\n\n${body}\n\nMahalo,\n${name || '[your name]'}${mine.length && town ? '\n' + town : ''}`;
   return `mailto:${chairs.map(c => c.email).filter(Boolean).join(',')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
 }
 const mailMode = x => x.differs ? 'own' : x.kind === 'hold' ? 'hold' : x.kind === 'ask' || (x.waiting && x.pos && !/oppose/.test(x.pos.verb)) ? 'ask' : x.waiting && x.pos ? 'hold' : 'about';

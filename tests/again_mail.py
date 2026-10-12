@@ -34,7 +34,7 @@ with sync_playwright() as p:
     br = p.chromium.launch()
     for w, h, tag in ((390, 844, 'phone'), (1280, 900, 'laptop')):
         def ctx(*scripts):
-            c = br.new_context(viewport={'width': w, 'height': h}, is_mobile=(w < 600)); c.add_init_script(f"({SKIP})()")
+            c = br.new_context(viewport={'width': w, 'height': h}, is_mobile=(w < 600)); c.add_init_script(f"({SKIP})()"); c.add_init_script("try{localStorage.setItem('hiphi_voice','first');localStorage.setItem('hiphi_voice_demo','first')}catch(e){}")
             for s in scripts: c.add_init_script(f"({s})()")
             pg = c.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e))); return c, pg, errs
         def bill(pg, num, q=''):
@@ -53,9 +53,9 @@ with sync_playwright() as p:
         ok('Part 2 of 4' in pg.locator('#hp-dlg .hp-count').inner_text() and 'Use my email' in pg.locator('#hp-dlg .hp-foot').inner_text(), f'{tag}: 4 parts; "Use my email" leads')
         pg.click('[data-hp="again-use"]'); pg.wait_for_timeout(500)
         letter = pg.locator('#hp-letter').input_value()
-        ok(letter.startswith('Dear Chair San Buenaventura and Chair Wakai,') and 'Our county should be able to protect kids' in letter and 'give HB 1563 a hearing' in letter and 'Mon, Mar 30' in letter,
+        ok(letter.startswith('Aloha Senator San Buenaventura and Senator Wakai,') and 'Our county should be able to protect kids' in letter and 'schedule a hearing' in letter and 'Mon, Mar 30' in letter,
            f'{tag}: the email is addressed to them, their words kept, the ask and deadline this committee’s')
-        ok(pg.locator('#hp-subject').input_value() == 'HB 1563: please give it a hearing', f'{tag}: the subject is this step’s')
+        ok(pg.locator('#hp-subject').input_value() == 'HB 1563: please schedule a hearing', f'{tag}: the subject is this step’s')
         pg.click('[data-hp="next"]'); pg.wait_for_timeout(400); pg.click('[data-hp="mailsent"]'); pg.wait_for_timeout(1200)
         L = stored(pg).get('email:' + HB1563, {})
         ok(L.get('key') == 'email|HHS/EIG' and L.get('draft') == 'HD2' and L.get('parts') and not L.get('demo'), f'{tag}: once sent, the kept email is this step’s ({L.get("key")})')
@@ -93,7 +93,7 @@ with sync_playwright() as p:
         past_stand(pg, 'a hand-written email ')
         pg.click('[data-hp="again-use"]'); pg.wait_for_timeout(500)
         letter = pg.locator('#hp-letter').input_value()
-        ok(letter.startswith('Dear Chair San Buenaventura and Chair Wakai,') and 'Yamashita' not in letter, f'{tag}: a hand-written email gets the new greeting')
+        ok(letter.startswith('Aloha Senator San Buenaventura and Senator Wakai,') and 'Yamashita' not in letter, f'{tag}: a hand-written email gets the new greeting')
         ok('Please, I have asked before and I will ask again.' in letter, f'{tag}: and keeps their own words')
         ok('Mon, Mar 30' in letter and 'Fri, Mar 6' not in letter, f'{tag}: the ask is this committee’s, with its deadline')
         c.close()
@@ -106,8 +106,8 @@ with sync_playwright() as p:
         past_stand(pg, 'the follow-up ')
         t = body(pg); letter = pg.locator('#hp-letter').input_value()
         ok('Your follow-up' in t and 'still has no hearing, and Fri, Mar 20 is the last day for one' in t and 'Part 2 of 3' in pg.locator('#hp-dlg .hp-count').inner_text(), f'{tag}: the follow-up says why, then the email: 3 parts')
-        ok('I wrote to you on Mon, Mar 9 to ask you to give HB 1563 a hearing' in letter and 'its deadline is Fri, Mar 20' in letter and 'schedule it before then' in letter, f'{tag}: it says when they wrote, the deadline, one ask')
-        ok(pg.locator('#hp-subject').input_value() == 'HB 1563: please hear it by Mar 20' and pg.locator('#hp-dlg .hp-foot [data-hp="back"]').count() == 1, f'{tag}: a short subject; Back goes to where they stand')
+        ok('I wrote to you on Mon, Mar 9 to ask for a hearing on HB 1563' in letter and 'the deadline for a hearing is Fri, Mar 20' in letter and 'schedule it before then' in letter, f'{tag}: it says when they wrote, the deadline, one ask')
+        ok(pg.locator('#hp-subject').input_value() == 'HB 1563: still hoping for a hearing by Mar 20' and pg.locator('#hp-dlg .hp-foot [data-hp="back"]').count() == 1, f'{tag}: a short subject; Back goes to where they stand')
         pg.click('[data-hp="next"]'); pg.wait_for_timeout(400); pg.click('[data-hp="mailsent"]'); pg.wait_for_timeout(1200)
         ok('You followed up with' in pg.locator('.hp-hero').inner_text(), f'{tag}: "You followed up with …"')
         ok(stored(pg).get('email:' + HB1563, {}).get('sent', '').startswith('2026-03-09'), f'{tag}: the kept email is still the one it followed up, not the reminder')

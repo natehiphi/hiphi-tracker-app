@@ -42,7 +42,7 @@ def districts(pg, senate, label='Hilo'):
 
 with sync_playwright() as p:
     br = p.chromium.launch()
-    ctx = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True); ctx.add_init_script(f"({SKIP})()")
+    ctx = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True); ctx.add_init_script(f"({SKIP})()"); ctx.add_init_script("try{localStorage.setItem('hiphi_voice','first');localStorage.setItem('hiphi_voice_demo','first')}catch(e){}")
     pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
 
     # 1. No profile: More invites; the invitation is the R-146 box; a number makes the profile
@@ -160,14 +160,14 @@ with sync_playwright() as p:
     two = pg.evaluate("async () => { const c = await import('./pub/core.js'); return c.S.helper.use; }")
     pg.locator('#hp-dlg .hp-foot .hp-main').first.click(); pg.wait_for_timeout(800)
     L = pg.input_value('#hp-letter')
-    ok('youth soccer coach, I support HB 1523. My name is Leilani Kahale. I live in Hilo, in Senator ' in L and '’s district.' in L and L.count(' and ') >= 1, 'the letter: the titles they picked, and "I live in Hilo, in Senator ...’s district."')
+    ok('My name is Leilani Kahale, and I’m a ' in L and 'youth soccer coach. I support HB 1523. I live in Hilo, in Senator ' in L and '’s district.' in L and L.count(' and ') >= 1, 'the letter: the titles they picked, and "I live in Hilo, in Senator ...’s district."')
     ok(pg.locator('.hp-says [data-hp="says"]').count() == 3 and 'Testimony is posted publicly' in text(pg, '.hp-says') and pg.evaluate("document.querySelector('.hp-says').compareDocumentPosition(document.querySelector('#hp-letter')) & 2") , 'under the letter: what it says about them (titles, where they live, their story), each a tap to leave out')
     pg.click('#hp-says-live'); pg.wait_for_timeout(300)
     L = pg.input_value('#hp-letter')
     ok('I live in' not in L and pg.locator('#hp-says-live[aria-pressed="false"]').count() == 1 and 'left out' in text(pg, '#hp-says-live') and 'put it back' in text(pg, '.hp-says'), 'leaving out where they live takes it out of the letter, and the chip says "left out"')
     pg.click('#hp-says-titles'); pg.wait_for_timeout(300)
     L = pg.input_value('#hp-letter')
-    ok(L.split('\n\n')[2].startswith('I support HB 1523.'), 'leaving out the titles: the letter starts "I support HB 1523."')
+    ok(L.split('\n\n')[2].startswith('My name is Leilani Kahale. I support HB 1523.'), 'leaving out the titles: the letter starts "My name is Leilani Kahale. I support HB 1523." (R-259: who first)')
     pg.click('#hp-says-why'); pg.wait_for_timeout(300)
     ok('crosswalk' not in pg.input_value('#hp-letter'), 'leaving out their story takes it out')
     shot(pg, '5b_says')
@@ -176,7 +176,7 @@ with sync_playwright() as p:
     pg.goto(BASE + '#/bill/HB1523'); pg.reload(); ready(pg)
     letter(pg, t); pg.locator('#hp-dlg .hp-foot .hp-main').first.click(); pg.wait_for_timeout(800)
     L = pg.input_value('#hp-letter')
-    ok('My name is Leilani Kahale.' in L and 'I live in' not in L, 'no senator of theirs on the committee: nothing about where they live')
+    ok('My name is Leilani Kahale' in L and 'I live in' not in L, 'no senator of theirs on the committee: nothing about where they live')
     close(pg)
 
     # 5b. The hearing card for someone who said "I'd testify in person": when and where to go, under the main button (C1)
@@ -190,13 +190,13 @@ with sync_playwright() as p:
     pg.goto(BASE + '#/bill/HB1523'); pg.reload(); ready(pg)
     letter(pg, t, 'email'); pg.locator('#hp-dlg .hp-foot .hp-main').first.click(); pg.wait_for_timeout(800)
     L = pg.evaluate("async () => (await import('./pub/core.js')).S.helper.letter")
-    ok('I support HB 1523. My name is Leilani Kahale.' in L and 'your district' not in L, 'an email to a chair who is not theirs: nothing about where they live')
+    ok('My name is Leilani Kahale' in L and 'I support HB 1523.' in L and 'your district' not in L and 'I live' not in L, 'an email to a chair who is not theirs: nothing about where they live')
     close(pg)
     districts(pg, t['chair'])
     pg.goto(BASE + '#/bill/HB1523'); pg.reload(); ready(pg)
     letter(pg, t, 'email'); pg.locator('#hp-dlg .hp-foot .hp-main').first.click(); pg.wait_for_timeout(800)
     L = pg.evaluate("async () => (await import('./pub/core.js')).S.helper.letter")
-    ok(f'and I live in your district (Senate District {t["chair"]}).' in L, 'an email to a chair who is their senator: "I live in your district"')
+    ok(' in your district.' in L and 'District' not in L, 'an email to a chair who is their senator: "I live in your district"')
     close(pg)
 
     # 6b. After sending: the story ask for a topic with no story, and the profile named once (C2)
@@ -226,7 +226,7 @@ with sync_playwright() as p:
     ctx.close()
 
     # 7. A laptop: the initials at the top right open the profile; the page at 1280; a 320px phone has no sideways scroll
-    ctx = br.new_context(viewport={'width': 1280, 'height': 800}); ctx.add_init_script(f"({SKIP})()")
+    ctx = br.new_context(viewport={'width': 1280, 'height': 800}); ctx.add_init_script(f"({SKIP})()"); ctx.add_init_script("try{localStorage.setItem('hiphi_voice','first');localStorage.setItem('hiphi_voice_demo','first')}catch(e){}")
     pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.goto(BASE + '#/more'); ready(pg)
     pg.evaluate("() => { const k = 'hiphi_text_demo'; localStorage.setItem(k, JSON.stringify({ token: crypto.randomUUID(), phone: '8085550147', at: new Date().toISOString() })); const m = 'hiphi_me_demo'; localStorage.setItem(m, JSON.stringify({ name: 'Leilani Kahale', titles: ['parent', 'teacher'] })); }")
@@ -265,7 +265,7 @@ with sync_playwright() as p:
     # 9. An iPhone with a number-only profile: "Keep your profile on this iPhone", once
     br = p.chromium.launch()
     ctx = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, user_agent='Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1')
-    ctx.add_init_script(f"({SKIP})()")
+    ctx.add_init_script(f"({SKIP})()"); ctx.add_init_script("try{localStorage.setItem('hiphi_voice','first');localStorage.setItem('hiphi_voice_demo','first')}catch(e){}")
     pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.goto(BASE + '#/more'); ready(pg)
     pg.evaluate("() => localStorage.setItem('hiphi_text_demo', JSON.stringify({ token: crypto.randomUUID(), phone: '8085550147', at: new Date().toISOString() }))")

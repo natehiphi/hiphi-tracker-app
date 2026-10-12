@@ -1048,3 +1048,34 @@ export async function sendEmailLink(email, { hearing_alerts = false, action_aler
 }
 export const validEmail = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e || '').trim());
 
+
+// R-259 (Nate 10/12: "provide alternative versions ... so that every letter doesn't sound the same"): a letter's sentence
+// written two or three ways. A committee reading fifty letters about one bill should not read one letter fifty times. The
+// choice is steady for one person and one bill (a number this device keeps, mixed with the key), so the letter never changes
+// under them while they edit, and the box's piece-by-piece updates (helper.js syncLetter) still find their own words.
+// hiphi_voice 'first' always takes the first wording: the tests use it.
+let voice = null;
+function voiceNum() {
+  if (voice != null) return voice;
+  try {
+    const v = localStorage.getItem('hiphi_voice');
+    if (v === 'first') voice = -1;
+    else if (/^\d+$/.test(v || '')) voice = +v;
+    else { voice = Math.floor(Math.random() * 1e6); localStorage.setItem('hiphi_voice', String(voice)); }
+  } catch { voice = 0; }
+  return voice;
+}
+export function vary(key, alts) {
+  const v = voiceNum(); if (v < 0 || alts.length < 2) return alts[0];
+  let h = v; for (const c of String(key)) h = (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0;
+  return alts[h % alts.length];
+}
+// The town a person gave, as they would say it ("Hilo"), or ''. Never a street: their address was never kept, and a label
+// with a number in it, or the "Your saved address" placeholder, is not a town.
+export function townWord() {
+  try {
+    const me = JSON.parse(localStorage.getItem('hiphi_me') || '{}') || {}, d = JSON.parse(localStorage.getItem('hiphi_districts') || 'null') || {};
+    for (const t of [me.town, d.label]) { const s = String(t || '').split(',')[0].trim(); if (s && !/\d|address|district|saved/i.test(s)) return s; }
+  } catch { /* private mode */ }
+  return '';
+}

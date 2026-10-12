@@ -58,10 +58,10 @@ import { logTime } from './visitlog.js';   // how long a letter took (R-169, bac
 import { readyLetter, readyMail, letterOn, letterCheck, draftNotes, draftName, draftLabel, keepLetter, forgetLetter } from './letters.js';
 import { myDistricts } from './speakup.js';
 import { hasProfile, myName, myTitles, myStory, myStories, myInterests, storyFor, otherStory, storyAsk, storyName, STORY_HINT, saveProfile } from './myprofile.js';   // R-147, R-156, R-165
-import { pickTitle, withTitles, asWords, aWords, needsSelf, cleanTitles, titleLabel } from './titles.js';
+import { pickTitle, asWords, aWords, needsSelf, cleanTitles, titleLabel } from './titles.js';
 import { pickerHTML, wirePicker, pendingTitle } from './titlepick.js';
 import { aboutBill as readMore, billTextUrl } from './billtext.js';   // "Read more about the bill" where people pick a side (R-178)
-import { sentence, closingOf, andList, districtWords, helloSubject, helloFacts, helloLetter, THANKS } from './hello.js';   // the hello letter, shared with people.js (R-172)
+import { sentence, closingOf, andList, districtWords, helloSubject, helloFacts, helloLetter, thanksLine, vary, townWord, whoLine, standLine, ownLine } from './hello.js';   // the hello letter, shared with people.js (R-172)
 
 const ME_KEY = 'hiphi_me', OPEN_KEY = 'hiphi_helper_open';
 // The Legislature's Public Access Room: free help from a real person, by phone or at the Capitol.
@@ -114,15 +114,20 @@ const OPENING = { strongly_support: 'I strongly support', support: 'I support', 
 // 'support' | 'oppose' | 'comments'. When it matches HIPHI's position the letter carries HIPHI's wording and ask;
 // otherwise it is theirs alone, and their reason is required, because it is the whole letter.
 const sameAsHiphi = (b, stance) => (stance === 'support' && /support/.test(b.hiphi_position || '')) || (stance === 'oppose' && /oppose/.test(b.hiphi_position || ''));
+// R-259: the sentence itself has a few wordings (hello.js standLine), and "comments" is the app's word, never the letter's.
 function openingLine(b, n, stance) {
   const p = b.hiphi_position;
-  if (sameAsHiphi(b, stance) && OPENING[p]) return `${OPENING[p]} ${n}${p === 'support_amend' ? ', with amendments' : ''}.`;
-  return stance === 'support' ? `I support ${n}.` : stance === 'oppose' ? `I oppose ${n}.` : `I am writing with comments on ${n}.`;
+  return standLine(sameAsHiphi(b, stance) && OPENING[p] ? p : stance, n, b.bill_number);
 }
+// Who they are, then where they stand (R-259: the name came after the stand, which read like a form).
+const openWords = (x, n, stance, two) => [whoLine(x.name, two, x.b.bill_number), openingLine(x.b, n, stance)].filter(Boolean).join(' ');
 function askLine(b, n, stance) {
-  // "Hold" is the Capitol's word for a committee not passing a bill.
-  return stance === 'oppose' ? `I respectfully ask the committee to hold ${n}.` : stance === 'support' ? `I respectfully ask the committee to pass ${n}.`
-    : 'I respectfully ask the committee to consider these comments.';
+  // R-259: plain words. "Hold" is the Capitol's word for a committee not passing a bill; people say "don't pass it".
+  const k = b.bill_number + '|ask';
+  const ask = stance === 'oppose' ? vary(k, [`Please don’t pass ${n}.`, `Please vote no on ${n}.`, `I urge you not to pass ${n}.`])
+    : stance === 'support' ? vary(k, [`Please pass ${n}.`, `I urge you to pass ${n}.`, `Please vote to pass ${n}.`])
+    : vary(k, ['I hope my thoughts are useful as you decide.', 'I hope you’ll keep these thoughts in mind as you decide.']);
+  return stance === 'comments' ? ask : `${ask} ${vary(k + '|thanks', ['Thank you for the chance to testify.', 'Thank you for hearing my testimony.', 'Thank you for your time.'])}`;
 }
 const STANCE_WORD = { support: 'SUPPORT', oppose: 'OPPOSITION', comments: 'COMMENTS' };
 // "Testimony in SUPPORT of HB 1", "in OPPOSITION to", "Comments on", "in SUPPORT of HB 1, with amendments" (R-120, Bug 6).
@@ -160,11 +165,10 @@ function mineOn(code) {
   const d = myDistricts(); if (!d || !code) return [];
   return legsOf(code).map(m => m.l).filter(l => (l.chamber === 'S' && +l.district === +d.senate) || (l.chamber === 'H' && +l.district === +d.house));
 }
-const townOf = () => { try { return (JSON.parse(localStorage.getItem('hiphi_districts') || 'null') || {}).label || ''; } catch { return ''; } };
 function liveLine(h) {
   const ls = mineOn(h?.committee); if (!ls.length) return '';
-  const town = townOf(), where = ls.length === 1 ? `${legWord(ls[0])}’s district` : `the districts of ${andList(ls.map(legWord))}`;
-  return `I live in ${town ? `${town}, in ` : ''}${where}.`;
+  const town = townWord(), where = ls.length === 1 ? `${legWord(ls[0])}’s district` : `the districts of ${andList(ls.map(legWord))}`;
+  return town ? vary('live', [`I live in ${town}, in ${where}.`, `I’m from ${town}, in ${where}.`]) : `I live in ${where}.`;
 }
 // The testimony letter in pieces (R-141, rework 10/10). The box on "Get to know the bill" holds the whole letter, so each
 // piece is kept apart: syncLetter changes a detail by swapping the piece the text still has word for word, and never
@@ -177,7 +181,7 @@ function letterParts(x) {
   return {
     head: headBlock(b, h, stance),
     dear: greeting(h),
-    open: [withTitles(twoFor(x), openingLine(b, n, stance)), nm ? `My name is ${nm}.` : '', live].filter(Boolean).join(' '),
+    open: [openWords(x, n, stance, twoFor(x)), live].filter(Boolean).join(' '),
     // The points they picked, as the box on "Get to know the bill" has them (R-141), then their own reason. The
     // committee already has the bill's text, so the letter does not repeat what it does (Nate 9/28).
     pts: ownPoints(x),
@@ -190,75 +194,86 @@ function letterParts(x) {
 // ---------------- the emails (R-079, R-080) ----------------
 // Who an email goes to: [{ greet: 'Chair Keohokapu-Lee Loy', label: 'Sen. Jarrett Keohokapu-Lee Loy', role, email, url, leg }].
 // Chairs come from core's chairContacts (the directory's address, else the Capitol pattern), as the quick email did.
-const chairsTo = code => chairContacts(code).map(c => ({ greet: `Chair ${c.last}`, label: `${c.title} ${c.leg?.name || c.name}`, role: `Chair, ${c.committee}`,
+// An email greets a chair as people say it, "Senator Keohokapu-Lee Loy" (R-259); testimony keeps the Capitol's "Dear Chair".
+const chairsTo = code => chairContacts(code).map(c => ({ greet: c.leg ? `${c.leg.chamber === 'S' ? 'Senator' : 'Representative'} ${c.last}` : `Chair ${c.last}`, label: `${c.title} ${c.leg?.name || c.name}`, role: `Chair, ${c.committee}`,
   email: c.email || '', url: c.leg?.capitol_url || '', leg: c.leg || null, phone: c.phone || '', code: c.code }));
 const legSurname = l => String(l.sort_name || l.name || '').split(',')[0].trim();
 export const legTo = (l, role = '') => ({ greet: `${l.chamber === 'S' ? 'Senator' : 'Representative'} ${legSurname(l)}`, label: `${l.chamber === 'S' ? 'Sen.' : 'Rep.'} ${l.name}`,
   role: role || `Your ${l.chamber === 'S' ? 'senator' : 'representative'}, ${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}`, email: l.email || '', url: l.capitol_url || '', leg: l, phone: l.phone || '' });
 // andList and districtWords ("House District 22", where they live, never the street) come from hello.js, imported above.
-const verbFor = stance => stance === 'oppose' ? 'hold' : stance === 'support' ? 'pass' : 'consider';
 // The committee's next deadline for a bill waiting for a hearing ("Mar 6"), when it has one.
 const hearingBy = b => { const dl = stopOf(b).deadline; return dl && !dl.missed ? dateLong(dl.date + 'T12:00:00-10:00') : ''; };
-// The one sentence that asks for something, by mode and moment.
+// The words that ask for something, by mode and moment (R-259: plain words, a few wordings each, no "I respectfully ask",
+// no "hold", no "stay alive this session"; a deadline is said as what it means: after it the bill can't move this year).
 function mailAsk(x, n, stance) {
-  const { mode, h, b } = x, when = h ? dateLong(h.scheduled_at) : '', dl = b ? hearingBy(b) : '';
-  const until = dl ? ` It needs one by ${dl} to stay alive this session.` : '';
-  if (mode === 'email' && h) return stance === 'comments' ? `I respectfully ask the committee to consider these comments at the hearing on ${when}.`
-    : `I respectfully ask the committee to ${verbFor(stance)} ${n} at the hearing on ${when}.`;
-  if (mode === 'email') return stance === 'oppose' ? `I respectfully ask you not to schedule ${n} for a hearing.`
-    : stance === 'support' ? `I respectfully ask you to give ${n} a hearing, so the public can weigh in.${until}` : `Please consider these comments as you decide whether to give ${n} a hearing.`;
+  const { mode, h, b } = x, when = h ? dateLong(h.scheduled_at) : '', dl = b ? hearingBy(b) : '', k = `${b.bill_number}|${mode}|ask`;
+  const until = dl ? ' ' + vary(k + '|dl', [`If it isn’t heard by ${dl}, it can’t move forward this year.`, `The deadline for a hearing is ${dl}; after that it can’t move forward this year.`]) : '';
+  const thoughts = vary(k + '|th', ['I hope you’ll keep these thoughts in mind', 'I hope my thoughts are useful']);
+  if (mode === 'email' && h) return stance === 'comments' ? `${thoughts} at the hearing on ${when}.`
+    : stance === 'oppose' ? vary(k, [`Please vote no on ${n} at the hearing on ${when}.`, `When ${n} comes up on ${when}, please vote no.`])
+    : vary(k, [`Please vote to pass ${n} at the hearing on ${when}.`, `When ${n} comes up on ${when}, please vote yes.`]);
+  if (mode === 'email') return stance === 'oppose' ? vary(k, [`Please don’t schedule ${n} for a hearing.`, `I’m asking you not to give ${n} a hearing this year.`])
+    : stance === 'support' ? vary(k, [`${n} is waiting in your committee. Would you please schedule a hearing for it?${until}`, `${n} still needs a hearing in your committee. Please put it on the schedule.${until}`])
+    : `${thoughts} as you decide whether to hear ${n}.`;
   const m = x.moment || {}, cm = m.code ? cmteLabel(m.code) : 'the committee', the = /^the /i.test(cm) ? cm : `the ${cm}`;
   if (m.kind === 'floor') { const ch = CHAMBER_NAME[m.chamber] || 'full chamber';
-    return `${n} comes to a vote of the full ${ch} soon. ${stance === 'oppose' ? 'Please vote no.' : stance === 'support' ? 'Please vote yes.' : 'Please consider these comments when you vote.'}`; }
-  if (m.kind === 'hearing') return `You ${m.chair ? 'chair' : 'sit on'} ${the}, which hears ${n} on ${when}. ${stance === 'comments' ? 'Please consider these comments.' : `Please vote to ${verbFor(stance)} it.`}`;
-  if (m.kind === 'chair') return stance === 'oppose' ? `As chair of ${the}, please do not schedule ${n} for a hearing.`
-    : stance === 'support' ? `As chair of ${the}, please give ${n} a hearing.${until}` : `As chair of ${the}, please consider these comments as you decide whether to hear ${n}.`;
+    const soon = vary(k + '|floor', [`${n} comes up for a vote in the full ${ch} soon.`, `The full ${ch} votes on ${n} soon.`]);
+    return `${soon} ${stance === 'oppose' ? vary(k, ['Please vote no.', 'I hope you’ll vote no.']) : stance === 'support' ? vary(k, ['Please vote yes.', 'I hope you’ll vote yes.']) : `${thoughts} when you vote.`}`; }
+  if (m.kind === 'hearing') return `${vary(k + '|hear', [`You ${m.chair ? 'chair' : 'sit on'} ${the}, which hears ${n} on ${when}.`, `${n} is up before ${the} on ${when}, and you ${m.chair ? 'chair it' : 'sit on it'}.`])} ${stance === 'comments' ? `${thoughts}.` : stance === 'oppose' ? 'Please vote no.' : 'Please vote yes.'}`;
+  if (m.kind === 'chair') return stance === 'oppose' ? vary(k, [`${n} is waiting in ${the}, which you chair. Please don’t schedule it for a hearing.`, `As chair of ${the}, please leave ${n} off the schedule.`])
+    : stance === 'support' ? vary(k, [`${n} is waiting in ${the}, which you chair. Would you please schedule a hearing for it?${until}`, `As chair of ${the}, please give ${n} a hearing.${until}`])
+    : `${n} is waiting in ${the}, which you chair. ${thoughts} as you decide whether to hear it.`;
   // A member of the committee a bill waits in: the chair decides, and a colleague's word carries.
-  return stance === 'oppose' ? `${n} is waiting in ${the}, where you are a member. Please urge the chair not to schedule it.`
-    : stance === 'support' ? `${n} is waiting for a hearing in ${the}, where you are a member. Please urge the chair to give it a hearing.${until}`
-    : `${n} is waiting in ${the}, where you are a member. Please consider these comments.`;
+  return stance === 'oppose' ? `${n} is waiting in ${the}, where you’re a member. Could you ask the chair not to schedule it?`
+    : stance === 'support' ? vary(k, [`${n} is waiting for a hearing in ${the}, where you’re a member. Could you ask the chair to schedule it?${until}`, `${n} is waiting in ${the}, and you’re a member. Would you put in a word with the chair for a hearing?${until}`])
+    : `${n} is waiting in ${the}, where you’re a member. ${thoughts}.`;
 }
+// The subject line: what they want, in a few plain words (R-259: no "Constituent in House District 22:" up front).
 function mailSubject(x) {
   const { mode, b, h } = x, stance = x.stance || (b ? hiphiStance(b) : 'comments');
   // R-172: a question, so the office has a reason to open it and to answer.
   if (mode === 'intro') return helloSubject(x.to, !x.noLive);
   if (x.remind) { const dl = hearingBy(b), n = spaced(b.bill_number), st = x.stance || hiphiStance(b), d = dl.replace(/^[A-Za-z]+, /, '');
-    return st === 'oppose' ? `${n}: please let it rest` : st === 'support' ? `${n}: please hear it${d ? ` by ${d}` : ''}` : `${n}: my comments${d ? ` before ${d}` : ''}`; }
+    return st === 'oppose' ? `${n}: please leave it off the schedule` : st === 'support' ? `${n}: still hoping for a hearing${d ? ` by ${d}` : ''}` : `${n}: my thoughts${d ? ` before ${d}` : ''}`; }
   const n = spaced(b.bill_number), m = x.moment || {};
-  if (mode === 'email') return h ? (stance === 'comments' ? `${n}: comments for the hearing on ${dateLong(h.scheduled_at)}` : `${n}: please ${verbFor(stance)} it (hearing ${dateLong(h.scheduled_at)})`)
-    : stance === 'oppose' ? `${n}: please do not schedule it` : stance === 'support' ? `${n}: please give it a hearing` : `${n}: comments`;
-  const want = m.kind === 'floor' ? (stance === 'oppose' ? `please vote no on ${n}` : stance === 'support' ? `please vote yes on ${n}` : `comments on ${n}`)
-    : m.kind === 'hearing' ? (stance === 'comments' ? `comments on ${n}` : `please vote to ${verbFor(stance)} ${n}`)
-    : stance === 'oppose' ? `please do not schedule ${n}` : stance === 'support' ? `please help ${n} get a hearing` : `comments on ${n}`;
-  return `Constituent in ${districtWords(x.to) || 'your district'}: ${want}`;
+  if (mode === 'email') return h ? (stance === 'comments' ? `${n}: my thoughts for the ${dateLong(h.scheduled_at)} hearing` : `${n}: please vote ${stance === 'oppose' ? 'no' : 'yes'} on ${dateLong(h.scheduled_at)}`)
+    : stance === 'oppose' ? `${n}: please don’t schedule it` : stance === 'support' ? `${n}: please schedule a hearing` : `${n}: a few thoughts`;
+  const want = m.kind === 'floor' || m.kind === 'hearing' ? (stance === 'oppose' ? `Please vote no on ${n}` : stance === 'support' ? `Please vote yes on ${n}` : `A few thoughts on ${n}`)
+    : stance === 'oppose' ? `Please don’t schedule ${n}` : stance === 'support' ? `Please help ${n} get a hearing` : `A few thoughts on ${n}`;
+  const town = x.noLive ? '' : townWord();
+  return `${want} (from a constituent${town ? ` in ${town}` : ''})`;
 }
 // The reminder to the same chair (R-153; Nate: "Yes for now, but needs to be reconsidered"): short, once, a week before the
 // bill's deadline when it still has no hearing. It says they wrote before and when, their reason again, and one ask.
 function reminderLetter(x) {
-  const { b } = x, n = spaced(b.bill_number), stance = x.stance || hiphiStance(b), name = String(x.name).trim(), dl = hearingBy(b);
+  const { b } = x, n = spaced(b.bill_number), stance = x.stance || hiphiStance(b), name = String(x.name).trim(), dl = hearingBy(b), k = b.bill_number + '|remind';
   const when = x.remindOf ? ` on ${dateLong(x.remindOf)}` : '';
   const before = stance === 'oppose' ? `I wrote to you${when} to ask you not to schedule ${n} for a hearing.`
-    : stance === 'support' ? `I wrote to you${when} to ask you to give ${n} a hearing.` : `I wrote to you${when} with my comments on ${n}.`;
-  const ask = stance === 'oppose' ? 'I respectfully ask you to let it rest this session.' : stance === 'support' ? `I respectfully ask you to schedule it${dl ? ' before then' : ''}.` : 'Please consider my comments as you decide.';
-  return [`Dear ${andList(x.to.map(t => t.greet)) || 'Chair'},`, `${openingLine(b, n, stance)} My name is ${name}.`,
-    `${before} I am writing once more because ${dl ? `its deadline is ${dl}` : 'its deadline is near'}.`, sentence(x.why), ask,
+    : stance === 'support' ? `I wrote to you${when} to ask for a hearing on ${n}.` : `I wrote to you${when} with a few thoughts on ${n}.`;
+  const again = dl ? vary(k + '|again', [`I’m writing again because the deadline for a hearing is ${dl}.`, `I’m following up because the deadline for a hearing is ${dl}.`])
+    : vary(k + '|again', ['I’m writing again because the deadline is close.', 'I’m following up because the deadline is close.']);
+  const ask = stance === 'oppose' ? vary(k, ['Please leave it off the schedule this year.', 'I hope you’ll let it go this year.'])
+    : stance === 'support' ? vary(k, [`Would you please schedule it${dl ? ' before then' : ''}?`, `I hope you’ll give it a hearing${dl ? ' before then' : ''}.`]) : 'I hope my thoughts are useful as you decide.';
+  return [`Aloha ${andList(x.to.map(t => t.greet)) || 'Chair'},`, [whoLine(name, [], k), openingLine(b, n, stance)].filter(Boolean).join(' '),
+    `${before} ${again}`, sentence(x.why), ask,
     [closingOf(x.closing), name].filter(Boolean).join('\n')].filter(Boolean).join('\n\n');
 }
 // The quick email in pieces (R-079, R-080, R-141 rework): the same parts as the testimony letter, for the box and the
 // letter alike. The introduction (mode 'intro') has no bill and is written whole, in mailLetter.
 function emailParts(x) {
   const { b, to } = x, nm = String(x.name || '').trim(), stance = x.stance || hiphiStance(b), n = spaced(b.bill_number), ours = sameAsHiphi(b, stance);
-  const where = districtWords(to), two = twoFor(x);
+  const two = twoFor(x);
   // Their own lawmakers hear where they live (R-147): always in 'legislators' and 'intro', and in an email to a chair who
   // happens to be their own senator or representative; anyone else does not.
   const d = myDistricts(), isMine = l => !!d && !!l && ((l.chamber === 'S' && +l.district === +d.senate) || (l.chamber === 'H' && +l.district === +d.house));
   const ownTo = x.noLive ? [] : to.filter(t => isMine(t.leg)), own = ownTo.length > 0;
-  const mine = x.mode === 'legislators' || own, ownWhere = x.mode === 'legislators' ? where : districtWords(ownTo);
-  const me = nm ? `My name is ${nm}${mine ? `, and I live in your district${ownWhere ? ` (${ownWhere})` : ''}` : ''}.`
-    : mine ? `I live in your district${ownWhere ? ` (${ownWhere})` : ''}.` : '';
+  // R-259: the town, never the district number. One of two chairs theirs: "I live in Hilo, in Senator Inouye’s district."
+  const mine = x.mode === 'legislators' || own, all = x.mode === 'legislators' || ownTo.length === to.length, town = townWord();
+  const live = !mine ? '' : all ? ownLine(b.bill_number, to.length > 1)
+    : `I live in ${town ? `${town}, in ` : ''}${andList(ownTo.map(t => t.greet))}’s district.`;
   return {
-    dear: `Dear ${andList(to.map(t => t.greet)) || 'Chair'},`,
-    open: [withTitles(two, openingLine(b, n, stance)), me].filter(Boolean).join(' '),
+    dear: `${vary(b.bill_number + '|dear', ['Aloha', 'Aloha', 'Dear'])} ${andList(to.map(t => t.greet)) || 'Chair'},`,
+    open: [whoLine(nm, two, b.bill_number), live, openingLine(b, n, stance)].filter(Boolean).join(' '),
     pts: ownPoints(x),
     why: x.noWhy && !own2For(b, stance) ? '' : sentence(x.why),
     ask: [ours ? sentence(b.hiphi_action) : '', mailAsk(x, n, stance)].filter(Boolean).join(' '),
@@ -970,14 +985,14 @@ function titlesStep(x) {
   const all = titlesOf(x), word = isMail(x) ? 'email' : 'letter';
   if (x.tp.adding) return pickerHTML('hp', x.tp, { hint: `Tap to add to your profile. Then pick which ones this ${word} uses.`, addOnly: true });
   const two = twoFor(x);
-  return `<fieldset class="tp" id="hp-tp"><legend class="tp-leg">I’m a… <span class="tp-hint">${!all.length ? `Optional. Your ${word} can start with who you are, like “As a parent…”.` : all.length > 1 ? `We picked the one that fits this bill. Tap to use more, or a different one.` : `Tap to leave it out of this ${word}.`}</span></legend>
+  return `<fieldset class="tp" id="hp-tp"><legend class="tp-leg">I’m a… <span class="tp-hint">${!all.length ? `Optional. Your ${word} can say who you are, like “I’m a parent.”` : all.length > 1 ? `We picked the one that fits this bill. Tap to use more, or a different one.` : `Tap to leave it out of this ${word}.`}</span></legend>
     <div class="chips tp-chips">${all.map(t => `<button type="button" class="chip tp-c" data-hp="use" data-v="${esc(t)}" aria-pressed="${two.includes(t)}">${two.includes(t) ? icon('check') : ''}<span>${esc(titleLabel(t))}</span></button>`).join('')}</div>
     <button type="button" class="explain tp-morebtn tp-add" data-hp="addtitle">${icon('plus')}<span>Add a title</span></button></fieldset>`;   // a text button, not one of the titles (the review of R-165)
 }
 function titlesAfter(x) {
   const all = titlesOf(x); if (!all.length) return '';
   const two = twoFor(x), word = isMail(x) ? 'email' : 'letter';
-  const start = x.b ? withTitles(two, openingLine(x.b, spaced(x.b.bill_number), x.stance || hiphiStance(x.b))) : `${aWords(two)}${needsSelf(two) ? ', writing for myself' : ''}`;
+  const start = x.b ? openWords(x, spaced(x.b.bill_number), x.stance || hiphiStance(x.b), two) : `${aWords(two)}${needsSelf(two) ? ', writing for myself' : ''}`;
   return `<p class="hp-tp-prev" id="hp-tp-prev">${icon('file-text')}<span>Your ${word} ${x.b ? 'starts' : 'says you’re'}: “${esc(start)}${x.b ? '' : '.'}”</span></p>`;
 }
 function paintTitles({ step = false } = {}) {
@@ -1030,9 +1045,9 @@ function aboutScreen() {
         ${hasProfile() ? `<label class="check hp-savest" for="hp-savestory"><input type="checkbox" id="hp-savestory"${x.saveStory ? ' checked' : ''}><span>Save this to my profile${topicOf(x) ? ` as my story about “${esc(topicName(topicOf(x)))}”` : ' as my story'}, ready for my next ${isMail(x) ? 'email' : 'letter'}</span></label>
           <span class="help hp-savelen" id="hp-savelen">${x.why.trim().length > 600 ? 'Your profile keeps the first 600 characters.' : ''}</span>` : ''}</div>
       <div class="field"><label for="hp-closing">How you’d like to sign off <span class="hp-opt">(optional)</span></label>
-        <input id="hp-closing" name="closing" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="${x.mode === 'intro' ? esc(THANKS) : 'Mahalo'}" value="${esc(x.closing)}" aria-describedby="hp-closing-help">
+        <input id="hp-closing" name="closing" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="${x.mode === 'intro' ? esc(thanksLine()) : 'Mahalo'}" value="${esc(x.closing)}" aria-describedby="hp-closing-help">
         <div class="hp-sugs" role="group" aria-label="Ideas for signing off">${CLOSINGS.map(c => `<button type="button" class="chip hp-sug" data-hp="closing" data-v="${esc(c)}" aria-pressed="${x.closing.trim() === c}">${esc(c)}</button>`).join('')}</div>
-        <span class="help" id="hp-closing-help">${x.mode === 'intro' ? `Left empty, the letter says “${esc(THANKS)}”` : 'Your name goes under it.'}</span></div>
+        <span class="help" id="hp-closing-help">${x.mode === 'intro' ? `Left empty, the letter says “${esc(thanksLine())}”` : 'Your name goes under it.'}</span></div>
     </form>`;
 }
 // Under the "why" box: where its words came from (their saved story, R-147; by topic since R-156), else what it is for.
