@@ -62,7 +62,7 @@ with sync_playwright() as pw:
     # R-099 (10/3): the new version says how as well as when: "you'll see what to do, and we'll help you do it"
     ok('When it’s time, we help you speak up' in s['first'] and 'we’ll tell you' not in s['first'], 'new: the first screen says we help you act when it is time (said once, in the promise row)')
     ok('Your home page' in s['first'] and 'Stay connected' not in s['first'], 'new: the last part is named "Your home page"')
-    ok('What should people do?' in s['mom'] and 'needed a hearing' in s['mom'] and 'top of your home page' in s['story'], f'new: the story names the real moment (R-219: "Will you speak up on <bill> this week?" and its deadline; a yes says it waits on Home) ({" ".join(s["story"].split())[-90:]})')
+    ok('What should people do?' in s['mom'] and 'needs a hearing' in s['mom'] and 'top of your home page' in s['story'], f'new: the story names the real moment (R-219: "Will you speak up on <bill> this week?" and its deadline; a yes says it waits on Home) ({" ".join(s["story"].split())[-90:]})')
     # The alerts moved to right after the issues (R-146), where they cannot read as the end of the visit.
     ok('Save your profile' in s['alerts'] and 'gets a hearing' in s['alerts'] and 'HIPHI asks people to speak up' in s['alerts'], 'new: the alerts box names both kinds of alert (C-4)')
     ok('Link sent to tester@example.com' in s['mahalo'] and 'when you finish here' in s['mahalo'], 'new: after sending, it says to finish here first')

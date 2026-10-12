@@ -118,8 +118,8 @@ with sync_playwright() as pw:
     ok(p.evaluate(STAGE) == '1' and '1 of 4' in p.evaluate(CAP) and 'This is your bill' in p.evaluate(CAP), f'stage 1: "This is your bill" ({p.evaluate(CAP)[:60]})')
     std(p, 'story', axe=True); shot(p, 'p_story1')
     cap1, draw1 = p.evaluate(CAP), p.evaluate(DRAW)
-    ok(re.search(r'HB.2121', draw1) is not None and 'Disposable' in draw1 and 'HIPHI' in draw1, f'stage 1 draws the bill: its number, its name, HIPHI’s stamp ({draw1[:80]})')
-    ok('HB means House Bill' in cap1 and 'HIPHI strongly supports it' in cap1, 'stage 1 says what it is in plain words')
+    ok(re.search(r'SB.2175', draw1) is not None and 'Disposable' in draw1 and 'HIPHI' in draw1, f'stage 1 draws the bill: its number, its name, HIPHI’s stamp ({draw1[:80]})')
+    ok('SB means Senate Bill' in cap1 and 'HIPHI strongly supports it' in cap1, 'stage 1 says what it is in plain words')
     top = p.evaluate("Math.round(document.getElementById('lx-story').getBoundingClientRect().top)")
     ok(0 < top <= 320, f'the drawing starts within 320px (A-1: {top}px)')
     ok(p.locator('.lx-l-story :is(button, a, input, [role=button], [tabindex])').count() == 0 and p.locator('#lx-story :is(button, a, [tabindex])').count() == 0,
@@ -128,9 +128,9 @@ with sync_playwright() as pw:
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
     cap2, draw2 = p.evaluate(CAP), p.evaluate(DRAW)
     ok(p.evaluate(STAGE) == '2' and 'Its road' in cap2 and p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story', 'Next moves to stage 2, "Its road", on the same page')
-    ok(re.search(r'HB.2121 is here', draw2) is not None and re.search(r'Right now HB.2121 is with Senate committees', cap2) is not None, 'the road says where the bill is, and the words its next chance')
+    ok(re.search(r'SB.2175 is here', draw2) is not None and re.search(r'Right now the chair of the .* decides whether SB.2175 gets a hearing', cap2) is not None, 'the road says where the bill is, and the words its next chance (a bill still waiting for its hearing comes first since R-255)')
     ok(p.locator('#lx-story .lx-lay2 .lx-tick').count() == 2 and p.locator('#lx-story .lx-pre').count() == 0, 'the stops it passed are ticked, and the trip has ended')
-    ok('24 hours' not in cap2 and 'closes' not in cap2.lower() and 'testimony is due' in cap2, 'testimony is "due", from the data or "by the deadline", never "24 hours" or "closes"')
+    ok('24 hours' not in cap2 and 'closes' not in cap2.lower() and ('testimony is due' in cap2 or 'gets a hearing' in cap2), 'a bill with a hearing says testimony is "due"; one without says who decides on its hearing; never "24 hours" or "closes"')
     ok('Most bills stop' not in cap2 + draw2, 'no "Most bills stop here" on the road (Nate 9/29)')
     shot(p, 'p_story2')
     # Back walks back through the stages before it leaves the screen (B-4).
@@ -138,9 +138,9 @@ with sync_playwright() as pw:
     ok(p.evaluate(STAGE) == '1' and p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story', 'Back on stage 2 goes back to stage 1, still on the story')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1600); p.locator('[data-stnext]').click(); p.wait_for_timeout(1600)
     cap3 = p.evaluate(CAP)
-    # R-255 (Nate 10/12): the road again and a choice at each of the bill's two moments. Stage 3: "HB 2121 needed a hearing."
-    # (its hearing is set), two equal choices, the bar's Next asleep until one is made, Skip awake.
-    ok(p.evaluate(STAGE) == '3' and '3 of 4' in cap3 and re.search(r'HB.2121 needed a hearing\.', cap3) is not None and 'What should people do?' in cap3, f'stage 3: "HB 2121 needed a hearing. What should people do?" ({cap3[:80]})')
+    # R-255 (Nate 10/12): the road again and a choice at each of the bill's two moments. Stage 3: "SB 2175 needs a hearing."
+    # (the story leans to a followed bill still waiting for its hearing), two equal choices, the bar's Next asleep until one is made, Skip awake.
+    ok(p.evaluate(STAGE) == '3' and '3 of 4' in cap3 and re.search(r'SB.2175 needs a hearing\.', cap3) is not None and 'What should people do?' in cap3, f'stage 3: "SB 2175 needs a hearing. What should people do?" ({cap3[:80]})')
     ok('Right now' not in cap3 and 'Will you' not in cap3, 'nothing asks the person for a promise, and where the bill is is not said again (A-14)')
     picks = p.evaluate("[...document.querySelectorAll('.lx-doors [data-lx-pick]')].map(b => [b.dataset.lxPick, b.innerText.trim(), b.getAttribute('aria-pressed')])")
     ok(picks == [['chair', 'Ask the chair for a hearing', 'false'], ['none', 'Do nothing', 'false']], f'two equal choices, nothing picked for you ({picks})')
@@ -163,7 +163,7 @@ with sync_playwright() as pw:
     ok(p.locator('[data-stnext]').is_visible() and p.locator('.actionbar [data-stnext]').inner_text().strip() == 'Next' and p.locator('[data-stskip]').inner_text().strip() == 'Skip', 'after a choice Next wakes, Skip is plain Skip again, and stage 3 is not the last page')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1600)
     cap4 = p.evaluate(CAP)
-    ok(p.evaluate(STAGE) == '4' and '4 of 4' in cap4 and re.search(r'Its hearing is \w+ at [\d:]+ [AP]M\.', cap4) is not None and 'Now what should people do?' in cap4, f'stage 4: the hearing is set, now what should people do? ({cap4[:80]})')
+    ok(p.evaluate(STAGE) == '4' and '4 of 4' in cap4 and 'Say a hearing is set.' in cap4 and 'Now what should people do?' in cap4, f'stage 4: say a hearing is set, now what should people do? ({cap4[:80]})')
     ok(p.evaluate("document.getElementById('lx-story').dataset.scene") == 'set' and p.locator('[data-stnext]').is_hidden(), 'the hearing is on the list in the drawing, and Next sleeps again')
     picks = p.evaluate("[...document.querySelectorAll('.lx-doors [data-lx-pick]')].map(b => [b.dataset.lxPick, b.innerText.trim()])")
     ok(picks == [['testimony', 'Send testimony'], ['none', 'Do nothing']], f'two choices again ({picks})')

@@ -1064,10 +1064,8 @@ export function lessonPrev(name) {
   return true;
 }
 // Which stage the story is on (1-3), so the lesson page can say Done on the last.
-// The hosts (pub/start-rest.js) take step 3 as the story's last; since R-255 its two choice pages are stages 3 and 4, so they
-// are reported as 2 and 3 until start-rest.js can read lessonLast (it is held by another build, 10/12).
-export const lessonStep = name => (L.name === name && ST[name] ? (name === 'story' && ST.story.step >= 3 ? ST.story.step - 1 : ST[name].step) : 1);
-export const lessonLast = name => LAST[name] || 1;
+export const lessonStep = name => (L.name === name && ST[name] ? ST[name].step : 1);
+export const lessonLast = name => LAST[name] || 1;   // the hosts' "last stage" check reads this, never a number (R-255)
 
 // ---------------------------------------------------------------- the interface
 export function lessonHTML(name, E) {

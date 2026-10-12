@@ -14,8 +14,9 @@ Read the part your task needs. CLAUDE.md keeps only the rules and pointers. The 
   (B-3; `tests/first_visit_fixes.py`); **since R-255 (Nate 10/12) the story has four stages**: the bill, its road, then a choice at
   each of its two moments ("needs a hearing, what should people do?" ask the chair or nothing; "its hearing is set, now what?" send
   testimony or nothing), each playing its scene and saying one sentence with the other path in one quiet line, third person,
-  text light; the bar's Next sleeps until a choice is made (`wakeNext` in `pub/lessons.js`; the hosts in `start-rest.js` still take
-  step 3 as the last, so `lessonStep` reports stages 3 and 4 as 2 and 3 until that file is free); `tests/story3.py`; **after the first visit each ask is one
+  text light; the bar's Next sleeps until a choice is made (`wakeNext` in `pub/lessons.js`; the hosts in `start-rest.js` read
+  `lessonLast` for the last stage); the story's bill leans to a followed bill still waiting for its hearing (`exampleBill`, so stage 3
+  is in the present tense), then one with a hearing in 7 days, then one in its second chamber; `tests/story3.py`; **after the first visit each ask is one
   full page before Home** on a new day's first arrival (R-237, `pub/nextask.js`, DESIGN C-16: find my legislators, save
   your profile, new issues, the three moments, bring a friend, keep it on your phone), not a card on Home; every bill link carries its session year when it is not the current one (R-110); the page
   reports its own errors (R-111); one share everywhere and a link newcomer left to finish (R-113, R-114); the My issues

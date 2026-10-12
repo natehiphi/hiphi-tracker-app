@@ -3,6 +3,7 @@
 // frame and the topics screen with the kernel alone and loads this module right after that first paint; every helper
 // shared with it is imported from start.js (a read-only view of its state: the lessons through lessons()).
 import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, lessons, stepOf } from './start.js';
+import { situation } from './bill.js';   // the bill page's own reading of where a bill is (R-255: the story leans to one still waiting for a hearing)
 import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind, textSaved,
   openActions, waitingBills, chairContacts, askedChair, agrees, dateLong } from './core.js';
 import { myLegs, introState } from './speakup.js';   // the hello to their legislators (R-150)
@@ -181,13 +182,18 @@ export function exampleBill() {
     return recap.find(b => b.bill_number === 'SB2175') || anyBill((recap.find(b => b.stage === 'enacted' && hasPos(b)) || {}).id) || recap.find(b => b.stage === 'enacted') || null;
   }
   const R = ranker(), bills = followedBills().filter(b => !left(b));
+  // The story's third page asks what people should do about a bill that needs a hearing (R-255, Nate 10/12: "lean towards
+  // bills that still need a hearing"), so a followed bill still waiting for its hearing comes first, in the present tense;
+  // then one with a hearing in the next 7 days, then one alive in its second chamber, then the first followed.
+  const waiting = b => { try { return !!situation(b).waiting; } catch { return false; } };
   const soon = b => { const h = R.soon.get(b.id); return h && new Date(h.scheduled_at) - Date.now() < 7 * 864e5; };
   const second = b => /^second|conference/.test(b.stage || '');
-  const pick = bills.find(soon) || bills.find(second) || bills[0];
+  const pick = bills.find(waiting) || bills.find(soon) || bills.find(second) || bills[0];
   if (pick) return pick;
-  // Nothing followed (Skip on the first screen): one HIPHI is working on, with a hearing ahead if there is one.
+  // Nothing followed (Skip on the first screen): one HIPHI is working on, waiting for a hearing or with one ahead.
   const pool = poolBills().filter(b => hasPos(b) && !left(b)).sort(R.cmp);
-  return pool.find(b => b.hiphi_position === 'strongly_support' && soon(b)) || pool.find(soon) || pool[0] || null;
+  const strong = b => b.hiphi_position === 'strongly_support';
+  return pool.find(b => strong(b) && waiting(b)) || pool.find(b => strong(b) && soon(b)) || pool.find(waiting) || pool.find(soon) || pool[0] || null;
 }
 // An example the page has not loaded in full (a law between sessions, a bill HIPHI works on that nobody here follows) is
 // fetched once with its hearings, then the lessons redraw with its real hearing instead of a made-up one.
@@ -755,7 +761,7 @@ export function wireLearn(route) {
   lessons().lessonStart(name, E, { redraw });
   const leave = () => { lessons()?.lessonStop?.(); learnWired = ''; S.learnBill = ''; document.body.classList.remove('st-lessonpage'); if (history.length > 1) history.back(); else app.go('#/'); };
   const nb = document.querySelector('[data-stlearnnext]');
-  const label = () => { if (!nb || name !== 'story') return; const last = lessons().lessonStep(name) >= 3;
+  const label = () => { if (!nb || name !== 'story') return; const last = lessons().lessonStep(name) >= lessons().lessonLast(name);
     nb.innerHTML = `<span>${last ? 'Done' : 'Next'}</span>${icon(last ? 'check' : 'arrow-right')}`; };
   label();
   document.querySelector('[data-stlearnback]')?.addEventListener('click', () => { if (lessons().lessonPrev(name)) label(); else leave(); });
@@ -847,7 +853,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
     lessons().lessonStart('story', E, { back, redraw: !fresh });
     const nb = $('[data-stnext]');
     // On the story's last stage the button names the next screen (C-6), so finishing it reads as a step on, not the end.
-    const label = () => { if (!nb) return; const last = lessons().lessonStep('story') >= 3;
+    const label = () => { if (!nb) return; const last = lessons().lessonStep('story') >= lessons().lessonLast('story');
       nb.querySelector('span').textContent = last ? GO_YOU() : 'Next'; };
     label();
     // A stage can change without Next: Back, or a tap on the story's own stage dots.
