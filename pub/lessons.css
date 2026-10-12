@@ -269,7 +269,19 @@
 .lx-story[data-choice="yes"] .lx-r3t .lx-b3 { display: none; }
 /* R-255's options on the practice copy (?story3=): the scene plays on arrival with no doors; 'order' draws both moments */
 .lx-story[data-opt="order"] .lx-c3-order { display: inline; }
-.lx-story[data-opt] .lx-r3 .lx-b3 { display: none; }
+.lx-story[data-opt="order"] .lx-r3 .lx-b3 { display: none; }
+/* the explore options: one scene by data-scene, the notes counted by data-notes */
+.lx-story[data-scene="no"] .lx-c3-no, .lx-story[data-scene="t"] .lx-c3-t, .lx-story[data-scene="c"] .lx-c3-c, .lx-story[data-scene="mid"] .lx-c3-n { display: inline; }
+.lx-story[data-scene="t"] .lx-r3 .lx-b3, .lx-story[data-scene="no"] .lx-r3 .lx-b3 { display: none; }
+.lx-story .lx-c3-n .lx-nn { display: none; }
+.lx-story[data-notes="1"] .lx-n1, .lx-story[data-notes="2"] :is(.lx-n1, .lx-n2) { display: inline; }
+.lx-story.lx-tappable { cursor: pointer; }
+.lx-scenes { display: flex; flex-wrap: wrap; gap: var(--s8); margin-top: var(--s12); }
+.lx-notesrow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s12); margin-top: var(--s12); }
+.lx-notesrow .lx-hint { color: var(--n700); }
+.lx-count2 { color: var(--n900); font-weight: 700; }
+.lx-scap p.lx-said.lx-on { box-shadow: 0 0 0 2px var(--p600); }
+.lx-scap p.lx-said-no.lx-on { box-shadow: 0 0 0 2px var(--n700); }
 .lx-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s8); margin-top: var(--s12); }
 .lx-two > div { padding: var(--s12); border-radius: var(--r12); background: var(--p50); border-left: 4px solid var(--p600); color: var(--n900); min-width: 0; }
 .lx-two > .lx-two-no { background: var(--n100); border-left-color: var(--n700); }

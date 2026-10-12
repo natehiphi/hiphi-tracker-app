@@ -12,7 +12,8 @@ Read the part your task needs. CLAUDE.md keeps only the rules and pointers. The 
   "(skipped)" and gets no petals, C-7), a tile's name never breaks inside a word, the Mahalo page's button names the story as
   the strip does (C-15), and "Coming up" with nothing followed says why and offers "Pick your issues" back to the tiles
   (B-3; `tests/first_visit_fixes.py`); **R-255 (Nate 10/12): three pages to choose from for the story's last stage, on the
-  practice copy only** (`?story3=both|order|after`, `story3Opt` in `pub/lessons.js`, `tests/story3_options.py`): no question, both
+  practice copy only** (`?story3=both|order|after`, and the explore set `tap|scenes|notes` where a tap drives the drawing; `story3Opt` in
+  `pub/lessons.js`, `tests/story3_options.py`): no question, both
   sides taught (testimony, the chair's email, what happens with no one asking); today's two doors stay until he picks; **after the first visit each ask is one
   full page before Home** on a new day's first arrival (R-237, `pub/nextask.js`, DESIGN C-16: find my legislators, save
   your profile, new issues, the three moments, bring a friend, keep it on your phone), not a card on Home; every bill link carries its session year when it is not the current one (R-110); the page

@@ -1,6 +1,6 @@
 # After a first action, end on the success and close the loop on Home (X10-2), and clear the way for someone who came to
 # act (X10-4); R-180 wave 1, in the sandbox (Mon 16 Mar 2026, 9:00). Phone 390x844 and laptop 1366x900.
-#   python3 tests/x10_close_loop.py [base]     base defaults to http://localhost:8832/track.html
+#   python3 tests/x10_close_loop.py [base]     base defaults to http://localhost:8832/track.html (today's Home, pinned)
 # Checks:
 #  1. A newcomer on a shared bill sends testimony: the Mahalo's undo says "Stop following <the issue>", right under the
 #     sentence that says it is followed (not under "I plan to go"); Done goes to Home, not into the first visit's story;
@@ -15,7 +15,9 @@
 import os, sys, json
 from playwright.sync_api import sync_playwright
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html'
-PUB = BASE + '?demo=1'
+# Today's Home, which these checks are about: since 11 Oct the calm Home is the layout test's first version and everyone's
+# Home (R-222), and it closes the loop its own way ("You testified" on the issue's row; tests/home_calm.py)
+PUB = BASE + '?demo=1&ab=layout.today'
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'tests', 'out', 'x10_close_loop'); os.makedirs(OUT, exist_ok=True)
 snap = json.load(open(os.path.join(ROOT, 'demo', 'snapshot.json')))
@@ -89,8 +91,11 @@ def run(br, w, h, tag):
     p.wait_for_timeout(2500)
     ok(had and p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story' and 'HB 2121' in txt(p, 'main').replace('\xa0', ' '), f'{tag}: the line opens the story of HB 2121')
     for _ in range(2): p.locator('[data-stlearnnext]').click(); p.wait_for_timeout(1400)
-    calm = txt(p, '.lx-calm')
-    ok('You already sent your note' in calm and 'show you how' not in calm, f'{tag}: its last page does not offer to show them how to do what they did ({calm!r})')
+    # The last page is the road with two doors (R-219, Nate 10/11): the yes door's panel carries what a yes leads to, and
+    # for someone who already sent testimony that is "You already sent your note" (calmWords; the .lx-calm line is gone)
+    p.locator('.lx-doors [data-lx-ch="yes"]').click(); p.wait_for_timeout(1500)
+    calm = txt(p, '#lx-mom')
+    ok('You already sent your note' in calm and 'show you how' not in calm, f'{tag}: its last page does not offer to show them how to do what they did ({" ".join(calm.split())[-90:]!r})')
     p.screenshot(path=f'{OUT}/{tag}-3-story-end.png')
     p.locator('[data-stlearnnext]').click(); p.wait_for_timeout(2200)
     ok(p.evaluate('location.hash') == '#/' and p.locator('.hm-looplearn').count() == 0 and p.locator('.hm-loop').count() == 1, f"{tag}: Done comes back to Home, and the line has gone ({p.evaluate('location.hash')})")
