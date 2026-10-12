@@ -801,7 +801,7 @@ function roadDoorsSVG(E) {
   const yes = sceneFor(D.kind);
   // R-255's 'order' option: the hearing (1) and the vote (2) on one road, numbered in the order a bill meets them.
   const badge = (bx, by, n, d) => `<g transform="translate(${bx} ${by})"><g class="lx-pop" style="--d:${d}ms"><circle r="9" fill="var(--p900)"/>${svgText(0, 4, String(n), { size: 11, fill: 'var(--n0)' })}</g></g>`;
-  const ocx = below ? x + 20 : x - 76, ocy = below ? y - 66 : y + 18, oshift = below ? -40 : 0;
+  const ocx = below ? x + 20 : x - 76, ocy = below ? y - 66 : y + 18, oshift = below ? -40 : 24;   // the notes clear of the calendar on both rows
   const order = story3Opt() === 'order' ? `${sceneFor('chair')}${sceneFor('testimony', oshift)}${badge(ocx - 2, ocy - 2, 1, 700)}${badge(below ? x - 28 + oshift - 18 : x + 28 + 18, ny, 2, 1000)}` : '';
   return `<g class="lx-lay lx-lay3 lx-r3${D.kind === 'testimony' ? ' lx-r3t' : ''}">
     <path d="${ROAD}" fill="none" stroke="var(--n0)" stroke-width="22" stroke-linecap="round"/>
