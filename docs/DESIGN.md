@@ -431,6 +431,9 @@ public-sector services: you complete something and the service just stops.
 
 Browser Back, the header back button and the phone's system gesture all do the same predictable
 thing. A screen with unsaved work registers a leave guard (`S.leaveGuards`). Closing a sheet is Back.
+A page's own Back names the screen it returns to ("← Find", "← Home", the issue's name), as iOS and
+GOV.UK do, and never leads forward into a form: someone whose first page was a friend's link gets
+Find, the browse page, behind it, not the sign-up (R-238).
 
 *Reason.* NN/g heuristic 3. On the public page most people are on a phone using the system back
 gesture, which we do not control and must not surprise.

@@ -141,6 +141,38 @@ export function parseRoute(h = location.hash) {
 export const toHash = r => ({ bill: `#/bill/${r.year ? r.year + '/' : ''}${r.num}${r.open ? '/' + r.open : ''}`, list: `#/list/${r.slug}`, issue: `#/issue/${r.slug}`, category: `#/find/category/${r.key}`, legislator: `#/legislator/${r.id}`, legislators: '#/legislators',
   committee: `#/committee/${r.code}`, committees: '#/committees', help: r.slug ? `#/help/${r.slug}` : '#/help' })[r.name] || '#/';
 
+// Someone on their first visit who arrived on a link (a friend's shared bill, an issue, a legislator) rather than at the
+// front door (R-238, A4-1): their calm place to go is Find, the browse page, never the sign-up. The logo, the bill
+// page's Back on a bill opened first, and the page put behind an old-form link all lead there; the Home tab is still
+// Home (the sign-up, for them). The arrival is the first address this page load opened on, kept by boot().
+const linkNewcomer = () => firstVisit() && !!S.arrivedOn && !FIRST_VISIT.includes(S.arrivedOn) && S.arrivedOn !== 'home';
+const calmPlace = () => linkNewcomer() ? '#/find' : '#/';
+app.calmPlace = calmPlace;
+// The name of a page, for a Back button that says where it goes (R-238, A4-5; iOS names the screen behind, GOV.UK's back
+// link says where). Short, so it fits the bill page's top bar beside the number; an issue's name is cut by CSS.
+app.placeName = h => {
+  const r = parseRoute(h); const sp = n => String(n || '').replace(/^([A-Z]+)(\d+)$/, '$1 $2');
+  switch (r.name) {
+    case 'home': case 'recap': return 'Home';
+    case 'start': case 'learn': case 'next': return 'Welcome';
+    case 'bills': return 'My issues';
+    case 'find': return 'Find';
+    case 'issue': return S.issueBySlug?.get(r.slug)?.name || 'Issue';
+    case 'category': return (S.cats || []).find(c => c.key === r.key)?.name || 'Issues';
+    case 'list': case 'shared': return (S.lists || []).find(l => l.slug === r.slug)?.title || 'List';
+    case 'mylist': return 'Your list';
+    case 'bill': return sp(r.num) || 'Bill';
+    case 'legislators': return 'Legislators';
+    case 'legislator': { const l = (S.legislators || []).find(x => x.id === r.id); return l ? `${l.chamber === 'S' ? 'Sen.' : 'Rep.'} ${l.name}` : 'Legislator'; }
+    case 'committees': return 'Committees';
+    case 'committee': return S.committees?.[r.code]?.name || 'Committee';
+    case 'more': return 'More';
+    case 'help': return 'Help';
+    case 'profile': case 'settings': return 'Your profile';
+    case 'quiz': return 'Quiz';
+    default: return '';
+  }
+};
 // go('#/bills') pushes a history entry (Back works); { replace: true } swaps the current one.
 function go(path, { replace = false, keepScroll = false } = {}) {
   if (!replace && path === (location.hash || '#/')) { window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); return; }
@@ -177,12 +209,14 @@ function header(route, scr) {
   const me = whoAmI();
   const account = me ? `<a class="hbtn hacct" href="#/profile" aria-label="Your profile${me.name ? `, ${esc(me.name)}` : ''}">${avatar(me)}<span>${me.name ? esc(me.first) : 'Profile'}</span></a>`
     : DEMO ? '' : `<a class="hbtn hacct" href="#/signin?by=number">${icon('log-in')}<span>Sign in</span></a>`;
+  // Find has its own search box, so the header's box and its magnifier (phones) stay away there (R-238, A4-4: two
+  // boxes kept in step read as two searches, and two ways into one search is one too many).
+  const box = route.name === 'find' ? '' : `<form class="hsearch" role="search" data-hsearch><label class="sr" for="hq">Search issues and bills</label>${icon('search')}<input id="hq" type="search" placeholder="Search issues and bills: e-cigarettes, school meals" autocomplete="off" enterkeyhint="search"></form>`;
   const right = inStart ? (S.session || DEMO ? '' : `<a class="hbtn" href="#/signin?by=number">Sign in</a>`)
-    : `<form class="hsearch" role="search" data-hsearch><label class="sr" for="hq">Search issues and bills</label>${icon('search')}<input id="hq" type="search" placeholder="Search issues and bills: e-cigarettes, school meals" autocomplete="off" enterkeyhint="search"></form>
-       <a class="hbtn hsearchbtn" href="#/find" aria-label="Search issues and bills" data-focussearch>${icon('search', { size: 24 })}</a>${account}`;
+    : `${box}${route.name === 'find' ? '' : `<a class="hbtn hsearchbtn" href="#/find" aria-label="Search issues and bills" data-focussearch>${icon('search', { size: 24 })}</a>`}${account}`;
   const tab = tabOf(route, scr), nav = inStart ? '' : `<nav class="hnav" aria-label="Main">${tabsNow().map(([t, href, ic, label]) => `<a href="${href}" ${tab === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}</a>`).join('')}</nav>`;
   return `${DEMO ? `<div class="band">${SEASON_OFF ? 'Sandbox · after the 2026 session · nothing is saved' : `<p>Sandbox · <span data-band-day>Mon, Mar 16, 2026</span> · ${testerActive() ? 'the screens you visit are noted for this test' : 'nothing is saved'}${nextDay()}</p>`}</div>` : ''}
-    <header class="hdr"><div class="hdrin"><a class="brand" href="#/" aria-label="Bill Tracker home">${MARK}<span class="bname"><b>Bill Tracker</b><small>Hawaiʻi health bills · from HIPHI</small></span></a>${nav}<span class="hspace"></span>${right}</div></header>`;
+    <header class="hdr"><div class="hdrin"><a class="brand" href="${calmPlace()}" aria-label="Bill Tracker home">${MARK}<span class="bname"><b>Bill Tracker</b><small>Hawaiʻi health bills · from HIPHI</small></span></a>${nav}<span class="hspace"></span>${right}</div></header>`;
 }
 function tabbar(route, scr) {
   // R-147: the More tab carries the person's initials once they have a profile, so having one shows from every screen.
@@ -289,7 +323,7 @@ function wireFrame() {
     const source = q => { if (findMod) return findMod.headerSuggest(q); find.load().then(m => { findMod = m; inp.dispatchEvent(new Event('input', { bubbles: true })); }).catch(e => console.error(e)); return { groups: [] }; };
     const arm = () => suggestLoad().then(({ suggest }) => suggest(inp, { source, open: go, min: 3, wait: 200, when: () => parseRoute().name !== 'find', label: 'Suggested issues and bills',
       busy: 'Looking for bills', failed: 'Search didn’t work just now. Check your connection and try again.',
-      empty: q => `No issues or bills match “${q}”. Try one word, like e-cigarettes, or a bill number.`,
+      empty: q => `No issues, bills or legislators match “${q}”. Try one word, like e-cigarettes, a bill number or a name.`,
       seeAll: (q, hits) => hits ? { href: '#/find?q=' + encodeURIComponent(q), label: `See all results for “${q}”` } : { href: '#/find', label: 'Browse all issues', icon: 'arrow-right' } })).catch(e => console.error(e));
     if (suggestMod) arm(); else inp.addEventListener('focus', arm, { once: true }); }
 }
@@ -300,7 +334,11 @@ const errorCard = () => `<div class="empty"><h2>We couldn’t load the bills</h2
 document.addEventListener('keydown', e => {
   const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
   if (typing || e.metaKey || e.ctrlKey || e.altKey || document.querySelector('dialog[open]')) return;
-  if (e.key === '/') { e.preventDefault(); if (parseRoute().name !== 'find') go('#/find'); setTimeout(() => document.getElementById('q')?.focus(), 30); }
+  // "/" puts the cursor in the search box, as on GitHub and Gmail (R-238, A4-4): the header's where it shows (laptops),
+  // else Find's own (phones, and Find itself, where the header has none).
+  if (e.key === '/') { e.preventDefault(); const hq = document.getElementById('hq');
+    if (hq && hq.offsetParent) { hq.focus(); hq.select(); return; }
+    if (parseRoute().name !== 'find') go('#/find'); setTimeout(() => document.getElementById('q')?.focus(), 30); }
   else if (e.key === '?') { e.preventDefault(); go('#/help'); }
 });
 
@@ -354,13 +392,14 @@ async function boot() {
     const fresh = welcomeBack();
     // Once a day, privately: did this browser come back, and after how long (R-067; visitlog.js, migration 078).
     logDay({ follows: followsAnything(), signedIn: !!S.session, season: sessionInfo().phase === 'in' ? 'in' : 'off' });
-    // Links shared before 9/19 become the new addresses; a first visit that arrives on a shared link gets the
-    // guided start behind it, so Back goes somewhere helpful.
+    // Links shared before 9/19 become the new addresses; a first visit that arrives on a shared link gets Find behind
+    // it, so Back goes somewhere helpful (R-238: it was the sign-up, and Back should never lead forward into a form).
     // Someone who went to add their email in the middle of a list task comes back to it once the emailed link signs
     // them in (R-013): that link opens the plain address, so the place was kept in this browser (pub/mylists.js).
     let place = null, lists = null;
     if (S.user) { lists = await import('./mylists.js'); place = lists.takePlace(); if (place) history.replaceState({ y: 0 }, '', place.hash); }
     const r = parseRoute();
+    S.arrivedOn = r.name;   // where this page load began (linkNewcomer, R-238)
     // A later visit's one ask (R-237): only when they opened the tracker itself (plain Home), never on arrival from an alert,
     // an email or a shared link (those open their own address), and only on a new day's first arrival. pickAsk says which,
     // if any (none with testimony due within a day on what they follow).
@@ -368,7 +407,7 @@ async function boot() {
       try { const k = (await import('./nextask.js')).pickAsk(); if (k) { history.replaceState({ y: 0 }, '', `#/next/${k}`); await ensureScreen(parseRoute()); } } catch (e) { console.error(e); }
     }
     if (r.legacy) {
-      if (firstVisit()) { history.replaceState({ y: 0 }, '', '#/start/1'); history.pushState({ y: 0, arrived: true }, '', toHash(r)); }
+      if (firstVisit()) { history.replaceState({ y: 0 }, '', '#/find'); history.pushState({ y: 0, arrived: true, prev: '#/find' }, '', toHash(r)); }
       else history.replaceState({ y: 0 }, '', toHash(r));
     }
     render();

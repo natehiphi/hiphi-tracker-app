@@ -153,14 +153,30 @@ function keepOutcomes(b, hs) {
 
 // ---------------- Back ----------------
 // Back goes to the previous screen when this visit has one, and Home when the bill is the first page opened (a
-// shared link), so Back never leaves the app. A first visit that arrived on a link has the guided start behind it
-// (history.state.arrived, set by app.js). The entry the page loaded on is marked once, the first time it renders.
-const LOAD_LEN = history.length;
+// shared link), so Back never leaves the app. A first visit that arrived on a link has Find behind it
+// (history.state.arrived, set by app.js). The entry the page loaded on is marked once, the first time it renders: it
+// is the one with no page behind it (app.js's go() writes history.state.prev on every page it opens; since this module
+// loads with the first bill page (R-122), history.length cannot tell the first entry from one opened from Find).
+const isRoot = (st = history.state || {}) => !st.arrived && !st.prev;
 function stampRoot() {
-  if (history.length !== LOAD_LEN || history.state?.arrived || history.state?.blRoot) return;
+  if (!isRoot() || history.state?.blRoot) return;
   try { history.replaceState({ ...(history.state || {}), blRoot: true }, ''); } catch { /* ignore */ }
 }
-const goBack = () => { if (history.state?.arrived || !history.state?.blRoot) history.back(); else app.go('#/'); };
+// A first visit that arrived on this link gets Find, the browse page, not the sign-up (R-238 A4-1; app.calmPlace).
+const goBack = () => { if (history.state?.arrived || !(history.state?.blRoot || isRoot())) history.back(); else app.go(app.calmPlace ? app.calmPlace() : '#/'); };
+// The Back button names the screen it returns to (R-238 A4-5: a follower of thirty should know where Back goes): the
+// page this one was opened from (app.js keeps it in history.state.prev), or Home or Find when the bill was the first
+// page opened. "Back" alone when nothing is known (a page reached by the browser's own history).
+function backName() {
+  const st = history.state || {};
+  if (!app.placeName) return '';
+  const name = isRoot(st) || st.blRoot ? app.placeName(app.calmPlace ? app.calmPlace() : '#/') : st.prev ? app.placeName(st.prev) : '';
+  // A long name (an issue's) on a phone is cut at a whole word, never mid-word ("More local f…" read as broken, the
+  // fresh-eyes review 10/11); the full name is on the page in its "Part of" line.
+  if (wide() || name.length <= 16) return name;
+  const cut = name.slice(0, 15).replace(/\s+\S*$/, '');
+  return (cut.length >= 4 ? cut : name.slice(0, 12)) + '…';
+}
 
 // ---------------- the bill's situation, and the one main action it calls for ----------------
 // kind, with a hearing ahead (the same easiest-first ladder as the action card, so the page and the card never
@@ -530,7 +546,8 @@ function topbar(num, b) {
           <button type="button" class="bl-mi" data-bl-addto="1">${icon('list-plus')}<span>Add to a list</span></button>
           <a class="bl-mi" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" data-bl-close="1" data-ab-go="capitol">${icon('landmark')}<span>Capitol bill page</span>${icon('external-link', { cls: 'bl-ext' })}</a>
         </div></div>` : '';
-  return `<div class="bl-top${w ? ' bl-topw' : ''}"><button type="button" class="btn text bl-back" data-bl-back="1">${icon('arrow-left')}<span>Back</span></button>
+  const to = backName();
+  return `<div class="bl-top${w ? ' bl-topw' : ''}"><button type="button" class="btn text bl-back" data-bl-back="1"${to ? ` aria-label="Back to ${esc(to)}"` : ''}>${icon('arrow-left')}<span>${esc(to || 'Back')}</span></button>
     <p class="bl-num">${esc(sp)}</p>${w ? (share ? `<div class="bl-tools">${share}</div>` : '') : `<div class="bl-tools">${tools}</div>`}</div>`;
 }
 // ---------------- shared links that name an ask (R-124, R-169) ----------------

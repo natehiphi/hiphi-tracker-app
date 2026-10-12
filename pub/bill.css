@@ -13,6 +13,8 @@
   box-shadow: 0 0 0 100vmax var(--n0), 0 1px 0 100vmax var(--n200); clip-path: inset(0 -100vmax -1px); }
 .bl-page .bl-back { flex: none; min-width: 96px; justify-content: flex-start; gap: var(--s8); padding: 0 var(--s12) 0 var(--s8); }
 .bl-page .bl-back:hover { text-decoration: none; background: var(--p50); }
+/* Back names the screen behind (R-238 A4-5); an issue's name is cut so the number beside it keeps its room */
+.bl-page .bl-back span { max-width: min(9em, 26vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bl-page .bl-num { flex: 1 1 auto; min-width: 0; text-align: center; font: 700 var(--t18)/1.2 var(--font-h); color: var(--n900); letter-spacing: -.01em; white-space: nowrap; }
 .bl-page .bl-tools { flex: none; min-width: 96px; display: flex; align-items: center; justify-content: flex-end; }
 .bl-page .bl-tools .iconbtn[aria-busy="true"], .bl-page .bl-stools .btn[aria-busy="true"] { opacity: .6; }

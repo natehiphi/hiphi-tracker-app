@@ -13,7 +13,7 @@
 import { S, D, DEMO, app, esc, icon, nick, posInfo, countOk, issues, issueIcon, groupNames, wiz, sessionInfo, suggestionList, reasonOf, noteShown, dismissed,
   browseCoalition, curate, listBillsFor, followList, toggleWatch, loadBills, saveLocal, saveListFollows, nudge, toast, supa, plain, POS_RANK,
   pickedTopic, findBill, stopOf, dayWord, issueBills, issuesIn, issueFollowed, issuePos, setFollows, unfollowIssue, ensureRecapPool,
-  recomputeWatch, plainStatus, spaced, billPath, issuesOf, openActions, hearingsOf } from './core.js';
+  recomputeWatch, plainStatus, spaced, billPath, issuesOf, openActions, hearingsOf, legTitle, CHAMBER_NAME } from './core.js';
 import { btn, row, skeleton, notice, inlineErr, chip, posChip } from './ui.js';
 import { actionCard, wireActions, shareIssue } from './actions.js';
 import { calendarUrl } from './core.js';   // the calendar feed (R-125)
@@ -75,6 +75,22 @@ function score(b, P) {
   if (!hits) return null;
   return { hits, pts: pts + (posInfo(b) ? 20 : b.hiphi_follows ? 5 : 0) + (b.hiphi_summary ? 3 : 0) };
 }
+// People and committees by name (R-238, A4-3: "Kim" found governor's nominees and "TRS" nothing; legislators and committees
+// were reached only through More). Every word must begin a word of the legislator's name or places, or of the
+// committee's name or code. A bill number is never a name. Committees first: there are 33, and a committee's name
+// ("Health") is the word a hearing notice uses. The rows link to pages that already exist.
+const nameWords = q => plain(q).split(/[^a-z0-9]+/).filter(w => w.length > 1 && !STOP.has(w));
+const hasWord = (t, w) => t.split(/[^a-z0-9]+/).some(x => x.startsWith(w));
+export function peopleMatches(q, n = 6) {
+  const words = nameWords(q); if (!words.length || parse(q).num) return [];
+  const cms = Object.values(S.committees || {}).filter(c => words.every(w => hasWord(plain(`${c.name} ${c.code}`), w)))
+    .map(c => ({ href: `#/committee/${c.code}`, title: `${c.name} (${c.code})`, sub: `${CHAMBER_NAME[c.chamber] || ''} committee`.trim(), icon: 'landmark' }));
+  const legs = (S.legislators || []).filter(l => l.active !== false && words.every(w => hasWord(plain(`${l.name} ${l.places || ''}`), w)))
+    .map(l => ({ href: `#/legislator/${l.id}`, title: `${legTitle(l)} ${l.name}`, sub: [`${CHAMBER_NAME[l.chamber] || ''} District ${l.district}`.trim(), l.places].filter(Boolean).join(' · '), icon: 'user' }));
+  return [...cms, ...legs].slice(0, n);
+}
+const PEOPLE_LABEL = 'People and committees';
+const peopleRow = p => row({ leadHtml: `<span class="lead">${icon(p.icon)}</span>`, title: esc(p.title), sub: esc(p.sub), href: p.href });
 // Every word must match; if nothing does, fall back to bills that match the most words.
 function rank(cands, P) {
   if (P.words && !P.words.length) return [];
@@ -215,7 +231,7 @@ function findPage(q) {
       <h1 class="fd-h1 hero"><label for="q">Find issues and bills</label></h1>
       <div class="searchbox fd-box${busy ? ' busy' : ''}">${icon('search')}<span class="fd-spin" aria-hidden="true">${icon('loader-circle')}</span>
         <input id="q" class="input" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
-          placeholder="Try e-cigarettes, school meals or HB 1563" value="${esc(q)}">
+          placeholder="Try e-cigarettes, HB 1563 or a name" value="${esc(q)}">
         <button type="button" class="iconbtn clear fd-clear" aria-label="Clear search"${q ? '' : ' hidden'}>${icon('x')}</button></div>
     </form>
     <p class="sr" role="status" id="fd-status"></p>
@@ -231,10 +247,12 @@ function resultsHTML(q) {
 }
 function resultsBody(q, res) {
   const iss = issueMatches(q), issSec = iss.length ? `<section aria-labelledby="fd-qi-h">${sechead('fd-qi-h', 'Issues', plural(iss.length, 'issue'))}${issueList(iss)}</section>` : '';
-  if (!res.length) return `${issSec}${iss.length ? '' : emptyBox({ title: `No bills match “${esc(q)}”`, text: 'Try a bill number like HB 1563, or a word like e-cigarettes.' })}
+  // A legislator or a committee whose name was typed (R-238, A4-3), before the bills: a name is what they came for.
+  const who = peopleMatches(q), whoSec = who.length ? `<section aria-labelledby="fd-who-h">${sechead('fd-who-h', PEOPLE_LABEL)}<div class="rows fd-rows fd-who">${who.map(peopleRow).join('')}</div></section>` : '';
+  if (!res.length) return `${issSec}${whoSec}${iss.length || who.length ? '' : emptyBox({ title: `No bills match “${esc(q)}”`, text: 'Try a bill number like HB 1563, a word like e-cigarettes, or a legislator’s name.' })}
     <section aria-labelledby="fd-or-h">${sechead('fd-or-h', 'Or browse issues')}${issueTiles()}</section>`;
   const key = parse(q).key, mv = res.filter(moving), law = res.filter(becameLaw), gone = res.filter(stopped);
-  return `${issSec}${mv.length ? `<section aria-labelledby="fd-mv-h">${sechead('fd-mv-h', 'Moving now', plural(mv.length, 'bill'))}${capped('q:' + key, mv, { pos: true }, 12)}</section>`
+  return `${issSec}${whoSec}${mv.length ? `<section aria-labelledby="fd-mv-h">${sechead('fd-mv-h', 'Moving now', plural(mv.length, 'bill'))}${capped('q:' + key, mv, { pos: true }, 12)}</section>`
       : `<p class="fd-none">${offSeason() ? `The ${sessionInfo().recapYear} session is over. Here’s where these bills ended up.` : `Nothing that matches “${esc(q)}” is moving right now.`}</p>`}
     ${law.length ? `<section aria-labelledby="fd-law-h">${sechead('fd-law-h', 'Became law', plural(law.length, 'bill'))}${billList(law, { pos: true })}</section>` : ''}
     ${gone.length ? fold('fd-q-' + key, `Did not advance (${gone.length})`, billList(gone, { why: true }), { open: !mv.length && !law.length }) : ''}`;
@@ -445,11 +463,13 @@ export function headerSuggest(q) {
       const visible = lone.filter(b => !hiphis(b) || shows(b, P));
       lone = visible.filter(hiphis); others = visible.filter(b => !hiphis(b));
     }
-    // HIPHI's bills and the others each keep up to two rows; the issues take what is left, then bills fill the rest.
-    const top = [...cats, ...iss.map(issueRow)].slice(0, SUG_ROWS - Math.min(lone.length, 2) - Math.min(others.length, 2));
-    const nb = Math.min(lone.length, SUG_ROWS - top.length - Math.min(others.length, 2));
-    return [{ label: 'Issues', items: top }, { label: P.num || !others.length ? 'Bills' : 'HIPHI’s bills', items: lone.slice(0, nb).map(sugBill) },
-      { label: nb || top.length ? 'Other bills' : 'Bills', items: others.slice(0, SUG_ROWS - top.length - nb).map(sugBill) }];
+    // HIPHI's bills and the others each keep up to two rows, and so do people and committees (R-238, A4-3: a name typed
+    // is a person, so they come right after the issues); the issues take what is left, then bills fill the rest.
+    const who = peopleMatches(q, 2);
+    const top = [...cats, ...iss.map(issueRow)].slice(0, SUG_ROWS - who.length - Math.min(lone.length, 2) - Math.min(others.length, 2));
+    const nb = Math.min(lone.length, SUG_ROWS - who.length - top.length - Math.min(others.length, 2));
+    return [{ label: 'Issues', items: top }, { label: PEOPLE_LABEL, items: who }, { label: P.num || !others.length ? 'Bills' : 'HIPHI’s bills', items: lone.slice(0, nb).map(sugBill) },
+      { label: nb || top.length ? 'Other bills' : 'Bills', items: others.slice(0, SUG_ROWS - who.length - top.length - nb).map(sugBill) }];
   };
   if (P.words && !P.words.length) return { groups: groups([]) };
   if (SUG.has(P.key)) return { groups: groups(SUG.get(P.key)) };
