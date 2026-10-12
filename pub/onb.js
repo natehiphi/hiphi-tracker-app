@@ -15,7 +15,7 @@ import { S, DEMO, app, esc, icon, blurb, nick, spaced, sessionInfo, wiz, wizSet,
 import { shell, topRow, artFor, bar1, bar2, sayRow, sureWide, skel, loadErr, isOff, planOn, goStep, finish, track, pickedIssues, issueInfo, ranker, byScore, mailSent, welcome, flash, clearFlash, plural, andList, shortDay, shown, poolBills, busy, stepOf } from './start.js';
 import { btn, chip, posChip } from './ui.js';
 import { CAPITOL, VOICES, flower } from './art.js';
-import { afterMove, burst, celebrate, later, reduced, petals } from './fx.js';
+import { afterMove, bloom, burst, later, reduced, petals, swap } from './fx.js';
 import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep, alertStatus, alertRowHTML, wireAlertRow } from './alerts.js';
 import * as P2 from './onb-p2.js';
 import * as P3 from './onb-p3.js';
@@ -286,19 +286,32 @@ const acted = () => S.obActed || wiz().obActed || null;
 S.obJoined ??= null;
 const boxFirst = () => { try { return matchMedia('(max-width: 600px)').matches; } catch { return false; } };
 const short = () => { try { return matchMedia('(max-height: 740px)').matches; } catch { return false; } };
+// What was given, with its small print and a way to change it: under the "Mahalo!" page, and on Back.
+function joinedCard() {
+  const t = textSaved(), sent = mailSent(), follows = followedIssues();
+  const r = S.obJoined || (t ? { kind: 'phone', phone: t.phone, confirmed: !!t.confirmed } : sent ? { kind: 'email', email: sent } : { kind: 'account' });
+  const D = joinDone(r, follows, alertStatus());
+  return `<section class="card ob-set" aria-labelledby="ob-set-h"><span class="ob-setic${alertStatus().key === 'on' ? '' : ' wait'}" aria-hidden="true">${icon(r.kind === 'email' ? 'mail-check' : r.kind === 'phone' ? 'message-square' : 'bell')}</span>
+        <div><p class="strong" id="ob-set-h">${r.kind === 'phone' ? `Alerts to ${esc(fmtPhone(r.phone))}` : r.kind === 'email' ? `A link to ${esc(r.email)}` : esc(alertStatus().title)}</p>
+        ${D.tip ? `<p class="small">${esc(D.tip)}</p>` : ''}<p class="small muted">${esc(OFTEN)}.${DEMO ? ' This is the practice copy: nothing was sent or saved.' : ''}</p>
+        ${r.kind !== 'account' ? `<div class="st-formbtns st-alchange">${changeBtn('data-stalchange', r.kind === 'phone' ? 'Use a different number' : 'Use a different email')}</div>` : ''}</div></section>`;
+}
 function stepJoin(step) {
   const t = textSaved(), sent = mailSent(), given = !S.alertEdit && (t || sent || S.session);
   const arm = armOf('join'), follows = followedIssues(), si = sessionInfo();
   const W = joinWords({ arm, acted: acted(), follows, off: isOff(), open: si.nextOpen });
+  // The "Mahalo!" page (R-140, Nate 11 Oct: the 1.5 s moment after the number was "too quick"; a page that waits for Next).
+  if (!S.alertEdit && S.obThanks) {
+    const M = S.obThanks, card = given ? joinedCard() : '';
+    const fresh = !S.stThanksSeen; S.stThanksSeen = true;   // the flower opens once, as the page arrives (start.css)
+    return shell(`st4 st-alertspage ob-join ob-joined st-thanks${fresh ? ' st-thanksnew' : ''}`, `${topRow('join', step)}${bloom()}
+      <h1 class="hero st-thtitle" id="st-h" tabindex="-1">${esc(M.title)}</h1><p class="st-thsub">${esc(M.sub)}</p>${M.small ? `<p class="lede">${esc(M.small)}</p>` : ''}`, card);
+  }
   if (given) {
     const r = S.obJoined || (t ? { kind: 'phone', phone: t.phone, confirmed: !!t.confirmed } : sent ? { kind: 'email', email: sent } : { kind: 'account' });
     const D = joinDone(r, follows, alertStatus());
     return shell('st4 st-alertspage ob-join ob-joined', `${topRow('join', step)}<div class="st-art ob-joinart">${VOICES}</div>
-      <h1 class="hero" id="st-h">${esc(D.h)}</h1><p class="lede">${esc(D.lede)}</p>`,
-      `<section class="card ob-set" aria-labelledby="ob-set-h"><span class="ob-setic${alertStatus().key === 'on' ? '' : ' wait'}" aria-hidden="true">${icon(r.kind === 'email' ? 'mail-check' : r.kind === 'phone' ? 'message-square' : 'bell')}</span>
-        <div><p class="strong" id="ob-set-h">${r.kind === 'phone' ? `Alerts to ${esc(fmtPhone(r.phone))}` : r.kind === 'email' ? `A link to ${esc(r.email)}` : esc(alertStatus().title)}</p>
-        ${D.tip ? `<p class="small">${esc(D.tip)}</p>` : ''}<p class="small muted">${esc(OFTEN)}.${DEMO ? ' This is the practice copy: nothing was sent or saved.' : ''}</p>
-        ${r.kind !== 'account' ? `<div class="st-formbtns st-alchange">${changeBtn('data-stalchange', r.kind === 'phone' ? 'Use a different number' : 'Use a different email')}</div>` : ''}</div></section>`);
+      <h1 class="hero" id="st-h">${esc(D.h)}</h1><p class="lede">${esc(D.lede)}</p>`, joinedCard());
   }
   const email = S.alertMode === 'email', topic = pickedIssues().map(c => c.key)[0] || '', ex = sampleText({ follows, email, topic });
   // How often rides with the example (the review: said once, and the box nearer the top on a phone, A-1, A-14).
@@ -325,11 +338,12 @@ function leaveJoin(step, r = null) {
   S.obMoment = true;
   const n = followedIssues().length, D = r && r.kind !== 'given' ? joinDone(r, followedIssues(), alertStatus()) : null;
   if (!n && !D) { go(); return; }
-  // The next screen first, then the moment over it once it has slid in (R-140, fix 10/10; start-rest.js mahalo): the button
-  // under the moment is the next screen's own, not this sign-up's live "Text me a code".
-  const words = { title: 'Mahalo!', sub: n ? `You’re following ${plural(n, 'issue')}.` : 'You’re in the loop.',
-    small: D ? `${D.lede}${D.tip ? ` ${D.tip}` : ''}` : r ? 'We’ll tell you when it counts.' : 'Turn on alerts any time from More.', go: 'Next: You’re All Set' };
-  afterMove(go(), () => celebrate(words));
+  // The sign-up turns into the "Mahalo!" page, which stays until Next (R-140, Nate 11 Oct: the moment over the next
+  // screen left in 1.5 s, "too quick"). It slides in like a new screen; its Next names what follows (C-6).
+  S.obThanks = { title: 'Mahalo!', sub: n ? `You’re following ${plural(n, 'issue')}.` : 'You’re in the loop.',
+    small: D ? D.lede : r ? 'We’ll tell you when it counts.' : 'Turn on alerts any time from More.' };
+  S.stThanksSeen = false;
+  afterMove(swap(() => { app.render(); window.scrollTo(0, 0); }, 'fwd'), () => document.getElementById('st-h')?.focus({ preventScroll: true }));
 }
 function wireJoin({ step, fresh, $ }) {
   // The visit's one alerts ask, so Home will not ask again after "Not now" (C-3; today's step does the same in start-rest.js; D1-6).
@@ -347,9 +361,10 @@ function wireJoin({ step, fresh, $ }) {
   // The frame's Skip just moves on; here "Not now" first plays the follow's moment (assigned after the frame's, so it
   // replaces it).
   const sk = $('[data-stskip]'); if (sk) sk.onclick = () => { track('join', 'skip'); leaveJoin(step); };
-  const nb = $('[data-obon]'); if (nb) nb.onclick = () => leaveJoin(step, S.obJoined || { kind: 'given' });
+  const nb = $('[data-obon]'); if (nb) nb.onclick = () => S.obThanks && !S.alertEdit ? goStep(step, step + 1) : leaveJoin(step, S.obJoined || { kind: 'given' });
 }
 function barJoin() {
+  if (!S.alertEdit && S.obThanks) return bar1('Next: You’re All Set', 'arrow-right', { 'data-obon': '1' });
   if (!S.alertEdit && (textSaved() || mailSent() || S.session)) return bar1('Next', 'arrow-right', { 'data-obon': '1' });
   const b = alertButton('st-a');
   return `<div class="st-bar"><div class="st-btns ob-joinbtns">${btn('Not now', { kind: 'secondary', attrs: { 'data-stskip': '1' } })}${btn(b.label, { kind: 'primary', icon: b.icon, attrs: { type: 'submit', form: 'st-aform', id: 'st-send' } })}</div></div>`;

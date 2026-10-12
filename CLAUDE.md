@@ -321,6 +321,10 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
      "You're following ..." over it (the follow's toast comes after the sheet closes); after a letter it sits right under
      the "Mahalo", above "What happens next". No second ask on Home after a skip (Nate). The old "Get alerts" ask is the
      test `save`'s second version, off (backend 148; `?ab=save.alerts` shows it); `tests/profile_ask.py` checks both.
+     Once the first visit's ask is answered or skipped, that screen turns into the **"Mahalo!" page** (`stepThanks` in
+     `pub/start-rest.js`; the plans' sign-up the same in `pub/onb.js`): same address, so Back finds it, the flower opens
+     once, and it waits for **"Next: How a Bill Becomes Law"**. It is a page, not the 1.5 s moment (R-140, Nate 11 Oct:
+     "too quick... a permanent page that a user hits next on"); the first action and a law keep the moment (fx.js celebrate).
   3. Progress is the person's own. Community numbers appear only inside one bill or hearing, from 10 people.
 - Parked at Nate's request: exact YouTube hearing links (needs a YouTube Data API key in Settings).
 
@@ -512,6 +516,7 @@ python3 tests/staff_flows.py        # Staff v2: 181 flow checks + data-layer par
 python3 tests/staff_r152c.py        # R-152 batch C in the sandbox: one countdown rounded down everywhere, the testimony deadline before a draft, who gets a draft, the phone's Public tab order, the ask's date against the hearing, "This week's asks" folded and on a phone, the next hearing first, bill names not cut; 33 checks. Runs in CI
 python3 tests/staff_issue_note.py   # a quiet note on an issue's staff page when one of its bills goes against the issue's stance (R-095): who, what it says, quiet, the picker, Mixed, no note when all agree; 23 checks. Runs in CI
 python3 tests/staff_x10.py   # R-180 wave 3: a new hearing is impossible to miss, the rallying path, saves that say what they did (X10-3/5/6); 39 checks. Runs in CI
+python3 tests/r229_alerts_next.py   # right after a number is saved on #/alerts, one way on ("Pick your issues", the guided picker, or "Go to Home") leads and Change number / Stop texts are a quiet row; a later visit from More is unchanged (R-229, B-3); 14 checks
 python3 tests/stop_number.py   # a stop asked for by number, from any browser (D1-3): the fold, refusals, the sandbox's answer, the device's own number; 7 checks. Runs in CI
 python3 tests/plans_join.py   # the plans' sign-up: small print above the button at 375x667 and 390x844, Plan 1's calendar card (no reminder), Not now (D1-6, D1-1); 15 checks. Runs in CI
 python3 tests/staff_privacy.py   # Session setup > Privacy and keeping: forget a person (refusals, asks first, counts), the keeping table and the switch (J2-1, J2-2); 31 checks. Runs in CI
@@ -558,7 +563,7 @@ python3 tests/versions.py           # pick which versions of each A/B test are l
 python3 tests/testers.py            # testers' paths from tester-sheet links, what is not recorded, the tester sheet's "What testers did" (R-193); 31 checks
 python3 tests/room.py               # Staff v2's tester sheet (R-185): groups, pickers, the plan rules, QR codes, the printed sheet, live links, Undo, kept; then each link opened as a tester; 108 checks
 python3 tests/plans.py              # the five first-visit plans (R-164), each walked to Home on a phone, a laptop and between sessions, the sign-up and the next day's full-page ask; 86 checks
-python3 tests/next_asks.py          # a later visit's one full-page ask (R-237): when it opens and when not, each page, Done and Not now, the three-day rest; 60 checks
+python3 tests/next_asks.py          # a later visit's one full-page ask (R-237): when it opens and when not, each page, Done and Not now, the rest (a week, three weeks, three months), the count's payload; 70 checks
 python3 tests/fv_type.py            # the first visit is large and short (R-174, DESIGN C-14): every version walked on a phone, nothing under 14px, 14px only for labels, each lead sentence 30 words or fewer; 30 checks
 python3 tests/drafts.py             # what each draft changed (R-060): the public bill page and Staff v2's Public tab, edit and Undo; 20 checks
 node tests/issue_suggest_test.mjs   # Sort new bills' suggested issue (R-088 part 2): exact checks and a replay on the practice copy's 2026 bills; 11 checks

@@ -1,9 +1,10 @@
 # The alerts ask, phone first, right after the issues (R-146, Nate 10/4).
 # python3 tests/alerts_ask.py [base_url]   (sandbox; a phone at 390x844, an iPhone SE at 375x667 and a laptop at 1440x900)
-# Checks: the first visit goes topics -> issues -> "Get alerts on your N issues" -> the "Mahalo!" -> the story; the box is
-# a mobile number first with the consent words (frequency, rates, STOP, HELP) and "Prefer email?" under it, and fits the
-# first screen of an iPhone SE; errors show only on Text me; a number given plays the "Mahalo!" naming it, then the story;
-# Back shows "You're set" with a way to change it and no second "Mahalo!"; "Coming up on your issues" no longer asks; the
+# Checks: the first visit goes topics -> issues -> "Get alerts on your N issues" -> the "Mahalo!" page -> the story; the box
+# is a mobile number first with the consent words (frequency, rates, STOP, HELP) and "Prefer email?" under it, and fits the
+# first screen of an iPhone SE; errors show only on Text me; a number given turns the screen into the "Mahalo!" page naming
+# it, which waits for Next (R-140, Nate 11 Oct: a page that waits for Next), then the story; Back finds the same page with
+# a way to change the number and no replayed moment; "Coming up on your issues" no longer asks; the
 # finale says "Almost set" (the number is not confirmed yet: D1-4, R-180; tests/d1_status.py checks the rule everywhere).
 # Email: the swap, "Email me", the "Mahalo!" says where the link went, the finale's row.
 # Skip: the "Mahalo!" with the bills line, the quiet line on Coming up. Between sessions: the January line. A visit from
@@ -31,6 +32,9 @@ def text(p, sel='main'):
 def shot(p, name): p.screenshot(path=os.path.join(OUT, name + '.png'))
 def moment(p):
     return p.evaluate("(() => { const m = document.getElementById('fx-moment'); return m && !m.hidden ? m.innerText : ''; })()")
+# The "Mahalo!" page (R-140, Nate 11 Oct): the alerts step drawn again in place, its heading, lines and the card of what was given.
+def thanks(p):
+    return p.evaluate("[...document.querySelectorAll('.st-thanks #st-h, .st-thanks .st-thsub, .st-thanks .lede, .st-thanks .st-alertdone')].map(e => e.innerText).join('\\n')")
 
 # From a restart to the alerts screen (topic Food, HIPHI's ticked issues followed).
 def to_alerts(p, extra=''):
@@ -73,22 +77,26 @@ with sync_playwright() as pw:
     ok(text(p, '#st-a-err').strip() == '', 'typing clears the message (C-9)')
     p.click('#st-send'); p.wait_for_timeout(300)
     ok('10-digit' in text(p, '#st-a-err') and p.get_attribute('#st-a-phone', 'aria-invalid') == 'true', 'a short number: the 10-digit message, marked invalid')
-    p.fill('#st-a-phone', '808.555.0123'); p.click('#st-send'); p.wait_for_selector('#fx-mgo', timeout=5000); p.wait_for_timeout(300)   # up, and read before it leaves on its own (R-140)
-    m = moment(p)
-    ok('Mahalo!' in m and 'following' in m and 'We’ll text (808) 555-0123 to confirm it’s your number' in m and 'YES' not in m, f'the "Mahalo!" celebrates both, and says a text will confirm the number: {m[:140]!r}')
-    ok('Next: How a Bill Becomes Law' in m, 'its button names what comes next (C-6), not "Continue", in title case (R-186)')
+    p.fill('#st-a-phone', '808.555.0123'); p.click('#st-send'); p.wait_for_selector('.st-thanks #st-h', timeout=5000); p.wait_for_timeout(300)
+    m = thanks(p)
+    ok(p.inner_text('#st-h') == 'Mahalo!' and 'following' in m and 'We’ll text (808) 555-0123 to confirm it’s your number' in m and 'YES' not in m and p.url.endswith('#/start/3') and moment(p) == '',
+       f'the "Mahalo!" page celebrates both, in place of the box, and says a text will confirm the number: {m[:140]!r}')
+    ok(p.inner_text('.actionbar [data-stnext]').strip() == 'Next: How a Bill Becomes Law', 'its button names what comes next (C-6), not "Continue", in title case (R-186)')
     shot(p, '1b_mahalo')
     saved = p.evaluate("localStorage.getItem('hiphi_text')")
     ok(saved and '8085550123' in saved, 'this browser keeps the number (the sandbox copy)')
-    p.click('#fx-mgo'); p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(600)
-    ok(p.url.endswith('#/start/4'), 'Continue goes on to the story')
+    p.wait_for_timeout(3000)
+    ok(p.locator('.st-thanks #st-h').count() == 1 and p.url.endswith('#/start/3'), 'the page is still there after 3 s: it waits for Next (R-140, Nate 11 Oct: a page that waits for Next)')
+    p.click('.actionbar [data-stnext]'); p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(600)
+    ok(p.url.endswith('#/start/4'), 'Next goes on to the story')
     p.click('[data-stback]'); p.wait_for_timeout(1200)
     t = text(p)
-    ok(p.url.endswith('#/start/3') and 'We’ll text (808) 555-0123 to confirm it’s your number.' in t and 'Use a different number' in t and 'You’re almost set' in p.inner_text('#st-h'), 'Back: "almost set" (the confirming text is still to come), with a way to change it')
+    ok(p.url.endswith('#/start/3') and 'We’ll text (808) 555-0123 to confirm it’s your number.' in t and 'Use a different number' in t and p.inner_text('#st-h') == 'Mahalo!' and p.locator('.st-thanksnew').count() == 0,
+       'Back: the same "Mahalo!" page (the confirming text is still to come), with a way to change it, the flower not replayed')
     ok(p.locator('.st-bar button', has_text='Next').count() == 1, 'Back: the bar says Next')
     shot(p, '1c_back_set')
     p.click('[data-stnext]'); p.wait_for_timeout(900)
-    ok(moment(p) == '' and p.url.endswith('#/start/4'), 'Next from there: the story again, no second "Mahalo!"')
+    ok(moment(p) == '' and p.url.endswith('#/start/4'), 'Next from there: the story again, no moment over it')
     story_to_soon(p)
     ok(p.locator('#st-a-phone, #st-eform, #st-email').count() == 0 and 'Want alerts' not in text(p), 'Coming up asks nothing (the number was given)')
     shot(p, '1d_soon')
@@ -108,10 +116,10 @@ with sync_playwright() as pw:
     shot(p, '2_alerts_email')
     p.fill('#st-a-email', 'leilani@example'); p.click('#st-send'); p.wait_for_timeout(300)
     ok('name@example.com' in text(p, '#st-a-err'), 'an unfinished email says so')
-    p.fill('#st-a-email', 'leilani@example.com'); p.click('#st-send'); p.wait_for_selector('#fx-mgo', timeout=5000); p.wait_for_timeout(400)
-    m = moment(p)
-    ok('We sent a link to leilani@example.com' in m and 'when you finish here' in m, f'the "Mahalo!" says where the link went and to finish first (C-6): {m[:140]!r}')
-    p.click('#fx-mgo'); story_to_soon(p)
+    p.fill('#st-a-email', 'leilani@example.com'); p.click('#st-send'); p.wait_for_selector('.st-thanks #st-h', timeout=5000); p.wait_for_timeout(400)
+    m = thanks(p)
+    ok('Mahalo!' in m and 'Link sent to leilani@example.com' in m and 'Tap it when you finish here' in m and 'Use a different email' in m, f'the "Mahalo!" page says where the link went and to finish first (C-6): {m[:160]!r}')
+    p.click('.actionbar [data-stnext]'); story_to_soon(p)
     p.click('[data-stnext]'); p.wait_for_selector('.st-did', timeout=8000); p.wait_for_timeout(500)
     ok('Alerts almost set' in text(p, '.st-did') and 'Tap the link we sent to leilani@example.com to turn on alerts.' in text(p, '.st-did'), 'the finale: "Almost set", tap the link (it said "Reminders: one tap to go")')
     c.close()
@@ -119,10 +127,10 @@ with sync_playwright() as pw:
     # ---- 3. Skip ----
     c, p = ctx(b)
     to_alerts(p, '&fv=full&end=today')
-    p.click('[data-stskip]'); p.wait_for_selector('#fx-mgo', timeout=5000); p.wait_for_timeout(400)
-    m = moment(p)
-    ok('Mahalo!' in m and 'text' not in m.lower() and 'bill' in m, f'Skip: the "Mahalo!" for the issues, with the bills line: {m[:120]!r}')
-    p.click('#fx-mgo'); story_to_soon(p)
+    p.click('[data-stskip]'); p.wait_for_selector('.st-thanks #st-h', timeout=5000); p.wait_for_timeout(400)
+    m = thanks(p)
+    ok('Mahalo!' in m and 'text' not in m.lower() and 'bill' in m and p.locator('.st-alertdone').count() == 0, f'Skip: the "Mahalo!" page for the issues, with the bills line and no card: {m[:120]!r}')
+    p.click('.actionbar [data-stnext]'); story_to_soon(p)
     ok('Want alerts by text or email?' in text(p) and p.locator('#st-a-phone').count() == 0, 'Coming up: one quiet line, no second ask')
     p.click('[data-stnext]'); p.wait_for_selector('.st-did', timeout=8000); p.wait_for_timeout(400)
     ok('Alerts are off' in text(p, '.st-did') and p.locator('.st-did [data-alsheet]', has_text='Turn on alerts').count() == 1, 'the finale: "Alerts are off", with its own "Turn on alerts" (X10-4)')
@@ -155,7 +163,7 @@ with sync_playwright() as pw:
     p.click('#fx-mgo'); p.wait_for_timeout(2000)
     ok(p.locator('.st-alertspage').count() == 1, f'from a shared bill: the alerts screen comes right after "Follow this issue?" ({p.url[-10:]})')
     p.fill('#st-a-phone', '8085550155'); p.click('#st-send'); p.wait_for_timeout(1500)
-    ok(moment(p) == '' and p.locator('.lx-count, .st-lessonpage, .st-voicepage').count() >= 1, f'from a shared bill: no second "Mahalo!", straight on to the story ({p.url[-10:]})')
+    ok(moment(p) == '' and p.locator('.st-thanks').count() == 0 and p.locator('.lx-count, .st-lessonpage, .st-voicepage').count() >= 1, f'from a shared bill: no second "Mahalo!", straight on to the story ({p.url[-10:]})')
     c.close()
 
     # ---- 6. More > Get alerts ----

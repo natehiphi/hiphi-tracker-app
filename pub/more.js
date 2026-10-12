@@ -24,7 +24,7 @@
 // deleting the account asks on the page instead of a browser pop-up, and every error is a sentence.
 import { S, DEMO, app, esc, icon, ICONS, toast, friendly, yay, supa, fetchAddrSuggest, looksLikeAddress, legTitle,
   CONSENT_KEY, LOCAL_KEY, DONE_KEY, DONE_AT_KEY, LISTS_KEY, STANCE_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, recomputeWatch, fmtDate,
-  sendEmailLink, validEmail, textSaved } from './core.js';
+  sendEmailLink, validEmail, textSaved, followsAnything } from './core.js';
 import { btn, row, notice, inlineErr, skeleton } from './ui.js';
 import { MARK } from './art.js';
 import { islandKey } from './people.js';
@@ -556,7 +556,14 @@ function wireSignin() {
 // ---------------- Get alerts (R-146) ----------------
 // The phone-first box on its own page, for More's alerts row and Home's "Get hearing alerts" between sessions. Email goes
 // to the sign-in page ("Prefer email?"), which keeps its own consent box and the returning person's way in.
-const A = { edit: false };
+const A = { edit: false, justOn: false };
+// R-229 (Nate 10/10): right after a number is saved, the page offered only Change number and Stop texts, the two ways to undo
+// what was just done (DESIGN B-3, a dead end). For that moment it leads with one way on, and the undo pair drops to a quiet
+// row; a later visit from More keeps them as they were. Leaving the page ends the moment.
+addEventListener('hashchange', () => { if (!/^#\/alerts\b/.test(location.hash)) A.justOn = false; });
+// The texts are about the person's issues, so someone who follows none is sent to the guided picker (the same place as Home's
+// "Pick your issues"), and the page says why; everyone else goes Home.
+const nextStep = () => followsAnything() ? { label: 'Go to Home', icon: 'house', href: '#/' } : { label: 'Pick your issues', icon: 'arrow-right', href: '#/start/1' };
 // Stop texts to any number, from any browser (D1-3): for someone without the browser they signed up on, or a number that is not this
 // device's. It is small and quiet, under the alerts box, and it is also what the text terms page points to.
 const stopNumberBox = () => `<details class="mr-stopnum"><summary>${icon('circle-x')}<span>Stop texts to a number</span>${icon('chevron-down', { cls: 'mr-sn-chev' })}</summary>
@@ -564,6 +571,8 @@ const stopNumberBox = () => `<details class="mr-stopnum"><summary>${icon('circle
     <div class="field"><label for="mr-sn-phone">Mobile number</label><input id="mr-sn-phone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="(808) 555-0123" maxlength="20"></div>
     <div id="mr-sn-msg" role="status" aria-live="polite"></div>
     <div class="mr-send">${submitBtn('Stop texts to this number', 'circle-x', 'mr-sn-go')}</div></form></details>`;
+// The carrier's words (C-3) stay on the page; in the moment after saving they sit under the two buttons they explain (R-229).
+const stopLine = () => `<p class="small">Reply STOP to any text to end them. Stopping ends texts to this number from every browser.${DEMO ? ' This is the sandbox, so the number was not saved.' : ''}</p>`;
 function alertsView() {
   const t = textSaved();
   // "On" only once the number is confirmed (D1-4, the one rule in alerts.js alertStatus): a number not yet confirmed is
@@ -575,11 +584,15 @@ function alertsView() {
     <section class="card mr-panel mr-alon" aria-labelledby="mr-al-t">
       ${t.confirmed ? `<p>We’ll text ${ph} when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one text a day.</p>`
         : `<p class="strong">${confirmWords(ph)}</p><p>Then we’ll text you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one text a day.</p>`}
-      <p class="small">Reply STOP to any text to end them. Stopping ends texts to this number from every browser.${DEMO ? ' This is the sandbox, so the number was not saved.' : ''}</p>
-      <div class="btnrow">${btn('Change number', { kind: 'secondary', sm: true, icon: 'pencil', attrs: { 'data-mr-alchange': '' } })}${btn('Stop texts', { kind: 'text', sm: true, attrs: { 'data-mr-alstop': '' } })}</div>
+      ${A.justOn && !followsAnything() ? '<p class="strong">You don’t follow any issues yet, so there is nothing to text you about. Pick a few and we’ll text you when one of their bills gets a hearing.</p>' : ''}
+      ${A.justOn ? '' : stopLine()}
+      ${A.justOn ? `<div class="btnrow">${btn(nextStep().label, { icon: nextStep().icon, href: nextStep().href, attrs: { 'data-mr-alnext': '' } })}</div>
+      <div class="btnrow">${btn('Change number', { kind: 'text', sm: true, attrs: { 'data-mr-alchange': '' } })}${btn('Stop texts', { kind: 'text', sm: true, attrs: { 'data-mr-alstop': '' } })}</div>
+      ${stopLine()}`
+        : `<div class="btnrow">${btn('Change number', { kind: 'secondary', sm: true, icon: 'pencil', attrs: { 'data-mr-alchange': '' } })}${btn('Stop texts', { kind: 'text', sm: true, attrs: { 'data-mr-alstop': '' } })}</div>`}
     </section>
-    ${myEmail() ? '' : `<p class="small mr-alemail">${icon('mail')}<span>Want email too? ${S.session ? 'Add it to your profile.' : 'It also keeps your issues on any device.'} <a href="#/signin">Add your email</a></span></p>`}
-    ${stopNumberBox()}
+    ${A.justOn || myEmail() ? '' : `<p class="small mr-alemail">${icon('mail')}<span>Want email too? ${S.session ? 'Add it to your profile.' : 'It also keeps your issues on any device.'} <a href="#/signin">Add your email</a></span></p>`}
+    ${A.justOn ? '' : stopNumberBox()}
   </div>`;
   // D1-5 (R-180 wave 2): "Use email instead" swaps the box in place, under the same promise, so giving the email turns alerts on
   // (it used to go to the sign-in page, whose "Keep me updated" box starts empty). A number being changed, or a signed-in
@@ -608,13 +621,13 @@ function wireAlerts() {
   const other = $('[data-mr-alotheremail]');
   if (other) other.onclick = () => { try { sessionStorage.removeItem('hiphi_link_sent'); } catch { /* ignore */ } S.alertMode = 'email'; app.render(); requestAnimationFrame(() => $('#mr-al-email')?.focus()); };
   wireAlertForm($('#mr-alform'), { pfx: 'mr-al', source: 'more', onDone: r => {
-    A.edit = false; app.render();
+    A.edit = false; A.justOn = r.kind === 'phone'; app.render();
     if (r.kind === 'email') { toast('Check your inbox: open the link to turn on alerts.', { yay: true }); requestAnimationFrame(() => $('#mr-al-t')?.focus()); return; }
     toast(r.confirmed ? `Text alerts are on for ${fmtPhone(r.phone)}.` : almostLine(fmtPhone(r.phone)), { yay: true });
     requestAnimationFrame(() => $('#mr-al-t')?.focus());
   } });
   const ch = $('[data-mr-alchange]');
-  if (ch) ch.onclick = () => { const t = textSaved(); A.edit = true; S.alertDraft.phone = t ? fmtPhone(t.phone) : ''; app.render(); requestAnimationFrame(() => { const i = $('#mr-al-phone'); if (i) { i.focus(); i.select(); } }); };
+  if (ch) ch.onclick = () => { const t = textSaved(); A.edit = true; A.justOn = false; S.alertDraft.phone = t ? fmtPhone(t.phone) : ''; app.render(); requestAnimationFrame(() => { const i = $('#mr-al-phone'); if (i) { i.focus(); i.select(); } }); };
   const cancel = $('[data-mr-alcancel]'); if (cancel) cancel.onclick = () => { A.edit = false; S.alertDraft.phone = ''; if (S.alertCode?.pfx === 'mr-al') S.alertCode = null; app.render(); };
   const sn = $('#mr-snform');
   if (sn) sn.onsubmit = async e => {
@@ -631,7 +644,7 @@ function wireAlerts() {
     if (stop.getAttribute('aria-busy')) return;
     const phone = textSaved()?.phone; busy(stop, 'Stopping…');
     try { await stopText(); } catch (e) { unbusy(stop); toast(e, true); return; }
-    app.render();
+    A.justOn = false; app.render();
     // Undo within the toast's ten seconds signs the same number up again, under the same words.
     toast('Texts stopped. We won’t text you.', { undo: async () => { try { await saveText(phone, 'more'); } catch (e) { toast(e, true); } app.render(); } });
   };

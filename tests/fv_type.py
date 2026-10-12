@@ -53,6 +53,8 @@ with sync_playwright() as p:
                 long += [f"{d['title']}: {len(l.split())} words" for l in d['ledes'] if len(l.split()) > LEDE_MAX]
             last = key
             if pg.locator('#fx-moment:not([hidden]) #fx-mgo').count(): pg.click('#fx-moment #fx-mgo'); continue
+            # the "Mahalo!" page (scanned above as a screen of its own) waits for its Next (R-140, Nate 11 Oct)
+            if pg.locator('.st-thanks').count(): pg.click('.actionbar [data-stnext], .actionbar [data-obon]'); continue
             if pg.locator('[data-stissue]').count() and not pg.locator('[data-stissue][aria-pressed=true]').count():
                 pg.locator('[data-stissue]').nth(3).click(); pg.click('[data-stnext]'); continue
             if d['title'] == 'Find a bill' and not pg.locator('[data-obfind][aria-pressed=true]').count():   # Plan 1 asks for one

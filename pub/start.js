@@ -186,9 +186,13 @@ const chapterNames = () => planOn() ? PLAN_CHAPTERS[planOn()] : [CHAPTERS[0], SH
 // A plan names its own parts (pub/plans.js).
 const chapterOf = name => (planOn() ? PLAN_CHAPTER_OF[planOn()][name] : CHAPTER_OF[name]) ?? -1;
 let lastChapter = -1;
+// The "Mahalo!" page ends "Your issues" (R-140): there the part shows as done and the next one is not yet current, so the
+// row says what the button says, that more follows (the review, 11 Oct).
+const thanksUp = name => !planOn() && name === 'alerts' && !S.alertEdit && !!(S.stThanks || textSaved() || mailSent());
 function chaptersRow(name) {
-  const k = chapterOf(name); if (k < 0) return '';
-  return `<nav class="st-chapters" aria-label="${t('Your first visit')}"><ol>${chapterNames().map((c, i) => `<li class="${i < k ? 'done' : i === k ? 'on' : ''}"${i === k ? ' aria-current="step"' : ''}>
+  const k0 = chapterOf(name); if (k0 < 0) return '';
+  const k = thanksUp(name) ? k0 + 1 : k0, on = thanksUp(name) ? -1 : k;
+  return `<nav class="st-chapters" aria-label="${t('Your first visit')}"><ol>${chapterNames().map((c, i) => `<li class="${i < k ? 'done' : i === on ? 'on' : ''}"${i === on ? ' aria-current="step"' : ''}>
     <span class="st-cm" aria-hidden="true">${i < k ? icon('check') : ''}</span><span class="st-cl">${t(c)}</span>${i < k ? `<span class="sr"> (${t('done')})</span>` : ''}</li>`).join('')}</ol></nav>`;
 }
 // Finishing a part ticks it with a small burst: one of the stage celebrations (C-7).
@@ -393,7 +397,7 @@ export const busy = (el, label) => { if (!el) return; el.setAttribute('aria-busy
 function redirectFor(step, off) {
   const n = nameAt(step, off), T = total(off);
   if (step > T) return T;
-  if (n === 'alerts') return S.alertsShown || askAlerts() ? 0 : step + 1;
+  if (n === 'alerts') return S.alertsShown || askAlerts() || S.stThanks ? 0 : step + 1;   // or its "Mahalo!" page (R-140)
   if (wiz().via) return n === 'followask' && (viaFollowed() || wiz().viaSkipAsk) ? step + 1 : 0;
   if (n === 'issues') return pickedIssues().length ? 0 : stepOf('topics', off);
   return 0;
@@ -414,7 +418,9 @@ function wire(route) {
   const back = !!S.stBack; S.stBack = false;
   // The lesson pages put their button right under the lesson on a wide screen (start.css).
   document.body.classList.toggle('st-lessonpage', name === 'bill');
-  document.body.classList.toggle('st-onecol', name === 'followask');
+  // The "Mahalo!" page with no card beside it (Skip, or nothing asked) is one column too: its Next sits under the words,
+  // not alone in an empty right column (the review, 11 Oct).
+  document.body.classList.toggle('st-onecol', name === 'followask' || (thanksUp(name) && !(textSaved() || mailSent())));
   const key = `${pathKey()}|${name}`, fresh = key !== viewKey;
   if (fresh) {
     viewKey = key; viewAt = Date.now(); tickChapter(name, back);
@@ -487,6 +493,9 @@ export default {
   // The alerts screen's tab says what its heading says: "Save your profile" unless the old ask is the version shown (the
   // test 'save', R-184; the tab still said "Get alerts on your issues", R-188).
   title: route => { if (route.name === 'learn') return LESSON_TITLES[learnName(route)]; lockFirstVisit(); const n = nameAt(route.step || 1, isOff());
+    // Once answered, the alerts screen is the "Mahalo!" page (start-rest.js stepThanks, R-140) and its tab says so.
+    if (n === 'alerts' && !S.alertEdit && (S.stThanks || textSaved() || mailSent())) return 'Mahalo!';
+    if (n === 'join' && !S.alertEdit && S.obThanks) return 'Mahalo!';
     if (n === 'alerts' && armOf('save') === 'profile') return 'Save your profile';
     return TITLE[n] || PLAN_TITLES[n] || 'Get started'; },
   render(route) {

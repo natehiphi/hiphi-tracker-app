@@ -230,22 +230,26 @@ with sync_playwright() as pw:
     # Back: the issues screen, with the two issues ticked as they were followed (its own picks, not HIPHI's defaults).
     p.click('[data-stback]'); p.wait_for_timeout(1200)
     ok(p.url.endswith('#/start/2') and p.locator('[data-stpick][aria-pressed="true"]').count() == 2, f'10: Back goes to "Your issues", with the two issues still ticked ({p.url[-10:]!r})')
-    # Next there: the "Mahalo!" names the two kept, and its button goes on to the story. (The alerts screen is not offered
-    # again once it has been drawn in this page life: askAlerts, the first visit's own rule, unchanged here.)
-    p.click('[data-stnext]'); p.wait_for_selector('#fx-mgo', timeout=8000); p.wait_for_timeout(600)
-    mg = p.evaluate("document.getElementById('fx-moment')?.innerText || ''")
+    # Next there: the "Mahalo!" page names the two kept, and its Next goes on to the story (R-140, Nate 11 Oct: a page that
+    # waits for Next). (The alerts screen is not offered again once it has been drawn in this page life: askAlerts, the
+    # first visit's own rule, unchanged here.)
+    p.click('[data-stnext]')
+    try: p.wait_for_selector('.st-thanks #st-h', timeout=8000)
+    except Exception: pass   # checked just below, so the rest still runs
+    p.wait_for_timeout(600)
+    mg = p.evaluate("document.querySelector('.st-thanks')?.innerText || ''")
     ok('You’re following 2 issues.' in mg, f'10: Next after Back celebrates the two issues, and no third one is followed ({mg[:40]!r})')
-    p.click('#fx-mgo'); p.wait_for_timeout(1200)
+    if p.locator('.st-thanks').count(): p.click('.actionbar [data-stnext]'); p.wait_for_timeout(1200)
     ok(p.url.endswith('#/start/4'), f'10: the visit goes on from the "Mahalo!" to the story ({p.url[-10:]!r})')
     c.close()
-    # The box, on a fresh jump: a number asks for its code, and six digits end in the "Mahalo!" that says the profile is saved.
+    # The box, on a fresh jump: a number asks for its code, and six digits end in the "Mahalo!" page that says the profile is saved.
     c, p = ctx(br)
     p.goto(f'{BASE}?demo=1&restart&fvstep=save'); p.wait_for_selector('#st-a-phone', timeout=20000); p.wait_for_timeout(600)
     p.fill('#st-a-phone', '808-555-0123'); p.click('#st-send'); p.wait_for_selector('#st-a-code', timeout=8000); p.wait_for_timeout(400)
     ok('Check your texts' in p.inner_text('#st-h'), 'the box works: a number asks for its code (the practice copy sends nothing)')
-    p.type('#st-a-code', '123456'); p.wait_for_selector('#fx-mgo', timeout=8000); p.wait_for_timeout(800)
-    mg = p.evaluate("document.getElementById('fx-moment')?.innerText || ''")
-    ok('Mahalo!' in mg and 'Your profile is saved, and text alerts are on for (808) 555-0123.' in mg, f'10: six digits: the "Mahalo!" says the profile is saved ({mg[:90]!r})')
+    p.type('#st-a-code', '123456'); p.wait_for_selector('.st-thanks #st-h', timeout=8000); p.wait_for_timeout(800)
+    mg = p.evaluate("document.querySelector('.st-thanks')?.innerText || ''").replace('\xa0', ' ')
+    ok('Mahalo!' in mg and 'Your profile is saved.' in mg and 'Text alerts are on for (808) 555-0123.' in mg, f'10: six digits: the "Mahalo!" page says the profile is saved ({mg[:120]!r})')
     c.close()
     c, p = ctx(br)
     p.goto(f'{BASE}?demo=1&restart&fvstep=save'); p.wait_for_selector('#st-a-phone', timeout=20000); p.wait_for_timeout(600)

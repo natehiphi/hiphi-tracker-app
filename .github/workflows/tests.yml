@@ -18,7 +18,9 @@ on:
   workflow_dispatch:
 concurrency:
   group: tests-${{ github.ref }}
-  cancel-in-progress: true
+  # A run in progress finishes and only the newest push waits behind it: with builds pushing every ~10 minutes and a
+  # ~20-minute run, cancelling meant no run ever finished on 10/11 (R-240).
+  cancel-in-progress: false
 jobs:
   tests:
     runs-on: ubuntu-latest
@@ -102,5 +104,9 @@ jobs:
         run: python3 tests/journeys.py
       - name: Session setup shows the dated steps as expected, and Sort new bills puts a hearing first (Z1-6)
         run: python3 tests/setup_expected.py
+      - name: Home's first card counts the day's deadlines, and twin bills are one card (R-131, R-244)
+        run: python3 tests/home_now.py
+      - name: The public page's words on a phone and a laptop, testimony to sharing (R-199 wave 1, R-244)
+        run: python3 tests/r199_words.py
       - name: Density and splits across 66 screens against the recorded baseline (X9-6)
         run: python3 tests/density.py --check

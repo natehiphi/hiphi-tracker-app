@@ -40,7 +40,7 @@ JOURNEYS = [
  # People follow issues, not bills (R-018, 9/21): a bill comes to them because it is on an issue they follow. Walks the
  # first visit rebuilt 9/21 (R-023, pub/start.js): tick a category tile, Next, then the issues screen, where HIPHI's own
  # picks among the four shown start ticked (B-12), so reading them and deciding is the same step as "Follow N issues".
- # Following is done when the "Mahalo!" moment says so; its Continue belongs to the next part of the visit.
+ # Following is done when the "Mahalo!" page says so (R-140, Nate 11 Oct: a page that waits for Next); its Next belongs to the next part of the visit.
  dict(name='public: arrive -> follow a first issue', app=PUBLIC, budget=3, start='#/', steps=[
    dict(what='tick a category', do="""(()=>{const e=[...document.querySelectorAll('[data-stissue]')].find(x=>x.offsetParent!==null); if(!e)return false; e.click(); return true;})()""",
         reach="(()=>!!document.querySelector('[data-stissue][aria-pressed=true]'))()"),
@@ -48,8 +48,8 @@ JOURNEYS = [
         reach="(()=>document.getElementById('st-h')?.innerText.trim()==='Your issues' && !!document.querySelector('[data-stpick]'))()"),
    dict(what='read the ticked issues and follow them', do=click_text('.st-bar [data-stnext]', 'Follow \\d+ issue'),
         # Since R-146 the alerts screen comes right after the follow (it shows only once something is followed), and the
-        # "Mahalo!" after it; either proves the follow.
-        reach="(()=>{const m=document.querySelector('#fx-moment:not([hidden])'); return (!!m && /following/i.test(m.innerText)) || !!document.querySelector('.st-alertspage #st-h');})()"),
+        # "Mahalo!" page after it; either proves the follow.
+        reach="(()=>{const m=document.querySelector('.st-thanks'); return (!!m && /following/i.test(m.innerText)) || !!document.querySelector('.st-alertspage #st-h');})()"),
  ]),
  dict(name='public: arrive -> understand what one bill does', app=PUBLIC, budget=3, start='#/', skip_wizard=True, steps=[
    dict(what='open a bill from the list', do="(()=>{const a=document.querySelector('main a[href*=\"#/bill/\"]'); if(!a)return false; a.click(); return true;})()",
@@ -94,10 +94,10 @@ JOURNEYS = [
    dict(what='type the number', fill=('#st-a-phone', '(808) 555-0123'),
         reach="(()=>document.getElementById('st-a-phone')?.value==='(808) 555-0123')()"),
    dict(what='ask for the code', do=click_text('.st-bar #st-send', 'Text me a code'), reach="(()=>{const i=document.getElementById('st-a-code'); return !!i && i.offsetParent!==null;})()"),
-   # Arrived when the "Mahalo!" says alerts are on, or the code step is gone and the next screen is up (R-140 fix, 10/10:
-   # the moment plays over the next screen after its slide, and leaves on its own at 1.5 s; its words are not kept in the
-   # toast). Polls for up to 4 s, since the save takes a moment after the code is typed.
-   dict(what='type the code from the text', fill=('#st-a-code', '123456'), reach="(async()=>{const w=/text alerts are on/i; for(let i=0;i<40;i++){const m=document.getElementById('fx-moment'); if(m&&!m.hidden&&w.test(m.innerText)) return true; if(document.querySelector('.st')&&!document.getElementById('st-a-code')&&!document.getElementById('st-aform')) return true; await new Promise(r=>setTimeout(r,100));} return false;})()"),
+   # Arrived when the "Mahalo!" page says alerts are on (R-140, Nate 11 Oct: the alerts screen turns into a page that
+   # waits for Next), or the code step is gone and the next screen is up. Polls for up to 4 s, since the save takes a
+   # moment after the code is typed.
+   dict(what='type the code from the text', fill=('#st-a-code', '123456'), reach="(async()=>{const w=/text alerts are on/i; for(let i=0;i<40;i++){const m=document.querySelector('.st-thanks'); if(m&&w.test(m.innerText)) return true; if(document.querySelector('.st')&&!document.getElementById('st-a-code')&&!document.getElementById('st-aform')) return true; await new Promise(r=>setTimeout(r,100));} return false;})()"),
  ]),
  dict(name='staff: open the app -> the first thing due is on screen', app=STAFF, budget=1, start='#/', steps=[
    dict(what='it is already there', do='true',
@@ -177,6 +177,8 @@ def run_one(br, j):
         for _ in range(16):
             if p.evaluate(j['walk_to']): break
             if p.locator('#fx-moment:not([hidden]) #fx-mgo').count(): p.click('#fx-mgo')
+            # the first visit's "Mahalo!" page waits for its own Next (R-140, Nate 11 Oct)
+            elif p.locator('.st-thanks').count(): p.click('.actionbar [data-stnext], .actionbar [data-obon]')
             else:
                 at = p.evaluate('location.hash')
                 if p.locator('.st-bar [data-stnext]:visible').count(): p.click('.st-bar [data-stnext]')

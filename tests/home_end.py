@@ -39,7 +39,8 @@ def walk_to_soon(p, extra, email=None):
     if email:
         p.click('[data-alswap="email"]'); p.wait_for_timeout(300); p.fill('#st-a-email', email); p.click('#st-send')
     else: p.click('[data-stskip]')
-    p.wait_for_selector('#fx-mgo', timeout=8000); p.wait_for_timeout(300); seen['mahalo'] = text(p, '#fx-moment'); p.click('#fx-mgo')
+    # The alerts screen turns into the "Mahalo!" page, which waits for its Next (R-140, Nate 11 Oct: a page that waits for Next)
+    p.wait_for_selector('.st-thanks #st-h', timeout=8000); p.wait_for_timeout(300); seen['mahalo'] = text(p); p.click('.actionbar [data-stnext]')
     p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(1200)
     for _ in range(2): p.click('[data-stnext]'); p.wait_for_timeout(1500)
     seen['story'] = text(p, '.lx-calm'); seen['mom'] = text(p, '#lx-cap')
@@ -61,7 +62,7 @@ with sync_playwright() as pw:
     ok('is at moment' in s['mom'] and 'Here is your chance' in s['mom'] and 'top of your home page' in s['story'], f'new: the story names the real moment (R-089: "is at moment N of 3") ({s["story"][:90]})')
     # The alerts moved to right after the issues (R-146), where they cannot read as the end of the visit.
     ok('Save your profile' in s['alerts'] and 'gets a hearing' in s['alerts'] and 'HIPHI asks people to speak up' in s['alerts'], 'new: the alerts box names both kinds of alert (C-4)')
-    ok('We sent a link to tester@example.com' in s['mahalo'] and 'when you finish here' in s['mahalo'], 'new: after sending, it says to finish here first')
+    ok('Link sent to tester@example.com' in s['mahalo'] and 'when you finish here' in s['mahalo'], 'new: after sending, it says to finish here first')
     ok(p.locator('#st-a-email, #st-eform').count() == 0 and p.locator('#st-name').count() == 1, 'new: Coming up asks only the optional first name')
     ok('See How I Can Help' in text(p, '.st-bar'), 'new: the last button says what Home is for, "See How I Can Help" (R-190)')
     p.fill('#st-name', 'Leilani'); p.wait_for_timeout(200)   # no Save button: Next keeps it

@@ -23,7 +23,8 @@ with sync_playwright() as pw:
     ok('(808) 555-0123' in t and 'stopped' in t and 'sandbox' in t, 'a good number: says it is stopped, and that the sandbox sent nothing: ' + repr(t))
     # this device's own number
     p.fill('#mr-al-phone', '808-555-0199'); p.click('#mr-al-send'); p.wait_for_timeout(1200)
-    p.goto(BASE + '?demo=1&codes=0#/alerts'); p.wait_for_timeout(1500)
+    # a later visit (a reload): right after saving, the page leads with the next step and keeps the fold for later (R-229)
+    p.goto(BASE + '?demo=1&codes=0#/alerts'); p.reload(); p.wait_for_timeout(1500)
     if p.locator('.mr-stopnum').count() == 0: ok(False, 'the saved-number page has the fold')
     else:
         ok(p.locator('.mr-alon').count() == 1 and 'every browser' in p.inner_text('.mr-alon'), 'with a number saved: the page says stopping ends it from every browser')

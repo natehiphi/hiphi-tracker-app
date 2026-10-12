@@ -5,7 +5,9 @@
 //   burst(el)      a small burst of petals just above the thing done: a stance, a pick, an address found, a part finished.
 //                  Under 0.7 s, flying up and out so the button it came from stays readable. Under Reduce Motion there
 //                  are no petals, only a brief colour change on the thing (tint).
-//   celebrate(...) a moment that fills the screen for at most 1.5 s: the first follow, the first action sent, a law passed.
+//   celebrate(...) a moment that fills the screen for at most 1.5 s: the first action sent, a law passed. (The first
+//                  visit's "Mahalo!" after the alerts ask is a page that waits for Next instead, with bloom() on it:
+//                  start-rest.js stepThanks, onb.js stepJoin; R-140, Nate 11 Oct: the moment was "too quick".)
 //                  No tap is needed. A tap, a key or a scroll closes it at once; a tap on the button under it works as
 //                  usual; it leaves on its own at 1.5 s, and then its words stay for 4 s as a toast. Never mid-way through
 //                  the first visit after the first follow: a full-screen moment there reads as the end (R-140).
