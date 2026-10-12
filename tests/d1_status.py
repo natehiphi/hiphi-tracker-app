@@ -42,7 +42,7 @@ def sign_in(p, prefs):
     p.wait_for_timeout(500)
 
 # Each page is opened with a query that differs from the page before, so goto is a full load and no reload is needed (a
-# reload right after one aborts the practice data's fetch, which logs "Failed to fetch"; CLAUDE.md, Tests).
+# reload right after one aborts the practice data's fetch, which logs "Failed to fetch"; docs/MAP.md, Tests).
 def to_alerts(p, extra=''):
     p.goto(BASE + '?demo=1&restart' + extra); p.wait_for_selector('.st-tile', timeout=15000); p.wait_for_timeout(800)
     p.locator('.st-tile', has_text='Food').first.click(); p.wait_for_timeout(200)
