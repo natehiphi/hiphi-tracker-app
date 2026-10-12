@@ -752,7 +752,9 @@ app so I can do this on my own later and easily compare the different options."
   `ROOM_PLAN_SUB`), then every screen any group changed, in the same order on every card (`roomShown`; at today's version
   it reads "(today's)" in plain weight, and "Replaced by the plan" where a plan never meets it), so the cards compare line
   by line; "Change another screen" (a screen, then its version; picking today's version everywhere takes the row off),
-  its QR code, Open, Copy link and a "…" menu (Download the QR code, Copy this group, Remove this group with Undo); "Add a
+  its QR code, Open, Copy link and a "…" menu (Rename this group, since R-241 on 11 Oct: one Name field of 30 characters,
+  blank gives the number back, no two groups alike, the name rides with the group's id so its results stay; Download the QR
+  code, Copy this group, Remove this group with Undo); "Add a
   group" as the grid's last tile, up to six; Start over with Undo. "Print the sheet" (the save bar, sticky on a laptop)
   prints Nate's page (the groups screen by screen, each group's link, a blank "What we saw" row to fill in, and what every
   group is asked to do), then one page per group with the code at 110 mm and no link, which never says which version it
