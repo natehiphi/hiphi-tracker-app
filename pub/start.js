@@ -44,7 +44,7 @@ import { topics } from './topics.js';
 import { burst, later, swap, reduced } from './fx.js';
 import { LESSON_TITLES } from './topics.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
-import { wireShareLine, wireKeepLine } from './keep.js';
+import { wireShareLine } from './keep.js';
 import { endHome, armOf, lockFirstVisit, abEvent, plan } from './variant.js';
 import { planFlow, PLAN_STEPS, PLAN_CHAPTERS, PLAN_CHAPTER_OF, PLAN_TITLES, PLAN_SURE, PLAN_TOPICS } from './plans.js';
 export let LZ = null, lzP = null;
@@ -453,7 +453,7 @@ function wire(route) {
     app.render(); });
   $$('[data-stdone]').forEach(el => el.onclick = () => finish());
   $$('[data-sthome]').forEach(el => el.onclick = () => { track(name, 'skip'); LZ?.lessonStop(); finish(); });   // R-114: after acting from a link, Home now
-  wireShareLine(document); wireKeepLine(document); wireLangPicker(document);
+  wireShareLine(document); wireLangPicker(document);
 
   if (name === 'topics') {
     $$('[data-stissue]').forEach(el => el.onclick = () => {

@@ -114,10 +114,10 @@ function sampleSources(rows) {
 async function load(weeks, { force = false } = {}) {
   const v = V(), have = v.cache[weeks];
   if (v.loading === weeks || (!force && have && Date.now() - have.at < 5 * 60e3)) return;
-  if (DEMO) { const rows = sampleRows(+weeks); v.cache[weeks] = { rows, srcs: sampleSources(rows), back: sampleBack(+weeks), sugg: sampleSugg(+weeks), text: sampleText(), at: Date.now() }; v.from = await DB.countsFrom(); return; }
+  if (DEMO) { const rows = sampleRows(+weeks); v.cache[weeks] = { rows, srcs: sampleSources(rows), back: sampleBack(+weeks), sugg: sampleSugg(+weeks), text: sampleText(), asks: sampleAsks(+weeks), at: Date.now() }; v.from = await DB.countsFrom(); return; }
   v.loading = weeks; v.err = '';
   // Coming back (078) is its own call: if it fails, the first-visit numbers still show and that section says nothing.
-  try { const [rows, srcs, back, from, sugg, text] = await Promise.all([DB.firstVisitFunnel(+weeks), DB.firstVisitSources(+weeks), DB.visitCountsWeekly(+weeks).catch(() => null), DB.countsFrom().catch(() => v.from), DB.suggestSummary(+weeks).catch(() => null), DB.textSignupCounts(Math.max(30, +weeks * 7)).catch(() => null)]); v.cache[weeks] = { rows: rows || [], srcs: srcs || [], back, sugg, text, at: Date.now() }; v.from = from; }
+  try { const [rows, srcs, back, from, sugg, text, asks] = await Promise.all([DB.firstVisitFunnel(+weeks), DB.firstVisitSources(+weeks), DB.visitCountsWeekly(+weeks).catch(() => null), DB.countsFrom().catch(() => v.from), DB.suggestSummary(+weeks).catch(() => null), DB.textSignupCounts(Math.max(30, +weeks * 7)).catch(() => null), DB.laterAsksWeekly(+weeks).catch(() => null)]); v.cache[weeks] = { rows: rows || [], srcs: srcs || [], back, sugg, text, asks, at: Date.now() }; v.from = from; }
   catch (e) { v.err = String(e?.message || e); }
   v.loading = '';
   if (S.route?.name === 'issues' && fvView(S.route) === 'numbers') redraw();
@@ -243,6 +243,29 @@ function backHTML(rows) {
       <tbody>${wk.map(r => `<tr><th scope="row">${esc(weekOf(r.week))}</th><td class="num">${nf(r.browsers)}</td><td class="num">${nf(r.new_browsers)}</td><td class="num">${nf(r.returners)}</td><td class="num">${nf(Object.values(actsOnly(r.acts) || {}).reduce((a, b) => a + b, 0))}</td></tr>`).join('')}</tbody></table></div>` : ''}
   </section>`;
 }
+// ---- after the first visit: asks on later visits, one full page each (170, R-237; Nate 10/11 "add it to the admin views", R-251) ----
+// A later visit opens on at most one page before Home (pub/nextask.js): find my legislators, save your profile, new
+// issues, the three moments, bring a friend, keep it on the phone. later_asks_weekly: per week and ask, how many times
+// it was shown, done, or waved away with "Not now". Counts only, no id. Its own call: if it fails, this says nothing.
+const ASK_NAMES = { legs: 'Find my legislators', alerts: 'Save your profile', issues: 'New issues', learn: 'The three moments', share: 'Bring a friend along', phone: 'Keep it on your phone' };
+// What counts as done differs by ask (pub/nextask.js), so each row says it (the review: the rows are not alike otherwise).
+const ASK_DONE = { legs: 'done: their legislators found', alerts: 'done: a number or email given', issues: 'done: a new issue followed', learn: 'done: tapped Show Me (the lesson started)',
+  share: 'done: the link shared or copied', phone: 'done: tapped Add to Home Screen, or Done after the steps' };
+const sampleAsks = weeks => Object.keys(ASK_NAMES).map((ask, i) => { const shown = Math.max(3, weeks * (9 - i)); return { week: '2026-03-16', ask, shown, done: Math.round(shown * [0.45, 0.3, 0.5, 0.35, 0.2, 0.15][i]), not_now: Math.round(shown * [0.4, 0.55, 0.3, 0.5, 0.6, 0.7][i]) }; });
+function asksHTML(rows) {
+  if (!rows) return '';
+  const head = `<div class="le-sechead"><h2 id="fv-ak">Asks on later visits</h2><span class="meta">one full page before Home, at most one a visit</span></div>`;
+  const t = { shown: 0, done: 0, not_now: 0 }, by = {};
+  for (const r of rows) { const k = r.ask; by[k] ??= { shown: 0, done: 0, not_now: 0 };
+    for (const f of Object.keys(t)) { t[f] += r[f] || 0; by[k][f] += r[f] || 0; } }
+  if (!t.shown) return `<section class="fv-sec" aria-labelledby="fv-ak">${head}<p class="meta">Nothing counted yet. When someone comes back on a new day, the public page may open on one ask (find my legislators, save your profile and so on) before Home; each counts when shown, and again when it is done or waved away with “Not now”.</p></section>`;
+  const tile = (n, label, sub = '') => `<div class="fv-tile"><span class="fv-n">${n}</span><span class="fv-l">${label}</span>${sub ? `<span class="fv-s">${sub}</span>` : ''}</div>`;
+  return `<section class="fv-sec" aria-labelledby="fv-ak">${head}
+    <div class="fv-tiles">${tile(nf(t.shown), 'pages shown')}${tile(nf(t.done), 'done', `${pct(t.done, t.shown)} of pages shown`)}${tile(nf(t.not_now), 'said “Not now”', `${pct(t.not_now, t.shown)} of pages shown`)}${tile(nf(Math.max(0, t.shown - t.done - t.not_now)), 'left without an answer', 'closed the page or went on to Home')}</div>
+    <div class="fv-tablewrap"><table class="fv-table"><caption class="sr">Asks on later visits, one row each</caption><thead><tr><th scope="col">Ask</th><th scope="col" class="num">Shown</th><th scope="col" class="num">Done</th><th scope="col" class="num">Not now</th></tr></thead>
+      <tbody>${Object.keys(ASK_NAMES).filter(k => by[k]).map(k => { const x = by[k]; return `<tr><th scope="row"><span class="fv-src">${ASK_NAMES[k]}</span><span class="fv-kind">${ASK_DONE[k]}</span></th><td class="num">${nf(x.shown)}</td><td class="num">${nf(x.done)} <span class="fv-pc">${pct(x.done, x.shown)}</span></td><td class="num">${nf(x.not_now)} <span class="fv-pc">${pct(x.not_now, x.shown)}</span></td></tr>`; }).join('')}</tbody></table></div>
+  </section>`;
+}
 // Text sign-ups (D1-7, R-180 wave 2; backend 156): how many people gave a number, confirmed it and stopped, by where they came from and by
 // day. Counts only: the database function never returns a number, so none can show here. Its own call: if it fails, this says nothing.
 const SRC_WORDS = { first_visit: 'the first visit', home: 'Home', action: 'an action', more: 'More' };
@@ -331,9 +354,9 @@ function numbersHTML() {
   }
   const rows = have.rows, shared = rows.filter(r => r.path === 'link').reduce((n, r) => n + (r.visits || 0), 0);
   const sample = DEMO ? notice('info', 'info', '<b>Sample numbers.</b> The sandbox has no real visits.') : '';
-  if (!rows.length) return `${sample}${fromLine()}<div class="le-empty">${empty({ h: 'h2', title: 'No first visits counted yet', text: `Numbers appear here as newcomers walk through the first visit on the public page. Nothing is counted from the sandbox, or from a browser that asks not to be tracked.` })}</div>${backHTML(have.back)}`;
+  if (!rows.length) return `${sample}${fromLine()}<div class="le-empty">${empty({ h: 'h2', title: 'No first visits counted yet', text: `Numbers appear here as newcomers walk through the first visit on the public page. Nothing is counted from the sandbox, or from a browser that asks not to be tracked.` })}</div>${backHTML(have.back)}${asksHTML(have.asks)}`;
   // Where they came from comes second: it is half of what this screen is for (B-1), and Make a link sends people here.
-  return `${sample}${fromLine()}${tilesHTML(total(rows), shared)}${sourcesHTML(have.srcs || [])}${funnelsHTML(rows)}${weeksHTML(rows)}${backHTML(have.back)}${textHTML(have.text)}${suggHTML(have.sugg)}${variantsHTML()}
+  return `${sample}${fromLine()}${tilesHTML(total(rows), shared)}${sourcesHTML(have.srcs || [])}${funnelsHTML(rows)}${weeksHTML(rows)}${backHTML(have.back)}${asksHTML(have.asks)}${textHTML(have.text)}${suggHTML(have.sugg)}${variantsHTML()}
     <p class="meta fv-how">${icon('lock', { size: 16 })}<span>Counted without names: a random number for each visit, never an account, an email, a name or an address, and nothing from a browser that asks not to be tracked.</span></p>`;
 }
 

@@ -6,7 +6,7 @@
 import os, re, sys
 from playwright.sync_api import sync_playwright
 
-BASE = 'http://localhost:8832/staff.html?demo=1'
+BASE = (sys.argv[1].rstrip('/') if len(sys.argv) > 1 else 'http://localhost:8832') + '/staff.html?demo=1'   # another server: python3 tests/staff_firstvisit.py http://localhost:NNNN
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'firstvisit')
 os.makedirs(OUT, exist_ok=True)
 ISSUE = '05e0d6a9-4ea7-456c-b219-e3632ade358b'   # Free school meals for every student (in the snapshot)
@@ -29,7 +29,7 @@ with sync_playwright() as pw:
     b = pw.chromium.launch()
     for W, H in ((1440, 900), (1024, 768), (390, 844), (320, 640)):
         c = b.new_context(viewport={'width': W, 'height': H}, accept_downloads=True)
-        c.grant_permissions(['clipboard-read', 'clipboard-write'], origin='http://localhost:8832')
+        c.grant_permissions(['clipboard-read', 'clipboard-write'], origin=BASE.split('/staff.html')[0])
         leaks = []
         c.route(re.compile(r'.*supabase\.co/.*'), lambda route: (leaks.append(route.request.url), route.abort()))
         p = c.new_page(); errors = []
@@ -52,13 +52,18 @@ with sync_playwright() as pw:
         ok(names[:4] == ['What you care about', 'Your issues', 'Get alerts (text or email)', 'A bill’s story'] and names[-1].startswith('You'), f'first visit{tag}: screens in the order a person meets them, the alerts after the issues (R-146): {names[:4]} ... {names[-1:]}')
         first_pc = p.locator('ol.fv-screens').first.locator('.fv-rn').first.inner_text()
         ok(first_pc.endswith('100%'), f'first visit{tag}: every first visit reaches the first screen ({first_pc})')
-        ok(p.locator('section:not([aria-labelledby=fv-bh]):not([aria-labelledby=fv-sg]):not([aria-labelledby=fv-tx]) table.fv-table').count() == 2, f'first visit{tag}: where they came from, and by week')
+        ok(p.locator('section:not([aria-labelledby=fv-bh]):not([aria-labelledby=fv-sg]):not([aria-labelledby=fv-tx]):not([aria-labelledby=fv-ak]) table.fv-table').count() == 2, f'first visit{tag}: where they came from, and by week')
         # D1-7 (R-180 wave 2, backend 156): text sign-ups counted by source and day, never a number
         tx = p.locator('section[aria-labelledby=fv-tx]')
         ok(tx.count() == 1 and tx.locator('.fv-tile').count() == 4 and 'counts only: never a number' in tx.inner_text(), f'first visit{tag}: "Text sign-ups": four totals, counts only')
         ok('numbers given' in tx.inner_text() and 'confirmed and on' in tx.inner_text() and 'stopped' in tx.inner_text() and 'from the first visit' in tx.inner_text() and not re.search(r'\(?808\)?[ -]?\d{3}', tx.inner_text()), f'first visit{tag}: given, confirmed, stopped, by where they signed up; no number in it')
         # R-094 step 5 (10/3): the suggested bills, counted, with a row per place in the short list
         ok(p.locator('section[aria-labelledby=fv-sg] table.fv-table tbody tr').count() == 3, f'first visit{tag}: suggested bills by place in the list')
+        ak = p.locator('section[aria-labelledby=fv-ak]')   # a later visit's one full-page ask (170, R-237, R-251)
+        ok(ak.count() == 1 and ak.locator('.fv-tile').count() == 4 and ak.locator('table.fv-table tbody tr').count() == 6 and 'Find my legislators' in ak.inner_text() and 'Not now' in ak.inner_text() and 'left without an answer' in ak.inner_text(),
+           f'first visit{tag}: "Asks on later visits": shown, done, Not now and left without an answer, one row per ask')
+        ok(ak.locator('tbody .fv-kind').count() == 6 and 'tapped Show Me' in ak.inner_text(), f'first visit{tag}: each ask says what counts as done')
+        ok(p.evaluate("[...document.querySelectorAll('.fv-sec h2')].map(h => h.id).join(',')").find('fv-bh,fv-ak') >= 0, f'first visit{tag}: right under "Coming back"')
         src = p.locator('table.fv-table').first.inner_text()
         ok('Keiki health fair (sample)' in src, f'first visit{tag}: a partner\'s visits are under its name')
         ok('spring-flyer' in src and 'no campaign word' in src, f'first visit{tag}: a partner\'s campaign words are rows under it, so two flyers can be told apart')
