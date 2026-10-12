@@ -684,7 +684,9 @@ export const inHours = ms => { const h = Math.ceil(ms / 36e5); return h <= 1 ? '
 export function dueInfo(h) {
   if (!h?.testimony_deadline) return null;
   const iso = h.testimony_deadline, t = new Date(iso).getTime(), left = t - Date.now();
-  if (left <= 0) { const text = `Testimony deadline passed ${dateLong(iso)} at ${timeWord(iso)}`; return { text, html: esc(text), tone: 'danger', late: true }; }
+  // Amber, not red (Nate 10/11, R-250: "Change the late card's red line to amber everywhere"): late testimony is still open
+  // until the hearing, so the line is a "hurry", not a "you missed it" (A-5).
+  if (left <= 0) { const text = `Testimony deadline passed ${dateLong(iso)} at ${timeWord(iso)}`; return { text, html: esc(text), tone: 'warn', late: true }; }
   const text = `Testimony due ${dayWord(iso)} at ${timeWord(iso)}`;
   const html = left < 864e5 ? `<span data-due="${esc(iso)}">Testimony due ${inHours(left)}</span> · ${esc(dayWord(iso))} at ${esc(timeWord(iso))}` : esc(text);
   return { text, html, tone: left < 864e5 ? 'warn' : '', late: false };

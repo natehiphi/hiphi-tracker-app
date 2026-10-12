@@ -148,7 +148,8 @@ title / section / body / label / caption, which is every job a screen here has.
 ### A-5 Colour carries meaning, and never carries it alone
 
 Blue `--p700` is action, links and selection. Red `--bad-text` is danger and overdue. Amber is due
-within 24 hours. Orange is celebration and achievement only — and *only* those. Every state that a
+within 24 hours, and a testimony deadline that has passed while late testimony is still open before the hearing (Nate
+10/11, R-250). Orange is celebration and achievement only — and *only* those. Every state that a
 colour indicates also has words or a shape (WCAG 1.4.1). **Distinct text colours in view: aim for 7 or
 fewer**, remembering four of those are the neutral ramp before any meaning colour is spent.
 

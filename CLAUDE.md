@@ -51,7 +51,7 @@ example `https://natehiphi.github.io/hiphi-tracker-app/track.html?demo=1#/bill/H
   `track.html` draws `pub/a/home.js` and `pub/a/bill.js` for a browser on it (tabs end with "You"); `track-a.html` only
   redirects there; Home's-top test is off while it runs. A change to Home or the bill page keeps version A working
   (`python3 tests/layout.py`). **Since 11 Oct (R-222, migration 169) `layout` has three versions, `calm`, `today`, `a`, off,
-  fallback `calm`: the calm Home (`pub/calm/home.js`, DESIGN A-23, B-14) is everyone's Home**; today's Home (`pub/home.js`)
+  fallback `calm`: the calm Home (`pub/calm/home.js`, DESIGN A-23, B-14) is everyone's Home** (R-250, 10/11: late testimony is its card when nothing is due on time, each bill followed on its own has a row, and the "Testimony deadline passed" line is amber everywhere, A-5); today's Home (`pub/home.js`)
   and version A stay testable, and following nothing still shows today's explore screen. `python3 tests/home_calm.py`
   keeps its page budget. The practice copy's band has "Next day" (the visit after the first, `&day=` and `&later`).
   **The tester sheet (R-185, 10/6):** Session setup >
