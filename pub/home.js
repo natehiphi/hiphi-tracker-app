@@ -22,7 +22,6 @@ import { burst, celebrate, petals, later } from './fx.js';
 import { alertStatus, openAlertsSheet, profileAsk, profileLede, PROFILE_H } from './alerts.js';   // the one status rule for alerts (D1-4)
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, declineNudge, goingPlans, goingCard } from './actions.js';
-import { shareLine, wireShareLine } from './keep.js';
 import { CAPITOL, islands, flower } from './art.js';
 // More's account cards (the follow-ups after a sign-in) load with More itself, on first use: only a signed-in person
 // sees them, and Home must not carry More, People and the address picker for everyone (R-122).
@@ -756,6 +755,8 @@ function rightNow(cards, asks) {
     ${more ? `<h3 class="hm-rnmore">More you can do this week</h3><div class="rows">${[...rest.map(actRow), ...asks.map(x => askRow(x))].join('')}</div>` : ''}
   </section>`;
 }
+// No share line at its foot (R-254, Nate 10/12): it named their first issue, so it read as being about the top card;
+// sharing stays on each card's More ways to help, after an action and on the first visit's last screen.
 function homeFirst({ cards, asks, ask, loop = '' }) {
   const iss = followedIssues();
   return `<div class="hm hm-follow hm-welcome hm-fin hm-fin2${finNow() && !S.hmFinDrawn ? ' hm-anim' : ''}">
@@ -765,7 +766,6 @@ function homeFirst({ cards, asks, ask, loop = '' }) {
       ${loop}${rightNow(cards, asks)}
       ${yourIssues()}
       ${ask}
-      ${shareLine('hm-share')}
     </div></div>
   </div>`;
 }
@@ -1085,7 +1085,7 @@ export default {
   },
   wire() {
     const root = document.querySelector('#main .hm'); if (!root) return;
-    wireActions(root); wireNudge(root); wireShareLine(root); wireExtras(root);
+    wireActions(root); wireNudge(root); wireExtras(root);
     // Lists open in place without a redraw, so keyboard focus stays on the button that opened them.
     root.querySelectorAll('[data-hm-toggle]').forEach(el => el.onclick = () => {
       const box = document.getElementById(el.getAttribute('aria-controls')); if (!box) return;
