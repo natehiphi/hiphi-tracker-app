@@ -22,8 +22,9 @@ def first_visit(p, ab, topic='Climate'):   # Climate: nothing due on the practic
     for _ in range(40):
         if p.evaluate("location.hash") in ('#/', '') and p.locator('#main .hm, #main .ah').count(): return True
         if p.locator('#fx-mgo').count(): p.locator('#fx-mgo').click(); p.wait_for_timeout(1000); continue
-        # Follow what the issues screen offers; skip only the alerts box (so the profile ask is left for a later day).
-        order = ('[data-stdone]', '[data-stskip]', '[data-stnext]') if p.locator('.st-alertspage').count() else ('[data-stdone]', '[data-stnext]', '[data-stskip]')
+        # Follow what the issues screen offers; skip only the alerts box (so the profile ask is left for a later day). A plan's
+        # sign-up ends on the "Mahalo!" page, whose one button is [data-obon], "Next: You're All Set" (R-140, 11 Oct).
+        order = ('[data-stdone]', '[data-stskip]', '[data-stnext]', '[data-obon]') if p.locator('.st-alertspage').count() else ('[data-stdone]', '[data-stnext]', '[data-stskip]', '[data-obon]')
         for sel in order:
             if p.locator(sel).count(): p.locator(sel).first.click(); break
         p.wait_for_timeout(1300)
@@ -132,7 +133,7 @@ with sync_playwright() as pw:
     for ab, name in (('end.today,act.today,layout.a', 'version A'), ('onb.p5', 'Plan 5')):
         c = b.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, device_scale_factor=2, reduced_motion='reduce'); p = c.new_page()
         p.on('pageerror', lambda e: errors.append(f'{name}: {e}'))
-        first_visit(p, ab); next_day(p)
+        ok(first_visit(p, ab), f'{name}: the first visit ends on Home'); next_day(p)
         ok(p.evaluate('location.hash') == '#/next/legs', f'{name}: the next day opens on the full page too ({p.evaluate("location.hash")})')
         p.locator('[data-nxno]').click(); p.wait_for_timeout(1500)
         ok(p.evaluate('location.hash') == '#/' and p.locator(OLD_CARDS).count() == 0, f'{name}: Not now lands on Home, with no old cards')
