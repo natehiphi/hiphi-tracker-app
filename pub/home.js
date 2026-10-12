@@ -22,7 +22,7 @@ import { burst, celebrate, petals, later } from './fx.js';
 import { alertStatus, openAlertsSheet, profileAsk, profileLede, PROFILE_H } from './alerts.js';   // the one status rule for alerts (D1-4)
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, declineNudge, goingPlans, goingCard } from './actions.js';
-import { shareLine, wireShareLine, keepLine, wireKeepLine } from './keep.js';
+import { shareLine, wireShareLine } from './keep.js';
 import { CAPITOL, islands, flower } from './art.js';
 // More's account cards (the follow-ups after a sign-in) load with More itself, on first use: only a signed-in person
 // sees them, and Home must not carry More, People and the address picker for everyone (R-122).
@@ -764,9 +764,8 @@ function homeFirst({ cards, asks, ask, loop = '' }) {
       <header class="hm-head hm-hello hm-finhead">${finHead({ lede: `This is your home page. When a bill on ${iss.length === 1 ? 'your issue' : 'your issues'} needs you, it shows up here, and we help you speak up in a few minutes.` })}</header>
       ${loop}${rightNow(cards, asks)}
       ${yourIssues()}
-      ${shareLine('hm-share')}
-      ${keepLine('hm-share')}
       ${ask}
+      ${shareLine('hm-share')}
     </div></div>
   </div>`;
 }
@@ -1086,7 +1085,7 @@ export default {
   },
   wire() {
     const root = document.querySelector('#main .hm'); if (!root) return;
-    wireActions(root); wireNudge(root); wireShareLine(root); wireKeepLine(root); wireExtras(root);
+    wireActions(root); wireNudge(root); wireShareLine(root); wireExtras(root);
     // Lists open in place without a redraw, so keyboard focus stays on the button that opened them.
     root.querySelectorAll('[data-hm-toggle]').forEach(el => el.onclick = () => {
       const box = document.getElementById(el.getAttribute('aria-controls')); if (!box) return;

@@ -557,7 +557,7 @@ python3 tests/errlog.py             # the public page's error reports: what is s
 python3 tests/uptime.py             # the published page draws four screens with no error, as the hourly GitHub job checks it (R-111)
 python3 tests/share_links.py        # one share everywhere, the link newcomer, the share pages passing ?via= on, Staff v2's hearing back link and Help words (R-112, R-113, R-114); 24 checks
 python3 tests/share_asks.py         # a shared link opens the ask it names, as a newcomer on a phone; every built share page leads with its ask, no instant redirect, no og:url, the ask's picture; the practice copy's own pages (R-169); 19 checks
-python3 tests/links_keep.py         # the walkthrough link, the My issues link restored in a fresh browser, "What's next", the calendar feed and the finale's keep line on a phone (R-123 to R-126); 13 checks
+python3 tests/links_keep.py         # the walkthrough link, the My issues link restored in a fresh browser, "What's next", the calendar feed, and the finale on a phone with no issues link (it lives only under More since 10/10, R-123 (a)) (R-123 to R-126); 14 checks
 python3 tests/perf.py               # the first screen's speed on the published site, throttled the same way every time (R-122): slow phone and 4G, three runs each, the middle one reported
 python3 tests/boot_live.py          # the staged boot on the published site (R-122): a newcomer's first screen, the kept catalog (waited for, up to 30 s, and how long it took is printed), someone with an action lands on Home, and every way in ends with the full catalog (R-136); 13 checks
 python3 tests/home_now.py           # Home's first card counts the day's deadlines; twin bills are one card naming the twin (R-131); 5 checks
