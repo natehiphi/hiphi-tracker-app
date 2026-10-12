@@ -110,7 +110,7 @@ def s1(p, w=390, h=844):
 def s2(p, w=390, h=844):
     to_alerts(p, '&codes=0&fv=full&end=home')
     p.fill('#st-a-phone', '(808) 555-0123'); p.click('#st-send'); mahalo_on(p)
-    story_to_soon(p); p.click('[data-stnext]'); p.wait_for_selector('.hm-did', timeout=10000); p.wait_for_timeout(1500)
+    story_to_soon(p); p.locator('.st-bar [data-stskip], .st-bar [data-stnext]').first.click(); p.wait_for_selector('.hm-did', timeout=10000); p.wait_for_timeout(1500)
     did = text(p, '.hm-did')
     ok('Alerts almost set' in did and not ON.search(did), f'2 Home’s ticks: "Alerts almost set", not "Text alerts on": {did!r}')
     shot(p, f'2_home_end_almost_{w}')

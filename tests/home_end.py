@@ -28,6 +28,7 @@ def click_text(p, sel, t):
 
 # Walk the first visit from a restart to "Coming up". The alerts come right after the issues (R-146): an email given there
 # when email is passed, else Skip. Returns what the screens said on the way.
+ON = '.st-bar [data-stskip], .st-bar [data-stnext] >> nth=0'   # the way on from the last page: "Not now" (R-233), or Next once done
 def walk_to_soon(p, extra, email=None):
     # the Home before 11 Oct (layout 'today'): automated browsers get the calm Home since R-222, which these checks do not read
     p.goto(BASE + '?demo=1&restart&ab=layout.today' + extra); p.wait_for_selector('.st-tile', timeout=15000); p.wait_for_timeout(800)
@@ -49,7 +50,7 @@ def walk_to_soon(p, extra, email=None):
     seen['mom'] = text(p, '#lx-cap')
     p.click('.lx-doors [data-lx-ch="yes"]'); p.wait_for_timeout(1500); seen['story'] = text(p, '#lx-mom')
     p.click('[data-stnext]')   # finishing the story goes straight on (R-140)
-    # the story hands straight on to Coming up (R-232: the address step left the first visit)
+    # the story hands straight on to One thing you can do (R-232, R-233)
     p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(800)
     seen['soon'] = text(p)
     return seen
@@ -67,10 +68,11 @@ with sync_playwright() as pw:
     # The alerts moved to right after the issues (R-146), where they cannot read as the end of the visit.
     ok('Save your profile' in s['alerts'] and 'gets a hearing' in s['alerts'] and 'HIPHI asks people to speak up' in s['alerts'], 'new: the alerts box names both kinds of alert (C-4)')
     ok('Link sent to tester@example.com' in s['mahalo'] and 'when you finish here' in s['mahalo'], 'new: after sending, it says to finish here first')
-    ok(p.locator('#st-a-email, #st-eform').count() == 0 and p.locator('#st-name').count() == 1, 'new: Coming up asks only the optional first name')
-    ok('See How I Can Help' in text(p, '.st-bar'), 'new: the last button says what Home is for, "See How I Can Help" (R-190)')
-    p.fill('#st-name', 'Leilani'); p.wait_for_timeout(200)   # no Save button: Next keeps it
-    p.click('[data-stnext]'); p.wait_for_selector('#main .hm-fin2', timeout=10000); p.wait_for_timeout(400)
+    ok(p.locator('#st-a-email, #st-eform').count() == 0 and p.locator('#st-name').count() == 1, 'new: One thing you can do asks only the optional first name')
+    # R-233: the last page's main button is its one thing, "Not now" beside it goes to Home; once done, "See How I Can Help" (R-190, coming_up.py)
+    ok(p.locator('.st-bar .btn.primary').inner_text().strip() == 'Write testimony' and 'Not now' in text(p, '.st-bar'), 'new: the last page\'s main button is the one thing, "Not now" beside it (R-233)')
+    p.fill('#st-name', 'Leilani'); p.wait_for_timeout(200)   # no Save button: "Not now" keeps it
+    p.click(ON); p.wait_for_selector('#main .hm-fin2', timeout=10000); p.wait_for_timeout(400)
     ok(p.evaluate('location.hash') in ('#/', ''), 'new: the last step goes straight to Home')
     home = text(p)
     ok('Mahalo, Leilani!' in home and 'This is your home page. When a bill on your issues needs you, it shows up here, and we help you speak up' in home, 'new: Home opens with "Mahalo, Leilani! This is your home page" and what it is for')
@@ -114,7 +116,7 @@ with sync_playwright() as pw:
     c, p = ctx(b, 375, 667)
     s = walk_to_soon(p, '&end=home')
     ok(s['fit'], 'new: on an iPhone SE the mobile number box is above the button bar')
-    p.click('[data-stnext]'); p.wait_for_selector('#main .hm-fin2', timeout=10000)
+    p.click(ON); p.wait_for_selector('#main .hm-fin2', timeout=10000)
     ok(p.locator('.hm-rnh').first.evaluate('e => e.getBoundingClientRect().bottom < innerHeight - 64'), 'new: on an SE "What you can do right now" is on the first screen')
     c.close()
 
@@ -122,9 +124,9 @@ with sync_playwright() as pw:
     c, p = ctx(b)
     s = walk_to_soon(p, '&end=today')
     ok('We tell you' in s['first'] and 'Stay connected' in s['first'], 'today: the first screen still promises to tell you (R-174: in its three promises)')
-    ok('Save your profile' in s['alerts'] and 'Want alerts by text or email?' in s['soon'], 'today: the alerts come after the issues; Coming up has one quiet line')
+    ok('Save your profile' in s['alerts'] and 'Want alerts by text or email?' in s['soon'], 'today: the alerts come after the issues; the page before the end has one quiet line')
     ok('this week?' in s['mom'] and 'We’ll show you how.' in s['story'], 'today: the story names the real moment too (a fix for both)')
-    p.click('[data-stnext]'); p.wait_for_selector('.st-done', timeout=10000)
+    p.click(ON); p.wait_for_selector('.st-done', timeout=10000)
     ok('You’re all set' in text(p), 'today: the finale screen is still there')
     p.click('[data-stdone]'); p.wait_for_selector('#main .hm', timeout=10000); p.wait_for_timeout(3500)
     ok(p.locator('.tr-tip').count() == 0 and p.locator('.hm-fin2').count() == 0, 'today: Home as before, no tips')
@@ -134,7 +136,7 @@ with sync_playwright() as pw:
     # ---- the new version between sessions ----
     c, p = ctx(b)
     walk_to_soon(p, '&end=home&season=off')
-    p.click('[data-stnext]'); p.wait_for_selector('#main .hm-fin2', timeout=10000); p.wait_for_timeout(400)
+    p.click(ON); p.wait_for_selector('#main .hm-fin2', timeout=10000); p.wait_for_timeout(400)
     off = text(p)
     ok('Mahalo for joining in!' in off and 'on break until' in off, 'off: Home opens with Mahalo and when the session opens')
     ok(p.locator('.hm-rightnow .hm-ready').count() == 1, 'off: "What you can do right now" is the hello to legislators')
@@ -154,7 +156,7 @@ with sync_playwright() as pw:
     # ---- the new version on a laptop ----
     c, p = ctx(b, 1440, 900)
     walk_to_soon(p, '&end=home')
-    p.click('[data-stnext]'); p.wait_for_selector('#main .hm-fin2', timeout=10000)
+    p.click(ON); p.wait_for_selector('#main .hm-fin2', timeout=10000)
     if TIPS_ON:
         p.wait_for_selector('.tr-tip', timeout=10000); p.wait_for_timeout(500)
         for k in range(2):
@@ -167,7 +169,7 @@ with sync_playwright() as pw:
     # ---- the lit button in tip 1 works: it opens the testimony walkthrough and ends the tips ----
     c, p = ctx(b)
     walk_to_soon(p, '&end=home')
-    p.click('[data-stnext]'); p.wait_for_selector('#main .hm-fin2', timeout=10000)
+    p.click(ON); p.wait_for_selector('#main .hm-fin2', timeout=10000)
     if TIPS_ON:
         t0 = p.evaluate('Date.now()'); p.wait_for_selector('.tr-tip', timeout=10000)
         waited = p.evaluate('Date.now()') - t0

@@ -180,8 +180,8 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 /* One thing you can do (R-233, Nate 10/11): one card, the bill or issue as its heading (A-19), what it is about, the one date
    that matters. The card opens nothing: its action is the filled button in the bar (A-3, A-12). Done, it turns green with a
    tick (A-16). */
-.st-onecard { display: grid; gap: 6px; padding: var(--s16); background: var(--n0); border: 1.5px solid var(--p200); border-radius: var(--r12);
-  box-shadow: var(--sh2); animation: st-rise .35s var(--ease) both; }
+.st-onecard { display: grid; gap: 6px; padding: var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12);
+  box-shadow: var(--sh1); animation: st-rise .35s var(--ease) both; }
 .st-one-name { font: 600 var(--t22)/1.2 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
 .st-one-meta { font-size: var(--t14); color: var(--n700); }
 .st-one-when { display: flex; align-items: center; gap: 6px; margin-top: var(--s4); font-size: var(--t16); color: var(--n900); }
@@ -197,6 +197,7 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 .st-rest li { font-size: var(--t16); color: var(--n700); line-height: 1.4; }
 .st-rest li b { color: var(--n900); }
 .st-rest p { margin: 0; }
+.st-onekeep { margin: var(--s12) 0 0; }
 /* The one honest line where nothing is coming up: the place of the list, not an empty block. */
 .st-nothing { display: flex; gap: var(--s12); align-items: flex-start; padding: var(--s16); border-radius: var(--r12); background: var(--p50); border: 1px solid var(--p200); }
 .st-nothing p { margin: 0; font-size: var(--t16); color: var(--n900); }

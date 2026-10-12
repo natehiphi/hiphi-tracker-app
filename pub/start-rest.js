@@ -516,25 +516,29 @@ function oneWords(w) {
   switch (w.kind) {
     case 'testimony': return { ic: 'notebook-pen', go: 'Write testimony', name, meta, urgent: soon(w.h.testimony_deadline),
       when: `Testimony due ${dayOf(w.h.testimony_deadline)} at ${timeWord(w.h.testimony_deadline)}`,
-      line: `Testimony on this bill is due ${dayOf(w.h.testimony_deadline)}. We help you write it, about 5 minutes.` };
+      line: 'Tell the committee what you think. We help you write it, about 5 minutes.' };
     case 'email': return { ic: 'mail', go: 'Email the chair', name, meta, when: `Hearing ${dayOf(w.h.scheduled_at)} at ${timeWord(w.h.scheduled_at)}`,
-      line: `Its hearing is ${dayOf(w.h.scheduled_at)}. A short email tells the committee chair where you stand, about 2 minutes.` };
+      line: 'A short email tells the committee chair where you stand, about 2 minutes.' };
     case 'ask': { const two = chairContacts(w.code).length > 1;
-      return { ic: 'mail', go: `Ask the ${two ? 'chairs' : 'chair'} for a hearing`, name, meta: spaced(w.b.bill_number) === name ? '' : spaced(w.b.bill_number),
+      return { ic: 'mail', go: `Ask the ${two ? 'chairs' : 'chair'} for a hearing`, name, meta: [spaced(w.b.bill_number) === name ? '' : spaced(w.b.bill_number), briefCmte(w.code)].filter(Boolean).join(' · '),
         when: `Needs a hearing by ${dateLong(w.st.deadline.date + 'T12:00:00-10:00')}`,
-        line: `This bill is waiting for a hearing. The committee ${two ? 'chairs decide' : 'chair decides'} which bills are heard, and asking takes about 2 minutes.` }; }
-    case 'shareissue': return { ic: 'share-2', go: 'Ask a friend to follow it', name, meta: '',
-      line: 'Send this issue to a friend so they can follow it too: more voices when its hearings come. About 1 minute.' };
+        line: `The committee ${two ? 'chairs decide' : 'chair decides'} which bills are heard. Asking takes about 2 minutes.` }; }
+    case 'shareissue': { const o = isOff() ? upcoming().find(it => it.title === w.i.name) : null, next = isOff() ? sessionInfo().nextOpen : '';
+      return { ic: 'share-2', go: 'Ask a friend to follow it', name, meta: o ? firstSentence(o.value) : '',
+      when: next ? `The next session opens ${new Date(next + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, weekday: 'long', month: 'long', day: 'numeric' })}` : '',
+      line: 'Send this issue to a friend so they can follow it too: more voices when its hearings come. About 1 minute.' }; }
     default: return null;
   }
 }
 // The rest of what is coming up, one line each (B-14): the bill or issue, then its date or what happened.
 function restLines(w) {
-  const all = upcoming().filter(it => !(w?.b && it.b && it.b.id === w.b.id));
+  const all = upcoming().filter(it => !(w?.b && it.b && it.b.id === w.b.id) && !(w?.i && it.title === w.i.name) && !(w?.kind === 'shareissue' && it.label === 'Opens'));
   return all.map(it => it.kind === 'hear'
     ? [nick(it.b) || spaced(it.b.bill_number), it.h.testimony_deadline && new Date(it.h.testimony_deadline) > Date.now() ? `Testimony due ${whenWords(it.h.testimony_deadline)}` : `Hearing ${whenWords(it.h.scheduled_at)}`]
-    : [it.title, `${it.label}: ${it.value}`]);
+    : [it.title, `${it.label}: ${firstSentence(it.value)}`]);
 }
+// "In 2026 it stopped in its first committee." without the "Ideas like this often come back..." that every outlook repeats.
+const firstSentence = t => String(t || '').split(/(?<=\.)\s+/)[0];
 function stepSoon(step) {
   const off = isOff(), w = oneThing();
   // No way to reach them yet (they skipped the alerts screen, or the email-ask test's second version, R-135): one quiet
@@ -561,10 +565,11 @@ function stepSoon(step) {
   // Between sessions the list is the session's opening day and last year's story; in session, the week's other hearings.
   const restBlock = rest.length ? `<section class="st-rest" aria-labelledby="st-rest-h"><h2 class="st-rest-h" id="st-rest-h">${off ? 'Coming up' : 'Also this week'}</h2>
     <ul role="list">${rest.map(([n, v]) => `<li><b>${esc(n)}</b> <span>${esc(v)}</span></li>`).join('')}</ul>
-    <p class="small muted">Your home page keeps ${rest.length === 1 ? 'it' : 'them all'}.</p></section>` : '';
+    <p class="small muted">Your home page keeps ${rest.length === 1 ? 'it' : 'them all'}.</p></section>`
+    : done ? '' : '<p class="small muted st-onekeep">It stays on your home page either way.</p>';   // where "Not now" leaves it (C-6)
   return shell('st4 st-soonpage st-onepage', `${topRow('soon', step)}
-    <h1 class="hero" id="st-h">One thing you can do ${off ? 'before January' : 'this week'}</h1>
-    <p class="lede">${esc(done ? (w.kind === 'shareissue' ? 'Mahalo for spreading the word.' : 'Mahalo for speaking up.') : x.line)}</p>`,
+    <h1 class="hero" id="st-h">${done ? (w.kind === 'shareissue' ? 'You spread the word' : 'You spoke up') : `One thing you can do ${off ? 'before January' : 'this week'}`}</h1>
+    <p class="lede">${esc(done ? 'Mahalo! Your home page shows what comes next.' : x.line)}</p>`,
     `${card}${restBlock}${below}`);
 }
 // The filled button opens the walkthrough; the share marks itself (R-205's sheet picks the words with them).

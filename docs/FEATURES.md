@@ -963,6 +963,9 @@ path (the screens in order, the seconds on each, what they did), testers told.
 
 ## Three ways to help before the end of the first visit, as a test (R-150; 6 Oct 2026)
 
+*Replaced 12 Oct 2026 by "One thing you can do" (R-233, below the R-150 notes): Nate stopped the test and shipped one version.
+`waysFor`, `stepWays`, `wireWays` and `tests/ways.py` are gone; what follows is the history.*
+
 Nate 10/4: "We want people to act right away after signing up"; 10/5: "The last page asking for action should provide three
 bills that they followed each with a different type of action. One is write testimony, one is send an email, another is send
 to a friend"; 10/6: on "Coming up on your issues" (the page just before "You're all set!"), no reminder for now, "test it".
@@ -1125,3 +1128,26 @@ during onboarding. That should hold for any of the post onboarding asks we have 
 - **How we'll know:** from January, how many later visits answer the page rather than "Not now", and whether returns
   (`log_day`) drop after one.
 
+## One thing you can do, the page before the end of the first visit (R-233; 12 Oct 2026)
+
+Nate 10/11: the page's main button was Next, not the action, so the visit ended three times without asking anyone to do
+anything. His answers: one action as the main button with "Not now" beside it; between sessions "Ask a friend to follow it";
+stop the test `act` (R-150) and ship this one version. `stepSoon` in `pub/start-rest.js` draws **"One thing you can do this
+week"** ("before January" between sessions): a line that says what it is and how long, one card (the bill or issue as its
+heading, the bill number and committee, the one date that matters, amber within 24 hours), the rest of the week one line
+each under "Also this week" ("Coming up" between sessions: the session's opening day and what happened), and the bar's
+filled button is the action, "Not now" beside it.
+- Which one thing (`pickOne`): testimony due soonest on a bill they follow (`openActions`, open testimony first); else an
+  email to the chair on a bill with a hearing in the next 7 days; else asking a chair for a hearing on a bill waiting for one
+  (`waitingBills`); else their first issue, **"Ask a friend to follow it"** (`shareIssue`, the same sheet as every share, R-205).
+- It stays the same once shown (`S.stOne`, a new pick only when the issues followed change): doing it opens the walkthrough;
+  back on the page the card turns green with a tick, the line thanks them, and the button is Next (or "See How I Can Help" in
+  the version that ends on Home). The finale's "Here's what you did today" names it (`wayRow`).
+- Following nothing, the page is passed over (`redirectFor` in `pub/start.js`), forward and Back; the story's last button
+  then says "Next: You're All Set". In the version that ends on Home it is the last step and keeps its honest empty line.
+- The test `act` left `pub/variant.js` (a database row for it is ignored); its switch on Staff v2 > Tests stays until it is
+  stopped there.
+How we'll know: acting on the day of the first visit and coming back within 7 days (the visit counts); off season they are
+tiny, so after January. Tests: `tests/coming_up.py` (rewritten: in session, nothing this week, the ending on Home, between
+sessions, following nothing, a laptop); `alerts_ask.py`, `d1_status.py`, `home_end.py`, `public_journey.py`,
+`first_visit_fixes.py` take "Not now" where they pressed Next; `abtests.py` counts the tests without `act`; `ways.py` is gone.
