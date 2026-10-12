@@ -12,7 +12,7 @@ import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { GO_HELP } from './topics.js';
 import { afterMove, bloom, burst, later, reduced, petals, swap } from './fx.js';
-import { shareLine, keepLine } from './keep.js';
+import { shareLine } from './keep.js';
 import { endHome, armOf, abSeen } from './variant.js';   // and the test 'act' (R-150): today's "Coming up" | three ways to help
 import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep, alertStatus, alertRowHTML, wireAlertRow, profileAsk, profileLede, PROFILE_H } from './alerts.js';
 const followLabel = n => n ? `Follow ${plural(n, 'issue')}` : 'Follow issues';
@@ -713,7 +713,7 @@ function stepDone(step) {
       <li style="--k:1"><span class="st-nic">${icon('calendar-clock')}</span><div>${told ? '<b>When it’s your moment, we tell you.</b><span>Most ways to help take about 2 minutes.</span>'
         : '<b>When it’s your moment, it’s on your home page.</b><span>Most ways to help take about 2 minutes.</span>'}</div></li>
       <li style="--k:2"><span class="st-nic">${icon('circle-check')}</span><div><b>You see what happened.</b><span>Every result is on your home page.</span></div></li>
-    </ol>${shareLine()}${keepLine()}`);
+    </ol>${shareLine()}`);   // the My issues link lives only under More since 10/10 (R-123 (a))
 }
 
 
