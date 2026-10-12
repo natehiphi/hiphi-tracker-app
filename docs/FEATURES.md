@@ -1120,7 +1120,8 @@ during onboarding. That should hold for any of the post onboarding asks we have 
 - **Counted** (backend 170, Nate 10/11 "Yes keep track"; `pub/visitlog.js` logAsk): each page shown (once a page load),
   done or Not now, with the Not nows before it (0 to 3), the device kind and the A/B version; no id, address, number, email
   or issue; nothing from the practice copy, a test run, the team's browsers or under the privacy signal. Staff read
-  `later_asks_weekly(weeks)`.
+  `later_asks_weekly(weeks)`, shown in Staff v2 > Outreach > Issues > First visit under "Coming back" as "Asks on later
+  visits": pages shown, done, Not now and left without an answer, a row per ask saying what counts as done (R-251, Nate 10/11 "add it to the admin views").
 - **How we'll know:** from January, how many later visits answer the page rather than "Not now", and whether returns
   (`log_day`) drop after one.
 

@@ -25,6 +25,7 @@ const V2_ONLY = new Set(['table categories', 'table issues', 'table issue_catego
   'table public_action_counts', 'table follower_counts',   // the public's response on hearings, the Week and the Public tab (R-117); the stored follower count since Z1-7
   'table ab_tests', 'rpc ab_results', 'rpc ab_results_by_ask',   // Session setup > Tests: the public page's A/B tests (116, R-135) and the share picture's counts by ask (155, R-183)
   'rpc suggest_summary {weeks}',   // First visit > Suggested bills (118, R-094)
+  'rpc later_asks_weekly {weeks}',   // First visit > Later visits' asks (170, R-237, R-251)
   'table bill_drafts',   // a bill's Public tab: what each draft changed (120, R-060)
   'rpc profile_rollup',   // Supporters: how supporters describe themselves, counts only (130, R-156)
   'table tester_paths',   // the tester sheet: what testers did (150, R-193)
