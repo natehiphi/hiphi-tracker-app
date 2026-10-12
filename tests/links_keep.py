@@ -47,19 +47,21 @@ with sync_playwright() as p:
     # 3. "What's next" words
     nxt = pg.evaluate("async n => { const c = await import('./pub/core.js'); const b = c.S.bills.find(x => x.bill_number === n) || Object.values(c.S.extra).find(x => x.bill_number === n) || c.D.bills.find(x => x.bill_number === n); return c.nextWords(b); }", NUM)
     ok(nxt.startswith('Next:') and ('hearing' in nxt or 'vote' in nxt or 'report' in nxt), 'the next step for ' + NUM + ': ' + nxt)
-    # 4. the finale's keep line and the calendar address
-    keep = pg.evaluate("async () => (await import('./pub/keep.js')).keepLine()")
-    ok('Copy my issues link' in keep and 'Text it to myself' in keep and 'sms:' in keep, 'the finale offers the issues link, with a way to text it')
+    # 4. the issues link lives only under More since 10/10 (Nate's (a)): keep.js no longer makes a keep line; the calendar address
+    gone = pg.evaluate("async () => !('keepLine' in (await import('./pub/keep.js')))")
+    ok(gone, 'keep.js no longer offers the issues link for the finale or Home')
     cal = pg.evaluate("async s => { const c = await import('./pub/core.js'); return c.calendarUrl(c.S.issues.find(x => x.slug === s)); }", slug1)
     ok(cal == f'#/issue/{slug1}', f'the sandbox has no feeds, so the calendar link opens the issue page ({cal})')
     ok(os.path.exists(os.path.join(ROOT, 'cal', f'{slug1}.ics')) and open(os.path.join(ROOT, 'cal', f'{slug1}.ics')).read().startswith('BEGIN:VCALENDAR'), f'the feed file cal/{slug1}.ics exists for the live site')
-    # 5. the finale on a phone, with the keep line shown: nothing runs past the edge, and its own button takes the tap
+    # 5. the finale on a phone: nothing runs past the edge, and its own button takes the tap
     # (10/1: a calendar label naming the issue made the page 452px wide and the tap missed)
     ctx3 = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True, device_scale_factor=2); pg3 = ctx3.new_page(); errs3 = []; pg3.on('pageerror', lambda e: errs3.append(str(e)))
     pg3.goto(BASE + '&restart#/'); ready(pg3)
     pg3.evaluate("async a => { const c = await import('./pub/core.js'); await c.setFollows({ issuesOn: [c.S.issues.find(x => x.slug === a[0]).id], catsOn: [] }); }", [slug1])
     pg3.goto(BASE + '#/start/9'); ready(pg3); pg3.wait_for_timeout(2500)
-    ok(pg3.locator('.st-keep').count() == 1 and 'Add to my calendar' in pg3.locator('.st-keep').inner_text(), 'the finale shows the keep line with the calendar button')
+    fin = pg3.locator('main').inner_text()
+    ok(pg3.locator('.st-keep').count() == 0 and 'Copy my issues link' not in fin and 'any phone or browser' not in fin, 'the finale no longer shows the issues link (R-123 (a): it leads with email or text)')
+    ok(pg3.locator('[data-alrow]').count() == 1, 'the finale keeps its alerts row, the email or text ask')
     w = pg3.evaluate('document.documentElement.scrollWidth')
     ok(w <= 390, f'nothing on the finale runs past a phone\'s edge (page {w}px wide)')
     pg3.locator('[data-stdone]').click(timeout=5000); pg3.wait_for_timeout(1500)
