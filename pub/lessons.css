@@ -267,7 +267,8 @@
 .lx-story .lx-c3 { display: none; }
 /* stages 3 and 4 (R-255): the scene the picture names, 'set' the hearing on the list, 'c' the email that asks for one,
    't' the notes that carry the bill on, 'no' no one asking (the road ahead greys, the bill is stamped) */
-.lx-story[data-scene="no"] .lx-c3-no, .lx-story[data-scene="t"] .lx-c3-t, .lx-story[data-scene="c"] .lx-c3-c, .lx-story[data-scene="set"] .lx-c3-set { display: inline; }
+.lx-story[data-scene="no"] .lx-c3-no, .lx-story[data-scene="t"] .lx-c3-t, .lx-story[data-scene="c"] .lx-c3-c, .lx-story[data-scene="set"] .lx-c3-set, .lx-story[data-scene="need"] .lx-c3-need { display: inline; }
+.actionbar.lx-asleep { display: none; }   /* the lesson page's bar has only Next, asleep until a choice (R-255) */
 .lx-story[data-scene="t"] .lx-r3 .lx-b3, .lx-story[data-scene="no"] .lx-r3 .lx-b3 { display: none; }
 .lx-saidbox.lx-got { margin-top: var(--s12); }
 .lx-saidbox.lx-swap { animation: lx-rise .28s var(--ease) both; }

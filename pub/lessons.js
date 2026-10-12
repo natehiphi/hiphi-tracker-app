@@ -799,8 +799,11 @@ function roadScenesSVG(E) {
   const greyStops = STOPS.map(([sx, sy], i) => i > s ? `<circle cx="${sx}" cy="${sy}" r="12" fill="var(--n100)" stroke="var(--n300)" stroke-width="3"/>` : '').join('');
   const ny = below ? y - 30 : y + 30;   // notes land beside the stop, on the side away from its name
   const cx = below ? x + 20 : x - 76, cy = below ? y - 66 : y + 18;   // the calendar, in the open space beside the bill, off the road
-  const calendar = d => `<g class="lx-pop" style="--d:${d}ms"><rect x="${cx}" y="${cy}" width="56" height="46" rx="4" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.5"/><path d="M${cx} ${cy + 4} Q${cx} ${cy} ${cx + 4} ${cy} H${cx + 52} Q${cx + 56} ${cy} ${cx + 56} ${cy + 4} V${cy + 16} H${cx} Z" fill="var(--p700)"/>${svgText(cx + 28, cy + 12, 'Hearing', { size: 11, fill: 'var(--n0)' })}<path d="M${cx + 10} ${cy + 31} h22" stroke="var(--n300)" stroke-width="4" stroke-linecap="round"/></g>
-       <g transform="translate(${cx + 44} ${cy + 31})"><g class="lx-pop" style="--d:${d + 350}ms"><circle r="7" fill="var(--p700)"/><path d="M-3.2 0 l2.2 2.2 4.2-4.2" fill="none" stroke="var(--n0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g></g>`;
+  // The calendar's label is 13px like the road's (C-14, the critic); the empty grey one is stage 3's still: a hearing the bill
+  // has not got yet, which the chair's email fills and ticks and doing nothing fades with the road.
+  const calendar = d => `<g class="lx-pop" style="--d:${d}ms"><rect x="${cx}" y="${cy}" width="64" height="46" rx="4" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.5"/><path d="M${cx} ${cy + 4} Q${cx} ${cy} ${cx + 4} ${cy} H${cx + 60} Q${cx + 64} ${cy} ${cx + 64} ${cy + 4} V${cy + 17} H${cx} Z" fill="var(--p700)"/>${svgText(cx + 32, cy + 13, 'Hearing', { size: 13, fill: 'var(--n0)' })}<path d="M${cx + 10} ${cy + 32} h26" stroke="var(--n300)" stroke-width="4" stroke-linecap="round"/></g>
+       <g transform="translate(${cx + 52} ${cy + 32})"><g class="lx-pop" style="--d:${d + 350}ms"><circle r="7" fill="var(--p700)"/><path d="M-3.2 0 l2.2 2.2 4.2-4.2" fill="none" stroke="var(--n0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g></g>`;
+  const emptyCalendar = `<rect x="${cx}" y="${cy}" width="64" height="46" rx="4" fill="var(--n0)" stroke="var(--n300)" stroke-width="1.5" stroke-dasharray="4 3"/><path d="M${cx} ${cy + 4} Q${cx} ${cy} ${cx + 4} ${cy} H${cx + 60} Q${cx + 64} ${cy} ${cx + 64} ${cy + 4} V${cy + 17} H${cx} Z" fill="var(--n300)"/>${svgText(cx + 32, cy + 13, 'Hearing', { size: 13, fill: 'var(--n0)' })}<path d="M${cx + 10} ${cy + 32} h26" stroke="var(--n200)" stroke-width="4" stroke-linecap="round"/>`;
   const chair = `${fly(-140, 80, 0, PROPS.mail(below ? x - 26 : x - 2, below ? y - 32 : y + 36, -8))}${calendar(600)}`;
   const testimony = `${fly(-150, below ? 60 : 90, 0, PROPS.note(x - 28, ny, -8))}${fly(-160, below ? 64 : 84, 180, PROPS.note(x, ny + (below ? -4 : 4), 4))}${fly(-170, below ? 60 : 90, 360, PROPS.note(x + 28, ny, 10))}
        <path class="lx-draw" style="--len:${Math.abs(nx - x)}px;--d:850ms" d="M${x} ${y} H${nx}" fill="none" stroke="var(--p600)" stroke-width="3.5"/>
@@ -815,6 +818,7 @@ function roadScenesSVG(E) {
     ${stops}
     <g class="lx-c3 lx-c3-no"><g class="lx-fade" style="--d:0ms"><path d="${ROAD}" fill="none" stroke="var(--n200)" stroke-width="22" stroke-linecap="round" style="stroke-dasharray:0 ${end.toFixed(1)} ${Math.ceil(ROADLEN + 60)}"/>${greyStops}</g></g>
     <g class="lx-b3" transform="translate(${x} ${y})">${smallBill()}</g>
+    <g class="lx-c3 lx-c3-need">${emptyCalendar}</g>
     <g class="lx-c3 lx-c3-set">${calendar(0)}</g>
     <g class="lx-c3 lx-c3-c">${chair}</g>
     <g class="lx-c3 lx-c3-t">${testimony}</g>
@@ -903,15 +907,16 @@ const PICKS = { 3: [['chair', 'Ask the chair for a hearing'], ['none', 'Do nothi
 // walkthrough follows the person's own stance, so the lesson does not say which way (Nate 10/12).
 function pickWords(E, k, pick) {
   const num = esc(E.num), next = esc(roadNames(E)[sceneAt(E) + 1]);
+  // The chair and testimony each get their one plain gloss on the path most people take (C-10, the critic).
   if (k === 3) return pick === 'chair'
-    ? { said: `An email asking for a hearing can put ${num} on the list.`, other: 'With no one asking, it can be left off.' }
-    : { said: `With no one asking, the chair can leave ${num} off the list, and then it can’t pass this year.`, other: 'An email asking for a hearing can put it on the list.' };
+    ? { said: `The committee chair picks which bills get a hearing. An email asking can get ${num} one.`, other: 'With no one asking, the chair can pass it over.' }
+    : { said: `With no one asking, the chair can leave ${num} without a hearing, and then it can’t pass this year.`, other: 'An email to the chair can get it a hearing.' };
   return pick === 'testimony'
-    ? { said: `The committee reads testimony before it votes. Notes can carry ${num} on to the ${next}.`, other: 'With no one asking, it can be put on hold.' }
-    : { said: `${HELD(E, true)} Most bills end at a committee.`, other: 'Testimony, a note saying what you think, can carry it on.' };
+    ? { said: `Testimony is a note saying what you think. The committee reads it before it votes, and notes can carry ${num} on to the ${next}.`, other: 'With no testimony, it can be put on hold.' }
+    : { said: HELD(E, true), other: 'Testimony, a note saying what you think, can carry it on.' };
 }
 // The turn to the person, once, at the end (Nate 10/12): where these moments reach them.
-const turnWords = E => `When ${E.off ? 'the session opens and ' : ''}a bill you follow reaches one of these moments, it goes to the top of your home page with what to do by when.`;
+const turnWords = E => `When ${E.off ? 'the session opens and ' : ''}a bill on your issues reaches one of these moments, it goes to the top of your home page, with what to do and by when.`;
 function stageTitle(E, k) {
   if (k === 1) return E.mine || E.via === 'followed' ? 'This is your bill' : 'Meet the bill';
   return k === 2 ? 'Its road' : k === 3 ? needWords(E) : setWords(E);
@@ -982,7 +987,13 @@ function roadPlay(pic, instant) {
 // The host's Next (the first visit's bar, or the lesson page's) sleeps until a choice is made on stages 3 and 4 (Nate
 // 10/12: "It's not until after a choice is made that the next button becomes alive. The skip button is always alive."):
 // hidden, not greyed, so nobody taps a dead button; the choices are the page's main action meanwhile.
-function wakeNext(ready) { $$('[data-stnext], [data-stlearnnext]').forEach(b => { b.hidden = !ready; }); }
+function wakeNext(ready) {
+  $$('[data-stnext], [data-stlearnnext]').forEach(b => { b.hidden = !ready; });
+  // While Next sleeps the first visit's Skip stands where Next always was: it says what it does, so habit does not take it
+  // for "continue" (the critic). The lesson page has no Skip, so its empty bar goes until Next wakes.
+  $$('[data-stskip] span').forEach(s => { s.textContent = ready ? 'Skip' : 'Skip the rest'; });
+  const bar = document.querySelector('.actionbar'); if (bar) bar.classList.toggle('lx-asleep', !ready && !bar.querySelector('[data-stskip]'));
+}
 // A choice plays its scene and fills the box: one sentence for that path, the other path in one quiet line; nothing is
 // picked for the person, and the other choice stays there to try. On Back and on a redraw a kept pick is shown still.
 function storyPick(pick, { instant = false } = {}) {
@@ -1005,8 +1016,8 @@ function storyPick(pick, { instant = false } = {}) {
 function revealSaid(box) {
   requestAnimationFrame(() => {
     if (!box || !box.isConnected) return;
-    const { top, bottom } = bounds(), m = box.getBoundingClientRect();
-    const dy = m.top < top ? m.top - top : m.bottom > bottom ? Math.min(m.bottom - bottom, m.top - top) : 0;
+    const { top, bottom } = bounds(), m = box.getBoundingClientRect(), need = Math.min(m.bottom, m.top + 72);   // the first lines, not the whole box: the scene stays in view (the critic)
+    const dy = m.top < top ? m.top - top : need > bottom ? Math.min(need - bottom, m.top - top) : 0;
     if (Math.abs(dy) > 4) scrollBy({ top: dy, behavior: reduced() ? 'auto' : 'smooth' });
   });
 }
@@ -1023,7 +1034,10 @@ function storySet(k, { instant = false, initial = false } = {}) {
   else if (instant) { pic.classList.add('lx-play'); settle(pic); }
   else { void pic.getBoundingClientRect(); play(pic, 'lx-play'); }
   if (k >= 3) {
-    if (k === 4) pic.dataset.scene = 'set';   // the hearing is on the list before anyone chooses
+    if (k === 3) pic.dataset.scene = 'need';   // the hearing the bill has not got yet
+    // Stage 4 opens with the hearing set. After "Do nothing" on stage 3 it is set by the email and the calendar playing
+    // (the critic: otherwise doing nothing looked as if it changed nothing); after "Ask the chair" it is simply there.
+    if (k === 4) { const asked = ST.story.picks[3] !== 'none'; pic.dataset.scene = asked ? 'set' : 'c'; if (!asked && !instant && !reduced()) { void pic.getBoundingClientRect(); play(pic, 'lx-cplay'); } }
     if (ST.story.picks[k]) storyPick(ST.story.picks[k], { instant: true });   // Back or a redraw keeps the pick
     else wakeNext(false);
   } else wakeNext(true);
