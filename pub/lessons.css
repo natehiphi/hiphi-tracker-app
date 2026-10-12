@@ -267,6 +267,21 @@
 .lx-story .lx-c3 { display: none; }
 .lx-story[data-choice="yes"] .lx-c3-yes, .lx-story[data-choice="no"] .lx-c3-no { display: inline; }
 .lx-story[data-choice="yes"] .lx-r3t .lx-b3 { display: none; }
+/* R-255's options on the practice copy (?story3=): the scene plays on arrival with no doors; 'order' draws both moments */
+.lx-story[data-opt="order"] .lx-c3-order { display: inline; }
+.lx-story[data-opt] .lx-r3 .lx-b3 { display: none; }
+.lx-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s8); margin-top: var(--s12); }
+.lx-two > div { padding: var(--s12); border-radius: var(--r12); background: var(--p50); border-left: 4px solid var(--p600); color: var(--n900); min-width: 0; }
+.lx-two > .lx-two-no { background: var(--n100); border-left-color: var(--n700); }
+.lx-two p { margin: 0; }
+.lx-two-h { font-weight: 700; }
+.lx-mini { display: block; width: 96px; height: 48px; margin: var(--s8) 0; }
+@media (max-width: 26.1875em) { .lx-two { grid-template-columns: minmax(0, 1fr); } }   /* 419px: the two outcomes stack on a phone */
+.lx-steps { margin: var(--s12) 0 0; padding-left: 1.3em; color: var(--n900); }
+.lx-steps li + li { margin-top: var(--s8); }
+.lx-scap p.lx-said { margin-top: var(--s12); padding: var(--s12); border-radius: var(--r12); background: var(--p50); border-left: 4px solid var(--p600); color: var(--n900); }
+.lx-scap p.lx-said-no { background: var(--n100); border-left-color: var(--n700); }
+.lx-scap p.lx-other { margin-top: var(--s12); }
 .lx-story .lx-draw { stroke-dasharray: var(--len) var(--len); }
 .lx-story.lx-cplay .lx-fly { animation: lx-fly .6s var(--ease) var(--d, 0ms) both; }
 .lx-story.lx-cplay .lx-pop { animation: lx-pop .35s var(--spring, cubic-bezier(.34, 1.4, .64, 1)) var(--d, 0ms) both; }

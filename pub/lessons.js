@@ -54,7 +54,7 @@
 //   mine          the person follows it (S.watch); off, via as given ('link': opened from a shared link;
 //                 'followed': opened from a link and its issue just followed; 'bill': a lesson opened from that bill's page)
 import { S, esc, icon, nick, blurb, spaced, sessionInfo, hearingsOf, outcomeOf, codesOf, cmteLabel, roomLabel, legPhoto,
-  legTitle, posInfo, plainStatus, dateLong, timeWord, HST, CHAMBER_NAME, winsIn, loadRecapPool, myActions } from './core.js';
+  legTitle, posInfo, plainStatus, dateLong, timeWord, HST, CHAMBER_NAME, winsIn, loadRecapPool, myActions, DEMO } from './core.js';
 import { posChip } from './ui.js';
 import { situation, railHTML, railBrief } from './bill.js';
 import { reduced, later, burst, travel, stopTravel } from './fx.js';
@@ -787,8 +787,10 @@ function roadDoorsSVG(E) {
   const stops = STOPS.map(([sx, sy], i) => `${i < s ? tickAt(sx, sy) : i > s ? `<circle cx="${sx}" cy="${sy}" r="12" fill="var(--n0)" stroke="var(--p300)" stroke-width="3"/>` : ''}${svgText(sx, sy === RB ? sy + 34 : sy - 26, names[i])}`).join('');
   const greyStops = STOPS.map(([sx, sy], i) => i > s ? `<circle cx="${sx}" cy="${sy}" r="12" fill="var(--n100)" stroke="var(--n300)" stroke-width="3"/>` : '').join('');
   const ny = below ? y - 30 : y + 30;   // notes land beside the stop, on the side away from its name
-  const yes = D.kind === 'testimony'
-    ? `${fly(-150, below ? 60 : 90, 0, PROPS.note(x - 28, ny, -8))}${fly(-160, below ? 64 : 84, 180, PROPS.note(x, ny + (below ? -4 : 4), 4))}${fly(-170, below ? 60 : 90, 360, PROPS.note(x + 28, ny, 10))}
+  // The scene a yes plays, by the bill's moment; R-255's 'order' option draws both, so it takes the kind (and shifts the
+  // notes clear of the hearing's calendar on the bottom row).
+  const sceneFor = (kind, shift = 0) => kind === 'testimony'
+    ? `${fly(-150, below ? 60 : 90, 0, PROPS.note(x - 28 + shift, ny, -8))}${fly(-160, below ? 64 : 84, 180, PROPS.note(x + shift, ny + (below ? -4 : 4), 4))}${fly(-170, below ? 60 : 90, 360, PROPS.note(x + 28 + shift, ny, 10))}
        <path class="lx-draw" style="--len:${Math.abs(nx - x)}px;--d:850ms" d="M${x} ${y} H${nx}" fill="none" stroke="var(--p600)" stroke-width="3.5"/>
        ${tickAt(x, y, 750)}
        <g class="lx-slide" style="--mx:${x - nx}px;--d:900ms"><g transform="translate(${nx} ${y})">${smallBill()}</g></g>`
@@ -796,6 +798,11 @@ function roadDoorsSVG(E) {
       return `${fly(-140, 80, 0, PROPS.mail(below ? x - 26 : x - 2, below ? y - 32 : y + 36, -8))}
        <g class="lx-pop" style="--d:600ms"><rect x="${cx}" y="${cy}" width="56" height="46" rx="4" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.5"/><path d="M${cx} ${cy + 4} Q${cx} ${cy} ${cx + 4} ${cy} H${cx + 52} Q${cx + 56} ${cy} ${cx + 56} ${cy + 4} V${cy + 16} H${cx} Z" fill="var(--p700)"/>${svgText(cx + 28, cy + 12, 'Hearing', { size: 11, fill: 'var(--n0)' })}<path d="M${cx + 10} ${cy + 31} h22" stroke="var(--n300)" stroke-width="4" stroke-linecap="round"/></g>
        <g transform="translate(${cx + 44} ${cy + 31})"><g class="lx-pop" style="--d:950ms"><circle r="7" fill="var(--p700)"/><path d="M-3.2 0 l2.2 2.2 4.2-4.2" fill="none" stroke="var(--n0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g></g>`; })();
+  const yes = sceneFor(D.kind);
+  // R-255's 'order' option: the hearing (1) and the vote (2) on one road, numbered in the order a bill meets them.
+  const badge = (bx, by, n, d) => `<g transform="translate(${bx} ${by})"><g class="lx-pop" style="--d:${d}ms"><circle r="9" fill="var(--p900)"/>${svgText(0, 4, String(n), { size: 11, fill: 'var(--n0)' })}</g></g>`;
+  const ocx = below ? x + 20 : x - 76, ocy = below ? y - 66 : y + 18, oshift = below ? -40 : 0;
+  const order = story3Opt() === 'order' ? `${sceneFor('chair')}${sceneFor('testimony', oshift)}${badge(ocx - 2, ocy - 2, 1, 700)}${badge(below ? x - 28 + oshift - 18 : x + 28 + 18, ny, 2, 1000)}` : '';
   return `<g class="lx-lay lx-lay3 lx-r3${D.kind === 'testimony' ? ' lx-r3t' : ''}">
     <path d="${ROAD}" fill="none" stroke="var(--n0)" stroke-width="22" stroke-linecap="round"/>
     <path d="${ROAD}" fill="none" stroke="var(--p200)" stroke-width="2.5" stroke-dasharray="7 9"/>
@@ -805,12 +812,12 @@ function roadDoorsSVG(E) {
     ${stops}
     <g class="lx-c3 lx-c3-no"><g class="lx-fade" style="--d:0ms"><path d="${ROAD}" fill="none" stroke="var(--n200)" stroke-width="22" stroke-linecap="round" style="stroke-dasharray:0 ${end.toFixed(1)} ${Math.ceil(ROADLEN + 60)}"/>${greyStops}</g></g>
     <g class="lx-b3" transform="translate(${x} ${y})">${smallBill()}</g>
-    <g class="lx-c3 lx-c3-yes">${yes}</g>
+    <g class="lx-c3 lx-c3-yes">${yes}</g>${order ? `<g class="lx-c3 lx-c3-order">${order}</g>` : ''}
     <g class="lx-c3 lx-c3-no"><g class="lx-fade" style="--d:300ms"><g transform="translate(${x} ${y})">${smallBill(true)}</g></g>${stamp3(s === 2 ? 214 : 150, 184)}</g>
   </g>`;
 }
 function storyPic(E) {
-  return `<div class="lx-pic lx-scene lx-story" id="lx-story" data-stage="1" aria-hidden="true"><svg class="lx-sv" viewBox="0 0 ${SW} ${SH}" focusable="false">
+  return `<div class="lx-pic lx-scene lx-story" id="lx-story" data-stage="1"${story3Opt() ? ` data-opt="${story3Opt()}"` : ''} aria-hidden="true"><svg class="lx-sv" viewBox="0 0 ${SW} ${SH}" focusable="false">
     ${paperSVG(E)}${roadSVG(E)}${roadDoorsSVG(E)}</svg></div>`;
 }
 
@@ -901,18 +908,66 @@ const tryBtns = list => `<div class="lx-momnav lx-try">${list.map(([k, label]) =
 const HELD = (E, live, lead = 'With no one asking, the') => live ? `${lead} committee can put ${esc(E.num)} on hold, and then it can’t pass this year.` : `${lead === 'The' ? 'A' : 'With no one asking, a'} committee can put a bill on hold, and then it can’t pass that year.`;
 const doorWords = E => { const D = doorOf(E); return [D.kind === 'chair' ? 'Yes, I’d email the chair' : 'Yes, I’d send testimony', D.live ? 'Not this week' : 'No, I’d sit it out']; };
 const doorsTitle = E => doorOf(E).live ? `Will you speak up on ${E.num} this week?` : `Would you speak up on a bill like ${E.num}?`;
-function doorsBody(E) {
-  const D = doorOf(E);
-  // Page 2 has just said where the bill is (storyNow), so this says only what decides the doors: its dates, or who decides
-  // whether it gets a hearing (A-14, C-14).
-  const H = E.hear, due = storyDue(E), ch = CHAMBER_NAME[E.x.st.chamber] || E.other, chair = chairWords(E, ch);
-  const lead = !D.live ? `Say ${esc(E.num)} were at a committee, with a hearing coming up.`
+// Page 2 has just said where the bill is (storyNow), so this says only what decides the doors: its dates, or who decides
+// whether it gets a hearing (A-14, C-14).
+function doorsLead(E) {
+  const D = doorOf(E), H = E.hear, due = storyDue(E), ch = CHAMBER_NAME[E.x.st.chamber] || E.other, chair = chairWords(E, ch);
+  return !D.live ? `Say ${esc(E.num)} were at a committee, with a hearing coming up.`
     : D.kind === 'chair' ? `It has no hearing yet. ${esc(chair[0].toUpperCase() + chair.slice(1))} whether it gets one.`
     : due.kind === 'due' ? `Its hearing is ${esc(H.when)} at ${esc(H.time)}. Testimony is due ${esc(due.words)}.`
     : due.kind === 'late' ? `Its hearing is ${esc(H.when)} at ${esc(H.time)}. The deadline has passed, but late notes are still taken.`
     : due.kind === 'hearing' ? `Its hearing is ${esc(H.when)} at ${esc(H.time)}.`
     : `It had its hearing ${esc(dateLong(E.x.st.hearing.scheduled_at))}, and the committee is deciding.`;
-  return `<p class="lx-now">${lead}</p>
+}
+// ---- R-255 (Nate 10/12): three pages to choose from, on the practice copy only (?story3=both|order|after) ----
+// Nate: "Keep the page, remove the question. Design a better page that allows people to learn that testimony and emailing
+// committee chairs is important", and show that not writing is how a bill stops. Each option teaches both sides with no
+// question: 'both' sets the two outcomes side by side, 'order' tells the two moments in the order a bill meets them (a
+// hearing, then the vote), 'after' plays what happens with no one asking, then with notes. Words by the rules: "put on
+// hold" and "can't pass this year", never "die" (R-144, C-15); what happens when no one writes, never that few do (R-171).
+// Today's page (the two doors) stays for everyone until he picks; the switch reads only in the practice copy.
+const STORY3_OPTS = ['both', 'order', 'after'];
+export function story3Opt() { if (!DEMO) return ''; try { const v = new URLSearchParams(location.search).get('story3'); return STORY3_OPTS.includes(v) ? v : ''; } catch { return ''; } }
+function optWords(E) {
+  const D = doorOf(E), next = esc(roadNames(E)[sceneAt(E) + 1]), it = D.live ? esc(E.num) : 'a bill', to = D.live ? `the ${next}` : 'its vote';
+  return { kind: D.kind, live: D.live, it, to,
+    T: `<b>Committee members read testimony before they vote.</b> Notes like yours can carry ${it} on to ${to}.`,
+    C: `<b>A chair decides which bills get a hearing.</b> An email asking for one can put ${it} on the list.`,
+    N: `<b>${HELD(E, D.live)}</b> Most bills end at a committee.`,
+    N2: `<b>${HELD(E, D.live, 'With neither, the')}</b> Most bills end at a committee.`,
+    W: `<p class="lx-why" id="lx-wins">${whyWords(E)}</p>`,
+    calm: D.live && D.kind === 'testimony' ? `<p>${esc(calmWords(E))}</p>` : '' };
+}
+// The side-by-side option's small drawings: notes with a tick, and the stopped bill with its stamp.
+const miniYes = () => `<svg class="lx-mini" viewBox="0 0 96 48" aria-hidden="true" focusable="false">${PROPS.note(22, 24, -8)}${PROPS.note(44, 26, 4)}${PROPS.note(66, 24, 10)}<g transform="translate(86 14)"><circle r="9" fill="var(--p700)"/><path d="M-4 0 l3 3 5.5-5.5" fill="none" stroke="var(--n0)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g></svg>`;
+const miniNo = () => `<svg class="lx-mini" viewBox="0 0 96 48" aria-hidden="true" focusable="false"><g transform="translate(28 24)">${smallBill(true)}</g><g transform="translate(64 26) rotate(-9)"><rect x="-30" y="-9" width="60" height="18" rx="3" fill="var(--n0)" stroke="var(--n900)" stroke-width="2"/>${svgText(0, 3.5, 'ON HOLD', { size: 9, fill: 'var(--n900)', ls: .6 })}</g></svg>`;
+function optTitle(E, opt) {
+  const D = doorOf(E);
+  // Titles in the word list's words: a bill is "put on hold", never stopped (C-15, words_test).
+  if (opt === 'both') return D.live ? `What moves ${esc(E.num)} on, and what puts it on hold` : 'What moves a bill on, and what puts it on hold';
+  if (opt === 'order') return 'Two moments decide a bill’s year';
+  return 'Why your note matters';
+}
+function optBody(E, opt) {
+  const w = optWords(E), lead = `<p class="lx-now">${doorsLead(E)}</p>`, chair = w.kind === 'chair';
+  if (opt === 'both') return `${lead}<div class="lx-two"><div class="lx-two-yes"><p class="lx-two-h">${chair ? 'With an email like yours' : 'With notes like yours'}</p>${miniYes()}<p>${chair ? w.C : w.T}</p></div>
+      <div class="lx-two-no"><p class="lx-two-h">With no one asking</p>${miniNo()}<p>${w.N}</p></div></div><p class="lx-other">${chair ? w.T : w.C}</p>${w.W}${w.calm}`;
+  if (opt === 'order') return `${lead}<ol class="lx-steps"><li><b>A hearing.</b> The chair decides which bills get one. An email asking for it is how ${w.it} gets on the list.</li><li><b>The vote.</b> Committee members read testimony before it. Notes like yours can carry ${w.it} on to ${w.to}.</li></ol><p class="lx-said lx-said-no">${w.N2}</p>${w.W}${w.calm}`;
+  return `${lead}<p class="lx-said lx-said-no">${w.N}</p><p class="lx-said">${chair ? w.C : w.T}</p><p class="lx-other">${chair ? w.T : w.C}</p>${w.W}${w.calm}`;
+}
+// On arrival at the page the scene plays with no tap: 'after' shows no one asking (the grey road, the stamp) for two
+// seconds, then the notes fly in and the bill moves on; 'both' plays the notes; 'order' shows both moments. Under Reduce
+// Motion, on Back and on a redraw the end state is simply there.
+function optScene(pic, opt, instant) {
+  const run = L.run, still = instant || reduced();
+  const show = (choice, play1) => { if (choice) pic.dataset.choice = choice; else delete pic.dataset.choice; pic.classList.remove('lx-cplay'); if (play1) { void pic.getBoundingClientRect(); play(pic, 'lx-cplay'); } else { pic.classList.add('lx-cplay'); settle(pic); } };
+  if (opt === 'order') { show('', !still); return; }
+  if (opt === 'both' || still) { show('yes', !still); return; }
+  show('no', true);
+  later(() => { if (L.run !== run || !pic.isConnected) return; show('yes', true); }, 2000);
+}
+function doorsBody(E) {
+  return `<p class="lx-now">${doorsLead(E)}</p>
     <div class="lx-doors" role="group" aria-label="Your answer">
       <button type="button" class="lx-ch lx-door" data-lx-ch="yes" aria-pressed="false" aria-controls="lx-mom">${doorWords(E)[0]}</button>
       <button type="button" class="lx-ch lx-door lx-ch-quiet" data-lx-ch="no" aria-pressed="false" aria-controls="lx-mom">${doorWords(E)[1]}</button>
@@ -930,7 +985,8 @@ function doorPanel(E, k) {
 }
 function stageTitle(E, k) {
   if (k === 1) return E.mine || E.via === 'followed' ? 'This is your bill' : 'Meet the bill';
-  return k === 2 ? 'Its road' : doorsTitle(E);
+  if (k === 2) return 'Its road';
+  const opt = story3Opt(); return opt ? optTitle(E, opt) : doorsTitle(E);
 }
 function stageBody(E, k) {
   if (k === 1) {
@@ -944,7 +1000,7 @@ function stageBody(E, k) {
     const road = `Every bill takes this road: ${E.start} committees and a vote, then the same in the ${E.other}, then ${E.x.ballot ? 'the voters' : 'the Governor'}.`;
     return `<p>${esc(road)}</p><p class="lx-now">${storyNow(E)}</p>`;
   }
-  return doorsBody(E);
+  const opt = story3Opt(); return opt ? optBody(E, opt) : doorsBody(E);
 }
 const stageHTML = (E, k) => `<p class="lx-count">${k} of 3</p><h2>${esc(stageTitle(E, k))}</h2>${stageBody(E, k)}`;
 function storyLede(E) {
@@ -994,7 +1050,7 @@ function roadPlay(pic, instant) {
 // A pick plays its scene and says what it can do, with the other door to try. Nothing is picked for the person (the
 // choice is theirs), and moving on never waits for one.
 function storyChoose(k, { instant = false } = {}) {
-  const root = rootOf('story'), pic = $('#lx-story'), E = L.E; if (!root || !pic || !E || !['yes', 'no'].includes(k)) return;
+  const root = rootOf('story'), pic = $('#lx-story'), E = L.E; if (!root || !pic || !E || !['yes', 'no'].includes(k) || story3Opt()) return;
   ST.story.choice = k; pic.dataset.choice = k;
   $$('.lx-doors [data-lx-ch]', root).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lxCh === k)));
   const mom = $('#lx-mom', root);
@@ -1024,7 +1080,8 @@ function storySet(k, { instant = false, initial = false } = {}) {
   if (k === 2) roadPlay(pic, instant);
   else if (instant) { pic.classList.add('lx-play'); settle(pic); }
   else { void pic.getBoundingClientRect(); play(pic, 'lx-play'); }
-  if (k === 3 && ST.story.choice) storyChoose(ST.story.choice, { instant: true });   // Back or a redraw keeps the pick
+  if (k === 3 && story3Opt()) optScene(pic, story3Opt(), instant);   // R-255's options play on arrival, no tap
+  else if (k === 3 && ST.story.choice) storyChoose(ST.story.choice, { instant: true });   // Back or a redraw keeps the pick
   fitStory();
   if (!initial && !instant) reveal(pic, cap);
   // The wins may not be loaded yet (in session they are the session before this one's; between sessions a link straight
