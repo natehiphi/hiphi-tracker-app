@@ -2,14 +2,14 @@
 # dates), pub/start-rest.js stepSoon. The page is the first visit's "Stay connected" step, before the last screen (today's
 # ending) or Home (the ending on Home).
 # python3 tests/coming_up.py [base_url]   (sandbox; a phone at 390x844 and a laptop at 1280x800)
-# Checks, in session: the heading is a real h1 in the page's heading face; each item is a card that is a link to its bill
-# (#/bill/...), and the bill's nickname is its name; every date sits under its label ("Testimony due", "Hearing") with its
+# Checks, in session: the heading is a real h1 in the page's heading face; each item is a plain card that opens nothing
+# (R-247, Nate 10/11: a card that opened its bill left the first visit with no way back), and the bill's nickname is its name; every date sits under its label ("Testimony due", "Hearing") with its
 # day in words; the one button (Write testimony, when testimony cannot wait) is the secondary kind, never a primary, and
 # the page has one primary button (Next); the card is in the top of the phone screen (A-1). With nothing set this week
 # (the topic "Getting Around" in the practice copy), one honest line in the place of the list, no cards.
-# Between sessions (&season=off): the honest line in the place of the list ("Nothing is scheduled yet ...", late January),
-# the day the session opens labelled "Opens" on a plain card (not a link), and last session's issues below, each linking to
-# its issue, labelled "What happened"; the session date said once (R-098, 10/10).
+# Between sessions (&season=off): no blue "Nothing is scheduled yet" box above the cards (R-247's review: it outranked them);
+# the session's card leads and says hearings start in late January; the day the session opens labelled "Opens", and last session's issues below, labelled "What happened", all plain cards
+# (R-247: tapping one stays on the page); the session date said once (R-098, 10/10).
 # No console errors.
 import os, sys
 from playwright.sync_api import sync_playwright
@@ -54,8 +54,7 @@ with sync_playwright() as pw:
     ok(h.evaluate('e => e.tagName') == 'H1' and 'Coming up on your issues' == h.inner_text(), 'heading: a real h1 that says "Coming up on your issues"')
     ok(h.evaluate('e => getComputedStyle(e).fontFamily').startswith('Poppins'), 'heading: the page\'s heading face (A-19)')
     ok(p.locator('.st-soon li.st-cu').count() >= 1, 'items: each one is a card in the list')
-    links = p.eval_on_selector_all('.st-cu-go', 'as => as.map(a => [a.tagName, a.getAttribute("href") || ""])')
-    ok(len(links) == p.locator('.st-cu').count() and all(t == 'A' and h.startswith('#/bill/') for t, h in links), f'each item opens its bill: {links}')
+    ok(p.locator('.st-soon a').count() == 0 and p.locator('li.st-cu').evaluate_all('es => es.every(e => getComputedStyle(e).boxShadow === "none")'), 'each item is a plain card that opens nothing, so the first visit cannot be left from here (R-247)')
     names = p.eval_on_selector_all('.st-cu-name', 'es => es.map(e => e.innerText)')
     ok(names and all(n.strip() for n in names), f'each item is named by its bill: {names}')
     ok(p.locator('.st-cu-name').first.evaluate('e => getComputedStyle(e).fontFamily').startswith('Poppins'), 'the bill name is in the heading face (A-19)')
@@ -96,19 +95,22 @@ with sync_playwright() as pw:
     walk_to_soon(p, '&end=today&season=off')
     t = text(p)
     ok('Your issues, this year and next' == p.inner_text('#st-h'), 'between sessions: its heading')
-    ok(p.locator('.st-nothing').count() == 1 and 'Nothing is scheduled yet on your issues. Hearings start in late January; we’ll show them here.' in text(p, '.st-nothing'), 'between sessions: one honest line in the place of the list')
+    ok(p.locator('.st-nothing').count() == 0, 'between sessions: no "nothing" box above the cards (it outranked them, A-13)')
+    ok('Hearings start in late January; we’ll show them on your home page.' in p.locator('.st-cu').first.inner_text(), 'between sessions: the session card leads and says when hearings start')
     off_dates = p.eval_on_selector_all('.st-cu-dates > div dt', 'ds => ds.map(d => d.innerText)')
     ok('Opens' in off_dates, f'between sessions: the day the session opens is labelled ({off_dates})')
-    ok(p.locator('.st-cu-go[href^="#/issue/"]').count() >= 1, 'between sessions: last session\'s issues open their issue')
+    ok(p.locator('.st-cu').count() >= 2 and p.locator('.st-soon a').count() == 0, 'between sessions: last session\'s issues are shown, and open nothing (R-247)')
+    p.locator('.st-cu').nth(1).click(); p.wait_for_timeout(400)
+    ok('#/start/' in p.url, f'between sessions: tapping an issue card stays in the first visit (R-247): {p.url}')
     ok(all(lbl in ('Opens', 'What happened') for lbl in off_dates), f'between sessions: each date is labelled "Opens" or "What happened" ({off_dates})')
     # R-098 (10/10): the label is not the year above a sentence that starts with the year (it read "In 2026" / "In 2026 it...")
     pairs = p.eval_on_selector_all('.st-cu-dates > div', 'ds => ds.map(d => [d.querySelector("dt").innerText, d.querySelector("dd").innerText])')
     ok(not any(l.startswith('In 20') and v.startswith('In 20') for l, v in pairs), 'between sessions: no "In 2026" label above a sentence that starts "In 2026"')
     ok(all('January 20' not in v for l, v in pairs if l != 'Opens') and text(p).count('January 20') == 1, 'between sessions: the session date is said once, on the session card, not on every card')
-    ok(p.locator('li.st-cu-plain').count() == 1 and p.locator('li.st-cu-plain a').count() == 0, 'between sessions: the session card opens nothing, so it is a plain card, not a link')
-    ok(p.locator('li.st-cu-plain').evaluate('e => getComputedStyle(e).boxShadow') == 'none', 'between sessions: the plain card has no shadow of a tappable card')
+    ok(p.locator('li.st-cu a').count() == 0, 'between sessions: every card opens nothing, so none is a link')
+    ok(p.locator('li.st-cu').evaluate_all('es => es.every(e => getComputedStyle(e).boxShadow === "none")'), 'between sessions: the plain cards have no shadow of a tappable card')
     ok(p.eval_on_selector_all('.st-cu-dates dt', 'ds => ds.every(d => getComputedStyle(d).color === getComputedStyle(d.closest(".st-cu").querySelector(".st-cu-go")).color)'),
-       'between sessions: the date labels are neutral text, not blue inside a card that is a link (A-5)')
+       'between sessions: the date labels are neutral text, not blue (A-5)')
     p.screenshot(path=os.path.join(OUT, 'phone_off.png'))
     c.close()
 

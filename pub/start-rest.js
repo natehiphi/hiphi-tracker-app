@@ -4,7 +4,7 @@
 // shared with it is imported from start.js (a read-only view of its state: the lessons through lessons()).
 import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, lessons } from './start.js';
 import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind, textSaved,
-  openActions, waitingBills, chairContacts, askedChair, agrees, dateLong, billPath } from './core.js';
+  openActions, waitingBills, chairContacts, askedChair, agrees, dateLong } from './core.js';
 import { myLegs, introState } from './speakup.js';   // the hello to their legislators (R-150)
 import { myStories, saveProfile, storyAsk } from './myprofile.js';   // one sentence on why an issue matters, kept for January (R-150)
 import { btn, chip, posChip } from './ui.js';
@@ -430,7 +430,7 @@ function upcoming() {
     // The day the session opens comes first: it is the one thing coming up between sessions (R-098, 10/5).
     if (next) out.push({ kind: 'soon', title: `The ${+next.slice(0, 4)} session`, label: 'Opens',
       value: new Date(next + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, weekday: 'long', month: 'long', day: 'numeric' }),
-      line: `New bills on ${followedIssues().length ? 'the issues you follow' : 'HIPHI’s issues'} can start that week.` });
+      line: `New bills on ${followedIssues().length ? 'the issues you follow' : 'HIPHI’s issues'} can start that week. Hearings start in late January; we’ll show them on your home page.` });
     // The session's date is said once, on its card above (R-098, 10/10): an issue's outlook can end "Watch for it when the
     // 2027 session opens January 20.", which would repeat it on every card.
     const dateSaid = next ? new Date(next + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'long', day: 'numeric' }) : '';
@@ -439,7 +439,7 @@ function upcoming() {
     // laws first, then the staff-edited outlook, three at most. Labelled as what it is, not by year (the year is in the words).
     const fol = followedIssues().filter(shown).map(i => ({ i, x: issueInfo(i, R) })).sort((p, q) => (q.x.law - p.x.law));
     for (const { i, x } of fol.slice(0, 3)) out.push({ kind: x.law ? 'ok' : 'soon', title: i.name, label: 'What happened',
-      value: i.outlook ? sayOnce(i.outlook) : (x.law ? 'Became law' : 'Did not advance'), to: `#/issue/${i.slug}` });
+      value: i.outlook ? sayOnce(i.outlook) : (x.law ? 'Became law' : 'Did not advance') });
     return out;
   }
   // One row per followed issue: its soonest hearing in the next 7 days (the card names the bill, the committee and both dates).
@@ -449,7 +449,7 @@ function upcoming() {
       .sort((p, q) => p.h.scheduled_at.localeCompare(q.h.scheduled_at));
     if (!bs.length || seen.has(i.id)) continue; seen.add(i.id);
     const { b, h } = bs[0];
-    rows.push({ at: h.scheduled_at, kind: 'hear', issue: i.name, b, h, to: billPath(b) });
+    rows.push({ at: h.scheduled_at, kind: 'hear', issue: i.name, b, h });
   }
   rows.sort((p, q) => p.at.localeCompare(q.at)).slice(0, 3).forEach(r => out.push(r));
   if (!out.length) {
@@ -457,7 +457,7 @@ function upcoming() {
     // after being shown this bill's hearing (R-067). The bill they came for leads when it has one.
     const vb = wiz().via ? exampleBill() : null;
     const vh = vb && hearingsOf(vb).find(h => h.status === 'scheduled' && new Date(h.scheduled_at) > Date.now() && new Date(h.scheduled_at) - Date.now() < 7 * 864e5);
-    if (vh) out.push({ kind: 'hear', issue: '', b: vb, h: vh, to: billPath(vb) });
+    if (vh) out.push({ kind: 'hear', issue: '', b: vb, h: vh });
   }
   return out;
 }
@@ -467,8 +467,10 @@ function upcoming() {
 const dueSoon = it => { const d = it.h?.testimony_deadline; if (!d || !it.b) return false; const ms = new Date(d) - Date.now(); return ms > 0 && ms < 48 * 36e5 && !didKind(it.b, it.h, 'testimony'); };
 // One coming-up item as a card (R-098, Nate 10/5: "not prominent and looks like it should be skipped"). The bill's name
 // is in the heading face (A-19); its number and committee say which bill; each date is labelled and says its day in words
-// (R-135: "Testimony due" beside an unlabelled "Fri" was read as one date); the whole card opens the bill. The one button
-// sits only on a testimony deadline that cannot wait, and is a clear secondary button, not a link (A-3, A-12).
+// (R-135: "Testimony due" beside an unlabelled "Fri" was read as one date). The card opens nothing (R-247, Nate 10/11): it
+// was a link to the bill or issue, which left the first visit with no way back, so "See How I Can Help" and "You're all
+// set!" were never seen; Home opens the same issues right after. The one button sits only on a testimony deadline that
+// cannot wait, and is a clear secondary button, not a link (A-3, A-12).
 function cuCard(it, k, now) {
   const hear = it.kind === 'hear', name = hear ? (nick(it.b) || spaced(it.b.bill_number)) : it.title;
   const meta = hear ? [nick(it.b) ? spaced(it.b.bill_number) : '', it.h.committee ? briefCmte(it.h.committee) : ''].filter(Boolean).join(' · ') : '';
@@ -476,10 +478,10 @@ function cuCard(it, k, now) {
   const dates = hear ? [...(it.h.testimony_deadline ? [['Testimony due', whenWords(it.h.testimony_deadline)]] : []), ['Hearing', whenWords(it.h.scheduled_at)]] : [[it.label, it.value]];
   const inner = `<span class="st-cu-name">${esc(name)}</span>${meta ? `<span class="st-cu-meta">${esc(meta)}</span>` : ''}${hear && it.issue ? `<span class="st-cu-meta">Your issue: ${esc(it.issue)}</span>` : ''}
     <dl class="st-cu-dates">${dates.map(([t, v]) => `<div><dt>${esc(t)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>${it.line ? `<span class="st-cu-meta">${esc(it.line)}</span>` : ''}`;
-  const card = it.to ? `<a class="st-cu-go" href="${esc(it.to)}">${inner}${icon('chevron-right', { cls: 'st-cu-chev' })}</a>` : `<div class="st-cu-go">${inner}</div>`;
+  const card = `<div class="st-cu-go">${inner}</div>`;
   const act = hear && it === now ? `<div class="st-cu-act">${btn('Write testimony', { kind: 'secondary', full: true, icon: 'notebook-pen', attrs: { 'data-helper': it.h.id, 'data-bill': it.b.id, 'aria-label': `Write my testimony on ${name}, due soon` } })}</div>` : '';
-  // An item that opens nothing (the session's own date between sessions) is a plain note, not a link (A-12).
-  return `<li class="st-cu${it.to ? '' : ' st-cu-plain'}" style="--k:${k}">${card}${act}</li>`;
+  // A card that opens nothing is a plain note, without the raised look of a tappable card (A-12).
+  return `<li class="st-cu" style="--k:${k}">${card}${act}</li>`;
 }
 // The one honest line where nothing is coming up, in the place the list would be (Nate 10/5): never an empty block.
 const nothingCard = text => `<section class="st-nothing"><span class="st-ilead" aria-hidden="true">${icon('calendar-clock')}</span><p>${esc(text)}</p></section>`;
@@ -497,7 +499,9 @@ function stepSoon(step) {
   const items = now ? [now, ...all.filter(x => x !== now)] : all;
   const cards = items.map((it, k) => cuCard(it, k, now)).join('');
   const list = off
-    ? `${nothingCard('Nothing is scheduled yet on your issues. Hearings start in late January; we’ll show them here.')}${cards ? `<ol class="st-soon" role="list">${cards}</ol>` : ''}`
+    // Between sessions the session's own card leads and carries the promise (R-247's review): the blue "Nothing is scheduled
+    // yet" box above it outranked the plain cards and said the date twice (A-13, A-14). It stays where there is no card.
+    ? cards ? `<ol class="st-soon" role="list">${cards}</ol>` : nothingCard('Nothing is scheduled yet on your issues. Hearings start in late January; we’ll show them here.')
     : cards ? `<ol class="st-soon" role="list">${cards}</ol>` : nothingCard(nothingWords());
   // Between sessions the sentence says what the history below is; in session the cards start at once (A-1).
   const lede = off ? `What happened in ${sessionInfo().recapYear}, and what comes next.` : '';

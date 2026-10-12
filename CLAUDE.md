@@ -184,7 +184,8 @@ session is dark (until January 2027).
   `#/learn/<bill|session|hearing>[/<bill id>]`, linked from bill pages, Help and the short page. On a laptop that page
   (screen 'learn') shares the first visit's two-column grid in `start.css` (R-173): without it, the sticky intro let the
   lesson scroll over its heading and the story's words over its drawing; `public_journey.py` section 3b checks it. "Coming up" offers
-  testimony when it is due within 48 hours (one action, #12).
+  testimony when it is due within 48 hours (one action, #12); its cards are plain notes that open nothing (R-247: a card that
+  opened its bill or issue left the first visit with no way back). Links out of the first visit's middle steps lose the person.
 - **Small-screen breakpoints are in em** (`22.4375em` = 359px, `16.1875em` = 259px, `20em` = 320px at the normal
   text size), so they also respond when someone sets their phone's text to 150% or 200% (WCAG 1.4.4, R-067). Write
   new ones the same way; `Page.setFontSizes` over CDP emulates a larger text setting in Playwright.
