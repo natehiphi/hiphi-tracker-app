@@ -83,12 +83,13 @@ with sync_playwright() as pw:
         ok(not s['open'] and s['expanded'] == 'false' and s['value'] == 'e-cig', f'{tag}: Esc closes the list and keeps the words')
         typein(p, 'e-cig'); p.keyboard.press('Enter'); p.wait_for_timeout(1200); s = state(p)
         ok(s['hash'] == '#/find?q=e-cig' and not s['open'], f'{tag}: Enter with nothing highlighted shows all results ({s["hash"]})')
-        # on Find itself the results under the page's box are the list
-        typein(p, 'meals', 700); s = state(p)
-        ok(not s['open'] and 'q=meals' in s['hash'], f'{tag}: no list on Find; its own results follow the header box ({s["hash"]})')
+        # on Find itself there is one box, the page's own (R-238, A4-4), and the results under it are the list
+        ok(p.locator('#hq').count() == 0 and p.locator('#q').count() == 1, f'{tag}: Find shows one search box, its own')
+        box = p.locator('#q'); box.click(); box.fill(''); box.type('meals', delay=30); p.wait_for_timeout(700); s = state(p)
+        ok(not s['open'] and 'q=meals' in s['hash'], f'{tag}: no list on Find; its own results follow its box ({s["hash"]})')
         # nothing matches: says so, and See all is still there
         visit(p, '/more'); typein(p, 'zzqxw'); s = state(p)
-        ok(s['open'] and s['note'].startswith('No issues or bills match “zzqxw”') and s['opts'][-1]['t'] == 'Browse all issues' and s['opts'][-1]['href'] == '#/find', f'{tag}: nothing matching says so and offers the issues ("{s["note"]}")')
+        ok(s['open'] and s['note'].startswith('No issues, bills or legislators match “zzqxw”') and s['opts'][-1]['t'] == 'Browse all issues' and s['opts'][-1]['href'] == '#/find', f'{tag}: nothing matching says so and offers the issues ("{s["note"]}")')
         # every bill, not only HIPHI's (Nate, 9/26): a word lists the session's other bills beside HIPHI's
         typein(p, 'water'); s = state(p); oth = [o for o in s['opts'] if o['other']]
         ok('Other bills' in s['groups'] and oth and all(o['href'].startswith('#/bill/') for o in oth), f'{tag}: "water" lists other bills too {s["groups"]}')
