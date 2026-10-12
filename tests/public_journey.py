@@ -194,7 +194,7 @@ with sync_playwright() as pw:
     std(p, 'after_story', axe=True)
     # Back from the next screen comes back to the story (Back on the story itself is checked with Skip, below).
     p.locator('[data-stback]').first.click(); p.wait_for_timeout(1500)
-    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story' and p.evaluate(STAGE) == '3', 'Back from coming up returns to the story, on its last stage')
+    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story' and p.evaluate(STAGE) == '4', 'Back from coming up returns to the story, on its last stage')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1400)
     if p.locator('#fx-mgo').count(): p.locator('#fx-mgo').click(); p.wait_for_timeout(1500)
     # Coming up: the value, and no ask any more (R-146 moved it up to right after the issues).
