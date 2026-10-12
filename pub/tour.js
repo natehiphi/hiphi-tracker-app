@@ -300,8 +300,10 @@ function homeTips() {
 }
 // Home, once, in the version of the first visit that ends there. It waits for the celebration to be seen: "Mahalo", the
 // ticks rising in and the petals (the review: at 2.6 seconds the tips cut the high point short).
+// Off for now (R-257, Nate 12 Oct: "turn off the tips on the home page"): true brings them back as they were.
+const HOME_TIPS_ON = false;
 const HOME = { key: 'hiphi_tour_home', label: 'Your home page', route: 'home', on: onHome, wide: () => shown($('.hnav')), tips: homeTips,
-  above: ['.hdr'], below: ['nav.tabs', '.actionbar'], wants: () => endHome() && !!wiz().finale, delay: () => reduceMotion() ? 1500 : 4500,
+  above: ['.hdr'], below: ['nav.tabs', '.actionbar'], wants: () => HOME_TIPS_ON && endHome() && !!wiz().finale, delay: () => reduceMotion() ? 1500 : 4500,
   // Counted privately with the first visit (visitlog.js): the tips finished, or skipped.
   done: how => logVisit('home', how === 'skip' || how === 'esc' ? 'skip' : 'done', { path: wiz().via ? 'link' : $('#main .hm-off') ? 'off' : 'in' }) };
 const TOURS = [BILL, HOME];
