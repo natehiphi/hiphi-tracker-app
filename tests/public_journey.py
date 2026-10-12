@@ -284,7 +284,10 @@ with sync_playwright() as pw:
     # ---- 2. a return visit: the ladder ----
     c, p = ctx(b); follower(p, more=WAITING); visit(p, '/', wait=3200); shot(p, 'p_home_return', full=True)
     first = p.evaluate("document.querySelector('main .acard .btn.primary')?.innerText || ''"); ok('testimony' in first.lower(), f'first card leads with testimony ("{first}")')
-    ok(re.search(r'ask the chair', text(p), re.I) is not None, 'Home offers "Ask the chair for a hearing" for a waiting bill')
+    # The calm Home (R-222, DESIGN A-23, B-14) has one card: the hearing ask is the card only when its cut-off comes before
+    # the soonest testimony deadline; otherwise the waiting bill is said on a row ("Needs a hearing by Mon, Mar 30"), never
+    # left off the page. This follower follows HB 1563 and HB 1732 on their own, not their issues.
+    ok(re.search(r'ask the chairs? for a hearing|needs a hearing by', text(p), re.I) is not None, 'Home says a waiting bill needs a hearing (the ask as the card, or its row)')
     ok(not COMMUNITY.search(text(p)), 'return Home has no community-wide totals'); std(p, 'home_return', axe=True)
     # The wall the 9/19 assessment found was fourteen full cards (7,000px). Since R-190 nothing to do is folded, so the guard
     # is what prevents the wall: two full cards for things to do, two for hearing asks, every other thing one line.
@@ -340,9 +343,11 @@ with sync_playwright() as pw:
             if W == 1440: shot(p, 'd_' + name)
         if W >= 1100:
             visit(p, '/', wait=2800)
-            cols = p.evaluate("(() => { const m=document.querySelector('main'); const kids=[...m.querySelectorAll('.cols > *')].filter(e=>e.offsetParent!==null); if (kids.length<2) return 0; const a=kids[0].getBoundingClientRect(), z=kids[kids.length-1].getBoundingClientRect(); return z.left > a.left + 200 ? 2 : 1 })()")
-            ok(cols == 2, f'Home is two columns at {W}')
-            used = p.evaluate("(() => { const m=document.querySelector('main').getBoundingClientRect(); return Math.round(m.width) })()"); ok(used >= 1000, f'Home uses the width at {W} ({used}px)')
+            # Since R-222 (11 Oct) the calm Home is everyone's Home: one card, then one row per issue, in one reading column
+            # centred on a laptop (pub/home.css .cm, max 640px; DESIGN A-23, A-13 one focal point). Today's Home, two columns
+            # across the width, stays testable as layout 'today' (tests/layout.py, tests/home_now.py).
+            col = p.evaluate("(() => { const m=document.querySelector('main').getBoundingClientRect(), c=document.querySelector('main .cm')?.getBoundingClientRect(); return c ? [Math.round(c.width), Math.round(Math.abs((c.left + c.right) / 2 - (m.left + m.right) / 2))] : null })()")
+            ok(col and col[0] <= 680 and col[1] <= 40, f'Home is one centred column at {W} (R-222; width, off centre: {col})')
             wide_btn = p.evaluate("(() => { const b=document.querySelector('main .acard .btn.primary'); if(!b) return 0; return Math.round(b.getBoundingClientRect().width) })()"); ok(0 < wide_btn < 420, f'card buttons are sized to their label at {W} ({wide_btn}px)')
             visit(p, '/bill/HB2121', wait=2800)
             bar = p.evaluate("(() => { const a=document.querySelector('.actionbar'); return a ? getComputedStyle(a).display : 'none' })()"); ok(bar == 'none', f'bill page: no detached bottom bar at {W} ({bar})')
