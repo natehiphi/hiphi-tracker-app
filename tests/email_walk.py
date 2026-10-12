@@ -29,7 +29,7 @@ def low(n):
     w = n.split()[0]
     return n if (w in KEEP_CAPS or n in KEEP_CAPS or (len(w) > 1 and w.isupper())) else n[0].lower() + n[1:]
 FOLLOW = [ID['HB1562'], ID['HB2121']]
-TOUR_SEEN = "try{localStorage.setItem('hiphi_tour_bill','1');localStorage.setItem('hiphi_tour_bill_demo','1')}catch(e){}"
+TOUR_SEEN = "try{localStorage.setItem('hiphi_tour_bill','1');localStorage.setItem('hiphi_tour_bill_demo','1');localStorage.setItem('hiphi_voice','first');localStorage.setItem('hiphi_voice_demo','first')}catch(e){}"  # hiphi_voice: the letters' first wordings (R-259)
 # Links that would leave the page (the mail app, a Gmail tab) are recorded, not followed.
 CATCH = """document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a.hp-send'); if (!a) return;
   e.preventDefault(); (window.__opened ||= []).push(a.href); }, true);"""
@@ -47,7 +47,7 @@ def ctx(br, wide):
     return c, p
 def follower(p, extra='', follow=FOLLOW, pre=''):
     p.goto(BASE + '?demo=1&ab=layout.today' + extra + '#/'); p.wait_for_timeout(600)
-    p.evaluate(f"""localStorage.clear(); sessionStorage.clear(); localStorage.setItem('hiphi_watch_ids_demo', JSON.stringify({json.dumps(follow)}));
+    p.evaluate(f"""localStorage.clear(); sessionStorage.clear(); localStorage.setItem('hiphi_voice', 'first'); localStorage.setItem('hiphi_voice_demo', 'first'); localStorage.setItem('hiphi_watch_ids_demo', JSON.stringify({json.dumps(follow)}));
       localStorage.setItem('hiphi_wiz', JSON.stringify({{step:1,done:true,skipped:true}})); {pre}""")
 def visit(p, h, extra='', wait=2800):
     p.goto(BASE + '?demo=1&ab=layout.today' + extra + '#' + h); p.reload(); p.wait_for_timeout(wait)
@@ -128,8 +128,8 @@ with sync_playwright() as pw:
         picked = walk_to_letter(p, tag)
         letter = p.input_value('#hp-letter')
         check(picked and picked[0].rstrip('.') in letter, f'{tag}: the point tapped is in the email')
-        check(letter.startswith('Dear Chair') and 'Kai Ho' in letter and 'pass HB 2121 at the hearing' in letter, f'{tag}: the email greets the chair, asks to pass it at the hearing')
-        send_step(p, tag, wide, to_expect=None, subj_rx=r'^HB 2121: please pass it \(hearing ')
+        check(__import__('re').match(r'Aloha (Senator|Representative) ', letter) is not None and 'Kai Ho' in letter and 'pass HB 2121 at the hearing' in letter, f'{tag}: the email greets the chair by title, asks to pass it at the hearing (R-259)')
+        send_step(p, tag, wide, to_expect=None, subj_rx=r'^HB 2121: please vote yes on ')
         bid, hid = card.split('|')
         check(f'{bid}|{hid}|email' in done(p), f'{tag}: counted as before: <bill>|<hearing>|email')
         (p.locator('#hp-dlg [data-hp="ngno"]').click() if p.locator('#hp-dlg [data-hp="ngno"]').count() else None); tap(p, '^Done'); p.wait_for_timeout(1500)   # R-205 C4
@@ -150,8 +150,8 @@ with sync_playwright() as pw:
         check(p.locator('.bl-barq').count() == 0, f'{tag}: the old "Did you send your email?" bar does not appear')
         walk_to_letter(p, tag, points=0)
         letter = p.input_value('#hp-letter'); tos = p.evaluate("[...document.querySelectorAll('#hp-dlg .hp-toaddr')].map(e => e.innerText.trim())")
-        check(letter.count('Chair') >= 2 and 'give HB 1563 a hearing' in letter, f'{tag}: to both chairs, asking for a hearing')
-        send_step(p, tag, wide, to_expect=tos, subj_rx=r'^HB 1563: please give it a hearing$')
+        check(letter.count('Senator') + letter.count('Representative') >= 2 and 'schedule a hearing' in letter, f'{tag}: to both chairs, asking for a hearing')
+        send_step(p, tag, wide, to_expect=tos, subj_rx=r'^HB 1563: please schedule a hearing$')
         d = done(p)
         check(f'{ID["HB1563"]}||email' in d and f'{ID["HB1563"]}|HHS/EIG|ask' in d, f'{tag}: counted on the bill, with the committee ask mark ({[x for x in d if ID["HB1563"] in x]})')
         (p.locator('#hp-dlg [data-hp="ngno"]').click() if p.locator('#hp-dlg [data-hp="ngno"]').count() else None); tap(p, '^Done'); p.wait_for_timeout(1500)   # R-205 C4
@@ -223,8 +223,8 @@ with sync_playwright() as pw:
         check(f'Write to Sen. {sen["last"]}' in dlg(p), f'{tag}: it opens the walkthrough addressed to your senator')
         walk_to_letter(p, tag, points=0)
         letter = p.input_value('#hp-letter')
-        check(f'Dear Senator {sen["last"]}' in letter and f'Senate District {sen["d"]}' in letter and 'where you are a member' in letter, f'{tag}: a constituent, their district, the ask ({letter[:90]!r})')
-        check('Senate District' in p.input_value('#hp-subject'), f'{tag}: the subject says constituent and district')
+        check(f'Aloha Senator {sen["last"]}' in letter and 'in your district' in letter and 'District' not in letter.replace('your district', '') and 'where you’re a member' in letter, f'{tag}: a constituent, their district, the ask ({letter[:90]!r})')
+        check('(from a constituent' in p.input_value('#hp-subject') and 'District' not in p.input_value('#hp-subject'), f'{tag}: the subject says a constituent, no district number (R-259)')
         send_step(p, tag, wide, to_expect=[sen['email']])
         check(f'{ID["HB1563"]}|cmte-HHS/EIG|ask' in done(p), f'{tag}: that moment is marked done')
         d = done(p)   # 089 (R-087): an email to your own legislators is counted as its own kind, not as a chair email
@@ -242,7 +242,7 @@ with sync_playwright() as pw:
     fb.click(); p.wait_for_timeout(900)
     check(f'Write to Sen. {sen["last"]}' in dlg(p), 'floor: the walkthrough opens, not a bare mailto')
     walk_to_letter(p, 'floor', points=0)
-    check('vote of the full Senate soon. Please vote yes.' in p.input_value('#hp-letter') and 'please vote yes on HB 2121' in p.input_value('#hp-subject'), 'floor: the email asks for a yes vote')
+    check('vote in the full Senate soon. Please vote yes.' in p.input_value('#hp-letter') and 'Please vote yes on HB 2121' in p.input_value('#hp-subject'), 'floor: the email asks for a yes vote')
     c.close()
 
     # ---- 7. the introduction ----
@@ -267,7 +267,7 @@ with sync_playwright() as pw:
         check('I am a nurse on Oʻahu.' in letter and 'Kai Ho' in letter, f'{tag}: their own words and name')
         shot(p, f'{tag}_2_letter')
         tos = p.evaluate("[...document.querySelectorAll('#hp-dlg .hp-toaddr')].map(e => e.innerText.trim())")
-        send_step(p, tag, wide, to_expect=tos, subj_rx=r'^A question from your constituent in Senate District \d+ and House District \d+$')
+        send_step(p, tag, wide, to_expect=tos, subj_rx=r'^A question from your constituent')
         check(p.evaluate("JSON.parse(localStorage.getItem('hiphi_intro') || 'null')?.how") == 'sent', f'{tag}: remembered as sent')
         (p.locator('#hp-dlg [data-hp="ngno"]').click() if p.locator('#hp-dlg [data-hp="ngno"]').count() else None); tap(p, '^Done'); p.wait_for_timeout(1500)   # R-205 C4
         visit(p, '/'); check(p.locator('[data-sp="intro"]').count() == 0, f'{tag}: never offered again')
@@ -367,7 +367,7 @@ with sync_playwright() as pw:
         P = [sent_of(s) for s in pts_text(p)]
         B0 = box(p)
         check(len(P) >= 3 and p.locator('#hp-letter').count() == 1 and p.locator('#hp-letter').is_visible(), f'{tag}: three points or more, and the box is there from the start ({len(P)})')
-        check(B0.startswith('Dear ') and 'My name is Kai Ho.' in B0 and 'I respectfully ask' in B0 and not any(s in B0 for s in P), f'{tag}: on arrival the box holds the email, prefilled with the greeting, their name and the ask, and no point yet')
+        check(B0.startswith('Aloha ') and 'My name is Kai Ho.' in B0 and 'Please vote to pass' in B0 and not any(s in B0 for s in P), f'{tag}: on arrival the box holds the email, prefilled with the greeting, their name and the ask, and no point yet')
         check(pressed(p) == [False] * len(P) and p.locator('#hp-dlg .hp-pt').first.get_attribute('aria-label') == 'Add this point', f'{tag}: each point has an "Add this point" button, none added yet')
         check('In your email' in dlg(p) and p.locator('label[for="hp-letter"]').count() == 1, f'{tag}: the box is labelled "In your email"')
         shot(p, f'{tag}_0_arrive')
@@ -377,11 +377,11 @@ with sync_playwright() as pw:
         in_view = p.evaluate("(() => { const b = document.querySelector('#hp-dlg .hp-body'), x = document.querySelector('#hp-dlg .hp-ptbox'); if (!b || !x) return null; const r = x.getBoundingClientRect(), v = b.getBoundingClientRect(); return r.top >= v.top - 1 && r.bottom <= v.bottom + 1; })()")
         check(in_view is True, f'{tag}: the first Add brings the box into view, so the words land where they can be seen ({in_view})')
         B1 = box(p)
-        check(P[0] in B1 and B1.index('My name is Kai Ho.') < B1.index(P[0]) < B1.index('I respectfully ask'), f'{tag}: a plus puts the point in the email after the opening and before the ask')
+        check(P[0] in B1 and B1.index('My name is Kai Ho.') < B1.index(P[0]) < B1.index('Please vote to pass'), f'{tag}: a plus puts the point in the email after the opening and before the ask')
         check(pressed(p)[0] is True and p.locator('#hp-dlg .hp-pt').nth(0).inner_text().strip().endswith('Added'), f'{tag}: its button shows Added')
         p.evaluate("document.querySelector('#hp-dlg .hp-body').scrollTop = 0"); p.evaluate("document.querySelectorAll('#hp-dlg .hp-pt')[2].click()"); p.wait_for_timeout(400)
         B2 = box(p)
-        check(B2.index(P[0]) < B2.index(P[2]) < B2.index('I respectfully ask'), f'{tag}: a second point joins the first, in the order the bill lists them')
+        check(B2.index(P[0]) < B2.index(P[2]) < B2.index('Please vote to pass'), f'{tag}: a second point joins the first, in the order the bill lists them')
         check(p.evaluate("document.querySelector('#hp-dlg .hp-body').scrollTop") == 0, f'{tag}: a later Add does not scroll the walkthrough')
         shot(p, f'{tag}_1_two_added')
         p.locator('#hp-dlg .hp-pt').nth(0).click(); p.wait_for_timeout(400)
@@ -429,7 +429,7 @@ with sync_playwright() as pw:
     check('In your letter' in dlg(p) and B0.startswith('Testimony in') and 'Dear Chair' in B0 and not any(s in B0 for s in P), 'testimony: the box says "In your letter" and holds the whole letter from the start, no point yet')
     p.locator('#hp-dlg .hp-pt').nth(1).click(); p.wait_for_timeout(600)
     B1 = box(p)
-    check(P[1] in B1 and B1.index('My name is Kai Ho.') < B1.index(P[1]) < B1.index('I respectfully ask'), 'testimony: a plus puts the point after the opening, before the ask')
+    check(P[1] in B1 and B1.index('My name is Kai Ho.') < B1.index(P[1]) < B1.index('Please pass HB 2121'), 'testimony: a plus puts the point after the opening, before the ask')
     p.fill('#hp-letter', B1.replace(P[1], 'As a school nurse, ' + P[1][0].lower() + P[1][1:])); p.wait_for_timeout(250)
     check(pressed(p)[:3] == [False, True, False], f'testimony: a lead-in before a point keeps it Added ({pressed(p)[:3]})')
     tap(p, '^Next'); p.wait_for_timeout(400); tap(p, 'See my letter'); p.wait_for_timeout(600)

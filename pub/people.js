@@ -15,7 +15,7 @@ import { S, app, esc, icon, blurb, nick, spaced, billPath, pickBill, alive, plai
 import { btn, chip, notice, inlineErr, empty, row } from './ui.js';
 import { islands } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
-import { helloFacts, helloLetter, helloSubject, districtWords } from './hello.js';   // the hello letter, the same one helper.js writes (R-172)
+import { helloFacts, helloLetter, helloSubject, districtWords, vary, townWord, whoLine, ownLine } from './hello.js';   // the hello letter, the same one helper.js writes (R-172)
 import { myName, myTitles } from './myprofile.js';
 
 const KEY = 'hiphi_districts';
@@ -228,18 +228,22 @@ function helloDraft(l) {
 // plain words when they came from one, and a blank line for their own reason (the part lawmakers read closely).
 function draft(l, b, where) {
   if (!b) return helloDraft(l);
-  const m = me(), p = posInfo(b), town = m.town || where || '';
+  // R-259 (Nate 10/12: "extremely stiff"): who they are, the town (their own lawmaker only), where they stand, plain words.
+  const m = me(), p = posInfo(b), town = townWord(), k = b.bill_number + '|leg', name = m.name || myName() || '';
   const verb = !p ? 'consider' : p.verb === 'comment on' ? 'consider' : p.verb;
-  const lines = [`Aloha ${legTitle(l)} ${surname(l)},`,
-    `My name is ${m.name || '[your name]'} and I live in ${town || '[your town]'}${mine(l) ? ', in your district' : ''}.`];
+  const live = mine(l) ? ownLine(k) : town ? `I live in ${town}.` : '';
+  const lines = [`${vary(k + '|dear', ['Aloha', 'Aloha', 'Dear'])} ${l.chamber === 'S' ? 'Senator' : 'Representative'} ${surname(l)},`,
+    [name ? whoLine(name, [], k) : 'My name is [your name].', live].filter(Boolean).join(' ')];
   // core's blurb() drops the Capitol's drafting notes ("Effective 3/22/2075. (SD1)") and ends at a sentence. Summaries
   // start with a verb ("Requires free school bus passes…"), so they read on after the bill number: "HB 1780, which requires…".
   const about = blurb(b, 320).split(/(?<=\.)\s+(?=[A-Z])/)[0].replace(/[.…\s]+$/, '');
   const says = !about ? '' : /^[A-Z][a-z]+s\b/.test(about) && !/^(This|These|The|A|An)\b/.test(about) ? `, which ${about.charAt(0).toLowerCase()}${about.slice(1)}.` : `. ${about}.`;
-  lines.push(`I am writing about ${spaced(b.bill_number)}${says || '.'}${b.hiphi_action ? ' ' + b.hiphi_action.trim().replace(/([^.!?])$/, '$1.') : ''} I hope you will ${verb} it.`);
+  const hope = verb === 'support' ? vary(k + '|ask', ['I hope you’ll support it.', 'Please support it.']) : verb === 'oppose' ? vary(k + '|ask', ['I hope you’ll oppose it.', 'Please vote against it.'])
+    : 'I hope you’ll take a close look at it.';
+  lines.push(`${vary(k + '|about', ['I’m writing about', 'I wanted to write to you about'])} ${spaced(b.bill_number)}${says || '.'}${b.hiphi_action ? ' ' + b.hiphi_action.trim().replace(/([^.!?])$/, '$1.') : ''} ${hope}`);
   lines.push((m.why || '').trim() ? m.why.trim().replace(/([^.!?])$/, '$1.') : '[Why this matters to you, in a sentence or two.]');
-  lines.push(`Mahalo,\n${m.name || '[your name]'}`);
-  return { subject: `${spaced(b.bill_number)}: please ${verb} it`, body: lines.join('\n\n') };
+  lines.push(`Mahalo,\n${name || '[your name]'}`);
+  return { subject: `${spaced(b.bill_number)}: ${verb === 'support' ? 'please support it' : verb === 'oppose' ? 'please oppose it' : 'a few thoughts'}`, body: lines.join('\n\n') };
 }
 const mailto = (l, subject, body) => `mailto:${l.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 function composer(l, b, k, where) {

@@ -6,11 +6,13 @@
 // write about all of them: they pick the one (helloFacts' default is the issue of a bill they took a stand on, else the
 // first issue they follow), and the other issues get one short line. Their reason is optional. When it is blank the
 // letter does not mention it, and it closes with a thank-you line, so no blank or placeholder ever reaches a legislator.
-import { S, followedIssues, issuesOf, sessionInfo, spaced, nick } from './core.js';
+import { S, followedIssues, issuesOf, sessionInfo, spaced, nick, vary, townWord } from './core.js';
 import { aWords, needsSelf } from './titles.js';
 
 // The line the letter closes with when the person has written no sign-off of their own (Nate 10/10).
 export const THANKS = 'Mahalo for your work for our district.';
+// The thank-you line as this person's letters say it (R-259: one of a few, steady for them).
+export const thanksLine = () => vary('hello|thanks', [THANKS, 'Mahalo for all you do for our district.', 'Thank you for your work for our community.']);
 
 export const sentence = s => { const t = String(s || '').replace(/\s+/g, ' ').trim(); return t && !/[.!?…"”)]$/.test(t) ? t + '.' : t; };
 export const closingOf = c => { const t = String(c || '').replace(/\s+/g, ' ').trim(); return t && !/[,.!]$/.test(t) ? t + ',' : t; };
@@ -22,11 +24,47 @@ export function districtWords(to) {
   const ds = to.map(t => t.leg).filter(Boolean).sort((a, b) => a.chamber === 'S' ? -1 : b.chamber === 'S' ? 1 : 0).map(l => `${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}`);
   return andList([...new Set(ds)]);
 }
-// The subject for the hello. "your constituent" is only true for a person's own lawmaker.
-export const helloSubject = (to, own) => own ? `A question from your constituent in ${districtWords(to) || 'your district'}` : 'A question from a Hawaiʻi resident';
+// ---------------- the words every letter shares (R-259) ----------------
+// Nate 10/12: the letters were "extremely stiff" and used the app's words "rather than just what someone would say". So:
+// the person says who they are first, then where they stand; contractions; no "I respectfully ask"; no Capitol words
+// ("hold", "comments", "stay alive", "in conference") and no district numbers, only the town when they gave one. Each
+// sentence has two or three wordings (vary, core.js), steady per person and bill. key: something steady for this letter,
+// such as the bill number; never their name, which changes while they type.
+export { vary, townWord };
+// "My name is Leilani Kahale, and I’m a parent." titles: the "I'm a..." titles this letter uses.
+export function whoLine(name, titles, key) {
+  const n = String(name || '').trim(), t = aWords(titles || []);
+  const who = n && t ? vary(key + '|who', [`My name is ${n}, and I’m ${t}.`, `I’m ${n}, ${t}.`, `My name is ${n}. I’m ${t}.`])
+    : n ? vary(key + '|who', [`My name is ${n}.`, `I’m ${n}.`]) : t ? `I’m ${t}.` : '';
+  // A faith leader, board member, nonprofit or public health worker says they are not speaking for their group (R-147).
+  const self = t && needsSelf(titles) ? vary(key + '|self', ['I’m writing for myself, not for any group.', 'I’m speaking only for myself here.']) : '';
+  return [who, self].filter(Boolean).join(' ');
+}
+// Where they stand, in one sentence. pos: HIPHI's position word when the letter carries it (strongly_support...), else the
+// person's stance ('support' | 'oppose' | 'comments').
+const STAND = {
+  strongly_support: n => [`I strongly support ${n}.`, `I’m writing in strong support of ${n}.`],
+  support: n => [`I support ${n}.`, `I’m writing in support of ${n}.`, `I’m writing to support ${n}.`],
+  support_amend: n => [`I support ${n}, with a few changes.`, `I support ${n}, with some amendments.`],
+  strongly_oppose: n => [`I strongly oppose ${n}.`, `I’m writing because I strongly oppose ${n}.`],
+  oppose: n => [`I oppose ${n}.`, `I’m writing to oppose ${n}.`, `I’m against ${n}.`],
+  comments: n => [`I’d like to share a few thoughts on ${n}.`, `I have a few thoughts on ${n}.`],
+};
+export const standLine = (pos, n, key) => vary(key + '|stand', (STAND[pos] || STAND.comments)(n));
+// "I live in your district." to their own lawmaker, with the town when they gave one.
+export function ownLine(key, many = false) {
+  const town = townWord(), d = many ? 'districts' : 'district';
+  return town ? vary(key + '|live', [`I live in ${town}, in your ${d}.`, `I’m one of your constituents in ${town}.`])
+    : vary(key + '|live', [`I live in your ${d}.`, `I’m one of your constituents.`]);
+}
+
+// The subject for the hello. "your constituent" is only true for a person's own lawmaker; the town, never the district number (R-259).
+export const helloSubject = (to, own) => { const town = townWord();
+  return own ? vary('hello|subj', [`A question from your constituent${town ? ` in ${town}` : ''}`, `A question from a constituent${town ? ` in ${town}` : ''}`])
+    : 'A question from a Hawaiʻi resident'; };
 
 // A bill in the letter: "HB 1523 (Disposable e-cigarette ban)".
-const billWords = b => nick(b) ? `${spaced(b.bill_number)} (${nick(b)})` : spaced(b.bill_number);
+const billWords = b => nick(b) ? `${spaced(b.bill_number)} (${inSentence(nick(b))})` : spaced(b.bill_number);
 
 // An issue name read inside a sentence ("The health issue I care about most is a fee on sugary drinks."): its first letter
 // goes lower-case, because the names are written as chip labels (Nate 10/10, fresh-eyes review). A name whose first word is a
@@ -65,21 +103,23 @@ export function helloFacts(pick = '') {
 // district (where: its words, "House District 22"). reason: their own words ('' leaves the sentence out). closing: their
 // sign-off ('' gives the thank-you line). facts: helloFacts().
 export function helloLetter({ to = [], name = '', titles = [], own = false, where = '', reason = '', closing = '', facts }) {
-  const n = String(name || '').trim(), top = facts.top ? facts.top.name : '';
+  const n = String(name || '').trim(), top = facts.top ? facts.top.name : '', k = 'hello';
   const greet = to.length ? `Aloha ${andList(to.map(t => t.greet))},` : 'Aloha,';
-  const titlePart = titles.length ? `, ${aWords(titles)}${needsSelf(titles) ? ' writing for myself' : ''}` : '';
-  const live = own ? `in your district${to.length > 1 ? 's' : ''}${where ? ` (${where})` : ''}` : '';
-  const who = n && live ? `I’m ${n}${titlePart}, and I live ${live}.` : n ? `I’m ${n}${titlePart}.` : live ? `I live ${live}.` : '';
-  const bill = facts.bill ? (facts.billSupport ? `${billWords(facts.bill)} would help, and I support it.` : `I oppose ${billWords(facts.bill)}.`) : '';
+  // R-259: who they are, then the town (never a district number: nobody says "I live in House District 22").
+  const who = [whoLine(n, titles, k), own ? ownLine(k, to.length > 1) : ''].filter(Boolean).join(' ');
+  const bw = facts.bill ? billWords(facts.bill) : '';
+  const bill = !bw ? '' : facts.billSupport ? vary(k + '|bill', [`${bw} would help, and I support it.`, `I support ${bw}, which would help.`])
+    : vary(k + '|bill', [`I oppose ${bw}.`, `I’m against ${bw}.`]);
   // With nothing followed the letter makes no claim about bills it has not followed (Nate 10/10): it only says the person cares.
-  const focus = top ? `The health issue I care about most is ${inSentence(top)}. ${bill}`.trim()
-    : 'I care about the health of our community.';
+  const focus = top ? `${vary(k + '|focus', [`The health issue I care about most is ${inSentence(top)}.`, `The health issue that matters most to me is ${inSentence(top)}.`, `What I care about most right now is ${inSentence(top)}.`])} ${bill}`.trim()
+    : vary(k + '|focus', ['I care about the health of our community.', 'The health of our community matters a lot to me.']);
   const off = facts.off ? ' before the session opens in January' : '';
-  const ask = top ? `Where do you stand on it? I’d be grateful to hear back${off}.`
-    : `What health issues are you working on${facts.off ? ' for the next session' : ' this session'}? I’d be grateful to hear back.`;
+  const ask = top ? vary(k + '|ask', [`Where do you stand on it? I’d be grateful to hear back${off}.`, `How do you see it? I’d love to hear back${off}.`])
+    : vary(k + '|ask', [`What health issues are you working on${facts.off ? ' for the next session' : ' this session'}? I’d be grateful to hear back.`,
+      `Which health issues are you focused on${facts.off ? ' for the next session' : ' this session'}? I’d love to hear back.`]);
   // "I also follow" sits above the question, so the letter ends on its ask and the sign-off (the other issues are context for the
   // one it names, not a second request).
-  const others = facts.others.length ? `I also follow ${andList(facts.others.map(inSentence))}.` : '';
-  const sign = closingOf(closing) || THANKS;
+  const others = facts.others.length ? vary(k + '|others', [`I also follow ${andList(facts.others.map(inSentence))}.`, `I’m also keeping an eye on ${andList(facts.others.map(inSentence))}.`]) : '';
+  const sign = closingOf(closing) || thanksLine();
   return [greet, who, focus, others, sentence(reason), ask, [sign, n].filter(Boolean).join('\n')].filter(Boolean).join('\n\n');
 }
