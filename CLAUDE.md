@@ -46,7 +46,10 @@ example `https://natehiphi.github.io/hiphi-tracker-app/track.html?demo=1#/bill/H
   until the winner is picked; `python3 tests/abtests.py` checks them. **Version A is the live test `layout` (R-187, 10/6):**
   `track.html` draws `pub/a/home.js` and `pub/a/bill.js` for a browser on it (tabs end with "You"); `track-a.html` only
   redirects there; Home's-top test is off while it runs. A change to Home or the bill page keeps version A working
-  (`python3 tests/layout.py`). The practice copy's band has "Next day" (the visit after the first, `&day=` and `&later`).
+  (`python3 tests/layout.py`). **Since 11 Oct (R-222, migration 169) `layout` has three versions, `calm`, `today`, `a`, off,
+  fallback `calm`: the calm Home (`pub/calm/home.js`, DESIGN A-23, B-14) is everyone's Home**; today's Home (`pub/home.js`)
+  and version A stay testable, and following nothing still shows today's explore screen. `python3 tests/home_calm.py`
+  keeps its page budget. The practice copy's band has "Next day" (the visit after the first, `&day=` and `&later`).
   **The tester sheet (R-185, 10/6):** Session setup >
   Tests > Tester sheet gives each group of a room of testers a link and QR code on the versions Nate picks, side by side,
   with a page to print (`#/setup/room`; `docs/FEATURES.md`; `python3 tests/room.py`). **Testers' paths (R-193, 10/6):** a
