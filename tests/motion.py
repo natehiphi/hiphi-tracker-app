@@ -227,7 +227,7 @@ with sync_playwright() as pw:
        '6: its card says alerts are on for the number, with "Use a different number"')
     ok(p.title() == 'Mahalo! · HIPHI Bill Tracker', f'6: the tab says "Mahalo! · HIPHI Bill Tracker" ({p.title()!r})')
     ok(p.evaluate("document.activeElement?.id") == 'st-h', f'6: focus is on its heading (the code field it came from is gone) ({p.evaluate("document.activeElement?.id")!r})')
-    ok(p.inner_text('.actionbar').strip() == 'Next: How a Bill Becomes Law' and p.locator('.actionbar button').count() == 1, '6: the bar is one button, its Next naming the story (C-6)')
+    ok(p.inner_text('.actionbar').strip() == 'Next: A Bill’s Story' and p.locator('.actionbar button').count() == 1, '6: the bar is one button, its Next naming the story (C-6, C-15)')
     p.screenshot(path=os.path.join(OUT, 'motion_mahalo_page_375.png'))
     p.wait_for_timeout(3000)
     ok(p.locator('.st-thanks #st-h').count() == 1 and p.evaluate("location.hash") == at and not [e for e in shown_log(p) if e['kind'] == 'shown'],

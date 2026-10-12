@@ -20,6 +20,8 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 .st-chapters li { position: relative; display: flex; align-items: center; gap: 5px; min-width: 0; font-size: var(--t13); line-height: 20px; color: var(--n500); }
 .st-chapters li.on { color: var(--p800); font-weight: 700; }
 .st-chapters li.done { color: var(--n700); }
+.st-chapters li.skipped { color: var(--n500); }
+.st-pickagain { margin: 14px 0 0; }   /* the way back to the tiles when nothing is followed (R-249) */   /* a chapter the person skipped keeps its plain dot: no tick for a step not done (C-7, R-249) */
 .st-cm { flex: none; width: 14px; height: 16px; display: grid; place-items: center; color: var(--ok-text); }
 .st-cm::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--n300); }
 .st-chapters li.on .st-cm::after { width: 8px; height: 8px; background: var(--p700); }
@@ -71,6 +73,7 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 .st-issue[aria-pressed="true"] .st-ilead { background: var(--p700); color: var(--n0); }
 .st-issue .st-tick { position: absolute; top: 10px; right: 10px; }
 .st-iname { font-family: var(--font-h); font-weight: 600; letter-spacing: -.01em; color: var(--n900); line-height: 1.25; padding-right: 26px; overflow-wrap: break-word; max-width: 100%; }   /* an issue's name is a heading wherever it stands (A-19) */
+.st-tiles .st-iname { padding-right: 0; hyphens: auto; }   /* on a tile the tick sits above the name, beside the icon: the 26px gap split "Environment" in two at 375px (R-249); a word too long for the tile hyphenates rather than breaks anywhere */
 .st-idesc { font-size: var(--t14); line-height: 1.35; color: var(--n700); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 /* "9 issues moving" is a fact about the tile, not something to tap: dark text, never the link blue (A-5, A-12; X9-1, R-180). */
 .st-icount { margin-top: auto; font-size: var(--t13); font-weight: 700; color: var(--n700); }

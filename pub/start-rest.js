@@ -2,7 +2,7 @@
 // why your voice counts, your legislators, the email ask, the finale, and the lessons' own pages. start.js draws the
 // frame and the topics screen with the kernel alone and loads this module right after that first paint; every helper
 // shared with it is imported from start.js (a read-only view of its state: the lessons through lessons()).
-import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, lessons } from './start.js';
+import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, lessons, stepOf } from './start.js';
 import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind, textSaved,
   openActions, waitingBills, chairContacts, askedChair, agrees, dateLong } from './core.js';
 import { myLegs, introState } from './speakup.js';   // the hello to their legislators (R-150)
@@ -136,7 +136,7 @@ function stepIssues(step) {
   return shell('st2', `${topRow('issues', step)}
     <h1 class="hero" id="st-h">Your issues</h1><p class="lede">${lede}</p>`,
     `<div class="st-say"><p class="st-alert" id="st-alert" role="alert"></p></div>
-    ${total ? `<p class="st-free">${icon('mail')}<span>Following is free. You get at most one email a day, however many you follow, and you can change it any time.</span></p>` : ''}
+    ${total ? `<p class="st-free">${icon('bell')}<span>Following is free, and you can stop any time. You get at most one alert a day, however many you follow.</span></p>` : ''}
     ${groups.length ? `<div class="st-tsecs" role="group" aria-label="Issues in your topics">${groups.map(p => catSection(p, m)).join('')}</div>` : ''}
     ${quiet.length ? `<ul class="st-quiets" role="list">${quiet.map(c => quietCat(c, m)).join('')}</ul>` : ''}`);
 }
@@ -375,7 +375,8 @@ function thanksWords(r) {
     small: off ? 'Their bills come to you as soon as the session starts.' : `That’s ${plural(bills, 'bill')} this session. We’ll watch every one.`,
     // Its button names what comes next (C-6, C-7): right after a sign-up, a plain "Continue" read as the end of the visit.
     // The next part's name is in title case, as a name (Nate 10/6, R-186); both versions of the test 'fv' alike.
-    go: armOf('fv') === 'short' ? 'Next: Why Your Voice Matters' : 'Next: How a Bill Becomes Law',
+    // It names the next part as the strip and the page do, "A bill’s story" (C-15, R-249; it said "How a Bill Becomes Law").
+    go: armOf('fv') === 'short' ? 'Next: Why Your Voice Matters' : 'Next: A Bill’s Story',
     // A number proven by its code (R-155) is done: alerts are on, and the person is signed in with it. Not confirmed yet,
     // and an email, keep "Almost set" and "to turn on alerts", the words every screen uses for them (D1-4).
     given: !!(r && (r.kind === 'phone' || r.kind === 'email')) };
@@ -476,7 +477,7 @@ function cuCard(it, k, now) {
   const meta = hear ? [nick(it.b) ? spaced(it.b.bill_number) : '', it.h.committee ? briefCmte(it.h.committee) : ''].filter(Boolean).join(' · ') : '';
   // Testimony first when it has one: its deadline comes before the hearing it is for.
   const dates = hear ? [...(it.h.testimony_deadline ? [['Testimony due', whenWords(it.h.testimony_deadline)]] : []), ['Hearing', whenWords(it.h.scheduled_at)]] : [[it.label, it.value]];
-  const inner = `<span class="st-cu-name">${esc(name)}</span>${meta ? `<span class="st-cu-meta">${esc(meta)}</span>` : ''}${hear && it.issue ? `<span class="st-cu-meta">Your issue: ${esc(it.issue)}</span>` : ''}
+  const inner = `<span class="st-cu-name">${esc(name)}</span>${meta ? `<span class="st-cu-meta">${esc(meta)}</span>` : ''}${hear && it.issue && it.issue.trim().toLowerCase() !== String(name).trim().toLowerCase() ? `<span class="st-cu-meta">Your issue: ${esc(it.issue)}</span>` : ''}
     <dl class="st-cu-dates">${dates.map(([t, v]) => `<div><dt>${esc(t)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>${it.line ? `<span class="st-cu-meta">${esc(it.line)}</span>` : ''}`;
   const card = `<div class="st-cu-go">${inner}</div>`;
   const act = hear && it === now ? `<div class="st-cu-act">${btn('Write testimony', { kind: 'secondary', full: true, icon: 'notebook-pen', attrs: { 'data-helper': it.h.id, 'data-bill': it.b.id, 'aria-label': `Write my testimony on ${name}, due soon` } })}</div>` : '';
@@ -486,7 +487,8 @@ function cuCard(it, k, now) {
 // The one honest line where nothing is coming up, in the place the list would be (Nate 10/5): never an empty block.
 const nothingCard = text => `<section class="st-nothing"><span class="st-ilead" aria-hidden="true">${icon('calendar-clock')}</span><p>${esc(text)}</p></section>`;
 function nothingWords() {
-  if (!followedIssues().length) return 'No hearing is set this week yet. When one is, we’ll show it here.';
+  // Following nothing is the reason there is nothing here: say so, with the way out (B-8, B-3, R-249).
+  if (!followedIssues().length) return 'You’re not following anything yet. Follow an issue and its hearings show up on your home page.';
   return endHome() ? 'Nothing is set on your issues this week yet. When one is, your home page shows what to do.' : 'Nothing is set on your issues this week yet. When a hearing is set, it shows up here.';
 }
 function stepSoon(step) {
@@ -508,7 +510,8 @@ function stepSoon(step) {
   return shell('st4 st-soonpage', `${topRow('soon', step)}
     <h1 class="hero" id="st-h">${off ? 'Your issues, this year and next' : 'Coming up on your issues'}</h1>
     ${lede ? `<p class="lede">${lede}</p>` : ''}`,
-    `${list}${quiet ? quietAsk() : nameCard()}`);
+    // Nothing followed: the way back to the tiles, and no alerts line about issues nobody follows (B-3, A-14; the critic, R-249).
+    `${list}${!followedIssues().length ? `<p class="st-pickagain">${btn('Pick your issues', { kind: 'text', icon: 'arrow-left', attrs: { 'data-stgo': String(stepOf('topics', off)) } })}</p>` : quiet ? quietAsk() : nameCard()}`);
 }
 // ================= The test 'act', its second version: three ways to help (R-150) =================
 // Nate 10/4: "We want people to act right away after signing up"; 10/5: "The last page asking for action should provide three

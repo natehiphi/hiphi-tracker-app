@@ -81,7 +81,7 @@ with sync_playwright() as pw:
     m = thanks(p)
     ok(p.inner_text('#st-h') == 'Mahalo!' and 'following' in m and 'We’ll text (808) 555-0123 to confirm it’s your number' in m and 'YES' not in m and p.url.endswith('#/start/3') and moment(p) == '',
        f'the "Mahalo!" page celebrates both, in place of the box, and says a text will confirm the number: {m[:140]!r}')
-    ok(p.inner_text('.actionbar [data-stnext]').strip() == 'Next: How a Bill Becomes Law', 'its button names what comes next (C-6), not "Continue", in title case (R-186)')
+    ok(p.inner_text('.actionbar [data-stnext]').strip() == 'Next: A Bill’s Story', 'its button names what comes next (C-6), not "Continue", in title case (R-186), as the strip and the page name it (C-15, R-249)')
     shot(p, '1b_mahalo')
     saved = p.evaluate("localStorage.getItem('hiphi_text')")
     ok(saved and '8085550123' in saved, 'this browser keeps the number (the sandbox copy)')

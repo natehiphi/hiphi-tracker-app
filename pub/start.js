@@ -192,13 +192,17 @@ const thanksUp = name => !planOn() && name === 'alerts' && !S.alertEdit && !!(S.
 function chaptersRow(name) {
   const k0 = chapterOf(name); if (k0 < 0) return '';
   const k = thanksUp(name) ? k0 + 1 : k0, on = thanksUp(name) ? -1 : k;
-  return `<nav class="st-chapters" aria-label="${t('Your first visit')}"><ol>${chapterNames().map((c, i) => `<li class="${i < k ? 'done' : i === on ? 'on' : ''}"${i === on ? ' aria-current="step"' : ''}>
-    <span class="st-cm" aria-hidden="true">${i < k ? icon('check') : ''}</span><span class="st-cl">${t(c)}</span>${i < k ? `<span class="sr"> (${t('done')})</span>` : ''}</li>`).join('')}</ol></nav>`;
+  // A chapter behind the person is ticked only when they did it (C-7, R-249): "Your issues" with nothing followed, or the
+  // story they pressed Skip on, keeps its plain dot and reads "(skipped)", so the strip never claims a step that was not taken.
+  const skipped = i => !planOn() && ((i === 0 && !followsAnything()) || (i === 1 && !!S.stSkipped?.has('lesson')));
+  return `<nav class="st-chapters" aria-label="${t('Your first visit')}"><ol>${chapterNames().map((c, i) => `<li class="${i < k ? (skipped(i) ? 'skipped' : 'done') : i === on ? 'on' : ''}"${i === on ? ' aria-current="step"' : ''}>
+    <span class="st-cm" aria-hidden="true">${i < k && !skipped(i) ? icon('check') : ''}</span><span class="st-cl">${t(c)}</span>${i < k ? `<span class="sr"> (${t(skipped(i) ? 'skipped' : 'done')})</span>` : ''}</li>`).join('')}</ol></nav>`;
 }
 // Finishing a part ticks it with a small burst: one of the stage celebrations (C-7).
 function tickChapter(name, back) {
   const k = chapterOf(name);
-  if (!back && lastChapter >= 0 && k > lastChapter) later(() => burst(document.querySelectorAll('.st-chapters li')[k - 1]?.querySelector('.st-cm'), 10, 34), 350);
+  // No petals for a chapter the person skipped (the critic, R-249): the strip keeps its plain dot, and so does the motion.
+  if (!back && lastChapter >= 0 && k > lastChapter) later(() => { const li = document.querySelectorAll('.st-chapters li')[k - 1]; if (li && !li.classList.contains('skipped')) burst(li.querySelector('.st-cm'), 10, 34); }, 350);
   if (k >= 0) lastChapter = k;
 }
 
@@ -342,7 +346,7 @@ function stepTopics(step) {
   return shell('st1 st-topics', `${topRow('topics', step)}${partnerLine()}${artFor('topics')}
     <h1 class="hero" id="st-h">${off ? t('Get ready for the {next} session', { next }) : t('Speak up for a healthier Hawaiʻi')}</h1>
     <p class="lede">${off ? `${t('The Legislature opens {day}.', { day: esc(shortDay(si.nextOpen)) })}${w && w.length ? ` ${w.length === 1 ? t('In {yr}, 1 bill HIPHI backed became law.', { yr }) : t('In {yr}, {n} bills HIPHI backed became law.', { yr, n: w.length })}` : ''} ${t('Pick what you care about, and we’ll keep watch.')}`
-      : t('HIPHI follows Hawaiʻi’s health bills. Pick what you care about.')}</p>${off ? '' : promise()}${sureWide('clock', t(SURE1))}`,
+      : t('HIPHI, the Hawaiʻi Public Health Institute, is a nonprofit that follows the health bills. Pick what you care about.')}</p>${off ? '' : promise()}${sureWide('clock', t(SURE1))}`,
     `${sayRow('clock', t(SURE1))}${tiles(off, yr)}`);
 }
 
@@ -432,6 +436,7 @@ function wire(route) {
   // Skip always means "go to the next page" (HANDOFF 3.5).
   $$('[data-stskip]').forEach(el => el.onclick = () => {
     track(name, 'skip');
+    if (name === 'bill' || name === 'voice') (S.stSkipped ??= new Set()).add('lesson');   // the strip shows the story as skipped, not done (R-249)
     // Nothing picked on the first screen: the issues screen needs a pick, so Skip goes on to the story, which uses one
     // of HIPHI's bills (R-019: Skip must never lead back to where it started).
     // (It named the lesson's step, which the short version does not have, so there Skip went to #/start/0, the first
@@ -448,6 +453,9 @@ function wire(route) {
   });
   // Back leaves the screen (B-4). The story walks back through its stages first (lessonPrev).
   $$('[data-stback]').forEach(el => el.onclick = () => { if (name === 'bill' && LZ?.lessonPrev('story')) return; goBack(+el.dataset.stback); });
+  // A link straight to a named step (the empty "Coming up" page's way back to the tiles, R-249): backwards, like Back, without
+  // Back's step arithmetic.
+  $$('[data-stgo]').forEach(el => el.onclick = () => { track(name, 'back'); LZ?.lessonStop(); S.stBack = true; swap(() => app.go('#/start/' + el.dataset.stgo), 'back'); });
   $$('[data-stretry]').forEach(el => el.onclick = async () => { S.recapFailed = null;
     if (!S.issues.length) { try { await loadCatalog(); recomputeWatch(); } catch (e) { console.error(e); } }
     app.render(); });

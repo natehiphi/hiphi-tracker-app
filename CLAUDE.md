@@ -30,7 +30,11 @@ example `https://natehiphi.github.io/hiphi-tracker-app/track.html?demo=1#/bill/H
 - **Staff v2 is the staff app at the main address** (`index.html` and `staff.html`); the old app stays at `classic.html`
   until Nate's walk-through (R-010), and until then a data-layer change goes into both (`node staff/tools/parity.mjs`).
 - **The public tracker** (`track.html`, `pub/`): people follow issues (R-018); the first visit is R-023's, with two endings
-  under A/B test (R-098, R-121), and since R-232 (10/11) no address step; **after the first visit each ask is one
+  under A/B test (R-098, R-121), and since R-232 (10/11) no address step; since R-249 (10/11) the first screen's lede says what HIPHI is (Nate: for the
+  stranger from a link), the chapter strip ticks only a chapter that was done (a skipped one keeps its dot, reads
+  "(skipped)" and gets no petals, C-7), a tile's name never breaks inside a word, the Mahalo page's button names the story as
+  the strip does (C-15), and "Coming up" with nothing followed says why and offers "Pick your issues" back to the tiles
+  (B-3; `tests/first_visit_fixes.py`); **after the first visit each ask is one
   full page before Home** on a new day's first arrival (R-237, `pub/nextask.js`, DESIGN C-16: find my legislators, save
   your profile, new issues, the three moments, bring a friend, keep it on your phone), not a card on Home; every bill link carries its session year when it is not the current one (R-110); the page
   reports its own errors (R-111); one share everywhere and a link newcomer left to finish (R-113, R-114); the My issues
@@ -569,6 +573,7 @@ python3 tests/room.py               # Staff v2's tester sheet (R-185): groups, p
 python3 tests/plans.py              # the five first-visit plans (R-164), each walked to Home on a phone, a laptop and between sessions, the sign-up and the next day's full-page ask; 86 checks
 python3 tests/next_asks.py          # a later visit's one full-page ask (R-237): when it opens and when not, each page, Done and Not now, the rest (a week, three weeks, three months), the count's payload; 70 checks
 python3 tests/fv_type.py            # the first visit is large and short (R-174, DESIGN C-14): every version walked on a phone, nothing under 14px, 14px only for labels, each lead sentence 30 words or fewer; 30 checks
+python3 tests/first_visit_fixes.py   # the first visit's six fixes of 11 Oct (R-249): the whole word, the skipped chapter's dot and no petals, "one alert a day", the button's name, the bill's name once, the empty page's way out; 22 checks on a phone
 python3 tests/drafts.py             # what each draft changed (R-060): the public bill page and Staff v2's Public tab, edit and Undo; 20 checks
 node tests/issue_suggest_test.mjs   # Sort new bills' suggested issue (R-088 part 2): exact checks and a replay on the practice copy's 2026 bills; 11 checks
 python3 tests/profile.py            # your profile (R-147): More's first row, the invitation, the picker, the story, initials, the letters' titles and where-you-live lines; 31 checks
