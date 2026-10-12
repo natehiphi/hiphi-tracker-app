@@ -245,7 +245,7 @@
    file). The two doors look like a story's choices (a tile), not like the app's pill buttons (A-12). */
 .lx-story text { font-family: var(--font); }
 .lx-story .lx-lay { display: none; }
-.lx-story[data-stage="1"] .lx-lay1, .lx-story[data-stage="2"] .lx-lay2, .lx-story[data-stage="3"] .lx-lay3 { display: inline; }
+.lx-story[data-stage="1"] .lx-lay1, .lx-story[data-stage="2"] .lx-lay2, .lx-story[data-stage="3"] .lx-lay3, .lx-story[data-stage="4"] .lx-lay3 { display: inline; }
 .lx-story :is(.lx-s1paper, .lx-s1stamp, .lx-ticki, .lx-pop, .lx-fade, .lx-fly, .lx-slide, .lx-draw) { transform-box: fill-box; transform-origin: center; }
 .lx-l-story { gap: var(--s12); }
 .lx-scap { display: block; }   /* not the lessons' grid: a min-height would spread its rows apart */
@@ -265,35 +265,18 @@
 /* stage 3: "Yes" flies the notes in, ticks the stop and slides the bill on to its next stop (the road between fills in),
    or puts a hearing on the list; "Not this week" greys the road ahead and stamps the bill */
 .lx-story .lx-c3 { display: none; }
-.lx-story[data-choice="yes"] .lx-c3-yes, .lx-story[data-choice="no"] .lx-c3-no { display: inline; }
-.lx-story[data-choice="yes"] .lx-r3t .lx-b3 { display: none; }
-/* R-255's options on the practice copy (?story3=): the scene plays on arrival with no doors; 'order' draws both moments */
-.lx-story[data-opt="order"] .lx-c3-order { display: inline; }
-.lx-story[data-opt="order"] .lx-r3 .lx-b3 { display: none; }
-/* the explore options: one scene by data-scene, the notes counted by data-notes */
-.lx-story[data-scene="no"] .lx-c3-no, .lx-story[data-scene="t"] .lx-c3-t, .lx-story[data-scene="c"] .lx-c3-c, .lx-story[data-scene="mid"] .lx-c3-n { display: inline; }
+/* stages 3 and 4 (R-255): the scene the picture names, 'set' the hearing on the list, 'c' the email that asks for one,
+   't' the notes that carry the bill on, 'no' no one asking (the road ahead greys, the bill is stamped) */
+.lx-story[data-scene="no"] .lx-c3-no, .lx-story[data-scene="t"] .lx-c3-t, .lx-story[data-scene="c"] .lx-c3-c, .lx-story[data-scene="set"] .lx-c3-set { display: inline; }
 .lx-story[data-scene="t"] .lx-r3 .lx-b3, .lx-story[data-scene="no"] .lx-r3 .lx-b3 { display: none; }
-.lx-story .lx-c3-n .lx-nn { display: none; }
-.lx-story[data-notes="1"] .lx-n1, .lx-story[data-notes="2"] :is(.lx-n1, .lx-n2) { display: inline; }
-.lx-story.lx-tappable { cursor: pointer; }
-.lx-scenes { display: flex; flex-wrap: wrap; gap: var(--s8); margin-top: var(--s12); }
-.lx-notesrow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s12); margin-top: var(--s12); }
-.lx-notesrow .lx-hint { color: var(--n700); }
-.lx-count2 { color: var(--n900); font-weight: 700; }
-.lx-scap p.lx-said.lx-on { box-shadow: 0 0 0 2px var(--p600); }
-.lx-scap p.lx-said-no.lx-on { box-shadow: 0 0 0 2px var(--n700); }
-.lx-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s8); margin-top: var(--s12); }
-.lx-two > div { padding: var(--s12); border-radius: var(--r12); background: var(--p50); border-left: 4px solid var(--p600); color: var(--n900); min-width: 0; }
-.lx-two > .lx-two-no { background: var(--n100); border-left-color: var(--n700); }
-.lx-two p { margin: 0; }
-.lx-two-h { font-weight: 700; }
-.lx-mini { display: block; width: 96px; height: 48px; margin: var(--s8) 0; }
-@media (max-width: 26.1875em) { .lx-two { grid-template-columns: minmax(0, 1fr); } }   /* 419px: the two outcomes stack on a phone */
-.lx-steps { margin: var(--s12) 0 0; padding-left: 1.3em; color: var(--n900); }
-.lx-steps li + li { margin-top: var(--s8); }
-.lx-scap p.lx-said { margin-top: var(--s12); padding: var(--s12); border-radius: var(--r12); background: var(--p50); border-left: 4px solid var(--p600); color: var(--n900); }
+.lx-saidbox.lx-got { margin-top: var(--s12); }
+.lx-saidbox.lx-swap { animation: lx-rise .28s var(--ease) both; }
+.lx-saidbox p { margin: 0; }
+.lx-scap p.lx-said { padding: var(--s12); border-radius: var(--r12); background: var(--p50); border-left: 4px solid var(--p600); color: var(--n900); }
 .lx-scap p.lx-said-no { background: var(--n100); border-left-color: var(--n700); }
-.lx-scap p.lx-other { margin-top: var(--s12); }
+.lx-scap p.lx-other { margin-top: var(--s8); color: var(--n700); }
+.lx-scap p.lx-turn { margin-top: var(--s8); color: var(--n900); }
+@media (prefers-reduced-motion: reduce) { .lx-saidbox.lx-swap { animation: none; } }
 .lx-story .lx-draw { stroke-dasharray: var(--len) var(--len); }
 .lx-story.lx-cplay .lx-fly { animation: lx-fly .6s var(--ease) var(--d, 0ms) both; }
 .lx-story.lx-cplay .lx-pop { animation: lx-pop .35s var(--spring, cubic-bezier(.34, 1.4, .64, 1)) var(--d, 0ms) both; }
