@@ -6,12 +6,13 @@
 //   1. The greeting: their name and one line, the one result worth saying or that nothing is new. Between sessions: the
 //      break, what HIPHI backed that became law, and one link to their session.
 //   2. One card: the soonest thing to do, today's white action card ("1 of 4 due today"; "Show the next one" brings up the
-//      next, as version A's did); the hearing ask when that is sooner; a plan to go on its day. Between sessions, the one
-//      thing to do then. Nothing at all when nothing is due: the greeting says so.
+//      next, as version A's did); the hearing ask when that is sooner; late testimony when nothing is due on time (R-250); a
+//      plan to go on its day. Between sessions, the one thing to do then. Nothing at all when nothing is due: the greeting
+//      says so.
 //   3. Your issues: one row each, the issue's name, one phrase for where it stands and its next date, soonest first. Amber
 //      only inside 24 hours (A-5). "New" when it changed since the last visit (Nate's answer 2: the one thing, then where
 //      the issues stand, with what changed as a word on the row). Over 8 issues: grouped by where they stand, the first 8,
-//      then "Show all N" (GROUPS below; Nate 10/11).
+//      then "Show all N" (GROUPS below; Nate 10/11). A bill followed on its own gets a row of its own (R-250).
 //   4. At most two quiet lines: their session, and the profile ask (home.js profileLine).
 // The budget it keeps (A-23, tests/home_calm.py): at most four blocks of at most two shapes, one filled button, each bill
 // named once, under two phone screens for 3 issues and three for 16. What left Home and where it went: the review
@@ -51,6 +52,13 @@ function dueAll() {
   return P.twinCards(openActions(S.bills, S.hearings).filter(x => !x.late && !settledOn(x.b, x.h) && x.h.testimony_deadline
     && Date.parse(x.h.testimony_deadline) < week).sort(byDeadline));
 }
+// Late testimony (R-250, Nate 10/11): a hearing still ahead whose written deadline has passed still takes testimony, marked
+// late. Today's Home led with it ("Send late testimony"); the calm Home first left it out, so on a hearing day a follower read
+// "Nothing needs you this week" (the C1 assessment's C1-1 again). Soonest hearing first. Not twinned: twinCards keeps one map
+// for the page, and companions heard late on the same day are rare.
+function lateAll() {
+  return openActions(S.bills, S.hearings).filter(x => x.late && !settledOn(x.b, x.h)).sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at));
+}
 
 // ---------------- 2. the one card ----------------
 function theCard(c) {
@@ -58,9 +66,9 @@ function theCard(c) {
   // Right after a first action from a shared link, nothing is singled out: a bigger ask straight after the one just done
   // backfires (R-150's research; R-190 kept it on today's Home).
   const focus = !(c.welcome && !c.fin);
-  if (k.kind === 'due') {
+  if (k.kind === 'due' || k.kind === 'late') {
     const x = k.items[0], day = hstDay(x.h.testimony_deadline), same = k.items.filter(y => hstDay(y.h.testimony_deadline) === day).length;
-    const ofN = same > 1 ? `1 of ${same} due ${dayShort(x.h.testimony_deadline)}` : '';   // Nate's answer 4: "1 of 4 due today"
+    const ofN = k.kind === 'due' && same > 1 ? `1 of ${same} due ${dayShort(x.h.testimony_deadline)}` : '';   // Nate's answer 4: "1 of 4 due today"
     const next = k.items.length > 1 ? `<p class="cm-next">${btn('Show the next one', { kind: 'text', sm: true, iconEnd: 'arrow-right', attrs: { 'data-cm-skip': skipKey(x), 'data-cm-name': nameOf(x.b) } })}</p>` : '';
     // The label names the issue the row below calls it, unless the issue has the bill's own name (55 of 91 do): then the
     // title already says it, and the label keeps the topic, so the name is said once (A-14).
@@ -72,27 +80,39 @@ function theCard(c) {
   if (k.kind === 'go') return goingCard(k.plans);
   return '';
 }
-// The card's kind, in order: testimony due (unless the soonest hearing ask runs out first), everything due passed over, the
-// hearing ask, a plan to go today or tomorrow. A hearing ask runs out at the end of its cut-off day.
-function pickCard(due, asks, plans) {
+// The card's kind, in order: testimony due (unless the soonest hearing ask runs out first); when nothing is due on time, late
+// testimony (unless the hearing ask runs out before its hearing; R-250); the hearing ask; everything due passed over; a plan
+// to go today or tomorrow. A hearing ask runs out at the end of its cut-off day.
+function pickCard(due, late, asks, plans) {
   const items = due.filter(x => !S.aSkip.has(skipKey(x))), ask = asks[0];
   const askFirst = ask && (!items.length || hiT(ask.st.deadline.date) < Date.parse(items[0].h.testimony_deadline));
   if (items.length && !askFirst) return { kind: 'due', items, bill: items[0].b };
+  const lt = due.length ? [] : late.filter(x => !S.aSkip.has(skipKey(x)));
+  if (lt.length && !(ask && hiT(ask.st.deadline.date) < Date.parse(lt[0].h.scheduled_at))) return { kind: 'late', items: lt, bill: lt[0].b };
   if (ask) return { kind: 'ask', ask, bill: ask.b };
-  if (due.length) return { kind: 'seen', n: due.length };
+  if (due.length || late.length) return { kind: 'seen', n: due.length || late.length };
   const soon = plans.filter(p => p.soon);
   if (soon.length) return { kind: 'go', plans: soon, bill: soon[0].b };
   return { kind: '' };
 }
 
 // ---------------- 3. your issues ----------------
+// Bills followed on their own (R-250, Nate 10/11): an issue page's "Follow these 3", a stance, a list, or a bill on no issue
+// at all. They had no row, so apart from the one card nothing about them was on Home, and an "Ask the chair" on one was
+// nowhere. One row each, after the issues' rules (the same phrases, the same order); the card's own bill has none, since the
+// card names it (A-14), and "Show the next one" brings its row back.
+// A bill row names the bill once: its nickname (or its whole summary, not cut at 70) as the heading, its number in the status
+// line, since a bill followed on its own was often followed by its number (C-10; the fresh-eyes review of R-250).
+const spaced = b => (b.bill_number || '').replace(/^([A-Z]+)(\d+)$/, '$1 $2');
+const looseBills = () => S.bills.filter(b => S.direct?.has(b.id) && !S.viaIssues?.has(b.id) && S.watch?.has(b.id));
 // One phrase for where an issue stands, from the first of these that is true of any of its bills: testimony open; a
 // hearing ahead (with what they did about it); a cut-off for a hearing; a decision in the last two weeks, or one coming;
 // became law; where its furthest bill is; did not advance. t: the date that orders the rows (soonest first). g: the group
 // the row goes under (GROUPS), when the list is long.
 const RESULT = { passed: 'Passed a committee', passed_amended: 'Passed a committee with changes', deferred: 'Put on hold', recommitted: 'Sent back for more work' };
-function issueState(i, c) {
-  const ids = new Set(issueBills(i)), bs = S.bills.filter(b => ids.has(b.id)), has = b => ids.has(b.id), now = Date.now();
+// ids: the issue's bills, or one bill followed on its own (R-250), which gets the same phrases.
+function stateOf(ids, c) {
+  const bs = S.bills.filter(b => ids.has(b.id)), has = b => ids.has(b.id), now = Date.now();
   // A letter they started, for a hearing still ahead, is said on its issue's row unless the card is that hearing (whose
   // button then says "Finish sending your testimony"), so a saved letter is never left unmentioned (R-189).
   const dr = c.open.find(x => has(x.b) && testimonyDraft(x.h) && Date.parse(x.h.scheduled_at) > now && x.h.id !== c.card.items?.[0]?.h.id);
@@ -102,6 +122,9 @@ function issueState(i, c) {
   // A second bill due this week on the same issue is said on the row, so nothing to do is left off the page (B-14).
   if (d) { const t = Date.parse(d.h.testimony_deadline), more = ds.length > 1 ? `, and ${ds.length - 1} more this week` : '';
     return { g: 'due', t, warn: t - now < 864e5, fresh: ds.some(x => isNew(Date.parse(x.h.notice_posted_at || 0))), text: `${testimonyDraft(d.h) ? 'Your letter is started · due' : 'Testimony due'} ${when(d.h.testimony_deadline)}${more}` }; }
+  // Late testimony is still something to do, so its row says so rather than only "Hearing today" (R-250, B-14).
+  const lt = c.late.find(x => has(x.b));
+  if (lt) { const t = Date.parse(lt.h.scheduled_at); return { g: 'due', t, warn: t - now < 864e5, text: `Late testimony until ${when(lt.h.scheduled_at)}` }; }
   const h = S.hearings.filter(x => ids.has(x.bill_id) && x.status !== 'cancelled' && Date.parse(x.scheduled_at) > now && alive(S.bills.find(b => b.id === x.bill_id) || {}))
     .sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
   if (h) { const b = bs.find(x => x.id === h.bill_id), plan = c.plans.some(p => p.h.id === h.id);
@@ -147,13 +170,15 @@ function groupedRows(rows) {
 }
 // The fold never hides a deadline without saying so (B-14; the fresh-eyes review, 10/11): the button counts what is due behind it.
 const dueAfter = rows => { const k = rows.slice(FOLD).filter(r => r.g === 'due').length; return k ? ` · ${k} more due this week` : ''; };
+// Bills followed on their own have rows too (R-250), so the heading and the fold name what the list holds.
 function issuesBlock(rows, n) {
   if (!rows.length) return '';
-  const long = rows.length > FOLD && rows.every(r => r.g);
-  return `<section class="cm-issues" aria-labelledby="cm-iss-h"><h2 id="cm-iss-h" class="cm-h">Your issues</h2>
-    ${long ? `${groupedRows(rows)}${btn(`Show all ${rows.length} issues${dueAfter(rows)}`, { kind: 'text', icon: 'chevron-down', cls: 'hm-link cm-showall', attrs: { 'data-cm-showall': '' } })}`
+  const long = rows.length > FOLD && rows.every(r => r.g), nIss = rows.filter(r => !r.b).length, nB = rows.length - nIss;
+  const head = nB && nIss ? 'Your issues and bills' : nB ? 'Your bills' : 'Your issues', noun = nB && nIss ? '' : nB ? ' bills' : ' issues';
+  return `<section class="cm-issues" aria-labelledby="cm-iss-h"><h2 id="cm-iss-h" class="cm-h">${head}</h2>
+    ${long ? `${groupedRows(rows)}${btn(`Show all ${rows.length}${noun}${dueAfter(rows)}`, { kind: 'text', icon: 'chevron-down', cls: 'hm-link cm-showall', attrs: { 'data-cm-showall': '' } })}`
       : `<ul class="cm-rows" role="list">${rows.map(rowHtml).join('')}</ul>`}
-    ${btn(n > rows.length ? `See all ${n} in My issues` : 'See the bills on my issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link cm-all' })}</section>`;
+    ${btn(n > rows.length ? `See all ${n} in My issues` : nIss ? 'See the bills on my issues' : 'See them in My issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link cm-all' })}</section>`;
 }
 
 // ---------------- 1. the greeting ----------------
@@ -172,10 +197,10 @@ function resultLine(c) {
   if (g) { c.moments.push(g); return `<b>${esc(nameOf(g.b))}:</b> ${esc(P.momentText(g))}`; }
   const rs = (P.sinceItems() || []).filter(x => x.lead !== 'calendar' && !(c.card.bill && x.b.id === c.card.bill.id));
   if (rs.length) { const x = rs[0], first = x.text.replace(/^([^.]*\.).*$/, '$1');
-    return `<b>${esc(nameOf(x.b))}:</b> ${esc(first)}${rs.length > 1 ? ` ${esc(plural(rs.length - 1, 'more result'))} on your issues below.` : ''}`; }
+    return `<b>${esc(nameOf(x.b))}:</b> ${esc(first)}${rs.length > 1 ? ` ${esc(plural(rs.length - 1, 'more result'))} on your ${c.noun} below.` : ''}`; }
   // New hearings are not results: the rows mark them New, and the greeting counts them rather than saying "nothing new".
-  if (c.freshN) return `News on ${c.freshN === 1 ? 'one of your issues' : `${c.freshN} of your issues`} since ${esc(sinceWhen())}.`;
-  return prevVisit() ? `Nothing new on your issues since ${esc(sinceWhen())}.` : '';
+  if (c.freshN) return `News on ${c.freshN === 1 ? `one of your ${c.noun}` : `${c.freshN} of your ${c.noun}`} since ${esc(sinceWhen())}.`;
+  return prevVisit() ? `Nothing new on your ${c.noun} since ${esc(sinceWhen())}.` : '';
 }
 function greeting(c) {
   const name = P.myName(), hi = `Aloha${name ? `, ${esc(name)}` : ''}`;
@@ -191,20 +216,22 @@ function greeting(c) {
 // ---------------- the page, in session ----------------
 function inSession(si, { welcome, fin }) {
   const due = dueAll(), asksAll = P.oneIdeaAsks(due), plans = goingPlans();
-  const card = pickCard(due, asksAll, plans);
-  const c = { si, welcome, fin, due, asksAll, plans, card, why: undefined, moments: [], open: openActions(S.bills, S.hearings).filter(x => !settledOn(x.b, x.h)) };
-  const iss = followedIssues();
-  const rows = iss.map(i => ({ i, ...issueState(i, c), name: i.name })).sort(byImportance)
+  const late = lateAll(), card = pickCard(due, late, asksAll, plans);
+  const c = { si, welcome, fin, due, late, asksAll, plans, card, why: undefined, moments: [], open: openActions(S.bills, S.hearings).filter(x => !settledOn(x.b, x.h)) };
+  const iss = followedIssues(), own = looseBills().filter(b => b.id !== card.bill?.id);
+  const rows = [...iss.map(i => ({ i, ...stateOf(new Set(issueBills(i)), c), name: i.name, href: `#/issue/${i.slug}` })),
+    ...own.map(b => { const st = stateOf(new Set([b.id]), c); return { b, ...st, name: headline(b), text: `${spaced(b)} · ${st.text}`, href: billPath(b) }; })].sort(byImportance)
     // Nothing is new seconds after the first visit: everything on the page was just seen there.
-    .map(r => ({ ...r, fresh: !welcome && r.fresh, href: `#/issue/${r.i.slug}` }));
-  c.freshN = rows.filter(r => r.fresh).length;
+    .map(r => ({ ...r, fresh: !welcome && r.fresh }));
+  c.freshN = rows.filter(r => r.fresh).length; c.noun = !iss.length && looseBills().length ? 'bills' : 'issues';   // someone who follows only bills has no issues
+
   const head = greeting(c);   // before the card: it decides the card's reason line (c.why)
   S.cmMoments = c.moments;
   const lines = [welcome ? '' : P.sessionLink(si.yr), P.profileLine()].filter(Boolean).join('');
   return `<div class="hm cm${welcome ? '' : ' cm-met'}">
     ${head}
     ${card.kind ? `<section class="cm-card" aria-label="${card.kind === 'go' ? 'Your plan' : 'The next thing you can do'}">${theCard(c)}</section>` : ''}
-    ${issuesBlock(rows, iss.length)}
+    ${issuesBlock(rows, iss.length + own.length)}
     ${lines ? `<div class="cm-lines">${lines}</div>` : ''}
   </div>`;
 }
@@ -230,12 +257,14 @@ function offSession(si, { welcome }) {
   const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
   const unname = (name, t) => { if (!t.startsWith(name + ' ')) return t; const rest = t.slice(name.length + 1), m = /^\(([A-Z]+ ?\d+)\) (.*?)\.?$/.exec(rest);
     return m ? `${cap(m[2])} (${m[1]}).` : cap(rest); };
-  const rows = P.myIssues(yr).map(r => ({ name: r.title, text: unname(r.title, first(r.sub)), href: r.href }));
+  const own = looseBills();
+  const rows = [...P.myIssues(yr).map(r => ({ name: r.title, text: unname(r.title, first(r.sub)), href: r.href })),
+    ...own.map(b => ({ b, name: headline(b), text: `${spaced(b)} · ${plainStatus(b).short}`, href: billPath(b) }))];
   return `<div class="hm cm cm-off">
     <header class="cm-head"><h1 class="hero">Aloha${name ? `, ${esc(name)}` : ''}</h1><p class="lede">${lede}</p>
       ${welcome ? '' : P.sessionLink(yr)}</header>
     <section class="cm-card" aria-label="The thing you can do now">${card}</section>
-    ${issuesBlock(rows, followedIssues().length)}
+    ${issuesBlock(rows, followedIssues().length + own.length)}
     ${P.meetLine() || P.profileLine() ? `<div class="cm-lines">${P.meetLine()}${P.profileLine()}</div>` : ''}
   </div>`;
 }
@@ -260,7 +289,7 @@ export default {
     wireActions(root); wireNudge(root); wireExtras(root);
     // "Show the next one" says what it did, with Undo (B-5, A-16): the card it moved is still on its issue's row.
     root.querySelectorAll('[data-cm-skip]').forEach(el => el.onclick = () => { const k = el.dataset.cmSkip; S.aSkip.add(k); app.render();
-      toast(`${el.dataset.cmName} moved out of the way. It’s still due: its issue below says when.`, { undo: () => { S.aSkip.delete(k); app.render(); } }); });
+      toast(`${el.dataset.cmName} moved out of the way. It’s still due: the list below says when.`, { undo: () => { S.aSkip.delete(k); app.render(); } }); });
     root.querySelectorAll('[data-cm-unskip]').forEach(el => el.onclick = () => { S.aSkip.clear(); app.render(); });
     // "Show all N" opens the rest of a long list where it is, and the first row it opened takes the focus (A-16).
     const all = root.querySelector('[data-cm-showall]');
