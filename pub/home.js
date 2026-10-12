@@ -722,7 +722,8 @@ function welcomeView(si, { cards, asks, total }) {
 // happens ON Home: "Mahalo! This is your home page", what the person did as a row of ticks, petals and blooms once (the
 // finale's celebration, C-7's peak, now where they will come back to), "What you can do right now" open with the one
 // thing due first (Nate 9/29), and their issues, each opening its page. Three tips then show the page (pub/tour.js).
-// For the rest of this visit Home keeps this shape; after a reload it says Aloha and leaves out the ticks.
+// For the rest of this visit Home keeps this shape; after a reload it says Aloha and leaves out the ticks, and the lede no
+// longer opens with "This is your home page" (R-256, Nate 10/12: they know where they are by then).
 const finNow = () => !!S.hmFinale;   // this page load finished the first visit (start.js finish())
 function finRecap() {
   const f = S.hmFinale || {}, iss = followedIssues();
@@ -762,7 +763,7 @@ function homeFirst({ cards, asks, ask, loop = '' }) {
   return `<div class="hm hm-follow hm-welcome hm-fin hm-fin2${finNow() && !S.hmFinDrawn ? ' hm-anim' : ''}">
     ${accountCards()}
     <div class="cols"><div class="hm-main">
-      <header class="hm-head hm-hello hm-finhead">${finHead({ lede: `This is your home page. When a bill on ${iss.length === 1 ? 'your issue' : 'your issues'} needs you, it shows up here, and we help you speak up in a few minutes.` })}</header>
+      <header class="hm-head hm-hello hm-finhead">${finHead({ lede: `${finNow() ? 'This is your home page. ' : ''}When a bill on ${iss.length === 1 ? 'your issue' : 'your issues'} needs you, it shows up here, and we help you speak up in a few minutes.` })}</header>
       ${loop}${rightNow(cards, asks)}
       ${yourIssues()}
       ${ask}
@@ -898,7 +899,7 @@ function offView(si) {
           ${askBtn ? btn('Get hearing alerts', { kind: 'secondary', icon: 'bell', href: '#/alerts' }) : ''}
           ${!nothingYet && !mine.length ? btn('Pick the issues I care about', { kind: 'text', iconEnd: 'chevron-right', href: '#/start/1' }) : ''}</div></section>`;
   const daysChip = next ? `<div class="chips">${chip(days === 0 ? 'Opens today' : `${plural(days, 'day')} to go`, 'info', 'calendar-days')}</div>` : '';
-  const v2lede = `This is your home page. The Legislature is on break${opens ? ` until ${esc(opens)}` : ''}; then what you can do on your issues shows up here, with what to do and by when.`;
+  const v2lede = `${finNow() ? 'This is your home page. ' : ''}The Legislature is on break${opens ? ` until ${esc(opens)}` : ''}; then what you can do on your issues shows up here, with what to do and by when.`;
   return `<div class="hm hm-off${v2 ? ' hm-fin2' : ''}${anim ? ' hm-anim' : ''}${lead ? ' hm-lead' : ''}">
     ${accountCards()}${welcome ? '' : `${gn.html}${sinceStrip(new Set(), gn)}`}
     ${v2 ? `<header class="hm-head hm-break hm-finhead"><div class="hm-art">${anim ? CAPITOL.replace(/<circle ([^>]*fill="var\(--o400\)"[^>]*)\/>/, '<circle class="st-sun" $1/>') : CAPITOL}</div>

@@ -10,6 +10,7 @@
 import os, sys
 from playwright.sync_api import sync_playwright
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html'
+TIPS_ON = 'const HOME_TIPS_ON = true' in open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'pub', 'tour.js')).read()
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'home_end'); os.makedirs(OUT, exist_ok=True)
 passes, fails, errors = [], [], []
 def ok(c, m): (passes if c else fails).append(('PASS ' if c else 'FAIL ') + m)
@@ -43,7 +44,10 @@ def walk_to_soon(p, extra, email=None):
     p.wait_for_selector('.st-thanks #st-h', timeout=8000); p.wait_for_timeout(300); seen['mahalo'] = text(p); p.click('.actionbar [data-stnext]')
     p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(1200)
     for _ in range(2): p.click('[data-stnext]'); p.wait_for_timeout(1500)
-    seen['story'] = text(p, '.lx-calm'); seen['mom'] = text(p, '#lx-cap')
+    # The last page is the road with two doors (R-219, Nate 10/11): the title and lead name this bill's real moment, and
+    # the yes door's panel carries what a yes leads to (R-099's words; the three-moments page and its .lx-calm line are gone)
+    seen['mom'] = text(p, '#lx-cap')
+    p.click('.lx-doors [data-lx-ch="yes"]'); p.wait_for_timeout(1500); seen['story'] = text(p, '#lx-mom')
     p.click('[data-stnext]')   # finishing the story goes straight on (R-140)
     # the story hands straight on to Coming up (R-232: the address step left the first visit)
     p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(800)
@@ -59,7 +63,7 @@ with sync_playwright() as pw:
     # R-099 (10/3): the new version says how as well as when: "you'll see what to do, and we'll help you do it"
     ok('When it’s time, we help you speak up' in s['first'] and 'we’ll tell you' not in s['first'], 'new: the first screen says we help you act when it is time (said once, in the promise row)')
     ok('Your home page' in s['first'] and 'Stay connected' not in s['first'], 'new: the last part is named "Your home page"')
-    ok('is at moment' in s['mom'] and 'Here is your chance' in s['mom'] and 'top of your home page' in s['story'], f'new: the story names the real moment (R-089: "is at moment N of 3") ({s["story"][:90]})')
+    ok('this week?' in s['mom'] and 'Testimony is due' in s['mom'] and 'top of your home page' in s['story'], f'new: the story names the real moment (R-219: "Will you speak up on <bill> this week?" and its deadline; a yes says it waits on Home) ({" ".join(s["story"].split())[-90:]})')
     # The alerts moved to right after the issues (R-146), where they cannot read as the end of the visit.
     ok('Save your profile' in s['alerts'] and 'gets a hearing' in s['alerts'] and 'HIPHI asks people to speak up' in s['alerts'], 'new: the alerts box names both kinds of alert (C-4)')
     ok('Link sent to tester@example.com' in s['mahalo'] and 'when you finish here' in s['mahalo'], 'new: after sending, it says to finish here first')
@@ -77,29 +81,32 @@ with sync_playwright() as pw:
     rows = p.eval_on_selector_all('.hm-ylist a.hm-yrow', 'as => as.map(a => a.getAttribute("href"))')
     ok(len(rows) >= 1 and all(r.startswith('#/issue/') for r in rows), f'issue rows open their issue ({len(rows)})')
     p.screenshot(path=os.path.join(OUT, 'phone_home.png'))
-    p.wait_for_selector('.tr-tip', timeout=10000)
-    tips = []
-    for k in range(2):
+    # Home's tips are off for now (R-257); this part runs again when pub/tour.js turns them back on.
+    if TIPS_ON:
+        p.wait_for_selector('.tr-tip', timeout=10000)
+        tips = []
+        for k in range(2):
+            p.wait_for_timeout(500)
+            tips.append(text(p, '.tr-tip'))
+            r = p.eval_on_selector('.tr-tip', 'e => { const b = e.getBoundingClientRect(); return [b.top, b.bottom, innerHeight]; }')
+            ok(r[0] >= 0 and r[1] <= r[2], f'new: tip {k + 1} inside the window')
+            if k == 0:
+                vis = p.eval_on_selector('.hm-rightnow .acard .btn.primary', 'e => { const b = e.getBoundingClientRect(), t = document.querySelector(".tr-tip").getBoundingClientRect(); return b.top >= t.bottom || b.bottom <= t.top; }')
+                ok(vis, 'new: tip 1 leaves the card\'s button in view')
+                ok(not p.evaluate('document.getElementById("app").inert'), 'new: tip 1\'s lit button can be used (the page is not frozen)')
+                p.screenshot(path=os.path.join(OUT, 'phone_tip1.png'))
+            p.click('[data-tr-next]')
+        ok(all('Your home page' in t for t in tips), 'new: the tips are labelled "Your home page"')
+        ok('What you can do right now' in tips[0] and 'is a real button' in tips[0] and 'Come back any time' in tips[1], 'new: the two tips in order')
+        ok('Testimony due' not in tips[0], 'new: tip 1 does not repeat the card\'s deadline (A-14)')
+        ok('reminder emails' in tips[1], 'new: someone who gave an email is told the emails bring them back')
         p.wait_for_timeout(500)
-        tips.append(text(p, '.tr-tip'))
-        r = p.eval_on_selector('.tr-tip', 'e => { const b = e.getBoundingClientRect(); return [b.top, b.bottom, innerHeight]; }')
-        ok(r[0] >= 0 and r[1] <= r[2], f'new: tip {k + 1} inside the window')
-        if k == 0:
-            vis = p.eval_on_selector('.hm-rightnow .acard .btn.primary', 'e => { const b = e.getBoundingClientRect(), t = document.querySelector(".tr-tip").getBoundingClientRect(); return b.top >= t.bottom || b.bottom <= t.top; }')
-            ok(vis, 'new: tip 1 leaves the card\'s button in view')
-            ok(not p.evaluate('document.getElementById("app").inert'), 'new: tip 1\'s lit button can be used (the page is not frozen)')
-            p.screenshot(path=os.path.join(OUT, 'phone_tip1.png'))
-        p.click('[data-tr-next]')
-    ok(all('Your home page' in t for t in tips), 'new: the tips are labelled "Your home page"')
-    ok('What you can do right now' in tips[0] and 'is a real button' in tips[0] and 'Come back any time' in tips[1], 'new: the two tips in order')
-    ok('Testimony due' not in tips[0], 'new: tip 1 does not repeat the card\'s deadline (A-14)')
-    ok('reminder emails' in tips[1], 'new: someone who gave an email is told the emails bring them back')
-    p.wait_for_timeout(500)
-    ok(p.locator('[data-tour]').count() == 0 and not p.evaluate('document.getElementById("app").inert'), 'new: Done ends the tips and frees the page')
+        ok(p.locator('[data-tour]').count() == 0 and not p.evaluate('document.getElementById("app").inert'), 'new: Done ends the tips and frees the page')
     p.reload(); p.wait_for_selector('#main .hm-fin2', timeout=10000); p.wait_for_timeout(3500)
     home2 = text(p)
     ok(p.locator('.tr-tip').count() == 0, 'new: the tips never come back')
     ok('Aloha, Leilani' in home2 and 'Mahalo' not in home2, 'new: after a reload it says Aloha')
+    ok('This is your home page' not in home2 and 'When a bill on your issues needs you, it shows up here' in home2, 'new: after a reload the lede no longer says "This is your home page" (R-256)')
     ok('Add your email' not in home2 and 'Welcome back' not in home2, 'the sandbox does not ask for the email again')
     c.close()
 
@@ -116,7 +123,7 @@ with sync_playwright() as pw:
     s = walk_to_soon(p, '&end=today')
     ok('We tell you' in s['first'] and 'Stay connected' in s['first'], 'today: the first screen still promises to tell you (R-174: in its three promises)')
     ok('Save your profile' in s['alerts'] and 'Want alerts by text or email?' in s['soon'], 'today: the alerts come after the issues; Coming up has one quiet line')
-    ok('We’ll show you how.' in s['story'], 'today: the story names the real moment too (a fix for both)')
+    ok('this week?' in s['mom'] and 'We’ll show you how.' in s['story'], 'today: the story names the real moment too (a fix for both)')
     p.click('[data-stnext]'); p.wait_for_selector('.st-done', timeout=10000)
     ok('You’re all set' in text(p), 'today: the finale screen is still there')
     p.click('[data-stdone]'); p.wait_for_selector('#main .hm', timeout=10000); p.wait_for_timeout(3500)
@@ -131,36 +138,43 @@ with sync_playwright() as pw:
     off = text(p)
     ok('Mahalo for joining in!' in off and 'on break until' in off, 'off: Home opens with Mahalo and when the session opens')
     ok(p.locator('.hm-rightnow .hm-ready').count() == 1, 'off: "What you can do right now" is the hello to legislators')
-    p.wait_for_selector('.tr-tip', timeout=10000)
-    n, last = 0, ''
-    while p.locator('.tr-tip').count() and n < 5:
-        n += 1; last = text(p, '.tr-tip'); p.click('[data-tr-next]'); p.wait_for_timeout(600)
-    ok(n == 2, f'off: two tips ({n})')
-    ok('home screen' in last, 'off: someone who gave no email is told how to find the page again')
+    if TIPS_ON:
+        p.wait_for_selector('.tr-tip', timeout=10000)
+        n, last = 0, ''
+        while p.locator('.tr-tip').count() and n < 5:
+            n += 1; last = text(p, '.tr-tip'); p.click('[data-tr-next]'); p.wait_for_timeout(600)
+        ok(n == 2, f'off: two tips ({n})')
+        ok('home screen' in last, 'off: someone who gave no email is told how to find the page again')
+    ok('This is your home page. The Legislature is on break' in off, 'off: right after the first visit the lede still says "This is your home page" (R-256)')
+    p.reload(); p.wait_for_selector('#main .hm-fin2', timeout=10000); p.wait_for_timeout(1500); off2 = text(p)
+    ok('This is your home page' not in off2 and 'The Legislature is on break' in off2, 'off: after a reload it does not (R-256)')
+    p.screenshot(path=os.path.join(OUT, 'phone_off_reload.png'))
     c.close()
 
     # ---- the new version on a laptop ----
     c, p = ctx(b, 1440, 900)
     walk_to_soon(p, '&end=home')
     p.click('[data-stnext]'); p.wait_for_selector('#main .hm-fin2', timeout=10000)
-    p.wait_for_selector('.tr-tip', timeout=10000); p.wait_for_timeout(500)
-    for k in range(2):
-        r = p.eval_on_selector('.tr-tip', 'e => { const b = e.getBoundingClientRect(); return [b.top, b.bottom, b.left, b.right, innerWidth, innerHeight]; }')
-        ok(r[0] >= 0 and r[1] <= r[5] and r[2] >= 0 and r[3] <= r[4], f'laptop: tip {k + 1} inside the window')
-        if k == 0: p.screenshot(path=os.path.join(OUT, 'laptop_tip1.png'))
-        p.click('[data-tr-next]'); p.wait_for_timeout(600)
+    if TIPS_ON:
+        p.wait_for_selector('.tr-tip', timeout=10000); p.wait_for_timeout(500)
+        for k in range(2):
+            r = p.eval_on_selector('.tr-tip', 'e => { const b = e.getBoundingClientRect(); return [b.top, b.bottom, b.left, b.right, innerWidth, innerHeight]; }')
+            ok(r[0] >= 0 and r[1] <= r[5] and r[2] >= 0 and r[3] <= r[4], f'laptop: tip {k + 1} inside the window')
+            if k == 0: p.screenshot(path=os.path.join(OUT, 'laptop_tip1.png'))
+            p.click('[data-tr-next]'); p.wait_for_timeout(600)
     c.close()
 
     # ---- the lit button in tip 1 works: it opens the testimony walkthrough and ends the tips ----
     c, p = ctx(b)
     walk_to_soon(p, '&end=home')
     p.click('[data-stnext]'); p.wait_for_selector('#main .hm-fin2', timeout=10000)
-    t0 = p.evaluate('Date.now()'); p.wait_for_selector('.tr-tip', timeout=10000)
-    waited = p.evaluate('Date.now()') - t0
-    ok(waited >= 3500, f'new: the tips wait for the celebration ({waited} ms)')
-    p.click('.hm-rightnow .acard .btn.primary'); p.wait_for_timeout(1200)
-    ok(p.locator('[data-tour]').count() == 0, 'new: using the lit button ends the tips')
-    ok(p.locator('dialog[open]').count() >= 1 or 'testimony' in p.evaluate('location.hash').lower(), 'new: and opens the testimony walkthrough')
+    if TIPS_ON:
+        t0 = p.evaluate('Date.now()'); p.wait_for_selector('.tr-tip', timeout=10000)
+        waited = p.evaluate('Date.now()') - t0
+        ok(waited >= 3500, f'new: the tips wait for the celebration ({waited} ms)')
+        p.click('.hm-rightnow .acard .btn.primary'); p.wait_for_timeout(1200)
+        ok(p.locator('[data-tour]').count() == 0, 'new: using the lit button ends the tips')
+        ok(p.locator('dialog[open]').count() >= 1 or 'testimony' in p.evaluate('location.hash').lower(), 'new: and opens the testimony walkthrough')
     c.close()
 
     # ---- restart touches only the sandbox ----

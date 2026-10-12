@@ -22,7 +22,6 @@
   "Built to work for everyone",
   "Committees",
   "Donate",
-  "done",
   "Every bill HIPHI tracks",
   "Every Senate and House committee, who sits on it, and what it has now",
   "Find your senator and representative",
@@ -31,8 +30,8 @@
   "Get ready for the {next} session",
   "Hawaiʻi Public Health Institute",
   "Help",
-  "HIPHI follows Hawaiʻi’s health bills. Pick what you care about.",
   "HIPHI news and events by email",
+  "HIPHI, the Hawaiʻi Public Health Institute, is a nonprofit that follows the health bills. Pick what you care about.",
   "In {yr}, {n} bills HIPHI backed became law.",
   "In {yr}, 1 bill HIPHI backed became law.",
   "Language",
@@ -76,6 +75,6 @@
  "files": {
   "pub/langpick.js": 1,
   "pub/more.js": 41,
-  "pub/start.js": 30
+  "pub/start.js": 29
  }
 }
