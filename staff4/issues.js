@@ -24,6 +24,7 @@ import { prepView, prepTitle, renderPrep, wirePrep, prepCardHTML, wirePrepCard, 
 import { testimonyOf, dueOf } from './hearing.js';
 import { isPos, dayOf, dueWhen, waitingOfBills } from './standing.js';
 import { weekOfBills, standWeekHTML, wireWeek } from './coalition.js';
+import { standOf, bodyHTML, toolsHTML, wireTools } from './issuestand.js';
 
 // ---- the catalogue ----
 export const catByKey = k => (S.categories || []).find(c => c.key === k) || null;
@@ -241,24 +242,14 @@ function needsHTML(v) {
     ${need.length > shown.length ? btn(`Show all ${need.length}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-is': 'needsall' } }) : ''}
   </section>`;
 }
-const ordered = l => l.sort((a, b) => (a.sort_order ?? 100) - (b.sort_order ?? 100) || byName(a, b));
+// R-272: the same body as My issues (issuestand.js): By deadline by default, By topic with the switch (the topics folded,
+// one open at a time, each counting its issues at risk, with a bill dying and with a hearing this week), and a search that
+// matches any word a person would use. Archived issues wait in their fold, matched by name only.
 function indexBody(v) {
-  const t = plain(v.q.trim()), hit = i => !t || plain(`${i.name} ${i.description || ''}`).includes(t);
-  const gone = (S.issues || []).filter(i => i.archived_at && hit(i)).sort(byName);
+  const t = plain(v.q.trim()), gone = (S.issues || []).filter(i => i.archived_at && (!t || plain(`${i.name} ${i.description || ''}`).includes(t))).sort(byName);
   const arch = gone.length ? `<details class="is-arch"><summary>${icon('archive')}<span>Archived (${gone.length})</span>${icon('chevron-down', { cls: 'is-chev' })}</summary><div class="rows">${gone.map(issueRow).join('')}</div></details>` : '';
-  if (t) {
-    // Searching: every category with a match, open, so nothing found is hidden behind a fold.
-    const secs = (S.categories || []).map(c => { const l = ordered(live().filter(i => i.category === c.key && hit(i)));
-      return l.length ? `<section class="is-cat" aria-labelledby="is-c-${esc(c.key)}"><div class="le-sechead is-chead"><h2 id="is-c-${esc(c.key)}"><span class="is-catic">${icon(c.icon || 'tag')}</span>${esc(c.name)}</h2></div><div class="rows">${l.map(issueRow).join('')}</div></section>` : ''; }).join('');
-    return `${secs || `<p class="le-none">No issue matches “${esc(v.q.trim())}”.</p>`}${arch}`;
-  }
-  const cats = (S.categories || []).map(c => {
-    const own = ordered(live().filter(i => i.category === c.key)), nh = own.filter(hearsNow).length, open = v.open === c.key;
-    return `<details class="is-catf" data-cat="${esc(c.key)}"${open ? ' open' : ''}><summary><span class="is-catic">${icon(c.icon || 'tag')}</span>
-        <span class="is-catb"><span class="is-catn">${esc(c.name)}</span><span class="is-catm">${plural(own.length, 'issue')}${nh ? `<span class="is-catw"><span class="is-catd" aria-hidden="true"> · </span>${nh} with a hearing this week</span>` : ''}</span></span>${icon('chevron-down', { cls: 'is-chev' })}</summary>
-      ${own.length ? `<div class="rows">${own.map(issueRow).join('')}</div>` : '<p class="le-none">No issues in it yet.</p>'}</details>`;
-  }).join('');
-  return `<div class="is-cats">${cats}</div>${arch}`;
+  const list = live().map(standOf), tagsOf = x => [isDraft(x.i) ? 'Draft' : '', !inFirstVisit(x.i) ? 'Not in first visit' : ''].filter(Boolean);
+  return `${bodyHTML(list, { q: v.q, folded: true, open: v.open, tagsOf })}${arch}`;
 }
 // The "…" beside New issue: the first visit's numbers and links, and the 2027 prep (prep.js prepMenu: your issues between
 // sessions, as My issues shows them since R-263, and the admins' board).
@@ -285,11 +276,11 @@ const index = {
     const acts = `${btn('New issue', { icon: 'plus', attrs: { 'data-is': 'new', 'aria-haspopup': 'dialog' } })}${iconBtn('ellipsis', 'More: the first visit, and getting ready for 2027', { 'data-is': 'idxmore', 'aria-haspopup': 'dialog' })}`;
     const nav = sectionNav('issues', 'all');
     if (!(S.categories || []).length) return `<div class="le-page is-index">${pageHead(nav, 'All issues', '', '')}<div class="le-empty">${empty({ title: 'Issues are not set up yet', text: 'They arrive with migration 063. Ask Claude to load the list.' })}</div></div>`;
-    return `<div class="le-page is-index">
+    return `<div class="le-page is-index ist-page">
       ${pageHead(nav, 'All issues', '', `<span class="is-acts">${acts}</span>`)}
       ${needsHTML(v)}
-      <div class="le-search is-find">${icon('search')}<input id="is-q" type="search" placeholder="Find an issue" value="${esc(v.q)}" autocomplete="off" aria-label="Find an issue" aria-controls="is-body">${iconBtn('x', 'Clear the search', { 'data-is': 'qclear', hidden: !v.q })}</div>
-      <div id="is-body">${indexBody(v)}</div>
+      ${toolsHTML(v.q, 'is-q')}
+      <div id="is-q-body">${indexBody(v)}</div>
     </div>`;
   },
   wire(route, root) {
@@ -300,7 +291,7 @@ const index = {
     root.querySelector('[data-is="idxmore"]')?.addEventListener('click', indexMenu);
     root.querySelector('[data-is="needsall"]')?.addEventListener('click', () => { v.needsAll = true; hooks.render(); });
     root.querySelectorAll('[data-ispick]').forEach(el => el.onclick = () => { const b = billById(el.dataset.ispick); if (b) openIssuePicker(b); });
-    const q = root.querySelector('#is-q'), clear = root.querySelector('[data-is="qclear"]'), body = root.querySelector('#is-body');
+    const body = root.querySelector('#is-q-body');
     // One category open at a time: opening one closes the one before, and the page remembers which for this visit.
     const wireCats = () => body.querySelectorAll('.is-catf').forEach(d => d.addEventListener('toggle', () => {
       if (d.open) { v.open = d.dataset.cat; body.querySelectorAll('.is-catf[open]').forEach(o => { if (o !== d) o.open = false; }); }
@@ -308,8 +299,7 @@ const index = {
     }));
     const paint = () => { body.innerHTML = indexBody(v); wireCats(); };
     wireCats();
-    if (q) q.oninput = () => { v.q = q.value; clear.hidden = !q.value; paint(); };
-    if (clear) clear.onclick = () => { v.q = ''; q.value = ''; clear.hidden = true; paint(); q.focus(); };
+    wireTools(root, 'is-q', { get: () => v.q, set: x => { v.q = x; }, paint });
   },
 };
 export default index;

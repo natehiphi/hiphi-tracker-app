@@ -9,77 +9,25 @@
 // laid out by the laptop rules: one line per issue (its name, the soonest thing that needs someone, how many bills move)
 // and one line per bill under it. Not a list and a pane: an issue's own page already shows its week one click away, and
 // a second column would halve the room these lines need for no new fact.
-import { S, SESSION_YEAR, SESSION_OVER, esc, fmtDT, myIssueIds } from './data.js';
-import { billRoute, hearingAhead, diedish, billNum, billSay, plain } from './model.js';
-import { icon, btn, empty, posChip, sectionNav, row, switchRow } from './ui.js';
-import { plural, isSide, clip } from './lists.js';
-import { catByKey, billsOn, whyNot, nextPhrase, testimonyWords, againstStance } from './issues.js';
+// v5 (R-272, Nate 10/13: "I shouldn't have to scroll alphabetically ... Rethink this"): 34 tall cards became one line per
+// issue, sorted by deadline (This week, Next deadlines, Safe for now), with a By topic switch and a search box as extras;
+// each line says whether the issue is at risk of dying, safe with a bill dying, or safe (issuestand.js, shared with All
+// issues). The bills under each issue are on its own page, one click away, as v3 already chose for All issues.
+import { S, SESSION_OVER, esc, myIssueIds } from './data.js';
+import { icon, btn, empty, sectionNav, row, switchRow } from './ui.js';
+import { plural, isSide } from './lists.js';
 import { indexLinks, isDraft } from './prep.js';
-import { isPos, dayOf, waitingOfBills } from './standing.js';
 import { supports, setSupport, coalFactsLine } from './coalition.js';
 import { iconName } from './setup.js';
+import { standOf, bodyHTML, toolsHTML, wireTools } from './issuestand.js';
 
-const thisSession = b => !b.session_year || +b.session_year === +SESSION_YEAR;
-const byNum = (a, b) => a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true });
-const dayAt = d => dayOf(d + 'T12:00:00-10:00');
-
-// Each of my issues with what decides its place: the soonest hearing on its bills, then its bills at risk, then the ones
-// with bills still moving, then those with no bills yet; in session, issues whose bills all stopped go last, in one fold.
-const rank = x => x.hear ? 0 : x.w.risk.length ? 1 : x.going.length ? 2 : !x.bills.length ? 3 : 4;
+// Each of my issues, as issuestand.js judges it (R-272), with whether it is yours or one you help on.
 function myIssues() {
   const ids = myIssueIds();
-  return (S.issues || []).filter(i => ids.has(String(i.id))).map(i => {
-    const bills = billsOn(i).filter(b => thisSession(b) && b.tracked !== false).sort(byNum);
-    const going = bills.filter(b => !diedish(b)), gone = bills.filter(diedish);
-    const hears = going.filter(isPos).map(b => ({ b, h: hearingAhead(b) })).filter(x => x.h).sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at));
-    return { i, bills, going, gone, hear: hears[0] || null, w: waitingOfBills(going), own: i.owner_id === S.me?.id };
-  }).sort((x, y) => rank(x) - rank(y) || (x.hear && y.hear ? x.hear.h.scheduled_at.localeCompare(y.hear.h.scheduled_at) : 0) || x.i.name.localeCompare(y.i.name));
+  return (S.issues || []).filter(i => ids.has(String(i.id)) && !i.archived_at).map(i => ({ ...standOf(i), own: i.owner_id === S.me?.id }));
 }
-
-// The soonest thing on the issue that needs someone, said once on the issue's own line (v3): the next hearing, with its
-// bill and testimony; else the bills at risk; else the bills racing the next deadline. Only when two or more bills are
-// moving: with one, its row already says it (R-263, A-14). Nothing between sessions.
-function soonest({ hear, w, going }) {
-  if (SESSION_OVER || going.length < 2) return '';
-  if (hear) return `<a href="#/hearing/${encodeURIComponent(hear.h.id)}">Hearing ${esc(fmtDT(hear.h.scheduled_at))}</a> · ${esc(billSay(hear.b))}${isPos(hear.b) ? ` · ${esc(testimonyWords(hear.h, hear.b))}` : ''}`;
-  if (w.risk.length) return `<b>At risk:</b> ${w.risk.length === 1 ? `${esc(billSay(w.risk[0].b))} needs` : `${w.risk.length} bills need`} a hearing by ${esc(dayAt(w.risk[0].st.deadline.date))}`;
-  if (w.race.length) return `Needs a hearing by ${esc(dayAt(w.next))} · ${esc(plural(w.race.length, 'bill'))}`;
-  return '';
-}
-
-// Why a bill's followers do not get it, in two words on its row (the issue page says it in full).
-const REACH = b => b.tracked === false ? 'Not tracked' : !b.is_public ? 'Not public' : !b.position || b.position === 'monitor' ? 'No position' : '';
-// A bill under its issue, on one line (v3): its number and nickname, then where it stands in one short phrase. Its own
-// position shows only where it differs from the issue's stance (the issue's stance is the team's), or every one on a
-// Mixed issue, where each bill's side is the point.
-// A nickname that is the issue's own name is not said again under it (A-14): the number alone names that bill.
-function billRow(b, odd, i) {
-  const why = whyNot(b), reach = REACH(b), same = b.nickname && plain(b.nickname) === plain(i.name);
-  // R-271: the nickname leads and the number follows small; a bill with no nickname keeps number then summary.
-  const name = b.nickname && !same ? `<b class="bn-nick mi-bn">${esc(b.nickname)}</b> <span class="bn-num">${esc(billNum(b))}</span>`
-    : `<b class="bn-num0">${esc(billNum(b))}</b>${same ? '' : ` <span class="mi-bn">${esc(clip(b, 80))}</span>`}`;
-  return `<li class="mi-brow"><a class="mi-bmain" href="${billRoute(b)}">${name}</a>
-      <span class="mi-bend"><span class="mi-bph">${esc(nextPhrase(b))}</span>${odd.has(b.id) ? posChip(b.position || '') : ''}${why ? `<span class="mi-reach" title="${esc(why)}">${icon('eye-off')}<span>${esc(reach)}</span></span>` : ''}</span></li>`;
-}
-
-// One issue: a card whose first line is the issue (its name, the soonest thing, how many bills move), then its moving
-// bills one line each; the ones that did not advance wait in one quiet fold.
-function issueSec(x, k) {
-  const { i, bills, going, gone, own } = x, c = catByKey(i.category), href = `#/issue/${encodeURIComponent(i.id)}?from=mine`;
-  // The rows under the name are its moving bills, each with its own next step, so the line says no count and no hearing
-  // of its own (A-14: the soonest hearing was said on the issue's line and again on its bill's row; fresh-eyes review).
-  const count = !bills.length ? 'No bills yet' : going.length ? '' : 'Nothing moving';
-  const tags = [own ? '' : 'You help', isDraft(i) ? 'Draft' : ''].filter(Boolean);
-  const odd = new Set((i.stance === 'mixed' ? going.filter(b => b.position) : againstStance(i, going)).map(b => b.id));
-  const soon = '';
-  return `<section class="card mi-iss" aria-labelledby="mi-h${k}">
-    <div class="mi-ihead"><h2 class="mi-iname" id="mi-h${k}"><a href="${href}"><span class="mi-ic">${icon(c?.icon || 'tag')}</span><span>${esc(i.name)}</span></a></h2>
-      ${soon ? `<p class="mi-soon">${soon}</p>` : ''}${tags.length || count ? `<p class="mi-cnt">${tags.map(t => `<span class="mi-tag">${esc(t)}</span>`).join('')}${esc(count)}</p>` : ''}</div>
-    ${going.length ? `<ol class="mi-bills">${going.map(b => billRow(b, odd, i)).join('')}</ol>` : ''}
-    ${gone.length ? `<details class="mi-gone"><summary>${icon('chevron-down', { cls: 'is-chev' })}<span>${gone.length} did not advance</span></summary><ol class="mi-bills">${gone.map(b => billRow(b, odd, i)).join('')}</ol></details>` : ''}
-    ${bills.length ? '' : `<p class="mi-none">No ${esc(SESSION_YEAR)} bills on it yet. <a href="${href}">Put bills on it</a></p>`}
-  </section>`;
-}
+const Q = () => S.miSearch ??= { q: '' };
+const opts = () => ({ q: Q().q, from: 'mine', tagsOf: x => [x.own ? '' : 'You help', isDraft(x.i) ? 'Draft' : ''].filter(Boolean) });
 
 // v4 (R-269 P7): for someone who owns and helps on no issue (Patti, Julie, Saya, Kris, Jess), My issues said "No issues are
 // yours yet" and their coalition was three clicks away (My issues › Coalitions › HEAL). In its place, their coalitions:
@@ -109,20 +57,20 @@ export default {
       ${coalitionsHTML()}</div>`;
     if (!list.length) return `<div class="le-page le-list is-page mi-page">${sectionNav('issues', 'mine')}<div class="le-tools"><h1 class="le-h1">My issues</h1></div>
       <div class="le-empty">${empty({ title: 'No issues are yours yet', text: 'When an admin makes you the owner of an issue, or the owner adds you as a helper, it shows here with all its bills. Those bills are then in your Mine and on Today too.', action: btn('See all issues', { kind: 'secondary', href: '#/outreach/issues' }) })}</div></div>`;
-    // In session, issues whose bills have all stopped wait in one quiet fold at the end (B-14: a fold for what is done).
-    const live = SESSION_OVER ? list : list.filter(x => rank(x) < 4), still = SESSION_OVER ? [] : list.filter(x => rank(x) === 4);
-    return `<div class="le-page le-list is-page mi-page${isSide() ? ' le-side' : ''}">
+    // R-272: one line per issue, sorted by deadline (or by topic, the switch), each with its mark; search is an extra.
+    return `<div class="le-page le-list is-page mi-page ist-page${isSide() ? ' le-side' : ''}">
       ${sectionNav('issues', 'mine')}
       <div class="le-tools"><h1 class="le-h1">My issues</h1>
-        <p class="le-lede">${who}. Soonest work first.</p></div>
+        <p class="le-lede">${who}.</p></div>
       ${SESSION_OVER ? indexLinks({ mineOnly: true }) : ''}
-      ${live.map(issueSec).join('')}
-      ${still.length ? `<details class="is-arch mi-still"><summary>${icon('history')}<span>Nothing moving this session (${still.length})</span>${icon('chevron-down', { cls: 'is-chev' })}</summary><div class="mi-stillin">${still.map((x, k) => issueSec(x, 's' + k)).join('')}</div></details>` : ''}
+      ${toolsHTML(Q().q, 'mi-q')}
+      <div id="mi-q-body">${bodyHTML(list, opts())}</div>
     </div>`;
   },
   // The switches act as the coalition page's does (saved to your settings, with Undo); once on, the coalition moves up to
   // yours, and focus follows it there.
   wire(route, app) {
+    wireTools(app, 'mi-q', { get: () => Q().q, set: v => { Q().q = v; }, paint: () => { const b = app.querySelector('#mi-q-body'); if (b) b.innerHTML = bodyHTML(myIssues(), opts()); } });
     app.querySelectorAll('[data-misup]').forEach(el => el.onchange = () => {
       const c = (S.campaigns || []).find(x => String(x.id) === el.dataset.misup); if (!c) return;
       const id = CSS.escape(String(c.id));

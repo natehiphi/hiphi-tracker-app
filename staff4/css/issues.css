@@ -400,3 +400,50 @@
 .mi-page .mi-corow .lead { background: var(--n100); color: var(--n700); }
 .mi-page .mi-cosw { padding: 0 var(--s16); }
 .mi-page .mi-cosw .sv-switchrow + .sv-switchrow { border-top: 1px solid var(--n100); }
+
+/* ---- My issues and All issues: one line per issue, by deadline or by topic (R-272, issuestand.js) ---- */
+.ist-page .ist-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s12) var(--s16); margin-top: var(--s16); }
+.ist-page .ist-find { flex: 1 1 320px; max-width: 480px; }
+.ist-page .ist-seg { flex: none; }
+.ist-page .ist-sec { margin-top: var(--s24); }
+.ist-page .ist-h { display: flex; align-items: center; gap: var(--s8); margin: 0 0 var(--s8); font: 600 var(--t18)/1.2 var(--font-h); color: var(--n900); }
+.ist-page .ist-n { font: 700 var(--t14)/1 var(--font); color: var(--n500); }
+.ist-page .ist-th .is-catic { width: 28px; height: 28px; }
+.ist-page .ist-tc { margin-left: auto; font: 700 var(--t13)/1.3 var(--font); color: var(--n700); text-align: right; }
+.ist-page .ist-list { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
+.ist-page .is-catf > .ist-list { border: 0; border-top: 1px solid var(--n100); border-radius: 0; box-shadow: none; }
+.ist-page .ist-row { display: flex; align-items: center; gap: var(--s12); min-height: 56px; padding: var(--s8) var(--s16); color: var(--n900); text-decoration: none; }
+.ist-page .ist-row + .ist-row { border-top: 1px solid var(--n100); }
+.ist-page .ist-row:hover { background: var(--n50); }
+.ist-page .ist-row:hover .ist-nm { color: var(--p700); text-decoration: underline; }
+.ist-page .ist-row:focus-visible { outline: 3px solid var(--p700); outline-offset: -3px; }
+.ist-page .ist-ic { flex: none; display: inline-flex; color: var(--n500); }
+.ist-page .ist-ic .ic { width: 20px; height: 20px; }
+.ist-page .ist-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ist-page .ist-name { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px var(--s8); font-weight: 700; font-size: var(--t16); }
+.ist-page .ist-tag { font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.ist-page .ist-marks { display: flex; flex-wrap: wrap; gap: 2px var(--s12); font-size: var(--t14); color: var(--n700); }
+.ist-page .ist-m { display: inline-flex; align-items: flex-start; gap: 4px; }
+.ist-page .ist-m .ic { flex: none; width: 16px; height: 16px; margin-top: 2px; }
+.ist-page .ist-risk { color: var(--bad-text); }
+.ist-page .ist-risk b { color: var(--bad-text); }
+.ist-page .ist-dying .ic, .ist-page .ist-dying b { color: var(--warn-text); }
+.ist-page .ist-safe .ic, .ist-page .ist-safe b { color: var(--ok-text); }
+.ist-page .ist-hear .ic, .ist-page .ist-ahead .ic, .ist-page .ist-off .ic { color: var(--n500); }
+.ist-page .ist-hear { font-weight: 700; color: var(--n900); }
+.ist-page .ist-bills { font-size: var(--t13); color: var(--n500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ist-page .ist-row .chev { flex: none; width: 20px; height: 20px; color: var(--n400); }
+.ist-page .ist-empty, .ist-page .ist-off, .ist-page .ist-found { margin: 0; padding: var(--s8) 0; font-size: var(--t14); color: var(--n700); }
+.ist-page .ist-found { margin-top: var(--s16); }
+.ist-page .ist-fold { margin-top: var(--s16); }
+.ist-page .ist-fold > summary { list-style: none; display: flex; align-items: center; gap: var(--s4); min-height: 44px; font-size: var(--t14); font-weight: 700; color: var(--n700); cursor: pointer; }
+.ist-page .ist-fold > summary::-webkit-details-marker { display: none; }
+.ist-page .ist-fold > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+.ist-page .ist-fold > summary .is-chev { width: 18px; height: 18px; transition: transform .15s; }
+.ist-page .ist-fold[open] > summary .is-chev { transform: rotate(180deg); }
+.ist-page.is-index .is-cats, .ist-page.is-index #is-q-body > .is-catf:first-child { margin-top: var(--s16); }
+@media (max-width: 599px) {
+  .ist-page .ist-seg { width: 100%; }
+  .ist-page .ist-seg button { flex: 1 1 0; }
+  .ist-page .ist-row { padding: var(--s8) var(--s12); }
+}
