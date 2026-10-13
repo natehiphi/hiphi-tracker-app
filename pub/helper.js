@@ -1261,18 +1261,23 @@ const readBill = (b, label) => btn(label, { kind: 'text', sm: true, cls: 'hp-inl
 // The letter they sent (W1-1, R-239): its words to read or copy, the ways the letter screen keeps it, the Capitol page to send
 // it again (a tab closed by mistake), and how to change it once it is in (fixLine). Read only: a change is a new letter.
 function viewScreen() {
-  const x = S.helper, { b, h } = x, L = x.view, file = `${b.bill_number}-testimony.txt`;
-  const when = L.sent ? shortDay(L.sent) : '', hearing = L.at || h.scheduled_at;
+  const x = S.helper, { b, h } = x, L = x.view, file = `${b.bill_number}-testimony.txt`, hearing = L.at || h.scheduled_at;
+  // One date, the hearing's, as the bill page says it ("You testified" sits on that hearing). Sending it again is offered only
+  // while that hearing is ahead: after it, the Capitol page takes no testimony for it, and its letter names that committee's
+  // chairs ("Send my letter again" on the bill page re-addresses it for the next hearing, R-148). The critic, 12 Oct.
+  const again = viewAgain(x);
   return `<div class="hp-top">${screenHead(1, 'Your letter')}
-      <p class="hp-sub" id="hp-lsub">What you sent${when ? ` on ${esc(when)}` : ''} for the ${esc(cmteLabel(L.code || h.committee))} hearing${hearing ? ` of ${esc(dateLong(hearing))}` : ''}. Copy it for a call or an email, or send it again at the Capitol.</p></div>
-    <textarea id="hp-letter" class="hp-letter" aria-labelledby="hp-sh" aria-describedby="hp-lsub" readonly rows="14">${esc(x.letter)}</textarea>
+      <p class="hp-sub" id="hp-lsub">The letter as it went in, for the ${esc(cmteLabel(L.code || h.committee))} hearing${hearing ? ` of ${esc(dateLong(hearing))}` : ''}. Copy it for a call or an email${again ? ', or send it again at the Capitol' : ''}.</p></div>
     ${x.copyFail ? `<div class="inlinemsg" role="alert">${icon('circle-alert')}<span>We couldn’t copy it for you. Your letter is selected: choose Copy, or select all of it and copy it yourself.</span></div>` : ''}
-    <div class="hp-under">${btn('Copy', { kind: 'text', icon: 'copy', attrs: { 'data-hp': 'copy', id: 'hp-cp' } })}${x.copyChip ? `<span class="okmsg">${icon('check')}Copied</span>` : ''}
+    <div class="hp-under">${x.copyChip ? `<span class="okmsg">${icon('check')}Copied</span>` : ''}
       <a class="btn text" href="${esc(selfMail(x))}" data-hp="selfmail">${icon('mail')}<span>Email it to myself</span></a>
       ${btn('Download as a file', { kind: 'text', icon: 'download', attrs: { 'data-hp': 'download', id: 'hp-dl' } })}
-      ${x.saved ? `<span class="okmsg">${icon('check')}Saved as ${esc(file)}</span>` : ''}</div>
+      ${x.saved ? `<span class="okmsg">${icon('check')}Saved as ${esc(file)}</span>` : ''}
+      ${again ? capitolLink(b, h, 'Open the Capitol page', { kind: 'text' }) : ''}</div>
+    <textarea id="hp-letter" class="hp-letter" aria-labelledby="hp-sh" aria-describedby="hp-lsub" readonly rows="6">${esc(x.letter)}</textarea>
     ${fixLine(h)}`;
 }
+const viewAgain = x => x.h.status !== 'cancelled' && new Date(x.h.scheduled_at) > Date.now();
 function sendScreen() {
   const x = S.helper, { b, h } = x;
   // "Open the Capitol page" is the footer's main button, so the checklist does not repeat it (assessment, 9/19).
@@ -1458,9 +1463,10 @@ function foot() {
   const later = btn('I’ll finish later', { kind: 'text', sm: true, attrs: { 'data-hp': 'later' } });
   // The three answers are the buttons, and tapping one moves on. Someone who already answered and came Back sees their
   // answer chosen, so Next keeps it (Nate 10/5, R-167: with only Close here, the way on was to tap the chosen answer again).
-  // A sent letter (W1-1): Close, and the Capitol page to send it again; Copy sits under the letter, as on the letter screen.
+  // A sent letter (W1-1): Copy is what it is opened for (a call from the committee, a closed Capitol tab), so it is the bar's
+  // one button, on every phone's first screen; "Copied" says it in place for two seconds.
   if (x.screen === 'view') return row(btn('Close', { kind: 'text', cls: 'hp-back', attrs: { 'data-hp': 'close' } })
-    + capitolLink(x.b, x.h, 'Open the Capitol page', { kind: 'secondary', cls: 'hp-main' }));
+    + btn(x.copyChip ? 'Copied' : 'Copy my letter', { kind: 'primary', icon: x.copyChip ? 'check' : 'copy', cls: 'hp-main', attrs: { 'data-hp': 'copy', id: 'hp-cp' } }));
   if (x.screen === 'stand') return row(btn('Close', { kind: 'text', cls: 'hp-back', attrs: { 'data-hp': 'close' } })
     + (x.stance ? btn('Next', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }) : ''));
   // Your letter is ready (R-148): use it, or update it when the bill changed in a way that matters; a new letter either way.

@@ -402,7 +402,8 @@ function stepThanks(step) {
   const fresh = !S.stThanksSeen; S.stThanksSeen = true;
   // Someone who already knows the Legislature can leave for Home here in one tap (W1-3, R-239: a returning regular on a new
   // phone met three screens of lessons with only Next). A quiet sentence under the page, not a second button in the bar:
-  // Next stays the one way on (A-3), and Home offers the story again ("See how a bill becomes law").
+  // Next stays the one way on (A-3). What it skips stays one tap away: the story on Help and every bill page, and a later
+  // visit's one ask (pub/nextask.js, R-237) offers the lesson and the address again.
   const home = `<p class="st-share st-thhome">${icon('house')}<span>Already know how bills move? ${btn('Take me to Home', { kind: 'text', sm: true, attrs: { 'data-sthome': '1' } })}</span></p>`;
   return shell(`st4 st-alertspage st-thanks${fresh ? ' st-thanksnew' : ''}`, `${topRow('alerts', step)}${bloom()}
     <h1 class="hero st-thtitle" id="st-h" tabindex="-1">${esc(W.title)}</h1>

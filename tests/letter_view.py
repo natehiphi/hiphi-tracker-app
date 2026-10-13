@@ -2,9 +2,9 @@
 # the words they sent. python3 tests/letter_view.py [base_url]   (sandbox ?letter: HB 2121's letter for House Health, 18 Feb)
 # Checks: the bill page's hearing it was sent for says "Your letter" (and no other hearing does); it opens the walkthrough on
 # one screen, "Your letter", with no "Part 1 of 1", the letter read only, Copy (the clipboard gets it), Email it to myself,
-# Download, how to change it, Close and "Open the Capitol page" (the hearing's own Capitol page, a new tab); closing it saves
-# no draft, marks nothing, and a reload does not reopen it; a bill with no letter has no button; phone and laptop, light and
-# dark screenshots in tests/out/letter_view/; no console errors.
+# Download, how to change it, Close and "Copy my letter" in the bar, and no "send it again" for a hearing that is over; closing it saves
+# no draft, marks nothing, and a reload does not reopen it; a bill with no letter has no button; phone, iPhone SE and laptop
+# screenshots in tests/out/letter_view/; no console errors.
 import os, sys, json
 from playwright.sync_api import sync_playwright
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html'
@@ -16,7 +16,7 @@ def me(p): return p.evaluate("JSON.parse(localStorage.getItem('hiphi_me') || '{}
 
 with sync_playwright() as pw:
     b = pw.chromium.launch()
-    for (w, h, tag, dark) in [(390, 844, 'phone', False), (390, 844, 'phone-dark', True), (1366, 900, 'laptop', False)]:
+    for (w, h, tag, dark) in [(390, 844, 'phone', False), (375, 667, 'se', False), (1366, 900, 'laptop', False)]:
         c = b.new_context(viewport={'width': w, 'height': h}, is_mobile=w < 600, has_touch=w < 600, device_scale_factor=2 if w < 600 else 1,
                           color_scheme='dark' if dark else 'light', permissions=['clipboard-read', 'clipboard-write'])
         c.add_init_script("(" + SKIP + ")()")
@@ -37,12 +37,14 @@ with sync_playwright() as pw:
         ok(p.locator('.hp-count').count() == 0, f'{tag}: no "Part 1 of 1"')
         ok(p.locator('[data-hp="selfmail"]').count() == 1 and p.locator('#hp-dl').count() == 1, f'{tag}: Email it to myself and Download')
         ok('Need to change it?' in p.inner_text('.hp-body'), f'{tag}: how to change it once sent')
-        cap = p.locator('.hp-foot a[data-hp="capitol"]')
-        ok(cap.count() == 1 and 'billnumber=2121' in (cap.get_attribute('href') or '') and cap.get_attribute('target') == '_blank', f'{tag}: "Open the Capitol page" goes to HB 2121 in a new tab')
+        ok(p.locator('a[data-hp="capitol"]').count() == 0 and 'send it again' not in p.inner_text('#hp-lsub'), f'{tag}: a past hearing offers no "send it again" (the critic, 12 Oct)')
+        cp = p.locator('.hp-foot #hp-cp')
+        ok(cp.count() == 1 and cp.inner_text().strip() == 'Copy my letter' and 'primary' in (cp.get_attribute('class') or ''), f'{tag}: "Copy my letter" is the bar\'s one button')
+        bb = cp.bounding_box(); ok(bb and bb['y'] + bb['height'] <= h, f'{tag}: Copy is on the first screen')
         p.screenshot(path=os.path.join(OUT, f'view-{tag}.png'))
         p.click('#hp-cp'); p.wait_for_timeout(500)
         clip = p.evaluate("navigator.clipboard.readText().catch(() => '')")
-        ok(clip == txt and p.locator('.hp-under .okmsg').count() == 1, f'{tag}: Copy puts the letter on the clipboard and says Copied')
+        ok(clip == txt and 'Copied' in p.inner_text('.hp-foot'), f'{tag}: Copy puts the letter on the clipboard and says Copied')
         p.click('.hp-foot [data-hp="close"]'); p.wait_for_timeout(900)
         ok(p.locator('#hp-letter').count() == 0, f'{tag}: Close closes it')
         after = me(p)
