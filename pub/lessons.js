@@ -994,6 +994,8 @@ function wakeNext(ready) {
   $$('[data-stskip] span').forEach(s => { s.textContent = ready ? 'Skip' : 'Skip the rest'; });
   const bar = document.querySelector('.actionbar'); if (bar) bar.classList.toggle('lx-asleep', !ready && !bar.querySelector('[data-stskip]'));
 }
+const saidHTML = (E, k, pick) => { const w = pickWords(E, k, pick);
+  return `<p class="lx-said${pick === 'none' ? ' lx-said-no' : ''}">${w.said}</p><p class="lx-other">${w.other}</p>${k === 4 ? `<p class="lx-turn">${esc(turnWords(E))}</p>` : ''}`; };
 // A choice plays its scene and fills the box: one sentence for that path, the other path in one quiet line; nothing is
 // picked for the person, and the other choice stays there to try. On Back and on a redraw a kept pick is shown still.
 function storyPick(pick, { instant = false } = {}) {
@@ -1003,9 +1005,9 @@ function storyPick(pick, { instant = false } = {}) {
   pic.classList.remove('lx-cplay');
   if (instant || reduced()) { pic.classList.add('lx-cplay'); settle(pic); } else { void pic.getBoundingClientRect(); play(pic, 'lx-cplay'); }
   $$('.lx-doors [data-lx-pick]', root).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lxPick === pick)));
-  const w = pickWords(E, k, pick), box = $('#lx-said', root);
+  const box = $('#lx-said', root);
   if (box) {
-    box.innerHTML = `<p class="lx-said${pick === 'none' ? ' lx-said-no' : ''}">${w.said}</p><p class="lx-other">${w.other}</p>${k === 4 ? `<p class="lx-turn">${esc(turnWords(E))}</p>` : ''}`;
+    box.innerHTML = saidHTML(E, k, pick);
     box.classList.add('lx-got'); if (!instant) play(box, 'lx-swap');
   }
   wakeNext(true);
@@ -1048,7 +1050,7 @@ function storySet(k, { instant = false, initial = false } = {}) {
 // is longer; it has the choices).
 function fitStory() {
   const root = rootOf('story'), cap = root && $('#lx-cap', root); if (!cap || !L.E) return;
-  if (ST.story.step >= 3) { cap.style.minHeight = ''; return; }
+  if (ST.story.step >= 3) { cap.style.minHeight = ''; reserveSaid(root); return; }
   const probe = document.createElement('div');
   probe.className = cap.className.replace(/\blx-swap\b/, ''); probe.setAttribute('aria-hidden', 'true');
   probe.style.cssText = 'position:absolute;left:0;right:0;top:0;visibility:hidden;min-height:0;pointer-events:none';
@@ -1056,6 +1058,21 @@ function fitStory() {
   let h = 0; [1, 2].forEach(k => { probe.innerHTML = stageHTML(L.E, k); h = Math.max(h, probe.getBoundingClientRect().height); });
   probe.remove(); cap.style.minHeight = `${Math.ceil(h)}px`;
 }
+// Stages 3 and 4: the box under the two choices holds the room of the longer answer from before the choice, so nothing on
+// the page moves when one is tapped. The first visit fits each screen to the window (R-265, start.js fitScreen): without
+// this the answer arriving made the page taller and the drawing shrank under the person's finger (the critic).
+function reserveSaid(root) {
+  const box = $('#lx-said', root), k = ST.story.step, E = L.E; if (!box || !PICKS[k] || !box.parentNode) return;
+  const probe = document.createElement('div');
+  probe.className = 'lx-saidbox'; probe.setAttribute('aria-hidden', 'true');
+  probe.style.cssText = `position:absolute;left:0;top:0;width:${box.getBoundingClientRect().width}px;visibility:hidden;pointer-events:none`;
+  box.parentNode.appendChild(probe);
+  let h = 0; PICKS[k].forEach(([v]) => { probe.innerHTML = saidHTML(E, k, v); h = Math.max(h, probe.getBoundingClientRect().height); });
+  probe.remove(); box.style.minHeight = `${Math.ceil(h)}px`; box.classList.add('lx-room');
+}
+// The first visit measures its screen against the window with the story's lines as they will stand (start.js fitScreen):
+// a level that leaves a line out changes the room the answer needs, so the room is measured again before each check.
+export function storyRoom() { const root = rootOf('story'); if (root && L.E && ST.story.step >= 3) reserveSaid(root); }
 // The first visit's own Back (and the lesson page's Back) walks the story back a stage at a time before it leaves the
 // screen (B-4), showing the earlier stage's still picture.
 export function lessonPrev(name) {
