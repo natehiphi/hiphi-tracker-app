@@ -60,6 +60,7 @@ import { openLook } from './look.js';
 import { todayPrepNotice } from './prep.js';
 import { sessionGates, lastSlotBefore, noticeByFor, billByNum } from './model.js';
 import { dailyWord } from './composer.js';   // which 4:30 pm email a Send joins
+import { testimonyOf } from './hearing.js';   // where a hearing's testimony stands, in the coalition page's words (v4, R-269)
 
 const HR = 36e5, DAY = 864e5;
 import { billRoute } from './model.js';
@@ -941,17 +942,6 @@ function hearingsLine(scope, who) {
     return `<span class="td-hlone"><a href="#/hearing/${esc(h.id)}?from=today"><b>${esc(h.committee)} ${esc(timeOf(h.scheduled_at))}</b>${h.room ? `, ${esc(room(h.room))}` : ''}</a> · ${esc(going || 'nobody from the team going yet')}</span>`; };
   return `<p class="td-hline1">${icon('landmark')}<span class="td-hlt"><span>Hearings today:</span> ${shown.map(one).join('<span class="td-hlsep">; </span>')}${more ? ` <a href="#/?view=week">and ${more} more</a>` : ''}</span></p>`;
 }
-// "Next deadline Thu 3/19 · 3 bills with no hearing yet →": the session clock in one line, opening This week, where those
-// bills are listed under their deadline. It names one deadline, the first that still has work: when every bill racing
-// the nearest one has a hearing, the line is about the one after ("Mon 3/30 deadline · 16 bills…"), not both at once
-// (fresh-eyes review). The count is said only because it is work (R-264 rule 4).
-function deadlineLine(scope, who) {
-  const c = sessionClock(clockBills(scope, who)); if (!c) return '';
-  const t = c.then, g = c.noHearing.length || !t?.noHearing?.length ? c : t, n = g.noHearing.length;
-  const head = g === c ? `Next deadline ${ckDay(c.date)}` : `${ckDay(t.date)} deadline`;
-  const work = n ? `${plural(n, 'bill')} with no hearing yet` : g.racing ? 'every bill racing it has a hearing' : '';
-  return `<a class="td-dline" href="#/?view=week">${icon('calendar-clock')}<span><b>${esc(head)}</b>${work ? ` · ${esc(work)}` : ''}</span>${icon('arrow-right', { cls: 'chev' })}</a>`;
-}
 function nextHearingText(scope, who) {
   const now = Date.now(), mine = billsOf(scope, who), ok = b => b && b.position && b.position !== 'monitor' && mine(b);
   const h = (S.hearings || []).filter(x => x.status !== 'cancelled' && new Date(x.scheduled_at) > now && ok(billById(x.bill_id))).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
@@ -1087,8 +1077,8 @@ function loadGroup() {
 }
 
 // ---- the session clock (model.js sessionClock) ----
-// The one portfolio number that earns a place on Today, as one line beside the list (deadlineLine) since v3; the bills
-// racing it are listed under This week's grid. The five-bucket breakdown stays on Bills.
+// The bills racing the next deadline with no hearing yet are counted once, in This week's Deadlines heading, which names
+// the deadline and whose bills (v4, R-269); Today's side card that said it too went. The five-bucket breakdown stays on Bills.
 const clockBills = (scope, who) => S.bills.filter(billsOf(scope, who));
 const whoseBills = (scope, who) => scope === 'person' ? `${first(who)}’s bills` : scope === 'team' ? 'the team’s bills' : scope === 'none' ? 'the bills nobody owns' : 'your bills';
 const ckDay = d => new Date(d + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' }).replace(',', '');   // "Thu 3/19"
@@ -1443,8 +1433,15 @@ function coalPicked() {
   return ids.length ? { all: false, ids: new Set(ids), names: ids.map(id => S.campaigns.find(x => x.id === id).name) } : null;
 }
 const dayWord = day => day === hst(Date.now()) ? 'Today' : day === dayAdd(hst(Date.now()), 1) ? 'Tomorrow' : dayFmt(day, { weekday: 'short' });
-function coalSection(r) {
-  const co = coalPicked(); if (!co) return '';
+// v4 (R-269, T1-T3): each hearing row says where its testimony stands and when it is due, in the coalition page's words
+// (hearing.js testimonyOf), amber when the next step is writing and it is due within a day or late but still open; who
+// is going only when someone is, and "Nobody from the team is going to 2 of 3 yet" once under the hearings, not on every
+// row (it was said up to 11 times a page). A row whose bill has a live public ask ends "Share kit", which opens the
+// hearing page at its share kit. The bills with no hearing yet are the heading's count, a link to them on Bills, and no
+// longer a list of up to 36 rows (the count was said twice). `skip`: sittings that "Your hearing today" already shows.
+// Returns the section and whether anything in it is due today (or late but open), which decides the quiet line (T2).
+function coalSection(r, skip = new Set()) {
+  const co = coalPicked(); if (!co) return { html: '', due: false };
   const inC = b => (S.billCampaigns[b.id] || []).some(id => co.ids.has(id)), now = Date.now();
   // This week's sittings still to come, on the coalition's bills with a position (Monitor bills are watched, not worked).
   const hs = hearingsIn(hst(now), dayAdd(mondayOf(now), 6), 'team', null).filter(x => inC(x.b) && !isMon(x.b) && x.t >= now - 2 * HR);
@@ -1455,22 +1452,45 @@ function coalSection(r) {
     racing = ck ? ck.noHearing : [];
   const todos = Object.entries(S.todos || {}).flatMap(([bid, arr]) => { const b = billById(bid); return b && inC(b) ? arr.filter(t => !t.done && !t.assignee_id).map(t => ({ b, t })) : []; })
     .sort((x, y) => String(x.t.due_date || '9').localeCompare(String(y.t.due_date || '9')));
-  if (!sit.size && !racing.length && !todos.length) return '';
+  if (!sit.size && !racing.length && !todos.length) return { html: '', due: false };
   const open = S.tdOpen ??= {}; open.coal ??= r.dueNow <= 2;   // open when your own day is light, as the suggestions are
   const title = co.all ? 'The team’s week' : `${co.names.join(' and ')} this week`;
-  const count = [sit.size ? plural(sit.size, 'hearing') : '', racing.length ? `${plural(racing.length, 'bill')} still ${racing.length === 1 ? 'needs' : 'need'} a hearing` : '', todos.length ? plural(todos.length, 'open to-do') : ''].filter(Boolean).join(' · ');
-  const owner = b => { const a = advocate((S.assignments[b.id] || [])[0]); return `${avatar(a, 20)}<span class="td-cown">${esc(a ? (a.id === S.me.id ? 'You' : first(a.id)) : 'No owner')}</span>`; };
-  const sitRow = list => { const h = list[0].h, going = goingOf(goersAt(h));
-    return `<a class="td-crow" href="#/hearing/${esc(h.id)}?from=today"><span class="td-ctime">${esc(dayWord(list[0].day))}<b>${esc(timeOf(h.scheduled_at))}</b></span>
+  let due = todos.some(x => String(x.t.due_date || '').slice(0, 10) === hst(now));
+  // Where a sitting's testimony stands: the bills not filed yet, their states counted, and the first deadline among them.
+  const testOf = list => {
+    const left = list.map(x => ({ ...x, d: draftOf(x.h), t: testimonyOf(x.h, x.b) })).filter(x => !x.t.filed);
+    if (!left.length) return '';
+    const n = new Map(); for (const x of left) n.set(x.t.word, (n.get(x.t.word) || 0) + 1);
+    const what = left.length === 1 ? `Testimony ${left[0].t.word}` : `Testimony: ${[...n].map(([w, k]) => `${k} ${w}`).join(', ')}`;
+    const at = Math.min(...left.map(x => testDue(x.h))), start = new Date(list[0].h.scheduled_at).getTime(), ms = at - now;
+    const lateOpen = ms <= 0 && start > now, write = left.some(x => !x.d || x.d.status === 'draft');
+    if ((ms > 0 && hst(at) === hst(now)) || lateOpen) due = true;
+    const when = ms > 0 ? `due ${atLine(at)}` : lateOpen ? `late testimony until ${clockDay(list[0].h.scheduled_at)}` : `was due ${atLine(at)}`;
+    // Amber only where the next step is writing (no draft, in draft, sent back): Kris's list of every coalition would
+    // otherwise turn amber row by row for steps that wait on an approver (A-13). Red only once it can no longer be filed.
+    const tone = write && (lateOpen || (ms > 0 && ms <= DAY)) ? 'soon' : write && ms <= 0 ? 'late' : '';
+    return `<span class="td-ctest${tone ? ' ' + tone : ''}">${tone ? icon(tone === 'late' ? 'circle-alert' : 'clock') : ''}${esc(`${what} · ${when}`)}</span>`;
+  };
+  const rows = [...sit.entries()].filter(([k]) => !skip.has(k)).map(([, l]) => l);
+  const sitRow = list => { const h = list[0].h, going = goingOf(goersAt(h)), test = testOf(list), kit = list.some(x => liveAsk(x.b));
+    return `<div class="td-crow td-chear"><a class="td-cmain" href="#/hearing/${esc(h.id)}?from=today"><span class="td-ctime">${esc(dayWord(list[0].day))}<b>${esc(timeOf(h.scheduled_at))}</b></span>
       <span class="td-cbody"><span class="td-cbills">${list.map(x => `<b class="td-num">${esc(billNum(x.b))}</b> ${esc(x.b.nickname || blurb(x.b, 60))}`).join('<span class="td-csep">, </span>')}</span>
-      <span class="td-cmeta">${esc(h.committee)} · ${esc(room(h.room))} · ${going ? esc(going) : `<span class="td-cnone">${icon('user-round-plus')}Nobody from the team yet</span>`}</span></span></a>`; };
-  const raceRow = b => `<a class="td-crow td-crace" href="${billRoute(b)}"><span class="td-cbody"><span class="td-cbills"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''} ${esc(b.nickname || blurb(b, 60))}</span></span><span class="td-cwho">${owner(b)}</span></a>`;
+      <span class="td-cmeta">${[esc(h.committee), esc(room(h.room)), test, going ? esc(going) : ''].filter(Boolean).join(' · ')}</span></span></a>
+      ${kit ? `<a class="td-ckit" href="#/hearing/${esc(h.id)}?from=today&amp;kit=1">Share kit${icon('chevron-right')}</a>` : ''}</div>`; };
   const todoRow = ({ b, t }) => `<div class="td-crow td-ctodo"><a class="td-cbody" href="${billRoute(b)}"><span class="td-cbills"><b class="td-num">${esc(billNum(b))}</b> ${esc(t.title)}</span>${t.due_date ? `<span class="td-cmeta">${esc(`Due ${fmtDate(String(t.due_date).slice(0, 10), { weekday: 'short' }).replace(',', '')}`)}</span>` : ''}</a>${btn('Take it', { kind: 'secondary', attrs: { 'data-ctake': `${b.id}|${t.id}` } })}</div>`;
-  const body = [sit.size ? `<h3 class="td-ch">${icon('landmark')}Hearings</h3><div class="td-crows">${[...sit.values()].map(sitRow).join('')}</div>` : '',
-    racing.length ? `<h3 class="td-ch">${icon('circle-dashed')}${esc(`No hearing yet · ${ck.name} ${ckDay(ck.date)}`)}</h3><div class="td-crows">${racing.map(raceRow).join('')}</div>` : '',
+  const nobody = [...sit.values()].filter(l => !goersAt(l[0].h).length).length, all = sit.size;
+  const nobodyLine = !nobody ? '' : `<p class="td-cnote">${icon('user-round-plus')}<span>${esc(nobody === all ? (all === 1 ? 'Nobody from the team is going yet' : `Nobody from the team is going to any of the ${all} yet`) : `Nobody from the team is going to ${nobody} of ${all} yet`)}</span></p>`;
+  const body = [rows.length ? `<h3 class="td-ch">${icon('landmark')}Hearings</h3>${nobodyLine}<div class="td-crows">${rows.map(sitRow).join('')}</div>` : '',
     todos.length ? `<h3 class="td-ch">${icon('list-todo')}To-dos nobody has taken</h3><div class="td-crows">${todos.map(todoRow).join('')}</div>` : ''].join('');
-  return `<section class="td-group td-coal" aria-labelledby="td-g-coal"><h2 class="td-h">${groupHead(`<span class="td-ght">${esc(title)}</span><span class="td-ghs">${esc(count)}</span>`, '', { fold: 'coal', open: open.coal, id: 'td-g-coal' })}</h2>
-    ${open.coal ? `<div class="td-cbox">${body}</div>` : ''}</section>`;
+  // The heading's line: the hearings (or that there are none, said here and nowhere else), the bills with no hearing as a
+  // link to them on Bills, and the to-dos.
+  const bills = co.ids.size === 1 && !co.all ? `#/bills?coalition=${encodeURIComponent([...co.ids][0])}` : '#/bills';
+  const count = [all ? esc(plural(all, 'hearing')) : 'No hearings this week',
+    racing.length ? `<a href="${esc(bills)}">${esc(`${plural(racing.length, 'bill')} still ${racing.length === 1 ? 'needs' : 'need'} a hearing`)}</a>` : '',
+    todos.length ? esc(plural(todos.length, 'open to-do')) : ''].filter(Boolean).join(' · ');
+  const head = body ? groupHead(`<span class="td-ght">${esc(title)}</span>`, '', { fold: 'coal', open: open.coal, id: 'td-g-coal' }) : groupHead(`<span class="td-ght">${esc(title)}</span>`, '', { id: 'td-g-coal' });
+  return { due, html: `<section class="td-group td-coal" aria-labelledby="td-g-coal"><h2 class="td-h">${head}</h2><p class="td-ghs td-csub">${count}</p>
+    ${body && open.coal ? `<div class="td-cbox">${body}</div>` : ''}</section>` };
 }
 
 // ---- Between sessions (R-022, wave 3 #22) ----
@@ -1558,6 +1578,13 @@ function aheadBills(scope, who) {
   const co = scope === 'mine' && !S.bills.some(isMine) ? coalPicked() : null;
   return co ? { list: S.bills.filter(b => (S.billCampaigns[b.id] || []).some(id => co.ids.has(id))), coal: co } : { list: clockBills(scope, who), coal: null };
 }
+// "3 of your bills still need a hearing", "12 HEAL bills still need a hearing", "every one of the team's bills has a hearing".
+function gateCount(n, scope, who, coal) {
+  const whose = coal ? (coal.all ? 'your coalitions’ bills' : `${coal.names.join(' and ')} bills`) : whoseBills(scope, who);
+  if (!n) return `every one of ${whose} has a hearing`;
+  const many = coal && !coal.all ? `${n} ${coal.names.join(' and ')} ${n === 1 ? 'bill' : 'bills'}` : `${n} of ${whose}`;
+  return `${many} still ${n === 1 ? 'needs' : 'need'} a hearing`;
+}
 const ahNames = bs => { const b = bs[0], more = bs.length - 1; return `<b class="td-num">${esc(billNum(b))}</b> ${esc(b.nickname || blurb(b, 60))}${more ? `<span class="muted"> and ${plural(more, 'other')}</span>` : ''}`; };
 // The phone's week: the frame's header already says "This week", so the list has no heading of its own (A-14).
 function aheadWeek(scope, who, coal) {
@@ -1598,18 +1625,26 @@ function aheadGate(g, lead, owners, chair) {
   const key = `ah${g.date}`, open = !!(S.tdOpen ??= {})[key], rows = open ? need : need.slice(0, AH_CAP);
   const list = need.length ? `<ul class="ah-rows">${rows.map(x => aheadRow(x, owners, chair.get(x.b.id))).join('')}</ul>${need.length > AH_CAP ? moreBtn(key, open, need.length) : ''}` : `<p class="ah-ok">${icon('check')}<span>${g.racing.length === 1 ? 'It has a hearing.' : 'Every one of them has a hearing.'}</span></p>`;
   const head = `<span class="ah-gd">${esc(ckDay(g.date))}</span><span class="ah-gn">${esc(g.name)}</span><span class="ah-gw muted">${esc(awayOf(g.days))}</span>`;
-  if (lead) return `<section class="ah-gate" aria-label="${esc(`${ckDay(g.date)}, ${g.name}`)}"><h3 class="ah-gh">${head}</h3><p class="ah-gs">${esc(sum)}</p>${list}</section>`;
+  // v4 (R-269, T3): the Deadlines heading names this deadline and counts its bills with no hearing, so the box under it
+  // says only how far off it is and what the bills must do by then (A-14).
+  if (lead) { const lsum = `${awayOf(g.days)[0].toUpperCase()}${awayOf(g.days).slice(1)} · ${plural(g.racing.length, 'bill')} must ${gateNeed(g.label, g.racing.length)} by then${g.p1 ? `; ${g.p1} of those with no hearing ${g.p1 === 1 ? 'is' : 'are'} P1` : ''}.`;
+    return `<section class="ah-gate ah-lead" aria-label="${esc(`${ckDay(g.date)}, ${g.name}`)}"><p class="ah-gs">${esc(lsum)}</p>${need.length ? list : ''}</section>`; }
   return `<details class="ah-gate ah-later"><summary><span class="ah-gh">${head}</span><span class="ah-gc muted">${esc(need.length ? `${plural(need.length, 'bill')} with no hearing yet` : 'all have a hearing')}</span>${icon('chevron-down', { cls: 'ah-chev' })}</summary><p class="ah-gs">${esc(sum)}</p>${list}</details>`;
 }
 // Under the grid (or the phone's list): the deadlines, then "Also worth doing".
 function weekBelow(scope, who, r) {
   if (SESSION_OVER) { LASTSG = new Map(); return `<section class="ah-sec"><p class="ah-none">The session is over, so there are no deadlines to race. The next one's calendar is loaded in December.</p></section>`; }
-  const { list } = aheadBills(scope, who), owners = scope !== 'mine';
+  const { list, coal } = aheadBills(scope, who), owners = scope !== 'mine';
   const gates = sessionGates(list).filter(g => !g.past && g.racing.length && g.days <= AH_DAYS);
   const sg = suggestFor(scope, who, r, new Set(gates.flatMap(g => g.noHearing.map(x => x.b.id))));
-  // The first deadline that still has a bill without a hearing is the open one; an earlier deadline whose bills all have one is a quiet line above it.
+  // The first deadline that still has a bill without a hearing is the open one, first under the heading; the others
+  // (an earlier one whose bills all have a hearing, a later one) are a folded line each after it.
   const lead = gates.find(g => g.noHearing.length) || gates[0];
-  const dl = `<section class="ah-sec" aria-labelledby="ah-dl"><div class="ah-hd"><h2 id="ah-dl">Deadlines</h2></div>${gates.length ? gates.map(g => aheadGate(g, g === lead, owners, sg.chair)).join('')
+  // v4 (R-269, T3): the heading names that deadline and whose bills it counts, in one wording wherever it is said:
+  // "Second lateral, Mon 3/30: 3 of your bills still need a hearing" (someone who owns none: "12 HEAL bills"; Team: "36
+  // of the team's bills"). It was "Deadlines" over a box that said it, beside Today's card that said it again.
+  const h2 = lead ? `${lead.name}, ${ckDay(lead.date)}: ${gateCount(lead.noHearing.length, scope, who, coal)}` : 'Deadlines';
+  const dl = `<section class="ah-sec" aria-labelledby="ah-dl"><div class="ah-hd"><h2 id="ah-dl">${esc(h2)}</h2></div>${gates.length ? [lead, ...gates.filter(g => g !== lead)].map(g => aheadGate(g, g === lead, owners, sg.chair)).join('')
     : `<p class="ah-none">None of ${esc(whoseBills(scope, who))} races a deadline in the next three weeks.</p>`}</section>`;
   return dl + suggestHtml(sg.list, r);
 }
@@ -1635,7 +1670,7 @@ function render(route) {
   const off = SESSION_OVER, rows = WIDE();
   // Kris and Saya own no bills: beside "The team's week" their own "This week" (all zeros) and "None of your bills has
   // to be heard" contradicted the page (fresh-eyes review, 9/21), so the coalition's week stands in for both.
-  const coal = scope === 'mine' && !off ? coalSection(r) : '', bare = !!coal && !S.bills.some(isMine);
+  const cs = scope === 'mine' && !off ? coalSection(r) : { html: '', due: false }, coal = cs.html;
   let i = 0, body;
   if (scope === 'team') body = teamHtml(0, rows) + loadGroup();
   else {
@@ -1655,7 +1690,9 @@ function render(route) {
       // Nothing of your own. Between sessions that is normal, and a coalition's week is real content: either way the
       // page leads with what there is, never an "All clear" card and a button to go and find bills (R-022).
       body = (off ? `<p class="td-quiet" data-top tabindex="-1">${esc(who ? `Nothing is open on ${name}’s list.` : 'Nothing is open on your list.')}</p>`
-        : coal ? `<p class="td-quiet" data-top tabindex="-1">${icon('circle-check')}<span>Nothing of your own is due today.</span></p>`
+        // v4 (R-269, T2): "Nothing of your own is due today" sat over a draft due in 29 minutes on the coalition's bill
+        // below it. Now the quiet line is said only when nothing there is due today either, and says just that.
+        : coal ? (cs.due ? '' : `<p class="td-quiet" data-top tabindex="-1">${icon('circle-check')}<span>Nothing needs you today.</span></p>`)
         : `<div class="td-empty" data-top tabindex="-1">${empty({ art: scope === 'mine' ? yay() : '', title: who ? `Nothing is waiting on ${esc(name)}.` : scope === 'none' ? 'Nothing is open on the bills nobody owns.' : 'All clear for today.', text: nextHearingText(scope, who), action: scope !== 'mine' ? btn('Back to my list', { kind: 'secondary', attrs: { 'data-seg': 'tdscope', 'data-val': 'mine' } }) : btn('See your bills', { href: '#/bills' }) })}</div>`) + startCard();
     } else body = (clear ? `<div class="td-clear">${scope === 'mine' ? yay() : ''}<div><p class="td-clear-t">${who ? `Nothing for ${esc(name)} today.` : scope === 'none' ? 'Nothing is due today on the bills nobody owns.' : 'All clear for today.'}</p><p class="small muted">${nextHearingText(scope, who)}</p></div></div>` : '')
       + groups.map((g, gi) => groupHtml(g, gi) + (gi === 0 ? startCard() : '')).join('');
@@ -1667,18 +1704,20 @@ function render(route) {
     : scope === 'none' ? `<p class="td-whonote" data-top tabindex="-1">${icon('info')}<span>Anyone can take these steps. To give a bill an owner, use its “…” menu.</span></p>` : '';
   const digestHtml = digestSection(scope);
   const results = off ? resultsHtml(scope, who) : '', jan = off ? janPanel() : '';
-  const hear = off ? '' : hearingsLine(scope, who), dl = bare || off ? '' : deadlineLine(scope, who);
+  const hear = off ? '' : hearingsLine(scope, who);
+  // v4 (R-269, T3): the side card "Next deadline Mon 3/30 · 16 bills with no hearing yet" went. That count was said in
+  // about ten places in five wordings; it is now This week's Deadlines heading (and the coalition block's line).
   // A phone (and a tablet, below the sidebar layout) keeps the cards: your own work first, then what waits on others,
-  // then the deadline line and catching up.
-  if (!rows) return `<div class="td-root">${toolbar(route)}<div class="td-main">${note}${oneNotice()}${hear}${body}${results}${jan}${dl}${digestHtml}${syncFoot()}</div></div>`;
+  // then catching up.
+  if (!rows) return `<div class="td-root">${toolbar(route)}<div class="td-main">${note}${oneNotice()}${hear}${body}${results}${jan}${digestHtml}${syncFoot()}</div></div>`;
   // A laptop: the rows, and the open item beside them (R-264). With nothing to open, one column.
   let list = `${note}${oneNotice()}${hear}${body}${results}${jan}${digestHtml}`;
   const sel = pickSel();
-  if (!sel) return `<div class="td-root td-desk td-v3">${toolbar(route)}<div class="td-main td-one">${list}${dl}</div></div>`;
+  if (!sel) return `<div class="td-root td-desk td-v3">${toolbar(route)}<div class="td-main td-one">${list}</div></div>`;
   S.tdSel = { ...(S.tdSel || {}), key: sel, i: ROWS.indexOf(sel) };
   list = markSel(list, sel);
   return `<div class="td-root td-desk td-v3">${toolbar(route)}<div class="td-cols3"><div class="td-main">${list}</div>
-    <aside class="td-side" aria-label="The item you picked"><section class="td-pane" id="td-pane" aria-labelledby="td-pane-h">${paneHTML(sel)}</section>${dl}</aside></div></div>`;
+    <aside class="td-side" aria-label="The item you picked"><section class="td-pane" id="td-pane" aria-labelledby="td-pane-h">${paneHTML(sel)}</section></aside></div></div>`;
 }
 
 // ---- actions ----

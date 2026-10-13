@@ -693,3 +693,21 @@
    its hearing on a line of its own. */
 .td-root .td-pnh { display: block; font-size: var(--t13); color: var(--n500); }
 .td-root .td-newh .td-newl { margin-top: var(--s8); }
+
+/* v4 (R-269, T1-T3): a coalition's week. Its heading's line sits outside the fold button because it holds a link (the
+   bills with no hearing yet, on Bills); each hearing row says where its testimony stands, amber when the next step is
+   writing and it is close or late but open, and ends "Share kit" when its bill has a live public ask. */
+.td-root .td-csub { margin: -4px 0 0; padding: 0 var(--s4) var(--s8); }
+.td-root .td-csub a { color: var(--p700); font-weight: 600; text-decoration: none; }
+.td-root .td-csub a:hover { text-decoration: underline; }
+.td-root .td-chear { align-items: stretch; padding: 0; }
+.td-root .td-cmain { flex: 1 1 auto; min-width: 0; display: flex; align-items: flex-start; gap: var(--s12); padding: var(--s8) var(--s16); color: inherit; text-decoration: none; }
+.td-root .td-cmain:hover { background: var(--n50); }
+.td-root .td-ckit { flex: none; align-self: center; display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 var(--s12) 0 var(--s4); font-size: var(--t14); font-weight: 700; color: var(--p700); text-decoration: none; white-space: nowrap; }
+.td-root .td-ckit .ic { width: 16px; height: 16px; }
+.td-root .td-ckit:hover { text-decoration: underline; }
+.td-root .td-ctest.soon { color: var(--warn-text); font-weight: 700; }
+.td-root .td-ctest.late { color: var(--bad-text); font-weight: 700; }
+.td-root .td-ctest .ic { width: 14px; height: 14px; margin-right: 3px; vertical-align: -2px; }
+.td-root .td-cnote { display: flex; align-items: center; gap: 6px; margin: 0; padding: 0 var(--s16) var(--s4); font-size: var(--t13); line-height: 18px; color: var(--n500); }
+.td-root .td-cnote .ic { width: 14px; height: 14px; flex: none; }
