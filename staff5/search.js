@@ -11,6 +11,7 @@ import { plain, diedish, personName, whereOf, titleCaseSmart, exactBill } from '
 // way the Bills list names them (R-271): nickname in bold, its number small, then the plain summary (five bills share the nickname
 // "Let counties regulate tobacco sales", and the summary and status are what tell them apart).
 import { icon, btn, empty, toast } from './ui.js';
+import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { billSub, wireLinks } from './pathway.js';
 import { matchLegs, legRow, weekIndex, districtQ } from './legislators.js';
 import { blRow } from './bills.js';
@@ -103,7 +104,7 @@ const personRow = p => {
   const act = p.last_active ? `active ${fmtDate(p.last_active)}` : '';
   return `<a class="row lg-prow" href="#/person/${encodeURIComponent(p.id)}"><span class="lead">${icon('user-round')}</span><span class="body"><span class="title">${esc(personName(p))}</span><span class="sub">${esc([whereOf(p), act].filter(Boolean).join(' · ') || p.email || '')}</span></span><span class="end">${p.actions ? `${p.actions} action${p.actions === 1 ? '' : 's'}` : ''}${icon('chevron-right', { cls: 'chev' })}</span></a>`;
 };
-const more = (key, n, shown, label) => n > shown ? `<button type="button" class="row lg-more" data-lgsmore="${key}">${icon('chevron-down')}<span>Show all ${n} ${label}</span></button>` : '';
+const more = (key, n, shown, label) => n > shown ? showAllBtn(n, { 'data-lgsmore': key }, { what: label, cls: 'lg-more' }) : '';
 const group = (id, title, n, inner) => `<section class="rows lg-grp" aria-labelledby="${id}"><h2 class="sv-group" id="${id}"><span>${title}</span><span class="n">${n}</span></h2>${inner}</section>`;
 
 const nOf = (n, one, many) => `${n.toLocaleString()} ${n === 1 ? one : many}`;

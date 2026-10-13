@@ -17,6 +17,7 @@ import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteNam
 import { personById, changedSince, startedFromLine } from './data.js';
 import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, POS_SUB, posIcons, ownerOf, countdown, stepBar, stageRibbon, empty, notice, toast, openSheet, closeSheet,
   pickerSheet, menuSheet, confirmSheet, field, keysOn } from './ui.js';
+import { goingBtn, docBtn, filedBtn, showAllBtn } from './ui.js';   // R-277 fix 4: one look per action
 import { renderCommittees, wireCommittees } from './pathway.js';
 import { renderActivity, wireActivity, composerBar, loadTimeline, shortAction } from './activity.js';
 import { renderPublic, wirePublic, wireDraftsFocus } from './public.js';
@@ -316,7 +317,7 @@ async function saveWithUndo(b, patch, focusSel, say) {
     await DB.updateBill(b.id, patch); FACTS.clear(); rerender(focusSel);
     const said = say ? say(before) : null;
     toast(said ? said.msg : 'Saved', { undo: async () => { await DB.updateBill(b.id, before); FACTS.clear(); rerender(focusSel); toast('Put back as it was'); },
-      ...(said?.act ? { action: { label: 'Open', run: () => { if (said.doc) window.open(said.doc, '_blank', 'noopener'); else document.querySelector('.bw-next')?.scrollIntoView({ block: 'start' }); } } } : {}) });
+      ...(said?.act ? { action: { label: said.doc ? 'Open Doc' : 'Show me', run: () => { if (said.doc) window.open(said.doc, '_blank', 'noopener'); else document.querySelector('.bw-next')?.scrollIntoView({ block: 'start' }); } } } : {}) });
   } catch (e) { toast(e, { err: true }); rerender(focusSel); }
 }
 function pickPosition(b) {
@@ -423,7 +424,7 @@ function testimonyBlock(b, d, { primary = true, title = '' } = {}) {
   if (d.status === 'draft') main = btn(d.review_note ? 'Resubmit' : 'Send for approval',   /* R-277 W-2, C-15 */ { kind, icon: 'send', attrs: { 'data-dact': 'submit', 'data-draft': d.id } });
   else if (acts.includes('approve')) { main = btn('Approve', { kind, icon: 'check', attrs: { 'data-dact': 'approve', 'data-draft': d.id } }); alt = btn('Send back', { kind: 'secondary', attrs: { 'data-dact': 'changes', 'data-draft': d.id } }); }
   else if (d.status === 'approved') { main = btn('File at the Capitol', { kind, icon: 'external-link', href: capitolUrl(b), target: '_blank' });
-    alt = btn('Mark filed', { kind: 'secondary', icon: 'clipboard-check', attrs: { 'data-dact': 'file', 'data-draft': d.id } }); }
+    alt = filedBtn({ 'data-dact': 'file', 'data-draft': d.id }); }
   else if (d.status === 'filed') main = chip('Filed', 'ok', 'check');
   else if (d.status === 'cancelled') main = chip('Hearing cancelled', '', 'circle-x');
   const stale = b.current_version && (d.version || null) !== b.current_version && !['filed', 'cancelled'].includes(d.status);
@@ -432,7 +433,7 @@ function testimonyBlock(b, d, { primary = true, title = '' } = {}) {
   // "Earlier testimony" at the end of Overview. An open book: a clock would read as this Doc's version history.
   const borrow = d.status === 'draft' && earlierCount(b) > 0;
   const links = [
-    d.doc_url ? btn('Open Doc', { kind: 'text', icon: 'file-text', href: d.doc_url, target: '_blank' }) : '',
+    docBtn(d.doc_url),
     d.filed_url ? btn('Confirmation', { kind: 'text', icon: 'external-link', href: d.filed_url, target: '_blank' }) : '',
     borrow ? btn('Borrow from earlier testimony', { kind: 'text', icon: 'book-open', href: testimonyHref(b), attrs: { 'data-borrow': '1' } }) : '',
   ].join('');
@@ -460,8 +461,9 @@ function attendRow(h) {
   const att = goersOf(sittingOf(h));
   const meIn = att.some(a => a.id === S.me?.id);
   const who = att.length ? andList(att.map(a => a.id === S.me?.id ? 'You' : firstName(a))) : 'nobody yet';
-  // The toggle names what it will do: "I'm going" adds you, "Take me off" once you are on (A-12: its pressed state shows).
-  const go = S.me ? ` <span aria-hidden="true">·</span> <button type="button" class="linkbtn bw-gobtn" data-attend="${esc(h.id)}" aria-pressed="${meIn}">${meIn ? 'Take me off' : 'I’m going'}</button>` : '';
+  // The toggle: "I'm going" adds you; pressed, it says "You’re going" and takes you off (A-12). R-277 fix 4 (U-4): ui.js goingBtn,
+  // the same button as on the hearing page and Today (it was a link here, "Take me off").
+  const go = S.me ? ` <span aria-hidden="true">·</span> ${goingBtn(meIn, { 'data-attend': h.id }, { cls: 'bw-gobtn' })}` : '';
   return `<p class="bw-going1${att.length ? '' : ' none'}">${icon(att.length ? 'users-round' : 'user-round')}<span><span class="bw-gwho">Going: ${esc(who)}</span>${go}</span></p>`;
 }
 // The hearing's video, named for the moment (live, after, before): an item in Next up's ⋯ menu (v3).
@@ -609,7 +611,7 @@ function markFiled(b, d) {
     body: `${field('bw-furl', 'Capitol confirmation link (optional)', '<input id="bw-furl" type="url" inputmode="url" autocomplete="off" placeholder="https://">', 'Paste the link from the Capitol’s confirmation, if you have it.')}
       <p class="err" id="bw-furl-e" role="alert" hidden>That does not look like a web address. It starts with https://</p>
       <p class="bw-shlink">${btn('File at the Capitol', { kind: 'text', icon: 'external-link', href: capitolUrl(b), target: '_blank' })}${btn('How to file at the Capitol', { kind: 'text', icon: 'circle-help', attrs: { 'data-howfile': '1' } })}</p>`,   // R-277 fix 9: the steps, one tap away
-    foot: btn('Mark filed', { kind: 'primary', icon: 'clipboard-check', attrs: { 'data-go': '1' } }),
+    foot: filedBtn({ 'data-go': '1' }, 'primary'),
     wire: dlg => {
       const inp = dlg.querySelector('#bw-furl'), er = dlg.querySelector('#bw-furl-e'); inp.value = HELD.get('fu:' + d.id) || '';
       dlg.querySelector('[data-howfile]').onclick = () => { closeSheet(); afterBack(() => S.go('#/help/file')); };   // the typed link stays held (HELD)
@@ -762,7 +764,7 @@ function detailsSection(b, desk) {
   // The official title names hundreds of bills the same way ("Relating to health"), so it is a detail, not the heading.
   return `<section class="bw-sec" aria-labelledby="bw-det-h"><h2 id="bw-det-h">Details</h2>
     <dl class="bw-dl">
-      ${sp.length ? `<div class="bw-dt"><dt>Sponsors</dt><dd><b>${esc(sp[0])}</b> <span class="muted">(lead)</span>${sp.length > 1 ? ', ' + esc(sp.slice(1, all ? sp.length : 5).join(', ')) : ''}${sp.length > 5 && !all ? ` <button type="button" class="linkbtn bw-more" data-sponsall="1">Show all ${sp.length}</button>` : ''}</dd></div>` : ''}
+      ${sp.length ? `<div class="bw-dt"><dt>Sponsors</dt><dd><b>${esc(sp[0])}</b> <span class="muted">(lead)</span>${sp.length > 1 ? ', ' + esc(sp.slice(1, all ? sp.length : 5).join(', ')) : ''}${sp.length > 5 && !all ? ` ${showAllBtn(sp.length, { 'data-sponsall': '1' })}` : ''}</dd></div>` : ''}
       ${b.last_action ? `<div class="bw-dt"><dt>Last action</dt><dd>${b.last_action_date ? `<span class="muted">${esc(fmtDate(b.last_action_date, { year: '2-digit' }))}</span> ` : ''}<span title="${esc(b.last_action)}">${esc(shortAction(b.last_action))}</span></dd></div>` : ''}
       ${(b.companions || []).length ? `<div class="bw-dt"><dt>Companion</dt><dd id="bw-comp">${compHTML(b)}</dd></div>` : ''}
       <div class="bw-dt bw-dtact"><dt>Coalitions</dt><dd><span>${coal.length ? coal.map(c => `<a class="bw-inline bw-coal" href="#/coalition/${esc(c.id)}">${esc(c.name)}</a>`).join(', ') : '<span class="muted">None</span>'}</span>${btn('Edit', { kind: 'text', sm: true, attrs: { 'data-coal': '1', 'aria-label': 'Edit coalitions' } })}</dd></div>

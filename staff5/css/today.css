@@ -124,7 +124,6 @@
 .td-root .td-pmore:hover { background: var(--p50); }
 .td-root .td-pmore .ic { width: 16px; height: 16px; }
 .td-root .td-panel a:focus-visible, .td-root .td-panel button:focus-visible { outline-offset: -2px; border-radius: var(--r8); }
-.td-root .td-now { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: var(--pill); background: var(--p100); color: var(--p900); font: 700 var(--t13)/20px var(--font); vertical-align: 1px; }
 .td-root .td-wrow .td-num { font-size: var(--t14); line-height: 20px; }
 /* waiting on others: the step (a link to its bill), then what you can do about someone else's step (R-022):
    message them, or give a to-do to someone else. Two small text buttons, never more (A-20). */
@@ -734,10 +733,6 @@
 .td-root .td-mstate { flex: 1 1 auto; display: inline-flex; align-items: center; gap: 4px; color: var(--n700); }
 .td-root .td-mstate .ic { width: 14px; height: 14px; flex: none; }
 .td-root .td-myrev { color: var(--warn-text); font-weight: 700; }   /* v4 (R-269): your approval on today's hearing, amber like its deadline (A-5) */
-.td-root .td-mdoc { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; font-weight: 700; color: var(--p700); text-decoration: none; }
-.td-root .td-mdoc .ic { width: 14px; height: 14px; }
-.td-root .td-mdoc:hover { text-decoration: underline; }
-@media (max-width: 899px) { .td-root .td-mdoc { min-height: 44px; } }
 
 /* v4 (R-269, T11): Slipping. Each row carries whoever it waits on, in place of the per-person headings. */
 .td-root .td-rav { flex: none; display: inline-flex; align-items: center; gap: 2px; min-width: 52px; }

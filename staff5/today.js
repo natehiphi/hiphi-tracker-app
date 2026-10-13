@@ -55,6 +55,7 @@ import { S, DB, DEMO, SESSION_OVER, SESSION_YEAR, DEADLINES, esc, fmtDT, fmtDate
 import { sharePageUrl, liveAsk } from './model.js';   // this week's asks (R-132); the ask still showing (Z1-3)
 import { plainAction, OUT_PLAIN as OUT, draftFor, alertsToReview, approves, canFirstApprove, canSecondApprove, alertTarget, billNum, billTag, billSay, blurb, roomShort, chairMail, attendees, streamOf, hearingAhead, stopOf, diedish, legislativeDay, hstDayOf, gateNeed, deadlineName, unslack, billById, personName, OUTCOME_LABEL, sessionClock, suggestions, suggState, setSugg, SUGGEST_CAP, whyDead } from './model.js';
 import { icon, btn, iconBtn, chip, avatar, groupHead, segmented, empty, notice, toast, openSheet, closeSheet, pickerSheet, menuSheet, confirmSheet, field, keysOn, urgentMark, countdown, clockDay } from './ui.js';
+import { goingBtn, docBtn, filedBtn, showAllBtn, ACT as LOOK } from './ui.js';   // R-277 fix 4 (U-4, U-8): one look per action
 import { newSteps, markNewStep } from './help.js';
 import { draftAsking, makeDraftNow } from './testimony.js';
 import { openLook } from './look.js';
@@ -349,14 +350,14 @@ export function todayItems(scope = 'mine', who = null, drop = null) {   // `drop
       // amber mark beside it reads as time left to file late, not as how late it is (fresh-eyes review, R-264).
       const lt = due != null && due <= now && h && new Date(h.scheduled_at).getTime() > now ? 'late ' : '';
       if (mine || open) push({ ...base, kind: 'file', who: mine ? 'yours' : 'anyone', s: mine && self ? `File your ${lt}testimony at the Capitol` : `File the ${c} ${lt}testimony at the Capitol`,
-        btns: [{ label: 'File at the Capitol', href: capitolUrl(b), ext: true }, { label: 'Mark filed', act: 'file' }] });
+        btns: [{ label: 'File at the Capitol', href: capitolUrl(b), ext: true }, { label: LOOK.filed, act: 'file' }] });
       else if (team) wait(first(d.submitted_by || own(b)), 'to file it', 'Approved', [d.submitted_by, own(b)]);   // either of them may file it
       continue;
     }
     // draft: sent back with a note, pulled back after submitting, or never submitted
     const k = d.review_note ? 'revise' : d.submitted_at ? 'submit' : 'write';
     if (mine || open || (k === 'revise' && subMe)) {
-      const yours = mine && self ? 'your' : 'the', doc = d.doc_url ? { label: 'Open Doc', href: d.doc_url, ext: true } : null;
+      const yours = mine && self ? 'your' : 'the', doc = d.doc_url ? { label: LOOK.doc, href: d.doc_url, ext: true, doc: true } : null;
       // Who sent it back is not stored: an approved_by means it came back from second review, else from an admin.
       const asked = 'sent back';   // the draft does not record who sent it back, so no name (it said "Nate asked" whoever had, R-152 C); "Sent back" is its one name (v4, C-15)
       push({ ...base, kind: k, who: mine ? 'yours' : 'anyone',
@@ -400,7 +401,7 @@ export function todayItems(scope = 'mine', who = null, drop = null) {   // `drop
       if (!dr && !S.failed?.('testimony drafts')) push(noDraft(b, h, who));
       else if (dr && dr.status !== 'filed' && b.current_version && dr.version !== b.current_version) push({ kind: 'stale', key: `s:${b.id}:st:${dr.id}`, b, h, d: dr, due: testDue(h), who,
         s: `Check ${self && (isOwner(b) || dr.submitted_by === me.id) ? 'your' : 'the'} ${c} testimony: the bill is now ${esc(b.current_version)}`,
-        note: `The draft was written for ${esc(dr.version || 'the introduced bill')}.`, btns: dr.doc_url ? [{ label: 'Open Doc', href: dr.doc_url, ext: true }] : [] });
+        note: `The draft was written for ${esc(dr.version || 'the introduced bill')}.`, btns: dr.doc_url ? [{ label: LOOK.doc, href: dr.doc_url, ext: true, doc: true }] : [] });
       // An ask past its show-through date is no ask (Z1-3 part 4): the card asks for the next one.
       if (['strongly_support', 'strongly_oppose'].includes(b.position) && !liveAsk(b)) {
         const gone = String(b.public_action || '').trim() && b.public_action_until ? b.public_action_until : '';
@@ -716,6 +717,9 @@ function button(t, x, primary, filled = true) {
   const attrs = { 'data-k': t.key, ...(primary ? { 'data-primary': '1' } : {}), ...(x.act ? { 'data-act': x.act } : {}), ...(x.read ? { 'data-read': '1' } : {}), ...(x.seen ? { 'data-seen': '1' } : {}), ...(x.review ? { 'data-review': '1' } : {}) };
   // A message already seen is quieter: its Reply is an outline, so the new ones keep the one filled button.
   const kind = primary && !x.text ? (t.seen || !filled ? 'secondary' : 'primary') : 'text';
+  // R-277 fix 4 (U-4, U-8): the Doc and Mark filed look as they do on every screen (ui.js); only the weight follows the step.
+  if (x.doc) return docBtn(x.href, { kind, attrs });
+  if (x.act === 'file') return filedBtn(attrs, kind === 'text' ? 'secondary' : kind);
   if (x.href) return btn(esc(x.label), { kind, href: x.href, target: x.ext && !x.mail ? '_blank' : undefined, icon: kind === 'primary' ? x.icon : undefined, iconEnd: x.ext && !x.mail ? 'external-link' : undefined, attrs });
   return btn(esc(x.label), { kind, attrs });
 }
@@ -885,7 +889,7 @@ function paneHearing(c) {
   const going = goingOf(goersAt(h)), mine = goingFor(h).going, isNew = c.p.kind === 'nodraft' && c.p.h?.id === h.id;
   return `<div class="td-psec td-phear"><h3 class="td-ph3">${isNew ? 'New hearing' : 'Hearing'}</h3>
     <a class="td-phl" href="#/hearing/${esc(h.id)}?from=today">${icon('landmark')}<span><b>${esc(h.committee)} ${esc(whenLine(h.scheduled_at))}</b>${h.room ? ` · ${esc(room(h.room))}` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</a>
-    <p class="td-pgo">${icon('users')}<span>${esc(going || 'Nobody going yet')}</span>${btn(mine ? 'I’m not going after all' : 'I’m going', { kind: 'text', attrs: { 'data-going': h.id } })}</p></div>`;
+    <p class="td-pgo">${icon('users')}<span>${esc(going || 'Nobody going yet')}</span>${goingBtn(mine, { 'data-going': h.id })}</p></div>`;
 }
 function paneAlso(c) {
   const also = c.tasks.slice(1); if (!also.length) return '';
@@ -979,7 +983,7 @@ function mineCard(h, revs = new Map(), took = new Set()) {
     const state = rv ? `<span class="td-mstate td-myrev">${icon('clock')}<span>Yours to approve</span></span>${btn('Review', { kind: 'secondary', href: `#/review/${encodeURIComponent(rv.d.id)}`, attrs: { 'data-review': '1' } })}`
       : says ? `<span class="td-mstate">${icon(t.icon)}<span>${esc(t.label)}</span></span>` : '<span class="td-mstate">We monitor this bill</span>';
     return `<li><a class="td-mbill" href="${billRoute(x.b)}">${billTag(x.b, 60)}</a>
-      ${state}${d?.doc_url ? `<a class="td-mdoc" href="${esc(d.doc_url)}" target="_blank" rel="noopener">Open Doc${icon('external-link')}</a>` : ''}</li>`; };
+      ${state}${docBtn(d?.doc_url, { sm: true })}</li>`; };
   // Late testimony is said once for the sitting (its deadline is the sitting's), in amber, not on every bill (A-14).
   const due = testDue(h), late = due <= now && new Date(h.scheduled_at).getTime() > now && pos.some(x => !testimonyOf(x.h, x.b).filed);
   return `<section class="td-mine" aria-labelledby="td-mine-${esc(h.id)}">
@@ -1043,7 +1047,7 @@ async function toggleGoing(h) {
 const P1 = '<span class="sv-p1">P1</span>';
 // A titled white box (Getting ready for January, between sessions).
 const panel = (id, ic, title, count, body, extra = '') => `<section class="td-panel td-p-${id}" aria-labelledby="td-p-${id}"><div class="td-ph"><h2 id="td-p-${id}">${icon(ic)}<span>${title}</span></h2>${extra}${count == null || count === '' ? '' : `<span class="n">${count}</span>`}</div>${body}</section>`;
-const moreBtn = (key, open, n) => `<button type="button" class="td-pmore" data-fold="${key}" aria-expanded="${open}">${open ? 'Show fewer' : `Show all ${n}`}${icon(open ? 'chevron-up' : 'chevron-down')}</button>`;
+const moreBtn = (key, open, n) => showAllBtn(n, { 'data-fold': key }, { open });   // R-277 fix 4 (U-4): ui.js, the one Show all
 
 // Hearings on Monitor bills fold away until asked for (decision 4): in the week of 16 March, 10 of the 15 bill hearings on
 // Nate's list were on bills he only monitors, and they buried the five he works on. "+N on bills you monitor" brings
@@ -1363,7 +1367,7 @@ function weekView(route, scope, who, r) {
   const dayHtml = d => {
     const isToday = d === today, past = d < today, html = body([wk.get(d)], false);
     return `<section class="td-day wk-day${isToday ? ' today' : past ? ' past' : ''}" data-day="${d}" aria-labelledby="td-d-${d}"${isToday ? ' aria-current="date"' : ''}>
-      <div class="td-dh"><h3 id="td-d-${d}">${esc(dayFmt(d, { weekday: 'short' }))} <span class="td-dom">${esc(dayFmt(d, { day: 'numeric' }))}</span></h3>${isToday ? '<span class="td-now">Today</span>' : ''}</div>
+      <div class="td-dh"><h3 id="td-d-${d}">${esc(dayFmt(d, { weekday: 'short' }))} <span class="td-dom">${esc(dayFmt(d, { day: 'numeric' }))}</span></h3>${isToday ? ' ' + chip('Today', 'info') : ''}</div>
       <div class="wk-col">${html || `<p class="td-dnone">${past ? 'Nothing was scheduled.' : 'Nothing scheduled.'}</p>`}</div></section>`;
   };
   // Saturday and Sunday share one place, added only in a week that has something then, and never called Friday (bug 4,
@@ -1556,14 +1560,14 @@ function slipHearRow(c, ek, sel, end, o) {
   const mark = `<span class="td-urg"><span class="sv-urg${soon ? ' soon' : ''}" role="img" aria-label="${esc(`${spanOf(c.hear.t)} to the hearing`)}"><b>${esc(spanOf(c.hear.t, { short: true }))}</b><span>to hearing</span></span></span>`;
   const nums = shortNames(c.hear.bills);
   return `<div data-k="${ek}" class="td-row td-rhear">${sel(`${mark}${o.av ? `<span class="td-rav">${o.av}</span>` : ''}<span class="td-rmain"><span class="td-rb"><b class="td-num">${esc(h.committee)}</b><span class="td-rn">${esc(whenLine(h.scheduled_at))}</span></span><span class="td-rs">Nobody going yet · ${esc(nums.slice(0, 4).join(', '))}${nums.length > 4 ? ' …' : ''}</span></span>`)}
-    <span class="td-ract">${btn('I’m going', { kind: 'secondary', attrs: { 'data-going': h.id, 'aria-label': `I’m going to the ${h.committee} hearing ${whenLine(h.scheduled_at)}` } })}</span>${end}</div>`;
+    <span class="td-ract">${goingBtn(false, { 'data-going': h.id, 'aria-label': `I’m going to the ${h.committee} hearing ${whenLine(h.scheduled_at)}` })}</span>${end}</div>`;
 }
 function slipHearCard(c, i, k, o) {
   const h = c.hear.h;
   return `<article class="td-card td-cluster" data-k="${esc(k)}" tabindex="-1" aria-labelledby="td-s${i}">${urgBlock(null)}
     <p class="td-s" id="td-s${i}">${icon('landmark')}${esc(h.committee)} ${esc(whenLine(h.scheduled_at))} · Nobody going yet</p>
     <p class="td-why">${esc(c.hear.bills.map(billSay).join(', '))}</p>
-    <div class="td-acts">${btn('Open the hearing', { kind: 'secondary', href: `#/hearing/${encodeURIComponent(h.id)}?from=today` })}${btn('I’m going', { kind: 'text', attrs: { 'data-going': h.id } })}</div></article>`;
+    <div class="td-acts">${btn('Open the hearing', { kind: 'secondary', href: `#/hearing/${encodeURIComponent(h.id)}?from=today` })}${goingBtn(false, { 'data-going': h.id })}</div></article>`;
 }
 function paneSlipHear(c) {
   const h = c.hear.h;
@@ -1571,7 +1575,7 @@ function paneSlipHear(c) {
     <h2 class="td-pname" id="td-pane-h">Nobody going yet</h2>
     <div class="td-psec td-phear"><a class="td-phl" href="#/hearing/${esc(h.id)}?from=today">${icon('landmark')}<span><b>${esc(h.committee)} ${esc(whenLine(h.scheduled_at))}</b>${h.room ? ` · ${esc(room(h.room))}` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</a>
       <ul class="td-palso">${c.hear.bills.map(b => `<li><a class="td-pat" href="${billRoute(b)}">${billTag(b, 60)}</a></li>`).join('')}</ul>
-      <p class="td-pgo">${icon('users')}<span>Nobody going yet</span>${btn('I’m going', { kind: 'text', attrs: { 'data-going': h.id } })}</p></div>`;
+      <p class="td-pgo">${icon('users')}<span>Nobody going yet</span>${goingBtn(false, { 'data-going': h.id })}</p></div>`;
 }
 // Team for Nate, Jess and Jaylen: Slipping first, then each person's list (folded). `rows`: the laptop's one-line rows.
 function slipHtml(rows) {
@@ -1633,7 +1637,7 @@ function coalDue(r, skip = new Set()) {
         s: esc(!d ? `${w} to draft the testimony · new ${h.committee} hearing ${hearingDay(h)}` : d.review_note ? `${w} to revise the testimony · sent back` : `${w} to finish the testimony · in draft`),
         ps: esc(!d ? `${w} to draft: a new ${h.committee} hearing ${hearingDay(h)} and no draft yet` : d.review_note ? `${w} to revise: sent back` : `${w} to finish: the draft is not submitted yet`),
         q: d?.review_note ? esc(d.review_note) : '',
-        btns: [!d ? { label: draftAsking(h) ? 'Making the draft…' : 'Make the draft now', act: 'draftnow' } : d.doc_url ? { label: 'Open Doc', href: d.doc_url, ext: true } : { label: 'Open the bill', href: billRoute(b) }] });
+        btns: [!d ? { label: draftAsking(h) ? 'Making the draft…' : 'Make the draft now', act: 'draftnow' } : d.doc_url ? { label: LOOK.doc, href: d.doc_url, ext: true, doc: true } : { label: 'Open the bill', href: billRoute(b) }] });
     }
     // An ask helps only while the public can still send written testimony on time: due today, or late before that closes.
     if (['strongly_support', 'strongly_oppose'].includes(b.position) && !liveAsk(b) && !asked.has(b.id) && due > now) {
@@ -1980,7 +1984,7 @@ export function fileSheet(b, d, after = redraw) {
   openSheet({ title: `Filed the ${esc(billSay(b))} testimony for ${esc(d.committee)}?`, size: 'auto',
     body: field('td-furl', 'Capitol confirmation link (optional)', '<input id="td-furl" type="url" inputmode="url" autocomplete="off" placeholder="https://">', 'Paste the link from the confirmation email or page, if you have one.')
       + `<p class="bw-shlink">${btn('How to file at the Capitol', { kind: 'text', icon: 'circle-help', attrs: { 'data-howfile': '1' } })}</p>`,   // R-277 fix 9: the steps, one tap away
-    foot: `${btn('File at the Capitol', { kind: 'text', href: capitolUrl(b), target: '_blank', iconEnd: 'external-link' })}${btn('Mark filed', { attrs: { 'data-go': '1' } })}`,
+    foot: `${btn('File at the Capitol', { kind: 'text', href: capitolUrl(b), target: '_blank', iconEnd: 'external-link' })}${filedBtn({ 'data-go': '1' }, 'primary')}`,
     wire: dlg => {
       const go = dlg.querySelector('[data-go]'), inp = dlg.querySelector('#td-furl');
       dlg.querySelector('[data-howfile]').onclick = async () => { closeSheet(); await afterBack(); S.go('#/help/file'); };

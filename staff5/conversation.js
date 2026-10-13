@@ -9,6 +9,7 @@
 import { S, DB, DEMO, esc, fmtDate, advocate, hooks } from './data.js';
 import { legById, billById, stopOf, legsOf, cmteName, hiToday, hstDayOf, diedish, billSay } from './model.js';
 import { icon, btn, iconBtn, chip, toast, openSheet, closeSheet, menuSheet } from './ui.js';
+import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { issuesOfBill, issueById } from './issues.js';
 import { photo, shortName, partyDist, legHref, roleWord, seatsText } from './pathway.js';
 import { matchLegs } from './legislators.js';
@@ -102,7 +103,7 @@ export function convListHTML(rows, here = {}, { limit = 3, key = 'cv', none = 'N
   const all = !limit || (S.cvAll ??= new Set()).has(key) || gs.length <= limit + 1;
   const shown = all ? gs : gs.slice(0, limit);
   return `<div class="rows cv-list">${shown.map(g => itemHTML(g, here)).join('')}</div>
-    ${shown.length < gs.length ? btn(`Show all ${gs.length}`, { kind: 'text', icon: 'chevron-down', cls: 'cv-all', attrs: { 'data-cvall': key } }) : ''}`;
+    ${shown.length < gs.length ? showAllBtn(gs.length, { 'data-cvall': key }, { cls: 'cv-all' }) : ''}`;
 }
 // rows(): the rows as they are now; redraw(): paint the list again (a whole page, or just this box).
 export function wireConvList(box, { rows, redraw }) {

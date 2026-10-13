@@ -9,6 +9,7 @@
 // openLook is unchanged for Today and every other screen.
 import { S, esc, capitolUrl, fmtDT, fmtDate, myIssuesOf } from './data.js';
 import { openSheet, closeSheet, btn, iconBtn, stageRibbon, avatar, ownerOf, countdown, POS_WORD, keysOn } from './ui.js';
+import { docBtn } from './ui.js';   // R-277 fix 4: one look for the Doc button
 import { stopOf, blurb, billNum, billSay, cmteName, chairMail, draftFor, hearingAhead, sponsorName, gateNeed, deadlineName, billByRef } from './model.js';
 import { CHAMBER_NAME } from '../stops.js';
 import { billRoute, whenAt, hearingWhen, roomName } from './model.js';
@@ -54,7 +55,7 @@ function hearingCard(b, h, d) {
         <p>${esc(hearingWhen(h))}</p>
         ${h.testimony_deadline ? `<p>Testimony due ${esc(whenAt(h.testimony_deadline))} ${countdown(h.testimony_deadline, { until: h.scheduled_at })}</p>` : ''}
         <p class="small muted">Testimony: ${esc(testimonyWord(d))}</p>
-        ${fileOk || d?.doc_url ? `<div class="lk-acts">${fileOk ? btn('File at the Capitol', { kind: 'secondary', sm: true, href: capitolUrl(b), target: '_blank', iconEnd: 'external-link' }) : ''}${d?.doc_url ? btn('Open Doc', { kind: 'text', sm: true, href: d.doc_url, target: '_blank', iconEnd: 'external-link' }) : ''}</div>` : ''}</div>`;
+        ${fileOk || d?.doc_url ? `<div class="lk-acts">${fileOk ? btn('File at the Capitol', { kind: 'secondary', sm: true, href: capitolUrl(b), target: '_blank', iconEnd: 'external-link' }) : ''}${docBtn(d?.doc_url, { sm: true })}</div>` : ''}</div>`;
 }
 const chairBtn = (b, st) => st.committee && chairMail(st.committee) ? `<div class="lk-acts">${btn('Email the chair', { kind: 'secondary', sm: true, href: `mailto:${chairMail(st.committee).email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}`, target: '_blank', iconEnd: 'external-link' })}</div>` : '';
 

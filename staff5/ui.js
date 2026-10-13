@@ -35,6 +35,21 @@ export const POS_WORD = { strongly_support: 'Strong support', support: 'Support'
 export const POS_SUB = { strongly_support: 'Makes it P1, the team’s top tier', monitor: 'Watch it; no testimony drafts' };
 export const posChip = p => chip(POS_WORD[p || ''] || p, '', POS_ICON[p || ''] || 'circle-dashed');
 
+// ---- R-277 fix 4 (U-4, U-8): one look per action. "I'm going" had 3 looks (a link, a chip, a text button) and 3 names
+// for being on ("Take me off", "You’re going", "I’m not going after all"); the Doc button 3 names ("Open the Google
+// Doc", "Open Doc", "Open") and 3 looks; "Mark filed" and "Show all" 2 to 4 each. Every screen draws them from here, so a
+// person who has learned one has learned them all. Only the weight may differ, and only when the action IS the step (the
+// one filled button, A-3) or a sheet's own confirm. ----
+export const ACT = { going: 'I’m going', goingOn: 'You’re going', doc: 'Open Doc', filed: 'Mark filed', all: n => `Show all ${n}`, fewer: 'Show fewer' };
+// A toggle: pressed, it says what is true; pressing again takes you off (A-12).
+export const goingBtn = (on, a = {}, { kind = 'text', label, cls = '' } = {}) => btn(label || (on ? ACT.goingOn : ACT.going), { kind, icon: on ? 'user-check' : 'user-plus', cls: `sv-going${cls ? ' ' + cls : ''}`,
+  attrs: { 'aria-pressed': on ? 'true' : 'false', title: on ? 'You’re on the list. Press to take yourself off.' : undefined, ...a } });
+export const docBtn = (url, { kind = 'text', attrs: a, sm } = {}) => url ? btn(ACT.doc, { kind, sm, icon: 'file-text', iconEnd: 'external-link', href: url, target: '_blank', cls: 'sv-doc', attrs: a }) : '';
+export const filedBtn = (a = {}, kind = 'secondary') => btn(ACT.filed, { kind, icon: 'clipboard-check', cls: 'sv-filed', attrs: a });
+// "Show all 12 members" under a folded list; "Show fewer" once open (aria-expanded says which).
+export const showAllBtn = (n, a = {}, { what = '', open = null, cls = '' } = {}) => btn(open ? ACT.fewer : `${ACT.all(n)}${what ? ' ' + what : ''}`, { kind: 'text', icon: open ? 'chevron-up' : 'chevron-down', cls: `sv-showall${cls ? ' ' + cls : ''}`,
+  attrs: { ...(open !== null ? { 'aria-expanded': open ? 'true' : 'false' } : {}), ...a } });
+
 // ---- people ----
 export function avatar(adv, size = 24) {
   if (!adv) return `<span class="sv-av none" style="--av:${size}px" role="img" aria-label="No owner" title="No owner"></span>`;

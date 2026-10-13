@@ -52,6 +52,43 @@ def batch_c(b, page, go):
         n, c = pg.evaluate(CUT_ROWS); total += n; cut += [f'{who} {r}: {x}' for x in c]
       pg.context.close()
     check(f'Today and Team at {W}: no row cut short, all eight people ({total} rows)', total and not cut, '; '.join(cut[:3]))
+  batch_c_looks(b, page, go)
+
+# One look per action (fix 4, U-4, U-8): every "I'm going", Doc, "Mark filed" and "Show all" on a page (sheets aside, where
+# the confirm button is the sheet's own) is drawn by ui.js: its class, its words, its icons, and the same colour and weight
+# for the quiet (text) ones. The Doc is the step's one filled or outlined button where it IS the step (Patti's Today).
+LOOKS = r"""() => { const out = []; const vis = e => e.offsetParent && !e.closest('dialog');
+  const say = e => (e.innerText || '').replace(/\s+/g, ' ').trim();
+  const add = (act, e) => { const cs = getComputedStyle(e), svgs = e.querySelectorAll('svg, .ic').length;
+    out.push({ act, text: say(e), cls: e.className || '', kind: /\bprimary\b/.test(e.className) ? 'primary' : /\bsecondary\b/.test(e.className) ? 'secondary' : 'text',
+      color: cs.color, weight: cs.fontWeight, icons: svgs }); };
+  for (const e of document.querySelectorAll('main button, main a')) { if (!vis(e)) continue; const s = say(e); if (!s) continue;   // folded away
+    if (/^(I’m going|You’re going|Take me off|I’m not going)/.test(s) && e.tagName === 'BUTTON') add('going', e);
+    else if (/docs\.google\.com/.test(e.getAttribute('href') || '') || /Google Doc/.test(s)) add('doc', e);
+    else if (s === 'Mark filed') add('filed', e);
+    else if (/^Show all \d/.test(s) && !e.closest('.lg-sg')) add('all', e); }
+  return out; }"""
+LOOK_SCREENS = [('NT', '/'), ('NT', '/bill/HB1562'), ('NT', '/bill/SB3234'), ('NT', '/hearing/9ebffb71-69c2-4868-8956-e624cac16d30'), ('NT', '/bill/HB2121'),
+                ('PH', '/'), ('JS', '/review'), ('KR', '/'), ('NT', '/coalition'), ('NT', '/legislators')]
+WANT = {'going': ('sv-going', r'^(I’m going|You’re going)$'), 'doc': ('sv-doc', r'^Open Doc$'), 'filed': ('sv-filed', r'^Mark filed$'), 'all': ('sv-showall', r'^Show all \d+( \w+)?$')}
+
+def batch_c_looks(b, page, go):
+  seen = {k: [] for k in WANT}
+  for who, r in LOOK_SCREENS:
+    pg = page(who); go(pg, r, 3000)
+    for x in pg.evaluate(LOOKS): x['where'] = f'{who} {r}'; seen[x['act']].append(x)
+    pg.context.close()
+  for act, (cls, rx) in WANT.items():
+    xs = seen[act]; bad = [f"{x['where']}: '{x['text']}' ({x['cls']})" for x in xs if cls not in x['cls'].split() or not re.match(rx, x['text'])]
+    quiet = {(x['color'], x['weight'], x['icons']) for x in xs if x['kind'] == 'text'}
+    icons = {x['icons'] for x in xs}
+    check(f'One look for "{act}": {len(xs)} on {len(LOOK_SCREENS)} screens, one class, one name, one quiet style, one icon set',
+          xs and not bad and len(quiet) <= 1 and len(icons) == 1, '; '.join(bad[:3]) or f'styles {quiet} icons {icons}')
+  # status chips: drawn only by ui.js chip() (no hand-made "New", stance or "Today" badges), and no button wears the chip class
+  # but the filter and pick toggles pub/base.css styles as button.chip
+  src = {f: open(os.path.join(ROOT or '.', 'staff5', f)).read() for f in os.listdir(os.path.join(ROOT or '.', 'staff5')) if f.endswith('.js') and f != 'ui.js'}
+  raw = [f for f, s in src.items() if re.search(r'<span class="chip[ "]|class="(bw-new|sp-st|td-now)[ "]|class="chip hr-gobtn', s)]
+  check('Status chips: every one from ui.js chip(), none drawn by hand', not raw, ', '.join(raw))
 
 def main():
   with sync_playwright() as p:

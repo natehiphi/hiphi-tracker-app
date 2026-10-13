@@ -167,7 +167,6 @@
 .bw-chair { display: inline-block; }   /* "Chair Sen. San Buenaventura" wraps as one phrase, never after the word */
 /* the chair named in the heading's sentence is a link (v3) */
 .bw-status a { font-weight: 700; }
-.bw-more { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
 /* a detail with its own Edit (the coalitions): the button at the line's end */
 .bw-dtact dd { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); }
 .bw-dtact dd .btn.text { flex: none; margin: -8px -12px -8px 0; }
@@ -233,7 +232,6 @@
 .bw-msgt { margin-top: 2px; color: var(--n900); line-height: 1.45; overflow-wrap: anywhere; }
 .bw-msgt a { font-weight: 700; }
 .bw-at { background: var(--n100); border-radius: 4px; padding: 0 3px; }
-.bw-new { font-size: var(--t13); font-weight: 700; color: var(--p800); background: var(--p50); border-radius: var(--pill); padding: 0 8px; }
 .bw-msgmore { margin: -10px -10px 0 0; color: var(--n500); }
 .bw-msgmore .ic { width: 18px; height: 18px; }
 .bw-msg .sv-av { margin-top: 2px; }
@@ -407,7 +405,7 @@
   .bw-dl .bw-dt { display: grid; grid-template-columns: 132px 1fr; gap: var(--s16); }
   .bw-dl .bw-dt dt { margin: 1px 0 0; }
   .bw-todo { min-height: 48px; }
-  .bw-page .bw-inline, .bw-more, .bw-comp, .bw-page .bw-dt dd a[href^="#/legislator/"] { min-height: 32px; }
+  .bw-page .bw-inline, .bw-comp, .bw-page .bw-dt dd a[href^="#/legislator/"] { min-height: 32px; }
   /* the going toggle and the chair named in the heading are mouse targets here */
   .bw-gobtn { min-height: 32px; margin: -6px 0; }
   .bw-addrow { max-width: 560px; }
@@ -525,7 +523,7 @@
 @media (hover: hover) and (pointer: fine) {
   .bw-page .btn.text:hover { background: var(--p50); text-decoration: none; }
   .bw-page .bw-inline { border-radius: 6px; }
-  .bw-page .bw-inline:hover, .bw-page .bw-more:hover { background: var(--p50); box-shadow: 0 0 0 4px var(--p50); }
+  .bw-page .bw-inline:hover { background: var(--p50); box-shadow: 0 0 0 4px var(--p50); }
   .bw-page button.chip:hover:not([aria-disabled="true"]) { background: var(--p50); border-color: var(--p700); }
   .bw-fold summary { border-radius: var(--r8); }
   .bw-fold summary:hover { background: var(--p50); box-shadow: 0 0 0 4px var(--p50); }

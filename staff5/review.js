@@ -9,6 +9,7 @@
 import { S, DB, esc, fmtDT, advocate, hooks, changedSince, startedFromLine } from './data.js';
 import { agoWords, billNum, billSay, blurb, alertTarget, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn } from './model.js';
 import { icon, btn, chip, stepBar, empty, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, posIcons, POS_WORD, ownerOf, clockDay } from './ui.js';
+import { docBtn } from './ui.js';   // R-277 fix 4 (U-4): "Open Doc" here too (it was "Open the Google Doc", a full-width outline)
 import { emailPreview } from './composer.js';
 import { reviewQueue, hearingFor, testDue, cd, hearingLine, reviewerNames, needsSecond, HOVER, afterBack } from './today.js';
 import { statusSentence } from './bill.js';
@@ -105,7 +106,7 @@ function draftBody(it) {
     ${stale ? notice('warn', 'triangle-alert', `The bill is now ${esc(b.current_version)}; this draft was written for ${esc(d.version || 'the introduced bill')}.${changedSince(b, d.version) ? ` What changed: ${esc(changedSince(b, d.version))}` : ''}`) : ''}
     ${d.review_note ? `<blockquote class="td-q">${esc(d.review_note)}</blockquote>` : ''}
     ${stepBar(d.status, { second: needsSecond(d) })}
-    ${d.doc_url ? btn('Open the Google Doc', { kind: 'secondary', full: true, href: d.doc_url, target: '_blank', icon: 'file-text', iconEnd: 'external-link', attrs: { 'data-doc': '1' } }) : `<p class="small muted">The Google Doc link is missing. Open the bill to find the draft.</p>`}
+    ${d.doc_url ? docBtn(d.doc_url, { attrs: { 'data-doc': '1' } }) : `<p class="small muted">The Google Doc link is missing. Open the bill to find the draft.</p>`}
   </section>`;
 }
 function emailBody(it) {

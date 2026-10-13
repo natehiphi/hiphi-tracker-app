@@ -164,10 +164,6 @@
 .sp-person a.sp-listchip:hover { background: var(--p50); border-color: var(--p700); }
 .sp-person .sp-nick .sv-t { display: none; }   /* a nickname names the bill; the plain summary is the line under it (billRow puts it in the title too: R-264 found it said twice) */
 /* where they said they stand on a bill they follow: an icon and the word, so it never rests on the colour */
-.sp-person .sp-st { display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; padding: 1px var(--s8) 1px 6px; border-radius: var(--pill); background: var(--n100); color: var(--n700); font-size: var(--t13); font-weight: 700; vertical-align: -3px; }
-.sp-person .sp-st .ic { width: 14px; height: 14px; flex: none; }
-.sp-person .sp-showall { justify-content: center; gap: 6px; min-height: 48px; color: var(--p700); font-weight: 700; font-size: var(--t14); }
-.sp-person .sp-showall .ic { width: 18px; height: 18px; }
 .sp-person .sp-feed { list-style: none; margin: 0; padding: var(--s4) var(--s16); }
 .sp-person .sp-fi { display: flex; align-items: flex-start; gap: var(--s12); padding: var(--s12) 0; }
 .sp-person .sp-fi + .sp-fi { border-top: 1px solid var(--n100); }
