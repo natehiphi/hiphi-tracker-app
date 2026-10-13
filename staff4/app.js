@@ -430,9 +430,11 @@ function sandboxExtras() {
     const t0 = Date.now(), c = S.hearings.filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) - t0 > 2 * 864e5 && new Date(h.scheduled_at) - t0 < 6 * 864e5)
       .map(h => ({ h, b: S.bills.find(x => x.id === h.bill_id) })).filter(x => x.b && x.b.position && x.b.position !== 'monitor' && !diedish(x.b) && draftFor(x.b.id, x.h.committee))
       .sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at));
-    // The signed-in person's own bill when there is one, so Today's "Mine" shows the card (the sandbox opens as the admin).
+    // Nate's bill (the sandbox opens as the admin), whoever is practising: v4 (R-269, R-267 #13) seeds the same drafts for
+    // everyone, or one bill read "Make the draft now" to its owner and "sent back" to the teammates practising beside them.
     // Not a strongly supported or opposed bill: those also carry the public-ask card, and two cards on one bill hide each other in a short list.
-    const own = c.filter(x => !/^strongly_/.test(x.b.position) && (S.assignments[x.b.id] || []).includes(S.me?.id)), pick = own.slice(-1)[0];
+    const seed = S.advocates.find(x => x.initials === 'NT')?.id || S.me?.id;
+    const own = c.filter(x => !/^strongly_/.test(x.b.position) && (S.assignments[x.b.id] || []).includes(seed)), pick = own.slice(-1)[0];
     if (pick) { const gone = draftFor(pick.b.id, pick.h.committee); S.drafts[pick.b.id] = (S.drafts[pick.b.id] || []).filter(d => d.id !== gone.id); }
     // And one set far ahead (X10-5): a hearing with no draft is work the day it is set, however far off it is.
     const far = S.hearings.filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) - t0 > 9 * 864e5 && new Date(h.scheduled_at) - t0 < 40 * 864e5)

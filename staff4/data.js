@@ -1480,7 +1480,10 @@ export async function demoInit() {
   const positioned = S.bills.filter(b => b.stage !== 'dead' && ACTIONABLE.includes(b.position));
   // The one in review (Approve / Request changes) sits on a bill with a position; when "as" has no P1 bill with a
   // hearing ahead it used to fall back to the first bill of all, a Monitor one ("HIPHI only monitors this bill").
-  const anchor = positioned.find(b => b.priority === 1 && (sc.assignments[b.id] || []).includes(S.me.id) && heardSoon(b))
+  // v4 (R-269, R-267 #13): seeded around Nate, not around whoever is practising, so every teammate sees the same drafts
+  // (one bill read "sent back" to Patti and "Make the draft now" to Lauren, and people practising together disagreed).
+  const SEED = byIni.NT || S.me.id;
+  const anchor = positioned.find(b => b.priority === 1 && (sc.assignments[b.id] || []).includes(SEED) && heardSoon(b))
     || positioned.find(heardSoon) || positioned[0] || S.bills[0];
   if (anchor && !DEMO_OFF) {   // between sessions nothing is in review
     const b0 = anchor;
@@ -1512,7 +1515,7 @@ export async function demoInit() {
     let st = ['filed', 'second_review', 'draft', 'approved'][(n - 2) % 4];
     // The Desk opens on "my bills", so make sure one of Nate's has the
     // approved-not-filed state - that is the button training should practise.
-    if (!approvedSeeded && (sc.assignments[h.bill_id] || []).includes(S.me.id)) { st = 'approved'; approvedSeeded = true; }
+    if (!approvedSeeded && (sc.assignments[h.bill_id] || []).includes(SEED)) { st = 'approved'; approvedSeeded = true; }
     const ago = h => new Date(Date.now() - h * 36e5).toISOString();
     (S.drafts[h.bill_id] ??= []).push({ id: 'dd' + n++, bill_id: h.bill_id, committee: h.committee, hearing_id: h.id,   // as the live job links it
       status: st, doc_url: 'https://docs.google.com/document/d/demo' + n + '/edit',
