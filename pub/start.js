@@ -357,7 +357,7 @@ function stepTopics(step) {
 // followed unseen: HIPHI's strongly supported and staff-recommended ones among them, else the most important one. One
 // "Follow all" per category, which also brings issues HIPHI takes up there later (R-018).
 export const skel = (step, said = 'Finding HIPHI’s issues for you') => shell('', `<p class="sr" role="status">${said}</p>
-  <div class="skel" style="height:34px;width:80%"></div><div class="skel" style="height:64px"></div>`, '<div class="skel" style="height:128px"></div>'.repeat(3), true);
+  <div class="skel" style="height:34px;width:80%"></div><div class="skel" style="height:64px"></div>`, '<div class="skel" style="height:96px"></div>'.repeat(3), true);   // short enough to fit a phone too (R-265)
 export const loadErr = step => shell('', `${topRow('issues', step)}`, `<div class="empty st-err"><h1 class="st-errh" id="st-h">We couldn’t load the issues</h1><p>Check your connection and try again.</p></div>`);
 const LEARN = ['story', 'bill', 'session', 'hearing'];
 const STEPS = ['issues', 'alerts', 'bill', 'voice', 'you', 'soon', 'done', 'followask'];   // the steps start-rest.js draws
@@ -487,8 +487,55 @@ function wire(route) {
   // start-rest.js.
   if (planOn() && PLAN_STEPS.includes(name)) { if (ONB) ONB.wireStep(name, { step, off, back, fresh, next, $, $$ }); else onbAsk(); }
   else if (name !== 'topics' && REST) REST.wireStep(name, { step, off, back, fresh, next, $, $$ });
-
+  fitScreen();
 }
+
+// ---------- every screen fits the window: nothing to scroll (R-265, Nate 12 Oct) ----------
+// Nate: "all onboarding slides can be viewed without needing to scroll at all. All images and text are visible the entire
+// time." His answers: phones from about 390x660 of visible page and laptops from 1280x600, by trimming (never by adding
+// screens), today's version only (the plans keep their layout). Each screen is drawn compact (start.css), and where it still
+// runs past the bottom of the window its least important parts give way one level at a time: .fit1 to .fit10 on .st, what
+// each level takes away written per screen in start.css, then the last items of a list ([data-fitdrop], the highest number
+// first; a ticked issue never carries one, so nothing is followed unseen, B-12). Then every level and item is offered back,
+// the most important first, and kept if the screen still fits, so a taller window keeps more and nothing is trimmed that
+// did not have to be (the critic: trimming that only ever went deeper left empty space where the lede had been). Reading
+// text is never made smaller (C-14). Measured again after every drawing, a resize and any change of the page's height,
+// except while a field has the focus (a phone's keyboard shrinks the window as someone types).
+const FIT_MAX = 10;
+const fitOver = () => { LZ?.storyRoom?.(); return document.scrollingElement.scrollHeight > window.innerHeight + 1; };
+// Which list items may give way, marked once on each drawing from what it shows (start-rest.js draws them):
+//   Your issues: a topic's cards after its first, never one ticked as the screen is drawn (B-12), the last of the screen's
+//     order first (each topic's best before any topic's second, R-139);
+//   Coming up: the optional first-name box before anything, then the last cards; the first card always stays, and between
+//     sessions the first "What happened" too, since the heading promises this year and next (the critic);
+function markDrops(st) {
+  if (st.dataset.fitMarked) return; st.dataset.fitMarked = '1';
+  st.querySelectorAll('.st-tsec').forEach((sec, c) => sec.querySelectorAll('.st-picks > .st-pcard').forEach((li, j) => {
+    if (j > 0 && !li.classList.contains('on')) li.dataset.fitdrop = String(j * 10 + Math.min(c, 9)); }));
+  const keep = isOff() ? 2 : 1;
+  st.querySelectorAll('.st-soon > .st-cu').forEach((li, k) => { if (k >= keep) li.dataset.fitdrop = String(k); });
+  st.querySelector('.st-namecard')?.setAttribute('data-fitdrop', '999');
+}
+export function fitScreen() {
+  const st = document.querySelector('main > .st'); if (!st || planOn()) return;
+  markDrops(st);
+  const lv = k => 'fit' + k;
+  for (let k = 1; k <= FIT_MAX; k++) st.classList.remove(lv(k));
+  const drops = [...st.querySelectorAll('[data-fitdrop]')].sort((a, b) => b.dataset.fitdrop - a.dataset.fitdrop);
+  drops.forEach(e => e.classList.remove('fit-gone'));
+  if (!fitOver()) return;
+  let n = 0; while (n < FIT_MAX && fitOver()) st.classList.add(lv(++n));
+  const gone = []; for (const e of drops) { if (!fitOver()) break; e.classList.add('fit-gone'); gone.push(e); }
+  for (let k = n; k >= 1; k--) { st.classList.remove(lv(k)); if (fitOver()) st.classList.add(lv(k)); }
+  for (const e of gone.reverse()) { e.classList.remove('fit-gone'); if (fitOver()) e.classList.add('fit-gone'); }
+}
+let fitRaf = 0;
+const typing = () => document.activeElement?.matches?.('input, textarea, select');
+const fitSoon = () => { cancelAnimationFrame(fitRaf); fitRaf = requestAnimationFrame(() => { if (document.body.dataset.screen === 'start' && !typing()) fitScreen(); }); };
+window.addEventListener('resize', fitSoon);
+document.addEventListener('focusout', fitSoon);   // the keyboard gone: fit again
+// <main> is drawn new with every screen (app.js), so the page's body is what is watched.
+try { if (window.ResizeObserver) new ResizeObserver(fitSoon).observe(document.body); } catch { /* each drawing still fits itself */ }
 
 const TITLE = { topics: 'What do you care about?', issues: 'Your issues', alerts: 'Get alerts on your issues', bill: LESSON_TITLES.story,
   you: 'Who speaks for you', soon: 'Coming up on your issues', done: 'You’re all set', followask: 'Follow this issue?', voice: 'Why your voice matters' };

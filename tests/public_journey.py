@@ -477,6 +477,9 @@ with sync_playwright() as pw:
     ok('January 20' in t and not COMMUNITY.search(t), 'off-season step 1: January 20, no community totals')
     # The between-sessions walk, pressing Next the whole way (R-019: Next went nowhere on the live site, every topic
     # said "0 bills", the recap found nothing, and Home asked for the issues again - and nothing here pressed Next).
+    # The tiles' own counts, read from the page rather than what shows: on a short phone the screen may leave them out to fit
+    # the window (R-265), but what they say must still be right.
+    t = t + ' ' + ' '.join(p.locator('.st-icount').all_text_contents())
     counts = re.findall(r'\d+ (?:issues?|wins?) in 20\d\d', t)[:3]
     ok(re.search(r'(?<!\d)0 (bills|issues|wins) in', t) is None and re.search(r'[1-9]\d* (?:issues?|wins?) in 20\d\d', t) is not None, f"off-season categories count last session's issues and wins ({counts})")
     p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(2500); t = text(p); shot(p, 'p_off_recap')

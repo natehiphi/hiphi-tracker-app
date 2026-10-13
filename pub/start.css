@@ -445,3 +445,160 @@ button.st-way:active { transform: scale(.99); }
 /* The first visit's last page names the profile once someone has one (R-156 C2). */
 .st-prof { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s12) 0 0; font-size: var(--t14); color: var(--n700); }
 .st-prof > .ic { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--p700); }
+
+/* ================= every screen fits the window: nothing to scroll (R-265, Nate 12 Oct) =================
+   Phones from about 390x660 of visible page, laptops from 1280x600, by trimming (his answers). start.js fitScreen() adds
+   .fit1 to .fit10 to .st while the screen still runs past the bottom of the window, hides the last items of a list
+   ([data-fitdrop] -> .fit-gone), then offers each back and keeps what still fits. So each level below takes away the next
+   least important thing on that screen, and a taller window keeps more. Never trimmed: the three named parts (the visit's
+   signpost, and the target of each part's burst), the consent words (C-4), a ticked issue (B-12), and the size of anything
+   people read (C-14: a line is cut, not made smaller). Where the strip already names the page ("Your issues", "A bill's
+   story"), its heading is the first to go, to screen readers only (A-14). Today's version only: the plans never get these. */
+.fit-gone { display: none !important; }
+.st.fit1 .st-say { min-height: 0; }
+@media (max-width: 899px) {
+  /* The bar is about 73px tall: the room under the last line only has to clear it (152px left a scroll of white). */
+  body[data-screen="start"].hasbar main { padding-bottom: calc(var(--safe-b) + 78px); }
+  .st.fit1, .st.fit1 :is(.st-intro, .st-main) { gap: var(--s8); }
+  .st.fit1 h1 { margin-top: 0; }
+  /* Then, on any screen, the bar a little slimmer (its button keeps its 48px). */
+  body[data-screen="start"]:has(.st.fit6) .actionbar { padding-top: var(--s8); padding-bottom: calc(var(--s8) + var(--safe-b)); }
+  body[data-screen="start"].hasbar:has(.st.fit6) main { padding-bottom: calc(var(--safe-b) + 72px); }
+  /* Where the strip takes two lines (the short version's "Why your voice matters"), it writes out only the part you are in
+     (the smallest phones' rule above): the others keep their tick or dot. Not on the finale, where three bare ticks say nothing. */
+  .st:is(.st-alertspage, .st-voicepage, .st-soonpage):not(.st-thanks).fit7 .st-chapters ol { justify-content: start; gap: 14px; }
+  .st:is(.st-alertspage, .st-voicepage, .st-soonpage):not(.st-thanks).fit7 .st-chapters li:not(.on) .st-cl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* 1. What do you care about: the tiles' icons, their counts, their descriptions, then the time line, and last the promise
+     (Nate's Version A, R-067: what the app does) and the honest time it takes are what this screen was decided around. */
+  .st-topics.fit1 .st-ilead { display: none; }
+  .st-topics.fit1 .st-issue { padding: 10px; gap: 4px; }
+  .st-topics.fit1 .st-tiles { gap: var(--s8); }
+  .st-topics.fit1 .st-tiles .st-iname { padding-right: 30px; min-height: 26px; }
+  .st-topics.fit1 .st-issue .st-tick { top: 8px; right: 8px; }
+  .st-topics.fit2 .st-icount { display: none; }
+  .st-topics.fit3 .st-idesc { display: none; }
+  .st-topics.fit4 .st-say .st-sure { display: none; }
+  .st-topics.fit5 .st-promise { display: none; }
+
+  /* 2. Your issues: the cards tighter, the heading the strip already says, the reassurance, then each issue as its name
+     (R-139's one line goes); then the last issues (data-fitdrop). "All 8, plus new ones" stays: it says what Follow all does. */
+  .st2.fit1 .st-pick { padding: 10px 12px; }
+  .st2.fit1 .st-tsec { padding: var(--s4) var(--s12) var(--s12); }
+  .st2.fit1 :is(.st-tsecs, .st-tbody2, .st-picks) { gap: var(--s8); }
+  .st2.fit1 .st-tbody2 { margin-top: 0; }
+  .st2.fit2 h1 { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .st2.fit3 .st-free { display: none; }
+  .st2.fit4 .st-pwhat { display: none; }
+
+  /* 3. The alerts ask: the card tighter (its words are the consent words, C-4), the heading smaller, and only last the lede
+     (the one line that says why to save, R-188: if it goes, the window is too short for it, and that is said in R-265). */
+  .st-alertspage.fit1 .st-form { gap: var(--s12); padding: var(--s12); }
+  .st-alertspage.fit2 .st-form { gap: var(--s8); }
+  .st-alertspage.fit3 h1 { font-size: var(--t22); }
+  .st-alertspage.fit4:not(.st-thanks) .lede { display: none; }
+  .st-alertspage.fit5 .st-form { padding-block: 10px; }
+  .st-alertspage.fit5 .st-form .field { gap: 4px; }
+  .st-alertspage.fit5 .st-form .field input { padding-block: 10px; }
+  .st-alertspage.fit5 .al-hint { margin-top: 0; }
+  .st-alertspage.fit6 .st-form { gap: 6px; }
+  /* The "Mahalo!" page with the number's card: the flower smaller, the card's icon, its padding. */
+  .st-thanks.fit1 .fx-bloom { width: 72px; height: 72px; }
+  .st-thanks.fit2 .fx-bloom { width: 56px; height: 56px; }
+  .st-thanks.fit3 .st-sent > .st-ilead { display: none; }
+  .st-thanks.fit4 .st-sent { padding: var(--s12); }
+  .st-thanks.fit5 .fx-bloom { width: 44px; height: 44px; }
+  .st-thanks.fit6 .st-sent { padding-block: 10px; }
+  .st-thanks.fit6 .st-thsub + .lede { margin-top: 0; }
+  .st-thanks.fit7 .st-sentbody { gap: var(--s4); }
+
+  /* 4. A bill's story: the heading the strip already says, the drawing smaller (the whole drawing, never cropped), the last
+     choices tighter, the last stage's closing line (that a bill's moment goes to the top of the home page, R-219: the last
+     screen says it again, "When it's your moment, it's on your home page") before the drawing goes under 150px, and only
+     then the drawing smaller still. Every other word stays at its size (C-12, C-14). The answer's room is kept from before the
+     choice (lessons.js reserveSaid). */
+  .st-lesson.fit1 .lx-h1 { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .st-lesson.fit2 .lx-story svg.lx-sv { height: 220px; }
+  .st-lesson.fit3 .lx-story svg.lx-sv { height: 180px; }
+  .st-lesson.fit4 .lx-story svg.lx-sv { height: 150px; }
+  .st-lesson.fit5 .lx-ch { min-height: 48px; padding-block: 6px; }
+  .st-lesson.fit5 :is(.lx-doors, .lx-saidbox.lx-got, .lx-saidbox.lx-room) { margin-top: var(--s8); }
+  .st-lesson.fit5 .lx-scap p + p, .st-lesson.fit5 .lx-scap p.lx-other { margin-top: var(--s4); }
+  .st-lesson.fit6 .lx-scap p.lx-said { padding: var(--s8) var(--s12); }
+  .st-lesson.fit7 .lx-scap p.lx-turn { display: none; }
+  .st-lesson.fit8 .lx-story svg.lx-sv { height: 124px; }
+  .st-lesson.fit9 .lx-story svg.lx-sv { height: 100px; }
+  .st-lesson.fit10 .lx-lede { display: none; }   /* between sessions: "Here's the story of one that became law in 2026" */
+
+  /* 5. Coming up: the cards tighter, the quiet line, the lede; then the last cards (data-fitdrop). */
+  .st-soonpage.fit1 :is(.st-soon, .st-ways) { gap: var(--s8); }
+  .st-soonpage.fit2 :is(.st-cu-go, .st-way) { padding-top: var(--s12); padding-bottom: var(--s12); }
+  .st-soonpage.fit3 .st-quietask { display: none; }
+  .st-soonpage.fit4 .lede { display: none; }
+  .st-soonpage.fit5 :is(.st-way-name, .st-cu-name) { font-size: var(--t16); }
+  .st-soonpage.fit6 h1 { font-size: var(--t22); }
+  .st-soonpage.fit7 .st-way { gap: 4px; }
+  .st-soonpage.fit8 .st-cu-dates + .st-cu-meta { display: none; }   /* a card's closing line (the session card's "New bills ... can start that week") */
+
+  /* 6. You're all set: a smaller drawing, "What happens next" in its three short names, the share line, the drawing smaller
+     still, "What happens next" itself, and last the thank-you. The recap is the peak and stays (C-7). */
+  .st-done.fit1 .st-fx { max-width: 220px; }
+  .st-done.fit2 .st-next3 li > div > span { display: none; }
+  .st-done.fit2 .st-next3 li { grid-template-columns: 36px 1fr; padding: 4px 0; align-items: center; }
+  .st-done.fit2 .st-nic { width: 36px; height: 36px; }
+  .st-done.fit3 .st-fx { max-width: 160px; }
+  .st-done.fit4 .st-share { display: none; }
+  .st-done.fit5 .st-nexth { margin-top: var(--s8); font-size: var(--t18); }
+  .st-done.fit7 .st-did li { padding: var(--s8) 0; }
+  .st-done.fit7 .st-fx { max-width: 120px; }
+  .st-done.fit8 :is(.st-nexth, .st-next3) { display: none; }
+  .st-done.fit9 .lede { display: none; }   /* the thank-you goes last (C-7: the visit's high point) */
+
+  /* the short version's page */
+  .st-voicepage.fit2 .st-voice { gap: var(--s8); }
+  .st-voicepage.fit3 .st-voice b { font-size: var(--t16); }
+  .st-voicepage.fit4 .st-vic { display: none; }
+  .st-voicepage.fit4 .st-voice li { grid-template-columns: minmax(0, 1fr); }
+  .st-voicepage.fit5 .st-voicelearn { margin-top: 0; }
+  .st-voicepage.fit8 .st-voicelearn { display: none; }   /* the story stays one tap away on every bill page and in Help */
+}
+@media (min-width: 900px) {
+  body[data-screen="start"]:has(.st.fit1) .actionbar { padding: var(--s12) 0 var(--s8); }
+  body[data-screen="start"]:has(.st.fit1) main { padding-top: var(--s24); }
+  body.hasbar[data-screen="start"]:has(.st.fit1) main { padding-bottom: var(--s8); }
+  .st.fit1 .st-art svg { height: 88px; }
+  .st.fit1 .st-intro { gap: var(--s12); }
+  .st.fit2 .st-art svg { height: 64px; }
+
+  .st-topics.fit3 .st-icount { display: none; }
+  .st-topics.fit4 .st-issue { padding: 12px; }
+  .st-topics.fit5 .st-art { display: none; }
+  .st-topics.fit6 .st-idesc { display: none; }
+
+  .st2.fit2 .st-free { display: none; }
+  .st2.fit3 .st-pick { padding: 10px var(--s16); }
+  .st2.fit3 :is(.st-tsecs, .st-tbody2, .st-picks) { gap: var(--s8); }
+
+  .st-alertspage.fit2 .st-form { gap: var(--s12); padding: var(--s16); }
+  .st-alertspage.fit3 .st-art { display: none; }
+  .st-thanks.fit2 .fx-bloom { width: 72px; height: 72px; }
+
+  .st-lesson.fit2 .lx-story svg.lx-sv { max-height: 260px; }
+  .st-lesson.fit3 .lx-story svg.lx-sv { max-height: 210px; }
+  .st-lesson.fit4 .lx-story svg.lx-sv { max-height: 170px; }
+  .st-lesson.fit5 .lx-scap p.lx-turn { display: none; }
+  .st-lesson.fit6 :is(.lx-doors, .lx-saidbox.lx-got, .lx-saidbox.lx-room) { margin-top: var(--s8); }
+  .st-lesson.fit6 .lx-scap p.lx-said { padding: var(--s8) var(--s12); }
+
+  .st-soonpage.fit2 .st-cu-go { padding: var(--s12); }
+  .st-soonpage.fit3 .st-quietask { display: none; }
+
+  /* The right column is the tall one here: "What happens next" goes three across, then to its three short names. */
+  .st-done.fit2 .st-next3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s16); }
+  .st-done.fit2 .st-next3 li { grid-template-columns: minmax(0, 1fr); gap: var(--s8); padding: 0; }
+  .st-done.fit2 .st-nic { width: 36px; height: 36px; }
+  .st-done.fit2 .st-nexth { margin-top: var(--s8); }
+  .st-done.fit3 .st-next3 li > div > span { display: none; }
+  .st-done.fit4 .st-share { display: none; }
+  .st-done.fit5 :is(.st-nexth, .st-next3) { display: none; }
+}

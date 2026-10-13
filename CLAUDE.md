@@ -53,6 +53,15 @@ found because sessions start in the backend repo) walks the whole checklist.
   390×844, 320×640, 1440×900, 1280×800 and 1024×768: two columns with a side panel that stays in view, tables
   for collections, a readable column for forms and focused tasks, label-sized buttons beside each other, actions
   next to their content, hover and focus states, menus that open against their button.
+- **The first visit fits the window, with nothing to scroll** (R-265, Nate 12 Oct: phones from about 390x660 of visible
+  page, laptops from 1280x600, by trimming, today's version only). `pub/start.js` `fitScreen()` adds `.fit1`...`.fit10` to
+  the step's `.st` while it still runs past the bottom, hides `[data-fitdrop]` list items, then offers each back and keeps
+  what still fits; what each level takes away is written per screen at the end of `pub/start.css`. The story keeps the
+  room of its longer answer from before the choice (`pub/lessons.js` `reserveSaid`), so nothing moves on the tap. Never
+  trimmed: the strip of named parts, the consent words (C-4), a ticked issue (B-12, no `data-fitdrop`), and the size of
+  reading text (C-14: cut a line, never shrink it). Adding something to a first-visit step: run
+  `tests/first_visit_fits.py`, and if it pushes a screen over, give it a level of its own (least important first). The
+  plans (`pub/onb*.js`) use none of this.
 - Accessibility: one exposed h1 per page, labels, `aria-pressed/expanded/sort`, 44px targets on touch widths,
   nothing by colour alone, reduced motion respected, no sideways page scroll.
 - Never build anything that sends email while testing. **Email to the public is paused until Nate says so.**

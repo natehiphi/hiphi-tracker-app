@@ -270,7 +270,7 @@
 .lx-story[data-scene="no"] .lx-c3-no, .lx-story[data-scene="t"] .lx-c3-t, .lx-story[data-scene="c"] .lx-c3-c, .lx-story[data-scene="set"] .lx-c3-set, .lx-story[data-scene="need"] .lx-c3-need { display: inline; }
 .actionbar.lx-asleep { display: none; }   /* the lesson page's bar has only Next, asleep until a choice (R-255) */
 .lx-story[data-scene="t"] .lx-r3 .lx-b3, .lx-story[data-scene="no"] .lx-r3 .lx-b3 { display: none; }
-.lx-saidbox.lx-got { margin-top: var(--s12); }
+.lx-saidbox.lx-got, .lx-saidbox.lx-room { margin-top: var(--s12); }   /* lx-room: its room kept before the choice (lessons.js reserveSaid) */
 .lx-saidbox.lx-swap { animation: lx-rise .28s var(--ease) both; }
 .lx-saidbox p { margin: 0; }
 .lx-scap p.lx-said { padding: var(--s12); border-radius: var(--r12); background: var(--p50); border-left: 4px solid var(--p600); color: var(--n900); }
