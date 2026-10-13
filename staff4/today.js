@@ -49,7 +49,8 @@
 //   - "Hearings today" is one line above the list; Waiting on others a fold at the end; Team load a fold in Team only;
 //   - Ahead and the Week view are one "This week": the grid on a laptop, the day-by-day list on a phone, then the
 //     deadlines with every bill that has no hearing yet and the suggestions under the deadline they race. This week's
-//     asks moved to Outreach > Emails (emails.js imports weekAsksHTML and wireWeekAsks from here).
+//     asks moved to Outreach > Emails (emails.js imports weekAsksHTML and wireWeekAsks from here); since v4 (R-269) they
+//     are Outreach's first tab, This week's asks (asks.js), narrowed to your coalitions.
 import { S, DB, DEMO, SESSION_OVER, SESSION_YEAR, DEADLINES, esc, fmtDT, fmtDate, advocate, isMine, isMuted, capitolUrl, effStage, hooks, DEMO_ASOF, draftNotesOf } from './data.js';
 import { sharePageUrl, liveAsk } from './model.js';   // this week's asks (R-132); the ask still showing (Z1-3)
 import { plainAction, OUT_PLAIN as OUT, draftFor, alertsToReview, approves, canFirstApprove, canSecondApprove, alertTarget, billNum, blurb, roomShort, chairMail, attendees, streamOf, hearingAhead, stopOf, diedish, legislativeDay, hstDayOf, gateNeed, deadlineName, unslack, billById, personName, OUTCOME_LABEL, sessionClock, suggestions, suggState, setSugg, SUGGEST_CAP, whyDead } from './model.js';
@@ -1384,12 +1385,16 @@ const ASK_SAYS = { strongly_support: 'HIPHI strongly supports', support: 'HIPHI 
 // X10-3 (R-180 wave 3): every bill on the public page with a position and a testimony deadline still open this week, whether or not
 // HIPHI has filed its own testimony (the public's deadline does not move when HIPHI files, so the week's best ask was the one dropped),
 // and the same whoever copies it, from Mine or Team (it no longer reads the week grid of one person's open rows).
-function weekAsks() {
+// v4 (R-269, T13): `mine` keeps the bills on the viewer's coalitions (their own bills when they support none) and leaves
+// out a bill whose testimony closes within 3 hours, too late for a newsletter or a post to help: Outreach opens on it, and
+// Saya's 16 asks across every coalition became CTFH's 3.
+function weekAsks({ mine = false } = {}) {
   const now = Date.now(), end = new Date(dayAdd(mondayOf(now), 7) + 'T00:00:00-10:00').getTime(), seen = new Map();
+  const co = mine ? coalPicked() : null, keep = !mine ? () => true : co ? b => (S.billCampaigns[b.id] || []).some(id => co.ids.has(id)) : b => isMine(b);
   for (const h of S.hearings) {
     if (h.status === 'cancelled') continue;
     const due = testDue(h), b = S.bills.find(x => x.id === h.bill_id);
-    if (!b || isMon(b) || !b.position || !b.is_public || b.tracked === false || !(due > now) || due >= end) continue;
+    if (!b || isMon(b) || !b.position || !b.is_public || b.tracked === false || !(due > now) || due >= end || !keep(b) || (mine && due - now < 3 * HR)) continue;
     if (!seen.has(b.id) || due < seen.get(b.id).due) seen.set(b.id, { b, h, due });
   }
   return [...seen.values()].sort((x, y) => x.due - y.due);
@@ -1406,13 +1411,18 @@ export function weekAsksText(items, kind) {
 }
 // Since v3 the card is on Outreach > Emails (R-264), not Today or This week: emails.js draws weekAsksHTML() and calls
 // wireWeekAsks(root) on its own page. Folded to one line (R-152 C): open, it pushed the Week's first day from 348px to 616px down.
-export function weekAsksHTML() {
-  const items = weekAsks(); S.tdAsks = items;
-  if (!items.length) return '';
+// v4 (R-269, T13): weekAsksHTML({ mine, open }) for Outreach's This week's asks (asks.js): `mine` as weekAsks above, `open`
+// drawn unfolded and without its own heading, which the page already says (A-14). Called with nothing, as before.
+export function weekAsksHTML({ mine = false, open = false } = {}) {
+  const items = weekAsks({ mine }); S.tdAsks = items;
+  const sub = 'Each bill’s ask, its deadline and its share page. Arrivals from the newsletter and from posts are counted apart.';
+  if (!items.length) return open ? `<section class="td-asks td-asksopen" aria-label="This week’s asks"><p class="td-asknone">${esc(`No bill ${mine ? `on ${coalPicked() ? 'your coalitions' : 'your list'} ` : 'on the public page '}has testimony due later this week${mine ? ' (or it closes within 3 hours)' : ''}.`)}</p></section>` : '';
+  const list = `<ol class="td-asklist">${items.map(x => `<li><b>${esc(billNum(x.b))}</b> <span>${esc(x.b.nickname || blurb(x.b, 80))}</span> <span class="muted">· ${esc(ASK_SAYS[x.b.position] || '')} · due ${esc(fmtDT(x.due))}</span></li>`).join('')}</ol>
+    <div class="btnrow">${btn('Copy for the newsletter', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-wkasks': 'newsletter' } })}${btn('Copy for a post', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-wkasks': 'social' } })}</div>`;
+  if (open) return `<section class="td-asks td-asksopen" aria-label="This week’s asks"><p class="td-asksub small muted"><b class="td-asksn">${esc(plural(items.length, 'bill'))}</b> · ${esc(sub)}</p>${list}</section>`;
   return `<details class="td-asks"><summary><h2 id="td-asks-h">This week’s asks, to paste into the newsletter or a post</h2><span class="td-asksn">${plural(items.length, 'bill')}</span>${icon('chevron-down', { cls: 'td-askchev' })}</summary><div class="td-askhd">
-      <p class="small muted">Each bill’s ask, its deadline and its share page. Arrivals from the newsletter and from posts are counted apart.</p></div>
-    <ol class="td-asklist">${items.map(x => `<li><b>${esc(billNum(x.b))}</b> <span>${esc(x.b.nickname || blurb(x.b, 80))}</span> <span class="muted">· ${esc(ASK_SAYS[x.b.position] || '')} · due ${esc(fmtDT(x.due))}</span></li>`).join('')}</ol>
-    <div class="btnrow">${btn('Copy for the newsletter', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-wkasks': 'newsletter' } })}${btn('Copy for a post', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-wkasks': 'social' } })}</div>
+      <p class="small muted">${esc(sub)}</p></div>
+    ${list}
   </details>`;
 }
 // Its two copy buttons, for whichever page draws the card.

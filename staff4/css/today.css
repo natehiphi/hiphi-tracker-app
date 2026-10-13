@@ -748,3 +748,9 @@
   .td-root .td-rnotew { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .td-root .td-rav { min-width: 0; }
 }
+
+/* v4 (R-269, T13): This week's asks drawn open on Outreach's first tab, under the page's own heading. */
+.td-asks.td-asksopen { padding: 14px 16px; }
+.td-asksopen .td-asksub { margin: 0 0 10px; }
+.td-asksopen .td-asksub b { color: var(--n900); }
+.td-asksopen .td-asknone { margin: 0; font-size: var(--t14); color: var(--n700); }
