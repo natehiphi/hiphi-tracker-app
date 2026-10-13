@@ -32,6 +32,9 @@
 .td-root .td-h, .td-rv .td-h { margin: 0; font-size: var(--t16); letter-spacing: 0; }
 .td-root .td-h .sv-group { background: transparent; border: 0; padding: 0 var(--s4); border-radius: var(--r8); }
 .td-root .td-h .sv-group .ic.td-late { width: 18px; height: 18px; color: var(--bad-text); margin-right: 6px; vertical-align: -3px; }
+/* v4 (R-269): late testimony that can still be filed is amber, with a clock, never red (A-5 as amended by R-250) */
+.td-root .td-h .sv-group .td-lateopen { color: var(--warn-text); }
+.td-root .td-h .sv-group .ic.td-soon { width: 18px; height: 18px; color: var(--warn-text); margin-right: 6px; vertical-align: -3px; }
 .td-root .td-h button.sv-group:hover { background: var(--n100); }
 .td-root .td-group + .td-group { margin-top: 0; }
 .td-root .td-list { display: flex; flex-direction: column; gap: var(--s8); }
@@ -48,6 +51,10 @@
 .td-root .td-urg .sv-urg { min-width: 100%; }
 /* 11px is not one of the five sizes: the word under the number is 13, and the block is wide enough to hold "overdue" */
 .td-root .sv-urg span { font-size: var(--t13); line-height: 16px; }
+/* v4 (R-269): an approval's mark says "to approve", the longest word under a number, so the column is 72px and the
+   block's own padding narrower; every sentence down the list still starts on the same line. */
+.td-root .td-urg { width: 72px; }
+.td-root .td-urg .sv-urg { padding-left: 4px; padding-right: 4px; white-space: nowrap; }
 .td-root .td-card:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: var(--r12); }
 .td-root .td-top { display: flex; align-items: flex-start; min-width: 0; gap: var(--s4); }
 /* the bill link and the ⋯ button are 44px targets that spill into the card's padding, so the line itself stays 24px */
@@ -582,7 +589,7 @@
 .td-root .td-row:not(.on):hover { background: var(--n50); }
 .td-root .td-rsel { flex: 1 1 auto; min-width: 0; align-self: stretch; display: flex; align-items: center; gap: var(--s12); padding: 6px var(--s4) 6px var(--s12); text-align: left; color: inherit; border-radius: 0; }
 .td-root .td-rsel:focus-visible { outline: 2px solid var(--p700); outline-offset: -2px; }
-.td-root .td-rsel .td-urg { align-self: center; flex: none; width: 56px; margin: 0; }
+.td-root .td-rsel .td-urg { align-self: center; flex: none; width: 72px; margin: 0; }
 .td-root .td-rmain { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: var(--s12); white-space: nowrap; overflow: hidden; }
 /* The bill and the step share what is left, each cut in proportion to its length, so neither vanishes. */
 .td-root .td-rb { flex: 0 1 auto; max-width: 50%; display: inline-flex; align-items: baseline; gap: 6px; }   /* never narrower than its number: only the name is cut */

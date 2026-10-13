@@ -53,7 +53,7 @@
 import { S, DB, DEMO, SESSION_OVER, SESSION_YEAR, DEADLINES, esc, fmtDT, fmtDate, advocate, isMine, isMuted, capitolUrl, effStage, hooks, DEMO_ASOF, draftNotesOf } from './data.js';
 import { sharePageUrl, liveAsk } from './model.js';   // this week's asks (R-132); the ask still showing (Z1-3)
 import { plainAction, OUT_PLAIN as OUT, draftFor, alertsToReview, approves, canFirstApprove, canSecondApprove, alertTarget, billNum, blurb, roomShort, chairMail, attendees, streamOf, hearingAhead, stopOf, diedish, legislativeDay, hstDayOf, gateNeed, deadlineName, unslack, billById, personName, OUTCOME_LABEL, sessionClock, suggestions, suggState, setSugg, SUGGEST_CAP, whyDead } from './model.js';
-import { icon, btn, iconBtn, chip, avatar, groupHead, segmented, empty, notice, toast, openSheet, closeSheet, pickerSheet, menuSheet, confirmSheet, field, keysOn, urgentMark, countdown } from './ui.js';
+import { icon, btn, iconBtn, chip, avatar, groupHead, segmented, empty, notice, toast, openSheet, closeSheet, pickerSheet, menuSheet, confirmSheet, field, keysOn, urgentMark, countdown, clockDay } from './ui.js';
 import { newSteps, markNewStep } from './help.js';
 import { draftAsking, makeDraftNow } from './testimony.js';
 import { openLook } from './look.js';
@@ -134,7 +134,11 @@ function groupOf(due, now = Date.now()) {
   if (d === hst(now + DAY)) return 'tomorrow';
   return d <= weekEnd(now) ? 'week' : 'later';
 }
-const GROUPS = [['overdue', 'Overdue'], ['today', 'Today'], ['tomorrow', 'Tomorrow'], ['week', 'Later this week'], ['later', 'Coming up']];
+// v4 (R-269): testimony whose written deadline has passed while its hearing has not begun can still be filed, so its group
+// is amber "Late testimony, still open", above red "Overdue", which is kept for what can no longer be done on time (A-5 as
+// amended by R-250); a mixed group splits into the two. "Today" is "Due today": what is due today, and only that (T10).
+const GROUPS = [['lateopen', 'Late testimony, still open'], ['overdue', 'Overdue'], ['today', 'Due today'], ['tomorrow', 'Tomorrow'], ['week', 'Later this week'], ['later', 'Coming up']];
+const NOW_GROUPS = new Set(['lateopen', 'overdue', 'today']);   // what the badge counts and what gets a filled button
 // Date-only fields (a to-do or follow-up "due 3/18") count as due at 5 PM that day, as the current app does.
 const dateDue = d => d ? new Date(String(d).slice(0, 10) + 'T17:00:00-10:00').getTime() : null;
 // Calendar days in Hawaiʻi time (no daylight saving, so noon plus whole days is always the right date).
@@ -335,7 +339,7 @@ export function todayItems(scope = 'mine', who = null) {
         push({ ...base, kind: two ? 'review2' : 'review', who: 'yours', why: h0 == null ? '' : `${two ? 'Approved' : 'Sent'} ${h0 < 1 ? 'just now' : h0 < 48 ? Math.round(h0) + 'h ago' : Math.round(h0 / 24) + ' days ago'}`,
           s: two ? `Give the second approval on ${who} testimony` : `Review ${who} ${subMe || !d.submitted_by ? c + ' ' : ''}testimony`,
           btns: [{ label: 'Review', href: `#/review/${encodeURIComponent(d.id)}`, review: true }] });
-      } else if (team) wait(two ? reviewers() : approverList(), two ? 'second approval' : 'approval', two ? '2nd approval' : 'In review', ids(a => two ? a.is_reviewer : approves(a)));
+      } else if (team) wait(two ? reviewers() : approverList(), two ? 'second approval' : 'approval', two ? 'Second approval' : 'In review', ids(a => two ? a.is_reviewer : approves(a)));
       continue;
     }
     // Monitor bills are watched, not worked: the draft made automatically from each hearing notice stays off Today
@@ -356,7 +360,7 @@ export function todayItems(scope = 'mine', who = null) {
     if (mine || open || (k === 'revise' && subMe)) {
       const yours = mine && self ? 'your' : 'the', doc = d.doc_url ? { label: 'Open Doc', href: d.doc_url, ext: true } : null;
       // Who sent it back is not stored: an approved_by means it came back from second review, else from an admin.
-      const asked = 'changes were asked for';   // the draft does not record who sent it back, so no name (it said "Nate asked" whoever had, R-152 C)
+      const asked = 'sent back for changes';   // the draft does not record who sent it back, so no name (it said "Nate asked" whoever had, R-152 C); "Sent back" is its one name (v4, C-15)
       push({ ...base, kind: k, who: mine ? 'yours' : 'anyone',
         s: k === 'write' ? `Write testimony for the ${c} hearing` : k === 'submit' ? `Submit ${yours} ${c} testimony for review` : `Revise ${yours} ${c} testimony${asked ? ': ' + esc(asked) : ''}`,
         q: k === 'revise' ? esc(d.review_note) : '',
@@ -514,18 +518,24 @@ export function todayItems(scope = 'mine', who = null) {
   let cluster = null, list = tasks;
   if (revs.length >= 2 && self) { cluster = revs.sort((x, y) => (x.due ?? Infinity) - (y.due ?? Infinity) || (x.b.priority || 9) - (y.b.priority || 9)); list = tasks.filter(t => !revs.includes(t)); }
   const eff = t => t.due ?? endOfToday();
-  const cmp = (x, y) => (x.kind === 'wait') - (y.kind === 'wait') || eff(x) - eff(y) || x.rank - y.rank;
+  // v4 (R-269): a bill's testimony step leads its row when it is due within 24 hours or already late (still open or
+  // not); otherwise the earliest step does. A public ask is due two days before its hearing, so it always came first: on
+  // his deadline day Kevin's P1 testimony, sent back and due at 9:30, was only "Also on this bill".
+  const hot = t => TESTIMONY.has(t.kind) && t.kind !== 'wait' && t.due != null && t.due - now <= DAY;
+  const cmp = (x, y) => (x.kind === 'wait') - (y.kind === 'wait') || hot(y) - hot(x) || eff(x) - eff(y) || x.rank - y.rank;
   const byKey = new Map();
   for (const t of list) { const k = t.b ? 'b:' + t.b.id : t.key; if (!byKey.has(k)) byKey.set(k, { key: k, b: t.b, tasks: [] }); byKey.get(k).tasks.push(t); }
-  const cards = [...byKey.values()].map(c => { c.tasks.sort(cmp); c.p = c.tasks[0]; c.due = c.p.due; c.group = groupOf(c.p.due, now); if (c.p.kind === 'nodraft' && !['overdue', 'today'].includes(c.group)) c.group = 'today'; /* a new hearing with no draft is work today, however far off the hearing is (X10-5) */ c.wait = c.p.kind === 'wait'; c.seen = !!c.p.seen; return c; });
-  if (cluster) { const due = Math.min(...cluster.map(t => t.due ?? Infinity)); cards.push({ key: 'cluster', cluster, due: Number.isFinite(due) ? due : null, group: groupOf(Number.isFinite(due) ? due : null, now), tasks: cluster }); }
+  // Late but open (v4): the step leading the row is late testimony that can still be filed.
+  const lateGroup = (g, ts) => g === 'overdue' && ts.filter(t => t.due != null && t.due <= now).every(lateNow) ? 'lateopen' : g;
+  const cards = [...byKey.values()].map(c => { c.tasks.sort(cmp); c.p = c.tasks[0]; c.due = c.p.due; c.group = lateGroup(groupOf(c.p.due, now), [c.p]); if (c.p.kind === 'nodraft' && !NOW_GROUPS.has(c.group)) c.group = 'today'; /* a new hearing with no draft is work today, however far off the hearing is (X10-5) */ c.wait = c.p.kind === 'wait'; c.seen = !!c.p.seen; return c; });
+  if (cluster) { const due = Math.min(...cluster.map(t => t.due ?? Infinity)); cards.push({ key: 'cluster', cluster, due: Number.isFinite(due) ? due : null, group: lateGroup(groupOf(Number.isFinite(due) ? due : null, now), cluster), tasks: cluster }); }
   // Within a group: the review cluster, then by time; a message already seen sits below the new ones; waiting rows last.
   const ord = (x, y) => !!y.cluster - !!x.cluster || x.wait - y.wait || eff(x.p || x) - eff(y.p || y) || (!!x.seen - !!y.seen) || ((x.b?.priority || 9) - (y.b?.priority || 9)) || String(x.b?.bill_number || x.key).localeCompare(String(y.b?.bill_number || y.key), 'en', { numeric: true });
   const weight = c => c.cluster ? c.cluster.length : c.wait ? 0 : 1;
   // "Overdue 5" for one overdue draft in a cluster of five was wrong (X10-6, P-5): in Overdue a review cluster counts only what is overdue.
-  const cn = c => c.cluster ? (c.group === 'overdue' ? c.cluster.filter(t => t.due != null && t.due <= now).length || 1 : c.cluster.length) : 1;
+  const cn = c => c.cluster ? (c.group === 'overdue' || c.group === 'lateopen' ? c.cluster.filter(t => t.due != null && t.due <= now).length || 1 : c.cluster.length) : 1;
   const groups = GROUPS.map(([id, title]) => { const cs = cards.filter(c => c.group === id).sort(ord); return { id, title, cards: cs, n: cs.reduce((s, c) => s + cn(c), 0) }; }).filter(g => g.cards.length);
-  const dueNow = cards.filter(c => c.group === 'overdue' || c.group === 'today').reduce((s, c) => s + weight(c), 0);
+  const dueNow = cards.filter(c => NOW_GROUPS.has(c.group)).reduce((s, c) => s + weight(c), 0);
   const late = cards.filter(c => c.group === 'overdue').reduce((s, c) => s + weight(c), 0);
   return { groups, cards, cluster, dueNow, late, tasks };
 }
@@ -704,7 +714,10 @@ function alsoRow(t, c) {
 }
 // The urgency block that leads a card (ui.js urgentMark), the current app's left rail. The wrapper keeps its width
 // even when there is nothing to say, so every sentence on the page starts on the same line down the list.
-const urgBlock = (due, until = null) => `<span class="td-urg">${urgentMark(due == null ? null : new Date(due).toISOString(), { until })}</span>`;
+// v4 (R-269): an approval's mark says what its hours are for, "to approve" (Jess does not file; "4h to file" on her
+// approval read as a filing task).
+const approveAct = t => t && (t.kind === 'review' || t.kind === 'review2') ? 'to approve' : undefined;
+const urgBlock = (due, until = null, act) => `<span class="td-urg">${urgentMark(due == null ? null : new Date(due).toISOString(), { until, act })}</span>`;
 const lookBtn = b => iconBtn('chevron-right', `Quick look at ${billNum(b)}`, { 'data-look': '1' }, 'td-look');
 // Every card drawn, by the key its "…" button carries, so the menu opens on the card that was drawn: in Team the same
 // bill can be on two people's lists with different steps (R-022).
@@ -717,7 +730,7 @@ function card(c, i, team, o = {}) {
   if (c.cluster) {
     const bills = [...new Set(c.cluster.map(t => billNum(t.b).split(' ')[0]))];
     return `<article class="td-card td-cluster" data-k="cluster" tabindex="-1" aria-labelledby="td-s${i}">
-      ${urgBlock(c.due, untilOf(c.cluster[0]))}
+      ${urgBlock(c.due, untilOf(c.cluster[0]), 'to approve')}
       <p class="td-s" id="td-s${i}">${icon('clipboard-check')}Review ${plural(c.cluster.length, 'testimony draft')}</p>
       <p class="td-why">${esc([c.due != null ? `First ${lowerFirst(testDueText(c.due))}` : '', (late => late > 0 && late < c.cluster.length ? `${late} of ${c.cluster.length} overdue` : '')(c.cluster.filter(t => t.due != null && t.due <= Date.now()).length), 'Earliest first · ' + bills.slice(0, 6).join(', ') + (bills.length > 6 ? ` and ${bills.length - 6} more` : '')].filter(Boolean).join(' · '))}</p>
       <div class="td-acts">${btn('Start review', { kind: filled ? 'primary' : 'secondary', href: '#/review', attrs: { 'data-primary': '1', 'data-review': '1' } })}</div></article>`;
@@ -734,7 +747,7 @@ function card(c, i, team, o = {}) {
   const shown = also.slice(0, 2), rest = also.length - shown.length;
   // A row that waits on someone else is quiet by design, so it keeps its small countdown and gets no block.
   return `<article class="td-card${c.wait ? ' td-wait' : ''}${p.seen ? ' td-seen' : ''}" data-k="${esc(k)}"${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''} tabindex="-1" aria-labelledby="td-s${i}">
-    ${urgBlock(c.wait ? null : p.due, untilOf(p))}
+    ${urgBlock(c.wait ? null : p.due, untilOf(p), approveAct(p))}
     <div class="td-top">${top}${more}${b ? lookBtn(b) : ''}</div>
     <p class="td-s" id="td-s${i}">${p.s}</p>
     ${(() => { const w = why(p, team, !c.wait), lead = c.wait && p.chip ? chip(p.chip, '', 'hourglass') + ' ' : p.seen ? SEEN() + ' ' : ''; return w || lead ? `<p class="td-why">${lead}${w}</p>` : ''; })()}
@@ -775,7 +788,7 @@ function row(c, filled, o = {}) {
   const sel = inner => `<button type="button" class="td-rsel" data-sel="${ek}" aria-current="false">${inner}</button>`;
   if (c.cluster) {
     const bills = [...new Set(c.cluster.map(t => billNum(t.b).split(' ')[0]))];
-    return `<div data-k="${ek}" class="td-row td-rclu"${filled ? ' data-fill="1"' : ''}>${sel(`${urgBlock(c.due, untilOf(c.cluster[0]))}<span class="td-rmain"><span class="td-rs"><b>Review ${plural(c.cluster.length, 'testimony draft')}</b></span><span class="td-rn">${esc(bills.slice(0, 3).join(', '))}${bills.length > 3 ? ' …' : ''}</span></span>`)}
+    return `<div data-k="${ek}" class="td-row td-rclu"${filled ? ' data-fill="1"' : ''}>${sel(`${urgBlock(c.due, untilOf(c.cluster[0]), 'to approve')}<span class="td-rmain"><span class="td-rs"><b>Review ${plural(c.cluster.length, 'testimony draft')}</b></span><span class="td-rn">${esc(bills.slice(0, 3).join(', '))}${bills.length > 3 ? ' …' : ''}</span></span>`)}
       <span class="td-ract">${btn('Start review', { kind: filled ? 'primary' : 'secondary', href: '#/review', attrs: { 'data-primary': '1', 'data-review': '1' } })}</span>${end}</div>`;
   }
   const p = c.p, b = c.b, n = c.tasks.length - 1;
@@ -784,7 +797,7 @@ function row(c, filled, o = {}) {
   // A teammate's step is theirs to take: its row has no button, and the open item offers "Message Kevin".
   const x = p.ro ? null : (p.btns || [])[0], fill = filled && p.kind !== 'reply' && !p.seen && x && !x.text;
   const what = `<span class="td-rs">${p.seen ? SEEN() + ' ' : ''}${rowWords(p, x)}</span>${n > 0 ? `<span class="td-rplus">+${n}<span class="td-rmore"> more</span><span class="sr"> on this ${b ? 'bill' : 'item'}</span></span>` : ''}`;
-  return `<div data-k="${ek}" class="td-row${p.seen ? ' td-seen' : ''}"${fill ? ' data-fill="1"' : ''}${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${sel(`${urgBlock(p.due, untilOf(p))}<span class="td-rmain">${name}${what}</span>`)}
+  return `<div data-k="${ek}" class="td-row${p.seen ? ' td-seen' : ''}"${fill ? ' data-fill="1"' : ''}${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${sel(`${urgBlock(p.due, untilOf(p), approveAct(p))}<span class="td-rmain">${name}${what}</span>`)}
     <span class="td-ract">${x ? button(p, x, true, filled && p.kind !== 'reply') : ''}</span>${end}</div>`;
 }
 // A row says what its button does not (A-14): beside "File at the Capitol" or "Make the draft now" the step's own words
@@ -1080,7 +1093,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 // under a deadline, whose chair ask is their row's "…".
 function suggestFor(scope, who, r, gated = new Set()) {
   if (scope !== 'mine' || SESSION_OVER) { LASTSG = new Map(); return { chair: new Map(), list: [] }; }
-  const dated = new Set(r.cards.filter(c => c.b && (c.group === 'overdue' || c.group === 'today' || c.tasks.some(t => t.kind === 'chair'))).map(c => c.b.id));
+  const dated = new Set(r.cards.filter(c => c.b && (NOW_GROUPS.has(c.group) || c.tasks.some(t => t.kind === 'chair'))).map(c => c.b.id));
   const all = suggestions(clockBills(scope, who), { cap: Infinity, skip: b => dated.has(b.id) });
   const isGated = s => s.kind === 'chair' && gated.has(s.b.id);
   const chair = new Map(all.filter(isGated).map(s => [s.b.id, s])), list = all.filter(s => !isGated(s)).slice(0, SUGGEST_CAP);
@@ -1150,7 +1163,7 @@ const slotKey = h => `${h.scheduled_at}|${h.committee}|${h.room || ''}`;
 // someone else (Everyone) keeps the hourglass, with its own word from t.chip.
 const WK_STATE = { nodraft: ['No draft yet', 'file-text', 0], stale: ['Out of date', 'triangle-alert', 1], write: ['Draft', 'pencil', 2], submit: ['Draft', 'pencil', 2],
   revise: ['Sent back', 'undo-2', 3], review: ['To review', 'scan-eye', 4], review2: ['To approve', 'scan-eye', 4], file: ['Ready to file', 'clipboard-check', 6] };
-const WK_WAIT = { Draft: ['Draft', 2], 'Sent back': ['Sent back', 3], 'In review': ['In review', 5], '2nd approval': ['2nd approval', 5], Approved: ['Ready to file', 6] };
+const WK_WAIT = { Draft: ['Draft', 2], 'Sent back': ['Sent back', 3], 'In review': ['In review', 5], 'Second approval': ['Second approval', 5], Approved: ['Ready to file', 6] };
 const wkState = t => { if (t.kind !== 'wait') return WK_STATE[t.kind] || ['Open', 'circle-dot', 5]; const [w, n] = WK_WAIT[t.chip] || [t.chip || 'Waiting', 5]; return [w, 'hourglass', n]; };
 const WK_ICON = { dnote: 'pencil', email: 'mail', fix: 'mail', send: 'send', followup: 'user-round', todo: 'list-todo', ask: 'megaphone', chair: 'mail', wait: 'hourglass', review: 'clipboard-check', review2: 'clipboard-check', nodraft: 'file-text', stale: 'triangle-alert', write: 'pencil', submit: 'pencil', revise: 'pencil', file: 'clipboard-check' };
 // "today's", "tomorrow's", "Wed's": the hearing a deadline is for, said the way a person would.
@@ -1208,7 +1221,7 @@ function wkDeadline(g, owners, now, wkend) {
   // Past the written deadline but before the hearing begins, late testimony is still taken: amber, and it says until
   // when, not red "overdue" (A-5 as amended by R-250; v3, R-264).
   const ms = g.due - now, start = new Date(g.h.scheduled_at).getTime(), open = ms <= 0 && start > now, late = ms <= 0 && !open, soon = open || (!late && ms <= DAY), what = `for ${whoseDay(hst(start), now)} ${g.h.committee} hearing`;
-  const head = open ? `Late testimony until ${timeOf(g.h.scheduled_at)}` : late ? 'Testimony\u00a0overdue' : `${wkWhen(g.due, wkend)} · Testimony\u00a0due`;
+  const head = open ? `Late testimony until ${clockDay(g.h.scheduled_at)}` : late ? 'Testimony\u00a0overdue' : `${wkWhen(g.due, wkend)} · Testimony\u00a0due`;
   const when = ms <= 0 ? `was due ${dayFmt(hst(g.due), { weekday: 'short' })} ${timeOf(new Date(g.due).toISOString())}` : hst(g.due) === hst(now) ? `in ${span(ms)}` : '';
   const rows = g.rows.sort((x, y) => x.st[2] - y.st[2] || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true }))
     .map(x => wkBill(x.b, `<span class="sr">Testimony: </span>${chip(x.st[0], '', x.st[1])}`, owners)).join('');
@@ -1246,7 +1259,7 @@ function wkAlso(all, now, wkend) {
   const rows = [...per.values()].map(g => {
     const t = g[0], more = g.length - 1, href = t.b ? `${billRoute(t.b)}` : t.kind === 'followup' ? `#/person/${t.f.person_id}` : t.a ? `#/email/${t.a.id}` : '';
     const late = t.due != null && t.due < now, day = wkend && t.due != null ? `<b>${esc(dayFmt(hst(t.due), { weekday: 'short' }))}</b> · ` : '';
-    const inner = `${icon(WK_ICON[t.kind] || 'list-todo')}<span class="wk-ot">${day}${t.b ? `<b class="td-num">${esc(billNum(t.b))}</b> ` : ''}${t.s}${late ? (lateNow(t) ? ` <span class="sv-count soon">late testimony until ${esc(timeOf(untilOf(t)))}</span>` : ` <span class="sv-count late">overdue</span>`) : ''}${more ? ` <span class="wk-more">+${more} more</span>` : ''}</span>`;
+    const inner = `${icon(WK_ICON[t.kind] || 'list-todo')}<span class="wk-ot">${day}${t.b ? `<b class="td-num">${esc(billNum(t.b))}</b> ` : ''}${t.s}${late ? (lateNow(t) ? ` <span class="sv-count soon">late testimony until ${esc(clockDay(untilOf(t)))}</span>` : ` <span class="sv-count late">overdue</span>`) : ''}${more ? ` <span class="wk-more">+${more} more</span>` : ''}</span>`;
     return `<li>${href ? `<a class="wk-oth${t.kind === 'wait' ? ' wk-q' : ''}" href="${esc(href)}">${inner}</a>` : `<div class="wk-oth">${inner}</div>`}</li>`;
   }).join('') + (msgs.length ? `<li><a class="wk-oth" href="#/">${icon('message-circle')}<span class="wk-ot">${esc(plural(msgs.length, 'message'))} to answer, in the list</span></a></li>` : '');
   return `<section class="wk-blk wk-also" aria-label="Also to do"><p class="wk-bh">${icon('list-todo')}<b>Also to do</b></p><ul class="wk-others">${rows}</ul></section>`;
@@ -1379,7 +1392,7 @@ function teamHtml(start, rows = false) {
     const top = gi === 0 ? ' data-top tabindex="-1"' : '';
     const pick = one || (g.none ? 'none' : null);
     const name = pick ? `<button type="button" class="td-pgname" data-who="${esc(pick)}" title="${esc(g.none ? 'Show only the bills nobody owns' : `Show ${who}’s list`)}">${av}<span>${esc(who)}</span></button>` : `<span class="td-pgname">${av}<span>${esc(who)}</span></span>`;
-    const o = c => ({ gk: g.gk, msg: g.none ? null : g.ids, filled: c.group === 'overdue' || c.group === 'today' });
+    const o = c => ({ gk: g.gk, msg: g.none ? null : g.ids, filled: NOW_GROUPS.has(c.group) });
     const list = rows ? `<div class="td-rows">${shown.map(c => row(c, o(c).filled, o(c))).join('')}</div>` : `<div class="td-list">${shown.map(c => card(c, i++, false, o(c))).join('')}</div>`;
     const more = !rest ? '' : pick ? `<button type="button" class="td-pgmore" data-who="${esc(pick)}"><span>${esc(`${shown.length ? `${rest} more` : plural(rest, 'card')}, due later or with no date, ${g.none ? 'on the No owner list' : `on ${first(one)}’s list`}`)}</span>${icon('chevron-right', { cls: 'chev' })}</button>`
       : `<p class="td-pgmore">${esc(`${shown.length ? `${rest} more` : plural(rest, 'card')}, due later or with no date`)}</p>`;
@@ -1599,11 +1612,11 @@ function render(route) {
   else {
     // Mine and a teammate's list never hold "waiting" cards (todayItems makes those for Team only): what waits on
     // someone else is "Waiting on others", a folded group under the list.
-    const groups = r.groups.map(g => { const cs = g.cards.filter(c => !c.wait); return { ...g, cards: cs, n: cs.reduce((s, c) => s + (c.cluster ? (g.id === 'overdue' ? c.cluster.filter(t => t.due != null && t.due <= Date.now()).length || 1 : c.cluster.length) : 1), 0) }; }).filter(g => g.cards.length);
-    const clear = !groups.some(g => g.id === 'overdue' || g.id === 'today');
+    const groups = r.groups.map(g => { const cs = g.cards.filter(c => !c.wait); return { ...g, cards: cs, n: cs.reduce((s, c) => s + (c.cluster ? (g.id === 'overdue' || g.id === 'lateopen' ? c.cluster.filter(t => t.due != null && t.due <= Date.now()).length || 1 : c.cluster.length) : 1), 0) }; }).filter(g => g.cards.length);
+    const clear = !groups.some(g => NOW_GROUPS.has(g.id));
     const groupHtml = (g, gi) => {
-      const fold = g.id === 'later', isOpen = !fold || open.later, filled = g.id === 'overdue' || g.id === 'today';
-      const title = g.id === 'overdue' ? `${icon('circle-alert', { cls: 'td-late' })}Overdue` : esc(g.title);
+      const fold = g.id === 'later', isOpen = !fold || open.later, filled = NOW_GROUPS.has(g.id);
+      const title = g.id === 'overdue' ? `${icon('circle-alert', { cls: 'td-late' })}Overdue` : g.id === 'lateopen' ? `<span class="td-lateopen">${icon('clock', { cls: 'td-soon' })}${esc(g.title)}</span>` : esc(g.title);
       // Numbers only where they ask for action (R-264): Overdue and Today say how many; a fold says what it holds.
       const list = rows ? `<div class="td-rows">${g.cards.map(c => row(c, filled)).join('')}</div>` : `<div class="td-list">${g.cards.map(c => card(c, i++, false, { filled })).join('')}</div>`;
       return `<section class="td-group" aria-labelledby="td-g-${g.id}"><h2 class="td-h"${gi === 0 ? ' data-top tabindex="-1"' : ''}>${groupHead(title, filled || fold ? g.n : '', { fold: fold ? 'later' : undefined, open: isOpen, id: 'td-g-' + g.id })}</h2>
