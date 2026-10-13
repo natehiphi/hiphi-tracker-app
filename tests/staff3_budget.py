@@ -31,7 +31,9 @@ JS = r"""(() => {
   const vis = e => e.offsetParent !== null && getComputedStyle(e).visibility !== 'hidden';
   const seen = r => r.bottom > 30 && r.top < H && r.width > 0 && r.height > 0;
   const bodyBg = getComputedStyle(document.body).backgroundColor, mainBg = getComputedStyle(main).backgroundColor;
-  const boxed = e => { if (/^(BUTTON|A|INPUT|SELECT|TEXTAREA|SUMMARY|IMG|svg)$/i.test(e.tagName)) return false;
+  // tab rows and menus are furniture (B-13), and what a closed fold holds is not in view
+  const boxed = e => { if (/^(BUTTON|A|INPUT|SELECT|TEXTAREA|SUMMARY|IMG|svg|NAV)$/i.test(e.tagName) || e.closest('nav')) return false;
+    { const f = e.closest('details:not([open])'); if (f && f !== e && !e.closest('summary')) return false; }
     const r = e.getBoundingClientRect(); if (r.width < 160 || r.height < 44) return false; const s = getComputedStyle(e);
     const sides = ['Top', 'Right', 'Bottom', 'Left'].filter(k => parseFloat(s['border' + k + 'Width']) > 0 && !/rgba\(0, 0, 0, 0\)|transparent/.test(s['border' + k + 'Color'])).length;
     const bg = s.backgroundColor, fill = bg && !/rgba\(0, 0, 0, 0\)|transparent/.test(bg) && bg !== bodyBg && bg !== mainBg;
@@ -40,14 +42,20 @@ JS = r"""(() => {
   // A list's rows, a table or the week's grid is one thing however many rows show (A-2: repetition does not compete with
   // itself): every box inside the same list counts once, as that list.
   const LIST = 'ul, ol, table, [role=list], [role=grid], .rows, .td-list, .td-weekgrid, .wk-bills, .le-bills';
-  const keys = new Set(tops.map(e => { const l = e.closest(LIST); return l && main.contains(l) ? l : e; }));
+  // ...and so is a run of sibling cards with exactly the same classes (My issues' issue cards).
+  // Today's groups (Overdue, Today, Tomorrow…) are one list under headings.
+  const keys = new Set(tops.map(e => { if (e.matches('.td-rows') && e.closest('.td-main')) return e.closest('.td-main'); const l = e.closest(LIST); if (l && main.contains(l)) return l;
+    const twins = e.parentElement ? [...e.parentElement.children].filter(c => c.className === e.className && c.tagName === e.tagName) : [];
+    return twins.length >= 3 ? e.parentElement : e; }));
   // Side panels: the columns an <aside> in the page lays out side by side (Today at 1600px and wider had two).
   const sides = [...main.querySelectorAll('aside, .sv-aside, [data-pane]')].filter(e => vis(e) && seen(e.getBoundingClientRect()) && e.getBoundingClientRect().width > 160 && !e.parentElement.closest('aside, .sv-aside, [data-pane]'))
     .reduce((n, a) => n + Math.max(1, new Set([...a.children].filter(c => vis(c) && c.getBoundingClientRect().width > 160).map(c => Math.round(c.getBoundingClientRect().left / 20))).size), 0);
   const colors = new Set(); const w = document.createTreeWalker(main, NodeFilter.SHOW_TEXT); let n;
-  while ((n = w.nextNode())) { if (!n.nodeValue.trim()) continue; const el = n.parentElement; if (!el || !vis(el)) continue; const r = document.createRange(); r.selectNodeContents(n); if (!seen(r.getBoundingClientRect())) continue; colors.add(getComputedStyle(el).color); }
-  const filled = [...main.querySelectorAll('.btn.primary')].filter(e => vis(e) && seen(e.getBoundingClientRect()));
-  const inList = e => { const row = e.closest('tr, li, .row, article, [data-row]'); return row && row.parentElement && [...row.parentElement.children].filter(c => c.tagName === row.tagName).length > 1; };
+  while ((n = w.nextNode())) { if (!n.nodeValue.trim()) continue; const el = n.parentElement; if (!el || !vis(el)) continue; const r = document.createRange(); r.selectNodeContents(n); const rr = r.getBoundingClientRect(); if (!seen(rr) || rr.width <= 2 || rr.height <= 2 || el.closest('.sr')) continue; colors.add(getComputedStyle(el).color); }   // screen-reader-only words are not seen
+  // a filled button is one that looks filled: a strong background (an outlined one keeps a white ground)
+  const strong = e => { const m = getComputedStyle(e).backgroundColor.match(/\d+(\.\d+)?/g); if (!m) return false; const [r, g, b, al = 1] = m.map(Number); return al > 0.5 && (r + g + b) / 3 < 160; };
+  const filled = [...main.querySelectorAll('.btn, button, a.btn')].filter(e => vis(e) && seen(e.getBoundingClientRect()) && strong(e));
+  const inList = e => { const row = e.closest('tr, li, .row, article, [data-row], .td-row'); return row && row.parentElement && [...row.parentElement.children].filter(c => c.tagName === row.tagName).length > 1; };
   const outside = filled.filter(e => !inList(e)).length + (filled.some(inList) ? 1 : 0);
   return { side: sides, boxes: keys.size, colors: colors.size, filled: outside };
 })()"""

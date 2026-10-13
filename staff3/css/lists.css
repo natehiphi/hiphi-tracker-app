@@ -314,7 +314,7 @@
   .le-page .le-next { display: inline; }
   .le-page .le-next.you { font-weight: 700; color: var(--n900); }
   .le-page .le-next .ic { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; color: var(--p700); }
-  .le-page .le-dash { color: var(--n400); }
+  .le-page .le-dash { color: var(--n500); }   /* --n400 is 3.47:1, under 4.5:1 for text (A-7) */
   .le-page .le-table .chip { flex: none; }
   /* Lists: column widths (the list's name takes the rest) */
   .le-page .le-tlists th.c-bills { width: 84px; }

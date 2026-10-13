@@ -1285,8 +1285,8 @@ export function weekAsksText(items, kind) {
 export function weekAsksHTML() {
   const items = weekAsks(); S.tdAsks = items;
   if (!items.length) return '';
-  return `<details class="td-asks"><summary><h2 id="td-asks-h">This week’s asks</h2><span class="td-asksn">${plural(items.length, 'bill')}</span>${icon('chevron-down', { cls: 'td-askchev' })}</summary><div class="td-askhd">
-      <p class="small muted">Ready to paste into HIPHI’s newsletter or a post: the ask, the deadline and each bill’s share page. Arrivals from the newsletter and from posts are counted apart.</p></div>
+  return `<details class="td-asks"><summary><h2 id="td-asks-h">This week’s asks, to paste into the newsletter or a post</h2><span class="td-asksn">${plural(items.length, 'bill')}</span>${icon('chevron-down', { cls: 'td-askchev' })}</summary><div class="td-askhd">
+      <p class="small muted">Each bill’s ask, its deadline and its share page. Arrivals from the newsletter and from posts are counted apart.</p></div>
     <ol class="td-asklist">${items.map(x => `<li><b>${esc(billNum(x.b))}</b> <span>${esc(x.b.nickname || blurb(x.b, 80))}</span> <span class="muted">· ${esc(ASK_SAYS[x.b.position] || '')} · due ${esc(fmtDT(x.due))}</span></li>`).join('')}</ol>
     <div class="btnrow">${btn('Copy for the newsletter', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-wkasks': 'newsletter' } })}${btn('Copy for a post', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-wkasks': 'social' } })}</div>
   </details>`;
