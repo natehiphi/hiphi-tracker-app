@@ -2,11 +2,12 @@
 // and to get it in front of people (B-1). v3 gives the tab three labelled blocks:
 // "On the public page": whether the bill is on it, the nickname, the plain summary, the ask and the date it stops
 // showing, the talking points, with ONE Save for those fields (the same fields the current app saves), the preview
-// beside them, and the notes on what each draft changed. "Spread the word": the share link, a ready message and the
-// email to supporters. "Where it shows", folded: its issues, the lists it is on and the pre-tick for new visitors, which
-// each act at once, since each is its own thing (an issue is what the public follows, R-018; a list is a page the public
-// follows). On a phone "Spread the word" comes first (R-152 C). Three explaining sentences at most (P-4); the rest of
-// what the tab says is status.
+// beside them, and the notes on what each draft changed. "Share kit" (v3's "Spread the word"): the share link, a ready
+// message and the email to supporters. "Where it shows", folded: its issues, the lists it is on and the pre-tick for new
+// visitors, which each act at once, since each is its own thing (an issue is what the public follows, R-018; a list is a
+// page the public follows). v4 (R-269): the share kit comes first at every width (on a phone since R-152 C), under the
+// name the hearing page gives it (C-15: four names for one toolkit). Three explaining sentences at most (P-4); the rest
+// of what the tab says is status.
 // Desktop (build 3): the form stays a readable column, and where the column has room a small card beside it shows,
 // as you type, how the public page will name the bill (nickname, summary, the ask).
 // The staff "recommended" flag lives here now, as "Pre-tick for new visitors" (R-022 #13). Nate: "the language shouldn't
@@ -61,7 +62,7 @@ const count = (n, id, max = 280) => `<span class="help bw-count" id="${id}" aria
 // has not passed. v holds the form's values as typed, so the card changes with every key.
 const spaced = n => String(n || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2');
 // X10-3: where the ask will reach people, under the ask's date, in words. v3: the way to send it now is "Email supporters"
-// under "Spread the word", said once (A-14).
+// under "Share kit", said once (A-14).
 function reachNote(b) {
   const r = askReach(b);
   return `<div class="bw-reach" role="note"><p class="small"><b>Where this ask reaches people:</b> ${r.lines.map(esc).join(' ')}</p></div>`;
@@ -194,16 +195,16 @@ export function renderPublic(b) {
   const listed = b.is_public && b.tracked !== false, sum = valOf(b, 'public_summary'), ask = valOf(b, 'public_action'), nickname = valOf(b, 'nickname');
   const pubLink = live ? ` <a class="bw-inline" href="${esc(PUBLIC_APP() + (DEMO ? '?demo=1' : '') + billRoute(b))}" target="_blank" rel="noopener">See it${icon('external-link')}</a>` : '';
   const emailOk = b.is_public && b.position !== 'monitor';
-  // On a phone the public's response and the share kit come first: they were 4,277px down a 4,718px page, and a hearing day's
-  // job is to share, not to edit (R-152 C). A laptop leads with what the page says.
-  const wide = matchMedia('(min-width: 900px)').matches;
-  const spread = `<section class="bw-sec bw-pblk" aria-labelledby="bw-spread-h">
-    <h2 id="bw-spread-h">Spread the word</h2>
+  // The public's response and the share kit come first: on a phone they were 4,277px down a 4,718px page, and a hearing
+  // day's job is to share, not to edit (R-152 C). v4 (R-269): on a laptop too (Saya: Copy share link was 2.3 screens down,
+  // under the editor); "Write it" on Today still lands on the ask below it (?focus=ask, wirePublic).
+  const spread = `<section class="bw-sec bw-pblk bw-kit" aria-labelledby="bw-spread-h">
+    <h2 id="bw-spread-h">Share kit</h2>
     <p class="small bw-resp">${publicWords(b) ? `${icon('users')}<span>${esc(publicWords(b))}.${DEMO ? ' <span class="muted">(sample numbers)</span>' : ''}</span>` : '<span class="muted">No one from the public has followed or acted on this bill yet.</span>'}</p>
     <div class="bw-acts bw-spreadacts">${listed ? `${btn('Copy share link', { kind: 'text', icon: 'link', attrs: { 'data-kit': 'link' } })}${btn('Copy a ready message', { kind: 'text', icon: 'message-square', attrs: { 'data-kit': 'msg' } })}` : ''}${btn('Email supporters', { kind: 'text', icon: 'mail', attrs: { 'data-email': '1', ...(emailOk ? {} : { 'aria-disabled': 'true' }) } })}</div>
     <p class="small muted">${[listed ? '' : 'Make it public to get its share link.', emailOk ? 'Someone who approves emails checks it before it sends.' : b.position === 'monitor' ? 'Monitor bills get no supporter emails. Take a position first.' : ''].filter(Boolean).join(' ')}</p>
   </section>`;
-  return `${wide ? '' : spread}<section class="bw-sec bw-pub bw-pblk" aria-labelledby="bw-pub-h">
+  return `${spread}<section class="bw-sec bw-pub bw-pblk" aria-labelledby="bw-pub-h">
     <h2 id="bw-pub-h">On the public page</h2>
     <p class="bw-pubnow${warn ? ' warn' : ''}">${icon(live ? 'globe' : warn ? 'triangle-alert' : 'eye-off')}<span><b>Now:</b> ${esc(pubStateText(b))}${pubLink}</span></p>
     <div class="bw-pubcols">
@@ -233,7 +234,6 @@ export function renderPublic(b) {
     </div>
     ${draftsSection(b)}
   </section>
-  ${wide ? spread : ''}
   ${whereBlock(b, listed)}`;
 }
 
