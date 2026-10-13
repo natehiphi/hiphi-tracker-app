@@ -269,10 +269,10 @@ export function blRow(b, { sub = '', href, selectable = false, selected = false,
   // In Mine, a bill nobody holds that is yours through an issue (R-263) shows the issue's tag, not the no-owner circle.
   const iss = mine && (!o || o.id === S.me?.id) ? myIssuesOf(b) : [];
   const who = o ? (mine && o.id === S.me?.id ? '' : avatar(o)) : iss.length ? `<span class="bl-noown" title="On your issue ${esc(iss[0].name)}">${icon('tag')}<span class="sr">On your issue ${esc(iss[0].name)}</span></span>`
-    : `<span class="bl-noown">${icon('circle-dashed')}<span class="bl-noword">No owner</span></span>`;   // in words: the dashed circle alone was read as a blank (R-267)
+    : `<span class="bl-noown" title="No owner">${icon('circle-dashed')}<span class="sr">No owner</span></span>`;   // in words in the table and the meta line: the dashed circle alone was read as a blank (R-267)
   const end = `<span class="sv-posic" role="img" title="${esc(pw)}" aria-label="${esc(pw)}">${posIcons(pos)}</span>${b.priority === 1 ? '<span class="sv-p1">P1</span>' : ''}${who}`;
   const box = selectable ? `<span class="sv-check" aria-hidden="true">${icon(selected ? 'square-check-big' : 'square')}</span>` : '';
-  const inner = `${box}<span class="body"><span class="title bl-rt">${nick ? `<b class="bl-nk">${esc(nick)}</b> <span class="bn-num">${esc(billNum(b))}</span>` : `<b class="bn-num0">${esc(billNum(b))}</b>`} <span class="sv-t">${esc(sum)}</span></span>${sub ? `<span class="sub">${sub}</span>` : ''}</span><span class="end">${end}</span>`;
+  const inner = `${box}<span class="body"><span class="title bl-rt">${nick ? `<b class="bl-nk">${esc(nick)}</b> <span class="bn-num">${esc(billNum(b))}</span>` : `<b class="bn-num0">${esc(billNum(b))}</b>`} <span class="sv-t">${esc(sum)}</span></span>${sub || (!o && !iss.length) ? `<span class="sub">${sub}${!o && !iss.length ? `${sub ? ' · ' : ''}No owner` : ''}</span>` : ''}</span><span class="end">${end}</span>`;
   return href && !selectable ? `<a class="row sv-billrow bl-row" href="${esc(href)}" data-bill="${esc(b.id)}">${inner}</a>`
     : `<button type="button" class="row sv-billrow bl-row${selected ? ' sel' : ''}" data-bill="${esc(b.id)}" aria-pressed="${selected ? 'true' : 'false'}">${inner}</button>`;
 }

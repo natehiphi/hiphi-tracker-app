@@ -38,7 +38,8 @@ export const posChip = p => chip(POS_WORD[p || ''] || p, '', POS_ICON[p || ''] |
 export function avatar(adv, size = 24) {
   if (!adv) return `<span class="sv-av none" style="--av:${size}px" role="img" aria-label="No owner" title="No owner"></span>`;
   const me = S.me && adv.id === S.me.id;
-  return `<span class="sv-av${me ? ' me' : ''}" style="--av:${size}px" title="${esc(me ? 'You' : adv.full_name)}" role="img" aria-label="${esc(me ? 'You' : adv.full_name)}">${esc(adv.initials || adv.full_name?.[0] || '?')}</span>`;
+  const ini = adv.initials || adv.full_name?.[0] || '?';   // three letters (JMM) take a smaller size to stay inside the circle (R-267)
+  return `<span class="sv-av${me ? ' me' : ''}${ini.length > 2 ? ' ini3' : ''}" style="--av:${size}px" title="${esc(me ? 'You' : adv.full_name)}" role="img" aria-label="${esc(me ? 'You' : adv.full_name)}">${esc(adv.initials || adv.full_name?.[0] || '?')}</span>`;
 }
 export const ownerOf = b => advocate((S.assignments[b.id] || [])[0]);
 

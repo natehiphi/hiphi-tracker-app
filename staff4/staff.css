@@ -24,6 +24,7 @@ body.staff2.wide main { max-width: 1200px; }
 .sv-avbtn { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--pill); }
 .sv-avbtn:hover { background: var(--n100); }
 .sv-av { width: var(--av, 24px); height: var(--av, 24px); border-radius: 50%; background: var(--n100); color: var(--n700); display: inline-flex; align-items: center; justify-content: center;
+.sv-av.ini3 { font-size: 10px; letter-spacing: -0.02em; }   /* three-letter initials (JMM) stay inside the circle (R-267) */
   font: 700 var(--t13)/1 var(--font); flex: none; letter-spacing: 0; }
 .sv-av.none { background: none; border: 1.5px dashed var(--n400); }
 .sv-av.me { background: var(--p50); color: var(--p800); }

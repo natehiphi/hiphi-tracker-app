@@ -44,7 +44,7 @@ export default {
     const remTimes = { morning: `At ${hhmm(r.morning)}`, before: `${r.hours_before} hour${Number(r.hours_before) === 1 ? '' : 's'} before`, after: `At ${hhmm(r.after)}` };
     // Everything a person changes now and then sits behind one fold, closed until they open it (B-12).
     const fine = mode === 'app' ? '' : `<details class="st-fine"${S.meFine ? ' open' : ''}><summary><span>Fine-tune what you are told, and when</span>${icon('chevron-down', { cls: 'st-fchev' })}</summary><div class="st-finein">
-        ${mode === 'slack' ? `<h3 class="st-h3">Testimony deadlines</h3><p class="small muted st-note">${helper ? 'For bills you own. You own none yet, so these go to each bill’s owner; messages, @-mentions and tasks for you still reach you.' : 'Only for bills you own, until the testimony is marked filed.'}</p>
+        ${mode === 'slack' ? `<h3 class="st-h3">Testimony deadlines</h3><p class="small muted st-note">Only for bills you own, until the testimony is marked filed.</p>
         <div class="card st-list">${REM.map(([k, l]) => switchRow('st-rem-' + k, l, r[k + '_on'], remTimes[k], { 'data-rem': k })).join('')}</div>
         ${r.morning_on || r.before_on || r.after_on ? `<h3 class="st-h3">Reminder times</h3>
         <div class="card st-grid st-times">${r.morning_on ? field('st-mont', 'Morning reminder', `<input id="st-mont" type="time" value="${esc(r.morning)}" data-remv="morning">`) : ''}
@@ -58,7 +58,7 @@ export default {
       <div class="st-head"><h1 class="st-dup">My settings</h1></div>
       <section class="st-sec" aria-labelledby="st-reach">
         <h2 id="st-reach">How the tracker reaches you</h2>
-        <p class="st-always">${icon('list-todo')}<span>Today lists everything that needs you, whatever you pick below.</span></p>
+        <p class="st-always">${icon('list-todo')}<span>Today lists everything that needs you, whatever you pick below.${helper ? ' You own no bills yet, so testimony deadline reminders go to each bill’s owner.' : ''}</span></p>
         <fieldset class="st-fs"><legend class="st-legend">Nudges come by</legend>
           <div class="card st-opts">
             ${opt('slack', 'Slack DM', esc(slackState) + (toEmail ? '. An admin has sent testimony steps to email for everyone.' : ''))}
