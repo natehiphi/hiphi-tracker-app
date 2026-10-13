@@ -974,8 +974,8 @@ function mineCard(h) {
       ${says ? `<span class="td-mstate">${icon(t.icon)}<span>${esc(t.label)}</span></span>` : '<span class="td-mstate">We monitor this bill</span>'}${d?.doc_url ? `<a class="td-mdoc" href="${esc(d.doc_url)}" target="_blank" rel="noopener">Open Doc${icon('external-link')}</a>` : ''}</li>`; };
   // Late testimony is said once for the sitting (its deadline is the sitting's), in amber, not on every bill (A-14).
   const due = testDue(h), late = due <= now && new Date(h.scheduled_at).getTime() > now && pos.some(x => !testimonyOf(x.h, x.b).filed);
-  return `<section class="td-mine" aria-labelledby="td-mine-${esc(h.id)}"><p class="td-minek">${icon('landmark')}Your hearing today</p>
-    <h2 class="td-mineh" id="td-mine-${esc(h.id)}"><a href="#/hearing/${esc(h.id)}?from=today">${esc(timeOf(h.scheduled_at))}${h.room ? ` · ${esc(roomLong(h.room))}` : ''}</a></h2>
+  return `<section class="td-mine" aria-labelledby="td-mine-${esc(h.id)}">
+    <h2 class="td-mineh" id="td-mine-${esc(h.id)}"><span class="td-minek">${icon('landmark')}Your hearing today</span><a href="#/hearing/${esc(h.id)}?from=today">${esc(timeOf(h.scheduled_at))}${h.room ? ` · ${esc(roomLong(h.room))}` : ''}</a></h2>
     <p class="td-minec">${esc(h.committee)}${going ? ` · ${esc(going)}` : ''}</p>
     ${late ? `<p class="td-minel">${icon('clock')}<span>${esc(`Late testimony until ${clockDay(h.scheduled_at)}`)}</span></p>` : ''}
     <ul class="td-mbills">${bills.map(line).join('')}</ul></section>`;
@@ -1617,7 +1617,7 @@ function coalSection(r, skip = new Set()) {
   // Where a sitting's testimony stands: the bills not filed yet, their states counted, and the first deadline among them.
   const testOf = list => {
     const left = list.map(x => ({ ...x, d: draftOf(x.h), t: testimonyOf(x.h, x.b) })).filter(x => !x.t.filed);
-    if (!left.length) return '';
+    if (!left.length) return `<span class="td-ctest">${esc(list.length === 1 ? 'Testimony filed' : 'Testimony filed for all')}</span>`;   // every row says where it stands, done included
     const n = new Map(); for (const x of left) n.set(x.t.word, (n.get(x.t.word) || 0) + 1);
     const what = left.length === 1 ? `Testimony ${left[0].t.word}` : `Testimony: ${[...n].map(([w, k]) => `${k} ${w}`).join(', ')}`;
     const at = Math.min(...left.map(x => testDue(x.h))), start = new Date(list[0].h.scheduled_at).getTime(), ms = at - now;
@@ -1631,7 +1631,8 @@ function coalSection(r, skip = new Set()) {
   };
   const rows = [...sit.entries()].filter(([k]) => !skip.has(k)).map(([, l]) => l);
   const sitRow = list => { const h = list[0].h, going = goingOf(goersAt(h)), test = testOf(list), kit = list.some(x => liveAsk(x.b));
-    return `<div class="td-crow td-chear"><a class="td-cmain" href="#/hearing/${esc(h.id)}?from=today"><span class="td-ctime">${esc(dayWord(list[0].day))}<b>${esc(timeOf(h.scheduled_at))}</b></span>
+    // The row and its Share kit are two links side by side (a link inside a link is not allowed).
+    return `<div class="td-chear"><a class="td-crow td-cmain" href="#/hearing/${esc(h.id)}?from=today"><span class="td-ctime">${esc(dayWord(list[0].day))}<b>${esc(timeOf(h.scheduled_at))}</b></span>
       <span class="td-cbody"><span class="td-cbills">${list.map(x => `<b class="td-num">${esc(billNum(x.b))}</b> ${esc(x.b.nickname || blurb(x.b, 60))}`).join('<span class="td-csep">, </span>')}</span>
       <span class="td-cmeta">${[esc(h.committee), esc(room(h.room)), test, going ? esc(going) : ''].filter(Boolean).join('\u00a0· ')}</span></span></a>
       ${kit ? `<a class="td-ckit" href="#/hearing/${esc(h.id)}?from=today&amp;kit=1">Share kit${icon('chevron-right')}</a>` : ''}</div>`; };
