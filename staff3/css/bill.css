@@ -143,6 +143,12 @@
 .bw-addrow .input { flex: 1 1 auto; min-width: 0; }
 .bw-addrow .btn { flex: none; min-height: 48px; }
 .bw-page .bw-sec textarea#bw-note { min-height: 88px; }
+/* An untracked bill's page (untracked.js) keeps v2's hearings list and links row: committee and when on the left, what
+   happened on the right; the links spaced in a row. */
+.bw-page ul.bw-allh { list-style: none; margin: 0; padding: 0; }
+.bw-page .bw-ah { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s4) var(--s12); padding: var(--s8) 0; border-bottom: 1px solid var(--n200); }
+.bw-page .bw-ah p { margin: 0; }
+.bw-linkrow { display: flex; flex-wrap: wrap; column-gap: var(--s24); }
 /* The team note, pinned at the top of Activity (v3): saved, a quiet card that reads like a pinned message, with Edit;
    empty, one line, "Add a team note". */
 .bw-tnote { padding: var(--s12) var(--s16) var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); }
