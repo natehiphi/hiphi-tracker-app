@@ -1,0 +1,223 @@
+// Staff v2 · Bills: select mode and the bulk changes (plan 3.4). The current app wrote to every selected bill the
+// moment an option was picked, with no Undo, and warned about hidden selections in a bar that scrolled away. Here a
+// change is picked, then applied with one button that names the count, the warning sits right above that button, and
+// the toast's Undo puts each bill's own previous value back. The writes are the current app's calls: DB.bulkUpdate for
+// position (priority follows it, R-175), DB.setOwner per bill (in parallel), DB.addToCampaign, DB.addListBills, and DB.follow (the
+// bill page's own Follow) per bill.
+// R-022, decision 9 made changing owners or positions for many bills at once an admin's job. R-106 (Nate, 9/30: "Add 1,
+// 2 and 3 to the new staff app") gives it back to everyone, as the old app had it: the database always allowed any staff
+// member, and every change here has an Undo that puts each bill's own value back. Everyone can follow or unfollow many
+// at once too - Kris follows a coalition's 28 live bills in one go instead of four clicks each.
+import { S, DB, esc, advocate, isOwner, hooks } from './data.js';
+import { billNum, FACTS } from './model.js';
+import { icon, btn, iconBtn, toast, openSheet, closeSheet, menuSheet, POS_ICON, POS_WORD, POS_SUB } from './ui.js';
+import { bl, shownBills, wideNow, settled } from './filters.js';
+
+export const selIds = () => { const v = bl(); for (const id of v.sel) if (!S.bills.some(b => b.id === id)) v.sel.delete(id); return [...v.sel]; };
+const billsN = n => `${n} bill${n === 1 ? '' : 's'}`;
+const hiddenOf = ids => { const vis = new Set(shownBills().map(b => b.id)); return ids.filter(id => !vis.has(id)); };
+// Select mode is a step in the browser's history, the way a sheet is: the phone's Back ends it and leaves you on
+// Bills (it used to leave Bills for Today with the mode still on underneath). The x and Esc take that step back
+// themselves. v3 (R-264): a desktop has the mode too (the tick boxes come with "Select bills" in "…", so a plain list
+// has none), but nothing is pushed there: its x and Esc end it, and Back leaves Bills as it always did.
+let swallow = false;   // our own history.back() is on its way: that popstate is not a page change
+export function startSelect(firstId) {
+  const v = bl();
+  if (!v.selecting && !wideNow()) {
+    try { history.replaceState({ ...(history.state || {}), y: scrollY }, ''); history.pushState({ ...(history.state || {}), blsel: true }, ''); v.pushed = true; } catch { v.pushed = false; }
+  }
+  v.selecting = true; if (firstId) v.sel.add(firstId); hooks.render();
+}
+export function stopSelect() {
+  const v = bl(), pushed = v.pushed && history.state?.blsel;
+  v.selecting = false; v.pushed = false; v.sel.clear();
+  if (pushed) { swallow = true; history.back(); }
+  hooks.render();
+}
+// Leaving Bills ends select mode, however the leaving happened (a tab, search, a link, Back from a sheet's page).
+export function dropSelect() { const v = S.bl; if (v && v.selecting) { v.selecting = false; v.pushed = false; v.sel.clear(); } }
+if (typeof window !== 'undefined') {
+  // Registered before the frame's own popstate listener (the frame imports this file first), so it can end the mode
+  // before the frame redraws the page, and keep the frame out of a Back that was only ours.
+  addEventListener('popstate', e => {
+    const v = S.bl; if (!v) return;
+    if (swallow) { swallow = false; e.stopImmediatePropagation(); return; }
+    if (v.selecting && v.pushed && !e.state?.blsel) { v.selecting = false; v.pushed = false; v.sel.clear(); return; }   // Back: the frame draws Bills next, where it was
+    // An old select-mode step (the mode ended when the route left Bills): pass over it, so one Back is one page.
+    if (e.state?.blsel && !v.selecting) { e.stopImmediatePropagation(); history.back(); }
+  });
+  // The frame names each screen on <body> after it draws it; when that stops being the Bills list, the mode ends.
+  try { new MutationObserver(() => { if (document.body.dataset.screen !== 'bills' || S.route?.muted) dropSelect(); }).observe(document.body, { attributes: true, attributeFilter: ['data-screen'] }); } catch { /* no observer: bills.js also checks on arrival */ }
+}
+
+// ---- the bar: one shape for every select mode in the app (Supporters has the same): x on the left, then the count,
+// then the actions on the right. It replaces the tab bar on phones; on desktop it is the page's action bar. The
+// count's word drops to the hidden second line when there is no room, so "3 selected" shortens to "3" before
+// anything is cut. ----
+// Which of the selected bills each follow action would change. A bill you own is yours already (its page offers Mute
+// there, not Follow), so Follow leaves it alone.
+const followPlan = ids => ({ on: ids.filter(id => !S.follows?.has(id) && !isOwner({ id })), off: ids.filter(id => S.follows?.has(id)), owned: ids.filter(id => isOwner({ id }) && !S.follows?.has(id)) });
+const FOLLOW_WHY = { on: 'You own or already follow every one of them', off: 'You follow none of them' };
+export function bulkBar() {
+  const ids = selIds(), n = ids.length, hid = hiddenOf(ids).length, wide = wideNow(), on = bl().selecting;
+  if (wide && !n && !on) return '';
+  const count = `<span class="bl-bar-n" aria-live="polite"><b>${n}</b><span class="bl-bar-w">selected</span>${hid ? `<span class="bl-bar-h">${hid} hidden by your filters</span>` : ''}</span>`;
+  if (wide) {
+    const fp = followPlan(ids);
+    // Nothing ticked yet: every button is there (the bar does not jump as the first tick lands) and says why it waits.
+    const none = !n && 'Tick a bill first';
+    const b = (label, act, ic, why) => btn(label, { kind: 'secondary', sm: true, icon: ic, attrs: { 'data-bulk': act, 'aria-disabled': none || why ? 'true' : null, title: none || why || null } });
+    // Your own list first, then what changes the bills for everyone (position and owner: R-106; priority follows the
+    // position, R-175). Follow and Unfollow
+    // show when they would change something (as a mail app offers "Mark as read" or "Mark as unread" for what is
+    // selected), so the bar stays one row at 1280; with nothing to change, Follow stays and says why.
+    const follows = `${fp.on.length || !fp.off.length ? b('Follow', 'follow', 'bell', !fp.on.length && FOLLOW_WHY.on) : ''}${fp.off.length ? b('Unfollow', 'unfollow', 'bell-off') : ''}`;
+    return `<div class="bl-bar bl-barw" role="toolbar" aria-label="Change the selected bills">
+      ${on ? iconBtn('x', 'Stop selecting', { 'data-bulk': 'exit' }) : iconBtn('x', 'Clear the selection', { 'data-bulk': 'clear' })}${count}
+      ${follows}<span class="bl-barsep" aria-hidden="true"></span>
+      ${b('Set position', 'pos', 'thumbs-up')}${b('Set owner', 'own', 'user-round')}${b('Add to…', 'add', 'plus')}</div>`;
+  }
+  return `<div class="bl-bar" role="toolbar" aria-label="Change the selected bills">
+    ${iconBtn('x', 'Stop selecting', { 'data-bulk': 'exit' })}${count}
+    ${btn('Change…', { kind: 'secondary', attrs: { 'data-bulk': 'set', disabled: !n } })}${btn('Add to…', { kind: 'secondary', attrs: { 'data-bulk': 'add', disabled: !n } })}</div>`;
+}
+export function wireBulkBar(root) {
+  const bar = root.querySelector('.bl-bar'); if (!bar) return;
+  bar.querySelectorAll('[data-bulk]').forEach(el => el.onclick = () => {
+    const a = el.dataset.bulk;
+    // A control that cannot act says why rather than doing nothing (A-12); it is not a disabled button, so it can say so.
+    if (el.getAttribute('aria-disabled') === 'true') return toast(`${el.title || 'Nothing to change'}.`);
+    if (a === 'exit') return stopSelect();
+    if (a === 'clear') { bl().sel.clear(); return hooks.render(); }
+    if (a === 'set') return openSet();
+    if (a === 'add') return openAddTo();
+    if (a === 'follow' || a === 'unfollow') return follow(a === 'follow');
+    if (a === 'camp' || a === 'list') return openAddTo(a);
+    openValue(a);
+  });
+}
+
+// ---- Change… (phones): follow or unfollow, then position or owner, then a value, then "Apply to N bills" ----
+export function openSet() {
+  const ids = selIds(), n = ids.length; if (!n) return;
+  const fp = followPlan(ids);
+  menuSheet({ title: `Change ${billsN(n)}`, items: [
+    { label: 'Follow', icon: 'bell', sub: 'See them in your bills and get their updates', disabled: !fp.on.length, reason: FOLLOW_WHY.on, run: async () => { await settled(); follow(true); } },
+    { label: 'Unfollow', icon: 'bell-off', sub: 'Stop seeing them in your bills', disabled: !fp.off.length, reason: FOLLOW_WHY.off, run: async () => { await settled(); follow(false); } },
+    // No Priority here: it follows the position (R-175, Nate 10/5).
+    { label: 'Position', icon: 'thumbs-up', sub: 'Support, oppose, comments or monitor', run: async () => { await settled(); openValue('pos'); } },
+    { label: 'Owner', icon: 'user-round', sub: 'Who looks after them', run: async () => { await settled(); openValue('own'); } },
+  ] });
+}
+// Follow or unfollow every selected bill that it changes, with one Undo for all of them. Each write is the bill page's
+// own (DB.follow), so a bill that fails keeps its old state and is counted rather than hidden.
+async function follow(on) {
+  const ids = selIds(), fp = followPlan(ids), todo = on ? fp.on : fp.off; if (!todo.length) return toast(on ? FOLLOW_WHY.on + '.' : FOLLOW_WHY.off + '.');
+  const res = await Promise.allSettled(todo.map(id => DB.follow(id, on))), done = todo.filter((id, i) => res[i].status === 'fulfilled'), failed = todo.length - done.length;
+  FACTS.clear(); hooks.render();
+  if (!done.length) return toast(res.find(r => r.status === 'rejected')?.reason || 'That did not save.', { err: true });
+  const owned = on && fp.owned.length ? ` ${fp.owned.length} ${fp.owned.length === 1 ? 'is' : 'are'} yours already.` : '';
+  toast(`${on ? `Following ${billsN(done.length)}. They show in your bills now.` : `Unfollowed ${billsN(done.length)}.`}${owned}${failed ? ` ${failed} did not save.` : ''}`, { undo: async () => {
+    await Promise.allSettled(done.map(id => DB.follow(id, !on)));
+    FACTS.clear(); hooks.render(); toast(on ? `Undone. You no longer follow ${done.length === 1 ? 'it' : `those ${billsN(done.length)}`}.` : `Undone. Following ${billsN(done.length)} again.`);
+  } });
+}
+const FIELD = {
+  pos: { word: 'position', opts: () => ['strongly_support', 'support', 'support_amend', 'strongly_oppose', 'oppose', 'neutral', 'monitor'].map(k => [k, POS_WORD[k], POS_ICON[k], POS_SUB[k]]), cur: b => b.position || '' },
+  own: { word: 'owner', opts: () => [...S.advocates.filter(a => a.is_active !== false).sort((a, b) => (b.id === S.me?.id) - (a.id === S.me?.id) || a.full_name.localeCompare(b.full_name)).map(a => [a.id, a.id === S.me?.id ? `You (${a.full_name})` : a.full_name, 'user-round']), ['none', 'No owner', 'circle-dashed']], cur: b => (S.assignments[b.id] || [])[0] || 'none' },
+};
+// Selections survive filter changes, so a change can reach bills that are no longer on screen. Say so right above the
+// button, and offer the one-tap way to leave them out.
+const hiddenNote = (ids, hid, trim = true) => hid.length ? `<div class="notice warn sv-notice bl-hid">${icon('triangle-alert')}<div>${hid.length === ids.length ? `${ids.length === 1 ? 'It is' : `All ${ids.length} are`} hidden by your filters.` : `${hid.length} of them ${hid.length === 1 ? 'is' : 'are'} hidden by your filters.`}</div>${trim && hid.length < ids.length ? btn(hid.length === 1 ? 'Leave it out' : 'Leave them out', { kind: 'text', sm: true, attrs: { 'data-trim': '1' } }) : ''}</div>` : '';
+export function openValue(field) {
+  const F = FIELD[field]; let pick = null, d = null;
+  const bodyHTML = () => { const ids = selIds(), hid = hiddenOf(ids), bills = ids.map(id => S.bills.find(b => b.id === id));
+    return `${hiddenNote(ids, hid)}<div class="sv-pickl" role="radiogroup" aria-label="New ${F.word}">${F.opts().map(([v, l, ic, sub]) => { const have = bills.filter(b => F.cur(b) === v).length;
+      return `<button type="button" role="radio" aria-checked="${pick === v}" data-pv="${esc(v)}">${ic ? icon(ic) : ''}<span class="body"><span class="title">${esc(l)}</span>${sub || have ? `<span class="sub">${esc([sub, have ? (have === ids.length ? (ids.length === 1 ? 'It has this now' : `All ${ids.length} have this now`) : `${have} already ${have === 1 ? 'has' : 'have'} this`) : ''].filter(Boolean).join(' · '))}</span>` : ''}</span>${pick === v ? icon('check', { cls: 'on' }) : ''}</button>`; }).join('')}</div>`; };
+  const footHTML = () => { const n = selIds().length; return btn(`Apply to ${billsN(n)}`, { full: true, attrs: { 'data-apply': '1', disabled: pick === null || !n } }); };
+  const titleText = () => `Set ${F.word} for ${billsN(selIds().length)}`;
+  // The title is redrawn with the rest: after "Leave them out" it used to keep saying "20 bills" above "Apply to 2 bills".
+  const paint = () => { const body = d.querySelector('.sv-sh-body'), y = body.scrollTop; body.innerHTML = bodyHTML(); body.scrollTop = y; d.querySelector('.sv-sh-foot').innerHTML = footHTML(); const h = d.querySelector('#sv-sh-t'); if (h) h.textContent = titleText(); wire(); };
+  const wire = () => {
+    d.querySelectorAll('[data-pv]').forEach(el => el.onclick = () => { pick = el.dataset.pv; paint(); d.querySelector(`[data-pv="${CSS.escape(pick)}"]`)?.focus(); });
+    const t = d.querySelector('[data-trim]'); if (t) t.onclick = () => { const hid = new Set(hiddenOf(selIds())); for (const id of hid) bl().sel.delete(id); hooks.render(); paint(); };
+    d.querySelector('[data-apply]').onclick = () => apply(field, pick);
+  };
+  d = openSheet({ title: titleText(), body: bodyHTML(), foot: footHTML(), wire: dlg => { d = dlg; wire(); } });
+}
+async function apply(field, v) {
+  const ids = selIds(); if (!ids.length || v == null) return;
+  const bills = ids.map(id => S.bills.find(b => b.id === id));
+  closeSheet({ silent: true });
+  try {
+    if (field === 'own') {
+      const prev = new Map(ids.map(id => [id, (S.assignments[id] || [])[0] || null])), to = v === 'none' ? null : v;
+      await Promise.all(ids.map(id => DB.setOwner(id, to)));
+      hooks.render();
+      const who = to ? (to === S.me?.id ? 'You' : advocate(to)?.full_name || 'They') : '';
+      toast(to ? `${who} now ${to === S.me?.id ? 'own' : 'owns'} ${billsN(ids.length)}.` : `${billsN(ids.length)} ${ids.length === 1 ? 'has' : 'have'} no owner now.`, { undo: async () => {
+        await Promise.all(ids.map(id => DB.setOwner(id, prev.get(id))));
+        hooks.render(); toast('Undone. Each bill has its old owner back.');
+      } });
+      return;
+    }
+    const key = 'position', prev = new Map(bills.map(b => [b.id, b[key] ?? null]));
+    await DB.bulkUpdate(ids, { [key]: v });
+    hooks.render();
+    toast(`Position set to ${POS_WORD[v]} on ${billsN(ids.length)}.`, { undo: async () => {
+      // one write per distinct old value, so every bill gets back exactly what it had
+      const by = new Map(); for (const [id, old] of prev) (by.get(old) || by.set(old, []).get(old)).push(id);
+      await Promise.all([...by].map(([old, group]) => DB.bulkUpdate(group, { [key]: old })));
+      hooks.render(); toast(`Undone. Each bill has its old ${FIELD[field].word} back.`);
+    } });
+  } catch (e) { hooks.render(); toast(e, { err: true }); }
+}
+
+// ---- Add to…: a coalition or a public list. Acts on tap; bills that are not public are left off lists, and said so. ----
+export function openAddTo(kind) {
+  const ids = selIds(); if (!ids.length) return;
+  const bills = ids.map(id => S.bills.find(b => b.id === id)), pub = bills.filter(b => b.tracked !== false && b.is_public), hid = hiddenOf(ids);
+  const camps = kind === 'list' ? [] : S.campaigns, lists = kind === 'camp' ? [] : (S.lists || []);
+  const campRow = c => { const have = bills.filter(b => (S.billCampaigns[b.id] || []).includes(c.id)).length, all = have === ids.length;
+    return `<button type="button" data-addc="${esc(c.id)}" ${all ? 'aria-disabled="true"' : ''}>${icon('users')}<span class="body"><span class="title">${esc(c.name)}</span>${have ? `<span class="sub">${all ? (ids.length === 1 ? 'Already in it' : `All ${ids.length} are already in it`) : `${have} already in it`}</span>` : ''}</span></button>`; };
+  const listRow = l => { const on = new Set(S.listBills.filter(x => x.list_id === l.id).map(x => x.bill_id)), add = pub.filter(b => !on.has(b.id)).length, priv = ids.length - pub.length;
+    const sub = !pub.length ? (ids.length === 1 ? 'This bill is not public, so it cannot go on a list' : 'None of these bills are public, so none can go on a list')
+      : !add ? 'Every public one is already on it' : priv ? `${add} can go on it. ${priv} ${priv === 1 ? 'is' : 'are'} not public and will be left off.` : `Adds ${billsN(add)}`;
+    return `<button type="button" data-addl="${esc(l.id)}" ${!add ? 'aria-disabled="true"' : ''}>${icon('list-checks')}<span class="body"><span class="title">${esc(l.title)}</span><span class="sub">${esc(sub)}</span></span></button>`; };
+  openSheet({ title: kind === 'camp' ? `Add ${billsN(ids.length)} to a coalition` : kind === 'list' ? `Add ${billsN(ids.length)} to a list` : `Add ${billsN(ids.length)} to…`,
+    body: `${hiddenNote(ids, hid, false)}
+      ${camps.length ? `${kind ? '' : '<h3 class="bl-sh3">Coalition</h3>'}<div class="sv-menu">${camps.map(campRow).join('')}</div>` : ''}
+      ${lists.length ? `${kind ? '' : '<h3 class="bl-sh3">List on the public page</h3>'}<div class="sv-menu">${lists.map(listRow).join('')}</div>` : ''}`,
+    wire: d => {
+      d.querySelectorAll('[data-addc]').forEach(el => el.onclick = () => { if (el.getAttribute('aria-disabled') !== 'true') addCamp(el.dataset.addc); });
+      d.querySelectorAll('[data-addl]').forEach(el => el.onclick = () => { if (el.getAttribute('aria-disabled') !== 'true') addList(el.dataset.addl); });
+    } });
+}
+async function addCamp(cid) {
+  const ids = selIds(), c = S.campaigns.find(x => x.id === cid); closeSheet({ silent: true });
+  const fresh = ids.filter(id => !(S.billCampaigns[id] || []).includes(cid)), had = ids.length - fresh.length;
+  try {
+    await DB.addToCampaign(ids, cid);
+    hooks.render();
+    toast(`Added ${billsN(fresh.length)} to ${c?.name || 'the coalition'}.${had ? ` ${had} ${had === 1 ? 'was' : 'were'} already in it.` : ''}`, { undo: async () => {
+      await Promise.all(fresh.map(id => DB.toggleCampaign(id, cid, false)));
+      hooks.render(); toast(`Undone. ${billsN(fresh.length)} left ${c?.name || 'the coalition'}.`);
+    } });
+  } catch (e) { hooks.render(); toast(e, { err: true }); }
+}
+async function addList(lid) {
+  const ids = selIds(), l = (S.lists || []).find(x => x.id === lid); closeSheet({ silent: true });
+  const before = new Set(S.listBills.filter(x => x.list_id === lid).map(x => x.bill_id));
+  const priv = ids.filter(id => { const b = S.bills.find(x => x.id === id); return !(b && b.tracked !== false && b.is_public); }).length;
+  try {
+    const n = await DB.addListBills(lid, ids);
+    const added = S.listBills.filter(x => x.list_id === lid && !before.has(x.bill_id)).map(x => x.bill_id);
+    hooks.render();
+    toast(`Added ${billsN(n)} to ${l?.title || 'the list'}.${priv ? ` ${priv} ${priv === 1 ? 'is' : 'are'} not public, so ${priv === 1 ? 'it was' : 'they were'} left off.` : ''}`, { undo: async () => {
+      await Promise.all(added.map(id => DB.removeListBill(lid, id)));
+      hooks.render(); toast(`Undone. ${billsN(added.length)} came off ${l?.title || 'the list'}.`);
+    } });
+  } catch (e) { hooks.render(); toast(e, { err: true }); }
+}
+// The desktop table's single-cell edits use the same choices, one bill at a time.
+export { FIELD };

@@ -284,6 +284,7 @@ function avatarMenu() {
     { label: 'My settings', icon: 'settings', run: () => go('#/me') },
     S.me?.is_admin ? { label: 'Session setup', icon: 'sliders-horizontal', run: () => go('#/setup') } : null,
     { label: 'Help', icon: 'circle-help', run: () => go('#/help') },
+    { label: 'Open this page in Staff v4', icon: 'columns-3', sub: 'Each person\u2019s three things first (R-269), to compare', run: () => { location.href = 'staff4.html' + location.search + location.hash; } },
     { label: 'Open this page in Staff v2', icon: 'columns-3', sub: 'The team\u2019s app today, to compare', run: () => { location.href = 'staff.html' + location.search + location.hash; } },
     S.me?.is_admin ? { label: 'Open the old app', icon: 'external-link', sub: 'The old staff app, look-only', run: () => { location.href = APP_URL + 'classic.html' + (DEMO ? '?demo=1' : ''); } } : null,
     DEMO ? null : { label: 'Sign out', icon: 'log-out', run: async () => { await DB.logout(); } },
