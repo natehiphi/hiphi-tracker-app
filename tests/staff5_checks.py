@@ -55,6 +55,7 @@ def batch_c(b, page, go):
   batch_c_looks(b, page, go)
   batch_c_frame(b, page, go)
   batch_c_whose(b, page, go)
+  batch_c_small(b, page, go)
 
 # One look per action (fix 4, U-4, U-8): every "I'm going", Doc, "Mark filed" and "Show all" on a page (sheets aside, where
 # the confirm button is the sheet's own) is drawn by ui.js: its class, its words, its icons, and the same colour and weight
@@ -134,6 +135,53 @@ def batch_c_whose(b, page, go):
     check(f'{who}: one "whose work" switch, Mine | My coalitions | Team in that order, on every list ({seen} seen)', seen >= 4 and not bad, '; '.join(bad[:4]))
     check(f'{who}: the partner update is "For: Partners / Staff"', aud == ['Partners', 'Staff'], ' / '.join(aud))
     pg.context.close()
+
+# Small things (fix 13): one bill-number size; key hints only after a key was used; the Inbox's mark-all-read off Shift+A;
+# "Committee members" wraps on a phone; phone links in text are 44px targets; the issue chip does not repeat the bill's
+# name; Julie's monitored hearing is named; an open group's heading does not count its rows.
+def batch_c_small(b, page, go):
+  pg = page('NT'); sizes = set()
+  for i, r in enumerate(['/', '/bill/HB1562', '/hearing/9ebffb71-69c2-4868-8956-e624cac16d30', '/my-issues', '/outreach']):
+    if i == 0: go(pg, r, 3000)
+    else: pg.evaluate(f"location.hash = '#{r}'"); pg.wait_for_timeout(1400)
+    sizes |= set(pg.evaluate("[...document.querySelectorAll('.bn-num')].filter(e => e.getClientRects().length).map(e => getComputedStyle(e).fontSize)"))
+  check('A bill number beside its nickname is one size everywhere (13px)', sizes == {'13px'}, ', '.join(sorted(sizes)))
+  go(pg, '/bill/HB1562', 2500)
+  rep = pg.evaluate("[...document.querySelectorAll('main .bw-ichip')].map(e => e.innerText.trim())")
+  check('Bill page: the issue chip does not repeat the bill\'s own name', rep and not any('Youth mental health app pilot' in x for x in rep), ' | '.join(rep))
+  go(pg, '/my-issues', 2500)
+  n = pg.evaluate("[...document.querySelectorAll('main .ist-sec .ist-h')].filter(h => /\\d/.test(h.innerText)).length")
+  check('My issues: an open group\'s heading does not count its rows', n == 0, n)
+  pg.context.close()
+  # key hints: none on a device that never used a key; after J on Bills, Bills shows its line
+  pg = page('NT'); hints = '.bl-keys, .td-keys, .ib-keys, .st-keys, .lk-keys'
+  shown = []
+  for i, r in enumerate(['/bills', '/review', '/inbox']):
+    if i == 0: go(pg, r, 3000)
+    else: pg.evaluate(f"location.hash = '#{r}'"); pg.wait_for_timeout(1400)
+    if pg.evaluate(f"[...document.querySelectorAll('{hints}')].some(e => e.getClientRects().length)"): shown.append(r)
+  check('Key hint lines hidden until someone uses a key (Bills, Review, Inbox)', not shown, ', '.join(shown))
+  pg.evaluate("location.hash = '#/bills'"); pg.wait_for_timeout(1200); pg.evaluate("document.activeElement && document.activeElement.blur()")
+  pg.keyboard.press('j'); pg.wait_for_timeout(300); pg.evaluate("location.hash = '#/inbox'"); pg.wait_for_timeout(1200)
+  check('After a key is used, the Inbox shows its key line', pg.evaluate(f"[...document.querySelectorAll('.ib-keys')].some(e => e.getClientRects().length)"), '')
+  txt = pg.inner_text('main'); pg.context.close()
+  src = open(os.path.join(ROOT or '.', 'staff5/inbox.js')).read()
+  check('Inbox: marking the list read is not Shift+A (Shift+A approves on Review)', "e.key === 'A' && e.shiftKey" not in src and 'Shift</kbd>+<kbd>M' in src, '')
+  # phone: Committee members wraps; links inside text are 44px tall targets
+  ctxs = []
+  for who, r in [('NT', '/bill/HB1562'), ('NT', '/'), ('KR', '/'), ('PH', '/'), ('NT', '/hearing/9ebffb71-69c2-4868-8956-e624cac16d30'), ('NT', '/bills')]:
+    ctx = b.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True); ctx.route(HOST + '/**', router); pg = ctx.new_page(); pg.who = who
+    go(pg, r, 3000)
+    over = pg.evaluate("[...document.querySelectorAll('main .bw-cmfold')].filter(e => e.getBoundingClientRect().right > innerWidth + 1).length")
+    small = pg.evaluate("[...document.querySelectorAll('main a, main button')].filter(e => { const q = e.getBoundingClientRect(); return q.width && q.height < 40 && !e.closest('dialog'); }).map(e => e.innerText.trim().slice(0, 30))")
+    ctxs.append((who, r, over, small)); ctx.close()
+  check('Phone: "Committee members" stays inside the screen', all(o == 0 for _, _, o, _ in ctxs), '')
+  bad = [f'{w} {r}: {", ".join(s[:3])}' for w, r, _, s in ctxs if s]
+  check('Phone: no target under 40px on Today, a bill, a hearing and Bills (A-6)', not bad, '; '.join(bad[:3]))
+  pg = page('JMM'); go(pg, '/', 3000)
+  line = pg.evaluate("(document.querySelector('.td-csub') || {}).innerText || ''")
+  check('Julie: a week with only monitored hearings names them', re.search(r'We monitor [HS]B\d+', line), line[:120])
+  pg.context.close()
 
 def batch_c_looks(b, page, go):
   seen = {k: [] for k in WANT}

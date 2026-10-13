@@ -285,7 +285,10 @@ const followFlag = b => isMuted(b) ? chip('Muted', '', 'bell-off') : '';
 // "Where it shows" is where they are changed.
 // Every issue gets its chip, even one named like the bill's own nickname (Nate 10/10 asked that the way from a bill to its issue
 // be abundantly clear, on SB2175 itself). The arrow is a chevron-right: a link, where Position and Owner open a menu.
-const issueChips = b => issuesOfBill(b.id).map(i => `<a class="chip sv-chip bw-ichip" href="${esc(issueLinkHref(i, b))}" aria-label="Issue: ${esc(i.name)}. Open it">${icon('tag')}<span>Issue: ${esc(i.name)}</span>${icon('chevron-right', { cls: 'chev' })}</a>`).join('');
+// R-277 fix 13: an issue named like its one bill ("Issue: Youth mental health app pilot" under the heading "Youth mental
+// health app pilot") said the name twice; that chip is the short "Its issue", still the way to the issue's page.
+const sameName = (i, b) => (i.name || '').trim().toLowerCase() === (b.nickname || '').trim().toLowerCase();
+const issueChips = b => issuesOfBill(b.id).map(i => `<a class="chip sv-chip bw-ichip" href="${esc(issueLinkHref(i, b))}" aria-label="Issue: ${esc(i.name)}. Open it">${icon('tag')}<span>${sameName(i, b) ? 'Its issue' : `Issue: ${esc(i.name)}`}</span>${icon('chevron-right', { cls: 'chev' })}</a>`).join('');
 // Phones: a row of chips under the status sentence, the pickers first and then the issues.
 const teamChips = b => `<div class="bw-chips">${teamPicks(b).map(([, p]) => p).join('')}${followFlag(b)}${issueChips(b)}</div>`;
 // Desktop: the same three pickers as labelled lines in the side panel (they open as popovers beside the chip), and who

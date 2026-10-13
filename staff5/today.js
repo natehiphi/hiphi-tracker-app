@@ -1687,13 +1687,16 @@ function coalSection(r, skip = new Set(), quiet = new Set()) {
   // This week's sittings still to come, on the coalition's bills with a position (Monitor bills are watched, not worked).
   const hs = hearingsIn(hst(now), dayAdd(mondayOf(now), 6), 'team', null).filter(x => inC(x.b) && !isMon(x.b) && x.t >= now - 2 * HR);
   const sit = new Map(); for (const x of hs) { const k = slotKey(x.h); if (!sit.has(k)) sit.set(k, []); sit.get(k).push(x); }
+  // R-277 fix 13: a week whose only hearings are on bills the coalition monitors said "No hearings this week" and named
+  // none (Julie: an alcohol bill heard Wednesday). They are named on the heading's line, quietly: watched, not worked.
+  const mon = hearingsIn(hst(now), dayAdd(mondayOf(now), 6), 'team', null).filter(x => inC(x.b) && isMon(x.b) && x.t >= now - 2 * HR);
   // The first deadline its bills race; when every bill racing that one already has a hearing, the deadline after, so
   // HEAL's Today names the same bills its coalition page lists under "Needs a hearing by Mon 3/30".
   const ck0 = sessionClock(S.bills.filter(inC)), ck = ck0 && !ck0.noHearing.length && ck0.then?.noHearing?.length ? ck0.then : ck0,
     racing = ck ? ck.noHearing : [];
   const todos = Object.entries(S.todos || {}).flatMap(([bid, arr]) => { const b = billById(bid); return b && inC(b) ? arr.filter(t => !t.done && !t.assignee_id).map(t => ({ b, t })) : []; })
     .sort((x, y) => String(x.t.due_date || '9').localeCompare(String(y.t.due_date || '9')));
-  if (!sit.size && !racing.length && !todos.length) return { html: '', due: false };
+  if (!sit.size && !racing.length && !todos.length && !mon.length) return { html: '', due: false };
   // Open when your own day is light, as the suggestions are. With every coalition (Kris) it starts folded: "Due today on
   // the team's bills" above holds what is due, and the week's summary line stays (fresh-eyes).
   const open = S.tdOpen ??= {}; open.coal ??= co.all ? false : r.dueNow <= 2;
@@ -1730,7 +1733,8 @@ function coalSection(r, skip = new Set(), quiet = new Set()) {
   // The heading's line: the hearings (or that there are none, said here and nowhere else), the bills with no hearing as a
   // link to them on Bills, and the to-dos.
   const bills = co.ids.size === 1 && !co.all ? `#/bills?coalition=${encodeURIComponent([...co.ids][0])}` : '#/bills';
-  const count = [all ? esc(plural(all, 'hearing')) : 'No hearings this week',
+  const monLine = !all && mon.length ? `We monitor ${mon.slice(0, 2).map(x => `<a href="#/hearing/${esc(x.h.id)}?from=today">${esc(`${billNum(x.b)}, heard ${whenLine(x.h.scheduled_at)}`)}</a>`).join(' and ')}${mon.length > 2 ? esc(` and ${mon.length - 2} more`) : ''}` : '';
+  const count = [all ? esc(plural(all, 'hearing')) : mon.length ? 'No hearings this week on bills with a position' : 'No hearings this week', monLine,
     racing.length ? `<a href="${esc(bills)}">${esc(`${plural(racing.length, 'bill')} still ${racing.length === 1 ? 'needs' : 'need'} a hearing`)}</a>` : '',
     todos.length ? esc(plural(todos.length, 'open to-do')) : ''].filter(Boolean).join(' · ');
   const head = body ? groupHead(`<span class="td-ght">${esc(title)}</span>`, '', { fold: 'coal', open: open.coal, id: 'td-g-coal' }) : groupHead(`<span class="td-ght">${esc(title)}</span>`, '', { id: 'td-g-coal' });

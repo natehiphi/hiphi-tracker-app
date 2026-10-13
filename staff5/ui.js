@@ -258,6 +258,18 @@ export function toast(msg, opt = {}) {
 // Keyboard shortcuts can be switched off in My settings (a stray letter should never do anything for someone who does
 // not use them). Every keydown handler in v2 checks this first.
 export const keysOn = () => { try { return localStorage.getItem('sv_keys') !== 'off'; } catch { return true; } };
+// R-277 fix 13 (E-11): the lines that list a page's keys ("J K next and previous bill …") show only to someone who has used
+// a shortcut key: for everyone else they were one more line to read on Bills, Review and the Inbox (and on phones). The
+// first shortcut key pressed outside a text box marks this device; the hints show from the next redraw on.
+const KEYS_SEEN = 'sv_keysused';
+export const keysUsed = () => { try { return localStorage.getItem(KEYS_SEEN) === '1'; } catch { return false; } };
+const SHORTCUT = /^(j|k|x|e|r|o|t|n|l|u|J|K|X|E|R|O|T|N|L|U|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|\/)$/;
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey || !SHORTCUT.test(e.key) && !(e.shiftKey && e.key === 'A')) return;
+  const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+  if (!keysOn() || keysUsed()) return;
+  try { localStorage.setItem(KEYS_SEEN, '1'); } catch { /* private mode: the hints stay hidden */ }
+}, true);
 export const setKeys = on => { try { if (on) localStorage.removeItem('sv_keys'); else localStorage.setItem('sv_keys', 'off'); } catch { /* private mode */ } };
 const DESK = () => { try { return matchMedia('(min-width: 900px) and (hover: hover) and (pointer: fine)').matches; } catch { return false; } };
 // A refusal the database raised on purpose (RAISE EXCEPTION, SQLSTATE P0001) is a sentence written for people: "Someone else has to

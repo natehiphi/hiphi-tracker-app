@@ -781,7 +781,6 @@
 .td-root .td-rbn .sv-p1 { display: inline-flex; vertical-align: 1px; margin-left: 4px; }
 .td-root .td-rrow .td-rname.td-nick { flex: 0 1 auto; }
 .td-root .wk-nick { font-size: var(--t13); line-height: 18px; overflow-wrap: anywhere; }
-.td-root .td-pnum .bn-num { font-size: var(--t13); }
 /* the two-line name keeps the row near its one-line height, so Team's Slipping list still fits a laptop's first screen */
 .td-root .td-rbn .td-rnick { line-height: 18px; }
 .td-root .td-rbn .bn-num { line-height: 16px; }

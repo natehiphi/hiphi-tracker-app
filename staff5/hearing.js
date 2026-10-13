@@ -161,7 +161,7 @@ function agendaHTML(c) {
   if (!items.length) inner = `<p class="hr-empty">None of the bills heard here is on the tracker any more.</p>`;
   else if (!pos.length) inner = rows(mon);
   else inner = rows(pos) + (mon.length ? `<details class="hr-fold"${S.hrMon ? ' open' : ''}><summary>${icon('eye')}<span>${mon.length === 1 ? '1 more bill we monitor' : `${mon.length} more bills we monitor`}</span>${icon('chevron-down', { cls: 'chev' })}</summary>${rows(mon)}</details>` : '');
-  return section('hr-s1', 'Our bills on the agenda', items.length, inner) + shareKitHTML(c);
+  return section('hr-s1', 'Our bills on the agenda', null, inner) + shareKitHTML(c);   // R-277 fix 13: the rows are in view; a count asked nothing (A-24)
 }
 // The share kit (R-117): for each bill with a position still to be heard, its share page's link and a ready message
 // (the ask, the deadline, the link) to paste into a text, HIPHI's email or a post.

@@ -11,7 +11,7 @@ import { plain, diedish, personName, whereOf, titleCaseSmart, exactBill } from '
 // way the Bills list names them (R-271): nickname in bold, its number small, then the plain summary (five bills share the nickname
 // "Let counties regulate tobacco sales", and the summary and status are what tell them apart).
 import { icon, btn, empty, toast } from './ui.js';
-import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
+import { showAllBtn, keysUsed } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { billSub, wireLinks } from './pathway.js';
 import { matchLegs, legRow, weekIndex, districtQ } from './legislators.js';
 import { blRow } from './bills.js';
@@ -129,7 +129,7 @@ function resultsHTML(q) {
   if (!main.length && !side.length) return empty({ title: `Nothing matches “${esc(q)}”`, text: 'Try a bill number such as HB1562, a word from its title, a last name or a town.' });
   // What was found, in words, above the groups (each group's header repeats its own count).
   const parts = [nBills ? nOf(nBills, 'bill', 'bills') : '', legs.length ? nOf(legs.length, 'legislator', 'legislators') : '', people.length ? nOf(people.length, 'supporter', 'supporters') : ''].filter(Boolean);
-  const sum = parts.length ? `<p class="st-ssum">${parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]} for “${esc(q)}”<span class="st-skeys"> · The arrow keys move through the results, Enter opens one</span></p>` : '';
+  const sum = parts.length ? `<p class="st-ssum">${parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]} for “${esc(q)}”${keysUsed() ? '<span class="st-skeys"> · The arrow keys move through the results, Enter opens one</span>' : ''}</p>` : '';
   const two = main.length && side.length;
   return `${sum}<div class="st-sgrid${two ? ' st-two' : ''}">${main.length ? `<div class="st-scol" data-scol="0">${main.join('')}</div>` : ''}${side.length ? `<div class="st-scol${two ? ' st-sside' : ''}" data-scol="1">${side.join('')}</div>` : ''}</div>`;
 }

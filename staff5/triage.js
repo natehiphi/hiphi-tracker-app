@@ -19,7 +19,7 @@
 import { S, DB, esc, advocate, SESSION_YEAR, hooks, fmtDate, priorityOf } from './data.js';
 import { loadTriage, triageSeen, titleCaseHI, FACTS } from './model.js';
 import { icon, btn, pickerChip, toast, pickerSheet, empty, skeleton, keysOn, POS_WORD, POS_ICON, POS_SUB } from './ui.js';
-import { chip } from './ui.js';   // R-277 fix 4 (U-8)
+import { chip, keysUsed } from './ui.js';   // R-277 fix 4 (U-8); fix 13: key hints after a key
 import { iconName } from './setup.js';
 import { deskBack } from './filters.js';
 import { suggestIssue } from './suggest_issue.js';
@@ -142,7 +142,7 @@ const pickers = (t, r) => { const c = campOf(t, r), own = advocate(ownIdOf(t, r)
       <div class="st-pickrow"><span class="st-lab" id="st-ilab">Issue</span>${pickerChip(issOf(t, r)?.name || 'No issue', { 'data-tiss': '1', 'aria-describedby': 'st-ilab' }, issOf(t, r) ? 'tag' : 'circle-dashed')}</div>
     </div>`; };
 const decideBtns = () => `${btn('Track', { kind: 'primary', sm: true, icon: 'check', attrs: { 'data-ttrack': '1' } })}${btn('Not for us', { kind: 'secondary', sm: true, attrs: { 'data-tskip': '1' } })}${btn('Later', { kind: 'text', sm: true, attrs: { 'data-tlater': '1' } })}`;
-const keysLine = () => HOVER() && keysOn() ? `<p class="st-keys small muted"><kbd>T</kbd> track · <kbd>N</kbd> not for us · <kbd>L</kbd> later · <kbd>U</kbd> undo · arrow keys move between bills</p>` : '';
+const keysLine = () => HOVER() && keysOn() && keysUsed() ? `<p class="st-keys small muted"><kbd>T</kbd> track · <kbd>N</kbd> not for us · <kbd>L</kbd> later · <kbd>U</kbd> undo · arrow keys move between bills</p>` : '';
 function card(t, r, desk) {
   const terms = realMatches(r).real.flatMap(m => m.terms);
   // Phones: long Capitol descriptions start folded at four lines, so the coalition and position stay on the first

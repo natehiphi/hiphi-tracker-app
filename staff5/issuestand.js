@@ -194,7 +194,9 @@ export function deadlineHTML(list, o = {}) {
   return deadlineGroups(list).map(([k, title, l, folded]) => {
     if (folded) return l.length ? fold(k, title, l, o) : '';
     if (!l.length && k !== 'week') return '';
-    return `<section class="ist-sec ist-sec-${k}" aria-labelledby="ist-h-${k}"><h2 class="ist-h" id="ist-h-${k}">${esc(title)}${l.length ? ` <span class="ist-n">${l.length}</span>` : ''}</h2>
+    // R-277 fix 13 (A-24: numbers only where they ask for action): an open group's rows are in view, so its heading no
+    // longer counts them ("This week 9"); a folded group keeps its count, the only sign of what is inside.
+    return `<section class="ist-sec ist-sec-${k}" aria-labelledby="ist-h-${k}"><h2 class="ist-h" id="ist-h-${k}">${esc(title)}</h2>
       ${l.length ? listHTML(l, o) : '<p class="ist-empty">Nothing at risk and no hearing this week.</p>'}</section>`;
   }).join('');
 }

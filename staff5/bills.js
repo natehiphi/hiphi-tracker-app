@@ -12,7 +12,7 @@
 import { S, DB, DEADLINES, esc, fmtDate, fmtDT, effStage, owners, isMuted, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks } from './data.js';
 import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionClock, gateNeed, deadlineName, billSay } from './model.js';
 import { CHAMBER_NAME, HELD_RE, stoppedAt } from '../stops.js';
-import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, POS_WORD, posIcons, whoseSeg } from './ui.js';
+import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, keysUsed, POS_WORD, posIcons, whoseSeg } from './ui.js';
 import { bl, save, setCompact, shownBills, freshFacts, QUICK, quickCount, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, settled, hoverNow, typingIn, deskBack,
   views, curView, applyView, resetView, isDefault, openSaveView, openEditViews, VIEW_CAP, scopeOpts, defaultScope, posWord, openCoalition, viewState, dueDay } from './filters.js';
 import { openLook, dockLook } from './look.js';
@@ -241,7 +241,7 @@ function parts() {
     body: `${frow}<div id="bl-banner">${banner()}</div>${dk ? `<div class="bl-split"><div class="bl-main">${rows}</div>${dockLook(dk, DOCKOPT)}</div>` : rows}` };
 }
 // Row keys are for a keyboard and a mouse, and only while shortcuts are on (My settings); the hint shows when they work.
-const keysHint = () => !hoverNow() || !keysOn() ? '' : bl().edit ? `<p class="bl-keys"><kbd>Tab</kbd> next dropdown · <kbd>Space</kbd> opens it · <kbd>J</kbd> <kbd>K</kbd> the same dropdown in the next and previous bill · letters never change a bill</p>`
+const keysHint = () => !hoverNow() || !keysOn() || !keysUsed() ? '' :   /* R-277 fix 13: only after a key was used */ bl().edit ? `<p class="bl-keys"><kbd>Tab</kbd> next dropdown · <kbd>Space</kbd> opens it · <kbd>J</kbd> <kbd>K</kbd> the same dropdown in the next and previous bill · letters never change a bill</p>`
   : `<p class="bl-keys"><kbd>J</kbd> <kbd>K</kbd> next and previous bill · <kbd>Space</kbd> ${dockNow() ? 'shows it beside the list' : 'a quick look'} · <kbd>Enter</kbd> opens it · <kbd>X</kbd> selects it · <kbd>Esc</kbd> closes</p>`;
 function emptyState(q, nf) {
   const v = bl(), whose = { me: 'of yours ', coal: 'in your coalitions ' }[v.scope] || '';

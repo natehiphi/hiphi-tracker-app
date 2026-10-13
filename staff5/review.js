@@ -9,7 +9,7 @@
 import { S, DB, esc, fmtDT, advocate, hooks, changedSince, startedFromLine } from './data.js';
 import { agoWords, billNum, billSay, blurb, alertTarget, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn } from './model.js';
 import { icon, btn, chip, stepBar, empty, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, posIcons, POS_WORD, ownerOf, clockDay } from './ui.js';
-import { docBtn } from './ui.js';   // R-277 fix 4 (U-4): "Open Doc" here too (it was "Open the Google Doc", a full-width outline)
+import { docBtn, keysUsed } from './ui.js';   // R-277 fix 4 (U-4): "Open Doc" here too (it was "Open the Google Doc", a full-width outline)
 import { emailPreview } from './composer.js';
 import { reviewQueue, hearingFor, testDue, cd, hearingLine, reviewerNames, needsSecond, HOVER, afterBack } from './today.js';
 import { statusSentence } from './bill.js';
@@ -150,7 +150,7 @@ function render(route) {
     ${mine && it.type === 'draft' && it.d.status === 'review' && standingIn(S.me, it.h) ? notice('warn', 'clock', '<b>You are standing in.</b> Nobody who usually gives the first approval has yet, and testimony is due soon, so you can approve it or send it back.') : ''}
     ${mine ? '' : notice('info', 'info', it.type === 'email' ? 'This email is no longer waiting for your approval.' : `This draft is no longer waiting for you. It is ${esc({ draft: 'back in draft', review: 'waiting for an approver', second_review: 'waiting for a second approval', approved: 'approved and ready to file', filed: 'filed', cancelled: 'for a cancelled hearing' }[it.d.status] || it.d.status)}.`)}
     ${it.type === 'email' ? emailBody(it) : draftBody(it)}
-    ${keysOn() ? `<p class="td-keys">Keys: Shift+A approve · R send back${it.type === 'draft' ? ' · O open the Doc' : ''} · Right arrow skip · Esc close</p>` : ''}</div>`;
+    ${keysOn() && keysUsed() ? `<p class="td-keys">Keys: Shift+A approve · R send back${it.type === 'draft' ? ' · O open the Doc' : ''} · Right arrow skip · Esc close</p>` : ''}</div>`;
 }
 function bar(route) {
   const { it } = current(route);

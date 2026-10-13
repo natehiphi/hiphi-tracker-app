@@ -9,7 +9,7 @@
 // openLook is unchanged for Today and every other screen.
 import { S, esc, capitolUrl, fmtDT, fmtDate, myIssuesOf } from './data.js';
 import { openSheet, closeSheet, btn, iconBtn, stageRibbon, avatar, ownerOf, countdown, POS_WORD, keysOn } from './ui.js';
-import { docBtn } from './ui.js';   // R-277 fix 4: one look for the Doc button
+import { docBtn, keysUsed } from './ui.js';   // R-277 fix 4: one look for the Doc button; fix 13: key hints after a key
 import { stopOf, blurb, billNum, billSay, cmteName, chairMail, draftFor, hearingAhead, sponsorName, gateNeed, deadlineName, billByRef } from './model.js';
 import { CHAMBER_NAME } from '../stops.js';
 import { billRoute, whenAt, hearingWhen, roomName } from './model.js';
@@ -91,7 +91,7 @@ function body(b, { list, index }) {
         </div>
       </div>
     </div>
-    ${list && list.length > 1 ? `<p class="lk-keys"><kbd>J</kbd> <kbd>K</kbd> next and previous bill · <kbd>Enter</kbd> opens the bill · <kbd>Esc</kbd> closes</p>` : ''}`;
+    ${list && list.length > 1 && keysUsed() ? `<p class="lk-keys"><kbd>J</kbd> <kbd>K</kbd> next and previous bill · <kbd>Enter</kbd> opens the bill · <kbd>Esc</kbd> closes</p>` : ''}`;
 }
 
 // The facts, as a list of terms. `deadline: false` leaves the deadline out where the card above has just said it;

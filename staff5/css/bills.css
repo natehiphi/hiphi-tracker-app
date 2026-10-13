@@ -476,4 +476,3 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
 /* Spare width on a big monitor is margin, not a wider table (A-24; fresh-eyes review: at 1920 the titles ended halfway
    across and "Where it stands" sat 700px away). With a bill docked, the dock takes the width instead. */
 @media (min-width: 1600px) { .bl-page:not(:has(.bl-split)) { max-width: 1320px; } }
-.bl-dock .lk-dtop .num .bn-num { font-size: var(--t14); }   /* R-271: nickname leads the dock, the number is the small second word */

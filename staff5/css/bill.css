@@ -209,6 +209,9 @@
 .bw-cmpred { padding: var(--s8) var(--s16); font: 700 var(--t13)/1.3 var(--font); color: var(--n500); background: var(--n50); }
 .bw-cmnone { padding: var(--s8) 0; }
 .bw-cmall { margin: var(--s4) 0 0 -12px; }
+/* R-277 fix 13: "Committee members · 13 · no stances recorded yet" ran past a phone's edge on one line; it wraps, its words left */
+.bw-cmfold { white-space: normal; text-align: left; justify-content: flex-start; max-width: calc(100% + 12px); height: auto; padding-top: 6px; padding-bottom: 6px; }
+.bw-cmfold .ic { flex: none; }
 /* a phone's member rows and a laptop's member table run edge to edge of the box, as the stop's line does */
 .bw-cmmem { margin: 0 calc(-1 * var(--s12)) calc(-1 * var(--s12)) calc(-1 * var(--s16)); border-top: 1px solid var(--n100); }
 @media (max-width: 899px) {
