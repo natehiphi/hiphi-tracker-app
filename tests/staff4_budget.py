@@ -15,7 +15,7 @@ SCREENS = [
   ('today', '/'), ('this week', '/?view=week'), ('my issues', '/my-issues'), ('bills', '/bills'), ('a bill', '/bill/HB1562'),
   ('its activity', '/bill/HB1562/activity'), ('its public tab', '/bill/HB1562/public'), ('all issues', '/outreach/issues'),
   ('an issue', '/issue/05e0d6a9-4ea7-456c-b219-e3632ade358b'), ('a coalition', '/coalition/979b46c2-8bb8-44ee-a5e6-fca6235de48c'),
-  ('supporters', '/outreach'), ('emails', '/outreach/emails'), ('legislators', '/legislators'), ('my settings', '/me'),
+  ("this week's asks", '/outreach'), ('partner update', '/outreach/partners'), ('supporters', '/outreach/supporters'), ('emails', '/outreach/emails'), ('legislators', '/legislators'), ('my settings', '/me'),
 ]
 LIMITS = {'side': 1, 'boxes': 5, 'colors': 7, 'filled': 1}
 

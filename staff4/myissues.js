@@ -11,11 +11,13 @@
 // a second column would halve the room these lines need for no new fact.
 import { S, SESSION_YEAR, SESSION_OVER, esc, fmtDT, myIssueIds } from './data.js';
 import { billRoute, hearingAhead, diedish, billNum, plain } from './model.js';
-import { icon, btn, empty, posChip, sectionNav } from './ui.js';
+import { icon, btn, empty, posChip, sectionNav, row, switchRow } from './ui.js';
 import { plural, isSide, clip } from './lists.js';
 import { catByKey, billsOn, whyNot, nextPhrase, testimonyWords, againstStance } from './issues.js';
 import { indexLinks, isDraft } from './prep.js';
 import { isPos, dayOf, waitingOfBills } from './standing.js';
+import { supports, setSupport, coalFactsLine } from './coalition.js';
+import { iconName } from './setup.js';
 
 const thisSession = b => !b.session_year || +b.session_year === +SESSION_YEAR;
 const byNum = (a, b) => a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true });
@@ -76,6 +78,22 @@ function issueSec(x, k) {
   </section>`;
 }
 
+// v4 (R-269 P7): for someone who owns and helps on no issue (Patti, Julie, Saya, Kris, Jess), My issues said "No issues are
+// yours yet" and their coalition was three clicks away (My issues › Coalitions › HEAL). In its place, their coalitions:
+// the ones they support (or own) as links to each page, where the week's testimony and deadlines are (Patti: HEAL in one
+// click), then the others, each with the coalition page's "I support" switch. No sentence about how issues are given out
+// (P-4): the page is the way in.
+const coalOrder = (a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99) || a.name.localeCompare(b.name);
+const ownsCoal = c => !!S.me && c.owner_id === S.me.id;
+function coalitionsHTML() {
+  const all = (S.campaigns || []).slice().sort(coalOrder), mine = all.filter(c => supports(c) || ownsCoal(c)), rest = all.filter(c => !mine.includes(c));
+  const lead = c => `<span class="lead">${icon(iconName(c.icon))}</span>`;
+  return `${mine.length ? `<section class="mi-coal" aria-labelledby="mi-co-h"><h2 class="mi-coh" id="mi-co-h">${mine.length === 1 ? 'Your coalition' : 'Your coalitions'}</h2>
+      <div class="rows">${mine.map(c => row({ leadHtml: lead(c), title: esc(c.name), sub: esc(coalFactsLine(c)), href: `#/coalition/${encodeURIComponent(c.id)}`, cls: 'mi-corow' })).join('')}</div></section>` : ''}
+    ${rest.length ? `<section class="mi-coal" aria-labelledby="mi-cr-h"><h2 class="mi-coh" id="mi-cr-h">${mine.length ? 'Other coalitions' : 'Coalitions'}</h2>
+      <div class="card mi-cosw">${rest.map(c => switchRow(`mi-sup-${c.id}`, `I support ${esc(c.name)}`, false, esc(coalFactsLine(c)), { 'data-misup': c.id })).join('')}</div></section>` : ''}`;
+}
+
 export default {
   tab: 'myissues',
   title: () => 'My issues',
@@ -83,6 +101,9 @@ export default {
     const list = myIssues();
     const owned = list.filter(x => x.own).length, helped = list.length - owned;
     const who = [owned ? `You own ${plural(owned, 'issue')}` : '', helped ? `${owned ? 'help' : 'You help'} on ${helped}` : ''].filter(Boolean).join(' and ');
+    if (!list.length && (S.campaigns || []).length) return `<div class="le-page le-list is-page mi-page">${sectionNav('issues', 'mine')}<div class="le-tools"><h1 class="le-h1">My issues</h1>
+        <p class="le-lede">No issue is yours yet.</p></div>
+      ${coalitionsHTML()}</div>`;
     if (!list.length) return `<div class="le-page le-list is-page mi-page">${sectionNav('issues', 'mine')}<div class="le-tools"><h1 class="le-h1">My issues</h1></div>
       <div class="le-empty">${empty({ title: 'No issues are yours yet', text: 'When an admin makes you the owner of an issue, or the owner adds you as a helper, it shows here with all its bills. Those bills are then in your Mine and on Today too.', action: btn('See all issues', { kind: 'secondary', href: '#/outreach/issues' }) })}</div></div>`;
     // In session, issues whose bills have all stopped wait in one quiet fold at the end (B-14: a fold for what is done).
@@ -96,5 +117,13 @@ export default {
       ${still.length ? `<details class="is-arch mi-still"><summary>${icon('history')}<span>Nothing moving this session (${still.length})</span>${icon('chevron-down', { cls: 'is-chev' })}</summary><div class="mi-stillin">${still.map((x, k) => issueSec(x, 's' + k)).join('')}</div></details>` : ''}
     </div>`;
   },
-  wire() {},
+  // The switches act as the coalition page's does (saved to your settings, with Undo); once on, the coalition moves up to
+  // yours, and focus follows it there.
+  wire(route, app) {
+    app.querySelectorAll('[data-misup]').forEach(el => el.onchange = () => {
+      const c = (S.campaigns || []).find(x => String(x.id) === el.dataset.misup); if (!c) return;
+      const id = CSS.escape(String(c.id));
+      setSupport(c, el.checked, `.mi-corow[href="#/coalition/${id}"], [data-misup="${id}"]`);
+    });
+  },
 };

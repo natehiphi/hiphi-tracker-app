@@ -66,6 +66,8 @@ jobs:
         run: python3 tests/staff3_budget.py
       - name: "Staff v4 on a laptop (R-269, DESIGN A-24): the same budget"
         run: python3 tests/staff4_budget.py
+      - name: "Staff v4: each person's three things where R-269 put them (Nate's targets, 12 Oct)"
+        run: python3 tests/staff4_people.py
       - name: Year-proof bill links
         run: python3 tests/year_links.py
       - name: The error reporter

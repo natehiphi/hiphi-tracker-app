@@ -392,3 +392,11 @@
 /* An issue's rows have no drag handle, so they keep the 16px inset that a list's rows give up for theirs on a desktop
    (lists.css); without it a bill's title sat 4px from the card's edge (R-263, on the issue page since R-226 too). */
 @media (min-width: 900px) { .is-page .le-brow { padding-left: var(--s16); } }
+/* v4 (R-269 P7): someone who owns no issue sees their coalitions here, a list of links, then the others with the
+   coalition page's support switch, one card of switch rows (sv-switchrow, staff.css). */
+.mi-page .mi-coal { margin-top: var(--s24); max-width: 760px; }   /* a switch stays near its name: width beyond a reading column is margin (A-24) */
+.mi-page .le-tools + .mi-coal { margin-top: var(--s16); }
+.mi-page .mi-coh { margin: 0 0 var(--s8); font-size: var(--t18); }
+.mi-page .mi-corow .lead { background: var(--n100); color: var(--n700); }
+.mi-page .mi-cosw { padding: 0 var(--s16); }
+.mi-page .mi-cosw .sv-switchrow + .sv-switchrow { border-top: 1px solid var(--n100); }

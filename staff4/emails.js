@@ -6,16 +6,13 @@
 // as the groups (what needs you first), every column sorts, and each row says its state three ways: a status chip
 // with an icon and a word, a line under the subject that says what happens next, and the numbers once it is sent.
 // Nothing on this page sends anything: a row only opens the email's own page.
-// v3 (R-264): the second of Outreach's two tabs, Supporters · Emails. "This week's asks", the text staff paste into the
-// newsletter or a post, moved here from Today (today.js makes it; until that export lands this page shows a marked
-// placeholder). How approval works is said by each email's status, not by a sentence over the list, and the 4:30 pm
-// email is explained where it matters, on the composer's Check it step.
+// v3 (R-264): the second of Outreach's two tabs, Supporters · Emails. How approval works is said by each email's status,
+// not by a sentence over the list, and the 4:30 pm email is explained where it matters, on the composer's Check it step.
+// v4 (R-269): the third of Outreach's four tabs. "This week's asks" left this page for a tab of its own (asks.js), which
+// Outreach opens on; it is said there once (A-14).
 import { S, esc, fmtDT, advocate } from './data.js';
 import { alertsToReview } from './model.js';
 import { icon, btn, row, empty, sectionNav } from './ui.js';
-// A namespace import, not a named one: until today.js exports weekAsksHTML (and wireWeekAsks), a named import would stop
-// the whole app loading; this way the page draws a placeholder and the real list appears once the export exists.
-import * as TODAY from './today.js';
 import { pageHead, isDesk, isSide, thSort, sortBy, wireTable, DASH, plural, shortDate } from './lists.js';
 import { audienceOf, statusChip, approverNames, pausedNotice, ago, dailyWord, paused, heldNow, HELD } from './composer.js';
 
@@ -79,14 +76,6 @@ function emailsTable(rows, v, rv) {
     <thead><tr>${COLS.map(c => thSort(c, v.sort)).join('')}</tr></thead><tbody>${sortBy(rows, v.sort, colValue).map(tr).join('')}</tbody></table></div>`;
 }
 
-// This week's asks: today.js's own card (the asks, and Copy for the newsletter or a post), under a name that says what
-// it is for. The placeholder is only for the build in between, and says so.
-function asksHTML() {
-  if (typeof TODAY.weekAsksHTML === 'function') { try { const h = TODAY.weekAsksHTML(); return h ? `<div class="le-asks">${h}</div>` : ''; } catch (e) { console.error(e); return ''; } }
-  return `<section class="card le-asks le-askph" aria-labelledby="le-asks-h"><h2 id="le-asks-h">This week’s asks, to paste into the newsletter or a post</h2>
-    <p class="small muted">Placeholder (Staff v3 build): the list moves here from Today once today.js shares it.</p></section>`;
-}
-
 export default {
   tab: 'outreach',
   title: () => 'Emails',
@@ -108,7 +97,6 @@ export default {
     return `<div class="le-page${desk ? ' le-desk' : ''}${isSide() ? ' le-side' : ''}">
       ${pageHead(sectionNav('outreach', 'emails'), 'Emails', '', all.length ? newBtn : '')}
       ${pausedNotice()}
-      ${asksHTML()}
       ${!all.length ? `<div class="le-empty">${empty({ title: 'No emails yet', text: 'Write to the people who follow a bill or a list, or to a saved segment of supporters.', action: newBtn })}</div>`
         // The table opens in the groups' order (what needs you first, sent last); a header click re-sorts it.
         : desk ? `<p class="le-tsum" aria-live="polite">${needs ? `<b>${needs} ${needs === 1 ? 'needs' : 'need'} you</b>` : 'None needs you'}${v.sort ? '' : ' · what needs you comes first'}</p>${emailsTable([...review, ...ready, ...going, ...drafts, ...waiting, ...sent], v, rv)}`
@@ -122,6 +110,5 @@ export default {
   },
   wire(route, root) {
     wireTable(root, COLS, S.leEmails ??= { sort: null });
-    if (typeof TODAY.wireWeekAsks === 'function') { const box = root.querySelector('.le-asks'); if (box) TODAY.wireWeekAsks(box); }
   },
 };
