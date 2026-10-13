@@ -2,6 +2,8 @@
 // the laptop-first, calmer copy of Staff v2 at staff3.html. The frame differs from v2 in three ways: the sidebar is the five
 // main places and nothing else (no sub-items, so it never shifts and carries one count, Today's: B-13, A-14); sections with
 // sub-pages show one row of tabs at the top of the page at every width (ui.js sectionNav); and your menu is short.
+// v4 (R-269, Nate 12 Oct: "Make all these changes in a staffv4 page"): Outreach opens on this week's asks (asks.js), the
+// partner update is its second tab (memo.js, from Bills' "…"), and Supporters moves to #/outreach/supporters.
 // Original v2 note: the frame and the router (plan section 2). Since 9/21 (R-022) this is the staff app at the tracker's
 // own address (index.html and staff.html both load it); the old app lives on at classic.html for a week as the way
 // back, then retires. Screens are modules with
@@ -18,7 +20,8 @@ import tasks from './tasks.js';
 import bill from './bill.js';
 import bills from './bills.js';
 import triage from './triage.js';
-import memo from './memo.js';
+import memo, { partners } from './memo.js';
+import asks from './asks.js';
 import legislators from './legislators.js';
 import legislator from './legislator.js';
 import search, { headerHits } from './search.js';
@@ -42,7 +45,7 @@ import coalition from './coalition.js';
 keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen on a staff screen either (X9-1, X9-6)
 
 // ---- routes ----
-const SCREENS = { today, myissues, review, inbox, tasks, bill, bills, triage, memo, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition };
+const SCREENS = { today, myissues, review, inbox, tasks, bill, bills, triage, memo, partners, asks, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition };
 export function parseRoute(h = location.hash) {
   // A "%" that is not part of a code (a stray one in a pasted link) made decodeURIComponent throw, and the page never drew (R-152 D).
   let dh; try { dh = decodeURIComponent(h || ''); } catch { dh = String(h || '').replace(/%(?![0-9a-fA-F]{2})/g, '%25'); try { dh = decodeURIComponent(dh); } catch { dh = '#/'; } }
@@ -65,7 +68,10 @@ export function parseRoute(h = location.hash) {
     case 'legislator': return { name: 'legislator', id: +seg[1] || 0, from: q.from || '', q };
     case 'hearing': return { name: 'hearing', id: seg[1] || '', q };
     case 'coalition': return { name: 'coalition', id: seg[1] || '', q };
-    case 'outreach': return seg[1] === 'lists' ? { name: 'lists', q } : seg[1] === 'emails' ? { name: 'emails', q } : seg[1] === 'issues' ? { name: 'issues', q } : { name: 'supporters', q };
+    // v4 (R-269): #/outreach is This week's asks; Supporters is #/outreach/supporters (an older #/outreach?segment= link
+    // still opens Supporters on that segment).
+    case 'outreach': return seg[1] === 'lists' ? { name: 'lists', q } : seg[1] === 'emails' ? { name: 'emails', q } : seg[1] === 'issues' ? { name: 'issues', q }
+      : seg[1] === 'supporters' || (!seg[1] && q.segment) ? { name: 'supporters', q } : seg[1] === 'partners' ? { name: 'partners', q } : { name: 'asks', q };
     case 'issue': return { name: 'issue', id: seg[1] || '', q };
     case 'person': return { name: 'person', id: seg[1] || '', q };
     case 'list': return { name: 'list', id: seg[1] || '', q };
@@ -129,16 +135,18 @@ function header(route, scr, pageH1 = false) {
 // A wide screen has room to show where everything is, so the pages that sit behind a menu on a phone are one click
 // away here: Review, the Inbox, Sort new bills, the weekly memo, Lists, Emails, setup and help.
 // v3: no sub-items. Review opens from Today's card, Inbox is in your menu, Tasks are Today's cards and each bill's To do,
-// Sort new bills and the weekly memo are in Bills' "…" menu, and My issues, Outreach show their own tabs on the page.
+// Sort new bills is in Bills' "…" menu, and My issues, Outreach show their own tabs on the page.
+// v4 (R-269): the partner update is Outreach's second tab (This week's asks, Partner update, Emails, Supporters: ui.js
+// sectionNav), so the sidebar lights Outreach on all four.
 const SIDE_V2 = [
   ['today', '#/', 'list-todo', 'Today', [['review', '#/review', 'Review'], ['inbox', '#/inbox', 'Inbox'], ['tasks', '#/tasks', 'Tasks']]],
   ['myissues', '#/my-issues', 'tag', 'My issues', []],
-  ['bills', '#/bills', 'scroll-text', 'Bills', [['triage', '#/bills/new', 'Sort new bills'], ['memo', '#/bills/memo', 'Weekly memo']]],
+  ['bills', '#/bills', 'scroll-text', 'Bills', [['triage', '#/bills/new', 'Sort new bills']]],
   ['legislators', '#/legislators', 'landmark', 'Legislators', []],
-  ['outreach', '#/outreach', 'megaphone', 'Outreach', [['supporters', '#/outreach', 'Supporters'], ['issues', '#/outreach/issues', 'Issues'], ['coalitions', '#/coalition', 'Coalitions'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]],
+  ['outreach', '#/outreach', 'megaphone', 'Outreach', [['asks', '#/outreach', 'This week\u2019s asks'], ['partners', '#/outreach/partners', 'Partner update'], ['emails', '#/outreach/emails', 'Emails'], ['supporters', '#/outreach/supporters', 'Supporters']]],
 ];
 const SIDE = SIDE_V2.map(([t, href, ic, label]) => [t, href, ic, label, []]);
-const SUB_OF = { review: 'review', inbox: 'inbox', tasks: 'tasks', triage: 'triage', memo: 'memo', supporters: 'supporters', person: 'supporters', issues: 'issues', issue: 'issues', coalition: 'coalitions', lists: 'lists', list: 'lists', emails: 'emails', composer: 'emails' };
+const SUB_OF = { review: 'review', inbox: 'inbox', tasks: 'tasks', triage: 'triage', memo: 'memo', asks: 'asks', partners: 'partners', supporters: 'supporters', person: 'supporters', issues: 'issues', issue: 'issues', coalition: 'coalitions', lists: 'lists', list: 'lists', emails: 'emails', composer: 'emails' };
 // Collapsing the sidebar is about this screen, not about the person, so it stays in this browser rather than
 // following them to their phone (where there is no sidebar at all).
 export const sideNarrow = () => { try { return localStorage.getItem('sv_side') === 'narrow'; } catch { return false; } };

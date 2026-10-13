@@ -38,7 +38,10 @@ const storyHTML = p => { const all = storiesOf(p); if (!all.length) return '';
   return `${all.map(([k, t]) => `${all.length > 1 || k ? `<span class="meta">${k ? esc(issueById(k)?.name || catByKey(k)?.name || 'An issue') : 'For any issue'}</span> ` : ''}<q class="sp-story">${esc(t)}</q>`).join('<br>')} <span class="meta">${QUOTE_WORDS[quoteOf(p)] || 'Not for quoting: they did not say HIPHI may quote it.'}</span>`; };
 const dueAt = f => new Date(f.due + 'T17:00:00-10:00');   // a follow-up is due by the end of the working day, as in Today
 const P = () => S.spPerson ??= { feedAll: {}, billsAll: {}, loading: {} };
-const FROM = { today: 'Today', search: 'Search', emails: 'Emails', lists: 'Lists', list: 'List' };
+// Where the way back goes when this page was opened by a link (inside the app it is real Back, app.js). v4 (R-269): each
+// names its own address; it used to say "Today" and go to #/outreach, which is no longer Supporters.
+const FROM = { today: ['Today', '#/'], search: ['Search', '#/search'], emails: ['Emails', '#/outreach/emails'], lists: ['Lists', '#/outreach/lists'], list: ['List', '#/outreach/lists'] };
+const SUPPORTERS = '#/outreach/supporters';
 
 // What a timeline entry looks like: an icon that says what kind of thing happened (never colour alone).
 const KIND_ICON = { email: 'mail', open: 'mail-check', click: 'link', follow: 'bookmark', action: 'circle-check', signup: 'user-plus', added: 'user-plus', bounce: 'triangle-alert', unsubscribe: 'bell-off' };
@@ -214,7 +217,7 @@ function sidePanel(p) {
 export default {
   tab: 'outreach',
   title: route => { const p = personById(route.id); return p ? personName(p) : 'Supporter'; },
-  back: route => ({ href: '#/outreach', label: FROM[route.q?.from] || 'Supporters' }),
+  back: route => { const [label, href] = FROM[route.q?.from] || ['Supporters', SUPPORTERS]; return { href, label }; },
   render(route) {
     const id = route.id, p = personById(id), st = P();
     if (!p) {
@@ -224,7 +227,7 @@ export default {
         DB.ensurePerson(id).then(() => hooks.render()).catch(() => hooks.render());
         return `<div class="sp-person">${skeleton(4)}</div>`;
       }
-      return `<div class="sp-person">${empty({ title: 'This person is not in Supporters', text: 'They may have been merged into someone else or deleted.', action: btn('Back to Supporters', { href: '#/outreach' }) })}</div>`;
+      return `<div class="sp-person">${empty({ title: 'This person is not in Supporters', text: 'They may have been merged into someone else or deleted.', action: btn('Back to Supporters', { href: SUPPORTERS }) })}</div>`;
     }
     ensureFeed(p.id);
     const back = this.back(route), backLink = `<a class="sp-deskback" href="${esc(back.href)}" data-back>${icon('chevron-left')}<span>${esc(back.label)}</span></a>`;
@@ -431,6 +434,6 @@ function mergeSheet(p) {
 async function deletePerson(p) {
   const ok = await confirmSheet({ title: `Delete ${esc(personName(p))}?`, text: `This removes ${esc(personName(p))} (${esc(p.email)}) from Supporters. Their tracker account, if they have one, is not touched. This cannot be undone.`, ok: 'Delete person', danger: true });
   if (!ok) return;
-  try { await DB.deletePerson(p.id); afterSheet(() => { S.go('#/outreach', { replace: true }); toast(`Deleted ${personName(p)}.`); }); }
+  try { await DB.deletePerson(p.id); afterSheet(() => { S.go(SUPPORTERS, { replace: true }); toast(`Deleted ${personName(p)}.`); }); }
   catch (e) { toast(e, { err: true }); }
 }
