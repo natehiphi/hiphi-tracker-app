@@ -688,3 +688,8 @@
 }
 /* In a narrow list (a 1280 laptop) "+2 more" says "+2"; the word stays for a screen reader. */
 @container tdrows (max-width: 640px) { .td-root .td-rplus .td-rmore { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }
+
+/* v4 (R-269, T10): the new hearings with no draft, as one row; its list (open item, or the phone's card) gives each bill
+   its hearing on a line of its own. */
+.td-root .td-pnh { display: block; font-size: var(--t13); color: var(--n500); }
+.td-root .td-newh .td-newl { margin-top: var(--s8); }

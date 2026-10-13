@@ -529,8 +529,20 @@ export function todayItems(scope = 'mine', who = null) {
   const lateGroup = (g, ts) => g === 'overdue' && ts.filter(t => t.due != null && t.due <= now).every(lateNow) ? 'lateopen' : g;
   const cards = [...byKey.values()].map(c => { c.tasks.sort(cmp); c.p = c.tasks[0]; c.due = c.p.due; c.group = lateGroup(groupOf(c.p.due, now), [c.p]); if (c.p.kind === 'nodraft' && !NOW_GROUPS.has(c.group)) c.group = 'today'; /* a new hearing with no draft is work today, however far off the hearing is (X10-5) */ c.wait = c.p.kind === 'wait'; c.seen = !!c.p.seen; return c; });
   if (cluster) { const due = Math.min(...cluster.map(t => t.due ?? Infinity)); cards.push({ key: 'cluster', cluster, due: Number.isFinite(due) ? due : null, group: lateGroup(groupOf(Number.isFinite(due) ? due : null, now), cluster), tasks: cluster }); }
+  // v4 (R-269, T10): "Today" means today. New hearings stay on Today the day they are set (Nate's X10-5 pick), but two or
+  // more whose testimony is due after today are one row, "4 new hearings · No testimony draft yet", whose open item lists
+  // each bill with its own Make the draft now (as the review cluster lists its drafts): four rows of "6d left" pushed the
+  // day's real deadlines down and counted four in the badge.
+  if (!team) {
+    const nd = cards.filter(c => c.group === 'today' && c.b && c.tasks.every(t => t.kind === 'nodraft' && t.due != null && t.due > endOfToday()));
+    if (nd.length >= 2) {
+      const ts = nd.flatMap(c => c.tasks).sort((x, y) => x.due - y.due || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true }));
+      for (const c of nd) cards.splice(cards.indexOf(c), 1);
+      cards.push({ key: 'newh', newh: ts, due: null, group: 'today', tasks: ts });
+    }
+  }
   // Within a group: the review cluster, then by time; a message already seen sits below the new ones; waiting rows last.
-  const ord = (x, y) => !!y.cluster - !!x.cluster || x.wait - y.wait || eff(x.p || x) - eff(y.p || y) || (!!x.seen - !!y.seen) || ((x.b?.priority || 9) - (y.b?.priority || 9)) || String(x.b?.bill_number || x.key).localeCompare(String(y.b?.bill_number || y.key), 'en', { numeric: true });
+  const ord = (x, y) => !!y.cluster - !!x.cluster || x.wait - y.wait || !!x.newh - !!y.newh || eff(x.p || x) - eff(y.p || y) || (!!x.seen - !!y.seen) || ((x.b?.priority || 9) - (y.b?.priority || 9)) || String(x.b?.bill_number || x.key).localeCompare(String(y.b?.bill_number || y.key), 'en', { numeric: true });
   const weight = c => c.cluster ? c.cluster.length : c.wait ? 0 : 1;
   // "Overdue 5" for one overdue draft in a cluster of five was wrong (X10-6, P-5): in Overdue a review cluster counts only what is overdue.
   const cn = c => c.cluster ? (c.group === 'overdue' || c.group === 'lateopen' ? c.cluster.filter(t => t.due != null && t.due <= now).length || 1 : c.cluster.length) : 1;
@@ -737,6 +749,10 @@ function card(c, i, team, o = {}) {
   }
   const p = c.p, b = c.b, also = c.tasks.slice(1), k = (o.gk ? o.gk + '~' : '') + c.key;
   CARDS.set(k, c);
+  if (c.newh) return `<article class="td-card td-cluster td-newh" data-k="${esc(k)}" tabindex="-1" aria-labelledby="td-s${i}">
+      ${urgBlock(null)}
+      <p class="td-s" id="td-s${i}">${icon('file-text')}${esc(plural(c.newh.length, 'new hearing'))} · No testimony draft yet</p>
+      ${newhList(c)}</article>`;
   if (b && c.tasks.every(t => t.kind === 'reply')) return msgCard(c, i, k);
   const top = b ? `<a class="td-bill${b.nickname ? ' td-named' : ''}" href="${billRoute(b)}"><b class="td-num">${esc(billNum(b))}</b> ${b.priority === 1 ? '<span class="sv-p1">P1</span> ' : ''}${billName(b)}</a>`
     : p.kind === 'followup' ? `<a class="td-bill td-kind" href="#/person/${esc(p.f.person_id)}">${icon('user-round')}<span>Follow-up</span></a>`
@@ -790,6 +806,11 @@ function row(c, filled, o = {}) {
     const bills = [...new Set(c.cluster.map(t => billNum(t.b).split(' ')[0]))];
     return `<div data-k="${ek}" class="td-row td-rclu"${filled ? ' data-fill="1"' : ''}>${sel(`${urgBlock(c.due, untilOf(c.cluster[0]), 'to approve')}<span class="td-rmain"><span class="td-rs"><b>Review ${plural(c.cluster.length, 'testimony draft')}</b></span><span class="td-rn">${esc(bills.slice(0, 3).join(', '))}${bills.length > 3 ? ' …' : ''}</span></span>`)}
       <span class="td-ract">${btn('Start review', { kind: filled ? 'primary' : 'secondary', href: '#/review', attrs: { 'data-primary': '1', 'data-review': '1' } })}</span>${end}</div>`;
+  }
+  if (c.newh) {
+    const nums = [...new Set(c.newh.map(t => billNum(t.b).split(' ')[0]))];
+    return `<div data-k="${ek}" class="td-row td-rnew">${sel(`${urgBlock(null)}<span class="td-rmain"><span class="td-rs"><b>${esc(plural(c.newh.length, 'new hearing'))}</b> · No testimony draft yet</span><span class="td-rn">${esc(nums.slice(0, 4).join(', '))}${nums.length > 4 ? ' …' : ''}</span></span>`)}
+      <span class="td-ract"></span>${end}</div>`;
   }
   const p = c.p, b = c.b, n = c.tasks.length - 1;
   const name = b ? `<span class="td-rb"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''}<span class="td-rn">${esc(b.nickname || blurb(b, 80))}</span></span>`
@@ -871,9 +892,17 @@ function paneCluster(c) {
       <div class="td-pacts">${btn('Start review', { href: '#/review', attrs: { 'data-review': '1' } })}</div></div>
     <div class="td-psec"><h3 class="td-ph3">Earliest first</h3><ul class="td-palso">${c.cluster.map(t => `<li><a class="td-pat" href="#/review/${encodeURIComponent(t.d.id)}" data-review="1"><b class="td-num">${esc(billNum(t.b))}</b> ${esc(t.b.nickname || blurb(t.b, 60))}</a><span class="td-pam">${alsoDue(t)}</span></li>`).join('')}</ul></div>`;
 }
+// The new hearings with no draft (T10): each bill, its hearing, when its testimony is due and its own Make the draft now.
+const newhList = c => `<ul class="td-palso td-newl">${c.newh.map(t => `<li><a class="td-pat" href="${billRoute(t.b)}"><b class="td-num">${esc(billNum(t.b))}</b> ${esc(t.b.nickname || blurb(t.b, 60))}<span class="td-pnh">${esc(`${t.h.committee} hearing ${whenLine(t.h.scheduled_at)}`)}</span></a><span class="td-pam">${alsoDue(t)}</span>${t.ro || !t.btns?.[0] ? '' : `<span class="td-pab">${button(t, t.btns[0], false)}</span>`}</li>`).join('')}</ul>`;
+function paneNew(c) {
+  return `<div class="td-ptop"><p class="td-pnum td-rkind">${icon('file-text')}<span>New hearings</span></p></div>
+    <h2 class="td-pname" id="td-pane-h">${esc(plural(c.newh.length, 'new hearing'))}, no testimony draft yet</h2>
+    <div class="td-psec"><h3 class="td-ph3">Soonest testimony first</h3>${newhList(c)}</div>`;
+}
 function paneHTML(k) {
   const c = CARDS.get(k); if (!c) return '';
   if (c.cluster) return paneCluster(c);
+  if (c.newh) return paneNew(c);
   const p = c.p, b = c.b, o = ROWOPT.get(k) || {}, kd = b ? null : kindOf(p);
   const more = b || p.kind === 'followup' || p.a ? iconBtn('ellipsis', `More for ${b ? billNum(b) : 'this item'}`, { 'data-more': k, 'data-pane': '1' }, 'td-more') : '';
   const top = `<div class="td-ptop">${b ? `<p class="td-pnum"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''}</p>` : `<p class="td-pnum td-rkind">${icon(kd[0])}<span>${kd[1]}</span></p>`}${more}</div>
@@ -1037,7 +1066,7 @@ function giveTodo(t) {
     } });
 }
 // "Team load": open cards for each teammate, as their own Today would count them (a review cluster counts each draft).
-const openCount = r => r.cards.reduce((s, c) => s + (c.wait ? 0 : c.cluster ? c.cluster.length : 1), 0);
+const openCount = r => r.cards.reduce((s, c) => s + (c.wait ? 0 : c.cluster ? c.cluster.length : c.newh ? c.newh.length : 1), 0);
 function teamLoad() {
   return teammates().map(a => { const r = a.id === S.me.id ? items('mine') : items('person', a.id); return { a, n: openCount(r), late: r.late }; });
 }
@@ -1093,7 +1122,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 // under a deadline, whose chair ask is their row's "…".
 function suggestFor(scope, who, r, gated = new Set()) {
   if (scope !== 'mine' || SESSION_OVER) { LASTSG = new Map(); return { chair: new Map(), list: [] }; }
-  const dated = new Set(r.cards.filter(c => c.b && (NOW_GROUPS.has(c.group) || c.tasks.some(t => t.kind === 'chair'))).map(c => c.b.id));
+  const dated = new Set([...r.cards.filter(c => c.b && (NOW_GROUPS.has(c.group) || c.tasks.some(t => t.kind === 'chair'))).map(c => c.b.id), ...r.cards.flatMap(c => c.newh || []).map(t => t.b.id)]);
   const all = suggestions(clockBills(scope, who), { cap: Infinity, skip: b => dated.has(b.id) });
   const isGated = s => s.kind === 'chair' && gated.has(s.b.id);
   const chair = new Map(all.filter(isGated).map(s => [s.b.id, s])), list = all.filter(s => !isGated(s)).slice(0, SUGGEST_CAP);
@@ -1364,7 +1393,7 @@ function teamGroups() {
   for (const a of teammates()) {
     if (a.id === me) continue;
     for (const c of items('person', a.id).cards) {
-      if (c.wait || c.cluster) continue;
+      if (c.wait || c.cluster || c.newh) continue;
       const e = byLead.get(c.p.key);
       if (e) e.ids.push(a.id); else byLead.set(c.p.key, { c, ids: [a.id] });
     }
