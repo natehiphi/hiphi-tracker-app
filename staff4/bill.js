@@ -185,7 +185,7 @@ function pinY() {
 let topRaf = 0;
 function markScrolled() {
   topRaf = 0;
-  const bar = document.querySelector('.bw-desk .bw-top'), num = document.querySelector('.bw-desk h1.bw-num'); if (!bar || !num) return;
+  const bar = document.querySelector('.bw-desk .bw-top'), num = document.querySelector('.bw-desk .bw-head h1'); if (!bar || !num) return;
   bar.classList.toggle('bw-scrolled', num.getBoundingClientRect().bottom <= bar.getBoundingClientRect().bottom);
 }
 addEventListener('scroll', () => { if (!topRaf && S.route?.name === 'bill') topRaf = requestAnimationFrame(markScrolled); }, { passive: true });
@@ -959,12 +959,16 @@ function stageSet(b) {
 // laptop and under it on a phone, opens with that hearing (v3, A-14).
 function headHTML(b, { chips }) {
   const nick = String(b.nickname || '').trim(), sum = summaryOf(b);
-  const num = `<h1 class="bw-num">${esc(b.bill_number)}${b.current_version ? ` <span class="bw-ver">${esc(b.current_version)}</span>` : ''}</h1>`;
+  const numIn = `${esc(b.bill_number)}${b.current_version ? ` <span class="bw-ver">${esc(b.current_version)}</span>` : ''}`;
+  // R-271 (Nate 10/13): staff know a bill by its nickname, so a named bill's heading is its nickname and the number is a
+  // small line under it; a bill with no nickname keeps its number as the heading and its summary under it.
+  const num = nick ? `<p class="bw-num bw-numsm">${numIn}</p>` : `<h1 class="bw-num">${numIn}</h1>`;
   // On a desktop the issues sit on the number's line (R-226), not in a row of their own: the sticky header stays the height it was.
   const iss = chips ? '' : issueChips(b);
+  const numRow = iss ? `<div class="bw-numrow">${num}<div class="bw-chips bw-ichips">${iss}</div></div>` : num;
   return `<header class="bw-head">
-    ${iss ? `<div class="bw-numrow">${num}<div class="bw-chips bw-ichips">${iss}</div></div>` : num}
-    <p class="bw-title${nick || !sum ? '' : ' bw-long'}">${esc(billName(b))}</p>
+    ${nick ? `<h1 class="bw-title bw-h1">${esc(nick)}</h1>${numRow}` : `${numRow}
+    <p class="bw-title${sum ? ' bw-long' : ''}">${esc(billName(b))}</p>`}
     ${nick && sum ? `<p class="bw-lede">${esc(sum)}</p>` : ''}
     <div class="bw-ribwrap${b.stage_override ? ' bw-ribset' : ''}">${stageRibbon(b)}${stageSet(b)}</div>
     <p class="bw-status">${icon('route')}<span>${statusSentence(b, { chair: true, hearing: !hearingAhead(b) })}</span></p>

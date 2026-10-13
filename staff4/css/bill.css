@@ -346,6 +346,8 @@
   .bw-main { min-width: 0; }
   .bw-num { display: block; }
   .bw-page h1.bw-num { font-size: var(--t22); }
+  .bw-page h1.bw-h1 { font: 700 var(--t22)/1.25 var(--font-h); margin-top: 0; }   /* R-271: the nickname is the heading */
+  .bw-page .bw-numsm { font: 400 var(--t14)/20px var(--font); color: var(--n500); margin-top: 2px; }
   .bw-head { padding-top: 0; }
   .bw-title { margin-top: var(--s4); }
   .bw-lede { font-size: var(--t16); }
@@ -560,3 +562,5 @@
 /* A draft the job started from HIPHI's earlier testimony on the bill (R-148) */
 .bw-from { display: flex; gap: 6px; align-items: flex-start; margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n700); }
 .bw-from .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--p700); }
+/* R-271: a named bill's heading is its nickname (h1); the number line under it shows on a laptop, the phone's header has it */
+.bw-page h1.bw-h1 { margin: 0; }
