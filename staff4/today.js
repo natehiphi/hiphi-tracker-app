@@ -961,12 +961,13 @@ function yay() {
 // ---- hearings: today's line and the week ----
 // Every hearing between two Hawaiʻi days on the bills in view, earliest first. Bills heard together (same time,
 // committee and room) stay next to each other; within one hearing the bills we have a position on come first.
-function hearingsIn(d0, d1, scope, who) {
+// `pick(h, b)`, when given, decides instead of the scope (This week for someone who owns no bills, v4).
+function hearingsIn(d0, d1, scope, who, pick = null) {
   const ok = billsOf(scope, who), t0 = new Date(d0 + 'T00:00:00-10:00').getTime(), t1 = new Date(d1 + 'T23:59:59.999-10:00').getTime(), out = [];
   for (const h of S.hearings || []) {
     if (h.status === 'cancelled') continue;
     const t = new Date(h.scheduled_at).getTime(); if (!(t >= t0 && t <= t1)) continue;
-    const b = billById(h.bill_id); if (b && ok(b)) out.push({ h, b, t, day: hst(t) });
+    const b = billById(h.bill_id); if (b && (pick ? pick(h, b) : ok(b))) out.push({ h, b, t, day: hst(t) });
   }
   return out.sort((x, y) => x.t - y.t || String(x.h.committee).localeCompare(String(y.h.committee)) || (x.b.position === 'monitor') - (y.b.position === 'monitor') || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true }));
 }
@@ -1196,11 +1197,25 @@ const wkTimed = t => t.kind === 'ask' && !!t.b && t.due != null && t.due > Date.
 // nothing open is off the grid. The side panel's "This week" counts from this too.
 // Hearings on Monitor bills are left out unless "+N on bills you monitor" is on (decision 4); wk.mon counts them either
 // way, for that button. The side panel counts from here, so the two follow the same choice and still agree.
+// v4 (R-269, T5): someone who owns and follows no bill (Patti, Saya, Julie, Kris) gets their coalitions' week, as their
+// Today already does, plus the hearings they said they are going to: it said "Nothing scheduled." five times while
+// HEAL had three hearings. Each of those sittings' bills says where its testimony stands (draftState), since none is
+// their step. An owner's week is unchanged.
+function weekScope(scope, who) {
+  const coal = aheadBills(scope, who).coal;
+  if (!coal) { const ok = billsOf(scope, who); return { ok, pick: null, coal: null }; }
+  const ok = b => (S.billCampaigns[b.id] || []).some(id => coal.ids.has(id));
+  return { ok, pick: (h, b) => ok(b) || goingFor(h).going, coal };
+}
+// Someone else's testimony, in the week's words: the state, its icon, and how far behind it is (as WK_STATE).
+const draftState = d => !d ? WK_STATE.nodraft : d.status === 'draft' ? (d.review_note ? WK_STATE.revise : WK_STATE.write)
+  : d.status === 'review' ? ['In review', 'hourglass', 5] : d.status === 'second_review' ? ['Second approval', 'hourglass', 5] : WK_STATE.file;
 function weekOf(mon, scope, who, r) {
-  const now = Date.now(), today = hst(now), ok = billsOf(scope, who), days = [0, 1, 2, 3, 4, 5, 6].map(i => dayAdd(mon, i)), showMon = monOn();
+  const now = Date.now(), today = hst(now), days = [0, 1, 2, 3, 4, 5, 6].map(i => dayAdd(mon, i)), showMon = monOn();
+  const { ok, pick, coal } = weekScope(scope, who), okH = (h, b) => pick ? pick(h, b) : ok(b);
   const wk = new Map(days.map(d => [d, { dl: new Map(), hs: new Map(), other: [] }]));
   let monN = 0;
-  for (const x of hearingsIn(mon, days[6], scope, who)) {
+  for (const x of hearingsIn(mon, days[6], scope, who, pick)) {
     if (isMon(x.b)) { monN++; if (!showMon) continue; }
     const hs = wk.get(x.day).hs, k = slotKey(x.h); if (!hs.has(k)) hs.set(k, []); hs.get(k).push(x);
   }
@@ -1217,12 +1232,12 @@ function weekOf(mon, scope, who, r) {
   for (const h of S.hearings || []) {
     if (h.status === 'cancelled') continue;
     const due = testDue(h), c = due > now ? wk.get(hst(due)) : null; if (!c) continue;
-    const b = billById(h.bill_id); if (!b || b.position === 'monitor' || !ok(b) || diedish(b) || draftOf(h)) continue;
-    const g = card(c, h); if (!g.rows.some(x => x.b.id === b.id)) g.rows.push({ b, st: WK_STATE.nodraft });
+    const b = billById(h.bill_id), d = b && draftOf(h); if (!b || b.position === 'monitor' || !okH(h, b) || diedish(b) || (d && !coal) || d?.status === 'filed') continue;
+    const g = card(c, h); if (!g.rows.some(x => x.b.id === b.id)) g.rows.push({ b, st: draftState(d) });
   }
   // How many more of each sitting's bills are already filed: a manager's "are we nearly there".
   const keys = new Set([...wk.values()].flatMap(c => [...c.dl.keys()])), filed = new Map();
-  for (const h of S.hearings || []) { const k = slotKey(h), b = keys.has(k) && billById(h.bill_id); if (b && ok(b) && draftOf(h)?.status === 'filed') { if (!filed.has(k)) filed.set(k, new Set()); filed.get(k).add(b.id); } }
+  for (const h of S.hearings || []) { const k = slotKey(h), b = keys.has(k) && billById(h.bill_id); if (b && okH(h, b) && draftOf(h)?.status === 'filed') { if (!filed.has(k)) filed.set(k, new Set()); filed.get(k).add(b.id); } }
   for (const c of wk.values()) for (const [k, g] of c.dl) { const open = new Set(g.rows.map(x => x.b.id)); g.filed = [...(filed.get(k) || [])].filter(id => !open.has(id)).length; }
   return wk;
 }
@@ -1589,7 +1604,7 @@ const ahNames = bs => { const b = bs[0], more = bs.length - 1; return `<b class=
 // The phone's week: the frame's header already says "This week", so the list has no heading of its own (A-14).
 function aheadWeek(scope, who, coal) {
   const now = Date.now(), today = hst(now), end = dayAdd(today, 6), inC = b => !coal || (S.billCampaigns[b.id] || []).some(id => coal.ids.has(id));
-  const hs = hearingsIn(today, end, coal ? 'team' : scope, coal ? null : who).filter(x => inC(x.b) && !isMon(x.b) && x.t >= now - 2 * HR);
+  const hs = hearingsIn(today, end, coal ? 'team' : scope, coal ? null : who).filter(x => (inC(x.b) || goingFor(x.h).going) && !isMon(x.b) && x.t >= now - 2 * HR);
   const sit = new Map(); for (const x of hs) { const k = slotKey(x.h); if (!sit.has(k)) sit.set(k, []); sit.get(k).push(x); }
   const ev = [];
   for (const list of sit.values()) {
