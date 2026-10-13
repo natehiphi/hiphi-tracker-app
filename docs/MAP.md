@@ -288,6 +288,21 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
   3. Progress is the person's own. Community numbers appear only inside one bill or hearing, from 10 people.
 - Parked at Nate's request: exact YouTube hearing links (needs a YouTube Data API key in Settings).
 
+## Staff v3 (`staff3.html` + `staff3/`), to compare (R-264, 12 Oct 2026)
+
+Nate: "Make all these changes, but make them on a staff v3 so I can explore and compare." A laptop-first, calmer copy of
+Staff v2 at its own address; **Staff v2 stays the team's app** until Nate picks one. `staff3/` began as a full copy of
+`staff/` (same data layer, same sandbox, same sign-in) and differs where R-264's six batches changed it: the sidebar is the
+five main places only (one count, Today's); sections with sub-pages show one tab row (`ui.js` `sectionNav`: My issues · All
+issues · Coalitions, and Supporters · Emails); Today on a laptop is a list with the task you picked open beside it, and
+Ahead and the Week view are one "This week"; Bills is one line per bill with the bill you click docked beside the list;
+a bill has three tabs (Overview with Committees inside, Activity, Public); My settings fits one screen; "Second approver",
+"supporter emails", "Second lateral" (C-15). Held to DESIGN A-24 by `tests/staff3_budget.py` (in CI). Your menu has
+"Open this page in Staff v2"; v2's has "Open this page in Staff v3" for admins. **While both exist, a fix to a shared data
+call or helper is made in both** (`staff/` and `staff3/`); v3's own browser keys are few (`hiphi3_rows`), so most
+remembered choices are shared with v2. When Nate picks: v3 becomes `staff/` (and `staff.html`/`index.html` load it), or
+`staff3/` and `staff3.html` are deleted. The plan and the reviews: backend `docs/requests/R-264.md`.
+
 ## Staff v2 (`staff.html` + `staff/`)
 
 Task-first. Tabs: Today, My issues, Bills, Legislators, Outreach. `staff/app.js` frame + router (`parseRoute`), `staff/ui.js`

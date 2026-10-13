@@ -62,6 +62,8 @@ jobs:
           sleep 1
       - name: Every public screen, three kinds of person, sandbox and live
         run: python3 tests/screens_smoke.py
+      - name: "Staff v3 on a laptop (R-264, DESIGN A-24): one side panel, at most 5 things, 7 colours, 1 filled button in view"
+        run: python3 tests/staff3_budget.py
       - name: Year-proof bill links
         run: python3 tests/year_links.py
       - name: The error reporter
