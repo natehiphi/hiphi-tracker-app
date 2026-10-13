@@ -775,3 +775,30 @@
 .td-root .td-cdmore:hover { text-decoration: underline; }
 .td-root .td-cdmore .chev { width: 18px; height: 18px; }
 @media (min-width: 1100px) { .td-root .td-cdmore { min-height: 36px; } }
+
+/* R-271 (Nate 10/13): the nickname leads a bill's name and the number follows, small and grey (staff.css .bn-num). */
+.td-root .td-bill .td-nick { font: 700 var(--t16)/24px var(--font-h); letter-spacing: -.005em; }
+.td-root .td-bill.td-named .bn-num, .td-root .td-msgb .bn-num { margin-right: var(--s4); }
+@media (max-width: 899px) { .td-root .td-bill.td-named .td-nick { line-height: 20px; } }
+.td-root .td-bill .td-nick + .bn-num { align-self: baseline; flex: none; }
+/* a compact row: the nickname may be cut, the number keeps its place; a narrow row drops the number, never the name */
+.td-root .td-rbn { min-width: 0; }
+.td-root .td-rnick { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t14); line-height: 20px; color: var(--n900); }
+.td-root .td-rbn .bn-num { flex: none; }
+/* The number shows only where the row has room for it beside a readable name; the open item beside the list says it. */
+@container tdrows (max-width: 760px) { .td-root .td-rbn .bn-num { display: none; } }
+/* A named bill keeps room for about 16 letters of its nickname (its name now, where the number used to be the floor). */
+@media (min-width: 1100px) {
+  .td-root .td-rb.td-rbn { min-width: 140px; }
+  .td-root .td-rb.td-rbn.td-rbp1 { min-width: 172px; }
+  .td-root .td-rbn ~ .td-rs { max-width: calc(100% - 152px); }
+  .td-root .td-rbn.td-rbp1 ~ .td-rs { max-width: calc(100% - 184px); }
+  .td-root .td-rmain:has(.td-rplus) .td-rbn ~ .td-rs { max-width: calc(100% - 258px); }
+  .td-root .td-rmain:has(.td-rplus) .td-rbn.td-rbp1 ~ .td-rs { max-width: calc(100% - 290px); }
+}
+@container tdrows (max-width: 640px) {
+  .td-root .td-rmain:has(.td-rplus) .td-rbn ~ .td-rs { max-width: calc(100% - 184px); }
+  .td-root .td-rmain:has(.td-rplus) .td-rbn.td-rbp1 ~ .td-rs { max-width: calc(100% - 216px); } }
+.td-root .td-rrow .td-rname.td-nick { flex: 0 1 auto; }
+.td-root .wk-nick { font-size: var(--t13); line-height: 18px; overflow-wrap: anywhere; }
+.td-root .td-pnum .bn-num { font-size: var(--t13); }

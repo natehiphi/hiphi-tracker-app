@@ -188,14 +188,16 @@ addEventListener('scroll', () => { if (!fbRaf) fbRaf = requestAnimationFrame(() 
 // list (assessment 9/19). Never colour alone: the number, the word and, when late, an icon all say the same thing. ----
 // v4 (R-269): \`act\` names what the hours are for. A late-testimony mark on an approval says "to approve" (Jess does not
 // file; "4h to file" on her approval read as a filing task), on everything else "to file".
-export function urgentMark(iso, { done = false, until = null, act = 'to file' } = {}) {
+// R-271 (Nate 10/13): before it is late the block says the same verb ("5h to approve", "27h to file"), not "5h left",
+// which said a bill was due but not what was asked; a caller with no verb keeps "left".
+export function urgentMark(iso, { done = false, until = null, act = null } = {}) {
   if (done) return `<span class="sv-urg done" role="img" aria-label="Done">${icon('check')}</span>`;
   if (!iso) return '<span class="sv-urg none" aria-hidden="true"></span>';
-  if (lateUntil(iso, until)) { const hh = Math.max(0, Math.floor((new Date(until) - Date.now()) / 36e5)); return `<span class="sv-urg soon" role="img" aria-label="${esc(`late testimony until ${clockDay(until)}`)}"><b>${hh < 1 ? '<1h' : hh + 'h'}</b><span>${esc(act)}</span></span>`; }   // the hours left to file late ("late" read as "4 hours late")
+  if (lateUntil(iso, until)) { const hh = Math.max(0, Math.floor((new Date(until) - Date.now()) / 36e5)); return `<span class="sv-urg soon" role="img" aria-label="${esc(`late testimony until ${clockDay(until)}`)}"><b>${hh < 1 ? '<1h' : hh + 'h'}</b><span>${esc(act || 'to file')}</span></span>`; }   // the hours left to file late ("late" read as "4 hours late")
   const ms = new Date(iso) - Date.now(), h = ms / 36e5, over = -h;
   const big = ms <= 0 ? (over >= 48 ? `${Math.floor(over / 24)}d` : `${Math.max(1, Math.floor(over))}h`)
     : h < 1 ? '<1h' : h < 48 ? `${Math.floor(h)}h` : `${Math.floor(h / 24)}d`;   // rounded down, never up (R-022)
-  const word = ms <= 0 ? 'overdue' : 'left';   // one word for time still to run, hours or days (R-152 C: it said "to go" past 48 hours)
+  const word = ms <= 0 ? 'overdue' : act || 'left';   // one word for time still to run, hours or days (R-152 C: it said "to go" past 48 hours)
   const tone = ms <= 0 ? ' late' : h <= 24 ? ' soon' : '';
   return `<span class="sv-urg${tone}" role="img" aria-label="${esc(`${big} ${word}`)}">${ms <= 0 ? icon('circle-alert') : ''}<b>${esc(big)}</b><span>${word}</span></span>`;
 }
