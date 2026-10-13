@@ -10,7 +10,7 @@
 // bill stands" box became one deadline sentence, Edit and Columns went into "…", tick boxes come with "Select bills",
 // and the quick-look column went (a click on the row is the quick look). Phones keep their rows and sheets.
 import { S, DB, DEADLINES, esc, fmtDate, fmtDT, effStage, owners, isMuted, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks } from './data.js';
-import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionClock, gateNeed, deadlineName } from './model.js';
+import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionClock, gateNeed, deadlineName, billSay } from './model.js';
 import { CHAMBER_NAME, HELD_RE, stoppedAt } from '../stops.js';
 import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, POS_WORD, posIcons } from './ui.js';
 import { bl, save, setCompact, shownBills, freshFacts, QUICK, quickCount, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, settled, hoverNow, typingIn, deskBack,
@@ -272,7 +272,7 @@ export function blRow(b, { sub = '', href, selectable = false, selected = false,
     : `<span class="bl-noown" title="No owner">${icon('circle-dashed')}<span class="sr">No owner</span></span>`;
   const end = `<span class="sv-posic" role="img" title="${esc(pw)}" aria-label="${esc(pw)}">${posIcons(pos)}</span>${b.priority === 1 ? '<span class="sv-p1">P1</span>' : ''}${who}`;
   const box = selectable ? `<span class="sv-check" aria-hidden="true">${icon(selected ? 'square-check-big' : 'square')}</span>` : '';
-  const inner = `${box}<span class="body"><span class="title bl-rt"><b>${esc(billNum(b))}</b> ${nick ? `<b class="bl-nk">${esc(nick)}</b> ` : ''}<span class="sv-t">${esc(sum)}</span></span>${sub ? `<span class="sub">${sub}</span>` : ''}</span><span class="end">${end}</span>`;
+  const inner = `${box}<span class="body"><span class="title bl-rt">${nick ? `<b class="bl-nk">${esc(nick)}</b> <span class="bn-num">${esc(billNum(b))}</span>` : `<b class="bn-num0">${esc(billNum(b))}</b>`} <span class="sv-t">${esc(sum)}</span></span>${sub ? `<span class="sub">${sub}</span>` : ''}</span><span class="end">${end}</span>`;
   return href && !selectable ? `<a class="row sv-billrow bl-row" href="${esc(href)}" data-bill="${esc(b.id)}">${inner}</a>`
     : `<button type="button" class="row sv-billrow bl-row${selected ? ' sel' : ''}" data-bill="${esc(b.id)}" aria-pressed="${selected ? 'true' : 'false'}">${inner}</button>`;
 }
@@ -283,7 +283,7 @@ function phoneList(groups) {
   // got the whole page). The row itself is an <a>, so the button cannot live inside it - the row and the button sit
   // side by side in a .bl-prow, the pattern the muted list already uses. Not in select mode: there the row is a
   // checkbox and a second target beside it would be read as part of the selection.
-  const look = b => iconBtn('chevron-right', `Quick look at ${billNum(b)}`, { 'data-look': b.id }, 'bl-plk');
+  const look = b => iconBtn('chevron-right', `Quick look at ${billSay(b)}`, { 'data-look': b.id }, 'bl-plk');
   const mine = v.scope === 'me';
   const row = b => v.selecting ? blRow(b, { sub: statusLine(b), selectable: true, selected: v.sel.has(b.id), mine })
     : `<div class="bl-prow">${blRow(b, { sub: statusLine(b), href: billRoute(b), mine })}${look(b)}</div>`;
@@ -392,7 +392,7 @@ function table(groups) {
     return `<span class="bl-fol" role="img" aria-label="${esc(t)}" title="${esc(t)}">${icon(iss.length ? 'tag' : 'bell')}</span>`; };
   const cell = (c, b) => {
     switch (c.k) {
-      case 'sel': return `<td class="bl-ck"><label><input type="checkbox" data-sel="${b.id}" ${v.sel.has(b.id) ? 'checked' : ''} aria-label="Select ${esc(billNum(b))}"></label></td>`;
+      case 'sel': return `<td class="bl-ck"><label><input type="checkbox" data-sel="${b.id}" ${v.sel.has(b.id) ? 'checked' : ''} aria-label="Select ${esc(billSay(b))}"></label></td>`;
       case 'bill': return `<td class="bl-num"><a href="${billRoute(b)}" data-bill="${b.id}"><span>${esc(b.bill_number)}</span>${b.current_version ? ` <span>${esc(b.current_version)}</span>` : ''}</a>${folMark(b)}</td>`;
       // Compact rows (v3's default) name the bill once: its nickname, or the summary when it has none. The summary
       // is in the docked bill and on hover (rule 2: summaries live in the open item).
@@ -403,8 +403,8 @@ function table(groups) {
       case 'coal': { const n = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(x => x.id === id)?.name).filter(Boolean).join(', '); return `<td>${n ? two(esc(n), n) : none}</td>`; }
       case 'last': return `<td>${b.last_action ? two(`${b.last_action_date ? `<span class="bl-date">${md(b.last_action_date)}</span> ` : ''}${esc(b.last_action)}`, b.last_action) : none}</td>`;
       case 'pulse': return `<td>${pulseText(b)}</td>`;
-      case 'pos': { if (v.edit) return `<td><span class="bl-selwrap">${posIcons(b.position || '')}${inlSel('pos', b)}</span></td>`; const p = b.position || '', w = p ? POS_WORD[p] || p : posWord(''); return `<td><button type="button" class="bl-cell" data-edit="pos" data-id="${b.id}" aria-label="Position for ${esc(billNum(b))}: ${esc(w)}. Change it"${c.icon ? ` title="${esc(w)}"` : ''}>${posIcons(p)}${c.icon ? '' : `<span>${esc(w)}</span>`}</button></td>`; }
-      case 'own': { if (v.edit) return `<td>${inlSel('own', b)}</td>`; const o = ownerOf(b); return `<td><button type="button" class="bl-cell bl-own" data-edit="own" data-id="${b.id}" aria-label="Owner of ${esc(billNum(b))}: ${esc(o ? (o.id === S.me?.id ? 'you' : o.full_name) : 'nobody')}. Change it">${o ? avatar(o) : `<span class="bl-noown">${icon('circle-dashed')}</span>`}</button></td>`; }
+      case 'pos': { if (v.edit) return `<td><span class="bl-selwrap">${posIcons(b.position || '')}${inlSel('pos', b)}</span></td>`; const p = b.position || '', w = p ? POS_WORD[p] || p : posWord(''); return `<td><button type="button" class="bl-cell" data-edit="pos" data-id="${b.id}" aria-label="Position for ${esc(billSay(b))}: ${esc(w)}. Change it"${c.icon ? ` title="${esc(w)}"` : ''}>${posIcons(p)}${c.icon ? '' : `<span>${esc(w)}</span>`}</button></td>`; }
+      case 'own': { if (v.edit) return `<td>${inlSel('own', b)}</td>`; const o = ownerOf(b); return `<td><button type="button" class="bl-cell bl-own" data-edit="own" data-id="${b.id}" aria-label="Owner of ${esc(billSay(b))}: ${esc(o ? (o.id === S.me?.id ? 'you' : o.full_name) : 'nobody')}. Change it">${o ? avatar(o) : `<span class="bl-noown">${icon('circle-dashed')}</span>`}</button></td>`; }
     }
     return '<td></td>';
   };
@@ -428,7 +428,7 @@ function renderMuted() {
     ${deskBack('muted')}
     <h1 class="bl-ptitle">Muted bills</h1>
     <p class="bl-lede">They stay off your list and send you no alerts. A new hearing brings a bill back on its own.</p>
-    ${rows.length ? `<div class="bl-list">${rows.map(b => `<div class="bl-mrow">${blRow(b, { sub: statusLine(b).replace(/^Muted · /, ''), href: billRoute(b) })}${btn('Unmute', { kind: 'secondary', sm: true, attrs: { 'data-unmute': b.id, 'aria-label': `Unmute ${billNum(b)}` } })}</div>`).join('')}</div>`
+    ${rows.length ? `<div class="bl-list">${rows.map(b => `<div class="bl-mrow">${blRow(b, { sub: statusLine(b).replace(/^Muted · /, ''), href: billRoute(b) })}${btn('Unmute', { kind: 'secondary', sm: true, attrs: { 'data-unmute': b.id, 'aria-label': `Unmute ${billSay(b)}` } })}</div>`).join('')}</div>`
       : empty({ title: 'No muted bills', text: 'Mute a bill from its page when you do not need its alerts for a while.', action: btn('Back to bills', { href: '#/bills', kind: 'secondary' }) })}
   </div>`;
 }
@@ -438,7 +438,7 @@ function wireMuted(page) {
     el.setAttribute('aria-busy', 'true');
     try {
       await DB.mute(b.id, false); hooks.render();
-      toast(`${billNum(b)} is back on your list.`, { undo: async () => { await DB.mute(b.id, true); hooks.render(); } });
+      toast(`${billSay(b)} is back on your list.`, { undo: async () => { await DB.mute(b.id, true); hooks.render(); } });
     } catch (e) { el.removeAttribute('aria-busy'); toast(e, { err: true }); }
   });
 }
@@ -492,7 +492,7 @@ function editCell(field, id) {
   const b = S.bills.find(x => x.id === id); if (!b) return;
   const F = FIELD[field], cur = F.cur(b), cell = `[data-edit="${field}"][data-id="${CSS.escape(String(id))}"]`;
   // The table is redrawn after a save; the focus goes back to the cell that was edited, not to the top of the page.
-  pickerSheet({ title: `${F.word[0].toUpperCase() + F.word.slice(1)} for ${billNum(b)}`, options: F.opts(), value: cur, onPick: val => saveCell(field, id, val, cell) });
+  pickerSheet({ title: `${F.word[0].toUpperCase() + F.word.slice(1)} for ${billSay(b)}`, options: F.opts(), value: cur, onPick: val => saveCell(field, id, val, cell) });
 }
 // One bill's position or owner, from the picker or from the Edit switch's dropdowns: saved at once, with Undo.
 // The toast names the bill, since with the dropdowns a run of bills is changed one after another.
@@ -501,7 +501,7 @@ async function saveCell(field, id, val, cell) {
   const was = FIELD[field].cur(b); if (val === '' || val === was) return;
   // The message names the bill and the change ("HB1523 owner: Lauren to James"), since a run of bills is changed one after
   // another and a bare "Saved" cannot tell you which one Undo would put back.
-  const said = `${billNum(b)} ${FIELD[field].word}: ${wordOf(field, was)} to ${wordOf(field, val)}`;
+  const said = `${billSay(b)} ${FIELD[field].word}: ${wordOf(field, was)} to ${wordOf(field, val)}`;
   try {
     if (field === 'own') {
       const prev = (S.assignments[id] || [])[0] || null;
@@ -522,7 +522,7 @@ const firstNames = () => { const act = S.advocates.filter(a => a.is_active !== f
 function inlSel(field, b) {
   const F = FIELD[field], cur = F.cur(b), names = field === 'own' ? firstNames() : null;
   const opts = field === 'own' ? F.opts().map(([v2, l, ic]) => [v2, v2 === 'none' ? 'No owner' : v2 === S.me?.id ? 'You' : names.get(v2) || l, ic]) : F.opts();
-  const label = `${{ pos: 'Position', own: 'Owner' }[field]} for ${billNum(b)}`;
+  const label = `${{ pos: 'Position', own: 'Owner' }[field]} for ${billSay(b)}`;
   return `<select class="bl-sel bl-sel-${field}" data-inl="${field}" data-id="${esc(b.id)}" data-v="${esc(cur)}" aria-label="${esc(label)}">${cur === '' ? '<option value="" selected disabled>None</option>' : ''}${opts.map(([v2, l]) => `<option value="${esc(v2)}"${v2 === cur ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
 }
 

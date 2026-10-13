@@ -10,7 +10,7 @@
 // v3 (R-264): Today is the to-do list and the Inbox is the history, so the page no longer ends on a footnote explaining
 // what stays and what goes (P-4).
 import { S, DB, DEMO, esc, fmtDate, fmtDT, hooks } from './data.js';
-import { inboxRows, inboxCount, unslack, billById, billNum, blurb, canFirstApprove, canSecondApprove, plainAction, draftFor } from './model.js';
+import { inboxRows, inboxCount, unslack, billById, billNum, billSay, blurb, canFirstApprove, canSecondApprove, plainAction, draftFor } from './model.js';
 import { icon, btn, iconBtn, empty, toast, keysOn } from './ui.js';
 import { sandboxInbox, hearingFor } from './today.js';
 import { billRoute } from './model.js';
@@ -55,7 +55,7 @@ function hearingNews(i, b) {
 function item(i, inBlock = false) {
   const b = i.bill_id && billById(i.bill_id), news = hearingNews(i, b), href = news?.tab ? `${billRoute(b)}/${news.tab}` : hrefOf(i);
   const inner = `<span class="ib-ic" aria-hidden="true">${icon(KIND_ICON[i.kind] || 'circle')}</span>
-    <span class="ib-body"><span class="ib-l1">${i.unread ? '<span class="sr">Unread: </span>' : ''}${b && !inBlock ? `<b class="ib-num">${esc(billNum(b))}</b>${i.priority === 1 ? '<span class="sv-p1">P1</span>' : ''} ` : ''}<span class="ib-t">${esc(news ? news.t : unslack(i.title))}</span></span>
+    <span class="ib-body"><span class="ib-l1">${i.unread ? '<span class="sr">Unread: </span>' : ''}${b && !inBlock ? `${b.nickname ? `<b class="ib-num">${esc(b.nickname)}</b> <span class="bn-num">${esc(billNum(b))}</span>` : `<b class="ib-num">${esc(billNum(b))}</b>`}${i.priority === 1 ? '<span class="sv-p1">P1</span>' : ''} · ` : ''}<span class="ib-t">${esc(news ? news.t : unslack(i.title))}</span></span>
       ${news ? (news.sub ? `<span class="ib-sub">${esc(news.sub)}</span>` : '') : i.body ? `<span class="ib-sub">${esc(unslack(i.body).slice(0, 220))}</span>` : ''}<span class="ib-when m">${esc(ago(i.at))}</span></span>
     <span class="ib-when d" title="${esc(fmtDT(i.at))}">${esc(ago(i.at))}</span>`;
   return `<div class="ib-row${i.unread ? ' unread' : ''}" data-key="${esc(i.key)}">
@@ -70,7 +70,7 @@ function dupRow(k, list) {
       <button type="button" class="ib-main" data-ibdup="${esc(k)}" aria-expanded="${open}">
         <span class="ib-ic" aria-hidden="true">${icon(KIND_ICON[i.kind] || 'circle')}</span>
         <span class="ib-body"><span class="ib-l1">${un ? '<span class="sr">Unread: </span>' : ''}<b>${list.length} bills</b> <span class="ib-t">${esc(unslack(i.title))}</span></span>
-          <span class="ib-sub">${esc(list.map(x => x.bill_number || '').filter(Boolean).join(' · '))}</span><span class="ib-when m">${esc(ago(i.at))}</span></span>
+          <span class="ib-sub">${esc(list.map(x => { const bb = x.bill_id && billById(x.bill_id); return bb ? billSay(bb) : x.bill_number || ''; }).filter(Boolean).join(' · '))}</span><span class="ib-when m">${esc(ago(i.at))}</span></span>
         <span class="ib-when d">${esc(ago(i.at))}</span>${icon(open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button>
       <span class="ib-acts">${iconBtn(un ? 'check' : 'circle-dot', un ? `Mark all ${list.length} read` : `Mark all ${list.length} unread`, { 'data-ibduptoggle': k }, 'ib-read')}</span></div>
     ${open ? `<div class="ib-dupitems">${list.map(i => item(i)).join('')}</div>` : ''}</div>`;
@@ -81,8 +81,8 @@ function listBody(rows, v) {
     const by = new Map(); for (const i of rows) { const k = i.bill_id || 'none'; if (!by.has(k)) by.set(k, []); by.get(k).push(i); }
     return [...by.entries()].map(([k, list]) => {
       const b = k !== 'none' && billById(k), un = list.filter(i => i.unread).length;
-      const name = b ? `<a class="ib-gname" href="${billRoute(b, 'activity')}"><b>${esc(billNum(b))}</b>${b.priority === 1 ? '<span class="sv-p1">P1</span>' : ''}<span>${esc(b.nickname || blurb(b, 80))}</span></a>` : '<b class="ib-gname">Not about one bill</b>';
-      return `<section class="ib-group" aria-label="${esc(b ? billNum(b) : 'Not about one bill')}"><div class="ib-ghead">${name}
+      const name = b ? `<a class="ib-gname" href="${billRoute(b, 'activity')}">${b.nickname ? `<b class="ib-gnick">${esc(b.nickname)}</b><span class="bn-num ib-gnum">${esc(billNum(b))}</span>${b.priority === 1 ? '<span class="sv-p1">P1</span>' : ''}` : `<b>${esc(billNum(b))}</b>${b.priority === 1 ? '<span class="sv-p1">P1</span>' : ''}<span>${esc(blurb(b, 80))}</span>`}</a>` : '<b class="ib-gname">Not about one bill</b>';
+      return `<section class="ib-group" aria-label="${esc(b ? billSay(b) : 'Not about one bill')}"><div class="ib-ghead">${name}
           ${un ? `<span class="ib-gacts"><span class="ib-gnew">${un} unread</span><button type="button" class="linkbtn ib-gread" data-ibgroup="${esc(k)}">Mark read</button></span>` : ''}</div>
         <div class="rows">${list.slice(0, 4).map(i => item(i, !!b)).join('')}</div>
         ${list.length > 4 && b ? `<a class="ib-gmore" href="${billRoute(b, 'activity')}">All ${list.length} on its Activity tab</a>` : ''}</section>`;

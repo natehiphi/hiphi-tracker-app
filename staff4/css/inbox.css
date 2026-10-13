@@ -60,6 +60,8 @@
 .ib-page .ib-gread { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--t14); }
 .ib-page a.ib-gname:hover { text-decoration: underline; }
 .ib-page .ib-gname b, .ib-page .ib-gname .sv-p1 { margin-right: 6px; flex: none; }
+.ib-page .ib-gname .ib-gnick { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }   /* R-271: the nickname gives way, its small number stays */
+.ib-page .ib-gname span.ib-gnum:last-child, .ib-page .ib-gname .ib-gnum { flex: none; margin-right: 6px; overflow: visible; }
 .ib-page .ib-gname span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ib-page .ib-gacts { display: inline-flex; align-items: center; gap: var(--s12); margin-left: auto; }   /* the count and its Mark read wrap together */
 .ib-page .ib-gnew { font-size: var(--t13); color: var(--n500); white-space: nowrap; }

@@ -11,7 +11,7 @@
 // teammate to (migration 064); the row is a bill with a position, so the hearing reaches their calendar invite.
 import { S, DB, esc, fmtDT, advocate, capitolUrl } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
-import { codesOf, cmteName, streamOf, draftFor, attendees, billById, billNum, blurb, legsOf, stanceOf, OUTCOME_LABEL, hearingAhead, publicWords, shareKit, billByRef } from './model.js';
+import { codesOf, cmteName, streamOf, draftFor, attendees, billById, billSay, billTag, legsOf, stanceOf, OUTCOME_LABEL, hearingAhead, publicWords, shareKit, billByRef } from './model.js';
 import { icon, btn, iconBtn, chip, empty, notice, toast, pickerSheet, avatar, countdown, posIcons, POS_WORD, clockDay } from './ui.js';
 import { photo, legName, partyDist, roleWord, legHref, wireLinks } from './pathway.js';
 import { rerender, viewIsNew } from './bill.js';
@@ -137,8 +137,8 @@ const linksCard = c => { const { list, newTab } = links(c); return list.length ?
 // state that matters now: the testimony before the sitting, the result after it.
 function billRow(x, c) {
   const { h, b } = x, own = advocate((S.assignments[b.id] || [])[0]);
-  // The number first, as everywhere in Outreach and on Today: a two-line clamp on a narrow phone may cut the name, never the number.
-  const name = `<b class="hr-num">${esc(billNum(b))}</b> ${b.nickname ? `<b>${esc(b.nickname)}</b>` : `<span class="hr-t">${esc(blurb(b, 110))}</span>`}`;
+  // R-271: the nickname first, the number small after it (a bill with no nickname keeps number then summary).
+  const name = billTag(b, 110);
   const facts = `<span class="hr-fact">${posIcons(b.position || '')}<span>${esc(POS_WORD[b.position || ''] || 'No position')}</span></span><span class="hr-fact"><span aria-hidden="true">${avatar(own, 20)}</span><span>${own ? esc(own.id === S.me?.id ? 'You' : first(own)) : 'No owner'}</span></span>`;
   const pub = publicWords(b);   // the public's response (R-117)
   let end = '';
@@ -173,7 +173,7 @@ function shareKitHTML(c) {
   const list = c.over || c.cancelled ? [] : c.items.filter(x => isPos(x.b) && x.b.is_public && x.b.tracked !== false);
   if (!list.length) return '';
   return `<section class="hr-sec hr-kit" id="hr-kit" aria-labelledby="hr-kit-h"><div class="hr-sech"><h2 id="hr-kit-h">Share kit</h2></div>
-    ${list.map(x => `<div class="hr-kitrow"><b class="hr-num">${esc(billNum(x.b))}</b>${btn('Copy share link', { kind: 'text', sm: true, icon: 'link', attrs: { 'data-kit': 'link', 'data-kitb': x.b.id, 'data-kith': x.h.id } })}${btn('Copy a ready message', { kind: 'text', sm: true, icon: 'message-square', attrs: { 'data-kit': 'msg', 'data-kitb': x.b.id, 'data-kith': x.h.id } })}</div>`).join('')}
+    ${list.map(x => `<div class="hr-kitrow"><span class="hr-num">${billTag(x.b, 60)}</span>${btn('Copy share link', { kind: 'text', sm: true, icon: 'link', attrs: { 'data-kit': 'link', 'data-kitb': x.b.id, 'data-kith': x.h.id } })}${btn('Copy a ready message', { kind: 'text', sm: true, icon: 'message-square', attrs: { 'data-kit': 'msg', 'data-kitb': x.b.id, 'data-kith': x.h.id } })}</div>`).join('')}
   </section>`;
 }
 export function wireShareKit(root) {
@@ -211,7 +211,7 @@ function membersHTML(c) {
   let any = false;
   const rows = members.map(m => {
     const yes = [], no = [];
-    for (const x of pos) { const s = stanceOf(x.b.id, m.l.id).stance; if (s === 'yes' || s === 'leaning_yes') yes.push(x.b.bill_number); else if (s === 'no' || s === 'leaning_no') no.push(x.b.bill_number); }
+    for (const x of pos) { const s = stanceOf(x.b.id, m.l.id).stance; if (s === 'yes' || s === 'leaning_yes') yes.push(billSay(x.b)); else if (s === 'no' || s === 'leaning_no') no.push(billSay(x.b)); }
     if (yes.length || no.length) any = true;
     const role = joint ? codes.filter(k => m.roles[k]).map(k => `${roleWord(m.roles[k])}, ${k}`).join(' · ') : roleWord(m.role);
     const words = [yes.length ? `for ${yes.length}` : '', no.length ? `against ${no.length}` : ''].filter(Boolean).join(', ');
@@ -221,7 +221,7 @@ function membersHTML(c) {
   });
   const lead = pos[0]?.b;
   // v3: the stance pickers are in Committees on the bill's Overview; the link lands on that section.
-  const hint = lead && !any ? `<p class="hr-hint">No one has recorded where they stand on these bills yet. Set it under ${esc(lead.bill_number)}’s <a href="${billRoute(lead, 'committees')}">Committees</a>.</p>` : '';
+  const hint = lead && !any ? `<p class="hr-hint">No one has recorded where they stand on these bills yet. Set it under ${esc(billSay(lead))}’s <a href="${billRoute(lead, 'committees')}">Committees</a>.</p>` : '';
   return section('hr-s3', 'Committee members', members.length, `${hint}<div class="rows hr-rows">${folded(h.id + '|m', rows)}</div>`);
 }
 
@@ -282,7 +282,7 @@ function putDown(c) {
     .sort((a, b) => owns.has(b.id) - owns.has(a.id) || a.full_name.localeCompare(b.full_name));
   if (!team.length) { toast('Everyone on the team is already going to this hearing.'); return; }
   pickerSheet({ title: `Send a teammate to the ${esc(c.h.committee)} hearing`, value: '', help: 'They get a Slack message saying you sent them.',
-    options: team.map(a => { const bs = owns.get(a.id) || []; return [a.id, a.full_name, 'user-round', bs.length ? `Owns ${bs.length === 1 ? bs[0].bill_number : `${bs.length} of these bills`}` : '']; }),
+    options: team.map(a => { const bs = owns.get(a.id) || []; return [a.id, a.full_name, 'user-round', bs.length ? `Owns ${bs.length === 1 ? billSay(bs[0]) : `${bs.length} of these bills`}` : '']; }),
     onPick: async id => {
       const a = advocate(id); if (!a) return;
       try { await DB.attend(c.lead.id, true, id); } catch (e) { toast(e, { err: true }); return; }

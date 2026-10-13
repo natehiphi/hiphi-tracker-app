@@ -14,7 +14,7 @@
 // the towns); the committees are their own section (not also a line under the phone's heading); and a bill with no
 // stance yet shows a quiet "Set stance" instead of a bordered "Unknown" picker on every row.
 import { S, DB, esc, hooks, advocate } from './data.js';
-import { stopOf, stanceOf, legById, legsForSponsors, codesOf, diedish, hearingAhead, billNum, blurb, cmteName, STANCES, billByRef } from './model.js';
+import { stopOf, stanceOf, legById, legsForSponsors, codesOf, diedish, hearingAhead, billNum, billSay, blurb, cmteName, STANCES, billByRef } from './model.js';
 import { icon, btn, iconBtn, chip, pickerChip, pickerSheet, empty, notice, toast } from './ui.js';
 import { photo, legName, shortName, seatsOf, roleWord, legMail, billSub, billHref, stanceChip, openStance, wireStances, wireLinks, STANCE_WORD, STANCE_ICON } from './pathway.js';
 import { ourBill, islandFor } from './legislators.js';
@@ -49,21 +49,21 @@ const byUrgency = (x, y) => hearingT(x) - hearingT(y) || (x.priority || 9) - (y.
 // How a bill is named: the nickname leads when it has one (bold), the number always shows, and the plain summary is
 // the second line. A bill we only monitor has no nickname, so its number leads and the summary follows it.
 const billName = b => b.nickname
-  ? `<span class="title"><b>${esc(b.nickname)}</b> <span class="lg-bnum">${esc(billNum(b))}</span></span><span class="lg-bsum">${esc(blurb(b, 140))}</span>`
-  : `<span class="title"><b>${esc(billNum(b))}</b> <span class="lg-bt">${esc(blurb(b, 120))}</span></span>`;
+  ? `<span class="title"><b>${esc(b.nickname)}</b> <span class="lg-bnum bn-num">${esc(billNum(b))}</span></span><span class="lg-bsum">${esc(blurb(b, 140))}</span>`
+  : `<span class="title"><b class="bn-num0">${esc(billNum(b))}</b> <span class="lg-bt">${esc(blurb(b, 120))}</span></span>`;
 // A bill row with the stance chip: the bill part links to the bill. On a phone the chip opens the stance sheet; on a
 // desktop it opens a small picker beside itself (saved on the click, with Undo) and the note has its own button, the
 // same pair the bill's Pathway table uses. Until anything is known (no stance, note or contact) the row has one quiet
 // "Set stance" that opens the stance sheet, with the note in it (v3: not a bordered "Unknown" and a note button on each).
 function standRow(b, l, { from = false, desk = false } = {}) {
   const x = stanceOf(b.id, l.id), who = x.contact_id && advocate(x.contact_id), key = `${b.id}|${l.id}`, word = STANCE_WORD[x.stance] || 'Unknown';
-  const none = !x.stance || x.stance === 'unknown', set = `Set ${shortName(l)}’s stance on ${b.bill_number}`;
+  const none = !x.stance || x.stance === 'unknown', set = `Set ${shortName(l)}’s stance on ${billSay(b)}`;
   const sub = [billSub(b), who ? `${who.full_name.split(' ')[0]} knows them` : ''].filter(Boolean).join(' · ');
-  const noteLabel = `${x.note || who ? 'Edit the note' : 'Add a note'} on ${shortName(l)} for ${b.bill_number}`;
+  const noteLabel = `${x.note || who ? 'Edit the note' : 'Add a note'} on ${shortName(l)} for ${billSay(b)}`;
   return `<div class="row lg-brow${from ? ' from' : ''}">
     <a class="lg-bbody" href="${billHref(b)}">${billName(b)}<span class="sub">${esc(sub)}</span>${x.note ? `<span class="lg-note">${esc(x.note)}</span>` : ''}</a>
     ${none && !x.note && !who ? btn('Set stance', { kind: 'text', sm: true, cls: 'lg-setst', attrs: { 'data-lgst': key, 'aria-haspopup': 'dialog', 'aria-label': set } })
-      : desk ? `${iconBtn('notebook-pen', noteLabel, { 'data-lgnote': key }, 'lg-noteb')}${pickerChip(word, { 'data-lgpick': key, 'aria-haspopup': 'dialog', 'aria-label': `${shortName(l)} on ${b.bill_number}: ${word}. Change` }, STANCE_ICON[x.stance] || 'circle-dashed')}`
+      : desk ? `${iconBtn('notebook-pen', noteLabel, { 'data-lgnote': key }, 'lg-noteb')}${pickerChip(word, { 'data-lgpick': key, 'aria-haspopup': 'dialog', 'aria-label': `${shortName(l)} on ${billSay(b)}: ${word}. Change` }, STANCE_ICON[x.stance] || 'circle-dashed')}`
       : stanceChip(b, l)}
   </div>`;
 }
@@ -214,12 +214,12 @@ export default {
 function pickStance(b, l) {
   const x = stanceOf(b.id, l.id), before = { stance: x.stance, note: x.note ?? null, contact_id: x.contact_id ?? null }, sel = `[data-lgpick="${b.id}|${l.id}"]`;
   const redraw = () => { hooks.render(); document.querySelector(sel)?.focus(); };
-  pickerSheet({ title: esc(`${shortName(l)} on ${billNum(b)}`), value: x.stance, options: STANCES.map(([v, label]) => [v, label, STANCE_ICON[v]]),
+  pickerSheet({ title: esc(`${shortName(l)} on ${billSay(b)}`), value: x.stance, options: STANCES.map(([v, label]) => [v, label, STANCE_ICON[v]]),
     onPick: async v => {
       if (v === before.stance) return;
       try { await DB.setStance(b.id, l.id, { ...before, stance: v }); }
       catch (e) { Object.assign(stanceOf(b.id, l.id), before); redraw(); toast(e, { err: true }); return; }
       redraw();
-      toast(`${shortName(l)}: ${STANCE_WORD[v].toLowerCase()} on ${b.bill_number}.`, { ok: true, undo: async () => { await DB.setStance(b.id, l.id, before); redraw(); toast('Undone.'); } });
+      toast(`${shortName(l)}: ${STANCE_WORD[v].toLowerCase()} on ${billSay(b)}.`, { ok: true, undo: async () => { await DB.setStance(b.id, l.id, before); redraw(); toast('Undone.'); } });
     } });
 }

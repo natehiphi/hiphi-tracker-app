@@ -15,9 +15,9 @@
 // My issues · All issues · Coalitions, folded to one row per category with one line per issue; an issue's page leads with
 // its bills' week the way a coalition's page does, and keeps its editing tools behind "Edit bills" and Related's "Edit".
 import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, fmtDT, effStage, STAGE_LABEL } from './data.js';
-import { billById, billNum, plain, PUBLIC_APP, billRef, billByRef, billRoute, stopOf, riskOf, diedish, hearingAhead } from './model.js';
+import { billById, billSay, billTag, plain, PUBLIC_APP, billRef, billByRef, billRoute, stopOf, riskOf, diedish, hearingAhead } from './model.js';
 import { icon, btn, iconBtn, row, chip, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow, notice, posChip, pickerSheet, pickerChip, ownerOf, sectionNav } from './ui.js';
-import { plural, pageHead, afterClose, billName, clip, isSide } from './lists.js';
+import { plural, pageHead, afterClose, billName, isSide } from './lists.js';
 import { convSectionHTML, wireConvSection } from './conversation.js';
 import { FV_HREF, fvView, fvTitle, fvBack, renderFirstVisit, wireFirstVisit } from './firstvisit.js';
 import { prepView, prepTitle, renderPrep, wirePrep, prepCardHTML, wirePrepCard, prepMenu, isDraft } from './prep.js';
@@ -93,7 +93,7 @@ export const againstStance = (i, bills) => i?.stance === 'support' ? bills.filte
 function stanceNote(i, now) {
   const odd = againstStance(i, now); if (!odd.length || i.archived_at) return '';
   const word = i.stance === 'support' ? 'supports' : 'opposes', say = b => FOR.has(b.position) ? 'supports' : 'opposes';
-  const list = odd.slice(0, 3).map(b => `<a href="${billRoute(b)}">${esc(b.bill_number)}</a> (HIPHI ${say(b)} it)`).join(', ') + (odd.length > 3 ? ` and ${odd.length - 3} more` : '');
+  const list = odd.slice(0, 3).map(b => `<a href="${billRoute(b)}">${esc(billSay(b))}</a> (HIPHI ${say(b)} it)`).join(', ') + (odd.length > 3 ? ` and ${odd.length - 3} more` : '');
   return `<div class="is-stnote" role="note">${icon('info')}<div><p>${odd.length === 1 ? 'One bill on this issue goes' : `${odd.length} bills on this issue go`} against its stance, which says HIPHI ${word} it: ${list}. Each bill keeps its own position, and nothing has changed. If this is no longer the whole story, set the stance to Mixed.</p>${btn('Change the stance', { kind: 'text', sm: true, attrs: { 'data-is': 'stance' } })}</div></div>`;
 }
 // The picker chip that shows the stance and changes it; `a` carries its data attribute.
@@ -103,7 +103,7 @@ export const stanceChip = (i, a = {}) => { const s = stanceOf(i);
 // (`bill`), the sheet says it is the whole issue's stance and not that bill's position, where the choice is made.
 export function pickStance(i, { after = () => hooks.render(), bill = null } = {}) {
   const n = billsOn(i).filter(thisSession).length;
-  const help = bill ? `For the whole issue${n > 1 ? `, all ${n} of its bills` : ''}, not only ${esc(billNum(bill))}. It does not change ${esc(billNum(bill))}’s own position. The public page says it on the issue.`
+  const help = bill ? `For the whole issue${n > 1 ? `, all ${n} of its bills` : ''}, not only ${esc(billSay(bill))}. It does not change ${esc(billSay(bill))}’s own position. The public page says it on the issue.`
     : 'The public page says it on the issue.';
   pickerSheet({ title: `HIPHI’s stance on ${esc(i.name)}`, value: i.stance || '', help,
     options: [...STANCES, ['', 'Not set', 'circle-dashed', 'The public page works it out from the bills']],
@@ -121,7 +121,7 @@ export function pickStance(i, { after = () => hooks.render(), bill = null } = {}
 export function openIssueForm(i = null, { bill = null } = {}) {
   const cats = S.categories || [], also = new Set(i ? alsoIn(i) : []), cur = i?.category || cats[0]?.key;
   const body = `<div class="le-sheet is-form">
-    ${bill ? `<p class="small muted is-for">For ${esc(billNum(bill))}${bill.nickname ? `, ${esc(bill.nickname)}` : ''}. It goes on the new issue.</p>` : ''}
+    ${bill ? `<p class="small muted is-for">For ${esc(billSay(bill))}. It goes on the new issue.</p>` : ''}
     <div class="field"><label for="is-name">Name</label><input id="is-name" maxlength="60" autocomplete="off" value="${esc(i?.name || '')}" placeholder="Free school meals for every student" aria-describedby="is-name-h is-name-err">
       <span class="help" id="is-name-h">A policy people recognize, in everyday words. The public follows it by this name.</span><div id="is-name-err" role="alert"></div></div>
     <div class="field"><label for="is-desc">Description</label><textarea id="is-desc" rows="3" maxlength="240" aria-describedby="is-desc-h">${esc(i?.description || '')}</textarea>
@@ -175,7 +175,7 @@ export function openIssueForm(i = null, { bill = null } = {}) {
             closeSheet({ silent: true }); await afterClose();
             // Straight to the new issue either way: its card says what it still needs before an admin can publish it.
             S.go('#/issue/' + encodeURIComponent(ni.id));
-            toast(bill ? `Saved ${ni.name} as a draft with ${billNum(bill)} on it. The public sees it once it is published.` : 'Saved as a draft. Put its bills on it below.', { ok: true });
+            toast(bill ? `Saved ${ni.name} as a draft with ${billSay(bill)} on it. The public sees it once it is published.` : 'Saved as a draft. Put its bills on it below.', { ok: true });
           }
         } catch (e) { toast(e, { err: true }); go.removeAttribute('aria-busy'); go.disabled = false; }
       };
@@ -198,8 +198,8 @@ export function openIssuePicker(b, { onClose = () => hooks.render() } = {}) {
       ${groups.map(([c, l]) => `<h3 class="is-gh">${icon(c.icon || 'tag')}${esc(c.name)}</h3><div class="sv-pickl">${l.map(item).join('')}</div>`).join('')}`;
   };
   const reach = whyNot(b);
-  openSheet({ title: `Issues for ${esc(billNum(b))}`,
-    body: `<div class="is-picker"><p class="small muted is-for">${b.nickname ? `${esc(b.nickname)}. ` : ''}Everyone who follows a ticked issue gets this bill${reach ? ` once it has a position and is public (${esc(reach.split(',')[0].toLowerCase())} now)` : ''}. Each tap saves.</p>
+  openSheet({ title: `Issues for ${esc(billSay(b))}`,
+    body: `<div class="is-picker"><p class="small muted is-for">Everyone who follows a ticked issue gets this bill${reach ? ` once it has a position and is public (${esc(reach.split(',')[0].toLowerCase())} now)` : ''}. Each tap saves.</p>
       <div class="le-search is-psearch">${icon('search')}<input id="is-pq" type="search" placeholder="Find an issue" autocomplete="off" aria-label="Find an issue" aria-controls="is-plist"></div>
       <div id="is-plist" class="is-plist">${list()}</div></div>`,
     foot: btn('New issue for this bill', { kind: 'secondary', icon: 'plus', attrs: { 'data-isnew': '1' } }),
@@ -237,7 +237,7 @@ function needsHTML(v) {
   return `<section class="card is-needs" aria-labelledby="is-nh">
     <h2 id="is-nh">${icon('triangle-alert')}<span>${plural(need.length, 'position bill')} this session with no issue</span></h2>
     <p class="small">Nobody following issues gets ${need.length === 1 ? 'it' : 'these'}. Put each one on an issue.</p>
-    <ul class="rows is-nlist">${shown.map(b => `<li class="is-nrow"><a class="is-nmain" href="${billRoute(b, 'public')}">${billName(b, 90)}</a>${btn('Choose', { kind: 'secondary', sm: true, attrs: { 'data-ispick': b.id, 'aria-haspopup': 'dialog', 'aria-label': `Choose issues for ${billNum(b)}` } })}</li>`).join('')}</ul>
+    <ul class="rows is-nlist">${shown.map(b => `<li class="is-nrow"><a class="is-nmain" href="${billRoute(b, 'public')}">${billName(b, 90)}</a>${btn('Choose', { kind: 'secondary', sm: true, attrs: { 'data-ispick': b.id, 'aria-haspopup': 'dialog', 'aria-label': `Choose issues for ${billSay(b)}` } })}</li>`).join('')}</ul>
     ${need.length > shown.length ? btn(`Show all ${need.length}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-is': 'needsall' } }) : ''}
   </section>`;
 }
@@ -358,7 +358,8 @@ export function standLine(b, { owner = 'all' } = {}) {
 // A bill's row on the issue's page (v3, one line): its number and name, then its stage and HIPHI's position. Where it
 // stands this week is said once, in the week above; a bill whose followers do not get it says why, under its name.
 // The × to take it off shows only while editing the bills.
-const rowName = b => `<b>${esc(billNum(b))}</b> ${b.nickname ? `<b class="le-nick">${esc(b.nickname)}</b>` : `<span class="le-t">${esc(clip(b, 110))}</span>`}`;
+// R-271: the nickname leads, the number follows small; a bill with no nickname keeps number then summary.
+const rowName = b => billTag(b, 110);
 // The same facts as one short phrase, for a row that has room for one (My issues, v3): the hearing and its testimony, or
 // what the bill needs and by when, or where it waits; its stage only when nothing says more. The owner is named only when
 // it is someone else (R-263). Built from standLine's helpers, so the two cannot disagree.
@@ -384,7 +385,7 @@ function billLine(i, b, edit) {
   return `<li class="le-brow is-brow" data-bid="${esc(b.id)}">
     <a class="le-bmain" href="${billRoute(b)}"><span class="title is-bt">${rowName(b)}</span>${why ? `<span class="le-warn">${icon('eye-off')}${esc(why)}</span>` : ''}</a>
     <span class="is-bend"><span class="is-bstage">${esc(stage)}</span>${posChip(b.position || '')}</span>
-    ${edit ? iconBtn('x', `Take ${billNum(b)} off ${i.name}`, { 'data-isrm': b.id }) : ''}
+    ${edit ? iconBtn('x', `Take ${billSay(b)} off ${i.name}`, { 'data-isrm': b.id }) : ''}
   </li>`;
 }
 // Where its bills stand this week, the coalition page's way (R-226, v3): the hearings this week with the testimony and
@@ -521,7 +522,7 @@ const convOpts = i => ({ id: 'is-cv', q: { issueIds: [i.id] }, here: { issueId: 
 async function takeOff(i, b) {
   try {
     await DB.setBillIssue(b.id, i.id, false); hooks.render();
-    toast(`Took ${billNum(b)} off ${i.name}.`, { undo: async () => { await DB.setBillIssue(b.id, i.id, true); hooks.render(); } });
+    toast(`Took ${billSay(b)} off ${i.name}.`, { undo: async () => { await DB.setBillIssue(b.id, i.id, true); hooks.render(); } });
   } catch (e) { toast(e, { err: true }); }
 }
 async function putOn(i, b) {
@@ -529,7 +530,7 @@ async function putOn(i, b) {
     await DB.setBillIssue(b.id, i.id, true); P().q[i.id] = ''; hooks.render();
     document.getElementById('is-bq')?.focus();
     const why = whyNot(b);
-    toast(`Put ${billNum(b)} on ${i.name}.${why ? ` ${why.split(',')[0]}, so followers get it once that changes.` : ''}`, { ok: !why, undo: async () => { await DB.setBillIssue(b.id, i.id, false); hooks.render(); } });
+    toast(`Put ${billSay(b)} on ${i.name}.${why ? ` ${why.split(',')[0]}, so followers get it once that changes.` : ''}`, { ok: !why, undo: async () => { await DB.setBillIssue(b.id, i.id, false); hooks.render(); } });
   } catch (e) { toast(e, { err: true }); }
 }
 function mergeSheet(i) {

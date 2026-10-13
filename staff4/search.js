@@ -8,7 +8,7 @@ import { plain, diedish, personName, whereOf, titleCaseSmart, exactBill } from '
 // Build 3, desktop: the groups sit side by side (bills on the left, legislators and supporters on the right), each
 // with its count; the arrow keys move through the results from the search box (Down enters the list, Up and Down
 // move, Left and Right change column, Home and End jump, Enter opens, Esc returns to the box). Bills are named the
-// way the Bills list names them: number, nickname in bold, then the plain summary (five bills share the nickname
+// way the Bills list names them (R-271): nickname in bold, its number small, then the plain summary (five bills share the nickname
 // "Let counties regulate tobacco sales", and the summary and status are what tell them apart).
 import { icon, btn, empty, toast } from './ui.js';
 import { billSub, wireLinks } from './pathway.js';
