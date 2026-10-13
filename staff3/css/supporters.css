@@ -1,14 +1,8 @@
 /* Outreach > Supporters and a person's page (plan 3.7). Every rule is scoped to .sp-page (the list), .sp-person (a
    person), .sp-sheet (this module's sheet bodies) or .sp-bar (the select-mode bar). Sizes 13/14/16/18/22 only. */
 
-/* ---- the list: switcher, search row, segment chips ---- */
+/* ---- the list: search row, segment chips (v3: Outreach's tab row is ui.js sectionNav, staff.css .sv-secnav) ---- */
 .sp-page .sp-h1 { display: none; }
-.sp-page .sp-seg { display: flex; width: 100%; max-width: 440px; }
-/* Four links (Supporters, Issues, Lists, Emails): each as wide as its word plus an equal share of the rest, so all four fit at 320px */
-.sp-page .sp-seg a { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 8px; border-radius: var(--pill);
-  font-weight: 700; font-size: var(--t14); color: var(--n700); text-decoration: none; white-space: nowrap; }
-.sp-page .sp-seg a:hover { color: var(--n900); background: var(--n50); }
-.sp-page .sp-seg a[aria-current="page"] { background: var(--n0); color: var(--p800); box-shadow: var(--sh1); }
 .sp-page .sp-tools { display: flex; align-items: center; gap: var(--s8); margin-top: var(--s8); }
 .sp-page .sp-search { position: relative; flex: 1 1 auto; min-width: 0; }
 .sp-page .sp-search > .ic-search { position: absolute; left: 12px; top: 12px; width: 20px; height: 20px; color: var(--n500); pointer-events: none; }
@@ -265,12 +259,9 @@
 @media (min-width: 900px) {
   /* One tool row in the Bills page's order: the title, the search box, then Filter, Add a person and the menu on the
      right, with the same button looks as Bills (a blue-ringed Filter, a plain three-dot button). */
-  .sp-page .sp-h1 { display: block; position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .sp-page.sp-side .sp-h1 { position: static; width: auto; height: auto; margin: 0 var(--s8) 0 0; overflow: visible; clip: auto; flex: none; font-size: var(--t22); }
+  /* v3: the title shows at every desktop width, under the tab row (the sidebar no longer names the sub-page) */
+  .sp-page .sp-h1 { display: block; margin: 0 var(--s8) 0 0; flex: none; font-size: var(--t22); }
   .sp-page .sp-tools { gap: var(--s12); margin-top: 0; }
-  /* 900 to 1099px has no sidebar, so the Supporters / Lists / Emails switcher leads the row instead of the title */
-  .sp-page .sp-tools .sp-seg { flex: none; width: auto; max-width: none; }
-  .sp-page .sp-tools .sp-seg a { flex: none; padding: 0 var(--s16); }
   .sp-page .sp-search { flex: 0 1 360px; min-width: 180px; }
   .sp-page .sp-sp { flex: 1 1 auto; }
   .sp-page .sp-filterbtn { box-shadow: inset 0 0 0 2px var(--p700); color: var(--p700); padding: 0 16px; }

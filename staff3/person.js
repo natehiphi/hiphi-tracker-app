@@ -6,7 +6,7 @@
 // side panel that stays in view with how to reach them, where they live (districts only), tags and consent.
 import { S, DB, DEMO, hooks, esc, fmtDate, fmtDT, advocate, islandOf, personById } from './data.js';
 import { INTERESTS, personName, whereOf, billById, blurb, looksLikeAddress, geoSuggest, geoDistricts, hiToday } from './model.js';
-import { icon, btn, iconBtn, chip, billRow, empty, skeleton, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow } from './ui.js';
+import { icon, btn, iconBtn, chip, empty, skeleton, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow } from './ui.js';
 import { followupSheet, afterSheet } from './supporters.js';
 import { titleLabel, isOwn } from '../pub/titles.js';   // the public profile's "I'm a..." (R-147)
 import { issueById, catByKey } from './issues.js';
@@ -73,10 +73,10 @@ function actions(p) {
     ${tile('notebook-pen', 'Note', { 'data-pp': 'note' })}
   </div>`;
 }
-// What they can be emailed, in words: "Action alerts on · Hearing alerts off · Still subscribed"
+// What they can be emailed, in words: "Supporter emails on · Hearing alerts off · Still subscribed"
 function consent(p) {
   return `<div class="chips sp-consent" aria-label="Email permissions">
-    ${chip(p.action_optin ? 'Action alerts on' : 'Action alerts off', '', p.action_optin ? 'bell' : 'bell-off')}
+    ${chip(p.action_optin ? 'Supporter emails on' : 'Supporter emails off', '', p.action_optin ? 'bell' : 'bell-off')}
     ${chip(p.hearing_optin ? 'Hearing alerts on' : 'Hearing alerts off', '', p.hearing_optin ? 'bell' : 'bell-off')}
     ${p.bounced_at ? chip(`Email bounced ${fmtDate(p.bounced_at)}`, '', 'triangle-alert') : p.unsubscribed_at ? chip(`Unsubscribed ${fmtDate(p.unsubscribed_at)}`, '', 'circle-x') : chip('Still subscribed', '', 'mail-check')}
   </div>`;
@@ -104,7 +104,7 @@ function about(p) {
       ${dd('Tags', (p.tags || []).length ? `<span class="chips">${p.tags.map(t => chip(t, '', 'tag')).join('')}</span>` : none('None'))}
       ${dd('Emails', p.emails_sent ? `${plural(p.emails_sent, 'email')} sent · ${p.emails_opened || 0} opened · ${p.emails_clicked || 0} clicked` : none('None sent yet'))}
       ${dd('Actions', p.actions ? `${plural(p.actions, 'action')}${p.testimonies ? `, ${plural(p.testimonies, 'testimony', 'testimonies')}` : ''}` : none('None yet'))}
-      ${dd('Engagement', `${p.score || 0} <span class="meta">One point per bill followed, 5 per action, 2 per click, a quarter per open</span>`)}
+      ${dd('Score', `${Math.round(p.score || 0)} <span class="meta">1 per bill followed, 5 per action, 2 per click, a quarter per open</span>`)}
     </dl></section>`;
 }
 // Where a supporter said they stand on a bill they follow. Backend migration 056 put it on watchlist.stance; it
@@ -116,22 +116,29 @@ const ownStance = (p, b) => { const all = p.bill_stances; if (!all || typeof all
 // The icon and the word together, never the colour on its own.
 const stanceChip = k => `<span class="sp-st sp-st-${k}">${icon(STANCE[k][0])}<span>${STANCE[k][1]}</span></span>`;
 
+// A followed bill's row: the bill's number, nickname and plain summary, and the person's own stance on it. Not HIPHI's
+// position, its priority or the bill's owner (v3, R-264): those are facts about the bill, not about this person, and
+// the bill's page says them. The same look as ui.js billRow otherwise; a nickname names the bill, and its plain summary
+// is the line under it, so it is said once.
+function followRow(b, sub) {
+  const num = (b.bill_number || '') + (b.current_version ? ' ' + b.current_version : ''), title = b.public_summary || b.description || b.title || '';
+  return `<a class="row sv-billrow${b.nickname ? ' sp-nick' : ''}" href="${billRoute(b)}" data-bill="${esc(b.id)}"><span class="body"><span class="title"><b>${esc(num)}</b> ${b.nickname ? `<b class="sv-nk">${esc(b.nickname)}</b>` : `<span class="sv-t">${esc(title)}</span>`}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</span><span class="end">${icon('chevron-right', { cls: 'chev' })}</span></a>`;
+}
 function follows(p) {
   const st = P(), bills = (p.bill_ids || []).map(billById).filter(Boolean).sort((a, b) => (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number));
   const lists = (p.list_ids || []).map(id => (S.lists || []).find(l => l.id === id)).filter(Boolean);
   // What they follow first (R-018): whole categories and issues; the bills below are the ones they followed on their own.
   const cats = (p.category_keys || []).map(catByKey).filter(Boolean), iss = (p.issue_ids || []).map(issueById).filter(i => i && !i.archived_at);
   const firstN = isTwo() ? 8 : BILLS_FIRST;
-  const said = k => bills.filter(b => ownStance(p, b) === k).length;
-  const stanceHead = [said('support') && `${said('support')} for`, said('oppose') && `${said('oppose')} against`, said('unsure') && `${said('unsure')} unsure`].filter(Boolean).join(', ');
-  const showAll = st.billsAll[p.id] || bills.length <= firstN + 1, head = [cats.length && plural(cats.length, 'whole category', 'whole categories'), iss.length && plural(iss.length, 'issue'), bills.length && plural(bills.length, 'bill'), lists.length && plural(lists.length, 'list'), stanceHead].filter(Boolean).join(' · ');
+  // The heading counts what they follow; where they stand is on each bill's own chip, so it is not counted again (v3).
+  const showAll = st.billsAll[p.id] || bills.length <= firstN + 1, head = [cats.length && plural(cats.length, 'whole category', 'whole categories'), iss.length && plural(iss.length, 'issue'), bills.length && plural(bills.length, 'bill'), lists.length && plural(lists.length, 'list')].filter(Boolean).join(' · ');
   // A bill with a nickname leads with it (billRow); its plain summary is the second line, so the bill is still
   // explained. Their own stance goes in front of it: on this page that is the thing a staffer came to read.
   const sum = b => { const k = ownStance(p, b); return `${k ? stanceChip(k) : ''}${b.nickname ? esc(blurb(b, 140)) : ''}`; };
   return `<section class="sp-sec" aria-labelledby="sp-h-fol"><div class="sechead"><h2 id="sp-h-fol">Follows</h2><span class="meta">${head || 'Nothing yet'}</span></div>
     ${cats.length || iss.length ? `<div class="chips sp-lists sp-issues">${cats.map(c => `<a class="chip sp-listchip" href="#/outreach/issues">${icon(c.icon || 'tag')}All of ${esc(c.name)}</a>`).join('')}${iss.map(i => `<a class="chip sp-listchip" href="#/issue/${encodeURIComponent(i.id)}">${icon('tag')}${esc(i.name)}</a>`).join('')}</div>` : ''}
     ${lists.length ? `<div class="chips sp-lists">${lists.map(l => `<a class="chip sp-listchip" href="#/list/${encodeURIComponent(l.id)}">${icon('list')}${esc(l.title)}</a>`).join('')}</div>` : ''}
-    ${bills.length ? `<div class="rows sp-fbills">${(showAll ? bills : bills.slice(0, firstN)).map(b => billRow(b, { href: `${billRoute(b)}`, sub: sum(b), cls: b.nickname ? 'sp-nick' : '' })).join('')}
+    ${bills.length ? `<div class="rows sp-fbills">${(showAll ? bills : bills.slice(0, firstN)).map(b => followRow(b, sum(b))).join('')}
       ${showAll ? '' : `<button type="button" class="row sp-showall" data-pp="billsall">${icon('chevron-down')}<span>Show all ${bills.length} bills</span></button>`}</div>`
       : `<p class="muted sp-none">${lists.length || iss.length || cats.length ? 'No bills followed on their own.' : 'Not following any issue, bill or list yet.'}</p>`}
   </section>`;
@@ -193,7 +200,7 @@ function sidePanel(p) {
         ${kv('Interests', (p.interests || []).filter(k => !/^quote-/.test(k)).map(k => esc(intLabel(k))).join(' · ') || none('None noted'))}</dl>
     </section>
     <section class="card sp-sc" aria-labelledby="sp-h-consent"><h2 id="sp-h-consent">What they can be sent</h2>
-      <ul class="sp-can">${can(p.action_optin, 'Action alerts: yes', 'Action alerts: no')}${can(p.hearing_optin, 'Hearing alerts: yes', 'Hearing alerts: no')}
+      <ul class="sp-can">${can(p.action_optin, 'Supporter emails: yes', 'Supporter emails: no')}${can(p.hearing_optin, 'Hearing alerts: yes', 'Hearing alerts: no')}
         <li>${p.bounced_at ? `${icon('triangle-alert')}<span><b>Email bounced</b> ${esc(fmtDate(p.bounced_at))}</span>` : p.unsubscribed_at ? `${icon('circle-x')}<span><b>Unsubscribed</b> ${esc(fmtDate(p.unsubscribed_at))}</span>` : `${icon('mail-check')}<span>Still subscribed</span>`}</li></ul>
     </section>
     <section class="card sp-sc" aria-labelledby="sp-h-num"><h2 id="sp-h-num">So far</h2>
@@ -299,7 +306,7 @@ function editSheet(p) {
       <fieldset><legend>Interests</legend>${INTERESTS.map(([k, l]) => `<label class="check"><input type="checkbox" data-eint="${k}" ${(p.interests || []).includes(k) ? 'checked' : ''}><span>${esc(l)}</span></label>`).join('')}</fieldset>
       <fieldset><legend>Tags</legend>${known.length ? `<div class="chips">${known.map(t => `<button type="button" class="chip" data-etag="${esc(t)}" aria-pressed="${mine.has(t)}">${mine.has(t) ? icon('check') : ''}${esc(t)}</button>`).join('')}</div>` : ''}
         <div class="field"><label for="sp-et">Add new tags</label><input id="sp-et" maxlength="200" autocomplete="off" placeholder="e.g. donor, media"><span class="help">Separate tags with commas.</span></div></fieldset>
-      ${p.has_account ? `<p class="meta">${esc(personName(p))} has an account and chooses their own alerts.</p>` : switchRow('sp-eopt', 'Opted in to action alerts', !!p.action_alerts, 'For contacts from an older list. People with an account choose this themselves.')}
+      ${p.has_account ? `<p class="meta">${esc(personName(p))} has an account and chooses their own alerts.</p>` : switchRow('sp-eopt', 'Said yes to supporter emails', !!p.action_alerts, 'For contacts from an older list. People with an account choose this themselves.')}
     </div>`,
     foot: btn('Save', { attrs: { 'data-go': '1' } }),
     wire: dlg => {

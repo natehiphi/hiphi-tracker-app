@@ -1,4 +1,4 @@
-// The email composer (#/email/new?bill=&list=&segment=, #/email/:id; plan 3.9): an action alert to the people who
+// The email composer (#/email/new?bill=&list=&segment=, #/email/:id; plan 3.9): an email to the supporters who
 // follow a bill or a list, or to a saved segment of supporters, in four steps with a step bar and Back / Next at the
 // bottom: Who, Write, Preview, Submit. Once an email is sent for approval the page shows where it stands instead,
 // with the one action the viewer can take (Approve / Send back for another admin, Send for the author).
@@ -77,9 +77,9 @@ export const audCount = a => { const n = audN(a); return n == null || n < 0 ? nu
 const people = n => plural(n, 'person', 'people');
 const AUD = {
   goes: (n, u) => n == null ? 'Counting who it goes to…' : n < 0 ? 'Could not count who it goes to right now.'
-    : n === 0 ? (u.kind === 'segment' ? 'Goes to no one yet: nobody in this segment has said yes to action alerts.' : 'Goes to no one yet: nobody who follows it has asked for action alerts.')
-    : u.kind === 'segment' ? `Goes to ${people(n)} in this segment who said yes to action alerts.` : `Goes to ${people(n)} who asked for action alerts.`,
-  to: (n, u) => n == null || n < 0 ? (u.kind === 'segment' ? `People in ${u.name} who said yes to action alerts` : `People who follow ${u.name} and asked for action alerts`)
+    : n === 0 ? (u.kind === 'segment' ? 'Goes to no one yet: nobody in this segment has said yes to supporter emails.' : 'Goes to no one yet: nobody who follows it has said yes to supporter emails.')
+    : u.kind === 'segment' ? `Goes to ${people(n)} in this segment who said yes to supporter emails.` : `Goes to ${people(n)} who said yes to supporter emails.`,
+  to: (n, u) => n == null || n < 0 ? (u.kind === 'segment' ? `People in ${u.name} who said yes to supporter emails` : `People who follow ${u.name} and said yes to supporter emails`)
     : u.kind === 'segment' ? `${people(n)} in ${u.name}` : `${people(n)} who follow ${u.name}`,
   send: n => n == null || n < 0 ? 'Send at 4:30 pm' : `Send at 4:30 pm to ${people(n)}`,
 };
@@ -240,7 +240,7 @@ function whoStep(c) {
       ${locked ? '<p class="meta le-lockn">Who it goes to is set once the draft is saved. To write to someone else, start a new email.</p>' : ''}`;
   }
   return `<h2 class="le-sh">Who gets it?</h2>
-    <p class="le-lede">Pick a bill, a list or a saved segment. Only people who asked for action alerts get it.</p>
+    <p class="le-lede">Pick a bill, a list or a saved segment. Only people who said yes to supporter emails get it.</p>
     <div class="le-search le-whosearch">${icon('search')}<label class="sr" for="le-whoq">Find a bill, list or segment</label><input id="le-whoq" type="search" placeholder="Find a bill, list or segment" value="${esc(c.q)}" autocomplete="off" enterkeyhint="search" aria-controls="le-whores" aria-describedby="le-who-err"></div>
     <div id="le-who-err" role="alert"></div>
     <div id="le-whores">${whoResults(c.q)}</div>`;
@@ -288,6 +288,8 @@ function lateNotice(c) {
   if (!h?.testimony_deadline || new Date(h.testimony_deadline) > Date.now()) return '';
   return notice('info', 'triangle-alert', `The deadline for written testimony on this hearing has passed (${esc(fmtDT(h.testimony_deadline))}). Check what the email asks people to do.`);
 }
+// The 4:30 pm rule (R-101), said where the writer checks the email (v3: it used to sit over the Emails list).
+const ONE_A_DAY = 'It goes out in their one email of the day, at 4:30 pm, with their hearing alerts.';
 function previewStep(c, two) {
   const a = previewOf(c), test = canTest(c.a) ? btn('Send me a test', { kind: 'secondary', sm: true, icon: 'mail-check', attrs: { 'data-le': 'test' } }) : '';
   // Two panes: the email is already on the right, so this step is the short list of things to look at.
@@ -297,12 +299,14 @@ function previewStep(c, two) {
     <ul class="le-checks">
       <li>${icon('users')}<span>${audHTML(c.a, 'goes')}</span></li>
       <li>${icon('user-round')}<span>It comes from ${esc(S.me?.full_name || 'you')}, and replies come to you.</span></li>
+      <li>${icon('clock')}<span>${esc(ONE_A_DAY)}</span></li>
       <li>${icon('check')}<span>No text in brackets is left.</span></li>
     </ul>
     ${test ? `<div class="le-testrow">${test}<span class="meta">${paused() ? 'Email is paused, so a test will not go out.' : `It goes only to ${esc(S.me?.email || 'you')}.`}</span></div>` : ''}`;
   return `<h2 class="le-sh">Check it</h2>
     ${lateNotice(c)}
     <div class="le-prevtop"><p class="le-aud">${icon('users')}${audHTML(c.a, 'goes')}</p>${test}</div>
+    <p class="le-aud le-oneday">${icon('clock')}<span>${esc(ONE_A_DAY)}</span></p>
     ${emailPreview(a)}`;
 }
 // The last step says plainly what the button does and does not do: it sends nothing to supporters.

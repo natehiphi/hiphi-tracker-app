@@ -4,9 +4,11 @@
 // sits where the tab bar was. Desktop (900px and wider) gets a real table in the Bills table's look: a pinned header
 // whose columns sort, tags and phone in the row, tick boxes, and the whole row opens the person.
 // Privacy: staff see a supporter's island and districts, never a street address. Nothing here reads p.address.
+// v3 (R-264): the first of Outreach's two tabs, Supporters · Emails (ui.js sectionNav), at every width. A supporter's
+// number is called its score everywhere (the table, the sort, the person's page).
 import { S, DB, DEMO, hooks, esc, fmtDate, asDate, advocate, peopleMatch, segmentPeople, personById } from './data.js';
 import { ISLANDS, INTERESTS, personName, parsePeopleCSV, exportPeopleCSV, billById, blurb } from './model.js';
-import { icon, btn, iconBtn, chip, row, empty, skeleton, toast, openSheet, closeSheet, menuSheet, pickerSheet, confirmSheet, switchRow, keysOn, sheetOpen } from './ui.js';
+import { icon, btn, iconBtn, chip, row, empty, skeleton, toast, openSheet, closeSheet, menuSheet, pickerSheet, confirmSheet, switchRow, keysOn, sheetOpen, sectionNav } from './ui.js';
 import { TITLES, titleLabel } from '../pub/titles.js';   // "They are": the public profile's titles (R-147)
 
 // ---- the filter model (the same shape as people_match() in the database, so a saved segment counts the same here,
@@ -46,7 +48,7 @@ const SORT_KEYS = {
   active: [-1, p => p.last_active || null],
   joined: [-1, p => p.created_at || null],
 };
-const SORTS = [['active', 'Last active'], ['score', 'Most engaged'], ['joined', 'Newest first'], ['name', 'Name, A to Z']];
+const SORTS = [['active', 'Last active'], ['score', 'Highest score'], ['joined', 'Newest first'], ['name', 'Name, A to Z']];
 const cmp = (a, b) => Array.isArray(a) ? a.reduce((r, x, i) => r || cmp(x, b[i]), 0) : typeof a === 'string' ? a.localeCompare(b) : a - b;
 function sortRows(rows, [k, d]) {
   const get = (SORT_KEYS[k] || SORT_KEYS.active)[1];
@@ -54,7 +56,7 @@ function sortRows(rows, [k, d]) {
   return rows.map(p => [get(p), p]).sort(([a, pa], [b, pb]) => (a == null) - (b == null) || (a == null ? 0 : d * cmp(a, b)) || personName(pa).localeCompare(personName(pb))).map(x => x[1]);
 }
 const isDesk = () => matchMedia('(min-width: 900px)').matches;
-const isSide = () => matchMedia('(min-width: 1100px)').matches;   // the frame's sidebar lists Supporters, Issues, Lists and Emails, so the switcher is not drawn
+const isSide = () => matchMedia('(min-width: 1100px)').matches;   // the frame's sidebar shows from here
 const plural = (n, one, many = one + 's') => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 const shown = v => { if (!Array.isArray(v.sort)) v.sort = ['active', -1]; return sortRows((S.people || []).filter(p => peopleMatch(p, v.f)), v.sort); };
 const allTags = () => [...new Set((S.people || []).flatMap(p => p.tags || []))].sort((a, b) => a.localeCompare(b));
@@ -78,7 +80,7 @@ function activeChips(f) {
   (f.titles || []).forEach(x => out.push(['titles', x, `They are: ${titleLabel(x)}`]));
   f.interests.forEach(x => out.push(['interests', x, intLabel(x)]));
   if (f.account !== 'any') out.push(['account', f.account, f.account === 'yes' ? 'Has an account' : 'Contact only']);
-  if (f.optin) out.push(['optin', '1', 'Action alerts on']);
+  if (f.optin) out.push(['optin', '1', 'Said yes to supporter emails']);
   if (f.active_days) out.push(['active_days', f.active_days, `Active in the last ${f.active_days} days`]);
   if (f.acted) out.push(['acted', '1', 'Took an action']);
   return out;
@@ -87,10 +89,6 @@ function dropFilter(f, key, val) {
   if (Array.isArray(f[key])) f[key] = f[key].filter(x => String(x) !== String(val));
   else f[key] = EMPTY_PF()[key];
 }
-
-// ---- the Outreach switcher (Issues, Lists and Emails show the same four links) ----
-export const outreachNav = cur => `<nav class="sv-seg sp-seg" aria-label="Outreach">${[['supporters', '#/outreach', 'Supporters'], ['issues', '#/outreach/issues', 'Issues'], ['coalitions', '#/coalition', 'Coalitions'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]
-  .map(([k, href, l]) => `<a href="${href}"${k === cur ? ' aria-current="page"' : ''}>${l}</a>`).join('')}</nav>`;
 
 // ---- rows ----
 // "Oʻahu · SD 17 · active 3/16": where they are and when we last heard from them; problems with their email first.
@@ -122,7 +120,7 @@ const COLS = [
   { k: 'tags', label: 'Tags' },
   { k: 'follows', label: 'Follows', sort: 'follows', num: true, tip: 'Bills and lists they follow' },
   { k: 'actions', label: 'Actions', sort: 'actions', num: true, tip: 'Testimony, emails to a chair, hearings and shares' },
-  { k: 'score', label: 'Score', sort: 'score', num: true, tip: 'Engagement: 1 per bill followed, 5 per action, 2 per click, a quarter per open' },
+  { k: 'score', label: 'Score', sort: 'score', num: true, tip: '1 per bill followed, 5 per action, 2 per click, a quarter per open' },
   { k: 'emails', label: 'Emails', sort: 'emails', tip: 'Emails we sent them, and how many they opened' },
   { k: 'active', label: 'Last active', sort: 'active' },
   { k: 'joined', label: 'Joined', sort: 'joined', tip: 'When they were added or signed up' },
@@ -132,7 +130,7 @@ const sortWords = ([k, d]) => ({
   where: d > 0 ? 'sorted by island, then district' : 'sorted by island, then district, in reverse',
   follows: d < 0 ? 'sorted by what they follow, most first' : 'sorted by what they follow, fewest first',
   actions: d < 0 ? 'sorted by actions, most first' : 'sorted by actions, fewest first',
-  score: d < 0 ? 'sorted by engagement score, highest first' : 'sorted by engagement score, lowest first',
+  score: d < 0 ? 'sorted by score, highest first' : 'sorted by score, lowest first',
   emails: d < 0 ? 'sorted by emails sent, most first' : 'sorted by emails sent, fewest first',
   active: d < 0 ? 'sorted by last active, newest first' : 'sorted by last active, longest ago first',
   joined: d < 0 ? 'sorted by when they joined, newest first' : 'sorted by when they joined, oldest first',
@@ -210,7 +208,7 @@ function segChips(v) {
 // ---- the screen ----
 export default {
   tab: 'outreach',
-  title: () => 'Outreach',
+  title: () => 'Supporters',
   wide: () => true,
   noTabs: () => !!S.spView?.selecting && !isDesk() && document.body.dataset.screen === 'supporters',
   render(route) {
@@ -220,7 +218,7 @@ export default {
         S.spLoadKick = true;
         DB.loadPeople().then(() => { S.spLoadErr = null; hooks.render(); }).catch(e => { S.spLoadErr = e; S.spLoadKick = false; hooks.render(); });
       }
-      return `<div class="sp-page${isDesk() ? ' sp-desk' : ''}${isSide() ? ' sp-side' : ''}">${isDesk() ? '' : outreachNav('supporters')}<div class="sp-tools"><h1 class="sp-h1">Supporters</h1>${isDesk() && !isSide() ? outreachNav('supporters') : ''}</div>${S.spLoadErr
+      return `<div class="sp-page${isDesk() ? ' sp-desk' : ''}${isSide() ? ' sp-side' : ''}">${sectionNav('outreach', 'supporters')}<div class="sp-tools"><h1 class="sp-h1">Supporters</h1></div>${S.spLoadErr
         ? empty({ title: 'Supporters did not load', text: 'Check your connection and try again.', action: btn('Try again', { icon: 'rotate-ccw', attrs: { 'data-sp': 'retry' } }) })
         : skeleton(6)}</div>`;
     }
@@ -230,12 +228,12 @@ export default {
     if (document.body.dataset.screen !== 'supporters') { v.selecting = false; v.sel.clear(); }
     for (const id of [...v.sel]) if (!personById(id)) v.sel.delete(id);
     const n = nFilters(v.f), desk = isDesk();
-    // Desktop: one tool row in the Bills page's order (title, search, then Filter and the rest on the right). With
-    // the sidebar (1100px and wider) the Supporters / Lists / Emails switcher is already on screen, so it is not drawn.
+    // Desktop: one tool row in the Bills page's order (title, search, then Filter and the rest on the right), under
+    // Outreach's tab row.
     return `<div class="sp-page${desk ? ' sp-desk' : ''}${isSide() ? ' sp-side' : ''}">
-      ${desk ? '' : outreachNav('supporters')}
+      ${sectionNav('outreach', 'supporters')}
       <div class="sp-tools">
-        <h1 class="sp-h1">Supporters</h1>${desk && !isSide() ? outreachNav('supporters') : ''}
+        <h1 class="sp-h1">Supporters</h1>
         <div class="sp-search" role="search"><label class="sr" for="sp-q">Search supporters by name, email or phone</label>${icon('search')}
           <input id="sp-q" type="search" placeholder="${desk ? 'Search by name, email or phone' : 'Search people'}" value="${esc(v.f.q)}" autocomplete="off" enterkeyhint="search">
           ${iconBtn('x', 'Clear the search', { 'data-sp': 'qclear', hidden: !v.f.q })}</div>
@@ -412,7 +410,7 @@ function wireResults(root) {
 // ---- ⋯ menu ----
 function moreMenu(root) {
   const v = V(), rows = shown(v), all = S.people || [], seg = segOf(v), changed = seg && norm(v.f) !== norm(seg.filter), admin = !!S.me?.is_admin;
-  // The four ready-made orders. On desktop the column headers sort too; this stays for "Most engaged", whose Score
+  // The four ready-made orders. On desktop the column headers sort too; this stays for "Highest score", whose Score
   // column is dropped on a narrow table. A header sort that is none of the four shows as the column's name.
   const preset = SORTS.find(([k]) => k === v.sort[0] && SORT_KEYS[k][0] === v.sort[1]);
   const sortL = preset?.[1] || `${COLS.find(c => c.sort === v.sort[0])?.label || 'Last active'}${v.sort[1] > 0 ? ', up' : ', down'}`;
@@ -422,13 +420,13 @@ function moreMenu(root) {
     admin ? { label: 'Import CSV', icon: 'upload', sub: 'A file or pasted text. You see what it will do first.', run: () => afterSheet(importSheet) } : null,
     admin ? { label: rows.length === all.length ? `Export all ${all.length.toLocaleString()} as CSV` : `Export these ${rows.length.toLocaleString()} as CSV`, icon: 'download', disabled: !rows.length, reason: 'Nobody matches, so there is nothing to export.', run: () => { exportPeopleCSV(rows); toast(`Downloading ${plural(rows.length, 'person', 'people')} as a CSV file.`); } } : null,
     desk ? null : { label: 'Select people', icon: 'square-check-big', sub: 'Then tag them or add a follow-up', disabled: !rows.length, reason: 'Nobody matches, so there is no one to select.', run: () => { startSelect(); rerender(); } },
-    desk ? { label: 'Sort by most engaged', icon: 'trending-up', sub: v.sort[0] === 'score' ? 'This is the order now' : 'The column headers sort by everything else', disabled: v.sort[0] === 'score', reason: 'Already sorted by most engaged.',
-        run: () => { v.sort = ['score', -1]; v.limit = 200; rerender('more'); toast('Sorted by most engaged.'); } }
+    desk ? { label: 'Sort by highest score', icon: 'trending-up', sub: v.sort[0] === 'score' ? 'This is the order now' : 'The column headers sort by everything else', disabled: v.sort[0] === 'score', reason: 'Already sorted by highest score.',
+        run: () => { v.sort = ['score', -1]; v.limit = 200; rerender('more'); toast('Sorted by highest score.'); } }
       : { label: `Sort: ${sortL}`, icon: 'list', run: () => afterSheet(() => pickerSheet({ title: 'Sort supporters', value: preset?.[0] || '', options: SORTS.map(([k, l]) => [k, l]), onPick: val => { v.sort = [val, SORT_KEYS[val][0]]; v.limit = 200; hooks.render(); toast(`Sorted by ${SORTS.find(s => s[0] === val)[1].toLowerCase()}.`); } })) },
     changed ? { label: `Save changes to “${seg.name}”`, icon: 'bookmark-check', run: () => saveSegmentChanges() } : null,
     { label: seg && changed ? 'Save as a new segment' : 'Save as segment', icon: 'bookmark', sub: 'Keeps these filters one tap away, here and in Emails',
       disabled: pfEmpty(v.f) || (seg && !changed), reason: pfEmpty(v.f) ? 'Add a filter or a search first.' : `These filters are already saved as “${seg?.name}”.`, run: () => afterSheet(saveSegmentSheet) },
-    seg ? { label: `Email “${seg.name}”`, icon: 'mail', sub: changed ? 'Goes to the saved segment, not your unsaved changes' : 'Starts an action alert to this segment', run: () => afterSheet(() => S.go('#/email/new?segment=' + encodeURIComponent(seg.id))) }
+    seg ? { label: `Email “${seg.name}”`, icon: 'mail', sub: changed ? 'Goes to the saved segment, not your unsaved changes' : 'Starts a supporter email to this segment', run: () => afterSheet(() => S.go('#/email/new?segment=' + encodeURIComponent(seg.id))) }
       : { label: 'Email this segment', icon: 'mail', disabled: true, reason: 'Pick a saved segment first. Emails go to segments, lists or a bill’s followers.' },
     seg ? { label: `Delete “${seg.name}”`, icon: 'trash-2', danger: true, run: () => afterSheet(() => deleteSegment(seg)) } : null,
   ] });
@@ -494,7 +492,7 @@ function filterSheet() {
         ${had.length ? `<fieldset><legend>They are</legend><div class="chips">${multi('titles', had.map(t => [t.k, t.label]), ti)}</div></fieldset>` : ''}
         <fieldset><legend>Interests</legend><div class="chips">${multi('interests', INTERESTS, it)}</div></fieldset>
         <fieldset><legend>Account</legend><div class="chips">${one('account', [['any', 'Anyone'], ['yes', 'Has an account'], ['no', 'Contact only']], ac)}</div></fieldset>
-        ${switchRow('sp-f-optin', 'Opted in to action alerts', d.optin, 'Only people an action alert can reach', { 'data-fsw': 'optin', 'data-k': 'f:optin' })}
+        ${switchRow('sp-f-optin', 'Said yes to supporter emails', d.optin, 'Only people a supporter email can reach', { 'data-fsw': 'optin', 'data-k': 'f:optin' })}
       </section>
       <section aria-labelledby="sp-g4"><h3 id="sp-g4">Activity</h3>
         <fieldset><legend>Last active</legend><div class="chips">${one('active_days', [[0, 'Any time'], [7, '7 days'], [30, '30 days'], [90, '90 days']], act)}</div></fieldset>
@@ -575,7 +573,7 @@ function addPersonSheet() {
   openSheet({ title: 'Add a person', size: 'auto',
     body: `<div class="sp-sheet"><div class="field"><label for="sp-ae">Email</label><input id="sp-ae" type="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="200" aria-describedby="sp-aerr"></div>
       <div class="field"><label for="sp-an">Name (optional)</label><input id="sp-an" autocomplete="off" maxlength="120"></div>
-      <div id="sp-aerr" role="alert"></div><p class="meta sp-addnote">They are added as a contact. They get action alerts only if they opt in.</p></div>`,
+      <div id="sp-aerr" role="alert"></div><p class="meta sp-addnote">They are added as a contact. They get supporter emails only if they say yes.</p></div>`,
     foot: btn('Add person', { icon: 'user-plus', attrs: { 'data-go': '1' } }),
     wire: dlg => {
       const em = dlg.querySelector('#sp-ae'), nm = dlg.querySelector('#sp-an'), go = dlg.querySelector('[data-go]'); em.focus();
@@ -683,7 +681,7 @@ function reviewSheet(text, source) {
       <ul class="sp-sum">
         <li>${icon('user-plus')}<span><b>${r.add.toLocaleString()}</b> new, added as contacts</span></li>
         <li>${icon('user-check')}<span><b>${r.upd.toLocaleString()}</b> already here, updated. Nothing they have is blanked.</span></li>
-        <li>${icon('bell')}<span><b>${r.opted.toLocaleString()}</b> marked as opted in to action alerts</span></li>
+        <li>${icon('bell')}<span><b>${r.opted.toLocaleString()}</b> marked as saying yes to supporter emails</span></li>
         ${r.skipped.length ? `<li class="sp-imbad">${icon('circle-alert')}<span><b>${r.skipped.length.toLocaleString()}</b> skipped, listed below</span></li>` : ''}
       </ul>
       <p class="meta">Read from the file: ${esc(r.found.join(', '))}. First rows:</p>
