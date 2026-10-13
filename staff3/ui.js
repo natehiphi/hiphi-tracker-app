@@ -184,7 +184,7 @@ addEventListener('scroll', () => { if (!fbRaf) fbRaf = requestAnimationFrame(() 
 export function urgentMark(iso, { done = false, until = null } = {}) {
   if (done) return `<span class="sv-urg done" role="img" aria-label="Done">${icon('check')}</span>`;
   if (!iso) return '<span class="sv-urg none" aria-hidden="true"></span>';
-  if (lateUntil(iso, until)) { const hh = Math.max(0, Math.floor((new Date(until) - Date.now()) / 36e5)); return `<span class="sv-urg soon" role="img" aria-label="${esc(`late testimony until ${clock(until)}`)}"><b>${hh < 1 ? '<1h' : hh + 'h'}</b><span>late</span></span>`; }
+  if (lateUntil(iso, until)) { const hh = Math.max(0, Math.floor((new Date(until) - Date.now()) / 36e5)); return `<span class="sv-urg soon" role="img" aria-label="${esc(`late testimony until ${clock(until)}`)}"><b>${hh < 1 ? '<1h' : hh + 'h'}</b><span>to file</span></span>`; }   // the hours left to file late ("late" read as "4 hours late")
   const ms = new Date(iso) - Date.now(), h = ms / 36e5, over = -h;
   const big = ms <= 0 ? (over >= 48 ? `${Math.floor(over / 24)}d` : `${Math.max(1, Math.floor(over))}h`)
     : h < 1 ? '<1h' : h < 48 ? `${Math.floor(h)}h` : `${Math.floor(h / 24)}d`;   // rounded down, never up (R-022)
