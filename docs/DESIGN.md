@@ -365,6 +365,27 @@ for sixteen (the review of 10 Oct 2026, R-222). People came back to a page that 
 same bill up to four ways. A budget on the whole page is what stops it growing back (A-8: prefer removing a card to
 adding one; A-13: one focal point).
 
+
+### A-24 On a laptop, one thing open at a time (Staff v3)
+
+Measured on the first screen at 1280×800, 1440×900 and 1920×1080. **A list and the item picked from it:** a screen that
+lists things to act on (Today's tasks, Bills) shows each as one line, and the one someone picks opens in full beside the
+list; times, rooms, summaries and counts live in the open item, not on every row. **One side panel at most, at any width:**
+extra width on a big monitor becomes margin, never a further column. **On the first screen: at most 5 separate things**
+(a list, a table or the week's grid counts as one, however many rows show), **at most 7 text colours** (A-5's aim, held
+here as a limit), **one filled button outside a list** (A-3), and numbers only where they ask for action. Checked by
+`tests/staff3_budget.py`. It holds for Staff v3 (`staff3.html`, R-264), the laptop-first copy Nate is comparing with Staff
+v2; Staff v2 is not measured against it until he picks one.
+
+*Reason.* Nate, 12 Oct 2026 (R-264): "We should maximize improvement for the laptop version of the app. Phone use will
+exist but significantly less used. One concern I have is that it is too dense of information on the page, there is too
+much going on at one time." Every staff screen passed A-1 and A-2 while Today's first laptop screen held 8 boxes, 434
+words and 10 text colours (12 boxes and two side columns on a big monitor), because those rules count controls, not the
+things competing for the eye. Trimming extras alone did not help: the freed space filled with more cards of about ten
+pieces each. Mail and chat apps meet the same problem with a list and a reading pane (NN/g: progressive disclosure,
+recognition rather than recall). Evidence **moderate** for progressive disclosure; for this team a guess until two or three
+teammates do five tasks in each version on the practice copy (wrong turns counted) and the team uses it in January.
+
 ---
 
 ## Part B — Flow
@@ -872,6 +893,7 @@ before Home, which is why it is one a visit, never in front of a deadline or a l
 | Distinct text colours in view (A-5) | 7 | — | `tests/density.py` |
 | Touch target (A-6) | 44px | 44px | `tests/checks.py` |
 | Home, the whole page (A-23) | 4 blocks of 2 shapes, 1 filled button, each bill once | 2 phone screens for 3 issues, 3 for 16 | `tests/home_calm.py` |
+| Laptop, in view at once (A-24, Staff v3) | 1 side panel, 5 things, 7 text colours, 1 filled button outside a list | as budget | `tests/staff3_budget.py` |
 | Text contrast (A-7) | 4.5:1 | 4.5:1 | `DESIGN-AUDIT.md` |
 | Breakpoints (A-9) | 360/900/1100 | — | grep |
 | Journey steps (B-2) | per table | — | by hand (gap G-1) |
