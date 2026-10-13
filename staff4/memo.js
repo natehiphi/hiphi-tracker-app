@@ -8,13 +8,19 @@
 // R-022 (wave 3 #19): an Audience choice. "Team" is the memo as it was, with our testimony in plain words; "Partners"
 // can be sent to a coalition as it is (see model.js). Audience and coalition follow the person between laptop and
 // phone (advocates.prefs.memo, B-6), and a link can set both: #/bills/memo?coalition=<id or slug>&audience=partners.
+// v4 (R-269): the memo for partners is "Partner update" (C-15), Outreach's second tab at #/outreach/partners: it opens on
+// Partners and the viewer's coalition, under Outreach's tabs, and is no longer in Bills' "…" menu (Lauren: 4 or 5 clicks
+// to it, now 2). #/bills/memo keeps working (the coalition page's "Write a partner update", the team's memo).
 import { S, DB, esc, isMine, hooks } from './data.js';
 import { memoData, memoHTML, memoText, billByRef, billNum } from './model.js';
-import { btn, segmented, field, toast, empty, keysOn } from './ui.js';
+import { btn, segmented, field, toast, empty, keysOn, sectionNav } from './ui.js';
 import { deskBack, wideNow, typingIn, myCoalitions } from './filters.js';
 import { billRoute } from './model.js';
 
 const AUDIENCES = [['team', 'Team'], ['partners', 'Partners']];
+// v4: Outreach's Partner update tab, as against the memo under Bills (#/bills/memo).
+const onTab = route => route?.name === 'partners';
+const nameOf = v => v.audience === 'partners' ? 'Partner update' : 'Weekly memo';
 const coalOf = x => x ? S.campaigns.find(c => c.id === x || c.slug === x) : null;
 // Where the memo starts: what the person chose last time; else their own bills (or everyone's, for someone with none
 // of their own, like Kris and Saya), for the team, and the one coalition they support if there is exactly one.
@@ -26,11 +32,19 @@ function initial() {
 const view = () => S.memoView ??= initial();
 // A link's choices hold for the visit they open; the person's own choice is what is remembered.
 let fromRoute = '';
+// The Partner update tab opens on Partners and on a coalition: the one chosen before, else the viewer's own: the one they
+// own (Lauren, HEAL), else the one they support (Saya, CTFH). Someone who supports every coalition (Kris) gets them all.
+function viewerCoalition() {
+  const owned = (S.campaigns || []).find(c => S.me && c.owner_id === S.me.id), mc = [...myCoalitions()];
+  return owned ? owned.id : mc.length && mc.length < (S.campaigns || []).length ? mc[0] : '';
+}
 function applyRoute(route) {
   const q = route?.q || {}, key = location.hash; if (key === fromRoute) return;
-  fromRoute = key; const v = view();
+  fromRoute = key; const v = view(), tab = onTab(route);
   if (q.audience === 'partners' || q.audience === 'team') v.audience = q.audience;
+  else if (tab) v.audience = 'partners';
   if ('coalition' in q) v.coalition = coalOf(q.coalition)?.id || '';
+  else if (tab && !v.coalition) v.coalition = viewerCoalition();
 }
 // ?from=<coalition id> (the coalition page's "Write a partner update") or ?from=HB1780: the way back names where the
 // person came from, as hearing.js's does, and is real Back when they came from inside the app (app.js). Anything else,
@@ -45,10 +59,11 @@ function backOf(route) {
 }
 // Remember the choice, and keep the address saying what is on screen (a link someone copies opens this same memo),
 // including where it was opened from, so changing the audience or the coalition never loses the way back.
+// On the Partner update tab the address is #/outreach/partners, and only the team's memo says its audience.
 function choose(patch) {
-  const v = Object.assign(view(), patch), from = S.route?.q?.from;
-  const qs = new URLSearchParams(); if (v.coalition) qs.set('coalition', v.coalition); if (v.audience === 'partners') qs.set('audience', 'partners'); if (from) qs.set('from', from);
-  try { history.replaceState(history.state, '', '#/bills/memo' + (qs.toString() ? '?' + qs : '')); fromRoute = location.hash; } catch { /* the view still changes */ }
+  const v = Object.assign(view(), patch), from = S.route?.q?.from, tab = onTab(S.route);
+  const qs = new URLSearchParams(); if (v.coalition) qs.set('coalition', v.coalition); if (v.audience !== (tab ? 'partners' : 'team')) qs.set('audience', v.audience); if (from) qs.set('from', from);
+  try { history.replaceState(history.state, '', (tab ? '#/outreach/partners' : '#/bills/memo') + (qs.toString() ? '?' + qs : '')); fromRoute = location.hash; } catch { /* the view still changes */ }
   DB.patchPrefs({ memo: { audience: v.audience, coalition: v.coalition } }).catch(e => toast(e, { err: true }));
   hooks.render();
 }
@@ -91,22 +106,24 @@ const LEDE = {
   partners: () => 'For a coalition’s partners: HIPHI’s position on each bill, in plain words, with public links. Nothing internal.',
 };
 
-export default {
+const memo = {
   tab: 'bills', tabs: false,
   narrow: true,
-  title: () => 'Weekly memo',
+  title: () => nameOf(view()),
   back: route => backOf(route) || { href: '#/bills', label: 'Bills' },
   render(route) {
     applyRoute(route);
-    const v = view(), m = data(), wide = wideNow(), partners = v.audience === 'partners';
+    const v = view(), m = data(), wide = wideNow(), partners = v.audience === 'partners', tab = onTab(route);
+    // On the Partner update tab, Partners is the first choice (the tab's name); under Bills, Team, as it always was.
+    const auds = tab ? [...AUDIENCES].reverse() : AUDIENCES;
     // The coalition list names each one the way the team does, with the public name partners will read beside it.
     const coal = `<select id="bl-mcoal" class="input">${[['', 'Every coalition'], ...S.campaigns.map(c => [c.id, c.public_name && c.public_name !== c.name ? `${c.name} · ${c.public_name}` : c.name])].map(([id, l]) => `<option value="${esc(id)}" ${v.coalition === id ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
-    return `<div class="bl-memopage">
-      ${deskBack('memo', backOf(route))}
-      <div class="bl-mhead"><h1 class="bl-ptitle">Weekly memo</h1>${wide ? `<div class="bl-mcopy" role="group" aria-label="Copy the memo">${copyBtns(true)}</div>` : ''}</div>
+    return `<div class="bl-memopage${tab ? ' ot-part' : ''}">
+      ${tab ? sectionNav('outreach', 'partners') : deskBack('memo', backOf(route))}
+      <div class="bl-mhead"><h1 class="bl-ptitle">${nameOf(v)}</h1>${wide ? `<div class="bl-mcopy" role="group" aria-label="Copy the memo">${copyBtns(true)}</div>` : ''}</div>
       <p class="bl-lede">${esc(LEDE[partners ? 'partners' : 'team'](v))}</p>
       <div class="bl-mctl">
-        <div class="bl-maud"><span class="bl-mlabel" id="bl-maud-l">For</span>${segmented('memoaud', AUDIENCES, partners ? 'partners' : 'team', 'Who the memo is for')}</div>
+        <div class="bl-maud"><span class="bl-mlabel" id="bl-maud-l">For</span>${segmented('memoaud', auds, partners ? 'partners' : 'team', 'Who the memo is for')}</div>
         ${partners ? '' : `<div class="bl-mwho"><span class="bl-mlabel" id="bl-mwho-l">Whose bills</span>${segmented('memowho', [['me', 'Mine'], ['all', 'The team’s']], v.who === 'me' ? 'me' : 'all', 'Whose bills')}</div>`}
         ${field('bl-mcoal', 'Coalition', coal)}
       </div>
@@ -140,6 +157,11 @@ export default {
     });
   },
 };
+export default memo;
+// v4 (R-269): Outreach > Partner update. The same page under Outreach's tabs: the sidebar and the tab bar light Outreach,
+// there is no way back to name (it is a tab), and it is as wide as its sibling tabs so their tab row never moves; the
+// memo keeps its reading width inside (supporters.css .ot-part).
+export const partners = { ...memo, tab: 'outreach', tabs: true, narrow: false, wide: () => true, back: undefined };
 
 // Esc goes back to Bills on a desktop, as it does on a bill's page (a shortcut, so it waits for keysOn()).
 if (typeof document !== 'undefined') document.addEventListener('keydown', e => {

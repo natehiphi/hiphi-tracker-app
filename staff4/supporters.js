@@ -6,6 +6,7 @@
 // Privacy: staff see a supporter's island and districts, never a street address. Nothing here reads p.address.
 // v3 (R-264): the first of Outreach's two tabs, Supporters · Emails (ui.js sectionNav), at every width. A supporter's
 // number is called its score everywhere (the table, the sort, the person's page).
+// v4 (R-269): the last of Outreach's four tabs, at #/outreach/supporters; Outreach opens on This week's asks (asks.js).
 import { S, DB, DEMO, hooks, esc, fmtDate, asDate, advocate, peopleMatch, segmentPeople, personById } from './data.js';
 import { ISLANDS, INTERESTS, personName, parsePeopleCSV, exportPeopleCSV, billById, blurb } from './model.js';
 import { icon, btn, iconBtn, chip, row, empty, skeleton, toast, openSheet, closeSheet, menuSheet, pickerSheet, confirmSheet, switchRow, keysOn, sheetOpen, sectionNav } from './ui.js';
@@ -222,7 +223,7 @@ export default {
         ? empty({ title: 'Supporters did not load', text: 'Check your connection and try again.', action: btn('Try again', { icon: 'rotate-ccw', attrs: { 'data-sp': 'retry' } }) })
         : skeleton(6)}</div>`;
     }
-    // #/outreach?segment=ID (from the Emails page) opens with that segment on
+    // #/outreach/supporters?segment=ID opens with that segment on (app.js still sends an older #/outreach?segment=ID here)
     if (route.q?.segment && v.fromQ !== route.q.segment) { v.fromQ = route.q.segment; const sg = (S.segments || []).find(x => String(x.id) === route.q.segment); if (sg) { v.seg = sg.id; v.f = clone(sg.filter); } }
     // Select mode is a mode: coming back from another page starts without it (the frame sets data-screen after render).
     if (document.body.dataset.screen !== 'supporters') { v.selecting = false; v.sel.clear(); }
