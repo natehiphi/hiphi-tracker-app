@@ -7,7 +7,7 @@
 // when it is dead, only monitored or has no hearing, so nobody approves an email asking supporters to testify on a bill
 // that died. The draft itself stays in its Google Doc (Nate, 9/19: not shown inside Review).
 import { S, DB, esc, fmtDT, advocate, hooks, changedSince, startedFromLine } from './data.js';
-import { billNum, blurb, alertTarget, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn } from './model.js';
+import { billNum, billSay, blurb, alertTarget, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn } from './model.js';
 import { icon, btn, chip, stepBar, empty, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, posIcons, POS_WORD, ownerOf, clockDay } from './ui.js';
 import { emailPreview } from './composer.js';
 import { reviewQueue, hearingFor, testDue, cd, hearingLine, reviewerNames, needsSecond, HOVER, afterBack } from './today.js';
@@ -50,7 +50,7 @@ const actionable = it => it.type === 'email' ? it.a.status === 'submitted' && ap
 // nothing is said twice (A-14). For an email the bill is named too: the subject line may not say which bill it is about.
 function billLine(b, { named = false, pos = true } = {}) {
   const own = ownerOf(b), p = b.position || '';
-  const bits = [named ? `<b>${esc(billNum(b))}</b>${b.nickname ? ` ${esc(b.nickname)}` : ''}` : '',
+  const bits = [named ? (b.nickname ? `<b class="bn-nick">${esc(b.nickname)}</b> <span class="bn-num">${esc(billNum(b))}</span>` : `<b>${esc(billNum(b))}</b>`) : '',
     // P1 only where the position is not shown: it follows the position (R-175), so beside it, it says it twice (A-14).
     pos ? `${posIcons(p)} ${esc(POS_WORD[p] || p || 'No position')}` : b.priority === 1 ? 'P1' : '',
     own ? esc(own.id === S.me?.id ? 'You own it' : `${first(own.id)} owns it`) : 'No owner'].filter(Boolean);
@@ -95,7 +95,7 @@ function draftBody(it) {
   const stale = b.current_version && d.version !== b.current_version;
   return `<section class="card td-rvcard" aria-labelledby="td-rvb">
     <p class="td-rveb">${icon('file-text')}${two ? 'Second approval' : 'Testimony'}${own ? chip('Your own draft', 'info', 'user-round') : ''}</p>
-    <h3 id="td-rvb" class="td-rvtitle"><span class="td-num">${esc(billNum(b))}</span> <span class="td-rvt">${esc(blurb(b, 160))}</span></h3>
+    <h3 id="td-rvb" class="td-rvtitle">${b.nickname ? `<span class="td-num">${esc(b.nickname)}</span> <span class="bn-num">${esc(billNum(b))}</span>` : `<span class="td-num">${esc(billNum(b))}</span>`} <span class="td-rvt">${esc(blurb(b, 160))}</span></h3>
     ${billLine(b, { pos: b.position !== 'monitor' })}
     ${billState(b, { d, h })}
     ${h ? `<p class="td-rvline">${icon('landmark')}<span>${hearingLine(h)}</span></p>` : ''}
@@ -224,7 +224,7 @@ async function approve(route, el) {
   try {
     if (it.type === 'email') {
       await DB.alertStep(it.a.id, 'approve');
-      const msg = `Approved. ${first(it.a.author_id)} can send it now.`, entry = { num: it.b ? `Email on ${billNum(it.b)}` : 'Email', what: msg, icon: 'check' };
+      const msg = `Approved. ${first(it.a.author_id)} can send it now.`, entry = { num: it.b ? `Email on ${billSay(it.b)}` : 'Email', what: msg, icon: 'check' };
       toast(msg, { ok: true, undo: () => unapprove(r, it, entry) }); advance(r, entry);
       return;
     }
@@ -232,7 +232,7 @@ async function approve(route, el) {
     // Written from the state the server returned: a first testimony goes on to second review.
     const d = resolve(it.key)?.d || it.d, filer = d.submitted_by ? (d.submitted_by === S.me.id ? null : first(d.submitted_by)) : first((S.assignments[it.b.id] || [])[0]);
     const msg = d.status === 'second_review' ? `Approved. Second approval next, from ${reviewerNames()}.` : filer && filer !== 'Someone' ? `Approved. ${filer} will file it.` : 'Approved. Ready to file at the Capitol.';
-    const entry = { num: billNum(it.b), what: msg, icon: 'check' };
+    const entry = { num: billSay(it.b), what: msg, icon: 'check' };
     toast(msg, { ok: true, undo: () => unapprove(r, it, entry) }); advance(r, entry);
   } catch (e) { toast(e, { err: true }); if (el && el.isConnected) { el.removeAttribute('aria-busy'); el.disabled = false; } }
 }
@@ -251,7 +251,7 @@ function changes(route) {
         const note = ta.value.trim();
         if (!note) { ta.setAttribute('aria-invalid', 'true'); if (!dlg.querySelector('#td-note-e')) ta.insertAdjacentHTML('afterend', `<span class="err" id="td-note-e" role="alert">${icon('circle-alert')}Write what should change first.</span>`); ta.setAttribute('aria-describedby', 'td-note-e td-note-h'); ta.focus(); return; }
         go.setAttribute('aria-busy', 'true'); go.disabled = true;
-        const num = it.type === 'email' ? (it.b ? `Email on ${billNum(it.b)}` : 'Email') : billNum(it.b);
+        const num = it.type === 'email' ? (it.b ? `Email on ${billSay(it.b)}` : 'Email') : billSay(it.b);
         const entry = { num, what: `Sent back: “${note.length > 80 ? note.slice(0, 78) + '…' : note}”`, icon: 'undo-2' };
         // Held ten seconds (holdBack above): the Undo in the toast cancels it before the writer is told.
         const undo = holdBack({ key: it.key, target: it.type === 'email' ? it.a : it.d,

@@ -9,7 +9,7 @@
 // member, and every change here has an Undo that puts each bill's own value back. Everyone can follow or unfollow many
 // at once too - Kris follows a coalition's 28 live bills in one go instead of four clicks each.
 import { S, DB, esc, advocate, isOwner, hooks } from './data.js';
-import { billNum, FACTS } from './model.js';
+import { FACTS } from './model.js';
 import { icon, btn, iconBtn, toast, openSheet, closeSheet, menuSheet, POS_ICON, POS_WORD, POS_SUB } from './ui.js';
 import { bl, shownBills, wideNow, settled } from './filters.js';
 

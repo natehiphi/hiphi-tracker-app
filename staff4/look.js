@@ -9,7 +9,7 @@
 // openLook is unchanged for Today and every other screen.
 import { S, esc, capitolUrl, fmtDT, fmtDate, myIssuesOf } from './data.js';
 import { openSheet, closeSheet, btn, iconBtn, stageRibbon, avatar, ownerOf, countdown, POS_WORD, keysOn } from './ui.js';
-import { stopOf, blurb, billNum, cmteName, chairMail, draftFor, hearingAhead, sponsorName, gateNeed, deadlineName, billByRef } from './model.js';
+import { stopOf, blurb, billNum, billSay, cmteName, chairMail, draftFor, hearingAhead, sponsorName, gateNeed, deadlineName, billByRef } from './model.js';
 import { CHAMBER_NAME } from '../stops.js';
 import { billRoute } from './model.js';
 
@@ -67,9 +67,9 @@ function body(b, { list, index }) {
         ${st.deadline && !st.deadline.missed ? `<p class="small muted">Needs one by ${esc(fmtDate(st.deadline.date))}, the ${esc(deadlineName(st.deadline).toLowerCase())}: it must ${esc(gateNeed(st.deadline.label))}.</p>` : ''}
         ${chairBtn(b, st)}</div>`;
 
+  // R-271: nickname first, the number small after it.
   return `<div class="lk-head">
-      <div class="num">${esc(billNum(b))}</div>
-      ${b.nickname ? `<div class="nick">${esc(b.nickname)}</div>` : ''}
+      ${b.nickname ? `<div class="nick">${esc(b.nickname)}</div><div class="num bn-num">${esc(billNum(b))}</div>` : `<div class="num">${esc(billNum(b))}</div>`}
       <p class="sum">${esc(blurb(b, 220))}</p>
     </div>
     ${stageRibbon(b)}
@@ -120,7 +120,7 @@ export function openLook(b, { list = null, index = 0 } = {}) {
       ${n > 1 ? `${iconBtn('chevron-left', 'Previous bill', { 'data-lk': 'prev', ...(i === 0 ? { 'aria-disabled': 'true' } : {}) })}${iconBtn('chevron-right', 'Next bill', { 'data-lk': 'next', ...(i >= n - 1 ? { 'aria-disabled': 'true' } : {}) })}` : ''}
       ${btn('Open the bill', { kind: 'primary', attrs: { 'data-lk': 'open' }, iconEnd: 'arrow-right' })}</div>`;   // v3: the docked look's words too (C-15)
   return openSheet({
-    title: esc(billNum(b)), size: 'look', body: body(b, { list, index: i }), foot,
+    title: esc(billSay(b)), size: 'look', body: body(b, { list, index: i }), foot,
     wire: d => {
       const move = k => { const to = list?.[i + k]; if (to) openLook(to, { list, index: i + k }); };
       const open = async () => { const href = `${billRoute(b)}`; await closeSheet({ silent: true }); S.go ? S.go(href) : (location.hash = href); };
@@ -156,10 +156,10 @@ export function dockLook(b, { pos = true, own = true } = {}) {
         <p>Needs one by ${esc(fmtDate(st.deadline.date, { weekday: 'short' }).replace(',', ''))}, ${days}: the ${esc(deadlineName(st.deadline).toLowerCase())}, when it must ${esc(gateNeed(st.deadline.label))}.</p>
         ${chairBtn(b, st)}</div>` : '';
   return `<aside class="bl-dock" aria-labelledby="bl-dock-h" data-dock="${esc(b.id)}">
-    <div class="lk-dtop"><h2 class="num" id="bl-dock-h">${esc(billNum(b))}</h2>
+    <div class="lk-dtop"><h2 class="num" id="bl-dock-h">${b.nickname ? `${esc(b.nickname)} <span class="bn-num">${esc(billNum(b))}</span>` : esc(billNum(b))}</h2>
       ${btn('Open the bill', { sm: true, href: billRoute(b), iconEnd: 'arrow-right', attrs: { 'data-lkd': 'open', 'data-bill': b.id } })}
       ${iconBtn('x', 'Close', { 'data-lkd': 'close' })}</div>
-    <div class="lk-head">${b.nickname ? `<div class="nick">${esc(b.nickname)}</div>` : ''}<p class="sum">${esc(blurb(b, 220))}</p></div>
+    <div class="lk-head"><p class="sum">${esc(blurb(b, 220))}</p></div>
     ${stageRibbon(b)}
     ${!next && st.says ? `<p class="lk-says">${esc(st.says)}</p>` : ''}
     ${next}

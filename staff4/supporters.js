@@ -8,7 +8,7 @@
 // number is called its score everywhere (the table, the sort, the person's page).
 // v4 (R-269): the last of Outreach's four tabs, at #/outreach/supporters; Outreach opens on This week's asks (asks.js).
 import { S, DB, DEMO, hooks, esc, fmtDate, asDate, advocate, peopleMatch, segmentPeople, personById } from './data.js';
-import { ISLANDS, INTERESTS, personName, parsePeopleCSV, exportPeopleCSV, billById, blurb } from './model.js';
+import { ISLANDS, INTERESTS, personName, parsePeopleCSV, exportPeopleCSV, billById, billTag, billSay } from './model.js';
 import { icon, btn, iconBtn, chip, row, empty, skeleton, toast, openSheet, closeSheet, menuSheet, pickerSheet, confirmSheet, switchRow, keysOn, sheetOpen, sectionNav } from './ui.js';
 import { TITLES, titleLabel } from '../pub/titles.js';   // "They are": the public profile's titles (R-147)
 
@@ -74,7 +74,7 @@ function activeChips(f) {
   f.islands.forEach(x => out.push(['islands', x, x]));
   f.senate.forEach(x => out.push(['senate', x, `SD ${x}`]));
   f.house.forEach(x => out.push(['house', x, `HD ${x}`]));
-  f.bills.forEach(x => out.push(['bills', x, `Follows ${billById(x)?.bill_number || 'a bill'}`]));
+  f.bills.forEach(x => out.push(['bills', x, `Follows ${billById(x) ? billSay(billById(x)) : 'a bill'}`]));
   f.lists.forEach(x => out.push(['lists', x, `Follows ${listName(x)}`]));
   f.campaigns.forEach(x => out.push(['campaigns', x, `Coalition: ${campName(x)}`]));
   f.tags.forEach(x => out.push(['tags', x, `Tag: ${x}`]));
@@ -465,7 +465,7 @@ function filterSheet() {
     const qq = billQ.trim().toUpperCase().replace(/\s+/g, ''); if (!qq) return '';
     const words = /\d/.test(qq) ? null : billQ.trim().toLowerCase();
     const hits = S.bills.filter(b => b.is_public && !d.bills.includes(b.id) && (words ? words.length >= 3 && (b.public_summary || b.description || b.title || '').toLowerCase().includes(words) : b.bill_number.includes(qq))).slice(0, 6);
-    return hits.length ? hits.map(b => `<button type="button" class="sp-sug" data-addbill="${esc(b.id)}"><b>${esc(b.bill_number)}</b><span>${esc(blurb(b, 60))}</span></button>`).join('')
+    return hits.length ? hits.map(b => `<button type="button" class="sp-sug" data-addbill="${esc(b.id)}">${billTag(b, 60)}</button>`).join('')
       : `<p class="meta sp-sugnone">No public bill matches “${esc(billQ.trim())}”. Supporters can follow only public bills.</p>`;
   };
   const body = () => {
@@ -482,7 +482,7 @@ function filterSheet() {
       </section>
       <section aria-labelledby="sp-g2"><h3 id="sp-g2">Follows</h3>
         <div class="field sp-billpick"><label for="sp-f-bill">A bill</label>
-          <div class="chips">${d.bills.map(id => `<button type="button" class="chip" aria-pressed="true" data-fk="bills" data-fv="${esc(id)}" data-k="f:bills:${esc(id)}" aria-label="Remove ${esc(billById(id)?.bill_number || 'bill')}">${esc(billById(id)?.bill_number || 'A bill')}${icon('x')}</button>`).join('')}</div>
+          <div class="chips">${d.bills.map(id => `<button type="button" class="chip" aria-pressed="true" data-fk="bills" data-fv="${esc(id)}" data-k="f:bills:${esc(id)}" aria-label="Remove ${esc(billById(id) ? billSay(billById(id)) : 'bill')}">${esc(billById(id) ? billSay(billById(id)) : 'A bill')}${icon('x')}</button>`).join('')}</div>
           <input id="sp-f-bill" type="search" placeholder="Type a number, like HB1563" value="${esc(billQ)}" autocomplete="off" data-k="f:billq">
           <div class="sp-sugs" id="sp-f-sugs">${billSug()}</div></div>
         ${(S.lists || []).length ? `<fieldset><legend>A list</legend><div class="chips">${multi('lists', S.lists.map(l => [l.id, l.title]), lst)}</div></fieldset>` : ''}

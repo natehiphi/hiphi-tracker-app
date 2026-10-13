@@ -28,10 +28,10 @@ export const listRows = l => (S.listBills || []).filter(x => x.list_id === l.id)
 // A plain summary cut to length, without the "year.…" a cut after a full stop leaves.
 export const clip = (b, n) => blurb(b, n).replace(/[.,;:]…$/, '…');
 export const livePill = l => l.is_published ? chip('Live', 'ok', 'globe') : chip('Draft', '', 'eye-off');
-// How a bill is named everywhere in Outreach (9/19): its number, then its nickname in bold when it has one, with the
+// How a bill is named everywhere in Outreach (9/19): its nickname first with the number small after it (R-271), or the number alone, with the
 // plain summary as the second line. A bill with no nickname (one we only monitor) keeps its summary beside the number.
 export const billName = (b, n = 110) => b.nickname
-  ? `<span class="title"><b>${esc(billNum(b))}</b> <b class="le-nick">${esc(b.nickname)}</b></span><span class="sub le-bsum">${esc(clip(b, n))}</span>`
+  ? `<span class="title"><b class="le-nick">${esc(b.nickname)}</b> <span class="bn-num">${esc(billNum(b))}</span></span><span class="sub le-bsum">${esc(clip(b, n))}</span>`
   : `<span class="title"><b>${esc(billNum(b))}</b> <span class="le-t">${esc(clip(b, n))}</span></span>`;
 
 // ---- layout, and the desktop table parts shared by Lists and Emails ----

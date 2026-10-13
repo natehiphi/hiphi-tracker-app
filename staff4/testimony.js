@@ -13,7 +13,7 @@
 // A fresh-eyes review (9/21) shaped the rows: no "Filed" chip on filed rows (only the exceptions get one), the date in
 // its own column, a plain label rather than an arrow that looked like a link, and one card for the folded category.
 import { S, DB, DEMO, esc, fmtDate, advocate, capitolUrl, hooks } from './data.js';
-import { codesOf, billByNum } from './model.js';
+import { codesOf, billByNum, billSay } from './model.js';
 import { icon, btn, chip, toast } from './ui.js';
 import { cmteFull, billName, firstName } from './bill.js';
 import { issuesOfBill, catByKey } from './issues.js';
@@ -95,7 +95,7 @@ function fullRow(d, b, start) {
   const other = String(d.bill_id) !== String(b.id) ? billById(d.bill_id) : null;
   return `<article class="tm-row">
     ${d === start ? `<p class="tm-mark">${markOf(d)}</p>` : ''}
-    <div class="tm-top"><p class="tm-where"><b>${esc(whereOf(d))}</b>${other ? ` <span class="tm-on">on ${esc(other.bill_number)}</span>` : ''}</p>${statusChip(d)}</div>
+    <div class="tm-top"><p class="tm-where"><b>${esc(whereOf(d))}</b>${other ? ` <span class="tm-on">on ${esc(billSay(other))}</span>` : ''}</p>${statusChip(d)}</div>
     <p class="small muted tm-meta">${bits([esc(dayYear(whenOf(d))), d.version ? `on ${esc(d.version)}` : '', byLine(d)])}</p>
     <div class="bw-links tm-links">${docLink(d)}${confLink(d)}</div>
   </article>`;
@@ -116,7 +116,7 @@ function byBill(rows, start, issueName = '') {
   const same = (x, y) => String(x).trim().toLowerCase() === String(y).trim().toLowerCase();
   return [...groups.entries()].map(([id, ds]) => {
     const x = billById(id), name = x ? billName(x) : '';
-    return `<div class="tm-group"><p class="tm-ghead"><a href="${x ? billRoute(x) : '#/'}">${esc(x?.bill_number || 'A bill')}</a>${name && !same(name, issueName) ? `<span>${esc(name)}</span>` : ''}</p>${ds.map(d => compactRow(d, start)).join('')}</div>`;
+    return `<div class="tm-group"><p class="tm-ghead"><a href="${x ? billRoute(x) : '#/'}">${x?.nickname ? `${esc(x.nickname)} <span class="bn-num">${esc(x.bill_number)}</span>` : esc(x?.bill_number || 'A bill')}</a>${name && !same(name, issueName) ? `<span>${esc(name)}</span>` : ''}</p>${ds.map(d => compactRow(d, start)).join('')}</div>`;
   }).join('');
 }
 
@@ -125,7 +125,7 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 function body(b) {
   const m = model(b);
   if (!m.all.length) return '<p class="small muted">No testimony in the tracker yet.</p>';
-  const twin = m.comps.length ? ` and its companion ${m.comps.map(x => esc(x.bill_number)).join(', ')}` : '';
+  const twin = m.comps.length ? ` and its companion ${m.comps.map(x => esc(billSay(x))).join(', ')}` : '';
   let h = `<section class="tm-part" aria-labelledby="tm-own-h"><h3 id="tm-own-h">On ${esc(b.bill_number)}${twin}</h3>
     ${m.own.length ? '' : `<p class="small muted">No earlier testimony yet.${m.start ? ' The newest in its issue is marked below.' : ''}</p>`}
     ${m.own.length ? `<div class="tm-rows">${m.own.map(d => fullRow(d, b, m.start)).join('')}</div>` : ''}</section>`;

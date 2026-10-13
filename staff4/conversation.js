@@ -7,7 +7,7 @@
 // The same dialog and the same list serve all three pages. Your own entry can be corrected or deleted for ten minutes
 // (the database enforces the ten minutes for a correction); after that it is the record, and only an admin can delete it.
 import { S, DB, DEMO, esc, fmtDate, advocate, hooks } from './data.js';
-import { legById, billById, stopOf, legsOf, cmteName, hiToday, hstDayOf, diedish } from './model.js';
+import { legById, billById, stopOf, legsOf, cmteName, hiToday, hstDayOf, diedish, billSay } from './model.js';
 import { icon, btn, iconBtn, chip, toast, openSheet, closeSheet, menuSheet } from './ui.js';
 import { issuesOfBill, issueById } from './issues.js';
 import { photo, shortName, partyDist, legHref, roleWord, seatsText } from './pathway.js';
@@ -86,7 +86,7 @@ function itemHTML(g, here) {
   const bill = g.bill_id && g.bill_id !== here.billId ? billById(g.bill_id) : null;
   const head = here.legId ? (names.length ? `Also with ${andList(names)}` : '') : (andList(names) || 'A legislator');
   const meta = [esc(dayOf(g.day)), mine(g) ? 'you logged it' : `${esc(firstName(who))} logged it`,
-    bill ? `on <a href="${billRoute(bill)}">${esc(bill.bill_number)}</a>` : ''].filter(Boolean).join(' · ');
+    bill ? `on <a href="${billRoute(bill)}">${bill.nickname ? `${esc(bill.nickname)} <span class="bn-num">${esc(bill.bill_number)}</span>` : esc(bill.bill_number)}</a>` : ''].filter(Boolean).join(' · ');
   return `<article class="row cv-item" data-cvkey="${esc(g.key)}">
     <div class="cv-main">
       ${head ? `<p class="cv-names">${head}</p>` : ''}
@@ -232,7 +232,7 @@ function aboutOptions(ctx, picked, keep) {
   const opt = (v, label) => `<option value="${esc(v)}">${esc(label)}</option>`, lab = i => issueLabel(i, ctx);
   const own = ctx ? issuesOfBill(ctx.id) : [], near = ctx ? [] : nearIssues(picked);
   const used = new Set([...own, ...near].map(i => i.id));
-  let html = own.map(i => opt('i:' + i.id, lab(i))).join('') + opt('', ctx ? `Only ${ctx.bill_number}` : picked.length > 1 ? 'Only the legislators’ pages' : 'Only the legislator’s page');
+  let html = own.map(i => opt('i:' + i.id, lab(i))).join('') + opt('', ctx ? `Only ${billSay(ctx)}` : picked.length > 1 ? 'Only the legislators’ pages' : 'Only the legislator’s page');
   if (near.length) html += `<optgroup label="Their committees’ issues">${near.map(i => opt('i:' + i.id, lab(i))).join('')}</optgroup>`;
   for (const c of S.categories || []) {
     const l = liveIssues().filter(i => i.category === c.key && !used.has(i.id)).sort((a, b) => a.name.localeCompare(b.name));

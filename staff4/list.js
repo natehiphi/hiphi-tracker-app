@@ -7,7 +7,7 @@
 // view with publishing, followers, sharing and the list's details. Adding is a combobox: results drop down under the
 // search box (arrow keys, Enter, Esc); removing is in each row's menu, which opens by its button; both have Undo.
 import { S, DB, hooks, esc, advocate } from './data.js';
-import { billNum, PUBLIC_APP, billById, plain } from './model.js';
+import { billSay, PUBLIC_APP, billById, plain } from './model.js';
 import { icon, btn, iconBtn, switchRow, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet } from './ui.js';
 import { listById, listRows, listIcon, plural, afterClose, openListForm, updatedLine, billName, isSide } from './lists.js';
 import * as SP from './supporters.js';
@@ -18,7 +18,8 @@ function embedCode(l) {
   const u = new URL('embed.html', location.href); u.search = ''; u.hash = ''; u.searchParams.set('list', l.slug);
   return `<iframe id="hiphi-tracker" src="${u.href}" title="HIPHI bill list" style="width:100%;border:0;min-height:420px" loading="lazy"></iframe>\n<script>addEventListener('message',function(e){if(e.data&&e.data.hiphiTrackerHeight)document.getElementById('hiphi-tracker').style.height=e.data.hiphiTrackerHeight+'px'})<\/script>`;
 }
-const numOf = b => billNum(b);
+// Plain-text label for a bill: nickname first, number after (R-271).
+const numOf = b => billSay(b);
 const V = () => S.leList ??= { q: {}, focus: '' };
 
 // Copy right away (the tap is what lets the browser write the clipboard); if the browser refuses, show the text in a

@@ -67,7 +67,7 @@ function emailsTable(rows, v, rv) {
     const kind = u.kind === 'bill' ? 'Bill followers' : u.kind === 'list' ? 'List followers' : u.kind === 'segment' ? 'Saved segment' : '';
     return `<tr data-href="${esc(href)}">
       <td class="c-subject"><span class="le-tdbody"><a class="le-tdname" href="${esc(href)}">${esc(a.subject || '(no subject)')}</a><span class="le-tdsub">${nextLine(a, rv)}</span></span></td>
-      <td class="c-to"><span class="le-tdlead sm">${icon(u.icon)}</span><span class="le-tdbody"><span class="le-l1">${u.b ? `<b>${esc(u.name)}</b>${u.b.nickname ? ' ' + esc(u.b.nickname) : ''}` : esc(u.name || 'Nobody yet')}</span>${kind ? `<span class="le-l2">${kind}</span>` : ''}</span></td>
+      <td class="c-to"><span class="le-tdlead sm">${icon(u.icon)}</span><span class="le-tdbody"><span class="le-l1">${u.b ? (u.b.nickname ? `<b class="bn-nick">${esc(u.b.nickname)}</b> <span class="bn-num">${esc(u.name)}</span>` : `<b>${esc(u.name)}</b>`) : esc(u.name || 'Nobody yet')}</span>${kind ? `<span class="le-l2">${kind}</span>` : ''}</span></td>
       <td class="c-writer">${a.author_id === S.me?.id ? 'You' : esc(first(a.author_id))}</td>
       <td class="c-status">${statusChip(a)}</td>
       <td class="c-when"${stamp(a) ? ` title="${esc(fmtDT(stamp(a)))}"` : ''}>${esc(whenShort(stamp(a))) || DASH}</td>
