@@ -213,7 +213,7 @@ function pageMenu(l) {
 // Followers: Supporters filtered to the people who follow this list (the same filter Supporters' sheet sets).
 function showFollowers(l) {
   if (typeof SP.V === 'function' && typeof SP.EMPTY_PF === 'function') { const v = SP.V(); v.f = { ...SP.EMPTY_PF(), lists: [l.id] }; v.seg = null; }
-  S.go('#/outreach');
+  S.go('#/outreach/supporters');
 }
 
 // Desktop drag: the handle follows the pointer, the row moves between its neighbours, and the new order saves on
