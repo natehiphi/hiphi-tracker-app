@@ -3,8 +3,9 @@
 // main places and nothing else (no sub-items, so it never shifts and carries one count, Today's: B-13, A-14); sections with
 // sub-pages show one row of tabs at the top of the page at every width (ui.js sectionNav); and your menu is short.
 // v4 (R-269, Nate 12 Oct: "Make all these changes in a staffv4 page"): Outreach opens on this week's asks (asks.js), the
-// partner update is its second tab (memo.js, from Bills' "…"), Supporters moves to #/outreach/supporters; and each place has
-// one way in on a laptop (Help, My settings and Session setup are the sidebar's foot, not also your menu).
+// partner update is its second tab (memo.js, from Bills' "…"), Supporters moves to #/outreach/supporters; each place has
+// one way in on a laptop (Help, My settings and Session setup are the sidebar's foot, not also your menu); and the Tasks
+// page retires (#/tasks opens Today: its rows are Today's and each bill's To do).
 // Original v2 note: the frame and the router (plan section 2). Since 9/21 (R-022) this is the staff app at the tracker's
 // own address (index.html and staff.html both load it); the old app lives on at classic.html for a week as the way
 // back, then retires. Screens are modules with
@@ -17,7 +18,6 @@ import { exactBill, inboxCount, billRoute, FACTS, draftFor, diedish } from './mo
 import today, { reviewQueue } from './today.js';
 import review from './review.js';
 import inbox from './inbox.js';
-import tasks from './tasks.js';
 import bill from './bill.js';
 import bills from './bills.js';
 import triage from './triage.js';
@@ -46,7 +46,7 @@ import coalition from './coalition.js';
 keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen on a staff screen either (X9-1, X9-6)
 
 // ---- routes ----
-const SCREENS = { today, myissues, review, inbox, tasks, bill, bills, triage, memo, partners, asks, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition };
+const SCREENS = { today, myissues, review, inbox, bill, bills, triage, memo, partners, asks, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition };
 export function parseRoute(h = location.hash) {
   // A "%" that is not part of a code (a stray one in a pasted link) made decodeURIComponent throw, and the page never drew (R-152 D).
   let dh; try { dh = decodeURIComponent(h || ''); } catch { dh = String(h || '').replace(/%(?![0-9a-fA-F]{2})/g, '%25'); try { dh = decodeURIComponent(dh); } catch { dh = '#/'; } }
@@ -61,7 +61,7 @@ export function parseRoute(h = location.hash) {
     case 'review': return { name: 'review', id: seg[1] || '', q };
     case 'inbox': return { name: 'inbox', q };
     case 'my-issues': return { name: 'myissues', q };
-    case 'tasks': return { name: 'tasks', q };
+    case 'tasks': return { name: 'today', q: {}, redirect: '#/' };   // v4 (R-269): retired; an old link opens Today
     case 'bills': return seg[1] === 'new' ? { name: 'triage', q } : seg[1] === 'memo' ? { name: 'memo', q } : { name: 'bills', muted: seg[1] === 'muted', q };
     // #/bill/HB2121 is the current session's bill; an earlier session's is #/bill/2026/HB2121 (R-152 B, as the public page since R-110).
     case 'bill': { const yr = /^\d{4}$/.test(seg[1] || ''); return { name: 'bill', year: yr ? seg[1] : '', num: String(seg[yr ? 2 : 1] || '').toUpperCase(), tab: seg[yr ? 3 : 2] || 'overview', q }; }
@@ -137,17 +137,17 @@ function header(route, scr, pageH1 = false) {
 // away here: Review, the Inbox, Sort new bills, the weekly memo, Lists, Emails, setup and help.
 // v3: no sub-items. Review opens from Today's card, Inbox is in your menu, Tasks are Today's cards and each bill's To do,
 // Sort new bills is in Bills' "…" menu, and My issues, Outreach show their own tabs on the page.
-// v4 (R-269): the partner update is Outreach's second tab (This week's asks, Partner update, Emails, Supporters: ui.js
-// sectionNav), so the sidebar lights Outreach on all four.
+// v4 (R-269): the Tasks page is gone, and the partner update is Outreach's second tab (This week's asks, Partner update,
+// Emails, Supporters: ui.js sectionNav), so the sidebar lights Outreach on all four.
 const SIDE_V2 = [
-  ['today', '#/', 'list-todo', 'Today', [['review', '#/review', 'Review'], ['inbox', '#/inbox', 'Inbox'], ['tasks', '#/tasks', 'Tasks']]],
+  ['today', '#/', 'list-todo', 'Today', [['review', '#/review', 'Review'], ['inbox', '#/inbox', 'Inbox']]],
   ['myissues', '#/my-issues', 'tag', 'My issues', []],
   ['bills', '#/bills', 'scroll-text', 'Bills', [['triage', '#/bills/new', 'Sort new bills']]],
   ['legislators', '#/legislators', 'landmark', 'Legislators', []],
   ['outreach', '#/outreach', 'megaphone', 'Outreach', [['asks', '#/outreach', 'This week\u2019s asks'], ['partners', '#/outreach/partners', 'Partner update'], ['emails', '#/outreach/emails', 'Emails'], ['supporters', '#/outreach/supporters', 'Supporters']]],
 ];
 const SIDE = SIDE_V2.map(([t, href, ic, label]) => [t, href, ic, label, []]);
-const SUB_OF = { review: 'review', inbox: 'inbox', tasks: 'tasks', triage: 'triage', memo: 'memo', asks: 'asks', partners: 'partners', supporters: 'supporters', person: 'supporters', issues: 'issues', issue: 'issues', coalition: 'coalitions', lists: 'lists', list: 'lists', emails: 'emails', composer: 'emails' };
+const SUB_OF = { review: 'review', inbox: 'inbox', triage: 'triage', memo: 'memo', asks: 'asks', partners: 'partners', supporters: 'supporters', person: 'supporters', issues: 'issues', issue: 'issues', coalition: 'coalitions', lists: 'lists', list: 'lists', emails: 'emails', composer: 'emails' };
 // Collapsing the sidebar is about this screen, not about the person, so it stays in this browser rather than
 // following them to their phone (where there is no sidebar at all).
 export const sideNarrow = () => { try { return localStorage.getItem('sv_side') === 'narrow'; } catch { return false; } };
@@ -219,7 +219,10 @@ export function render() {
   if (LINK_TOKEN && !S.linkUsed) return renderLink();
   if (!S.session && !DEMO) return renderLogin();
   if (RECOVERY && !DEMO) return renderRecovery();
-  const route = parseRoute(); S.route = route;
+  const route = parseRoute();
+  // A retired address (v4: #/tasks) is replaced, not pushed, so Back never lands on it again.
+  if (route.redirect) { try { history.replaceState(history.state, '', route.redirect); } catch { /* ignore */ } return render(); }
+  S.route = route;
   const scr = SCREENS[route.name] || today;
   const tabs = scr.tabs !== false && !(scr.noTabs && scr.noTabs(route));
   let main, bar = '';
@@ -313,7 +316,7 @@ document.addEventListener('keydown', e => {
   if (e.key === '?') { e.preventDefault(); go('#/help/keys'); return; }
   if (e.key === '/') { e.preventDefault(); const own = document.querySelector('main .bl-search input'), q = document.getElementById('hq'); if (own && own.offsetParent) own.focus(); else if (q && q.offsetParent && getComputedStyle(q).visibility !== 'hidden') q.focus(); else go('#/search'); return; }
   if (e.key === 'g') { gPending = Date.now(); return; }
-  if (gPending && Date.now() - gPending < 1200) { gPending = 0; const to = { t: '#/', m: '#/my-issues', b: '#/bills', l: '#/legislators', o: '#/outreach', r: '#/review', i: '#/inbox', k: '#/tasks' }[e.key]; if (to) { e.preventDefault(); go(to); } }
+  if (gPending && Date.now() - gPending < 1200) { gPending = 0; const to = { t: '#/', m: '#/my-issues', b: '#/bills', l: '#/legislators', o: '#/outreach', r: '#/review', i: '#/inbox' }[e.key]; if (to) { e.preventDefault(); go(to); } }
 });
 
 // ---- sign in and a new password (same calls as the current app) ----
