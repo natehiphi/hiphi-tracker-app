@@ -1,8 +1,11 @@
-// Staff v2 · Tasks (#/tasks, R-210, Nate 10/8: "go for all" on a cross-bill list of to-dos). A person comes here to see
+// Staff v3 · Tasks (#/tasks, R-210, Nate 10/8: "go for all" on a cross-bill list of to-dos). A person comes here to see
 // every task they have to do, across all their bills, and tick them off. The tasks live on each bill (its Overview, "To do");
 // Today shows the soonest as cards; this is the whole list in one place, oldest trouble first.
 //   - Mine: assigned to me, or unassigned on a bill I own (the same test as Today's cards, so the two never disagree).
-//   - Everyone: every open task on the team's bills, with who has it; a box narrows it to one teammate or to nobody yet.
+//   - Team: every open task on the team's bills, with who has it; a box narrows it to one teammate or to nobody yet.
+// v3 (R-264): the switch reads "Mine | Team" as Today's does, and says no numbers: how many is the count line's to say,
+// once (A-14). An empty list says so once: no "0 open tasks" over "No tasks for you", and no footnote saying again
+// where tasks come from (P-4).
 // Grouped Overdue, Today, This week, Later, No date. Ticking is the bill page's own (DB.updateTodo) with Undo. Keys (a
 // keyboard and mouse; My settings can switch them off): j and k move between tasks, Space or Enter ticks, o opens the bill.
 import { S, DB, esc, isOwner, advocate, hooks } from './data.js';
@@ -48,19 +51,18 @@ function render() {
   if (v.person && v.person !== 'none' && !have.some(a => a.id === v.person)) v.person = '';
   const pool = v.who === 'me' ? mine : all.filter(r => !v.person || (v.person === 'none' ? !r.t.assignee_id : r.t.assignee_id === v.person));
   const G = groups(pool.slice());
-  const seg = segmented('tk-who', [['me', `Mine ${mine.length}`], ['all', `Everyone ${all.length}`]], v.who, 'Whose tasks');
+  const seg = segmented('tk-who', [['me', 'Mine'], ['all', 'Team']], v.who, 'Whose tasks');
   const picker = v.who === 'all' && all.length ? `<label class="sr" for="tk-person">Show tasks for</label><select id="tk-person" class="input tk-person"><option value="">Everyone</option>
       ${have.map(a => `<option value="${esc(a.id)}" ${v.person === a.id ? 'selected' : ''}>${esc(a.id === me ? 'You' : a.full_name)}</option>`).join('')}
       ${all.some(r => !r.t.assignee_id) ? `<option value="none" ${v.person === 'none' ? 'selected' : ''}>Nobody yet</option>` : ''}</select>` : '';
   const none = v.who === 'me'
     ? empty({ title: 'No tasks for you', text: 'A task you or a teammate adds under To do on a bill’s Overview shows here.', action: `<a class="btn secondary" href="#/bills">Go to Bills</a>` })
-    : empty({ title: 'No open tasks', text: 'Every task on the team’s bills is done.' });
+    : empty({ title: 'Every task on the team’s bills is done' });
   return `<div class="tk-page">
     <div class="tk-bar">${seg}${picker}</div>
-    <p class="tk-count" aria-live="polite">${pool.length} open ${pool.length === 1 ? 'task' : 'tasks'}${G.length && G[0][0] === 'over' ? `, ${G[0][2].length} overdue` : ''}</p>
+    <p class="tk-count" aria-live="polite">${pool.length ? `${pool.length} open ${pool.length === 1 ? 'task' : 'tasks'}` : ''}</p>
     ${G.length ? G.map(([k, l, list]) => `<section class="tk-group" aria-labelledby="tk-h-${k}"><h2 id="tk-h-${k}" class="tk-gh${k === 'over' ? ' late' : ''}">${l} <span class="tk-n">${list.length}</span></h2><ul class="rows tk-rows">${list.map(r => row(r, v)).join('')}</ul></section>`).join('') : none}
     ${hover() && keysOn() && pool.length ? `<p class="tk-keys">${icon('keyboard')}<span>Keys: <kbd>j</kbd> and <kbd>k</kbd> move, <kbd>Space</kbd> ticks a task, <kbd>o</kbd> opens its bill.</span></p>` : ''}
-    <p class="tk-note">Add a task on any bill’s Overview, under To do. Ticking one here ticks it there.</p>
   </div>`;
 }
 

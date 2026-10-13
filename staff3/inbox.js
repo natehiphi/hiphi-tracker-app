@@ -7,6 +7,8 @@
 // Anything can be marked read or unread, with Undo. "Mark read" clears the list you are looking at, never the other pile.
 // Keys (a keyboard and mouse; My settings can switch them off): j and k move, Enter opens, e marks read or unread,
 // Shift+A marks the list read. Testimony notices clear themselves once the draft is filed, reminders after the hearing.
+// v3 (R-264): Today is the to-do list and the Inbox is the history, so the page no longer ends on a footnote explaining
+// what stays and what goes (P-4).
 import { S, DB, DEMO, esc, fmtDate, fmtDT, hooks } from './data.js';
 import { inboxRows, inboxCount, unslack, billById, billNum, blurb, canFirstApprove, canSecondApprove, plainAction, draftFor } from './model.js';
 import { icon, btn, iconBtn, empty, toast, keysOn } from './ui.js';
@@ -127,7 +129,6 @@ function render() {
     </div>` : countLine('<button type="button" class="linkbtn" data-ibfilters="1">Filter or sort</button>')}
     <div class="ib-list">${rows.length ? listBody(rows, v) : none}</div>
     ${hover() && keysOn() && rows.length ? `<p class="ib-keys">${icon('keyboard')}<span>Keys: <kbd>j</kbd> and <kbd>k</kbd> move, <kbd>Enter</kbd> opens, <kbd>e</kbd> marks read or unread, <kbd>Shift</kbd>+<kbd>A</kbd> marks this list read.</span></p>` : ''}
-    <p class="ib-note">Reading never removes anything. Updates go after 7 days, testimony steps once the draft is filed, reminders after the hearing.</p>
   </div>`;
 }
 
