@@ -71,7 +71,8 @@ header comment promises. Measured: every screen is within A-4.
 | public | 390 | start, re-measured 10/3 | 430 (accepted exception, section 4, 9/27) | 7 | 6 | 1 | 4 | 6 |
 | public | 390 | start, 10/5 after R-174 (one step larger, shorter sentence, the second part named "A bill's story") | 409 (same exception; about 28px of it is the practice copy's band) | 7 | 6 | 1 | 4 | 6 |
 | public | 390 | start, 10/11 after R-249 (the lede says what HIPHI is, for the stranger from a link: one more line) | 436 (same exception; about 28px of it is the practice copy's band) | 8 | 6 | 2 | 4 | 6 |
-| public | 390 | start, 10/12 after R-265 (every step fits the window: the promise and the tiles' descriptions give way on a short screen) | **318** (inside the budget again) | 10 | 8 | 2 | 4 | 6 |
+| public | 390 | start, 10/12 after R-265 (every step fits the window: the promise and the tiles' descriptions give way on a short screen) | 318 (inside the budget) | 10 | 8 | 2 | 4 | 6 |
+| public | 390 | start, 10/12 later (Nate: the topic tiles back as they were, "so pretty before"; R-265 leaves this screen and Your issues whole) | 436 again (the accepted exception, section 4) | 8 | 6 | 2 | 4 | 6 |
 | public | 390 | home | **225** | 9 | **3** | 6 | 6 | 6 |
 | public | 390 | my issues (9/21) | **205** | 16 | **2** | 6 | 6 | 5 |
 | public | 390 | category (9/21) | 379 | 14 | **3** | 6 | 5 | 6 |

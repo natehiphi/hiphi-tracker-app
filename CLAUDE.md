@@ -59,7 +59,8 @@ found because sessions start in the backend repo) walks the whole checklist.
   what still fits; what each level takes away is written per screen at the end of `pub/start.css`. The story keeps the
   room of its longer answer from before the choice (`pub/lessons.js` `reserveSaid`), so nothing moves on the tap. Never
   trimmed: the strip of named parts, the consent words (C-4), a ticked issue (B-12, no `data-fitdrop`), and the size of
-  reading text (C-14: cut a line, never shrink it). Adding something to a first-visit step: run
+  reading text (C-14: cut a line, never shrink it). The six topics and Your issues are left whole and may scroll (Nate,
+  12 Oct: "show people many options to choose from, do not cut that down at all"; `FIT_EXEMPT`). Adding something to a first-visit step: run
   `tests/first_visit_fits.py`, and if it pushes a screen over, give it a level of its own (least important first). The
   plans (`pub/onb*.js`) use none of this.
 - Accessibility: one exposed h1 per page, labels, `aria-pressed/expanded/sort`, 44px targets on touch widths,
