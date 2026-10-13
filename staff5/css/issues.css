@@ -1,0 +1,451 @@
+/* Outreach > Issues and one issue (063, R-018; staff/issues.js). The index and the issue page borrow the Lists look
+   (.le-page, and .le-list for the issue page: header, bill rows, the add search); only what is new is here. */
+
+/* ---- the index ---- */
+.is-index .is-needs { margin-top: var(--s16); border-color: var(--warn-wash); background: var(--n0); }
+.is-index .is-needs h2 { display: flex; align-items: flex-start; gap: var(--s8); font-size: var(--t18); line-height: 1.3; }
+.is-index .is-needs h2 .ic { width: 22px; height: 22px; margin-top: 1px; color: var(--warn-text); flex: none; }
+.is-index .is-needs > .small { margin: var(--s4) 0 var(--s12); color: var(--n700); }
+.is-index .is-nlist { list-style: none; margin: 0; padding: 0; box-shadow: none; }
+.is-index .is-nrow { display: flex; align-items: center; gap: var(--s8); min-height: 60px; padding: 0 var(--s12) 0 var(--s16); background: var(--n0); }
+.is-index .is-nrow + .is-nrow { border-top: 1px solid var(--n100); }
+.is-index .is-nmain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: var(--s8) 0; color: inherit; text-decoration: none; }
+.is-index .is-nmain .title { color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.is-index .is-nmain .title b { color: var(--n900); }
+.is-index .is-nmain .sub { font-size: var(--t14); color: var(--n500); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.is-index .is-nmain:hover .title b { color: var(--p700); text-decoration: underline; }
+.is-index .is-nrow .btn { flex: none; }
+.is-index .is-needs > .btn.text { margin: var(--s4) 0 0 calc(-1 * var(--s12)); }
+.is-index .is-find { margin-top: var(--s16); max-width: 440px; }
+.is-index .is-cat { margin-top: var(--s24); }
+.is-index .is-chead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s12); margin-bottom: var(--s8); }
+.is-index .is-chead h2 { display: flex; align-items: center; gap: var(--s8); font-size: var(--t18); }
+.is-catic { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--p50); color: var(--p700); flex: none; }
+.is-catic .ic { width: 18px; height: 18px; }
+/* v3 (R-264): an issue is one line, its name and at most a state; the rest is on its page */
+.is-index .is-row { min-height: 52px; }
+.is-index .is-row .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.is-index .is-row .end { gap: var(--s8); }
+.is-index .is-row .end .chip { flex: none; }
+.is-index .is-hw { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t13); font-weight: 700; color: var(--n700); white-space: nowrap; }
+.is-index .is-hw .ic { width: 16px; height: 16px; color: var(--n500); }
+.is-index .is-acts { display: flex; align-items: center; gap: var(--s8); margin-left: auto; }
+/* One row per category, opened on a click, one open at a time (issues.js). The category's name is a heading (A-19). */
+.is-index .is-cats { margin-top: var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
+.is-index .is-catf + .is-catf { border-top: 1px solid var(--n100); }
+.is-index .is-catf > summary { list-style: none; display: flex; align-items: center; gap: var(--s12); min-height: 60px; padding: var(--s8) var(--s16); cursor: pointer; }
+.is-index .is-catf > summary::-webkit-details-marker { display: none; }
+.is-index .is-catf > summary:hover { background: var(--n50); }
+.is-index .is-catf > summary:focus-visible { outline: 3px solid var(--p700); outline-offset: -3px; }
+.is-index .is-catb { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: var(--s12); }
+.is-index .is-catn { font: 600 var(--t18)/1.2 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+.is-index .is-catm { margin-left: auto; font-size: var(--t14); color: var(--n500); text-align: right; white-space: nowrap; }
+.is-index .is-catw { color: var(--n700); font-weight: 700; }
+.is-index .is-catf > summary .is-chev { flex: none; width: 20px; height: 20px; color: var(--n500); transition: transform .15s; }
+.is-index .is-catf[open] > summary .is-chev { transform: rotate(180deg); }
+.is-index .is-catf > .rows { margin: 0; border: 0; border-top: 1px solid var(--n100); border-radius: 0; box-shadow: none; }
+.is-index .is-catf > .le-none { padding: var(--s12) var(--s16); border-top: 1px solid var(--n100); }
+/* a phone: the count under the name, the hearings on a line of their own */
+@media (max-width: 599px) {
+  .is-index .is-catb { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .is-index .is-catm { margin-left: 0; text-align: left; white-space: normal; font-size: var(--t13); }
+  .is-index .is-catw { display: block; }
+  .is-index .is-catd { display: none; }
+}
+.is-arch { margin-top: var(--s24); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
+.is-arch > summary { list-style: none; display: flex; align-items: center; gap: var(--s12); min-height: 52px; padding: var(--s8) var(--s16); cursor: pointer; font-weight: 700; color: var(--n900); }
+.is-arch > summary::-webkit-details-marker { display: none; }
+.is-arch > summary .ic { width: 20px; height: 20px; color: var(--n500); flex: none; }
+.is-arch > summary .is-chev { margin-left: auto; transition: transform .15s; }
+.is-arch[open] > summary .is-chev { transform: rotate(180deg); }
+.is-arch > .rows, .is-arch > .le-bills { margin: 0; border: 0; border-top: 1px solid var(--n100); border-radius: 0; box-shadow: none; }
+
+/* The way to the first visit's numbers and links (R-023): a link of its own under the top line (A-12: it goes somewhere,
+   so it looks like a link, not a button), its icon kept with its words, one line at every width. On a touch screen the
+   target reaches 44px into the space around it (A-6) without pushing the list further down. */
+.fv-page .fv-golink, .mi-page .is-fvlink { display: flex; align-items: center; gap: 4px; width: fit-content; max-width: 100%; margin-top: var(--s8); font-size: var(--t14); color: var(--p700); font-weight: 700; text-decoration: none; }
+.mi-page .is-fvlink + .is-find, .mi-page .is-fvlink + .is-needs { margin-top: var(--s12); }
+.fv-page .fv-golink .ic, .mi-page .is-fvlink .ic { width: 16px; height: 16px; flex: none; }
+.fv-page .fv-golink:hover span, .mi-page .is-fvlink:hover span { text-decoration: underline; }
+.fv-page .fv-golink:focus-visible, .mi-page .is-fvlink:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+@media (max-width: 899px) { .mi-page .is-fvlink, .fv-page .fv-golink { padding: 12px 0; margin: -4px 0 -12px; } }
+
+/* ---- one issue (inside .le-page.le-list) ---- */
+/* v3 (R-264): its public side (followers, the first-visit switch) in a card; on a laptop it and Related issues are the
+   one side panel (.is-two), as sharing and support are on a coalition's page. */
+.is-page .is-folcard { margin-top: var(--s24); padding: var(--s12) var(--s16) var(--s4); }
+.is-page .is-folcard h2 { font-size: var(--t18); }
+.is-page .is-fol { margin: var(--s8) 0 var(--s4); font-size: var(--t14); color: var(--n700); }
+.is-page .is-fol .le-fol { display: inline-flex; align-items: flex-start; gap: 6px; }
+.is-page .is-fol .ic { width: 16px; height: 16px; margin-top: 2px; color: var(--n500); flex: none; }
+.is-page .is-folcard .sv-switchrow { border-top: 1px solid var(--n100); }
+.is-page > .sv-notice, .is-page .is-main > .sv-notice { margin: var(--s12) 0 0; }
+.is-page .le-brow .iconbtn { flex: none; }
+.is-page .is-sone { margin: 0; }
+/* A bill's one line: its number and name, then its stage and HIPHI's position at the right */
+.is-page .is-brow { padding-right: var(--s12); }
+.is-page .is-brow:has(.iconbtn) { padding-right: var(--s4); }
+.is-page .is-brow .le-bmain { padding: var(--s8) 0; }
+.is-page .is-brow .is-bt { -webkit-line-clamp: 1; }
+.is-page .is-bend { display: flex; align-items: center; gap: var(--s8); flex: none; margin-left: var(--s8); }
+.is-page .is-bstage { font-size: var(--t14); color: var(--n500); white-space: nowrap; }
+@media (max-width: 599px) {
+  .is-page .is-brow { flex-wrap: wrap; padding-bottom: var(--s8); }
+  .is-page .is-brow .le-bmain { flex-basis: calc(100% - 48px); padding-bottom: 0; }
+  .is-page .is-brow .is-bt { -webkit-line-clamp: 2; }
+  .is-page .is-bend { order: 2; flex-basis: 100%; margin: 0; }
+}
+/* the bills that did not advance, and earlier sessions': a quiet line under the list, not another card */
+.is-page .is-gone > summary { list-style: none; display: inline-flex; align-items: center; gap: var(--s4); min-height: 44px; font-size: var(--t14); color: var(--n500); cursor: pointer; }
+.is-page .is-gone > summary::-webkit-details-marker { display: none; }
+.is-page .is-gone > summary:hover span { text-decoration: underline; }
+.is-page .is-gone > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+.is-page .is-gone > summary .ic { width: 16px; height: 16px; }
+.is-page .is-gone[open] > summary .ic.ic-chevron-down { transform: rotate(180deg); }
+.is-page .is-gone > .le-bills { margin-top: 0; }
+.is-page .is-add { margin-top: var(--s12); }
+.is-page .is-editrow { margin-top: var(--s8); }
+.is-page .is-rell { margin: 0 0 var(--s8); }
+.is-page .pr-outlook { margin: var(--s4) 0 var(--s12); }
+@media (min-width: 1100px) {
+  .is-page.is-two { max-width: 1056px; margin: 0 auto; }
+  .is-page .is-main { min-width: 0; }
+  .is-page .is-side .is-folcard { margin-top: 0; }
+  .is-page .is-side .le-sec { margin-top: 0; }
+  .is-page .is-side .is-rel .le-bmain { padding: var(--s8) 0; }
+}
+/* A bill's line on My issues (R-226): where it stands, in the same size as the rest of the row. */
+.is-page .is-bstat { display: block; font-size: var(--t14); line-height: 1.4; color: var(--n700); overflow-wrap: anywhere; }
+.is-page .is-bmeta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); margin-top: 2px; }
+
+/* ---- the issue form and the picker (sheets) ---- */
+.is-form .is-for, .is-picker .is-for { margin: 0 0 var(--s12); }
+.is-form .is-cats { border: 0; margin: var(--s16) 0 0; padding: 0; min-width: 0; }
+.is-form .is-cats legend { padding: 0; margin-bottom: var(--s4); font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.is-form .is-opt { font-weight: 400; color: var(--n500); }
+.is-form .is-alsoh { margin: 0 0 var(--s4); }
+.is-form .is-cat { align-items: center; padding: 2px 0; min-height: 44px; }
+.is-form .is-cat input { margin: 0; }
+.is-form .is-cat[hidden] { display: none; }
+.is-form .sv-switchrow { margin-top: var(--s16); }
+/* The search box in a sheet: the same look as Lists' (whose rules are scoped to its page) */
+.is-psearch { position: relative; margin-bottom: var(--s8); }
+.is-psearch > .ic-search { position: absolute; left: 12px; top: 12px; width: 20px; height: 20px; color: var(--n500); pointer-events: none; }
+.is-psearch input { width: 100%; min-height: 44px; padding: 8px 16px 8px 40px; border: 1px solid var(--n400); border-radius: var(--pill); background: var(--n0);
+  color: var(--n900); font-size: var(--t16); -webkit-appearance: none; appearance: none; }
+.is-psearch input::-webkit-search-cancel-button { display: none; }
+.is-psearch input:focus { outline: none; border-color: var(--p700); box-shadow: 0 0 0 2px var(--p700); }
+.is-picker .is-gh, .is-page .is-gh { display: flex; align-items: center; gap: var(--s8); margin: var(--s16) 0 var(--s4); padding: 0 var(--s8); font: 700 var(--t14)/1.3 var(--font); color: var(--n500); }
+.is-picker .is-gh .ic { width: 16px; height: 16px; }
+.is-picker .is-gh:first-child { margin-top: var(--s4); }
+.is-picker .sv-pickl .sub { font-size: var(--t13); color: var(--n500); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.is-picker .sv-pickl .ic.on { color: var(--p700); }
+#is-mlist .sv-pickl .sub { font-size: var(--t13); color: var(--n500); }
+
+/* ---- a bill's Public tab: the issues it is on, each with HIPHI's stance (094, R-093) and × ---- */
+.bw-issues { align-items: center; }
+.bw-isslist { list-style: none; margin: var(--s8) 0 var(--s8); padding: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); overflow: hidden; }
+.bw-issrow { display: flex; align-items: center; gap: var(--s4); min-height: 56px; padding: var(--s4) var(--s4) var(--s4) var(--s12); }
+.bw-issrow + .bw-issrow { border-top: 1px solid var(--n100); }
+.bw-issname { flex: 1 1 auto; min-width: 0; margin-right: var(--s4); font-weight: 700; line-height: 1.3; color: var(--p700); text-decoration: none; overflow-wrap: anywhere; }
+.bw-issname:hover { text-decoration: underline; }
+.bw-issname:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+.bw-issrow .sv-pick { flex: none; }
+.bw-issrow .iconbtn { flex: none; }
+/* Phones and tablets (below A-9's 900): the name and × share the first line (× beside what it takes off, so it never
+   reads as clearing the stance), and the stance chip goes under them; a long name is not squeezed beside the chip. */
+@media (max-width: 899px) {
+  .bw-issrow { flex-wrap: wrap; padding-top: var(--s4); }
+  .bw-issname { flex: 1 1 calc(100% - 52px); margin-right: 0; }
+  .bw-issrow .iconbtn { order: 1; }
+  .bw-issrow .sv-pick { order: 2; margin-bottom: var(--s8); }
+}
+
+/* ---- HIPHI's stance on one issue: a labelled chip under its description, and the choice in the form ---- */
+.is-page .is-stline { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s4) var(--s8); margin: var(--s8) 0 var(--s4); }
+.is-page .is-stl { font-size: var(--t14); font-weight: 700; color: var(--n700); }
+.is-form .is-stance .is-cat { align-items: flex-start; padding: var(--s4) 0; }
+.is-form .is-stance .is-cat input { margin-top: 8px; }
+.is-form .is-stw { display: flex; flex-direction: column; gap: 0; }
+.is-form .is-sts { font-size: var(--t13); color: var(--n500); }
+
+/* ---- the first visit: its numbers, and a link for a partner (firstvisit.js, R-023; inside .le-page.fv-page) ---- */
+.fv-page .fv-head { margin: var(--s4) 0 var(--s16); }
+.fv-page .fv-head h1 { font-size: var(--t22); }
+.fv-page .fv-head .le-lede { margin: var(--s4) 0 0; max-width: 70ch; }
+.fv-controls { display: flex; flex-wrap: wrap; gap: var(--s8) var(--s12); margin-top: var(--s16); }
+.fv-page > .sv-notice { margin-bottom: var(--s16); }
+.fv-page > .le-empty .empty { margin-top: 0; }
+.fv-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s12); }
+.fv-tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: var(--s12) var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); }
+.fv-tile .fv-n { font: 700 var(--t22)/1.15 var(--font-h); letter-spacing: -.02em; color: var(--n900); font-variant-numeric: tabular-nums; }
+.fv-tile .fv-l { font-size: var(--t14); font-weight: 700; color: var(--n700); }
+.fv-tile .fv-s { font-size: var(--t13); color: var(--n500); }
+.fv-sec { margin-top: var(--s24); }
+.fv-sec .le-sechead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s12); margin-bottom: var(--s8); }
+.fv-sec .le-sechead h2 { font-size: var(--t18); }
+/* Screen by screen: on a phone each screen is a small block (name and count, the bar, skips and time); from 900px the
+   same list lines up as a table under a header row. The unit words are kept for screen readers there. */
+.fv-screens { list-style: none; margin: 0; padding: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); overflow: hidden; }
+.fv-srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name num" "bar bar" "skip time"; gap: 4px var(--s12); padding: var(--s12) var(--s16); }
+.fv-srow + .fv-srow { border-top: 1px solid var(--n100); }
+.fv-shead { display: none; }
+.fv-reach { display: contents; }
+.fv-sname { grid-area: name; font-weight: 700; color: var(--n900); font-size: var(--t14); }
+.fv-rn { grid-area: num; font-size: var(--t14); color: var(--n700); font-variant-numeric: tabular-nums; text-align: right; }
+.fv-rn b { color: var(--n900); }
+.fv-bar { grid-area: bar; display: block; height: 8px; border-radius: 4px; background: var(--n100); overflow: hidden; }
+.fv-bar i { display: block; height: 100%; min-width: 2px; border-radius: 4px; background: var(--p700); }
+.fv-skip { grid-area: skip; font-size: var(--t13); color: var(--n500); font-variant-numeric: tabular-nums; }
+.fv-time { grid-area: time; font-size: var(--t13); color: var(--n500); text-align: right; }
+.fv-srow .fv-none { display: none; }
+.fv-tablewrap { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); overflow: hidden; }
+.fv-table { width: 100%; border-collapse: collapse; font-size: var(--t14); }
+.fv-table th, .fv-table td { padding: var(--s8) var(--s8); text-align: left; vertical-align: middle; border-top: 1px solid var(--n100); color: var(--n700); }
+.fv-table th:first-child { padding-left: var(--s16); }
+.fv-table th:last-child, .fv-table td:last-child { padding-right: var(--s16); }
+.fv-table thead th { height: 40px; border-top: 0; background: var(--n50); font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.fv-table tbody th { font-weight: 700; color: var(--n900); overflow-wrap: break-word; }
+.fv-table tr.fv-sub th, .fv-table tr.fv-sub td { border-top-color: var(--n50); font-size: var(--t13); }
+.fv-table tr.fv-sub th { padding-left: var(--s32); font-weight: 400; color: var(--n700); }
+.fv-table .fv-word.none { color: var(--n500); }
+.fv-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.fv-table .fv-kind { display: block; font-size: var(--t13); font-weight: 400; color: var(--n500); }
+.fv-table .fv-pc { display: block; font-size: var(--t13); color: var(--n500); }
+.fv-how { display: flex; align-items: flex-start; gap: var(--s8); margin: var(--s24) 0 0; max-width: 70ch; }
+.fv-how .ic { flex: none; margin-top: 2px; }
+/* When counting starts (097, R-109): above the tiles, with Change for admins. */
+.fv-from { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s8); margin: 0 0 var(--s16); max-width: 70ch; }
+.fv-from .ic { flex: none; }
+/* Make a link (a reading column on a desktop; the link and its QR code side by side from 900px) */
+.fv-card { padding: var(--s16); }
+.fv-none p { margin: 0 0 var(--s12); }
+.fv-card + .fv-card { margin-top: var(--s16); }
+.fv-card h2 { font-size: var(--t18); }
+.fv-card > .small.muted { margin: var(--s4) 0 var(--s12); }
+.fv-card .field + .field { margin-top: var(--s16); }
+.fv-card .is-opt { font-weight: 400; color: var(--n500); }
+.fv-prow { display: flex; align-items: center; gap: var(--s8); margin-top: var(--s4); }
+.fv-prow .sv-pick { flex: 1 1 auto; min-width: 0; justify-content: flex-start; }
+.fv-prow .sv-pick > span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.fv-welcome { margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n700); }
+.fv-urlbox { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); margin-top: var(--s16); }
+.fv-urlbox .label { font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.fv-url { width: 100%; margin: 0; padding: var(--s8) var(--s12); background: var(--n50); border: 1px solid var(--n200); border-radius: var(--r8); font-size: var(--t14); color: var(--n900); overflow-wrap: anywhere; user-select: all; }
+.fv-qrbox { display: flex; align-items: center; justify-content: center; width: 208px; height: 208px; margin: var(--s12) auto; background: #fff; border: 1px solid var(--n200); border-radius: var(--r8); text-align: center; }
+.fv-qrbox svg { display: block; width: 192px; height: 192px; }
+.fv-qrerr { display: flex; flex-direction: column; align-items: center; gap: var(--s4); padding: var(--s12); color: var(--bad-text); }
+.fv-qracts { display: flex; justify-content: center; gap: var(--s8); }
+.fv-pform .field + .field { margin-top: var(--s16); }
+.fv-pform input[readonly] { background: var(--n50); color: var(--n700); }
+
+@media (min-width: 900px) {
+  .fv-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  /* the period sits beside the title, so the numbers start one row higher (A-1) */
+  .fv-page .fv-nhead { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s24); }
+  .fv-page .fv-nhead .fv-hmain { min-width: 0; }
+  .fv-page .fv-nhead .fv-controls { flex: none; margin-top: 0; }
+  .fv-linkgrid { display: grid; grid-template-columns: minmax(0, 1fr) 256px; gap: var(--s16); align-items: start; }
+  .fv-linkgrid .fv-card + .fv-card { margin-top: 0; }
+  .fv-linkgrid .fv-qrbox { width: 100%; max-width: 208px; }
+  .fv-srow { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.5fr) 84px 96px; grid-template-areas: none; align-items: center; min-height: 48px; padding: var(--s8) var(--s16); }
+  .fv-reach { display: flex; align-items: center; gap: var(--s12); min-width: 0; }
+  .fv-sname, .fv-rn, .fv-bar, .fv-skip, .fv-time { grid-area: auto; }
+  .fv-bar { flex: 1 1 auto; }
+  .fv-rn { flex: none; min-width: 76px; }
+  .fv-skip, .fv-time { font-size: var(--t14); color: var(--n700); text-align: right; }
+  .fv-srow .fv-none { display: inline; color: var(--n500); }
+  .fv-srow .fv-w { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .fv-shead { display: grid; min-height: 40px; padding-top: 0; padding-bottom: 0; background: var(--n50); font-size: var(--t13); font-weight: 700; color: var(--n500); }
+  .fv-shead span:nth-child(n+3) { text-align: right; }
+  .fv-table .fv-pc { display: inline; margin-left: 4px; }
+}
+
+/* ---- getting the issues ready for 2027 (R-088; staff/prep.js): the links, the card on an issue, My issues, the board ---- */
+.mi-page .pr-links { display: flex; flex-wrap: wrap; gap: 0 var(--s24); }
+.mi-page .pr-links .is-fvlink { margin-top: var(--s4); }
+.pr-card { margin-top: var(--s16); padding: var(--s16); }
+.pr-card .pr-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); flex-wrap: wrap; }
+.pr-card .pr-head h2 { font-size: var(--t18); }
+.pr-card .pr-lede { margin: var(--s4) 0 0; color: var(--n700); }
+.pr-card > .sv-notice { margin: var(--s12) 0 0; }
+.pr-people { display: flex; flex-wrap: wrap; gap: var(--s8) var(--s24); margin-top: var(--s12); padding: var(--s8) 0; border-top: 1px solid var(--n100); border-bottom: 1px solid var(--n100); }
+.pr-who { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s8); min-height: 44px; }
+.pr-who .pr-wl { font-size: var(--t13); font-weight: 700; color: var(--n500); text-transform: uppercase; letter-spacing: .04em; }
+.pr-helper { display: inline-flex; align-items: center; gap: var(--s4); min-height: 36px; padding: 2px var(--s8) 2px 2px; border: 1px solid var(--n200); border-radius: 999px; background: var(--n0); color: var(--n900); font: inherit; cursor: pointer; }
+.pr-helper:hover { border-color: var(--p700); }
+.pr-steps { list-style: none; margin: var(--s8) 0 0; padding: 0; }
+.pr-steps li + li { border-top: 1px solid var(--n100); }
+.pr-step { display: flex; align-items: center; gap: var(--s12); width: 100%; min-height: 56px; padding: var(--s8) 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.pr-step .pr-mark { width: 22px; height: 22px; flex: none; color: var(--n400, var(--n500)); }
+.pr-step.done .pr-mark { color: var(--ok-text, var(--p700)); }
+.pr-step .body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pr-step .title { font-weight: 700; color: var(--n900); }
+.pr-step .sub { font-size: var(--t14); color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pr-step .pr-go { flex: none; font-size: var(--t14); font-weight: 700; color: var(--p700); }
+.pr-step:hover .pr-go { text-decoration: underline; }
+.pr-step:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+.pr-foot { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s8) var(--s12); margin-top: var(--s12); padding-top: var(--s12); border-top: 1px solid var(--n100); }
+.pr-foot .btn[aria-disabled="true"] { opacity: .55; }
+.pr-dots { display: inline-flex; gap: 3px; vertical-align: middle; }
+.pr-dot { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--n500); }
+.pr-dot.on { background: var(--p700); border-color: var(--p700); }
+.pr-page .le-sec, .pr-board .pr-cat { margin-top: var(--s24); }
+.pr-rows { list-style: none; margin: 0; padding: 0; }
+.pr-row { display: flex; align-items: center; gap: var(--s8) var(--s12); min-height: 60px; padding: 0 var(--s12) 0 var(--s16); background: var(--n0); }
+.pr-row + .pr-row { border-top: 1px solid var(--n100); }
+.pr-row .pr-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: var(--s8) 0; color: inherit; text-decoration: none; }
+.pr-row .pr-main .title { font-weight: 700; color: var(--n900); }
+.pr-row .pr-main:hover .title { color: var(--p700); text-decoration: underline; }
+.pr-row .pr-main .sub { display: flex; align-items: center; gap: var(--s8); font-size: var(--t13); color: var(--n500); }
+.pr-row .pr-end { flex: none; }
+.pr-ownbtn { flex: none; display: inline-flex; align-items: center; gap: var(--s4); min-height: 40px; padding: 2px var(--s8) 2px 2px; border: 1px solid var(--n200); border-radius: 999px; background: var(--n0); color: var(--n900); font: inherit; font-size: var(--t14); cursor: pointer; }
+.pr-ownbtn .chev { width: 14px; height: 14px; color: var(--n500); }
+.pr-ownbtn:hover { border-color: var(--p700); }
+.pr-tell { margin-top: var(--s16); padding: var(--s16); }
+.pr-tell h2 { font-size: var(--t18); }
+.pr-tell .small { margin: var(--s4) 0 var(--s12); color: var(--n700); }
+.pr-told { display: flex; align-items: center; gap: var(--s4); margin-top: var(--s12); }
+.pr-told .ic { width: 16px; height: 16px; }
+.pr-per { margin-top: var(--s12); }
+.pr-filters { margin-top: var(--s12); overflow-x: auto; }
+@media (max-width: 599px) {
+  .pr-brow { flex-wrap: wrap; padding-bottom: var(--s8); }
+  .pr-brow .pr-main { flex-basis: 100%; padding-bottom: 0; }
+}
+.pr-page .pr-top { margin: var(--s4) 0 var(--s8); }
+.pr-page .pr-top h1 { font-size: var(--t22); }
+.pr-page .pr-top .le-lede { margin: var(--s4) 0 0; max-width: 70ch; }
+.pr-filters .sv-seg { flex-wrap: nowrap; width: max-content; }
+.pr-filters .sv-seg button { white-space: nowrap; }
+/* A-6: 44px to a finger */
+@media (max-width: 899px) { .pr-ownbtn, .pr-helper { min-height: 44px; } }
+/* After the fresh-eyes review (9/29): the count beside the dots, a plain state (no pill: A-12), owners as filters, the
+   filter strip wrapping on a phone so Drafts is never cut off, and My issues' Next button. */
+.pr-n { font-size: var(--t13); color: var(--n500); }
+.pr-st { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t13); font-weight: 700; color: var(--n700); white-space: nowrap; }
+.pr-st .ic { width: 16px; height: 16px; }
+.pr-st.warn { color: var(--warn-text); } .pr-st.ok { color: var(--ok-text); } .pr-st.danger { color: var(--bad-text); }
+.pr-per { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); }
+.pr-whob { min-height: 32px; padding: 0 var(--s12); border: 1px solid var(--n200); border-radius: 999px; background: var(--n0); color: var(--n900); font: inherit; font-size: var(--t14); cursor: pointer; }
+.pr-whob[aria-pressed="true"] { background: var(--p50); border-color: var(--p700); color: var(--p700); font-weight: 700; }
+.pr-next { margin: var(--s12) 0 0; }
+.pr-next .btn { max-width: 100%; }
+.pr-next .btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 899px) {
+  .pr-whob { min-height: 44px; }
+  .pr-filters { overflow: visible; }
+  .pr-filters .sv-seg { flex-wrap: wrap; width: auto; }
+}
+
+/* ---- My issues (R-263; v3, R-264): each issue a card whose first line is the issue, then its moving bills one line
+   each, inside .le-page.le-list.is-page ---- */
+.mi-page .mi-iss { margin-top: var(--s12); padding: 0; overflow: hidden; }
+.mi-page .le-tools + .mi-iss, .mi-page .pr-links + .mi-iss { margin-top: var(--s16); }
+.mi-page .mi-ihead { display: flex; align-items: center; flex-wrap: wrap; gap: 2px var(--s16); padding: var(--s8) var(--s16); }
+.mi-page .mi-iname { margin: 0; min-width: 0; font-size: var(--t18); }
+.mi-page .mi-iname a { display: inline-flex; align-items: center; gap: var(--s8); min-height: 40px; color: var(--n900); text-decoration: none; }
+.mi-page .mi-iname a:hover span:last-child { color: var(--p700); text-decoration: underline; }
+.mi-page .mi-iname a:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+.mi-page .mi-ic { display: inline-flex; color: var(--n500); }
+.mi-page .mi-ic .ic { width: 20px; height: 20px; }
+.mi-page .mi-soon { flex: 1 1 260px; min-width: 0; margin: 0; font-size: var(--t14); color: var(--n700); overflow-wrap: anywhere; }
+.mi-page .mi-soon a { color: var(--p700); font-weight: 700; }
+.mi-page .mi-soon b { color: var(--n900); }
+.mi-page .mi-cnt { margin: 0 0 0 auto; display: inline-flex; align-items: center; gap: var(--s8); font-size: var(--t14); color: var(--n500); white-space: nowrap; }
+.mi-page .mi-tag { font-size: var(--t13); font-weight: 700; color: var(--n700); }
+/* a bill: its number and nickname, then one short phrase at the right */
+.mi-page .mi-bills { list-style: none; margin: 0; padding: 0; }
+.mi-page .mi-brow { display: flex; align-items: center; gap: var(--s4) var(--s16); min-height: 44px; padding: var(--s4) var(--s16); border-top: 1px solid var(--n100); }
+.mi-page .mi-bmain { flex: 1 1 auto; min-width: 0; color: var(--n700); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mi-page .mi-bmain b { color: var(--n900); }
+.mi-page .mi-bmain .mi-bn { color: var(--n900); }
+.mi-page .mi-bmain:hover b, .mi-page .mi-bmain:hover .mi-bn { color: var(--p700); text-decoration: underline; }
+.mi-page .mi-bmain:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+.mi-page .mi-bend { flex: 0 1 auto; max-width: 58%; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: var(--s4) var(--s8); }
+.mi-page .mi-bph { font-size: var(--t14); color: var(--n700); text-align: right; }
+.mi-page .mi-reach { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t13); font-weight: 700; color: var(--n700); white-space: nowrap; }
+.mi-page .mi-reach .ic { width: 16px; height: 16px; color: var(--n500); }
+.mi-page .mi-none { margin: 0; padding: var(--s8) var(--s16) var(--s12); border-top: 1px solid var(--n100); font-size: var(--t14); color: var(--n700); }
+.mi-page .mi-none a { color: var(--p700); font-weight: 700; }
+.mi-page .pr-links { margin-top: var(--s8); }
+/* "2 did not advance": a quiet line at the card's foot, opened in place */
+.mi-page .mi-gone { border-top: 1px solid var(--n100); }
+.mi-page .mi-gone > summary { list-style: none; display: flex; align-items: center; gap: var(--s4); min-height: 40px; padding: 0 var(--s16); font-size: var(--t14); color: var(--n500); cursor: pointer; }
+.mi-page .mi-gone > summary::-webkit-details-marker { display: none; }
+.mi-page .mi-gone > summary:hover span { text-decoration: underline; }
+.mi-page .mi-gone > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: -2px; }
+.mi-page .mi-gone > summary .ic { width: 16px; height: 16px; transition: transform .15s; }
+.mi-page .mi-gone[open] > summary .ic { transform: rotate(180deg); }
+.mi-page .mi-still { margin-top: var(--s24); }
+.mi-page .mi-stillin { padding: 0 var(--s16) var(--s16); }
+/* a phone: a bill's phrase goes under its name, and the issue's count under its name too */
+@media (max-width: 599px) {
+  .mi-page .mi-brow { flex-direction: column; align-items: stretch; gap: 2px; padding: var(--s8) var(--s16); }
+  .mi-page .mi-bmain { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .mi-page .mi-bend { max-width: none; justify-content: flex-start; }
+  .mi-page .mi-bph { text-align: left; }
+  .mi-page .mi-cnt { margin-left: 0; white-space: normal; }
+}
+/* the heading over its lede, not beside it, wherever the page's heading shows (900px and wider since v3) */
+@media (min-width: 900px) { .mi-page .le-tools { display: block; } .mi-page .le-h1 { margin: 0 0 var(--s4); } }
+/* An issue's rows have no drag handle, so they keep the 16px inset that a list's rows give up for theirs on a desktop
+   (lists.css); without it a bill's title sat 4px from the card's edge (R-263, on the issue page since R-226 too). */
+@media (min-width: 900px) { .is-page .le-brow { padding-left: var(--s16); } }
+/* v4 (R-269 P7): someone who owns no issue sees their coalitions here, a list of links, then the others with the
+   coalition page's support switch, one card of switch rows (sv-switchrow, staff.css). */
+.mi-page .mi-coal { margin-top: var(--s24); max-width: 760px; }   /* a switch stays near its name: width beyond a reading column is margin (A-24) */
+.mi-page .le-tools + .mi-coal { margin-top: var(--s16); }
+.mi-page .mi-coh { margin: 0 0 var(--s8); font-size: var(--t18); }
+.mi-page .mi-corow .lead { background: var(--n100); color: var(--n700); }
+.mi-page .mi-cosw { padding: 0 var(--s16); }
+.mi-page .mi-cosw .sv-switchrow + .sv-switchrow { border-top: 1px solid var(--n100); }
+
+/* ---- My issues and All issues: one line per issue, by deadline or by topic (R-272, issuestand.js) ---- */
+.ist-page .ist-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s12) var(--s16); margin-top: var(--s16); }
+.ist-page .ist-find { flex: 1 1 320px; max-width: 480px; }
+.ist-page .ist-seg { flex: none; }
+.ist-page .ist-sec { margin-top: var(--s24); }
+.ist-page .ist-h { display: flex; align-items: center; gap: var(--s8); margin: 0 0 var(--s8); font: 600 var(--t18)/1.2 var(--font-h); color: var(--n900); }
+.ist-page .ist-n { font: 700 var(--t14)/1 var(--font); color: var(--n500); }
+.ist-page .ist-th .is-catic { width: 28px; height: 28px; }
+.ist-page .ist-tc { margin-left: auto; font: 700 var(--t13)/1.3 var(--font); color: var(--n700); text-align: right; }
+.ist-page .ist-list { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
+.ist-page .is-catf > .ist-list { border: 0; border-top: 1px solid var(--n100); border-radius: 0; box-shadow: none; }
+.ist-page .ist-row { display: flex; align-items: center; gap: var(--s12); min-height: 56px; padding: var(--s8) var(--s16); color: var(--n900); text-decoration: none; }
+.ist-page .ist-row + .ist-row { border-top: 1px solid var(--n100); }
+.ist-page .ist-row:hover { background: var(--n50); }
+.ist-page .ist-row:hover .ist-nm { color: var(--p700); text-decoration: underline; }
+.ist-page .ist-row:focus-visible { outline: 3px solid var(--p700); outline-offset: -3px; }
+.ist-page .ist-ic { flex: none; display: inline-flex; color: var(--n500); }
+.ist-page .ist-ic .ic { width: 20px; height: 20px; }
+.ist-page .ist-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ist-page .ist-name { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px var(--s8); font-weight: 700; font-size: var(--t16); }
+.ist-page .ist-tag { font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.ist-page .ist-marks { display: flex; flex-wrap: wrap; gap: 2px var(--s12); font-size: var(--t14); color: var(--n700); }
+.ist-page .ist-m { display: inline-flex; align-items: flex-start; gap: 4px; }
+.ist-page .ist-m .ic { flex: none; width: 16px; height: 16px; margin-top: 2px; }
+.ist-page .ist-risk { color: var(--bad-text); }
+.ist-page .ist-risk b { color: var(--bad-text); }
+.ist-page .ist-dying .ic, .ist-page .ist-dying b { color: var(--warn-text); }
+.ist-page .ist-safe .ic, .ist-page .ist-safe b { color: var(--ok-text); }
+.ist-page .ist-need { color: var(--n900); }
+.ist-page .ist-need .ic { color: var(--warn-text); }
+.ist-page .ist-hear .ic, .ist-page .ist-ahead .ic, .ist-page .ist-off .ic { color: var(--n500); }
+.ist-page .ist-hear { font-weight: 700; color: var(--n900); }
+.ist-page .ist-bills { font-size: var(--t13); color: var(--n500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ist-page .ist-row .chev { flex: none; width: 20px; height: 20px; color: var(--n400); }
+.ist-page .ist-empty, .ist-page .ist-off, .ist-page .ist-found { margin: 0; padding: var(--s8) 0; font-size: var(--t14); color: var(--n700); }
+.ist-page .ist-found { margin-top: var(--s16); }
+.ist-page .ist-fold { margin-top: var(--s16); }
+.ist-page .ist-fold > summary { list-style: none; display: flex; align-items: center; gap: var(--s4); min-height: 44px; font-size: var(--t14); font-weight: 700; color: var(--n700); cursor: pointer; }
+.ist-page .ist-fold > summary::-webkit-details-marker { display: none; }
+.ist-page .ist-fold > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+.ist-page .ist-fold > summary .is-chev { width: 18px; height: 18px; transition: transform .15s; }
+.ist-page .ist-fold[open] > summary .is-chev { transform: rotate(180deg); }
+.ist-page.is-index .is-cats, .ist-page.is-index #is-q-body > .is-catf:first-child { margin-top: var(--s16); }
+@media (max-width: 599px) {
+  .ist-page .ist-seg { width: 100%; }
+  .ist-page .ist-seg button { flex: 1 1 0; }
+  .ist-page .ist-row { padding: var(--s8) var(--s12); }
+}

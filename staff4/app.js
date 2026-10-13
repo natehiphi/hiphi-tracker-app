@@ -301,6 +301,7 @@ function avatarMenu() {
     side ? null : { label: 'My settings', icon: 'settings', run: () => go('#/me') },
     S.me?.is_admin && !side ? { label: 'Session setup', icon: 'sliders-horizontal', run: () => go('#/setup') } : null,
     side ? null : { label: 'Help', icon: 'circle-help', run: () => go('#/help') },
+    S.me?.is_admin ? { label: 'Open this page in Staff v5', icon: 'columns-3', sub: 'v4 with the ease-of-use fixes (R-277), to compare', run: () => { location.href = 'staff5.html' + location.search + location.hash; } } : null,
     { label: 'Open this page in Staff v3', icon: 'columns-3', sub: 'The version before R-269\u2019s changes, to compare', run: () => { location.href = 'staff3.html' + location.search + location.hash; } },
     { label: 'Open this page in Staff v2', icon: 'columns-3', sub: 'The team\u2019s app today, to compare', run: () => { location.href = 'staff.html' + location.search + location.hash; } },
     S.me?.is_admin ? { label: 'Open the old app', icon: 'external-link', sub: 'The old staff app, look-only', run: () => { location.href = APP_URL + 'classic.html' + (DEMO ? '?demo=1' : ''); } } : null,

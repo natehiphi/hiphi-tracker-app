@@ -280,6 +280,7 @@ function avatarMenu() {
     { label: 'Help', icon: 'circle-help', run: () => go('#/help') },
     { label: 'Open the old app', icon: 'external-link', sub: 'The old staff app, look-only', run: () => { location.href = APP_URL + 'classic.html' + (DEMO ? '?demo=1' : ''); } },
     S.me?.is_admin ? { label: 'Open this page in Staff v3', icon: 'columns-3', sub: 'The simpler laptop-first version, to compare (R-264)', run: () => { location.href = 'staff3.html' + location.search + location.hash; } } : null,
+    S.me?.is_admin ? { label: 'Open this page in Staff v5', icon: 'columns-3', sub: 'v4 with the ease-of-use fixes (R-277), to compare', run: () => { location.href = 'staff5.html' + location.search + location.hash; } } : null,
     S.me?.is_admin ? { label: 'Open this page in Staff v4', icon: 'columns-3', sub: 'v3 with each person\u2019s three things first (R-269), to compare', run: () => { location.href = 'staff4.html' + location.search + location.hash; } } : null,
     DEMO ? null : { label: 'Sign out', icon: 'log-out', run: async () => { await DB.logout(); } },
   ] });

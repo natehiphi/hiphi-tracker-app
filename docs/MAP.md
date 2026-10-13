@@ -303,6 +303,15 @@ call or helper is made in both** (`staff/` and `staff3/`); v3's own browser keys
 remembered choices are shared with v2. When Nate picks: v3 becomes `staff/` (and `staff.html`/`index.html` load it), or
 `staff3/` and `staff3.html` are deleted. The plan and the reviews: backend `docs/requests/R-264.md`.
 
+## Staff v5 (`staff5.html` + `staff5/`), the ease-of-use fixes (R-277, 13 Oct 2026)
+
+Nate: "make a staffv5 and implement the 1-21 fixes and show mes there." A copy of Staff v4 made 13 Oct (frontend 7cb7a229)
+to hold the fixes from the Staff v4 ease-of-use review (backend `docs/requests/R-277.md`: rows uncut, one word per thing,
+one look per action, Back closes the side panel, Help that answers how-to, calm at session volume). The version links
+in the menu show only to admins, and the sidebar says "v5". Held to A-24 by `tests/staff5_budget.py` and to the
+per-person targets by `tests/staff5_people.py` (both in CI). **Staff v4 is left as it was**, to compare; R-267's later
+pieces go into both while both exist. Nate picks v2, v3, v4 or v5 on 26 Oct. D2-D5 of the review are held, not built.
+
 ## Staff v4 (`staff4.html` + `staff4/`), to compare (R-269, 12 Oct 2026)
 
 Nate: "Make all these changes in a staffv4 page." A copy of Staff v3 made 12 Oct with R-269's thirteen changes, built so
