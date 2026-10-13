@@ -65,8 +65,7 @@
 .ib-page .ib-gnew { font-size: var(--t13); color: var(--n500); white-space: nowrap; }
 .ib-page .ib-gmore { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--t14); }
 
-.ib-page .ib-keys, .ib-page .ib-note { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s16) 0 0; font-size: var(--t13); color: var(--n500); }
-.ib-page .ib-note { margin-top: var(--s8); }
+.ib-page .ib-keys { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s16) 0 0; font-size: var(--t13); color: var(--n500); }
 .ib-page .ib-keys .ic { flex: none; width: 16px; height: 16px; margin-top: 1px; }
 .ib-page kbd { font: 700 var(--t13)/1 var(--font); color: var(--n900); background: var(--n0); border: 1px solid var(--n300); border-bottom-width: 2px; border-radius: 4px; padding: 2px 6px; }
 .ib-page .empty { margin-top: var(--s4); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); }

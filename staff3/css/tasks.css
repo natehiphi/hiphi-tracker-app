@@ -21,4 +21,3 @@
 .tk-page .tk-bill:hover { text-decoration: underline; }
 .tk-page .tk-keys { display: flex; align-items: center; gap: var(--s8); margin: var(--s16) 0 0; font-size: var(--t14); color: var(--n500); }
 .tk-page .tk-keys .ic { width: 16px; height: 16px; flex: none; }
-.tk-page .tk-note { margin: var(--s16) 0 0; font-size: var(--t14); color: var(--n500); }
