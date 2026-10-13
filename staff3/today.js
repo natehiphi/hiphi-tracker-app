@@ -183,6 +183,9 @@ const msgBtn = (b, ids) => ({ label: `Message ${msgWho(ids)}`, href: mentionHref
 
 // ---- the model ----
 // When a bill has several tasks, the earliest one leads the card; on a tie, the step closest to the Capitol wins.
+// The letter-writer tasks (R-148) are off Today until Nate's February check (R-266); the drafts notes on each bill's
+// Public tab and the public warning work as before.
+const DNOTE_ON = false;
 const RANK = { file: 1, review: 2, review2: 2, revise: 3, submit: 4, write: 5, send: 6, fix: 7, email: 8, stale: 9, dnote: 9.5, ask: 10, chair: 11, nodraft: 12, reply: 13, todo: 14, followup: 15, notice: 16, wait: 30 };
 const TESTIMONY = new Set(['file', 'review', 'review2', 'revise', 'submit', 'write', 'stale', 'nodraft', 'wait']);
 const byBill = () => { const m = new Map(); for (const h of S.hearings || []) { if (!m.has(h.bill_id)) m.set(h.bill_id, []); m.get(h.bill_id).push(h); } return m; };
@@ -368,7 +371,8 @@ export function todayItems(scope = 'mine', who = null) {
     // A new draft with a hearing coming and no note on what it changed (R-148): people who testified on an earlier draft
     // are told to read what changed before they send their letter again, so the note is due before testimony closes.
     // Also Claude's suggestion that a draft changes what people should say, waiting for staff's tick.
-    if (ups.length && b.is_public && /^(HD|SD|CD|FD)\d+$/.test(b.current_version || '')) {
+    // Off for now (R-266, Nate 10/12): back on Today only after his check in February.
+    if (DNOTE_ON && ups.length && b.is_public && /^(HD|SD|CD|FD)\d+$/.test(b.current_version || '')) {
       const notes = draftNotesOf(b.id), n = notes && notes.find(x => x.version === b.current_version), v = esc(b.current_version);
       const to = `${billRoute(b, 'public')}?focus=drafts`;
       // v3 (R-264): the line says what to do and for whom, so the note that explained it on every card went (A-14, P-4).

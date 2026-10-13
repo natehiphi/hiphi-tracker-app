@@ -166,10 +166,10 @@ with sync_playwright() as p:
         ok('are warned' in pg.locator('.bw-drrow').first.inner_text(), f'{tag}: HB 2121’s House draft 2 shows staff’s tick')
         pg.wait_for_timeout(600)
         ok(pg.evaluate("() => document.activeElement && document.activeElement.id") == 'bw-dr-h' and pg.evaluate("() => { const r = document.getElementById('bw-dr-h').getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight; }"), f'{tag}: ?focus=drafts lands on the draft notes')
-        # Today: a new draft of a public bill with a hearing this week and no note becomes "Say what ... changed"
+        # Today: the "Say what ... changed" task is off until Nate's February check (R-266); Today still loads.
         pg.goto('about:blank'); pg.goto(BASE + '/staff.html?demo=1#/'); pg.wait_for_timeout(5000)
         say = pg.locator('text=/Say what (House|Senate) draft \\d+ \\((HD|SD)\\d+\\) changed/')
-        ok(say.count() >= 1, f'{tag}: Today lists "Say what ... changed" for a new draft with no note ({say.count()})')
+        ok(say.count() == 0, f'{tag}: Today no longer lists "Say what ... changed" (R-266) ({say.count()})')
         ok(not errs, f'{tag}: no page errors (staff) ' + '; '.join(errs[:2])); c.close()
     br.close()
 print(f'{sum(res)}/{len(res)} passed'); sys.exit(0 if all(res) else 1)
