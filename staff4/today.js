@@ -521,14 +521,12 @@ export function todayItems(scope = 'mine', who = null, drop = null) {   // `drop
     t.btns = t.b ? [msgBtn(t.b, [me.id])] : t.kind === 'followup' ? [{ label: 'Open their page', href: `#/person/${t.f.person_id}`, text: true }] : t.a ? [{ label: 'Open the email', href: `#/email/${t.a.id}`, text: true }] : []; }
 
   // ---- cards: one per bill ----
-  // Two or more approvals waiting for me become one "Start review" card (review mode walks through them). A
-  // teammate's approvals stay one card per bill: review mode is only ever my own queue.
+  // Every approval is its own card, with its own deadline and Review button: five drafts to review are five things to
+  // do, not one "Review 5 testimony drafts" row (Nate 10/13, R-274). Review mode (#/review) still walks the whole queue.
   if (scope === 'none') { const keep = tasks.filter(t => t.b && unowned(t.b)); tasks.length = 0; tasks.push(...keep); }
   // v4 (R-269): an approval "Your hearing today" already carries is not grouped again below it (said once, A-14).
   if (drop?.size) { const keep = tasks.filter(t => !drop.has(t.key)); tasks.length = 0; tasks.push(...keep); }
-  const revs = tasks.filter(t => t.kind === 'review' || t.kind === 'review2');
-  let cluster = null, list = tasks;
-  if (revs.length >= 2 && self) { cluster = revs.sort((x, y) => (x.due ?? Infinity) - (y.due ?? Infinity) || (x.b.priority || 9) - (y.b.priority || 9)); list = tasks.filter(t => !revs.includes(t)); }
+  const cluster = null, list = tasks;
   const eff = t => t.due ?? endOfToday();
   // v4 (R-269): a bill's testimony step leads its row when it is due within 24 hours or already late (still open or
   // not); otherwise the earliest step does. A public ask is due two days before its hearing, so it always came first: on
@@ -544,18 +542,8 @@ export function todayItems(scope = 'mine', who = null, drop = null) {   // `drop
   // under "Needs you today" with its earliest mark ("4h to approve"); its open item names the late one, as before.
   if (cluster) { const due = Math.min(...cluster.map(t => t.due ?? Infinity)), g0 = lateGroup(groupOf(Number.isFinite(due) ? due : null, now), cluster);
     cards.push({ key: 'cluster', cluster, due: Number.isFinite(due) ? due : null, group: g0 === 'lateopen' ? 'today' : g0, tasks: cluster }); }
-  // v4 (R-269, T10): "Today" means today. New hearings stay on Today the day they are set (Nate's X10-5 pick), but two or
-  // more whose testimony is due after today are one row, "4 new hearings · No testimony draft yet", whose open item lists
-  // each bill with its own Make the draft now (as the review cluster lists its drafts): four rows of "6d left" pushed the
-  // day's real deadlines down and counted four in the badge.
-  if (!team) {
-    const nd = cards.filter(c => c.group === 'today' && c.b && c.tasks.every(t => t.kind === 'nodraft' && t.due != null && t.due > endOfToday()));
-    if (nd.length >= 2) {
-      const ts = nd.flatMap(c => c.tasks).sort((x, y) => x.due - y.due || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true }));
-      for (const c of nd) cards.splice(cards.indexOf(c), 1);
-      cards.push({ key: 'newh', newh: ts, due: null, group: 'today', tasks: ts });
-    }
-  }
+  // New hearings are one row each too (R-274): no bundling into "4 new hearings". A draft due days away sorts below the
+  // day's real deadlines on its own, by time.
   // Within a group: the review cluster, then by time; a message already seen sits below the new ones; waiting rows last.
   const ord = (x, y) => !!y.cluster - !!x.cluster || x.wait - y.wait || !!x.newh - !!y.newh || eff(x.p || x) - eff(y.p || y) || (!!x.seen - !!y.seen) || ((x.b?.priority || 9) - (y.b?.priority || 9)) || String(x.b?.bill_number || x.key).localeCompare(String(y.b?.bill_number || y.key), 'en', { numeric: true });
   const weight = c => c.cluster ? c.cluster.length : c.wait ? 0 : 1;
