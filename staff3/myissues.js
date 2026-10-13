@@ -4,10 +4,11 @@
 // they own or help on, from the 2027 prep's owners and helpers, 091), soonest work first, each with where it stands and
 // every bill on it in one line (the same line as the issue's own page, R-226). The bills on these issues are also in Bills >
 // Mine, Today and the inbox (data.js isMine; backend migration 172), so nobody hands them over bill by bill.
-// Outreach > Issues stays the catalogue (rename, merge, put bills on issues); the 2027 prep list is prep.js ?view=mine.
+// All issues stays the catalogue (rename, merge, put bills on issues); the 2027 prep list is prep.js ?view=mine.
+// v3 (R-264): the first of three tabs, My issues · All issues · Coalitions (ui.js sectionNav), three ways to group bills.
 import { S, SESSION_YEAR, SESSION_OVER, esc, fmtDT, myIssueIds } from './data.js';
 import { billRoute, hearingAhead, diedish } from './model.js';
-import { icon, btn, empty, posChip } from './ui.js';
+import { icon, btn, empty, posChip, sectionNav } from './ui.js';
 import { plural, billName, isSide } from './lists.js';
 import { catByKey, billsOn, standLine, whyNot } from './issues.js';
 import { indexLinks, isDraft } from './prep.js';
@@ -69,11 +70,12 @@ export default {
     const list = myIssues();
     const owned = list.filter(x => x.own).length, helped = list.length - owned;
     const who = [owned ? `You own ${plural(owned, 'issue')}` : '', helped ? `${owned ? 'help' : 'You help'} on ${helped}` : ''].filter(Boolean).join(' and ');
-    if (!list.length) return `<div class="le-page le-list is-page mi-page"><div class="le-tools"><h1 class="le-h1">My issues</h1></div>
+    if (!list.length) return `<div class="le-page le-list is-page mi-page">${sectionNav('issues', 'mine')}<div class="le-tools"><h1 class="le-h1">My issues</h1></div>
       <div class="le-empty">${empty({ title: 'No issues are yours yet', text: 'When an admin makes you the owner of an issue, or the owner adds you as a helper, it shows here with all its bills. Those bills are then in your Mine and on Today too.', action: btn('See all issues', { kind: 'secondary', href: '#/outreach/issues' }) })}</div></div>`;
     // In session, issues whose bills have all stopped wait in one quiet fold at the end (B-14: a fold for what is done).
     const live = SESSION_OVER ? list : list.filter(x => rank(x) < 4), still = SESSION_OVER ? [] : list.filter(x => rank(x) === 4);
     return `<div class="le-page le-list is-page mi-page${isSide() ? ' le-side' : ''}">
+      ${sectionNav('issues', 'mine')}
       <div class="le-tools"><h1 class="le-h1">My issues</h1>
         <p class="le-lede">${who}. Soonest work first.</p></div>
       ${SESSION_OVER ? indexLinks({ mineOnly: true }) : ''}

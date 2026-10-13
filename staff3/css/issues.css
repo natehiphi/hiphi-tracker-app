@@ -22,10 +22,36 @@
 .is-index .is-chead h2 { display: flex; align-items: center; gap: var(--s8); font-size: var(--t18); }
 .is-catic { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--p50); color: var(--p700); flex: none; }
 .is-catic .ic { width: 18px; height: 18px; }
-.is-index .is-row { min-height: 64px; }
-.is-index .is-row .is-meta { display: block; font-size: var(--t13); color: var(--n500); }
-.is-index .is-row .is-desc { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--t14); color: var(--n700); }
+/* v3 (R-264): an issue is one line, its name and at most a state; the rest is on its page */
+.is-index .is-row { min-height: 52px; }
+.is-index .is-row .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.is-index .is-row .end { gap: var(--s8); }
 .is-index .is-row .end .chip { flex: none; }
+.is-index .is-hw { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t13); font-weight: 700; color: var(--n700); white-space: nowrap; }
+.is-index .is-hw .ic { width: 16px; height: 16px; color: var(--n500); }
+.is-index .is-acts { display: flex; align-items: center; gap: var(--s8); margin-left: auto; }
+/* One row per category, opened on a click, one open at a time (issues.js). The category's name is a heading (A-19). */
+.is-index .is-cats { margin-top: var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
+.is-index .is-catf + .is-catf { border-top: 1px solid var(--n100); }
+.is-index .is-catf > summary { list-style: none; display: flex; align-items: center; gap: var(--s12); min-height: 60px; padding: var(--s8) var(--s16); cursor: pointer; }
+.is-index .is-catf > summary::-webkit-details-marker { display: none; }
+.is-index .is-catf > summary:hover { background: var(--n50); }
+.is-index .is-catf > summary:focus-visible { outline: 3px solid var(--p700); outline-offset: -3px; }
+.is-index .is-catb { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: var(--s12); }
+.is-index .is-catn { font: 600 var(--t18)/1.2 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+.is-index .is-catm { margin-left: auto; font-size: var(--t14); color: var(--n500); text-align: right; white-space: nowrap; }
+.is-index .is-catw { color: var(--n700); font-weight: 700; }
+.is-index .is-catf > summary .is-chev { flex: none; width: 20px; height: 20px; color: var(--n500); transition: transform .15s; }
+.is-index .is-catf[open] > summary .is-chev { transform: rotate(180deg); }
+.is-index .is-catf > .rows { margin: 0; border: 0; border-top: 1px solid var(--n100); border-radius: 0; box-shadow: none; }
+.is-index .is-catf > .le-none { padding: var(--s12) var(--s16); border-top: 1px solid var(--n100); }
+/* a phone: the count under the name, the hearings on a line of their own */
+@media (max-width: 599px) {
+  .is-index .is-catb { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .is-index .is-catm { margin-left: 0; text-align: left; white-space: normal; font-size: var(--t13); }
+  .is-index .is-catw { display: block; }
+  .is-index .is-catd { display: none; }
+}
 .is-arch { margin-top: var(--s24); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
 .is-arch > summary { list-style: none; display: flex; align-items: center; gap: var(--s12); min-height: 52px; padding: var(--s8) var(--s16); cursor: pointer; font-weight: 700; color: var(--n900); }
 .is-arch > summary::-webkit-details-marker { display: none; }
@@ -37,41 +63,60 @@
 /* The way to the first visit's numbers and links (R-023): a link of its own under the top line (A-12: it goes somewhere,
    so it looks like a link, not a button), its icon kept with its words, one line at every width. On a touch screen the
    target reaches 44px into the space around it (A-6) without pushing the list further down. */
-.is-index .is-fvlink, .fv-page .fv-golink, .mi-page .is-fvlink { display: flex; align-items: center; gap: 4px; width: fit-content; max-width: 100%; margin-top: var(--s8); font-size: var(--t14); color: var(--p700); font-weight: 700; text-decoration: none; }
-.is-index .is-fvlink + .is-find, .is-index .is-fvlink + .is-needs, .mi-page .is-fvlink + .is-find, .mi-page .is-fvlink + .is-needs { margin-top: var(--s12); }
-.is-index .is-fvlink .ic, .fv-page .fv-golink .ic, .mi-page .is-fvlink .ic { width: 16px; height: 16px; flex: none; }
-.is-index .is-fvlink:hover span, .fv-page .fv-golink:hover span, .mi-page .is-fvlink:hover span { text-decoration: underline; }
-.is-index .is-fvlink:focus-visible, .fv-page .fv-golink:focus-visible, .mi-page .is-fvlink:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
-@media (max-width: 899px) { .is-index .is-fvlink, .mi-page .is-fvlink, .fv-page .fv-golink { padding: 12px 0; margin: -4px 0 -12px; } }
+.fv-page .fv-golink, .mi-page .is-fvlink { display: flex; align-items: center; gap: 4px; width: fit-content; max-width: 100%; margin-top: var(--s8); font-size: var(--t14); color: var(--p700); font-weight: 700; text-decoration: none; }
+.mi-page .is-fvlink + .is-find, .mi-page .is-fvlink + .is-needs { margin-top: var(--s12); }
+.fv-page .fv-golink .ic, .mi-page .is-fvlink .ic { width: 16px; height: 16px; flex: none; }
+.fv-page .fv-golink:hover span, .mi-page .is-fvlink:hover span { text-decoration: underline; }
+.fv-page .fv-golink:focus-visible, .mi-page .is-fvlink:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+@media (max-width: 899px) { .mi-page .is-fvlink, .fv-page .fv-golink { padding: 12px 0; margin: -4px 0 -12px; } }
 
 /* ---- one issue (inside .le-page.le-list) ---- */
-.is-page .is-folcard { padding: 0 var(--s16); }
-.is-page .is-folcard .le-sharerow { border-top: 0; }
-/* "Show in the first visit" (066) sits over the followers row, as Publish does on a list's page */
-.is-page .is-folcard.is-hasfv .le-sharerow { border-top: 1px solid var(--n100); }
-.is-page .is-bmeta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); margin-top: 2px; }
-.is-page > .sv-notice { margin: var(--s12) 0 0; }
+/* v3 (R-264): its public side (followers, the first-visit switch) in a card; on a laptop it and Related issues are the
+   one side panel (.is-two), as sharing and support are on a coalition's page. */
+.is-page .is-folcard { margin-top: var(--s24); padding: var(--s12) var(--s16) var(--s4); }
+.is-page .is-folcard h2 { font-size: var(--t18); }
+.is-page .is-fol { margin: var(--s8) 0 var(--s4); font-size: var(--t14); color: var(--n700); }
+.is-page .is-fol .le-fol { display: inline-flex; align-items: flex-start; gap: 6px; }
+.is-page .is-fol .ic { width: 16px; height: 16px; margin-top: 2px; color: var(--n500); flex: none; }
+.is-page .is-folcard .sv-switchrow { border-top: 1px solid var(--n100); }
+.is-page > .sv-notice, .is-page .is-main > .sv-notice { margin: var(--s12) 0 0; }
 .is-page .le-brow .iconbtn { flex: none; }
-/* Where it stands (R-226): three facts, kept short above the bills. A phone reads them as three lines, the label
-   before its value, so the bills stay near the top; a desktop sets them side by side in one box. Quiet: text colours
-   already on the page only (A-5). */
-.is-page .is-sdl { margin: var(--s4) 0 0; }
-.is-page .is-sr { padding: 2px 0; font-size: var(--t14); line-height: 1.45; color: var(--n900); overflow-wrap: anywhere; }
-.is-page .is-sr dt { display: inline; font-size: var(--t13); font-weight: 700; color: var(--n500); margin-right: 4px; }
-.is-page .is-sr dt::after { content: ':'; }
-.is-page .is-sr dd { display: inline; margin: 0; }
-.is-page .is-sr dd a { color: var(--p700); font-weight: 700; }
 .is-page .is-sone { margin: 0; }
-@media (min-width: 900px) {
-  .is-page .is-sdl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: var(--s8); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); }
-  .is-page .is-sr { padding: var(--s12) var(--s16); }
-  .is-page .is-sr + .is-sr { border-left: 1px solid var(--n100); }
-  .is-page .is-sr dt { display: block; margin: 0 0 2px; }
-  .is-page .is-sr dt::after { content: none; }
-  .is-page .is-sr dd { display: block; }
+/* A bill's one line: its number and name, then its stage and HIPHI's position at the right */
+.is-page .is-brow { padding-right: var(--s12); }
+.is-page .is-brow:has(.iconbtn) { padding-right: var(--s4); }
+.is-page .is-brow .le-bmain { padding: var(--s8) 0; }
+.is-page .is-brow .is-bt { -webkit-line-clamp: 1; }
+.is-page .is-bend { display: flex; align-items: center; gap: var(--s8); flex: none; margin-left: var(--s8); }
+.is-page .is-bstage { font-size: var(--t14); color: var(--n500); white-space: nowrap; }
+@media (max-width: 599px) {
+  .is-page .is-brow { flex-wrap: wrap; padding-bottom: var(--s8); }
+  .is-page .is-brow .le-bmain { flex-basis: calc(100% - 48px); padding-bottom: 0; }
+  .is-page .is-brow .is-bt { -webkit-line-clamp: 2; }
+  .is-page .is-bend { order: 2; flex-basis: 100%; margin: 0; }
 }
-/* A bill's one line on the issue page (R-226): where it stands, in the same size as the rest of the row. */
+/* the bills that did not advance, and earlier sessions': a quiet line under the list, not another card */
+.is-page .is-gone > summary { list-style: none; display: inline-flex; align-items: center; gap: var(--s4); min-height: 44px; font-size: var(--t14); color: var(--n500); cursor: pointer; }
+.is-page .is-gone > summary::-webkit-details-marker { display: none; }
+.is-page .is-gone > summary:hover span { text-decoration: underline; }
+.is-page .is-gone > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+.is-page .is-gone > summary .ic { width: 16px; height: 16px; }
+.is-page .is-gone[open] > summary .ic.ic-chevron-down { transform: rotate(180deg); }
+.is-page .is-gone > .le-bills { margin-top: 0; }
+.is-page .is-add { margin-top: var(--s12); }
+.is-page .is-editrow { margin-top: var(--s8); }
+.is-page .is-rell { margin: 0 0 var(--s8); }
+.is-page .pr-outlook { margin: var(--s4) 0 var(--s12); }
+@media (min-width: 1100px) {
+  .is-page.is-two { max-width: 1056px; margin: 0 auto; }
+  .is-page .is-main { min-width: 0; }
+  .is-page .is-side .is-folcard { margin-top: 0; }
+  .is-page .is-side .le-sec { margin-top: 0; }
+  .is-page .is-side .is-rel .le-bmain { padding: var(--s8) 0; }
+}
+/* A bill's line on My issues (R-226): where it stands, in the same size as the rest of the row. */
 .is-page .is-bstat { display: block; font-size: var(--t14); line-height: 1.4; color: var(--n700); overflow-wrap: anywhere; }
+.is-page .is-bmeta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); margin-top: 2px; }
 
 /* ---- the issue form and the picker (sheets) ---- */
 .is-form .is-for, .is-picker .is-for { margin: 0 0 var(--s12); }
@@ -195,10 +240,6 @@
 .fv-pform input[readonly] { background: var(--n50); color: var(--n700); }
 
 @media (min-width: 900px) {
-  .is-index .is-row .is-desc { -webkit-line-clamp: 2; }
-  /* the first-visit switch and the followers side by side, so the bills start no lower than before (A-1) */
-  .is-page .is-folcard.is-hasfv { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--s24); align-items: center; }
-  .is-page .is-folcard.is-hasfv .le-sharerow { border-top: 0; border-left: 1px solid var(--n100); padding-left: var(--s24); }
   .fv-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   /* the period sits beside the title, so the numbers start one row higher (A-1) */
   .fv-page .fv-nhead { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s24); }
@@ -221,8 +262,8 @@
 }
 
 /* ---- getting the issues ready for 2027 (R-088; staff/prep.js): the links, the card on an issue, My issues, the board ---- */
-.is-index .pr-links, .mi-page .pr-links { display: flex; flex-wrap: wrap; gap: 0 var(--s24); }
-.is-index .pr-links .is-fvlink, .mi-page .pr-links .is-fvlink { margin-top: var(--s4); }
+.mi-page .pr-links { display: flex; flex-wrap: wrap; gap: 0 var(--s24); }
+.mi-page .pr-links .is-fvlink { margin-top: var(--s4); }
 .pr-card { margin-top: var(--s16); padding: var(--s16); }
 .pr-card .pr-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); flex-wrap: wrap; }
 .pr-card .pr-head h2 { font-size: var(--t18); }
@@ -322,9 +363,8 @@
 .mi-page .mi-gone[open] > summary .ic { transform: rotate(180deg); }
 .mi-page .mi-still { margin-top: var(--s32); }
 .mi-page .mi-stillin { padding: 0 var(--s16) var(--s16); }
-/* the heading over its lede, not beside it, where the sidebar shows the page's heading (1100px and wider) */
-.mi-page.le-side .le-tools { display: block; }
-.mi-page.le-side .le-h1 { margin: 0 0 var(--s4); }
+/* the heading over its lede, not beside it, wherever the page's heading shows (900px and wider since v3) */
+@media (min-width: 900px) { .mi-page .le-tools { display: block; } .mi-page .le-h1 { margin: 0 0 var(--s4); } }
 /* An issue's rows have no drag handle, so they keep the 16px inset that a list's rows give up for theirs on a desktop
    (lists.css); without it a bill's title sat 4px from the card's edge (R-263, on the issue page since R-226 too). */
 @media (min-width: 900px) { .is-page .le-brow { padding-left: var(--s16); } }

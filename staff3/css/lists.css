@@ -2,18 +2,18 @@
    index, a list, the Emails index), .le-cmp (the composer), .le-mail (the email preview, also used by review mode),
    .le-sheet (this group's sheet bodies) or .le-bar (the composer's bottom bar). Sizes 13/14/16/18/22 only. */
 
-/* ---- shared: the Outreach switcher, the top line, search boxes, desktop back link ---- */
+/* The section's tab row (ui.js sectionNav) is as wide as its tabs, like the switcher it replaced, not a bar across the
+   page: staff.css gives it width: auto, which a block flex box reads as the full width. */
+@media (min-width: 900px) { .le-page .sv-secnav, .sp-page .sv-secnav { width: fit-content; } }
+
+/* ---- shared: the top line, search boxes, desktop back link. v3 (R-264): the section's tab row is ui.js sectionNav
+   (staff.css .sv-secnav), so the old Outreach switcher is gone from here. ---- */
 .le-page .le-h1 { display: none; }
-.le-page .le-seg { display: flex; width: 100%; max-width: 440px; }
-/* Four links (Supporters, Issues, Lists, Emails): each as wide as its word plus an equal share of the rest, so all four fit at 320px */
-.le-page .le-seg a { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 8px; border-radius: var(--pill);
-  font-weight: 700; font-size: var(--t14); color: var(--n700); text-decoration: none; white-space: nowrap; }
-.le-page .le-seg a:hover { color: var(--n900); background: var(--n50); }
-.le-page .le-seg a[aria-current="page"] { background: var(--n0); color: var(--p800); box-shadow: var(--sh1); }
 .le-page .le-tools { display: flex; align-items: center; gap: var(--s12); margin-top: var(--s12); }
 .le-page .le-lede, .le-cmp .le-lede { flex: 1 1 auto; min-width: 0; font-size: var(--t14); color: var(--n700); }
 .le-page .le-sum { color: var(--n500); white-space: nowrap; }
-.le-page .le-tools .btn { flex: none; }
+.le-page .le-tools .btn, .le-page .le-tools .iconbtn { flex: none; }
+.le-page .le-tools .le-sp { flex: 1 1 auto; }
 .le-page .le-empty .empty, .le-cmp .empty { margin-top: var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); }
 .le-page .empty h2, .le-page .empty h1, .le-cmp .empty h1 { font-size: var(--t18); }
 .le-page .le-empty .empty h3 { font-size: var(--t16); }
@@ -104,8 +104,11 @@
 .le-sheet .err { margin-top: var(--s4); }
 
 /* ---- Emails index ---- */
-.le-page .le-hear { display: flex; align-items: flex-start; gap: var(--s8); margin: var(--s12) 0 0; padding: 0 var(--s4); font-size: var(--t14); color: var(--n700); }
-.le-page .le-hear .ic { width: 18px; height: 18px; margin-top: 1px; color: var(--n500); flex: none; }
+/* v3 (R-264): This week's asks, moved here from Today (today.js draws the card; .le-askph only until it does) */
+.le-page .le-asks { margin-top: var(--s16); }
+.le-page .le-askph { padding: var(--s12) var(--s16); }
+.le-page .le-askph h2 { font-size: var(--t18); }
+.le-page .le-askph p { margin: var(--s4) 0 0; }
 .le-page > .sv-notice { margin: var(--s12) 0 0; }
 .le-page .le-egroup { margin-top: var(--s16); }
 .le-page .le-egroup .sv-group { padding: 0 var(--s4); background: none; border-bottom: 0; font-size: var(--t16); }
@@ -179,6 +182,7 @@
 .le-cmp .le-prevtop { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8) var(--s12); margin-bottom: var(--s12); }
 .le-cmp .le-prevtop .le-aud { flex: 1 1 240px; }
 .le-cmp .le-prevtop .btn { flex: none; }
+.le-cmp .le-oneday { margin: calc(-1 * var(--s4)) 0 var(--s12); font-weight: 400; color: var(--n700); }
 .le-cmp .le-sum { padding: var(--s4) var(--s16); }
 .le-cmp .le-dl { margin: 0; }
 .le-cmp .le-dl > div { display: grid; grid-template-columns: 72px 1fr; gap: var(--s12); padding: var(--s12) 0; }
@@ -266,13 +270,10 @@
 
 /* ---- desktop ---- */
 @media (min-width: 900px) {
-  /* One tool row, as on Bills and Supporters: the title (or, with no sidebar, the switcher), a line about the page,
-     and the page's one main button on the right. */
-  .le-page .le-h1 { display: block; position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .le-page.le-side .le-h1 { position: static; width: auto; height: auto; margin: 0 var(--s8) 0 0; overflow: visible; clip: auto; flex: none; font-size: var(--t22); }
+  /* One tool row, as on Bills and Supporters: the title, a line about the page when there is one, and the page's one
+     main button on the right. v3: the title shows at every desktop width (the sidebar no longer names the sub-page). */
+  .le-page .le-h1 { display: block; margin: 0 var(--s8) 0 0; flex: none; font-size: var(--t22); }
   .le-page .le-tools { margin-top: 0; gap: var(--s16); min-height: 48px; }
-  .le-page .le-tools .le-seg { flex: none; width: auto; max-width: none; }
-  .le-page .le-tools .le-seg a { flex: none; padding: 0 var(--s16); }
   .le-page .le-tools .le-lede { max-width: 70ch; }
   .le-page .le-tools > .btn { margin-left: auto; }
   .le-page .le-tsum { margin: var(--s12) 0 var(--s8); font-size: var(--t14); color: var(--n500); }

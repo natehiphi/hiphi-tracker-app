@@ -96,6 +96,16 @@ export function indexLinks({ mineOnly = false } = {}) {
   return a || b ? `<div class="pr-links">${a}${b}</div>` : '';
 }
 
+// v3 (R-264): the same two ways in, as items of All issues' "…" menu instead of two links over the list. `mine: false`
+// leaves out your own list (All issues shows it between sessions only, as My issues has since R-263).
+export function prepMenu({ mine: withMine = true } = {}) {
+  const own = mine(), help = helping(), ok = live().filter(i => !isDraft(i)), n = ok.filter(i => stateOf(i) === 'approved').length;
+  return [
+    withMine && (own.length || help.length) ? { label: 'Your issues for 2027', icon: 'clipboard-list', sub: own.length ? `${own.filter(i => ['ready', 'approved'].includes(stateOf(i))).length} of ${own.length} ready · due ${dueText()}` : `The ones you help on · due ${dueText()}`, run: () => S.go('#/outreach/issues?view=mine') } : null,
+    isAdmin() ? { label: 'Prep board', icon: 'clipboard-check', sub: `${n} of ${ok.length} approved`, run: () => S.go('#/outreach/issues?view=prep') } : null,
+  ].filter(Boolean);
+}
+
 // ---- a sheet for one field: goal, points, outlook, and name and description ----
 function fieldSheet({ title, fields, help = '', saveLabel = 'Save', unchangedLabel = '', onSave }) {
   const body = `<div class="le-sheet is-form pr-sheet">${help ? `<p class="small muted is-for">${help}</p>` : ''}
@@ -210,7 +220,9 @@ function stepsHTML(i, steps) {
     return `<li><button type="button" class="pr-step${d ? ' done' : ''}" data-prstep="${s.k}">${icon(d ? 'circle-check' : 'circle', { cls: 'pr-mark' })}
       <span class="body"><span class="title">${esc(s.label)}</span><span class="sub">${esc(sub)}</span></span><span class="pr-go">${d ? 'Change' : 'Do it'}</span></button></li>`; }).join('')}</ol>`;
 }
-export function prepCardHTML(i) {
+// `outlook` (v3): in session the issue's page puts what the public reads between sessions in here, folded with the rest
+// of the 2027 work, instead of under the issue's name.
+export function prepCardHTML(i, { outlook = '' } = {}) {
   if (!i || i.archived_at) return '';
   if (isDraft(i)) {
     const m = missing(i), who = adminWord();
@@ -231,7 +243,7 @@ export function prepCardHTML(i) {
     : `<span class="small">Waiting for ${esc(adminWord())} to approve it.</span>${owner ? btn('Not ready yet', { kind: 'text', attrs: { 'data-pr': 'unready' } }) : ''}`;
   else if (st !== 'approved' && (owner || isAdmin())) foot = `${btn('Mark ready', { icon: 'send', attrs: { 'data-pr': 'ready', ...(n < STEPS.length ? { 'aria-disabled': 'true' } : {}) } })}<span class="small muted">${n < STEPS.length ? `${STEPS.length - n} step${STEPS.length - n === 1 ? '' : 's'} left.` : `${esc(Cap(adminWord()))} approve${adminWord() === 'you' ? '' : 's'} it next.`}</span>`;
   else if (st !== 'approved') foot = `<span class="small muted">${esc(first(ownerOfIssue(i)))} marks it ready.</span>`;
-  const inner = `<p class="small pr-lede">Due ${esc(dueText())}</p>
+  const inner = `${outlook ? `<div class="pr-outlook">${outlook}</div>` : ''}<p class="small pr-lede">Due ${esc(dueText())}</p>
     ${note}${peopleHTML(i)}${stepsHTML(i, STEPS)}
     ${foot ? `<div class="pr-foot">${foot}</div>` : ''}`;
   // Session work first (R-118): once the issue is approved, or the session is under way, the card folds to one line and
