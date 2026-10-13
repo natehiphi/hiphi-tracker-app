@@ -678,3 +678,9 @@
   .td-root .td-ract .btn.primary:hover { background: var(--p50); }
   .td-root .td-ract .btn.primary:active { background: var(--p100); }
 }
+/* The step is what a row is for, so it keeps its length and the bill's name gives way first (the number never does):
+   "HHS hearing today 1:10 PM" was cut to "1:…" while the name kept half the row (R-264 integration). */
+@media (min-width: 1100px) {
+  .td-root .td-rs { flex: 0 0 auto; max-width: 62%; }
+  .td-root .td-rb { flex: 1 1 auto; max-width: none; min-width: 0; }
+}
