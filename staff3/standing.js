@@ -1,0 +1,41 @@
+// Staff v2 · where a group of bills stands (R-226). The coalition page, the issue page and the Bills page all ask the same
+// questions of a set of bills: which need a hearing and are at risk before their deadline, when is the next one, and which
+// stage group each bill is in. They are answered here, once, so the three pages cannot disagree about a bill (A-14).
+// Each takes the bills it is given; a coalition passes its own, an issue passes its own.
+import { SESSION_OVER, fmtDate } from './data.js';
+import { stopOf, riskOf, diedish, factsOf } from './model.js';
+
+const HST = { timeZone: 'Pacific/Honolulu' };
+export const isPos = b => !!b.position && b.position !== 'monitor';
+export const byPri = (a, b) => (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true });
+// "Thu 3/19": the weekday rides along so nobody has to work it out. Takes a date string or an ISO time.
+export const dayOf = d => fmtDate(d, { weekday: 'short' }).replace(/^(\w{3}),/, '$1');
+// "9:30 AM today", "9:30 AM tomorrow", "Mon 9:30 AM": when testimony is due, from a row that already shows the hearing's day.
+const hstDay = t => new Date(t).toLocaleDateString('en-CA', HST);
+export function dueWhen(iso) {
+  const t = new Date(iso).getTime(), time = new Date(t).toLocaleTimeString('en-US', { ...HST, hour: 'numeric', minute: '2-digit' });
+  const d = hstDay(t), now = Date.now();
+  return d === hstDay(now) ? `${time} today` : d === hstDay(now + 864e5) ? `${time} tomorrow` : `${new Date(t).toLocaleDateString('en-US', { ...HST, weekday: 'short' })} ${time}`;
+}
+
+// Its bills still waiting for a hearing, split the way the weekly memo splits them (model.js memoData): at risk (the app's
+// one meaning, a deadline a week away or less; A-14), then the bills racing the next deadline after that week. The pool
+// is Today's for a coalition (today.js coalSection runs sessionClock over the same bills: Monitor out, dead bills out),
+// so every bill Today counts as "still needs a hearing" is in one of the two lists.
+export function waitingOfBills(bills) {
+  if (SESSION_OVER) return { risk: [], next: null, race: [] };
+  const w = bills.filter(b => b.position !== 'monitor' && !diedish(b)).map(b => ({ b, st: stopOf(b) }))
+    .filter(x => x.st.column === 'a' && x.st.deadline && !x.st.deadline.missed);
+  const risk = w.filter(x => riskOf(x.b)).map(x => ({ b: x.b, st: riskOf(x.b) })).sort((x, y) => x.st.deadline.days - y.st.deadline.days || byPri(x.b, y.b));
+  const later = w.filter(x => !riskOf(x.b)), next = later.map(x => x.st.deadline.date).sort()[0] || null;
+  return { risk, next, race: later.filter(x => x.st.deadline.date === next).sort((x, y) => byPri(x.b, y.b)) };
+}
+
+// ---- the stage groups, in stage order (the Bills page's groups; Bills and an issue's count use these) ----
+export const GROUPS = [['hear', 'Hearing scheduled'], ['risk', 'At risk: no hearing yet'], ['wait', 'Waiting for a hearing'], ['thru', 'Through its committees'],
+  ['done', 'At the governor or law'], ['mon', 'Monitoring'], ['dead', 'Did not advance']];
+// The stand comes from factsOf, the same fact the filter counts use, so a group and its filter always agree.
+export const groupKey = b => { const f = factsOf(b);
+  if (f.stand === 'dead') return 'dead';
+  if (b.position === 'monitor') return 'mon';
+  return f.stand === 'b' ? 'hear' : f.stand === 'a' ? (f.risk ? 'risk' : 'wait') : f.stand === 'done' ? 'done' : 'thru'; };

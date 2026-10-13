@@ -1,0 +1,323 @@
+// HIPHI Staff v2: shared building blocks. Every screen builds from these so a row, a chip, a sheet or a countdown
+// looks and behaves the same everywhere (plan section 4). Styles in staff/staff.css, on top of pub/base.css.
+import { S, STAGES, effStage, esc, advocate } from './data.js';
+import { stopOf, STAGE_GLOSS } from './model.js';
+import { icon } from '../icons.js';
+export { icon };
+
+const attrs = a => Object.entries(a || {}).filter(([, v]) => v !== undefined && v !== null && v !== false)
+  .map(([k, v]) => v === true ? ` ${k}` : ` ${k}="${esc(v)}"`).join('');
+
+// ---- buttons and chips ----
+export function btn(label, { kind = 'primary', icon: ic, iconEnd, full, sm, href, attrs: a, cls = '', target } = {}) {
+  const c = `btn ${kind}${full ? ' full' : ''}${sm ? ' sm' : ''}${cls ? ' ' + cls : ''}`;
+  const inner = `${ic ? icon(ic) : ''}<span>${label}</span>${iconEnd ? icon(iconEnd) : ''}`;
+  const { type = 'button', ...rest } = a || {};
+  return href ? `<a class="${c}" href="${esc(href)}"${target ? ` target="${target}" rel="noopener"` : ''}${attrs(rest)}>${inner}</a>`
+    : `<button type="${esc(type)}" class="${c}"${attrs(rest)}>${inner}</button>`;
+}
+export const iconBtn = (ic, label, a = {}, cls = '') => `<button type="button" class="iconbtn${cls ? ' ' + cls : ''}" aria-label="${esc(label)}" title="${esc(label)}"${attrs(a)}>${icon(ic)}</button>`;
+// Status chip: not a button, never drawn with a border. tone: '' | info | warn | danger | ok | yay
+export const chip = (text, tone = '', ic) => `<span class="chip sv-chip${tone ? ' ' + tone : ''}">${ic ? icon(ic) : ''}${esc(text)}</span>`;
+// Picker chip: a button that opens a picker sheet ("Strong support ▾").
+export const pickerChip = (label, a = {}, ic) => `<button type="button" class="sv-pick"${attrs(a)}>${ic ? icon(ic) : ''}<span>${esc(label)}</span>${icon('chevron-down', { cls: 'chev' })}</button>`;
+// Position: an icon and a word, never colour alone.
+export const POS_ICON = { strongly_support: 'thumbs-up', support: 'thumbs-up', support_amend: 'thumbs-up', strongly_oppose: 'thumbs-down', oppose: 'thumbs-down', neutral: 'message-square', monitor: 'eye', '': 'circle-dashed' };
+// A strong position shows its icon twice (Nate, 9/20): two thumbs up reads as "strongly" at a
+// glance down a list of 113 bills, where the word alone does not. The picker still takes a plain
+// icon name, so this is only for rendered rows.
+export const posIcons = pos => { const ic = POS_ICON[pos] || 'circle-dashed';
+  return /^strongly_/.test(pos || '') ? icon(ic) + icon(ic) : icon(ic); };
+export const POS_WORD = { strongly_support: 'Strong support', support: 'Support', support_amend: 'Support with changes', strongly_oppose: 'Strongly oppose', oppose: 'Oppose', neutral: 'Comments', monitor: 'Monitor', '': 'No position' };
+// What a position does beyond its name, under it in every position picker. The priority follows the position
+// (R-175, Nate 10/5), so the one place it can be seen being set is here.
+export const POS_SUB = { strongly_support: 'Makes it P1, the team’s top tier', monitor: 'Watch it; no testimony drafts' };
+export const posChip = p => chip(POS_WORD[p || ''] || p, '', POS_ICON[p || ''] || 'circle-dashed');
+
+// ---- people ----
+export function avatar(adv, size = 24) {
+  if (!adv) return `<span class="sv-av none" style="--av:${size}px" role="img" aria-label="No owner" title="No owner"></span>`;
+  const me = S.me && adv.id === S.me.id;
+  return `<span class="sv-av${me ? ' me' : ''}" style="--av:${size}px" title="${esc(me ? 'You' : adv.full_name)}" role="img" aria-label="${esc(me ? 'You' : adv.full_name)}">${esc(adv.initials || adv.full_name?.[0] || '?')}</span>`;
+}
+export const ownerOf = b => advocate((S.assignments[b.id] || [])[0]);
+
+// ---- countdown: always an icon and words (plan 4) ----
+export function countdown(iso, { prefix = '' } = {}) {
+  if (!iso) return '';
+  const ms = new Date(iso) - Date.now(), h = ms / 36e5;
+  // Never round a deadline up: 2 days 6 hours is "2 days left", not 3 (R-022). A day early is safe; a day late is not.
+  const text = ms <= 0 ? `${prefix}overdue` : h < 1 ? `${prefix}under an hour` : h < 48 ? `${prefix}${Math.floor(h)}h left` : `${prefix}${Math.floor(h / 24)} days left`;
+  const tone = ms <= 0 ? 'late' : h <= 24 ? 'soon' : '';
+  return `<span class="sv-count ${tone}">${icon(ms <= 0 ? 'circle-alert' : 'clock')}${esc(text)}</span>`;
+}
+
+// ---- rows and groups ----
+// A two-line row: row({ lead, title, sub, end, href | attrs, chevron })
+export function row({ lead, leadHtml, title, sub, end = '', chevron = true, href, attrs: a, cls = '' }) {
+  const inner = `${leadHtml || (lead ? `<span class="lead">${icon(lead)}</span>` : '')}<span class="body"><span class="title">${title}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</span><span class="end">${end}${chevron ? icon('chevron-right', { cls: 'chev' }) : ''}</span>`;
+  return href ? `<a class="row${cls ? ' ' + cls : ''}" href="${esc(href)}"${attrs(a)}>${inner}</a>` : `<button type="button" class="row${cls ? ' ' + cls : ''}"${attrs(a)}>${inner}</button>`;
+}
+// A bill row (64px on phones): number + plain title, a status sentence, and position / P1 / owner at the right.
+export function billRow(b, { sub = '', href, attrs: a, selectable = false, selected = false, cls = '' } = {}) {
+  const num = (b.bill_number || '').replace(/^([A-Z]+)(\d)/, '$1$2') + (b.current_version ? ' ' + b.current_version : '');
+  const nick = b.nickname || '', title = b.public_summary || b.description || b.title || '';   // the nickname names the bill when it has one; the summary follows
+  const pos = b.position || '';
+  const end = `<span class="sv-posic" title="${esc(POS_WORD[pos] || pos)}" aria-label="${esc(POS_WORD[pos] || pos)}">${icon(POS_ICON[pos] || 'circle-dashed')}</span>${b.priority === 1 ? '<span class="sv-p1">P1</span>' : ''}${avatar(ownerOf(b))}`;
+  const box = selectable ? `<span class="sv-check" aria-hidden="true">${icon(selected ? 'square-check-big' : 'square')}</span>` : '';
+  const inner = `${box}<span class="body"><span class="title"><b>${esc(num)}</b> ${nick ? `<b class="sv-nk">${esc(nick)}</b> ` : ''}<span class="sv-t">${esc(title)}</span></span>${sub ? `<span class="sub">${sub}</span>` : ''}</span><span class="end">${end}</span>`;
+  const extra = { 'data-bill': b.id, ...(selectable ? { 'aria-pressed': selected ? 'true' : 'false' } : {}), ...(a || {}) };
+  return href && !selectable ? `<a class="row sv-billrow${cls ? ' ' + cls : ''}" href="${esc(href)}"${attrs(extra)}>${inner}</a>`
+    : `<button type="button" class="row sv-billrow${selected ? ' sel' : ''}${cls ? ' ' + cls : ''}"${attrs(extra)}>${inner}</button>`;
+}
+// A group header (44px): title and a right-aligned count; foldable when given a key.
+export const groupHead = (title, count, { fold, open = true, id } = {}) => fold
+  ? `<button type="button" class="sv-group" data-fold="${esc(fold)}" aria-expanded="${open}"${id ? ` id="${esc(id)}"` : ''}><span>${title}</span><span class="n">${count ?? ''}</span>${icon(open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button>`
+  : `<div class="sv-group"${id ? ` id="${esc(id)}"` : ''}><span>${title}</span><span class="n">${count ?? ''}</span></div>`;
+
+// ---- controls ----
+// segmented('scope', [['mine','Mine'],['team','Team']], 'mine')  -> buttons with data-seg="scope" data-val
+export const segmented = (name, opts, value, label = '') => `<div class="sv-seg" role="group"${label ? ` aria-label="${esc(label)}"` : ''}>${opts.map(([v, l]) => `<button type="button" data-seg="${esc(name)}" data-val="${esc(v)}" aria-pressed="${v === value}">${esc(l)}</button>`).join('')}</div>`;
+export const switchRow = (id, label, on, help = '', a = {}) => `<label class="sv-switchrow" for="${esc(id)}"><span class="body"><span class="title">${label}</span>${help ? `<span class="sub">${help}</span>` : ''}</span><input type="checkbox" role="switch" id="${esc(id)}" ${on ? 'checked' : ''}${attrs(a)}><span class="sv-switch" aria-hidden="true"></span></label>`;
+export const field = (id, label, input, help = '') => `<div class="field"><label for="${esc(id)}">${label}</label>${input}${help ? `<span class="help" id="${esc(id)}-help">${help}</span>` : ''}</div>`;
+// The testimony steps with the true state: Write · Review · (2nd approval) · File
+export function stepBar(status, { second = false } = {}) {
+  const steps = [['draft', 'Write'], ['review', 'Review'], ...(second || status === 'second_review' ? [['second_review', '2nd approval']] : []), ['approved', 'File']];
+  const order = steps.map(s => s[0]), cur = status === 'filed' ? steps.length : Math.max(0, order.indexOf(status));
+  return `<ol class="sv-steps" aria-label="Testimony steps">${steps.map(([k, l], i) => `<li class="${i < cur ? 'done' : i === cur ? 'cur' : ''}"${i === cur ? ' aria-current="step"' : ''}>${i < cur ? icon('check') : ''}<span>${l}</span></li>`).join('')}</ol>`;
+}
+// ---- stage ribbon: how far a bill has walked towards becoming law (the one graphic worth keeping from the
+// current app; assessment 9/19). Twelve steps: 'vetoed' and 'dead' are outcomes, not steps, so they colour the
+// ribbon rather than adding a segment to it. A stopped bill still shows how far it got. ----
+const RIBBON = STAGES.filter(([k]) => !['vetoed', 'dead', 'first_floor', 'second_floor', 'ballot'].includes(k));
+// Waiting for the floor vote races Crossover (or the Cross back); an amendment for the ballot sits on the last steps (R-072).
+const ON_RIBBON = { first_floor: 'first_crossover', second_floor: 'second_crossover', ballot: 'governor' };
+// Which step is dark. Each committee step is a deadline (Triple filing, Lateral, Decking) and the dark one is the
+// deadline the bill is racing. The sync's 'first_crossover' is the exception: it means the bill has ALREADY passed
+// its first chamber and has no committee activity in the second yet (session_deadlines ends it at the second
+// Lateral, not at Crossover). Drawn on Crossover, a bill waiting for its first House hearing read as not yet crossed
+// over (SB2175, Nate 9/21), so it goes on the deadline the sentence under the ribbon names, with Crossover behind it.
+// A stopped bill is marked where it stopped. Its stage is only 'dead'; died_at_stage says where, and died_deadline,
+// quoted under the ribbon, names the deadline that ended it: 'introduced' at the first Lateral, 'first_crossover' at
+// the second. Reading b.stage here drew every stopped bill as "Stopped after Introduced", the 45 of 2026 that died in
+// conference included.
+function ribbonKey(b, st) {
+  if (st === 'vetoed') return 'governor';
+  if (st === 'dead') {
+    const at = b.died_at_stage || (b.stage !== 'dead' ? b.stage : null);   // the team set it dead: the sync's stage
+    return at === 'introduced' ? 'first_lateral' : at === 'first_crossover' ? 'second_lateral' : ON_RIBBON[at] || at;
+  }
+  if (ON_RIBBON[st]) return ON_RIBBON[st];
+  if (st !== 'first_crossover') return st;
+  const k = stopOf(b).deadlineKey;   // second_triple | second_lateral | second_decking, or second_crossover once through
+  return k === 'second_crossover' ? 'second_decking' : /^second_(triple|lateral|decking)$/.test(k || '') ? k : 'second_lateral';
+}
+export function stageRibbon(b, { labels = true } = {}) {
+  const st = effStage(b), dead = st === 'dead', vetoed = st === 'vetoed';
+  // No record of where it stopped (2 bills in 2026): no step is marked, rather than claiming Introduced.
+  const key = ribbonKey(b, st), last = RIBBON.length - 1;
+  const i = key ? Math.max(0, RIBBON.findIndex(([k]) => k === key)) : -1;
+  const now = RIBBON[i]?.[1] || '';
+  const said = dead ? (now ? `Stopped at ${now}` : 'Stopped') : vetoed ? 'Vetoed by the Governor' : st === 'ballot' ? 'Passed · the voters decide'
+    : st === 'first_floor' || st === 'second_floor' ? 'Waiting for the floor vote' : i === last ? (/^(HCR|SCR|HR|SR)\d/.test(b.bill_number || '') ? 'Adopted' : 'Signed into law') : now;
+  const tone = dead || vetoed ? ' stopped' : i === last ? ' done' : '';
+  const set = b.stage_override ? ' · set by the team' : '';
+  const gl = !dead && !vetoed && key ? STAGE_GLOSS[key] || '' : '';
+  return `<div class="sv-rib${tone}" role="img" aria-label="${esc(`Stage: ${said}${set}.${i >= 0 ? ` Step ${i + 1} of ${RIBBON.length}.` : ''}${gl ? ' ' + gl : ''}`)}">${
+    RIBBON.map(([, l], n) => `<i class="${n < i ? 'done' : n === i ? 'now' : ''}" title="${esc(l)}"></i>`).join('')
+  }</div>${labels ? `<p class="sv-riblab" data-at="${i}"><span>${esc(RIBBON[0][1])}</span><b${gl ? ` title="${esc(gl)}"` : ''}>${esc(said)}${set ? `<span class="set">${esc(set)}</span>` : ''}</b><span>${esc(RIBBON[last][1])}</span></p>` : ''}`;
+}
+
+// The caption names the current step right under its own bar (R-005, option A, Nate 9/26). It used to sit halfway
+// between "Introduced" and "Law" wherever the step was, up to two whole bars away, so it read as a mistake. Placing it
+// needs the drawn bars, so it is measured after each redraw; until then (or with no step marked) the caption stays
+// centred between the ends. An end label that the caption would touch is hidden, and so is the end the bill is at
+// ("Introduced" under "Introduced"); the ribbon's own label still says it.
+function anchorRibbons() {
+  for (const p of document.querySelectorAll('.sv-riblab[data-at]')) {
+    const at = +p.dataset.at, bars = p.previousElementSibling, seg = bars?.children?.[at], b = p.querySelector('b');
+    const [first, last] = [p.firstElementChild, p.lastElementChild];
+    p.classList.remove('anch'); first.classList.remove('hid'); last.classList.remove('hid'); b.style.left = '';
+    if (!(at >= 0) || !seg || !b || !p.offsetWidth) continue;
+    p.classList.add('anch');
+    const W = p.clientWidth, w = b.offsetWidth, box = p.getBoundingClientRect(), r = seg.getBoundingClientRect();
+    if (w > W) { p.classList.remove('anch'); continue; }
+    const x = Math.min(Math.max(0, r.left + r.width / 2 - box.left - w / 2), W - w);
+    b.style.left = Math.round(x) + 'px';
+    const gap = 8, n = bars.children.length;
+    if (at === 0 || first.offsetWidth + gap > x) first.classList.add('hid');
+    if (at === n - 1 || W - last.offsetWidth - gap < x + w) last.classList.add('hid');
+  }
+}
+// Desktop: a page's own back link ("Bills", "Legislators", "Emails", "Help"...) sits at the top of the page and scrolled
+// away with it, so going back from far down meant scrolling up first (R-005; plan wave 6a: the person, legislator,
+// composer, list, Bills filter and Help pages, then the hearing and coalition pages). Once it has gone under the
+// header, the same link comes back pinned just below the header; pressing it presses the page's own link, so real
+// Back, the leave guards and the label all stay the page's. (The bill page pins its own top bar, R-042.)
+const DESKBACK = '.co-deskback, .hr-deskback, .bl-deskback, .lg-deskback, .le-deskback, .sp-deskback, .st-crumb';
+function floatBack() {
+  let fb = document.getElementById('sv-floatback');
+  const main = document.getElementById('main');
+  const src = main && matchMedia('(min-width: 900px)').matches ? [...main.querySelectorAll(DESKBACK)].find(a => a.offsetParent) : null;
+  const hdr = document.querySelector('.sv-hdr')?.getBoundingClientRect().bottom || 56;
+  if (!src || src.getBoundingClientRect().bottom > hdr || document.querySelector('dialog[open]')) { if (fb) fb.hidden = true; return; }
+  if (!fb) { fb = document.createElement('button'); fb.type = 'button'; fb.id = 'sv-floatback'; fb.className = 'sv-floatback'; document.body.appendChild(fb);
+    fb.onclick = () => fb.src?.isConnected && fb.src.click(); }
+  const label = src.textContent.trim();
+  if (fb.src !== src) { fb.src = src; fb.innerHTML = `${icon('chevron-left')}<span>${esc(label)}</span>`; fb.setAttribute('aria-label', src.getAttribute('aria-label') || `Back to ${label}`); }
+  fb.style.top = Math.round(hdr + 8) + 'px'; fb.style.left = Math.round(src.getBoundingClientRect().left) + 'px'; fb.hidden = false;
+}
+let ribRaf = 0;
+const ribSoon = () => { if (!ribRaf) ribRaf = requestAnimationFrame(() => { ribRaf = 0; anchorRibbons(); floatBack(); }); };
+if (typeof MutationObserver === 'function' && document.body) new MutationObserver(recs => { if (recs.some(r => r.addedNodes.length)) ribSoon(); }).observe(document.body, { childList: true, subtree: true });
+addEventListener('resize', ribSoon);
+let fbRaf = 0;
+addEventListener('scroll', () => { if (!fbRaf) fbRaf = requestAnimationFrame(() => { fbRaf = 0; floatBack(); }); }, { passive: true });
+
+// ---- urgency mark: the current app's left-rail block, kept because it is the fastest thing to scan down a long
+// list (assessment 9/19). Never colour alone: the number, the word and, when late, an icon all say the same thing. ----
+export function urgentMark(iso, { done = false } = {}) {
+  if (done) return `<span class="sv-urg done" role="img" aria-label="Done">${icon('check')}</span>`;
+  if (!iso) return '<span class="sv-urg none" aria-hidden="true"></span>';
+  const ms = new Date(iso) - Date.now(), h = ms / 36e5, over = -h;
+  const big = ms <= 0 ? (over >= 48 ? `${Math.floor(over / 24)}d` : `${Math.max(1, Math.floor(over))}h`)
+    : h < 1 ? '<1h' : h < 48 ? `${Math.floor(h)}h` : `${Math.floor(h / 24)}d`;   // rounded down, never up (R-022)
+  const word = ms <= 0 ? 'overdue' : 'left';   // one word for time still to run, hours or days (R-152 C: it said "to go" past 48 hours)
+  const tone = ms <= 0 ? ' late' : h <= 24 ? ' soon' : '';
+  return `<span class="sv-urg${tone}" role="img" aria-label="${esc(`${big} ${word}`)}">${ms <= 0 ? icon('circle-alert') : ''}<b>${esc(big)}</b><span>${word}</span></span>`;
+}
+
+export const empty = ({ title, text = '', action = '', h = 'h2', art = '' }) => `<div class="empty">${art}${title ? `<${h}>${title}</${h}>` : ''}${text ? `<p>${text}</p>` : ''}${action}</div>`;
+export const skeleton = (n = 5) => `<div class="skelpage" aria-busy="true" aria-label="Loading"><div class="skel" style="height:56px"></div>${Array.from({ length: n }, () => '<div class="skel" style="height:72px"></div>').join('')}</div>`;
+export const notice = (tone, ic, html, action = '') => `<div class="notice ${tone} sv-notice">${icon(ic)}<div>${html}</div>${action}</div>`;
+export const inlineErr = (id, text) => `<div class="inlinemsg" id="${esc(id)}" role="alert">${icon('circle-alert')}<span>${esc(text)}</span></div>`;
+
+// ---- toast: one at a time, in #toast; Undo keeps it 10 seconds ----
+export function toast(msg, opt = {}) {
+  if (opt === true) opt = { err: true };
+  const box = document.getElementById('toast'); if (!box) return;
+  // A toast raised while a sheet is open has to live inside that sheet. #toast sits in the ordinary page, and the
+  // browser puts an open <dialog> in the top layer above everything there, so an Undo button left outside could be
+  // seen but never clicked (found on Bills' saved views, 9/19). Anywhere else it goes to #toast as before.
+  const dlg = document.querySelector('dialog[open]');
+  const host = dlg || box;
+  const clear = () => document.querySelectorAll('.toastmsg').forEach(t => t.remove());
+  clear();
+  const el = document.createElement('div'); el.className = 'toastmsg' + (opt.err ? ' err' : opt.ok ? ' yay' : '');
+  el.innerHTML = (opt.ok ? `<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9.5" fill="var(--ok-text)"/><path class="ck" d="M5.5 10.4l3 3 6-6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '')
+    + `<span>${esc(opt.err ? friendly(msg) : msg)}</span>` + (opt.undo ? '<button type="button" class="toastundo">Undo</button>' : '') + (opt.action ? `<button type="button" class="toastundo toastact">${esc(opt.action.label)}</button>` : '');
+  if (opt.undo) el.querySelector('.toastundo').onclick = async () => { clear(); try { await opt.undo(); } catch (e) { toast(e, true); } };
+  if (opt.action) el.querySelector('.toastact').onclick = () => { clear(); opt.action.run(); };
+  // One with a button can be closed (it could sit on top of the bill tabs for ten seconds), and any toast someone is
+  // reading or reaching for stays put: its clock starts again when they leave it.
+  if (opt.undo || opt.action) { el.insertAdjacentHTML('beforeend', `<button type="button" class="toastx" aria-label="Dismiss">${icon('x')}</button>`); el.querySelector('.toastx').onclick = () => el.remove(); }
+  const arm = () => { clearTimeout(toast.t); toast.t = setTimeout(() => el.isConnected && el.remove(), opt.undo || opt.action ? 10000 : 4000); }, hold = () => clearTimeout(toast.t);
+  el.addEventListener('mouseenter', hold); el.addEventListener('mouseleave', arm); el.addEventListener('focusin', hold); el.addEventListener('focusout', arm);
+  if (dlg) el.classList.add('insheet');
+  host.appendChild(el); arm();
+}
+// Keyboard shortcuts can be switched off in My settings (a stray letter should never do anything for someone who does
+// not use them). Every keydown handler in v2 checks this first.
+export const keysOn = () => { try { return localStorage.getItem('sv_keys') !== 'off'; } catch { return true; } };
+export const setKeys = on => { try { if (on) localStorage.removeItem('sv_keys'); else localStorage.setItem('sv_keys', 'off'); } catch { /* private mode */ } };
+const DESK = () => { try { return matchMedia('(min-width: 900px) and (hover: hover) and (pointer: fine)').matches; } catch { return false; } };
+// A refusal the database raised on purpose (RAISE EXCEPTION, SQLSTATE P0001) is a sentence written for people: "Someone else has to
+// approve testimony you sent for review". It is shown as it is, tidied (no "(status is filed)" or "(Jess or Jaylen)", a capital, a full
+// stop), instead of "Check your connection" (X4-7, B-8). Everything else keeps the old rules.
+const tidy = m => { const t = m.replace(/\s*\([^)]*\)/g, '').replace(/\s+/g, ' ').trim().replace(/^./, c => c.toUpperCase()); return /[.!?]$/.test(t) ? t : t + '.'; };
+export function friendly(e) {
+  const m = String(e?.message || e || '');
+  if (e && e.code === 'P0001' && m.length >= 8 && m.length <= 240 && !/(sqlstate|violates|relation |column |function public|jwt)/i.test(m)) return tidy(m);
+  if (/rate limit|too many/i.test(m)) return 'Too many tries in a row. Wait a minute and try again.';
+  if (/refus|hearing ahead|has a .* hearing/i.test(m)) return m;          // the server's own sentence (e.g. mute refused)
+  if (/^[A-Z][^{}<>]{3,160}[.!]$/.test(m) && !/(error|exception|fetch|null|undefined|column|relation|violates|jwt|token|permission)/i.test(m)) return m;
+  return 'That did not save. Check your connection and try again.';
+}
+
+// ---- sheets: one at a time (never stacked), bottom sheet on phones, 560px dialog on desktop. Back closes it (it
+// pushes a history entry), Esc closes it, focus moves into it and returns to where it was. ----
+let cur = null;
+export const sheetOpen = () => !!cur;
+// What was just clicked or activated: on a desktop a menu or picker opens beside it, not in the middle of the window
+// 900px away (assessment, 9/19). Captured before any handler runs, and only trusted for a moment.
+let trigger = null, triggerAt = 0;
+document.addEventListener('click', e => { trigger = e.target?.closest?.('button, a, [role="button"]') || null; triggerAt = performance.now(); }, true);
+const anchorNow = () => trigger && trigger.isConnected && performance.now() - triggerAt < 400 && !trigger.closest('dialog') ? trigger : null;
+function place(d, anchor) {
+  const r = anchor.getBoundingClientRect(), w = d.offsetWidth, h = d.offsetHeight, m = 8;
+  let left = r.left; if (left + w > innerWidth - m) left = Math.max(m, r.right - w);
+  let top = r.bottom + 6; if (top + h > innerHeight - m) top = r.top - h - 6 >= m ? r.top - h - 6 : Math.max(m, innerHeight - h - m);
+  d.style.left = Math.round(left) + 'px'; d.style.top = Math.round(top) + 'px';
+}
+export function openSheet({ title, body, foot = '', size = 'half', onClose, wire, pop = false } = {}) {
+  // A sheet opened from another sheet takes over its Back entry instead of undoing it and pushing a new one
+  // (a Back that lands late would otherwise undo the new sheet's entry).
+  let reuse = false, back = document.activeElement;
+  if (cur) { reuse = cur.pushed; back = cur.back; cur.d.close(); cur.d.remove(); cur = null; }
+  const anchor = pop && DESK() ? anchorNow() : null;
+  const d = document.createElement('dialog'); d.className = `sv-sheet ${size}${anchor ? ' sv-pop' : ''}`; d.setAttribute('aria-labelledby', 'sv-sh-t');
+  d.innerHTML = `<div class="sv-sh-grab" aria-hidden="true"></div><div class="sv-sh-head"><h2 id="sv-sh-t" tabindex="-1">${title}</h2>${iconBtn('x', 'Close', { 'data-shclose': '1' })}</div><div class="sv-sh-body">${body}</div>${foot ? `<div class="sv-sh-foot">${foot}</div>` : ''}`;
+  document.body.appendChild(d);
+  cur = { d, back, onClose, pushed: true };
+  if (!reuse) history.pushState({ ...(history.state || {}), sheet: true }, '');
+  d.addEventListener('cancel', e => { e.preventDefault(); closeSheet(); });
+  d.addEventListener('click', e => { if (e.target === d) closeSheet(); });
+  d.querySelector('[data-shclose]').onclick = () => closeSheet();
+  d.showModal();
+  if (anchor) place(d, anchor);
+  // Focus: a field marked autofocus; else, with a keyboard and mouse, the thing Enter should do (the chosen option,
+  // the first menu item, the main button), so "open, Enter" works; else the heading, which a screen reader reads first.
+  // (one selector per try: a comma list answers with whichever comes first in the page, not the first in the list)
+  const pick = (...sels) => { for (const q of sels) { const el = d.querySelector(q); if (el) return el; } return null; };
+  const first = d.querySelector('[autofocus]') || (DESK() ? pick('[role="radio"][aria-checked="true"]', '.sv-menu button:not([aria-disabled="true"])', '.sv-pickl button', '.sv-sh-foot .btn.primary', '.sv-sh-foot .btn.danger') : null) || d.querySelector('#sv-sh-t');
+  first?.focus?.();
+  // Arrow keys move through a menu or a picker; Home and End jump.
+  d.addEventListener('keydown', e => {
+    const list = e.target?.closest?.('.sv-menu, .sv-pickl'); if (!list || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+    const items = [...list.querySelectorAll('button')], i = items.indexOf(e.target.closest('button')); if (!items.length) return;
+    e.preventDefault(); (e.key === 'Home' ? items[0] : e.key === 'End' ? items[items.length - 1] : items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]).focus();
+  });
+  if (wire) wire(d);
+  return d;
+}
+// closeSheet(): from a button (steps history back once) or from Back (fromPop: the entry is already gone). It returns
+// a promise that settles once that Back has landed, so whatever comes next (a page, another sheet) is not undone by it.
+let ignorePop = false, waiting = [];
+export function closeSheet({ fromPop = false, silent = false } = {}) {
+  if (!cur) return Promise.resolve(false);
+  const { d, back, onClose, pushed } = cur; cur = null;
+  d.close(); d.remove();
+  const done = new Promise(res => {
+    if (pushed && !fromPop) { ignorePop = true; waiting.push(res); setTimeout(() => res(true), 450); history.back(); } else res(true);
+  });
+  if (!silent && onClose) onClose();
+  if (back && back.isConnected) back.focus?.({ preventScroll: true });
+  return done;
+}
+// app.js calls this first on popstate; true means "that Back only closed a sheet".
+export function popSheet() {
+  if (ignorePop) { ignorePop = false; const w = waiting; waiting = []; w.forEach(f => setTimeout(() => f(true), 0)); return true; }
+  if (!cur) return false;
+  closeSheet({ fromPop: true }); return true;
+}
+// For app.js: a page change while a sheet is open reuses the sheet's history entry (replace instead of push).
+export function takeSheetEntry() { if (!cur) return false; closeSheet({ fromPop: true, silent: true }); return true; }
+// A picker: one choice from a list, saves on tap. options: [[value, label, icon?, sub?]]
+export function pickerSheet({ title, options, value, onPick, help = '' }) {
+  return openSheet({ title, pop: true, body: `${help ? `<p class="small muted sv-sh-help">${help}</p>` : ''}<div class="sv-pickl" role="radiogroup" aria-label="${esc(title)}">${options.map(([v, l, ic, sub]) => `<button type="button" role="radio" aria-checked="${String(v) === String(value)}" data-pv="${esc(v)}">${ic ? icon(ic) : ''}<span class="body"><span class="title">${esc(l)}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${String(v) === String(value) ? icon('check', { cls: 'on' }) : ''}</button>`).join('')}</div>`,
+    wire: d => d.querySelectorAll('[data-pv]').forEach(el => el.onclick = async () => { await closeSheet({ silent: true }); await onPick(el.dataset.pv); }) });
+}
+// A menu of actions (the ⋯ menus). items: [{ label, icon, danger, disabled, reason, run }]
+export function menuSheet({ title = 'More', items }) {
+  return openSheet({ title, pop: true, body: `<div class="sv-menu">${items.filter(Boolean).map((it, i) => `<button type="button" data-mi="${i}" class="${it.danger ? 'danger' : ''}" ${it.disabled ? 'aria-disabled="true"' : ''}>${icon(it.icon || 'chevron-right')}<span class="body"><span class="title">${esc(it.label)}</span>${it.disabled && it.reason ? `<span class="sub">${esc(it.reason)}</span>` : it.sub ? `<span class="sub">${esc(it.sub)}</span>` : ''}</span></button>`).join('')}</div>`,
+    wire: d => { const list = items.filter(Boolean); d.querySelectorAll('[data-mi]').forEach(el => el.onclick = async () => { const it = list[+el.dataset.mi]; if (it.disabled) { if (it.reason) toast(it.reason); return; } await closeSheet({ silent: true }); await it.run(); }); } });
+}
+// Confirm in the app (never window.confirm): confirmSheet({ title, text, ok: 'Delete', danger: true }) -> Promise<boolean>
+export function confirmSheet({ title, text = '', ok = 'OK', danger = false }) {
+  return new Promise(res => {
+    let done = false;
+    openSheet({ title, size: 'auto', body: text ? `<p>${text}</p>` : '', foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-no': '1' } })}${btn(ok, { kind: danger ? 'danger' : 'primary', attrs: { 'data-yes': '1' } })}`,
+      onClose: () => { if (!done) res(false); },
+      wire: d => { d.querySelector('[data-yes]').onclick = async () => { done = true; await closeSheet({ silent: true }); res(true); }; d.querySelector('[data-no]').onclick = async () => { done = true; await closeSheet({ silent: true }); res(false); }; } });
+  });
+}

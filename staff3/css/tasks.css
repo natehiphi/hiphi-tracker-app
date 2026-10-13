@@ -1,0 +1,24 @@
+/* Tasks (#/tasks, R-210): every open task across the bills, grouped by when it is due. Every rule is scoped to .tk-page.
+   Sizes 13/14/16/18 only (A-4). The tick is the bill page's own (.bw-tick, 44px, A-6). A late group is said by its words,
+   its icon and its colour together (A-5). */
+.tk-page { padding-bottom: var(--s24); }
+.tk-page .tk-bar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s12); margin-top: var(--s12); }
+.tk-page .tk-person { flex: 0 1 auto; width: auto; min-height: 44px; padding: 8px 12px; }
+.tk-page .tk-count { margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n500); }
+.tk-page .tk-group { margin-top: var(--s16); }
+.tk-page .tk-gh { margin: 0 0 var(--s4); font-size: var(--t16); display: flex; align-items: center; gap: var(--s8); }
+.tk-page .tk-gh.late { color: var(--bad-text); }
+.tk-page .tk-n { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--n100); color: var(--n700); font: 700 var(--t13)/20px var(--font); text-align: center; }
+.tk-page .tk-gh.late .tk-n { background: var(--bad-bg, var(--n100)); color: var(--bad-text); }
+.tk-page ul.tk-rows { list-style: none; margin: 0; padding: 0; }
+.tk-page .tk-row { display: flex; align-items: flex-start; gap: var(--s4); min-height: 56px; padding: var(--s4) var(--s8) var(--s4) var(--s4); background: var(--n0); }
+.tk-page .tk-rows > .tk-row + .tk-row { border-top: 1px solid var(--n100); }
+.tk-page .tk-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding-top: var(--s8); }
+.tk-page .tk-ttl { color: var(--n900); overflow-wrap: anywhere; }
+.tk-page .tk-meta { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--s12); font-size: var(--t14); color: var(--n500); }
+.tk-page .tk-bill { color: var(--p700); text-decoration: none; display: inline-flex; align-items: center; min-height: 32px; gap: 6px; }
+.tk-page .tk-bill b { color: var(--n900); }
+.tk-page .tk-bill:hover { text-decoration: underline; }
+.tk-page .tk-keys { display: flex; align-items: center; gap: var(--s8); margin: var(--s16) 0 0; font-size: var(--t14); color: var(--n500); }
+.tk-page .tk-keys .ic { width: 16px; height: 16px; flex: none; }
+.tk-page .tk-note { margin: var(--s16) 0 0; font-size: var(--t14); color: var(--n500); }

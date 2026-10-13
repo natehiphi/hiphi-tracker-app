@@ -1,0 +1,631 @@
+/* HIPHI Staff v2 (plan section 4): pub/base.css tokens and components, set denser for staff work. Five type sizes
+   (13/14/16/18/22), nothing above 22px; 44px targets; blue only for actions, links and selection; red only for
+   overdue and danger; amber only for due within 24 hours; orange only for an occasional all-clear. */
+body.staff2 { background: var(--n50); }
+body.staff2 h1 { font-size: var(--t22); }
+body.staff2 h2 { font-size: var(--t18); }
+body.staff2 h3 { font-size: var(--t16); letter-spacing: -.005em; }
+body.staff2 .btn.sm, body.staff2 .btn { min-height: 44px; }
+body.staff2 .actionbar .btn, body.staff2 .sv-sheet .btn.primary { min-height: 48px; }
+/* A 320px phone: two bar buttons side by side. Review's "Request changes" and "Approve" ran 10px off the screen (A-6). */
+@media (max-width: 359px) { body.staff2 .actionbar .btn { padding: 0 12px; min-width: 0; } }
+body.staff2 main { max-width: 720px; padding-top: var(--s12); }
+body.staff2.wide main { max-width: 1200px; }
+
+/* ---- frame ---- */
+.sv-hdr { position: sticky; top: 0; z-index: 40; height: var(--header); background: var(--n0); border-bottom: 1px solid var(--n200); display: flex; align-items: center; gap: var(--s4); padding: 0 var(--s4) 0 var(--s12); }
+.sv-hdr .sv-title { flex: 1 1 auto; min-width: 0; font: 700 var(--t18)/1.2 var(--font-h); color: var(--n900); letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
+.sv-hdr .sv-back { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 8px 0 4px; color: var(--p700); font-weight: 700; border-radius: var(--pill); text-decoration: none; max-width: 45%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sv-hdr .sv-back:hover { background: var(--p50); }
+.sv-hdr .sv-brand { display: none; align-items: center; gap: var(--s8); text-decoration: none; color: var(--n900); font: 700 var(--t18)/1 var(--font-h); white-space: nowrap; min-height: 44px; }
+.sv-hdr .sv-brand svg { width: 28px; height: 28px; }
+.sv-hdr .sv-nav { display: none; }
+.sv-hdr .sv-search { display: none; }
+.sv-avbtn { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--pill); }
+.sv-avbtn:hover { background: var(--n100); }
+.sv-av { width: var(--av, 24px); height: var(--av, 24px); border-radius: 50%; background: var(--n100); color: var(--n700); display: inline-flex; align-items: center; justify-content: center;
+  font: 700 var(--t13)/1 var(--font); flex: none; letter-spacing: 0; }
+.sv-av.none { background: none; border: 1.5px dashed var(--n400); }
+.sv-av.me { background: var(--p50); color: var(--p800); }
+.sv-tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--n0); border-top: 1px solid var(--n200); display: grid; grid-template-columns: repeat(5, 1fr); padding: 4px 4px calc(4px + var(--safe-b)); }
+.sv-tabs a { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; text-decoration: none; color: var(--n500); font-size: var(--t13); font-weight: 700; border-radius: var(--r12); }
+.sv-tabs a .pill { display: flex; align-items: center; justify-content: center; width: min(56px, 100%); height: 30px; border-radius: var(--pill); }
+.sv-tabs a[aria-current="page"] { color: var(--p700); }
+.sv-tabs a[aria-current="page"] .pill { background: var(--p50); }
+.sv-tabs a .ic { width: 24px; height: 24px; }
+.sv-badge { position: absolute; top: 4px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--p700); color: #fff; font: 700 var(--t13)/18px var(--font); text-align: center; }
+.sv-badge.late { background: var(--bad-text); }
+body.staff2 main { padding-bottom: calc(var(--tabbar) + var(--safe-b) + var(--s32)); }
+body.staff2.notabs main { padding-bottom: calc(var(--s48) + var(--safe-b)); }
+body.staff2.hasbar main { padding-bottom: calc(var(--tabbar) + var(--safe-b) + 96px); }
+body.staff2.hasbar.notabs main { padding-bottom: calc(96px + var(--safe-b)); }
+body.staff2.hasbar.withtabs .actionbar { bottom: calc(var(--tabbar) + var(--safe-b)); padding-bottom: var(--s12); }
+
+.sv-side { display: none; }
+.sv-page { min-width: 0; }
+
+/* ---- primitives ---- */
+.sv-chip { min-height: 24px; padding: 2px 10px; background: var(--n100); color: var(--n700); }
+.sv-pick { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px 0 14px; border-radius: var(--pill); background: var(--n0); border: 1px solid var(--n300); color: var(--n900); font-weight: 700; font-size: var(--t14); }
+.sv-pick:hover { border-color: var(--p700); background: var(--p50); }
+.sv-pick .ic { width: 18px; height: 18px; }
+.sv-pick .chev { width: 16px; height: 16px; color: var(--n500); }
+.sv-pick.sv-toggle.on { border-color: var(--p700); background: var(--p50); color: var(--p800); }
+.sv-pick.sv-toggle.on .ic { color: var(--p700); }
+.sv-count { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t14); font-weight: 700; color: var(--n700); white-space: nowrap; }
+.sv-count .ic { width: 16px; height: 16px; }
+.sv-count.soon { color: var(--warn-text); }
+.sv-count.late { color: var(--bad-text); }
+.sv-posic { display: inline-flex; color: var(--n500); }
+.sv-posic .ic { width: 18px; height: 18px; }
+.sv-p1 { display: inline-flex; align-items: center; height: 22px; padding: 0 6px; border: 1px solid var(--n400); border-radius: 6px; font: 700 var(--t13)/1 var(--font); color: var(--n900); }
+.sv-billrow { min-height: 64px; }
+.sv-billrow .title { font-weight: 400; color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }   /* two lines: number and nickname in bold, then the summary (the same row as the Bills list) */
+.sv-billrow .title b { color: var(--n900); font-weight: 700; }
+.sv-billrow .sub { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.sv-billrow .end { gap: 6px; }
+.sv-billrow.sel { background: var(--p50); }
+.sv-check { display: inline-flex; color: var(--p700); }
+.sv-check .ic { width: 22px; height: 22px; }
+.sv-group { display: flex; align-items: center; gap: var(--s8); width: 100%; min-height: 44px; padding: 0 var(--s16); background: var(--n50); border-bottom: 1px solid var(--n200); font: 700 var(--t16)/1.2 var(--font-h); color: var(--n900); text-align: left; }
+.sv-group .n { margin-left: auto; font: 700 var(--t14) var(--font); color: var(--n500); }
+.sv-group .chev { width: 18px; height: 18px; color: var(--n500); }
+button.sv-group:hover { background: var(--n100); }
+.sv-seg { display: inline-flex; background: var(--n100); border-radius: var(--pill); padding: 2px; gap: 2px; }
+.sv-seg button { min-height: 44px; padding: 0 16px; border-radius: var(--pill); font-weight: 700; font-size: var(--t14); color: var(--n700); }
+.sv-seg button[aria-pressed="true"] { background: var(--n0); color: var(--p800); box-shadow: var(--sh1); }
+.sv-switchrow { display: flex; align-items: center; gap: var(--s12); min-height: 56px; padding: var(--s8) 0; cursor: pointer; position: relative; }
+.sv-switchrow .body { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; }
+.sv-switchrow .title { font-weight: 700; color: var(--n900); }
+.sv-switchrow .sub { font-size: var(--t14); color: var(--n500); }
+.sv-switchrow input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.sv-switch { width: 44px; height: 26px; border-radius: 13px; background: var(--n300); position: relative; flex: none; transition: background .15s; }
+.sv-switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: var(--sh1); transition: transform .15s; }
+.sv-switchrow input:checked + .sv-switch { background: var(--p700); }
+.sv-switchrow input:checked + .sv-switch::after { transform: translateX(18px); }
+.sv-switchrow input:focus-visible + .sv-switch { outline: 2px solid var(--p700); outline-offset: 2px; }
+.sv-steps { display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.sv-steps li { flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 28px; padding: 0 6px 6px; border-bottom: 3px solid var(--n200); background: none; color: var(--n500); font-size: var(--t13); font-weight: 700; text-align: center; }
+.sv-steps li .ic { width: 14px; height: 14px; }
+.sv-steps li.done { color: var(--n700); border-bottom-color: var(--n400); }
+.sv-steps li.cur { color: var(--p800); border-bottom-color: var(--p700); }
+.sv-notice { margin-bottom: var(--s12); align-items: center; }
+.sv-notice .btn { margin-left: auto; flex: none; }
+
+/* ---- sheets ---- */
+dialog.sv-sheet { border: 0; padding: 0; margin: auto auto 0; width: 100%; max-width: 100%; max-height: 92vh; border-radius: var(--r16) var(--r16) 0 0; background: var(--n0); color: var(--n700); box-shadow: var(--sh3); display: flex; flex-direction: column; }
+dialog.sv-sheet:not([open]) { display: none; }
+dialog.sv-sheet.full { height: 92vh; }
+dialog.sv-sheet::backdrop { background: linear-gradient(180deg, rgba(9,53,70,.35), rgba(9,53,70,.6)); }
+.sv-sh-grab { width: 40px; height: 4px; border-radius: 2px; background: var(--n300); margin: 8px auto 0; flex: none; }
+.sv-sh-head { display: flex; align-items: center; gap: var(--s8); padding: var(--s8) var(--s8) var(--s8) var(--s16); flex: none; }
+.sv-sh-head h2 { flex: 1 1 auto; font-size: var(--t18); }
+.sv-sh-body { padding: 0 var(--s16) var(--s16); overflow: auto; flex: 1 1 auto; }
+.sv-sh-help { margin-bottom: var(--s8); }
+.sv-sh-foot { display: flex; gap: var(--s8); justify-content: flex-end; padding: var(--s12) var(--s16) calc(var(--s12) + var(--safe-b)); border-top: 1px solid var(--n100); flex: none; }
+.sv-sh-foot .btn.primary, .sv-sh-foot .btn.danger { flex: 1 1 auto; }
+.sv-pickl, .sv-menu { display: flex; flex-direction: column; }
+.sv-pickl button, .sv-menu button { display: flex; align-items: center; gap: var(--s12); min-height: 52px; padding: var(--s8) var(--s8); border-radius: var(--r12); text-align: left; width: 100%; }
+.sv-pickl button:hover, .sv-menu button:hover { background: var(--n50); }
+.sv-pickl button[aria-checked="true"] { background: var(--p50); color: var(--p800); }
+.sv-pickl .ic, .sv-menu .ic { width: 20px; height: 20px; color: var(--n500); flex: none; }
+.sv-pickl .ic.on { color: var(--p700); margin-left: auto; }
+.sv-pickl .body, .sv-menu .body { display: flex; flex-direction: column; flex: 1 1 auto; }
+.sv-pickl .title, .sv-menu .title { font-weight: 700; color: var(--n900); }
+.sv-pickl .sub, .sv-menu .sub { font-size: var(--t14); color: var(--n500); }
+.sv-menu button.danger .title, .sv-menu button.danger .ic { color: var(--bad-text); }
+.sv-menu button[aria-disabled="true"] .title { color: var(--n500); }
+
+/* ---- login ---- */
+/* The whole width of the window, centred: from 1100px #app is the signed-in frame's grid (side column + page), and the
+   sign-in used to land in its 248px side column on every laptop (X9-2). The form sits on a card, the way every form does. */
+#app > .sv-login { grid-column: 1 / -1; grid-row: 1 / -1; }
+body.staff2 main.sv-login { width: 100%; max-width: 432px; margin: 10vh auto 0; padding: var(--s24) var(--gutter) var(--s48); display: flex; flex-direction: column; gap: var(--s16); }   /* beats the frame's own main sizes */
+.sv-login .sv-lbrand { display: flex; align-items: center; gap: var(--s12); }
+.sv-login .mk { width: 48px; height: 48px; flex: none; }
+.sv-login .sv-lbrand > span { display: flex; flex-direction: column; }
+.sv-login .sv-lbrand b { font: 700 var(--t18)/1.2 var(--font-h); color: var(--n900); }
+.sv-login .sv-lsep { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }   /* read aloud, the line break shows it */
+.sv-login .sv-lfor { font-size: var(--t14); color: var(--n500); }
+.sv-login h1 { font-size: var(--t22); margin-top: var(--s8); }
+.sv-login .sv-lcard { margin: 0; }
+/* What Forgot your password? did (M1-6): calm, not an error (A-5, B-7). */
+.sv-login .sv-lhelp { display: flex; gap: var(--s8); align-items: flex-start; margin: 0; padding: var(--s12); border-radius: var(--r8); background: var(--p50); color: var(--n900); font-size: var(--t14); line-height: 1.45; }
+.sv-login .sv-lhelp .ic, .sv-login .sv-lhelp svg { flex: 0 0 auto; margin-top: 2px; color: var(--p700); }
+.sv-login .sv-lpub { font-size: var(--t14); color: var(--n500); text-align: center; }
+.sv-login .sv-lpub a { white-space: nowrap; }   /* on a phone the link moves to its own line whole */
+@media (min-width: 900px) { .sv-login .sv-lcard { padding: var(--s24); } }
+
+/* ---- desktop: header nav, no tab bar, centred columns ---- */
+@media (min-width: 900px) {
+  .sv-hdr { padding: 0 var(--s24); gap: var(--s12); }
+  .sv-hdr .sv-brand { display: inline-flex; }
+  .sv-hdr .sv-back.phone { display: none; }
+  .sv-hdr .sv-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }   /* still the page's h1 for screen readers */
+  .sv-hdr .sv-nav { display: flex; gap: 4px; flex: 1 1 auto; }
+  .sv-hdr .sv-nav a { position: relative; min-height: 44px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: var(--pill); color: var(--n700); font-weight: 700; text-decoration: none; }
+  /* five tabs since My issues (R-263): a label never breaks onto two lines; the search box gives up the room */
+  .sv-hdr .sv-nav a { white-space: nowrap; }
+  .sv-hdr .sv-nav a[aria-current="page"] { background: var(--p50); color: var(--p700); }
+  .sv-hdr .sv-nav a:hover { background: var(--n100); }
+  .sv-hdr .sv-nav .sv-badge { position: static; margin-left: 2px; }
+  .sv-hdr .sv-search { display: block; width: 320px; }
+  .sv-hdr .sv-search input { min-height: 40px; padding: 8px 12px 8px 38px; border: 1px solid var(--n300); border-radius: var(--pill); background: var(--n50); width: 100%; }
+  .sv-hdr .sv-search > .ic { position: absolute; margin: 10px 0 0 12px; width: 18px; height: 18px; color: var(--n500); }   /* the magnifier only: the suggestion rows' icons sit in the list inside this form */
+  .sv-hdr .sv-srchbtn { display: none; }
+  .sv-tabs { display: none; }
+  body.staff2 main, body.staff2.hasbar main { padding-bottom: var(--s48); }
+  body.staff2.hasbar main { padding-bottom: 120px; }
+  body.staff2.hasbar.withtabs .actionbar { bottom: 0; padding-bottom: calc(var(--s12) + var(--safe-b)); }
+  dialog.sv-sheet { margin: auto; width: 560px; max-height: calc(100vh - 96px); border-radius: var(--r16); }
+  dialog.sv-sheet.full { height: auto; min-height: 60vh; }
+  .sv-sh-grab { display: none; }
+}
+@media (max-width: 280px) { .sv-hdr .sv-back { max-width: 60%; } }
+.sv-sh-head h2:focus { outline: none; }
+/* review mode: a new item slides in, its counter ticks, and Approve waits a second before it listens */
+@keyframes td-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+@keyframes td-tick { 0% { color: var(--p700); transform: scale(1.12); } 100% { color: inherit; transform: none; } }
+.td-rvcard.td-in { animation: td-in .22s var(--ease, ease-out); }
+.td-rvn.td-tick { display: inline-block; animation: td-tick .5s ease-out; }
+.btn.td-arming, .btn[aria-disabled="true"].td-arming { opacity: .55; cursor: default; }
+@media (prefers-reduced-motion: reduce) { .td-rvcard.td-in, .td-rvn.td-tick { animation: none; } }
+.toastx { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: -8px -8px -8px 0; border-radius: var(--pill); color: inherit; opacity: .8; flex: none; }
+.toastx:hover { opacity: 1; background: rgba(255,255,255,.12); }
+.toastmsg.yay .toastx:hover { background: var(--n100); }
+.toastx .ic { width: 18px; height: 18px; }
+
+/* ---- desktop, part 1 (900px and wider): actions sit with their content; menus open where you clicked ---- */
+@media (min-width: 900px) {
+  /* The action bar is the last child of <main>. Sticky, not fixed: on a short page it sits right under the content
+     it acts on, and on a long one it stays in reach at the bottom of the window. Buttons are sized to their label. */
+  body.staff2 main > .actionbar, body.staff2.hasbar.withtabs main > .actionbar { position: sticky; bottom: 0; left: auto; right: auto; z-index: 30; margin: var(--s24) calc(-1 * var(--s8)) 0; padding: var(--s12) var(--s8);
+    background: linear-gradient(180deg, rgba(242,246,249,0) 0, var(--n50) 12px); border-top: 0; box-shadow: none; }
+  body.staff2 main > .actionbar .inner { max-width: none; justify-content: flex-end; }
+  body.staff2 main > .actionbar .btn { flex: 0 0 auto; min-width: 140px; }
+  body.staff2.hasbar main { padding-bottom: var(--s24); }
+  /* Anchored menus and pickers (ui.js positions them): a small panel by the button, no dimmed page behind it. */
+  dialog.sv-sheet.sv-pop { position: fixed; margin: 0; width: max-content; min-width: 240px; max-width: 360px; max-height: min(480px, calc(100vh - 32px)); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh3); }
+  dialog.sv-sheet.sv-pop::backdrop { background: transparent; }
+  dialog.sv-sheet.sv-pop .sv-sh-head { padding: var(--s8) var(--s8) 0 var(--s16); }
+  dialog.sv-sheet.sv-pop .sv-sh-head h2 { font-size: var(--t14); color: var(--n500); }
+  dialog.sv-sheet.sv-pop .sv-sh-head .iconbtn { display: none; }
+  dialog.sv-sheet.sv-pop .sv-sh-body { padding: var(--s4) var(--s8) var(--s8); }
+  dialog.sv-sheet.sv-pop .sv-pickl button, dialog.sv-sheet.sv-pop .sv-menu button { min-height: 40px; padding: 6px var(--s8); }
+  .sv-pickl button:focus-visible, .sv-menu button:focus-visible { outline: 2px solid var(--p700); outline-offset: -2px; background: var(--p50); }
+  /* Shared page layouts for the screens (each screen's own CSS decides when to use them). */
+  .sv-cols { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: var(--s32); align-items: start; }
+  .sv-cols > .sv-aside { position: sticky; top: calc(var(--header) + var(--s16)); display: flex; flex-direction: column; gap: var(--s16); max-height: calc(100vh - var(--header) - var(--s32) - var(--s48)); overflow: auto; }   /* less main's bottom padding, or the panel slides under the header at the end of a page */
+  .sv-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s16); }
+  .sv-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s16); }
+  a.row:hover, button.row:hover, .sv-billrow:hover { background: var(--n50); }
+}
+
+/* ---- desktop, part 2 (1100px and wider): a sidebar instead of a header menu, and pages that use the width ---- */
+@media (min-width: 1100px) {
+  #app { display: grid; grid-template-columns: 248px minmax(0, 1fr); grid-template-areas: "band band" "side page"; min-height: 100vh; }
+  #app > .band { grid-area: band; }
+  #app > .sv-page { grid-area: page; }
+  .sv-side { grid-area: side; display: flex; flex-direction: column; gap: var(--s16); position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto; padding: var(--s16) var(--s12); background: var(--n0); border-right: 1px solid var(--n200); }
+  /* the sandbox band stays on top, so the sidebar and the header sit under it and nothing slides into a gap */
+  #app > .band { position: sticky; top: 0; z-index: 50; }
+  body.staff2:has(.band) .sv-side { top: 28px; height: calc(100vh - 28px); }
+  body.staff2:has(.band) .sv-hdr { top: 28px; }
+  body.staff2:has(.band) .sv-cols > .sv-aside { top: calc(var(--header) + 28px + var(--s16)); max-height: calc(100vh - var(--header) - 28px - var(--s32) - var(--s48)); }
+  .sv-sbrand { display: flex; align-items: center; gap: var(--s12); min-height: 48px; padding: 0 var(--s8); text-decoration: none; color: var(--n900); font: 700 var(--t18)/1.15 var(--font-h); }
+  .sv-sbrand svg { width: 32px; height: 32px; flex: none; }
+  .sv-sbrand small { display: block; font: 400 var(--t13)/1.3 var(--font); color: var(--n500); letter-spacing: 0; }
+  .sv-snav { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; }
+  .sv-sfoot { display: flex; flex-direction: column; gap: 2px; padding-top: var(--s12); border-top: 1px solid var(--n100); }
+  .sv-sitem { display: flex; align-items: center; gap: var(--s12); min-height: 40px; padding: 0 var(--s12); border-radius: var(--r8); color: var(--n700); font-weight: 700; font-size: var(--t14); text-decoration: none; }
+  .sv-sitem .ic { width: 20px; height: 20px; color: var(--n500); flex: none; }
+  .sv-sitem:hover { background: var(--n100); color: var(--n900); }
+  .sv-sitem[aria-current="page"] { background: var(--p50); color: var(--p800); }
+  .sv-sitem[aria-current="page"] .ic { color: var(--p700); }
+  .sv-sitem.sub { min-height: 36px; padding-left: 44px; font-weight: 400; }
+  .sv-sitem.sub[aria-current="page"] { font-weight: 700; }
+  .sv-ssub { display: none; flex-direction: column; gap: 2px; margin-bottom: var(--s4); }
+  .sv-sitem[data-open] + .sv-ssub { display: flex; }
+  .sv-sn { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--p700); color: #fff; font: 700 var(--t13)/20px var(--font); text-align: center; }
+  .sv-sn.late { background: var(--bad-text); }
+  /* the header keeps the page title, search and your menu; the sidebar has the brand and the sections */
+  .sv-hdr { padding: 0 var(--s32); background: var(--n50); border-bottom: 1px solid var(--n200); }
+  .sv-hdr .sv-brand, .sv-hdr .sv-nav { display: none; }
+  .sv-hdr h1.sv-title { position: static; width: auto; height: auto; overflow: hidden; clip: auto; white-space: nowrap; text-overflow: ellipsis; flex: 1 1 auto; font-size: var(--t22); }
+  .sv-hdr span.sv-title { position: static; width: auto; height: auto; clip: auto; flex: 1 1 auto; visibility: hidden; }   /* the page has its own h1; this keeps search and your menu on the right */
+  .sv-hdr .sv-search { width: 360px; }
+  .sv-hdr .sv-search input { background: var(--n0); }
+  body.staff2 main { max-width: 1120px; margin: 0 auto; padding-left: var(--s32); padding-right: var(--s32); padding-top: var(--s24); }
+  body.staff2.wide main { max-width: none; }
+  body.staff2[data-narrow] main { max-width: 760px; }
+  #toast { left: calc(248px + var(--s32)); right: auto; bottom: var(--s24); justify-content: flex-start; }   /* bottom left of the page: the buttons that act on a page sit bottom right */
+}
+
+/* ============================================================================
+   Desktop follow-ups (assessment 9/19, Nate's list): the stage ribbon, the
+   urgency mark, a side panel that never hides content behind an invisible
+   scrollbar, a sidebar that collapses, and the quick-look sheet.
+   ========================================================================= */
+
+/* ---- stage ribbon (ui.js stageRibbon) ---- */
+.sv-rib { display: flex; gap: 3px; margin: 0 0 6px; }
+.sv-rib i { flex: 1 1 0; height: 6px; border-radius: 3px; background: var(--n200); }
+.sv-rib i.done { background: var(--p300); }
+.sv-rib i.now { background: var(--p700); }
+.sv-rib.done i.now { background: var(--o400); }                 /* law: the one place orange is celebration */
+.sv-rib.stopped i.done { background: var(--n300); }
+.sv-rib.stopped i.now { background: var(--n500); }
+.sv-riblab { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s8); margin: 0 0 var(--s16); font-size: var(--t13); color: var(--n500); }
+.sv-riblab b { color: var(--p800); font-weight: 700; text-align: center; }
+.sv-riblab b .set { color: var(--n500); font-weight: 400; }
+.sv-rib.stopped + .sv-riblab b { color: var(--n700); }
+.sv-rib.done + .sv-riblab b { color: var(--o600); }
+/* A page's own back link, pinned under the header once it has scrolled away (ui.js floatBack; desktop only). */
+.sv-floatback { position: fixed; z-index: 40; display: inline-flex; align-items: center; gap: 4px; min-height: 40px; padding: 0 14px 0 6px;
+  border: 1px solid var(--n200); border-radius: var(--pill); background: var(--n0, #fff); box-shadow: 0 2px 8px rgba(20, 43, 53, .12);
+  color: var(--p700); font: 700 var(--t14)/1 var(--font); cursor: pointer; }
+.sv-floatback[hidden] { display: none; }
+.sv-floatback:hover { background: var(--p50); }
+.sv-floatback:focus-visible { outline: 3px solid var(--p300); outline-offset: 2px; }
+.sv-floatback .ic { width: 18px; height: 18px; }
+@media (max-width: 899px) { .sv-floatback { display: none; } }
+/* Placed (ui.js anchorRibbons): the caption sits centred under the current bar, the ends at the edges. */
+.sv-riblab.anch { position: relative; display: block; height: 1.45em; }
+.sv-riblab.anch > span { position: absolute; top: 0; }
+.sv-riblab.anch > span:first-child { left: 0; }
+.sv-riblab.anch > span:last-child { right: 0; }
+.sv-riblab.anch > b { position: absolute; top: 0; white-space: nowrap; }
+.sv-riblab.anch > .hid { visibility: hidden; }
+/* The ends stay on a phone: without them the ribbon is twelve unlabelled dashes (A-12, P-4). */
+@media (max-width: 420px) { .sv-riblab { gap: var(--s4); font-size: var(--t13); } .sv-riblab span { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
+
+/* ---- urgency mark (ui.js urgentMark): a block, not a word, so a list scans in one pass ---- */
+.sv-urg { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+  flex: none; min-width: 60px; padding: 4px 6px; border-radius: var(--r8); background: var(--n100); color: var(--n700); line-height: 1.1; }
+.sv-urg b { font: 700 var(--t16)/1.15 var(--font-h); letter-spacing: -.02em; }
+.sv-urg span { font-size: var(--t13); text-transform: lowercase; color: var(--n500); }   /* 13px: the smallest of the five sizes, not a sixth */
+.sv-urg .ic { width: 14px; height: 14px; margin-bottom: 1px; }
+.sv-urg.soon { background: var(--warn-wash); color: var(--warn-text); }
+.sv-urg.soon span { color: var(--warn-text); }
+.sv-urg.late { background: var(--bad-wash); color: var(--bad-text); box-shadow: inset 3px 0 0 var(--bad-text); }
+.sv-urg.late span { color: var(--bad-text); }
+.sv-urg.done { background: var(--ok-wash); color: var(--ok-text); min-width: 40px; }
+.sv-urg.none { background: none; min-width: 0; padding: 0; }
+
+@media (min-width: 900px) {
+  /* The side panel scrolls with the page once it is taller than the window, instead of hiding its last card
+     behind an inner scrollbar nobody sees (assessment 9/19). Only the first card stays in view. */
+  /* align-self: stretch, or an aside shorter than the main column scrolls off the top taking its sticky card
+     with it — the card only has room to stick inside its own box. */
+  .sv-cols > .sv-aside, body.staff2:has(.band) .sv-cols > .sv-aside { position: static; max-height: none; overflow: visible; align-self: stretch; }
+  /* Docked flush under the header, not 16px below it: in the gap you could see the top edge of the NEXT card
+     sliding past behind the stuck one, and flush also lines the panel up with a pinned page heading. */
+  .sv-cols > .sv-aside .sv-stick { position: sticky; top: var(--header); z-index: 2; }   /* descendant: Today groups its panels into rail columns */
+  /* A panel that still chooses to scroll says so: a gutter is always reserved and the last line fades. */
+  .sv-scrolly { overflow: auto; scrollbar-gutter: stable; -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 20px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 20px), transparent); }
+}
+
+/* ---- quick look: a bill without leaving the page you are on (look.js) ---- */
+dialog.sv-sheet.look .sv-sh-body { padding-top: var(--s4); }
+/* The sheet's own heading names the bill for a screen reader; the panel then says it properly in the body, so the
+   small copy at the top is not drawn twice. */
+dialog.sv-sheet.look .sv-sh-head { padding-bottom: 0; }
+dialog.sv-sheet.look .sv-sh-head h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.lk-head { margin-bottom: var(--s12); }
+.lk-head .num { font: 700 var(--t22)/1.15 var(--font-h); color: var(--n900); letter-spacing: -.02em; }
+.lk-head .nick { font: 700 var(--t18)/1.25 var(--font-h); color: var(--n900); margin-top: 2px; }
+.lk-head .sum { font-size: var(--t14); color: var(--n500); margin-top: 4px; }
+.lk-says { font-size: var(--t14); color: var(--n700); margin: 0 0 var(--s16); }
+.lk-cols { display: grid; gap: var(--s16); }
+.lk-card { border: 1px solid var(--n200); border-radius: var(--r12); padding: var(--s12); background: var(--n0); }
+.lk-card.next { border-color: var(--p100); background: var(--p50); }
+.lk-card h3 { font-size: var(--t16); margin-bottom: 4px; }
+.lk-kv { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 6px var(--s12); margin: var(--s8) 0 0; font-size: var(--t14); }
+.lk-kv dt { color: var(--n500); }
+.lk-kv dd { margin: 0; color: var(--n900); min-width: 0; overflow-wrap: anywhere; }
+/* what the Capitol's deadline name asks of this bill (R-005, G-13) */
+.lk-kv .lk-gl { display: block; color: var(--n500); }
+.lk-acts { display: flex; flex-wrap: wrap; gap: var(--s8); margin-top: var(--s12); }
+.lk-nav { display: flex; align-items: center; gap: var(--s8); font-size: var(--t13); color: var(--n500); }
+.lk-nav .pos { margin-right: auto; }
+.lk-keys { margin: var(--s12) 0 0; font-size: var(--t13); color: var(--n500); }
+.lk-keys kbd { display: inline-block; min-width: 18px; padding: 1px 5px; border: 1px solid var(--n300); border-bottom-width: 2px; border-radius: 5px; font: 700 11px/16px var(--font); color: var(--n700); background: var(--n0); text-align: center; }
+@media (min-width: 900px) {
+  dialog.sv-sheet.look { width: min(900px, calc(100vw - 64px)); max-height: calc(100vh - 80px); }
+  .lk-cols { grid-template-columns: minmax(0, 1fr) 300px; align-items: start; }
+}
+
+/* ---- a sidebar you can collapse (1100px and wider) ---- */
+@media (min-width: 1100px) {
+  /* The sandbox band only becomes sticky at this width, so the 28px it takes off the top is only owed here.
+     While this lived in the 900px block every .sv-stick between 900 and 1099px was pushed down by a band that
+     was scrolling away with the page. */
+  body.staff2:has(.band) .sv-cols > .sv-aside .sv-stick { top: calc(var(--header) + 28px); }
+  body.staff2.sidenarrow #app { grid-template-columns: 64px minmax(0, 1fr); }
+  body.staff2.sidenarrow .sv-side { padding-left: var(--s8); padding-right: var(--s8); align-items: stretch; }
+  body.staff2.sidenarrow .sv-sbrand { justify-content: center; padding: 0; }
+  body.staff2.sidenarrow .sv-sbrand span { display: none; }
+  body.staff2.sidenarrow .sv-sitem { justify-content: center; padding: 0; gap: 0; }
+  body.staff2.sidenarrow .sv-sitem span.lbl { display: none; }
+  body.staff2.sidenarrow .sv-ssub, body.staff2.sidenarrow .sv-sitem.sub { display: none; }
+  body.staff2.sidenarrow .sv-sn { position: absolute; margin: -16px 0 0 16px; min-width: 18px; height: 18px; font-size: 11px; line-height: 18px; }
+  body.staff2.sidenarrow #toast { left: calc(64px + var(--s32)); }
+  .sv-scollapse { display: flex; align-items: center; gap: var(--s12); min-height: 40px; padding: 0 var(--s12); border-radius: var(--r8); color: var(--n500); font-size: var(--t13); font-weight: 700; }
+  .sv-scollapse:hover { background: var(--n100); color: var(--n900); }
+  .sv-scollapse .ic { width: 18px; height: 18px; flex: none; }
+  body.staff2.sidenarrow .sv-scollapse { justify-content: center; padding: 0; }
+  body.staff2.sidenarrow .sv-scollapse span { display: none; }
+}
+@media (max-width: 1099px) { .sv-scollapse { display: none; } }
+
+/* A toast raised while a sheet is open is appended INTO the sheet (ui.js): an open <dialog> lives in the browser's
+   top layer, so anything left in #toast underneath it can be seen but never clicked. It sits at the foot of the
+   sheet, over its own content, and goes when the sheet does. */
+dialog.sv-sheet .toastmsg.insheet { position: sticky; bottom: var(--s8); z-index: 3; margin: var(--s8); }
+@media (min-width: 900px) { dialog.sv-sheet .toastmsg.insheet { margin: var(--s12); } }
+
+/* A row that scrolls sideways says so: the last chip fades instead of ending at a clean gutter,
+   which is the only cue a hidden scrollbar leaves (B-9, A-12). Same mask as .sv-scrolly, rotated. */
+.bl-quick, .bl-phone .bl-stgs, .bw-mention, .sp-page .sp-segs {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+}
+/* The account menu hung off a bare initials circle with nothing saying it opened anything (A-12). */
+.sv-avbtn { width: auto; min-width: 44px; padding: 0 2px 0 4px; gap: 1px; }
+.sv-avchev { width: 16px; height: 16px; color: var(--n500); flex: none; }
+/* Two thumbs for a strong position: the pair should read as one mark (see ui.js posIcons). */
+.sv-posic .ic + .ic, .bl-cell .ic + .ic, .sv-pick .ic + .ic { margin-left: -5px; }
+
+/* R-022: the sandbox band's "Practise as" picker, and how fresh the data is. The header search's suggestions are pub/suggest.js,
+   styled in pub/base.css (.sg, R-032); its 8px gap under this 42px box starts the list on the header's bottom line. */
+.band .band-as { display: inline-flex; align-items: center; gap: 2px; font: inherit; color: inherit; background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.35); border-radius: var(--pill); padding: 0 6px 0 8px; min-height: 22px; cursor: pointer; }
+.band .band-as:hover, .band .band-as:focus-visible { background: rgba(255,255,255,.26); }
+.sv-sync { display: flex; align-items: center; gap: 6px; margin: 4px 12px 6px; font-size: 13px; color: var(--n500); }
+.sv-sync .ic { flex: none; }
+.sv-sync.late { color: var(--bad-text); }
+body.sidenarrow .sv-sync span { display: none; }
+/* The band stays one line on a phone (a second line pushed Bills past the 400px arrival limit, A-1). */
+@media (max-width: 599px) { .band .band-hint { display: none; } }
+
+/* R-117: the public's response on a Week bill and a hearing's agenda row; the share kit. R-118: the folded prep card. */
+.wk-pub { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--ink-2, #5F6F76); margin-left: 8px; }
+.wk-pub svg { width: 14px; height: 14px; }
+.hr-pub svg { width: 14px; height: 14px; }
+.hr-kit .hr-kitrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 6px 0; border-top: 1px solid var(--line, #DBE3E7); }
+.hr-kit .hr-kitrow:first-of-type { border-top: 0; }
+.pr-fold summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; list-style: none; padding: 4px 0; min-height: 44px; }
+.pr-fold summary::-webkit-details-marker { display: none; }
+.pr-fold .pr-foldt { display: inline-flex; align-items: center; gap: 8px; }
+.pr-fold[open] summary { margin-bottom: 8px; }
+
+/* R-121: the Versions comparison on the First visit page */
+.fv-vars .fv-tablewrap { overflow-x: auto; margin: 8px 0; }
+.fv-vars { margin-top: 24px; }   /* a card after the Suggested bills table (R-094), not part of it */
+.fv-vtable { width: 100%; border-collapse: collapse; font-size: 14px; }
+.fv-vtable th, .fv-vtable td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line, #DBE3E7); }
+.fv-vtable th.num, .fv-vtable td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.fv-vtable th[scope="row"] { font-weight: 600; }
+/* Session setup > Tests: the public page's A/B tests (R-135). One card per test; A and B are marked in a small square so
+   the rows, the verdict and the buttons can say "A" and "B". */
+.ab-intro { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.ab-intro p { margin: 0; max-width: 65ch; }
+.ab-intro .btn { flex: none; }
+@media (max-width: 599px) { .ab-intro { flex-direction: column; gap: 4px; } .ab-intro .btn { margin-left: -12px; } }
+.ab-list { display: flex; flex-direction: column; gap: 16px; }
+.ab-card { display: flex; flex-direction: column; gap: 12px; }
+.ab-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ab-t { font-size: 18px; line-height: 1.3; margin: 0; }
+.ab-q, .ab-foot, .ab-verdict { margin: 0; }
+.ab-q { color: var(--n700); }
+.ab-v { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--p50); color: var(--p700); font-weight: 700; font-size: 13px; margin-right: 8px; vertical-align: middle; }
+.ab-verdict { display: flex; gap: 8px; align-items: flex-start; }
+.ab-verdict .ic { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--p700); }
+.ab-hint, .ab-more { margin: 0; }
+/* Each version's See and Pick buttons sit on its own row, the last cell, in the same place on every card (R-135). Their
+   names are short ("See B"), but they wrap inside the card, where the base button would not (white-space nowrap), so a
+   phone never scrolls sideways. */
+/* On a laptop the two buttons stack, right-aligned, so the version's name keeps the width it needs (side by side they left
+   the name three words wide and pushed Pick off the card). */
+.ab-rowacts { white-space: nowrap; text-align: right; }
+.ab-rowacts-in { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.ab-rowacts .btn { white-space: nowrap; }
+.ab-rowacts .btn > span { min-width: 0; }
+@media (max-width: 599px) {
+  .ab-rowacts-in { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .ab-rowacts .btn { white-space: normal; max-width: 100%; text-align: left; height: auto; padding-top: 8px; padding-bottom: 8px; }
+}
+.ab-table td.num { white-space: nowrap; }
+.ab-dec { display: block; font-size: 13px; font-weight: 600; color: var(--p700); }
+.ab-ready { border-color: var(--ok-text, #1F7A4D); }
+/* A phone: each version is its name, then one line of its numbers in words; the column heads go to screen readers only. */
+@media (max-width: 599px) {
+  .ab-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .ab-table, .ab-table tbody, .ab-table tr { display: block; }
+  .ab-table tr { padding: 8px; border-bottom: 1px solid var(--line, #DBE3E7); }
+  .ab-table tr:last-child { border-bottom: 0; }
+  .ab-table th[scope="row"], .ab-table td { border: 0; padding: 0; }
+  .ab-table th[scope="row"] { display: block; margin-bottom: 4px; }
+  .ab-table td.num { display: inline; text-align: left; white-space: normal; font-size: 14px; color: var(--n700); }
+  .ab-table td::after { content: ' ' attr(data-l); }
+  .ab-table td + td::before { content: ' · '; }
+  /* The buttons of a version's row take their own line under its numbers, with no label and no dot before them. */
+  .ab-table td.ab-rowacts { display: block; padding-top: 6px; text-align: left; white-space: normal; }
+  .ab-table td.ab-rowacts::before, .ab-table td.ab-rowacts::after { content: none; }
+  .ab-rowacts-in { justify-content: flex-start; }
+}
+
+/* This week's asks (R-132, the assessment's W5): a card above the week grid, text staff copy for the newsletter or a post.
+   One list, two buttons, nothing else asked of the page (A-14: the week's line above already counts the deadlines). */
+.td-asks { margin: 12px 0 16px; padding: 14px 16px; background: var(--card, #fff); border: 1px solid var(--line, #DBE3E7); border-radius: 12px; }
+.td-askhd h2 { margin: 0 0 4px; font-size: var(--t16, 16px); }
+.td-askhd p { margin: 0 0 8px; }
+.td-asklist { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 4px; font-size: var(--t14, 14px); line-height: 1.4; }
+.td-asklist li b { font-variant-numeric: tabular-nums; }
+.td-asks .btnrow { display: flex; flex-wrap: wrap; gap: 8px; }
+/* A bill's Public tab: what each draft changed (R-060) */
+.bw-drlist { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.bw-drrow { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.bw-drbody { display: flex; flex-direction: column; gap: 2px; }
+.bw-dracts { display: flex; gap: 4px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
+
+/* R-148: staff's tick on a draft ("changes what people should say") and Claude's suggestion of it */
+.bw-drbig, .bw-drsug { display: flex; gap: 6px; align-items: flex-start; font-size: var(--t14); margin-top: 2px; }
+.bw-drbig { color: var(--warn-text); }
+.bw-drbig b { color: inherit; }
+.bw-drsug { color: var(--n700); }
+.bw-drbig .ic, .bw-drsug .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.bw-drbigf .check { display: flex; gap: 8px; align-items: center; min-height: 44px; font-weight: 700; color: var(--n900); cursor: pointer; }
+.bw-drbigf .check input { width: 20px; height: 20px; margin: 0; accent-color: var(--p700); }
+/* With a third button (Tick it, R-148) the buttons wrap under the note on a phone instead of squeezing it. */
+.bw-drrow { flex-wrap: wrap; }
+.bw-drbody { flex: 1 1 240px; min-width: 0; }
+.bw-dracts { flex: 0 1 auto; }
+/* A phone gives the note the whole width and puts its buttons under it, instead of a 240px column beside them (R-152 C). */
+@media (max-width: 30em) { .bw-drbody { flex-basis: 100%; } .bw-dracts { justify-content: flex-start; } }
+/* The note's buttons sit with their own note, not between two (fresh-eyes review 10/4, A-8). */
+.bw-drlist { gap: 20px; }
+.bw-dracts { margin-top: 4px; }
+/* A switch per version, for a test with more than two (R-164, backend 136). */
+.ab-arms { border: 0; margin: var(--s8) 0 0; padding: 0; min-width: 0; }
+.ab-arms legend { padding: 0; margin-bottom: var(--s4); color: var(--n500); }
+/* What runs now, over the version switches (R-192): read first, so it is the darker line. */
+.ab-arms legend.ab-live { color: var(--n700); }
+/* Session setup > Tests > Tester sheet (R-185): a room of testers, a card per group side by side (three across on a
+   laptop, one under another on a phone), each with its versions, its QR code and its link. */
+.ab-introacts { display: flex; flex-wrap: wrap; gap: var(--s4); flex: none; }
+@media (max-width: 599px) { .ab-introacts { margin-left: -12px; } .ab-introacts .btn { margin-left: 0 !important; } }
+.rm-where { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin-bottom: var(--s16); }
+.rm-where p { flex: 0 0 100%; margin: 0; max-width: 65ch; }
+.rm-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--s16); align-items: stretch; margin: 0; padding: 0; list-style: none; }
+.rm-addli { display: flex; }
+.rm-addli .rm-add { flex: 1; }
+.rm-groups > .rm-group { display: flex; flex-direction: column; gap: var(--s12); margin: 0; min-width: 0; }
+.rm-ghead { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); }
+.rm-ghead h2 { margin: 0; font-size: 18px; line-height: 1.3; }
+.rm-group .field { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s4); margin: 0; }
+.rm-group .sv-pick { max-width: 100%; text-align: left; }
+.rm-group .sv-pick span { white-space: normal; }
+.rm-same { display: flex; gap: 6px; align-items: flex-start; margin: 0; color: var(--n700); }
+.rm-same .ic { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--p700); }
+.rm-addscr { margin-left: -12px; }
+.rm-qr { display: flex; flex-direction: column; align-items: center; gap: var(--s8); margin-top: auto; padding-top: var(--s12); border-top: 1px solid var(--n200); }
+.rm-qrbox { display: flex; align-items: center; justify-content: center; width: 168px; height: 168px; background: #fff; border: 1px solid var(--n200); border-radius: var(--r8); text-align: center; }
+.rm-qrbox svg { display: block; width: 152px; height: 152px; }
+.rm-qrerr { display: flex; flex-direction: column; align-items: center; gap: var(--s4); padding: var(--s12); color: var(--bad-text); }
+.rm-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s8); }
+.rm-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s8); min-height: 120px; padding: var(--s16);
+  border: 2px dashed var(--n300); border-radius: var(--r16); background: transparent; color: var(--p700); font: inherit; font-weight: 700; cursor: pointer; }
+.rm-add:hover { background: var(--p50); border-color: var(--p700); }
+.rm-add:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
+.rm-add .ic { width: 24px; height: 24px; }
+.rm-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8) var(--s16); margin-top: var(--s16); }
+.rm-foot p { margin: 0; max-width: 65ch; }
+/* The pickers fill their card, with a form field's corner, so cards side by side line up (fresh-eyes review, A-8). A
+   screen at today's version, shown because another group changed it, is quieter than a change. */
+.rm-group .sv-pick { width: 100%; justify-content: space-between; border-radius: var(--r12); min-height: 44px; height: auto; padding-top: 6px; padding-bottom: 6px; }
+.rm-group .sv-pick > span { flex: 1 1 auto; min-width: 0; text-align: left; }
+.rm-istoday .sv-pick { color: var(--n700); font-weight: 400; }
+
+/* What testers did (R-193): the tester sheet's results under the groups, and each tester's path in a sheet. */
+.rm-res { display: flex; flex-direction: column; gap: var(--s8); margin-top: var(--s16); }
+.rm-reshead { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); }
+.rm-reshead h2 { margin: 0; font-size: var(--t18); }
+.rm-res > p { margin: 0; }
+.rm-resrows { list-style: none; margin: 0; padding: 0; }
+.rm-resrow { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); padding: var(--s12) var(--s16); border-top: 1px solid var(--n200); }
+.rm-resrows .rm-resrow:first-child { border-top: 0; }
+.rm-resrow p { margin: 2px 0 0; color: var(--n700); }
+.rm-resh3 { margin: var(--s12) 0 0; font-size: var(--t16); }
+.rm-paths { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s16); }
+.rm-path { border-top: 1px solid var(--n200); padding-top: var(--s12); }
+.rm-path p { margin: 0 0 var(--s4); }
+.rm-steps { margin: var(--s8) 0 0; padding-left: 22px; display: flex; flex-direction: column; gap: 4px; font-size: var(--t14); }
+.rm-steps li span.muted { margin-left: var(--s8); }
+@media (max-width: 30em) { .rm-resrow { flex-direction: column; align-items: flex-start; } }
+
+/* A read that failed at sign-in or on a refresh (R-152 B): said once at the top of the screen, with a Reload. Amber, not red:
+   the page still works, it may just be missing something (colour means one thing each, A-5). */
+.sv-failnote { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); margin-bottom: var(--s16); padding: var(--s12) var(--s16); border-radius: var(--r12);
+  background: var(--warn-wash); color: var(--n900); box-shadow: inset 3px 0 0 var(--warn-text); }
+.sv-failnote p { margin: 0; flex: 1; min-width: 0; }
+@media (max-width: 30em) { .sv-failnote { flex-direction: column; align-items: stretch; } }
+
+/* The save conflict sheet (staff/conflict.js, R-152 B): theirs and yours, one under the other, as written. */
+.cf-f { margin-top: var(--s12); }
+.cf-f + .cf-f { margin-top: var(--s16); }
+.cf-h { font-size: var(--t16); margin: 0 0 var(--s8); }
+.cf-c { display: flex; flex-direction: column; gap: 2px; padding: var(--s8) var(--s12); border-radius: var(--r8); background: var(--n50); }
+.cf-c + .cf-c { margin-top: var(--s8); }
+.cf-c b { font-size: var(--t14); color: var(--n700); }
+.cf-t { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 9em; overflow: auto; }
+.bw-untilwarn:empty { display: none; }
+.bw-untilwarn { color: var(--warn-text); }
+
+/* "This week's asks" folds to one line (R-152 C): a title, how many bills, a chevron. Open, it is the card it always was. */
+.td-asks { padding-top: 0; padding-bottom: 0; }
+.td-asks[open] { padding-bottom: 14px; }
+.td-asks > summary { display: flex; align-items: center; gap: 8px; min-height: 52px; cursor: pointer; list-style: none; }
+.td-asks > summary::-webkit-details-marker { display: none; }
+.td-asks > summary h2 { margin: 0; font-size: var(--t16, 16px); flex: 1; min-width: 0; }
+.td-asksn { font-size: var(--t14); color: var(--n700); }
+.td-askchev { display: inline-flex; color: var(--n700); transition: transform .2s var(--ease); }
+.td-asks[open] .td-askchev { transform: rotate(180deg); }
+.td-asks > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: var(--r8); }
+@media (prefers-reduced-motion: reduce) { .td-askchev { transition: none; } }
+
+/* Ahead (R-049): the next three weeks, by deadline. A calm list: this week day by day, then each deadline with the bills that
+   still need a hearing. Plain rows, one button each (A-3), only the sizes the staff app already uses. */
+.ah { display: flex; flex-direction: column; gap: var(--s24); }
+.ah-hd { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); }
+.ah-hd h2 { margin: 0; font-size: var(--t18); }
+.ah-days, .ah-evs, .ah-rows { list-style: none; margin: 0; padding: 0; }
+.ah-days { display: flex; flex-direction: column; gap: var(--s12); margin-top: var(--s8); }
+.ah-dh { margin: 0 0 var(--s4); font-size: var(--t14); font-weight: 700; color: var(--n700); }
+.ah-ev a { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 2px var(--s12); padding: 10px 0; min-height: 44px; border-top: 1px solid var(--n100); color: inherit; text-decoration: none; }
+.ah-ev:first-child a { border-top: 0; }
+.ah-t { font-weight: 700; color: var(--n900); }
+.ah-k { display: inline-flex; align-items: center; gap: 6px; color: var(--n700); font-size: var(--t14); }
+.ah-k .ic { width: 16px; height: 16px; }
+.ah-who { grid-column: 2; }
+.ah-soon .ah-k { color: var(--warn-text); }   /* amber only within 24 hours, as everywhere (A-5) */
+.ah-none, .ah-ok { color: var(--n700); margin: var(--s8) 0 0; }
+.ah-ok { display: flex; gap: 8px; align-items: center; color: var(--ok-text, var(--n700)); }
+.ah-gate { margin-top: var(--s16); padding: var(--s12) var(--s16); background: var(--card, #fff); border: 1px solid var(--n200); border-radius: var(--r12); }
+.ah-gh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px var(--s8); margin: 0; font-size: var(--t16); }
+.ah-gd { font-weight: 700; color: var(--n900); }
+.ah-gn { color: var(--n900); }
+.ah-gs { margin: var(--s4) 0 var(--s8); color: var(--n700); }
+.ah-rows { display: flex; flex-direction: column; }
+.ah-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); padding: 10px 0; border-top: 1px solid var(--n100); }
+.ah-main { min-width: 0; flex: 1; }
+.ah-bill { color: inherit; text-decoration: none; display: inline; }
+.ah-nm { overflow-wrap: anywhere; }
+.ah-sub { margin: 2px 0 0; font-size: var(--t14); color: var(--n700); }
+.ah-act { flex: none; }
+.ah-later > summary { display: flex; align-items: center; gap: var(--s8); min-height: 44px; cursor: pointer; list-style: none; }
+.ah-later > summary::-webkit-details-marker { display: none; }
+.ah-later > summary .ah-gh { flex: 1; min-width: 0; }
+.ah-gc { font-size: var(--t14); }
+.ah-chev { display: inline-flex; color: var(--n700); transition: transform .2s var(--ease); }
+.ah-later[open] .ah-chev { transform: rotate(180deg); }
+.ah-later > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: var(--r8); }
+@media (prefers-reduced-motion: reduce) { .ah-chev { transition: none; } }
+@media (max-width: 30em) { .ah-row { flex-direction: column; align-items: stretch; } .ah-act .btn { width: 100%; } }
+
+/* A bill the team does not track (staff/untracked.js, R-058): read-only, one Track button. */
+.ut-note { align-items: center; margin-top: var(--s16); }
+.ut-note > div { flex: 1; min-width: 0; }
+.lg-ulink { color: inherit; text-decoration: none; }
+.lg-ulink:hover .lg-bt { text-decoration: underline; }
+@media (max-width: 30em) { .ut-note { flex-wrap: wrap; } .ut-note .btn { width: 100%; } }
+
+/* R-095: a bill on an issue goes against the issue's stance: one quiet line under the stance, no box, no colour of its own. */
+.is-stnote { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s8) 0 0; color: var(--n700); font-size: var(--t14); max-width: 62ch; }
+.is-stnote .ic { flex: none; width: 16px; height: 16px; margin-top: 2px; }
+.is-stnote p { margin: 0; }
+.is-stnote .btn { margin-left: -12px; }
+/* X10-3: where the ask will reach people, on the Public tab, under the ask's date. */
+.bw-reach { margin: var(--s12) 0 var(--s16); padding: var(--s12) var(--s16); border-radius: var(--r12); background: var(--p50); }
+.bw-reach p { margin: 0; line-height: 1.5; }
+.bw-reach .btnrow { margin-top: var(--s8); }

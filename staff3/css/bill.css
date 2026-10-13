@@ -1,0 +1,494 @@
+/* HIPHI Staff v2 · M2 Bill workspace (bill.js, activity.js, public.js, and pathway.js's desktop table). Every
+   selector starts with .bw-. Phone first at 390px. From 900px (build 4) the page is two columns: on the left the
+   heading and the tabs, pinned together under the app header, with the tab's content under them; on the right a side
+   panel of Next up and Team whose first card stays in view. Sizes 13/14/16/18/22 only. */
+
+/* The frame gives this page its whole width (wide: true in bill.js); the page caps itself. Phones and small tablets
+   keep the 720px column they had (688px inside the gutters). */
+.bw-page { max-width: 688px; margin-left: auto; margin-right: auto; }
+/* The team note is the last thing on the page: room under it, so "Save note" can scroll clear of the "Note saved"
+   message and its Undo, which sits over the page's foot for ten seconds (bottom left on a laptop, above the tabs on a
+   phone). */
+.bw-page { padding-bottom: 72px; }
+
+/* ---- phones: the frame's header is the top bar; the number is its h1 and ⋯ sits beside search ---- */
+.bw-ver { color: var(--n500); }
+.bw-hdrmore { flex: none; }
+.bw-top, .bw-num { display: none; }
+
+/* ---- header ---- */
+.bw-head { padding-top: var(--s4); }
+/* The name: a nickname ("Disposable e-cigarette ban") or the subject is short and reads as a title; a plain summary is a
+   sentence, so it is set a size smaller. Under a nickname the summary follows as the second line. */
+.bw-title { font: 700 var(--t18)/1.3 var(--font); color: var(--n900); max-width: 40em; overflow-wrap: anywhere; }
+.bw-title.bw-long { font-size: var(--t16); line-height: 1.4; }
+.bw-lede { margin-top: 2px; font-size: var(--t14); line-height: 1.45; color: var(--n700); max-width: 70ch; }
+/* The stage ribbon (ui.js stageRibbon) sits between the name and the status sentence: twelve steps, the current one
+   marked, and a caption that names it. It is the same on all four tabs, so Pathway holds the detail, not the fact. */
+.bw-ribwrap { margin-top: var(--s12); max-width: 46em; }
+.bw-ribwrap .sv-riblab { margin-bottom: 0; }
+/* A stage set by hand (R-022, A-14): the line under the ribbon says so, with what the Capitol says and Change for admins,
+   so the ribbon's own "set by the team" gives way to it. */
+.bw-ribset .sv-riblab .set { display: none; }
+.bw-stset { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; margin-top: 2px; font-size: var(--t13); color: var(--n700); }
+.bw-stset > .ic { width: 14px; height: 14px; color: var(--n500); }
+.bw-stset .btn.text { margin-left: -6px; }
+.bw-status { display: flex; gap: 6px; margin-top: var(--s8); font-size: var(--t14); line-height: 1.45; color: var(--n700); max-width: 70ch; }
+.bw-status > .ic { width: 16px; height: 16px; margin-top: 2px; color: var(--n500); }
+.bw-chips { display: flex; flex-wrap: wrap; gap: var(--s8); align-items: center; margin-top: var(--s12); }
+.bw-chips .sv-pick { max-width: 100%; }
+.bw-chips .sv-pick > span:not(.sv-av) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bw-chips .sv-pick .sv-av { margin-left: -6px; }
+/* Initials in the five type sizes (the shared avatar scales its letters with the circle). */
+.bw-chips .sv-av, .bw-msg .sv-av, .bw-mention .sv-av { font-size: var(--t13); }
+/* An issue the bill is on (R-226): a link, so it is drawn as one (A-12): outlined in the link blue, not the grey of the
+   referral chips beside it, which cannot be pressed. A touch target (A-6), and it may wrap a long name. */
+.bw-chips a.bw-ichip { text-decoration: none; max-width: 100%; white-space: normal; text-align: left; min-height: 44px; padding: 6px 14px; background: var(--n0); border: 1px solid var(--p700); color: var(--p700); font-weight: 700; }
+.bw-chips a.bw-ichip:hover { background: var(--p50); color: var(--p800); }
+.bw-chips a.bw-ichip .ic { flex: none; }
+.bw-chips a.bw-ichip .chev { width: 16px; height: 16px; }
+@media (min-width: 900px) { .bw-chips a.bw-ichip { min-height: 32px; padding: 4px 12px; } }
+.bw-numrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s4) var(--s12); }
+.bw-numrow .bw-ichips { margin-top: 0; justify-content: flex-end; flex: 1 1 auto; }
+
+/* ---- Next up ---- */
+.bw-page .bw-next { margin-top: var(--s16); }
+.bw-nexthead { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); min-height: 28px; margin: -6px -8px var(--s4) 0; }
+.bw-page h2.bw-eyebrow, .bw-page p.bw-eyebrow { font: 700 var(--t14)/1.3 var(--font); color: var(--n500); letter-spacing: 0; }
+.bw-hear { font: 700 var(--t16)/1.35 var(--font); color: var(--n900); }
+.bw-meta { margin-top: 2px; font-size: var(--t14); color: var(--n700); }
+.bw-meta a { font-weight: 700; }
+.bw-due { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--s8); row-gap: 2px; margin-top: var(--s8); font-size: var(--t14); color: var(--n700); }
+.bw-nodraft { margin-top: var(--s12); }
+.bw-nodraft .btn { margin-top: var(--s8); }   /* Make the draft now (R-102) */
+.bw-late { display: inline-flex; align-items: center; gap: 4px; color: var(--bad-text); font-weight: 700; }
+.bw-soon { display: inline-flex; align-items: center; gap: 4px; color: var(--warn-text); font-weight: 700; }
+.bw-late .ic, .bw-soon .ic { width: 16px; height: 16px; }
+.bw-page p.bw-late { display: flex; margin-top: var(--s8); }
+.bw-tb { margin-top: var(--s12); }
+.bw-tb + .bw-tb { margin-top: var(--s16); padding-top: var(--s16); border-top: 1px solid var(--n100); }
+.bw-tbt { font-weight: 700; color: var(--n900); margin-bottom: var(--s8); }
+.bw-who { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin-top: var(--s8); font-size: var(--t14); color: var(--n500); }
+.bw-quote { margin: var(--s8) 0 0; padding: var(--s8) var(--s12); border-left: 3px solid var(--n300); background: var(--n50); border-radius: 0 var(--r8) var(--r8) 0; font-size: var(--t14); color: var(--n900); }
+.bw-quote .meta { display: block; font-weight: 700; }
+.bw-tb .sv-notice { margin: var(--s8) 0 0; }
+/* The step labels size to their words, so "2nd approval" stays on one line at 390px. */
+.bw-tb .sv-steps li { flex: 1 1 auto; padding: 0 8px; white-space: nowrap; }
+.bw-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin-top: var(--s12); }
+.bw-next .bw-acts .btn { flex: 1 1 auto; }
+.bw-links { display: flex; flex-wrap: wrap; margin: var(--s4) 0 0 -12px; }
+.bw-hfoot { display: flex; flex-direction: column; align-items: stretch; gap: var(--s8); margin-top: var(--s12); padding-top: var(--s12); border-top: 1px solid var(--n100); }
+/* Who from the team is going (R-022 wave 3 #16): the names, or plainly nobody yet; then I'm going and, for an admin,
+   Send a teammate. The hearing's own page and its video sit under them. */
+.bw-going { display: flex; flex-direction: column; gap: var(--s8); }
+.bw-gwho { display: flex; align-items: flex-start; gap: 6px; font-size: var(--t14); color: var(--n900); }
+.bw-gwho.none { color: var(--n500); }
+.bw-gwho > .ic { width: 16px; height: 16px; margin-top: 2px; color: var(--n500); flex: none; }
+.bw-gacts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); }
+.bw-going .chip .ic { width: 18px; height: 18px; }
+.bw-hfoot > .bw-watch { align-self: flex-start; margin-left: -12px; }
+/* The hearing's own page (R-022 wave 3), from the card's head beside its ⋯ */
+.bw-nhacts { display: flex; align-items: center; gap: 2px; }
+.bw-nexthead .bw-hpage { padding: 0 8px 0 12px; gap: 2px; }
+.bw-hpage .ic { width: 18px; height: 18px; }
+.bw-recent { margin-top: var(--s12); padding-top: var(--s12); border-top: 1px solid var(--n100); }
+.bw-next > .bw-recent:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.bw-rh { margin-top: var(--s8); font-size: var(--t14); }
+.bw-rh .sv-chip { margin-left: var(--s4); vertical-align: 1px; }
+.bw-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.bw-inline { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; font-weight: 700; }
+.bw-inline .ic { width: 16px; height: 16px; }
+
+/* ---- sticky tabs: pinned under the 56px header ---- */
+.bw-tabsent { height: 0; }
+.bw-tabs { position: sticky; top: var(--header); z-index: 30; display: grid; grid-template-columns: repeat(5, auto); margin: var(--s16) calc(-1 * var(--gutter)) 0; padding: 0 var(--s8);
+  background: var(--n0); border-top: 1px solid var(--n200); border-bottom: 1px solid var(--n200); }
+.bw-tabs a { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; padding: 0 2px; color: var(--n500); font-weight: 700; font-size: var(--t16); text-decoration: none; white-space: nowrap; }
+/* Five tabs since R-027: columns sized to their labels, the spare room shared out, fit in one row down to 320px with every
+   tab at least 44px wide (measured 9/21: the labels take 311px at 16px, 271px at 14px). */
+.bw-tabs a:hover { color: var(--n900); }
+.bw-tabs a[aria-current="page"] { color: var(--p700); }
+.bw-tabs a[aria-current="page"]::after { content: ''; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--p700); }
+.bw-tabs a:focus-visible { outline-offset: -3px; }
+.bw-badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--p700); color: var(--n0); font: 700 var(--t13)/20px var(--font); text-align: center; }
+.bw-panel { padding-top: var(--s16); }
+.bw-khint { display: none; }
+/* A tab that was just opened arrives with a short fade, so a tap or a key press is seen to do something. */
+@keyframes bw-in { from { opacity: 0; transform: translateY(6px); } }
+.bw-panel.bw-in { animation: bw-in .2s var(--ease, ease-out); }
+/* Phones: a tap on a tab brings the strip to the top of the screen (bill.js). A short tab still needs the page to be
+   tall enough for that: the screen, less the header (56), the strip (49) and the space main keeps for the tab bar (96). */
+@media (max-width: 899px) { .bw-panel { min-height: calc(100vh - 201px); } }
+
+/* ---- sections ---- */
+.bw-sec + .bw-sec { margin-top: var(--s32); }
+.bw-page .bw-sec > h2, .bw-sech h2 { display: flex; align-items: center; gap: var(--s8); margin-bottom: var(--s8); font-size: var(--t16); }
+.bw-sech { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); }
+.bw-sech h2 { margin-bottom: 0; }
+.bw-sech .btn.text { margin-right: -12px; flex: none; }
+.bw-act .bw-sech { align-items: flex-start; margin-bottom: var(--s4); }
+.bw-act .bw-sech .meta { padding-top: 13px; }
+.bw-n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--n100); color: var(--n700); font: 700 var(--t13)/22px var(--font); text-align: center; letter-spacing: 0; }
+.bw-sub { display: inline-flex; align-items: center; gap: 4px; font: 700 var(--t13)/1 var(--font); color: var(--n500); letter-spacing: 0; }
+.bw-sub .ic { width: 14px; height: 14px; }
+.bw-sum p { color: var(--n900); max-width: 65ch; }
+.bw-sum .meta { margin-top: var(--s4); }
+
+/* to do */
+.bw-page ul.bw-todos { list-style: none; margin: 0; padding: 0; }
+.bw-todo { display: flex; align-items: center; gap: var(--s4); min-height: 56px; padding: var(--s4) 0 var(--s4) var(--s4); }
+.bw-todos > .bw-todo + .bw-todo { border-top: 1px solid var(--n100); }
+.bw-tick { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; flex: none; color: var(--p700); border-radius: var(--r8); }
+.bw-tick .ic { width: 22px; height: 22px; }
+.bw-tick:hover { background: var(--p50); }
+.bw-tbody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bw-ttl { color: var(--n900); overflow-wrap: anywhere; }
+.bw-tmeta { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; font-size: var(--t14); color: var(--n500); }
+.bw-todo.done .bw-ttl { color: var(--n500); text-decoration: line-through; }
+.bw-addrow { display: flex; gap: var(--s8); margin-top: var(--s8); }
+.bw-addrow .input { flex: 1 1 auto; min-width: 0; }
+.bw-addrow .btn { flex: none; min-height: 48px; }
+.bw-page .bw-sec textarea#bw-note { min-height: 88px; }
+/* Every hearing the bill has had (R-033): committee and when on the left, what happened and the recording on the right. */
+.bw-page ul.bw-allh { list-style: none; margin: 0; padding: 0; }
+.bw-page .bw-ah { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s4) var(--s12); padding: var(--s8) 0; border-bottom: 1px solid var(--n200); }
+.bw-page .bw-ah p { margin: 0; }
+.bw-page .bw-ahend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); }
+
+/* team rows */
+.bw-line { min-height: 56px; }
+.bw-line .body { gap: 0; }
+.bw-line .sub { font-size: var(--t13); font-weight: 700; }
+.bw-line .title { font-weight: 400; overflow-wrap: anywhere; }
+.bw-line .btn.text { flex: none; margin-right: -8px; }
+/* a coalition opens its own page (R-022 wave 3); a full-size target on a phone, 32px with a mouse */
+.bw-line .title a.bw-coal { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; font-weight: 700; }
+
+/* details */
+.bw-dl { margin: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); padding: 0 var(--s16); }
+.bw-dt { padding: var(--s12) 0; font-size: var(--t14); }
+.bw-dt + .bw-dt { border-top: 1px solid var(--n100); }
+.bw-dt dt { font-size: var(--t13); font-weight: 700; color: var(--n500); margin-bottom: 2px; }
+.bw-dt dd { margin: 0; color: var(--n900); overflow-wrap: anywhere; }
+.bw-gloss { display: block; margin-top: 2px; font-size: var(--t13); color: var(--n500); }
+.bw-chair { display: inline-block; }   /* "Chair Sen. San Buenaventura" wraps as one phrase, never after the word */
+.bw-refl { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.bw-refl + .bw-refl { margin-top: var(--s8); }
+.bw-refch { min-width: 56px; font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.bw-ref { display: inline-flex; align-items: center; gap: 4px; min-height: 26px; padding: 0 8px; border-radius: 6px; background: var(--n100); color: var(--n700); font-size: var(--t13); font-weight: 700; }
+.bw-ref .ic { width: 14px; height: 14px; }
+.bw-ref.past { color: var(--n500); }
+.bw-ref.here { background: var(--n0); color: var(--n900); box-shadow: inset 0 0 0 2px var(--n700); }
+.bw-arr { width: 14px; height: 14px; color: var(--n400); }
+.bw-more { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
+.bw-linkrow { display: flex; flex-wrap: wrap; column-gap: var(--s24); }
+.bw-comp { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-right: var(--s16); }
+.bw-comp a { font-weight: 700; }
+.bw-fold { margin-top: var(--s8); }
+.bw-fold summary { display: flex; align-items: center; gap: var(--s8); min-height: 44px; color: var(--p700); font-weight: 700; font-size: var(--t14); cursor: pointer; list-style: none; }
+.bw-fold summary::-webkit-details-marker { display: none; }
+.bw-fold .chev { width: 18px; height: 18px; transition: transform .15s; }
+.bw-fold[open] .chev { transform: rotate(180deg); }
+.bw-fold p { max-width: 65ch; color: var(--n700); }
+.bw-fold p + p { margin-top: var(--s8); }
+
+/* ---- Activity ---- */
+.bw-stream { display: flex; flex-direction: column; }
+.bw-page h3.bw-day { margin: var(--s16) 0 var(--s4); font: 700 var(--t13)/1.2 var(--font); color: var(--n500); letter-spacing: 0; display: flex; align-items: center; gap: var(--s8); }
+.bw-page h3.bw-day::after { content: ''; flex: 1 1 auto; height: 1px; background: var(--n200); }
+.bw-msg, .bw-log { display: flex; align-items: flex-start; gap: var(--s12); padding: var(--s8) 0; }
+.bw-msgb { flex: 1 1 auto; min-width: 0; }
+.bw-msgh { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--s8); font-size: var(--t14); }
+.bw-msgh b { color: var(--n900); }
+.bw-msgt { margin-top: 2px; color: var(--n900); line-height: 1.45; overflow-wrap: anywhere; }
+.bw-msgt a { font-weight: 700; }
+.bw-at { background: var(--n100); border-radius: 4px; padding: 0 3px; }
+.bw-new { font-size: var(--t13); font-weight: 700; color: var(--p800); background: var(--p50); border-radius: var(--pill); padding: 0 8px; }
+.bw-msgmore { margin: -10px -10px 0 0; color: var(--n500); }
+.bw-msgmore .ic { width: 18px; height: 18px; }
+.bw-msg .sv-av { margin-top: 2px; }
+.bw-logic { width: 32px; height: 32px; border-radius: 50%; background: var(--n100); color: var(--n700); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.bw-logic .ic { width: 18px; height: 18px; }
+.bw-off summary { display: flex; align-items: center; gap: var(--s12); min-height: 48px; padding: var(--s4) 0; cursor: pointer; list-style: none; }
+.bw-off summary::-webkit-details-marker { display: none; }
+.bw-offt { flex: 1 1 auto; min-width: 0; font-size: var(--t14); color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.bw-offt b { color: var(--n900); margin-right: 2px; }
+.bw-off .chev { width: 18px; height: 18px; color: var(--n400); transition: transform .15s; }
+.bw-off[open] .chev { transform: rotate(180deg); }
+.bw-off[open] .bw-offt { -webkit-line-clamp: unset; display: block; }
+.bw-off ul { list-style: none; margin: 0 0 var(--s8) 44px; padding: 0; }
+.bw-off li { padding: var(--s8) 0; font-size: var(--t14); color: var(--n700); border-top: 1px solid var(--n100); overflow-wrap: anywhere; }
+.bw-earlier { align-self: center; }
+.bw-loading { display: flex; align-items: center; gap: 6px; padding: var(--s8) 0; }
+.bw-loading .ic { width: 16px; height: 16px; animation: spin 1s linear infinite; }
+.bw-none { padding: var(--s16) 0; font-size: var(--t14); color: var(--n500); }
+
+/* the message box: the page's bottom bar on Activity */
+.bw-composer { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--s8); }
+.bw-crow { display: flex; align-items: flex-end; gap: var(--s8); }
+.bw-crow textarea { flex: 1 1 auto; min-width: 0; min-height: 44px; max-height: 132px; padding: 10px 16px; border: 1px solid var(--n400); border-radius: 22px; background: var(--n0);
+  font: 400 var(--t16)/22px var(--font); color: var(--n900); resize: none; overflow-y: auto; }
+.bw-crow textarea:focus { outline: none; border-color: var(--p700); box-shadow: 0 0 0 2px var(--p700); }
+.bw-send { width: 44px; height: 44px; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--pill); background: var(--p700); color: var(--n0); }
+.bw-send:hover { background: var(--p800); }
+.bw-send .ic { width: 20px; height: 20px; }
+.bw-send[aria-busy="true"] { opacity: .6; }
+.bw-mention { display: flex; gap: var(--s8); overflow-x: auto; scrollbar-width: none; }
+.bw-mention .chip { flex: none; padding-left: 8px; }
+
+/* ---- Public ---- */
+.bw-pubform { margin-top: var(--s12); }
+.bw-pubform .sv-switchrow { border-bottom: 1px solid var(--n200); margin-bottom: var(--s16); }
+.bw-pubsave .btn.primary { flex: 0 1 auto; }
+.bw-lists { margin-top: var(--s8); }
+.bw-lists .chip .ic { width: 16px; height: 16px; }
+.bw-lists .chip[aria-disabled="true"] { background: var(--n100); color: var(--n500); border-color: var(--n200); cursor: default; }
+.bw-draft { margin-left: 2px; font-weight: 400; color: var(--n500); }
+
+/* ---- sheets opened from this page ---- */
+.bw-shlink { margin: var(--s8) 0 0 -12px; }
+.bw-shhelp { margin-bottom: var(--s8); }
+/* Log activity's first line: a meeting with a legislator is a conversation (R-022 review), one tap away */
+.bw-lcv { display: flex; flex-wrap: wrap; align-items: center; column-gap: 2px; margin: -8px 0 var(--s12); font-size: var(--t14); color: var(--n700); }
+.bw-lcv .btn.text { margin-left: -6px; padding: 0 8px; }
+.bw-types { border: 0; margin: 0 0 var(--s16); padding: 0; min-width: 0; }
+.bw-types legend { padding: 0; margin-bottom: var(--s8); font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.bw-types .chip .ic { width: 16px; height: 16px; }
+
+/* ---- very narrow phones and 200% zoom: let long words wrap instead of pushing the page sideways ---- */
+@media (max-width: 359px) {
+  .bw-hv { display: none; }   /* the version in the phone header gives way to the number */
+  .bw-tabs a { font-size: var(--t14); }
+  .bw-next .bw-acts .btn { flex-basis: 100%; }
+}
+
+/* ---- the Public tab's preview and the desktop pieces that have no phone form: hidden until there is room ---- */
+.bw-prev, .bw-pwfold { display: none; }
+
+/* ======================================================================================================
+   Desktop (900px and wider): two columns, a side panel that stays in view, label-sized tabs and buttons,
+   hover washes, and a table for the Pathway. Rows are tighter than on a phone (a mouse needs 36 to 40px).
+   ====================================================================================================== */
+@media (min-width: 900px) {
+  .bw-page { max-width: 1056px; }          /* the frame's standard page (1120px less its gutters) */
+  .bw-hdrmore { display: none; }
+  /* the page's own top bar: back, Previous / Next, ⋯ */
+  .bw-top { display: flex; align-items: center; gap: var(--s8); min-height: 44px; margin: 0 -12px var(--s4) -8px; }
+  .bw-back { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; margin-right: auto; padding: 0 12px 0 4px; border-radius: var(--pill); color: var(--p700); font-weight: 700; text-decoration: none; max-width: 40%; }
+  .bw-back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bw-back:hover { background: var(--p50); }
+  .bw-nav { display: flex; align-items: center; gap: var(--s4); }
+  .bw-pn .ic { width: 18px; height: 18px; }
+  .bw-pn[aria-disabled="true"] { color: var(--n400); text-decoration: none; cursor: default; }
+  .bw-pn[aria-disabled="true"]:hover { background: none; }
+
+  /* the main column: number, name, the ribbon, where it stands, then the tabs with the tab's content under them */
+  .bw-cols { margin-top: var(--s4); }
+  .bw-main { min-width: 0; }
+  .bw-num { display: block; }
+  .bw-page h1.bw-num { font-size: var(--t22); }
+  .bw-head { padding-top: 0; }
+  .bw-title { margin-top: var(--s4); }
+  .bw-lede { font-size: var(--t16); }
+  /* What stays pinned under the app header is the page's slim top bar (Back, Previous / Next, and the bill's number
+     once its heading has scrolled away) and the tab strip, about 90px. The heading, the ribbon and the status sentence
+     scroll away (R-042, Nate 9/22: pinned together they took 250px of an 800px screen and left the tabs' content
+     little room). bill.js measures the strip and publishes --bw-under, the line the tab's own sticky pieces (the
+     Pathway table's header row, the Public tab's preview) hold themselves to. */
+  .bw-top { position: sticky; top: var(--header); z-index: 21; background: var(--n50); }
+  .bw-stick { display: contents; }
+  .bw-stick .bw-tabs { position: sticky; top: calc(var(--header) + var(--bw-toph)); z-index: 20; }
+  .bw-desk { --bw-toph: 44px; }
+  .bw-topnum { min-width: 0; margin-right: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t14); color: var(--n700); opacity: 0; visibility: hidden; }
+  .bw-topnum b { color: var(--n900); }
+  .bw-scrolled .bw-topnum { opacity: 1; visibility: visible; }
+  .bw-scrolled .bw-back { margin-right: 0; }
+  @media (prefers-reduced-motion: no-preference) { .bw-topnum { transition: opacity .15s ease, visibility .15s; } }
+  /* one line, 45px: where the column is too narrow for the key hint it wraps to a second line, which is cut off */
+  .bw-tabs { display: flex; flex-wrap: wrap; align-items: stretch; column-gap: var(--s4); row-gap: var(--s8); max-height: 45px; overflow: hidden; margin: var(--s16) 0 0; padding: 0; border-top: 0; background: var(--n50); }
+  .bw-tabs a { min-height: 44px; padding: 0 var(--s16); border-radius: var(--r8) var(--r8) 0 0; }
+  .bw-tabs a:hover { background: var(--n100); }
+  .bw-tabs a[aria-current="page"]:hover { background: var(--p50); }
+  .bw-tabs a[aria-current="page"]::after { left: 0; right: 0; bottom: 0; }
+  .bw-panel { padding-top: var(--s24); container: bwp / inline-size; }
+
+  /* The side panel is Next up and Team only — the key facts moved into Details, so nothing hides behind an invisible
+     inner scrollbar. It scrolls with the page (staff.css); its first card stays in view (.sv-stick).
+     2px of room for the cards' shadows, which a sticky card would otherwise clip. */
+  /* Stretched to the row, not sized to its own cards: the panel is shorter than the main column, and without this
+     its sticky first card would scroll away with the panel a screen into a long Activity stream. */
+  .bw-cols > .bw-aside { padding: 2px; margin: -2px; align-self: stretch; }
+  /* Next up docks just under the pinned top bar, with no gap: the Team card behind it then passes under the
+     app header instead of showing a stray card edge in the space between. (The shared .sv-stick keeps 16px there,
+     and adds the band's 28px from 900px although the band is only sticky from 1100px.) */
+  .bw-cols > .bw-aside > .sv-stick, body.staff2:has(.band) .bw-cols > .bw-aside > .sv-stick { top: calc(var(--header) + var(--bw-toph)); }
+  .bw-page .bw-aside .card { margin-top: 0; }
+  .bw-next .bw-acts .btn { flex: 0 1 auto; }
+  /* tighter than the phone card, so Next up and Team both show on a 1280x800 screen */
+  .bw-page .bw-aside .btn { min-height: 40px; }
+  .bw-page .bw-aside .btn.text { min-height: 36px; }
+  .bw-page .bw-aside button.chip { min-height: 36px; padding: 4px 12px; }
+  .bw-page .bw-aside button.chip[aria-pressed="true"] { padding: 3px 11px; }
+  .bw-aside .bw-tb, .bw-aside .bw-acts, .bw-aside .bw-due { margin-top: var(--s8); }
+  .bw-aside .bw-hfoot { margin-top: var(--s8); padding-top: var(--s8); row-gap: var(--s4); }
+  .bw-aside .bw-going { gap: var(--s4); }
+  .bw-side > .bw-nexthead { margin-bottom: var(--s4); min-height: 24px; margin-top: 0; margin-right: 0; }
+  .bw-ctl { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); min-height: 44px; }
+  .bw-ctl + .bw-ctl { border-top: 1px solid var(--n100); }
+  .bw-ctll { font-size: var(--t13); font-weight: 700; color: var(--n500); }
+  .bw-ctl .sv-pick { min-height: 36px; max-width: 232px; border-color: transparent; padding: 0 8px 0 10px; margin-right: -8px; }
+  .bw-ctl .sv-pick:hover, .bw-ctl .sv-pick:focus-visible { border-color: var(--p700); }
+  .bw-ctl .sv-pick > span:not(.sv-av) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bw-ctl .sv-av { font-size: var(--t13); }
+  /* who follows the bill: a fact, not a control, so plain text where the pickers sit (R-022 wave 3) */
+  .bw-ctlv { min-width: 0; font-size: var(--t14); color: var(--n900); text-align: right; overflow-wrap: anywhere; }
+
+  /* Overview: a readable column; the details line up as label and value */
+  .bw-dl .bw-dt { display: grid; grid-template-columns: 132px 1fr; gap: var(--s16); }
+  .bw-dl .bw-dt dt { margin: 1px 0 0; }
+  .bw-todo { min-height: 48px; }
+  .bw-page .bw-inline, .bw-more, .bw-comp, .bw-page .bw-dt dd a[href^="#/legislator/"], .bw-line .title a.bw-coal { min-height: 32px; }
+  .bw-line .title a.bw-coal { min-width: 0; }
+  .bw-addrow { max-width: 560px; }
+  .bw-addrow .btn { min-height: 44px; }
+  .bw-page .bw-sec textarea#bw-note { max-width: 70ch; }
+
+  /* Activity: the message box ends the stream, inside the column; lines stay near 70 characters */
+  .bw-msgt, .bw-log .small, .bw-off li, .bw-offt, .bw-none { max-width: 32em; }     /* about 70 characters */
+  .bw-act { padding-bottom: var(--s32); }                         /* the toast sits below the box, not on it */
+  .bw-desk .bw-act .bw-sech .meta { padding-top: 0; }             /* "Log activity" is under the message box here */
+  /* The box sits ABOVE the stream now (newest first), so its rule belongs underneath it. */
+  .bw-inbox { margin-bottom: var(--s16); padding-bottom: var(--s16); border-bottom: 1px solid var(--n200); }
+  .bw-inbox .bw-crow textarea { border-radius: var(--r12); }
+  .bw-inbox .bw-send { border-radius: var(--r12); }
+  .bw-cfoot { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); margin: 2px -12px 0 2px; }
+  .bw-off summary { margin: 0 -8px; padding: var(--s4) 8px; border-radius: var(--r8); min-height: 44px; }
+  .bw-off summary:hover { background: var(--n100); }
+  .bw-off summary .chev { margin-left: auto; }                     /* the text stops at about 70 characters; the arrow stays at the edge */
+  .bw-msg, .bw-log { margin: 0 -8px; padding: var(--s8); border-radius: var(--r8); }
+  .bw-msg:hover { background: var(--n100); }
+  .bw-msgmore { margin: -6px -4px 0 0; }
+
+  /* Public: a readable form, and beside it (where the column has room) how the public page will name the bill */
+  .bw-pubform { max-width: 520px; }
+  .bw-prevcard { margin-top: var(--s8); padding: var(--s16); }
+  .bw-prevcard.off { border-style: dashed; box-shadow: none; background: var(--n50); }
+  .bw-pnum { font: 700 var(--t13)/1.2 var(--font); color: var(--n500); }
+  .bw-pname { margin-top: var(--s4); font: 700 var(--t18)/1.25 var(--font); color: var(--n900); overflow-wrap: anywhere; }
+  .bw-pname.bw-long { font-size: var(--t16); line-height: 1.35; }
+  .bw-plede { margin-top: var(--s4); font-size: var(--t14); line-height: 1.45; color: var(--n700); overflow-wrap: anywhere; }
+  .bw-pask { display: flex; gap: var(--s8); margin-top: var(--s12); padding: var(--s8) var(--s12); border-radius: var(--r8); background: var(--p50); color: var(--p900); font-size: var(--t14); line-height: 1.4; overflow-wrap: anywhere; }
+  .bw-pask.off { background: var(--n100); color: var(--n500); }
+  .bw-pask .ic { width: 18px; height: 18px; margin-top: 1px; }
+  .bw-pnote { display: flex; gap: 6px; margin-top: var(--s8); font-size: var(--t13); line-height: 1.4; color: var(--n500); }
+  .bw-pnote .ic { width: 16px; height: 16px; margin-top: 1px; }
+  @container bwp (min-width: 560px) {
+    .bw-pubcols { display: grid; grid-template-columns: minmax(0, 1fr) 248px; gap: var(--s24); align-items: start; }
+    .bw-pubcols .bw-pubform { max-width: none; }
+    .bw-prev { display: block; position: sticky; top: calc(var(--bw-under, calc(var(--header) + 45px)) + var(--s16)); margin-top: var(--s12); }
+  }
+
+  /* Pathway: each stop's members as a table (pathway.js draws it on desktop only) */
+  .bw-panel .lg-stop { overflow: clip; }                          /* keeps the rounded corners without trapping the sticky header row */
+  .bw-pwt { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--t14); }
+  .bw-pwt thead th { position: sticky; top: var(--bw-under, calc(var(--header) + 45px)); z-index: 5; height: 40px; padding: 0 8px; background: var(--n50); border-bottom: 1px solid var(--n200); font-size: var(--t13); font-weight: 700; color: var(--n500); text-align: left; white-space: nowrap; }
+  .bw-pwt thead th:first-child { padding-left: var(--s16); }
+  .bw-sortb { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; margin: 0 -6px; padding: 0 6px; border-radius: var(--r8); font-weight: 700; color: var(--n500); }
+  .bw-sortb:hover { background: var(--n100); color: var(--n900); }
+  .bw-pwt th[aria-sort="ascending"] .bw-sortb, .bw-pwt th[aria-sort="descending"] .bw-sortb { color: var(--n900); }
+  .bw-sortb .ic { width: 14px; height: 14px; }
+  .bw-pwt tbody th, .bw-pwt td { height: 48px; padding: 4px 8px; border-top: 1px solid var(--n100); vertical-align: middle; text-align: left; font-weight: 400; color: var(--n700); }
+  .bw-pwt tbody tr:first-child th, .bw-pwt tbody tr:first-child td { border-top: 0; }
+  .bw-pwt tbody th { padding-left: var(--s16); }
+  .bw-pwt tbody tr:hover { background: var(--n50); }
+  /* the note gets the spare width; the other columns are as wide as their longest value ("Vice chair", "Leaning yes") */
+  .bw-pwc-name { width: 27%; }
+  .bw-pwc-role { width: 84px; }
+  .bw-pwc-stance { width: 164px; }
+  .bw-pwc-act { width: 48px; }
+  .bw-pwt td.bw-pwc-act { padding: 0 4px 0 0; text-align: right; white-space: nowrap; }
+  .bw-pwt td.bw-pwc-act .iconbtn { width: 40px; height: 40px; color: var(--n700); }
+  .bw-pwt td.bw-pwc-act .iconbtn .ic { width: 20px; height: 20px; }
+  /* the name is the link; its whole cell is the target (48px), as the first cell of a table row should be */
+  .bw-pwt tbody th { position: relative; }
+  .bw-pwnm::after { content: ''; position: absolute; inset: 0; }
+  .bw-pwnm { font-weight: 700; color: var(--n900); text-decoration: underline; text-decoration-color: var(--n300); text-underline-offset: 3px; overflow-wrap: anywhere; }
+  .bw-pwnm:hover { color: var(--p800); text-decoration-color: currentColor; }
+  .bw-pwt tr.lead .bw-pwc-role { font-weight: 700; color: var(--n900); }
+  .bw-pwsub { display: block; font-size: var(--t13); color: var(--n500); }
+  .bw-pwt .sv-pick { width: 100%; min-height: 36px; padding: 0 8px 0 10px; justify-content: space-between; }
+  .bw-pwt .sv-pick > span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+  .bw-pwnote { display: flex; flex-direction: column; justify-content: center; gap: 1px; width: calc(100% + 16px); min-height: 40px; margin: 0 -8px; padding: 2px 8px; border-radius: var(--r8); text-align: left; }
+  .bw-pwnote:hover { background: var(--p50); }
+  .bw-pwnote.none { flex-direction: row; justify-content: flex-start; align-items: center; gap: 4px; font-size: var(--t13); color: var(--n500); }
+  .bw-pwnote.none:hover { color: var(--p800); }
+  .bw-pwnote.none .ic { width: 14px; height: 14px; }
+  .bw-pwntx { color: var(--n900); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .bw-pwmeta { font-size: var(--t13); color: var(--n500); }
+  /* under 640px of column the stance chips drop their icon (the word stays), as they do on a phone, so the note keeps room */
+  @container bwp (max-width: 639px) {
+    .bw-pwc-stance { width: 136px; }
+    .bw-pwt .sv-pick .ic:not(.chev) { display: none; }
+  }
+  /* a narrow column (a small window beside the sidebar): Role and Note fold into the name cell */
+  @container bwp (max-width: 559px) {
+    .bw-pwt .bw-pwc-role, .bw-pwt .bw-pwc-note { display: none; }
+    .bw-pwt span.bw-pwfold { display: inline; }
+    .bw-pwt span.bw-pwinl { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; font-size: var(--t13); color: var(--n700); overflow-wrap: anywhere; }
+    .bw-pwt .iconbtn.bw-pwfold { display: inline-flex; }
+    .bw-pwc-name { width: auto; }
+    .bw-pwc-act { width: 92px; }
+  }
+}
+/* From 1100px the sandbox band is sticky and the app header sits 28px under it (staff.css's body.staff2:has(.band)
+   rules). The pinned top bar and strip follow the header down, or they would cover the header's lower half. Below
+   1100px the band scrolls away and the header holds the top, so the plain tops above are right there. */
+@media (min-width: 1100px) {
+  body.staff2:has(.band) .bw-top { top: calc(var(--header) + 28px); }
+  body.staff2:has(.band) .bw-stick .bw-tabs,
+  body.staff2:has(.band) .bw-cols > .bw-aside > .sv-stick { top: calc(var(--header) + 28px + var(--bw-toph)); }
+}
+
+/* Pointers that hover get a wash under everything clickable, not only a colour change. */
+@media (hover: hover) and (pointer: fine) {
+  .bw-page .btn.text:hover { background: var(--p50); text-decoration: none; }
+  .bw-page .bw-inline { border-radius: 6px; }
+  .bw-page .bw-inline:hover, .bw-page .bw-more:hover { background: var(--p50); box-shadow: 0 0 0 4px var(--p50); }
+  .bw-page button.chip:hover:not([aria-disabled="true"]) { background: var(--p50); border-color: var(--p700); }
+  .bw-fold summary { border-radius: var(--r8); }
+  .bw-fold summary:hover { background: var(--p50); box-shadow: 0 0 0 4px var(--p50); }
+  .bw-meta a:hover, .bw-dt dd a[href^="#/legislator/"]:hover { background: var(--p50); box-shadow: 0 0 0 3px var(--p50); border-radius: 4px; }
+}
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  /* a message's ⋯ shows when the pointer or the keyboard reaches it */
+  .bw-msgmore { opacity: 0; }
+  .bw-msg:hover .bw-msgmore, .bw-msgmore:focus-visible { opacity: 1; }
+  .bw-khint { display: inline-flex; align-items: center; gap: 6px; height: 44px; margin-left: auto; padding-right: 2px; font-size: var(--t13); color: var(--n500); white-space: nowrap; }
+  .bw-khint .ic { width: 16px; height: 16px; }
+}
+/* a legislator named inside a detail line (the chair) is still a full-size target on phones */
+.bw-dt dd a[href^="#/legislator/"] { display: inline-flex; align-items: center; min-height: 44px; }
+
+/* ---- Review cards (review.js, R-022): the bill's facts on one line that wraps. Here because review.js has no stylesheet
+   of its own; its other rules are in today.css (.td-rv*). ---- */
+.td-rv .td-rvfacts { flex-wrap: wrap; row-gap: 2px; }
+.td-rv .td-rvfacts > span { display: inline-flex; align-items: center; gap: 4px; }
+.td-rv .td-rvfacts .ic { width: 16px; height: 16px; color: var(--n500); }
+.td-rv .td-rvdot { color: var(--n500); }
+
+/* ---- five tabs (R-027): the strip fits its labels to the room it has, measured on itself, so the fifth tab never
+   wraps out of sight (the desktop strip hides a second line). A container, as .bw-panel is, not a new breakpoint:
+   the room depends on the sidebar and side panel, not on the window. Measured 9/21: the five labels take 311px at
+   16px, 271 at 14px and 252 at 13px, and an unread badge adds 26. */
+.bw-tabs { container: bwtabs / inline-size; }
+@media (max-width: 899px) {
+  @container bwtabs (max-width: 356px) { .bw-tabs a { font-size: var(--t14); } }
+  @container bwtabs (max-width: 316px) { .bw-tabs a { font-size: var(--t13); min-width: 44px; } }
+}
+@media (min-width: 900px) {
+  @container bwtabs (max-width: 512px) { .bw-tabs a { padding: 0 var(--s8); } }
+  @container bwtabs (max-width: 432px) { .bw-tabs a { font-size: var(--t14); } }
+}
+/* A draft the job started from HIPHI's earlier testimony on the bill (R-148) */
+.bw-from { display: flex; gap: 6px; align-items: flex-start; margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n700); }
+.bw-from .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--p700); }

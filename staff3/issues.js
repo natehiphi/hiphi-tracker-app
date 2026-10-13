@@ -1,0 +1,563 @@
+// Outreach > Issues (063, R-018). What the public follows. People follow ISSUES - a policy a resident recognises, like
+// "Free school meals for every student" or "Disposable e-cigarette ban" - grouped in six categories, and every bill HIPHI
+// takes a position on that carries a followed issue reaches them: this session's, later ones, and next session's once
+// they are put on it here. Nate, 9/21: Claude tidies the first list from the nicknames "and staff can adjust", so this
+// is where the list is kept: rename, describe, move, recommend, merge two that are really one, archive, and put bills
+// on issues (also from a bill's Public tab, and from the queue below).
+// The index leads with what would otherwise go unnoticed: position bills this session that no issue carries, which
+// nobody following issues would ever hear of. #/issue/:id is one issue (a person comes here to see where it stands and
+// what each of its bills needs, R-226, B-1): where it stands, its bills, its followers and its ⋯ menu, laid
+// out like a list's page. Its "Show in the first visit" switch (066, R-023) leaves an issue out of a newcomer's first
+// visit only. Its "Related issues" (095, R-094) are the issues whose bills a follower of this one is shown first. #/outreach/issues?view=first-visit is the first visit's numbers, ?view=links makes a link (firstvisit.js).
+// Getting the issues ready for 2027 (091, R-088) is prep.js: ?view=mine is My issues, ?view=prep the admins' board, and
+// the prep card on an issue's page. A new issue is a draft the public never sees until an admin publishes it.
+import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, fmtDT, effStage, STAGE_LABEL } from './data.js';
+import { billById, billNum, plain, PUBLIC_APP, billRef, billByRef, billRoute, stopOf, riskOf, diedish, hearingAhead } from './model.js';
+import { icon, btn, iconBtn, row, chip, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow, notice, posChip, pickerSheet, pickerChip, ownerOf } from './ui.js';
+import { plural, pageHead, afterClose, billName } from './lists.js';
+import { convSectionHTML, wireConvSection } from './conversation.js';
+import { FV_HREF, fvView, fvTitle, fvBack, renderFirstVisit, wireFirstVisit } from './firstvisit.js';
+import { prepView, prepTitle, renderPrep, wirePrep, prepCardHTML, wirePrepCard, indexLinks, isDraft } from './prep.js';
+import { testimonyOf, dueOf } from './hearing.js';
+import { isPos, dayOf, dueWhen, waitingOfBills, GROUPS, groupKey } from './standing.js';
+
+// ---- the catalogue ----
+export const catByKey = k => (S.categories || []).find(c => c.key === k) || null;
+export const issueById = id => (S.issues || []).find(i => String(i.id) === String(id)) || null;
+const live = () => (S.issues || []).filter(i => !i.archived_at);
+const byName = (a, b) => a.name.localeCompare(b.name);
+const byNum = (a, b) => a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true });
+export const alsoIn = i => (S.issueCats || []).filter(x => x.issue_id === i.id && x.category !== i.category).map(x => x.category);
+export const issuesOfBill = billId => { const on = new Set((S.billIssues || []).filter(x => x.bill_id === billId).map(x => x.issue_id)); return live().filter(i => on.has(i.id)).sort(byName); };
+// A link from a bill to one of its issues names the bill (R-226): the issue's Back link then returns to that bill, and
+// billFrom reads the name back from the address. Without it (the catalogue, a shared link) Back goes to Issues.
+export const issueLinkHref = (i, b) => `#/issue/${encodeURIComponent(i.id)}?from=${encodeURIComponent(billRef(b))}`;
+export const billFrom = route => { const ref = route?.q?.from; return ref ? billByRef(ref) || null : null; };
+export const billsOn = i => (S.billIssues || []).filter(x => x.issue_id === i.id).map(x => billById(x.bill_id)).filter(Boolean);
+const thisSession = b => !b.session_year || +b.session_year === +SESSION_YEAR;
+// Whether a bill reaches the people who follow its issues: the database's own test (follow_set, 063).
+export const whyNot = b => b.tracked === false ? 'No longer tracked, so its followers do not get it'
+  : !b.is_public ? 'Not on the public page, so its followers do not get it'
+  : !b.position || b.position === 'monitor' ? 'No position yet, so its followers do not get it' : '';
+// Position bills this session that no issue carries: somebody following issues would never hear of them.
+export const needsIssue = () => S.bills.filter(b => b.tracked !== false && b.position && b.position !== 'monitor' && thisSession(b) && !issuesOfBill(b.id).length)
+  .sort((a, b) => (a.priority || 9) - (b.priority || 9) || byNum(a, b));
+// Followers, from the supporters list (people_overview carries each person's issues and whole categories). Staff see
+// every count; the public sees one only from 10 people. null until the list has loaded.
+function followers(i) {
+  if (!S.peopleLoaded) return null;
+  const cats = new Set([i.category, ...alsoIn(i)]); let own = 0, via = 0;
+  for (const p of S.people || []) { if ((p.issue_ids || []).includes(i.id)) own++; else if ((p.category_keys || []).some(k => cats.has(k))) via++; }
+  return { own, via };
+}
+const wantPeople = () => { if (!S.peopleLoaded && !S.peopleLoading && !S.isPeopleTried) { S.isPeopleTried = true; DB.loadPeople().then(() => hooks.render()).catch(() => {}); } };
+const catIcon = k => catByKey(k)?.icon || 'tag';
+// In the first visit unless staff switched it off (066; an issue from before 066, or the sandbox's, has no value: on).
+export const inFirstVisit = i => i?.first_visit !== false;
+// Related issues (095, R-094): two issues whose bills are about the same thing. Someone following one is shown the
+// other's bills first when they need voices (the public tracker's suggested bill). Found by the related-issues tool from
+// the words their bills use (backend tools/issue_similarity.js, checked by Nate 9/30); a staff link or unlink here always
+// wins and holds when the tool runs again.
+const pairOf = (l, i) => l.issue_a === i.id ? l.issue_b : l.issue_b === i.id ? l.issue_a : null;
+const choiceFor = (i, o) => (S.issueLinkChoices || []).find(c => pairOf(c, i) === o.id) || null;
+export function relatedOf(i) {
+  const found = new Set((S.issueLinks || []).map(l => pairOf(l, i)).filter(Boolean)), out = [], off = [];
+  for (const o of live()) {
+    if (o.id === i.id) continue;
+    const c = choiceFor(i, o);
+    if (c ? c.related : found.has(o.id)) out.push({ o, staff: !!c && c.related && !found.has(o.id) });
+    else if (c && !c.related && found.has(o.id)) off.push({ o, c });
+  }
+  const sort = (x, y) => (x.o.category === i.category ? 0 : 1) - (y.o.category === i.category ? 0 : 1) || byName(x.o, y.o);
+  return { on: out.sort(sort), off: off.sort(sort) };
+}
+// HIPHI's stance on the issue as a whole (094, R-093, Nate 9/29: "Editing an issue ... needs to allow us to change our
+// stance ... also on the bill page"). Mixed: HIPHI backs some bills on it and opposes others. The public page says it on
+// the issue ("HIPHI supports"); not set, it works it out from the bills, as it did before 094. An icon and a word, never
+// colour alone (A-5). Set in Edit issue, from the chip on the issue's page, and from the issues on a bill's Public tab.
+// Its own icons, never the thumbs a bill's position uses: on a bill page the two sit on one screen, and a staff member
+// must not mistake the issue's chip for the bill's (the ui-critic review, 9/29).
+export const STANCES = [['support', 'Support', 'circle-check', 'HIPHI is for it'], ['oppose', 'Oppose', 'circle-x', 'HIPHI is against it'],
+  ['mixed', 'Mixed', 'scale', 'HIPHI supports some bills on it and opposes others']];
+const stanceOf = i => STANCES.find(x => x[0] === i?.stance) || null;
+// A quiet note when a bill on the issue has gone against the issue's stance (R-095, Nate 10/5, "Build it"): each bill keeps its own
+// position, separate from the issue's stance (R-093), so "HIPHI supports" can sit over a bill HIPHI opposes, as the tax-cut bills on
+// "Higher liquor taxes" do. Nothing changes by itself; the note lets staff decide whether the issue should become Mixed. Only this
+// session's bills with a position that points the other way (neutral and Monitor do not); only for Support or Oppose.
+const FOR = new Set(['strongly_support', 'support', 'support_amend']), AGAINST = new Set(['strongly_oppose', 'oppose']);
+export const againstStance = (i, bills) => i?.stance === 'support' ? bills.filter(b => AGAINST.has(b.position)) : i?.stance === 'oppose' ? bills.filter(b => FOR.has(b.position)) : [];
+function stanceNote(i, now) {
+  const odd = againstStance(i, now); if (!odd.length || i.archived_at) return '';
+  const word = i.stance === 'support' ? 'supports' : 'opposes', say = b => FOR.has(b.position) ? 'supports' : 'opposes';
+  const list = odd.slice(0, 3).map(b => `<a href="${billRoute(b)}">${esc(b.bill_number)}</a> (HIPHI ${say(b)} it)`).join(', ') + (odd.length > 3 ? ` and ${odd.length - 3} more` : '');
+  return `<div class="is-stnote" role="note">${icon('info')}<div><p>${odd.length === 1 ? 'One bill on this issue goes' : `${odd.length} bills on this issue go`} against its stance, which says HIPHI ${word} it: ${list}. Each bill keeps its own position, and nothing has changed. If this is no longer the whole story, set the stance to Mixed.</p>${btn('Change the stance', { kind: 'text', sm: true, attrs: { 'data-is': 'stance' } })}</div></div>`;
+}
+// The picker chip that shows the stance and changes it; `a` carries its data attribute.
+export const stanceChip = (i, a = {}) => { const s = stanceOf(i);
+  return pickerChip(s ? s[1] : 'No stance', { 'aria-haspopup': 'dialog', 'aria-label': `HIPHI’s stance on ${i.name}: ${s ? s[1] : 'not set'}. Change`, ...a }, s ? s[2] : 'circle-dashed'); };
+// Each pick saves at once and says so, with Undo (A-16, B-5). `after` redraws the screen it came from. From a bill page
+// (`bill`), the sheet says it is the whole issue's stance and not that bill's position, where the choice is made.
+export function pickStance(i, { after = () => hooks.render(), bill = null } = {}) {
+  const n = billsOn(i).filter(thisSession).length;
+  const help = bill ? `For the whole issue${n > 1 ? `, all ${n} of its bills` : ''}, not only ${esc(billNum(bill))}. It does not change ${esc(billNum(bill))}’s own position. The public page says it on the issue.`
+    : 'The public page says it on the issue.';
+  pickerSheet({ title: `HIPHI’s stance on ${esc(i.name)}`, value: i.stance || '', help,
+    options: [...STANCES, ['', 'Not set', 'circle-dashed', 'The public page works it out from the bills']],
+    onPick: async v => {
+      const was = i.stance || null, now = v || null; if (was === now) return;
+      try {
+        await DB.updateIssue(i.id, { stance: now }); after();
+        toast(now ? `HIPHI’s stance on ${i.name}: ${stanceOf(i)[1]}.` : `HIPHI’s stance on ${i.name}: not set.`, { undo: async () => { await DB.updateIssue(i.id, { stance: was }); after(); toast('Put back as it was'); } });
+      } catch (e) { toast(e, { err: true }); after(); }
+    } });
+}
+
+// ---- the issue form: New issue, and Edit on an issue's page ----
+// With `bill`, a new issue is made for that bill and the bill goes on it.
+export function openIssueForm(i = null, { bill = null } = {}) {
+  const cats = S.categories || [], also = new Set(i ? alsoIn(i) : []), cur = i?.category || cats[0]?.key;
+  const body = `<div class="le-sheet is-form">
+    ${bill ? `<p class="small muted is-for">For ${esc(billNum(bill))}${bill.nickname ? `, ${esc(bill.nickname)}` : ''}. It goes on the new issue.</p>` : ''}
+    <div class="field"><label for="is-name">Name</label><input id="is-name" maxlength="60" autocomplete="off" value="${esc(i?.name || '')}" placeholder="Free school meals for every student" aria-describedby="is-name-h is-name-err">
+      <span class="help" id="is-name-h">A policy people recognize, in everyday words. The public follows it by this name.</span><div id="is-name-err" role="alert"></div></div>
+    <div class="field"><label for="is-desc">Description</label><textarea id="is-desc" rows="3" maxlength="240" aria-describedby="is-desc-h">${esc(i?.description || '')}</textarea>
+      <span class="help" id="is-desc-h">One sentence on what would change. The public sees it.</span></div>
+    <fieldset class="is-cats is-stance"><legend>HIPHI’s stance</legend><p class="help is-alsoh">The public page says it on the issue.</p>
+      ${STANCES.map(([v, l, ic, sub]) => `<label class="check is-cat"><input type="radio" name="is-stance" value="${v}" ${v === (i?.stance || '') ? 'checked' : ''}><span class="is-catic">${icon(ic)}</span><span class="is-stw"><span>${l}</span><span class="is-sts">${sub}</span></span></label>`).join('')}</fieldset>
+    ${i ? '' : `<div class="field"><label for="is-goal">HIPHI’s goal for 2027 <span class="is-opt">(can wait)</span></label><textarea id="is-goal" rows="2" maxlength="600" aria-describedby="is-goal-h"></textarea>
+      <span class="help" id="is-goal-h">What we want to win on it. Staff only.</span></div>
+    <div class="field"><label for="is-pts">Talking points <span class="is-opt">(can wait)</span></label><textarea id="is-pts" rows="4" maxlength="1100" placeholder="One plain sentence per line, three to five." aria-describedby="is-pts-h is-pts-err"></textarea>
+      <span class="help" id="is-pts-h">For people’s testimony and emails. Each bill put on it starts with a copy. It is saved as a draft: the public sees it once it has a goal, three points and a bill, and an admin publishes it.</span><div id="is-pts-err" role="alert"></div></div>`}
+    ${i ? `<div class="field"><label for="is-out">Between sessions</label><textarea id="is-out" rows="3" maxlength="300" aria-describedby="is-out-h">${esc(i.outlook || '')}</textarea>
+      <span class="help" id="is-out-h">What happened last session and what to expect. The public page shows it from May to January, under the issue on Home and on its page. Claude drafted the first ones from the bills’ records; change anything, and add HIPHI’s plans.</span></div>` : ''}
+    <fieldset class="is-cats"><legend>Category</legend>${cats.map(c => `<label class="check is-cat"><input type="radio" name="is-cat" value="${esc(c.key)}" ${c.key === cur ? 'checked' : ''}><span class="is-catic">${icon(c.icon || 'tag')}</span><span>${esc(c.name)}</span></label>`).join('')}</fieldset>
+    <fieldset class="is-cats"><legend>Also in <span class="is-opt">(optional)</span></legend><p class="help is-alsoh">When it belongs to two, like the DUI limit: alcohol, and getting around safely.</p>
+      ${cats.map(c => `<label class="check is-cat" data-also="${esc(c.key)}"${c.key === cur ? ' hidden' : ''}><input type="checkbox" name="is-also" value="${esc(c.key)}" ${also.has(c.key) ? 'checked' : ''}><span class="is-catic">${icon(c.icon || 'tag')}</span><span>${esc(c.name)}</span></label>`).join('')}</fieldset>
+    ${switchRow('is-rec', 'Pre-tick for new visitors', !!i?.recommended, 'Silent: first-time visitors who pick its category find it already ticked. Nothing on the public page says it was recommended.')}
+  </div>`;
+  openSheet({ title: i ? 'Edit issue' : 'New issue', size: 'auto', body,
+    foot: btn(i ? 'Save changes' : 'Save as draft', { icon: i ? 'check' : 'plus', attrs: { 'data-issave': '1' } }),
+    wire: d => {
+      const name = d.querySelector('#is-name'), go = d.querySelector('[data-issave]'), err = d.querySelector('#is-name-err');
+      if (!i) name.focus();
+      // An issue's own category is not also one of its extra ones.
+      d.querySelectorAll('input[name="is-cat"]').forEach(r => r.onchange = () => d.querySelectorAll('[data-also]').forEach(l => { const own = l.dataset.also === r.value; l.hidden = own; if (own) l.querySelector('input').checked = false; }));
+      name.oninput = () => { name.removeAttribute('aria-invalid'); err.innerHTML = ''; };
+      const save = async () => {
+        const nm = name.value.trim().replace(/\s+/g, ' '), description = d.querySelector('#is-desc').value.trim(), category = d.querySelector('input[name="is-cat"]:checked')?.value || cur;
+        const extra = [...d.querySelectorAll('input[name="is-also"]:checked')].map(x => x.value).filter(k => k !== category), recommended = d.querySelector('#is-rec').checked;
+        // Nothing is chosen for a new issue (B-12: never pre-select a stance); left unpicked it stays unset, and the public
+        // page works it out from the bills. Not set is on the issue's chip.
+        const stance = d.querySelector('input[name="is-stance"]:checked')?.value || (i ? i.stance || null : null);
+        const clash = live().find(x => x.id !== i?.id && plain(x.name) === plain(nm));
+        const bad = nm.length < 2 ? 'Give the issue a name.' : clash ? `There is already an issue called “${clash.name}”. Use that one, or merge them.` : '';
+        if (bad) { name.setAttribute('aria-invalid', 'true'); err.innerHTML = `<span class="err">${icon('circle-alert')}${esc(bad)}</span>`; name.focus(); return; }
+        go.setAttribute('aria-busy', 'true'); go.disabled = true;
+        try {
+          if (i) {
+            // The outlook (079, R-067): saving a changed one marks it as a person's, so the draft tool never overwrites it.
+            // A changed name, description or outlook counts as the owner's check of it (the prep, 091).
+            const out = d.querySelector('#is-out')?.value.trim().replace(/\s+/g, ' ') || null, at = new Date().toISOString(), outPatch = out !== (i.outlook || null) ? { outlook: out, outlook_edited_at: at, outlook_checked_at: at } : {};
+            const wordPatch = nm !== i.name || (description || null) !== (i.description || null) ? { wording_checked_at: at } : {};
+            await DB.updateIssue(i.id, { name: nm, description: description || null, category, recommended, stance, ...outPatch, ...wordPatch });
+            await DB.setIssueAlso(i.id, extra);
+            closeSheet({ silent: true }); hooks.render(); toast('Saved. The public page shows the new wording.', { ok: true });
+          } else {
+            const goal = d.querySelector('#is-goal').value.trim(), pts = d.querySelector('#is-pts').value.split('\n').map(x => x.trim().replace(/^[-•*]\s*/, '')).filter(Boolean);
+            const ptBad = pts.length > 5 ? 'Five points at most.' : pts.some(x => x.length > 200) ? 'Keep each point under 200 characters.' : '';
+            if (ptBad) { d.querySelector('#is-pts-err').innerHTML = `<span class="err">${icon('circle-alert')}${esc(ptBad)}</span>`; d.querySelector('#is-pts').focus(); go.removeAttribute('aria-busy'); go.disabled = false; return; }
+            const ni = await DB.createIssue({ name: nm, description, category, also: extra, recommended, goal, talking_points: pts, stance });
+            if (bill) await DB.setBillIssue(bill.id, ni.id, true);
+            closeSheet({ silent: true }); await afterClose();
+            // Straight to the new issue either way: its card says what it still needs before an admin can publish it.
+            S.go('#/issue/' + encodeURIComponent(ni.id));
+            toast(bill ? `Saved ${ni.name} as a draft with ${billNum(bill)} on it. The public sees it once it is published.` : 'Saved as a draft. Put its bills on it below.', { ok: true });
+          }
+        } catch (e) { toast(e, { err: true }); go.removeAttribute('aria-busy'); go.disabled = false; }
+      };
+      go.onclick = save;
+      name.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); save(); } };
+    } });
+}
+
+// ---- which issues a bill is on: a sheet with every issue, by category; each tap saves ----
+export function openIssuePicker(b, { onClose = () => hooks.render() } = {}) {
+  let q = '';
+  const list = () => {
+    const on = new Set(issuesOfBill(b.id).map(i => i.id)), t = plain(q.trim());
+    const hit = i => !t || plain(`${i.name} ${i.description || ''}`).includes(t);
+    const item = i => `<button type="button" role="checkbox" aria-checked="${on.has(i.id)}" data-pick="${esc(i.id)}">${icon(on.has(i.id) ? 'square-check-big' : 'square', { cls: on.has(i.id) ? 'on' : '' })}<span class="body"><span class="title">${esc(i.name)}</span>${isDraft(i) ? '<span class="sub">Draft: not public yet</span>' : i.description ? `<span class="sub">${esc(i.description)}</span>` : ''}</span></button>`;
+    const mine = live().filter(i => on.has(i.id) && hit(i)).sort(byName);
+    const groups = (S.categories || []).map(c => [c, live().filter(i => i.category === c.key && !on.has(i.id) && hit(i)).sort(byName)]).filter(([, l]) => l.length);
+    if (!mine.length && !groups.length) return `<p class="le-none">No issue matches “${esc(q.trim())}”. Make a new one below.</p>`;
+    return `${mine.length ? `<h3 class="is-gh">On this bill</h3><div class="sv-pickl">${mine.map(item).join('')}</div>` : ''}
+      ${groups.map(([c, l]) => `<h3 class="is-gh">${icon(c.icon || 'tag')}${esc(c.name)}</h3><div class="sv-pickl">${l.map(item).join('')}</div>`).join('')}`;
+  };
+  const reach = whyNot(b);
+  openSheet({ title: `Issues for ${esc(billNum(b))}`,
+    body: `<div class="is-picker"><p class="small muted is-for">${b.nickname ? `${esc(b.nickname)}. ` : ''}Everyone who follows a ticked issue gets this bill${reach ? ` once it has a position and is public (${esc(reach.split(',')[0].toLowerCase())} now)` : ''}. Each tap saves.</p>
+      <div class="le-search is-psearch">${icon('search')}<input id="is-pq" type="search" placeholder="Find an issue" autocomplete="off" aria-label="Find an issue" aria-controls="is-plist"></div>
+      <div id="is-plist" class="is-plist">${list()}</div></div>`,
+    foot: btn('New issue for this bill', { kind: 'secondary', icon: 'plus', attrs: { 'data-isnew': '1' } }),
+    onClose,
+    wire: d => {
+      const box = d.querySelector('#is-plist');
+      const wireList = () => box.querySelectorAll('[data-pick]').forEach(el => el.onclick = async () => {
+        const i = issueById(el.dataset.pick), on = el.getAttribute('aria-checked') !== 'true'; if (!i) return;
+        el.disabled = true;
+        try { await DB.setBillIssue(b.id, i.id, on); box.innerHTML = list(); wireList(); box.querySelector(`[data-pick="${CSS.escape(i.id)}"]`)?.focus(); toast(on ? `Put on ${i.name}.` : `Taken off ${i.name}.`); }
+        catch (e) { el.disabled = false; toast(e, { err: true }); }
+      });
+      wireList();
+      d.querySelector('#is-pq').oninput = e => { q = e.target.value; box.innerHTML = list(); wireList(); };
+      d.querySelector('[data-isnew]').onclick = async () => { closeSheet({ silent: true }); await afterClose(); openIssueForm(null, { bill: b }); };
+    } });
+}
+
+// ---- the index ----
+const V = () => S.isIdx ??= { q: '', needsAll: false };
+function issueRow(i) {
+  const bills = billsOn(i), now = bills.filter(thisSession), f = followers(i);
+  const meta = [plural(now.length, 'bill') + (SESSION_YEAR ? ` in ${SESSION_YEAR}` : ''), f && f.own ? plural(f.own, 'follower') : ''].filter(Boolean).join(' · ');
+  // Left out of the first visit: a quiet grey mark, which also stands in for "Pre-ticked" (a pre-tick does nothing then).
+  return row({ title: esc(i.name), sub: `<span class="is-meta">${esc(meta)}</span>${i.description ? `<span class="is-desc">${esc(i.description)}</span>` : ''}`,
+    end: isDraft(i) ? chip('Draft', '', 'eye-off') : !inFirstVisit(i) && !i.archived_at ? chip('Not in first visit', '', 'eye-off') : i.recommended ? chip('Pre-ticked', 'info', 'star') : '', href: '#/issue/' + encodeURIComponent(i.id), cls: 'is-row' });
+}
+function needsHTML(v) {
+  const need = needsIssue(); if (!need.length) return '';
+  const shown = v.needsAll ? need : need.slice(0, 5);
+  return `<section class="card is-needs" aria-labelledby="is-nh">
+    <h2 id="is-nh">${icon('triangle-alert')}<span>${plural(need.length, 'position bill')} this session with no issue</span></h2>
+    <p class="small">Nobody following issues gets ${need.length === 1 ? 'it' : 'these'}. Put each one on an issue.</p>
+    <ul class="rows is-nlist">${shown.map(b => `<li class="is-nrow"><a class="is-nmain" href="${billRoute(b, 'public')}">${billName(b, 90)}</a>${btn('Choose', { kind: 'secondary', sm: true, attrs: { 'data-ispick': b.id, 'aria-haspopup': 'dialog', 'aria-label': `Choose issues for ${billNum(b)}` } })}</li>`).join('')}</ul>
+    ${need.length > shown.length ? btn(`Show all ${need.length}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-is': 'needsall' } }) : ''}
+  </section>`;
+}
+function indexBody(v) {
+  const t = plain(v.q.trim()), hit = i => !t || plain(`${i.name} ${i.description || ''}`).includes(t);
+  const secs = (S.categories || []).map(c => {
+    const own = live().filter(i => i.category === c.key), shown = own.filter(hit).sort((a, b) => (a.sort_order ?? 100) - (b.sort_order ?? 100) || byName(a, b));
+    if (t && !shown.length) return '';
+    return `<section class="is-cat" aria-labelledby="is-c-${esc(c.key)}"><div class="le-sechead is-chead"><h2 id="is-c-${esc(c.key)}"><span class="is-catic">${icon(c.icon || 'tag')}</span>${esc(c.name)}</h2><span class="meta">${plural(own.length, 'issue')}</span></div>
+      ${shown.length ? `<div class="rows">${shown.map(issueRow).join('')}</div>` : '<p class="le-none">No issues in it yet.</p>'}</section>`;
+  }).join('');
+  const gone = (S.issues || []).filter(i => i.archived_at && hit(i)).sort(byName);
+  return `${secs || `<p class="le-none">No issue matches “${esc(v.q.trim())}”.</p>`}
+    ${gone.length ? `<details class="is-arch"><summary>${icon('archive')}<span>Archived (${gone.length})</span>${icon('chevron-down', { cls: 'is-chev' })}</summary><div class="rows">${gone.map(issueRow).join('')}</div></details>` : ''}`;
+}
+// First visit (?view=first-visit) and Make a link (?view=links) are views of this screen (firstvisit.js), so the frame's
+// router needs no new route. Make a link is a form, so it is a reading column on a desktop.
+const index = {
+  tab: 'outreach',
+  title: route => prepTitle(route) || fvTitle(route) || 'Outreach',
+  back: route => prepView(route) === 'mine' ? { href: '#/my-issues', label: 'My issues' } : prepView(route) ? { href: '#/outreach/issues', label: 'Issues' } : fvBack(route),
+  wide: route => !fvView(route),
+  narrow: route => fvView(route) === 'links',
+  render(route) {
+    if (prepView(route)) return renderPrep(route);
+    if (fvView(route)) return renderFirstVisit(route);
+    wantPeople();
+    const v = V(), n = live().length;
+    const newBtn = btn('New issue', { icon: 'plus', attrs: { 'data-is': 'new', 'aria-haspopup': 'dialog' } });
+    if (!(S.categories || []).length) return `<div class="le-page is-index">${pageHead('issues', 'Issues', 'What the public follows.', '')}<div class="le-empty">${empty({ title: 'Issues are not set up yet', text: 'They arrive with migration 063. Ask Claude to load the list.' })}</div></div>`;
+    return `<div class="le-page is-index">
+      ${pageHead('issues', 'Issues', `What the public follows. A bill reaches everyone who follows an issue it is on. <span class="le-sum">${plural(n, 'issue')}</span>`, newBtn)}
+      <a class="is-fvlink" href="${FV_HREF}">${icon('footprints')}<span>First visit: numbers and links</span></a>
+      ${indexLinks()}
+      ${needsHTML(v)}
+      <div class="le-search is-find">${icon('search')}<input id="is-q" type="search" placeholder="Find an issue" value="${esc(v.q)}" autocomplete="off" aria-label="Find an issue" aria-controls="is-body">${iconBtn('x', 'Clear the search', { 'data-is': 'qclear', hidden: !v.q })}</div>
+      <div id="is-body">${indexBody(v)}</div>
+    </div>`;
+  },
+  wire(route, root) {
+    if (prepView(route)) return wirePrep(route, root);
+    if (fvView(route)) return wireFirstVisit(route, root);
+    const v = V();
+    root.querySelectorAll('[data-is="new"]').forEach(el => el.onclick = () => openIssueForm());
+    root.querySelector('[data-is="needsall"]')?.addEventListener('click', () => { v.needsAll = true; hooks.render(); });
+    root.querySelectorAll('[data-ispick]').forEach(el => el.onclick = () => { const b = billById(el.dataset.ispick); if (b) openIssuePicker(b); });
+    const q = root.querySelector('#is-q'), clear = root.querySelector('[data-is="qclear"]'), body = root.querySelector('#is-body');
+    if (q) q.oninput = () => { v.q = q.value; clear.hidden = !q.value; body.innerHTML = indexBody(v); };
+    if (clear) clear.onclick = () => { v.q = ''; q.value = ''; clear.hidden = true; body.innerHTML = indexBody(v); q.focus(); };
+  },
+};
+export default index;
+
+// ---- one issue ----
+const P = () => S.isPage ??= { q: {} };
+function hits(i, q) {
+  const t = plain(q.trim()), tn = t.replace(/\s+/g, ''); if (t.length < 2) return [];
+  const on = new Set(billsOn(i).map(b => b.id)), pool = S.bills.filter(b => b.tracked !== false && !on.has(b.id));
+  const num = pool.filter(b => b.bill_number.toLowerCase().includes(tn)), words = pool.filter(b => !num.includes(b) && [b.nickname, b.title, b.public_summary, b.description].some(x => plain(x).includes(t)));
+  // Bills that would reach followers first: a position, this session.
+  const rank = b => (b.position && b.position !== 'monitor' ? 0 : 2) + (thisSession(b) ? 0 : 1);
+  return [...num, ...words].sort((a, b) => rank(a) - rank(b)).slice(0, 8);
+}
+function hitsHTML(i, q) {
+  if (q.trim().length < 2) return '';
+  const rows = hits(i, q);
+  if (!rows.length) return `<p class="le-none">No tracked bill matches “${esc(q.trim())}”.</p>`;
+  return `<div class="rows le-hits" role="listbox" id="is-hitlist" aria-label="Tracked bills that match">${rows.map((b, k) => `<div class="row le-hit" role="option" id="is-hit-${k}" aria-selected="false" data-add="${esc(b.id)}"><span class="le-plus">${icon('plus')}</span><span class="body">${billName(b, 90)}</span></div>`).join('')}</div>`;
+}
+// The deadline's words, as the coalition and Today say them: "14 days left", "last day today"; and its day, "Mon 3/30".
+const leftWord = dl => dl.days <= 0 ? 'last day today' : `${dl.days} day${dl.days === 1 ? '' : 's'} left`;
+const dayAt = d => dayOf(d + 'T12:00:00-10:00');
+// A bill's line on this issue's page (R-226): where it stands in one line, in the words the bill page uses (its stage, the
+// committee, the next hearing or the deadline with the days left, the testimony for that hearing, and the owner). Built
+// from the same helpers as the bill page, Today and the coalition page, so the line cannot disagree with them.
+// `owner: 'others'` (My issues, R-263): the issue is already yours there, so only a bill someone else holds names them.
+export function standLine(b, { owner = 'all' } = {}) {
+  if (diedish(b)) return 'Did not advance';
+  const st = stopOf(b), h = hearingAhead(b), parts = [STAGE_LABEL[effStage(b)] || ''];
+  if (h) {
+    parts.push(`Hearing ${fmtDT(h.scheduled_at)}${h.committee ? ` · ${h.committee}` : ''}`);
+    // Testimony for that hearing, in the hearing page's words: due (not started), drafted or filed.
+    if (isPos(b)) { const t = testimonyOf(h, b); parts.push(t.filed ? 'Testimony filed' : t.word === 'not started' ? `Testimony due ${dueWhen(dueOf(h))}` : 'Testimony drafted'); }
+  } else if (st.deadline?.missed) parts.push(`Missed the ${st.deadline.label} deadline`);
+  else if (st.phase === 'committee' && st.deadline) {
+    const lead = riskOf(b) ? 'At risk: needs' : 'Needs';
+    parts.push(`${lead} a hearing${st.committee ? ` in ${st.committee}` : ''} by ${dayAt(st.deadline.date)}, ${leftWord(st.deadline)}`);
+  } else if (st.deadline) parts.push(`${st.deadline.label} ${dayAt(st.deadline.date)}, ${leftWord(st.deadline)}`);
+  else if (st.committee) parts.push(`In ${st.committee}`);
+  const who = ownerOf(b);
+  if (owner === 'others') { if (who && who.id !== S.me?.id) parts.push(`Owner: ${String(who.full_name || '').split(' ')[0]}`); }
+  else parts.push(who ? `Owner: ${who.id === S.me?.id ? 'You' : String(who.full_name || '').split(' ')[0]}` : 'No owner');
+  return parts.filter(Boolean).join(' · ');
+}
+function billLine(i, b) {
+  const why = whyNot(b);
+  return `<li class="le-brow" data-bid="${esc(b.id)}">
+    <a class="le-bmain" href="${billRoute(b)}">${billName(b, 140)}
+      ${thisSession(b) ? `<span class="is-bstat">${esc(standLine(b))}</span>` : ''}
+      <span class="is-bmeta">${posChip(b.position || '')}${thisSession(b) ? '' : `<span class="meta">${esc(b.session_year)}</span>`}</span>
+      ${why ? `<span class="le-warn">${icon('eye-off')}${esc(why)}</span>` : ''}</a>
+    ${iconBtn('x', `Take ${billNum(b)} off ${i.name}`, { 'data-isrm': b.id })}
+  </li>`;
+}
+// Where the issue stands (R-226, Nate 10/10): the next hearing on any of its bills, the bills at risk before their deadline,
+// and how many are at each stage. The same helpers as the coalition page and the Bills page (standing.js). Between
+// sessions it is one line, as Today says it, rather than counts of nothing.
+function standHTML(i, now) {
+  if (SESSION_OVER) return `<section class="le-sec is-stand" aria-labelledby="is-sth"><div class="le-sechead"><h2 id="is-sth">Where it stands</h2></div>
+    <p class="small muted is-sone">Between sessions: hearings and deadlines come back when the next session opens.</p></section>`;
+  if (!now.length) return '';
+  const live = now.filter(b => b.tracked !== false);
+  const soonest = live.filter(isPos).map(b => ({ b, h: hearingAhead(b) })).filter(x => x.h).sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at))[0];
+  // The next sitting, then the bills of this issue that are on it (the same sitting, not just the same day).
+  const hear = soonest ? (() => { const h = soonest.h, sitting = live.filter(b => { const x = isPos(b) && hearingAhead(b); return x && x.committee === h.committee && x.scheduled_at === h.scheduled_at; });
+    return `<a href="#/hearing/${encodeURIComponent(h.id)}">${esc(fmtDT(h.scheduled_at))}${h.committee ? ` · ${esc(h.committee)}` : ''}</a>${sitting.length ? ` · ${sitting.map(b => `<a href="${billRoute(b)}">${esc(b.bill_number)}</a>`).join(', ')}` : ''}`; })() : 'None scheduled on its bills';
+  const w = waitingOfBills(live);
+  const risk = w.risk.length ? w.risk.slice(0, 3).map(({ b, st }) => `<a href="${billRoute(b)}">${esc(b.bill_number)}</a> needs a hearing by ${esc(dayAt(st.deadline.date))}, ${esc(leftWord(st.deadline))}`).join(' · ')
+    + (w.risk.length > 3 ? ` and ${w.risk.length - 3} more` : '')
+    : w.next ? `None. The next deadline is ${esc(dayAt(w.next))}.` : 'None';
+  // Counted once per stage: "at risk" is a waiting bill, and its own line above names it.
+  const count = new Map(); for (const b of live) { const k = groupKey(b) === 'risk' ? 'wait' : groupKey(b); count.set(k, (count.get(k) || 0) + 1); }
+  const stages = GROUPS.filter(([k]) => k !== 'risk' && count.has(k)).map(([k, t]) => `${count.get(k)} ${t.charAt(0).toLowerCase()}${t.slice(1)}`).join(' · ');
+  return `<section class="le-sec is-stand" aria-labelledby="is-sth">
+    <div class="le-sechead"><h2 id="is-sth">Where it stands</h2></div>
+    <dl class="is-sdl">
+      <div class="is-sr"><dt>Next hearing</dt><dd>${hear}</dd></div>
+      <div class="is-sr"><dt>At risk</dt><dd>${risk}</dd></div>
+      <div class="is-sr"><dt>By stage</dt><dd>${esc(stages)}</dd></div>
+    </dl></section>`;
+}
+function pageRender(route) {
+  const i = issueById(route.id);
+  if (!i) return `<div class="le-page le-list">${empty({ h: 'h1', title: 'This issue is not here', text: 'It may have been merged into another, or the link is old.', action: btn('See all issues', { href: '#/outreach/issues' }) })}</div>`;
+  wantPeople();
+  const c = catByKey(i.category), also = alsoIn(i).map(catByKey).filter(Boolean), bills = billsOn(i).sort(byNum), now = bills.filter(thisSession), earlier = bills.filter(b => !thisSession(b));
+  const f = followers(i), q = P().q[i.id] || '';
+  const fol = !f ? '<span class="meta">Counting followers…</span>'
+    : `<span class="le-fol">${icon('users')}<span>${f.own ? plural(f.own, 'person follows', 'people follow') + ' it' : 'Nobody follows it on its own yet'}${f.via ? `; ${plural(f.via, 'more person gets', 'more people get')} it with a whole category` : ''}</span></span>`;
+  const reachN = now.filter(b => !whyNot(b)).length;
+  // Opened from a bill, Back returns to that bill and says so (R-226); from the catalogue it goes to Issues.
+  const from = billFrom(route);
+  return `<div class="le-page le-list is-page">
+    <a class="le-deskback" href="${from ? billRoute(from) : route.q?.from === 'mine' ? '#/my-issues' : '#/outreach/issues'}" data-back${from ? ` aria-label="Back to ${esc(from.bill_number)}"` : ''}>${icon('chevron-left')}<span>${from ? `Back to ${esc(from.bill_number)}` : route.q?.from === 'mine' ? 'My issues' : 'Issues'}</span></a>
+    <header class="le-lhead">
+      <span class="le-licon">${icon(c?.icon || 'tag')}</span>
+      <div class="le-lhbody"><h1>${esc(i.name)}</h1>
+        ${i.description ? `<p class="le-ldesc">${esc(i.description)}</p>` : ''}
+        ${i.outlook ? `<p class="le-ldesc is-outlook"><span class="meta">Between sessions, the public sees: </span>${esc(i.outlook)}</p>` : ''}
+        <div class="is-stline"><span class="is-stl">HIPHI’s stance</span>${stanceChip(i, { 'data-is': 'stance' })}</div>
+        ${stanceNote(i, now)}
+        <p class="meta">${esc(c?.name || i.category)}${also.length ? ` · also in ${esc(also.map(x => x.name).join(' and '))}` : ''}${i.recommended ? ' · Pre-ticked for new visitors' : ''}</p></div>
+      ${iconBtn('ellipsis', `More for ${i.name}`, { 'data-is': 'more', 'aria-haspopup': 'dialog' }, 'le-hmore')}
+    </header>
+    ${i.archived_at ? notice('warn', 'archive', '<b>Archived.</b> The public does not see it, and its followers do not get its bills.', btn('Restore', { kind: 'secondary', sm: true, attrs: { 'data-is': 'restore' } })) : ''}
+    ${standHTML(i, now)}
+    <section class="le-sec" aria-labelledby="is-bh">
+      <div class="le-sechead"><h2 id="is-bh">Bills</h2><span class="meta">${now.length ? `${plural(now.length, 'bill')} in ${SESSION_YEAR}${reachN < now.length ? ` · ${reachN} reach followers` : ''}` : ''}</span></div>
+      <div class="le-add">
+        <label class="sr" for="is-bq">Put a bill on this issue: number or words</label>
+        <div class="le-search">${icon('search')}<input id="is-bq" type="search" role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Put a bill on it: number or words" value="${esc(q)}" autocomplete="off" enterkeyhint="search" aria-controls="is-hits">${iconBtn('x', 'Clear the search', { 'data-is': 'bqclear', hidden: !q })}</div>
+        <div id="is-hits">${hitsHTML(i, q)}</div>
+        <p class="sr" id="is-hitn" role="status"></p>
+      </div>
+      ${now.length ? `<ol class="rows le-bills">${now.map(b => billLine(i, b)).join('')}</ol>`
+        : `<div class="le-empty">${empty({ h: 'h3', title: `No ${SESSION_YEAR} bills yet`, text: 'Search above to put bills on it. Its followers get each one that has a position and is public.' })}</div>`}
+      ${earlier.length ? `<details class="is-arch"><summary>${icon('history')}<span>Earlier sessions (${earlier.length})</span>${icon('chevron-down', { cls: 'is-chev' })}</summary><ol class="rows le-bills">${earlier.map(b => billLine(i, b)).join('')}</ol></details>` : ''}
+    </section>
+    ${prepCardHTML(i)}
+    ${isDraft(i) ? '' : `<section class="card le-pubcard is-folcard${i.archived_at ? '' : ' is-hasfv'}" aria-label="${i.archived_at ? 'Followers' : 'On the public page'}">
+      ${i.archived_at ? '' : switchRow('is-fv', 'Show in the first visit', inFirstVisit(i), inFirstVisit(i) ? 'Newcomers can follow it on their first visit.' : 'Left out of a newcomer’s first visit. People can still find and follow it.')}
+      <div class="le-sharerow">${fol}${i.archived_at ? '' : btn('Public page', { kind: 'secondary', sm: true, icon: 'external-link', href: `${PUBLIC_APP()}#/issue/${i.slug}`, target: '_blank' })}</div></section>`}
+    ${i.archived_at ? '' : relatedHTML(i)}
+    ${convSectionHTML(convOpts(i))}
+  </div>`;
+}
+// A link works both ways: unlinking here unlinks it on the other issue's page too, so the section says so (ui-critic,
+// 9/30). Each row says what a staff member needs to judge the link: the other issue's bill count, its category when it
+// is another one, and "Linked by staff" for the links nobody's wording found. Unlinked ones say who and when.
+function relatedHTML(i) {
+  const { on, off } = relatedOf(i);
+  const line = (o, sub, act) => `<li class="le-brow"><a class="le-bmain" href="#/issue/${encodeURIComponent(o.id)}"><span class="title"><b class="le-nick">${esc(o.name)}</b></span>
+      <span class="sub le-bsum">${esc(sub)}</span></a>${act}</li>`;
+  const about = o => [plural(billsOn(o).length, 'bill'), o.category === i.category ? '' : catByKey(o.category)?.name || o.category].filter(Boolean).join(' · ');
+  const who = c => { const a = c.set_by && advocate(c.set_by); return `Unlinked${a ? ` by ${a.initials}` : ''}${c.set_at ? `, ${fmtDate(c.set_at)}` : ''}`; };
+  return `<section class="le-sec" aria-labelledby="is-rh">
+    <div class="le-sechead"><h2 id="is-rh">Related issues</h2><span class="meta">${on.length ? plural(on.length, 'issue') : ''}</span></div>
+    <p class="small muted is-relwhy">Linked both ways: when we ask people to act, anyone following one of these issues is shown the other’s bills first. Found from the words their bills use.</p>
+    ${on.length ? `<ol class="rows le-bills">${on.map(({ o, staff }) => line(o, `${about(o)}${staff ? ' · Linked by staff' : ''}`,
+        iconBtn('x', `Unlink ${o.name} from ${i.name}`, { 'data-isunlink': o.id }))).join('')}</ol>`
+      : `<div class="le-empty">${empty({ h: 'h3', title: 'None yet', text: 'No other issue’s bills use the same words. Link one if they belong together.' })}</div>`}
+    <div class="btnrow">${btn('Link another issue', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-is': 'link' } })}</div>
+    ${off.length ? `<details class="is-arch"><summary>${icon('eye-off')}<span>Unlinked by staff (${off.length})</span>${icon('chevron-down', { cls: 'is-chev' })}</summary>
+      <ol class="rows le-bills">${off.map(({ o, c }) => line(o, `${about(o)} · ${who(c)}`,
+        btn('Link again', { kind: 'text', sm: true, attrs: { 'data-isrelink': o.id } }))).join('')}</ol></details>` : ''}
+  </section>`;
+}
+async function setLink(i, o, on) {
+  const redraw = () => { const y = scrollY; hooks.render(); if (Math.abs(scrollY - y) > 1) scrollTo(0, y); document.getElementById('is-rh')?.closest('section')?.querySelector('[data-is="link"]')?.focus({ preventScroll: true }); };
+  try {
+    await DB.setIssueLink(i.id, o.id, on); redraw();
+    toast(on ? `Linked ${o.name} and ${i.name}.` : `Unlinked ${o.name} and ${i.name}.`, { ok: on, undo: async () => { await DB.setIssueLink(i.id, o.id, !on); redraw(); } });
+  } catch (e) { toast(e, { err: true }); }
+}
+function linkSheet(i) {
+  let q = '';
+  const have = new Set(relatedOf(i).on.map(x => x.o.id));
+  const list = () => { const t = plain(q.trim()); const l = live().filter(x => x.id !== i.id && !have.has(x.id) && (!t || plain(x.name).includes(t)))
+      .sort((a, b) => (a.category === i.category ? 0 : 1) - (b.category === i.category ? 0 : 1) || byName(a, b)).slice(0, 30);
+    return l.length ? `<div class="sv-pickl">${l.map(x => `<button type="button" data-linkto="${esc(x.id)}">${icon(catIcon(x.category))}<span class="body"><span class="title">${esc(x.name)}</span><span class="sub">${esc(catByKey(x.category)?.name || '')} · ${plural(billsOn(x).length, 'bill')}</span></span></button>`).join('')}</div>` : '<p class="le-none">No other issue matches.</p>'; };
+  openSheet({ title: `Link to ${esc(i.name)}`, pop: true,
+    body: `<p class="small muted is-for">Pick an issue whose bills are about the same thing. When we ask people to act, anyone following either one is shown the other’s bills first.</p>
+      <div class="le-search is-psearch">${icon('search')}<input id="is-lq" type="search" placeholder="Find the issue" autocomplete="off" aria-label="Find the issue to link"></div><div id="is-llist">${list()}</div>`,
+    wire: d => {
+      const box = d.querySelector('#is-llist');
+      const wireList = () => box.querySelectorAll('[data-linkto]').forEach(el => el.onclick = async () => {
+        const o = issueById(el.dataset.linkto); if (!o) return;
+        await closeSheet({ silent: true }); await afterClose(); setLink(i, o, true);
+      });
+      wireList();
+      d.querySelector('#is-lq').oninput = e => { q = e.target.value; box.innerHTML = list(); wireList(); };
+    } });
+}
+// Conversations with legislators filed under this issue, from any of its bills or a legislator's page (R-022 wave 2 #9,
+// conversation.js): an issue carries across sessions where a bill does not.
+const convOpts = i => ({ id: 'is-cv', q: { issueIds: [i.id] }, here: { issueId: i.id }, kind: 'le', limit: 5, log: { issueId: i.id },
+  none: 'None logged yet. A conversation logged under this issue, from any of its bills or a legislator’s page, shows here.' });
+async function takeOff(i, b) {
+  try {
+    await DB.setBillIssue(b.id, i.id, false); hooks.render();
+    toast(`Took ${billNum(b)} off ${i.name}.`, { undo: async () => { await DB.setBillIssue(b.id, i.id, true); hooks.render(); } });
+  } catch (e) { toast(e, { err: true }); }
+}
+async function putOn(i, b) {
+  try {
+    await DB.setBillIssue(b.id, i.id, true); P().q[i.id] = ''; hooks.render();
+    document.getElementById('is-bq')?.focus();
+    const why = whyNot(b);
+    toast(`Put ${billNum(b)} on ${i.name}.${why ? ` ${why.split(',')[0]}, so followers get it once that changes.` : ''}`, { ok: !why, undo: async () => { await DB.setBillIssue(b.id, i.id, false); hooks.render(); } });
+  } catch (e) { toast(e, { err: true }); }
+}
+function mergeSheet(i) {
+  let q = '';
+  const list = () => { const t = plain(q.trim()); const l = live().filter(x => x.id !== i.id && (!t || plain(x.name).includes(t))).sort((a, b) => (a.category === i.category ? 0 : 1) - (b.category === i.category ? 0 : 1) || byName(a, b)).slice(0, 30);
+    return l.length ? `<div class="sv-pickl">${l.map(x => `<button type="button" data-into="${esc(x.id)}">${icon(catIcon(x.category))}<span class="body"><span class="title">${esc(x.name)}</span><span class="sub">${esc(catByKey(x.category)?.name || '')} · ${plural(billsOn(x).length, 'bill')}</span></span></button>`).join('')}</div>` : '<p class="le-none">No other issue matches.</p>'; };
+  openSheet({ title: `Merge ${esc(i.name)} into…`, pop: true,
+    body: `<p class="small muted is-for">Pick the issue to keep. ${esc(i.name)}’s bills and followers move to it, and ${esc(i.name)} is archived. Nobody loses a bill.</p>
+      <div class="le-search is-psearch">${icon('search')}<input id="is-mq" type="search" placeholder="Find the issue to keep" autocomplete="off" aria-label="Find the issue to keep"></div><div id="is-mlist">${list()}</div>`,
+    wire: d => {
+      const box = d.querySelector('#is-mlist');
+      const wireList = () => box.querySelectorAll('[data-into]').forEach(el => el.onclick = async () => {
+        const into = issueById(el.dataset.into); if (!into) return;
+        await closeSheet({ silent: true }); await afterClose();
+        const n = billsOn(i).length, f = followers(i);
+        const ok = await confirmSheet({ title: `Merge into ${esc(into.name)}?`, ok: 'Merge', danger: true,
+          text: `${esc(i.name)}’s ${plural(n, 'bill')}${f && f.own ? ` and ${plural(f.own, 'follower')}` : ''} move to ${esc(into.name)}, and ${esc(i.name)} is archived. A merge cannot be undone from here.` });
+        if (!ok) return;
+        try { await DB.mergeIssues(i.id, into.id); S.go('#/issue/' + encodeURIComponent(into.id), { replace: true }); toast(`Merged into ${into.name}.`, { ok: true }); }
+        catch (e) { toast(e, { err: true }); }
+      });
+      wireList();
+      d.querySelector('#is-mq').oninput = e => { q = e.target.value; box.innerHTML = list(); wireList(); };
+    } });
+}
+// "Show in the first visit" (066, R-023). Off leaves the issue out of a newcomer's first visit only: it is still on Find
+// and its own page, and everyone following it still gets its bills. The page is redrawn with the switch still in focus.
+async function setFirstVisit(i, on) {
+  const redraw = () => { const y = scrollY; hooks.render(); document.getElementById('is-fv')?.focus({ preventScroll: true }); if (Math.abs(scrollY - y) > 1) scrollTo(0, y); };
+  try {
+    await DB.updateIssue(i.id, { first_visit: on }); redraw();
+    toast(on ? `${i.name} is back in the first visit.` : `Left out of the first visit.${i.recommended ? ' Its pre-tick does nothing while it is left out.' : ''}`,
+      { ok: on, undo: async () => { await DB.updateIssue(i.id, { first_visit: !on }); redraw(); } });
+  } catch (e) { redraw(); toast(e, { err: true }); }
+}
+async function archive(i, on) {
+  if (on) {
+    const f = followers(i);
+    const ok = await confirmSheet({ title: `Archive ${esc(i.name)}?`, ok: 'Archive', danger: true,
+      text: `The public stops seeing it${f && f.own ? `, and the ${plural(f.own, 'person', 'people')} following it stop getting its bills` : ''}. You can restore it from Issues, under Archived. If it is really the same as another issue, merge it instead: its followers move over.` });
+    if (!ok) return;
+  }
+  try {
+    await DB.updateIssue(i.id, { archived_at: on ? new Date().toISOString() : null }); hooks.render();
+    toast(on ? `Archived ${i.name}.` : `Restored ${i.name}.`, { undo: async () => { await DB.updateIssue(i.id, { archived_at: on ? null : new Date().toISOString() }); hooks.render(); } });
+  } catch (e) { toast(e, { err: true }); }
+}
+export const issuePage = {
+  tab: 'outreach',
+  title: route => issueById(route.id)?.name || 'Issue',
+  // "Back to SB2175" fits on a phone too (R-226, the fresh-eyes review 10/10), so it keeps its words there: full.
+  // From My issues (R-263), Back returns there.
+  back: route => { const from = billFrom(route); return from ? { href: billRoute(from), label: `Back to ${from.bill_number}`, full: true } : route.q?.from === 'mine' ? { href: '#/my-issues', label: 'My issues' } : { href: '#/outreach/issues', label: 'Issues' }; },
+  render: pageRender,
+  wire(route, root) {
+    const i = issueById(route.id); if (!i) return;
+    wireConvSection(root, convOpts(i));
+    wirePrepCard(i, root);
+    const st = P();
+    root.querySelector('[data-is="more"]')?.addEventListener('click', () => menuSheet({ title: esc(i.name), items: [
+      { label: 'Edit', icon: 'pencil', sub: 'Name, description, stance, between sessions, category, pre-tick', run: async () => { await afterClose(); openIssueForm(i); } },
+      { label: 'Merge into another issue', icon: 'arrow-right', disabled: !!i.archived_at, reason: 'Restore it first.', sub: 'When two issues are really one', run: async () => { await afterClose(); mergeSheet(i); } },
+      { label: 'Open the public page', icon: 'external-link', disabled: !!i.archived_at || isDraft(i), reason: isDraft(i) ? 'A draft has no public page until it is published.' : 'An archived issue has no public page.', run: () => { window.open(`${PUBLIC_APP()}#/issue/${i.slug}`, '_blank', 'noopener'); } },
+      i.archived_at ? { label: 'Restore', icon: 'rotate-ccw', run: () => archive(i, false) } : { label: 'Archive', icon: 'archive', danger: true, run: async () => { await afterClose(); archive(i, true); } },
+    ] }));
+    root.querySelector('[data-is="restore"]')?.addEventListener('click', () => archive(i, false));
+    root.querySelector('[data-is="link"]')?.addEventListener('click', () => linkSheet(i));
+    root.querySelectorAll('[data-isunlink]').forEach(el => el.onclick = () => { const o = issueById(el.dataset.isunlink); if (o) setLink(i, o, false); });
+    root.querySelectorAll('[data-isrelink]').forEach(el => el.onclick = () => { const o = issueById(el.dataset.isrelink); if (o) setLink(i, o, true); });
+    root.querySelectorAll('[data-is="stance"]').forEach(el => el.addEventListener('click', () => pickStance(i, { after: () => { hooks.render(); document.querySelector('[data-is="stance"]')?.focus(); } })));
+    const fv = root.querySelector('#is-fv'); if (fv) fv.onchange = () => setFirstVisit(i, fv.checked);
+    root.querySelectorAll('[data-isrm]').forEach(el => el.onclick = () => { const b = billById(el.dataset.isrm); if (b) takeOff(i, b); });
+    // The add search: a combobox like a list's (arrow keys move the highlight, Enter adds, Esc clears).
+    const q = root.querySelector('#is-bq'), clear = root.querySelector('[data-is="bqclear"]'), box = root.querySelector('#is-hits'), said = root.querySelector('#is-hitn');
+    if (!q) return;
+    let hi = -1;
+    const opts = () => [...box.querySelectorAll('[data-add]')];
+    const mark = k => { opts().forEach((o, n) => { o.classList.toggle('hi', n === k); o.setAttribute('aria-selected', String(n === k)); }); hi = k; if (k >= 0) q.setAttribute('aria-activedescendant', `is-hit-${k}`); else q.removeAttribute('aria-activedescendant'); };
+    const paint = () => { box.innerHTML = hitsHTML(i, q.value); const n = opts().length; q.setAttribute('aria-expanded', String(n > 0)); hi = -1; q.removeAttribute('aria-activedescendant');
+      said.textContent = q.value.trim().length < 2 ? '' : n ? plural(n, 'bill') + ' found' : 'No bill found'; box.querySelectorAll('[data-add]').forEach(el => el.onclick = () => { const b = billById(el.dataset.add); if (b) putOn(i, b); }); };
+    q.oninput = () => { st.q[i.id] = q.value; clear.hidden = !q.value; paint(); };
+    q.onkeydown = e => {
+      const n = opts().length;
+      if (e.key === 'ArrowDown' && n) { e.preventDefault(); mark((hi + 1) % n); }
+      else if (e.key === 'ArrowUp' && n) { e.preventDefault(); mark(hi <= 0 ? n - 1 : hi - 1); }
+      else if (e.key === 'Enter') { e.preventDefault(); const el = opts()[hi >= 0 ? hi : 0]; if (el) el.click(); }
+      else if (e.key === 'Escape' && q.value) { e.preventDefault(); q.value = ''; st.q[i.id] = ''; clear.hidden = true; paint(); }
+    };
+    clear.onclick = () => { q.value = ''; st.q[i.id] = ''; clear.hidden = true; paint(); q.focus(); };
+    paint();
+  },
+};
