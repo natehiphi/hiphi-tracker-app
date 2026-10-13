@@ -138,8 +138,9 @@ function groupOf(due, now = Date.now()) {
 }
 // v4 (R-269): testimony whose written deadline has passed while its hearing has not begun can still be filed, so its group
 // is amber "Late testimony, still open", above red "Overdue", which is kept for what can no longer be done on time (A-5 as
-// amended by R-250); a mixed group splits into the two. "Today" is "Due today": what is due today, and only that (T10).
-const GROUPS = [['lateopen', 'Late testimony, still open'], ['overdue', 'Overdue'], ['today', 'Due today'], ['tomorrow', 'Tomorrow'], ['week', 'Later this week'], ['later', 'Coming up']];
+// amended by R-250); a mixed group splits into the two. "Today" is "Needs you today": what is due today, and new hearings
+// that need a draft made today though their testimony is due later (X10-5), so not "Due today" (T10, fresh-eyes review).
+const GROUPS = [['lateopen', 'Late testimony, still open'], ['overdue', 'Overdue'], ['today', 'Needs you today'], ['tomorrow', 'Tomorrow'], ['week', 'Later this week'], ['later', 'Coming up']];
 const NOW_GROUPS = new Set(['lateopen', 'overdue', 'today']);   // what the badge counts and what gets a filled button
 // Date-only fields (a to-do or follow-up "due 3/18") count as due at 5 PM that day, as the current app does.
 const dateDue = d => d ? new Date(String(d).slice(0, 10) + 'T17:00:00-10:00').getTime() : null;
@@ -254,6 +255,8 @@ function replyLine(name, body, mention) {
   if (q) return { s: `${esc(name)} asked: ${esc(clip(q.trim(), 90))}`, more: q.trim() !== txt };
   return { s: `${esc(name)} ${mention ? 'mentioned you' : 'wrote'}: ${esc(clip(txt, 70))}`, more: txt.length > 70 };
 }
+// Testimony sent back for changes has one name, "Sent back" (C-15): the notices said "Changes requested" (v4, R-269).
+const sentBack = t => String(t || '').replace(/^Changes requested on your testimony\b/i, 'Your testimony was sent back').replace(/^Changes requested:\s*/i, 'Sent back: ');
 const lowerFirst = s => /^[A-Z][a-z]/.test(s) ? s[0].toLowerCase() + s.slice(1) : s;
 
 // Sandbox only: demoInit builds the inbox for the admin it signs in as; after &as=KV it must be Kevin's inbox, or
@@ -502,7 +505,7 @@ export function todayItems(scope = 'mine', who = null) {
     if (b && i.kind === 'testimony' && testimonyBills.has(b.id)) continue;   // the draft task above already says it
     if (b && i.kind === 'deadline' && testimonyBills.has(b.id)) continue;
     const tab = { chat: 'activity', timeline: 'activity' }[i.tab] || '';
-    push({ kind: 'notice', key: `n:${i.key}`, i, b, due: null, who: 'yours', s: esc(clip(unslack(i.title), 110)), q: i.body ? esc(clip(unslack(i.body), 220)) : '',
+    push({ kind: 'notice', key: `n:${i.key}`, i, b, due: null, who: 'yours', s: esc(clip(sentBack(unslack(i.title)), 110)), q: i.body ? esc(clip(unslack(i.body), 220)) : '',
       why: `${{ testimony: 'Testimony', deadline: 'Reminder', system: 'From the tracker', hearing: 'Hearing', status: 'Update' }[i.kind] || 'Notice'} · ${fmtDT(i.at)}`,
       btns: b ? [{ label: 'Open', href: `${billRoute(b)}${tab ? '/' + tab : ''}`, read: true }] : [{ label: 'Mark done', act: 'read' }] });
   }
@@ -634,6 +637,9 @@ let LAST = new Map();   // key -> task for the list on screen, so a click finds 
 // One toolbar: the heading (desktop; a phone has it in the frame's header) and the date; then Today | This week and
 // whose list it is. The next deadline is said once, by the line beside the list and the deadlines under This week's
 // grid, not here as well (A-14, R-022).
+// Today | This week, as ui.js segmented() draws it, but on a phone under 400px "This week" wrapped onto two lines: there it
+// reads "Week", and its accessible name stays "This week" (v4, R-269).
+const viewSeg = v => `<div class="sv-seg" role="group" aria-label="Today or this week"><button type="button" data-seg="tdview" data-val="list" aria-pressed="${v === 'list'}">Today</button><button type="button" data-seg="tdview" data-val="week" aria-pressed="${v === 'week'}" aria-label="This week"><span class="td-wlong">This week</span><span class="td-wshort" aria-hidden="true">Week</span></button></div>`;
 function toolbar(route) {
   const now = Date.now(), ld = SESSION_OVER ? null : legislativeDay(), scope = scopeOf(), who = scope === 'person' ? advocate(S.tdWho) : null;
   const week = viewOf(route) === 'week';
@@ -647,7 +653,7 @@ function toolbar(route) {
   const whoBtn = scope === 'mine' ? '' : `<div class="td-whorow"><button type="button" class="sv-pick td-whobtn" data-whopick aria-haspopup="dialog" aria-label="${esc(who ? `Showing ${who.full_name}’s ${week ? 'week' : 'list'}. Choose someone else` : none ? 'Showing the bills nobody owns. Choose someone' : 'Showing everyone. Choose one teammate')}">${who ? avatar(who, 24) : none ? avatar(null, 24) : icon('users')}<span>${who ? esc(who.full_name) : none ? 'No owner' : 'Everyone'}</span>${icon('chevron-down', { cls: 'chev' })}</button></div>`;
   return `<div class="td-sub"><div class="td-head"><h1 class="td-h1" tabindex="-1">${esc(heading())}</h1>
       <p class="td-date"><span>${esc(a)}</span></p></div>
-    <div class="td-tools">${segmented('tdview', [['list', 'Today'], ['week', 'This week']], viewOf(route), 'Today or this week')}${seg}</div>${whoBtn}</div>`;
+    <div class="td-tools">${viewSeg(viewOf(route))}${seg}</div>${whoBtn}</div>`;
 }
 // At most one notice, most important first: the sync is stale (admins), new bills to sort in the opening weeks, then the
 // issues' prep. "Email is paused" is said on Emails and Session setup, where it can be acted on: on Today and This week
@@ -656,7 +662,7 @@ function toolbar(route) {
 // days (always in the sandbox), until all are done or they hide it. One line that opens on demand. It replaced the old
 // "New here? Read how the tracker works" notice, which the issue-prep notice could hide.
 // v4 (R-269, T9): it comes after the person's own work (their groups, what waits on others, their coalition's week),
-// never between Overdue and Due today or above the only thing on a helper's Today; and not on a phone, where on a hearing
+// never between Overdue and Needs you today or above the only thing on a helper's Today; and not on a phone, where on a hearing
 // day at the Capitol it is not the job (it waits for the laptop).
 const PHONE = () => !mq('(min-width: 600px)');
 function startCard() {
@@ -772,7 +778,7 @@ function card(c, i, team, o = {}) {
     ${urgBlock(c.wait ? null : p.due, untilOf(p), approveAct(p))}
     <div class="td-top">${top}${more}${b ? lookBtn(b) : ''}</div>
     <p class="td-s" id="td-s${i}">${p.s}</p>
-    ${(() => { const w = [o.label ? `<span class="td-part td-cwho">${o.av || ''}${esc(o.label)}</span>` : '', o.note ? `<span class="td-part long sv-count soon">${esc(o.note)}</span>` : '', why(p, team, !c.wait)].filter(Boolean).join('\u00a0· '), lead = c.wait && p.chip ? chip(p.chip, '', 'hourglass') + ' ' : p.seen ? SEEN() + ' ' : ''; return w || lead ? `<p class="td-why">${lead}${w}</p>` : ''; })()}
+    ${(() => { const w = [o.label ? `<span class="td-part td-cwho">${o.av || ''}${esc(o.label)}</span>` : '', why(p, team, !c.wait)].filter(Boolean).join('\u00a0· '), lead = c.wait && p.chip ? chip(p.chip, '', 'hourglass') + ' ' : p.seen ? SEEN() + ' ' : ''; return w || lead ? `<p class="td-why">${lead}${w}</p>` : ''; })()}
     ${p.note ? `<p class="td-note">${p.note}</p>` : ''}
     ${p.q ? `<blockquote class="td-q">${p.q}</blockquote>` : ''}
     ${acts ? `<div class="td-acts">${acts}</div>` : ''}
@@ -824,8 +830,7 @@ function row(c, filled, o = {}) {
     : (([ic, w]) => `<span class="td-rb td-rkind">${icon(ic)}<span>${w}</span></span>`)(kindOf(p));
   // A teammate's step is theirs to take: its row has no button, and the open item offers "Message Kevin".
   const x = p.ro ? null : (p.btns || [])[0], fill = filled && p.kind !== 'reply' && !p.seen && x && !x.text;
-  // A Slipping row's "nobody going" is short and first, so a narrow row never cuts it; the open item names the hearing.
-  const what = `${o.note ? `<span class="sv-count soon td-rnote">${icon('user-round-plus')}<span class="td-rnotew">nobody going</span></span>` : ''}<span class="td-rs">${p.seen ? SEEN() + ' ' : ''}${rowWords(p, x)}</span>${n > 0 ? `<span class="td-rplus">+${n}<span class="td-rmore"> more</span><span class="sr"> on this ${b ? 'bill' : 'item'}</span></span>` : ''}`;
+  const what = `<span class="td-rs">${p.seen ? SEEN() + ' ' : ''}${rowWords(p, x)}</span>${n > 0 ? `<span class="td-rplus">+${n}<span class="td-rmore"> more</span><span class="sr"> on this ${b ? 'bill' : 'item'}</span></span>` : ''}`;
   return `<div data-k="${ek}" class="td-row${p.seen ? ' td-seen' : ''}"${fill ? ' data-fill="1"' : ''}${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${sel(`${urgBlock(p.due, untilOf(p), approveAct(p))}${o.av ? `<span class="td-rav">${o.av}</span>` : ''}<span class="td-rmain">${name}${what}</span>`)}
     <span class="td-ract">${x ? button(p, x, true, filled && p.kind !== 'reply') : ''}</span>${end}</div>`;
 }
@@ -883,7 +888,7 @@ function paneHearing(c) {
   const going = goingOf(goersAt(h)), mine = goingFor(h).going, isNew = c.p.kind === 'nodraft' && c.p.h?.id === h.id;
   return `<div class="td-psec td-phear"><h3 class="td-ph3">${isNew ? 'New hearing' : 'Hearing'}</h3>
     <a class="td-phl" href="#/hearing/${esc(h.id)}?from=today">${icon('landmark')}<span><b>${esc(h.committee)} ${esc(whenLine(h.scheduled_at))}</b>${h.room ? ` · ${esc(room(h.room))}` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</a>
-    <p class="td-pgo">${icon('users')}<span>${esc(going || 'Nobody from the team yet')}</span>${btn(mine ? 'I’m not going after all' : 'I’m going', { kind: 'text', attrs: { 'data-going': h.id } })}</p></div>`;
+    <p class="td-pgo">${icon('users')}<span>${esc(going || 'Nobody going yet')}</span>${btn(mine ? 'I’m not going after all' : 'I’m going', { kind: 'text', attrs: { 'data-going': h.id } })}</p></div>`;
 }
 function paneAlso(c) {
   const also = c.tasks.slice(1); if (!also.length) return '';
@@ -917,7 +922,7 @@ function paneHTML(k) {
   const top = `<div class="td-ptop">${b ? `<p class="td-pnum"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''}</p>` : `<p class="td-pnum td-rkind">${icon(kd[0])}<span>${kd[1]}</span></p>`}${more}</div>
     ${b ? `<h2 class="td-pname" id="td-pane-h">${esc(b.nickname || blurb(b, 120))}</h2>${b.nickname && blurb(b, 400) ? `<p class="td-psum">${esc(blurb(b, 400))}</p>` : ''}` : ''}`;
   const acts = (o.msg && b ? [msgBtn(b, o.msg)] : p.btns || []).map((x, j) => button(p, x, j === 0)).join('');
-  const due = paneDue(p), w = paneWhy(p, o.msg, o.label) + (o.note ? ` · <span class="td-part sv-count soon">${esc(o.note[0].toUpperCase() + o.note.slice(1))}</span>` : '');
+  const due = paneDue(p), w = paneWhy(p, o.msg, o.label);
   const step = `<div class="td-pstep">${due ? `<p class="td-pdue">${due}</p>` : ''}
     <p class="td-ps"${b ? '' : ' id="td-pane-h"'}>${p.ps || p.s}</p>${w ? `<p class="td-pwhy">${w}</p>` : ''}
     ${p.note ? `<p class="td-note">${p.note}</p>` : ''}${p.q ? `<blockquote class="td-q td-pq">${p.q}</blockquote>` : ''}
@@ -938,7 +943,7 @@ function select(k, { focus = false } = {}) {
   if (el) { if (focus) el.querySelector('.td-rsel')?.focus({ preventScroll: true }); el.scrollIntoView({ block: 'nearest' }); }
 }
 
-// "Hearings today: HHS 1:10 PM, Rm 225 · nobody from the team going yet" (R-264): the day's sittings still to come on the
+// "Hearings today: HHS 1:10 PM, Rm 225 · nobody going yet" (R-264; one phrase for it everywhere since v4): the day's sittings still to come on the
 // bills in view, one line above the list, each opening the hearing's own page. It replaced a panel with a box per bill.
 // `skip`: the sittings "Your hearing today" already shows (v4): each is said once.
 function hearingsLine(scope, who, skip = new Set()) {
@@ -948,7 +953,7 @@ function hearingsLine(scope, who, skip = new Set()) {
   const sit = new Map(); for (const x of all) { const k = slotKey(x.h); if (!sit.has(k)) sit.set(k, []); sit.get(k).push(x); }
   const list = [...sit.values()], shown = list.slice(0, 2), more = list.length - shown.length;
   const one = l => { const h = l[0].h, going = goingOf(goersAt(h));
-    return `<span class="td-hlone"><a href="#/hearing/${esc(h.id)}?from=today"><b>${esc(h.committee)} ${esc(timeOf(h.scheduled_at))}</b>${h.room ? `, ${esc(room(h.room))}` : ''}</a> · ${esc(going || 'nobody from the team going yet')}</span>`; };
+    return `<span class="td-hlone"><a href="#/hearing/${esc(h.id)}?from=today"><b>${esc(h.committee)} ${esc(timeOf(h.scheduled_at))}</b>${h.room ? `, ${esc(room(h.room))}` : ''}</a> · ${esc(going || 'nobody going yet')}</span>`; };
   return `<p class="td-hline1">${icon('landmark')}<span class="td-hlt"><span>Hearings today:</span> ${shown.map(one).join('<span class="td-hlsep">; </span>')}${more ? ` <a href="#/?view=week">and ${more} more</a>` : ''}</span></p>`;
 }
 // ---- Your hearing today (v4, R-269, T8) ----
@@ -1490,7 +1495,7 @@ function teamHtml(start, rows = false) {
 // of the per-person groups and the hearings line. In it: every step from everyone, the viewer included, that is late
 // (still open or not) or due within 24 hours; a new hearing with no draft whose testimony is due within 48 hours; and
 // hearings today or tomorrow on bills with a position that nobody from the team is going to (Nate's decision D3, list
-// only, no Slack), on the bill's row when it has one. Worst first. Each row shows whoever it waits on, in place of the
+// only, no Slack), each a row of its own saying "Nobody going yet". Worst first. Each row shows whoever it waits on, in place of the
 // person headings; a step two people can take is one row ("You or Jaylen" keeps its Review button: your own step is
 // never "Message Jaylen"). Not on This week: its grid shows each state. "At risk" stays Bills' word (no hearing yet).
 const slipper = () => !!(S.me?.is_admin || S.me?.is_reviewer);
@@ -1524,13 +1529,12 @@ function slipping() {
     if (h.status === 'cancelled' || (d !== today && d !== tmw) || t < now - HR || !b || !b.position || b.position === 'monitor' || b.tracked === false) continue;
     const k = slotKey(h); if (!sits.has(k)) sits.set(k, { h, t, bills: [] }); sits.get(k).bills.push(b);
   }
+  // Each sitting nobody is going to is a row of its own, with I'm going on it (fresh-eyes review: as a tag on a bill's
+  // row it cut the step's words short and spent amber on something that is not late).
   const hear = [];
   for (const s of [...sits.values()].sort((x, y) => x.t - y.t)) {
-    if (goersAt(s.h).length) continue;
-    const note = `nobody going to ${s.h.committee} ${whenLine(s.h.scheduled_at)}`, ids = new Set(s.bills.map(b => b.id));
-    const on = list.slice().sort((x, y) => x.at - y.at).find(r => r.b && ids.has(r.b.id) && !r.note);
-    if (on) on.note = note; else hear.push({ key: 'sl:hr:' + slotKey(s.h), hear: s, due: s.t, at: s.t, ids: [], tasks: [] });
     s.today = hst(s.t) === today;
+    if (!goersAt(s.h).length) hear.push({ key: 'sl:hr:' + slotKey(s.h), hear: s, due: s.t, at: s.t, ids: [], tasks: [] });
   }
   const all = [...list, ...hear].sort((x, y) => x.at - y.at);
   return SLIP = { rows: all, nobodyToday: [...sits.values()].filter(s => s.today && !goersAt(s.h).length) };
@@ -1539,28 +1543,28 @@ function slipping() {
 const slipWho = ids => ids.length ? ids.map(id => id === S.me.id ? 'You' : first(id)).join(ids.length > 2 ? ', ' : ' or ').replace(/, ([^,]+)$/, ' or $1') : 'No owner';
 const slipAv = ids => ids.length ? ids.slice(0, 3).map(id => avatar(advocate(id), 24)).join('') + (ids.length > 3 ? `<span class="td-ravn">+${ids.length - 3}</span>` : '') : avatar(null, 24);
 // The row options: a teammate's step offers "Message Kevin" in the open item; your own (even shared) keeps its button.
-const slipOpt = r => ({ gk: 'sl', av: slipAv(r.ids), label: r.hear ? 'Nobody going' : slipWho(r.ids), note: r.note || '', msg: r.p && r.p.ro && r.b ? r.ids.filter(id => id !== S.me.id) : null });
+const slipOpt = r => ({ gk: 'sl', av: slipAv(r.ids), label: r.hear ? 'Nobody going yet' : slipWho(r.ids), msg: r.p && r.p.ro && r.b ? r.ids.filter(id => id !== S.me.id) : null });
 function slipHearRow(c, ek, sel, end, o) {
   const h = c.hear.h, hrs = Math.max(0, Math.floor((c.hear.t - Date.now()) / HR)), soon = c.hear.t - Date.now() <= DAY;
   const mark = `<span class="td-urg"><span class="sv-urg${soon ? ' soon' : ''}" role="img" aria-label="${esc(`${hrs < 1 ? 'under an hour' : hrs + ' hours'} to the hearing`)}"><b>${hrs < 1 ? '<1h' : hrs + 'h'}</b><span>to hearing</span></span></span>`;
   const nums = [...new Set(c.hear.bills.map(b => billNum(b).split(' ')[0]))];
   return `<div data-k="${ek}" class="td-row td-rhear">${sel(`${mark}${o.av ? `<span class="td-rav">${o.av}</span>` : ''}<span class="td-rmain"><span class="td-rb"><b class="td-num">${esc(h.committee)}</b><span class="td-rn">${esc(whenLine(h.scheduled_at))}</span></span><span class="td-rs">Nobody going yet · ${esc(nums.slice(0, 4).join(', '))}${nums.length > 4 ? ' …' : ''}</span></span>`)}
-    <span class="td-ract"></span>${end}</div>`;
+    <span class="td-ract">${btn('I’m going', { kind: 'secondary', attrs: { 'data-going': h.id, 'aria-label': `I’m going to the ${h.committee} hearing ${whenLine(h.scheduled_at)}` } })}</span>${end}</div>`;
 }
 function slipHearCard(c, i, k, o) {
   const h = c.hear.h;
   return `<article class="td-card td-cluster" data-k="${esc(k)}" tabindex="-1" aria-labelledby="td-s${i}">${urgBlock(null)}
-    <p class="td-s" id="td-s${i}">${icon('landmark')}Nobody going yet: ${esc(h.committee)} ${esc(whenLine(h.scheduled_at))}</p>
+    <p class="td-s" id="td-s${i}">${icon('landmark')}${esc(h.committee)} ${esc(whenLine(h.scheduled_at))} · Nobody going yet</p>
     <p class="td-why">${esc(c.hear.bills.map(b => billNum(b)).join(', '))}</p>
     <div class="td-acts">${btn('Open the hearing', { kind: 'secondary', href: `#/hearing/${encodeURIComponent(h.id)}?from=today` })}${btn('I’m going', { kind: 'text', attrs: { 'data-going': h.id } })}</div></article>`;
 }
 function paneSlipHear(c) {
   const h = c.hear.h;
   return `<div class="td-ptop"><p class="td-pnum td-rkind">${icon('landmark')}<span>Hearing</span></p></div>
-    <h2 class="td-pname" id="td-pane-h">Nobody from the team is going yet</h2>
+    <h2 class="td-pname" id="td-pane-h">Nobody going yet</h2>
     <div class="td-psec td-phear"><a class="td-phl" href="#/hearing/${esc(h.id)}?from=today">${icon('landmark')}<span><b>${esc(h.committee)} ${esc(whenLine(h.scheduled_at))}</b>${h.room ? ` · ${esc(room(h.room))}` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</a>
       <ul class="td-palso">${c.hear.bills.map(b => `<li><a class="td-pat" href="${billRoute(b)}"><b class="td-num">${esc(billNum(b))}</b> ${esc(b.nickname || blurb(b, 60))}</a></li>`).join('')}</ul>
-      <p class="td-pgo">${icon('users')}<span>Nobody from the team yet</span>${btn('I’m going', { kind: 'text', attrs: { 'data-going': h.id } })}</p></div>`;
+      <p class="td-pgo">${icon('users')}<span>Nobody going yet</span>${btn('I’m going', { kind: 'text', attrs: { 'data-going': h.id } })}</p></div>`;
 }
 // Team for Nate, Jess and Jaylen: Slipping first, then each person's list (folded). `rows`: the laptop's one-line rows.
 function slipHtml(rows) {
@@ -1574,7 +1578,7 @@ function slipHtml(rows) {
 // Mine for Nate, Jess and Jaylen: one line in place of "Hearings today", opening Team (#/?scope=team).
 function slipLine() {
   const sl = slipping(); if (!sl.rows.length) return '';
-  const nb = sl.nobodyToday.map(s => `${s.h.committee} ${timeOf(s.h.scheduled_at)}`), nobody = nb.length ? `nobody going to ${nb.length > 2 ? nb.slice(0, -1).join(', ') + ' or ' + nb[nb.length - 1] : nb.join(' or ')}` : '';
+  const nb = sl.nobodyToday.map(s => `${s.h.committee} ${timeOf(s.h.scheduled_at)}`), nobody = nb.length ? `nobody going yet to ${nb.length > 2 ? nb.slice(0, -1).join(', ') + ' or ' + nb[nb.length - 1] : nb.join(' or ')}` : '';
   return `<p class="td-hline1 td-slipline">${icon('clock')}<span class="td-hlt"><b>${esc(`${sl.rows.length} slipping on the team`)}</b>${nobody ? ` · ${esc(nobody)}` : ''} · <a href="#/?scope=team">See them</a></span></p>`;
 }
 
@@ -1591,14 +1595,71 @@ function coalPicked() {
   return ids.length ? { all: false, ids: new Set(ids), names: ids.map(id => S.campaigns.find(x => x.id === id).name) } : null;
 }
 const dayWord = day => day === hst(Date.now()) ? 'Today' : day === dayAdd(hst(Date.now()), 1) ? 'Tomorrow' : dayFmt(day, { weekday: 'short' });
+// ---- Your coalition's work due today (v4, R-269, fresh-eyes A) ----
+// Patti's and Saya's #1: someone who owns no bills opened Today to their coalition's week, where a draft due at 9:30 was
+// one amber phrase on a hearing row. Now, at the top of their Today (after any steps of their own), one group in the
+// ordinary row shape: the steps on their coalitions' bills that are a writer's or a rallier's and are due today or late
+// but still open: testimony with no draft, in draft or sent back (Make the draft now, or Open Doc), the public ask to
+// write (Write it) and the ask to send (Open the share kit). The owner is named once in the step ("Lauren's bill"). At most
+// five rows, then "N more on This week". Never in the badge (decision 7). When the writer and the rallier come (R-267),
+// these become the person's own rows; until then this is the honest version: work due today on your coalitions' bills.
+const COALDUE_CAP = 5;
+// `skip`: the sittings "Your hearing today" shows, whose bills it already lists with their testimony and Doc.
+function coalDue(r, skip = new Set()) {
+  const co = coalPicked(); if (!co) return { cards: [], co: null };
+  const now = Date.now(), today = hst(now), inC = b => (S.billCampaigns[b.id] || []).some(id => co.ids.has(id));
+  const mineB = new Set(r.cards.filter(c => c.b).map(c => c.b.id));   // already on their own list
+  const whose = b => { const o = (S.assignments[b.id] || [])[0]; return o ? `${first(o)}’s bill` : 'no owner yet'; };
+  const ok = b => b && inC(b) && !isMon(b) && b.position && b.tracked !== false && !diedish(b) && !mineB.has(b.id);
+  const tasks = [], asked = new Set();
+  for (const h of (S.hearings || []).slice().sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))) {
+    const start = new Date(h.scheduled_at).getTime(), b = billById(h.bill_id);
+    if (h.status === 'cancelled' || start <= now || !ok(b) || skip.has(slotKey(h))) continue;
+    const d = draftOf(h), due = testDue(h);
+    if ((due <= now || hst(due) === today) && (!d || d.status === 'draft')) {
+      const k = !d ? 'nodraft' : d.review_note ? 'revise' : 'write';
+      tasks.push({ kind: k, key: `cd:${h.id}`, b, h, d, due, who: 'coal', rank: RANK[k],
+        s: `${!d ? `New hearing: ${esc(h.committee)} ${esc(hearingDay(h))}, no draft yet` : d.review_note ? 'Sent back: revise' : 'In draft: finish it'} · ${esc(whose(b))}`,
+        q: d?.review_note ? esc(d.review_note) : '',
+        btns: [!d ? { label: draftAsking(h) ? 'Making the draft…' : 'Make the draft now', act: 'draftnow' } : d.doc_url ? { label: 'Open Doc', href: d.doc_url, ext: true } : { label: 'Open the bill', href: billRoute(b) }] });
+    }
+    // An ask helps only while the public can still send written testimony on time: due today, or late before that closes.
+    if (['strongly_support', 'strongly_oppose'].includes(b.position) && !liveAsk(b) && !asked.has(b.id) && due > now) {
+      const ad = askDue(h);
+      if (ad <= now || hst(ad) === today) { asked.add(b.id); tasks.push({ kind: 'ask', key: `ca:${b.id}`, b, h, due: ad, who: 'coal', rank: RANK.ask,
+        s: `Write the public ask for the ${esc(h.committee)} hearing ${esc(hearingDay(h))} · ${esc(whose(b))}`, btns: [{ label: 'Write it', href: `${billRoute(b, 'public')}?focus=ask` }] }); }
+    }
+  }
+  for (const [bid, arr] of Object.entries(S.todos || {})) for (const t of arr) {
+    const b = billById(bid), h = !t.done && ok(b) ? askTodoHearing(b, t.title) : null, due = dateDue(t.due_date);
+    if (!h || testDue(h) <= now || skip.has(slotKey(h)) || due == null || !(due <= now || hst(due) === today)) continue;
+    tasks.push({ kind: 'todo', key: `ct:${t.id}`, b, t, h, due, who: 'coal', rank: RANK.todo, s: `Send the ask for the ${esc(h.committee)} hearing ${esc(hearingDay(h))} · ${esc(whose(b))}`,
+      btns: [{ label: 'Open the share kit', href: `#/hearing/${encodeURIComponent(h.id)}?from=today&kit=1` }] });
+  }
+  // One row per bill, as the person's own list does: its testimony leads when due within a day (T6), else the earliest.
+  const by = new Map(); for (const t of tasks) { if (!by.has(t.b.id)) by.set(t.b.id, { key: 'cd:' + t.b.id, b: t.b, tasks: [] }); by.get(t.b.id).tasks.push(t); }
+  const hot = t => TESTIMONY.has(t.kind);
+  const cards = [...by.values()].map(c => { c.tasks.sort((x, y) => hot(y) - hot(x) || x.due - y.due || x.rank - y.rank); c.p = c.tasks[0]; c.due = c.p.due; c.group = 'coal'; return c; })
+    .sort((x, y) => x.due - y.due || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true }));
+  return { cards, co, tasks };
+}
+function coalDueHtml(cd, rows, top) {
+  if (!cd.cards.length) return '';
+  const title = cd.co.all ? 'Due today on the team’s bills' : `${cd.co.names.join(' and ')}, due today`;
+  const shown = cd.cards.slice(0, COALDUE_CAP), more = cd.cards.length - shown.length; let i = 500;
+  const list = rows ? `<div class="td-rows">${shown.map(c => row(c, false, { gk: 'cd' })).join('')}</div>` : `<div class="td-list">${shown.map(c => card(c, i++, false, { filled: false, gk: 'cd' })).join('')}</div>`;
+  return `<section class="td-group td-coaldue" aria-labelledby="td-g-coaldue"><h2 class="td-h"${top ? ' data-top tabindex="-1"' : ''}>${groupHead(`${icon('clock', { cls: 'td-soon' })}${esc(title)}`, cd.cards.length, { id: 'td-g-coaldue' })}</h2>
+    ${list}${more ? `<a class="td-cdmore" href="#/?view=week"><span>${esc(`${more} more on This week`)}</span>${icon('chevron-right', { cls: 'chev' })}</a>` : ''}</section>`;
+}
+
 // v4 (R-269, T1-T3): each hearing row says where its testimony stands and when it is due, in the coalition page's words
 // (hearing.js testimonyOf), amber when the next step is writing and it is due within a day or late but still open; who
-// is going only when someone is, and "Nobody from the team is going to 2 of 3 yet" once under the hearings, not on every
+// is going only when someone is, and "Nobody going yet to 2 of the 3" once under the hearings, not on every
 // row (it was said up to 11 times a page). A row whose bill has a live public ask ends "Share kit", which opens the
 // hearing page at its share kit. The bills with no hearing yet are the heading's count, a link to them on Bills, and no
 // longer a list of up to 36 rows (the count was said twice). `skip`: sittings that "Your hearing today" already shows.
 // Returns the section and whether anything in it is due today (or late but open), which decides the quiet line (T2).
-function coalSection(r, skip = new Set()) {
+function coalSection(r, skip = new Set(), quiet = new Set()) {
   const co = coalPicked(); if (!co) return { html: '', due: false };
   const inC = b => (S.billCampaigns[b.id] || []).some(id => co.ids.has(id)), now = Date.now();
   // This week's sittings still to come, on the coalition's bills with a position (Monitor bills are watched, not worked).
@@ -1626,7 +1687,8 @@ function coalSection(r, skip = new Set()) {
     const when = ms > 0 ? `due ${atLine(at)}` : lateOpen ? `late testimony until ${clockDay(list[0].h.scheduled_at)}` : `was due ${atLine(at)}`;
     // Amber only where the next step is writing (no draft, in draft, sent back): Kris's list of every coalition would
     // otherwise turn amber row by row for steps that wait on an approver (A-13). Red only once it can no longer be filed.
-    const tone = write && (lateOpen || (ms > 0 && ms <= DAY)) ? 'soon' : write && ms <= 0 ? 'late' : '';
+    // A bill whose step is in the "due today" group above keeps its words here but not the amber: said once (A-14).
+    const tone = list.some(x => quiet.has(x.b.id)) ? '' : write && (lateOpen || (ms > 0 && ms <= DAY)) ? 'soon' : write && ms <= 0 ? 'late' : '';
     return `<span class="td-ctest${tone ? ' ' + tone : ''}">${tone ? icon(tone === 'late' ? 'circle-alert' : 'clock') : ''}${esc(`${what} · ${when}`)}</span>`;
   };
   const rows = [...sit.entries()].filter(([k]) => !skip.has(k)).map(([, l]) => l);
@@ -1638,7 +1700,7 @@ function coalSection(r, skip = new Set()) {
       ${kit ? `<a class="td-ckit" href="#/hearing/${esc(h.id)}?from=today&amp;kit=1">Share kit${icon('chevron-right')}</a>` : ''}</div>`; };
   const todoRow = ({ b, t }) => `<div class="td-crow td-ctodo"><a class="td-cbody" href="${billRoute(b)}"><span class="td-cbills"><b class="td-num">${esc(billNum(b))}</b> ${esc(t.title)}</span>${t.due_date ? `<span class="td-cmeta">${esc(`Due ${fmtDate(String(t.due_date).slice(0, 10), { weekday: 'short' }).replace(',', '')}`)}</span>` : ''}</a>${btn('Take it', { kind: 'secondary', attrs: { 'data-ctake': `${b.id}|${t.id}` } })}</div>`;
   const nobody = [...sit.values()].filter(l => !goersAt(l[0].h).length).length, all = sit.size;
-  const nobodyLine = !nobody ? '' : `<p class="td-cnote">${icon('user-round-plus')}<span>${esc(nobody === all ? (all === 1 ? 'Nobody from the team is going yet' : `Nobody from the team is going to any of the ${all} yet`) : `Nobody from the team is going to ${nobody} of ${all} yet`)}</span></p>`;
+  const nobodyLine = !nobody ? '' : `<p class="td-cnote">${icon('user-round-plus')}<span>${esc(nobody === all ? (all === 1 ? 'Nobody going yet' : `Nobody going yet to any of the ${all}`) : `Nobody going yet to ${nobody} of the ${all}`)}</span></p>`;
   const body = [rows.length ? `<h3 class="td-ch">${icon('landmark')}Hearings</h3>${nobodyLine}<div class="td-crows">${rows.map(sitRow).join('')}</div>` : '',
     todos.length ? `<h3 class="td-ch">${icon('list-todo')}To-dos nobody has taken</h3><div class="td-crows">${todos.map(todoRow).join('')}</div>` : ''].join('');
   // The heading's line: the hearings (or that there are none, said here and nowhere else), the bills with no hearing as a
@@ -1831,7 +1893,10 @@ function render(route) {
   // to be heard" contradicted the page (fresh-eyes review, 9/21), so the coalition's week stands in for both.
   // v4 (T8): the hearing you are going to today leads the page; its sitting is said nowhere else on it.
   const mineH = scope === 'mine' && !off ? mineToday() : [], skip = new Set(mineH.map(([k]) => k)), mine = mineH.map(([, h]) => mineCard(h)).join('');
-  const cs = scope === 'mine' && !off ? coalSection(r, skip) : { html: '', due: false }, coal = cs.html;
+  // v4 (fresh-eyes A): their coalitions' work due today, for someone who owns no bills.
+  const cd = scope === 'mine' && !off && !S.bills.some(b => owns(S.me.id, b)) ? coalDue(r, skip) : { cards: [], co: null, tasks: [] };
+  for (const t of cd.tasks || []) LAST.set(t.key, t);
+  const cs = scope === 'mine' && !off ? coalSection(r, skip, new Set(cd.cards.map(c => c.b.id))) : { html: '', due: false }, coal = cs.html;
   let i = 0, body;
   if (scope === 'team') body = (slipper() ? slipHtml(rows) : teamHtml(0, rows)) + loadGroup();
   else {
@@ -1853,10 +1918,11 @@ function render(route) {
       body = (off ? `<p class="td-quiet" data-top tabindex="-1">${esc(who ? `Nothing is open on ${name}’s list.` : 'Nothing is open on your list.')}</p>`
         // v4 (R-269, T2): "Nothing of your own is due today" sat over a draft due in 29 minutes on the coalition's bill
         // below it. Now the quiet line is said only when nothing there is due today either, and says just that.
+        : cd.cards.length ? coalDueHtml(cd, rows, true)
         : coal ? (cs.due ? '' : `<p class="td-quiet" data-top tabindex="-1">${icon('circle-check')}<span>Nothing needs you today.</span></p>`)
         : `<div class="td-empty" data-top tabindex="-1">${empty({ art: scope === 'mine' ? yay() : '', title: who ? `Nothing is waiting on ${esc(name)}.` : scope === 'none' ? 'Nothing is open on the bills nobody owns.' : 'All clear for today.', text: nextHearingText(scope, who), action: scope !== 'mine' ? btn('Back to my list', { kind: 'secondary', attrs: { 'data-seg': 'tdscope', 'data-val': 'mine' } }) : btn('See your bills', { href: '#/bills' }) })}</div>`);
-    } else body = (clear ? `<div class="td-clear">${scope === 'mine' ? yay() : ''}<div><p class="td-clear-t">${who ? `Nothing for ${esc(name)} today.` : scope === 'none' ? 'Nothing is due today on the bills nobody owns.' : 'All clear for today.'}</p><p class="small muted">${nextHearingText(scope, who)}</p></div></div>` : '')
-      + groups.map(groupHtml).join('');
+    } else body = (clear && !cd.cards.length ? `<div class="td-clear">${scope === 'mine' ? yay() : ''}<div><p class="td-clear-t">${who ? `Nothing for ${esc(name)} today.` : scope === 'none' ? 'Nothing is due today on the bills nobody owns.' : 'All clear for today.'}</p><p class="small muted">${nextHearingText(scope, who)}</p></div></div>` : '')
+      + groups.map(groupHtml).join('') + coalDueHtml(cd, rows, false);
     body += waitingGroup(scope, who) + coal + (scope === 'mine' ? startCard() : '');
   }
   // A teammate's list is for looking: say so once. It is the top of the list, so it takes the focus when this list is
