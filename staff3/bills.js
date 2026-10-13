@@ -573,8 +573,14 @@ function lookAtRow(id) {
 // it. Select mode and Edit have their own use for a click on a row, so the bill is not docked then.
 const dockNow = () => matchMedia('(min-width: 1100px)').matches;
 function docked() { const v = bl(); return !!v.look && dockNow() && !v.selecting && !v.edit && S.bills.some(b => b.id === v.look); }
+// The panel is as tall as the window has room for below its top, which is lower before the page scrolls (the deadline
+// line sits above it) than once it is held under the toolbar: so its foot is never under the bottom of the window.
+function fitDock() { const el = document.querySelector('.bl-dock'); if (!el) return;
+  el.style.maxHeight = Math.max(240, Math.floor(innerHeight - Math.max(0, el.getBoundingClientRect().top) - 16)) + 'px';
+  el.classList.toggle('bl-dend', el.scrollTop + el.clientHeight >= el.scrollHeight - 2); }
 function wireDock() {
   const el = document.querySelector('.bl-dock'); if (!el) return;
+  fitDock();
   el.querySelector('[data-lkd="close"]')?.addEventListener('click', () => closeDock());
   // A long bill scrolls inside the panel; the fade at its foot says there is more, and goes at the end.
   const end = () => el.classList.toggle('bl-dend', el.scrollTop + el.clientHeight >= el.scrollHeight - 2);
@@ -783,7 +789,7 @@ if (typeof window !== 'undefined') {
   matchMedia('(min-width: 900px)').addEventListener('change', () => { if (S.route?.name === 'bills') hooks.render(); });
   let rz = 0, lastW = innerWidth;   // the table's column widths are worked out for the window's width, so a resize lays it out again
   addEventListener('resize', () => { if (innerWidth === lastW) return; lastW = innerWidth; clearTimeout(rz); rz = setTimeout(() => { if (S.route?.name === 'bills' && !S.route.muted && wideNow() && !document.querySelector('dialog[open]') && !document.activeElement?.matches?.('input')) repaint(); }, 200); });
-  addEventListener('scroll', () => { if (S.route?.name === 'bills' && document.querySelector('.bl-tscroll')) holdHead(); }, { passive: true });
+  addEventListener('scroll', () => { if (S.route?.name !== 'bills') return; if (document.querySelector('.bl-tscroll')) holdHead(); fitDock(); }, { passive: true });
   // Every key here is a shortcut, so every one waits for keysOn() (My settings can switch shortcuts off), is ignored
   // while someone types in a field or a sheet is open, and leaves "g then a letter" to the frame.
   let lastG = 0;
