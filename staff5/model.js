@@ -164,6 +164,42 @@ export function legislativeDay(at = Date.now()) {
   return { day: n, of: total, today: isDay, text: isDay ? `Legislative day ${n} of ${total}` : `Recess · ${n} of ${total} legislative days done` };
 }
 export const hstDayOf = t => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+
+// ---- time, said one way on every screen (R-277 fix 3, W-6) ----
+// The review found time left written about 10 ways ("<1h", "in 59m", "due in 28 min", "under an hour", "7h left") and a
+// date about 10. Every screen now asks these few functions: a moment is "today 9:30 AM", "tomorrow 9:30 AM",
+// "yesterday 1:10 PM", else "Tue 3/17, 9:30 AM"; time left is "28 min", "4 hours", "3 days", and past it "4 hours overdue"
+// ("overdue", not "late": amber "late testimony" is the window the Capitol still takes it, A-5 as amended by R-250);
+// a chip that must stay small says "28m", "4h", "3d". Always rounded down, never up (R-022): a day early is safe.
+const clockOf = t => new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' });
+export function whenAt(t) {
+  if (t == null || t === '') return '';
+  const ms = new Date(t).getTime(), d = hstDayOf(ms), now = Date.now();
+  if (d === hstDayOf(now)) return `today ${clockOf(ms)}`;
+  if (d === hstDayOf(now + 864e5)) return `tomorrow ${clockOf(ms)}`;
+  if (d === hstDayOf(now - 864e5)) return `yesterday ${clockOf(ms)}`;
+  return fmtDT(new Date(ms).toISOString());
+}
+// "late testimony until 1:10 PM": today needs no day word, any other day does.
+export const clockDay = t => whenAt(t).replace(/^today /, '');
+// The time between now and `t`, rounded down: "28 min" / "4 hours" / "3 days" (short: "28m" / "4h" / "3d").
+export function spanOf(t, { short = false } = {}) {
+  const ms = Math.abs(new Date(t).getTime() - Date.now()), h = ms / 36e5;
+  if (h < 1) { const m = Math.max(1, Math.floor(ms / 6e4)); return short ? `${m}m` : `${m} min`; }
+  if (h < 48) { const n = Math.floor(h); return short ? `${n}h` : `${n} hour${n === 1 ? '' : 's'}`; }
+  const n = Math.floor(h / 24); return short ? `${n}d` : `${n} days`;
+}
+// "28 min" before the moment, "4 hours overdue" after it.
+export const timeLeft = t => new Date(t).getTime() > Date.now() ? spanOf(t) : `${spanOf(t)} overdue`;
+// A deadline in one line: "due today 9:30 AM · 28 min", "was due yesterday 4:00 PM · 17 hours overdue".
+export const dueLine = (t, verb = 'due') => t == null ? '' : `${new Date(t).getTime() > Date.now() ? verb : 'was ' + verb} ${whenAt(t)} · ${timeLeft(t)}`;
+// How long ago: "just now", "5 min ago", "3 hours ago", "2 days ago", then the date (short: "3h ago", for a narrow column).
+export const agoWords = (iso, { short = false } = {}) => { if (!iso) return ''; const ms = Date.now() - new Date(iso).getTime();
+  return ms < 0 ? whenAt(iso) : ms < 6e4 ? 'just now' : ms < 7 * 864e5 ? `${spanOf(iso, { short })} ago` : short ? fmtDate(iso) : fmtDT(iso); };
+// A room as the Capitol names it, without the videoconference note: "Room 430".
+export const roomName = r => String(r || '').replace(/\s*(&|and|via)\s*videoconference/i, '').replace(/^Conference Room\s+/i, 'Room ').trim();
+// A hearing in one line: "Tue 3/17, 9:30 AM · Room 430" (the committee, where wanted, goes before it).
+export const hearingWhen = h => h ? [whenAt(h.scheduled_at), roomName(h.room)].filter(Boolean).join(' · ') : '';
 export const RADAR_DAYS = 14;
 export const RADAR_STAGES = ['introduced','first_triple','first_lateral','first_decking',
                       'second_triple','second_lateral','second_decking'];
@@ -225,8 +261,8 @@ export const WORKFLOW_KINDS = [['chat', 'Someone wrote in the chat on a bill I o
   ['filed', 'Someone marked testimony filed']];
 export const TEMPLATE_KINDS = [['hearing_alert', 'Hearing alert (per bill)'], ['hearing_rescheduled', 'Hearing moved'],
   ['hearing_cancelled', 'Hearing cancelled'], ['draft_thread', 'Draft ready (thread reply)'],
-  ['reminder_morning', 'Reminder: morning of deadline'], ['reminder_before', 'Reminder: hours before'],
-  ['reminder_after', 'Reminder: deadline passed'], ['daily_head', 'Daily list heading'], ['daily_empty', 'Daily list, nothing due']];
+  ['reminder_morning', 'Alert: morning of deadline'], ['reminder_before', 'Alert: hours before'],
+  ['reminder_after', 'Alert: deadline passed'], ['daily_head', 'Daily list heading'], ['daily_empty', 'Daily list, nothing due']];
 export const TOKENS = '{{bill}} {{title}} {{position}} {{priority}} {{owner}} {{committee}} {{hearing}} {{room}} {{deadline}} {{deadline_time}} {{hours}} {{status}} {{draft}} {{tracker}} {{pdf}} {{days}} {{date}}';
 // The public profile's ways to help (R-165, pub/myprofile.js HELP_GROUPS), said about the supporter; 'story' is from
 // before R-156 and 'quote' is asked beside the stories.
@@ -343,8 +379,28 @@ export function inboxRows() {
 // racing the deadline after it have their own heading, named for its day ("Needs a hearing by Mon 3/30").
 export const MEMO_SAYS = { strongly_support: 'HIPHI strongly supports', support: 'HIPHI supports', support_amend: 'HIPHI supports with changes',
   strongly_oppose: 'HIPHI strongly opposes', oppose: 'HIPHI opposes', neutral: 'HIPHI is commenting' };   // the public page's words (pub/core.js POS_SAYS)
-const MEMO_TESTIMONY = { draft: 'being written', review: 'waiting for approval', second_review: 'waiting for a second approval', approved: 'ready to file', filed: 'filed' };
+const MEMO_TESTIMONY = { draft: 'being written', review: 'waiting for approval', second_review: 'waiting for second approval', approved: 'ready to file', filed: 'filed' };
 const memoDay = d => fmtDate(d, { weekday: 'short' }).replace(',', '');   // "Mon 3/30"
+// ---- the partner update in partners' words (R-277 fix 7, W-3) ----
+// It is pasted into partner emails, and it carried about 18 committee codes, the legislative day and "3 days to second
+// triple filing" (C-15: codes are for staff screens, never a public screen or email). For partners a committee is its
+// name ("the Senate Health and Human Services committee"), a Capitol deadline says what bills must do by it, and the
+// legislative day is left out. The team's memo keeps the words staff use. Dates stay absolute: an email is read later.
+export function cmtePlain(code) {
+  const cs = codesOf(code).map(c => S.committees?.[c] ? { ch: S.committees[c].chamber === 'S' ? 'Senate' : 'House', name: S.committees[c].name } : { ch: '', name: c });
+  if (!cs.length) return 'a committee';
+  if (cs.length === 1) return `the ${cs[0].ch ? cs[0].ch + ' ' : ''}${cs[0].name} committee`;
+  const one = cs.every(c => c.ch === cs[0].ch), names = cs.map(c => c.name), list = names.length === 2 ? `${names[0]}, and ${names[1]}` : `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+  return one ? `${cs.length === 2 ? 'two' : cs.length === 3 ? 'three' : cs.length} ${cs[0].ch ? cs[0].ch + ' ' : ''}committees: ${list}` : `the ${cs.map(c => `${c.ch} ${c.name}`.trim()).join(' and ')} committees`;
+}
+// Any committee code in a sentence, spelled out ("in HHS" -> "in the Senate Health and Human Services committee"), and
+// a Capitol deadline's name said as what it asks ("Missed the Second lateral deadline" -> "Missed the deadline to reach
+// its last committee").
+const CODE_RX = /\b([A-Z]{2,4}(?:\/[A-Z]{2,4})*)\b/g;
+export const partnerWords = t => String(t || '')
+  .replace(/\bthe ((?:(?:first|second) )?(?:triple filing|lateral|decking)|(?:first |second )?crossover|cross ?back|final decking)\b( deadline)?/gi, (m, g) => `the deadline to ${gateNeed(g, 1)}`)
+  .replace(/\b((?:first|second) (?:triple filing|lateral|decking))\b/gi, (m, g) => `the deadline to ${gateNeed(g, 1)}`)
+  .replace(CODE_RX, (m, c) => codesOf(c).every(x => S.committees?.[x]) ? cmtePlain(c) : m);
 // The Capitol's step in plain words. The vote count goes first: it is where the old memo cut a name in half at 140
 // characters ("…Representative(s) Garrett, Am"). A sentence plainAction has no words for is kept whole when short, or
 // cut at a word.
@@ -376,27 +432,34 @@ export function memoData() {
   const monday = (() => { const d = new Date(hstDayOf(now) + 'T12:00:00-10:00'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'Pacific/Honolulu' }); })();
   const coal = v.coalition ? S.campaigns.find(c => c.id === v.coalition) : null, coalName = coal ? coal.public_name || coal.name : '';
   const clock = sessionClock(bills), g = sessionGates(bills).find(x => !x.past);
-  const title = `${coal ? coalName + ': w' : 'W'}eek of ${monday}${g ? `, ${g.days <= 0 ? g.name + ' is today' : `${when(g)} to ${g.name.toLowerCase()}`}` : ''}`;
+  const title = partners ? `${coal ? coalName + ': w' : 'W'}eek of ${monday}`   // R-277 fix 7: the deadline is explained in the intro
+    : `${coal ? coalName + ': w' : 'W'}eek of ${monday}${g ? `, ${g.days <= 0 ? g.name + ' is today' : `${when(g)} to ${g.name.toLowerCase()}`}` : ''}`;
   const ld = legislativeDay(), p1 = bills.filter(b => b.priority === 1).length;
   // The next two deadlines, as Bills shows them (decision 3).
   const race = (x, then) => `${x.racing}${then ? '' : ' must clear committee'} by ${x.name.toLowerCase()} on ${memoDay(x.date)}${x.noHearing.length ? ` (${x.noHearing.length} with no hearing yet)` : ''}`;
   const races = clock && clock.racing ? ` ${race(clock)}${clock.then ? `, and ${race(clock.then, true)}` : ''}.` : '';
+  // Partners: "The next Capitol deadline is Thu 3/19: by then 1 of these bills must clear its first committee (it has a hearing)."
+  const racePlain = x => `by ${memoDay(x.date)}, ${x.racing === 1 ? '1 of these bills' : `${x.racing} of these bills`} must ${gateNeed(x.name, x.racing)}${x.noHearing.length ? ` (${x.noHearing.length} with no hearing yet)` : ''}`;
+  const racesPlain = clock && clock.racing ? ` Capitol deadlines next: ${racePlain(clock)}${clock.then ? `; ${racePlain(clock.then)}` : ''}.` : '';
   const who = partners ? `HIPHI has a position on ${bills.length} bill${bills.length === 1 ? '' : 's'}${coal ? ` in ${coalName}` : ''}` : `${v.who === 'me' ? 'You own or follow' : 'We have a position on'} ${bills.length} bill${bills.length === 1 ? '' : 's'}${p1 ? ` (${p1} top priority)` : ''}`;
-  const intro = `${ld ? ld.text + '. ' : ''}${who}: ${live.length} still moving, ${bills.length - live.length} did not advance.${races}`;
+  const intro = partners ? `${who}: ${live.length} still moving, ${bills.length - live.length} did not advance.${racesPlain}`   // no legislative day for partners (W-3)
+    : `${ld ? ld.text + '. ' : ''}${who}: ${live.length} still moving, ${bills.length - live.length} did not advance.${races}`;
   const sections = [];
   // hearings in the next seven days. The team reads where our testimony stands; partners read when theirs is due.
   const hs = S.hearings.filter(h => ids.has(h.bill_id) && h.status !== 'cancelled' && new Date(h.scheduled_at) > now && new Date(h.scheduled_at) - now < wk).sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
   if (hs.length) sections.push(['Hearings this week', hs.map(h => { const b = billById(h.bill_id), d = draftFor(b.id, h.committee), open = h.testimony_deadline && new Date(h.testimony_deadline) > now;
-    const at = `${h.committee} hearing ${fmtDT(h.scheduled_at)}${h.room ? ', ' + roomShortMemo(h.room) : ''}.`;
-    if (partners) return open ? line(b, `${at} Written testimony is due ${fmtDT(h.testimony_deadline)}: please submit yours, the link shows how.`, 'testify') : line(b, at);
+    const at = `${h.committee} hearing ${fmtDT(h.scheduled_at)}${h.room ? ', ' + roomName(h.room) : ''}.`;
+    const atP = `Heard by ${cmtePlain(h.committee)} on ${fmtDT(h.scheduled_at)}${h.room ? ', ' + roomName(h.room) : ''}.`;   // R-277 fix 7
+    if (partners) return open ? line(b, `${atP} Written testimony is due ${fmtDT(h.testimony_deadline)}: please submit yours, the link shows how.`, 'testify') : line(b, atP);
     return line(b, `${at} ${d ? `Our testimony is ${MEMO_TESTIMONY[d.status] || 'started'}` : 'No testimony started yet'}${(!d || !['filed', 'approved'].includes(d.status)) && open ? `, due ${fmtDT(h.testimony_deadline)}` : ''}.`); })]);
   // moved in the last seven days
   const sig = /pass(ed)? (second|third|final) reading|recommend(s|ed)? (that the measure be )?pass|reported from|transmitted to|received from|conference committee|enrolled|governor|became law|act \d+/i;
   const moved = live.filter(b => b.last_action_date && now - new Date(b.last_action_date + 'T12:00:00-10:00') < wk && sig.test(b.last_action || ''));
-  if (moved.length) sections.push(['Moving', moved.slice(0, 12).map(b => line(b, `${memoStep(b.last_action)} (${fmtDate(b.last_action_date)}).`)).concat(more(moved.length - 12))]);
+  if (moved.length) sections.push(['Moving', moved.slice(0, 12).map(b => line(b, `${(partners ? partnerWords : String)(memoStep(b.last_action))} (${fmtDate(b.last_action_date)}).`)).concat(more(moved.length - 12))]);
   // no hearing yet: at risk (riskOf, a week or less), then the bills racing the next deadline after that
   const waiting = live.map(b => ({ b, st: stopOf(b) })).filter(x => x.st.column === 'a' && x.st.deadline && !x.st.deadline.missed && !SESSION_OVER);
-  const where = st => st.committee ? `Waiting in ${st.committee}` : `Waiting for a ${CHAMBER_NAME[st.chamber] || 'committee'} referral`;
+  const where = st => partners ? (st.committee ? `Waiting in ${cmtePlain(st.committee)}` : `Waiting to be sent to a ${CHAMBER_NAME[st.chamber] || ''} committee`.replace('a  ', 'a '))   // R-277 fix 7
+    : st.committee ? `Waiting in ${st.committee}` : `Waiting for a ${CHAMBER_NAME[st.chamber] || 'committee'} referral`;
   const risk = waiting.filter(x => riskOf(x.b)).sort((x, y) => x.st.deadline.days - y.st.deadline.days || (x.b.priority || 9) - (y.b.priority || 9));
   if (risk.length) sections.push(['At risk: no hearing yet', risk.slice(0, 12).map(({ b, st }) => line(b, `${where(st)}; needs a hearing by ${memoDay(st.deadline.date)} (${when(st.deadline)}).`)).concat(more(risk.length - 12, 'more in the same position'))]);
   const later = waiting.filter(x => !riskOf(x.b)), next = later.map(x => x.st.deadline.date).sort()[0];
@@ -404,7 +467,7 @@ export function memoData() {
   if (racing.length) sections.push([`Needs a hearing by ${memoDay(next)}`, racing.slice(0, 12).map(({ b, st }) => line(b, `${where(st)}.`)).concat(more(racing.length - 12, 'more in the same position'))]);
   // stopped in the last seven days
   const died = bills.filter(b => { if (!diedish(b) || !b.died_deadline) return false; const m = /(\d+)\/(\d+)\/(\d+)$/.exec(b.died_deadline); if (!m) return false; const t = new Date(`20${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}T23:59:59-10:00`).getTime(); return now - t < wk && now >= t; });
-  if (died.length) sections.push(['Did not advance this week', died.slice(0, 12).map(b => line(b, whyDead(b).replace(/<[^>]+>/g, '').replace(/&amp;/g, '&'))).concat(more(died.length - 12))]);
+  if (died.length) sections.push(['Did not advance this week', died.slice(0, 12).map(b => line(b, (t => partners ? partnerWords(t) : t)(whyDead(b).replace(/<[^>]+>/g, '').replace(/&amp;/g, '&')))).concat(more(died.length - 12))]);
   // what supporters (and partners) can do: the ask on each bill's public page, which shows an ask only through its date
   // (an undated ask is not shown there, so it is not one here either; R-180)
   const today = hstDayOf(now), asks = live.filter(b => b.public_action && (DEMO || (b.public_action_until && b.public_action_until >= today)));
@@ -414,7 +477,6 @@ export function memoData() {
     : { text: 'Every bill, with hearing dates and how to testify:', href: PUBLIC_APP() };
   return { title, intro, sections, foot, partners, empty: !sections.length };
 }
-export const roomShortMemo = r => String(r || '').replace(/Conference Room/i, 'Rm').replace(/\s*&.*$/, '').trim();
 // Both copies come from the same lines. In plain text a partner's link goes on its own line under the bill; for email
 // the bill number is the link. A line is an object; "…and 3 more" is a plain string.
 const memoLineText = i => typeof i === 'string' ? '• ' + i : `• ${i.num} (${i.name}): ${i.text}${i.href ? `\n  ${i.href}` : ''}`;
@@ -534,11 +596,10 @@ export function pubStateText(b) {
   return 'Summary live. No action ask set.';
 }
 
-export const DRAFT_LABEL = { draft: 'Draft', review: 'In review', second_review: 'Second approval',
+export const DRAFT_LABEL = { draft: 'Draft', review: 'Waiting for approval', second_review: 'Waiting for second approval',   // R-277 W-2, C-15
   approved: 'Approved', filed: 'Filed', cancelled: 'Hearing cancelled' };
 export const DRAFT_TAG = { draft: 'a', review: 'w', second_review: 'w', approved: 'g', filed: 't', cancelled: 'a' };
-export const dWhen = iso => iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'Pacific/Honolulu',
-  weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+export const dWhen = iso => iso ? whenAt(iso) : '';   // R-277 fix 3: the one way to say a moment
 export const nameOf = id => advocate(id)?.full_name || 'someone';
 export const listNames = (pred, sep) => S.advocates.filter(a => pred(a) && a.is_active !== false)
   .map(a => a.full_name).join(sep) || 'an admin';
@@ -548,7 +609,7 @@ export function draftWho(d) {
     case 'second_review': return `Approved by ${nameOf(d.approved_by)} \u00b7 first testimony on this bill, needs ${listNames(a => a.is_reviewer, ' or ')}`;
     case 'approved': return `Approved by ${nameOf(d.second_approved_by || d.approved_by)} ${dWhen(d.second_approved_at || d.approved_at)} \u00b7 file it at the Capitol, then mark it filed`;
     case 'filed': return `Filed by ${nameOf(d.filed_by)} ${dWhen(d.filed_at)}`;
-    case 'draft': return d.review_note ? 'Sent back' : d.submitted_at ? 'Back to draft' : 'Write it in the Doc, then submit for review';   // v4 (R-269, C-15): one name
+    case 'draft': return d.review_note ? 'Sent back' : d.submitted_at ? 'Back to draft' : 'Write it in the Doc, then send it for approval';   // v4 (R-269, C-15): one name
     default: return '';
   }
 }
@@ -564,18 +625,16 @@ export function draftActions(d, h = draftHearing(d)) {
   const me = S.me || {};
   const mine = d.submitted_by && d.submitted_by === me.id;
   switch (d.status) {
-    case 'draft': return [['submit', 'Submit for review', 'pri']];
-    case 'review': return canFirstApprove(me, d, h) ? [['approve', 'Approve', 'pri'], ['changes', 'Request changes']]
+    case 'draft': return [['submit', 'Send for approval', 'pri']];   // R-277 W-2, C-15: the writer's button
+    case 'review': return canFirstApprove(me, d, h) ? [['approve', 'Approve', 'pri'], ['changes', 'Send back']]
       : mine ? [['withdraw', 'Withdraw']] : [];
-    case 'second_review': return canSecondApprove(me, d) ? [['approve', 'Approve', 'pri'], ['changes', 'Request changes']]
+    case 'second_review': return canSecondApprove(me, d) ? [['approve', 'Approve', 'pri'], ['changes', 'Send back']]
       : mine ? [['withdraw', 'Withdraw']] : [];
     case 'approved': return [['filed', 'Mark filed', 'pri']];
     case 'filed': return [['unfile', 'Unmark filed']];
     default: return [];
   }
 }
-export const inWhen = iso => { const ms = new Date(iso) - Date.now(); if (ms <= 0) return 'passed';   // callers say "deadline passed"
-  const h = Math.floor(ms / 36e5); return h < 48 ? `in ${h}h` : `in ${Math.floor(ms / 864e5)}d`; };   // never rounded up (R-022)
 export const blurb = (b, n = 90) => { const t = (b.public_summary || b.description || b.title || '').replace(/\s+/g, ' ').trim();
   return t.length > n ? t.slice(0, n - 1).replace(/\s\S*$/, '') + '…' : t; };
 export const priCls = b => b.priority === 1 ? ' p3' : '';   // class name kept; P1 rows are double height
@@ -588,7 +647,7 @@ export const billNum = b => b.bill_number + (b.current_version ? ' ' + b.current
 export const billTag = (b, n = 80) => b.nickname ? `<b class="bn-nick">${esc(b.nickname)}</b> <span class="bn-num">${esc(billNum(b))}</span>`
   : `<b class="bn-num0">${esc(billNum(b))}</b> <span class="bn-sum">${esc(blurb(b, n))}</span>`;
 export const billSay = b => b.nickname ? `${b.nickname} (${billNum(b)})` : billNum(b);
-export const roomShort = r => (r || 'room TBD').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ');
+export const roomShort = r => r ? roomName(r) : 'room TBD';   // R-277 fix 3: "Room 430" everywhere, not "Rm 430" here and "Room 430" there
 export function chairMail(code) {
   // The committee roster knows who chairs it; the last word of the name broke on two-word surnames
   // ("San Buenaventura", "Dela Cruz") and sent email to an address that does not exist (9/19).

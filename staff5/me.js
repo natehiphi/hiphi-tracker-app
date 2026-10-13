@@ -13,7 +13,7 @@ import { icon, btn, switchRow, field, toast } from './ui.js';
 // Plain, verb-free labels for what each nudge is about (app.js WORKFLOW_KINDS keys, same order).
 const WF_LABEL = { chat: ['Messages on bills I own, follow or joined', ''], draft_created: ['A new testimony draft for one of my bills', ''],
   review_requested: ['Testimony waiting for my approval', 'Admins and approvers give the first approval'], second_review_requested: ['A first testimony that needs my second approval', 'Second approvers give it'],
-  approved: ['My testimony was approved', ''], changes_requested: ['An approver asked me for changes', ''], filed: ['Someone filed testimony on my bill', ''] };
+  approved: ['My testimony was approved', ''], changes_requested: ['An approver sent my testimony back', ''], filed: ['Someone filed testimony on my bill', ''] };
 const REM = [['morning', 'The morning testimony is due'], ['before', 'Shortly before it is due'], ['after', 'After the deadline, if it is not filed']];
 const FR_KEY = DEMO ? 'hiphi2_firstrun_demo' : 'hiphi2_firstrun';
 const hhmm = t => { const m = /^(\d{1,2}):(\d{2})/.exec(t || ''); if (!m) return t || ''; const h = +m[1]; return `${h % 12 || 12}:${m[2]} ${h < 12 ? 'AM' : 'PM'}`; };
@@ -46,11 +46,11 @@ export default {
     const fine = mode === 'app' ? '' : `<details class="st-fine"${S.meFine ? ' open' : ''}><summary><span>Fine-tune what you are told, and when</span>${icon('chevron-down', { cls: 'st-fchev' })}</summary><div class="st-finein">
         ${mode === 'slack' ? `<h3 class="st-h3">Testimony deadlines</h3><p class="small muted st-note">Only for bills you own, until the testimony is marked filed.</p>
         <div class="card st-list">${REM.map(([k, l]) => switchRow('st-rem-' + k, l, r[k + '_on'], remTimes[k], { 'data-rem': k })).join('')}</div>
-        ${r.morning_on || r.before_on || r.after_on ? `<h3 class="st-h3">Reminder times</h3>
-        <div class="card st-grid st-times">${r.morning_on ? field('st-mont', 'Morning reminder', `<input id="st-mont" type="time" value="${esc(r.morning)}" data-remv="morning">`) : ''}
+        ${r.morning_on || r.before_on || r.after_on ? `<h3 class="st-h3">Alert times</h3>
+        <div class="card st-grid st-times">${r.morning_on ? field('st-mont', 'Morning alert', `<input id="st-mont" type="time" value="${esc(r.morning)}" data-remv="morning">`) : ''}
           ${r.before_on ? field('st-befh', 'Hours before', `<input id="st-befh" type="number" min="0.5" max="48" step="0.5" inputmode="decimal" value="${esc(r.hours_before)}" data-remv="hours_before">`) : ''}
-          ${r.after_on ? field('st-aftt', 'Missed-deadline reminder', `<input id="st-aftt" type="time" value="${esc(r.after)}" data-remv="after">`) : ''}</div>` : ''}`
-        : `<p class="small muted st-note">${icon('info')} Deadline reminders come only by Slack DM. Pick Slack DM to get them.</p>`}
+          ${r.after_on ? field('st-aftt', 'Missed-deadline alert', `<input id="st-aftt" type="time" value="${esc(r.after)}" data-remv="after">`) : ''}</div>` : ''}`
+        : `<p class="small muted st-note">${icon('info')} Deadline alerts come only by Slack DM. Pick Slack DM to get them.</p>`}
         <h3 class="st-h3">Testimony and messages</h3>
         <div class="card st-list">${kindsFor(me).map(k => switchRow('st-wf-' + k, WF_LABEL[k][0], w[k], WF_LABEL[k][1], { 'data-wf': k })).join('')}</div>
       </div></details>`;
@@ -58,12 +58,12 @@ export default {
       <div class="st-head"><h1 class="st-dup">My settings</h1></div>
       <section class="st-sec" aria-labelledby="st-reach">
         <h2 id="st-reach">How the tracker reaches you</h2>
-        <p class="st-always">${icon('list-todo')}<span>Today lists everything that needs you, whatever you pick below.${helper ? ' You own no bills yet, so testimony deadline reminders go to each bill’s owner.' : ''}</span></p>
-        <fieldset class="st-fs"><legend class="st-legend">Nudges come by</legend>
+        <p class="st-always">${icon('list-todo')}<span>Today lists everything that needs you, whatever you pick below.${helper ? ' You own no bills yet, so testimony deadline alerts go to each bill’s owner.' : ''}</span></p>
+        <fieldset class="st-fs"><legend class="st-legend">Alerts come by</legend>
           <div class="card st-opts">
             ${opt('slack', 'Slack DM', esc(slackState) + (toEmail ? '. An admin has sent testimony steps to email for everyone.' : ''))}
-            ${opt('email', 'Email', `To ${esc(me.email || 'your address')}. Testimony steps only; deadline reminders come only by Slack.${paused ? ' <b>Email is paused by an admin, so these are held.</b>' : ''}`)}
-            ${opt('app', 'Only in the app', 'No nudges. Today still lists everything.')}
+            ${opt('email', 'Email', `To ${esc(me.email || 'your address')}. Testimony steps only; deadline alerts come only by Slack.${paused ? ' <b>Email is paused by an admin, so these are held.</b>' : ''}`)}
+            ${opt('app', 'Only in the app', 'No alerts. Today still lists everything.')}
           </div></fieldset>
         <div class="btnrow st-acts">${btn('Send me a test DM', { kind: 'secondary', icon: 'send', attrs: { 'data-test': '1' } })}</div>
         ${fine}
@@ -99,11 +99,11 @@ export default {
         // Keep the choices for this visit, so switching back restores them instead of turning everything on.
         S.st2NudgeBackup = { rem: { ...rem }, wf: { ...wf } };
         const off = { ...rem, morning_on: false, before_on: false, after_on: false };
-        return save(me.slack_dm, { ...prefs, reminders: off, workflow: Object.fromEntries(Object.keys(wf).map(k => [k, false])) }, 'Saved. Nothing will nudge you.');
+        return save(me.slack_dm, { ...prefs, reminders: off, workflow: Object.fromEntries(Object.keys(wf).map(k => [k, false])) }, 'Saved. No alerts will come.');
       }
       let r2 = rem, w2 = wf;
       if (was === 'app') { const b = S.st2NudgeBackup; r2 = b ? b.rem : { ...rem, morning_on: true, before_on: true, after_on: true }; w2 = b ? b.wf : Object.fromEntries(Object.keys(wf).map(k => [k, true])); }
-      save(to === 'slack', { ...prefs, reminders: r2, workflow: w2 }, to === 'slack' ? 'Saved. Nudges come by Slack DM.' : 'Saved. Nudges come by email.');
+      save(to === 'slack', { ...prefs, reminders: r2, workflow: w2 }, to === 'slack' ? 'Saved. Alerts come by Slack DM.' : 'Saved. Alerts come by email.');
     });
     root.querySelectorAll('[data-rem], [data-wf], [data-remv]').forEach(i => i.onchange = () => {
       const { me, prefs, rem, wf } = collect();

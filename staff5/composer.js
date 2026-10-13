@@ -16,7 +16,7 @@
 // type; (3) approving here asks first and has Undo, like review mode. Nothing here sends on its own: the only send is
 // the Send button on an approved email, behind a confirm, and the server holds everything while email is paused.
 import { S, DB, hooks, esc, fmtDT, advocate, segmentPeople } from './data.js';
-import { alertTarget, cleanHTML, htmlToText, textToHtml, escT, billNum, billTag, blurb, roomShort, codesOf, diedish, hearingAhead, billById, PUBLIC_APP, plain, approves, liveAsk, billByRef } from './model.js';
+import { alertTarget, agoWords, cleanHTML, htmlToText, textToHtml, escT, billNum, billTag, blurb, roomShort, codesOf, diedish, hearingAhead, billById, PUBLIC_APP, plain, approves, liveAsk, billByRef, whenAt } from './model.js';
 import { ICONS } from '../icons.js';
 import { icon, btn, iconBtn, chip, empty, notice, toast, openSheet, closeSheet, confirmSheet, menuSheet, sheetOpen, keysOn } from './ui.js';
 import { listById, listIcon, listRows, plural, afterClose, clip, isSide } from './lists.js';
@@ -32,7 +32,7 @@ export const paused = () => S.emailCfg?.enabled === false;
 export const HELD = 'Approved · held while email is paused';
 export const heldNow = a => a.status === 'approved' && paused();
 export const pausedNotice = () => paused() ? notice('info', 'mail', 'Email is paused. You can write and approve; an approved email is held until email is turned on.', S.me?.is_admin ? btn('Turn it on', { kind: 'text', sm: true, href: '#/setup/email' }) : '') : '';
-export const ago = iso => { if (!iso) return ''; const m = (Date.now() - new Date(iso)) / 6e4; return m < 1 ? 'just now' : m < 60 ? `${Math.round(m)} min ago` : m < 24 * 60 ? `${Math.round(m / 60)}h ago` : fmtDT(iso); };
+export const ago = iso => agoWords(iso);   // R-277 fix 3: model.js, one way on every screen
 // Who may do what (the same rules as the database's policies and action_alert_step).
 export const canEdit = a => !a.id || (['draft', 'returned'].includes(a.status) && a.author_id === S.me?.id);
 export const canApprove = a => a.status === 'submitted' && approves(S.me) && a.author_id !== S.me?.id;   // never your own; admins and approvers (098)
@@ -218,7 +218,7 @@ function whoResults(q) {
   const opt = (v, lead, title, sub) => `<button type="button" class="row le-opt" data-pick="${esc(v)}"><span class="lead">${icon(lead)}</span><span class="body"><span class="title">${title}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</button>`;
   const grp = (title, rows) => rows.length ? `<div class="le-rgroup"><h3 class="le-rh">${title}</h3><div class="rows">${rows.join('')}</div></div>` : '';
   // A bill leads with its nickname, the number small after it (R-271); the line under it says when it is heard, which is why it is here.
-  const bRows = bills.slice(0, t ? 8 : 6).map(b => { const h = hearingAhead(b); return opt('b:' + b.id, 'scroll-text', billTag(b, 70), h ? `Hearing ${esc(fmtDT(h.scheduled_at))} · ${esc(h.committee)}` : 'No hearing yet'); });
+  const bRows = bills.slice(0, t ? 8 : 6).map(b => { const h = hearingAhead(b); return opt('b:' + b.id, 'scroll-text', billTag(b, 70), h ? `Hearing ${esc(whenAt(h.scheduled_at))} · ${esc(h.committee)}` : 'No hearing yet'); });
   const out = grp(t ? 'Bills' : 'Bills with a hearing coming up', bRows)
     + grp('Lists', lists.map(l => opt('l:' + l.id, listIcon(l.icon), esc(l.title), `${plural(listRows(l).length, 'bill')} · ${plural(S.listFollowers?.[l.id] || 0, 'follower')}`)))
     + grp('Saved segments', segs.map(s => opt('s:' + s.id, 'users', esc(s.name), segSub(s))));

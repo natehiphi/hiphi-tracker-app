@@ -42,7 +42,7 @@ function coalitionsHTML() {
   return `${mine.length ? `<section class="mi-coal" aria-labelledby="mi-co-h"><h2 class="mi-coh" id="mi-co-h">${mine.length === 1 ? 'Your coalition' : 'Your coalitions'}</h2>
       <div class="rows">${mine.map(c => row({ leadHtml: lead(c), title: esc(c.name), sub: esc(coalFactsLine(c)), href: `#/coalition/${encodeURIComponent(c.id)}`, cls: 'mi-corow' })).join('')}</div></section>` : ''}
     ${rest.length ? `<section class="mi-coal" aria-labelledby="mi-cr-h"><h2 class="mi-coh" id="mi-cr-h">${mine.length ? 'Other coalitions' : 'Coalitions'}</h2>
-      <div class="card mi-cosw">${rest.map(c => switchRow(`mi-sup-${c.id}`, `I support ${esc(c.name)}`, false, esc(coalFactsLine(c)), { 'data-misup': c.id })).join('')}</div></section>` : ''}`;
+      <div class="card mi-cosw">${rest.map(c => switchRow(`mi-sup-${c.id}`, `I help on ${esc(c.name)}`, false, esc(coalFactsLine(c)), { 'data-misup': c.id })).join('')}</div></section>` : ''}`;
 }
 
 export default {

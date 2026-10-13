@@ -97,12 +97,12 @@ const hearWords = n => n ? plural(n, 'hearing') + ' this week' : 'no hearings th
 // someone who owns no issue (v4, R-269 P7), in the same words.
 export const coalFactsLine = c => { const f = facts(c); return [f.own ? first(f.own) : 'No owner', f.live ? plural(f.live, 'live bill') : 'no live bills', hearWords(f.hear)].join(' · '); };
 const colValue = (x, k) => k === 'name' ? x.c.name.toLowerCase() : k === 'owner' ? (x.f.own ? x.f.own.full_name.toLowerCase() : null) : k === 'bills' ? x.f.live : k === 'hear' ? x.f.hear : x.f.you ? 1 : 0;
-const youChip = () => chip('You support it', '', 'badge-check');
+const youChip = () => chip('You help on it', '', 'badge-check');   // R-277 fix 21 (W-8): "support" read as a position
 function indexHTML() {
   const v = pref(), list = (S.campaigns || []).slice().sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99) || a.name.localeCompare(b.name)).map(c => ({ c, f: facts(c) }));
   const mine = Array.isArray(v) ? list.filter(x => x.f.you).map(x => x.c.name) : [];
   // v3: no sentence about what coalitions are (P-4); only whom you support, which the table cannot say when it is all.
-  const yours = v === 'all' ? 'You support every one.' : mine.length ? `You support ${andList(mine)}.` : '';
+  const yours = v === 'all' ? 'You help on every one.' : mine.length ? `You help on ${andList(mine)}.` : '';
   const head = pageHead(sectionNav('issues', 'coalitions'), 'Coalitions', yours ? esc(yours) : '', '');
   if (!list.length) return `<div class="le-page co-index">${head}<div class="le-empty">${empty({ title: 'No coalitions yet', text: 'An admin adds them in Session setup.', action: S.me?.is_admin ? btn('Open Session setup', { href: '#/setup/coalitions' }) : '' })}</div></div>`;
   if (!DESK()) return `<div class="le-page co-index">${head}<div class="rows co-list">${list.map(({ c, f }) => row({ leadHtml: `<span class="lead">${icon(iconName(c.icon))}</span>`, title: esc(c.name),
@@ -156,8 +156,10 @@ function headHTML(c) {
 function supportHTML(c) {
   if (!S.me || c.owner_id === S.me.id) return '';
   const v = pref(), on = supports(c);
-  const help = v === 'all' ? 'You support every coalition. Its hearings and deadlines show on your Today.' : 'Its hearings and deadlines show on your Today.';
-  return `<section class="card co-card co-sup" aria-label="Your support">${switchRow('co-sup', 'I support this coalition', on, esc(help))}</section>`;
+  // R-277 fix 21 (W-8): "I support CTFH" read as a position on tobacco. The switch says what it is (you help on it) and
+  // what it does (its work shows on your Today); "Monitor" stays a position only.
+  const help = `Show its work on my Today: its hearings and deadlines, never in the count.${v === 'all' ? ' You help on every coalition.' : ''}`;
+  return `<section class="card co-card co-sup" aria-label="Your help">${switchRow('co-sup', `I help on ${esc(c.name)}`, on, esc(help))}</section>`;
 }
 
 // Its hearings this week, a row per sitting: when, which committee and room, its bills there (the number first, always),
@@ -305,7 +307,7 @@ function pageHTML(c) {
   if (!DESK()) return `<div class="co-page">${back}${headHTML(c)}${week}${supportHTML(c)}${shareHTML(c)}</div>`;
   return `<div class="co-page co-desk"><div class="sv-cols co-cols">
     <div class="co-main">${back}${headHTML(c)}${week}</div>
-    <aside class="sv-aside co-side" aria-label="Sharing with partners, and your support">${shareHTML(c)}${supportHTML(c)}</aside>
+    <aside class="sv-aside co-side" aria-label="Sharing with partners, and your help">${shareHTML(c)}${supportHTML(c)}</aside>
   </div></div>`;
 }
 
@@ -318,7 +320,7 @@ export async function setSupport(c, on, focusSel = '#co-sup') {
   const next = on ? (before === 'all' ? 'all' : [...new Set([...list, c.id])]) : (before === 'all' ? ids.filter(id => id !== c.id) : list.filter(id => id !== c.id));
   try { await DB.patchPrefs({ coalitions: next }); } catch (e) { rerender(focusSel); toast(e, { err: true }); return; }
   rerender(focusSel);
-  toast(on ? `You support ${c.name}. Its hearings and deadlines show on your Today.` : before === 'all' ? `You no longer support ${c.name}. You still support the other ${ids.length - 1}.` : `You no longer support ${c.name}.`,
+  toast(on ? `You help on ${c.name}. Its work shows on your Today.` : before === 'all' ? `You no longer help on ${c.name}. You still help on the other ${ids.length - 1}.` : `You no longer help on ${c.name}.`,
     { ok: on, undo: async () => { await DB.patchPrefs({ coalitions: before }); rerender(focusSel); } });
 }
 function giveTo(b) {

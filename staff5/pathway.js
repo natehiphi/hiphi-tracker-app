@@ -13,7 +13,7 @@ import { rerender } from './bill.js';   // used inside functions only (bill.js i
 
 // ---- small shared helpers (exported for legislators.js, legislator.js, search.js) ----
 export const STANCE_WORD = Object.fromEntries(STANCES.map(([v, l]) => [v, l]));
-import { billRoute } from './model.js';
+import { billRoute, whenAt, hearingWhen, roomName } from './model.js';
 // Words carry the meaning; the icon only helps the eye. Leaning and firm share an icon, so the word always shows.
 export const STANCE_ICON = { yes: 'thumbs-up', leaning_yes: 'thumbs-up', unknown: 'circle-dashed', leaning_no: 'thumbs-down', no: 'thumbs-down' };
 export const legName = l => `${legTitle(l)} ${l.name}`;
@@ -45,7 +45,7 @@ export function legMail(l, b) {
 export function billSub(b) {
   if (diedish(b)) { const m = /^(.*?)\s+(\d+\/\d+)\/\d+$/.exec(b.died_deadline || ''); return m ? `Did not advance: missed ${m[1]} ${m[2]}` : `Did not advance: ${whyDead(b).replace(/<[^>]+>/g, '').replace(/\.$/, '').replace(/^./, c => c.toLowerCase())}`; }
   const h = hearingAhead(b);
-  if (h) return `Hearing ${fmtDT(h.scheduled_at)} · ${h.committee}`;
+  if (h) return `Hearing ${whenAt(h.scheduled_at)} · ${h.committee}`;
   const st = stopOf(b);
   if (st.phase === 'committee') {
     if (st.hearingState === 'held') return `Heard in ${st.committee}, waiting for its report`;
@@ -139,7 +139,7 @@ export function tally(b, members) {
 // by…" (Details' Sponsors line says it) and the line explaining chairs and stances.
 const STATE = { passed: ['circle-check', 'Passed'], current: ['circle-dot', 'Now'], next: ['circle', 'Next'], predicted: ['circle-dashed', 'Likely'], ended: ['circle-minus', 'No result recorded'], other: ['gavel', 'Heard'] };
 const sameCmte = (x, y) => codesOf(x).some(c => codesOf(y).includes(c));
-const roomOf = r => String(r || '').replace(/\s*(&|and|via)\s*videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ').trim();
+const roomOf = roomName;   // R-277 fix 3: "Room 430" on every screen
 const dayOf = d => fmtDate(d, { weekday: 'short' }).replace(/^(\w{3}),/, '$1');   // "Fri 2/27"
 // Every hearing the bill has had: the bill page's own history (bill.js loads S.billHist once) and the hearings Staff
 // already holds, by id, so a hearing set this week is never missing while the history loads.
@@ -155,7 +155,7 @@ const OUT_ICON = { passed: 'circle-check', passed_amended: 'circle-check', defer
 // Next up, with its own page.)
 function hearingLine(b, h) {
   const o = S.outcomes?.[h.id], v = streamOf(h), votes = votesOf(o);
-  const when = `Heard ${fmtDT(h.scheduled_at)}${h.room ? ` · ${roomOf(h.room)}` : ''}`;
+  const when = `Heard ${hearingWhen(h)}`;   // R-277 fix 3
   const result = o?.outcome ? chip(`${OUTCOME_LABEL[o.outcome] || o.outcome}${votes ? `, ${votes}` : ''}`, /^passed/.test(o.outcome) ? 'ok' : '', OUT_ICON[o.outcome] || 'gavel') : chip('No result yet', '', 'hourglass');
   const link = v ? `<a class="bw-inline" href="${esc(v.url)}" target="_blank" rel="noopener">${v.exact ? 'Recording' : 'Find the recording'}${icon('external-link')}</a>` : '';
   return `<div class="bw-cmh"><p class="bw-cmwhen">${esc(when)}</p>${result}${link}</div>`;
@@ -202,7 +202,7 @@ export function renderCommittees(b) {
     // The one fact on the stop's line: its hearing coming, else when it was heard; nothing for a stop not reached yet.
     // A hearing still ahead is said here and on Next up only; the open stop lists the hearings held (A-14). "Heard Fri
     // 2/27" steps aside when the stop is open, where the hearing's own line says it in full (bill.css).
-    const fact = ahead ? `Hearing ${fmtDT(ahead.scheduled_at)}` : past ? `Heard ${dayOf(past.scheduled_at)}` : s.state === 'current' ? 'No hearing yet' : '';
+    const fact = ahead ? `Hearing ${whenAt(ahead.scheduled_at)}` : past ? `Heard ${dayOf(past.scheduled_at)}` : s.state === 'current' ? 'No hearing yet' : '';
     const held = s.hs.filter(h => new Date(h.scheduled_at).getTime() <= now);
     const name = `${s.chamber && CHAMBER_NAME[s.chamber] ? CHAMBER_NAME[s.chamber] + ' ' : ''}${cmteName(s.committee)}`;
     const members = ['passed', 'ended', 'other'].includes(s.state) ? null : legsOf(s.committee), joint = codesOf(s.committee).length > 1;

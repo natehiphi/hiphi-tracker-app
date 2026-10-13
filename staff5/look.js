@@ -11,7 +11,7 @@ import { S, esc, capitolUrl, fmtDT, fmtDate, myIssuesOf } from './data.js';
 import { openSheet, closeSheet, btn, iconBtn, stageRibbon, avatar, ownerOf, countdown, POS_WORD, keysOn } from './ui.js';
 import { stopOf, blurb, billNum, billSay, cmteName, chairMail, draftFor, hearingAhead, sponsorName, gateNeed, deadlineName, billByRef } from './model.js';
 import { CHAMBER_NAME } from '../stops.js';
-import { billRoute } from './model.js';
+import { billRoute, whenAt, hearingWhen, roomName } from './model.js';
 
 const dash = v => v || '—';
 
@@ -43,7 +43,7 @@ const lastActionLine = b => {
 };
 
 // Where the testimony for a hearing stands. "Ready to file" is the word list's name for approved and not filed (C-15).
-const testimonyWord = d => d ? (d.status === 'filed' ? 'filed' : d.status === 'approved' ? 'ready to file' : d.status === 'second_review' ? 'waiting for a second approval' : d.status === 'review' ? 'in review' : 'being written')
+const testimonyWord = d => d ? (d.status === 'filed' ? 'filed' : d.status === 'approved' ? 'ready to file' : d.status === 'second_review' ? 'waiting for second approval' : d.status === 'review' ? 'waiting for approval' : 'being written')
   : S.failed?.('testimony drafts') ? 'not loaded' : 'no draft yet';
 // The hearing ahead, with the testimony's step and the buttons for it.
 function hearingCard(b, h, d) {
@@ -51,8 +51,8 @@ function hearingCard(b, h, d) {
   // approval", where it invited someone to file testimony nobody had signed off.
   const fileOk = d?.status === 'approved';
   return `<div class="lk-card next sv-stick"><h3>${esc(cmteName(h.committee) || h.committee)} hearing</h3>
-        <p>${esc(fmtDT(h.scheduled_at))}${h.room ? ` · ${esc(h.room)}` : ''}</p>
-        ${h.testimony_deadline ? `<p>Testimony due ${esc(fmtDT(h.testimony_deadline))} ${countdown(h.testimony_deadline)}</p>` : ''}
+        <p>${esc(hearingWhen(h))}</p>
+        ${h.testimony_deadline ? `<p>Testimony due ${esc(whenAt(h.testimony_deadline))} ${countdown(h.testimony_deadline, { until: h.scheduled_at })}</p>` : ''}
         <p class="small muted">Testimony: ${esc(testimonyWord(d))}</p>
         ${fileOk || d?.doc_url ? `<div class="lk-acts">${fileOk ? btn('File at the Capitol', { kind: 'secondary', sm: true, href: capitolUrl(b), target: '_blank', iconEnd: 'external-link' }) : ''}${d?.doc_url ? btn('Open Doc', { kind: 'text', sm: true, href: d.doc_url, target: '_blank', iconEnd: 'external-link' }) : ''}</div>` : ''}</div>`;
 }

@@ -4,7 +4,7 @@
 // Capitol has: where it stands, its last action, its committees, who introduced it, its hearings, and the links. Nothing on it can be
 // edited; the one primary button, "Track this bill", makes it the team's (then the full page opens, to set a position and an owner).
 import { S, DB, DEMO, SESSION_YEAR, STAGE_LABEL, esc, fmtDate, fmtDT, capitolUrl, sponsorText, hooks } from './data.js';
-import { cmteName, billRoute, titleCaseTitle } from './model.js';
+import { cmteName, billRoute, titleCaseTitle, hearingWhen } from './model.js';
 import { icon, btn, empty, toast, skeleton } from './ui.js';
 
 const keyOf = r => `${r.year || ''}/${String(r.num || '').replace(/\s/g, '').toUpperCase()}`;
@@ -35,7 +35,7 @@ export function untrackedHTML(route, notFound) {
   const old = b.session_year && +b.session_year !== +SESSION_YEAR ? ` (${b.session_year} session)` : '';
   const upcoming = hearings.filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) > now).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
   const past = hearings.filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) <= now).sort((x, y) => y.scheduled_at.localeCompare(x.scheduled_at)).slice(0, 5);
-  const hrow = h => `<li class="bw-ah"><div><p><b>${esc(cmteName(h.committee))}</b></p><p class="small muted">${esc(fmtDT(h.scheduled_at))}${h.room ? ` · ${esc(h.room)}` : ''}</p></div></li>`;
+  const hrow = h => `<li class="bw-ah"><div><p><b>${esc(cmteName(h.committee))}</b></p><p class="small muted">${esc(hearingWhen(h))}</p></div></li>`;
   const refs = (b.referrals || []).length ? esc((b.referrals || []).map(c => cmteName(c)).join(', ')) : '';
   const stage = b.stage ? esc(STAGE_LABEL[b.stage] || b.stage) : '';
   const last = b.last_action ? `${esc(b.last_action)}${b.last_action_date ? ` <span class="muted">· ${esc(fmtDate(b.last_action_date))}</span>` : ''}` : '';

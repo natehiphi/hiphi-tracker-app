@@ -812,7 +812,7 @@ retired words in the code's quoted text on every push, so the list does not drif
 
 | Say | Never | Notes |
 |---|---|---|
-| **alerts** | reminders, notifications, "hearing alerts" for the other kind | the text or email that a bill on someone's issues has a hearing. HIPHI's own emails (asks to speak up) are "HIPHI's updates" until Nate picks a name. |
+| **alerts** | reminders, notifications, "hearing alerts" for the other kind | the text or email that a bill on someone's issues has a hearing. HIPHI's own emails (asks to speak up) are "HIPHI's updates" until Nate picks a name. R-277: also staff's Slack DMs and emails from the tracker ("Alerts come by", "Morning alert"), never nudges or reminders. |
 | **profile** | account (for the person's page), settings | "My settings" is the staff app's own page. |
 | **sign in** | log in, login | for HIPHI's own sign-in. The Capitol website's login is called what it calls it. |
 | **put on hold** | deferred (public), tabled | a committee's decision to hold a bill. |
@@ -822,6 +822,16 @@ retired words in the code's quoted text on every push, so the list does not drif
 | **SB 1548**, **HB 2121** | SB1548 | a bill number has a space in prose and emails; addresses and ids do not. |
 | **About 4 minutes** | five minutes, a few minutes (for the first visit) | the first visit says its time once. A letter is "a few minutes". |
 | **neighbor**, **favor**, **recognize**, **organize** | neighbour, favour, recognise, organise | American spelling; straight apostrophes only in code, curly in words. |
+| **Waiting for approval** (R-277) | In review, To review, Testimony in review, Second approval (as a state), submitted for your approval | testimony sent and not yet approved; the second step is "Waiting for second approval". The approver's own action is **to approve** ("2 testimony drafts to approve", "Yours to approve"); the writer's button is **Send for approval**, after a send-back **Resubmit**; the approver's buttons are **Approve** and **Send back** (never Request changes); the state after is **Sent back**. Review stays the name of the screen. |
+| **to-do** (R-277) | task, To do, Follow-up, Also to do | one personal step, on a bill or about a person: "Add a to-do", "To-dos", "Other to-dos". "Follow up" stays as a verb on a button. |
+| **in 4 hours**, **4 hours overdue**, chip **4h** (R-277) | under an hour, <1h, in 59m, 7h left, Due in 7 hours, 3 days away | time left, rounded down, from one place (`staff5/model.js` timeLeft, spanOf): "28 min", "4 hours", "3 days". Past a deadline it is "overdue"; "late" is kept for late testimony the Capitol still takes. |
+| **today 9:30 AM**, **Tue 3/17, 9:30 AM** (R-277) | Tuesday, March 17 at 9:30 AM, TUE 17, 03-20-26 | a moment, from `whenAt`: "today", "tomorrow" or "yesterday" with the time, else the weekday and date. A deadline line is "due today 9:30 AM · 28 min"; a hearing "Tue 3/17, 9:30 AM · Room 430" (never "Rm 430"). Emails and the partner update keep the date, since they are read later. |
+| **Legislative day 27 of 58** (R-277) | Day 27 of 58 | always labelled. Never in the partner update. |
+| **Practice as** (R-277) | Practise as | American spelling, as above. |
+| **To answer** (R-277) | Needs you (the Inbox's tab) | what the Inbox asks of you. Today's group stays "Needs you today". |
+| **I help on CTFH** (R-277) | I support CTFH, You support it | helping with a coalition's bills. Its switch says **Show its work on my Today**. "Support" and **Monitor** are positions only. |
+| **Lateral**, **Decking** (R-277) | two definitions | Lateral: the last day a bill can reach its last committee in the chamber it is in. Decking: the last day it can clear that committee and be filed for its floor vote. Help's glossary and the bill page's stage note say the same. In the partner update the names give way to what they ask ("the deadline to reach its last committee"). |
+| **Drive, Slack and the calendar** (R-277) | Where things live | Help's topic about places outside the app; the app's own map is "What each place is for". |
 
 **Hawaiian:** ʻokina is the character ʻ (U+02BB) in Hawaiʻi and in place names (Oʻahu, Kauaʻi, Molokaʻi, Hawaiʻi Island); kahakō where
 the name has one. **kūpuna** is the plural (elders) and **kupuna** one elder (the "I'm a…" title). The Legislature's own titles and

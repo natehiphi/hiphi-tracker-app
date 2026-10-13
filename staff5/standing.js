@@ -3,20 +3,15 @@
 // stage group each bill is in. They are answered here, once, so the three pages cannot disagree about a bill (A-14).
 // Each takes the bills it is given; a coalition passes its own, an issue passes its own.
 import { SESSION_OVER, fmtDate } from './data.js';
-import { stopOf, riskOf, diedish, factsOf } from './model.js';
+import { stopOf, riskOf, diedish, factsOf, whenAt } from './model.js';
 
-const HST = { timeZone: 'Pacific/Honolulu' };
 export const isPos = b => !!b.position && b.position !== 'monitor';
 export const byPri = (a, b) => (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true });
 // "Thu 3/19": the weekday rides along so nobody has to work it out. Takes a date string or an ISO time.
 export const dayOf = d => fmtDate(d, { weekday: 'short' }).replace(/^(\w{3}),/, '$1');
 // "9:30 AM today", "9:30 AM tomorrow", "Mon 9:30 AM": when testimony is due, from a row that already shows the hearing's day.
-const hstDay = t => new Date(t).toLocaleDateString('en-CA', HST);
-export function dueWhen(iso) {
-  const t = new Date(iso).getTime(), time = new Date(t).toLocaleTimeString('en-US', { ...HST, hour: 'numeric', minute: '2-digit' });
-  const d = hstDay(t), now = Date.now();
-  return d === hstDay(now) ? `${time} today` : d === hstDay(now + 864e5) ? `${time} tomorrow` : `${new Date(t).toLocaleDateString('en-US', { ...HST, weekday: 'short' })} ${time}`;
-}
+// R-277 fix 3 (W-6): the one way to say a moment, model.js whenAt ("today 9:30 AM", "Tue 3/17, 9:30 AM").
+export const dueWhen = iso => whenAt(iso);
 
 // Its bills still waiting for a hearing, split the way the weekly memo splits them (model.js memoData): at risk (the app's
 // one meaning, a deadline a week away or less; A-14), then the bills racing the next deadline after that week. The pool

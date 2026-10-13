@@ -1,0 +1,119 @@
+# Staff v5: the ease-of-use review's "How we'll know" checks (R-277), one block per batch. Served like staff5_people.py
+# (it borrows that test's router, so Patti and Julie are in the practice data), laptop 1440x900 unless a check says.
+# Exits 1 when a check misses.
+#   python3 tests/staff5_checks.py                  against http://localhost:8832 (CI serves the repo there)
+#   V4_ROOT=/path/to/worktree python3 tests/staff5_checks.py    serves that folder straight into the browser
+import os, re, sys
+from urllib.parse import urlparse, unquote
+from urllib.request import urlopen
+from playwright.sync_api import sync_playwright
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from staff5_people import router, HOST, ROOT   # one way to serve the practice copy for every staff5 test
+
+results = []
+def check(name, ok, detail=''):
+  results.append((name, bool(ok), detail)); print(('ok   ' if ok else 'FAIL ') + name + (f'  ({detail})' if detail else ''))
+
+# ---- batch b (fixes 2, 3, 7, 9, 21): one word per thing ----
+# Wordings the word pass retired (C-15 as amended by R-277). Each is looked for in the visible text of every main screen,
+# as three people: Nate (admin), Jess (second approver) and Patti (helper, owns nothing).
+RETIRED = [
+  ('under an hour', r'\bunder an hour\b'), ('"7h left"', r'\b\d+h left\b'), ('"<1h"', r'<1h'), ('"in 59m"', r'\bin \d+m\b'),
+  ('"In review"', r'\b[Ii]n review\b'), ('"To review"', r'\bTo review\b'), ('"Submit for review"', r'\b[Ss]ubmit for review\b'),
+  ('"Resubmit for review"', r'\bResubmit for review\b'), ('"Request changes"', r'\b[Rr]equest changes\b'), ('"Nothing to review"', r'\bNothing to review\b'),
+  ('"Follow-up"', r'\bFollow-ups?\b'), ('"Add a task"', r'\b[Aa]dd a task\b'), ('"Also to do"', r'\bAlso to do\b'), ('"To do" (not to-do)', r'\bTo do\b'),
+  ('"Practise"', r'\bPractis'), ('"Needs you" (Inbox tab)', r'\bNeeds you\b(?! today)'), ('"Nudges"', r'\b[Nn]udges?\b'),
+  ('"reminder" (staff alerts)', r'\b[Rr]eminders?\b'), ('"I support <coalition>"', r'\bI support\b'), ('"You support"', r'\bYou support\b'),
+  ('unlabelled "Day 27 of 58"', r'(?<!Legislative )\b[Dd]ay \d+ of \d+'), ('"Where things live"', r'\bWhere things live\b'),
+]
+SCREENS = ['/', '/?scope=team', '/?view=week', '/bills', '/bill/HB2121', '/review', '/inbox', '/my-issues', '/my-issues/coalitions',
+           '/outreach', '/outreach/partners', '/help', '/me', '/legislators']
+
+def main():
+  with sync_playwright() as p:
+    b = p.chromium.launch()
+    def page(who, W=1440, H=900):
+      ctx = b.new_context(viewport={'width': W, 'height': H}); ctx.route(HOST + '/**', router); pg = ctx.new_page()
+      pg.errs = []; pg.on('pageerror', lambda e: pg.errs.append(str(e))); pg.who = who; return pg
+    def go(pg, route='/', wait=2500):
+      pg.goto(f"{HOST}/staff5.html?demo=1&as={pg.who}#{route}"); pg.wait_for_timeout(wait)
+
+    # 1. No retired wording on any main screen, for three people
+    for who in ['NT', 'JS', 'PH']:
+      pg = page(who); found = {}
+      for i, r in enumerate(SCREENS):
+        if i == 0: go(pg, r, 3500)
+        else: pg.evaluate(f"location.hash = '#{r}'"); pg.wait_for_timeout(1300)
+        txt = pg.inner_text('body')
+        for name, rx in RETIRED:
+          if rx and re.search(rx, txt): found.setdefault(name, []).append(r)
+      check(f'{who}: no retired wording on {len(SCREENS)} screens', not found, '; '.join(f'{k} on {", ".join(v[:3])}' for k, v in found.items()))
+      check(f'{who}: no page errors on the main screens', not pg.errs, pg.errs[:1])
+
+    # 2. The partner update speaks to partners: committee names, deadlines said plainly, no legislative day (fix 7)
+    pg = page('LR'); go(pg, '/outreach/partners', 3500)
+    memo = pg.inner_text('main')
+    codes = pg.evaluate("Object.keys((window.S || {}).committees || {})") or []
+    left = sorted({c for c in re.findall(r'\b[A-Z]{2,4}\b', memo) if c in codes}) if codes else re.findall(r'\b(?:HHS|CPN|HLT|FIN|WAM|TRN|EDN|JDC)\b', memo)
+    check('Partner update: no committee codes', not left, ', '.join(left[:6]))
+    check('Partner update: no Capitol deadline names (triple filing, lateral, decking)', not re.search(r'triple filing|\blateral\b|\bdecking\b', memo, re.I), '')
+    check('Partner update: no legislative day', not re.search(r'[Ll]egislative day|\bDay \d+ of', memo), '')
+    check('Partner update: says a committee by name', re.search(r'(Senate|House) [A-Z][a-z]+.* committee', memo), memo[:80].replace('\n', ' '))
+
+    # 3. Time said one way: "due today 9:30 AM · 28 min" shape, no "under an hour" (fix 3); hearing rooms as "Room 430"
+    pg = page('NT'); go(pg, '/bill/SB3234', 3500); txt = pg.inner_text('main')
+    check('Bill page: a hearing room says "Room", not "Rm"', 'Rm ' not in txt and ('Room ' in txt or 'room' in txt), '')
+
+    # 4. Help: opens on New here? for someone new, finds words one by one, has the filing steps and the alerts (fix 9)
+    pg = page('PH'); go(pg, '/help', 3000)
+    h1 = pg.evaluate("(document.querySelector('main h1') || {}).innerText || ''")
+    first = pg.evaluate("(() => { const n = document.querySelector('.st-nav2 .st-navi, .st-help h2'); return n ? n.innerText : ''; })()")
+    check('Help: opens on "New here?" for someone new', 'New here' in h1 or 'New here' in first, f'{h1} / {first}')
+    def search(q):
+      inp = pg.locator('#st-hq').first; inp.fill(''); inp.type(q); pg.wait_for_timeout(400)
+      return pg.inner_text('#st-hres')
+    for q, want in [('how do I file', 'How to file at the Capitol'), ('file testimony', 'How to file at the Capitol'), ('QR', 'QR code'),
+                    ('qr code for a hearing', 'QR code'), ('pings', 'Which alerts you get'), ('where is the partner update', 'Outreach')]:
+      res = search(q); top = pg.evaluate("[...document.querySelectorAll('#st-hres .row')].slice(0, 3).map(r => r.innerText).join(' | ')")
+      check(f'Help search "{q}" finds {want} in its first three', want in top, top[:120].replace('\n', ' '))
+    pg.evaluate("location.hash = '#/help/where'"); pg.wait_for_timeout(800)
+    check('Help: "Where things live" is named for Drive and Slack', 'Drive, Slack' in pg.inner_text('main'), '')
+
+    # 5. The Mark filed sheet links How to file at the Capitol (fix 9)
+    src = open(os.path.join(ROOT or '.', 'staff5/bill.js')).read() + open(os.path.join(ROOT or '.', 'staff5/today.js')).read()
+    check('Mark filed sheets (bill page and Today) link the filing steps', src.count("'#/help/file'") >= 2, '')
+
+    # 6. Every link in the avatar menu and in Session setup opens a real page (fix 6, E-1, W-4)
+    def real(url):
+      u = urlparse(url); path = unquote(u.path).lstrip('/') or 'index.html'
+      if ROOT: return os.path.isfile(os.path.join(ROOT, path))
+      try: return urlopen(url, timeout=10).status == 200
+      except Exception: return False
+    pg = page('NT', 1024, 800); go(pg, '/', 3000)   # under 1100px, so the menu holds My settings, Session setup and Help too
+    labels = pg.evaluate("(() => { document.querySelector('[data-avatar]').click(); return new Promise(r => setTimeout(() => r([...document.querySelectorAll('dialog[open] .sv-menu button .title')].map(e => e.innerText)), 500)); })()")
+    bad = []
+    for lab in labels:
+      if lab in ('Refresh', 'Sign out') or lab.startswith('Practice as'): continue
+      go(pg, '/', 2000); pg.click('[data-avatar]'); pg.wait_for_timeout(500)
+      pg.locator('dialog[open] .sv-menu button', has_text=lab).first.click(); pg.wait_for_timeout(1500)
+      url = pg.url; path = urlparse(url).path
+      if not real(url): bad.append(f'{lab} -> {url}')
+      elif lab.startswith('Open') and path.endswith('staff5.html'): bad.append(f'{lab} reloads v5')
+      elif path.endswith('staff5.html') and not pg.inner_text('main').strip(): bad.append(f'{lab}: empty page')
+    check(f'Avatar menu: all {len(labels)} items open a real page', labels and not bad, '; '.join(bad))
+    go(pg, '/me', 2500)
+    cur = pg.evaluate("[...document.querySelectorAll('main a')].filter(a => /current app/i.test(a.innerText)).map(a => a.href)")
+    check('My settings: "Open the current app" opens a real page, not Staff v5 again', cur and all(real(u) and not urlparse(u).path.endswith('staff5.html') for u in cur), cur)
+    hrefs = []
+    for r in ['/setup', '/setup/tests', '/setup/room']:
+      go(pg, r, 2500); hrefs += pg.evaluate("[...document.querySelectorAll('main a[href]')].map(a => a.href).filter(h => !h.includes('#') || !h.split('#')[0].endsWith('staff5.html'))")
+    ext = [h for h in hrefs if urlparse(h).netloc == urlparse(HOST).netloc]
+    miss = sorted({h for h in ext if not real(h)})
+    check(f'Session setup: all {len(ext)} test and page links open a real page', ext and not miss, ', '.join(miss[:4]))
+    b.close()
+  bad = [r for r in results if not r[1]]
+  print(f'{len(results) - len(bad)} of {len(results)} checks met')
+  sys.exit(1 if bad else 0)
+
+if __name__ == '__main__':
+  main()

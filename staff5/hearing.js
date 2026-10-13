@@ -15,14 +15,13 @@ import { codesOf, cmteName, streamOf, draftFor, attendees, billById, billSay, bi
 import { icon, btn, iconBtn, chip, empty, notice, toast, pickerSheet, avatar, countdown, posIcons, POS_WORD, clockDay } from './ui.js';
 import { photo, legName, partyDist, roleWord, legHref, wireLinks } from './pathway.js';
 import { rerender, viewIsNew } from './bill.js';
-import { billRoute } from './model.js';
+import { billRoute, whenAt, spanOf, roomName, hearingWhen } from './model.js';
 
 const HR = 36e5, FOLD = 10;
 const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
 const hearingById = id => (S.hearings || []).find(h => String(h.id) === String(id)) || null;
 const isPos = b => !!b.position && b.position !== 'monitor';
 const first = a => String(a?.full_name || '').split(' ')[0] || 'Someone';
-const HST = { timeZone: 'Pacific/Honolulu' };
 
 // ---- the sitting, shared with the coalition page (and anyone else who draws a hearing) ----
 export const sittingOf = h => (S.hearings || []).filter(x => x.committee === h.committee && x.scheduled_at === h.scheduled_at);
@@ -45,10 +44,8 @@ export function goingWords(goers, { past = false } = {}) {
 
 // ---- words and chips ----
 const chamberOf = code => { const c = codesOf(code).map(k => S.committees?.[k]).find(Boolean); return c ? CHAMBER_NAME[c.chamber] : ''; };
-const longDay = iso => new Date(iso).toLocaleDateString('en-US', { ...HST, weekday: 'long', month: 'long', day: 'numeric' });
-const timeOf = iso => new Date(iso).toLocaleTimeString('en-US', { ...HST, hour: 'numeric', minute: '2-digit' });
 // "Room 229": the Capitol's "Conference Room" is every room there, and the short form keeps the line to one on a phone.
-const roomOf = r => String(r || '').replace(/\s*(&|and|via)\s*videoconference/i, '').replace(/^Conference Room\s+/i, 'Room ').trim();
+const roomOf = roomName;   // R-277 fix 3: model.js, "Room 430" on every screen
 // Written testimony is due at the notice's deadline, else 24 hours before the hearing (the Hawaiʻi rule; bill.js dueOf).
 export const dueOf = h => h.testimony_deadline || new Date(new Date(h.scheduled_at).getTime() - 864e5).toISOString();
 const draftOf = x => (S.drafts?.[x.b.id] || []).find(d => d.hearing_id && d.hearing_id === x.h.id && d.status !== 'cancelled') || draftFor(x.b.id, x.h.committee) || null;
@@ -59,8 +56,8 @@ export function testimonyOf(h, b) {
   if (!d) return { filed: false, word: 'not started', label: 'No testimony yet', icon: 'file-text' };
   if (d.status === 'filed') return { filed: true, word: 'filed', label: 'Testimony filed', icon: 'check' };
   const st = b.current_version && (d.version || null) !== b.current_version ? ['out of date', 'triangle-alert']
-    : d.status === 'approved' ? ['ready to file', 'clipboard-check'] : d.status === 'second_review' ? ['at second approval', 'hourglass']
-    : d.status === 'review' ? ['in review', 'hourglass'] : d.review_note ? ['sent back', 'undo-2'] : ['in draft', 'pencil'];
+    : d.status === 'approved' ? ['ready to file', 'clipboard-check'] : d.status === 'second_review' ? ['waiting for second approval', 'hourglass']
+    : d.status === 'review' ? ['waiting for approval', 'hourglass'] : d.review_note ? ['sent back', 'undo-2'] : ['in draft', 'pencil'];
   return { filed: false, word: st[0], label: `Testimony ${st[0]}`, icon: st[1] };
 }
 // Amber once the deadline is inside 24 hours, red once it has passed: the countdown's own two tones, which staff.css keeps
@@ -73,7 +70,7 @@ export const dueTone = (iso, until = null) => { const ms = new Date(iso) - Date.
 function dueWords(iso, until) {
   const ms = new Date(iso) - Date.now();
   if (ms > 864e5) return '';
-  if (ms > 0) return ms < 36e5 ? `due in ${Math.max(1, Math.floor(ms / 6e4))} min` : `due in ${Math.floor(ms / 36e5)}h`;
+  if (ms > 0) return `due ${whenAt(iso)} · ${spanOf(iso)}`;   // R-277 fix 3: "due today 9:30 AM · 28 min", model.js
   return until && new Date(until) > Date.now() ? `late testimony until ${clockDay(until)}` : 'deadline passed';
 }
 const OUT_ICON = { passed: 'circle-check', passed_amended: 'circle-check', deferred: 'circle-x', recommitted: 'undo-2' };
@@ -110,7 +107,7 @@ function headHTML(c) {
     <div class="hr-hbody">
       <p class="hr-kind">${esc(`${ch ? ch + ' ' : ''}${joint ? 'joint hearing' : 'hearing'}`)} · <span class="hr-code">${esc(h.committee)}</span></p>
       <h1>${esc(cmteName(h.committee))}</h1>
-      <p class="hr-line">${icon('calendar-clock')}<span>${over && !cancelled ? 'Held ' : ''}${esc(longDay(h.scheduled_at))} at ${esc(timeOf(h.scheduled_at))} · ${room ? esc(room) : 'room not posted yet'}</span></p>
+      <p class="hr-line">${icon('calendar-clock')}<span>${esc((over && !cancelled ? 'Held ' : '') + whenAt(h.scheduled_at)).replace(/^./, c => c.toUpperCase())} · ${room ? esc(room) : 'room not posted yet'}</span></p>
       ${due ? `<p class="hr-line hr-due">${icon('file-text')}<span>Testimony due ${esc(fmtDT(due))}</span>${countdown(due, { until: h.scheduled_at })}</p>` : ''}
     </div>
   </header>`;
@@ -269,7 +266,7 @@ async function toggleGoing(c) {
     } else {
       await DB.attend(c.lead.id, true);
       rerender('[data-hrgo]');
-      toast(`You’re going to the ${code} hearing, ${fmtDT(c.h.scheduled_at)}.`, { ok: true, undo: async () => { await DB.attend(c.lead.id, false); rerender('[data-hrgo]'); } });
+      toast(`You’re going to the ${code} hearing, ${whenAt(c.h.scheduled_at)}.`, { ok: true, undo: async () => { await DB.attend(c.lead.id, false); rerender('[data-hrgo]'); } });
     }
   } catch (e) { rerender('[data-hrgo]'); toast(e, { err: true }); }
 }

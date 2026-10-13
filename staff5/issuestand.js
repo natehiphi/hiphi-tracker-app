@@ -18,7 +18,7 @@
 // "Past a deadline" is read from the deadline each bill is racing (stops.js billStop): a later one means it already cleared
 // the earlier; one through the Legislature (Governor, law) is past every committee deadline.
 import { S, SESSION_YEAR, SESSION_OVER, esc, fmtDT } from './data.js';
-import { stopOf, riskOf, diedish, hearingAhead, billNum, plain } from './model.js';
+import { stopOf, riskOf, diedish, hearingAhead, billNum, plain, whenAt } from './model.js';
 import { icon, iconBtn } from './ui.js';
 import { plural } from './lists.js';
 import { dayOf } from './standing.js';
@@ -71,7 +71,7 @@ export function standOf(i) {
 // The mark on an issue's line, in words and an icon, never colour alone (A-5). The hearing, when one is set, leads.
 export function markHTML(x) {
   const { i, hear } = x, parts = [];
-  if (hear) parts.push(`<span class="ist-m ist-hear">${icon('calendar-days')}<span>Hearing ${esc(fmtDT(hear.h.scheduled_at))} · ${esc(shortName(hear.b, i))}</span></span>`);
+  if (hear) parts.push(`<span class="ist-m ist-hear">${icon('calendar-days')}<span>Hearing ${esc(whenAt(hear.h.scheduled_at))} · ${esc(shortName(hear.b, i))}</span></span>`);
   const dlw = d => `${d.label} ${dayAt(d.date)}`;
   const say = {
     risk: () => `<span class="ist-m ist-risk">${icon('triangle-alert')}<span><b>At risk</b> · ${esc(dlw(x.deadline))} · ${esc(names(x.facing, i))} still ${x.facing.length === 1 ? 'needs' : 'need'} a hearing, no bill past it</span></span>`,

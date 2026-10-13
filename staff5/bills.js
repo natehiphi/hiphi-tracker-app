@@ -17,7 +17,7 @@ import { bl, save, setCompact, shownBills, freshFacts, QUICK, quickCount, isOn, 
   views, curView, applyView, resetView, isDefault, openSaveView, openEditViews, VIEW_CAP, scopeOpts, defaultScope, posWord, openCoalition, viewState, dueDay } from './filters.js';
 import { openLook, dockLook } from './look.js';
 import { bulkBar, wireBulkBar, startSelect, stopSelect, dropSelect, selIds, FIELD } from './bulk.js';
-import { billRoute, billRef } from './model.js';
+import { billRoute, billRef, whenAt } from './model.js';
 import { GROUPS, groupKey } from './standing.js';
 
 // ---- groups, in stage order: GROUPS and groupKey live in standing.js, shared with an issue's page (R-226) ----
@@ -84,7 +84,7 @@ function statusLine(b) {
   let t;
   if (s.phase === 'law') { const act = /\bAct \d+/i.exec(b.last_action || ''); t = `Law${act ? ' · ' + esc(act[0]) : ''}`; }
   else if (s.phase === 'governor') t = 'At the governor';
-  else if (s.hearingState === 'scheduled') t = `Hearing ${esc(fmtDT(s.hearing.scheduled_at))} · ${esc(s.hearing.committee)}`;
+  else if (s.hearingState === 'scheduled') t = `Hearing ${esc(whenAt(s.hearing.scheduled_at))} · ${esc(s.hearing.committee)}`;   // R-277 fix 3
   else if (s.hearingState === 'held') t = `Heard ${md(s.hearing.scheduled_at)} · waiting for the ${esc(s.hearing.committee)} report`;
   else if (s.phase === 'committee') {
     const by = s.deadline && !s.deadline.missed ? ` by ${md(s.deadline.date)}` : '';
@@ -253,7 +253,7 @@ function emptyState(q, nf) {
   if (nf) return empty({ title: 'No bills match these filters', text: 'Take one off, or clear them all.', action: btn('Clear all filters', { attrs: { 'data-fclearall': '1' } }) });
   if (v.scope === 'me') return empty({ title: 'You have no bills yet', text: 'Your bills are the ones you own or follow. Follow a bill from its page.',
     action: scopeOpts().some(([k]) => k === 'coal') ? btn('Show my coalitions’ bills', { attrs: { 'data-scopecoal': '1' } }) : btn('Show the team’s bills', { attrs: { 'data-scopeall': '1' } }) });
-  if (v.scope === 'coal') return empty({ title: 'No bills in your coalitions yet', text: 'Bills tracked under the coalitions you support show here. Choose them in My settings.', action: btn('Show the team’s bills', { attrs: { 'data-scopeall': '1' } }) });
+  if (v.scope === 'coal') return empty({ title: 'No bills in your coalitions yet', text: 'Bills tracked under the coalitions you help on show here. Choose them in My settings.', action: btn('Show the team’s bills', { attrs: { 'data-scopeall': '1' } }) });
   return empty({ title: 'No bills are tracked yet', text: 'Sort the new bills to start.', action: btn('Sort new bills', { href: '#/bills/new' }) });
 }
 
