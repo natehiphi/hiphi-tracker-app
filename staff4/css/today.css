@@ -685,6 +685,7 @@
 @media (min-width: 1100px) {
   .td-root .td-rs { flex: 0 0 auto; max-width: 62%; }
   .td-root .td-rb { flex: 0 1 auto; max-width: none; min-width: 92px; }   /* never narrower than a bill number ("SB3025 SD2"), never wider than its words */
+  .td-root .td-rbp1 ~ .td-rs { max-width: 50%; }   /* v4: a P1 row's wider number leaves room for "+2 more" */
   .td-root .td-rb.td-rbp1 { min-width: 126px; }   /* v4: and its P1 mark, which overlapped the step's words */
 }
 /* In a narrow list (a 1280 laptop) "+2 more" says "+2"; the word stays for a screen reader. */
