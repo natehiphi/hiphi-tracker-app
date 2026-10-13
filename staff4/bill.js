@@ -414,6 +414,9 @@ function testimonyBlock(b, d, { primary = true, title = '' } = {}) {
   const own = d.submitted_by && d.submitted_by === me.id;
   const second = d.status === 'second_review' || !!d.second_approved_by || (['draft', 'review'].includes(d.status) && firstForBill(d));
   const kind = primary ? 'primary' : 'secondary';
+  // v4 (R-269, C-15): testimony sent back for changes is "Sent back", one name, said once: the reviewer's note under that
+  // word stands in for the who-line ("Write it in the Doc, then submit for review" over "Changes asked for").
+  const sentBack = d.status === 'draft' && !!d.review_note;
   let main = '', alt = '';
   if (d.status === 'draft') main = btn(d.review_note ? 'Resubmit for review' : 'Submit for review', { kind, icon: 'send', attrs: { 'data-dact': 'submit', 'data-draft': d.id } });
   else if (acts.includes('approve')) { main = btn('Approve', { kind, icon: 'check', attrs: { 'data-dact': 'approve', 'data-draft': d.id } }); alt = btn('Request changes', { kind: 'secondary', attrs: { 'data-dact': 'changes', 'data-draft': d.id } }); }
@@ -436,8 +439,8 @@ function testimonyBlock(b, d, { primary = true, title = '' } = {}) {
   return `<div class="bw-tb" data-tb="${esc(d.id)}">
     ${title ? `<p class="bw-tbt">${title}</p>` : ''}
     ${['cancelled', 'filed'].includes(d.status) ? '' : stepBar(d.status, { second })}
-    <p class="bw-who">${esc(whoLine(d))}${own && acts.includes('approve') ? ` ${chip('Your own draft')}` : ''}</p>
-    ${d.status === 'draft' && d.review_note ? `<blockquote class="bw-quote"><span class="meta">Changes asked for</span>${esc(d.review_note)}</blockquote>` : ''}
+    ${sentBack ? '' : `<p class="bw-who">${esc(whoLine(d))}${own && acts.includes('approve') ? ` ${chip('Your own draft')}` : ''}</p>`}
+    ${sentBack ? `<blockquote class="bw-quote"><span class="meta">Sent back</span>${esc(d.review_note)}</blockquote>` : ''}
     ${from ? `<p class="bw-from">${icon('copy')}<span>${esc(from)}</span></p>` : ''}
     ${stale ? notice('warn', 'triangle-alert', `The bill is now ${esc(b.current_version)}. This draft was written for ${esc(d.version || 'the introduced bill')}; check it before it goes out.${changedSince(b, d.version) ? ` What changed: ${esc(changedSince(b, d.version))}` : ''}`) : ''}
     ${main || alt ? `<div class="bw-acts">${main}${alt}</div>` : ''}
