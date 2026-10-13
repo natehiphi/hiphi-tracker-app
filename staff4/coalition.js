@@ -145,7 +145,7 @@ function headHTML(c) {
       ${c.public_name && c.public_name !== c.name ? `<p class="co-pubname">On the public tracker: ${esc(c.public_name)}</p>` : ''}
       ${c.description ? `<p class="co-desc">${esc(c.description)}</p>` : ''}
       <p class="co-meta">${own ? `<span class="co-own"><span aria-hidden="true">${avatar(own, 20)}</span><span>Owner: ${esc(own.id === S.me?.id ? 'you' : own.full_name)}</span></span>`
-        : `<span>No owner yet${S.me?.is_admin ? ` · <a href="#/setup/coalitions">choose one in Session setup</a>` : ''}</span>`}<span aria-hidden="true">·</span>${live ? `<span>${esc(plural(live, 'live bill'))} with a position</span>` : '<span>No live bills with a position</span>'}<span aria-hidden="true">·</span><a href="${esc(billsHref(c))}">See all its bills</a></p>
+        : `<span>No owner${S.me?.is_admin ? ` · <a href="#/setup/coalitions">choose one in Session setup</a>` : ''}</span>`}<span aria-hidden="true">·</span>${live ? `<span>${esc(plural(live, 'live bill'))} with a position</span>` : '<span>No live bills with a position</span>'}<span aria-hidden="true">·</span><a href="${esc(billsHref(c))}">See all its bills</a></p>
     </div>
   </header>
   ${desk ? '' : `<div class="co-acts">${act}</div>`}`;

@@ -216,7 +216,9 @@ export function wireActivity(pnl, b, route, root) {
   ta.oninput = () => { drafts.set(key, ta.value); grow(); mention(); };
   ta.onclick = mention;
   ta.onkeydown = e => {
-    if (!box.hidden && (e.key === 'Tab' || e.key === 'Enter') && !e.shiftKey) { const f = box.querySelector('[data-at]'); if (f) { e.preventDefault(); pickAt(f.dataset.at); return; } }
+    // Tab or Enter picks a name only when one name matches: "@Pat" then Enter sent Lauren's note to Patrick, not Patti (R-267).
+    // With several, the key does nothing, so the message is not sent half-addressed; type on or tap a name.
+    if (!box.hidden && (e.key === 'Tab' || e.key === 'Enter') && !e.shiftKey) { const f = box.querySelectorAll('[data-at]'); if (f.length) { e.preventDefault(); if (f.length === 1) pickAt(f[0].dataset.at); return; } }
     if (e.key === 'Escape' && !box.hidden) { e.preventDefault(); box.hidden = true; return; }
     // Enter sends on a keyboard (Shift+Enter is a new line); on a phone the Return key makes a new line.
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && enterSends()) { e.preventDefault(); form.requestSubmit(); }

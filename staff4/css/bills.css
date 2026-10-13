@@ -82,7 +82,8 @@
 .bl-grp > .sv-group { position: sticky; top: calc(var(--bl-top0) + var(--bl-sh)); z-index: 5; }
 .bl-grp + .bl-grp > .sv-group { border-top: 1px solid var(--n200); }
 .bl-grp > .row + .row { border-top: 1px solid var(--n100); }
-.bl-list .bl-noown { display: inline-flex; color: var(--n500); }
+.bl-list .bl-noown { display: inline-flex; align-items: center; gap: 4px; color: var(--n500); }
+.bl-noown .bl-noword { font-size: 12px; line-height: 1.2; white-space: nowrap; }
 .bl-list .bl-noown .ic { width: 24px; height: 24px; }
 .bl-list .sv-billrow { -webkit-touch-callout: none; padding-top: 10px; padding-bottom: 10px; }
 /* The title takes two lines before it is cut: the number and the nickname in bold, then the plain summary (with no

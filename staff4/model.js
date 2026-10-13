@@ -367,8 +367,10 @@ export function memoData() {
     const t = blurb(b, 400).replace(/[.…]+$/, ''); if (t.length <= 85) return t; const cut = t.slice(0, 85); return cut.slice(0, cut.lastIndexOf(' ')).replace(/[,;:]$/, '').replace(/\s+(a|an|the|of|to|for|and|or|in|on|as|by|with|that)$/i, '') + '…'; };
   // One line of the memo: the bill, HIPHI's position, then what the section says about it. A partner's line links the
   // bill's public page, where the bill is on it.
-  const line = (b, text) => ({ num: billNum(b).replace(/^(\D+)/, '$1 '), name: short(b), text: `${MEMO_SAYS[b.position] ? MEMO_SAYS[b.position] + '. ' : ''}${text}`,
-    href: partners && b.is_public && b.tracked !== false ? sharePageUrl(b) : '' });   // the share page: a partner's text previews with the bill's name (R-117)
+  // A bill with testimony open links its testify page (b/HB2121-testify, the walkthrough), not the plain bill page: the
+  // memo carried no ask, and partners landed where they could not act (R-267).
+  const line = (b, text, ask = '') => ({ num: billNum(b).replace(/^(\D+)/, '$1 '), name: short(b), text: `${MEMO_SAYS[b.position] ? MEMO_SAYS[b.position] + '. ' : ''}${text}`,
+    href: partners && b.is_public && b.tracked !== false ? sharePageUrl(b, ask) : '' });   // the share page: a partner's text previews with the bill's name (R-117)
   const more = (n, what = 'more') => n > 0 ? [`…and ${n} ${what}.`] : [];
   const when = x => x.days <= 0 ? 'today' : x.days === 1 ? 'tomorrow' : `${x.days} days`;
   const monday = (() => { const d = new Date(hstDayOf(now) + 'T12:00:00-10:00'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'Pacific/Honolulu' }); })();
@@ -386,7 +388,7 @@ export function memoData() {
   const hs = S.hearings.filter(h => ids.has(h.bill_id) && h.status !== 'cancelled' && new Date(h.scheduled_at) > now && new Date(h.scheduled_at) - now < wk).sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
   if (hs.length) sections.push(['Hearings this week', hs.map(h => { const b = billById(h.bill_id), d = draftFor(b.id, h.committee), open = h.testimony_deadline && new Date(h.testimony_deadline) > now;
     const at = `${h.committee} hearing ${fmtDT(h.scheduled_at)}${h.room ? ', ' + roomShortMemo(h.room) : ''}.`;
-    if (partners) return line(b, `${at}${open ? ` Written testimony is due ${fmtDT(h.testimony_deadline)}.` : ''}`);
+    if (partners) return open ? line(b, `${at} Written testimony is due ${fmtDT(h.testimony_deadline)}: please submit yours, the link shows how.`, 'testify') : line(b, at);
     return line(b, `${at} ${d ? `Our testimony is ${MEMO_TESTIMONY[d.status] || 'started'}` : 'No testimony started yet'}${(!d || !['filed', 'approved'].includes(d.status)) && open ? `, due ${fmtDT(h.testimony_deadline)}` : ''}.`); })]);
   // moved in the last seven days
   const sig = /pass(ed)? (second|third|final) reading|recommend(s|ed)? (that the measure be )?pass|reported from|transmitted to|received from|conference committee|enrolled|governor|became law|act \d+/i;
@@ -542,7 +544,7 @@ export const listNames = (pred, sep) => S.advocates.filter(a => pred(a) && a.is_
   .map(a => a.full_name).join(sep) || 'an admin';
 export function draftWho(d) {
   switch (d.status) {
-    case 'review': return `Sent by ${nameOf(d.submitted_by)} ${dWhen(d.submitted_at)} \u00b7 waiting for ${listNames(a => (a.is_admin || a.can_approve) && a.id !== d.submitted_by, ' or ')}`;
+    case 'review': return `Sent by ${nameOf(d.submitted_by)} ${dWhen(d.submitted_at)} \u00b7 waiting for ${listNames(a => a.is_admin || (a.can_approve && a.id !== d.submitted_by), ' or ')}`;
     case 'second_review': return `Approved by ${nameOf(d.approved_by)} \u00b7 first testimony on this bill, needs ${listNames(a => a.is_reviewer, ' or ')}`;
     case 'approved': return `Approved by ${nameOf(d.second_approved_by || d.approved_by)} ${dWhen(d.second_approved_at || d.approved_at)} \u00b7 file it at the Capitol, then mark it filed`;
     case 'filed': return `Filed by ${nameOf(d.filed_by)} ${dWhen(d.filed_at)}`;

@@ -327,7 +327,7 @@ function pickPosition(b) {
 function pickOwner(b) {
   const cur = (S.assignments[b.id] || [])[0] || '';
   const people = S.advocates.filter(a => a.is_active !== false || a.id === cur).slice().sort((x, y) => (y.id === S.me?.id) - (x.id === S.me?.id) || x.full_name.localeCompare(y.full_name));
-  pickerSheet({ title: `Who owns ${billSay(b)}?`, value: cur, help: 'The owner writes and files its testimony and gets its alerts.',
+  pickerSheet({ title: `Who owns ${billSay(b)}?`, value: cur, help: 'The owner gets its drafts and alerts. Whoever sends the testimony for review files it.',
     options: [...people.map(a => [a.id, a.id === S.me?.id ? `${a.full_name} (you)` : a.full_name, 'user-round']), ['', 'No owner', 'circle-dashed']],
     onPick: async v => {
       if (v === cur) return;
@@ -405,7 +405,9 @@ const waitingFor = pred => { const l = S.advocates.filter(a => pred(a) && a.is_a
   return [...(me ? ['you'] : []), ...l.filter(a => a.id !== S.me?.id).map(a => a.full_name)].join(' or ') || 'an admin'; };
 function whoLine(d) {
   // A reviewer standing in near the deadline (R-103) is not in the usual list, so the line says why Approve is theirs too.
-  if (d.status === 'review') return `Sent by ${nameOf(d.submitted_by)} ${dWhen(d.submitted_at)} · waiting for ${waitingFor(a => a.is_admin || a.can_approve)}${d.submitted_by !== S.me?.id && standingIn(S.me, draftHearing(d)) ? '. Testimony is due soon, so you can stand in' : ''}`;
+  // The person who sent it is not among those it waits for, unless an admin (who may approve their own, Nate 10/5): Kris read
+  // "waiting for you or Nate" on the draft she had just sent (R-267).
+  if (d.status === 'review') return `Sent by ${nameOf(d.submitted_by)} ${dWhen(d.submitted_at)} · waiting for ${waitingFor(a => a.is_admin || (a.can_approve && a.id !== d.submitted_by))}${d.submitted_by !== S.me?.id && standingIn(S.me, draftHearing(d)) ? '. Testimony is due soon, so you can stand in' : ''}`;
   if (d.status === 'second_review') return `Approved by ${nameOf(d.approved_by)} ${dWhen(d.approved_at)} · waiting for ${waitingFor(a => a.is_reviewer)}`;
   return draftWho(d).replace(/ \u00b7 file it at the Capitol, then mark it filed$/, '');
 }
@@ -555,16 +557,19 @@ async function runDraft(b, d, act, el) {
   try {
     if (act === 'submit') {
       await transition(b, d, 'submit'); rerender(`[data-tb="${d.id}"] .bw-acts > *`);
-      toast(approverNames() ? `Sent to ${approverNames()} for review.` : 'Sent for review.', { undo: async () => { await transition(b, d, 'withdraw'); rerender(); toast('Withdrawn. It is a draft again.'); } });
+      // An admin may approve their own (Nate 10/5), so "Sent to Kris for review" on Nate's own draft left him out (R-267).
+      toast(S.me?.is_admin ? `Sent for review. ${approverNames() !== 'an admin' ? `You or ${approverNames()} can approve it.` : 'You can approve it.'}`
+        : approverNames() !== 'an admin' ? `Sent to ${approverNames()} for review.` : 'Sent for review.', { undo: async () => { await transition(b, d, 'withdraw'); rerender(); toast('Withdrawn. It is a draft again.'); } });
     } else if (act === 'approve') {
       // The same safety as review mode (build 3): a leftover second tap never approves the next step (someone who is
       // both admin and reviewer would find Approve in the same spot), and every approval has Undo, which the server
       // backs with its un-approve (migration 058).
       if (performance.now() - approvedAt < 1000) { if (el?.isConnected) el.removeAttribute('aria-busy'); return; }
       const nd = await transition(b, d, 'approve'); approvedAt = performance.now(); rerender();
-      const owner = ownerOf(b), filer = owner || advocate(nd.submitted_by);
+      // One rule for who files, as on Review and Today: whoever sent it for review, else the owner (Nate 10/12, R-267: the writer files).
+      const filer = advocate(nd.submitted_by) || ownerOf(b);
       toast(nd.status === 'second_review' ? `Approved. Now needs ${reviewerNames()}.`
-        : filer && filer.id === S.me?.id ? 'Approved. File it at the Capitol next.' : `Approved. ${filer ? firstName(filer) : 'The owner'} will file it.`,
+        : filer && filer.id === S.me?.id ? 'Approved. File it at the Capitol next.' : `Approved. ${filer ? firstName(filer) : 'The owner'} files it next.`,
         { ok: true, undo: async () => { await transition(b, nd, 'unapprove'); rerender(); toast('Approval undone. It is waiting for you again.'); } });
     } else if (act === 'withdraw') {
       await transition(b, d, 'withdraw'); rerender(); toast('Withdrawn. It is a draft again.');

@@ -327,6 +327,15 @@ const clearErrs = root => root.querySelectorAll('.st-form .err').forEach(e => { 
 const firstOf = a => (a.full_name || '').split(/\s+/)[0];
 const ownedBy = id => S.bills.filter(b => (S.assignments[b.id] || []).includes(id)).length;
 const initialsOf = name => { const w = name.trim().split(/\s+/).filter(Boolean); return (w.length > 1 ? w[0][0] + w[w.length - 1][0] : (w[0] || '').slice(0, 2)).toUpperCase().replace(/[^A-Z]/g, ''); };
+// Initials nobody else on the team has (R-267): "JM" is James's, so Julie Mejia is offered JMM, not a form that refuses JM.
+const takenBy = (ini, self) => S.advocates.find(x => x.id !== self && String(x.initials || '').toUpperCase() === ini);
+function freeInitials(name, self) {
+  const w = name.trim().toUpperCase().replace(/[^A-Z\s]/g, '').split(/\s+/).filter(Boolean), base = initialsOf(name);
+  if (!base || !takenBy(base, self)) return base;
+  const f = w[0] || '', l = w[w.length - 1] || '';
+  const tries = [base + l[0], f[0] + l.slice(0, 2), f.slice(0, 2) + (w.length > 1 ? l[0] : ''), ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(c => base.slice(0, 2) + c)];
+  return tries.find(t => t.length >= 2 && t.length <= 3 && !takenBy(t, self)) || base;
+}
 function loginWord(a) {
   const s = st(), l = s.logins?.[a.id];
   if (!s.logins) return s.loginsErr ? 'Sign-in not checked' : 'Checking sign-in…';
@@ -371,7 +380,7 @@ function personSheet(a) {
       const f = d.querySelector('[data-tmform]'), v = id => d.querySelector('#' + id);
       // On a new person the initials follow the name until someone types their own.
       let own = !!a; v('tm-ini').addEventListener('input', () => { own = true; });
-      if (!a) v('tm-name').addEventListener('input', () => { if (!own) v('tm-ini').value = initialsOf(v('tm-name').value).slice(0, 3); });
+      if (!a) v('tm-name').addEventListener('input', () => { if (!own) v('tm-ini').value = freeInitials(v('tm-name').value).slice(0, 3); });
       d.querySelector('[data-tmcancel]').onclick = () => closeSheet();
       const save = async () => {
         const b = d.querySelector('[data-tmsave]'); if (b.getAttribute('aria-busy')) return;
@@ -380,6 +389,8 @@ function personSheet(a) {
         if (!p.full_name.trim()) return fieldErr(d, 'tm-name', 'Enter a name.');
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(p.email.trim())) return fieldErr(d, 'tm-email', 'Enter an email address, like name@hiphi.org.');
         if (!/^[A-Za-z]{1,3}$/.test(p.initials.trim())) return fieldErr(d, 'tm-ini', 'Initials are one to three letters, like KV.');
+        { const t = takenBy(p.initials.trim().toUpperCase(), a?.id), alt = t && freeInitials(p.full_name, a?.id);
+          if (t) return fieldErr(d, 'tm-ini', `${p.initials.trim().toUpperCase()} is ${t.full_name.split(' ')[0]}’s.${alt && !takenBy(alt, a?.id) ? ` Try ${alt}.` : ''}`); }
         b.setAttribute('aria-busy', 'true');
         try {
           const id = await DB.teamSave(a?.id || null, p);

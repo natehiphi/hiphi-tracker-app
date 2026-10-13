@@ -231,7 +231,7 @@ async function approve(route, el) {
     await DB.transition(it.b.id, it.d.id, 'approve'); markNotices(it.b.id);
     // Written from the state the server returned: a first testimony goes on to second review.
     const d = resolve(it.key)?.d || it.d, filer = d.submitted_by ? (d.submitted_by === S.me.id ? null : first(d.submitted_by)) : first((S.assignments[it.b.id] || [])[0]);
-    const msg = d.status === 'second_review' ? `Approved. Second approval next, from ${reviewerNames()}.` : filer && filer !== 'Someone' ? `Approved. ${filer} will file it.` : 'Approved. Ready to file at the Capitol.';
+    const msg = d.status === 'second_review' ? `Approved. Second approval next, from ${reviewerNames()}.` : filer && filer !== 'Someone' ? `Approved. ${filer} files it next.` : 'Approved. File it at the Capitol next.';
     const entry = { num: billSay(it.b), what: msg, icon: 'check' };
     toast(msg, { ok: true, undo: () => unapprove(r, it, entry) }); advance(r, entry);
   } catch (e) { toast(e, { err: true }); if (el && el.isConnected) { el.removeAttribute('aria-busy'); el.disabled = false; } }

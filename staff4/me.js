@@ -36,13 +36,15 @@ export default {
   tab: '', narrow: true,   // a form: a reading column on a wide screen
   title: () => 'My settings',
   render() {
-    const { me, r, w, mode } = current(), paused = (S.emailCfg || {}).enabled === false, toEmail = (S.slackCfg || {}).workflow_dm === false;
+    // Someone who helps on a coalition and owns no bills (Patti, Saya, Julie, Kris): the deadline reminders are the owner's,
+    // and the page says so rather than offering switches that never fire for them (R-267).
+    const { me, r, w, mode } = current(), helper = !S.bills.some(b => (S.assignments[b.id] || []).includes(me.id)), paused = (S.emailCfg || {}).enabled === false, toEmail = (S.slackCfg || {}).workflow_dm === false;
     const slackState = DEMO ? 'Sandbox' : me.slack_user_id ? 'Your Slack account is linked' : 'Linked by email the first time the tracker messages you';
     const opt = (val, title, sub) => `<label class="st-opt"><input type="radio" name="st-nudge" value="${val}" ${mode === val ? 'checked' : ''}><span class="st-dot" aria-hidden="true"></span><span class="body"><span class="title">${title}</span><span class="sub">${sub}</span></span></label>`;
     const remTimes = { morning: `At ${hhmm(r.morning)}`, before: `${r.hours_before} hour${Number(r.hours_before) === 1 ? '' : 's'} before`, after: `At ${hhmm(r.after)}` };
     // Everything a person changes now and then sits behind one fold, closed until they open it (B-12).
     const fine = mode === 'app' ? '' : `<details class="st-fine"${S.meFine ? ' open' : ''}><summary><span>Fine-tune what you are told, and when</span>${icon('chevron-down', { cls: 'st-fchev' })}</summary><div class="st-finein">
-        ${mode === 'slack' ? `<h3 class="st-h3">Testimony deadlines</h3><p class="small muted st-note">Only for bills you own, until the testimony is marked filed.</p>
+        ${mode === 'slack' ? `<h3 class="st-h3">Testimony deadlines</h3><p class="small muted st-note">${helper ? 'For bills you own. You own none yet, so these go to each bill’s owner; messages, @-mentions and tasks for you still reach you.' : 'Only for bills you own, until the testimony is marked filed.'}</p>
         <div class="card st-list">${REM.map(([k, l]) => switchRow('st-rem-' + k, l, r[k + '_on'], remTimes[k], { 'data-rem': k })).join('')}</div>
         ${r.morning_on || r.before_on || r.after_on ? `<h3 class="st-h3">Reminder times</h3>
         <div class="card st-grid st-times">${r.morning_on ? field('st-mont', 'Morning reminder', `<input id="st-mont" type="time" value="${esc(r.morning)}" data-remv="morning">`) : ''}
