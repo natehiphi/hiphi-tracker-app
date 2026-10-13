@@ -187,13 +187,15 @@ function dueLink(x) {
   const n = x.noHearing.length, words = `${n} with no hearing yet`;
   return isOn(`due:${x.date}`) ? `<b>${words}</b>` : `<button type="button" class="linkbtn bl-dlk" data-ft="due:${esc(x.date)}">${words}</button>`;
 }
+// Shortened after the fresh-eyes review (R-264): the line names only the first deadline that leaves work, as Today's
+// does ("Mon 3/30 deadline · 16 bills with no hearing yet"); a deadline whose racing bills all have a hearing asks
+// nothing, so it is not said (rule 4: numbers only where they ask for action). With nothing left to do, one quiet line.
 function deadlineLine(list) {
   const c = sessionClock(list); if (!c) return '';
-  const has = c.racing === 1 ? ', and it has a hearing' : c.racing === 2 ? ', and both have a hearing' : ', and every one has a hearing';
-  const work = c.racing ? `${c.racing} bill${c.racing === 1 ? '' : 's'} must ${gateNeed(c.label, c.racing)}${c.noHearing.length ? `, ${dueLink(c)}` : has}` : 'none of these bills has to be heard by then';
-  const t = c.then, then = t ? ` Then ${esc(t.name)}, ${esc(dueDay(t.date))}: ${t.noHearing.length ? dueLink(t) : 'every bill racing it has a hearing'}.` : '';
-  // amber only inside a day of the deadline (A-5), and the words say it too ("today", "tomorrow")
-  return `<p class="bl-dls${c.days <= 1 ? ' soon' : ''}">${icon('calendar-clock')}<span><b>${esc(c.name)}</b>, <span class="bl-dlday">${esc(dueDay(c.date))} (${away(c)})</span>: ${work}.${then}</span></p>`;
+  const x = c.noHearing.length ? c : c.then && c.then.noHearing.length ? c.then : null;
+  if (!x) return `<p class="bl-dls">${icon('calendar-clock')}<span>Every bill racing the next deadline has a hearing.</span></p>`;
+  const soon = x === c && c.days <= 1;   // amber only inside a day of the deadline (A-5), and the words say it too
+  return `<p class="bl-dls${soon ? ' soon' : ''}">${icon('calendar-clock')}<span><b>${esc(x.name)}</b>, <span class="bl-dlday">${esc(dueDay(x.date))}${x === c ? ` (${away(c)})` : ''}</span>: ${dueLink(x)}</span></p>`;
 }
 // A search in Mine (or My coalitions) says when the team has more, and offers the switch (the current app's "show
 // everyone"). The rows are the answer, so the line no longer counts them; a screen reader still hears how many.

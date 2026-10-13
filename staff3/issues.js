@@ -22,7 +22,7 @@ import { convSectionHTML, wireConvSection } from './conversation.js';
 import { FV_HREF, fvView, fvTitle, fvBack, renderFirstVisit, wireFirstVisit } from './firstvisit.js';
 import { prepView, prepTitle, renderPrep, wirePrep, prepCardHTML, wirePrepCard, prepMenu, isDraft } from './prep.js';
 import { testimonyOf, dueOf } from './hearing.js';
-import { isPos, dayOf, dueWhen } from './standing.js';
+import { isPos, dayOf, dueWhen, waitingOfBills } from './standing.js';
 import { weekOfBills, standWeekHTML, wireWeek } from './coalition.js';
 
 // ---- the catalogue ----
@@ -362,7 +362,9 @@ const rowName = b => `<b>${esc(billNum(b))}</b> ${b.nickname ? `<b class="le-nic
 // The same facts as one short phrase, for a row that has room for one (My issues, v3): the hearing and its testimony, or
 // what the bill needs and by when, or where it waits; its stage only when nothing says more. The owner is named only when
 // it is someone else (R-263). Built from standLine's helpers, so the two cannot disagree.
-export const testimonyWords = (h, b) => { const t = testimonyOf(h, b); return t.filed ? 'testimony filed' : t.word === 'not started' ? `testimony due ${dueWhen(dueOf(h))}` : 'testimony drafted'; };
+// The testimony's own state in the word list's words (C-15: "ready to file", "in review", "sent back"), the same as This
+// week and the hearing page say it; it read "testimony drafted" for every state between started and filed.
+export const testimonyWords = (h, b) => { const t = testimonyOf(h, b); return t.filed ? 'testimony filed' : t.word === 'not started' ? `testimony due ${dueWhen(dueOf(h))}` : `testimony ${t.word}`; };
 export function nextPhrase(b) {
   let say;
   if (diedish(b)) say = 'Did not advance';
@@ -398,9 +400,17 @@ function weekHTML(i, now) {
 // The bills, one line each; in session the ones that did not advance wait in one quiet fold (as on My issues), and
 // earlier sessions' in another. "Edit bills" opens the tools under them: the search that puts a bill on the issue, and
 // the × on each row. An issue with no bills yet starts with the search open.
+// A bill the week above already lists (its hearing this week, at risk, racing the next deadline) is not listed again
+// under Bills (A-14: the fresh-eyes review found HB1779 twice, with two different statuses); "Edit bills" shows them all.
+function shownAbove(list) {
+  if (SESSION_OVER) return new Set();
+  const w = waitingOfBills(list);
+  return new Set([...weekOfBills(list).flatMap(x => x.rows.map(h => h.bill_id)), ...w.risk.map(x => x.b.id), ...w.race.map(x => x.b.id)]);
+}
 function billsHTML(i, now, earlier) {
   const st = P(), q = st.q[i.id] || '', edit = !!st.edit[i.id] || !(now.length + earlier.length);
-  const moving = SESSION_OVER ? now : now.filter(b => !diedish(b)), gone = SESSION_OVER ? [] : now.filter(diedish);
+  const above = edit ? new Set() : shownAbove(now.filter(b => b.tracked !== false));
+  const moving = (SESSION_OVER ? now : now.filter(b => !diedish(b))).filter(b => !above.has(b.id)), gone = SESSION_OVER ? [] : now.filter(diedish);
   const add = `<div class="le-add is-add">
       <label class="sr" for="is-bq">Put a bill on this issue: number or words</label>
       <div class="le-search">${icon('search')}<input id="is-bq" type="search" role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Put a bill on it: number or words" value="${esc(q)}" autocomplete="off" enterkeyhint="search" aria-controls="is-hits">${iconBtn('x', 'Clear the search', { 'data-is': 'bqclear', hidden: !q })}</div>
@@ -409,7 +419,7 @@ function billsHTML(i, now, earlier) {
     </div>`;
   const fold = (cls, ic, label, list) => list.length ? `<details class="${cls}"${edit ? ' open' : ''}><summary>${icon(ic, { cls: 'is-chev' })}<span>${label}</span></summary><ol class="rows le-bills">${list.map(b => billLine(i, b, edit)).join('')}</ol></details>` : '';
   return `<section class="le-sec is-bills" aria-labelledby="is-bh">
-      <div class="le-sechead"><h2 id="is-bh">Bills</h2></div>
+      <div class="le-sechead"><h2 id="is-bh">${above.size && moving.length ? 'Other bills' : 'Bills'}</h2></div>
       ${moving.length ? `<ol class="rows le-bills">${moving.map(b => billLine(i, b, edit)).join('')}</ol>`
         : now.length ? '' : `<p class="le-none">No ${esc(SESSION_YEAR)} bills on it yet.</p>`}
       ${fold('is-gone', 'chevron-down', `${gone.length} did not advance`, gone)}

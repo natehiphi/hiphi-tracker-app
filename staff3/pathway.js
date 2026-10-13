@@ -191,8 +191,9 @@ export function renderCommittees(b) {
     const key = `${b.id}|${s.chamber}${s.stop}|${s.committee}`, open = (S.pwOpen || {})[key] ?? i === firstOpen;
     // Only the first stop ahead is "Next"; the ones after it are "Later", so two stops never both read as next (v3).
     const later = s.state === 'next' && (shownNext || (shownNext = true, false));
-    const [ic, word] = later ? ['circle', 'Later'] : STATE[s.state] || STATE.next;
     const ahead = s.hs.filter(h => new Date(h.scheduled_at).getTime() > now).pop(), past = s.hs.find(h => new Date(h.scheduled_at).getTime() <= now);
+    // A hearing still ahead outranks a recorded result: the stop says what is coming, never "Passed" before it is heard.
+    const [ic, word] = later ? ['circle', 'Later'] : s.state === 'passed' && ahead ? STATE.next : STATE[s.state] || STATE.next;
     // The one fact on the stop's line: its hearing coming, else when it was heard; nothing for a stop not reached yet.
     // A hearing still ahead is said here and on Next up only; the open stop lists the hearings held (A-14). "Heard Fri
     // 2/27" steps aside when the stop is open, where the hearing's own line says it in full (bill.css).

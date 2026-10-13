@@ -61,13 +61,15 @@ function billRow(b, odd, i) {
 // bills one line each; the ones that did not advance wait in one quiet fold.
 function issueSec(x, k) {
   const { i, bills, going, gone, own } = x, c = catByKey(i.category), href = `#/issue/${encodeURIComponent(i.id)}?from=mine`;
-  const count = !bills.length ? 'No bills yet' : going.length ? plural(going.length, 'bill') + (SESSION_OVER ? '' : ' moving') : 'Nothing moving';
+  // The rows under the name are its moving bills, each with its own next step, so the line says no count and no hearing
+  // of its own (A-14: the soonest hearing was said on the issue's line and again on its bill's row; fresh-eyes review).
+  const count = !bills.length ? 'No bills yet' : going.length ? '' : 'Nothing moving';
   const tags = [own ? '' : 'You help', isDraft(i) ? 'Draft' : ''].filter(Boolean);
   const odd = new Set((i.stance === 'mixed' ? going.filter(b => b.position) : againstStance(i, going)).map(b => b.id));
-  const soon = soonest(x);
+  const soon = '';
   return `<section class="card mi-iss" aria-labelledby="mi-h${k}">
     <div class="mi-ihead"><h2 class="mi-iname" id="mi-h${k}"><a href="${href}"><span class="mi-ic">${icon(c?.icon || 'tag')}</span><span>${esc(i.name)}</span></a></h2>
-      ${soon ? `<p class="mi-soon">${soon}</p>` : ''}<p class="mi-cnt">${tags.map(t => `<span class="mi-tag">${esc(t)}</span>`).join('')}${esc(count)}</p></div>
+      ${soon ? `<p class="mi-soon">${soon}</p>` : ''}${tags.length || count ? `<p class="mi-cnt">${tags.map(t => `<span class="mi-tag">${esc(t)}</span>`).join('')}${esc(count)}</p>` : ''}</div>
     ${going.length ? `<ol class="mi-bills">${going.map(b => billRow(b, odd, i)).join('')}</ol>` : ''}
     ${gone.length ? `<details class="mi-gone"><summary>${icon('chevron-down', { cls: 'is-chev' })}<span>${gone.length} did not advance</span></summary><ol class="mi-bills">${gone.map(b => billRow(b, odd, i)).join('')}</ol></details>` : ''}
     ${bills.length ? '' : `<p class="mi-none">No ${esc(SESSION_YEAR)} bills on it yet. <a href="${href}">Put bills on it</a></p>`}

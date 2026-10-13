@@ -756,11 +756,23 @@ function row(c, filled, o = {}) {
   const p = c.p, b = c.b, n = c.tasks.length - 1;
   const name = b ? `<span class="td-rb"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''}<span class="td-rn">${esc(b.nickname || blurb(b, 80))}</span></span>`
     : (([ic, w]) => `<span class="td-rb td-rkind">${icon(ic)}<span>${w}</span></span>`)(kindOf(p));
-  const what = `<span class="td-rs">${p.seen ? SEEN() + ' ' : ''}${p.s}</span>${n > 0 ? `<span class="td-rplus">+${n}<span class="sr"> more on this ${b ? 'bill' : 'item'}</span></span>` : ''}`;
   // A teammate's step is theirs to take: its row has no button, and the open item offers "Message Kevin".
   const x = p.ro ? null : (p.btns || [])[0], fill = filled && p.kind !== 'reply' && !p.seen && x && !x.text;
+  const what = `<span class="td-rs">${p.seen ? SEEN() + ' ' : ''}${rowWords(p, x)}</span>${n > 0 ? `<span class="td-rplus">+${n} more<span class="sr"> on this ${b ? 'bill' : 'item'}</span></span>` : ''}`;
   return `<div data-k="${ek}" class="td-row${p.seen ? ' td-seen' : ''}"${fill ? ' data-fill="1"' : ''}${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${sel(`${urgBlock(p.due, untilOf(p))}<span class="td-rmain">${name}${what}</span>`)}
     <span class="td-ract">${x ? button(p, x, true, filled && p.kind !== 'reply') : ''}</span>${end}</div>`;
+}
+// A row says what its button does not (A-14): beside "File at the Capitol" or "Make the draft now" the step's own words
+// repeat the button and crowded out the hearing's date ("New hearing: PSM/EIG Mon 3/2…", fresh-eyes review, R-264), so
+// such a row names the hearing instead ("PSM/EIG hearing Mon 3/23, 3:00 PM"). A one-word button (Review, Write it, Open)
+// keeps the step's words, which say what it is about. The open item always shows the step in full.
+const SIG = w => w.toLowerCase().replace(/[^a-z]/g, '');
+const SKIP = new Set(['the', 'at', 'it', 'now', 'a', 'to', 'your', 'on']);
+function rowWords(p, x) {
+  const words = x && !x.text ? String(x.label || '').split(/\s+/).map(SIG).filter(w => w && !SKIP.has(w)) : [];
+  const said = String(p.s || '').replace(/<[^>]+>/g, ' ').toLowerCase();
+  if (p.h && words.length >= 2 && words.every(w => said.includes(w))) return `${esc(p.h.committee)} hearing ${whenLine(p.h.scheduled_at)}`;
+  return p.s;
 }
 // Which row is open: the one you chose, else the one now in its place; until you choose, the first (the list can
 // still be filling in as the page loads, and the most urgent item is the one to open on arrival).
@@ -810,7 +822,9 @@ function paneAlso(c) {
   const also = c.tasks.slice(1); if (!also.length) return '';
   return `<div class="td-psec"><h3 class="td-ph3">Also on this ${c.b ? 'bill' : 'item'}</h3><ul class="td-palso">${also.map(t => {
     const acts = t.ro || t.kind === 'wait' ? '' : (t.btns || []).slice(0, 2).map(x => button(t, x, false)).join('');
-    return `<li><span class="td-pat">${t.s}</span><span class="td-pam">${t.seen ? SEEN() : ''}${alsoDue(t)}</span>${acts ? `<span class="td-pab">${acts}</span>` : ''}</li>`; }).join('')}</ul></div>`;
+    // the same deadline as the item's own step is said once, above (A-14; fresh-eyes review: "late testimony until 1:10 PM" twice)
+    const same = t.due != null && t.due === c.p.due;
+    return `<li><span class="td-pat">${t.s}</span><span class="td-pam">${t.seen ? SEEN() : ''}${same ? '' : alsoDue(t)}</span>${acts ? `<span class="td-pab">${acts}</span>` : ''}</li>`; }).join('')}</ul></div>`;
 }
 function paneCluster(c) {
   return `<div class="td-ptop"><p class="td-pnum td-rkind">${icon('clipboard-check')}<span>Review</span></p></div>

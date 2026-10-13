@@ -470,3 +470,7 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-table .bl-selwrap .ic { width: 18px; height: 18px; }
   .bl-table .bl-selwrap .bl-sel { flex: 1 1 auto; }
 }
+
+/* Spare width on a big monitor is margin, not a wider table (A-24; fresh-eyes review: at 1920 the titles ended halfway
+   across and "Where it stands" sat 700px away). With a bill docked, the dock takes the width instead. */
+@media (min-width: 1600px) { .bl-page:not(:has(.bl-split)) { max-width: 1320px; } }
