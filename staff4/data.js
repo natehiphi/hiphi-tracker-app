@@ -1597,7 +1597,9 @@ export async function demoInit() {
     const early = [hd(+new Date(h.notice_posted_at || Date.now()) + 4 * 36e5), hd(+new Date(h.testimony_deadline || dt - 864e5) - 12 * 36e5)].sort()[0], today = hd(Date.now()), due = early > today ? early : today;
     (S.todos[b.id] ??= []).push({ id: 'eb' + h.id, bill_id: b.id, title, done: false, due_date: due, assignee_id: (S.assignments[b.id] || [])[0] || null, sort_order: -1, created_at: new Date().toISOString() }); }
   if (anchor) S.todos[anchor.id] = (S.todos[anchor.id] || []).concat([
-    { id: 'td1', bill_id: anchor.id, title: 'Draft testimony for the next hearing',
+    // v4 (R-269): a task that does not contradict the bill's own testimony, which is in review (this one read "Draft testimony
+    // for the next hearing" beside Kevin's draft waiting for approval, and Nate's Slipping list led with it).
+    { id: 'td1', bill_id: anchor.id, title: 'Ask the chair\u2019s office for a meeting before the hearing',
       done: false, due_date: day(-2), assignee_id: S.advocates[0].id, sort_order: 0,
       created_at: new Date().toISOString() },
     { id: 'td2', bill_id: anchor.id, title: 'Confirm coalition sign-ons',
