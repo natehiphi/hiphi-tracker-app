@@ -488,7 +488,7 @@ with sync_playwright() as pw:
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
     # Since R-265 "Save your profile" has no line under it in either season (Nate 12 Oct: "the absolute minimum"); "Coming up"
     # says hearings start in late January.
-    ok(p.locator('main input[type=tel]').count() == 1 and 'Hearing alerts and action asks from HIPHI' in text(p), f"between sessions the issues lead on to the alerts ({p.evaluate('location.hash')})")
+    ok(p.locator('main input[type=tel]').count() == 1 and 'HIPHI alerts when a bill on your issues gets a hearing or needs you to speak up.' in text(p), f"between sessions the issues lead on to the alerts ({p.evaluate('location.hash')})")
     p.locator('[data-stskip]').click(); p.wait_for_timeout(1500)
     for _ in range(24):
         if p.locator('[data-stdone]').count(): break

@@ -10,6 +10,7 @@
 .st .lede { margin-top: -4px; text-wrap: pretty; }   /* no one-word last line at the larger size (R-174) */
 .st .note { margin-top: var(--s4); }
 body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy lines under a number or an address (R-174, C-14) */
+.st .al-line { text-wrap: pretty; }   /* what the alerts are: no "up." alone on a laptop's last line (R-265) */
 .st-errh { font-size: var(--t22); }
 
 /* ---- the three named parts: a signpost, not controls (A-12) ----

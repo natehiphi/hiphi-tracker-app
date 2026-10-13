@@ -80,7 +80,7 @@ with sync_playwright() as pw:
     to_alerts(p, '&codes&fv=full&end=today')
     t = text(p)
     ok('reply YES' not in t, 'codes on: no YES to reply')
-    ok('Hearing alerts and action asks from HIPHI, up to 1 a day. Msg & data rates may apply. Reply STOP to cancel.' in t, 'codes on: the one consent line, the same as codes off (t4, R-265): frequency, rates, STOP')
+    ok(('HIPHI alerts when a bill on your issues gets a hearing or needs you to speak up.' in t and 'Up to 1 a day. Msg & data rates may apply. Reply STOP to cancel.' in t), 'codes on: the one consent line, the same as codes off (t4, R-265): frequency, rates, STOP')
     ok(p.locator('#st-send', has_text='Text me a code').count() == 1, 'codes on: the button says what it sends, a code')
     p.fill('#st-a-phone', '(808) 555-0123'); p.click('#st-send'); p.wait_for_selector('#st-a-code', timeout=5000); p.wait_for_timeout(400)
     t = text(p)

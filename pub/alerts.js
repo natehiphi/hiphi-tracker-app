@@ -81,15 +81,21 @@ export function followAsk(name, after, { many = false, receipt = '' } = {}) {
 // minimum", "With we never share your number"). From the research (backend docs/requests/R-265.md): the carriers' rules
 // (CTIA's Messaging Principles 5.1, Twilio's A2P vetting) need, beside the box, who sends, what the texts are, how often,
 // "Msg & data rates may apply", how to stop, and links to the terms and privacy pages; HELP lives on the Text terms page and
-// in the texts, and the button already says a code comes, so one line holds it all, the same with codes on or off. It names
-// both kinds of message, hearings and HIPHI's asks (C-4: only what it names may be sent). A new wording gets a new version
+// in the texts, and the button already says a code comes, so two short lines hold it all, the same with codes on or off.
+// The first says what comes, in words a newcomer can picture (Nate 13 Oct, "reworded, go": the critic found "action asks"
+// in-house wording, and with no line under the heading nothing else says what a hearing alert is); it names both kinds of
+// message, hearings and HIPHI's asks (C-4: only what it names may be sent), at the size of the line above it (A-13: it is the
+// line that matters). The second is the fine print: how often, rates, how to stop. A new wording gets a new version
 // here and in the backend together (text_consent_words 't4', email_consent_words 'e2', backend 173), so what is recorded
-// as agreed is always what was on the screen. Earlier: t2 and t3 (backend 128, 141) and e1 (157), about 60 words each.
+// as agreed is always what was on the screen: the stored words are the two lines joined by a space. Earlier: t2 and t3
+// (backend 128, 141) and e1 (157), about 60 words each.
 // Legal, one line: these words join the lawyer's list (R-149) before any text or email goes to the public.
 export const TEXT_CONSENT = 't4';
-export const TEXT_WORDS = 'Hearing alerts and action asks from HIPHI, up to 1 a day. Msg & data rates may apply. Reply STOP to cancel.';
 export const EMAIL_CONSENT = 'e2';
-export const EMAIL_WORDS = 'Hearing alerts and action asks from HIPHI, up to 1 a day. Unsubscribe anytime.';
+export const ALERT_PROMISE = 'HIPHI alerts when a bill on your issues gets a hearing or needs you to speak up.';
+export const TEXT_FINE = 'Up to 1 a day. Msg & data rates may apply. Reply STOP to cancel.';
+export const EMAIL_FINE = 'Up to 1 a day. Unsubscribe anytime.';
+export const TEXT_WORDS = `${ALERT_PROMISE} ${TEXT_FINE}`, EMAIL_WORDS = `${ALERT_PROMISE} ${EMAIL_FINE}`;
 // The one line under the box, where it is typed (P-5): short and positive, never "spam" (the research: a line like it raised a
 // nonprofit's sign-ups from 18% to 27%; "never spam you" cost 19% in another test). The privacy page says the rest.
 const hintFor = phone => phone ? 'We never share your number.' : 'We never share your email.';
@@ -178,10 +184,11 @@ export function alertFields(pfx, { emailHref = '', compact = false, swap: withSw
   const swap = phone
     ? (emailHref ? `<a class="al-swap" href="${emailHref}">Use email instead</a>` : `<button type="button" class="btn text sm al-swap" data-alswap="email">Use email instead</button>`)
     : `<button type="button" class="btn text sm al-swap" data-alswap="phone">Text me instead</button>`;
-  // The consent line, then the links the carriers ask for at the sign-up (terms AND privacy, R-180, D1-2), in running text
-  // (WCAG 2.5.8's inline exception, A-6). The words before the links are exactly the stored version.
+  // What comes, at reading size; then the fine print and the links the carriers ask for at the sign-up (terms AND privacy,
+  // R-180, D1-2), in running text (WCAG 2.5.8's inline exception, A-6). The two lines' words are exactly the stored version.
   const links = phone ? '<a href="text-terms.html">Terms</a> · <a href="#/privacy">Privacy</a>' : '<a href="#/privacy">Privacy</a>';
-  return `${field}<p class="al-fine">${phone ? TEXT_WORDS : EMAIL_WORDS} ${links}${DEMO ? '<br>In the sandbox nothing is sent or saved.' : ''}</p>${withSwap ? `<p class="al-swaprow">${swap}</p>` : ''}`;
+  return `${field}<p class="al-line${compact ? ' small' : ''}">${ALERT_PROMISE}</p>
+    <p class="al-fine">${phone ? TEXT_FINE : EMAIL_FINE} ${links}${DEMO ? '<br>In the sandbox nothing is sent or saved.' : ''}</p>${withSwap ? `<p class="al-swaprow">${swap}</p>` : ''}`;
 }
 // The code step (R-155): where the number was, the code we just texted to it, with a new code, a different number and email
 // one tap away (a code that never comes has a way out, B-3). One field, filled in by the phone itself where it can (iPhone:
