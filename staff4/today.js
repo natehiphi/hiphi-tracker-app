@@ -778,7 +778,7 @@ function card(c, i, team, o = {}) {
     ${urgBlock(c.wait ? null : p.due, untilOf(p), approveAct(p))}
     <div class="td-top">${top}${more}${b ? lookBtn(b) : ''}</div>
     <p class="td-s" id="td-s${i}">${p.s}</p>
-    ${(() => { const w = [o.label ? `<span class="td-part td-cwho">${o.av || ''}${esc(o.label)}</span>` : '', o.note ? `<span class="td-part long sv-count soon">${esc(o.note)}</span>` : '', why(p, team, !c.wait)].filter(Boolean).join('\u00a0· '), lead = c.wait && p.chip ? chip(p.chip, '', 'hourglass') + ' ' : p.seen ? SEEN() + ' ' : ''; return w || lead ? `<p class="td-why">${lead}${w}</p>` : ''; })()}
+    ${(() => { const w = [o.label ? `<span class="td-part td-cwho">${o.av || ''}${esc(o.label)}</span>` : '', why(p, team, !c.wait)].filter(Boolean).join('\u00a0· '), lead = c.wait && p.chip ? chip(p.chip, '', 'hourglass') + ' ' : p.seen ? SEEN() + ' ' : ''; return w || lead ? `<p class="td-why">${lead}${w}</p>` : ''; })()}
     ${p.note ? `<p class="td-note">${p.note}</p>` : ''}
     ${p.q ? `<blockquote class="td-q">${p.q}</blockquote>` : ''}
     ${acts ? `<div class="td-acts">${acts}</div>` : ''}
@@ -830,8 +830,7 @@ function row(c, filled, o = {}) {
     : (([ic, w]) => `<span class="td-rb td-rkind">${icon(ic)}<span>${w}</span></span>`)(kindOf(p));
   // A teammate's step is theirs to take: its row has no button, and the open item offers "Message Kevin".
   const x = p.ro ? null : (p.btns || [])[0], fill = filled && p.kind !== 'reply' && !p.seen && x && !x.text;
-  // A Slipping row's "nobody going" is short and first, so a narrow row never cuts it; the open item names the hearing.
-  const what = `${o.note ? `<span class="sv-count soon td-rnote">${icon('user-round-plus')}<span class="td-rnotew">nobody going</span></span>` : ''}<span class="td-rs">${p.seen ? SEEN() + ' ' : ''}${rowWords(p, x)}</span>${n > 0 ? `<span class="td-rplus">+${n}<span class="td-rmore"> more</span><span class="sr"> on this ${b ? 'bill' : 'item'}</span></span>` : ''}`;
+  const what = `<span class="td-rs">${p.seen ? SEEN() + ' ' : ''}${rowWords(p, x)}</span>${n > 0 ? `<span class="td-rplus">+${n}<span class="td-rmore"> more</span><span class="sr"> on this ${b ? 'bill' : 'item'}</span></span>` : ''}`;
   return `<div data-k="${ek}" class="td-row${p.seen ? ' td-seen' : ''}"${fill ? ' data-fill="1"' : ''}${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${sel(`${urgBlock(p.due, untilOf(p), approveAct(p))}${o.av ? `<span class="td-rav">${o.av}</span>` : ''}<span class="td-rmain">${name}${what}</span>`)}
     <span class="td-ract">${x ? button(p, x, true, filled && p.kind !== 'reply') : ''}</span>${end}</div>`;
 }
@@ -923,7 +922,7 @@ function paneHTML(k) {
   const top = `<div class="td-ptop">${b ? `<p class="td-pnum"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''}</p>` : `<p class="td-pnum td-rkind">${icon(kd[0])}<span>${kd[1]}</span></p>`}${more}</div>
     ${b ? `<h2 class="td-pname" id="td-pane-h">${esc(b.nickname || blurb(b, 120))}</h2>${b.nickname && blurb(b, 400) ? `<p class="td-psum">${esc(blurb(b, 400))}</p>` : ''}` : ''}`;
   const acts = (o.msg && b ? [msgBtn(b, o.msg)] : p.btns || []).map((x, j) => button(p, x, j === 0)).join('');
-  const due = paneDue(p), w = paneWhy(p, o.msg, o.label) + (o.note ? ` · <span class="td-part sv-count soon">${esc(o.note[0].toUpperCase() + o.note.slice(1))}</span>` : '');
+  const due = paneDue(p), w = paneWhy(p, o.msg, o.label);
   const step = `<div class="td-pstep">${due ? `<p class="td-pdue">${due}</p>` : ''}
     <p class="td-ps"${b ? '' : ' id="td-pane-h"'}>${p.ps || p.s}</p>${w ? `<p class="td-pwhy">${w}</p>` : ''}
     ${p.note ? `<p class="td-note">${p.note}</p>` : ''}${p.q ? `<blockquote class="td-q td-pq">${p.q}</blockquote>` : ''}
@@ -1496,7 +1495,7 @@ function teamHtml(start, rows = false) {
 // of the per-person groups and the hearings line. In it: every step from everyone, the viewer included, that is late
 // (still open or not) or due within 24 hours; a new hearing with no draft whose testimony is due within 48 hours; and
 // hearings today or tomorrow on bills with a position that nobody from the team is going to (Nate's decision D3, list
-// only, no Slack), on the bill's row when it has one. Worst first. Each row shows whoever it waits on, in place of the
+// only, no Slack), each a row of its own saying "Nobody going yet". Worst first. Each row shows whoever it waits on, in place of the
 // person headings; a step two people can take is one row ("You or Jaylen" keeps its Review button: your own step is
 // never "Message Jaylen"). Not on This week: its grid shows each state. "At risk" stays Bills' word (no hearing yet).
 const slipper = () => !!(S.me?.is_admin || S.me?.is_reviewer);
@@ -1530,13 +1529,12 @@ function slipping() {
     if (h.status === 'cancelled' || (d !== today && d !== tmw) || t < now - HR || !b || !b.position || b.position === 'monitor' || b.tracked === false) continue;
     const k = slotKey(h); if (!sits.has(k)) sits.set(k, { h, t, bills: [] }); sits.get(k).bills.push(b);
   }
+  // Each sitting nobody is going to is a row of its own, with I'm going on it (fresh-eyes review: as a tag on a bill's
+  // row it cut the step's words short and spent amber on something that is not late).
   const hear = [];
   for (const s of [...sits.values()].sort((x, y) => x.t - y.t)) {
-    if (goersAt(s.h).length) continue;
-    const note = `nobody going to ${s.h.committee} ${whenLine(s.h.scheduled_at)}`, ids = new Set(s.bills.map(b => b.id));
-    const on = list.slice().sort((x, y) => x.at - y.at).find(r => r.b && ids.has(r.b.id) && !r.note);
-    if (on) on.note = note; else hear.push({ key: 'sl:hr:' + slotKey(s.h), hear: s, due: s.t, at: s.t, ids: [], tasks: [] });
     s.today = hst(s.t) === today;
+    if (!goersAt(s.h).length) hear.push({ key: 'sl:hr:' + slotKey(s.h), hear: s, due: s.t, at: s.t, ids: [], tasks: [] });
   }
   const all = [...list, ...hear].sort((x, y) => x.at - y.at);
   return SLIP = { rows: all, nobodyToday: [...sits.values()].filter(s => s.today && !goersAt(s.h).length) };
@@ -1545,28 +1543,28 @@ function slipping() {
 const slipWho = ids => ids.length ? ids.map(id => id === S.me.id ? 'You' : first(id)).join(ids.length > 2 ? ', ' : ' or ').replace(/, ([^,]+)$/, ' or $1') : 'No owner';
 const slipAv = ids => ids.length ? ids.slice(0, 3).map(id => avatar(advocate(id), 24)).join('') + (ids.length > 3 ? `<span class="td-ravn">+${ids.length - 3}</span>` : '') : avatar(null, 24);
 // The row options: a teammate's step offers "Message Kevin" in the open item; your own (even shared) keeps its button.
-const slipOpt = r => ({ gk: 'sl', av: slipAv(r.ids), label: r.hear ? 'Nobody going' : slipWho(r.ids), note: r.note || '', msg: r.p && r.p.ro && r.b ? r.ids.filter(id => id !== S.me.id) : null });
+const slipOpt = r => ({ gk: 'sl', av: slipAv(r.ids), label: r.hear ? 'Nobody going yet' : slipWho(r.ids), msg: r.p && r.p.ro && r.b ? r.ids.filter(id => id !== S.me.id) : null });
 function slipHearRow(c, ek, sel, end, o) {
   const h = c.hear.h, hrs = Math.max(0, Math.floor((c.hear.t - Date.now()) / HR)), soon = c.hear.t - Date.now() <= DAY;
   const mark = `<span class="td-urg"><span class="sv-urg${soon ? ' soon' : ''}" role="img" aria-label="${esc(`${hrs < 1 ? 'under an hour' : hrs + ' hours'} to the hearing`)}"><b>${hrs < 1 ? '<1h' : hrs + 'h'}</b><span>to hearing</span></span></span>`;
   const nums = [...new Set(c.hear.bills.map(b => billNum(b).split(' ')[0]))];
   return `<div data-k="${ek}" class="td-row td-rhear">${sel(`${mark}${o.av ? `<span class="td-rav">${o.av}</span>` : ''}<span class="td-rmain"><span class="td-rb"><b class="td-num">${esc(h.committee)}</b><span class="td-rn">${esc(whenLine(h.scheduled_at))}</span></span><span class="td-rs">Nobody going yet · ${esc(nums.slice(0, 4).join(', '))}${nums.length > 4 ? ' …' : ''}</span></span>`)}
-    <span class="td-ract"></span>${end}</div>`;
+    <span class="td-ract">${btn('I’m going', { kind: 'secondary', attrs: { 'data-going': h.id, 'aria-label': `I’m going to the ${h.committee} hearing ${whenLine(h.scheduled_at)}` } })}</span>${end}</div>`;
 }
 function slipHearCard(c, i, k, o) {
   const h = c.hear.h;
   return `<article class="td-card td-cluster" data-k="${esc(k)}" tabindex="-1" aria-labelledby="td-s${i}">${urgBlock(null)}
-    <p class="td-s" id="td-s${i}">${icon('landmark')}Nobody going yet: ${esc(h.committee)} ${esc(whenLine(h.scheduled_at))}</p>
+    <p class="td-s" id="td-s${i}">${icon('landmark')}${esc(h.committee)} ${esc(whenLine(h.scheduled_at))} · Nobody going yet</p>
     <p class="td-why">${esc(c.hear.bills.map(b => billNum(b)).join(', '))}</p>
     <div class="td-acts">${btn('Open the hearing', { kind: 'secondary', href: `#/hearing/${encodeURIComponent(h.id)}?from=today` })}${btn('I’m going', { kind: 'text', attrs: { 'data-going': h.id } })}</div></article>`;
 }
 function paneSlipHear(c) {
   const h = c.hear.h;
   return `<div class="td-ptop"><p class="td-pnum td-rkind">${icon('landmark')}<span>Hearing</span></p></div>
-    <h2 class="td-pname" id="td-pane-h">Nobody from the team is going yet</h2>
+    <h2 class="td-pname" id="td-pane-h">Nobody going yet</h2>
     <div class="td-psec td-phear"><a class="td-phl" href="#/hearing/${esc(h.id)}?from=today">${icon('landmark')}<span><b>${esc(h.committee)} ${esc(whenLine(h.scheduled_at))}</b>${h.room ? ` · ${esc(room(h.room))}` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</a>
       <ul class="td-palso">${c.hear.bills.map(b => `<li><a class="td-pat" href="${billRoute(b)}"><b class="td-num">${esc(billNum(b))}</b> ${esc(b.nickname || blurb(b, 60))}</a></li>`).join('')}</ul>
-      <p class="td-pgo">${icon('users')}<span>Nobody from the team yet</span>${btn('I’m going', { kind: 'text', attrs: { 'data-going': h.id } })}</p></div>`;
+      <p class="td-pgo">${icon('users')}<span>Nobody going yet</span>${btn('I’m going', { kind: 'text', attrs: { 'data-going': h.id } })}</p></div>`;
 }
 // Team for Nate, Jess and Jaylen: Slipping first, then each person's list (folded). `rows`: the laptop's one-line rows.
 function slipHtml(rows) {
@@ -1580,7 +1578,7 @@ function slipHtml(rows) {
 // Mine for Nate, Jess and Jaylen: one line in place of "Hearings today", opening Team (#/?scope=team).
 function slipLine() {
   const sl = slipping(); if (!sl.rows.length) return '';
-  const nb = sl.nobodyToday.map(s => `${s.h.committee} ${timeOf(s.h.scheduled_at)}`), nobody = nb.length ? `nobody going to ${nb.length > 2 ? nb.slice(0, -1).join(', ') + ' or ' + nb[nb.length - 1] : nb.join(' or ')}` : '';
+  const nb = sl.nobodyToday.map(s => `${s.h.committee} ${timeOf(s.h.scheduled_at)}`), nobody = nb.length ? `nobody going yet to ${nb.length > 2 ? nb.slice(0, -1).join(', ') + ' or ' + nb[nb.length - 1] : nb.join(' or ')}` : '';
   return `<p class="td-hline1 td-slipline">${icon('clock')}<span class="td-hlt"><b>${esc(`${sl.rows.length} slipping on the team`)}</b>${nobody ? ` · ${esc(nobody)}` : ''} · <a href="#/?scope=team">See them</a></span></p>`;
 }
 

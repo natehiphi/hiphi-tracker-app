@@ -683,9 +683,10 @@
 /* The step is what a row is for, so it keeps its length and the bill's name gives way first (the number never does):
    "HHS hearing today 1:10 PM" was cut to "1:…" while the name kept half the row (R-264 integration). */
 @media (min-width: 1100px) {
-  .td-root .td-rs { flex: 0 0 auto; max-width: 62%; }
-  .td-root .td-rb { flex: 0 1 auto; max-width: none; min-width: 92px; }   /* never narrower than a bill number ("SB3025 SD2"), never wider than its words */
-  .td-root .td-rbp1 ~ .td-rs { max-width: 50%; }   /* v4: a P1 row's wider number leaves room for "+2 more" */
+  /* v4 (R-269, fresh-eyes): the name still gives way first (it shrinks a hundred times faster, down to the number), then
+     the step, which ends in an ellipsis: it was cut mid-word at the row's edge, and "+2 more" with it. */
+  .td-root .td-rs { flex: 0 1 auto; min-width: 0; }
+  .td-root .td-rb { flex: 0 100 auto; max-width: none; min-width: 92px; }   /* never narrower than a bill number ("SB3025 SD2"), never wider than its words */
   .td-root .td-rb.td-rbp1 { min-width: 126px; }   /* v4: and its P1 mark, which overlapped the step's words */
 }
 /* In a narrow list (a 1280 laptop) "+2 more" says "+2"; the word stays for a screen reader. */
@@ -741,17 +742,11 @@
 /* v4 (R-269, T11): Slipping. Each row carries whoever it waits on, in place of the per-person headings. */
 .td-root .td-rav { flex: none; display: inline-flex; align-items: center; gap: 2px; min-width: 52px; }
 .td-root .td-ravn { font-size: var(--t13); font-weight: 700; color: var(--n500); }
-.td-root .td-rnote { flex: none; display: inline-flex; align-items: center; gap: 3px; font-size: var(--t13); font-weight: 700; }
-.td-root .td-rnote .ic { width: 14px; height: 14px; }
 .td-root .td-cwho { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: var(--n700); }
 .td-root .td-slipline .ic { color: var(--warn-text); }
 .td-root .td-slipline a { font-weight: 700; }
-/* A narrow list (a 1280px laptop) keeps the step's words: "nobody going" becomes its icon, read aloud in full, and the
-   open item says it in words. */
-@container tdrows (max-width: 720px) {
-  .td-root .td-rnotew { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .td-root .td-rav { min-width: 0; }
-}
+/* A narrow list (a 1280px laptop): the avatars take only their own width. */
+@container tdrows (max-width: 720px) { .td-root .td-rav { min-width: 0; } }
 
 /* v4 (R-269, T13): This week's asks drawn open on Outreach's first tab, under the page's own heading. */
 .td-asks.td-asksopen { padding: 14px 16px; }
@@ -762,3 +757,9 @@
 /* v4 (R-269): Today | This week on a phone under 400px reads Today | Week, so "This week" never wraps onto two lines. */
 .td-root .td-wshort { display: none; }
 @media (max-width: 399px) { .td-root .td-wlong { display: none; } .td-root .td-wshort { display: inline; } }
+/* Slipping's rows are a little tighter than Today's (48px, still a pointer target, A-6), so a busy day's list, steps and
+   hearings nobody is going to, fits on Team's first screen whole (Nate's target: all of it, at 1440 and 1280). */
+.td-root .td-slip .td-row { min-height: 48px; }
+.td-root .td-slip .td-rsel { padding-top: 3px; padding-bottom: 3px; }
+/* In Slipping the bill's number and its step say which it is; its name would only be a sliver beside whom it waits on. */
+.td-root .td-slip .td-row:not(.td-rhear) .td-rn { display: none; }
