@@ -5,18 +5,21 @@
 // every bill on it in one line (the same line as the issue's own page, R-226). The bills on these issues are also in Bills >
 // Mine, Today and the inbox (data.js isMine; backend migration 172), so nobody hands them over bill by bill.
 // All issues stays the catalogue (rename, merge, put bills on issues); the 2027 prep list is prep.js ?view=mine.
-// v3 (R-264): the first of three tabs, My issues · All issues · Coalitions (ui.js sectionNav), three ways to group bills.
+// v3 (R-264): the first of three tabs, My issues · All issues · Coalitions (ui.js sectionNav), three ways to group bills,
+// laid out by the laptop rules: one line per issue (its name, the soonest thing that needs someone, how many bills move)
+// and one line per bill under it. Not a list and a pane: an issue's own page already shows its week one click away, and
+// a second column would halve the room these lines need for no new fact.
 import { S, SESSION_YEAR, SESSION_OVER, esc, fmtDT, myIssueIds } from './data.js';
-import { billRoute, hearingAhead, diedish } from './model.js';
+import { billRoute, hearingAhead, diedish, billNum, plain } from './model.js';
 import { icon, btn, empty, posChip, sectionNav } from './ui.js';
-import { plural, billName, isSide } from './lists.js';
-import { catByKey, billsOn, standLine, whyNot } from './issues.js';
+import { plural, isSide, clip } from './lists.js';
+import { catByKey, billsOn, whyNot, nextPhrase, testimonyWords, againstStance } from './issues.js';
 import { indexLinks, isDraft } from './prep.js';
 import { isPos, dayOf, waitingOfBills } from './standing.js';
 
 const thisSession = b => !b.session_year || +b.session_year === +SESSION_YEAR;
 const byNum = (a, b) => a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true });
-const leftWord = dl => dl.days <= 0 ? 'last day today' : `${dl.days} day${dl.days === 1 ? '' : 's'} left`;
+const dayAt = d => dayOf(d + 'T12:00:00-10:00');
 
 // Each of my issues with what decides its place: the soonest hearing on its bills, then its bills at risk, then the ones
 // with bills still moving, then those with no bills yet; in session, issues whose bills all stopped go last, in one fold.
@@ -31,34 +34,42 @@ function myIssues() {
   }).sort((x, y) => rank(x) - rank(y) || (x.hear && y.hear ? x.hear.h.scheduled_at.localeCompare(y.hear.h.scheduled_at) : 0) || x.i.name.localeCompare(y.i.name));
 }
 
-// One line under the issue's name, only when it says what the bill rows do not (ui-critic, A-14): the next hearing when
-// more than one bill is moving (with one, its row already says it), and how many are at risk. Nothing between sessions.
-function nowLine({ hear, w, going }) {
-  if (SESSION_OVER || !going.length) return '';
-  const parts = [];
-  if (hear && going.length > 1) parts.push(`<b>Next hearing</b> <a href="#/hearing/${encodeURIComponent(hear.h.id)}">${esc(fmtDT(hear.h.scheduled_at))}</a>${hear.h.committee ? ` · ${esc(hear.h.committee)}` : ''} · ${esc(hear.b.bill_number)}`);
-  if (w.risk.length) { const { st } = w.risk[0]; parts.push(`<b>${w.risk.length} at risk</b>: ${w.risk.length === 1 ? 'needs' : 'the first needs'} a hearing by ${esc(dayOf(st.deadline.date + 'T12:00:00-10:00'))}, ${esc(leftWord(st.deadline))}`); }
-  return parts.length ? `<p class="mi-now">${parts.join('<span class="mi-sep" aria-hidden="true"> · </span>')}</p>` : '';
+// The soonest thing on the issue that needs someone, said once on the issue's own line (v3): the next hearing, with its
+// bill and testimony; else the bills at risk; else the bills racing the next deadline. Only when two or more bills are
+// moving: with one, its row already says it (R-263, A-14). Nothing between sessions.
+function soonest({ hear, w, going }) {
+  if (SESSION_OVER || going.length < 2) return '';
+  if (hear) return `<a href="#/hearing/${encodeURIComponent(hear.h.id)}">Hearing ${esc(fmtDT(hear.h.scheduled_at))}</a> · ${esc(hear.b.bill_number)}${isPos(hear.b) ? ` · ${esc(testimonyWords(hear.h, hear.b))}` : ''}`;
+  if (w.risk.length) return `<b>At risk:</b> ${w.risk.length === 1 ? `${esc(w.risk[0].b.bill_number)} needs` : `${w.risk.length} bills need`} a hearing by ${esc(dayAt(w.risk[0].st.deadline.date))}`;
+  if (w.race.length) return `Needs a hearing by ${esc(dayAt(w.next))} · ${esc(plural(w.race.length, 'bill'))}`;
+  return '';
 }
 
-// The owner is said only when it is someone else: the issue is yours here, so "Owner: You" and "No owner" say nothing (A-14).
-function billRow(b) {
-  const why = whyNot(b);
-  return `<li class="le-brow"><a class="le-bmain" href="${billRoute(b)}">${billName(b, 140)}
-      <span class="is-bstat">${esc(standLine(b, { owner: 'others' }))}</span>
-      <span class="is-bmeta">${posChip(b.position || '')}</span>
-      ${why ? `<span class="le-warn">${icon('eye-off')}${esc(why)}</span>` : ''}</a></li>`;
+// Why a bill's followers do not get it, in two words on its row (the issue page says it in full).
+const REACH = b => b.tracked === false ? 'Not tracked' : !b.is_public ? 'Not public' : !b.position || b.position === 'monitor' ? 'No position' : '';
+// A bill under its issue, on one line (v3): its number and nickname, then where it stands in one short phrase. Its own
+// position shows only where it differs from the issue's stance (the issue's stance is the team's), or every one on a
+// Mixed issue, where each bill's side is the point.
+// A nickname that is the issue's own name is not said again under it (A-14): the number alone names that bill.
+function billRow(b, odd, i) {
+  const why = whyNot(b), reach = REACH(b), nm = b.nickname && plain(b.nickname) === plain(i.name) ? '' : b.nickname || clip(b, 80);
+  return `<li class="mi-brow"><a class="mi-bmain" href="${billRoute(b)}"><b>${esc(billNum(b))}</b>${nm ? ` <span class="mi-bn">${esc(nm)}</span>` : ''}</a>
+      <span class="mi-bend"><span class="mi-bph">${esc(nextPhrase(b))}</span>${odd.has(b.id) ? posChip(b.position || '') : ''}${why ? `<span class="mi-reach" title="${esc(why)}">${icon('eye-off')}<span>${esc(reach)}</span></span>` : ''}</span></li>`;
 }
 
+// One issue: a card whose first line is the issue (its name, the soonest thing, how many bills move), then its moving
+// bills one line each; the ones that did not advance wait in one quiet fold.
 function issueSec(x, k) {
   const { i, bills, going, gone, own } = x, c = catByKey(i.category), href = `#/issue/${encodeURIComponent(i.id)}?from=mine`;
   const count = !bills.length ? 'No bills yet' : going.length ? plural(going.length, 'bill') + (SESSION_OVER ? '' : ' moving') : 'Nothing moving';
-  return `<section class="le-sec mi-iss" aria-labelledby="mi-h${k}">
-    <div class="mi-head"><h2 id="mi-h${k}"><a href="${href}"><span class="mi-ic">${icon(c?.icon || 'tag')}</span><span>${esc(i.name)}</span></a></h2>
-      <p class="meta">${own ? 'You own it' : 'You help on it'}${isDraft(i) ? ' · Draft' : ''} · ${esc(count)}</p></div>
-    ${nowLine(x)}
-    ${going.length ? `<ol class="rows le-bills">${going.map(billRow).join('')}</ol>` : ''}
-    ${gone.length ? `<details class="mi-gone"><summary>${icon('chevron-down', { cls: 'is-chev' })}<span>${gone.length} did not advance</span></summary><ol class="rows le-bills">${gone.map(billRow).join('')}</ol></details>` : ''}
+  const tags = [own ? '' : 'You help', isDraft(i) ? 'Draft' : ''].filter(Boolean);
+  const odd = new Set((i.stance === 'mixed' ? going.filter(b => b.position) : againstStance(i, going)).map(b => b.id));
+  const soon = soonest(x);
+  return `<section class="card mi-iss" aria-labelledby="mi-h${k}">
+    <div class="mi-ihead"><h2 class="mi-iname" id="mi-h${k}"><a href="${href}"><span class="mi-ic">${icon(c?.icon || 'tag')}</span><span>${esc(i.name)}</span></a></h2>
+      ${soon ? `<p class="mi-soon">${soon}</p>` : ''}<p class="mi-cnt">${tags.map(t => `<span class="mi-tag">${esc(t)}</span>`).join('')}${esc(count)}</p></div>
+    ${going.length ? `<ol class="mi-bills">${going.map(b => billRow(b, odd, i)).join('')}</ol>` : ''}
+    ${gone.length ? `<details class="mi-gone"><summary>${icon('chevron-down', { cls: 'is-chev' })}<span>${gone.length} did not advance</span></summary><ol class="mi-bills">${gone.map(b => billRow(b, odd, i)).join('')}</ol></details>` : ''}
     ${bills.length ? '' : `<p class="mi-none">No ${esc(SESSION_YEAR)} bills on it yet. <a href="${href}">Put bills on it</a></p>`}
   </section>`;
 }

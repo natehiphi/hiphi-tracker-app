@@ -2,10 +2,6 @@
    index, a list, the Emails index), .le-cmp (the composer), .le-mail (the email preview, also used by review mode),
    .le-sheet (this group's sheet bodies) or .le-bar (the composer's bottom bar). Sizes 13/14/16/18/22 only. */
 
-/* The section's tab row (ui.js sectionNav) is as wide as its tabs, like the switcher it replaced, not a bar across the
-   page: staff.css gives it width: auto, which a block flex box reads as the full width. */
-@media (min-width: 900px) { .le-page .sv-secnav, .sp-page .sv-secnav { width: fit-content; } }
-
 /* ---- shared: the top line, search boxes, desktop back link. v3 (R-264): the section's tab row is ui.js sectionNav
    (staff.css .sv-secnav), so the old Outreach switcher is gone from here. ---- */
 .le-page .le-h1 { display: none; }

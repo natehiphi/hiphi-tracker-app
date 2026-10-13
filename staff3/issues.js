@@ -359,6 +359,24 @@ export function standLine(b, { owner = 'all' } = {}) {
 // stands this week is said once, in the week above; a bill whose followers do not get it says why, under its name.
 // The × to take it off shows only while editing the bills.
 const rowName = b => `<b>${esc(billNum(b))}</b> ${b.nickname ? `<b class="le-nick">${esc(b.nickname)}</b>` : `<span class="le-t">${esc(clip(b, 110))}</span>`}`;
+// The same facts as one short phrase, for a row that has room for one (My issues, v3): the hearing and its testimony, or
+// what the bill needs and by when, or where it waits; its stage only when nothing says more. The owner is named only when
+// it is someone else (R-263). Built from standLine's helpers, so the two cannot disagree.
+export const testimonyWords = (h, b) => { const t = testimonyOf(h, b); return t.filed ? 'testimony filed' : t.word === 'not started' ? `testimony due ${dueWhen(dueOf(h))}` : 'testimony drafted'; };
+export function nextPhrase(b) {
+  let say;
+  if (diedish(b)) say = 'Did not advance';
+  else {
+    const st = stopOf(b), h = hearingAhead(b);
+    if (h) say = `Hearing ${fmtDT(h.scheduled_at)}${isPos(b) ? ` · ${testimonyWords(h, b)}` : ''}`;
+    else if (st.deadline?.missed) say = `Missed the ${st.deadline.label} deadline`;
+    else if (st.phase === 'committee' && st.deadline) say = `${riskOf(b) ? 'At risk: needs' : 'Needs'} a hearing${st.committee ? ` in ${st.committee}` : ''} by ${dayAt(st.deadline.date)}`;
+    else if (st.deadline) say = `${st.deadline.label} ${dayAt(st.deadline.date)}`;
+    else say = st.committee ? `In ${st.committee}` : STAGE_LABEL[effStage(b)] || '';
+  }
+  const who = ownerOf(b);
+  return who && who.id !== S.me?.id ? `${say} · Owner: ${String(who.full_name || '').split(' ')[0]}` : say;
+}
 function billLine(i, b, edit) {
   const why = whyNot(b), stage = diedish(b) ? 'Did not advance' : thisSession(b) ? STAGE_LABEL[effStage(b)] || '' : String(b.session_year || '');
   return `<li class="le-brow is-brow" data-bid="${esc(b.id)}">

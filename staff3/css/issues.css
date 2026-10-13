@@ -338,31 +338,55 @@
   .pr-filters .sv-seg { flex-wrap: wrap; width: auto; }
 }
 
-/* ---- My issues (R-263): each issue a section, its bills under it, inside .le-page.le-list.is-page ---- */
-.mi-page .mi-iss { margin-top: var(--s24); }
-.mi-page .mi-head { margin-bottom: var(--s8); }
-.mi-page .mi-head h2 { margin: 0; }
-.mi-page .mi-head h2 a { display: inline-flex; align-items: center; gap: var(--s8); min-height: 44px; color: var(--n900); text-decoration: none; }
-.mi-page .mi-head h2 a:hover span:last-child { color: var(--p700); text-decoration: underline; }
-.mi-page .mi-head h2 a:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
-.mi-page .mi-head .meta { margin: 0; }
+/* ---- My issues (R-263; v3, R-264): each issue a card whose first line is the issue, then its moving bills one line
+   each, inside .le-page.le-list.is-page ---- */
+.mi-page .mi-iss { margin-top: var(--s12); padding: 0; overflow: hidden; }
+.mi-page .le-tools + .mi-iss, .mi-page .pr-links + .mi-iss { margin-top: var(--s16); }
+.mi-page .mi-ihead { display: flex; align-items: center; flex-wrap: wrap; gap: 2px var(--s16); padding: var(--s8) var(--s16); }
+.mi-page .mi-iname { margin: 0; min-width: 0; font-size: var(--t18); }
+.mi-page .mi-iname a { display: inline-flex; align-items: center; gap: var(--s8); min-height: 40px; color: var(--n900); text-decoration: none; }
+.mi-page .mi-iname a:hover span:last-child { color: var(--p700); text-decoration: underline; }
+.mi-page .mi-iname a:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
 .mi-page .mi-ic { display: inline-flex; color: var(--n500); }
 .mi-page .mi-ic .ic { width: 20px; height: 20px; }
-.mi-page .mi-now { margin: 0 0 var(--s8); font-size: var(--t14); line-height: 1.45; color: var(--n700); overflow-wrap: anywhere; }
-.mi-page .mi-now b { color: var(--n900); }
-.mi-page .mi-now a { color: var(--p700); font-weight: 700; }
-.mi-page .mi-none { margin: 0; font-size: var(--t14); color: var(--n700); }
+.mi-page .mi-soon { flex: 1 1 260px; min-width: 0; margin: 0; font-size: var(--t14); color: var(--n700); overflow-wrap: anywhere; }
+.mi-page .mi-soon a { color: var(--p700); font-weight: 700; }
+.mi-page .mi-soon b { color: var(--n900); }
+.mi-page .mi-cnt { margin: 0 0 0 auto; display: inline-flex; align-items: center; gap: var(--s8); font-size: var(--t14); color: var(--n500); white-space: nowrap; }
+.mi-page .mi-tag { font-size: var(--t13); font-weight: 700; color: var(--n700); }
+/* a bill: its number and nickname, then one short phrase at the right */
+.mi-page .mi-bills { list-style: none; margin: 0; padding: 0; }
+.mi-page .mi-brow { display: flex; align-items: center; gap: var(--s4) var(--s16); min-height: 44px; padding: var(--s4) var(--s16); border-top: 1px solid var(--n100); }
+.mi-page .mi-bmain { flex: 1 1 auto; min-width: 0; color: var(--n700); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mi-page .mi-bmain b { color: var(--n900); }
+.mi-page .mi-bmain .mi-bn { color: var(--n900); }
+.mi-page .mi-bmain:hover b, .mi-page .mi-bmain:hover .mi-bn { color: var(--p700); text-decoration: underline; }
+.mi-page .mi-bmain:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+.mi-page .mi-bend { flex: 0 1 auto; max-width: 58%; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: var(--s4) var(--s8); }
+.mi-page .mi-bph { font-size: var(--t14); color: var(--n700); text-align: right; }
+.mi-page .mi-reach { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t13); font-weight: 700; color: var(--n700); white-space: nowrap; }
+.mi-page .mi-reach .ic { width: 16px; height: 16px; color: var(--n500); }
+.mi-page .mi-none { margin: 0; padding: var(--s8) var(--s16) var(--s12); border-top: 1px solid var(--n100); font-size: var(--t14); color: var(--n700); }
 .mi-page .mi-none a { color: var(--p700); font-weight: 700; }
 .mi-page .pr-links { margin-top: var(--s8); }
-/* "2 did not advance": a quiet line under the moving bills, not another card (ui-critic: the card was the loudest repeat) */
-.mi-page .mi-gone > summary { list-style: none; display: inline-flex; align-items: center; gap: var(--s4); min-height: 44px; font-size: var(--t14); color: var(--n500); cursor: pointer; }
+/* "2 did not advance": a quiet line at the card's foot, opened in place */
+.mi-page .mi-gone { border-top: 1px solid var(--n100); }
+.mi-page .mi-gone > summary { list-style: none; display: flex; align-items: center; gap: var(--s4); min-height: 40px; padding: 0 var(--s16); font-size: var(--t14); color: var(--n500); cursor: pointer; }
 .mi-page .mi-gone > summary::-webkit-details-marker { display: none; }
 .mi-page .mi-gone > summary:hover span { text-decoration: underline; }
-.mi-page .mi-gone > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+.mi-page .mi-gone > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: -2px; }
 .mi-page .mi-gone > summary .ic { width: 16px; height: 16px; transition: transform .15s; }
 .mi-page .mi-gone[open] > summary .ic { transform: rotate(180deg); }
-.mi-page .mi-still { margin-top: var(--s32); }
+.mi-page .mi-still { margin-top: var(--s24); }
 .mi-page .mi-stillin { padding: 0 var(--s16) var(--s16); }
+/* a phone: a bill's phrase goes under its name, and the issue's count under its name too */
+@media (max-width: 599px) {
+  .mi-page .mi-brow { flex-direction: column; align-items: stretch; gap: 2px; padding: var(--s8) var(--s16); }
+  .mi-page .mi-bmain { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .mi-page .mi-bend { max-width: none; justify-content: flex-start; }
+  .mi-page .mi-bph { text-align: left; }
+  .mi-page .mi-cnt { margin-left: 0; white-space: normal; }
+}
 /* the heading over its lede, not beside it, wherever the page's heading shows (900px and wider since v3) */
 @media (min-width: 900px) { .mi-page .le-tools { display: block; } .mi-page .le-h1 { margin: 0 0 var(--s4); } }
 /* An issue's rows have no drag handle, so they keep the 16px inset that a list's rows give up for theirs on a desktop
