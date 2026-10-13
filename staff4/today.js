@@ -1784,10 +1784,11 @@ function aheadGate(g, lead, owners, chair) {
   const key = `ah${g.date}`, open = !!(S.tdOpen ??= {})[key], rows = open ? need : need.slice(0, AH_CAP);
   const list = need.length ? `<ul class="ah-rows">${rows.map(x => aheadRow(x, owners, chair.get(x.b.id))).join('')}</ul>${need.length > AH_CAP ? moreBtn(key, open, need.length) : ''}` : `<p class="ah-ok">${icon('check')}<span>${g.racing.length === 1 ? 'It has a hearing.' : 'Every one of them has a hearing.'}</span></p>`;
   const head = `<span class="ah-gd">${esc(ckDay(g.date))}</span><span class="ah-gn">${esc(g.name)}</span><span class="ah-gw muted">${esc(awayOf(g.days))}</span>`;
-  // v4 (R-269, T3): the Deadlines heading names this deadline and counts its bills with no hearing, so the box under it
-  // says only how far off it is and what the bills must do by then (A-14).
-  if (lead) { const lsum = `${awayOf(g.days)[0].toUpperCase()}${awayOf(g.days).slice(1)} · ${plural(g.racing.length, 'bill')} must ${gateNeed(g.label, g.racing.length)} by then${g.p1 ? `; ${g.p1} of those with no hearing ${g.p1 === 1 ? 'is' : 'are'} P1` : ''}.`;
-    return `<section class="ah-gate ah-lead" aria-label="${esc(`${ckDay(g.date)}, ${g.name}`)}"><p class="ah-gs">${esc(lsum)}</p>${need.length ? list : ''}</section>`; }
+  // v4 (R-269, T3): the Deadlines heading names this deadline and counts its bills with no hearing, so the box's line
+  // says only what the bills must do by then, not the count again (A-14). Its head keeps the date: an earlier
+  // deadline's folded line can sit between the two.
+  if (lead) { const lsum = `${plural(g.racing.length, 'bill')} must ${gateNeed(g.label, g.racing.length)} by then${g.p1 ? `; ${g.p1} of those with no hearing ${g.p1 === 1 ? 'is' : 'are'} P1` : ''}.`;
+    return `<section class="ah-gate ah-lead" aria-label="${esc(`${ckDay(g.date)}, ${g.name}`)}"><h3 class="ah-gh">${head}</h3><p class="ah-gs">${esc(lsum)}</p>${need.length ? list : ''}</section>`; }
   return `<details class="ah-gate ah-later"><summary><span class="ah-gh">${head}</span><span class="ah-gc muted">${esc(need.length ? `${plural(need.length, 'bill')} with no hearing yet` : 'all have a hearing')}</span>${icon('chevron-down', { cls: 'ah-chev' })}</summary><p class="ah-gs">${esc(sum)}</p>${list}</details>`;
 }
 // Under the grid (or the phone's list): the deadlines, then "Also worth doing".
