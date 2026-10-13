@@ -16,7 +16,7 @@
 // pieces (its hearings, its bills at risk, the ones racing the next deadline) are shared with an issue's page (issues.js),
 // built from any set of bills. "I support this coalition" lives only here now (My settings no longer lists coalitions).
 import { S, DB, DEMO, SESSION_OVER, hooks, esc, fmtDT, fmtDate, advocate } from './data.js';
-import { billNum, blurb, diedish, riskOf, stopOf, noticeByFor, roomShort, PUBLIC_APP, hiToday, hstDayOf, billById } from './model.js';
+import { billTag, billSay, diedish, riskOf, stopOf, noticeByFor, roomShort, PUBLIC_APP, hiToday, hstDayOf, billById } from './model.js';
 import { icon, btn, chip, row, empty, toast, switchRow, avatar, pickerSheet, openSheet, sectionNav, clockDay } from './ui.js';
 import { plural, isSide, thSort, sortBy, wireTable, DASH, pageHead, afterClose } from './lists.js';
 import { iconName } from './setup.js';
@@ -129,8 +129,8 @@ function folded(key, rows) {
   if (rows.length <= FOLD + 2 || S.coMore?.has(key)) return rows.join('');
   return rows.slice(0, FOLD).join('') + `<button type="button" class="row co-more" data-comore="${esc(key)}">${icon('chevron-down')}<span>Show all ${rows.length}</span></button>`;
 }
-// A bill's name the Outreach way: the number, then the nickname (or the plain summary when it has none).
-const name = b => `<b>${esc(billNum(b))}</b> ${b.nickname ? `<b>${esc(b.nickname)}</b>` : `<span class="co-t">${esc(blurb(b, 90))}</span>`}`;
+// A bill's name the Outreach way (R-271): the nickname, then the number small (a bill with no nickname: number, then its plain summary).
+const name = b => billTag(b, 90);
 const ownerBit = b => { const a = advocate((S.assignments[b.id] || [])[0]); return `<span class="co-own"><span aria-hidden="true">${avatar(a, 20)}</span><span>${a ? esc(a.id === S.me?.id ? 'You' : first(a)) : 'No owner'}</span></span>`; };
 
 function headHTML(c) {
@@ -172,7 +172,7 @@ export function hearingsSec(bills, { key, from = '' } = {}) {
     const items = s.rows.map(r => ({ h: r, b: S.bills.find(b => b.id === r.bill_id) })).filter(x => x.b).sort((x, y) => byPri(x.b, y.b));
     const d = new Date(s.t), wd = d.toLocaleDateString('en-US', { ...HST, weekday: 'short' }), dn = d.toLocaleDateString('en-US', { ...HST, day: 'numeric' });
     const time = d.toLocaleTimeString('en-US', { ...HST, hour: 'numeric', minute: '2-digit' }), long = d.toLocaleDateString('en-US', { ...HST, weekday: 'long', month: 'long', day: 'numeric' });
-    const names = items.slice(0, 3).map(({ b }) => `<b>${esc(billNum(b))}</b> ${esc(b.nickname || blurb(b, 50))}`).join(', ') + (items.length > 3 ? ` and ${items.length - 3} more` : '');
+    const names = items.slice(0, 3).map(({ b }) => billTag(b, 50)).join(', ') + (items.length > 3 ? ` and ${items.length - 3} more` : '');
     // Testimony not filed yet, in the hearing page's words, with the deadline's tone: amber inside 24 hours, red once past.
     // v4 (R-269, A-5 as amended by R-250): a deadline passed before the sitting has started is late testimony, still
     // taken, amber with the day ("late testimony until tomorrow 9:30 AM"), never red "was due".
@@ -247,7 +247,7 @@ export function wireWeek(root, redraw = () => hooks.render()) {
 // R-106). The heading says what is wrong in words: a bold "No owner" under "Owner: Lauren" read as an alarm.
 function unownedHTML(c, list) {
   const rowOf = b => `<div class="row co-arow"><a class="co-amain" href="${billRoute(b)}"><span class="title">${name(b)}</span><span class="sub">${esc(billSub(b))}</span></a>
-    ${btn('Give to…', { kind: 'secondary', sm: true, attrs: { 'data-coown': b.id, 'aria-haspopup': 'dialog', 'aria-label': `Give ${b.bill_number} to someone` } })}</div>`;
+    ${btn('Give to…', { kind: 'secondary', sm: true, attrs: { 'data-coown': b.id, 'aria-haspopup': 'dialog', 'aria-label': `Give ${billSay(b)} to someone` } })}</div>`;
   return sec('co-s3', 'Bills nobody owns', list.length, `<div class="rows co-rows">${folded(c.id + '|o', list.map(rowOf))}</div>`);
 }
 // To-dos on its bills with nobody on them ("Anyone" on the bill page). Taking one is yours to do, so nobody is messaged
@@ -258,7 +258,7 @@ function todosHTML(c, list) {
     const late = t.due_date && t.due_date < today, now = t.due_date === today;
     const due = !t.due_date ? '' : late ? `<span class="co-late">${icon('circle-alert')}Overdue, was due ${esc(dayOf(t.due_date))}</span>` : now ? `<span class="co-soon">${icon('clock')}Due today</span>` : `Due ${esc(dayOf(t.due_date))}`;
     return `<div class="row co-arow"><a class="co-amain" href="${billRoute(b)}"><span class="title co-ttl">${esc(t.title)}</span><span class="sub">${name(b)}${due ? ` · ${due}` : ''}</span></a>
-      ${btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-cotake': `${b.id}|${t.id}`, 'aria-label': `Take “${t.title}” on ${b.bill_number}` } })}</div>`;
+      ${btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-cotake': `${b.id}|${t.id}`, 'aria-label': `Take “${t.title}” on ${billSay(b)}` } })}</div>`;
   };
   return sec('co-s4', 'To-dos anyone can take', list.length, `<div class="rows co-rows">${folded(c.id + '|t', list.map(rowOf))}</div>`);
 }
@@ -323,14 +323,14 @@ export async function setSupport(c, on, focusSel = '#co-sup') {
 }
 function giveTo(b) {
   const owned = id => S.bills.filter(x => (S.assignments[x.id] || []).includes(id) && isPos(x) && !diedish(x)).length;
-  pickerSheet({ title: `Who owns ${esc(b.bill_number)}?`, value: '',
+  pickerSheet({ title: `Who owns ${esc(billSay(b))}?`, value: '',
     options: S.advocates.filter(a => a.is_active !== false).sort((x, y) => (y.id === S.me?.id) - (x.id === S.me?.id) || x.full_name.localeCompare(y.full_name))
       .map(a => [a.id, a.id === S.me?.id ? `${a.full_name} (you)` : a.full_name, 'user-round', plural(owned(a.id), 'live bill')]),
     onPick: async id => {
       const a = advocate(id); if (!a) return;
       try { await DB.setOwner(b.id, id); } catch (e) { toast(e, { err: true }); return; }
       rerender();
-      toast(`${a.id === S.me?.id ? 'You own' : first(a) + ' owns'} ${b.bill_number} now.`, { ok: true, undo: async () => { await DB.setOwner(b.id, null); rerender(); } });
+      toast(`${a.id === S.me?.id ? 'You own' : first(a) + ' owns'} ${billSay(b)} now.`, { ok: true, undo: async () => { await DB.setOwner(b.id, null); rerender(); } });
     } });
 }
 async function takeTodo(key) {
@@ -338,7 +338,7 @@ async function takeTodo(key) {
   if (!b || !t || !S.me) return;
   try { await DB.updateTodo(b.id, t.id, { assignee_id: S.me.id }); } catch (e) { toast(e, { err: true }); return; }
   rerender();
-  toast(`It’s yours: “${t.title}” on ${b.bill_number}.`, { ok: true, undo: async () => { await DB.updateTodo(b.id, t.id, { assignee_id: null }); rerender(); } });
+  toast(`It’s yours: “${t.title}” on ${billSay(b)}.`, { ok: true, undo: async () => { await DB.updateTodo(b.id, t.id, { assignee_id: null }); rerender(); } });
 }
 
 export default {

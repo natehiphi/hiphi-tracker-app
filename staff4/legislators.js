@@ -246,7 +246,7 @@ function weekBills(w, per) {
   const shown = bs.slice(0, per), more = bs.length - shown.length;
   // Each line opens the hearing the legislator hears it at (#/hearing/:id); the row around it still opens the legislator.
   const one = (b, i) => { const hid = w.hid?.get(b.id), h = hid && S.hearings.find(x => x.id === hid);
-    const inner = `<span class="lg-blt">${b.nickname ? `<b>${esc(b.nickname)}</b>` : esc(blurb(b, 60))}</span><span class="lg-bln">${esc(b.bill_number)}</span>`;
+    const inner = `<span class="lg-blt">${b.nickname ? `<b>${esc(b.nickname)}</b>` : esc(blurb(b, 60))}</span><span class="lg-bln bn-num">${esc(b.bill_number)}</span>`;
     const say = h ? `${b.nickname ? b.nickname + ' ' : ''}${b.bill_number}: the ${h.committee} hearing, ${fmtDT(h.scheduled_at)}` : '';
     return `<span class="lg-bl">${h ? `<a class="lg-hl" href="#/hearing/${encodeURIComponent(h.id)}" title="${esc(`Open the ${h.committee} hearing, ${fmtDT(h.scheduled_at)}`)}" aria-label="${esc(say)}">${inner}</a>` : inner}${more > 0 && i === shown.length - 1 ? `<span class="lg-morebills">and ${more} more</span>` : ''}</span>`; };
   return { n: bs.length, html: `<span class="lg-bls${per > 2 && shown.length > 1 ? ' two' : ''}">${shown.map(one).join('')}</span>`, all: bs.map(b => `${b.nickname ? b.nickname + ' ' : ''}${b.bill_number}`).join('\n') };

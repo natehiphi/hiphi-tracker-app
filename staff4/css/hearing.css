@@ -40,7 +40,8 @@
   min-height: 64px; padding: var(--s8) var(--s12) var(--s8) var(--s16); }
 .hr-bt { grid-area: t; min-width: 0; color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .hr-bt b { color: var(--n900); font-weight: 700; }
-.hr-bt .hr-num { white-space: nowrap; }
+.hr-kitrow { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s16); }   /* R-271: the bill's name is longer now, so it takes its own line */
+.hr-kitrow .hr-num { flex: 1 1 100%; }
 .hr-bs { grid-area: s; justify-self: end; display: flex; }
 .hr-bs .sv-chip { flex: none; }
 .hr-bf { grid-area: f; display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s12); font-size: var(--t14); color: var(--n500); }
@@ -103,6 +104,10 @@
   .hr-desk .hr-bill, .hr-desk .hr-mem { min-height: 56px; padding: 6px var(--s12) 6px var(--s16); }
   .hr-desk .hr-bill { grid-template-areas: "t s c" "f f c"; }
   .hr-desk .hr-bt { -webkit-line-clamp: 1; }
+  /* R-271: one line on a desktop, so the nickname gives way and the small number after it always shows */
+  .hr-desk .hr-bt { display: flex; align-items: baseline; gap: 0 .35em; }
+  .hr-desk .hr-bt .bn-nick, .hr-desk .hr-bt .bn-sum { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hr-desk .hr-bt .bn-num, .hr-desk .hr-bt .bn-num0 { flex: none; }
   .hr-bill:hover .hr-bt b, .hr-mem:hover .title { text-decoration: underline; text-underline-offset: 3px; }
   .hr-hicon { display: flex; }
   .hr-cols > .hr-side { padding-bottom: 2px; }   /* room for the cards' shadow */

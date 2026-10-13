@@ -10,7 +10,7 @@
 // and one line per bill under it. Not a list and a pane: an issue's own page already shows its week one click away, and
 // a second column would halve the room these lines need for no new fact.
 import { S, SESSION_YEAR, SESSION_OVER, esc, fmtDT, myIssueIds } from './data.js';
-import { billRoute, hearingAhead, diedish, billNum, plain } from './model.js';
+import { billRoute, hearingAhead, diedish, billNum, billSay, plain } from './model.js';
 import { icon, btn, empty, posChip, sectionNav, row, switchRow } from './ui.js';
 import { plural, isSide, clip } from './lists.js';
 import { catByKey, billsOn, whyNot, nextPhrase, testimonyWords, againstStance } from './issues.js';
@@ -41,8 +41,8 @@ function myIssues() {
 // moving: with one, its row already says it (R-263, A-14). Nothing between sessions.
 function soonest({ hear, w, going }) {
   if (SESSION_OVER || going.length < 2) return '';
-  if (hear) return `<a href="#/hearing/${encodeURIComponent(hear.h.id)}">Hearing ${esc(fmtDT(hear.h.scheduled_at))}</a> · ${esc(hear.b.bill_number)}${isPos(hear.b) ? ` · ${esc(testimonyWords(hear.h, hear.b))}` : ''}`;
-  if (w.risk.length) return `<b>At risk:</b> ${w.risk.length === 1 ? `${esc(w.risk[0].b.bill_number)} needs` : `${w.risk.length} bills need`} a hearing by ${esc(dayAt(w.risk[0].st.deadline.date))}`;
+  if (hear) return `<a href="#/hearing/${encodeURIComponent(hear.h.id)}">Hearing ${esc(fmtDT(hear.h.scheduled_at))}</a> · ${esc(billSay(hear.b))}${isPos(hear.b) ? ` · ${esc(testimonyWords(hear.h, hear.b))}` : ''}`;
+  if (w.risk.length) return `<b>At risk:</b> ${w.risk.length === 1 ? `${esc(billSay(w.risk[0].b))} needs` : `${w.risk.length} bills need`} a hearing by ${esc(dayAt(w.risk[0].st.deadline.date))}`;
   if (w.race.length) return `Needs a hearing by ${esc(dayAt(w.next))} · ${esc(plural(w.race.length, 'bill'))}`;
   return '';
 }
@@ -54,8 +54,11 @@ const REACH = b => b.tracked === false ? 'Not tracked' : !b.is_public ? 'Not pub
 // Mixed issue, where each bill's side is the point.
 // A nickname that is the issue's own name is not said again under it (A-14): the number alone names that bill.
 function billRow(b, odd, i) {
-  const why = whyNot(b), reach = REACH(b), nm = b.nickname && plain(b.nickname) === plain(i.name) ? '' : b.nickname || clip(b, 80);
-  return `<li class="mi-brow"><a class="mi-bmain" href="${billRoute(b)}"><b>${esc(billNum(b))}</b>${nm ? ` <span class="mi-bn">${esc(nm)}</span>` : ''}</a>
+  const why = whyNot(b), reach = REACH(b), same = b.nickname && plain(b.nickname) === plain(i.name);
+  // R-271: the nickname leads and the number follows small; a bill with no nickname keeps number then summary.
+  const name = b.nickname && !same ? `<b class="bn-nick mi-bn">${esc(b.nickname)}</b> <span class="bn-num">${esc(billNum(b))}</span>`
+    : `<b class="bn-num0">${esc(billNum(b))}</b>${same ? '' : ` <span class="mi-bn">${esc(clip(b, 80))}</span>`}`;
+  return `<li class="mi-brow"><a class="mi-bmain" href="${billRoute(b)}">${name}</a>
       <span class="mi-bend"><span class="mi-bph">${esc(nextPhrase(b))}</span>${odd.has(b.id) ? posChip(b.position || '') : ''}${why ? `<span class="mi-reach" title="${esc(why)}">${icon('eye-off')}<span>${esc(reach)}</span></span>` : ''}</span></li>`;
 }
 
