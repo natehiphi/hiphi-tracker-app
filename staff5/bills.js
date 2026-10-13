@@ -12,7 +12,7 @@
 import { S, DB, DEADLINES, esc, fmtDate, fmtDT, effStage, owners, isMuted, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks } from './data.js';
 import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionClock, gateNeed, deadlineName, billSay } from './model.js';
 import { CHAMBER_NAME, HELD_RE, stoppedAt } from '../stops.js';
-import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, POS_WORD, posIcons } from './ui.js';
+import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, POS_WORD, posIcons, whoseSeg } from './ui.js';
 import { bl, save, setCompact, shownBills, freshFacts, QUICK, quickCount, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, settled, hoverNow, typingIn, deskBack,
   views, curView, applyView, resetView, isDefault, openSaveView, openEditViews, VIEW_CAP, scopeOpts, defaultScope, posWord, openCoalition, viewState, dueDay } from './filters.js';
 import { openLook, dockLook } from './look.js';
@@ -148,7 +148,7 @@ const fullTitle = b => b.nickname ? `${b.nickname}. ${summaryOf(b)}` : summaryOf
 // ---- the page ----
 function controls(wide) {
   const v = bl(), n = activeFilters().length, opts = scopeOpts(), three = opts.length > 2;
-  const seg = segmented('blscope', opts, v.scope, 'Whose bills');
+  const seg = whoseSeg('blscope', { mine: 'me', coal: three ? 'coal' : null, team: 'all' }, v.scope, { label: 'Whose bills' });   // R-277 fix 14: one whose switch
   // A phone with three scopes gives them the whole first row, and the search shares the second with Filter: the same
   // two rows as before, so the first bill is no lower down. The shorter placeholder is what fits beside Filter.
   const ph = three && !wide ? 'Find a bill' : 'Find a bill by number or words';

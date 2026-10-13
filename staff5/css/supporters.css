@@ -354,8 +354,6 @@
 /* ---- v4 (R-269): This week's asks, the tab Outreach opens on (asks.js), and Partner update (memo.js) ----
    Both are "wide" screens like Emails and Supporters, so Outreach's tab row stays put from tab to tab; each keeps a
    reading width inside, from the left edge rather than centred, for the same reason. */
-.ot-asks .ot-every .sv-switchrow { min-height: 44px; padding: 0; gap: var(--s8); }
-.ot-asks .ot-every .sv-switchrow .title { font-weight: 400; font-size: var(--t14); color: var(--n700); }   /* quiet: a narrowing, not a task */
 .ot-asks .ot-card .td-asks { margin: var(--s12) 0 0; }
 /* Outreach's tab row has four tabs since v4, one more than fits a phone on one line each (the page scrolled sideways,
    463px on a 390px phone): below 900px a long name takes two lines, so all four stay in view. */

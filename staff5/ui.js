@@ -102,6 +102,16 @@ export const groupHead = (title, count, { fold, open = true, id } = {}) => fold
 // ---- controls ----
 // segmented('scope', [['mine','Mine'],['team','Team']], 'mine')  -> buttons with data-seg="scope" data-val
 export const segmented = (name, opts, value, label = '') => `<div class="sv-seg" role="group"${label ? ` aria-label="${esc(label)}"` : ''}>${opts.map(([v, l]) => `<button type="button" data-seg="${esc(name)}" data-val="${esc(v)}" aria-pressed="${v === value}">${esc(l)}</button>`).join('')}</div>`;
+// R-277 fix 14 (U-9): "whose work" is one switch with one set of words, in one order, on every list that has it: Mine |
+// My coalitions | Team, and Team always means everybody's. It read Mine | Team on Today, Mine | My coalitions | Team on
+// Bills, "Every coalition" on Outreach and Mine | The team's on the partner update (where Team also named an audience).
+// `opts` names the ones a list offers (My coalitions only for someone who helps on one), each [key, value]; the words and the
+// order come from here.
+export const WHOSE = { mine: 'Mine', coal: 'My coalitions', team: 'Team' };
+export const whoseSeg = (name, opts, value, { label = 'Whose work', cls = '' } = {}) => {
+  const list = ['mine', 'coal', 'team'].filter(k => opts[k] !== undefined && opts[k] !== null);
+  return `<div class="sv-seg sv-whose${cls ? ' ' + cls : ''}" role="group" aria-label="${esc(label)}">${list.map(k => `<button type="button" data-seg="${esc(name)}" data-val="${esc(opts[k])}" data-whose="${k}" aria-pressed="${String(opts[k]) === String(value)}">${WHOSE[k]}</button>`).join('')}</div>`;
+};
 export const switchRow = (id, label, on, help = '', a = {}) => `<label class="sv-switchrow" for="${esc(id)}"><span class="body"><span class="title">${label}</span>${help ? `<span class="sub">${help}</span>` : ''}</span><input type="checkbox" role="switch" id="${esc(id)}" ${on ? 'checked' : ''}${attrs(a)}><span class="sv-switch" aria-hidden="true"></span></label>`;
 export const field = (id, label, input, help = '') => `<div class="field"><label for="${esc(id)}">${label}</label>${input}${help ? `<span class="help" id="${esc(id)}-help">${help}</span>` : ''}</div>`;
 // The testimony steps with the true state: Write · Review · (Second approval) · File (v4: one name for the step, C-15)

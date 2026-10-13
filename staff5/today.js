@@ -55,7 +55,7 @@ import { S, DB, DEMO, SESSION_OVER, SESSION_YEAR, DEADLINES, esc, fmtDT, fmtDate
 import { sharePageUrl, liveAsk } from './model.js';   // this week's asks (R-132); the ask still showing (Z1-3)
 import { plainAction, OUT_PLAIN as OUT, draftFor, alertsToReview, approves, canFirstApprove, canSecondApprove, alertTarget, billNum, billTag, billSay, blurb, roomShort, chairMail, attendees, streamOf, hearingAhead, stopOf, diedish, legislativeDay, hstDayOf, gateNeed, deadlineName, unslack, billById, personName, OUTCOME_LABEL, sessionClock, suggestions, suggState, setSugg, SUGGEST_CAP, whyDead } from './model.js';
 import { icon, btn, iconBtn, chip, avatar, groupHead, segmented, empty, notice, toast, openSheet, closeSheet, pickerSheet, menuSheet, confirmSheet, field, keysOn, urgentMark, countdown, clockDay } from './ui.js';
-import { goingBtn, docBtn, filedBtn, showAllBtn, ACT as LOOK } from './ui.js';   // R-277 fix 4 (U-4, U-8): one look per action
+import { goingBtn, docBtn, filedBtn, showAllBtn, ACT as LOOK, whoseSeg } from './ui.js';   // R-277 fix 4 (U-4, U-8): one look per action
 import { newSteps, markNewStep } from './help.js';
 import { draftAsking, makeDraftNow } from './testimony.js';
 import { openLook } from './look.js';
@@ -636,7 +636,9 @@ function toolbar(route) {
   // R-025 answers 1 and 2). It used to read "Mine | Everyone" with a second "Everyone" picker beside it, and the Week
   // view had a row of owner chips as well; the list and This week now share this one picker.
   const none = scope === 'none';
-  const seg = `<div class="sv-seg td-scope" role="group" aria-label="Whose tasks"><button type="button" data-seg="tdscope" data-val="mine" aria-pressed="${scope === 'mine'}">Mine</button><button type="button" data-seg="tdscope" data-val="team" aria-pressed="${scope !== 'mine'}">Team</button></div>`;
+  // R-277 fix 14 (U-9): ui.js whoseSeg, the same words and order as every list. A coalition's work is already on Mine for
+  // someone who helps on it ("Show its work on my Today"), so Today offers Mine | Team.
+  const seg = whoseSeg('tdscope', { mine: 'mine', team: 'team' }, scope === 'mine' ? 'mine' : 'team', { label: 'Whose tasks', cls: 'td-scope' });
   const whoBtn = scope === 'mine' ? '' : `<div class="td-whorow"><button type="button" class="sv-pick td-whobtn" data-whopick aria-haspopup="dialog" aria-label="${esc(who ? `Showing ${who.full_name}’s ${week ? 'week' : 'list'}. Choose someone else` : none ? 'Showing the bills nobody owns. Choose someone' : 'Showing everyone. Choose one teammate')}">${who ? avatar(who, 24) : none ? avatar(null, 24) : icon('users')}<span>${who ? esc(who.full_name) : none ? 'No owner' : 'Everyone'}</span>${icon('chevron-down', { cls: 'chev' })}</button></div>`;
   return `<div class="td-sub sv-phead"><div class="td-head"><h1 class="td-h1" tabindex="-1">${esc(heading())}</h1>
       <p class="td-date"><span>${esc(a)}</span></p></div>

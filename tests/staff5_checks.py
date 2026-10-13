@@ -54,6 +54,7 @@ def batch_c(b, page, go):
     check(f'Today and Team at {W}: no row cut short, all eight people ({total} rows)', total and not cut, '; '.join(cut[:3]))
   batch_c_looks(b, page, go)
   batch_c_frame(b, page, go)
+  batch_c_whose(b, page, go)
 
 # One look per action (fix 4, U-4, U-8): every "I'm going", Doc, "Mark filed" and "Show all" on a page (sheets aside, where
 # the confirm button is the sheet's own) is drawn by ui.js: its class, its words, its icons, and the same colour and weight
@@ -100,6 +101,39 @@ def batch_c_frame(b, page, go):
           '; '.join(f"{r} {g['left']},{g['top']}" for r, g in got.items()) if len(tops) > 1 or len(lefts) > 1 else f'{lefts} {tops}')
     check(f'{W}: the top search box is on every main page, Bills too', all(g['search'] for g in got.values()), ', '.join(r for r, g in got.items() if not g['search']))
     check(f'{W}: a page\'s "…" menu is the last thing in its heading row', all(g['moreLast'] for g in got.values()), ', '.join(r for r, g in got.items() if not g['moreLast']))
+
+# "Whose work" the same everywhere (fix 14, U-9): Mine | My coalitions | Team, those words, that order, on every list with such
+# a switch; no "Every coalition", "The team's" or "Everyone" switch; the partner update's audience is "For: Partners / Staff".
+WHOSE_ROUTES = ['/', '/?scope=team', '/bills', '/outreach', '/outreach/partners']
+WHOSE_JS = r"""() => { const segs = [...document.querySelectorAll('main .sv-seg, main [role=group]')].filter(e => e.getClientRects().length);
+  const whose = segs.filter(s => s.querySelector('[data-whose]')).map(s => [...s.querySelectorAll('button')].map(b => b.innerText.trim()));
+  const stray = segs.filter(s => !s.querySelector('[data-whose]')).map(s => [...s.querySelectorAll('button, a')].map(b => b.innerText.trim()))
+    .filter(l => l.some(x => /^(Mine|Team|The team’s|Everyone|Every coalition|My coalitions)$/.test(x)));
+  const sw = [...document.querySelectorAll('main .sv-switchrow')].filter(e => /Every coalition/.test(e.innerText)).length;
+  const aud = [...document.querySelectorAll('[data-seg="memoaud"]')].map(b => b.innerText.trim());
+  return { whose, stray, sw, aud }; }"""
+ORDER = ['Mine', 'My coalitions', 'Team']
+
+def batch_c_whose(b, page, go):
+  for who in ('SY', 'NT'):
+    pg = page(who); bad = []; seen = 0; aud = []
+    for i, r in enumerate(WHOSE_ROUTES):
+      if i == 0: go(pg, r, 3000)
+      else: pg.evaluate(f"location.hash = '#{r}'"); pg.wait_for_timeout(1400)
+      g = pg.evaluate(WHOSE_JS); aud = g['aud'] or aud
+      for l in g['whose']:
+        seen += 1
+        if not l or any(x not in ORDER for x in l) or [x for x in ORDER if x in l] != l or l[-1] != 'Team': bad.append(f'{r}: {" | ".join(l)}')
+      bad += [f'{r}: stray switch {" | ".join(l)}' for l in g['stray']] + ([f'{r}: "Every coalition" switch'] if g['sw'] else [])
+      if r == '/outreach/partners':   # the Staff audience shows the memo's own whose switch
+        pg.locator('[data-seg="memoaud"][data-val="team"]').first.click(); pg.wait_for_timeout(900)
+        g = pg.evaluate(WHOSE_JS)
+        for l in g['whose']:
+          seen += 1
+          if [x for x in ORDER if x in l] != l or l[-1] != 'Team': bad.append(f'{r} (Staff): {" | ".join(l)}')
+    check(f'{who}: one "whose work" switch, Mine | My coalitions | Team in that order, on every list ({seen} seen)', seen >= 4 and not bad, '; '.join(bad[:4]))
+    check(f'{who}: the partner update is "For: Partners / Staff"', aud == ['Partners', 'Staff'], ' / '.join(aud))
+    pg.context.close()
 
 def batch_c_looks(b, page, go):
   seen = {k: [] for k in WANT}

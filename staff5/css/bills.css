@@ -263,6 +263,7 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-mctl .bl-mwho, .bl-mctl .bl-maud { flex: none; }
   .bl-mctl .field { flex: 0 1 280px; }
   .bl-mctl .input { min-height: 48px; }
+  .bl-mctl .bl-mcopyrow { margin-left: auto; }   /* R-277 fix 10: the copy buttons end the row of choices (the heading row holds the tabs) */
   .bl-memo { padding: 40px 72px 48px; }
   .bl-memo h2 { font-size: var(--t22); margin-bottom: var(--s12); }
   .bl-memo h3 { font-size: var(--t18); margin: var(--s24) 0 var(--s8); }
