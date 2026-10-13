@@ -303,6 +303,22 @@ call or helper is made in both** (`staff/` and `staff3/`); v3's own browser keys
 remembered choices are shared with v2. When Nate picks: v3 becomes `staff/` (and `staff.html`/`index.html` load it), or
 `staff3/` and `staff3.html` are deleted. The plan and the reviews: backend `docs/requests/R-264.md`.
 
+## Staff v4 (`staff4.html` + `staff4/`), to compare (R-269, 12 Oct 2026)
+
+Nate: "Make all these changes in a staffv4 page." A copy of Staff v3 made 12 Oct with R-269's thirteen changes, built so
+each person's three most important things are on their first screen: Today's coalition rows say where testimony stands
+and "Nothing of your own" no longer sits over a draft that is due; Today always opens on Mine (Team has an address,
+`#/?scope=team`); This week follows your coalitions when you own nothing; on a hearing day the hearing you're going to is
+the first card; a bill's row leads with its testimony when that is due within a day; late testimony that can still be
+filed is amber ("Late testimony, still open", "to approve"); admins and second approvers get one "N slipping on the team"
+line and a Slipping list at the top of Team (tomorrow's hearings with nobody going included); Getting started sits under
+the person's work; new hearings with no draft are one row; Outreach opens on this week's asks (tabs: This week's asks,
+Partner update, Emails, Supporters); the Tasks page retired. Held to A-24 by `tests/staff4_budget.py` and to Nate's
+per-person targets by `tests/staff4_people.py` (both in CI; the people test adds Patti and Julie and moves the practice
+clock as files are served). Each version's menu opens the others. **Staff v3 is left as it was**; R-267's Fix it batch
+builds into v4 (Nate, 12 Oct). Nate picks v2, v3 or v4 on 26 Oct. The analysis, the brief and the walk tools: backend
+`docs/requests/R-269.md` and `docs/requests/R-269/`.
+
 ## Staff v2 (`staff.html` + `staff/`)
 
 Task-first. Tabs: Today, My issues, Bills, Legislators, Outreach. `staff/app.js` frame + router (`parseRoute`), `staff/ui.js`
