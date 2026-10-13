@@ -47,9 +47,14 @@ export const ownerOf = b => advocate((S.assignments[b.id] || [])[0]);
 // (before the hearing starts) is amber "late testimony until 1:10 PM", not red "overdue". Pass the hearing's start as \`until\`.
 const lateUntil = (iso, until) => { const now = Date.now(); return !!until && new Date(iso) <= now && new Date(until) > now; };
 const clock = t => new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' });
+// v4 (R-269): "late testimony until 9:30 AM" said on Thursday about Friday's 9:30 read as half an hour away; the day goes in
+// whenever the hearing is not today ("until tomorrow 9:30 AM", "until Fri 9:30 AM").
+const hstDay = t => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+export const clockDay = t => { const d = hstDay(t), today = hstDay(Date.now()), tmw = hstDay(Date.now() + 864e5);
+  return d === today ? clock(t) : d === tmw ? `tomorrow ${clock(t)}` : `${new Date(t).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Pacific/Honolulu' })} ${clock(t)}`; };
 export function countdown(iso, { prefix = '', until = null } = {}) {
   if (!iso) return '';
-  if (lateUntil(iso, until)) return `<span class="sv-count soon">${icon('clock')}${esc(`${prefix}late testimony until ${clock(until)}`)}</span>`;
+  if (lateUntil(iso, until)) return `<span class="sv-count soon">${icon('clock')}${esc(`${prefix}late testimony until ${clockDay(until)}`)}</span>`;
   const ms = new Date(iso) - Date.now(), h = ms / 36e5;
   // Never round a deadline up: 2 days 6 hours is "2 days left", not 3 (R-022). A day early is safe; a day late is not.
   const text = ms <= 0 ? `${prefix}overdue` : h < 1 ? `${prefix}under an hour` : h < 48 ? `${prefix}${Math.floor(h)}h left` : `${prefix}${Math.floor(h / 24)} days left`;
@@ -181,10 +186,12 @@ addEventListener('scroll', () => { if (!fbRaf) fbRaf = requestAnimationFrame(() 
 
 // ---- urgency mark: the current app's left-rail block, kept because it is the fastest thing to scan down a long
 // list (assessment 9/19). Never colour alone: the number, the word and, when late, an icon all say the same thing. ----
-export function urgentMark(iso, { done = false, until = null } = {}) {
+// v4 (R-269): \`act\` names what the hours are for. A late-testimony mark on an approval says "to approve" (Jess does not
+// file; "4h to file" on her approval read as a filing task), on everything else "to file".
+export function urgentMark(iso, { done = false, until = null, act = 'to file' } = {}) {
   if (done) return `<span class="sv-urg done" role="img" aria-label="Done">${icon('check')}</span>`;
   if (!iso) return '<span class="sv-urg none" aria-hidden="true"></span>';
-  if (lateUntil(iso, until)) { const hh = Math.max(0, Math.floor((new Date(until) - Date.now()) / 36e5)); return `<span class="sv-urg soon" role="img" aria-label="${esc(`late testimony until ${clock(until)}`)}"><b>${hh < 1 ? '<1h' : hh + 'h'}</b><span>to file</span></span>`; }   // the hours left to file late ("late" read as "4 hours late")
+  if (lateUntil(iso, until)) { const hh = Math.max(0, Math.floor((new Date(until) - Date.now()) / 36e5)); return `<span class="sv-urg soon" role="img" aria-label="${esc(`late testimony until ${clockDay(until)}`)}"><b>${hh < 1 ? '<1h' : hh + 'h'}</b><span>${esc(act)}</span></span>`; }   // the hours left to file late ("late" read as "4 hours late")
   const ms = new Date(iso) - Date.now(), h = ms / 36e5, over = -h;
   const big = ms <= 0 ? (over >= 48 ? `${Math.floor(over / 24)}d` : `${Math.max(1, Math.floor(over))}h`)
     : h < 1 ? '<1h' : h < 48 ? `${Math.floor(h)}h` : `${Math.floor(h / 24)}d`;   // rounded down, never up (R-022)
@@ -333,7 +340,9 @@ export function confirmSheet({ title, text = '', ok = 'OK', danger = false }) {
 // 'outreach': rallying people. Lists left the row (none live); its pages still open from Bills' "…" menu.
 const SECTIONS = {
   issues: ['Groups of bills', [['mine', '#/my-issues', 'My issues'], ['all', '#/outreach/issues', 'All issues'], ['coalitions', '#/coalition', 'Coalitions']]],
-  outreach: ['Outreach', [['supporters', '#/outreach', 'Supporters'], ['emails', '#/outreach/emails', 'Emails']]],
+  // v4 (R-269): Outreach is for rallying, so it opens on this week's asks (narrowed to your coalitions); the partner
+  // update moved here from Bills' "…" menu; the supporters table is the last tab, not the first screen.
+  outreach: ['Outreach', [['asks', '#/outreach', 'This week\u2019s asks'], ['partners', '#/outreach/partners', 'Partner update'], ['emails', '#/outreach/emails', 'Emails'], ['supporters', '#/outreach/supporters', 'Supporters']]],
 };
 export function sectionNav(kind, cur) {
   const [label, items] = SECTIONS[kind] || ['', []];
