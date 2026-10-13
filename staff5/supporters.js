@@ -219,7 +219,7 @@ export default {
         S.spLoadKick = true;
         DB.loadPeople().then(() => { S.spLoadErr = null; hooks.render(); }).catch(e => { S.spLoadErr = e; S.spLoadKick = false; hooks.render(); });
       }
-      return `<div class="sp-page${isDesk() ? ' sp-desk' : ''}${isSide() ? ' sp-side' : ''}">${sectionNav('outreach', 'supporters')}<div class="sp-tools"><h1 class="sp-h1">Supporters</h1></div>${S.spLoadErr
+      return `<div class="sp-page${isDesk() ? ' sp-desk' : ''}${isSide() ? ' sp-side' : ''}"><div class="sp-tools sv-phead"><h1 class="sp-h1">Supporters</h1><span class="sv-phr">${sectionNav('outreach', 'supporters')}</span></div>${S.spLoadErr
         ? empty({ title: 'Supporters did not load', text: 'Check your connection and try again.', action: btn('Try again', { icon: 'rotate-ccw', attrs: { 'data-sp': 'retry' } }) })
         : skeleton(6)}</div>`;
     }
@@ -229,19 +229,19 @@ export default {
     if (document.body.dataset.screen !== 'supporters') { v.selecting = false; v.sel.clear(); }
     for (const id of [...v.sel]) if (!personById(id)) v.sel.delete(id);
     const n = nFilters(v.f), desk = isDesk();
-    // Desktop: one tool row in the Bills page's order (title, search, then Filter and the rest on the right), under
-    // Outreach's tab row.
+    // R-277 fix 10 (U-5, U-12): the heading row of every page: the title, Outreach's tabs, Filter, Add a person and the
+    // page's "…" last; the search under it.
     return `<div class="sp-page${desk ? ' sp-desk' : ''}${isSide() ? ' sp-side' : ''}">
-      ${sectionNav('outreach', 'supporters')}
-      <div class="sp-tools">
+      <div class="sp-tools sv-phead">
         <h1 class="sp-h1">Supporters</h1>
+        <span class="sv-phr">${sectionNav('outreach', 'supporters')}<button type="button" class="btn secondary sm sp-filterbtn" data-sp="filter" data-k="filter" aria-haspopup="dialog">${icon('sliders-horizontal')}<span>Filter</span>${n ? `<span class="sp-n" aria-label="${n} on">${n}</span>` : ''}</button>
+        ${desk ? btn('Add a person', { kind: 'secondary', sm: true, icon: 'user-plus', attrs: { 'data-sp': 'add', 'data-k': 'add', 'aria-haspopup': 'dialog' } }) : ''}
+        ${iconBtn('ellipsis', 'More actions', { 'data-sp': 'more', 'data-k': 'more', 'aria-haspopup': 'dialog' })}</span>
+      </div>
+      <div class="sp-tools sp-srow">
         <div class="sp-search" role="search"><label class="sr" for="sp-q">Search supporters by name, email or phone</label>${icon('search')}
           <input id="sp-q" type="search" placeholder="${desk ? 'Search by name, email or phone' : 'Search people'}" value="${esc(v.f.q)}" autocomplete="off" enterkeyhint="search">
           ${iconBtn('x', 'Clear the search', { 'data-sp': 'qclear', hidden: !v.f.q })}</div>
-        ${desk ? '<span class="sp-sp"></span>' : ''}
-        <button type="button" class="btn secondary sm sp-filterbtn" data-sp="filter" data-k="filter" aria-haspopup="dialog">${icon('sliders-horizontal')}<span>Filter</span>${n ? `<span class="sp-n" aria-label="${n} on">${n}</span>` : ''}</button>
-        ${desk ? btn('Add a person', { kind: 'secondary', sm: true, icon: 'user-plus', attrs: { 'data-sp': 'add', 'data-k': 'add', 'aria-haspopup': 'dialog' } }) : ''}
-        ${iconBtn('ellipsis', 'More actions', { 'data-sp': 'more', 'data-k': 'more', 'aria-haspopup': 'dialog' })}
       </div>
       ${rollHTML()}
       ${segChips(v)}

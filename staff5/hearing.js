@@ -13,6 +13,7 @@ import { S, DB, esc, fmtDT, advocate, capitolUrl } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
 import { codesOf, cmteName, streamOf, draftFor, attendees, billById, billSay, billTag, legsOf, stanceOf, OUTCOME_LABEL, hearingAhead, publicWords, shareKit, billByRef } from './model.js';
 import { icon, btn, iconBtn, chip, empty, notice, toast, pickerSheet, avatar, countdown, posIcons, POS_WORD, clockDay } from './ui.js';
+import { goingBtn, showAllBtn } from './ui.js';   // R-277 fix 4 (U-4, U-8): one look per action; the going toggle is no longer drawn as a chip
 import { photo, legName, partyDist, roleWord, legHref, wireLinks } from './pathway.js';
 import { rerender, viewIsNew } from './bill.js';
 import { billRoute, whenAt, spanOf, roomName, hearingWhen } from './model.js';
@@ -94,7 +95,7 @@ const section = (id, title, n, inner, extra = '') => `<section class="hr-sec" ar
 // Long member lists show the first rows; "Show all" opens the rest in place (remembered for this visit).
 function folded(key, rows) {
   if (rows.length <= FOLD + 2 || S.hrMore?.has(key)) return rows.join('');
-  return rows.slice(0, FOLD).join('') + `<button type="button" class="row hr-more" data-hrmore="${esc(key)}">${icon('chevron-down')}<span>Show all ${rows.length}</span></button>`;
+  return rows.slice(0, FOLD).join('') + showAllBtn(rows.length, { 'data-hrmore': key });
 }
 
 function headHTML(c) {
@@ -160,7 +161,7 @@ function agendaHTML(c) {
   if (!items.length) inner = `<p class="hr-empty">None of the bills heard here is on the tracker any more.</p>`;
   else if (!pos.length) inner = rows(mon);
   else inner = rows(pos) + (mon.length ? `<details class="hr-fold"${S.hrMon ? ' open' : ''}><summary>${icon('eye')}<span>${mon.length === 1 ? '1 more bill we monitor' : `${mon.length} more bills we monitor`}</span>${icon('chevron-down', { cls: 'chev' })}</summary>${rows(mon)}</details>` : '');
-  return section('hr-s1', 'Our bills on the agenda', items.length, inner) + shareKitHTML(c);
+  return section('hr-s1', 'Our bills on the agenda', null, inner) + shareKitHTML(c);   // R-277 fix 13: the rows are in view; a count asked nothing (A-24)
 }
 // The share kit (R-117): for each bill with a position still to be heard, its share page's link and a ready message
 // (the ask, the deadline, the link) to paste into a text, HIPHI's email or a post.
@@ -196,7 +197,7 @@ function goingHTML(c) {
   const list = goers.length ? `<ul class="hr-goers">${goers.map(a => `<li><span aria-hidden="true">${avatar(a, 28)}</span><span class="hr-gname">${esc(a.id === me?.id ? 'You' : a.full_name)}</span>${admin && live && a.id !== me?.id ? iconBtn('x', `Take ${first(a)} off this hearing`, { 'data-hroff': a.id }) : ''}</li>`).join('')}</ul>`
     : `<p class="hr-none">${icon(over ? 'user-round' : 'user-plus')}<span>${over ? 'Nobody from the team was going.' : cancelled ? 'Nobody needs to go.' : 'Nobody from the team yet.'}</span></p>`;
   // v4 (R-269): pressed, the toggle says what is true ("You’re going"), as the list above it does; it read "I’m going" either way.
-  const acts = live && me ? `<div class="hr-gacts"><button type="button" class="chip hr-gobtn" data-hrgo aria-pressed="${meIn}">${icon(meIn ? 'user-check' : 'user-plus')}${meIn ? 'You’re going' : 'I’m going'}</button>${admin ? btn('Send a teammate…', { kind: 'text', sm: true, icon: 'user-round-plus', attrs: { 'data-hrput': '1', 'aria-haspopup': 'dialog' } }) : ''}</div>` : '';
+  const acts = live && me ? `<div class="hr-gacts">${goingBtn(meIn, { 'data-hrgo': '' })}${admin ? btn('Send a teammate…', { kind: 'text', sm: true, icon: 'user-round-plus', attrs: { 'data-hrput': '1', 'aria-haspopup': 'dialog' } }) : ''}</div>` : '';
   return { title: over && !cancelled ? 'Who was going' : 'Who’s going', body: list + acts };
 }
 

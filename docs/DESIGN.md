@@ -832,6 +832,9 @@ retired words in the code's quoted text on every push, so the list does not drif
 | **I help on CTFH** (R-277) | I support CTFH, You support it | helping with a coalition's bills. Its switch says **Show its work on my Today**. "Support" and **Monitor** are positions only. |
 | **Lateral**, **Decking** (R-277) | two definitions | Lateral: the last day a bill can reach its last committee in the chamber it is in. Decking: the last day it can clear that committee and be filed for its floor vote. Help's glossary and the bill page's stage note say the same. In the partner update the names give way to what they ask ("the deadline to reach its last committee"). |
 | **Drive, Slack and the calendar** (R-277) | Where things live | Help's topic about places outside the app; the app's own map is "What each place is for". |
+| **Mine · My coalitions · Team** (R-277) | Every coalition, The team's, Everyone (as a whose switch) | whose work a list shows, in that order, on every list that has the switch (ui.js `whoseSeg`); **Team** always means everybody's work. My coalitions shows only to someone who helps on one. The partner update's audience is **For: Partners / Staff**, never "Team". |
+| **I'm going** / pressed **You're going** (R-277) | Take me off, I'm not going after all | the one going toggle, the same button on Today, the bill page and the hearing page (ui.js `goingBtn`). A menu item may still say "I'm not going after all". |
+| **Open Doc** (R-277) | Open the Google Doc, Open (for the Doc) | the one Doc button, with the document and new-tab icons, on every screen (ui.js `docBtn`). Likewise **Mark filed** (`filedBtn`) and **Show all 12** / **Show fewer** (`showAllBtn`). |
 
 **Hawaiian:** ʻokina is the character ʻ (U+02BB) in Hawaiʻi and in place names (Oʻahu, Kauaʻi, Molokaʻi, Hawaiʻi Island); kahakō where
 the name has one. **kūpuna** is the plural (elders) and **kupuna** one elder (the "I'm a…" title). The Legislature's own titles and

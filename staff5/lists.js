@@ -68,8 +68,10 @@ export function wireTable(root, cols, state) {
 // The top of Emails, All issues, Coalitions and Lists. v3 (R-264): the section's one tab row (ui.js sectionNav, or
 // nothing) comes first at every width, then the page's title, a line about it when one is needed, and its main button.
 // The title shows on a laptop too, now that the sidebar no longer lists the sub-pages beside it.
+// R-277 fix 10 (U-5, U-12): the page's one heading row: the h1, its line, then at the right the section's tabs, the page's own
+// button and its "…" (always last). staff.css .sv-phead.
 export const pageHead = (nav, title, lede, action) =>
-  `${nav || ''}<div class="le-tools"><h1 class="le-h1">${title}</h1>${lede ? `<p class="le-lede">${lede}</p>` : '<span class="le-sp"></span>'}${action}</div>`;
+  `<div class="le-tools sv-phead"><div class="sv-pht"><h1 class="le-h1">${title}</h1>${lede ? `<p class="le-lede">${lede}</p>` : ''}</div><span class="sv-phr">${nav || ''}${action || ''}</span></div>`;
 
 // ui.js closes a sheet with history.back(), which lands a moment later. Navigating or opening the next sheet before
 // it lands lets that Back undo the new step, so anything that follows a closing sheet waits for it (or 500ms).

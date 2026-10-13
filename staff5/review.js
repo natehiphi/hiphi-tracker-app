@@ -9,6 +9,7 @@
 import { S, DB, esc, fmtDT, advocate, hooks, changedSince, startedFromLine } from './data.js';
 import { agoWords, billNum, billSay, blurb, alertTarget, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn } from './model.js';
 import { icon, btn, chip, stepBar, empty, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, posIcons, POS_WORD, ownerOf, clockDay } from './ui.js';
+import { docBtn, keysUsed } from './ui.js';   // R-277 fix 4 (U-4): "Open Doc" here too (it was "Open the Google Doc", a full-width outline)
 import { emailPreview } from './composer.js';
 import { reviewQueue, hearingFor, testDue, cd, hearingLine, reviewerNames, needsSecond, HOVER, afterBack } from './today.js';
 import { statusSentence } from './bill.js';
@@ -73,9 +74,10 @@ function billState(b, { email = false, d = null, h = null } = {}) {
 }
 function header(r, total) {
   const n = Math.min(r.i + 1, total);
-  return `<div class="td-rvbar">
+  // R-277 fix 10 (U-5): the page's own heading row, where every page has it (the frame's header held "Review" before)
+  return `<div class="td-rvbar sv-phead">
     <a class="iconbtn td-rvx" href="#/" data-back aria-label="Close review" title="Close review">${icon('x')}</a>
-    <h2 class="td-rvh">Review <span class="td-rvn">· ${n} of ${total}</span></h2>
+    <h1 class="td-rvh">Review <span class="td-rvn">· ${n} of ${total}</span></h1>
     ${btn('Skip', { kind: 'text', iconEnd: 'chevron-right', attrs: { 'data-rvskip': '1' } })}</div>`;
 }
 // When the testimony is due. v4 (R-269, A-5 as amended by R-250): a deadline that has passed while the hearing has not
@@ -105,7 +107,7 @@ function draftBody(it) {
     ${stale ? notice('warn', 'triangle-alert', `The bill is now ${esc(b.current_version)}; this draft was written for ${esc(d.version || 'the introduced bill')}.${changedSince(b, d.version) ? ` What changed: ${esc(changedSince(b, d.version))}` : ''}`) : ''}
     ${d.review_note ? `<blockquote class="td-q">${esc(d.review_note)}</blockquote>` : ''}
     ${stepBar(d.status, { second: needsSecond(d) })}
-    ${d.doc_url ? btn('Open the Google Doc', { kind: 'secondary', full: true, href: d.doc_url, target: '_blank', icon: 'file-text', iconEnd: 'external-link', attrs: { 'data-doc': '1' } }) : `<p class="small muted">The Google Doc link is missing. Open the bill to find the draft.</p>`}
+    ${d.doc_url ? docBtn(d.doc_url, { attrs: { 'data-doc': '1' } }) : `<p class="small muted">The Google Doc link is missing. Open the bill to find the draft.</p>`}
   </section>`;
 }
 function emailBody(it) {
@@ -126,7 +128,7 @@ function endScreen(r) {
   const decided = r.log.length, skipped = stillSkipped(r);
   const title = !r.keys.length ? 'Nothing to approve.' : !decided ? 'Nothing reviewed yet.' : skipped.length ? `${decided} of ${r.keys.length} reviewed.` : r.keys.length === 1 ? 'Reviewed.' : `All ${decided} reviewed.`;
   const text = !r.keys.length ? 'Drafts and emails that need your approval show up here.' : '';
-  return `<div class="td-rv td-rvend">${empty({ title, text })}
+  return `<div class="td-rv td-rvend"><div class="sv-phead"><h1 class="sv-h1">Review</h1></div>${empty({ title, text })}
     ${decided ? `<div class="rows td-rvlog">${r.log.map(x => `<div class="row"><span class="lead">${icon(x.icon)}</span><span class="body"><span class="title"><span class="td-num">${esc(x.num)}</span></span><span class="sub">${esc(x.what)}</span></span></div>`).join('')}</div>` : ''}
     <div class="btncol td-rvendbtns">${skipped.length ? btn(`Review the ${skipped.length === 1 ? 'one' : skipped.length} you skipped`, { kind: 'secondary', attrs: { 'data-again': '1' } }) : ''}${btn('Back to Today', { href: '#/', attrs: { 'data-home': '1', 'data-back': true } })}</div></div>`;
 }
@@ -148,7 +150,7 @@ function render(route) {
     ${mine && it.type === 'draft' && it.d.status === 'review' && standingIn(S.me, it.h) ? notice('warn', 'clock', '<b>You are standing in.</b> Nobody who usually gives the first approval has yet, and testimony is due soon, so you can approve it or send it back.') : ''}
     ${mine ? '' : notice('info', 'info', it.type === 'email' ? 'This email is no longer waiting for your approval.' : `This draft is no longer waiting for you. It is ${esc({ draft: 'back in draft', review: 'waiting for an approver', second_review: 'waiting for a second approval', approved: 'approved and ready to file', filed: 'filed', cancelled: 'for a cancelled hearing' }[it.d.status] || it.d.status)}.`)}
     ${it.type === 'email' ? emailBody(it) : draftBody(it)}
-    ${keysOn() ? `<p class="td-keys">Keys: Shift+A approve · R send back${it.type === 'draft' ? ' · O open the Doc' : ''} · Right arrow skip · Esc close</p>` : ''}</div>`;
+    ${keysOn() && keysUsed() ? `<p class="td-keys">Keys: Shift+A approve · R send back${it.type === 'draft' ? ' · O open the Doc' : ''} · Right arrow skip · Esc close</p>` : ''}</div>`;
 }
 function bar(route) {
   const { it } = current(route);

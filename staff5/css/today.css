@@ -124,7 +124,6 @@
 .td-root .td-pmore:hover { background: var(--p50); }
 .td-root .td-pmore .ic { width: 16px; height: 16px; }
 .td-root .td-panel a:focus-visible, .td-root .td-panel button:focus-visible { outline-offset: -2px; border-radius: var(--r8); }
-.td-root .td-now { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: var(--pill); background: var(--p100); color: var(--p900); font: 700 var(--t13)/20px var(--font); vertical-align: 1px; }
 .td-root .td-wrow .td-num { font-size: var(--t14); line-height: 20px; }
 /* waiting on others: the step (a link to its bill), then what you can do about someone else's step (R-022):
    message them, or give a to-do to someone else. Two small text buttons, never more (A-20). */
@@ -581,8 +580,10 @@
   .td-root .td-cols3 { grid-template-columns: minmax(0, 1fr) 420px; gap: var(--s32); }
 }
 
-/* ---- a row: the urgency mark, the bill, what to do (and "+2"), its one button. One line; what does not fit is cut
-   with an ellipsis, because the open item says all of it. ---- */
+/* ---- a row: the urgency mark, the bill, what to do (and "+2"), its one button. R-277 fix 1 (W-1): two lines, the bill
+   on the first and the step on the second, and the step is never cut. As one line, what did not fit ended in "…", and
+   the part cut was the time, the action or the person ("HHS hearing t…", "Revise your testimony and re…"): 12 of 12 of
+   Nate's rows at 1280, so every row had to be opened to be read. ---- */
 .td-root .td-rows { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); overflow: hidden; container: tdrows / inline-size; }
 .td-root .td-row { display: flex; align-items: center; gap: var(--s8); min-height: 52px; padding-right: var(--s8); cursor: pointer; }
 .td-root .td-row + .td-row { border-top: 1px solid var(--n100); }
@@ -590,13 +591,19 @@
 .td-root .td-rsel { flex: 1 1 auto; min-width: 0; align-self: stretch; display: flex; align-items: center; gap: var(--s12); padding: 6px var(--s4) 6px var(--s12); text-align: left; color: inherit; border-radius: 0; }
 .td-root .td-rsel:focus-visible { outline: 2px solid var(--p700); outline-offset: -2px; }
 .td-root .td-rsel .td-urg { align-self: center; flex: none; width: 72px; margin: 0; }
-.td-root .td-rmain { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: var(--s12); white-space: nowrap; overflow: hidden; }
-/* The bill and the step share what is left, each cut in proportion to its length, so neither vanishes. */
-.td-root .td-rb { flex: 0 1 auto; max-width: 50%; display: inline-flex; align-items: baseline; gap: 6px; }   /* never narrower than its number: only the name is cut */
+.td-root .td-rmain { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 0 var(--s8); }
+.td-root .td-rmain > * { grid-column: 1 / -1; min-width: 0; }
+.td-root .td-rmain > .td-rb { grid-row: 1; grid-column: 1; }
+.td-root .td-rmain > .td-rplus { grid-row: 1; grid-column: 2; }
+/* line 1: the bill's number (or nickname and number) and P1; a bill with no nickname adds its plain summary, cut there
+   (the open item beside the list says it in full) */
+.td-root .td-rb { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; overflow: hidden; }
 .td-root .td-rb .td-num { flex: none; font-size: var(--t14); line-height: 20px; }
 .td-root .td-rb .sv-p1 { flex: none; align-self: center; height: 18px; }
+.td-root .td-rhear .td-rb { flex-wrap: wrap; white-space: normal; overflow: visible; }   /* R-277 W-1: a hearing's time is never cut */
+.td-root .td-rhear .td-rb .td-rn { overflow: visible; white-space: nowrap; }
 .td-root .td-rn { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: var(--t14); line-height: 20px; color: var(--n500); }
-.td-root .td-rs { flex: 0 1 auto; min-width: 96px; overflow: hidden; text-overflow: ellipsis; font-size: var(--t14); line-height: 20px; color: var(--n900); }
+.td-root .td-rs { font-size: var(--t14); line-height: 20px; color: var(--n900); overflow-wrap: anywhere; }   /* line 2, wraps rather than cut */
 .td-root .td-rs .sv-chip { vertical-align: 1px; }
 .td-root .td-rplus { flex: none; font-size: var(--t13); font-weight: 700; color: var(--n500); }
 .td-root .td-rkind { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t14); font-weight: 700; color: var(--n500); }
@@ -680,22 +687,8 @@
   .td-root .td-ract .btn.primary:hover { background: var(--p50); }
   .td-root .td-ract .btn.primary:active { background: var(--p100); }
 }
-/* The step is what a row is for, so it keeps its length and the bill's name gives way first (the number never does):
-   "HHS hearing today 1:10 PM" was cut to "1:…" while the name kept half the row (R-264 integration). */
-@media (min-width: 1100px) {
-  .td-root .td-rs { flex: 0 0 auto; max-width: calc(100% - 104px); }
-  .td-root .td-rb { flex: 0 1 auto; max-width: none; min-width: 92px; }   /* never narrower than a bill number ("SB3025 SD2"), never wider than its words */
-  /* v4 (R-269, fresh-eyes): the step never runs past the row's edge, where it was cut mid-word with "+2 more" after it:
-     it may take what is left beside the bill's number (and its P1 mark, and "+2 on this bill"), and ends in an ellipsis there. */
-  .td-root .td-rmain:has(.td-rplus) .td-rs { max-width: calc(100% - 210px); }
-  .td-root .td-rbp1 ~ .td-rs { max-width: calc(100% - 138px); }
-  .td-root .td-rmain:has(.td-rplus) .td-rbp1 ~ .td-rs { max-width: calc(100% - 244px); }
-  .td-root .td-rb.td-rbp1 { min-width: 126px; }   /* v4: and its P1 mark, which overlapped the step's words */
-}
 /* In a narrow list (a 1280 laptop) "+2 on this bill" says "+2"; the words stay for a screen reader. */
-@container tdrows (max-width: 640px) { .td-root .td-rplus .td-rmore { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .td-root .td-rmain:has(.td-rplus) .td-rs { max-width: calc(100% - 136px); }   /* v4: "+2" needs less room than "+2 on this bill" */
-  .td-root .td-rmain:has(.td-rplus) .td-rbp1 ~ .td-rs { max-width: calc(100% - 170px); } }
+@container tdrows (max-width: 640px) { .td-root .td-rplus .td-rmore { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }
 
 /* v4 (R-269, T10): the new hearings with no draft, as one row; its list (open item, or the phone's card) gives each bill
    its hearing on a line of its own. */
@@ -740,10 +733,6 @@
 .td-root .td-mstate { flex: 1 1 auto; display: inline-flex; align-items: center; gap: 4px; color: var(--n700); }
 .td-root .td-mstate .ic { width: 14px; height: 14px; flex: none; }
 .td-root .td-myrev { color: var(--warn-text); font-weight: 700; }   /* v4 (R-269): your approval on today's hearing, amber like its deadline (A-5) */
-.td-root .td-mdoc { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; font-weight: 700; color: var(--p700); text-decoration: none; }
-.td-root .td-mdoc .ic { width: 14px; height: 14px; }
-.td-root .td-mdoc:hover { text-decoration: underline; }
-@media (max-width: 899px) { .td-root .td-mdoc { min-height: 44px; } }
 
 /* v4 (R-269, T11): Slipping. Each row carries whoever it waits on, in place of the per-person headings. */
 .td-root .td-rav { flex: none; display: inline-flex; align-items: center; gap: 2px; min-width: 52px; }
@@ -785,28 +774,14 @@
 .td-root .td-rbn { min-width: 0; }
 .td-root .td-rnick { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t14); line-height: 20px; color: var(--n900); }
 .td-root .td-rbn .bn-num { flex: none; }
-/* A compact row's named bill runs on up to two lines: the nickname (never a stub) and right after it the number, small,
-   then P1, so two bills that share a nickname still tell apart. */
-.td-root .td-rb.td-rbn { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; line-height: 18px; }
-.td-root .td-rbn .td-rnick { display: inline; white-space: normal; overflow-wrap: anywhere; margin-right: 6px; }
+/* A named bill: its nickname, then the number, small, then P1, on the row's first line (R-277 fix 1: the step has the
+   second line; a nickname too long for the line wraps rather than being cut). */
+.td-root .td-rb.td-rbn { display: block; white-space: normal; overflow: visible; line-height: 18px; }
+.td-root .td-rbn .td-rnick { display: inline; white-space: normal; overflow: visible; overflow-wrap: anywhere; margin-right: 6px; }
 .td-root .td-rbn .sv-p1 { display: inline-flex; vertical-align: 1px; margin-left: 4px; }
-.td-root .td-rbn .bn-num { line-height: 18px; }
-/* A named bill keeps room for about 24 letters of its nickname a line (its name now, where the number used to be the floor). */
-@media (min-width: 1100px) {
-  .td-root .td-rb.td-rbn { min-width: 200px; }
-  .td-root .td-rb.td-rbn.td-rbp1 { min-width: 200px; }
-  .td-root .td-rbn ~ .td-rs { max-width: calc(100% - 212px); }
-  .td-root .td-rbn.td-rbp1 ~ .td-rs { max-width: calc(100% - 212px); }
-  .td-root .td-rmain:has(.td-rplus) .td-rbn ~ .td-rs { max-width: calc(100% - 318px); }
-  .td-root .td-rmain:has(.td-rplus) .td-rbn.td-rbp1 ~ .td-rs { max-width: calc(100% - 318px); }
-}
-@container tdrows (max-width: 640px) {
-  .td-root .td-rmain:has(.td-rplus) .td-rbn ~ .td-rs { max-width: calc(100% - 244px); }
-  .td-root .td-rmain:has(.td-rplus) .td-rbn.td-rbp1 ~ .td-rs { max-width: calc(100% - 244px); } }
 .td-root .td-rrow .td-rname.td-nick { flex: 0 1 auto; }
 .td-root .wk-nick { font-size: var(--t13); line-height: 18px; overflow-wrap: anywhere; }
-.td-root .td-pnum .bn-num { font-size: var(--t13); }
 /* the two-line name keeps the row near its one-line height, so Team's Slipping list still fits a laptop's first screen */
 .td-root .td-rbn .td-rnick { line-height: 18px; }
 .td-root .td-rbn .bn-num { line-height: 16px; }
-.td-root .td-row:has(.td-rbn) .td-rsel { padding-top: 3px; padding-bottom: 3px; }
+.td-root .td-rsel { padding-top: 5px; padding-bottom: 5px; }

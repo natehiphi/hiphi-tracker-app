@@ -12,7 +12,7 @@
 import { S, DB, DEADLINES, esc, fmtDate, fmtDT, effStage, owners, isMuted, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks } from './data.js';
 import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionClock, gateNeed, deadlineName, billSay } from './model.js';
 import { CHAMBER_NAME, HELD_RE, stoppedAt } from '../stops.js';
-import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, POS_WORD, posIcons } from './ui.js';
+import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, keysUsed, POS_WORD, posIcons, whoseSeg } from './ui.js';
 import { bl, save, setCompact, shownBills, freshFacts, QUICK, quickCount, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, settled, hoverNow, typingIn, deskBack,
   views, curView, applyView, resetView, isDefault, openSaveView, openEditViews, VIEW_CAP, scopeOpts, defaultScope, posWord, openCoalition, viewState, dueDay } from './filters.js';
 import { openLook, dockLook } from './look.js';
@@ -148,7 +148,7 @@ const fullTitle = b => b.nickname ? `${b.nickname}. ${summaryOf(b)}` : summaryOf
 // ---- the page ----
 function controls(wide) {
   const v = bl(), n = activeFilters().length, opts = scopeOpts(), three = opts.length > 2;
-  const seg = segmented('blscope', opts, v.scope, 'Whose bills');
+  const seg = whoseSeg('blscope', { mine: 'me', coal: three ? 'coal' : null, team: 'all' }, v.scope, { label: 'Whose bills' });   // R-277 fix 14: one whose switch
   // A phone with three scopes gives them the whole first row, and the search shares the second with Filter: the same
   // two rows as before, so the first bill is no lower down. The shorter placeholder is what fits beside Filter.
   const ph = three && !wide ? 'Find a bill' : 'Find a bill by number or words';
@@ -159,7 +159,7 @@ function controls(wide) {
   // follows the position (R-175), so it is never a dropdown. v3: Edit starts from "…" (as Columns does); while it is on,
   // "Done editing" stands in the toolbar, so the way out is in view.
   const done = v.edit ? `<button type="button" class="btn secondary sm bl-editbtn on" data-tedit aria-pressed="true" title="Stop editing in the table">${icon('check')}<span>Done editing</span></button>` : '';
-  if (wide) return `<div class="bl-top${three ? ' bl-three' : ''}"><h1 class="bl-h1">Bills</h1>${seg}${search}<span class="bl-sp"></span>${done}${fbtn}${more}</div>`;
+  if (wide) return `<div class="bl-top sv-phead${three ? ' bl-three' : ''}"><h1 class="bl-h1">Bills</h1>${seg}${search}<span class="bl-sp"></span>${done}${fbtn}${more}</div>`;
   return three ? `<div class="bl-top bl-three">${seg}${search}${fbtn}${more}</div>` : `<div class="bl-top">${seg}<span class="bl-sp"></span>${fbtn}${more}</div>${search}`;
 }
 // The opening weeks of a session: every new bill needs one decision (the current app's rule for its banner).
@@ -241,7 +241,7 @@ function parts() {
     body: `${frow}<div id="bl-banner">${banner()}</div>${dk ? `<div class="bl-split"><div class="bl-main">${rows}</div>${dockLook(dk, DOCKOPT)}</div>` : rows}` };
 }
 // Row keys are for a keyboard and a mouse, and only while shortcuts are on (My settings); the hint shows when they work.
-const keysHint = () => !hoverNow() || !keysOn() ? '' : bl().edit ? `<p class="bl-keys"><kbd>Tab</kbd> next dropdown · <kbd>Space</kbd> opens it · <kbd>J</kbd> <kbd>K</kbd> the same dropdown in the next and previous bill · letters never change a bill</p>`
+const keysHint = () => !hoverNow() || !keysOn() || !keysUsed() ? '' :   /* R-277 fix 13: only after a key was used */ bl().edit ? `<p class="bl-keys"><kbd>Tab</kbd> next dropdown · <kbd>Space</kbd> opens it · <kbd>J</kbd> <kbd>K</kbd> the same dropdown in the next and previous bill · letters never change a bill</p>`
   : `<p class="bl-keys"><kbd>J</kbd> <kbd>K</kbd> next and previous bill · <kbd>Space</kbd> ${dockNow() ? 'shows it beside the list' : 'a quick look'} · <kbd>Enter</kbd> opens it · <kbd>X</kbd> selects it · <kbd>Esc</kbd> closes</p>`;
 function emptyState(q, nf) {
   const v = bl(), whose = { me: 'of yours ', coal: 'in your coalitions ' }[v.scope] || '';

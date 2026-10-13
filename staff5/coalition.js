@@ -18,6 +18,7 @@
 import { S, DB, DEMO, SESSION_OVER, hooks, esc, fmtDT, fmtDate, advocate } from './data.js';
 import { billTag, billSay, diedish, riskOf, stopOf, noticeByFor, roomShort, PUBLIC_APP, hiToday, hstDayOf, billById } from './model.js';
 import { icon, btn, chip, row, empty, toast, switchRow, avatar, pickerSheet, openSheet, sectionNav, clockDay } from './ui.js';
+import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { plural, isSide, thSort, sortBy, wireTable, DASH, pageHead, afterClose } from './lists.js';
 import { iconName } from './setup.js';
 import { issuesOfBill } from './issues.js';
@@ -127,7 +128,7 @@ const none = text => `<p class="co-empty">${icon('check')}<span>${text}</span></
 // Long lists show their first rows; "Show all" opens the rest in place (remembered for this visit).
 function folded(key, rows) {
   if (rows.length <= FOLD + 2 || S.coMore?.has(key)) return rows.join('');
-  return rows.slice(0, FOLD).join('') + `<button type="button" class="row co-more" data-comore="${esc(key)}">${icon('chevron-down')}<span>Show all ${rows.length}</span></button>`;
+  return rows.slice(0, FOLD).join('') + showAllBtn(rows.length, { 'data-comore': key });
 }
 // A bill's name the Outreach way (R-271): the nickname, then the number small (a bill with no nickname: number, then its plain summary).
 const name = b => billTag(b, 90);

@@ -13,6 +13,7 @@
 import { S, DB, LOG_TYPES, esc, fmtDate, advocate } from './data.js';
 import { unreadCount, hstDayOf } from './model.js';
 import { icon, btn, iconBtn, avatar, toast, openSheet, closeSheet, menuSheet, confirmSheet, field } from './ui.js';
+import { chip } from './ui.js';   // R-277 fix 4 (U-8): "New" is a status chip like every other
 import { rerender, drafts, firstName, dayOf, viewIsNew, afterBack } from './bill.js';
 import { issuesOfBill } from './issues.js';
 import { convSectionHTML, wireConvSection, logConversation, refreshConversations } from './conversation.js';
@@ -103,7 +104,7 @@ function itemHTML(b, it) {
     const m = it.m, a = advocate(m.advocate_id), mine = m.advocate_id === S.me?.id;
     const fresh = !mine && seenSnap.bill === b.id && (!seenSnap.at || m.created_at > seenSnap.at);
     return `<div class="bw-msg${mine ? ' mine' : ''}" data-msg="${esc(m.id)}">${avatar(a, 32)}
-      <div class="bw-msgb"><p class="bw-msgh"><b>${esc(mine ? 'You' : a?.full_name || 'Someone')}</b><span class="meta">${esc(timeOf(m.created_at))}</span>${fresh ? '<span class="bw-new">New</span>' : ''}</p>
+      <div class="bw-msgb"><p class="bw-msgh"><b>${esc(mine ? 'You' : a?.full_name || 'Someone')}</b><span class="meta">${esc(timeOf(m.created_at))}</span>${fresh ? ' ' + chip('New', 'info') : ''}</p>
         <div class="bw-msgt">${msgHTML(m.body)}</div></div>
       ${iconBtn('ellipsis', 'More for this message', { 'data-msgmore': m.id }, 'bw-msgmore')}</div>`;
   }

@@ -35,6 +35,21 @@ export const POS_WORD = { strongly_support: 'Strong support', support: 'Support'
 export const POS_SUB = { strongly_support: 'Makes it P1, the team’s top tier', monitor: 'Watch it; no testimony drafts' };
 export const posChip = p => chip(POS_WORD[p || ''] || p, '', POS_ICON[p || ''] || 'circle-dashed');
 
+// ---- R-277 fix 4 (U-4, U-8): one look per action. "I'm going" had 3 looks (a link, a chip, a text button) and 3 names
+// for being on ("Take me off", "You’re going", "I’m not going after all"); the Doc button 3 names ("Open the Google
+// Doc", "Open Doc", "Open") and 3 looks; "Mark filed" and "Show all" 2 to 4 each. Every screen draws them from here, so a
+// person who has learned one has learned them all. Only the weight may differ, and only when the action IS the step (the
+// one filled button, A-3) or a sheet's own confirm. ----
+export const ACT = { going: 'I’m going', goingOn: 'You’re going', doc: 'Open Doc', filed: 'Mark filed', all: n => `Show all ${n}`, fewer: 'Show fewer' };
+// A toggle: pressed, it says what is true; pressing again takes you off (A-12).
+export const goingBtn = (on, a = {}, { kind = 'text', label, cls = '' } = {}) => btn(label || (on ? ACT.goingOn : ACT.going), { kind, icon: on ? 'user-check' : 'user-plus', cls: `sv-going${cls ? ' ' + cls : ''}`,
+  attrs: { 'aria-pressed': on ? 'true' : 'false', title: on ? 'You’re on the list. Press to take yourself off.' : undefined, ...a } });
+export const docBtn = (url, { kind = 'text', attrs: a, sm } = {}) => url ? btn(ACT.doc, { kind, sm, icon: 'file-text', iconEnd: 'external-link', href: url, target: '_blank', cls: 'sv-doc', attrs: a }) : '';
+export const filedBtn = (a = {}, kind = 'secondary') => btn(ACT.filed, { kind, icon: 'clipboard-check', cls: 'sv-filed', attrs: a });
+// "Show all 12 members" under a folded list; "Show fewer" once open (aria-expanded says which).
+export const showAllBtn = (n, a = {}, { what = '', open = null, cls = '' } = {}) => btn(open ? ACT.fewer : `${ACT.all(n)}${what ? ' ' + what : ''}`, { kind: 'text', icon: open ? 'chevron-up' : 'chevron-down', cls: `sv-showall${cls ? ' ' + cls : ''}`,
+  attrs: { ...(open !== null ? { 'aria-expanded': open ? 'true' : 'false' } : {}), ...a } });
+
 // ---- people ----
 export function avatar(adv, size = 24) {
   if (!adv) return `<span class="sv-av none" style="--av:${size}px" role="img" aria-label="No owner" title="No owner"></span>`;
@@ -87,6 +102,16 @@ export const groupHead = (title, count, { fold, open = true, id } = {}) => fold
 // ---- controls ----
 // segmented('scope', [['mine','Mine'],['team','Team']], 'mine')  -> buttons with data-seg="scope" data-val
 export const segmented = (name, opts, value, label = '') => `<div class="sv-seg" role="group"${label ? ` aria-label="${esc(label)}"` : ''}>${opts.map(([v, l]) => `<button type="button" data-seg="${esc(name)}" data-val="${esc(v)}" aria-pressed="${v === value}">${esc(l)}</button>`).join('')}</div>`;
+// R-277 fix 14 (U-9): "whose work" is one switch with one set of words, in one order, on every list that has it: Mine |
+// My coalitions | Team, and Team always means everybody's. It read Mine | Team on Today, Mine | My coalitions | Team on
+// Bills, "Every coalition" on Outreach and Mine | The team's on the partner update (where Team also named an audience).
+// `opts` names the ones a list offers (My coalitions only for someone who helps on one), each [key, value]; the words and the
+// order come from here.
+export const WHOSE = { mine: 'Mine', coal: 'My coalitions', team: 'Team' };
+export const whoseSeg = (name, opts, value, { label = 'Whose work', cls = '' } = {}) => {
+  const list = ['mine', 'coal', 'team'].filter(k => opts[k] !== undefined && opts[k] !== null);
+  return `<div class="sv-seg sv-whose${cls ? ' ' + cls : ''}" role="group" aria-label="${esc(label)}">${list.map(k => `<button type="button" data-seg="${esc(name)}" data-val="${esc(opts[k])}" data-whose="${k}" aria-pressed="${String(opts[k]) === String(value)}">${WHOSE[k]}</button>`).join('')}</div>`;
+};
 export const switchRow = (id, label, on, help = '', a = {}) => `<label class="sv-switchrow" for="${esc(id)}"><span class="body"><span class="title">${label}</span>${help ? `<span class="sub">${help}</span>` : ''}</span><input type="checkbox" role="switch" id="${esc(id)}" ${on ? 'checked' : ''}${attrs(a)}><span class="sv-switch" aria-hidden="true"></span></label>`;
 export const field = (id, label, input, help = '') => `<div class="field"><label for="${esc(id)}">${label}</label>${input}${help ? `<span class="help" id="${esc(id)}-help">${help}</span>` : ''}</div>`;
 // The testimony steps with the true state: Write · Review · (Second approval) · File (v4: one name for the step, C-15)
@@ -233,6 +258,18 @@ export function toast(msg, opt = {}) {
 // Keyboard shortcuts can be switched off in My settings (a stray letter should never do anything for someone who does
 // not use them). Every keydown handler in v2 checks this first.
 export const keysOn = () => { try { return localStorage.getItem('sv_keys') !== 'off'; } catch { return true; } };
+// R-277 fix 13 (E-11): the lines that list a page's keys ("J K next and previous bill …") show only to someone who has used
+// a shortcut key: for everyone else they were one more line to read on Bills, Review and the Inbox (and on phones). The
+// first shortcut key pressed outside a text box marks this device; the hints show from the next redraw on.
+const KEYS_SEEN = 'sv_keysused';
+export const keysUsed = () => { try { return localStorage.getItem(KEYS_SEEN) === '1'; } catch { return false; } };
+const SHORTCUT = /^(j|k|x|e|r|o|t|n|l|u|J|K|X|E|R|O|T|N|L|U|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|\/)$/;
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey || !SHORTCUT.test(e.key) && !(e.shiftKey && e.key === 'A')) return;
+  const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+  if (!keysOn() || keysUsed()) return;
+  try { localStorage.setItem(KEYS_SEEN, '1'); } catch { /* private mode: the hints stay hidden */ }
+}, true);
 export const setKeys = on => { try { if (on) localStorage.removeItem('sv_keys'); else localStorage.setItem('sv_keys', 'off'); } catch { /* private mode */ } };
 const DESK = () => { try { return matchMedia('(min-width: 900px) and (hover: hover) and (pointer: fine)').matches; } catch { return false; } };
 // A refusal the database raised on purpose (RAISE EXCEPTION, SQLSTATE P0001) is a sentence written for people: "Someone else has to

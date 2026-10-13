@@ -263,6 +263,7 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-mctl .bl-mwho, .bl-mctl .bl-maud { flex: none; }
   .bl-mctl .field { flex: 0 1 280px; }
   .bl-mctl .input { min-height: 48px; }
+  .bl-mctl .bl-mcopyrow { margin-left: auto; }   /* R-277 fix 10: the copy buttons end the row of choices (the heading row holds the tabs) */
   .bl-memo { padding: 40px 72px 48px; }
   .bl-memo h2 { font-size: var(--t22); margin-bottom: var(--s12); }
   .bl-memo h3 { font-size: var(--t18); margin: var(--s24) 0 var(--s8); }
@@ -475,4 +476,3 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
 /* Spare width on a big monitor is margin, not a wider table (A-24; fresh-eyes review: at 1920 the titles ended halfway
    across and "Where it stands" sat 700px away). With a bill docked, the dock takes the width instead. */
 @media (min-width: 1600px) { .bl-page:not(:has(.bl-split)) { max-width: 1320px; } }
-.bl-dock .lk-dtop .num .bn-num { font-size: var(--t14); }   /* R-271: nickname leads the dock, the number is the small second word */

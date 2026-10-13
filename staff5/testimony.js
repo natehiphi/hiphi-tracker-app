@@ -15,6 +15,7 @@
 import { S, DB, DEMO, esc, fmtDate, advocate, capitolUrl, hooks } from './data.js';
 import { codesOf, billByNum, billSay } from './model.js';
 import { icon, btn, chip, toast } from './ui.js';
+import { docBtn } from './ui.js';
 import { cmteFull, billName, firstName } from './bill.js';
 import { issuesOfBill, catByKey } from './issues.js';
 import { billRoute } from './model.js';
@@ -88,7 +89,7 @@ function byLine(d) {
 }
 // Each piece of the line stays whole when the line wraps.
 const bits = arr => arr.filter(Boolean).map(t => `<span class="tm-i">${t}</span>`).join('<span aria-hidden="true"> · </span>');
-const docLink = d => d.doc_url ? btn('Open Doc', { kind: 'text', icon: 'file-text', href: d.doc_url, target: '_blank' }) : '';
+const docLink = d => docBtn(d.doc_url);   // R-277 fix 4: ui.js, the one Doc button
 const confLink = d => d.filed_url ? btn('Confirmation', { kind: 'text', icon: 'external-link', href: d.filed_url, target: '_blank' }) : '';
 const markOf = d => d.status === 'filed' ? 'Newest filed' : d.status === 'approved' ? 'Newest approved' : 'Newest';
 function fullRow(d, b, start) {

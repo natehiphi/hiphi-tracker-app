@@ -17,6 +17,7 @@
 import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, fmtDT, effStage, STAGE_LABEL } from './data.js';
 import { billById, billSay, billTag, plain, PUBLIC_APP, billRef, billByRef, billRoute, stopOf, riskOf, diedish, hearingAhead, whenAt } from './model.js';
 import { icon, btn, iconBtn, row, chip, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow, notice, posChip, pickerSheet, pickerChip, ownerOf, sectionNav } from './ui.js';
+import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { plural, pageHead, afterClose, billName, isSide } from './lists.js';
 import { convSectionHTML, wireConvSection } from './conversation.js';
 import { FV_HREF, fvView, fvTitle, fvBack, renderFirstVisit, wireFirstVisit } from './firstvisit.js';
@@ -239,7 +240,7 @@ function needsHTML(v) {
     <h2 id="is-nh">${icon('triangle-alert')}<span>${plural(need.length, 'position bill')} this session with no issue</span></h2>
     <p class="small">Nobody following issues gets ${need.length === 1 ? 'it' : 'these'}. Put each one on an issue.</p>
     <ul class="rows is-nlist">${shown.map(b => `<li class="is-nrow"><a class="is-nmain" href="${billRoute(b, 'public')}">${billName(b, 90)}</a>${btn('Choose', { kind: 'secondary', sm: true, attrs: { 'data-ispick': b.id, 'aria-haspopup': 'dialog', 'aria-label': `Choose issues for ${billSay(b)}` } })}</li>`).join('')}</ul>
-    ${need.length > shown.length ? btn(`Show all ${need.length}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-is': 'needsall' } }) : ''}
+    ${need.length > shown.length ? showAllBtn(need.length, { 'data-is': 'needsall' }) : ''}
   </section>`;
 }
 // R-272: the same body as My issues (issuestand.js): By deadline by default, By topic with the switch (the topics folded,

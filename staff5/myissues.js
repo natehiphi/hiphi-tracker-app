@@ -15,7 +15,7 @@
 // issues). The bills under each issue are on its own page, one click away, as v3 already chose for All issues.
 import { S, SESSION_OVER, esc, myIssueIds } from './data.js';
 import { icon, btn, empty, sectionNav, row, switchRow } from './ui.js';
-import { plural, isSide } from './lists.js';
+import { plural, isSide, pageHead } from './lists.js';
 import { indexLinks, isDraft } from './prep.js';
 import { supports, setSupport, coalFactsLine } from './coalition.js';
 import { iconName } from './setup.js';
@@ -52,16 +52,13 @@ export default {
     const list = myIssues();
     const owned = list.filter(x => x.own).length, helped = list.length - owned;
     const who = [owned ? `You own ${plural(owned, 'issue')}` : '', helped ? `${owned ? 'help' : 'You help'} on ${helped}` : ''].filter(Boolean).join(' and ');
-    if (!list.length && (S.campaigns || []).length) return `<div class="le-page le-list is-page mi-page">${sectionNav('issues', 'mine')}<div class="le-tools"><h1 class="le-h1">My issues</h1>
-        <p class="le-lede">No issue is yours yet.</p></div>
+    if (!list.length && (S.campaigns || []).length) return `<div class="le-page le-list is-page mi-page">${pageHead(sectionNav('issues', 'mine'), 'My issues', 'No issue is yours yet.', '')}
       ${coalitionsHTML()}</div>`;
-    if (!list.length) return `<div class="le-page le-list is-page mi-page">${sectionNav('issues', 'mine')}<div class="le-tools"><h1 class="le-h1">My issues</h1></div>
+    if (!list.length) return `<div class="le-page le-list is-page mi-page">${pageHead(sectionNav('issues', 'mine'), 'My issues', '', '')}
       <div class="le-empty">${empty({ title: 'No issues are yours yet', text: 'When an admin makes you the owner of an issue, or the owner adds you as a helper, it shows here with all its bills. Those bills are then in your Mine and on Today too.', action: btn('See all issues', { kind: 'secondary', href: '#/outreach/issues' }) })}</div></div>`;
     // R-272: one line per issue, sorted by deadline (or by topic, the switch), each with its mark; search is an extra.
     return `<div class="le-page le-list is-page mi-page ist-page${isSide() ? ' le-side' : ''}">
-      ${sectionNav('issues', 'mine')}
-      <div class="le-tools"><h1 class="le-h1">My issues</h1>
-        ${SESSION_OVER && indexLinks({ mineOnly: true }) ? '' : `<p class="le-lede">${who}.</p>`}</div>
+      ${pageHead(sectionNav('issues', 'mine'), 'My issues', SESSION_OVER && indexLinks({ mineOnly: true }) ? '' : `${who}.`, '')}
       ${SESSION_OVER ? indexLinks({ mineOnly: true }) : ''}
       ${toolsHTML(Q().q, 'mi-q')}
       <div id="mi-q-body">${bodyHTML(list, opts())}</div>

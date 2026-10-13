@@ -7,6 +7,7 @@
 import { S, DB, DEMO, hooks, esc, fmtDate, fmtDT, advocate, islandOf, personById } from './data.js';
 import { INTERESTS, personName, whereOf, billById, blurb, looksLikeAddress, geoSuggest, geoDistricts, hiToday } from './model.js';
 import { icon, btn, iconBtn, chip, empty, skeleton, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow } from './ui.js';
+import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { followupSheet, afterSheet } from './supporters.js';
 import { titleLabel, isOwn } from '../pub/titles.js';   // the public profile's "I'm a..." (R-147)
 import { issueById, catByKey } from './issues.js';
@@ -117,7 +118,7 @@ function about(p) {
 const STANCE = { support: ['thumbs-up', 'Supports'], oppose: ['thumbs-down', 'Opposes'], unsure: ['circle-help', 'Not sure'] };
 const ownStance = (p, b) => { const all = p.bill_stances; if (!all || typeof all !== 'object') return null; const k = all[b.id] ?? all[b.bill_number]; return STANCE[k] ? k : null; };
 // The icon and the word together, never the colour on its own.
-const stanceChip = k => `<span class="sp-st sp-st-${k}">${icon(STANCE[k][0])}<span>${STANCE[k][1]}</span></span>`;
+const stanceChip = k => chip(STANCE[k][1], '', STANCE[k][0]);   // R-277 fix 4 (U-8): a status chip is ui.js chip, one way
 
 // A followed bill's row: the bill's nickname then its number (R-271), and plain summary, and the person's own stance on it. Not HIPHI's
 // position, its priority or the bill's owner (v3, R-264): those are facts about the bill, not about this person, and
@@ -142,7 +143,7 @@ function follows(p) {
     ${cats.length || iss.length ? `<div class="chips sp-lists sp-issues">${cats.map(c => `<a class="chip sp-listchip" href="#/outreach/issues">${icon(c.icon || 'tag')}All of ${esc(c.name)}</a>`).join('')}${iss.map(i => `<a class="chip sp-listchip" href="#/issue/${encodeURIComponent(i.id)}">${icon('tag')}${esc(i.name)}</a>`).join('')}</div>` : ''}
     ${lists.length ? `<div class="chips sp-lists">${lists.map(l => `<a class="chip sp-listchip" href="#/list/${encodeURIComponent(l.id)}">${icon('list')}${esc(l.title)}</a>`).join('')}</div>` : ''}
     ${bills.length ? `<div class="rows sp-fbills">${(showAll ? bills : bills.slice(0, firstN)).map(b => followRow(b, sum(b))).join('')}
-      ${showAll ? '' : `<button type="button" class="row sp-showall" data-pp="billsall">${icon('chevron-down')}<span>Show all ${bills.length} bills</span></button>`}</div>`
+      ${showAll ? '' : showAllBtn(bills.length, { 'data-pp': 'billsall' }, { what: 'bills' })}</div>`
       : `<p class="muted sp-none">${lists.length || iss.length || cats.length ? 'No bills followed on their own.' : 'Not following any issue, bill or list yet.'}</p>`}
   </section>`;
 }
@@ -169,7 +170,7 @@ function feed(p) {
   };
   return `<section class="sp-sec" aria-labelledby="sp-h-feed"><div class="sechead"><h2 id="sp-h-feed">Activity</h2><span class="meta">Notes are for the team only</span></div>
     ${loading ? skeleton(2).replace('skelpage', 'skelpage sp-feedload') : st.loadErr && !items.length ? `<p class="muted sp-none">The activity did not load. Try again later.</p>`
-      : items.length ? `${filterRow}<ol class="card sp-feed">${list.map(li).join('')}</ol>${!all && filtered.length > FEED_STEP ? btn(`Show all ${filtered.length}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-pp': 'feedall' } }) : ''}`
+      : items.length ? `${filterRow}<ol class="card sp-feed">${list.map(li).join('')}</ol>${!all && filtered.length > FEED_STEP ? showAllBtn(filtered.length, { 'data-pp': 'feedall' }) : ''}`
       : `<p class="muted sp-none">Nothing yet. Add a note to start.</p>`}
   </section>`;
 }

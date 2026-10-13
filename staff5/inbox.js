@@ -6,12 +6,12 @@
 //   - Updates: the Capitol's actions on the bills you own or follow, one block per bill, never counted, gone after a week.
 // Anything can be marked read or unread, with Undo. "Mark read" clears the list you are looking at, never the other pile.
 // Keys (a keyboard and mouse; My settings can switch them off): j and k move, Enter opens, e marks read or unread,
-// Shift+A marks the list read. Testimony notices clear themselves once the draft is filed, reminders after the hearing.
+// Shift+M marks the list read (R-277 fix 13, E-11: it was Shift+A, which approves on Review). Testimony notices clear themselves once the draft is filed, reminders after the hearing.
 // v3 (R-264): Today is the to-do list and the Inbox is the history, so the page no longer ends on a footnote explaining
 // what stays and what goes (P-4).
 import { S, DB, DEMO, esc, fmtDate, fmtDT, hooks } from './data.js';
 import { inboxRows, inboxCount, unslack, billById, billNum, billSay, blurb, canFirstApprove, canSecondApprove, plainAction, draftFor } from './model.js';
-import { icon, btn, iconBtn, empty, toast, keysOn } from './ui.js';
+import { icon, btn, iconBtn, empty, toast, keysOn, keysUsed } from './ui.js';   // R-277 fix 13: key hints only after a key was used
 import { sandboxInbox, hearingFor } from './today.js';
 import { billRoute, agoWords } from './model.js';
 
@@ -117,8 +117,8 @@ function render() {
     : v.tab === 'updates' ? empty({ title: 'No updates', text: 'What the Capitol does on the bills you own or follow lands here, for a week.' })
     : empty({ title: 'Nothing here yet', text: 'Messages, testimony steps, alerts and news on your bills land here.' });
   return `<div class="ib-page">
-    <div class="ib-bar">
-      <div class="sv-seg ib-tabs" role="group" aria-label="Which items">${tab('needs', 'To answer', nNeeds)}${tab('updates', 'Updates')}${tab('all', 'Everything')}</div>
+    <div class="ib-bar sv-phead"><h1 class="sv-h1">Inbox</h1>   <!-- R-277 fix 10: the page's own heading row -->
+      <span class="sv-phr"><span class="sv-seg ib-tabs" role="group" aria-label="Which items">${tab('needs', 'To answer', nNeeds)}${tab('updates', 'Updates')}${tab('all', 'Everything')}</span></span>
     </div>
     ${showF ? `<div class="ib-filters">
       <label class="sr" for="ib-q">Filter by bill or words</label><input id="ib-q" class="input ib-q" type="search" placeholder="Filter by bill or words" value="${esc(v.q)}" autocomplete="off">
@@ -128,7 +128,7 @@ function render() {
       ${countLine(filtered ? '<button type="button" class="linkbtn" data-ibclear="1">Clear the filters</button>' : '')}
     </div>` : countLine('<button type="button" class="linkbtn" data-ibfilters="1">Filter or sort</button>')}
     <div class="ib-list">${rows.length ? listBody(rows, v) : none}</div>
-    ${hover() && keysOn() && rows.length ? `<p class="ib-keys">${icon('keyboard')}<span>Keys: <kbd>j</kbd> and <kbd>k</kbd> move, <kbd>Enter</kbd> opens, <kbd>e</kbd> marks read or unread, <kbd>Shift</kbd>+<kbd>A</kbd> marks this list read.</span></p>` : ''}
+    ${hover() && keysOn() && keysUsed() && rows.length ? `<p class="ib-keys">${icon('keyboard')}<span>Keys: <kbd>j</kbd> and <kbd>k</kbd> move, <kbd>Enter</kbd> opens, <kbd>e</kbd> marks read or unread, <kbd>Shift</kbd>+<kbd>M</kbd> marks this list read.</span></p>` : ''}
   </div>`;
 }
 
@@ -179,7 +179,7 @@ if (typeof document !== 'undefined') document.addEventListener('keydown', e => {
     e.preventDefault(); const r = rows[at], k = r.dataset.dup;
     if (k) { const list = dupList(k), un = list.filter(i => i.unread); mark((un.length ? un : list).map(i => i.key), !!un.length).then(() => focusRow(r.dataset.key)); }
     else toggle(r.dataset.key)?.then(() => focusRow(r.dataset.key));
-  } else if (e.key === 'A' && e.shiftKey) {
+  } else if (e.key === 'M' && e.shiftKey) {   // R-277 E-11: not Shift+A, which approves on Review
     e.preventDefault(); mark(inboxRows().filter(i => i.unread).map(i => i.key), true);
   }
 });

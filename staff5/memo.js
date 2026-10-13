@@ -13,11 +13,12 @@
 // to it, now 2). #/bills/memo keeps working (the coalition page's "Write a partner update", the team's memo).
 import { S, DB, esc, isMine, hooks } from './data.js';
 import { memoData, memoHTML, memoText, billByRef, billNum } from './model.js';
-import { btn, segmented, field, toast, empty, keysOn, sectionNav } from './ui.js';
+import { btn, segmented, field, toast, empty, keysOn, sectionNav, whoseSeg } from './ui.js';
 import { deskBack, wideNow, typingIn, myCoalitions } from './filters.js';
 import { billRoute } from './model.js';
 
-const AUDIENCES = [['team', 'Team'], ['partners', 'Partners']];
+// R-277 fix 14 (U-9): the audience is "Staff", so "Team" means only everybody's work, as on every list.
+const AUDIENCES = [['partners', 'Partners'], ['team', 'Staff']];   // one order wherever the memo is
 // v4: Outreach's Partner update tab, as against the memo under Bills (#/bills/memo).
 const onTab = route => route?.name === 'partners';
 const nameOf = v => v.audience === 'partners' ? 'Partner update' : 'Weekly memo';
@@ -114,18 +115,20 @@ const memo = {
   render(route) {
     applyRoute(route);
     const v = view(), m = data(), wide = wideNow(), partners = v.audience === 'partners', tab = onTab(route);
-    // On the Partner update tab, Partners is the first choice (the tab's name); under Bills, Team, as it always was.
-    const auds = tab ? [...AUDIENCES].reverse() : AUDIENCES;
+    // R-277 fix 14: For: Partners / Staff, in that order wherever the memo is (it was Team / Partners under Bills).
+    const auds = AUDIENCES;
     // The coalition list names each one the way the team does, with the public name partners will read beside it.
     const coal = `<select id="bl-mcoal" class="input">${[['', 'Every coalition'], ...S.campaigns.map(c => [c.id, c.public_name && c.public_name !== c.name ? `${c.name} · ${c.public_name}` : c.name])].map(([id, l]) => `<option value="${esc(id)}" ${v.coalition === id ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
     return `<div class="bl-memopage${tab ? ' ot-part' : ''}">
-      ${tab ? sectionNav('outreach', 'partners') : deskBack('memo', backOf(route))}
-      <div class="bl-mhead"><h1 class="bl-ptitle">${nameOf(v)}</h1>${wide ? `<div class="bl-mcopy" role="group" aria-label="Copy the memo">${copyBtns(true)}</div>` : ''}</div>
+      ${tab ? '' : deskBack('memo', backOf(route))}
+      <div class="bl-mhead${tab ? ' sv-phead' : ''}"><h1 class="bl-ptitle${tab ? ' sv-h1' : ''}">${nameOf(v)}</h1>${tab ? `<span class="sv-phr">${sectionNav('outreach', 'partners')}</span>`   /* R-277 fix 10: Outreach's tabs in the heading row; the copy buttons end the row of choices below */
+        : wide ? `<div class="bl-mcopy" role="group" aria-label="Copy the memo">${copyBtns(true)}</div>` : ''}</div>
       <p class="bl-lede">${esc(LEDE[partners ? 'partners' : 'team'](v))}</p>
       <div class="bl-mctl">
         <div class="bl-maud"><span class="bl-mlabel" id="bl-maud-l">For</span>${segmented('memoaud', auds, partners ? 'partners' : 'team', 'Who the memo is for')}</div>
-        ${partners ? '' : `<div class="bl-mwho"><span class="bl-mlabel" id="bl-mwho-l">Whose bills</span>${segmented('memowho', [['me', 'Mine'], ['all', 'The team’s']], v.who === 'me' ? 'me' : 'all', 'Whose bills')}</div>`}
+        ${partners ? '' : `<div class="bl-mwho"><span class="bl-mlabel" id="bl-mwho-l">Whose bills</span>${whoseSeg('memowho', { mine: 'me', team: 'all' }, v.who === 'me' ? 'me' : 'all', { label: 'Whose bills' })}</div>`}
         ${field('bl-mcoal', 'Coalition', coal)}
+        ${tab && wide ? `<div class="bl-mcopy bl-mcopyrow" role="group" aria-label="Copy the memo">${copyBtns(true)}</div>` : ''}
       </div>
       <article class="card bl-memo${partners ? ' bl-mpart' : ''}" aria-label="Memo preview">${m ? memoHTML(m) + (m.empty ? '<p class="bl-quiet">A quiet week for these bills: no hearings, no floor votes and no deadline in sight.</p>' : '')
         : empty({ title: 'The memo could not be written', text: 'Something in the data stopped it. Try the other choices, or tell Nate.', h: 'h2' })}</article>
@@ -142,7 +145,7 @@ const memo = {
     });
     seg('memoaud', 'audience');
     // "Whose bills" is the team's choice for this visit (a partner memo is always the coalition's); it is not remembered.
-    // v3: Mine | The team's, Bills' words (R-264), with "the team's" so it is not read as the audience "Team" beside it.
+    // R-277 fix 14: Mine | Team, the words of every list (the audience beside it is now "Staff", so Team says only whose).
     root.querySelectorAll('[data-seg="memowho"]').forEach(el => el.onclick = () => { if (v.who === el.dataset.val) return; v.who = el.dataset.val; hooks.render(); root.querySelector(`[data-seg="memowho"][data-val="${v.who}"]`)?.focus(); });
     const sel = root.querySelector('#bl-mcoal'); if (sel) sel.onchange = () => { choose({ coalition: sel.value }); document.querySelector('#bl-mcoal')?.focus(); };
     root.querySelectorAll('[data-mcopy]').forEach(el => el.onclick = async () => {

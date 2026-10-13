@@ -19,6 +19,7 @@
 import { S, DB, esc, advocate, SESSION_YEAR, hooks, fmtDate, priorityOf } from './data.js';
 import { loadTriage, triageSeen, titleCaseHI, FACTS } from './model.js';
 import { icon, btn, pickerChip, toast, pickerSheet, empty, skeleton, keysOn, POS_WORD, POS_ICON, POS_SUB } from './ui.js';
+import { chip, keysUsed } from './ui.js';   // R-277 fix 4 (U-8); fix 13: key hints after a key
 import { iconName } from './setup.js';
 import { deskBack } from './filters.js';
 import { suggestIssue } from './suggest_issue.js';
@@ -141,14 +142,14 @@ const pickers = (t, r) => { const c = campOf(t, r), own = advocate(ownIdOf(t, r)
       <div class="st-pickrow"><span class="st-lab" id="st-ilab">Issue</span>${pickerChip(issOf(t, r)?.name || 'No issue', { 'data-tiss': '1', 'aria-describedby': 'st-ilab' }, issOf(t, r) ? 'tag' : 'circle-dashed')}</div>
     </div>`; };
 const decideBtns = () => `${btn('Track', { kind: 'primary', sm: true, icon: 'check', attrs: { 'data-ttrack': '1' } })}${btn('Not for us', { kind: 'secondary', sm: true, attrs: { 'data-tskip': '1' } })}${btn('Later', { kind: 'text', sm: true, attrs: { 'data-tlater': '1' } })}`;
-const keysLine = () => HOVER() && keysOn() ? `<p class="st-keys small muted"><kbd>T</kbd> track · <kbd>N</kbd> not for us · <kbd>L</kbd> later · <kbd>U</kbd> undo · arrow keys move between bills</p>` : '';
+const keysLine = () => HOVER() && keysOn() && keysUsed() ? `<p class="st-keys small muted"><kbd>T</kbd> track · <kbd>N</kbd> not for us · <kbd>L</kbd> later · <kbd>U</kbd> undo · arrow keys move between bills</p>` : '';
 function card(t, r, desk) {
   const terms = realMatches(r).real.flatMap(m => m.terms);
   // Phones: long Capitol descriptions start folded at four lines, so the coalition and position stay on the first
   // screen. Desktop: the whole text shows (the decision sits beside it, not under it).
   const title = titleCaseHI(r.title || ''), long = !desk && (r.description || '').length > 200;
   return `<article class="card st-tcard" aria-labelledby="st-tnum">
-    <div class="st-tl1"><h2 id="st-tnum" tabindex="-1">${esc(r.bill_number)}</h2>${(r.companions || []).length ? `<span class="chip sv-chip">Companion ${esc(r.companions.join(', '))}</span>` : ''}
+    <div class="st-tl1"><h2 id="st-tnum" tabindex="-1">${esc(r.bill_number)}</h2>${(r.companions || []).length ? chip(`Companion ${r.companions.join(', ')}`) : ''}
       <a class="iconbtn st-cap" href="${esc(capitol(r))}" target="_blank" rel="noopener" aria-label="Read ${esc(r.bill_number)} at the Capitol (new tab)" title="Read it at the Capitol">${icon('external-link')}</a></div>
     ${title ? `<p class="st-ttitle">${mark(title, terms)}</p>` : ''}
     ${r.description ? `<p class="st-tdesc${long ? ' clamp' : ''}" id="st-tdesc">${mark(r.description, terms)}</p>${long ? btn('Read all', { kind: 'text', sm: true, iconEnd: 'chevron-down', attrs: { 'data-tmore': '1', 'aria-expanded': 'false', 'aria-controls': 'st-tdesc' } }) : ''}` : ''}

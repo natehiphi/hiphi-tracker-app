@@ -76,7 +76,7 @@ const TOPICS = [
       ['My issues', 'The issues you own or help on, each with its bills, soonest work first. Its tabs are three ways to group bills: <b>My issues</b>, <b>All issues</b> (every issue by category: rename, merge, put bills on issues; the first visit’s numbers are in its ⋯ menu) and <b>Coalitions</b> (each coalition’s week, and the switch <b>I help on</b> it).'],
       ['Bills', 'Every tracked bill, grouped by where it stands: <b>Mine</b> (bills you own or follow), <b>My coalitions</b> (when you help on one) or <b>Team</b>. Filter, select several to follow or change at once, or export a CSV; <b>Save this view</b> keeps a filter on the row of view chips. Sort new bills, Lists and Muted bills open from its ⋯ menu. A bill’s page has three tabs: <b>Overview</b> (where it stands, with its committees and where their members stand), <b>Activity</b> and <b>Public</b>.'],
       ['Legislators', 'Every senator and representative: district, the towns it covers, committees, how to reach them and where they stand on our bills. The filter box searches names, towns and districts, so “Kaūmana” or a street address finds the member. <b>This week</b> shows who hears our bills in the next 7 days.'],
-      ['Outreach', 'Four tabs. <b>This week’s asks</b>: each bill’s public ask and deadline, to paste into the newsletter or a post (your coalitions first; Every coalition shows the rest). <b>Partner update</b>: the memo for a coalition’s partners. <b>Emails</b>: supporter emails, each approved by someone other than its writer before it goes. <b>Supporters</b>: everyone HIPHI knows, with segments and to-dos (admins import or export a CSV from the ⋯ menu).'],
+      ['Outreach', 'Four tabs. <b>This week’s asks</b>: each bill’s public ask and deadline, to paste into the newsletter or a post (<b>My coalitions</b> first; <b>Team</b> shows everyone’s). <b>Partner update</b>: the memo for a coalition’s partners. <b>Emails</b>: supporter emails, each approved by someone other than its writer before it goes. <b>Supporters</b>: everyone HIPHI knows, with segments and to-dos (admins import or export a CSV from the ⋯ menu).'],
       ['QR code', 'A printable QR code for a partner’s link to the first visit: My issues, then All issues, its <b>⋯</b> menu, <b>First visit: numbers and links</b>, then Make a link. There is no QR code for a single hearing yet; share a hearing with its link.'],
       ['A quick look', 'On Bills, clicking a row opens the bill beside the list; <b>J</b> and <b>K</b> (or the arrow keys) walk the list and the bill beside it follows, <b>Enter</b> or <b>Open the bill</b> opens the bill’s own page, <b>Esc</b> closes it. On Today, <b>o</b> opens the same quick look'],
       ['Your menu', 'Tap your initials, top right, for the Inbox (messages and updates sent to you), and on a phone My settings, Session setup (admins) and Help. On a wide screen the sidebar holds the five places, with Help, Session setup and My settings at its foot; <b>Collapse</b> narrows it to icons.']] },
@@ -131,7 +131,7 @@ const TOPICS = [
         ['Quieter', 'My settings: <b>Fine-tune what you are told, and when</b> switches each kind off, or pick <b>Only in the app</b> for no alerts at all. There is no daily summary or quiet hours yet.']]; } },
   { id: 'keys', title: 'Keyboard shortcuts', icon: 'keyboard', hover: true, sub: () => 'For a keyboard and mouse',
     items: () => [['/', 'Search'], ['g then t, m, b, l, o, r or i', 'Go to Today, My issues, Bills, Legislators, Outreach, Review or the Inbox'], ['j and k', 'Today: next and previous item (the arrow keys too, once in the list). Bills, Legislators and the Inbox: next and previous row'], ['Enter', 'Today: do the open row\'s step. Bills: open the bill'], ['o', 'Today: a quick look at the bill. Bills: open the bill'], ['x', 'Bills: tick the row'], ['Space', 'Bills: a quick look at the marked row'],
-      ['Shift+A', 'Review: approve (it takes Shift so a stray letter never approves). Inbox: mark the list read'], ['e', 'Inbox: mark the row read or unread'], ['r, o', 'Review: send back, open the Doc'], ['Right arrow', 'Review: skip to the next draft'], ['1 to 3', 'Bill: Overview, Activity, Public'], ['[ and ]', 'Bill: previous and next bill'],
+      ['Shift+A', 'Review: approve (it takes Shift so a stray letter never approves)'], ['Shift+M', 'Inbox: mark the list read'], ['e', 'Inbox: mark the row read or unread'], ['r, o', 'Review: send back, open the Doc'], ['Right arrow', 'Review: skip to the next draft'], ['1 to 3', 'Bill: Overview, Activity, Public'], ['[ and ]', 'Bill: previous and next bill'],
       ['t, n, l, u', 'Sort new bills: track, not for us, later, undo (u again undoes the one before)'], ['Arrow keys', 'In a menu or a picker: move; Enter chooses'], ['?', 'Open this list'], ['Esc', 'Close a sheet, or go back'], ['While typing', 'Shortcuts are off while you type in a field.'], ['Switch them off', 'The switch at the top of this list turns every shortcut off on this device.']] },
 ];
 const topic = id => TOPICS.find(t => t.id === id);
@@ -257,14 +257,15 @@ function renderDesk(route) {
   const body = t.html ? t.html() : `<div class="card st-wcard">${dl(t.items())}</div>`;
   const kbd = keysNote(t);
   const list = visible(); if (!list.includes(t)) list.push(t);   // a direct link to a topic this device does not list still shows where you are
-  return `<div class="st-page st-help st-duo"><div class="st-cols2">
+  // R-277 fix 10 (U-5, U-12): "Help" is the page's heading row, over both columns, where every page has it; the topic is
+  // the h2 under it (the topic was the h1, 300px to the right of every other page's).
+  return `<div class="st-page st-help st-duo"><div class="sv-phead"><h1 class="sv-h1">Help</h1></div><div class="st-cols2">
     <nav class="st-nav2" aria-label="Help topics">
-      <p class="st-navt">Help</p>
       <form class="st-search searchbox" role="search" data-hsform><label class="sr" for="st-hq">Search Help</label>${icon('search')}<input id="st-hq" class="input" type="search" placeholder="Search Help" autocomplete="off" value="${esc(q)}"></form>
       ${list.map(x => `<a class="st-navi" href="#/help/${x.id}"${x.id === t.id && !q.trim() ? ' aria-current="page"' : ''}>${icon(x.icon)}<span class="st-navl">${esc(x.title)}</span></a>`).join('')}
     </nav>
     <div class="st-pane st-read">
-      <div class="st-head"><h1 id="st-hh1" data-title="${esc(t.title)}">${q.trim() ? 'Search results' : esc(t.title)}</h1><p class="st-lede" id="st-hsub" ${q.trim() ? 'hidden' : ''}>${esc(t.sub ? t.sub() : '')}</p></div>
+      <div class="st-head"><h2 id="st-hh1" class="st-ptitle" data-title="${esc(t.title)}">${q.trim() ? 'Search results' : esc(t.title)}</h2><p class="st-lede" id="st-hsub" ${q.trim() ? 'hidden' : ''}>${esc(t.sub ? t.sub() : '')}</p></div>
       <div id="st-hres" aria-live="polite">${results(q)}</div>
       <div id="st-hdefault" ${q.trim() ? 'hidden' : ''}>${kbd}${body}</div>
     </div>

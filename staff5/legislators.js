@@ -329,7 +329,7 @@ export default {
           ${iconBtn('x', 'Clear the search', { 'data-lgclear': '1', hidden: !v.q }, 'clear')}
         </form>`;
     return `<div class="lg-dir${desk ? ' lg-desk' : ''}">
-      <h1 class="lg-dtitle">Legislators</h1>
+      <div class="sv-phead lg-dhead"><h1 class="lg-dtitle">Legislators</h1></div>
       ${desk ? `<div class="lg-bar">${box}<div class="lg-filters" id="lg-filters" role="group" aria-label="Filters">${filtersHTML(v)}</div></div>`
         : `<div class="lg-tools">${box}<div class="chips lg-chips" role="group" aria-label="Who to list" id="lg-chips">${chipsHTML(v)}</div></div>`}
       <p class="sr" role="status" id="lg-status"></p>

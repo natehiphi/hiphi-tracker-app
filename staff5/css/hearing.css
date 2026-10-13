@@ -79,7 +79,6 @@
 .hr-none { display: flex; align-items: center; gap: var(--s8); min-height: 44px; font-size: var(--t14); color: var(--n700); }
 .hr-none .ic { width: 18px; height: 18px; color: var(--n500); flex: none; }
 .hr-gacts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin-top: var(--s8); }
-.hr-gobtn .ic { width: 18px; height: 18px; }
 .hr-gacts .btn.text { padding: 0 12px; }
 
 /* the members, chair first, with where they stand on these bills */
@@ -88,8 +87,6 @@
 .hr-st { display: inline-flex; align-items: center; gap: var(--s8); font-size: var(--t14); font-weight: 700; color: var(--n700); }
 .hr-st > span { display: inline-flex; align-items: center; gap: 2px; }
 .hr-st .ic { width: 16px; height: 16px; }
-.hr-more { justify-content: center; gap: 6px; min-height: 44px; color: var(--p700); font-size: var(--t14); font-weight: 700; }
-.hr-more .ic { width: 18px; height: 18px; }
 
 /* ---- desktop (900px and wider): the agenda and the members on the left, going and the links in a panel that stays
    in view (.sv-cols, .sv-aside and .sv-stick in staff.css) ---- */

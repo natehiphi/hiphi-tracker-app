@@ -18,7 +18,7 @@
 .sp-page .sp-filterbtn:hover { box-shadow: inset 0 0 0 1px var(--p700); }
 .sp-page .sp-filterbtn .ic { width: 18px; height: 18px; color: var(--p700); }
 .sp-page .sp-n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--p700); color: var(--n0); font-size: var(--t13); line-height: 22px; text-align: center; }
-.sp-page .sp-tools > .iconbtn { border: 1px solid var(--n300); background: var(--n0); }
+.sp-page .sp-tools > .iconbtn, .sp-page .sp-tools .sv-phr > .iconbtn { border: 1px solid var(--n300); background: var(--n0); }
 /* Segments scroll sideways inside their own strip; the page itself never scrolls sideways. */
 .sp-page .sp-segs { position: relative; display: flex; gap: var(--s8); overflow-x: auto; margin: var(--s8) calc(-1 * var(--gutter)) 0; padding: 0 var(--gutter); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .sp-page .sp-segs::-webkit-scrollbar { display: none; }
@@ -164,10 +164,6 @@
 .sp-person a.sp-listchip:hover { background: var(--p50); border-color: var(--p700); }
 .sp-person .sp-nick .sv-t { display: none; }   /* a nickname names the bill; the plain summary is the line under it (billRow puts it in the title too: R-264 found it said twice) */
 /* where they said they stand on a bill they follow: an icon and the word, so it never rests on the colour */
-.sp-person .sp-st { display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; padding: 1px var(--s8) 1px 6px; border-radius: var(--pill); background: var(--n100); color: var(--n700); font-size: var(--t13); font-weight: 700; vertical-align: -3px; }
-.sp-person .sp-st .ic { width: 14px; height: 14px; flex: none; }
-.sp-person .sp-showall { justify-content: center; gap: 6px; min-height: 48px; color: var(--p700); font-weight: 700; font-size: var(--t14); }
-.sp-person .sp-showall .ic { width: 18px; height: 18px; }
 .sp-person .sp-feed { list-style: none; margin: 0; padding: var(--s4) var(--s16); }
 .sp-person .sp-fi { display: flex; align-items: flex-start; gap: var(--s12); padding: var(--s12) 0; }
 .sp-person .sp-fi + .sp-fi { border-top: 1px solid var(--n100); }
@@ -268,8 +264,8 @@
   .sp-page .sp-sp { flex: 1 1 auto; }
   .sp-page .sp-filterbtn { box-shadow: inset 0 0 0 2px var(--p700); color: var(--p700); padding: 0 16px; }
   .sp-page .sp-filterbtn:hover { box-shadow: inset 0 0 0 2px var(--p700); background: var(--p50); }
-  .sp-page .sp-tools > .iconbtn { border: 0; background: none; }
-  .sp-page .sp-tools > .iconbtn:hover { background: var(--n100); }
+  .sp-page .sp-tools > .iconbtn, .sp-page .sp-tools .sv-phr > .iconbtn { border: 0; background: none; }
+  .sp-page .sp-tools > .iconbtn:hover, .sp-page .sp-tools .sv-phr > .iconbtn:hover { background: var(--n100); }
   .sp-page .sp-segs { flex-wrap: wrap; overflow: visible; margin: var(--s12) 0 0; padding: 0; }
   .sp-page .sp-segs .chip:hover { border-color: var(--p700); background: var(--p50); }
   .sp-page .sp-active { margin-top: var(--s12); }
@@ -358,8 +354,6 @@
 /* ---- v4 (R-269): This week's asks, the tab Outreach opens on (asks.js), and Partner update (memo.js) ----
    Both are "wide" screens like Emails and Supporters, so Outreach's tab row stays put from tab to tab; each keeps a
    reading width inside, from the left edge rather than centred, for the same reason. */
-.ot-asks .ot-every .sv-switchrow { min-height: 44px; padding: 0; gap: var(--s8); }
-.ot-asks .ot-every .sv-switchrow .title { font-weight: 400; font-size: var(--t14); color: var(--n700); }   /* quiet: a narrowing, not a task */
 .ot-asks .ot-card .td-asks { margin: var(--s12) 0 0; }
 /* Outreach's tab row has four tabs since v4, one more than fits a phone on one line each (the page scrolled sideways,
    463px on a 390px phone): below 900px a long name takes two lines, so all four stay in view. */

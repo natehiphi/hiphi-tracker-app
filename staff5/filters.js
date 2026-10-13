@@ -6,7 +6,7 @@
 // function, passAll().
 import { S, DB, DEMO, esc, advocate, effStage, STAGES, isMine, isMuted, hooks } from './data.js';
 import { factsOf, facets, FLAGS, FACTS, diedish, codesOf, plain, STAGE_GLOSS, sponsorName, stopOf } from './model.js';
-import { icon, btn, field, inlineErr, toast, openSheet, closeSheet, iconBtn, POS_ICON, POS_WORD } from './ui.js';
+import { icon, btn, field, inlineErr, toast, openSheet, closeSheet, iconBtn, POS_ICON, POS_WORD, WHOSE } from './ui.js';
 
 const KEY = 'hiphi2_bills' + (DEMO ? '_demo' : '');
 // v3 (R-264): the row height is v3's own. Staff v2 shares KEY (one origin), so v3 never writes its row height there:
@@ -53,7 +53,7 @@ export const myCoalitions = () => {
   MC = { c, camps: S.campaigns, n: ids.length, set: new Set(c === 'all' ? ids : Array.isArray(c) ? c.filter(id => ids.includes(id)) : []) };
   return MC.set;
 };
-export const scopeOpts = () => [['me', 'Mine'], ...(myCoalitions().size ? [['coal', 'My coalitions']] : []), ['all', 'Team']];
+export const scopeOpts = () => [['me', WHOSE.mine], ...(myCoalitions().size ? [['coal', WHOSE.coal]] : []), ['all', WHOSE.team]];   // R-277 fix 14: ui.js WHOSE
 // Somebody who owns and follows nothing but supports a coalition starts on that coalition's bills: an empty "Mine"
 // told Kris "You have no bills yet" in the busiest week of the session.
 export const defaultScope = () => !S.bills.some(isMine) && myCoalitions().size ? 'coal' : 'me';

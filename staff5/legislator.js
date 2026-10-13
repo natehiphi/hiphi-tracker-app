@@ -16,6 +16,7 @@
 import { S, DB, esc, hooks, advocate } from './data.js';
 import { stopOf, stanceOf, legById, legsForSponsors, codesOf, diedish, hearingAhead, billNum, billSay, blurb, cmteName, STANCES, billByRef } from './model.js';
 import { icon, btn, iconBtn, chip, pickerChip, pickerSheet, empty, notice, toast } from './ui.js';
+import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { photo, legName, shortName, seatsOf, roleWord, legMail, billSub, billHref, stanceChip, openStance, wireStances, wireLinks, STANCE_WORD, STANCE_ICON } from './pathway.js';
 import { ourBill, islandFor } from './legislators.js';
 import { logConversation, convListHTML, wireConvList, withOthers, fetchOthers, convCount } from './conversation.js';
@@ -72,7 +73,7 @@ const billLink = b => `<a class="row lg-brow lg-plain" href="${billHref(b)}"><sp
 function folded(key, rows) {
   const open = S.lgMore?.has(key);
   if (rows.length <= FOLD + 2 || open) return rows.join('');
-  return rows.slice(0, FOLD).join('') + `<button type="button" class="row lg-more" data-lgmore="${esc(key)}">${icon('chevron-down')}<span>Show all ${rows.length}</span></button>`;
+  return rows.slice(0, FOLD).join('') + showAllBtn(rows.length, { 'data-lgmore': key });
 }
 const section = (id, title, n, inner, extra = '') => `<section class="lg-sec" aria-labelledby="${id}"><div class="lg-sech"><h2 id="${id}">${title}${n != null ? ` <span class="lg-n">${n}</span>` : ''}</h2>${extra}</div>${inner}</section>`;
 

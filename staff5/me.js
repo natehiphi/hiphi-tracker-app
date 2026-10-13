@@ -55,7 +55,7 @@ export default {
         <div class="card st-list">${kindsFor(me).map(k => switchRow('st-wf-' + k, WF_LABEL[k][0], w[k], WF_LABEL[k][1], { 'data-wf': k })).join('')}</div>
       </div></details>`;
     return `<div class="st-page st-me">
-      <div class="st-head"><h1 class="st-dup">My settings</h1></div>
+      <div class="st-head sv-phead"><h1 class="st-dup">My settings</h1></div>
       <section class="st-sec" aria-labelledby="st-reach">
         <h2 id="st-reach">How the tracker reaches you</h2>
         <p class="st-always">${icon('list-todo')}<span>Today lists everything that needs you, whatever you pick below.${helper ? ' You own no bills yet, so testimony deadline alerts go to each bill’s owner.' : ''}</span></p>

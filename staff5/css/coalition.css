@@ -43,8 +43,6 @@
 .co-empty .ic { width: 18px; height: 18px; color: var(--ok-text); flex: none; }
 .co-clear { margin-top: var(--s24); }
 .co-clear.co-first { margin-top: var(--s16); }   /* v3: the week's first line when no hearing leads it */
-.co-more { justify-content: center; gap: 6px; min-height: 44px; color: var(--p700); font-size: var(--t14); font-weight: 700; }
-.co-more .ic { width: 18px; height: 18px; }
 .co-rows .title { font-weight: 400; color: var(--n700); }
 .co-rows .title b { color: var(--n900); font-weight: 700; }
 

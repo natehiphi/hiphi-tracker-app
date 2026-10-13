@@ -9,6 +9,7 @@ import { S, DB, esc, hooks, fmtDT, fmtDate, advocate, pathwayStops } from './dat
 import { CHAMBER_NAME } from '../stops.js';
 import { stopOf, legsOf, stanceOf, legTitle, codesOf, cmteName, STANCES, blurb, billSay, diedish, hearingAhead, whyDead, riskOf, legPhoto, billByNum, billRef, streamOf, OUTCOME_LABEL } from './model.js';
 import { icon, btn, chip, pickerChip, openSheet, closeSheet, pickerSheet, toast } from './ui.js';
+import { docBtn, showAllBtn } from './ui.js';   // R-277 fix 4: one look per action
 import { rerender } from './bill.js';   // used inside functions only (bill.js imports this file too)
 
 // ---- small shared helpers (exported for legislators.js, legislator.js, search.js) ----
@@ -164,13 +165,13 @@ function hearingLine(b, h) {
 function testimonyLine(d) {
   const a = advocate(d.filed_by || d.submitted_by);
   return `<div class="bw-cmh bw-cmt"><p class="bw-cmwhen">${icon('file-text')}<span>Our testimony, filed${a ? ` by ${esc(a.id === S.me?.id ? 'you' : a.full_name.split(' ')[0])}` : ''}${d.filed_at ? ` ${esc(dayOf(d.filed_at))}` : ''}</span></p>
-    ${d.doc_url ? `<a class="bw-inline" href="${esc(d.doc_url)}" target="_blank" rel="noopener">Open Doc${icon('external-link')}</a>` : ''}${d.filed_url ? `<a class="bw-inline" href="${esc(d.filed_url)}" target="_blank" rel="noopener">Confirmation${icon('external-link')}</a>` : ''}</div>`;
+    ${docBtn(d.doc_url, { sm: true })}${d.filed_url ? `<a class="bw-inline" href="${esc(d.filed_url)}" target="_blank" rel="noopener">Confirmation${icon('external-link')}</a>` : ''}</div>`;
 }
 // A long committee shows its first six members, leadership first (or the first six of the order picked), and "Show all"
 // opens the rest in place, remembered for the visit: thirteen rows of Senate Ways and Means were a screen and a half.
 const FOLD_AT = 8, FOLD_TO = 6;
 const cap = (key, members) => members.length > FOLD_AT && !S.cmAll?.has(key) ? FOLD_TO : members.length;
-const moreBtn = (key, members) => cap(key, members) < members.length ? btn(`Show all ${members.length} members`, { kind: 'text', icon: 'chevron-down', cls: 'bw-cmall', attrs: { 'data-cmall': key } }) : '';
+const moreBtn = (key, members) => cap(key, members) < members.length ? showAllBtn(members.length, { 'data-cmall': key }, { what: 'members', cls: 'bw-cmall' }) : '';
 // v4 (R-269 P6): while nobody has recorded where any member stands, a stop's member table (nine rows, each with a name, a
 // stance picker and an email button: 16 more things to click on Lauren's SB3234) starts folded to one line, so the step due
 // within the hour on Next up is the biggest thing on the page. One click opens it, for the visit (S.cmMem).
