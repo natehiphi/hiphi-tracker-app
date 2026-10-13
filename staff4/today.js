@@ -257,7 +257,7 @@ function replyLine(name, body, mention) {
 }
 // Testimony sent back for changes has one name, "Sent back" (C-15): the notices said "Changes requested" (v4, R-269).
 // R-271: the line says the ask (revise it), not only what happened to it.
-const sentBack = t => String(t || '').replace(/^Changes requested on your testimony\b/i, 'Revise your testimony and resubmit it: it was sent back').replace(/^Changes requested:\s*/i, 'Sent back: ');
+const sentBack = t => String(t || '').replace(/^(Changes requested on your testimony|Your testimony was sent back)\b/i, 'Revise your testimony and resubmit it: it was sent back').replace(/^Changes requested:\s*/i, 'Sent back: ');
 const lowerFirst = s => /^[A-Z][a-z]/.test(s) ? s[0].toLowerCase() + s.slice(1) : s;
 
 // Sandbox only: demoInit builds the inbox for the admin it signs in as; after &as=KV it must be Kevin's inbox, or
@@ -511,7 +511,7 @@ export function todayItems(scope = 'mine', who = null, drop = null) {   // `drop
     if (b && i.kind === 'deadline' && testimonyBills.has(b.id)) continue;
     const tab = { chat: 'activity', timeline: 'activity' }[i.tab] || '';
     push({ kind: 'notice', key: `n:${i.key}`, i, b, due: null, who: 'yours', s: esc(clip(sentBack(unslack(i.title)), 110)), q: i.body ? esc(clip(unslack(i.body), 220)) : '',
-      why: `${/^Changes requested/i.test(unslack(i.title)) ? 'Sent back' : { testimony: 'Testimony', deadline: 'Reminder', system: 'From the tracker', hearing: 'Hearing', status: 'Update' }[i.kind] || 'Notice'} · ${fmtDT(i.at)}`,
+      why: `${/^(Changes requested|Your testimony was sent back)/i.test(unslack(i.title)) ? 'Sent back' : { testimony: 'Testimony', deadline: 'Reminder', system: 'From the tracker', hearing: 'Hearing', status: 'Update' }[i.kind] || 'Notice'} · ${fmtDT(i.at)}`,
       btns: b ? [{ label: 'Open', href: `${billRoute(b)}${tab ? '/' + tab : ''}`, read: true }] : [{ label: 'Mark done', act: 'read' }] });
   }
 
@@ -782,7 +782,7 @@ function card(c, i, team, o = {}) {
   CARDS.set(k, c);
   if (c.newh) return `<article class="td-card td-cluster td-newh" data-k="${esc(k)}" tabindex="-1" aria-labelledby="td-s${i}">
       ${urgBlock(null)}
-      <p class="td-s" id="td-s${i}">${icon('file-text')}${esc(plural(c.newh.length, 'new hearing'))} · No testimony draft yet</p>
+      <p class="td-s" id="td-s${i}">${icon('file-text')}${esc(plural(c.newh.length, 'new hearing'))} · Testimony to write, no draft yet</p>
       ${newhList(c)}</article>`;
   if (b && c.tasks.every(t => t.kind === 'reply')) return msgCard(c, i, k);
   if (c.hear) return slipHearCard(c, i, k, o);
@@ -841,7 +841,7 @@ function row(c, filled, o = {}) {
   }
   if (c.newh) {
     const nums = shortNames(c.newh.map(t => t.b));
-    return `<div data-k="${ek}" class="td-row td-rnew">${sel(`${urgBlock(null)}<span class="td-rmain"><span class="td-rs"><b>${esc(plural(c.newh.length, 'new hearing'))}</b> · No testimony draft yet</span><span class="td-rn">${esc(nums.slice(0, 4).join(', '))}${nums.length > 4 ? ' …' : ''}</span></span>`)}
+    return `<div data-k="${ek}" class="td-row td-rnew">${sel(`${urgBlock(null)}<span class="td-rmain"><span class="td-rs"><b>${esc(plural(c.newh.length, 'new hearing'))}</b> · Testimony to write, no draft yet</span><span class="td-rn">${esc(nums.slice(0, 4).join(', '))}${nums.length > 4 ? ' …' : ''}</span></span>`)}
       <span class="td-ract"></span>${end}</div>`;
   }
   if (c.hear) return slipHearRow(c, ek, sel, end, o);
