@@ -39,7 +39,7 @@ const tidy = s => String(s || '').replace(/\s*[\u2192>]\s*/g, ', then ').replace
 const sessionYear = () => SESSION_OVER ? SESSION_YEAR + 1 : SESSION_YEAR;
 const POS_OPTS = [['strongly_support', 'Strongly support'], ['support', 'Support'], ['support_amend', 'Support with amendments'], ['strongly_oppose', 'Strongly oppose'], ['oppose', 'Oppose'], ['neutral', 'Comments'], ['monitor', 'Monitor']];
 const TEMPLATE_LABEL = { hearing_alert: 'Hearing alert, one per bill', hearing_rescheduled: 'Hearing moved', hearing_cancelled: 'Hearing cancelled', draft_thread: 'Draft ready, as a thread reply',
-  reminder_morning: 'Reminder the morning testimony is due', reminder_before: 'Reminder hours before it is due', reminder_after: 'Reminder after the deadline passed', daily_head: 'Daily list heading', daily_empty: 'Daily list when nothing is coming' };
+  reminder_morning: 'Alert the morning testimony is due', reminder_before: 'Alert hours before it is due', reminder_after: 'Alert after the deadline passed', daily_head: 'Daily list heading', daily_empty: 'Daily list when nothing is coming' };
 
 // The sub-pages, in the order the index lists them. Advanced ones are listed under "Advanced", closed by default.
 const SECTIONS = [['team', 'Team', 'users-round'], ['email', 'Email', 'mail'], ['alerts', 'Hearing alerts', 'bell'], ['coalitions', 'Coalitions', 'users'], ['sync', 'Session days and sync', 'calendar-days'],
@@ -192,7 +192,7 @@ function readyRows() {
   return rows.sort((a, b) => rank(a) - rank(b));
 }
 function readyRowHTML(r) {
-  const [ic, cls, word] = r.waiting ? ['calendar-clock', 'info', 'Expected'] : r.ok === true ? ['circle-check', 'ok', 'Done'] : r.level === 'manual' ? ['circle-dashed', 'todo', 'To do'] : r.ok === null || r.level === 'info' ? ['info', 'info', 'For your information'] : r.level === 'block' ? ['circle-x', 'bad', 'Blocking'] : ['triangle-alert', 'warn', 'Check'];
+  const [ic, cls, word] = r.waiting ? ['calendar-clock', 'info', 'Expected'] : r.ok === true ? ['circle-check', 'ok', 'Done'] : r.level === 'manual' ? ['circle-dashed', 'todo', 'To-do'] : r.ok === null || r.level === 'info' ? ['info', 'info', 'For your information'] : r.level === 'block' ? ['circle-x', 'bad', 'Blocking'] : ['triangle-alert', 'warn', 'Check'];
   const fixText = !r.waiting && (r.ok === false || (r.level === 'manual' && !r.ok)) ? (FIX_TEXT[r.key] || tidy(r.fix)) : '';
   const to = r.ok !== true && !r.waiting && FIX[r.key];
   const act = r.waiting ? '' : r.level === 'manual'
@@ -873,10 +873,10 @@ const PAGES = {
   email: {
     // A failed read counts as paused and every save here is refused until a reload reads it (Z1-5, data.js).
     status: () => S.emailCfgErr ? ['circle-alert', `${esc(S.emailCfgErr)} Until then the app treats email as paused.`]
-      : (S.emailCfg || {}).enabled === false ? ['circle-alert', 'Email is paused. Alerts, reminders and hearing emails to the public are held and never sent; approved supporter emails wait and go out once it is back on. Slack still reaches the people it has matched (Team shows who).'] : ['circle-check', 'Email is on.'],
+      : (S.emailCfg || {}).enabled === false ? ['circle-alert', 'Email is paused. Staff alerts, and alerts and hearing emails to the public, are held and never sent; approved supporter emails wait and go out once it is back on. Slack still reaches the people it has matched (Team shows who).'] : ['circle-check', 'Email is on.'],
     note() { const c = S.emailCfg || {}; return c.changed_at ? `${c.enabled === false ? 'Paused' : 'Last turned on'}${c.changed_by ? ` by ${esc(c.changed_by)}` : ''} on ${esc(fmtDate(c.changed_at, { year: 'numeric' }))}.` : ''; },
     body() { const c = S.emailCfg || {};
-      return `<div class="card st-form">${switchRow('st-email-on', 'Send email', c.enabled !== false, 'Off holds every outgoing email. Alerts and reminders held while it is off are never sent; approved supporter emails wait for it. This switch saves as soon as you flip it.')}
+      return `<div class="card st-form">${switchRow('st-email-on', 'Send email', c.enabled !== false, 'Off holds every outgoing email. Alerts held while it is off are never sent; approved supporter emails wait for it. This switch saves as soon as you flip it.')}
         <p class="small muted st-note" id="st-email-note">${this.note()}</p>
         ${txt('st-email-postal', 'Postal address', c.postal || '', { ph: '707 Richards Street, Suite 300, Honolulu, HI 96813', help: 'Printed at the bottom of every email to the public. The law requires a real mailing address. Leave it blank to use the hiphi.org address.' })}
         ${txt('st-email-from', 'Public email comes from', c.from_email || '', { type: 'email', ph: 'alerts@hiphi.org', help: 'Shown as “HIPHI Bill Tracker”. It must be an address Postmark is set up to send from (a hiphi.org sender).' })}
@@ -889,7 +889,7 @@ const PAGES = {
     auto: { 'st-email-on': { cfg: 'emailCfg', save: c => DB.saveEmailSettings({ enabled: c.enabled, changed_at: c.changed_at, changed_by: c.changed_by }),
       apply: (c, v) => ({ ...c, enabled: v, changed_at: new Date().toISOString(), changed_by: S.me?.initials || null }),
       confirm: v => { if (!v || S.emailCfgErr) return null; const n = (S.alerts || []).filter(a => a.status === 'approved' && a.scheduled_for).length;
-        return { title: 'Turn email on?', text: `Alerts, reminders and hearing emails to the public start going out again. Alerts held while it was paused are not sent.${n ? ` ${n === 1 ? 'One approved supporter email has' : `${n} approved supporter emails have`} waited, and ${n === 1 ? 'goes' : 'go'} out in the next 4:30 pm email.` : ''}`, ok: 'Turn email on' }; },
+        return { title: 'Turn email on?', text: `Staff alerts, and alerts and hearing emails to the public, start going out again. Alerts held while it was paused are not sent.${n ? ` ${n === 1 ? 'One approved supporter email has' : `${n} approved supporter emails have`} waited, and ${n === 1 ? 'goes' : 'go'} out in the next 4:30 pm email.` : ''}`, ok: 'Turn email on' }; },
       msg: v => v ? 'Saved. Email is on.' : 'Saved. Email is paused: nothing will be sent.' } },
     after(root) { const n = root.querySelector('#st-email-note'); if (n) n.innerHTML = this.note(); },
     saveLabel: 'Save',
@@ -1165,7 +1165,7 @@ const PAGES = {
       // R-192: the switches decide what the public tracker and its practice copy show; the practice copy of this page has
       // sample switches, which change nothing (Nate's answer 1: one set of switches, the real ones).
       return `<div class="ab-intro"><p class="small muted">Switch on the versions you want people to see. With two or more on, each new visitor gets one of them at random and the test is counted; with one on, everyone sees it. The public tracker and its practice copy both follow these switches. A card says “Trust it” when the difference is real.</p>
-        ${DEMO ? notice('info', 'info', `This is the practice copy: these switches are samples and change nothing. The real ones, signed in, decide what the public tracker and its practice copy show: <a href="${esc(APP_URL)}staff.html#/setup/tests">Tests</a>.`) : ''}
+        ${DEMO ? notice('info', 'info', `This is the practice copy: these switches are samples and change nothing. The real ones, signed in, decide what the public tracker and its practice copy show: <a href="${esc(APP_URL)}staff5.html#/setup/tests">Tests</a>.`) : ''}
         <div class="ab-introacts">${btn('Tester sheet', { kind: 'text', sm: true, icon: 'qr-code', href: '#/setup/room', attrs: { 'data-abroom': '1', title: 'Testing with a room of people: a link and QR code for each group, on the versions you pick' } })}
         ${btn('Check again', { kind: 'text', sm: true, icon: 'rotate-ccw', attrs: { 'data-abretry': '1', 'aria-busy': s.abBusy ? 'true' : null } })}</div></div>
         <div class="ab-list">${cards.map(c => abCard(c.t, c.x)).join('')}</div>`; },

@@ -420,7 +420,7 @@ function moreMenu(root) {
     desk ? null : { label: 'Add a person', icon: 'user-plus', run: () => afterSheet(addPersonSheet) },
     admin ? { label: 'Import CSV', icon: 'upload', sub: 'A file or pasted text. You see what it will do first.', run: () => afterSheet(importSheet) } : null,
     admin ? { label: rows.length === all.length ? `Export all ${all.length.toLocaleString()} as CSV` : `Export these ${rows.length.toLocaleString()} as CSV`, icon: 'download', disabled: !rows.length, reason: 'Nobody matches, so there is nothing to export.', run: () => { exportPeopleCSV(rows); toast(`Downloading ${plural(rows.length, 'person', 'people')} as a CSV file.`); } } : null,
-    desk ? null : { label: 'Select people', icon: 'square-check-big', sub: 'Then tag them or add a follow-up', disabled: !rows.length, reason: 'Nobody matches, so there is no one to select.', run: () => { startSelect(); rerender(); } },
+    desk ? null : { label: 'Select people', icon: 'square-check-big', sub: 'Then tag them or add a to-do', disabled: !rows.length, reason: 'Nobody matches, so there is no one to select.', run: () => { startSelect(); rerender(); } },
     desk ? { label: 'Sort by highest score', icon: 'trending-up', sub: v.sort[0] === 'score' ? 'This is the order now' : 'The column headers sort by everything else', disabled: v.sort[0] === 'score', reason: 'Already sorted by highest score.',
         run: () => { v.sort = ['score', -1]; v.limit = 200; rerender('more'); toast('Sorted by highest score.'); } }
       : { label: `Sort: ${sortL}`, icon: 'list', run: () => afterSheet(() => pickerSheet({ title: 'Sort supporters', value: preset?.[0] || '', options: SORTS.map(([k, l]) => [k, l]), onPick: val => { v.sort = [val, SORT_KEYS[val][0]]; v.limit = 200; hooks.render(); toast(`Sorted by ${SORTS.find(s => s[0] === val)[1].toLowerCase()}.`); } })) },
@@ -758,7 +758,7 @@ export function followupSheet(ids, { onDone } = {}) {
       <div class="sp-two"><div class="field"><label for="sp-fd">Due (optional)</label><input id="sp-fd" type="date"></div>
       <div class="field"><label for="sp-fa">Who does it</label><select id="sp-fa">${activeAdvs().map(a => `<option value="${esc(a.id)}"${a.id === S.me?.id ? ' selected' : ''}>${esc(a.id === S.me?.id ? `${firstName(a)} (you)` : firstName(a))}</option>`).join('')}</select></div></div>
       <p class="meta sp-fnote">It shows in Today for whoever does it.</p></div>`,
-    foot: btn(single ? 'Add follow-up' : `Add ${ids.length} follow-ups`, { icon: 'calendar-plus', attrs: { 'data-go': '1' } }),
+    foot: btn(single ? 'Add a to-do' : `Add ${ids.length} to-dos`, { icon: 'calendar-plus', attrs: { 'data-go': '1' } }),
     wire: dlg => {
       const w = dlg.querySelector('#sp-fw'), go = dlg.querySelector('[data-go]'); w.focus();
       go.onclick = async () => {
@@ -770,7 +770,7 @@ export function followupSheet(ids, { onDone } = {}) {
           if (single) await DB.addFollowup(single.id, advId, what, due); else await DB.bulkFollowup(ids, advId, what, due);
           closeSheet({ silent: true });
           const whose = advId === S.me?.id ? 'your Today' : `${firstName(adv)}’s Today`;
-          toast(single ? `Follow-up added. It is in ${whose}.` : `Added ${ids.length} follow-ups. They are in ${whose}.`, { ok: true });
+          toast(single ? `To-do added. It is in ${whose}.` : `Added ${ids.length} to-dos. They are in ${whose}.`, { ok: true });
           onDone ? onDone() : hooks.render();
         } catch (e) { go.removeAttribute('aria-busy'); go.disabled = false; toast(e, { err: true }); }
       };

@@ -13,14 +13,14 @@ import { S, DB, DEMO, esc, fmtDate, fmtDT, hooks } from './data.js';
 import { inboxRows, inboxCount, unslack, billById, billNum, billSay, blurb, canFirstApprove, canSecondApprove, plainAction, draftFor } from './model.js';
 import { icon, btn, iconBtn, empty, toast, keysOn } from './ui.js';
 import { sandboxInbox, hearingFor } from './today.js';
-import { billRoute } from './model.js';
+import { billRoute, agoWords } from './model.js';
 
 const KINDS = [['message', 'Messages'], ['testimony', 'Testimony'], ['deadline', 'Deadlines'], ['hearing', 'Hearings'], ['status', 'Status'], ['system', 'System']];
 const KIND_ICON = { message: 'message-square', testimony: 'file-text', deadline: 'clock', hearing: 'gavel', status: 'arrow-right', system: 'settings' };
 const view = () => S.inboxView ??= { tab: 'needs', kind: '', unreadOnly: false, sort: 'new', q: '', group: true };
 const hover = () => { try { return matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return false; } };
 const wide = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return true; } };
-const ago = iso => { const h = (Date.now() - new Date(iso)) / 36e5; return h < 0 ? fmtDT(iso) : h < 1 ? 'just now' : h < 24 ? `${Math.round(h)}h ago` : h < 24 * 7 ? `${Math.round(h / 24)}d ago` : fmtDate(iso); };
+const ago = iso => agoWords(iso, { short: true });   // R-277 fix 3: model.js, the narrow column's short form
 const itemOf = key => (S.inbox || []).find(i => i.key === key);
 // Where a row opens: a message on the bill's Activity (where the reply box is), news on its Activity, anything else
 // (a testimony step included: v3's Next up on Overview holds it) on the bill's Overview. A row about no bill (a system notice) opens nothing.
@@ -36,7 +36,7 @@ function reviewAct(i) {
   const d = (S.drafts?.[i.bill_id] || []).find(x => x.status === 'review' || x.status === 'second_review'); if (!d) return '';
   const h = hearingFor(d);
   const mine = d.status === 'review' ? canFirstApprove(S.me, d, h) : canSecondApprove(S.me, d);
-  return mine ? `<div class="ib-rev">${btn(d.status === 'review' ? 'Review it' : 'Give the second approval', { kind: 'secondary', sm: true, icon: 'user-check', href: `#/review/${encodeURIComponent(d.id)}`, attrs: { 'data-ibkey': i.key } })}</div>` : '';
+  return mine ? `<div class="ib-rev">${btn(d.status === 'review' ? 'Open to approve' : 'Give the second approval', { kind: 'secondary', sm: true, icon: 'user-check', href: `#/review/${encodeURIComponent(d.id)}`, attrs: { 'data-ibkey': i.key } })}</div>` : '';
 }
 // The button shows what it does: a tick marks the row read, a dot (the unread mark) marks it unread again. Envelopes
 // read as the row's state rather than the button's action (9/30 review, A-18).
@@ -113,12 +113,12 @@ function render() {
   const countLine = (extra = '') => `<p class="ib-count" aria-live="polite"><span>${grouped ? `${nBills} ${nBills === 1 ? 'bill' : 'bills'}` : `${rows.length} ${rows.length === 1 ? 'item' : 'items'}`}${unreadHere ? `, ${unreadHere} unread` : ''}</span>${extra}${unreadHere ? `<button type="button" class="linkbtn" data-ibreadall="1">Mark all read</button>` : ''}</p>`;
   const kinds = KINDS.filter(([k]) => all.some(i => i.kind === k && (v.tab === 'all' || (v.tab === 'needs') === i.direct)));
   const none = filtered ? empty({ title: 'Nothing matches these filters', action: btn('Clear the filters', { kind: 'secondary', attrs: { 'data-ibclear': 1 } }) })
-    : v.tab === 'needs' ? empty({ title: 'Nothing needs you', text: 'Messages to you, @mentions, testimony steps and reminders land here.' })
+    : v.tab === 'needs' ? empty({ title: 'Nothing to answer', text: 'Messages to you, @mentions, testimony steps and alerts land here.' })
     : v.tab === 'updates' ? empty({ title: 'No updates', text: 'What the Capitol does on the bills you own or follow lands here, for a week.' })
-    : empty({ title: 'Nothing here yet', text: 'Messages, testimony steps, reminders and news on your bills land here.' });
+    : empty({ title: 'Nothing here yet', text: 'Messages, testimony steps, alerts and news on your bills land here.' });
   return `<div class="ib-page">
     <div class="ib-bar">
-      <div class="sv-seg ib-tabs" role="group" aria-label="Which items">${tab('needs', 'Needs you', nNeeds)}${tab('updates', 'Updates')}${tab('all', 'Everything')}</div>
+      <div class="sv-seg ib-tabs" role="group" aria-label="Which items">${tab('needs', 'To answer', nNeeds)}${tab('updates', 'Updates')}${tab('all', 'Everything')}</div>
     </div>
     ${showF ? `<div class="ib-filters">
       <label class="sr" for="ib-q">Filter by bill or words</label><input id="ib-q" class="input ib-q" type="search" placeholder="Filter by bill or words" value="${esc(v.q)}" autocomplete="off">

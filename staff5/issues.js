@@ -15,7 +15,7 @@
 // My issues · All issues · Coalitions, folded to one row per category with one line per issue; an issue's page leads with
 // its bills' week the way a coalition's page does, and keeps its editing tools behind "Edit bills" and Related's "Edit".
 import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, fmtDT, effStage, STAGE_LABEL } from './data.js';
-import { billById, billSay, billTag, plain, PUBLIC_APP, billRef, billByRef, billRoute, stopOf, riskOf, diedish, hearingAhead } from './model.js';
+import { billById, billSay, billTag, plain, PUBLIC_APP, billRef, billByRef, billRoute, stopOf, riskOf, diedish, hearingAhead, whenAt } from './model.js';
 import { icon, btn, iconBtn, row, chip, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow, notice, posChip, pickerSheet, pickerChip, ownerOf, sectionNav } from './ui.js';
 import { plural, pageHead, afterClose, billName, isSide } from './lists.js';
 import { convSectionHTML, wireConvSection } from './conversation.js';
@@ -331,7 +331,7 @@ export function standLine(b, { owner = 'all' } = {}) {
   if (diedish(b)) return 'Did not advance';
   const st = stopOf(b), h = hearingAhead(b), parts = [STAGE_LABEL[effStage(b)] || ''];
   if (h) {
-    parts.push(`Hearing ${fmtDT(h.scheduled_at)}${h.committee ? ` · ${h.committee}` : ''}`);
+    parts.push(`Hearing ${whenAt(h.scheduled_at)}${h.committee ? ` · ${h.committee}` : ''}`);
     // Testimony for that hearing, in the hearing page's words: due (not started), drafted or filed.
     if (isPos(b)) { const t = testimonyOf(h, b); parts.push(t.filed ? 'Testimony filed' : t.word === 'not started' ? `Testimony due ${dueWhen(dueOf(h))}` : 'Testimony drafted'); }
   } else if (st.deadline?.missed) parts.push(`Missed the ${st.deadline.label} deadline`);
@@ -361,7 +361,7 @@ export function nextPhrase(b) {
   if (diedish(b)) say = 'Did not advance';
   else {
     const st = stopOf(b), h = hearingAhead(b);
-    if (h) say = `Hearing ${fmtDT(h.scheduled_at)}${isPos(b) ? ` · ${testimonyWords(h, b)}` : ''}`;
+    if (h) say = `Hearing ${whenAt(h.scheduled_at)}${isPos(b) ? ` · ${testimonyWords(h, b)}` : ''}`;
     else if (st.deadline?.missed) say = `Missed the ${st.deadline.label} deadline`;
     else if (st.phase === 'committee' && st.deadline) say = `${riskOf(b) ? 'At risk: needs' : 'Needs'} a hearing${st.committee ? ` in ${st.committee}` : ''} by ${dayAt(st.deadline.date)}`;
     else if (st.deadline) say = `${st.deadline.label} ${dayAt(st.deadline.date)}`;

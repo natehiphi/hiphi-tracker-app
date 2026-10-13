@@ -23,7 +23,7 @@ import { renderPublic, wirePublic, wireDraftsFocus } from './public.js';
 import { renderEarlier, wireTestimony, earlierCount, testimonyHref, onNextUp, draftNowBtn, makeDraftNow } from './testimony.js';
 import { holdBack } from './review.js';
 import { sittingOf, goersOf, agendaOf } from './hearing.js';
-import { billRoute, billByNum, MEMO_SAYS } from './model.js';
+import { billRoute, billByNum, MEMO_SAYS, whenAt, roomName } from './model.js';
 import { askConflict } from './conflict.js';
 import { untrackedHTML, wireUntracked, untrackedOf } from './untracked.js';
 import { issuesOfBill, issueLinkHref } from './issues.js';
@@ -327,7 +327,7 @@ function pickPosition(b) {
 function pickOwner(b) {
   const cur = (S.assignments[b.id] || [])[0] || '';
   const people = S.advocates.filter(a => a.is_active !== false || a.id === cur).slice().sort((x, y) => (y.id === S.me?.id) - (x.id === S.me?.id) || x.full_name.localeCompare(y.full_name));
-  pickerSheet({ title: `Who owns ${billSay(b)}?`, value: cur, help: 'The owner gets its drafts and alerts. Whoever sends the testimony for review files it.',
+  pickerSheet({ title: `Who owns ${billSay(b)}?`, value: cur, help: 'The owner gets its drafts and alerts. Whoever sends the testimony for approval files it.',
     options: [...people.map(a => [a.id, a.id === S.me?.id ? `${a.full_name} (you)` : a.full_name, 'user-round']), ['', 'No owner', 'circle-dashed']],
     onPick: async v => {
       if (v === cur) return;
@@ -390,7 +390,7 @@ async function copyLink(b) {
 }
 
 // ---- Next up: the hearing, the testimony step and its one button ----
-const roomOf = r => String(r || '').replace(/\s*(&|and|via)\s*videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ').trim();
+const roomOf = roomName;   // R-277 fix 3: "Room 430", one way on every screen
 // Testimony is due at the deadline on the notice, else a day before the hearing (plan 5).
 const dueOf = h => h.testimony_deadline || new Date(new Date(h.scheduled_at) - 864e5).toISOString();
 const reviewerNames = () => listNames(a => a.is_reviewer, ' or ');
@@ -420,8 +420,8 @@ function testimonyBlock(b, d, { primary = true, title = '' } = {}) {
   // word stands in for the who-line ("Write it in the Doc, then submit for review" over "Changes asked for").
   const sentBack = d.status === 'draft' && !!d.review_note;
   let main = '', alt = '';
-  if (d.status === 'draft') main = btn(d.review_note ? 'Resubmit for review' : 'Submit for review', { kind, icon: 'send', attrs: { 'data-dact': 'submit', 'data-draft': d.id } });
-  else if (acts.includes('approve')) { main = btn('Approve', { kind, icon: 'check', attrs: { 'data-dact': 'approve', 'data-draft': d.id } }); alt = btn('Request changes', { kind: 'secondary', attrs: { 'data-dact': 'changes', 'data-draft': d.id } }); }
+  if (d.status === 'draft') main = btn(d.review_note ? 'Resubmit' : 'Send for approval',   /* R-277 W-2, C-15 */ { kind, icon: 'send', attrs: { 'data-dact': 'submit', 'data-draft': d.id } });
+  else if (acts.includes('approve')) { main = btn('Approve', { kind, icon: 'check', attrs: { 'data-dact': 'approve', 'data-draft': d.id } }); alt = btn('Send back', { kind: 'secondary', attrs: { 'data-dact': 'changes', 'data-draft': d.id } }); }
   else if (d.status === 'approved') { main = btn('File at the Capitol', { kind, icon: 'external-link', href: capitolUrl(b), target: '_blank' });
     alt = btn('Mark filed', { kind: 'secondary', icon: 'clipboard-check', attrs: { 'data-dact': 'file', 'data-draft': d.id } }); }
   else if (d.status === 'filed') main = chip('Filed', 'ok', 'check');
@@ -471,13 +471,14 @@ const watchLabel = v => v.state === 'live' ? 'Watch live now' : v.state === 'aft
 const wantsTestimony = (b, h) => !!b.position && b.position !== 'monitor' && h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now();
 // Testimony due, with its countdown. Past the deadline while the hearing has not started, the Capitol still takes late
 // testimony: amber "late testimony until 1:10 PM", not red "overdue" (A-5 as amended by R-250; ui.js countdown).
-const dueRow = (h, due) => `<p class="bw-due"><span>Testimony due ${esc(fmtDT(due))}</span>${countdown(due, { until: h.scheduled_at })}</p>`;
+// R-277 fix 3: the moment and the hours in the words every screen uses (model.js whenAt, ui.js countdown).
+const dueRow = (h, due) => `<p class="bw-due"><span>Testimony due ${esc(whenAt(due))}</span>${countdown(due, { until: h.scheduled_at })}</p>`;
 function hearingCard(b, h, i) {
   const d = draftFor(b.id, h.committee), due = dueOf(h), filed = d && d.status === 'filed';
-  const meta = [fmtDT(h.scheduled_at), roomOf(h.room), h.committee].filter(Boolean).map(esc).join(' · ');
+  const meta = [whenAt(h.scheduled_at), roomOf(h.room), h.committee].filter(Boolean).map(esc).join(' · ');
   const dueLine = d && !filed && d.status !== 'cancelled'
     ? dueRow(h, due)
-    : `${!d && wantsTestimony(b, h) ? dueRow(h, due) : ''}<p class="bw-due"><span>Hearing starts</span>${countdown(h.scheduled_at).replace('left', 'from now')}</p>`;
+    : `${!d && wantsTestimony(b, h) ? dueRow(h, due) : ''}<p class="bw-due"><span>Hearing starts</span>${countdown(h.scheduled_at)}</p>`;
   // No draft yet: the tracker makes one from the hearing notice; if it has not, anyone can ask for it now (R-102).
   const noDraft = !d ? (S.failed?.('testimony drafts') ? '<p class="small muted bw-nodraft">The testimony drafts did not load. Reload, then look again.</p>'
     : b.position && b.position !== 'monitor'
@@ -558,8 +559,8 @@ async function runDraft(b, d, act, el) {
     if (act === 'submit') {
       await transition(b, d, 'submit'); rerender(`[data-tb="${d.id}"] .bw-acts > *`);
       // An admin may approve their own (Nate 10/5), so "Sent to Kris for review" on Nate's own draft left him out (R-267).
-      toast(S.me?.is_admin ? `Sent for review. ${approverNames() !== 'an admin' ? `You or ${approverNames()} can approve it.` : 'You can approve it.'}`
-        : approverNames() !== 'an admin' ? `Sent to ${approverNames()} for review.` : 'Sent for review.', { undo: async () => { await transition(b, d, 'withdraw'); rerender(); toast('Withdrawn. It is a draft again.'); } });
+      toast(S.me?.is_admin ? `Sent for approval. ${approverNames() !== 'an admin' ? `You or ${approverNames()} can approve it.` : 'You can approve it.'}`
+        : approverNames() !== 'an admin' ? `Sent to ${approverNames()} for approval.` : 'Sent for approval.', { undo: async () => { await transition(b, d, 'withdraw'); rerender(); toast('Withdrawn. It is a draft again.'); } });
     } else if (act === 'approve') {
       // The same safety as review mode (build 3): a leftover second tap never approves the next step (someone who is
       // both admin and reviewer would find Approve in the same spot), and every approval has Undo, which the server
@@ -607,10 +608,11 @@ function markFiled(b, d) {
   openSheet({ title: `Filed ${esc(billSay(b))} testimony for ${esc(d.committee)}?`, size: 'auto',
     body: `${field('bw-furl', 'Capitol confirmation link (optional)', '<input id="bw-furl" type="url" inputmode="url" autocomplete="off" placeholder="https://">', 'Paste the link from the Capitol’s confirmation, if you have it.')}
       <p class="err" id="bw-furl-e" role="alert" hidden>That does not look like a web address. It starts with https://</p>
-      <p class="bw-shlink">${btn('File at the Capitol', { kind: 'text', icon: 'external-link', href: capitolUrl(b), target: '_blank' })}</p>`,
+      <p class="bw-shlink">${btn('File at the Capitol', { kind: 'text', icon: 'external-link', href: capitolUrl(b), target: '_blank' })}${btn('How to file at the Capitol', { kind: 'text', icon: 'circle-help', attrs: { 'data-howfile': '1' } })}</p>`,   // R-277 fix 9: the steps, one tap away
     foot: btn('Mark filed', { kind: 'primary', icon: 'clipboard-check', attrs: { 'data-go': '1' } }),
     wire: dlg => {
       const inp = dlg.querySelector('#bw-furl'), er = dlg.querySelector('#bw-furl-e'); inp.value = HELD.get('fu:' + d.id) || '';
+      dlg.querySelector('[data-howfile]').onclick = () => { closeSheet(); afterBack(() => S.go('#/help/file')); };   // the typed link stays held (HELD)
       inp.oninput = () => { er.hidden = true; inp.removeAttribute('aria-invalid'); HELD.set('fu:' + d.id, inp.value); };
       dlg.querySelector('[data-go]').onclick = async e => {
         const url = inp.value.trim();
@@ -714,11 +716,11 @@ function todoSection(b) {
   }).join('');
   const d = drafts.get(b.id + ':todo') || '';
   const add = S.bwTodoOpen.has(b.id) || d
-    ? `<form class="bw-addrow" data-todoadd novalidate><label class="sr" for="bw-tdnew">Add a task</label><input id="bw-tdnew" class="input" maxlength="200" placeholder="Add a task" autocomplete="off" value="${esc(d)}">${btn('Add', { kind: 'secondary', icon: 'plus', attrs: { type: 'submit' } })}</form>`
-    : btn('Add a task', { kind: 'text', icon: 'plus', cls: 'bw-todoadd', attrs: { 'data-todoopen': '1' } });
-  if (!rows) return `<section class="bw-sec bw-todo0" aria-labelledby="bw-todo-h"><h2 id="bw-todo-h" class="sr">To do</h2>${add}</section>`;
+    ? `<form class="bw-addrow" data-todoadd novalidate><label class="sr" for="bw-tdnew">Add a to-do</label><input id="bw-tdnew" class="input" maxlength="200" placeholder="Add a to-do" autocomplete="off" value="${esc(d)}">${btn('Add', { kind: 'secondary', icon: 'plus', attrs: { type: 'submit' } })}</form>`
+    : btn('Add a to-do', {   /* R-277 W-2, C-15: to-do */ kind: 'text', icon: 'plus', cls: 'bw-todoadd', attrs: { 'data-todoopen': '1' } });
+  if (!rows) return `<section class="bw-sec bw-todo0" aria-labelledby="bw-todo-h"><h2 id="bw-todo-h" class="sr">To-dos</h2>${add}</section>`;
   return `<section class="bw-sec" aria-labelledby="bw-todo-h">
-    <h2 id="bw-todo-h">To do${open ? ` <span class="bw-n">${open}</span>` : ''}</h2>
+    <h2 id="bw-todo-h">To-dos${open ? ` <span class="bw-n">${open}</span>` : ''}</h2>
     <ul class="rows bw-todos">${rows}</ul>
     ${add}
   </section>`;
@@ -827,7 +829,7 @@ function todoMenu(b, t) {
     t.done ? null : { label: 'Ask someone to take this', icon: 'user-round-plus', sub: who ? `${firstName(who)} has it now` : 'One teammate, who gets a Slack message', run: () => afterBack(() => todoAsk(b, t)) },
     t.done || mineNow ? null : { label: 'Take it yourself', icon: 'user-check', sub: who ? `Instead of ${firstName(who)}` : '', run: () => setTodoPerson(b, t, S.me?.id || null) },
     { label: t.due_date ? 'Change the due date' : 'Add a due date', icon: 'calendar-days', sub: t.due_date ? `Due ${dayOf(t.due_date)}` : '', run: () => afterBack(() => todoDue(b, t)) },
-    { label: 'Delete task', icon: 'trash-2', danger: true, run: () => todoDelete(b, t) },
+    { label: 'Delete to-do', icon: 'trash-2', danger: true, run: () => todoDelete(b, t) },
   ] });
 }
 function todoDue(b, t) {
@@ -868,7 +870,7 @@ async function todoDelete(b, t) {
   const keep = { ...t };
   try {
     await DB.deleteTodo(b.id, t.id); rerender();
-    toast('Task deleted.', { undo: async () => {
+    toast('To-do deleted.', { undo: async () => {
       await DB.addTodo(b.id, keep.title);
       const n = (S.todos[b.id] || []).slice(-1)[0];
       if (n) await DB.updateTodo(b.id, n.id, { due_date: keep.due_date || null, assignee_id: keep.assignee_id || null, done: !!keep.done });
@@ -1105,8 +1107,8 @@ function wireOverview(pnl, b) {
     form.onsubmit = async e => {
       e.preventDefault();
       const title = inp.value.trim();
-      if (!title) { toast('Type the task first.'); inp.focus(); return; }
-      try { await DB.addTodo(b.id, title); drafts.delete(b.id + ':todo'); rerender('#bw-tdnew'); toast('Task added.'); }
+      if (!title) { toast('Type the to-do first.'); inp.focus(); return; }
+      try { await DB.addTodo(b.id, title); drafts.delete(b.id + ':todo'); rerender('#bw-tdnew'); toast('To-do added.'); }
       catch (x) { toast(x, { err: true }); }
     };
   }

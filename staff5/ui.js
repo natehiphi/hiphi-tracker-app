@@ -1,7 +1,8 @@
 // HIPHI Staff v2: shared building blocks. Every screen builds from these so a row, a chip, a sheet or a countdown
 // looks and behaves the same everywhere (plan section 4). Styles in staff/staff.css, on top of pub/base.css.
 import { S, STAGES, effStage, esc, advocate } from './data.js';
-import { stopOf, STAGE_GLOSS } from './model.js';
+import { stopOf, STAGE_GLOSS, clockDay, spanOf, timeLeft } from './model.js';
+export { clockDay };   // R-277 fix 3: it lives with the other time words in model.js; callers still import it from here
 import { icon } from '../icons.js';
 export { icon };
 
@@ -47,18 +48,15 @@ export const ownerOf = b => advocate((S.assignments[b.id] || [])[0]);
 // v3 (R-264, A-5 as amended by R-250): a testimony deadline that has passed while the Capitol still takes late testimony
 // (before the hearing starts) is amber "late testimony until 1:10 PM", not red "overdue". Pass the hearing's start as \`until\`.
 const lateUntil = (iso, until) => { const now = Date.now(); return !!until && new Date(iso) <= now && new Date(until) > now; };
-const clock = t => new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' });
 // v4 (R-269): "late testimony until 9:30 AM" said on Thursday about Friday's 9:30 read as half an hour away; the day goes in
-// whenever the hearing is not today ("until tomorrow 9:30 AM", "until Fri 9:30 AM").
-const hstDay = t => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
-export const clockDay = t => { const d = hstDay(t), today = hstDay(Date.now()), tmw = hstDay(Date.now() + 864e5);
-  return d === today ? clock(t) : d === tmw ? `tomorrow ${clock(t)}` : `${new Date(t).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Pacific/Honolulu' })} ${clock(t)}`; };
+// whenever the hearing is not today ("until tomorrow 9:30 AM", "until Fri 3/20, 9:30 AM"): clockDay, model.js.
 export function countdown(iso, { prefix = '', until = null } = {}) {
   if (!iso) return '';
   if (lateUntil(iso, until)) return `<span class="sv-count soon">${icon('clock')}${esc(`${prefix}late testimony until ${clockDay(until)}`)}</span>`;
   const ms = new Date(iso) - Date.now(), h = ms / 36e5;
-  // Never round a deadline up: 2 days 6 hours is "2 days left", not 3 (R-022). A day early is safe; a day late is not.
-  const text = ms <= 0 ? `${prefix}overdue` : h < 1 ? `${prefix}under an hour` : h < 48 ? `${prefix}${Math.floor(h)}h left` : `${prefix}${Math.floor(h / 24)} days left`;
+  // Never round a deadline up: 2 days 6 hours is "2 days", not 3 (R-022). R-277 fix 3 (W-6): the words come from model.js
+  // timeLeft, the same on every screen: "in 28 min", "in 4 hours", "4 hours overdue" (no more "under an hour", "7h left").
+  const text = ms <= 0 ? `${prefix}${timeLeft(iso)}` : `${prefix}in ${spanOf(iso)}`;
   const tone = ms <= 0 ? 'late' : h <= 24 ? 'soon' : '';
   return `<span class="sv-count ${tone}">${icon(ms <= 0 ? 'circle-alert' : 'clock')}${esc(text)}</span>`;
 }
@@ -93,7 +91,8 @@ export const switchRow = (id, label, on, help = '', a = {}) => `<label class="sv
 export const field = (id, label, input, help = '') => `<div class="field"><label for="${esc(id)}">${label}</label>${input}${help ? `<span class="help" id="${esc(id)}-help">${help}</span>` : ''}</div>`;
 // The testimony steps with the true state: Write · Review · (Second approval) · File (v4: one name for the step, C-15)
 export function stepBar(status, { second = false } = {}) {
-  const steps = [['draft', 'Write'], ['review', 'Review'], ...(second || status === 'second_review' ? [['second_review', 'Second approval']] : []), ['approved', 'File']];
+  const steps = [['draft', 'Write'], ['review', 'Approve'],   // R-277 W-2: the step is named by what is done in it
+    ...(second || status === 'second_review' ? [['second_review', 'Second approval']] : []), ['approved', 'File']];
   const order = steps.map(s => s[0]), cur = status === 'filed' ? steps.length : Math.max(0, order.indexOf(status));
   return `<ol class="sv-steps" aria-label="Testimony steps">${steps.map(([k, l], i) => `<li class="${i < cur ? 'done' : i === cur ? 'cur' : ''}"${i === cur ? ' aria-current="step"' : ''}>${i < cur ? icon('check') : ''}<span>${l}</span></li>`).join('')}</ol>`;
 }
@@ -194,10 +193,9 @@ addEventListener('scroll', () => { if (!fbRaf) fbRaf = requestAnimationFrame(() 
 export function urgentMark(iso, { done = false, until = null, act = null } = {}) {
   if (done) return `<span class="sv-urg done" role="img" aria-label="Done">${icon('check')}</span>`;
   if (!iso) return '<span class="sv-urg none" aria-hidden="true"></span>';
-  if (lateUntil(iso, until)) { const hh = Math.max(0, Math.floor((new Date(until) - Date.now()) / 36e5)); return `<span class="sv-urg soon" role="img" aria-label="${esc(`late testimony until ${clockDay(until)}`)}"><b>${hh < 1 ? '<1h' : hh + 'h'}</b><span>${esc(act || 'to file')}</span></span>`; }   // the hours left to file late ("late" read as "4 hours late")
-  const ms = new Date(iso) - Date.now(), h = ms / 36e5, over = -h;
-  const big = ms <= 0 ? (over >= 48 ? `${Math.floor(over / 24)}d` : `${Math.max(1, Math.floor(over))}h`)
-    : h < 1 ? '<1h' : h < 48 ? `${Math.floor(h)}h` : `${Math.floor(h / 24)}d`;   // rounded down, never up (R-022)
+  if (lateUntil(iso, until)) { return `<span class="sv-urg soon" role="img" aria-label="${esc(`late testimony until ${clockDay(until)}`)}"><b>${esc(spanOf(until, { short: true }))}</b><span>${esc(act || 'to file')}</span></span>`; }   // the hours left to file late ("late" read as "4 hours late")
+  const ms = new Date(iso) - Date.now(), h = ms / 36e5;
+  const big = spanOf(iso, { short: true });   // "28m", "4h", "3d", rounded down (R-022); R-277 fix 3: one rounding with the words
   const word = ms <= 0 ? 'overdue' : act || 'left';   // one word for time still to run, hours or days (R-152 C: it said "to go" past 48 hours)
   const tone = ms <= 0 ? ' late' : h <= 24 ? ' soon' : '';
   return `<span class="sv-urg${tone}" role="img" aria-label="${esc(`${big} ${word}`)}">${ms <= 0 ? icon('circle-alert') : ''}<b>${esc(big)}</b><span>${word}</span></span>`;

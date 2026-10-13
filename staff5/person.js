@@ -10,7 +10,7 @@ import { icon, btn, iconBtn, chip, empty, skeleton, toast, openSheet, closeSheet
 import { followupSheet, afterSheet } from './supporters.js';
 import { titleLabel, isOwn } from '../pub/titles.js';   // the public profile's "I'm a..." (R-147)
 import { issueById, catByKey } from './issues.js';
-import { billRoute } from './model.js';
+import { billRoute, whenAt, hearingWhen, roomName } from './model.js';
 
 const FEED_STEP = 20, BILLS_FIRST = 5;
 const isTwo = () => matchMedia('(min-width: 1100px)').matches;
@@ -87,10 +87,10 @@ function consent(p) {
 function followups(p) {
   const list = (S.followups || []).filter(f => f.person_id === p.id && !f.done_at).sort((a, b) => String(a.due || '9').localeCompare(String(b.due || '9')));
   if (!list.length) return '';
-  return `<section class="sp-sec" aria-labelledby="sp-h-fup"><div class="sechead"><h2 id="sp-h-fup">Follow-ups</h2></div>
+  return `<section class="sp-sec" aria-labelledby="sp-h-fup"><div class="sechead"><h2 id="sp-h-fup">To-dos</h2></div>
     <ul class="rows sp-fups">${list.map(f => {
       const late = f.due && dueAt(f) < Date.now(), today = f.due && String(f.due).slice(0, 10) === hiToday();
-      const when = !f.due ? '' : late ? `<span class="sv-count late">${icon('circle-alert')}Overdue, was due ${esc(fmtDate(f.due))}</span>` : today ? `<span class="sv-count soon">${icon('clock')}Due today</span>` : `due ${esc(fmtDT(dueAt(f)).replace(/,.*$/, ''))}`;
+      const when = !f.due ? '' : late ? `<span class="sv-count late">${icon('circle-alert')}Overdue, was due ${esc(whenAt(dueAt(f)).replace(/,.*$/, '').replace(/ \d+:\d+ [AP]M$/, ''))}</span>` : today ? `<span class="sv-count soon">${icon('clock')}Due today</span>` : `due ${esc(whenAt(dueAt(f)).replace(/,.*$/, '').replace(/ \d+:\d+ [AP]M$/, ''))}`;
       return `<li class="sp-fup"><div class="body"><span class="title">${esc(f.what)}</span><span class="sub">${esc(f.advocate_id === S.me?.id ? 'You' : firstName(advocate(f.advocate_id)))}${when ? ' · ' : ''}${when}</span></div>${btn('Done', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-fdone': String(f.id), 'aria-label': `Done: ${f.what}` } })}</li>`;
     }).join('')}</ul></section>`;
 }
@@ -261,7 +261,7 @@ export default {
       el.disabled = true;
       try {
         await DB.doneFollowup(f.id); hooks.render();
-        toast('Done.', { ok: true, undo: async () => { await DB.addFollowup(f.person_id, f.advocate_id, f.what, f.due); hooks.render(); toast('The follow-up is back.'); } });
+        toast('Done.', { ok: true, undo: async () => { await DB.addFollowup(f.person_id, f.advocate_id, f.what, f.due); hooks.render(); toast('The to-do is back.'); } });
       } catch (e) { el.disabled = false; toast(e, { err: true }); }
     });
     on('[data-ndel]', async el => {
@@ -278,7 +278,7 @@ function moreMenu(p) {
   menuSheet({ title: personName(p), items: [
     { label: 'Edit details', icon: 'square-pen', sub: 'Name, phone, interests, tags', run: () => afterSheet(() => editSheet(p)) },
     { label: 'Find districts from an address', icon: 'map-pin', sub: 'Only the districts are saved, never the address', run: () => afterSheet(() => districtSheet(p)) },
-    admin ? { label: 'Merge a duplicate into this person', icon: 'users', sub: 'Their notes, follow-ups, tags and account move here', run: () => afterSheet(() => mergeSheet(p)) } : null,
+    admin ? { label: 'Merge a duplicate into this person', icon: 'users', sub: 'Their notes, to-dos, tags and account move here', run: () => afterSheet(() => mergeSheet(p)) } : null,
     admin ? { label: 'Delete this person', icon: 'trash-2', danger: true, run: () => afterSheet(() => deletePerson(p)) } : null,
   ] });
 }
@@ -402,7 +402,7 @@ function mergeSheet(p) {
   const likelyHTML = () => { const l = likely(); return l.length ? `<p class="meta sp-mhead">Possible duplicates</p>${rowsFor(l)}` : ''; };
   const rowsFor = list => list.map(x => `<button type="button" class="sp-sug sp-mrow" data-mpick="${esc(x.id)}">${icon('user-round')}<span><b>${esc(personName(x))}</b><span class="meta">${esc(x.email)}${x.has_account ? ' · has an account' : ''}</span></span></button>`).join('');
   openSheet({ title: `Merge into ${esc(personName(p))}`, size: 'full',
-    body: `<div class="sp-sheet sp-merge"><p>Pick the duplicate. Its notes, follow-ups, tags and any account move to ${esc(personName(p))}, then the duplicate is deleted.</p>
+    body: `<div class="sp-sheet sp-merge"><p>Pick the duplicate. Its notes, to-dos, tags and any account move to ${esc(personName(p))}, then the duplicate is deleted.</p>
       <div class="field"><label for="sp-mq">Find the duplicate</label><input id="sp-mq" type="search" autocomplete="off" placeholder="Name or email"></div>
       <div id="sp-mres">${likelyHTML()}</div></div>`,
     wire: dlg => {

@@ -55,7 +55,7 @@ const colValue = (a, k) => k === 'subject' ? (a.subject || '').toLowerCase() : k
 function nextLine(a, rv) {
   const me = S.me?.id, mine = a.author_id === me, who = esc(first(a.author_id));
   const you = (ic, t) => `<span class="le-next you">${icon(ic)}${t}</span>`, other = t => `<span class="le-next">${t}</span>`;
-  if (a.status === 'submitted') return rv.has(a.id) ? you('user-check', 'Needs your approval') : other(`Waiting for ${esc(approverNames(a.author_id) || 'someone who approves')} to approve ${mine ? 'it' : who + '’s email'}`);
+  if (a.status === 'submitted') return rv.has(a.id) ? you('user-check', 'Yours to approve') : other(`Waiting for ${esc(approverNames(a.author_id) || 'someone who approves')} to approve ${mine ? 'it' : who + '’s email'}`);
   if (a.status === 'approved' && a.scheduled_for) return other(heldNow(a) ? 'Goes out at 4:30 pm once email is turned on' : `Goes out ${esc(dailyWord(a.scheduled_for))} at 4:30 pm`);
   if (a.status === 'approved') return mine ? you('send', 'Approved. Ready for you to send') : other(`Approved. Waiting for ${who} to send it`);
   if (a.status === 'returned') return mine ? you('undo-2', `Sent back to you${a.review_note ? `: “${esc(a.review_note)}”` : ''}`) : other(`Sent back to ${who}${a.review_note ? `: “${esc(a.review_note)}”` : ''}`);
@@ -100,7 +100,7 @@ export default {
       ${!all.length ? `<div class="le-empty">${empty({ title: 'No emails yet', text: 'Write to the people who follow a bill or a list, or to a saved segment of supporters.', action: newBtn })}</div>`
         // The table opens in the groups' order (what needs you first, sent last); a header click re-sorts it.
         : desk ? `<p class="le-tsum" aria-live="polite">${needs ? `<b>${needs} ${needs === 1 ? 'needs' : 'need'} you</b>` : 'None needs you'}${v.sort ? '' : ' · what needs you comes first'}</p>${emailsTable([...review, ...ready, ...going, ...drafts, ...waiting, ...sent], v, rv)}`
-        : group('review', 'Needs your approval', review, 'review')
+        : group('review', 'Yours to approve', review, 'review')
         + group('send', 'Ready to send', ready, 'send')
         + group('going', paused() ? 'Held while email is paused' : 'Going out at 4:30 pm', going, 'going')
         + group('drafts', 'Drafts and sent back', drafts, 'draft')

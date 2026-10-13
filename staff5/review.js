@@ -7,14 +7,14 @@
 // when it is dead, only monitored or has no hearing, so nobody approves an email asking supporters to testify on a bill
 // that died. The draft itself stays in its Google Doc (Nate, 9/19: not shown inside Review).
 import { S, DB, esc, fmtDT, advocate, hooks, changedSince, startedFromLine } from './data.js';
-import { billNum, billSay, blurb, alertTarget, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn } from './model.js';
+import { agoWords, billNum, billSay, blurb, alertTarget, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn } from './model.js';
 import { icon, btn, chip, stepBar, empty, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, posIcons, POS_WORD, ownerOf, clockDay } from './ui.js';
 import { emailPreview } from './composer.js';
 import { reviewQueue, hearingFor, testDue, cd, hearingLine, reviewerNames, needsSecond, HOVER, afterBack } from './today.js';
 import { statusSentence } from './bill.js';
 
 const first = id => (advocate(id)?.full_name || 'Someone').split(' ')[0];
-const ago = iso => { if (!iso) return ''; const m = (Date.now() - new Date(iso)) / 6e4; return m < 1 ? 'just now' : m < 60 ? `${Math.round(m)} minutes ago` : m < 48 * 60 ? `${Math.round(m / 60)} hour${Math.round(m / 60) === 1 ? '' : 's'} ago` : fmtDT(iso); };
+const ago = iso => agoWords(iso);   // R-277 fix 3: model.js, one way on every screen
 const typing = t => t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
 
 // The session: the queue as it stood when review started, so "2 of 3" stays true while items leave the live queue.
@@ -85,7 +85,7 @@ function dueLine(due, h) {
   if (due == null) return '';
   const now = Date.now();
   if (due <= now && h && new Date(h.scheduled_at).getTime() > now) return `<span class="sv-count soon">${icon('clock')}Late testimony until ${esc(clockDay(h.scheduled_at))}</span>`;
-  return cd(due, 'due');
+  return cd(due, 'due');   // R-277 fix 3: "Due today 9:30 AM · 28 min", model.js dueLine
 }
 function draftBody(it) {
   const { d, b, h, due } = it, me = S.me || {}, own = d.submitted_by && d.submitted_by === me.id;
@@ -124,7 +124,7 @@ function emailBody(it) {
 const stillSkipped = r => r.skipped.filter(k => { const it = resolve(k); return it && actionable(it); });
 function endScreen(r) {
   const decided = r.log.length, skipped = stillSkipped(r);
-  const title = !r.keys.length ? 'Nothing to review.' : !decided ? 'Nothing reviewed yet.' : skipped.length ? `${decided} of ${r.keys.length} reviewed.` : r.keys.length === 1 ? 'Reviewed.' : `All ${decided} reviewed.`;
+  const title = !r.keys.length ? 'Nothing to approve.' : !decided ? 'Nothing reviewed yet.' : skipped.length ? `${decided} of ${r.keys.length} reviewed.` : r.keys.length === 1 ? 'Reviewed.' : `All ${decided} reviewed.`;
   const text = !r.keys.length ? 'Drafts and emails that need your approval show up here.' : '';
   return `<div class="td-rv td-rvend">${empty({ title, text })}
     ${decided ? `<div class="rows td-rvlog">${r.log.map(x => `<div class="row"><span class="lead">${icon(x.icon)}</span><span class="body"><span class="title"><span class="td-num">${esc(x.num)}</span></span><span class="sub">${esc(x.what)}</span></span></div>`).join('')}</div>` : ''}
@@ -148,13 +148,13 @@ function render(route) {
     ${mine && it.type === 'draft' && it.d.status === 'review' && standingIn(S.me, it.h) ? notice('warn', 'clock', '<b>You are standing in.</b> Nobody who usually gives the first approval has yet, and testimony is due soon, so you can approve it or send it back.') : ''}
     ${mine ? '' : notice('info', 'info', it.type === 'email' ? 'This email is no longer waiting for your approval.' : `This draft is no longer waiting for you. It is ${esc({ draft: 'back in draft', review: 'waiting for an approver', second_review: 'waiting for a second approval', approved: 'approved and ready to file', filed: 'filed', cancelled: 'for a cancelled hearing' }[it.d.status] || it.d.status)}.`)}
     ${it.type === 'email' ? emailBody(it) : draftBody(it)}
-    ${keysOn() ? `<p class="td-keys">Keys: Shift+A approve · R ${it.type === 'email' ? 'send back' : 'request changes'}${it.type === 'draft' ? ' · O open the Doc' : ''} · Right arrow skip · Esc close</p>` : ''}</div>`;
+    ${keysOn() ? `<p class="td-keys">Keys: Shift+A approve · R send back${it.type === 'draft' ? ' · O open the Doc' : ''} · Right arrow skip · Esc close</p>` : ''}</div>`;
 }
 function bar(route) {
   const { it } = current(route);
   if (!it) return '';
   if (!actionable(it)) return btn('Next', { attrs: { 'data-rvskip': '1' }, iconEnd: 'chevron-right' });
-  return `${btn(it.type === 'email' ? 'Send back' : 'Request changes', { kind: 'secondary', attrs: { 'data-changes': '1' } })}${btn('Approve', { icon: 'check', attrs: { 'data-approve': '1' } })}`;
+  return `${btn('Send back', { kind: 'secondary', attrs: { 'data-changes': '1' } })}${btn('Approve', { icon: 'check', attrs: { 'data-approve': '1' } })}`;
 }
 
 // Moving on: record the decision, then load the next item in place (replaceState, so Back leaves review).

@@ -1806,7 +1806,7 @@ function firstStep(d, me, bad, changes = false) {
       bad(changes ? 'Only an admin or an approver can act on a draft in first review (a second approver can from 6 hours before the testimony deadline)'
         : 'The first approval is by an admin or an approver; a second approver can give it from 6 hours before the testimony deadline');
   }
-  if (!changes && d.submitted_by === me.id) bad('Someone else has to approve testimony you sent for review');
+  if (!changes && d.submitted_by === me.id) bad('Someone else has to approve testimony you sent for approval');
 }
 // Simple: the New bills instructions show on the first visit, then fold into a "How this works" link.
 export function demoTransition(d, action, note, url) {

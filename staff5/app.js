@@ -284,7 +284,7 @@ function wireFrame(app) {
   app.querySelector('[data-asbtn]')?.addEventListener('click', practiseAs);
 }
 function practiseAs() {
-  menuSheet({ title: 'Practise as', items: S.advocates.filter(a => a.is_active !== false).map(a => ({
+  menuSheet({ title: 'Practice as', items: S.advocates.filter(a => a.is_active !== false).map(a => ({
     label: a.full_name + (a.id === S.me?.id ? ' (now)' : ''), icon: 'user-round', sub: a.is_admin ? 'Admin: approves, sets up the session' : a.can_approve ? 'Approver: testimony and supporter emails' : a.is_reviewer ? 'Second approver' : (billsOwned(a.id) ? `${billsOwned(a.id)} bills` : 'No bills of their own'),
     run: () => { const u = new URL(location.href); u.searchParams.set('as', a.initials); location.href = u.toString(); } })) });
 }
@@ -296,7 +296,7 @@ const sideShown = () => { try { return matchMedia('(min-width: 1100px)').matches
 function avatarMenu() {
   const side = sideShown();
   menuSheet({ title: S.me?.full_name || 'Your menu', items: [
-    DEMO ? { label: 'Practise as someone else', icon: 'users-round', sub: 'Sandbox: see the app as a teammate sees it', run: () => setTimeout(practiseAs, 50) } : null,
+    DEMO ? { label: 'Practice as someone else', icon: 'users-round', sub: 'Sandbox: see the app as a teammate sees it', run: () => setTimeout(practiseAs, 50) } : null,
     { label: 'Inbox', icon: 'inbox', sub: 'Messages and updates sent to you, read or not', run: () => go('#/inbox') },
     { label: 'Refresh', icon: 'refresh-cw', sub: 'Read what your teammates changed since this page loaded', run: () => setTimeout(() => refreshData({ say: true }), 50) },
     side ? null : { label: 'My settings', icon: 'settings', run: () => go('#/me') },
