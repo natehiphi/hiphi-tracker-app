@@ -533,7 +533,10 @@ export function todayItems(scope = 'mine', who = null) {
   // Late but open (v4): the step leading the row is late testimony that can still be filed.
   const lateGroup = (g, ts) => g === 'overdue' && ts.filter(t => t.due != null && t.due <= now).every(lateNow) ? 'lateopen' : g;
   const cards = [...byKey.values()].map(c => { c.tasks.sort(cmp); c.p = c.tasks[0]; c.due = c.p.due; c.group = lateGroup(groupOf(c.p.due, now), [c.p]); if (c.p.kind === 'nodraft' && !NOW_GROUPS.has(c.group)) c.group = 'today'; /* a new hearing with no draft is work today, however far off the hearing is (X10-5) */ c.wait = c.p.kind === 'wait'; c.seen = !!c.p.seen; return c; });
-  if (cluster) { const due = Math.min(...cluster.map(t => t.due ?? Infinity)); cards.push({ key: 'cluster', cluster, due: Number.isFinite(due) ? due : null, group: lateGroup(groupOf(Number.isFinite(due) ? due : null, now), cluster), tasks: cluster }); }
+  // The review cluster is a list of drafts to approve, not late testimony: it never takes that heading (fresh-eyes), and sits
+  // under "Needs you today" with its earliest mark ("4h to approve"); its open item names the late one, as before.
+  if (cluster) { const due = Math.min(...cluster.map(t => t.due ?? Infinity)), g0 = lateGroup(groupOf(Number.isFinite(due) ? due : null, now), cluster);
+    cards.push({ key: 'cluster', cluster, due: Number.isFinite(due) ? due : null, group: g0 === 'lateopen' ? 'today' : g0, tasks: cluster }); }
   // v4 (R-269, T10): "Today" means today. New hearings stay on Today the day they are set (Nate's X10-5 pick), but two or
   // more whose testimony is due after today are one row, "4 new hearings · No testimony draft yet", whose open item lists
   // each bill with its own Make the draft now (as the review cluster lists its drafts): four rows of "6d left" pushed the
@@ -830,7 +833,7 @@ function row(c, filled, o = {}) {
     : (([ic, w]) => `<span class="td-rb td-rkind">${icon(ic)}<span>${w}</span></span>`)(kindOf(p));
   // A teammate's step is theirs to take: its row has no button, and the open item offers "Message Kevin".
   const x = p.ro ? null : (p.btns || [])[0], fill = filled && p.kind !== 'reply' && !p.seen && x && !x.text;
-  const what = `<span class="td-rs">${p.seen ? SEEN() + ' ' : ''}${rowWords(p, x)}</span>${n > 0 ? `<span class="td-rplus">+${n}<span class="td-rmore"> more</span><span class="sr"> on this ${b ? 'bill' : 'item'}</span></span>` : ''}`;
+  const what = `<span class="td-rs">${p.seen ? SEEN() + ' ' : ''}${rowWords(p, x)}</span>${n > 0 ? `<span class="td-rplus">+${n}<span class="td-rmore"> on this ${b ? 'bill' : 'item'}</span></span>` : ''}`;   // "+2 on this bill" (P-4: "+2 more" said more of what?)
   return `<div data-k="${ek}" class="td-row${p.seen ? ' td-seen' : ''}"${fill ? ' data-fill="1"' : ''}${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${sel(`${urgBlock(p.due, untilOf(p), approveAct(p))}${o.av ? `<span class="td-rav">${o.av}</span>` : ''}<span class="td-rmain">${name}${what}</span>`)}
     <span class="td-ract">${x ? button(p, x, true, filled && p.kind !== 'reply') : ''}</span>${end}</div>`;
 }
@@ -921,7 +924,7 @@ function paneHTML(k) {
   const more = b || p.kind === 'followup' || p.a ? iconBtn('ellipsis', `More for ${b ? billNum(b) : 'this item'}`, { 'data-more': k, 'data-pane': '1' }, 'td-more') : '';
   const top = `<div class="td-ptop">${b ? `<p class="td-pnum"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''}</p>` : `<p class="td-pnum td-rkind">${icon(kd[0])}<span>${kd[1]}</span></p>`}${more}</div>
     ${b ? `<h2 class="td-pname" id="td-pane-h">${esc(b.nickname || blurb(b, 120))}</h2>${b.nickname && blurb(b, 400) ? `<p class="td-psum">${esc(blurb(b, 400))}</p>` : ''}` : ''}`;
-  const acts = (o.msg && b ? [msgBtn(b, o.msg)] : p.btns || []).map((x, j) => button(p, x, j === 0)).join('');
+  const acts = (o.msg && b ? [msgBtn(b, o.msg)] : p.btns || []).map((x, j) => button(p, x, j === 0, !o.outline)).join('');
   const due = paneDue(p), w = paneWhy(p, o.msg, o.label);
   const step = `<div class="td-pstep">${due ? `<p class="td-pdue">${due}</p>` : ''}
     <p class="td-ps"${b ? '' : ' id="td-pane-h"'}>${p.ps || p.s}</p>${w ? `<p class="td-pwhy">${w}</p>` : ''}
@@ -1600,7 +1603,8 @@ const dayWord = day => day === hst(Date.now()) ? 'Today' : day === dayAdd(hst(Da
 // one amber phrase on a hearing row. Now, at the top of their Today (after any steps of their own), one group in the
 // ordinary row shape: the steps on their coalitions' bills that are a writer's or a rallier's and are due today or late
 // but still open: testimony with no draft, in draft or sent back (Make the draft now, or Open Doc), the public ask to
-// write (Write it) and the ask to send (Open the share kit). The owner is named once in the step ("Lauren's bill"). At most
+// write (Write it) and the ask to send (Open the share kit). Each step says first whom the app has it with ("Lauren's to
+// revise · sent back"), and its button is outlined, never the screen's one filled button: it is not theirs (A-3). At most
 // five rows, then "N more on This week". Never in the badge (decision 7). When the writer and the rallier come (R-267),
 // these become the person's own rows; until then this is the honest version: work due today on your coalitions' bills.
 const COALDUE_CAP = 5;
@@ -1609,7 +1613,9 @@ function coalDue(r, skip = new Set()) {
   const co = coalPicked(); if (!co) return { cards: [], co: null };
   const now = Date.now(), today = hst(now), inC = b => (S.billCampaigns[b.id] || []).some(id => co.ids.has(id));
   const mineB = new Set(r.cards.filter(c => c.b).map(c => c.b.id));   // already on their own list
-  const whose = b => { const o = (S.assignments[b.id] || [])[0]; return o ? `${first(o)}’s bill` : 'no owner yet'; };
+  // Who the app has the step with, said first, so nobody reads someone else's step as theirs (fresh-eyes, A-13): the
+  // bill's owner, or for the ask to send the to-do's assignee. "Nobody’s yet" when the bill has no owner.
+  const has = id => id ? `${first(id)}’s` : 'Nobody’s yet', ownerOf = b => (S.assignments[b.id] || [])[0] || null;
   const ok = b => b && inC(b) && !isMon(b) && b.position && b.tracked !== false && !diedish(b) && !mineB.has(b.id);
   const tasks = [], asked = new Set();
   for (const h of (S.hearings || []).slice().sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))) {
@@ -1618,8 +1624,10 @@ function coalDue(r, skip = new Set()) {
     const d = draftOf(h), due = testDue(h);
     if ((due <= now || hst(due) === today) && (!d || d.status === 'draft')) {
       const k = !d ? 'nodraft' : d.review_note ? 'revise' : 'write';
+      const w = has(ownerOf(b));
       tasks.push({ kind: k, key: `cd:${h.id}`, b, h, d, due, who: 'coal', rank: RANK[k],
-        s: `${!d ? `New hearing: ${esc(h.committee)} ${esc(hearingDay(h))}, no draft yet` : d.review_note ? 'Sent back: revise' : 'In draft: finish it'} · ${esc(whose(b))}`,
+        s: esc(!d ? `${w} to draft · new ${h.committee} hearing ${hearingDay(h)}` : d.review_note ? `${w} to revise · sent back` : `${w} to finish · in draft`),
+        ps: esc(!d ? `${w} to draft: a new ${h.committee} hearing ${hearingDay(h)} and no draft yet` : d.review_note ? `${w} to revise: sent back for changes` : `${w} to finish: the draft is not submitted yet`),
         q: d?.review_note ? esc(d.review_note) : '',
         btns: [!d ? { label: draftAsking(h) ? 'Making the draft…' : 'Make the draft now', act: 'draftnow' } : d.doc_url ? { label: 'Open Doc', href: d.doc_url, ext: true } : { label: 'Open the bill', href: billRoute(b) }] });
     }
@@ -1627,13 +1635,13 @@ function coalDue(r, skip = new Set()) {
     if (['strongly_support', 'strongly_oppose'].includes(b.position) && !liveAsk(b) && !asked.has(b.id) && due > now) {
       const ad = askDue(h);
       if (ad <= now || hst(ad) === today) { asked.add(b.id); tasks.push({ kind: 'ask', key: `ca:${b.id}`, b, h, due: ad, who: 'coal', rank: RANK.ask,
-        s: `Write the public ask for the ${esc(h.committee)} hearing ${esc(hearingDay(h))} · ${esc(whose(b))}`, btns: [{ label: 'Write it', href: `${billRoute(b, 'public')}?focus=ask` }] }); }
+        s: esc(`${has(ownerOf(b))} to write · the public ask for the ${h.committee} hearing ${hearingDay(h)}`), btns: [{ label: 'Write it', href: `${billRoute(b, 'public')}?focus=ask` }] }); }
     }
   }
   for (const [bid, arr] of Object.entries(S.todos || {})) for (const t of arr) {
     const b = billById(bid), h = !t.done && ok(b) ? askTodoHearing(b, t.title) : null, due = dateDue(t.due_date);
     if (!h || testDue(h) <= now || skip.has(slotKey(h)) || due == null || !(due <= now || hst(due) === today)) continue;
-    tasks.push({ kind: 'todo', key: `ct:${t.id}`, b, t, h, due, who: 'coal', rank: RANK.todo, s: `Send the ask for the ${esc(h.committee)} hearing ${esc(hearingDay(h))} · ${esc(whose(b))}`,
+    tasks.push({ kind: 'todo', key: `ct:${t.id}`, b, t, h, due, who: 'coal', rank: RANK.todo, s: esc(`${has(t.assignee_id || ownerOf(b))} to send · the ask for the ${h.committee} hearing ${hearingDay(h)}`),
       btns: [{ label: 'Open the share kit', href: `#/hearing/${encodeURIComponent(h.id)}?from=today&kit=1` }] });
   }
   // One row per bill, as the person's own list does: its testimony leads when due within a day (T6), else the earliest.
@@ -1647,7 +1655,7 @@ function coalDueHtml(cd, rows, top) {
   if (!cd.cards.length) return '';
   const title = cd.co.all ? 'Due today on the team’s bills' : `${cd.co.names.join(' and ')}, due today`;
   const shown = cd.cards.slice(0, COALDUE_CAP), more = cd.cards.length - shown.length; let i = 500;
-  const list = rows ? `<div class="td-rows">${shown.map(c => row(c, false, { gk: 'cd' })).join('')}</div>` : `<div class="td-list">${shown.map(c => card(c, i++, false, { filled: false, gk: 'cd' })).join('')}</div>`;
+  const list = rows ? `<div class="td-rows">${shown.map(c => row(c, false, { gk: 'cd', outline: true })).join('')}</div>` : `<div class="td-list">${shown.map(c => card(c, i++, false, { filled: false, gk: 'cd' })).join('')}</div>`;
   return `<section class="td-group td-coaldue" aria-labelledby="td-g-coaldue"><h2 class="td-h"${top ? ' data-top tabindex="-1"' : ''}>${groupHead(`${icon('clock', { cls: 'td-soon' })}${esc(title)}`, cd.cards.length, { id: 'td-g-coaldue' })}</h2>
     ${list}${more ? `<a class="td-cdmore" href="#/?view=week"><span>${esc(`${more} more on This week`)}</span>${icon('chevron-right', { cls: 'chev' })}</a>` : ''}</section>`;
 }
@@ -1672,7 +1680,9 @@ function coalSection(r, skip = new Set(), quiet = new Set()) {
   const todos = Object.entries(S.todos || {}).flatMap(([bid, arr]) => { const b = billById(bid); return b && inC(b) ? arr.filter(t => !t.done && !t.assignee_id).map(t => ({ b, t })) : []; })
     .sort((x, y) => String(x.t.due_date || '9').localeCompare(String(y.t.due_date || '9')));
   if (!sit.size && !racing.length && !todos.length) return { html: '', due: false };
-  const open = S.tdOpen ??= {}; open.coal ??= r.dueNow <= 2;   // open when your own day is light, as the suggestions are
+  // Open when your own day is light, as the suggestions are. With every coalition (Kris) it starts folded: "Due today on
+  // the team's bills" above holds what is due, and the week's summary line stays (fresh-eyes).
+  const open = S.tdOpen ??= {}; open.coal ??= co.all ? false : r.dueNow <= 2;
   const title = co.all ? 'The team’s week' : `${co.names.join(' and ')} this week`;
   let due = todos.some(x => String(x.t.due_date || '').slice(0, 10) === hst(now));
   // Where a sitting's testimony stands: the bills not filed yet, their states counted, and the first deadline among them.

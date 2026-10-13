@@ -686,15 +686,15 @@
   .td-root .td-rs { flex: 0 0 auto; max-width: calc(100% - 104px); }
   .td-root .td-rb { flex: 0 1 auto; max-width: none; min-width: 92px; }   /* never narrower than a bill number ("SB3025 SD2"), never wider than its words */
   /* v4 (R-269, fresh-eyes): the step never runs past the row's edge, where it was cut mid-word with "+2 more" after it:
-     it may take what is left beside the bill's number (and its P1 mark, and "+2 more"), and ends in an ellipsis there. */
-  .td-root .td-rmain:has(.td-rplus) .td-rs { max-width: calc(100% - 170px); }
+     it may take what is left beside the bill's number (and its P1 mark, and "+2 on this bill"), and ends in an ellipsis there. */
+  .td-root .td-rmain:has(.td-rplus) .td-rs { max-width: calc(100% - 210px); }
   .td-root .td-rbp1 ~ .td-rs { max-width: calc(100% - 138px); }
-  .td-root .td-rmain:has(.td-rplus) .td-rbp1 ~ .td-rs { max-width: calc(100% - 204px); }
+  .td-root .td-rmain:has(.td-rplus) .td-rbp1 ~ .td-rs { max-width: calc(100% - 244px); }
   .td-root .td-rb.td-rbp1 { min-width: 126px; }   /* v4: and its P1 mark, which overlapped the step's words */
 }
-/* In a narrow list (a 1280 laptop) "+2 more" says "+2"; the word stays for a screen reader. */
+/* In a narrow list (a 1280 laptop) "+2 on this bill" says "+2"; the words stay for a screen reader. */
 @container tdrows (max-width: 640px) { .td-root .td-rplus .td-rmore { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .td-root .td-rmain:has(.td-rplus) .td-rs { max-width: calc(100% - 136px); }   /* v4: "+2" needs less room than "+2 more" */
+  .td-root .td-rmain:has(.td-rplus) .td-rs { max-width: calc(100% - 136px); }   /* v4: "+2" needs less room than "+2 on this bill" */
   .td-root .td-rmain:has(.td-rplus) .td-rbp1 ~ .td-rs { max-width: calc(100% - 170px); } }
 
 /* v4 (R-269, T10): the new hearings with no draft, as one row; its list (open item, or the phone's card) gives each bill
