@@ -65,7 +65,7 @@ const TOPICS = [
         ['2. Approve', `An admin or an approver (${esc(adm)}) presses <b>Approve</b>, or <b>Send back</b> with a note. An approver never approves testimony they sent; an admin may. Sent back, it goes to the writer with the note on their Today list, and they press <b>Resubmit</b>. If nobody has approved it 6 hours before the testimony deadline, a second approver (${esc(rev)}) can stand in, and Slack tells them so.`],
         ['3. Second approval', `The first testimony on a bill also needs a second approver (${esc(rev)}), someone other than whoever gave the first approval. Later testimony on the same bill skips this step.`],
         ['4. File', 'Whoever sent it for approval files it on the Capitol site (the owner, if nobody sent it; the steps are in <a href="#/help/file">How to file at the Capitol</a>) and presses <b>Mark filed</b>, with the confirmation link if there is one. Written testimony is usually due 24 hours before the hearing, 48 for a few committees; the hearing’s own deadline is on its card.'],
-        ['Undo', 'Mark filed (later: <b>Unmark filed</b>, in the <b>⋯</b> menu beside the hearing on the bill’s page), I\'m going, Not for us and removing a bill from a list can be undone for 10 seconds.'],
+        ['Undo', 'Mark filed (later: <b>Undo filed</b>, beside Filed on the bill’s page and the hearing’s, and in the row’s <b>⋯</b> on Today), I\'m going, Not for us and removing a bill from a list can be undone for 10 seconds.'],
         ['A new version', 'If the bill changes (HD1, SD1) after the draft was written, Today asks the owner to check the draft against the new version.']]; } },
   { id: 'tabs', title: 'What each place is for', icon: 'list-todo', sub: () => 'Today, My issues, Bills, Legislators and Outreach',
     // Staff v3 (R-264): five places and nothing else in the sidebar; Review opens from Today's card, the Inbox is in your
@@ -117,7 +117,7 @@ const TOPICS = [
       ['3. Log in', 'Log in to the Capitol website. No account yet? Making one is free; they email a link to confirm. It logs you out after 60 minutes.'],
       ['4. Pick the hearing', 'Choose <b>Submit Testimony</b> and pick the hearing it is for.'],
       ['5. Fill in the form', 'Your position (Support, Oppose or Comments), <b>Organization</b> and HIPHI’s name, and <b>Written testimony only</b> unless someone is going to speak. Upload the PDF and submit.'],
-      ['6. Look for the green box', 'It means it worked, and a confirmation email follows. Back in the tracker, press <b>Mark filed</b> and paste the confirmation link if you have it. Pressed it by mistake? <b>Unmark filed</b> is in the <b>⋯</b> menu beside the hearing on the bill’s page.'],
+      ['6. Look for the green box', 'It means it worked, and a confirmation email follows. Back in the tracker, press <b>Mark filed</b> and paste the confirmation link if you have it. Pressed it by mistake? <b>Undo filed</b> is beside Filed on the bill’s page.'],
       ['Late', 'Past the written deadline the Capitol still takes testimony until the hearing starts, marked late. The tracker says “late testimony until” that time.'],
       ['Stuck?', 'The Public Access Room helps for free: (808) 587-0478.']] },
   // R-277 fix 9 (E-2): what reaches staff today, said honestly; the alerts themselves are unchanged (D3 is held).

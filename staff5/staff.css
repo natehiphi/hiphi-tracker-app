@@ -683,3 +683,11 @@ body.sidenarrow .sv-sync span { display: none; }
   body.staff2 main :is(p, dd, li, span) > a:not([class]),
   body.staff2 main :is(p, dd, li, span) > button.linkbtn { display: inline-block; padding: 12px 0; margin: -12px 0; }
 }
+
+/* R-277 fix 8 (E-9): messages stack (an error stays until closed, so it can sit under a newer one), and "You're offline"
+   sits with them while there is no connection: amber, words and an icon, never colour alone (A-5). */
+#toast { flex-direction: column; align-items: center; gap: var(--s8); }
+@media (min-width: 1100px) { #toast { align-items: flex-start; } }
+.sv-offline { pointer-events: auto; max-width: 480px; width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: var(--s8); margin: 0; padding: var(--s12) var(--s16);
+  background: var(--warn-wash); color: #5E3F04; border: 1px solid var(--warn-fill); border-radius: var(--r12); box-shadow: var(--sh2); font-size: var(--t14); line-height: 20px; }
+.sv-offline .ic { flex: none; width: 18px; height: 18px; color: var(--warn-text); }

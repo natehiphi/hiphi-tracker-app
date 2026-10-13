@@ -14,6 +14,20 @@ import { issuesOfBill, issueById } from './issues.js';
 import { photo, shortName, partyDist, legHref, roleWord, seatsText } from './pathway.js';
 import { matchLegs } from './legislators.js';
 import { billRoute } from './model.js';
+import { drafts } from './bill.js';   // R-277 fix 8: the same held words the bill chat and the to-do box keep
+
+// R-277 fix 8 (E-5): words typed about a meeting are never lost. Esc, a tap outside the sheet or a phone's back swipe
+// closed it and the note was gone. Like the bill chat's draft (activity.js, bill.js drafts), what is typed is held as it
+// is typed, per place it was opened from (a bill, an issue, a legislator), and comes back when the sheet opens there
+// again; this tab also keeps it across a reload (sessionStorage: it goes when the tab closes, so a note about a meeting
+// does not linger on a shared computer). Saving the conversation lets it go.
+const CV_STORE = 'sv_cvnotes';
+const cvStore = () => { try { return JSON.parse(sessionStorage.getItem(CV_STORE) || '{}') || {}; } catch { return {}; } };
+const heldNote = k => drafts.get(k) ?? cvStore()[k] ?? null;
+function holdNote(k, v) {
+  if (v && (v.text || '').trim()) drafts.set(k, v); else drafts.delete(k);
+  try { const all = cvStore(); if (drafts.has(k)) all[k] = v; else delete all[k]; sessionStorage.setItem(CV_STORE, JSON.stringify(all)); } catch { /* private window: this visit only */ }
+}
 
 const WINDOW = 10 * 60e3;
 const LATE = 'This conversation can no longer be changed: notes can be corrected for ten minutes after they are saved.';
@@ -259,6 +273,9 @@ export function logConversation({ bill = null, issueId = null, legislatorIds = [
   let q = '';
   const first = g ? g.issue_id : issueId || (ctx ? issuesOfBill(ctx.id)[0]?.id : null) || null;
   const sugg = suggestFor({ bill: ctx, issueId: ctx ? null : first });
+  // The held note for this place (not for an edit, whose words are the saved ones until saved again).
+  const nk = g ? null : `cv:${ctx?.id || ''}:${issueId || ''}:${[...picked].sort().join(',')}`, held = nk && !text ? heldNote(nk) : null;
+  if (held?.picked?.length) picked = [...new Set([...picked, ...held.picked.map(Number)])].filter(id => legById(id));
   const desk = hover(), v0 = first ? 'i:' + first : '';
   const body = `<div class="cv-sheet">
     <div class="field cv-whof" role="group" aria-labelledby="cv-who-l">
@@ -272,8 +289,9 @@ export function logConversation({ bill = null, issueId = null, legislatorIds = [
       <div class="field"><label for="cv-about">Filed under</label><select id="cv-about">${aboutOptions(ctx, picked, first)}</select></div>
       <div class="field cv-dayf"><label for="cv-day">When</label><input id="cv-day" type="date" value="${esc(g ? g.day : hiToday())}" max="${esc(hiToday())}"></div>
     </div>
-    <div class="field"><label for="cv-text">What was said</label><textarea id="cv-text" rows="5" maxlength="4000" autocapitalize="sentences" spellcheck="true" placeholder="What they said, what they asked for, what we promised" aria-describedby="cv-text-e"${desk && picked.length ? ' autofocus' : ''}>${esc(g ? g.body : text)}</textarea>
-      <span class="err" id="cv-text-e" hidden>${icon('circle-alert')}Write what was said first.</span></div>
+    <div class="field"><label for="cv-text">What was said</label><textarea id="cv-text" rows="5" maxlength="4000" autocapitalize="sentences" spellcheck="true" placeholder="What they said, what they asked for, what we promised" aria-describedby="cv-text-e"${desk && picked.length ? ' autofocus' : ''}>${esc(g ? g.body : held ? held.text : text)}</textarea>
+      <span class="err" id="cv-text-e" hidden>${icon('circle-alert')}Write what was said first.</span>
+      ${held ? `<span class="help cv-held">${icon('history')}Your note from before, kept until you save it.</span>` : ''}</div>
     <p class="small muted cv-reach" aria-live="polite">${esc(reachLine(ctx, v0))}</p>
   </div>`;
   openSheet({ title: g ? 'Edit this conversation' : 'Log a conversation', size: 'auto', body,
@@ -290,6 +308,7 @@ export function logConversation({ bill = null, issueId = null, legislatorIds = [
           (pk.querySelectorAll('[data-cvrm]')[Math.min(at, picked.length - 1)] || qi).focus();
         });
         sg.querySelectorAll('[data-cvadd]').forEach(el => el.onclick = () => add(+el.dataset.cvadd));
+        if (ta.value.trim()) keep();   // who it was with is kept with the words
       };
       const add = id => {
         if (!picked.includes(id)) picked.push(id);
@@ -304,7 +323,8 @@ export function logConversation({ bill = null, issueId = null, legislatorIds = [
         else if (e.key === 'Backspace' && !qi.value && picked.length) { picked.pop(); paint(); }
       };
       about.onchange = () => { reach.textContent = reachLine(ctx, about.value); };
-      ta.oninput = () => { txtErr.hidden = true; ta.removeAttribute('aria-invalid'); };
+      const keep = () => { if (nk) holdNote(nk, { text: ta.value, picked }); };
+      ta.oninput = () => { txtErr.hidden = true; ta.removeAttribute('aria-invalid'); keep(); };
       paint();
       d.querySelector('[data-cvsave]').onclick = async e => {
         const words = ta.value.trim();
@@ -322,6 +342,7 @@ export function logConversation({ bill = null, issueId = null, legislatorIds = [
             toast('Saved.', { ok: true, undo: async () => { await undo(); onDone(); toast('Put back as it was.'); } });
           } else {
             const made = await logNew({ ctx, picked, words, issue, day });
+            if (nk) holdNote(nk, null);   // saved: the held words have done their job
             await closeSheet({ silent: true }); onDone();
             toast(`Logged your conversation with ${names}.`, { ok: true, undo: async () => {
               for (const r of made) await DB.delLegNote(r.id, r.legislator_id); onDone(); toast('Removed.'); } });

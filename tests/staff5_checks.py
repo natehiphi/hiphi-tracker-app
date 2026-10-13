@@ -201,6 +201,107 @@ def batch_c_looks(b, page, go):
   raw = [f for f, s in src.items() if re.search(r'<span class="chip[ "]|class="(bw-new|sp-st|td-now)[ "]|class="chip hr-gobtn', s)]
   check('Status chips: every one from ui.js chip(), none drawn by hand', not raw, ', '.join(raw))
 
+# ---- batch d (fixes 5, 8, 11, 12, 15, 16): behaviour ----
+def batch_d(b, page, go):
+  # 5. Back after opening a side panel stays on the list, the panel closed, at the same scroll (fix 5, U-2, E-4)
+  pg = page('NT'); go(pg, '/', 3000)
+  pg.evaluate("window.scrollTo(0, 200)"); pg.wait_for_timeout(200)
+  rows = pg.locator('.td-row .td-rsel'); n = rows.count()
+  rows.nth(min(3, n - 1)).click(); pg.wait_for_timeout(500)
+  x = pg.locator('#td-pane [data-pclose]').count(); y0 = pg.evaluate('scrollY')
+  pg.go_back(); pg.wait_for_timeout(900)
+  h, pane, y1 = pg.evaluate("location.hash"), pg.locator('#td-pane').count(), pg.evaluate('scrollY')
+  check('Today: the open item has a close X', x == 1, x)
+  check('Today: Back after opening an item stays on Today, the item closed, the same scroll', h in ('#/', '') and pane == 0 and abs(y1 - y0) <= 2, f'{h} pane {pane} y {y0}->{y1}')
+  rows.nth(1).click(); pg.wait_for_timeout(400); pg.click('#td-pane [data-pclose]'); pg.wait_for_timeout(500)
+  check('Today: its X closes it and Today stays', pg.locator('#td-pane').count() == 0 and pg.evaluate("location.hash") in ('#/', ''), '')
+  go(pg, '/bills', 3000); pg.locator('[data-whose="team"]').first.click(); pg.wait_for_timeout(800)
+  pg.evaluate("window.scrollTo(0, 400)"); pg.wait_for_timeout(200)
+  pg.locator('tr[data-row] td.bl-ti').nth(6).click(); pg.wait_for_timeout(700)
+  dock, y0 = pg.locator('.bl-dock').count(), pg.evaluate('scrollY')
+  pg.go_back(); pg.wait_for_timeout(900)
+  h, dk, y1 = pg.evaluate("location.hash"), pg.locator('.bl-dock').count(), pg.evaluate('scrollY')
+  team = pg.locator('[data-whose="team"][aria-pressed="true"]').count()
+  check('Bills: Back after docking a bill stays on Bills, the bill closed, Team kept, the same scroll', dock == 1 and h == '#/bills' and dk == 0 and team == 1 and abs(y1 - y0) <= 2, f'dock {dock} {h} after {dk} team {team} y {y0}->{y1}')
+
+  # 11. Bills: At risk first, no open group over 25 rows, a quiet Sort new bills link (fix 11, V-2, F-10)
+  heads = pg.evaluate("[...document.querySelectorAll('.bl-grb')].map(b => b.innerText.split('\\n')[0])")
+  check('Bills (Team): the first group is "At risk: no hearing yet"', heads and heads[0].startswith('At risk'), heads[:2])
+  big = pg.evaluate("[...document.querySelectorAll('tbody.bl-tg')].map(t => t.querySelectorAll('tr[data-row]').length).filter(n => n > 25)")
+  more = pg.evaluate("[...document.querySelectorAll('.bl-morer .sv-showall')].map(e => e.innerText)")
+  check('Bills (Team): no open group over 25 rows, a longer one ends "Show all N"', not big and more, f'{big} {more}')
+  check('Bills: "Sort new bills (N)" link while bills wait', re.search(r'Sort new bills \(\d', pg.inner_text('main')), '')
+  pg.evaluate("document.querySelector('[data-whose=\"mine\"]').click()"); pg.wait_for_timeout(600)
+  pg.evaluate("[...document.querySelectorAll('[data-whose]')].find(e => e.dataset.whose === 'mine')?.click()"); pg.wait_for_timeout(600)
+  owners = pg.evaluate("[...document.querySelectorAll('thead th')].map(t => t.innerText)")
+  check('Bills (Mine): no Owner column when every row is the same person\'s', 'Owner' not in owners, owners)
+
+  # 12. Undo filed beside Filed, on the bill page, the hearing page and Today's row menu (fix 12)
+  go(pg, '/bill/HB2116', 2500)
+  tb = pg.evaluate("[...document.querySelectorAll('.bw-tb .bw-acts')].map(e => e.innerText.replace(/\\s+/g, ' ')).join(' | ')")
+  check('Bill page: "Undo filed" beside "Filed"', re.search(r'Filed\s*Undo filed', tb), tb)
+  go(pg, '/hearing/5a71d2f7-2d0a-4f68-80b4-f2863edde848', 2500)
+  check('Hearing page: "Undo filed" under the filed row', pg.locator('.hr-unf', has_text='Undo filed').count() == 1, '')
+  pg.locator('.hr-unf button').click(); pg.wait_for_timeout(600)
+  check('Hearing page: Undo filed undoes it', 'Testimony filed' not in pg.inner_text('main') and 'approved and ready to file again' in pg.inner_text('#toast'), '')
+  go(pg, '/', 3000); found = ''
+  # each row whose bill has testimony marked filed: open it and its "…" (beside the open item on a laptop)
+  for num in pg.evaluate("[...document.querySelectorAll('.td-row[data-num]')].map(r => r.dataset.num)"):
+    pg.locator(f'.td-row[data-num="{num}"] .td-rsel').first.click(); pg.wait_for_timeout(400)
+    if not pg.locator('#td-pane [data-more]').count(): continue
+    pg.locator('#td-pane [data-more]').first.click(); pg.wait_for_timeout(400)
+    t = pg.inner_text('dialog[open]') if pg.locator('dialog[open]').count() else ''
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
+    if 'Undo filed' in t: found = num; break
+  check("Today: a row's “…” offers Undo filed", found, found)
+
+  # 8. Nothing typed is lost: the meeting note survives Esc and a reload; an error stays; offline is said (fix 8, E-5, E-9)
+  go(pg, '/', 2500)
+  lid = pg.evaluate("import('/staff5/data.js').then(m => (m.S.legislators || [])[0]?.id)")
+  go(pg, f'/legislator/{lid}', 2500)
+  def opennote():
+    pg.locator('[data-lglog]').first.click(); pg.wait_for_timeout(600); return pg.locator('#cv-text')
+  ta = opennote(); ta.fill('Met the chair: she wants the fiscal note first.'); pg.keyboard.press('Escape'); pg.wait_for_timeout(700)
+  ta = opennote(); after_esc = ta.input_value(); pg.keyboard.press('Escape'); pg.wait_for_timeout(500)
+  pg.reload(); pg.wait_for_timeout(3000); ta = opennote(); after_reload = ta.input_value(); pg.keyboard.press('Escape')
+  check('Meeting note: survives Esc', 'fiscal note' in after_esc, after_esc[:40])
+  check('Meeting note: survives a reload', 'fiscal note' in after_reload, after_reload[:40])
+  pg.evaluate("import('/staff5/ui.js').then(m => m.toast('That did not save.', { err: true }))"); pg.wait_for_timeout(6500)
+  check('An error message is still there after 6 s, with a close X', pg.locator('#toast .toastmsg.err .toastx').count() == 1, '')
+  pg.context.set_offline(True); pg.wait_for_timeout(400); off = pg.locator('#sv-offline').count()
+  pg.context.set_offline(False); pg.wait_for_timeout(400); on = pg.locator('#sv-offline').count()
+  check('"You\'re offline" shows while offline and goes when back', off == 1 and on == 0, f'{off} {on}')
+  check('No page errors on the batch d screens', not pg.errs, pg.errs[:1])
+  pg.context.close()
+
+  # 16. A phone on a hearing day: late and due-today items in one list, least time left first (fix 16)
+  for who, asof in [('NT', '2026-03-17T08:00:00-10:00'), ('KR', '2026-03-20T08:00:00-10:00')]:
+    ctx = b.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True); ctx.route(HOST + '/**', router); pg = ctx.new_page()
+    pg.goto(f"{HOST}/staff5.html?demo=1&as={who}&asof={asof}#/"); pg.wait_for_timeout(3500)
+    heads = pg.evaluate("[...document.querySelectorAll('main h2')].map(h => h.innerText.split('\\n')[0])")
+    left = pg.evaluate("[...document.querySelectorAll('.td-nowl .td-card')].map(c => { const t = (c.innerText.match(/^(\\d+)([hmd])/) || []); return t.length ? +t[1] * ({ m: 1 / 60, h: 1, d: 24 })[t[2]] : null; })")
+    split = [x for x in heads if re.match(r'(Late testimony, still open|Overdue|Needs you today|Testimony and asks due today)', x)]
+    vals = [x for x in left if x is not None]
+    check(f'{who}, phone, hearing day: late and due today in one list, least time left first', any(x.startswith('Late or due today') for x in heads) and not split and vals == sorted(vals), f'{heads[:3]} {left}')
+    ctx.close()
+
+  # 15. First load asks for fewer modules: the screens not on Today load when opened, and staff5.html preloads the rest (fix 15, E-8)
+  html = open(os.path.join(ROOT or '.', 'staff5.html')).read(); pre = re.findall(r'<link rel="modulepreload" href="([^"]+)"', html)
+  app = open(os.path.join(ROOT or '.', 'staff5/app.js')).read()
+  lazy = ['setup.js', 'supporters.js', 'person.js', 'list.js', 'emails.js', 'triage.js', 'me.js', 'devui.js', 'memo.js']
+  static = [m for m in lazy if re.search(r"^import [^;]*from '\./" + re.escape(m) + "'", app, re.M)]
+  missing = [p for p in pre if not os.path.isfile(os.path.join(ROOT or '.', p))]
+  check('First load: Session setup, Outreach\'s supporters and emails, Sort new bills, the partner update and My settings load only when opened', not static and not any(p.endswith('/' + m) for p in pre for m in lazy), static)
+  check(f'First load: staff5.html preloads {len(pre)} modules, each a real file', pre and not missing, missing[:3])
+  ctx = b.new_context(viewport={'width': 1440, 'height': 900}); ctx.route(HOST + '/**', router); pg = ctx.new_page(); js = []
+  pg.on('request', lambda r: js.append(r.url) if r.url.endswith('.js') else None)
+  pg.goto(f"{HOST}/staff5.html?demo=1&as=NT#/"); pg.wait_for_selector('.td-root'); pg.wait_for_timeout(500)
+  n0 = len(set(js)); got = [u for u in set(js) if any(u.endswith('/' + m) for m in lazy)]
+  check(f'First load of Today: {n0} modules (56 before), none of the screens opened later', n0 < 56 and not got, got[:3])
+  pg.evaluate("location.hash = '#/setup'"); pg.wait_for_timeout(2000)
+  check('Session setup still opens (loaded on the way)', 'Session setup' in pg.inner_text('main') or 'Ready for session' in pg.inner_text('main'), pg.inner_text('main')[:60])
+  ctx.close()
+
 def main():
   with sync_playwright() as p:
     b = p.chromium.launch()
@@ -210,7 +311,7 @@ def main():
     def go(pg, route='/', wait=2500):
       pg.goto(f"{HOST}/staff5.html?demo=1&as={pg.who}#{route}"); pg.wait_for_timeout(wait)
 
-    # ONLY=b or ONLY=c runs one batch's checks (the whole file runs both)
+    # ONLY=b, ONLY=c or ONLY=d runs one batch's checks (the whole file runs them all)
     only = os.environ.get('ONLY', '')
     def batch_b():
       # 1. No retired wording on any main screen, for three people
@@ -287,6 +388,7 @@ def main():
       check(f'Session setup: all {len(ext)} test and page links open a real page', ext and not miss, ', '.join(miss[:4]))
     if only in ('', 'b'): batch_b()
     if only in ('', 'c'): batch_c(b, page, go)
+    if only in ('', 'd'): batch_d(b, page, go)
     b.close()
   bad = [r for r in results if not r[1]]
   print(f'{len(results) - len(bad)} of {len(results)} checks met')

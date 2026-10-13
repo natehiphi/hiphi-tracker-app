@@ -15,7 +15,7 @@ import { legislativeDay, diedish, TEMPLATE_KINDS, TOKENS, parseTrackerCsv, billN
 import { icon, btn, iconBtn, row, switchRow, field, notice, empty, toast, pickerSheet, menuSheet, openSheet, closeSheet, confirmSheet, chip, pickerChip, avatar, segmented } from './ui.js';
 import { qrMatrix, qrSvg, qrPng, printHtml } from './qr.js';
 import { copyLink, NAMES as FV_NAMES } from './firstvisit.js';
-import { afterClose } from './lists.js';
+import { afterClose, iconName } from './lists.js';
 import { ICONS } from '../icons.js';
 import { billRoute } from './model.js';
 
@@ -25,8 +25,7 @@ export const ICON_CHOICES = [['salad', 'Healthy food'], ['apple', 'Apple'], ['bi
   ['waves', 'Ocean'], ['sun', 'Sun'], ['leaf', 'Leaf'], ['shield-check', 'Protection'], ['wine-off', 'No alcohol'], ['cigarette-off', 'No tobacco'], ['pill', 'Medicine'],
   ['smile', 'Smile (oral health)'], ['sprout', 'Sprout (farm to school)'], ['school', 'School'], ['baby', 'Keiki'], ['syringe', 'Vaccines'], ['stethoscope', 'Health care'],
   ['heart-pulse', 'Public health'], ['heart-handshake', 'Community care'], ['handshake', 'Partnership'], ['users', 'People'], ['house', 'Housing'], ['megaphone', 'Advocacy']];
-const EMOJI_ICON = { '🥗': 'salad', '🌊': 'thermometer-sun', '🍺': 'shield-check', '🚭': 'cigarette-off', '🦷': 'smile', '🌱': 'sprout', '💉': 'syringe', '🤝': 'heart-handshake', '🏥': 'heart-pulse', '☀️': 'heart-pulse', '☀': 'heart-pulse', '🧒': 'baby' };
-export const iconName = (v, kind) => { const x = String(v || '').trim(); return ICONS[x] ? x : EMOJI_ICON[x] || EMOJI_ICON[x.replace(/\ufe0f/g, '')] || (kind === 'list' ? 'list-checks' : 'heart-pulse'); };
+export { iconName };   // R-277 fix 15: it lives in lists.js, so the pages that draw coalitions need not load this one
 const iconLabel = n => (ICON_CHOICES.find(c => c[0] === n) || [n, n])[1];
 const showIcon = (card, v) => { const b = card.querySelector('[data-ciconpick]'); if (b) b.innerHTML = `${icon(v)}<span>${esc(iconLabel(v))}</span>${icon('chevron-down', { cls: 'chev' })}`; const h = card.querySelector('.st-coalic'); if (h) h.innerHTML = icon(v); };
 

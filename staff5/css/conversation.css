@@ -81,3 +81,7 @@
   .cv-names a:hover, .cv-meta a:hover { color: var(--p800); }
   .cv-more:hover { color: var(--n900); }
 }
+
+/* R-277 fix 8: "Your note from before, kept until you save it." */
+.cv-held { display: flex; align-items: center; gap: 6px; }
+.cv-held .ic { flex: none; width: 16px; height: 16px; }

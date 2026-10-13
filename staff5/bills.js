@@ -12,7 +12,7 @@
 import { S, DB, DEADLINES, esc, fmtDate, fmtDT, effStage, owners, isMuted, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks } from './data.js';
 import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionClock, gateNeed, deadlineName, billSay } from './model.js';
 import { CHAMBER_NAME, HELD_RE, stoppedAt } from '../stops.js';
-import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, keysUsed, POS_WORD, posIcons, whoseSeg } from './ui.js';
+import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, keysUsed, POS_WORD, posIcons, whoseSeg, showAllBtn } from './ui.js';
 import { bl, save, setCompact, shownBills, freshFacts, QUICK, quickCount, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, settled, hoverNow, typingIn, deskBack,
   views, curView, applyView, resetView, isDefault, openSaveView, openEditViews, VIEW_CAP, scopeOpts, defaultScope, posWord, openCoalition, viewState, dueDay } from './filters.js';
 import { openLook, dockLook } from './look.js';
@@ -22,6 +22,8 @@ import { GROUPS, groupKey } from './standing.js';
 
 // ---- groups, in stage order: GROUPS and groupKey live in standing.js, shared with an issue's page (R-226) ----
 const FOLDED = new Set(['mon', 'dead']);
+const FOLD_AT = 25;   // R-277 fix 11: rows an open group shows before "Show all N" (the review's "no open list over 25 rows")
+const moreRows = g => g.open && g.all > FOLD_AT ? showAllBtn(g.all, { 'data-full': g.k }, { open: !!bl().full?.[g.k], what: 'bills' }) : '';
 const ST = new Map();   // stopOf per render: it filters every hearing, so each bill is worked out once
 const stOf = b => { let s = ST.get(b.id); if (!s) ST.set(b.id, s = stopOf(b)); return s; };
 const byNum = (a, b) => a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true });
@@ -68,7 +70,10 @@ function build() {
   // every bill it found is on screen, so "Show 15 bills" means 15 rows.
   const asked = !!v.q.trim() || activeFilters().length > 0, only = groups.length === 1;
   for (const g of groups) g.open = v.folds[g.k] ?? (asked || only || !FOLDED.has(g.k));
-  NAV = groups.filter(g => g.open).flatMap(g => g.rows.map(b => b.id));
+  // R-277 fix 11 (V-2): an open group shows its first 25 rows and "Show all N" under them; at session volume "Hearing
+  // scheduled" alone ran past 40 and pushed every group under it off the page. Show all opens the whole group (v.full).
+  for (const g of groups) { g.all = g.rows.length; g.shown = g.rows.length > FOLD_AT && !(v.full ??= {})[g.k] ? g.rows.slice(0, FOLD_AT) : g.rows; }
+  NAV = groups.filter(g => g.open).flatMap(g => g.shown.map(b => b.id));
   return { list, groups };
 }
 
@@ -169,10 +174,13 @@ function openWeeks() {
   return now > cut - 18 * 864e5 && now < cut + 3 * 864e5;
 }
 function banner() {
-  if (!openWeeks()) return '';
   if (!S.triageCounts && !S.triageCountsLoading) { S.triageCountsLoading = true;
     DB.triageCounts().then(c => { S.triageCounts = c; const el = document.getElementById('bl-banner'); if (el) el.innerHTML = banner(); }).catch(() => {}); }
   const c = S.triageCounts, n = c ? (c.suggested || c.undecided || 0) : null;
+  // R-277 fix 11 (F-10): after the opening weeks a bill introduced late still waits to be sorted, and Bills had no door to
+  // it mid-session but its "…" menu. A quiet link stays while any wait: one line, no box (the banner is for the rush).
+  // The count is the suggested bills (a coalition keyword matches them), the list Sort new bills opens on.
+  if (!openWeeks()) return c?.suggested ? `<p class="bl-sortlink"><a href="#/bills/new">${icon('sparkles')}<span>Sort new bills (${c.suggested.toLocaleString()})</span></a></p>` : '';
   if (c && !n) return '';
   return notice('info', 'sparkles', n ? `<b>${n} new bill${n === 1 ? '' : 's'} to sort.</b> Track them or pass.` : '<b>New bills are coming in.</b> Each one needs a decision: track it or pass.', btn('Sort new bills', { kind: 'secondary', sm: true, href: '#/bills/new' }));
 }
@@ -287,7 +295,7 @@ function phoneList(groups) {
   const mine = v.scope === 'me';
   const row = b => v.selecting ? blRow(b, { sub: statusLine(b), selectable: true, selected: v.sel.has(b.id), mine })
     : `<div class="bl-prow">${blRow(b, { sub: statusLine(b), href: billRoute(b), mine })}${look(b)}</div>`;
-  return `<div class="bl-list${v.selecting ? ' bl-selecting' : ''}">${groups.map(g => `<div class="bl-grp">${groupHead(esc(g.title), g.rows.length, { fold: g.k, open: g.open, id: 'bl-g-' + g.k })}${g.open ? g.rows.map(row).join('') : ''}</div>`).join('')}</div>`;
+  return `<div class="bl-list${v.selecting ? ' bl-selecting' : ''}">${groups.map(g => `<div class="bl-grp">${groupHead(esc(g.title), g.rows.length, { fold: g.k, open: g.open, id: 'bl-g-' + g.k })}${g.open ? g.shown.map(row).join('') + (moreRows(g) ? `<div class="bl-more">${moreRows(g)}</div>` : '') : ''}</div>`).join('')}</div>`;
 }
 
 // ---- desktop: a real table, grouped the same way ----
@@ -352,7 +360,11 @@ function table(groups) {
   const v = bl(), ci = v.compact ? 1 : 0, avail = tableAvail(), dk = docked();
   const least = cs => cs.reduce((t, c) => t + (c.w ? c.w[ci] : c.min[ci]), 0);
   // Mine has no Owner column: every row would say "you" (A-14, R-022). A bill you only follow says so in its Bill cell.
-  let cols = COLS.filter(c => (c.k !== 'sel' || v.selecting) && (!c.opt || v.cols.has(c.k)) && (c.k !== 'own' || v.scope !== 'me'))
+  // R-277 fix 11: nor when every bill shown has the same owner (a list filtered to one person): the column said the same
+  // initials on every row. Editing keeps it, since that is where an owner is changed.
+  const owns = new Set(groups.filter(g => g.open).flatMap(g => g.shown).map(b => ownerOf(b)?.id || ''));
+  const oneOwner = !v.edit && owns.size === 1 && !owns.has('');
+  let cols = COLS.filter(c => (c.k !== 'sel' || v.selecting) && (!c.opt || v.cols.has(c.k)) && (c.k !== 'own' || (v.scope !== 'me' && !oneOwner)))
     // While editing, a dropdown needs a name's room, not an avatar's, and "Support with changes" whole.
     .map(c => !v.edit ? c : c.k === 'own' ? { ...c, w: [140, 132] } : c.k === 'pos' ? { ...c, min: [212, 204], ideal: [224, 216] } : c);
   // A bill docked beside the table says everything about itself, so where the title would get under 300px (and the
@@ -373,7 +385,7 @@ function table(groups) {
   // Docked, the table fills its column so the bill sits right beside it, not across a gap.
   const total = cols.reduce((t, c) => t + W.get(c.k), 0), cap = !scroll && !dk && total < avail - 1 ? Math.round(total) + 2 : 0;
   const colg = `<colgroup>${cols.map(c => `<col style="width:${scroll ? Math.round(W.get(c.k)) + 'px' : (W.get(c.k) / total * 100).toFixed(3) + '%'}">`).join('')}</colgroup>`;
-  const rowsShown = groups.filter(g => g.open).flatMap(g => g.rows), selShown = rowsShown.filter(b => v.sel.has(b.id)).length;
+  const rowsShown = groups.filter(g => g.open).flatMap(g => g.shown), selShown = rowsShown.filter(b => v.sel.has(b.id)).length;
   const [sk, sd] = v.sort || [];
   const th = c => {
     if (c.k === 'sel') return `<th scope="col" class="bl-ck"><label title="Select every bill shown"><input type="checkbox" id="bl-all" ${rowsShown.length && selShown === rowsShown.length ? 'checked' : ''} aria-label="Select every bill shown"></label></th>`;
@@ -415,8 +427,8 @@ function table(groups) {
     <div class="bl-twrap"><div class="bl-tscroll" role="region" aria-label="Bills table" aria-describedby="bl-tnote" tabindex="0" style="--bl-pin:${pin}px">` : ''}<table class="bl-table${v.compact ? ' bl-compact' : ''}${tight || scroll && !fitsStd ? ' bl-tight' : ''}"${scroll ? ` style="width:${Math.round(total)}px"` : cap ? ` style="max-width:${cap}px"` : ''}>${colg}<caption class="sr">Bills, grouped by where they stand</caption>
     <thead><tr>${cols.map(th).join('')}</tr></thead>
     ${groups.map(g => `<tbody class="bl-tg"><tr class="bl-gr"><th colspan="${n}" scope="colgroup"><button type="button" class="sv-group bl-grb" data-fold="${g.k}" aria-expanded="${g.open}"${scroll ? ` style="width:${avail}px"` : ''}><span>${esc(g.title)}</span><span class="n">${g.rows.length}</span>${icon(g.open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button></th></tr>
-      ${g.open ? g.rows.map(b => { const lk = dk && v.look === b.id;
-        return `<tr data-row="${b.id}" data-num="${esc(billRef(b))}" class="${v.selecting && v.sel.has(b.id) ? 'sel' : ''}${v.cur === b.id ? ' bl-cur' : ''}${lk ? ' bl-look' : ''}"${lk ? ' aria-current="true"' : ''}>${cols.map(c => cell(c, b)).join('')}</tr>`; }).join('') : ''}</tbody>`).join('')}
+      ${g.open ? g.shown.map(b => { const lk = dk && v.look === b.id;
+        return `<tr data-row="${b.id}" data-num="${esc(billRef(b))}" class="${v.selecting && v.sel.has(b.id) ? 'sel' : ''}${v.cur === b.id ? ' bl-cur' : ''}${lk ? ' bl-look' : ''}"${lk ? ' aria-current="true"' : ''}>${cols.map(c => cell(c, b)).join('')}</tr>`; }).join('') + (moreRows(g) ? `<tr class="bl-morer"><td colspan="${n}">${moreRows(g)}</td></tr>` : '') : ''}</tbody>`).join('')}
   </table>${scroll ? '</div></div>' : ''}`;
 }
 
@@ -592,6 +604,9 @@ function wireDock() {
 function showDock(id, { keys = false } = {}) {
   const v = bl(), b = S.bills.find(x => x.id === id); if (!b) return;
   const was = docked(); v.look = id; v.cur = id; v.keys = keys;
+  // R-277 fix 5 (U-2, E-4): opening the bill beside the table is a step of its own, so Back closes it and keeps the
+  // table, its filters and its scroll (it used to leave Bills).
+  S.panelOpened?.(() => closeDock({ fromBack: true }));
   // First time: the table is laid out again for its narrower column. After that only the panel and the marks change,
   // so the rows under the pointer stay where they are.
   if (!was) { repaintDyn(); markRow(keys); const tr = tableRows().find(r => r.dataset.row === id); tr?.scrollIntoView({ block: 'nearest' }); return; }
@@ -599,8 +614,9 @@ function showDock(id, { keys = false } = {}) {
   if (el) { el.outerHTML = dockLook(b, DOCKOPT); wireDock(); } else repaintDyn();
   markRow(keys);
 }
-function closeDock() {
-  const v = bl(), id = v.look; v.look = null; repaintDyn();
+function closeDock({ fromBack = false } = {}) {
+  const v = bl(), id = v.look, y = window.scrollY; v.look = null; repaintDyn(); window.scrollTo(0, y);
+  if (!fromBack) S.panelClosed?.();   // the X or Esc takes the panel's history entry back, so Back after it leaves Bills
   // The focus goes back to the row the bill came from, so the keys carry on from there.
   const tr = tableRows().find(r => r.dataset.row === id); tr?.querySelector('a[data-bill]')?.focus({ preventScroll: true });
 }
@@ -623,6 +639,7 @@ function wireDyn(page) {
   dynEl.querySelectorAll('[data-fclearall]').forEach(el => el.onclick = () => { clearAll(); repaint('[data-filter]'); });
   dynEl.querySelectorAll('[data-scopeall], [data-scopecoal]').forEach(el => el.onclick = () => { v.scope = el.hasAttribute('data-scopecoal') ? 'coal' : 'all'; changed(); repaint(`[data-seg="blscope"][data-val="${v.scope}"]`); });
   dynEl.querySelectorAll('[data-fold]').forEach(el => el.onclick = () => { v.folds[el.dataset.fold] = el.getAttribute('aria-expanded') !== 'true'; repaint(`[data-fold="${el.dataset.fold}"]`); });
+  dynEl.querySelectorAll('[data-full]').forEach(el => el.onclick = () => { const k = el.dataset.full; (v.full ??= {})[k] = !v.full[k]; repaint(`[data-full="${k}"]`); });
   dynEl.querySelectorAll('[data-selall]').forEach(el => el.onclick = () => { if (el.dataset.selall === 'all') NAV.forEach(id => v.sel.add(id)); else NAV.forEach(id => v.sel.delete(id)); repaint('[data-selall]'); });
   dynEl.querySelectorAll('[data-view]').forEach(el => el.onclick = () => {
     const id = el.dataset.view;
@@ -764,6 +781,7 @@ export default {
     const v = bl();
     wireDyn(page);
     wireBulkBar(root);
+    if (docked() && history.state?.panel) S.panelOpened?.(() => closeDock({ fromBack: true }));   // back on the entry where a bill was docked (R-277 fix 5)
     // Previous and Next on the bill page walk this list in the order shown.
     page.addEventListener('click', e => { if (e.target.closest('a[data-bill]')) S.billNav = NAV.slice(); }, true);
     // Links added after the first paint (search results) are not wired by the frame; route them the same way.

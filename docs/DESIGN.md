@@ -836,6 +836,8 @@ retired words in the code's quoted text on every push, so the list does not drif
 | **Mine · My coalitions · Team** (R-277) | Every coalition, The team's, Everyone (as a whose switch) | whose work a list shows, in that order, on every list that has the switch (ui.js `whoseSeg`); **Team** always means everybody's work. My coalitions shows only to someone who helps on one. The partner update's audience is **For: Partners / Staff**, never "Team". |
 | **I'm going** / pressed **You're going** (R-277) | Take me off, I'm not going after all | the one going toggle, the same button on Today, the bill page and the hearing page (ui.js `goingBtn`). A menu item may still say "I'm not going after all". |
 | **Open Doc** (R-277) | Open the Google Doc, Open (for the Doc) | the one Doc button, with the document and new-tab icons, on every screen (ui.js `docBtn`). Likewise **Mark filed** (`filedBtn`) and **Show all 12** / **Show fewer** (`showAllBtn`). |
+| **Undo filed** (R-277) | Unmark filed, Unfiled, Unmarked | taking back a Mark filed pressed by mistake: beside **Filed** on the bill page, under the row on the hearing page, and in Today's row "…" (fix 12). Its message is "Filing undone. It is approved and ready to file again." |
+| **You're offline** (R-277) | No connection, Network error | the line at the foot of the page while the browser has no connection (fix 8); an error message stays until its X is pressed. |
 
 **Hawaiian:** ʻokina is the character ʻ (U+02BB) in Hawaiʻi and in place names (Oʻahu, Kauaʻi, Molokaʻi, Hawaiʻi Island); kahakō where
 the name has one. **kūpuna** is the plural (elders) and **kupuna** one elder (the "I'm a…" title). The Legislature's own titles and

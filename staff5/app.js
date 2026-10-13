@@ -21,30 +21,47 @@ import review from './review.js';
 import inbox from './inbox.js';
 import bill from './bill.js';
 import bills from './bills.js';
-import triage from './triage.js';
-import memo, { partners } from './memo.js';
 import asks from './asks.js';
 import legislators from './legislators.js';
 import legislator from './legislator.js';
 import search, { headerHits } from './search.js';
 import { suggest } from '../pub/suggest.js';
 import { keepWordsWhole } from '../pub/ui.js';
-import supporters from './supporters.js';
-import person from './person.js';
 import lists from './lists.js';
 import issues, { issuePage as issue } from './issues.js';
 import myissues from './myissues.js';
-import list from './list.js';
-import emails from './emails.js';
 import composer from './composer.js';
-import me from './me.js';
-import setup from './setup.js';
 import help from './help.js';
-import devui from './devui.js';
 import hearing from './hearing.js';
 import coalition from './coalition.js';
 
 keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen on a staff screen either (X9-1, X9-6)
+
+// ---- screens loaded when first opened (R-277 fix 15, E-8) ----
+// On slow Capitol wifi the first load took about 8 s because every screen's code came before Today could draw. The
+// screens nobody needs on arrival (Session setup, Outreach's supporters, lists and emails, Sort new bills, the partner
+// update, My settings, the dev page) now load the first time they are opened: the page shows its loading rows for that
+// moment, then draws. `base` is what the frame needs before the code arrives (which tab to light, the title). staff5.html
+// preloads the modules the first screen does need, so they come in one round rather than one import level at a time.
+function lazy(load, pick, base) {
+  let p = null;
+  const stub = { ...base, lazy: true, render() { get(); return skeleton(5); } };
+  const get = () => p ??= load().then(m => {
+    for (const [name, scr] of Object.entries(pick(m))) SCREENS[name] = scr;   // from now on the real screen draws
+    if (S.route && SCREENS[S.route.name] && !SCREENS[S.route.name].lazy) render();
+  }).catch(e => { p = null; console.error(e); reportError('boot', e); toast('That page did not load. Check your connection and try again.', { err: true }); });
+  return [stub, get];
+}
+const [setup] = lazy(() => import('./setup.js'), m => ({ setup: m.default }), { tab: '', title: () => 'Session setup' });
+const [triage] = lazy(() => import('./triage.js'), m => ({ triage: m.default }), { tab: 'bills', tabs: false, title: () => 'Sort new bills' });
+const [memo, memoGet] = lazy(() => import('./memo.js'), m => ({ memo: m.default, partners: m.partners }), { tab: 'bills', tabs: false, title: () => 'Partner update' });
+const partners = { ...memo, tab: 'outreach', tabs: true, render() { memoGet(); return skeleton(5); } };
+const [supporters] = lazy(() => import('./supporters.js'), m => ({ supporters: m.default }), { tab: 'outreach', title: () => 'Supporters' });
+const [person] = lazy(() => import('./person.js'), m => ({ person: m.default }), { tab: 'outreach', title: () => 'Supporter' });
+const [list] = lazy(() => import('./list.js'), m => ({ list: m.default }), { tab: 'bills', title: () => 'List' });
+const [emails] = lazy(() => import('./emails.js'), m => ({ emails: m.default }), { tab: 'outreach', title: () => 'Emails' });
+const [me] = lazy(() => import('./me.js'), m => ({ me: m.default }), { tab: '', narrow: true, title: () => 'My settings' });
+const [devui] = lazy(() => import('./devui.js'), m => ({ devui: m.default }), { tab: '', title: () => 'Parts' });
 
 // ---- routes ----
 const SCREENS = { today, myissues, review, inbox, bill, bills, triage, memo, partners, asks, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition };
@@ -99,18 +116,55 @@ export function go(path, { replace = false, keepScroll = false, force = false } 
   if (takeSheetEntry()) replace = true;   // the sheet's history entry becomes this page, so no late Back undoes it
   try { history.replaceState({ ...(history.state || {}), y: window.scrollY }, ''); } catch { /* ignore */ }
   if (replace) history.replaceState({ y: 0, d: depth }, '', path); else history.pushState({ y: 0, d: ++depth }, '', path);
+  panelAt = null;
   render(); S.scrollClaimed = false;   // go() puts the page at the top itself; a page's own later scroll still runs
   if (!keepScroll) window.scrollTo(0, 0);
 }
 S.go = go;
+// ---- Back closes a side panel (R-277 fix 5, U-2, E-4) ----
+// Opening a side panel beside a list (Today's open item, the bill docked beside Bills' table) is a step of its own, so
+// Back (the browser's, or a phone's back gesture) closes the panel and leaves the list as it was: its filters, its
+// scroll and its focus. It used to leave the page. A screen calls panelOpened(close) when someone opens a panel: the
+// first one pushes a history entry on the same address; `close` is how the screen closes it in place. The screen's own
+// close X calls panelClosed(), which takes that entry back, so Back after it leaves the page as before.
+let panelAt = null, panelClose = null, panelSkip = false;   // the address whose entry is a panel's, and its closer
+export function panelOpened(close) {
+  panelClose = close;
+  if (panelAt === location.hash && history.state?.panel) return;
+  try { history.replaceState({ ...(history.state || {}), y: window.scrollY }, ''); history.pushState({ ...(history.state || {}), panel: 1, y: window.scrollY }, ''); panelAt = location.hash; } catch { /* ignore */ }
+}
+export function panelClosed() {
+  panelClose = null;
+  if (panelAt === location.hash && history.state?.panel) { panelAt = null; panelSkip = true; history.back(); }
+}
+S.panelOpened = panelOpened; S.panelClosed = panelClosed;
 window.addEventListener('popstate', e => {
   if (popSheet()) return;                      // Back closed a sheet: the page underneath stays as it is
+  if (panelSkip) { panelSkip = false; return; }   // the screen's own X closed the panel and took its entry back
+  // Back from a panel's entry to the same address: close the panel in place; the list does not move.
+  if (panelAt && panelAt === location.hash && !e.state?.panel) { panelAt = null; const c = panelClose; panelClose = null; if (c) { try { c(); } catch (x) { console.error(x); render(); } return; } }
+  // Forward (or Back from a bill page) onto a panel's entry: the screen draws its panel open again, as it was left.
+  panelAt = e.state?.panel ? location.hash : null;
   depth = e.state?.d || 0;
   render(); const y = e.state?.y || 0;
   // A page that scrolls to something itself (Today's "Write it" lands at the ask box, X10-3) claims the scroll with S.scrollClaimed; this restore, queued after it, would put the page back at the top.
   requestAnimationFrame(() => { if (S.scrollClaimed) { S.scrollClaimed = false; return; } window.scrollTo(0, y); });
 });
 try { history.scrollRestoration = 'manual'; } catch { /* ignore */ }
+// R-277 fix 8 (E-9): "You're offline" while the browser has no connection, gone when it is back. Nothing said so, and a
+// change made meanwhile failed with a message that vanished. It sits with the messages at the foot of the page (#toast,
+// outside the redrawn page, so a redraw never takes it away) and stays until the connection returns.
+function offlineLine() {
+  const box = document.getElementById('toast'); if (!box) return;
+  let el = document.getElementById('sv-offline');
+  if (navigator.onLine === false) {
+    if (el) return;
+    el = document.createElement('p'); el.id = 'sv-offline'; el.className = 'sv-offline'; el.setAttribute('role', 'status');
+    el.innerHTML = `${icon('circle-alert')}<span>You’re offline. What you change will not save until the connection is back.</span>`;
+    box.prepend(el);
+  } else if (el) { el.remove(); toast('Back online.', { ok: true }); }
+}
+addEventListener('offline', offlineLine); addEventListener('online', offlineLine); offlineLine();
 // Crossing a layout width (a rotated tablet, a resized window) redraws the page, so screens that draw differently for
 // desktop are never left in the wrong shape.
 for (const q of ['(min-width: 900px)', '(min-width: 1100px)']) { try { matchMedia(q).addEventListener('change', () => { if (S.route && !document.querySelector('dialog[open]')) render(); }); } catch { /* old browsers */ } }

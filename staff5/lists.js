@@ -18,6 +18,9 @@ export const ICON_CHOICES = [['salad', 'Healthy food'], ['apple', 'Apple'], ['bi
 // Lists saved before 9/19 carry an emoji; show its Lucide match until someone re-saves the list.
 const EMOJI_ICON = { '🥗': 'salad', '🌊': 'thermometer-sun', '🍺': 'shield-check', '🚭': 'cigarette-off', '🦷': 'smile', '🌱': 'sprout', '💉': 'syringe', '🤝': 'heart-handshake', '🏥': 'heart-pulse', '☀️': 'heart-pulse', '☀': 'heart-pulse', '🧒': 'baby' };
 export const listIcon = v => { const x = String(v || '').trim(); return ICONS[x] ? x : EMOJI_ICON[x] || EMOJI_ICON[x.replace(/\uFE0F/g, '')] || 'list-checks'; };
+// A coalition's or list's icon (setup.js used to hold this; R-277 fix 15: Session setup now loads only when opened, so the
+// pages that draw coalitions take it from here).
+export const iconName = (v, kind) => { const x = String(v || '').trim(); return ICONS[x] ? x : EMOJI_ICON[x] || EMOJI_ICON[x.replace(/\ufe0f/g, '')] || (kind === 'list' ? 'list-checks' : 'heart-pulse'); };
 
 export const plural = (n, one, many = one + 's') => `${Number(n || 0).toLocaleString()} ${n === 1 ? one : many}`;
 export const listById = id => (S.lists || []).find(l => String(l.id) === String(id));

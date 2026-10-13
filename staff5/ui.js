@@ -240,7 +240,10 @@ export function toast(msg, opt = {}) {
   // seen but never clicked (found on Bills' saved views, 9/19). Anywhere else it goes to #toast as before.
   const dlg = document.querySelector('dialog[open]');
   const host = dlg || box;
-  const clear = () => document.querySelectorAll('.toastmsg').forEach(t => t.remove());
+  // R-277 fix 8 (E-9): an error stays until it is closed. It vanished after 4 s, so a "Mark filed" that did not save
+  // went by unread and the step quietly came back. A new message replaces the last one, but never an error still open
+  // (a newer error replaces the older one, so they never pile up).
+  const clear = () => document.querySelectorAll(opt.err ? '.toastmsg' : '.toastmsg:not(.err)').forEach(t => t.remove());
   clear();
   const el = document.createElement('div'); el.className = 'toastmsg' + (opt.err ? ' err' : opt.ok ? ' yay' : '');
   el.innerHTML = (opt.ok ? `<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9.5" fill="var(--ok-text)"/><path class="ck" d="M5.5 10.4l3 3 6-6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '')
@@ -249,7 +252,8 @@ export function toast(msg, opt = {}) {
   if (opt.action) el.querySelector('.toastact').onclick = () => { clear(); opt.action.run(); };
   // One with a button can be closed (it could sit on top of the bill tabs for ten seconds), and any toast someone is
   // reading or reaching for stays put: its clock starts again when they leave it.
-  if (opt.undo || opt.action) { el.insertAdjacentHTML('beforeend', `<button type="button" class="toastx" aria-label="Dismiss">${icon('x')}</button>`); el.querySelector('.toastx').onclick = () => el.remove(); }
+  if (opt.undo || opt.action || opt.err) { el.insertAdjacentHTML('beforeend', `<button type="button" class="toastx" aria-label="Dismiss">${icon('x')}</button>`); el.querySelector('.toastx').onclick = () => el.remove(); }
+  if (opt.err) { el.setAttribute('role', 'alert'); host.appendChild(el); return; }   // no clock: it waits for its X
   const arm = () => { clearTimeout(toast.t); toast.t = setTimeout(() => el.isConnected && el.remove(), opt.undo || opt.action ? 10000 : 4000); }, hold = () => clearTimeout(toast.t);
   el.addEventListener('mouseenter', hold); el.addEventListener('mouseleave', arm); el.addEventListener('focusin', hold); el.addEventListener('focusout', arm);
   if (dlg) el.classList.add('insheet');

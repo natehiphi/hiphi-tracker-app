@@ -18,7 +18,7 @@ import { icon, btn, empty, sectionNav, row, switchRow } from './ui.js';
 import { plural, isSide, pageHead } from './lists.js';
 import { indexLinks, isDraft } from './prep.js';
 import { supports, setSupport, coalFactsLine } from './coalition.js';
-import { iconName } from './setup.js';
+import { iconName } from './lists.js';   // R-277 fix 15: not from setup.js, which loads only when opened
 import { standOf, bodyHTML, toolsHTML, wireTools } from './issuestand.js';
 
 // Each of my issues, as issuestand.js judges it (R-272), with whether it is yours or one you help on.

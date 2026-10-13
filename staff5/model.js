@@ -631,7 +631,7 @@ export function draftActions(d, h = draftHearing(d)) {
     case 'second_review': return canSecondApprove(me, d) ? [['approve', 'Approve', 'pri'], ['changes', 'Send back']]
       : mine ? [['withdraw', 'Withdraw']] : [];
     case 'approved': return [['filed', 'Mark filed', 'pri']];
-    case 'filed': return [['unfile', 'Unmark filed']];
+    case 'filed': return [['unfile', 'Undo filed']];   // R-277 fix 12: one name (C-15)
     default: return [];
   }
 }

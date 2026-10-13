@@ -785,3 +785,9 @@
 .td-root .td-rbn .td-rnick { line-height: 18px; }
 .td-root .td-rbn .bn-num { line-height: 16px; }
 .td-root .td-rsel { padding-top: 5px; padding-bottom: 5px; }
+
+/* R-277 fix 5 (U-1): the open item's close X, at the end of its top line as on Bills' docked bill */
+.td-root .td-ptop .td-pclose { margin: -4px -10px -4px 0; flex: none; }
+.td-root .td-ptop .td-more + .td-pclose { margin-left: -4px; }
+.td-root .td-ptop .td-pnum + .td-pclose { margin-left: auto; }
+.td-root .td-ptop .td-more:has(+ .td-pclose) { margin-right: 0; }

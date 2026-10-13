@@ -20,7 +20,7 @@ import { billTag, billSay, diedish, riskOf, stopOf, noticeByFor, roomShort, PUBL
 import { icon, btn, chip, row, empty, toast, switchRow, avatar, pickerSheet, openSheet, sectionNav, clockDay } from './ui.js';
 import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { plural, isSide, thSort, sortBy, wireTable, DASH, pageHead, afterClose } from './lists.js';
-import { iconName } from './setup.js';
+import { iconName } from './lists.js';   // R-277 fix 15: not from setup.js, which loads only when opened
 import { issuesOfBill } from './issues.js';
 import { sittingOf, goersOf, goingWords, testimonyOf, dueOf, dueTone } from './hearing.js';
 import { billSub, wireLinks } from './pathway.js';

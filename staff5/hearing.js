@@ -150,7 +150,18 @@ function billRow(x, c) {
     end = chip(words ? `${t.label} · ${words}` : t.label, tone, tone === 'danger' ? 'circle-alert' : t.icon); }
   // A grid, not the usual body/end pair: on a phone the name has the whole first line and the state sits at the end of
   // the facts; on a desktop the state moves up beside the name (hearing.css).
-  return `<a class="row hr-bill" href="${billRoute(b)}"><span class="hr-bt">${name}</span><span class="hr-bs">${end}</span><span class="hr-bf">${facts}${pub ? `<span class="hr-fact hr-pub">${icon('users')}<span>${esc(pub)}</span></span>` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</a>`;
+  // R-277 fix 12: "Undo filed" right under a row whose "Testimony filed" says it is marked filed, while the sitting is still
+  // ahead. The row is a link, so the button sits under it rather than inside it.
+  const d = !c.over && !c.cancelled && h.status !== 'cancelled' && isPos(b) ? draftOf(x) : null;
+  const undo = d?.status === 'filed' ? `<div class="hr-unf">${btn('Undo filed', { kind: 'text', sm: true, icon: 'undo-2', attrs: { 'data-hrunfile': d.id, 'data-hrunb': b.id, 'aria-label': `Undo filed: ${billSay(b)}` } })}</div>` : '';
+  return `<a class="row hr-bill" href="${billRoute(b)}"><span class="hr-bt">${name}</span><span class="hr-bs">${end}</span><span class="hr-bf">${facts}${pub ? `<span class="hr-fact hr-pub">${icon('users')}<span>${esc(pub)}</span></span>` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</a>${undo}`;
+}
+// Undo filed (R-277 fix 12): the same data call as the Undo on "Filed." and the bill page's menu (DB.transition 'unfile'),
+// with an Undo of its own. Today's row menu uses it too.
+export async function unfile(b, d, after = () => rerender()) {
+  const url = d.filed_url || null;
+  try { await DB.transition(b.id, d.id, 'unfile'); after(); toast(`Filing undone. The ${d.committee} testimony is approved and ready to file again.`, { undo: async () => { await DB.transition(b.id, d.id, 'file', null, url); after(); } }); }
+  catch (e) { toast(e, { err: true }); }
 }
 // Bills we only monitor are folded away when bills with a position share the sitting (R-022 decision 4, as on Today and
 // the Week); a sitting of monitored bills alone shows them, or the page would be empty.
@@ -338,5 +349,6 @@ export default {
     root.querySelectorAll('[data-hroff]').forEach(el => el.onclick = () => takeOff(c, el.dataset.hroff));
     root.querySelector('.hr-fold')?.addEventListener('toggle', e => { S.hrMon = e.currentTarget.open; });
     root.querySelectorAll('[data-hrmore]').forEach(el => el.onclick = () => { (S.hrMore ??= new Set()).add(el.dataset.hrmore); rerender(); });
+    root.querySelectorAll('[data-hrunfile]').forEach(el => el.onclick = () => { const b = billById(el.dataset.hrunb), d = (S.drafts?.[el.dataset.hrunb] || []).find(x => String(x.id) === el.dataset.hrunfile); if (b && d) unfile(b, d); });
   },
 };

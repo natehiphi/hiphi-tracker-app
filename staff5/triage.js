@@ -20,7 +20,7 @@ import { S, DB, esc, advocate, SESSION_YEAR, hooks, fmtDate, priorityOf } from '
 import { loadTriage, triageSeen, titleCaseHI, FACTS } from './model.js';
 import { icon, btn, pickerChip, toast, pickerSheet, empty, skeleton, keysOn, POS_WORD, POS_ICON, POS_SUB } from './ui.js';
 import { chip, keysUsed } from './ui.js';   // R-277 fix 4 (U-8); fix 13: key hints after a key
-import { iconName } from './setup.js';
+import { iconName } from './lists.js';   // R-277 fix 15: not from setup.js, which loads only when opened
 import { deskBack } from './filters.js';
 import { suggestIssue } from './suggest_issue.js';
 import { billRoute } from './model.js';

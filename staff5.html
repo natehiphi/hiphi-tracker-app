@@ -12,6 +12,55 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<!-- R-277 fix 15 (E-8): the modules the first screen needs, asked for at once. Without these the browser finds them one import
+     level at a time (app.js, then today.js, then bill.js...), a round trip each on slow Capitol wifi. Screens not needed on
+     arrival (Session setup, Outreach's supporters and emails, Sort new bills, the partner update, My settings) load when
+     opened (app.js lazy). tests/staff5_checks.py checks this list against app.js's imports. -->
+<link rel="modulepreload" href="staff5/app.js">
+<link rel="modulepreload" href="staff5/data.js">
+<link rel="modulepreload" href="staff5/ui.js">
+<link rel="modulepreload" href="pub/art.js">
+<link rel="modulepreload" href="staff5/errlog.js">
+<link rel="modulepreload" href="staff5/model.js">
+<link rel="modulepreload" href="staff5/today.js">
+<link rel="modulepreload" href="staff5/review.js">
+<link rel="modulepreload" href="staff5/inbox.js">
+<link rel="modulepreload" href="staff5/bill.js">
+<link rel="modulepreload" href="staff5/bills.js">
+<link rel="modulepreload" href="staff5/asks.js">
+<link rel="modulepreload" href="staff5/legislators.js">
+<link rel="modulepreload" href="staff5/legislator.js">
+<link rel="modulepreload" href="staff5/search.js">
+<link rel="modulepreload" href="pub/suggest.js">
+<link rel="modulepreload" href="pub/ui.js">
+<link rel="modulepreload" href="staff5/lists.js">
+<link rel="modulepreload" href="staff5/issues.js">
+<link rel="modulepreload" href="staff5/myissues.js">
+<link rel="modulepreload" href="staff5/composer.js">
+<link rel="modulepreload" href="staff5/help.js">
+<link rel="modulepreload" href="staff5/hearing.js">
+<link rel="modulepreload" href="staff5/coalition.js">
+<link rel="modulepreload" href="stops.js">
+<link rel="modulepreload" href="icons.js">
+<link rel="modulepreload" href="staff5/testimony.js">
+<link rel="modulepreload" href="staff5/look.js">
+<link rel="modulepreload" href="staff5/prep.js">
+<link rel="modulepreload" href="staff5/pathway.js">
+<link rel="modulepreload" href="staff5/activity.js">
+<link rel="modulepreload" href="staff5/public.js">
+<link rel="modulepreload" href="staff5/conflict.js">
+<link rel="modulepreload" href="staff5/untracked.js">
+<link rel="modulepreload" href="staff5/standing.js">
+<link rel="modulepreload" href="staff5/filters.js">
+<link rel="modulepreload" href="staff5/bulk.js">
+<link rel="modulepreload" href="staff5/conversation.js">
+<link rel="modulepreload" href="pub/kernel.js">
+<link rel="modulepreload" href="staff5/firstvisit.js">
+<link rel="modulepreload" href="staff5/issuestand.js">
+<link rel="modulepreload" href="share-icon.js">
+<link rel="modulepreload" href="pub/i18n.js">
+<link rel="modulepreload" href="staff5/qr.js">
+<link rel="modulepreload" href="pub/words/live.js">
 <link rel="stylesheet" href="pub/base.css">
 <link rel="stylesheet" href="staff5/staff.css">
 <link rel="stylesheet" href="staff5/css/today.css">

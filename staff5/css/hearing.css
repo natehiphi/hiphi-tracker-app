@@ -127,3 +127,6 @@
   .hr-link:hover .hr-lt { text-decoration: underline; }
   .hr-link .hr-ext { width: 16px; height: 16px; color: var(--n500); flex: none; }
 }
+
+/* R-277 fix 12: "Undo filed" right under a row whose testimony is marked filed */
+.hr-unf { display: flex; align-items: center; justify-content: flex-end; gap: var(--s8); padding: 0 var(--s8) var(--s4); }

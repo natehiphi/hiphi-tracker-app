@@ -476,3 +476,10 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
 /* Spare width on a big monitor is margin, not a wider table (A-24; fresh-eyes review: at 1920 the titles ended halfway
    across and "Where it stands" sat 700px away). With a bill docked, the dock takes the width instead. */
 @media (min-width: 1600px) { .bl-page:not(:has(.bl-split)) { max-width: 1320px; } }
+
+/* R-277 fix 11: "Show all N bills" under a group folded at 25 rows, and the quiet "Sort new bills (N)" link */
+.bl-more { padding: var(--s4) var(--s8); }
+.bl-table tr.bl-morer td { padding: var(--s4) var(--s8); border-bottom: 0; }
+.bl-sortlink { margin: var(--s4) 0 var(--s8); font-size: var(--t14); line-height: 20px; }
+.bl-sortlink a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--p700); }
+.bl-sortlink a .ic { width: 16px; height: 16px; }

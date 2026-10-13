@@ -62,7 +62,7 @@ import { openLook } from './look.js';
 import { todayPrepNotice } from './prep.js';
 import { sessionGates, lastSlotBefore, noticeByFor, billByNum } from './model.js';
 import { dailyWord } from './composer.js';   // which 4:30 pm email a Send joins
-import { testimonyOf, agendaOf } from './hearing.js';   // where a hearing's testimony stands, in the coalition page's words (v4, R-269)
+import { testimonyOf, agendaOf, unfile } from './hearing.js';   // where a hearing's testimony stands, in the coalition page's words (v4, R-269)
 
 const HR = 36e5, DAY = 864e5;
 import { billRoute, whenAt, spanOf, dueLine, roomName, hearingWhen } from './model.js';   // R-277 fix 3: one way to say time
@@ -852,7 +852,7 @@ function rowWords(p, x) {
 // Which row is open: the one you chose, else the one now in its place; until you choose, the first (the list can
 // still be filling in as the page loads, and the most urgent item is the one to open on arrival).
 function pickSel() {
-  if (!ROWS.length) return null;
+  if (!ROWS.length || S.tdSel?.closed) return null;   // R-277 fix 5: closed with its X or with Back, the list has the width
   if (!S.tdSel?.picked) return ROWS[0];
   const k = S.tdSel.key; if (k && ROWS.includes(k)) return k;
   return ROWS[S.tdSel ? Math.min(Math.max(0, S.tdSel.i || 0), ROWS.length - 1) : 0];
@@ -915,7 +915,14 @@ function paneNew(c) {
     <h2 class="td-pname" id="td-pane-h">${esc(plural(c.newh.length, 'new hearing'))}, no testimony draft yet</h2>
     <div class="td-psec"><h3 class="td-ph3">Soonest testimony first</h3>${newhList(c)}</div>`;
 }
+// R-277 fix 5 (U-1, U-2): the open item has the same close X as the bill docked beside Bills' table, at the end of its
+// top line. Closed, the list takes the whole width until a row is chosen again; Back closes it too (app.js panelOpened).
+const PCLOSE = () => iconBtn('x', 'Close', { 'data-pclose': '1' }, 'td-pclose');
 function paneHTML(k) {
+  const html = paneInner(k);
+  return html.replace(/(<div class="td-ptop">[\s\S]*?)<\/div>/, (m, a) => `${a}${PCLOSE()}</div>`);
+}
+function paneInner(k) {
   const c = CARDS.get(k); if (!c) return '';
   if (c.cluster) return paneCluster(c);
   if (c.newh) return paneNew(c);
@@ -938,14 +945,28 @@ function paneHTML(k) {
 // item is open on the way back.
 function select(k, { focus = false } = {}) {
   if (!CARDS.has(k)) return;
+  const was = S.tdSel?.closed;
   S.tdSel = { key: k, i: ROWS.indexOf(k), picked: true };
-  const root = document.querySelector('.td-root'), pane = root?.querySelector('#td-pane'); if (!pane) return;
+  // A row's own button can leave Today in the same click (Review): the choice is still kept, but only Today's entry opens a panel.
+  if (S.route?.name !== 'today' || !document.querySelector('.td-root .td-rows')) return;
+  S.panelOpened?.(closePane);   // R-277 fix 5: Back now closes the item, not Today
+  const root = document.querySelector('.td-root'), pane = root?.querySelector('#td-pane');
+  // Closed before: the page is drawn again with the item beside the list, where it was on the page.
+  if (!pane) { if (was) { const y = window.scrollY; S.tdInList = true; hooks.render(); window.scrollTo(0, y); const r = document.querySelector(`.td-root .td-row[data-k="${CSS.escape(k)}"] .td-rsel`); if (focus || r) r?.focus({ preventScroll: true }); } return; }
   let el = null;
   root.querySelectorAll('.td-row').forEach(r => { const on = r.dataset.k === k; r.classList.toggle('on', on); r.querySelector('.td-rsel')?.setAttribute('aria-current', String(on)); if (on) el = r; });
   pane.innerHTML = paneHTML(k); pane.scrollTop = 0; wireControls(pane); quietOpen(root); paneFit(pane);
   if (el) { if (focus) el.querySelector('.td-rsel')?.focus({ preventScroll: true }); el.scrollIntoView({ block: 'nearest' }); }
 }
 
+// Close the open item (its X, Esc, or Back): the list stays where it was, scroll and all, and the focus goes back to the
+// row it came from, so j and k carry on from there (R-277 fix 5).
+function closePane() {
+  const k = S.tdSel?.key, y = window.scrollY;
+  S.tdSel = { closed: true, key: null, i: S.tdSel?.i || 0 };
+  hooks.render(); window.scrollTo(0, y);
+  if (k) document.querySelector(`.td-root .td-row[data-k="${CSS.escape(k)}"] .td-rsel`)?.focus({ preventScroll: true });
+}
 // "Hearings today: HHS 1:10 PM, Rm 225 · nobody going yet" (R-264; one phrase for it everywhere since v4): the day's sittings still to come on the
 // bills in view, one line above the list, each opening the hearing's own page. It replaced a panel with a box per bill.
 // `skip`: the sittings "Your hearing today" already shows (v4): each is said once.
@@ -966,6 +987,16 @@ function hearingsLine(scope, who, skip = new Set()) {
 // it (Kris's was 0.96 screens down her phone, Lauren's half of a three-line sentence with no testimony state). That
 // sitting leaves the "Hearings today" line and the coalition's rows (said once, A-14). Returns the slot keys it drew.
 const roomLong = r => String(r || '').replace(/\s*(&|and|via)\s*videoconference/i, '').replace(/^Conference Room\s+/i, 'Room ').trim();
+// R-277 fix 16: a hearing day for this person: they are going to a sitting today, or something late or due today on
+// their list (or their coalitions') is testimony for a hearing today.
+function isHearingDay(groups, cd, mineH) {
+  if (mineH.length) return true;
+  const today = hst(Date.now()), cs = [...groups.filter(g => NOW_GROUPS.has(g.id)).flatMap(g => g.cards), ...(cd.cards || [])];
+  return cs.some(c => (c.cluster || c.tasks || []).some(t => t.h && t.h.status !== 'cancelled' && hst(t.h.scheduled_at) === today));
+}
+// Time left on an item, for that one list: to the hearing's start for late testimony the Capitol still takes, else to
+// its deadline (negative once overdue, so overdue leads); a review cluster by its most pressing draft.
+const leftOf = (c, now) => Math.min(...(c.cluster || [c.p]).map(t => t.due == null ? Infinity : lateNow(t) ? new Date(untilOf(t)).getTime() - now : t.due - now));
 function mineToday() {
   const now = Date.now(), today = hst(now), sit = new Map();
   for (const h of S.hearings || []) {
@@ -1935,8 +1966,25 @@ function render(route) {
     // again without it, so a bill with another step keeps that one, under that step's own heading (said once).
     const rg = took.size ? todayItems(scope, who, took) : r;
     const groups = rg.groups.map(g => { const cs = g.cards.filter(c => !c.wait); return { ...g, cards: cs, n: cs.reduce((s, c) => s + (c.cluster ? (g.id === 'overdue' || g.id === 'lateopen' ? c.cluster.filter(t => t.due != null && t.due <= Date.now()).length || 1 : c.cluster.length) : 1), 0) }; }).filter(g => g.cards.length);
-    const clear = !groups.some(g => NOW_GROUPS.has(g.id));
+    let clear = !groups.some(g => NOW_GROUPS.has(g.id));
+    // R-277 fix 16: a phone on a hearing day. What is late and what is due today were two or three headed lists (late
+    // testimony still open, overdue, needs you today, and the coalition's due today below them), so the item with 40
+    // minutes left could sit under one with six hours. They become one list, the least time left first: late testimony
+    // counts to the hearing's start (when the Capitol stops taking it), the rest to its deadline; overdue leads.
+    const mergedNow = !rows && !off && scope === 'mine' && !who && isHearingDay(groups, cd, mineH);
+    if (mergedNow) {
+      const now = Date.now(), parts = groups.filter(g => NOW_GROUPS.has(g.id)), mineCs = parts.flatMap(g => g.cards);
+      const all = [...mineCs.map(c => ({ c, gk: '' })), ...cd.cards.map(c => ({ c, gk: 'cd' }))].sort((x, y) => leftOf(x.c, now) - leftOf(y.c, now));
+      const at = groups.findIndex(g => NOW_GROUPS.has(g.id));
+      const one = { id: 'now', title: 'Late or due today, by time left', merged: all, n: parts.reduce((t, g) => t + g.n, 0) + cd.cards.length };
+      const rest = groups.filter(g => !NOW_GROUPS.has(g.id));
+      groups.length = 0; groups.push(...rest); if (all.length) groups.splice(at < 0 ? 0 : Math.min(at, rest.length), 0, one);
+      if (all.length) clear = false;
+      cd.cards = [];   // said once, in the one list
+    }
     const groupHtml = (g, gi) => {
+      if (g.merged) return `<section class="td-group td-nowl" aria-labelledby="td-g-now"><h2 class="td-h"${gi === 0 ? ' data-top tabindex="-1"' : ''}>${groupHead(`${icon('clock', { cls: 'td-soon' })}${esc(g.title)}`, g.n, { id: 'td-g-now' })}</h2>
+        <div class="td-list">${g.merged.map(({ c, gk }) => gk ? card(c, 500 + i++, false, { filled: false, gk }) : card(c, i++, false, { filled: true })).join('')}</div></section>`;
       const fold = g.id === 'later', isOpen = !fold || open.later, filled = NOW_GROUPS.has(g.id);
       const title = g.id === 'overdue' ? `${icon('circle-alert', { cls: 'td-late' })}Overdue` : g.id === 'lateopen' ? `<span class="td-lateopen">${icon('clock', { cls: 'td-soon' })}${esc(g.title)}</span>` : esc(g.title);
       // Numbers only where they ask for action (R-264): Overdue and Today say how many; a fold says what it holds.
@@ -1998,7 +2046,7 @@ export function fileSheet(b, d, after = redraw) {
       go.onclick = () => busy(go, async () => {
         await DB.transition(b.id, d.id, 'file', null, inp.value.trim());
         closeSheet({ silent: true }); markNotices(b);
-        toast(`Filed. ${billSay(b)} is done for ${d.committee}.`, { ok: true, undo: async () => { await DB.transition(b.id, d.id, 'unfile'); toast('Unfiled. It is back to approved.'); after(); } });
+        toast(`Filed. ${billSay(b)} is done for ${d.committee}.`, { ok: true, undo: async () => { await DB.transition(b.id, d.id, 'unfile'); toast('Filing undone. It is approved and ready to file again.'); after(); } });
         after();
       });
     } });
@@ -2070,7 +2118,11 @@ function moreMenu(c, { pane = false } = {}) {
   // Mark done clears what only needed reading: a notice, or a message that needs no reply. A message that was opened
   // and not answered stays on Today marked "Seen"; Mark unread makes it loud again.
   const notes = c.tasks.filter(t => t.kind === 'notice' || t.kind === 'reply'), reply = c.tasks.find(t => t.kind === 'reply');
+  // R-277 fix 12: "Undo filed" for testimony on this bill marked filed for a hearing still ahead. It was only under the
+  // bill page's "More for this hearing"; someone who pressed Mark filed by mistake looks for it where they pressed it.
+  const filed = (S.drafts?.[b.id] || []).filter(d => d.status === 'filed' && (S.hearings || []).some(x => x.bill_id === b.id && x.committee === d.committee && x.status !== 'cancelled' && new Date(x.scheduled_at) > Date.now() - 4 * HR));
   menuSheet({ title: esc(num), items: [
+    ...filed.map(d => ({ label: filed.length > 1 ? `Undo filed: ${d.committee}` : 'Undo filed', icon: 'undo-2', sub: `If the ${d.committee} testimony was marked filed by mistake`, run: () => unfile(b, d, redraw) })),
     pane ? null : { label: 'Open bill', icon: 'scroll-text', run: later(() => S.go(`${billRoute(b)}`)) },
     { label: 'Reply in chat', icon: 'message-square', run: later(() => { if (reply) markSeen(reply.keys); S.go(`${billRoute(b, 'activity')}?reply=1`); }) },
     h && !pane ? { label: going ? 'I’m not going after all' : 'I’m going to the hearing', icon: going ? 'user-round' : 'user-check', sub: `${h.committee} ${whenLine(h.scheduled_at)}${others.length ? ' · ' + others.join(', ') + (others.length === 1 ? ' is' : ' are') + ' going' : ''}`,
@@ -2158,6 +2210,7 @@ function wireControls(el) {
   el.querySelectorAll('[data-look]').forEach(x => x.onclick = () => quickLook(x.closest('[data-bill]')));
   el.querySelectorAll('[data-more]').forEach(x => x.onclick = () => { const c = cardOf(x.dataset.more); if (c) moreMenu(c, { pane: !!x.dataset.pane }); });
   el.querySelectorAll('[data-going]').forEach(x => x.onclick = () => { const h = (S.hearings || []).find(y => String(y.id) === x.dataset.going); if (h) { S.tdRefocus = '#td-pane [data-going]'; toggleGoing(h); } });
+  el.querySelectorAll('[data-pclose]').forEach(x => x.onclick = () => { closePane(); S.panelClosed?.(); });
 }
 // v4 (R-269 follow-up): a bill's name squeezed to a stub ("D", "You…", half a letter beside P1) read as a bug (fresh-eyes,
 // third pass, A-24): with room for fewer than about sixteen letters ("Disposable e…" was barely better) the name goes, the
@@ -2190,6 +2243,8 @@ function wire(route, root) {
     S.tdRefocus = el.closest('.td-wnav') ? '.td-wnav [data-mon]' : '[data-mon]'; hooks.render();
   });
   wireControls(main); quietOpen(main); paneFit(main.querySelector('#td-pane'));
+  // Back from a bill onto the entry where an item was open: Back from here still closes it first (R-277 fix 5).
+  if (main.querySelector('#td-pane') && history.state?.panel) S.panelOpened?.(closePane);
   // The open item's links are wired by the frame when the page is drawn, but not after select() redraws it: route
   // those the same way (a link the frame already handled is marked defaultPrevented and left alone).
   main.querySelector('#td-pane')?.addEventListener('click', e => { const a = e.target.closest('a[href^="#/"]'); if (!a || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); S.go(a.getAttribute('href')); });
@@ -2260,6 +2315,7 @@ document.addEventListener('keydown', e => {
       const b = cur.querySelector('.td-ract [data-primary]'), bill = cur.dataset.bill && billById(cur.dataset.bill);
       if (b) b.click(); else if (bill) S.go(billRoute(bill));
     } else if (e.key === 'o' && cur?.dataset.bill) { e.preventDefault(); quickLook(cur); }
+    else if (e.key === 'Escape' && document.querySelector('#td-pane')) { e.preventDefault(); closePane(); S.panelClosed?.(); }   // as Bills' docked bill closes (R-277 fix 5)
     return;
   }
   const cards = [...document.querySelectorAll('.td-root .td-card')]; if (!cards.length) return;

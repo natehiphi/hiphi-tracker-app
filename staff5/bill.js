@@ -428,7 +428,8 @@ function testimonyBlock(b, d, { primary = true, title = '' } = {}) {
   else if (acts.includes('approve')) { main = btn('Approve', { kind, icon: 'check', attrs: { 'data-dact': 'approve', 'data-draft': d.id } }); alt = btn('Send back', { kind: 'secondary', attrs: { 'data-dact': 'changes', 'data-draft': d.id } }); }
   else if (d.status === 'approved') { main = btn('File at the Capitol', { kind, icon: 'external-link', href: capitolUrl(b), target: '_blank' });
     alt = filedBtn({ 'data-dact': 'file', 'data-draft': d.id }); }
-  else if (d.status === 'filed') main = chip('Filed', 'ok', 'check');
+  // R-277 fix 12: "Undo filed" beside it, for a Mark filed pressed by mistake (it was only in "More for this hearing").
+  else if (d.status === 'filed') { main = chip('Filed', 'ok', 'check'); if (acts.includes('unfile')) alt = btn('Undo filed', { kind: 'text', sm: true, icon: 'undo-2', cls: 'bw-unfile', attrs: { 'data-dact': 'unfile', 'data-draft': d.id } }); }
   else if (d.status === 'cancelled') main = chip('Hearing cancelled', '', 'circle-x');
   const stale = b.current_version && (d.version || null) !== b.current_version && !['filed', 'cancelled'].includes(d.status);
   // R-027: earlier testimony on this bill, its companion and its issue, one tap away while this one is being written (only
@@ -580,7 +581,8 @@ async function runDraft(b, d, act, el) {
     } else if (act === 'withdraw') {
       await transition(b, d, 'withdraw'); rerender(); toast('Withdrawn. It is a draft again.');
     } else if (act === 'unfile') {
-      await transition(b, d, 'unfile'); rerender(); toast('Unmarked. It is approved and ready to file again.');
+      const url = d.filed_url || null;   // R-277 fix 12: Undo filed has an Undo of its own
+      await transition(b, d, 'unfile'); rerender(); toast('Filing undone. It is approved and ready to file again.', { undo: async () => { await transition(b, d, 'file', null, url); rerender(); } });
     }
   } catch (e) { if (el?.isConnected) el.removeAttribute('aria-busy'); toast(e, { err: true }); }
 }
@@ -626,7 +628,7 @@ function markFiled(b, d) {
         const go = e.currentTarget; go.setAttribute('aria-busy', 'true');
         try {
           await transition(b, d, 'file', null, url); HELD.delete('fu:' + d.id); closeSheet({ silent: true }); rerender();
-          toast(`Filed. ${billSay(b)} is done for ${d.committee}.`, { ok: true, undo: async () => { await transition(b, d, 'unfile'); rerender(); toast('Unmarked. It is approved and ready to file again.'); } });
+          toast(`Filed. ${billSay(b)} is done for ${d.committee}.`, { ok: true, undo: async () => { await transition(b, d, 'unfile'); rerender(); toast('Filing undone. It is approved and ready to file again.'); } });
         } catch (x) { go.removeAttribute('aria-busy'); toast(x, { err: true }); }
       };
     } });
@@ -639,14 +641,14 @@ function hearingMenu(b, h) {
     S.me?.is_admin ? { label: 'Send a teammate…', icon: 'user-round-plus', sub: 'They get a Slack message', run: () => afterBack(() => putDown(b, h)) } : null,
     { label: 'Fix the video link', icon: 'video', sub: h.stream_url ? 'A link is set by staff' : 'Paste the YouTube address for this hearing', run: () => afterBack(() => fixVideo(b, h)) },
     acts.includes('withdraw') ? { label: 'Withdraw from review', icon: 'undo-2', sub: 'It goes back to a draft', run: () => runDraft(b, d, 'withdraw') } : null,
-    acts.includes('unfile') ? { label: 'Unmark filed', icon: 'undo-2', sub: 'If it was marked filed by mistake', run: () => runDraft(b, d, 'unfile') } : null,
+    acts.includes('unfile') ? { label: 'Undo filed', icon: 'undo-2', sub: 'If it was marked filed by mistake', run: () => runDraft(b, d, 'unfile') } : null,   // R-277 fix 12: one name, as beside Filed
     h.notice_url ? { label: 'Hearing notice', icon: 'file-text', sub: 'The Capitol’s PDF', run: () => { window.open(h.notice_url, '_blank', 'noopener'); } } : null,
   ] });
 }
 function testimonyMenu(b, d) {
   const list = (S.drafts[b.id] || []).filter(x => draftActions(x).some(a => ['withdraw', 'unfile'].includes(a[0])));
   menuSheet({ title: 'Testimony', items: list.map(x => { const a = draftActions(x).find(y => ['withdraw', 'unfile'].includes(y[0]))[0];
-    return { label: `${a === 'withdraw' ? 'Withdraw from review' : 'Unmark filed'}: ${x.committee}`, icon: 'undo-2', run: () => runDraft(b, x, a) }; }) });
+    return { label: `${a === 'withdraw' ? 'Withdraw from review' : 'Undo filed'}: ${x.committee}`, icon: 'undo-2', run: () => runDraft(b, x, a) }; }) });
 }
 function fixVideo(b, h) {
   openSheet({ title: 'Fix the video link', size: 'auto',

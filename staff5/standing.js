@@ -26,8 +26,10 @@ export function waitingOfBills(bills) {
   return { risk, next, race: later.filter(x => x.st.deadline.date === next).sort((x, y) => byPri(x.b, y.b)) };
 }
 
-// ---- the stage groups, in stage order (the Bills page's groups; Bills and an issue's count use these) ----
-export const GROUPS = [['hear', 'Hearing scheduled'], ['risk', 'At risk: no hearing yet'], ['wait', 'Waiting for a hearing'], ['thru', 'Through its committees'],
+// ---- the stage groups (the Bills page's groups; Bills and an issue's count use these) ----
+// R-277 fix 11 (V-2): At risk comes first. In stage order it sat under "Hearing scheduled", which at session volume ran
+// to 40 rows and more, so the bills that need someone to act today were a long scroll down. Stage order after it.
+export const GROUPS = [['risk', 'At risk: no hearing yet'], ['hear', 'Hearing scheduled'], ['wait', 'Waiting for a hearing'], ['thru', 'Through its committees'],
   ['done', 'At the governor or law'], ['mon', 'Monitoring'], ['dead', 'Did not advance']];
 // The stand comes from factsOf, the same fact the filter counts use, so a group and its filter always agree.
 export const groupKey = b => { const f = factsOf(b);
