@@ -288,7 +288,8 @@ const followFlag = b => isMuted(b) ? chip('Muted', '', 'bell-off') : '';
 // R-277 fix 13: an issue named like its one bill ("Issue: Youth mental health app pilot" under the heading "Youth mental
 // health app pilot") said the name twice; that chip is the short "Its issue", still the way to the issue's page.
 const sameName = (i, b) => (i.name || '').trim().toLowerCase() === (b.nickname || '').trim().toLowerCase();
-const issueChips = b => issuesOfBill(b.id).map(i => `<a class="chip sv-chip bw-ichip" href="${esc(issueLinkHref(i, b))}" aria-label="Issue: ${esc(i.name)}. Open it">${icon('tag')}<span>${sameName(i, b) ? 'Its issue' : `Issue: ${esc(i.name)}`}</span>${icon('chevron-right', { cls: 'chev' })}</a>`).join('');
+// R-277 fix 20 (U-8): the bill's issue is a link and looks like one (a chip is a status, never a button or a link).
+const issueChips = b => issuesOfBill(b.id).map(i => `<a class="bw-ichip" href="${esc(issueLinkHref(i, b))}" aria-label="Issue: ${esc(i.name)}. Open it">${icon('tag')}<span>${sameName(i, b) ? 'Its issue' : `Issue: ${esc(i.name)}`}</span>${icon('chevron-right', { cls: 'chev' })}</a>`).join('');
 // Phones: a row of chips under the status sentence, the pickers first and then the issues.
 const teamChips = b => `<div class="bw-chips">${teamPicks(b).map(([, p]) => p).join('')}${followFlag(b)}${issueChips(b)}</div>`;
 // Desktop: the same three pickers as labelled lines in the side panel (they open as popovers beside the chip), and who

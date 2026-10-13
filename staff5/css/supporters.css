@@ -14,10 +14,7 @@
 .sp-page .sp-search input:focus { outline: none; border-color: var(--p700); box-shadow: 0 0 0 2px var(--p700); }
 .sp-page .sp-search .iconbtn { position: absolute; right: 0; top: 0; }
 .sp-page .sp-search .iconbtn .ic { width: 20px; height: 20px; }
-.sp-page .sp-filterbtn { flex: none; padding: 0 14px; box-shadow: inset 0 0 0 1px var(--n400); color: var(--n900); }
-.sp-page .sp-filterbtn:hover { box-shadow: inset 0 0 0 1px var(--p700); }
-.sp-page .sp-filterbtn .ic { width: 18px; height: 18px; color: var(--p700); }
-.sp-page .sp-n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--p700); color: var(--n0); font-size: var(--t13); line-height: 22px; text-align: center; }
+/* The Filter button is ui.js filterBtn, staff.css .sv-filter, the same as Bills' (R-277 fix 20). */
 .sp-page .sp-tools > .iconbtn, .sp-page .sp-tools .sv-phr > .iconbtn { border: 1px solid var(--n300); background: var(--n0); }
 /* Segments scroll sideways inside their own strip; the page itself never scrolls sideways. */
 .sp-page .sp-segs { position: relative; display: flex; gap: var(--s8); overflow-x: auto; margin: var(--s8) calc(-1 * var(--gutter)) 0; padding: 0 var(--gutter); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
@@ -244,7 +241,6 @@
 .sp-sheet .sp-mrow b { font-size: var(--t16); }
 
 @media (max-width: 360px) {
-  .sp-page .sp-filterbtn { padding: 0 10px; }
   .sp-sheet .sp-two { grid-template-columns: 1fr; }
   .sp-person .sp-kv { grid-template-columns: 1fr; gap: 2px; }
   .sp-bar .btn { padding: 0 12px; }
@@ -262,8 +258,6 @@
   .sp-page .sp-tools { gap: var(--s12); margin-top: 0; }
   .sp-page .sp-search { flex: 0 1 360px; min-width: 180px; }
   .sp-page .sp-sp { flex: 1 1 auto; }
-  .sp-page .sp-filterbtn { box-shadow: inset 0 0 0 2px var(--p700); color: var(--p700); padding: 0 16px; }
-  .sp-page .sp-filterbtn:hover { box-shadow: inset 0 0 0 2px var(--p700); background: var(--p50); }
   .sp-page .sp-tools > .iconbtn, .sp-page .sp-tools .sv-phr > .iconbtn { border: 0; background: none; }
   .sp-page .sp-tools > .iconbtn:hover, .sp-page .sp-tools .sv-phr > .iconbtn:hover { background: var(--n100); }
   .sp-page .sp-segs { flex-wrap: wrap; overflow: visible; margin: var(--s12) 0 0; padding: 0; }

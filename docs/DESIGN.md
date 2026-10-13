@@ -838,6 +838,10 @@ retired words in the code's quoted text on every push, so the list does not drif
 | **Open Doc** (R-277) | Open the Google Doc, Open (for the Doc) | the one Doc button, with the document and new-tab icons, on every screen (ui.js `docBtn`). Likewise **Mark filed** (`filedBtn`) and **Show all 12** / **Show fewer** (`showAllBtn`). |
 | **Undo filed** (R-277) | Unmark filed, Unfiled, Unmarked | taking back a Mark filed pressed by mistake: beside **Filed** on the bill page, under the row on the hearing page, and in Today's row "…" (fix 12). Its message is "Filing undone. It is approved and ready to file again." |
 | **You're offline** (R-277) | No connection, Network error | the line at the foot of the page while the browser has no connection (fix 8); an error message stays until its X is pressed. |
+| **Filter** (R-277) | Filter or sort, a row of filter chips beside the list | the one button that narrows a list, at the end of its heading row before the "…", with how many filters are on (ui.js `filterBtn`): Bills, Legislators, Supporters, the Inbox, the prep board. A pill switch (Today · This week, Mine · Team) only shows the same list another way; a section's own pages are tabs. |
+| **Places** (R-277) | (nothing: search found no pages) | the first group in the top search box and on the search page: the app's own places and Help's guides, at most 3. |
+| **+4 more** / **Show all 18** (R-277) | (lists with no end) | a day of This week shows 6 rows then "+4 more"; Today's groups, This week's asks and long lists show their first 8 to 25 then "Show all N". |
+| **About this bill** (R-277) | Details (in the open bill) | the facts under an open bill's step (stage, committee, chair, deadline, sponsors), folded on Today and open beside Bills. A bill with no hearing yet says **Hearing needed by Mon 3/30 · in 14 days**. |
 
 **Hawaiian:** ʻokina is the character ʻ (U+02BB) in Hawaiʻi and in place names (Oʻahu, Kauaʻi, Molokaʻi, Hawaiʻi Island); kahakō where
 the name has one. **kūpuna** is the plural (elders) and **kupuna** one elder (the "I'm a…" title). The Legislature's own titles and

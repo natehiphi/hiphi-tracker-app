@@ -9,7 +9,8 @@
 // address lookup (geoSuggest -> geoDistricts) and the text match over name, towns and district.
 import { S, DB, esc, DEMO, hooks, advocate, fmtDate, fmtDT, islandOf } from './data.js';
 import { plain, codesOf, geoSuggest, geoDistricts, ISLANDS, cmteName, blurb, whenAt } from './model.js';
-import { icon, btn, iconBtn, empty, toast, segmented, pickerChip, pickerSheet, keysOn } from './ui.js';
+import { icon, btn, iconBtn, empty, toast, segmented, pickerSheet, menuSheet, keysOn, filterBtn } from './ui.js';
+import { afterBack } from './today.js';   // a sheet opened from a menu waits for the menu to close
 import { photo, partyDist, legName, legHref, seatsOf, seatsText, roleWord, RANK, wireLinks, surname } from './pathway.js';
 
 const WEEK = 7 * 864e5;
@@ -306,15 +307,15 @@ function deskBody(v) {
   }
   return addr + cap + tableHTML(v, ls, week, mode);
 }
-// The filter chips. A chosen filter reads as pressed (the same blue ring as a pressed chip), and says what it holds.
+// This week | Everyone shows the list another way (a pill switch). R-277 fix 20 (U-3): the chamber, island and committee
+// were three picker chips beside it; they are one Filter button at the end of the heading row, as on Bills, whose sheet
+// names each with what it holds. The line over the table says which are on, with Clear filters.
 function filtersHTML(v) {
   const off = !!(v.q.trim() || v.pick);   // a search looks at everyone, so the filters wait
-  const pc = (key, label, on) => pickerChip(label, { 'data-lgf': key, 'aria-haspopup': 'dialog', 'data-on': on && !off ? '1' : null });
-  return `${segmented('lgscope', [['week', 'This week'], ['all', 'Everyone']], off ? '' : v.scope, 'Who to list')}
-    ${pc('chamber', v.chamber === 'H' ? 'House' : v.chamber === 'S' ? 'Senate' : 'Both chambers', !!v.chamber)}
-    ${pc('island', v.island || 'Any island', !!v.island)}
-    ${pc('cmte', v.cmte ? v.cmte : 'Any committee', !!v.cmte)}`;
+  return segmented('lgscope', [['week', 'This week'], ['all', 'Everyone']], off ? '' : v.scope, 'Who to list');
 }
+const filterN = v => v.q.trim() || v.pick ? 0 : [v.chamber, v.island, v.cmte].filter(Boolean).length;
+const FWORD = { chamber: v => v.chamber === 'H' ? 'House' : v.chamber === 'S' ? 'Senate' : 'Both chambers', island: v => v.island || 'Any island', cmte: v => v.cmte || 'Any committee' };
 
 export default {
   tab: 'legislators', title: () => 'Legislators', wide: () => true,
@@ -329,7 +330,7 @@ export default {
           ${iconBtn('x', 'Clear the search', { 'data-lgclear': '1', hidden: !v.q }, 'clear')}
         </form>`;
     return `<div class="lg-dir${desk ? ' lg-desk' : ''}">
-      <div class="sv-phead lg-dhead"><h1 class="lg-dtitle">Legislators</h1></div>
+      <div class="sv-phead lg-dhead"><h1 class="lg-dtitle">Legislators</h1>${desk ? `<span class="sv-phr" id="lg-fbox">${filterBtn(filterN(v), { 'data-lgfilter': '1' })}</span>` : ''}</div>
       ${desk ? `<div class="lg-bar">${box}<div class="lg-filters" id="lg-filters" role="group" aria-label="Filters">${filtersHTML(v)}</div></div>`
         : `<div class="lg-tools">${box}<div class="chips lg-chips" role="group" aria-label="Who to list" id="lg-chips">${chipsHTML(v)}</div></div>`}
       <p class="sr" role="status" id="lg-status"></p>
@@ -346,6 +347,7 @@ export default {
       if (desk) {
         const keep = document.activeElement?.closest?.('#lg-filters') ? document.activeElement.dataset.lgf || document.activeElement.dataset.val : null;
         root.querySelector('#lg-filters').innerHTML = filtersHTML(v);
+        const fb = root.querySelector('#lg-fbox'); if (fb) { const had = document.activeElement?.closest?.('#lg-fbox'); fb.innerHTML = filterBtn(filterN(v), { 'data-lgfilter': '1' }); if (had) fb.firstElementChild?.focus(); }
         if (keep) root.querySelector(`#lg-filters [data-lgf="${keep}"], #lg-filters [data-val="${keep}"]`)?.focus();
         body.innerHTML = deskBody(v); x.hidden = !inp.value;
         const r = body.querySelectorAll('[data-lgrow]').length;
@@ -421,13 +423,15 @@ export default {
         const seg = e.target.closest('[data-seg="lgscope"]');
         if (seg) { v.scope = seg.dataset.val; v.sort = null; v.q = ''; v.pick = null; inp.value = ''; paint(); root.querySelector(`[data-seg="lgscope"][data-val="${v.scope}"]`)?.focus(); return; }
         if (e.target.closest('[data-lgscope]')) { v.scope = 'all'; v.sort = null; paint(); return; }
+        if (e.target.closest('[data-lgfilter]')) { menuSheet({ title: 'Filter', items: ['chamber', 'island', 'cmte'].map(k => ({ label: { chamber: 'Chamber', island: 'Island', cmte: 'Committee' }[k], sub: FWORD[k](v), icon: { chamber: 'landmark', island: 'map-pin', cmte: 'users' }[k], run: async () => { await afterBack(); pick(k); } })) }); return; }
         const f = e.target.closest('[data-lgf]');
-        if (f) { const key = f.dataset.lgf;
+        if (f) { pick(f.dataset.lgf); return; }
+        function pick(key) {
           const count = ch => (S.legislators || []).filter(l => l.chamber === ch).length;
           const options = key === 'chamber' ? [['', 'Both chambers'], ['H', 'House', null, `${count('H')} representatives`], ['S', 'Senate', null, `${count('S')} senators`]] : key === 'island' ? [['', 'Any island'], ...ISLANDS.map(i => [i, i])] : committeeOptions();
           pickerSheet({ title: key === 'chamber' ? 'Chamber' : key === 'island' ? 'Island' : v.scope === 'week' ? 'Committees hearing our bills this week' : 'Committee', value: v[key], options,
-            onPick: val => { v[key] = val; if (key === 'chamber' && v.cmte && val && S.committees?.[v.cmte]?.chamber !== val) v.cmte = ''; v.q = ''; v.pick = null; inp.value = ''; paint(); root.querySelector(`[data-lgf="${key}"]`)?.focus(); } });
-          return; }
+            onPick: val => { v[key] = val; if (key === 'chamber' && v.cmte && val && S.committees?.[v.cmte]?.chamber !== val) v.cmte = ''; v.q = ''; v.pick = null; inp.value = ''; paint(); root.querySelector('[data-lgfilter]')?.focus(); } });
+        }
         const so = e.target.closest('[data-lgsort]');
         if (so) { const key = so.dataset.lgsort, week = weekIndex(), cur = effSort(v, deskList(v, week).mode) || [];
           v.sort = [key, cur[0] === key ? -cur[1] : SORT_DIR[key]]; paint(); body.querySelector(`[data-lgsort="${key}"]`)?.focus(); return; }

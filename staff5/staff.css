@@ -638,13 +638,25 @@ body.sidenarrow .sv-sync span { display: none; }
 
 /* ---- Staff v3 (R-264): a section's one row of tabs (ui.js sectionNav), the same at every width, above the page's own
    heading. Looks like the Outreach switcher it replaces (lists.css .le-seg). ---- */
-.sv-secnav { display: flex; width: 100%; max-width: 440px; margin: 0 0 var(--s16); }
-.sv-secnav a { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 var(--s12); border-radius: var(--pill);
-  font-weight: 700; font-size: var(--t14); color: var(--n700); text-decoration: none; white-space: nowrap; }
-.sv-secnav a:hover { color: var(--n900); background: var(--n50); }
-.sv-secnav a[aria-current="page"] { background: var(--n0); color: var(--p800); box-shadow: var(--sh1); }
-.sv-secnav a:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
-@media (min-width: 900px) { .sv-secnav { width: fit-content; max-width: none; } .sv-secnav a { flex: none; padding: 0 var(--s16); } }
+/* R-277 fix 20 (U-3): a section's own pages are tabs and look like tabs: words on a line, the open one in blue with a bar
+   under it, as the bill page's Overview | Activity | Public. A pill switch (.sv-seg) is only for showing the same list
+   another way, so the two never look alike. The Inbox's To answer | Updates | Everything are its tabs too. */
+.sv-tabrow { display: flex; gap: var(--s4); width: 100%; margin: 0 0 var(--s16); border-bottom: 1px solid var(--n200); overflow-x: auto; scrollbar-width: none; }
+.sv-tabrow::-webkit-scrollbar { display: none; }
+.sv-tabrow > a, .sv-tabrow > button { position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 var(--s12);
+  border-radius: 0; background: none; box-shadow: none; font-weight: 700; font-size: var(--t14); color: var(--n700); text-decoration: none; white-space: nowrap; }
+.sv-tabrow > a:hover, .sv-tabrow > button:hover { color: var(--n900); }
+.sv-tabrow > [aria-current="page"], .sv-tabrow > [aria-pressed="true"] { color: var(--p800); background: none; box-shadow: none; }   /* the text colours the page already uses (A-24 budget) */
+.sv-tabrow > [aria-current="page"]::after, .sv-tabrow > [aria-pressed="true"]::after { content: ''; position: absolute; left: var(--s8); right: var(--s8); bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--p700); }
+.sv-tabrow > a:focus-visible, .sv-tabrow > button:focus-visible { outline: 3px solid var(--p700); outline-offset: -3px; }
+@media (max-width: 899px) { .sv-tabrow > a, .sv-tabrow > button { flex: 1 0 auto; padding: 0 var(--s8); } }
+/* the one Filter button (ui.js filterBtn), with how many filters are on */
+.sv-filter { position: relative; flex: none; }
+.sv-filter .ic { width: 18px; height: 18px; }
+.sv-fn { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--p700); color: #fff; font-size: var(--t13); font-weight: 700; line-height: 1; }
+/* the small status chip (ui.js chip({ sm })), for a chip inside a dense line */
+.sv-chip.sm { min-height: 20px; padding: 0 8px; font-size: var(--t13); line-height: 20px; }
+.sv-chip.sm .ic { width: 14px; height: 14px; }
 /* R-271: a bill named in a list: the nickname leads, the number follows smaller and grey (it never wraps apart) */
 .bn-nick { font-weight: 700; color: var(--n900); }
 /* R-277 fix 13 (U-6): one size for a bill's number beside its nickname, 13px wherever it is (.82em of each context gave 6
@@ -666,7 +678,7 @@ body.sidenarrow .sv-sync span { display: none; }
   body.staff2 main .sv-phead .sv-pht { flex: 0 1 auto; min-width: 0; max-width: 70ch; }
   body.staff2 main .sv-phead .sv-pht > p { margin: 0; font-size: var(--t14); line-height: 20px; color: var(--n700); }
   body.staff2 main .sv-phead .sv-phr { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--s8) var(--s12); min-height: 44px; }
-  body.staff2 main .sv-phead .sv-secnav { margin: 0; }
+  body.staff2 main .sv-phead .sv-tabrow { margin: 0; width: auto; flex: 0 1 auto; }   /* R-277 fix 20: tabs take their words' width in the heading row */
   body.staff2 main .sv-phead .sv-phr > .iconbtn:last-child { margin-right: -10px; }   /* the "…": its dots line up with the page's right edge */
 }
 @media (max-width: 899px) {
@@ -691,3 +703,87 @@ body.sidenarrow .sv-sync span { display: none; }
 .sv-offline { pointer-events: auto; max-width: 480px; width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: var(--s8); margin: 0; padding: var(--s12) var(--s16);
   background: var(--warn-wash); color: #5E3F04; border: 1px solid var(--warn-fill); border-radius: var(--r12); box-shadow: var(--sh2); font-size: var(--t14); line-height: 20px; }
 .sv-offline .ic { flex: none; width: 18px; height: 18px; color: var(--warn-text); }
+
+/* ---- R-277 fix 17 (U-1): the one open-bill panel (billpane.js), on Today (#td-pane) and beside Bills' table (.bl-dock).
+   One set of rules, so the same bill looks the same wherever it opens: the number, "…" and close X on the top line; the
+   name; the one deadline line; the one hearing line; the step and its buttons (the main one the one filled button, A-3);
+   what else is open; the facts; "Open the bill" held at the foot while the panel scrolls (B-7). ---- */
+.bp-top { display: flex; align-items: center; gap: var(--s4); min-height: 36px; }
+.bp-num { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; margin: 0; }
+.bp-num .sv-p1 { height: 18px; }
+.bp-top .iconbtn { flex: none; }
+.bp-top .bp-close { margin-right: -10px; }
+body.staff2 .bp-name { margin: 0; font: 700 var(--t18)/24px var(--font-h); letter-spacing: -.005em; color: var(--n900); overflow-wrap: anywhere; }
+.bp-sum { margin: var(--s4) 0 0; font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.bp-due { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s8); margin: var(--s12) 0 0; }
+.bp-dw { font-size: var(--t14); line-height: 20px; color: var(--n500); }
+.bp-hear { margin-top: var(--s8); }
+.bp-hl { display: flex; align-items: center; gap: var(--s8); min-height: 36px; margin: 0 calc(-1 * var(--s8)); padding: 4px var(--s8); border-radius: var(--r8); font-size: var(--t14); line-height: 20px; color: var(--n700); text-decoration: none; }
+.bp-hl:hover { background: var(--n50); }
+.bp-hl b { color: var(--n900); }
+.bp-hl > span { flex: 1 1 auto; min-width: 0; }
+.bp-hl .ic { width: 18px; height: 18px; flex: none; color: var(--n500); }
+.bp-go { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s8); margin: 0; font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.bp-go > .ic { width: 18px; height: 18px; flex: none; color: var(--n500); }
+.bp-go > span { flex: 1 1 auto; min-width: 0; }
+.bp-go .btn { min-height: 32px; padding: 0 var(--s8); font-size: var(--t14); }
+.bp-step { margin-top: var(--s12); padding-top: var(--s12); border-top: 1px solid var(--n100); }
+.bp-s { margin: 0; font-size: var(--t16); line-height: 22px; font-weight: 700; color: var(--n900); overflow-wrap: anywhere; }
+.bp-why { margin: 2px 0 0; font-size: var(--t14); line-height: 20px; color: var(--n500); }
+.bp-q { display: block; -webkit-line-clamp: unset; }   /* the note in full here: the open item is where it is read */
+.bp-acts { margin-top: var(--s12); display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); }
+.bp-acts .btn { min-height: 36px; padding: 0 var(--s16); font-size: var(--t14); }
+.bp-acts .btn.text { padding: 0 var(--s8); }
+.bp-acts .btn .ic { width: 16px; height: 16px; }
+:is(.bp-acts, .bp-ab, .bp-go) .btn.text:hover { background: var(--p50); text-decoration: none; }
+.bp-sec { margin-top: var(--s12); padding-top: var(--s12); border-top: 1px solid var(--n100); }
+body.staff2 .bp-h3 { margin: 0 0 var(--s4); font: 700 var(--t13)/18px var(--font); letter-spacing: 0; color: var(--n500); }
+.bp-also { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); }
+.bp-also > li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--s8); font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.bp-at { flex: 1 1 180px; min-width: 0; overflow-wrap: anywhere; }
+.bp-am { flex: none; }
+.bp-am .sv-count { font-size: var(--t13); }
+.bp-ab { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 0 var(--s4); margin-left: calc(-1 * var(--s8)); }
+.bp-ab .btn { min-height: 32px; padding: 0 var(--s8); font-size: var(--t14); }
+.bp-facts > summary { display: flex; align-items: center; gap: var(--s4); min-height: 36px; margin: calc(-1 * var(--s8)) 0 0; cursor: pointer; list-style: none; }
+.bp-facts > summary::-webkit-details-marker { display: none; }
+.bp-facts > summary .chev { width: 16px; height: 16px; transition: transform .15s var(--ease); }
+.bp-facts[open] > summary .chev { transform: rotate(90deg); }
+.bp-facts .sv-ribbon, .bp-facts .ribbon { margin-top: var(--s4); }
+.bp-facts .lk-kv { grid-template-columns: 96px minmax(0, 1fr); }
+.bp-open { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--s8); min-height: 44px; margin: var(--s12) calc(-1 * var(--s16)) 0; padding: 0 var(--s16);
+  background: var(--n0); border-top: 1px solid var(--n100); font-size: var(--t14); font-weight: 700; color: var(--p700); text-decoration: none; }
+.bp-open:hover { background: var(--p50); }
+.bp-open .ic { width: 18px; height: 18px; }
+:is(.td-pane, .bl-dock).more .bp-open { box-shadow: 0 -8px 12px -8px rgb(20 43 53 / .22); }   /* more of the item is under the foot */
+@media (prefers-reduced-motion: reduce) { .bp-facts > summary .chev { transition: none; } }
+
+/* ---- R-277 fix 18 (V-1..V-7): calm at session volume ---- */
+/* This week's asks: the copy buttons above the list; the list shows 8 then "Show all N". */
+.td-asks .td-askcopy { margin: 0 0 var(--s12); }
+.td-askmore, .td-gmore, .wk-dmore { margin: var(--s4) 0 0; }
+/* This week (a laptop): the deadlines, folded to their one line, above the grid. */
+.ah-top { margin: 0 0 var(--s16); padding: 0 var(--s16); background: var(--card, #fff); border: 1px solid var(--n200); border-radius: var(--r12); }
+.ah-top > summary { display: flex; align-items: center; gap: var(--s8); min-height: 48px; cursor: pointer; list-style: none; }
+.ah-top > summary::-webkit-details-marker { display: none; }
+.ah-top > summary h2 { flex: 1 1 auto; min-width: 0; margin: 0; font-size: var(--t16); }
+.ah-top[open] > summary .ah-chev, .ah-dfold[open] > summary .ah-chev { transform: rotate(180deg); }
+.ah-top[open] { padding-bottom: var(--s16); }
+.ah-top > summary:focus-visible, .ah-dfold > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: var(--r8); }
+/* The phone's week: today and tomorrow open, each later day one line that opens. */
+.ah-dfold > summary { display: flex; align-items: center; gap: var(--s8); min-height: 44px; cursor: pointer; list-style: none; border-top: 1px solid var(--n100); }
+.ah-dfold > summary::-webkit-details-marker { display: none; }
+.ah-dfold > summary .ah-dh { margin: 0; }
+.ah-dfold > summary .ah-dn { flex: 1 1 auto; font-size: var(--t14); }
+/* Team on a phone: one row per step, opening the bill. */
+.td-mrows { display: flex; flex-direction: column; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); overflow: hidden; }
+.td-mrow { display: flex; align-items: center; gap: var(--s12); min-height: 56px; padding: var(--s8) var(--s12); border-top: 1px solid var(--n100); color: inherit; text-decoration: none; }
+.td-mrow:first-child { border-top: 0; }
+.td-mrow:active { background: var(--p50); }
+.td-mrow .td-urg { flex: none; width: 56px; margin: 0; }
+.td-mmain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.td-mb { font-size: var(--t14); line-height: 20px; color: var(--n900); overflow-wrap: anywhere; }
+.td-ms { font-size: var(--t14); line-height: 20px; color: var(--n700); overflow-wrap: anywhere; }
+.td-mwho { font-weight: 700; color: var(--n900); }
+.td-mrow > .chev { flex: none; width: 18px; height: 18px; color: var(--n500); }
+.wk-col > .wk-dmore { grid-column: 1 / -1; }

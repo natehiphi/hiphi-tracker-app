@@ -9,7 +9,7 @@
 // v4 (R-269): the last of Outreach's four tabs, at #/outreach/supporters; Outreach opens on This week's asks (asks.js).
 import { S, DB, DEMO, hooks, esc, fmtDate, asDate, advocate, peopleMatch, segmentPeople, personById } from './data.js';
 import { ISLANDS, INTERESTS, personName, parsePeopleCSV, exportPeopleCSV, billById, billTag, billSay } from './model.js';
-import { icon, btn, iconBtn, chip, row, empty, skeleton, toast, openSheet, closeSheet, menuSheet, pickerSheet, confirmSheet, switchRow, keysOn, sheetOpen, sectionNav } from './ui.js';
+import { icon, btn, iconBtn, chip, row, empty, skeleton, toast, openSheet, closeSheet, menuSheet, pickerSheet, confirmSheet, switchRow, keysOn, sheetOpen, sectionNav, filterBtn } from './ui.js';
 import { TITLES, titleLabel } from '../pub/titles.js';   // "They are": the public profile's titles (R-147)
 
 // ---- the filter model (the same shape as people_match() in the database, so a saved segment counts the same here,
@@ -229,13 +229,13 @@ export default {
     if (document.body.dataset.screen !== 'supporters') { v.selecting = false; v.sel.clear(); }
     for (const id of [...v.sel]) if (!personById(id)) v.sel.delete(id);
     const n = nFilters(v.f), desk = isDesk();
-    // R-277 fix 10 (U-5, U-12): the heading row of every page: the title, Outreach's tabs, Filter, Add a person and the
-    // page's "…" last; the search under it.
+    // R-277 fix 10 (U-5, U-12): the heading row of every page: the title, Outreach's tabs, Add a person, Filter and the
+    // page's "…" last; the search under it. Fix 20: Filter sits just before the "…", where every list has it.
     return `<div class="sp-page${desk ? ' sp-desk' : ''}${isSide() ? ' sp-side' : ''}">
       <div class="sp-tools sv-phead">
         <h1 class="sp-h1">Supporters</h1>
-        <span class="sv-phr">${sectionNav('outreach', 'supporters')}<button type="button" class="btn secondary sm sp-filterbtn" data-sp="filter" data-k="filter" aria-haspopup="dialog">${icon('sliders-horizontal')}<span>Filter</span>${n ? `<span class="sp-n" aria-label="${n} on">${n}</span>` : ''}</button>
-        ${desk ? btn('Add a person', { kind: 'secondary', sm: true, icon: 'user-plus', attrs: { 'data-sp': 'add', 'data-k': 'add', 'aria-haspopup': 'dialog' } }) : ''}
+        <span class="sv-phr">${sectionNav('outreach', 'supporters')}
+        ${desk ? btn('Add a person', { kind: 'secondary', sm: true, icon: 'user-plus', attrs: { 'data-sp': 'add', 'data-k': 'add', 'aria-haspopup': 'dialog' } }) : ''}${filterBtn(n, { 'data-sp': 'filter', 'data-k': 'filter' })}
         ${iconBtn('ellipsis', 'More actions', { 'data-sp': 'more', 'data-k': 'more', 'aria-haspopup': 'dialog' })}</span>
       </div>
       <div class="sp-tools sp-srow">

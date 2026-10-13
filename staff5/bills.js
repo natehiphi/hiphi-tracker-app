@@ -12,10 +12,11 @@
 import { S, DB, DEADLINES, esc, fmtDate, fmtDT, effStage, owners, isMuted, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks } from './data.js';
 import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionClock, gateNeed, deadlineName, billSay } from './model.js';
 import { CHAMBER_NAME, HELD_RE, stoppedAt } from '../stops.js';
-import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, keysUsed, POS_WORD, posIcons, whoseSeg, showAllBtn } from './ui.js';
+import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, keysUsed, POS_WORD, posIcons, whoseSeg, showAllBtn, filterBtn } from './ui.js';
 import { bl, save, setCompact, shownBills, freshFacts, QUICK, quickCount, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, settled, hoverNow, typingIn, deskBack,
   views, curView, applyView, resetView, isDefault, openSaveView, openEditViews, VIEW_CAP, scopeOpts, defaultScope, posWord, openCoalition, viewState, dueDay } from './filters.js';
-import { openLook, dockLook } from './look.js';
+import { openLook } from './look.js';
+import { dockPane, wirePane } from './today.js';   // R-277 fix 17 (U-1): the docked bill is Today's open item, one panel
 import { bulkBar, wireBulkBar, startSelect, stopSelect, dropSelect, selIds, FIELD } from './bulk.js';
 import { billRoute, billRef, whenAt } from './model.js';
 import { GROUPS, groupKey } from './standing.js';
@@ -158,7 +159,7 @@ function controls(wide) {
   // two rows as before, so the first bill is no lower down. The shorter placeholder is what fits beside Filter.
   const ph = three && !wide ? 'Find a bill' : 'Find a bill by number or words';
   const search = `<div class="searchbox bl-search" role="search"><label class="sr" for="bl-q">Find a bill by number or words</label>${icon('search')}<input id="bl-q" class="input" type="search" placeholder="${ph}" value="${esc(v.q)}" autocomplete="off" enterkeyhint="search">${iconBtn('x', 'Clear the search', { 'data-qclear': '1', hidden: !v.q })}</div>`;
-  const fbtn = `<button type="button" class="btn secondary sm bl-fbtn" data-filter aria-haspopup="dialog">${icon('sliders-horizontal')}<span>Filter</span>${n ? `<span class="bl-cnt" aria-label="${n} on">${n}</span>` : ''}</button>`;
+  const fbtn = filterBtn(n, { 'data-filter': '' });   // R-277 fix 20: the one Filter button (ui.js)
   const more = iconBtn('ellipsis', 'More for bills', { 'data-more': '1' });
   // Edit (R-106, Nate 9/30): position and owner become dropdowns on every row, the old app's editable table. Priority
   // follows the position (R-175), so it is never a dropdown. v3: Edit starts from "…" (as Columns does); while it is on,
@@ -246,7 +247,7 @@ function parts() {
   const dk = docked() ? S.bills.find(b => b.id === v.look) : null;
   const frow = lead || quickRow ? `<div class="bl-frow">${lead}${quickRow}</div>` : '';
   return { head: `${viewsRow()}${onRow}`,
-    body: `${frow}<div id="bl-banner">${banner()}</div>${dk ? `<div class="bl-split"><div class="bl-main">${rows}</div>${dockLook(dk, DOCKOPT)}</div>` : rows}` };
+    body: `${frow}<div id="bl-banner">${banner()}</div>${dk ? `<div class="bl-split"><div class="bl-main">${rows}</div>${dockPane(dk, DOCKOPT)}</div>` : rows}` };
 }
 // Row keys are for a keyboard and a mouse, and only while shortcuts are on (My settings); the hint shows when they work.
 const keysHint = () => !hoverNow() || !keysOn() || !keysUsed() ? '' :   /* R-277 fix 13: only after a key was used */ bl().edit ? `<p class="bl-keys"><kbd>Tab</kbd> next dropdown · <kbd>Space</kbd> opens it · <kbd>J</kbd> <kbd>K</kbd> the same dropdown in the next and previous bill · letters never change a bill</p>`
@@ -366,14 +367,16 @@ function table(groups) {
   const oneOwner = !v.edit && owns.size === 1 && !owns.has('');
   let cols = COLS.filter(c => (c.k !== 'sel' || v.selecting) && (!c.opt || v.cols.has(c.k)) && (c.k !== 'own' || (v.scope !== 'me' && !oneOwner)))
     // While editing, a dropdown needs a name's room, not an avatar's, and "Support with changes" whole.
-    .map(c => !v.edit ? c : c.k === 'own' ? { ...c, w: [140, 132] } : c.k === 'pos' ? { ...c, min: [212, 204], ideal: [224, 216] } : c);
+    .map(c => !v.edit ? c : c.k === 'own' ? { ...c, w: [140, 132] } : c.k === 'pos' ? { ...c, min: [212, 204], ideal: [224, 216] } : c)
+    // R-277 fix 20: "No owner" was cut at 72px (the column is an avatar's width); with such a row shown it has the word's room.
+    .map(c => c.k === 'own' && !v.edit && owns.has('') ? { ...c, w: [112, 112] } : c);
   // A bill docked beside the table says everything about itself, so where the title would get under 300px (and the
   // position its one line) the table gives up, in turn, what the docked bill also shows: the added columns, the
   // position's word (its icon stays), "Where it stands", then the owner. A 1920 window keeps them all.
   if (dk) { const room = cs => least(cs) + 124 + (cs.some(c => c.k === 'pos' && !c.icon) ? 60 : 0) <= avail;
     const steps = [cs => cs.filter(c => !c.opt), cs => cs.map(c => c.k === 'pos' ? { ...c, w: [76, 72], icon: 1 } : c), cs => cs.filter(c => c.k !== 'where'), cs => cs.filter(c => c.k !== 'own')];
     for (const step of steps) if (!room(cols)) cols = step(cols); }
-  // The docked bill says in words what the table no longer does (look.js dockLook).
+  // The docked bill says in words what the table no longer does (look.js lookFacts, via today.js dockPane).
   DOCKOPT = { pos: !cols.some(c => c.k === 'pos' && !c.icon), own: !cols.some(c => c.k === 'own') };
   const std = cols.filter(c => !c.opt);
   // When even the least widths do not fit (optional columns in a small window), the standard table fills the box as
@@ -592,13 +595,13 @@ function docked() { const v = bl(); return !!v.look && dockNow() && !v.selecting
 // line sits above it) than once it is held under the toolbar: so its foot is never under the bottom of the window.
 function fitDock() { const el = document.querySelector('.bl-dock'); if (!el) return;
   el.style.maxHeight = Math.max(240, Math.floor(innerHeight - Math.max(0, el.getBoundingClientRect().top) - 16)) + 'px';
-  el.classList.toggle('bl-dend', el.scrollTop + el.clientHeight >= el.scrollHeight - 2); }
+  el.classList.toggle('more', el.scrollTop + el.clientHeight < el.scrollHeight - 2); }
 function wireDock() {
   const el = document.querySelector('.bl-dock'); if (!el) return;
-  fitDock();
+  fitDock(); wirePane(el);   // its step, "…" and I'm going work as on Today (R-277 fix 17)
   el.querySelector('[data-lkd="close"]')?.addEventListener('click', () => closeDock());
-  // A long bill scrolls inside the panel; the fade at its foot says there is more, and goes at the end.
-  const end = () => el.classList.toggle('bl-dend', el.scrollTop + el.clientHeight >= el.scrollHeight - 2);
+  // A long bill scrolls inside the panel; the shadow on its foot says there is more, and goes at the end (R-277 fix 17).
+  const end = () => el.classList.toggle('more', el.scrollTop + el.clientHeight < el.scrollHeight - 2);
   el.addEventListener('scroll', end, { passive: true }); end();
 }
 function showDock(id, { keys = false } = {}) {
@@ -611,7 +614,7 @@ function showDock(id, { keys = false } = {}) {
   // so the rows under the pointer stay where they are.
   if (!was) { repaintDyn(); markRow(keys); const tr = tableRows().find(r => r.dataset.row === id); tr?.scrollIntoView({ block: 'nearest' }); return; }
   const el = document.querySelector('.bl-dock');
-  if (el) { el.outerHTML = dockLook(b, DOCKOPT); wireDock(); } else repaintDyn();
+  if (el) { el.outerHTML = dockPane(b, DOCKOPT); wireDock(); } else repaintDyn();
   markRow(keys);
 }
 function closeDock({ fromBack = false } = {}) {

@@ -308,7 +308,7 @@
 .pr-told { display: flex; align-items: center; gap: var(--s4); margin-top: var(--s12); }
 .pr-told .ic { width: 16px; height: 16px; }
 .pr-per { margin-top: var(--s12); }
-.pr-filters { margin-top: var(--s12); overflow-x: auto; }
+.pr-filters { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); margin-top: var(--s12); }   /* R-277 fix 20: the one Filter button */
 @media (max-width: 599px) {
   .pr-brow { flex-wrap: wrap; padding-bottom: var(--s8); }
   .pr-brow .pr-main { flex-basis: 100%; padding-bottom: 0; }
@@ -316,8 +316,6 @@
 .pr-page .pr-top { margin: var(--s4) 0 var(--s8); }
 .pr-page .pr-top h1 { font-size: var(--t22); }
 .pr-page .pr-top .le-lede { margin: var(--s4) 0 0; max-width: 70ch; }
-.pr-filters .sv-seg { flex-wrap: nowrap; width: max-content; }
-.pr-filters .sv-seg button { white-space: nowrap; }
 /* A-6: 44px to a finger */
 @media (max-width: 899px) { .pr-ownbtn, .pr-helper { min-height: 44px; } }
 /* After the fresh-eyes review (9/29): the count beside the dots, a plain state (no pill: A-12), owners as filters, the
@@ -334,8 +332,6 @@
 .pr-next .btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 899px) {
   .pr-whob { min-height: 44px; }
-  .pr-filters { overflow: visible; }
-  .pr-filters .sv-seg { flex-wrap: wrap; width: auto; }
 }
 
 /* ---- My issues (R-263; v3, R-264): each issue a card whose first line is the issue, then its moving bills one line

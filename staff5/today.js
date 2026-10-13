@@ -58,7 +58,8 @@ import { icon, btn, iconBtn, chip, avatar, groupHead, segmented, empty, notice, 
 import { goingBtn, docBtn, filedBtn, showAllBtn, ACT as LOOK, whoseSeg } from './ui.js';   // R-277 fix 4 (U-4, U-8): one look per action
 import { newSteps, markNewStep } from './help.js';
 import { draftAsking, makeDraftNow } from './testimony.js';
-import { openLook } from './look.js';
+import { openLook, lookFacts } from './look.js';
+import { billPane, bpHearing, bpFacts, bpOpen } from './billpane.js';   // R-277 fix 17: one open-bill panel for Today and Bills
 import { todayPrepNotice } from './prep.js';
 import { sessionGates, lastSlotBefore, noticeByFor, billByNum } from './model.js';
 import { dailyWord } from './composer.js';   // which 4:30 pm email a Send joins
@@ -849,6 +850,14 @@ function rowWords(p, x) {
   if (p.h && words.length >= 2 && words.every(w => said.includes(w))) return `${esc(p.h.committee)} hearing ${whenLine(p.h.scheduled_at)}`;
   return p.s;
 }
+// R-277 fix 18 (V-7): Team on a phone is rows, not cards: at a February peak each person's cards (or Slipping's) ran screens
+// down. A row is the urgency mark, the bill, its step and whose it is, and opens the bill (its steps are there, and on that
+// person's own Today); someone's own step keeps nothing extra. `o.label` names whose it is, as on a laptop's row.
+function mrow(c, o = {}) {
+  const p = c.p || {}, b = c.b, href = b ? billRoute(b) : p.kind === 'followup' ? `#/person/${p.f.person_id}` : p.a ? `#/email/${p.a.id}` : '#/';
+  const name = b ? `${lead(b)}${b.priority === 1 ? ' ' + P1 : ''}` : `<b>${kindOf(p)[1]}</b>`;
+  return `<a class="td-mrow" href="${esc(href)}"${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${urgBlock(c.wait ? null : p.due, untilOf(p), approveAct(p))}<span class="td-mmain"><span class="td-mb">${name}</span><span class="td-ms">${o.label ? `<span class="td-mwho">${esc(o.label)}</span> · ` : ''}${rowWords(p, p.ro ? null : (p.btns || [])[0])}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`;
+}
 // Which row is open: the one you chose, else the one now in its place; until you choose, the first (the list can
 // still be filling in as the page loads, and the most urgent item is the one to open on arrival).
 function pickSel() {
@@ -876,30 +885,28 @@ function paneFit(pane) {
 // actions stay in the "…" (A-20); the one filled button is the step's own (A-3).
 function paneDue(t) {
   if (t.kind === 'chair' || t.kind === 'wait') return '';
-  if (lateNow(t)) return `${countdown(dueIso(t), { until: untilOf(t) })}<span class="td-pdw">${esc(testDueText(t.due))}</span>`;
+  if (lateNow(t)) return `${countdown(dueIso(t), { until: untilOf(t) })}<span class="bp-dw">${esc(testDueText(t.due))}</span>`;
   if (tDue(t)) return dueChip(t.due, testDueLeft(t.due));
   if (t.due != null) return cd(t.due, 'due');
-  return t.kind === 'todo' || t.kind === 'followup' ? '<span class="td-pdw">No due date</span>' : '';
+  return t.kind === 'todo' || t.kind === 'followup' ? '<span class="bp-dw">No due date</span>' : '';
 }
 // Whose it is and why it came up ("Open to anyone · Sent 3h ago"); the due time and the hearing have places of their own.
 const paneWhy = (t, ids, label = '') => [label ? esc(label) : t.ro && ids?.length ? `${esc(names(ids))}’s to take` : t.ro && whoOf() ? `${esc(first(whoOf()))}’s to take` : t.who === 'anyone' ? 'Open to anyone' : '', ...String(t.why || '').split(' · ')]
-  .filter(Boolean).map(x => `<span class="td-part${x.replace(/<[^>]+>/g, '').length > 28 ? ' long' : ''}">${x}</span>`).join(' · ');
+  .filter(Boolean).map(x => `<span class="td-part${x.replace(/<[^>]+>/g, '').length > 28 ? ' long' : ''}">${x}</span>`).join(' · ');
 // The hearing the item is about: its own, else the bill's next one (as the "…" menu has always chosen).
 const paneHearingOf = c => c.tasks.map(t => t.h).find(x => x && new Date(x.scheduled_at) > Date.now() - 4 * HR) || (c.b ? hearingAhead(c.b) : null);
-function paneHearing(c) {
+// R-277 fix 17: the one hearing line (billpane.js), the same on Today and Bills.
+function paneHearing(c, from = 'today') {
   const h = paneHearingOf(c); if (!h) return '';
-  const going = goingOf(goersAt(h)), mine = goingFor(h).going, isNew = c.p.kind === 'nodraft' && c.p.h?.id === h.id;
-  return `<div class="td-psec td-phear"><h3 class="td-ph3">${isNew ? 'New hearing' : 'Hearing'}</h3>
-    <a class="td-phl" href="#/hearing/${esc(h.id)}?from=today">${icon('landmark')}<span><b>${esc(h.committee)} ${esc(whenLine(h.scheduled_at))}</b>${h.room ? ` · ${esc(room(h.room))}` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</a>
-    <p class="td-pgo">${icon('users')}<span>${esc(going || 'Nobody going yet')}</span>${goingBtn(mine, { 'data-going': h.id })}</p></div>`;
+  return bpHearing(h, { from, going: goingOf(goersAt(h)), mine: goingFor(h).going, isNew: c.p?.kind === 'nodraft' && c.p.h?.id === h.id });
 }
 function paneAlso(c) {
   const also = c.tasks.slice(1); if (!also.length) return '';
-  return `<div class="td-psec"><h3 class="td-ph3">Also on this ${c.b ? 'bill' : 'item'}</h3><ul class="td-palso">${also.map(t => {
+  return `<div class="bp-sec"><h3 class="bp-h3">Also on this ${c.b ? 'bill' : 'item'}</h3><ul class="bp-also">${also.map(t => {
     const acts = t.ro || t.kind === 'wait' ? '' : (t.btns || []).slice(0, 2).map(x => button(t, x, false)).join('');
     // the same deadline as the item's own step is said once, above (A-14; fresh-eyes review: "late testimony until 1:10 PM" twice)
     const same = t.due != null && t.due === c.p.due;
-    return `<li><span class="td-pat">${t.s}</span><span class="td-pam">${t.seen ? SEEN() : ''}${same ? '' : alsoDue(t)}</span>${acts ? `<span class="td-pab">${acts}</span>` : ''}</li>`; }).join('')}</ul></div>`;
+    return `<li><span class="bp-at">${t.s}</span><span class="bp-am">${t.seen ? SEEN() : ''}${same ? '' : alsoDue(t)}</span>${acts ? `<span class="bp-ab">${acts}</span>` : ''}</li>`; }).join('')}</ul></div>`;
 }
 function paneCluster(c) {
   return `<div class="td-ptop"><p class="td-pnum td-rkind">${icon('clipboard-check')}<span>Review</span></p></div>
@@ -917,7 +924,7 @@ function paneNew(c) {
 }
 // R-277 fix 5 (U-1, U-2): the open item has the same close X as the bill docked beside Bills' table, at the end of its
 // top line. Closed, the list takes the whole width until a row is chosen again; Back closes it too (app.js panelOpened).
-const PCLOSE = () => iconBtn('x', 'Close', { 'data-pclose': '1' }, 'td-pclose');
+const PCLOSE = () => iconBtn('x', 'Close', { 'data-pclose': '1' }, 'td-pclose bp-close');
 function paneHTML(k) {
   const html = paneInner(k);
   return html.replace(/(<div class="td-ptop">[\s\S]*?)<\/div>/, (m, a) => `${a}${PCLOSE()}</div>`);
@@ -927,19 +934,51 @@ function paneInner(k) {
   if (c.cluster) return paneCluster(c);
   if (c.newh) return paneNew(c);
   if (c.hear) return paneSlipHear(c);
-  const p = c.p, b = c.b, o = ROWOPT.get(k) || {}, kd = b ? null : kindOf(p);
-  const more = b || p.kind === 'followup' || p.a ? iconBtn('ellipsis', `More for ${b ? billSay(b) : 'this item'}`, { 'data-more': k, 'data-pane': '1' }, 'td-more') : '';
-  const top = `<div class="td-ptop">${b ? `<p class="td-pnum"><span class="bn-num">${esc(billNum(b))}</span>${b.priority === 1 ? P1 : ''}</p>` : `<p class="td-pnum td-rkind">${icon(kd[0])}<span>${kd[1]}</span></p>`}${more}</div>
-    ${b ? `<h2 class="td-pname" id="td-pane-h">${esc(b.nickname || blurb(b, 120))}</h2>${b.nickname && blurb(b, 400) ? `<p class="td-psum">${esc(blurb(b, 400))}</p>` : ''}` : ''}`;
-  const acts = (o.msg && b ? [msgBtn(b, o.msg)] : p.btns || []).map((x, j) => button(p, x, j === 0, !o.outline)).join('');
-  const due = paneDue(p), w = paneWhy(p, o.msg, o.label);
-  const step = `<div class="td-pstep">${due ? `<p class="td-pdue">${due}</p>` : ''}
-    <p class="td-ps"${b ? '' : ' id="td-pane-h"'}>${p.ps || p.s}</p>${w ? `<p class="td-pwhy">${w}</p>` : ''}
-    ${p.note ? `<p class="td-note">${p.note}</p>` : ''}${p.q ? `<blockquote class="td-q td-pq">${p.q}</blockquote>` : ''}
-    ${acts ? `<div class="td-pacts">${acts}</div>` : ''}</div>`;
-  const open = b ? [billRoute(b), 'Open the bill'] : p.kind === 'followup' ? [`#/person/${p.f.person_id}`, 'Open their page'] : p.a ? [`#/email/${p.a.id}`, 'Open the email'] : null;
-  return `${top}${step}${paneAlso(c)}${paneHearing(c)}${open ? `<a class="td-popen" href="${esc(open[0])}"><span>${open[1]}</span>${icon('arrow-right')}</a>` : ''}`;
+  return billPaneOf(c, k, ROWOPT.get(k) || {}, { close: PCLOSE(), headId: 'td-pane-h' });
 }
+// R-277 fix 17 (U-1): the open item, drawn by billpane.js in the order every open bill has, on Today and Bills alike: the
+// bill, the one deadline line, the one hearing line, the step with its main button the one filled button (A-3), then
+// what else is open on the bill, the facts (folded here) and "Open the bill". Secondary actions stay in the "…" (A-20).
+function billPaneOf(c, k, o, { close = '', headId, from = 'today', facts = false, factsOpt = {} }) {
+  const p = c.p || {}, b = c.b, kd = b ? null : kindOf(p);
+  const more = b || p.kind === 'followup' || p.a ? iconBtn('ellipsis', `More for ${b ? billSay(b) : 'this item'}`, { 'data-more': k, 'data-pane': '1' }, 'td-more bp-more') : '';
+  if (!c.p) return billPane({ b, p1: b.priority === 1 ? P1 : '', headId, more, close, ...billOnly(b, from), rest: bpFacts(lookFacts(b, factsOpt), { open: true }), open: bpOpen(b) });
+  const acts = (o.msg && b ? [msgBtn(b, o.msg)] : p.btns || []).map((x, j) => button(p, x, j === 0, !o.outline)).join('');
+  const w = paneWhy(p, o.msg, o.label);
+  const step = `<p class="bp-s"${b ? '' : ` id="${esc(headId)}"`}>${p.ps || p.s}</p>${w ? `<p class="bp-why">${w}</p>` : ''}
+    ${p.note ? `<p class="td-note">${p.note}</p>` : ''}${p.q ? `<blockquote class="td-q bp-q">${p.q}</blockquote>` : ''}
+    ${acts ? `<div class="bp-acts">${acts}</div>` : ''}`;
+  const open = b ? bpOpen(b) : p.kind === 'followup' ? [`#/person/${p.f.person_id}`, 'Open their page'] : p.a ? [`#/email/${p.a.id}`, 'Open the email'] : null;
+  return billPane({ b, kind: kd ? `<span class="td-rkind">${icon(kd[0])}<span>${kd[1]}</span></span>` : '', p1: b?.priority === 1 ? P1 : '', headId, more, close,
+    due: paneDue(p), hear: paneHearing(c, from), step, rest: paneAlso(c) + (b ? bpFacts(lookFacts(b, factsOpt), { open: facts }) : ''), open });
+}
+// A bill with nothing for anyone to do on it (most of Bills): the panel says where it stands instead of a step. Its
+// deadline line is the testimony's while a hearing is ahead and not yet filed, else the Capitol's deadline for a hearing.
+function billOnly(b, from) {
+  const st = stopOf(b), h = hearingAhead(b), d = h ? draftFor(b.id, h.committee) : null;
+  const live = !h && st.deadline && !st.deadline.missed && st.phase === 'committee';
+  const days = live ? st.deadline.days : null;
+  const due = h && d?.status !== 'filed' && h.testimony_deadline ? dueChip(testDue(h), testDueLeft(testDue(h)))
+    : live ? `<span class="sv-count${days <= 1 ? ' soon' : ''}">${icon('clock')}${esc(`Hearing needed by ${fmtDate(st.deadline.date, { weekday: 'short' }).replace(',', '')} · ${days <= 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`}`)}</span>` : '';
+  const words = h ? (d?.status === 'filed' ? `Testimony filed for ${esc(h.committee)}` : d ? `Testimony ${esc(TWORD[d.status] || 'being written')}` : 'No testimony draft yet')
+    : live ? `No hearing yet: by ${esc(deadlineName(st.deadline))} it must ${esc(gateNeed(st.deadline.label))}` : esc(st.says || '');
+  const chair = !h && live && chairMail(st.committee) ? btn('Email the chair', { kind: 'secondary', href: `mailto:${chairMail(st.committee).email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}`, target: '_blank', iconEnd: 'external-link' }) : '';
+  const doc = d?.doc_url ? docBtn(d.doc_url, { kind: 'text' }) : '';
+  return { due, hear: h ? bpHearing(h, { from, going: goingOf(goersAt(h)), mine: goingFor(h).going }) : '',
+    step: `<p class="bp-s">${words}</p>${chair || doc ? `<div class="bp-acts">${chair}${doc}</div>` : ''}` };
+}
+const TWORD = { draft: 'being written', review: 'waiting for approval', second_review: 'waiting for second approval', approved: 'ready to file' };
+// Bills' docked bill (bills.js): the same panel, the bill's own step as Today works it out (yours first, else the team's).
+// Its tasks are noted where Today's buttons look them up, so they do the same thing there.
+export function dockPane(b, { pos = true, own = true } = {}) {
+  if (!b) return '';
+  const find = r => r.cards.find(x => x.b?.id === b.id && !x.cluster && !x.newh && !x.hear);
+  const c = find(todayItems('mine')) || find(todayItems('team')) || { key: 'b:' + b.id, b, tasks: [] };
+  const k = 'dock~' + c.key; CARDS.set(k, c); for (const t of c.tasks) LAST.set(t.key, t);
+  return `<aside class="bl-dock" aria-labelledby="bl-dock-h" data-dock="${esc(b.id)}">${billPaneOf(c, k, {}, { close: iconBtn('x', 'Close', { 'data-lkd': 'close' }, 'bp-close'), headId: 'bl-dock-h', from: 'bills', facts: true, factsOpt: { pos, own, issue: true } })}</aside>`;
+}
+// The docked bill's buttons do what they do on Today (its step, the "…", I'm going).
+export function wirePane(el) { if (el) wireControls(el); }
 // Choosing a row redraws only the open item, so j and k are instant and the list keeps its scroll and focus.
 // The choice is kept first, even when the click also left the page (a row's Review goes to review mode), so the same
 // item is open on the way back.
@@ -1337,22 +1376,22 @@ function wkBill(b, right, owners) {
 }
 // "1:00 PM", or "Sun 3:00 PM" in the weekend column, which holds two days.
 const wkWhen = (t, wkend) => (wkend ? dayFmt(hst(t), { weekday: 'short' }) + ' ' : '') + timeOf(new Date(t).toISOString());
-function wkDeadline(g, owners, now, wkend) {
+function wkDeadline(g, owners, now, wkend, max = Infinity) {
   // Past the written deadline but before the hearing begins, late testimony is still taken: amber, and it says until
   // when, not red "overdue" (A-5 as amended by R-250; v3, R-264).
   const ms = g.due - now, start = new Date(g.h.scheduled_at).getTime(), open = ms <= 0 && start > now, late = ms <= 0 && !open, soon = open || (!late && ms <= DAY), what = `for ${whoseDay(hst(start), now)} ${g.h.committee} hearing`;
   const head = open ? `Late testimony until ${clockDay(g.h.scheduled_at)}` : late ? 'Testimony\u00a0overdue' : `${wkWhen(g.due, wkend)} · Testimony\u00a0due`;
   const when = ms <= 0 ? `was due ${whenAt(g.due)}` : hst(g.due) === hst(now) ? `in ${spanOf(g.due)}` : '';   // R-277 fix 3
-  const rows = g.rows.sort((x, y) => x.st[2] - y.st[2] || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true }))
-    .map(x => wkBill(x.b, `<span class="sr">Testimony: </span>${chip(x.st[0], '', x.st[1])}`, owners)).join('');
+  const rows = g.rows.sort((x, y) => x.st[2] - y.st[2] || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true })).slice(0, max)
+    .map(x => wkBill(x.b, `<span class="sr">Testimony: </span>${chip(x.st[0], '', x.st[1], { sm: true })}`, owners)).join('');
   return `<section class="wk-blk wk-dl${late ? ' late' : soon ? ' soon' : ''}" data-at="${g.due}" aria-label="${esc(`${head}${when ? ', ' + when : ''}, ${what}`)}">
     <p class="wk-bh">${icon(late ? 'circle-alert' : 'clock')}<b>${esc(head)}</b></p>
     <p class="wk-bs">${when ? `<span class="wk-when">${esc(when)}</span> · ` : ''}${esc(what)}</p>
     <ul class="wk-bills">${rows}</ul>${g.filed ? `<p class="wk-filed">${icon('check')}${esc(`${g.filed} more already filed`)}</p>` : ''}</section>`;
 }
-function wkHearing(list, owners, now, wkend) {
+function wkHearing(list, owners, now, wkend, max = Infinity) {
   const h = list[0].h, past = list[0].t < now - 2 * HR, when = wkWhen(list[0].t, wkend), monOnly = list.every(x => isMon(x.b));
-  const rows = list.map(x => { const o = S.outcomes?.[x.h.id]?.outcome; return wkBill(x.b, past && o ? chip(OUTCOME_LABEL[o] || o) : '', owners); }).join('');
+  const rows = list.slice(0, max).map(x => { const o = S.outcomes?.[x.h.id]?.outcome; return wkBill(x.b, past && o ? chip(OUTCOME_LABEL[o] || o, '', undefined, { sm: true }) : '', owners); }).join('');
   // Every sitting opens its own page (R-022): the agenda, the members, and who from the team is going.
   const page = `<a class="wk-hpage" href="#/hearing/${esc(h.id)}?from=week">${icon('landmark')}<span>Open the hearing</span></a>`;
   // A hearing that is over needs nothing from anyone, so it keeps its place in the day as one quiet line that opens to
@@ -1373,15 +1412,15 @@ function wkHearing(list, owners, now, wkend) {
 const wkStep = (t, wkend) => `<a class="wk-oth wk-timed" data-at="${t.due}" href="${billRoute(t.b)}">${icon(WK_ICON[t.kind] || 'list-todo')}<span class="wk-ot"><b>${esc(wkWhen(t.due, wkend))}</b> · ${lead(t.b)} · ${t.wk || t.s}</span></a>`;
 // Everything else that day, one row per bill (the first step leads, the rest are counted). Messages are not calendar
 // items: they fold into one row that opens the list, where they are answered (Nate, 9/21).
-function wkAlso(all, now, wkend) {
+function wkAlso(all, now, wkend, max = Infinity) {
   const msg = t => t.kind === 'reply' || t.kind === 'notice', msgs = all.filter(msg), per = new Map();
   for (const t of all) { if (msg(t)) continue; const k = t.b ? 'b' + t.b.id : t.key; if (!per.has(k)) per.set(k, []); per.get(k).push(t); }
-  const rows = [...per.values()].map(g => {
+  const rows = [...per.values()].slice(0, max).map(g => {
     const t = g[0], more = g.length - 1, href = t.b ? `${billRoute(t.b)}` : t.kind === 'followup' ? `#/person/${t.f.person_id}` : t.a ? `#/email/${t.a.id}` : '';
     const late = t.due != null && t.due < now, day = wkend && t.due != null ? `<b>${esc(dayFmt(hst(t.due), { weekday: 'short' }))}</b> · ` : '';
     const inner = `${icon(WK_ICON[t.kind] || 'list-todo')}<span class="wk-ot">${day}${t.b ? `${lead(t.b)} · ` : ''}${t.s}${late ? (lateNow(t) ? ` <span class="sv-count soon">late testimony until ${esc(clockDay(untilOf(t)))}</span>` : ` <span class="sv-count late">overdue</span>`) : ''}${more ? ` <span class="wk-more">+${more} more</span>` : ''}</span>`;
     return `<li>${href ? `<a class="wk-oth${t.kind === 'wait' ? ' wk-q' : ''}" href="${esc(href)}">${inner}</a>` : `<div class="wk-oth">${inner}</div>`}</li>`;
-  }).join('') + (msgs.length ? `<li><a class="wk-oth" href="#/">${icon('message-circle')}<span class="wk-ot">${esc(plural(msgs.length, 'message'))} to answer, in the list</span></a></li>` : '');
+  }).join('') + (msgs.length && per.size < max ? `<li><a class="wk-oth" href="#/">${icon('message-circle')}<span class="wk-ot">${esc(plural(msgs.length, 'message'))} to answer, in the list</span></a></li>` : '');
   return `<section class="wk-blk wk-also" aria-label="Other to-dos"><p class="wk-bh">${icon('list-todo')}<b>Other to-dos</b></p><ul class="wk-others">${rows}</ul></section>`;
 }
 function weekView(route, scope, who, r) {
@@ -1390,15 +1429,24 @@ function weekView(route, scope, who, r) {
   const byDue = (x, y) => (x.kind === 'wait') - (y.kind === 'wait') || (x.due ?? Infinity) - (y.due ?? Infinity) || x.rank - y.rank;
   // A day's things with a time, in time order (at the same minute: the deadline, then the step, then the hearing),
   // then the steps with no time of their own. The weekend passes its two days together.
-  const body = (cs, wkend) => {
+  // R-277 fix 18 (V-3): at a February peak a day's column grew without limit (35 -> 140 hearings in 7 days). Each day shows
+  // its first 6 rows in time order (a bill under a deadline or a hearing, a step, an Other to-do; a hearing that is over is
+  // one folded row), then "+N more", which opens that day; a deadline or a hearing cut part way says the rest in that count.
+  const body = (cs, wkend, key) => {
     const other = cs.flatMap(c => c.other), rest = other.filter(t => !wkTimed(t)).sort(byDue);
-    return [...cs.flatMap(c => [...c.dl.values()]).map(g => [g.due, 0, () => wkDeadline(g, owners, now, wkend)]),
-      ...other.filter(wkTimed).map(t => [t.due, 1, () => wkStep(t, wkend)]),
-      ...cs.flatMap(c => [...c.hs.values()]).map(l => [l[0].t, 2, () => wkHearing(l, owners, now, wkend)])]
-      .sort((x, y) => x[0] - y[0] || x[1] - y[1]).map(x => x[2]()).join('') + (rest.length ? wkAlso(rest, now, wkend) : '');
+    const ents = [...cs.flatMap(c => [...c.dl.values()]).map(g => [g.due, 0, g.rows.length, m => wkDeadline(g, owners, now, wkend, m)]),
+      ...other.filter(wkTimed).map(t => [t.due, 1, 1, () => wkStep(t, wkend)]),
+      ...cs.flatMap(c => [...c.hs.values()]).map(l => [l[0].t, 2, l[0].t < now - 2 * HR || l.every(x => isMon(x.b)) ? 1 : l.length, m => wkHearing(l, owners, now, wkend, m)])]
+      .sort((x, y) => x[0] - y[0] || x[1] - y[1]);
+    if (rest.length) { const per = new Set(rest.filter(t => t.kind !== 'reply' && t.kind !== 'notice').map(t => t.b ? 'b' + t.b.id : t.key)); ents.push([Infinity, 3, per.size + (rest.some(t => t.kind === 'reply' || t.kind === 'notice') ? 1 : 0), m => wkAlso(rest, now, wkend, m)]); }
+    const open = !!S.tdOpen?.[key], total = ents.reduce((n, e) => n + e[2], 0);
+    let left = open ? Infinity : WK_CAP, html = '';
+    for (const [, , n, f] of ents) { if (left <= 0) break; html += f(left); left -= n; }
+    const hid = open ? 0 : total - WK_CAP;
+    return html + (hid > 0 || (open && total > WK_CAP) ? `<p class="wk-dmore">${btn(open ? 'Show fewer' : `+${hid} more`, { kind: 'text', icon: open ? 'chevron-up' : 'chevron-down', cls: 'sv-showall', attrs: { 'data-fold': key, 'aria-expanded': String(open) } })}</p>` : '');
   };
   const dayHtml = d => {
-    const isToday = d === today, past = d < today, html = body([wk.get(d)], false);
+    const isToday = d === today, past = d < today, html = body([wk.get(d)], false, 'wk:' + d);
     return `<section class="td-day wk-day${isToday ? ' today' : past ? ' past' : ''}" data-day="${d}" aria-labelledby="td-d-${d}"${isToday ? ' aria-current="date"' : ''}>
       <div class="td-dh"><h3 id="td-d-${d}">${esc(dayFmt(d, { weekday: 'short' }))} <span class="td-dom">${esc(dayFmt(d, { day: 'numeric' }))}</span></h3>${isToday ? ' ' + chip('Today', 'info') : ''}</div>
       <div class="wk-col">${html || `<p class="td-dnone">${past ? 'Nothing was scheduled.' : 'Nothing scheduled.'}</p>`}</div></section>`;
@@ -1409,7 +1457,7 @@ function weekView(route, scope, who, r) {
   const dayName = d => `${dayFmt(d, { weekday: 'short' })} ${dayFmt(d, { day: 'numeric' })}`;
   const weekend = () => `<section class="td-day wk-day td-wkend${days[6] < today ? ' past' : ''}" aria-labelledby="td-d-wkend">
       <div class="td-dh"><h3 id="td-d-wkend">Weekend</h3><p class="td-dsum">${esc(`${dayName(days[5])} – ${dayName(days[6])}`)}</p></div>
-      <div class="wk-col">${body(we, true)}</div></section>`;
+      <div class="wk-col">${body(we, true, 'wk:wkend')}</div></section>`;
   const range = `${dayFmt(mon, { month: 'short', day: 'numeric' })} to ${dayFmt(days[4], dayFmt(mon, { month: 'short' }) === dayFmt(days[4], { month: 'short' }) ? { day: 'numeric' } : { month: 'short', day: 'numeric' })}`;
   // The owner chips that used to sit here are gone (Nate, R-025 answer 2: "remove the chips and keep the dropdown"):
   // the toolbar's one person picker, Team > Everyone, a teammate or No owner, narrows the week the same way.
@@ -1435,6 +1483,7 @@ const ASK_SAYS = { strongly_support: 'HIPHI strongly supports', support: 'HIPHI 
 // v4 (R-269, T13): `mine` keeps the bills on the viewer's coalitions (their own bills when they support none) and leaves
 // out a bill whose testimony closes within 3 hours, too late for a newsletter or a post to help: Outreach opens on it, and
 // Saya's 16 asks across every coalition became CTFH's 3.
+const ASKS_CAP = 8;   // R-277 fix 18: the asks Outreach shows before "Show all N"
 function weekAsks({ mine = false } = {}) {
   const now = Date.now(), end = new Date(dayAdd(mondayOf(now), 7) + 'T00:00:00-10:00').getTime(), seen = new Map();
   const co = mine ? coalPicked() : null, keep = !mine ? () => true : co ? b => (S.billCampaigns[b.id] || []).some(id => co.ids.has(id)) : b => isMine(b);
@@ -1464,9 +1513,19 @@ export function weekAsksHTML({ mine = false, open = false } = {}) {
   const items = weekAsks({ mine }); S.tdAsks = items;
   const sub = 'Each bill’s ask, its deadline and its share page. Arrivals from the newsletter and from posts are counted apart.';
   if (!items.length) return open ? `<section class="td-asks td-asksopen" aria-label="This week’s asks"><p class="td-asknone">${esc(`No bill ${mine ? `on ${coalPicked() ? 'your coalitions' : 'your list'} ` : 'on the public page '}has testimony due later this week${mine ? ' (or it closes within 3 hours)' : ''}.`)}</p></section>` : '';
-  const list = `<ol class="td-asklist">${items.map(x => `<li>${billTag(x.b, 80)} <span class="muted">· ${esc(ASK_SAYS[x.b.position] || '')} · due ${esc(fmtDT(x.due))}</span></li>`).join('')}</ol>
+  // R-277 fix 18 (V-1): at a February peak the list ran 14 -> 61 asks and the copy buttons sank under it. Open on Outreach,
+  // the buttons sit above the list, P1 bills come first, then the soonest deadline, and the list shows 8 then "Show all N".
+  // The copy is always of every ask in the list, shown or not.
+  const copy = `<div class="btnrow td-askcopy">${btn('Copy for the newsletter', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-wkasks': 'newsletter' } })}${btn('Copy for a post', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-wkasks': 'social' } })}</div>`;
+  const li = x => `<li>${billTag(x.b, 80)}${x.b.priority === 1 ? ' ' + P1 : ''} <span class="muted">· ${esc(ASK_SAYS[x.b.position] || '')} · due ${esc(fmtDT(x.due))}</span></li>`;
+  if (open) {
+    const ord = items.slice().sort((x, y) => (x.b.priority === 1 ? 0 : 1) - (y.b.priority === 1 ? 0 : 1) || x.due - y.due); S.tdAsks = ord;
+    const all = !!S.asksAll, shown = all ? ord : ord.slice(0, ASKS_CAP);
+    return `<section class="td-asks td-asksopen" aria-label="This week’s asks"><p class="td-asksub small muted"><b class="td-asksn">${esc(plural(items.length, 'bill'))}</b> · ${esc(sub)}</p>${copy}
+      <ol class="td-asklist">${shown.map(li).join('')}</ol>${ord.length > ASKS_CAP ? `<p class="td-askmore">${showAllBtn(ord.length, { 'data-asksall': '1' }, { what: 'asks', open: all })}</p>` : ''}</section>`;
+  }
+  const list = `<ol class="td-asklist">${items.map(li).join('')}</ol>
     <div class="btnrow">${btn('Copy for the newsletter', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-wkasks': 'newsletter' } })}${btn('Copy for a post', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-wkasks': 'social' } })}</div>`;
-  if (open) return `<section class="td-asks td-asksopen" aria-label="This week’s asks"><p class="td-asksub small muted"><b class="td-asksn">${esc(plural(items.length, 'bill'))}</b> · ${esc(sub)}</p>${list}</section>`;
   return `<details class="td-asks"><summary><h2 id="td-asks-h">This week’s asks, to paste into the newsletter or a post</h2><span class="td-asksn">${plural(items.length, 'bill')}</span>${icon('chevron-down', { cls: 'td-askchev' })}</summary><div class="td-askhd">
       <p class="small muted">${esc(sub)}</p></div>
     ${list}
@@ -1474,6 +1533,7 @@ export function weekAsksHTML({ mine = false, open = false } = {}) {
 }
 // Its two copy buttons, for whichever page draws the card.
 export function wireWeekAsks(root) {
+  root.querySelector('[data-asksall]')?.addEventListener('click', () => { S.asksAll = !S.asksAll; hooks.render(); requestAnimationFrame(() => document.querySelector('[data-asksall]')?.focus({ preventScroll: true })); });
   root.querySelectorAll('[data-wkasks]').forEach(el => el.onclick = async () => {   // this week's asks (R-132)
     const text = weekAsksText(S.tdAsks || weekAsks(), el.dataset.wkasks);
     try { await navigator.clipboard.writeText(text); toast(el.dataset.wkasks === 'social' ? 'Copied: one short ask per bill, each under a post’s length. Paste, and change anything you like.' : 'Copied the week’s asks for the newsletter. Paste, and change anything you like.'); }
@@ -1522,7 +1582,7 @@ function teamHtml(start, rows = false) {
     const pick = one || (g.none ? 'none' : null);
     const name = pick ? `<button type="button" class="td-pgname" data-who="${esc(pick)}" title="${esc(g.none ? 'Show only the bills nobody owns' : `Show ${who}’s list`)}">${av}<span>${esc(who)}</span></button>` : `<span class="td-pgname">${av}<span>${esc(who)}</span></span>`;
     const o = c => ({ gk: g.gk, msg: g.none ? null : g.ids, filled: NOW_GROUPS.has(c.group) });
-    const list = rows ? `<div class="td-rows">${shown.map(c => row(c, o(c).filled, o(c))).join('')}</div>` : `<div class="td-list">${shown.map(c => card(c, i++, false, o(c))).join('')}</div>`;
+    const list = rows ? `<div class="td-rows">${shown.map(c => row(c, o(c).filled, o(c))).join('')}</div>` : `<div class="td-mrows">${shown.map(c => mrow(c, o(c))).join('')}</div>`;
     const more = !rest ? '' : pick ? `<button type="button" class="td-pgmore" data-who="${esc(pick)}"><span>${esc(`${shown.length ? `${rest} more` : plural(rest, 'card')}, due later or with no date, ${g.none ? 'on the No owner list' : `on ${first(one)}’s list`}`)}</span>${icon('chevron-right', { cls: 'chev' })}</button>`
       : `<p class="td-pgmore">${esc(`${shown.length ? `${rest} more` : plural(rest, 'card')}, due later or with no date`)}</p>`;
     return `<section class="td-group td-pg" aria-labelledby="td-pg-${gi}"><div class="td-pgh"><h2 class="td-h td-pgt" id="td-pg-${gi}"${top}>${name}</h2></div>
@@ -1616,7 +1676,7 @@ function slipHtml(rows) {
   const head = `<h2 class="td-h" data-top tabindex="-1">${groupHead(`${icon('clock', { cls: 'td-soon' })}Slipping`, sl.rows.length || '', { id: 'td-g-slip' })}</h2>`;
   if (!sl.rows.length) return `<section class="td-group td-slip" aria-labelledby="td-g-slip">${head}<p class="td-quiet">${icon('circle-check')}<span>Nothing is slipping on the team: nothing late or due within a day${SLIP_NOBODY ? ', and someone is going to every hearing today and tomorrow' : ''}.</span></p></section>`;
   const now = Date.now(), filled = r => !!r.p && !r.p.ro && r.p.due <= endOfToday();
-  const list = rows ? `<div class="td-rows">${sl.rows.map(r => row(r, filled(r), slipOpt(r))).join('')}</div>` : `<div class="td-list">${sl.rows.map(r => card(r, i++, false, { ...slipOpt(r), filled: filled(r) })).join('')}</div>`;
+  const list = rows ? `<div class="td-rows">${sl.rows.map(r => row(r, filled(r), slipOpt(r))).join('')}</div>` : `<div class="td-mrows">${sl.rows.map(r => mrow(r, slipOpt(r))).join('')}</div>`;
   return `<section class="td-group td-slip" aria-labelledby="td-g-slip">${head}${list}</section>`;
 }
 // Mine for Nate, Jess and Jaylen: one line in place of "Hearings today", opening Team (#/?scope=team).
@@ -1853,7 +1913,7 @@ function digestSection(scope) {
 // later ones folded to a line each, and then the other suggestions. Nothing here is "due": it is the work coming, not a
 // task list (Today's promise stays a list you can clear). Kris and Saya own no bills, so for them it is their
 // coalitions' bills, as their Today is.
-const AH_DAYS = 21, AH_CAP = 7;
+const AH_DAYS = 21, AH_CAP = 7, WK_CAP = 6, GROUP_CAP = 10;
 function aheadBills(scope, who) {
   const co = scope === 'mine' && !S.bills.some(isMine) ? coalPicked() : null;
   return co ? { list: S.bills.filter(b => (S.billCampaigns[b.id] || []).some(id => co.ids.has(id))), coal: co } : { list: clockBills(scope, who), coal: null };
@@ -1878,8 +1938,17 @@ function aheadWeek(scope, who, coal) {
     if (open.length && due > now && hst(due) <= end) ev.push({ day: hst(due), at: due, kind: 'due', h, list: open });
   }
   const days = [0, 1, 2, 3, 4, 5, 6].map(i => dayAdd(today, i)).filter(d => ev.some(e => e.day === d));
-  const row = e => `<li class="ah-ev ah-${e.kind}${e.kind === 'due' && e.at - now <= DAY ? ' ah-soon' : ''}"><a href="#/hearing/${esc(e.h.id)}?from=week"><span class="ah-t">${esc(timeOf(new Date(e.at).toISOString()))}</span><span class="ah-k">${icon(e.kind === 'due' ? 'clock' : 'landmark')}${e.kind === 'due' ? `Testimony due · for the ${esc(e.h.committee)} hearing ${esc(dayFmt(hst(e.h.scheduled_at), { weekday: 'short', month: 'numeric', day: 'numeric' }).replace(',', ''))}` : `Hearing · ${esc(e.h.committee)}${e.h.room ? ' ' + esc(room(e.h.room)) : ''}`}</span><span class="ah-who">${ahNames(e.list.map(x => x.b))}</span></a></li>`;
-  const body = days.length ? `<ol class="ah-days">${days.map(d => `<li class="ah-day"><h3 class="ah-dh">${esc(dayWord(d))} <span class="muted">${esc(dayFmt(d, { month: 'numeric', day: 'numeric' }))}</span></h3><ul class="ah-evs">${ev.filter(e => e.day === d).sort((a, b) => a.at - b.at || (a.kind === 'due' ? -1 : 1)).map(row).join('')}</ul></li>`).join('')}</ol>`
+  const row = e => `<li class="ah-ev ah-${e.kind}${e.kind === 'due' && e.at - now <= DAY ? ' ah-soon' : ''}"><a class="ah-evl" href="#/hearing/${esc(e.h.id)}?from=week"><span class="ah-t">${esc(timeOf(new Date(e.at).toISOString()))}</span><span class="ah-k">${icon(e.kind === 'due' ? 'clock' : 'landmark')}${e.kind === 'due' ? `Testimony due · for the ${esc(e.h.committee)} hearing ${esc(dayFmt(hst(e.h.scheduled_at), { weekday: 'short', month: 'numeric', day: 'numeric' }).replace(',', ''))}` : `Hearing · ${esc(e.h.committee)}${e.h.room ? ' ' + esc(room(e.h.room)) : ''}`}</span><span class="ah-who">${ahNames(e.list.map(x => x.b))}</span></a></li>`;
+  // The row's link has a class of its own: fix 13's rule for bare links inside a line of text (44px targets, staff.css)
+  // made these rows inline and drew them over each other on a phone.
+  // R-277 fix 18 (V-6): today and tomorrow are open; each later day is one line ("Wed 3/18 · 4 hearings, 2 deadlines")
+  // that opens to its list, so at a February peak the week no longer runs ten screens down a phone.
+  const tmw = dayAdd(today, 1), evs = d => ev.filter(e => e.day === d).sort((a, b) => a.at - b.at || (a.kind === 'due' ? -1 : 1));
+  const dayLi = d => { const es = evs(d), list = `<ul class="ah-evs">${es.map(row).join('')}</ul>`, dh = `${esc(dayWord(d))} <span class="muted">${esc(dayFmt(d, { month: 'numeric', day: 'numeric' }))}</span>`;
+    if (d <= tmw) return `<li class="ah-day"><h3 class="ah-dh">${dh}</h3>${list}</li>`;
+    const nh = es.filter(e => e.kind === 'hearing').length, nd = es.length - nh;
+    return `<li class="ah-day"><details class="ah-dfold"${S.tdOpen?.['ah:' + d] ? ' open' : ''} data-ahday="${d}"><summary><h3 class="ah-dh">${dh}</h3><span class="ah-dn muted">${esc([nh ? plural(nh, 'hearing') : '', nd ? plural(nd, 'deadline') : ''].filter(Boolean).join(', '))}</span>${icon('chevron-down', { cls: 'ah-chev' })}</summary>${list}</details></li>`; };
+  const body = days.length ? `<ol class="ah-days">${days.map(dayLi).join('')}</ol>`
     : '<p class="ah-none">Nothing is scheduled in the next 7 days.</p>';
   return `<section class="ah-sec tw-days" aria-label="The next seven days">${body}</section>`;
 }
@@ -1913,8 +1982,8 @@ function aheadGate(g, lead, owners, chair) {
   return `<details class="ah-gate ah-later"><summary><span class="ah-gh">${head}</span><span class="ah-gc muted">${esc(need.length ? `${plural(need.length, 'bill')} with no hearing yet` : 'all have a hearing')}</span>${icon('chevron-down', { cls: 'ah-chev' })}</summary><p class="ah-gs">${esc(sum)}</p>${list}</details>`;
 }
 // Under the grid (or the phone's list): the deadlines, then "Also worth doing".
-function weekBelow(scope, who, r) {
-  if (SESSION_OVER) { LASTSG = new Map(); return `<section class="ah-sec"><p class="ah-none">The session is over, so there are no deadlines to race. The next one's calendar is loaded in December.</p></section>`; }
+function weekBelow(scope, who, r, top = false) {
+  if (SESSION_OVER) { LASTSG = new Map(); const over = `<section class="ah-sec"><p class="ah-none">The session is over, so there are no deadlines to race. The next one's calendar is loaded in December.</p></section>`; return top ? { dl: '', sg: over } : over; }
   const { list, coal } = aheadBills(scope, who), owners = scope !== 'mine';
   const gates = sessionGates(list).filter(g => !g.past && g.racing.length && g.days <= AH_DAYS);
   const sg = suggestFor(scope, who, r, new Set(gates.flatMap(g => g.noHearing.map(x => x.b.id))));
@@ -1924,12 +1993,18 @@ function weekBelow(scope, who, r) {
   // "Second lateral, Mon 3/30: 3 of your bills still need a hearing" (someone who owns none: "12 HEAL bills"; Team: "36
   // of the team's bills"). It was "Deadlines" over a box that said it, beside Today's card that said it again.
   const h2 = lead ? `${lead.name}, ${ckDay(lead.date)}: ${gateCount(lead.noHearing.length, scope, who, coal)}` : 'Deadlines';
-  const dl = `<section class="ah-sec" aria-labelledby="ah-dl"><div class="ah-hd"><h2 id="ah-dl">${esc(h2)}</h2></div>${gates.length ? gates.map(g => aheadGate(g, g === lead, owners, sg.chair)).join('')
-    : `<p class="ah-none">None of ${esc(whoseBills(scope, who))} races a deadline in the next three weeks.</p>`}</section>`;
+  const gl = gates.length ? gates.map(g => aheadGate(g, g === lead, owners, sg.chair)).join('') : `<p class="ah-none">None of ${esc(whoseBills(scope, who))} races a deadline in the next three weeks.</p>`;
+  // R-277 fix 18 (V-4): on a laptop the deadlines sit above the week's grid, folded to their one line (open it to see the
+  // bills with no hearing yet), so a long week no longer pushes them screens down; a phone keeps them under its list.
+  if (top) { const open = !!S.tdOpen?.dl;
+    return { dl: `<details class="ah-sec ah-top" data-dlfold${open ? ' open' : ''}><summary><h2 id="ah-dl">${esc(h2)}</h2>${icon('chevron-down', { cls: 'ah-chev' })}</summary>${gl}</details>`, sg: suggestHtml(sg.list, r) }; }
+  const dl = `<section class="ah-sec" aria-labelledby="ah-dl"><div class="ah-hd"><h2 id="ah-dl">${esc(h2)}</h2></div>${gl}</section>`;
   return dl + suggestHtml(sg.list, r);
 }
 function weekPage(route, scope, who, r) {
-  const top = WIDE() ? weekView(route, scope, who, r) : aheadWeek(scope, who, aheadBills(scope, who).coal);
+  if (WIDE()) { const { dl, sg } = weekBelow(scope, who, r, true);
+    return `<div class="td-root td-weekroot">${toolbar(route)}${oneNotice()}${dl}${weekView(route, scope, who, r)}<div class="tw-below ah">${sg}</div></div>`; }
+  const top = aheadWeek(scope, who, aheadBills(scope, who).coal);
   // v4 (R-269): the foot's All tasks and Inbox went. Tasks retired (its rows are Today's and each bill's To do) and the
   // Inbox is in your menu: one way into each place (B-13).
   return `<div class="td-root td-weekroot">${toolbar(route)}${oneNotice()}${top}<div class="tw-below ah">${weekBelow(scope, who, r)}</div></div>`;
@@ -1988,7 +2063,11 @@ function render(route) {
       const fold = g.id === 'later', isOpen = !fold || open.later, filled = NOW_GROUPS.has(g.id);
       const title = g.id === 'overdue' ? `${icon('circle-alert', { cls: 'td-late' })}Overdue` : g.id === 'lateopen' ? `<span class="td-lateopen">${icon('clock', { cls: 'td-soon' })}${esc(g.title)}</span>` : esc(g.title);
       // Numbers only where they ask for action (R-264): Overdue and Today say how many; a fold says what it holds.
-      const list = rows ? `<div class="td-rows">${g.cards.map(c => row(c, filled)).join('')}</div>` : `<div class="td-list">${g.cards.map(c => card(c, i++, false, { filled })).join('')}</div>`;
+      // R-277 fix 18 (V-5): a group shows its first 10, most urgent first, then "Show all N" (at a February peak "Needs you
+      // today" ran past two screens). What the badge counts is unchanged (D2, held).
+      const all = !!open['g:' + g.id], cs = all ? g.cards : g.cards.slice(0, GROUP_CAP);
+      const list = (rows ? `<div class="td-rows">${cs.map(c => row(c, filled)).join('')}</div>` : `<div class="td-list">${cs.map(c => card(c, i++, false, { filled })).join('')}</div>`)
+        + (g.cards.length > GROUP_CAP ? `<p class="td-gmore">${moreBtn('g:' + g.id, all, g.cards.length)}</p>` : '');
       return `<section class="td-group" aria-labelledby="td-g-${g.id}"><h2 class="td-h"${gi === 0 ? ' data-top tabindex="-1"' : ''}>${groupHead(title, filled || fold ? g.n : '', { fold: fold ? 'later' : undefined, open: isOpen, id: 'td-g-' + g.id })}</h2>
         ${isOpen ? list : ''}</section>`;
     };
@@ -2228,6 +2307,8 @@ function wire(route, root) {
   main.querySelectorAll('[data-seg="tdview"]').forEach(el => el.onclick = () => { S.tdRefocus = `[data-seg="tdview"][data-val="${el.dataset.val}"]`; S.go(tdHref({ week: el.dataset.val === 'week', w: 0 }), { replace: true }); });
   main.querySelectorAll('[data-week]').forEach(el => el.onclick = () => { const w = +el.dataset.week || 0; S.tdRefocus = `[aria-label="${el.getAttribute('aria-label') || 'Next week'}"]`; S.go(tdHref({ week: true, w }), { replace: true, keepScroll: true }); });
   main.querySelector('[data-whopick]')?.addEventListener('click', pickWho);
+  main.querySelectorAll('[data-ahday]').forEach(el => el.addEventListener('toggle', () => { (S.tdOpen ??= {})['ah:' + el.dataset.ahday] = el.open; }));
+  main.querySelector('[data-dlfold]')?.addEventListener('toggle', e => { (S.tdOpen ??= {}).dl = e.target.open; });   // R-277 fix 18
   main.querySelectorAll('[data-who]').forEach(el => el.onclick = () => setWho(el.dataset.who, `[data-who="${el.dataset.who}"]`));
   main.querySelectorAll('[data-fold]').forEach(el => el.onclick = () => {
     const k = el.dataset.fold, open = S.tdOpen ??= {}; open[k] = !open[k];

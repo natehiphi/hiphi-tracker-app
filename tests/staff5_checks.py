@@ -10,6 +10,43 @@ from playwright.sync_api import sync_playwright
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from staff5_people import router, HOST, ROOT   # one way to serve the practice copy for every staff5 test
 
+# ---- batch e: the practice data at session volume (R-277 fix 18, V-1..V-10) ----
+# The review measured the screens with the practice data doubled and quadrupled (166 -> 332 -> 664 live tracked bills,
+# 35 -> 70 -> 140 hearings in 7 days). grow() does that to the snapshot as it is served: each copy of a bill gets a new id
+# and a number 4000 higher (HB1523 -> HB5523, 9523 for the third copy...), with its hearings, drafts, owner, coalition,
+# issues and history copied to match, so every list has that many more rows doing the same things at the same times.
+def grow(raw, times):
+  import json
+  if times <= 1: return raw
+  s = json.loads(raw)
+  rid = lambda x, n: f'{x}-x{n}'
+  num = lambda bn, n: re.sub(r'(\d+)', lambda m: str(int(m.group(1)) + 4000 * n), bn, count=1)
+  add = {k: [] for k in ('bills', 'activity', 'hearings', 'outcomes', 'assignments', 'billCampaigns', 'billIssues', 'drafts')}
+  dh = {}
+  for n in range(1, times):
+    hid = {h['id']: rid(h['id'], n) for h in s['hearings']}
+    for b in s['bills']: add['bills'].append({**b, 'id': rid(b['id'], n), 'bill_number': num(b['bill_number'], n)})
+    for k in ('activity', 'assignments', 'billCampaigns', 'billIssues'):
+      add[k] += [{**x, 'bill_id': rid(x['bill_id'], n)} for x in s[k]]
+    add['hearings'] += [{**h, 'id': hid[h['id']], 'bill_id': rid(h['bill_id'], n)} for h in s['hearings']]
+    add['outcomes'] += [{**o, 'bill_id': rid(o['bill_id'], n), 'hearing_id': hid.get(o['hearing_id'], o['hearing_id'])} for o in s['outcomes']]
+    add['drafts'] += [{**d, 'id': rid(d['id'], n), 'bill_id': rid(d['bill_id'], n), 'hearing_id': rid(d['hearing_id'], n) if d.get('hearing_id') else None,
+                       'doc_url': (d.get('doc_url') or '') and d['doc_url'] + f'-x{n}'} for d in s['drafts']]
+    for k, v in s['draftHearings'].items(): dh[rid(k, n)] = {**v, 'id': rid(k, n), 'bill_id': rid(v['bill_id'], n)}
+  for k, v in add.items(): s[k] += v
+  s['draftHearings'].update(dh)
+  return json.dumps(s).encode()
+
+def router_times(times):
+  # staff5_people.py's router (Patti and Julie added, the clock movable), with the snapshot grown `times` over.
+  import staff5_people as P
+  def r(route):
+    rel = unquote(urlparse(route.request.url).path).lstrip('/') or 'index.html'
+    if rel != 'demo/snapshot.json' or times <= 1: return router(route)
+    raw = open(os.path.join(ROOT, rel), 'rb').read() if ROOT else route.fetch().body()
+    route.fulfill(status=200, body=grow(P.body_for(rel, raw), times), headers={'content-type': 'application/json'})
+  return r
+
 results = []
 def check(name, ok, detail=''):
   results.append((name, bool(ok), detail)); print(('ok   ' if ok else 'FAIL ') + name + (f'  ({detail})' if detail else ''))
@@ -302,6 +339,168 @@ def batch_d(b, page, go):
   check('Session setup still opens (loaded on the way)', 'Session setup' in pg.inner_text('main') or 'Ready for session' in pg.inner_text('main'), pg.inner_text('main')[:60])
   ctx.close()
 
+# ---- batch e (fixes 17, 18, 19, 20): the Show me pieces ----
+# 17. One open-bill panel (U-1): the same bill opens with the same parts, in the same order, with the same deadline line,
+# hearing line and one filled button, from Today and from Bills; the "…" and the close X sit last on its top line.
+BP_ORDER = ['bp-top', 'bp-name', 'bp-sum', 'bp-due', 'bp-hear', 'bp-step', 'bp-sec', 'bp-facts', 'bp-open']
+BP = r"""(sel) => { const root = document.querySelector(sel); if (!root) return null;
+  const parts = [...root.children].map(e => e.classList.contains('bp-facts') ? 'bp-facts' : [...e.classList].find(c => c.startsWith('bp-'))).filter(Boolean);
+  const say = e => e ? e.innerText.replace(/\s+/g, ' ').trim() : '';
+  const top = [...root.querySelectorAll('.bp-top button')].map(b => (b.getAttribute('aria-label') || '').split(' ')[0]);
+  return { parts, top, due: say(root.querySelector('.bp-due')), hear: say(root.querySelector('.bp-hl')), step: say(root.querySelector('.bp-s')),
+    filled: [...root.querySelectorAll('.btn.primary')].filter(b => b.getClientRects().length).map(say), name: say(root.querySelector('.bp-name')) }; }"""
+
+def batch_e_panel(b, page, go):
+  pg = page('NT'); go(pg, '/', 3500)
+  nums = pg.evaluate("[...document.querySelectorAll('.td-row[data-num]')].slice(0, 4).map(r => r.dataset.num)")
+  today = {}
+  for n in nums:
+    pg.locator(f'.td-row[data-num="{n}"] .td-rsel').first.click(); pg.wait_for_timeout(400)
+    today[n] = pg.evaluate(BP, '#td-pane')
+  go(pg, '/bills', 3000); pg.locator('[data-whose="team"]').first.click(); pg.wait_for_timeout(700)
+  bad, seen = [], 0
+  for n in nums:
+    pg.fill('#bl-q', n); pg.wait_for_timeout(700)
+    pg.locator('tr[data-row] td.bl-ti').first.click(); pg.wait_for_timeout(700)
+    d, t = pg.evaluate(BP, '.bl-dock'), today[n]
+    if not d or not t: bad.append(f'{n}: no panel'); continue
+    seen += 1
+    for k in ('parts', 'top', 'due', 'hear', 'step', 'filled', 'name'):
+      if d[k] != t[k]: bad.append(f'{n} {k}: Today {t[k]} / Bills {d[k]}')
+  check(f'Fix 17: the same bill opens with the same panel from Today and Bills ({seen} bills: parts, order, deadline line, hearing line, step, filled button)', seen >= 3 and not bad, '; '.join(bad[:3]))
+  ok = all(t and [BP_ORDER.index(x) for x in t['parts']] == sorted(BP_ORDER.index(x) for x in t['parts']) and t['parts'][0] == 'bp-top' and t['parts'][-1] == 'bp-open' for t in today.values())
+  check('Fix 17: the panel runs bill, deadline line, hearing line, step, the rest, Open the bill; "…" then the close X on its top line', ok and all(t['top'] == ['More', 'Close'] and len(t['filled']) <= 1 for t in today.values()), str(list(today.values())[0])[:200])
+  # a bill with nothing to do on it opens in the same frame on Bills
+  pg.fill('#bl-q', ''); pg.wait_for_timeout(500)
+  pg.locator('tbody.bl-tg tr[data-row] td.bl-ti').first.click(); pg.wait_for_timeout(700)
+  d = pg.evaluate(BP, '.bl-dock')
+  check('Fix 17: a bill with no step opens in the same frame on Bills', d and d['parts'][0] == 'bp-top' and d['parts'][-1] == 'bp-open' and d['top'] == ['More', 'Close'] and 'bp-step' in d['parts'], str(d)[:160])
+  check('Fix 17: no page errors on Today and Bills', not pg.errs, pg.errs[:1])
+  pg.context.close()
+
+# 18. Calm at session volume (V-1..V-7), the practice data doubled as it is served (grow): each person's most urgent item
+# is on the first screen at 1440x900, and no open list that grows with the session holds more than 25 rows. Legislators
+# and Supporters are directories of fixed size, searched rather than worked through, and are left out.
+URGENT = r"""() => { const e = [...document.querySelectorAll('.td-root .td-row, .td-root .td-card, .td-root .td-mine, .td-root [data-top]')].find(x => x.getClientRects().length);
+  if (!e) return null; const q = e.getBoundingClientRect(); return { top: Math.round(q.top), bottom: Math.round(q.bottom), text: e.innerText.replace(/\s+/g, ' ').slice(0, 60) }; }"""
+LONG = r"""() => { const vis = e => e.getClientRects().length && !e.closest('details:not([open])'); const out = [];
+  for (const l of document.querySelectorAll('main ul, main ol, main .rows, main .td-rows, main .td-list, main .td-mrows, main .ib-list, main .wk-col')) {
+    const n = l.matches('.wk-col') ? [...l.querySelectorAll('.wk-bills > li, .wk-others > li, a.wk-timed, details.wk-blk')].filter(vis).length : [...l.children].filter(vis).length;
+    if (n > 25) out.push(`${l.className || l.tagName}: ${n}`); }
+  for (const t of document.querySelectorAll('main tbody.bl-tg')) { const n = [...t.querySelectorAll('tr[data-row]')].filter(vis).length; if (n > 25) out.push(`Bills group: ${n}`); }
+  return out; }"""
+VOL_ROUTES = ['/', '/?scope=team', '/?view=week', '/bills', '/outreach', '/inbox', '/my-issues', '/coalition', '/review']
+
+def batch_e_volume(b, times=2):
+  first, long = [], []
+  for who in PEOPLE:
+    ctx = b.new_context(viewport={'width': 1440, 'height': 900}); ctx.route(HOST + '/**', router_times(times)); pg = ctx.new_page()
+    pg.goto(f"{HOST}/staff5.html?demo=1&as={who}#/"); pg.wait_for_timeout(7000)
+    u = pg.evaluate(URGENT)
+    if not u or u['bottom'] > 900 or u['top'] < 0: first.append(f'{who}: {u}')
+    for i, r in enumerate(VOL_ROUTES):
+      if i: pg.evaluate(f"location.hash = '#{r}'"); pg.wait_for_timeout(2200)
+      long += [f'{who} {r} {x}' for x in pg.evaluate(LONG)]
+    # Bills on Team, where every bill is
+    pg.evaluate("location.hash = '#/bills'"); pg.wait_for_timeout(1800); pg.locator('[data-whose="team"]').first.click(); pg.wait_for_timeout(1500)
+    long += [f'{who} /bills (Team) {x}' for x in pg.evaluate(LONG)]
+    ctx.close()
+  check(f'Fix 18 at {times}x the practice data: each person\'s most urgent item is on their first screen at 1440 (8 people)', not first, '; '.join(first[:3]))
+  check(f'Fix 18 at {times}x the practice data: no open list over 25 rows ({len(VOL_ROUTES) + 1} screens, 8 people)', not long, '; '.join(long[:4]))
+
+def batch_e_volume_parts(b):
+  # The pieces themselves, at double data: the asks (8, P1 first, the copy buttons above), the week's days (6, then "+N more",
+  # the deadlines above the grid), Needs you today (10, then Show all), the phone's week (later days folded), phone Team (rows).
+  ctx = b.new_context(viewport={'width': 1440, 'height': 900}); ctx.route(HOST + '/**', router_times(2)); pg = ctx.new_page()
+  pg.goto(f"{HOST}/staff5.html?demo=1&as=KR#/outreach"); pg.wait_for_timeout(7000)
+  a = pg.evaluate("""() => { const l = [...document.querySelectorAll('.td-asklist li')]; const c = document.querySelector('[data-wkasks]'), list = document.querySelector('.td-asklist');
+    return { n: l.length, p1: l.map(x => /P1/.test(x.innerText)), above: !!(c && list && (c.compareDocumentPosition(list) & 4)), all: (document.querySelector('[data-asksall]') || {}).innerText || '' }; }""")
+  p1 = a['p1']; p1ok = p1 == sorted(p1, reverse=True)
+  check('Fix 18: This week\'s asks show 8, P1 first, the copy buttons above the list, then "Show all N"', a['n'] == 8 and p1ok and a['above'] and re.match(r'Show all \d+ asks', a['all']), str(a)[:160])
+  pg.evaluate("location.hash = '#/?view=week'"); pg.wait_for_timeout(2500)
+  w = pg.evaluate("""() => { const days = [...document.querySelectorAll('.wk-day')].map(d => [[...d.querySelectorAll('.wk-bills > li, .wk-others > li, a.wk-timed, details.wk-blk')].filter(e => e.getClientRects().length && !e.closest('details:not([open])')).length, (d.querySelector('.wk-dmore') || {}).innerText || '']);
+    const dl = document.querySelector('.ah-top'), grid = document.querySelector('.td-weekgrid'); return { days, above: !!(dl && grid && (dl.compareDocumentPosition(grid) & 4)) }; }""")
+  check('Fix 18: each day of This week shows at most 6 rows, then "+N more"; the deadlines sit above the grid', w['days'] and all(n <= 6 for n, _ in w['days']) and any(re.match(r'\+\d+ more', m) for _, m in w['days']) and w['above'], str(w)[:200])
+  ctx.close()   # Needs you today at four times the data, where it holds more than 10 for Nate
+  ctx = b.new_context(viewport={'width': 1440, 'height': 900}); ctx.route(HOST + '/**', router_times(4)); pg = ctx.new_page()
+  pg.goto(f"{HOST}/staff5.html?demo=1&as=NT#/"); pg.wait_for_timeout(12000)
+  g = pg.evaluate("""() => [...document.querySelectorAll('.td-group')].map(s => [(s.querySelector('h2') || {}).innerText || '', s.querySelectorAll('.td-rows > .td-row, .td-list > .td-card').length, !!s.querySelector('.td-gmore .sv-showall')])""")
+  today = [[h.split('\n')[0], int((re.findall(r'\d+', h) or ['0'])[-1]), n, more] for h, n, more in g if h.startswith('Needs you today')]
+  check('Fix 18: "Needs you today" shows 10, then "Show all N"', today and today[0][2] == min(10, today[0][1]) and (today[0][1] <= 10 or today[0][3]), str(today)[:120])
+  ctx.close()
+  for who, r, js, name in [('KR', '/?view=week', "[...document.querySelectorAll('.ah-day')].map(d => !!d.querySelector('details.ah-dfold:not([open])'))", 'phone week'),
+                           ('NT', '/?scope=team', "[document.querySelectorAll('main .td-mrow').length, document.querySelectorAll('main .td-card').length]", 'phone Team')]:
+    ctx = b.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True); ctx.route(HOST + '/**', router_times(2)); pg = ctx.new_page()
+    pg.goto(f"{HOST}/staff5.html?demo=1&as={who}#{r}"); pg.wait_for_timeout(7000); x = pg.evaluate(js); ctx.close()
+    if name == 'phone week': check('Fix 18: the phone\'s week keeps today and tomorrow open and folds each later day', len(x) >= 3 and not any(x[:2]) and all(x[2:]), str(x))
+    else: check('Fix 18: Team on a phone is rows, not cards', x[0] > 0 and x[1] == 0, str(x))
+
+# 19. Places in the top search box (F-1): "qr", "pings" and "inbox" show a place first, at most 3, in the header's
+# suggestions and on the search page.
+def batch_e_places(b, page, go):
+  pg = page('NT'); go(pg, '/', 3000); bad = []
+  for q, want in [('qr', 'QR code'), ('pings', 'My settings: alerts'), ('inbox', 'Inbox'), ('notifications', 'My settings: alerts'), ('partner update', 'Partner update'), ('sort new bills', 'Sort new bills'), ('file', 'How to file at the Capitol')]:
+    inp = pg.locator('#hq'); inp.fill(''); inp.type(q, delay=20); pg.wait_for_timeout(900)
+    g = pg.evaluate("() => [...document.querySelectorAll('.sg .sg-g')].map(g => [g.querySelector('.sg-h').innerText, [...g.querySelectorAll('.sg-l')].map(x => x.innerText)])")
+    if not g or g[0][0] != 'Places' or len(g[0][1]) > 3 or g[0][1][0] != want: bad.append(f'{q}: {g[:1]}')
+  inp.fill(''); pg.keyboard.press('Escape')
+  check('Fix 19: the top search box shows a Places group first, the right place first, at most 3 (qr, pings, inbox and 4 more)', not bad, '; '.join(bad[:3]))
+  go(pg, '/search?q=qr', 2500)
+  s = pg.evaluate("() => { const f = document.querySelector('#lg-sres > *'); return [f && f.className, [...document.querySelectorAll('#lg-sres .lg-places .title')].map(x => x.innerText)]; }")
+  check('Fix 19: the search page shows Places above the results ("qr")', s[0] and 'lg-places' in s[0] and s[1][:1] == ['QR code'], str(s))
+  pg.context.close()
+  pg = page('KR'); go(pg, '/', 3000); inp = pg.locator('#hq'); inp.type('session setup', delay=20); pg.wait_for_timeout(900)
+  t = pg.evaluate("() => [...document.querySelectorAll('.sg .sg-l')].map(x => x.innerText)"); pg.context.close()
+  check('Fix 19: Session setup is a place for admins only', 'Session setup' not in t, str(t[:4]))
+
+# 20. Tabs look like tabs, pills only show a list another way, one Filter button on every list that filters (U-3).
+TABLOOK = r"""() => { const st = e => { const c = getComputedStyle(e), a = getComputedStyle(e, '::after'); return [c.fontSize, c.fontWeight, c.color, c.backgroundColor, c.borderTopLeftRadius, a.content !== 'none' ? a.height + ' ' + a.backgroundColor : '-'].join('|'); };
+  const vis = e => e.getClientRects().length;
+  const tabs = [...document.querySelectorAll('main .sv-tabrow > a, main .sv-tabrow > button')].filter(vis).map(e => [e.matches('[aria-current="page"], [aria-pressed="true"]') ? 'on' : 'off', st(e)]);
+  const pills = [...document.querySelectorAll('main .sv-seg > button')].filter(vis).map(e => [e.getAttribute('aria-pressed') === 'true' ? 'on' : 'off', st(e)]);
+  const navPills = [...document.querySelectorAll('main .sv-seg')].filter(e => vis(e) && (e.tagName === 'NAV' || e.querySelector('a'))).length;
+  const f = [...document.querySelectorAll('main .sv-filter, main button')].filter(e => vis(e) && /^Filter\b/.test(e.innerText.trim()));
+  const head = document.querySelector('main .sv-phead');
+  const ctrls = head ? [...head.querySelectorAll('button, a, input')].filter(vis) : [];
+  const fi = f.length === 1 ? ctrls.indexOf(f[0]) : -2, last = ctrls[ctrls.length - 1], more = last && /^More/.test(last.getAttribute('aria-label') || '');
+  const fl = f[0] ? (q => [Math.round(q.height), getComputedStyle(f[0]).fontSize, f[0].className])(f[0].getBoundingClientRect()) : null;
+  return { tabs, pills, navPills, filters: f.length, filterInHead: fi >= 0 && (fi === ctrls.length - 1 || (more && fi === ctrls.length - 2)), fl }; }"""
+TAB_ROUTES = ['/outreach', '/outreach/partners', '/outreach/emails', '/outreach/supporters', '/my-issues', '/outreach/issues', '/coalition', '/inbox', '/', '/?view=week', '/bills', '/legislators', '/help']
+FILTER_ROUTES = ['/bills', '/legislators', '/outreach/supporters', '/inbox']
+
+def batch_e_tabs(b, page, go):
+  pg = page('NT'); on_t, off_t, on_p, off_p, nav, fl, bad = set(), set(), set(), set(), [], set(), []
+  for i, r in enumerate(TAB_ROUTES):
+    if i == 0: go(pg, r, 3000)
+    else: pg.evaluate(f"location.hash = '#{r}'"); pg.wait_for_timeout(1500)
+    x = pg.evaluate(TABLOOK)
+    for k, s in x['tabs']: (on_t if k == 'on' else off_t).add(s)
+    for k, s in x['pills']: (on_p if k == 'on' else off_p).add(s)
+    if x['navPills']: nav.append(r)
+    if r in FILTER_ROUTES:
+      if x['filters'] != 1 or not x['filterInHead']: bad.append(f"{r}: {x['filters']} Filter, in the heading row's end: {x['filterInHead']}")
+      else: fl.add(tuple(x['fl'][:2]))
+    elif x['filters']: bad.append(f"{r}: a Filter button on a page that is not a filtered list")
+  check('Fix 20: tabs have one look (one for the open tab, one for the rest), with the bar under the open one', len(on_t) == 1 and len(off_t) == 1 and '-' not in next(iter(on_t)).split('|')[-1:], f'{on_t} {off_t}'[:200])
+  check('Fix 20: pill switches have one look, and none of them moves between pages', len(on_p) == 1 and len(off_p) == 1 and not nav and on_t.isdisjoint(on_p), f'{len(on_p)} {len(off_p)} {nav}')
+  check(f'Fix 20: every list page that filters has one Filter button, at the end of its heading row, one size ({", ".join(FILTER_ROUTES)})', not bad and len(fl) == 1, '; '.join(bad[:3]) or str(fl))
+  go(pg, '/bill/HB2121', 2500)
+  ic = pg.evaluate("[...document.querySelectorAll('main .bw-ichip')].map(e => [e.tagName, e.className])")
+  check('Fix 20: the bill page\'s issue is a link, not drawn as a chip', ic and all(t == 'A' and 'chip' not in c.split() for t, c in ic), str(ic))
+  src = ''.join(open(os.path.join(ROOT or '.', 'staff5', f)).read() for f in ('css/today.css', 'css/legislators.css', 'css/conversation.css'))
+  check('Fix 20: no screen redraws a status chip at its own size (one small size, ui.js chip({ sm }))', not re.search(r'\.sv-chip\s*\{[^}]*(min-height|font-size|padding)', src), '')
+  pg.evaluate("location.hash = '#/bills'"); pg.wait_for_timeout(1500); pg.locator('[data-whose="team"]').first.click(); pg.wait_for_timeout(900)
+  cut = pg.evaluate("[...document.querySelectorAll('.bl-noword')].filter(e => e.getClientRects().length).map(e => { const c = e.closest('td'); return c.scrollWidth > c.clientWidth + 1 || e.getBoundingClientRect().right > c.getBoundingClientRect().right + 1; })")
+  check('Fix 20: Bills\' "No owner" is never cut', cut and not any(cut), str(cut[:5]))
+  pg.context.close()
+
+def batch_e(b, page, go):
+  batch_e_panel(b, page, go)
+  batch_e_places(b, page, go)
+  batch_e_tabs(b, page, go)
+  batch_e_volume_parts(b)
+  batch_e_volume(b, 2)
+
 def main():
   with sync_playwright() as p:
     b = p.chromium.launch()
@@ -311,7 +510,7 @@ def main():
     def go(pg, route='/', wait=2500):
       pg.goto(f"{HOST}/staff5.html?demo=1&as={pg.who}#{route}"); pg.wait_for_timeout(wait)
 
-    # ONLY=b, ONLY=c or ONLY=d runs one batch's checks (the whole file runs them all)
+    # ONLY=b, ONLY=c, ONLY=d or ONLY=e runs one batch's checks (the whole file runs them all)
     only = os.environ.get('ONLY', '')
     def batch_b():
       # 1. No retired wording on any main screen, for three people
@@ -389,6 +588,7 @@ def main():
     if only in ('', 'b'): batch_b()
     if only in ('', 'c'): batch_c(b, page, go)
     if only in ('', 'd'): batch_d(b, page, go)
+    if only in ('', 'e'): batch_e(b, page, go)
     b.close()
   bad = [r for r in results if not r[1]]
   print(f'{len(results) - len(bad)} of {len(results)} checks met')

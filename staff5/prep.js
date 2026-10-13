@@ -9,7 +9,7 @@
 // on a draft lists what it still needs instead (the database refuses to publish one that lacks any: issue_missing()).
 import { S, DB, hooks, esc, advocate } from './data.js';
 import { plain, legislativeDay } from './model.js';
-import { icon, btn, iconBtn, chip, empty, toast, openSheet, closeSheet, notice, avatar, pickerSheet, menuSheet, confirmSheet, segmented } from './ui.js';
+import { icon, btn, iconBtn, chip, empty, toast, openSheet, closeSheet, notice, avatar, pickerSheet, menuSheet, confirmSheet, segmented, filterBtn } from './ui.js';
 import { plural, afterClose } from './lists.js';
 
 const live = () => (S.issues || []).filter(i => !i.archived_at);
@@ -366,7 +366,7 @@ function boardRender(route) {
     ${subHead('Prep board', `${n} of ${ok.length} approved · due ${esc(dueText())}. Owners work through their issues and mark them ready; you approve or send back.`)}
     ${isAdmin() ? tellHTML() : ''}
     ${perLine ? `<div class="pr-per" role="group" aria-label="Show one owner's issues"><span class="small muted">Owners</span>${perLine}${st.who ? btn('Everyone', { kind: 'text', sm: true, attrs: { 'data-prwho': '' } }) : ''}</div>` : ''}
-    <div class="pr-filters">${segmented('prf', FILTERS.map(([k, l]) => [k, `${l}${k === 'all' ? '' : ` (${counts(k)})`}`]), f, 'Show')}</div>
+    <div class="pr-filters"><span class="small muted">${esc(`Showing: ${FILTERS.find(x => x[0] === f)[1]}`)}</span>${filterBtn(f === 'all' ? 0 : 1, { 'data-prfilter': f })}</div>
     <div id="pr-body">${boardBody(f, st.who)}</div>
   </div>`;
 }
@@ -379,7 +379,9 @@ export function wirePrep(route, root) {
   if (prepView(route) !== 'prep') return;
   const st = B();
   const wireRows = () => root.querySelectorAll('[data-prown]').forEach(el => el.onclick = () => { const i = S.issues.find(x => x.id === el.dataset.prown); if (i) changeOwner(i); });
-  root.querySelectorAll('[data-seg="prf"]').forEach(el => el.onclick = () => { st.f = el.dataset.val; hooks.render(); });
+  // R-277 fix 20 (U-3): which issues show is the one Filter button (a pill switch only shows a list another way).
+  root.querySelector('[data-prfilter]')?.addEventListener('click', e => { const counts = k => live().filter(i => inFilter(i, k) && (!st.who || i.owner_id === st.who)).length;
+    pickerSheet({ title: 'Show', value: e.currentTarget.dataset.prfilter, options: FILTERS.map(([k, l]) => [k, l, null, k === 'all' ? '' : plural(counts(k), 'issue')]), onPick: val => { st.f = val; hooks.render(); requestAnimationFrame(() => document.querySelector('[data-prfilter]')?.focus()); } }); });
   root.querySelectorAll('[data-prwho]').forEach(el => el.onclick = () => { const id = el.dataset.prwho || null; st.who = st.who === id ? null : id; if (st.who) st.f = 'all'; hooks.render(); });
   wireRows();
   root.querySelector('[data-pr="tell"]')?.addEventListener('click', async e => {

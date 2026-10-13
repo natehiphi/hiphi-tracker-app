@@ -16,8 +16,7 @@
 .cv-names a { font-weight: 700; text-underline-offset: 3px; }
 .cv-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s8); font-size: var(--t13); line-height: 1.4; color: var(--n500); }
 .cv-meta a { font-weight: 700; }
-.cv-meta .sv-chip { font-size: var(--t13); max-width: 100%; white-space: normal; }
-.cv-meta .sv-chip .ic { width: 14px; height: 14px; }
+.cv-meta .sv-chip { max-width: 100%; white-space: normal; }   /* its size is ui.js chip({ sm }) (R-277 fix 20) */
 .cv-text { margin-top: var(--s4); font-size: var(--t16); line-height: 1.45; color: var(--n900); white-space: pre-wrap; overflow-wrap: anywhere; max-width: 70ch; }
 .cv-more { margin-top: -6px; color: var(--n500); }
 .cv-more .ic { width: 20px; height: 20px; }

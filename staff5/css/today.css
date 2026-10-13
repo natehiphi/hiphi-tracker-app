@@ -375,8 +375,6 @@
   .td-root .wk-bill .td-num { font-size: var(--t13); line-height: 20px; font-weight: 600; }   /* a step under the 14px bold titles (A-13); Poppins titles wrapped "Testimony / due" at 1440 */
   .td-root .wk-bill .sv-p1 { height: 18px; }
   .td-root .wk-right { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; flex: none; }
-  .td-root .wk-right .sv-chip { min-height: 20px; padding: 0 8px; font-size: var(--t13); }
-  .td-root .wk-right .sv-chip .ic { width: 14px; height: 14px; }
   .td-root .wk-b2 { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; min-width: 0; }
   /* The name gets its own line (two at most) and the public's response goes under it, so a bill is never "State progra…" (R-152 C). */
   .td-root .wk-name { flex: 1 1 100%; min-width: 0; font-size: var(--t13); line-height: 18px; color: var(--n700); white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -637,9 +635,6 @@
 .td-root .td-pstep { margin-top: var(--s12); padding-top: var(--s12); border-top: 1px solid var(--n100); }
 .td-root .td-pdue { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s8); margin-bottom: var(--s4); }
 .td-root .td-pdw { font-size: var(--t14); line-height: 20px; color: var(--n500); }
-.td-root .td-ps { font-size: var(--t16); line-height: 22px; font-weight: 700; color: var(--n900); overflow-wrap: anywhere; }
-.td-root .td-pwhy { margin-top: 2px; font-size: var(--t14); line-height: 20px; color: var(--n500); }
-.td-root .td-pq { display: block; -webkit-line-clamp: unset; }   /* the note in full here: the open item is where it is read */
 .td-root .td-pacts { margin-top: var(--s12); display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); }
 .td-root .td-pacts .btn { min-height: 36px; padding: 0 var(--s16); font-size: var(--t14); }
 .td-root .td-pacts .btn.text { padding: 0 var(--s8); }
@@ -666,12 +661,7 @@
 .td-root .td-pgo > .ic { width: 18px; height: 18px; flex: none; color: var(--n500); }
 .td-root .td-pgo > span { flex: 1 1 auto; min-width: 0; }
 .td-root .td-pgo .btn { min-height: 32px; padding: 0 var(--s8); font-size: var(--t14); }
-.td-root .td-popen { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--s8); min-height: 44px; margin: var(--s12) calc(-1 * var(--s16)) 0; padding: 0 var(--s16);
-  background: var(--n0); border-top: 1px solid var(--n100); font-size: var(--t14); font-weight: 700; color: var(--p700); text-decoration: none; }
-.td-root .td-popen:hover { background: var(--p50); }
-.td-root .td-pane.more .td-popen { box-shadow: 0 -8px 12px -8px rgb(20 43 53 / .22); }   /* more of the item is under the foot */
-.td-root .td-popen .ic { width: 18px; height: 18px; }
-.td-root .td-pane > :last-child:not(.td-popen) { margin-bottom: var(--s16); }
+.td-root .td-pane > :last-child:not(.bp-open) { margin-bottom: var(--s16); }
 
 /* ---- This week: under the grid (or the phone's list), the deadlines and the suggestions ---- */
 .td-root .tw-below { margin-top: var(--s24); padding-bottom: var(--s24); }

@@ -105,7 +105,7 @@ function itemHTML(g, here) {
   return `<article class="row cv-item" data-cvkey="${esc(g.key)}">
     <div class="cv-main">
       ${head ? `<p class="cv-names">${head}</p>` : ''}
-      <p class="cv-meta"><span>${meta}</span>${iss ? chip(iss.name, '', 'tag') : ''}</p>
+      <p class="cv-meta"><span>${meta}</span>${iss ? chip(iss.name, '', 'tag', { sm: true }) : ''}</p>
       <p class="cv-text">${esc(g.body)}</p>
     </div>
     ${canTouch(g) ? iconBtn('ellipsis', 'More for this conversation', { 'data-cvmore': g.key }, 'cv-more') : ''}

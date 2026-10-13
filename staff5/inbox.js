@@ -11,7 +11,7 @@
 // what stays and what goes (P-4).
 import { S, DB, DEMO, esc, fmtDate, fmtDT, hooks } from './data.js';
 import { inboxRows, inboxCount, unslack, billById, billNum, billSay, blurb, canFirstApprove, canSecondApprove, plainAction, draftFor } from './model.js';
-import { icon, btn, iconBtn, empty, toast, keysOn, keysUsed } from './ui.js';   // R-277 fix 13: key hints only after a key was used
+import { icon, btn, iconBtn, empty, toast, keysOn, keysUsed, filterBtn } from './ui.js';   // R-277 fix 13: key hints only after a key was used
 import { sandboxInbox, hearingFor } from './today.js';
 import { billRoute, agoWords } from './model.js';
 
@@ -103,7 +103,7 @@ function render() {
   const v = view(), all = S.inbox || [], rows = inboxRows();
   const nNeeds = inboxCount(), unreadHere = rows.filter(i => i.unread).length;
   const filtered = !!(v.q.trim() || v.unreadOnly || v.kind), sorted = v.sort && v.sort !== 'new';
-  // On a laptop a long list opens its filters (one row); on a phone they stay behind "Filter or sort", so the first item
+  // On a laptop a long list opens its filters (one row); on a phone they stay behind the Filter button (R-277 fix 20; it was a "Filter or sort" link), so the first item
   // sits high enough to see (A-1: the review found it at 443-496px on a 390px phone).
   const showF = v.showFilters || filtered || sorted || (rows.length > 15 && wide());
   const grouped = v.group && v.sort !== 'pri' && (v.tab === 'updates' || v.sort === 'bill');
@@ -118,15 +118,16 @@ function render() {
     : empty({ title: 'Nothing here yet', text: 'Messages, testimony steps, alerts and news on your bills land here.' });
   return `<div class="ib-page">
     <div class="ib-bar sv-phead"><h1 class="sv-h1">Inbox</h1>   <!-- R-277 fix 10: the page's own heading row -->
-      <span class="sv-phr"><span class="sv-seg ib-tabs" role="group" aria-label="Which items">${tab('needs', 'To answer', nNeeds)}${tab('updates', 'Updates')}${tab('all', 'Everything')}</span></span>
+      <span class="sv-phr"><span class="sv-tabrow ib-tabs" role="group" aria-label="Which items">${tab('needs', 'To answer', nNeeds)}${tab('updates', 'Updates')}${tab('all', 'Everything')}</span>
+        ${filterBtn([v.q.trim(), v.unreadOnly, v.kind, v.sort !== 'new'].filter(Boolean).length, { 'data-ibfilters': '1', 'aria-expanded': String(!!showF), 'aria-controls': 'ib-filters' }, { popup: false })}</span>   <!-- R-277 fix 20: the one Filter button, where every list has it -->
     </div>
-    ${showF ? `<div class="ib-filters">
+    ${showF ? `<div class="ib-filters" id="ib-filters">
       <label class="sr" for="ib-q">Filter by bill or words</label><input id="ib-q" class="input ib-q" type="search" placeholder="Filter by bill or words" value="${esc(v.q)}" autocomplete="off">
       <label class="check ib-unr"><input type="checkbox" id="ib-unread" ${v.unreadOnly ? 'checked' : ''}><span>Unread only</span></label>
       <label class="sr" for="ib-sort">Sort</label><select id="ib-sort" class="input ib-sort"><option value="new" ${v.sort === 'new' ? 'selected' : ''}>Unread first, then newest</option><option value="pri" ${v.sort === 'pri' ? 'selected' : ''}>Priority, P1 first</option><option value="bill" ${v.sort === 'bill' ? 'selected' : ''}>By bill</option></select>
       ${kinds.length > 1 ? `<div class="ib-kinds" role="group" aria-label="Kind">${kinds.map(([k, l]) => `<button type="button" class="sv-pick sv-toggle${v.kind === k ? ' on' : ''}" data-ibkind="${k}" aria-pressed="${v.kind === k}">${icon(KIND_ICON[k])}<span>${l}</span></button>`).join('')}</div>` : ''}
       ${countLine(filtered ? '<button type="button" class="linkbtn" data-ibclear="1">Clear the filters</button>' : '')}
-    </div>` : countLine('<button type="button" class="linkbtn" data-ibfilters="1">Filter or sort</button>')}
+    </div>` : countLine()}
     <div class="ib-list">${rows.length ? listBody(rows, v) : none}</div>
     ${hover() && keysOn() && keysUsed() && rows.length ? `<p class="ib-keys">${icon('keyboard')}<span>Keys: <kbd>j</kbd> and <kbd>k</kbd> move, <kbd>Enter</kbd> opens, <kbd>e</kbd> marks read or unread, <kbd>Shift</kbd>+<kbd>M</kbd> marks this list read.</span></p>` : ''}
   </div>`;
@@ -151,7 +152,7 @@ function wire(route, root) {
   root.querySelectorAll('[data-ibtab]').forEach(el => el.onclick = () => { v.tab = el.dataset.ibtab; v.kind = ''; hooks.render(); document.querySelector(`[data-ibtab="${v.tab}"]`)?.focus(); });
   root.querySelectorAll('[data-ibkind]').forEach(el => el.onclick = () => { v.kind = v.kind === el.dataset.ibkind ? '' : el.dataset.ibkind; hooks.render(); document.querySelector(`[data-ibkind="${el.dataset.ibkind}"]`)?.focus(); });
   root.querySelectorAll('[data-ibclear]').forEach(el => el.onclick = () => { v.q = ''; v.unreadOnly = false; v.kind = ''; hooks.render(); });
-  root.querySelector('[data-ibfilters]')?.addEventListener('click', () => { v.showFilters = true; hooks.render(); document.getElementById('ib-q')?.focus(); });
+  root.querySelector('[data-ibfilters]')?.addEventListener('click', () => { v.showFilters = !root.querySelector('#ib-filters'); hooks.render(); (v.showFilters ? document.getElementById('ib-q') : document.querySelector('[data-ibfilters]'))?.focus(); });
   const unr = root.querySelector('#ib-unread'); if (unr) unr.onchange = () => { v.unreadOnly = unr.checked; hooks.render(); document.getElementById('ib-unread')?.focus(); };
   const srt = root.querySelector('#ib-sort'); if (srt) srt.onchange = () => { v.sort = srt.value; hooks.render(); document.getElementById('ib-sort')?.focus(); };
   const q = root.querySelector('#ib-q');

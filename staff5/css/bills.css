@@ -17,9 +17,7 @@
 .bl-sp { flex: 1 1 auto; }
 .bl-top .sv-seg { flex: none; }
 .bl-top .iconbtn { flex: none; }
-.bl-fbtn { position: relative; flex: none; }
-.bl-fbtn .ic { width: 18px; height: 18px; }
-.bl-cnt { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--p700); color: #fff; font-size: var(--t13); font-weight: 700; line-height: 1; }
+/* The Filter button is ui.js filterBtn, staff.css .sv-filter (R-277 fix 20). */
 .bl-search { margin-bottom: var(--s8); }
 .bl-search .input { min-height: 48px; padding: 12px 44px; border: 1px solid var(--n400); border-radius: var(--pill); background: var(--n0); width: 100%; font-size: var(--t16); }
 .bl-search .input:focus { outline: none; border-color: var(--p700); box-shadow: 0 0 0 2px var(--p700); }
@@ -83,7 +81,7 @@
 .bl-grp + .bl-grp > .sv-group { border-top: 1px solid var(--n200); }
 .bl-grp > .row + .row { border-top: 1px solid var(--n100); }
 .bl-list .bl-noown { display: inline-flex; align-items: center; gap: 4px; color: var(--n500); }
-.bl-noown .bl-noword { font-size: 12px; line-height: 1.2; white-space: nowrap; }
+.bl-noown .bl-noword { font-size: var(--t13); line-height: 1.2; white-space: nowrap; }   /* 13px, the floor (R-277 fix 20) */
 .bl-list .bl-noown .ic { width: 24px; height: 24px; }
 .bl-list .sv-billrow { -webkit-touch-callout: none; padding-top: 10px; padding-bottom: 10px; }
 /* The title takes two lines before it is cut: the number and the nickname in bold, then the plain summary (with no
@@ -428,26 +426,16 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
 
 /* ---- the docked bill (v3, R-264): from 1100px the bill you click sits in a column beside the table and is held under
    the toolbar while the list scrolls (one side panel at most, at any width: rule 3). Its width is --bl-dw (bills.js
-   dockW says the same). It scrolls inside itself only when it is taller than the window, and then its foot fades
-   until the end is reached (.bl-dend), so nothing hides behind a scrollbar nobody sees. ---- */
+   dockW says the same). It scrolls inside itself only when it is taller than the window, and then its foot (Open the bill)
+   carries a shadow until the end is reached (.more), so nothing hides behind a scrollbar nobody sees. ---- */
 @media (min-width: 1100px) {
   .bl-page { --bl-dw: 360px; }
   .bl-split { display: grid; grid-template-columns: minmax(0, 1fr) var(--bl-dw); gap: var(--s16); align-items: start; }
   .bl-main { min-width: 0; }
   .bl-dock { position: sticky; top: calc(var(--bl-top0) + var(--bl-sh) + var(--s8)); max-height: calc(100vh - var(--bl-top0) - var(--bl-sh) - var(--s24));
-    overflow-y: auto; overscroll-behavior: contain; padding: var(--s12) var(--s16) var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1);
-    -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 24px), transparent); }
-  .bl-dock.bl-dend { -webkit-mask-image: none; mask-image: none; }
-  .bl-dock .lk-dtop { display: flex; align-items: center; gap: var(--s8); margin: 0 0 var(--s4); }
-  .bl-dock .lk-dtop .num { flex: 1 1 auto; min-width: 0; margin: 0; font: 700 var(--t22)/1.15 var(--font-h); color: var(--n900); letter-spacing: -.02em; }
-  .bl-dock .lk-dtop .btn { flex: none; }
-  .bl-dock .lk-dtop .iconbtn { flex: none; margin-right: -8px; }
-  .bl-dock .lk-head { margin-bottom: var(--s12); }
-  .bl-dock .lk-head .nick { margin-top: 0; }
-  .bl-dock .lk-says { margin-bottom: var(--s12); }
-  .bl-dock .lk-card + .lk-card { margin-top: var(--s12); }
-  .bl-dock .lk-card p { margin: 2px 0 0; }
-  .bl-dock .lk-kv { grid-template-columns: 96px minmax(0, 1fr); }
+    overflow-y: auto; overscroll-behavior: contain; padding: var(--s12) var(--s16) 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); }
+  /* R-277 fix 17: the panel is Today's open item (staff.css .bp-*); its foot, "Open the bill", carries a shadow while more
+     of it is below (.more), as Today's does, in place of the fade. */
 }
 @media (min-width: 1366px) { .bl-page { --bl-dw: 400px; } }
 @media (min-width: 1680px) { .bl-page { --bl-dw: 440px; } }

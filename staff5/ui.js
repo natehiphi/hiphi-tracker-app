@@ -19,7 +19,9 @@ export function btn(label, { kind = 'primary', icon: ic, iconEnd, full, sm, href
 }
 export const iconBtn = (ic, label, a = {}, cls = '') => `<button type="button" class="iconbtn${cls ? ' ' + cls : ''}" aria-label="${esc(label)}" title="${esc(label)}"${attrs(a)}>${icon(ic)}</button>`;
 // Status chip: not a button, never drawn with a border. tone: '' | info | warn | danger | ok | yay
-export const chip = (text, tone = '', ic) => `<span class="chip sv-chip${tone ? ' ' + tone : ''}">${ic ? icon(ic) : ''}${esc(text)}</span>`;
+// R-277 fix 20 (U-8): two sizes only, drawn here: the usual one and `sm` for a chip inside a dense line (the week's grid, a
+// committee member's role, a chat line's issue), which were three local size overrides of .sv-chip.
+export const chip = (text, tone = '', ic, { sm = false } = {}) => `<span class="chip sv-chip${sm ? ' sm' : ''}${tone ? ' ' + tone : ''}">${ic ? icon(ic) : ''}${esc(text)}</span>`;
 // Picker chip: a button that opens a picker sheet ("Strong support ▾").
 export const pickerChip = (label, a = {}, ic) => `<button type="button" class="sv-pick"${attrs(a)}>${ic ? icon(ic) : ''}<span>${esc(label)}</span>${icon('chevron-down', { cls: 'chev' })}</button>`;
 // Position: an icon and a word, never colour alone.
@@ -388,5 +390,10 @@ const SECTIONS = {
 };
 export function sectionNav(kind, cur) {
   const [label, items] = SECTIONS[kind] || ['', []];
-  return `<nav class="sv-seg sv-secnav" aria-label="${esc(label)}">${items.map(([k, href, l]) => `<a href="${href}"${k === cur ? ' aria-current="page"' : ''}>${l}</a>`).join('')}</nav>`;
+  return `<nav class="sv-tabrow sv-secnav" aria-label="${esc(label)}">${items.map(([k, href, l]) => `<a href="${href}"${k === cur ? ' aria-current="page"' : ''}>${l}</a>`).join('')}</nav>`;
 }
+// R-277 fix 20 (U-3): one switch did six jobs. Now a section's own pages are a row of tabs (sectionNav above, underlined, as
+// the bill page's); a pill switch (segmented, whoseSeg) only shows the same list another way (Today | This week, Mine | Team);
+// and a list that filters has one Filter button, this one, at the end of its heading row before the "…" (Bills, Legislators,
+// Supporters, the prep board). `n`: how many filters are on.
+export const filterBtn = (n = 0, a = {}, { popup = true } = {}) => `<button type="button" class="btn secondary sm sv-filter"${popup ? ' aria-haspopup="dialog"' : ''}${attrs(a)}>${icon('sliders-horizontal')}<span>Filter</span>${n ? `<span class="sv-fn" aria-label="${n} on">${n}</span>` : ''}</button>`;

@@ -5,8 +5,9 @@
 // guards, and "Open the bill" (v2: "Open full page") is always one click away — the page stays the truth, this is the shortcut.
 // j / k walk the list you came from without closing, which is what makes it faster than opening the page.
 // v3 (R-264, Nate: "too much going on at one time"): on Bills from 1100px the look is docked beside the list instead
-// of over it (dockLook, at the end): one thing open at a time, the list and the bill you picked in full beside it.
-// openLook is unchanged for Today and every other screen.
+// of over it: one thing open at a time, the list and the bill you picked in full beside it.
+// openLook is unchanged for Today and every other screen. Since R-277 fix 17 the docked bill is Today's open item
+// (billpane.js); this file gives it its facts (lookFacts).
 import { S, esc, capitolUrl, fmtDT, fmtDate, myIssuesOf } from './data.js';
 import { openSheet, closeSheet, btn, iconBtn, stageRibbon, avatar, ownerOf, countdown, POS_WORD, keysOn } from './ui.js';
 import { docBtn, keysUsed } from './ui.js';   // R-277 fix 4: one look for the Doc button; fix 13: key hints after a key
@@ -139,33 +140,14 @@ export function openLook(b, { list = null, index = 0 } = {}) {
   });
 }
 
-// ---- docked (v3, Bills from 1100px) ----
-// dockLook(bill) draws the panel; Bills puts it beside the table, keeps which bill it is, and wires it ([data-lkd]:
-// "open" is a link to the bill, so Cmd-click and the middle button open a new tab; "close" closes the panel). One
-// column, read top to bottom: the bill, where it stands, the next step, then the facts, with the position and owner
-// first when the table beside it does not say them in words (`pos`, `own`: Bills says which). Each fact is said once (A-14): the one-line "says"
-// sentence only when there is no next step to show (the card and the facts say all of it), the deadline only where
-// the card has not, and a last action that is just the notice of the hearing above is left out. "Open the bill" is
-// the one filled button in view (A-3).
-export function dockLook(b, { pos = true, own = true } = {}) {
+// ---- the facts of the one open-bill panel (R-277 fix 17, billpane.js) ----
+// Bills' docked bill and Today's open item are one panel now (today.js dockPane, billPaneOf); under its step it shows the
+// stage ribbon and these facts. `pos` and `own` put the position and the owner first (Bills says which, when the table
+// beside it does not say them in words); the last action is left out when it is only the notice of the hearing above.
+export function lookFacts(b, { pos = true, own = true, issue = true } = {}) {
   if (!b) return '';
-  const st = stopOf(b), h = hearingAhead(b), d = h ? draftFor(b.id, h.committee) : null;
-  const live = st.deadline && !st.deadline.missed && st.phase === 'committee';
-  const days = live ? (st.deadline.days <= 0 ? 'today' : st.deadline.days === 1 ? 'tomorrow' : `in ${st.deadline.days} days`) : '';
-  const next = h ? hearingCard(b, h, d)
-    : live ? `<div class="lk-card next"><h3>No hearing yet</h3>
-        <p>Needs one by ${esc(fmtDate(st.deadline.date, { weekday: 'short' }).replace(',', ''))}, ${days}: the ${esc(deadlineName(st.deadline).toLowerCase())}, when it must ${esc(gateNeed(st.deadline.label))}.</p>
-        ${chairBtn(b, st)}</div>` : '';
-  return `<aside class="bl-dock" aria-labelledby="bl-dock-h" data-dock="${esc(b.id)}">
-    <div class="lk-dtop"><h2 class="num" id="bl-dock-h">${b.nickname ? `${esc(b.nickname)} <span class="bn-num">${esc(billNum(b))}</span>` : esc(billNum(b))}</h2>
-      ${btn('Open the bill', { sm: true, href: billRoute(b), iconEnd: 'arrow-right', attrs: { 'data-lkd': 'open', 'data-bill': b.id } })}
-      ${iconBtn('x', 'Close', { 'data-lkd': 'close' })}</div>
-    <div class="lk-head"><p class="sum">${esc(blurb(b, 220))}</p></div>
-    ${stageRibbon(b)}
-    ${!next && st.says ? `<p class="lk-says">${esc(st.says)}</p>` : ''}
-    ${next}
-    <div class="lk-card"><h3>Details</h3>${details(b, st, { deadline: !next || !!h, pos, own, issue: true, last: !(h && /scheduled a public hearing/i.test(b.last_action || '')) })}</div>
-  </aside>`;
+  const st = stopOf(b), h = hearingAhead(b);
+  return `${stageRibbon(b)}${details(b, st, { deadline: !h, pos, own, issue, last: !(h && /scheduled a public hearing/i.test(b.last_action || '')) })}`;
 }
 
 // For a screen that only has a bill number to hand.

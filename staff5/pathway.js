@@ -233,7 +233,7 @@ export function renderCommittees(b) {
 function memberRow(b, m, joint) {
   const l = m.l, x = stanceOf(b.id, l.id), who = x.contact_id && advocate(x.contact_id);
   const lead = Object.entries(m.roles).filter(([, r]) => r !== 'member');
-  const roleChip = !joint ? (m.role === 'member' ? '' : chip(roleWord(m.role))) : lead.map(([c, r]) => chip(`${roleWord(r)}, ${c}`)).join('');
+  const roleChip = !joint ? (m.role === 'member' ? '' : chip(roleWord(m.role), '', undefined, { sm: true })) : lead.map(([c, r]) => chip(`${roleWord(r)}, ${c}`, '', undefined, { sm: true })).join('');
   const only = joint && !lead.length && Object.keys(m.roles).length === 1 ? `${Object.keys(m.roles)[0]} only` : '';
   const sub = [partyDist(l), only, who ? `${who.full_name.split(' ')[0]} knows them` : ''].filter(Boolean).join(' · ');
   // A stop sits in one chamber, so the name drops "Rep."/"Sen." here (the screen reader still hears it).
