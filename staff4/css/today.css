@@ -785,23 +785,28 @@
 .td-root .td-rbn { min-width: 0; }
 .td-root .td-rnick { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t14); line-height: 20px; color: var(--n900); }
 .td-root .td-rbn .bn-num { flex: none; }
-/* A compact row's named bill takes two lines, as the phone's card does: the nickname (up to two lines' worth, never a
-   stub) and under it the number, small, with P1 beside it, so two bills that share a nickname still tell apart. */
-.td-root .td-rb.td-rbn { display: inline-grid; grid-template-columns: auto auto; justify-content: start; align-items: center; gap: 0 6px; white-space: normal; }
-.td-root .td-rbn .td-rnick { grid-column: 1 / -1; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+/* A compact row's named bill runs on up to two lines: the nickname (never a stub) and right after it the number, small,
+   then P1, so two bills that share a nickname still tell apart. */
+.td-root .td-rb.td-rbn { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; line-height: 18px; }
+.td-root .td-rbn .td-rnick { display: inline; white-space: normal; overflow-wrap: anywhere; margin-right: 6px; }
+.td-root .td-rbn .sv-p1 { display: inline-flex; vertical-align: 1px; margin-left: 4px; }
 .td-root .td-rbn .bn-num { line-height: 18px; }
-/* A named bill keeps room for about 16 letters of its nickname (its name now, where the number used to be the floor). */
+/* A named bill keeps room for about 24 letters of its nickname a line (its name now, where the number used to be the floor). */
 @media (min-width: 1100px) {
-  .td-root .td-rb.td-rbn { min-width: 140px; }
-  .td-root .td-rb.td-rbn.td-rbp1 { min-width: 172px; }
-  .td-root .td-rbn ~ .td-rs { max-width: calc(100% - 152px); }
-  .td-root .td-rbn.td-rbp1 ~ .td-rs { max-width: calc(100% - 184px); }
-  .td-root .td-rmain:has(.td-rplus) .td-rbn ~ .td-rs { max-width: calc(100% - 258px); }
-  .td-root .td-rmain:has(.td-rplus) .td-rbn.td-rbp1 ~ .td-rs { max-width: calc(100% - 290px); }
+  .td-root .td-rb.td-rbn { min-width: 200px; }
+  .td-root .td-rb.td-rbn.td-rbp1 { min-width: 200px; }
+  .td-root .td-rbn ~ .td-rs { max-width: calc(100% - 212px); }
+  .td-root .td-rbn.td-rbp1 ~ .td-rs { max-width: calc(100% - 212px); }
+  .td-root .td-rmain:has(.td-rplus) .td-rbn ~ .td-rs { max-width: calc(100% - 318px); }
+  .td-root .td-rmain:has(.td-rplus) .td-rbn.td-rbp1 ~ .td-rs { max-width: calc(100% - 318px); }
 }
 @container tdrows (max-width: 640px) {
-  .td-root .td-rmain:has(.td-rplus) .td-rbn ~ .td-rs { max-width: calc(100% - 184px); }
-  .td-root .td-rmain:has(.td-rplus) .td-rbn.td-rbp1 ~ .td-rs { max-width: calc(100% - 216px); } }
+  .td-root .td-rmain:has(.td-rplus) .td-rbn ~ .td-rs { max-width: calc(100% - 244px); }
+  .td-root .td-rmain:has(.td-rplus) .td-rbn.td-rbp1 ~ .td-rs { max-width: calc(100% - 244px); } }
 .td-root .td-rrow .td-rname.td-nick { flex: 0 1 auto; }
 .td-root .wk-nick { font-size: var(--t13); line-height: 18px; overflow-wrap: anywhere; }
 .td-root .td-pnum .bn-num { font-size: var(--t13); }
+/* the two-line name keeps the row near its one-line height, so Team's Slipping list still fits a laptop's first screen */
+.td-root .td-rbn .td-rnick { line-height: 18px; }
+.td-root .td-rbn .bn-num { line-height: 16px; }
+.td-root .td-row:has(.td-rbn) .td-rsel { padding-top: 3px; padding-bottom: 3px; }
