@@ -5,10 +5,13 @@
 // handled elsewhere (owner, which was the teammate scope, and committee) so every count in the sheet comes from one
 // function, passAll().
 import { S, DB, DEMO, esc, advocate, effStage, STAGES, isMine, isMuted, hooks } from './data.js';
-import { factsOf, facets, FLAGS, FACTS, diedish, codesOf, plain, STAGE_GLOSS, sponsorName } from './model.js';
+import { factsOf, facets, FLAGS, FACTS, diedish, codesOf, plain, STAGE_GLOSS, sponsorName, stopOf } from './model.js';
 import { icon, btn, field, inlineErr, toast, openSheet, closeSheet, iconBtn, POS_ICON, POS_WORD } from './ui.js';
 
 const KEY = 'hiphi2_bills' + (DEMO ? '_demo' : '');
+// v3 (R-264): the row height is v3's own. Staff v2 shares KEY (one origin), so v3 never writes its row height there:
+// v3 starts compact on a laptop, and Staff v2 keeps whatever its user chose. Someone who picks Roomy in v3 keeps it.
+const ROWS_KEY = 'hiphi3_rows' + (DEMO ? '_demo' : '');
 export const wideNow = () => matchMedia('(min-width: 900px)').matches;
 // ui.js closes a menu sheet with history.back(), which lands a moment after the item's action starts. A page change or
 // a new sheet opened before it lands is undone by it (the URL stays behind, the next sheet loses its Back entry). An
@@ -37,7 +40,7 @@ export function deskBack(key, to) {   // key: 'triage' | 'memo' | 'muted' (muted
   return `<a class="bl-deskback" href="#/bills"${SUB.fromList ? ' data-back' : ''}>${icon('chevron-left')}<span>Bills</span></a>`;
 }
 
-// ---- whose bills: Mine, My coalitions, Everyone (R-022, decision 7) ----
+// ---- whose bills: Mine, My coalitions, Team (R-022, decision 7; v3 calls Everyone "Team", R-264) ----
 // Support staff help with whole coalitions rather than owning bills: Kris supports every coalition, Saya CTFH. Their
 // choice lives in advocates.prefs.coalitions ('all', or a list of campaign ids) and is made in My settings. The third
 // scope appears only for someone who supports at least one, so everyone else keeps the two they know.
@@ -50,7 +53,7 @@ export const myCoalitions = () => {
   MC = { c, camps: S.campaigns, n: ids.length, set: new Set(c === 'all' ? ids : Array.isArray(c) ? c.filter(id => ids.includes(id)) : []) };
   return MC.set;
 };
-export const scopeOpts = () => [['me', 'Mine'], ...(myCoalitions().size ? [['coal', 'My coalitions']] : []), ['all', 'Everyone']];
+export const scopeOpts = () => [['me', 'Mine'], ...(myCoalitions().size ? [['coal', 'My coalitions']] : []), ['all', 'Team']];
 // Somebody who owns and follows nothing but supports a coalition starts on that coalition's bills: an empty "Mine"
 // told Kris "You have no bills yet" in the busiest week of the session.
 export const defaultScope = () => !S.bills.some(isMine) && myCoalitions().size ? 'coal' : 'me';
@@ -60,7 +63,7 @@ const okScope = s => s === 'all' || s === 'me' || (s === 'coal' && myCoalitions(
 // read them there; the rest lives on S.bl so nothing else in the app is touched.
 export function bl() {
   if (!S.bl) {
-    S.bl = { scope: 'me', q: '', owners: new Set(), cmtes: new Set(), issues: new Set(), spons: new Set(), folds: {}, cols: new Set(), compact: false, selecting: false, sel: new Set(), sort: null, fopen: new Set(), view: '' };
+    S.bl = { scope: 'me', q: '', owners: new Set(), cmtes: new Set(), issues: new Set(), spons: new Set(), due: '', folds: {}, cols: new Set(), compact: true, selecting: false, sel: new Set(), sort: null, fopen: new Set(), view: '', look: null };
     load();
   }
   // Coalitions can be given up in My settings while the list is on "My coalitions"; it falls back rather than going blank.
@@ -69,11 +72,11 @@ export function bl() {
 }
 // The starting state, and the shape a saved view stores: every filter, and nothing about how the table is drawn
 // (columns and row height are how this person likes to read, not what they are looking at).
-export const BLANK = { scope: 'me', pris: [], poss: [], stands: [], camps: [], lsts: [], hearF: false, riskF: false, tripleF: false, stageF: '', owners: [], cmtes: [], issues: [], spons: [] };
+export const BLANK = { scope: 'me', pris: [], poss: [], stands: [], camps: [], lsts: [], hearF: false, riskF: false, tripleF: false, stageF: '', owners: [], cmtes: [], issues: [], spons: [], due: '' };
 export function viewState() {
   const v = bl();
   return { scope: v.scope, pris: [...S.pris], poss: [...S.poss], stands: [...S.stands], camps: [...S.camps], lsts: [...S.lsts],
-    hearF: S.hearF, riskF: S.riskF, tripleF: S.tripleF, stageF: S.stageF, owners: [...v.owners], cmtes: [...v.cmtes], issues: [...v.issues], spons: [...v.spons] };
+    hearF: S.hearF, riskF: S.riskF, tripleF: S.tripleF, stageF: S.stageF, owners: [...v.owners], cmtes: [...v.cmtes], issues: [...v.issues], spons: [...v.spons], due: v.due || '' };
 }
 // Ids are checked against what exists today, so a deleted coalition or teammate never leaves a filter nobody can see
 // (a saved view made in January is read the same way in April).
@@ -81,7 +84,7 @@ function applyFilters(f) {
   const v = bl();
   S.pris = new Set(); S.poss = new Set(); S.stands = new Set(); S.camps = new Set(); S.lsts = new Set();
   S.hearF = false; S.riskF = false; S.tripleF = false; S.aliveF = false; S.stageF = '';   // "Still alive" is the folded Did not advance group now
-  v.owners = new Set(); v.cmtes = new Set(); v.issues = new Set(); v.spons = new Set();
+  v.owners = new Set(); v.cmtes = new Set(); v.issues = new Set(); v.spons = new Set(); v.due = '';
   if (!f) return;
   const ok = (arr, pool) => (arr || []).filter(x => pool.includes(x));
   v.scope = okScope(f.scope) ? f.scope : 'me';
@@ -96,22 +99,31 @@ function applyFilters(f) {
   v.cmtes = new Set(f.cmtes || []);
   v.issues = new Set(ok(f.issues, (S.issues || []).filter(i => !i.archived_at).map(i => String(i.id))));   // a retired issue drops out, as a deleted teammate does
   v.spons = new Set((f.spons || []).filter(x => typeof x === 'string'));
+  // A deadline that has passed is no filter any more (a saved view or the remembered list from last week).
+  v.due = /^\d{4}-\d{2}-\d{2}$/.test(f.due || '') && f.due >= hstToday() ? f.due : '';
 }
 function load() {
   const v = S.bl;
   let f = null; try { f = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { /* private window: start clean */ }
   applyFilters(f);
+  v.compact = loadRows();
   // A "Mine" with nothing in it is never where someone who supports a coalition should land (see defaultScope).
   if (!f || (v.scope === 'me' && defaultScope() === 'coal')) v.scope = defaultScope();
   if (!f) return;
   const ok = (arr, pool) => (arr || []).filter(x => pool.includes(x));
   v.cols = new Set(ok(f.cols, ['cmte', 'coal', 'last', 'pulse']));
-  v.compact = !!f.compact;
+  v.v2compact = !!f.compact;   // Staff v2's own choice, written back as it was read
   v.view = typeof f.view === 'string' ? f.view : '';
 }
+function loadRows() { try { return localStorage.getItem(ROWS_KEY) !== 'roomy'; } catch { return true; } }
 export function save() {
   const v = bl();
-  try { localStorage.setItem(KEY, JSON.stringify({ ...viewState(), cols: [...v.cols], compact: v.compact, view: v.view || '' })); } catch { /* storage full or blocked: filters just are not remembered */ }
+  try { localStorage.setItem(KEY, JSON.stringify({ ...viewState(), cols: [...v.cols], compact: !!v.v2compact, view: v.view || '' })); } catch { /* storage full or blocked: filters just are not remembered */ }
+}
+// Compact or roomy rows (v3): remembered on their own, so Staff v2 is never switched along with it.
+export function setCompact(on) {
+  bl().compact = !!on;
+  try { localStorage.setItem(ROWS_KEY, on ? 'compact' : 'roomy'); } catch { /* this visit only */ }
 }
 
 // ---- the list ----
@@ -132,7 +144,7 @@ const issueName = id => (S.issues || []).find(i => String(i.id) === String(id))?
 const matchQ = (b, q) => { const n = q.replace(/\s/g, '').toLowerCase();
   return b.bill_number.toLowerCase().includes(n) || [b.nickname, b.title, b.description, b.public_summary].some(t => plain(t).includes(q)); };
 // Whose bills: Mine = owned or followed and not muted (the current app's isMine); My coalitions = every bill in a
-// coalition you support, less the ones you muted (a mute is "off my lists"); Everyone = every tracked bill.
+// coalition you support, less the ones you muted (a mute is "off my lists"); Team = every tracked bill.
 // Monitor bills that died stay out (234 of Nate's 289 monitor bills are dead clerical noise); a search finds them.
 const inMyCoalition = b => { const mc = myCoalitions(); return (S.billCampaigns[b.id] || []).some(id => mc.has(id)); };
 export function baseBills(scope = bl().scope) {
@@ -165,6 +177,17 @@ function passFacets(b, skip) {
   return !S.stageF || effStage(b) === S.stageF;
 }
 const ownerHas = (b, o) => o === 'none' ? !(S.assignments[b.id] || []).length : (S.assignments[b.id] || []).includes(o);
+// "N with no hearing yet" in Bills' deadline sentence (v3, R-264) is a link to exactly those bills: live, with a position,
+// still in committee with no hearing, and racing that deadline. The same test as model.js's sessionGates noHearing, so
+// the number in the sentence and the rows the link shows always agree. Worked out once per pass (see freshFacts).
+let DUE = null;
+const dueOf = b => { if (!DUE) DUE = new Map(); let d = DUE.get(b.id);
+  if (d === undefined) { const st = b.position === 'monitor' || diedish(b) ? null : stopOf(b);
+    d = st && st.column === 'a' && st.deadline && !st.deadline.missed ? st.deadline.date : ''; DUE.set(b.id, d); }
+  return d; };
+const hstToday = () => new Date(Date.now() - 10 * 36e5).toISOString().slice(0, 10);
+// "Mon 3/30": the day a deadline falls on, as Bills says it.
+export const dueDay = d => new Date(d + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' }).replace(',', '');
 export function passAll(b, skip) {
   const v = bl();
   if (!passFacets(b, skip)) return false;
@@ -172,6 +195,7 @@ export function passAll(b, skip) {
   if (skip !== 'cmtes' && v.cmtes.size && !cmtesOf(b).some(c => v.cmtes.has(c))) return false;
   if (skip !== 'issues' && v.issues.size && !issuesOf(b).some(i => v.issues.has(i))) return false;
   if (skip !== 'spons' && v.spons.size && !sponsOf(b).some(n => v.spons.has(n))) return false;
+  if (skip !== 'due' && v.due && dueOf(b) !== v.due) return false;
   return true;
 }
 export const shownBills = (scope) => baseBills(scope).filter(b => passAll(b));
@@ -183,7 +207,7 @@ const cnt = (list, skip, test) => {
   try { return list.filter(b => passAll(b, skip) && test(factsOf(b), b)).length; } finally { S.stageF = st; }
 };
 export const quickCount = (spec, test) => cnt(baseBills(), spec.split(':')[0], test);
-export const freshFacts = () => { FACTS.clear(); ISS = null; };   // positions, coalitions and lists change under the list; facts are cheap to rebuild
+export const freshFacts = () => { FACTS.clear(); ISS = null; DUE = null; };   // positions, coalitions and lists change under the list; facts are cheap to rebuild
 
 // ---- what is switched on ----
 // The quick chips are three of the same filters, one tap away. Muted is a place, not a filter, so it is a link.
@@ -199,12 +223,14 @@ const MINE = new Set(['owners', 'cmtes', 'issues', 'spons']);
 export const isOn = spec => { const i = spec.indexOf(':'), k = i < 0 ? spec : spec.slice(0, i), raw = i < 0 ? '' : spec.slice(i + 1);
   if (i < 0) return !!S[k];
   if (k === 'stageF') return S.stageF === raw;
+  if (k === 'due') return bl().due === raw;
   const set = MINE.has(k) ? bl()[k] : S[k];
   return set.has(k === 'pris' ? Number(raw) : raw); };
 export function toggle(spec) {
   const i = spec.indexOf(':'), k = i < 0 ? spec : spec.slice(0, i), raw = i < 0 ? '' : spec.slice(i + 1);
   if (i < 0) S[k] = !S[k];
   else if (k === 'stageF') S.stageF = S.stageF === raw ? '' : raw;
+  else if (k === 'due') { const v = bl(); v.due = v.due === raw ? '' : raw; }
   else { const set = MINE.has(k) ? bl()[k] : S[k], v = k === 'pris' ? Number(raw) : raw; set.has(v) ? set.delete(v) : set.add(v); }
   changed();
 }
@@ -239,7 +265,7 @@ export function applyView(id) {
   const v = bl(); applyFilters(w.f); v.q = ''; changed(); v.view = id; save(); return true;
 }
 // A link that opens Bills on one coalition (#/bills?coalition=<id or slug>, from the coalition page, R-022): every one
-// of its bills (Everyone), and nothing else switched on. A one-off: it is not a saved view and is not written over what
+// of its bills (Team), and nothing else switched on. A one-off: it is not a saved view and is not written over what
 // this browser remembers, so a reload comes back to the person's own list. Whatever they change after it is theirs.
 export function openCoalition(id) { const v = bl(); applyFilters({ ...BLANK, scope: 'all', camps: [id] }); v.q = ''; v.view = ''; v.folds = {}; }
 // Back to how Bills looks on a first visit: your own bills (or your coalitions', for someone who owns none), no
@@ -251,7 +277,7 @@ export const isDefault = () => { const f = viewState(); return !activeFilters().
 // A real form, so openSheet (never window.prompt, which no phone shows well and no screen reader announces).
 const suggestName = () => {
   const on = activeFilters().map(([, l]) => l);
-  return (on.length ? on.slice(0, 3).join(' · ') : bl().scope === 'all' ? 'Everyone’s bills' : bl().scope === 'coal' ? 'My coalitions’ bills' : 'My bills').slice(0, 40);
+  return (on.length ? on.slice(0, 3).join(' · ') : bl().scope === 'all' ? 'Team bills' : bl().scope === 'coal' ? 'My coalitions’ bills' : 'My bills').slice(0, 40);
 };
 const nameTaken = (name, notId) => views().some(w => w.id !== notId && w.name.toLowerCase() === name.toLowerCase());
 // One name form for both jobs: Save this view, and Rename. `after` redraws whatever opened it.
@@ -330,6 +356,7 @@ export function activeFilters() {
   for (const c of v.cmtes) out.push([`cmtes:${c}`, c]);
   for (const i of v.issues) out.push([`issues:${i}`, issueName(i)]);
   for (const n of v.spons) out.push([`spons:${n}`, sponsorName(n)]);
+  if (v.due) out.push([`due:${v.due}`, `Needs a hearing by ${dueDay(v.due)}`]);
   return out;
 }
 export const filterCount = () => activeFilters().length;

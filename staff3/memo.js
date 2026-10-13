@@ -9,7 +9,7 @@
 // can be sent to a coalition as it is (see model.js). Audience and coalition follow the person between laptop and
 // phone (advocates.prefs.memo, B-6), and a link can set both: #/bills/memo?coalition=<id or slug>&audience=partners.
 import { S, DB, esc, isMine, hooks } from './data.js';
-import { memoData, memoHTML, memoText, billByRef } from './model.js';
+import { memoData, memoHTML, memoText, billByRef, billNum } from './model.js';
 import { btn, segmented, field, toast, empty, keysOn } from './ui.js';
 import { deskBack, wideNow, typingIn, myCoalitions } from './filters.js';
 import { billRoute } from './model.js';
@@ -52,7 +52,38 @@ function choose(patch) {
   DB.patchPrefs({ memo: { audience: v.audience, coalition: v.coalition } }).catch(e => toast(e, { err: true }));
   hooks.render();
 }
-function data() { try { return memoData(); } catch (e) { console.error(e); return null; } }
+function data() { try { return tidy(memoData()); } catch (e) { console.error(e); return null; } }
+
+// ---- v3 (R-264): each bill once, and the position said only where it is not Support ----
+// memoData (model.js) writes a line for every section a bill is in, so HB 2049 HD3 and HB 2296 HD1 were under both
+// "Moving" and "Needs a hearing by Mon 3/30", and "HIPHI supports." opened some 20 lines. A bill that moved and is also
+// in a section that asks for something (a hearing this week, at risk, needs a hearing, did not advance) keeps one
+// line, there, with the move first: "Arrived from the House (3/12). Waiting in AEN." Any other repeat is dropped.
+// "How you can help" is the public ask, a different list, and keeps its lines. The intro says once that HIPHI supports
+// every bill unless its line says otherwise; a bill with no position yet says so on its line. Words from the word list
+// (C-15): "did not advance", never "finished for the year"; testimony "ready to file", not "approved, not filed yet".
+const ASK = /^How you can help/, PRE = /^HIPHI [^.]*\. /, SUPPORTS = 'HIPHI supports. ';
+const words = t => t.replace(/approved, not filed yet/g, 'ready to file');
+function tidy(m) {
+  if (!m) return m;
+  const num = i => typeof i === 'string' ? '' : i.num;
+  const sections = m.sections.map(([h, items]) => [h, items.map(i => typeof i === 'string' ? i : { ...i, text: words(i.text) })]);
+  const home = new Map();   // a bill's line in a section that asks for something
+  sections.forEach(([h, items]) => { if (h !== 'Moving' && !ASK.test(h)) for (const i of items) if (num(i) && !home.has(num(i))) home.set(num(i), i); });
+  const mv = sections.find(([h]) => h === 'Moving');
+  if (mv) mv[1] = mv[1].filter(i => { const at = home.get(num(i)); if (!at) return true;
+    const p = (PRE.exec(at.text) || [''])[0]; at.text = `${p}${i.text.replace(PRE, '')} ${at.text.slice(p.length)}`; return false; });
+  const seen = new Set();
+  for (const sec of sections) if (!ASK.test(sec[0])) sec[1] = sec[1].filter(i => !num(i) || (seen.has(num(i)) ? false : (seen.add(num(i)), true)));
+  const kept = sections.filter(([, items]) => items.some(i => typeof i !== 'string'));
+  const bill = new Map(S.bills.map(b => [billNum(b).replace(/^(\D+)/, '$1 '), b]));
+  let said = 0;
+  for (const [h, items] of kept) if (!ASK.test(h)) for (const i of items) { if (typeof i === 'string') continue;
+    if (i.text.startsWith(SUPPORTS)) { i.text = i.text.slice(SUPPORTS.length); said++; }
+    else if (!PRE.test(i.text) && !bill.get(i.num)?.position) i.text = `No position yet. ${i.text}`; }
+  const intro = m.intro.replace(/finished for the year/g, 'did not advance') + (said ? ' HIPHI supports each bill below unless its line says otherwise.' : '');
+  return { ...m, intro, sections: kept, empty: !kept.length };
+}
 
 const copyBtns = sm => `${btn('Copy as text', { kind: 'secondary', sm, icon: 'copy', attrs: { 'data-mcopy': 'text' } })}${btn('Copy for email', { sm, icon: 'mail', attrs: { 'data-mcopy': 'rich' } })}`;
 const LEDE = {
@@ -76,7 +107,7 @@ export default {
       <p class="bl-lede">${esc(LEDE[partners ? 'partners' : 'team'](v))}</p>
       <div class="bl-mctl">
         <div class="bl-maud"><span class="bl-mlabel" id="bl-maud-l">For</span>${segmented('memoaud', AUDIENCES, partners ? 'partners' : 'team', 'Who the memo is for')}</div>
-        ${partners ? '' : `<div class="bl-mwho"><span class="bl-mlabel" id="bl-mwho-l">Whose bills</span>${segmented('memowho', [['me', 'Your bills'], ['all', 'Everyone’s']], v.who === 'me' ? 'me' : 'all', 'Whose bills')}</div>`}
+        ${partners ? '' : `<div class="bl-mwho"><span class="bl-mlabel" id="bl-mwho-l">Whose bills</span>${segmented('memowho', [['me', 'Mine'], ['all', 'The team’s']], v.who === 'me' ? 'me' : 'all', 'Whose bills')}</div>`}
         ${field('bl-mcoal', 'Coalition', coal)}
       </div>
       <article class="card bl-memo${partners ? ' bl-mpart' : ''}" aria-label="Memo preview">${m ? memoHTML(m) + (m.empty ? '<p class="bl-quiet">A quiet week for these bills: no hearings, no floor votes and no deadline in sight.</p>' : '')
@@ -94,6 +125,7 @@ export default {
     });
     seg('memoaud', 'audience');
     // "Whose bills" is the team's choice for this visit (a partner memo is always the coalition's); it is not remembered.
+    // v3: Mine | The team's, Bills' words (R-264), with "the team's" so it is not read as the audience "Team" beside it.
     root.querySelectorAll('[data-seg="memowho"]').forEach(el => el.onclick = () => { if (v.who === el.dataset.val) return; v.who = el.dataset.val; hooks.render(); root.querySelector(`[data-seg="memowho"][data-val="${v.who}"]`)?.focus(); });
     const sel = root.querySelector('#bl-mcoal'); if (sel) sel.onchange = () => { choose({ coalition: sel.value }); document.querySelector('#bl-mcoal')?.focus(); };
     root.querySelectorAll('[data-mcopy]').forEach(el => el.onclick = async () => {

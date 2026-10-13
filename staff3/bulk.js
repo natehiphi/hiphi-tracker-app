@@ -18,7 +18,8 @@ const billsN = n => `${n} bill${n === 1 ? '' : 's'}`;
 const hiddenOf = ids => { const vis = new Set(shownBills().map(b => b.id)); return ids.filter(id => !vis.has(id)); };
 // Select mode is a step in the browser's history, the way a sheet is: the phone's Back ends it and leaves you on
 // Bills (it used to leave Bills for Today with the mode still on underneath). The x and Esc take that step back
-// themselves. Desktop has no mode to leave (the tick boxes are always there), so nothing is pushed there.
+// themselves. v3 (R-264): a desktop has the mode too (the tick boxes come with "Select bills" in "…", so a plain list
+// has none), but nothing is pushed there: its x and Esc end it, and Back leaves Bills as it always did.
 let swallow = false;   // our own history.back() is on its way: that popstate is not a page change
 export function startSelect(firstId) {
   const v = bl();
@@ -58,19 +59,21 @@ if (typeof window !== 'undefined') {
 const followPlan = ids => ({ on: ids.filter(id => !S.follows?.has(id) && !isOwner({ id })), off: ids.filter(id => S.follows?.has(id)), owned: ids.filter(id => isOwner({ id }) && !S.follows?.has(id)) });
 const FOLLOW_WHY = { on: 'You own or already follow every one of them', off: 'You follow none of them' };
 export function bulkBar() {
-  const ids = selIds(), n = ids.length, hid = hiddenOf(ids).length, wide = wideNow();
-  if (wide && !n) return '';
+  const ids = selIds(), n = ids.length, hid = hiddenOf(ids).length, wide = wideNow(), on = bl().selecting;
+  if (wide && !n && !on) return '';
   const count = `<span class="bl-bar-n" aria-live="polite"><b>${n}</b><span class="bl-bar-w">selected</span>${hid ? `<span class="bl-bar-h">${hid} hidden by your filters</span>` : ''}</span>`;
   if (wide) {
     const fp = followPlan(ids);
-    const b = (label, act, ic, why) => btn(label, { kind: 'secondary', sm: true, icon: ic, attrs: { 'data-bulk': act, 'aria-disabled': why ? 'true' : null, title: why || null } });
+    // Nothing ticked yet: every button is there (the bar does not jump as the first tick lands) and says why it waits.
+    const none = !n && 'Tick a bill first';
+    const b = (label, act, ic, why) => btn(label, { kind: 'secondary', sm: true, icon: ic, attrs: { 'data-bulk': act, 'aria-disabled': none || why ? 'true' : null, title: none || why || null } });
     // Your own list first, then what changes the bills for everyone (position and owner: R-106; priority follows the
     // position, R-175). Follow and Unfollow
     // show when they would change something (as a mail app offers "Mark as read" or "Mark as unread" for what is
     // selected), so the bar stays one row at 1280; with nothing to change, Follow stays and says why.
     const follows = `${fp.on.length || !fp.off.length ? b('Follow', 'follow', 'bell', !fp.on.length && FOLLOW_WHY.on) : ''}${fp.off.length ? b('Unfollow', 'unfollow', 'bell-off') : ''}`;
     return `<div class="bl-bar bl-barw" role="toolbar" aria-label="Change the selected bills">
-      ${iconBtn('x', 'Clear the selection', { 'data-bulk': 'clear' })}${count}
+      ${on ? iconBtn('x', 'Stop selecting', { 'data-bulk': 'exit' }) : iconBtn('x', 'Clear the selection', { 'data-bulk': 'clear' })}${count}
       ${follows}<span class="bl-barsep" aria-hidden="true"></span>
       ${b('Set position', 'pos', 'thumbs-up')}${b('Set owner', 'own', 'user-round')}${b('Add to…', 'add', 'plus')}</div>`;
   }

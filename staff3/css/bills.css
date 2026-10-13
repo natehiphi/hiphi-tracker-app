@@ -1,6 +1,8 @@
 /* Staff v2 · Bills, filters, select mode, muted bills and the weekly memo (plan 3.4, 3.10). Every selector starts
    from a .bl- class. Five type sizes only (13/14/16/18/22); 44px targets on phones; blue only for actions and
-   selection; status carries a word or an icon, never colour alone. */
+   selection; status carries a word or an icon, never colour alone.
+   Staff v3 (R-264): one deadline sentence in place of the count line and the "Where every bill stands" box, compact
+   one-line rows by default, and from 1100px the bill you click docked beside the table (.bl-split, .bl-dock). */
 
 /* ---- page frame: phones and tablets keep a 720px column, desktop gets the 1200px table ----
    --bl-top0 is where this page's own sticky things start: under the app header, and 28px lower when the sandbox
@@ -32,24 +34,27 @@
 .bl-quick { display: flex; gap: var(--s8); align-items: center; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--gutter)) var(--s4); padding: 0 var(--gutter) var(--s4); scroll-padding: 0 var(--gutter); }
 .bl-quick::-webkit-scrollbar { display: none; }
 .bl-quick > * { flex: none; }
-.bl-quick a.chip { min-height: 44px; padding: 8px 16px; border: 1px solid var(--n400); background: var(--n0); color: var(--n700); font-size: var(--t14); text-decoration: none; }
-.bl-quick a.chip:hover, .bl-page button.chip.bl-q:not(:disabled):hover { border-color: var(--p700); }
+.bl-page button.chip.bl-q:not(:disabled):hover { border-color: var(--p700); }
 .bl-page .chip .bl-n, .bl-fs .chip .bl-n { color: var(--n500); font-weight: 700; margin-left: 2px; }
 .bl-page .chip[aria-pressed="true"] .bl-n, .bl-fs .chip[aria-pressed="true"] .bl-n { color: var(--p800); }
 .bl-page button.chip:disabled, .bl-fs button.chip:disabled { color: var(--n500); border-color: var(--n200); background: var(--n50); cursor: default; }
 .bl-page button.chip:disabled .bl-n, .bl-fs button.chip:disabled .bl-n { color: var(--n500); font-weight: 400; }
 .bl-q .ic { width: 16px; height: 16px; }
-.bl-sum { font-size: var(--t14); color: var(--n500); margin: var(--s8) 0; }
-/* On a phone the strip right above already counts every group, so this line only has to carry the total. It sits
-   tight under the strip instead of floating between two blocks. */
-.bl-phone .bl-sum { margin: 0 0 var(--s8); }
-.bl-sum b { color: var(--n900); }
-.bl-sum:empty { margin: 0; }
+.bl-sum { font-size: var(--t14); color: var(--n500); margin: 0 0 var(--s8); }
+.bl-sum:not(:has(button)) { margin: 0; }
+/* ---- the deadline sentence (v3): the next two deadlines and the work each leaves, in one or two lines of 14px. The
+   deadline's name is bold; "N with no hearing yet" is a link to exactly those bills. Amber only inside a day of the
+   deadline (A-5), with the words "today" or "tomorrow" saying it too. ---- */
+.bl-dls { display: flex; align-items: flex-start; gap: var(--s8); margin: 0 0 var(--s12); font-size: var(--t14); line-height: 1.4; color: var(--n700); }
+.bl-dls > .ic { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--n500); }
+.bl-dls b { color: var(--n900); }
+.bl-dls .bl-dlk { font: inherit; font-weight: 700; }
+.bl-dls.soon > .ic, .bl-dls.soon .bl-dlday { color: var(--warn-text); }
 #bl-banner:empty { display: none; }
 #bl-banner .sv-notice { margin: var(--s8) 0 var(--s12); }
 .bl-selhead { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); font-size: var(--t14); color: var(--n700); margin: 0 0 var(--s8); }
 
-/* ---- saved views: a row of chips beside Mine/Everyone. The one you are in carries a tick-style icon and
+/* ---- saved views: a row of chips beside Mine/Team. The one you are in carries a tick-style icon and
    aria-pressed, never colour alone. ---- */
 .bl-views { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin: 0 0 var(--s8); }
 .bl-vlab { font-size: var(--t13); font-weight: 700; color: var(--n500); }
@@ -68,55 +73,6 @@
 .bl-vhelp { margin: 0 0 var(--s12); }
 .bl-verr:empty { display: none; }
 .bl-vinput { width: 100%; }
-
-/* ---- "Where every bill stands": one row over the table. Every count is a button that takes you to that group in
-   the list (the grouped table already shows the bills, so this is a glance, not a second list). The three that
-   carry the work are full buttons; the rest is a quieter run, so seven equal chips never all shout at once. ---- */
-.bl-stands { display: flex; flex-direction: column; gap: var(--s8); margin: 0 0 var(--s12); padding: var(--s12); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); }
-.bl-stands-h { font: 700 var(--t13)/1.2 var(--font); color: var(--n500); margin: 0; }
-.bl-stgs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); }
-.bl-stlead { display: flex; align-items: center; gap: var(--s8); min-width: 0; }
-.bl-stlead > * { flex: none; }
-/* Desktop has the real heading over the row, so the inline label is phone-only. */
-.bl-stlab { display: none; }
-/* On a phone the strip is a plain block, not a card. Nate asked on 9/19 why so much sits above the first bill:
-   the card was 157px of which the heading, the border, the padding and a two-line deadline were most of it. The
-   heading is now for screen readers only - the screen is called Bills and every count names itself - the counts
-   are one sideways-scrolling row flush with the page gutter like the quick chips right above them, and the
-   deadline is one line. 157px became about 70. Below 360px it is hidden altogether (rule at the foot of this
-   file): at that width nothing fits above the first bill whatever we do to the strip. */
-.bl-phone .bl-stands { gap: var(--s4); margin: 0 0 var(--s8); padding: 0; background: none; border: 0; border-radius: 0; box-shadow: none; }
-.bl-phone .bl-stands-h { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-.bl-phone .bl-stgs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter) var(--s4); scroll-padding: 0 var(--gutter); }
-.bl-phone .bl-stgs::-webkit-scrollbar { display: none; }
-.bl-phone .bl-stlead, .bl-phone .bl-strest { display: contents; }
-.bl-phone .bl-stgs > * { flex: none; }
-/* Says which row this is without costing a line: the quick chips above filter the list, these jump to a group. */
-.bl-phone .bl-stlab { display: inline-flex; align-items: center; align-self: stretch; padding-right: var(--s4); font: 700 var(--t13)/1.2 var(--font); color: var(--n500); }
-/* The next two deadlines, one line each (R-022, decision 3): the day, the deadline, then the work. The deadline's
-   name is what gives way on a narrow phone; the day and "N with no hearing yet" are never cut. */
-.bl-phone .bl-clock { align-items: center; gap: var(--s4); padding-top: 0; border-top: 0; }
-.bl-phone .bl-cl { flex: 1 1 auto; gap: 0; }
-.bl-phone .bl-dl { display: flex; flex-direction: row; align-items: baseline; gap: var(--s8); min-width: 0; white-space: nowrap; }
-.bl-phone .bl-dld { flex: none; color: var(--n900); }
-.bl-phone .bl-dln { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--n700); }
-.bl-phone .bl-dlw { flex: none; color: var(--n500); }
-.bl-stg { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px 14px; border: 1px solid var(--n400); border-radius: var(--pill); background: var(--n0); color: var(--n900); font-size: var(--t14); font-weight: 700; text-align: left; }
-.bl-stg .n { font: 700 var(--t16)/1 var(--font); color: var(--p800); }
-.bl-stg:hover { border-color: var(--p700); background: var(--p50); }
-.bl-strest { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4); }
-.bl-stg2 { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 4px 8px; border-radius: var(--r8); color: var(--n500); font-size: var(--t13); }
-.bl-stg2 .n { font-weight: 700; color: var(--n700); }
-.bl-stg2:hover { background: var(--n100); color: var(--n900); }
-.bl-clock { display: flex; align-items: flex-start; gap: var(--s8); padding-top: var(--s8); border-top: 1px solid var(--n100); font-size: var(--t13); color: var(--n700); }
-.bl-clock > .ic { width: 18px; height: 18px; flex: none; color: var(--n500); margin-top: 1px; }
-.bl-cl { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.bl-dl { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.bl-cl1 b { color: var(--n900); }
-.bl-cl2 { color: var(--n500); }
-.bl-cl2 .bl-nh, .bl-dlw .bl-nh { color: var(--n900); }
-/* amber only inside a day of the deadline, and only on that deadline; the words ("today", "tomorrow") say it too */
-.bl-clock.soon > .ic, .bl-dl.soon .bl-cl1 b, .bl-dl.soon .bl-dld { color: var(--warn-text); }
 
 /* ---- phone list: one card, sticky group headers (no overflow:hidden, which would stop them sticking) ---- */
 .bl-list { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); }
@@ -269,40 +225,20 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-wide .bl-search .ic-search { top: 12px; }
   .bl-wide .bl-search .iconbtn { top: 0; }
   .bl-top .btn.secondary:hover, .bl-top .iconbtn:hover { background: var(--p50); }
-  /* one line above the table: the quick chips on the left, what the list holds on the right */
-  .bl-frow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s16); margin-bottom: var(--s8); }
-  .bl-frow .bl-quick { flex: 1 1 auto; flex-wrap: wrap; overflow: visible; margin: 0; padding: 0; }
-  .bl-frow .bl-sum { flex: none; margin: 0 0 0 auto; }
-  .bl-wide button.chip.bl-q, .bl-wide a.chip.bl-q, .bl-wide button.chip.bl-onchip { min-height: 36px; padding-top: 4px; padding-bottom: 4px; }
+  /* one line above the table (v3): the deadline sentence on the left, the quick chips on the right under Filter. When
+     the sentence needs two lines the chips sit beside it; in a narrow window they go under it. */
+  .bl-frow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s24); margin-bottom: var(--s12); }
+  .bl-frow > .bl-dls, .bl-frow > .bl-sum { flex: 1 1 420px; min-width: 0; margin: 0; }
+  .bl-frow .bl-quick { flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-end; overflow: visible; margin: 0 0 0 auto; padding: 0; }
+  .bl-wide button.chip.bl-q, .bl-wide button.chip.bl-onchip { min-height: 36px; padding-top: 4px; padding-bottom: 4px; }
   .bl-wide button.chip.bl-q[aria-pressed="true"] { padding-top: 3px; padding-bottom: 3px; }
-  .bl-wide button.chip.bl-q:not(:disabled):hover, .bl-wide a.chip.bl-q:hover { background: var(--p50); }
+  .bl-wide button.chip.bl-q:not(:disabled):hover { background: var(--p50); }
   .bl-wide button.chip.bl-onchip:hover { background: var(--p100); }
   .bl-wide .bl-on { margin: 0 0 var(--s8); }
   .bl-wide .bl-on .btn.sm { min-height: 36px; }
   .bl-onlab { display: inline; font-size: var(--t13); font-weight: 700; color: var(--n500); margin-right: var(--s4); }
   .bl-keys { display: block; margin-top: var(--s12); font-size: var(--t13); color: var(--n500); }
   .bl-keys kbd { font: 700 var(--t13)/1 var(--font); color: var(--n900); background: var(--n0); border: 1px solid var(--n300); border-bottom-width: 2px; border-radius: 4px; padding: 2px 6px; }
-
-  /* the strip is one row on a desktop: the counts on the left, the deadline clock on the right */
-  .bl-wide .bl-stands { flex-direction: row; align-items: center; gap: var(--s16); padding: var(--s8) var(--s12); }
-  .bl-wide .bl-stands-h { flex: none; }
-  .bl-wide .bl-stgs { flex: 1 1 auto; min-width: 0; }
-  .bl-wide .bl-stg { min-height: 36px; padding: 4px 12px; }
-  .bl-wide .bl-stg2 { min-height: 32px; }
-  /* min-width: 0 on both halves, or the row refuses to give and the page itself scrolls sideways at 1100px,
-     where the sidebar arrives and the page loses 248px in one step. */
-  .bl-wide .bl-clock { flex: 0 1 auto; min-width: 0; max-width: 48%; padding-top: 0; border-top: 0; border-left: 1px solid var(--n100); padding-left: var(--s16); line-height: 1.35; }
-  .bl-wide .bl-cl { gap: 4px; }
-  .bl-wide .bl-dl { gap: 1px; }
-  .bl-wide .bl-stgs { flex-basis: 360px; }
-  /* Two deadlines need about 350px. Where the strip has less than 1000px (a 1280 window beside the sidebar, or 900 to
-     1047 without it) the heading steps back to screen readers, as it does on a phone, so the counts and the deadlines
-     still sit side by side and the strip is no taller than it was with one deadline. */
-  .bl-wide .bl-stq { container: blst / inline-size; }
-  @container blst (max-width: 999px) {
-    .bl-stands-h { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-    .bl-wide .bl-stands { gap: var(--s12); }
-  }
 
   /* the link back to Bills on Sort new bills, the weekly memo and muted bills (the frame's arrow is for phones) */
   .bl-deskback { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: 0 0 var(--s4) -8px; padding: 0 12px 0 4px; border-radius: var(--pill); color: var(--p700); font-weight: 700; text-decoration: none; }
@@ -328,6 +264,9 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-memo h3 { font-size: var(--t18); margin: var(--s24) 0 var(--s8); }
   .bl-memo li { margin: 6px 0; }
 
+  /* Bills' "…" menu holds eleven items since v3 (A-20): let it be as tall as the window allows, not 480px with Export
+     CSV out of sight below a scroll nobody sees */
+  body[data-screen="bills"] dialog.sv-sheet.sv-pop { max-height: min(680px, calc(100vh - 32px)); }
   dialog.sv-sheet.bl-pop { position: fixed; margin: 0; right: auto; bottom: auto; min-height: 0; height: auto; border-radius: var(--r12); box-shadow: var(--sh3); }
   dialog.sv-sheet.bl-pop::backdrop { background: rgba(9, 53, 70, .12); }
   dialog.sv-sheet .bl-colsep { height: 1px; background: var(--n100); margin: var(--s4) 0; }
@@ -370,6 +309,11 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-table tbody tr.sel td { background: var(--p50); }
   .bl-table tbody tr.sel:hover td { background: var(--p100); }
   .bl-table tbody tr.bl-cur td:first-child { box-shadow: inset 3px 0 0 var(--p700); }
+  /* the row whose bill is docked beside the table: a wash and a 4px bar, and aria-current for a screen reader (never
+     colour alone) */
+  .bl-table tbody tr.bl-look td, .bl-table tbody tr.bl-look:hover td { background: var(--p50); }
+  .bl-table tbody tr.bl-look td:first-child { box-shadow: inset 4px 0 0 var(--p700); }
+  .bl-table tbody tr.bl-look .bl-num a { color: var(--p800); }
   .bl-table .bl-gr th { position: sticky; top: calc(var(--bl-top0) + var(--bl-sh) + var(--bl-th)); z-index: 5; padding: 0; background: var(--n50); border-top: 1px solid var(--n200); border-bottom: 1px solid var(--n200); text-align: left; font-weight: 400; }
   .bl-table .bl-tg:first-of-type .bl-gr th { border-top: 0; }
   .bl-table .bl-gr + tr td { border-top: 0; }
@@ -391,22 +335,9 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-table .bl-own { min-width: 36px; justify-content: center; }
   .bl-table .bl-noown { display: inline-flex; color: var(--n500); }
   .bl-table .bl-noown .ic { width: 24px; height: 24px; }
-  .bl-table thead th.bl-h-look, .bl-table td.bl-lk { padding: 0; text-align: center; }
-  /* "Quick look" beside the button the moment the pointer or the keyboard reaches it (A-12, A-18). It opens to the
-     left, over the row's own cells, so the cell lets it out. */
-  .bl-table td.bl-lk { overflow: visible; }
-  .bl-table .bl-lkb { position: relative; }
-  .bl-table .bl-lkb::after { content: attr(data-tip); position: absolute; right: calc(100% + 6px); top: 50%; transform: translateY(-50%); z-index: 3; padding: 4px 8px; border-radius: 6px;
-    background: var(--n900); color: #fff; font: 700 var(--t13)/1.2 var(--font); white-space: nowrap; box-shadow: var(--sh2); pointer-events: none; opacity: 0; transition: opacity .15s var(--ease); }
-  .bl-table .bl-lkb:hover::after, .bl-table .bl-lkb:focus-visible::after { opacity: 1; }
   /* a bill you follow but do not own, under Mine (there is no Owner column there) */
   .bl-table .bl-fol { display: inline-flex; vertical-align: -3px; margin-left: 6px; color: var(--n500); }
   .bl-table .bl-fol .ic { width: 16px; height: 16px; }
-  .bl-table .bl-lkb { width: 32px; height: 32px; min-height: 0; margin: 0 auto; color: var(--n400); border-radius: var(--r8); }
-  .bl-table .bl-lkb .ic { width: 18px; height: 18px; }
-  .bl-table tbody tr:hover .bl-lkb { color: var(--p700); }
-  .bl-table .bl-lkb:hover { background: var(--p50); color: var(--p700); }
-  .bl-table.bl-compact .bl-lkb { width: 28px; height: 28px; }
   .bl-table .bl-days, .bl-table .bl-date { color: var(--n500); white-space: nowrap; }
   .bl-table .bl-dash { color: var(--n500); }
 
@@ -423,7 +354,9 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-table.bl-compact .bl-c2 br { display: none; }
   .bl-table.bl-compact .bl-lns { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .bl-table.bl-compact .bl-ln { display: inline; overflow: visible; }
-  .bl-table.bl-compact .bl-l2::before { content: ' · '; }
+  /* v3: a compact row says the first line of each cell ("In HSH/HLT", "Tue 3/17"); the rest (which committee of how
+     many, the time and room) is in the docked bill and on hover (rule 2) */
+  .bl-table.bl-compact .bl-l2 { display: none; }
   .bl-table.bl-compact .bl-xw { display: none; }
   .bl-table.bl-compact .bl-gr .sv-group { min-height: 32px; padding: 0 8px; font-size: var(--t14); }
   .bl-table.bl-compact .bl-ck label { width: 40px; height: 38px; }
@@ -488,13 +421,31 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
    off the box itself, so a screen that has no search box keeps the header's. ---- */
 .sv-page:has(.bl-search) .sv-hdr .sv-srchbtn { display: none; }
 
-/* ---- narrow phones: the strip goes ---- Nate's call, 9/19, from a measured three-way comparison. Even flattened
-   the strip is about 70px, and at 320x568 that is still the difference between no bill on screen and two. Every
-   count it carries is also reachable from Filter, so nothing is lost, only a glance. 360px is the line because
-   every current phone is 375 or wider; this is the iPhone SE 1, older Androids, and anyone on large text. ---- */
-@media (max-width: 359px) {
-  .bl-phone .bl-stands { display: none; }
+/* ---- the docked bill (v3, R-264): from 1100px the bill you click sits in a column beside the table and is held under
+   the toolbar while the list scrolls (one side panel at most, at any width: rule 3). Its width is --bl-dw (bills.js
+   dockW says the same). It scrolls inside itself only when it is taller than the window, and then its foot fades
+   until the end is reached (.bl-dend), so nothing hides behind a scrollbar nobody sees. ---- */
+@media (min-width: 1100px) {
+  .bl-page { --bl-dw: 360px; }
+  .bl-split { display: grid; grid-template-columns: minmax(0, 1fr) var(--bl-dw); gap: var(--s16); align-items: start; }
+  .bl-main { min-width: 0; }
+  .bl-dock { position: sticky; top: calc(var(--bl-top0) + var(--bl-sh) + var(--s8)); max-height: calc(100vh - var(--bl-top0) - var(--bl-sh) - var(--s24));
+    overflow-y: auto; overscroll-behavior: contain; padding: var(--s12) var(--s16) var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1);
+    -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 24px), transparent); }
+  .bl-dock.bl-dend { -webkit-mask-image: none; mask-image: none; }
+  .bl-dock .lk-dtop { display: flex; align-items: center; gap: var(--s8); margin: 0 0 var(--s4); }
+  .bl-dock .lk-dtop .num { flex: 1 1 auto; min-width: 0; margin: 0; font: 700 var(--t22)/1.15 var(--font-h); color: var(--n900); letter-spacing: -.02em; }
+  .bl-dock .lk-dtop .btn { flex: none; }
+  .bl-dock .lk-dtop .iconbtn { flex: none; margin-right: -8px; }
+  .bl-dock .lk-head { margin-bottom: var(--s12); }
+  .bl-dock .lk-head .nick { margin-top: 0; }
+  .bl-dock .lk-says { margin-bottom: var(--s12); }
+  .bl-dock .lk-card + .lk-card { margin-top: var(--s12); }
+  .bl-dock .lk-card p { margin: 2px 0 0; }
+  .bl-dock .lk-kv { grid-template-columns: 96px minmax(0, 1fr); }
 }
+@media (min-width: 1366px) { .bl-page { --bl-dw: 400px; } }
+@media (min-width: 1680px) { .bl-page { --bl-dw: 440px; } }
 
 /* ---- the sandbox band (1100px and wider, where staff.css makes it sticky and pushes the header down 28px) ---- */
 @media (min-width: 1100px) {

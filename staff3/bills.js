@@ -3,13 +3,19 @@
 // (hearing scheduled, at risk, waiting, through committee, governor or law), with Monitoring and Did not advance
 // folded at the bottom. It replaces the current app's Tracked bills table, the board, the Did not advance page, the
 // Still alive and monitor chips, the Coalitions & lists menu and the Muted menu, and keeps what each of them did.
+// Staff v3 (R-264, Nate: "too dense ... too much going on at one time"; laptop first). A person comes here to find the
+// bills that need them and see one of them in full. Four rules: one thing open at a time (the list, and the bill you
+// clicked docked beside it from 1100px); one line a row (compact rows by default, times, rooms and summaries in the
+// open bill); one side panel at most; numbers only where they ask for action. So the count line and the "Where every
+// bill stands" box became one deadline sentence, Edit and Columns went into "…", tick boxes come with "Select bills",
+// and the quick-look column went (a click on the row is the quick look). Phones keep their rows and sheets.
 import { S, DB, DEADLINES, esc, fmtDate, fmtDT, effStage, owners, isMuted, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks } from './data.js';
-import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionClock, gateNeed, gateGloss, deadlineName } from './model.js';
+import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionClock, gateNeed, deadlineName } from './model.js';
 import { CHAMBER_NAME, HELD_RE, stoppedAt } from '../stops.js';
-import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, POS_ICON, POS_WORD, posIcons } from './ui.js';
-import { bl, save, shownBills, liveCount, freshFacts, QUICK, quickCount, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, settled, hoverNow, typingIn, deskBack,
-  views, curView, applyView, resetView, isDefault, openSaveView, openEditViews, VIEW_CAP, scopeOpts, defaultScope, posWord, openCoalition, viewState } from './filters.js';
-import { openLook } from './look.js';
+import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, POS_WORD, posIcons } from './ui.js';
+import { bl, save, setCompact, shownBills, freshFacts, QUICK, quickCount, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, settled, hoverNow, typingIn, deskBack,
+  views, curView, applyView, resetView, isDefault, openSaveView, openEditViews, VIEW_CAP, scopeOpts, defaultScope, posWord, openCoalition, viewState, dueDay } from './filters.js';
+import { openLook, dockLook } from './look.js';
 import { bulkBar, wireBulkBar, startSelect, stopSelect, dropSelect, selIds, FIELD } from './bulk.js';
 import { billRoute, billRef } from './model.js';
 import { GROUPS, groupKey } from './standing.js';
@@ -42,6 +48,7 @@ function sorter() {
   return (a, b) => { if (!f) return byNum(a, b) * dir; const x = f(a), y = f(b); return (x > y ? 1 : x < y ? -1 : 0) * dir || byNum(a, b); };
 }
 let NAV = [];   // the bills in the order shown, for the bill page's Previous and Next
+let DOCKOPT = { pos: true, own: true };   // what the docked bill names because the table beside it does not (table())
 // Edit (R-106, after the 9/30 review): while editing, every row keeps its group and its place, so a bill just set to P1
 // or Monitor does not jump away and leave another bill under the pointer (P-3). A new sort, filter, search or scope is a
 // new order; Done editing regroups everything. A bill that stops matching the filters stays until then too.
@@ -122,14 +129,14 @@ function nextCell(b) {
   if (f.stand === 'dead') { const [a, ...rest] = shortWhy(b).split(' · '); return [a, rest.join(' · '), whyDead(b).replace(/<[^>]+>/g, '')]; }
   if (s.hearingState === 'scheduled') { const [day, ...time] = fmtDT(s.hearing.scheduled_at).split(', '), room = roomShort(s.hearing.room);
     // compact rows drop what the group row already says ("Hearing scheduled") and the room, so the time is never cut
-    return [`${xw('Hearing ')}${esc(day)}`, `${esc(time.join(', '))}${s.hearing.room ? xw(', ' + esc(room)) : ''}`, `${s.hearing.committee}${s.hearing.room ? ', ' + s.hearing.room : ''}`]; }
+    return [`${xw('Hearing ')}${esc(day)}`, `${esc(time.join(', '))}${s.hearing.room ? xw(', ' + esc(room)) : ''}`, `Hearing ${fmtDT(s.hearing.scheduled_at)}, ${s.hearing.committee}${s.hearing.room ? ', ' + s.hearing.room : ''}`]; }
   if (s.hearingState === 'held') return ['Waiting for the report', `heard ${md(s.hearing.scheduled_at)}`, ''];
   if (s.phase === 'law') { const act = /\bAct \d+/i.exec(b.last_action || ''); return [act ? esc(act[0]) : '', '', ''] }
   if (!s.deadline || s.deadline.missed) return ['', '', ''];
   const days = s.deadline.days, left = days <= 0 ? 'today' : `${days === 1 ? '1 day' : days + ' days'}${xw(' left')}`;
   // At risk needs no word here: those rows sit under the "At risk: no hearing yet" group row.
   const why = `${deadlineName(s.deadline)} ${md(s.deadline.date)}: it must ${gateNeed(s.deadline.label)}`;
-  if (s.phase === 'committee') return [`Hearing by ${md(s.deadline.date)}`, left, `${why}${f.risk ? '. At risk: no hearing yet' : ''}`];
+  if (s.phase === 'committee') return [`Hearing by ${md(s.deadline.date)}`, left, `${why}${f.risk ? '. At risk: no hearing yet' : ''}. ${days <= 0 ? 'Today' : days === 1 ? '1 day left' : days + ' days left'}`];
   return [`${esc(s.deadline.label)} ${md(s.deadline.date)}`, left, why];
 }
 const pulseText = b => { const d = daysAgo(S.pulse[b.id]?.last_team_touch); return d == null ? 'Never' : d <= 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d}d ago`; };
@@ -149,9 +156,10 @@ function controls(wide) {
   const fbtn = `<button type="button" class="btn secondary sm bl-fbtn" data-filter aria-haspopup="dialog">${icon('sliders-horizontal')}<span>Filter</span>${n ? `<span class="bl-cnt" aria-label="${n} on">${n}</span>` : ''}</button>`;
   const more = iconBtn('ellipsis', 'More for bills', { 'data-more': '1' });
   // Edit (R-106, Nate 9/30): position and owner become dropdowns on every row, the old app's editable table. Priority
-  // follows the position (R-175), so it is never a dropdown.
-  const edit = `<button type="button" class="btn secondary sm bl-editbtn${v.edit ? ' on' : ''}" data-tedit aria-pressed="${!!v.edit}" title="${v.edit ? 'Stop editing in the table' : 'Change position and owner right in the table'}">${icon(v.edit ? 'check' : 'square-pen')}<span>${v.edit ? 'Done editing' : 'Edit'}</span></button>`;
-  if (wide) return `<div class="bl-top${three ? ' bl-three' : ''}"><h1 class="bl-h1">Bills</h1>${seg}${search}<span class="bl-sp"></span>${fbtn}${edit}${btn('Columns', { kind: 'secondary', sm: true, icon: 'columns-3', attrs: { 'data-cols': '1', 'aria-haspopup': 'dialog' } })}${more}</div>`;
+  // follows the position (R-175), so it is never a dropdown. v3: Edit starts from "…" (as Columns does); while it is on,
+  // "Done editing" stands in the toolbar, so the way out is in view.
+  const done = v.edit ? `<button type="button" class="btn secondary sm bl-editbtn on" data-tedit aria-pressed="true" title="Stop editing in the table">${icon('check')}<span>Done editing</span></button>` : '';
+  if (wide) return `<div class="bl-top${three ? ' bl-three' : ''}"><h1 class="bl-h1">Bills</h1>${seg}${search}<span class="bl-sp"></span>${done}${fbtn}${more}</div>`;
   return three ? `<div class="bl-top bl-three">${seg}${search}${fbtn}${more}</div>` : `<div class="bl-top">${seg}<span class="bl-sp"></span>${fbtn}${more}</div>${search}`;
 }
 // The opening weeks of a session: every new bill needs one decision (the current app's rule for its banner).
@@ -166,57 +174,31 @@ function banner() {
     DB.triageCounts().then(c => { S.triageCounts = c; const el = document.getElementById('bl-banner'); if (el) el.innerHTML = banner(); }).catch(() => {}); }
   const c = S.triageCounts, n = c ? (c.suggested || c.undecided || 0) : null;
   if (c && !n) return '';
-  return notice('info', 'sparkles', n ? `<b>${n} new bill${n === 1 ? '' : 's'} to sort.</b> Track them or pass.` : '<b>New bills are coming in.</b> Each one needs a decision: track it or pass.', btn('Sort new bills', { sm: true, href: '#/bills/new' }));
+  return notice('info', 'sparkles', n ? `<b>${n} new bill${n === 1 ? '' : 's'} to sort.</b> Track them or pass.` : '<b>New bills are coming in.</b> Each one needs a decision: track it or pass.', btn('Sort new bills', { kind: 'secondary', sm: true, href: '#/bills/new' }));
 }
-// What the line above the list counts. It used to say "20 live bills" while the Filter button said "Show 113 bills":
-// both were right (the list also holds the folded Monitoring and Did not advance groups) and they read as a
-// contradiction. Now the line leads with the same number the button shows, then says what it is made of.
-function sumLine(list, q, filtered, more) {
-  const n = list.length, live = liveCount(list), dead = list.filter(b => factsOf(b).stand === 'dead').length, mon = n - live - dead;
-  if (filtered) return `<b>${n}</b> bill${n === 1 ? ' matches' : 's match'}${q ? ` “${esc(q)}”` : ''}${more ? ` · <button type="button" class="linkbtn" data-scopeall="1">${more} under Everyone</button>` : ''}`;
-  if (live === n) return `<b>${n}</b> live bill${n === 1 ? '' : 's'}`;
-  return `<b>${n}</b> bill${n === 1 ? '' : 's'} <span class="bl-sumparts">· ${[[live, 'live'], [mon, 'monitoring'], [dead, 'did not advance']].filter(x => x[0]).map(([k, w]) => `${k} ${w}`).join(' · ')}</span>`;
+// ---- the deadline sentence (v3, R-264): one line in place of v2's count line ("142 bills · 33 live · ...") and its
+// "Where every bill stands" box. It names the next two deadlines these bills race (R-022, decision 3: in the week of
+// 16 March the nearest bound 1 of Nate's bills and the next 26, 16 with no hearing) and the work each leaves:
+// "Second triple filing, Thu 3/19 (3 days): 1 bill must clear its first committee, and it has a hearing. Then Second
+// lateral, Mon 3/30: 16 with no hearing yet." Each "N with no hearing yet" is a link to exactly those bills (filters.js
+// due:, the same test as the count). The group headings keep their counts, so no count is said twice (A-14).
+const away = x => x.days <= 0 ? 'today' : x.days === 1 ? 'tomorrow' : `${x.days} days`;
+function dueLink(x) {
+  const n = x.noHearing.length, words = `${n} with no hearing yet`;
+  return isOn(`due:${x.date}`) ? `<b>${words}</b>` : `<button type="button" class="linkbtn bl-dlk" data-ft="due:${esc(x.date)}">${words}</button>`;
 }
-// ---- "Where every bill stands": one row above the table (Nate asked for the current app's three columns of cards
-// back; his call, 9/19, was that the grouped table already shows the bills, so this is the glance that was missing).
-// The counts are buttons: they take you to that group in the table rather than making a second list of it.
-// `bl-stlab` is the phone's label. On a phone the strip lost its card and its heading to save the 157px Nate
-// objected to, which left two identical-looking rows of counted pills doing different jobs - the quick chips
-// filter the list, these jump to a group. The label rides at the head of the same scrolling row, so it says which
-// is which for nothing vertically. Desktop keeps the real heading and hides it.
-// Seven equal chips would say nothing, so the three that carry the work are full buttons and the rest is a quiet run.
-const LEAD = ['hear', 'risk', 'wait'];
-const SHORT = { hear: 'Hearing scheduled', risk: 'At risk', wait: 'Waiting', thru: 'Through committees', done: 'Governor or law', mon: 'Monitoring', dead: 'Did not advance' };
-const standBtn = (g, cls) => `<button type="button" class="${cls}" data-jump="${g.k}" aria-label="${esc(g.title)}: ${g.rows.length} bill${g.rows.length === 1 ? '' : 's'}. Go to them in the list"><span class="w">${esc(SHORT[g.k] || g.title)}</span><span class="n">${g.rows.length}</span></button>`;
-// ---- the deadline clock beside the strip: the next TWO deadlines (R-022, decision 3). In the week of 16 March the
-// nearest bound 4 of the team's bills and the next one 51, 37 of them with no hearing: the nearest alone hid the bigger
-// job. A desktop gives each deadline two lines (the strip's counts are two rows tall anyway, so it is no taller); a
-// phone gives each one line - the day, the deadline, the work - so the strip is no taller there than it was with one.
-const clockDay = d => new Date(d + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' }).replace(',', '');   // "Thu 3/19"
-const clockAway = x => x.days <= 0 ? 'today' : x.days === 1 ? 'tomorrow' : `${x.days} days left`;
-// The work, in the words Today uses: the bills racing it with no hearing yet (or that every one of them has one).
-const clockWork = x => { const n = x.noHearing.length;
-  return n ? `<b class="bl-nh">${n} with no hearing yet</b>` : x.racing === 1 ? 'it has a hearing' : x.racing === 2 ? 'both have a hearing' : `every one has a hearing`; };
-function clockLine(x, { wide, then }) {
-  // A phone's line has no "N must be heard by then" before it, so the count goes in the words: "all 4 with a hearing".
-  const phoneWork = x => !x.racing ? 'nothing racing it' : x.noHearing.length ? clockWork(x) : x.racing === 1 ? '1 with a hearing' : `all ${x.racing} with a hearing`;
-  if (!wide) return `<span class="bl-dl${!then && x.days <= 1 ? ' soon' : ''}"><b class="bl-dld">${esc(x.days <= 1 ? clockAway(x).replace(/^./, c => c.toUpperCase()) : clockDay(x.date))}</b><span class="bl-dln" title="${esc(`${x.name}: ${gateGloss(x.label)}`)}">${esc(x.name)}</span><span class="bl-dlw">${phoneWork(x)}</span></span>`;
-  return `<span class="bl-dl${!then && x.days <= 1 ? ' soon' : ''}"><span class="bl-cl1">${then ? 'Then ' : ''}<b>${esc(x.name)}</b> · ${esc(clockDay(x.date))} · ${clockAway(x)}</span>
-    <span class="bl-cl2">${x.racing ? `${x.racing} bill${x.racing === 1 ? '' : 's'} must ${gateNeed(x.label, x.racing)} by then · ${clockWork(x)}` : 'None of these bills has to be heard by then'}</span></span>`;
+function deadlineLine(list) {
+  const c = sessionClock(list); if (!c) return '';
+  const has = c.racing === 1 ? ', and it has a hearing' : c.racing === 2 ? ', and both have a hearing' : ', and every one has a hearing';
+  const work = c.racing ? `${c.racing} bill${c.racing === 1 ? '' : 's'} must ${gateNeed(c.label, c.racing)}${c.noHearing.length ? `, ${dueLink(c)}` : has}` : 'none of these bills has to be heard by then';
+  const t = c.then, then = t ? ` Then ${esc(t.name)}, ${esc(dueDay(t.date))}: ${t.noHearing.length ? dueLink(t) : 'every bill racing it has a hearing'}.` : '';
+  // amber only inside a day of the deadline (A-5), and the words say it too ("today", "tomorrow")
+  return `<p class="bl-dls${c.days <= 1 ? ' soon' : ''}">${icon('calendar-clock')}<span><b>${esc(c.name)}</b>, <span class="bl-dlday">${esc(dueDay(c.date))} (${away(c)})</span>: ${work}.${then}</span></p>`;
 }
-function standStrip(groups, list, wide) {
-  if (!groups.length) return '';
-  const lead = groups.filter(g => LEAD.includes(g.k)), rest = groups.filter(g => !LEAD.includes(g.k));
-  const clock = sessionClock(list);
-  const cl = clock ? `<div class="bl-clock${clock.days <= 1 ? ' soon' : ''}" role="group" aria-label="The next deadlines">${icon('calendar-clock')}<div class="bl-cl">${clockLine(clock, { wide })}${clock.then ? clockLine(clock.then, { wide, then: true }) : ''}</div></div>` : '';
-  // .bl-stq only measures the room (a container query in bills.css): too little for the heading, the counts and two
-  // deadlines side by side, and the heading steps back to screen readers, as it does on a phone.
-  return `<div class="bl-stq"><section class="bl-stands" aria-labelledby="bl-stands-h">
-    <h2 class="bl-stands-h" id="bl-stands-h">Where every bill stands</h2>
-    <div class="bl-stgs"><span class="bl-stlab" aria-hidden="true">Where they stand</span><span class="bl-stlead">${lead.map(g => standBtn(g, 'bl-stg')).join('')}</span>${rest.length ? `<span class="bl-strest">${rest.map(g => standBtn(g, 'bl-stg2')).join('')}</span>` : ''}</div>
-    ${cl}</section></div>`;
-}
-// ---- saved views: a row of chips beside the Mine/Everyone segment, the current one marked ----
+// A search in Mine (or My coalitions) says when the team has more, and offers the switch (the current app's "show
+// everyone"). The rows are the answer, so the line no longer counts them; a screen reader still hears how many.
+const moreLine = (n, more, q) => `<p class="bl-sum">${more ? `<button type="button" class="linkbtn" data-scopeall="1">${more} more under Team</button>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span></p>`;
+// ---- saved views: a row of chips beside the Mine/Team segment, the current one marked ----
 function viewsRow() {
   const list = views(), on = curView();
   if (!list.length) return '';
@@ -232,43 +214,43 @@ function parts() {
   // one could be switched on in the sheet and never taken off without opening the sheet again.
   const act = activeFilters(), quickSpecs = new Set(QUICK.map(x => x[0])), sheetOn = wide ? act.filter(([s]) => !quickSpecs.has(s)) : act;
   const clear = btn('Clear all', { kind: 'text', sm: true, attrs: { 'data-fclearall': '1' } });
-  // Only a desktop draws these now, and each one counts the whole list, so a phone does not pay for them.
+  // Only a desktop draws these, and each one counts the whole list, so a phone does not pay for them. v3: a chip with
+  // nothing to show is left out rather than greyed (a number is drawn only where it asks for something); one that is on
+  // always shows, so it can be taken off. Muted bills are a place, reached from "…".
   const quick = wide ? QUICK.map(([spec, label, test]) => { const on = isOn(spec), n = quickCount(spec, test);
-    return `<button type="button" class="chip bl-q" data-ft="${spec}" aria-pressed="${on}" ${!on && !n ? 'disabled' : ''}>${on ? icon('check') : ''}<span>${label}</span><span class="bl-n">${n}</span></button>`; }).join('') : '';
-  const nm = S.mutes?.size || 0;
-  // The phone reaches muted bills through the ... menu, which carries the same count.
-  const mutedChip = wide && nm ? `<a class="chip bl-q" href="#/bills/muted">${icon('bell-off')}<span>Muted</span><span class="bl-n">${nm}</span></a>` : '';
+    return on || n ? `<button type="button" class="chip bl-q" data-ft="${spec}" aria-pressed="${on}">${on ? icon('check') : ''}<span>${label}</span><span class="bl-n">${n}</span></button>` : ''; }).join('') : '';
   // Filters picked in the sheet show as chips that come off with one click (the quick chips show their own state).
   const onRow = sheetOn.length ? `<div class="bl-on" role="group" aria-label="Filters that are on">${wide ? '<span class="bl-onlab">Filters</span>' : ''}${sheetOn.map(([s, l]) => `<button type="button" class="chip bl-onchip" data-ft="${esc(s)}" aria-label="Remove the filter ${esc(l)}"><span>${esc(l)}</span>${icon('x')}</button>`).join('')}${clear}</div>` : '';
-  const quickRow = `<div class="bl-quick" role="group" aria-label="Quick filters">${quick}${mutedChip}${!sheetOn.length && act.length ? clear : ''}</div>`;
-  const filtered = act.length || q;
-  // A search in Mine (or My coalitions) says when Everyone has more, and offers the switch (the current app's "show everyone").
-  const more = q && v.scope !== 'all' && list.length ? (() => { const n = shownBills('all').length; return n > list.length ? n : 0; })() : 0;
-  const sum = `<p class="bl-sum" aria-live="polite">${list.length ? sumLine(list, q, filtered, more) : ''}</p>`;
+  const quickRow = quick || (!sheetOn.length && act.length) ? `<div class="bl-quick" role="group" aria-label="Quick filters">${quick}${!sheetOn.length && act.length ? clear : ''}</div>` : '';
+  const more = q && v.scope !== 'all' && list.length ? (() => { const n = shownBills('all').length; return n > list.length ? n - list.length : 0; })() : 0;
+  // Searching, the line under the toolbar is about the search; otherwise it is the deadline sentence.
+  const lead = !list.length ? '' : q ? moreLine(list.length, more, q) : deadlineLine(list);
   const selHead = !wide && v.selecting && list.length ? (() => { const shown = NAV, all = shown.length && shown.every(id => v.sel.has(id)), ids = selIds(), vis = new Set(list.map(b => b.id)), hid = ids.filter(id => !vis.has(id)).length;
     return `<div class="bl-selhead"><span>${hid ? `${hid} of the ${ids.length} selected ${hid === 1 ? 'is' : 'are'} hidden by your filters.` : 'Tap bills to select them.'}</span>${btn(all ? 'Select none' : `Select all ${shown.length}`, { kind: 'text', sm: true, attrs: { 'data-selall': all ? 'none' : 'all' } })}</div>`; })() : '';
   const rows = list.length ? (wide ? table(groups) + keysHint() : phoneList(groups)) : emptyState(q, act.length);
-  const strip = list.length ? standStrip(groups, list, wide) : '';
   // The head is the sticky block: everything you steer the list with. The body is what scrolls under it.
-  // Desktop: the quick chips and the count share one line, so the table starts higher (12 compact rows at 1440×900).
-  return wide
-    ? { head: `${viewsRow()}<div class="bl-frow">${quickRow}${sum}</div>${onRow}`, body: `${strip}<div id="bl-banner">${banner()}</div>${rows}` }
-    : { head: `${viewsRow()}${onRow}`, body: `${strip}<div id="bl-banner">${banner()}</div>${sum}${selHead}${rows}` };
+  // Desktop: the deadline sentence and the quick chips share one line above the table (the chips under Filter, on the
+  // right). With a bill docked, the table and the bill share the width below it (one side panel, rule 3).
+  if (!wide) return { head: `${viewsRow()}${onRow}`, body: `${lead}<div id="bl-banner">${banner()}</div>${selHead}${rows}` };
+  const dk = docked() ? S.bills.find(b => b.id === v.look) : null;
+  const frow = lead || quickRow ? `<div class="bl-frow">${lead}${quickRow}</div>` : '';
+  return { head: `${viewsRow()}${onRow}`,
+    body: `${frow}<div id="bl-banner">${banner()}</div>${dk ? `<div class="bl-split"><div class="bl-main">${rows}</div>${dockLook(dk, DOCKOPT)}</div>` : rows}` };
 }
 // Row keys are for a keyboard and a mouse, and only while shortcuts are on (My settings); the hint shows when they work.
 const keysHint = () => !hoverNow() || !keysOn() ? '' : bl().edit ? `<p class="bl-keys"><kbd>Tab</kbd> next dropdown · <kbd>Space</kbd> opens it · <kbd>J</kbd> <kbd>K</kbd> the same dropdown in the next and previous bill · letters never change a bill</p>`
-  : `<p class="bl-keys"><kbd>J</kbd> <kbd>K</kbd> next and previous bill · <kbd>Enter</kbd> opens it · <kbd>Space</kbd> a quick look · <kbd>X</kbd> selects it · <kbd>Esc</kbd> clears the selection</p>`;
+  : `<p class="bl-keys"><kbd>J</kbd> <kbd>K</kbd> next and previous bill · <kbd>Space</kbd> ${dockNow() ? 'shows it beside the list' : 'a quick look'} · <kbd>Enter</kbd> opens it · <kbd>X</kbd> selects it · <kbd>Esc</kbd> closes</p>`;
 function emptyState(q, nf) {
   const v = bl(), whose = { me: 'of yours ', coal: 'in your coalitions ' }[v.scope] || '';
   if (q) {
     const elsewhere = v.scope !== 'all' ? shownBills('all').length : 0;
-    return empty({ title: `No bills ${whose}match “${esc(q)}”`, text: elsewhere ? `${elsewhere} match under Everyone.` : nf ? 'Your filters may be hiding it.' : 'Bills that are not tracked yet show up in search, where you can track them.',
-      action: elsewhere ? btn('Show Everyone', { attrs: { 'data-scopeall': '1' } }) : nf ? btn('Clear all filters', { attrs: { 'data-fclearall': '1' } }) : btn('Search all bills', { href: '#/search?q=' + encodeURIComponent(q) }) });
+    return empty({ title: `No bills ${whose}match “${esc(q)}”`, text: elsewhere ? `${elsewhere} match under Team.` : nf ? 'Your filters may be hiding it.' : 'Bills that are not tracked yet show up in search, where you can track them.',
+      action: elsewhere ? btn('Show the team’s', { attrs: { 'data-scopeall': '1' } }) : nf ? btn('Clear all filters', { attrs: { 'data-fclearall': '1' } }) : btn('Search all bills', { href: '#/search?q=' + encodeURIComponent(q) }) });
   }
   if (nf) return empty({ title: 'No bills match these filters', text: 'Take one off, or clear them all.', action: btn('Clear all filters', { attrs: { 'data-fclearall': '1' } }) });
   if (v.scope === 'me') return empty({ title: 'You have no bills yet', text: 'Your bills are the ones you own or follow. Follow a bill from its page.',
-    action: scopeOpts().some(([k]) => k === 'coal') ? btn('Show my coalitions’ bills', { attrs: { 'data-scopecoal': '1' } }) : btn('Show everyone’s bills', { attrs: { 'data-scopeall': '1' } }) });
-  if (v.scope === 'coal') return empty({ title: 'No bills in your coalitions yet', text: 'Bills tracked under the coalitions you support show here. Choose them in My settings.', action: btn('Show everyone’s bills', { attrs: { 'data-scopeall': '1' } }) });
+    action: scopeOpts().some(([k]) => k === 'coal') ? btn('Show my coalitions’ bills', { attrs: { 'data-scopecoal': '1' } }) : btn('Show the team’s bills', { attrs: { 'data-scopeall': '1' } }) });
+  if (v.scope === 'coal') return empty({ title: 'No bills in your coalitions yet', text: 'Bills tracked under the coalitions you support show here. Choose them in My settings.', action: btn('Show the team’s bills', { attrs: { 'data-scopeall': '1' } }) });
   return empty({ title: 'No bills are tracked yet', text: 'Sort the new bills to start.', action: btn('Sort new bills', { href: '#/bills/new' }) });
 }
 
@@ -314,21 +296,26 @@ const OPT_COLS = [['cmte', 'Committees', 'Every committee the bill is referred t
 // goes to the title first (see widths()). The six standard columns fit from 900px up. The optional ones come after
 // Owner, so the columns staff edit never move off screen. No Priority column since R-175 (Nate 10/5): it follows the
 // position, so beside Position it said the same thing twice (A-14); the CSV export still has it.
+// v3: the tick box column is there only in select mode, and the quick-look column is gone (a click on the row opens it).
 const COLS = [
-  { k: 'sel', w: [44, 40] }, { k: 'bill', label: 'Bill', min: [92, 100], ideal: [112, 104], sort: 'num' }, { k: 'title', label: 'Title', min: [180, 176] },
-  { k: 'where', label: 'Where it stands', min: [112, 110], ideal: [136, 142], sort: 'stage' }, { k: 'next', label: 'Next', min: [140, 150], ideal: [168, 166], sort: 'next' },
-  { k: 'pos', label: 'Position', min: [132, 124], ideal: [156, 148], sort: 'pos' }, { k: 'own', label: 'Owner', w: [72, 72], sort: 'own' },
+  { k: 'sel', w: [44, 40] }, { k: 'bill', label: 'Bill', min: [92, 132], ideal: [112, 132], sort: 'num' }, { k: 'title', label: 'Title', min: [180, 176] },
+  { k: 'where', label: 'Where it stands', min: [112, 110], ideal: [136, 142], sort: 'stage' }, { k: 'next', label: 'Next', min: [140, 136], ideal: [168, 150], sort: 'next' },
+  { k: 'pos', label: 'Position', min: [132, 124], ideal: [156, 184], sort: 'pos' }, { k: 'own', label: 'Owner', w: [72, 72], sort: 'own' },
   { k: 'cmte', label: 'Committees', min: [96, 96], ideal: [148, 140], opt: 1 }, { k: 'coal', label: 'Coalitions', min: [110, 110], ideal: [176, 168], opt: 1 },
   { k: 'last', label: 'Last action', min: [172, 172], ideal: [320, 300], opt: 1, sort: 'last' }, { k: 'pulse', label: 'Team pulse', w: [104, 100], opt: 1, sort: 'pulse' },
-  { k: 'look', w: [36, 32] },
 ];
 // The room the table has: the page is the window, less the sidebar from 1100px (the frame's 248px) and the page's
-// gutters, less the table's border. wire() measures the real box and corrects this once if the frame ever differs.
+// gutters, less the docked bill and its gap (bills.css --bl-dw), less the table's border. wire() measures the real
+// box and corrects this once if the frame ever differs.
 let MEASURED = null;
-const estimateAvail = () => { const w = document.documentElement.clientWidth || innerWidth; return (w >= 1100 ? w - 248 - 64 : w - 48) - 2; };
-const tableAvail = () => MEASURED && MEASURED.w === innerWidth ? MEASURED.avail : estimateAvail();
+const dockW = () => innerWidth >= 1680 ? 440 : innerWidth >= 1366 ? 400 : 360;
+const estimateAvail = () => { const w = document.documentElement.clientWidth || innerWidth, page = w >= 1100 ? w - 248 - 64 : w - 48; return (docked() ? page - dockW() - 16 : page) - 2; };
+const measureKey = () => `${innerWidth}:${docked()}`;
+const tableAvail = () => MEASURED && MEASURED.key === measureKey() ? MEASURED.avail : estimateAvail();
+// v3: a compact row's ideal for Bill and Position is its longest one-line text ("HB2300 HD1" with its issue tag, "Support
+// with changes"), since compact rows are the default and never wrap; Next shows only its first line ("Hearing by 3/30").
 // Who gets the spare width, in order: the title (up to two comfortable lines), the columns whose text would otherwise
-// wrap or cut, then the title again. Compact rows are one line, so there the hearing time and the position word come
+// wrap or cut, then the title again. Compact rows are one line, so there the next date and the position word come
 // first (they must never be cut), then the title.
 function widths(cols, avail, ci) {
   const W = new Map(cols.map(c => [c.k, c.w ? c.w[ci] : c.min[ci]]));
@@ -359,16 +346,20 @@ function squeezed(cols, avail, ci) {
   return W;
 }
 function table(groups) {
-  const v = bl(), ci = v.compact ? 1 : 0, avail = tableAvail();
+  const v = bl(), ci = v.compact ? 1 : 0, avail = tableAvail(), dk = docked();
   const least = cs => cs.reduce((t, c) => t + (c.w ? c.w[ci] : c.min[ci]), 0);
-  // The quick-look column costs 36px, which is exactly what a 1100px window (with the sidebar) has to spare. It is
-  // the first thing to go, rather than pushing a table that used to fit into scrolling sideways; Space still works.
   // Mine has no Owner column: every row would say "you" (A-14, R-022). A bill you only follow says so in its Bill cell.
-  let cols = COLS.filter(c => (!c.opt || v.cols.has(c.k)) && (c.k !== 'own' || v.scope !== 'me'))
+  let cols = COLS.filter(c => (c.k !== 'sel' || v.selecting) && (!c.opt || v.cols.has(c.k)) && (c.k !== 'own' || v.scope !== 'me'))
     // While editing, a dropdown needs a name's room, not an avatar's, and "Support with changes" whole.
     .map(c => !v.edit ? c : c.k === 'own' ? { ...c, w: [140, 132] } : c.k === 'pos' ? { ...c, min: [212, 204], ideal: [224, 216] } : c);
-  const roomy = cs => least(cs) <= avail || !!squeezed(cs, avail, ci), noLook = cols.filter(c => c.k !== 'look');
-  if (!roomy(cols) && roomy(noLook)) cols = noLook;
+  // A bill docked beside the table says everything about itself, so where the title would get under 300px (and the
+  // position its one line) the table gives up, in turn, what the docked bill also shows: the added columns, the
+  // position's word (its icon stays), "Where it stands", then the owner. A 1920 window keeps them all.
+  if (dk) { const room = cs => least(cs) + 124 + (cs.some(c => c.k === 'pos' && !c.icon) ? 60 : 0) <= avail;
+    const steps = [cs => cs.filter(c => !c.opt), cs => cs.map(c => c.k === 'pos' ? { ...c, w: [76, 72], icon: 1 } : c), cs => cs.filter(c => c.k !== 'where'), cs => cs.filter(c => c.k !== 'own')];
+    for (const step of steps) if (!room(cols)) cols = step(cols); }
+  // The docked bill says in words what the table no longer does (look.js dockLook).
+  DOCKOPT = { pos: !cols.some(c => c.k === 'pos' && !c.icon), own: !cols.some(c => c.k === 'own') };
   const std = cols.filter(c => !c.opt);
   // When even the least widths do not fit (optional columns in a small window), the standard table fills the box as
   // it always does and the optional columns sit to its right at full width: only the table scrolls sideways, with the
@@ -376,13 +367,13 @@ function table(groups) {
   const fits = least(cols) <= avail, tight = fits ? null : squeezed(cols, avail, ci), scroll = !fits && !tight, fitsStd = least(std) <= avail;
   const W = tight || (scroll ? (fitsStd ? widths(std, avail, ci) : squeezed(std, avail, ci) || widths(std, least(std), ci)) : widths(cols, avail, ci));
   if (scroll) for (const c of cols) if (c.opt) W.set(c.k, c.w ? c.w[ci] : c.ideal[ci]);
-  const total = cols.reduce((t, c) => t + W.get(c.k), 0), cap = !scroll && total < avail - 1 ? Math.round(total) + 2 : 0;
+  // Docked, the table fills its column so the bill sits right beside it, not across a gap.
+  const total = cols.reduce((t, c) => t + W.get(c.k), 0), cap = !scroll && !dk && total < avail - 1 ? Math.round(total) + 2 : 0;
   const colg = `<colgroup>${cols.map(c => `<col style="width:${scroll ? Math.round(W.get(c.k)) + 'px' : (W.get(c.k) / total * 100).toFixed(3) + '%'}">`).join('')}</colgroup>`;
   const rowsShown = groups.filter(g => g.open).flatMap(g => g.rows), selShown = rowsShown.filter(b => v.sel.has(b.id)).length;
   const [sk, sd] = v.sort || [];
   const th = c => {
     if (c.k === 'sel') return `<th scope="col" class="bl-ck"><label title="Select every bill shown"><input type="checkbox" id="bl-all" ${rowsShown.length && selShown === rowsShown.length ? 'checked' : ''} aria-label="Select every bill shown"></label></th>`;
-    if (c.k === 'look') return '<th scope="col" class="bl-h-look"><span class="sr">Quick look</span></th>';
     if (!c.sort) return `<th scope="col" class="bl-h-${c.k}">${c.label}</th>`;
     const on = sk === c.sort, l = c.label.toLowerCase(), tip = !on ? `Sort by ${l}` : sd > 0 ? `Sorted by ${l}, first to last. Click for last to first` : `Sorted by ${l}, last to first. Click to stop sorting`;
     return `<th scope="col" class="bl-h-${c.k}" aria-sort="${on ? (sd > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="bl-sort${on ? ' on' : ''}" data-sort="${c.sort}" title="${tip}"><span>${c.label}</span>${icon(on && sd < 0 ? 'move-down' : 'move-up')}</button></th>`;
@@ -400,30 +391,29 @@ function table(groups) {
     switch (c.k) {
       case 'sel': return `<td class="bl-ck"><label><input type="checkbox" data-sel="${b.id}" ${v.sel.has(b.id) ? 'checked' : ''} aria-label="Select ${esc(billNum(b))}"></label></td>`;
       case 'bill': return `<td class="bl-num"><a href="${billRoute(b)}" data-bill="${b.id}"><span>${esc(b.bill_number)}</span>${b.current_version ? ` <span>${esc(b.current_version)}</span>` : ''}</a>${folMark(b)}</td>`;
-      case 'title': return `<td class="bl-ti">${two(`${b.nickname ? `<b>${esc(b.nickname)}</b> <br>` : ''}${esc(summaryOf(b))}`, fullTitle(b))}</td>`;
+      // Compact rows (v3's default) name the bill once: its nickname, or the summary when it has none. The summary
+      // is in the docked bill and on hover (rule 2: summaries live in the open item).
+      case 'title': return `<td class="bl-ti">${two(ci ? (b.nickname ? `<b>${esc(b.nickname)}</b>` : esc(summaryOf(b))) : `${b.nickname ? `<b>${esc(b.nickname)}</b> <br>` : ''}${esc(summaryOf(b))}`, fullTitle(b))}</td>`;
       case 'where': return `<td>${lines(whereCell(b))}</td>`;
       case 'next': { const c3 = nextCell(b); return `<td>${c3[0] ? lines(c3) : none}</td>`; }
       case 'cmte': { const r = (b.referrals || []).join(', '); return `<td>${r ? two(esc(r), glossCommittee((b.referrals || []).join('/'))) : none}</td>`; }
       case 'coal': { const n = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(x => x.id === id)?.name).filter(Boolean).join(', '); return `<td>${n ? two(esc(n), n) : none}</td>`; }
       case 'last': return `<td>${b.last_action ? two(`${b.last_action_date ? `<span class="bl-date">${md(b.last_action_date)}</span> ` : ''}${esc(b.last_action)}`, b.last_action) : none}</td>`;
       case 'pulse': return `<td>${pulseText(b)}</td>`;
-      case 'pos': { if (v.edit) return `<td><span class="bl-selwrap">${posIcons(b.position || '')}${inlSel('pos', b)}</span></td>`; const p = b.position || '', w = p ? POS_WORD[p] || p : posWord(''); return `<td><button type="button" class="bl-cell" data-edit="pos" data-id="${b.id}" aria-label="Position for ${esc(billNum(b))}: ${esc(w)}. Change it">${posIcons(p)}<span>${esc(w)}</span></button></td>`; }
+      case 'pos': { if (v.edit) return `<td><span class="bl-selwrap">${posIcons(b.position || '')}${inlSel('pos', b)}</span></td>`; const p = b.position || '', w = p ? POS_WORD[p] || p : posWord(''); return `<td><button type="button" class="bl-cell" data-edit="pos" data-id="${b.id}" aria-label="Position for ${esc(billNum(b))}: ${esc(w)}. Change it"${c.icon ? ` title="${esc(w)}"` : ''}>${posIcons(p)}${c.icon ? '' : `<span>${esc(w)}</span>`}</button></td>`; }
       case 'own': { if (v.edit) return `<td>${inlSel('own', b)}</td>`; const o = ownerOf(b); return `<td><button type="button" class="bl-cell bl-own" data-edit="own" data-id="${b.id}" aria-label="Owner of ${esc(billNum(b))}: ${esc(o ? (o.id === S.me?.id ? 'you' : o.full_name) : 'nobody')}. Change it">${o ? avatar(o) : `<span class="bl-noown">${icon('circle-dashed')}</span>`}</button></td>`; }
-      // The facts and the next step without leaving the list; the full page is one click on from there. An icon alone
-      // was a guess (A-12, A-18): the button is named for a screen reader, and "Quick look" shows beside it at once on
-      // hover and on keyboard focus (the browser's own title tooltip waits a second and never shows for the keyboard).
-      case 'look': return `<td class="bl-lk"><button type="button" class="iconbtn bl-lkb" aria-label="Quick look at ${esc(billNum(b))}" data-look="${esc(b.id)}" data-tip="Quick look">${icon('scan-eye')}</button></td>`;
     }
     return '<td></td>';
   };
-  const n = cols.length, pin = W.get('sel'), extra = cols.filter(c => c.opt).map(c => c.label);
+  const n = cols.length, pin = W.get('sel') || 0, extra = cols.filter(c => c.opt).map(c => c.label);
   const words = extra.length > 1 ? `${extra.slice(0, -1).join(', ')} and ${extra[extra.length - 1]}` : extra[0];
   // Said in words as well as shown (the faded right edge): the added columns are there, to the right.
   return `${scroll ? `<p class="bl-tnote" id="bl-tnote">${icon('arrow-right')}<span>${extra.length ? `${esc(words)} ${extra.length === 1 ? 'is' : 'are'} to the right: this window is too narrow for every column, so the table scrolls sideways.` : 'This window is too narrow for the whole table, so it scrolls sideways.'}</span></p>
     <div class="bl-twrap"><div class="bl-tscroll" role="region" aria-label="Bills table" aria-describedby="bl-tnote" tabindex="0" style="--bl-pin:${pin}px">` : ''}<table class="bl-table${v.compact ? ' bl-compact' : ''}${tight || scroll && !fitsStd ? ' bl-tight' : ''}"${scroll ? ` style="width:${Math.round(total)}px"` : cap ? ` style="max-width:${cap}px"` : ''}>${colg}<caption class="sr">Bills, grouped by where they stand</caption>
     <thead><tr>${cols.map(th).join('')}</tr></thead>
     ${groups.map(g => `<tbody class="bl-tg"><tr class="bl-gr"><th colspan="${n}" scope="colgroup"><button type="button" class="sv-group bl-grb" data-fold="${g.k}" aria-expanded="${g.open}"${scroll ? ` style="width:${avail}px"` : ''}><span>${esc(g.title)}</span><span class="n">${g.rows.length}</span>${icon(g.open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button></th></tr>
-      ${g.open ? g.rows.map(b => `<tr data-row="${b.id}" data-num="${esc(billRef(b))}" class="${v.sel.has(b.id) ? 'sel' : ''}${v.cur === b.id ? ' bl-cur' : ''}">${cols.map(c => cell(c, b)).join('')}</tr>`).join('') : ''}</tbody>`).join('')}
+      ${g.open ? g.rows.map(b => { const lk = dk && v.look === b.id;
+        return `<tr data-row="${b.id}" data-num="${esc(billRef(b))}" class="${v.selecting && v.sel.has(b.id) ? 'sel' : ''}${v.cur === b.id ? ' bl-cur' : ''}${lk ? ' bl-look' : ''}"${lk ? ' aria-current="true"' : ''}>${cols.map(c => cell(c, b)).join('')}</tr>`; }).join('') : ''}</tbody>`).join('')}
   </table>${scroll ? '</div></div>' : ''}`;
 }
 
@@ -464,18 +454,27 @@ function exportCSV(list) {
   toast(`Downloaded ${list.length} bill${list.length === 1 ? '' : 's'} as a spreadsheet file.`);
 }
 const listInOrder = () => build().groups.flatMap(g => g.rows);
+// v3 (R-264): the toolbar is the title, Mine | Team, the search, Filter and "…" (A-20). Everything else is here, in
+// three runs: what the table does, your views, then the pages under Bills. Edit, Columns and Select bills used to be
+// in the toolbar or always on (the tick boxes); Lists left Outreach's tabs (ui.js sectionNav) and opens from here.
 function moreMenu() {
   const v = bl(), wide = wideNow(), nm = S.mutes?.size || 0, n = shownBills().length, tc = S.triageCounts, nv = views().length;
+  const after = async () => { await settled(); };
+  // Short lines under the items only where they say something the name does not (a count, what Default is), so the
+  // menu fits a laptop's screen without scrolling.
   menuSheet({ title: 'Bills', items: [
-    { label: 'Save this view', icon: 'bookmark', sub: nv >= VIEW_CAP ? `You have ${VIEW_CAP}, as many as we keep` : 'Name the filters that are on, and come back to them', run: async () => { await settled(); openSaveView(repaintDyn); } },
-    nv ? { label: `Saved views (${nv})`, icon: 'bookmark-check', sub: 'Rename or delete one', run: async () => { await settled(); openEditViews(repaintDyn); } } : null,
+    v.selecting ? { label: 'Stop selecting', icon: 'x', run: () => stopSelect() }
+      : { label: 'Select bills', icon: 'square-check-big', sub: wide ? '' : 'Change several at once. You can also press and hold a bill.', run: () => { v.look = null; startSelect(); } },
+    wide ? { label: v.edit ? 'Done editing' : 'Edit in the table', icon: v.edit ? 'check' : 'square-pen', run: () => { v.edit = !v.edit; v.look = null; repaint('[data-more]'); } } : null,
+    wide ? { label: 'Columns and rows', icon: 'columns-3', run: async () => { await after(); columnsSheet(document.querySelector('[data-more]')); } } : null,
+    { label: 'Save this view', icon: 'bookmark', sub: nv >= VIEW_CAP ? `You have ${VIEW_CAP}, as many as we keep` : '', run: async () => { await after(); openSaveView(repaintDyn); } },
+    nv ? { label: `Saved views (${nv})`, icon: 'bookmark-check', run: async () => { await after(); openEditViews(repaintDyn); } } : null,
     { label: 'Reset to default', icon: 'rotate-ccw', sub: `${defaultScope() === 'coal' ? 'Your coalitions’ bills' : 'Your own bills'}, no filters${isDefault() ? '' : ', no search'}`, disabled: isDefault(), reason: 'Nothing to reset', run: () => { resetView(); repaint('[data-filter]'); } },
-    { label: 'Weekly memo', icon: 'notebook-pen', sub: 'This week for your bills, ready to paste into an email', run: async () => { await settled(); S.go('#/bills/memo'); } },
-    { label: `Muted bills (${nm})`, icon: 'bell-off', sub: nm ? 'See them and unmute' : 'None right now', run: async () => { await settled(); S.go('#/bills/muted'); } },
+    { label: 'Sort new bills', icon: 'sparkles', sub: tc?.undecided ? `${tc.undecided} waiting for a decision` : '', run: async () => { await after(); S.go('#/bills/new'); } },
+    { label: 'Weekly memo', icon: 'notebook-pen', run: async () => { await after(); S.go('#/bills/memo'); } },
+    { label: 'Lists', icon: 'list-checks', run: async () => { await after(); S.go('#/outreach/lists'); } },
+    { label: `Muted bills (${nm})`, icon: 'bell-off', run: async () => { await after(); S.go('#/bills/muted'); } },
     { label: 'Export CSV', icon: 'download', sub: `The ${n} bill${n === 1 ? '' : 's'} in this list, as a spreadsheet file`, run: () => exportCSV(listInOrder()) },
-    wide ? null : { label: 'Select bills', icon: 'square-check-big', sub: 'Change several at once. You can also press and hold a bill.', run: () => startSelect() },
-    wide ? { label: v.compact ? 'Roomy rows' : 'Compact rows', icon: 'rows-3', sub: v.compact ? 'Back to taller rows' : 'Shorter rows, more bills on screen', run: () => { v.compact = !v.compact; save(); hooks.render(); } } : null,
-    { label: 'Sort new bills', icon: 'sparkles', sub: tc?.undecided ? `${tc.undecided} waiting for a decision` : 'Track or pass on bills that are not tracked yet', run: async () => { await settled(); S.go('#/bills/new'); } },
   ] });
 }
 function columnsSheet(anchor) {
@@ -484,7 +483,7 @@ function columnsSheet(anchor) {
       <div class="bl-colsep"></div>${switchRow('bl-compact', 'Compact rows', v.compact, 'One line a bill, so more bills fit on the screen', { 'data-compact': '1' })}`,
     wire: d => { placePop(d, anchor);
       d.querySelectorAll('[data-col]').forEach(el => el.onchange = () => { el.checked ? v.cols.add(el.dataset.col) : v.cols.delete(el.dataset.col); save(); hooks.render(); });
-      d.querySelector('[data-compact]').onchange = e => { v.compact = e.target.checked; save(); hooks.render(); }; } });
+      d.querySelector('[data-compact]').onchange = e => { setCompact(e.target.checked); hooks.render(); }; } });
 }
 function editCell(field, id) {
   const b = S.bills.find(x => x.id === id); if (!b) return;
@@ -553,8 +552,9 @@ const newTab = num => window.open(`${location.pathname}${location.search}#/bill/
 // filter) and when you come back from a bill; the assessment found J starting from the top again after every action.
 const tableRows = () => [...document.querySelectorAll('.bl-table tr[data-row]')];
 function markRow(focus) {
-  const v = bl(), rows = tableRows(); let tr = rows.find(r => r.dataset.row === v.cur);
-  rows.forEach(r => r.classList.toggle('bl-cur', r === tr));
+  const v = bl(), rows = tableRows(), dk = docked(); let tr = rows.find(r => r.dataset.row === v.cur);
+  // The docked bill's row is marked by a bar and a wash and named for a screen reader (aria-current), never by colour alone.
+  rows.forEach(r => { r.classList.toggle('bl-cur', r === tr); const lk = dk && r.dataset.row === v.look; r.classList.toggle('bl-look', lk); lk ? r.setAttribute('aria-current', 'true') : r.removeAttribute('aria-current'); });
   if (tr) v.curAt = rows.indexOf(tr);
   if (tr && focus) { tr.querySelector('a[data-bill]')?.focus({ preventScroll: true }); tr.scrollIntoView({ block: 'nearest' }); }
   return tr;
@@ -567,35 +567,47 @@ function lookAtRow(id) {
   const b = m.get(id); if (!b) return;
   openLook(b, { list: list.length ? list : [b], index: Math.max(0, i) });
 }
-// A count in the strip takes you to that group: it opens it if it was folded, then puts its row just under the
-// sticky header. Nothing is filtered away, so there is nothing to undo.
-function jumpGroup(k) {
-  const v = bl();
-  if (v.folds[k] !== true) { v.folds[k] = true; repaint(); }
-  const head = document.querySelector(`.bl-table .bl-gr [data-fold="${k}"], .bl-grp > [data-fold="${k}"]`);
-  const box = head?.closest('tbody, .bl-grp'); if (!box) return;
-  // The group row itself comes to rest under the toolbar AND the table's column headers, so the jump lands it there
-  // rather than a header's height too high, which hid the group's own first row.
-  const th = document.querySelector('.bl-table thead');
-  const want = () => stickBottom() + (th && th.isConnected ? th.offsetHeight : 0);
-  const gap = () => Math.round(box.getBoundingClientRect().top - want());
-  const soft = !matchMedia('(prefers-reduced-motion: reduce)').matches;
-  scrollTo({ top: Math.max(0, scrollY + gap()), behavior: soft ? 'smooth' : 'auto' });
-  // A smooth scroll can land a few pixels short (the page grew when the group opened), which leaves a sliver of the
-  // group above showing; once it has settled, the last pixels are taken quietly.
-  setTimeout(() => { const d = gap(); if (Math.abs(d) > 2) scrollTo({ top: Math.max(0, scrollY + d), behavior: 'auto' }); }, soft ? 420 : 0);
-  head.focus({ preventScroll: true });
+// ---- the docked bill (v3, R-264): from 1100px a row's bill opens beside the table, in place of the quick look over
+// the page. The table narrows to make room (table() and estimateAvail), the bill stays in view while the list
+// scrolls, and the keys move it: J and K or the arrows walk the rows and the bill follows, Enter opens it, Esc closes
+// it. Select mode and Edit have their own use for a click on a row, so the bill is not docked then.
+const dockNow = () => matchMedia('(min-width: 1100px)').matches;
+function docked() { const v = bl(); return !!v.look && dockNow() && !v.selecting && !v.edit && S.bills.some(b => b.id === v.look); }
+function wireDock() {
+  const el = document.querySelector('.bl-dock'); if (!el) return;
+  el.querySelector('[data-lkd="close"]')?.addEventListener('click', () => closeDock());
+  // A long bill scrolls inside the panel; the fade at its foot says there is more, and goes at the end.
+  const end = () => el.classList.toggle('bl-dend', el.scrollTop + el.clientHeight >= el.scrollHeight - 2);
+  el.addEventListener('scroll', end, { passive: true }); end();
 }
+function showDock(id, { keys = false } = {}) {
+  const v = bl(), b = S.bills.find(x => x.id === id); if (!b) return;
+  const was = docked(); v.look = id; v.cur = id; v.keys = keys;
+  // First time: the table is laid out again for its narrower column. After that only the panel and the marks change,
+  // so the rows under the pointer stay where they are.
+  if (!was) { repaintDyn(); markRow(keys); const tr = tableRows().find(r => r.dataset.row === id); tr?.scrollIntoView({ block: 'nearest' }); return; }
+  const el = document.querySelector('.bl-dock');
+  if (el) { el.outerHTML = dockLook(b, DOCKOPT); wireDock(); } else repaintDyn();
+  markRow(keys);
+}
+function closeDock() {
+  const v = bl(), id = v.look; v.look = null; repaintDyn();
+  // The focus goes back to the row the bill came from, so the keys carry on from there.
+  const tr = tableRows().find(r => r.dataset.row === id); tr?.querySelector('a[data-bill]')?.focus({ preventScroll: true });
+}
+const openBill = id => { const b = S.bills.find(x => x.id === id); if (!b) return; S.billNav = NAV.slice(); S.go(billRoute(b)); };
 function moveRow(step) {
   const v = bl(), rows = tableRows(); if (!rows.length) return;
   let i = rows.findIndex(r => r.dataset.row === v.cur);
   // The marked bill is gone (filtered out, or its group folded): carry on from where it was, not from the top.
   if (i < 0) i = v.curAt == null ? (step > 0 ? -1 : rows.length) : Math.min(v.curAt, rows.length) - (step > 0 ? 1 : 0);
   const to = rows[Math.max(0, Math.min(rows.length - 1, i + step))];
+  if (docked()) return showDock(to.dataset.row, { keys: true });   // the docked bill follows the marker
   v.cur = to.dataset.row; v.keys = true; markRow(true);
 }
 function wireDyn(page) {
-  // The head (chips, saved views, the count) and the body (the strip and the rows) are both redrawn together, so
+  // The head (saved views, the filters that are on) and the body (the deadline line, the chips, the rows and the docked
+  // bill) are both redrawn together, so
   // both are wired from the page rather than from #bl-dyn alone. The controls in .bl-top are wired once, in wire().
   const v = bl(), dynEl = page;
   dynEl.querySelectorAll('[data-ft]').forEach(el => el.onclick = () => { const spec = el.dataset.ft; toggle(spec); repaint(`.bl-quick [data-ft="${CSS.escape(spec)}"], .bl-on [data-ft="${CSS.escape(spec)}"]`); });
@@ -603,7 +615,6 @@ function wireDyn(page) {
   dynEl.querySelectorAll('[data-scopeall], [data-scopecoal]').forEach(el => el.onclick = () => { v.scope = el.hasAttribute('data-scopecoal') ? 'coal' : 'all'; changed(); repaint(`[data-seg="blscope"][data-val="${v.scope}"]`); });
   dynEl.querySelectorAll('[data-fold]').forEach(el => el.onclick = () => { v.folds[el.dataset.fold] = el.getAttribute('aria-expanded') !== 'true'; repaint(`[data-fold="${el.dataset.fold}"]`); });
   dynEl.querySelectorAll('[data-selall]').forEach(el => el.onclick = () => { if (el.dataset.selall === 'all') NAV.forEach(id => v.sel.add(id)); else NAV.forEach(id => v.sel.delete(id)); repaint('[data-selall]'); });
-  dynEl.querySelectorAll('[data-jump]').forEach(el => el.onclick = () => jumpGroup(el.dataset.jump));
   dynEl.querySelectorAll('[data-view]').forEach(el => el.onclick = () => {
     const id = el.dataset.view;
     if (id ? applyView(id) : (resetView(), true)) repaint(`[data-view="${CSS.escape(id)}"]`, '[data-filter]');
@@ -622,11 +633,13 @@ function wireDyn(page) {
     ['pointerup', 'pointercancel', 'pointerleave'].forEach(k => listEl.addEventListener(k, cancel));
     listEl.addEventListener('contextmenu', e => { if (e.target.closest('.sv-billrow')) e.preventDefault(); });
   }
-  // Desktop table: tick boxes (shift-click ticks a run), sortable headers, a row click opens the bill, cells edit.
+  // Desktop table: tick boxes in select mode (shift-click ticks a run), sortable headers, a row click shows the bill,
+  // cells edit.
   const tbl = dynEl.querySelector('.bl-table'); if (!tbl) return;
+  wireDock();
   // The widths were worked out for the room the frame should give; if the real box differs, lay it out once more.
-  const real = page.clientWidth - 2;
-  if (!fixing && real > 0 && Math.abs(real - tableAvail()) > 1) { MEASURED = { w: innerWidth, avail: real }; fixing = true; try { repaintDyn(); } finally { fixing = false; } return; }
+  const real = (dynEl.querySelector('.bl-main') || page).clientWidth - 2;
+  if (!fixing && real > 0 && Math.abs(real - tableAvail()) > 1) { MEASURED = { key: measureKey(), avail: real }; fixing = true; try { repaintDyn(); } finally { fixing = false; } return; }
   const all = tbl.querySelector('#bl-all'), boxes = [...tbl.querySelectorAll('[data-sel]')];
   if (all) { const n = boxes.filter(b => b.checked).length; all.indeterminate = n > 0 && n < boxes.length;
     all.onchange = () => { boxes.forEach(b => all.checked ? v.sel.add(b.dataset.sel) : v.sel.delete(b.dataset.sel)); repaint('#bl-all'); }; }
@@ -649,14 +662,24 @@ function wireDyn(page) {
       if (n) { n.focus(); n.scrollIntoView({ block: 'nearest' }); }
     }; });
   const rowOf = e => { const tr = e.target.closest('tr[data-row]'); return tr && !e.target.closest('a, button, input, label, select') ? tr : null; };
-  // The whole row opens the bill; with Cmd or Ctrl (or the middle button) it opens in a new tab, as its link does.
+  // v3: a click on a row shows its bill: docked beside the table from 1100px, as the quick look over the page from 900
+  // to 1099px; in select mode it ticks the row. The bill number is a link and still acts as one with Cmd or Ctrl, the
+  // middle button or the keyboard's Enter (which opens the bill), so its plain click is taken here, before the frame
+  // routes it (a keyboard's click has e.detail 0). While editing, the number and the row open the bill, as in v2.
+  const plainLink = e => !v.edit && e.detail > 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.target.closest('a[data-bill]');
+  tbl.addEventListener('click', e => { if (plainLink(e)) e.preventDefault(); }, true);
   tbl.addEventListener('click', e => {
-    const a = e.target.closest('a[data-bill]'); if (a) { v.cur = a.dataset.bill; return; }
-    const tr = rowOf(e); if (!tr || getSelection()?.toString()) return;
+    const a = e.target.closest('a[data-bill]'), tr = a && plainLink(e) ? a.closest('tr[data-row]') : rowOf(e);
+    if (a && !tr) { v.cur = a.dataset.bill; return; }   // the link opens the bill itself
+    if (!tr || getSelection()?.toString()) return;
     v.cur = tr.dataset.row;
     if (e.metaKey || e.ctrlKey) { markRow(false); newTab(tr.dataset.num); return; }
-    S.billNav = NAV.slice(); S.go('#/bill/' + tr.dataset.num);
+    if (v.selecting) { const id = tr.dataset.row; v.sel.has(id) ? v.sel.delete(id) : v.sel.add(id); lastBox = boxes.findIndex(b => b.dataset.sel === id); repaint(`[data-sel="${CSS.escape(id)}"]`); return; }
+    if (v.edit) { S.billNav = NAV.slice(); S.go('#/bill/' + tr.dataset.num); return; }
+    if (dockNow()) showDock(tr.dataset.row); else { markRow(false); lookAtRow(tr.dataset.row); }
   });
+  // With a bill docked, a second click on its row (a double click) opens it.
+  tbl.addEventListener('dblclick', e => { const tr = rowOf(e) || (plainLink(e) && e.target.closest('tr[data-row]')); if (tr && docked() && v.look === tr.dataset.row) { getSelection()?.removeAllRanges(); openBill(tr.dataset.row); } });
   tbl.addEventListener('auxclick', e => { const tr = e.button === 1 && rowOf(e); if (tr) { e.preventDefault(); newTab(tr.dataset.num); } });
   tbl.addEventListener('pointerdown', () => { v.keys = false; });
   // A redraw keeps the marker, and gives the focus back to its row when the keys were what moved it there.
@@ -743,8 +766,7 @@ export default {
     qx.onclick = () => { qi.value = ''; qi.oninput(); qi.focus(); };
     page.querySelector('[data-filter]').onclick = e => openFilters(e.currentTarget);
     page.querySelector('[data-more]').onclick = moreMenu;
-    const cb = page.querySelector('[data-cols]'); if (cb) cb.onclick = () => columnsSheet(cb);
-    const te = page.querySelector('[data-tedit]'); if (te) te.onclick = () => { v.edit = !v.edit; repaint('[data-tedit]'); };
+    const te = page.querySelector('[data-tedit]'); if (te) te.onclick = () => { v.edit = false; repaint('[data-more]'); };
     measureStick();
     // The toolbar's own height changes when the chips wrap (a window resize, a filter that adds a chip, a saved
     // view appearing), and the table's sticky header hangs off it.
@@ -770,19 +792,30 @@ if (typeof window !== 'undefined') {
     if (e.key === 'Escape') {
       if (typingIn(e.target)) return;
       if (S.route.muted) { if (wideNow()) { const a = document.querySelector('.bl-deskback'); if (a) { e.preventDefault(); a.click(); } } return; }
+      // One thing at a time: the docked bill closes first, then select mode ends.
+      if (docked()) { e.preventDefault(); closeDock(); return; }
       if (S.bl.selecting) stopSelect(); else if (S.bl.sel.size && wideNow()) { S.bl.sel.clear(); repaint(); }
       return;
     }
-    if (S.route.muted || !wideNow() || !hoverNow() || typingIn(e.target) || e.repeat && !/^[jk]$/i.test(e.key)) return;
+    if (S.route.muted || !wideNow() || !hoverNow() || typingIn(e.target) || e.repeat && !/^([jk]|ArrowDown|ArrowUp)$/i.test(e.key)) return;
     if (e.key === 'g') { lastG = Date.now(); return; }
     if (Date.now() - lastG < 1200) return;
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key, v = S.bl, tr = tableRows().find(r => r.dataset.row === v.cur);
+    // In the docked bill itself, a link or a button keeps its own keys, and the arrows scroll it.
+    const inDock = !!e.target?.closest?.('.bl-dock'), onControl = !!e.target?.closest?.('a, button, input, select, textarea, summary, [role="button"]');
     if (k === 'j' || k === 'k') { e.preventDefault(); moveRow(k === 'j' ? 1 : -1); }
-    // Space on the marked row: the quick look. It opens a panel and changes nothing, so it is safe on one key.
-    else if (k === ' ' && tr && !e.target?.closest?.('button, [role="button"], summary')) { e.preventDefault(); v.keys = true; lookAtRow(tr.dataset.row); }
-    else if (k === 'x' && tr) { e.preventDefault(); v.sel.has(v.cur) ? v.sel.delete(v.cur) : v.sel.add(v.cur); v.keys = true; repaint(); }
-    // Enter on the row's own link is the browser's; here it covers the marker when the focus is on the page itself.
-    else if ((k === 'o' || k === 'Enter' && (e.target === document.body || e.target.id === 'main')) && tr) { e.preventDefault(); S.billNav = NAV.slice(); S.go('#/bill/' + tr.dataset.num); }
+    // The arrows walk the rows only while a bill is docked: without one they scroll the page, as they always did.
+    else if ((k === 'ArrowDown' || k === 'ArrowUp') && docked() && !inDock) { e.preventDefault(); moveRow(k === 'ArrowDown' ? 1 : -1); }
+    // Space on the marked row: its bill, beside the list (or the quick look under 1100px); again, and it closes. It
+    // opens a panel and changes nothing, so it is safe on one key.
+    else if (k === ' ' && tr && !e.target?.closest?.('button, [role="button"], summary') && !inDock) { e.preventDefault(); v.keys = true;
+      if (!dockNow()) lookAtRow(tr.dataset.row); else if (docked() && v.look === tr.dataset.row) closeDock(); else showDock(tr.dataset.row, { keys: true }); }
+    // X ticks the marked row; in v3 the tick boxes come with select mode, so the first X starts it.
+    else if (k === 'x' && tr) { e.preventDefault(); v.keys = true; if (!v.selecting) { v.look = null; startSelect(v.cur); } else { v.sel.has(v.cur) ? v.sel.delete(v.cur) : v.sel.add(v.cur); repaint(); } }
+    // Enter on the row's own link is the browser's; here it covers the marker when the focus is on the page itself or
+    // in the docked bill away from its links and buttons. With a bill docked, Enter opens that bill.
+    else if (k === 'o' || k === 'Enter' && (e.target === document.body || e.target.id === 'main' || inDock && !onControl)) {
+      const id = docked() ? v.look : tr?.dataset.row; if (id) { e.preventDefault(); openBill(id); } }
   });
   // The finger lifts on the row that select mode just drew; the tap that lift makes is swallowed, and only that one.
   document.addEventListener('pointerup', () => { if (longAt) setTimeout(() => { longAt = 0; }, 350); }, true);

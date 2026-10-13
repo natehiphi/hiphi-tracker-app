@@ -2,8 +2,11 @@
 // Nate, 9/19: "what if instead, it becomes a modal?" It is one, but sized like a desktop panel (900px, two
 // columns) rather than the 560px sheet, because the current app's 780px bill modal is the thing that made that
 // app feel like a widened phone. Read-and-act only: no forms live in here, so it never fights the unsaved-work
-// guards, and "Open full page" is always one click away — the page stays the truth, this is the shortcut.
+// guards, and "Open the bill" (v2: "Open full page") is always one click away — the page stays the truth, this is the shortcut.
 // j / k walk the list you came from without closing, which is what makes it faster than opening the page.
+// v3 (R-264, Nate: "too much going on at one time"): on Bills from 1100px the look is docked beside the list instead
+// of over it (dockLook, at the end): one thing open at a time, the list and the bill you picked in full beside it.
+// openLook is unchanged for Today and every other screen.
 import { S, esc, capitolUrl, fmtDT, fmtDate } from './data.js';
 import { openSheet, closeSheet, btn, iconBtn, stageRibbon, avatar, ownerOf, countdown, POS_WORD, keysOn } from './ui.js';
 import { stopOf, blurb, billNum, cmteName, chairMail, draftFor, hearingAhead, sponsorName, gateNeed, deadlineName, billByRef } from './model.js';
@@ -17,7 +20,7 @@ const dash = v => v || '—';
 function chairLine(code) {
   const m = chairMail(code);
   if (!m) return '';
-  return `${esc(m.who)}${m.email ? ` · <a href="mailto:${esc(m.email)}">${esc(m.email)}</a>` : ''}`;
+  return `${esc(m.who)}${m.email ? ` · <a href="mailto:${esc(m.email)}">${esc(m.email.replace(/,\s*/g, ', '))}</a>` : ''}`;   // two chairs' addresses, a space between
 }
 
 // The Capitol writes sponsors in capitals and splits "LEE, M." into two; put the initial back on its name and
@@ -39,22 +42,30 @@ const lastActionLine = b => {
   return cut.length <= 150 ? cut : cut.slice(0, 150).replace(/[\s,.;:]+\S*$/, '') + '…';
 };
 
-function body(b, { list, index }) {
-  const st = stopOf(b), h = hearingAhead(b), d = h ? draftFor(b.id, h.committee) : null;
+// Where the testimony for a hearing stands. "Ready to file" is the word list's name for approved and not filed (C-15).
+const testimonyWord = d => d ? (d.status === 'filed' ? 'filed' : d.status === 'approved' ? 'ready to file' : d.status === 'second_review' ? 'waiting for a second approval' : d.status === 'review' ? 'in review' : 'being written')
+  : S.failed?.('testimony drafts') ? 'not loaded' : 'no draft yet';
+// The hearing ahead, with the testimony's step and the buttons for it.
+function hearingCard(b, h, d) {
   // Filing is offered only at the filing step, once the testimony is approved (R-022): never beside "waiting for a second
   // approval", where it invited someone to file testimony nobody had signed off.
   const fileOk = d?.status === 'approved';
-  const pos = POS_WORD[b.position || ''] || b.position || 'No position';
-  const own = ownerOf(b);
-  const next = h
-    ? `<div class="lk-card next sv-stick"><h3>${esc(cmteName(h.committee) || h.committee)} hearing</h3>
+  return `<div class="lk-card next sv-stick"><h3>${esc(cmteName(h.committee) || h.committee)} hearing</h3>
         <p>${esc(fmtDT(h.scheduled_at))}${h.room ? ` · ${esc(h.room)}` : ''}</p>
         ${h.testimony_deadline ? `<p>Testimony due ${esc(fmtDT(h.testimony_deadline))} ${countdown(h.testimony_deadline)}</p>` : ''}
-        <p class="small muted">Testimony: ${d ? esc(d.status === 'filed' ? 'filed' : d.status === 'approved' ? 'approved, not filed yet' : d.status === 'second_review' ? 'waiting for a second approval' : d.status === 'review' ? 'in review' : 'being written') : S.failed?.('testimony drafts') ? 'not loaded' : 'no draft yet'}</p>
-        ${fileOk || d?.doc_url ? `<div class="lk-acts">${fileOk ? btn('File at the Capitol', { kind: 'secondary', sm: true, href: capitolUrl(b), target: '_blank', iconEnd: 'external-link' }) : ''}${d?.doc_url ? btn('Open Doc', { kind: 'text', sm: true, href: d.doc_url, target: '_blank', iconEnd: 'external-link' }) : ''}</div>` : ''}</div>`
+        <p class="small muted">Testimony: ${esc(testimonyWord(d))}</p>
+        ${fileOk || d?.doc_url ? `<div class="lk-acts">${fileOk ? btn('File at the Capitol', { kind: 'secondary', sm: true, href: capitolUrl(b), target: '_blank', iconEnd: 'external-link' }) : ''}${d?.doc_url ? btn('Open Doc', { kind: 'text', sm: true, href: d.doc_url, target: '_blank', iconEnd: 'external-link' }) : ''}</div>` : ''}</div>`;
+}
+const chairBtn = (b, st) => st.committee && chairMail(st.committee) ? `<div class="lk-acts">${btn('Email the chair', { kind: 'secondary', sm: true, href: `mailto:${chairMail(st.committee).email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}`, target: '_blank', iconEnd: 'external-link' })}</div>` : '';
+
+function body(b, { list, index }) {
+  const st = stopOf(b), h = hearingAhead(b), d = h ? draftFor(b.id, h.committee) : null;
+  const pos = POS_WORD[b.position || ''] || b.position || 'No position';
+  const own = ownerOf(b);
+  const next = h ? hearingCard(b, h, d)
     : `<div class="lk-card next sv-stick"><h3>No hearing on the books</h3><p class="small">${esc(st.says || '')}</p>
         ${st.deadline && !st.deadline.missed ? `<p class="small muted">Needs one by ${esc(fmtDate(st.deadline.date))}, the ${esc(deadlineName(st.deadline).toLowerCase())}: it must ${esc(gateNeed(st.deadline.label))}.</p>` : ''}
-        ${st.committee && chairMail(st.committee) ? `<div class="lk-acts">${btn('Email the chair', { kind: 'secondary', sm: true, href: `mailto:${chairMail(st.committee).email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}`, target: '_blank', iconEnd: 'external-link' })}</div>` : ''}</div>`;
+        ${chairBtn(b, st)}</div>`;
 
   return `<div class="lk-head">
       <div class="num">${esc(billNum(b))}</div>
@@ -66,14 +77,7 @@ function body(b, { list, index }) {
     <div class="lk-cols">
       <div>
         <div class="lk-card"><h3>Details</h3>
-          <dl class="lk-kv">
-            <dt>Committee</dt><dd>${dash(esc(cmteName(st.committee) || st.committee || ''))}${st.stops ? ` <span class="muted">· ${st.stops > 1 ? `${st.stop} of ${st.stops}` : 'the only one'} in the ${esc(CHAMBER_NAME[st.chamber] || '')}${st.stops > 1 ? ', in order' : ''}</span>` : ''}</dd>
-            ${st.committee && chairLine(st.committee) ? `<dt>Chair</dt><dd>${chairLine(st.committee)}</dd>` : ''}
-            <dt>Deadline</dt><dd>${st.deadline ? `${esc(deadlineName(st.deadline))}, ${esc(fmtDate(st.deadline.date))}${st.deadline.missed ? ' <span class="muted">(missed)</span>' : ` <span class="muted">· ${st.deadline.days <= 0 ? 'today' : st.deadline.days + ' days'}</span>`}<span class="lk-gl">It must ${esc(gateNeed(st.deadline.label))}.</span>` : '—'}</dd>
-            <dt>Last action</dt><dd>${b.last_action ? `${esc(fmtDate(b.last_action_date))} ${esc(lastActionLine(b))}` : '—'}</dd>
-            ${sponsorLine(b) ? `<dt>Sponsors</dt><dd>${sponsorLine(b)}</dd>` : ''}
-            <dt>Official title</dt><dd>${dash(esc(b.title || ''))}</dd>
-          </dl>
+          ${details(b, st)}
         </div>
       </div>
       <div>
@@ -86,7 +90,24 @@ function body(b, { list, index }) {
         </div>
       </div>
     </div>
-    ${list && list.length > 1 ? `<p class="lk-keys"><kbd>J</kbd> <kbd>K</kbd> next and previous bill · <kbd>Enter</kbd> opens the full page · <kbd>Esc</kbd> closes</p>` : ''}`;
+    ${list && list.length > 1 ? `<p class="lk-keys"><kbd>J</kbd> <kbd>K</kbd> next and previous bill · <kbd>Enter</kbd> opens the bill · <kbd>Esc</kbd> closes</p>` : ''}`;
+}
+
+// The facts, as a list of terms. `deadline: false` leaves the deadline out where the card above has just said it;
+// `pos` and `own` put the position and the owner first (the docked look, when the table beside it does not say them in
+// words); `last: false` leaves out a last action that is only the notice of the hearing the card above shows.
+function details(b, st, { deadline = true, pos = false, own: withOwn = false, last = true } = {}) {
+  const own = withOwn ? ownerOf(b) : null;
+  return `<dl class="lk-kv">
+            ${pos ? `<dt>Position</dt><dd>${esc(POS_WORD[b.position || ''] || b.position || 'No position')}</dd>` : ''}
+            ${withOwn ? `<dt>Owner</dt><dd>${own ? `${avatar(own, 20)} ${esc(own.id === S.me?.id ? 'You' : own.full_name)}` : 'Nobody yet'}</dd>` : ''}
+            <dt>Committee</dt><dd>${dash(esc(cmteName(st.committee) || st.committee || ''))}${st.stops ? ` <span class="muted">· ${st.stops > 1 ? `${st.stop} of ${st.stops}` : 'the only one'} in the ${esc(CHAMBER_NAME[st.chamber] || '')}${st.stops > 1 ? ', in order' : ''}</span>` : ''}</dd>
+            ${st.committee && chairLine(st.committee) ? `<dt>Chair</dt><dd>${chairLine(st.committee)}</dd>` : ''}
+            ${deadline ? `<dt>Deadline</dt><dd>${st.deadline ? `${esc(deadlineName(st.deadline))}, ${esc(fmtDate(st.deadline.date))}${st.deadline.missed ? ' <span class="muted">(missed)</span>' : ` <span class="muted">· ${st.deadline.days <= 0 ? 'today' : st.deadline.days + ' days'}</span>`}<span class="lk-gl">It must ${esc(gateNeed(st.deadline.label))}.</span>` : '—'}</dd>` : ''}
+            ${last ? `<dt>Last action</dt><dd>${b.last_action ? `${esc(fmtDate(b.last_action_date))} ${esc(lastActionLine(b))}` : '—'}</dd>` : ''}
+            ${sponsorLine(b) ? `<dt>Sponsors</dt><dd>${sponsorLine(b)}</dd>` : ''}
+            <dt>Official title</dt><dd>${dash(esc(b.title || ''))}</dd>
+          </dl>`;
 }
 
 // openLook(bill, { list, index }) — list is the bills of the screen you came from, so j/k can walk it.
@@ -95,7 +116,7 @@ export function openLook(b, { list = null, index = 0 } = {}) {
   const n = list ? list.length : 0, i = list ? Math.max(0, Math.min(n - 1, index)) : 0;
   const foot = `<div class="lk-nav">${n > 1 ? `<span class="pos">${i + 1} of ${n}</span>` : '<span class="pos"></span>'}
       ${n > 1 ? `${iconBtn('chevron-left', 'Previous bill', { 'data-lk': 'prev', ...(i === 0 ? { 'aria-disabled': 'true' } : {}) })}${iconBtn('chevron-right', 'Next bill', { 'data-lk': 'next', ...(i >= n - 1 ? { 'aria-disabled': 'true' } : {}) })}` : ''}
-      ${btn('Open full page', { kind: 'primary', attrs: { 'data-lk': 'open' }, iconEnd: 'arrow-right' })}</div>`;
+      ${btn('Open the bill', { kind: 'primary', attrs: { 'data-lk': 'open' }, iconEnd: 'arrow-right' })}</div>`;   // v3: the docked look's words too (C-15)
   return openSheet({
     title: esc(billNum(b)), size: 'look', body: body(b, { list, index: i }), foot,
     wire: d => {
@@ -113,6 +134,35 @@ export function openLook(b, { list = null, index = 0 } = {}) {
       });
     },
   });
+}
+
+// ---- docked (v3, Bills from 1100px) ----
+// dockLook(bill) draws the panel; Bills puts it beside the table, keeps which bill it is, and wires it ([data-lkd]:
+// "open" is a link to the bill, so Cmd-click and the middle button open a new tab; "close" closes the panel). One
+// column, read top to bottom: the bill, where it stands, the next step, then the facts, with the position and owner
+// first when the table beside it does not say them in words (`pos`, `own`: Bills says which). Each fact is said once (A-14): the one-line "says"
+// sentence only when there is no next step to show (the card and the facts say all of it), the deadline only where
+// the card has not, and a last action that is just the notice of the hearing above is left out. "Open the bill" is
+// the one filled button in view (A-3).
+export function dockLook(b, { pos = true, own = true } = {}) {
+  if (!b) return '';
+  const st = stopOf(b), h = hearingAhead(b), d = h ? draftFor(b.id, h.committee) : null;
+  const live = st.deadline && !st.deadline.missed && st.phase === 'committee';
+  const days = live ? (st.deadline.days <= 0 ? 'today' : st.deadline.days === 1 ? 'tomorrow' : `in ${st.deadline.days} days`) : '';
+  const next = h ? hearingCard(b, h, d)
+    : live ? `<div class="lk-card next"><h3>No hearing yet</h3>
+        <p>Needs one by ${esc(fmtDate(st.deadline.date, { weekday: 'short' }).replace(',', ''))}, ${days}: the ${esc(deadlineName(st.deadline).toLowerCase())}, when it must ${esc(gateNeed(st.deadline.label))}.</p>
+        ${chairBtn(b, st)}</div>` : '';
+  return `<aside class="bl-dock" aria-labelledby="bl-dock-h" data-dock="${esc(b.id)}">
+    <div class="lk-dtop"><h2 class="num" id="bl-dock-h">${esc(billNum(b))}</h2>
+      ${btn('Open the bill', { sm: true, href: billRoute(b), iconEnd: 'arrow-right', attrs: { 'data-lkd': 'open', 'data-bill': b.id } })}
+      ${iconBtn('x', 'Close', { 'data-lkd': 'close' })}</div>
+    <div class="lk-head">${b.nickname ? `<div class="nick">${esc(b.nickname)}</div>` : ''}<p class="sum">${esc(blurb(b, 220))}</p></div>
+    ${stageRibbon(b)}
+    ${!next && st.says ? `<p class="lk-says">${esc(st.says)}</p>` : ''}
+    ${next}
+    <div class="lk-card"><h3>Details</h3>${details(b, st, { deadline: !next || !!h, pos, own, last: !(h && /scheduled a public hearing/i.test(b.last_action || '')) })}</div>
+  </aside>`;
 }
 
 // For a screen that only has a bill number to hand.
