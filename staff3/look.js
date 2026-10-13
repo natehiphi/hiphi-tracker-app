@@ -7,7 +7,7 @@
 // v3 (R-264, Nate: "too much going on at one time"): on Bills from 1100px the look is docked beside the list instead
 // of over it (dockLook, at the end): one thing open at a time, the list and the bill you picked in full beside it.
 // openLook is unchanged for Today and every other screen.
-import { S, esc, capitolUrl, fmtDT, fmtDate } from './data.js';
+import { S, esc, capitolUrl, fmtDT, fmtDate, myIssuesOf } from './data.js';
 import { openSheet, closeSheet, btn, iconBtn, stageRibbon, avatar, ownerOf, countdown, POS_WORD, keysOn } from './ui.js';
 import { stopOf, blurb, billNum, cmteName, chairMail, draftFor, hearingAhead, sponsorName, gateNeed, deadlineName, billByRef } from './model.js';
 import { CHAMBER_NAME } from '../stops.js';
@@ -95,10 +95,12 @@ function body(b, { list, index }) {
 
 // The facts, as a list of terms. `deadline: false` leaves the deadline out where the card above has just said it;
 // `pos` and `own` put the position and the owner first (the docked look, when the table beside it does not say them in
-// words); `last: false` leaves out a last action that is only the notice of the hearing the card above shows.
-function details(b, st, { deadline = true, pos = false, own: withOwn = false, last = true } = {}) {
-  const own = withOwn ? ownerOf(b) : null;
+// words); `last: false` leaves out a last action that is only the notice of the hearing the card above shows; `issue`
+// names the issues of yours it is on (the tag on its row in Bills, R-263), which is why it can be yours with no owner.
+function details(b, st, { deadline = true, pos = false, own: withOwn = false, last = true, issue = false } = {}) {
+  const own = withOwn ? ownerOf(b) : null, iss = issue ? myIssuesOf(b) : [];
   return `<dl class="lk-kv">
+            ${iss.length ? `<dt>Your issue${iss.length > 1 ? 's' : ''}</dt><dd>${iss.map(i => esc(i.name)).join(', ')}</dd>` : ''}
             ${pos ? `<dt>Position</dt><dd>${esc(POS_WORD[b.position || ''] || b.position || 'No position')}</dd>` : ''}
             ${withOwn ? `<dt>Owner</dt><dd>${own ? `${avatar(own, 20)} ${esc(own.id === S.me?.id ? 'You' : own.full_name)}` : 'Nobody yet'}</dd>` : ''}
             <dt>Committee</dt><dd>${dash(esc(cmteName(st.committee) || st.committee || ''))}${st.stops ? ` <span class="muted">· ${st.stops > 1 ? `${st.stop} of ${st.stops}` : 'the only one'} in the ${esc(CHAMBER_NAME[st.chamber] || '')}${st.stops > 1 ? ', in order' : ''}</span>` : ''}</dd>
@@ -161,7 +163,7 @@ export function dockLook(b, { pos = true, own = true } = {}) {
     ${stageRibbon(b)}
     ${!next && st.says ? `<p class="lk-says">${esc(st.says)}</p>` : ''}
     ${next}
-    <div class="lk-card"><h3>Details</h3>${details(b, st, { deadline: !next || !!h, pos, own, last: !(h && /scheduled a public hearing/i.test(b.last_action || '')) })}</div>
+    <div class="lk-card"><h3>Details</h3>${details(b, st, { deadline: !next || !!h, pos, own, issue: true, last: !(h && /scheduled a public hearing/i.test(b.last_action || '')) })}</div>
   </aside>`;
 }
 

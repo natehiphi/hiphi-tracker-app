@@ -223,8 +223,9 @@ function parts() {
   const onRow = sheetOn.length ? `<div class="bl-on" role="group" aria-label="Filters that are on">${wide ? '<span class="bl-onlab">Filters</span>' : ''}${sheetOn.map(([s, l]) => `<button type="button" class="chip bl-onchip" data-ft="${esc(s)}" aria-label="Remove the filter ${esc(l)}"><span>${esc(l)}</span>${icon('x')}</button>`).join('')}${clear}</div>` : '';
   const quickRow = quick || (!sheetOn.length && act.length) ? `<div class="bl-quick" role="group" aria-label="Quick filters">${quick}${!sheetOn.length && act.length ? clear : ''}</div>` : '';
   const more = q && v.scope !== 'all' && list.length ? (() => { const n = shownBills('all').length; return n > list.length ? n - list.length : 0; })() : 0;
-  // Searching, the line under the toolbar is about the search; otherwise it is the deadline sentence.
-  const lead = !list.length ? '' : q ? moreLine(list.length, more, q) : deadlineLine(list);
+  // Searching, the line under the toolbar is about the search; otherwise it is the deadline sentence, except while its
+  // own link's filter is on: the chip and the rows say it then, and the sentence would say the same count again.
+  const lead = !list.length ? '' : q ? moreLine(list.length, more, q) : v.due ? '' : deadlineLine(list);
   const selHead = !wide && v.selecting && list.length ? (() => { const shown = NAV, all = shown.length && shown.every(id => v.sel.has(id)), ids = selIds(), vis = new Set(list.map(b => b.id)), hid = ids.filter(id => !vis.has(id)).length;
     return `<div class="bl-selhead"><span>${hid ? `${hid} of the ${ids.length} selected ${hid === 1 ? 'is' : 'are'} hidden by your filters.` : 'Tap bills to select them.'}</span>${btn(all ? 'Select none' : `Select all ${shown.length}`, { kind: 'text', sm: true, attrs: { 'data-selall': all ? 'none' : 'all' } })}</div>`; })() : '';
   const rows = list.length ? (wide ? table(groups) + keysHint() : phoneList(groups)) : emptyState(q, act.length);
@@ -473,7 +474,7 @@ function moreMenu() {
     { label: 'Sort new bills', icon: 'sparkles', sub: tc?.undecided ? `${tc.undecided} waiting for a decision` : '', run: async () => { await after(); S.go('#/bills/new'); } },
     { label: 'Weekly memo', icon: 'notebook-pen', run: async () => { await after(); S.go('#/bills/memo'); } },
     { label: 'Lists', icon: 'list-checks', run: async () => { await after(); S.go('#/outreach/lists'); } },
-    { label: `Muted bills (${nm})`, icon: 'bell-off', run: async () => { await after(); S.go('#/bills/muted'); } },
+    { label: nm ? `Muted bills (${nm})` : 'Muted bills', icon: 'bell-off', run: async () => { await after(); S.go('#/bills/muted'); } },
     { label: 'Export CSV', icon: 'download', sub: `The ${n} bill${n === 1 ? '' : 's'} in this list, as a spreadsheet file`, run: () => exportCSV(listInOrder()) },
   ] });
 }

@@ -230,6 +230,9 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-frow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s24); margin-bottom: var(--s12); }
   .bl-frow > .bl-dls, .bl-frow > .bl-sum { flex: 1 1 420px; min-width: 0; margin: 0; }
   .bl-frow .bl-quick { flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-end; overflow: visible; margin: 0 0 0 auto; padding: 0; }
+  /* this row wraps and never scrolls, so the fade staff.css gives a sideways-scrolling chip row would only cut the
+     right edge of the last chip, which sits flush with the table here */
+  .bl-frow .bl-quick { -webkit-mask-image: none; mask-image: none; }
   .bl-wide button.chip.bl-q, .bl-wide button.chip.bl-onchip { min-height: 36px; padding-top: 4px; padding-bottom: 4px; }
   .bl-wide button.chip.bl-q[aria-pressed="true"] { padding-top: 3px; padding-bottom: 3px; }
   .bl-wide button.chip.bl-q:not(:disabled):hover { background: var(--p50); }
@@ -264,7 +267,7 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-memo h3 { font-size: var(--t18); margin: var(--s24) 0 var(--s8); }
   .bl-memo li { margin: 6px 0; }
 
-  /* Bills' "…" menu holds eleven items since v3 (A-20): let it be as tall as the window allows, not 480px with Export
+  /* Bills' "…" menu holds up to eleven items since v3 (A-20): let it be as tall as the window allows, not 480px with Export
      CSV out of sight below a scroll nobody sees */
   body[data-screen="bills"] dialog.sv-sheet.sv-pop { max-height: min(680px, calc(100vh - 32px)); }
   dialog.sv-sheet.bl-pop { position: fixed; margin: 0; right: auto; bottom: auto; min-height: 0; height: auto; border-radius: var(--r12); box-shadow: var(--sh3); }
