@@ -8,7 +8,7 @@
 // that died. The draft itself stays in its Google Doc (Nate, 9/19: not shown inside Review).
 import { S, DB, esc, fmtDT, advocate, hooks, changedSince, startedFromLine } from './data.js';
 import { billNum, blurb, alertTarget, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn } from './model.js';
-import { icon, btn, chip, stepBar, empty, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, posIcons, POS_WORD, ownerOf } from './ui.js';
+import { icon, btn, chip, stepBar, empty, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, posIcons, POS_WORD, ownerOf, clockDay } from './ui.js';
 import { emailPreview } from './composer.js';
 import { reviewQueue, hearingFor, testDue, cd, hearingLine, reviewerNames, needsSecond, HOVER, afterBack } from './today.js';
 import { statusSentence } from './bill.js';
@@ -78,10 +78,19 @@ function header(r, total) {
     <h2 class="td-rvh">Review <span class="td-rvn">· ${n} of ${total}</span></h2>
     ${btn('Skip', { kind: 'text', iconEnd: 'chevron-right', attrs: { 'data-rvskip': '1' } })}</div>`;
 }
+// When the testimony is due. v4 (R-269, A-5 as amended by R-250): a deadline that has passed while the hearing has not
+// started is late testimony, still taken, in amber with the day ("Late testimony until tomorrow 9:30 AM"), never red
+// "Was due 19 hours ago" (Jess read that as too late to approve). Red stays for what can no longer be filed.
+function dueLine(due, h) {
+  if (due == null) return '';
+  const now = Date.now();
+  if (due <= now && h && new Date(h.scheduled_at).getTime() > now) return `<span class="sv-count soon">${icon('clock')}Late testimony until ${esc(clockDay(h.scheduled_at))}</span>`;
+  return cd(due, 'due');
+}
 function draftBody(it) {
   const { d, b, h, due } = it, me = S.me || {}, own = d.submitted_by && d.submitted_by === me.id;
   const two = d.status === 'second_review';
-  const who = two ? `Approved by ${esc(first(d.approved_by))} ${esc(ago(d.approved_at))}. It is this bill’s first testimony, so a second approver signs off too.`
+  const who = two ? `Approved by ${esc(first(d.approved_by))} ${esc(ago(d.approved_at))}. It is this bill’s first testimony, so it needs a second approval.`
     : d.submitted_by ? `Sent by ${own ? 'you' : esc(first(d.submitted_by))} ${esc(ago(d.submitted_at))}` : 'Not sent by anyone yet';
   const stale = b.current_version && d.version !== b.current_version;
   return `<section class="card td-rvcard" aria-labelledby="td-rvb">
@@ -90,7 +99,7 @@ function draftBody(it) {
     ${billLine(b, { pos: b.position !== 'monitor' })}
     ${billState(b, { d, h })}
     ${h ? `<p class="td-rvline">${icon('landmark')}<span>${hearingLine(h)}</span></p>` : ''}
-    ${due != null ? `<p class="td-rvline">${cd(due, 'due')}</p>` : ''}
+    ${due != null ? `<p class="td-rvline">${dueLine(due, h)}</p>` : ''}
     <p class="td-rvline">${icon('user-round')}<span>${who}</span></p>
     ${startedFromLine(b, d) ? `<p class="td-rvline">${icon('copy')}<span>${esc(startedFromLine(b, d))}</span></p>` : ''}
     ${stale ? notice('warn', 'triangle-alert', `The bill is now ${esc(b.current_version)}; this draft was written for ${esc(d.version || 'the introduced bill')}.${changedSince(b, d.version) ? ` What changed: ${esc(changedSince(b, d.version))}` : ''}`) : ''}
@@ -222,7 +231,7 @@ async function approve(route, el) {
     await DB.transition(it.b.id, it.d.id, 'approve'); markNotices(it.b.id);
     // Written from the state the server returned: a first testimony goes on to second review.
     const d = resolve(it.key)?.d || it.d, filer = d.submitted_by ? (d.submitted_by === S.me.id ? null : first(d.submitted_by)) : first((S.assignments[it.b.id] || [])[0]);
-    const msg = d.status === 'second_review' ? `Approved. Now needs ${reviewerNames()}.` : filer && filer !== 'Someone' ? `Approved. ${filer} will file it.` : 'Approved. Ready to file at the Capitol.';
+    const msg = d.status === 'second_review' ? `Approved. Second approval next, from ${reviewerNames()}.` : filer && filer !== 'Someone' ? `Approved. ${filer} will file it.` : 'Approved. Ready to file at the Capitol.';
     const entry = { num: billNum(it.b), what: msg, icon: 'check' };
     toast(msg, { ok: true, undo: () => unapprove(r, it, entry) }); advance(r, entry);
   } catch (e) { toast(e, { err: true }); if (el && el.isConnected) { el.removeAttribute('aria-busy'); el.disabled = false; } }
