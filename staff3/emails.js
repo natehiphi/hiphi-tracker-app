@@ -1,4 +1,4 @@
-// Outreach > Emails (plan 3.9): the action alerts, grouped by what they need: Needs your approval, Ready to send,
+// Outreach > Emails (plan 3.9): the emails to supporters, grouped by what they need: Needs your approval, Ready to send,
 // Drafts and sent back, Waiting on someone else, Sent (with its numbers). The same alerts and rules as the current
 // app's Emails page (app.js renderEmails): an admin or an approver other than the writer approves (098), the writer (or an admin) sends,
 // Postmark reports opens, clicks and bounces. Hearing alerts need nobody, so they get one line, not a card.
@@ -6,9 +6,16 @@
 // as the groups (what needs you first), every column sorts, and each row says its state three ways: a status chip
 // with an icon and a word, a line under the subject that says what happens next, and the numbers once it is sent.
 // Nothing on this page sends anything: a row only opens the email's own page.
+// v3 (R-264): the second of Outreach's two tabs, Supporters · Emails. "This week's asks", the text staff paste into the
+// newsletter or a post, moved here from Today (today.js makes it; until that export lands this page shows a marked
+// placeholder). How approval works is said by each email's status, not by a sentence over the list, and the 4:30 pm
+// email is explained where it matters, on the composer's Check it step.
 import { S, esc, fmtDT, advocate } from './data.js';
 import { alertsToReview } from './model.js';
-import { icon, btn, row, empty } from './ui.js';
+import { icon, btn, row, empty, sectionNav } from './ui.js';
+// A namespace import, not a named one: until today.js exports weekAsksHTML (and wireWeekAsks), a named import would stop
+// the whole app loading; this way the page draws a placeholder and the real list appears once the export exists.
+import * as TODAY from './today.js';
 import { pageHead, isDesk, isSide, thSort, sortBy, wireTable, DASH, plural, shortDate } from './lists.js';
 import { audienceOf, statusChip, approverNames, pausedNotice, ago, dailyWord, paused, heldNow, HELD } from './composer.js';
 
@@ -72,9 +79,17 @@ function emailsTable(rows, v, rv) {
     <thead><tr>${COLS.map(c => thSort(c, v.sort)).join('')}</tr></thead><tbody>${sortBy(rows, v.sort, colValue).map(tr).join('')}</tbody></table></div>`;
 }
 
+// This week's asks: today.js's own card (the asks, and Copy for the newsletter or a post), under a name that says what
+// it is for. The placeholder is only for the build in between, and says so.
+function asksHTML() {
+  if (typeof TODAY.weekAsksHTML === 'function') { try { const h = TODAY.weekAsksHTML(); return h ? `<div class="le-asks">${h}</div>` : ''; } catch (e) { console.error(e); return ''; } }
+  return `<section class="card le-asks le-askph" aria-labelledby="le-asks-h"><h2 id="le-asks-h">This week’s asks, to paste into the newsletter or a post</h2>
+    <p class="small muted">Placeholder (Staff v3 build): the list moves here from Today once today.js shares it.</p></section>`;
+}
+
 export default {
   tab: 'outreach',
-  title: () => 'Outreach',
+  title: () => 'Emails',
   wide: () => true,
   render() {
     const v = S.leEmails ??= { sort: null };
@@ -91,12 +106,12 @@ export default {
     const newBtn = btn('New email', { icon: 'mail-plus', href: '#/email/new' });
     const desk = isDesk(), needs = review.length + ready.length + drafts.filter(a => a.author_id === me).length;
     return `<div class="le-page${desk ? ' le-desk' : ''}${isSide() ? ' le-side' : ''}">
-      ${pageHead('emails', 'Emails', desk ? 'Emails to supporters. Someone other than the writer approves each one before it can be sent.' : 'Emails to supporters. Someone else approves each one.', all.length ? newBtn : '')}
+      ${pageHead(sectionNav('outreach', 'emails'), 'Emails', '', all.length ? newBtn : '')}
       ${pausedNotice()}
-      <p class="le-hear">${icon('bell')}<span>Supporters get one email a day at most, at 4:30 pm: their hearing alerts, which send on their own, and any of these emails sent that day.</span></p>
+      ${asksHTML()}
       ${!all.length ? `<div class="le-empty">${empty({ title: 'No emails yet', text: 'Write to the people who follow a bill or a list, or to a saved segment of supporters.', action: newBtn })}</div>`
         // The table opens in the groups' order (what needs you first, sent last); a header click re-sorts it.
-        : desk ? `<p class="le-tsum" aria-live="polite"><b>${plural(all.length, 'email')}</b> · ${needs ? `${needs} ${needs === 1 ? 'needs' : 'need'} you` : 'none needs you'}${v.sort ? '' : ' · what needs you comes first'}</p>${emailsTable([...review, ...ready, ...going, ...drafts, ...waiting, ...sent], v, rv)}`
+        : desk ? `<p class="le-tsum" aria-live="polite">${needs ? `<b>${needs} ${needs === 1 ? 'needs' : 'need'} you</b>` : 'None needs you'}${v.sort ? '' : ' · what needs you comes first'}</p>${emailsTable([...review, ...ready, ...going, ...drafts, ...waiting, ...sent], v, rv)}`
         : group('review', 'Needs your approval', review, 'review')
         + group('send', 'Ready to send', ready, 'send')
         + group('going', paused() ? 'Held while email is paused' : 'Going out at 4:30 pm', going, 'going')
@@ -105,5 +120,8 @@ export default {
         + group('sent', 'Sent', sent, 'sent')}
     </div>`;
   },
-  wire(route, root) { wireTable(root, COLS, S.leEmails ??= { sort: null }); },
+  wire(route, root) {
+    wireTable(root, COLS, S.leEmails ??= { sort: null });
+    if (typeof TODAY.wireWeekAsks === 'function') { const box = root.querySelector('.le-asks'); if (box) TODAY.wireWeekAsks(box); }
+  },
 };

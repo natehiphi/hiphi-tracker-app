@@ -325,7 +325,7 @@ function wire(route, root) {
 }
 
 export default {
-  tab: 'outreach',
+  tab: 'bills',   // v3: Lists open from Bills
   title: route => listById(route.id)?.title || 'List',
   back: () => ({ href: '#/outreach/lists', label: 'Lists' }),
   render, wire,

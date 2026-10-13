@@ -36,7 +36,7 @@ export const billName = (b, n = 110) => b.nickname
 
 // ---- layout, and the desktop table parts shared by Lists and Emails ----
 export const isDesk = () => matchMedia('(min-width: 900px)').matches;
-export const isSide = () => matchMedia('(min-width: 1100px)').matches;   // the frame's sidebar already lists Supporters, Issues, Lists and Emails
+export const isSide = () => matchMedia('(min-width: 1100px)').matches;   // the frame's sidebar shows from here
 export const DASH = '<span class="le-dash" aria-hidden="true">–</span><span class="sr">none</span>';
 // "3/16" this year, "11/2/25" for an older date.
 export const shortDate = d => d ? fmtDate(d, asDate(d).getFullYear() === new Date().getFullYear() ? {} : { year: '2-digit' }) : '';
@@ -65,18 +65,11 @@ export function wireTable(root, cols, state) {
     if (e.metaKey || e.ctrlKey) window.open(tr.dataset.href, '_blank', 'noopener'); else S.go(tr.dataset.href);
   }));
 }
-// The top of Lists and Emails. Phones: the switcher, then a line and the main button. 900 to 1099px: the switcher
-// leads one tool row. With the sidebar (1100px and wider) the page's title leads it instead.
-export const pageHead = (cur, title, lede, action) => {
-  const desk = isDesk();
-  return `${desk ? '' : outreachNav(cur)}<div class="le-tools"><h1 class="le-h1">${title}</h1>${desk && !isSide() ? outreachNav(cur) : ''}<p class="le-lede">${lede}</p>${action}</div>`;
-};
-
-// The Outreach switcher: the same four links, in the same place, on Supporters, Issues, Lists and Emails.
-export function outreachNav(cur) {
-  return `<nav class="sv-seg le-seg" aria-label="Outreach">${[['supporters', '#/outreach', 'Supporters'], ['issues', '#/outreach/issues', 'Issues'], ['coalitions', '#/coalition', 'Coalitions'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]
-    .map(([k, href, l]) => `<a href="${href}"${k === cur ? ' aria-current="page"' : ''}>${l}</a>`).join('')}</nav>`;
-}
+// The top of Emails, All issues, Coalitions and Lists. v3 (R-264): the section's one tab row (ui.js sectionNav, or
+// nothing) comes first at every width, then the page's title, a line about it when one is needed, and its main button.
+// The title shows on a laptop too, now that the sidebar no longer lists the sub-pages beside it.
+export const pageHead = (nav, title, lede, action) =>
+  `${nav || ''}<div class="le-tools"><h1 class="le-h1">${title}</h1>${lede ? `<p class="le-lede">${lede}</p>` : '<span class="le-sp"></span>'}${action}</div>`;
 
 // ui.js closes a sheet with history.back(), which lands a moment later. Navigating or opening the next sheet before
 // it lands lets that Back undo the new step, so anything that follows a closing sheet waits for it (or 500ms).
@@ -150,9 +143,11 @@ function listsTable(lists, v) {
     <thead><tr>${COLS.map(c => thSort(c, v.sort)).join('')}</tr></thead><tbody>${sortBy(lists, v.sort, colValue).map(tr).join('')}</tbody></table></div>`;
 }
 
+// v3 (R-264): no list is live, so Lists left the Outreach tabs; its pages open from Bills' "…" menu and go back there.
 export default {
-  tab: 'outreach',
-  title: () => 'Outreach',
+  tab: 'bills',
+  title: () => 'Lists',
+  back: () => ({ href: '#/bills', label: 'Bills' }),
   wide: () => true,
   render() {
     const v = S.leLists ??= { sort: null };
@@ -160,7 +155,8 @@ export default {
     const newBtn = btn('New list', { icon: 'list-plus', attrs: { 'data-le': 'new', 'aria-haspopup': 'dialog' } });
     const live = lists.filter(l => l.is_published).length, desk = isDesk();
     return `<div class="le-page${desk ? ' le-desk' : ''}${isSide() ? ' le-side' : ''}">
-      ${pageHead('lists', 'Lists', `Sets of public bills that anyone can follow.${lists.length ? ` <span class="le-sum">${plural(lists.length, 'list')} · ${live} live</span>` : ''}`, lists.length ? newBtn : '')}
+      <a class="le-deskback" href="#/bills" data-back>${icon('chevron-left')}<span>Bills</span></a>
+      ${pageHead('', 'Lists', `Sets of public bills that anyone can follow.${lists.length ? ` <span class="le-sum">${plural(lists.length, 'list')} · ${live} live</span>` : ''}`, lists.length ? newBtn : '')}
       ${!lists.length ? `<div class="le-empty">${empty({ title: 'No lists yet', text: 'A list is a set of public bills that anyone can follow, like Keiki health or Tobacco-free Hawaiʻi.', action: newBtn })}</div>`
         : desk ? `${listsTable(lists, v)}<p class="le-foot meta">${icon('users')}<span>To see who follows a list, open it and choose its followers.</span></p>`
         : `<div class="rows le-lists">${lists.map(listRow).join('')}</div>

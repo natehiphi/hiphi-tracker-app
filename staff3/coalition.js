@@ -12,9 +12,12 @@
 // a coalition's own address (track.html#/issue/<coalition slug>) still opens its page of bills (pub/find.js keeps it for
 // the links partners already have). The website box is embed.html?coalition=<slug>.
 // Phone: one column. Desktop (900px and wider): the week on the left; support and sharing in a side panel.
-import { S, DB, DEMO, SESSION_OVER, esc, fmtDT, fmtDate, advocate } from './data.js';
+// v3 (R-264): the index is the third tab of My issues · All issues · Coalitions (three ways to group bills), and the week's
+// pieces (its hearings, its bills at risk, the ones racing the next deadline) are shared with an issue's page (issues.js),
+// built from any set of bills. "I support this coalition" lives only here now (My settings no longer lists coalitions).
+import { S, DB, DEMO, SESSION_OVER, hooks, esc, fmtDT, fmtDate, advocate } from './data.js';
 import { billNum, blurb, diedish, riskOf, stopOf, noticeByFor, roomShort, PUBLIC_APP, hiToday } from './model.js';
-import { icon, btn, chip, row, empty, toast, switchRow, avatar, pickerSheet, openSheet } from './ui.js';
+import { icon, btn, chip, row, empty, toast, switchRow, avatar, pickerSheet, openSheet, sectionNav } from './ui.js';
 import { plural, isSide, thSort, sortBy, wireTable, DASH, pageHead, afterClose } from './lists.js';
 import { iconName } from './setup.js';
 import { issuesOfBill } from './issues.js';
@@ -34,16 +37,14 @@ const andList = xs => xs.length < 2 ? xs.join('') : xs.length === 2 ? `${xs[0]} 
 const billsOf = c => S.bills.filter(b => b.tracked !== false && (S.billCampaigns[b.id] || []).includes(c.id));
 // Live bills with a position: the ones the coalition is working on now (Monitor is a decided position, not work; R-022 decision 5).
 const liveOf = c => billsOf(c).filter(b => isPos(b) && !diedish(b));
-// Its bills still waiting for a hearing: at risk, then the bills racing the next deadline (standing.js, shared with an
-// issue's page).
-const waitingOf = c => waitingOfBills(billsOf(c));
 const unownedOf = c => liveOf(c).filter(b => !(S.assignments[b.id] || []).length).sort(byPri);
 const openTodosOf = c => billsOf(c).flatMap(b => (S.todos[b.id] || []).filter(t => !t.done && !t.assignee_id).map(t => ({ t, b })))
   .sort((x, y) => String(x.t.due_date || '9999').localeCompare(String(y.t.due_date || '9999')) || byPri(x.b, y.b));
 // Its hearings in the next 7 days ("this week" means the same as the Bills flag), one per sitting, on bills with a
-// position; hearings on bills it only monitors stay out, as they are folded away on Today (decision 4).
-export function weekOf(c) {
-  const now = Date.now(), ids = new Set(billsOf(c).filter(isPos).map(b => b.id)), by = new Map();
+// position; hearings on bills it only monitors stay out, as they are folded away on Today (decision 4). From any set of
+// bills: a coalition's here, an issue's on its page (v3).
+export function weekOfBills(bills) {
+  const now = Date.now(), ids = new Set(bills.filter(isPos).map(b => b.id)), by = new Map();
   for (const h of S.hearings || []) {
     if (h.status === 'cancelled' || !ids.has(h.bill_id)) continue;
     const t = new Date(h.scheduled_at).getTime(); if (t <= now || t - now > WEEK) continue;
@@ -51,6 +52,7 @@ export function weekOf(c) {
   }
   return [...by.values()].sort((x, y) => x.t - y.t);
 }
+export const weekOf = c => weekOfBills(billsOf(c));
 // Your support: 'all' (Kris), a list of ids (Saya: CTFH), or nothing yet.
 const pref = () => S.me?.prefs?.coalitions;
 export const supports = c => { const v = pref(); return v === 'all' || (Array.isArray(v) && v.includes(c.id)); };
@@ -94,9 +96,9 @@ const youChip = () => chip('You support it', '', 'badge-check');
 function indexHTML() {
   const v = pref(), list = (S.campaigns || []).slice().sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99) || a.name.localeCompare(b.name)).map(c => ({ c, f: facts(c) }));
   const mine = Array.isArray(v) ? list.filter(x => x.f.you).map(x => x.c.name) : [];
+  // v3: no sentence about what coalitions are (P-4); only whom you support, which the table cannot say when it is all.
   const yours = v === 'all' ? 'You support every one.' : mine.length ? `You support ${andList(mine)}.` : '';
-  const lede = `The coalitions the team works in: their bills, their week, and who owns each.${yours ? ` <span class="le-sum">${esc(yours)}</span>` : ''}`;
-  const head = pageHead('coalitions', 'Coalitions', lede, '');
+  const head = pageHead(sectionNav('issues', 'coalitions'), 'Coalitions', yours ? esc(yours) : '', '');
   if (!list.length) return `<div class="le-page co-index">${head}<div class="le-empty">${empty({ title: 'No coalitions yet', text: 'An admin adds them in Session setup.', action: S.me?.is_admin ? btn('Open Session setup', { href: '#/setup/coalitions' }) : '' })}</div></div>`;
   const hear = n => n ? plural(n, 'hearing') + ' this week' : 'no hearings this week';
   if (!DESK()) return `<div class="le-page co-index">${head}<div class="rows co-list">${list.map(({ c, f }) => row({ leadHtml: `<span class="lead">${icon(iconName(c.icon))}</span>`, title: esc(c.name),
@@ -156,9 +158,10 @@ function supportHTML(c) {
 
 // Its hearings this week, a row per sitting: when, which committee and room, its bills there (the number first, always),
 // the testimony not filed yet and when it is due, and who from the team is going, or that nobody is yet (that is the gap
-// a supporter can fill). Each opens the hearing's page.
-function hearingsHTML(c) {
-  const week = weekOf(c);
+// a supporter can fill). Each opens the hearing's page. `key` names the fold ("Show all") and `from` the hearing page's
+// way back (a coalition's id; an issue's page passes none, and Back is the browser's).
+export function hearingsSec(bills, { key, from = '' } = {}) {
+  const week = weekOfBills(bills);
   if (!week.length) return sec('co-s1', 'Hearings this week', 0, none('No hearings on its bills in the next 7 days.'));
   const rowOf = s => {
     const h = s.rows[0], goers = goersOf(sittingOf(h));
@@ -175,18 +178,18 @@ function hearingsHTML(c) {
       const what = open.length === 1 ? `Testimony ${open[0].t.word}` : `Testimony: ${[...n].map(([w, k]) => `${k} ${w}`).join(', ')}`;
       test = `<span class="co-test${tone ? ' ' + tone : ''}">${icon(tone === 'late' ? 'circle-alert' : tone === 'soon' ? 'clock' : 'file-text')}<span>${esc(`${what} · ${tone === 'late' ? 'was due' : 'due'} ${dueWhen(due)}`)}</span></span>`;
     }
-    return `<a class="row co-hrow" href="#/hearing/${encodeURIComponent(h.id)}?from=${encodeURIComponent(c.id)}">
+    return `<a class="row co-hrow" href="#/hearing/${encodeURIComponent(h.id)}${from ? `?from=${encodeURIComponent(from)}` : ''}">
       <span class="co-date" aria-hidden="true"><b>${esc(wd)}</b><span>${esc(dn)}</span></span>
       <span class="body"><span class="title"><span class="sr">${esc(long)}, </span>${esc(time)} · ${esc(h.committee)} · ${esc(roomShort(h.room))}</span><span class="sub co-hbills">${names}</span>${test}
         <span class="co-going">${icon(goers.length ? 'users' : 'user-plus')}<span>${esc(goingWords(goers) || 'Nobody from the team yet')}</span></span></span>
       ${icon('chevron-right', { cls: 'chev' })}</a>`;
   };
-  return sec('co-s1', 'Hearings this week', week.length, `<div class="rows co-rows">${folded(c.id + '|h', week.map(rowOf))}</div>`);
+  return sec('co-s1', 'Hearings this week', week.length, `<div class="rows co-rows">${folded(key + '|h', week.map(rowOf))}</div>`);
 }
 
 // At risk: no hearing yet and the deadline a week away or less. The notice line is the real deadline: a committee has
 // to post a hearing 48 hours ahead (model.js noticeByFor).
-function riskHTML(c, list) {
+function riskSec(key, list) {
   const rowOf = ({ b, st }) => {
     const nb = noticeByFor(st), dl = st.deadline, left = dl.days <= 0 ? 'Last day today' : `${dl.days} day${dl.days === 1 ? '' : 's'} left`;
     return `<a class="row co-brow" href="${billRoute(b)}"><span class="body"><span class="title">${name(b)}</span>
@@ -194,14 +197,28 @@ function riskHTML(c, list) {
       <span class="co-facts">${ownerBit(b)}</span></span>
       <span class="end"><span class="sv-count${dl.days <= 0 ? ' soon' : ''}">${icon('clock')}${esc(left)}</span>${icon('chevron-right', { cls: 'chev' })}</span></a>`;
   };
-  return sec('co-s2', 'At risk before the deadline', list.length, `<div class="rows co-rows">${folded(c.id + '|r', list.map(rowOf))}</div>`);
+  return sec('co-s2', 'At risk before the deadline', list.length, `<div class="rows co-rows">${folded(key + '|r', list.map(rowOf))}</div>`);
 }
 // The bills racing the deadline after the at-risk week: on Mon 16 March, CTFH had nothing due Thursday and three P1
 // bills with no hearing for Mon 3/30, which Saya's Today counted and this page used to call "nothing at risk".
-function raceHTML(c, w) {
+function raceSec(key, w) {
   const rowOf = ({ b, st }) => `<a class="row co-brow" href="${billRoute(b)}"><span class="body"><span class="title">${name(b)}</span>
       <span class="sub">${st.committee ? `Waiting in ${esc(st.committee)}` : 'Waiting for a committee referral'}</span><span class="co-facts">${ownerBit(b)}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`;
-  return sec('co-s5', `Needs a hearing by ${esc(dayOf(w.next + 'T12:00:00-10:00'))}`, w.race.length, `<div class="rows co-rows">${folded(c.id + '|n', w.race.map(rowOf))}</div>`);
+  return sec('co-s5', `Needs a hearing by ${esc(dayOf(w.next + 'T12:00:00-10:00'))}`, w.race.length, `<div class="rows co-rows">${folded(key + '|n', w.race.map(rowOf))}</div>`);
+}
+// Where a set of bills stands this week, the coalition page's way (v3, R-264: an issue's page leads with it too): the
+// hearings, what is clear said once on one ticked line, then its bills at risk and the ones racing the next deadline.
+// `clear` adds the caller's own all-clear words (the coalition's owners and to-dos).
+// No hearings this week is one of those clear words too, not a heading over a line that says there are none (v3).
+export function standWeekHTML(bills, { key, from = '', clear = [], after = '' } = {}) {
+  const w = waitingOfBills(bills), hears = weekOfBills(bills).length > 0;
+  const ok = [hears ? '' : 'no hearings in the next 7 days', !w.risk.length ? 'nothing at risk' : '', ...clear].filter(Boolean);
+  const line = ok.length ? `<p class="co-empty co-clear${hears ? '' : ' co-first'}">${icon('check')}<span>${esc(andList(ok).replace(/^./, x => x.toUpperCase()))}.</span></p>` : '';
+  return `${hears ? hearingsSec(bills, { key, from }) : ''}${line}${w.risk.length ? riskSec(key, w.risk) : ''}${w.race.length ? raceSec(key, w) : ''}${after}`;
+}
+// "Show all" in those sections, for a page that is not this one (the coalition page wires its own below).
+export function wireWeek(root, redraw = () => hooks.render()) {
+  root.querySelectorAll('[data-comore]').forEach(el => el.onclick = () => { (S.coMore ??= new Set()).add(el.dataset.comore); redraw(); });
 }
 // Live bills nobody owns, each with "Give to…" (one bill at a time here; many at once from Bills, open to everyone since
 // R-106). The heading says what is wrong in words: a bold "No owner" under "Owner: Lauren" read as an alarm.
@@ -225,10 +242,9 @@ function todosHTML(c, list) {
 // The week after its hearings: what is clear said once, on one ticked line (three empty sections were three headings
 // saying nothing), then only the sections with something in them.
 function weekHTML(c) {
-  const w = waitingOf(c), unowned = unownedOf(c), todos = openTodosOf(c), live = liveOf(c).length;
-  const clear = [!w.risk.length ? 'nothing at risk' : '', live && !unowned.length ? 'every live bill has an owner' : '', !todos.length ? 'no open to-dos' : ''].filter(Boolean);
-  const line = clear.length ? `<p class="co-empty co-clear">${icon('check')}<span>${esc(andList(clear).replace(/^./, x => x.toUpperCase()))}.</span></p>` : '';
-  return `${hearingsHTML(c)}${line}${w.risk.length ? riskHTML(c, w.risk) : ''}${w.race.length ? raceHTML(c, w) : ''}${unowned.length ? unownedHTML(c, unowned) : ''}${todos.length ? todosHTML(c, todos) : ''}`;
+  const unowned = unownedOf(c), todos = openTodosOf(c), live = liveOf(c).length;
+  const clear = [live && !unowned.length ? 'every live bill has an owner' : '', !todos.length ? 'no open to-dos' : ''];
+  return standWeekHTML(billsOf(c), { key: c.id, from: c.id, clear, after: `${unowned.length ? unownedHTML(c, unowned) : ''}${todos.length ? todosHTML(c, todos) : ''}` });
 }
 
 // Share with partners: the two things to copy (A-20: two actions on the card), with the link itself and a preview as
@@ -297,10 +313,10 @@ async function takeTodo(key) {
 }
 
 export default {
-  tab: 'outreach',
-  // The index is a table that uses the width; one coalition is two columns, which need more than the 720px column
-  // the frame gives a plain page between 900 and 1099px.
-  wide: route => !route.id || DESK(),
+  tab: 'myissues',   // v3: the third tab of My issues
+  // One coalition is two columns, which need more than the 720px column the frame gives a plain page between 900 and
+  // 1099px. The index keeps the frame's own column (v3), so the tab row stands where it does on My issues and All issues.
+  wide: route => !!route.id && DESK(),
   title: route => route.id ? coalById(route.id)?.name || 'Coalition' : 'Coalitions',
   back: route => route.id ? { href: '#/coalition', label: 'Coalitions' } : null,
   render(route) {
