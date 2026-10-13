@@ -988,7 +988,7 @@ function mineCard(h, revs = new Map(), took = new Set()) {
   // A bill we only monitor has no testimony to stand anywhere, unless someone started a draft anyway.
   const line = x => { const t = testimonyOf(x.h, x.b), d = draftOf(x.h), says = !isMon(x.b) || !!d, rv = revs.get(x.b.id);
     if (rv) took.add(rv.key);
-    const state = rv ? `<span class="td-mstate td-myrev">${icon('clock')}<span>Yours to approve</span></span><a class="td-mdoc" href="#/review/${encodeURIComponent(rv.d.id)}" data-review="1">Review</a>`
+    const state = rv ? `<span class="td-mstate td-myrev">${icon('clock')}<span>Yours to approve</span></span>${btn('Review', { kind: 'secondary', href: `#/review/${encodeURIComponent(rv.d.id)}`, attrs: { 'data-review': '1' } })}`
       : says ? `<span class="td-mstate">${icon(t.icon)}<span>${esc(t.label)}</span></span>` : '<span class="td-mstate">We monitor this bill</span>';
     return `<li><a class="td-mbill" href="${billRoute(x.b)}"><b class="td-num">${esc(billNum(x.b))}</b> ${esc(x.b.nickname || blurb(x.b, 60))}</a>
       ${state}${d?.doc_url ? `<a class="td-mdoc" href="${esc(d.doc_url)}" target="_blank" rel="noopener">Open Doc${icon('external-link')}</a>` : ''}</li>`; };
@@ -1657,7 +1657,7 @@ function coalDue(r, skip = new Set()) {
     // invited a second send to HIPHI's list (fresh-eyes, third pass, A-12); the kit stays one click away in the open item.
     const whoSends = t.assignee_id || ownerOf(b);
     tasks.push({ kind: 'todo', key: `ct:${t.id}`, b, t, h, due, who: 'coal', rank: RANK.todo, s: esc(`${has(whoSends)} to send · the ask for the ${h.committee} hearing ${hearingDay(h)}`),
-      btns: [...(whoSends ? [msgBtn(b, [whoSends])] : []), { label: 'Open the share kit', href: `#/hearing/${encodeURIComponent(h.id)}?from=today&kit=1` }] });
+      btns: [...(whoSends ? [{ ...msgBtn(b, [whoSends]), text: false }] : []), { label: 'See the share kit', href: `#/hearing/${encodeURIComponent(h.id)}?from=today&kit=1` }] });
   }
   // One row per bill, as the person's own list does: its testimony leads when due within a day (T6), else the earliest.
   const by = new Map(); for (const t of tasks) { if (!by.has(t.b.id)) by.set(t.b.id, { key: 'cd:' + t.b.id, b: t.b, tasks: [] }); by.get(t.b.id).tasks.push(t); }
@@ -2148,9 +2148,9 @@ function wireControls(el) {
   el.querySelectorAll('[data-going]').forEach(x => x.onclick = () => { const h = (S.hearings || []).find(y => String(y.id) === x.dataset.going); if (h) { S.tdRefocus = '#td-pane [data-going]'; toggleGoing(h); } });
 }
 // v4 (R-269 follow-up): a bill's name squeezed to a stub ("D", "You…", half a letter beside P1) read as a bug (fresh-eyes,
-// third pass, A-24): with room for fewer than about eight letters the name goes, the number stays and the step has the
-// row. Measured after each draw and on resize; a name that has the room shows again.
-const NAME_MIN = 72;
+// third pass, A-24): with room for fewer than about sixteen letters ("Disposable e…" was barely better) the name goes, the
+// number stays and the step has the row. Measured after each draw and on resize; a name that has the room shows again.
+const NAME_MIN = 120;
 function pruneNames(root = document) { for (const n of root.querySelectorAll('.td-root .td-rb .td-rn')) { n.style.display = ''; if (n.getBoundingClientRect().width < NAME_MIN) n.style.display = 'none'; } }
 let pruneRaf = 0;
 addEventListener('resize', () => { if (!pruneRaf) pruneRaf = requestAnimationFrame(() => { pruneRaf = 0; pruneNames(); }); });
