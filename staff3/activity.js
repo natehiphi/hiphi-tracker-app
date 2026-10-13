@@ -161,7 +161,7 @@ const enterSends = () => { try { return matchMedia('(hover: hover) and (pointer:
 // The stream opens at its newest entry, so on desktop "Log" sits there too, under the message box; on a phone the box
 // is the page's bottom bar and has no room for it, so it stays at the top of the stream. One button for anything that
 // happened: it asks whether it was a talk with a legislator (the conversation dialog) or anything else (v3).
-const logBtn = btn('Log', { kind: 'text', icon: 'notebook-pen', attrs: { 'data-log': '1', 'aria-haspopup': 'dialog', 'aria-label': 'Log something that happened' } });
+const logBtn = btn('Log what happened', { kind: 'text', icon: 'notebook-pen', attrs: { 'data-log': '1', 'aria-haspopup': 'dialog' } });
 export function composerBar(b, { hint: inline = false } = {}) {
   const d = drafts.get(b.id + ':chat') || '';
   // v3: no help line under the box. The placeholder says what it does, and Enter sends as it does in Slack.

@@ -186,10 +186,12 @@ export function renderCommittees(b) {
   if (!stops.length) return `<section class="bw-sec bw-cm" id="bw-cmt" aria-labelledby="bw-cmt-h"><h2 id="bw-cmt-h">Committees</h2><p class="small muted">No committee referral yet.</p></section>`;
   const firstOpen = stops.findIndex(s => s.state === 'current') >= 0 ? stops.findIndex(s => s.state === 'current') : stops.findIndex(s => s.state === 'next');
   const predFrom = comp && stops.some(s => s.state === 'predicted' && s.from === 'companion') ? `Likely next (from ${esc(comp.bill_number)})` : 'Likely next (the usual path)';
-  let shownPred = false;
+  let shownPred = false, shownNext = false;
   const rows = stops.map((s, i) => {
     const key = `${b.id}|${s.chamber}${s.stop}|${s.committee}`, open = (S.pwOpen || {})[key] ?? i === firstOpen;
-    const [ic, word] = STATE[s.state] || STATE.next;
+    // Only the first stop ahead is "Next"; the ones after it are "Later", so two stops never both read as next (v3).
+    const later = s.state === 'next' && (shownNext || (shownNext = true, false));
+    const [ic, word] = later ? ['circle', 'Later'] : STATE[s.state] || STATE.next;
     const ahead = s.hs.filter(h => new Date(h.scheduled_at).getTime() > now).pop(), past = s.hs.find(h => new Date(h.scheduled_at).getTime() <= now);
     // The one fact on the stop's line: its hearing coming, else when it was heard; nothing for a stop not reached yet.
     // A hearing still ahead is said here and on Next up only; the open stop lists the hearings held (A-14). "Heard Fri
@@ -210,7 +212,7 @@ export function renderCommittees(b) {
     const head = !shownPred && s.state === 'predicted' ? (shownPred = true, `<li class="bw-cmpred">${predFrom}</li>`) : '';
     return `${head}<li class="bw-cmstop is-${s.state}">
       <h3 class="bw-cmh3"><button type="button" class="bw-cmrow" data-lgfold="${esc(key)}" aria-expanded="${open}" aria-controls="bw-cms-${i}">
-        <span class="bw-cmst">${icon(ic)}${word}</span><span class="bw-cmname">${esc(name)}</span>${fact ? `<span class="bw-cmfact${!ahead && past ? ' held' : ''}">${esc(fact)}</span>` : ''}${icon(open ? 'chevron-up' : 'chevron-down', { cls: 'lg-chev' })}
+        <span class="bw-cmst">${icon(ic)}${word}</span><span class="bw-cmname">${esc(name)} <span class="bw-cmcode">${esc(s.committee)}</span></span>${fact ? `<span class="bw-cmfact${!ahead && past ? ' held' : ''}">${esc(fact)}</span>` : ''}${icon(open ? 'chevron-up' : 'chevron-down', { cls: 'lg-chev' })}
       </button></h3>
       <div class="bw-cmbody" id="bw-cms-${i}"${open ? '' : ' hidden'}>${body}</div>
     </li>`;

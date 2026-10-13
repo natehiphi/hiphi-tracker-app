@@ -725,7 +725,7 @@ export function noteSection(b) {
   const d = drafts.get(b.id + ':note'), saved = b.internal_notes || '', unsaved = d != null && d !== saved;
   const head = `<h2 id="bw-note-h">Team note <span class="bw-sub">${icon('lock')}never public</span></h2>`;
   if (!unsaved && !S.bwNoteEdit.has(b.id)) {
-    if (!saved.trim()) return `<section class="bw-sec bw-note0" aria-labelledby="bw-note-h"><h2 id="bw-note-h" class="sr">Team note</h2>${btn('Add a team note', { kind: 'text', icon: 'notebook-pen', attrs: { 'data-noteedit': '1' } })}</section>`;
+    if (!saved.trim()) return `<section class="bw-sec bw-note0" aria-labelledby="bw-note-h"><h2 id="bw-note-h" class="sr">Team note</h2>${btn('Add a team note', { kind: 'text', icon: 'lock', attrs: { 'data-noteedit': '1' } })}</section>`;
     return `<section class="bw-sec bw-tnote" aria-labelledby="bw-note-h"><div class="bw-sech">${head}${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-noteedit': '1', 'aria-label': 'Edit the team note' } })}</div>
       <p class="bw-notetx">${esc(saved)}</p></section>`;
   }
@@ -905,9 +905,10 @@ function topBar(b, route) {
 }
 function tabsNav(b, tab) {
   const n = unreadCount(b), keys = keysOn();
-  // The number keys are named on each tab (title, aria-keyshortcuts) and once at the end of the strip on desktop.
+  // The number keys are named on each tab (title, aria-keyshortcuts). v3: not again at the end of the strip, where "1 to 3"
+  // read as a puzzle to anyone who does not use them (P-4).
   return `<div class="bw-tabsent" aria-hidden="true"></div><nav class="bw-tabs" aria-label="${esc(b.bill_number)} sections">${TABS.map(([k, l], i) =>
-    `<a href="${billHref(b, k)}" data-tab="${k}" ${k === tab ? 'aria-current="page"' : ''} title="${l}${keys ? ` (${i + 1})` : ''}"${keys ? ` aria-keyshortcuts="${i + 1}"` : ''}>${l}${k === 'activity' && n ? `<span class="bw-badge" aria-label="${n} new">${n}</span>` : ''}</a>`).join('')}${keys ? `<span class="bw-khint" aria-hidden="true">${icon('keyboard')}1 to 3</span>` : ''}</nav>`;
+    `<a href="${billHref(b, k)}" data-tab="${k}" ${k === tab ? 'aria-current="page"' : ''} title="${l}${keys ? ` (${i + 1})` : ''}"${keys ? ` aria-keyshortcuts="${i + 1}"` : ''}>${l}${k === 'activity' && n ? `<span class="bw-badge" aria-label="${n} new">${n}</span>` : ''}</a>`).join('')}</nav>`;
 }
 // Activity opens with the team note, pinned (v3): the note is the team's standing context, the stream what happened since.
 function panel(b, tab) {
@@ -950,6 +951,8 @@ function stageSet(b) {
   const auto = STAGE_LABEL[b.stage || 'introduced'] || b.stage;
   return `<p class="bw-stset">${icon('pencil')}<span>Set by hand; the Capitol’s record says ${esc(auto)}.</span>${S.me?.is_admin ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-stage': '1', 'aria-label': 'Change the stage, set by hand' } }) : ''}</p>`;
 }
+// The heading's sentence leaves out "Next: hearing Tue 3/17, 9:30 AM" while a hearing is ahead: Next up, beside it on a
+// laptop and under it on a phone, opens with that hearing (v3, A-14).
 function headHTML(b, { chips }) {
   const nick = String(b.nickname || '').trim(), sum = summaryOf(b);
   const num = `<h1 class="bw-num">${esc(b.bill_number)}${b.current_version ? ` <span class="bw-ver">${esc(b.current_version)}</span>` : ''}</h1>`;
@@ -960,7 +963,7 @@ function headHTML(b, { chips }) {
     <p class="bw-title${nick || !sum ? '' : ' bw-long'}">${esc(billName(b))}</p>
     ${nick && sum ? `<p class="bw-lede">${esc(sum)}</p>` : ''}
     <div class="bw-ribwrap${b.stage_override ? ' bw-ribset' : ''}">${stageRibbon(b)}${stageSet(b)}</div>
-    <p class="bw-status">${icon('route')}<span>${statusSentence(b, { chair: true })}</span></p>
+    <p class="bw-status">${icon('route')}<span>${statusSentence(b, { chair: true, hearing: !hearingAhead(b) })}</span></p>
     ${chips ? teamChips(b) : ''}
   </header>`;
 }

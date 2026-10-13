@@ -128,13 +128,14 @@ function body(b) {
   let h = `<section class="tm-part" aria-labelledby="tm-own-h"><h3 id="tm-own-h">On ${esc(b.bill_number)}${twin}</h3>
     ${m.own.length ? '' : `<p class="small muted">No earlier testimony yet.${m.start ? ' The newest in its issue is marked below.' : ''}</p>`}
     ${m.own.length ? `<div class="tm-rows">${m.own.map(d => fullRow(d, b, m.start)).join('')}</div>` : ''}</section>`;
-  if (m.issues.length) {
+  // An issue with no other bill has nothing to show here, so the part is left out rather than saying so (v3).
+  if (m.issues.length && (m.inIssue.length || m.sameCount)) {
     const names = m.issues.map(i => `"${esc(i.name)}"`).join(' and ');
     h += `<section class="tm-part" aria-labelledby="tm-iss-h"><h3 id="tm-iss-h">Other bills in ${names}</h3>
       <p class="small muted">${m.inIssue.length ? `${plural(m.inIssue.length, 'draft', 'drafts')} on ${plural(new Set(m.inIssue.map(d => String(d.bill_id))).size, 'bill', 'bills')}.`
         : m.sameCount ? `No testimony on the other ${plural(m.sameCount, 'bill', 'bills')} in this issue yet.` : 'This is the only bill in its issue so far.'}</p>
       ${m.inIssue.length ? `<div class="tm-rows">${byBill(m.inIssue, m.start, m.issues.length === 1 ? m.issues[0].name : '')}</div>` : ''}</section>`;
-  } else h += `<section class="tm-part"><p class="small muted">This bill has no issue yet, so testimony on similar bills can't be found. <a href="${billRoute(b, 'public')}">Give it one on the Public tab</a>.</p></section>`;
+  } else if (!m.issues.length) h += `<section class="tm-part"><p class="small muted">This bill has no issue yet, so testimony on similar bills can't be found. <a href="${billRoute(b, 'public')}">Give it one on the Public tab</a>.</p></section>`;
   // No count in the label (v3: numbers only where they ask for action).
   h += `<section class="tm-part" role="search" aria-labelledby="tm-q-h"><h3 id="tm-q-h"><label for="tm-q">Search all testimony in the tracker</label></h3>
     <div class="tm-search">${icon('search')}<input id="tm-q" type="search" autocomplete="off" placeholder="A bill, committee, issue or person" value="${esc(S.tmQuery || '')}"></div>

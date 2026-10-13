@@ -104,7 +104,6 @@
 .bw-tabs a:focus-visible { outline-offset: -3px; }
 .bw-badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--p700); color: var(--n0); font: 700 var(--t13)/20px var(--font); text-align: center; }
 .bw-panel { padding-top: var(--s16); }
-.bw-khint { display: none; }
 /* A tab that was just opened arrives with a short fade, so a tap or a key press is seen to do something. */
 @keyframes bw-in { from { opacity: 0; transform: translateY(6px); } }
 .bw-panel.bw-in { animation: bw-in .2s var(--ease, ease-out); }
@@ -198,6 +197,8 @@
 /* the stops behind it and the likely ones ahead step back, so the current stop is what the eye lands on (A-13) */
 .is-passed .bw-cmname, .is-ended .bw-cmname, .is-other .bw-cmname, .is-predicted .bw-cmname { font-weight: 400; color: var(--n700); }
 .bw-cmfact { flex: none; font: 400 var(--t13)/1.3 var(--font); color: var(--n500); white-space: nowrap; }
+/* the committee's code after its name, quiet: the code is what Next up, Last action and the Capitol's record use */
+.bw-cmcode { font: 400 var(--t13)/1 var(--font); color: var(--n500); }
 .bw-cmrow .lg-chev { flex: none; width: 20px; height: 20px; color: var(--n500); }
 /* an open stop lists its hearings in full, so the line's "Heard Fri 2/27" steps aside (A-14) */
 .bw-cmrow[aria-expanded="true"] .bw-cmfact.held { visibility: hidden; }
@@ -261,6 +262,9 @@
 .bw-send { width: 44px; height: 44px; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--pill); background: var(--p700); color: var(--n0); }
 .bw-send:hover { background: var(--p800); }
 .bw-send .ic { width: 20px; height: 20px; }
+/* Outlined while the box is empty, filled once there is something to send: the page's one filled button stays the
+   testimony step's (A-3, v3). */
+.bw-crow:has(textarea:placeholder-shown) .bw-send { background: var(--n0); color: var(--p700); box-shadow: inset 0 0 0 1.5px var(--p700); }
 .bw-send[aria-busy="true"] { opacity: .6; }
 .bw-mention { display: flex; gap: var(--s8); overflow-x: auto; scrollbar-width: none; }
 .bw-mention .chip { flex: none; padding-left: 8px; }
@@ -529,8 +533,6 @@
   /* a message's ⋯ shows when the pointer or the keyboard reaches it */
   .bw-msgmore { opacity: 0; }
   .bw-msg:hover .bw-msgmore, .bw-msgmore:focus-visible { opacity: 1; }
-  .bw-khint { display: inline-flex; align-items: center; gap: 6px; height: 44px; margin-left: auto; padding-right: 2px; font-size: var(--t13); color: var(--n500); white-space: nowrap; }
-  .bw-khint .ic { width: 16px; height: 16px; }
 }
 /* a legislator named inside a detail line (the chair) is still a full-size target on phones */
 .bw-dt dd a[href^="#/legislator/"] { display: inline-flex; align-items: center; min-height: 44px; }

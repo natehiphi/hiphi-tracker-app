@@ -71,8 +71,10 @@ function previewInner(b, v) {
   const first = (/^(.{20,220}?[.!?])(\s|$)/.exec(String(b.description || '').trim()) || [])[1];
   const name = nick || sum || first || `A bill about ${plainTitle(b).replace(/^./, c => c.toLowerCase())}`;
   const askOn = ask && until && until >= hiToday();
+  // No ask is the usual state and the line above the form says it already (v3, A-14): the note speaks only when there is
+  // something to know about the ask being typed, or the page is hidden.
   const note = !v.is_public ? [ 'eye-off', 'Hidden. Nobody sees this until it is switched on and saved.' ]
-    : !ask ? ['info', 'No ask: the next hearing is what people are asked to act on.']
+    : !ask ? null
     : !until ? ['triangle-alert', 'The ask needs a date, or it never shows.']
     : until < hiToday() ? ['triangle-alert', 'That date has passed, so the ask does not show.']
     : ['calendar-days', `The ask shows through ${dayOf(until)}.`];
@@ -82,7 +84,7 @@ function previewInner(b, v) {
       ${nick && sum ? `<p class="bw-plede">${esc(sum)}</p>` : ''}
       ${ask ? `<p class="bw-pask${askOn ? '' : ' off'}">${icon('megaphone')}<span><b>HIPHI asks:</b> ${esc(ask)}</span></p>` : ''}
     </div>
-    <p class="bw-pnote">${icon(note[0])}<span>${esc(note[1])}</span></p>`;
+    ${note ? `<p class="bw-pnote">${icon(note[0])}<span>${esc(note[1])}</span></p>` : ''}`;
 }
 const valuesOf = b => Object.fromEntries(FIELDS.map(k => [k, valOf(b, k)]));
 
@@ -109,7 +111,7 @@ function whereBlock(b, listed) {
   return `<details class="bw-sec bw-pblk bw-where" id="bw-where"${open ? ' open' : ''}>
     <summary><h2 id="bw-where-h">Where it shows</h2><span class="bw-wsum">${esc(sum)}</span>${icon('chevron-down', { cls: 'chev' })}</summary>
     <div class="bw-wbody">${issues}${listsPart}
-      <div class="bw-wpart">${switchRow('bw-prec', 'Pre-tick for new visitors', !!b.recommended, 'Silent: nothing on the public page says it was recommended.')}</div></div>
+      <div class="bw-wpart">${switchRow('bw-prec', 'Pre-tick for new visitors', !!b.recommended, 'New visitors find it already ticked. Nothing on the public page says so.')}</div></div>
   </details>`;
 }
 
