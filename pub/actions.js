@@ -3,7 +3,7 @@
 // One primary button (write testimony, or email the chair once the written deadline has passed), one secondary
 // ("More ways to help") that opens inside the card, never a sheet. Every action counts (Nate, 9/18).
 import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, anyBill, anyHearing, settledOn, goingOn, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, followedIssues, CHAMBER_NAME, codesOf, suggestEvent } from './core.js';
-import { testifyLabel, againLine, mailLabel } from './letters.js';
+import { testifyLabel, againLine, mailLabel, letterOn } from './letters.js';
 import { logAct } from './visitlog.js';
 import { armOf, abRankMet, abSeen, shareTag } from './variant.js';
 import { picShare, picSeen } from './sharepic.js';
@@ -112,6 +112,10 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     moreRow('calendar-plus', 'Add to my calendar', late ? 'The hearing time and place.' : 'A reminder before testimony is due.', { 'data-ics': k }, S.chips[k + 'ics'] && 'Calendar file ready'),
   ].join('');
   const name = nick(b);
+  // The letter they sent for this hearing (W1-1, R-239): kept on the device (letters.js), so a call from the committee or
+  // a Capitol tab closed by mistake still finds its words. The walkthrough opens it to read, copy or send again.
+  const sentLetter = doneKinds.includes('testimony') && letterOn(b)?.h === h.id
+    ? btn('Your letter', { kind: 'text', sm: true, icon: 'file-text', attrs: { 'data-myletter': h.id, 'data-bill': b.id } }) : '';
   return `<article class="card acard${done ? ' done' : ''}${focus ? ' focus' : ''}${S.justDone === b.id + '|' + h.id ? ' justdone' : ''}" data-card="${esc(k)}" aria-labelledby="t-${esc(h.id)}">
     ${compact ? '' : `<div class="acrow">${noTopic ? '' : issueLine(iss)}${posChip(b)}${suggest && !S.watch.has(b.id) ? `<button type="button" class="acdismiss" data-notforme="${esc(b.id)}" aria-label="Not for me: stop suggesting ${esc(spaced(b.bill_number))}">Not for me</button>` : ''}</div>
     <${heading} class="achead" id="t-${esc(h.id)}"><a href="${billPath(b)}">${esc(name || blurb(b, 120))}</a></${heading}>
@@ -124,7 +128,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     ${done ? '' : againLine(b, h)}
     ${twin ? `<p class="twin">${icon('copy')}<span>Its twin in the ${esc(CHAMBER_NAME[twin.h.committee && codesOf(twin.h.committee)[0] && S.committees[codesOf(twin.h.committee)[0]]?.chamber] || 'other chamber')}, <a href="${billPath(twin.b)}">${esc(spaced(twin.b.bill_number))}</a>: ${esc([twin.h.testimony_deadline ? (dueInfo(twin.h)?.text || '').replace(/\.$/, '') : '', hearingText(twin.h).replace(/ · Room.*$/, '').replace(/^Hearing/, 'hearing')].filter(Boolean).join(' · '))}.</span></p>` : ''}
     ${differs ? `<p class="note">${icon('info')}<span>You see this one differently from HIPHI. You can still tell the committee what you think, in your own words.</span></p>` : ''}
-    ${done ? `<div class="donebox" role="status">${icon('circle-check')}<span>${doneKinds.includes('testimony') ? 'You sent testimony. Mahalo!' : doneKinds.map(x => doneLabel(b, h, x)).join(' · ') + '. Mahalo!'}</span>${lastDone ? `<button type="button" class="btn text sm" data-undo="${esc(k)}|${lastDone}" aria-label="Undo: ${esc(doneLabel(b, h, lastDone))}">Undo</button>` : ''}</div>` : ''}
+    ${done ? `<div class="donebox" role="status">${icon('circle-check')}<span>${doneKinds.includes('testimony') ? 'You sent testimony. Mahalo!' : doneKinds.map(x => doneLabel(b, h, x)).join(' · ') + '. Mahalo!'}</span>${sentLetter}${lastDone ? `<button type="button" class="btn text sm" data-undo="${esc(k)}|${lastDone}" aria-label="Undo: ${esc(doneLabel(b, h, lastDone))}">Undo</button>` : ''}</div>` : ''}
 
     ${voices ? `<p class="proof">${icon('users')}${voices} people have acted on this hearing through HIPHI</p>` : ''}
     <div class="btncol">${compact ? '' : primary}${askBtn}
@@ -404,6 +408,7 @@ export async function followToggle(id, label) {
 export function wireActions(root = document) {
   const $$ = s => root.querySelectorAll(s);
   $$('[data-helper]').forEach(el => el.onclick = () => app.openHelper(el.dataset.bill, el.dataset.helper));
+  $$('[data-myletter]').forEach(el => el.onclick = () => { const L = letterOn(anyBill(el.dataset.bill)); if (L) app.openHelper(el.dataset.bill, el.dataset.myletter, { view: L }); });
   $$('[data-moreways]').forEach(el => el.onclick = () => { const k = el.dataset.moreways; S.moreOpen.has(k) ? S.moreOpen.delete(k) : S.moreOpen.add(k); app.render(); });
   // The email to the chair: the walkthrough (helper.js), on this hearing.
   $$('[data-mailwalk]').forEach(el => el.onclick = () => { const [bid, hid] = el.dataset.mailwalk.split('|'); app.openMail?.({ mode: 'email', bill: bid, hearing: hid }); });
