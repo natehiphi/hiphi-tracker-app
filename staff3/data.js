@@ -249,7 +249,7 @@ export const DB = {
     // state something false from an empty list check S.failed(key) instead (Today's no-draft card, the bill page).
     const READS = { 'to-dos': [todos], 'testimony drafts': [drafts], committees: [comms], 'settings': [scfg, ccfg, ecfg, sycfg], 'session deadlines': [dls], 'committee slots': [slots],
       follows: [fol], 'who is going': [att], 'hearing results': [outc], 'chat messages': [msgs, reads], 'your inbox': [inb], 'the session calendar': [scal],
-      lists: [pls, plb, plf], legislators: [legs, cms, cps, sts], 'action alerts': [als], people: [segs, fups], mutes: [mut], 'the public response': [pac, wc] };
+      lists: [pls, plb, plf], legislators: [legs, cms, cps, sts], 'supporter emails': [als], people: [segs, fups], mutes: [mut], 'the public response': [pac, wc] };
     S.loadFailed = Object.entries(READS).filter(([, rs]) => rs.some(r => !r || r.error)).map(([k]) => k);
     S.failed = key => (S.loadFailed || []).includes(key);
     S.inbox = inb?.data || [];
@@ -1792,8 +1792,8 @@ function firstStep(d, me, bad, changes = false) {
   if (!me.can_approve) {
     const h = S.hearings.find(x => x.id === d.hearing_id), due = h?.testimony_deadline ? new Date(h.testimony_deadline).getTime() : null;
     if (!(me.is_reviewer && due != null && due <= Date.now() + 6 * 36e5))
-      bad(changes ? 'Only an admin or an approver can act on a draft in first review (a reviewer can from 6 hours before the testimony deadline)'
-        : 'The first approval is by an admin or an approver; a reviewer can give it from 6 hours before the testimony deadline');
+      bad(changes ? 'Only an admin or an approver can act on a draft in first review (a second approver can from 6 hours before the testimony deadline)'
+        : 'The first approval is by an admin or an approver; a second approver can give it from 6 hours before the testimony deadline');
   }
   if (!changes && d.submitted_by === me.id) bad('Someone else has to approve testimony you sent for review');
 }

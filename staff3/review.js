@@ -81,7 +81,7 @@ function header(r, total) {
 function draftBody(it) {
   const { d, b, h, due } = it, me = S.me || {}, own = d.submitted_by && d.submitted_by === me.id;
   const two = d.status === 'second_review';
-  const who = two ? `Approved by ${esc(first(d.approved_by))} ${esc(ago(d.approved_at))}. It is this bill’s first testimony, so a reviewer signs off too.`
+  const who = two ? `Approved by ${esc(first(d.approved_by))} ${esc(ago(d.approved_at))}. It is this bill’s first testimony, so a second approver signs off too.`
     : d.submitted_by ? `Sent by ${own ? 'you' : esc(first(d.submitted_by))} ${esc(ago(d.submitted_at))}` : 'Not sent by anyone yet';
   const stale = b.current_version && d.version !== b.current_version;
   return `<section class="card td-rvcard" aria-labelledby="td-rvb">

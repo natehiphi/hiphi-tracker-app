@@ -335,7 +335,7 @@ function loginWord(a) {
   return 'Cannot sign in yet';
 }
 function tmRow(a) {
-  const me = a.id === S.me?.id, l = st().logins?.[a.id], role = a.is_admin ? 'Admin' : a.can_approve ? 'Approver' : a.is_reviewer ? 'Reviewer' : '';
+  const me = a.id === S.me?.id, l = st().logins?.[a.id], role = a.is_admin ? 'Admin' : a.can_approve ? 'Approver' : a.is_reviewer ? 'Second approver' : '';
   const sub = [esc(a.email || 'No email'), role, a.is_active === false ? 'Turned off' : loginWord(a)].filter(Boolean).join(' · ');   // who can't be reached is said once, on the card above (A-14)
   // A link is offered on the row only while someone still has to sign in for the first time; a forgotten password
   // is rarer, so that link is in the person's sheet.
@@ -364,7 +364,7 @@ function personSheet(a) {
       ${field('tm-ini', 'Initials', `<input id="tm-ini" type="text" value="${esc(a?.initials || '')}" maxlength="3" autocomplete="off" autocapitalize="characters" aria-describedby="tm-ini-help">`, 'Shown in the small circle beside their bills.')}
       ${switchRow('tm-admin', 'Admin', !!a?.is_admin, me ? ownAdminWords() : 'Approves testimony and emails, and can open Session setup.', me ? { disabled: true } : {})}
       ${switchRow('tm-appr', 'Approver', !!a?.can_approve, 'Approves testimony and supporter emails, without the rest of an admin’s powers.')}
-      ${switchRow('tm-rev', 'Reviewer', !!a?.is_reviewer, 'Gives the second approval on testimony, and can stand in for the first from 6 hours before the deadline.')}
+      ${switchRow('tm-rev', 'Second approver', !!a?.is_reviewer, 'Gives the second approval on a bill\u2019s first testimony, and can stand in for the first from 6 hours before the deadline.')}
       <button type="submit" hidden tabindex="-1" aria-hidden="true"></button></form>${extra}`,
     foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-tmcancel': '1' } })}${btn(a ? 'Save' : 'Add', { attrs: { 'data-tmsave': '1' } })}`,
     wire: d => {
@@ -1305,7 +1305,7 @@ const PAGES = {
       await DB.saveSlackSettings(cfg, []); return 'Wording saved.'; },
   },
   committees: {
-    status: () => ['route', `${status('committees')}. Used to guess the other chamber's committees on a bill's Pathway before the referral is posted.`],
+    status: () => ['route', `${status('committees')}. Used to guess the other chamber's committees on a bill's Committees section before the referral is posted.`],
     body() { const codes = ch => Object.values(S.committees || {}).filter(c => c.chamber === ch).map(c => c.code).sort().join(', ');
       return `<div class="card st-form"><p class="small st-note st-top">One pair per line, House code first, like HLT = HHS. A House committee can pair with several Senate ones, and the other way round. A companion bill's real referral is always used first.</p>
         ${area('st-cp', 'House = Senate pairs', (S.counterparts || []).map(p => `${p.house_code} = ${p.senate_code}`).join('\n'), { rows: 10 })}

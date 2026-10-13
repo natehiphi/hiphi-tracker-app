@@ -272,7 +272,7 @@ function wireFrame(app) {
 }
 function practiseAs() {
   menuSheet({ title: 'Practise as', items: S.advocates.filter(a => a.is_active !== false).map(a => ({
-    label: a.full_name + (a.id === S.me?.id ? ' (now)' : ''), icon: 'user-round', sub: a.is_admin ? 'Admin: approves, sets up the session' : a.can_approve ? 'Approver: testimony and supporter emails' : a.is_reviewer ? 'Reviewer: second approvals' : (billsOwned(a.id) ? `${billsOwned(a.id)} bills` : 'No bills of their own'),
+    label: a.full_name + (a.id === S.me?.id ? ' (now)' : ''), icon: 'user-round', sub: a.is_admin ? 'Admin: approves, sets up the session' : a.can_approve ? 'Approver: testimony and supporter emails' : a.is_reviewer ? 'Second approver' : (billsOwned(a.id) ? `${billsOwned(a.id)} bills` : 'No bills of their own'),
     run: () => { const u = new URL(location.href); u.searchParams.set('as', a.initials); location.href = u.toString(); } })) });
 }
 const billsOwned = id => S.bills.filter(b => (S.assignments[b.id] || []).includes(id)).length;

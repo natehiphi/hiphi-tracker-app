@@ -208,7 +208,7 @@ export const WORKFLOW_KINDS = [['chat', 'Someone wrote in the chat on a bill I o
   ['review_requested', 'Someone submitted testimony for my approval'],
   ['second_review_requested', 'A first-time testimony needs my second approval'],
   ['approved', 'Testimony I submitted was approved'],
-  ['changes_requested', 'A reviewer asked me for changes'],
+  ['changes_requested', 'Changes were asked for on my testimony'],
   ['filed', 'Someone marked testimony filed']];
 export const TEMPLATE_KINDS = [['hearing_alert', 'Hearing alert (per bill)'], ['hearing_rescheduled', 'Hearing moved'],
   ['hearing_cancelled', 'Hearing cancelled'], ['draft_thread', 'Draft ready (thread reply)'],
