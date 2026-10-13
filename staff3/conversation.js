@@ -1,4 +1,4 @@
-// HIPHI Staff v2 · conversations with legislators (R-022 wave 2 #9, migration 064). A person comes here to record what a
+// HIPHI Staff v3 · conversations with legislators (R-022 wave 2 #9, migration 064). A person comes here to record what a
 // legislator said, so that the next person finds it (B-1). Nate, 9/21: "A conversation with a legislator is more of an
 // issue conversation than a bill specific conversation." So a conversation is filed under an issue (and under the bill
 // it was logged from, when there was one), and one meeting with several legislators is one row per legislator sharing a
@@ -139,15 +139,20 @@ const HEAD = {
   bw: (id, title, n, act) => `<section class="bw-sec cv-sec" data-cvsec="${id}" aria-labelledby="${id}-h"><div class="bw-sech"><h2 id="${id}-h">${title}${n}</h2>${act}</div>`,
   le: (id, title, n, act) => `<section class="le-sec cv-sec" data-cvsec="${id}" aria-labelledby="${id}-h"><div class="le-sechead"><h2 id="${id}-h">${title}${n}</h2>${act}</div>`,
 };
-export function convSectionHTML({ id, q, here = {}, title = 'Conversations', kind = 'bw', limit = 3, none }) {
+// v3 options, for a bill's Activity (R-264): act: false leaves out the section's own "Log a conversation" (the tab's one
+// Log button asks what happened), count: false leaves out the number beside the heading (numbers only where they ask for
+// action), and hideEmpty: true keeps the whole section hidden until there is a conversation to show.
+export function convSectionHTML({ id, q, here = {}, title = 'Conversations', kind = 'bw', limit = 3, none, act: withAct = true, count = true, hideEmpty = false }) {
   const rows = S.convCache?.[qKey(q)] || null, n = rows ? convCount(rows) : 0;
-  const act = btn('Log a conversation', { kind: 'text', icon: 'message-square-plus', attrs: { 'data-cvlog': id, 'aria-haspopup': 'dialog' } });
-  return `${HEAD[kind](id, title, ` <span class="cv-n" data-cvn${n ? '' : ' hidden'}>${n || ''}</span>`, act)}
+  const act = withAct ? btn('Log a conversation', { kind: 'text', icon: 'message-square-plus', attrs: { 'data-cvlog': id, 'aria-haspopup': 'dialog' } }) : '';
+  const html = `${HEAD[kind](id, title, count ? ` <span class="cv-n" data-cvn${n ? '' : ' hidden'}>${n || ''}</span>` : '', act)}
     <div class="cv-box" data-cvbox>${rows ? convListHTML(rows, here, { limit, key: id, none }) : `<p class="cv-none cv-wait">${icon('loader-circle')}Loading the conversations…</p>`}</div>
   </section>`;
+  // Hidden while loading too, so an empty list never flashes "Loading" and then disappears.
+  return hideEmpty && !n ? html.replace(/^<section /, '<section hidden ') : html;
 }
 // log: what the dialog opens with ({ bill } or { issueId }).
-export function wireConvSection(root, { id, q, here = {}, limit = 3, none, log = {} }) {
+export function wireConvSection(root, { id, q, here = {}, limit = 3, none, log = {}, hideEmpty = false }) {
   const sec = root.querySelector(`[data-cvsec="${id}"]`); if (!sec) return;
   const box = sec.querySelector('[data-cvbox]'), n = sec.querySelector('[data-cvn]');
   let rows = S.convCache?.[qKey(q)] || null, drawn = rows ? sigOf(rows, id) : '';
@@ -155,14 +160,16 @@ export function wireConvSection(root, { id, q, here = {}, limit = 3, none, log =
     if (!box.isConnected) return;
     drawn = sigOf(rows || [], id);
     box.innerHTML = convListHTML(rows || [], here, { limit, key: id, none });
-    const c = convCount(rows || []); n.textContent = c || ''; n.hidden = !c;
+    const c = convCount(rows || []); if (n) { n.textContent = c || ''; n.hidden = !c; }
+    if (hideEmpty) sec.hidden = !c;
     wireConvList(box, { rows: () => rows || [], redraw: refresh });
   };
   // Painted again only when something changed, so a focused button or a half-read list is not swapped out from under you.
+  // A hidden section whose list is still empty stays as it is; one that failed to load says so (B-7).
   const refresh = () => DB.conversations(q).then(r => { rows = r || []; if (sigOf(rows, id) !== drawn) paint(); })
-    .catch(() => { if (box.isConnected && !rows) box.innerHTML = '<p class="cv-none">The conversations did not load. Try again in a moment.</p>'; });
+    .catch(() => { if (box.isConnected && !rows) { box.innerHTML = '<p class="cv-none">The conversations did not load. Try again in a moment.</p>'; sec.hidden = false; } });
   mounted.set(id, refresh);
-  sec.querySelector('[data-cvlog]').onclick = () => logConversation({ ...log, onDone: refreshConversations });
+  sec.querySelector('[data-cvlog]')?.addEventListener('click', () => logConversation({ ...log, onDone: refreshConversations }));
   if (rows) wireConvList(box, { rows: () => rows || [], redraw: refresh });
   refresh();
 }

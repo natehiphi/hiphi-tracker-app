@@ -1,4 +1,4 @@
-// Staff v2 · one hearing (#/hearing/:id, R-022 wave 3 #16). A person comes here to get ready for one committee sitting (B-1).
+// Staff v3 · one hearing (#/hearing/:id, R-022 wave 3 #16). A person comes here to get ready for one committee sitting (B-1).
 // The database keeps a hearing per bill; a sitting is every one of those rows with the same committee and start time,
 // so the page shows the whole agenda the team tracks, whichever of its bills the link came from.
 // Phone, one column: the committee, when and where, the testimony deadline, the notice and the video; our bills on the
@@ -64,8 +64,18 @@ export function testimonyOf(h, b) {
   return { filed: false, word: st[0], label: `Testimony ${st[0]}`, icon: st[1] };
 }
 // Amber once the deadline is inside 24 hours, red once it has passed: the countdown's own two tones, which staff.css keeps
-// for exactly those (A-5).
-export const dueTone = iso => { const ms = new Date(iso) - Date.now(); return ms <= 0 ? 'late' : ms <= 864e5 ? 'soon' : ''; };
+// for exactly those (A-5). v3: given the hearing's start (`until`), a deadline passed while the hearing has not started is
+// still amber, since the Capitol takes late testimony until then (A-5 as amended by R-250).
+export const dueTone = (iso, until = null) => { const ms = new Date(iso) - Date.now(); return ms <= 0 ? (until && new Date(until) > Date.now() ? 'soon' : 'late') : ms <= 864e5 ? 'soon' : ''; };
+const clock = t => new Date(t).toLocaleTimeString('en-US', { ...HST, hour: 'numeric', minute: '2-digit' });
+// When the testimony deadline is close or past, it says so in words on the bill's row (v3): "due in 40 min", "due in 5h",
+// "late testimony until 1:10 PM". More than a day away it says nothing: the header has the deadline.
+function dueWords(iso, until) {
+  const ms = new Date(iso) - Date.now();
+  if (ms > 864e5) return '';
+  if (ms > 0) return ms < 36e5 ? `due in ${Math.max(1, Math.floor(ms / 6e4))} min` : `due in ${Math.floor(ms / 36e5)}h`;
+  return until && new Date(until) > Date.now() ? `late testimony until ${clock(until)}` : 'deadline passed';
+}
 const OUT_ICON = { passed: 'circle-check', passed_amended: 'circle-check', deferred: 'circle-x', recommitted: 'undo-2' };
 // The Capitol posts a decision a while after the sitting, so "no result yet" is a normal state, not an error.
 function outcomeChip(h) {
@@ -101,7 +111,7 @@ function headHTML(c) {
       <p class="hr-kind">${esc(`${ch ? ch + ' ' : ''}${joint ? 'joint hearing' : 'hearing'}`)} · <span class="hr-code">${esc(h.committee)}</span></p>
       <h1>${esc(cmteName(h.committee))}</h1>
       <p class="hr-line">${icon('calendar-clock')}<span>${over && !cancelled ? 'Held ' : ''}${esc(longDay(h.scheduled_at))} at ${esc(timeOf(h.scheduled_at))} · ${room ? esc(room) : 'room not posted yet'}</span></p>
-      ${due ? `<p class="hr-line hr-due">${icon('file-text')}<span>Testimony due ${esc(fmtDT(due))}</span>${countdown(due)}</p>` : ''}
+      ${due ? `<p class="hr-line hr-due">${icon('file-text')}<span>Testimony due ${esc(fmtDT(due))}</span>${countdown(due, { until: h.scheduled_at })}</p>` : ''}
     </div>
   </header>`;
 }
@@ -132,8 +142,11 @@ function billRow(x, c) {
   if (c.cancelled) end = '';   // the notice above says it once for the whole sitting (A-14)
   else if (h.status === 'cancelled') end = chip('Taken off the agenda', '', 'circle-x');
   else if (c.over) end = `<span class="sr">Result: </span>${outcomeChip(h)}`;
-  else if (isPos(b)) { const t = testimonyOf(h, b), tone = t.filed ? 'ok' : { soon: 'warn', late: 'danger' }[dueTone(dueOf(h))] || '';
-    end = chip(t.label, tone, tone === 'danger' ? 'circle-alert' : t.icon); }
+  else if (isPos(b)) {
+    // The most urgent fact reads in words, not only in the chip's colour (A-5): "Testimony sent back · due in 40 min".
+    const t = testimonyOf(h, b), due = dueOf(h), tone = t.filed ? 'ok' : { soon: 'warn', late: 'danger' }[dueTone(due, h.scheduled_at)] || '';
+    const words = t.filed ? '' : dueWords(due, h.scheduled_at);
+    end = chip(words ? `${t.label} · ${words}` : t.label, tone, tone === 'danger' ? 'circle-alert' : t.icon); }
   // A grid, not the usual body/end pair: on a phone the name has the whole first line and the state sits at the end of
   // the facts; on a desktop the state moves up beside the name (hearing.css).
   return `<a class="row hr-bill" href="${billRoute(b)}"><span class="hr-bt">${name}</span><span class="hr-bs">${end}</span><span class="hr-bf">${facts}${pub ? `<span class="hr-fact hr-pub">${icon('users')}<span>${esc(pub)}</span></span>` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</a>`;
@@ -202,7 +215,8 @@ function membersHTML(c) {
     return `<a class="row hr-mem" href="${legHref(m.l)}">${photo(m.l, 40)}<span class="body"><span class="title">${esc(legName(m.l))}</span><span class="sub">${esc(`${role} · ${partyDist(m.l)}`)}</span></span><span class="end">${st}${icon('chevron-right', { cls: 'chev' })}</span></a>`;
   });
   const lead = pos[0]?.b;
-  const hint = lead && !any ? `<p class="hr-hint">No one has recorded where they stand on these bills yet. Set it on ${esc(lead.bill_number)}’s <a href="${billRoute(lead, 'pathway')}">Pathway</a>.</p>` : '';
+  // v3: the stance pickers are in Committees on the bill's Overview; the link lands on that section.
+  const hint = lead && !any ? `<p class="hr-hint">No one has recorded where they stand on these bills yet. Set it under ${esc(lead.bill_number)}’s <a href="${billRoute(lead, 'committees')}">Committees</a>.</p>` : '';
   return section('hr-s3', 'Committee members', members.length, `${hint}<div class="rows hr-rows">${folded(h.id + '|m', rows)}</div>`);
 }
 

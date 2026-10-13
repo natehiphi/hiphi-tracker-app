@@ -1,12 +1,13 @@
-// Staff v2 · Pathway (plan 3.6), plus the legislator helpers the Legislators, Legislator and Search screens share.
-// The bill page (M2) calls renderPathway(bill) inside its Pathway tab and wirePathway(root, bill) after it renders.
-// Behaviour kept from the current app's pathwayHTML/wireLegDrawer: every committee stop in order (passed, now, next,
-// likely), chairs and vice chairs first, a stance per member with a tally per stop, joint committees listed once
-// with a role per committee, a note and a staff contact per member per bill, the Email link prefilled with the
-// public ask, "Introduced by", and likely next stops from the companion bill (else the House/Senate counterpart map).
+// Staff v3 · Committees (R-264; v2's Pathway, plan 3.6), plus the legislator helpers the Legislators, Legislator and
+// Search screens share. The bill page calls renderCommittees(bill) inside its Overview and wireCommittees(root, bill) after
+// it renders. Behaviour kept from v2's Pathway: every committee stop in order (passed, now, next, likely), chairs and vice
+// chairs first, a stance per member with a tally per stop, joint committees listed once with a role per committee, a note
+// and a staff contact per member per bill, the Email link prefilled with the public ask, and likely next stops from the
+// companion bill (else the House/Senate counterpart map). New in v3: each stop's hearings, results, recordings and our
+// filed testimony, which were v2's Hearings list and Testimony tab.
 import { S, DB, esc, hooks, fmtDT, fmtDate, advocate, pathwayStops } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
-import { stopOf, legsOf, stanceOf, legTitle, legsForSponsors, codesOf, cmteName, STANCES, blurb, billNum, diedish, hearingAhead, whyDead, riskOf, legPhoto, billByNum, billRef } from './model.js';
+import { stopOf, legsOf, stanceOf, legTitle, codesOf, cmteName, STANCES, blurb, billNum, diedish, hearingAhead, whyDead, riskOf, legPhoto, billByNum, billRef, streamOf, OUTCOME_LABEL } from './model.js';
 import { icon, btn, chip, pickerChip, openSheet, closeSheet, pickerSheet, toast } from './ui.js';
 import { rerender } from './bill.js';   // used inside functions only (bill.js imports this file too)
 
@@ -129,43 +130,93 @@ export function tally(b, members) {
   return { c, text, full: `Yes ${c.yes}, leaning yes ${c.leaning_yes}, leaning no ${c.leaning_no}, no ${c.no}, unknown ${c.unknown}, of ${members.length}` };
 }
 
-// ---- the pathway ----
-const STATE = { passed: ['circle-check', 'Passed'], current: ['circle-dot', 'Now'], next: ['circle', 'Next'], predicted: ['circle-dashed', 'Likely'], ended: ['circle-minus', 'Outcome not recorded'] };
-export function renderPathway(b) {
+// ---- Committees (v3: a section of the bill's Overview; it was v2's Pathway tab) ----
+// A person comes here to see each committee the bill has to get through and who on the current one to work on (B-1).
+// One line per stop, in order, the current stop open (the first Next one when nothing is current, e.g. waiting for a
+// referral). Open, a stop says its hearing, the result and the vote, the recording and our filed testimony for that
+// hearing; a stop still ahead lists its members and where each stands, with the stance pickers. Testimony still being
+// written, checked or filed is on Next up, and is not said here as well (A-14). Gone from the top of it (v3): "Introduced
+// by…" (Details' Sponsors line says it) and the line explaining chairs and stances.
+const STATE = { passed: ['circle-check', 'Passed'], current: ['circle-dot', 'Now'], next: ['circle', 'Next'], predicted: ['circle-dashed', 'Likely'], ended: ['circle-minus', 'No result recorded'], other: ['gavel', 'Heard'] };
+const sameCmte = (x, y) => codesOf(x).some(c => codesOf(y).includes(c));
+const roomOf = r => String(r || '').replace(/\s*(&|and|via)\s*videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ').trim();
+const dayOf = d => fmtDate(d, { weekday: 'short' }).replace(/^(\w{3}),/, '$1');   // "Fri 2/27"
+// Every hearing the bill has had: the bill page's own history (bill.js loads S.billHist once) and the hearings Staff
+// already holds, by id, so a hearing set this week is never missing while the history loads.
+function hearingsOf(b) {
+  const by = new Map(), g = S.billHist?.[b.id];
+  for (const h of [...(g && g.hearings ? g.hearings : []), ...(S.hearings || []).filter(h => h.bill_id === b.id)]) if (h.status !== 'cancelled') by.set(h.id, h);
+  return [...by.values()].sort((x, y) => y.scheduled_at.localeCompare(x.scheduled_at));
+}
+// "8 yes, 1 no" from the committee's report ("8 Ayes: ...; 1 Noes: ..."), when it says.
+const votesOf = o => { const t = String(o?.report || ''), ay = /(\d+)\s+Ayes?\b/i.exec(t), no = /(\d+)\s+No(?:es|e)?s?\b/i.exec(t); return ay ? `${ay[1]} yes${no ? `, ${no[1]} no` : ''}` : ''; };
+const OUT_ICON = { passed: 'circle-check', passed_amended: 'circle-check', deferred: 'circle-x', recommitted: 'undo-2' };
+// One hearing the stop has had: when and where, the result with its vote, and the recording. (One still ahead is on
+// Next up, with its own page.)
+function hearingLine(b, h) {
+  const o = S.outcomes?.[h.id], v = streamOf(h), votes = votesOf(o);
+  const when = `Heard ${fmtDT(h.scheduled_at)}${h.room ? ` · ${roomOf(h.room)}` : ''}`;
+  const result = o?.outcome ? chip(`${OUTCOME_LABEL[o.outcome] || o.outcome}${votes ? `, ${votes}` : ''}`, /^passed/.test(o.outcome) ? 'ok' : '', OUT_ICON[o.outcome] || 'gavel') : chip('No result yet', '', 'hourglass');
+  const link = v ? `<a class="bw-inline" href="${esc(v.url)}" target="_blank" rel="noopener">${v.exact ? 'Recording' : 'Find the recording'}${icon('external-link')}</a>` : '';
+  return `<div class="bw-cmh"><p class="bw-cmwhen">${esc(when)}</p>${result}${link}</div>`;
+}
+// Our filed testimony for one of the stop's hearings: who filed it and when, the Doc and the Capitol's confirmation.
+function testimonyLine(d) {
+  const a = advocate(d.filed_by || d.submitted_by);
+  return `<div class="bw-cmh bw-cmt"><p class="bw-cmwhen">${icon('file-text')}<span>Our testimony, filed${a ? ` by ${esc(a.id === S.me?.id ? 'you' : a.full_name.split(' ')[0])}` : ''}${d.filed_at ? ` ${esc(dayOf(d.filed_at))}` : ''}</span></p>
+    ${d.doc_url ? `<a class="bw-inline" href="${esc(d.doc_url)}" target="_blank" rel="noopener">Open Doc${icon('external-link')}</a>` : ''}${d.filed_url ? `<a class="bw-inline" href="${esc(d.filed_url)}" target="_blank" rel="noopener">Confirmation${icon('external-link')}</a>` : ''}</div>`;
+}
+// A long committee shows its first six members, leadership first (or the first six of the order picked), and "Show all"
+// opens the rest in place, remembered for the visit: thirteen rows of Senate Ways and Means were a screen and a half.
+const FOLD_AT = 8, FOLD_TO = 6;
+const cap = (key, members) => members.length > FOLD_AT && !S.cmAll?.has(key) ? FOLD_TO : members.length;
+const moreBtn = (key, members) => cap(key, members) < members.length ? btn(`Show all ${members.length} members`, { kind: 'text', icon: 'chevron-down', cls: 'bw-cmall', attrs: { 'data-cmall': key } }) : '';
+export function renderCommittees(b) {
   if (!b) return '';
-  const st = stopOf(b);
+  const st = stopOf(b), all = hearingsOf(b), now = Date.now();
   const comp = (b.companions || []).map(n => billByNum(n, b.session_year)).find(Boolean);
   const compRefs = comp && comp.chamber !== b.chamber ? (comp.referrals || []).slice(0, comp.origin_stops || undefined) : null;
-  const stops = pathwayStops(b, st, S.counterparts || [], compRefs), desk = DESK();
-  const intro = legsForSponsors(b), nSp = (b.sponsors || []).length;
-  const introLine = intro.length ? `<p class="lg-pwintro">Introduced by ${intro.slice(0, 3).map(l => `<a href="${legHref(l, b)}">${esc(shortName(l))}</a>`).join(', ')}${nSp > 3 ? ` and ${nSp - 3} more` : ''}. The first name is the lead introducer.</p>` : '';
-  if (!stops.length) return `<div class="lg-pw" data-lgpw="${esc(b.id)}">${introLine}<p class="lg-pwnone">No committee referral yet, so there is no one to work on until the Capitol posts one.</p></div>`;
-  // Only the Now stop starts open (the first Next one when nothing is Now, e.g. waiting for a referral).
+  const stops = pathwayStops(b, st, S.counterparts || [], compRefs).map(s => ({ ...s, hs: all.filter(h => sameCmte(h.committee, s.committee)) }));
+  // A hearing for a committee that is not on the referral (a re-referral, a joint sitting) still gets its line, after the stops.
+  const others = all.filter(h => !stops.some(s => sameCmte(h.committee, s.committee)));
+  const byCode = new Map(); for (const h of others) { if (!byCode.has(h.committee)) byCode.set(h.committee, []); byCode.get(h.committee).push(h); }
+  for (const [code, hs] of byCode) stops.push({ chamber: S.committees?.[codesOf(code)[0]]?.chamber || '', committee: code, state: 'other', stop: 0, of: 0, hs });
+  const filed = (S.drafts?.[b.id] || []).filter(d => d.status === 'filed');
+  const desk = DESK();
+  if (!stops.length) return `<section class="bw-sec bw-cm" id="bw-cmt" aria-labelledby="bw-cmt-h"><h2 id="bw-cmt-h">Committees</h2><p class="small muted">No committee referral yet.</p></section>`;
   const firstOpen = stops.findIndex(s => s.state === 'current') >= 0 ? stops.findIndex(s => s.state === 'current') : stops.findIndex(s => s.state === 'next');
   const predFrom = comp && stops.some(s => s.state === 'predicted' && s.from === 'companion') ? `Likely next (from ${esc(comp.bill_number)})` : 'Likely next (the usual path)';
   let shownPred = false;
-  const blocks = stops.map((s, i) => {
-    const members = legsOf(s.committee), joint = codesOf(s.committee).length > 1;
+  const rows = stops.map((s, i) => {
     const key = `${b.id}|${s.chamber}${s.stop}|${s.committee}`, open = (S.pwOpen || {})[key] ?? i === firstOpen;
     const [ic, word] = STATE[s.state] || STATE.next;
-    const h0 = s.state === 'current' ? hearingAhead(b) : null, h = h0 && codesOf(h0.committee).some(c => codesOf(s.committee).includes(c)) ? h0 : null;
-    const chairs = members.filter(m => m.role === 'chair');
-    const chairText = chairs.length ? (joint ? `Chairs ${chairs.map(m => `${surname(m.l)} (${Object.entries(m.roles).filter(([, r]) => r === 'chair').map(([c]) => c).join('/')})`).join(', ')}` : `Chair ${shortName(chairs[0].l)}`) : '';
-    const meta = [s.committee, `${CHAMBER_NAME[s.chamber]} committee ${s.stop} of ${s.of}`, joint ? 'joint hearing' : '', h ? `hearing ${fmtDT(h.scheduled_at)}` : '', !open ? chairText : ''].filter(Boolean).join(' · ');
-    const t = members.length && s.state !== 'passed' ? tally(b, members) : null;
-    const head = !shownPred && s.state === 'predicted' ? (shownPred = true, `<p class="lg-pwpred">${predFrom}</p>`) : '';
-    return `${head}<section class="lg-stop is-${s.state}">
-      <h3 class="lg-stoph"><button type="button" class="lg-stopbtn" data-lgfold="${esc(key)}" aria-expanded="${open}" aria-controls="lg-sb-${i}">
-        <span class="lg-l1"><span class="lg-stopst">${icon(ic)}${word}</span><span class="lg-stopname">${esc(cmteName(s.committee))}</span></span>
-        <span class="lg-l2"><span class="lg-stopmeta">${esc(meta)}</span>${t ? `<span class="lg-tally" title="${esc(t.full)}"><span class="sr">${esc(t.full)}</span><span aria-hidden="true">${esc(t.text)}</span></span>` : ''}</span>
-        ${icon(open ? 'chevron-up' : 'chevron-down', { cls: 'lg-chev' })}
+    const ahead = s.hs.filter(h => new Date(h.scheduled_at).getTime() > now).pop(), past = s.hs.find(h => new Date(h.scheduled_at).getTime() <= now);
+    // The one fact on the stop's line: its hearing coming, else when it was heard; nothing for a stop not reached yet.
+    // A hearing still ahead is said here and on Next up only; the open stop lists the hearings held (A-14). "Heard Fri
+    // 2/27" steps aside when the stop is open, where the hearing's own line says it in full (bill.css).
+    const fact = ahead ? `Hearing ${fmtDT(ahead.scheduled_at)}` : past ? `Heard ${dayOf(past.scheduled_at)}` : s.state === 'current' ? 'No hearing yet' : '';
+    const held = s.hs.filter(h => new Date(h.scheduled_at).getTime() <= now);
+    const name = `${s.chamber && CHAMBER_NAME[s.chamber] ? CHAMBER_NAME[s.chamber] + ' ' : ''}${cmteName(s.committee)}`;
+    const members = ['passed', 'ended', 'other'].includes(s.state) ? null : legsOf(s.committee), joint = codesOf(s.committee).length > 1;
+    const t = members && members.length ? tally(b, members) : null;
+    // Testimony for a hearing still ahead is on Next up, filed or not; here only what was filed for a hearing held.
+    const tm = filed.filter(d => d.hearing_id ? held.some(h => h.id === d.hearing_id) : sameCmte(d.committee, s.committee) && !ahead);
+    const body = [
+      ...held.map(h => hearingLine(b, h)),
+      ...tm.map(testimonyLine),
+      members ? (members.length ? `${t ? `<p class="bw-cmtally" title="${esc(t.full)}"><span class="sr">${esc(t.full)}</span><span aria-hidden="true">Where they stand: ${esc(t.text)}</span></p>` : ''}${desk ? memberTable(b, s, members, joint, i, cap(key, members)) : `<div class="bw-cmmem">${members.slice(0, cap(key, members)).map(m => memberRow(b, m, joint)).join('')}</div>`}${moreBtn(key, members)}`
+        : '<p class="small muted bw-cmnone">No member list for this committee yet.</p>') : '',
+    ].join('') || `<p class="small muted bw-cmnone">${ahead ? 'Its hearing is on Next up.' : 'No hearing recorded.'}</p>`;
+    const head = !shownPred && s.state === 'predicted' ? (shownPred = true, `<li class="bw-cmpred">${predFrom}</li>`) : '';
+    return `${head}<li class="bw-cmstop is-${s.state}">
+      <h3 class="bw-cmh3"><button type="button" class="bw-cmrow" data-lgfold="${esc(key)}" aria-expanded="${open}" aria-controls="bw-cms-${i}">
+        <span class="bw-cmst">${icon(ic)}${word}</span><span class="bw-cmname">${esc(name)}</span>${fact ? `<span class="bw-cmfact${!ahead && past ? ' held' : ''}">${esc(fact)}</span>` : ''}${icon(open ? 'chevron-up' : 'chevron-down', { cls: 'lg-chev' })}
       </button></h3>
-      <div class="lg-stopbody" id="lg-sb-${i}"${open ? '' : ' hidden'}>${!members.length ? '<p class="lg-pwnone">No member list for this committee yet.</p>' : desk ? memberTable(b, s, members, joint, i) : members.map(m => memberRow(b, m, joint)).join('')}</div>
-    </section>`;
+      <div class="bw-cmbody" id="bw-cms-${i}"${open ? '' : ' hidden'}>${body}</div>
+    </li>`;
   }).join('');
-  return `<div class="lg-pw" data-lgpw="${esc(b.id)}">
-    <p class="lg-pwhelp">Chairs decide whether a bill is heard; members vote. Stances are for the team only.</p>
-    ${introLine}${blocks}</div>`;
+  return `<section class="bw-sec bw-cm" id="bw-cmt" aria-labelledby="bw-cmt-h"><h2 id="bw-cmt-h">Committees</h2>
+    <ul class="bw-cmlist" role="list">${rows}</ul></section>`;
 }
 // One member (56px): name as a link to their page (with the way back to this bill), a Chair or Vice chip, the stance
 // chip, and an email button prefilled with the public ask. On a joint stop a leadership role names its committee,
@@ -196,13 +247,13 @@ function sortedMembers(b, members) {
   const val = m => s.key === 'name' ? String(m.l.sort_name || m.l.name) : s.key === 'stance' ? ST_ORDER[stanceOf(b.id, m.l.id).stance] : RANK[m.role];
   return members.map((m, i) => [m, i]).sort(([x, i], [y, j]) => { const a = val(x), c = val(y); return (a < c ? -1 : a > c ? 1 : 0) * s.dir || i - j; }).map(([m]) => m);
 }
-function memberTable(b, stop, members, joint, i) {
+function memberTable(b, stop, members, joint, i, limit = members.length) {
   const s = S.pwSort || { key: 'role', dir: 1 };
   const th = ([key, label]) => { const on = s.key === key;
     return `<th scope="col" class="bw-pwc-${key}" aria-sort="${on ? (s.dir > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="bw-sortb" data-pwsort="${key}" data-pwtab="${i}">${label}${on ? icon(s.dir > 0 ? 'chevron-up' : 'chevron-down') : ''}</button></th>`; };
   return `<table class="bw-pwt"><caption class="sr">${esc(cmteName(stop.committee))}: members and where they stand on ${esc(b.bill_number)}</caption>
     <thead><tr>${PW_COLS.map(th).join('')}<th scope="col" class="bw-pwc-note">Note and contact</th><th scope="col" class="bw-pwc-act"><span class="sr">Note and email</span></th></tr></thead>
-    <tbody>${sortedMembers(b, members).map(m => memberTr(b, m, joint)).join('')}</tbody></table>`;
+    <tbody>${sortedMembers(b, members).slice(0, limit).map(m => memberTr(b, m, joint)).join('')}</tbody></table>`;
 }
 function memberTr(b, m, joint) {
   const l = m.l, x = stanceOf(b.id, l.id), who = x.contact_id && advocate(x.contact_id), by = x.updated_by && advocate(x.updated_by);
@@ -246,10 +297,11 @@ function wireTable(pw, b) {
     rerender(`[data-pwsort="${key}"][data-pwtab="${el.dataset.pwtab}"]`);
   });
 }
-export function wirePathway(root, b) {
-  const pw = root && (root.matches?.('.lg-pw') ? root : root.querySelector('.lg-pw'));
+export function wireCommittees(root, b) {
+  const pw = root && (root.id === 'bw-cmt' ? root : root.querySelector('#bw-cmt'));
   if (!pw) return;
   wireStances(pw); wireLinks(pw); wireTable(pw, b);
+  pw.querySelectorAll('[data-cmall]').forEach(el => el.onclick = () => { (S.cmAll ??= new Set()).add(el.dataset.cmall); rerender(); });
   // Folding changes only this stop (no re-render), and is remembered for this visit.
   pw.querySelectorAll('[data-lgfold]').forEach(el => el.onclick = () => {
     const open = el.getAttribute('aria-expanded') !== 'true';

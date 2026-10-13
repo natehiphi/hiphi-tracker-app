@@ -1,4 +1,4 @@
-/* The hearing page, #/hearing/:id (R-022 wave 3 #16): one committee sitting, its agenda, who is going and the members.
+/* The hearing page, #/hearing/:id (R-022 wave 3 #16; Staff v3): one committee sitting, its agenda, who is going and the members.
    Tokens only; the five staff type sizes (A-4); 44px targets (A-6); the look of a legislator's page, which it sits
    beside in the Legislators tab. Phone first; the desktop's two columns are at the end. */
 
@@ -48,10 +48,13 @@
 .hr-fact { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
 .hr-fact .ic { width: 16px; height: 16px; }
 .hr-bf .sv-p1 { height: 20px; }
-/* below 360px (the small-phone floor, A-9) the chip would leave the name 140px, so it takes its own line under it */
-@media (max-width: 359px) {
+/* On a phone the state takes its own line under the name (v3): it now says the urgent fact in words ("Testimony sent back ·
+   due in 29 min"), which beside the facts squeezed them into a column of broken words. It may wrap, as words do. */
+@media (max-width: 899px) {
   .hr-bill { grid-template-columns: minmax(0, 1fr) 20px; grid-template-areas: "t c" "s c" "f c"; }
-  .hr-bs { justify-self: start; }
+  .hr-bs { justify-self: start; max-width: 100%; }
+  .hr-bs .sv-chip { flex: 0 1 auto; white-space: normal; text-align: left; }
+  .hr-bs:empty { display: none; }
 }
 /* bills we only monitor, folded away (R-022 decision 4) */
 .hr-fold { margin-top: var(--s8); }

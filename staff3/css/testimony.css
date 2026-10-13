@@ -63,3 +63,17 @@
   .tm-acts { grid-column: 2; justify-content: flex-start; margin-left: -12px; }
 }
 @media (prefers-reduced-motion: reduce) { .tm-iss > summary .ic { transition: none; } }
+
+/* v3 (R-264): the old Testimony tab is "Earlier testimony", folded at the end of the bill's Overview. Its summary is the
+   section's heading, sized as Overview's other headings are. */
+.bw-earlier > summary { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); min-height: 44px; cursor: pointer; list-style: none; }
+.bw-earlier > summary::-webkit-details-marker { display: none; }
+.bw-earlier > summary h2 { margin: 0; font-size: var(--t16); }
+.bw-earlier > summary .chev { width: 20px; height: 20px; color: var(--n500); transition: transform .15s var(--ease); flex: none; }
+.bw-earlier[open] > summary .chev { transform: rotate(180deg); }
+.bw-earlier > #tm-body { margin-top: var(--s8); }
+@media (hover: hover) and (pointer: fine) { .bw-earlier > summary:hover h2 { color: var(--p800); } }
+@media (prefers-reduced-motion: reduce) { .bw-earlier > summary .chev { transition: none; } }
+/* Under the fold's own heading, its parts are a step smaller, so the fold reads as one section (A-4: 14, not a new size). */
+.bw-earlier .tm-part > h3 { font-size: var(--t14); }
+.bw-earlier .tm-part:first-child { margin-top: 0; }
