@@ -274,6 +274,8 @@ function renderDesk(route) {
 
 // Today shows these same steps as its Getting started card (R-106).
 export { newSteps, frSet as markNewStep };
+// R-277 fix 19 (F-1): the top search box finds Help's guides as places (search.js placeHits): their titles and other words.
+export const helpTopics = () => visible().map(t => ({ id: t.id, title: t.title, also: t.also || '', icon: t.icon }));
 export default {
   tab: '',
   // The two columns need more than the 720px the frame gives a plain page between 900 and 1099px.

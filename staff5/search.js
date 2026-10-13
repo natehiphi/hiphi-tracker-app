@@ -16,6 +16,7 @@ import { billSub, wireLinks } from './pathway.js';
 import { matchLegs, legRow, weekIndex, districtQ } from './legislators.js';
 import { blRow } from './bills.js';
 import { billRoute } from './model.js';
+import { helpTopics } from './help.js';   // R-277 fix 19: Help's guides are places too
 
 const SHOW = { bills: 8, legs: 5, people: 5 };
 const st = () => (S.lgSearch ??= { q: '', more: new Set(), un: null });
@@ -44,6 +45,41 @@ function peopleHits(q) {
     .sort((a, b) => String(b.last_active || '').localeCompare(String(a.last_active || '')));
 }
 
+// ---- places (R-277 fix 19, F-1) ----
+// Neither search box found a place or a feature: "partner update", "inbox", "sort new bills" and "QR code" said "Nothing
+// matches", and "settings" gave 9 bills. Typing now finds the app's places as well, first, at most 3: a word of the
+// query must start a word of the place's name or of its other words (the short list of what people call it: "pings" and
+// "notifications" are My settings' alerts, "qr" the QR code, "file" How to file at the Capitol). Session setup is for
+// admins only, as its door is. The QR code is where it has always been (D5, held): its place is Help's answer saying how.
+const PLACES = () => [
+  { title: 'Inbox', href: '#/inbox', icon: 'inbox', sub: 'Messages, mentions and updates', also: 'messages mentions replies unread' },
+  { title: 'Partner update', href: '#/outreach/partners', icon: 'newspaper', sub: 'Outreach', also: 'partners memo weekly memo coalition update' },
+  { title: 'Sort new bills', href: '#/bills/new', icon: 'sparkles', sub: 'Bills', also: 'triage new bills track pass' },
+  { title: 'My settings', href: '#/me', icon: 'settings', sub: 'How the tracker reaches you', also: 'settings preferences account profile' },
+  { title: 'My settings: alerts', href: '#/me', icon: 'bell', sub: 'Slack, email or only in the app', also: 'alerts pings notifications reminders nudges slack dm mute quiet' },
+  ...(S.me?.is_admin ? [{ title: 'Session setup', href: '#/setup', icon: 'sliders-horizontal', sub: 'Admins', also: 'setup admin calendar deadlines staff' }] : []),
+  { title: 'QR code', href: '#/help/tabs', icon: 'qr-code', sub: 'My issues, All issues, its … menu, First visit', also: 'qr poster print first visit link' },
+  { title: 'This week’s asks', href: '#/outreach', icon: 'megaphone', sub: 'Outreach', also: 'asks ask newsletter post share kit public ask' },
+  { title: 'Emails', href: '#/outreach/emails', icon: 'mail', sub: 'Outreach: supporter emails', also: 'email emails action alert supporter email' },
+  { title: 'Supporters', href: '#/outreach/supporters', icon: 'users', sub: 'Outreach', also: 'supporters people contacts segments' },
+  ...helpTopics().map(t => ({ title: t.title, href: `#/help/${t.id}`, icon: t.icon || 'circle-help', sub: 'Help', also: `help ${t.also}`, help: true })),
+];
+const PL_STOP = new Set(['a', 'an', 'the', 'my', 'to', 'of', 'for', 'how', 'do', 'i', 'is', 'where', 'what', 'page', 'open']);
+export function placeHits(q) {
+  const ws = plain(q).replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(w => w && !PL_STOP.has(w)); if (!ws.length) return [];
+  const starts = (hay, w) => new RegExp(`(^|[^a-z0-9])${w.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&')}`).test(hay);
+  const out = [];
+  for (const p of PLACES()) {
+    const t = plain(p.title.replace(/’/g, "'")), a = plain(p.also);
+    if (!ws.every(w => starts(t, w) || starts(a, w))) continue;
+    // the name itself first, then a name that starts with the words, then a match on its other words; a place before a Help guide
+    const score = (t === ws.join(' ') ? 8 : 0) + ws.filter(w => starts(t, w)).length * 2 + (starts(t, ws[0]) && t.startsWith(ws[0]) ? 1 : 0) - (p.help ? 1 : 0);
+    out.push([score, p]);
+  }
+  return out.sort((x, y) => y[0] - x[0]).slice(0, 3).map(([, p]) => p);
+}
+const placeItems = q => placeHits(q).map(p => ({ href: p.href, title: p.title, sub: p.sub, icon: p.icon }));
+
 // ---- the header's suggestions as you type (R-032; pub/suggest.js draws them, the public header's too) ----
 // Seven rows at most under the header box on a desktop, shared out so every kind that matches shows: tracked bills
 // (this page's matches in this page's order, an exact or leading number first), bills not tracked yet (Nate, 9/26:
@@ -54,8 +90,8 @@ function peopleHits(q) {
 const ROWS = 7;
 const numOf = b => b.bill_number.toLowerCase().replace(/\s/g, '');
 const spacedNum = n => String(n).replace(/^([A-Z]+)\s*(\d)/, '$1 $2');
-function share(lists) {   // a row for each kind in turn, until seven
-  const n = lists.map(() => 0); let left = ROWS, more = true;
+function share(lists, rows = ROWS) {   // a row for each kind in turn, until seven
+  const n = lists.map(() => 0); let left = rows, more = true;
   while (left && more) { more = false; lists.forEach((l, k) => { if (left && n[k] < l.length) { n[k]++; left--; more = true; } }); }
   return lists.map((l, k) => l.slice(0, n[k]));
 }
@@ -85,8 +121,9 @@ export function headerHits(q) {
   const unRows = rows => (rows || []).filter(r => !ids.has(r.id) && (numOf(r).includes(qn) || !/^gm/i.test(r.bill_number) && res.every(re => re.test(plain(`${r.title || ''} ${r.description || ''}`)))))
     .map(r => ({ href: `#/search?q=${encodeURIComponent(r.bill_number)}`, title: r.description || titleCaseSmart(r.title || ''), icon: 'scroll-text', inline: true,
       sub: [spacedNum(r.bill_number), STAGE_LABEL[r.stage]].filter(Boolean).join(' · ') }));
-  const groups = (ppl, un) => { const [b, u, i, l, p] = share([bills, un, issues, legs, ppl]);
-    return [{ label: 'Bills', items: b }, { label: 'Not tracked yet', items: u }, { label: 'Issues', items: i }, { label: 'Legislators', items: l }, { label: 'Supporters', items: p }]; };
+  const places = placeItems(q);   // R-277 fix 19: first, and they take their rows before the rest share the seven
+  const groups = (ppl, un) => { const [b, u, i, l, p] = share([bills, un, issues, legs, ppl], ROWS - places.length);
+    return [{ label: 'Places', items: places }, { label: 'Bills', items: b }, { label: 'Not tracked yet', items: u }, { label: 'Issues', items: i }, { label: 'Legislators', items: l }, { label: 'Supporters', items: p }]; };
   const peopleReady = S.peopleLoaded || (S.people || []).length, lookUn = q.trim().length >= 3 && !(dist && dist[1]), key = plain(q).trim();
   if (peopleReady && (!lookUn || unCache.has(key))) return { groups: groups(people(), unRows(unCache.get(key))) };
   if (!peopleReady) peopleP ??= DB.loadPeople().catch(() => {}).finally(() => { peopleP = null; });
@@ -110,7 +147,7 @@ const group = (id, title, n, inner) => `<section class="rows lg-grp" aria-labell
 const nOf = (n, one, many) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 function resultsHTML(q) {
   const s = st();
-  if (!q) return empty({ title: 'Search everything', text: 'Find bills by number or words, legislators by name, town or district, and supporters by name or email.' });
+  if (!q) return empty({ title: 'Search everything', text: 'Find bills by number or words, legislators by name, town or district, supporters by name or email, and the app’s places, such as the Inbox or the partner update.' });
   // untracked bills: only when the query is long enough to mean something (the current app's rule, 3 characters)
   const tracked = billHits(q), ids = new Set(S.bills.map(b => b.id)), nums = new Set(S.bills.map(b => b.bill_number));
   const un = s.un && s.un.q === q ? (s.un.rows || []).filter(r => !ids.has(r.id) && !nums.has(r.bill_number)) : null;
@@ -120,18 +157,20 @@ function resultsHTML(q) {
   const unBlock = q.length < 3 ? '' : un === null ? `<div class="row lg-snote" role="status">${icon('loader-circle', { cls: 'lg-spin' })}<span>Looking through every bill of the session</span></div>`
     : un.length ? `<h3 class="lg-subh">Not tracked yet <span class="lg-n">${un.length}</span></h3>${un.map(untrackedRow).join('')}` : '';
   const main = [], side = [];
+  // R-277 fix 19: the places that match, at most 3, above the groups.
+  const pl = placeHits(q), plHTML = pl.length ? `<section class="rows lg-grp lg-places" aria-labelledby="lg-gpl"><h2 class="sv-group" id="lg-gpl"><span>Places</span><span class="n">${pl.length}</span></h2>${pl.map(p => `<a class="row lg-plrow" href="${esc(p.href)}"><span class="lead">${icon(p.icon)}</span><span class="body"><span class="title">${esc(p.title)}</span><span class="sub">${esc(p.sub || '')}</span></span><span class="end">${icon('chevron-right', { cls: 'chev' })}</span></a>`).join('')}</section>` : '';
   const nBills = tracked.length + (un ? un.length : 0);
   if (tracked.length || (un && un.length) || un === null && q.length >= 3)
     main.push(group('lg-gb', 'Bills', nBills, tracked.slice(0, nb).map(b => blRow(b, { sub: esc(billSub(b)), href: `${billRoute(b)}` })).join('') + more('b', tracked.length, nb, 'tracked bills') + unBlock));
   if (legs.length) side.push(group('lg-gl', 'Legislators', legs.length, legs.slice(0, nl).map(l => legRow(l, { week })).join('') + more('l', legs.length, nl, 'legislators')));
   if (!peopleReady) side.push(group('lg-gp', 'Supporters', '', `<div class="row lg-snote" role="status">${icon('loader-circle', { cls: 'lg-spin' })}<span>Loading supporters</span></div>`));
   else if (people.length) side.push(group('lg-gp', 'Supporters', people.length, people.slice(0, np).map(personRow).join('') + more('p', people.length, np, 'supporters')));
-  if (!main.length && !side.length) return empty({ title: `Nothing matches “${esc(q)}”`, text: 'Try a bill number such as HB1562, a word from its title, a last name or a town.' });
+  if (!main.length && !side.length) return plHTML || empty({ title: `Nothing matches “${esc(q)}”`, text: 'Try a bill number such as HB1562, a word from its title, a last name or a town.' });
   // What was found, in words, above the groups (each group's header repeats its own count).
   const parts = [nBills ? nOf(nBills, 'bill', 'bills') : '', legs.length ? nOf(legs.length, 'legislator', 'legislators') : '', people.length ? nOf(people.length, 'supporter', 'supporters') : ''].filter(Boolean);
   const sum = parts.length ? `<p class="st-ssum">${parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]} for “${esc(q)}”${keysUsed() ? '<span class="st-skeys"> · The arrow keys move through the results, Enter opens one</span>' : ''}</p>` : '';
   const two = main.length && side.length;
-  return `${sum}<div class="st-sgrid${two ? ' st-two' : ''}">${main.length ? `<div class="st-scol" data-scol="0">${main.join('')}</div>` : ''}${side.length ? `<div class="st-scol${two ? ' st-sside' : ''}" data-scol="1">${side.join('')}</div>` : ''}</div>`;
+  return `${plHTML}${sum}<div class="st-sgrid${two ? ' st-two' : ''}">${main.length ? `<div class="st-scol" data-scol="0">${main.join('')}</div>` : ''}${side.length ? `<div class="st-scol${two ? ' st-sside' : ''}" data-scol="1">${side.join('')}</div>` : ''}</div>`;
 }
 
 // ---- arrow keys through the results (they are the list's own keys, like a menu's, not shortcuts: they only act

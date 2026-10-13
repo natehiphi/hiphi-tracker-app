@@ -332,8 +332,8 @@ function wireFrame(app) {
     // Bills (tracked and not), issues, legislators and supporters listed as you type (R-032, the same list as the public
     // header's). On the Search page the results under the box are the list. With nothing named that way, Search still
     // looks through sponsors, owners and committees, so the last row says so.
-    suggest(f.querySelector('input'), { source: headerHits, open: go, when: () => S.route?.name !== 'search', label: 'Suggested bills, issues, legislators and supporters',
-      busy: 'Looking through every bill', empty: q => `No bill, issue, legislator or supporter matches “${q}”.`,
+    suggest(f.querySelector('input'), { source: headerHits, open: go, when: () => S.route?.name !== 'search', label: 'Suggested places, bills, issues, legislators and supporters',   // R-277 fix 19: places first
+      busy: 'Looking through every bill', empty: q => `No place, bill, issue, legislator or supporter matches “${q}”.`,
       seeAll: (q, hits) => ({ href: '#/search?q=' + encodeURIComponent(q), label: hits ? `See all results for “${q}”` : `Look for “${q}” in sponsors, owners and committees` }) }); }
   app.querySelector('[data-asbtn]')?.addEventListener('click', practiseAs);
 }
