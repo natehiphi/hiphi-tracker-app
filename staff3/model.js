@@ -324,7 +324,7 @@ export function inboxRows() {
 // racing the deadline after it have their own heading, named for its day ("Needs a hearing by Mon 3/30").
 export const MEMO_SAYS = { strongly_support: 'HIPHI strongly supports', support: 'HIPHI supports', support_amend: 'HIPHI supports with changes',
   strongly_oppose: 'HIPHI strongly opposes', oppose: 'HIPHI opposes', neutral: 'HIPHI is commenting' };   // the public page's words (pub/core.js POS_SAYS)
-const MEMO_TESTIMONY = { draft: 'being written', review: 'waiting for approval', second_review: 'waiting for a second approval', approved: 'approved, not filed yet', filed: 'filed' };
+const MEMO_TESTIMONY = { draft: 'being written', review: 'waiting for approval', second_review: 'waiting for a second approval', approved: 'ready to file', filed: 'filed' };
 const memoDay = d => fmtDate(d, { weekday: 'short' }).replace(',', '');   // "Mon 3/30"
 // The Capitol's step in plain words. The vote count goes first: it is where the old memo cut a name in half at 140
 // characters ("…Representative(s) Garrett, Am"). A sentence plainAction has no words for is kept whole when short, or
@@ -361,7 +361,7 @@ export function memoData() {
   const race = (x, then) => `${x.racing}${then ? '' : ' must clear committee'} by ${x.name.toLowerCase()} on ${memoDay(x.date)}${x.noHearing.length ? ` (${x.noHearing.length} with no hearing yet)` : ''}`;
   const races = clock && clock.racing ? ` ${race(clock)}${clock.then ? `, and ${race(clock.then, true)}` : ''}.` : '';
   const who = partners ? `HIPHI has a position on ${bills.length} bill${bills.length === 1 ? '' : 's'}${coal ? ` in ${coalName}` : ''}` : `${v.who === 'me' ? 'You own or follow' : 'We have a position on'} ${bills.length} bill${bills.length === 1 ? '' : 's'}${p1 ? ` (${p1} top priority)` : ''}`;
-  const intro = `${ld ? ld.text + '. ' : ''}${who}: ${live.length} still moving, ${bills.length - live.length} finished for the year.${races}`;
+  const intro = `${ld ? ld.text + '. ' : ''}${who}: ${live.length} still moving, ${bills.length - live.length} did not advance.${races}`;
   const sections = [];
   // hearings in the next seven days. The team reads where our testimony stands; partners read when theirs is due.
   const hs = S.hearings.filter(h => ids.has(h.bill_id) && h.status !== 'cancelled' && new Date(h.scheduled_at) > now && new Date(h.scheduled_at) - now < wk).sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));

@@ -49,9 +49,9 @@ export let SESSION_YEAR = 2026;   // overwritten from session_deadlines at load 
 // first_floor / second_floor (through committee, waiting for the floor vote) and ballot (a constitutional amendment for
 // the voters) since R-072; the ribbon draws them on the deadline they race (staff/ui.js ribbonKey).
 export const STAGES = [
-  ['introduced','Introduced'], ['first_triple','1st Triple'], ['first_lateral','1st Lateral'],
-  ['first_decking','1st Decking'], ['first_floor','1st Floor vote'], ['first_crossover','Crossover'], ['second_triple','2nd Triple'],
-  ['second_lateral','2nd Lateral'], ['second_decking','2nd Decking'], ['second_floor','2nd Floor vote'],
+  ['introduced','Introduced'], ['first_triple','First triple filing'], ['first_lateral','First lateral'],
+  ['first_decking','First decking'], ['first_floor','First floor vote'], ['first_crossover','Crossover'], ['second_triple','Second triple filing'],
+  ['second_lateral','Second lateral'], ['second_decking','Second decking'], ['second_floor','Second floor vote'],
   ['second_crossover','Passed Both'], ['conference','Conference'], ['governor','Governor'],
   ['enacted','Law'], ['vetoed','Vetoed'], ['ballot','To the voters'], ['dead','Dead'],
 ];

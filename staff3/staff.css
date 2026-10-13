@@ -185,7 +185,7 @@ body.staff2 main.sv-login { width: 100%; max-width: 432px; margin: 10vh auto 0; 
   body.staff2 main > .actionbar .btn { flex: 0 0 auto; min-width: 140px; }
   body.staff2.hasbar main { padding-bottom: var(--s24); }
   /* Anchored menus and pickers (ui.js positions them): a small panel by the button, no dimmed page behind it. */
-  dialog.sv-sheet.sv-pop { position: fixed; margin: 0; width: max-content; min-width: 240px; max-width: 360px; max-height: min(480px, calc(100vh - 32px)); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh3); }
+  dialog.sv-sheet.sv-pop { position: fixed; margin: 0; width: max-content; min-width: 240px; max-width: 360px; max-height: min(680px, calc(100vh - 32px)); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh3); }
   dialog.sv-sheet.sv-pop::backdrop { background: transparent; }
   dialog.sv-sheet.sv-pop .sv-sh-head { padding: var(--s8) var(--s8) 0 var(--s16); }
   dialog.sv-sheet.sv-pop .sv-sh-head h2 { font-size: var(--t14); color: var(--n500); }
@@ -370,6 +370,11 @@ dialog.sv-sheet .toastmsg.insheet { position: sticky; bottom: var(--s8); z-index
   -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
   mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
 }
+/* v3: on a laptop the quick chips wrap instead of scrolling, so no fade (it cut the last chip's edge). */
+@media (min-width: 900px) { .bl-quick { -webkit-mask-image: none; mask-image: none; } }
+/* v3 (R-264): Bills has its own "Find a bill" box, so the frame's search box would be a second search on one screen; "/"
+   focuses the page's own box (app.js). */
+@media (min-width: 900px) { body.staff2:has(main .bl-search) .sv-hdr .sv-search { visibility: hidden; } }
 /* The account menu hung off a bare initials circle with nothing saying it opened anything (A-12). */
 .sv-avbtn { width: auto; min-width: 44px; padding: 0 2px 0 4px; gap: 1px; }
 .sv-avchev { width: 16px; height: 16px; color: var(--n500); flex: none; }

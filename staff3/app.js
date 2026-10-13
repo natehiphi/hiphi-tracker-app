@@ -296,7 +296,7 @@ document.addEventListener('keydown', e => {
   const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
   if (typing || e.metaKey || e.ctrlKey || e.altKey || document.querySelector('dialog[open]') || !keysOn()) return;
   if (e.key === '?') { e.preventDefault(); go('#/help/keys'); return; }
-  if (e.key === '/') { e.preventDefault(); const q = document.getElementById('hq'); if (q && q.offsetParent) q.focus(); else go('#/search'); return; }
+  if (e.key === '/') { e.preventDefault(); const own = document.querySelector('main .bl-search input'), q = document.getElementById('hq'); if (own && own.offsetParent) own.focus(); else if (q && q.offsetParent && getComputedStyle(q).visibility !== 'hidden') q.focus(); else go('#/search'); return; }
   if (e.key === 'g') { gPending = Date.now(); return; }
   if (gPending && Date.now() - gPending < 1200) { gPending = 0; const to = { t: '#/', m: '#/my-issues', b: '#/bills', l: '#/legislators', o: '#/outreach', r: '#/review', i: '#/inbox', k: '#/tasks' }[e.key]; if (to) { e.preventDefault(); go(to); } }
 });
