@@ -1,4 +1,8 @@
-// HIPHI Staff v2: the frame and the router (plan section 2). Since 9/21 (R-022) this is the staff app at the tracker's
+// HIPHI Staff v3 (R-264, Nate 12 Oct: "make all these changes, but make them on a staff v3 so I can explore and compare"):
+// the laptop-first, calmer copy of Staff v2 at staff3.html. The frame differs from v2 in three ways: the sidebar is the five
+// main places and nothing else (no sub-items, so it never shifts and carries one count, Today's: B-13, A-14); sections with
+// sub-pages show one row of tabs at the top of the page at every width (ui.js sectionNav); and your menu is short.
+// Original v2 note: the frame and the router (plan section 2). Since 9/21 (R-022) this is the staff app at the tracker's
 // own address (index.html and staff.html both load it); the old app lives on at classic.html for a week as the way
 // back, then retires. Screens are modules with
 // { render(route), wire(route, root), bar?(route), title(route), back?(route), tab, tabs?, wide?, narrow? }.
@@ -124,20 +128,23 @@ function header(route, scr, pageH1 = false) {
 // The desktop sidebar (1100px and wider; staff.css hides it below that, where the header carries the four tabs).
 // A wide screen has room to show where everything is, so the pages that sit behind a menu on a phone are one click
 // away here: Review, the Inbox, Sort new bills, the weekly memo, Lists, Emails, setup and help.
-const SIDE = [
+// v3: no sub-items. Review opens from Today's card, Inbox is in your menu, Tasks are Today's cards and each bill's To do,
+// Sort new bills and the weekly memo are in Bills' "…" menu, and My issues, Outreach show their own tabs on the page.
+const SIDE_V2 = [
   ['today', '#/', 'list-todo', 'Today', [['review', '#/review', 'Review'], ['inbox', '#/inbox', 'Inbox'], ['tasks', '#/tasks', 'Tasks']]],
   ['myissues', '#/my-issues', 'tag', 'My issues', []],
   ['bills', '#/bills', 'scroll-text', 'Bills', [['triage', '#/bills/new', 'Sort new bills'], ['memo', '#/bills/memo', 'Weekly memo']]],
   ['legislators', '#/legislators', 'landmark', 'Legislators', []],
   ['outreach', '#/outreach', 'megaphone', 'Outreach', [['supporters', '#/outreach', 'Supporters'], ['issues', '#/outreach/issues', 'Issues'], ['coalitions', '#/coalition', 'Coalitions'], ['lists', '#/outreach/lists', 'Lists'], ['emails', '#/outreach/emails', 'Emails']]],
 ];
+const SIDE = SIDE_V2.map(([t, href, ic, label]) => [t, href, ic, label, []]);
 const SUB_OF = { review: 'review', inbox: 'inbox', tasks: 'tasks', triage: 'triage', memo: 'memo', supporters: 'supporters', person: 'supporters', issues: 'issues', issue: 'issues', coalition: 'coalitions', lists: 'lists', list: 'lists', emails: 'emails', composer: 'emails' };
 // Collapsing the sidebar is about this screen, not about the person, so it stays in this browser rather than
 // following them to their phone (where there is no sidebar at all).
 export const sideNarrow = () => { try { return localStorage.getItem('sv_side') === 'narrow'; } catch { return false; } };
 const setSideNarrow = on => { try { on ? localStorage.setItem('sv_side', 'narrow') : localStorage.removeItem('sv_side'); } catch { /* private window: this visit only */ } };
 function sidebar(route, scr) {
-  const bd = badge(), sub = SUB_OF[route.name] || '';
+  const bd = badge(), sub = '';
   let rv = 0, ib = 0; try { rv = reviewQueue().length; ib = inboxCount(); } catch { rv = rv || 0; }
   const count = n => n ? `<span class="sv-sn">${n > 99 ? '99+' : n}</span>` : '';
   const foot = [['help', '#/help', 'circle-help', 'Help'], ...(S.me?.is_admin ? [['setup', '#/setup', 'sliders-horizontal', 'Session setup']] : []), ['me', '#/me', 'settings', 'My settings']];
@@ -220,7 +227,7 @@ export function render() {
   // sits right under the content it acts on (staff.css), never a screen-height away from it.
   // Sandbox: practise as anyone on the team from your menu (it used to take editing the address, &as=LR, which nobody
   // would find). The band stays plain text: a control inside a 28px band cannot be a 44px target (A-6).
-  const band = DEMO ? `<div class="band">Sandbox · ${new Date(DEMO_ASOF).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Pacific/Honolulu' })} · as ${esc((S.me?.full_name || '').split(' ')[0])} · nothing is saved<span class="band-hint"> · switch person in your menu</span></div>` : '';
+  const band = DEMO ? `<div class="band">Staff v3 · Sandbox · ${new Date(DEMO_ASOF).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Pacific/Honolulu' })} · as ${esc((S.me?.full_name || '').split(' ')[0])} · nothing is saved<span class="band-hint"> · switch person in your menu</span></div>` : '';
   app.innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${band}${sidebar(route, scr)}<div class="sv-page">${header(route, scr, /<h1[\s>]/i.test(main || ''))}<main id="main" tabindex="-1">${main}${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}</main></div>${tabs ? tabbar(scr) : ''}`;
   // One heading a screen reader can find, on every screen at every width. Phones hide a page's own h1 (the header
   // already shows the title), which left 12 of 22 screens with no heading at all: where the page's h1 is not drawn,
@@ -272,13 +279,13 @@ const billsOwned = id => S.bills.filter(b => (S.assignments[b.id] || []).include
 function avatarMenu() {
   menuSheet({ title: S.me?.full_name || 'Your menu', items: [
     DEMO ? { label: 'Practise as someone else', icon: 'users-round', sub: 'Sandbox: see the app as a teammate sees it', run: () => setTimeout(practiseAs, 50) } : null,
-    { label: 'Inbox', icon: 'inbox', sub: (n => n ? `${n} unread that need${n === 1 ? 's' : ''} you` : 'Everything sent to you, read or not')(inboxCount()), run: () => go('#/inbox') },
-    { label: 'Tasks', icon: 'list-checks', sub: 'Every task on your bills, with its due date', run: () => go('#/tasks') },
+    { label: 'Inbox', icon: 'inbox', sub: 'Messages and updates sent to you, read or not', run: () => go('#/inbox') },
     { label: 'Refresh', icon: 'refresh-cw', sub: 'Read what your teammates changed since this page loaded', run: () => setTimeout(() => refreshData({ say: true }), 50) },
     { label: 'My settings', icon: 'settings', run: () => go('#/me') },
     S.me?.is_admin ? { label: 'Session setup', icon: 'sliders-horizontal', run: () => go('#/setup') } : null,
     { label: 'Help', icon: 'circle-help', run: () => go('#/help') },
-    { label: 'Open the old app', icon: 'external-link', sub: 'The old staff app, look-only', run: () => { location.href = APP_URL + 'classic.html' + (DEMO ? '?demo=1' : ''); } },
+    { label: 'Open this page in Staff v2', icon: 'columns-3', sub: 'The team\u2019s app today, to compare', run: () => { location.href = 'staff.html' + location.search + location.hash; } },
+    S.me?.is_admin ? { label: 'Open the old app', icon: 'external-link', sub: 'The old staff app, look-only', run: () => { location.href = APP_URL + 'classic.html' + (DEMO ? '?demo=1' : ''); } } : null,
     DEMO ? null : { label: 'Sign out', icon: 'log-out', run: async () => { await DB.logout(); } },
   ] });
 }

@@ -166,7 +166,7 @@
 .sp-person .sp-lists { margin-bottom: var(--s8); }
 .sp-person a.sp-listchip { min-height: 44px; padding: 8px 14px; background: var(--n0); border: 1px solid var(--n300); color: var(--p700); font-size: var(--t14); text-decoration: none; }
 .sp-person a.sp-listchip:hover { background: var(--p50); border-color: var(--p700); }
-.sp-person .sp-nick .sv-t { font-weight: 700; color: var(--n900); }   /* a nickname names the bill, so it is bold; the plain summary is the line under it */
+.sp-person .sp-nick .sv-t { display: none; }   /* a nickname names the bill; the plain summary is the line under it (billRow puts it in the title too: R-264 found it said twice) */
 /* where they said they stand on a bill they follow: an icon and the word, so it never rests on the colour */
 .sp-person .sp-st { display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; padding: 1px var(--s8) 1px 6px; border-radius: var(--pill); background: var(--n100); color: var(--n700); font-size: var(--t13); font-weight: 700; vertical-align: -3px; }
 .sp-person .sp-st .ic { width: 14px; height: 14px; flex: none; }

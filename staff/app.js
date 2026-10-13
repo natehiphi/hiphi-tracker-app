@@ -279,6 +279,7 @@ function avatarMenu() {
     S.me?.is_admin ? { label: 'Session setup', icon: 'sliders-horizontal', run: () => go('#/setup') } : null,
     { label: 'Help', icon: 'circle-help', run: () => go('#/help') },
     { label: 'Open the old app', icon: 'external-link', sub: 'The old staff app, look-only', run: () => { location.href = APP_URL + 'classic.html' + (DEMO ? '?demo=1' : ''); } },
+    S.me?.is_admin ? { label: 'Open this page in Staff v3', icon: 'columns-3', sub: 'The simpler laptop-first version, to compare (R-264)', run: () => { location.href = 'staff3.html' + location.search + location.hash; } } : null,
     DEMO ? null : { label: 'Sign out', icon: 'log-out', run: async () => { await DB.logout(); } },
   ] });
 }

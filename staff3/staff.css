@@ -629,3 +629,13 @@ body.sidenarrow .sv-sync span { display: none; }
 .bw-reach { margin: var(--s12) 0 var(--s16); padding: var(--s12) var(--s16); border-radius: var(--r12); background: var(--p50); }
 .bw-reach p { margin: 0; line-height: 1.5; }
 .bw-reach .btnrow { margin-top: var(--s8); }
+
+/* ---- Staff v3 (R-264): a section's one row of tabs (ui.js sectionNav), the same at every width, above the page's own
+   heading. Looks like the Outreach switcher it replaces (lists.css .le-seg). ---- */
+.sv-secnav { display: flex; width: 100%; max-width: 440px; margin: 0 0 var(--s16); }
+.sv-secnav a { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 var(--s12); border-radius: var(--pill);
+  font-weight: 700; font-size: var(--t14); color: var(--n700); text-decoration: none; white-space: nowrap; }
+.sv-secnav a:hover { color: var(--n900); background: var(--n50); }
+.sv-secnav a[aria-current="page"] { background: var(--n0); color: var(--p800); box-shadow: var(--sh1); }
+.sv-secnav a:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
+@media (min-width: 900px) { .sv-secnav { width: auto; max-width: none; } .sv-secnav a { flex: none; padding: 0 var(--s16); } }

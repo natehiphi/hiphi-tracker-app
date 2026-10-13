@@ -18,9 +18,10 @@ const REM = [['morning', 'The morning testimony is due'], ['before', 'Shortly be
 const FR_KEY = DEMO ? 'hiphi2_firstrun_demo' : 'hiphi2_firstrun';
 const hhmm = t => { const m = /^(\d{1,2}):(\d{2})/.exec(t || ''); if (!m) return t || ''; const h = +m[1]; return `${h % 12 || 12}:${m[2]} ${h < 12 ? 'AM' : 'PM'}`; };
 
-// Which workflow switches apply to me: approvals only reach admins, second approvals only reviewers. Hidden ones keep
+// Which workflow switches apply to me: first approvals reach admins and approvers (can_approve, Kris; R-264 found the
+// approvers could not switch theirs off), second approvals only reviewers. Hidden ones keep
 // whatever value they had.
-const kindsFor = me => WORKFLOW_KINDS.map(([k]) => k).filter(k => (k !== 'review_requested' || me.is_admin) && (k !== 'second_review_requested' || me.is_reviewer));
+const kindsFor = me => WORKFLOW_KINDS.map(([k]) => k).filter(k => (k !== 'review_requested' || me.is_admin || me.can_approve) && (k !== 'second_review_requested' || me.is_reviewer));
 function current() {
   const me = S.me || {}, prefs = me.prefs || {}, rem = prefs.reminders || {}, wf = prefs.workflow || {}, dflt = (S.slackCfg || {}).reminder_defaults || {};
   const v = (x, d) => x == null ? d : x;

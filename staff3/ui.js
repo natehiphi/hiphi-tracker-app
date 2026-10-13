@@ -43,8 +43,13 @@ export function avatar(adv, size = 24) {
 export const ownerOf = b => advocate((S.assignments[b.id] || [])[0]);
 
 // ---- countdown: always an icon and words (plan 4) ----
-export function countdown(iso, { prefix = '' } = {}) {
+// v3 (R-264, A-5 as amended by R-250): a testimony deadline that has passed while the Capitol still takes late testimony
+// (before the hearing starts) is amber "late testimony until 1:10 PM", not red "overdue". Pass the hearing's start as \`until\`.
+const lateUntil = (iso, until) => { const now = Date.now(); return !!until && new Date(iso) <= now && new Date(until) > now; };
+const clock = t => new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' });
+export function countdown(iso, { prefix = '', until = null } = {}) {
   if (!iso) return '';
+  if (lateUntil(iso, until)) return `<span class="sv-count soon">${icon('clock')}${esc(`${prefix}late testimony until ${clock(until)}`)}</span>`;
   const ms = new Date(iso) - Date.now(), h = ms / 36e5;
   // Never round a deadline up: 2 days 6 hours is "2 days left", not 3 (R-022). A day early is safe; a day late is not.
   const text = ms <= 0 ? `${prefix}overdue` : h < 1 ? `${prefix}under an hour` : h < 48 ? `${prefix}${Math.floor(h)}h left` : `${prefix}${Math.floor(h / 24)} days left`;
@@ -176,9 +181,10 @@ addEventListener('scroll', () => { if (!fbRaf) fbRaf = requestAnimationFrame(() 
 
 // ---- urgency mark: the current app's left-rail block, kept because it is the fastest thing to scan down a long
 // list (assessment 9/19). Never colour alone: the number, the word and, when late, an icon all say the same thing. ----
-export function urgentMark(iso, { done = false } = {}) {
+export function urgentMark(iso, { done = false, until = null } = {}) {
   if (done) return `<span class="sv-urg done" role="img" aria-label="Done">${icon('check')}</span>`;
   if (!iso) return '<span class="sv-urg none" aria-hidden="true"></span>';
+  if (lateUntil(iso, until)) { const hh = Math.max(0, Math.floor((new Date(until) - Date.now()) / 36e5)); return `<span class="sv-urg soon" role="img" aria-label="${esc(`late testimony until ${clock(until)}`)}"><b>${hh < 1 ? '<1h' : hh + 'h'}</b><span>late</span></span>`; }
   const ms = new Date(iso) - Date.now(), h = ms / 36e5, over = -h;
   const big = ms <= 0 ? (over >= 48 ? `${Math.floor(over / 24)}d` : `${Math.max(1, Math.floor(over))}h`)
     : h < 1 ? '<1h' : h < 48 ? `${Math.floor(h)}h` : `${Math.floor(h / 24)}d`;   // rounded down, never up (R-022)
@@ -320,4 +326,16 @@ export function confirmSheet({ title, text = '', ok = 'OK', danger = false }) {
       onClose: () => { if (!done) res(false); },
       wire: d => { d.querySelector('[data-yes]').onclick = async () => { done = true; await closeSheet({ silent: true }); res(true); }; d.querySelector('[data-no]').onclick = async () => { done = true; await closeSheet({ silent: true }); res(false); }; } });
   });
+}
+
+// v3 (R-264): one row of tabs at the top of a section with sub-pages, the same at every width (B-13: the sidebar holds the
+// five main places only). 'issues': My issues, every issue, coalitions (three ways to group bills, under My issues);
+// 'outreach': rallying people. Lists left the row (none live); its pages still open from Bills' "…" menu.
+const SECTIONS = {
+  issues: ['Groups of bills', [['mine', '#/my-issues', 'My issues'], ['all', '#/outreach/issues', 'All issues'], ['coalitions', '#/coalition', 'Coalitions']]],
+  outreach: ['Outreach', [['supporters', '#/outreach', 'Supporters'], ['emails', '#/outreach/emails', 'Emails']]],
+};
+export function sectionNav(kind, cur) {
+  const [label, items] = SECTIONS[kind] || ['', []];
+  return `<nav class="sv-seg sv-secnav" aria-label="${esc(label)}">${items.map(([k, href, l]) => `<a href="${href}"${k === cur ? ' aria-current="page"' : ''}>${l}</a>`).join('')}</nav>`;
 }
