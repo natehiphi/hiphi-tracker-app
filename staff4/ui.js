@@ -90,9 +90,9 @@ export const groupHead = (title, count, { fold, open = true, id } = {}) => fold
 export const segmented = (name, opts, value, label = '') => `<div class="sv-seg" role="group"${label ? ` aria-label="${esc(label)}"` : ''}>${opts.map(([v, l]) => `<button type="button" data-seg="${esc(name)}" data-val="${esc(v)}" aria-pressed="${v === value}">${esc(l)}</button>`).join('')}</div>`;
 export const switchRow = (id, label, on, help = '', a = {}) => `<label class="sv-switchrow" for="${esc(id)}"><span class="body"><span class="title">${label}</span>${help ? `<span class="sub">${help}</span>` : ''}</span><input type="checkbox" role="switch" id="${esc(id)}" ${on ? 'checked' : ''}${attrs(a)}><span class="sv-switch" aria-hidden="true"></span></label>`;
 export const field = (id, label, input, help = '') => `<div class="field"><label for="${esc(id)}">${label}</label>${input}${help ? `<span class="help" id="${esc(id)}-help">${help}</span>` : ''}</div>`;
-// The testimony steps with the true state: Write · Review · (2nd approval) · File
+// The testimony steps with the true state: Write · Review · (Second approval) · File (v4: one name for the step, C-15)
 export function stepBar(status, { second = false } = {}) {
-  const steps = [['draft', 'Write'], ['review', 'Review'], ...(second || status === 'second_review' ? [['second_review', '2nd approval']] : []), ['approved', 'File']];
+  const steps = [['draft', 'Write'], ['review', 'Review'], ...(second || status === 'second_review' ? [['second_review', 'Second approval']] : []), ['approved', 'File']];
   const order = steps.map(s => s[0]), cur = status === 'filed' ? steps.length : Math.max(0, order.indexOf(status));
   return `<ol class="sv-steps" aria-label="Testimony steps">${steps.map(([k, l], i) => `<li class="${i < cur ? 'done' : i === cur ? 'cur' : ''}"${i === cur ? ' aria-current="step"' : ''}>${i < cur ? icon('check') : ''}<span>${l}</span></li>`).join('')}</ol>`;
 }

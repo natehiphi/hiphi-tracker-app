@@ -60,7 +60,8 @@ const publicLink = c => `${PUBLIC_APP()}#/issue/${encodeURIComponent(c.slug)}`;
 const embedUrl = (c, { preview = false } = {}) => { const u = new URL('embed.html', location.href); u.search = ''; u.hash = ''; if (preview && DEMO) u.searchParams.set('demo', '1'); u.searchParams.set('coalition', c.slug); return u.href; };
 const embedCode = c => `<iframe id="hiphi-tracker" src="${embedUrl(c)}" title="${esc(`HIPHI: ${c.public_name || c.name} bills`)}" style="width:100%;border:0;min-height:420px" loading="lazy"></iframe>\n<script>addEventListener('message',function(e){if(e.data&&e.data.hiphiTrackerHeight)document.getElementById('hiphi-tracker').style.height=e.data.hiphiTrackerHeight+'px'})<\/script>`;
 // The memo for this coalition's partners; from= gives the memo a back link to this page.
-const memoHref = c => `#/bills/memo?coalition=${encodeURIComponent(c.id)}&audience=partners&from=${encodeURIComponent(c.id)}`;
+// v4 (R-269): the partner update lives on Outreach's Partner update tab (one way in, B-13), opened on this coalition.
+const memoHref = c => `#/outreach/partners?coalition=${encodeURIComponent(c.id)}`;
 // Bills, opened on every bill of this coalition (filters.js openCoalition).
 const billsHref = c => `#/bills?coalition=${encodeURIComponent(c.id)}`;
 // Its issues, from its bills: each has its own public page, which is what R-018 made the public tracker's unit.

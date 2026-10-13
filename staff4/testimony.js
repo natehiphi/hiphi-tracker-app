@@ -78,8 +78,9 @@ export const onNextUp = d => d.status !== 'cancelled' && d.status !== 'filed';
 // ---- rows ----
 // A chip only for the exceptions: nearly everything here is filed, and a column of identical chips says nothing.
 const STATUS = { approved: ['Approved', 'info', 'badge-check'], review: ['In review', '', 'hourglass'],
-  second_review: ['Needs 2nd approval', '', 'hourglass'], draft: ['Back to draft', '', 'pencil'] };
-const statusChip = d => STATUS[d.status] ? chip(...STATUS[d.status]) : '';
+  second_review: ['At second approval', '', 'hourglass'], draft: ['Back to draft', '', 'pencil'] };
+// v4 (R-269): a draft that came back with a reviewer's note is "Sent back", the one name for that state (C-15).
+const statusChip = d => d.status === 'draft' && d.review_note ? chip('Sent back', '', 'pencil') : STATUS[d.status] ? chip(...STATUS[d.status]) : '';
 const whereOf = d => `${cmteFull(d.committee)}${codesOf(d.committee).length > 1 ? ' joint' : ''} hearing`;
 function byLine(d) {
   const a = advocate(d.status === 'filed' ? (d.filed_by || d.submitted_by) : d.submitted_by);
