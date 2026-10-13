@@ -87,6 +87,8 @@ def main():
 
     # Kris: every hearing on her week says where its testimony stands (#1); on a phone on Friday her hearing leads (#4)
     pg = page('KR'); go(pg)
+    # Kris supports every coalition, so "The team's week" starts folded (R-269 gate): open it to read its rows.
+    if pg.query_selector('[data-fold="coal"]') and not pg.query_selector('.td-coal a.td-crow'): pg.click('[data-fold="coal"]'); pg.wait_for_timeout(600)
     rows = pg.evaluate("[...document.querySelectorAll('.td-coal a.td-crow[href*=\"/hearing/\"]')].map(a => a.innerText)")
     told = [r for r in rows if re.search(r'Testimony|No draft|draft yet|Filed|Ready to file|Sent back|in review|approval', r, re.I)]
     check('Kris: hearing rows that say where testimony stands', rows and len(told) == len(rows), f'{len(told)} of {len(rows)}')
