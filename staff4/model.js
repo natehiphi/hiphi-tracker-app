@@ -567,6 +567,12 @@ export const priCls = b => b.priority === 1 ? ' p3' : '';   // class name kept; 
 export const byPri = (x, y) => (x.b.priority || 9) - (y.b.priority || 9);
 // An earlier session's bill says so ("HB5 (2026)"), so two bills of one number are never two identical rows (R-152 B).
 export const billNum = b => b.bill_number + (b.current_version ? ' ' + b.current_version : '') + (billYearPart(b) ? ` (${b.session_year})` : '');
+// R-271 (Nate 10/13): staff remember a bill by its nickname, not its number. Where a bill is listed, its nickname leads
+// in bold and its number follows, smaller and grey (\`bn-num\`); a bill with no nickname (one we only monitor) is named by
+// its number and its plain summary, as before. \`billSay\` is the same in plain words, for labels, titles and toasts.
+export const billTag = (b, n = 80) => b.nickname ? `<b class="bn-nick">${esc(b.nickname)}</b> <span class="bn-num">${esc(billNum(b))}</span>`
+  : `<b class="bn-num0">${esc(billNum(b))}</b> <span class="bn-sum">${esc(blurb(b, n))}</span>`;
+export const billSay = b => b.nickname ? `${b.nickname} (${billNum(b)})` : billNum(b);
 export const roomShort = r => (r || 'room TBD').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ');
 export function chairMail(code) {
   // The committee roster knows who chairs it; the last word of the name broke on two-word surnames

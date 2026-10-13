@@ -644,3 +644,7 @@ body.sidenarrow .sv-sync span { display: none; }
 .sv-secnav a[aria-current="page"] { background: var(--n0); color: var(--p800); box-shadow: var(--sh1); }
 .sv-secnav a:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
 @media (min-width: 900px) { .sv-secnav { width: fit-content; max-width: none; } .sv-secnav a { flex: none; padding: 0 var(--s16); } }
+/* R-271: a bill named in a list: the nickname leads, the number follows smaller and grey (it never wraps apart) */
+.bn-nick { font-weight: 700; color: var(--n900); }
+.bn-num { font-family: var(--font); font-size: .82em; font-weight: 400; color: var(--n500); white-space: nowrap; letter-spacing: 0; }
+.bn-num0 { font-weight: 700; color: var(--n900); white-space: nowrap; }
