@@ -1480,7 +1480,10 @@ export async function demoInit() {
   const positioned = S.bills.filter(b => b.stage !== 'dead' && ACTIONABLE.includes(b.position));
   // The one in review (Approve / Request changes) sits on a bill with a position; when "as" has no P1 bill with a
   // hearing ahead it used to fall back to the first bill of all, a Monitor one ("HIPHI only monitors this bill").
-  const anchor = positioned.find(b => b.priority === 1 && (sc.assignments[b.id] || []).includes(S.me.id) && heardSoon(b))
+  // v4 (R-269, R-267 #13): seeded around Nate, not around whoever is practising, so every teammate sees the same drafts
+  // (one bill read "sent back" to Patti and "Make the draft now" to Lauren, and people practising together disagreed).
+  const SEED = byIni.NT || S.me.id;
+  const anchor = positioned.find(b => b.priority === 1 && (sc.assignments[b.id] || []).includes(SEED) && heardSoon(b))
     || positioned.find(heardSoon) || positioned[0] || S.bills[0];
   if (anchor && !DEMO_OFF) {   // between sessions nothing is in review
     const b0 = anchor;
@@ -1512,7 +1515,7 @@ export async function demoInit() {
     let st = ['filed', 'second_review', 'draft', 'approved'][(n - 2) % 4];
     // The Desk opens on "my bills", so make sure one of Nate's has the
     // approved-not-filed state - that is the button training should practise.
-    if (!approvedSeeded && (sc.assignments[h.bill_id] || []).includes(S.me.id)) { st = 'approved'; approvedSeeded = true; }
+    if (!approvedSeeded && (sc.assignments[h.bill_id] || []).includes(SEED)) { st = 'approved'; approvedSeeded = true; }
     const ago = h => new Date(Date.now() - h * 36e5).toISOString();
     (S.drafts[h.bill_id] ??= []).push({ id: 'dd' + n++, bill_id: h.bill_id, committee: h.committee, hearing_id: h.id,   // as the live job links it
       status: st, doc_url: 'https://docs.google.com/document/d/demo' + n + '/edit',
@@ -1561,7 +1564,7 @@ export async function demoInit() {
       && (mineIds.has(bid) || list.some(x => x.advocate_id === S.me.id) || named(m.body))) out.push({ key: 'm:' + m.id, kind: 'message', direct: true, priority: S.bills.find(b => b.id === bid)?.priority, bill_id: bid, bill_number: S.bills.find(b => b.id === bid)?.bill_number, title: (advocate(m.advocate_id)?.full_name || 'Someone') + ' wrote', body: m.body, at: m.created_at, tab: 'chat', unread: true });
     for (const d of Object.values(S.drafts).flat()) { const b = S.bills.find(x => x.id === d.bill_id); if (!b) continue;
       if (d.status === 'review' && (S.me?.is_admin || S.me?.can_approve) && d.submitted_by !== S.me.id) out.push({ key: 'n:' + d.id, kind: 'testimony', direct: true, priority: b.priority, bill_id: b.id, bill_number: b.bill_number, title: `${advocate(d.submitted_by)?.full_name || 'Someone'} submitted testimony for your approval`, body: `${d.committee} hearing`, at: d.submitted_at || d.created_at, tab: 'details', unread: true });
-      if (d.status === 'draft' && d.review_note && mineIds.has(b.id)) out.push({ key: 'n:r' + d.id, kind: 'testimony', direct: true, priority: b.priority, bill_id: b.id, bill_number: b.bill_number, title: 'Changes requested on your testimony', body: d.review_note, at: d.approved_at || d.created_at, tab: 'details', unread: true }); }
+      if (d.status === 'draft' && d.review_note && mineIds.has(b.id)) out.push({ key: 'n:r' + d.id, kind: 'testimony', direct: true, priority: b.priority, bill_id: b.id, bill_number: b.bill_number, title: 'Your testimony was sent back', body: d.review_note, at: d.approved_at || d.created_at, tab: 'details', unread: true }); }
     for (const a of DEMO_TL) { const ab = S.bills.find(b => b.id === a.bill_id); if (!ab || (ab.position === 'monitor' && !S.follows.has(ab.id))) continue;
       if (mineIds.has(a.bill_id) && Date.now() - new Date(a.occurred_at) < 30 * 864e5 && a.source === 'auto') out.push({ key: 'a:' + a.bill_id + a.occurred_at + a.title.slice(0, 12), direct: false, priority: ab.priority, kind: /hearing|decision making|briefing/i.test(a.title) ? 'hearing' : 'status', bill_id: a.bill_id, bill_number: S.bills.find(b => b.id === a.bill_id)?.bill_number, title: a.title, body: a.details, at: a.occurred_at, tab: 'timeline', unread: Date.now() - new Date(a.occurred_at) < 7 * 864e5 }); }
     return out.sort((x, y) => String(y.at).localeCompare(String(x.at))).slice(0, 200); };
