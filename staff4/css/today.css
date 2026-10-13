@@ -733,3 +733,18 @@
 .td-root .td-mdoc .ic { width: 14px; height: 14px; }
 .td-root .td-mdoc:hover { text-decoration: underline; }
 @media (max-width: 899px) { .td-root .td-mdoc { min-height: 44px; } }
+
+/* v4 (R-269, T11): Slipping. Each row carries whoever it waits on, in place of the per-person headings. */
+.td-root .td-rav { flex: none; display: inline-flex; align-items: center; gap: 2px; min-width: 52px; }
+.td-root .td-ravn { font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.td-root .td-rnote { flex: none; display: inline-flex; align-items: center; gap: 3px; font-size: var(--t13); font-weight: 700; }
+.td-root .td-rnote .ic { width: 14px; height: 14px; }
+.td-root .td-cwho { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: var(--n700); }
+.td-root .td-slipline .ic { color: var(--warn-text); }
+.td-root .td-slipline a { font-weight: 700; }
+/* A narrow list (a 1280px laptop) keeps the step's words: "nobody going" becomes its icon, read aloud in full, and the
+   open item says it in words. */
+@container tdrows (max-width: 720px) {
+  .td-root .td-rnotew { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .td-root .td-rav { min-width: 0; }
+}
