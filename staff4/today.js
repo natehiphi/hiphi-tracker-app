@@ -1516,6 +1516,8 @@ function teamHtml(start, rows = false) {
 // person headings; a step two people can take is one row ("You or Jaylen" keeps its Review button: your own step is
 // never "Message Jaylen"). Not on This week: its grid shows each state. "At risk" stays Bills' word (no hearing yet).
 const slipper = () => !!(S.me?.is_admin || S.me?.is_reviewer);
+// The "Nobody going yet" hearing rows, off for now (Nate 13 Oct, R-276: "can be brought back later"); true brings them back.
+const SLIP_NOBODY = false;
 let SLIP = null;   // worked out once per draw (render resets it), as MEMO is
 function slipping() {
   if (SLIP) return SLIP;
@@ -1551,7 +1553,7 @@ function slipping() {
   const hear = [];
   for (const s of [...sits.values()].sort((x, y) => x.t - y.t)) {
     s.today = hst(s.t) === today;
-    if (!goersAt(s.h).length) hear.push({ key: 'sl:hr:' + slotKey(s.h), hear: s, due: s.t, at: s.t, ids: [], tasks: [] });
+    if (SLIP_NOBODY && !goersAt(s.h).length) hear.push({ key: 'sl:hr:' + slotKey(s.h), hear: s, due: s.t, at: s.t, ids: [], tasks: [] });
   }
   const all = [...list, ...hear].sort((x, y) => x.at - y.at);
   return SLIP = { rows: all, nobodyToday: [...sits.values()].filter(s => s.today && !goersAt(s.h).length) };
@@ -1587,7 +1589,7 @@ function paneSlipHear(c) {
 function slipHtml(rows) {
   const sl = slipping(); let i = 0;
   const head = `<h2 class="td-h" data-top tabindex="-1">${groupHead(`${icon('clock', { cls: 'td-soon' })}Slipping`, sl.rows.length || '', { id: 'td-g-slip' })}</h2>`;
-  if (!sl.rows.length) return `<section class="td-group td-slip" aria-labelledby="td-g-slip">${head}<p class="td-quiet">${icon('circle-check')}<span>Nothing is slipping on the team: nothing late or due within a day, and someone is going to every hearing today and tomorrow.</span></p></section>`;
+  if (!sl.rows.length) return `<section class="td-group td-slip" aria-labelledby="td-g-slip">${head}<p class="td-quiet">${icon('circle-check')}<span>Nothing is slipping on the team: nothing late or due within a day${SLIP_NOBODY ? ', and someone is going to every hearing today and tomorrow' : ''}.</span></p></section>`;
   const now = Date.now(), filled = r => !!r.p && !r.p.ro && r.p.due <= endOfToday();
   const list = rows ? `<div class="td-rows">${sl.rows.map(r => row(r, filled(r), slipOpt(r))).join('')}</div>` : `<div class="td-list">${sl.rows.map(r => card(r, i++, false, { ...slipOpt(r), filled: filled(r) })).join('')}</div>`;
   return `<section class="td-group td-slip" aria-labelledby="td-g-slip">${head}${list}</section>`;
