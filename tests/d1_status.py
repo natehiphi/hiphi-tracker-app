@@ -18,7 +18,7 @@ passes, fails, errors = [], [], []
 def ok(c, m): (passes if c else fails).append(('PASS ' if c else 'FAIL ') + m)
 # Words that say alerts are on. "Turn on alerts" is a button, not a status, so it is not one of them.
 ON = re.compile(r'alerts are on|alerts on\b|reminders are on|reminders on\b|you’re set\b', re.I)
-PROMISE = 'We’ll text you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one text a day.'
+PROMISE = 'Hearing alerts and action asks from HIPHI, up to 1 a day. Msg & data rates may apply. Reply STOP to cancel.'   # t4 (R-265)
 SIZES = [(390, 844), (1366, 900)]
 
 def ctx(b, w=390, h=844):
@@ -137,8 +137,8 @@ def s3(p, w=390, h=844):
     dlg = p.locator('dialog.al-sheet[open]')
     ok(dlg.count() == 1 and p.evaluate("document.activeElement.id") == 'al-sh-phone', f'3 {w}: it opens the alerts box in a sheet, the number box focused')
     t = text(p, 'dialog.al-sheet')
-    ok(PROMISE in t and 'We’ll text you to confirm it’s your number. Message and data rates may apply. Reply STOP to stop, HELP for help.' in t and 'Text terms' in t and 'Privacy' in t,
-       f'3 {w}: the same box: the consent words as stored (t3), the privacy and terms links')
+    ok(PROMISE in t and 'Terms' in t and 'Privacy' in t,
+       f'3 {w}: the same box: the consent words as stored (t4), the terms and privacy links')
     box = dlg.bounding_box()
     if w < 600: ok(box and abs(box['y'] + box['height'] - h) <= 2, f'3 {w}: on a phone it rises from the bottom ({box and round(box["y"])})')
     else: ok(box and abs(box['width'] - 520) <= 2 and box['y'] > 0, f'3 {w}: on a laptop it sits in the middle, 520px wide ({box and round(box["width"])})')

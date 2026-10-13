@@ -486,7 +486,9 @@ with sync_playwright() as pw:
     ok(p.evaluate('location.hash') == '#/start/2' and 'Your issues' in t, f"off-season Next goes to the issues ({p.evaluate('location.hash')})")
     ok(p.locator('[data-stpick]').count() > 0 and 'Tick every issue' in t, 'the issues screen finds last session\u2019s issues')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
-    ok(p.locator('main input[type=tel]').count() == 1 and 'from January' in text(p), f"between sessions the issues lead on to the alerts, in off-season words ({p.evaluate('location.hash')})")
+    # Since R-265 "Save your profile" has no line under it in either season (Nate 12 Oct: "the absolute minimum"); "Coming up"
+    # says hearings start in late January.
+    ok(p.locator('main input[type=tel]').count() == 1 and 'Hearing alerts and action asks from HIPHI' in text(p), f"between sessions the issues lead on to the alerts ({p.evaluate('location.hash')})")
     p.locator('[data-stskip]').click(); p.wait_for_timeout(1500)
     for _ in range(24):
         if p.locator('[data-stdone]').count(): break

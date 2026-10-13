@@ -15,7 +15,7 @@ import { GO_HELP } from './topics.js';
 import { afterMove, bloom, burst, later, reduced, petals, swap } from './fx.js';
 import { shareLine } from './keep.js';
 import { endHome, armOf, abSeen } from './variant.js';   // and the test 'act' (R-150): today's "Coming up" | three ways to help
-import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep, alertStatus, alertRowHTML, wireAlertRow, profileAsk, profileLede, PROFILE_H } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep, alertStatus, alertRowHTML, wireAlertRow, profileAsk, PROFILE_H } from './alerts.js';
 const followLabel = n => n ? `Follow ${plural(n, 'issue')}` : 'Follow issues';
 
 // ================= Importance (Nate, 9/21): what HIPHI backs hardest and the team's top priority lead =================
@@ -361,7 +361,8 @@ function stepAlerts(step) {
   // has to make sense on its own (the review, 10/4). In the profile ask (R-188) the code step says what the code does for
   // the ask that was made (save the profile; the field and the line under it already say "6-digit" and "texted").
   const lede = codeStep('st-a') ? (prof ? 'Type the code to save your profile.' : 'Type the 6-digit code from the text to turn on alerts.')
-    : prof ? esc(profileLede('first', { off, n }))
+    // No line under "Save your profile" (R-265, Nate 12 Oct: "the absolute minimum"): the box's one line says what comes.
+    : prof ? ''
     : `${off ? 'Their new bills start in January. ' : ''}At a hearing, lawmakers hear from the public. Hearings are set only about two days ahead.`;
   return shell('st4 st-alertspage', `${topRow('alerts', step)}${artFor('alerts')}
     <h1 class="hero" id="st-h">${codeStep('st-a') ? 'Check your texts' : prof ? PROFILE_H : `Get alerts on ${what}`}</h1>
