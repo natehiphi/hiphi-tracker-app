@@ -638,4 +638,4 @@ body.sidenarrow .sv-sync span { display: none; }
 .sv-secnav a:hover { color: var(--n900); background: var(--n50); }
 .sv-secnav a[aria-current="page"] { background: var(--n0); color: var(--p800); box-shadow: var(--sh1); }
 .sv-secnav a:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
-@media (min-width: 900px) { .sv-secnav { width: auto; max-width: none; } .sv-secnav a { flex: none; padding: 0 var(--s16); } }
+@media (min-width: 900px) { .sv-secnav { width: fit-content; max-width: none; } .sv-secnav a { flex: none; padding: 0 var(--s16); } }

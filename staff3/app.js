@@ -298,7 +298,7 @@ document.addEventListener('keydown', e => {
   if (e.key === '?') { e.preventDefault(); go('#/help/keys'); return; }
   if (e.key === '/') { e.preventDefault(); const q = document.getElementById('hq'); if (q && q.offsetParent) q.focus(); else go('#/search'); return; }
   if (e.key === 'g') { gPending = Date.now(); return; }
-  if (gPending && Date.now() - gPending < 1200) { gPending = 0; const to = { t: '#/', b: '#/bills', l: '#/legislators', o: '#/outreach', r: '#/review', i: '#/inbox', k: '#/tasks' }[e.key]; if (to) { e.preventDefault(); go(to); } }
+  if (gPending && Date.now() - gPending < 1200) { gPending = 0; const to = { t: '#/', m: '#/my-issues', b: '#/bills', l: '#/legislators', o: '#/outreach', r: '#/review', i: '#/inbox', k: '#/tasks' }[e.key]; if (to) { e.preventDefault(); go(to); } }
 });
 
 // ---- sign in and a new password (same calls as the current app) ----
