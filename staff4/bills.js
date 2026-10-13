@@ -460,6 +460,7 @@ const listInOrder = () => build().groups.flatMap(g => g.rows);
 // v3 (R-264): the toolbar is the title, Mine | Team, the search, Filter and "…" (A-20). Everything else is here, in
 // three runs: what the table does, your views, then the pages under Bills. Edit, Columns and Select bills used to be
 // in the toolbar or always on (the tick boxes); Lists left Outreach's tabs (ui.js sectionNav) and opens from here.
+// v4 (R-269, B-13): the weekly memo left this menu; it is Outreach's Partner update tab (#/outreach/partners), one way in.
 function moreMenu() {
   const v = bl(), wide = wideNow(), nm = S.mutes?.size || 0, n = shownBills().length, tc = S.triageCounts, nv = views().length;
   const after = async () => { await settled(); };
@@ -474,7 +475,6 @@ function moreMenu() {
     nv ? { label: `Saved views (${nv})`, icon: 'bookmark-check', run: async () => { await after(); openEditViews(repaintDyn); } } : null,
     { label: 'Reset to default', icon: 'rotate-ccw', sub: `${defaultScope() === 'coal' ? 'Your coalitions’ bills' : 'Your own bills'}, no filters${isDefault() ? '' : ', no search'}`, disabled: isDefault(), reason: 'Nothing to reset', run: () => { resetView(); repaint('[data-filter]'); } },
     { label: 'Sort new bills', icon: 'sparkles', sub: tc?.undecided ? `${tc.undecided} waiting for a decision` : '', run: async () => { await after(); S.go('#/bills/new'); } },
-    { label: 'Weekly memo', icon: 'notebook-pen', run: async () => { await after(); S.go('#/bills/memo'); } },
     { label: 'Lists', icon: 'list-checks', run: async () => { await after(); S.go('#/outreach/lists'); } },
     { label: nm ? `Muted bills (${nm})` : 'Muted bills', icon: 'bell-off', run: async () => { await after(); S.go('#/bills/muted'); } },
     { label: 'Export CSV', icon: 'download', sub: `The ${n} bill${n === 1 ? '' : 's'} in this list, as a spreadsheet file`, run: () => exportCSV(listInOrder()) },

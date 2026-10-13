@@ -3,7 +3,8 @@
 // main places and nothing else (no sub-items, so it never shifts and carries one count, Today's: B-13, A-14); sections with
 // sub-pages show one row of tabs at the top of the page at every width (ui.js sectionNav); and your menu is short.
 // v4 (R-269, Nate 12 Oct: "Make all these changes in a staffv4 page"): Outreach opens on this week's asks (asks.js), the
-// partner update is its second tab (memo.js, from Bills' "…"), and Supporters moves to #/outreach/supporters.
+// partner update is its second tab (memo.js, from Bills' "…"), Supporters moves to #/outreach/supporters; and each place has
+// one way in on a laptop (Help, My settings and Session setup are the sidebar's foot, not also your menu).
 // Original v2 note: the frame and the router (plan section 2). Since 9/21 (R-022) this is the staff app at the tracker's
 // own address (index.html and staff.html both load it); the old app lives on at classic.html for a week as the way
 // back, then retires. Screens are modules with
@@ -284,14 +285,19 @@ function practiseAs() {
     run: () => { const u = new URL(location.href); u.searchParams.set('as', a.initials); location.href = u.toString(); } })) });
 }
 const billsOwned = id => S.bills.filter(b => (S.assignments[b.id] || []).includes(id)).length;
+// v4 (R-269, B-13): one way into each place. With the sidebar on screen (1100px and wider), Help, My settings and Session
+// setup are its foot, so your menu leaves them out (Nate's menu 9 -> 6 items, Kevin's 7 -> 5); a phone or a narrow
+// window, with no sidebar, keeps them here.
+const sideShown = () => { try { return matchMedia('(min-width: 1100px)').matches; } catch { return false; } };
 function avatarMenu() {
+  const side = sideShown();
   menuSheet({ title: S.me?.full_name || 'Your menu', items: [
     DEMO ? { label: 'Practise as someone else', icon: 'users-round', sub: 'Sandbox: see the app as a teammate sees it', run: () => setTimeout(practiseAs, 50) } : null,
     { label: 'Inbox', icon: 'inbox', sub: 'Messages and updates sent to you, read or not', run: () => go('#/inbox') },
     { label: 'Refresh', icon: 'refresh-cw', sub: 'Read what your teammates changed since this page loaded', run: () => setTimeout(() => refreshData({ say: true }), 50) },
-    { label: 'My settings', icon: 'settings', run: () => go('#/me') },
-    S.me?.is_admin ? { label: 'Session setup', icon: 'sliders-horizontal', run: () => go('#/setup') } : null,
-    { label: 'Help', icon: 'circle-help', run: () => go('#/help') },
+    side ? null : { label: 'My settings', icon: 'settings', run: () => go('#/me') },
+    S.me?.is_admin && !side ? { label: 'Session setup', icon: 'sliders-horizontal', run: () => go('#/setup') } : null,
+    side ? null : { label: 'Help', icon: 'circle-help', run: () => go('#/help') },
     { label: 'Open this page in Staff v3', icon: 'columns-3', sub: 'The version before R-269\u2019s changes, to compare', run: () => { location.href = 'staff3.html' + location.search + location.hash; } },
     { label: 'Open this page in Staff v2', icon: 'columns-3', sub: 'The team\u2019s app today, to compare', run: () => { location.href = 'staff.html' + location.search + location.hash; } },
     S.me?.is_admin ? { label: 'Open the old app', icon: 'external-link', sub: 'The old staff app, look-only', run: () => { location.href = APP_URL + 'classic.html' + (DEMO ? '?demo=1' : ''); } } : null,
