@@ -292,16 +292,22 @@ export function askReach(b) {
     return { lines: [...lines, `By email: in ${same ? 'tonight’s' : 'tomorrow’s'} hearing alert, to ${n === 1 ? '1 follower' : `${n} followers`}.`], again: false }; }
   return { lines: [...lines, 'The hearing alert already went. To reach people by email now, send it as a supporter email.'], again: true };
 }
+// v4 (R-269, C-15): the public's counts say whose they are ("Public: …") and "plan to attend", so they never read as the
+// team's own "going" and "testimony filed" beside them on the hearing page.
 export function publicWords(b) {
   const c = publicResponse(b); if (!c) return '';
-  return [c.followers ? `${c.followers} follow` : '', c.emails ? `${c.emails} emailed` : '', c.testimonies ? `${c.testimonies} testified` : '', c.attending ? `${c.attending} going` : '', c.shares ? `${c.shares} shared` : ''].filter(Boolean).join(' · ');
+  const parts = [c.followers ? `${c.followers} follow` : '', c.emails ? `${c.emails} emailed` : '', c.testimonies ? `${c.testimonies} testified` : '', c.attending ? `${c.attending} ${c.attending === 1 ? 'plans' : 'plan'} to attend` : '', c.shares ? `${c.shares} shared` : ''].filter(Boolean);
+  return parts.length ? `Public: ${parts.join(' · ')}` : '';
 }
 // The share kit (R-117): the bill's share page and a ready message, the ask from the Public tab, the deadline, the link.
 // A hearing ahead links the testimony page, which opens the walkthrough (R-169); otherwise the bill's ask of the moment.
+// v4 (R-269, C-15): the message goes to the public, so the number is spaced and has no draft code ("HB 2121", not "HB2121 HD2")
+// and the hearing is not named by its committee code ("The HHS/CPN hearing"): the link's page names the committee in words.
 export function shareKit(b, h) {
-  const link = sharePageUrl(b, h && new Date(h.scheduled_at) > Date.now() ? 'testify' : ''), name = b.nickname ? `${b.nickname} (${billNum(b)})` : billNum(b);
+  const num = String(b.bill_number || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2');
+  const link = sharePageUrl(b, h && new Date(h.scheduled_at) > Date.now() ? 'testify' : ''), name = b.nickname ? `${b.nickname} (${num})` : num;
   const ask = liveAsk(b).replace(/([^.!?])$/, '$1.') || `Please speak up on ${name}.`;
-  const when = h && h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? ` Testimony is due ${fmtDT(h.testimony_deadline)}.` : h && new Date(h.scheduled_at) > Date.now() ? ` The ${h.committee} hearing is ${fmtDT(h.scheduled_at)}.` : '';
+  const when = h && h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? ` Testimony is due ${fmtDT(h.testimony_deadline)}.` : h && new Date(h.scheduled_at) > Date.now() ? ` The hearing is ${fmtDT(h.scheduled_at)}.` : '';
   return { link, message: `${ask}${when} It takes a few minutes: ${link}` };
 }
 export const inboxCount = () => (S.inbox || []).filter(i => i.direct && i.unread).length;
@@ -513,7 +519,7 @@ export function pubStateText(b) {
   return 'Summary live. No action ask set.';
 }
 
-export const DRAFT_LABEL = { draft: 'Draft', review: 'In review', second_review: 'Needs 2nd approval',
+export const DRAFT_LABEL = { draft: 'Draft', review: 'In review', second_review: 'Second approval',
   approved: 'Approved', filed: 'Filed', cancelled: 'Hearing cancelled' };
 export const DRAFT_TAG = { draft: 'a', review: 'w', second_review: 'w', approved: 'g', filed: 't', cancelled: 'a' };
 export const dWhen = iso => iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'Pacific/Honolulu',
@@ -527,7 +533,7 @@ export function draftWho(d) {
     case 'second_review': return `Approved by ${nameOf(d.approved_by)} \u00b7 first testimony on this bill, needs ${listNames(a => a.is_reviewer, ' or ')}`;
     case 'approved': return `Approved by ${nameOf(d.second_approved_by || d.approved_by)} ${dWhen(d.second_approved_at || d.approved_at)} \u00b7 file it at the Capitol, then mark it filed`;
     case 'filed': return `Filed by ${nameOf(d.filed_by)} ${dWhen(d.filed_at)}`;
-    case 'draft': return d.submitted_at ? 'Back to draft' : 'Write it in the Doc, then submit for review';
+    case 'draft': return d.review_note ? 'Sent back' : d.submitted_at ? 'Back to draft' : 'Write it in the Doc, then submit for review';   // v4 (R-269, C-15): one name
     default: return '';
   }
 }

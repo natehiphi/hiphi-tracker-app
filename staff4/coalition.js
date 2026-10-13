@@ -16,8 +16,8 @@
 // pieces (its hearings, its bills at risk, the ones racing the next deadline) are shared with an issue's page (issues.js),
 // built from any set of bills. "I support this coalition" lives only here now (My settings no longer lists coalitions).
 import { S, DB, DEMO, SESSION_OVER, hooks, esc, fmtDT, fmtDate, advocate } from './data.js';
-import { billNum, blurb, diedish, riskOf, stopOf, noticeByFor, roomShort, PUBLIC_APP, hiToday } from './model.js';
-import { icon, btn, chip, row, empty, toast, switchRow, avatar, pickerSheet, openSheet, sectionNav } from './ui.js';
+import { billNum, blurb, diedish, riskOf, stopOf, noticeByFor, roomShort, PUBLIC_APP, hiToday, hstDayOf, billById } from './model.js';
+import { icon, btn, chip, row, empty, toast, switchRow, avatar, pickerSheet, openSheet, sectionNav, clockDay } from './ui.js';
 import { plural, isSide, thSort, sortBy, wireTable, DASH, pageHead, afterClose } from './lists.js';
 import { iconName } from './setup.js';
 import { issuesOfBill } from './issues.js';
@@ -91,6 +91,10 @@ const COLS = () => [
   ...(showYou() ? [{ k: 'you', label: 'You', sort: -1 }] : []),
 ];
 const facts = c => ({ own: advocate(c.owner_id), live: liveOf(c).length, hear: weekOf(c).length, you: supports(c) });
+const hearWords = n => n ? plural(n, 'hearing') + ' this week' : 'no hearings this week';
+// "Lauren · 22 live bills · 3 hearings this week": a coalition in one line, on the index (phone) and on My issues for
+// someone who owns no issue (v4, R-269 P7), in the same words.
+export const coalFactsLine = c => { const f = facts(c); return [f.own ? first(f.own) : 'No owner', f.live ? plural(f.live, 'live bill') : 'no live bills', hearWords(f.hear)].join(' · '); };
 const colValue = (x, k) => k === 'name' ? x.c.name.toLowerCase() : k === 'owner' ? (x.f.own ? x.f.own.full_name.toLowerCase() : null) : k === 'bills' ? x.f.live : k === 'hear' ? x.f.hear : x.f.you ? 1 : 0;
 const youChip = () => chip('You support it', '', 'badge-check');
 function indexHTML() {
@@ -100,10 +104,9 @@ function indexHTML() {
   const yours = v === 'all' ? 'You support every one.' : mine.length ? `You support ${andList(mine)}.` : '';
   const head = pageHead(sectionNav('issues', 'coalitions'), 'Coalitions', yours ? esc(yours) : '', '');
   if (!list.length) return `<div class="le-page co-index">${head}<div class="le-empty">${empty({ title: 'No coalitions yet', text: 'An admin adds them in Session setup.', action: S.me?.is_admin ? btn('Open Session setup', { href: '#/setup/coalitions' }) : '' })}</div></div>`;
-  const hear = n => n ? plural(n, 'hearing') + ' this week' : 'no hearings this week';
   if (!DESK()) return `<div class="le-page co-index">${head}<div class="rows co-list">${list.map(({ c, f }) => row({ leadHtml: `<span class="lead">${icon(iconName(c.icon))}</span>`, title: esc(c.name),
     // On a phone "You support it" is a line of the row, not a chip beside it that squeezes the row to four lines.
-    sub: `${c.public_name && c.public_name !== c.name ? `<span class="co-pub">${esc(c.public_name)}</span>` : ''}<span class="co-cnt">${esc([f.own ? first(f.own) : 'No owner', f.live ? plural(f.live, 'live bill') : 'no live bills', hear(f.hear)].join(' · '))}</span>${showYou() && f.you ? `<span class="co-you">${icon('badge-check')}You support it</span>` : ''}`,
+    sub: `${c.public_name && c.public_name !== c.name ? `<span class="co-pub">${esc(c.public_name)}</span>` : ''}<span class="co-cnt">${esc(coalFactsLine(c))}</span>${showYou() && f.you ? `<span class="co-you">${icon('badge-check')}You support it</span>` : ''}`,
     href: `#/coalition/${encodeURIComponent(c.id)}`, cls: 'co-irow' })).join('')}</div></div>`;
   const cols = COLS(), rows = sortBy(list, IDX().sort, colValue);
   const tr = ({ c, f }) => { const href = `#/coalition/${encodeURIComponent(c.id)}`;
@@ -170,13 +173,17 @@ export function hearingsSec(bills, { key, from = '' } = {}) {
     const time = d.toLocaleTimeString('en-US', { ...HST, hour: 'numeric', minute: '2-digit' }), long = d.toLocaleDateString('en-US', { ...HST, weekday: 'long', month: 'long', day: 'numeric' });
     const names = items.slice(0, 3).map(({ b }) => `<b>${esc(billNum(b))}</b> ${esc(b.nickname || blurb(b, 50))}`).join(', ') + (items.length > 3 ? ` and ${items.length - 3} more` : '');
     // Testimony not filed yet, in the hearing page's words, with the deadline's tone: amber inside 24 hours, red once past.
+    // v4 (R-269, A-5 as amended by R-250): a deadline passed before the sitting has started is late testimony, still
+    // taken, amber with the day ("late testimony until tomorrow 9:30 AM"), never red "was due".
     const open = items.map(x => ({ ...x, t: testimonyOf(x.h, x.b) })).filter(x => !x.t.filed);
     let test = '';
     if (open.length) {
-      const due = open.map(x => dueOf(x.h)).sort()[0], tone = dueTone(due), n = new Map();
+      const due = open.map(x => dueOf(x.h)).sort()[0], tone = dueTone(due, h.scheduled_at), n = new Map();
+      const lateOpen = new Date(due) <= Date.now() && new Date(h.scheduled_at) > Date.now();
       for (const x of open) n.set(x.t.word, (n.get(x.t.word) || 0) + 1);
       const what = open.length === 1 ? `Testimony ${open[0].t.word}` : `Testimony: ${[...n].map(([w, k]) => `${k} ${w}`).join(', ')}`;
-      test = `<span class="co-test${tone ? ' ' + tone : ''}">${icon(tone === 'late' ? 'circle-alert' : tone === 'soon' ? 'clock' : 'file-text')}<span>${esc(`${what} · ${tone === 'late' ? 'was due' : 'due'} ${dueWhen(due)}`)}</span></span>`;
+      const when = lateOpen ? `late testimony until ${clockDay(h.scheduled_at)}` : `${tone === 'late' ? 'was due' : 'due'} ${dueWhen(due)}`;
+      test = `<span class="co-test${tone ? ' ' + tone : ''}">${icon(tone === 'late' ? 'circle-alert' : tone === 'soon' ? 'clock' : 'file-text')}<span>${esc(`${what} · ${when}`)}</span></span>`;
     }
     return `<a class="row co-hrow" href="#/hearing/${encodeURIComponent(h.id)}${from ? `?from=${encodeURIComponent(from)}` : ''}">
       <span class="co-date" aria-hidden="true"><b>${esc(wd)}</b><span>${esc(dn)}</span></span>
@@ -206,13 +213,28 @@ function raceSec(key, w) {
       <span class="sub">${st.committee ? `Waiting in ${esc(st.committee)}` : 'Waiting for a committee referral'}</span><span class="co-facts">${ownerBit(b)}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`;
   return sec('co-s5', `Needs a hearing by ${esc(dayOf(w.next + 'T12:00:00-10:00'))}`, w.race.length, `<div class="rows co-rows">${folded(key + '|n', w.race.map(rowOf))}</div>`);
 }
+// v4 (R-269): what an all-clear line must never sit above: testimony on these hearings not filed and due within 24 hours
+// or late, or a sitting today or tomorrow that nobody from the team is going to (HEAL's page said "Nothing at risk"
+// over two hearings due that morning with nobody going).
+function pressing(week) {
+  const now = Date.now(), today = hstDayOf(now), tmw = hstDayOf(now + 864e5);
+  return week.some(s => {
+    const day = hstDayOf(s.t);
+    if ((day === today || day === tmw) && !goersOf(sittingOf(s.rows[0])).length) return true;
+    return s.rows.some(r => { const b = billById(r.bill_id); return !!b && !testimonyOf(r, b).filed && new Date(dueOf(r)).getTime() - now <= 864e5; });
+  });
+}
 // Where a set of bills stands this week, the coalition page's way (v3, R-264: an issue's page leads with it too): the
 // hearings, what is clear said once on one ticked line, then its bills at risk and the ones racing the next deadline.
 // `clear` adds the caller's own all-clear words (the coalition's owners and to-dos).
 // No hearings this week is one of those clear words too, not a heading over a line that says there are none (v3).
-export function standWeekHTML(bills, { key, from = '', clear = [], after = '' } = {}) {
-  const w = waitingOfBills(bills), hears = weekOfBills(bills).length > 0;
-  const ok = [hears ? '' : 'no hearings in the next 7 days', !w.risk.length ? 'nothing at risk' : '', ...clear].filter(Boolean);
+// v4 (R-269 P5): the all-clear ("Nothing at risk, …") is said only when all of it is true: nothing at risk, nothing
+// pressing this week (above), and the caller's own test (`calm`, false when it has something open); otherwise it is left
+// out, and "No hearings in the next 7 days" stays as the fact it is.
+export function standWeekHTML(bills, { key, from = '', clear = [], after = '', calm = true } = {}) {
+  const w = waitingOfBills(bills), week = weekOfBills(bills), hears = week.length > 0;
+  const quiet = calm && !w.risk.length && !pressing(week);
+  const ok = [hears ? '' : 'no hearings in the next 7 days', ...(quiet ? ['nothing at risk', ...clear] : [])].filter(Boolean);
   const line = ok.length ? `<p class="co-empty co-clear${hears ? '' : ' co-first'}">${icon('check')}<span>${esc(andList(ok).replace(/^./, x => x.toUpperCase()))}.</span></p>` : '';
   return `${hears ? hearingsSec(bills, { key, from }) : ''}${line}${w.risk.length ? riskSec(key, w.risk) : ''}${w.race.length ? raceSec(key, w) : ''}${after}`;
 }
@@ -241,10 +263,14 @@ function todosHTML(c, list) {
 }
 // The week after its hearings: what is clear said once, on one ticked line (three empty sections were three headings
 // saying nothing), then only the sections with something in them.
+// v4 (R-269 P5): "every live bill has an owner, and no open to-dos" only when both hold, and "no open to-dos" counts every
+// open to-do on its bills, taken or not (it said so while Kevin's "Send the ask" on HB2121 was open).
 function weekHTML(c) {
   const unowned = unownedOf(c), todos = openTodosOf(c), live = liveOf(c).length;
-  const clear = [live && !unowned.length ? 'every live bill has an owner' : '', !todos.length ? 'no open to-dos' : ''];
-  return standWeekHTML(billsOf(c), { key: c.id, from: c.id, clear, after: `${unowned.length ? unownedHTML(c, unowned) : ''}${todos.length ? todosHTML(c, todos) : ''}` });
+  const anyTodo = billsOf(c).some(b => (S.todos[b.id] || []).some(t => !t.done));
+  const calm = !unowned.length && !anyTodo;
+  const clear = calm ? [live ? 'every live bill has an owner' : '', 'no open to-dos'] : [];
+  return standWeekHTML(billsOf(c), { key: c.id, from: c.id, clear, calm, after: `${unowned.length ? unownedHTML(c, unowned) : ''}${todos.length ? todosHTML(c, todos) : ''}` });
 }
 
 // Share with partners: the two things to copy (A-20: two actions on the card), with the link itself and a preview as
@@ -283,14 +309,16 @@ function pageHTML(c) {
 }
 
 // ---- actions ----
-async function setSupport(c, on) {
+// Exported for My issues (v4, R-269 P7), whose switches for the coalitions someone does not support yet act the same way;
+// `focusSel` is the control that keeps focus after the redraw.
+export async function setSupport(c, on, focusSel = '#co-sup') {
   const before = pref(), ids = (S.campaigns || []).map(x => x.id), list = Array.isArray(before) ? before : [];
   // From "every coalition", turning one off keeps the rest as a list; turning one on keeps "every" as it is.
   const next = on ? (before === 'all' ? 'all' : [...new Set([...list, c.id])]) : (before === 'all' ? ids.filter(id => id !== c.id) : list.filter(id => id !== c.id));
-  try { await DB.patchPrefs({ coalitions: next }); } catch (e) { rerender('#co-sup'); toast(e, { err: true }); return; }
-  rerender('#co-sup');
+  try { await DB.patchPrefs({ coalitions: next }); } catch (e) { rerender(focusSel); toast(e, { err: true }); return; }
+  rerender(focusSel);
   toast(on ? `You support ${c.name}. Its hearings and deadlines show on your Today.` : before === 'all' ? `You no longer support ${c.name}. You still support the other ${ids.length - 1}.` : `You no longer support ${c.name}.`,
-    { ok: on, undo: async () => { await DB.patchPrefs({ coalitions: before }); rerender('#co-sup'); } });
+    { ok: on, undo: async () => { await DB.patchPrefs({ coalitions: before }); rerender(focusSel); } });
 }
 function giveTo(b) {
   const owned = id => S.bills.filter(x => (S.assignments[x.id] || []).includes(id) && isPos(x) && !diedish(x)).length;

@@ -171,6 +171,11 @@ function testimonyLine(d) {
 const FOLD_AT = 8, FOLD_TO = 6;
 const cap = (key, members) => members.length > FOLD_AT && !S.cmAll?.has(key) ? FOLD_TO : members.length;
 const moreBtn = (key, members) => cap(key, members) < members.length ? btn(`Show all ${members.length} members`, { kind: 'text', icon: 'chevron-down', cls: 'bw-cmall', attrs: { 'data-cmall': key } }) : '';
+// v4 (R-269 P6): while nobody has recorded where any member stands, a stop's member table (nine rows, each with a name, a
+// stance picker and an email button: 16 more things to click on Lauren's SB3234) starts folded to one line, so the step due
+// within the hour on Next up is the biggest thing on the page. One click opens it, for the visit (S.cmMem).
+const memFolded = (key, t, members) => !!t && t.c.unknown === members.length && !S.cmMem?.has(key);
+const memFoldBtn = (key, members) => btn(`Committee members · ${members.length} · no stances recorded yet`, { kind: 'text', icon: 'users', iconEnd: 'chevron-down', cls: 'bw-cmall bw-cmfold', attrs: { 'data-cmmem': key, 'aria-expanded': 'false' } });
 export function renderCommittees(b) {
   if (!b) return '';
   const st = stopOf(b), all = hearingsOf(b), now = Date.now();
@@ -207,7 +212,7 @@ export function renderCommittees(b) {
     const body = [
       ...held.map(h => hearingLine(b, h)),
       ...tm.map(testimonyLine),
-      members ? (members.length ? `${t ? `<p class="bw-cmtally" title="${esc(t.full)}"><span class="sr">${esc(t.full)}</span><span aria-hidden="true">Where they stand: ${esc(t.text)}</span></p>` : ''}${desk ? memberTable(b, s, members, joint, i, cap(key, members)) : `<div class="bw-cmmem">${members.slice(0, cap(key, members)).map(m => memberRow(b, m, joint)).join('')}</div>`}${moreBtn(key, members)}`
+      members ? (members.length ? memFolded(key, t, members) ? memFoldBtn(key, members) : `${t ? `<p class="bw-cmtally" title="${esc(t.full)}"><span class="sr">${esc(t.full)}</span><span aria-hidden="true">Where they stand: ${esc(t.text)}</span></p>` : ''}${desk ? memberTable(b, s, members, joint, i, cap(key, members)) : `<div class="bw-cmmem">${members.slice(0, cap(key, members)).map(m => memberRow(b, m, joint)).join('')}</div>`}${moreBtn(key, members)}`
         : '<p class="small muted bw-cmnone">No member list for this committee yet.</p>') : '',
     ].join('') || `<p class="small muted bw-cmnone">${ahead ? 'Its hearing is on Next up.' : 'No hearing recorded.'}</p>`;
     const head = !shownPred && s.state === 'predicted' ? (shownPred = true, `<li class="bw-cmpred">${predFrom}</li>`) : '';
@@ -304,7 +309,10 @@ export function wireCommittees(root, b) {
   const pw = root && (root.id === 'bw-cmt' ? root : root.querySelector('#bw-cmt'));
   if (!pw) return;
   wireStances(pw); wireLinks(pw); wireTable(pw, b);
-  pw.querySelectorAll('[data-cmall]').forEach(el => el.onclick = () => { (S.cmAll ??= new Set()).add(el.dataset.cmall); rerender(); });
+  pw.querySelectorAll('[data-cmall]:not([data-cmmem])').forEach(el => el.onclick = () => { (S.cmAll ??= new Set()).add(el.dataset.cmall); rerender(); });
+  // The folded member list opens in place; focus goes to its first member, where the next Tab would have gone.
+  pw.querySelectorAll('[data-cmmem]').forEach(el => el.onclick = () => { const body = el.closest('.bw-cmbody')?.id;
+    (S.cmMem ??= new Set()).add(el.dataset.cmmem); rerender(body ? `#${body} .bw-pwnm, #${body} .lg-membody` : undefined); });
   // Folding changes only this stop (no re-render), and is remembered for this visit.
   pw.querySelectorAll('[data-lgfold]').forEach(el => el.onclick = () => {
     const open = el.getAttribute('aria-expanded') !== 'true';

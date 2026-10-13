@@ -12,9 +12,9 @@
 import { S, DB, esc, fmtDT, advocate, capitolUrl } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
 import { codesOf, cmteName, streamOf, draftFor, attendees, billById, billNum, blurb, legsOf, stanceOf, OUTCOME_LABEL, hearingAhead, publicWords, shareKit, billByRef } from './model.js';
-import { icon, btn, iconBtn, chip, empty, notice, toast, pickerSheet, avatar, countdown, posIcons, POS_WORD } from './ui.js';
+import { icon, btn, iconBtn, chip, empty, notice, toast, pickerSheet, avatar, countdown, posIcons, POS_WORD, clockDay } from './ui.js';
 import { photo, legName, partyDist, roleWord, legHref, wireLinks } from './pathway.js';
-import { rerender } from './bill.js';
+import { rerender, viewIsNew } from './bill.js';
 import { billRoute } from './model.js';
 
 const HR = 36e5, FOLD = 10;
@@ -59,7 +59,7 @@ export function testimonyOf(h, b) {
   if (!d) return { filed: false, word: 'not started', label: 'No testimony yet', icon: 'file-text' };
   if (d.status === 'filed') return { filed: true, word: 'filed', label: 'Testimony filed', icon: 'check' };
   const st = b.current_version && (d.version || null) !== b.current_version ? ['out of date', 'triangle-alert']
-    : d.status === 'approved' ? ['ready to file', 'clipboard-check'] : d.status === 'second_review' ? ['at 2nd approval', 'hourglass']
+    : d.status === 'approved' ? ['ready to file', 'clipboard-check'] : d.status === 'second_review' ? ['at second approval', 'hourglass']
     : d.status === 'review' ? ['in review', 'hourglass'] : d.review_note ? ['sent back', 'undo-2'] : ['in draft', 'pencil'];
   return { filed: false, word: st[0], label: `Testimony ${st[0]}`, icon: st[1] };
 }
@@ -67,14 +67,14 @@ export function testimonyOf(h, b) {
 // for exactly those (A-5). v3: given the hearing's start (`until`), a deadline passed while the hearing has not started is
 // still amber, since the Capitol takes late testimony until then (A-5 as amended by R-250).
 export const dueTone = (iso, until = null) => { const ms = new Date(iso) - Date.now(); return ms <= 0 ? (until && new Date(until) > Date.now() ? 'soon' : 'late') : ms <= 864e5 ? 'soon' : ''; };
-const clock = t => new Date(t).toLocaleTimeString('en-US', { ...HST, hour: 'numeric', minute: '2-digit' });
 // When the testimony deadline is close or past, it says so in words on the bill's row (v3): "due in 40 min", "due in 5h",
 // "late testimony until 1:10 PM". More than a day away it says nothing: the header has the deadline.
+// v4 (R-269): the day goes in when the hearing is not today ("late testimony until tomorrow 9:30 AM", ui.js clockDay).
 function dueWords(iso, until) {
   const ms = new Date(iso) - Date.now();
   if (ms > 864e5) return '';
   if (ms > 0) return ms < 36e5 ? `due in ${Math.max(1, Math.floor(ms / 6e4))} min` : `due in ${Math.floor(ms / 36e5)}h`;
-  return until && new Date(until) > Date.now() ? `late testimony until ${clock(until)}` : 'deadline passed';
+  return until && new Date(until) > Date.now() ? `late testimony until ${clockDay(until)}` : 'deadline passed';
 }
 const OUT_ICON = { passed: 'circle-check', passed_amended: 'circle-check', deferred: 'circle-x', recommitted: 'undo-2' };
 // The Capitol posts a decision a while after the sitting, so "no result yet" is a normal state, not an error.
@@ -118,10 +118,13 @@ function headHTML(c) {
 
 // The notice and the video. Almost no hearing carries a notice link (the House's come from the bill history, which has
 // none), so the first bill's own Capitol page stands in, named for what it is.
+// v4 (R-269): on a sitting of several bills the link is named for the sitting ("HHS/CPN hearing notice"), not for one of
+// its bills ("HB2121 at the Capitol" read as that bill's hearing); the bill's Capitol page lists the notice.
 function links(c) {
   const { h, items, cancelled } = c, out = [], v = cancelled ? null : streamOf(h), lead = items[0]?.b;
   const newTab = '<span class="sr"> (opens in a new tab)</span>';
   if (h.notice_url) out.push({ href: h.notice_url, ic: 'newspaper', label: 'Hearing notice', short: 'Notice', sub: '' });
+  else if (lead && items.length > 1) out.push({ href: capitolUrl(lead), ic: 'landmark', label: `${h.committee} hearing notice`, short: 'Hearing notice', sub: `On ${lead.bill_number}’s Capitol page` });
   else if (lead) out.push({ href: capitolUrl(lead), ic: 'landmark', label: `${lead.bill_number} at the Capitol`, short: 'Capitol page', sub: '' });
   if (v) out.push({ href: v.url, ic: 'video', label: v.label, short: v.label, sub: v.hint || '' });
   return { list: out, newTab };
@@ -164,11 +167,12 @@ function agendaHTML(c) {
 }
 // The share kit (R-117): for each bill with a position still to be heard, its share page's link and a ready message
 // (the ask, the deadline, the link) to paste into a text, HIPHI's email or a post.
+// v4 (R-269): its explaining sentence went (P-4: the buttons say what they copy, the toast says where to paste it).
+// Today's "Send the ask" and "Share kit ›" open the page at it (?kit=1, landOnKit below).
 function shareKitHTML(c) {
   const list = c.over || c.cancelled ? [] : c.items.filter(x => isPos(x.b) && x.b.is_public && x.b.tracked !== false);
   if (!list.length) return '';
-  return `<section class="hr-sec hr-kit" aria-labelledby="hr-kit-h"><div class="hr-sech"><h2 id="hr-kit-h">Share kit</h2></div>
-    <p class="small muted">The link previews with the bill's name in a text or a post; the message carries the ask and the deadline.</p>
+  return `<section class="hr-sec hr-kit" id="hr-kit" aria-labelledby="hr-kit-h"><div class="hr-sech"><h2 id="hr-kit-h">Share kit</h2></div>
     ${list.map(x => `<div class="hr-kitrow"><b class="hr-num">${esc(billNum(x.b))}</b>${btn('Copy share link', { kind: 'text', sm: true, icon: 'link', attrs: { 'data-kit': 'link', 'data-kitb': x.b.id, 'data-kith': x.h.id } })}${btn('Copy a ready message', { kind: 'text', sm: true, icon: 'message-square', attrs: { 'data-kit': 'msg', 'data-kitb': x.b.id, 'data-kith': x.h.id } })}</div>`).join('')}
   </section>`;
 }
@@ -194,7 +198,8 @@ function goingHTML(c) {
   const { rows, over, cancelled } = c, me = S.me, goers = goersOf(rows), meIn = goers.some(a => a.id === me?.id), admin = !!me?.is_admin, live = !over && !cancelled;
   const list = goers.length ? `<ul class="hr-goers">${goers.map(a => `<li><span aria-hidden="true">${avatar(a, 28)}</span><span class="hr-gname">${esc(a.id === me?.id ? 'You' : a.full_name)}</span>${admin && live && a.id !== me?.id ? iconBtn('x', `Take ${first(a)} off this hearing`, { 'data-hroff': a.id }) : ''}</li>`).join('')}</ul>`
     : `<p class="hr-none">${icon(over ? 'user-round' : 'user-plus')}<span>${over ? 'Nobody from the team was going.' : cancelled ? 'Nobody needs to go.' : 'Nobody from the team yet.'}</span></p>`;
-  const acts = live && me ? `<div class="hr-gacts"><button type="button" class="chip hr-gobtn" data-hrgo aria-pressed="${meIn}">${icon(meIn ? 'user-check' : 'user-plus')}I’m going</button>${admin ? btn('Send a teammate…', { kind: 'text', sm: true, icon: 'user-round-plus', attrs: { 'data-hrput': '1', 'aria-haspopup': 'dialog' } }) : ''}</div>` : '';
+  // v4 (R-269): pressed, the toggle says what is true ("You’re going"), as the list above it does; it read "I’m going" either way.
+  const acts = live && me ? `<div class="hr-gacts"><button type="button" class="chip hr-gobtn" data-hrgo aria-pressed="${meIn}">${icon(meIn ? 'user-check' : 'user-plus')}${meIn ? 'You’re going' : 'I’m going'}</button>${admin ? btn('Send a teammate…', { kind: 'text', sm: true, icon: 'user-round-plus', attrs: { 'data-hrput': '1', 'aria-haspopup': 'dialog' } }) : ''}</div>` : '';
   return { title: over && !cancelled ? 'Who was going' : 'Who’s going', body: list + acts };
 }
 
@@ -223,14 +228,32 @@ function membersHTML(c) {
 function pageHTML(route, c, back) {
   const g = goingHTML(c);
   const deskback = `<a class="hr-deskback" href="${esc(back.href)}" data-back>${icon('chevron-left')}<span>${esc(back.label)}</span></a>`;
-  if (!DESK()) return `<div class="hr-page">${deskback}${headHTML(c)}${linksRow(c)}${cancelledHTML(c)}${agendaHTML(c)}
-    ${section('hr-s2', g.title, null, `<div class="card hr-gcard">${g.body}</div>`)}${membersHTML(c)}</div>`;
+  // v4 (R-269): on a phone "Who's going" and I'm going come right under the time and room, above the agenda and the share
+  // kit (Kris, on the day: it was 1.95 screens down, under four bills and eight copy buttons). Staff v2's order (R-152 C).
+  // A desktop has them at the top of the side panel already.
+  if (!DESK()) return `<div class="hr-page">${deskback}${headHTML(c)}${linksRow(c)}${cancelledHTML(c)}
+    ${section('hr-s2', g.title, null, `<div class="card hr-gcard">${g.body}</div>`)}${agendaHTML(c)}${membersHTML(c)}</div>`;
   return `<div class="hr-page hr-desk"><div class="sv-cols hr-cols">
     <div class="hr-main">${deskback}${headHTML(c)}${cancelledHTML(c)}${agendaHTML(c)}${membersHTML(c)}</div>
     <aside class="sv-aside hr-side" aria-label="Who is going, the notice and the video">
       <section class="card hr-card sv-stick" aria-labelledby="hr-h-go"><h2 id="hr-h-go">${g.title}</h2>${g.body}</section>
       ${linksCard(c)}
     </aside></div></div>`;
+}
+
+// v4 (R-269): ?kit=1 (Today's "Send the ask" and "Share kit ›") opens the page at the share kit, its first button focused,
+// once per arrival: a redraw after "I'm going" stays where the person is. After the frame's own scroll to the top, hence
+// the next paint; once more a moment later in case the page drew again meanwhile.
+function landOnKit() {
+  const land = () => {
+    const kit = document.getElementById('hr-kit'); if (!kit) return;
+    // Under the sticky header; on a desktop, under the back link that pins below it once the page scrolls (ui.js floatBack).
+    const hb = Math.max(0, document.querySelector('.sv-hdr')?.getBoundingClientRect().bottom || 0) + (DESK() ? 60 : 12);
+    window.scrollTo(0, Math.max(0, Math.round(kit.getBoundingClientRect().top + window.scrollY - hb)));
+    const b = kit.querySelector('[data-kit]'); if (b && document.activeElement !== b) b.focus({ preventScroll: true });
+  };
+  S.scrollClaimed = true;   // app.js's Back restore would otherwise put the page back at the top
+  requestAnimationFrame(land); setTimeout(land, 200);
 }
 
 // ---- actions ----
@@ -310,6 +333,7 @@ export default {
   wire(route, app) {
     const root = app.querySelector('.hr-page'), h = hearingById(route.id); if (!root || !h) return;
     wireLinks(root); wireShareKit(root);
+    if (route.q?.kit && viewIsNew()) landOnKit();
     const c = context(h);
     root.querySelector('[data-hrgo]')?.addEventListener('click', () => toggleGoing(c));
     root.querySelector('[data-hrput]')?.addEventListener('click', () => putDown(c));
