@@ -369,7 +369,8 @@ adding one; A-13: one focal point).
 ### A-24 On a laptop, one thing open at a time (Staff v3)
 
 Measured on the first screen at 1280×800, 1440×900 and 1920×1080. **A list and the item picked from it:** a screen that
-lists things to act on (Today's tasks, Bills) shows each as one line, and the one someone picks opens in full beside the
+lists things to act on (Today's tasks, Bills) shows each as one line (Staff v5, R-277 W-1: Today's and Team's rows take two, the bill and
+then its step in full, since a cut line hid the time, action or person), and the one someone picks opens in full beside the
 list; times, rooms, summaries and counts live in the open item, not on every row. **One side panel at most, at any width:**
 extra width on a big monitor becomes margin, never a further column. **On the first screen: at most 5 separate things**
 (a list, a table or the week's grid counts as one, however many rows show), **at most 7 text colours** (A-5's aim, held
