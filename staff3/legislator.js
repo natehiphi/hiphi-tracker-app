@@ -10,10 +10,13 @@
 // Pathway, and that bill comes first.
 // Conversations (R-022 wave 2 #9): "Log a conversation" and the list are the shared ones in conversation.js, filed by
 // issue, so what is logged here also shows on the issue's page and on every bill of that issue, and the other way round.
+// v3 (R-264): each fact once. The name and district are the page's heading (the side card keeps the photo, the title and
+// the towns); the committees are their own section (not also a line under the phone's heading); and a bill with no
+// stance yet shows a quiet "Set stance" instead of a bordered "Unknown" picker on every row.
 import { S, DB, esc, hooks, advocate } from './data.js';
 import { stopOf, stanceOf, legById, legsForSponsors, codesOf, diedish, hearingAhead, billNum, blurb, cmteName, STANCES, billByRef } from './model.js';
 import { icon, btn, iconBtn, chip, pickerChip, pickerSheet, empty, notice, toast } from './ui.js';
-import { photo, legName, shortName, partyDist, seatsOf, roleWord, legMail, billSub, billHref, stanceChip, openStance, wireStances, wireLinks, STANCE_WORD, STANCE_ICON } from './pathway.js';
+import { photo, legName, shortName, seatsOf, roleWord, legMail, billSub, billHref, stanceChip, openStance, wireStances, wireLinks, STANCE_WORD, STANCE_ICON } from './pathway.js';
 import { ourBill, islandFor } from './legislators.js';
 import { logConversation, convListHTML, wireConvList, withOthers, fetchOthers, convCount } from './conversation.js';
 import { billRoute } from './model.js';
@@ -50,14 +53,18 @@ const billName = b => b.nickname
   : `<span class="title"><b>${esc(billNum(b))}</b> <span class="lg-bt">${esc(blurb(b, 120))}</span></span>`;
 // A bill row with the stance chip: the bill part links to the bill. On a phone the chip opens the stance sheet; on a
 // desktop it opens a small picker beside itself (saved on the click, with Undo) and the note has its own button, the
-// same pair the bill's Pathway table uses.
+// same pair the bill's Pathway table uses. Until anything is known (no stance, note or contact) the row has one quiet
+// "Set stance" that opens the stance sheet, with the note in it (v3: not a bordered "Unknown" and a note button on each).
 function standRow(b, l, { from = false, desk = false } = {}) {
   const x = stanceOf(b.id, l.id), who = x.contact_id && advocate(x.contact_id), key = `${b.id}|${l.id}`, word = STANCE_WORD[x.stance] || 'Unknown';
+  const none = !x.stance || x.stance === 'unknown', set = `Set ${shortName(l)}’s stance on ${b.bill_number}`;
   const sub = [billSub(b), who ? `${who.full_name.split(' ')[0]} knows them` : ''].filter(Boolean).join(' · ');
   const noteLabel = `${x.note || who ? 'Edit the note' : 'Add a note'} on ${shortName(l)} for ${b.bill_number}`;
   return `<div class="row lg-brow${from ? ' from' : ''}">
     <a class="lg-bbody" href="${billHref(b)}">${billName(b)}<span class="sub">${esc(sub)}</span>${x.note ? `<span class="lg-note">${esc(x.note)}</span>` : ''}</a>
-    ${desk ? `${iconBtn('notebook-pen', noteLabel, { 'data-lgnote': key }, 'lg-noteb')}${pickerChip(word, { 'data-lgpick': key, 'aria-haspopup': 'dialog', 'aria-label': `${shortName(l)} on ${b.bill_number}: ${word}. Change` }, STANCE_ICON[x.stance] || 'circle-dashed')}` : stanceChip(b, l)}
+    ${none && !x.note && !who ? btn('Set stance', { kind: 'text', sm: true, cls: 'lg-setst', attrs: { 'data-lgst': key, 'aria-haspopup': 'dialog', 'aria-label': set } })
+      : desk ? `${iconBtn('notebook-pen', noteLabel, { 'data-lgnote': key }, 'lg-noteb')}${pickerChip(word, { 'data-lgpick': key, 'aria-haspopup': 'dialog', 'aria-label': `${shortName(l)} on ${b.bill_number}: ${word}. Change` }, STANCE_ICON[x.stance] || 'circle-dashed')}`
+      : stanceChip(b, l)}
   </div>`;
 }
 const billLink = b => `<a class="row lg-brow lg-plain" href="${billHref(b)}"><span class="lg-bbody">${billName(b)}<span class="sub">${esc(billSub(b))}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`;
@@ -83,7 +90,7 @@ function noSeats(l) {
   const t = String(l.title || ''), chamber = l.chamber === 'S' ? 'Senate' : 'House';
   const why = /^(speaker|president)$/i.test(t) ? `The ${esc(t)} presides over the ${chamber} and refers each bill to its committees, so none of our bills waits on a committee of theirs. A word with this office can matter on any bill.`
     : `${esc(shortName(l))} has no committee seats this session, so none of our bills waits on their committee vote. Floor votes still count.`;
-  return notice('info', 'info', `<b>No committee seats.</b> ${why} You can still set a stance from a bill's Pathway, and log every conversation here.`);
+  return notice('info', 'info', `<b>No committee seats.</b> ${why} You can still set a stance from a bill's Committees, and log every conversation here.`);
 }
 // The phone number, by pointer: text and Copy with a mouse, a Call button on a touch screen. Nothing at all when the
 // directory has no number (no senator has one), so there is never an empty row or a button that cannot work.
@@ -105,7 +112,7 @@ function parts(route, l, desk) {
 }
 
 function phoneHTML(route, l, back) {
-  const p = parts(route, l, false), { from, seats } = p, cm = seats.map(m => m.role === 'member' ? m.committee : `${roleWord(m.role)}, ${m.committee}`).join(' · ');
+  const p = parts(route, l, false), { from, seats } = p;
   const hasCall = !!l.phone, hasMail = !!l.email, hover = HOVER();
   return `<div class="lg-page">
       <a class="lg-deskback" href="${esc(back.href)}" data-back>${icon('chevron-left')}<span>${esc(back.label)}</span></a>
@@ -114,7 +121,6 @@ function phoneHTML(route, l, back) {
         <div class="lg-hbody">
           <h1>${esc(legName(l))}</h1>
           <p class="lg-hsub">${esc([PARTY[l.party] || l.party, `${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}`, l.title, l.places].filter(Boolean).join(' · '))}</p>
-          ${cm ? `<p class="lg-hcm">${esc(cm)}</p>` : ''}
         </div>
       </header>
       <div class="lg-acts">
@@ -150,8 +156,7 @@ function deskHTML(route, l, back) {
       </div>
       <aside class="sv-aside lg-side" aria-label="${esc(shortName(l))}: contact details and committees">
         <div class="card lg-card">
-          <div class="lg-who2">${photo(l, 72)}<div class="lg-who2b"><p class="strong">${esc(shortName(l))}</p><p class="lg-who2s">${esc(partyDist(l))}${island ? ` · ${esc(island)}` : ''}</p>${l.title ? chip(l.title) : ''}</div></div>
-          ${l.places ? `<p class="lg-places" title="${esc(l.places)}">${esc(l.places)}</p>` : ''}
+          <div class="lg-who2">${photo(l, 72)}<div class="lg-who2b">${l.title ? chip(l.title) : ''}${l.places ? `<p class="lg-places" title="${esc(l.places)}">${esc(l.places)}</p>` : ''}</div></div>
           <div class="lg-cis">
             ${hasCall ? line('phone', 'Office phone', `<span data-lgphone>${esc(l.phone)}</span>`, hover ? copyBtn('phone number', l.phone) : btn('Call', { kind: 'secondary', icon: 'phone', href: `tel:${l.phone}`, sm: true })) : ''}
             ${hasMail ? line('mail', 'Email', `<a href="${esc(legMail(l, from))}">${esc(l.email).replace('@', '@<wbr>')}</a>`, hover ? copyBtn('email address', l.email) : '') : ''}

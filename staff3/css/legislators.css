@@ -272,6 +272,7 @@ div.lg-brow:hover { background: var(--n0); }
   .lg-who2s { font-size: var(--t14); color: var(--n700); }
   .lg-who2b .sv-chip { margin-top: 2px; white-space: normal; }
   .lg-places { margin-top: var(--s12); font-size: var(--t14); color: var(--n500); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .lg-who2b .lg-places { margin-top: 0; -webkit-line-clamp: 3; }   /* v3: beside the photo, where the name and district were (the heading says them) */
   .lg-cis { margin-top: var(--s12); border-top: 1px solid var(--n100); }
   .lg-ci { display: flex; align-items: center; gap: var(--s12); min-height: 52px; padding: 6px 0; border-bottom: 1px solid var(--n100); }
   .lg-cic { flex: none; display: flex; color: var(--n500); }
@@ -323,6 +324,19 @@ body.staff2 .st-savehint { font-size: var(--t14); color: var(--n500); }
 body.staff2 .st-sbar .btn[aria-disabled="true"] { cursor: default; }
 body.staff2 .st-page .st-note:empty { display: none; }
 body.staff2 .st-page .st-form > .st-note + .field { margin-top: var(--s12); }
+/* My settings (v3, R-264): the reminder and workflow switches wait behind one fold, a row like the page's other cards;
+   opened, they read below it as before. The keyboard switch now sits on Help > Keyboard shortcuts. */
+body.staff2 .st-me .st-fine { margin-top: var(--s24); }
+body.staff2 .st-me .st-fine > summary { list-style: none; display: flex; align-items: center; gap: var(--s12); min-height: 52px; padding: var(--s8) var(--s16);
+  background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); cursor: pointer; font-weight: 700; color: var(--n900); }
+body.staff2 .st-me .st-fine > summary::-webkit-details-marker { display: none; }
+body.staff2 .st-me .st-fine > summary:hover { background: var(--n50); }
+body.staff2 .st-me .st-fine > summary:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
+body.staff2 .st-me .st-fine .st-fchev { margin-left: auto; width: 20px; height: 20px; color: var(--n500); transition: transform .15s; }
+body.staff2 .st-me .st-fine[open] .st-fchev { transform: rotate(180deg); }
+body.staff2 .st-me .st-finein > .st-h3:first-child { margin-top: var(--s16); }
+body.staff2 .st-me .st-acts { margin-top: var(--s12); }
+body.staff2 .st-help .st-keyson { margin-bottom: var(--s16); }
 @media (max-width: 899px) {
   /* phones: the state sits on its own line above the button, so a long label never loses room to it */
   body.staff2 .st-sbar { flex-wrap: wrap; row-gap: 6px; }
