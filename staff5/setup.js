@@ -254,7 +254,7 @@ function renderIndex() {
       </div>
     </section>`;
   // Desktop: the checklist is the page (its heading is the h1); the list of parts is also in the left column.
-  if (DESK()) return shell('', `<div class="st-head st-headrow"><div><h1>Ready for session?</h1><p class="st-lede">For admins. Everything the season needs, one part at a time. <a href="#/help/session">What changes when a session starts</a></p></div>${recheck}</div>
+  if (DESK()) return shell('', `<div class="st-head st-headrow"><div><h2 class="st-ptitle">Ready for session?</h2><p class="st-lede">For admins. Everything the season needs, one part at a time. <a href="#/help/session">What changes when a session starts</a></p></div>${recheck}</div>
     <section class="st-sec" aria-label="Readiness checklist">${ready}</section>
     <section class="st-sec" aria-labelledby="st-eh"><div class="st-sechead"><h2 id="st-eh" class="st-h2">The public page's errors</h2></div>${errorsHTML()}</section>${parts}`);
   return `<div class="st-page st-setup">
@@ -278,9 +278,10 @@ function shell(cur, pane) {
   const open = rows ? rows.filter(r => !r.waiting && ((r.level === 'block' || r.level === 'warn') && r.ok === false || (r.level === 'manual' && !r.ok))).length : 0, bad = rows ? rows.some(r => r.level === 'block' && r.ok === false) : false;
   const on = PAGES[cur]?.parent || cur;
   const item = ([k, t, ic]) => `<a class="st-navi" href="#/setup/${k}"${on === k ? ' aria-current="page"' : ''}>${icon(ic)}<span class="st-navl">${esc(t)}</span>${s.draft[k] ? NAV_DOT : ''}</a>`;
-  return `<div class="st-page st-setup st-duo"><div class="st-cols2">
+  // R-277 fix 10 (U-5, U-12): "Session setup" is the page's heading row over both columns; each part's name is its h2.
+  return `<div class="st-page st-setup st-duo"><div class="sv-phead"><h1 class="sv-h1">Session setup</h1></div><div class="st-cols2">
     <nav class="st-nav2" aria-label="Session setup">
-      <p class="st-navt">Session setup</p>
+
       <a class="st-navi" href="#/setup"${cur ? '' : ' aria-current="page"'}>${icon('clipboard-check')}<span class="st-navl">Ready for session?</span>${open ? `<span class="st-navn${bad ? ' bad' : ''}"><span aria-hidden="true">${open}</span><span class="sr">${open} to fix or tick off${bad ? ', some blocking' : ''}</span></span>` : ''}</a>
       <p class="st-navg">Settings</p>${SECTIONS.map(item).join('')}
       <p class="st-navg">Advanced</p>${ADVANCED.map(item).join('')}
@@ -1380,7 +1381,7 @@ function saveBar(key, desk) {
 }
 const statusHTML = p => { const [ic, line] = p.status(); return `${icon(ic)}<span>${line}</span>`; };
 function renderSection(key) {
-  const p = PAGES[key], head = `<div class="st-head"><h1>${esc(ALL[key].t)}</h1><p class="st-status" data-ststatus>${statusHTML(p)}</p></div>`;
+  const p = PAGES[key], hx = DESK() ? 'h2 class="st-ptitle"' : 'h1', head = `<div class="st-head"><${hx}>${esc(ALL[key].t)}</${hx.slice(0, 2)}><p class="st-status" data-ststatus>${statusHTML(p)}</p></div>`;
   const form = `<form class="st-formwrap" novalidate data-stform>${p.body()}<button type="submit" hidden tabindex="-1" aria-hidden="true"></button></form>`;
   // tail: what a part lists below its Save, so the button sits under the fields it acts on (People's lists, R-013).
   const tail = p.tail ? p.tail() : '';
@@ -1458,7 +1459,7 @@ export default {
   back: route => { const k = section(route), up = PAGES[k]?.parent; return k ? { href: '#/setup' + (up ? '/' + up : ''), label: up ? ALL[up].t : 'Session setup' } : null; },
   noTabs: route => !!section(route) && isAdmin(),
   render(route) {
-    if (!isAdmin()) return `<div class="st-page st-setup"><div class="st-head"><h1 class="st-dup">Session setup</h1></div>${empty({ title: 'Session setup is for admins', text: `Ask ${esc(admins())} to change a setting. Your own choices are in My settings.`, action: btn('Open My settings', { href: '#/me' }) })}</div>`;
+    if (!isAdmin()) return `<div class="st-page st-setup"><div class="st-head sv-phead"><h1 class="st-dup">Session setup</h1></div>${empty({ title: 'Session setup is for admins', text: `Ask ${esc(admins())} to change a setting. Your own choices are in My settings.`, action: btn('Open My settings', { href: '#/me' }) })}</div>`;
     return section(route) ? renderSection(section(route)) : renderIndex();
   },
   bar(route) {

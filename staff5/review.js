@@ -74,9 +74,10 @@ function billState(b, { email = false, d = null, h = null } = {}) {
 }
 function header(r, total) {
   const n = Math.min(r.i + 1, total);
-  return `<div class="td-rvbar">
+  // R-277 fix 10 (U-5): the page's own heading row, where every page has it (the frame's header held "Review" before)
+  return `<div class="td-rvbar sv-phead">
     <a class="iconbtn td-rvx" href="#/" data-back aria-label="Close review" title="Close review">${icon('x')}</a>
-    <h2 class="td-rvh">Review <span class="td-rvn">· ${n} of ${total}</span></h2>
+    <h1 class="td-rvh">Review <span class="td-rvn">· ${n} of ${total}</span></h1>
     ${btn('Skip', { kind: 'text', iconEnd: 'chevron-right', attrs: { 'data-rvskip': '1' } })}</div>`;
 }
 // When the testimony is due. v4 (R-269, A-5 as amended by R-250): a deadline that has passed while the hearing has not
@@ -127,7 +128,7 @@ function endScreen(r) {
   const decided = r.log.length, skipped = stillSkipped(r);
   const title = !r.keys.length ? 'Nothing to approve.' : !decided ? 'Nothing reviewed yet.' : skipped.length ? `${decided} of ${r.keys.length} reviewed.` : r.keys.length === 1 ? 'Reviewed.' : `All ${decided} reviewed.`;
   const text = !r.keys.length ? 'Drafts and emails that need your approval show up here.' : '';
-  return `<div class="td-rv td-rvend">${empty({ title, text })}
+  return `<div class="td-rv td-rvend"><div class="sv-phead"><h1 class="sv-h1">Review</h1></div>${empty({ title, text })}
     ${decided ? `<div class="rows td-rvlog">${r.log.map(x => `<div class="row"><span class="lead">${icon(x.icon)}</span><span class="body"><span class="title"><span class="td-num">${esc(x.num)}</span></span><span class="sub">${esc(x.what)}</span></span></div>`).join('')}</div>` : ''}
     <div class="btncol td-rvendbtns">${skipped.length ? btn(`Review the ${skipped.length === 1 ? 'one' : skipped.length} you skipped`, { kind: 'secondary', attrs: { 'data-again': '1' } }) : ''}${btn('Back to Today', { href: '#/', attrs: { 'data-home': '1', 'data-back': true } })}</div></div>`;
 }

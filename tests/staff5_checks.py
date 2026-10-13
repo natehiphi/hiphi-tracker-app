@@ -53,6 +53,7 @@ def batch_c(b, page, go):
       pg.context.close()
     check(f'Today and Team at {W}: no row cut short, all eight people ({total} rows)', total and not cut, '; '.join(cut[:3]))
   batch_c_looks(b, page, go)
+  batch_c_frame(b, page, go)
 
 # One look per action (fix 4, U-4, U-8): every "I'm going", Doc, "Mark filed" and "Show all" on a page (sheets aside, where
 # the confirm button is the sheet's own) is drawn by ui.js: its class, its words, its icons, and the same colour and weight
@@ -71,6 +72,34 @@ LOOKS = r"""() => { const out = []; const vis = e => e.offsetParent && !e.closes
 LOOK_SCREENS = [('NT', '/'), ('NT', '/bill/HB1562'), ('NT', '/bill/SB3234'), ('NT', '/hearing/9ebffb71-69c2-4868-8956-e624cac16d30'), ('NT', '/bill/HB2121'),
                 ('PH', '/'), ('JS', '/review'), ('KR', '/'), ('NT', '/coalition'), ('NT', '/legislators')]
 WANT = {'going': ('sv-going', r'^(I’m going|You’re going)$'), 'doc': ('sv-doc', r'^Open Doc$'), 'filed': ('sv-filed', r'^Mark filed$'), 'all': ('sv-showall', r'^Show all \d+( \w+)?$')}
+
+# One page frame (fix 10, U-5, U-12): every main page opens with one heading row (.sv-phead) holding its h1, at the same
+# top and the same left edge, the frame's search box shown (Bills too), and the page's "…" the last control in the row.
+FRAME_ROUTES = ['/', '/?scope=team', '/?view=week', '/bills', '/legislators', '/outreach', '/outreach/partners', '/outreach/emails',
+                '/outreach/supporters', '/my-issues', '/outreach/issues', '/coalition', '/review', '/inbox', '/help', '/me', '/setup', '/setup/coalitions']
+FRAME = r"""() => { const rows = [...document.querySelectorAll('main .sv-phead')].filter(e => e.getClientRects().length); const r = rows[0];
+  const q = r && r.getBoundingClientRect(), h = r && r.querySelector('h1');
+  const s = document.querySelector('.sv-hdr .sv-search'); const search = !!(s && s.getClientRects().length && getComputedStyle(s).visibility !== 'hidden');
+  const more = r ? [...r.querySelectorAll('.iconbtn')].filter(e => /^More/.test(e.getAttribute('aria-label') || '')) : [];
+  const last = r ? [...r.querySelectorAll('button, a, input')].filter(e => e.getClientRects().length).pop() : null;
+  const h1s = [...document.querySelectorAll('main h1')].filter(e => e.getClientRects().length).length;
+  return { rows: rows.length, top: q ? Math.round(q.top + scrollY) : null, left: q ? Math.round(q.left) : null, h1: !!h, h1s, search, moreLast: !more.length || more[more.length - 1] === last }; }"""
+
+def batch_c_frame(b, page, go):
+  for W in (1440, 1280):
+    pg = page('NT', W, 900); got = {}
+    for i, r in enumerate(FRAME_ROUTES):
+      if i == 0: go(pg, r, 3000)
+      else: pg.evaluate(f"location.hash = '#{r}'"); pg.wait_for_timeout(1400)
+      pg.evaluate('scrollTo(0, 0)'); got[r] = pg.evaluate(FRAME)
+    pg.context.close()
+    tops, lefts = {g['top'] for g in got.values()}, {g['left'] for g in got.values()}
+    check(f'{W}: every main page has one heading row with its h1 ({len(FRAME_ROUTES)} pages)', all(g['rows'] >= 1 and g['h1'] and g['h1s'] == 1 for g in got.values()),
+          ', '.join(r for r, g in got.items() if not (g['rows'] >= 1 and g['h1'] and g['h1s'] == 1)))
+    check(f'{W}: the heading row starts at one height and one left edge on every main page', len(tops) == 1 and len(lefts) == 1,
+          '; '.join(f"{r} {g['left']},{g['top']}" for r, g in got.items()) if len(tops) > 1 or len(lefts) > 1 else f'{lefts} {tops}')
+    check(f'{W}: the top search box is on every main page, Bills too', all(g['search'] for g in got.values()), ', '.join(r for r, g in got.items() if not g['search']))
+    check(f'{W}: a page\'s "…" menu is the last thing in its heading row', all(g['moreLast'] for g in got.values()), ', '.join(r for r, g in got.items() if not g['moreLast']))
 
 def batch_c_looks(b, page, go):
   seen = {k: [] for k in WANT}

@@ -257,14 +257,15 @@ function renderDesk(route) {
   const body = t.html ? t.html() : `<div class="card st-wcard">${dl(t.items())}</div>`;
   const kbd = keysNote(t);
   const list = visible(); if (!list.includes(t)) list.push(t);   // a direct link to a topic this device does not list still shows where you are
-  return `<div class="st-page st-help st-duo"><div class="st-cols2">
+  // R-277 fix 10 (U-5, U-12): "Help" is the page's heading row, over both columns, where every page has it; the topic is
+  // the h2 under it (the topic was the h1, 300px to the right of every other page's).
+  return `<div class="st-page st-help st-duo"><div class="sv-phead"><h1 class="sv-h1">Help</h1></div><div class="st-cols2">
     <nav class="st-nav2" aria-label="Help topics">
-      <p class="st-navt">Help</p>
       <form class="st-search searchbox" role="search" data-hsform><label class="sr" for="st-hq">Search Help</label>${icon('search')}<input id="st-hq" class="input" type="search" placeholder="Search Help" autocomplete="off" value="${esc(q)}"></form>
       ${list.map(x => `<a class="st-navi" href="#/help/${x.id}"${x.id === t.id && !q.trim() ? ' aria-current="page"' : ''}>${icon(x.icon)}<span class="st-navl">${esc(x.title)}</span></a>`).join('')}
     </nav>
     <div class="st-pane st-read">
-      <div class="st-head"><h1 id="st-hh1" data-title="${esc(t.title)}">${q.trim() ? 'Search results' : esc(t.title)}</h1><p class="st-lede" id="st-hsub" ${q.trim() ? 'hidden' : ''}>${esc(t.sub ? t.sub() : '')}</p></div>
+      <div class="st-head"><h2 id="st-hh1" class="st-ptitle" data-title="${esc(t.title)}">${q.trim() ? 'Search results' : esc(t.title)}</h2><p class="st-lede" id="st-hsub" ${q.trim() ? 'hidden' : ''}>${esc(t.sub ? t.sub() : '')}</p></div>
       <div id="st-hres" aria-live="polite">${results(q)}</div>
       <div id="st-hdefault" ${q.trim() ? 'hidden' : ''}>${kbd}${body}</div>
     </div>

@@ -638,7 +638,7 @@ function toolbar(route) {
   const none = scope === 'none';
   const seg = `<div class="sv-seg td-scope" role="group" aria-label="Whose tasks"><button type="button" data-seg="tdscope" data-val="mine" aria-pressed="${scope === 'mine'}">Mine</button><button type="button" data-seg="tdscope" data-val="team" aria-pressed="${scope !== 'mine'}">Team</button></div>`;
   const whoBtn = scope === 'mine' ? '' : `<div class="td-whorow"><button type="button" class="sv-pick td-whobtn" data-whopick aria-haspopup="dialog" aria-label="${esc(who ? `Showing ${who.full_name}’s ${week ? 'week' : 'list'}. Choose someone else` : none ? 'Showing the bills nobody owns. Choose someone' : 'Showing everyone. Choose one teammate')}">${who ? avatar(who, 24) : none ? avatar(null, 24) : icon('users')}<span>${who ? esc(who.full_name) : none ? 'No owner' : 'Everyone'}</span>${icon('chevron-down', { cls: 'chev' })}</button></div>`;
-  return `<div class="td-sub"><div class="td-head"><h1 class="td-h1" tabindex="-1">${esc(heading())}</h1>
+  return `<div class="td-sub sv-phead"><div class="td-head"><h1 class="td-h1" tabindex="-1">${esc(heading())}</h1>
       <p class="td-date"><span>${esc(a)}</span></p></div>
     <div class="td-tools">${viewSeg(viewOf(route))}${seg}</div>${whoBtn}</div>`;
 }

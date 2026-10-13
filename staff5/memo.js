@@ -119,8 +119,9 @@ const memo = {
     // The coalition list names each one the way the team does, with the public name partners will read beside it.
     const coal = `<select id="bl-mcoal" class="input">${[['', 'Every coalition'], ...S.campaigns.map(c => [c.id, c.public_name && c.public_name !== c.name ? `${c.name} · ${c.public_name}` : c.name])].map(([id, l]) => `<option value="${esc(id)}" ${v.coalition === id ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
     return `<div class="bl-memopage${tab ? ' ot-part' : ''}">
-      ${tab ? sectionNav('outreach', 'partners') : deskBack('memo', backOf(route))}
-      <div class="bl-mhead"><h1 class="bl-ptitle">${nameOf(v)}</h1>${wide ? `<div class="bl-mcopy" role="group" aria-label="Copy the memo">${copyBtns(true)}</div>` : ''}</div>
+      ${tab ? '' : deskBack('memo', backOf(route))}
+      <div class="bl-mhead${tab ? ' sv-phead' : ''}"><h1 class="bl-ptitle${tab ? ' sv-h1' : ''}">${nameOf(v)}</h1>${tab ? `<span class="sv-phr">${sectionNav('outreach', 'partners')}${wide ? `<span class="bl-mcopy" role="group" aria-label="Copy the memo">${copyBtns(true)}</span>` : ''}</span>`   /* R-277 fix 10: Outreach's tabs in the heading row */
+        : wide ? `<div class="bl-mcopy" role="group" aria-label="Copy the memo">${copyBtns(true)}</div>` : ''}</div>
       <p class="bl-lede">${esc(LEDE[partners ? 'partners' : 'team'](v))}</p>
       <div class="bl-mctl">
         <div class="bl-maud"><span class="bl-mlabel" id="bl-maud-l">For</span>${segmented('memoaud', auds, partners ? 'partners' : 'team', 'Who the memo is for')}</div>

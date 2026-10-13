@@ -117,8 +117,8 @@ function render() {
     : v.tab === 'updates' ? empty({ title: 'No updates', text: 'What the Capitol does on the bills you own or follow lands here, for a week.' })
     : empty({ title: 'Nothing here yet', text: 'Messages, testimony steps, alerts and news on your bills land here.' });
   return `<div class="ib-page">
-    <div class="ib-bar">
-      <div class="sv-seg ib-tabs" role="group" aria-label="Which items">${tab('needs', 'To answer', nNeeds)}${tab('updates', 'Updates')}${tab('all', 'Everything')}</div>
+    <div class="ib-bar sv-phead"><h1 class="sv-h1">Inbox</h1>   <!-- R-277 fix 10: the page's own heading row -->
+      <span class="sv-phr"><span class="sv-seg ib-tabs" role="group" aria-label="Which items">${tab('needs', 'To answer', nNeeds)}${tab('updates', 'Updates')}${tab('all', 'Everything')}</span></span>
     </div>
     ${showF ? `<div class="ib-filters">
       <label class="sr" for="ib-q">Filter by bill or words</label><input id="ib-q" class="input ib-q" type="search" placeholder="Filter by bill or words" value="${esc(v.q)}" autocomplete="off">

@@ -159,7 +159,7 @@ function controls(wide) {
   // follows the position (R-175), so it is never a dropdown. v3: Edit starts from "…" (as Columns does); while it is on,
   // "Done editing" stands in the toolbar, so the way out is in view.
   const done = v.edit ? `<button type="button" class="btn secondary sm bl-editbtn on" data-tedit aria-pressed="true" title="Stop editing in the table">${icon('check')}<span>Done editing</span></button>` : '';
-  if (wide) return `<div class="bl-top${three ? ' bl-three' : ''}"><h1 class="bl-h1">Bills</h1>${seg}${search}<span class="bl-sp"></span>${done}${fbtn}${more}</div>`;
+  if (wide) return `<div class="bl-top sv-phead${three ? ' bl-three' : ''}"><h1 class="bl-h1">Bills</h1>${seg}${search}<span class="bl-sp"></span>${done}${fbtn}${more}</div>`;
   return three ? `<div class="bl-top bl-three">${seg}${search}${fbtn}${more}</div>` : `<div class="bl-top">${seg}<span class="bl-sp"></span>${fbtn}${more}</div>${search}`;
 }
 // The opening weeks of a session: every new bill needs one decision (the current app's rule for its banner).
