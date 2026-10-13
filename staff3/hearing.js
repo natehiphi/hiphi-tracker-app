@@ -284,7 +284,7 @@ async function takeOff(c, id) {
 function backOf(route) {
   const from = String(route.q?.from || '');
   if (from === 'today') return { href: '#/', label: 'Today' };
-  if (from === 'week') return { href: '#/?view=week', label: 'Week' };
+  if (from === 'week') return { href: '#/?view=week', label: 'This week' };
   if (from === 'legislators') return { href: '#/legislators', label: 'Legislators' };
   const b = from && billByRef(from);
   if (b) return { href: `${billRoute(b)}`, label: b.bill_number };
@@ -304,7 +304,7 @@ export default {
     const h = hearingById(route.id);
     // Never a dead end (B-3): the hearing may have been moved and removed, or the link may be from another session.
     if (!h) return `<div class="hr-page">${empty({ h: 'h1', title: 'We could not find that hearing', text: 'It may have been moved to a new time, or the link is from an earlier session. The week’s hearings are on Today.',
-      action: btn('See this week’s hearings', { href: matchMedia('(min-width: 1100px)').matches ? '#/?view=week' : '#/' }) })}</div>`;
+      action: btn('See this week’s hearings', { href: '#/?view=week' }) })}</div>`;
     return pageHTML(route, context(h), backOf(route));
   },
   wire(route, app) {

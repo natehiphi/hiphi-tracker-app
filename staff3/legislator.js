@@ -6,8 +6,8 @@
 // columns: the bills they decide for us, the conversations and what they introduced on the left; a side panel that stays
 // in view with the photo, role, district, office, phone, email, the Capitol page and Log a conversation. With a mouse
 // the phone number is text with a Copy button (a Call link hides the number, and a laptop cannot dial); on a touch
-// screen it is a Call button. Opened from a bill's Pathway, the back link reads "‹ HB1562" and returns to that
-// Pathway, and that bill comes first.
+// screen it is a Call button. Opened from a bill's Committees, the back link reads "‹ HB1562" and returns to that
+// bill's Committees, and that bill comes first.
 // Conversations (R-022 wave 2 #9): "Log a conversation" and the list are the shared ones in conversation.js, filed by
 // issue, so what is logged here also shows on the issue's page and on every bill of that issue, and the other way round.
 // v3 (R-264): each fact once. The name and district are the page's heading (the side card keeps the photo, the title and

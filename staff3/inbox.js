@@ -22,11 +22,11 @@ const hover = () => { try { return matchMedia('(hover: hover) and (pointer: fine
 const wide = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return true; } };
 const ago = iso => { const h = (Date.now() - new Date(iso)) / 36e5; return h < 0 ? fmtDT(iso) : h < 1 ? 'just now' : h < 24 ? `${Math.round(h)}h ago` : h < 24 * 7 ? `${Math.round(h / 24)}d ago` : fmtDate(iso); };
 const itemOf = key => (S.inbox || []).find(i => i.key === key);
-// Where a row opens: a message on the bill's Activity (where the reply box is), a testimony step on its Testimony tab,
-// news on its Activity, anything else on the bill's Overview. A row about no bill (a system notice) opens nothing.
+// Where a row opens: a message on the bill's Activity (where the reply box is), news on its Activity, anything else
+// (a testimony step included: v3's Next up on Overview holds it) on the bill's Overview. A row about no bill (a system notice) opens nothing.
 function hrefOf(i) {
   const b = i.bill_id && billById(i.bill_id); if (!b) return '';
-  const tab = i.kind === 'testimony' ? 'testimony' : i.kind === 'message' || !i.direct ? 'activity' : '';
+  const tab = i.kind === 'message' || !i.direct ? 'activity' : '';
   return `${billRoute(b)}${tab ? '/' + tab : ''}`;
 }
 // A testimony step that is yours to approve gets the Review button (the same queue as Today's "Approve"); the rules are
@@ -50,7 +50,7 @@ function hearingNews(i, b) {
   const [said] = plainAction(unslack(i.title)), m = /^Hearing set: (\S+) (.+)$/.exec(said || ''); if (!m) return null;
   const h = (S.hearings || []).find(x => x.bill_id === b.id && x.status !== 'cancelled' && String(x.committee).replace(/\s+/g, '').replace(/,/g, '/') === m[1] && new Date(x.scheduled_at) > Date.now());
   const none = h && b.position && b.position !== 'monitor' && !draftFor(b.id, h.committee) && !S.failed?.('testimony drafts');
-  return { t: `New hearing: ${m[1]} ${m[2]}`, sub: none ? 'No testimony draft yet. Open the bill and make it.' : '', tab: none ? 'testimony' : '' };
+  return { t: `New hearing: ${m[1]} ${m[2]}`, sub: none ? 'No testimony draft yet. Open the bill and make it.' : '', tab: '' };
 }
 function item(i, inBlock = false) {
   const b = i.bill_id && billById(i.bill_id), news = hearingNews(i, b), href = news?.tab ? `${billRoute(b)}/${news.tab}` : hrefOf(i);

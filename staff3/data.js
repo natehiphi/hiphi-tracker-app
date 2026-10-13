@@ -59,7 +59,7 @@ export const STAGE_LABEL = Object.fromEntries(STAGES);
 export const POSITIONS = [['','—'],['strongly_support','Strongly support'],['support','Support'],['support_amend','Support w/ amendments'],['strongly_oppose','Strongly oppose'],
   ['oppose','Oppose'],['monitor','Monitor'],['neutral','Comments (neutral)']];
 export const LOG_TYPES = [['testimony','Testimony'],['coalition','Coalition'],['meeting','Meeting'],
-  ['action_alert','Action alert'],['note','Note']];
+  ['action_alert','Supporter email'],['note','Note']];
 export const S = {
   tripleF: false, syncRuns: [], selected: new Set(), sinceVisit: 0, sinceEvents: [], compStage: {},
   supa: null, session: null, me: null,
