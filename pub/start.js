@@ -504,20 +504,19 @@ function wire(route) {
 const FIT_MAX = 10;
 const fitOver = () => { LZ?.storyRoom?.(); return document.scrollingElement.scrollHeight > window.innerHeight + 1; };
 // Which list items may give way, marked once on each drawing from what it shows (start-rest.js draws them):
-//   Your issues: a topic's cards after its first, never one ticked as the screen is drawn (B-12), the last of the screen's
-//     order first (each topic's best before any topic's second, R-139);
 //   Coming up: the optional first-name box before anything, then the last cards; the first card always stays, and between
 //     sessions the first "What happened" too, since the heading promises this year and next (the critic);
 function markDrops(st) {
   if (st.dataset.fitMarked) return; st.dataset.fitMarked = '1';
-  st.querySelectorAll('.st-tsec').forEach((sec, c) => sec.querySelectorAll('.st-picks > .st-pcard').forEach((li, j) => {
-    if (j > 0 && !li.classList.contains('on')) li.dataset.fitdrop = String(j * 10 + Math.min(c, 9)); }));
   const keep = isOff() ? 2 : 1;
   st.querySelectorAll('.st-soon > .st-cu').forEach((li, k) => { if (k >= keep) li.dataset.fitdrop = String(k); });
   st.querySelector('.st-namecard')?.setAttribute('data-fitdrop', '999');
 }
+// Left whole, and may scroll: the six topics and Your issues (Nate, 12 Oct: "we need to show people many options to choose
+// from, do not cut that down at all"; the topic tiles "so pretty before").
+const FIT_EXEMPT = '.st-topics, .st2';
 export function fitScreen() {
-  const st = document.querySelector('main > .st'); if (!st || planOn()) return;
+  const st = document.querySelector('main > .st'); if (!st || planOn() || st.matches(FIT_EXEMPT)) return;
   markDrops(st);
   const lv = k => 'fit' + k;
   for (let k = 1; k <= FIT_MAX; k++) st.classList.remove(lv(k));

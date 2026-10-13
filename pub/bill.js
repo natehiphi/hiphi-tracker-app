@@ -907,6 +907,9 @@ function hearingRow(b, h, now) {
   const DID = { email: 'You emailed the chair', legislators: 'You wrote to your legislators', testimony: 'You testified', attend: 'You went', share: 'You shared it' };
   const mine = Object.keys(DID).filter(kd => didKind(b, h, kd)).map(kd => chip(DID[kd], 'yay', 'user-check')).join('');
   const acts = [
+    // The letter they sent for this hearing, to read, copy or send again (W1-1, R-239): after the hearing too, when a
+    // committee's call or a closed Capitol tab is what sends them looking for it.
+    didKind(b, h, 'testimony') && letterOn(b)?.h === h.id ? btn('Your letter', { kind: 'text', sm: true, icon: 'file-text', attrs: { 'data-myletter': h.id, 'data-bill': b.id } }) : '',
     !past && !off && posInfo(b) && alive(b) && agrees(b) !== false && due && !due.late ? btn('Write testimony', { kind: 'text', sm: true, icon: 'notebook-pen', attrs: { 'data-helper': h.id, 'data-bill': b.id } }) : '',
     !past && !off ? (S.chips?.[k + 'ics'] ? chip('Calendar file ready', 'ok', 'check') : btn('Add to calendar', { kind: 'text', sm: true, icon: 'calendar-plus', attrs: { 'data-ics': k } })) : '',
     v ? btn(v.state === 'live' ? 'Watch live' : past ? (!v.exact ? 'Find the recording on YouTube' : /[?&]t=\d/.test(v.url) ? 'Watch this bill’s part' : 'Watch the recording') : v.label, { kind: 'text', sm: true, icon: 'play', href: v.url, attrs: { target: '_blank', rel: 'noopener' } }) : '',
