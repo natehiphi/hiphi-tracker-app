@@ -758,3 +758,7 @@
 .td-asksopen .td-asksub { margin: 0 0 10px; }
 .td-asksopen .td-asksub b { color: var(--n900); }
 .td-asksopen .td-asknone { margin: 0; font-size: var(--t14); color: var(--n700); }
+
+/* v4 (R-269): Today | This week on a phone under 400px reads Today | Week, so "This week" never wraps onto two lines. */
+.td-root .td-wshort { display: none; }
+@media (max-width: 399px) { .td-root .td-wlong { display: none; } .td-root .td-wshort { display: inline; } }

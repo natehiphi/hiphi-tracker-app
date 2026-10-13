@@ -138,8 +138,9 @@ function groupOf(due, now = Date.now()) {
 }
 // v4 (R-269): testimony whose written deadline has passed while its hearing has not begun can still be filed, so its group
 // is amber "Late testimony, still open", above red "Overdue", which is kept for what can no longer be done on time (A-5 as
-// amended by R-250); a mixed group splits into the two. "Today" is "Due today": what is due today, and only that (T10).
-const GROUPS = [['lateopen', 'Late testimony, still open'], ['overdue', 'Overdue'], ['today', 'Due today'], ['tomorrow', 'Tomorrow'], ['week', 'Later this week'], ['later', 'Coming up']];
+// amended by R-250); a mixed group splits into the two. "Today" is "Needs you today": what is due today, and new hearings
+// that need a draft made today though their testimony is due later (X10-5), so not "Due today" (T10, fresh-eyes review).
+const GROUPS = [['lateopen', 'Late testimony, still open'], ['overdue', 'Overdue'], ['today', 'Needs you today'], ['tomorrow', 'Tomorrow'], ['week', 'Later this week'], ['later', 'Coming up']];
 const NOW_GROUPS = new Set(['lateopen', 'overdue', 'today']);   // what the badge counts and what gets a filled button
 // Date-only fields (a to-do or follow-up "due 3/18") count as due at 5 PM that day, as the current app does.
 const dateDue = d => d ? new Date(String(d).slice(0, 10) + 'T17:00:00-10:00').getTime() : null;
@@ -254,6 +255,8 @@ function replyLine(name, body, mention) {
   if (q) return { s: `${esc(name)} asked: ${esc(clip(q.trim(), 90))}`, more: q.trim() !== txt };
   return { s: `${esc(name)} ${mention ? 'mentioned you' : 'wrote'}: ${esc(clip(txt, 70))}`, more: txt.length > 70 };
 }
+// Testimony sent back for changes has one name, "Sent back" (C-15): the notices said "Changes requested" (v4, R-269).
+const sentBack = t => String(t || '').replace(/^Changes requested on your testimony\b/i, 'Your testimony was sent back').replace(/^Changes requested:\s*/i, 'Sent back: ');
 const lowerFirst = s => /^[A-Z][a-z]/.test(s) ? s[0].toLowerCase() + s.slice(1) : s;
 
 // Sandbox only: demoInit builds the inbox for the admin it signs in as; after &as=KV it must be Kevin's inbox, or
@@ -502,7 +505,7 @@ export function todayItems(scope = 'mine', who = null) {
     if (b && i.kind === 'testimony' && testimonyBills.has(b.id)) continue;   // the draft task above already says it
     if (b && i.kind === 'deadline' && testimonyBills.has(b.id)) continue;
     const tab = { chat: 'activity', timeline: 'activity' }[i.tab] || '';
-    push({ kind: 'notice', key: `n:${i.key}`, i, b, due: null, who: 'yours', s: esc(clip(unslack(i.title), 110)), q: i.body ? esc(clip(unslack(i.body), 220)) : '',
+    push({ kind: 'notice', key: `n:${i.key}`, i, b, due: null, who: 'yours', s: esc(clip(sentBack(unslack(i.title)), 110)), q: i.body ? esc(clip(unslack(i.body), 220)) : '',
       why: `${{ testimony: 'Testimony', deadline: 'Reminder', system: 'From the tracker', hearing: 'Hearing', status: 'Update' }[i.kind] || 'Notice'} · ${fmtDT(i.at)}`,
       btns: b ? [{ label: 'Open', href: `${billRoute(b)}${tab ? '/' + tab : ''}`, read: true }] : [{ label: 'Mark done', act: 'read' }] });
   }
@@ -634,6 +637,9 @@ let LAST = new Map();   // key -> task for the list on screen, so a click finds 
 // One toolbar: the heading (desktop; a phone has it in the frame's header) and the date; then Today | This week and
 // whose list it is. The next deadline is said once, by the line beside the list and the deadlines under This week's
 // grid, not here as well (A-14, R-022).
+// Today | This week, as ui.js segmented() draws it, but on a phone under 400px "This week" wrapped onto two lines: there it
+// reads "Week", and its accessible name stays "This week" (v4, R-269).
+const viewSeg = v => `<div class="sv-seg" role="group" aria-label="Today or this week"><button type="button" data-seg="tdview" data-val="list" aria-pressed="${v === 'list'}">Today</button><button type="button" data-seg="tdview" data-val="week" aria-pressed="${v === 'week'}" aria-label="This week"><span class="td-wlong">This week</span><span class="td-wshort" aria-hidden="true">Week</span></button></div>`;
 function toolbar(route) {
   const now = Date.now(), ld = SESSION_OVER ? null : legislativeDay(), scope = scopeOf(), who = scope === 'person' ? advocate(S.tdWho) : null;
   const week = viewOf(route) === 'week';
@@ -647,7 +653,7 @@ function toolbar(route) {
   const whoBtn = scope === 'mine' ? '' : `<div class="td-whorow"><button type="button" class="sv-pick td-whobtn" data-whopick aria-haspopup="dialog" aria-label="${esc(who ? `Showing ${who.full_name}’s ${week ? 'week' : 'list'}. Choose someone else` : none ? 'Showing the bills nobody owns. Choose someone' : 'Showing everyone. Choose one teammate')}">${who ? avatar(who, 24) : none ? avatar(null, 24) : icon('users')}<span>${who ? esc(who.full_name) : none ? 'No owner' : 'Everyone'}</span>${icon('chevron-down', { cls: 'chev' })}</button></div>`;
   return `<div class="td-sub"><div class="td-head"><h1 class="td-h1" tabindex="-1">${esc(heading())}</h1>
       <p class="td-date"><span>${esc(a)}</span></p></div>
-    <div class="td-tools">${segmented('tdview', [['list', 'Today'], ['week', 'This week']], viewOf(route), 'Today or this week')}${seg}</div>${whoBtn}</div>`;
+    <div class="td-tools">${viewSeg(viewOf(route))}${seg}</div>${whoBtn}</div>`;
 }
 // At most one notice, most important first: the sync is stale (admins), new bills to sort in the opening weeks, then the
 // issues' prep. "Email is paused" is said on Emails and Session setup, where it can be acted on: on Today and This week
@@ -656,7 +662,7 @@ function toolbar(route) {
 // days (always in the sandbox), until all are done or they hide it. One line that opens on demand. It replaced the old
 // "New here? Read how the tracker works" notice, which the issue-prep notice could hide.
 // v4 (R-269, T9): it comes after the person's own work (their groups, what waits on others, their coalition's week),
-// never between Overdue and Due today or above the only thing on a helper's Today; and not on a phone, where on a hearing
+// never between Overdue and Needs you today or above the only thing on a helper's Today; and not on a phone, where on a hearing
 // day at the Capitol it is not the job (it waits for the laptop).
 const PHONE = () => !mq('(min-width: 600px)');
 function startCard() {
