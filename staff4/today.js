@@ -313,7 +313,7 @@ const teammates = () => S.advocates.filter(a => a.is_active !== false);
 // list, worked out the way their own Today would be from what is loaded for everyone (drafts, to-dos, follow-ups,
 // emails). Their inbox is theirs alone, so replies and notices are not in it, and every step is read-only: it is
 // theirs to take.
-export function todayItems(scope = 'mine', who = null) {
+export function todayItems(scope = 'mine', who = null, drop = null) {   // `drop`: step keys said elsewhere on the page (v4)
   const viewer = S.me, now = Date.now(), team = scope === 'team' || scope === 'none';
   const empty0 = { groups: [], cards: [], cluster: null, dueNow: 0, late: 0, tasks: [] };
   if (!viewer) return empty0;
@@ -341,7 +341,11 @@ export function todayItems(scope = 'mine', who = null) {
       if (two ? canSecondApprove(me, d) : canFirstApprove(me, d, h)) {   // approvals: never filtered by scope or Monitor
         const who = d.submitted_by ? (subMe ? (self ? 'your own' : 'their own') : `${esc(first(d.submitted_by))}’s`) : 'the';
         const at = two ? d.approved_at : d.submitted_at, h0 = at ? (now - new Date(at)) / HR : null;
-        push({ ...base, kind: two ? 'review2' : 'review', who: 'yours', why: h0 == null ? '' : `${two ? 'Approved' : 'Sent'} ${h0 < 1 ? 'just now' : h0 < 48 ? Math.round(h0) + 'h ago' : Math.round(h0 / 24) + ' days ago'}`,
+        // v4 (R-269 follow-up): who else can give it, so one review asked of four people is not done four times or by nobody
+        // (fresh-eyes, third pass): "Nate can approve it too", "Jaylen can give it too".
+        const also = S.advocates.filter(a => a.is_active !== false && a.id !== me.id && a.id !== d.submitted_by && (two ? a.is_reviewer : approves(a))).map(a => a.id);
+        const sent = h0 == null ? '' : `${two ? 'Approved' : 'Sent'} ${h0 < 1 ? 'just now' : h0 < 48 ? Math.round(h0) + 'h ago' : Math.round(h0 / 24) + ' days ago'}`;
+        push({ ...base, kind: two ? 'review2' : 'review', who: 'yours', why: [sent, also.length ? `${names(also)} can ${two ? 'give it' : 'approve it'} too` : ''].filter(Boolean).join(' · '),
           s: two ? `Give the second approval on ${who} testimony` : `Review ${who} ${subMe || !d.submitted_by ? c + ' ' : ''}testimony`,
           btns: [{ label: 'Review', href: `#/review/${encodeURIComponent(d.id)}`, review: true }] });
       } else if (team) wait(two ? reviewers() : approverList(), two ? 'second approval' : 'approval', two ? 'Second approval' : 'In review', ids(a => two ? a.is_reviewer : approves(a)));
@@ -519,6 +523,8 @@ export function todayItems(scope = 'mine', who = null) {
   // Two or more approvals waiting for me become one "Start review" card (review mode walks through them). A
   // teammate's approvals stay one card per bill: review mode is only ever my own queue.
   if (scope === 'none') { const keep = tasks.filter(t => t.b && unowned(t.b)); tasks.length = 0; tasks.push(...keep); }
+  // v4 (R-269): an approval "Your hearing today" already carries is not grouped again below it (said once, A-14).
+  if (drop?.size) { const keep = tasks.filter(t => !drop.has(t.key)); tasks.length = 0; tasks.push(...keep); }
   const revs = tasks.filter(t => t.kind === 'review' || t.kind === 'review2');
   let cluster = null, list = tasks;
   if (revs.length >= 2 && self) { cluster = revs.sort((x, y) => (x.due ?? Infinity) - (y.due ?? Infinity) || (x.b.priority || 9) - (y.b.priority || 9)); list = tasks.filter(t => !revs.includes(t)); }
@@ -974,12 +980,18 @@ function mineToday() {
   }
   return [...sit.entries()].sort((x, y) => x[1].scheduled_at.localeCompare(y[1].scheduled_at));
 }
-function mineCard(h) {
+// `revs`: your approvals by bill. v4 (R-269 follow-up): a bill in the card that waits for your approval says "Yours to
+// approve" with Review, and `took` collects those steps so their own rows leave the list below (Kris's phone showed
+// HB1573 "in review" in the card and again as "1h to approve" under it: A-14, fresh-eyes third pass).
+function mineCard(h, revs = new Map(), took = new Set()) {
   const now = Date.now(), going = goingOf(goersAt(h)), all = agendaOf(h), pos = all.filter(x => x.b.position && x.b.position !== 'monitor'), bills = pos.length ? pos : all;
   // A bill we only monitor has no testimony to stand anywhere, unless someone started a draft anyway.
-  const line = x => { const t = testimonyOf(x.h, x.b), d = draftOf(x.h), says = !isMon(x.b) || !!d;
+  const line = x => { const t = testimonyOf(x.h, x.b), d = draftOf(x.h), says = !isMon(x.b) || !!d, rv = revs.get(x.b.id);
+    if (rv) took.add(rv.key);
+    const state = rv ? `<span class="td-mstate td-myrev">${icon('clock')}<span>Yours to approve</span></span><a class="td-mdoc" href="#/review/${encodeURIComponent(rv.d.id)}" data-review="1">Review</a>`
+      : says ? `<span class="td-mstate">${icon(t.icon)}<span>${esc(t.label)}</span></span>` : '<span class="td-mstate">We monitor this bill</span>';
     return `<li><a class="td-mbill" href="${billRoute(x.b)}"><b class="td-num">${esc(billNum(x.b))}</b> ${esc(x.b.nickname || blurb(x.b, 60))}</a>
-      ${says ? `<span class="td-mstate">${icon(t.icon)}<span>${esc(t.label)}</span></span>` : '<span class="td-mstate">We monitor this bill</span>'}${d?.doc_url ? `<a class="td-mdoc" href="${esc(d.doc_url)}" target="_blank" rel="noopener">Open Doc${icon('external-link')}</a>` : ''}</li>`; };
+      ${state}${d?.doc_url ? `<a class="td-mdoc" href="${esc(d.doc_url)}" target="_blank" rel="noopener">Open Doc${icon('external-link')}</a>` : ''}</li>`; };
   // Late testimony is said once for the sitting (its deadline is the sitting's), in amber, not on every bill (A-14).
   const due = testDue(h), late = due <= now && new Date(h.scheduled_at).getTime() > now && pos.some(x => !testimonyOf(x.h, x.b).filed);
   return `<section class="td-mine" aria-labelledby="td-mine-${esc(h.id)}">
@@ -1641,8 +1653,11 @@ function coalDue(r, skip = new Set()) {
   for (const [bid, arr] of Object.entries(S.todos || {})) for (const t of arr) {
     const b = billById(bid), h = !t.done && ok(b) ? askTodoHearing(b, t.title) : null, due = dateDue(t.due_date);
     if (!h || testDue(h) <= now || skip.has(slotKey(h)) || due == null || !(due <= now || hst(due) === today)) continue;
-    tasks.push({ kind: 'todo', key: `ct:${t.id}`, b, t, h, due, who: 'coal', rank: RANK.todo, s: esc(`${has(t.assignee_id || ownerOf(b))} to send · the ask for the ${h.committee} hearing ${hearingDay(h)}`),
-      btns: [{ label: 'Open the share kit', href: `#/hearing/${encodeURIComponent(h.id)}?from=today&kit=1` }] });
+    // v4 (R-269 follow-up): the ask is the assignee's to send, so the row offers "Message Kevin", not the share kit, which
+    // invited a second send to HIPHI's list (fresh-eyes, third pass, A-12); the kit stays one click away in the open item.
+    const whoSends = t.assignee_id || ownerOf(b);
+    tasks.push({ kind: 'todo', key: `ct:${t.id}`, b, t, h, due, who: 'coal', rank: RANK.todo, s: esc(`${has(whoSends)} to send · the ask for the ${h.committee} hearing ${hearingDay(h)}`),
+      btns: [...(whoSends ? [msgBtn(b, [whoSends])] : []), { label: 'Open the share kit', href: `#/hearing/${encodeURIComponent(h.id)}?from=today&kit=1` }] });
   }
   // One row per bill, as the person's own list does: its testimony leads when due within a day (T6), else the earliest.
   const by = new Map(); for (const t of tasks) { if (!by.has(t.b.id)) by.set(t.b.id, { key: 'cd:' + t.b.id, b: t.b, tasks: [] }); by.get(t.b.id).tasks.push(t); }
@@ -1902,7 +1917,8 @@ function render(route) {
   // Kris and Saya own no bills: beside "The team's week" their own "This week" (all zeros) and "None of your bills has
   // to be heard" contradicted the page (fresh-eyes review, 9/21), so the coalition's week stands in for both.
   // v4 (T8): the hearing you are going to today leads the page; its sitting is said nowhere else on it.
-  const mineH = scope === 'mine' && !off ? mineToday() : [], skip = new Set(mineH.map(([k]) => k)), mine = mineH.map(([, h]) => mineCard(h)).join('');
+  const revs = new Map(r.tasks.filter(t => (t.kind === 'review' || t.kind === 'review2') && t.b && t.d).map(t => [t.b.id, t])), took = new Set();
+  const mineH = scope === 'mine' && !off ? mineToday() : [], skip = new Set(mineH.map(([k]) => k)), mine = mineH.map(([, h]) => mineCard(h, revs, took)).join('');
   // v4 (fresh-eyes A): their coalitions' work due today, for someone who owns no bills.
   const cd = scope === 'mine' && !off && !S.bills.some(b => owns(S.me.id, b)) ? coalDue(r, skip) : { cards: [], co: null, tasks: [] };
   for (const t of cd.tasks || []) LAST.set(t.key, t);
@@ -1912,7 +1928,10 @@ function render(route) {
   else {
     // Mine and a teammate's list never hold "waiting" cards (todayItems makes those for Team only): what waits on
     // someone else is "Waiting on others", a folded group under the list.
-    const groups = r.groups.map(g => { const cs = g.cards.filter(c => !c.wait); return { ...g, cards: cs, n: cs.reduce((s, c) => s + (c.cluster ? (g.id === 'overdue' || g.id === 'lateopen' ? c.cluster.filter(t => t.due != null && t.due <= Date.now()).length || 1 : c.cluster.length) : 1), 0) }; }).filter(g => g.cards.length);
+    // An approval "Your hearing today" already carries (`took`) is not a row of its own below it: the list is grouped
+    // again without it, so a bill with another step keeps that one, under that step's own heading (said once).
+    const rg = took.size ? todayItems(scope, who, took) : r;
+    const groups = rg.groups.map(g => { const cs = g.cards.filter(c => !c.wait); return { ...g, cards: cs, n: cs.reduce((s, c) => s + (c.cluster ? (g.id === 'overdue' || g.id === 'lateopen' ? c.cluster.filter(t => t.due != null && t.due <= Date.now()).length || 1 : c.cluster.length) : 1), 0) }; }).filter(g => g.cards.length);
     const clear = !groups.some(g => NOW_GROUPS.has(g.id));
     const groupHtml = (g, gi) => {
       const fold = g.id === 'later', isOpen = !fold || open.later, filled = NOW_GROUPS.has(g.id);
@@ -2128,8 +2147,16 @@ function wireControls(el) {
   el.querySelectorAll('[data-more]').forEach(x => x.onclick = () => { const c = cardOf(x.dataset.more); if (c) moreMenu(c, { pane: !!x.dataset.pane }); });
   el.querySelectorAll('[data-going]').forEach(x => x.onclick = () => { const h = (S.hearings || []).find(y => String(y.id) === x.dataset.going); if (h) { S.tdRefocus = '#td-pane [data-going]'; toggleGoing(h); } });
 }
+// v4 (R-269 follow-up): a bill's name squeezed to a stub ("D", "You…", half a letter beside P1) read as a bug (fresh-eyes,
+// third pass, A-24): with room for fewer than about eight letters the name goes, the number stays and the step has the
+// row. Measured after each draw and on resize; a name that has the room shows again.
+const NAME_MIN = 72;
+function pruneNames(root = document) { for (const n of root.querySelectorAll('.td-root .td-rb .td-rn')) { n.style.display = ''; if (n.getBoundingClientRect().width < NAME_MIN) n.style.display = 'none'; } }
+let pruneRaf = 0;
+addEventListener('resize', () => { if (!pruneRaf) pruneRaf = requestAnimationFrame(() => { pruneRaf = 0; pruneNames(); }); });
 function wire(route, root) {
   const main = root.querySelector('.td-root'); if (!main) return;
+  pruneNames(main);
   // Mine or Team, for this visit: the address says which (v4, R-269), replaced in place so Back still leaves Today.
   main.querySelectorAll('[data-seg="tdscope"]').forEach(el => el.onclick = () => { S.tdWho = null; S.tdScope = el.dataset.val; S.tdCur = null; S.tdSel = null; S.tdRefocus = `.td-scope [data-val="${S.tdScope}"]`; S.go(tdHref({ team: S.tdScope === 'team' }), { replace: true, keepScroll: true }); });
   // Today or This week swaps the page in place (no new history entry: Back still leaves Today, as it always has).

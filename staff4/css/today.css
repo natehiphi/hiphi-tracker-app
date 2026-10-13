@@ -739,6 +739,7 @@
 .td-root .td-mbill:hover { color: var(--p800); text-decoration: underline; }
 .td-root .td-mstate { flex: 1 1 auto; display: inline-flex; align-items: center; gap: 4px; color: var(--n700); }
 .td-root .td-mstate .ic { width: 14px; height: 14px; flex: none; }
+.td-root .td-myrev { color: var(--warn-text); font-weight: 700; }   /* v4 (R-269): your approval on today's hearing, amber like its deadline (A-5) */
 .td-root .td-mdoc { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; font-weight: 700; color: var(--p700); text-decoration: none; }
 .td-root .td-mdoc .ic { width: 14px; height: 14px; }
 .td-root .td-mdoc:hover { text-decoration: underline; }
