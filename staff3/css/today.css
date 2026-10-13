@@ -577,9 +577,6 @@
 /* ---- a row: the urgency mark, the bill, what to do (and "+2"), its one button. One line; what does not fit is cut
    with an ellipsis, because the open item says all of it. ---- */
 .td-root .td-rows { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); overflow: hidden; container: tdrows / inline-size; }
-/* A list narrower than 640px (a 1280 laptop) drops the bill's name and keeps its number: there it was cut to one
-   letter, and the open item beside the list names the bill in full. */
-@container tdrows (max-width: 640px) { .td-root .td-rn { display: none; } .td-root .td-rclu .td-rn { display: inline; } }
 .td-root .td-row { display: flex; align-items: center; gap: var(--s8); min-height: 52px; padding-right: var(--s8); cursor: pointer; }
 .td-root .td-row + .td-row { border-top: 1px solid var(--n100); }
 .td-root .td-row:not(.on):hover { background: var(--n50); }
@@ -588,7 +585,7 @@
 .td-root .td-rsel .td-urg { align-self: center; flex: none; width: 56px; margin: 0; }
 .td-root .td-rmain { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: var(--s12); white-space: nowrap; overflow: hidden; }
 /* The bill and the step share what is left, each cut in proportion to its length, so neither vanishes. */
-.td-root .td-rb { flex: 0 1 auto; min-width: 84px; max-width: 50%; display: inline-flex; align-items: baseline; gap: 6px; overflow: hidden; }
+.td-root .td-rb { flex: 0 1 auto; max-width: 50%; display: inline-flex; align-items: baseline; gap: 6px; }   /* never narrower than its number: only the name is cut */
 .td-root .td-rb .td-num { flex: none; font-size: var(--t14); line-height: 20px; }
 .td-root .td-rb .sv-p1 { flex: none; align-self: center; height: 18px; }
 .td-root .td-rn { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: var(--t14); line-height: 20px; color: var(--n500); }
@@ -608,6 +605,12 @@
 .td-root .td-row.on .td-rmark { color: var(--p700); }
 .td-root .td-row.td-seen .td-rs { color: var(--n700); }
 .td-root .td-rclu .td-rn { flex: 1 1 auto; }
+/* A list narrower than 640px (a 1280 laptop) drops the bill's name and keeps its number: there it was cut to one
+   letter, and the open item beside the list names the bill in full. */
+@container tdrows (max-width: 640px) { .td-root .td-rn { display: none; } .td-root .td-rclu .td-rn { display: inline; } }
+/* Narrower still (1100 to 1250px) the step's own button leaves the row too: it cut the step to two words, and the open
+   item beside the list carries the same button. Enter on a row still does it. */
+@container tdrows (max-width: 560px) { .td-root .td-ract { display: none; } }
 
 /* ---- the open item ---- */
 .td-root .td-pane { flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--s12) var(--s16) 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); }
@@ -652,6 +655,7 @@
 .td-root .td-popen { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--s8); min-height: 44px; margin: var(--s12) calc(-1 * var(--s16)) 0; padding: 0 var(--s16);
   background: var(--n0); border-top: 1px solid var(--n100); font-size: var(--t14); font-weight: 700; color: var(--p700); text-decoration: none; }
 .td-root .td-popen:hover { background: var(--p50); }
+.td-root .td-pane.more .td-popen { box-shadow: 0 -8px 12px -8px rgb(20 43 53 / .22); }   /* more of the item is under the foot */
 .td-root .td-popen .ic { width: 18px; height: 18px; }
 .td-root .td-pane > :last-child:not(.td-popen) { margin-bottom: var(--s16); }
 

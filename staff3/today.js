@@ -330,7 +330,10 @@ export function todayItems(scope = 'mine', who = null) {
     if (b.position === 'monitor' && !d.submitted_at && !d.review_note) continue;
     const mine = (ownMe || subMe) && !muted(b), open = !own(b) && !d.submitted_by && inScope(b);
     if (d.status === 'approved') {
-      if (mine || open) push({ ...base, kind: 'file', who: mine ? 'yours' : 'anyone', s: mine && self ? 'File your testimony at the Capitol' : `File the ${c} testimony at the Capitol`,
+      // Past the written deadline with the hearing still to come, it is late testimony (R-250): the step says so, so the
+      // amber mark beside it reads as time left to file late, not as how late it is (fresh-eyes review, R-264).
+      const lt = due != null && due <= now && h && new Date(h.scheduled_at).getTime() > now ? 'late ' : '';
+      if (mine || open) push({ ...base, kind: 'file', who: mine ? 'yours' : 'anyone', s: mine && self ? `File your ${lt}testimony at the Capitol` : `File the ${c} ${lt}testimony at the Capitol`,
         btns: [{ label: 'File at the Capitol', href: capitolUrl(b), ext: true }, { label: 'Mark filed', act: 'file' }] });
       else if (team) wait(first(d.submitted_by || own(b)), 'to file it', 'Approved', [d.submitted_by, own(b)]);   // either of them may file it
       continue;
@@ -747,7 +750,7 @@ function row(c, filled, o = {}) {
   const sel = inner => `<button type="button" class="td-rsel" data-sel="${ek}" aria-current="false">${inner}</button>`;
   if (c.cluster) {
     const bills = [...new Set(c.cluster.map(t => billNum(t.b).split(' ')[0]))];
-    return `<div data-k="${ek}" class="td-row td-rclu">${sel(`${urgBlock(c.due, untilOf(c.cluster[0]))}<span class="td-rmain"><span class="td-rs"><b>Review ${plural(c.cluster.length, 'testimony draft')}</b></span><span class="td-rn">${esc(bills.slice(0, 3).join(', '))}${bills.length > 3 ? ' …' : ''}</span></span>`)}
+    return `<div data-k="${ek}" class="td-row td-rclu"${filled ? ' data-fill="1"' : ''}>${sel(`${urgBlock(c.due, untilOf(c.cluster[0]))}<span class="td-rmain"><span class="td-rs"><b>Review ${plural(c.cluster.length, 'testimony draft')}</b></span><span class="td-rn">${esc(bills.slice(0, 3).join(', '))}${bills.length > 3 ? ' …' : ''}</span></span>`)}
       <span class="td-ract">${btn('Start review', { kind: filled ? 'primary' : 'secondary', href: '#/review', attrs: { 'data-primary': '1', 'data-review': '1' } })}</span>${end}</div>`;
   }
   const p = c.p, b = c.b, n = c.tasks.length - 1;
@@ -755,8 +758,8 @@ function row(c, filled, o = {}) {
     : (([ic, w]) => `<span class="td-rb td-rkind">${icon(ic)}<span>${w}</span></span>`)(kindOf(p));
   const what = `<span class="td-rs">${p.seen ? SEEN() + ' ' : ''}${p.s}</span>${n > 0 ? `<span class="td-rplus">+${n}<span class="sr"> more on this ${b ? 'bill' : 'item'}</span></span>` : ''}`;
   // A teammate's step is theirs to take: its row has no button, and the open item offers "Message Kevin".
-  const x = p.ro ? null : (p.btns || [])[0];
-  return `<div data-k="${ek}" class="td-row${p.seen ? ' td-seen' : ''}"${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${sel(`${urgBlock(p.due, untilOf(p))}<span class="td-rmain">${name}${what}</span>`)}
+  const x = p.ro ? null : (p.btns || [])[0], fill = filled && p.kind !== 'reply' && !p.seen && x && !x.text;
+  return `<div data-k="${ek}" class="td-row${p.seen ? ' td-seen' : ''}"${fill ? ' data-fill="1"' : ''}${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${sel(`${urgBlock(p.due, untilOf(p))}<span class="td-rmain">${name}${what}</span>`)}
     <span class="td-ract">${x ? button(p, x, true, filled && p.kind !== 'reply') : ''}</span>${end}</div>`;
 }
 // Which row is open: the one you chose, else the one now in its place; until you choose, the first (the list can
@@ -768,6 +771,18 @@ function pickSel() {
   return ROWS[S.tdSel ? Math.min(Math.max(0, S.tdSel.i || 0), ROWS.length - 1) : 0];
 }
 const markSel = (html, k) => { const ek = esc(k); return html.replace(`<div data-k="${ek}" class="td-row`, `<div data-k="${ek}" class="td-row on`).replace(`data-sel="${ek}" aria-current="false"`, `data-sel="${ek}" aria-current="true"`); };
+// The open row's own button is an outline: the open item beside it has the same step as its one filled button, and two
+// filled buttons for one step side by side was the same thing said twice (A-3, A-14; fresh-eyes review).
+function quietOpen(root) {
+  root.querySelectorAll('.td-row[data-fill]').forEach(r => { const b = r.querySelector('.td-ract .btn'); if (!b) return; const on = r.classList.contains('on'); b.classList.toggle('primary', !on); b.classList.toggle('secondary', on); });
+}
+// The open item scrolls on its own when it is taller than the window: its foot ("Open the bill") then carries a shadow,
+// so it is plain that there is more under it (B-7).
+function paneFit(pane) {
+  if (!pane) return;
+  const more = () => pane.classList.toggle('more', pane.scrollHeight - pane.scrollTop - pane.clientHeight > 2);
+  more(); if (!pane.dataset.fit) { pane.dataset.fit = '1'; pane.addEventListener('scroll', more, { passive: true }); }
+}
 
 // The open item. The bill (its number, its name as the heading, the plain summary), when it is due, the step with all
 // of its buttons, its Also items, its hearing (where, when, who is going, I'm going), and "Open the bill". Secondary
@@ -829,7 +844,7 @@ function select(k, { focus = false } = {}) {
   const root = document.querySelector('.td-root'), pane = root?.querySelector('#td-pane'); if (!pane) return;
   let el = null;
   root.querySelectorAll('.td-row').forEach(r => { const on = r.dataset.k === k; r.classList.toggle('on', on); r.querySelector('.td-rsel')?.setAttribute('aria-current', String(on)); if (on) el = r; });
-  pane.innerHTML = paneHTML(k); pane.scrollTop = 0; wireControls(pane);
+  pane.innerHTML = paneHTML(k); pane.scrollTop = 0; wireControls(pane); quietOpen(root); paneFit(pane);
   if (el) { if (focus) el.querySelector('.td-rsel')?.focus({ preventScroll: true }); el.scrollIntoView({ block: 'nearest' }); }
 }
 
@@ -845,13 +860,16 @@ function hearingsLine(scope, who) {
     return `<span class="td-hlone"><a href="#/hearing/${esc(h.id)}?from=today"><b>${esc(h.committee)} ${esc(timeOf(h.scheduled_at))}</b>${h.room ? `, ${esc(room(h.room))}` : ''}</a> · ${esc(going || 'nobody from the team going yet')}</span>`; };
   return `<p class="td-hline1">${icon('landmark')}<span class="td-hlt"><span>Hearings today:</span> ${shown.map(one).join('<span class="td-hlsep">; </span>')}${more ? ` <a href="#/?view=week">and ${more} more</a>` : ''}</span></p>`;
 }
-// "Next deadline Thu 3/19 · 16 bills with no hearing yet by Mon 3/30 →": the session clock in one line, opening This
-// week, where those bills are listed under their deadline. The count is said only because it is work (R-264 rule 4).
+// "Next deadline Thu 3/19 · 3 bills with no hearing yet →": the session clock in one line, opening This week, where those
+// bills are listed under their deadline. It names one deadline, the first that still has work: when every bill racing
+// the nearest one has a hearing, the line is about the one after ("Mon 3/30 deadline · 16 bills…"), not both at once
+// (fresh-eyes review). The count is said only because it is work (R-264 rule 4).
 function deadlineLine(scope, who) {
   const c = sessionClock(clockBills(scope, who)); if (!c) return '';
-  const n = c.noHearing.length, t = c.then, tn = t?.noHearing?.length || 0;
-  const work = n ? `${plural(n, 'bill')} with no hearing yet` : tn ? `${plural(tn, 'bill')} with no hearing yet by ${ckDay(t.date)}` : '';
-  return `<a class="td-dline" href="#/?view=week">${icon('calendar-clock')}<span><b>Next deadline ${esc(ckDay(c.date))}</b>${work ? ` · ${esc(work)}` : ''}</span>${icon('arrow-right', { cls: 'chev' })}</a>`;
+  const t = c.then, g = c.noHearing.length || !t?.noHearing?.length ? c : t, n = g.noHearing.length;
+  const head = g === c ? `Next deadline ${ckDay(c.date)}` : `${ckDay(t.date)} deadline`;
+  const work = n ? `${plural(n, 'bill')} with no hearing yet` : g.racing ? 'every bill racing it has a hearing' : '';
+  return `<a class="td-dline" href="#/?view=week">${icon('calendar-clock')}<span><b>${esc(head)}</b>${work ? ` · ${esc(work)}` : ''}</span>${icon('arrow-right', { cls: 'chev' })}</a>`;
 }
 function nextHearingText(scope, who) {
   const now = Date.now(), mine = billsOf(scope, who), ok = b => b && b.position && b.position !== 'monitor' && mine(b);
@@ -1472,7 +1490,7 @@ function aheadWeek(scope, who, coal) {
     if (open.length && due > now && hst(due) <= end) ev.push({ day: hst(due), at: due, kind: 'due', h, list: open });
   }
   const days = [0, 1, 2, 3, 4, 5, 6].map(i => dayAdd(today, i)).filter(d => ev.some(e => e.day === d));
-  const row = e => `<li class="ah-ev ah-${e.kind}${e.kind === 'due' && e.at - now <= DAY ? ' ah-soon' : ''}"><a href="#/hearing/${esc(e.h.id)}?from=week"><span class="ah-t">${esc(timeOf(new Date(e.at).toISOString()))}</span><span class="ah-k">${icon(e.kind === 'due' ? 'clock' : 'landmark')}${e.kind === 'due' ? `Written testimony closes · for the ${esc(e.h.committee)} hearing ${esc(dayFmt(hst(e.h.scheduled_at), { weekday: 'short', month: 'numeric', day: 'numeric' }).replace(',', ''))}` : `Hearing · ${esc(e.h.committee)}${e.h.room ? ' ' + esc(room(e.h.room)) : ''}`}</span><span class="ah-who">${ahNames(e.list.map(x => x.b))}</span></a></li>`;
+  const row = e => `<li class="ah-ev ah-${e.kind}${e.kind === 'due' && e.at - now <= DAY ? ' ah-soon' : ''}"><a href="#/hearing/${esc(e.h.id)}?from=week"><span class="ah-t">${esc(timeOf(new Date(e.at).toISOString()))}</span><span class="ah-k">${icon(e.kind === 'due' ? 'clock' : 'landmark')}${e.kind === 'due' ? `Testimony due · for the ${esc(e.h.committee)} hearing ${esc(dayFmt(hst(e.h.scheduled_at), { weekday: 'short', month: 'numeric', day: 'numeric' }).replace(',', ''))}` : `Hearing · ${esc(e.h.committee)}${e.h.room ? ' ' + esc(room(e.h.room)) : ''}`}</span><span class="ah-who">${ahNames(e.list.map(x => x.b))}</span></a></li>`;
   const body = days.length ? `<ol class="ah-days">${days.map(d => `<li class="ah-day"><h3 class="ah-dh">${esc(dayWord(d))} <span class="muted">${esc(dayFmt(d, { month: 'numeric', day: 'numeric' }))}</span></h3><ul class="ah-evs">${ev.filter(e => e.day === d).sort((a, b) => a.at - b.at || (a.kind === 'due' ? -1 : 1)).map(row).join('')}</ul></li>`).join('')}</ol>`
     : '<p class="ah-none">Nothing is scheduled in the next 7 days.</p>';
   return `<section class="ah-sec tw-days" aria-label="The next seven days">${body}</section>`;
@@ -1564,7 +1582,7 @@ function render(route) {
   }
   // A teammate's list is for looking: say so once. It is the top of the list, so it takes the focus when this list is
   // chosen (A-16). How many cards it holds is Team load's to say (R-264).
-  const note = who ? `<p class="td-whonote" data-top tabindex="-1">${icon('info')}<span>${esc(name)}’s list: the steps are ${esc(name)}’s to take, and messages sent to ${esc(name)} are not shown.</span></p>`
+  const note = who ? `<p class="td-whonote" data-top tabindex="-1">${icon('info')}<span>Messages sent to ${esc(name)} are not shown here.</span></p>`
     : scope === 'none' ? `<p class="td-whonote" data-top tabindex="-1">${icon('info')}<span>Anyone can take these steps. To give a bill an owner, use its “…” menu.</span></p>` : '';
   const digestHtml = digestSection(scope);
   const results = off ? resultsHtml(scope, who) : '', jan = off ? janPanel() : '';
@@ -1772,7 +1790,7 @@ function wire(route, root) {
     try { await DB.patchPrefs({ showMonitor: on }); } catch (e) { toast(e, { err: true }); return; }
     S.tdRefocus = el.closest('.td-wnav') ? '.td-wnav [data-mon]' : '[data-mon]'; hooks.render();
   });
-  wireControls(main);
+  wireControls(main); quietOpen(main); paneFit(main.querySelector('#td-pane'));
   // The open item's links are wired by the frame when the page is drawn, but not after select() redraws it: route
   // those the same way (a link the frame already handled is marked defaultPrevented and left alone).
   main.querySelector('#td-pane')?.addEventListener('click', e => { const a = e.target.closest('a[href^="#/"]'); if (!a || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); S.go(a.getAttribute('href')); });
