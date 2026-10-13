@@ -1,23 +1,26 @@
-// HIPHI Staff v2 · M2 Bill workspace (plan 3.3). The bill is a full page with its own address
-// (#/bill/HB1562[/overview|activity|pathway|public]), not a modal: Back works and a link can be shared.
-// Phones: the heading (nickname or plain summary, where the bill stands, position / owner chips), the
-// "Next up" card with the ONE button that does the testimony step, then the four tabs, which pin under the header.
-// Desktop (900px and wider, build 4): two columns. The main column leads with the bill's facts — the heading, the
-// stage ribbon, where it stands, then Details — and ends with the empty form (To do, Team note), because an empty
-// input is the least important thing on the page. The heading and the tabs pin together under the app header, so a
-// long Activity stream never costs you your place or the tab strip. The side panel is Next up and Team only; the key
-// facts moved into Details, which is what makes the panel fit on a 1280x800 screen without an inner scrollbar.
-// The Activity tab lives in activity.js, the Public tab in public.js, Pathway in pathway.js.
+// HIPHI Staff v3 · Bill workspace (R-264). A person comes here to see where one bill stands and do its next step (B-1).
+// The bill is a full page with its own address (#/bill/HB1562[/activity|public]), not a modal: Back works and a link can
+// be shared. v3 is the calmer, laptop-first copy (Nate 10/12: "too much going on at one time"): three tabs, not five.
+// Overview holds the committees (Pathway's stops and members, R-264) and, folded at its end, the earlier testimony (the
+// old Testimony tab); Activity opens with the team note, pinned; Public is three labelled blocks. Old links to
+// #/bill/X/pathway and #/bill/X/testimony land on Overview at the right section (TAB_ALIAS, SECTION_OF).
+// Phones: the heading (nickname or plain summary, where the bill stands, position / owner chips), the "Next up" card with
+// the ONE button that does the testimony step, then the three tabs, which pin under the header.
+// Desktop (900px and wider): two columns. The heading and the tabs pin together under the app header; the side panel is
+// Next up and Team only, said once: what the heading says (the committee, the deadline, the chair) is not said again in
+// Details or Next up (A-14).
+// The Activity tab lives in activity.js, the Public tab in public.js, Committees in pathway.js, Earlier testimony in
+// testimony.js.
 import { S, DB, DEMO, APP_URL, SESSION_YEAR, STAGES, STAGE_LABEL, hooks, esc, fmtDT, fmtDate, advocate, capitolUrl, isOwner, isMuted } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
-import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteName, streamOf, draftFor, draftWho, draftActions, chairMail, billNum, blurb, titleCaseTitle, sponsorName, legsOf, legTitle, legById, lastSlotBefore, OUTCOME_LABEL, unreadCount, listNames, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, nameOf, dWhen, standingIn, draftHearing, liveAsk, billRef } from './model.js';
+import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteName, streamOf, draftFor, draftWho, draftActions, chairMail, billNum, blurb, titleCaseTitle, sponsorName, legsOf, legTitle, legById, lastSlotBefore, unreadCount, listNames, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, nameOf, dWhen, standingIn, draftHearing, liveAsk, billRef } from './model.js';
 import { personById, changedSince, startedFromLine } from './data.js';
 import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, POS_SUB, posIcons, ownerOf, countdown, stepBar, stageRibbon, empty, notice, toast, openSheet, closeSheet,
   pickerSheet, menuSheet, confirmSheet, field, keysOn } from './ui.js';
-import { renderPathway, wirePathway } from './pathway.js';
+import { renderCommittees, wireCommittees } from './pathway.js';
 import { renderActivity, wireActivity, composerBar, loadTimeline, shortAction } from './activity.js';
 import { renderPublic, wirePublic, wireDraftsFocus } from './public.js';
-import { renderTestimony, wireTestimony, earlierCount, testimonyHref, onNextUp, draftNowBtn, makeDraftNow } from './testimony.js';
+import { renderEarlier, wireTestimony, earlierCount, testimonyHref, onNextUp, draftNowBtn, makeDraftNow } from './testimony.js';
 import { holdBack } from './review.js';
 import { sittingOf, goersOf, agendaOf } from './hearing.js';
 import { billRoute, billByNum, MEMO_SAYS } from './model.js';
@@ -74,9 +77,12 @@ addEventListener('beforeunload', e => {
 });
 
 // ---- which bill, which tab ----
-const TABS = [['overview', 'Overview'], ['activity', 'Activity'], ['pathway', 'Pathway'], ['public', 'Public'], ['testimony', 'Testimony']];
-// Old links (the current app's tab names, Slack's #bill=…&tab=chat) land where the content lives now.
-const TAB_ALIAS = { chat: 'activity', timeline: 'activity', notes: 'overview', details: 'overview', team: 'overview' };
+const TABS = [['overview', 'Overview'], ['activity', 'Activity'], ['public', 'Public']];
+// Old links (the current app's tab names, Slack's #bill=…&tab=chat, v2's Pathway and Testimony tabs) land where the
+// content lives now. The team note moved to Activity in v3, so "notes" goes there.
+const TAB_ALIAS = { chat: 'activity', timeline: 'activity', notes: 'activity', details: 'overview', team: 'overview', pathway: 'overview', committees: 'overview', testimony: 'overview' };
+// The section of Overview an old tab's link lands on: the committees (Pathway) or the earlier testimony (Testimony).
+const SECTION_OF = { pathway: 'cmt', committees: 'cmt', testimony: 'earlier' };
 const tabOf = r => { const t = TAB_ALIAS[r.tab] || r.tab; return TABS.some(([k]) => k === t) ? t : 'overview'; };
 const billOf = r => billByNum(r.num, r.year);
 const billHref = (b, tab = 'overview') => `${billRoute(b)}${tab === 'overview' ? '' : '/' + tab}`;
@@ -93,7 +99,8 @@ let prevRoute = null, prevHash = '', carry = null, lastKey = '', fresh = true;
       const same = cur && v && cur.name === 'bill' && v.name === 'bill' && cur.num === v.num && cur.year === v.year;
       if (cur && !same) { prevRoute = cur; prevHash = curHash; }
       // A render of a different page or tab (not a re-render after a save) is a fresh view.
-      const k = v ? `${v.name}|${v.year || ''}${v.num || v.id || ''}|${v.name === 'bill' ? tabOf(v) : ''}` : '';
+      // An old Pathway or Testimony link is Overview at a section: a view of its own, so it lands on that section.
+      const k = v ? `${v.name}|${v.year || ''}${v.num || v.id || ''}|${v.name === 'bill' ? tabOf(v) + (SECTION_OF[v.tab] || '') : ''}` : '';
       fresh = k !== lastKey; lastKey = k;
       cur = v; curHash = location.hash;
     } });
@@ -211,13 +218,13 @@ function switchTab(tab) {
 let popping = false;
 addEventListener('popstate', () => { popping = true; setTimeout(() => { popping = false; }, 0); });
 
-// ---- keyboard (desktop): 1-4 switch tabs, [ and ] move through the list, Esc goes back ----
+// ---- keyboard (desktop): 1-3 switch tabs, [ and ] move through the list, Esc goes back ----
 document.addEventListener('keydown', e => {
   if (S.route?.name !== 'bill' || !keysOn()) return;    // My settings can switch every shortcut off
   const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
   if (typing || e.metaKey || e.ctrlKey || e.altKey || document.querySelector('dialog[open]')) return;
   const b = billOf(S.route); if (!b) return;
-  if (/^[1-5]$/.test(e.key)) { e.preventDefault(); switchTab(TABS[+e.key - 1][0]); return; }
+  if (/^[1-3]$/.test(e.key)) { e.preventDefault(); switchTab(TABS[+e.key - 1][0]); return; }
   if (e.key === '[' || e.key === ']') { const nb = neighbours(b), to = nb && (e.key === '[' ? nb.prev : nb.next); if (to) { e.preventDefault(); goBill(to); } return; }
   if (e.key === 'Escape') { const a = document.querySelector('.bw-top [data-back]'); if (a) { e.preventDefault(); a.click(); } }
 });
@@ -230,7 +237,10 @@ const isJoint = code => codesOf(code).length > 1;
 const dlText = dl => dl ? `the ${gateName({ phase: dl.key, label: dl.label }).toLowerCase()} deadline, ${dayOf(dl.date + 'T12:00:00-10:00')}` : '';
 // Where the bill stands, in one sentence. Review shows it on each card too (R-022), where the draft's own hearing already
 // has a line of its own, so { hearing: false } leaves "Next: hearing ..." out there (A-14).
-export function statusSentence(b, { hearing = true } = {}) {
+// { chair: true } (the bill's own heading, v3): "Chair Sen. Dela Cruz decides." with the chair as a link, since the
+// Details row that named the chair is gone (it said the committee a second time). Review's cards keep the plain words:
+// a card is not the place for a link to a legislator.
+export function statusSentence(b, { hearing = true, chair = false } = {}) {
   const st = stopOf(b), ch = CHAMBER_NAME[st.chamber] || '';
   if (diedish(b) || st.phase === 'dead') return whyDead(b);           // whyDead escapes what it quotes
   if (st.phase === 'law') return 'Signed into law.';
@@ -245,7 +255,8 @@ export function statusSentence(b, { hearing = true } = {}) {
   if (st.hearingState === 'scheduled') return hearing ? `${passed}${where}. Next: ${isJoint(st.committee) ? 'joint hearing' : 'hearing'} ${esc(fmtDT(st.hearing.scheduled_at))}.` : `${passed}${where}.`;
   if (st.hearingState === 'held') return `${passed}${where}. Heard ${esc(dayOf(st.hearing.scheduled_at))}; waiting for the committee’s decision.`;
   if (st.deadline?.missed) return `Needed a hearing in ${esc(st.committee)} before ${esc(dlText(st.deadline))}, and did not get one.`;
-  return `${passed}${where}. Needs a hearing before ${esc(dlText(dl))}${dl ? ` (${dl.days} day${dl.days === 1 ? '' : 's'}), when it must ${esc(gateNeed(dl.label))}` : ''}. ${isJoint(st.committee) ? 'The chairs decide.' : 'The chair decides.'}`;
+  const who = chair ? chairLinks(b, st.committee) : '';
+  return `${passed}${where}. Needs a hearing before ${esc(dlText(dl))}${dl ? ` (${dl.days} day${dl.days === 1 ? '' : 's'}), when it must ${esc(gateNeed(dl.label))}` : ''}. ${who ? `${who} ${/^Chairs /.test(who) ? 'decide' : 'decides'}.` : isJoint(st.committee) ? 'The chairs decide.' : 'The chair decides.'}`;
 }
 
 // ---- picker chips: position and owner. Each saves on tap and says "Saved", with Undo. Priority is not picked: it
@@ -269,7 +280,8 @@ const followText = b => andList(followers(b).map(a => a.id === S.me?.id ? 'You' 
 // Muted is the one flag left beside the pickers: "Following" is said by the Following line, with everyone else (A-14).
 const followFlag = b => isMuted(b) ? chip('Muted', '', 'bell-off') : '';
 // The issues a bill is on (R-226, Nate 10/10): a quiet chip each, to the issue's page. The link says which bill it came
-// from, so the issue's Back link returns here. The Overview's Details names them again in words (issuesRow).
+// from, so the issue's Back link returns here. Said once (v3): Details no longer names them again, and the Public tab's
+// "Where it shows" is where they are changed.
 // Every issue gets its chip, even one named like the bill's own nickname (Nate 10/10 asked that the way from a bill to its issue
 // be abundantly clear, on SB2175 itself). The arrow is a chevron-right: a link, where Position and Owner open a menu.
 const issueChips = b => issuesOfBill(b.id).map(i => `<a class="chip sv-chip bw-ichip" href="${esc(issueLinkHref(i, b))}" aria-label="Issue: ${esc(i.name)}. Open it">${icon('tag')}<span>Issue: ${esc(i.name)}</span>${icon('chevron-right', { cls: 'chev' })}</a>`).join('');
@@ -294,14 +306,17 @@ function positionSaid(b, was, now) {
   const ready = ds.filter(d => d.status === 'approved').length, waiting = ds.filter(d => d.status === 'review' || d.status === 'second_review').length;
   const parts = old && old !== fresh ? [ready ? `${ready} approved testimony says ${old}` : '', waiting ? `${waiting} testimony waiting for approval says ${old}` : ''].filter(Boolean) : [];
   const warn = parts.length ? ` ${parts.join(' and ').replace(/^(\d+) approved testimony says/, (m, n) => +n > 1 ? `${n} approved testimonies say` : m)}: open it.` : '';
-  return { msg: `Saved. ${page}${warn}`.replace(/\s+/g, ' ').trim(), act: parts.length };
+  // "Open" opens that testimony's Doc (v3: the Testimony tab it used to open is gone; the Doc is what needs reading).
+  const doc = parts.length ? ds.find(d => ['approved', 'review', 'second_review'].includes(d.status) && d.doc_url)?.doc_url || '' : '';
+  return { msg: `Saved. ${page}${warn}`.replace(/\s+/g, ' ').trim(), act: parts.length, doc };
 }
 async function saveWithUndo(b, patch, focusSel, say) {
   const before = {}; for (const k of Object.keys(patch)) before[k] = b[k] ?? null;
   try {
     await DB.updateBill(b.id, patch); FACTS.clear(); rerender(focusSel);
     const said = say ? say(before) : null;
-    toast(said ? said.msg : 'Saved', { undo: async () => { await DB.updateBill(b.id, before); FACTS.clear(); rerender(focusSel); toast('Put back as it was'); }, ...(said?.act ? { action: { label: 'Open', run: () => S.go(billRoute(b, 'testimony')) } } : {}) });
+    toast(said ? said.msg : 'Saved', { undo: async () => { await DB.updateBill(b.id, before); FACTS.clear(); rerender(focusSel); toast('Put back as it was'); },
+      ...(said?.act ? { action: { label: 'Open', run: () => { if (said.doc) window.open(said.doc, '_blank', 'noopener'); else document.querySelector('.bw-next')?.scrollIntoView({ block: 'start' }); } } } : {}) });
   } catch (e) { toast(e, { err: true }); rerender(focusSel); }
 }
 function pickPosition(b) {
@@ -323,9 +338,14 @@ function pickOwner(b) {
     } });
 }
 
-// ---- the page's ⋯ menu: Follow or Mute, Copy link, Capitol page, the current app ----
+// The bill's page on the public tracker, when it is live there. The public page's address carries the year for a bill
+// from an earlier session (#/bill/2026/HB2121, R-110).
+const publicUrl = b => { const yr = b.session_year && +b.session_year !== SESSION_YEAR ? `${b.session_year}/` : '';
+  return pubStateCls(b).includes('live') ? `${PUBLIC_APP()}${DEMO ? '?demo=1' : ''}#/bill/${yr}${b.bill_number}` : ''; };
+// ---- the page's ⋯ menu: Follow or Mute, Copy link, Public page, Capitol page, the current app ----
+// v3: the links that sat at the foot of Details (Capitol page, Public page, Copy link) live here only (A-20).
 function pageMenu(b) {
-  const h = hearingAhead(b), muted = isMuted(b), following = !!S.follows?.has(b.id), num = billNum(b);
+  const h = hearingAhead(b), muted = isMuted(b), following = !!S.follows?.has(b.id), num = billNum(b), pub = publicUrl(b);
   // The server refuses to mute while a hearing is ahead; say its sentence before anyone tries.
   const refuse = h ? `This bill has a ${h.committee} hearing on ${fmtDate(h.scheduled_at)}. It can be muted once that hearing is over.` : '';
   menuSheet({ title: num, items: [
@@ -335,6 +355,7 @@ function pageMenu(b) {
       : { label: following ? 'Unfollow' : 'Follow', icon: following ? 'bell-off' : 'bell', sub: following ? 'Stop seeing it in your bills' : 'See it in your bills and get its updates', run: () => toggleFollow(b) },
     { label: 'Copy link', icon: 'link', sub: 'Opens this bill for anyone on the team', run: () => afterBack(() => copyLink(b)) },
     S.me?.is_admin && !b.stage_override ? { label: 'Correct the stage', icon: 'pencil', sub: 'Only when the Capitol’s record is wrong', run: () => afterBack(() => pickStage(b)) } : null,
+    pub ? { label: 'Public page', icon: 'globe', sub: 'What the public sees', run: () => { window.open(pub, '_blank', 'noopener'); } } : null,
     { label: 'Capitol page', icon: 'external-link', sub: 'capitol.hawaii.gov', run: () => { window.open(capitolUrl(b), '_blank', 'noopener'); } },
     { label: 'Open in the current app', icon: 'external-link', sub: 'The look you know, same data', run: () => { location.href = `${APP_URL}${DEMO ? '?demo=1' : ''}#bill=${b.bill_number}`; } },
   ] });
@@ -401,28 +422,30 @@ function testimonyBlock(b, d, { primary = true, title = '' } = {}) {
   else if (d.status === 'filed') main = chip('Filed', 'ok', 'check');
   else if (d.status === 'cancelled') main = chip('Hearing cancelled', '', 'circle-x');
   const stale = b.current_version && (d.version || null) !== b.current_version && !['filed', 'cancelled'].includes(d.status);
-  const earlier = d.status === 'draft' && tabOf(S.route || {}) !== 'testimony' ? earlierCount(b) : 0;
+  // R-027: earlier testimony on this bill, its companion and its issue, one tap away while this one is being written (only
+  // then: in review nobody is writing). v3: a quiet link, no count (numbers only where they ask for action), to the folded
+  // "Earlier testimony" at the end of Overview. An open book: a clock would read as this Doc's version history.
+  const borrow = d.status === 'draft' && earlierCount(b) > 0;
   const links = [
     d.doc_url ? btn('Open Doc', { kind: 'text', icon: 'file-text', href: d.doc_url, target: '_blank' }) : '',
     d.filed_url ? btn('Confirmation', { kind: 'text', icon: 'external-link', href: d.filed_url, target: '_blank' }) : '',
-    // R-027: earlier testimony on this bill, its companion and its issue, one tap away while this one is being written
-    // (only then: in review nobody is writing). An open book: a clock would read as this Doc's version history, a scroll as the Bills tab.
-    // A plain link, not a button (A-3), and not shown while the Testimony tab is open beside this card (A-14).
-    earlier ? btn(`Earlier testimony (${earlier})`, { kind: 'text', icon: 'book-open', href: testimonyHref(b), attrs: { 'data-earlier': '1' } }) : '',
+    borrow ? btn('Borrow from earlier testimony', { kind: 'text', icon: 'book-open', href: testimonyHref(b), attrs: { 'data-borrow': '1' } }) : '',
   ].join('');
+  // Where the draft started from matters while it is written and checked; once it is approved it is history (v3).
+  const from = ['draft', 'review', 'second_review'].includes(d.status) ? startedFromLine(b, d) : '';
   return `<div class="bw-tb" data-tb="${esc(d.id)}">
     ${title ? `<p class="bw-tbt">${title}</p>` : ''}
     ${['cancelled', 'filed'].includes(d.status) ? '' : stepBar(d.status, { second })}
     <p class="bw-who">${esc(whoLine(d))}${own && acts.includes('approve') ? ` ${chip('Your own draft')}` : ''}</p>
     ${d.status === 'draft' && d.review_note ? `<blockquote class="bw-quote"><span class="meta">Changes asked for</span>${esc(d.review_note)}</blockquote>` : ''}
-    ${startedFromLine(b, d) ? `<p class="bw-from">${icon('copy')}<span>${esc(startedFromLine(b, d))}</span></p>` : ''}
+    ${from ? `<p class="bw-from">${icon('copy')}<span>${esc(from)}</span></p>` : ''}
     ${stale ? notice('warn', 'triangle-alert', `The bill is now ${esc(b.current_version)}. This draft was written for ${esc(d.version || 'the introduced bill')}; check it before it goes out.${changedSince(b, d.version) ? ` What changed: ${esc(changedSince(b, d.version))}` : ''}`) : ''}
     ${main || alt ? `<div class="bw-acts">${main}${alt}</div>` : ''}
     ${links ? `<div class="bw-links">${links}</div>` : ''}
   </div>`;
 }
-// Who from the team is going (R-022 wave 3 #16), you first, or plainly nobody yet. "I'm going" stays; an admin can also
-// put one teammate down, who is told by Slack (migration 064 does the telling).
+// Who from the team is going (R-022 wave 3 #16), you first, or plainly nobody yet. v3: one line, "Going: nobody yet ·
+// I'm going", with the names when people are going; "Send a teammate…" (admins) moved into the card's ⋯ menu (A-20).
 // Going is to a SITTING (one committee at one time), not to one bill's row: it is read from every row of the sitting and
 // written on one (the sitting's lead row, as the hearing page writes it), so ten bills in one sitting never send ten
 // Slack messages (hearing.js).
@@ -431,28 +454,29 @@ const markedOn = (h, id) => sittingOf(h).filter(r => (S.attend?.[r.id] || []).in
 function attendRow(h) {
   const att = goersOf(sittingOf(h));
   const meIn = att.some(a => a.id === S.me?.id);
-  const say = att.length ? `Going: ${andList(att.map(a => a.id === S.me?.id ? 'You' : firstName(a)))}` : 'Nobody from the team yet';
-  return `<div class="bw-going"><p class="bw-gwho${att.length ? '' : ' none'}">${icon(att.length ? 'users-round' : 'user-round')}<span>${esc(say)}</span></p>
-    <div class="bw-gacts"><button type="button" class="chip" data-attend="${esc(h.id)}" aria-pressed="${meIn}">${icon(meIn ? 'user-check' : 'user-plus')}I’m going</button>${S.me?.is_admin ? `<button type="button" class="chip" data-putdown="${esc(h.id)}" aria-haspopup="dialog">${icon('user-round-plus')}Send a teammate…</button>` : ''}</div></div>`;
+  const who = att.length ? andList(att.map(a => a.id === S.me?.id ? 'You' : firstName(a))) : 'nobody yet';
+  // The toggle names what it will do: "I'm going" adds you, "Take me off" once you are on (A-12: its pressed state shows).
+  const go = S.me ? ` <span aria-hidden="true">·</span> <button type="button" class="linkbtn bw-gobtn" data-attend="${esc(h.id)}" aria-pressed="${meIn}">${meIn ? 'Take me off' : 'I’m going'}</button>` : '';
+  return `<p class="bw-going1${att.length ? '' : ' none'}">${icon(att.length ? 'users-round' : 'user-round')}<span><span class="bw-gwho">Going: ${esc(who)}</span>${go}</span></p>`;
 }
-function watchLink(h) {
-  const v = streamOf(h); if (!v) return '';
-  const label = v.state === 'live' ? 'Watch live now' : v.state === 'after' ? (v.exact && /[?&]t=\d/.test(v.url) ? 'Watch this bill’s part' : 'Watch the recording') : 'Watch the hearing';
-  return `<a class="btn text bw-watch" data-watch="${esc(h.id)}" href="${esc(v.url)}" target="_blank" rel="noopener"${v.hint ? ` title="${esc(v.hint)}"` : ''}>${icon('video')}<span>${label}</span></a>`;
-}
+// The hearing's video, named for the moment (live, after, before): an item in Next up's ⋯ menu (v3).
+const watchLabel = v => v.state === 'live' ? 'Watch live now' : v.state === 'after' ? (v.exact && /[?&]t=\d/.test(v.url) ? 'Watch this bill’s part' : 'Watch the recording') : 'Watch the hearing';
 // A bill with a hearing coming and no draft yet still has a testimony deadline; the page used to show it only after "Make the
 // draft now" (R-152 C: the bill page said when the hearing starts and left out when testimony is due).
 const wantsTestimony = (b, h) => !!b.position && b.position !== 'monitor' && h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now();
+// Testimony due, with its countdown. Past the deadline while the hearing has not started, the Capitol still takes late
+// testimony: amber "late testimony until 1:10 PM", not red "overdue" (A-5 as amended by R-250; ui.js countdown).
+const dueRow = (h, due) => `<p class="bw-due"><span>Testimony due ${esc(fmtDT(due))}</span>${countdown(due, { until: h.scheduled_at })}</p>`;
 function hearingCard(b, h, i) {
   const d = draftFor(b.id, h.committee), due = dueOf(h), filed = d && d.status === 'filed';
   const meta = [fmtDT(h.scheduled_at), roomOf(h.room), h.committee].filter(Boolean).map(esc).join(' · ');
   const dueLine = d && !filed && d.status !== 'cancelled'
-    ? `<p class="bw-due"><span>Testimony due ${esc(fmtDT(due))}</span>${countdown(due)}</p>`
-    : `${!d && wantsTestimony(b, h) ? `<p class="bw-due"><span>Testimony due ${esc(fmtDT(due))}</span>${countdown(due)}</p>` : ''}<p class="bw-due"><span>Hearing starts</span>${countdown(h.scheduled_at).replace('left', 'from now')}</p>`;
+    ? dueRow(h, due)
+    : `${!d && wantsTestimony(b, h) ? dueRow(h, due) : ''}<p class="bw-due"><span>Hearing starts</span>${countdown(h.scheduled_at).replace('left', 'from now')}</p>`;
   // No draft yet: the tracker makes one from the hearing notice; if it has not, anyone can ask for it now (R-102).
-  const noDraft = !d ? (S.failed?.('testimony drafts') ? '<p class="small muted bw-nodraft">The testimony drafts did not load, so this page cannot say whether there is one. Reload, then look again.</p>'
+  const noDraft = !d ? (S.failed?.('testimony drafts') ? '<p class="small muted bw-nodraft">The testimony drafts did not load. Reload, then look again.</p>'
     : b.position && b.position !== 'monitor'
-    ? `<div class="bw-nodraft"><p class="small muted">No testimony draft yet. The hearing notice is in: the tracker makes the draft within minutes. If it has not, make it now.</p>${h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now() ? draftNowBtn(h) : ''}</div>`
+    ? `<div class="bw-nodraft"><p class="small muted">No testimony draft yet.</p>${h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now() ? draftNowBtn(h) : ''}</div>`
     : '<p class="small muted bw-nodraft">Monitor bills get no testimony draft.</p>') : '';
   return `<section class="card bw-next" aria-labelledby="bw-nx-${i}">
     <div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-nx-${i}">${i === 0 ? 'Next up' : 'Also coming up'}</h2><span class="bw-nhacts">${btn('Hearing page', { kind: 'text', sm: true, iconEnd: 'chevron-right', href: `#/hearing/${encodeURIComponent(h.id)}?from=${encodeURIComponent(b.bill_number)}`, cls: 'bw-hpage', attrs: { 'aria-label': `The ${h.committee} hearing's page` } })}${iconBtn('ellipsis', 'More for this hearing', { 'data-hmenu': h.id })}</span></div>
@@ -460,10 +484,11 @@ function hearingCard(b, h, i) {
     <p class="bw-meta">${meta}</p>
     ${dueLine}
     ${d ? testimonyBlock(b, d, { primary: true }) : noDraft}
-    <div class="bw-hfoot">${attendRow(h)}${watchLink(h)}</div>
+    <div class="bw-hfoot">${attendRow(h)}</div>
   </section>`;
 }
-// No hearing yet, still in committee: who decides, the deadline, the last regular slot, and a prefilled note to the chair.
+// No hearing yet, still in committee. The heading's sentence already says the committee, the deadline and who decides, so
+// this card says only what it adds: the last regular slot and its notice, and a prefilled note to the chair (A-14).
 function chairLinks(b, code) {
   const legs = legsOf(code);
   const one = c => { const l = legs.find(m => m.roles[c] === 'chair')?.l;
@@ -484,46 +509,30 @@ function needsHearingCard(b) {
   const dl = st.deadline && !st.deadline.missed ? st.deadline : null;
   const sl = dl && st.committee ? lastSlotBefore(st.committee, dl.date, S.slots) : null;
   const risk = !!riskOf(b), ask = st.committee && b.position && b.position !== 'monitor' ? chairAskHref(b, st.committee, dl) : '';
-  const chairs = st.committee ? chairLinks(b, st.committee) : '';
+  // Waiting for a referral has nothing to add to the heading's sentence, and neither does a stop with no slot and no ask.
+  if (!st.committee || (!sl && !ask)) return '';
   return `<section class="card bw-next" aria-labelledby="bw-nx-0">
     <div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-nx-0">Next up</h2></div>
-    <p class="bw-hear">${st.committee ? `Needs a hearing in ${esc(cmteFull(st.committee))}` : `Waiting to be sent to a ${CHAMBER_NAME[st.chamber] || ''} committee`}</p>
-    ${chairs ? `<p class="bw-meta">${chairs}${st.stops > 1 ? ` · committee ${st.stop} of ${st.stops}` : ''}</p>` : ''}
-    ${dl ? `<p class="bw-due"><span>${esc(cap(dlText(dl)))}</span>${daysLeft(dl)}</p>` : ''}
+    <p class="bw-hear">Ask for a hearing in ${esc(cmteName(st.committee))}</p>
     ${sl ? `<p class="small ${now > sl.noticeBy ? 'bw-late' : 'muted'}">${now > sl.noticeBy ? `${icon('circle-alert')}The notice window for the last regular slot has closed. Call the chair.` : `Last regular slot ${esc(fmtDT(sl.at))}. The notice has to post by ${esc(fmtDT(sl.noticeBy))}.`}</p>` : ''}
     ${ask ? `<div class="bw-acts">${btn('Email the chair', { kind: risk ? 'primary' : 'secondary', icon: 'mail', href: ask })}</div>` : ''}
   </section>`;
 }
-const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
-// Whole days to a deadline, counted the way the status sentence counts them (stops.js), so the two never disagree.
-const daysLeft = dl => dl.days === 0 ? `<span class="sv-count soon">${icon('clock')}Last day today</span>` : `<span class="sv-count">${icon('clock')}${dl.days} day${dl.days === 1 ? '' : 's'} left</span>`;
-function recentHearings(b) {
-  const now = Date.now();
-  const past = S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) <= now && new Date(x.scheduled_at) > now - 14 * 864e5)
-    .sort((x, y) => y.scheduled_at.localeCompare(x.scheduled_at));
-  if (!past.length) return '';
-  const tone = o => ({ passed: ['ok', 'check'], passed_amended: ['ok', 'check'], deferred: ['', 'circle-x'], recommitted: ['', 'rotate-ccw'] }[o] || ['', 'hourglass']);
-  return `<div class="bw-recent"><p class="bw-eyebrow">Recent hearings</p>${past.map(h => {
-    const o = S.outcomes?.[h.id], v = streamOf(h), [t, ic] = tone(o?.outcome);
-    return `<div class="bw-rh"><p><b>${esc(h.committee)}</b> heard ${esc(fmtDT(h.scheduled_at))} ${chip(o?.outcome ? (OUTCOME_LABEL[o.outcome] || o.outcome) : 'No report yet', t, ic)}</p>
-      ${o?.report ? `<p class="small muted bw-clamp">${esc(o.report)}</p>` : ''}
-      ${v ? `<a class="bw-inline" href="${esc(v.url)}" target="_blank" rel="noopener">Recording${icon('external-link')}</a>` : ''}</div>`; }).join('')}</div>`;
-}
+// Next up is what is coming. A hearing that has happened, its result and its recording are in Overview's Committees,
+// beside the committee they belong to (v3: Next up's "Recent hearings" said them a second time, A-14).
 function nextCards(b) {
   const now = Date.now(), dead = diedish(b), st = stopOf(b);
   const ups = S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) > now).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
   const seen = new Set(ups.map(h => draftFor(b.id, h.committee)?.id).filter(Boolean));
   const cards = ups.map((h, i) => hearingCard(b, h, i));
-  if (!ups.length && !dead && st.phase === 'committee') cards.push(needsHearingCard(b));
+  if (!ups.length && !dead && st.phase === 'committee') { const c = needsHearingCard(b); if (c) cards.push(c); }
   // Testimony not tied to a hearing still ahead (in review after the hearing moved, approved but not filed…)
-  // Unfinished only: once its hearing has passed, a filed draft lives on the Testimony tab (R-027), so this card
-  // does not grow all session and nothing is said twice (A-14).
+  // Unfinished only: once its hearing has passed, a filed draft lives under its committee in Overview (R-027), so this
+  // card does not grow all session and nothing is said twice (A-14).
   const other = (S.drafts[b.id] || []).filter(d => !seen.has(d.id) && onNextUp(d))
     .sort((x, y) => String(y.created_at).localeCompare(String(x.created_at)));
   if (other.length) cards.push(`<section class="card bw-next" aria-labelledby="bw-nx-t"><div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-nx-t">${cards.length ? 'Other testimony' : 'Testimony'}</h2>${other.some(d => draftActions(d).some(a => ['withdraw', 'unfile'].includes(a[0]))) ? iconBtn('ellipsis', 'More for this testimony', { 'data-tmenu': other[0].id }) : ''}</div>
     ${other.map((d, i) => testimonyBlock(b, d, { primary: i === 0 && !ups.length, title: `For ${esc(cmteFull(d.committee))}` })).join('')}</section>`);
-  const rec = recentHearings(b);
-  if (rec) { if (cards.length) cards[cards.length - 1] = cards[cards.length - 1].replace(/<\/section>$/, rec + '</section>'); else cards.push(`<section class="card bw-next">${rec}</section>`); }
   return cards.join('');
 }
 
@@ -607,9 +616,12 @@ function markFiled(b, d) {
       };
     } });
 }
+// Next up's own ⋯ menu (v3, A-20): watching the hearing and sending a teammate left the card's face for here.
 function hearingMenu(b, h) {
-  const d = draftFor(b.id, h.committee), acts = d ? draftActions(d).map(a => a[0]) : [];
+  const d = draftFor(b.id, h.committee), acts = d ? draftActions(d).map(a => a[0]) : [], v = streamOf(h);
   menuSheet({ title: `${h.committee} hearing`, items: [
+    v ? { label: watchLabel(v), icon: 'video', sub: v.hint || 'Opens YouTube', run: () => { window.open(v.url, '_blank', 'noopener'); } } : null,
+    S.me?.is_admin ? { label: 'Send a teammate…', icon: 'user-round-plus', sub: 'They get a Slack message', run: () => afterBack(() => putDown(b, h)) } : null,
     { label: 'Fix the video link', icon: 'video', sub: h.stream_url ? 'A link is set by staff' : 'Paste the YouTube address for this hearing', run: () => afterBack(() => fixVideo(b, h)) },
     acts.includes('withdraw') ? { label: 'Withdraw from review', icon: 'undo-2', sub: 'It goes back to a draft', run: () => runDraft(b, d, 'withdraw') } : null,
     acts.includes('unfile') ? { label: 'Unmark filed', icon: 'undo-2', sub: 'If it was marked filed by mistake', run: () => runDraft(b, d, 'unfile') } : null,
@@ -657,7 +669,7 @@ function putDown(b, h) {
   pickerSheet({ title: `Send a teammate to the ${esc(h.committee)} hearing`, value: '', help: 'Pick one person. They get a Slack message. Pick someone already going to take them off.',
     options: people.map(a => [a.id, a.full_name, going.has(a.id) ? 'user-check' : 'user-round', going.has(a.id) ? 'Going' : '']),
     onPick: async id => {
-      const a = advocate(id), on = !going.has(id), sel = `[data-putdown="${h.id}"]`; if (!a) return;
+      const a = advocate(id), on = !going.has(id), sel = `[data-hmenu="${h.id}"]`; if (!a) return;   // back to the ⋯ it came from
       try {
         const rows = await setGoing(h, id, on); rerender(sel);
         toast(on ? told(a, 'hearing', `is going to the ${h.committee} hearing`) : `${firstName(a)} is off the ${h.committee} hearing.`,
@@ -674,7 +686,10 @@ async function toggleAttend(b, hid) {
   } catch (e) { rerender(sel); toast(e, { err: true }); }
 }
 
-// ---- Overview: summary, to do, team note, team, details ----
+// ---- Overview (v3): to do, the committees, details, and the earlier testimony folded at the end ----
+// To do: until there is a task, one line, "Add a task", that opens the box (v3: an empty form is not worth a section).
+// The box stays open for the visit once opened, so a second task follows the first.
+S.bwTodoOpen ??= new Set();
 function todoSection(b) {
   const today = hiToday();
   const list = (S.todos[b.id] || []).slice().sort((x, y) => (x.done - y.done) || (x.sort_order - y.sort_order) || String(x.created_at).localeCompare(String(y.created_at)));
@@ -690,48 +705,34 @@ function todoSection(b) {
     </li>`;
   }).join('');
   const d = drafts.get(b.id + ':todo') || '';
+  const add = S.bwTodoOpen.has(b.id) || d
+    ? `<form class="bw-addrow" data-todoadd novalidate><label class="sr" for="bw-tdnew">Add a task</label><input id="bw-tdnew" class="input" maxlength="200" placeholder="Add a task" autocomplete="off" value="${esc(d)}">${btn('Add', { kind: 'secondary', icon: 'plus', attrs: { type: 'submit' } })}</form>`
+    : btn('Add a task', { kind: 'text', icon: 'plus', cls: 'bw-todoadd', attrs: { 'data-todoopen': '1' } });
+  if (!rows) return `<section class="bw-sec bw-todo0" aria-labelledby="bw-todo-h"><h2 id="bw-todo-h" class="sr">To do</h2>${add}</section>`;
   return `<section class="bw-sec" aria-labelledby="bw-todo-h">
     <h2 id="bw-todo-h">To do${open ? ` <span class="bw-n">${open}</span>` : ''}</h2>
-    ${rows ? `<ul class="rows bw-todos">${rows}</ul>` : ''}
-    <form class="bw-addrow" data-todoadd novalidate><label class="sr" for="bw-tdnew">Add a task</label><input id="bw-tdnew" class="input" maxlength="200" placeholder="Add a task" autocomplete="off" value="${esc(d)}">${btn('Add', { kind: 'secondary', icon: 'plus', attrs: { type: 'submit' } })}</form>
+    <ul class="rows bw-todos">${rows}</ul>
+    ${add}
   </section>`;
 }
+// ---- the team note: pinned at the top of Activity (v3; it was in Overview) ----
+// Saved, it reads as a pinned message with Edit; empty, it is one line, "Add a team note". Typing opens it as a box, and a
+// box with unsaved words stays a box until it is saved, whatever else redraws the page.
 // The team note as it stood when the person began typing (R-152 B), per bill; dropped when the draft is.
 const noteBase = new Map();
-function noteSection(b) {
-  const d = drafts.get(b.id + ':note'), val = d ?? (b.internal_notes || '');
-  return `<section class="bw-sec" aria-labelledby="bw-note-h">
-    <h2 id="bw-note-h">Team note <span class="bw-sub">${icon('lock')}never public</span></h2>
-    <div class="field"><label class="sr" for="bw-note">Team note</label><textarea id="bw-note" rows="3" placeholder="Context the team should keep: who we talked to, what the chair said, what to watch for.">${esc(val)}</textarea></div>
-    <div class="bw-acts">${btn('Save note', { kind: 'secondary', attrs: { 'data-savenote': '1' } })}${d != null && d !== (b.internal_notes || '') ? '<span class="small muted">Not saved yet</span>' : ''}</div>
+S.bwNoteEdit ??= new Set();
+export function noteSection(b) {
+  const d = drafts.get(b.id + ':note'), saved = b.internal_notes || '', unsaved = d != null && d !== saved;
+  const head = `<h2 id="bw-note-h">Team note <span class="bw-sub">${icon('lock')}never public</span></h2>`;
+  if (!unsaved && !S.bwNoteEdit.has(b.id)) {
+    if (!saved.trim()) return `<section class="bw-sec bw-note0" aria-labelledby="bw-note-h"><h2 id="bw-note-h" class="sr">Team note</h2>${btn('Add a team note', { kind: 'text', icon: 'lock', attrs: { 'data-noteedit': '1' } })}</section>`;
+    return `<section class="bw-sec bw-tnote" aria-labelledby="bw-note-h"><div class="bw-sech">${head}${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-noteedit': '1', 'aria-label': 'Edit the team note' } })}</div>
+      <p class="bw-notetx">${esc(saved)}</p></section>`;
+  }
+  return `<section class="bw-sec bw-tnote editing" aria-labelledby="bw-note-h">${head}
+    <div class="field"><label class="sr" for="bw-note">Team note</label><textarea id="bw-note" rows="3" placeholder="Context the team should keep: who we talked to, what the chair said, what to watch for.">${esc(d ?? saved)}</textarea></div>
+    <div class="bw-acts">${btn('Save note', { kind: 'secondary', attrs: { 'data-savenote': '1' } })}${unsaved ? '<span class="small muted">Not saved yet</span>' : ''}</div>
   </section>`;
-}
-function teamSection(b, desk) {
-  // Each coalition opens its own page (R-022 wave 3: this week's hearings, at-risk bills, the partner memo).
-  const coal = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(c => c.id === id)).filter(Boolean);
-  const f = desk ? '' : followText(b);
-  // On desktop "Team" is the side panel's card (position, owner, who follows), so this section is named for
-  // what it holds. The stage is not here any more: the ribbon at the top says it, once (A-14).
-  return `<section class="bw-sec" aria-labelledby="bw-team-h"><h2 id="bw-team-h">${desk ? 'Coalitions' : 'Team'}</h2>
-    <div class="rows">
-      <div class="row bw-line"><span class="body"><span class="sub">Coalitions</span><span class="title">${coal.length ? coal.map(c => `<a class="bw-coal" href="#/coalition/${esc(c.id)}">${esc(c.name)}</a>`).join(', ') : '<span class="muted">None</span>'}</span></span>${btn('Edit', { kind: 'text', attrs: { 'data-coal': '1', 'aria-label': 'Edit coalitions' } })}</div>
-      ${f ? `<div class="row bw-line"><span class="body"><span class="sub">Following</span><span class="title">${esc(f)}</span></span></div>` : ''}
-    </div></section>`;
-}
-function referralsHTML(b) {
-  const refs = b.referrals || []; if (!refs.length) return '<span class="muted">None yet</span>';
-  const n = Math.min(b.origin_stops || refs.length, refs.length), st = stopOf(b);
-  const origin = b.chamber || (b.bill_number.startsWith('S') ? 'S' : 'H'), other = origin === 'H' ? 'S' : 'H';
-  const stateOf = (leg, i) => {
-    if (st.phase === 'dead' || diedish(b)) return '';
-    if (st.leg !== leg) return leg === 'first' ? 'past' : '';
-    if (st.phase !== 'committee') return 'past';
-    return st.stop === i + 1 ? 'here' : st.stop > i + 1 ? 'past' : '';
-  };
-  const line = (ch, list, leg) => list.length ? `<span class="bw-refl"><span class="bw-refch">${CHAMBER_NAME[ch]}</span>${list.map((c, i) => { const s = stateOf(leg, i);
-    return `<span class="bw-ref ${s}" title="${esc(cmteFull(c))}">${s === 'past' ? icon('check') : s === 'here' ? icon('circle-dot') : ''}${esc(c)}${s === 'here' ? '<span class="sr"> (now)</span>' : s === 'past' ? '<span class="sr"> (passed)</span>' : ''}</span>`; }).join(icon('chevron-right', { cls: 'bw-arr' }))}</span>` : '';
-  const second = refs.slice(n);
-  return line(origin, refs.slice(0, n), 'first') + (second.length ? line(other, second, 'second') : st.leg === 'second' && st.phase === 'committee' ? `<span class="bw-refl"><span class="bw-refch">${CHAMBER_NAME[other]}</span><span class="muted">Waiting for its referral</span></span>` : '');
 }
 // The Capitol lists "LEE, M." as two sponsors; put the initial back on its name.
 function sponsorList(b) {
@@ -739,48 +740,24 @@ function sponsorList(b) {
   for (const s of b.sponsors || []) { const n = String(s.n || s.name || s).trim(); if (/^[A-Z]\.$/.test(n) && out.length) out[out.length - 1] += ', ' + n; else if (n) out.push(n); }
   return out.map(sponsorName);
 }
-// The lines that say where the bill is. Phones list them in Overview > Details; the desktop side panel shows them
-// beside every tab, so there they leave Details (one place per fact on a screen).
-// There is no Stage line here any more (R-022, A-14): the ribbon above every tab names the stage, and the status sentence
-// says where the bill is and what comes next. Three places said it before.
-function whereLines(b) {
-  const st = stopOf(b);
-  const chairs = st.committee ? chairLinks(b, st.committee) : '';
-  const cm = st.committee ? `${esc(cmteFull(st.committee))} <span class="muted">(${esc(st.committee)})</span>${chairs ? ` · ${chairs}` : ''}` : st.phase === 'committee' ? `<span class="muted">Waiting for a ${CHAMBER_NAME[st.chamber]} referral</span>` : '';
-  return { cm: cm ? `<div class="bw-dt"><dt>Committee</dt><dd>${cm}</dd></div>` : '',
-    comp: (b.companions || []).length ? `<div class="bw-dt"><dt>Companion</dt><dd id="bw-comp">${compHTML(b)}</dd></div>` : '' };
-}
-const capitolLink = b => `<a class="bw-inline" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">Capitol page${icon('external-link')}</a>`;
-const copyLinkBtn = '<button type="button" class="linkbtn bw-inline" data-copylink="1">Copy link</button>';
-// The issues in Details (R-226): the header's chips again, in words, so a reader of the Overview sees them too.
-const issuesRow = b => { const iss = issuesOfBill(b.id);
-  return `<div class="bw-dt"><dt>${iss.length > 1 ? 'Issues' : 'Issue'}</dt><dd>${iss.length ? iss.map(i => `<a class="bw-inline" href="${esc(issueLinkHref(i, b))}">${esc(i.name)}</a>`).join(', ') : '<span class="muted">None yet</span>'}</dd></div>`; };
-// Details: every fact about the bill in one place, on a phone and on a desktop alike. The side panel used to keep a
-// second copy of some of them ("Key facts"), which made the panel taller than the window; one place per fact instead.
-function detailsSection(b) {
-  const sp = sponsorList(b), all = !!S.bwSponsAll?.[b.id], st = stopOf(b);
-  const dead = diedish(b) || st.phase === 'dead';
-  const dl = st.deadline && !dead ? st.deadline : null;
-  const w = whereLines(b);
-  // Which of the chamber's committee stops this is: the referral row marks it, this says it in words.
-  const stops = st.phase === 'committee' && st.stops > 1 && !dead
-    ? `<span class="bw-gloss">Committee ${st.stop} of ${st.stops} in the ${esc(CHAMBER_NAME[st.chamber] || '')}: it needs a yes from each, in order</span>` : '';
-  const live = pubStateCls(b).includes('live');
-  // The public page's address carries the year for a bill from an earlier session (#/bill/2026/HB2121, R-110).
-  const pubYear = b.session_year && +b.session_year !== SESSION_YEAR ? `${b.session_year}/` : '';
-  const pub = live ? `<a class="bw-inline" href="${esc(PUBLIC_APP() + (DEMO ? '?demo=1' : '') + '#/bill/' + pubYear + b.bill_number)}" target="_blank" rel="noopener">Public page${icon('external-link')}</a>` : '';
+// Details (v3): only what is said nowhere else on the page. Gone, because the heading's sentence says them: the committee
+// and its chair, the issue (the chip beside the number), the next deadline, the "committee 2 of 2" line; the referrals,
+// because Committees above lists every stop in order; the links, which are in the page's ⋯ menu (A-14, A-20). The
+// coalitions and, on a phone, who follows (the desktop's Team card says it) joined it from the old Team section.
+function detailsSection(b, desk) {
+  const sp = sponsorList(b), all = !!S.bwSponsAll?.[b.id];
+  // Each coalition opens its own page (R-022 wave 3: this week's hearings, at-risk bills, the partner memo).
+  const coal = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(c => c.id === id)).filter(Boolean);
+  const f = desk ? '' : followText(b);
   // The official title names hundreds of bills the same way ("Relating to health"), so it is a detail, not the heading.
   return `<section class="bw-sec" aria-labelledby="bw-det-h"><h2 id="bw-det-h">Details</h2>
     <dl class="bw-dl">
-      ${w.cm}
-      ${issuesRow(b)}
-      <div class="bw-dt"><dt>Referrals</dt><dd>${referralsHTML(b)}${stops}</dd></div>
-      ${dl ? `<div class="bw-dt"><dt>Next deadline</dt><dd>${esc(gateName({ phase: dl.key, label: dl.label }))}, ${esc(dayOf(dl.date + 'T12:00:00-10:00'))} ${dl.missed ? '<span class="bw-late">' + icon('circle-alert') + 'missed</span>' : daysLeft(dl) + `<span class="bw-gloss">It must ${esc(gateNeed(dl.label))}.</span>`}</dd></div>` : ''}
-      ${b.last_action ? `<div class="bw-dt"><dt>Last action</dt><dd>${b.last_action_date ? `<span class="muted">${esc(fmtDate(b.last_action_date, { year: '2-digit' }))}</span> ` : ''}<span title="${esc(b.last_action)}">${esc(shortAction(b.last_action))}</span></dd></div>` : ''}
       ${sp.length ? `<div class="bw-dt"><dt>Sponsors</dt><dd><b>${esc(sp[0])}</b> <span class="muted">(lead)</span>${sp.length > 1 ? ', ' + esc(sp.slice(1, all ? sp.length : 5).join(', ')) : ''}${sp.length > 5 && !all ? ` <button type="button" class="linkbtn bw-more" data-sponsall="1">Show all ${sp.length}</button>` : ''}</dd></div>` : ''}
-      ${w.comp}
+      ${b.last_action ? `<div class="bw-dt"><dt>Last action</dt><dd>${b.last_action_date ? `<span class="muted">${esc(fmtDate(b.last_action_date, { year: '2-digit' }))}</span> ` : ''}<span title="${esc(b.last_action)}">${esc(shortAction(b.last_action))}</span></dd></div>` : ''}
+      ${(b.companions || []).length ? `<div class="bw-dt"><dt>Companion</dt><dd id="bw-comp">${compHTML(b)}</dd></div>` : ''}
+      <div class="bw-dt bw-dtact"><dt>Coalitions</dt><dd><span>${coal.length ? coal.map(c => `<a class="bw-inline bw-coal" href="#/coalition/${esc(c.id)}">${esc(c.name)}</a>`).join(', ') : '<span class="muted">None</span>'}</span>${btn('Edit', { kind: 'text', sm: true, attrs: { 'data-coal': '1', 'aria-label': 'Edit coalitions' } })}</dd></div>
+      ${f ? `<div class="bw-dt"><dt>Following</dt><dd>${esc(f)}</dd></div>` : ''}
       ${b.title ? `<div class="bw-dt"><dt>Official title</dt><dd>${esc(titleCaseTitle(b.title))}</dd></div>` : ''}
-      <div class="bw-dt"><dt>Links</dt><dd><span class="bw-linkrow">${capitolLink(b)}${pub}${copyLinkBtn}</span>${live ? '' : '<span class="bw-gloss">Not on the public page.</span>'}</dd></div>
     </dl>
     ${b.description && summaryOf(b) ? `<details class="bw-fold"><summary>${icon('chevron-down', { cls: 'chev' })}Official description</summary><p class="small">${esc(b.description)}</p></details>` : ''}
   </section>`;
@@ -807,33 +784,28 @@ function loadCompanions(b) {
     const el = document.getElementById('bw-comp'); if (el && billOf(S.route || {})?.id === b.id) el.innerHTML = compHTML(b);
   }).catch(() => { S.bwComp[b.id] = []; }).finally(() => { S.bwCompBusy[b.id] = false; });
 }
-// The bill's facts come first and the empty form comes last: Details, then what the team has decided, then the two
-// boxes that are blank until somebody types in them. An empty input should not own the first screen (assessment 9/19).
+// Every hearing the bill has had (R-033, 9/26): Staff loads 60 days of hearings, so a bill page asks once for the rest of
+// its own history (DB.billHearings). Committees (pathway.js) puts each hearing, its result and its recording beside its
+// committee; it reads S.billHist and falls back to S.hearings while this loads.
+S.billHist ??= {};
+function loadHist(b) {
+  if (S.billHist[b.id]) return;
+  S.billHist[b.id] = 'loading';
+  DB.billHearings(b.id).then(r => { S.billHist[b.id] = r; for (const o of r.outcomes) if (!S.outcomes[o.hearing_id]) S.outcomes[o.hearing_id] = o; if (S.route?.name === 'bill' && billOf(S.route)?.id === b.id) rerender(); })
+    .catch(e => { console.warn('bill hearings', e); S.billHist[b.id] = 'error'; });
+}
+function committeesSection(b) {
+  loadHist(b);
+  try { return renderCommittees(b); } catch (e) { console.error(e); return empty({ h: 'h2', title: 'The committees could not be drawn', text: 'Try again in a moment.' }); }
+}
+// Where the work is, then the reference: the tasks (one line when there are none), each committee stop with the current
+// one open, the details, and the earlier testimony folded at the end (v3: the old Testimony tab, R-027).
 function overview(b) {
   const desk = DESK(), desc = (b.description || '').trim();
   // The plain summary is part of the page heading now. Without one, the Capitol's description stands in here.
   const sum = summaryOf(b) ? '' : `<section class="bw-sec bw-sum" aria-labelledby="bw-sum-h"><h2 id="bw-sum-h" class="sr">Summary</h2>
-      <p>${desc ? esc(desc) : '<span class="muted">No summary yet. Write one on the Public tab.</span>'}</p>
-      ${desc ? '<p class="meta">The official description. A plain summary can be written on the Public tab.</p>' : ''}</section>`;
-  return `${sum}${detailsSection(b)}${teamSection(b, desk)}${todoSection(b)}${noteSection(b)}${allHearings(b)}`;
-}
-// Every hearing the bill has had, newest first, each with its recording (R-033, 9/26): Next up keeps the last 14 days,
-// and before this a hearing and its video left the page after that. Loaded once per bill (DB.billHearings); the
-// recording opens at the bill's own minute where the video's description has one ("Watch this bill’s part").
-S.billHist ??= {};
-function allHearings(b) {
-  const got = S.billHist[b.id];
-  if (!got) { S.billHist[b.id] = 'loading';
-    DB.billHearings(b.id).then(r => { S.billHist[b.id] = r; for (const o of r.outcomes) if (!S.outcomes[o.hearing_id]) S.outcomes[o.hearing_id] = o; if (S.route?.name === 'bill' && billOf(S.route)?.id === b.id) rerender(); })
-      .catch(e => { console.warn('bill hearings', e); S.billHist[b.id] = 'error'; }); }
-  const rows = (got && got.hearings ? got.hearings : S.hearings.filter(h => h.bill_id === b.id))
-    .filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) <= Date.now()).sort((x, y) => y.scheduled_at.localeCompare(x.scheduled_at));
-  if (!rows.length) return '';
-  const tone = o => ({ passed: ['ok', 'check'], passed_amended: ['ok', 'check'], deferred: ['', 'circle-x'], recommitted: ['', 'rotate-ccw'] }[o] || ['', 'hourglass']);
-  return `<section class="bw-sec" aria-labelledby="bw-allh-h"><h2 id="bw-allh-h">Hearings <span class="bw-n">${rows.length}</span></h2>
-    <ul class="rows bw-allh">${rows.map(h => { const o = S.outcomes?.[h.id], [t, ic] = tone(o?.outcome);
-      return `<li class="bw-ah"><div><p><b>${esc(cmteFull(h.committee))}</b></p><p class="small muted">${esc(fmtDT(h.scheduled_at))}${h.room ? ` · ${esc(roomOf(h.room))}` : ''}</p></div>
-        <div class="bw-ahend">${chip(o?.outcome ? (OUTCOME_LABEL[o.outcome] || o.outcome) : 'No report', t, ic)}${watchLink(h)}</div></li>`; }).join('')}</ul></section>`;
+      ${desc ? `<p class="meta">The Capitol’s description</p><p>${esc(desc)}</p>` : '<p><span class="muted">No summary yet. Write one on the Public tab.</span></p>'}</section>`;
+  return `${sum}${todoSection(b)}${committeesSection(b)}${detailsSection(b, desk)}${renderEarlier(b, { open: !!S.bwEarlierOpen?.[b.id] })}`;
 }
 
 // ---- To do, note, coalitions, stage: wiring ----
@@ -933,17 +905,33 @@ function topBar(b, route) {
 }
 function tabsNav(b, tab) {
   const n = unreadCount(b), keys = keysOn();
-  // The number keys are named on each tab (title, aria-keyshortcuts) and once at the end of the strip on desktop.
+  // The number keys are named on each tab (title, aria-keyshortcuts). v3: not again at the end of the strip, where "1 to 3"
+  // read as a puzzle to anyone who does not use them (P-4).
   return `<div class="bw-tabsent" aria-hidden="true"></div><nav class="bw-tabs" aria-label="${esc(b.bill_number)} sections">${TABS.map(([k, l], i) =>
-    `<a href="${billHref(b, k)}" data-tab="${k}" ${k === tab ? 'aria-current="page"' : ''} title="${l}${keys ? ` (${i + 1})` : ''}"${keys ? ` aria-keyshortcuts="${i + 1}"` : ''}>${l}${k === 'activity' && n ? `<span class="bw-badge" aria-label="${n} new">${n}</span>` : ''}</a>`).join('')}${keys ? `<span class="bw-khint" aria-hidden="true">${icon('keyboard')}1 to 5</span>` : ''}</nav>`;
+    `<a href="${billHref(b, k)}" data-tab="${k}" ${k === tab ? 'aria-current="page"' : ''} title="${l}${keys ? ` (${i + 1})` : ''}"${keys ? ` aria-keyshortcuts="${i + 1}"` : ''}>${l}${k === 'activity' && n ? `<span class="bw-badge" aria-label="${n} new">${n}</span>` : ''}</a>`).join('')}</nav>`;
 }
+// Activity opens with the team note, pinned (v3): the note is the team's standing context, the stream what happened since.
 function panel(b, tab) {
-  if (tab === 'activity') { loadTimeline(b); return renderActivity(b, { inline: DESK() }); }
-  if (tab === 'pathway') { try { return renderPathway(b); } catch (e) { console.error(e); return empty({ title: 'The pathway could not be drawn', text: 'Try again in a moment.' }); } }
+  if (tab === 'activity') { loadTimeline(b); return noteSection(b) + renderActivity(b, { inline: DESK() }); }
   if (tab === 'public') return renderPublic(b);
-  if (tab === 'testimony') return renderTestimony(b);
   loadCompanions(b);
   return overview(b);
+}
+// ---- landing on a section of Overview: an old Pathway or Testimony link, or "Borrow from earlier testimony" ----
+let goSection = null;                      // a section to land on once the page has drawn (set before a tab switch)
+function toSection(name) {
+  const el = document.getElementById(name === 'earlier' ? 'bw-earlier' : 'bw-cmt'); if (!el) return;
+  if (name === 'earlier' && !el.open) el.open = true;
+  const y = Math.max(0, Math.round(el.getBoundingClientRect().top + window.scrollY - underTabs() - 12));
+  window.scrollTo({ top: y, behavior: calm() ? 'auto' : 'smooth' });
+  // Focus goes where the eyes go: the fold's own control, or the section's heading.
+  const f = name === 'earlier' ? el.querySelector('summary') : el.querySelector('h2');
+  if (f) { if (!f.matches('summary')) f.setAttribute('tabindex', '-1'); f.focus({ preventScroll: true }); }
+}
+function openEarlier(b) {
+  (S.bwEarlierOpen ??= {})[b.id] = true;
+  if (tabOf(S.route || {}) !== 'overview') { goSection = 'earlier'; switchTab('overview'); }
+  else toSection('earlier');
 }
 function notFound(route, failed = false) {
   const num = String(route.num || '').toUpperCase();
@@ -954,8 +942,8 @@ function notFound(route, failed = false) {
 
 // The heading: number (on phones it is in the frame's header), what the bill is called, how far it has walked
 // towards becoming law, and where it stands in one sentence. The ribbon is the one graphic worth keeping from the
-// current app, and the heading is shared by all four tabs, so it stands above every one of them: the Pathway tab is
-// then somewhere to go for the detail, not the only place the information exists.
+// current app, and the heading is shared by all three tabs, so it stands above every one of them: Overview's Committees
+// is then somewhere to go for the detail, not the only place the information exists.
 // A stage set by hand (only when the Capitol's record is wrong): what the Capitol says, and Change for admins, on the one
 // place the stage is shown. Without an override an admin finds "Correct the stage" in the page's ⋯ menu.
 function stageSet(b) {
@@ -963,6 +951,8 @@ function stageSet(b) {
   const auto = STAGE_LABEL[b.stage || 'introduced'] || b.stage;
   return `<p class="bw-stset">${icon('pencil')}<span>Set by hand; the Capitol’s record says ${esc(auto)}.</span>${S.me?.is_admin ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-stage': '1', 'aria-label': 'Change the stage, set by hand' } }) : ''}</p>`;
 }
+// The heading's sentence leaves out "Next: hearing Tue 3/17, 9:30 AM" while a hearing is ahead: Next up, beside it on a
+// laptop and under it on a phone, opens with that hearing (v3, A-14).
 function headHTML(b, { chips }) {
   const nick = String(b.nickname || '').trim(), sum = summaryOf(b);
   const num = `<h1 class="bw-num">${esc(b.bill_number)}${b.current_version ? ` <span class="bw-ver">${esc(b.current_version)}</span>` : ''}</h1>`;
@@ -973,7 +963,7 @@ function headHTML(b, { chips }) {
     <p class="bw-title${nick || !sum ? '' : ' bw-long'}">${esc(billName(b))}</p>
     ${nick && sum ? `<p class="bw-lede">${esc(sum)}</p>` : ''}
     <div class="bw-ribwrap${b.stage_override ? ' bw-ribset' : ''}">${stageRibbon(b)}${stageSet(b)}</div>
-    <p class="bw-status">${icon('route')}<span>${statusSentence(b)}</span></p>
+    <p class="bw-status">${icon('route')}<span>${statusSentence(b, { chair: true, hearing: !hearingAhead(b) })}</span></p>
     ${chips ? teamChips(b) : ''}
   </header>`;
 }
@@ -1003,7 +993,7 @@ export default {
   render(route) {
     const b = billOf(route); if (!b) return route.num ? untrackedHTML(route, notFound) : notFound(route);
     const tab = tabOf(route), desk = DESK();
-    // A tab that was just opened fades in, so a key press (1 to 5) is seen to do something. Not on a re-render.
+    // A tab that was just opened fades in, so a key press (1 to 3) is seen to do something. Not on a re-render.
     const pnl = `<div class="bw-panel${fresh ? ' bw-in' : ''}" id="bw-panel" data-panel="${tab}">${panel(b, tab)}</div>`;
     if (!desk) return `<div class="bw-page" data-bw="${esc(b.id)}">${topBar(b, route)}${headHTML(b, { chips: true })}${nextCards(b)}${tabsNav(b, tab)}${pnl}</div>`;
     // The side panel is Next up and Team; its first card stays in view (.sv-stick) while the rest scrolls with the page.
@@ -1046,7 +1036,6 @@ export default {
     page.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); const nb = neighbours(b), to = nb && (a.dataset.nav === 'prev' ? nb.prev : nb.next); if (to) goBill(to); }));
     // Tabs (and any other link to a tab of this bill) replace the entry too, and bring the tab into view.
     page.querySelectorAll('[data-tab]').forEach(a => a.addEventListener('click', e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); switchTab(a.dataset.tab); }));
-    page.querySelectorAll('[data-copylink]').forEach(el => el.onclick = () => copyLink(b));
     page.querySelectorAll('[data-stage]').forEach(el => el.onclick = () => pickStage(b));
     // header chips
     page.querySelector('[data-bwpick="pos"]').onclick = () => pickPosition(b);
@@ -1055,10 +1044,10 @@ export default {
     page.querySelectorAll('[data-dact]').forEach(el => el.onclick = () => { const d = draftById(b, el.dataset.draft); if (d) runDraft(b, d, el.dataset.dact, el); });
     page.querySelectorAll('[data-attend]').forEach(el => el.onclick = () => toggleAttend(b, el.dataset.attend));
     page.querySelectorAll('[data-draftnow]').forEach(el => el.onclick = () => { const h = S.hearings.find(x => x.id === el.dataset.draftnow); if (h) makeDraftNow(h); });
-    page.querySelectorAll('[data-putdown]').forEach(el => el.onclick = () => { const h = S.hearings.find(x => x.id === el.dataset.putdown); if (h) putDown(b, h); });
     page.querySelectorAll('[data-hmenu]').forEach(el => el.onclick = () => { const h = S.hearings.find(x => x.id === el.dataset.hmenu); if (h) hearingMenu(b, h); });
-    // "Earlier testimony" moves to the tab the way a tab does: this history entry is replaced, so Back leaves the bill.
-    page.querySelectorAll('[data-earlier]').forEach(a => a.addEventListener('click', e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); switchTab('testimony'); }));
+    // "Borrow from earlier testimony" opens the fold at the end of Overview, the way a tab tap moves: this history entry is
+    // replaced, so Back leaves the bill.
+    page.querySelectorAll('[data-borrow]').forEach(a => a.addEventListener('click', e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); openEarlier(b); }));
     page.querySelectorAll('[data-tmenu]').forEach(el => el.onclick = () => testimonyMenu(b));
     // panels
     const pnl = page.querySelector('#bw-panel');
@@ -1069,17 +1058,18 @@ export default {
     const focusAsk = !toDrafts && tab === 'public' && arrival && (!!(route.q?.ask || route.q?.focus === 'ask') || (inApp && !liveAsk(b)));   // an expired ask is no ask (Z1-3)
     measureStick();                        // publishes --bw-under before the tab's own sticky pieces are placed
     markScrolled();
-    if (tab === 'overview') wireOverview(pnl, b);
-    else if (tab === 'activity') wireActivity(pnl, b, route, root);
-    else if (tab === 'pathway') { try { wirePathway(pnl, b); } catch (e) { console.error(e); } }
+    if (tab === 'overview') { wireOverview(pnl, b); try { wireCommittees(pnl, b); } catch (e) { console.error(e); } wireTestimony(pnl, b); }
+    else if (tab === 'activity') { wireNote(pnl, b); wireActivity(pnl, b, route, root); }
     else if (tab === 'public') wirePublic(pnl, b, { focusAsk });
-    else if (tab === 'testimony') wireTestimony(pnl, b);
-    // A deep link to a tab (#/bill/HB1562/pathway) on a phone: the strip goes under the header so the tab's content
-    // is what shows, as a tap on the tab does. After the frame's own scroll to the top, hence the frame's next paint.
-    // Activity and the ask bring themselves into view; on desktop the content is on the first screen already.
+    // An old Pathway or Testimony link (#/bill/HB1562/pathway, a legislator page's way back) lands on its section of
+    // Overview, after the frame's own scroll to the top, hence the next paint.
+    const sec = goSection || (arrival && tab === 'overview' ? SECTION_OF[route.tab] : null); goSection = null;
+    // A deep link to the Public tab on a phone: the strip goes under the header so the tab's content is what shows, as a
+    // tap on the tab does. Activity and the ask bring themselves into view; on desktop the content is on the first screen.
     // The notes arrive a moment after the tab (public.js loadDrafts): wirePublic lands on them once they are drawn.
-    if (toDrafts) { S.focusDrafts = b.id; wireDraftsFocus(pnl, b); }
-    else if (arrival && !DESK() && (tab === 'pathway' || tab === 'testimony' || (tab === 'public' && !focusAsk))) requestAnimationFrame(() => window.scrollTo(0, pinY()));
+    if (sec) requestAnimationFrame(() => toSection(sec));
+    else if (toDrafts) { S.focusDrafts = b.id; wireDraftsFocus(pnl, b); }
+    else if (arrival && !DESK() && tab === 'public' && !focusAsk) requestAnimationFrame(() => window.scrollTo(0, pinY()));
   },
 };
 
@@ -1093,38 +1083,50 @@ function wireOverview(pnl, b) {
     catch (e) { el.disabled = false; toast(e, { err: true }); }
   });
   pnl.querySelectorAll('[data-tmore]').forEach(el => el.onclick = () => { const t = (S.todos[b.id] || []).find(x => String(x.id) === el.dataset.tmore); if (t) todoMenu(b, t); });
+  // "Add a task" opens the box, with the cursor in it; Esc in an empty box folds it back to the one line.
+  pnl.querySelector('[data-todoopen]')?.addEventListener('click', () => { S.bwTodoOpen.add(b.id); rerender('#bw-tdnew'); });
   const form = pnl.querySelector('[data-todoadd]'), inp = pnl.querySelector('#bw-tdnew');
-  inp.oninput = () => drafts.set(b.id + ':todo', inp.value);
-  form.onsubmit = async e => {
-    e.preventDefault();
-    const title = inp.value.trim();
-    if (!title) { toast('Type the task first.'); inp.focus(); return; }
-    try { await DB.addTodo(b.id, title); drafts.delete(b.id + ':todo'); rerender('#bw-tdnew'); toast('Task added.'); }
-    catch (x) { toast(x, { err: true }); }
-  };
-  // team note: never public; typed text survives other saves until it is saved
-  const note = pnl.querySelector('#bw-note');
+  if (form && inp) {
+    inp.oninput = () => drafts.set(b.id + ':todo', inp.value);
+    inp.onkeydown = e => { if (e.key === 'Escape' && !inp.value.trim()) { e.preventDefault(); e.stopPropagation(); drafts.delete(b.id + ':todo'); S.bwTodoOpen.delete(b.id); rerender('[data-todoopen]'); } };
+    form.onsubmit = async e => {
+      e.preventDefault();
+      const title = inp.value.trim();
+      if (!title) { toast('Type the task first.'); inp.focus(); return; }
+      try { await DB.addTodo(b.id, title); drafts.delete(b.id + ':todo'); rerender('#bw-tdnew'); toast('Task added.'); }
+      catch (x) { toast(x, { err: true }); }
+    };
+  }
+  pnl.querySelector('[data-coal]').onclick = () => editCoalitions(b);
+  pnl.querySelector('[data-sponsall]')?.addEventListener('click', () => { (S.bwSponsAll ??= {})[b.id] = true; rerender(); });
+}
+// The team note (Activity, pinned): never public; typed text survives other saves until it is saved. Save writes only what
+// changed and shows a teammate's newer note before replacing it (R-152 B); Undo puts back the note it replaced (B-5).
+export function wireNote(pnl, b) {
+  pnl.querySelector('[data-noteedit]')?.addEventListener('click', () => {
+    S.bwNoteEdit.add(b.id); rerender('#bw-note');
+    const t = document.getElementById('bw-note'); if (t) try { t.setSelectionRange(t.value.length, t.value.length); } catch { /* not a text field */ }
+  });
+  const note = pnl.querySelector('#bw-note'); if (!note) return;
   // The note as it stood when typing began is the base the save is compared with, so a teammate's newer note is shown
   // to the person instead of being replaced without a word (R-152 B; DB.saveBillFields).
   note.oninput = () => { if (!noteBase.has(b.id)) noteBase.set(b.id, b.internal_notes ?? null); drafts.set(b.id + ':note', note.value); };
   pnl.querySelector('[data-savenote]').onclick = async e => {
     const v = note.value.trim(), base = noteBase.has(b.id) ? noteBase.get(b.id) : (b.internal_notes ?? null); const go = e.currentTarget; go.setAttribute('aria-busy', 'true');
     const finish = res => {
-      drafts.delete(b.id + ':note'); noteBase.delete(b.id); rerender('[data-savenote]');
+      drafts.delete(b.id + ':note'); noteBase.delete(b.id); S.bwNoteEdit.delete(b.id); rerender('[data-noteedit]');
       if (!res.changed.length) { toast('Nothing to save: the note already says this.'); return; }
       // Saving replaces the note, so the note it replaced comes back with Undo (R-005; DESIGN B-5).
-      toast('Note saved.', { undo: async () => { try { await DB.updateBill(b.id, { internal_notes: res.prev.internal_notes ?? null }); drafts.delete(b.id + ':note'); noteBase.delete(b.id); rerender('#bw-note'); toast('Note put back as it was.'); } catch (x) { toast(x, { err: true }); } } });
+      toast('Note saved.', { undo: async () => { try { await DB.updateBill(b.id, { internal_notes: res.prev.internal_notes ?? null }); drafts.delete(b.id + ':note'); noteBase.delete(b.id); S.bwNoteEdit.delete(b.id); rerender('[data-noteedit]'); toast('Note put back as it was.'); } catch (x) { toast(x, { err: true }); } } });
     };
     try {
       const res = await DB.saveBillFields(b.id, { internal_notes: v || null }, { internal_notes: (base ?? '').trim() || null });
       if (!res.conflicts.length) { finish(res); return; }
       go.removeAttribute('aria-busy');
       askConflict({ title: 'A teammate changed the team note', fields: res.conflicts.map(c => ({ label: 'Team note', theirs: c.theirs, mine: c.mine })),
-        keepTheirs: async () => { drafts.delete(b.id + ':note'); noteBase.delete(b.id); rerender('[data-savenote]'); toast('Kept your teammate’s note.'); },
+        keepTheirs: async () => { drafts.delete(b.id + ':note'); noteBase.delete(b.id); S.bwNoteEdit.delete(b.id); rerender('[data-noteedit]'); toast('Kept your teammate’s note.'); },
         replace: async () => { try { finish(await DB.saveBillFields(b.id, { internal_notes: v || null }, { internal_notes: (base ?? '').trim() || null }, { force: true })); } catch (x) { toast(x, { err: true }); } } });
     }
     catch (x) { go.removeAttribute('aria-busy'); toast(x, { err: true }); }
   };
-  pnl.querySelector('[data-coal]').onclick = () => editCoalitions(b);
-  pnl.querySelector('[data-sponsall]')?.addEventListener('click', () => { (S.bwSponsAll ??= {})[b.id] = true; rerender(); });
 }

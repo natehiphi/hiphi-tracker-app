@@ -1,23 +1,27 @@
-// HIPHI Staff v2 · Bill > Activity (plan 3.3). The team's chat, the team's log and the Capitol's record in ONE stream,
+// HIPHI Staff v3 · Bill > Activity (plan 3.3, R-264). The team's chat, the team's log and the Capitol's record in ONE stream,
 // NEWEST AT THE TOP, with the message box above it (Nate, 9/20). It was built the other way round, like a
 // messaging app, and it auto-scrolled to the bottom on open so you always landed on the newest entry. He reads
 // it as a record rather than a conversation, and a record puts the latest thing where the eye starts. The Capitol's actions are
 // clerical and many (a day can bring five), so each day is condensed to one line that opens to the full text.
-// Phones: the message box takes the tab bar's place at the bottom. Desktop (build 3): it sits at the end of the
-// stream, inside the column, and says what Enter and Shift+Enter do. Typing @ offers teammates to notify.
+// Phones: the message box takes the tab bar's place at the bottom. Desktop (build 3): it sits above the stream, inside
+// the column. Typing @ offers teammates to notify. v3: the team note is pinned above it all (bill.js noteSection); one
+// "Log" button asks what happened (a talk with a legislator, or anything else); the box's long help line is its
+// placeholder now.
 // Above the stream, the conversations with legislators logged on this bill or under any of its issues (R-022 wave 2 #9,
 // conversation.js): a conversation is about an issue more than a bill, so one logged on the Senate twin shows here too.
-import { S, DB, DEMO, LOG_TYPES, esc, fmtDate, advocate } from './data.js';
+// The section shows only once there is one (v3).
+import { S, DB, LOG_TYPES, esc, fmtDate, advocate } from './data.js';
 import { unreadCount, hstDayOf } from './model.js';
 import { icon, btn, iconBtn, avatar, toast, openSheet, closeSheet, menuSheet, confirmSheet, field } from './ui.js';
 import { rerender, drafts, firstName, dayOf, viewIsNew, afterBack } from './bill.js';
 import { issuesOfBill } from './issues.js';
 import { convSectionHTML, wireConvSection, logConversation, refreshConversations } from './conversation.js';
 
-const LOG_LABEL = Object.fromEntries(LOG_TYPES);
+// v3's words: an "action alert" is a "supporter email" (R-264), on screen only; the stored type stays action_alert.
+const LOG_LABEL = { ...Object.fromEntries(LOG_TYPES), action_alert: 'Supporter email' };
 const LOG_ICON = { testimony: 'file-text', coalition: 'users', meeting: 'handshake', action_alert: 'megaphone', note: 'notebook-pen' };
 const LOG_HINT = { testimony: 'Testimony filed: support, in person', coalition: 'Coalition agreed to sign on',
-  meeting: 'Met with Chair Takayama’s office', action_alert: 'Alert sent to 31 supporters', note: 'What happened?' };
+  meeting: 'Met with Chair Takayama’s office', action_alert: 'Email sent to 31 supporters', note: 'What happened?' };
 const LIMIT = 30;                                   // newest entries shown; "Show earlier" opens the rest
 
 // ---- the Capitol's history, loaded once per bill per visit ----
@@ -119,7 +123,7 @@ function streamInner(b) {
   let html = '';
   if (loading) html += `<p class="meta bw-loading">${icon('loader-circle')}Loading the Capitol’s record…</p>`;
   if (S.bwTLErr?.[b.id]) html += `<p class="meta">The Capitol’s record did not load. Messages still work.</p>`;
-  if (!all.length && !loading) return html + `<p class="bw-none">Nothing here yet. Write the first message below; the owner and followers see it.</p>`;
+  if (!all.length && !loading) return html + `<p class="bw-none">Nothing here yet.</p>`;
   let last = '';
   for (const it of shown) {
     const k = hstDayOf(it.at);
@@ -135,18 +139,18 @@ const convQ = b => ({ billId: b.id, issueIds: issuesOfBill(b.id).map(i => i.id) 
 function convOpts(b) {
   const n = issuesOfBill(b.id).length;
   // Two at most before "Show all": the message box below is what this tab is used for most (desktop draws it on top).
-  return { id: 'bw-cv', q: convQ(b), here: { billId: b.id, issueIds: convQ(b).issueIds }, limit: 2, log: { bill: b },
+  // v3: no count, no button of its own (the one Log button asks), and hidden until there is a conversation to show.
+  return { id: 'bw-cv', q: convQ(b), here: { billId: b.id, issueIds: convQ(b).issueIds }, limit: 2, log: { bill: b }, act: false, count: false, hideEmpty: true,
     none: `No conversations with legislators logged yet${n ? ` for this bill or ${n === 1 ? 'its issue' : 'its issues'}` : ''}.` };
 }
 
 // inline: on desktop the message box is drawn here, ABOVE the stream, not as the page's bottom bar.
 export function renderActivity(b, { inline = false } = {}) {
   if (seenSnap.bill !== b.id || viewIsNew()) seenSnap = { bill: b.id, at: S.chatSeen?.[b.id] || '' };
-  return `${convSectionHTML({ ...convOpts(b), title: 'Conversations', kind: 'bw' })}
-  <section class="bw-sec bw-act" aria-labelledby="bw-act-h">
+  return `<section class="bw-sec bw-act" aria-labelledby="bw-act-h">
     <h2 id="bw-act-h" class="sr">Activity</h2>
-    <div class="bw-sech"><p class="meta">The owner, followers and anyone you @mention get a Slack DM.${DEMO ? ' The sandbox stops at Mar 16, 2026.' : ''}</p>${inline ? '' : logBtn}</div>
-    ${inline ? `<div class="bw-inbox bw-inbox-top">${composerBar(b, { hint: true })}</div>` : ''}
+    ${inline ? `<div class="bw-inbox bw-inbox-top">${composerBar(b, { hint: true })}</div>` : `<div class="bw-sech bw-logrow">${logBtn}</div>`}
+    ${convSectionHTML({ ...convOpts(b), title: 'Conversations', kind: 'bw' })}
     <div class="bw-stream" id="bw-stream" data-bill="${esc(b.id)}">${streamInner(b)}</div>
   </section>`;
 }
@@ -154,18 +158,19 @@ export function renderActivity(b, { inline = false } = {}) {
 // ---- the message box (phones: the page's bottom bar on this tab; desktop: the end of the stream) ----
 // Enter sends where there is a real keyboard; on a touch screen Return makes a new line and the Send button sends.
 const enterSends = () => { try { return matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return false; } };
-// The stream opens at its newest entry, so on desktop "Log activity" sits there too, under the message box; on a
-// phone the box is the page's bottom bar and has no room for it, so it stays at the top of the stream.
-const logBtn = btn('Log activity', { kind: 'text', icon: 'notebook-pen', attrs: { 'data-log': '1' } });
+// The stream opens at its newest entry, so on desktop "Log" sits there too, under the message box; on a phone the box
+// is the page's bottom bar and has no room for it, so it stays at the top of the stream. One button for anything that
+// happened: it asks whether it was a talk with a legislator (the conversation dialog) or anything else (v3).
+const logBtn = btn('Log what happened', { kind: 'text', icon: 'notebook-pen', attrs: { 'data-log': '1', 'aria-haspopup': 'dialog' } });
 export function composerBar(b, { hint: inline = false } = {}) {
   const d = drafts.get(b.id + ':chat') || '';
-  const hint = inline && enterSends();     // the line under the box is only drawn where it is true
+  // v3: no help line under the box. The placeholder says what it does, and Enter sends as it does in Slack.
   return `<form class="bw-composer" data-bill="${esc(b.id)}" novalidate>
     <div class="bw-mention" role="group" aria-label="Notify a teammate" hidden></div>
     <div class="bw-crow"><label class="sr" for="bw-chat">Message the team</label>
-      <textarea id="bw-chat" rows="1" maxlength="4000" placeholder="Message the team. Type @ to notify someone."${hint ? ' aria-describedby="bw-chat-h"' : ''}>${esc(d)}</textarea>
+      <textarea id="bw-chat" rows="1" maxlength="4000" placeholder="Message the team. Type @ to notify someone.">${esc(d)}</textarea>
       <button type="submit" class="bw-send" aria-label="Send message" title="Send message">${icon('send')}</button></div>
-    ${inline ? `<div class="bw-cfoot">${hint ? '<p class="meta bw-chint" id="bw-chat-h">Enter sends. Shift+Enter starts a new line.</p>' : '<span></span>'}${logBtn}</div>` : ''}
+    ${inline ? `<div class="bw-cfoot"><span></span>${logBtn}</div>` : ''}
   </form>`;
 }
 // iOS keeps fixed bars behind the keyboard; lift the message box by the keyboard's height (Android resizes on its own).
@@ -183,7 +188,7 @@ export function wireActivity(pnl, b, route, root) {
   const entry = viewIsNew();
   // Nothing to scroll to on open any more: the newest entry is the first one.
   if (unreadCount(b)) DB.markChatSeen(b.id).catch(() => {});
-  pnl.querySelector('[data-log]').onclick = () => logSheet(b);
+  pnl.querySelector('[data-log]').onclick = () => logChooser(b);
   wireConvSection(pnl, convOpts(b));
   wireStream(pnl.querySelector('#bw-stream'), b);
   const form = root.querySelector('.bw-composer'); if (!form) return;
@@ -258,31 +263,32 @@ async function delMsg(b, m) {
   try { await DB.deleteMessage(m); rerender(); toast('Message deleted.'); } catch (e) { toast(e, { err: true }); }
 }
 
+// ---- Log: what happened? A talk with a legislator is a conversation (it shows on their page and the issue's too);
+// anything else is an entry in this bill's activity (v3: one button, where v2 had two side by side). ----
+function logChooser(b) {
+  menuSheet({ title: 'What happened?', items: [
+    { label: 'Talked with a legislator', icon: 'message-square-plus', sub: 'A meeting, a call or a chat. It shows on their page too.', run: () => afterBack(() => logConversation({ bill: b, onDone: refreshConversations })) },
+    { label: 'Something else', icon: 'notebook-pen', sub: 'Testimony filed, a coalition step, a supporter email, a note', run: () => afterBack(() => logSheet(b)) },
+  ] });
+}
 // ---- Log activity: something the team did that the Capitol's record will not show ----
 // No "Meeting" type here any more (R-022 review, 9/21): a meeting logged as an activity stayed on this one bill and never
 // reached the legislator's page, right under "No conversations with legislators logged yet". A meeting with a legislator
-// is a conversation, so the sheet's first line hands over to that dialog, taking what was typed; a meeting with anyone
-// else is Coalition or Note. Old meeting rows (the type still exists) keep showing in the stream.
+// is a conversation, which the Log button's first choice opens (v3; the sheet's own line that handed over is gone); a
+// meeting with anyone else is Coalition or Note. Old meeting rows (the type still exists) keep showing in the stream.
 const TYPES = LOG_TYPES.filter(([v]) => v !== 'meeting');
 const deskKeys = () => { try { return matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return false; } };
 function logSheet(b) {
   let type = TYPES.some(([v]) => v === S.logType) ? S.logType : 'testimony';
   openSheet({ title: 'Log activity', size: 'auto',
-    body: `<p class="bw-lcv">Met or spoke with a legislator? ${btn('Log a conversation', { kind: 'text', sm: true, icon: 'message-square-plus', attrs: { 'data-lcv': '1', 'aria-haspopup': 'dialog' } })}</p>
-      <fieldset class="bw-types"><legend>Type</legend><div class="chips">${TYPES.map(([v, l]) => `<button type="button" class="chip" data-lt="${v}" aria-pressed="${v === type}">${icon(LOG_ICON[v])}${esc(l)}</button>`).join('')}</div></fieldset>
+    body: `<fieldset class="bw-types"><legend>Type</legend><div class="chips">${TYPES.map(([v, l]) => `<button type="button" class="chip" data-lt="${v}" aria-pressed="${v === type}">${icon(LOG_ICON[v])}${esc(l)}</button>`).join('')}</div></fieldset>
       <div class="field"><label for="bw-lt">What happened</label><input id="bw-lt" maxlength="200" autocomplete="off" aria-describedby="bw-lt-e" placeholder="${esc(LOG_HINT[type])}"${deskKeys() ? ' autofocus' : ''}><span class="err" id="bw-lt-e" hidden>${icon('circle-alert')}Write what happened first.</span></div>
-      ${field('bw-ld', 'Details (optional)', '<textarea id="bw-ld" rows="3" placeholder="Who, what was said, what comes next."></textarea>')}
-      <p class="meta">It is dated now and shows in this bill’s activity with your name.</p>`,
+      ${field('bw-ld', 'Details (optional)', '<textarea id="bw-ld" rows="3" placeholder="Who, what was said, what comes next."></textarea>')}`,
     foot: btn('Add to activity', { kind: 'primary', attrs: { 'data-go': '1' } }),
     wire: d => {
       const t = d.querySelector('#bw-lt'), er = d.querySelector('#bw-lt-e');
       d.querySelectorAll('[data-lt]').forEach(el => el.onclick = () => { type = el.dataset.lt; S.logType = type; d.querySelectorAll('[data-lt]').forEach(x => x.setAttribute('aria-pressed', String(x === el))); t.placeholder = LOG_HINT[type]; });
       t.oninput = () => { er.hidden = true; t.removeAttribute('aria-invalid'); };
-      // The conversation dialog takes over this sheet, with the words typed so far.
-      d.querySelector('[data-lcv]').onclick = () => {
-        const text = [t.value.trim(), d.querySelector('#bw-ld').value.trim()].filter(Boolean).join('\n\n');
-        logConversation({ bill: b, text, onDone: refreshConversations });
-      };
       d.querySelector('[data-go]').onclick = async e => {
         const title = t.value.trim();
         if (!title) { er.hidden = false; t.setAttribute('aria-invalid', 'true'); t.focus(); return; }

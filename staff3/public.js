@@ -1,27 +1,32 @@
-// HIPHI Staff v2 · Bill > Public (plan 3.3). What the public page says about this bill: the nickname, the plain summary, the ask
-// and the date it stops showing, and whether the bill is on the public page at all. These fields save together with ONE
-// button, the same fields the current app saves. Issues, lists and the email to supporters act on their own, since each
-// is its own thing (an issue is what the public follows, R-018; a list is a page the public follows; an email goes
-// through approval).
+// HIPHI Staff v3 · Bill > Public (plan 3.3, R-264). A person comes here to decide what the public page says about this bill
+// and to get it in front of people (B-1). v3 gives the tab three labelled blocks:
+// "On the public page": whether the bill is on it, the nickname, the plain summary, the ask and the date it stops
+// showing, the talking points, with ONE Save for those fields (the same fields the current app saves), the preview
+// beside them, and the notes on what each draft changed. "Spread the word": the share link, a ready message and the
+// email to supporters. "Where it shows", folded: its issues, the lists it is on and the pre-tick for new visitors, which
+// each act at once, since each is its own thing (an issue is what the public follows, R-018; a list is a page the public
+// follows). On a phone "Spread the word" comes first (R-152 C). Three explaining sentences at most (P-4); the rest of
+// what the tab says is status.
 // Desktop (build 3): the form stays a readable column, and where the column has room a small card beside it shows,
 // as you type, how the public page will name the bill (nickname, summary, the ask).
 // The staff "recommended" flag lives here now, as "Pre-tick for new visitors" (R-022 #13). Nate: "the language shouldn't
 // be so transparent to the public at the moment. It should be a silent recommendation." So it is labelled for staff by
-// what it does, and the preview never shows it: nothing on the public page says a bill was recommended.
+// what it does, and the preview never shows it: nothing on the public page says a bill was recommended. v3: it sits
+// with the issues and lists under "Where it shows" and saves on the switch, with Undo, as they do.
 // Saving has Undo (B-5): the whole form goes back to what it was before the save.
 // Talking points (084, R-068, 9/28): one box, one point per line. The public testimony walkthrough offers them to people on
 // HIPHI's side, who tap them into a letter sent under their own name. Claude drafted the first 248; a save here marks them
 // as the team's (talking_points_edited_at), so a later draft run never overwrites them.
 import { S, DB, DEMO, esc } from './data.js';
 import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, shareKit, hearingAhead, askReach } from './model.js';
-import { icon, btn, iconBtn, toast, notice, switchRow, openSheet, closeSheet } from './ui.js';
+import { icon, btn, iconBtn, toast, switchRow, openSheet, closeSheet } from './ui.js';
 import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
-import { issuesOfBill, openIssuePicker, whyNot, stanceChip, pickStance, issueLinkHref } from './issues.js';
+import { issuesOfBill, openIssuePicker, whyNot, issueLinkHref } from './issues.js';
 import { billRoute } from './model.js';
 import { askConflict } from './conflict.js';
 
-const FIELDS = ['is_public', 'recommended', 'nickname', 'public_summary', 'public_action', 'public_action_until', 'talking_points'];
-const BOOL = new Set(['is_public', 'recommended']);
+const FIELDS = ['is_public', 'nickname', 'public_summary', 'public_action', 'public_action_until', 'talking_points'];
+const BOOL = new Set(['is_public']);
 const saved = (b, k) => BOOL.has(k) ? !!b[k] : k === 'talking_points' ? (b.talking_points || []).join('\n') : (b[k] || '');
 // The box's lines as the database wants them: trimmed, no blank lines. 084 allows five, each 1-200 characters.
 const pointsIn = v => String(v || '').split(/\n+/).map(s => s.trim().replace(/\s+/g, ' ')).filter(Boolean);
@@ -45,25 +50,31 @@ const LABEL = { nickname: 'Nickname', public_summary: 'Public summary', public_a
 const asText = v => Array.isArray(v) ? v.join('\n') : typeof v === 'boolean' ? (v ? 'Yes' : 'No') : v;
 const valOf = (b, k) => { const d = draftOf(b); return k in d ? d[k] : saved(b, k); };
 const dirty = b => FIELDS.some(k => valOf(b, k) !== saved(b, k));
-const count = (n, id, max = 280) => `<span class="help bw-count" id="${id}" aria-live="polite">${n} of ${max} characters</span>`;
+// A character count shows once the words near the limit (three quarters of it): before that it is a number that asks
+// nothing of anyone (v3, R-264 rule 4).
+const countText = (n, max = 280) => n >= max * .75 ? `${n} of ${max} characters` : '';
+const count = (n, id, max = 280) => `<span class="help bw-count" id="${id}" aria-live="polite">${countText(n, max)}</span>`;
 
 // ---- the preview (desktop, where there is room beside the form): how the public page will name this bill ----
 // The public page leads with the nickname, then the summary; with no nickname the summary is the headline; with
 // neither, the first sentence of the Capitol's description. "HIPHI asks" shows only while the ask has a date that
 // has not passed. v holds the form's values as typed, so the card changes with every key.
 const spaced = n => String(n || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2');
-// X10-3: where the ask will reach people, under the ask's date, in words (and, once the hearing alert has gone, the way to send it now).
+// X10-3: where the ask will reach people, under the ask's date, in words. v3: the way to send it now is "Email supporters"
+// under "Spread the word", said once (A-14).
 function reachNote(b) {
   const r = askReach(b);
-  return `<div class="bw-reach" role="note"><p class="small"><b>Where this ask reaches people:</b> ${r.lines.map(esc).join(' ')}</p>${r.again ? `<div class="btnrow">${btn('Send it as a supporter email', { kind: 'secondary', sm: true, icon: 'mail', href: `#/email/new?bill=${encodeURIComponent(b.id)}` })}</div>` : ''}</div>`;
+  return `<div class="bw-reach" role="note"><p class="small"><b>Where this ask reaches people:</b> ${r.lines.map(esc).join(' ')}</p></div>`;
 }
 function previewInner(b, v) {
   const nick = v.nickname.trim().replace(/\s+/g, ' '), sum = v.public_summary.trim(), ask = v.public_action.trim(), until = v.public_action_until;
   const first = (/^(.{20,220}?[.!?])(\s|$)/.exec(String(b.description || '').trim()) || [])[1];
   const name = nick || sum || first || `A bill about ${plainTitle(b).replace(/^./, c => c.toLowerCase())}`;
   const askOn = ask && until && until >= hiToday();
+  // No ask is the usual state and the line above the form says it already (v3, A-14): the note speaks only when there is
+  // something to know about the ask being typed, or the page is hidden.
   const note = !v.is_public ? [ 'eye-off', 'Hidden. Nobody sees this until it is switched on and saved.' ]
-    : !ask ? ['info', 'No ask: the next hearing is what people are asked to act on.']
+    : !ask ? null
     : !until ? ['triangle-alert', 'The ask needs a date, or it never shows.']
     : until < hiToday() ? ['triangle-alert', 'That date has passed, so the ask does not show.']
     : ['calendar-days', `The ask shows through ${dayOf(until)}.`];
@@ -73,28 +84,35 @@ function previewInner(b, v) {
       ${nick && sum ? `<p class="bw-plede">${esc(sum)}</p>` : ''}
       ${ask ? `<p class="bw-pask${askOn ? '' : ' off'}">${icon('megaphone')}<span><b>HIPHI asks:</b> ${esc(ask)}</span></p>` : ''}
     </div>
-    <p class="bw-pnote">${icon(note[0])}<span>${esc(note[1])}</span></p>`;
+    ${note ? `<p class="bw-pnote">${icon(note[0])}<span>${esc(note[1])}</span></p>` : ''}`;
 }
 const valuesOf = b => Object.fromEntries(FIELDS.map(k => [k, valOf(b, k)]));
 
+// ---- "Where it shows" (v3), folded: its issues, the lists it is on, and the pre-tick for new visitors ----
 // Issues (063, R-018): the public follows issues, and a bill reaches everyone following an issue it is on. One row per
-// issue it is on: its name (to the issue's page), HIPHI's stance on the issue (094, R-093: Nate wanted to change it from
-// the bill page too; the same chip as on the issue's page) and × to take the bill off it, with Undo. Choose opens every
-// issue, by category.
-function issuesSection(b) {
-  if (!(S.categories || []).length) return '';
-  const iss = issuesOfBill(b.id), why = whyNot(b);
-  const say = !iss.length ? 'Put it on an issue, and everyone who follows that issue gets it.'
-    : why ? `${why.replace('its followers do not', 'the people following these issues do not')}.` : 'Everyone who follows one of these issues gets this bill.';
-  // Said once, here: the chip with each issue is HIPHI's stance on the issue, not this bill's position (its Position chip).
-  const also = iss.length ? ' Each shows HIPHI’s stance on the issue as a whole.' : '';
-  return `<section class="bw-sec" aria-labelledby="bw-iss-h">
-    <h2 id="bw-iss-h">Issues</h2>
-    <p class="small muted">${esc(say + also)}</p>
-    ${iss.length ? `<ul class="bw-isslist">${iss.map(i => `<li class="bw-issrow"><a class="bw-issname" href="${esc(issueLinkHref(i, b))}">${esc(i.name)}</a>
-      ${stanceChip(i, { 'data-isstance': i.id })}${iconBtn('x', `Take it off ${i.name}`, { 'data-issoff': i.id })}</li>`).join('')}</ul>` : ''}
-    <div class="chips bw-issues">${btn(iss.length ? 'Change issues' : 'Choose issues', { kind: 'secondary', sm: true, icon: iss.length ? 'pencil' : 'plus', attrs: { 'data-ispick': '1', 'aria-haspopup': 'dialog' } })}</div>
-  </section>`;
+// issue: its name (to the issue's page), HIPHI's stance on the issue in words, and × to take the bill off it, with Undo.
+// Choose opens every issue, by category. v3: one stance picker per bill, its Position; the issue's own stance is changed
+// on the issue's page (094, R-093), so here it is said, not picked.
+const ISSUE_SAYS = { support: 'HIPHI supports this issue', oppose: 'HIPHI opposes this issue', mixed: 'HIPHI’s stance on this issue is mixed' };
+function whereBlock(b, listed) {
+  const iss = issuesOfBill(b.id), why = whyNot(b), lists = S.lists || [], open = !!S.bwWhereOpen;
+  // The fold's line says where it shows already, so a closed fold still answers the question.
+  const sum = iss.length ? iss.slice(0, 2).map(i => i.name).join(', ') + (iss.length > 2 ? ` and ${iss.length - 2} more` : '') : 'No issue yet';
+  const issues = !(S.categories || []).length ? '' : `<div class="bw-wpart"><h3>Issues</h3>
+    ${why && iss.length ? `<p class="small bw-soon">${icon('triangle-alert')}${esc(why.replace('its followers do not', 'the people following these issues do not'))}.</p>` : ''}
+    ${iss.length ? `<ul class="bw-isslist">${iss.map(i => `<li class="bw-issrow"><span class="bw-issb"><a class="bw-issname" href="${esc(issueLinkHref(i, b))}">${esc(i.name)}</a><span class="bw-isst">${esc(ISSUE_SAYS[i.stance] || 'No stance on this issue yet')}</span></span>
+      ${iconBtn('x', `Take it off ${i.name}`, { 'data-issoff': i.id })}</li>`).join('')}</ul>` : ''}
+    <div class="chips bw-issues">${btn(iss.length ? 'Change issues' : 'Choose issues', { kind: 'secondary', sm: true, icon: iss.length ? 'pencil' : 'plus', attrs: { 'data-ispick': '1', 'aria-haspopup': 'dialog' } })}</div></div>`;
+  const listsPart = `<div class="bw-wpart"><h3>Lists</h3>
+    ${!lists.length ? '<p class="small muted">No lists yet.</p>'
+      : `${listed ? '' : '<p class="small muted">Make it public first to add it to a list.</p>'}
+      <div class="chips bw-lists">${lists.map(l => { const on = (S.listBills || []).some(x => x.list_id === l.id && x.bill_id === b.id), off = !on && !listed;
+        return `<button type="button" class="chip" data-list="${esc(l.id)}" aria-pressed="${on}"${off ? ' aria-disabled="true"' : ''}>${icon(on ? 'check' : 'plus')}${esc(l.title)}${l.is_published ? '' : '<span class="bw-draft">draft</span>'}</button>`; }).join('')}</div>`}</div>`;
+  return `<details class="bw-sec bw-pblk bw-where" id="bw-where"${open ? ' open' : ''}>
+    <summary><h2 id="bw-where-h">Where it shows</h2><span class="bw-wsum">${esc(sum)}</span>${icon('chevron-down', { cls: 'chev' })}</summary>
+    <div class="bw-wbody">${issues}${listsPart}
+      <div class="bw-wpart">${switchRow('bw-prec', 'Pre-tick for new visitors', !!b.recommended, 'New visitors find it already ticked. Nothing on the public page says so.')}</div></div>
+  </details>`;
 }
 
 // ---- what each draft changed (R-060, migration 120): the notes the public page shows under "How it has changed" ----
@@ -112,6 +130,7 @@ function loadDrafts(b) {
   S.billDrafts[b.id] = null;
   DB.billDrafts(b.id).then(rows => { S.billDrafts[b.id] = rows; rerender(); }).catch(() => { S.billDrafts[b.id] = []; });
 }
+// Part of "On the public page" (v3), under its own small heading, named as the public page names it.
 function draftsSection(b) {
   loadDrafts(b);
   // Up to the bill's current draft, as on the public page (the practice copy is frozen in March).
@@ -119,9 +138,8 @@ function draftsSection(b) {
   const rows = (S.billDrafts[b.id] || []).filter(d => draftRank(b, d.version) <= upto).sort((x, y) => draftRank(b, y.version) - draftRank(b, x.version));
   const missing = cur && /^(HD|SD|CD|FD)\d+$/.test(cur) && !rows.some(d => d.version === cur);
   if (!rows.length && !missing) return '';
-  return `<section class="bw-sec" aria-labelledby="bw-dr-h">
-    <h2 id="bw-dr-h">What each draft changed</h2>
-    <p class="small muted">The public page shows these under “How it has changed”, newest first, one or two plain sentences each.</p>
+  return `<div class="bw-drpart" aria-labelledby="bw-dr-h">
+    <h3 id="bw-dr-h">How it has changed</h3>
     ${rows.length ? `<ul class="bw-drlist" role="list">${rows.map(d => `<li class="bw-drrow"><div class="bw-drbody"><b>${esc(draftName(d.version))}</b>
       <span>${esc(d.summary)}</span>${d.written_by === 'staff' ? '' : '<span class="small muted">Drafted by Claude from the committee report: please check it.</span>'}
       ${d.changes_letters ? `<span class="bw-drbig">${icon('triangle-alert')}<span><b>People who wrote on an earlier draft are warned</b>${d.letter_note ? `, with HIPHI’s advice: “${esc(d.letter_note)}”` : '.'}</span></span>`
@@ -131,7 +149,7 @@ function draftsSection(b) {
       ${d.written_by === 'staff' ? '' : btn('Note is right', { kind: 'text', sm: true, icon: 'check', attrs: { 'data-drok': d.version, 'aria-label': `The note on ${draftName(d.version)} is right` } })}
       ${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-dredit': d.version, 'aria-label': `Edit the note on ${draftName(d.version)}`, 'aria-haspopup': 'dialog' } })}</div></li>`).join('')}</ul>` : ''}
     ${missing ? `<div class="bw-acts">${btn(`Add a note on ${draftName(cur)}`, { kind: 'secondary', sm: true, icon: 'plus', attrs: { 'data-dredit': cur, 'aria-haspopup': 'dialog' } })}</div>` : ''}
-  </section>`;
+  </div>`;
 }
 function editDraft(b, version) {
   const d = (S.billDrafts[b.id] || []).find(x => x.version === version), before = d ? d.summary : '';
@@ -175,64 +193,48 @@ export function renderPublic(b) {
   const cls = pubStateCls(b), live = cls.includes('live'), warn = cls.includes('warn');
   const listed = b.is_public && b.tracked !== false, sum = valOf(b, 'public_summary'), ask = valOf(b, 'public_action'), nickname = valOf(b, 'nickname');
   const pubLink = live ? ` <a class="bw-inline" href="${esc(PUBLIC_APP() + (DEMO ? '?demo=1' : '') + billRoute(b))}" target="_blank" rel="noopener">See it${icon('external-link')}</a>` : '';
-  const lists = S.lists || [];
   const emailOk = b.is_public && b.position !== 'monitor';
   // On a phone the public's response and the share kit come first: they were 4,277px down a 4,718px page, and a hearing day's
-  // job is to share, not to edit (R-152 C). A laptop keeps them where they were, beside the form's neighbours.
+  // job is to share, not to edit (R-152 C). A laptop leads with what the page says.
   const wide = matchMedia('(min-width: 900px)').matches;
-  const respSec = `  <section class="bw-sec" aria-labelledby="bw-resp-h">
-    <h2 id="bw-resp-h">The public's response</h2>
-    <p class="small">${publicWords(b) ? `${icon('users')} ${esc(publicWords(b))}.` : 'No one from the public has followed or acted on this bill yet.'} ${DEMO ? '<span class="muted">(sample numbers in the sandbox)</span>' : '<span class="muted">Counts only, from people with accounts; never who.</span>'}</p>
-    ${listed ? `<p class="small muted">The share kit: the link previews with the bill's name in a text or a post; the message carries the ask and the next deadline.</p>
-    <div class="bw-acts">${btn('Copy share link', { kind: 'secondary', icon: 'link', attrs: { 'data-kit': 'link' } })}${btn('Copy a ready message', { kind: 'secondary', icon: 'message-square', attrs: { 'data-kit': 'msg' } })}</div>` : '<p class="small muted">Make it public to get its share link.</p>'}
+  const spread = `<section class="bw-sec bw-pblk" aria-labelledby="bw-spread-h">
+    <h2 id="bw-spread-h">Spread the word</h2>
+    <p class="small bw-resp">${publicWords(b) ? `${icon('users')}<span>${esc(publicWords(b))}.${DEMO ? ' <span class="muted">(sample numbers)</span>' : ''}</span>` : '<span class="muted">No one from the public has followed or acted on this bill yet.</span>'}</p>
+    <div class="bw-acts bw-spreadacts">${listed ? `${btn('Copy share link', { kind: 'text', icon: 'link', attrs: { 'data-kit': 'link' } })}${btn('Copy a ready message', { kind: 'text', icon: 'message-square', attrs: { 'data-kit': 'msg' } })}` : ''}${btn('Email supporters', { kind: 'text', icon: 'mail', attrs: { 'data-email': '1', ...(emailOk ? {} : { 'aria-disabled': 'true' }) } })}</div>
+    <p class="small muted">${[listed ? '' : 'Make it public to get its share link.', emailOk ? 'Someone who approves emails checks it before it sends.' : b.position === 'monitor' ? 'Monitor bills get no supporter emails. Take a position first.' : ''].filter(Boolean).join(' ')}</p>
   </section>`;
-  return `${wide ? '' : respSec}<section class="bw-sec bw-pub" aria-labelledby="bw-pub-h">
-    <h2 id="bw-pub-h" class="sr">Public page</h2>
-    ${notice(live ? 'ok' : warn ? 'warn' : 'info', live ? 'globe' : warn ? 'triangle-alert' : 'eye-off', `<b>Now:</b> ${esc(pubStateText(b))}${pubLink}`)}
+  return `${wide ? '' : spread}<section class="bw-sec bw-pub bw-pblk" aria-labelledby="bw-pub-h">
+    <h2 id="bw-pub-h">On the public page</h2>
+    <p class="bw-pubnow${warn ? ' warn' : ''}">${icon(live ? 'globe' : warn ? 'triangle-alert' : 'eye-off')}<span><b>Now:</b> ${esc(pubStateText(b))}${pubLink}</span></p>
     <div class="bw-pubcols">
     <form class="bw-pubform" data-pubform novalidate>
-      ${switchRow('bw-ispub', 'Show on the public page', valOf(b, 'is_public'), 'Anyone can find it, follow it and get its hearing alerts.')}
-      ${switchRow('bw-prec', 'Pre-tick for new visitors', valOf(b, 'recommended'), 'Silent: new visitors find it already ticked on their first visit. Nothing on the public page says it was recommended.')}
+      ${switchRow('bw-ispub', 'Show on the public page', valOf(b, 'is_public'))}
       <div class="field"><label for="bw-nick">Nickname</label>
-        <input id="bw-nick" type="text" maxlength="40" autocomplete="off" value="${esc(nickname)}" aria-describedby="bw-nick-h bw-nick-n" placeholder="Disposable e-cigarette ban">
-        <span class="help" id="bw-nick-h">A short everyday name people can say. It names the bill everywhere on the public page.</span>${count(nickname.length, 'bw-nick-n', 40)}</div>
+        <input id="bw-nick" type="text" maxlength="40" autocomplete="off" value="${esc(nickname)}" aria-describedby="bw-nick-n" placeholder="Disposable e-cigarette ban">${count(nickname.length, 'bw-nick-n', 40)}</div>
       <div class="field"><label for="bw-psum">Public summary</label>
         <textarea id="bw-psum" maxlength="280" rows="3" aria-describedby="bw-psum-n" placeholder="One sentence a neighbor would understand. No jargon, no bill numbers.">${esc(sum)}</textarea>${count(sum.length, 'bw-psum-n')}</div>
       <div class="field"><label for="bw-pact">The ask</label>
         <textarea id="bw-pact" maxlength="280" rows="3" aria-describedby="bw-pact-n" placeholder="What should someone do today? Leave it blank and the hearing itself is the ask.">${esc(ask)}</textarea>${count(ask.length, 'bw-pact-n')}</div>
       <div class="field"><label for="bw-puntil">Show the ask through</label>
-        <input id="bw-puntil" type="date" value="${esc(valOf(b, 'public_action_until'))}" aria-describedby="bw-puntil-h bw-puntil-w">
-        <span class="help" id="bw-puntil-h">An ask shows through this date, then stops. An ask with no date never shows.</span>
+        <input id="bw-puntil" type="date" value="${esc(valOf(b, 'public_action_until'))}" aria-describedby="bw-puntil-w">
         <span class="help bw-untilwarn" id="bw-puntil-w" role="status">${esc(untilWarn(b, ask, valOf(b, 'public_action_until')))}</span></div>
       ${reachNote(b)}
       <div class="field"><label for="bw-ptp">Talking points for testimony</label>
         <textarea id="bw-ptp" rows="5" aria-describedby="bw-ptp-h bw-ptp-n" placeholder="One point per line, up to five.">${esc(valOf(b, 'talking_points'))}</textarea>
-        <span class="help" id="bw-ptp-h">One plain sentence per line. People writing testimony tap these into a letter sent in their own name, so keep them true.${b.talking_points?.length && !b.talking_points_edited_at ? ' <b>Drafted by Claude from the bill’s record: please check them.</b>' : ''}</span>
+        <span class="help" id="bw-ptp-h">People writing testimony tap these into a letter sent in their own name, so keep them true.${b.talking_points?.length && !b.talking_points_edited_at ? ' <b>Drafted by Claude from the bill’s record: please check them.</b>' : ''}</span>
         <span class="help bw-count" id="bw-ptp-n" aria-live="polite">${pointsCount(valOf(b, 'talking_points'))}</span></div>
       <div id="bw-perr" role="alert"></div>
       <div class="bw-acts bw-pubsave">${btn('Save public page', { kind: 'primary', icon: 'check', attrs: { type: 'submit' } })}${dirty(b) ? '<span class="small muted">Not saved yet</span>' : ''}</div>
     </form>
     <div class="bw-prev" role="group" aria-labelledby="bw-prev-h">
-      <p class="bw-eyebrow" id="bw-prev-h">Preview of the public page</p>
+      <p class="bw-eyebrow" id="bw-prev-h">Preview</p>
       <div data-prev>${previewInner(b, valuesOf(b))}</div>
     </div>
     </div>
+    ${draftsSection(b)}
   </section>
-  ${issuesSection(b)}
-  ${draftsSection(b)}
-  <section class="bw-sec" aria-labelledby="bw-lists-h">
-    <h2 id="bw-lists-h">Lists</h2>
-    ${!lists.length ? '<p class="small muted">No lists yet. Make one under Outreach, Lists.</p>'
-      : `<p class="small muted">${listed ? 'Choose a list to add or remove this bill. It changes right away.' : 'Make it public to add it to a list: switch it on above and save.'}</p>
-      <div class="chips bw-lists">${lists.map(l => { const on = (S.listBills || []).some(x => x.list_id === l.id && x.bill_id === b.id), off = !on && !listed;
-        return `<button type="button" class="chip" data-list="${esc(l.id)}" aria-pressed="${on}"${off ? ' aria-disabled="true"' : ''}>${icon(on ? 'check' : 'plus')}${esc(l.title)}${l.is_published ? '' : '<span class="bw-draft">draft</span>'}</button>`; }).join('')}</div>`}
-  </section>
-  ${wide ? respSec : ''}
-  <section class="bw-sec" aria-labelledby="bw-mail-h">
-    <h2 id="bw-mail-h">Email supporters</h2>
-    <p class="small muted">${emailOk ? 'It goes to the people following this bill who asked for action alerts. Someone else who approves emails checks it before it sends.' : b.position === 'monitor' ? 'Monitor bills get no action alerts. Take a position first.' : 'Make it public first. Only people following a public bill can get its email.'}</p>
-    <div class="bw-acts">${btn('Email supporters about this bill', { kind: 'secondary', icon: 'mail', attrs: { 'data-email': '1', ...(emailOk ? {} : { 'aria-disabled': 'true' }) } })}</div>
-  </section>`;
+  ${wide ? spread : ''}
+  ${whereBlock(b, listed)}`;
 }
 
 export function wirePublic(pnl, b, { focusAsk = false } = {}) {
@@ -244,7 +246,7 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
     catch { toast('Could not copy. Select the text and copy it yourself: ' + text); }
   });
   const form = pnl.querySelector('[data-pubform]'), key = b.id + ':pub';
-  const f = { is_public: form.querySelector('#bw-ispub'), recommended: form.querySelector('#bw-prec'), nickname: form.querySelector('#bw-nick'), public_summary: form.querySelector('#bw-psum'), public_action: form.querySelector('#bw-pact'), public_action_until: form.querySelector('#bw-puntil'), talking_points: form.querySelector('#bw-ptp') };
+  const f = { is_public: form.querySelector('#bw-ispub'), nickname: form.querySelector('#bw-nick'), public_summary: form.querySelector('#bw-psum'), public_action: form.querySelector('#bw-pact'), public_action_until: form.querySelector('#bw-puntil'), talking_points: form.querySelector('#bw-ptp') };
   const errBox = form.querySelector('#bw-perr');
   const note = () => { const d = {}; for (const k of FIELDS) { const v = BOOL.has(k) ? f[k].checked : f[k].value; if (v !== saved(b, k)) d[k] = v; }
     if (Object.keys(d).length) { if (!bases.has(key)) bases.set(key, rawOf(b)); drafts.set(key, d); } else { drafts.delete(key); bases.delete(key); }
@@ -254,9 +256,9 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
   const paint = () => { if (prev) prev.innerHTML = previewInner(b, { is_public: f.is_public.checked, nickname: f.nickname.value, public_summary: f.public_summary.value, public_action: f.public_action.value, public_action_until: f.public_action_until.value }); };
   for (const [k, el] of Object.entries(f)) el.addEventListener(BOOL.has(k) ? 'change' : 'input', () => {
     note(); paint(); errBox.innerHTML = ''; f.public_action_until.removeAttribute('aria-invalid'); f.nickname.removeAttribute('aria-invalid');
-    if (k === 'public_summary' || k === 'public_action') form.querySelector(`#${el.id}-n`).textContent = `${el.value.length} of 280 characters`;
+    if (k === 'public_summary' || k === 'public_action') form.querySelector(`#${el.id}-n`).textContent = countText(el.value.length);
     form.querySelector('#bw-puntil-w').textContent = untilWarn(b, f.public_action.value, f.public_action_until.value);
-    if (k === 'nickname') form.querySelector('#bw-nick-n').textContent = `${el.value.length} of 40 characters`;
+    if (k === 'nickname') form.querySelector('#bw-nick-n').textContent = countText(el.value.length, 40);
     if (k === 'talking_points') { form.querySelector('#bw-ptp-n').textContent = pointsCount(el.value); el.removeAttribute('aria-invalid'); }
   });
   form.onsubmit = async e => {
@@ -278,7 +280,7 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
     // same field is shown to the person before anything is written (R-152 B; DB.saveBillFields).
     const base = bases.get(key) || rawOf(b);
     const ptsChanged = JSON.stringify(pts) !== JSON.stringify(base.talking_points || []);
-    const want = { nickname: nickname || null, public_summary: f.public_summary.value.trim() || null, public_action: action || null, public_action_until: until || null, is_public: f.is_public.checked, recommended: f.recommended.checked,
+    const want = { nickname: nickname || null, public_summary: f.public_summary.value.trim() || null, public_action: action || null, public_action_until: until || null, is_public: f.is_public.checked,
       ...(ptsChanged ? { talking_points: pts.length ? pts : null, talking_points_edited_at: new Date().toISOString() } : {}) };
     const finish = res => {
       drafts.delete(key); bases.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn');
@@ -339,9 +341,16 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
     el.setAttribute('aria-busy', 'true');
     try { put(b, await DB.saveBillDraft(b.id, d.version, d.summary)); rerender('[data-dredit]'); toast('Checked. The note is the team’s now.', { ok: true }); }
     catch (e) { el.removeAttribute('aria-busy'); toast(e, { err: true }); } });
-  pnl.querySelectorAll('[data-isstance]').forEach(el => el.onclick = () => {
-    const i = (S.issues || []).find(x => x.id === el.dataset.isstance);
-    if (i) pickStance(i, { bill: b, after: () => rerender(`[data-isstance="${CSS.escape(i.id)}"]`) });
+  // "Where it shows" stays open or closed for the visit (B-6), so a list or issue change that redraws the page keeps it open.
+  pnl.querySelector('#bw-where')?.addEventListener('toggle', e => { S.bwWhereOpen = e.currentTarget.open; });
+  // The pre-tick saves on the switch, with Undo (v3: it left the form's one Save when it moved down here).
+  const prec = pnl.querySelector('#bw-prec');
+  prec?.addEventListener('change', async () => {
+    const on = prec.checked, was = !!b.recommended;
+    try {
+      await DB.updateBill(b.id, { recommended: on }); FACTS.clear(); rerender('#bw-prec');
+      toast(on ? 'Saved. New visitors find it already ticked.' : 'Saved. It is no longer pre-ticked.', { undo: async () => { await DB.updateBill(b.id, { recommended: was }); FACTS.clear(); rerender('#bw-prec'); toast('Put back as it was.'); } });
+    } catch (x) { prec.checked = was; toast(x, { err: true }); }
   });
   pnl.querySelectorAll('[data-issoff]').forEach(el => el.onclick = async () => {
     const id = el.dataset.issoff, i = (S.issues || []).find(x => x.id === id); if (!i) return;
@@ -352,7 +361,7 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
     } catch (x) { el.disabled = false; toast(x, { err: true }); }
   });
   pnl.querySelector('[data-email]').onclick = e => {
-    if (e.currentTarget.getAttribute('aria-disabled') === 'true') { toast(b.position === 'monitor' ? 'Monitor bills get no action alerts. Take a position first.' : 'Make it public first, then save.'); return; }
+    if (e.currentTarget.getAttribute('aria-disabled') === 'true') { toast(b.position === 'monitor' ? 'Monitor bills get no supporter emails. Take a position first.' : 'Make it public first, then save. Only people following a public bill can get its email.'); return; }
     S.go(`#/email/new?bill=${encodeURIComponent(b.id)}`);
   };
 }

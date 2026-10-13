@@ -1,5 +1,6 @@
-// HIPHI Staff v2 · Bill > Testimony (R-027). A person comes here to see what HIPHI has already written on this bill
-// and its issue, so the next testimony starts from the last one (B-1).
+// HIPHI Staff v3 · Bill > Overview > Earlier testimony (R-027; v2's Testimony tab, folded into Overview by R-264). A person
+// comes here to see what HIPHI has already written on this bill and its issue, so the next testimony starts from the last
+// one (B-1). Folded until opened (Next up's "Borrow from earlier testimony" and old #/bill/X/testimony links open it).
 // Every testimony draft the tracker has made (sync/testimony.js: one Google Doc per bill and committee) that somebody
 // has worked on, newest first, in four parts: this bill and its companion; the other bills in its issue (R-018); a
 // search; the rest of its category, folded, the issues nearest this one first. "Newest filed" marks the Doc to open
@@ -13,7 +14,7 @@
 // its own column, a plain label rather than an arrow that looked like a link, and one card for the folded category.
 import { S, DB, DEMO, esc, fmtDate, advocate, capitolUrl, hooks } from './data.js';
 import { codesOf, billByNum } from './model.js';
-import { icon, btn, chip, empty, toast } from './ui.js';
+import { icon, btn, chip, toast } from './ui.js';
 import { cmteFull, billName, firstName } from './bill.js';
 import { issuesOfBill, catByKey } from './issues.js';
 import { billRoute } from './model.js';
@@ -68,6 +69,7 @@ function model(b) {
 }
 // What the Next up link counts: the parts that are open on arrival (the category is folded).
 export const earlierCount = b => { const m = model(b); return m.own.length + m.inIssue.length; };
+// An old Testimony tab's address: bill.js lands it on this fold (its TAB_ALIAS), so a shared link keeps working.
 export const testimonyHref = b => `${billRoute(b, 'testimony')}`;
 // Said once (A-14): the Next up card carries a bill's own drafts while they are unfinished, and a filed one only on the
 // card of a hearing still ahead. Once the hearing has passed, a filed draft lives here and nowhere else.
@@ -121,26 +123,26 @@ function byBill(rows, start, issueName = '') {
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 function body(b) {
   const m = model(b);
-  if (!m.all.length) return empty({ h: 'h3', title: 'No testimony yet',
-    text: 'From January the tracker starts a Google Doc for every hearing on a bill with a position. Once a draft has been sent for review it is listed here, with the testimony on the other bills in this issue.' });
+  if (!m.all.length) return '<p class="small muted">No testimony in the tracker yet.</p>';
   const twin = m.comps.length ? ` and its companion ${m.comps.map(x => esc(x.bill_number)).join(', ')}` : '';
   let h = `<section class="tm-part" aria-labelledby="tm-own-h"><h3 id="tm-own-h">On ${esc(b.bill_number)}${twin}</h3>
     ${m.own.length ? '' : `<p class="small muted">No earlier testimony yet.${m.start ? ' The newest in its issue is marked below.' : ''}</p>`}
     ${m.own.length ? `<div class="tm-rows">${m.own.map(d => fullRow(d, b, m.start)).join('')}</div>` : ''}</section>`;
-  if (m.issues.length) {
+  // An issue with no other bill has nothing to show here, so the part is left out rather than saying so (v3).
+  if (m.issues.length && (m.inIssue.length || m.sameCount)) {
     const names = m.issues.map(i => `"${esc(i.name)}"`).join(' and ');
     h += `<section class="tm-part" aria-labelledby="tm-iss-h"><h3 id="tm-iss-h">Other bills in ${names}</h3>
       <p class="small muted">${m.inIssue.length ? `${plural(m.inIssue.length, 'draft', 'drafts')} on ${plural(new Set(m.inIssue.map(d => String(d.bill_id))).size, 'bill', 'bills')}.`
         : m.sameCount ? `No testimony on the other ${plural(m.sameCount, 'bill', 'bills')} in this issue yet.` : 'This is the only bill in its issue so far.'}</p>
       ${m.inIssue.length ? `<div class="tm-rows">${byBill(m.inIssue, m.start, m.issues.length === 1 ? m.issues[0].name : '')}</div>` : ''}</section>`;
-  } else h += `<section class="tm-part"><p class="small muted">This bill has no issue yet, so testimony on similar bills can't be found. <a href="${billRoute(b, 'public')}">Give it one on the Public tab</a>.</p></section>`;
-  h += `<section class="tm-part" role="search" aria-labelledby="tm-q-h"><h3 id="tm-q-h"><label for="tm-q">Search the ${plural(m.all.length, 'draft', 'drafts')} made in the tracker</label></h3>
+  } else if (!m.issues.length) h += `<section class="tm-part"><p class="small muted">This bill has no issue yet, so testimony on similar bills can't be found. <a href="${billRoute(b, 'public')}">Give it one on the Public tab</a>.</p></section>`;
+  // No count in the label (v3: numbers only where they ask for action).
+  h += `<section class="tm-part" role="search" aria-labelledby="tm-q-h"><h3 id="tm-q-h"><label for="tm-q">Search all testimony in the tracker</label></h3>
     <div class="tm-search">${icon('search')}<input id="tm-q" type="search" autocomplete="off" placeholder="A bill, committee, issue or person" value="${esc(S.tmQuery || '')}"></div>
     <div id="tm-res" aria-live="polite">${results(S.tmQuery || '', b)}</div></section>`;
   if (m.others.length) {
     const cat = m.cats.map(k => catByKey(k)?.name || k).join(' and ');
     h += `<section class="tm-part" aria-labelledby="tm-cat-h"><h3 id="tm-cat-h">More in ${esc(cat)}</h3>
-      <p class="small muted">${plural(m.others.length, 'other issue', 'other issues')} with testimony, nearest first. Open one to see it.</p>
       <div class="tm-cat">${m.others.map(o => `<details class="tm-iss"><summary><b>${esc(o.i.name)}</b><span>${plural(o.rows.length, 'draft', 'drafts')} on ${plural(o.bills, 'bill', 'bills')}</span>${icon('chevron-right')}</summary>
         <div class="tm-rows">${byBill(o.rows, null, o.i.name)}</div></details>`).join('')}</div></section>`;
   }
@@ -176,12 +178,16 @@ function refresh() {
   if (had) { const q = document.getElementById('tm-q'); q?.focus(); q?.setSelectionRange(q.value.length, q.value.length); }
 }
 
-export function renderTestimony(b) {
+// Folded at the end of Overview. Its open state is kept for the visit, per bill (B-6), so a save that redraws the page
+// does not fold it shut under the person reading it.
+export function renderEarlier(b, { open = false } = {}) {
   ensure();
-  return `<section class="bw-sec tm" aria-labelledby="tm-h"><h2 id="tm-h" class="sr">Testimony</h2>
-    <div id="tm-body" data-bill="${esc(b.id)}">${body(b)}</div></section>`;
+  return `<details class="bw-sec tm bw-earlier" id="bw-earlier"${open ? ' open' : ''}>
+    <summary><h2 id="tm-h">Earlier testimony</h2>${icon('chevron-down', { cls: 'chev' })}</summary>
+    <div id="tm-body" data-bill="${esc(b.id)}">${body(b)}</div></details>`;
 }
 export function wireTestimony(pnl, b) {
+  pnl.querySelector('#bw-earlier')?.addEventListener('toggle', e => { (S.bwEarlierOpen ??= {})[b.id] = e.currentTarget.open; });
   const q = pnl.querySelector('#tm-q'), res = pnl.querySelector('#tm-res');
   // The query is kept for the visit (B-6): a trip to another bill and back finds it where it was.
   if (q && res) q.addEventListener('input', () => { S.tmQuery = q.value; res.innerHTML = results(q.value, b); });
