@@ -119,13 +119,13 @@ const ownStance = (p, b) => { const all = p.bill_stances; if (!all || typeof all
 // The icon and the word together, never the colour on its own.
 const stanceChip = k => `<span class="sp-st sp-st-${k}">${icon(STANCE[k][0])}<span>${STANCE[k][1]}</span></span>`;
 
-// A followed bill's row: the bill's number, nickname and plain summary, and the person's own stance on it. Not HIPHI's
+// A followed bill's row: the bill's nickname then its number (R-271), and plain summary, and the person's own stance on it. Not HIPHI's
 // position, its priority or the bill's owner (v3, R-264): those are facts about the bill, not about this person, and
 // the bill's page says them. The same look as ui.js billRow otherwise; a nickname names the bill, and its plain summary
 // is the line under it, so it is said once.
 function followRow(b, sub) {
   const num = (b.bill_number || '') + (b.current_version ? ' ' + b.current_version : ''), title = b.public_summary || b.description || b.title || '';
-  return `<a class="row sv-billrow${b.nickname ? ' sp-nick' : ''}" href="${billRoute(b)}" data-bill="${esc(b.id)}"><span class="body"><span class="title"><b>${esc(num)}</b> ${b.nickname ? `<b class="sv-nk">${esc(b.nickname)}</b>` : `<span class="sv-t">${esc(title)}</span>`}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</span><span class="end">${icon('chevron-right', { cls: 'chev' })}</span></a>`;
+  return `<a class="row sv-billrow${b.nickname ? ' sp-nick' : ''}" href="${billRoute(b)}" data-bill="${esc(b.id)}"><span class="body"><span class="title">${b.nickname ? `<b class="sv-nk">${esc(b.nickname)}</b> <span class="bn-num">${esc(num)}</span>` : `<b>${esc(num)}</b> <span class="sv-t">${esc(title)}</span>`}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</span><span class="end">${icon('chevron-right', { cls: 'chev' })}</span></a>`;
 }
 function follows(p) {
   const st = P(), bills = (p.bill_ids || []).map(billById).filter(Boolean).sort((a, b) => (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number));

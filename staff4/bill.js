@@ -13,7 +13,7 @@
 // testimony.js.
 import { S, DB, DEMO, APP_URL, SESSION_YEAR, STAGES, STAGE_LABEL, hooks, esc, fmtDT, fmtDate, advocate, capitolUrl, isOwner, isMuted } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
-import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteName, streamOf, draftFor, draftWho, draftActions, chairMail, billNum, blurb, titleCaseTitle, sponsorName, legsOf, legTitle, legById, lastSlotBefore, unreadCount, listNames, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, nameOf, dWhen, standingIn, draftHearing, liveAsk, billRef } from './model.js';
+import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteName, streamOf, draftFor, draftWho, draftActions, chairMail, billNum, billSay, blurb, titleCaseTitle, sponsorName, legsOf, legTitle, legById, lastSlotBefore, unreadCount, listNames, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, nameOf, dWhen, standingIn, draftHearing, liveAsk, billRef } from './model.js';
 import { personById, changedSince, startedFromLine } from './data.js';
 import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, POS_SUB, posIcons, ownerOf, countdown, stepBar, stageRibbon, empty, notice, toast, openSheet, closeSheet,
   pickerSheet, menuSheet, confirmSheet, field, keysOn } from './ui.js';
@@ -320,14 +320,14 @@ async function saveWithUndo(b, patch, focusSel, say) {
   } catch (e) { toast(e, { err: true }); rerender(focusSel); }
 }
 function pickPosition(b) {
-  pickerSheet({ title: `Position on ${b.bill_number}`, value: b.position || '',
+  pickerSheet({ title: `Position on ${billSay(b)}`, value: b.position || '',
     options: POS_ORDER.map(v => [v, POS_WORD[v], POS_ICON[v] || 'circle-dashed', POS_SUB[v] || '']),
     onPick: v => saveWithUndo(b, { position: v || null }, '[data-bwpick="pos"]', before => positionSaid(b, before.position, v || null)) });
 }
 function pickOwner(b) {
   const cur = (S.assignments[b.id] || [])[0] || '';
   const people = S.advocates.filter(a => a.is_active !== false || a.id === cur).slice().sort((x, y) => (y.id === S.me?.id) - (x.id === S.me?.id) || x.full_name.localeCompare(y.full_name));
-  pickerSheet({ title: `Who owns ${b.bill_number}?`, value: cur, help: 'The owner writes and files its testimony and gets its alerts.',
+  pickerSheet({ title: `Who owns ${billSay(b)}?`, value: cur, help: 'The owner writes and files its testimony and gets its alerts.',
     options: [...people.map(a => [a.id, a.id === S.me?.id ? `${a.full_name} (you)` : a.full_name, 'user-round']), ['', 'No owner', 'circle-dashed']],
     onPick: async v => {
       if (v === cur) return;
@@ -345,7 +345,7 @@ const publicUrl = b => { const yr = b.session_year && +b.session_year !== SESSIO
 // ---- the page's ⋯ menu: Follow or Mute, Copy link, Public page, Capitol page, the current app ----
 // v3: the links that sat at the foot of Details (Capitol page, Public page, Copy link) live here only (A-20).
 function pageMenu(b) {
-  const h = hearingAhead(b), muted = isMuted(b), following = !!S.follows?.has(b.id), num = billNum(b), pub = publicUrl(b);
+  const h = hearingAhead(b), muted = isMuted(b), following = !!S.follows?.has(b.id), num = billSay(b), pub = publicUrl(b);
   // The server refuses to mute while a hearing is ahead; say its sentence before anyone tries.
   const refuse = h ? `This bill has a ${h.committee} hearing on ${fmtDate(h.scheduled_at)}. It can be muted once that hearing is over.` : '';
   menuSheet({ title: num, items: [
@@ -361,7 +361,7 @@ function pageMenu(b) {
   ] });
 }
 async function toggleMute(b) {
-  const on = !isMuted(b), num = billNum(b);
+  const on = !isMuted(b), num = billSay(b);
   if (on) {
     const r = riskOf(b);
     if (r && !(await confirmSheet({ title: `Mute ${num}?`, text: `This bill is at risk: ${r.deadline.days} day${r.deadline.days === 1 ? '' : 's'} to its deadline and no hearing yet. Muted, it leaves Today and sends you no alerts until it gets a hearing.`, ok: 'Mute anyway' }))) return;
@@ -373,7 +373,7 @@ async function toggleMute(b) {
   } catch (e) { toast(e, { err: true }); rerender(); }   // the server's own sentence comes through (ui.friendly)
 }
 async function toggleFollow(b) {
-  const on = !S.follows?.has(b.id), num = billNum(b);
+  const on = !S.follows?.has(b.id), num = billSay(b);
   try {
     await DB.follow(b.id, on); FACTS.clear(); rerender();
     toast(on ? `Following ${num}. It shows in your bills now.` : `Unfollowed ${num}.`, { undo: async () => { await DB.follow(b.id, !on); rerender(); } });
@@ -591,7 +591,7 @@ function requestChanges(b, d) {
         // no step that takes a send-back back.
         const undo = holdBack({ key: d.id, target: d, patch: { status: 'draft', review_note: note },
           send: () => transition(b, d, 'request_changes', note),
-          onFail: () => { FACTS.clear(); if (S.route?.name === 'bill') rerender(); toast(`${b.bill_number} was not sent back. It is still waiting for you; try again.`, { err: true }); } });
+          onFail: () => { FACTS.clear(); if (S.route?.name === 'bill') rerender(); toast(`${billSay(b)} was not sent back. It is still waiting for you; try again.`, { err: true }); } });
         HELD.delete('rc:' + d.id);
         FACTS.clear(); closeSheet({ silent: true }); rerender();
         toast(to ? `Sent back to ${to} with your note.` : 'Sent back with your note.', { undo: async () => { if (await undo()) { FACTS.clear(); rerender(); toast('Not sent back. It is waiting for you again.'); } } });
@@ -599,7 +599,7 @@ function requestChanges(b, d) {
     } });
 }
 function markFiled(b, d) {
-  openSheet({ title: `Filed ${esc(b.bill_number)} testimony for ${esc(d.committee)}?`, size: 'auto',
+  openSheet({ title: `Filed ${esc(billSay(b))} testimony for ${esc(d.committee)}?`, size: 'auto',
     body: `${field('bw-furl', 'Capitol confirmation link (optional)', '<input id="bw-furl" type="url" inputmode="url" autocomplete="off" placeholder="https://">', 'Paste the link from the Capitol’s confirmation, if you have it.')}
       <p class="err" id="bw-furl-e" role="alert" hidden>That does not look like a web address. It starts with https://</p>
       <p class="bw-shlink">${btn('File at the Capitol', { kind: 'text', icon: 'external-link', href: capitolUrl(b), target: '_blank' })}</p>`,
@@ -614,7 +614,7 @@ function markFiled(b, d) {
         const go = e.currentTarget; go.setAttribute('aria-busy', 'true');
         try {
           await transition(b, d, 'file', null, url); HELD.delete('fu:' + d.id); closeSheet({ silent: true }); rerender();
-          toast(`Filed. ${b.bill_number} is done for ${d.committee}.`, { ok: true, undo: async () => { await transition(b, d, 'unfile'); rerender(); toast('Unmarked. It is approved and ready to file again.'); } });
+          toast(`Filed. ${billSay(b)} is done for ${d.committee}.`, { ok: true, undo: async () => { await transition(b, d, 'unfile'); rerender(); toast('Unmarked. It is approved and ready to file again.'); } });
         } catch (x) { go.removeAttribute('aria-busy'); toast(x, { err: true }); }
       };
     } });
@@ -773,7 +773,8 @@ function compHTML(b) {
     const r = rows.find(x => x.bill_number === num);
     if (!r) return `<span class="bw-comp">${esc(num)}</span>`;
     const st = r.stage_override || r.stage || 'introduced', inApp = S.bills.some(x => x.id === r.id);
-    const link = inApp ? `<a class="bw-inline" href="${billRoute(S.bills.find(x => x.id === r.id))}">${esc(num)}</a>` : `<a class="bw-inline" href="${esc(capitolUrl(r))}" target="_blank" rel="noopener">${esc(num)}${icon('external-link')}</a>`;
+    const tb = S.bills.find(x => x.id === r.id);   // R-271: a tracked twin leads with its nickname
+    const link = inApp ? `<a class="bw-inline" href="${billRoute(tb)}">${tb.nickname ? `${esc(tb.nickname)} <span class="bn-num">${esc(num)}</span>` : esc(num)}</a>` : `<a class="bw-inline" href="${esc(capitolUrl(r))}" target="_blank" rel="noopener">${esc(num)}${icon('external-link')}</a>`;
     return `<span class="bw-comp">${link} ${chip(STAGE_LABEL[st] || st, st === 'enacted' ? 'ok' : '', st === 'enacted' ? 'check' : st === 'dead' || st === 'vetoed' ? 'circle-x' : '')}${r.tracked ? '' : ' ' + chip('Not tracked')}</span>`;
   }).join('');
 }
@@ -874,7 +875,7 @@ function editCoalitions(b) {
   const body = () => S.campaigns.length ? `<p class="small muted bw-shhelp">Tap to add or remove. Each change saves.</p><div class="sv-pickl">${S.campaigns.map(c => { const on = (S.billCampaigns[b.id] || []).includes(c.id);
     return `<button type="button" role="checkbox" aria-checked="${on}" data-camp="${esc(c.id)}">${icon(on ? 'square-check-big' : 'square', { cls: on ? 'on' : '' })}<span class="body"><span class="title">${esc(c.name)}</span></span></button>`; }).join('')}</div>`
     : '<p class="muted">No coalitions yet. An admin adds them under Session setup.</p>';
-  openSheet({ title: `Coalitions for ${esc(b.bill_number)}`, body: body(),
+  openSheet({ title: `Coalitions for ${esc(billSay(b))}`, body: body(),
     onClose: () => rerender('[data-coal]'),
     wire: dlg => {
       const wireBtns = () => dlg.querySelectorAll('[data-camp]').forEach(el => el.onclick = async () => {
@@ -897,20 +898,20 @@ function topBar(b, route) {
   const o = origin(route), nb = neighbours(b);
   return `<div class="bw-top">
     <a class="bw-back" href="${esc(o.href)}" data-back>${icon('chevron-left')}<span>${esc(o.label)}</span></a>
-    <span class="bw-topnum" aria-hidden="true"><b>${esc(b.bill_number)}</b>${b.nickname ? ` · ${esc(b.nickname)}` : ''}</span>
+    <span class="bw-topnum" aria-hidden="true">${b.nickname ? `<b>${esc(b.nickname)}</b> · <span class="bn-num">${esc(b.bill_number)}</span>` : `<b>${esc(b.bill_number)}</b>`}</span>
     ${nb ? `<div class="bw-nav" role="group" aria-label="Move through ${esc(o.label)}">
-      ${nb.prev ? `<a class="btn text bw-pn" href="${billHref(nb.prev, tabOf(route))}" data-nav="prev" aria-label="Previous bill: ${esc(nb.prev.bill_number)}" title="${esc(nb.prev.bill_number)} ([)">${icon('chevron-left')}<span>Previous</span></a>` : `<span class="btn text bw-pn" aria-disabled="true">${icon('chevron-left')}<span>Previous</span></span>`}
+      ${nb.prev ? `<a class="btn text bw-pn" href="${billHref(nb.prev, tabOf(route))}" data-nav="prev" aria-label="Previous bill: ${esc(billSay(nb.prev))}" title="${esc(billSay(nb.prev))} ([)">${icon('chevron-left')}<span>Previous</span></a>` : `<span class="btn text bw-pn" aria-disabled="true">${icon('chevron-left')}<span>Previous</span></span>`}
       <span class="meta">${nb.i + 1} of ${nb.n}</span>
-      ${nb.next ? `<a class="btn text bw-pn" href="${billHref(nb.next, tabOf(route))}" data-nav="next" aria-label="Next bill: ${esc(nb.next.bill_number)}" title="${esc(nb.next.bill_number)} (])"><span>Next</span>${icon('chevron-right')}</a>` : `<span class="btn text bw-pn" aria-disabled="true"><span>Next</span>${icon('chevron-right')}</span>`}
+      ${nb.next ? `<a class="btn text bw-pn" href="${billHref(nb.next, tabOf(route))}" data-nav="next" aria-label="Next bill: ${esc(billSay(nb.next))}" title="${esc(billSay(nb.next))} (])"><span>Next</span>${icon('chevron-right')}</a>` : `<span class="btn text bw-pn" aria-disabled="true"><span>Next</span>${icon('chevron-right')}</span>`}
     </div>` : ''}
-    ${iconBtn('ellipsis', `More for ${b.bill_number}`, { 'data-bwmore': '1' })}
+    ${iconBtn('ellipsis', `More for ${billSay(b)}`, { 'data-bwmore': '1' })}
   </div>`;
 }
 function tabsNav(b, tab) {
   const n = unreadCount(b), keys = keysOn();
   // The number keys are named on each tab (title, aria-keyshortcuts). v3: not again at the end of the strip, where "1 to 3"
   // read as a puzzle to anyone who does not use them (P-4).
-  return `<div class="bw-tabsent" aria-hidden="true"></div><nav class="bw-tabs" aria-label="${esc(b.bill_number)} sections">${TABS.map(([k, l], i) =>
+  return `<div class="bw-tabsent" aria-hidden="true"></div><nav class="bw-tabs" aria-label="${esc(billSay(b))} sections">${TABS.map(([k, l], i) =>
     `<a href="${billHref(b, k)}" data-tab="${k}" ${k === tab ? 'aria-current="page"' : ''} title="${l}${keys ? ` (${i + 1})` : ''}"${keys ? ` aria-keyshortcuts="${i + 1}"` : ''}>${l}${k === 'activity' && n ? `<span class="bw-badge" aria-label="${n} new">${n}</span>` : ''}</a>`).join('')}</nav>`;
 }
 // Activity opens with the team note, pinned (v3): the note is the team's standing context, the stream what happened since.
@@ -1008,7 +1009,7 @@ export default {
           <div class="bw-stick">${headHTML(b, { chips: false })}${tabsNav(b, tab)}</div>
           ${pnl}
         </div>
-        <aside class="sv-aside bw-aside" aria-label="${esc(b.bill_number)} at a glance">${cards}</aside>
+        <aside class="sv-aside bw-aside" aria-label="${esc(billSay(b))} at a glance">${cards}</aside>
       </div>
     </div>`;
   },
@@ -1029,7 +1030,7 @@ export default {
     if (hdr) {
       const h1 = hdr.querySelector('.sv-title');
       if (h1) h1.innerHTML = `${esc(b.bill_number)}${b.current_version ? ` <span class="bw-ver bw-hv">${esc(b.current_version)}</span>` : ''}`;
-      if (!hdr.querySelector('.bw-hdrmore')) (hdr.querySelector('.sv-srchbtn') || hdr.querySelector('.sv-avbtn'))?.insertAdjacentHTML('beforebegin', iconBtn('ellipsis', `More for ${b.bill_number}`, { 'data-bwmore': '1' }, 'bw-hdrmore'));
+      if (!hdr.querySelector('.bw-hdrmore')) (hdr.querySelector('.sv-srchbtn') || hdr.querySelector('.sv-avbtn'))?.insertAdjacentHTML('beforebegin', iconBtn('ellipsis', `More for ${billSay(b)}`, { 'data-bwmore': '1' }, 'bw-hdrmore'));
       // A label shortened to "Back" so the number fits (fitBack) still says where it goes to a screen reader.
       const bk = hdr.querySelector('.sv-back');
       if (bk && !bk.hasAttribute('aria-label') && o.label !== 'Back' && bk.textContent.trim() === 'Back') bk.setAttribute('aria-label', `Back to ${o.label}`);

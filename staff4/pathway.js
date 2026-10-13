@@ -7,7 +7,7 @@
 // filed testimony, which were v2's Hearings list and Testimony tab.
 import { S, DB, esc, hooks, fmtDT, fmtDate, advocate, pathwayStops } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
-import { stopOf, legsOf, stanceOf, legTitle, codesOf, cmteName, STANCES, blurb, billNum, diedish, hearingAhead, whyDead, riskOf, legPhoto, billByNum, billRef, streamOf, OUTCOME_LABEL } from './model.js';
+import { stopOf, legsOf, stanceOf, legTitle, codesOf, cmteName, STANCES, blurb, billSay, diedish, hearingAhead, whyDead, riskOf, legPhoto, billByNum, billRef, streamOf, OUTCOME_LABEL } from './model.js';
 import { icon, btn, chip, pickerChip, openSheet, closeSheet, pickerSheet, toast } from './ui.js';
 import { rerender } from './bill.js';   // used inside functions only (bill.js imports this file too)
 
@@ -65,7 +65,7 @@ export function billSub(b) {
 // The note and the teammate who knows them save as they change, and on close, so nothing typed is lost.
 export const stanceChip = (b, l, extra = {}) => {
   const x = stanceOf(b.id, l.id);
-  return pickerChip(STANCE_WORD[x.stance] || 'Unknown', { 'data-lgst': `${b.id}|${l.id}`, 'aria-label': `${shortName(l)} on ${b.bill_number}: ${STANCE_WORD[x.stance] || 'Unknown'}. Change`, ...extra }, STANCE_ICON[x.stance] || 'circle-dashed');
+  return pickerChip(STANCE_WORD[x.stance] || 'Unknown', { 'data-lgst': `${b.id}|${l.id}`, 'aria-label': `${shortName(l)} on ${billSay(b)}: ${STANCE_WORD[x.stance] || 'Unknown'}. Change`, ...extra }, STANCE_ICON[x.stance] || 'circle-dashed');
 };
 export function openStance(b, l, { redraw = () => hooks.render() } = {}) {
   const x = stanceOf(b.id, l.id), before = { stance: x.stance, note: x.note ?? null, contact_id: x.contact_id ?? null };
@@ -81,11 +81,11 @@ export function openStance(b, l, { redraw = () => hooks.render() } = {}) {
     toast(msg, { ok: true, undo: async () => { await DB.setStance(b.id, l.id, before); redraw(); toast('Undone.'); } });
   };
   openSheet({
-    title: `${esc(shortName(l))} on ${esc(billNum(b))}`, size: 'auto',
+    title: `${esc(shortName(l))} on ${esc(billSay(b))}`, size: 'auto',
     body: `<div class="lg-stsheet">
       ${by ? `<p class="small muted">Last set by ${esc(by.full_name.split(' ')[0])} ${esc(fmtDate(x.updated_at))}</p>` : ''}
       <div class="sv-pickl" role="radiogroup" aria-label="Where they stand">${STANCES.map(([v, label]) => `<button type="button" role="radio" aria-checked="${v === x.stance}" data-lgsv="${v}">${icon(STANCE_ICON[v])}<span class="body"><span class="title">${esc(label)}</span></span>${v === x.stance ? icon('check', { cls: 'on' }) : ''}</button>`).join('')}</div>
-      <div class="field"><label for="lg-stnote">Note on ${esc(b.bill_number)}, team only</label><textarea id="lg-stnote" rows="2" maxlength="300" autocapitalize="sentences" placeholder="What they said, what they want">${esc(x.note || '')}</textarea></div>
+      <div class="field"><label for="lg-stnote">Note on ${esc(billSay(b))}, team only</label><textarea id="lg-stnote" rows="2" maxlength="300" autocapitalize="sentences" placeholder="What they said, what they want">${esc(x.note || '')}</textarea></div>
       <div class="field"><label for="lg-stwho">Who on our team knows them</label><select id="lg-stwho"><option value="">No one yet</option>${team.map(a => `<option value="${esc(a.id)}"${a.id === x.contact_id ? ' selected' : ''}>${esc(a.full_name)}</option>`).join('')}</select></div>
     </div>`,
     foot: btn('Done', { attrs: { 'data-lgstdone': '1' } }),
@@ -96,7 +96,7 @@ export function openStance(b, l, { redraw = () => hooks.render() } = {}) {
       d.querySelectorAll('[data-lgsv]').forEach(el => el.onclick = () => {
         const v = read(d), stance = el.dataset.lgsv; done = true; closeSheet({ silent: true });
         if (stance === before.stance && !dirty(v)) return;
-        save({ stance, ...v }, `${shortName(l)}: ${STANCE_WORD[stance].toLowerCase()} on ${b.bill_number}.`);
+        save({ stance, ...v }, `${shortName(l)}: ${STANCE_WORD[stance].toLowerCase()} on ${billSay(b)}.`);
       });
       d.querySelector('[data-lgstdone]').onclick = () => { flush(); done = true; closeSheet({ silent: true }); };
     },
@@ -190,7 +190,7 @@ export function renderCommittees(b) {
   const desk = DESK();
   if (!stops.length) return `<section class="bw-sec bw-cm" id="bw-cmt" aria-labelledby="bw-cmt-h"><h2 id="bw-cmt-h">Committees</h2><p class="small muted">No committee referral yet.</p></section>`;
   const firstOpen = stops.findIndex(s => s.state === 'current') >= 0 ? stops.findIndex(s => s.state === 'current') : stops.findIndex(s => s.state === 'next');
-  const predFrom = comp && stops.some(s => s.state === 'predicted' && s.from === 'companion') ? `Likely next (from ${esc(comp.bill_number)})` : 'Likely next (the usual path)';
+  const predFrom = comp && stops.some(s => s.state === 'predicted' && s.from === 'companion') ? `Likely next (from ${esc(billSay(comp))})` : 'Likely next (the usual path)';
   let shownPred = false, shownNext = false;
   const rows = stops.map((s, i) => {
     const key = `${b.id}|${s.chamber}${s.stop}|${s.committee}`, open = (S.pwOpen || {})[key] ?? i === firstOpen;
@@ -239,7 +239,7 @@ function memberRow(b, m, joint) {
   return `<div class="lg-mem${m.role !== 'member' ? ' lead' : ''}">
     <a class="lg-membody" href="${legHref(l, b)}"><span class="lg-nm"><span class="sr">${esc(legTitle(l))} </span>${esc(l.name)}</span><span class="lg-memsub">${roleChip}<span>${esc(sub)}</span></span>${x.note ? `<span class="lg-memnote">${esc(x.note)}</span>` : ''}</a>
     ${stanceChip(b, l)}
-    ${l.email ? `<a class="iconbtn lg-mail" href="${esc(legMail(l, b))}" aria-label="Email ${esc(shortName(l))} about ${esc(b.bill_number)}" title="Email ${esc(shortName(l))}">${icon('mail')}</a>` : '<span class="lg-mail" aria-hidden="true"></span>'}
+    ${l.email ? `<a class="iconbtn lg-mail" href="${esc(legMail(l, b))}" aria-label="Email ${esc(shortName(l))} about ${esc(billSay(b))}" title="Email ${esc(shortName(l))}">${icon('mail')}</a>` : '<span class="lg-mail" aria-hidden="true"></span>'}
   </div>`;
 }
 // ---- desktop: a stop's members as a table (build 3) ----
@@ -259,7 +259,7 @@ function memberTable(b, stop, members, joint, i, limit = members.length) {
   const s = S.pwSort || { key: 'role', dir: 1 };
   const th = ([key, label]) => { const on = s.key === key;
     return `<th scope="col" class="bw-pwc-${key}" aria-sort="${on ? (s.dir > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="bw-sortb" data-pwsort="${key}" data-pwtab="${i}">${label}${on ? icon(s.dir > 0 ? 'chevron-up' : 'chevron-down') : ''}</button></th>`; };
-  return `<table class="bw-pwt"><caption class="sr">${esc(cmteName(stop.committee))}: members and where they stand on ${esc(b.bill_number)}</caption>
+  return `<table class="bw-pwt"><caption class="sr">${esc(cmteName(stop.committee))}: members and where they stand on ${esc(billSay(b))}</caption>
     <thead><tr>${PW_COLS.map(th).join('')}<th scope="col" class="bw-pwc-note">Note and contact</th><th scope="col" class="bw-pwc-act"><span class="sr">Note and email</span></th></tr></thead>
     <tbody>${sortedMembers(b, members).slice(0, limit).map(m => memberTr(b, m, joint)).join('')}</tbody></table>`;
 }
@@ -271,26 +271,26 @@ function memberTr(b, m, joint) {
   const key = `${b.id}|${l.id}`, word = STANCE_WORD[x.stance] || 'Unknown';
   // When it was last touched and by whom stands in for "last contact": the note is where a contact gets written down.
   const meta = [who ? `${who.full_name.split(' ')[0]} knows them` : '', by && (x.note || who) ? `${by.id === S.me?.id ? 'You' : by.full_name.split(' ')[0]}, ${fmtDate(x.updated_at)}` : ''].filter(Boolean).join(' · ');
-  const noteLabel = `${x.note || who ? 'Edit the note' : 'Add a note'} on ${shortName(l)} for ${b.bill_number}`;
+  const noteLabel = `${x.note || who ? 'Edit the note' : 'Add a note'} on ${shortName(l)} for ${billSay(b)}`;
   return `<tr class="${m.role !== 'member' ? 'lead' : ''}">
     <th scope="row" class="bw-pwc-name"><a class="bw-pwnm" href="${legHref(l, b)}"><span class="sr">${esc(legTitle(l))} </span>${esc(l.name)}</a>
       <span class="bw-pwsub">${m.role !== 'member' || (joint && lead.length) ? `<span class="bw-pwfold">${esc(role)} · </span>` : ''}${esc([partyDist(l), only].filter(Boolean).join(' · '))}</span>
       ${x.note || meta ? `<span class="bw-pwfold bw-pwinl">${esc([x.note, meta].filter(Boolean).join(' · '))}</span>` : ''}</th>
     <td class="bw-pwc-role">${esc(role)}</td>
-    <td class="bw-pwc-stance">${pickerChip(word, { 'data-pwst': key, 'aria-haspopup': 'dialog', 'aria-label': `${shortName(l)} on ${b.bill_number}: ${word}. Change` }, STANCE_ICON[x.stance] || 'circle-dashed')}</td>
+    <td class="bw-pwc-stance">${pickerChip(word, { 'data-pwst': key, 'aria-haspopup': 'dialog', 'aria-label': `${shortName(l)} on ${billSay(b)}: ${word}. Change` }, STANCE_ICON[x.stance] || 'circle-dashed')}</td>
     <td class="bw-pwc-note"><button type="button" class="bw-pwnote${x.note || meta ? '' : ' none'}" data-pwnote="${key}" aria-label="${esc(noteLabel)}"${x.note ? ` title="${esc(x.note)}"` : ''}>
       ${x.note ? `<span class="bw-pwntx">${esc(x.note)}</span>` : ''}${meta ? `<span class="bw-pwmeta">${esc(meta)}</span>` : ''}${x.note || meta ? '' : `${icon('plus')}<span>Add a note</span>`}</button></td>
-    <td class="bw-pwc-act"><button type="button" class="iconbtn bw-pwfold" data-pwnote="${key}" aria-label="${esc(noteLabel)}" title="${x.note || who ? 'Edit the note' : 'Add a note'}">${icon('notebook-pen')}</button>${l.email ? `<a class="iconbtn" href="${esc(legMail(l, b))}" aria-label="Email ${esc(shortName(l))} about ${esc(b.bill_number)}" title="Email ${esc(shortName(l))}">${icon('mail')}</a>` : ''}</td>
+    <td class="bw-pwc-act"><button type="button" class="iconbtn bw-pwfold" data-pwnote="${key}" aria-label="${esc(noteLabel)}" title="${x.note || who ? 'Edit the note' : 'Add a note'}">${icon('notebook-pen')}</button>${l.email ? `<a class="iconbtn" href="${esc(legMail(l, b))}" aria-label="Email ${esc(shortName(l))} about ${esc(billSay(b))}" title="Email ${esc(shortName(l))}">${icon('mail')}</a>` : ''}</td>
   </tr>`;
 }
 function pickStance(b, l) {
   const x = stanceOf(b.id, l.id), before = { stance: x.stance, note: x.note ?? null, contact_id: x.contact_id ?? null }, sel = `[data-pwst="${b.id}|${l.id}"]`;
-  pickerSheet({ title: `${shortName(l)} on ${billNum(b)}`, value: x.stance, options: STANCES.map(([v, label]) => [v, label, STANCE_ICON[v]]),
+  pickerSheet({ title: `${shortName(l)} on ${billSay(b)}`, value: x.stance, options: STANCES.map(([v, label]) => [v, label, STANCE_ICON[v]]),
     onPick: async v => {
       if (v === before.stance) return;
       try { await DB.setStance(b.id, l.id, { ...before, stance: v }); } catch (e) { toast(e, { err: true }); return; }
       rerender(sel);
-      toast(`${shortName(l)}: ${STANCE_WORD[v].toLowerCase()} on ${b.bill_number}.`, { ok: true, undo: async () => { await DB.setStance(b.id, l.id, before); rerender(sel); toast('Undone.'); } });
+      toast(`${shortName(l)}: ${STANCE_WORD[v].toLowerCase()} on ${billSay(b)}.`, { ok: true, undo: async () => { await DB.setStance(b.id, l.id, before); rerender(sel); toast('Undone.'); } });
     } });
 }
 function wireTable(pw, b) {

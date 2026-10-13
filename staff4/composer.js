@@ -16,7 +16,7 @@
 // type; (3) approving here asks first and has Undo, like review mode. Nothing here sends on its own: the only send is
 // the Send button on an approved email, behind a confirm, and the server holds everything while email is paused.
 import { S, DB, hooks, esc, fmtDT, advocate, segmentPeople } from './data.js';
-import { alertTarget, cleanHTML, htmlToText, textToHtml, escT, billNum, blurb, roomShort, codesOf, diedish, hearingAhead, billById, PUBLIC_APP, plain, approves, liveAsk, billByRef } from './model.js';
+import { alertTarget, cleanHTML, htmlToText, textToHtml, escT, billNum, billTag, blurb, roomShort, codesOf, diedish, hearingAhead, billById, PUBLIC_APP, plain, approves, liveAsk, billByRef } from './model.js';
 import { ICONS } from '../icons.js';
 import { icon, btn, iconBtn, chip, empty, notice, toast, openSheet, closeSheet, confirmSheet, menuSheet, sheetOpen, keysOn } from './ui.js';
 import { listById, listIcon, listRows, plural, afterClose, clip, isSide } from './lists.js';
@@ -217,8 +217,8 @@ function whoResults(q) {
   const segs = (S.segments || []).filter(s => !t || has(s.name));
   const opt = (v, lead, title, sub) => `<button type="button" class="row le-opt" data-pick="${esc(v)}"><span class="lead">${icon(lead)}</span><span class="body"><span class="title">${title}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</button>`;
   const grp = (title, rows) => rows.length ? `<div class="le-rgroup"><h3 class="le-rh">${title}</h3><div class="rows">${rows.join('')}</div></div>` : '';
-  // A bill leads with its number and nickname (bold); the line under it says when it is heard, which is why it is here.
-  const bRows = bills.slice(0, t ? 8 : 6).map(b => { const h = hearingAhead(b); return opt('b:' + b.id, 'scroll-text', b.nickname ? `<b>${esc(billNum(b))}</b> <b>${esc(b.nickname)}</b>` : `<b>${esc(billNum(b))}</b> <span class="le-t">${esc(clip(b, 70))}</span>`, h ? `Hearing ${esc(fmtDT(h.scheduled_at))} · ${esc(h.committee)}` : 'No hearing yet'); });
+  // A bill leads with its nickname, the number small after it (R-271); the line under it says when it is heard, which is why it is here.
+  const bRows = bills.slice(0, t ? 8 : 6).map(b => { const h = hearingAhead(b); return opt('b:' + b.id, 'scroll-text', billTag(b, 70), h ? `Hearing ${esc(fmtDT(h.scheduled_at))} · ${esc(h.committee)}` : 'No hearing yet'); });
   const out = grp(t ? 'Bills' : 'Bills with a hearing coming up', bRows)
     + grp('Lists', lists.map(l => opt('l:' + l.id, listIcon(l.icon), esc(l.title), `${plural(listRows(l).length, 'bill')} · ${plural(S.listFollowers?.[l.id] || 0, 'follower')}`)))
     + grp('Saved segments', segs.map(s => opt('s:' + s.id, 'users', esc(s.name), segSub(s))));
@@ -229,7 +229,7 @@ function whoStep(c) {
   const u = audienceOf(c.a);
   if (u.kind) {
     const locked = !!c.a.id;
-    const title = u.b ? (u.b.nickname ? `<b>${esc(billNum(u.b))}</b> <b>${esc(u.b.nickname)}</b><span class="le-whosum">${esc(clip(u.b, 120))}</span>` : `<b>${esc(billNum(u.b))}</b> <span class="le-t">${esc(clip(u.b, 90))}</span>`) : esc(u.name);
+    const title = u.b ? (u.b.nickname ? `${billTag(u.b)}<span class="le-whosum">${esc(clip(u.b, 120))}</span>` : billTag(u.b, 90)) : esc(u.name);
     const warn = u.l && !u.l.is_published ? notice('info', 'eye-off', 'This list is a draft. Publish it first; only a live list has followers.') : u.b && !u.b.is_public ? notice('info', 'eye-off', 'This bill is not public, so nobody can follow it yet.') : '';
     return `<h2 class="le-sh">Who gets it?</h2>
       <div class="card le-who">
