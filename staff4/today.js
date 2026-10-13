@@ -1604,7 +1604,8 @@ const dayWord = day => day === hst(Date.now()) ? 'Today' : day === dayAdd(hst(Da
 // five rows, then "N more on This week". Never in the badge (decision 7). When the writer and the rallier come (R-267),
 // these become the person's own rows; until then this is the honest version: work due today on your coalitions' bills.
 const COALDUE_CAP = 5;
-function coalDue(r) {
+// `skip`: the sittings "Your hearing today" shows, whose bills it already lists with their testimony and Doc.
+function coalDue(r, skip = new Set()) {
   const co = coalPicked(); if (!co) return { cards: [], co: null };
   const now = Date.now(), today = hst(now), inC = b => (S.billCampaigns[b.id] || []).some(id => co.ids.has(id));
   const mineB = new Set(r.cards.filter(c => c.b).map(c => c.b.id));   // already on their own list
@@ -1613,7 +1614,7 @@ function coalDue(r) {
   const tasks = [], asked = new Set();
   for (const h of (S.hearings || []).slice().sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))) {
     const start = new Date(h.scheduled_at).getTime(), b = billById(h.bill_id);
-    if (h.status === 'cancelled' || start <= now || !ok(b)) continue;
+    if (h.status === 'cancelled' || start <= now || !ok(b) || skip.has(slotKey(h))) continue;
     const d = draftOf(h), due = testDue(h);
     if ((due <= now || hst(due) === today) && (!d || d.status === 'draft')) {
       const k = !d ? 'nodraft' : d.review_note ? 'revise' : 'write';
@@ -1622,7 +1623,8 @@ function coalDue(r) {
         q: d?.review_note ? esc(d.review_note) : '',
         btns: [!d ? { label: draftAsking(h) ? 'Making the draft…' : 'Make the draft now', act: 'draftnow' } : d.doc_url ? { label: 'Open Doc', href: d.doc_url, ext: true } : { label: 'Open the bill', href: billRoute(b) }] });
     }
-    if (['strongly_support', 'strongly_oppose'].includes(b.position) && !liveAsk(b) && !asked.has(b.id)) {
+    // An ask helps only while the public can still send written testimony on time: due today, or late before that closes.
+    if (['strongly_support', 'strongly_oppose'].includes(b.position) && !liveAsk(b) && !asked.has(b.id) && due > now) {
       const ad = askDue(h);
       if (ad <= now || hst(ad) === today) { asked.add(b.id); tasks.push({ kind: 'ask', key: `ca:${b.id}`, b, h, due: ad, who: 'coal', rank: RANK.ask,
         s: `Write the public ask for the ${esc(h.committee)} hearing ${esc(hearingDay(h))} · ${esc(whose(b))}`, btns: [{ label: 'Write it', href: `${billRoute(b, 'public')}?focus=ask` }] }); }
@@ -1630,7 +1632,7 @@ function coalDue(r) {
   }
   for (const [bid, arr] of Object.entries(S.todos || {})) for (const t of arr) {
     const b = billById(bid), h = !t.done && ok(b) ? askTodoHearing(b, t.title) : null, due = dateDue(t.due_date);
-    if (!h || new Date(h.scheduled_at).getTime() <= now || due == null || !(due <= now || hst(due) === today)) continue;
+    if (!h || testDue(h) <= now || skip.has(slotKey(h)) || due == null || !(due <= now || hst(due) === today)) continue;
     tasks.push({ kind: 'todo', key: `ct:${t.id}`, b, t, h, due, who: 'coal', rank: RANK.todo, s: `Send the ask for the ${esc(h.committee)} hearing ${esc(hearingDay(h))} · ${esc(whose(b))}`,
       btns: [{ label: 'Open the share kit', href: `#/hearing/${encodeURIComponent(h.id)}?from=today&kit=1` }] });
   }
@@ -1892,7 +1894,7 @@ function render(route) {
   // v4 (T8): the hearing you are going to today leads the page; its sitting is said nowhere else on it.
   const mineH = scope === 'mine' && !off ? mineToday() : [], skip = new Set(mineH.map(([k]) => k)), mine = mineH.map(([, h]) => mineCard(h)).join('');
   // v4 (fresh-eyes A): their coalitions' work due today, for someone who owns no bills.
-  const cd = scope === 'mine' && !off && !S.bills.some(b => owns(S.me.id, b)) ? coalDue(r) : { cards: [], co: null, tasks: [] };
+  const cd = scope === 'mine' && !off && !S.bills.some(b => owns(S.me.id, b)) ? coalDue(r, skip) : { cards: [], co: null, tasks: [] };
   for (const t of cd.tasks || []) LAST.set(t.key, t);
   const cs = scope === 'mine' && !off ? coalSection(r, skip, new Set(cd.cards.map(c => c.b.id))) : { html: '', due: false }, coal = cs.html;
   let i = 0, body;
