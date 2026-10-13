@@ -888,7 +888,7 @@ function paneHearing(c) {
   const going = goingOf(goersAt(h)), mine = goingFor(h).going, isNew = c.p.kind === 'nodraft' && c.p.h?.id === h.id;
   return `<div class="td-psec td-phear"><h3 class="td-ph3">${isNew ? 'New hearing' : 'Hearing'}</h3>
     <a class="td-phl" href="#/hearing/${esc(h.id)}?from=today">${icon('landmark')}<span><b>${esc(h.committee)} ${esc(whenLine(h.scheduled_at))}</b>${h.room ? ` · ${esc(room(h.room))}` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</a>
-    <p class="td-pgo">${icon('users')}<span>${esc(going || 'Nobody from the team yet')}</span>${btn(mine ? 'I’m not going after all' : 'I’m going', { kind: 'text', attrs: { 'data-going': h.id } })}</p></div>`;
+    <p class="td-pgo">${icon('users')}<span>${esc(going || 'Nobody going yet')}</span>${btn(mine ? 'I’m not going after all' : 'I’m going', { kind: 'text', attrs: { 'data-going': h.id } })}</p></div>`;
 }
 function paneAlso(c) {
   const also = c.tasks.slice(1); if (!also.length) return '';
@@ -943,7 +943,7 @@ function select(k, { focus = false } = {}) {
   if (el) { if (focus) el.querySelector('.td-rsel')?.focus({ preventScroll: true }); el.scrollIntoView({ block: 'nearest' }); }
 }
 
-// "Hearings today: HHS 1:10 PM, Rm 225 · nobody from the team going yet" (R-264): the day's sittings still to come on the
+// "Hearings today: HHS 1:10 PM, Rm 225 · nobody going yet" (R-264; one phrase for it everywhere since v4): the day's sittings still to come on the
 // bills in view, one line above the list, each opening the hearing's own page. It replaced a panel with a box per bill.
 // `skip`: the sittings "Your hearing today" already shows (v4): each is said once.
 function hearingsLine(scope, who, skip = new Set()) {
@@ -953,7 +953,7 @@ function hearingsLine(scope, who, skip = new Set()) {
   const sit = new Map(); for (const x of all) { const k = slotKey(x.h); if (!sit.has(k)) sit.set(k, []); sit.get(k).push(x); }
   const list = [...sit.values()], shown = list.slice(0, 2), more = list.length - shown.length;
   const one = l => { const h = l[0].h, going = goingOf(goersAt(h));
-    return `<span class="td-hlone"><a href="#/hearing/${esc(h.id)}?from=today"><b>${esc(h.committee)} ${esc(timeOf(h.scheduled_at))}</b>${h.room ? `, ${esc(room(h.room))}` : ''}</a> · ${esc(going || 'nobody from the team going yet')}</span>`; };
+    return `<span class="td-hlone"><a href="#/hearing/${esc(h.id)}?from=today"><b>${esc(h.committee)} ${esc(timeOf(h.scheduled_at))}</b>${h.room ? `, ${esc(room(h.room))}` : ''}</a> · ${esc(going || 'nobody going yet')}</span>`; };
   return `<p class="td-hline1">${icon('landmark')}<span class="td-hlt"><span>Hearings today:</span> ${shown.map(one).join('<span class="td-hlsep">; </span>')}${more ? ` <a href="#/?view=week">and ${more} more</a>` : ''}</span></p>`;
 }
 // ---- Your hearing today (v4, R-269, T8) ----
@@ -1654,7 +1654,7 @@ function coalDueHtml(cd, rows, top) {
 
 // v4 (R-269, T1-T3): each hearing row says where its testimony stands and when it is due, in the coalition page's words
 // (hearing.js testimonyOf), amber when the next step is writing and it is due within a day or late but still open; who
-// is going only when someone is, and "Nobody from the team is going to 2 of 3 yet" once under the hearings, not on every
+// is going only when someone is, and "Nobody going yet to 2 of the 3" once under the hearings, not on every
 // row (it was said up to 11 times a page). A row whose bill has a live public ask ends "Share kit", which opens the
 // hearing page at its share kit. The bills with no hearing yet are the heading's count, a link to them on Bills, and no
 // longer a list of up to 36 rows (the count was said twice). `skip`: sittings that "Your hearing today" already shows.
@@ -1700,7 +1700,7 @@ function coalSection(r, skip = new Set(), quiet = new Set()) {
       ${kit ? `<a class="td-ckit" href="#/hearing/${esc(h.id)}?from=today&amp;kit=1">Share kit${icon('chevron-right')}</a>` : ''}</div>`; };
   const todoRow = ({ b, t }) => `<div class="td-crow td-ctodo"><a class="td-cbody" href="${billRoute(b)}"><span class="td-cbills"><b class="td-num">${esc(billNum(b))}</b> ${esc(t.title)}</span>${t.due_date ? `<span class="td-cmeta">${esc(`Due ${fmtDate(String(t.due_date).slice(0, 10), { weekday: 'short' }).replace(',', '')}`)}</span>` : ''}</a>${btn('Take it', { kind: 'secondary', attrs: { 'data-ctake': `${b.id}|${t.id}` } })}</div>`;
   const nobody = [...sit.values()].filter(l => !goersAt(l[0].h).length).length, all = sit.size;
-  const nobodyLine = !nobody ? '' : `<p class="td-cnote">${icon('user-round-plus')}<span>${esc(nobody === all ? (all === 1 ? 'Nobody from the team is going yet' : `Nobody from the team is going to any of the ${all} yet`) : `Nobody from the team is going to ${nobody} of ${all} yet`)}</span></p>`;
+  const nobodyLine = !nobody ? '' : `<p class="td-cnote">${icon('user-round-plus')}<span>${esc(nobody === all ? (all === 1 ? 'Nobody going yet' : `Nobody going yet to any of the ${all}`) : `Nobody going yet to ${nobody} of the ${all}`)}</span></p>`;
   const body = [rows.length ? `<h3 class="td-ch">${icon('landmark')}Hearings</h3>${nobodyLine}<div class="td-crows">${rows.map(sitRow).join('')}</div>` : '',
     todos.length ? `<h3 class="td-ch">${icon('list-todo')}To-dos nobody has taken</h3><div class="td-crows">${todos.map(todoRow).join('')}</div>` : ''].join('');
   // The heading's line: the hearings (or that there are none, said here and nowhere else), the bills with no hearing as a
