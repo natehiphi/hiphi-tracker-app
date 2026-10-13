@@ -55,7 +55,7 @@ function hearingNews(i, b) {
 function item(i, inBlock = false) {
   const b = i.bill_id && billById(i.bill_id), news = hearingNews(i, b), href = news?.tab ? `${billRoute(b)}/${news.tab}` : hrefOf(i);
   const inner = `<span class="ib-ic" aria-hidden="true">${icon(KIND_ICON[i.kind] || 'circle')}</span>
-    <span class="ib-body"><span class="ib-l1">${i.unread ? '<span class="sr">Unread: </span>' : ''}${b && !inBlock ? `${b.nickname ? `<b class="ib-num">${esc(b.nickname)}</b> <span class="bn-num">${esc(billNum(b))}</span>` : `<b class="ib-num">${esc(billNum(b))}</b>`}${i.priority === 1 ? '<span class="sv-p1">P1</span>' : ''} ` : ''}<span class="ib-t">${esc(news ? news.t : unslack(i.title))}</span></span>
+    <span class="ib-body"><span class="ib-l1">${i.unread ? '<span class="sr">Unread: </span>' : ''}${b && !inBlock ? `${b.nickname ? `<b class="ib-num">${esc(b.nickname)}</b> <span class="bn-num">${esc(billNum(b))}</span>` : `<b class="ib-num">${esc(billNum(b))}</b>`}${i.priority === 1 ? '<span class="sv-p1">P1</span>' : ''} · ` : ''}<span class="ib-t">${esc(news ? news.t : unslack(i.title))}</span></span>
       ${news ? (news.sub ? `<span class="ib-sub">${esc(news.sub)}</span>` : '') : i.body ? `<span class="ib-sub">${esc(unslack(i.body).slice(0, 220))}</span>` : ''}<span class="ib-when m">${esc(ago(i.at))}</span></span>
     <span class="ib-when d" title="${esc(fmtDT(i.at))}">${esc(ago(i.at))}</span>`;
   return `<div class="ib-row${i.unread ? ' unread' : ''}" data-key="${esc(i.key)}">
