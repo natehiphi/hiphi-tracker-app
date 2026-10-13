@@ -1442,6 +1442,12 @@ export async function demoInit() {
   const snap = await (await fetch('demo/snapshot.json?v=20261005f', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
+  // v4 (R-269): Patti (HEAL) and Julie (alcohol, under HIAPA) are not in the tracker yet, so the practice copy adds them, owning
+  // nothing and supporting their coalition, as Nate described them (R-267). Practise as either from your menu; once they are
+  // added for real (Session setup > Team) and the snapshot is rebuilt, these two lines find them and add nothing.
+  const coalId = n => snap.campaigns.find(c => c.name === n)?.id;
+  for (const [id, full_name, initials, color, co] of [['aaaaaaaa-0000-4000-8000-00000000a011', 'Patti', 'PH', '#8e5ea2', 'HEAL'], ['aaaaaaaa-0000-4000-8000-00000000a012', 'Julie', 'JMM', '#3b8d6e', 'HIAPA']])
+    if (!S.advocates.some(a => a.initials === initials) && coalId(co)) S.advocates.push({ id, full_name, initials, color, email: null, is_admin: false, is_reviewer: false, can_approve: false, is_active: true, focus_areas: null, prefs: { coalitions: [coalId(co)] } });
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];
   const byIni = Object.fromEntries(S.advocates.map(a => [a.initials, a.id]));
   S.campaigns = snap.campaigns; hooks.afterLoad();
