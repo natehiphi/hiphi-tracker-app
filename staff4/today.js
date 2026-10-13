@@ -651,12 +651,15 @@ function toolbar(route) {
 // At most one notice, most important first: the sync is stale (admins), new bills to sort in the opening weeks, then the
 // issues' prep. "Email is paused" is said on Emails and Session setup, where it can be acted on: on Today and This week
 // it led every admin's page all autumn, a sentence to read and nothing to do (R-264, P-4).
-// Getting started (R-106, Nate 9/30): the five New here? steps from Help, on Today itself for a new teammate's first 45
-// days (always in the sandbox), until all five are done or they hide it. One line that opens on demand, under the first
-// group of work since v3, so it never pushes the day's work down (A-1). It replaced the old "New here? Read how the
-// tracker works" notice, which the issue-prep notice could hide.
+// Getting started (R-106, Nate 9/30): the New here? steps from Help, on Today itself for a new teammate's first 45
+// days (always in the sandbox), until all are done or they hide it. One line that opens on demand. It replaced the old
+// "New here? Read how the tracker works" notice, which the issue-prep notice could hide.
+// v4 (R-269, T9): it comes after the person's own work (their groups, what waits on others, their coalition's week),
+// never between Overdue and Due today or above the only thing on a helper's Today; and not on a phone, where on a hearing
+// day at the Capitol it is not the job (it waits for the laptop).
+const PHONE = () => !mq('(min-width: 600px)');
 function startCard() {
-  const me = S.me; if (!me || load('newhere_done', '')) return '';
+  const me = S.me; if (!me || PHONE() || load('newhere_done', '')) return '';
   const age = me.created_at ? Date.now() - new Date(me.created_at).getTime() : Infinity;
   if (!DEMO && !(age < 45 * DAY)) return '';
   const steps = newSteps(), n = steps.filter(s => s.done).length; if (n === steps.length) return '';
@@ -1708,10 +1711,10 @@ function render(route) {
         // v4 (R-269, T2): "Nothing of your own is due today" sat over a draft due in 29 minutes on the coalition's bill
         // below it. Now the quiet line is said only when nothing there is due today either, and says just that.
         : coal ? (cs.due ? '' : `<p class="td-quiet" data-top tabindex="-1">${icon('circle-check')}<span>Nothing needs you today.</span></p>`)
-        : `<div class="td-empty" data-top tabindex="-1">${empty({ art: scope === 'mine' ? yay() : '', title: who ? `Nothing is waiting on ${esc(name)}.` : scope === 'none' ? 'Nothing is open on the bills nobody owns.' : 'All clear for today.', text: nextHearingText(scope, who), action: scope !== 'mine' ? btn('Back to my list', { kind: 'secondary', attrs: { 'data-seg': 'tdscope', 'data-val': 'mine' } }) : btn('See your bills', { href: '#/bills' }) })}</div>`) + startCard();
+        : `<div class="td-empty" data-top tabindex="-1">${empty({ art: scope === 'mine' ? yay() : '', title: who ? `Nothing is waiting on ${esc(name)}.` : scope === 'none' ? 'Nothing is open on the bills nobody owns.' : 'All clear for today.', text: nextHearingText(scope, who), action: scope !== 'mine' ? btn('Back to my list', { kind: 'secondary', attrs: { 'data-seg': 'tdscope', 'data-val': 'mine' } }) : btn('See your bills', { href: '#/bills' }) })}</div>`);
     } else body = (clear ? `<div class="td-clear">${scope === 'mine' ? yay() : ''}<div><p class="td-clear-t">${who ? `Nothing for ${esc(name)} today.` : scope === 'none' ? 'Nothing is due today on the bills nobody owns.' : 'All clear for today.'}</p><p class="small muted">${nextHearingText(scope, who)}</p></div></div>` : '')
-      + groups.map((g, gi) => groupHtml(g, gi) + (gi === 0 ? startCard() : '')).join('');
-    body += waitingGroup(scope, who) + coal;
+      + groups.map(groupHtml).join('');
+    body += waitingGroup(scope, who) + coal + (scope === 'mine' ? startCard() : '');
   }
   // A teammate's list is for looking: say so once. It is the top of the list, so it takes the focus when this list is
   // chosen (A-16). How many cards it holds is Team load's to say (R-264).
@@ -1951,6 +1954,8 @@ function wire(route, root) {
   main.querySelector('[data-newhere]')?.addEventListener('click', () => { save('newhere_done', '1'); hooks.render(); });
   main.querySelector('[data-tdstart]')?.addEventListener('toggle', e => { S.tdStartOpen = e.target.open; });
   main.querySelectorAll('[data-tdfr]').forEach(a => a.addEventListener('click', () => markNewStep({ [a.dataset.tdfr]: 1 })));
+  // Opening This week is the helper's Getting started step (help.js, v4): the step is seeing it, however you got there.
+  if (viewOf(route) === 'week' && scopeOf() === 'mine' && aheadBills('mine').coal) markNewStep({ week: 1 });
   // Keep the place. A control that redrew the page gets its focus back. Otherwise the card (or row) j/k or a click was
   // last on does: after a step redraws the list, and after a trip to a bill and back, the next j goes on from there,
   // not from the top (assessment 9/19). When it is gone, the one that took its place is next.

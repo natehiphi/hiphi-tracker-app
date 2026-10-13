@@ -8,6 +8,9 @@
 // Capitol words there; #/help/keys (the frame's "?" shortcut) opens the shortcuts directly at any width.
 // v3 (R-264): the guides describe Staff v3's shape (five places, a bill's three tabs, Outreach's two), and the switch for
 // keyboard shortcuts lives on Keyboard shortcuts itself instead of in My settings.
+// v4 (R-269): Staff v4's shape: Today always opens on Mine, Team starts with Slipping for admins and second approvers,
+// Outreach has four tabs, Tasks retired; New here? is four steps, and for someone who owns no bills it starts with their
+// coalition's testimony.
 import { S, DEMO, APP_URL, STAGES, esc, fmtDate } from './data.js';
 import { glossStage, legislativeDay, PUBLIC_APP, plain } from './model.js';
 import { icon, btn, row, switchRow, toast, keysOn, setKeys } from './ui.js';
@@ -61,23 +64,23 @@ const TOPICS = [
   { id: 'tabs', title: 'What each place is for', icon: 'list-todo', sub: () => 'Today, My issues, Bills, Legislators and Outreach',
     // Staff v3 (R-264): five places and nothing else in the sidebar; Review opens from Today's card, the Inbox is in your
     // menu, a bill has three tabs, This week is one view, and Outreach has two tabs.
-    items: () => [['Today', 'Everything that needs you, grouped by when it is due: testimony steps, reviews, replies, emails to approve and follow-ups, one line each. On a laptop the one you pick opens in full beside the list, with all its buttons. Clear it and you are done. Testimony waiting for your approval opens in Review from its card. <b>Mine</b> is yours; <b>Team</b> is everyone else’s work due this week, by person, and its picker narrows it to one teammate or to <b>No owner</b>. <b>This week</b> shows the week’s hearings and deadlines. Hearings on bills we only monitor are folded away: <b>+N on bills you monitor</b> shows them again. If you support a coalition, Today also shows its week, never in the count. Between sessions, Today shows how the session ended and <b>Getting ready for January</b> (see <a href="#/help/session">Getting ready for a new session</a>).'],
+    items: () => [['Today', 'Everything that needs you, grouped by when it is due: testimony steps, reviews, replies, emails to approve and follow-ups, one line each. On a laptop the one you pick opens in full beside the list, with all its buttons. Clear it and you are done. Testimony waiting for your approval opens in Review from its card. <b>Mine</b> is yours, and Today always opens on it; <b>Team</b> has its own link (#/?scope=team) and is everyone else’s work due this week, by person (for admins and second approvers it starts with <b>Slipping</b>: every step on the team that is late or due within a day, and hearings today or tomorrow nobody is going to), and its picker narrows it to one teammate or to <b>No owner</b>. <b>This week</b> shows the week’s hearings and deadlines. Hearings on bills we only monitor are folded away: <b>+N on bills you monitor</b> shows them again. If you support a coalition, Today also shows its week, never in the count. Between sessions, Today shows how the session ended and <b>Getting ready for January</b> (see <a href="#/help/session">Getting ready for a new session</a>).'],
       ['Suggestions', 'Under <b>This week</b>, <b>Also worth doing</b> suggests work drawn from where each bill stands, and says why each one came up. Each has one button that does the step, and a <b>…</b> menu with <b>Done</b>, <b>Not now</b> (it comes back in two weeks) and <b>Not this bill</b>, each with Undo. Suggestions are never counted in the Today number.'],
       ['Giving a to-do', '<b>Give to…</b> on a to-do hands it to one teammate, who gets a Slack message. Its first choice is <b>You · Take it over</b>. Change your mind within two minutes, with Undo or by giving it back, and nobody is told.'],
       ['My issues', 'The issues you own or help on, each with its bills, soonest work first. Its tabs are three ways to group bills: <b>My issues</b>, <b>All issues</b> (every issue by category: rename, merge, put bills on issues; the first visit’s numbers are in its ⋯ menu) and <b>Coalitions</b> (each coalition’s week, and the switch to support it).'],
-      ['Bills', 'Every tracked bill, grouped by where it stands: <b>Mine</b> (bills you own or follow), <b>My coalitions</b> (when you support one) or <b>Team</b>. Filter, select several to follow or change at once, or export a CSV; <b>Save this view</b> keeps a filter on the row of view chips. Sort new bills, the weekly memo and Lists open from its ⋯ menu. A bill’s page has three tabs: <b>Overview</b> (where it stands, with its committees and where their members stand), <b>Activity</b> and <b>Public</b>.'],
+      ['Bills', 'Every tracked bill, grouped by where it stands: <b>Mine</b> (bills you own or follow), <b>My coalitions</b> (when you support one) or <b>Team</b>. Filter, select several to follow or change at once, or export a CSV; <b>Save this view</b> keeps a filter on the row of view chips. Sort new bills, Lists and Muted bills open from its ⋯ menu. A bill’s page has three tabs: <b>Overview</b> (where it stands, with its committees and where their members stand), <b>Activity</b> and <b>Public</b>.'],
       ['Legislators', 'Every senator and representative: district, the towns it covers, committees, how to reach them and where they stand on our bills. The filter box searches names, towns and districts, so “Kaūmana” or a street address finds the member. <b>This week</b> shows who hears our bills in the next 7 days.'],
-      ['Outreach', 'Two tabs. <b>Supporters</b>: everyone HIPHI knows, with segments and follow-ups (admins import or export a CSV from the ⋯ menu). <b>Emails</b>: supporter emails, each approved by someone other than its writer before it goes, and this week’s asks to paste into the newsletter or a post.'],
+      ['Outreach', 'Four tabs. <b>This week’s asks</b>: each bill’s public ask and deadline, to paste into the newsletter or a post (your coalitions first; Every coalition shows the rest). <b>Partner update</b>: the memo for a coalition’s partners. <b>Emails</b>: supporter emails, each approved by someone other than its writer before it goes. <b>Supporters</b>: everyone HIPHI knows, with segments and follow-ups (admins import or export a CSV from the ⋯ menu).'],
       ['A quick look', 'On Bills, clicking a row opens the bill beside the list; <b>J</b> and <b>K</b> (or the arrow keys) walk the list and the bill beside it follows, <b>Enter</b> or <b>Open the bill</b> opens the bill’s own page, <b>Esc</b> closes it. On Today, <b>o</b> opens the same quick look'],
-      ['Your menu', 'Tap your initials, top right, for the Inbox (messages and updates sent to you), My settings, Session setup (admins) and Help. On a wide screen the sidebar holds the five places, with Help and My settings at its foot; <b>Collapse</b> narrows it to icons.']] },
-  { id: 'new', title: 'New here?', icon: 'sparkles', sub: () => { const n = newSteps().filter(s => s.done).length; return `${n} of 5 done`; }, html: () => newHTML() },
+      ['Your menu', 'Tap your initials, top right, for the Inbox (messages and updates sent to you), and on a phone My settings, Session setup (admins) and Help. On a wide screen the sidebar holds the five places, with Help, Session setup and My settings at its foot; <b>Collapse</b> narrows it to icons.']] },
+  { id: 'new', title: 'New here?', icon: 'sparkles', sub: () => { const st = newSteps(), n = st.filter(s => s.done).length; return `${n} of ${st.length} done`; }, html: () => newHTML() },
   { id: 'own', title: 'Owning and following', icon: 'user-check', sub: () => 'Who is asked to do what',
     items: () => [['Owner', 'Responsible for the bill. Drafts are made for the owner, and the testimony steps on Today are the owner\'s (or the writer\'s, or an approver\'s). One owner per bill.'],
       ['Following', 'Puts a bill in your Mine view and on your Today list, and gets you its chat messages. It never gives you a task. Anyone can follow anything.'],
       ['Muting', 'Takes a bill off your lists until its next hearing is posted. A bill with a hearing ahead cannot be muted.'],
       // Says what the select-many bar does (R-022, decision 9): the two used to disagree.
       ['Changing owners and positions', 'Anyone can change a bill’s owner or position: on its page, in a cell of the Bills table, or down the whole table with its Edit switch (a laptop). For many at once, tick them in Bills, then Set position or Set owner. Every change can be undone from the message that follows it. Follow and Unfollow work on many at once the same way. The priority follows the position: Strong support makes a bill P1, the team’s top tier, and every other position P2.'],
-      ['Coalitions I support', 'For helping with a coalition’s bills without owning them. Switch on <b>I support this coalition</b> on its page (My issues, then Coalitions). Today then shows each one’s week (never in the count), Bills shows their bills under <b>My coalitions</b>, and the weekly memo starts on the one coalition you support.']] },
+      ['Coalitions I support', 'For helping with a coalition’s bills without owning them. Switch on <b>I support this coalition</b> on its page (My issues, then Coalitions). Today then shows each one’s week (never in the count), Bills shows their bills under <b>My coalitions</b>, and Outreach’s Partner update starts on it.']] },
   { id: 'auto', title: 'What happens on its own', icon: 'rotate-ccw', sub: () => emailOff() ? 'Email is paused right now' : 'Email is on',
     items: () => { const burst = (S.syncCfg || {}).burst_until, hourly = burst && burst >= new Date().toISOString().slice(0, 10);
       return [['Bills', `Synced from the Legislature ${hourly ? `4 more times a day until ${esc(fmtDate(burst))} (8 in all), then 4 times a day` : '4 times a day'}. Stage, committee, last action and versions are never typed by hand.`],
@@ -101,28 +104,36 @@ const TOPICS = [
     items: () => [['Drafts', 'Google Drive, in Testimony, then the year, the coalition and the bill.'], ['Alerts', `Slack ${esc((S.slackCfg || {}).main_channel || '#hearing-alerts')} and each coalition's channel. Your own steps come as DMs or email (My settings).`],
       ['Calendar', 'The HIPHI Hearings Google Calendar.'], ['Video', 'The Senate and House YouTube channels.'], ['Questions', `Ask ${esc(orList(names(a => a.is_admin)) || 'an admin')}.`]] },
   { id: 'keys', title: 'Keyboard shortcuts', icon: 'keyboard', hover: true, sub: () => 'For a keyboard and mouse',
-    items: () => [['/', 'Search'], ['g then t, m, b, l, o, r, i or k', 'Go to Today, My issues, Bills, Legislators, Outreach, Review, the Inbox or Tasks'], ['j and k', 'Today: next and previous item (the arrow keys too, once in the list). Bills, Legislators and the Inbox: next and previous row'], ['Enter', 'Today: do the open row\'s step. Bills: open the bill'], ['o', 'Today: a quick look at the bill. Bills: open the bill'], ['x', 'Bills: tick the row'], ['Space', 'Bills: a quick look at the marked row'],
+    items: () => [['/', 'Search'], ['g then t, m, b, l, o, r or i', 'Go to Today, My issues, Bills, Legislators, Outreach, Review or the Inbox'], ['j and k', 'Today: next and previous item (the arrow keys too, once in the list). Bills, Legislators and the Inbox: next and previous row'], ['Enter', 'Today: do the open row\'s step. Bills: open the bill'], ['o', 'Today: a quick look at the bill. Bills: open the bill'], ['x', 'Bills: tick the row'], ['Space', 'Bills: a quick look at the marked row'],
       ['Shift+A', 'Review: approve (it takes Shift so a stray letter never approves). Inbox: mark the list read'], ['e', 'Inbox: mark the row read or unread'], ['r, o', 'Review: request changes, open the Doc'], ['Right arrow', 'Review: skip to the next draft'], ['1 to 3', 'Bill: Overview, Activity, Public'], ['[ and ]', 'Bill: previous and next bill'],
-      ['j, k, Space, o', 'Tasks: next and previous task, tick it, open its bill'], ['t, n, l, u', 'Sort new bills: track, not for us, later, undo (u again undoes the one before)'], ['Arrow keys', 'In a menu or a picker: move; Enter chooses'], ['?', 'Open this list'], ['Esc', 'Close a sheet, or go back'], ['While typing', 'Shortcuts are off while you type in a field.'], ['Switch them off', 'The switch at the top of this list turns every shortcut off on this device.']] },
+      ['t, n, l, u', 'Sort new bills: track, not for us, later, undo (u again undoes the one before)'], ['Arrow keys', 'In a menu or a picker: move; Enter chooses'], ['?', 'Open this list'], ['Esc', 'Close a sheet, or go back'], ['While typing', 'Shortcuts are off while you type in a field.'], ['Switch them off', 'The switch at the top of this list turns every shortcut off on this device.']] },
 ];
 const topic = id => TOPICS.find(t => t.id === id);
 const visible = () => TOPICS.filter(t => !t.hover || HOVER());
 
-// ---- New here?: five things a new teammate does once. Three tick themselves; the other two tick when you go do them.
+// ---- New here?: four things a new teammate does once. One ticks itself; the others tick when you go do them.
+// v4 (R-269, T9): "Read Owning and following" went (P-4: reading is not a step). Someone who owns no bills and supports a
+// coalition (Patti, Saya, Julie) is not asked to follow three bills, which for Patti only added a folded "Waiting on
+// others" line: their step is their coalition's testimony this week, on This week.
+const coalWord = me => { const c = me?.prefs?.coalitions;
+  if (c === 'all') return 'your coalitions’';
+  const ns = Array.isArray(c) ? c.map(id => (S.campaigns || []).find(x => x.id === id)?.name).filter(Boolean) : [];
+  return ns.length === 1 ? `${ns[0]}’s` : ns.length ? 'your coalitions’' : ''; };
 function newSteps() {
   const o = frGet(), me = S.me;
   const mine = me ? S.bills.filter(b => (S.assignments[b.id] || []).includes(me.id) || S.follows?.has(b.id)).length : 0;
+  const ownsNone = !!me && !S.bills.some(b => (S.assignments[b.id] || []).includes(me.id)), co = ownsNone ? coalWord(me) : '';
   return [
     { k: 'settings', done: !!o.settings, title: 'Choose how the tracker reaches you', sub: 'Slack DM, email, or only in the app', href: '#/me' },
-    { k: 'follow', done: mine >= 3, title: `Follow three bills you care about${mine && mine < 3 ? `, ${mine} of 3` : ''}`, sub: 'Open a bill, then Follow in its menu. Bills you own count.', href: '#/bills' },
+    co ? { k: 'week', done: !!o.week, title: `See ${co} testimony this week`, sub: 'This week shows each hearing, where its testimony stands and when it is due', href: '#/?view=week' }
+      : { k: 'follow', done: mine >= 3, title: `Follow three bills you care about${mine && mine < 3 ? `, ${mine} of 3` : ''}`, sub: 'Open a bill, then Follow in its menu. Bills you own count.', href: '#/bills' },
     { k: 'bill', done: !!o.bill, title: 'Open a bill and read its Next up card', sub: 'It says what the bill needs and by when', href: '#/bills' },
     { k: 'today', done: !!o.today, title: 'Clear your Today list', sub: 'Each card has one button that does the step', href: '#/' },
-    { k: 'own', done: !!o.own, title: 'Read Owning and following', sub: 'Two minutes on who is asked to do what', href: '#/help/own' },
   ];
 }
 function newHTML() {
   const steps = newSteps(), n = steps.filter(s => s.done).length;
-  return `<p class="st-sum"><span class="st-meter" aria-hidden="true"><i style="width:${n * 20}%"></i></span><span>${n} of 5 done</span></p>
+  return `<p class="st-sum"><span class="st-meter" aria-hidden="true"><i style="width:${Math.round(n / steps.length * 100)}%"></i></span><span>${n} of ${steps.length} done</span></p>
     <div class="rows">${steps.map(s => `<a class="row st-newrow${s.done ? ' done' : ''}" href="${s.href}" data-fr="${s.k}"><span class="st-ric">${icon(s.done ? 'circle-check' : 'circle-dashed')}<span class="sr">${s.done ? 'Done:' : 'To do:'}</span></span><span class="body"><span class="title">${esc(s.title)}</span><span class="sub">${esc(s.sub)}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`).join('')}</div>`;
 }
 
@@ -166,7 +177,6 @@ function renderIndex() {
 const keysNote = t => t.id !== 'keys' ? '' : `${HOVER() ? '' : `<p class="small muted st-note">${icon('info')} These need a keyboard. They are off on touch screens.</p>`}
   <div class="card st-list st-keyson">${switchRow('st-keyson', 'Use keyboard shortcuts', keysOn(), 'Off means a stray letter never does anything. Approving always takes Shift+A. Kept on this device.', { 'data-keys': '1' })}</div>`;
 function renderTopic(t) {
-  if (t.id === 'own') frSet({ own: 1 });   // reading it is the step (New here?)
   const body = t.html ? t.html() : `<div class="card st-wcard">${dl(t.items())}</div>`;
   const kbd = keysNote(t);
   return `<div class="st-page st-help st-subpage">
@@ -179,7 +189,6 @@ function renderTopic(t) {
 // or "Search results" while the box has words in it.
 function renderDesk(route) {
   const q = S.st2HelpQ || '', t = topic(route.topic) || topic('words');
-  if (t.id === 'own') frSet({ own: 1 });
   const body = t.html ? t.html() : `<div class="card st-wcard">${dl(t.items())}</div>`;
   const kbd = keysNote(t);
   const list = visible(); if (!list.includes(t)) list.push(t);   // a direct link to a topic this device does not list still shows where you are
@@ -197,7 +206,7 @@ function renderDesk(route) {
   </div></div>`;
 }
 
-// Today shows these same five steps as its Getting started card (R-106).
+// Today shows these same steps as its Getting started card (R-106).
 export { newSteps, frSet as markNewStep };
 export default {
   tab: '',
