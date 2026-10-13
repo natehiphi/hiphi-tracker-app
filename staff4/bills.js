@@ -404,7 +404,7 @@ function table(groups) {
       case 'last': return `<td>${b.last_action ? two(`${b.last_action_date ? `<span class="bl-date">${md(b.last_action_date)}</span> ` : ''}${esc(b.last_action)}`, b.last_action) : none}</td>`;
       case 'pulse': return `<td>${pulseText(b)}</td>`;
       case 'pos': { if (v.edit) return `<td><span class="bl-selwrap">${posIcons(b.position || '')}${inlSel('pos', b)}</span></td>`; const p = b.position || '', w = p ? POS_WORD[p] || p : posWord(''); return `<td><button type="button" class="bl-cell" data-edit="pos" data-id="${b.id}" aria-label="Position for ${esc(billSay(b))}: ${esc(w)}. Change it"${c.icon ? ` title="${esc(w)}"` : ''}>${posIcons(p)}${c.icon ? '' : `<span>${esc(w)}</span>`}</button></td>`; }
-      case 'own': { if (v.edit) return `<td>${inlSel('own', b)}</td>`; const o = ownerOf(b); return `<td><button type="button" class="bl-cell bl-own" data-edit="own" data-id="${b.id}" aria-label="Owner of ${esc(billSay(b))}: ${esc(o ? (o.id === S.me?.id ? 'you' : o.full_name) : 'nobody')}. Change it">${o ? avatar(o) : `<span class="bl-noown">${icon('circle-dashed')}</span>`}</button></td>`; }
+      case 'own': { if (v.edit) return `<td>${inlSel('own', b)}</td>`; const o = ownerOf(b); return `<td><button type="button" class="bl-cell bl-own" data-edit="own" data-id="${b.id}" aria-label="Owner of ${esc(billSay(b))}: ${esc(o ? (o.id === S.me?.id ? 'you' : o.full_name) : 'nobody')}. Change it">${o ? avatar(o) : `<span class="bl-noown">${icon('circle-dashed')}<span class="bl-noword">No owner</span></span>`}</button></td>`; }
     }
     return '<td></td>';
   };
