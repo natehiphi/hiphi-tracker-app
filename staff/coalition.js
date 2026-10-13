@@ -185,7 +185,7 @@ function hearingsHTML(c) {
 }
 
 // At risk: no hearing yet and the deadline a week away or less. The notice line is the real deadline: a committee has
-// to post a hearing 48 hours ahead (model.js noticeByFor).
+// to post a hearing 48 or 72 hours ahead (model.js noticeByFor).
 function riskHTML(c, list) {
   const rowOf = ({ b, st }) => {
     const nb = noticeByFor(st), dl = st.deadline, left = dl.days <= 0 ? 'Last day today' : `${dl.days} day${dl.days === 1 ? '' : 's'} left`;

@@ -61,7 +61,20 @@ export function currentDeadline(list = S.bills) {
 export function billDeadline(b) {
   return stopOf(b).deadline;
 }
-export function lastSlotBefore(code, dateStr, slots) {
+// How far ahead the hearing notice must post. House Rule 11.5: 48 hours. The Senate (Rule 21): 72 hours for a bill's
+// first Senate committee, 48 for later ones (the Public Access Room's guide). The House counts weekends and holidays
+// (HR17, 2011); a floor waiver can shorten either, so the date is the latest a regular notice can go up (R-275).
+export const noticeHours = st => (st && st.chamber === 'S' && st.stop === 1 ? 72 : 48);
+// The hours run through the weekend, but the clerks post notices on working days: a cutoff that lands on a Saturday or
+// Sunday really means the Friday before, by the end of its office day (4:30 PM).
+export function noticeCutoff(at, st) {
+  const t = new Date(at - noticeHours(st) * 3600e3);
+  const dow = new Date(t.toLocaleString('en-US', { timeZone: 'Pacific/Honolulu' })).getDay();
+  if (dow !== 0 && dow !== 6) return t;
+  const fri = new Date(t.getTime() - (dow === 6 ? 1 : 2) * 864e5).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+  return new Date(`${fri}T16:30:00-10:00`);
+}
+export function lastSlotBefore(code, dateStr, slots, st) {
   const c = codesOf(code)[0];
   const mine = (slots || []).filter(s => s.code === c);
   if (!mine.length || !dateStr) return null;
@@ -70,7 +83,7 @@ export function lastSlotBefore(code, dateStr, slots) {
     const day = d.toISOString().slice(0, 10);
     const dow = new Date(day + 'T12:00:00-10:00').getUTCDay();
     const s = mine.filter(x => x.weekday === dow).sort((a, b) => b.start_time.localeCompare(a.start_time))[0];
-    if (s) { const at = new Date(`${day}T${s.start_time.slice(0, 8)}-10:00`); return { at, noticeBy: new Date(at - 48 * 3600e3), room: s.room }; }
+    if (s) { const at = new Date(`${day}T${s.start_time.slice(0, 8)}-10:00`); return { at, noticeBy: noticeCutoff(at, st), room: s.room }; }
   }
   return null;
 }
@@ -644,11 +657,11 @@ export function sessionClock(list) {
     noHearing: x.noHearing.map(y => y.b) });
   return { ...shape(g), then: g2 ? shape(g2) : null };
 }
-// When the notice for a bill's last chance must go up: a committee must post a hearing 48 hours ahead (Help), so a
+// When the notice for a bill's last chance must go up: a committee must post a hearing 48 or 72 hours ahead (Help), so a
 // bill that dies Thursday really has until the notice for its committee's last slot, often Tuesday (R-022).
 export function noticeByFor(st) {
   if (!st?.committee || !st.deadline?.date) return null;
-  const ls = lastSlotBefore(st.committee, st.deadline.date, S.slots);
+  const ls = lastSlotBefore(st.committee, st.deadline.date, S.slots, st);
   return ls && ls.noticeBy > Date.now() - 864e5 ? ls.noticeBy : null;
 }
 

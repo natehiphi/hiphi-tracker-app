@@ -1516,7 +1516,7 @@ function aheadWeek(scope, who, coal) {
 // A bill with no hearing yet, under the deadline it races. `sg`: its chair-ask suggestion, whose three answers (Done,
 // Not now, Not this bill) sit in the row's "…" (R-264); without one (answered, or not your list) the row is the fact alone.
 function aheadRow(x, owners, sg = null) {
-  const { b, st } = x, m = st.committee ? chairMail(st.committee) : null, nb = noticeByFor(st), ls = st.committee && st.deadline ? lastSlotBefore(st.committee, st.deadline.date, S.slots) : null, two = m && m.n > 1;
+  const { b, st } = x, m = st.committee ? chairMail(st.committee) : null, nb = noticeByFor(st), ls = st.committee && st.deadline ? lastSlotBefore(st.committee, st.deadline.date, S.slots, st) : null, two = m && m.n > 1;
   const dayAt = d => new Date(d).toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' }).replace(',', '');
   // The date that matters leads (when the chair must have posted a hearing), then who and where; and a bill whose companion is already
   // on a hearing says so, since the two usually share a nickname and one could be taken for the other (the fresh-eyes review, 10/6).

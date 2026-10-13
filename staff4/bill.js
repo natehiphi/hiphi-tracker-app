@@ -510,7 +510,7 @@ function chairAskHref(b, code, dl) {
 function needsHearingCard(b) {
   const st = stopOf(b), now = Date.now();
   const dl = st.deadline && !st.deadline.missed ? st.deadline : null;
-  const sl = dl && st.committee ? lastSlotBefore(st.committee, dl.date, S.slots) : null;
+  const sl = dl && st.committee ? lastSlotBefore(st.committee, dl.date, S.slots, st) : null;
   const risk = !!riskOf(b), ask = st.committee && b.position && b.position !== 'monitor' ? chairAskHref(b, st.committee, dl) : '';
   // Waiting for a referral has nothing to add to the heading's sentence, and neither does a stop with no slot and no ask.
   if (!st.committee || (!sl && !ask)) return '';

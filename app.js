@@ -1321,9 +1321,22 @@ function billDeadline(b) {
   return stopOf(b).deadline;
 }
 // Last regular meeting slot of a committee on or before a date (from the
-// Capitol's published schedules, committee_slots), and the 48-hour notice
+// Capitol's published schedules, committee_slots), and the notice
 // cutoff for it. A joint hearing is held in the lead (first) committee's slot. Null without a schedule.
-function lastSlotBefore(code, dateStr, slots) {
+// How far ahead the hearing notice must post. House Rule 11.5: 48 hours. The Senate (Rule 21): 72 hours for a bill's
+// first Senate committee, 48 for later ones (the Public Access Room's guide). The House counts weekends and holidays
+// (HR17, 2011); a floor waiver can shorten either, so the date is the latest a regular notice can go up (R-275).
+const noticeHours = st => (st && st.chamber === 'S' && st.stop === 1 ? 72 : 48);
+// The hours run through the weekend, but the clerks post notices on working days: a cutoff that lands on a Saturday or
+// Sunday really means the Friday before, by the end of its office day (4:30 PM).
+function noticeCutoff(at, st) {
+  const t = new Date(at - noticeHours(st) * 3600e3);
+  const dow = new Date(t.toLocaleString('en-US', { timeZone: 'Pacific/Honolulu' })).getDay();
+  if (dow !== 0 && dow !== 6) return t;
+  const fri = new Date(t.getTime() - (dow === 6 ? 1 : 2) * 864e5).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+  return new Date(`${fri}T16:30:00-10:00`);
+}
+function lastSlotBefore(code, dateStr, slots, st) {
   const c = codesOf(code)[0];
   const mine = (slots || []).filter(s => s.code === c);
   if (!mine.length || !dateStr) return null;
@@ -1332,7 +1345,7 @@ function lastSlotBefore(code, dateStr, slots) {
     const day = d.toISOString().slice(0, 10);
     const dow = new Date(day + 'T12:00:00-10:00').getUTCDay();
     const s = mine.filter(x => x.weekday === dow).sort((a, b) => b.start_time.localeCompare(a.start_time))[0];
-    if (s) { const at = new Date(`${day}T${s.start_time.slice(0, 8)}-10:00`); return { at, noticeBy: new Date(at - 48 * 3600e3), room: s.room }; }
+    if (s) { const at = new Date(`${day}T${s.start_time.slice(0, 8)}-10:00`); return { at, noticeBy: noticeCutoff(at, st), room: s.room }; }
   }
   return null;
 }
@@ -2805,7 +2818,7 @@ function renderHelp() {
       ${def('Crossover', 'The last day a bill can pass its first chamber and cross to the other one. The second-chamber dates repeat the same steps; “cross back” is the return trip.')}
       ${def('Conference', 'The two chambers negotiate one version. Final decking is the last day a conference draft can be agreed.')}
       ${def('Sine die', 'The last day of session.')}
-      ${def('48-hour notice', 'A committee must announce a hearing at least two days before it. If the last regular meeting before a deadline is closer than that, the bill needs the chair’s help.')}`)}
+      ${def('48-hour notice', 'A committee must announce a hearing at least two days before it, and three days for a bill’s first Senate committee. If the last regular meeting before a deadline is closer than that, the bill needs the chair’s help.')}`)}
     ${sec('stages', 'Stages', `
       ${[['Introduced','Filed, waiting for its first committee hearing'],['1st Triple','Triple-referred bill still at its first stop; it must be heard before the Triple Filing date'],['1st Lateral','In a non-final committee of its first chamber; it must be heard before the Lateral date'],['1st Decking','In the money committee (FIN or WAM) of its first chamber; it must be heard before the Decking date'],['Crossed over','Passed its first chamber, now in the other one'],['2nd Lateral / 2nd Decking','The same steps in the second chamber'],['Passed both','Passed both chambers; may need agreement on amendments'],['Conference','The two chambers are reconciling their versions'],['Governor','Waiting for signature or veto'],['Law','Signed, or became law without signature'],['Dead','Missed a deadline, was deferred, or failed a vote']].map(([k, v]) => def(k, v)).join('')}`)}
     ${sec('public', 'The public page and lists', `
@@ -3933,7 +3946,7 @@ function drawerHTML(b) {
       </div>`; }).join('');
   } else {
     const stp = stopOf(b); const dl = stp.deadline && !stp.deadline.missed ? stp.deadline : null;
-    const sl = dl && stp.phase === 'committee' && stp.committee ? lastSlotBefore(stp.committee, dl.date, S.slots) : null;
+    const sl = dl && stp.phase === 'committee' && stp.committee ? lastSlotBefore(stp.committee, dl.date, S.slots, stp) : null;
     nextHtml = `<div class="next"><div class="nextk">Next</div><div class="nextv"><b>${esc(stp.says)}</b>
       ${stp.phase === 'committee' && stp.committee ? `<div class="nextline">${CHAMBER_NAME[stp.chamber]} · <b>${esc(stp.committee)}</b>${chairOf(stp.committee)}${stp.stops ? ` · stop ${stp.stop} of ${stp.stops}` : ''}${dl ? ` · hearing needed before <b>${esc(dl.label)}</b> ${fmtDate(dl.date)} (${dl.days}d)` : ''}</div>` : ''}
       ${sl ? `<div class="nextline ${now > sl.noticeBy ? 'hot' : ''}">${now > sl.noticeBy ? 'Notice window for the last regular slot has closed — call the chair' : `Last regular slot ${fmtDT(sl.at)} · notice by ${fmtDT(sl.noticeBy)}`}</div>` : ''}
