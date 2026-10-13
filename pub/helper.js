@@ -565,7 +565,7 @@ function viewFrom(x, L, me) {
   x.view = L; x.again = null; x.acctStep = false; x.stance = L.stance || x.stance;
   x.why = L.why || ''; x.points = L.points || []; x.pointsText = L.pointsText ?? pointsLine(x.points);
   x.closing = L.closing || me.closing || ''; x.name = L.name || me.name || x.name;
-  x.letter = String(L.letter || '').trim() ? L.letter : letterOf(x);
+  x.rebuilt = !String(L.letter || '').trim(); x.letter = x.rebuilt ? letterOf(x) : L.letter;
   x.screen = 'view';
   app.onAct?.('letter_view');
 }
@@ -1267,7 +1267,7 @@ function viewScreen() {
   // chairs ("Send my letter again" on the bill page re-addresses it for the next hearing, R-148). The critic, 12 Oct.
   const again = viewAgain(x);
   return `<div class="hp-top">${screenHead(1, 'Your letter')}
-      <p class="hp-sub" id="hp-lsub">The letter as it went in, for the ${esc(cmteLabel(L.code || h.committee))} hearing${hearing ? ` of ${esc(dateLong(hearing))}` : ''}. Copy it for a call or an email${again ? ', or send it again at the Capitol' : ''}.</p></div>
+      <p class="hp-sub" id="hp-lsub">${x.rebuilt ? 'Your letter, written again from your answers,' : 'The letter as it went in,'} for the ${esc(cmteLabel(L.code || h.committee))} hearing${hearing ? ` of ${esc(dateLong(hearing))}` : ''}. Copy it for a call or an email${again ? ', or send it again at the Capitol' : ''}.</p></div>
     ${x.copyFail ? `<div class="inlinemsg" role="alert">${icon('circle-alert')}<span>We couldn’t copy it for you. Your letter is selected: choose Copy, or select all of it and copy it yourself.</span></div>` : ''}
     <div class="hp-under">${x.copyChip ? `<span class="okmsg">${icon('check')}Copied</span>` : ''}
       <a class="btn text" href="${esc(selfMail(x))}" data-hp="selfmail">${icon('mail')}<span>Email it to myself</span></a>

@@ -31,7 +31,7 @@ with sync_playwright() as pw:
         btn.click(); p.wait_for_selector('#hp-letter', timeout=8000); p.wait_for_timeout(800)
         txt = p.input_value('#hp-letter')
         ok(p.inner_text('#hp-sh').strip() == 'Your letter', f'{tag}: the walkthrough opens on "Your letter"')
-        ok('House Health' in p.inner_text('#hp-lsub') and 'Feb 18' in p.inner_text('#hp-lsub'), f'{tag}: it says which hearing it was for')
+        ok('written again from your answers' in p.inner_text('#hp-lsub') and 'House Health' in p.inner_text('#hp-lsub') and 'Feb 18' in p.inner_text('#hp-lsub'), f'{tag}: it says which hearing it was for')
         ok('HB 2121' in txt and 'Kalani Practice' in txt and 'As a parent of two teenagers' in txt and 'House Health' in txt, f'{tag}: the letter as sent, for that hearing')
         ok(p.get_attribute('#hp-letter', 'readonly') is not None, f'{tag}: read only')
         ok(p.locator('.hp-count').count() == 0, f'{tag}: no "Part 1 of 1"')
