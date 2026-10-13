@@ -1291,7 +1291,9 @@ function weekOf(mon, scope, who, r) {
   for (const h of S.hearings || []) {
     if (h.status === 'cancelled') continue;
     const due = testDue(h), c = due > now ? wk.get(hst(due)) : null; if (!c) continue;
-    const b = billById(h.bill_id), d = b && draftOf(h); if (!b || b.position === 'monitor' || !okH(h, b) || diedish(b) || (d && !coal) || d?.status === 'filed') continue;
+    const b = billById(h.bill_id), d = b && draftOf(h); // A draft waiting on approvers is no step of the owner's, so it made no row and the deadline left the owner's week
+    // (HB1523, due 3 PM, missing from Lauren's Monday; R-267): it shows here, "In review".
+    if (!b || b.position === 'monitor' || !okH(h, b) || diedish(b) || (d && !coal && !['review', 'second_review'].includes(d.status)) || d?.status === 'filed') continue;
     const g = card(c, h); if (!g.rows.some(x => x.b.id === b.id)) g.rows.push({ b, st: draftState(d) });
   }
   // How many more of each sitting's bills are already filed: a manager's "are we nearly there".
@@ -1488,7 +1490,7 @@ function teamHtml(start, rows = false) {
   if (!gs.length) return `<div class="td-empty">${empty({ title: 'Nothing open on anyone’s list.', text: nextHearingText('team') })}</div>`;
   return gs.map((g, gi) => {
     const one = g.ids.length === 1 ? g.ids[0] : null, shown = g.week.slice(0, 5), rest = g.cards.length - shown.length;
-    const who = g.none ? 'No owner yet' : g.ids.map(id => advocate(id).full_name).join(' or ');
+    const who = g.none ? 'No owner' : g.ids.map(id => advocate(id).full_name).join(' or ');
     const av = g.none ? avatar(null, 28) : g.ids.map(id => avatar(advocate(id), 28)).join('');
     // The first group's heading takes the focus when this list is chosen (A-16).
     const top = gi === 0 ? ' data-top tabindex="-1"' : '';
@@ -2072,7 +2074,14 @@ function moreMenu(c, { pane = false } = {}) {
     h && !pane ? { label: going ? 'I’m not going after all' : 'I’m going to the hearing', icon: going ? 'user-round' : 'user-check', sub: `${h.committee} ${whenLine(h.scheduled_at)}${others.length ? ' · ' + others.join(', ') + (others.length === 1 ? ' is' : ' are') + ' going' : ''}`,
       run: () => toggleGoing(h) } : null,
     stream ? { label: 'Watch the hearing', icon: 'video', sub: stream.label + (stream.exact ? '' : ' · ' + stream.channel), run: () => { window.open(stream.url, '_blank', 'noopener'); } } : null,
-    { label: 'Give to someone else', icon: 'user-plus', sub: owner ? `Now ${owner === me.id ? 'yours' : first(owner) + '’s'}` : 'No owner yet', run: later(() => pickerSheet({ title: `Give ${esc(num)} to`, value: owner || '',
+    // A card holding a to-do hands over the to-do, not the bill: "Give to someone else" on Kevin's to-do made HB2121
+    // Saya's in one tap (R-267). Changing who owns the bill is its own line, named as that.
+    ...c.tasks.filter(t => t.kind === 'todo' && t.t && !String(t.key).startsWith('ct:')).map(t => ({ label: c.tasks.length > 1 ? `Give “${clip(t.t.title, 40)}” to someone else` : 'Give this to-do to someone else', icon: 'user-plus',
+      sub: t.t.assignee_id ? `Now ${t.t.assignee_id === me.id ? 'yours' : first(t.t.assignee_id) + '’s'}` : 'Nobody’s yet', run: later(() => pickerSheet({ title: 'Give this to-do to', value: t.t.assignee_id || '',
+        options: S.advocates.filter(a => a.is_active !== false).map(a => [a.id, a.id === me.id ? `${a.full_name} (you)` : a.full_name, 'user-round']),
+        onPick: async id => { const before = t.t.assignee_id || null; if (id === before) return;
+          try { await DB.updateTodo(b.id, t.t.id, { assignee_id: id || null }); toast(id === me.id ? 'The to-do is yours now.' : `The to-do is ${first(id)}’s now. ${num} stays ${owner ? (owner === me.id ? 'yours' : first(owner) + '’s') : 'with no owner'}.`, { ok: true, undo: async () => { await DB.updateTodo(b.id, t.t.id, { assignee_id: before }); redraw(); } }); redraw(); } catch (e) { toast(e, { err: true }); } } })) })),
+    { label: 'Change the bill’s owner', icon: 'user-round', sub: owner ? `Now ${owner === me.id ? 'yours' : first(owner) + '’s'}` : 'No owner', run: later(() => pickerSheet({ title: `Who owns ${esc(num)}?`, value: owner || '',
       options: S.advocates.filter(a => a.is_active !== false).map(a => [a.id, a.id === me.id ? `${a.full_name} (you)` : a.full_name, 'user-round']),
       onPick: async id => { if (id === owner) return; try { await DB.setOwner(b.id, id); toast(id === me.id ? `${num} is yours now.` : `${num} is ${first(id)}’s now.`, { ok: true, undo: async () => { await DB.setOwner(b.id, owner); redraw(); } }); redraw(); } catch (e) { toast(e, { err: true }); } } })) },
     muted ? { label: 'Unmute this bill', icon: 'bell', run: async () => { try { await DB.mute(b.id, false); toast(`${num} is back on your Today.`); redraw(); } catch (e) { toast(e, { err: true }); } } }
