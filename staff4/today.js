@@ -194,6 +194,16 @@ export function hearingFor(d, idx) {
   return (d.hearing_id && (S.hearings || []).find(h => h.id === d.hearing_id))
     || list.filter(h => h.committee === d.committee && h.status !== 'cancelled' && new Date(h.scheduled_at) > now).sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at))[0] || null;
 }
+// v4 (R-269): the to-do the database makes for each hearing of a strongly supported bill while email is paused, "Send the
+// ask to HIPHI's list and partners for the HHS hearing 3/20" (migration 112), opens that hearing's share kit: Done alone
+// was a dead end (B-3). The to-do keeps no hearing id, so its words name it: the committee and the date.
+const ASK_TODO = /^Send the ask\b.*\bfor the (\S+) hearing (\d{1,2})\/(\d{1,2})\s*$/;
+function askTodoHearing(b, title) {
+  const m = ASK_TODO.exec(String(title || '')); if (!m) return null;
+  const md = h => new Date(h.scheduled_at).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' });
+  const hs = (S.hearings || []).filter(h => h.bill_id === b.id && h.status !== 'cancelled');
+  return hs.find(h => h.committee === m[1] && md(h) === `${+m[2]}/${+m[3]}`) || hearingAhead(b) || null;
+}
 // A draft whose hearing ended more than two days ago is moot here (filing or approving can no longer help); the bill
 // page still shows it. Without this, an old unfiled draft would sit in Overdue forever.
 const moot = h => !!h && new Date(h.scheduled_at).getTime() < Date.now() - 2 * DAY;
@@ -400,7 +410,8 @@ export function todayItems(scope = 'mine', who = null) {
         const what = gone ? 'the next public ask' : 'the public ask';
         push({ kind: 'ask', key: `s:${b.id}:ask`, b, h, due, who, s: past ? `Write ${what} before ${when} hearing` : `Write ${what} by ${byLine(due)}`,
           wk: `Write ${what} for ${whoseDay(d, now)} ${c} hearing`,
-          note: gone ? `The last ask showed through ${esc(fmtDate(gone + 'T12:00:00-10:00', { weekday: 'short' }))}.` : '', btns: [{ label: 'Write it', href: `${billRoute(b, 'public')}` }] });
+          // v4 (R-269): straight to "The ask" on the Public tab (its field takes the focus), not the top of the tab.
+          note: gone ? `The last ask showed through ${esc(fmtDate(gone + 'T12:00:00-10:00', { weekday: 'short' }))}.` : '', btns: [{ label: 'Write it', href: `${billRoute(b, 'public')}?focus=ask` }] });
       }
     }
     if (!ups.length && b.priority === 1) {
@@ -436,7 +447,9 @@ export function todayItems(scope = 'mine', who = null) {
     if (t.done) continue;
     const b = billById(bid); if (!b) continue;
     const mine = t.assignee_id === me.id || (!t.assignee_id && isOwner(b)), base = { b, t, due: dateDue(t.due_date), key: `td:${t.id}` };
-    if (mine || (!t.assignee_id && inScope(b))) push({ ...base, kind: 'todo', who: mine ? 'yours' : 'anyone', s: esc(t.title), btns: [{ label: 'Done', act: 'todo' }] });
+    const kit = askTodoHearing(b, t.title);
+    if (mine || (!t.assignee_id && inScope(b))) push({ ...base, kind: 'todo', who: mine ? 'yours' : 'anyone', s: esc(t.title),
+      btns: [kit ? { label: 'Open the share kit', href: `#/hearing/${encodeURIComponent(kit.id)}?from=today&kit=1` } : null, { label: 'Done', act: 'todo' }].filter(Boolean) });
     else if (team && t.assignee_id) push({ ...base, kind: 'wait', key: `w:t${t.id}`, s: `Waiting for ${esc(first(t.assignee_id))}: ${esc(lowerFirst(t.title))}`, ws: `${esc(first(t.assignee_id))}: ${esc(lowerFirst(t.title))}`, chip: 'To do', on: [t.assignee_id] });
   }
 
@@ -564,14 +577,22 @@ function digestFind(rows, q) {
 }
 
 // ---- rendering ----
-// Whose list. Mine and Team are remembered between visits, as before. One teammate's list is a look, not a setting:
-// it lasts for this visit only (S.tdWho), so nobody opens the app tomorrow on Kevin's list by mistake.
+// Whose list. v4 (R-269): Today always opens on Mine. Team is a look for this visit (S.tdScope) that lives in the
+// address, #/?scope=team, so a Slack link can open it (B-10) and Back from a bill comes back to it. It used to be saved
+// between visits: one look at Team opened the next morning on Team, which leaves out the viewer, so Kevin's own work
+// and Jess's approvals were off screen. One teammate's list (S.tdWho) is a look inside Team, as before.
 function scopeOf() {
-  S.tdScope ??= load('today_scope', 'mine') === 'team' ? 'team' : 'mine';
-  if (S.tdWho && S.tdWho !== 'none' && (S.tdWho === S.me?.id || !teammates().some(a => a.id === S.tdWho))) S.tdWho = null;
+  const team = S.route?.name === 'today' && S.route.q?.scope === 'team';
+  S.tdScope = team ? 'team' : 'mine';
+  if (!team || (S.tdWho && S.tdWho !== 'none' && (S.tdWho === S.me?.id || !teammates().some(a => a.id === S.tdWho)))) S.tdWho = null;
   return S.tdWho === 'none' ? 'none' : S.tdWho ? 'person' : S.tdScope;
 }
 const whoOf = () => scopeOf() === 'person' ? S.tdWho : null;
+// The address of Today or This week (v4, R-269): the view, the week paged to and Team; Mine is plain #/.
+function tdHref({ week = viewOf(S.route) === 'week', w = week ? weekOff(S.route) : 0, team = S.tdScope === 'team' } = {}) {
+  const q = [week ? 'view=week' : '', week && w ? `w=${w}` : '', team ? 'scope=team' : ''].filter(Boolean).join('&');
+  return '#/' + (q ? '?' + q : '');
+}
 // This week lives in the address (#/?view=week&w=1), so it can be linked and reloaded. v3 has one "This week" in place
 // of Ahead and the Week view (R-264): an old ?view=ahead link from Slack lands on it too. A laptop gets the Monday-to-
 // Friday grid and can page through weeks (w=); a phone gets the day-by-day list of the next seven days, which has no
@@ -1552,9 +1573,9 @@ function weekBelow(scope, who, r) {
 }
 function weekPage(route, scope, who, r) {
   const top = WIDE() ? weekView(route, scope, who, r) : aheadWeek(scope, who, aheadBills(scope, who).coal);
-  // The pages the sidebar no longer lists (v3's frame), one quiet line at the foot.
-  const foot = `<p class="tw-foot"><a href="#/tasks">${icon('list-todo')}<span>All tasks</span></a><a href="#/inbox">${icon('inbox')}<span>Inbox</span></a></p>`;
-  return `<div class="td-root td-weekroot">${toolbar(route)}${oneNotice()}${top}<div class="tw-below ah">${weekBelow(scope, who, r)}</div>${foot}</div>`;
+  // v4 (R-269): the foot's All tasks and Inbox went. Tasks retired (its rows are Today's and each bill's To do) and the
+  // Inbox is in your menu: one way into each place (B-13).
+  return `<div class="td-root td-weekroot">${toolbar(route)}${oneNotice()}${top}<div class="tw-below ah">${weekBelow(scope, who, r)}</div></div>`;
 }
 
 function render(route) {
@@ -1743,9 +1764,9 @@ async function msgUnread(t) {
 // you were looking at, so it read as if he had nothing urgent (review, 9/21). The Week view's own person chips keep
 // their place and their focus, as they were (R-025 is Nate's to decide).
 function setWho(id, refocus) {
-  if (id === S.me?.id) { S.tdWho = null; S.tdScope = 'mine'; save('today_scope', 'mine'); }
-  else S.tdWho = S.tdWho === id ? null : id;   // the same person (or No owner) again: back to where you were
   S.tdCur = null; S.tdSel = null; S.tdTop = true;
+  if (id === S.me?.id) { S.tdWho = null; S.tdScope = 'mine'; return S.go(tdHref({ team: false }), { replace: true }); }
+  S.tdWho = S.tdWho === id ? null : id;   // the same person (or No owner) again: back to where you were
   hooks.render();
 }
 function pickWho() {
@@ -1755,7 +1776,7 @@ function pickWho() {
   pickerSheet({ title: week ? 'Whose week' : 'Whose list', value: scopeOf() === 'none' ? 'none' : whoOf() || 'all', help: 'Open cards for each teammate, counted the way their own Today counts them.',
     options: [['all', 'Everyone', 'users', week ? 'The whole team’s week' : 'Everyone’s work, by person'], ...rows.map(({ a, n, late }) => [a.id, a.full_name, 'user-round', cards(n, late)]),
       ['none', 'No owner', 'circle-dashed', `Bills nobody owns · ${cards(nn, nr.late)}`]],
-    onPick: id => { S.tdWho = id === 'all' ? null : id; S.tdScope = 'team'; save('today_scope', 'team'); S.tdCur = null; S.tdSel = null; S.tdTop = true; hooks.render(); } });
+    onPick: id => { S.tdWho = id === 'all' ? null : id; S.tdScope = 'team'; S.tdCur = null; S.tdSel = null; S.tdTop = true; S.go(tdHref({ team: true }), { replace: true, keepScroll: true }); } });
 }
 // A card's "…": the card drawn with that key (CARDS), which in Team can be the same bill in two people's groups.
 const cardOf = k => CARDS.get(k) || items(scopeOf(), whoOf()).cards.find(x => x.key === k);
@@ -1789,10 +1810,11 @@ function wireControls(el) {
 }
 function wire(route, root) {
   const main = root.querySelector('.td-root'); if (!main) return;
-  main.querySelectorAll('[data-seg="tdscope"]').forEach(el => el.onclick = () => { S.tdWho = null; S.tdScope = el.dataset.val; save('today_scope', S.tdScope); S.tdCur = null; S.tdSel = null; S.tdRefocus = `.td-scope [data-val="${S.tdScope}"]`; hooks.render(); });
+  // Mine or Team, for this visit: the address says which (v4, R-269), replaced in place so Back still leaves Today.
+  main.querySelectorAll('[data-seg="tdscope"]').forEach(el => el.onclick = () => { S.tdWho = null; S.tdScope = el.dataset.val; S.tdCur = null; S.tdSel = null; S.tdRefocus = `.td-scope [data-val="${S.tdScope}"]`; S.go(tdHref({ team: S.tdScope === 'team' }), { replace: true, keepScroll: true }); });
   // Today or This week swaps the page in place (no new history entry: Back still leaves Today, as it always has).
-  main.querySelectorAll('[data-seg="tdview"]').forEach(el => el.onclick = () => { S.tdRefocus = `[data-seg="tdview"][data-val="${el.dataset.val}"]`; S.go(el.dataset.val === 'week' ? '#/?view=week' : '#/', { replace: true }); });
-  main.querySelectorAll('[data-week]').forEach(el => el.onclick = () => { const w = +el.dataset.week || 0; S.tdRefocus = `[aria-label="${el.getAttribute('aria-label') || 'Next week'}"]`; S.go(`#/?view=week${w ? '&w=' + w : ''}`, { replace: true, keepScroll: true }); });
+  main.querySelectorAll('[data-seg="tdview"]').forEach(el => el.onclick = () => { S.tdRefocus = `[data-seg="tdview"][data-val="${el.dataset.val}"]`; S.go(tdHref({ week: el.dataset.val === 'week', w: 0 }), { replace: true }); });
+  main.querySelectorAll('[data-week]').forEach(el => el.onclick = () => { const w = +el.dataset.week || 0; S.tdRefocus = `[aria-label="${el.getAttribute('aria-label') || 'Next week'}"]`; S.go(tdHref({ week: true, w }), { replace: true, keepScroll: true }); });
   main.querySelector('[data-whopick]')?.addEventListener('click', pickWho);
   main.querySelectorAll('[data-who]').forEach(el => el.onclick = () => setWho(el.dataset.who, `[data-who="${el.dataset.who}"]`));
   main.querySelectorAll('[data-fold]').forEach(el => el.onclick = () => {
