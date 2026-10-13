@@ -106,8 +106,9 @@ def main():
 
     # Kevin: on his deadline day the P1 testimony is row 1 (#5); one look at Team does not hide his work tomorrow (#2)
     pg = page('KV'); go(pg, '/', '2026-03-18T08:00:00-10:00')
-    first = pg.evaluate("(document.querySelector('main .td-row') || {}).innerText || ''")
-    check('Kevin, Wednesday: HB2121 testimony leads', 'HB2121' in first and re.search(r'testimony', first, re.I), first[:70].replace('\n', ' '))
+    # R-271: a narrow row names the bill by its nickname alone, so the bill is read from the row's data-num
+    first = pg.evaluate("(r => r ? (r.dataset.num || '') + ' ' + r.innerText : '')(document.querySelector('main .td-row'))")
+    check('Kevin, Wednesday: HB2121 testimony leads', first.startswith('HB2121') and re.search(r'testimony', first, re.I), first[:70].replace('\n', ' '))
     pg.get_by_role('button', name='Team', exact=True).first.click(); pg.wait_for_timeout(800); go(pg, '/', '2026-03-18T08:00:00-10:00')
     check('Kevin: Today reopens on his own', 'Team Today' not in main_text(pg)[:200], '')
 
