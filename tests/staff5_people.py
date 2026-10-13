@@ -81,7 +81,7 @@ def main():
     pg = page('JS'); go(pg); pg.get_by_role('button', name='Team', exact=True).first.click(); pg.wait_for_timeout(800)
     go(pg, '/'); txt = main_text(pg)
     check('Jess: Today reopens on hers after a look at Team', 'Team Today' not in txt[:200], txt[:60].replace('\n', ' '))
-    y = at(pg, 'testimony draft'); check('Jess: her second approvals on her first screen', y is not None and y < 900, y)
+    y = at(pg, 'second approval'); check('Jess: her second approvals on her first screen', y is not None and y < 900, y)
     check('Jess: late but open testimony is not headed "Overdue"', 'Overdue' not in txt, '')
     check('Jess: "to approve", not "to file", on her approvals', 'to file' not in txt, '')
 
