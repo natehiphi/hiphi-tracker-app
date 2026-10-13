@@ -820,7 +820,7 @@ function row(c, filled, o = {}) {
   }
   if (c.hear) return slipHearRow(c, ek, sel, end, o);
   const p = c.p, b = c.b, n = c.tasks.length - 1;
-  const name = b ? `<span class="td-rb"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''}<span class="td-rn">${esc(b.nickname || blurb(b, 80))}</span></span>`
+  const name = b ? `<span class="td-rb${b.priority === 1 ? ' td-rbp1' : ''}"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''}<span class="td-rn">${esc(b.nickname || blurb(b, 80))}</span></span>`
     : (([ic, w]) => `<span class="td-rb td-rkind">${icon(ic)}<span>${w}</span></span>`)(kindOf(p));
   // A teammate's step is theirs to take: its row has no button, and the open item offers "Message Kevin".
   const x = p.ro ? null : (p.btns || [])[0], fill = filled && p.kind !== 'reply' && !p.seen && x && !x.text;
