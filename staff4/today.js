@@ -60,7 +60,7 @@ import { openLook } from './look.js';
 import { todayPrepNotice } from './prep.js';
 import { sessionGates, lastSlotBefore, noticeByFor, billByNum } from './model.js';
 import { dailyWord } from './composer.js';   // which 4:30 pm email a Send joins
-import { testimonyOf } from './hearing.js';   // where a hearing's testimony stands, in the coalition page's words (v4, R-269)
+import { testimonyOf, agendaOf } from './hearing.js';   // where a hearing's testimony stands, in the coalition page's words (v4, R-269)
 
 const HR = 36e5, DAY = 864e5;
 import { billRoute } from './model.js';
@@ -935,15 +935,44 @@ function select(k, { focus = false } = {}) {
 
 // "Hearings today: HHS 1:10 PM, Rm 225 · nobody from the team going yet" (R-264): the day's sittings still to come on the
 // bills in view, one line above the list, each opening the hearing's own page. It replaced a panel with a box per bill.
-function hearingsLine(scope, who) {
+// `skip`: the sittings "Your hearing today" already shows (v4): each is said once.
+function hearingsLine(scope, who, skip = new Set()) {
   const now = Date.now(), today = hst(now);
-  const all = hearingsIn(today, today, scope, who).filter(x => (monOn() || !isMon(x.b)) && x.t >= now - 2 * HR);
+  const all = hearingsIn(today, today, scope, who).filter(x => (monOn() || !isMon(x.b)) && x.t >= now - 2 * HR && !skip.has(slotKey(x.h)));
   if (!all.length) return '';
   const sit = new Map(); for (const x of all) { const k = slotKey(x.h); if (!sit.has(k)) sit.set(k, []); sit.get(k).push(x); }
   const list = [...sit.values()], shown = list.slice(0, 2), more = list.length - shown.length;
   const one = l => { const h = l[0].h, going = goingOf(goersAt(h));
     return `<span class="td-hlone"><a href="#/hearing/${esc(h.id)}?from=today"><b>${esc(h.committee)} ${esc(timeOf(h.scheduled_at))}</b>${h.room ? `, ${esc(room(h.room))}` : ''}</a> · ${esc(going || 'nobody from the team going yet')}</span>`; };
   return `<p class="td-hline1">${icon('landmark')}<span class="td-hlt"><span>Hearings today:</span> ${shown.map(one).join('<span class="td-hlsep">; </span>')}${more ? ` <a href="#/?view=week">and ${more} more</a>` : ''}</span></p>`;
+}
+// ---- Your hearing today (v4, R-269, T8) ----
+// Kris and Lauren on a hearing day: when you said you are going to a sitting today, it leads Today, above everything,
+// on a laptop and on a phone: the time and room large ("9:30 AM · Room 430"), the committee and who is going, then its
+// bills, each with where its testimony stands and its Doc. Staff v2 put the next hearing first (R-152 batch C); v3 lost
+// it (Kris's was 0.96 screens down her phone, Lauren's half of a three-line sentence with no testimony state). That
+// sitting leaves the "Hearings today" line and the coalition's rows (said once, A-14). Returns the slot keys it drew.
+const roomLong = r => String(r || '').replace(/\s*(&|and|via)\s*videoconference/i, '').replace(/^Conference Room\s+/i, 'Room ').trim();
+function mineToday() {
+  const now = Date.now(), today = hst(now), sit = new Map();
+  for (const h of S.hearings || []) {
+    if (h.status === 'cancelled' || hst(h.scheduled_at) !== today || new Date(h.scheduled_at).getTime() < now - 2 * HR) continue;
+    const k = slotKey(h); if (!sit.has(k) && goingFor(h).going) sit.set(k, h);
+  }
+  return [...sit.entries()].sort((x, y) => x[1].scheduled_at.localeCompare(y[1].scheduled_at));
+}
+function mineCard(h) {
+  const now = Date.now(), going = goingOf(goersAt(h)), all = agendaOf(h), pos = all.filter(x => x.b.position && x.b.position !== 'monitor'), bills = pos.length ? pos : all;
+  const line = x => { const t = testimonyOf(x.h, x.b), d = draftOf(x.h);
+    return `<li><a class="td-mbill" href="${billRoute(x.b)}"><b class="td-num">${esc(billNum(x.b))}</b> ${esc(x.b.nickname || blurb(x.b, 60))}</a>
+      <span class="td-mstate">${icon(t.icon)}<span>${esc(t.label)}</span></span>${d?.doc_url ? `<a class="td-mdoc" href="${esc(d.doc_url)}" target="_blank" rel="noopener">Open Doc${icon('external-link')}</a>` : ''}</li>`; };
+  // Late testimony is said once for the sitting (its deadline is the sitting's), in amber, not on every bill (A-14).
+  const due = testDue(h), late = due <= now && new Date(h.scheduled_at).getTime() > now && bills.some(x => !testimonyOf(x.h, x.b).filed);
+  return `<section class="td-mine" aria-labelledby="td-mine-${esc(h.id)}"><p class="td-minek">${icon('landmark')}Your hearing today</p>
+    <h2 class="td-mineh" id="td-mine-${esc(h.id)}"><a href="#/hearing/${esc(h.id)}?from=today">${esc(timeOf(h.scheduled_at))}${h.room ? ` · ${esc(roomLong(h.room))}` : ''}</a></h2>
+    <p class="td-minec">${esc(h.committee)}${going ? ` · ${esc(going)}` : ''}</p>
+    ${late ? `<p class="td-minel">${icon('clock')}<span>${esc(`Late testimony until ${clockDay(h.scheduled_at)}`)}</span></p>` : ''}
+    <ul class="td-mbills">${bills.map(line).join('')}</ul></section>`;
 }
 function nextHearingText(scope, who) {
   const now = Date.now(), mine = billsOf(scope, who), ok = b => b && b.position && b.position !== 'monitor' && mine(b);
@@ -1688,7 +1717,9 @@ function render(route) {
   const off = SESSION_OVER, rows = WIDE();
   // Kris and Saya own no bills: beside "The team's week" their own "This week" (all zeros) and "None of your bills has
   // to be heard" contradicted the page (fresh-eyes review, 9/21), so the coalition's week stands in for both.
-  const cs = scope === 'mine' && !off ? coalSection(r) : { html: '', due: false }, coal = cs.html;
+  // v4 (T8): the hearing you are going to today leads the page; its sitting is said nowhere else on it.
+  const mineH = scope === 'mine' && !off ? mineToday() : [], skip = new Set(mineH.map(([k]) => k)), mine = mineH.map(([, h]) => mineCard(h)).join('');
+  const cs = scope === 'mine' && !off ? coalSection(r, skip) : { html: '', due: false }, coal = cs.html;
   let i = 0, body;
   if (scope === 'team') body = teamHtml(0, rows) + loadGroup();
   else {
@@ -1722,14 +1753,14 @@ function render(route) {
     : scope === 'none' ? `<p class="td-whonote" data-top tabindex="-1">${icon('info')}<span>Anyone can take these steps. To give a bill an owner, use its “…” menu.</span></p>` : '';
   const digestHtml = digestSection(scope);
   const results = off ? resultsHtml(scope, who) : '', jan = off ? janPanel() : '';
-  const hear = off ? '' : hearingsLine(scope, who);
+  const hear = off ? '' : hearingsLine(scope, who, skip);
   // v4 (R-269, T3): the side card "Next deadline Mon 3/30 · 16 bills with no hearing yet" went. That count was said in
   // about ten places in five wordings; it is now This week's Deadlines heading (and the coalition block's line).
   // A phone (and a tablet, below the sidebar layout) keeps the cards: your own work first, then what waits on others,
   // then catching up.
-  if (!rows) return `<div class="td-root">${toolbar(route)}<div class="td-main">${note}${oneNotice()}${hear}${body}${results}${jan}${digestHtml}${syncFoot()}</div></div>`;
+  if (!rows) return `<div class="td-root">${toolbar(route)}<div class="td-main">${mine}${note}${oneNotice()}${hear}${body}${results}${jan}${digestHtml}${syncFoot()}</div></div>`;
   // A laptop: the rows, and the open item beside them (R-264). With nothing to open, one column.
-  let list = `${note}${oneNotice()}${hear}${body}${results}${jan}${digestHtml}`;
+  let list = `${mine}${note}${oneNotice()}${hear}${body}${results}${jan}${digestHtml}`;
   const sel = pickSel();
   if (!sel) return `<div class="td-root td-desk td-v3">${toolbar(route)}<div class="td-main td-one">${list}</div></div>`;
   S.tdSel = { ...(S.tdSel || {}), key: sel, i: ROWS.indexOf(sel) };

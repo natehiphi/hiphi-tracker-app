@@ -711,3 +711,25 @@
 .td-root .td-ctest .ic { width: 14px; height: 14px; margin-right: 3px; vertical-align: -2px; }
 .td-root .td-cnote { display: flex; align-items: center; gap: 6px; margin: 0; padding: 0 var(--s16) var(--s4); font-size: var(--t13); line-height: 18px; color: var(--n500); }
 .td-root .td-cnote .ic { width: 14px; height: 14px; flex: none; }
+
+/* v4 (R-269, T8): Your hearing today. The one thing the day is about leads the page: time and room at 22px, the
+   committee and who is going, then each bill with where its testimony stands and its Doc. */
+.td-root .td-mine { margin: 0 0 var(--s16); padding: var(--s12) var(--s16) var(--s8); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); }
+.td-root .td-minek { display: flex; align-items: center; gap: 6px; margin: 0; font: 700 var(--t13)/18px var(--font); color: var(--n500); }
+.td-root .td-minek .ic { width: 14px; height: 14px; }
+.td-root .td-mineh { margin: 2px 0 0; font: 700 var(--t22)/1.2 var(--font-h); letter-spacing: -.01em; }
+.td-root .td-mineh a { color: var(--n900); text-decoration: none; }
+.td-root .td-mineh a:hover { color: var(--p800); text-decoration: underline; }
+.td-root .td-minec { margin: 2px 0 0; font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.td-root .td-mbills { list-style: none; margin: var(--s8) 0 0; padding: 0; }
+.td-root .td-mbills > li { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s12); padding: 6px 0; border-top: 1px solid var(--n100); font-size: var(--t14); line-height: 20px; }
+.td-root .td-mbill { flex: 1 1 100%; color: var(--n900); text-decoration: none; overflow-wrap: anywhere; }
+.td-root .td-minel { display: flex; align-items: center; gap: 4px; margin: 2px 0 0; font-size: var(--t14); line-height: 20px; font-weight: 700; color: var(--warn-text); }
+.td-root .td-minel .ic { width: 14px; height: 14px; flex: none; }
+.td-root .td-mbill:hover { color: var(--p800); text-decoration: underline; }
+.td-root .td-mstate { flex: 1 1 auto; display: inline-flex; align-items: center; gap: 4px; color: var(--n700); }
+.td-root .td-mstate .ic { width: 14px; height: 14px; flex: none; }
+.td-root .td-mdoc { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; font-weight: 700; color: var(--p700); text-decoration: none; }
+.td-root .td-mdoc .ic { width: 14px; height: 14px; }
+.td-root .td-mdoc:hover { text-decoration: underline; }
+@media (max-width: 899px) { .td-root .td-mdoc { min-height: 44px; } }
