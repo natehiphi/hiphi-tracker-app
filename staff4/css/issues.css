@@ -429,6 +429,8 @@
 .ist-page .ist-risk b { color: var(--bad-text); }
 .ist-page .ist-dying .ic, .ist-page .ist-dying b { color: var(--warn-text); }
 .ist-page .ist-safe .ic, .ist-page .ist-safe b { color: var(--ok-text); }
+.ist-page .ist-need { color: var(--n900); }
+.ist-page .ist-need .ic { color: var(--warn-text); }
 .ist-page .ist-hear .ic, .ist-page .ist-ahead .ic, .ist-page .ist-off .ic { color: var(--n500); }
 .ist-page .ist-hear { font-weight: 700; color: var(--n900); }
 .ist-page .ist-bills { font-size: var(--t13); color: var(--n500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

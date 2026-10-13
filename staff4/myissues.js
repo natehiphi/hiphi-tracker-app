@@ -61,7 +61,7 @@ export default {
     return `<div class="le-page le-list is-page mi-page ist-page${isSide() ? ' le-side' : ''}">
       ${sectionNav('issues', 'mine')}
       <div class="le-tools"><h1 class="le-h1">My issues</h1>
-        <p class="le-lede">${who}.</p></div>
+        ${SESSION_OVER && indexLinks({ mineOnly: true }) ? '' : `<p class="le-lede">${who}.</p>`}</div>
       ${SESSION_OVER ? indexLinks({ mineOnly: true }) : ''}
       ${toolsHTML(Q().q, 'mi-q')}
       <div id="mi-q-body">${bodyHTML(list, opts())}</div>

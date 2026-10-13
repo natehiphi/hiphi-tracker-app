@@ -30,11 +30,12 @@ const dayAt = d => dayOf(d + 'T12:00:00-10:00');
 const WEEK = 7 * 864e5;
 const billsOf = i => (S.billIssues || []).filter(x => x.issue_id === i.id).map(x => (S.bills || []).find(b => b.id === x.bill_id)).filter(Boolean);
 // A bill's short name in a mark: its nickname, or its number when it has none or its nickname is the issue's own name.
-export const shortName = (b, i) => b.nickname && plain(b.nickname) !== plain(i?.name) ? b.nickname : billNum(b);
+const num = b => billNum(b).replace(/ /g, '\u00a0');   // never "HB1562 / HD1" across two lines on a phone
+export const shortName = (b, i) => b.nickname && plain(b.nickname) !== plain(i?.name) ? b.nickname : num(b);
 // Two bills with one nickname (a House bill and its Senate twin) are named by number, so the line never says a name twice.
 const names = (l, i) => { if (l.length > 2) return plural(l.length, 'bill');
   const n = l.map(b => shortName(b, i)), twin = n.length === 2 && n[0] === n[1];
-  return twin ? `${billNum(l[0])} and ${billNum(l[1])}` : n.join(' and '); };
+  return twin ? `${num(l[0])} and ${num(l[1])}` : n.join(' and '); };
 const THROUGH = new Set(['governor', 'law', 'ballot']);
 
 export function standOf(i) {
@@ -75,8 +76,11 @@ export function markHTML(x) {
   const say = {
     risk: () => `<span class="ist-m ist-risk">${icon('triangle-alert')}<span><b>At risk</b> · ${esc(dlw(x.deadline))} · ${esc(names(x.facing, i))} still ${x.facing.length === 1 ? 'needs' : 'need'} a hearing, no bill past it</span></span>`,
     dying: () => `<span class="ist-m ist-dying">${icon('circle-alert')}<span><b>Safe, a bill dying</b> · ${esc(names(x.carried, i))} past ${esc(x.deadline.label)} · ${esc(names(x.facing, i))} ${x.facing.length === 1 ? 'dies' : 'die'} ${esc(dayAt(x.deadline.date))} without a hearing</span></span>`,
-    safe: () => `<span class="ist-m ist-safe">${icon('shield-check')}<span><b>Safe</b>${x.deadline ? ` · ${esc(names(x.carried, i))} past ${esc(x.deadline.label)}` : ' · through its committees'}</span></span>`,
-    ahead: () => x.deadline ? `<span class="ist-m ist-ahead">${icon('clock')}<span>${esc(dlw(x.deadline))}${x.facing?.length ? ` · ${esc(names(x.facing, i))} ${x.facing.length === 1 ? 'needs' : 'need'} a hearing` : ''}</span></span>` : '',
+    safe: () => `<span class="ist-m ist-safe">${icon('shield-check')}<span><b>Safe</b>${x.deadline ? ` · ${hear && x.carried.length === 1 && x.carried[0] === hear.b ? '' : esc(names(x.carried, i)) + ' '}past ${esc(x.deadline.label)}` : ' · through its committees'}</span></span>`,
+    // No bill past the next deadline and some still unheard: the issue dies then unless one gets a hearing. Said in the at-risk
+    // words with the warning icon, in plain dark text; red and "At risk" stay for the last week (A-5, the critic's high).
+    ahead: () => !x.deadline ? '' : x.facing?.length ? `<span class="ist-m ist-need">${icon('triangle-alert')}<span><b>Needs a hearing by ${esc(dlw(x.deadline))}</b> · ${esc(names(x.facing, i))}, no bill past it</span></span>`
+      : `<span class="ist-m ist-ahead">${icon('clock')}<span>${esc(dlw(x.deadline))}</span></span>`,
     oppose: () => hear ? '' : `<span class="ist-m ist-ahead">${icon('circle-x')}<span>HIPHI opposes · no hearing set${x.next ? ` · ${esc(dlw(x.next))}` : ''}</span></span>`,
     stopped: () => `<span class="ist-m ist-off">${icon('circle-minus')}<span>${i.stance === 'oppose' ? 'Its bills did not advance' : 'Nothing moving this session'}</span></span>`,
     none: () => `<span class="ist-m ist-off">${icon('circle-dashed')}<span>No ${esc(SESSION_YEAR)} bills on it yet</span></span>`,
