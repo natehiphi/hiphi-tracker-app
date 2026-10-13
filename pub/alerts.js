@@ -35,15 +35,15 @@ import { abEvent, armOf, abSeen } from './variant.js';
 // The old "Get alerts" ask is the test 'save''s second version (variant.js; backend 148 holds its switch, off).
 export const profileAsk = () => armOf('save') === 'profile';
 export const PROFILE_H = 'Save your profile';
-// The line under the heading, by what just happened (kind: 'first' the first visit's own screen, 'follow', 'action' a
-// letter or an email about a bill, 'intro' the hello letter, 'back'). It says what the profile keeps of what they just did
+// The line under the heading, by what just happened (kind: 'follow', 'action' a letter or an email about a bill, 'intro' the
+// hello letter, 'back'; the first visit's own screen has none since R-265). It says what the profile keeps of what they just did
 // and one concrete reason that helps next time; never what arrives (the box says it), never that few people act (C-10),
 // one or two short sentences (C-14). The follow and letter lines are the brainstorm's recommended picks (A1, B1; R-184's
 // page of options, for Nate's picks). "Any phone or computer": an email signs in by its link today, a number by a texted
 // code once codes are on (R-155); the page describes texts as working (R-146, R-101).
 // Before text codes are on (R-155) a number keeps the profile on this phone only, so "on any phone or computer" is left
 // out until codesOn() (the fresh-eyes review, 10/6); the practice copy shows codes on, as the public will see them.
-export function profileLede(kind, { off = false, things = '', many = false, n = 0 } = {}) {
+export function profileLede(kind, { things = '', many = false } = {}) {
   const anywhere = codesOn() ? ' on any phone or computer' : '';
   if (kind === 'action') return 'Bills often get more than one hearing. Your profile keeps what you wrote, so you can send it again next time.';
   if (kind === 'intro') return 'Your profile keeps your name and what you wrote, ready for the next time you write.';
@@ -51,18 +51,6 @@ export function profileLede(kind, { off = false, things = '', many = false, n = 
   // longer starts with it (A-14); "Your 1 issue lives", "Your 2 issues live".
   if (kind === 'back') { const one = /^1 \w+$/.test(things);
     return `${things ? `Your ${things} ${one ? 'lives' : 'live'}` : 'What you follow lives'} only in this browser for now. Save ${things && !one ? 'them' : 'it'} to your profile to keep ${things && !one ? 'them' : 'it'}${anywhere || ' safe'}.`; }
-  // The first visit's screen (n: the issues just followed). Nate 10/6 (R-188): its words "need to significantly improve".
-  // They were two facts that didn't meet ("keeps your issues with you on any phone or computer", then what a hearing is),
-  // so the reason to save was left for the reader to put together with the box's words. Now one sentence: what a profile
-  // is in plain words (the issues just picked, named by count, and a way to reach you; Baymard: name what is kept), and
-  // why it matters, the one fact only this line gives: a bill can get a hearing with about two days' notice. It leaves
-  // to the box what arrives and "speak up" (the fresh-eyes review, 10/6: a first draft said "speak up at hearings" over a
-  // box that says "speak up" and "hearing" again, A-14, and read as going to talk in a hearing room). Three lines on a
-  // phone in both seasons, so the box starts 305px down (A-1; a 30-word January line pushed it to 332px). C-14.
-  if (kind === 'first') {
-    const yours = n === 1 ? 'your issue' : n ? `your ${n}\u00a0issues` : 'your issues';
-    return `Your profile keeps ${yours} and a way to reach you in time: ${off ? 'from January, ' : ''}bills can get a hearing with about two days’ notice.`;
-  }
   return `Nice start. Your profile keeps ${many ? 'these issues' : 'this issue'} with you${anywhere}, so you’re ready when ${many ? 'they need' : 'it needs'} you.`;
 }
 // After a yes, in the profile's words (the follow's toast once the sheet closes).
@@ -89,34 +77,28 @@ export function followAsk(name, after, { many = false, receipt = '' } = {}) {
   return true;
 }
 
-// The version of the text consent words, and the words themselves: text_consent_words 't3' is exactly TEXT_PROMISE, a
-// space, then TEXT_FINE (backend 141, R-176; 't1', backend 121 and 123, said "Our first text asks you to reply YES" and
-// no one agreed to it). A new wording gets a new version there and here together, so what is recorded as agreed is
-// always what was on the screen.
-// The promise names both kinds of alert as real events (C-4; the fresh-eyes review, 10/4: "your moment to speak up" and
-// "HIPHI's alerts" named nothing a newcomer could picture), and the small print says the first text confirms the number,
-// so that text is expected when it comes, however long after the sign-up.
-export const TEXT_CONSENT = 't3';
-export const TEXT_PROMISE = 'We’ll text you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one text a day.';
-export const TEXT_FINE = 'We’ll text you to confirm it’s your number. Message and data rates may apply. Reply STOP to stop, HELP for help.';
-// Once codes are on (R-155): the first text is the code, and the words agreed are version t2 (backend 128), the same
-// promise and this small print.
-export const TEXT_CONSENT_CODE = 't2';
-export const TEXT_FINE_CODE = 'We’ll text you a 6-digit code to confirm it’s your number. Message and data rates may apply. Reply STOP to stop, HELP for help.';
-const textConsent = () => codesOn() ? TEXT_CONSENT_CODE : TEXT_CONSENT;
-const textFine = () => codesOn() ? TEXT_FINE_CODE : TEXT_FINE;
-export const EMAIL_PROMISE = 'We’ll email you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one email a day.';
-const EMAIL_FINE = 'No password: we email you a link to confirm. Unsubscribe in one tap.';
-// What makes a number feel safe to type sits right under the box, where it is typed (P-5).
-const PHONE_HINT = 'Private: HIPHI staff never see your number, and it is used only for these texts.';
-const EMAIL_HINT = 'We never sell your email or give it to other groups. Staff can see which issues you follow.';
-// In the profile ask (R-188) the phone's line first answers what "Save your profile" makes someone wonder (R-184 left it
-// open, the brainstorm's A11): is this an account to set up? No password. It no longer says "these texts" before any
-// text is mentioned (the consent words come under it); its promises are the same: staff never see the number, and it is
-// used only to text you. Not for someone already signed in, who has a profile (More > Get alerts adds a number to it).
-// The email's small print already says "No password", so its line stays as it was.
-const PROFILE_PHONE_HINT = 'No password needed. HIPHI staff never see your number, and it’s used only to text you.';
-const hintFor = phone => !phone ? EMAIL_HINT : profileAsk() && !S.session ? PROFILE_PHONE_HINT : PHONE_HINT;
+// The consent words, and their versions (R-265, Nate 12 Oct: "the sign up page needs far less words", then "the absolute
+// minimum", "With we never share your number"). From the research (backend docs/requests/R-265.md): the carriers' rules
+// (CTIA's Messaging Principles 5.1, Twilio's A2P vetting) need, beside the box, who sends, what the texts are, how often,
+// "Msg & data rates may apply", how to stop, and links to the terms and privacy pages; HELP lives on the Text terms page and
+// in the texts, and the button already says a code comes, so two short lines hold it all, the same with codes on or off.
+// The first says what comes, in words a newcomer can picture (Nate 13 Oct, "reworded, go": the critic found "action asks"
+// in-house wording, and with no line under the heading nothing else says what a hearing alert is); it names both kinds of
+// message, hearings and HIPHI's asks (C-4: only what it names may be sent), at the size of the line above it (A-13: it is the
+// line that matters). The second is the fine print: how often, rates, how to stop. A new wording gets a new version
+// here and in the backend together (text_consent_words 't4', email_consent_words 'e2', backend 173), so what is recorded
+// as agreed is always what was on the screen: the stored words are the two lines joined by a space. Earlier: t2 and t3
+// (backend 128, 141) and e1 (157), about 60 words each.
+// Legal, one line: these words join the lawyer's list (R-149) before any text or email goes to the public.
+export const TEXT_CONSENT = 't4';
+export const EMAIL_CONSENT = 'e2';
+export const ALERT_PROMISE = 'HIPHI alerts when a bill on your issues gets a hearing or needs you to speak up.';
+export const TEXT_FINE = 'Up to 1 a day. Msg & data rates may apply. Reply STOP to cancel.';
+export const EMAIL_FINE = 'Up to 1 a day. Unsubscribe anytime.';
+export const TEXT_WORDS = `${ALERT_PROMISE} ${TEXT_FINE}`, EMAIL_WORDS = `${ALERT_PROMISE} ${EMAIL_FINE}`;
+// The one line under the box, where it is typed (P-5): short and positive, never "spam" (the research: a line like it raised a
+// nonprofit's sign-ups from 18% to 27%; "never spam you" cost 19% in another test). The privacy page says the rest.
+const hintFor = phone => phone ? 'We never share your number.' : 'We never share your email.';
 const PHONE_ERR = 'Enter a 10-digit mobile number, like (808) 555-0123.';
 const EMAIL_ERR = 'Enter an email like name@example.com.';
 
@@ -191,10 +173,7 @@ const sayErr = e => e?.plain ? e.message : friendly(e);
 export function alertFields(pfx, { emailHref = '', compact = false, swap: withSwap = true } = {}) {
   if (S.alertCode?.pfx === pfx) return codeFields(pfx, { emailHref, withSwap });
   const phone = S.alertMode !== 'email', v = S.alertDraft[phone ? 'phone' : 'email'];
-  // A sentence, so its Privacy link is a link in running text (WCAG 2.5.8's inline exception, DESIGN A-6). For texts, the
-  // terms page sits beside it: carriers ask for links to privacy AND terms at the sign-up (R-180, D1-2). It stays out of
-  // the small print below, whose words must match the stored consent version exactly.
-  const hint = `<p class="help al-hint" id="${pfx}-hint">${hintFor(phone)} <a href="#/privacy">Privacy</a>${phone ? ' · <a href="text-terms.html">Text terms</a>' : ''}</p>`;
+  const hint = `<p class="help al-hint" id="${pfx}-hint">${hintFor(phone)}</p>`;
   const field = phone
     ? `<div class="field al-field"><label for="${pfx}-phone">Mobile number</label>
         <input id="${pfx}-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel-national" enterkeyhint="send" placeholder="(808) 555-0123" maxlength="20" value="${esc(v)}" aria-describedby="${pfx}-hint">
@@ -205,9 +184,11 @@ export function alertFields(pfx, { emailHref = '', compact = false, swap: withSw
   const swap = phone
     ? (emailHref ? `<a class="al-swap" href="${emailHref}">Use email instead</a>` : `<button type="button" class="btn text sm al-swap" data-alswap="email">Use email instead</button>`)
     : `<button type="button" class="btn text sm al-swap" data-alswap="phone">Text me instead</button>`;
-  // The promise at reading size, then the small print on its own line (the review: one block mixed the two, A-13).
-  return `${field}<p class="al-line${compact ? ' small' : ''}">${phone ? TEXT_PROMISE : EMAIL_PROMISE}</p>
-    <p class="al-fine">${phone ? textFine() : EMAIL_FINE}${DEMO ? ' In the sandbox nothing is sent or saved.' : ''}</p>${withSwap ? `<p class="al-swaprow">${swap}</p>` : ''}`;
+  // What comes, at reading size; then the fine print and the links the carriers ask for at the sign-up (terms AND privacy,
+  // R-180, D1-2), in running text (WCAG 2.5.8's inline exception, A-6). The two lines' words are exactly the stored version.
+  const links = phone ? '<a href="text-terms.html">Terms</a> · <a href="#/privacy">Privacy</a>' : '<a href="#/privacy">Privacy</a>';
+  return `${field}<p class="al-line${compact ? ' small' : ''}">${ALERT_PROMISE}</p>
+    <p class="al-fine">${phone ? TEXT_FINE : EMAIL_FINE} ${links}${DEMO ? '<br>In the sandbox nothing is sent or saved.' : ''}</p>${withSwap ? `<p class="al-swaprow">${swap}</p>` : ''}`;
 }
 // The code step (R-155): where the number was, the code we just texted to it, with a new code, a different number and email
 // one tap away (a code that never comes has a way out, B-3). One field, filled in by the phone itself where it can (iPhone:
@@ -227,7 +208,8 @@ function codeFields(pfx, { emailHref = '', withSwap = true } = {}) {
 // The host's button words for the box showing now (pfx: that host's box, which may be at its code step).
 // With codes on, the number's button names what it sends: a code (the review, 10/5: "Text me" read as "send me alerts").
 export const alertButton = pfx => S.alertCode && (!pfx || S.alertCode.pfx === pfx) ? { label: 'Confirm', icon: 'check' }
-  : S.alertMode === 'email' ? { label: 'Email me', icon: 'mail' } : { label: codesOn() ? 'Text me a code' : 'Text me', icon: 'message-square' };
+  // The email's button says a link comes (C-6), as the small print did before R-265.
+  : S.alertMode === 'email' ? { label: 'Email me a link', icon: 'mail' } : { label: codesOn() ? 'Text me a code' : 'Text me', icon: 'message-square' };
 
 // Keep a number: the row in text_signups (token kept on this device), then this device remembers it.
 export async function saveText(input, source) {
@@ -236,7 +218,7 @@ export async function saveText(input, source) {
   const t = textSaved(), token = t?.token || crypto.randomUUID();   // the published page is https, where every browser has it
   if (!DEMO) {
     const sb = await supa();
-    const { data, error } = await sb.rpc('text_signup', { p: { token, phone: d, consent: textConsent(), source, ...textLists() } });
+    const { data, error } = await sb.rpc('text_signup', { p: { token, phone: d, consent: TEXT_CONSENT, source, ...textLists() } });
     if (error) throw error;
     if (!data?.ok) throw plainErr(data?.why === 'phone' ? PHONE_ERR : data?.why === 'busy' ? 'That number can’t be added just now. Try again later, or use email instead.' : 'That didn’t save. Try again.');
   }
@@ -269,7 +251,7 @@ export async function stopNumber(input) {
 async function saveEmail(input, source = '') {
   const email = String(input || '').trim();
   if (!validEmail(email)) throw plainErr(EMAIL_ERR);
-  const r = await sendEmailLink(email, { hearing_alerts: true, action_alerts: true, source: source || 'alerts_box', version: 'e1' });   // e1: this box's promise and small print (backend 157)
+  const r = await sendEmailLink(email, { hearing_alerts: true, action_alerts: true, source: source || 'alerts_box', version: EMAIL_CONSENT });   // the box's consent line (backend 173)
   S.alertDraft.email = '';
   return { kind: 'email', email, demo: !!r?.demo };
 }

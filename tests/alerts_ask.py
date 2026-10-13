@@ -60,16 +60,14 @@ with sync_playwright() as pw:
     t = text(p)
     ok(p.url.endswith('#/start/3'), f'the alerts screen is the third step, right after the issues ({p.url[-10:]})')
     ok(moment(p) == '', 'no "Mahalo!" before the alerts screen')
-    lede = text(p, '.st-alertspage .lede')
-    ok(p.inner_text('#st-h') == 'Save your profile' and re.fullmatch(r'Your profile keeps your \d+\u00a0issues and a way to reach you in time: bills can get a hearing with about two days’ notice\.', lede) and p.title().startswith('Save your profile'),
-       f'the heading and the tab ask to save the profile; the line says what it keeps, what it does, and why (R-188): {lede!r}')
+    ok(p.inner_text('#st-h') == 'Save your profile' and p.locator('.st-alertspage .lede').count() == 0 and p.title().startswith('Save your profile'),
+       'the heading and the tab ask to save the profile, with no line under it (R-265: the box says what comes)')
     ok(p.locator('#st-a-phone').count() == 1 and p.locator('#st-a-email').count() == 0, 'the mobile number box comes first, alone')
-    ok(all(w in t for w in ['gets a hearing', 'HIPHI asks people to speak up', 'At most one text a day', 'We’ll text you to confirm it’s your number', 'Message and data rates may apply', 'Reply STOP to stop', 'HELP for help']) and 'YES' not in t, 'the consent words: what arrives, how often, the confirming text (no YES, R-176), rates, STOP, HELP')
-    ok('speak up' not in lede and p.evaluate("(() => { const l = document.querySelector('.st-alertspage .lede'); return Math.round(l.getBoundingClientRect().height / parseFloat(getComputedStyle(l).lineHeight)); })()") <= 3,
-       'the line leaves "speak up" to the box (A-14) and is at most three lines on a phone (C-14)')
+    ok(('HIPHI alerts when a bill on your issues gets a hearing or needs you to speak up.' in t and 'Up to 1 a day. Msg & data rates may apply. Reply STOP to cancel.' in t) and 'YES' not in t and p.locator('.al-fine a', has_text='Terms').count() == 1 and p.locator('.al-fine a', has_text='Privacy').count() == 1,
+       'the consent line as stored (t4, R-265): who, what, how often, rates, STOP, with the Terms and Privacy links beside it')
     ok(p.evaluate("(() => { const i = document.getElementById('st-a-phone'), h = document.getElementById('st-a-hint'); return !!h && h.getBoundingClientRect().top > i.getBoundingClientRect().bottom && h.getBoundingClientRect().top - i.getBoundingClientRect().bottom < 40 && i.getAttribute('aria-describedby') === 'st-a-hint'; })()"), 'the privacy line sits right under the box, and the box points to it')
     ok('Use email instead' in t, 'email is a link under the box')
-    ok('No password needed. HIPHI staff never see your number' in text(p, '#st-a-hint') and 'these texts' not in t, 'under the box: no password, and staff never see the number (R-188)')
+    ok(text(p, '#st-a-hint') == 'We never share your number.', 'under the box: "We never share your number." (R-265)')
     ok(p.locator('.st-bar button', has_text='Text me').count() == 1 and p.locator('[data-stskip]').count() == 1, 'the bar: Skip and Text me')
     ok(p.evaluate("getComputedStyle(document.querySelector('.st-chapters li.on')).fontWeight >= 600 && document.querySelector('.st-chapters li.on').innerText.includes('Your issues')"), 'it is still the "Your issues" part')
     shot(p, '1_alerts_phone')
@@ -113,8 +111,8 @@ with sync_playwright() as pw:
     p.click('[data-alswap="email"]'); p.wait_for_selector('#st-a-email', timeout=3000); p.wait_for_timeout(200)
     t = text(p)
     ok(p.evaluate("document.activeElement.id") == 'st-a-email', 'the email box takes the focus')
-    ok('We’ll email you when a bill on your issues gets a hearing' in t and 'At most one email a day' in t and 'Text me instead' in t, 'the email words, and the way back to texts')
-    ok(p.locator('.st-bar button', has_text='Email me').count() == 1, 'the button says Email me')
+    ok(('HIPHI alerts when a bill on your issues gets a hearing or needs you to speak up.' in t and 'Up to 1 a day. Unsubscribe anytime.' in t) and 'We never share your email.' in t and 'Text me instead' in t, 'the email words (e2, R-265), and the way back to texts')
+    ok(p.locator('.st-bar button', has_text='Email me').count() == 1, 'the button says Email me (a link)')
     shot(p, '2_alerts_email')
     p.fill('#st-a-email', 'leilani@example'); p.click('#st-send'); p.wait_for_timeout(300)
     ok('name@example.com' in text(p, '#st-a-err'), 'an unfinished email says so')
@@ -143,7 +141,7 @@ with sync_playwright() as pw:
     p.locator('.hm-profline').scroll_into_view_if_needed(); shot(p, '3_home_line')
     p.locator('.hm-profline [data-hm-prof]').click(); p.wait_for_selector('.al-sheet[open] #al-sh-phone', timeout=5000)
     ok(p.locator('.al-sheet button', has_text='Text me').count() == 1, 'Home: the line opens the phone box in the sheet')
-    ok('Use email instead' in text(p, '.al-sheet') and 'never see your number' in text(p, '.al-sheet'), 'Home: email is a link under it, and the privacy line is there too')
+    ok('Use email instead' in text(p, '.al-sheet') and 'We never share your number.' in text(p, '.al-sheet'), 'Home: email is a link under it, and the privacy line is there too')
     shot(p, '3_home_sheet')
     p.fill('#al-sh-phone', '(808) 555-0144'); p.locator('.al-sheet button', has_text='Text me').click(); p.wait_for_timeout(1000)
     ok('We’ll text (808) 555-0144 to confirm it’s your number' in text(p, '.nudgecard'), 'Home: "almost set" in the card where the line was')
@@ -154,8 +152,8 @@ with sync_playwright() as pw:
     # ---- 4. between sessions ----
     c, p = ctx(b)
     to_alerts(p, '&season=off&fv=full&end=today')
-    lede = text(p, '.st-alertspage .lede')
-    ok('in time: from January, bills can get a hearing' in lede and p.evaluate("document.querySelector('#st-aform').getBoundingClientRect().top + scrollY") <= 320, f'between sessions: the January line, and the box starts within 320px (A-1): {lede!r}')
+    # "Save your profile" has no line under it since R-265 (Nate 12 Oct: "the absolute minimum"); the box's line says what comes.
+    ok(p.locator('.st-alertspage .lede').count() == 0 and p.evaluate("document.querySelector('#st-aform').getBoundingClientRect().top + scrollY") <= 320, 'between sessions: no line under the heading (R-265), and the box starts within 320px (A-1)')
     c.close()
 
     # ---- 5. a visit from a shared bill ----
@@ -177,7 +175,7 @@ with sync_playwright() as pw:
     t = text(p)
     ok('Get alerts on your issues' in t and p.locator('#mr-al-phone').count() == 1 and p.locator('button.al-swap[data-alswap="email"]').count() == 1, 'the page: the phone box, "Use email instead" in place (D1-5)')
     p.click('button.al-swap[data-alswap="email"]'); p.wait_for_selector('#mr-al-email', timeout=3000)
-    ok('Email me' in text(p) and 'We’ll email you when a bill on your issues gets a hearing' in text(p) and p.locator('#mr-alform input[type=checkbox]').count() == 0, 'Use email instead: the email box under the alerts promise, nothing to tick (D1-5)')
+    ok('Email me a link' in text(p) and ('HIPHI alerts when a bill on your issues gets a hearing or needs you to speak up.' in text(p) and 'Up to 1 a day. Unsubscribe anytime.' in text(p)) and p.locator('#mr-alform input[type=checkbox]').count() == 0, 'Use email instead: the email box under the alerts promise, nothing to tick (D1-5)')
     p.fill('#mr-al-email', 'someone@example.org'); p.click('#mr-al-send'); p.wait_for_timeout(900)
     ok(p.inner_text('h1') == 'Alerts almost set' and 'We sent a link to someone@example.org. Tap it to turn on alerts.' in text(p), 'the email given: "Alerts almost set", the link sent (D1-5)')
     p.click('[data-mr-alotheremail]'); p.wait_for_timeout(500)

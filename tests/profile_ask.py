@@ -64,7 +64,7 @@ with sync_playwright() as pw:
     ok('Save your profile' in s and 'You’re following “FDA proof required to sell e-cigarettes”.' in s, f'1: Follow opens "Save your profile" with the follow said over it ({s[:90]!r})')
     ok('Nice start. Your profile keeps this issue with you, so you’re ready when it needs you.' in s and 'any phone or computer' not in s, '1: codes off: the line says what the profile keeps, and not "any phone or computer" (a number stays on this phone until codes are on)')
     ok(p.evaluate("document.activeElement?.id") == 'al-sh-h', f'1: on a touch screen the sheet opens on its heading, not the box (no keyboard over Not now) ({p.evaluate("document.activeElement?.id")!r})')
-    ok('We’ll text you when a bill on your issues gets a hearing' in s and 'At most one text a day' in s, '1: the consent words are the same box’s (C-4)')
+    ok(('HIPHI alerts when a bill on your issues gets a hearing or needs you to speak up.' in s and 'Up to 1 a day. Msg & data rates may apply. Reply STOP to cancel.' in s), '1: the consent words are the same box’s (C-4; t4, R-265)')
     vis = p.evaluate("""() => { const r = e => document.querySelector(e)?.getBoundingClientRect(); const i = r('#al-sh-phone'), b = r('#al-sh-send');
       return !!i && !!b && i.top >= 0 && b.bottom <= innerHeight; }""")
     ok(vis, '1: on an iPhone SE the number box and its button are on the first screen of the sheet')
@@ -224,7 +224,7 @@ with sync_playwright() as pw:
     p.goto(f'{BASE}?demo=1&restart&fvstep=save'); p.wait_for_selector('#st-a-phone', timeout=20000); p.wait_for_timeout(600)
     lede = p.evaluate("document.querySelector('p.lede')?.innerText || ''")
     ok(p.inner_text('#st-h') == 'Save your profile' and p.url.endswith('#/start/3') and 'fvstep' not in p.url, f'10: ?demo=1&fvstep=save opens "Save your profile" directly, and the address drops fvstep ({p.url[-24:]!r})')
-    ok(re.search(r'your 2\s*issues', lede) is not None, f'10: its sentence names the two issues followed ({lede[:72]!r})')
+    ok(lede == '', f'10: no line under the heading (R-265, Nate 12 Oct: "the absolute minimum") ({lede[:72]!r})')
     ok(p.evaluate("JSON.parse(localStorage.getItem('hiphi_issue_follows_demo') || '[]').length") == 2, '10: two sample issues are followed, in the practice copy only')
     shot(p, '10_jump_phone')
     # Back: the issues screen, with the two issues ticked as they were followed (its own picks, not HIPHI's defaults).
@@ -255,7 +255,7 @@ with sync_playwright() as pw:
     p.goto(f'{BASE}?demo=1&restart&fvstep=save'); p.wait_for_selector('#st-a-phone', timeout=20000); p.wait_for_timeout(600)
     p.reload(); p.wait_for_selector('#st-a-phone', timeout=20000); p.wait_for_timeout(600)
     lede = p.evaluate("document.querySelector('p.lede')?.innerText || ''")
-    ok(p.url.endswith('#/start/3') and re.search(r'your 2\s*issues', lede) is not None, '10: a reload keeps the run: still on "Save your profile", two issues, no second jump')
+    ok(p.url.endswith('#/start/3') and p.inner_text('#st-h') == 'Save your profile' and p.evaluate("JSON.parse(localStorage.getItem('hiphi_issue_follows_demo') || '[]').length") == 2, '10: a reload keeps the run: still on "Save your profile", two issues, no second jump')
     c.close()
     # Without demo=1 the address does nothing, and an unknown name does nothing either (no page errors counted: the live page
     # asks its database, which this sandbox may not answer).

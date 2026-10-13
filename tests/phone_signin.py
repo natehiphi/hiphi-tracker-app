@@ -51,7 +51,7 @@ with sync_playwright() as pw:
     # ================= A. codes off (the live page until texts are set up) =================
     c, p = ctx(b)
     p.goto(BASE + '?demo=1&restart#/alerts'); p.wait_for_selector('#mr-al-phone', timeout=60000)
-    ok(p.locator('#mr-al-send', has_text='Text me a code').count() == 1 and '6-digit code' in text(p) and 'YES' not in text(p), 'the practice copy shows codes on without &codes (R-176)')
+    ok(p.locator('#mr-al-send', has_text='Text me a code').count() == 1 and 'YES' not in text(p), 'the practice copy shows codes on without &codes (R-176)')
     c.close()
     c, p = ctx(b, 1440, 900)
     p.goto(BASE + '?demo=1&restart&codes=0#/more'); p.wait_for_selector('.mr-me', timeout=60000); p.wait_for_timeout(500)
@@ -62,7 +62,8 @@ with sync_playwright() as pw:
     p.goto(BASE + '?demo=1&codes=0#/signin?by=number'); p.wait_for_selector('#mr-email, #mr-pi-phone', timeout=60000)
     ok(p.locator('#mr-email').count() == 1 and p.locator('#mr-pi-phone').count() == 0, 'codes off: "Sign in" opens the email page')
     p.goto(BASE + '?demo=1&codes=0#/alerts'); p.wait_for_selector('#mr-al-phone', timeout=60000)
-    ok('We’ll text you to confirm it’s your number' in text(p) and 'YES' not in text(p) and '6-digit code' not in text(p), 'codes off: the box says the number will be confirmed by text, never "reply YES" (R-176)')
+    # Since R-265 one consent line serves codes on and off (t4); the button says what comes ("Text me", not "a code").
+    ok('Msg & data rates may apply. Reply STOP to cancel.' in text(p) and 'YES' not in text(p) and p.locator('#mr-al-send', has_text='Text me a code').count() == 0, 'codes off: the box\'s one consent line, no code promised, never "reply YES" (R-176, R-265)')
     p.fill('#mr-al-phone', '808 555 0155'); p.click('#mr-al-send'); p.wait_for_timeout(1200)
     # D1-4 (R-180): the page heads "Alerts almost set" with the alerts step's words, not "Text alerts are on" over "We'll text you first".
     ok(p.inner_text('h1') == 'Alerts almost set' and 'We’ll text (808) 555-0155 to confirm it’s your number.' in text(p) and 'YES' not in text(p), 'codes off: the number kept, "Almost set", "confirm it’s your number", no YES')
@@ -78,8 +79,8 @@ with sync_playwright() as pw:
     c, p = ctx(b)
     to_alerts(p, '&codes&fv=full&end=today')
     t = text(p)
-    ok('We’ll text you a 6-digit code to confirm it’s your number' in t and 'reply YES' not in t, 'codes on: the small print says a code comes first, not a YES')
-    ok(all(w in t for w in ['At most one text a day', 'Message and data rates may apply', 'Reply STOP to stop', 'HELP for help']), 'codes on: frequency, rates, STOP and HELP are still there')
+    ok('reply YES' not in t, 'codes on: no YES to reply')
+    ok(('HIPHI alerts when a bill on your issues gets a hearing or needs you to speak up.' in t and 'Up to 1 a day. Msg & data rates may apply. Reply STOP to cancel.' in t), 'codes on: the one consent line, the same as codes off (t4, R-265): frequency, rates, STOP')
     ok(p.locator('#st-send', has_text='Text me a code').count() == 1, 'codes on: the button says what it sends, a code')
     p.fill('#st-a-phone', '(808) 555-0123'); p.click('#st-send'); p.wait_for_selector('#st-a-code', timeout=5000); p.wait_for_timeout(400)
     t = text(p)
@@ -237,14 +238,14 @@ with sync_playwright() as pw:
     p.locator('.st-tile').first.click(); p.wait_for_timeout(200)
     p.click('[data-stnext]'); p.wait_for_selector('[data-stpick]', timeout=10000); p.wait_for_timeout(800)
     p.click('[data-stnext]'); p.wait_for_selector('.st-alertspage', timeout=10000); p.wait_for_timeout(700)
-    ok('6-digit code' in text(p), 'live: the box says a code comes first')
+    ok(p.locator('#st-send', has_text='Text me a code').count() == 1, 'live: the button says a code comes first')
     p.fill('#st-a-phone', '808-555-0123'); p.click('#st-send'); p.wait_for_selector('#st-a-code', timeout=8000)
     ok(any(k == 'otp' for k, _ in calls) and not any(k.endswith('rpc/text_signup') for k, _ in calls), 'Text me asks for a code; nothing is kept before it')
     p.type('#st-a-code', '123456'); p.wait_for_selector('.st-thanks #st-h', timeout=10000); p.wait_for_timeout(800)
     m = thanks(p)
     ok('Your profile is saved.' in m and 'Text alerts are on for (808) 555-0123.' in m and p.url.split('#')[1].startswith('/start/'), f'the "Mahalo!" page says the profile is saved and alerts are on (R-188), and the visit goes on (no restart): {m[:120]!r}')
     sign = [json.loads(d or '{}') for k, d in calls if k == 'POST rpc/text_signup']
-    ok(sign and sign[-1].get('p', {}).get('consent') == 't2' and sign[-1]['p'].get('phone') == '8085550123', f'the number is kept with the session, under the t2 words ({sign[-1] if sign else None})')
+    ok(sign and sign[-1].get('p', {}).get('consent') == 't4' and sign[-1]['p'].get('phone') == '8085550123', f'the number is kept with the session, under the t4 words ({sign[-1] if sign else None})')
     links = [k for k, _ in calls if k == 'POST rpc/text_link']
     ok(len(links) >= 2, f'text_link at sign-in and again after the number is kept, to confirm it ({len(links)})')
     ok(json.loads(p.evaluate("localStorage.getItem('hiphi_text')") or '{}').get('confirmed') is True, 'this phone keeps the number as confirmed')
