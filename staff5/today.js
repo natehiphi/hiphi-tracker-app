@@ -747,6 +747,22 @@ function alsoRow(t, c) {
 const ACT = { file: 'to file', review: 'to approve', review2: 'to approve', email: 'to approve', revise: 'to revise', submit: 'to submit', write: 'to write',
   nodraft: 'to draft', ask: 'to write', dnote: 'to write', stale: 'to update', send: 'to send', fix: 'to fix', chair: 'to ask' };
 const approveAct = t => t ? ACT[t.kind] : undefined;
+// R-279 (Nate 10/13): "it's important that it's clear what each item is doing". Every row and card leads with the step's
+// name, one word-pair per kind, so a list reads as draft, approve, file, ask the chair at a glance. Neutral, with an icon:
+// colour already means urgency here (A-5), so the step is said in words and a shape.
+const STEP = { nodraft: ['Draft testimony', 'file-text'], write: ['Draft testimony', 'file-text'], submit: ['Send for approval', 'send'],
+  revise: ['Revise testimony', 'undo-2'], review: ['Approve testimony', 'scan-eye'], review2: ['Second approval', 'scan-eye'],
+  file: ['File testimony', 'clipboard-check'], stale: ['Update testimony', 'refresh-cw'], ask: ['Write the public ask', 'megaphone'],
+  dnote: ['Note to letter-writers', 'pencil'], chair: ['Ask the chair for a hearing', 'mail'], email: ['Approve email', 'scan-eye'],
+  fix: ['Fix email', 'undo-2'], send: ['Send email', 'send'], todo: ['To-do', 'list-todo'], followup: ['Follow up', 'user-round'],
+  reply: ['Reply', 'message-circle'], notice: ['Notice', 'bell'] };
+// A step waiting on someone else names that step (its chip says which), so Team reads the same way.
+const WAITSTEP = { Approved: 'file', Draft: 'write', 'Sent back': 'revise', 'Waiting for approval': 'review', 'Waiting for second approval': 'review2', Email: 'email', 'To-do': 'todo' };
+// A notice says what kind of news it is; one that sends testimony back is the revise step it asks for.
+const NOTICE = { testimony: ['Testimony update', 'bell'], deadline: ['Deadline alert', 'bell'], hearing: ['Hearing update', 'bell'], status: ['Bill update', 'bell'], system: ['From the tracker', 'bell'] };
+const stepOf = p => p.kind === 'notice' ? (/^(Changes requested|Your testimony was sent back)/i.test(unslack(p.i?.title || '')) ? STEP.revise : NOTICE[p.i?.kind] || STEP.notice)
+  : STEP[p.kind === 'wait' ? WAITSTEP[p.chip] : p.kind] || null;
+const stepTag = (st, sm = true) => st ? `${chip(st[0], 'td-step', st[1], { sm })} ` : '';
 const urgBlock = (due, until = null, act) => `<span class="td-urg">${urgentMark(due == null ? null : new Date(due).toISOString(), { until, act })}</span>`;
 const lookBtn = b => iconBtn('chevron-right', `Quick look at ${billSay(b)}`, { 'data-look': '1' }, 'td-look');
 // Every card drawn, by the key its "…" button carries, so the menu opens on the card that was drawn: in Team the same
@@ -784,7 +800,7 @@ function card(c, i, team, o = {}) {
   return `<article class="td-card${c.wait ? ' td-wait' : ''}${p.seen ? ' td-seen' : ''}" data-k="${esc(k)}"${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''} tabindex="-1" aria-labelledby="td-s${i}">
     ${urgBlock(c.wait ? null : p.due, untilOf(p), approveAct(p))}
     <div class="td-top">${top}${more}${b ? lookBtn(b) : ''}</div>
-    <p class="td-s" id="td-s${i}">${p.s}</p>
+    <p class="td-s" id="td-s${i}">${stepTag(stepOf(p))}${p.s}</p>
     ${(() => { const w = [o.label ? `<span class="td-part td-cwho">${o.av || ''}${esc(o.label)}</span>` : '', why(p, team, !c.wait)].filter(Boolean).join('\u00a0· '), lead = c.wait && p.chip ? chip(p.chip, '', 'hourglass') + ' ' : p.seen ? SEEN() + ' ' : ''; return w || lead ? `<p class="td-why">${lead}${w}</p>` : ''; })()}
     ${p.note ? `<p class="td-note">${p.note}</p>` : ''}
     ${p.q ? `<blockquote class="td-q">${p.q}</blockquote>` : ''}
@@ -823,12 +839,12 @@ function row(c, filled, o = {}) {
   const sel = inner => `<button type="button" class="td-rsel" data-sel="${ek}" aria-current="false">${inner}</button>`;
   if (c.cluster) {
     const bills = shortNames(c.cluster.map(t => t.b));
-    return `<div data-k="${ek}" class="td-row td-rclu"${filled ? ' data-fill="1"' : ''}>${sel(`${urgBlock(c.due, untilOf(c.cluster[0]), 'to approve')}<span class="td-rmain"><span class="td-rs"><b>${plural(c.cluster.length, 'testimony draft')} to approve</b></span><span class="td-rn">${esc(bills.slice(0, 3).join(', '))}${bills.length > 3 ? ' …' : ''}</span></span>`)}
+    return `<div data-k="${ek}" class="td-row td-rclu"${filled ? ' data-fill="1"' : ''}>${sel(`${urgBlock(c.due, untilOf(c.cluster[0]), 'to approve')}<span class="td-rmain"><span class="td-rs">${stepTag(STEP.review)}<b>${plural(c.cluster.length, 'testimony draft')} to approve</b></span><span class="td-rn">${esc(bills.slice(0, 3).join(', '))}${bills.length > 3 ? ' …' : ''}</span></span>`)}
       <span class="td-ract">${btn('Start review', { kind: filled ? 'primary' : 'secondary', href: '#/review', attrs: { 'data-primary': '1', 'data-review': '1' } })}</span>${end}</div>`;
   }
   if (c.newh) {
     const nums = shortNames(c.newh.map(t => t.b));
-    return `<div data-k="${ek}" class="td-row td-rnew">${sel(`${urgBlock(null)}<span class="td-rmain"><span class="td-rs"><b>${esc(plural(c.newh.length, 'new hearing'))}</b> · Testimony to write, no draft yet</span><span class="td-rn">${esc(nums.slice(0, 4).join(', '))}${nums.length > 4 ? ' …' : ''}</span></span>`)}
+    return `<div data-k="${ek}" class="td-row td-rnew">${sel(`${urgBlock(null)}<span class="td-rmain"><span class="td-rs">${stepTag(STEP.nodraft)}<b>${esc(plural(c.newh.length, 'new hearing'))}</b> · Testimony to write, no draft yet</span><span class="td-rn">${esc(nums.slice(0, 4).join(', '))}${nums.length > 4 ? ' …' : ''}</span></span>`)}
       <span class="td-ract"></span>${end}</div>`;
   }
   if (c.hear) return slipHearRow(c, ek, sel, end, o);
@@ -838,7 +854,7 @@ function row(c, filled, o = {}) {
     : (([ic, w]) => `<span class="td-rb td-rkind">${icon(ic)}<span>${w}</span></span>`)(kindOf(p));
   // A teammate's step is theirs to take: its row has no button, and the open item offers "Message Kevin".
   const x = p.ro ? null : (p.btns || [])[0], fill = filled && p.kind !== 'reply' && !p.seen && x && !x.text;
-  const what = `<span class="td-rs">${p.seen ? SEEN() + ' ' : ''}${rowWords(p, x)}</span>${n > 0 ? `<span class="td-rplus">+${n}<span class="td-rmore"> on this ${b ? 'bill' : 'item'}</span></span>` : ''}`;   // "+2 on this bill" (P-4: "+2 more" said more of what?)
+  const what = `<span class="td-rs">${stepTag(stepOf(p))}${p.seen ? SEEN() + ' ' : ''}${rowWords(p, x, stepOf(p))}</span>${n > 0 ? `<span class="td-rplus">+${n}<span class="td-rmore"> on this ${b ? 'bill' : 'item'}</span></span>` : ''}`;   // "+2 on this bill" (P-4: "+2 more" said more of what?)
   return `<div data-k="${ek}" class="td-row${p.seen ? ' td-seen' : ''}"${fill ? ' data-fill="1"' : ''}${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${sel(`${urgBlock(p.due, untilOf(p), approveAct(p))}${o.av ? `<span class="td-rav">${o.av}</span>` : ''}<span class="td-rmain">${name}${what}</span>`)}
     <span class="td-ract">${x ? button(p, x, true, filled && p.kind !== 'reply') : ''}</span>${end}</div>`;
 }
@@ -848,7 +864,18 @@ function row(c, filled, o = {}) {
 // keeps the step's words, which say what it is about. The open item always shows the step in full.
 const SIG = w => w.toLowerCase().replace(/[^a-z]/g, '');
 const SKIP = new Set(['the', 'at', 'it', 'now', 'a', 'to', 'your', 'on']);
-function rowWords(p, x) {
+// R-279: with the step named in its tag, a testimony row's words are the hearing it is for (who sent it, for an
+// approval), and any other row drops the tag's own words from the front ("Ask the chair for a hearing: 9 days left"
+// reads "9 days left" after the tag), so the step is said once.
+const TESTI = new Set(['nodraft', 'write', 'submit', 'revise', 'review', 'review2', 'file', 'stale', 'ask']);
+function rowWords(p, x, st) {
+  if (st && p.h && TESTI.has(p.kind)) {
+    const by = /^review/.test(p.kind) && p.d?.submitted_by ? (p.d.submitted_by === S.me?.id ? 'Your own draft' : `From ${esc(first(p.d.submitted_by))}`) : p.kind === 'revise' ? 'Sent back' : '';
+    return [by, `${esc(p.h.committee)} hearing ${whenLine(p.h.scheduled_at)}`].filter(Boolean).join(' · ');
+  }
+  if (p.kind === 'notice' && st === STEP.revise) return 'Sent back: fix it, then resubmit';
+  if (st) { const t = String(p.s || ''), lead = st[0].toLowerCase();
+    if (t.toLowerCase().startsWith(lead)) { const rest = t.slice(lead.length).replace(/^[\s:·,-]+/, ''); if (rest) return rest.charAt(0).toUpperCase() + rest.slice(1); } }
   const words = x && !x.text ? String(x.label || '').split(/\s+/).map(SIG).filter(w => w && !SKIP.has(w)) : [];
   const said = String(p.s || '').replace(/<[^>]+>/g, ' ').toLowerCase();
   if (p.h && words.length >= 2 && words.every(w => said.includes(w))) return `${esc(p.h.committee)} hearing ${whenLine(p.h.scheduled_at)}`;
@@ -860,7 +887,7 @@ function rowWords(p, x) {
 function mrow(c, o = {}) {
   const p = c.p || {}, b = c.b, href = b ? billRoute(b) : p.kind === 'followup' ? `#/person/${p.f.person_id}` : p.a ? `#/email/${p.a.id}` : '#/';
   const name = b ? `${lead(b)}${b.priority === 1 ? ' ' + P1 : ''}` : `<b>${kindOf(p)[1]}</b>`;
-  return `<a class="td-mrow" href="${esc(href)}"${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${urgBlock(c.wait ? null : p.due, untilOf(p), approveAct(p))}<span class="td-mmain"><span class="td-mb">${name}</span><span class="td-ms">${o.label ? `<span class="td-mwho">${esc(o.label)}</span> · ` : ''}${rowWords(p, p.ro ? null : (p.btns || [])[0])}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`;
+  return `<a class="td-mrow" href="${esc(href)}"${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${urgBlock(c.wait ? null : p.due, untilOf(p), approveAct(p))}<span class="td-mmain"><span class="td-mb">${name}</span><span class="td-ms">${c.hear ? '' : stepTag(stepOf(p))}${o.label ? `<span class="td-mwho">${esc(o.label)}</span> · ` : ''}${rowWords(p, p.ro ? null : (p.btns || [])[0], c.hear ? null : stepOf(p))}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`;
 }
 // Which row is open: the one you chose, else the one now in its place; until you choose, the first (the list can
 // still be filling in as the page loads, and the most urgent item is the one to open on arrival).
@@ -1656,7 +1683,7 @@ function slipHearRow(c, ek, sel, end, o) {
   const h = c.hear.h, soon = c.hear.t - Date.now() <= DAY;   // R-277 fix 3: hours from model.js spanOf, as every mark
   const mark = `<span class="td-urg"><span class="sv-urg${soon ? ' soon' : ''}" role="img" aria-label="${esc(`${spanOf(c.hear.t)} to the hearing`)}"><b>${esc(spanOf(c.hear.t, { short: true }))}</b><span>to hearing</span></span></span>`;
   const nums = shortNames(c.hear.bills);
-  return `<div data-k="${ek}" class="td-row td-rhear">${sel(`${mark}${o.av ? `<span class="td-rav">${o.av}</span>` : ''}<span class="td-rmain"><span class="td-rb"><b class="td-num">${esc(h.committee)}</b><span class="td-rn">${esc(whenLine(h.scheduled_at))}</span></span><span class="td-rs">Nobody going yet · ${esc(nums.slice(0, 4).join(', '))}${nums.length > 4 ? ' …' : ''}</span></span>`)}
+  return `<div data-k="${ek}" class="td-row td-rhear">${sel(`${mark}${o.av ? `<span class="td-rav">${o.av}</span>` : ''}<span class="td-rmain"><span class="td-rb"><b class="td-num">${esc(h.committee)}</b><span class="td-rn">${esc(whenLine(h.scheduled_at))}</span></span><span class="td-rs">${stepTag(['Find someone to go', 'landmark'])}Nobody going yet · ${esc(nums.slice(0, 4).join(', '))}${nums.length > 4 ? ' …' : ''}</span></span>`)}
     <span class="td-ract">${goingBtn(false, { 'data-going': h.id, 'aria-label': `I’m going to the ${h.committee} hearing ${whenLine(h.scheduled_at)}` })}</span>${end}</div>`;
 }
 function slipHearCard(c, i, k, o) {

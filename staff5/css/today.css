@@ -784,3 +784,7 @@
 .td-root .td-ptop .td-more + .td-pclose { margin-left: -4px; }
 .td-root .td-ptop .td-pnum + .td-pclose { margin-left: auto; }
 .td-root .td-ptop .td-more:has(+ .td-pclose) { margin-right: 0; }
+/* R-279: the step's name leads each row and card ("File testimony", "Approve testimony"): neutral, so urgency keeps its
+   colour (A-5), and darker than a status chip so it reads as the row's first word. */
+.td-root .sv-chip.td-step { background: var(--n100); color: var(--n900); font-weight: 600; margin-right: 6px; vertical-align: 1px; white-space: nowrap; }
+.td-root .td-s .sv-chip.td-step { display: flex; width: fit-content; margin: 0 0 6px; }   /* a card: the step on its own line above its sentence */
