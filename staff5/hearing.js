@@ -12,8 +12,8 @@
 import { S, DB, esc, fmtDT, advocate, capitolUrl } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
 import { codesOf, cmteName, streamOf, draftFor, attendees, billById, billSay, billTag, legsOf, stanceOf, OUTCOME_LABEL, hearingAhead, publicWords, shareKit, billByRef } from './model.js';
-import { icon, btn, iconBtn, chip, empty, notice, toast, pickerSheet, avatar, countdown, posIcons, POS_WORD, clockDay } from './ui.js';
-import { goingBtn, showAllBtn } from './ui.js';   // R-277 fix 4 (U-4, U-8): one look per action; the going toggle is no longer drawn as a chip
+import { icon, btn, iconBtn, chip, empty, notice, toast, pickerSheet, avatar, countdown, posIcons, POS_WORD, clockDay, lateLine } from './ui.js';
+import { goingBtn, showAllBtn, mayUnfile, undoFiledLink } from './ui.js';   // R-277 fix 4 (U-4, U-8): one look per action; the going toggle is no longer drawn as a chip
 import { photo, legName, partyDist, roleWord, legHref, wireLinks } from './pathway.js';
 import { rerender, viewIsNew } from './bill.js';
 import { billRoute, whenAt, spanOf, roomName, hearingWhen } from './model.js';
@@ -72,7 +72,7 @@ function dueWords(iso, until) {
   const ms = new Date(iso) - Date.now();
   if (ms > 864e5) return '';
   if (ms > 0) return `due ${whenAt(iso)} · ${spanOf(iso)}`;   // R-277 fix 3: "due today 9:30 AM · 28 min", model.js
-  return until && new Date(until) > Date.now() ? `late testimony until ${clockDay(until)}` : 'deadline passed';
+  return until && new Date(until) > Date.now() ? lateLine(until, { lower: true }) : 'deadline passed';
 }
 const OUT_ICON = { passed: 'circle-check', passed_amended: 'circle-check', deferred: 'circle-x', recommitted: 'undo-2' };
 // The Capitol posts a decision a while after the sitting, so "no result yet" is a normal state, not an error.
@@ -153,7 +153,7 @@ function billRow(x, c) {
   // R-277 fix 12: "Undo filed" right under a row whose "Testimony filed" says it is marked filed, while the sitting is still
   // ahead. The row is a link, so the button sits under it rather than inside it.
   const d = !c.over && !c.cancelled && h.status !== 'cancelled' && isPos(b) ? draftOf(x) : null;
-  const undo = d?.status === 'filed' ? `<div class="hr-unf">${btn('Undo filed', { kind: 'text', sm: true, icon: 'undo-2', attrs: { 'data-hrunfile': d.id, 'data-hrunb': b.id, 'aria-label': `Undo filed: ${billSay(b)}` } })}</div>` : '';
+  const undo = d?.status === 'filed' && mayUnfile(d, b) ? `<p class="hr-unf">${undoFiledLink({ 'data-hrunfile': d.id, 'data-hrunb': b.id, 'aria-label': `Undo filed: ${billSay(b)}` })}</p>` : '';
   return `<a class="row hr-bill" href="${billRoute(b)}"><span class="hr-bt">${name}</span><span class="hr-bs">${end}</span><span class="hr-bf">${facts}${pub ? `<span class="hr-fact hr-pub">${icon('users')}<span>${esc(pub)}</span></span>` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</a>${undo}`;
 }
 // Undo filed (R-277 fix 12): the same data call as the Undo on "Filed." and the bill page's menu (DB.transition 'unfile'),

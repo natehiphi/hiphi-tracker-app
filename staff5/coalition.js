@@ -17,7 +17,7 @@
 // built from any set of bills. "I support this coalition" lives only here now (My settings no longer lists coalitions).
 import { S, DB, DEMO, SESSION_OVER, hooks, esc, fmtDT, fmtDate, advocate } from './data.js';
 import { billTag, billSay, diedish, riskOf, stopOf, noticeByFor, roomShort, PUBLIC_APP, hiToday, hstDayOf, billById } from './model.js';
-import { icon, btn, chip, row, empty, toast, switchRow, avatar, pickerSheet, openSheet, sectionNav, clockDay } from './ui.js';
+import { icon, btn, chip, row, empty, toast, switchRow, avatar, pickerSheet, openSheet, sectionNav, clockDay, lateLine } from './ui.js';
 import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { plural, isSide, thSort, sortBy, wireTable, DASH, pageHead, afterClose } from './lists.js';
 import { iconName } from './lists.js';   // R-277 fix 15: not from setup.js, which loads only when opened
@@ -186,7 +186,7 @@ export function hearingsSec(bills, { key, from = '' } = {}) {
       const lateOpen = new Date(due) <= Date.now() && new Date(h.scheduled_at) > Date.now();
       for (const x of open) n.set(x.t.word, (n.get(x.t.word) || 0) + 1);
       const what = open.length === 1 ? `Testimony ${open[0].t.word}` : `Testimony: ${[...n].map(([w, k]) => `${k} ${w}`).join(', ')}`;
-      const when = lateOpen ? `late testimony until ${clockDay(h.scheduled_at)}` : `${tone === 'late' ? 'was due' : 'due'} ${dueWhen(due)}`;
+      const when = lateOpen ? lateLine(h.scheduled_at, { lower: true }) : `${tone === 'late' ? 'was due' : 'due'} ${dueWhen(due)}`;
       test = `<span class="co-test${tone ? ' ' + tone : ''}">${icon(tone === 'late' ? 'circle-alert' : tone === 'soon' ? 'clock' : 'file-text')}<span>${esc(`${what} · ${when}`)}</span></span>`;
     }
     return `<a class="row co-hrow" href="#/hearing/${encodeURIComponent(h.id)}${from ? `?from=${encodeURIComponent(from)}` : ''}">

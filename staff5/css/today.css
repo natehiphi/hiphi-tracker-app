@@ -694,6 +694,7 @@
 .td-root .td-chear { display: flex; align-items: stretch; }
 .td-root .td-chear + .td-chear { border-top: 1px solid var(--n100); }
 .td-root .td-chear > .td-cmain { flex: 1 1 auto; min-width: 0; }
+.td-root .td-chear > .sv-going { flex: none; align-self: center; margin: 0 var(--s8); }   /* R-277: I'm going on a hearing nobody is going to */
 .td-root .td-cmain:hover { background: var(--n50); }
 .td-root .td-ckit { flex: none; align-self: center; display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 var(--s12) 0 var(--s4); font-size: var(--t14); font-weight: 700; color: var(--p700); text-decoration: none; white-space: nowrap; }
 .td-root .td-ckit .ic { width: 16px; height: 16px; }
@@ -740,8 +741,10 @@
 .td-asksopen .td-asknone { margin: 0; font-size: var(--t14); color: var(--n700); }
 
 /* v4 (R-269): Today | This week on a phone under 400px reads Today | Week, so "This week" never wraps onto two lines. */
+/* R-277 ui-critic: "This week" at every width (a phone said "Week"); a narrow phone gives its pills less padding instead. */
 .td-root .td-wshort { display: none; }
-@media (max-width: 399px) { .td-root .td-wlong { display: none; } .td-root .td-wshort { display: inline; } }
+@media (max-width: 399px) { .td-root .td-sub .sv-seg button { padding: 0 8px; white-space: nowrap; } }
+@media (max-width: 359px) { .td-root .td-sub .sv-seg button { padding: 0 6px; font-size: var(--t13); } }
 /* Slipping's rows are a little tighter than Today's (48px, still a pointer target, A-6), so a busy day's list, steps and
    hearings nobody is going to, fits on Team's first screen whole (Nate's target: all of it, at 1440 and 1280). */
 .td-root .td-slip .td-row { min-height: 48px; }

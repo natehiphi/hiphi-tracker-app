@@ -108,7 +108,7 @@
   /* the bill's name keeps about 20 letters before it is cut (it is the name staff know now); the chip beside it gives way */
   .hr-desk .hr-bill { grid-template-columns: minmax(min(17em, 50%), 1fr) minmax(0, auto) 20px; }
   .hr-desk .hr-bs { min-width: 0; max-width: 100%; }
-  .hr-desk .hr-bs .sv-chip { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hr-desk .hr-bs .sv-chip { flex: 0 1 auto; min-width: 0; white-space: normal; text-align: left; }   /* R-277 ui-critic: wraps, never cut ("late testimony until 3:") */
   .hr-bill:hover .hr-bt b, .hr-mem:hover .title { text-decoration: underline; text-underline-offset: 3px; }
   .hr-hicon { display: flex; }
   .hr-cols > .hr-side { padding-bottom: 2px; }   /* room for the cards' shadow */

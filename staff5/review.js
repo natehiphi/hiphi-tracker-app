@@ -8,7 +8,7 @@
 // that died. The draft itself stays in its Google Doc (Nate, 9/19: not shown inside Review).
 import { S, DB, esc, fmtDT, advocate, hooks, changedSince, startedFromLine } from './data.js';
 import { agoWords, billNum, billSay, blurb, alertTarget, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn } from './model.js';
-import { icon, btn, chip, stepBar, empty, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, posIcons, POS_WORD, ownerOf, clockDay } from './ui.js';
+import { icon, btn, chip, stepBar, empty, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, posIcons, POS_WORD, ownerOf, clockDay, lateLine } from './ui.js';
 import { docBtn, keysUsed } from './ui.js';   // R-277 fix 4 (U-4): "Open Doc" here too (it was "Open the Google Doc", a full-width outline)
 import { emailPreview } from './composer.js';
 import { reviewQueue, hearingFor, testDue, cd, hearingLine, reviewerNames, needsSecond, HOVER, afterBack } from './today.js';
@@ -86,7 +86,7 @@ function header(r, total) {
 function dueLine(due, h) {
   if (due == null) return '';
   const now = Date.now();
-  if (due <= now && h && new Date(h.scheduled_at).getTime() > now) return `<span class="sv-count soon">${icon('clock')}Late testimony until ${esc(clockDay(h.scheduled_at))}</span>`;
+  if (due <= now && h && new Date(h.scheduled_at).getTime() > now) return `<span class="sv-count soon">${icon('clock')}${esc(lateLine(h.scheduled_at))}</span>`;
   return cd(due, 'due');   // R-277 fix 3: "Due today 9:30 AM · 28 min", model.js dueLine
 }
 function draftBody(it) {

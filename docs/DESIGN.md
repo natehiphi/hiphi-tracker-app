@@ -842,6 +842,7 @@ retired words in the code's quoted text on every push, so the list does not drif
 | **Places** (R-277) | (nothing: search found no pages) | the first group in the top search box and on the search page: the app's own places and Help's guides, at most 3. |
 | **+4 more** / **Show all 18** (R-277) | (lists with no end) | a day of This week shows 6 rows then "+4 more"; Today's groups, This week's asks and long lists show their first 8 to 25 then "Show all N". |
 | **About this bill** (R-277) | Details (in the open bill) | the facts under an open bill's step (stage, committee, chair, deadline, sponsors), folded on Today and open beside Bills. A bill with no hearing yet says **Hearing needed by Mon 3/30 · in 14 days**. |
+| **Late, still accepted until 2:00 PM today** (R-277) | late testimony until 2:00 PM, Testimony was due yesterday 2:00 PM (beside it) | testimony past its written deadline that the Capitol still takes until the hearing starts, said once (model.js `lateLine`), never beside the deadline it missed. A coalition helper reads a Capitol deadline as what it asks: **Bills must reach their last committee by Mon 3/30**; the names (Second lateral) stay for owners, admins and Help. |
 
 **Hawaiian:** ʻokina is the character ʻ (U+02BB) in Hawaiʻi and in place names (Oʻahu, Kauaʻi, Molokaʻi, Hawaiʻi Island); kahakō where
 the name has one. **kūpuna** is the plural (elders) and **kupuna** one elder (the "I'm a…" title). The Legislature's own titles and

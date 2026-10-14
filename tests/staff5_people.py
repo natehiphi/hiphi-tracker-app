@@ -80,7 +80,7 @@ def main():
     # Jess: her approvals on every visit, even after a look at Team; late but open is never red "Overdue" (#2, #6)
     pg = page('JS'); go(pg); pg.get_by_role('button', name='Team', exact=True).first.click(); pg.wait_for_timeout(800)
     go(pg, '/'); txt = main_text(pg)
-    check('Jess: Today reopens on hers after a look at Team', 'Team Today' not in txt[:200], txt[:60].replace('\n', ' '))
+    check('Jess: Today reopens on hers after a look at Team', 'Team: today' not in txt[:200], txt[:60].replace('\n', ' '))
     y = at(pg, 'second approval'); check('Jess: her second approvals on her first screen', y is not None and y < 900, y)
     check('Jess: late but open testimony is not headed "Overdue"', 'Overdue' not in txt, '')
     check('Jess: "to approve", not "to file", on her approvals', 'to file' not in txt, '')
@@ -110,7 +110,7 @@ def main():
     first = pg.evaluate("(r => r ? (r.dataset.num || '') + ' ' + r.innerText : '')(document.querySelector('main .td-row'))")
     check('Kevin, Wednesday: HB2121 testimony leads', first.startswith('HB2121') and re.search(r'testimony', first, re.I), first[:70].replace('\n', ' '))
     pg.get_by_role('button', name='Team', exact=True).first.click(); pg.wait_for_timeout(800); go(pg, '/', '2026-03-18T08:00:00-10:00')
-    check('Kevin: Today reopens on his own', 'Team Today' not in main_text(pg)[:200], '')
+    check('Kevin: Today reopens on his own', 'Team: today' not in main_text(pg)[:200], '')
 
     # Saya: Outreach opens on this week's asks (#10)
     pg = page('SY'); go(pg, '/outreach')

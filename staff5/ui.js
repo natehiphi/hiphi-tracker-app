@@ -1,8 +1,8 @@
 // HIPHI Staff v2: shared building blocks. Every screen builds from these so a row, a chip, a sheet or a countdown
 // looks and behaves the same everywhere (plan section 4). Styles in staff/staff.css, on top of pub/base.css.
 import { S, STAGES, effStage, esc, advocate } from './data.js';
-import { stopOf, STAGE_GLOSS, clockDay, spanOf, timeLeft } from './model.js';
-export { clockDay };   // R-277 fix 3: it lives with the other time words in model.js; callers still import it from here
+import { stopOf, STAGE_GLOSS, clockDay, spanOf, timeLeft, lateLine } from './model.js';
+export { clockDay, lateLine };   // R-277 fix 3: it lives with the other time words in model.js; callers still import it from here
 import { icon } from '../icons.js';
 export { icon };
 
@@ -60,6 +60,10 @@ export function avatar(adv, size = 24) {
   return `<span class="sv-av${me ? ' me' : ''}${ini.length > 2 ? ' ini3' : ''}" style="--av:${size}px" title="${esc(me ? 'You' : adv.full_name)}" role="img" aria-label="${esc(me ? 'You' : adv.full_name)}">${esc(adv.initials || adv.full_name?.[0] || '?')}</span>`;
 }
 export const ownerOf = b => advocate((S.assignments[b.id] || [])[0]);
+// R-277 ui-critic: "Undo filed" is a quiet text link beside Filed (it was a button, and on the hearing page the only one),
+// offered to whoever marked it filed, the bill's owner and admins; where nobody is recorded as filing it, to everyone.
+export const mayUnfile = (d, b) => !!d && (!d.filed_by || d.filed_by === S.me?.id || !!S.me?.is_admin || (S.assignments?.[b?.id] || []).includes(S.me?.id));
+export const undoFiledLink = (a = {}) => `<button type="button" class="linkbtn sv-unfile"${attrs(a)}>Undo filed</button>`;
 
 // ---- countdown: always an icon and words (plan 4) ----
 // v3 (R-264, A-5 as amended by R-250): a testimony deadline that has passed while the Capitol still takes late testimony
@@ -69,7 +73,7 @@ const lateUntil = (iso, until) => { const now = Date.now(); return !!until && ne
 // whenever the hearing is not today ("until tomorrow 9:30 AM", "until Fri 3/20, 9:30 AM"): clockDay, model.js.
 export function countdown(iso, { prefix = '', until = null } = {}) {
   if (!iso) return '';
-  if (lateUntil(iso, until)) return `<span class="sv-count soon">${icon('clock')}${esc(`${prefix}late testimony until ${clockDay(until)}`)}</span>`;
+  if (lateUntil(iso, until)) return `<span class="sv-count soon">${icon('clock')}${esc(prefix ? `${prefix}${lateLine(until, { lower: true })}` : lateLine(until))}</span>`;
   const ms = new Date(iso) - Date.now(), h = ms / 36e5;
   // Never round a deadline up: 2 days 6 hours is "2 days", not 3 (R-022). R-277 fix 3 (W-6): the words come from model.js
   // timeLeft, the same on every screen: "in 28 min", "in 4 hours", "4 hours overdue" (no more "under an hour", "7h left").
@@ -220,7 +224,7 @@ addEventListener('scroll', () => { if (!fbRaf) fbRaf = requestAnimationFrame(() 
 export function urgentMark(iso, { done = false, until = null, act = null } = {}) {
   if (done) return `<span class="sv-urg done" role="img" aria-label="Done">${icon('check')}</span>`;
   if (!iso) return '<span class="sv-urg none" aria-hidden="true"></span>';
-  if (lateUntil(iso, until)) { return `<span class="sv-urg soon" role="img" aria-label="${esc(`late testimony until ${clockDay(until)}`)}"><b>${esc(spanOf(until, { short: true }))}</b><span>${esc(act || 'to file')}</span></span>`; }   // the hours left to file late ("late" read as "4 hours late")
+  if (lateUntil(iso, until)) { return `<span class="sv-urg soon" role="img" aria-label="${esc(lateLine(until))}"><b>${esc(spanOf(until, { short: true }))}</b><span>${esc(act || 'to file')}</span></span>`; }   // the hours left to file late ("late" read as "4 hours late")
   const ms = new Date(iso) - Date.now(), h = ms / 36e5;
   const big = spanOf(iso, { short: true });   // "28m", "4h", "3d", rounded down (R-022); R-277 fix 3: one rounding with the words
   const word = ms <= 0 ? 'overdue' : act || 'left';   // one word for time still to run, hours or days (R-152 C: it said "to go" past 48 hours)

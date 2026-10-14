@@ -181,7 +181,7 @@ function header(route, scr, pageH1 = false) {
     ${b ? `<a class="sv-back phone" href="${esc(b.href)}" data-back${short ? ` aria-label="${esc(/^Back\b/.test(b.label) ? b.label : 'Back to ' + b.label)}"` : ''}>${icon('chevron-left')}<span>${esc(short ? 'Back' : b.label)}</span></a>` : ''}
     <a class="sv-brand" href="#/" aria-label="Today">${MARK}<span>Bill Tracker</span></a>
     ${pageH1 ? `<span class="sv-title" aria-hidden="true">${esc(b ? '' : title)}</span>` : `<h1 class="sv-title">${esc(title)}</h1>`}
-    <nav class="sv-nav" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${scr.tab === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}${t === 'today' ? pill : ''}</a>`).join('')}</nav>
+    <nav class="sv-nav" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${tabNow(scr) === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}${t === 'today' ? pill : ''}</a>`).join('')}</nav>
     <form class="sv-search" role="search" data-hsearch><label class="sr" for="hq">Search bills, legislators, people</label>${icon('search')}<input id="hq" type="search" placeholder="Search bills, legislators, people" autocomplete="off"></form>
     <a class="iconbtn sv-srchbtn" href="#/search" aria-label="Search">${icon('search')}</a>
     <button type="button" class="sv-avbtn" data-avatar aria-label="Your menu" aria-haspopup="menu">${avatar(S.me, 32)}${icon('chevron-down', { cls: 'sv-avchev' })}</button>
@@ -207,6 +207,7 @@ const SUB_OF = { review: 'review', inbox: 'inbox', triage: 'triage', memo: 'memo
 // following them to their phone (where there is no sidebar at all).
 export const sideNarrow = () => { try { return localStorage.getItem('sv_side') === 'narrow'; } catch { return false; } };
 const setSideNarrow = on => { try { on ? localStorage.setItem('sv_side', 'narrow') : localStorage.removeItem('sv_side'); } catch { /* private window: this visit only */ } };
+const tabNow = scr => S.route?.name === 'bill' && S.billFrom ? S.billFrom : scr.tab;
 function sidebar(route, scr) {
   const bd = badge(), sub = '';
   let rv = 0, ib = 0; try { rv = reviewQueue().length; ib = inboxCount(); } catch { rv = rv || 0; }
@@ -215,7 +216,7 @@ function sidebar(route, scr) {
   return `<aside class="sv-side" aria-label="Sections">
     <a class="sv-sbrand" href="#/" aria-label="Bill Tracker, Today">${MARK}<span>Bill Tracker<small>HIPHI staff · v5</small></span></a>
     <nav class="sv-snav" aria-label="Main">${SIDE.map(([t, href, ic, label, subs]) => `<div class="sv-sgrp">
-      <a class="sv-sitem" href="${href}" title="${label}" ${scr.tab === t && !sub ? 'aria-current="page"' : ''}${scr.tab === t ? ' data-open' : ''}>${icon(ic)}<span class="lbl">${label}</span>${t === 'today' && bd.n ? `<span class="sv-sn${bd.late ? ' late' : ''}" aria-label="${bd.n} due${bd.late ? ', some overdue' : ''}">${bd.n > 99 ? '99+' : bd.n}</span>` : ''}</a>
+      <a class="sv-sitem" href="${href}" title="${label}" ${tabNow(scr) === t && !sub ? 'aria-current="page"' : ''}${tabNow(scr) === t ? ' data-open' : ''}>${icon(ic)}<span class="lbl">${label}</span>${t === 'today' && bd.n ? `<span class="sv-sn${bd.late ? ' late' : ''}" aria-label="${bd.n} due${bd.late ? ', some overdue' : ''}">${bd.n > 99 ? '99+' : bd.n}</span>` : ''}</a>
       ${subs.length ? `<div class="sv-ssub">${subs.map(([k, h, l]) => `<a class="sv-sitem sub" href="${h}" ${sub === k ? 'aria-current="page"' : ''}><span class="lbl">${l}</span>${k === 'review' ? count(rv) : k === 'inbox' ? count(ib) : ''}</a>`).join('')}</div>` : ''}</div>`).join('')}</nav>
     <nav class="sv-sfoot" aria-label="Help and settings">${foot.map(([k, h, ic, l]) => `<a class="sv-sitem" href="${h}" title="${l}" ${route.name === k ? 'aria-current="page"' : ''}>${icon(ic)}<span class="lbl">${l}</span></a>`).join('')}
       ${syncLine()}
@@ -232,7 +233,7 @@ function syncLine() {
 }
 function tabbar(scr) {
   const bd = badge();
-  return `<nav class="sv-tabs" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${scr.tab === t ? 'aria-current="page"' : ''}><span class="pill">${icon(ic, { size: 24 })}</span>${label}${t === 'today' && bd.n ? `<span class="sv-badge${bd.late ? ' late' : ''}">${bd.n > 99 ? '99+' : bd.n}</span>` : ''}</a>`).join('')}</nav>`;
+  return `<nav class="sv-tabs" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${tabNow(scr) === t ? 'aria-current="page"' : ''}><span class="pill">${icon(ic, { size: 24 })}</span>${label}${t === 'today' && bd.n ? `<span class="sv-badge${bd.late ? ' late' : ''}">${bd.n > 99 ? '99+' : bd.n}</span>` : ''}</a>`).join('')}</nav>`;
 }
 // A read that failed is said at the top of every screen, with a Reload (R-152 B). Before, eight of about fifty sign-in reads
 // stopped the app and the rest quietly became empty lists. S.loadFailed names them (data.js loadAll).
@@ -277,6 +278,9 @@ export function render() {
   const route = parseRoute();
   // A retired address (v4: #/tasks) is replaced, not pushed, so Back never lands on it again.
   if (route.redirect) { try { history.replaceState(history.state, '', route.redirect); } catch { /* ignore */ } return render(); }
+  // R-277 ui-critic: a bill opened from Today (or My issues, Outreach...) keeps that place lit in the tab bar and sidebar,
+  // so a phone does not jump to Bills under you; a bill opened from nowhere (a link) lights Bills.
+  if (route.name === 'bill' && S.route?.name !== 'bill') { const pt = S.route && SCREENS[S.route.name]?.tab; S.billFrom = typeof pt === 'string' && pt ? pt : null; }
   S.route = route;
   const scr = SCREENS[route.name] || today;
   const tabs = scr.tabs !== false && !(scr.noTabs && scr.noTabs(route));

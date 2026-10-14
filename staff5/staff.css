@@ -787,3 +787,7 @@ body.staff2 .bp-h3 { margin: 0 0 var(--s4); font: 700 var(--t13)/18px var(--font
 .td-mwho { font-weight: 700; color: var(--n900); }
 .td-mrow > .chev { flex: none; width: 18px; height: 18px; color: var(--n500); }
 .wk-col > .wk-dmore { grid-column: 1 / -1; }
+/* R-277 ui-critic: "Undo filed", a quiet text link beside Filed (ui.js undoFiledLink) */
+.sv-unfile { font-size: var(--t14); color: var(--n700); text-decoration: underline; text-decoration-color: var(--n300); text-underline-offset: 3px; }
+.sv-unfile:hover { color: var(--p800); text-decoration-color: currentColor; }
+.hr-unf { margin: 0; }

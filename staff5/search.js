@@ -49,16 +49,16 @@ function peopleHits(q) {
 // Neither search box found a place or a feature: "partner update", "inbox", "sort new bills" and "QR code" said "Nothing
 // matches", and "settings" gave 9 bills. Typing now finds the app's places as well, first, at most 3: a word of the
 // query must start a word of the place's name or of its other words (the short list of what people call it: "pings" and
-// "notifications" are My settings' alerts, "qr" the QR code, "file" How to file at the Capitol). Session setup is for
-// admins only, as its door is. The QR code is where it has always been (D5, held): its place is Help's answer saying how.
+// "notifications" are My settings' alerts, "qr" the QR code, "file" How to file at the Capitol). Session setup and Sort new
+// bills are for admins only, as their doors are. The QR code stays where it is (D5, held): its place opens it there.
 const PLACES = () => [
   { title: 'Inbox', href: '#/inbox', icon: 'inbox', sub: 'Messages, mentions and updates', also: 'messages mentions replies unread' },
   { title: 'Partner update', href: '#/outreach/partners', icon: 'newspaper', sub: 'Outreach', also: 'partners memo weekly memo coalition update' },
-  { title: 'Sort new bills', href: '#/bills/new', icon: 'sparkles', sub: 'Bills', also: 'triage new bills track pass' },
+  ...(S.me?.is_admin ? [{ title: 'Sort new bills', href: '#/bills/new', icon: 'sparkles', sub: 'Bills', also: 'triage new bills track pass' }] : []),
   { title: 'My settings', href: '#/me', icon: 'settings', sub: 'How the tracker reaches you', also: 'settings preferences account profile' },
   { title: 'My settings: alerts', href: '#/me', icon: 'bell', sub: 'Slack, email or only in the app', also: 'alerts pings notifications reminders nudges slack dm mute quiet' },
   ...(S.me?.is_admin ? [{ title: 'Session setup', href: '#/setup', icon: 'sliders-horizontal', sub: 'Admins', also: 'setup admin calendar deadlines staff' }] : []),
-  { title: 'QR code', href: '#/help/tabs', icon: 'qr-code', sub: 'My issues, All issues, its … menu, First visit', also: 'qr poster print first visit link' },
+  { title: 'QR code', href: '#/outreach/issues?view=links', icon: 'qr-code', sub: 'Make a link for a partner, with its QR code', also: 'qr poster print first visit link partner link' },
   { title: 'This week’s asks', href: '#/outreach', icon: 'megaphone', sub: 'Outreach', also: 'asks ask newsletter post share kit public ask' },
   { title: 'Emails', href: '#/outreach/emails', icon: 'mail', sub: 'Outreach: supporter emails', also: 'email emails action alert supporter email' },
   { title: 'Supporters', href: '#/outreach/supporters', icon: 'users', sub: 'Outreach', also: 'supporters people contacts segments' },

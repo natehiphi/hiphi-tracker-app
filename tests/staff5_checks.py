@@ -494,7 +494,52 @@ def batch_e_tabs(b, page, go):
   check('Fix 20: Bills\' "No owner" is never cut', cut and not any(cut), str(cut[:5]))
   pg.context.close()
 
+# The ui-critic pass on v5 (13 Oct): every place lands on the real thing (1), late testimony said once (3), one step one
+# label (4), Help search puts the guide first (8).
+PLACE_LANDS = [('qr', 'QR code', 'QR code'), ('inbox', 'Inbox', 'To answer'), ('partner update', 'Partner update', 'Partner update'),
+  ('sort new bills', 'Sort new bills', 'Sort new bills'), ('settings', 'My settings', 'How the tracker reaches you'), ('pings', 'My settings: alerts', 'How the tracker reaches you'),
+  ('session setup', 'Session setup', 'Session setup'), ('asks', 'This week’s asks', 'Copy for the newsletter'), ('emails', 'Emails', 'Emails'),
+  ('supporters', 'Supporters', 'Supporters'), ('file', 'How to file at the Capitol', 'How to file at the Capitol')]
+def batch_e_critic(b, page, go):
+  pg = page('NT'); go(pg, '/', 3000); bad = []
+  for q, title, land in PLACE_LANDS:
+    hits = pg.evaluate(f"import('/staff5/search.js').then(m => m.placeHits({q!r}).map(p => [p.title, p.href, p.sub || '']))")
+    h = next((x for x in hits if x[0] == title), None)
+    if not h: bad.append(f'{q}: no {title}'); continue
+    if '…' in h[2] or '#/' in h[2]: bad.append(f'{title}: subtitle "{h[2]}"')
+    pg.evaluate(f"location.hash = {h[1]!r}"); pg.wait_for_timeout(1800)
+    if land not in pg.inner_text('main'): bad.append(f'{title} -> {h[1]}: no "{land}"')
+  check(f'Critic 1: every place in the search box lands on the real thing, with a plain subtitle ({len(PLACE_LANDS)} places)', not bad, '; '.join(bad[:3]))
+  pg.evaluate("location.hash = '#/help/tabs'"); pg.wait_for_timeout(1200)
+  check('Critic 1: Help shows no raw address ("#/...") in its words', not re.search(r'\(#/', pg.inner_text('main')), '')
+  # 3. Late testimony, said once: "Late, still accepted until 1:10 PM today", never beside the deadline it missed
+  go(pg, '/', 3000); pg.locator('.td-row[data-num="HB1562"] .td-rsel').first.click(); pg.wait_for_timeout(500)
+  due = pg.inner_text('#td-pane .bp-due') if pg.locator('#td-pane .bp-due').count() else ''
+  old = []
+  for r in ['/', '/?view=week', '/hearing/9ebffb71-69c2-4868-8956-e624cac16d30', '/bill/HB1562', '/coalition']:
+    pg.evaluate(f"location.hash = '#{r}'"); pg.wait_for_timeout(1500)
+    if re.search(r'[Ll]ate testimony until', pg.inner_text('main')): old.append(r)
+  check('Critic 3: late testimony reads "Late, still accepted until 1:10 PM today", without the missed deadline beside it', re.match(r'Late, still accepted until 1:10 PM today$', due.strip()) and not old, f'{due!r} {old}')
+  pg.context.close()
+  # 4. One step, one label: a coalition helper's card and Team's row for the same step carry the same mark; "This week" on a phone
+  marks = {}
+  for r in ['/', '/?scope=team']:
+    ctx = b.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True); ctx.route(HOST + '/**', router); p2 = ctx.new_page()
+    p2.goto(f"{HOST}/staff5.html?demo=1&as=KR&asof=2026-03-17T08:00:00-10:00#{r}"); p2.wait_for_timeout(3500)
+    marks[r] = p2.evaluate("""() => Object.fromEntries([...document.querySelectorAll('main [data-num]')].map(e => [e.dataset.num, (e.querySelector('.sv-urg') || {}).innerText || '']).filter(x => x[1]).map(([k, v]) => [k, v.replace(/\\s+/g, ' ').replace(/^\\d+[mhd] /, '')]))""")
+    if r == '/': week = p2.evaluate("(document.querySelector('[data-seg=\"tdview\"][data-val=\"week\"]') || {}).innerText || ''")
+    ctx.close()
+  both = [k for k in marks['/'] if k in marks['/?scope=team']]
+  diff = [f"{k}: {marks['/'][k]} / {marks['/?scope=team'][k]}" for k in both if marks['/'][k] != marks['/?scope=team'][k]]
+  check(f'Critic 4: one step, one label on Kris\'s Today and on Team ({len(both)} bills on both)', both and not diff, '; '.join(diff[:3]))
+  check('Critic 4: the phone says "This week", as a laptop does', week.strip() == 'This week', week)
+  # 8. Help search: the guide first
+  pg = page('PH'); go(pg, '/help', 3000); inp = pg.locator('#st-hq').first; inp.fill(''); inp.type('how do I file'); pg.wait_for_timeout(500)
+  first = pg.evaluate("(document.querySelector('#st-hres .row .title') || {}).innerText || ''"); pg.context.close()
+  check('Critic 8: Help search "how do I file" puts the How to file at the Capitol guide first', first.strip() == 'How to file at the Capitol', first)
+
 def batch_e(b, page, go):
+  batch_e_critic(b, page, go)
   batch_e_panel(b, page, go)
   batch_e_places(b, page, go)
   batch_e_tabs(b, page, go)

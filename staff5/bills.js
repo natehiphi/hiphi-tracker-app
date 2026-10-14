@@ -18,7 +18,7 @@ import { bl, save, setCompact, shownBills, freshFacts, QUICK, quickCount, isOn, 
 import { openLook } from './look.js';
 import { dockPane, wirePane } from './today.js';   // R-277 fix 17 (U-1): the docked bill is Today's open item, one panel
 import { bulkBar, wireBulkBar, startSelect, stopSelect, dropSelect, selIds, FIELD } from './bulk.js';
-import { billRoute, billRef, whenAt } from './model.js';
+import { billRoute, billRef, whenAt, plainDeadlines, plainGate } from './model.js';
 import { GROUPS, groupKey } from './standing.js';
 
 // ---- groups, in stage order: GROUPS and groupKey live in standing.js, shared with an issue's page (R-226) ----
@@ -181,6 +181,7 @@ function banner() {
   // R-277 fix 11 (F-10): after the opening weeks a bill introduced late still waits to be sorted, and Bills had no door to
   // it mid-session but its "…" menu. A quiet link stays while any wait: one line, no box (the banner is for the rush).
   // The count is the suggested bills (a coalition keyword matches them), the list Sort new bills opens on.
+  if (!S.me?.is_admin) return '';   // R-277 ui-critic: sorting new bills is an admin's job, and only admins see its door
   if (!openWeeks()) return c?.suggested ? `<p class="bl-sortlink"><a href="#/bills/new">${icon('sparkles')}<span>Sort new bills (${c.suggested.toLocaleString()})</span></a></p>` : '';
   if (c && !n) return '';
   return notice('info', 'sparkles', n ? `<b>${n} new bill${n === 1 ? '' : 's'} to sort.</b> Track them or pass.` : '<b>New bills are coming in.</b> Each one needs a decision: track it or pass.', btn('Sort new bills', { kind: 'secondary', sm: true, href: '#/bills/new' }));
@@ -204,6 +205,7 @@ function deadlineLine(list) {
   const x = c.noHearing.length ? c : c.then && c.then.noHearing.length ? c.then : null;
   if (!x) return `<p class="bl-dls">${icon('calendar-clock')}<span>Every bill racing the next deadline has a hearing.</span></p>`;
   const soon = x === c && c.days <= 1;   // amber only inside a day of the deadline (A-5), and the words say it too
+  if (plainDeadlines()) return `<p class="bl-dls${soon ? ' soon' : ''}">${icon('calendar-clock')}<span><b>${esc(plainGate(x.label, dueDay(x.date)))}</b>${x === c ? ` (${away(c)})` : ''}: ${dueLink(x)}</span></p>`;
   return `<p class="bl-dls${soon ? ' soon' : ''}">${icon('calendar-clock')}<span><b>${esc(x.name)}</b>, <span class="bl-dlday">${esc(dueDay(x.date))}${x === c ? ` (${away(c)})` : ''}</span>: ${dueLink(x)}</span></p>`;
 }
 // A search in Mine (or My coalitions) says when the team has more, and offers the switch (the current app's "show
@@ -309,6 +311,8 @@ const OPT_COLS = [['cmte', 'Committees', 'Every committee the bill is referred t
 // Owner, so the columns staff edit never move off screen. No Priority column since R-175 (Nate 10/5): it follows the
 // position, so beside Position it said the same thing twice (A-14); the CSV export still has it.
 // v3: the tick box column is there only in select mode, and the quick-look column is gone (a click on the row opens it).
+// R-277 ui-critic: the position's short word, for the narrow column beside a docked bill (it was the thumbs alone).
+const POS_SHORT = { strongly_support: 'Strong', support: 'Support', support_amend: 'Amend', strongly_oppose: 'Strong no', oppose: 'Oppose', neutral: 'Comments', monitor: 'Monitor', '': 'None' };
 const COLS = [
   { k: 'sel', w: [44, 40] }, { k: 'bill', label: 'Bill', min: [92, 132], ideal: [112, 132], sort: 'num' }, { k: 'title', label: 'Title', min: [180, 176] },
   { k: 'where', label: 'Where it stands', min: [112, 110], ideal: [136, 142], sort: 'stage' }, { k: 'next', label: 'Next', min: [140, 136], ideal: [168, 150], sort: 'next' },
@@ -374,7 +378,7 @@ function table(groups) {
   // position its one line) the table gives up, in turn, what the docked bill also shows: the added columns, the
   // position's word (its icon stays), "Where it stands", then the owner. A 1920 window keeps them all.
   if (dk) { const room = cs => least(cs) + 124 + (cs.some(c => c.k === 'pos' && !c.icon) ? 60 : 0) <= avail;
-    const steps = [cs => cs.filter(c => !c.opt), cs => cs.map(c => c.k === 'pos' ? { ...c, w: [76, 72], icon: 1 } : c), cs => cs.filter(c => c.k !== 'where'), cs => cs.filter(c => c.k !== 'own')];
+    const steps = [cs => cs.filter(c => !c.opt), cs => cs.map(c => c.k === 'pos' ? { ...c, w: [124, 120], icon: 1 } : c), cs => cs.filter(c => c.k !== 'where'), cs => cs.filter(c => c.k !== 'own')];
     for (const step of steps) if (!room(cols)) cols = step(cols); }
   // The docked bill says in words what the table no longer does (look.js lookFacts, via today.js dockPane).
   DOCKOPT = { pos: !cols.some(c => c.k === 'pos' && !c.icon), own: !cols.some(c => c.k === 'own') };
@@ -418,7 +422,7 @@ function table(groups) {
       case 'coal': { const n = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(x => x.id === id)?.name).filter(Boolean).join(', '); return `<td>${n ? two(esc(n), n) : none}</td>`; }
       case 'last': return `<td>${b.last_action ? two(`${b.last_action_date ? `<span class="bl-date">${md(b.last_action_date)}</span> ` : ''}${esc(b.last_action)}`, b.last_action) : none}</td>`;
       case 'pulse': return `<td>${pulseText(b)}</td>`;
-      case 'pos': { if (v.edit) return `<td><span class="bl-selwrap">${posIcons(b.position || '')}${inlSel('pos', b)}</span></td>`; const p = b.position || '', w = p ? POS_WORD[p] || p : posWord(''); return `<td><button type="button" class="bl-cell" data-edit="pos" data-id="${b.id}" aria-label="Position for ${esc(billSay(b))}: ${esc(w)}. Change it"${c.icon ? ` title="${esc(w)}"` : ''}>${posIcons(p)}${c.icon ? '' : `<span>${esc(w)}</span>`}</button></td>`; }
+      case 'pos': { if (v.edit) return `<td><span class="bl-selwrap">${posIcons(b.position || '')}${inlSel('pos', b)}</span></td>`; const p = b.position || '', w = p ? POS_WORD[p] || p : posWord(''); return `<td><button type="button" class="bl-cell" data-edit="pos" data-id="${b.id}" aria-label="Position for ${esc(billSay(b))}: ${esc(w)}. Change it"${c.icon ? ` title="${esc(w)}"` : ''}>${posIcons(p)}<span>${esc(c.icon ? POS_SHORT[p] ?? w : w)}</span></button></td>`; }   // R-277 ui-critic: a word always, short beside the docked bill
       case 'own': { if (v.edit) return `<td>${inlSel('own', b)}</td>`; const o = ownerOf(b); return `<td><button type="button" class="bl-cell bl-own" data-edit="own" data-id="${b.id}" aria-label="Owner of ${esc(billSay(b))}: ${esc(o ? (o.id === S.me?.id ? 'you' : o.full_name) : 'nobody')}. Change it">${o ? avatar(o) : `<span class="bl-noown">${icon('circle-dashed')}<span class="bl-noword">No owner</span></span>`}</button></td>`; }
     }
     return '<td></td>';
