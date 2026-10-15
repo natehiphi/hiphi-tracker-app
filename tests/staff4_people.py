@@ -132,6 +132,9 @@ def main():
     b.close()
   bad = [r for r in results if not r[1]]
   print(f'{len(results) - len(bad)} of {len(results)} targets met')
+  if bad:   # most reds here have been a screen's words changed on purpose, with the old words still expected (R-278)
+    print(f'If a screen\'s words changed on purpose, update the words the FAIL line looks for in {os.path.relpath(__file__)}'
+          ' (search for its name), in the same commit as the change.')
   sys.exit(1 if bad else 0)
 
 if __name__ == '__main__':

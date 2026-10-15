@@ -5,7 +5,8 @@
 # and on live data (screens_smoke.py), year-proof bill links (year_links.py) and the error reporter (errlog.py); then Staff v2's
 # live path on a fake database (staff_live.py) and its flows in the sandbox (staff_flows.py, R-152). The live
 # half reads production as the public does, with the privacy signal set, so no visit is counted. A red run emails whoever
-# pushed. The share-pages commits (b/, i/ and cal/ only; hourly from January to June) do not run it.
+# pushed. Since R-278 every step runs even after one fails (the run is still red), so one run lists every stale check. The
+# share-pages commits (b/, i/ and cal/ only; hourly from January to June) do not run it.
 name: Tests
 on:
   push:
@@ -24,7 +25,8 @@ concurrency:
 jobs:
   tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 30   # 20 stopped the run in its last step on 10/11 once the step tests and the density check joined (R-240)
+    timeout-minutes: 40   # 20 stopped the run in its last step on 10/11 (R-240); a green run takes ~27 minutes, and since R-278 a red
+                          # one runs every step too, where a failing browser test waits out its timeouts (minutes are free here)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,90 +35,107 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Syntax of every JS file (module-aware)
-        run: |
-          bad=0
-          for f in $(git ls-files '*.js' '*.mjs'); do
-            node --input-type=module --check < "$f" || { echo "SYNTAX ERROR in $f"; bad=1; }
-          done
-          exit $bad
-      - name: The two staff apps make the same data calls
-        run: node staff/tools/parity.mjs
-      - name: The public page's first load carries the kernel only (R-122)
-        run: node tools/check_split.mjs
-      - name: The suggested bill's rules
-        run: node tests/rank_test.mjs
-      - name: HIPHI's words ("e-cigarettes", never "vapes", R-158)
-        run: node tests/words_test.mjs
-      - name: The share cards lead with the ask and open it (R-169)
-        run: node tests/share_cards_test.mjs
-      - name: "What kind of advocate are you? Its words and its scoring (R-217, a draft)"
-        run: node tests/quiz_test.mjs
+      # The eight steps that need no browser are one list, tools/quick_checks.mjs, which also runs before every push from
+      # Nate's machine (backend/.githooks/pre-push, R-278); it runs them all and names every one that fails.
+      - name: "The quick checks: syntax, the staff apps' parity, the first load, the suggested bill, HIPHI's words, share cards, the quiz, the words list"
+        run: node tools/quick_checks.mjs
       - name: Playwright
+        if: ${{ !cancelled() }}
         run: |
           pip install --quiet playwright
           python -m playwright install --with-deps chromium
       - name: Serve this commit
+        if: ${{ !cancelled() }}
         run: |
           python3 -m http.server 8832 > /dev/null 2>&1 &
           sleep 1
       - name: Every public screen, three kinds of person, sandbox and live
+        if: ${{ !cancelled() }}
         run: python3 tests/screens_smoke.py
       - name: "Staff v3 on a laptop (R-264, DESIGN A-24): one side panel, at most 5 things, 7 colours, 1 filled button in view"
+        if: ${{ !cancelled() }}
         run: python3 tests/staff3_budget.py
       - name: "Staff v4 on a laptop (R-269, DESIGN A-24): the same budget"
+        if: ${{ !cancelled() }}
         run: python3 tests/staff4_budget.py
       - name: "Staff v4: each person's three things where R-269 put them (Nate's targets, 12 Oct)"
+        if: ${{ !cancelled() }}
         run: python3 tests/staff4_people.py
       - name: "Staff v5 on a laptop (R-277, DESIGN A-24): the same budget"
+        if: ${{ !cancelled() }}
         run: python3 tests/staff5_budget.py
       - name: "Staff v5: each person's three things (as v4's)"
+        if: ${{ !cancelled() }}
         run: python3 tests/staff5_people.py
       - name: Year-proof bill links
+        if: ${{ !cancelled() }}
         run: python3 tests/year_links.py
       - name: The error reporter
+        if: ${{ !cancelled() }}
         run: python3 tests/errlog.py
       - name: "Staff v2 on a fake database (R-152): reads, a failed read, refresh, saves, two sessions' bill numbers, error reports"
+        if: ${{ !cancelled() }}
         run: python3 tests/staff_live.py
       - name: Staff v2's flows in the sandbox (R-152)
+        if: ${{ !cancelled() }}
         run: python3 tests/staff_flows.py
       - name: "Staff v2, batch C: countdowns, the Public tab, the week's asks (R-152)"
+        if: ${{ !cancelled() }}
         run: python3 tests/staff_r152c.py
       - name: "Staff v2, batch D: the practice copy, readiness, small fixes (R-152)"
+        if: ${{ !cancelled() }}
         run: python3 tests/staff_r152d.py
       - name: Staff v2, Today | Ahead (R-049)
+        if: ${{ !cancelled() }}
         run: python3 tests/staff_ahead.py
       - name: Staff v2, a bill the team does not track (R-058)
+        if: ${{ !cancelled() }}
         run: python3 tests/staff_untracked.py
       - name: Staff v2, the note on an issue when a bill goes against its stance (R-095)
+        if: ${{ !cancelled() }}
         run: python3 tests/staff_issue_note.py
       - name: A stop asked for by number, from any browser (D1-3, R-180)
+        if: ${{ !cancelled() }}
         run: python3 tests/stop_number.py
       - name: The plans' sign-up keeps the promise beside the button, and promises no reminder (D1-6, D1-1)
+        if: ${{ !cancelled() }}
         run: python3 tests/plans_join.py
       - name: Staff v2, Session setup > Privacy and keeping (J2-1, J2-2)
+        if: ${{ !cancelled() }}
         run: python3 tests/staff_privacy.py
       - name: The privacy page, whole and short (J2-3)
+        if: ${{ !cancelled() }}
         run: python3 tests/privacy_page.py
       - name: The unsubscribe page changes nothing until its button is pressed (X1-7)
+        if: ${{ !cancelled() }}
         run: python3 tests/unsubscribe_page.py
       - name: A stopped bill whose same idea became law says so (X4-4)
+        if: ${{ !cancelled() }}
         run: python3 tests/same_idea_law.py
       - name: "What kind of advocate are you? In the practice copy, and not outside it (R-217, a draft)"
+        if: ${{ !cancelled() }}
         run: python3 tests/quiz.py
       - name: The words list for the checker panel is current (R-166 step 3)
+        if: ${{ !cancelled() }}
         run: node tools/words_extract.mjs --check
       - name: "The tracker in other languages: the machinery, with a made-up language (R-166 step 3)"
+        if: ${{ !cancelled() }}
         run: python3 tests/i18n.py
       - name: "Staff v2, R-180 wave 3: new hearings, the rallying path, saves that say what they did (X10-3, X10-5, X10-6)"
+        if: ${{ !cancelled() }}
         run: python3 tests/staff_x10.py
       - name: "The step tests: thirteen journeys within budget and working (X10-7)"
+        if: ${{ !cancelled() }}
         run: python3 tests/journeys.py
       - name: Session setup shows the dated steps as expected, and Sort new bills puts a hearing first (Z1-6)
+        if: ${{ !cancelled() }}
         run: python3 tests/setup_expected.py
       - name: Home's first card counts the day's deadlines, and twin bills are one card (R-131, R-244)
+        if: ${{ !cancelled() }}
         run: python3 tests/home_now.py
       - name: The public page's words on a phone and a laptop, testimony to sharing (R-199 wave 1, R-244)
+        if: ${{ !cancelled() }}
         run: python3 tests/r199_words.py
       - name: Density and splits across 66 screens against the recorded baseline (X9-6)
+        if: ${{ !cancelled() }}
         run: python3 tests/density.py --check

@@ -23,6 +23,16 @@ const out = JSON.stringify({ words: [...words].sort((a, b) => a.localeCompare(b)
 const path = dir + 'words/en.json';
 if (process.argv.includes('--check')) {
   const have = fs.existsSync(path) ? fs.readFileSync(path, 'utf8') : '';
-  if (have !== out) { console.error('pub/words/en.json is out of date: run node tools/words_extract.mjs'); process.exit(1); }
+  if (have !== out) {
+    // Name the words, so a build that changed them on purpose sees at once that this is the list to bring up to date (R-278).
+    let was = []; try { was = JSON.parse(have).words || []; } catch {}
+    const now = [...words], added = now.filter(w => !was.includes(w)), gone = was.filter(w => !now.includes(w));
+    console.error('pub/words/en.json is out of date with the words the public page now says.');
+    for (const w of added.slice(0, 10)) console.error('  new:  ' + JSON.stringify(w));
+    for (const w of gone.slice(0, 10)) console.error('  gone: ' + JSON.stringify(w));
+    if (added.length + gone.length > 20) console.error(`  (${added.length} new, ${gone.length} gone in all)`);
+    console.error('If these changed on purpose, run node tools/words_extract.mjs and commit pub/words/en.json with the change.');
+    process.exit(1);
+  }
   console.log(`words ok: ${words.size} words in ${Object.keys(per).length} files`);
 } else { fs.writeFileSync(path, out); console.log(`${words.size} words in ${Object.keys(per).length} files -> pub/words/en.json`); }
