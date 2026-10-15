@@ -103,5 +103,5 @@
 /* The topic's drawing across the top of the big card (R-283): edge to edge, inside the card's rounded corners, decorative.
    The negative margins undo the card's padding; 120px keeps the main button on a phone's first screen (it moved ~548 to ~668px at 375x812). */
 .acard .acband { position: relative; margin: calc(-1 * var(--s16)) calc(-1 * var(--s16)) var(--s4); height: 120px; border-radius: calc(var(--r16) - 1px) calc(var(--r16) - 1px) 0 0; overflow: hidden; }
-.acard .acband svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }   /* the ground layer stretches, the people stay whole (art.js) */
+.acard .acband svg, .acard .acband img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }   /* the ground layer stretches, the people stay whole (art.js) */
 @media (max-height: 760px) { .acard .acband { height: 80px; } }   /* shorter screens, most phones in their browser: a smaller band, so the main button sits near the first screen's edge; hiding it there meant most phones never saw it (Nate 10/14: "Smaller on phones") */

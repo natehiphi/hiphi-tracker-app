@@ -168,3 +168,35 @@ const SCENES = {
 };
 // The topic key (pub/topics.js) to its band; '' for a topic with no scene.
 export const issueScene = key => SCENES[key] ? svgBand(key, SCENES[key]()) : '';
+
+// One drawing per issue (R-284, Nate's yes 10/15 to all 18): the issue's slug (public_issues.slug) to its sky colour, which
+// tints the band while the picture loads. Each picture is a file in pub/issue-art/ holding both band layers (made by the
+// backend's docs/requests/R-283-art/ship.js), not a string here: 18 drawings are ~100 KB and a card needs only its own.
+const ISSUE_ART = {
+  'free-school-meals-for-every-student': '#FFF6E8',
+  'paid-family-and-medical-leave': '#FFF6E8',
+  'protect-students-from-heat': '#FFF1D6',
+  'fee-on-sugary-drinks': '#EAF7FD',
+  'make-snap-easier': '#EAF7FD',
+  'free-public-transit': '#EAF7FD',
+  'cross-during-the-countdown': '#EAF7FD',
+  'pesticide-buffer-zones': '#EAF7FD',
+  'disposable-e-cigarette-ban': '#EAF7FD',
+  'higher-liquor-taxes': '#EAF7FD',
+  'let-counties-regulate-tobacco': '#BFE4F2',
+  'dui-limit-05': '#2C4A6B',
+  'keep-preventive-care-covered': '#FFF6E8',
+  'hygienists-temporary-fillings': '#EEF6F8',
+  'safety-for-immigrant-families': '#EAF7FD',
+  'funding-for-community-nonprofits': '#EAF7FD',
+  'child-and-dependent-care-credit': '#EAF7FD',
+  'family-caregiver-tax-credit': '#EAF7FD',
+};
+// Practice copy first (Show me lane, R-284): the issue drawings show on ?demo=1 until Nate's yes on the screenshots, then
+// this turns true and the live tracker gets them too.
+const ISSUE_ART_LIVE = false;
+const ARTV = 1;   // bump when a drawing changes, so phones fetch the new one
+// The band for a bill's issue: its own drawing when it has one, else its topic's scene (issueScene); '' for neither.
+export const issueBand = (iss, demo = false) => iss?.slug && ISSUE_ART[iss.slug] && (demo || ISSUE_ART_LIVE)
+  ? `<img class="art art-band art-issue" src="${new URL(`issue-art/${iss.slug}.svg?v=${ARTV}`, import.meta.url)}" alt="" decoding="async" style="background:${ISSUE_ART[iss.slug]}">`
+  : issueScene(iss?.category);

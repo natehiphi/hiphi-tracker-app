@@ -5,7 +5,7 @@
 import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, anyBill, anyHearing, settledOn, goingOn, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, followedIssues, CHAMBER_NAME, codesOf, suggestEvent } from './core.js';
 import { testifyLabel, againLine, mailLabel, letterOn } from './letters.js';
 import { logAct } from './visitlog.js';
-import { issueScene } from './art.js';
+import { issueBand } from './art.js';
 import { armOf, abRankMet, abSeen, shareTag } from './variant.js';
 import { picShare, picSeen } from './sharepic.js';
 import { btn, chip, posChip, iconBtn, issueLine } from './ui.js';
@@ -119,7 +119,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   // a Capitol tab closed by mistake still finds its words. The walkthrough opens it to read, copy or send again.
   const sentLetter = doneKinds.includes('testimony') && letterOn(b)?.h === h.id
     ? btn('Your letter', { kind: 'text', sm: true, icon: 'file-text', attrs: { 'data-myletter': h.id, 'data-bill': b.id } }) : '';
-  const art = band ? issueScene(issuesOf(b)[0]?.category) : '';
+  const art = band ? issueBand(fi, DEMO) : '';   // the issue's own drawing, else its topic's scene (R-284)
   return `<article class="card acard${done ? ' done' : ''}${focus ? ' focus' : ''}${art ? ' hasband' : ''}${S.justDone === b.id + '|' + h.id ? ' justdone' : ''}" data-card="${esc(k)}" aria-labelledby="t-${esc(h.id)}">
     ${art ? `<div class="acband">${art}</div>` : ''}
     ${compact ? '' : `<div class="acrow">${noTopic ? '' : issueLine(iss)}${posChip(b)}${suggest && !S.watch.has(b.id) ? `<button type="button" class="acdismiss" data-notforme="${esc(b.id)}" aria-label="Not for me: stop suggesting ${esc(spaced(b.bill_number))}">Not for me</button>` : ''}</div>
