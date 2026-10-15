@@ -60,3 +60,111 @@ export const ISLANDS = islands();
 
 // Five-petal hibiscus in HIPHI orange and a warm pink, plumeria-yellow centre (the celebration flower).
 export const flower = (n = 24, c = 'var(--o400)') => `<svg class="flower" viewBox="-12 -12 24 24" width="${n}" height="${n}" aria-hidden="true" focusable="false"><g fill="${c}">${[0, 72, 144, 216, 288].map(r => `<ellipse cx="0" cy="-5.6" rx="4.1" ry="5.6" transform="rotate(${r})"/>`).join('')}</g><circle r="2.2" fill="#F9D56E"/></svg>`;
+
+// ---- the issue scenes on the big action card (R-283, Nate 10/14) ----
+// One band across the top of the card that leads Home and a bill's page, a drawing per topic, so someone who taps a shared
+// link lands on the same kind of picture the link showed. List rows never carry one. Nate's answers on the bus scene: fuller
+// characters, simple, like now. Every keiki is one flat figure (overlapping shapes, no outlines, no faces), and no scene shows
+// a child near a nicotine product. 360x130 drawn, sliced to the band's width, so the middle is where the people stand.
+// The bus scene is the one Nate approved (docs/requests/R-283-bus-scene.svg); the others reuse its two keiki.
+// The younger one (bag: false drops the backpack), drawn standing with feet at y 112.5 and centred on x 72; moved with translate. c: colours.
+const young = (x, base, c = {}) => { const k = { skin: '#C68A5E', hair: '#3B2A20', dress: '#F18336', shade: '#E06F22', bag: '#3F9EB9', feet: '#7E22CE', ...c };
+  return `<g transform="translate(${x - 72} ${base - 112.5})">${k.bag ? `<rect x="56" y="80" width="9" height="16" rx="3.5" fill="${k.bag}"/>` : ''}
+  <rect x="66.5" y="96" width="4" height="14" rx="2" fill="${k.skin}"/><rect x="73.5" y="96" width="4" height="14" rx="2" fill="${k.skin}"/>
+  <rect x="63.5" y="108.5" width="8" height="4" rx="2" fill="${k.feet}"/><rect x="72.5" y="108.5" width="8" height="4" rx="2" fill="${k.feet}"/>
+  <path d="M80 82l3 13" stroke="${k.skin}" stroke-width="4" stroke-linecap="round"/>
+  <path d="M65.5 77h13l5.5 22H60z" fill="${k.dress}"/><path d="M65.5 77h13l1.5 6h-16z" fill="${k.shade}"/>
+  <rect x="70" y="73" width="4" height="5" fill="${k.skin}"/><circle cx="72" cy="68" r="7.5" fill="${k.skin}"/>
+  <path d="M64.5 68a7.5 7.5 0 0 1 15 0c-3-3.5-9-4-12.5-1-1 .8-1.8 1.2-2.5 1z" fill="${k.hair}"/><circle cx="65.5" cy="62.5" r="3.6" fill="${k.hair}"/></g>`; };
+// The older one, feet at y 113 and centred on x 117.5. arm: 'up' (raised, the hand at 138.5,56: something held goes there)
+// or 'down'. No backpack outside school scenes (bag: false).
+const older = (x, base, c = {}, arm = 'down') => { const k = { skin: '#8D5A3B', hair: '#1E1A17', shirt: '#3F9EB9', shorts: '#142B35', bag: '#D9473B', feet: '#39BFEE', ...c };
+  return `<g transform="translate(${x - 117.5} ${base - 113})">${k.bag ? `<rect x="98" y="68" width="12" height="22" rx="4" fill="${k.bag}"/>` : ''}
+  <rect x="110.5" y="94" width="5" height="16" rx="2.5" fill="${k.skin}"/><rect x="119.5" y="94" width="5" height="16" rx="2.5" fill="${k.skin}"/>
+  <rect x="107" y="108.5" width="10" height="4.5" rx="2.2" fill="${k.feet}"/><rect x="118.5" y="108.5" width="10" height="4.5" rx="2.2" fill="${k.feet}"/>
+  <path d="M108 87h19v10h-8l-1.5-3.5L116 97h-8z" fill="${k.shorts}"/>
+  ${arm === 'up' ? `<path d="M125 72l13-15" stroke="${k.skin}" stroke-width="5.5" stroke-linecap="round"/>` : `<path d="M126 72l3 16" stroke="${k.skin}" stroke-width="5.5" stroke-linecap="round"/>`}
+  <rect x="106" y="65" width="22" height="25" rx="7" fill="${k.shirt}"/>
+  ${arm === 'up' ? `<path d="M122 67l7 6-3.5 4-6-4z" fill="${k.shirt}"/>` : `<rect x="121" y="66" width="8" height="10" rx="3.5" fill="${k.shirt}"/>`}
+  <rect x="115" y="60" width="5" height="6" fill="${k.skin}"/><circle cx="117.5" cy="55" r="9" fill="${k.skin}"/>
+  <path d="M108.5 55a9 9 0 0 1 18 -1.5c-4-2.6-10-2.8-14.5.2-1.3.9-2.4 1.4-3.5 1.3z" fill="${k.hair}"/>
+  <path d="M108.6 53.6c-.6 2.4-.3 4.8.7 6.6l2-5.3z" fill="${k.hair}"/></g>`; };
+// A grown-up, a head taller than the older keiki, in the same flat way; feet at base, centred on x. long: long hair.
+// hand: 'left' rests the left hand on the shoulder of a keiki standing just to the left; else the arms hang.
+const grown = (x, base, c = {}, { long = false, hand = '' } = {}) => { const k = { skin: '#A8714C', hair: '#2A211C', shirt: '#7E22CE', pants: '#5F6F76', feet: '#142B35', ...c };
+  const t = (dx, dy) => `${x + dx} ${base + dy}`;
+  return `<g>${long ? `<rect x="${x - 9.5}" y="${base - 86}" width="19" height="22" rx="7" fill="${k.hair}"/>` : ''}
+  <rect x="${x - 7}" y="${base - 38}" width="6" height="34" rx="2.5" fill="${k.pants}"/><rect x="${x + 1}" y="${base - 38}" width="6" height="34" rx="2.5" fill="${k.pants}"/>
+  <rect x="${x - 10}" y="${base - 5}" width="10" height="5" rx="2.4" fill="${k.feet}"/><rect x="${x + 1}" y="${base - 5}" width="10" height="5" rx="2.4" fill="${k.feet}"/>
+  <path d="M${t(-9, -64)}l${hand === 'left' ? '-8 26' : '-3 22'}" stroke="${k.skin}" stroke-width="5.5" stroke-linecap="round"/>
+  <path d="M${t(9, -64)}l3 22" stroke="${k.skin}" stroke-width="5.5" stroke-linecap="round"/>
+  <rect x="${x - 11}" y="${base - 70}" width="22" height="34" rx="7" fill="${k.shirt}"/>
+  <rect x="${x - 2.5}" y="${base - 75}" width="5" height="6" fill="${k.skin}"/><circle cx="${x}" cy="${base - 83}" r="9" fill="${k.skin}"/>
+  <path d="M${t(-9, -83)}a9 9 0 0 1 18 0c-4-3.4-12-3.6-18 0z" fill="${k.hair}"/></g>`; };
+const sky = c => `<rect width="360" height="130" fill="${c}"/>`, sun = (x = 92) => `<circle cx="${x}" cy="24" r="11" fill="#F4B223"/>`;
+// Two layers, so a wide card never crops a head or a wheel (the ui-critic, R-283: a 640px laptop card cut the drawing at
+// 120px tall): the sky, hills and ground (before FG) stretch to any width; the people and things keep their shape, whole,
+// centred and standing on the ground. At a phone's width the two line up as the one drawing Nate approved.
+const FG = '<!--fg-->';
+const svgBand = (key, body) => { const [bg, fg] = body.split(FG), a = 'aria-hidden="true" focusable="false"';
+  return `<svg class="art art-band art-${key}" viewBox="0 0 360 130" preserveAspectRatio="none" ${a}>${bg}</svg><svg class="art art-band-fg" viewBox="0 0 360 130" preserveAspectRatio="xMidYMax meet" ${a}>${fg}</svg>`; };
+
+const SCENES = {
+  // Getting Around: keiki boarding the yellow school bus with a pass (the approved drawing, R-283).
+  around: () => `<rect width="360" height="130" fill="#EAF7FD"/>
+  <path d="M0 92L38 62l30 14 42-34 48 38 46-30 50 28 40-30 66 34v42H0z" fill="#CDEBF7"/><rect y="112" width="360" height="18" fill="#DCE3E6"/><path d="M0 112h360" stroke="#C2CCD1" stroke-width="2"/>${FG}<circle cx="92" cy="24" r="11" fill="#F4B223"/>
+  <rect x="38" y="44" width="3" height="68" fill="#5F6F76"/><rect x="27" y="28" width="25" height="18" rx="4" fill="#3F9EB9"/><rect x="32" y="33" width="15" height="8" rx="2" fill="#FFFFFF"/>
+  <rect x="150" y="38" width="186" height="64" rx="12" fill="#F4B223"/><rect x="134" y="60" width="26" height="42" rx="8" fill="#F4B223"/><rect x="134" y="84" width="202" height="5" fill="#142B35" opacity=".85"/>
+  <rect x="160" y="46" width="22" height="38" rx="4" fill="#C4E8F6"/><path d="M171 46v38" stroke="#F4B223" stroke-width="2"/>
+  <rect x="192" y="48" width="30" height="24" rx="5" fill="#C4E8F6"/><rect x="228" y="48" width="30" height="24" rx="5" fill="#C4E8F6"/><rect x="264" y="48" width="30" height="24" rx="5" fill="#C4E8F6"/><rect x="300" y="48" width="28" height="24" rx="5" fill="#C4E8F6"/>
+  <circle cx="140" cy="94" r="3.5" fill="#FFFFFF"/><circle cx="178" cy="104" r="12" fill="#142B35"/><circle cx="178" cy="104" r="5" fill="#C2CCD1"/><circle cx="302" cy="104" r="12" fill="#142B35"/><circle cx="302" cy="104" r="5" fill="#C2CCD1"/>
+  ${young(72, 112.5)}${older(117.5, 113, {}, 'up')}
+  <rect x="131" y="42" width="21" height="15" rx="2.5" fill="#FFFFFF"/><rect x="131" y="42" width="21" height="5" rx="2" fill="#39BFEE"/><rect x="134" y="50.5" width="9" height="2" rx="1" fill="#C2CCD1"/><circle cx="137" cy="57" r="3" fill="#8D5A3B"/>`,
+  // Food: a farmers' market stall of local fruit; the older keiki holds up an apple, a grown-up minds the stall.
+  food: () => `${sky('#FFF6E5')}<path d="M0 96L44 70l40 16 50-30 60 36 166-30v68H0z" fill="#E4F1D2"/><rect y="112" width="360" height="18" fill="#E9DDC8"/>${FG}${sun()}
+  ${grown(266, 124, { shirt: '#3F8F3A', skin: '#C68A5E', hair: '#3B2A20' }, { long: true })}
+  <rect x="196" y="20" width="4" height="92" fill="#8A5A33"/><rect x="330" y="20" width="4" height="92" fill="#8A5A33"/>
+  ${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<rect x="${188 + i * 19}" y="12" width="19" height="16" fill="${i % 2 ? '#FFFFFF' : '#D9473B'}"/><circle cx="${197.5 + i * 19}" cy="28" r="9.5" fill="${i % 2 ? '#FFFFFF' : '#D9473B'}"/>`).join('')}
+  <rect x="188" y="76" width="154" height="54" rx="4" fill="#F4B223"/><rect x="188" y="76" width="154" height="6" rx="3" fill="#E09E12"/>
+  <rect x="200" y="64" width="38" height="14" rx="2" fill="#B07A3E"/><rect x="246" y="64" width="38" height="14" rx="2" fill="#B07A3E"/><rect x="292" y="64" width="38" height="14" rx="2" fill="#B07A3E"/>
+  ${[206, 218, 230].map(x => `<circle cx="${x}" cy="62" r="6.5" fill="#D9473B"/>`).join('')}${[252, 264, 276].map(x => `<circle cx="${x}" cy="62" r="6.5" fill="#F18336"/>`).join('')}
+  <path d="M296 64c6-10 22-12 30-4-8-2-20 0-30 4z" fill="#F9D56E"/><path d="M298 62c6-8 18-9 26-4" stroke="#E0B53A" stroke-width="2" fill="none"/>
+  ${young(72, 112.5, { dress: '#3F9EB9', shade: '#2F86A0', bag: '#F18336' })}${older(117.5, 113, { shirt: '#F18336', bag: false }, 'up')}
+  <circle cx="139" cy="52" r="7" fill="#D9473B"/><path d="M139 45c1-4 4-6 7-6-1 3-3 5-7 6z" fill="#3F8F3A"/>`,
+  // Tobacco: a smoke-free park, the keiki playing ball under the park's no-smoking, no-e-cigarettes sign. No child holds or
+  // stands beside a product: the only one drawn is crossed out on the sign.
+  tobacco: () => `${sky('#EAF7FD')}<path d="M0 94L50 72l46 12 58-26 64 30 70-22 72 26v34H0z" fill="#D6EDC4"/><rect y="110" width="360" height="20" fill="#BFE0A6"/>${FG}${sun()}
+  <rect x="290" y="52" width="11" height="60" rx="3" fill="#8A5A33"/><circle cx="282" cy="46" r="22" fill="#5E9B2A"/><circle cx="308" cy="40" r="24" fill="#6FAE35"/><circle cx="296" cy="24" r="18" fill="#6FAE35"/>
+  <rect x="214" y="52" width="4" height="60" fill="#5F6F76"/><rect x="194" y="22" width="44" height="34" rx="6" fill="#FFFFFF"/>
+  <rect x="203" y="36" width="24" height="7" rx="2" fill="#8A98A0"/><rect x="223" y="36" width="5" height="7" rx="1" fill="#F68B2C"/>
+  <circle cx="216" cy="39" r="12" fill="none" stroke="#D9473B" stroke-width="3.5"/><path d="M207.5 47.5l17-17" stroke="#D9473B" stroke-width="3.5"/>
+  ${young(72, 112.5, { dress: '#7E22CE', shade: '#6A1BAE', bag: false, feet: '#F18336' })}
+  ${older(122, 113, { shirt: '#D9473B', bag: false, skin: '#C68A5E', hair: '#5A3A22' }, 'up')}
+  <circle cx="162" cy="106" r="7" fill="#F18336"/><path d="M155.5 104.5q6.5 3 13 0" stroke="#FFFFFF" stroke-width="1.8" fill="none"/>`,
+  // Health care: a grown-up walks a keiki by the hand to the neighbourhood clinic.
+  care: () => `${sky('#EEF4FF')}<path d="M0 96L52 74l48 14 52-28v52H0z" fill="#DCE7FA"/><rect y="112" width="360" height="18" fill="#E6E1D8"/><path d="M0 112h360" stroke="#D3CCBF" stroke-width="2"/>${FG}${sun()}
+  <rect x="196" y="34" width="150" height="78" rx="4" fill="#FFFFFF"/><rect x="190" y="26" width="162" height="12" rx="4" fill="#C4D7F5"/>
+  <rect x="258" y="70" width="32" height="42" rx="3" fill="#95B8F0"/><path d="M274 70v42" stroke="#FFFFFF" stroke-width="2"/>
+  <rect x="300" y="50" width="30" height="22" rx="4" fill="#C4E8F6"/><rect x="210" y="74" width="34" height="22" rx="4" fill="#C4E8F6"/>
+  <circle cx="227" cy="54" r="12" fill="#D9473B"/><rect x="224" y="46" width="6" height="16" rx="1.5" fill="#FFFFFF"/><rect x="219" y="51" width="16" height="6" rx="1.5" fill="#FFFFFF"/>
+  ${older(66, 113, { shirt: '#F4B223', bag: false, skin: '#C68A5E' })}
+  ${grown(150, 112, { shirt: '#3F9EB9' }, { long: true, hand: 'left' })}${young(124, 112.5, { dress: '#D9473B', shade: '#C23A30', bag: false, skin: '#A8714C' })}`,
+  // Families: two grown-ups and their keiki in front of home, a plantation-style house with a lanai.
+  family: () => `${sky('#F6EFFB')}<path d="M0 98L60 76l54 14 50-24v46H0z" fill="#E8DDF4"/><rect y="110" width="360" height="20" fill="#CFE6B8"/>${FG}${sun(300)}
+  <rect x="200" y="56" width="128" height="56" fill="#F6E3B4"/><path d="M190 58l74-30 74 30z" fill="#8A5A33"/>
+  <rect x="200" y="84" width="128" height="4" fill="#E2C98E"/>  <rect x="212" y="64" width="26" height="18" rx="3" fill="#C4E8F6"/><rect x="290" y="64" width="26" height="18" rx="3" fill="#C4E8F6"/>
+  ${[204, 232, 296, 324].map(x => `<rect x="${x}" y="88" width="3" height="24" fill="#FFFFFF"/>`).join('')}<rect x="200" y="88" width="128" height="3" fill="#FFFFFF"/><rect x="252" y="76" width="24" height="36" rx="2" fill="#7E22CE"/>
+  ${grown(160, 110, { shirt: '#F18336', skin: '#C68A5E', hair: '#3B2A20' }, { long: true })}${grown(130, 110, { shirt: '#3F9EB9' })}
+  ${young(64, 110, { dress: '#7E22CE', shade: '#6A1BAE', bag: false })}${older(96, 110.5, { shirt: '#3F8F3A', bag: false })}`,
+  // Climate: by the shore, keiki plant a young tree; the sea and a coconut palm behind them.
+  climate: () => `${sky('#EAF7FD')}<rect y="76" width="360" height="40" fill="#7FCBEA"/><path d="M0 98q90-10 180 0t180 0v32H0z" fill="#F3DFAF"/>${FG}${sun(300)}
+  <path d="M24 86q6-4 12 0t12 0M196 90q6-4 12 0t12 0M236 82q6-4 12 0t12 0" stroke="#FFFFFF" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M300 112c0-30 4-56 14-80" stroke="#8A5A33" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <path d="M314 32c-14-6-30-2-38 10 12-6 24-6 38-10zM314 32c10-10 26-12 38-4-14 0-26 2-38 4zM314 32c-6-12-4-24 6-30-2 12-4 20-6 30zM314 32c14 2 26 10 30 24-10-10-20-16-30-24zM314 32c-12 4-20 14-22 26 6-10 14-18 22-26z" fill="#3F8F3A"/>
+  <circle cx="310" cy="36" r="4" fill="#8A5A33"/><circle cx="318" cy="38" r="4" fill="#8A5A33"/>
+  <ellipse cx="160" cy="112" rx="18" ry="5" fill="#B07A3E"/><path d="M160 112V88" stroke="#3F8F3A" stroke-width="3"/>
+  <path d="M160 96c-8-8-18-6-20-2 6 2 14 4 20 2zM160 90c6-10 18-10 20-6-6 4-14 6-20 6z" fill="#5E9B2A"/>
+  ${young(76, 112.5, { dress: '#F4B223', shade: '#E09E12', bag: false })}${older(124, 113, { shirt: '#3F9EB9', bag: false, skin: '#C68A5E', hair: '#3B2A20' })}`,
+};
+// The topic key (pub/topics.js) to its band; '' for a topic with no scene.
+export const issueScene = key => SCENES[key] ? svgBand(key, SCENES[key]()) : '';

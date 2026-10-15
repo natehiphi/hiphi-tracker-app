@@ -100,3 +100,8 @@
 .goitem-t { font-weight: 700; font-size: var(--t16); }
 .goitem-t a { color: var(--n900); text-decoration: none; display: inline-block; padding: 11px 0; margin: -11px 0; }
 .goitem-t a:hover { text-decoration: underline; }
+/* The topic's drawing across the top of the big card (R-283): edge to edge, inside the card's rounded corners, decorative.
+   The negative margins undo the card's padding; 120px keeps the main button on a phone's first screen (it moved ~548 to ~668px at 375x812). */
+.acard .acband { position: relative; margin: calc(-1 * var(--s16)) calc(-1 * var(--s16)) var(--s4); height: 120px; border-radius: calc(var(--r16) - 1px) calc(var(--r16) - 1px) 0 0; overflow: hidden; }
+.acard .acband svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }   /* the ground layer stretches, the people stay whole (art.js) */
+@media (max-height: 700px) { .acard .acband { display: none; } }   /* a short phone (667px): the main button stays on the first screen, which even an 88px band pushed under it (the ui-critic) */

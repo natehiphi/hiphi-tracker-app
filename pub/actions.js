@@ -5,6 +5,7 @@
 import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, anyBill, anyHearing, settledOn, goingOn, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, followedIssues, CHAMBER_NAME, codesOf, suggestEvent } from './core.js';
 import { testifyLabel, againLine, mailLabel, letterOn } from './letters.js';
 import { logAct } from './visitlog.js';
+import { issueScene } from './art.js';
 import { armOf, abRankMet, abSeen, shareTag } from './variant.js';
 import { picShare, picSeen } from './sharepic.js';
 import { btn, chip, posChip, iconBtn, issueLine } from './ui.js';
@@ -52,7 +53,9 @@ function wantsInPerson() {
 // noTopic: the card sits under its topic's heading (Home by topic, R-135), so its own topic line would say it twice.
 // topic: { key, icon } to name in the card's small label instead of the bill's topic: the calm Home names the issue its row
 // below calls it, so the card and the row are seen to be the same thing (the review of R-222).
-export function actionCard(b, h, { focus = false, suggest = null, why, heading = 'h3', compact = false, ofN = '', twin = null, noTopic = false, topic = null } = {}) {
+// band: the topic's drawing across the top (R-283, Nate 10/14), on the one big card that leads Home (the focus card) and
+// a bill's page, so a shared link and the page it opens show the same kind of picture. Never on list rows or suggestions.
+export function actionCard(b, h, { focus = false, suggest = null, why, heading = 'h3', compact = false, ofN = '', twin = null, noTopic = false, topic = null, band = focus && !suggest } = {}) {
   if (why === undefined && typeof suggest === 'string') why = suggest;
   const k = key(b, h), iss = topic || issueOf(b), due = dueInfo(h), late = !!due?.late, done = actedOn(b, h), more = S.moreOpen.has(k);
   if (due && settledOn(b, h)) due.tone = '';   // settled: the deadline is no longer a warning (going or sharing alone keeps it, R-142)
@@ -116,7 +119,9 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   // a Capitol tab closed by mistake still finds its words. The walkthrough opens it to read, copy or send again.
   const sentLetter = doneKinds.includes('testimony') && letterOn(b)?.h === h.id
     ? btn('Your letter', { kind: 'text', sm: true, icon: 'file-text', attrs: { 'data-myletter': h.id, 'data-bill': b.id } }) : '';
-  return `<article class="card acard${done ? ' done' : ''}${focus ? ' focus' : ''}${S.justDone === b.id + '|' + h.id ? ' justdone' : ''}" data-card="${esc(k)}" aria-labelledby="t-${esc(h.id)}">
+  const art = band ? issueScene(issuesOf(b)[0]?.category) : '';
+  return `<article class="card acard${done ? ' done' : ''}${focus ? ' focus' : ''}${art ? ' hasband' : ''}${S.justDone === b.id + '|' + h.id ? ' justdone' : ''}" data-card="${esc(k)}" aria-labelledby="t-${esc(h.id)}">
+    ${art ? `<div class="acband">${art}</div>` : ''}
     ${compact ? '' : `<div class="acrow">${noTopic ? '' : issueLine(iss)}${posChip(b)}${suggest && !S.watch.has(b.id) ? `<button type="button" class="acdismiss" data-notforme="${esc(b.id)}" aria-label="Not for me: stop suggesting ${esc(spaced(b.bill_number))}">Not for me</button>` : ''}</div>
     <${heading} class="achead" id="t-${esc(h.id)}"><a href="${billPath(b)}">${esc(name || blurb(b, 120))}</a></${heading}>
     ${name ? `<p class="acwhat">${esc(blurb(b, 160))}</p>` : ''}`}

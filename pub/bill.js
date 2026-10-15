@@ -828,7 +828,7 @@ function actionSection(b, x) {
   const big = '';
   const main = wide() ? mainButton(b, x) + (S.blNew.has(b.id) && firstVisit() && !S.blLooking.has(b.id) ? `<div class="bl-notnow">${notNow()}</div>` : '') : '';
   return `<section class="bl-sec bl-act${big ? ' bl-hasbig' : ''}" aria-labelledby="bl-act-h"><div class="sechead"><h2 id="bl-act-h">${title}</h2></div>
-    ${actionCard(b, h, { heading: 'h3', compact: true })}${main || big ? `<div class="bl-slot">${main}${big}</div>` : ''}
+    ${actionCard(b, h, { heading: 'h3', compact: true, band: true })}${main || big ? `<div class="bl-slot">${main}${big}</div>` : ''}
     ${done ? '' : `<p class="bl-learn"><a href="#/learn/hearing/${esc(b.id)}">${icon('circle-help')}<span>New to hearings? What happens at one, about a minute</span></a></p>`}${ask ? `<div class="bl-nudge">${ask}</div>` : ''}</section>`;
 }
 // The floor, conference and the Governor: what the step is and why, in one line (the side card on a wide screen, the
