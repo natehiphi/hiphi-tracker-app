@@ -17,6 +17,7 @@
 import os, re, sys
 from playwright.sync_api import sync_playwright
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html'
+if not BASE.split('?')[0].split('#')[0].endswith('.html'): BASE = BASE.rstrip('/') + '/track.html'   # a server root works too, like the other tests take (R-287)
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'alerts_ask'); os.makedirs(OUT, exist_ok=True)
 passes, fails, errors = [], [], []
 def ok(c, m): (passes if c else fails).append(('PASS ' if c else 'FAIL ') + m)

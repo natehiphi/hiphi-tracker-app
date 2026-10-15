@@ -5,6 +5,7 @@ import checks
 # The bill page tour (pub/tour.js) shows on the first bill page a fresh browser opens; tests/bill_tour.py covers it.
 TOUR_SEEN = "try{localStorage.setItem('hiphi_tour_bill','1');localStorage.setItem('hiphi_tour_bill_demo','1')}catch(e){}"
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html'
+if not BASE.split('?')[0].split('#')[0].endswith('.html'): BASE = BASE.rstrip('/') + '/track.html'   # a server root works too, like the other tests take (R-287)
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'final2'); os.makedirs(OUT, exist_ok=True)
 snap = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'demo', 'snapshot.json')))
 pos = {b['id'] for b in snap['bills'] if b.get('position') and b['position'] != 'monitor'}
