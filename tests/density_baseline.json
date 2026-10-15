@@ -263,6 +263,12 @@
   "kinds": 8,
   "sizes": 4
  },
+ "staff2|1440|myissues": {
+  "arrival": null,
+  "colours": 4,
+  "kinds": 6,
+  "sizes": 5
+ },
  "staff2|1440|outreach": {
   "arrival": 295,
   "colours": 6,
@@ -357,6 +363,12 @@
   "arrival": 278,
   "colours": 4,
   "kinds": 5,
+  "sizes": 4
+ },
+ "staff2|390|myissues": {
+  "arrival": null,
+  "colours": 4,
+  "kinds": 6,
   "sizes": 4
  },
  "staff2|390|outreach": {

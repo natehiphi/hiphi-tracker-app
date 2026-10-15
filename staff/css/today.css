@@ -437,8 +437,9 @@
   .td-root .wk-b2 .wk-pub { margin-left: 0; }
   .td-root .wk-mon .wk-name { color: var(--n500); white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
   .td-root .wk-b2 .sv-av { flex: none; }
-  .td-root .wk-filed { display: flex; align-items: center; gap: 6px; padding: 2px var(--s8) 0; font-size: var(--t13); line-height: 18px; color: var(--ok-text); }
-  .td-root .wk-filed .ic { width: 14px; height: 14px; }
+  .td-root .wk-filed { display: flex; align-items: center; gap: 6px; padding: 2px var(--s8) 0; font-size: var(--t13); line-height: 18px; color: var(--ink-2); }
+  /* Filed is done work: the words stay quiet grey and only the tick is green, so Week keeps to DESIGN A-5's colours (R-278). */
+  .td-root .wk-filed .ic { width: 14px; height: 14px; color: var(--ok-text); }
   /* everything else: plain rows, quieter than the two kinds above */
   .td-root .wk-also { padding-top: var(--s4); }
   .td-root .wk-also .wk-bh { font-size: var(--t13); color: var(--n500); }
