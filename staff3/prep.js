@@ -33,13 +33,14 @@ export const dueText = () => { const d = dueDay(), o = { timeZone: 'Pacific/Hono
   return `${d.toLocaleDateString('en-US', { ...o, weekday: 'short' })} ${d.toLocaleDateString('en-US', { ...o, day: 'numeric' })} ${d.toLocaleDateString('en-US', { ...o, month: 'short' })}`; };
 const pastDue = () => Date.now() > dueDay().getTime() + 12 * 3600e3;
 
-// ---- the five steps of a prepared issue ----
+// ---- the six steps of a prepared issue (R-288 added "Top issue for 2027?") ----
 const pointsOf = i => i.talking_points || [];
 export const STEPS = [
   { k: 'wording', label: 'Name and description', todo: 'Check they still say it right', done: i => !!i.wording_checked_at, did: () => 'Checked' },
   { k: 'outlook', label: 'Between sessions', todo: 'Check what the public reads until January', done: i => !!i.outlook_checked_at, did: () => 'Checked' },
   { k: 'goal', label: 'HIPHI’s goal for 2027', todo: 'One or two sentences. Staff only', done: i => !!(i.goal || '').trim(), did: i => i.goal },
   { k: 'points', label: 'Talking points', todo: 'Three to five, for people’s letters', done: i => pointsOf(i).length >= 3, did: i => plural(pointsOf(i).length, 'point') },
+  { k: 'top', label: 'Top issue for 2027?', todo: 'Should HIPHI lead with it this session?', done: i => !!i.top_pick, did: i => i.top_pick === 'no' ? 'No' : i.recommended ? 'Yes, confirmed' : `Yes, waiting for ${adminWord()} to confirm` },
   { k: 'plan', label: 'Keep, merge or retire', todo: 'What happens to it in 2027', done: i => !!i.proposal, did: i => i.proposal === 'merge' ? `Merge into ${S.issues.find(x => x.id === i.proposal_into)?.name || 'another issue'}` : i.proposal === 'retire' ? 'Retire it' : 'Keep it' },
 ];
 const doneN = i => STEPS.filter(s => s.done(i)).length;
@@ -156,6 +157,14 @@ export function openStep(i, k) {
       help: 'People writing testimony or emailing a legislator tap these into a letter sent in their own name, so keep them true. Each bill put on this issue starts with a copy, which its owner can change.',
       count: pointsCount, check: v => { const p = pointsIn(v); return p.length < 3 ? 'Write at least three points.' : p.length > 5 ? 'Five points at most.' : p.some(x => x.length > 200) ? 'Keep each point under 200 characters.' : ''; } }],
     onSave: async v => { await DB.updateIssue(i.id, { talking_points: pointsIn(v.points), talking_points_edited_at: now() }); toast('Talking points saved.', { ok: true }); } });
+  // R-288 (Nate 10/15): the owner puts the issue forward and an admin confirms it on the Prep board, which turns on the
+  // silent pre-tick (issues.recommended, 063). The owner's answer alone changes nothing the public sees.
+  if (k === 'top') return pickerSheet({ title: 'Top issue for 2027?', value: i.top_pick || '',
+    help: `A top issue is one HIPHI leads with this session. Once ${esc(adminWord())} confirm${adminWord() === 'you' ? '' : 's'} it, people visiting the tracker for the first time find it already ticked when they pick its category. Nothing on the public page says it was picked.`,
+    options: [['yes', 'Yes, a top issue', 'star', 'Put it forward to be confirmed'], ['no', 'No', 'minus', 'People can still choose to follow it']],
+    onPick: async v => {
+      try { await DB.updateIssue(i.id, { top_pick: v }); hooks.render(); toast(v === 'yes' ? `Put forward. ${Cap(adminWord())} confirm${adminWord() === 'you' ? '' : 's'} it on the Prep board.` : 'Saved: not a top issue.', { ok: true }); } catch (e) { toast(e, { err: true }); }
+    } });
   if (k === 'plan') return pickerSheet({ title: 'In 2027, this issue should…', value: i.proposal || '',
     help: `Nothing changes until ${esc(adminWord())} approve${adminWord() === 'you' ? '' : 's'} it.`,
     options: [['keep', 'Stay as it is', 'check', 'With the wording you checked'], ['merge', 'Merge into another issue', 'arrow-right', 'Its bills and followers move over'], ['retire', 'Retire', 'archive', 'No longer an issue for HIPHI; its followers stop getting its bills']],
@@ -307,6 +316,22 @@ function sendBack(i) {
 const subHead = (title, lede, back = ['#/outreach/issues', 'Issues']) => `<a class="le-deskback" href="${back[0]}" data-back>${icon('chevron-left')}<span>${back[1]}</span></a>
   <header class="pr-top"><h1>${title}</h1><p class="le-lede">${lede}</p></header>`;
 
+// ---- the team's step (R-288): the lists supporters follow and pass on, planned before session ----
+// Lists hold bills, and the 2027 bills arrive in January, so the step now is to make each list as a draft; "made or
+// changed since 15 Oct" (the day the step was added) is how far along the team is.
+const LISTS_FROM = '2026-10-15';
+function listsStepHTML() {
+  const ls = S.lists || [], on = ls.filter(l => l.is_published).length, made = ls.filter(l => String(l.updated_at || l.created_at || '') >= LISTS_FROM).length;
+  return `<section class="card pr-tell pr-team" aria-labelledby="pr-lh"><h2 id="pr-lh">For the whole team: lists to share</h2>
+    <p class="small">A list is a page of bills supporters can follow and pass on. Plan the session’s lists now: make each one as a draft with a title and who it is for, then add the 2027 bills in January and make it live.</p>
+    <p class="small muted pr-lcount">${plural(on, 'live list')} · ${plural(ls.length - on, 'draft')}${made ? ` · ${made} made or changed since 15 Oct` : ''}</p>
+    ${btn('Open Lists', { kind: 'secondary', iconEnd: 'arrow-right', href: '#/outreach/lists' })}</section>`;
+}
+
+// On the board the step is one line, so the issues stay near the top (ui-critic, A-24); the card is on Your issues.
+const listsLine = () => { const ls = S.lists || [], on = ls.filter(l => l.is_published).length;
+  return `<p class="small muted pr-lline">Lists to share: ${plural(on, 'live list')} · ${plural(ls.length - on, 'draft')} · <a href="#/outreach/lists">Open Lists</a></p>`; };
+
 // ---- My issues (?view=mine) ----
 const ORDER = { sent_back: 0, started: 1, todo: 2, ready: 3, approved: 4, draft: 5 };
 function prepRow(i, { owner = false } = {}) {
@@ -327,24 +352,30 @@ function mineRender() {
     ${!own.length && !help.length && !drafts.length ? `<div class="le-empty">${empty({ title: 'No issues are yours yet', text: `${esc(Cap(adminWord()))} give${adminWord() === 'you' ? '' : 's'} out the issues. Any you own or help on show here.`, action: btn('See all issues', { kind: 'secondary', href: '#/outreach/issues' }) })}</div>` : ''}
     ${own.length ? `<section class="le-sec" aria-labelledby="pr-mine"><div class="le-sechead"><h2 id="pr-mine">Yours</h2></div><ul class="rows pr-rows">${own.map(i => prepRow(i)).join('')}</ul></section>` : ''}
     ${help.length ? `<section class="le-sec" aria-labelledby="pr-help"><div class="le-sechead"><h2 id="pr-help">Helping</h2><span class="meta">${plural(help.length, 'issue')}</span></div><ul class="rows pr-rows">${help.map(i => prepRow(i, { owner: true })).join('')}</ul></section>` : ''}
+    ${listsStepHTML()}
     ${drafts.length ? `<section class="le-sec" aria-labelledby="pr-dr"><div class="le-sechead"><h2 id="pr-dr">Your drafts</h2><span class="meta">not public yet</span></div><ul class="rows pr-rows">${drafts.map(i => prepRow(i)).join('')}</ul></section>` : ''}
   </div>`;
 }
 
 // ---- the prep board (?view=prep): every issue, its owner, its steps, and what is waiting for an admin ----
-const FILTERS = [['all', 'All'], ['wait', 'Waiting for you'], ['sent_back', 'Sent back'], ['todo', 'Not started'], ['draft', 'Drafts']];
-const inFilter = (i, f) => f === 'all' ? !isDraft(i) : f === 'wait' ? stateOf(i) === 'ready' : f === 'draft' ? isDraft(i) : stateOf(i) === f;
+const FILTERS = [['all', 'All'], ['wait', 'Waiting for you'], ['sent_back', 'Sent back'], ['todo', 'Not started'], ['top', 'Top issues'], ['draft', 'Drafts']];
+const inFilter = (i, f) => f === 'all' ? !isDraft(i) : f === 'top' ? !isDraft(i) && (i.top_pick === 'yes' || !!i.recommended) : f === 'wait' ? stateOf(i) === 'ready' : f === 'draft' ? isDraft(i) : stateOf(i) === f;
 const B = () => S.prBoard ??= { f: null, who: null };
-function boardRow(i) {
+// Top issues (R-288): what the owner said, and the button that confirms it (the pre-tick). A pre-ticked issue whose owner
+// said no stays in the list so the two can be squared.
+const topSays = i => { const o = ownerOfIssue(i), who = o ? first(o) : 'The owner'; return i.top_pick === 'yes' ? `${who} says: top issue` : i.top_pick === 'no' ? `${who} says: not a top issue` : `${who} has not answered`; };
+const topBtn = i => `<button type="button" class="pr-topbtn" data-prtop="${esc(i.id)}" aria-pressed="${!!i.recommended}" aria-label="Confirm ${esc(i.name)} as a top issue"${i.recommended ? ' title="Confirmed. Tap to undo"' : ''}>${icon(i.recommended ? 'circle-check' : 'star')}<span>${i.recommended ? 'Confirmed' : 'Confirm'}</span></button>`;
+function boardRow(i, top = false) {
   const o = ownerOfIssue(i);
-  return `<li class="pr-row pr-brow"><a class="pr-main" href="#/issue/${encodeURIComponent(i.id)}"><span class="title">${esc(i.name)}</span><span class="sub">${isDraft(i) ? '' : progress(i)}</span></a>
+  return `<li class="pr-row pr-brow"><a class="pr-main" href="#/issue/${encodeURIComponent(i.id)}"><span class="title">${esc(i.name)}</span><span class="sub">${isDraft(i) ? '' : progress(i)}${top ? `<span class="pr-owner">${esc(topSays(i))}</span>` : ''}</span></a>
     <button type="button" class="pr-ownbtn" data-prown="${esc(i.id)}" aria-haspopup="dialog" aria-label="Owner of ${esc(i.name)}: ${esc(o?.full_name || 'nobody')}. Change">${avatar(o, 24)}<span>${esc(o ? first(o) : 'Nobody')}</span>${icon('chevron-down', { cls: 'chev' })}</button>
-    <span class="pr-end">${rowState(i)}</span></li>`;
+    ${top ? topBtn(i) : ''}<span class="pr-end">${rowState(i)}</span></li>`;
 }
 function boardBody(f, who) {
   const rows = live().filter(i => inFilter(i, f) && (!who || i.owner_id === who));
-  if (!rows.length) return `<p class="le-none">${f === 'wait' ? 'Nothing is waiting for you.' : f === 'draft' ? 'No drafts.' : 'None.'}</p>`;
-  return (S.categories || []).map(c => { const l = rows.filter(i => i.category === c.key).sort(byName); return l.length ? `<section class="pr-cat" aria-labelledby="pr-c-${esc(c.key)}"><div class="le-sechead"><h2 id="pr-c-${esc(c.key)}">${esc(c.name)}</h2><span class="meta">${plural(l.length, 'issue')}</span></div><ul class="rows pr-rows">${l.map(boardRow).join('')}</ul></section>` : ''; }).join('');
+  if (!rows.length) return `<p class="le-none">${f === 'wait' ? 'Nothing is waiting for you.' : f === 'draft' ? 'No drafts.' : f === 'top' ? 'No owner has put an issue forward yet. Owners answer this as a step on each issue.' : 'None.'}</p>`;
+  const lede = f === 'top' ? `<p class="small muted pr-toplede">${plural(rows.filter(i => i.top_pick === 'yes').length, 'issue')} put forward by owners, ${rows.filter(i => i.recommended).length} confirmed. Confirming pre-ticks the issue for first-time visitors who pick its category; nothing on the public page says so.</p>` : '';
+  return lede + (S.categories || []).map(c => { const l = rows.filter(i => i.category === c.key).sort(byName); return l.length ? `<section class="pr-cat" aria-labelledby="pr-c-${esc(c.key)}"><div class="le-sechead"><h2 id="pr-c-${esc(c.key)}">${esc(c.name)}</h2><span class="meta">${plural(l.length, 'issue')}</span></div><ul class="rows pr-rows">${l.map(i => boardRow(i, f === 'top')).join('')}</ul></section>` : ''; }).join('');
 }
 function tellHTML() {
   const untold = live().filter(i => i.owner_id && !i.owner_told_at && !isDraft(i)), people = [...new Set(untold.map(i => i.owner_id))].map(advocate).filter(Boolean);
@@ -365,6 +396,7 @@ function boardRender(route) {
   return `<div class="le-page pr-page pr-board">
     ${subHead('Prep board', `${n} of ${ok.length} approved · due ${esc(dueText())}. Owners work through their issues and mark them ready; you approve or send back.`)}
     ${isAdmin() ? tellHTML() : ''}
+    ${listsLine()}
     ${perLine ? `<div class="pr-per" role="group" aria-label="Show one owner's issues"><span class="small muted">Owners</span>${perLine}${st.who ? btn('Everyone', { kind: 'text', sm: true, attrs: { 'data-prwho': '' } }) : ''}</div>` : ''}
     <div class="pr-filters">${segmented('prf', FILTERS.map(([k, l]) => [k, `${l}${k === 'all' ? '' : ` (${counts(k)})`}`]), f, 'Show')}</div>
     <div id="pr-body">${boardBody(f, st.who)}</div>
@@ -382,6 +414,12 @@ export function wirePrep(route, root) {
   root.querySelectorAll('[data-seg="prf"]').forEach(el => el.onclick = () => { st.f = el.dataset.val; hooks.render(); });
   root.querySelectorAll('[data-prwho]').forEach(el => el.onclick = () => { const id = el.dataset.prwho || null; st.who = st.who === id ? null : id; if (st.who) st.f = 'all'; hooks.render(); });
   wireRows();
+  root.querySelectorAll('[data-prtop]').forEach(el => el.onclick = async () => {
+    const i = S.issues.find(x => x.id === el.dataset.prtop); if (!i) return; const was = !!i.recommended;
+    try { await DB.updateIssue(i.id, { recommended: !was }); hooks.render();
+      toast(was ? `${i.name}: no longer pre-ticked.` : `${i.name}: confirmed.`, { ok: !was, undo: async () => { await DB.updateIssue(i.id, { recommended: was }); hooks.render(); } }); }
+    catch (e) { toast(e, { err: true }); }
+  });
   root.querySelector('[data-pr="tell"]')?.addEventListener('click', async e => {
     const b = e.currentTarget; b.setAttribute('aria-busy', 'true'); b.disabled = true;
     // M1-1: say how many were actually sent a message, and name anyone the tracker could not reach.

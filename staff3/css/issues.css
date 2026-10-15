@@ -392,3 +392,13 @@
 /* An issue's rows have no drag handle, so they keep the 16px inset that a list's rows give up for theirs on a desktop
    (lists.css); without it a bill's title sat 4px from the card's edge (R-263, on the issue page since R-226 too). */
 @media (min-width: 900px) { .is-page .le-brow { padding-left: var(--s16); } }
+
+/* R-288: the Top issues filter's confirm button (pressed = pre-ticked), and the team's lists step. */
+.pr-topbtn { flex: none; display: inline-flex; align-items: center; gap: var(--s4); min-height: 40px; padding: 0 var(--s12); border: 1px solid var(--n200); border-radius: 999px; background: var(--n0); color: var(--n900); font: inherit; font-size: var(--t14); cursor: pointer; }
+.pr-topbtn svg { width: 16px; height: 16px; }
+.pr-topbtn:hover { border-color: var(--p700); }
+.pr-topbtn[aria-pressed="true"] { background: var(--p700); border-color: var(--p700); color: var(--n0); font-weight: 700; }
+.pr-lline { margin: var(--s12) 0 0; }
+.pr-toplede { margin: var(--s12) 0 0; }
+.pr-team .pr-lcount { margin-top: 0; }
+@media (max-width: 899px) { .pr-topbtn { min-height: 44px; } }
