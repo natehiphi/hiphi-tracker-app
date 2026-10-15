@@ -43,12 +43,13 @@ export const SIDE_LOOKS = ['testify', 'ask', 'hold', 'floor-yes', 'floor-no', 'c
 // ---- words ----
 // Title case for headings on a picture (R-186; the same rule as og_images.py's title() used for issue names): each word and
 // each part of a hyphenated one, but not a, an, the, and, or, nor, but, for, so, yet or a short preposition unless first
-// or last; a word that already has a capital (FDA, SNAP, Hawaiʻi) is left as written.
+// or last, or the first word after a colon ("Follow the Issue: The ..."); a word that already has a capital (FDA, SNAP,
+// Hawaiʻi) is left as written.
 const SMALL = new Set('a an the and or nor but for so yet as at by in of off on per to via vs'.split(' '));
 export function titleCase(t) {
   const ws = String(t).trim().split(/\s+/);
   const cap = w => /[A-Z]/.test(w) ? w : w.replace(/[\p{L}]/u, c => c.toUpperCase());
-  return ws.map((w, i) => (i > 0 && i < ws.length - 1 && SMALL.has(w.toLowerCase())) ? w : w.split('-').map(cap).join('-')).join(' ');
+  return ws.map((w, i) => (i > 0 && i < ws.length - 1 && !ws[i - 1].endsWith(':') && SMALL.has(w.toLowerCase())) ? w : w.split('-').map(cap).join('-')).join(' ');
 }
 const lower1 = s => s ? s[0].toLowerCase() + s.slice(1) : s;
 const spaced = n => String(n).replace(/^([A-Z]+)\s*(\d)/, '$1 $2');

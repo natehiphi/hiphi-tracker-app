@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 import { billState, asksFor, cardFor, committeeWords, HEARING_ASKS } from './share_cards.mjs';
 import { picBuilder } from './share_pic_pages.mjs';
 import { demoSets, wordsMap } from './share_pic_data.mjs';
-import { ARMS } from './share_pics.mjs';
+import { ARMS, titleCase } from './share_pics.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // The public page's address and key live in the kernel since the split (R-122, 10/2); reading them from core.js, as
@@ -56,7 +56,10 @@ const cut = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return 
 // No og:url and no <meta http-equiv="refresh"> (R-169): see the top. Someone whose browser runs no script gets the link.
 // image: the picture's path under pub/ ('og/testify/<issue>.jpg', 'og/testify.jpg', 'og.png'; tools/og_images.py).
 // noindex: the practice copy's pages stay out of search.
+// The title is the card's heading, the line under the picture, so it is in title case like the picture's own words (Nate
+// 10/14, R-286; R-186): "Follow the Issue: State Program to Forgive Medical Debt". The words under it stay a sentence.
 function page({ title, desc, to, image = 'og.png', noindex = false }) {
+  title = titleCase(title);
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
