@@ -338,3 +338,13 @@
 .pr-toplede { margin: var(--s12) 0 0; }
 .pr-team .pr-lcount { margin-top: 0; }
 @media (max-width: 899px) { .pr-topbtn { min-height: 44px; } }
+/* The star (R-181), drawn as a bell with words ("Alerts on" / "Alerts off"): only bills with alerts on send hearing
+   alerts to an issue's followers. On is the selection blue (A-5: amber means due within 24 hours), with the word. */
+.is-page .is-star { white-space: nowrap; color: var(--n700); }
+.is-page .is-star[aria-pressed="true"] { color: var(--p700); }
+.is-page .is-starh { display: flex; align-items: flex-start; gap: 6px; margin: var(--s8) 0 0; }
+.is-page .is-starh .ic { width: 16px; height: 16px; margin-top: 3px; flex: none; }
+/* Filled and bold when on, at every width (the second review): not colour alone. The words stay on phones too, since a
+   bare bell is Follow elsewhere in the staff app. */
+.is-page .is-star[aria-pressed="true"] { font-weight: 700; }
+.is-page .is-star[aria-pressed="true"] .ic { fill: currentColor; }
