@@ -2,7 +2,7 @@
 // and current bills. No migration - public_committees, public_committee_members and
 // public_committee_slots already exist and are already loaded into S.committees/S.committeeMembers/
 // S.slots by core.js's loadBills(); this is new screens over data the app already has on boot.
-import { S, esc, icon, blurb, nick, spaced, billPath, alive, stopOf, codesOf, cmteLabel, legsOf, legTitle, legPhoto, plainStatus } from './core.js';
+import { S, esc, icon, blurb, nick, spaced, billPath, alive, stopOf, codesOf, cmteLabel, legsOf, legTitle, legPhoto, plainStatus, sessionWords } from './core.js';
 import { btn, row, empty } from './ui.js';
 
 const CHAMBER_NAME = { S: 'Senate', H: 'House' };
@@ -58,7 +58,7 @@ function detailPage(route) {
       <p class="lede">${esc(CHAMBER_NAME[c.chamber] || '')} committee${slot ? ` · Meets ${esc(slotLine(slot))}` : ''}</p></div>
     <div class="sechead"><h2>Members</h2></div>
     <div class="rows">${members.map(memberRow).join('')}</div>
-    <div class="sechead"><h2>Bills here now</h2></div>
+    <div class="sechead"><h2>Bills here now</h2>${bills.length ? `<span class="meta">${bills.length} bill${bills.length === 1 ? '' : 's'} · ${esc(sessionWords(bills))}</span>` : ''}</div>
     ${bills.length ? `<div class="rows">${bills.map(billRow).join('')}</div>` : `<p class="small muted">Nothing right now.</p>`}
   </div>`;
 }

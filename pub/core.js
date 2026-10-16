@@ -44,6 +44,13 @@ export const SMALL = new Set(['a','an','and','as','at','but','by','for','in','of
 export const titleCase = t => String(t || '').toLowerCase().split(/\s+/).map((w, i, a) => (i && i < a.length - 1 && SMALL.has(w.replace(/[^a-z]/g, ''))) ? w : w.replace(/(^|[-("'/])([a-z])/g, (m, p, c) => p + c.toUpperCase())).join(' ');
 export const POS = { strongly_support: 'Strongly supports', support: 'Supports', support_amend: 'Supports with amendments', strongly_oppose: 'Strongly opposes', oppose: 'Opposes', neutral: 'Comments', monitor: 'Monitoring' };
 export const billNum = b => b.bill_number + (b.current_version ? ' ' + b.current_version : '');
+// Which session a count covers, for a reader who quotes "12 bills" (R-212 #19): "2026 session". Read from the bills
+// themselves, so January's search, with 2026 and 2027 bills side by side, says "2026 and 2027 sessions".
+export function sessionWords(bills = []) {
+  const ys = [...new Set(bills.map(b => +b.session_year || sessionInfo().yr))].sort();
+  if (!ys.length) ys.push(sessionInfo().yr);
+  return ys.length > 1 ? `${ys.slice(0, -1).join(', ')} and ${ys[ys.length - 1]} sessions` : `${ys[0]} session`;
+}
 // Coalitions keep their internal name as the key; the public sees public_name.
 export const cname = n => (S.coalitions || []).find(c => c.name === n)?.public_name || n;
 // Tiles are grouped by public name: two internal coalitions can share one tile.

@@ -13,7 +13,7 @@
 import { S, D, DEMO, app, esc, icon, nick, posInfo, countOk, issues, issueIcon, groupNames, wiz, sessionInfo, suggestionList, reasonOf, noteShown, dismissed,
   browseCoalition, curate, listBillsFor, followList, toggleWatch, loadBills, saveLocal, saveListFollows, nudge, toast, supa, plain, POS_RANK,
   pickedTopic, findBill, stopOf, dayWord, issueBills, issuesIn, issueFollowed, issuePos, setFollows, unfollowIssue, ensureRecapPool,
-  recomputeWatch, plainStatus, spaced, billPath, issuesOf, openActions, hearingsOf, legTitle, CHAMBER_NAME } from './core.js';
+  recomputeWatch, plainStatus, spaced, billPath, issuesOf, openActions, hearingsOf, legTitle, CHAMBER_NAME, sessionWords } from './core.js';
 import { btn, row, skeleton, notice, inlineErr, chip, posChip } from './ui.js';
 import { actionCard, wireActions, shareIssue } from './actions.js';
 import { calendarUrl } from './core.js';   // the calendar feed (R-125)
@@ -171,7 +171,7 @@ function paint() {
   wireRegion(box, true);
   setBusy();
   const st = document.getElementById('fd-status');
-  if (st) st.textContent = !F.cur ? '' : F.busy ? 'Searching' : F.err ? 'Search did not work' : F.res ? (F.res.length ? `${plural(F.res.length, 'bill')} found` : 'No bills found') : '';
+  if (st) st.textContent = !F.cur ? '' : F.busy ? 'Searching' : F.err ? 'Search did not work' : F.res ? (F.res.length ? `${plural(F.res.length, 'bill')} found in the ${sessionWords(F.res)}` : 'No bills found') : '';
 }
 const setBusy = () => document.querySelector('.fd-box')?.classList.toggle('busy', !!(F.cur && F.busy) || F.pending);
 
@@ -200,6 +200,9 @@ const coalitionOrder = () => offSeason() ? issues().slice().sort((a, b) => a.gen
 const issueTiles = () => S.cats.length ? `<div class="rows fd-rows mb-tiles grid3">${S.cats.map(catRow).join('')}</div>`
   : `<div class="rows fd-rows mb-tiles grid3">${coalitionOrder().map(issueRow).join('')}</div>`;
 const sechead = (id, title, meta = '') => `<div class="sechead"><h2 id="${id}">${title}</h2>${meta ? `<span class="meta">${meta}</span>` : ''}</div>`;
+// The first count on a page says which session it covers, once (R-212 #19): "12 bills · 2026 session", read from that
+// section's own bills (search also finds bills from earlier sessions, which must not lend their year to "Moving now").
+const once = () => { let used = false; return (s, bills) => used ? s : (used = true, `${s} · ${sessionWords(bills)}`); };
 // Long groups show 10, then "Show all".
 function capped(key, bills, opt, n = 10) {
   const all = !!F.more[key], shown = all ? bills : bills.slice(0, n);
@@ -252,10 +255,11 @@ function resultsBody(q, res) {
   if (!res.length) return `${issSec}${whoSec}${iss.length || who.length ? '' : emptyBox({ title: `No bills match “${esc(q)}”`, text: 'Try a bill number like HB 1563, a word like e-cigarettes, or a legislator’s name.' })}
     <section aria-labelledby="fd-or-h">${sechead('fd-or-h', 'Or browse issues')}${issueTiles()}</section>`;
   const key = parse(q).key, mv = res.filter(moving), law = res.filter(becameLaw), gone = res.filter(stopped);
-  return `${issSec}${whoSec}${mv.length ? `<section aria-labelledby="fd-mv-h">${sechead('fd-mv-h', 'Moving now', plural(mv.length, 'bill'))}${capped('q:' + key, mv, { pos: true }, 12)}</section>`
+  const tag = once();
+  return `${issSec}${whoSec}${mv.length ? `<section aria-labelledby="fd-mv-h">${sechead('fd-mv-h', 'Moving now', tag(plural(mv.length, 'bill'), mv))}${capped('q:' + key, mv, { pos: true }, 12)}</section>`
       : `<p class="fd-none">${offSeason() ? `The ${sessionInfo().recapYear} session is over. Here’s where these bills ended up.` : `Nothing that matches “${esc(q)}” is moving right now.`}</p>`}
-    ${law.length ? `<section aria-labelledby="fd-law-h">${sechead('fd-law-h', 'Became law', plural(law.length, 'bill'))}${billList(law, { pos: true })}</section>` : ''}
-    ${gone.length ? fold('fd-q-' + key, `Did not advance (${gone.length})`, billList(gone, { why: true }), { open: !mv.length && !law.length }) : ''}`;
+    ${law.length ? `<section aria-labelledby="fd-law-h">${sechead('fd-law-h', 'Became law', tag(plural(law.length, 'bill'), law))}${billList(law, { pos: true })}</section>` : ''}
+    ${gone.length ? fold('fd-q-' + key, `Did not advance${!mv.length && !law.length ? ` in ${[...new Set(gone.map(b => +b.session_year || sessionInfo().yr))].sort().join(' and ')}` : ''} (${gone.length})`, billList(gone, { why: true }), { open: !mv.length && !law.length }) : ''}`;
 }
 // Nothing typed yet: the issues first (people follow issues, R-018), then HIPHI's lists, then bills that need voices
 // this week. The page keeps one main button: the first suggestion is a full action card, and the others are plain
@@ -290,7 +294,7 @@ function issuePage(slug) {
   const si = sessionInfo(), off = si.phase !== 'in', ready = Array.isArray(data);
   const mv = ready ? data.filter(moving) : [], law = ready ? data.filter(becameLaw).sort(numCmp) : [], gone = ready ? data.filter(stopped).sort(numCmp) : [];
   // Where the issue stands, in one line (bills, not people, so small numbers are fine). The recap card says it between sessions.
-  const tally = ready && !off ? [mv.length ? `${mv.length} moving` : '', law.length ? `${law.length} became law` : '', gone.length ? `${gone.length} did not advance` : ''].filter(Boolean).join(' · ') : '';
+  const tally = ready && !off ? [data.length ? sessionWords(data) : '', mv.length ? `${mv.length} moving` : '', law.length ? `${law.length} became law` : '', gone.length ? `${gone.length} did not advance` : ''].filter(Boolean).join(' · ') : '';
   const head = `${back('#/find', 'All issues')}<header class="fd-ihead"><span class="fd-icon">${icon(g.icon)}</span><h1 class="hero">${esc(g.key)}</h1>${g.description ? `<p class="lede">${esc(g.description)}</p>` : ''}${tally ? `<p class="meta">${esc(tally)}</p>` : ''}</header>`;
   if (!ready) return `<div class="fd" data-page="issue">${head}${data === 'err' ? `<div class="fd-err">${inlineErr('fd-ierr', 'We couldn’t load these bills. Check your connection and try again.')}${btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-reissue': g.key } })}</div>` : skeleton(3)}</div>`;
   // HIPHI's picks are its strongest positions; among them, the one with the soonest hearing or deadline leads.
@@ -394,9 +398,10 @@ function issuePageNew(i) {
   // and no way to act). The soonest hearing whose testimony is not past due; everything else stays in the list.
   const act = off ? null : openActions(mv, mv.flatMap(hearingsOf)).filter(x => !x.late)[0] || null;
   const actSec = act ? `<section aria-labelledby="fd-iact-h">${sechead('fd-iact-h', 'You can help this week')}${actionCard(act.b, act.h)}</section>` : '';
-  const nowSecs = `${actSec}${mv.length ? `<section aria-labelledby="fd-imv-h">${sechead('fd-imv-h', 'Moving now', plural(mv.length, 'bill'))}${billList(mv, { pos: true })}</section>` : ''}
-    ${law.length ? `<section aria-labelledby="fd-ilaw-h">${sechead('fd-ilaw-h', 'Became law', plural(law.length, 'bill'))}${billList(law, { pos: true })}</section>` : ''}
-    ${gone.length ? fold('fd-ig-' + i.id, `Did not advance${off ? ` in ${yr}` : ''} (${gone.length})`, billList(gone, { why: true }), { open: !mv.length && !law.length }) : ''}`;
+  const tag = once();
+  const nowSecs = `${actSec}${mv.length ? `<section aria-labelledby="fd-imv-h">${sechead('fd-imv-h', 'Moving now', tag(plural(mv.length, 'bill'), mv))}${billList(mv, { pos: true })}</section>` : ''}
+    ${law.length ? `<section aria-labelledby="fd-ilaw-h">${sechead('fd-ilaw-h', 'Became law', tag(plural(law.length, 'bill'), law))}${billList(law, { pos: true })}</section>` : ''}
+    ${gone.length ? fold('fd-ig-' + i.id, `Did not advance${off || (!mv.length && !law.length) ? ` in ${yr}` : ''} (${gone.length})`, billList(gone, { why: true }), { open: !mv.length && !law.length }) : ''}`;
   const none = !now.length ? `<p class="fd-none">No bills on it ${off ? `in ${yr}` : 'this session'} yet. When HIPHI takes one up, it comes to everyone who follows this issue.</p>` : '';
   return `<div class="fd" data-page="issue">${back(c ? `#/find/category/${c.key}` : '#/find', c ? esc(c.name) : 'Find')}<div class="fd-lhead">${head}${cta}</div>
     ${none}${nowSecs}${earlier.length ? fold('fd-ie-' + i.id, `Earlier sessions (${earlier.length})`, billList(earlier, { why: true }), { ic: 'history' }) : ''}</div>`;
@@ -648,7 +653,7 @@ function wireSearch() {
   form.addEventListener('submit', e => { e.preventDefault(); clearTimeout(F.t); F.pending = false; inp.blur(); runQuery(inp.value); });
   clr.onclick = () => { inp.value = ''; clr.hidden = true; clearTimeout(F.t); F.pending = false; runQuery(''); inp.focus(); };
   const st = document.getElementById('fd-status');
-  if (st && F.cur && F.res && !F.busy) st.textContent = F.res.length ? `${plural(F.res.length, 'bill')} found` : 'No bills found';
+  if (st && F.cur && F.res && !F.busy) st.textContent = F.res.length ? `${plural(F.res.length, 'bill')} found in the ${sessionWords(F.res)}` : 'No bills found';
 }
 
 export default {
