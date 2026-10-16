@@ -85,15 +85,15 @@ with sync_playwright() as pw:
     ok(1 <= p.locator('[data-stpick][aria-pressed=true]').count() <= 4, 'one or two of each topic start ticked, four in all, never all (B-12, R-245; tests/ticks_per_topic.py)')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
     # Then the alerts, right after the issues and before the "Mahalo!" (R-146, Nate 10/4): a mobile number first, email as
-    # a link under it. Here the email: the walk below greets them by the name asked after it.
+    # a link under it. Here the email, and the optional first name above it (R-294), which the walk below greets them by.
     ok(p.locator('.st-alertspage #st-a-phone').count() == 1 and 'Save your profile' in text(p), f"after the issues: the alerts, a mobile number first ({p.evaluate('location.hash')})")
     std(p, 'alerts', axe=True); shot(p, 'p_alerts')
     p.locator('[data-alswap="email"]').click(); p.wait_for_timeout(400)
-    at = p.evaluate('location.hash'); p.fill('#st-a-email', 'leilani@example.com'); p.locator('#st-send').click()
+    at = p.evaluate('location.hash'); p.fill('#st-a-name', 'Leilani'); p.fill('#st-a-email', 'leilani@example.com'); p.locator('#st-send').click()
     # The first success: the alerts screen turns into the "Mahalo!" page, at the same address (C-7). It was a moment that
     # left by itself in 1.5 s (R-140, 10/5); Nate 11 Oct: "too quick", so it is a page that waits for Next.
     p.wait_for_selector('.st-thanks #st-h', timeout=5000); p.wait_for_timeout(400)
-    ok(p.inner_text('#st-h') == 'Mahalo!' and p.locator('#fx-moment:not([hidden])').count() == 0 and p.evaluate('location.hash') == at, 'following shows the "Mahalo!" page in place of the box, with no moment over it')
+    ok(p.inner_text('#st-h') == 'Mahalo, Leilani!' and p.locator('#fx-moment:not([hidden])').count() == 0 and p.evaluate('location.hash') == at, 'following shows the "Mahalo!" page in place of the box, with no moment over it')
     ok('Link sent to leilani@example.com' in p.inner_text('.st-thanks'), 'the "Mahalo!" says where the link went (C-6)')
     ok(p.locator('.actionbar [data-stnext]').is_visible() and p.inner_text('.actionbar [data-stnext]').strip() == 'Next: A Bill’s Story', 'its Next is there at once and names what follows (C-6, R-186, C-15)')
     std(p, 'mahalo', axe=True); shot(p, 'p_mahalo')
@@ -203,8 +203,7 @@ with sync_playwright() as pw:
     ok(p.locator('.st-soon li').count() >= 1 and p.locator('#st-a-phone, #st-a-email, #st-eform').count() == 0, 'coming up lists what is ahead and asks for nothing more')
     ok('testimony due' in ts.lower() and 'closes' not in ts.lower(), 'coming up names the value, and testimony is "due", never "closes"')
     std(p, 'soon', axe=True); shot(p, 'p_soon')
-    # The first name, asked once a way to reach them was given (R-078; on Coming up since R-146), is saved for the greeting.
-    p.fill('#st-name', 'Leilani'); p.wait_for_timeout(200)   # no Save button: Next keeps what is typed
+    ok(p.locator('#st-name').count() == 0, 'coming up no longer asks for the name: the sign-up did (R-294)')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(3200)
     # The peak: what they did, then what happens next; nothing asks for anything (Nate 9/21: end on a high).
     td = text(p); ok('You’re all set, Leilani!' in td and 'What happens next' in td, f"the last screen celebrates what they did ({p.evaluate('location.hash')})")

@@ -21,6 +21,7 @@ import * as P2 from './onb-p2.js';
 import * as P3 from './onb-p3.js';
 import * as P4 from './onb-p4.js';
 import { joinWords, sampleText, joinDone, OFTEN } from './onb-join.js';
+import { nameField, wireName, keepName, firstName } from './firstname.js';   // R-294
 import { GO_HELP } from './topics.js';
 import { armOf, abSeen } from './variant.js';
 
@@ -327,12 +328,12 @@ function stepJoin(step) {
     // D1-6 (R-180 wave 2): on a phone the example goes under the box (and on a short one the lede too), so the promise and the small print are on the screen
     // whenever "Text me" is (CTIA: the disclosures sit next to the button on every screen size); a taller screen keeps it above.
     (form => boxFirst() ? form + (codeStep('st-a') ? '' : `${short() ? `<p class="lede ob-lede2">${esc(W.lede)}</p>` : ''}${example}`) : (codeStep('st-a') ? '' : example) + form)(
-      `<form class="card st-form st-askcard st-alertform ob-joinform" id="st-aform" novalidate>${alertFields('st-a')}</form>`));
+      `<form class="card st-form st-askcard st-alertform ob-joinform" id="st-aform" novalidate>${codeStep('st-a') ? '' : nameField('st-a')}${alertFields('st-a')}</form>`));
 }
 // Leaving the sign-up: the follow's moment if the visit has had no big moment yet (C-7: the first follow fills the
 // screen; Plan 1's first action had its own in the walkthrough), else straight on.
 function leaveJoin(step, r = null) {
-  S.alertEdit = false;
+  S.alertEdit = false; keepName();
   const go = () => goStep(step, step + 1);
   if (acted() || S.obMoment) { go(); return; }
   S.obMoment = true;
@@ -340,7 +341,8 @@ function leaveJoin(step, r = null) {
   if (!n && !D) { go(); return; }
   // The sign-up turns into the "Mahalo!" page, which stays until Next (R-140, Nate 11 Oct: the moment over the next
   // screen left in 1.5 s, "too quick"). It slides in like a new screen; its Next names what follows (C-6).
-  S.obThanks = { title: 'Mahalo!', sub: n ? `You’re following ${plural(n, 'issue')}.` : 'You’re in the loop.',
+  const first = firstName();
+  S.obThanks = { title: first ? `Mahalo, ${first}!` : 'Mahalo!', sub: n ? `You’re following ${plural(n, 'issue')}.` : 'You’re in the loop.',
     small: D ? D.lede : r ? 'We’ll tell you when it counts.' : 'Turn on alerts any time from More.' };
   S.stThanksSeen = false;
   afterMove(swap(() => { app.render(); window.scrollTo(0, 0); }, 'fwd'), () => document.getElementById('st-h')?.focus({ preventScroll: true }));
@@ -357,6 +359,7 @@ function wireJoin({ step, fresh, $ }) {
     S.obJoined = r; track('join', 'next', { counts: { phone: r.kind === 'phone', email: r.kind === 'email' } });
     burst($('#st-send') || form, 14, 52); leaveJoin(step, r);
   } });
+  wireName(form, 'st-a');
   const ch = $('[data-stalchange]'); if (ch) ch.onclick = () => { S.alertEdit = true; S.obJoined = null; app.render(); };
   // The frame's Skip just moves on; here "Not now" first plays the follow's moment (assigned after the frame's, so it
   // replaces it).
