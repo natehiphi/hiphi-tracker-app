@@ -31,7 +31,7 @@ def txt(p, sel):
     return loc.first.inner_text() if loc.count() else ''
 click = lambda sel, rx: f"""(()=>{{const e=[...document.querySelectorAll({json.dumps(sel)})].filter(x=>x.offsetParent!==null).find(x=>/{rx}/i.test((x.innerText||'').trim())); if(!e)return false; e.click(); return true;}})()"""
 # One tap copies the letter and opens the Capitol page in a new tab; coming back to this tab asks about the green box.
-LEAVE_AND_RETURN = """(()=>{const b=[...document.querySelectorAll('#hp-dlg button')].find(x=>/Copy my letter and open/.test(x.innerText)); if(!b) return false;
+LEAVE_AND_RETURN = """(()=>{const b=[...document.querySelectorAll('#hp-dlg button')].find(x=>/^Copy my letter( and open)?/.test(x.innerText.trim()) && !/again/.test(x.innerText)); if(!b) return false;
   window.open=()=>null; b.click();
   Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'hidden'}); document.dispatchEvent(new Event('visibilitychange'));
   Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'visible'}); document.dispatchEvent(new Event('visibilitychange')); return true;})()"""
@@ -60,7 +60,7 @@ def run(br, w, h, tag):
         p.evaluate(s); p.wait_for_timeout(900)
     p.fill('#hp-name', 'Kai Ho'); p.wait_for_timeout(200)
     if p.locator('#hp-why').count(): p.fill('#hp-why', 'I care about keiki health.')
-    for s in (click('#hp-dlg button', 'See my letter'), click('#hp-dlg button', '^Next'), click('#hp-dlg button', 'Yes, I have an account'), LEAVE_AND_RETURN, click('#hp-dlg button', 'Yes, I saw the green box')):
+    for s in (click('#hp-dlg button', 'See my letter'), click('#hp-dlg button', '^Next'), click('#hp-dlg button', 'Yes, I have an account'), LEAVE_AND_RETURN, click('#hp-dlg button', 'Finish practice')):
         p.evaluate(s); p.wait_for_timeout(1100)
     nx = txt(p, '#hp-dlg .hp-next')
     ok('Stop following Disposable e-cigarette ban' in nx and 'Don’t follow it' not in nx, f'{tag}: the Mahalo says "Stop following Disposable e-cigarette ban", not "Don\'t follow it" (X10-4)')

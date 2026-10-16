@@ -25,9 +25,9 @@ seen = lambda rx: f"""(()=>/{rx}/i.test((document.querySelector('main')||documen
 
 PUBLIC = HOST + '/track.html?demo=1'
 # The testimony walkthrough's last hop: one tap copies the letter and opens the Capitol site in a new tab; coming back to
-# this tab is what turns the button into "Yes, I saw the green box" (helper.js listens for the page becoming visible again).
+# this tab is what turns the button into "Yes, I saw the green box" ("Finish practice" in the practice copy, R-212) (helper.js listens for the page becoming visible again).
 hp_seen = lambda rx: f"""(()=>{{const d=document.getElementById('hp-dlg'); return !!d && /{rx}/i.test(d.innerText);}})()"""   # the walkthrough is a dialog outside main
-LEAVE_AND_RETURN = """(()=>{const b=[...document.querySelectorAll('#hp-dlg button')].find(x=>/Copy my letter and open/.test(x.innerText)); if(!b) return false;
+LEAVE_AND_RETURN = """(()=>{const b=[...document.querySelectorAll('#hp-dlg button')].find(x=>/^Copy my letter( and open)?/.test(x.innerText.trim()) && !/again/.test(x.innerText)); if(!b) return false;
   window.open=()=>null; b.click();
   Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'hidden'}); document.dispatchEvent(new Event('visibilitychange'));
   Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'visible'}); document.dispatchEvent(new Event('visibilitychange')); return true;})()"""
@@ -67,9 +67,9 @@ JOURNEYS = [
    dict(what='type your name',           fill=('#hp-name', 'Kai Ho'), reach="(()=>document.getElementById('hp-name')?.value==='Kai Ho')()"),
    dict(what='see the letter',           do=click_text('#hp-dlg button', 'See my letter'), reach="(()=>!!document.getElementById('hp-letter'))()"),
    dict(what='move on from the letter',  do=click_text('#hp-dlg button', '^Next'), reach=hp_seen('Have you sent testimony')),
-   dict(what='say you have an account',  do=click_text('#hp-dlg button', 'Yes, I have an account'), reach=hp_seen('Copy my letter and open')),
-   dict(what='copy it and open the Capitol page (and come back)', do=LEAVE_AND_RETURN, reach=hp_seen('Did you see the green box')),
-   dict(what='confirm the green box',    do=click_text('#hp-dlg button', 'Yes, I saw the green box'), reach=hp_seen('Mahalo')),
+   dict(what='say you have an account',  do=click_text('#hp-dlg button', 'Yes, I have an account'), reach=hp_seen('Copy my letter')),
+   dict(what='copy it and open the Capitol page (and come back)', do=LEAVE_AND_RETURN, reach=hp_seen('look for the green box')),
+   dict(what='confirm the green box',    do=click_text('#hp-dlg button', 'Finish practice'), reach=hp_seen('Mahalo')),
  ]),
  # R-079 (Nate 9/29): the quick email is a walkthrough like testimony: where you stand, the bill and its points, your
  # name, the email to read over, then sending (the mail app first on a phone) and "Did you send it?". 4 steps became 9.

@@ -37,7 +37,7 @@ with sync_playwright() as pw:
         ok(p.locator('.hp-count').count() == 0, f'{tag}: no "Part 1 of 1"')
         ok(p.locator('[data-hp="selfmail"]').count() == 1 and p.locator('#hp-dl').count() == 1, f'{tag}: Email it to myself and Download')
         ok('Need to change it?' in p.inner_text('.hp-body'), f'{tag}: how to change it once sent')
-        ok(p.locator('a[data-hp="capitol"]').count() == 0 and 'send it again' not in p.inner_text('#hp-lsub'), f'{tag}: a past hearing offers no "send it again" (the critic, 12 Oct)')
+        ok(p.locator('[data-hp^="capitol"]').count() == 0 and 'send it again' not in p.inner_text('#hp-lsub'), f'{tag}: a past hearing offers no "send it again" (the critic, 12 Oct)')
         cp = p.locator('.hp-foot #hp-cp')
         ok(cp.count() == 1 and cp.inner_text().strip() == 'Copy my letter' and 'primary' in (cp.get_attribute('class') or ''), f'{tag}: "Copy my letter" is the bar\'s one button')
         bb = cp.bounding_box(); ok(bb and bb['y'] + bb['height'] <= h, f'{tag}: Copy is on the first screen')
