@@ -17,6 +17,16 @@ export const CAPITOL = `<svg class="art art-capitol" viewBox="0 0 360 120" aria-
   <path d="M40 107h60M130 107h40M200 107h70M290 107h30" stroke="var(--p300)" stroke-width="2" stroke-linecap="round"/>
 </svg>`;
 
+// The big pictures (R-197, Nate's go 10/10 "As recommended": Canva for the few big pictures, made with HIPHI's Canva
+// account). A picture, not an SVG string: Canva's drawing has too much detail to redraw by hand. Practice copy first (Show
+// me lane, as R-284): it shows on ?demo=1 until Nate's yes on the screenshots, then this turns true for everyone.
+const PICS_LIVE = false;
+// Both go in: the picture shows only where it costs the screen nothing (a laptop's side column, start.css); phones and
+// tablets keep the line drawing so the topics still start near the top (A-1). Lazy, so a hidden picture is never fetched.
+export const capitolPic = (demo = false) => demo || PICS_LIVE
+  ? `${CAPITOL}<img class="art art-pic" src="${new URL('art/capitol-720.jpg', import.meta.url)}" srcset="${new URL('art/capitol-720.jpg', import.meta.url)} 720w, ${new URL('art/capitol-1200.jpg', import.meta.url)} 1200w" sizes="420px" width="1200" height="605" alt="" loading="lazy" decoding="async">`
+  : CAPITOL;
+
 // Three neighbours speaking up: a letter, a phone, a raised hand.
 export const VOICES = `<svg class="art art-voices" viewBox="0 0 240 120" aria-hidden="true" focusable="false">
   <ellipse cx="120" cy="112" rx="104" ry="6" fill="var(--p50)"/>
