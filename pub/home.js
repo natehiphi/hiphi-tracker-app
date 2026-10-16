@@ -344,12 +344,18 @@ function wireGotIt(root) {
 // hearing is still ahead, and one tap reopens the walkthrough where they left it.
 // skip: hearings another card on the page already offers to finish (version A's Now card, R-187; today's two full cards
 // and a followed suggestion, R-189: A-14, A-3).
-function draftsCard(skip = new Set()) {
+// When it can still be sent, as the one-line rows say it (actRow): "hearing today" alone left a first-day visitor unsure
+// whether a letter was already too late (the review of R-212 #15).
+const dueWords = h => { const d = dueInfo(h); return d?.late ? `late testimony still accepted until the hearing ${dayWord(h.scheduled_at)} at ${timeWord(h.scheduled_at)}` : d ? d.text.replace(/^T/, 't') : `hearing ${dayWord(h.scheduled_at)}`; };
+function draftRows(skip = new Set()) {
   let drafts = {}; try { drafts = JSON.parse(localStorage.getItem('hiphi_me') || '{}')?.drafts || {}; } catch { /* private mode */ }
-  const rows = Object.keys(drafts).filter(id => !skip.has(id)).map(anyHearing).filter(h => h && new Date(h.scheduled_at) > Date.now()).map(h => ({ h, b: anyBill(h.bill_id) })).filter(x => x.b && !didKind(x.b, x.h, 'testimony'));
+  return Object.keys(drafts).filter(id => !skip.has(id)).map(anyHearing).filter(h => h && new Date(h.scheduled_at) > Date.now()).map(h => ({ h, b: anyBill(h.bill_id) })).filter(x => x.b && !didKind(x.b, x.h, 'testimony')).slice(0, 2);
+}
+function draftsCard(skip = new Set()) {
+  const rows = draftRows(skip);
   if (!rows.length) return '';
   return `<section class="card hm-draft" aria-labelledby="hm-draft-h"><h2 id="hm-draft-h">${icon('notebook-pen')}<span>Finish your testimony</span></h2>
-    ${rows.slice(0, 2).map(({ b, h }) => `<p class="small">${esc(nick(b) || spaced(b.bill_number))} · hearing ${esc(dayWord(h.scheduled_at))}. Your letter is saved.</p>
+    ${rows.map(({ b, h }) => `<p class="small">${esc(nick(b) || spaced(b.bill_number))} · ${esc(dueWords(h))}. Your letter is saved.</p>
       ${btn('Finish sending it', { kind: 'primary', sm: true, icon: 'arrow-right', attrs: { 'data-helper': h.id, 'data-bill': b.id } })}`).join('')}</section>`;
 }
 
@@ -699,7 +705,12 @@ function welcomeView(si, { cards, asks, total }) {
   // just done backfires (R-150's research). It replaced "This week", one hearing with a "See how to help" link, and the
   // "Ready now?" fold under everything. A hearing the "What you did" card above already names is left to that card (A-14).
   const todoCards = cards.filter(x => !(S.hmLoopB.has(x.b.id) && settledOn(x.b, x.h)));
-  const todo = total ? `<h2 class="hm-todot" id="hm-td">${plural(total, 'thing')} you can do this week</h2>${todoBlock(todoCards, asks, { calm: !fin, sub: true })}` : '';
+  // A letter they saved with "I'll finish later" leads, as on every later visit (R-068), unless its hearing is drawn below
+  // as a full card, whose main button already says "Finish sending your testimony" (A-14). The walk (R-212 #15) found it
+  // missing on the first day's Home: a first-day tester who stopped mid-letter had nothing saying it was kept. With it on
+  // the page, its button is the one main button and the list below is drawn calm (A-3).
+  const draft = draftsCard(new Set(total ? todoCards.slice(0, 2).map(x => x.h.id) : []));
+  const todo = total ? `<h2 class="hm-todot" id="hm-td">${plural(total, 'thing')} you can do this week</h2>${todoBlock(todoCards, asks, { calm: !fin || !!draft, sub: true })}` : '';
   const heading = fin ? `Aloha${name ? `, ${esc(name)}` : ''}` : name ? `You’re all set, ${esc(name)}` : 'You’re all set';
   // Without the first visit's last screen, the lede says what "What happens next" used to, in one sentence (R-222: the
   // three steps were a fourth block on the first-day Home; "That’s all you need to do today" sat over a list of things to do).
@@ -712,7 +723,7 @@ function welcomeView(si, { cards, asks, total }) {
         <p class="lede">${lede}</p>
         ${fin ? '' : chipsHtml(ms.got)}
         ${fin ? '' : btn('See my issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link' })}</header>
-      ${loop}${todo ? `<section class="hm-todo" aria-labelledby="hm-td">${todo}</section>` : ''}${fin ? yourIssues() : ''}
+      ${draft}${loop}${todo ? `<section class="hm-todo" aria-labelledby="hm-td">${todo}</section>` : ''}${fin ? yourIssues() : ''}
       ${ask}
     </div></div>
   </div>`;
@@ -749,23 +760,26 @@ function finHead({ off = false, lede = '' } = {}) {
 // "What you can do right now" (Nate 9/29, R-098 decision 3): the one thing due first, open, as the full card with its
 // main button; anything else this week one line each under it, all shown (R-190: they folded under "More you can do this
 // week"). Nothing due: the section says what will come here.
-function rightNow(cards, asks) {
-  const first = cards.find(x => !settledOn(x.b, x.h)) || null, rest = cards.filter(x => x !== first && !settledOn(x.b, x.h)), more = rest.length + asks.length;
+// drafted: the hearings of saved letters drawn above it (draftsCard): left out of the rows (A-14), and the first card's button
+// is not the main one, since finishing a letter is (A-3, R-212 #15).
+function rightNow(cards, asks, drafted = new Set()) {
+  const first = cards.find(x => !settledOn(x.b, x.h)) || null, rest = cards.filter(x => x !== first && !settledOn(x.b, x.h) && !drafted.has(x.h.id)), more = rest.length + asks.length;
   S.hmTip = first ? { num: spaced(first.b.bill_number) } : null;   // the tips' words (pub/tour.js)
   return `<section class="hm-rightnow" aria-labelledby="hm-rn"><h2 id="hm-rn" class="hm-rnh">What you can do right now</h2>
-    ${first ? actionCard(first.b, first.h, { focus: true }) : `<p class="hm-rnnone">Nothing needs you this week. When a bill on your issues has a hearing, what you can do shows up here, and by when.</p>`}
+    ${first ? actionCard(first.b, first.h, { focus: !drafted.size }) : `<p class="hm-rnnone">Nothing needs you this week. When a bill on your issues has a hearing, what you can do shows up here, and by when.</p>`}
     ${more ? `<h3 class="hm-rnmore">More you can do this week</h3><div class="rows">${[...rest.map(actRow), ...asks.map(x => askRow(x))].join('')}</div>` : ''}
   </section>`;
 }
 // No share line at its foot (R-254, Nate 10/12): it named their first issue, so it read as being about the top card;
 // sharing stays on each card's More ways to help, after an action and on the first visit's last screen.
 function homeFirst({ cards, asks, ask, loop = '' }) {
-  const iss = followedIssues();
+  const iss = followedIssues(), skip = new Set([cards.find(x => !settledOn(x.b, x.h))?.h.id]);
+  const draft = draftsCard(skip), drafted = new Set(draftRows(skip).map(x => x.h.id));
   return `<div class="hm hm-follow hm-welcome hm-fin hm-fin2${finNow() && !S.hmFinDrawn ? ' hm-anim' : ''}">
     ${accountCards()}
     <div class="cols"><div class="hm-main">
       <header class="hm-head hm-hello hm-finhead">${finHead({ lede: `${finNow() ? 'This is your home page. ' : ''}When a bill on ${iss.length === 1 ? 'your issue' : 'your issues'} needs you, it shows up here, and we help you speak up in a few minutes.` })}</header>
-      ${loop}${rightNow(cards, asks)}
+      ${draft}${loop}${rightNow(cards, asks, drafted)}
       ${yourIssues()}
       ${ask}
     </div></div>
