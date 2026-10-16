@@ -19,7 +19,7 @@ let r = run(heard, [{ id: 'h1', bill_id: 'b1', committee: 'HHS', status: 'schedu
 let c = r.card(r.st.ask);
 ok(r.st.ask === 'testify', `a bill with a hearing ahead asks for testimony (${r.st.ask})`);
 ok(c.title === 'Speak up by Wed, Mar 18: FDA proof required to sell e-cigarettes (HB 1573)', `the title leads with the ask and the deadline: ${c.title}`);
-ok(/Tell the Senate Health and Human Services committee what you think before its hearing on Fri, Mar 20\. Testimony is due Wed, Mar 18 at 9:30 AM\. It takes a few minutes; we help you write it\. HIPHI supports it\.$/.test(c.desc), `the words say who, when and how long: ${c.desc}`);
+ok(/Tell the Senate Health and Human Services committee what you think before its hearing on Fri, Mar 20\. Testimony is due Wed, Mar 18 at 9:30 AM\. It takes about 15 minutes the first time, a few after that; we help you write it\. HIPHI supports it\.$/.test(c.desc), `the words say who, when and how long: ${c.desc}`);
 ok(c.hash === '#/bill/2026/HB1573/testify', `the link opens the testimony walkthrough on the exact bill: ${c.hash}`);
 ok(r.asks.includes('testify') && r.asks.includes('ask') && r.asks.includes('follow'), `a live bill in committee gets testify, ask and follow pages: ${r.asks}`);
 
@@ -74,7 +74,11 @@ ok(r.asks.includes('email') && r.asks.includes('attend'), `a hearing ahead also 
 c = r.card('email');
 ok(c.title === 'Email the committee before Fri, Mar 20: FDA proof required to sell e-cigarettes (HB 1573)' && /takes about 2 minutes/.test(c.desc) && c.hash === '#/bill/2026/HB1573/email' && c.image === 'email', `the committee email: ${c.title} / ${c.hash}`);
 c = r.card('attend');
-ok(c.title === 'Come to the hearing on Fri, Mar 20: FDA proof required to sell e-cigarettes (HB 1573)' && /at 9:00 AM, Room 229, at the State Capitol\. Anyone can attend/.test(c.desc) && c.hash === '#/bill/2026/HB1573/attend' && c.image === 'attend', `the hearing: ${c.title} / ${c.desc}`);
+ok(c.title === 'Come to the hearing on Fri, Mar 20 at 9:00 AM: FDA proof required to sell e-cigarettes (HB 1573)' && /at 9:00 AM, Room 229, at the State Capitol\. Anyone can attend/.test(c.desc) && c.hash === '#/bill/2026/HB1573/attend' && c.image === 'attend', `the hearing: ${c.title} / ${c.desc}`);
+ok(/Health and Human Services committee hears it Fri/.test(c.desc), `one committee "hears" it: ${c.desc}`);
+// Two committees hearing it together "hear" it (R-212 #8: 14 of 38 attend pages read "committees hears it").
+c = run(heard, [{ id: 'h4', bill_id: 'b1', committee: 'JDC/WAM', status: 'scheduled', scheduled_at: '2026-03-20T19:00:00Z', room: 'Conference Room 211' }]).card('attend');
+ok(/Judiciary and Ways and Means committees hear it Fri, Mar 20 at 9:00 AM, Room 211/.test(c.desc), `two committees "hear" it: ${c.desc}`);
 ok(!run(waiting).asks.includes('email') && !run(waiting).asks.includes('attend'), 'no hearing ahead, no email or attend page');
 
 console.log(bad ? `\n${bad} FAILED` : '\nAll passed');
