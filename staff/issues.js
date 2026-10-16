@@ -43,7 +43,7 @@ export const whyNot = b => b.tracked === false ? 'No longer tracked, so its foll
 // follow it; the others still show on the tracker and as one line ("Also heard this week") in those emails. A strongly
 // supported bill starts starred, and an issue with no star sends alerts for every bill, as before (issue_alert_bills).
 // On screen the star is a bell, "Alerts on" or "Alerts off" (the ui-critic review, 10/15: a star reads as a favourite). A
-// star counts only on a bill still alive (178): an issue whose stars are all out for the year alerts on every bill again.
+// star counts only on a bill still alive (179): an issue whose stars are all out for the year alerts on every bill again.
 const linkOf = (i, b) => (S.billIssues || []).find(x => x.issue_id === i.id && x.bill_id === b.id);
 export const starredOn = (i, b) => linkOf(i, b)?.star ?? b.position === 'strongly_support';
 const alive = b => !['dead', 'vetoed', 'enacted', 'governor', 'ballot'].includes(effStage(b));
