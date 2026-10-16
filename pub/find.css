@@ -111,6 +111,8 @@
 .fd-idesc { font-size: var(--t14); color: var(--n700); line-height: 1.4; }
 .fd-imeta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--s8); font-size: var(--t13); color: var(--n500); }
 .fd-ifollow { flex: none; }
+/* A hearing chip with its hour (R-212 #6) wraps inside the row rather than running under Follow on a phone. */
+.fd-imeta .chip { max-width: 100%; white-space: normal; }
 .fd-ifollow.on { color: var(--p700); }
 .fd-also { margin-top: var(--s8); color: var(--n700); }
 .fd-also a { color: var(--p700); font-weight: 700; }

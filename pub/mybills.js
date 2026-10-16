@@ -7,7 +7,7 @@
 // with Find (search, issue and category pages, HIPHI's lists, the suggestion rows), so a bill and an issue each look
 // and follow the same way everywhere. On a phone a bill row is a small stack; from 1100px the same markup lines up as
 // a table with a header row (bill, status, next date, stance, follow).
-import { S, D, DEMO, esc, icon, nick, blurb, spaced, billPath, alive, stopOf, plainStatus, dueInfo, dayWord, timeWord, dateLong, hstDay,
+import { S, D, DEMO, esc, icon, nick, blurb, spaced, billPath, alive, stopOf, plainStatus, dueInfo, dayWord, timeWord, hearingWhen, dateLong, hstDay,
   sessionInfo, issueIcon, findBill, posInfo, myStance, countOk, listBillsFor, app, toast, issueBills, issueFollowed, followedIssues, viaIssue,
   issuePos, setFollows, unfollowIssue, catOf, issuesIn, followSummary, HELD_RE, whyStoppedShort, roomLabel, CHAMBER_NAME, codesOf } from './core.js';
 import { btn, iconBtn, row, posChip, chip } from './ui.js';
@@ -310,15 +310,20 @@ const andList = a => a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')} a
 // It says what is happening on the issue rather than listing its bills. `news`: what is new since the last visit
 // (My issues). `key`: the attribute the button carries, which decides what pressing it does on that screen.
 export const billsOfIssue = i => issueBills(i).map(id => findBill(id) || (DEMO ? D.bills.find(b => b.id === id) : null)).filter(Boolean);
+// The issue's next hearing: the soonest among its moving bills, with its hour (R-212 #6: the chip showed the first
+// bill's hearing in list order, so an issue with a hearing Tuesday could say "Hearing Fri", and gave no time).
+// A hearing whose hour has passed drops off, so the chip never says "today 9:00 AM" in the afternoon.
+const soonest = bills => bills.map(b => stopOf(b)).filter(st => st.hearingState === 'scheduled' && st.hearing)
+  .map(st => st.hearing).filter(h => new Date(h.scheduled_at) > Date.now()).sort((x, y) => new Date(x.scheduled_at) - new Date(y.scheduled_at))[0];
 export function issueItem(i, { news = '', key = 'data-fdissue' } = {}) {
   const on = issueFollowed(i), off = sessionInfo().phase !== 'in', bills = billsOfIssue(i), live = bills.filter(moving), law = bills.filter(becameLaw).length;
-  const pos = issuePos(off ? bills : live.length ? live : bills, i), soon = !off && live.map(b => stopOf(b)).find(st => st.hearingState === 'scheduled' && st.hearing);
+  const pos = issuePos(off ? bills : live.length ? live : bills, i), soon = !off && soonest(live);
   const meta = off ? [plural(bills.length || issueBills(i).length, 'bill') + ` in ${sessionInfo().recapYear}`, law ? `${law} became law` : ''].filter(Boolean).join(' · ')
     : live.length ? `${plural(live.length, 'bill')} moving` : 'Nothing moving right now';
   return `<li class="fd-irow${on ? ' on' : ''}">
     <a class="fd-imain" href="#/issue/${esc(i.slug)}"><span class="fd-iname">${esc(i.name)}</span>
       ${i.description ? `<span class="fd-idesc mb-clamp">${esc(i.description)}</span>` : ''}
-      <span class="fd-imeta">${news ? `<span class="mb-new">New: ${esc(news)}<span class="sr"> since your last visit</span></span>` : ''}${soon ? chip(`Hearing ${dayWord(soon.hearing.scheduled_at)}`, 'info', 'calendar') : ''}<span>${esc(meta)}</span>${pos ? posChip({ hiphi_position: pos }) : ''}</span></a>
+      <span class="fd-imeta">${news ? `<span class="mb-new">New: ${esc(news)}<span class="sr"> since your last visit</span></span>` : ''}${soon ? chip(`Hearing ${hearingWhen(soon.scheduled_at)}`, 'info', 'calendar') : ''}<span>${esc(meta)}</span>${pos ? posChip({ hiphi_position: pos }) : ''}</span></a>
     ${btn(on ? 'Following' : 'Follow', { kind: 'secondary', sm: true, icon: on ? 'check' : 'star', cls: 'fd-ifollow' + (on ? ' on' : ''), attrs: { [key]: i.id, 'aria-pressed': String(on), 'aria-label': `${on ? 'Following' : 'Follow'} ${i.name}`, title: on ? 'Following. Press to stop following.' : null } })}
   </li>`;
 }

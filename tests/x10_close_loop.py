@@ -114,7 +114,8 @@ def run(br, w, h, tag):
         ok('Watch it live' in txt(p, '.hm-loop .hm-loopx'), f'{tag}, {who}: with the live video')
         if fin:
             chips = p.evaluate("[...document.querySelectorAll('.hm-yours .chip')].map(x => x.innerText.trim())")
-            ok('Today' in chips and 'Mon' not in chips, f'{tag}: the issue\'s chip says Today, not the weekday ({chips})')
+            # R-212 #6: the chip names the hearing and its hour, worded as on Find ("Hearing today 11:00 AM")
+            ok('Hearing today 11:00 AM' in chips and not any('Mon' in c for c in chips), f'{tag}: the issue\'s chip says "Hearing today" with the hour, not the weekday ({chips})')
             ok(p.locator('.hm-week').count() == 0 or 'HB 2121 has a hearing today' not in txt(p, '.hm-week'), f'{tag}: "This week" does not offer help with the hearing they already spoke at')
             p.screenshot(path=f'{OUT}/{tag}-4-hearing-day.png', full_page=False)
         else:
