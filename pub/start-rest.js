@@ -15,6 +15,7 @@ import { GO_HELP } from './topics.js';
 import { afterMove, bloom, burst, later, reduced, petals, swap } from './fx.js';
 import { shareLine } from './keep.js';
 import { endHome, armOf, abSeen } from './variant.js';   // and the test 'act' (R-150): today's "Coming up" | three ways to help
+import { nameField, wireName, keepName as keepFirstName, firstName } from './firstname.js';   // the first name on the sign-up (R-294)
 import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep, alertStatus, alertRowHTML, wireAlertRow, profileAsk, PROFILE_H } from './alerts.js';
 const followLabel = n => n ? `Follow ${plural(n, 'issue')}` : 'Follow issues';
 
@@ -356,7 +357,7 @@ function stepAlerts(step) {
   // "Save your profile" (R-184): the same box, named for what a number or an email makes; "Get alerts on your issues" is
   // the test 'save''s second version. Met here only while the box shows.
   const prof = profileAsk(); abSeen('save');
-  const body = `<form class="card st-form st-askcard st-alertform" id="st-aform" novalidate>${alertFields('st-a')}</form>`;
+  const body = `<form class="card st-form st-askcard st-alertform" id="st-aform" novalidate>${codeStep('st-a') ? '' : nameField('st-a')}${alertFields('st-a')}</form>`;
   // The lede says what a hearing is: the story that teaches it comes after this screen, so the promise of hearing alerts
   // has to make sense on its own (the review, 10/4). In the profile ask (R-188) the code step says what the code does for
   // the ask that was made (save the profile; the field and the line under it already say "6-digit" and "texted").
@@ -378,7 +379,8 @@ function stepAlerts(step) {
 // A shared bill's visit has no "Mahalo!" (its follow got a small burst on "Follow this issue?"), so it goes straight on.
 function thanksWords(r) {
   const off = isOff(), n = followedIssues().length, bills = [...S.watch].map(anyBill).filter(b => b && (off || alive(b))).length;
-  return { title: 'Mahalo!', sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`,
+  const first = firstName();
+  return { title: first ? `Mahalo, ${first}!` : 'Mahalo!', sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`,
     small: off ? 'Their bills come to you as soon as the session starts.' : `That’s ${plural(bills, 'bill')} this session. We’ll watch every one.`,
     // Its button names what comes next (C-6, C-7): right after a sign-up, a plain "Continue" read as the end of the visit.
     // The next part's name is in title case, as a name (Nate 10/6, R-186); both versions of the test 'fv' alike.
@@ -412,7 +414,7 @@ function stepThanks(step) {
     card);
 }
 export function leaveAlerts(step, r = null) {
-  S.alertEdit = false;
+  S.alertEdit = false; keepFirstName();
   if (wiz().via) { goStep(step, step + 1); return; }
   S.stThanks = r || { kind: 'none' }; S.stThanksSeen = false;
   // The same address, drawn again as the "Mahalo!" page: it slides in like a new screen, and focus goes to its heading
@@ -523,7 +525,7 @@ function stepSoon(step) {
     <h1 class="hero" id="st-h">${off ? 'Your issues, this year and next' : 'Coming up on your issues'}</h1>
     ${lede ? `<p class="lede">${lede}</p>` : ''}`,
     // Nothing followed: the way back to the tiles, and no alerts line about issues nobody follows (B-3, A-14; the critic, R-249).
-    `${list}${!followedIssues().length ? `<p class="st-pickagain">${btn('Pick your issues', { kind: 'text', icon: 'arrow-left', attrs: { 'data-stgo': String(stepOf('topics', off)) } })}</p>` : quiet ? quietAsk() : nameCard()}`);
+    `${list}${!followedIssues().length ? `<p class="st-pickagain">${btn('Pick your issues', { kind: 'text', icon: 'arrow-left', attrs: { 'data-stgo': String(stepOf('topics', off)) } })}</p>` : quiet ? quietAsk() : ''}`);
 }
 // ================= The test 'act', its second version: three ways to help (R-150) =================
 // Nate 10/4: "We want people to act right away after signing up"; 10/5: "The last page asking for action should provide three
@@ -619,7 +621,7 @@ function stepWays(step, ways) {
   return shell('st4 st-soonpage st-wayspage', `${topRow('soon', step)}
     <h1 class="hero" id="st-h">${ways.length === 2 ? 'Two' : 'Three'} ways to help ${off ? 'before January' : 'this week'}</h1>
     <p class="lede">Pick one and we’ll walk you through it.</p>`,
-    `<ul class="st-ways" role="list">${ways.map(card).join('')}</ul>${nameCard()}`);
+    `<ul class="st-ways" role="list">${ways.map(card).join('')}</ul>`);
 }
 // The three ways are on the page and none is done yet (the bar's Skip, R-235). The bar is drawn before the page, so this
 // asks waysFor() as stepSoon does, not the page.
@@ -649,18 +651,6 @@ function wireWays({ step }) {
     try { await saveProfile({ stories: { ...myStories(), [id]: text } }); } catch (err) { console.error(err); }
     S.stWayStory = null; S.stWayDraft = ''; app.render();
   });
-}
-// The first name, optional, once there is a way to reach them (R-078 asked it after the email; since R-146 the ask is
-// earlier and leaves straight for the "Mahalo!", so it waits here): the finale and Home greet them by it, and it joins
-// the account like the issues do (core loadUser). Signed in, the account has its own.
-function nameCard() {
-  const M = S.stMail, given = mailSent() || textSaved();
-  if (S.session || !given) return '';
-  if (M.named) return `<p class="small st-named">${icon('check')}<span>We’ll greet you as ${esc(M.named)}.</span></p>`;
-  if ((wiz().name || '').trim()) return '';
-  // No Save button of its own (the review: a typed name was half-kept): Next, or Enter, keeps what is typed.
-  return `<section class="card st-namecard"><div class="field st-namefld"><label for="st-name">First name <span class="st-opt">(optional, so we can greet you)</span></label>
-    <input id="st-name" name="name" type="text" autocomplete="given-name" enterkeyhint="next" placeholder="Leilani" value="${esc(M.name || '')}"></div></section>`;
 }
 // The email-ask test's second version (R-135, variant.js 'email'): the first visit does not ask (askAlerts passes the
 // alerts screen over); the first ask comes after the person's first action (pub/actions.js nudgeCard) or another day.
@@ -920,12 +910,10 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
     abSeen('act');   // the test 'act' (R-150): the two versions differ on this page and nowhere else
     if (S.stWays && document.querySelector('.st-wayspage')) wireWays({ step });
     // A first name typed here is kept when they move on: the finale and Home both read wiz().name.
-    const keepName = () => { const first = ($('#st-name')?.value || '').trim().slice(0, 40); if (first) { wizSet({ name: first }); S.stMail.name = first; S.stMail.named = first; } };
     // A sentence typed in "Say why it matters" and not yet kept is kept on the way out too (C-9, the review).
     const keepStory = () => { const id = S.stWayStory, text = (S.stWayDraft || '').trim(); if (!id || !text) return;
       S.stWayStory = null; S.stWayDraft = ''; saveProfile({ stories: { ...myStories(), [id]: text } }).catch(e => console.error(e)); };
-    const nb = $('[data-stnext]'); if (nb) nb.onclick = () => { keepName(); keepStory(); next(); };
-    const nf = $('#st-name'); if (nf) { nf.oninput = () => { S.stMail.name = nf.value; }; nf.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); keepName(); next(); } }; }
+    const nb = $('[data-stnext]'); if (nb) nb.onclick = () => { keepStory(); next(); };
   }
 
   if (name === 'alerts') {
@@ -939,6 +927,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       track(name, 'next', { counts: { phone: r.kind === 'phone', email: r.kind === 'email' } });
       leaveAlerts(step, r);
     } });
+    wireName($('#st-aform'), 'st-a');
     $$('[data-stalchange]').forEach(el => el.onclick = () => {
       S.alertEdit = true;
       if (!textSaved()) { S.alertMode = 'email'; S.alertDraft.email = mailSent(); S.stMail.sent = ''; try { sessionStorage.removeItem('hiphi_link_sent'); } catch { /* ignore */ } }

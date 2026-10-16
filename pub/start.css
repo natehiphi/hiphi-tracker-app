@@ -242,7 +242,6 @@ button.st-way:active { transform: scale(.99); }
 .st-waystory .btnrow { display: flex; }
 .st-namerow { display: flex; gap: 8px; align-items: stretch; }
 .st-namerow input { flex: 1; min-width: 0; }
-.st-opt { font-weight: 400; color: var(--n500); }
 .st-formbtns { display: flex; flex-direction: column; gap: var(--s8); }
 .st-sent { display: flex; gap: var(--s12); align-items: flex-start; }
 .st-sentbody { display: flex; flex-direction: column; gap: var(--s8); min-width: 0; flex: 1 1 auto; }
@@ -441,11 +440,14 @@ button.st-way:active { transform: scale(.99); }
    list it follows. */
 .st-quietask { display: flex; align-items: flex-start; gap: var(--s8); margin: var(--s16) 0 0; }
 .st-quietask .ic { flex: none; width: 20px; height: 20px; margin-top: 1px; }
-/* The optional first name on "Coming up" (R-146: the alerts ask moved up, the name stayed after it). */
-.st-namecard { padding: var(--s16); margin-top: var(--s12); }
+/* The optional first name, above the number on the sign-up (R-294, pub/firstname.js; it was a card on "Coming up" that a
+   short screen dropped first). The two boxes read as one group (the card's gap, not base.css's 16px between fields); on
+   a short window both boxes are 46px, still past the 44px target (A-6), so the small print stays above the pinned button
+   (D1-6, CTIA) with nothing to scroll (R-265). */
+.fv-namefield + .al-field { margin-top: 0; }
+@media (max-height: 740px) { .st-alertform .fv-namefield input, .st-alertform .al-field input { min-height: 46px; height: 46px; padding-block: var(--s8); } }
 .st-alchange { align-items: flex-start; }   /* "Use a different number" lines up with the words above it */
 .st-alchange .btn { width: auto; padding-inline: 0; justify-content: flex-start; }
-.st-named { display: flex; gap: var(--s8); align-items: center; margin-top: var(--s12); }
 /* The first visit's last page names the profile once someone has one (R-156 C2). */
 .st-prof { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s12) 0 0; font-size: var(--t14); color: var(--n700); }
 .st-prof > .ic { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--p700); }
