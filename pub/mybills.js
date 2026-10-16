@@ -9,7 +9,7 @@
 // a table with a header row (bill, status, next date, stance, follow).
 import { S, D, DEMO, esc, icon, nick, blurb, spaced, billPath, alive, stopOf, plainStatus, dueInfo, dayWord, timeWord, dateLong, hstDay,
   sessionInfo, issueIcon, findBill, posInfo, myStance, countOk, listBillsFor, app, toast, issueBills, issueFollowed, followedIssues, viaIssue,
-  issuePos, setFollows, unfollowIssue, catOf, issuesIn, followSummary, HELD_RE, whyStoppedShort, cmteLabel, roomLabel, CHAMBER_NAME, codesOf } from './core.js';
+  issuePos, setFollows, unfollowIssue, catOf, issuesIn, followSummary, HELD_RE, whyStoppedShort, roomLabel, CHAMBER_NAME, codesOf } from './core.js';
 import { btn, iconBtn, row, posChip, chip } from './ui.js';
 import { followToggle } from './actions.js';
 import { VOICES } from './art.js';
@@ -63,11 +63,13 @@ export function statusChip(b, h) {
 // alive: a stopped bill never shows an upcoming hearing or a deadline (test hearings linger on a few, 9/19).
 const dayLabel = iso => { const d = hstDay(iso), md = new Date(iso).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', month: 'short', day: 'numeric' });
   return d === hstDay(Date.now()) ? `Today, ${md}` : d === hstDay(Date.now() + 864e5) ? `Tomorrow, ${md}` : dateLong(iso); };
-// Two committees hearing it together are "Two Senate committees": both names would take five lines of the narrow column,
-// and the bill page names them.
-const hearingWhere = h => { const n = codesOf(h.committee).length, c = S.committees[codesOf(h.committee)[0]], ch = c ? CHAMBER_NAME[c.chamber] || '' : '';
-  const who = !c ? '' : n > 1 ? `${n === 2 ? 'Two' : n === 3 ? 'Three' : n} ${ch} committees`.replace(/\s+/g, ' ') : `${ch} ${cmteLabel(h.committee, { short: true })}`.trim();
-  return [who, h.room ? roomLabel(h.room) : ''].filter(Boolean).join(' · '); };
+// The room first, since it is what a person going needs and stays one short piece ("Room 229", never split); no room while
+// the Capitol still says "room TBD". Then the committee, free to wrap: a joint hearing names the lead committee and "+ 1
+// more" (both names would take five lines of the narrow column; the bill page names them all).
+const hearingWhere = h => { const cs = codesOf(h.committee).map(c => S.committees[c]).filter(Boolean), r = h.room ? roomLabel(h.room) : '';
+  const room = /^Room \S+$/.test(r) ? r.replace(' ', '\u00a0') : r && !/announced/.test(r) ? r : '';
+  const who = !cs.length ? '' : `${CHAMBER_NAME[cs[0].chamber] || ''} ${cs[0].name}`.trim() + (cs.length > 1 ? ` + ${cs.length - 1} more` : '');
+  return [room, who].filter(Boolean).join(' · '); };
 export function nextDate(b, h) {
   if (!alive(b)) return null;
   const st = stopOf(b), hr = h || (st.hearingState === 'scheduled' ? st.hearing : null);
@@ -193,7 +195,7 @@ export function billRow(b, { note = '', pos = false, fresh = false, why = false,
         <span class="mb-id"><span class="mb-num">${esc(num)}</span>${news ? `<span class="mb-new">New: ${esc(news)}<span class="sr"> since your last visit</span></span>` : ''}</span>${alt ? `<span class="mb-alt">${esc(alt)}</span>` : ''}</span>
       <span class="mb-who">${p ? `<span class="mb-pos">${icon(p.icon)}<span>${esc(p.text)}</span></span>` : ''}${mine ? `<span class="mb-stance">${icon(mine.icon)}<span>${esc(mine.text)}</span></span>` : pos || ghost ? '' : '<span class="mb-stance none">Not said yet</span>'}</span>
       <span class="mb-status">${ghost ? '<span class="mb-why">Unfollowed. Select the star to follow it again.</span>' : why ? `<span class="mb-why">${esc(stoppedWhy(b))}</span>` : status ? `<span class="mb-why">${esc(status)}</span>` : statusChip(b, hearing)}</span>
-      ${why || ghost ? '' : `<span class="mb-next">${nd ? `<b>${esc(nd.day)}</b><span>${esc(nd.sub)}</span>${nd.where ? `<span class="mb-where">${esc(nd.where)}</span>` : ''}` : moving(b) ? '<span>No date set</span>' : ''}</span>`}
+      ${why || ghost ? '' : `<span class="mb-next">${nd ? `<b>${esc(nd.day)}</b><span>${esc(nd.sub)}</span>${nd.where ? `<span class="mb-where" title="${esc(nd.where)}">${esc(nd.where)}</span>` : ''}` : moving(b) ? '<span>No date set</span>' : ''}</span>`}
     </a>
     ${take ? iconBtn('circle-minus', `Take ${name ? `${name}, ${num}` : num} off this list`, { 'data-ultake': b.id }, 'mb-star mb-take')
       : iconBtn('star', `Follow ${name ? `${name}, ${num}` : num}`, { 'data-star': b.id, 'data-label': nameOf(b), 'aria-pressed': on ? 'true' : 'false' }, 'mb-star' + (on ? ' on' : ''))}

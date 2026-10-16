@@ -369,7 +369,9 @@ function mainButton(b, x) {
     }
     case 'governor': return btn(x.differs ? 'Tell the Governor what you think' : /oppose/.test(b.hiphi_position || '') ? 'Ask the Governor to veto it' : 'Ask the Governor to sign it',
       { kind: 'primary', icon: 'landmark', iconEnd: 'external-link', full: true, href: GOV_URL, attrs: { 'data-bl-main': 'governor', 'data-bl-mail': '-', target: '_blank', rel: 'noopener' } });
-    case 'law': return btn(x.differs ? 'Share' : 'Share the good news', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-bl-go': 'share' } });
+    // Once shared, the button says so, so the page remembers it (R-212 #16: nobody saw what their share did); it still shares again.
+    case 'law': return didKind(b, null, 'share') ? btn('Shared · Share again', { kind: 'primary', icon: 'check', full: true, attrs: { 'data-bl-go': 'share' } })
+      : btn(x.differs ? 'Share' : 'Share the good news', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-bl-go': 'share' } });
     case 'stopped': {
       // A stopped bill is not the end of its issue: follow the issue and its next bills come to you (R-018). Between
       // sessions too (B3-1, R-199): following the issue is what brings its new bills in January, so it leads, and "Find
@@ -382,7 +384,8 @@ function mainButton(b, x) {
       return btn(off ? 'Find bills' : 'Find bills still moving', { kind: 'primary', icon: 'search', full: true, href: '#/find' });
     }
     // After testimony on an open hearing the main button asks a friend (R-205 B2); a live bill with no ask just now is Share.
-    default: return btn(x.act ? 'Ask a friend to speak up' : 'Share', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-bl-go': 'share' } });
+    default: { const shared = didKind(b, x.act?.h, 'share');
+      return btn(x.act ? (shared ? 'Ask another friend' : 'Ask a friend to speak up') : shared ? 'Shared · Share again' : 'Share', { kind: 'primary', icon: shared ? 'check' : 'share-2', full: true, attrs: { 'data-bl-go': 'share' } }); }
   }
 }
 
