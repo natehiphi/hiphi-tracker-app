@@ -85,11 +85,11 @@ with sync_playwright() as pw:
     ok(p.locator('.st-nothing').first.evaluate('e => e.getBoundingClientRect().height') >= 48, 'nothing set: the line is a card, not a skipped line')
     c.close()
 
-    # ---- the ending on Home: the same page, its button still says where it goes ----
+    # ---- the ending on Home skips this page (R-293, Nate 10/15): Home already shows each bill under "What you can do right now" ----
     c, p = ctx(b)
-    walk_to_soon(p, '&end=home')
-    ok(p.locator('.st-cu').count() >= 1 and 'Coming up on your issues' == p.inner_text('#st-h'), 'ending on Home: the same coming-up page')
-    ok(p.locator('.st-bar .btn.primary', has_text='See How I Can Help').count() == 1, 'ending on Home: the button still says "See How I Can Help" (B-14)')
+    try: walk_to_soon(p, '&end=home'); reached = True
+    except Exception: reached = False
+    ok(not reached and p.locator('.st-soonpage').count() == 0 and p.locator('#main .hm').count() == 1, 'ending on Home: the story goes straight to Home, not to this page')
     c.close()
 
     # ---- between sessions: the honest line in the place of the list, the session date labelled ----

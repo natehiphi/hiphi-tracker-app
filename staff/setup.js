@@ -484,7 +484,7 @@ const pct = (n, d) => d ? `${Math.round(100 * n / d)}%` : '–';
 // on compare.html. The three are the practice copy's own issues with hearings this week (demo/snapshot.json).
 const HOME_SCENE = '#/follow/safer-walking-near-schools,forgive-medical-debt,disposable-e-cigarette-ban';
 const SEE = {
-  end: ['track.html?demo=1&restart&ab=end.', 'Both open on “Coming up on your issues”, the last screen before the end. Its main button is the difference: one says Next and ends on “You’re all set”, the other says “See How I Can Help” and ends on Home.', '#/start/6'],
+  end: ['track.html?demo=1&restart&ab=end.', 'Both open on a bill’s story, the last part before the end. Go through it: its last button is the difference. One goes on to “Coming up on your issues” and ends on “You’re all set”, the other says “See How I Can Help” and goes straight to Home (R-293).', '#/start/4'],
   fv: ['track.html?demo=1&restart&ab=fv.', 'Both open on the first visit’s second part: a bill’s story, or one page.', '#/start/4'],
   email: ['track.html?demo=1&restart&ab=email.', 'Both open at the first visit’s start. Pick a topic, press Next, then Follow: the first version asks for a text or email next, on “Save your profile”; the other says “Mahalo!” and goes on without asking.', '#/start/1'],
   onb: ['track.html?demo=1&restart&ab=onb.', 'Both open at the start of a first visit, in that version. Each plan has its own screens after the first.', '#/start/1'],
@@ -628,7 +628,7 @@ const fileSlug = x => x.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-
 const ROOM_INSIDE = ['end', 'fv', 'email', 'act'], ROOM_PLAN_ONLY = ['join'];
 // Where in a visit each test's difference shows, for the page Nate keeps.
 const ROOM_WHERE = { onb: 'The whole first visit.', end: 'The last screen of the first visit.', fv: 'The middle of the first visit.',
-  email: 'Near the end of the first visit, on “Coming up on your issues”.', join: 'The alerts sign-up, after their first step.',
+  email: 'Right after the issues are followed: the alerts sign-up, or a “Mahalo!” that does not ask.', join: 'The alerts sign-up, after their first step.',
   rank: 'After they send testimony on a bill: the card that comes next.', share: 'The message when they press Share on a bill.',
   home: 'The top of Home, once they have two or more things to do.',
   layout: 'Home, from the visit after the first one.',
@@ -661,8 +661,25 @@ const onPlan = g => { const t = roomTest('onb'); return !!t && armIn(g, t) !== t
 // R-222: the calm Home and September's version A).
 const ROOM_A_REPLACES = ['home'];
 const onA = g => { const t = roomTest('layout'); return !!t && armIn(g, t) !== 'today'; };
-const applies = (g, t) => !(ROOM_INSIDE.includes(t.key) && onPlan(g)) && !(ROOM_PLAN_ONLY.includes(t.key) && !onPlan(g)) && !(ROOM_A_REPLACES.includes(t.key) && onA(g));
-const offWhy = (g, t) => ROOM_PLAN_ONLY.includes(t.key) ? 'Only met on a plan' : ROOM_A_REPLACES.includes(t.key) && onA(g) ? 'Replaced by the new Home' : 'Replaced by the plan';
+// The ending on Home replaces the three ways to help (pub/variant.js arm0, R-150): since R-293 it skips that page and goes
+// from the bill's story straight to Home. The UH class's group on 15 Oct had both, so its "three ways" half showed nothing and the sheet never said so
+// (R-292, R-293).
+const ROOM_END_REPLACES = ['act'];
+const onEndHome = g => { const t = roomTest('end'); return !!t && armIn(g, t) === 'home'; };
+const applies = (g, t) => !(ROOM_INSIDE.includes(t.key) && onPlan(g)) && !(ROOM_PLAN_ONLY.includes(t.key) && !onPlan(g)) && !(ROOM_A_REPLACES.includes(t.key) && onA(g))
+  && !(ROOM_END_REPLACES.includes(t.key) && onEndHome(g));
+const offWhy = (g, t) => ROOM_PLAN_ONLY.includes(t.key) ? 'Only met on a plan' : ROOM_A_REPLACES.includes(t.key) && onA(g) ? 'Replaced by the new Home'
+  : ROOM_END_REPLACES.includes(t.key) && onEndHome(g) ? 'Replaced by the ending on Home' : 'Replaced by the plan';
+// A version picked for this group that another of its picks hides (R-293, Nate 10/15: "make the tester sheet warn when a
+// group's versions cancel each other"): said on the card in words, with what the testers will see instead, so a group is
+// never sent out on a version nobody can meet.
+const clashWhy = (g, t) => ROOM_PLAN_ONLY.includes(t.key) ? 'it is met only on a plan of the first visit'
+  : ROOM_A_REPLACES.includes(t.key) && onA(g) ? 'this group’s Home replaces the one it changes'
+  : ROOM_END_REPLACES.includes(t.key) && onEndHome(g) ? 'with the ending on Home, testers go from the bill’s story straight to Home'
+  : 'this group’s plan has its own screens';
+const roomClashes = g => roomTests().filter(t => t.key !== 'onb' && !applies(g, t) && t.arms.includes(g.v?.[t.key]) && g.v[t.key] !== t.arms[0]);
+// The version's short name ("Three ways to help", not its whole description).
+const clashText = (g, t) => `${armName(t, g.v[t.key]).split(':')[0]} will not show: ${clashWhy(g, t)}. Change one of the two.`;
 // The screens other than the first visit where a group differs from today's.
 const roomDiffs = g => roomTests().filter(t => t.key !== 'onb' && applies(g, t) && armIn(g, t) !== t.arms[0]);
 // The screens any group changed: every card shows each of them, in the same order, so the cards compare line by line.
@@ -786,6 +803,7 @@ function roomCard(g, i, r) {
     <div class="rm-ghead"><h2 id="rm-h-${i}" tabindex="-1">${esc(name)}</h2>${iconBtn('ellipsis', `More for ${name}`, { 'data-rmmore': i, 'aria-haspopup': 'dialog' })}</div>
     ${onb ? pick(onb, 'First visit') : ''}
     ${shown.map(t => applies(g, t) ? pick(t, t.name) : off(t)).join('')}
+    ${roomClashes(g).map(t => notice('warn', 'triangle-alert', esc(clashText(g, t)))).join('')}
     ${same ? `<p class="small rm-same">${icon('flag')}<span>Today’s version of everything, to compare the others against.</span></p>` : ''}
     ${more.length ? `<div>${btn('Change another screen', { kind: 'text', sm: true, icon: 'plus', cls: 'rm-addscr', attrs: { 'data-rmscreen': i, 'aria-haspopup': 'dialog' } })}</div>` : ''}
     <div class="rm-qr">
@@ -1261,7 +1279,10 @@ const PAGES = {
         } });
       const versions = (g, i, t) => pickerSheet({ title: `${esc(gName(g, i))}: ${t.key === 'onb' ? 'First visit' : t.name}`, value: armIn(g, t), help: esc(roomWhere(t)),
         options: t.arms.map(x => [x, armName(t, x), null, x === t.arms[0] ? 'Today’s version' : t.key === 'onb' ? ROOM_PLAN_SUB[x] || '' : '']),
-        onPick: arm => change(t.key === 'onb' || arm !== t.arms[0] ? `[data-rmpick="${i}|${t.key}"]` : `#rm-h-${i}`, () => setArm(g, t, arm)) });
+        onPick: arm => { const had = roomClashes(g).length;
+          change(t.key === 'onb' || arm !== t.arms[0] ? `[data-rmpick="${i}|${t.key}"]` : `#rm-h-${i}`, () => setArm(g, t, arm));
+          // Said at once as well as on the card, since the pick that hides another is made in a sheet over the page.
+          const now = roomClashes(g); if (now.length > had) toast(clashText(g, now[now.length - 1])); } });
       root.querySelectorAll('[data-seg="rmwhere"]').forEach(b => b.onclick = () => change(`[data-seg="rmwhere"][data-val="${b.dataset.val}"]`, () => { r.where = b.dataset.val === 'live' ? 'live' : 'demo'; }));
       root.querySelector('[data-rmadd]')?.addEventListener('click', () => {
         change(`#rm-h-${r.groups.length}`, () => r.groups.push({ v: {}, gid: rid(3) }));

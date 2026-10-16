@@ -859,8 +859,11 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
     lessons().lessonStart('story', E, { back, redraw: !fresh });
     const nb = $('[data-stnext]');
     // On the story's last stage the button names the next screen (C-6), so finishing it reads as a step on, not the end.
+    // Where Home comes next (the ending on Home, R-293) Skip on the last stage would go where the button goes and drop the
+    // story's tick, so it is hidden there (the review, 15 Oct; A-14).
+    const sk = $('[data-stskip]'), home = !stepOf('soon', isOff());
     const label = () => { if (!nb) return; const last = lessons().lessonStep('story') >= lessons().lessonLast('story');
-      nb.querySelector('span').textContent = last ? GO_YOU() : 'Next'; };
+      nb.querySelector('span').textContent = last ? GO_YOU() : 'Next'; if (sk && home) { sk.hidden = last; sk.parentElement.classList.toggle('st-solo', last); } };
     label();
     // A stage can change without Next: Back, or a tap on the story's own stage dots.
     $('.st')?.addEventListener('click', () => requestAnimationFrame(label));
@@ -970,7 +973,8 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
 // "Next: Your Legislators" until that step left the first visit (R-232); now it names the page that follows, which the
 // test 'act' draws as three ways to help or as today's "Coming up on your issues" ("Your issues, this year and next" between sessions).
 // Between sessions not "Your Issues" (the review): the bar above already ticks "Your issues" as done.
-const GO_YOU = () => armOf('act') === 'three' && waysFor() ? 'Next: Ways to Help' : isOff() ? 'Next: This Year and Next' : 'Next: Coming Up';
+// The version that ends on Home skips that page (R-293), so there the story's last button goes to Home and says so.
+const GO_YOU = () => !stepOf('soon', isOff()) ? GO_HELP : armOf('act') === 'three' && waysFor() ? 'Next: Ways to Help' : isOff() ? 'Next: This Year and Next' : 'Next: Coming Up';
 // The action bar of the steps after the topics (start-rest.js).
 export function barStep(name, step, off) {
   switch (name) {

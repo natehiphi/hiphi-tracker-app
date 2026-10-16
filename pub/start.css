@@ -322,6 +322,8 @@ button.st-way:active { transform: scale(.99); }
 .st-keep .kp-dot, .st-keep br { display: none; }
 .st-btns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: var(--s16); align-items: center; }
 .st-btns .btn { width: 100%; padding: 0 12px; }
+/* The story's last stage in the ending on Home hides its Skip (R-293): the one button then takes the whole bar, like .st-one. */
+.st-btns.st-solo { grid-template-columns: minmax(0, 1fr); }
 .st-one { display: flex; }
 .st-one .btn { width: 100%; }
 
@@ -343,6 +345,7 @@ button.st-way:active { transform: scale(.99); }
   .st-btns .btn.primary { padding: 0 32px; }
   .st-one { justify-content: flex-end; }
   .st-one .btn { width: auto; min-width: 260px; }
+  .st-btns.st-solo { grid-template-columns: minmax(260px, auto); justify-content: end; }
 }
 
 /* ================= wide screens: designed for a big screen, not a widened phone =================

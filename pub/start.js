@@ -94,9 +94,10 @@ const FLOW_LINK = ['followask', 'alerts', 'bill', 'soon', 'done'];
 const SHORT = () => armOf('fv') === 'short';
 const shorten = f => SHORT() ? f.map(n => n === 'bill' ? 'voice' : n) : f;
 // The version that ends on Home (?end=home, R-098) has no "You're all set" screen: the last step goes straight to Home,
-// where the celebration plays (pub/home.js).
+// where the celebration plays (pub/home.js). Since R-293 (Nate 10/15) it has no "Coming up on your issues" either: the
+// bill's story goes straight to Home, which already shows each bill under "What you can do right now".
 const flowOf = off => { const p = planOn(); if (p) return planFlow(p, off);
-  const f = shorten(wiz().via ? FLOW_LINK : off ? FLOW_OFF : FLOW_IN); return endHome() ? f.filter(n => n !== 'done') : f; };
+  const f = shorten(wiz().via ? FLOW_LINK : off ? FLOW_OFF : FLOW_IN); return endHome() ? f.filter(n => n !== 'done' && n !== 'soon') : f; };
 const nameAt = (step, off) => { const f = flowOf(off); return f[Math.min(Math.max(step | 0, 1), f.length) - 1]; };
 export const stepOf = (name, off) => flowOf(off).indexOf(name) + 1;
 export const total = off => flowOf(off).length;
