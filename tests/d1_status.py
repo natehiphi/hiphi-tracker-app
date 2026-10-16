@@ -49,11 +49,12 @@ def to_alerts(p, extra=''):
     p.locator('.st-tile', has_text='Food').first.click(); p.wait_for_timeout(200)
     p.click('[data-stnext]'); p.wait_for_selector('[data-stpick]', timeout=10000); p.wait_for_timeout(800)
     p.click('[data-stnext]'); p.wait_for_selector('.st-alertspage', timeout=10000); p.wait_for_timeout(700)
-def story_to_soon(p):
+def story_to_soon(p, home=False):
     p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(1000)
     for _ in range(2): p.click('[data-stnext]'); p.wait_for_timeout(1300)
     # the story's two choices since R-255 (Nate 10/12): the first choice on each, then Next, which sleeps until a choice is made
     for _ in range(2): p.click('.lx-doors [data-lx-pick]'); p.wait_for_timeout(900); p.click('[data-stnext]'); p.wait_for_timeout(1300)
+    if home: return   # the ending on Home: the story's last Next is Home (R-293)
     # the story hands straight on to Coming up (R-232: the address step left the first visit)
     p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(700)
 # The "Mahalo!" page (R-140, Nate 11 Oct: a page that waits for Next): today's alerts step and the plans' sign-up are drawn
@@ -112,7 +113,7 @@ def s1(p, w=390, h=844):
 def s2(p, w=390, h=844):
     to_alerts(p, '&codes=0&fv=full&end=home')
     p.fill('#st-a-phone', '(808) 555-0123'); p.click('#st-send'); mahalo_on(p)
-    story_to_soon(p); p.click('[data-stnext]'); p.wait_for_selector('.hm-did', timeout=10000); p.wait_for_timeout(1500)
+    story_to_soon(p, home=True); p.wait_for_selector('.hm-did', timeout=10000); p.wait_for_timeout(1500)   # straight to Home (R-293)
     did = text(p, '.hm-did')
     ok('Alerts almost set' in did and not ON.search(did), f'2 Home’s ticks: "Alerts almost set", not "Text alerts on": {did!r}')
     shot(p, f'2_home_end_almost_{w}')

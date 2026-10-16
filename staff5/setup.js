@@ -495,7 +495,7 @@ const pct = (n, d) => d ? `${Math.round(100 * n / d)}%` : '–';
 // on compare.html. The three are the practice copy's own issues with hearings this week (demo/snapshot.json).
 const HOME_SCENE = '#/follow/safer-walking-near-schools,forgive-medical-debt,disposable-e-cigarette-ban';
 const SEE = {
-  end: ['track.html?demo=1&restart&ab=end.', 'Both open on “Coming up on your issues”, the last screen before the end. Its main button is the difference: one says Next and ends on “You’re all set”, the other says “See How I Can Help” and ends on Home.', '#/start/6'],
+  end: ['track.html?demo=1&restart&ab=end.', 'Both open on a bill’s story, the last part before the end. Go through it: its last button is the difference. One goes on to “Coming up on your issues” and ends on “You’re all set”, the other says “See How I Can Help” and goes straight to Home (R-293).', '#/start/4'],
   fv: ['track.html?demo=1&restart&ab=fv.', 'Both open on the first visit’s second part: a bill’s story, or one page.', '#/start/4'],
   email: ['track.html?demo=1&restart&ab=email.', 'Both open at the first visit’s start. Pick a topic, press Next, then Follow: the first version asks for a text or email next, on “Save your profile”; the other says “Mahalo!” and goes on without asking.', '#/start/1'],
   onb: ['track.html?demo=1&restart&ab=onb.', 'Both open at the start of a first visit, in that version. Each plan has its own screens after the first.', '#/start/1'],
@@ -639,7 +639,7 @@ const fileSlug = x => x.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-
 const ROOM_INSIDE = ['end', 'fv', 'email', 'act'], ROOM_PLAN_ONLY = ['join'];
 // Where in a visit each test's difference shows, for the page Nate keeps.
 const ROOM_WHERE = { onb: 'The whole first visit.', end: 'The last screen of the first visit.', fv: 'The middle of the first visit.',
-  email: 'Near the end of the first visit, on “Coming up on your issues”.', join: 'The alerts sign-up, after their first step.',
+  email: 'Right after the issues are followed: the alerts sign-up, or a “Mahalo!” that does not ask.', join: 'The alerts sign-up, after their first step.',
   rank: 'After they send testimony on a bill: the card that comes next.', share: 'The message when they press Share on a bill.',
   home: 'The top of Home, once they have two or more things to do.',
   layout: 'Home, from the visit after the first one.',
@@ -672,8 +672,8 @@ const onPlan = g => { const t = roomTest('onb'); return !!t && armIn(g, t) !== t
 // R-222: the calm Home and September's version A).
 const ROOM_A_REPLACES = ['home'];
 const onA = g => { const t = roomTest('layout'); return !!t && armIn(g, t) !== 'today'; };
-// The ending on Home replaces the three ways to help (pub/variant.js arm0, R-150): beside it the tracker shows "Coming up on
-// your issues". The UH class's group on 15 Oct had both, so its "three ways" half showed nothing and the sheet never said so
+// The ending on Home replaces the three ways to help (pub/variant.js arm0, R-150): since R-293 it skips that page and goes
+// from the bill's story straight to Home. The UH class's group on 15 Oct had both, so its "three ways" half showed nothing and the sheet never said so
 // (R-292, R-293).
 const ROOM_END_REPLACES = ['act'];
 const onEndHome = g => { const t = roomTest('end'); return !!t && armIn(g, t) === 'home'; };
@@ -686,7 +686,7 @@ const offWhy = (g, t) => ROOM_PLAN_ONLY.includes(t.key) ? 'Only met on a plan' :
 // never sent out on a version nobody can meet.
 const clashWhy = (g, t) => ROOM_PLAN_ONLY.includes(t.key) ? 'it is met only on a plan of the first visit'
   : ROOM_A_REPLACES.includes(t.key) && onA(g) ? 'this group’s Home replaces the one it changes'
-  : ROOM_END_REPLACES.includes(t.key) && onEndHome(g) ? 'with the ending on Home, testers get “Coming up on your issues” instead'
+  : ROOM_END_REPLACES.includes(t.key) && onEndHome(g) ? 'with the ending on Home, testers go from the bill’s story straight to Home'
   : 'this group’s plan has its own screens';
 const roomClashes = g => roomTests().filter(t => t.key !== 'onb' && !applies(g, t) && t.arms.includes(g.v?.[t.key]) && g.v[t.key] !== t.arms[0]);
 // The version's short name ("Three ways to help", not its whole description).

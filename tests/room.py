@@ -105,7 +105,7 @@ with sync_playwright() as p:
         pg.locator('[data-rmscreen="0"]').click(); pg.wait_for_timeout(350); pg.locator('dialog [data-pv="end"]').click(); pg.wait_for_timeout(600)
         pg.locator('dialog [data-pv="home"]').click(); pg.wait_for_timeout(500)
         t = pg.locator('#toast').inner_text()
-        ok('will not show' in t and 'Coming up on your issues' in t, f'{tag}: picking the ending on Home says at once that three ways will not show: {t[:90]}')
+        ok('will not show' in t and 'straight to Home' in t, f'{tag}: picking the ending on Home says at once that three ways will not show: {t[:90]}')
         w = pg.locator('.rm-group').nth(0).locator('.notice.warn')
         ok(w.count() == 1 and 'Change one of the two' in w.inner_text(), f'{tag}: and the card keeps the warning')
         if full: pg.screenshot(path=f'{SHOTS}/room-clash-{tag}.png', full_page=True)
