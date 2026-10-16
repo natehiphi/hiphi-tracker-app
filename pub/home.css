@@ -198,8 +198,11 @@
 .hm .hm-ylist .hm-ychev { flex: none; width: 18px; height: 18px; color: var(--n500); }
 .hm .hm-ylist li:last-child { border-bottom: 0; }
 .hm .hm-ylist .hm-yname { display: flex; flex-direction: column; min-width: 0; }
+/* The hearing chip sits under the issue's line, as on Find's rows, so the longer "Hearing Wed 1:00 PM" (R-212 #6) never
+   squeezes the issue's name into a narrow column on a phone. */
+.hm .hm-ylist .hm-yname .chip { align-self: flex-start; margin-top: 6px; }
 .hm .hm-ylist b { color: var(--n900); }
-.hm .hm-ylist .hm-yname > span { font-size: var(--t14); color: var(--n500); }
+.hm .hm-ylist .hm-yname > span:not(.chip) { font-size: var(--t14); color: var(--n500); }
 .hm .hm-ylist .chip { flex: none; }
 .hm .hm-yours .hm-link { align-self: flex-start; margin-left: -12px; }
 @media (min-width: 900px) { .hm.hm-welcome .cols { grid-template-columns: minmax(0, 720px); } }   /* one calm column after the first visit (no side column since R-222) */

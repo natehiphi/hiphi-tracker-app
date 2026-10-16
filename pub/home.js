@@ -15,7 +15,7 @@
 import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive, issues, issueOf, openActions, waitingBills, askedChair, nextWords, issuesLink, companionsOf,
   actedOn, settledOn, didKind, agrees, doneKey, KINDS, dismissed, suggestionList, reasonOf, noteShown, wiz, groupNames, sessionInfo, myActions, MILESTONES,
   nudge, CONSENT_KEY, textSaved, countOk, anyBill, anyHearing, outcomeOf, plainStatus, whyStopped, cmteLabel, codesOf, CHAMBER_NAME,
-  issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, dateLong, hstDay, hiT, pickedTopic, followSummary, followedIssues,
+  issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, hearingWhen, dateLong, hstDay, hiT, pickedTopic, followSummary, followedIssues,
   issueFollowed, issueBills, catOf, setFollows, app, toast, roomLabel, viaIssue, followsAnything, ensureRecapPool, winsIn, EARLIER_WINS, supa, HELD_RE,
   results, RESULT_MILESTONES, isResolution, sideOf, streamOf, wizSet } from './core.js';
 import { burst, celebrate, petals, later } from './fx.js';
@@ -667,11 +667,12 @@ function yourIssues() {
   const soon = new Map(); for (const h of S.hearings) if (h.status === 'scheduled' && new Date(h.scheduled_at) > Date.now() && new Date(h.scheduled_at) - Date.now() < 7 * 864e5) {
     const c = soon.get(h.bill_id); if (!c || h.scheduled_at < c) soon.set(h.bill_id, h.scheduled_at); }
   const rows = iss.slice(0, 6).map(i => { const ids = issueBills(i), live = ids.map(id => S.bills.find(b => b.id === id)).filter(b => b && alive(b));
-    const day = ids.map(id => soon.get(id)).filter(Boolean).sort()[0];
-    // On the hearing's own day the chip says "Today" (X10-2: on Friday it said "Fri", like a day still to come).
-    const dayChip = day ? chip(hstDay(day) === hstDay(Date.now()) ? 'Today' : new Date(day).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short' }), 'info', 'calendar') : '';
+    const day = ids.map(id => soon.get(id)).filter(Boolean).sort((x, y) => new Date(x) - new Date(y))[0];
+    // On the hearing's own day the chip says "today" (X10-2: on Friday it said "Fri", like a day still to come); it names
+    // the hearing and its hour, worded as on Find's issue rows (R-212 #6: "Wed" alone did not say what happens then).
+    const dayChip = day ? chip(`Hearing ${hearingWhen(day)}`, 'info', 'calendar') : '';
     // Each row opens its issue (R-098: the rows looked tappable and did nothing, so Home seemed not to work).
-    return `<li><a class="hm-yrow" href="#/issue/${esc(i.slug)}"><span class="hm-yname"><b>${esc(i.name)}</b><span>${live.length ? plural(live.length, 'bill') + ' moving' : 'Nothing moving yet'}</span></span>${dayChip}${icon('chevron-right', { cls: 'hm-ychev' })}</a></li>`; }).join('');
+    return `<li><a class="hm-yrow" href="#/issue/${esc(i.slug)}"><span class="hm-yname"><b>${esc(i.name)}</b><span>${live.length ? plural(live.length, 'bill') + ' moving' : 'Nothing moving yet'}</span>${dayChip}</span>${icon('chevron-right', { cls: 'hm-ychev' })}</a></li>`; }).join('');
   return `<section class="card hm-yours" aria-labelledby="hm-yi"><h2 id="hm-yi" class="hm-eyebrow">Your issues</h2><ul class="hm-ylist">${rows}</ul>
     ${btn(iss.length > 6 ? `See all ${iss.length}` : 'See my issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link' })}</section>`;
 }

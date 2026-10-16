@@ -666,6 +666,15 @@ export const dayWord = iso => {   // "today", "tomorrow (Tue)", "Thu", "Mon, Mar
   return d === today ? 'today' : d === tmr ? `tomorrow (${wd})` : days > 0 && days < 7 ? wd : new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric' });
 };
 export const timeWord = iso => new Date(iso).toLocaleTimeString('en-US', { timeZone: HST, hour: 'numeric', minute: '2-digit' });
+// A hearing chip's moment, as DESIGN.md's word list writes one (C-15): "today 2:00 PM", "tomorrow 2:00 PM", "Wed 1:00 PM"
+// within the week, else "Wed 3/18, 1:00 PM". One helper, so Find's issue rows and Home's "Your issues" say a hearing the
+// same way (R-212 #6: Home said "Tue" where Find said "tomorrow (Tue)" for the same hearing).
+export const hearingWhen = iso => {
+  const d = hstDay(iso), today = hstDay(Date.now()), days = (new Date(d + 'T12:00:00-10:00') - new Date(today + 'T12:00:00-10:00')) / 864e5;
+  const day = days === 0 ? 'today' : days === 1 ? 'tomorrow' : days > 0 && days < 7 ? new Date(iso).toLocaleDateString('en-US', DOW)
+    : new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'numeric', day: 'numeric' }).replace(',', '') + ',';
+  return `${day} ${timeWord(iso)}`;
+};
 // A date from another year says its year: a bill carried over from 2025 read "heard on Tue, Feb 11" and looked like
 // last February (R-067).
 export const dateLong = iso => { const d = new Date(iso), other = hstDay(d).slice(0, 4) !== hstDay(Date.now()).slice(0, 4);
