@@ -215,7 +215,9 @@ function header(route, scr) {
   const right = inStart ? (S.session || DEMO ? '' : `<a class="hbtn" href="#/signin?by=number">Sign in</a>`)
     : `${box}${route.name === 'find' ? '' : `<a class="hbtn hsearchbtn" href="#/find" aria-label="Search issues and bills" data-focussearch>${icon('search', { size: 24 })}</a>`}${account}`;
   const tab = tabOf(route, scr), nav = inStart ? '' : `<nav class="hnav" aria-label="Main">${tabsNow().map(([t, href, ic, label]) => `<a href="${href}" ${tab === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}</a>`).join('')}</nav>`;
-  return `${DEMO ? `<div class="band">${SEASON_OFF ? 'Sandbox · after the 2026 session · nothing is saved or sent' : `<p>Sandbox · <span data-band-day>Mon, Mar 16, 2026</span> · ${testerActive() ? 'the screens you visit are noted for this test' : 'nothing is saved or sent'}${nextDay()}</p>`}</div>` : ''}
+  // "nothing is sent" (R-212 #1): the practice copy keeps drafts on this device but sends nothing anywhere. "nothing is saved or
+  // sent" wrapped the band to two lines on a phone, pushing every practice screen down (density, 15 Oct); this fits one line at 360px.
+  return `${DEMO ? `<div class="band">${SEASON_OFF ? 'Sandbox · after the 2026 session · nothing is sent' : `<p>Sandbox · <span data-band-day>Mon, Mar 16, 2026</span> · ${testerActive() ? 'the screens you visit are noted for this test' : 'nothing is sent'}${nextDay()}</p>`}</div>` : ''}
     <header class="hdr"><div class="hdrin"><a class="brand" href="${calmPlace()}" aria-label="Bill Tracker home">${MARK}<span class="bname"><b>Bill Tracker</b><small>Hawaiʻi health bills · from HIPHI</small></span></a>${nav}<span class="hspace"></span>${right}</div></header>`;
 }
 function tabbar(route, scr) {

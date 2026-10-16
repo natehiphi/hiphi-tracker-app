@@ -75,7 +75,9 @@ def run(w, h, mobile):
     send = walk_testimony(pg, 'HB1523', 'acct-yes', f'{tag}-c2-1-yes')
     ok(send and 'account you just made' not in send, f'{tag} C2-1: after "Yes, I have an account", no "with the account you just made"')
     t = dlg(pg)
-    ok('The committee reads it before they vote' in t and 'marked late' not in t, f'{tag} C2-1: on time, the thank-you says the committee reads it')
+    # The practice copy's thank-you says nothing went to the Capitol, and what happens when it is sent for real (R-212 #1).
+    ok('Practice: nothing went to the Capitol' in t and 'the committee reads it before they vote' in t and 'marked late' not in t and 'You sent testimony' not in t,
+       f'{tag} C2-1: on time, the practice thank-you says nothing went and the committee reads it when sent for real')
     fx = pg.locator('#hp-dlg .hp-fix')
     ok(fx.count() == 1 and 'Need to change it? Email or call the committee at Chair' in fx.inner_text() and fx.locator('a[href^="mailto:"]').count() >= 1,
        f'{tag} C2-1: the Mahalo says how to fix a mistake, with the chair’s office ({fx.inner_text() if fx.count() else "none"})')
@@ -85,7 +87,8 @@ def run(w, h, mobile):
     ctx = ctx_new(); pg = ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e)))
     walk_testimony(pg, 'HB1562', 'acct-yes', f'{tag}-c2-1-late')
     t = dlg(pg)
-    ok('It’s on the record, marked late. It may reach them after the vote.' in t and 'reads it before they vote' not in t, f'{tag} C2-1: late testimony’s thank-you says it is marked late')
+    # The practice copy opens no Capitol page (R-212 #1), so "late" is never judged there: its thank-you is the practice one.
+    ok('Practice: nothing went to the Capitol' in t and 'You sent testimony' not in t, f'{tag} C2-1: late testimony in practice gets the practice thank-you, not a claim it was sent')
     pg.screenshot(path=os.path.join(OUT, f'{tag}-c2-1-late-mahalo.png'))
     ctx.close()
     # "No, this is my first time": the send screen says "with the account you just made"; Something went wrong has the fix line.
@@ -107,10 +110,12 @@ def run(w, h, mobile):
     pg.locator('#hp-dlg .hp-foot .hp-main').first.click(); pg.wait_for_timeout(700)
     for p in ctx.pages[1:]: p.close()
     pg.evaluate("() => document.dispatchEvent(new Event('visibilitychange'))"); pg.wait_for_timeout(600)
-    pg.locator('#hp-dlg [data-hp="trouble"]').click(); pg.wait_for_timeout(500)
-    tr = pg.locator('#hp-dlg .hp-trouble')
-    ok(tr.count() == 1 and 'Need to change it? Email or call the committee at Chair' in tr.inner_text(), f'{tag} C2-1: "Something went wrong" says how to fix a mistake')
-    pg.screenshot(path=os.path.join(OUT, f'{tag}-c2-1-trouble.png'))
+    # In the practice copy the last step is "you'd look for the green box" with Finish practice and no "Something went wrong"
+    # (R-212 #1); the live words it can no longer show are checked in helper.js below (LIVE_WORDS).
+    t = dlg(pg)
+    ok('look for the green box' in t and pg.locator('#hp-dlg [data-hp="confirm"]', has_text='Finish practice').count() == 1 and pg.locator('#hp-dlg [data-hp="trouble"]').count() == 0,
+       f'{tag} C2-1: the practice copy’s last step says Finish practice, with no "Something went wrong"')
+    pg.screenshot(path=os.path.join(OUT, f'{tag}-c2-1-practice-back.png'))
     ctx.close()
 
     # C1-7: a suggested card's Follow (Find's suggestions, as someone who follows one issue).
@@ -164,6 +169,18 @@ def run(w, h, mobile):
     ok(urls[2].endswith('#/bill/2026/HB2121/testify'), f'{tag} C5-2: a bill with no page shares the tracker’s address with its year ({urls[2]})')
     ctx.close()
     ok(not errs, f'{tag}: no page errors {errs[:2]}')
+
+# LIVE_WORDS: the live tracker's words that the practice copy no longer shows (R-212 #1 opens no Capitol page there, so no
+# testimony is judged late and there is no "Something went wrong"). They are checked in the live branches of helper.js.
+HELPER = open(os.path.join(ROOT, 'pub', 'helper.js'), encoding='utf-8').read()
+done_live = HELPER[HELPER.index('function doneScreen'):][:6000]
+ok('x.late ? `You sent testimony on ${esc(n)}. It’s on the record, marked late. It may reach them after the vote.`' in done_live
+   and ': `You sent testimony on ${esc(n)}. The committee reads it before they vote' in done_live,
+   'live C2-1: the thank-you says the committee reads it on time, and "marked late" when late (helper.js doneScreen)')
+send_live = HELPER[HELPER.index('function sendScreen'):][:4000]
+ok('${fixLine(h, true)}</div></div>` : \'\'' in send_live and 'class="notice warn hp-trouble"' in send_live
+   and "(DEMO ? '' : btn('Something went wrong', { kind: 'text', sm: true, attrs: { 'data-hp': 'trouble' } }))" in HELPER,
+   'live C2-1: "Something went wrong" is offered on the live last step and its help says how to fix a mistake (helper.js sendScreen, foot)')
 
 with sync_playwright() as p:
     br = p.chromium.launch()
