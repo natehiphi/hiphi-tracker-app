@@ -39,6 +39,12 @@ const thisSession = b => !b.session_year || +b.session_year === +SESSION_YEAR;
 export const whyNot = b => b.tracked === false ? 'No longer tracked, so its followers do not get it'
   : !b.is_public ? 'Not on the public page, so its followers do not get it'
   : !b.position || b.position === 'monitor' ? 'No position yet, so its followers do not get it' : '';
+// Hearing alerts (177, R-181, Nate's go 10/10): only the starred bills on an issue send hearing alerts to the people who
+// follow it; the others still show on the tracker and as one line ("Also heard this week") in those emails. A strongly
+// supported bill starts starred, and an issue with no star sends alerts for every bill, as before (issue_alert_bills).
+const linkOf = (i, b) => (S.billIssues || []).find(x => x.issue_id === i.id && x.bill_id === b.id);
+export const starredOn = (i, b) => linkOf(i, b)?.star ?? b.position === 'strongly_support';
+const anyStar = (i, now) => now.some(b => !whyNot(b) && starredOn(i, b));
 // Position bills this session that no issue carries: somebody following issues would never hear of them.
 export const needsIssue = () => S.bills.filter(b => b.tracked !== false && b.position && b.position !== 'monitor' && thisSession(b) && !issuesOfBill(b.id).length)
   .sort((a, b) => (a.priority || 9) - (b.priority || 9) || byNum(a, b));
@@ -324,13 +330,15 @@ export function standLine(b, { owner = 'all' } = {}) {
   else parts.push(who ? `Owner: ${who.id === S.me?.id ? 'You' : String(who.full_name || '').split(' ')[0]}` : 'No owner');
   return parts.filter(Boolean).join(' · ');
 }
-function billLine(i, b) {
-  const why = whyNot(b);
+function billLine(i, b, starOn) {
+  const why = whyNot(b), canStar = starOn != null && !why, st = canStar && starredOn(i, b);
   return `<li class="le-brow" data-bid="${esc(b.id)}">
     <a class="le-bmain" href="${billRoute(b)}">${billName(b, 140)}
       ${thisSession(b) ? `<span class="is-bstat">${esc(standLine(b))}</span>` : ''}
       <span class="is-bmeta">${posChip(b.position || '')}${thisSession(b) ? '' : `<span class="meta">${esc(b.session_year)}</span>`}</span>
-      ${why ? `<span class="le-warn">${icon('eye-off')}${esc(why)}</span>` : ''}</a>
+      ${why ? `<span class="le-warn">${icon('eye-off')}${esc(why)}</span>` : ''}
+      ${canStar && starOn && !st ? `<span class="le-note">${icon('bell-off')}No hearing alert of its own: a line in the starred bills’ emails</span>` : ''}</a>
+    ${canStar ? iconBtn('star', st ? `Unstar ${billNum(b)}: no hearing alerts of its own` : `Star ${billNum(b)}: send its hearing alerts to followers`, { 'data-isstar': b.id, 'aria-pressed': String(st) }, 'is-star') : ''}
     ${iconBtn('x', `Take ${billNum(b)} off ${i.name}`, { 'data-isrm': b.id })}
   </li>`;
 }
@@ -394,7 +402,8 @@ function pageRender(route) {
         <div id="is-hits">${hitsHTML(i, q)}</div>
         <p class="sr" id="is-hitn" role="status"></p>
       </div>
-      ${now.length ? `<ol class="rows le-bills">${now.map(b => billLine(i, b)).join('')}</ol>`
+      ${reachN ? `<p class="small muted is-starh">${icon('star')}<span>${anyStar(i, now) ? 'Starred bills send hearing alerts to the people who follow this issue. The others show on the tracker and as a line in those emails.' : 'No bill is starred, so every bill sends hearing alerts. Star the ones HIPHI is pushing to send alerts for those only.'}</span></p>` : ''}
+      ${now.length ? `<ol class="rows le-bills">${now.map(b => billLine(i, b, anyStar(i, now))).join('')}</ol>`
         : `<div class="le-empty">${empty({ h: 'h3', title: `No ${SESSION_YEAR} bills yet`, text: 'Search above to put bills on it. Its followers get each one that has a position and is public.' })}</div>`}
       ${earlier.length ? `<details class="is-arch"><summary>${icon('history')}<span>Earlier sessions (${earlier.length})</span>${icon('chevron-down', { cls: 'is-chev' })}</summary><ol class="rows le-bills">${earlier.map(b => billLine(i, b)).join('')}</ol></details>` : ''}
     </section>
@@ -461,6 +470,14 @@ async function takeOff(i, b) {
   try {
     await DB.setBillIssue(b.id, i.id, false); hooks.render();
     toast(`Took ${billNum(b)} off ${i.name}.`, { undo: async () => { await DB.setBillIssue(b.id, i.id, true); hooks.render(); } });
+  } catch (e) { toast(e, { err: true }); }
+}
+async function setStar(i, b, on) {
+  try {
+    await DB.setBillStar(b.id, i.id, on); hooks.render();
+    document.querySelector(`[data-isstar="${CSS.escape(b.id)}"]`)?.focus();
+    toast(on ? `${billNum(b)} sends hearing alerts to ${i.name}’s followers.` : `${billNum(b)} no longer sends hearing alerts of its own.`,
+      { undo: async () => { await DB.setBillStar(b.id, i.id, !on); hooks.render(); } });
   } catch (e) { toast(e, { err: true }); }
 }
 async function putOn(i, b) {
@@ -541,6 +558,7 @@ export const issuePage = {
     root.querySelectorAll('[data-is="stance"]').forEach(el => el.addEventListener('click', () => pickStance(i, { after: () => { hooks.render(); document.querySelector('[data-is="stance"]')?.focus(); } })));
     const fv = root.querySelector('#is-fv'); if (fv) fv.onchange = () => setFirstVisit(i, fv.checked);
     root.querySelectorAll('[data-isrm]').forEach(el => el.onclick = () => { const b = billById(el.dataset.isrm); if (b) takeOff(i, b); });
+    root.querySelectorAll('[data-isstar]').forEach(el => el.onclick = () => { const b = billById(el.dataset.isstar); if (b) setStar(i, b, !starredOn(i, b)); });
     // The add search: a combobox like a list's (arrow keys move the highlight, Enter adds, Esc clears).
     const q = root.querySelector('#is-bq'), clear = root.querySelector('[data-is="bqclear"]'), box = root.querySelector('#is-hits'), said = root.querySelector('#is-hitn');
     if (!q) return;

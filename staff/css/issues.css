@@ -338,3 +338,9 @@
 .pr-toplede { margin: var(--s12) 0 0; }
 .pr-team .pr-lcount { margin-top: 0; }
 @media (max-width: 899px) { .pr-topbtn { min-height: 44px; } }
+/* The star (R-181): only starred bills send hearing alerts to an issue's followers. Filled when on; the word is in the
+   button's label and the note under the list, never colour alone (A-5). */
+.is-page .is-star[aria-pressed="true"] { color: var(--warn-text); }
+.is-page .is-star[aria-pressed="true"] .ic { fill: currentColor; }
+.is-page .is-starh { display: flex; align-items: flex-start; gap: 6px; margin: var(--s8) 0 0; }
+.is-page .is-starh .ic { width: 16px; height: 16px; margin-top: 3px; flex: none; }

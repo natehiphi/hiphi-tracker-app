@@ -877,7 +877,7 @@ export const DB = {
         S.supa.from('categories').select('*').order('sort_order'),
         S.supa.from('issues').select('*').order('sort_order').order('name'),
         S.supa.from('issue_categories').select('issue_id,category'),
-        allRows(o => S.supa.from('bill_issues').select('bill_id,issue_id,added_at', o).order('bill_id').order('issue_id')),
+        allRows(o => S.supa.from('bill_issues').select('bill_id,issue_id,added_at,star', o).order('bill_id').order('issue_id')),
         S.supa.from('issue_helpers').select('issue_id,advocate_id,added_at'),
         S.supa.from('app_settings').select('value').eq('key', 'issue_prep').maybeSingle(),
         S.supa.from('issue_links').select('issue_a,issue_b,score').eq('related', true),
@@ -954,6 +954,15 @@ export const DB = {
       else S.billIssues.push({ bill_id: billId, issue_id: issueId, added_at: new Date().toISOString() });
       throw error;
     }
+  },
+  // The star on a bill's place on an issue (177, R-181): only starred bills send hearing alerts to the issue's followers.
+  // Always saved as staff's pick, true or false; null (never touched) means starred when the bill is strongly supported.
+  async setBillStar(billId, issueId, star) {
+    const l = S.billIssues.find(x => x.bill_id === billId && x.issue_id === issueId); if (!l) return;
+    const before = l.star; l.star = !!star;
+    if (DEMO) return;
+    const { error } = await S.supa.from('bill_issues').update({ star: !!star }).eq('bill_id', billId).eq('issue_id', issueId);
+    if (error) { l.star = before; throw error; }
   },
   // Two issues that are really one: the first one's bills, extra categories and followers move to the second, and
   // the first is archived (merge_issues, 063). Nobody following either one loses a bill.
