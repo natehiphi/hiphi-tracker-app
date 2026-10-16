@@ -99,7 +99,7 @@ export function cardFor(b, ask, state, ctx = {}) {
   if (ask === 'testify') {
     const h = state.open, due = h && h.testimony_deadline && new Date(h.testimony_deadline).getTime() > now ? h.testimony_deadline : null;
     return done(h ? `Speak up by ${dayWords(due || h.scheduled_at)}: ${named}` : `Speak up: ${named}`,
-      `${about}Tell ${h ? committeeWords(h.committee, ctx.committees) : 'the committee'} what you think before ${h ? `its hearing on ${dayWords(h.scheduled_at)}` : 'its hearing'}.${due ? ` Testimony is due ${dayWords(due)} at ${timeWords(due)}.` : ''} It takes a few minutes; we help you write it.`, 'testify');
+      `${about}Tell ${h ? committeeWords(h.committee, ctx.committees) : 'the committee'} what you think before ${h ? `its hearing on ${dayWords(h.scheduled_at)}` : 'its hearing'}.${due ? ` Testimony is due ${dayWords(due)} at ${timeWords(due)}.` : ''} It takes about 15 minutes the first time, a few after that; we help you write it.`, 'testify');
   }
   // The two other ways to help before a hearing (R-205): the committee email (2 minutes) and going in person.
   if (ask === 'email') {
@@ -108,9 +108,10 @@ export function cardFor(b, ask, state, ctx = {}) {
       `${about}A short email to ${h ? committeeWords(h.committee, ctx.committees) : 'the committee'} before ${h ? `its hearing on ${dayWords(h.scheduled_at)}` : 'its hearing'} takes about 2 minutes; we write it with you.`, 'email');
   }
   if (ask === 'attend') {
-    const h = state.open, r = h ? roomWords(h.room) : '', room = r ? `, ${r}` : '';
-    return done(h ? `Come to the hearing on ${dayWords(h.scheduled_at)}: ${named}` : `Come to the hearing: ${named}`,
-      `${about}${h ? `${committeeWords(h.committee, ctx.committees).replace(/^the /, 'The ')} hears it ${dayWords(h.scheduled_at)} at ${timeWords(h.scheduled_at)}${room}, at the State Capitol.` : 'The committee hears it at the State Capitol.'} Anyone can attend, and we tell you where to go.`, 'attend');
+    // Two committees hearing it together "hear" it (14 of 38 attend pages read "committees hears it", R-212 #8).
+    const h = state.open, r = h ? roomWords(h.room) : '', room = r ? `, ${r}` : '', cw = h ? committeeWords(h.committee, ctx.committees) : '';
+    return done(h ? `Come to the hearing on ${dayWords(h.scheduled_at)} at ${timeWords(h.scheduled_at)}: ${named}` : `Come to the hearing: ${named}`,
+      `${about}${h ? `${cw.replace(/^the /, 'The ')} ${/ committees$/.test(cw) ? 'hear' : 'hears'} it ${dayWords(h.scheduled_at)} at ${timeWords(h.scheduled_at)}${room}, at the State Capitol.` : 'The committee hears it at the State Capitol.'} Anyone can attend, and we tell you where to go.`, 'attend');
   }
   if (ask === 'ask') {
     const where = st.phase === 'committee' && st.committee ? ` in ${committeeWords(st.committee, ctx.committees)}` : '';
