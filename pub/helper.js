@@ -292,6 +292,9 @@ function mailLetter(x) {
 // The letter for whichever mode is open. Testimony and the quick emails are written from their pieces (PARTS), the
 // reminder and the introduction whole.
 const isMail = x => !!x && x.mode !== 'testimony';
+// The first name for "Mahalo, Leilani!": a title typed before it ("Dr. Leilani Kahale", R-212 #10) is skipped.
+const TITLE_WORD = /^(dr|mr|mrs|ms|mx|miss|rev|prof|kumu|aunty|auntie|uncle|sen|rep)\.?$/i;
+const firstOf = name => String(name || '').trim().split(/\s+/).find(w => !TITLE_WORD.test(w)) || '';
 const boxed = x => x.mode === 'testimony' || (isMail(x) && !x.remind && x.mode !== 'intro');
 const joinParts = p => 'all' in p ? p.all : PARTS.map(k => p[k]).filter(Boolean).join('\n\n');
 const letterOf = x => x.mode === 'testimony' ? joinParts(letterParts(x)) : x.remind ? reminderLetter(x) : mailLetter(x);
@@ -1052,7 +1055,7 @@ function aboutScreen() {
       <div id="hp-tp-after">${titlesAfter(x)}</div>
       ${email}
       ${x.mode === 'intro' ? topicPick() : ''}
-      <div class="field"><label for="hp-why">${own2() ? 'What you think, and why' : 'Why it matters to you'} <span class="hp-opt">(optional)</span></label>
+      <div class="field"><label for="hp-why">${own2() ? 'What you think, and why' : 'Why it matters to you'}</label>
         <textarea id="hp-why" name="why" rows="3" placeholder="${own2() ? 'I think… because…' : x.mode === 'intro' ? 'For example: my mom’s prescriptions cost more every year.' : esc(storyAsk(!!x.b))}" aria-describedby="hp-why-help" autocapitalize="sentences"${x.errs.why ? ' aria-invalid="true"' : ''}>${esc(x.why)}</textarea>${x.errs.why ? errHTML('why') : ''}
         <span class="help" id="hp-why-help">${whyHelp(x)}</span>
         ${x.offer && !x.why.trim() ? `<p class="hp-offer">${btn(`Use your story about “${topicName(x.offer.topic)}”`, { kind: 'text', sm: true, icon: 'user', cls: 'hp-inl', attrs: { 'data-hp': 'usestory' } })}</p>` : ''}
@@ -1069,7 +1072,7 @@ function whyHelp(x) {
   const saved = x.whyStory && storyFor(catsOf(x.mode === 'intro' ? null : x.b));
   if (saved && x.why.trim() === saved.text) return `${icon('user')} Your story${saved.topic && topicName(saved.topic) ? ` about “${esc(topicName(saved.topic))}”` : ''}, from your profile. Change it to fit this bill.`;
   if (x.mode === 'intro') return 'One or two sentences in your own words. Leave it empty if you like.';
-  return own2() ? `This is the heart of your ${isMail(x) ? 'email' : 'letter'}. One or two sentences in your own words.` : 'One or two sentences. A personal reason carries the most weight.';
+  return own2() ? `This is the heart of your ${isMail(x) ? 'email' : 'letter'}. One or two sentences in your own words.` : 'One or two sentences. A personal reason carries the most weight, but you can leave it empty.';
 }
 // The one issue the hello names (R-172, Nate 10/10: "someone picked many issues"): picked from the issues they follow, the
 // letter's default already chosen, one tap to change it. Following one issue leaves nothing to pick, so no step. A whole
@@ -1330,7 +1333,7 @@ function fixLine(h, inList = false) {
 }
 // Confirmation: the reward is what happens next, not points (plan section 1).
 function doneScreen() {
-  const x = S.helper, { b, h } = x, n = spaced(b.bill_number), first = x.name.trim().split(/\s+/)[0];
+  const x = S.helper, { b, h } = x, n = spaced(b.bill_number), first = firstOf(x.name);
   const held = new Date(h.scheduled_at) < Date.now(), plural = codesOf(h.committee).length > 1;
   const when = `${dateLong(h.scheduled_at)} at ${timeWord(h.scheduled_at)}`;
   const next = held ? `The ${cmteLabel(h.committee)} heard it ${when}.` : `The ${cmteLabel(h.committee)} ${plural ? 'hear' : 'hears'} it ${when}.`;
@@ -1437,7 +1440,7 @@ function emailAsk(x) {
 }
 // The Mahalo for an email (R-079): what they did, in words, and what happens next.
 function mailDoneScreen() {
-  const x = S.helper, { b, h } = x, first = x.name.trim().split(/\s+/)[0], names = andList(x.to.map(shortName)), miles = newMilestones(x.before);
+  const x = S.helper, { b, h } = x, first = firstOf(x.name), names = andList(x.to.map(shortName)), miles = newMilestones(x.before);
   const n = b ? spaced(b.bill_number) : '', stance = x.stance || (b ? hiphiStance(b) : ''), m = x.moment || {};
   const lede = x.mode === 'intro' ? `You introduced yourself to ${names}. When a bill on your issues comes up, they’ll know who is writing.`
     : x.remind ? `You followed up with ${names} about ${n} before its deadline.`
@@ -1538,13 +1541,14 @@ function paintFoot() {
   if (had) f.querySelector('.hp-main')?.focus({ preventScroll: true });
 }
 function afterPaint() {
-  grow(dlg.querySelector('#hp-letter'));
+  grow(dlg.querySelector('#hp-letter')); const w = dlg.querySelector('#hp-why'); if (w) { w.style.resize = 'none'; grow(w); }
   wireTitles();
   if (dlg.querySelector('.nudgecard')) wireNudge(dlg, { pfx: 'hp-ng', redraw: () => paint() });
 }
 // A box grows with its text, so it never scrolls inside the dialog's own scroll. The box under the points (R-141, rework
 // 10/10) is the exception: it is capped at about a third of the screen and scrolls inside itself, so on a phone the points
 // above it stay on screen.
+// The story box (R-212 #13) grows too, from its three rows, so a longer story is all in view while they write it.
 function grow(t) {
   if (!t) return;
   const cap = t.classList.contains('hp-ptsta') ? Math.max(150, Math.round(innerHeight * 0.36)) : Infinity;
@@ -1700,7 +1704,8 @@ async function tellFriend() {
   x.friended = how; paint({ focus: undefined }); dlg?.querySelector('.hp-friended')?.setAttribute('tabindex', '-1'); dlg?.querySelector('.hp-friended')?.focus({ preventScroll: true });
   announce(FRIENDED[how] || FRIENDED.shared);
 }
-function finishLater() { const x = S.helper; x.toast = `Saved. Your ${isMail(x) ? 'email' : 'letter'} will be here when you come back.`; requestClose(); }
+// R-212 #12: the draft is kept in this browser only, so it says so (a walker looked for it on another computer).
+function finishLater() { const x = S.helper; x.toast = `Saved on this device. Open the Bill Tracker here again to finish your ${isMail(x) ? 'email' : 'letter'}.`; requestClose(); }
 // "Yes, I sent it" (or "I already sent it"): counted exactly as the quick email was - an 'email' action, on the hearing
 // when there is one, else on the bill, so counts, milestones and "You emailed the chair" rows keep working. Asking a
 // chair for a hearing also leaves the per-committee mark (core askMark) so that ask is not offered again; a moment with
@@ -1904,7 +1909,7 @@ function onInput(e) {
     saveMe(f === 'why' ? (x.b ? { why: t.value, whyBill: x.b.id } : { introWhy: t.value }) : { [f]: t.value.trim() });
     if (f === 'closing') dlg.querySelectorAll('.hp-sug').forEach(s => s.setAttribute('aria-pressed', String(s.dataset.v === t.value.trim())));
     if (x.errs[f] && t.value.trim()) setErr(f, false);
-    if (f === 'why') { const n = dlg.querySelector('#hp-savelen'); if (n) n.textContent = t.value.trim().length > 600 ? 'Your profile keeps the first 600 characters.' : ''; }
+    if (f === 'why') { grow(t); const n = dlg.querySelector('#hp-savelen'); if (n) n.textContent = t.value.trim().length > 600 ? 'Your profile keeps the first 600 characters.' : ''; }
   } else if (t.id === 'hp-sa') {
     x.storyDraft = t.value;
   } else if (t.id === 'hp-savestory') {

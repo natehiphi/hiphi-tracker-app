@@ -44,7 +44,7 @@ export function choicesFor(b, h, { did = '', ask = '' } = {}) {
     const list = [
       // The person sharing reads "today" and "tomorrow" (the review: a deadline hours away read as a calendar date); the
       // friend's own message, read later, keeps the date (shareFor). Each says how long it takes and what it is (C-10).
-      open ? { ask: 'testify', sub: `A few minutes · on the public record · ${h.testimony_deadline ? `due ${when(h.testimony_deadline)}` : 'before the hearing'}` } : null,
+      open ? { ask: 'testify', sub: `About 15 minutes the first time · on the public record · ${h.testimony_deadline ? `due ${when(h.testimony_deadline)}` : 'before the hearing'}` } : null,
       { ask: 'email', sub: `About 2 minutes · a short note to the committee before ${when(h.scheduled_at).replace(/ at .*$/, '')}` },
       { ask: 'attend', sub: `Anyone can come · ${when(h.scheduled_at)}, ${roomLabel(h.room)}` },
     ].filter(Boolean);

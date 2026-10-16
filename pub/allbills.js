@@ -38,10 +38,12 @@ function lawDay(b) {
   return `${isResolution(b) ? 'Adopted' : 'Signed'}${d ? ' ' + fmtDate(d, { month: 'short', day: 'numeric' }) : ''}`;
 }
 // House and Senate versions of one idea share a nickname (60 names on 155 bills in 2026); each row names the others.
+// "Similar bill", not "Another version": the shared nickname is HIPHI's grouping, and the walks read "version" as the
+// Legislature's official companion (R-212 #4), which some of these are not.
 function altOf(b) {
   const nm = nick(b); if (!nm) return '';
   const others = (A.twins.get(nm) || []).filter(x => x.id !== b.id).sort(numCmp).map(x => spaced(x.bill_number));
-  return others.length ? `Another version: ${others.slice(0, 2).join(', ')}${others.length > 2 ? ` and ${others.length - 2} more` : ''}` : '';
+  return others.length ? `Similar ${others.length > 1 ? 'bills' : 'bill'}: ${others.slice(0, 2).join(', ')}${others.length > 2 ? ` and ${others.length - 2} more` : ''}` : '';
 }
 const posThenNum = list => list.sort((a, b) => hasPos(b) - hasPos(a) || numCmp(a, b));
 const ORDER = { hear: byUrgency, wait: byUrgency, vote: posThenNum, passed: posThenNum, law: posThenNum, dead: posThenNum };

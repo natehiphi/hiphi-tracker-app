@@ -35,6 +35,6 @@
   .ab-tools { margin: 0; flex-wrap: nowrap; }
   .ab-q { flex: 0 0 300px; }
 }
-/* "Another version: SB 2175" beside the number (billRow's alt; only this page passes it) */
+/* "Similar bill: SB 2175" beside the number (billRow's alt; only this page passes it) */
 /* its own last line on a phone (after the status), under the number in the wide table */
 .mb-row .mb-alt { order: 2; flex: 0 0 100%; font-size: var(--t13); color: var(--n700); }
