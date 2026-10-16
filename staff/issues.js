@@ -42,9 +42,15 @@ export const whyNot = b => b.tracked === false ? 'No longer tracked, so its foll
 // Hearing alerts (177, R-181, Nate's go 10/10): only the starred bills on an issue send hearing alerts to the people who
 // follow it; the others still show on the tracker and as one line ("Also heard this week") in those emails. A strongly
 // supported bill starts starred, and an issue with no star sends alerts for every bill, as before (issue_alert_bills).
+// On screen the star is a bell, "Alerts on" or "Alerts off" (the ui-critic review, 10/15: a star reads as a favourite). A
+// star counts only on a bill still alive (178): an issue whose stars are all out for the year alerts on every bill again.
 const linkOf = (i, b) => (S.billIssues || []).find(x => x.issue_id === i.id && x.bill_id === b.id);
 export const starredOn = (i, b) => linkOf(i, b)?.star ?? b.position === 'strongly_support';
-const anyStar = (i, now) => now.some(b => !whyNot(b) && starredOn(i, b));
+const alive = b => !['dead', 'vetoed', 'enacted', 'governor', 'ballot'].includes(effStage(b));
+const anyStar = (i, now) => now.some(b => !whyNot(b) && alive(b) && starredOn(i, b));
+// An unstarred bill whose hearing no starred bill's email will carry: within 7 days of it, no starred bill has a hearing.
+const unheard = (i, b, now) => { const h = hearingAhead(b); if (!h) return false; const t = +new Date(h.scheduled_at);
+  return !now.some(x => x.id !== b.id && !whyNot(x) && alive(x) && starredOn(i, x) && (y => y && Math.abs(+new Date(y.scheduled_at) - t) <= 7 * 864e5)(hearingAhead(x))); };
 // Position bills this session that no issue carries: somebody following issues would never hear of them.
 export const needsIssue = () => S.bills.filter(b => b.tracked !== false && b.position && b.position !== 'monitor' && thisSession(b) && !issuesOfBill(b.id).length)
   .sort((a, b) => (a.priority || 9) - (b.priority || 9) || byNum(a, b));
@@ -330,15 +336,19 @@ export function standLine(b, { owner = 'all' } = {}) {
   else parts.push(who ? `Owner: ${who.id === S.me?.id ? 'You' : String(who.full_name || '').split(' ')[0]}` : 'No owner');
   return parts.filter(Boolean).join(' · ');
 }
-function billLine(i, b, starOn) {
-  const why = whyNot(b), canStar = starOn != null && !why, st = canStar && starredOn(i, b);
+function billLine(i, b, starOn, now = []) {
+  const why = whyNot(b), canStar = starOn != null && !why && alive(b), st = canStar && starredOn(i, b);
   return `<li class="le-brow" data-bid="${esc(b.id)}">
     <a class="le-bmain" href="${billRoute(b)}">${billName(b, 140)}
       ${thisSession(b) ? `<span class="is-bstat">${esc(standLine(b))}</span>` : ''}
       <span class="is-bmeta">${posChip(b.position || '')}${thisSession(b) ? '' : `<span class="meta">${esc(b.session_year)}</span>`}</span>
       ${why ? `<span class="le-warn">${icon('eye-off')}${esc(why)}</span>` : ''}
-      ${canStar && starOn && !st ? `<span class="le-note">${icon('bell-off')}No hearing alert of its own: a line in the starred bills’ emails</span>` : ''}</a>
-    ${canStar ? iconBtn('star', st ? `Unstar ${billNum(b)}: no hearing alerts of its own` : `Star ${billNum(b)}: send its hearing alerts to followers`, { 'data-isstar': b.id, 'aria-pressed': String(st) }, 'is-star') : ''}
+      ${canStar && starOn && !st && unheard(i, b, now) ? `<span class="le-warn">${icon('triangle-alert')}Followers won’t hear about this hearing. Turn its alerts on to send one.</span>` : ''}</a>
+    ${canStar ? (starOn ? btn(st ? 'Alerts on' : 'Alerts off', { kind: 'text', sm: true, icon: st ? 'bell' : 'bell-off', cls: 'is-star',
+        attrs: { 'data-isstar': b.id, 'aria-pressed': String(st), 'aria-label': st ? `Hearing alerts on for ${billNum(b)}: turn off` : `Hearing alerts off for ${billNum(b)}: turn on` } })
+      // No bill has alerts on, so every bill alerts: the button says what pressing it does, not "off" (the second review, 10/15).
+      : btn('Alerts for this only', { kind: 'text', sm: true, icon: 'bell', cls: 'is-star',
+        attrs: { 'data-isstar': b.id, 'aria-pressed': 'false', 'aria-label': `Send hearing alerts for ${billNum(b)} only, not the issue's other bills` } })) : ''}
     ${iconBtn('x', `Take ${billNum(b)} off ${i.name}`, { 'data-isrm': b.id })}
   </li>`;
 }
@@ -402,8 +412,8 @@ function pageRender(route) {
         <div id="is-hits">${hitsHTML(i, q)}</div>
         <p class="sr" id="is-hitn" role="status"></p>
       </div>
-      ${reachN ? `<p class="small muted is-starh">${icon('star')}<span>${anyStar(i, now) ? 'Starred bills send hearing alerts to the people who follow this issue. The others show on the tracker and as a line in those emails.' : 'No bill is starred, so every bill sends hearing alerts. Star the ones HIPHI is pushing to send alerts for those only.'}</span></p>` : ''}
-      ${now.length ? `<ol class="rows le-bills">${now.map(b => billLine(i, b, anyStar(i, now))).join('')}</ol>`
+      ${reachN ? `<p class="small muted is-starh">${icon('bell')}<span>${anyStar(i, now) ? 'Only bills with alerts on send hearing alerts to this issue’s followers. The rest appear as a line in those emails.' : 'Followers get hearing alerts for every bill. To send them for only some, turn on alerts for those.'}</span></p>` : ''}
+      ${now.length ? `<ol class="rows le-bills">${now.map(b => billLine(i, b, anyStar(i, now), now)).join('')}</ol>`
         : `<div class="le-empty">${empty({ h: 'h3', title: `No ${SESSION_YEAR} bills yet`, text: 'Search above to put bills on it. Its followers get each one that has a position and is public.' })}</div>`}
       ${earlier.length ? `<details class="is-arch"><summary>${icon('history')}<span>Earlier sessions (${earlier.length})</span>${icon('chevron-down', { cls: 'is-chev' })}</summary><ol class="rows le-bills">${earlier.map(b => billLine(i, b)).join('')}</ol></details>` : ''}
     </section>
@@ -472,11 +482,13 @@ async function takeOff(i, b) {
     toast(`Took ${billNum(b)} off ${i.name}.`, { undo: async () => { await DB.setBillIssue(b.id, i.id, true); hooks.render(); } });
   } catch (e) { toast(e, { err: true }); }
 }
-async function setStar(i, b, on) {
+async function setStar(i, b, on, others = 0) {
   try {
     await DB.setBillStar(b.id, i.id, on); hooks.render();
     document.querySelector(`[data-isstar="${CSS.escape(b.id)}"]`)?.focus();
-    toast(on ? `${billNum(b)} sends hearing alerts to ${i.name}’s followers.` : `${billNum(b)} no longer sends hearing alerts of its own.`,
+    // The first bill turned on quiets the others: the toast says so (the second review, 10/15).
+    toast(others ? `Only ${billNum(b)} sends hearing alerts now. ${others === 1 ? 'The other bill appears' : `The other ${others} bills appear`} as a line in those emails.`
+      : on ? `${billNum(b)} now sends alerts to this issue’s followers.` : `${billNum(b)}: alerts off.`,
       { undo: async () => { await DB.setBillStar(b.id, i.id, !on); hooks.render(); } });
   } catch (e) { toast(e, { err: true }); }
 }
@@ -558,7 +570,9 @@ export const issuePage = {
     root.querySelectorAll('[data-is="stance"]').forEach(el => el.addEventListener('click', () => pickStance(i, { after: () => { hooks.render(); document.querySelector('[data-is="stance"]')?.focus(); } })));
     const fv = root.querySelector('#is-fv'); if (fv) fv.onchange = () => setFirstVisit(i, fv.checked);
     root.querySelectorAll('[data-isrm]').forEach(el => el.onclick = () => { const b = billById(el.dataset.isrm); if (b) takeOff(i, b); });
-    root.querySelectorAll('[data-isstar]').forEach(el => el.onclick = () => { const b = billById(el.dataset.isstar); if (b) setStar(i, b, !starredOn(i, b)); });
+    root.querySelectorAll('[data-isstar]').forEach(el => el.onclick = () => { const b = billById(el.dataset.isstar); if (!b) return;
+      const now = billsOn(i).filter(thisSession), first = !anyStar(i, now);
+      setStar(i, b, first ? true : !starredOn(i, b), first ? now.filter(x => x.id !== b.id && !whyNot(x) && alive(x)).length : 0); });
     // The add search: a combobox like a list's (arrow keys move the highlight, Enter adds, Esc clears).
     const q = root.querySelector('#is-bq'), clear = root.querySelector('[data-is="bqclear"]'), box = root.querySelector('#is-hits'), said = root.querySelector('#is-hitn');
     if (!q) return;
