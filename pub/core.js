@@ -959,9 +959,13 @@ export const testimonyDraft = h => { try { return !!h && !!JSON.parse(localStora
 // Nate 9/26). Going in person follows the same rule since R-142 (10/5): "I plan to go" put the card away and Home said
 // "You're all caught up" with testimony due that day, and testimony is how they get to speak there; it settles once
 // testimony is closed. actedOn still says "they did something" (the card's Mahalo line); settledOn decides what folds.
-export const settledOn = (b, h) => ['testimony', 'email'].some(k => didKind(b, h, k))
+// An email to the chair follows the share rule too since the walk (R-212 #14, 10/16): a Capitol Regular who emailed the
+// chair saw Home drop the testimony reminder with testimony still open, though the chair's note and testimony do different
+// jobs (the chair sets the agenda; testimony is what the committee reads before it votes).
+const stillOpen = (b, h) => !dueInfo(h)?.late && agrees(b) !== false && !!posInfo(b);
+export const settledOn = (b, h) => didKind(b, h, 'testimony')
   || (didKind(b, h, 'attend') && !!dueInfo(h)?.late)
-  || (didKind(b, h, 'share') && (!!dueInfo(h)?.late || agrees(b) === false || !posInfo(b)));
+  || (['email', 'share'].some(k => didKind(b, h, k)) && !stillOpen(b, h));
 // Still going: a hearing they plan to go to keeps its directions until the end of its day in Hawaiʻi, since hearings run
 // late and someone in the lobby at 3:05 still needs the room (R-142, the review); after that it is "You went".
 export const goingOn = h => !!h && hstDay(Date.now()) <= hstDay(h.scheduled_at);

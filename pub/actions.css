@@ -23,6 +23,7 @@
 .donebox { display: flex; align-items: center; gap: var(--s8); flex-wrap: wrap; font-weight: 700; color: var(--ok-text); font-size: var(--t14); }
 .donebox .ic { width: 20px; height: 20px; }
 .donebox .btn.text { margin-left: auto; color: var(--p700); }
+.donebox .doneafter { flex-basis: 100%; margin: 0; font-weight: 400; color: var(--n700); }   /* R-212 #14 */
 .acard.justdone { animation: settle .3s var(--ease); }
 @keyframes settle { from { transform: scale(.985); box-shadow: 0 0 0 4px #BFE8C8; } to { transform: none; } }
 .moreways { display: flex; flex-direction: column; border-top: 1px solid var(--n100); margin: var(--s8) calc(-1 * var(--s16)) calc(-1 * var(--s16)); }

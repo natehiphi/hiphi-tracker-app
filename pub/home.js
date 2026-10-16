@@ -374,6 +374,8 @@ function loopItems(skip) {
     if (!LOOP_DID[a.kind] || !a.hearing_id || skip.has(a.hearing_id)) continue;
     const h = anyHearing(a.hearing_id), b = h && anyBill(a.bill_id);
     if (!b || outcomeOf(h) || !alive(b) || new Date(h.scheduled_at).getTime() < now - 3 * 864e5) continue;
+    // An email with testimony still open leaves the hearing's card on Home, marked "Emailed" (R-212 #14): said once (A-14).
+    if (a.kind === 'email' && !settledOn(b, h)) continue;
     if (!by.has(h.id) || a.kind === 'testimony') by.set(h.id, { b, h, kind: a.kind });
   }
   return [...by.values()].sort((p, q) => p.h.scheduled_at.localeCompare(q.h.scheduled_at)).slice(0, 2);

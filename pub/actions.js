@@ -115,6 +115,10 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     moreRow('calendar-plus', 'Add to my calendar', late ? 'The hearing time and place.' : 'A reminder before testimony is due.', { 'data-ics': k }, S.chips[k + 'ics'] && 'Calendar file ready'),
   ].join('');
   const name = nick(b);
+  // Emailed the chair with testimony still open (R-212 #14): the card stays, and one line says why testimony still counts,
+  // so "Mahalo!" above "Write my testimony" does not read as being asked twice (the critic's review). The count of people
+  // who acted steps aside meanwhile, so on a phone the card is no taller than before and its button stays in view.
+  const emailOnly = doneKinds.includes('email') && !doneKinds.includes('testimony') && !settledOn(b, h);
   // The letter they sent for this hearing (W1-1, R-239): kept on the device (letters.js), so a call from the committee or
   // a Capitol tab closed by mistake still finds its words. The walkthrough opens it to read, copy or send again.
   const sentLetter = doneKinds.includes('testimony') && letterOn(b)?.h === h.id
@@ -133,9 +137,9 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     ${done ? '' : againLine(b, h)}
     ${twin ? `<p class="twin">${icon('copy')}<span>Its twin in the ${esc(CHAMBER_NAME[twin.h.committee && codesOf(twin.h.committee)[0] && S.committees[codesOf(twin.h.committee)[0]]?.chamber] || 'other chamber')}, <a href="${billPath(twin.b)}">${esc(spaced(twin.b.bill_number))}</a>: ${esc([twin.h.testimony_deadline ? (dueInfo(twin.h)?.text || '').replace(/\.$/, '') : '', hearingText(twin.h).replace(/ · Room.*$/, '').replace(/^Hearing/, 'hearing')].filter(Boolean).join(' · '))}.</span></p>` : ''}
     ${differs ? `<p class="note">${icon('info')}<span>You see this one differently from HIPHI. You can still tell the committee what you think, in your own words.</span></p>` : ''}
-    ${done ? `<div class="donebox" role="status">${icon('circle-check')}<span>${doneKinds.includes('testimony') ? 'You sent testimony. Mahalo!' : doneKinds.map(x => doneLabel(b, h, x)).join(' · ') + '. Mahalo!'}</span>${sentLetter}${lastDone ? `<button type="button" class="btn text sm" data-undo="${esc(k)}|${lastDone}" aria-label="Undo: ${esc(doneLabel(b, h, lastDone))}">Undo</button>` : ''}</div>` : ''}
+    ${done ? `<div class="donebox" role="status">${icon('circle-check')}<span>${doneKinds.includes('testimony') ? 'You sent testimony. Mahalo!' : doneKinds.map(x => doneLabel(b, h, x)).join(' · ') + '. Mahalo!'}</span>${sentLetter}${lastDone ? `<button type="button" class="btn text sm" data-undo="${esc(k)}|${lastDone}" aria-label="Undo: ${esc(doneLabel(b, h, lastDone))}">Undo</button>` : ''}${emailOnly ? `<p class="small doneafter">Written testimony is different: the committee reads it before it votes.</p>` : ''}</div>` : ''}
 
-    ${voices ? `<p class="proof">${icon('users')}${voices} people have acted on this hearing through HIPHI</p>` : ''}
+    ${voices && !emailOnly ? `<p class="proof">${icon('users')}${voices} people have acted on this hearing through HIPHI</p>` : ''}
     <div class="btncol">${compact ? '' : primary}${askBtn}
       ${btn(more ? 'Fewer ways to help' : 'More ways to help', { kind: 'secondary', iconEnd: more ? 'chevron-up' : 'chevron-down', full: true, attrs: { 'data-moreways': k, 'aria-expanded': more ? 'true' : 'false', 'aria-controls': 'mw-' + h.id } })}</div>
     ${planned ? planBlock(b, h, k, lastDone !== 'attend') : ''}

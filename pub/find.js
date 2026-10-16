@@ -10,7 +10,7 @@
 // On a wide screen (1100px and up) the page stops being a phone column: the issues are a grid of tiles, HIPHI's
 // lists are cards side by side, bills are table rows (mybills.js), a list's Follow button sits beside its title, and
 // the suggestion card shares its row with the other bills that have a hearing this week.
-import { S, D, DEMO, app, esc, icon, nick, posInfo, countOk, issues, issueIcon, groupNames, wiz, sessionInfo, suggestionList, reasonOf, noteShown, dismissed,
+import { S, D, DEMO, app, esc, icon, nick, posInfo, countOk, issues, issueIcon, groupNames, wiz, sessionInfo, suggestionList, recommendations, reasonOf, noteShown, dismissed,
   browseCoalition, curate, listBillsFor, followList, toggleWatch, loadBills, saveLocal, saveListFollows, nudge, toast, supa, plain, POS_RANK,
   pickedTopic, findBill, stopOf, dayWord, issueBills, issuesIn, issueFollowed, issuePos, setFollows, unfollowIssue, ensureRecapPool,
   recomputeWatch, plainStatus, spaced, billPath, issuesOf, openActions, hearingsOf, legTitle, CHAMBER_NAME, sessionWords } from './core.js';
@@ -214,20 +214,29 @@ const reason = b => reasonOf(b) || 'Testimony is open this week';
 // this page and kept while the person is on it, so following one (from its card or its star) leaves it in place,
 // now marked as followed, instead of making it vanish from under the pointer. "Not for me" does remove it, and the
 // next suggestion moves up.
+// The walk (R-212 #17) found four too few for someone who came to see what needs voices: the short list's four lead as
+// before, then the next best up to eight, and "See all" opens the rest in place. Only the four are counted as shown, so
+// the suggestion measures (R-094) and the three-day fatigue keep meaning what they meant.
+const VOICES = 8;
 function suggestions() {
   const skip = dismissed(), ok = r => r.st.hearing && !skip.has(r.b.id);
   const list = (F.recs || []).filter(ok), have = new Set(list.map(r => r.b.id));
-  for (const r of suggestionList(4)) { if (list.length >= 4) break; if (ok(r) && !have.has(r.b.id)) list.push(r); }
+  for (const r of suggestionList(4)) { if (list.length >= 4) break; if (ok(r) && !have.has(r.b.id)) { list.push(r); have.add(r.b.id); } }
   noteShown(list, 'find');
+  // The rest by deadline, soonest first (the critic: two "due today" bills fell below the cut when filled by score).
+  for (const r of byDue(recommendations(200))) { if (list.length >= VOICES) break; if (ok(r) && !have.has(r.b.id)) { list.push(r); have.add(r.b.id); } }
   return F.recs = list;
 }
+const byDue = rs => rs.slice().sort((x, y) => (x.due ?? Infinity) - (y.due ?? Infinity));
+// Every bill with a hearing coming up that could be suggested, after the eight: what "See all" opens.
+const moreVoices = shown => { const skip = dismissed(), have = new Set(shown.map(r => r.b.id)); return byDue(recommendations(200)).filter(r => r.st.hearing && !skip.has(r.b.id) && !have.has(r.b.id)); };
 
 // ---------------- the Find page ----------------
 function findPage(q) {
   q = (q || '').trim();
   if (q !== F.cur) { F.cur = q; }
   if (q) startSearch(q);
-  if (!document.querySelector('.fd[data-page="find"]')) F.recs = null;   // arriving afresh: choose the suggestions again
+  if (!document.querySelector('.fd[data-page="find"]')) { F.recs = null; F.more.voices = false; }   // arriving afresh: choose the suggestions again, and the eight again
   const busy = !!(q && F.busy);
   return `<div class="fd" data-page="find">
     <form class="fd-search" role="search" action="#" novalidate>
@@ -266,7 +275,9 @@ function resultsBody(q, res) {
 // bill rows beside it (under it on a phone), each a press away from its own page.
 function browseHTML() {
   const si = sessionInfo(), off = si.phase !== 'in', lists = S.lists || [];
-  const [first, ...rest] = off ? [] : suggestions();
+  // The card is the best pick; the rows beside it go by deadline, so whatever closes today is near the top (A-13).
+  const recs = off ? [] : suggestions(), [first, ...picked] = recs, shown = byDue(picked), extra = first ? moreVoices(recs) : [];
+  const rest = F.more.voices ? [...shown, ...extra] : shown;
   return `${off ? `<div class="fd-offnote">${notice('info', 'calendar', `The Legislature is on break until <b>${esc(openWords(si))}</b>. You can still look up any ${si.recapYear} bill and see what happened to it.`)}</div>` : ''}
     <section aria-labelledby="fd-iss-h">${sechead('fd-iss-h', 'Browse issues')}${issueTiles()}</section>
     ${lists.length ? `<section aria-labelledby="fd-lists-h">${sechead('fd-lists-h', 'Lists from HIPHI')}
@@ -275,8 +286,9 @@ function browseHTML() {
     ${first ? `<section aria-labelledby="fd-voices-h">${sechead('fd-voices-h', 'Bills that need voices this week')}
       <p class="small muted fd-sub">Each one has a hearing coming up. Speaking up takes a few minutes.</p>
       <div class="cols fd-voices"><div class="fd-cards">${actionCard(first.b, first.st.hearing, { suggest: reason(first.b) })}</div>
-        ${rest.length ? `<div class="side"><h3 class="fd-sideh" id="fd-also-h">More bills with a hearing this week</h3>
-          ${billList(rest.map(r => r.b), b => ({ pos: true, hearing: rest.find(r => r.b.id === b.id)?.st.hearing }), { compact: true })}</div>` : ''}</div></section>` : ''}`;
+        ${rest.length ? `<div class="side"><h3 class="fd-sideh" id="fd-also-h">More bills with a hearing coming up</h3>
+          <div data-grp="voices">${billList(rest.map(r => r.b), b => ({ pos: true, hearing: rest.find(r => r.b.id === b.id)?.st.hearing }), { compact: true })}</div>
+          ${extra.length && !F.more.voices ? `<div class="fd-more">${btn(`See ${extra.length} more`, { kind: 'text', iconEnd: 'chevron-down', attrs: { 'data-fdmore': 'voices', 'data-from': shown.length, 'aria-label': `See ${extra.length} more bills with a hearing coming up` } })}</div>` : ''}</div>` : ''}</div></section>` : ''}`;
 }
 
 // ---------------- an issue's page ----------------

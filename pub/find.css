@@ -83,7 +83,10 @@
 
   /* the suggestion: the action card in the main column, the week's other hearings beside it */
   .fd-voices .fd-sideh { margin: 0 0 calc(-1 * var(--s4)); }
-  .fd-voices > .side { top: calc(var(--header) + var(--s24)); }
+  /* eight bills and "See 8 more" make the column taller than the card (R-212 #17): the card stays in view while the list
+     scrolls past it, instead of a tall sticky column beside an empty space */
+  .fd-voices > .side { position: static; }
+  .fd-voices > .fd-cards { position: sticky; top: calc(var(--header) + var(--s24)); }
 
   /* an issue's or a list's header: the icon sits beside the title instead of on a line of its own */
   .fd-ihead { grid-template-columns: 56px minmax(0, 1fr); column-gap: var(--s16); margin-bottom: var(--s24); }
