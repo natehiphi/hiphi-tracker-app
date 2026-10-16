@@ -100,6 +100,8 @@
   .mb-list:not(.mb-compact):not(.mb-c3) .mb-row.off .mb-status { grid-column: 2 / span 2; }
   .mb-list:not(.mb-compact) .mb-next { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; gap: 2px; padding-top: var(--s4); font-size: var(--t13); color: var(--n500); }
   .mb-list:not(.mb-compact) .mb-next b { font-size: var(--t14); color: var(--n900); }
+  /* Room and committee (R-212 #20): two lines at most, so the date cell never outgrows the bill beside it; the full text is its title. */
+  .mb-list:not(.mb-compact) .mb-next .mb-where { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
   .mb-list:not(.mb-compact) .mb-who { grid-column: 4; grid-row: 1; display: flex; flex-direction: column; align-items: flex-start; gap: var(--s4); padding-top: var(--s4); }
   .mb-list:not(.mb-compact) .mb-pos { display: inline-flex; align-items: center; gap: var(--s4); }
   .mb-list:not(.mb-compact) .mb-pos { margin-left: 0; }
