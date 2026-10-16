@@ -43,6 +43,9 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 .st1 .st-art { display: flex; }
 .st-art svg { width: 100%; height: 64px; }
 @media (max-width: 22.4375em), (max-width: 899px) and (max-height: 700px) { .st1 .st-art { display: none; } }
+/* the Canva picture (R-197): laptops only (the two columns, 900px up), whole, never cropped (a band cut off the sun and the
+   mountains). On a tablet it pushed the topics from 422px to 516px down (A-1), so phones and tablets keep the line drawing. */
+.st-art .art-pic { display: none; width: 100%; max-width: 420px; height: auto; border: 1px solid var(--n200); border-radius: var(--r16); background: var(--n100); }
 
 /* a partner's own welcome, for someone who came from their link (?via=) */
 .st-partner { display: flex; gap: var(--s8); align-items: flex-start; margin: 0; padding: 10px 12px; border-radius: var(--r12); background: var(--p50); color: var(--n900); font-weight: 700; }
@@ -367,6 +370,12 @@ button.st-way:active { transform: scale(.99); }
   .st-intro .lede { margin-top: 0; }
   .st-art, .st1 .st-art { display: flex; justify-content: flex-start; margin: 0 0 var(--s8); }
   .st-art svg { width: auto; height: 120px; max-width: 100%; }
+  .st-art:has(.art-pic) svg { display: none; }
+  .st-art .art-pic { display: block; }
+  /* the picture makes the left column taller than the topics: an empty last row takes the extra height, so Next stays
+     right under the tiles instead of dropping with it (the critic's note, 10/15) */
+  body[data-screen="start"] main:has(.art-pic) { grid-template-rows: auto auto auto 1fr; }
+  main:has(.art-pic) .st-intro { grid-row: 1 / span 4; }
   .st-surewide { display: flex; }
   .st-say .st-sure { display: none; }
   .st-say { min-height: 0; }
