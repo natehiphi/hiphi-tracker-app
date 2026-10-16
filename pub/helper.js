@@ -115,12 +115,14 @@ const OPENING = { strongly_support: 'I strongly support', support: 'I support', 
 // otherwise it is theirs alone, and their reason is required, because it is the whole letter.
 const sameAsHiphi = (b, stance) => (stance === 'support' && /support/.test(b.hiphi_position || '')) || (stance === 'oppose' && /oppose/.test(b.hiphi_position || ''));
 // R-259: the sentence itself has a few wordings (hello.js standLine), and "comments" is the app's word, never the letter's.
-function openingLine(b, n, stance) {
+// R-212 #11: HIPHI's "strongly" is said on the stand screen before it reaches the letter, and "mild" (one tap there) keeps
+// it out, so a person who only supports it is not made to say "strongly".
+function openingLine(b, n, stance, mild) {
   const p = b.hiphi_position;
-  return standLine(sameAsHiphi(b, stance) && OPENING[p] ? p : stance, n, b.bill_number);
+  return standLine(!mild && sameAsHiphi(b, stance) && OPENING[p] ? p : stance, n, b.bill_number);
 }
 // Who they are, then where they stand (R-259: the name came after the stand, which read like a form).
-const openWords = (x, n, stance, two) => [whoLine(x.name, two, x.b.bill_number), openingLine(x.b, n, stance)].filter(Boolean).join(' ');
+const openWords = (x, n, stance, two) => [whoLine(x.name, two, x.b.bill_number), openingLine(x.b, n, stance, x.mild)].filter(Boolean).join(' ');
 function askLine(b, n, stance) {
   // R-259: plain words. "Hold" is the Capitol's word for a committee not passing a bill; people say "don't pass it".
   const k = b.bill_number + '|ask';
@@ -254,7 +256,7 @@ function reminderLetter(x) {
     : vary(k + '|again', ['I’m writing again because the deadline is close.', 'I’m following up because the deadline is close.']);
   const ask = stance === 'oppose' ? vary(k, ['Please leave it off the schedule this year.', 'I hope you’ll let it go this year.'])
     : stance === 'support' ? vary(k, [`Would you please schedule it${dl ? ' before then' : ''}?`, `I hope you’ll give it a hearing${dl ? ' before then' : ''}.`]) : 'I hope my thoughts are useful as you decide.';
-  return [`Aloha ${andList(x.to.map(t => t.greet)) || 'Chair'},`, [whoLine(name, [], k), openingLine(b, n, stance)].filter(Boolean).join(' '),
+  return [`Aloha ${andList(x.to.map(t => t.greet)) || 'Chair'},`, [whoLine(name, [], k), openingLine(b, n, stance, x.mild)].filter(Boolean).join(' '),
     `${before} ${again}`, sentence(x.why), ask,
     [closingOf(x.closing), name].filter(Boolean).join('\n')].filter(Boolean).join('\n\n');
 }
@@ -273,7 +275,7 @@ function emailParts(x) {
     : `I live in ${town ? `${town}, in ` : ''}${andList(ownTo.map(t => t.greet))}’s district.`;
   return {
     dear: `${vary(b.bill_number + '|dear', ['Aloha', 'Aloha', 'Dear'])} ${andList(to.map(t => t.greet)) || 'Chair'},`,
-    open: [whoLine(nm, two, b.bill_number), live, openingLine(b, n, stance)].filter(Boolean).join(' '),
+    open: [whoLine(nm, two, b.bill_number), live, openingLine(b, n, stance, x.mild)].filter(Boolean).join(' '),
     pts: ownPoints(x),
     why: x.noWhy && !own2For(b, stance) ? '' : sentence(x.why),
     ask: [ours ? sentence(b.hiphi_action) : '', mailAsk(x, n, stance)].filter(Boolean).join(' '),
@@ -473,7 +475,7 @@ function openMail(o = {}) {
   if (d && (d.points || d.edited)) { x.points = d.points || []; x.pointsText = d.pointsText ?? pointsLine(x.points); restoreBox(x, d); }
   if (d && x.name.trim() && (mode === 'intro' || x.stance) && (d.screen === 2 || d.screen === 'mail')) {
     // Back from the mail app or Gmail (a phone may have reloaded the page meanwhile): the question waits for them.
-    x.screen = d.screen; x.resumed = true; x.why = d.why ?? x.why; x.edited = !!d.edited; x.noLive = !!d.noLive; x.noWhy = !!d.noWhy;
+    x.screen = d.screen; x.resumed = true; x.why = d.why ?? x.why; x.edited = !!d.edited; x.noLive = !!d.noLive; x.noWhy = !!d.noWhy; x.mild = !!d.mild;
     if (mode === 'intro' && d.topic) x.topic = d.topic;
     x.letter = x.edited ? String(d.letter ?? '') : letterOf(x); x.built = x.edited ? d.built || partsOf(x) : partsOf(x);
     x.subject = d.subject || mailSubject(x); x.opened = d.opened || ''; x.asked = !!d.opened;
@@ -502,7 +504,7 @@ function open(billId, hearingId, { view = null } = {}) {
     // for this bill's topic (else the one for any issue) starts a new letter's "why" (R-147, R-156 B3); a story about
     // another topic is offered, never filled in.
     why: d ? d.why || '' : me.whyBill === b.id ? me.why || '' : saved?.text || '',
-    whyStory: !!saved, offer: fresh && !saved ? otherStory(catsOf(b)) : null, noLive: !!d?.noLive, noWhy: !!d?.noWhy,
+    whyStory: !!saved, offer: fresh && !saved ? otherStory(catsOf(b)) : null, noLive: !!d?.noLive, noWhy: !!d?.noWhy, mild: !!d?.mild,
     tp: { chosen: myTitles(), q: '', more: false, active: -1 }, use: d?.use || null, saveStory: false,
     letter: '', edited: false, built: null, errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement) };
   // A link already sent to this address during this visit (from an earlier letter, or before "I'll finish later"):
@@ -710,7 +712,7 @@ window.addEventListener('pagehide', () => { if (S.helper) { if (S.helper.screen 
 // step in hiphi_me.mail (mailKey). A record is made at the bill step only when there is something to keep: a point
 // picked or a word typed in the box (R-141), so a plain visit leaves nothing behind.
 const draftOf = x => ({ screen: x.screen, stance: x.stance, why: x.why, subject: x.subject || '', opened: x.opened || '', away: !!x.away, back: !!x.back,
-  left: x.leftAt || 0, again: !!x.again, update: !!x.update, noLive: !!x.noLive, noWhy: !!x.noWhy, t0: x.t0, ...boxOf(x),
+  left: x.leftAt || 0, again: !!x.again, update: !!x.update, noLive: !!x.noLive, noWhy: !!x.noWhy, mild: !!x.mild, t0: x.t0, ...boxOf(x),
   ...(x.mode === 'intro' ? { topic: x.topic || '' } : {}) });
 // What changes while they type or tap at the bill step: the box, its points and titles (R-141).
 const boxOf = x => ({ points: x.points, pointsText: x.pointsText, use: x.use || null, letter: x.edited ? x.letter : '', edited: !!x.edited,
@@ -730,7 +732,7 @@ function saveDraft() {
     for (const [kk, v] of Object.entries(mail)) if (!v?.at || Date.now() - Date.parse(v.at) > 45 * 864e5) delete mail[kk];
     if (x.screen === 'done') delete mail[k];
     else if (later) mail[k] = draftOf(x);
-    else if (kept || mail[k]) mail[k] = { ...(mail[k] || { screen: x.screen, why: x.why, again: !!x.again, update: !!x.update, noLive: !!x.noLive, noWhy: !!x.noWhy, t0: x.t0 }), stance: x.stance, ...boxOf(x) };
+    else if (kept || mail[k]) mail[k] = { ...(mail[k] || { screen: x.screen, why: x.why, again: !!x.again, update: !!x.update, noLive: !!x.noLive, noWhy: !!x.noWhy, t0: x.t0 }), stance: x.stance, mild: !!x.mild, ...boxOf(x) };
     saveMe({ mail });
     return;
   }
@@ -739,7 +741,7 @@ function saveDraft() {
   if (x.screen === 'done') delete drafts[x.h.id];
   else if (later) drafts[x.h.id] = draftOf(x);
   // Back on the bill step: the record keeps where they got to before (a letter they had reached), and takes the box.
-  else if (kept || drafts[x.h.id]) drafts[x.h.id] = { ...(drafts[x.h.id] || { screen: x.screen, why: x.why, again: !!x.again, update: !!x.update, noLive: !!x.noLive, noWhy: !!x.noWhy, t0: x.t0 }), stance: x.stance, ...boxOf(x) };
+  else if (kept || drafts[x.h.id]) drafts[x.h.id] = { ...(drafts[x.h.id] || { screen: x.screen, why: x.why, again: !!x.again, update: !!x.update, noLive: !!x.noLive, noWhy: !!x.noWhy, t0: x.t0 }), stance: x.stance, mild: !!x.mild, ...boxOf(x) };
   saveMe({ drafts });
 }
 
@@ -811,7 +813,13 @@ const stanceFrom = x => x.fromBill && x.stance === x.fromBill ? `You marked ${x.
 const recDay = L => (L.kind === 'email' ? L.sent : L.at || L.sent) ? shortDay(L.kind === 'email' ? L.sent : L.at || L.sent) : '';
 function standScreen() {
   const x = S.helper, { b } = x, n = spaced(b.bill_number), p = posInfo(b);
-  const opt = (v, label, sub = '') => `<button type="button" class="hp-choice" data-hp="stance" data-v="${v}" aria-pressed="${x.stance === v}"><b>${label}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
+  const opt = (v, label, sub = '') => `<button type="button" class="hp-choice" data-hp="stance" data-v="${v}" aria-pressed="${x.stance === v && !x.mild}"><b>${label}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
+  // R-212 #11: when HIPHI strongly supports (or opposes) it, the letter would say "strongly" for them; that is said here,
+  // on the choice, and a plain answer is one tap away, before any letter is written.
+  const strong = { strongly_support: 'support', strongly_oppose: 'oppose' }[b.hiphi_position] || '';
+  const what = isMail(x) ? 'email' : 'testimony', verb = strong === 'oppose' ? 'oppose' : 'support';
+  const strongSub = `Your ${what} will say you strongly ${verb} it, as HIPHI does`;
+  const plain = strong ? `<button type="button" class="hp-plain" data-hp="plain" data-v="${strong}" aria-pressed="${x.stance === strong && !!x.mild}">Just “I ${verb} it”, not strongly</button>` : '';
   // What the bill does, right where they decide (Nate 9/29): nobody should have to pick a side on a number. One sentence
   // is not enough for everyone (R-178, Nate 10/5), so "Read more about the bill" opens the Legislature's summary and the
   // whole bill on the Capitol website (pub/billtext.js); it stays open when an answer is picked. HIPHI's reasons only
@@ -823,7 +831,7 @@ function standScreen() {
         ${readMore(b, { shown: w, h: 'h4', pfx: 'hp-ab', quiet: true, reasons: !seqOf(x).includes('know') })}</details></div>
     ${forgotNote(x)}
     <p class="hp-sub hp-standsub">${stanceFrom(x)}Your ${isMail(x) ? 'email' : 'testimony'} is yours: say what you think.${p ? ` ${esc(p.text)} it.` : ''}</p>
-    <div class="hp-choices" role="group" aria-labelledby="hp-sh">${opt('support', 'I support it')}${opt('oppose', 'I oppose it')}${opt('comments', 'I have comments', 'Not for or against, or for it with changes')}</div>`;
+    <div class="hp-choices" role="group" aria-labelledby="hp-sh">${opt('support', 'I support it', strong === 'support' ? strongSub : '')}${strong === 'support' ? plain : ''}${opt('oppose', 'I oppose it', strong === 'oppose' ? strongSub : '')}${strong === 'oppose' ? plain : ''}${opt('comments', 'I have comments', 'Not for or against, or for it with changes')}</div>`;
 }
 
 // Your letter is ready (R-148): what it is, where it goes now, and what changed since. The check decides the heading and
@@ -1813,7 +1821,7 @@ function onClick(e) {
   }
   else if (a === 'next') goNext();
   else if (a === 'back') goBack();
-  else if (a === 'stance') { const was = S.helper.stance; S.helper.stance = t.dataset.v; if (S.helper.again && was !== t.dataset.v) restance(S.helper); if (['support', 'oppose'].includes(t.dataset.v) && S.helper.b && myStance(S.helper.b.id) !== t.dataset.v) setStance(S.helper.b.id, t.dataset.v).catch(() => {}); saveDraft(); goNext(); }   // saved on the bill too (R-120, Bug 5)
+  else if (a === 'stance' || a === 'plain') { const was = S.helper.stance; S.helper.stance = t.dataset.v; S.helper.mild = a === 'plain'; if (S.helper.again && was !== t.dataset.v) restance(S.helper); if (['support', 'oppose'].includes(t.dataset.v) && S.helper.b && myStance(S.helper.b.id) !== t.dataset.v) setStance(S.helper.b.id, t.dataset.v).catch(() => {}); saveDraft(); goNext(); }   // saved on the bill too (R-120, Bug 5)
   else if (a === 'point') {
     // Add or take out one talking point (R-141). The box holds the whole letter, so a tap writes the point's words into it:
     // after the points it has, or as a paragraph before the reason and the ask when it has none. Until the person types in
