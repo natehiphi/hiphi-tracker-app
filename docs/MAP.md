@@ -309,8 +309,9 @@ Nate: "make a staffv5 and implement the 1-21 fixes and show mes there." A copy o
 to hold the fixes from the Staff v4 ease-of-use review (backend `docs/requests/R-277.md`: rows uncut, one word per thing,
 one look per action, Back closes the side panel, Help that answers how-to, calm at session volume). The version links
 in the menu show only to admins, and the sidebar says "v5". Held to A-24 by `tests/staff5_budget.py` and to the
-per-person targets by `tests/staff5_people.py` (both in CI). **Staff v4 is left as it was**, to compare; R-267's later
-pieces go into both while both exist. Nate picks v2, v3, v4 or v5 on 26 Oct. D2-D5 of the review are held, not built.
+per-person targets by `tests/staff5_people.py` (both in CI). **Staff v4 is left as it was**, to compare.
+**From 15 Oct every staff build goes into Staff v5 and Staff v2 only; v3 and v4 are frozen** (Nate, R-291), R-267's later
+pieces included, and the "made in both" rule above now means `staff/` and `staff5/`. Nate picks v2, v3, v4 or v5 on 26 Oct. D2-D5 of the review are held, not built.
 
 ## Staff v4 (`staff4.html` + `staff4/`), to compare (R-269, 12 Oct 2026)
 
