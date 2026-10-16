@@ -36,7 +36,7 @@ def walk_testimony(pg, num, acct='acct-yes', tag='', shots=True):
         if pg.locator('#hp-name').count() and not pg.input_value('#hp-name'): pg.fill('#hp-name', 'Leilani Kahale')
         if pg.locator('#hp-why').count() and not pg.input_value('#hp-why'): pg.fill('#hp-why', 'Our keiki deserve clean air.')
         if pg.locator(f'#hp-dlg [data-hp="{acct}"]').count(): pg.locator(f'#hp-dlg [data-hp="{acct}"]').click(); pg.wait_for_timeout(600); continue
-        if 'Send it at the Capitol' in dlg(pg) or 'Did you see the green box' in dlg(pg):
+        if 'Send it at the Capitol' in dlg(pg) or 'look for the green box' in dlg(pg):
             send = dlg(pg)
             if shots: pg.screenshot(path=os.path.join(OUT, f'{tag}-send.png'))
             pg.locator('#hp-dlg [data-hp="sent"], #hp-dlg [data-hp="confirm"]').first.click(); pg.wait_for_timeout(1200); continue

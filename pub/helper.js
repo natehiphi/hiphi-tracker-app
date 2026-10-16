@@ -1113,6 +1113,7 @@ function letterScreen() {
   return `<div class="hp-top">${screenHead(2, 'Your letter')}
       <p class="hp-sub" id="hp-lsub">${x.again && !x.update ? `Your ${x.again.rec.at ? `${esc(shortDay(x.again.rec.at))} ` : ''}letter, addressed to this hearing’s committee, chairs and date. Read it over and change anything you like.` : 'We wrote it from your answers. Read it over, and make the first line your own: lawmakers notice letters in people’s own words.'}</p></div>
     ${welcomeBack()}
+    ${DEMO ? notice('info', 'info', 'Practice: you can walk through every step, but nothing is sent and no Capitol page opens.') : ''}
     ${again}
     ${x.stale ? `<div class="notice info">${icon('info')}<div><p>You changed your details after editing this letter.</p>${btn('Use my new details', { kind: 'text', icon: 'rotate-ccw', cls: 'hp-inl', attrs: { 'data-hp': 'rewrite' } })}</div></div>` : ''}
     <textarea id="hp-letter" class="hp-letter" aria-labelledby="hp-sh" aria-describedby="hp-lsub" spellcheck="true" autocapitalize="sentences" rows="14">${esc(x.letter)}</textarea>
@@ -1237,6 +1238,7 @@ function acctScreen() {
     '<p>Come back here. <b>Your letter is saved.</b></p>'];
   return `<div class="hp-top">${screenHead(0, 'Make your free Capitol account')}
       <p class="hp-sub">You need your email and a new password. You only do this once.</p></div>
+    ${practiceNote()}
     ${stepList(steps)}
     ${x.acctHelp ? `<div class="notice info">${icon('info')}<div><p><b>The email hasn’t come?</b> It can take a few minutes. Look in spam or promotions. Still nothing? The Public Access Room helps for free: <a class="hp-tel" href="${PAR_TEL}">${PAR_SHOW}</a>.</p></div></div>` : ''}
     ${capitolNotes(true)}`;
@@ -1255,7 +1257,12 @@ const capitolNotes = saved => `<div class="hp-notes">
     <p class="note">${icon('clock')}<span>The Capitol site logs you out after 60 minutes.${saved ? ' Your letter stays saved here.' : ''}</span></p>
     <p class="note">${icon('phone')}<span>Stuck? The Public Access Room helps for free: <a class="hp-tel" href="${PAR_TEL}">${PAR_SHOW}</a></span></p>
   </div>`;
-const capitolLink = (b, h, label, o = {}) => btn(label, { iconEnd: 'external-link', href: capitolUrl(b, h), ...o, attrs: { target: '_blank', rel: 'noopener', 'data-hp': 'capitol' } });
+// The practice copy never opens the real Capitol (R-212 #1): testers and a class would land on the real testimony form. There
+// the button stays and says where it would go (practiceNote), so the steps can still be walked.
+const capitolLink = (b, h, label, o = {}) => DEMO ? btn(label, { ...o, attrs: { 'data-hp': 'capitol-demo' } })
+  : btn(label, { iconEnd: 'external-link', href: capitolUrl(b, h), ...o, attrs: { target: '_blank', rel: 'noopener', 'data-hp': 'capitol' } });
+// Said once, on the screen where the button was tapped (the critic, 15 Oct: the same long note on three screens was skipped).
+const practiceNote = () => DEMO && S.helper?.practiceAt === S.helper?.screen && !(S.helper.screen === 3) ? notice('info', 'info', 'Practice: Open the Capitol page opens nothing here. On the real tracker it takes you to the Capitol website.') : '';
 // The bill's own words as they are now, its latest draft's text on the Capitol website (R-178), not its status page.
 const readBill = (b, label) => btn(label, { kind: 'text', sm: true, cls: 'hp-inl', iconEnd: 'external-link', href: billTextUrl(b), attrs: { target: '_blank', rel: 'noopener', 'data-ab-go': 'text' } });
 // The letter they sent (W1-1, R-239): its words to read or copy, the ways the letter screen keeps it, the Capitol page to send
@@ -1274,6 +1281,7 @@ function viewScreen() {
       ${btn('Download as a file', { kind: 'text', icon: 'download', attrs: { 'data-hp': 'download', id: 'hp-dl' } })}
       ${x.saved ? `<span class="okmsg">${icon('check')}Saved as ${esc(file)}</span>` : ''}
       ${again ? capitolLink(b, h, 'Open the Capitol page', { kind: 'text' }) : ''}</div>
+    ${practiceNote()}
     <textarea id="hp-letter" class="hp-letter" aria-labelledby="hp-sh" aria-describedby="hp-lsub" readonly rows="6">${esc(x.letter)}</textarea>
     ${fixLine(h)}`;
 }
@@ -1293,8 +1301,13 @@ function sendScreen() {
       <p><b>Can’t find the hearing?</b> The Public Access Room can help: <a class="hp-tel" href="${PAR_TEL}">${PAR_SHOW}</a>.</p>
       <p><b>Past the deadline?</b> You can still send it. It will be marked late.</p>
       ${fixLine(h, true)}</div></div>` : '';
+  if (DEMO) return `<div class="hp-top">${screenHead(3, x.back ? 'On the Capitol website, you’d look for the green box' : 'Send it at the Capitol')}
+      <p class="hp-sub">${x.back ? 'Your letter is copied. On the real tracker you’d paste it there and submit; the green box means it went through.' : 'On the real tracker, one tap copies your letter and opens the Capitol website. It goes to lawmakers under your name, and the Capitol posts it publicly.'}</p></div>
+    ${notice('info', 'info', 'Practice: this copies your letter and opens nothing.')}
+    ${stepList(steps)}`;
   return `<div class="hp-top">${screenHead(3, x.back ? 'Did you see the green box?' : 'Send it at the Capitol')}
-      <p class="hp-sub">${x.back ? 'The green box on the Capitol page means your testimony went through.' : 'One tap copies your letter and opens the Capitol page. Follow these steps there. We’ll be right here when you come back.'}</p></div>
+      <p class="hp-sub">${x.back ? 'The green box on the Capitol page means your testimony went through.' : 'One tap copies your letter and opens the Capitol page. It goes to lawmakers under your name, and the Capitol posts it publicly. Follow these steps there. We’ll be right here when you come back.'}</p></div>
+    ${practiceNote()}
     ${trouble}
     ${welcomeBack()}
     ${stepList(steps)}
@@ -1330,7 +1343,8 @@ function doneScreen() {
   return `<div class="hp-hero">
       <div class="hp-badge" aria-hidden="true">${flower(56)}</div>
       <h2 class="hp-mahalo" id="hp-done-t" tabindex="-1">${first ? `Mahalo, ${esc(first)}!` : 'Mahalo!'}</h2>
-      <p class="hp-lede">${x.late ? `You sent testimony on ${esc(n)}. It’s on the record, marked late. It may reach them after the vote.`
+      ${DEMO ? notice('info', 'info', 'Practice: nothing went to the Capitol. This is what someone sees after sending.') : ''}
+      <p class="hp-lede">${DEMO ? 'When you send it for real, the committee reads it before they vote, and it becomes part of the public record.' : x.late ? `You sent testimony on ${esc(n)}. It’s on the record, marked late. It may reach them after the vote.`
         : `You sent testimony on ${esc(n)}. The committee reads it before they vote, and it becomes part of the public record.`}</p>
       ${miles.length ? `<div class="chips hp-miles" aria-label="Milestones you just earned">${miles.map(m => `<span class="chip yay">${flower(16)}${esc(m)}</span>`).join('')}</div>` : ''}
     </div>${up ? ask : ''}${friendCard(x)}
@@ -1487,9 +1501,9 @@ function foot() {
     : capitolLink(x.b, x.h, 'Open the Capitol page', { kind: 'primary', cls: 'hp-main' })),
     (x.acctNew && x.acctBack ? btn('The email hasn’t come', { kind: 'text', sm: true, attrs: { 'data-hp': 'acct-help' } }) : '') + later);
   if (x.screen === 3) return row(back + (x.busy ? `<button type="button" class="btn primary hp-main" aria-busy="true">${icon('loader-circle')}<span>Saving…</span></button>`
-    : x.back ? btn('Yes, I saw the green box', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'confirm' } })
-    : btn('Copy my letter and open the Capitol page', { kind: 'primary', icon: 'copy', cls: 'hp-main', attrs: { 'data-hp': 'copyopen' } })),
-    x.busy ? '' : (x.back ? btn('Something went wrong', { kind: 'text', sm: true, attrs: { 'data-hp': 'trouble' } }) : btn('I already sent it', { kind: 'text', sm: true, attrs: { 'data-hp': 'sent' } })) + later);
+    : x.back ? btn(DEMO ? 'Finish practice' : 'Yes, I saw the green box', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'confirm' } })
+    : btn(DEMO ? 'Copy my letter' : 'Copy my letter and open the Capitol page', { kind: 'primary', icon: 'copy', cls: 'hp-main', attrs: { 'data-hp': 'copyopen' } })),
+    x.busy ? '' : (x.back ? (DEMO ? '' : btn('Something went wrong', { kind: 'text', sm: true, attrs: { 'data-hp': 'trouble' } })) : btn('I already sent it', { kind: 'text', sm: true, attrs: { 'data-hp': 'sent' } })) + later);
   // While "Save your profile" waits for an answer (R-184), its button is the bar's main one: with "Done" filled beside a
   // typed number, people tapped Done and left believing they had saved (the fresh-eyes review, 10/6). Its other answer, "Not
   // now", sits beside it (R-205 C4): "Done" there closed the Mahalo before the share ask, so few would ever see it.
@@ -1619,6 +1633,7 @@ function copyAndOpen() {
   const x = S.helper; if (!x) return;
   const ta = dlg?.querySelector('#hp-letter'); if (ta) x.letter = ta.value;
   try { navigator.clipboard?.writeText(x.letter).catch(() => {}); } catch { /* the steps offer Copy again */ }
+  if (DEMO) { x.practiceAt = 3; x.back = true; x.copied3 = true; saveDraft(); paint(); announce('Copied. Practice: the Capitol page was not opened.'); return; }   // R-212 #1
   window.open(capitolUrl(x.b, x.h), '_blank', 'noopener');
   x.leftAt ||= Date.now();   // when they went to send it: late or not is judged from here (C2-1)
   x.away = true; x.copied3 = true; saveDraft(); paint();
@@ -1879,7 +1894,8 @@ function onClick(e) {
     x.forgotten = null; keepLetter(r.rec); againFrom(x, r, loadMe()); x.screen = 'again'; paint({ focus: 'hp-sh', top: true }); announce('Your letter is back.');
   }
   else if (a === 'rewrite') { const x = S.helper; x.edited = false; syncLetter(x); x.copied = x.saved = false; saveDraft(); paint({ focus: 'hp-letter' }); }
-  // 'capitol' is a plain link to the Capitol site in a new tab.
+  // 'capitol' is a plain link to the Capitol site in a new tab; in the practice copy it is 'capitol-demo' and opens nothing.
+  else if (a === 'capitol-demo') { S.helper.practiceAt = S.helper.screen; if (S.helper.screen === 'acct') S.helper.acctBack = true; paint(); announce('Practice: the Capitol page was not opened.'); }
 }
 function onInput(e) {
   const x = S.helper, t = e.target; if (!x) return;
