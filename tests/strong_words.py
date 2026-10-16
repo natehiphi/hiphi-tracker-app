@@ -47,12 +47,19 @@ with sync_playwright() as p:
             k = f'{tag} {mode} {t["n"]}:'
             LOAD(pg); pg.evaluate(OPEN, [t, mode]); pg.wait_for_selector('#hp-dlg #hp-sh', timeout=15000); pg.wait_for_timeout(500)
             word = 'email' if mode == 'email' else 'testimony'
-            ok(f'Your {word} will say you strongly support it, as HIPHI does' in choice(pg, 'support').inner_text(), f'{k} "I support it" says the {word} will say "strongly", before any letter')
-            ok(plain(pg).count() == 1 and 'not strongly' in plain(pg).inner_text(), f'{k} one plain answer, right under it')
+            ok(f'Your {word} will say you strongly support it' in choice(pg, 'support').inner_text(), f'{k} "I support it" says the {word} will say "strongly", before any letter')
+            ok(plain(pg).count() == 1 and 'I support it, but not strongly' == plain(pg).inner_text().strip(), f'{k} one plain answer, right under it')
             box = plain(pg).bounding_box()
             ok(box and box['height'] >= 44, f'{k} the plain answer is a 44px target ({box and round(box["height"])})')
             plain(pg).click(); pg.wait_for_timeout(500)
             ok(pg.evaluate(MILD) is True, f'{k} the plain answer is kept (mild) and moves on')
+            # Back to step 1 (a draft): the card is filled, it says "support", and "strongly" is one tap back.
+            pg.locator('#hp-dlg .hp-foot [data-hp="back"]').first.click(); pg.wait_for_timeout(500)
+            if 'Where do you stand' in pg.locator('#hp-dlg #hp-sh').inner_text():
+                ok(choice(pg, 'support').get_attribute('aria-pressed') == 'true' and f'Your {word} will say you support it' in choice(pg, 'support').inner_text() and 'I strongly support it, as HIPHI does' in plain(pg).inner_text(), f'{k} back on step 1 the plain answer shows as chosen')
+                pg.locator('#hp-dlg [data-hp="next"]').first.click() if pg.locator('#hp-dlg [data-hp="next"]').count() else plain(pg).click()
+                pg.wait_for_timeout(500)
+            ok(pg.evaluate(MILD) is True, f'{k} still mild after Next')
             L = walk_to_letter(pg)
             ok(L and 'strong' not in L.lower() and 'support' in L.lower(), f'{k} the letter says "support" without "strongly" ({L[:120]!r})')
             # Back to the stand screen and the strong answer: "strongly" is back.

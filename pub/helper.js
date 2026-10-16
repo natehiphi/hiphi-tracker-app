@@ -813,13 +813,16 @@ const stanceFrom = x => x.fromBill && x.stance === x.fromBill ? `You marked ${x.
 const recDay = L => (L.kind === 'email' ? L.sent : L.at || L.sent) ? shortDay(L.kind === 'email' ? L.sent : L.at || L.sent) : '';
 function standScreen() {
   const x = S.helper, { b } = x, n = spaced(b.bill_number), p = posInfo(b);
-  const opt = (v, label, sub = '') => `<button type="button" class="hp-choice" data-hp="stance" data-v="${v}" aria-pressed="${x.stance === v && !x.mild}"><b>${label}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
+  const opt = (v, label, sub = '') => `<button type="button" class="hp-choice" data-hp="stance" data-v="${v}" aria-pressed="${x.stance === v}"><b>${label}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
   // R-212 #11: when HIPHI strongly supports (or opposes) it, the letter would say "strongly" for them; that is said here,
   // on the choice, and a plain answer is one tap away, before any letter is written.
   const strong = { strongly_support: 'support', strongly_oppose: 'oppose' }[b.hiphi_position] || '';
   const what = isMail(x) ? 'email' : 'testimony', verb = strong === 'oppose' ? 'oppose' : 'support';
-  const strongSub = `Your ${what} will say you strongly ${verb} it, as HIPHI does`;
-  const plain = strong ? `<button type="button" class="hp-plain" data-hp="plain" data-v="${strong}" aria-pressed="${x.stance === strong && !!x.mild}">Just “I ${verb} it”, not strongly</button>` : '';
+  // Back on this screen after the plain answer, its card is the one filled and the button offers "strongly" again.
+  const mild = !!x.mild && x.stance === strong;
+  const strongSub = `Your ${what} will say you ${mild ? '' : 'strongly '}${verb} it`;
+  const plain = !strong ? '' : mild ? `<button type="button" class="hp-plain" data-hp="strong" data-v="${strong}">I strongly ${verb} it, as HIPHI does</button>`
+    : `<button type="button" class="hp-plain" data-hp="plain" data-v="${strong}">I ${verb} it, but not strongly</button>`;
   // What the bill does, right where they decide (Nate 9/29): nobody should have to pick a side on a number. One sentence
   // is not enough for everyone (R-178, Nate 10/5), so "Read more about the bill" opens the Legislature's summary and the
   // whole bill on the Capitol website (pub/billtext.js); it stays open when an answer is picked. HIPHI's reasons only
@@ -1821,7 +1824,7 @@ function onClick(e) {
   }
   else if (a === 'next') goNext();
   else if (a === 'back') goBack();
-  else if (a === 'stance' || a === 'plain') { const was = S.helper.stance; S.helper.stance = t.dataset.v; S.helper.mild = a === 'plain'; if (S.helper.again && was !== t.dataset.v) restance(S.helper); if (['support', 'oppose'].includes(t.dataset.v) && S.helper.b && myStance(S.helper.b.id) !== t.dataset.v) setStance(S.helper.b.id, t.dataset.v).catch(() => {}); saveDraft(); goNext(); }   // saved on the bill too (R-120, Bug 5)
+  else if (a === 'stance' || a === 'plain' || a === 'strong') { const was = S.helper.stance; S.helper.stance = t.dataset.v; S.helper.mild = a === 'plain'; if (S.helper.again && was !== t.dataset.v) restance(S.helper); if (['support', 'oppose'].includes(t.dataset.v) && S.helper.b && myStance(S.helper.b.id) !== t.dataset.v) setStance(S.helper.b.id, t.dataset.v).catch(() => {}); saveDraft(); goNext(); }   // saved on the bill too (R-120, Bug 5)
   else if (a === 'point') {
     // Add or take out one talking point (R-141). The box holds the whole letter, so a tap writes the point's words into it:
     // after the points it has, or as a paragraph before the reason and the ask when it has none. Until the person types in
