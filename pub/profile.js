@@ -165,11 +165,15 @@ function storyBody() {
 const radio = (name, v, title, on) => `<label class="check mr-check" for="${name}-${v || 'no'}"><input type="radio" name="${name}" id="${name}-${v || 'no'}" value="${v}"${on ? ' checked' : ''}><span class="mr-ctext"><span class="mr-ctitle">${esc(title)}</span></span></label>`;
 
 // How you'll help (R-165): warm, four groups and their own words.
+// The line under a tick that needs one. "Connect HIPHI with my organization" was a dead end (R-212 #24): ticked, with no
+// place to say which one; it now points to the box at the end.
+const HELP_HINT = { testify: 'We’ll show you how to sign up to speak when a hearing on your issues is set.',
+  org: 'Type its name in the box below, and HIPHI’s team will be in touch.' };
 function helpBody() {
   const ints = new Set(P.draft.help);
   return `<p class="pf-warm">Every bit helps, and there’s no wrong way to pitch in. Tick anything that sounds like you, and HIPHI will invite you to the things that fit.</p>
     ${HELP_GROUPS.map(([g, xs]) => `<fieldset class="mr-set pf-f pf-helpg"><legend>${esc(g)}</legend>
-      ${xs.map(([k, l]) => check(`pf-int-${k}`, esc(l), k === 'testify' ? 'We’ll show you how to sign up to speak when a hearing on your issues is set.' : '', ints.has(k), ` data-pf-int="${k}"`)).join('')}</fieldset>`).join('')}
+      ${xs.map(([k, l]) => check(`pf-int-${k}`, esc(l), HELP_HINT[k] || '', ints.has(k), ` data-pf-int="${k}"`)).join('')}</fieldset>`).join('')}
     <div class="field pf-f"><label for="pf-note">Something else? Tell us</label>
       <input id="pf-note" type="text" maxlength="200" value="${esc(P.draft.helpNote)}" autocapitalize="sentences" enterkeyhint="done" placeholder="Like cooking for a rally"></div>`;
 }
