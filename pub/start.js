@@ -39,7 +39,7 @@ import { WEIGHT, SOON_DAYS, sidePoints } from './rank.js';
 import { btn } from './ui.js';
 import { t, tn, T, trText } from './i18n.js';
 import { langPicker, wireLangPicker } from './langpick.js';
-import { CAPITOL, VOICES, islands, capitolPic } from './art.js';
+import { CAPITOL, VOICES, islands } from './art.js';
 import { topics } from './topics.js';
 import { burst, later, swap, reduced } from './fx.js';
 import { LESSON_TITLES } from './topics.js';
@@ -212,8 +212,7 @@ const backBtn = step => btn(t('Back'), { kind: 'text', icon: 'arrow-left', cls: 
 export const topRow = (name, step) => `${chaptersRow(name)}${step > 1 ? `<div class="steps st-steps">${backBtn(step)}</div>` : step === 1 && name === 'topics' ? langPicker('st-lang') : ''}`;
 export const shell = (cls, intro, main, busy = false) => `<div class="st ${cls}"${busy ? ' aria-busy="true"' : ''}><div class="st-intro">${intro}</div><div class="st-main">${main}</div></div>`;
 // The drawing of each step (wide screens show one on every step; phones only where there is room, see start.css).
-// The first screen gets the Capitol as Canva drew it (R-197); the later screens keep the small line drawings.
-export const artFor = name => `<div class="st-art">${name === 'you' ? islands(myIsland()) : name === 'followask' ? VOICES : name === 'topics' ? capitolPic(DEMO) : CAPITOL}</div>`;
+export const artFor = name => `<div class="st-art">${name === 'you' ? islands(myIsland()) : name === 'followask' ? VOICES : CAPITOL}</div>`;
 // One line above the choices: a reassurance, which the "pick at least one" message replaces in place (so nothing
 // below it moves and no choice gets covered).
 export const sayRow = (ic, sure) => `<div class="st-say"><p class="st-sure">${icon(ic)}<span>${sure}</span></p><p class="st-alert" id="st-alert" role="alert"></p></div>`;
