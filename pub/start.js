@@ -347,7 +347,7 @@ function stepHello() {
     <p class="st-greet">${flower(26)}<span>${t('Aloha!')}</span></p>
     <h1 class="hero" id="st-h">${t('Your voice can shape Hawaiʻi’s health')}</h1>
     <p class="lede">${t(HELLO_LEDE)}</p>
-    <p class="st-from">${icon('heart')}<span>${t('Free, from HIPHI, the Hawaiʻi Public Health Institute.')}</span></p>`, '');
+    <p class="st-from">${icon('heart')}<span>${t('Free, from the Hawaiʻi Public Health Institute, a nonprofit.')}</span></p>`, '');
 }
 function wireHello() {
   if (!helloOn()) { setTimeout(() => app.go('#/start/1', { replace: true }), 0); return; }

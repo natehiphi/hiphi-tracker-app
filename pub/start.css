@@ -587,11 +587,11 @@ button.st-way:active { transform: scale(.99); }
 /* ---- the welcome, before the topics (R-297, Nate 10/17: "one very warm welcoming page") ----
    What the tracker is for, said once and large: a greeting, the heading, one sentence, who it is from, and one button
    (C-1: something given before anything is asked). Centred on every size, the people drawing larger than on the other
-   steps on a soft warm glow, and the words in the middle of the window rather than at its top (a welcome, not a form).
+   steps, and the words in the middle of the window rather than at its top (a welcome, not a form).
    body.st-hello is set while it shows (start.js wireHello). */
-.st-hellopage { justify-content: center; min-height: calc(100svh - 260px); }
+.st-hellopage { justify-content: center; min-height: calc(100svh - 210px); }   /* the header, the bar and their room */
 .st-hellopage .st-intro { align-items: center; text-align: center; gap: var(--s12); }
-.st-hellopage .st-art { width: 100%; justify-content: center; padding: var(--s8) 0; background: radial-gradient(closest-side, var(--o50), transparent); }
+.st-hellopage .st-art { width: 100%; justify-content: center; }
 .st-hellopage .st-art svg { height: 112px; }
 .st-greet { display: flex; align-items: center; justify-content: center; gap: var(--s8); margin: var(--s4) 0 0; font-family: var(--font-h); font-size: var(--t22); font-weight: 700; color: var(--o700); }
 .st-greet .flower { flex: none; }
@@ -607,3 +607,5 @@ button.st-way:active { transform: scale(.99); }
   .st-hellopage { min-height: 0; }
   .st-hellopage .st-art svg { width: 280px; height: 140px; }
 }
+/* a short laptop window: the drawing would shrink to an icon (the critic), so it goes, as on short phones */
+@media (min-width: 900px) and (max-height: 700px) { .st-hellopage .st-art { display: none; } }
