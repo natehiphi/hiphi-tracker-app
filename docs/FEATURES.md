@@ -34,9 +34,10 @@ on a bill's Public tab (`stanceChip`, `pickStance` in `staff/issues.js`); the pu
 Test: `tests/staff_stance.py`.
 **Staff own issues, and work bills** (R-263, Nate 10/12): every bill on an issue someone owns or helps on (`issues.owner_id`,
 `issue_helpers`, backend 091) is theirs too, worked out each time (`myIssueBills`, `isMine` in `staff/data.js`), so it is in
-Bills > Mine, Today and the menu's **My issues** (`#/my-issues`, `staff/myissues.js`: soonest work first, each issue's moving
-bills, the rest folded). The database's inbox and chat alerts agree from backend migration 172 (`issue_people`). To-dos and
-deadline reminders still go to the bill's own owner. The 2027 prep list is now "Your issues for 2027" (`?view=mine`).
+Bills > Mine and Today. The menu's **My issues** (`#/my-issues`, `staff/myissues.js`) is the 2027 prep list of your issues
+(prep.js; Nate 10/16 had the 12 Oct page of each issue's bills go back to it; `?view=mine` opens it too). The database's inbox
+and chat alerts agree from backend migrations 172 and 180 (`issue_people`). To-dos and deadline reminders still go to the
+bill's own owner.
 Test: `tests/staff_myissues.py`.
 
 **The first visit was rebuilt 9/21 (R-023; `../backend/HANDOFF.md` 3.25, the plan and every decision in

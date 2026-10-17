@@ -334,7 +334,7 @@ builds into v4 (Nate, 12 Oct). Nate picks v2, v3 or v4 on 26 Oct. The analysis, 
 Task-first. Tabs: Today, My issues, Bills, Legislators, Outreach. `staff/app.js` frame + router (`parseRoute`), `staff/ui.js`
 shared parts, `staff/staff.css` + `staff/css/*.css`, one module per screen (`today`, `review`, `bill` with
 `activity` `public` `pathway` `testimony` (R-027), `bills` with `filters` `bulk`, `triage`, `memo`, `search`, `legislators`,
-`legislator`, `supporters`, `person`, `myissues` (`#/my-issues`, R-263: the issues a person owns or helps on, with their bills),
+`legislator`, `supporters`, `person`, `myissues` (`#/my-issues`, R-263: the issues a person owns or helps on, the 2027 prep list in prep.js),
 `issues` (Outreach > Issues and `#/issue/:id`, R-018), `lists`, `list`,
 `emails`, `composer`, `me`, `setup`, `help`, and from R-022 `hearing` (`#/hearing/:id`, one committee sitting) and
 `coalition` (`#/coalition`, `#/coalition/:id`, Outreach > Coalitions)), plus

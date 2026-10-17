@@ -37,12 +37,12 @@
 /* The way to the first visit's numbers and links (R-023): a link of its own under the top line (A-12: it goes somewhere,
    so it looks like a link, not a button), its icon kept with its words, one line at every width. On a touch screen the
    target reaches 44px into the space around it (A-6) without pushing the list further down. */
-.is-index .is-fvlink, .fv-page .fv-golink, .mi-page .is-fvlink { display: flex; align-items: center; gap: 4px; width: fit-content; max-width: 100%; margin-top: var(--s8); font-size: var(--t14); color: var(--p700); font-weight: 700; text-decoration: none; }
-.is-index .is-fvlink + .is-find, .is-index .is-fvlink + .is-needs, .mi-page .is-fvlink + .is-find, .mi-page .is-fvlink + .is-needs { margin-top: var(--s12); }
-.is-index .is-fvlink .ic, .fv-page .fv-golink .ic, .mi-page .is-fvlink .ic { width: 16px; height: 16px; flex: none; }
-.is-index .is-fvlink:hover span, .fv-page .fv-golink:hover span, .mi-page .is-fvlink:hover span { text-decoration: underline; }
-.is-index .is-fvlink:focus-visible, .fv-page .fv-golink:focus-visible, .mi-page .is-fvlink:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
-@media (max-width: 899px) { .is-index .is-fvlink, .mi-page .is-fvlink, .fv-page .fv-golink { padding: 12px 0; margin: -4px 0 -12px; } }
+.is-index .is-fvlink, .fv-page .fv-golink { display: flex; align-items: center; gap: 4px; width: fit-content; max-width: 100%; margin-top: var(--s8); font-size: var(--t14); color: var(--p700); font-weight: 700; text-decoration: none; }
+.is-index .is-fvlink + .is-find, .is-index .is-fvlink + .is-needs { margin-top: var(--s12); }
+.is-index .is-fvlink .ic, .fv-page .fv-golink .ic { width: 16px; height: 16px; flex: none; }
+.is-index .is-fvlink:hover span, .fv-page .fv-golink:hover span { text-decoration: underline; }
+.is-index .is-fvlink:focus-visible, .fv-page .fv-golink:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+@media (max-width: 899px) { .is-index .is-fvlink, .fv-page .fv-golink { padding: 12px 0; margin: -4px 0 -12px; } }
 
 /* ---- one issue (inside .le-page.le-list) ---- */
 .is-page .is-folcard { padding: 0 var(--s16); }
@@ -221,8 +221,8 @@
 }
 
 /* ---- getting the issues ready for 2027 (R-088; staff/prep.js): the links, the card on an issue, My issues, the board ---- */
-.is-index .pr-links, .mi-page .pr-links { display: flex; flex-wrap: wrap; gap: 0 var(--s24); }
-.is-index .pr-links .is-fvlink, .mi-page .pr-links .is-fvlink { margin-top: var(--s4); }
+.is-index .pr-links { display: flex; flex-wrap: wrap; gap: 0 var(--s24); }
+.is-index .pr-links .is-fvlink { margin-top: var(--s4); }
 .pr-card { margin-top: var(--s16); padding: var(--s16); }
 .pr-card .pr-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); flex-wrap: wrap; }
 .pr-card .pr-head h2 { font-size: var(--t18); }
@@ -297,34 +297,6 @@
   .pr-filters .sv-seg { flex-wrap: wrap; width: auto; }
 }
 
-/* ---- My issues (R-263): each issue a section, its bills under it, inside .le-page.le-list.is-page ---- */
-.mi-page .mi-iss { margin-top: var(--s24); }
-.mi-page .mi-head { margin-bottom: var(--s8); }
-.mi-page .mi-head h2 { margin: 0; }
-.mi-page .mi-head h2 a { display: inline-flex; align-items: center; gap: var(--s8); min-height: 44px; color: var(--n900); text-decoration: none; }
-.mi-page .mi-head h2 a:hover span:last-child { color: var(--p700); text-decoration: underline; }
-.mi-page .mi-head h2 a:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
-.mi-page .mi-head .meta { margin: 0; }
-.mi-page .mi-ic { display: inline-flex; color: var(--n500); }
-.mi-page .mi-ic .ic { width: 20px; height: 20px; }
-.mi-page .mi-now { margin: 0 0 var(--s8); font-size: var(--t14); line-height: 1.45; color: var(--n700); overflow-wrap: anywhere; }
-.mi-page .mi-now b { color: var(--n900); }
-.mi-page .mi-now a { color: var(--p700); font-weight: 700; }
-.mi-page .mi-none { margin: 0; font-size: var(--t14); color: var(--n700); }
-.mi-page .mi-none a { color: var(--p700); font-weight: 700; }
-.mi-page .pr-links { margin-top: var(--s8); }
-/* "2 did not advance": a quiet line under the moving bills, not another card (ui-critic: the card was the loudest repeat) */
-.mi-page .mi-gone > summary { list-style: none; display: inline-flex; align-items: center; gap: var(--s4); min-height: 44px; font-size: var(--t14); color: var(--n500); cursor: pointer; }
-.mi-page .mi-gone > summary::-webkit-details-marker { display: none; }
-.mi-page .mi-gone > summary:hover span { text-decoration: underline; }
-.mi-page .mi-gone > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
-.mi-page .mi-gone > summary .ic { width: 16px; height: 16px; transition: transform .15s; }
-.mi-page .mi-gone[open] > summary .ic { transform: rotate(180deg); }
-.mi-page .mi-still { margin-top: var(--s32); }
-.mi-page .mi-stillin { padding: 0 var(--s16) var(--s16); }
-/* the heading over its lede, not beside it, where the sidebar shows the page's heading (1100px and wider) */
-.mi-page.le-side .le-tools { display: block; }
-.mi-page.le-side .le-h1 { margin: 0 0 var(--s4); }
 /* An issue's rows have no drag handle, so they keep the 16px inset that a list's rows give up for theirs on a desktop
    (lists.css); without it a bill's title sat 4px from the card's edge (R-263, on the issue page since R-226 too). */
 @media (min-width: 900px) { .is-page .le-brow { padding-left: var(--s16); } }

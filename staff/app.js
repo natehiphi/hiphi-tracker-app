@@ -61,7 +61,7 @@ export function parseRoute(h = location.hash) {
     case 'legislator': return { name: 'legislator', id: +seg[1] || 0, from: q.from || '', q };
     case 'hearing': return { name: 'hearing', id: seg[1] || '', q };
     case 'coalition': return { name: 'coalition', id: seg[1] || '', q };
-    case 'outreach': return seg[1] === 'lists' ? { name: 'lists', q } : seg[1] === 'emails' ? { name: 'emails', q } : seg[1] === 'issues' ? { name: 'issues', q } : { name: 'supporters', q };
+    case 'outreach': return seg[1] === 'lists' ? { name: 'lists', q } : seg[1] === 'emails' ? { name: 'emails', q } : seg[1] === 'issues' ? (q.view === 'mine' ? { name: 'myissues', q } : { name: 'issues', q }) : { name: 'supporters', q };
     case 'issue': return { name: 'issue', id: seg[1] || '', q };
     case 'person': return { name: 'person', id: seg[1] || '', q };
     case 'list': return { name: 'list', id: seg[1] || '', q };
