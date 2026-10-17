@@ -128,8 +128,9 @@ export function cardFor(b, ask, state, ctx = {}) {
     `${about}The House and Senate are working out one final version${st.phase === 'conference' ? by : ''}. A short email takes about 2 minutes.`, 'conference');
   if (ask === 'governor') return done(side === 'oppose' ? `Ask the Governor to veto: ${named}` : `Ask the Governor to sign: ${named}`,
     `${about}It passed the Legislature and is on the Governor’s desk. A short message takes about 2 minutes.`, 'governor');
-  // Following: a bill that is over (or has no ask right now) shares its issue, where Follow is the main button.
-  const i = ctx.issue || null, yr = y ? ` in ${y}` : '';
+  // Following: a bill that is over (or has no ask right now) shares its issue, where Follow is the main button. A stopped
+  // bill shares itself (R-212 #18): the friend opens the bill the message is about, not an issue page without it.
+  const i = ['dead', 'vetoed'].includes(st.phase) ? null : ctx.issue || null, yr = y ? ` in ${y}` : '';
   const news = st.phase === 'law' ? `${named} ${isResolution(b) ? 'was adopted' : 'became law'}${yr}.`
     : st.phase === 'vetoed' ? `${named} was vetoed${yr}.`
     : st.phase === 'ballot' ? `${named} passed the Legislature; the voters decide in November.`

@@ -562,7 +562,12 @@ export const readyForSession = () => !!wiz().ready && !followsAnything() && sess
 // current session's bill when a number repeats. yearPrefix: '' for the current session, '2026/' for an earlier one.
 export const yearPrefix = b => b && b.session_year && +b.session_year !== sessionInfo().yr ? `${b.session_year}/` : '';
 export const billRef = b => yearPrefix(b) + String(b.bill_number).replace(/\s/g, '');
-export const billPath = b => '#/bill/' + billRef(b);
+// billPath, the address every link and the address bar carry, names the session even for this session's bills
+// (#/bill/2026/HB2121, R-212 #18): a link copied from the address bar now still opens this bill after 20 Jan 2027, when
+// numbers start again. The short form stays readable (it opens the current session's bill); billRef keeps the short form
+// for the practice copy's share pages (b/demo/HB2121) and ?from= on the legislators screen.
+export const yearRef = b => `${b && b.session_year ? `${b.session_year}/` : ''}${String(b.bill_number).replace(/\s/g, '')}`;
+export const billPath = b => '#/bill/' + yearRef(b);
 // The address to share a bill at (R-067, R-113, R-169): a bill HIPHI has a position on has its own share pages (b/HB2121,
 // or b/2026/HB2121 for an earlier session, and one per ask, b/HB2121-testify; tools/share_pages.mjs, hourly in session),
 // so a link pasted into a text or a post previews with the ask and the bill's name, opens the ask, and the friend's

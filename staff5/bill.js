@@ -11,7 +11,7 @@
 // Details or Next up (A-14).
 // The Activity tab lives in activity.js, the Public tab in public.js, Committees in pathway.js, Earlier testimony in
 // testimony.js.
-import { S, DB, DEMO, APP_URL, SESSION_YEAR, STAGES, STAGE_LABEL, hooks, esc, fmtDT, fmtDate, advocate, capitolUrl, isOwner, isMuted } from './data.js';
+import { S, DB, DEMO, APP_URL, STAGES, STAGE_LABEL, hooks, esc, fmtDT, fmtDate, advocate, capitolUrl, isOwner, isMuted } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
 import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteName, streamOf, draftFor, draftWho, draftActions, chairMail, billNum, billSay, blurb, titleCaseTitle, sponsorName, legsOf, legTitle, legById, lastSlotBefore, unreadCount, listNames, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, nameOf, dWhen, standingIn, draftHearing, liveAsk, billRef } from './model.js';
 import { personById, changedSince, startedFromLine } from './data.js';
@@ -345,7 +345,7 @@ function pickOwner(b) {
 
 // The bill's page on the public tracker, when it is live there. The public page's address carries the year for a bill
 // from an earlier session (#/bill/2026/HB2121, R-110).
-const publicUrl = b => { const yr = b.session_year && +b.session_year !== SESSION_YEAR ? `${b.session_year}/` : '';
+const publicUrl = b => { const yr = b.session_year ? `${b.session_year}/` : '';   // every session, this one too (R-212 #18)
   return pubStateCls(b).includes('live') ? `${PUBLIC_APP()}${DEMO ? '?demo=1' : ''}#/bill/${yr}${b.bill_number}` : ''; };
 // ---- the page's ⋯ menu: Follow or Mute, Copy link, Public page, Capitol page, the current app ----
 // v3: the links that sat at the foot of Details (Capitol page, Public page, Copy link) live here only (A-20).

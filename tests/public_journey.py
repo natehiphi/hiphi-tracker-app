@@ -229,7 +229,7 @@ with sync_playwright() as pw:
     ok(p.locator('.actionbar [data-bl-newlater]').count() == 1 and 'Just looking' in p.inner_text('.actionbar'), '"Just looking" sits beside the action it turns down')
     # R-067: "Just looking" stays on the bill (it used to start a 13-tap tour); one quiet line offers the tour instead.
     p.locator('.actionbar [data-bl-newlater]').click(); p.wait_for_timeout(1500)
-    ok(p.evaluate('location.hash') == '#/bill/HB2121' and p.locator('.bl-newbie').count() == 0 and p.locator('[data-bl-tour]').count() == 1, f"Just looking stays on the bill, with the tour one tap away ({p.evaluate('location.hash')})")
+    ok(p.evaluate('location.hash') in ('#/bill/HB2121', '#/bill/2026/HB2121') and p.locator('.bl-newbie').count() == 0 and p.locator('[data-bl-tour]').count() == 1, f"Just looking stays on the bill, with the tour one tap away ({p.evaluate('location.hash')})")
     p.locator('[data-bl-tour]').click(); p.wait_for_timeout(2000)
     ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story' and 'HB 2121' in text(p).replace('\xa0', ' '), f"the tour goes on to the story, on the bill they opened ({p.evaluate('location.hash')})")
     fresh(p); visit(p, '/bill/HB2121', wait=3000); p.locator('[data-bl-newfollow]').click(); p.wait_for_timeout(300)

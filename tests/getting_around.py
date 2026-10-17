@@ -28,7 +28,7 @@ with sync_playwright() as pw:
         # ---- A4-1: a friend's link, first visit ----
         c, p = ctx(b, w, hh)
         p.goto(f'{HOST}/track.html?demo=1&via=share#/bill/HB1523'); p.wait_for_timeout(3500)
-        ok(h(p).startswith('#/bill/HB1523') and p.locator('.bl-head').count() == 1, f'{tag}: the link opens the bill, not the sign-up ({h(p)})')
+        ok(h(p).startswith(('#/bill/HB1523', '#/bill/2026/HB1523')) and p.locator('.bl-head').count() == 1, f'{tag}: the link opens the bill, not the sign-up ({h(p)})')
         ok(p.locator('a.brand').get_attribute('href') == '#/find', f'{tag}: for a link newcomer the logo leads to Find (the browse page)')
         ok(back_text(p) == 'Find', f'{tag}: and Back says Find ("{back_text(p)}")')
         if phone: p.screenshot(path=f'{OUT}/newcomer_bill_{w}.png')
@@ -36,7 +36,7 @@ with sync_playwright() as pw:
         ok(h(p) == '#/find' and p.locator('#q').count() == 1, f'{tag}: Back opens Find, never the sign-up ({h(p)})')
         ok(phone == (p.locator('.tabs').count() == 1 and p.locator('.tabs').is_visible()), f'{tag}: Find has the tab bar on a phone, so "just looking" is possible')
         p.go_back(); p.wait_for_timeout(1200)
-        ok(h(p).startswith('#/bill/HB1523'), f'{tag}: the browser\'s Back returns to the bill ({h(p)})')
+        ok(h(p).startswith(('#/bill/HB1523', '#/bill/2026/HB1523')), f'{tag}: the browser\'s Back returns to the bill ({h(p)})')
         p.locator('a.brand').click(); p.wait_for_timeout(1200)
         ok(h(p) == '#/find', f'{tag}: the logo opens Find for a link newcomer ({h(p)})')
         c.close()

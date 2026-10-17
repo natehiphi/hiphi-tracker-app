@@ -6,7 +6,7 @@
 // action card, and has a real desktop layout (the actions in a side panel that stays in view, no bottom bar).
 import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, blurb, asSentence, cleanDesc, nick, spaced, alive, stopOf, plainStatus, stopDetail, cmteLabel, roomLabel,
   dueInfo, dayWord, timeWord, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
-  pickBill, billRef, billPath, yearPrefix, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
+  pickBill, billRef, billPath, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
   issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber, billTourHeld, billTourSeen, sameIdeaLaw, sameIdeaWords } from './core.js';
 import { draftName, draftRank, draftLabel, draftNotes, testifyLabel, mailLabel, letterOn } from './letters.js';
@@ -33,6 +33,8 @@ const normNum = n => String(n || '').replace(/\s/g, '').toUpperCase();
 // The address names a number, and for a bill from an earlier session its year too (#/bill/2026/HB2121, R-110). The
 // loading sets below are keyed by "2026/HB2121" or "HB2121" (keyOf): one key per address.
 const keyOf = (num, year) => (year ? `${year}/` : '') + num;
+// A companion or same-idea bill is from the same session: its link names that session too (R-212 #18).
+const sameYear = b => (+b.session_year ? `${+b.session_year}/` : '');
 const refFromHash = () => { const m = /bill[=/](?:(\d{4})\/)?([A-Za-z]+\s?\d+)/i.exec(decodeURIComponent(location.hash)); return { num: normNum(m ? m[2] : ''), year: +(m ? m[1] : 0) || 0 }; };
 const numFromHash = () => refFromHash().num;
 const keyFromHash = () => { const r = refFromHash(); return keyOf(r.num, r.year); };
@@ -808,7 +810,7 @@ function sameLine(b) {
     }
     return '';
   }
-  return `<p class="bl-sameidea">${icon('circle-check')}<span>${esc(sameIdeaWords(L))} <a href="#/bill/${esc(yearPrefix(b) + L.num)}">See ${esc(spaced(L.num))}</a></span></p>`;
+  return `<p class="bl-sameidea">${icon('circle-check')}<span>${esc(sameIdeaWords(L))} <a href="#/bill/${esc(sameYear(b) + L.num)}">See ${esc(spaced(L.num))}</a></span></p>`;
 }
 function statusCard(b, x) {
   const extra = x.law ? 'Mahalo to everyone who spoke up.' : '';
@@ -954,7 +956,7 @@ function details(b, x) {
     // The committees, in order, are the pathway's own steps since R-081 (See all steps), so they are not repeated here.
     spons ? ['Introduced by', esc(spons)] : null,
     b.last_action ? ['Last official action', `${esc(b.last_action)}${b.last_action_date ? `<span class="bl-date">${esc(fmtDate(b.last_action_date, { month: 'short', day: 'numeric', year: 'numeric' }))}</span>` : ''}`] : null,
-    comp.length ? [`Companion bill${comp.length > 1 ? 's' : ''}`, `${comp.map(c => `<a href="#/bill/${esc(yearPrefix(b) + c)}">${esc(spaced(c))}</a>`).join(', ')}<span class="bl-date">The same idea, filed in the ${N[/^S/.test(comp[0]) ? 'S' : 'H']} too. Either one can become law.</span>`] : null,
+    comp.length ? [`Companion bill${comp.length > 1 ? 's' : ''}`, `${comp.map(c => `<a href="#/bill/${esc(sameYear(b) + c)}">${esc(spaced(c))}</a>`).join(', ')}<span class="bl-date">The same idea, filed in the ${N[/^S/.test(comp[0]) ? 'S' : 'H']} too. Either one can become law.</span>`] : null,
     // The draft ("House draft 3") is named once, under "Read more about the bill" (R-178, A-14).
   ].filter(Boolean);
   return `<details class="bl-more" ${fold(b, 'more')}><summary><span>More details</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary>
@@ -1086,6 +1088,14 @@ export default {
     root.querySelector('[data-bl-back]')?.addEventListener('click', goBack);
     root.querySelector('[data-bl-retry]')?.addEventListener('click', () => retry(key));
     if (!b || !root.querySelector('.bl-head')) return;
+    // The address bar names the session (#/bill/HB2121 becomes #/bill/2026/HB2121, R-212 #18), so the address someone
+    // copies to a post or a spreadsheet still opens this bill after 20 Jan 2027, when numbers start again. In place, with
+    // no new history entry, and only once the page is drawn: a load still running redraws only the address it started for.
+    if (!year && +b.session_year && /^#\/bill\/(?!\d{4}\/)/i.test(location.hash)) {
+      const k2 = keyOf(num, +b.session_year);
+      S.blTried.add(k2); if (route.open) S.blOpened.add(k2 + route.open);
+      try { history.replaceState(history.state, '', location.hash.replace(/^#\/bill\//i, `#/bill/${+b.session_year}/`)); } catch { /* ignore */ }
+    }
     stampRoot();
     const x = situation(b), bar = document.querySelector('.actionbar'), both = [root, bar].filter(Boolean);
     const each = (sel, fn) => both.forEach(scope => scope.querySelectorAll(sel).forEach(fn));

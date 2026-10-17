@@ -9,7 +9,7 @@ import { logSuggest } from './visitlog.js';
 // Filled in by app.js: the screens call app.render() / app.go() without importing app.js (no import cycle).
 // The kernel (R-122): what the first screen needs lives in kernel.js and is re-exported here, so every screen keeps
 // importing from this module; the modules on the first load import from kernel.js and never from here.
-import { app, SUPABASE_URL, SUPABASE_KEY, DEMO, LOCAL_KEY, SEASON_OFF, DEMO_ASOF, $, esc, HST, hstDay, toast, friendly, cleanDesc, nick, blurb, groups, S, LISTS_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, CONSENT_KEY, SUPABASE_JS, init, D, DONE_KEY, localDone, saveDone, doneKey, DONE_AT_KEY, localDoneAt, saveDoneAt, KINDS, STANCE_KEY, localStances, saveStances, localWatch, saveLocal, followYear, issueFollowed, issuesOf, viaIssue, issueBills, issuesIn, followedIssues, issuesLink, calendarUrl, restoreFollows, followsAnything, issuePos, recomputeWatch, loadCatalog, applyCachedCatalog, setFollows, loadUser, localListFollows, supa, onb, onbSet, bill, alive, nudgeOk, nudge, thirdWed, hiT, sessionInfo, myActions, wiz, wizSet, EMOJI_TO_ICON, issueIcon, issues, posInfo, firstVisit, readyForSession, yearPrefix, billRef, billPath, spaced, syncText } from './kernel.js';
+import { app, SUPABASE_URL, SUPABASE_KEY, DEMO, LOCAL_KEY, SEASON_OFF, DEMO_ASOF, $, esc, HST, hstDay, toast, friendly, cleanDesc, nick, blurb, groups, S, LISTS_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, CONSENT_KEY, SUPABASE_JS, init, D, DONE_KEY, localDone, saveDone, doneKey, DONE_AT_KEY, localDoneAt, saveDoneAt, KINDS, STANCE_KEY, localStances, saveStances, localWatch, saveLocal, followYear, issueFollowed, issuesOf, viaIssue, issueBills, issuesIn, followedIssues, issuesLink, calendarUrl, restoreFollows, followsAnything, issuePos, recomputeWatch, loadCatalog, applyCachedCatalog, setFollows, loadUser, localListFollows, supa, onb, onbSet, bill, alive, nudgeOk, nudge, thirdWed, hiT, sessionInfo, myActions, wiz, wizSet, EMOJI_TO_ICON, issueIcon, issues, posInfo, firstVisit, readyForSession, yearPrefix, billRef, billPath, yearRef, spaced, syncText } from './kernel.js';
 export * from './kernel.js';
 export { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops, isResolution, isOneChamber, HELD_RE };
 export const asDate = d => new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(d)) ? d + 'T12:00:00-10:00' : d);   // a date-only value is a Hawaiʻi day
@@ -1038,12 +1038,14 @@ const DEMO_PAGES = DEMO && !SEASON_OFF;
 // The year is in every shared link (C5-2, R-199): b/2026/HB2121-testify, never b/HB2121-testify, even for this session's
 // bills, so a 2027 bill that reuses the number never takes over a link shared now (R-110's promise, for shares too). The
 // share pages job builds every ask's page under its year and never deletes one. The practice copy's pages (b/demo/) are
-// one frozen session and keep the short form.
-const yearRef = b => `${b.session_year ? `${b.session_year}/` : ''}${String(b.bill_number).replace(/\s/g, '')}`;
+// one frozen session and keep the short form (yearRef: kernel.js).
+// A stopped bill's share goes to the bill (R-212 #18): its issue page would not show the bill the friend was sent, and
+// "did not advance this year" in the message needs the bill beside it.
+const stoppedBill = b => /dead|vetoed/.test(b.stage || '');
 export const billShareUrl = (b, ask = '') => {
   const a = SHARE_ASKS.includes(ask) ? ask : '';
   if ((b.hiphi_position || (!DEMO && HEARING_ASKS.includes(a))) && (!DEMO || DEMO_PAGES)) return `${siteRoot()}b/${DEMO ? `demo/${billRef(b)}` : yearRef(b)}${a ? `-${a}` : ''}`;
-  const i = a === 'follow' ? issuesOf(b)[0] : null;
+  const i = a === 'follow' && !stoppedBill(b) ? issuesOf(b)[0] : null;
   return `${location.origin}${location.pathname}${DEMO ? location.search : ''}${i ? `#/issue/${i.slug}` : `#/bill/${yearRef(b)}` + (a && a !== 'follow' ? `/${a}` : '')}`;
 };
 export const issueShareUrl = i => !DEMO || DEMO_PAGES ? `${siteRoot()}i/${DEMO ? 'demo/' : ''}${i.slug}` : `${location.origin}${location.pathname}${location.search}#/issue/${i.slug}`;

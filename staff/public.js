@@ -17,7 +17,9 @@ import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, sha
 import { icon, btn, iconBtn, toast, notice, switchRow, openSheet, closeSheet } from './ui.js';
 import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
 import { issuesOfBill, openIssuePicker, whyNot, stanceChip, pickStance, issueLinkHref } from './issues.js';
-import { billRoute } from './model.js';
+// The public page's address names the session even for this session's bills (R-212 #18), so a link copied from here
+// still opens this bill after 20 Jan 2027, when numbers start again.
+const pubRoute = b => `#/bill/${b.session_year ? b.session_year + '/' : ''}${String(b.bill_number).replace(/\s/g, '')}`;
 import { askConflict } from './conflict.js';
 
 const FIELDS = ['is_public', 'recommended', 'nickname', 'public_summary', 'public_action', 'public_action_until', 'talking_points'];
@@ -174,7 +176,7 @@ export function wireDraftsFocus(pnl, b) {
 export function renderPublic(b) {
   const cls = pubStateCls(b), live = cls.includes('live'), warn = cls.includes('warn');
   const listed = b.is_public && b.tracked !== false, sum = valOf(b, 'public_summary'), ask = valOf(b, 'public_action'), nickname = valOf(b, 'nickname');
-  const pubLink = live ? ` <a class="bw-inline" href="${esc(PUBLIC_APP() + (DEMO ? '?demo=1' : '') + billRoute(b))}" target="_blank" rel="noopener">See it${icon('external-link')}</a>` : '';
+  const pubLink = live ? ` <a class="bw-inline" href="${esc(PUBLIC_APP() + (DEMO ? '?demo=1' : '') + pubRoute(b))}" target="_blank" rel="noopener">See it${icon('external-link')}</a>` : '';
   const lists = S.lists || [];
   const emailOk = b.is_public && b.position !== 'monitor';
   // On a phone the public's response and the share kit come first: they were 4,277px down a 4,718px page, and a hearing day's

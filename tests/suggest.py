@@ -75,7 +75,7 @@ with sync_playwright() as pw:
         ok(row is not None and s['opts'][0]['s'].startswith('SB 2175'), f'{tag}: "sb2175" puts SB 2175 first {[o["s"] for o in s["opts"]][:3]}')
         if row:
             p.locator(f'#{row["id"]}').click(); p.wait_for_timeout(1200); s = state(p)
-            ok(s['hash'] == '#/bill/SB2175' and not s['open'], f'{tag}: a click opens the bill ({s["hash"]})')
+            ok(s['hash'] in ('#/bill/SB2175', '#/bill/2026/SB2175') and not s['open'], f'{tag}: a click opens the bill ({s["hash"]})')
         # two letters say too little; three open it
         visit(p, '/more'); typein(p, 'sb'); ok(not state(p)['open'], f'{tag}: two letters do not open the list')
         # Esc closes and keeps the words; Enter with nothing highlighted goes to the full results, as before

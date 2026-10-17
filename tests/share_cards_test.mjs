@@ -43,12 +43,13 @@ ok(r.st.ask === 'conference' && c.title.startsWith('Ask lawmakers to pass it: ')
 r = run({ ...base, id: 'b6', bill_number: 'HB3', stage: 'governor', hiphi_position: 'strongly_oppose' }); c = r.card(r.st.ask);
 ok(r.st.ask === 'governor' && c.title.startsWith('Ask the Governor to veto: ') && c.hash.endsWith('/governor') && r.asks.includes('governor'), `the Governor, where HIPHI opposes: ${c.title}`);
 
-// 4. Over: law and stopped bills ask people to follow the issue, with the bill's news.
+// 4. Over: a law asks people to follow the issue, with the bill's news; a stopped bill opens itself (R-212 #18).
 r = run({ ...base, id: 'b7', bill_number: 'HB1573', stage: 'enacted' }); c = r.card(r.st.ask);
 ok(r.st.ask === 'follow' && c.title === 'Follow the issue: FDA proof to sell e-cigarettes' && /became law in 2026\./.test(c.desc) && c.hash === '#/issue/fda-proof-to-sell-e-cigarettes', `a law: ${c.title} / ${c.desc}`);
 ok(r.asks.join() === 'follow', `a bill that is over has only its follow page: ${r.asks}`);
 r = run({ ...base, id: 'b8', bill_number: 'HB1523', stage: 'dead' }); c = r.card(r.st.ask);
 ok(/did not advance in 2026\. Ideas like this often come back\./.test(c.desc) && !/speak up/i.test(c.title + c.desc), `a stopped bill never says speak up: ${c.desc}`);
+ok(c.hash === '#/bill/2026/HB1523' && /^Follow .*\(HB 1523\)$/.test(c.title), `a stopped bill's share opens the bill, with its year: ${c.title} / ${c.hash}`);
 
 // 5. A bill HIPHI only watches, with no everyday name: what it does comes first; no chair's email (no side).
 r = run({ ...heard, id: 'b9', bill_number: 'SB2', hiphi_position: 'monitor', hiphi_nickname: null, hiphi_summary: 'Lets counties deny some liquor licence renewals' }, []);
