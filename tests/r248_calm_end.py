@@ -11,6 +11,10 @@ BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832'
 if not BASE.split('?')[0].endswith('.html'): BASE = BASE.rstrip('/') + '/track.html'
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'r248'); os.makedirs(OUT, exist_ok=True)
 passes, fails, errors = [], [], []
+# R-297: a first visit opens on the welcome (#/start/0); Let's begin goes on to the topics.
+def past_welcome(p, t=30000):
+    p.wait_for_selector('.st-hellopage, .st-tile, .st-issue', timeout=t)
+    if p.locator('.st-hellopage').count(): p.click('[data-stnext]'); p.wait_for_selector('.st-tile, .st-issue', timeout=t); p.wait_for_timeout(600)
 def ok(c, m): (passes if c else fails).append(('PASS ' if c else 'FAIL ') + m)
 
 def ctx(b, w=390, h=844):
@@ -21,7 +25,7 @@ def ctx(b, w=390, h=844):
 # From a restart through the first visit to Home, by whatever the screens offer (a topic, Next, Skip, the story's
 # first choice); the version that ends on Home (?end=home, everyone's ending) and today's plan.
 def walk(p, q):
-    p.goto(BASE + q); p.wait_for_selector('.st-tile', timeout=30000); p.wait_for_timeout(800)
+    p.goto(BASE + q); past_welcome(p); p.wait_for_timeout(800)
     p.locator('.st-tile').first.click(); p.wait_for_timeout(200)
     for _ in range(20):
         if p.locator('#main .cm, #main .hm').count() and p.evaluate("location.hash.replace('#', '') in {'': 1, '/': 1}"): break

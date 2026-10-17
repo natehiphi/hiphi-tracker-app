@@ -8,6 +8,10 @@ from playwright.sync_api import sync_playwright
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html'
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'mahalo_home'); os.makedirs(OUT, exist_ok=True)
 passes, fails, errors = [], [], []
+# R-297: a first visit opens on the welcome (#/start/0); Let's begin goes on to the topics.
+def past_welcome(p, t=30000):
+    p.wait_for_selector('.st-hellopage, .st-tile, .st-issue', timeout=t)
+    if p.locator('.st-hellopage').count(): p.click('[data-stnext]'); p.wait_for_selector('.st-tile, .st-issue', timeout=t); p.wait_for_timeout(600)
 def ok(c, m): (passes if c else fails).append(('PASS ' if c else 'FAIL ') + m)
 
 def ctx(b, w, h, dark=False):
@@ -17,7 +21,7 @@ def ctx(b, w, h, dark=False):
     p.on('console', lambda m: errors.append(f'console {w}: {m.text[:160]}') if m.type == 'error' and 'favicon' not in m.text else None)
     return c, p
 def to_thanks(p):
-    p.goto(BASE + '?demo=1&codes=0&restart'); p.wait_for_selector('.st-tile', timeout=15000); p.wait_for_timeout(800)
+    p.goto(BASE + '?demo=1&codes=0&restart'); past_welcome(p, 15000); p.wait_for_timeout(800)
     p.locator('.st-tile', has_text='Food').first.click(); p.wait_for_timeout(200)
     p.click('[data-stnext]'); p.wait_for_selector('[data-stpick]', timeout=10000); p.wait_for_timeout(800)
     p.click('[data-stnext]'); p.wait_for_selector('.st-alertspage', timeout=10000); p.wait_for_timeout(700)
