@@ -210,7 +210,7 @@ function greeting(c) {
   const name = P.myName(), hi = `Aloha${name ? `, ${esc(name)}` : ''}`;
   if (c.welcome) {
     const said = followSummary() || plural(S.bills.length, 'bill'), fin = P.finNow();
-    return `<header class="cm-head"><h1 class="hero"${fin ? ' id="hm-finh"' : ''}>${fin ? mahalo(name) : hi}</h1><p class="lede">${fin ? 'This is your home page. ' : ''}You follow ${esc(said)}. ${c.card.kind ? 'Here’s the first thing you can do.' : 'We keep watch, and when one has a hearing, a simple way to help shows up here.'}</p>${fin ? P.finDid() : ''}</header>`;
+    return `<header class="cm-head"><h1 class="hero"${fin ? ' id="hm-finh"' : ''}>${fin ? mahalo(name) : hi}</h1><p class="lede">${fin ? 'This is your home page. ' : `You follow ${esc(said)}. `}${c.card.kind ? 'Here’s the first thing you can do.' : 'We keep watch, and when one has a hearing, a simple way to help shows up here.'}</p>${fin ? P.finDid() : ''}</header>`;
   }
   const line = resultLine(c), quiet = !c.card.kind ? 'Nothing needs you this week. When there’s something you can do, it shows up here.' : '';
   return `<header class="cm-head"><p class="eyebrow">${esc(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: HST }))}</p>
@@ -264,9 +264,11 @@ function offSession(si, { welcome }) {
   const own = looseBills();
   const rows = [...P.myIssues(yr).map(r => ({ name: r.title, text: unname(r.title, first(r.sub)), href: r.href })),
     ...own.map(b => ({ b, name: headline(b), text: `${spaced(b)} · ${plainStatus(b).short}`, href: billPath(b) }))];
+  // The Mahalo says where they are, as in session (the fresh-eyes review of R-248); the ticks below say what they did, so the
+  // lede does not count their issues again (A-14).
   const fin = welcome && P.finNow();
   return `<div class="hm cm cm-off${finCls(welcome)}">
-    <header class="cm-head"><h1 class="hero"${fin ? ' id="hm-finh"' : ''}>${fin ? mahalo(name) : `Aloha${name ? `, ${esc(name)}` : ''}`}</h1><p class="lede">${lede}</p>
+    <header class="cm-head"><h1 class="hero"${fin ? ' id="hm-finh"' : ''}>${fin ? mahalo(name) : `Aloha${name ? `, ${esc(name)}` : ''}`}</h1><p class="lede">${fin ? 'This is your home page. ' : ''}${lede}</p>
       ${fin ? P.finDid() : ''}${welcome ? '' : P.sessionLink(yr)}</header>
     <section class="cm-card" aria-label="The thing you can do now">${card}</section>
     ${issuesBlock(rows, followedIssues().length + own.length)}
