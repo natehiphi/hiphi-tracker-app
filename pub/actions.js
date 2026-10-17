@@ -3,7 +3,7 @@
 // One primary button (write testimony, or email the chair once the written deadline has passed), one secondary
 // ("More ways to help") that opens inside the card, never a sheet. Every action counts (Nate, 9/18).
 import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, anyBill, anyHearing, settledOn, goingOn, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, followedIssues, CHAMBER_NAME, codesOf, suggestEvent } from './core.js';
-import { testifyLabel, againLine, mailLabel, letterOn } from './letters.js';
+import { testifyLabel, againLine, mailLabel, letterOn, HELP_WORDS } from './letters.js';
 import { logAct } from './visitlog.js';
 import { issueBand } from './art.js';
 import { armOf, abRankMet, abSeen, shareTag } from './variant.js';
@@ -106,7 +106,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     moreRow('calendar-plus', 'Add to my calendar', late ? 'The hearing time and place.' : 'A reminder before testimony is due.', { 'data-ics': k }, S.chips[k + 'ics'] && 'Calendar file ready')].join('');
   const rows = R ? rankedRows() : [
     // Testimony is listed here only when it is not already the main button (a suggested bill leads with Follow).
-    asking ? moreRow('notebook-pen', late ? 'Send late testimony' : 'Write my testimony', late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. About 15 minutes the first time (the Capitol site asks for a free account), a few after that.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent') : '',
+    asking ? moreRow('notebook-pen', late ? 'Send late testimony' : HELP_WORDS, late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. About 15 minutes the first time (the Capitol site asks for a free account), a few after that.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent') : '',
     differs ? '' : moreRow('mail', mailWords, `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
     legRow,
     moreRow('share-2', 'Ask a friend to speak up', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
@@ -116,7 +116,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   ].join('');
   const name = nick(b);
   // Emailed the chair with testimony still open (R-212 #14): the card stays, and one line says why testimony still counts,
-  // so "Mahalo!" above "Write my testimony" does not read as being asked twice (the critic's review). The count of people
+  // so "Mahalo!" above "Help me write testimony" does not read as being asked twice (the critic's review). The count of people
   // who acted steps aside meanwhile, so on a phone the card is no taller than before and its button stays in view.
   const emailOnly = doneKinds.includes('email') && !doneKinds.includes('testimony') && !settledOn(b, h);
   // The letter they sent for this hearing (W1-1, R-239): kept on the device (letters.js), so a call from the committee or

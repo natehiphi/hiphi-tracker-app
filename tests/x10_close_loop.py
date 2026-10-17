@@ -56,7 +56,7 @@ def run(br, w, h, tag):
     c, p = context()
     p.goto(PUB + '&restart&via=share#/bill/HB2121'); ready(p)
     ok(p.locator('.bl-newbie').count() == 1, f'{tag}: a newcomer on a shared bill gets the "New here?" card')
-    for s in (click('.btn', 'Write my testimony'), click('#hp-dlg button', 'I support it'), click('#hp-dlg button', '^Next')):
+    for s in (click('.btn', 'Help me write testimony'), click('#hp-dlg button', 'I support it'), click('#hp-dlg button', '^Next')):
         p.evaluate(s); p.wait_for_timeout(900)
     p.fill('#hp-name', 'Kai Ho'); p.wait_for_timeout(200)
     if p.locator('#hp-why').count(): p.fill('#hp-why', 'I care about keiki health.')
