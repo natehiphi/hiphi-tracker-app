@@ -17,8 +17,10 @@
 // The budget it keeps (A-23, tests/home_calm.py): at most four blocks of at most two shapes, one filled button, each bill
 // named once, under two phone screens for 3 issues and three for 16. What left Home and where it went: the review
 // (backend docs/requests/R-222-assessment.md, section 6).
-// Still today's Home: Your session (#/recap), following nothing, and the first visit's ending on Home (R-098: its
-// celebration happens there).
+// Still today's Home: Your session (#/recap) and following nothing. The first visit's ending is the calm Home too (R-248,
+// Nate 10/11: "Yes, queue it"): on the page load that finished it the greeting says "Mahalo, <name>!" with the row of what
+// they did today and the petals once (R-098's celebration, home.js finDid and finFx); a reload says Aloha. It used to hand
+// the whole tab to today's Home, so every new person's first Home was the old one, its wins card included.
 import { S, app, esc, icon, toast, nick, headline, billPath, alive, openActions, dayWord, timeWord, dateLong, hstDay, hiT, HST,
   followedIssues, issueBills, outcomeOf, didKind, sessionInfo, followsAnything, wiz, settledOn, plainStatus, testimonyDraft,
   followSummary, winsIn, ensureRecapPool, isResolution, nudge, catOf, issueOf } from '../core.js';
@@ -202,11 +204,13 @@ function resultLine(c) {
   if (c.freshN) return `News on ${c.freshN === 1 ? `one of your ${c.noun}` : `${c.freshN} of your ${c.noun}`} since ${esc(sinceWhen())}.`;
   return prevVisit() ? `Nothing new on your ${c.noun} since ${esc(sinceWhen())}.` : '';
 }
+// The heading on the page load that finished the first visit (R-248): Mahalo and their name, as the ending on Home said it.
+const mahalo = name => name ? `Mahalo, ${esc(name)}!` : 'Mahalo for joining in!';
 function greeting(c) {
   const name = P.myName(), hi = `Aloha${name ? `, ${esc(name)}` : ''}`;
   if (c.welcome) {
-    const said = followSummary() || plural(S.bills.length, 'bill');
-    return `<header class="cm-head"><h1 class="hero">${hi}</h1><p class="lede">You follow ${esc(said)}. ${c.card.kind ? 'Here’s the first thing you can do.' : 'We keep watch, and when one has a hearing, a simple way to help shows up here.'}</p></header>`;
+    const said = followSummary() || plural(S.bills.length, 'bill'), fin = P.finNow();
+    return `<header class="cm-head"><h1 class="hero"${fin ? ' id="hm-finh"' : ''}>${fin ? mahalo(name) : hi}</h1><p class="lede">${fin ? 'This is your home page. ' : `You follow ${esc(said)}. `}${c.card.kind ? 'Here’s the first thing you can do.' : 'We keep watch, and when one has a hearing, a simple way to help shows up here.'}</p>${fin ? P.finDid() : ''}</header>`;
   }
   const line = resultLine(c), quiet = !c.card.kind ? 'Nothing needs you this week. When there’s something you can do, it shows up here.' : '';
   return `<header class="cm-head"><p class="eyebrow">${esc(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: HST }))}</p>
@@ -228,7 +232,7 @@ function inSession(si, { welcome, fin }) {
   const head = greeting(c);   // before the card: it decides the card's reason line (c.why)
   S.cmMoments = c.moments;
   const lines = [welcome ? '' : P.sessionLink(si.yr), P.profileLine()].filter(Boolean).join('');
-  return `<div class="hm cm${welcome ? '' : ' cm-met'}">
+  return `<div class="hm cm${welcome ? '' : ' cm-met'}${finCls(welcome)}">
     ${head}
     ${card.kind ? `<section class="cm-card" aria-label="${card.kind === 'go' ? 'Your plan' : 'The next thing you can do'}">${theCard(c)}</section>` : ''}
     ${issuesBlock(rows, iss.length + own.length)}
@@ -260,15 +264,21 @@ function offSession(si, { welcome }) {
   const own = looseBills();
   const rows = [...P.myIssues(yr).map(r => ({ name: r.title, text: unname(r.title, first(r.sub)), href: r.href })),
     ...own.map(b => ({ b, name: headline(b), text: `${spaced(b)} · ${plainStatus(b).short}`, href: billPath(b) }))];
-  return `<div class="hm cm cm-off">
-    <header class="cm-head"><h1 class="hero">Aloha${name ? `, ${esc(name)}` : ''}</h1><p class="lede">${lede}</p>
-      ${welcome ? '' : P.sessionLink(yr)}</header>
+  // The Mahalo says where they are, as in session (the fresh-eyes review of R-248); the ticks below say what they did, so the
+  // lede does not count their issues again (A-14).
+  const fin = welcome && P.finNow();
+  return `<div class="hm cm cm-off${finCls(welcome)}">
+    <header class="cm-head"><h1 class="hero"${fin ? ' id="hm-finh"' : ''}>${fin ? mahalo(name) : `Aloha${name ? `, ${esc(name)}` : ''}`}</h1><p class="lede">${fin ? 'This is your home page. ' : ''}${lede}</p>
+      ${fin ? P.finDid() : ''}${welcome ? '' : P.sessionLink(yr)}</header>
     <section class="cm-card" aria-label="The thing you can do now">${card}</section>
     ${issuesBlock(rows, followedIssues().length + own.length)}
     ${P.meetLine() || P.profileLine() ? `<div class="cm-lines">${P.meetLine()}${P.profileLine()}</div>` : ''}
   </div>`;
 }
 
+// The page that finished the first visit: .cm-fin (home.js finFx plays the petals once), and .hm-anim on its first draw only,
+// so the ticks rise once and a redraw as data lands does not replay them (home.css).
+const finCls = welcome => welcome && P.finNow() ? ` cm-fin${S.hmFinDrawn ? '' : ' hm-anim'}` : '';
 let delegated = false;
 export default {
   tab: 'home',
@@ -276,7 +286,7 @@ export default {
   render(route) {
     if (!S.featured || !S.pool) return skeleton(4);
     const welcome = P.welcomed(), fin = !!wiz().finale;
-    delegated = route?.name === 'recap' || !followsAnything() || (welcome && fin && P.endHome());
+    delegated = route?.name === 'recap' || !followsAnything();
     if (delegated) return today.render(route);
     const si = sessionInfo();
     // A fresh arrival on the first visit's own Home, the email step skipped: one ask, as a line (core's nudge rules).
@@ -286,7 +296,7 @@ export default {
   wire(route) {
     if (delegated) { today.wire && today.wire(route); return; }
     const root = document.querySelector('#main .cm'); if (!root) return;
-    wireActions(root); wireNudge(root); wireExtras(root);
+    wireActions(root); wireNudge(root); wireExtras(root); P.finFx();
     // "Show the next one" says what it did, with Undo (B-5, A-16): the card it moved is still on its issue's row.
     root.querySelectorAll('[data-cm-skip]').forEach(el => el.onclick = () => { const k = el.dataset.cmSkip; S.aSkip.add(k); app.render();
       toast(`${el.dataset.cmName} moved out of the way. It’s still due: the list below says when.`, { undo: () => { S.aSkip.delete(k); app.render(); } }); });

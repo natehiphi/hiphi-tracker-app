@@ -756,12 +756,15 @@ function finRecap() {
     (a => a.key === 'on' ? ['check', a.short] : a.key === 'almost' ? [a.icon, a.short] : null)(alertStatus()),
   ].filter(Boolean);
 }
+// The ticks of what they did today, a row of pills; the calm Home draws the same row under its Mahalo (R-248).
+const finDid = () => { const rows = finNow() ? finRecap() : [];
+  return rows.length ? `<ul class="hm-did" role="list" aria-label="What you did today">${rows.map(([ic, t], k) => `<li style="--k:${k}"><span class="hm-didic${ic === 'check' ? ' ok' : ''}">${icon(ic)}</span>${esc(t)}</li>`).join('')}</ul>` : ''; };
 function finHead({ off = false, lede = '' } = {}) {
-  const name = (wiz().name || '').trim(), now = finNow(), rows = now ? finRecap() : [];
+  const name = (wiz().name || '').trim(), now = finNow();
   const h1 = now ? (name ? `Mahalo, ${esc(name)}!` : 'Mahalo for joining in!') : `Aloha${name ? `, ${esc(name)}` : ''}`;
   return `${off ? '' : `<div class="hm-blooms" aria-hidden="true">${[0, 1, 2, 3, 4].map(i => `<span style="--k:${i}">${flower(20 + (i % 2) * 8)}</span>`).join('')}</div>`}
     <h1 class="hero" id="hm-finh">${h1}</h1><p class="lede">${lede}</p>
-    ${rows.length ? `<ul class="hm-did" role="list" aria-label="What you did today">${rows.map(([ic, t], k) => `<li style="--k:${k}"><span class="hm-didic${ic === 'check' ? ' ok' : ''}">${icon(ic)}</span>${esc(t)}</li>`).join('')}</ul>` : ''}`;
+    ${finDid()}`;
 }
 // "What you can do right now" (Nate 9/29, R-098 decision 3): the one thing due first, open, as the full card with its
 // main button; anything else this week one line each under it, all shown (R-190: they folded under "More you can do this
@@ -794,7 +797,8 @@ function homeFirst({ cards, asks, ask, loop = '' }) {
 // Once per page load, after the first visit ends here: petals fall over the page (outside #app, so a redraw as data
 // lands does not restart them), a burst on the heading, and the private count of this ending.
 function finFx() {
-  if (!S.hmFinale || S.hmFinDrawn || !document.querySelector('#main .hm-fin2')) return;
+  // The calm Home's Mahalo (.cm-fin, R-248) plays it too, everyone's ending since 11 Oct.
+  if (!S.hmFinale || S.hmFinDrawn || !document.querySelector('#main .hm-fin2, #main .cm-fin')) return;
   S.hmFinDrawn = true;
   const si = sessionInfo();
   logVisit('home', 'view', { path: wiz().via ? 'link' : si.phase !== 'in' ? 'off' : 'in' });
@@ -1053,7 +1057,7 @@ function seeMoment(x) {
   return fresh;
 }
 export const calmParts = { goodNews, momentText, seeMoment, sinceItems, askCard, oneIdeaAsks, twinCards, sessionLink, meetLine, profileLine,
-  myName, who, myIssues, districtsKnown, welcomed, endHome, alertsGiven };
+  myName, who, myIssues, districtsKnown, welcomed, endHome, alertsGiven, finNow, finDid, finFx };
 export const extras = { profile: () => profileLine(), account: () => accountCards(), draft: skip => draftsCard(skip), meet: () => meetCard(), friend: () => friendCard() };
 export function wireExtras(root) {
   wireProfileLine(root);
