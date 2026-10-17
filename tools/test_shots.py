@@ -10,7 +10,7 @@
 # repository is public, so its minutes are free), or by hand:
 #   python3 -m http.server 8832   (in this folder, once)
 #   python3 tools/test_shots.py [base] [--all] [--only key,key]
-import sys, os, re, json, hashlib, datetime
+import glob, sys, os, re, json, hashlib, datetime
 from playwright.sync_api import sync_playwright
 
 ARGS = [a for a in sys.argv[1:] if not a.startswith('--')]
@@ -36,6 +36,16 @@ man = {'v': 1, 'tests': {}}
 # Home with three issues followed, as staff's See links open it (staff/setup.js HOME_SCENE).
 HOME_SCENE = '#/follow/safer-walking-near-schools,forgive-medical-debt,disposable-e-cigarette-ban'
 SKIP = "() => { try { const w = JSON.parse(localStorage.getItem('hiphi_wiz') || '{}'); localStorage.setItem('hiphi_wiz', JSON.stringify({ ...w, done: true, step: 99 })); localStorage.setItem('hiphi_tour_bill', '{\"how\":\"shots\"}'); localStorage.setItem('hiphi_tour_home', '{\"how\":\"shots\"}'); } catch {} }"
+def og_pic(arm):
+    """The share picture of HB 1780 in one version: the og:image of its share page, as a path under the site."""
+    base = ROOT if arm == 'today' else os.path.join(ROOT, 'p', arm)
+    # The testimony ask where a version has it (the letter is drawn for testimony), else whichever ask it was drawn for.
+    pages = sorted(glob.glob(os.path.join(base, 'b', '*', 'HB1780-testify.html'))) + sorted(glob.glob(os.path.join(base, 'b', '*', 'HB1780-*.html')))
+    for f in pages:
+        m = re.search(r'og:image" content="[^"]*?/(pub/og/[^"]+)"', open(f, encoding='utf-8').read())
+        if m and os.path.exists(os.path.join(ROOT, m.group(1))): return m.group(1)
+    return ''
+
 # Nothing moves in a picture: animations end at once, the caret does not blink.
 STILL = "* , *::before, *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition: none !important; caret-color: transparent !important; }"
 
@@ -159,10 +169,10 @@ with sync_playwright() as p:
                 ctx, pg = page(br, ab + '#/bill/HB1780', skip=True)
                 pg.click('[data-bl-share]'); pg.wait_for_timeout(1200)
                 if key == 'pic':
-                    # The picture itself: the one the shared link carries, drawn by tools/og_images.py.
-                    srcs = pg.evaluate("() => [...document.querySelectorAll('img')].map(i => i.getAttribute('src') || '').filter(s => /\\/pub\\/og\\//.test(s))")
-                    rel = re.sub(r'^.*?/pub/og/', 'pub/og/', srcs[0]) if srcs else ''
-                    got[arm] = [{'file': '../' + rel, 'title': 'The picture a friend sees', 'sig': rel, 'date': None}] if rel and os.path.exists(os.path.join(ROOT, rel)) else []
+                    # The picture itself: the one a shared link to HB 1780 carries in that version (its share page's
+                    # og:image, p/<version>/b/... as built by tools/share_pic_pages.mjs; today's is the bill's own page).
+                    rel = og_pic(arm)
+                    got[arm] = [{'file': '../' + rel, 'title': 'The picture a friend sees', 'sig': rel, 'date': None}] if rel else []
                 else:
                     got[arm] = [shot(pg, key, arm, 1, focus='textarea')]
                 ctx.close()

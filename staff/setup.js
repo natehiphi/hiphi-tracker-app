@@ -46,7 +46,7 @@ const SECTIONS = [['team', 'Team', 'users-round'], ['email', 'Email', 'mail'], [
   ['import', 'Import', 'upload'], ['connections', 'Connections', 'plug'], ['embed', 'Website embed', 'globe'], ['tests', 'Tests', 'flask-conical']];
 const ADVANCED = [['templates', 'Message wording', 'square-pen'], ['committees', 'Committee map', 'route'], ['keys', 'Keys', 'key-round'], ['lists', 'People’s lists', 'list-checks'], ['privacy', 'Privacy and keeping', 'shield-check']];
 // The tester sheet (R-185) is a page of Tests: reached from it, and Tests stays marked in the list of parts.
-const ALL = Object.fromEntries([...SECTIONS, ...ADVANCED, ['room', 'Tester sheet', 'qr-code']].map(([k, t, ic]) => [k, { t, ic }]));
+const ALL = Object.fromEntries([...SECTIONS, ...ADVANCED, ['room', 'Tester sheet', 'qr-code'], ['test', 'A test', 'flask-conical']].map(([k, t, ic]) => [k, { t, ic }]));
 
 // ---- async state: readiness and secret status load once per visit and on "Check again" ----
 const st = () => S.st2Setup ??= { ready: null, readyErr: '', readyBusy: false, errs: null, errsErr: '', errsBusy: false, secrets: null, secretsBusy: false, logins: null, loginsBusy: false, loginsErr: '', reach: null, reachBusy: false, reachErr: '', teamEmail: null, slackBusy: false, offOpen: false, advOpen: false, passOpen: false, coalOpen: new Set(), csv: null, draft: {}, focus: null, offLists: null, offListsBusy: false, offListsErr: '' };
@@ -447,7 +447,9 @@ function loadAb(force) {
 // The share picture's versions go by Nate's numbers (R-183: "3, the letter itself"), "T" for today's and "I" for the issue
 // up front; the names carry the number already, so it is not said twice.
 const PIC_CODE = { today: 'T', issue: 'I', sign: '1', calendar: '2', letter: '3', text: '4', neighbors: '5', islands: '6', before: '7', here: '8', ticket: '9', crowd: '10', stand: '11', postcard: '12' };
-const armName = (t, a) => { const n = (t.arm_names || {})[a] || a; return t.key === 'pic' ? n.replace(/^\d+ · /, '') : n; };
+// R-201 (Nate 10/7: "hard to know which design I'm comparing"): plain names only, so "The week view (September’s version A)"
+// reads "The week view"; the database keeps its words.
+const armName = (t, a) => { const n = ((t.arm_names || {})[a] || a).replace(/\s*\((?:[^()]*’s )?version [A-Z]\)/, ''); return t.key === 'pic' ? n.replace(/^\d+ · /, '') : n; };
 // A, B, ... by the version's place (the first is today's). The first-visit test has six (backend 136, R-164).
 const AB = (t, a) => t.key === 'pic' ? PIC_CODE[a] || '?' : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[t.arms.indexOf(a)] || '?';
 // The versions new visitors are spread over while a test is on: all of a two-version test, the switched-on ones of a
@@ -463,12 +465,16 @@ const livePatch = (t, on) => on.length >= 2 ? { is_on: true, arms_on: on.length 
 const andList = xs => xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
 // The first-visit test says "today's" and "Plan 2", not its letters: B is Plan 1 there, and Nate thinks in plan numbers
 // (the fresh-eyes review, 10/6, P-4).
-const vName = (t, a) => t.key === 'onb' ? (a === t.arms[0] ? 'today’s' : armName(t, a).split(':')[0])
-  : t.key === 'pic' ? (a === 'today' ? 'today’s' : a === 'issue' ? 'the issue picture' : `picture ${AB(t, a)}`) : AB(t, a);
-const liveLine = (t, on) => on.length >= 2 ? `Running: ${on.length === 2 ? `${vName(t, on[0])} against ${vName(t, on[1])}` : andList(on.map(a => vName(t, a)))}. Each new visitor gets one of them at random.`
-  : `Not testing: everyone sees ${vName(t, on[0])}, “${esc(armName(t, on[0]))}”. Switch on another version to test it.`;
-// "(today's)" after a version's name, unless the name already says it ("Today's first visit").
-const todayTag = (t, a) => a === t.arms[0] && !/today/i.test(armName(t, a)) ? ' <span class="muted">(today’s)</span>' : '';
+// R-201: the other tests say a version by its name in quotes, not a letter (the letters differed by test and nothing on the
+// page said which was which).
+const vName = (t, a) => a === t.arms[0] ? 'today’s' : t.key === 'onb' ? armName(t, a).split(':')[0]
+  : t.key === 'pic' ? (a === 'issue' ? 'the issue picture' : `picture ${AB(t, a)}`) : `“${armName(t, a)}”`;
+const cap = x => x.replace(/^(“?)(.)/, (m, q, c) => q + c.toUpperCase());
+// A version as the first words of a sentence: "Today’s version", "Plan 2", "“Starts with the deadline”".
+const vSubj = (t, a) => a === t.arms[0] ? 'Today’s version' : cap(vName(t, a));
+const vNamed = (t, a) => /^“/.test(vName(t, a)) ? vName(t, a) : `${vName(t, a)}, “${armName(t, a)}”`;
+const liveLine = (t, on) => on.length >= 2 ? `Running: ${esc(on.length === 2 ? `${vName(t, on[0])} against ${vName(t, on[1])}` : andList(on.map(a => vName(t, a))))}. Each new visitor gets one of them at random.`
+  : `Not testing: everyone sees ${esc(vNamed(t, on[0]))}. Switch on another version to test it.`;
 // A version whose consent words differ from today's waits on a lawyer before the public sees it (R-149): the email ask
 // after an action, and the five first-visit plans' sign-up.
 const lawyerFor = (t, on) => (t.key === 'email' && on.includes('after')) || (t.key === 'onb' && on.some(a => a !== 'today'));
@@ -500,10 +506,6 @@ const SEE = {
 // &abrest=today: every test the link does not name stays at today's version, whatever the switches (R-192), so each link
 // shows only its own test's difference.
 const seeUrl = (t, a) => `${APP_URL}${(SEE[t.key]?.[0] || 'track.html?demo=1&restart&ab=' + t.key + '.').replace(/^track\.html\?demo=1/, 'track.html?demo=1&abrest=today')}${a}${SEE[t.key]?.[2] || ''}`;
-// A version's short name on its See and Pick buttons: "today’s" for the first version, else its letter ("See B"; the first
-// visit's plans say "Plan 2", and the share picture its number). The full name is said once, in the version's own row, and
-// is the buttons' accessible name, so a screen reader hears the same words a sighted person reads in the row.
-const shortName = (t, a) => a === t.arms[0] ? 'today’s' : t.key === 'onb' ? vName(t, a) : AB(t, a);
 // "Trust it" (R-121; Nate 10/3, the plan's question 5): a two-proportion test on the measure (the share test: friends
 // per share, a rate), only from 100 per version, at 99% while more than one test is on (95% for one). A real difference
 // of 10 points shows at about 600 per version at 99% (400 at 95%); short of that, "no difference" is "no difference yet".
@@ -517,10 +519,10 @@ function abVerdict(t, a, b, bar) {
   if (!a.seen && !b.seen) return ['hourglass', t.is_on ? 'Nobody has met this test yet. The numbers fill as people arrive, most from January.' : 'Not testing, so nothing is counted.'];
   if (a.seen < 100 || b.seen < 100) return ['hourglass', `Not enough ${unit} yet to trust a difference: ${a.seen} and ${b.seen}, and each version needs 100.`];
   const r = zOf(t, a, b), win = r.p1 >= r.p2 ? a : b, lose = win === a ? b : a;
-  if (Math.abs(r.z) >= bar.z) return ['circle-check', `<b>Trust it:</b> ${AB(t, win.arm)} does better on “${esc(t.measure.toLowerCase())}” (${show(win)} against ${show(lose)}), beyond what chance would do (${bar.pct}%).${t.winner ? '' : ' Pick it, and the other version is removed within a week.'}`, win.arm];
+  if (Math.abs(r.z) >= bar.z) return ['circle-check', `<b>Trust it:</b> ${esc(vSubj(t, win.arm))} does better on “${esc(t.measure.toLowerCase())}” (${show(win)} against ${show(lose)}), beyond what chance would do (${bar.pct}%).${t.winner ? '' : ' Pick it, and the other version is removed within a week.'}`, win.arm];
   const big = bar.pct === 99 ? 600 : 400;
   if (a.seen < big || b.seen < big) return ['scale', `No clear difference yet (${show(a)} against ${show(b)}). ${t.is_on ? 'Keep it running: a' : 'Not testing now, so these stay as they are. While testing, a'} real difference of 10 points shows at about ${big} ${unit} per version.`];
-  return ['scale', `No real difference (${show(a)} against ${show(b)}, from ${a.seen} and ${b.seen} ${unit}). Either will do: pick on other grounds, or keep A.`];
+  return ['scale', `No real difference (${show(a)} against ${show(b)}, from ${a.seen} and ${b.seen} ${unit}). Either will do: pick on other grounds, or keep today’s.`];
 }
 const abBar = tests => tests.filter(t => t.is_on).length > 1 ? { z: 2.576, pct: 99 } : { z: 1.96, pct: 95 };
 // A test's numbers and verdict, worked out once for its card, the page's order and the status line. ready: trusted and
@@ -535,8 +537,6 @@ function abState(t, res, bar) {
   const v = abVerdict(t, a, b, bar);
   return { a, b, all, v, forced: rows.filter(r => r.forced && r.seen), ready: !!v[2] && !t.winner, never: !t.started && all.every(r => !r.seen) };
 }
-// Ready to decide first, then running, then picked, then off: the card that needs Nate is the first one he sees (A-13).
-const abRank = (t, x) => x.ready ? 0 : t.is_on ? 1 : t.winner ? 2 : 3;
 // The share picture's numbers by ask (R-183): a picture that only fits some asks (the calendar needs a date, the ticket a
 // hearing) is compared with the others on the asks they share, so each ask has its own small table.
 const ASK_NAMES = { testify: 'Testimony', ask: 'Asking for a hearing', floor: 'A floor vote', conference: 'The final version', governor: 'The Governor', follow: 'Following the issue' };
@@ -547,51 +547,118 @@ function picByAsk(t, rows) {
     <thead><tr><th scope="col">Version</th><th scope="col" class="num">Shares</th><th scope="col" class="num">Tapped per 100</th><th scope="col" class="num">Acted per 100</th></tr></thead>
     <tbody>${by[k].sort((p, q) => t.arms.indexOf(p.arm) - t.arms.indexOf(q.arm)).map(r => `<tr><th scope="row"><span class="ab-v" aria-hidden="true">${AB(t, r.arm)}</span>${esc(armName(t, r.arm))}</th><td class="num">${r.seen}</td><td class="num">${Math.round(100 * r.goal / r.seen)}</td><td class="num">${Math.round(100 * r.goal2 / r.seen)}</td></tr>`).join('')}</tbody></table>`).join('')}</details>`;
 }
+// ---- R-201: the list, one line per test, and each test on its own page with its versions side by side as pictures ----
+// Nate 10/7: "It's hard to find which test I want to turn on and off and it's hard to know which design I'm comparing.
+// Can the improved version have screenshots easily accessible so it's easy to compare the multiple options?" The list
+// keeps one order, by where on the tracker a test shows (his answer 10/10: grouped by place), so a test is in the same
+// place on every visit; its state is a word on its line, and the filter finds the running ones or those ready to decide.
+const PLACES = [['The first visit', ['onb', 'fv', 'email', 'join', 'act', 'end']], ['Home', ['layout', 'home', 'rank']],
+  ['An issue', ['save']], ['Sharing', ['share', 'pic']]];
+// The pictures (tools/test_shots.py, R-201 part 1): phone screenshots of each version in the practice copy, retaken by the
+// public repo's checks whenever a version's screen changes. shots/shots.json: {tests: {key: {arms: {arm: [{file, title,
+// date}]}}}}; a path (the first visit's tests) has up to four screens, compared screen by screen.
+function loadShots() {
+  const s = st(); if (s.shots !== undefined || s.shotsBusy) return;
+  s.shotsBusy = true;
+  fetch('shots/shots.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).catch(() => null)
+    .then(j => { s.shots = j?.tests || null; s.shotsBusy = false; if (S.route?.name === 'setup') hooks.render(); });
+}
+const shotsOf = (t, a) => st().shots?.[t.key]?.arms?.[a] || [];
+const shotSrc = p => `shots/${p.file}${p.date ? `?d=${p.date}` : ''}`;
+const stepsOf = t => Math.max(1, ...t.arms.map(a => shotsOf(t, a).length));
+const stepOf = t => Math.min(st().abStep?.[t.key] || 0, stepsOf(t) - 1);
+// A test's state in a word, for its line on the list, its page and the filter (A-13: what needs Nate is said first).
+const abWord = (t, x) => x.ready ? ['ready', 'Ready to decide', 'ok', 'circle-check'] : t.is_on ? ['running', 'Running', 'info', 'play']
+  : t.winner ? ['off', 'Picked', '', 'trophy'] : ['off', 'Off', '', ''];
+const abSub = t => { const live = liveOf(t);
+  return t.is_on ? `${live.length} versions, at random` : t.winner ? `Everyone sees ${vName(t, t.winner)}` : `Everyone sees ${vName(t, live[0])}`; };
+const abTestOf = () => st().ab?.tests.find(t => t.key === S.route?.q?.t);
+// One line of the list: a small picture of the difference (the first other version's first screen), the name, the state.
+function abRow(t, x) {
+  const [, word, tone, ic] = abWord(t, x), p = shotsOf(t, t.arms[1])[0] || shotsOf(t, t.arms[0])[0];
+  return `<li><a class="ab-row" href="#/setup/test?t=${encodeURIComponent(t.key)}" data-abrow="${esc(t.key)}">
+    <span class="ab-thumb" aria-hidden="true">${p ? `<img src="${esc(shotSrc(p))}" alt="" loading="lazy" decoding="async">` : icon('flask-conical')}</span>
+    <span class="ab-rbody"><span class="ab-rt">${esc(t.name)}</span><span class="ab-rs">${chip(word, tone, ic || undefined)}<span class="small muted">${esc(abSub(t))}</span></span></span>
+    ${icon('chevron-right')}</a></li>`;
+}
+function abList(cards, filt) {
+  const keep = c => filt === 'running' ? c.t.is_on : filt === 'off' ? !c.t.is_on : filt === 'ready' ? c.x.ready : true;
+  const placed = PLACES.flatMap(([, ks]) => ks), groups = [...PLACES.map(([l, ks]) => [l, ks.map(k => cards.find(c => c.t.key === k)).filter(Boolean)]),
+    ['Other', cards.filter(c => !placed.includes(c.t.key)).sort((p, q) => (p.t.sort ?? 99) - (q.t.sort ?? 99))]];
+  const shown = groups.map(([l, cs]) => [l, cs.filter(keep)]).filter(([, cs]) => cs.length);
+  if (!shown.length) return `<p class="small muted ab-none">${filt === 'ready' ? 'No test is ready to decide yet: a test is ready once its numbers say “Trust it”.' : filt === 'running' ? 'No test is running.' : 'Every test is running.'}</p>`;
+  return shown.map(([l, cs], i) => `<section class="ab-group" aria-labelledby="ab-g${i}"><h2 class="ab-gt" id="ab-g${i}">${esc(l)}</h2>
+    <ul class="ab-rows" role="list">${cs.map(c => abRow(c.t, c.x)).join('')}</ul></section>`).join('');
+}
+// A test's page: its versions side by side, today's first, each with its picture, its switch, its numbers and its buttons
+// (the plan's step 2). A path's versions are compared screen by screen: one choice of screen moves every picture at once.
 function abCard(t, x) {
-  const { v, all } = x, live = liveOf(t);
+  const { v, all } = x, live = liveOf(t), trusted = v[2];
   const m = (r, k) => t.rate ? (r.seen ? String(Math.round(100 * r[k] / r.seen)) : '–') : pct(r[k], r.seen);
-  // One row per version. When the numbers say "Trust it", the version they trust is listed first; the rest keep their order.
-  const trusted = v[2], rows = all.slice().sort((p, q) => (q.arm === trusted) - (p.arm === trusted));
   // Who can be picked: nobody while the test is held for the lawyer, and nobody before anyone has met it (A-14: there is
-  // nothing to pick from yet). The words where the buttons would be say which.
+  // nothing to pick from yet). The words under the versions say which.
   const held = heldForLawyer(t), noVisitors = all.every(r => !r.seen), canPick = !held && !noVisitors;
-  // Each version's See link (into the practice copy, a new tab, the same screen for each) and, where picks are open, its
-  // Pick button: on the version's own row, in the same place on every card (R-135, Nate: "uniform and clear"). The buttons
-  // say the short name; their accessible names keep the full one.
-  const acts = r => { const s = shortName(t, r.arm), full = armName(t, r.arm);
-    return `<td class="ab-rowacts"><div class="ab-rowacts-in">${btn(`See ${s}`, { kind: 'text', sm: true, icon: 'external-link', href: seeUrl(t, r.arm), target: '_blank', attrs: { 'data-absee': `${t.key}|${r.arm}`, 'aria-label': `See ${s}: ${full} (in a new tab)` } })}${canPick ? btn(`Pick ${s}`, { kind: 'secondary', sm: true, icon: 'trophy', attrs: { 'data-abpick': t.key, 'data-abarm': r.arm, 'aria-label': `Pick ${s}: ${full}` } }) : ''}</div></td>`; };
-  // On a phone each version's numbers are one line under its name ("640 visitors · 41% finished the first visit"): the
-  // cells carry their words in data-l (staff.css). A test nobody has run shows its versions and their links only.
-  const tr = r => `<tr><th scope="row"><span class="ab-v" aria-hidden="true">${AB(t, r.arm)}</span><span class="sr">${AB(t, r.arm)}: </span>${esc(armName(t, r.arm))}${todayTag(t, r.arm)}</th>`
-    + (x.never ? '' : `<td class="num" data-l="${t.rate ? 'shares' : 'visitors'}">${r.seen}</td><td class="num" data-l="${esc(t.measure.toLowerCase())}">${m(r, 'goal')}</td><td class="num" data-l="${esc(t.measure2.toLowerCase())}">${m(r, 'goal2')}</td>`)
-    + `${acts(r)}</tr>`;
-  // A switch for every version of every test (R-192; the first-visit test had them since R-164): the ones on are the ones
-  // new visitors get. At least one stays on: the last one says so and refuses to go off.
-  const switches = `<fieldset class="ab-arms"><legend class="small ab-live">${liveLine(t, live)}</legend>
-    ${t.arms.map(x => switchRow(`ab-arm-${t.key}-${x}`, `${AB(t, x)}: ${esc(armName(t, x))}${todayTag(t, x)}`, live.includes(x), '', { 'data-abarm-on': `${t.key}|${x}` })).join('')}</fieldset>`;
+  const steps = stepsOf(t), step = stepOf(t), wide = t.key === 'pic';
+  const nums = r => x.never ? '<span></span>' : `<p class="small ab-nums"><span><b>${r.seen}</b> ${t.rate ? 'shares' : 'visitors'}</span><span><b>${m(r, 'goal')}</b> ${esc(t.measure.toLowerCase())}</span><span><b>${m(r, 'goal2')}</b> ${esc(t.measure2.toLowerCase())}</span></p>`;
+  const col = r => { const a = r.arm, ps = shotsOf(t, a), p = ps[step], full = armName(t, a), on = live.includes(a);
+    const pic = p ? `<div class="ab-pic"><button type="button" class="ab-shot" data-abshot="${esc(a)}" aria-label="${esc(`See it larger: ${full}${p.title ? `, “${p.title}”` : ''}`)}"><img src="${esc(shotSrc(p))}" alt="" loading="lazy" decoding="async"></button>${p.title && !wide ? `<span class="small muted ab-cap">${esc(p.title)}</span>` : ''}</div>`
+      : `<div class="ab-noshot small muted">${ps.length ? `This version has ${ps.length === 1 ? 'one screen' : `${ps.length} screens`} here.` : 'No picture yet. Try it to see it.'}</div>`;
+    return `<li class="ab-ver${on ? ' on' : ''}">
+      <h3 class="ab-vt">${a === t.arms[0] ? '<span class="ab-today">Today’s</span>' : ''}${esc(full)}</h3>
+      <div class="ab-vtag">${a === trusted ? chip('Does better', 'ok', 'circle-check') : t.winner === a ? chip('Picked', 'ok', 'trophy') : ''}</div>
+      ${pic}
+      ${switchRow(`ab-arm-${t.key}-${a}`, `<span class="sr">${esc(full)}: </span>Visitors see it`, on, '', { 'data-abarm-on': `${t.key}|${a}` })}
+      ${nums(r)}
+      <div class="ab-vacts">${btn('Try it', { kind: 'text', sm: true, icon: 'external-link', href: seeUrl(t, a), target: '_blank', attrs: { 'data-absee': `${t.key}|${a}`, 'aria-label': `Try ${full} in the practice copy (in a new tab)` } })}${canPick ? btn('Pick', { kind: 'secondary', sm: true, icon: 'trophy', attrs: { 'data-abpick': t.key, 'data-abarm': a, 'aria-label': `Pick ${full}: everyone gets it` } }) : ''}</div>
+    </li>`; };
+  const stepper = steps > 1 ? `<div class="ab-steps"><span class="small muted">Screen</span>${segmented(`abstep`, [...Array(steps).keys()].map(i => [String(i), String(i + 1)]), String(step), 'Screen, in order')}</div>` : '';
+  const dated = t.arms.flatMap(a => shotsOf(t, a)).map(p => p.date).filter(Boolean).sort().pop();
   const lawyer = lawyerFor(t, live) && !(t.note && !t.is_on) ? notice('warn', 'scale', 'A lawyer should check the consent words of the versions switched on before the public sees them (R-149).') : '';
   const verdict = x.never ? '' : x.ready ? notice('ok', 'circle-check', `<span>${v[1]}</span>`) : `<p class="small ab-verdict">${icon(v[0])}<span>${v[1]}</span></p>`;
-  const table = `<div class="fv-tablewrap"><table class="fv-vtable ab-table"><caption class="sr">${esc(t.name)}: ${x.never ? 'the versions' : `the numbers${t.started ? ` since ${esc(fmtDate(t.started))}` : ''}`}</caption>
-      <thead><tr><th scope="col">Version</th>${x.never ? '' : `<th scope="col" class="num">${t.rate ? 'Shares' : 'Visitors'}</th><th scope="col" class="num">${esc(t.measure)}<span class="ab-dec">Decides</span></th><th scope="col" class="num">${esc(t.measure2)}</th>`}<th scope="col"><span class="sr">See and pick</span></th></tr></thead>
-      <tbody>${rows.map(tr).join('')}</tbody></table></div>`;
   const why = canPick ? '' : `<p class="small ab-verdict ab-why">${icon(held ? 'scale' : 'hourglass')}<span>${held ? 'Waits for the lawyer’s check' : 'Pick once people have seen it'}</span></p>`;
-  const forced = x.forced.length ? `<p class="small muted">Not counted: ${x.forced.map(r => `${r.seen} ${r.seen === 1 ? 'visit' : 'visits'} to ${AB(t, r.arm)}`).join(' and ')} from testers’ links.</p>` : '';
-  const hint = `<p class="small muted ab-hint">${esc(SEE[t.key]?.[1] || '')}</p>`;
+  const forced = x.forced.length ? `<p class="small muted">Not counted: ${x.forced.map(r => `${r.seen} ${r.seen === 1 ? 'visit' : 'visits'} to ${esc(vName(t, r.arm))}`).join(' and ')} from testers’ links.</p>` : '';
   const more = t.key === 'pic' ? `<div class="ab-more">${btn('Every picture on real bills', { kind: 'text', sm: true, icon: 'external-link', href: `${APP_URL}share-pics.html` })}</div>` : '';
-  return `<section class="card ab-card${x.ready ? ' ab-ready' : ''}" aria-labelledby="ab-h-${esc(t.key)}">
-    <div class="ab-head"><h2 class="ab-t" id="ab-h-${esc(t.key)}">${esc(t.name)}</h2>${t.winner ? chip(`Picked ${AB(t, t.winner)}`, 'ok', 'trophy') : ''}</div>
-    <p class="small ab-q">${esc(t.question)}</p>
-    ${t.note && !t.is_on ? notice('warn', 'info', esc(t.note)) : ''}
-    ${switches}${lawyer}
+  return `<section class="ab-card${x.ready ? ' ab-ready' : ''}" data-abtest="${esc(t.key)}">
+    <p class="ab-q">${esc(t.question)}</p>
+    ${t.note && !t.is_on ? notice('warn', 'info', esc(t.note)) : ''}${lawyer}
     ${verdict}
-    ${table}
+    <fieldset class="ab-arms ab-gal"><legend class="small ab-live">${liveLine(t, live)}</legend>
+      ${stepper}
+      <ul class="ab-vers${wide ? ' wide' : ''}" role="list" aria-label="The versions, today’s first">${all.map(col).join('')}</ul>
+    </fieldset>
     ${why}
-    ${forced}
-    ${hint}${more}
+    <p class="small muted ab-hint">${esc(SEE[t.key]?.[1] || '')}${dated ? ` Pictures from the practice copy, ${esc(fmtDate(dated))}.` : ''}</p>${more}
     ${t.key === 'pic' && !x.never ? picByAsk(t, st().ab?.byAsk || []) : ''}
+    ${forced}
     ${x.never ? '' : `<p class="small muted ab-foot">${t.started ? `Counting since ${esc(fmtDate(t.started))}.` : ''}${t.changed_at ? ` Last changed ${esc(fmtDate(t.changed_at))}${t.changed_by ? ` by ${esc(t.changed_by)}` : ''}.` : ''}</p>`}
   </section>`;
 }
+// Tap a picture: it fills the screen, and the arrows (or a swipe) flip between the versions at the same screen, so the
+// difference is seen in place (the plan's step 2). The up and down keys move along a path's screens.
+function abZoom(t, arm) {
+  const arms = t.arms, steps = stepsOf(t); let i = Math.max(0, arms.indexOf(arm)), k = stepOf(t);
+  const draw = d => { const a = arms[i], ps = shotsOf(t, a), p = ps[Math.min(k, ps.length - 1)];
+    d.querySelector('[data-zbody]').innerHTML = `<p class="ab-zname"><b>${a === arms[0] ? 'Today’s: ' : ''}${esc(armName(t, a))}</b><span class="small muted">Version ${i + 1} of ${arms.length}</span></p>
+      <figure class="ab-zfig">${p ? `<img src="${esc(shotSrc(p))}" alt="${esc(`${armName(t, a)}${p.title ? `: ${p.title}` : ''}`)}">` : '<p class="muted">No picture yet.</p>'}
+      <figcaption class="small muted">${p?.title ? esc(p.title) : ''}${steps > 1 && ps.length ? ` · screen ${Math.min(k, ps.length - 1) + 1} of ${ps.length}` : ''}</figcaption></figure>`;
+    d.querySelectorAll('[data-zs]').forEach(b => { b.disabled = +b.dataset.zs < 0 ? k <= 0 : k >= steps - 1; }); };
+  const go = (d, n) => { i = (i + n + arms.length) % arms.length; draw(d); };
+  const stepBtns = steps > 1 ? `<span class="ab-zsteps">${btn('Screen before', { kind: 'text', sm: true, icon: 'chevron-up', attrs: { 'data-zs': '-1' } })}${btn('Screen after', { kind: 'text', sm: true, icon: 'chevron-down', attrs: { 'data-zs': '1' } })}</span>` : '';
+  openSheet({ title: esc(t.name), size: 'full',
+    body: `<div class="ab-zoom"><div data-zbody aria-live="polite"></div><div class="ab-znav">${btn('Version before', { kind: 'secondary', sm: true, icon: 'chevron-left', attrs: { 'data-zv': '-1' } })}${stepBtns}${btn('Next version', { kind: 'secondary', sm: true, icon: 'chevron-right', attrs: { 'data-zv': '1' } })}</div></div>`,
+    wire: d => { draw(d);
+      d.querySelectorAll('[data-zv]').forEach(b => b.onclick = () => go(d, +b.dataset.zv));
+      d.querySelectorAll('[data-zs]').forEach(b => b.onclick = () => { k = Math.max(0, Math.min(steps - 1, k + +b.dataset.zs)); draw(d); });
+      d.addEventListener('keydown', e => { if (e.target.closest?.('input, textarea')) return;
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); go(d, e.key === 'ArrowRight' ? 1 : -1); }
+        else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && steps > 1) { e.preventDefault(); k = Math.max(0, Math.min(steps - 1, k + (e.key === 'ArrowDown' ? 1 : -1))); draw(d); } });
+      // A sideways swipe on the picture flips the version, as the arrows do.
+      let x0 = null; const body = d.querySelector('[data-zbody]');
+      body.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+      body.addEventListener('touchend', e => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 50) go(d, dx < 0 ? 1 : -1); }); } });
+}
+const abWait = s => s.abErr ? `<div class="card">${notice('bad', 'circle-alert', `Could not load the tests. ${esc(s.abErr)}`)}${btn('Try again', { kind: 'secondary', sm: true, attrs: { 'data-abretry': '1' } })}</div>`
+  : `<div aria-busy="true" aria-label="Loading the tests">${[0, 1].map(() => '<div class="card"><div class="skel" style="height:120px"></div></div>').join('')}</div>`;
 // Save one test's switch, put the row the database sends back in place, and redraw.
 async function saveAb(key, patch) {
   const row = await DB.setAbTest(key, patch), s = st();
@@ -1160,48 +1227,66 @@ const PAGES = {
     status: () => { const A = st().ab; if (!A) return ['flask-conical', 'The public page’s A/B tests.'];
       const bar = abBar(A.tests), ready = A.tests.filter(t => abState(t, A.res, bar).ready);
       return ['flask-conical', `${A.tests.filter(t => t.is_on).length} of ${plural(A.tests.length, 'test')} running.${ready.length ? ` Ready to decide: ${ready.map(t => esc(t.name)).join(', ')}.` : ' None ready to decide yet.'}`]; },
-    body() { loadAb(); const s = st();
-      if (!s.ab) return s.abErr ? `<div class="card">${notice('bad', 'circle-alert', `Could not load the tests. ${esc(s.abErr)}`)}${btn('Try again', { kind: 'secondary', sm: true, attrs: { 'data-abretry': '1' } })}</div>`
-        : `<div aria-busy="true" aria-label="Loading the tests">${[0, 1].map(() => '<div class="card"><div class="skel" style="height:120px"></div></div>').join('')}</div>`;
-      // Sorted once per visit to the page (the fresh-eyes review, 10/6, B-6): a card never moves away from under a switch
-      // just flipped. "Check again" sorts afresh.
-      const bar = abBar(s.ab.tests), cards = s.ab.tests.map(t => ({ t, x: abState(t, s.ab.res, bar) }));
-      s.abOrder ??= cards.slice().sort((p, q) => abRank(p.t, p.x) - abRank(q.t, q.x) || p.t.sort - q.t.sort).map(c => c.t.key);
-      cards.sort((p, q) => (s.abOrder.indexOf(p.t.key) + 1 || 99) - (s.abOrder.indexOf(q.t.key) + 1 || 99));
+    body() { loadAb(); loadShots(); const s = st();
+      if (!s.ab) return abWait(s);
+      // R-201: one line per test, in a fixed order by where it shows; the filter is kept for the visit.
+      const bar = abBar(s.ab.tests), cards = s.ab.tests.map(t => ({ t, x: abState(t, s.ab.res, bar) })), filt = s.abFilter || 'all';
+      const n = f => cards.filter(c => f === 'running' ? c.t.is_on : f === 'off' ? !c.t.is_on : c.x.ready).length;
       // The tester sheet (R-185): each group of a room of testers on the versions Nate picks, a QR code each.
       // R-192: the switches decide what the public tracker and its practice copy show; the practice copy of this page has
       // sample switches, which change nothing (Nate's answer 1: one set of switches, the real ones).
-      return `<div class="ab-intro"><p class="small muted">Switch on the versions you want people to see. With two or more on, each new visitor gets one of them at random and the test is counted; with one on, everyone sees it. The public tracker and its practice copy both follow these switches. A card says “Trust it” when the difference is real.</p>
+      return `<div class="ab-intro"><p class="small muted">Each test shows people two or more versions of one part of the public tracker. Open a test to see its versions side by side and choose which ones visitors see.</p>
         ${DEMO ? notice('info', 'info', `This is the practice copy: these switches are samples and change nothing. The real ones, signed in, decide what the public tracker and its practice copy show: <a href="${esc(APP_URL)}staff.html#/setup/tests">Tests</a>.`) : ''}
         <div class="ab-introacts">${btn('Tester sheet', { kind: 'text', sm: true, icon: 'qr-code', href: '#/setup/room', attrs: { 'data-abroom': '1', title: 'Testing with a room of people: a link and QR code for each group, on the versions you pick' } })}
         ${btn('Check again', { kind: 'text', sm: true, icon: 'rotate-ccw', attrs: { 'data-abretry': '1', 'aria-busy': s.abBusy ? 'true' : null } })}</div></div>
-        <div class="ab-list">${cards.map(c => abCard(c.t, c.x)).join('')}</div>`; },
+        <div class="ab-filter">${segmented('abf', [['all', 'All'], ['running', `Running (${n('running')})`], ['off', `Off (${n('off')})`], ['ready', `Ready to decide (${n('ready')})`]], filt, 'Show')}</div>
+        <div class="ab-list">${abList(cards, filt)}</div>`; },
     wire(root) {
-      const s = st(), test = k => s.ab?.tests.find(t => t.key === k);
-      root.querySelectorAll('[data-abretry]').forEach(b => b.onclick = () => { s.ab = null; s.abOrder = null; loadAb(true); hooks.render(); });
+      const s = st();
+      root.querySelectorAll('[data-abretry]').forEach(b => b.onclick = () => { s.ab = null; s.shots = undefined; loadAb(true); hooks.render(); });
+      root.querySelectorAll('[data-seg="abf"]').forEach(b => b.onclick = () => { s.abFilter = b.dataset.val; hooks.render(); document.querySelector(`[data-seg="abf"][data-val="${b.dataset.val}"]`)?.focus(); });
+    },
+  },
+  // R-201: one test on its own page (#/setup/test?t=<key>), its versions side by side as pictures.
+  test: {
+    parent: 'tests',
+    title: () => abTestOf()?.name || 'A test',
+    status: () => { const t = abTestOf(), A = st().ab; if (!t) return ['flask-conical', 'One of the public page’s A/B tests.'];
+      const [, word, , ic] = abWord(t, abState(t, A.res, abBar(A.tests))); return [ic || 'flask-conical', `${word}. ${esc(roomWhere(t))}`]; },
+    body() { loadAb(); loadShots(); const s = st();
+      if (!s.ab) return abWait(s);
+      const t = abTestOf();
+      if (!t) return empty({ title: 'That test is not on the list', text: 'It may have been removed once it was decided.', action: btn('See every test', { href: '#/setup/tests' }) });
+      return abCard(t, abState(t, s.ab.res, abBar(s.ab.tests))); },
+    wire(root) {
+      const s = st(), test = k => s.ab?.tests.find(t => t.key === k), cur = abTestOf();
+      root.querySelectorAll('[data-abretry]').forEach(b => b.onclick = () => { s.ab = null; loadAb(true); hooks.render(); });
+      if (!cur) return;
+      root.querySelectorAll('[data-seg="abstep"]').forEach(b => b.onclick = () => { (s.abStep ??= {})[cur.key] = +b.dataset.val; hooks.render(); document.querySelector(`[data-seg="abstep"][data-val="${b.dataset.val}"]`)?.focus(); });
+      root.querySelectorAll('[data-abshot]').forEach(b => b.onclick = () => abZoom(cur, b.dataset.abshot));
       // One version's switch (R-164 for the first-visit test, every test since R-192): saved at once, with Undo; the last
       // one on cannot be switched off. Switching on a version a note warns about (the email ask waits on a lawyer, Home's
       // top is paused for version A) asks first.
       root.querySelectorAll('[data-abarm-on]').forEach(el => el.onchange = async () => {
         const [key, arm] = el.dataset.abarmOn.split('|'), t = test(key); if (!t) return;
         const was = liveOf(t), next = el.checked ? t.arms.filter(x => was.includes(x) || x === arm) : was.filter(x => x !== arm);
-        if (!next.length) { el.checked = true; toast(`${vName(t, arm) === AB(t, arm) ? AB(t, arm) : `“${vName(t, arm)}”`} is the only version on, so everyone sees it. Switch on another version first, then this one can go off.`, { err: true }); return; }
+        if (!next.length) { el.checked = true; toast(`${vSubj(t, arm)} is the only version on, so everyone sees it. Switch on another version first, then this one can go off.`, { err: true }); return; }
         const before = { is_on: t.is_on, fallback: t.fallback, winner: t.winner, arms_on: t.arms_on ?? null };
         if (el.checked && t.note && arm !== t.arms[0] && !await confirmSheet({ title: `Switch on ${vName(t, arm)} of “${t.name}”?`,
-          text: `${esc(t.note)} ${next.length >= 2 ? 'New visitors start getting one of the versions on, at random.' : `Everyone gets “${esc(armName(t, arm))}” at once.`}`, ok: `Switch on ${vName(t, arm)}` })) { el.checked = false; return; }
+          text: `${esc(t.note)} ${next.length >= 2 ? 'New visitors start getting one of the versions on, at random.' : `Everyone gets “${esc(armName(t, arm))}” at once.`}`, ok: 'Switch it on' })) { el.checked = false; return; }
         try { await saveAb(key, livePatch(t, next)); document.getElementById(el.id)?.focus({ preventScroll: true });
           toast(`Saved. ${next.length >= 2 ? `“${t.name}” is running: ${andList(next.map(a => vName(t, a)))}, at random.` : `Everyone sees ${vName(t, next[0])} of “${t.name}”, and nothing is counted.`}`, { ok: true, undo: () => saveAb(key, before) }); }
         catch (e) { el.checked = !el.checked; toast(e, { err: true }); } });
-      // See each version: a plain link on the version's row (data-absee names the test and version), each opening the practice
-      // copy in a new tab; nothing to wire.
-      // Pick: one button per version, on its row, where a test can be picked (abCard). Everyone gets that version and the test
-      // stops (Undo), the way a switch saves. A test with a note (the email ask, waiting on a lawyer) asks first, as turning it on does: picking B
-      // gives every visitor that version at once.
+      // Try it: a plain link under each version (data-absee names the test and version), each opening the practice copy in a
+      // new tab; nothing to wire.
+      // Pick: one button under each version, where a test can be picked (abCard). Everyone gets that version and the test
+      // stops (Undo), the way a switch saves. A test with a note (the email ask, waiting on a lawyer) asks first, as turning it
+      // on does: a pick gives every visitor that version at once.
       const pick = async (t, arm) => { const before = { is_on: t.is_on, fallback: t.fallback, winner: t.winner, arms_on: t.arms_on ?? null };
-        if (t.note && arm !== t.arms[0] && !await confirmSheet({ title: `Give everyone ${AB(t, arm)}?`, text: `${esc(t.note)} Every visitor gets “${esc(armName(t, arm))}” at once.`, ok: `Pick ${AB(t, arm)}` })) return;
+        if (t.note && arm !== t.arms[0] && !await confirmSheet({ title: `Give everyone ${esc(vName(t, arm))}?`, text: `${esc(t.note)} Every visitor gets “${esc(armName(t, arm))}” at once.`, ok: 'Pick it' })) return;
         try { await saveAb(t.key, { is_on: false, fallback: arm, winner: arm, arms_on: t.arms.length > 2 ? [arm] : null });
           document.querySelector(`[data-abpick="${t.key}"][data-abarm="${arm}"]`)?.focus({ preventScroll: true });   // as a switch keeps focus (the redraw would drop it)
-          toast(`Picked ${AB(t, arm)} of “${t.name}”. Everyone gets “${armName(t, arm)}”.`, { ok: true, undo: () => saveAb(t.key, before) }); }
+          toast(`Picked ${vName(t, arm)} of “${t.name}”. Everyone gets “${armName(t, arm)}”.`, { ok: true, undo: () => saveAb(t.key, before) }); }
         catch (e) { toast(e, { err: true }); } };
       root.querySelectorAll('[data-abpick]').forEach(b => b.onclick = () => { const t = test(b.dataset.abpick); if (t && b.dataset.abarm) pick(t, b.dataset.abarm); });
     },
@@ -1388,9 +1473,10 @@ function saveBar(key, desk) {
   return `<div class="st-bar st-sbar${desk ? ' st-sbar2' : ''}">${tracked ? `<span class="st-savestate" data-ststate role="status"></span>${p.auto ? `<span class="st-savehint" data-sthint>Switches save on their own.</span>` : ''}` : ''}
     ${btn(p.saveLabel, { kind: 'primary', icon: key === 'embed' ? 'copy' : key === 'room' ? 'printer' : null, attrs: { 'data-stsave': '1', 'aria-disabled': tracked ? 'true' : null } })}</div>`;
 }
+const titleOf = key => PAGES[key]?.title?.() || ALL[key].t;
 const statusHTML = p => { const [ic, line] = p.status(); return `${icon(ic)}<span>${line}</span>`; };
 function renderSection(key) {
-  const p = PAGES[key], head = `<div class="st-head"><h1>${esc(ALL[key].t)}</h1><p class="st-status" data-ststatus>${statusHTML(p)}</p></div>`;
+  const p = PAGES[key], head = `<div class="st-head"><h1>${esc(titleOf(key))}</h1><p class="st-status" data-ststatus>${statusHTML(p)}</p></div>`;
   const form = `<form class="st-formwrap" novalidate data-stform>${p.body()}<button type="submit" hidden tabindex="-1" aria-hidden="true"></button></form>`;
   // tail: what a part lists below its Save, so the button sits under the fields it acts on (People's lists, R-013).
   const tail = p.tail ? p.tail() : '';
@@ -1464,7 +1550,7 @@ export default {
   tab: '',
   // The two columns need more than the 720px the frame gives a plain page between 900 and 1099px.
   wide: () => DESK() && isAdmin(),
-  title: route => section(route) ? ALL[section(route)].t : 'Session setup',
+  title: route => section(route) ? titleOf(section(route)) : 'Session setup',
   back: route => { const k = section(route), up = PAGES[k]?.parent; return k ? { href: '#/setup' + (up ? '/' + up : ''), label: up ? ALL[up].t : 'Session setup' } : null; },
   noTabs: route => !!section(route) && isAdmin(),
   render(route) {
