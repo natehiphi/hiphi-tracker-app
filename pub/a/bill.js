@@ -9,6 +9,7 @@
 import { S, esc, nick, plainStatus, hearingsOf } from '../core.js';
 import bill, { situation } from '../bill.js';
 import { btn } from '../ui.js';
+import { HELP_WORDS } from '../letters.js';
 import { stepsOf, stepBar } from './home.js';
 const s0 = stepsOf;
 
@@ -50,7 +51,7 @@ export default {
       const col = act.querySelector('.acard > .btncol');
       if (col && !x.differs && !S.done.has(`${b.id}|${x.act.h.id}|testimony`)) {
         const main = document.createElement('template');
-        main.innerHTML = btn(x.act.late ? 'Send late testimony' : 'Write my testimony', { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-helper': x.act.h.id, 'data-bill': b.id } });
+        main.innerHTML = btn(x.act.late ? 'Send late testimony' : HELP_WORDS, { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-helper': x.act.h.id, 'data-bill': b.id } });
         col.prepend(main.content);
       }
       trk.after(act);

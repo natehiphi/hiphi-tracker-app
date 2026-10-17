@@ -54,7 +54,7 @@ with sync_playwright() as p:
           const b = c.S.bills.find(x => x.id === id) || c.D.bills.find(x => x.id === id), h = c.D.hearings.find(x => x.bill_id === id && new Date(x.scheduled_at) > Date.now());
           const before = a.actionCard(b, h); c.S.done.add(c.doneKey(b.id, h.id, 'testimony'));
           const after = a.actionCard(b, h), d = document.createElement('div'); d.innerHTML = after;
-          return { before: before.includes('Write my testimony'), primary: [...d.querySelectorAll('.btncol > .btn.primary')].map(x => x.textContent.trim()) }; }""", by('HB1780')['id'])
+          return { before: before.includes('Help me write testimony'), primary: [...d.querySelectorAll('.btncol > .btn.primary')].map(x => x.textContent.trim()) }; }""", by('HB1780')['id'])
         ok(out['before'], f'rank.{arm}: testimony leads before it is sent (both versions)')
         ok(out['primary'] == ([] if arm == 'today' else ['Send a quick email · 2 min']), f'rank.{arm}: after testimony, main button {out["primary"]}')
         ok(not errs, f'rank.{arm}: no page errors ' + '; '.join(errs[:2])); ctx.close()

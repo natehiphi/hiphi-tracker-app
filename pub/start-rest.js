@@ -9,6 +9,7 @@ import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, 
 import { myLegs, introState } from './speakup.js';   // the hello to their legislators (R-150)
 import { myStories, saveProfile, storyAsk } from './myprofile.js';   // one sentence on why an issue matters, kept for January (R-150)
 import { btn, chip, posChip } from './ui.js';
+import { HELP_WORDS } from './letters.js';   // the testimony button's words (R-296)
 import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { GO_HELP } from './topics.js';
@@ -496,7 +497,7 @@ function cuCard(it, k, now) {
   const inner = `<span class="st-cu-name">${esc(name)}</span>${meta ? `<span class="st-cu-meta">${esc(meta)}</span>` : ''}${hear && it.issue && it.issue.trim().toLowerCase() !== String(name).trim().toLowerCase() ? `<span class="st-cu-meta">Your issue: ${esc(it.issue)}</span>` : ''}
     <dl class="st-cu-dates">${dates.map(([t, v]) => `<div><dt>${esc(t)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>${it.line ? `<span class="st-cu-meta">${esc(it.line)}</span>` : ''}`;
   const card = `<div class="st-cu-go">${inner}</div>`;
-  const act = hear && it === now ? `<div class="st-cu-act">${btn('Write testimony', { kind: 'secondary', full: true, icon: 'notebook-pen', attrs: { 'data-helper': it.h.id, 'data-bill': it.b.id, 'aria-label': `Write my testimony on ${name}, due soon` } })}</div>` : '';
+  const act = hear && it === now ? `<div class="st-cu-act">${btn(HELP_WORDS, { kind: 'secondary', full: true, icon: 'notebook-pen', attrs: { 'data-helper': it.h.id, 'data-bill': it.b.id, 'aria-label': `${HELP_WORDS} on ${name}, due soon` } })}</div>` : '';
   // A card that opens nothing is a plain note, without the raised look of a tappable card (A-12).
   return `<li class="st-cu" style="--k:${k}">${card}${act}</li>`;
 }

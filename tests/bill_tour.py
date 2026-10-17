@@ -72,7 +72,7 @@ with sync_playwright() as pw:
         ok(s and 'Tip 3 of 4' in s['text'] and s['label'] == 'Ask a friend' and covers(s['hole'], '.bl-sharebtn', p), f'{tag}: tip 3 lights Share and says what it does')
         ok(inside(s), f'{tag}: tip 3 sits inside the window')
         p.locator('[data-tr-next]').click(); p.wait_for_timeout(500); s = tipstate(p)
-        ok(s and 'Tip 4 of 4' in s['text'] and 'Write my testimony' in s['text'] and 'real' in s['text'], f'{tag}: tip 4 names the real button')
+        ok(s and 'Tip 4 of 4' in s['text'] and 'Help me write testimony' in s['text'] and 'real' in s['text'], f'{tag}: tip 4 names the real button')
         ok(s and not s['inert'], f'{tag}: on tip 4 the page is reachable (its button is the point)')
         btn_sel = '.actionbar .btn.primary' if w < 600 else '.bl-side .btn.primary'
         ok(s and covers(s['hole'], btn_sel, p), f'{tag}: tip 4 lights the main button')
@@ -119,7 +119,7 @@ with sync_playwright() as pw:
         p.locator('[data-tr-next]').click(); p.wait_for_timeout(500); s = tipstate(p)
         ok(s and s['label'] == 'Ask a friend', f'{tag}: tip 3 is Share')
         p.locator('[data-tr-next]').click(); p.wait_for_timeout(500); s = tipstate(p)
-        ok(s and 'Follow' in s['text'] and 'Write my testimony' not in s['text'], f'{tag}: tip 4 on a stopped bill is about following')
+        ok(s and 'Follow' in s['text'] and 'Help me write testimony' not in s['text'], f'{tag}: tip 4 on a stopped bill is about following')
         ok(s and covers(s['hole'], '[data-bl-followissue], [data-bl-star]', p), f'{tag}: tip 4 lights the Follow button')
         ok(inside(s), f'{tag}: the Follow tip sits inside the window')
         p.screenshot(path=f'{OUT}/{tag}-stopped-tip3.png')

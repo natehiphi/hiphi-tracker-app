@@ -137,10 +137,12 @@ export function letterCheck(b, rec, notes = [], stance = null) {
 
 // ---- the buttons ----
 // The testimony button's words (R-148): finish a saved draft, send a kept letter again, else write one. A twin's letter
-// is offered inside the walkthrough, so its button stays "Write my testimony".
+// is offered inside the walkthrough, so its button stays "Help me write testimony". It says help, not just "write"
+// (R-296, Nate 10/17): first-timers could not tell the walkthrough does the hard part with them.
+export const HELP_WORDS = 'Help me write testimony';
 export const testifyLabel = (b, h, late = false) => { if (testimonyDraft(h)) return 'Finish sending your testimony';
   const r = readyLetter(b, h, didKind(b, h, 'testimony'));
-  return r && !r.twin && !r.from ? 'Send my letter again' : late ? 'Send late testimony' : 'Write my testimony'; };
+  return r && !r.twin && !r.from ? 'Send my letter again' : late ? 'Send late testimony' : HELP_WORDS; };
 // An email button's words (R-153): "Send my email again" when their email on this bill from another step is ready;
 // otherwise the button's own words (an email written from their testimony is offered inside, as a twin's is).
 export const mailLabel = (b, key, words, again = 'Send my email again') => { const r = readyMail(b, key); return r && !r.twin && !r.from ? again : words; };

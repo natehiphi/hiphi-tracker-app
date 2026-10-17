@@ -578,7 +578,7 @@ person".
 - **Before the sign-up** `goPanel`: the address, the room with its floor (`roomFloor`: Room 229, 2nd floor; the 0s are
   the chamber level), the time, "Anyone can sit in and listen", and what saying "I plan to go" brings (C-6).
 - **After it** `planBlock`: "Go to the hearing" leaves More ways to help (the done line has the plan and its Undo), and a
-  "How to get there" button sits under the card's buttons (so "Write my testimony" stays near the top, A-13), open right
+  "How to get there" button sits under the card's buttons (so "Help me write testimony" stays near the top, A-13), open right
   after the tap with focus on it, with "I can't go" beside it when the done line's Undo would take back a later step.
   The plan lasts until the end of the hearing's day in Hawaiʻi (`goingOn` in core.js: hearings run late), then "You
   went". **Going no longer settles a hearing while testimony is open** (`settledOn`: the 9/26 Share rule, R-005, now for

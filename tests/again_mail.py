@@ -75,7 +75,7 @@ with sync_playwright() as p:
         # ---- a letter written from their email (amber: House draft 2 is ticked) ----
         c, pg, errs = ctx(plant({ 'email:' + HB2121: rec(HB2121, 'HB2121', kind='email', mode='email', key='email|HLT', code='HLT', draft='HD1', pos='strongly_support') }))
         bill(pg, 'HB2121')
-        ok('Write my testimony' in pg.locator('[data-bl-go="testify"]').first.inner_text(), f'{tag}: the testimony button stays "Write my testimony" (it was an email)')
+        ok('Help me write testimony' in pg.locator('[data-bl-go="testify"]').first.inner_text(), f'{tag}: the testimony button stays "Help me write testimony" (it was an email)')
         pg.locator('[data-bl-go="testify"]').first.click(); pg.wait_for_selector('#hp-dlg .hp-body'); pg.wait_for_timeout(900)
         past_stand(pg, 'a letter from their email ')
         t = body(pg)
