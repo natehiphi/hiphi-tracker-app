@@ -365,3 +365,43 @@
 .cm .cm-all { margin: var(--s4) 0 0 -12px; }
 .cm .cm-lines { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); }
 .cm .cm-lines .hm-profline { margin: 0; }
+
+/* ---- the slide (R-295, version A): the one thing to do drawn like an onboarding screen, no card around it ---- */
+.cm .cm-hi { margin: 0; font-size: var(--t16); color: var(--n700); }
+.cm .cm-hi b { color: var(--n900); }
+.cm .cm-slide { display: flex; flex-direction: column; gap: var(--s16); }
+.cm .cm-art { position: relative; height: 130px; border-radius: var(--r16, 16px); overflow: hidden; background: #EAF7FD; }
+.cm .cm-art svg, .cm .cm-art img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }   /* the ground stretches, the people stay whole (art.js) */
+.cm .cm-art .art-capitol { position: static; height: 100%; padding: var(--s8) 0 0; }
+.cm .cm-art:has(.art-capitol) { background: transparent; }
+@media (max-height: 760px) { .cm .cm-art { height: 100px; } }   /* a short phone screen keeps the button near the first screen's edge */
+.cm .cm-words { display: flex; flex-direction: column; gap: var(--s12); }
+.cm .cm-goal { margin: 0; font-size: var(--t28); line-height: 1.15; outline: none; }
+.cm .cm-say { margin: 0; color: var(--n700); }
+.cm .cm-when { margin: 0; font-size: var(--t14); color: var(--n700); }
+.cm .cm-when b { color: var(--n900); }
+.cm .cm-when.warn b { color: var(--warn-text); }   /* amber only inside 24 hours (A-5) */
+.cm .cm-time { display: flex; align-items: center; gap: var(--s8); margin: 0; font-size: var(--t14); color: var(--n700); }
+.cm .cm-time .ic { color: var(--p700); }
+.cm .cm-go { display: flex; flex-direction: column; gap: var(--s8); margin-top: var(--s4); }
+.cm .cm-more { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0 var(--s8); margin: 0 -12px; }
+.cm .cm-slide .donebox, .cm .cm-slide .twin, .cm .cm-slide .again { margin: 0; }
+.cm .cm-slide .moreways { margin: 0; }
+.cm .cm-row.on { background: var(--p50); }
+.cm .cm-row.on .cm-rstat { color: var(--p800); font-weight: 700; }
+.cm .cm-rname { font-size: var(--t16); }   /* 18px at Home's step, as the mockup's rows */
+.cm .cm-thanks { display: flex; gap: var(--s12); align-items: center; padding: var(--s12) var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16, 16px); }
+.cm .cm-thanks .fx-bloom { width: 48px; height: 48px; margin: 0; flex: none; }
+.cm .cm-thanks .flower { flex: none; }
+.cm .cm-thanks p { margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.cm .cm-thanks b { font: 700 var(--t22)/1.2 var(--font-h); color: var(--o600); }
+/* A laptop: the slide in two columns like "You're all set!" (the drawing left, the words right), the button sized to its words. */
+@media (min-width: 900px) {
+  .cm { max-width: 980px; }
+  .cm > .cm-issues, .cm > .cm-lines { width: 100%; max-width: 640px; }
+  .cm .cm-slide { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s24) var(--s48, 48px); align-items: center; }
+  .cm .cm-art { height: 220px; }
+  .cm .cm-go { flex-direction: row; flex-wrap: wrap; }
+  .cm .cm-go .btn.full { width: auto; padding-inline: 30px; }
+  .cm .cm-more { justify-content: flex-start; gap: 0 var(--s24); }
+}
