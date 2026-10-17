@@ -625,7 +625,7 @@ def main():
       cur = pg.evaluate("[...document.querySelectorAll('main a')].filter(a => /current app/i.test(a.innerText)).map(a => a.href)")
       check('My settings: "Open the current app" opens a real page, not Staff v5 again', cur and all(real(u) and not urlparse(u).path.endswith('staff5.html') for u in cur), cur)
       hrefs = []
-      for r in ['/setup', '/setup/tests', '/setup/room']:
+      for r in ['/setup', '/setup/tests', '/setup/test?t=share', '/setup/room']:   # R-201: a test's own page holds its Try it links
         go(pg, r, 2500); hrefs += pg.evaluate("[...document.querySelectorAll('main a[href]')].map(a => a.href).filter(h => !h.includes('#') || !h.split('#')[0].endsWith('staff5.html'))")
       ext = [h for h in hrefs if urlparse(h).netloc == urlparse(HOST).netloc]
       miss = sorted({h for h in ext if not real(h)})

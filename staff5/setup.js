@@ -510,7 +510,7 @@ const SEE = {
   rank: ['track.html?demo=1&restart&ab=rank.', 'Both open on Free school bus passes (HB 1780). Write practice testimony and say you sent it: the card after it is the difference.', '#/bill/HB1780'],
   share: ['track.html?demo=1&restart&ab=share.', 'Both open on Free school bus passes (HB 1780). Press Share: the message it makes is the difference.', '#/bill/HB1780'],
   home: ['track.html?demo=1&restart&ab=home.', 'Both open on Home with three issues followed. The difference is the top: one lists the soonest deadline first, the other groups it by topic.', HOME_SCENE],
-  layout: ['track.html?demo=1&restart&ab=layout.', 'Each opens on Home with three issues followed. The difference is Home: the calm one (everyone’s since 11 Oct) shows one thing to do, then the issues by where they stand; the one before shows everything at once; September’s version A shows the week day by day (R-222).', HOME_SCENE],
+  layout: ['track.html?demo=1&restart&ab=layout.', 'Each opens on Home with three issues followed. The difference is Home: the calm one (everyone’s since 11 Oct) shows one thing to do, then the issues by where they stand; the one before shows everything at once; the week view (from September) shows the week day by day (R-222).', HOME_SCENE],
   act: ['track.html?demo=1&restart&ab=act.', 'Both open at the first visit’s start. Pick a topic, press Next, then Follow, and go on to the page before the end: “Coming up on your issues” in one version, three ways to help in the other (R-150).', '#/start/1'],
   pic: ['track.html?demo=1&restart&ab=pic.', 'Both open on Free school bus passes (HB 1780). Press Share: the link it makes carries that picture; text it to yourself to see it as a friend does.', '#/bill/HB1780'],
 };
@@ -615,8 +615,7 @@ function abCard(t, x) {
     const pic = p ? `<div class="ab-pic"><button type="button" class="ab-shot" data-abshot="${esc(a)}" aria-label="${esc(`See it larger: ${full}${p.title ? `, “${p.title}”` : ''}`)}"><img src="${esc(shotSrc(p))}" alt="" loading="lazy" decoding="async"></button>${p.title && !wide ? `<span class="small muted ab-cap">${esc(p.title)}</span>` : ''}</div>`
       : `<div class="ab-noshot small muted">${ps.length ? `This version has ${ps.length === 1 ? 'one screen' : `${ps.length} screens`} here.` : 'No picture yet. Try it to see it.'}</div>`;
     return `<li class="ab-ver${on ? ' on' : ''}">
-      <h3 class="ab-vt">${a === t.arms[0] ? '<span class="ab-today">Today’s</span>' : ''}${esc(full)}</h3>
-      <div class="ab-vtag">${a === trusted ? chip('Does better', 'ok', 'circle-check') : t.winner === a ? chip('Picked', 'ok', 'trophy') : ''}</div>
+      <div class="ab-vhead"><h3 class="ab-vt">${a === t.arms[0] ? '<span class="ab-today">Today’s</span>' : ''}${esc(full)}</h3>${a === trusted ? chip('Does better', 'ok', 'circle-check') : t.winner === a ? chip('Picked', 'ok', 'trophy') : ''}</div>
       ${pic}
       ${switchRow(`ab-arm-${t.key}-${a}`, `<span class="sr">${esc(full)}: </span>Visitors see it`, on, '', { 'data-abarm-on': `${t.key}|${a}` })}
       ${nums(r)}
@@ -1246,7 +1245,7 @@ const PAGES = {
       // The tester sheet (R-185): each group of a room of testers on the versions Nate picks, a QR code each.
       // R-192: the switches decide what the public tracker and its practice copy show; the practice copy of this page has
       // sample switches, which change nothing (Nate's answer 1: one set of switches, the real ones).
-      return `<div class="ab-intro"><p class="small muted">Each test shows people two or more versions of one part of the public tracker. Open a test to see its versions side by side and choose which ones visitors see.</p>
+      return `<div class="ab-intro"><p class="small muted">Open a test to see its versions side by side and choose which ones visitors see.</p>
         ${DEMO ? notice('info', 'info', `This is the practice copy: these switches are samples and change nothing. The real ones, signed in, decide what the public tracker and its practice copy show: <a href="${esc(APP_URL)}staff5.html#/setup/tests">Tests</a>.`) : ''}
         <div class="ab-introacts">${btn('Tester sheet', { kind: 'text', sm: true, icon: 'qr-code', href: '#/setup/room', attrs: { 'data-abroom': '1', title: 'Testing with a room of people: a link and QR code for each group, on the versions you pick' } })}
         ${btn('Check again', { kind: 'text', sm: true, icon: 'rotate-ccw', attrs: { 'data-abretry': '1', 'aria-busy': s.abBusy ? 'true' : null } })}</div></div>

@@ -174,7 +174,7 @@ with sync_playwright() as p:
         pg.locator('#toast button', has_text='Undo').click(); pg.wait_for_timeout(500)
         ok(pg.locator('.rm-group').count() == 3 and 'share.deadline' in urls(pg)[2], f'{tag}: Undo brings the three groups back')
         # Kept: away to Tests and back
-        pg.goto(BASE + '#/setup/tests'); pg.wait_for_selector('.ab-card', timeout=30000)
+        pg.goto(BASE + '#/setup/tests'); pg.wait_for_selector('.ab-row', timeout=30000)
         link = pg.locator('[data-abroom]')
         ok(link.count() == 1, f'{tag}: the Tests page has the way to the tester sheet')
         link.click(); pg.wait_for_selector('.rm-group'); pg.wait_for_timeout(400)

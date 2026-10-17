@@ -2,8 +2,9 @@
 # "pick that only option A is running, or only option B, or option C, or all of the above, or a combination ... These
 # changes should impact how the experience is for public users in the sandbox"; his answers: the real switches, a random
 # pick per practice visit).
-#   1. Staff v2 > Session setup > Tests in the practice copy (sample switches) on a phone and a laptop: a switch per version
-#      on every card and no "Test it on new visitors"; what runs said above them; one off leaves the other for everyone,
+#   1. Staff v2 > Session setup > Tests in the practice copy (sample switches) on a phone and a laptop: the list, one line per
+#      test grouped by place, its filter; each test's own page with its versions side by side as pictures (R-201); a switch
+#      per version on every test and no "Test it on new visitors"; what runs said above them; one off leaves the other for everyone,
 #      with Undo; the last one on refuses; a note asks first; the consent warning; the first-visit test's versions; Pick the
 #      winner leaves only the winner on; the practice copy's line saying its switches are samples
 #   2. The public practice copy follows the switches (every request but the switches' own blocked): one version on shows
@@ -27,7 +28,7 @@ ROWS = lambda **over: [dict({'key': k, 'arms': a, 'is_on': False, 'fallback': a[
   [('end', ['today', 'home']), ('fv', ['full', 'short']), ('rank', ['today', 'ranked']), ('email', ['finale', 'after']), ('share', ['summary', 'deadline']),
    ('home', ['by-day', 'by-issue']), ('onb', ['today', 'p1', 'p2', 'p3', 'p4', 'p5']), ('join', ['shown', 'watch']), ('save', ['profile', 'alerts']), ('layout', ['calm', 'today', 'a'])]]
 
-def card(pg, key): return pg.locator('.ab-card', has=pg.locator(f'#ab-h-{key}'))
+def card(pg, key): return pg.locator(f'.ab-card[data-abtest="{key}"]')
 def live(pg, key): return card(pg, key).locator('legend.ab-live').inner_text()
 def flip(pg, key, arm):
     pg.locator(f'label[for="ab-arm-{key}-{arm}"]').click(); pg.wait_for_timeout(700)
@@ -35,74 +36,105 @@ def flip(pg, key, arm):
 with sync_playwright() as p:
     br = p.chromium.launch()
     # ================= 1. the Tests page =================
+    # R-201 (Nate 10/7): the page is a short list, one line per test, grouped by where it shows; each test opens on its own
+    # page (#/setup/test?t=<key>) with its versions side by side as pictures, each with its name, switch, numbers and buttons.
     for w, h, tag in [(1280, 800, 'laptop'), (390, 844, 'phone')]:
         ctx = br.new_context(viewport={'width': w, 'height': h}, is_mobile=w < 500, has_touch=w < 500)
         pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
-        pg.goto(f'{BASE}/staff.html?demo=1#/setup/tests'); pg.wait_for_selector('.ab-card', timeout=60000); pg.wait_for_timeout(700)
-        n_cards = pg.locator('.ab-card').count()
-        n_sw = pg.evaluate("[...document.querySelectorAll('.ab-card')].every(c => c.querySelectorAll('[data-abarm-on]').length >= 2)")
-        ok(n_cards >= 9 and n_sw and pg.locator('[data-abon]').count() == 0 and 'Test it on new visitors' not in pg.locator('main').inner_text(), f'{tag}: every card ({n_cards}) has a switch per version, and no “Test it on new visitors”')
+        pg.goto(f'{BASE}/staff.html?demo=1#/setup/tests'); pg.wait_for_selector('.ab-row', timeout=60000); pg.wait_for_timeout(700)
+        keys = pg.eval_on_selector_all('.ab-row', 'rs => rs.map(r => r.dataset.abrow)')
+        groups = pg.eval_on_selector_all('.ab-gt', 'hs => hs.map(h => h.textContent)')
+        ok(len(keys) >= 9 and len(set(keys)) == len(keys) and groups[:2] == ['The first visit', 'Home'] and 'Test it on new visitors' not in pg.locator('main').inner_text(),
+           f'{tag}: the list has one line per test ({len(keys)}), grouped by place ({groups})')
+        ok(pg.evaluate("[...document.querySelectorAll('.ab-row')].every(r => r.querySelector('.ab-thumb img') && r.querySelector('.chip') && r.getAttribute('href').startsWith('#/setup/test?t='))"),
+           f'{tag}: every line has a small picture, its state in a word and opens its own page')
         ok('practice copy' in pg.locator('.ab-intro').inner_text().lower() and 'samples' in pg.locator('.ab-intro').inner_text(), f'{tag}: the practice copy says its switches are samples, with the way to the real ones')
-        # Picks (fresh-eyes review, 10/10, Nate: "uniform and clear"): no Pick on a test nobody has met, and none on the email
-        # ask while it is held for the lawyer; the words say which, where the buttons would be.
-        why = lambda k: card(pg, k).locator('.ab-why').inner_text() if card(pg, k).locator('.ab-why').count() else ''
-        picks = lambda k: card(pg, k).locator('[data-abpick]').count()
-        ok(picks('join') == 0 and 'Pick once people have seen it' in why('join'), f'{tag}: the sign-up test nobody has met offers no Pick ({why("join")!r})')
-        pick_words = card(pg, 'email').locator('a, button').filter(has_text=re.compile(r'^\s*Pick ')).count()
-        ok(picks('email') == 0 and pick_words == 0 and re.search(r'Waits for the lawyer.s check', why('email')) is not None,
-           f'{tag}: the email ask, held for the lawyer, has no Pick and says “Waits for the lawyer’s check” ({why("email")!r})')
-        ok(pg.evaluate("[...document.querySelectorAll('.ab-card')].filter(c => c.querySelector('.ab-why')).every(c => c.querySelectorAll('[data-abpick]').length === 0)"), f'{tag}: every card that says why has no Pick buttons')
-        # Trust it lists the version it trusts first: the end test’s Home version (52% against 41%, 640 each)
-        first_row = pg.evaluate("[...document.querySelectorAll('.ab-card')].find(c => c.querySelector('#ab-h-end')).querySelector('.ab-table tbody tr th').textContent")
-        ok('Ends on Home' in first_row, f'{tag}: Trust it lists the version it trusts first ({first_row[:40]!r})')
-        ok(live(pg, 'share').startswith('Running: A against B'), f'{tag}: the share message says what runs ({live(pg, "share")})')
-        # one off: the other for everyone, nothing counted; Undo
+        ok('running' in pg.locator('main').inner_text().lower(), f'{tag}: the page counts the tests running')
+        # The filter: Running shows only the tests on; All brings back every line, in the same order
+        pg.locator('[data-seg="abf"][data-val="running"]').click(); pg.wait_for_timeout(300)
+        run = pg.eval_on_selector_all('.ab-row', 'rs => rs.map(r => r.dataset.abrow)')
+        ok(0 < len(run) < len(keys) and all(k in keys for k in run), f'{tag}: Running shows only the tests on ({run})')
+        pg.locator('[data-seg="abf"][data-val="all"]').click(); pg.wait_for_timeout(300)
+        ok(pg.eval_on_selector_all('.ab-row', 'rs => rs.map(r => r.dataset.abrow)') == keys, f'{tag}: All brings every line back, in the same order')
+        ok(pg.evaluate(f"document.documentElement.scrollWidth <= {w} + 1"), f'{tag}: the list is no wider than the screen')
+        pg.screenshot(path=os.path.join(OUT, f'versions_list_{tag}.png'))
+
+        def go(key):
+            pg.evaluate(f"location.hash = '#/setup/test?t={key}'"); pg.wait_for_selector(f'.ab-card[data-abtest="{key}"]', timeout=30000); pg.wait_for_timeout(500)
+        # Every test's page: today's first, a picture per version, a switch, a Try it link into the practice copy, the
+        # rows lined up across the versions, nothing wider than the screen
+        bad = []
+        for k in keys:
+            go(k)
+            c = card(pg, k)
+            n_sw = c.locator('[data-abarm-on]').count(); n_try = c.locator('a[target="_blank"][href*="track.html"]').count()
+            n_pick = c.locator('[data-abpick]').count(); why = c.locator('.ab-why').count()
+            first = c.locator('.ab-ver').first.inner_text()
+            rows = pg.evaluate("[...document.querySelectorAll('.ab-ver')].map(v => [...v.children].map(c => Math.round(c.getBoundingClientRect().top)))")
+            level = len({len(r) for r in rows}) == 1 and all(len({r[i] for r in rows}) == 1 for i in range(len(rows[0])))
+            if n_sw < 2: bad.append(f'{k}: {n_sw} switches')
+            if n_try != n_sw: bad.append(f'{k}: {n_try} Try it for {n_sw} versions')
+            if not (why and n_pick == 0) and not (not why and n_pick == n_sw): bad.append(f'{k}: {n_pick} Pick, why={why}')
+            if not first.startswith('Today’s'): bad.append(f'{k}: today’s is not first ({first[:30]!r})')
+            if c.locator('.ab-shot img').count() < n_sw: bad.append(f'{k}: {c.locator(".ab-shot img").count()} pictures for {n_sw} versions')
+            if not level: bad.append(f'{k}: the versions do not line up {rows}')
+            if pg.evaluate(f"document.documentElement.scrollWidth > {w} + 1"): bad.append(f'{k}: wider than the screen')
+            if re.search(r'version [A-Z]\b|\bB: ', c.inner_text()): bad.append(f'{k}: a version letter in the words')
+        ok(not bad, f'{tag}: every test page has today’s first, a picture, switch and Try it per version, Pick or the words why, lined up, no letters {bad[:3]}')
+        # Picks (fresh-eyes review, 10/10): no Pick on a test nobody has met, none on the email ask held for the lawyer
+        whyof = lambda k: card(pg, k).locator('.ab-why').inner_text() if card(pg, k).locator('.ab-why').count() else ''
+        go('join'); ok(card(pg, 'join').locator('[data-abpick]').count() == 0 and 'Pick once people have seen it' in whyof('join'), f'{tag}: the sign-up test nobody has met offers no Pick ({whyof("join")!r})')
+        go('email'); ok(card(pg, 'email').locator('[data-abpick]').count() == 0 and re.search(r'Waits for the lawyer.s check', whyof('email')) is not None, f'{tag}: the email ask, held for the lawyer, has no Pick and says why ({whyof("email")!r})')
+        # Trust it: the end test's Home version does better (52% against 41%, 640 each)
+        go('end'); better = card(pg, 'end').locator('.ab-ver', has=pg.locator('.chip', has_text='Does better')).inner_text()
+        ok('Ends on Home' in better, f'{tag}: the version that does better says so ({better[:40]!r})')
+        # The switches
+        go('share')
+        ok(live(pg, 'share').startswith('Running: today’s against “'), f'{tag}: the share message says what runs ({live(pg, "share")[:60]})')
         flip(pg, 'share', 'deadline')
         t = pg.locator('#toast').inner_text()
-        ok(live(pg, 'share').startswith('Not testing: everyone sees A') and 'nothing is counted' in t, f'{tag}: B off leaves A for everyone, said in the toast ({t[:70]})')
+        ok(live(pg, 'share').startswith('Not testing: everyone sees today’s') and 'nothing is counted' in t, f'{tag}: the other off leaves today’s for everyone, said in the toast ({t[:70]})')
         flip(pg, 'share', 'summary')
-        ok(live(pg, 'share').startswith('Not testing: everyone sees A') and 'the only version on' in pg.locator('#toast').inner_text(), f'{tag}: the last one on refuses to go off, saying why')
-        pg.locator('#toast button', has_text='Undo').first.click() if pg.locator('#toast button', has_text='Undo').count() else None
-        pg.wait_for_timeout(300)
+        ok(live(pg, 'share').startswith('Not testing: everyone sees today’s') and 'the only version on' in pg.locator('#toast').inner_text(), f'{tag}: the last one on refuses to go off, saying why')
         flip(pg, 'share', 'deadline'); pg.locator('#toast button', has_text='Undo').first.click(); pg.wait_for_timeout(700)
         ok(live(pg, 'share').startswith('Not testing'), f'{tag}: Undo takes back the last change ({live(pg, "share")[:40]})')
         flip(pg, 'share', 'deadline')
-        ok(live(pg, 'share').startswith('Running: A against B'), f'{tag}: switched back on, it runs again')
-        # B only: A off once B is on
+        ok(live(pg, 'share').startswith('Running: today’s against'), f'{tag}: switched back on, it runs again')
+        ok(pg.evaluate("document.activeElement?.id || ''").startswith('ab-arm-share-'), f'{tag}: focus stays on the switch just flipped ({pg.evaluate("document.activeElement?.id || null")})')
         flip(pg, 'share', 'summary')
-        ok(live(pg, 'share').startswith('Not testing: everyone sees B'), f'{tag}: only B: everyone sees B ({live(pg, "share")[:40]})')
-        # a note asks first (the email ask waits on a lawyer), and the consent warning shows
-        flip(pg, 'email', 'after')
-        ok(pg.locator('dialog[open]').count() == 1, f'{tag}: switching on the email ask’s B asks first (its note)')
-        pg.locator('dialog[open] button', has_text='Switch on B').click(); pg.wait_for_timeout(800)
-        ok(live(pg, 'email').startswith('Running: A against B') and 'lawyer' in card(pg, 'email').inner_text().lower(), f'{tag}: then it runs, with the lawyer warning')
-        # the first-visit test: any mix of its six
-        flip(pg, 'onb', 'p2')
-        if pg.locator('dialog[open]').count(): pg.locator('dialog[open] button', has_text='Switch on Plan 2').click(); pg.wait_for_timeout(800)
-        flip(pg, 'onb', 'p4')
-        if pg.locator('dialog[open]').count(): pg.locator('dialog[open] button', has_text='Switch on Plan 4').click(); pg.wait_for_timeout(800)
+        ok(live(pg, 'share').startswith('Not testing: everyone sees “'), f'{tag}: only the other: everyone sees it, by name ({live(pg, "share")[:50]})')
+        links = card(pg, 'share').locator('a[target="_blank"]').evaluate_all("as => as.map(a => a.getAttribute('href'))")
+        ok(len(links) == 2 and all('abrest=today' in l for l in links), f'{tag}: each version’s Try it keeps every other test at today’s ({links[:1]})')
+        # Tap a picture: full screen, the arrows flip the versions at the same spot
+        card(pg, 'share').locator('.ab-shot').first.click(); pg.wait_for_selector('dialog[open] .ab-zoom', timeout=5000); pg.wait_for_timeout(300)
+        z1 = pg.locator('dialog[open] .ab-zname').inner_text(); pg.locator('dialog[open] [data-zv="1"]').click(); pg.wait_for_timeout(200)
+        z2 = pg.locator('dialog[open] .ab-zname').inner_text()
+        ok(z1.startswith('Today’s') and z1 != z2 and 'Version 2 of 2' in z2 and pg.locator('dialog[open] .ab-zfig img').count() == 1, f'{tag}: a picture opens full screen and Next version flips to the other ({z2[:40]!r})')
+        pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+        # A note asks first (the email ask waits on a lawyer), and the consent warning shows
+        go('email'); flip(pg, 'email', 'after')
+        ok(pg.locator('dialog[open]').count() == 1, f'{tag}: switching on the email ask’s other version asks first (its note)')
+        pg.locator('dialog[open] button', has_text='Switch it on').click(); pg.wait_for_timeout(800)
+        ok(live(pg, 'email').startswith('Running: today’s against') and 'lawyer' in card(pg, 'email').inner_text().lower(), f'{tag}: then it runs, with the lawyer warning')
+        # The first-visit test: any mix of its six, compared screen by screen
+        go('onb')
+        for a in ('p2', 'p4'):
+            flip(pg, 'onb', a)
+            if pg.locator('dialog[open]').count(): pg.locator('dialog[open] button', has_text='Switch it on').click(); pg.wait_for_timeout(800)
         ok(live(pg, 'onb').startswith('Running: today’s, Plan 2 and Plan 4'), f'{tag}: the first visit runs any mix, named by plan ({live(pg, "onb")[:50]})')
         flip(pg, 'onb', 'today'); flip(pg, 'onb', 'p4')
         ok(live(pg, 'onb').startswith('Not testing: everyone sees Plan 2'), f'{tag}: or one plan for everyone ({live(pg, "onb")[:50]})')
-        # the cards keep their place while switches are flipped (sorted once per visit)
-        order = pg.eval_on_selector_all('.ab-card h2', 'hs => hs.map(h => h.id)')
-        flip(pg, 'share', 'summary'); flip(pg, 'share', 'deadline')
-        ok(pg.eval_on_selector_all('.ab-card h2', 'hs => hs.map(h => h.id)') == order, f'{tag}: the cards keep their order while switches are flipped')
-        ok(pg.evaluate("document.activeElement?.id || ''").startswith('ab-arm-share-'), f'{tag}: focus stays on the switch just flipped ({pg.evaluate("document.activeElement?.id || null")})')
-        # Pick: one button per version on every card; the picked one leaves only it on (R-135)
-        ok(pg.evaluate("[...document.querySelectorAll('.ab-card')].every(c => c.querySelector('.ab-why') ? c.querySelectorAll('[data-abpick]').length === 0 : c.querySelectorAll('[data-abpick]').length === c.querySelectorAll('[data-abarm-on]').length)"), f'{tag}: every card has a pick button per version, the same as its switches, or none and the words that say why')
-        ok(pg.evaluate("[...document.querySelectorAll('.ab-card')].every(c => c.querySelectorAll('a[target=\"_blank\"][href*=\"track.html\"]').length === c.querySelectorAll('[data-abarm-on]').length)"), f'{tag}: every card has a link per version, into the practice copy')
-        card(pg, 'fv').locator('[data-abpick][data-abarm="short"]').click(); pg.wait_for_timeout(800)
-        ok(live(pg, 'fv').startswith('Not testing: everyone sees B') and card(pg, 'fv').locator('#ab-arm-fv-short').is_checked() and not card(pg, 'fv').locator('#ab-arm-fv-full').is_checked(), f'{tag}: Pick B leaves only B on')
+        src0 = card(pg, 'onb').locator('.ab-shot img').first.get_attribute('src')
+        pg.locator('[data-seg="abstep"][data-val="1"]').click(); pg.wait_for_timeout(400)
+        ok(card(pg, 'onb').locator('.ab-shot img').first.get_attribute('src') != src0, f'{tag}: Screen 2 moves every picture to the next screen')
+        # Pick: the picked one is left on alone
+        go('fv'); card(pg, 'fv').locator('[data-abpick][data-abarm="short"]').click(); pg.wait_for_timeout(800)
+        ok(live(pg, 'fv').startswith('Not testing: everyone sees “') and card(pg, 'fv').locator('#ab-arm-fv-short').is_checked() and not card(pg, 'fv').locator('#ab-arm-fv-full').is_checked(), f'{tag}: Pick leaves only that version on')
         ok(pg.locator('dialog[open]').count() == 0, f'{tag}: a pick needs no sheet (the switch’s way: saved, with Undo)')
-        # Against the device’s own width, not window.innerWidth alone: a page wider than the phone grows innerWidth too, so
-        # the old check passed on a page 195px too wide (R-135, 10/10).
-        ok(pg.evaluate(f"window.innerWidth <= {w} + 1 && document.documentElement.scrollWidth <= {w} + 1"), f'{tag}: nothing wider than the screen')
-        pg.locator('#ab-h-share').scroll_into_view_if_needed(); pg.screenshot(path=os.path.join(OUT, f'versions_tests_{tag}.png'))
-        ok('running' in pg.locator('main').inner_text(), f'{tag}: the page counts the tests running')
-        # See each version: a link per version in a new tab, each keeping every other test at today's (R-135)
-        links = card(pg, 'share').locator('a[target="_blank"]').evaluate_all("as => as.map(a => a.getAttribute('href'))")
-        ok(len(links) == 2 and all('abrest=today' in l for l in links), f'{tag}: each version has a link, and every other test stays at today’s ({links[:1]})')
+        # Back on the list, the lines keep their order whatever was switched
+        pg.evaluate("location.hash = '#/setup/tests'"); pg.wait_for_selector('.ab-row', timeout=30000); pg.wait_for_timeout(400)
+        ok(pg.eval_on_selector_all('.ab-row', 'rs => rs.map(r => r.dataset.abrow)') == keys, f'{tag}: the lines keep their order after switches are flipped')
+        go('share'); pg.screenshot(path=os.path.join(OUT, f'versions_tests_{tag}.png'))
         # the tester sheet's links
         pg.goto(f'{BASE}/staff.html?demo=1#/setup/room'); pg.wait_for_selector('.rm-group', timeout=60000); pg.wait_for_timeout(600)
         u = pg.eval_on_selector_all('[data-rmqr]', 'bs => bs.map(b => b.dataset.url)')

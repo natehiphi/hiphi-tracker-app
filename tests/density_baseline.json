@@ -281,6 +281,12 @@
   "kinds": 20,
   "sizes": 5
  },
+ "staff2|1440|test": {
+  "arrival": 312,
+  "colours": 6,
+  "kinds": 16,
+  "sizes": 5
+ },
  "staff2|1440|testimony": {
   "arrival": 493,
   "colours": 6,
@@ -288,9 +294,9 @@
   "sizes": 5
  },
  "staff2|1440|tests": {
-  "arrival": 516,
+  "arrival": 441,
   "colours": 8,
-  "kinds": 17,
+  "kinds": 22,
   "sizes": 5
  },
  "staff2|1440|today": {
@@ -383,6 +389,12 @@
   "kinds": 4,
   "sizes": 4
  },
+ "staff2|390|test": {
+  "arrival": 358,
+  "colours": 4,
+  "kinds": 1,
+  "sizes": 4
+ },
  "staff2|390|testimony": {
   "arrival": 155,
   "colours": 6,
@@ -390,9 +402,9 @@
   "sizes": 4
  },
  "staff2|390|tests": {
-  "arrival": 485,
+  "arrival": 515,
   "colours": 6,
-  "kinds": 3,
+  "kinds": 8,
   "sizes": 5
  },
  "staff2|390|today": {

@@ -89,7 +89,9 @@ SV = [
   ('firstvisit',  '/outreach/issues?view=first-visit', 'how far newcomers get', '.fv-tile'),
   ('makelink',    '/outreach/issues?view=links', 'who the link is for', '.fv-prow, .fv-none'),
   # R-135: Session setup > Tests; a person comes to decide each A/B test of the public page
-  ('tests',       '/setup/tests',  'the first test',       '.ab-card'),
+  ('tests',       '/setup/tests',  'the first test',       '.ab-row'),
+  # R-201: one test on its own page; a person comes to compare its versions, the pictures side by side
+  ('test',        '/setup/test?t=share', 'the versions',  '.ab-ver'),
   # R-185: Session setup > Tests > Tester sheet; a person comes to give each group of testers its versions and QR code
   ('room',        '/setup/room',   'the first group',      '.rm-group'),
 ]

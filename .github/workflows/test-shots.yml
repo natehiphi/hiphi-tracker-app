@@ -1,0 +1,48 @@
+# Pictures of every A/B test's versions for staff's Tests page (tools/test_shots.py, R-201, Nate 10/7: "screenshots easily
+# accessible so it's easy to compare the multiple options"). Runs on every push that changes the public pages or the
+# practice copy's data, so a version's picture is never older than the version; a picture is retaken only when its screen's
+# words or parts changed, and the job commits only when one did. This repository is public, so its minutes are free (R-111).
+# Its own commit (shots/ only) is made with the job's token, which starts no other run.
+name: test-shots
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'track.html'
+      - 'pub/**'
+      - '!pub/og/**'
+      - 'demo/**'
+      - 'tools/test_shots.py'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: test-shots
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Playwright
+        run: |
+          pip install --quiet playwright
+          python -m playwright install --with-deps chromium
+      - name: Serve this commit
+        run: |
+          python3 -m http.server 8832 > /dev/null 2>&1 &
+          sleep 1
+      - name: Photograph the versions whose screens changed
+        run: python3 tools/test_shots.py
+      - name: Commit when a picture changed
+        run: |
+          git add -A shots
+          if git diff --cached --quiet; then echo "No change."; exit 0; fi
+          git config user.name "test-shots bot"
+          git config user.email "actions@users.noreply.github.com"
+          git commit -m "Tests page pictures retaken: a version's screen changed (R-201)"
+          # Someone may have pushed while the pictures were taken: put this commit on top and try again.
+          for i in 1 2 3; do git push && exit 0; git pull --rebase origin main; done
+          exit 1

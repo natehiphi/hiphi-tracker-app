@@ -5,6 +5,12 @@
    "arms": {
     "today": [
      {
+      "file": "end/today-5.jpg",
+      "title": "A bill’s story",
+      "sig": "7948c7b37f69",
+      "date": "2026-10-17"
+     },
+     {
       "file": "end/today-6.jpg",
       "title": "Coming up on your issues",
       "sig": "9c1920cc4708",
@@ -19,22 +25,22 @@
      {
       "file": "end/today-8.jpg",
       "title": "Aloha",
-      "sig": "a839f290f0d1",
-      "date": "2026-10-16"
+      "sig": "22d341e50581",
+      "date": "2026-10-17"
      }
     ],
     "home": [
      {
-      "file": "end/home-6.jpg",
-      "title": "Coming up on your issues",
-      "sig": "cefa422453d9",
-      "date": "2026-10-16"
+      "file": "end/home-5.jpg",
+      "title": "A bill’s story",
+      "sig": "f39c22ec6df8",
+      "date": "2026-10-17"
      },
      {
-      "file": "end/home-7.jpg",
+      "file": "end/home-6.jpg",
       "title": "Mahalo for joining in!",
-      "sig": "4f2aaf47d67d",
-      "date": "2026-10-16"
+      "sig": "598d746ef9ef",
+      "date": "2026-10-17"
      }
     ]
    }
@@ -51,8 +57,8 @@
      {
       "file": "fv/full-5.jpg",
       "title": "A bill’s story",
-      "sig": "8b25be1d0e2b",
-      "date": "2026-10-16"
+      "sig": "7948c7b37f69",
+      "date": "2026-10-17"
      },
      {
       "file": "fv/full-6.jpg",
@@ -121,14 +127,14 @@
      {
       "file": "email/finale-2.jpg",
       "title": "Your issues",
-      "sig": "cedddac09111",
-      "date": "2026-10-16"
+      "sig": "35df675c0305",
+      "date": "2026-10-17"
      },
      {
       "file": "email/finale-3.jpg",
       "title": "Save your profile",
-      "sig": "75b8157cedaa",
-      "date": "2026-10-16"
+      "sig": "ac8f3cd237b7",
+      "date": "2026-10-17"
      },
      {
       "file": "email/finale-4.jpg",
@@ -139,16 +145,16 @@
      {
       "file": "email/finale-5.jpg",
       "title": "A bill’s story",
-      "sig": "8b25be1d0e2b",
-      "date": "2026-10-16"
+      "sig": "7948c7b37f69",
+      "date": "2026-10-17"
      }
     ],
     "after": [
      {
       "file": "email/after-2.jpg",
       "title": "Your issues",
-      "sig": "cedddac09111",
-      "date": "2026-10-16"
+      "sig": "35df675c0305",
+      "date": "2026-10-17"
      },
      {
       "file": "email/after-3.jpg",
@@ -159,8 +165,8 @@
      {
       "file": "email/after-4.jpg",
       "title": "A bill’s story",
-      "sig": "8b25be1d0e2b",
-      "date": "2026-10-16"
+      "sig": "7948c7b37f69",
+      "date": "2026-10-17"
      },
      {
       "file": "email/after-5.jpg",
@@ -177,16 +183,16 @@
      {
       "file": "share/summary-1.jpg",
       "title": "Free school bus passes",
-      "sig": "26597dea2b6e",
-      "date": "2026-10-16"
+      "sig": "1895117c8463",
+      "date": "2026-10-17"
      }
     ],
     "deadline": [
      {
       "file": "share/deadline-1.jpg",
       "title": "Free school bus passes",
-      "sig": "26597dea2b6e",
-      "date": "2026-10-16"
+      "sig": "1895117c8463",
+      "date": "2026-10-17"
      }
     ]
    }
@@ -197,16 +203,16 @@
      {
       "file": "home/by-day-1.jpg",
       "title": "4 things you can do this week",
-      "sig": "5d89fa11d2c4",
-      "date": "2026-10-16"
+      "sig": "466a27b168f1",
+      "date": "2026-10-17"
      }
     ],
     "by-issue": [
      {
       "file": "home/by-issue-1.jpg",
       "title": "4 things you can do this week",
-      "sig": "73df8b632c48",
-      "date": "2026-10-16"
+      "sig": "37cab9bad59f",
+      "date": "2026-10-17"
      }
     ]
    }
@@ -223,14 +229,14 @@
      {
       "file": "onb/today-2.jpg",
       "title": "Your issues",
-      "sig": "cedddac09111",
-      "date": "2026-10-16"
+      "sig": "35df675c0305",
+      "date": "2026-10-17"
      },
      {
       "file": "onb/today-3.jpg",
       "title": "Save your profile",
-      "sig": "75b8157cedaa",
-      "date": "2026-10-16"
+      "sig": "ac8f3cd237b7",
+      "date": "2026-10-17"
      },
      {
       "file": "onb/today-4.jpg",
@@ -339,8 +345,8 @@
      {
       "file": "onb/p4-4.jpg",
       "title": "Want a heads-up when it counts?",
-      "sig": "b1a0acf257bb",
-      "date": "2026-10-16"
+      "sig": "b083bc0ee3ca",
+      "date": "2026-10-17"
      }
     ],
     "p5": [
@@ -359,8 +365,8 @@
      {
       "file": "onb/p5-3.jpg",
       "title": "Want a heads-up when it counts?",
-      "sig": "cb3b4d4481c8",
-      "date": "2026-10-16"
+      "sig": "9c0fd1abb3cd",
+      "date": "2026-10-17"
      },
      {
       "file": "onb/p5-4.jpg",
@@ -377,16 +383,16 @@
      {
       "file": "join/shown-1.jpg",
       "title": "Want a heads-up when it counts?",
-      "sig": "ef8454a1a4a5",
-      "date": "2026-10-16"
+      "sig": "87d410a40aa3",
+      "date": "2026-10-17"
      }
     ],
     "watch": [
      {
       "file": "join/watch-1.jpg",
       "title": "Want us to watch “State program to forgive medical debt” for you?",
-      "sig": "36cf12a0b29c",
-      "date": "2026-10-16"
+      "sig": "35cc786e9154",
+      "date": "2026-10-17"
      }
     ]
    }
@@ -405,8 +411,8 @@
      {
       "file": "save/alerts-1.jpg",
       "title": "FDA proof required to sell e-cigarettes",
-      "sig": "ba933fa43827",
-      "date": "2026-10-16"
+      "sig": "7cd3c7a94adc",
+      "date": "2026-10-17"
      }
     ]
    }
@@ -417,16 +423,16 @@
      {
       "file": "layout/calm-1.jpg",
       "title": "Aloha",
-      "sig": "bddcec362109",
-      "date": "2026-10-16"
+      "sig": "7ff128f95cf1",
+      "date": "2026-10-17"
      }
     ],
     "today": [
      {
       "file": "layout/today-1.jpg",
       "title": "4 things you can do this week",
-      "sig": "5d89fa11d2c4",
-      "date": "2026-10-16"
+      "sig": "466a27b168f1",
+      "date": "2026-10-17"
      }
     ],
     "a": [
@@ -445,8 +451,8 @@
      {
       "file": "act/today-5.jpg",
       "title": "A bill’s story",
-      "sig": "8b25be1d0e2b",
-      "date": "2026-10-16"
+      "sig": "7948c7b37f69",
+      "date": "2026-10-17"
      },
      {
       "file": "act/today-6.jpg",
@@ -463,16 +469,16 @@
      {
       "file": "act/today-8.jpg",
       "title": "Aloha",
-      "sig": "a839f290f0d1",
-      "date": "2026-10-16"
+      "sig": "22d341e50581",
+      "date": "2026-10-17"
      }
     ],
     "three": [
      {
       "file": "act/three-5.jpg",
       "title": "A bill’s story",
-      "sig": "8b25be1d0e2b",
-      "date": "2026-10-16"
+      "sig": "7948c7b37f69",
+      "date": "2026-10-17"
      },
      {
       "file": "act/three-6.jpg",
@@ -489,8 +495,8 @@
      {
       "file": "act/three-8.jpg",
       "title": "Aloha",
-      "sig": "a839f290f0d1",
-      "date": "2026-10-16"
+      "sig": "22d341e50581",
+      "date": "2026-10-17"
      }
     ]
    }
