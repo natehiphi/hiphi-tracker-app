@@ -262,7 +262,7 @@ function indexBody(v) {
 const index = {
   tab: 'outreach',
   title: route => prepTitle(route) || fvTitle(route) || 'Outreach',
-  back: route => prepView(route) === 'mine' ? { href: '#/my-issues', label: 'My issues' } : prepView(route) ? { href: '#/outreach/issues', label: 'Issues' } : fvBack(route),
+  back: route => prepView(route) ? { href: '#/outreach/issues', label: 'Issues' } : fvBack(route),
   wide: route => !fvView(route),
   narrow: route => fvView(route) === 'links',
   render(route) {

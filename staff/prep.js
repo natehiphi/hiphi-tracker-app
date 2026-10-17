@@ -4,7 +4,7 @@
 // prepared issue has its wording and outlook checked, HIPHI's 2027 goal (staff-only for now) and talking points ("used
 // for emails or testimonies"); the owner says keep, merge or retire; Nate approves; due Fri 6 Nov.
 //
-// Three places: My issues (#/outreach/issues?view=mine), the prep board for admins (?view=prep), and the prep card on an
+// Three places: My issues (#/my-issues, the main menu's; R-263), the prep board for admins (?view=prep), and the prep card on an
 // issue's own page, which is where every step is done. A new issue is a draft until an admin publishes it, and the card
 // on a draft lists what it still needs instead (the database refuses to publish one that lacks any: issue_missing()).
 import { S, DB, hooks, esc, advocate } from './data.js';
@@ -86,12 +86,12 @@ export function todayPrepNotice() {
   const back = own.filter(i => stateOf(i) === 'sent_back').length;
   // After the due day the notice is for what came back, not a standing reminder (R-118: it had no end date).
   if (!back && Date.now() > dueDay().getTime() + 864e5) return '';
-  return notice(back ? 'warn' : 'info', 'clipboard-list', `<b>Your issues for 2027:</b> ${own.length - left.length} of ${own.length} ready${back ? `, ${back} sent back` : ''}. Due ${esc(dueText())}.`, btn('Open the list', { kind: 'secondary', href: '#/outreach/issues?view=mine' }));
+  return notice(back ? 'warn' : 'info', 'clipboard-list', `<b>Your issues for 2027:</b> ${own.length - left.length} of ${own.length} ready${back ? `, ${back} sent back` : ''}. Due ${esc(dueText())}.`, btn('My issues', { kind: 'secondary', href: '#/my-issues' }));
 }
 // The two links under the Issues index heading; My issues (R-263) shows only the person's own, without the admins' board.
 export function indexLinks({ mineOnly = false } = {}) {
   const own = mine(), help = helping();
-  const a = own.length || help.length ? `<a class="is-fvlink" href="#/outreach/issues?view=mine">${icon('clipboard-list')}<span>Your issues for 2027${own.length ? `: ${own.filter(i => ['ready', 'approved'].includes(stateOf(i))).length} of ${own.length} ready` : ''}</span></a>` : '';
+  const a = own.length || help.length ? `<a class="is-fvlink" href="#/my-issues">${icon('clipboard-list')}<span>My issues${own.length ? `: ${own.filter(i => ['ready', 'approved'].includes(stateOf(i))).length} of ${own.length} ready` : ''}</span></a>` : '';
   const ok = live().filter(i => !isDraft(i)), n = ok.filter(i => stateOf(i) === 'approved').length;
   const b = isAdmin() && !mineOnly ? `<a class="is-fvlink" href="#/outreach/issues?view=prep">${icon('clipboard-check')}<span>Prep board: ${n} of ${ok.length} approved</span></a>` : '';
   return a || b ? `<div class="pr-links">${a}${b}</div>` : '';
@@ -324,18 +324,20 @@ const listsLine = () => { const ls = S.lists || [], on = ls.filter(l => l.is_pub
 const ORDER = { sent_back: 0, started: 1, todo: 2, ready: 3, approved: 4, draft: 5 };
 function prepRow(i, { owner = false } = {}) {
   const o = ownerOfIssue(i);
-  return `<li class="pr-row"><a class="pr-main" href="#/issue/${encodeURIComponent(i.id)}">
+  return `<li class="pr-row"><a class="pr-main" href="#/issue/${encodeURIComponent(i.id)}?from=mine">
       <span class="title">${esc(i.name)}</span>
       <span class="sub">${progress(i)}${owner ? `<span class="pr-owner">${o ? esc(first(o)) : 'No owner'}</span>` : ''}</span></a>
     <span class="pr-end">${rowState(i)}</span></li>`;
 }
-function mineRender() {
+// The main menu's My issues (R-263): Nate 10/16 had the 12 Oct page (each issue's bills) go back to this list, which he
+// found better organized. As a menu page it has no way back; under Outreach > Issues it keeps one.
+export function mineRender({ top = false } = {}) {
   const own = mine().sort((a, b) => ORDER[stateOf(a)] - ORDER[stateOf(b)] || byName(a, b)), help = helping().sort(byName), drafts = myDrafts();
   const ready = own.filter(i => ['ready', 'approved'].includes(stateOf(i))).length;
   const lede = own.length ? `${ready} of ${own.length} ready. Due ${esc(dueText())}${pastDue() ? ' (past due)' : ''}.` : 'Getting the issues ready for 2027.';
   const next = own.find(i => !['ready', 'approved'].includes(stateOf(i)));
   return `<div class="le-page pr-page">
-    ${subHead('Your issues for 2027', lede, ['#/my-issues', 'My issues'])}
+    ${top ? `<header class="pr-top"><h1>My issues</h1><p class="le-lede">${lede}</p></header>` : subHead('My issues', lede)}
     ${next ? `<div class="pr-next">${btn(`Next: ${esc(next.name)}`, { iconEnd: 'arrow-right', href: '#/issue/' + encodeURIComponent(next.id) })}</div>` : ''}
     ${!own.length && !help.length && !drafts.length ? `<div class="le-empty">${empty({ title: 'No issues are yours yet', text: `${esc(Cap(adminWord()))} give${adminWord() === 'you' ? '' : 's'} out the issues. Any you own or help on show here.`, action: btn('See all issues', { kind: 'secondary', href: '#/outreach/issues' }) })}</div>` : ''}
     ${own.length ? `<section class="le-sec" aria-labelledby="pr-mine"><div class="le-sechead"><h2 id="pr-mine">Yours</h2></div><ul class="rows pr-rows">${own.map(i => prepRow(i)).join('')}</ul></section>` : ''}
@@ -392,8 +394,7 @@ function boardRender(route) {
 }
 
 export const prepView = route => ({ mine: 'mine', prep: 'prep' })[route?.q?.view] || null;
-// The prep list is "Your issues for 2027" since My issues became each person's issues and their bills (R-263).
-export const prepTitle = route => ({ mine: 'Your issues for 2027', prep: 'Prep board' })[prepView(route)] || '';
+export const prepTitle = route => ({ mine: 'My issues', prep: 'Prep board' })[prepView(route)] || '';
 export const renderPrep = route => prepView(route) === 'mine' ? mineRender() : boardRender(route);
 export function wirePrep(route, root) {
   if (prepView(route) !== 'prep') return;
