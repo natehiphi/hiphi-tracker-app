@@ -17,6 +17,7 @@
   "Accessibility",
   "Action Center",
   "Add your name and titles",
+  "Aloha!",
   "Back",
   "Bill details come from the Hawaiʻi State Legislature and update several times a day. Positions marked HIPHI are HIPHI’s own.",
   "Built to work for everyone",
@@ -24,7 +25,9 @@
   "Donate",
   "Every bill HIPHI tracks",
   "Every Senate and House committee, who sits on it, and what it has now",
+  "Every year from January to May, the Legislature decides Hawaiʻi’s health laws, often on a few days’ notice. We tell you when your voice counts, and help you say it.",
   "Find your senator and representative",
+  "Free, from HIPHI, the Hawaiʻi Public Health Institute.",
   "From HIPHI",
   "Get alerts and make your profile",
   "Get ready for the {next} session",
@@ -36,6 +39,7 @@
   "In {yr}, 1 bill HIPHI backed became law.",
   "Language",
   "Legislative Recap",
+  "Let’s begin",
   "Made one before? {a}Sign in with your email{b}",
   "Made one before? {a}Sign in{b}",
   "More",
@@ -70,11 +74,12 @@
   "Your issues, anywhere",
   "Your legislators",
   "Your profile",
-  "Your session"
+  "Your session",
+  "Your voice can shape Hawaiʻi’s health"
  ],
  "files": {
   "pub/langpick.js": 1,
   "pub/more.js": 41,
-  "pub/start.js": 29
+  "pub/start.js": 34
  }
 }
