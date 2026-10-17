@@ -71,7 +71,8 @@ with sync_playwright() as p:
         pg.goto(BASE + h); pg.wait_for_timeout(400)
         boom(pg, f'errlog place {place}'); pg.wait_for_timeout(600)
     places = [x.get('place') for x in sent]
-    ok(places == ['bill/HB1075', 'l', 'bill/2026/HB1075', 'find', 'legislators'], f'places: {places}')
+    # A bill page's address gains its year once drawn (R-212 #18), so the first report names it either way.
+    ok(places[:1] in (['bill/HB1075'], ['bill/2026/HB1075']) and places[1:] == ['l', 'bill/2026/HB1075', 'find', 'legislators'], f'places: {places}')
     ok(not any('abcdef0123456789' in json.dumps(x) or 'secret' in json.dumps(x) for x in sent), 'a list link and a search never leave the browser')
     ctx.close()
     # 6. the privacy signal: nothing is sent

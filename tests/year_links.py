@@ -38,14 +38,16 @@ with sync_playwright() as p:
     pg.goto(BASE + f'#/bill/{num}'); ready(pg); pg.wait_for_timeout(800)
     t = pg.locator('main').inner_text()
     ok('Old session copy' not in t and state['nick'] in t, f'#/bill/{num} opens the 2026 bill ({state["nick"]}), not the 2025 copy')
-    ok(pg.locator('a[href^="#/bill/2025/"]').count() == 0, 'the 2026 bill links its companions without a year')
+    ok(pg.locator('a[href^="#/bill/2025/"]').count() == 0, 'the 2026 bill never links the 2025 copy')
+    # Since R-212 #18 the address bar names the session too, so a link copied from it still opens this bill next year.
+    ok(pg.url.endswith(f'#/bill/2026/{num}'), f'the address bar becomes #/bill/2026/{num}: {pg.url}')
     # 2. the year opens that session's bill, and its links carry the year
     pg.goto(BASE + f'#/bill/2025/{num}'); ready(pg); pg.wait_for_timeout(800)
     t = pg.locator('main').inner_text()
     ok('Old session copy' in t, f'#/bill/2025/{num} opens the 2025 copy')
     ok(pg.locator('a[href^="#/bill/2025/"]').count() >= 1, 'the 2025 bill links its companions with the year')
     paths = pg.evaluate("async n => { const c = await import('./pub/core.js'); return c.D.bills.filter(b => b.bill_number === n).map(b => [b.session_year, c.billPath(b)]).sort(); }", num)
-    ok(paths == [[2025, f'#/bill/2025/{num}'], [2026, f'#/bill/{num}']], f'billPath: the 2025 bill carries its year, the 2026 bill does not: {paths}')
+    ok(paths == [[2025, f'#/bill/2025/{num}'], [2026, f'#/bill/2026/{num}']], f'billPath: each bill carries its own year (R-212 #18): {paths}')
     pg.goto(BASE + f'#/legislators?from=2025/{num}'); ready(pg)
     back = pg.locator('a.pp-back').first
     ok(back.count() == 1 and back.get_attribute('href') == f'#/bill/2025/{num}' and f'Back to {sp}' in back.inner_text(),
@@ -57,10 +59,10 @@ with sync_playwright() as p:
     ok(f'find {spaced(only)} from the 2025 session' in t, f'#/bill/2025/{only}: "We couldn’t find {spaced(only)} from the 2025 session"')
     # 4. an old #bill= link opens the current session's bill
     pg.goto(BASE + f'#bill={num}'); pg.reload(); ready(pg); pg.wait_for_timeout(800)   # an old link is rewritten at load, so load the page on it
-    ok('Old session copy' not in pg.locator('main').inner_text() and pg.url.endswith(f'#/bill/{num}'), f'#bill={num} opens the current bill at #/bill/{num}')
+    ok('Old session copy' not in pg.locator('main').inner_text() and pg.url.endswith(f'#/bill/2026/{num}'), f'#bill={num} opens the current bill at #/bill/2026/{num}: {pg.url}')
     # 5. Find lists both, each under its own address
     pg.goto(BASE + f'#/find?q={num}'); ready(pg); pg.wait_for_timeout(1000)
-    ok(pg.locator(f'a[href="#/bill/{num}"]').count() >= 1 and pg.locator(f'a[href="#/bill/2025/{num}"]').count() >= 1, 'Find lists both bills, each under its own address')
+    ok(pg.locator(f'a[href="#/bill/2026/{num}"]').count() >= 1 and pg.locator(f'a[href="#/bill/2025/{num}"]').count() >= 1, 'Find lists both bills, each under its own address')
     # 6. the share-page forwarder (404.html, served by GitHub Pages for a page not built yet) keeps the year
     html = open(os.path.join(ROOT, '404.html'), encoding='utf-8').read()
     pg.route(re.compile(r'.*/(b|i)/.*'), lambda route: route.fulfill(status=404, content_type='text/html', body=html))
