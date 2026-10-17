@@ -381,6 +381,7 @@
 .cm .cm-say { margin: 0; color: var(--n700); }
 .cm .cm-when { margin: 0; font-size: var(--t14); color: var(--n700); }
 .cm .cm-when b { color: var(--n900); }
+.cm .cm-when .cm-bill { color: var(--p700); font-weight: 600; text-underline-offset: 3px; padding: 12px 0; }   /* the tap reaches past the text's height (A-6) */
 .cm .cm-when.warn b { color: var(--warn-text); }   /* amber only inside 24 hours (A-5) */
 .cm .cm-time { display: flex; align-items: center; gap: var(--s8); margin: 0; font-size: var(--t14); color: var(--n700); }
 .cm .cm-time .ic { color: var(--p700); }

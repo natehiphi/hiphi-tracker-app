@@ -103,6 +103,9 @@ function cardParts(html) {
   for (const el of a.children) { if (el === col) { past = true; continue; } if (!el.matches(SAID)) (past ? after : before).push(el.outerHTML); }
   return { go: col.innerHTML.trim(), before: before.join(''), after: after.join('') };
 }
+// The bill's number on the detail line opens its page: the card's linked name went with the card, and the slide is the only
+// place on Home that names the bill (its row says "On the slide above"), so reading the bill first is one tap.
+const billLink = b => `<a class="cm-bill" href="${esc(billPath(b))}">${esc(spaced(b))}</a>`;
 const timeLine = t => `<p class="cm-time">${icon('clock')}<span>${t}</span></p>`;
 // One slide. h: the heading's level (h1, or h2 under the first visit's "Mahalo"). art: the drawing. say: the sentence.
 // when: the detail line. go: the button(s). more: the text links under them.
@@ -129,7 +132,7 @@ function dueSlide(c, hl) {
     : differs ? 'You see this one differently from HIPHI, and you can still tell them what you think.'
     : b.hiphi_action ? esc(b.hiphi_action) : `A short note from you can help ${opp ? 'stop it' : 'it pass'}.`;
   const dl = late ? h.scheduled_at : h.testimony_deadline, warn = Date.parse(dl) - Date.now() < 864e5;
-  const w = `<b>${late ? `Late testimony until ${esc(byWhen(dl))}` : `Send it by ${esc(byWhen(dl))}`}</b> · ${esc(spaced(b))}`;
+  const w = `<b>${late ? `Late testimony until ${esc(byWhen(dl))}` : `Send it by ${esc(byWhen(dl))}`}</b> · ${billLink(b)}`;
   const writes = /data-helper|data-mailwalk/.test(p.go);
   const more = [btn(open ? 'Fewer ways to help' : 'More ways to help', { kind: 'text', sm: true, iconEnd: open ? 'chevron-up' : 'chevron-down', attrs: { 'data-moreways': ck, 'aria-expanded': open ? 'true' : 'false', 'aria-controls': 'mw-' + h.id } }),
     k.items.length > 1 || k.picked ? nextLink(skipKey(x), nameOf(b)) : ''].join('');
@@ -143,7 +146,7 @@ function askSlide(c, hl) {
   const say = `${cs} ${n > 1 ? 'haven’t' : 'hasn’t'} heard it yet. When people ask, the ${chairs} can give it one.`;
   const at = hiT(dl.date) + 12 * 36e5, warn = at - Date.now() < 864e5;
   return slideHtml({ hl, id: 'cm-ask-' + b.id, art: artOf(b), title: goalOf(b), say: esc(say), warn,
-    when: `<b>Needs a hearing by ${esc(dateLong(dl.date + 'T12:00:00-10:00'))}</b> · ${esc(spaced(b))}`, mins: 'About 2 minutes',
+    when: `<b>Needs a hearing by ${esc(dateLong(dl.date + 'T12:00:00-10:00'))}</b> · ${billLink(b)}`, mins: 'About 2 minutes',
     go: btn(`Ask the ${chairs} for a hearing`, { kind: 'primary', icon: 'mail', full: true, href: billPath(b), attrs: { 'data-hm-ask': b.bill_number, 'data-hm-act': '1' } }),
     more: c.card.picked || c.n > 1 ? nextLink('ask|' + b.id, nameOf(b)) : '' });
 }
