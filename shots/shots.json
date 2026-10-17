@@ -1,0 +1,615 @@
+{
+ "v": 1,
+ "tests": {
+  "end": {
+   "arms": {
+    "today": [
+     {
+      "file": "end/today-6.jpg",
+      "title": "Coming up on your issues",
+      "sig": "9c1920cc4708",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "end/today-7.jpg",
+      "title": "You’re all set!",
+      "sig": "d42fe9a81081",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "end/today-8.jpg",
+      "title": "Aloha",
+      "sig": "a839f290f0d1",
+      "date": "2026-10-16"
+     }
+    ],
+    "home": [
+     {
+      "file": "end/home-6.jpg",
+      "title": "Coming up on your issues",
+      "sig": "cefa422453d9",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "end/home-7.jpg",
+      "title": "Mahalo for joining in!",
+      "sig": "4f2aaf47d67d",
+      "date": "2026-10-16"
+     }
+    ]
+   }
+  },
+  "fv": {
+   "arms": {
+    "full": [
+     {
+      "file": "fv/full-4.jpg",
+      "title": "Mahalo!",
+      "sig": "ede5a09be82d",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "fv/full-5.jpg",
+      "title": "A bill’s story",
+      "sig": "8b25be1d0e2b",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "fv/full-6.jpg",
+      "title": "Coming up on your issues",
+      "sig": "9c1920cc4708",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "fv/full-7.jpg",
+      "title": "You’re all set!",
+      "sig": "d42fe9a81081",
+      "date": "2026-10-16"
+     }
+    ],
+    "short": [
+     {
+      "file": "fv/short-4.jpg",
+      "title": "Mahalo!",
+      "sig": "5d468bbc8c81",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "fv/short-5.jpg",
+      "title": "Your voice counts here",
+      "sig": "3e59aecad249",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "fv/short-6.jpg",
+      "title": "Coming up on your issues",
+      "sig": "08a2dcb765a6",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "fv/short-7.jpg",
+      "title": "You’re all set!",
+      "sig": "276b639feb22",
+      "date": "2026-10-16"
+     }
+    ]
+   }
+  },
+  "rank": {
+   "arms": {
+    "today": [
+     {
+      "file": "rank/today-1.jpg",
+      "title": "You’re all caught up",
+      "sig": "ce6809c15465",
+      "date": "2026-10-16"
+     }
+    ],
+    "ranked": [
+     {
+      "file": "rank/ranked-1.jpg",
+      "title": "You’re all caught up",
+      "sig": "4e7a3700e0f7",
+      "date": "2026-10-16"
+     }
+    ]
+   }
+  },
+  "email": {
+   "arms": {
+    "finale": [
+     {
+      "file": "email/finale-2.jpg",
+      "title": "Your issues",
+      "sig": "cedddac09111",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "email/finale-3.jpg",
+      "title": "Save your profile",
+      "sig": "75b8157cedaa",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "email/finale-4.jpg",
+      "title": "Mahalo!",
+      "sig": "ede5a09be82d",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "email/finale-5.jpg",
+      "title": "A bill’s story",
+      "sig": "8b25be1d0e2b",
+      "date": "2026-10-16"
+     }
+    ],
+    "after": [
+     {
+      "file": "email/after-2.jpg",
+      "title": "Your issues",
+      "sig": "cedddac09111",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "email/after-3.jpg",
+      "title": "Mahalo!",
+      "sig": "ede5a09be82d",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "email/after-4.jpg",
+      "title": "A bill’s story",
+      "sig": "8b25be1d0e2b",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "email/after-5.jpg",
+      "title": "Coming up on your issues",
+      "sig": "9c1920cc4708",
+      "date": "2026-10-16"
+     }
+    ]
+   }
+  },
+  "share": {
+   "arms": {
+    "summary": [
+     {
+      "file": "share/summary-1.jpg",
+      "title": "Free school bus passes",
+      "sig": "26597dea2b6e",
+      "date": "2026-10-16"
+     }
+    ],
+    "deadline": [
+     {
+      "file": "share/deadline-1.jpg",
+      "title": "Free school bus passes",
+      "sig": "26597dea2b6e",
+      "date": "2026-10-16"
+     }
+    ]
+   }
+  },
+  "home": {
+   "arms": {
+    "by-day": [
+     {
+      "file": "home/by-day-1.jpg",
+      "title": "4 things you can do this week",
+      "sig": "5d89fa11d2c4",
+      "date": "2026-10-16"
+     }
+    ],
+    "by-issue": [
+     {
+      "file": "home/by-issue-1.jpg",
+      "title": "4 things you can do this week",
+      "sig": "73df8b632c48",
+      "date": "2026-10-16"
+     }
+    ]
+   }
+  },
+  "onb": {
+   "arms": {
+    "today": [
+     {
+      "file": "onb/today-1.jpg",
+      "title": "Speak up for a healthier Hawaiʻi",
+      "sig": "8865a4d2a3b1",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "onb/today-2.jpg",
+      "title": "Your issues",
+      "sig": "cedddac09111",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "onb/today-3.jpg",
+      "title": "Save your profile",
+      "sig": "75b8157cedaa",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "onb/today-4.jpg",
+      "title": "Mahalo!",
+      "sig": "ede5a09be82d",
+      "date": "2026-10-16"
+     }
+    ],
+    "p1": [
+     {
+      "file": "onb/p1-1.jpg",
+      "title": "Speak up for a healthier Hawaiʻi",
+      "sig": "ea84cf4708f3",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "onb/p1-2.jpg",
+      "title": "Find a bill you care about",
+      "sig": "2e704d12d31a",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "onb/p1-3.jpg",
+      "title": "State program to forgive medical debt",
+      "sig": "e20030c6c76d",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "onb/p1-4.jpg",
+      "title": "Want to add your voice?",
+      "sig": "88dae6c1fbae",
+      "date": "2026-10-16"
+     }
+    ],
+    "p2": [
+     {
+      "file": "onb/p2-1.jpg",
+      "title": "People across Hawaiʻi helped pass this law",
+      "sig": "1ee3f905de89",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "onb/p2-2.jpg",
+      "title": "It starts with an idea",
+      "sig": "64e00dbde300",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "onb/p2-3.jpg",
+      "title": "The hearing",
+      "sig": "4e41fdae1dc8",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "onb/p2-4.jpg",
+      "title": "Deadlines",
+      "sig": "ee0f63b9532d",
+      "date": "2026-10-16"
+     }
+    ],
+    "p3": [
+     {
+      "file": "onb/p3-1.jpg",
+      "title": "Meet the two people who vote for you",
+      "sig": "7778e3ec8f47",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "onb/p3-2.jpg",
+      "title": "Who speaks for you",
+      "sig": "234e490f35e7",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "onb/p3-3.jpg",
+      "title": "What should they hear about from you?",
+      "sig": "d93fde269697",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "onb/p3-4.jpg",
+      "title": "What’s moving on Health Care & Rights",
+      "sig": "1b7c60cb3d55",
+      "date": "2026-10-16"
+     }
+    ],
+    "p4": [
+     {
+      "file": "onb/p4-1.jpg",
+      "title": "Everyone helps differently. Which sounds like you?",
+      "sig": "abdfc61800ce",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "onb/p4-2.jpg",
+      "title": "What do you care about?",
+      "sig": "57c57b57ceb2",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "onb/p4-3.jpg",
+      "title": "What’s moving on Health Care & Rights",
+      "sig": "0aa2f7231fee",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "onb/p4-4.jpg",
+      "title": "Want a heads-up when it counts?",
+      "sig": "b1a0acf257bb",
+      "date": "2026-10-16"
+     }
+    ],
+    "p5": [
+     {
+      "file": "onb/p5-1.jpg",
+      "title": "Speak up for a healthier Hawaiʻi",
+      "sig": "8ed8549ecb46",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "onb/p5-2.jpg",
+      "title": "What’s moving on Health Care & Rights",
+      "sig": "ad280eac7115",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "onb/p5-3.jpg",
+      "title": "Want a heads-up when it counts?",
+      "sig": "cb3b4d4481c8",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "onb/p5-4.jpg",
+      "title": "Mahalo!",
+      "sig": "d60ed0672825",
+      "date": "2026-10-16"
+     }
+    ]
+   }
+  },
+  "join": {
+   "arms": {
+    "shown": [
+     {
+      "file": "join/shown-1.jpg",
+      "title": "Want a heads-up when it counts?",
+      "sig": "ef8454a1a4a5",
+      "date": "2026-10-16"
+     }
+    ],
+    "watch": [
+     {
+      "file": "join/watch-1.jpg",
+      "title": "Want us to watch “State program to forgive medical debt” for you?",
+      "sig": "36cf12a0b29c",
+      "date": "2026-10-16"
+     }
+    ]
+   }
+  },
+  "save": {
+   "arms": {
+    "profile": [
+     {
+      "file": "save/profile-1.jpg",
+      "title": "FDA proof required to sell e-cigarettes",
+      "sig": "5102600bcd14",
+      "date": "2026-10-16"
+     }
+    ],
+    "alerts": [
+     {
+      "file": "save/alerts-1.jpg",
+      "title": "FDA proof required to sell e-cigarettes",
+      "sig": "ba933fa43827",
+      "date": "2026-10-16"
+     }
+    ]
+   }
+  },
+  "layout": {
+   "arms": {
+    "calm": [
+     {
+      "file": "layout/calm-1.jpg",
+      "title": "Aloha",
+      "sig": "bddcec362109",
+      "date": "2026-10-16"
+     }
+    ],
+    "today": [
+     {
+      "file": "layout/today-1.jpg",
+      "title": "4 things you can do this week",
+      "sig": "5d89fa11d2c4",
+      "date": "2026-10-16"
+     }
+    ],
+    "a": [
+     {
+      "file": "layout/a-1.jpg",
+      "title": "Aloha",
+      "sig": "eb4a9e1d98d6",
+      "date": "2026-10-16"
+     }
+    ]
+   }
+  },
+  "act": {
+   "arms": {
+    "today": [
+     {
+      "file": "act/today-5.jpg",
+      "title": "A bill’s story",
+      "sig": "8b25be1d0e2b",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "act/today-6.jpg",
+      "title": "Coming up on your issues",
+      "sig": "9c1920cc4708",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "act/today-7.jpg",
+      "title": "You’re all set!",
+      "sig": "d42fe9a81081",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "act/today-8.jpg",
+      "title": "Aloha",
+      "sig": "a839f290f0d1",
+      "date": "2026-10-16"
+     }
+    ],
+    "three": [
+     {
+      "file": "act/three-5.jpg",
+      "title": "A bill’s story",
+      "sig": "8b25be1d0e2b",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "act/three-6.jpg",
+      "title": "Three ways to help this week",
+      "sig": "16fb49972ec1",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "act/three-7.jpg",
+      "title": "You’re all set!",
+      "sig": "d42fe9a81081",
+      "date": "2026-10-16"
+     },
+     {
+      "file": "act/three-8.jpg",
+      "title": "Aloha",
+      "sig": "a839f290f0d1",
+      "date": "2026-10-16"
+     }
+    ]
+   }
+  },
+  "pic": {
+   "arms": {
+    "today": [
+     {
+      "file": "../pub/og/testify/free-bus-rides-for-kids.jpg",
+      "title": "The picture a friend sees",
+      "sig": "pub/og/testify/free-bus-rides-for-kids.jpg",
+      "date": null
+     }
+    ],
+    "issue": [
+     {
+      "file": "../pub/og/testify/free-bus-rides-for-kids.jpg",
+      "title": "The picture a friend sees",
+      "sig": "pub/og/testify/free-bus-rides-for-kids.jpg",
+      "date": null
+     }
+    ],
+    "sign": [
+     {
+      "file": "../pub/og/testify/free-bus-rides-for-kids.jpg",
+      "title": "The picture a friend sees",
+      "sig": "pub/og/testify/free-bus-rides-for-kids.jpg",
+      "date": null
+     }
+    ],
+    "calendar": [
+     {
+      "file": "../pub/og/testify/free-bus-rides-for-kids.jpg",
+      "title": "The picture a friend sees",
+      "sig": "pub/og/testify/free-bus-rides-for-kids.jpg",
+      "date": null
+     }
+    ],
+    "letter": [
+     {
+      "file": "../pub/og/testify/free-bus-rides-for-kids.jpg",
+      "title": "The picture a friend sees",
+      "sig": "pub/og/testify/free-bus-rides-for-kids.jpg",
+      "date": null
+     }
+    ],
+    "text": [
+     {
+      "file": "../pub/og/testify/free-bus-rides-for-kids.jpg",
+      "title": "The picture a friend sees",
+      "sig": "pub/og/testify/free-bus-rides-for-kids.jpg",
+      "date": null
+     }
+    ],
+    "neighbors": [
+     {
+      "file": "../pub/og/testify/free-bus-rides-for-kids.jpg",
+      "title": "The picture a friend sees",
+      "sig": "pub/og/testify/free-bus-rides-for-kids.jpg",
+      "date": null
+     }
+    ],
+    "islands": [
+     {
+      "file": "../pub/og/testify/free-bus-rides-for-kids.jpg",
+      "title": "The picture a friend sees",
+      "sig": "pub/og/testify/free-bus-rides-for-kids.jpg",
+      "date": null
+     }
+    ],
+    "before": [
+     {
+      "file": "../pub/og/testify/free-bus-rides-for-kids.jpg",
+      "title": "The picture a friend sees",
+      "sig": "pub/og/testify/free-bus-rides-for-kids.jpg",
+      "date": null
+     }
+    ],
+    "here": [
+     {
+      "file": "../pub/og/testify/free-bus-rides-for-kids.jpg",
+      "title": "The picture a friend sees",
+      "sig": "pub/og/testify/free-bus-rides-for-kids.jpg",
+      "date": null
+     }
+    ],
+    "ticket": [
+     {
+      "file": "../pub/og/testify/free-bus-rides-for-kids.jpg",
+      "title": "The picture a friend sees",
+      "sig": "pub/og/testify/free-bus-rides-for-kids.jpg",
+      "date": null
+     }
+    ],
+    "crowd": [
+     {
+      "file": "../pub/og/testify/free-bus-rides-for-kids.jpg",
+      "title": "The picture a friend sees",
+      "sig": "pub/og/testify/free-bus-rides-for-kids.jpg",
+      "date": null
+     }
+    ],
+    "stand": [
+     {
+      "file": "../pub/og/testify/free-bus-rides-for-kids.jpg",
+      "title": "The picture a friend sees",
+      "sig": "pub/og/testify/free-bus-rides-for-kids.jpg",
+      "date": null
+     }
+    ],
+    "postcard": [
+     {
+      "file": "../pub/og/testify/free-bus-rides-for-kids.jpg",
+      "title": "The picture a friend sees",
+      "sig": "pub/og/testify/free-bus-rides-for-kids.jpg",
+      "date": null
+     }
+    ]
+   }
+  }
+ }
+}
