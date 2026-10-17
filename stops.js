@@ -118,6 +118,7 @@ export function billStop(b, ctx) {
     if (idx >= list.length) { out.phase = 'floor'; out.stop = list.length; out.stops = list.length; }
     else {
       out.committee = list[idx]; out.stop = idx + 1; out.stops = list.length;
+      out.prev = idx > 0 ? list[idx - 1] : null;   // the stop before it in this chamber, which the bill got through
       out.isFinal = idx === list.length - 1;
       const triple = list.length >= 3 && idx < list.length - 2;   // must reach its second-to-last committee by Triple filing
       out.deadlineKey = leg === 'first' ? (triple ? 'first_triple' : out.isFinal ? 'first_decking' : 'first_lateral')
@@ -182,7 +183,9 @@ export function stoppedAt(b, ctx = {}) {
   const d = b.died_at_stage || '';
   if (!/^(first|second)_(triple|lateral|decking)$/.test(d)) return null;
   const st = billStop({ ...b, stage: d }, { deadlineFor: () => null, ...ctx, stage: d, hearings: [], outcomes: {} });
-  return st.phase === 'committee' && st.committee ? { chamber: st.chamber, committee: st.committee } : null;
+  // prev and passed: the committees before it in that chamber. A bill stopped at its decking stop made the lateral
+  // deadline, so it got through them (R-212 #3: the lists said "No hearing in House Finance" of a bill two committees passed).
+  return st.phase === 'committee' && st.committee ? { chamber: st.chamber, committee: st.committee, prev: st.prev || null, passed: Math.max(0, st.stop - 1) } : null;
 }
 
 // Column copy, shared so the two boards read the same.

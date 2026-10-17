@@ -13,7 +13,7 @@
 import { S, D, DEMO, app, esc, icon, nick, posInfo, countOk, issues, issueIcon, groupNames, wiz, sessionInfo, suggestionList, recommendations, reasonOf, noteShown, dismissed,
   browseCoalition, curate, listBillsFor, followList, toggleWatch, loadBills, saveLocal, saveListFollows, nudge, toast, supa, plain, POS_RANK,
   pickedTopic, findBill, stopOf, dayWord, issueBills, issuesIn, issueFollowed, issuePos, setFollows, unfollowIssue, ensureRecapPool,
-  recomputeWatch, plainStatus, spaced, billPath, issuesOf, openActions, hearingsOf, legTitle, CHAMBER_NAME, sessionWords } from './core.js';
+  recomputeWatch, plainStatus, spaced, billPath, issuesOf, openActions, hearingsOf, legTitle, CHAMBER_NAME, sessionWords, stopFacts, ensureHistory } from './core.js';
 import { btn, row, skeleton, notice, inlineErr, chip, posChip } from './ui.js';
 import { actionCard, wireActions, shareIssue } from './actions.js';
 import { calendarUrl } from './core.js';   // the calendar feed (R-125)
@@ -178,6 +178,7 @@ async function liveRank(P) {
 // Bills nobody here follows arrive without their hearings, and a status chip without the hearing would say
 // "waiting" when a hearing is set. Load hearings for the moving ones (the same cache the bill page uses, S.xh).
 export async function ensureHearings(bills) {
+  await ensureStopHistory(bills);
   const need = [...new Set(bills.filter(b => moving(b) && !S.bills.some(x => x.id === b.id) && !S.xh[b.id]).map(b => b.id))];
   if (!need.length) return;
   if (DEMO) { for (const id of need) { S.xh[id] = D.hearings.filter(h => h.bill_id === id); D.outcomes.filter(o => o.bill_id === id).forEach(o => { S.outcomes[o.hearing_id] = o; }); } return; }
@@ -191,6 +192,19 @@ export async function ensureHearings(bills) {
     (o.data || []).forEach(x => { S.outcomes[x.hearing_id] = x; });
   }
 }
+// A stopped bill's "What happened" reads its hearings, and the public views keep only 30 days of them, so between
+// sessions a list said "No hearing in Senate Commerce" of a bill that committee heard and put on hold in 2025 (R-212 #3).
+// Only rows that would say "No hearing" and may have had one (carried over, or the last action names a hearing or a
+// decision) ask for the bill's whole history, at most 40 a page, six at a time.
+const mayBeHeard = b => stopped(b) && !S.hist?.[b.id] && !S.bills.some(x => x.id === b.id) && /carried over|hearing|decision making/i.test(b.last_action || '');
+async function ensureStopHistory(bills) {
+  if (DEMO) {
+    for (const b of bills.filter(b => stopped(b) && !S.xh[b.id] && !S.bills.some(x => x.id === b.id))) { S.xh[b.id] = D.hearings.filter(h => h.bill_id === b.id); D.outcomes.filter(o => o.bill_id === b.id).forEach(o => { S.outcomes[o.hearing_id] = o; }); }
+    return;
+  }
+  const ask = [...new Map(bills.filter(mayBeHeard).map(b => [b.id, b])).values()].filter(b => { try { return stopFacts(b).kind === 'noHearing'; } catch { return false; } }).slice(0, 40);
+  for (let i = 0; i < ask.length; i += 6) await Promise.all(ask.slice(i, i + 6).map(ensureHistory));
+}
 function startSearch(q) {
   const P = parse(q);
   if (F.key === P.key && (F.res || F.busy)) return;
@@ -201,7 +215,7 @@ function startSearch(q) {
     let res;
     if (DEMO) res = rank([...D.bills, ...D.index], P);
     else { res = await liveRank(P); }
-    await ensureHearings(res.slice(0, 40));
+    await ensureHearings(res.slice(0, 40)); await ensureStopHistory(res.slice(40));
     return res;
   })().then(res => { if (my !== F.seq) return; F.cache.set(P.key, res); if (F.cache.size > 20) F.cache.delete(F.cache.keys().next().value); F.res = res; })
     .catch(e => { if (my !== F.seq) return; console.error(e); F.err = true; })
@@ -324,7 +338,7 @@ function resultsBody(q, res) {
   return `${searchNote(res, parse(q))}${issSec}${whoSec}${mv.length ? `<section aria-labelledby="fd-mv-h">${sechead('fd-mv-h', 'Moving now', tag(plural(mv.length, 'bill'), mv))}${capped('q:' + key, mv, { pos: true }, 12)}</section>`
       : `<p class="fd-none">${offSeason() ? `The ${sessionInfo().recapYear} session is over. Here’s where these bills ended up.` : `Nothing that matches “${esc(q)}” is moving right now.`}</p>`}
     ${law.length ? `<section aria-labelledby="fd-law-h">${sechead('fd-law-h', 'Became law', tag(plural(law.length, 'bill'), law))}${billList(law, { pos: true })}</section>` : ''}
-    ${gone.length ? fold('fd-q-' + key, `Did not advance${!mv.length && !law.length ? ` in ${[...new Set(gone.map(b => +b.session_year || sessionInfo().yr))].sort().join(' and ')}` : ''} (${gone.length})`, billList(gone, { why: true }), { open: !mv.length && !law.length }) : ''}${capNote(res)}`;
+    ${gone.length ? fold('fd-q-' + key, `Did not advance${!mv.length && !law.length ? ` in ${[...new Set(gone.map(b => +b.session_year || sessionInfo().yr))].sort().join(' and ')}` : ''} (${gone.length})`, billList(gone, { why: true, pos: true }), { open: !mv.length && !law.length }) : ''}${capNote(res)}`;
 }
 // Nothing typed yet: the issues first (people follow issues, R-018), then HIPHI's lists, then bills that need voices
 // this week. The page keeps one main button: the first suggestion is a full action card, and the others are plain
@@ -386,7 +400,7 @@ function issuePage(slug) {
   }
   const otherSec = othersSorted.length ? `<section aria-labelledby="fd-oth-h">${sechead('fd-oth-h', picks.length ? 'Other bills moving' : 'Bills moving', plural(othersSorted.length, 'bill'))}${capped('i:' + g.key, othersSorted, { pos: true })}</section>` : '';
   const lawSec = law.length ? `<section aria-labelledby="fd-law-h">${sechead('fd-law-h', 'Became law', plural(law.length, 'bill'))}${billList(law, { pos: true })}</section>` : '';
-  const goneSec = gone.length ? fold('fd-i-' + g.key, `Did not advance (${gone.length})`, billList(gone, { why: true })) : '';
+  const goneSec = gone.length ? fold('fd-i-' + g.key, `Did not advance (${gone.length})`, billList(gone, { why: true, pos: true })) : '';
   return `<div class="fd" data-page="issue">${head}${top}${otherSec}${lawSec}${goneSec}</div>`;
 }
 
@@ -470,10 +484,10 @@ function issuePageNew(i) {
   const tag = once();
   const nowSecs = `${actSec}${mv.length ? `<section aria-labelledby="fd-imv-h">${sechead('fd-imv-h', 'Moving now', tag(plural(mv.length, 'bill'), mv))}${billList(mv, { pos: true })}</section>` : ''}
     ${law.length ? `<section aria-labelledby="fd-ilaw-h">${sechead('fd-ilaw-h', 'Became law', tag(plural(law.length, 'bill'), law))}${billList(law, { pos: true })}</section>` : ''}
-    ${gone.length ? fold('fd-ig-' + i.id, `Did not advance${off || (!mv.length && !law.length) ? ` in ${yr}` : ''} (${gone.length})`, billList(gone, { why: true }), { open: !mv.length && !law.length }) : ''}`;
+    ${gone.length ? fold('fd-ig-' + i.id, `Did not advance${off || (!mv.length && !law.length) ? ` in ${yr}` : ''} (${gone.length})`, billList(gone, { why: true, pos: true }), { open: !mv.length && !law.length }) : ''}`;
   const none = !now.length ? `<p class="fd-none">No bills on it ${off ? `in ${yr}` : 'this session'} yet. When HIPHI takes one up, it comes to everyone who follows this issue.</p>` : '';
   return `<div class="fd" data-page="issue">${back(c ? `#/find/category/${c.key}` : '#/find', c ? esc(c.name) : 'Find')}<div class="fd-lhead">${head}${cta}</div>
-    ${none}${nowSecs}${earlier.length ? fold('fd-ie-' + i.id, `Earlier sessions (${earlier.length})`, billList(earlier, { why: true }), { ic: 'history' }) : ''}</div>`;
+    ${none}${nowSecs}${earlier.length ? fold('fd-ie-' + i.id, `Earlier sessions (${earlier.length})`, billList(earlier, { why: true, pos: true }), { ic: 'history' }) : ''}</div>`;
 }
 // Search finds issues by name and description too, and they come first: an issue is what people follow. Words match
 // where a word starts, as they do for bills ("bus" finds "buses", not the "bus" inside "abuse"; R-032).
@@ -616,7 +630,7 @@ function listPage(slug) {
   const mvSec = mv.length ? `<section aria-labelledby="fd-lmv-h">${sechead('fd-lmv-h', 'Still moving', plural(mv.length, 'bill'))}${billList(mv, opt)}</section>`
     : rows.length ? '' : `<p class="fd-none">Nothing on this list yet. HIPHI adds bills as the session goes.</p>`;
   const lawSec = law.length ? `<section aria-labelledby="fd-llaw-h">${sechead('fd-llaw-h', 'Became law', plural(law.length, 'bill'))}${billList(law, opt)}</section>` : '';
-  const goneSec = gone.length ? fold('fd-l-' + slug, `Did not advance (${gone.length})`, billList(gone, b => ({ note: note[b.id], why: true })), { open: !mv.length && !law.length }) : '';
+  const goneSec = gone.length ? fold('fd-l-' + slug, `Did not advance (${gone.length})`, billList(gone, b => ({ note: note[b.id], why: true, pos: true })), { open: !mv.length && !law.length }) : '';
   return `<div class="fd" data-page="list">${back('#/find', 'All lists')}<div class="fd-lhead">${header}${cta}</div>${mvSec}${lawSec}${goneSec}</div>`;
 }
 // Following a list. One message at most, and it has to be true: with bills still moving a toast says how many were

@@ -815,7 +815,10 @@ export function stopFacts(b) {
     const prior = !heard && all.filter(h => h.status !== 'cancelled').pop() || null;
     const cancelled = !heard && !prior && all.filter(h => h.status === 'cancelled').pop() || null;
     return { ...f, kind: heard ? 'heard' : 'noHearing', cmte: at.committee, chamber: at.chamber, rule: /_(triple|lateral|decking)$/.exec(d)[1], heard, before,
-      cancelled, prior, yr, outcome: heard ? outcomeOf(heard)?.outcome || null : null };
+      cancelled, prior, yr, outcome: heard ? outcomeOf(heard)?.outcome || null : null,
+      // What it got through first, from the referral and the deadline it missed (no hearings needed, so the lists know it
+      // too): the committees before this one in its chamber, and the whole first chamber when it stopped in the second.
+      prev: at.prev, passedN: at.passed, crossed: at.chamber !== origin, origin };
   }
   // A resolution with no stage to go on: say what hearings there were.
   const last = past.pop() || null;
@@ -853,6 +856,9 @@ export function stopDetail(b) {
       : f.prior ? `heard it on ${dateLong(f.prior.scheduled_at)}${outcomeOf(f.prior)?.outcome === 'deferred' ? ' and put it on hold' : ''}, and did not take it up again${f.yr ? ` in ${f.yr}` : ''}`
       : 'never scheduled a hearing on it';
     return f.before ? `${cap(theCmte(f.before.committee))} passed it on ${dateLong(f.before.scheduled_at)}, but the next committee, ${theCmte(f.cmte)}, ${did}.${rule}`
+      : f.prev && !f.prior && !f.cancelled ? (f.passedN > 1 ? `It passed its first ${f.passedN} ${CHAMBER_NAME[f.chamber]} committees, but the next one, ${theCmte(f.cmte)}, ${did}.${rule}`
+        : `${cap(theCmte(f.prev))} passed it, but the next committee, ${theCmte(f.cmte)}, ${did}.${rule}`)
+      : f.crossed && !f.prior && !f.cancelled ? `It passed the ${CHAMBER_NAME[f.origin]}, but ${theCmte(f.cmte)} ${did}.${rule}`
       : `${cap(theCmte(f.cmte))} ${did}.${rule}`;
   }
   if (f.kind === 'heard') {
@@ -879,8 +885,21 @@ export function whyStoppedShort(b) {
   if (f.kind === 'held') return f.cmte ? `Put on hold by ${shortCmte(f.cmte)}` : 'Put on hold by a committee';
   if (f.kind === 'floor') return `No vote of the full ${f.ch}${by}`;
   if (f.kind === 'final') return `House and Senate did not agree${by}`;
-  if (f.kind === 'noHearing') return f.cmte ? (f.prior && outcomeOf(f.prior)?.outcome === 'deferred' ? `Put on hold by ${shortCmte(f.cmte)} in ${f.prior.scheduled_at.slice(0, 4)}`
-    : f.cancelled ? `Hearing cancelled in ${shortCmte(f.cmte)}` : `No hearing in ${shortCmte(f.cmte)}${by}`) : f.res ? 'Not heard before the session ended' : `No hearing${by}`;
+  if (f.kind === 'noHearing') {
+    if (!f.cmte) return f.res ? 'Not heard before the session ended' : `No hearing${by}`;
+    if (f.prior && outcomeOf(f.prior)?.outcome === 'deferred') return `Put on hold by ${shortCmte(f.cmte)} in ${f.prior.scheduled_at.slice(0, 4)}, not taken up again`;
+    if (f.cancelled) return `Hearing cancelled in ${shortCmte(f.cmte)}`;
+    // Heard there a year earlier and not taken up again: "No hearing" would be false (R-212 #3, the Analyst's walk).
+    if (f.prior) return `Heard by ${shortCmte(f.cmte)} in ${f.prior.scheduled_at.slice(0, 4)}, not taken up again`;
+    // What it passed first, so "No hearing in House Finance" is not read as "never heard" (6 of 25 rows on 10/8):
+    // "Passed 2 committees; no hearing in House Finance by Mar 6", "Passed the House; no hearing in Senate Health by Mar 30".
+    const n = f.passedN, cmtes = n ? `${n}${f.crossed ? ` ${CHAMBER_NAME[f.chamber]}` : ''} committee${n === 1 ? '' : 's'}` : '';
+    const got = [f.crossed ? `the ${CHAMBER_NAME[f.origin]}` : '', cmtes].filter(Boolean).join(' and ');
+    // A joint stop ("Senate Commerce and Consumer Protection / Health and Human Services") after what it passed made a
+    // three-line cell with a slash read as "either"; the bill page names them (ui-critic, R-212 #3).
+    const k = codesOf(f.cmte).length, joint = k > 1 ? (n ? 'the next committees' : `its ${CHAMBER_NAME[f.chamber]} committees`) : shortCmte(f.cmte);
+    return got ? `Passed ${got}; no hearing in ${joint}${by}` : `No hearing in ${shortCmte(f.cmte)}${by}`;
+  }
   if (f.kind === 'heard' && /recommendation was not adopted/i.test(b.last_action || '')) return `Committee report turned down by the full ${CHAMBER_NAME[S.committees[codesOf(f.heard.committee)[0]]?.chamber] || 'chamber'}`;
   if (f.kind === 'heard' && /deleted the measure from decision making/i.test(b.last_action || '')) return `Taken off the decision list in ${shortCmte(f.heard.committee)}`;
   if (f.kind === 'heard') return f.outcome === 'deferred' ? `Put on hold by ${shortCmte(f.heard.committee)}` : /passed/.test(f.outcome || '') ? `Passed ${shortCmte(f.heard.committee)}, then stalled` : `Heard, not passed, in ${shortCmte(f.heard.committee)}`;
