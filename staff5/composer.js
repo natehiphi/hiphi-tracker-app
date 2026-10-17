@@ -97,7 +97,8 @@ export function emailPreview(a) {
   if (a.ask && !/^<h3>/.test(html)) html = `<h3>${escT(a.ask)}</h3>${html}`;       // the sandbox's seeded alert keeps its ask apart
   html = html.replace(/<a href=/g, '<a target="_blank" rel="noopener" href=');     // a link in the preview must not leave the tracker
   const target = u.name || 'the tracker';
-  const app = PUBLIC_APP() + (u.b ? '#bill=' + u.b.bill_number : u.l ? '#list=' + u.l.slug : '');
+  // The bill's public address names its session (R-212 #18), as queue_public_digests writes it (migration 164).
+  const app = PUBLIC_APP() + (u.b ? `#/bill/${u.b.session_year ? u.b.session_year + '/' : ''}${String(u.b.bill_number).replace(/\s/g, '')}` : u.l ? '#list=' + u.l.slug : '');
   // As queue_public_digests builds it since 10/1 (migration 109, R-101 rules 2 and 7): the ask goes out in each person's one
   // email of the day at 4:30 pm, from "HIPHI Bill Tracker", replies to its writer; their hearing alerts follow it.
   const why = 'You get this because you asked the HIPHI Bill Tracker for HIPHI’s alerts on what you follow. One email a day at most.';
