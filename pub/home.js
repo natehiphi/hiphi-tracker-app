@@ -302,6 +302,10 @@ function sinceStrip(inCards = new Set(), gn = { liveBills: new Set(), goodShown:
     // "Next:" only when no card below already says what is next: on a Tuesday it named the soonest hearing while the first
     // card was the soonest deadline, a different bill (the review of R-222, A-14).
     const say = nb && !inCards.size;
+    // On a hearing day "Nothing new on your issues" read wrong (R-212 #7): the day's hearing leads instead; when its card is
+    // below, the line points there rather than repeating the card's bill and hour (A-14).
+    if (next && nb && hstDay(next.scheduled_at) === hstDay(Date.now()))
+      return `<section class="hm-since quiet" aria-label="Since your last visit"><p>${hi ? `<b>${hi}</b> ` : ''}${inCards.has(nb.id) ? `No news since ${esc(when)}. Today’s hearing is below.` : `Today: ${esc(nick(nb) || spaced(nb.bill_number))} has its hearing at ${esc(timeWord(next.scheduled_at))}.`}</p></section>`;
     return `<section class="hm-since quiet" aria-label="Since your last visit"><p><b>${hi}</b> Nothing new on your issues since ${esc(when)}.${say ? ` Next: ${esc(nick(nb) || spaced(nb.bill_number))}, hearing ${esc(dayWord(next.scheduled_at))}.` : ''}</p></section>`;
   }
   // On a phone one row, so the day's actions stay near the top (A-1). The others are in What's new below, which skips only

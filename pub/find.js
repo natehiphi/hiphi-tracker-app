@@ -357,6 +357,7 @@ function categoryPage(key) {
   const off = offSeason(), si = sessionInfo();
   if (off && !(S.recapPool && S.recapPool.yr === si.recapYear)) ensureRecapPool(si.recapYear);
   const all = issueOrder(issuesIn(c.key)), live = liveIds();
+  // Find's row says "10 moving" and Follow all says "All 18": the section's "10 of 18" ties them, once (R-212 #5, A-14).
   const active = off ? all.filter(i => issueBills(i).length) : all.filter(i => issueBills(i).some(id => live.has(id))), quiet = all.filter(i => !active.includes(i));
   const whole = S.catFollows.has(c.key);
   const cta = whole
@@ -368,7 +369,7 @@ function categoryPage(key) {
   const head = `<header class="fd-ihead"><span class="fd-icon">${icon(c.icon)}</span><h1 class="hero">${esc(c.name)}</h1>
     ${c.description ? `<p class="lede">${esc(c.description)}</p>` : ''}</header>`;   // how many are moving: the section below says it (A-14)
   return `<div class="fd" data-page="category">${back('#/find', 'All issues')}<div class="fd-lhead">${head}${cta}</div>
-    ${active.length ? `<section aria-labelledby="fd-ci-h">${sechead('fd-ci-h', off ? `The issues, and what happened in ${si.recapYear}` : 'Issues moving now', plural(active.length, 'issue'))}${issueList(active)}</section>`
+    ${active.length ? `<section aria-labelledby="fd-ci-h">${sechead('fd-ci-h', off ? `The issues, and what happened in ${si.recapYear}` : 'Issues moving now', !off && active.length < all.length ? `${active.length} of ${all.length}` : plural(active.length, 'issue'))}${issueList(active)}</section>`
       : `<p class="fd-none">Nothing in ${esc(c.name)} is moving right now. Follow it, and new issues and bills come to you as they start.</p>`}
     ${quiet.length ? fold('fd-cq-' + c.key, `Nothing moving ${off ? `in ${si.recapYear}` : 'right now'} (${quiet.length})`, issueList(quiet), { ic: 'hourglass' }) : ''}</div>`;
 }

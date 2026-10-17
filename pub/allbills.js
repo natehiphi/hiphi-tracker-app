@@ -133,10 +133,14 @@ function groupsHTML() {
     const more = n > cut.length ? `<div class="ab-more">${btn(`Show all ${n}`, { kind: 'secondary', icon: 'chevron-down', attrs: { 'data-ab-all': k } })}</div>` : '';
     const inner = billList(cut, opt(k)) + more;
     const label = `<span>${title} <span class="ab-n">· ${n}</span></span>`;
+    // "Hearing scheduled · 35" counts every hearing set, weeks out too, beside Home's and Find's "this week" lists of a
+    // few (R-212 #5): it says how many are in the next seven days.
+    const wk = k === 'hear' ? rows.filter(b => { const h = stopOf(b).hearing; return h && new Date(h.scheduled_at) - Date.now() < 7 * 864e5; }).length : 0;
+    const split = wk && wk < n ? `<p class="small muted ab-split">${wk} in the next 7 days, ${n - wk} later</p>` : '';
     // Bills that stopped are the long tail of every session (most of them between sessions): folded, one press away,
     // and open when a search or filter asked for them.
     return k === 'dead' ? fold('ab-dead', label, inner, { ic: 'archive', open: asked })
-      : `<section class="ab-grp" aria-labelledby="ab-h-${k}"><div class="sechead"><h2 id="ab-h-${k}">${label}</h2></div>${inner}</section>`;
+      : `<section class="ab-grp" aria-labelledby="ab-h-${k}"><div class="sechead"><h2 id="ab-h-${k}">${label}</h2></div>${split}${inner}</section>`;
   }).join('');
 }
 const countLine = () => { const n = shown().length; return `${n} bill${n === 1 ? '' : 's'}${A.q.trim() || activeN() ? ' match' + (n === 1 ? 'es' : '') : ''}`; };

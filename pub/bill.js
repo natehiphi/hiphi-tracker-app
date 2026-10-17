@@ -780,12 +780,15 @@ function othersBlock(b) {
   let stand = '';
   if (split) {
     const [big, bw, small, sw] = split.support >= split.oppose ? [split.support, 'support', split.oppose, 'oppose'] : [split.oppose, 'oppose', split.support, 'support'];
-    stand = `<p class="bl-osay">Of ${split.people} followers who took a stand, ${small ? `${say(big, bw)} and ${say(small, sw)}` : `all ${big} ${bw} it`}.</p>
+    stand = `<p class="bl-osay">Of ${split.people} people who took a stand, ${small ? `${say(big, bw)} and ${say(small, sw)}` : `all ${big} ${bw} it`}.</p>
       <div class="bl-split" aria-hidden="true"><i class="bl-sup" style="flex-grow:${+split.support || 0}"></i><i class="bl-opp" style="flex-grow:${+split.oppose || 0}"></i></div>
       <p class="bl-keys" aria-hidden="true"><span class="bl-key bl-sup">Support</span><span class="bl-key bl-opp">Oppose</span></p>`;
   }
   const sent = [t ? `${t} testimonies` : '', e ? `${e} emails to chairs` : ''].filter(Boolean).join(' and ');
-  const lines = [fol ? `${fol} people follow this bill.` : '', sent ? `People have sent ${sent} through HIPHI.` : '', a ? `${a} said they would go to a hearing.` : ''].filter(Boolean);
+  // The stand counts everyone who took one, most of them through an issue they follow; "follow this bill" counts only those
+  // who follow it by itself, so "86 took a stand" sat beside "22 follow" with nothing to tie them (R-212 #5).
+  const more = split && fol && split.people > fol;
+  const lines = [fol ? `${fol} people follow this bill directly.${more ? ' More get its news through an issue they follow.' : ''}` : '', sent ? `People have sent ${sent} through HIPHI.` : '', a ? `${a} said they would go to a hearing.` : ''].filter(Boolean);
   return `<section class="card flat bl-others" aria-labelledby="bl-oth-h"><h2 id="bl-oth-h">${icon('users')}<span>Others following this bill</span></h2>
     ${stand}${lines.length ? `<p class="bl-ocount">${lines.map(esc).join(' ')}</p>` : ''}</section>`;
 }

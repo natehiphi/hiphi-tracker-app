@@ -24,6 +24,8 @@
 .ab #ab-list > .ab-grp:first-child .sechead { margin-top: var(--s12); }
 .ab .pagehead { margin-bottom: var(--s16); }
 .ab .ab-n { font-weight: 400; color: var(--n700); }
+/* "31 in the next 7 days, 4 later" belongs to its heading, not the table under it (R-212 #5, A-8). */
+.ab .ab-split { margin: -6px 0 12px; }
 .ab .mb-fold .ab-n { font-weight: 400; }
 .ab-more { margin-top: var(--s12); }
 .ab .mb-fold .ab-more { padding: 0 var(--s16) var(--s16); }

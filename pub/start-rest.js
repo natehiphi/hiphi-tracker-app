@@ -66,7 +66,9 @@ function model2() {
   }
   const catOn = new Set(picks.cats), issueOn = new Set(picks.issues);
   const ticked = x => issueOn.has(x.i.id) || x.i.categories.some(c => catOn.has(c));
-  const count = new Set(all.filter(ticked).map(x => x.i.id)).size;
+  // The button's count is what Next follows (R-212 #5: "Follow 10 issues" then "You're following 18"): a topic's "Follow
+  // all" takes every issue in the topic, the quiet ones too (followedIssues counts them), not only the issues on screen.
+  const count = new Set([...all.filter(ticked).map(x => x.i.id), ...[...catOn].flatMap(k => issuesIn(k).map(i => i.id))]).size;
   return { off, sig, sel, per, all, picks, catOn, issueOn, ticked, count, R };
 }
 // One issue to follow. The whole card is the toggle (a real button). Where its description is cut, a small "What it
@@ -98,7 +100,7 @@ function fitWhat() {
 let fitT = 0;
 window.addEventListener('resize', () => { cancelAnimationFrame(fitT); fitT = requestAnimationFrame(fitWhat); });
 const catAll = (c, n, all) => `${btn(`${all ? 'Following all' : 'Follow all'}<span class="sr"> of ${esc(c.key)}</span>`, { kind: 'text', sm: true, icon: all ? 'check' : 'star', cls: all ? 'on' : '', attrs: { 'data-stfollowcat': c.topicKey, 'aria-pressed': String(all) } })}
-  <p class="st-catnote">${all ? 'New issues HIPHI takes up too.' : n > 1 ? `All ${n}, plus new ones.` : 'Plus any new ones.'}</p>`;
+  <p class="st-catnote">${all ? (n > 1 ? `All ${n}, and new ones HIPHI takes up.` : 'New issues HIPHI takes up too.') : n > 1 ? `All ${n}, plus new ones.` : 'Plus any new ones.'}</p>`;
 // One <details> per category. The first always starts open; a small one (four issues or fewer) also starts open; a busy
 // one past the first starts folded, and then says what is ticked inside it (A-14). Its heading has no count: it said
 // "16 issues" over the three listed (Nate 10/4, R-136); the whole topic is counted once, beside "Follow all", which
@@ -111,7 +113,7 @@ function pickedLine(p, m) {
   return !on.length ? '' : `${on.length} ticked: ${andList(on)}`;
 }
 function catSection(p, m) {
-  const c = p.c, n = p.full.length, open = p.open, said = pickedLine(p, m);
+  const c = p.c, n = issuesIn(c.topicKey).length, open = p.open, said = pickedLine(p, m);   // "All 17": what Follow all follows
   return `<details class="st-tsec"${open ? ' open' : ''} data-stsec="${esc(c.topicKey)}">
     <summary><span class="st-tsum">${icon(c.icon)}<span class="st-tnamebox"><span class="st-tname">${esc(c.key)}</span><span class="st-tpicked" data-stpicked="${esc(c.topicKey)}"${said ? '' : ' hidden'}>${esc(said)}</span></span></span>${icon('chevron-down', { cls: 'st-tchev' })}</summary>
     <div class="st-tbody2"><div class="st-catall" data-stcatall="${esc(c.topicKey)}">${catAll(c, n, m.catOn.has(c.topicKey))}</div>
@@ -772,7 +774,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       $$('[data-stpick]').forEach(t => { const x = m.all.find(r => r.i.id === t.dataset.stpick), on = !!x && m.ticked(x);
         t.setAttribute('aria-pressed', String(on)); t.closest('.st-pcard')?.classList.toggle('on', on); });
       $$('[data-stcatall]').forEach(box => { const k = box.dataset.stcatall, p = m.per.find(q => q.c.topicKey === k);
-        if (p) box.innerHTML = catAll(p.c, p.full.length, m.catOn.has(k)); });
+        if (p) box.innerHTML = catAll(p.c, issuesIn(k).length, m.catOn.has(k)); });
       $$('[data-stpicked]').forEach(el => { const p = m.per.find(q => q.c.topicKey === el.dataset.stpicked); if (!p) return;
         const said = pickedLine(p, m); el.textContent = said; el.hidden = !said; });
       wireCatAll();
