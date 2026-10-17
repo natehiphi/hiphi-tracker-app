@@ -18,6 +18,10 @@
 .acard .proof { display: flex; gap: 6px; align-items: center; font-size: var(--t14); color: var(--n500); }
 .acard .proof .ic { width: 16px; height: 16px; color: var(--n500); }   /* grey: orange is for a moment worth marking, not a count (A-5; the review of R-222) */
 .acard .btncol { margin-top: var(--s8); }
+.acard .firsttime { display: flex; gap: 6px; align-items: center; margin: var(--s8) 0 0; font-size: var(--t14); font-weight: 600; color: var(--p800); }
+.acard .firsttime .ic { width: 16px; height: 16px; flex: none; }
+.acard .firsttime + .btncol { margin-top: var(--s4); }
+.acard .btncol .helpline { margin: -2px 0 2px; font-size: var(--t14); color: var(--n700); flex-basis: 100%; }   /* R-296: under the button it explains */
 .acard.focus { border-color: var(--p300); box-shadow: var(--sh2); }   /* lifted, not ringed: a 2px blue border read as keyboard focus */
 .acard.done { background: var(--ok-wash); border-color: #BFE8C8; }
 .donebox { display: flex; align-items: center; gap: var(--s8); flex-wrap: wrap; font-weight: 700; color: var(--ok-text); font-size: var(--t14); }
