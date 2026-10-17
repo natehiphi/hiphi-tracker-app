@@ -307,9 +307,10 @@ function resultLine(c) {
 }
 // The count is said once, here ("10 things you can do this week"), not as "1 of 4" on the slide: a big count on the slide
 // reads like homework (C-7), the opposite of "this is easy" (decision 1, section 7; it replaces R-222's answer 4).
-function countLine(c) {
+// After a result the greeting is already two sentences, so "Here's the soonest." goes (the slide shows it anyway).
+function countLine(c, res) {
   if (!['due', 'late', 'ask'].includes(c.card.kind)) return '';
-  return c.n === 1 ? 'One thing this week.' : `${c.n} things you can do this week.${c.card.picked ? '' : ' Here’s the soonest.'}`;
+  return c.n === 1 ? 'One thing this week.' : `${c.n} things you can do this week.${c.card.picked || res ? '' : ' Here’s the soonest.'}`;
 }
 // The heading on the page load that finished the first visit (R-248): Mahalo and their name, as the ending on Home said it.
 const mahalo = name => name ? `Mahalo, ${esc(name)}!` : 'Mahalo for joining in!';
@@ -322,7 +323,7 @@ function greeting(c) {
     return `<header class="cm-head"><p class="cm-hi"><b>${hi}.</b> <span>You follow ${esc(said)}. ${c.card.kind ? 'Here’s the first thing you can do.' : 'We keep watch.'}</span></p></header>`;
   }
   if (c.thanks) return `<header class="cm-head">${thanksHtml(c.thanks, name)}</header>`;
-  const res = resultLine(c), cnt = countLine(c);
+  const res = resultLine(c), cnt = countLine(c, res);
   const line = [res, cnt].filter(Boolean).join(' ') || (prevVisit() ? `Nothing new since ${esc(sinceWhen())}. We’re keeping watch.` : '');
   return `<header class="cm-head"><p class="cm-hi"><b>${hi}.</b>${line ? ` <span>${line}</span>` : ''}</p></header>`;
 }
@@ -432,7 +433,10 @@ export default {
       toast(`${el.dataset.cmName} moved out of the way. It’s still on your list below.`, { undo: () => { S.aSkip.delete(k); app.render(); } }); });
     root.querySelectorAll('[data-cm-unskip]').forEach(el => el.onclick = () => { S.aSkip.clear(); app.render(); });
     // A row with something to do this week brings it up onto the slide (decision 5a): the top of Home, the slide in place.
-    root.querySelectorAll('[data-cm-pick]').forEach(el => el.onclick = e => { e.preventDefault(); const k = el.dataset.cmPick;
+    // wire() runs before app.js wireFrame, so this handler is first on the row and stops wireFrame's, which opens every "#/"
+    // link whether or not the click was cancelled (the href stays, for a new tab).
+    root.querySelectorAll('[data-cm-pick]').forEach(el => el.onclick = e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+      e.preventDefault(); e.stopImmediatePropagation(); const k = el.dataset.cmPick;
       S.aSkip.delete(k); S.cmPick = k; S.cmThanks = null;
       window.scrollTo({ top: 0, behavior: reduced() ? 'auto' : 'smooth' });
       afterSwap(swap(() => app.render()), toSlide); });

@@ -375,6 +375,7 @@
 .cm .cm-art .art-capitol { position: static; height: 100%; padding: var(--s8) 0 0; }
 .cm .cm-art:has(.art-capitol) { background: transparent; }
 @media (max-height: 760px) { .cm .cm-art { height: 100px; } }   /* a short phone screen keeps the button near the first screen's edge */
+.cm-off .cm-art { height: 88px; }   /* between sessions the Capitol is a reminder, not news: the long list of 16 stays under 3 screens (A-23) */
 .cm .cm-words { display: flex; flex-direction: column; gap: var(--s12); }
 .cm .cm-goal { margin: 0; font-size: var(--t28); line-height: 1.15; outline: none; }
 .cm .cm-say { margin: 0; color: var(--n700); }
@@ -385,6 +386,7 @@
 .cm .cm-time .ic { color: var(--p700); }
 .cm .cm-go { display: flex; flex-direction: column; gap: var(--s8); margin-top: var(--s4); }
 .cm .cm-more { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0 var(--s8); margin: 0 -12px; }
+.cm .cm-more .btn { padding-inline: 12px; }   /* "More ways to help" and "Show the next one" share one row on a 390px phone */
 .cm .cm-slide .donebox, .cm .cm-slide .twin, .cm .cm-slide .again { margin: 0; }
 .cm .cm-slide .moreways { margin: 0; }
 .cm .cm-row.on { background: var(--p50); }
