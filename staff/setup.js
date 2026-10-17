@@ -608,7 +608,7 @@ function abCard(t, x) {
       ${pic}
       ${switchRow(`ab-arm-${t.key}-${a}`, `<span class="sr">${esc(full)}: </span>Visitors see it`, on, '', { 'data-abarm-on': `${t.key}|${a}` })}
       ${nums(r)}
-      <div class="ab-vacts">${btn('Try it', { kind: 'text', sm: true, icon: 'external-link', href: seeUrl(t, a), target: '_blank', attrs: { 'data-absee': `${t.key}|${a}`, 'aria-label': `Try ${full} in the practice copy (in a new tab)` } })}${canPick ? btn('Pick', { kind: 'secondary', sm: true, icon: 'trophy', attrs: { 'data-abpick': t.key, 'data-abarm': a, 'aria-label': `Pick ${full}: everyone gets it` } }) : ''}</div>
+      <div class="ab-vacts">${btn('Try it', { kind: 'text', sm: true, icon: 'external-link', href: seeUrl(t, a), target: '_blank', attrs: { 'data-absee': `${t.key}|${a}`, 'aria-label': `Try ${full} in the practice copy (in a new tab)` } })}${canPick ? btn('Pick', { kind: a === trusted ? 'primary' : 'secondary', sm: true, icon: 'trophy', attrs: { 'data-abpick': t.key, 'data-abarm': a, 'aria-label': `Pick ${full}: everyone gets it` } }) : ''}</div>
     </li>`; };
   const stepper = steps > 1 ? `<div class="ab-steps"><span class="small muted">Screen</span>${segmented(`abstep`, [...Array(steps).keys()].map(i => [String(i), String(i + 1)]), String(step), 'Screen, in order')}</div>` : '';
   const dated = t.arms.flatMap(a => shotsOf(t, a)).map(p => p.date).filter(Boolean).sort().pop();
@@ -623,7 +623,7 @@ function abCard(t, x) {
     ${verdict}
     <fieldset class="ab-arms ab-gal"><legend class="small ab-live">${liveLine(t, live)}</legend>
       ${stepper}
-      <ul class="ab-vers${wide ? ' wide' : ''}" role="list" aria-label="The versions, today’s first">${all.map(col).join('')}</ul>
+      <ul class="ab-vers${wide ? ' wide' : ''}" style="--n:${all.length}" role="list" aria-label="The versions, today’s first">${all.map(col).join('')}</ul>
     </fieldset>
     ${why}
     <p class="small muted ab-hint">${esc(SEE[t.key]?.[1] || '')}${dated ? ` Pictures from the practice copy, ${esc(fmtDate(dated))}.` : ''}</p>${more}
@@ -1234,11 +1234,12 @@ const PAGES = {
       // The tester sheet (R-185): each group of a room of testers on the versions Nate picks, a QR code each.
       // R-192: the switches decide what the public tracker and its practice copy show; the practice copy of this page has
       // sample switches, which change nothing (Nate's answer 1: one set of switches, the real ones).
-      return `<div class="ab-intro"><p class="small muted">Open a test to see its versions side by side and choose which ones visitors see.</p>
-        ${DEMO ? notice('info', 'info', `This is the practice copy: these switches are samples and change nothing. The real ones, signed in, decide what the public tracker and its practice copy show: <a href="${esc(APP_URL)}staff.html#/setup/tests">Tests</a>.`) : ''}
+      // The fresh-eyes review (10/17): the notice on its own line, then the filter with the two links beside it, so the
+      // first test starts high and nothing is squeezed into a narrow column on a laptop.
+      return `<div class="ab-intro">${DEMO ? notice('info', 'info', `Practice copy: these switches are samples and change nothing. The real ones: <a href="${esc(APP_URL)}staff.html#/setup/tests">Tests</a>, signed in.`) : ''}</div>
+        <div class="ab-filterrow"><div class="ab-filter">${segmented('abf', [['all', 'All'], ['running', `Running (${n('running')})`], ['off', `Off (${n('off')})`], ['ready', `Ready to decide (${n('ready')})`]], filt, 'Show')}</div>
         <div class="ab-introacts">${btn('Tester sheet', { kind: 'text', sm: true, icon: 'qr-code', href: '#/setup/room', attrs: { 'data-abroom': '1', title: 'Testing with a room of people: a link and QR code for each group, on the versions you pick' } })}
         ${btn('Check again', { kind: 'text', sm: true, icon: 'rotate-ccw', attrs: { 'data-abretry': '1', 'aria-busy': s.abBusy ? 'true' : null } })}</div></div>
-        <div class="ab-filter">${segmented('abf', [['all', 'All'], ['running', `Running (${n('running')})`], ['off', `Off (${n('off')})`], ['ready', `Ready to decide (${n('ready')})`]], filt, 'Show')}</div>
         <div class="ab-list">${abList(cards, filt)}</div>`; },
     wire(root) {
       const s = st();

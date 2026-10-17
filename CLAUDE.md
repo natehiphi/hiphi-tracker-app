@@ -65,6 +65,11 @@ found because sessions start in the backend repo) walks the whole checklist.
   plans (`pub/onb*.js`) use none of this.
 - Accessibility: one exposed h1 per page, labels, `aria-pressed/expanded/sort`, 44px targets on touch widths,
   nothing by colour alone, reduced motion respected, no sideways page scroll.
+- **Staff's Tests page shows each A/B test's versions as pictures** (R-201): `tools/test_shots.py` photographs each version
+  in the practice copy into `shots/` (`shots/shots.json`), and `.github/workflows/test-shots.yml` retakes the ones whose
+  screen changed on every push to `pub/`, `track.html` or `demo/`. A new test, or a version walked to a new spot, needs
+  its place in the script's list (and in `PLACES` in `staff/setup.js` and `staff5/setup.js`); `tests/versions.py` fails
+  when a version has no picture.
 - Never build anything that sends email while testing. **Email to the public is paused until Nate says so.**
 - Street addresses are private to the person; staff see districts only.
 

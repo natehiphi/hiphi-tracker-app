@@ -71,7 +71,14 @@ with sync_playwright() as p:
             n_pick = c.locator('[data-abpick]').count(); why = c.locator('.ab-why').count()
             first = c.locator('.ab-ver').first.inner_text()
             rows = pg.evaluate("[...document.querySelectorAll('.ab-ver')].map(v => [...v.children].map(c => Math.round(c.getBoundingClientRect().top)))")
-            level = len({len(r) for r in rows}) == 1 and all(len({r[i] for r in rows}) == 1 for i in range(len(rows[0])))
+            # the versions wrap into rows (two on a phone): those side by side share their name, picture, switch... rows
+            bands = {}
+            for r in rows: bands.setdefault(r[0], []).append(r)
+            level = len({len(r) for r in rows}) == 1 and all(len({r[i] for r in band}) == 1 for band in bands.values() for i in range(len(rows[0])))
+            n_cols = max(len(b) for b in bands.values())
+            if n_cols < min(2, len(rows)) and not (k == 'pic' and w < 500): bad.append(f'{k}: the versions are not side by side ({n_cols} a row)')
+            hidden = pg.evaluate("[...document.querySelectorAll('.ab-ver')].some(v => { const r = v.getBoundingClientRect(); return r.right > innerWidth + 1 || r.left < -1; })")
+            if hidden: bad.append(f'{k}: a version is off the side of the screen')
             if n_sw < 2: bad.append(f'{k}: {n_sw} switches')
             if n_try != n_sw: bad.append(f'{k}: {n_try} Try it for {n_sw} versions')
             if not (why and n_pick == 0) and not (not why and n_pick == n_sw): bad.append(f'{k}: {n_pick} Pick, why={why}')
