@@ -10,7 +10,7 @@
 // titles to add, so a tap there never takes a title off the profile; `pendingTitle(st)` lets a host keep words typed but
 // not added when the person saves.
 import { esc, icon } from './core.js';
-import { FIRST, GROUPS, inGroup, titleLabel, findTitles, ownKey, tidyOwn, listKeyFor, TITLES_MAX, OWN_MAX } from './titles.js';
+import { FIRST, GROUPS, inGroup, titleLabel, findTitles, ownKey, tidyOwn, ownOver, listKeyFor, TITLES_MAX, OWN_MAX } from './titles.js';
 
 const chip = (k, on, label = titleLabel(k)) => `<button type="button" class="chip tp-c" data-tp="${esc(k)}" aria-pressed="${on}">${on ? icon('check') : ''}<span>${esc(label)}</span></button>`;
 
@@ -24,7 +24,13 @@ function optsOf(st) {
 // always names something real.
 function listHTML(pfx, st) {
   const os = st.q && st.q.trim() ? optsOf(st) : [];
-  return `<div class="tp-list" id="${pfx}-tpl" role="listbox" aria-label="Titles"${os.length ? '' : ' hidden'}>${os.map((o, i) => `<button type="button" class="tp-o${o.k === 'own' ? ' tp-own' : ''}" role="option" id="${pfx}-tpo${i}" data-tpo="${esc(o.k)}" aria-selected="${st.active === i}" tabindex="-1">${icon(o.k === 'own' ? 'plus' : 'user')}<span>${o.k === 'own' ? `Add “${esc(o.label)}” as your own` : esc(o.label)}</span></button>`).join('')}</div>`;
+  return `<div class="tp-list" id="${pfx}-tpl" role="listbox" aria-label="Titles"${os.length ? '' : ' hidden'}>${os.map((o, i) => `<button type="button" class="tp-o${o.k === 'own' ? ' tp-own' : ''}" role="option" id="${pfx}-tpo${i}" data-tpo="${esc(o.k)}" aria-selected="${st.active === i}" tabindex="-1">${icon(o.k === 'own' ? 'plus' : 'user')}<span>${o.k === 'own' ? `Add “${esc(o.label)}” as your own` : esc(o.label)}</span></button>`).join('')}</div>${ownNote(pfx, st.q)}`;
+}
+// R-212 #10 (the walk): the box used to stop taking letters at 40 with no word said, so a long title was cut mid-word.
+// It now takes a few more and says, before anything is added, how much a title keeps, what it will read and how much to take out.
+function ownNote(pfx, q) {
+  const over = ownOver(q); if (!over) return '';
+  return `<p class="small muted tp-note" id="${pfx}-tpn">A title holds ${OWN_MAX} letters and spaces, so this one will read “${esc(tidyOwn(q))}”. Take out ${over} to keep it all.</p>`;
 }
 // What Enter (or a host's Save) takes from the box: the list title the words name, else the first suggestion the words
 // start, else their own words. '' when the box is empty.
@@ -53,7 +59,7 @@ export function pickerHTML(pfx, st, o) {
     ${full ? `<p class="small muted">${icon('info')} You can pick up to ${TITLES_MAX}.${addOnly ? '' : ' Tap one to take it off.'}</p>` : `
     <button type="button" class="explain tp-morebtn" data-tp-more aria-expanded="${!!st.more}" aria-controls="${pfx}-tpm">${icon(st.more ? 'chevron-up' : 'chevron-down')}<span>${st.more ? 'Fewer titles' : 'More titles'}</span></button>${more}
     <div class="field tp-type"><label for="${pfx}-tq">Or type one, in your own words</label>
-      <input id="${pfx}-tq" type="text" value="${esc(q)}" maxlength="${OWN_MAX}" autocomplete="off" autocapitalize="none" spellcheck="true" placeholder="like youth soccer coach"
+      <input id="${pfx}-tq" type="text" value="${esc(q)}" maxlength="${OWN_MAX + 60}" autocomplete="off" autocapitalize="none" spellcheck="true" placeholder="like youth soccer coach"
         role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${pfx}-tpl">
       <div class="tp-box" id="${pfx}-tpb">${listHTML(pfx, st)}</div></div>`}
     ${addOnly ? `<div class="btnrow tp-done"><button type="button" class="btn secondary sm" data-tp-done>${icon('check')}<span>Done adding</span></button></div>` : ''}
@@ -95,6 +101,7 @@ export function wirePicker(root, pfx, st, onChange = () => {}) {
     box.innerHTML = listHTML(pfx, st);
     const os = opts(), open = os.length > 0;
     inp.setAttribute('aria-expanded', String(open));
+    if (box.querySelector('.tp-note')) inp.setAttribute('aria-describedby', `${pfx}-tpn`); else inp.removeAttribute('aria-describedby');
     if (open && st.active >= 0) inp.setAttribute('aria-activedescendant', `${pfx}-tpo${st.active}`); else inp.removeAttribute('aria-activedescendant');
     os.forEach(o => { o.onmousedown = e => e.preventDefault(); o.onclick = () => choose(o.dataset.tpo); });
   };

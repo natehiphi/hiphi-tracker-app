@@ -54,7 +54,17 @@ const BY = new Map(TITLES.map(t => [t.k, t]));
 
 export const isOwn = t => typeof t === 'string' && t.startsWith('own:');
 export const ownWords = t => isOwn(t) ? t.slice(4) : '';
-export const tidyOwn = s => String(s || '').replace(/[<>\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, OWN_MAX);
+// Their words go into a sentence ("As a nurse, I support ..."), so the tidy-up keeps that sentence clean (R-212 #10, the
+// walk): a comma or colon they ended with would print "nurse,, I support", and "a nurse" would print "As a a nurse". A
+// full stop stays only after an initial ("R.N."). Too long for the 40 the database keeps (migration 125): cut at the last
+// whole word, never mid-word; the box says so before it happens (titlepick.js ownNote).
+const prepOwn = s => String(s || '').replace(/[<>\u0000-\u001f]/g, '').replace(/\s+/g, ' ').replace(/\s*([,;:])[\s,;:]*/g, '$1 ').trim()
+  .replace(/^(?:(?:i['’]?m|i am|as)\s+)?(?:an?|the)\s+(?=\S)/i, '');
+export const tidyOwn = s => { let w = prepOwn(s);
+  if (w.length > OWN_MAX) { const cut = w.slice(0, OWN_MAX + 1); w = cut.includes(' ') ? cut.slice(0, cut.lastIndexOf(' ')) : w.slice(0, OWN_MAX); }
+  return w.replace(/[\s,;:\-–—&/]+$/, '').replace(/(?<!\b\p{L})\.+$/u, '').replace(/\s+(?:and|or|of|for|with|in|at|to)$/i, '').trim(); };
+// Over the 40 a title keeps: how many letters and spaces to take out to keep it all, so the box can say it (0 when it fits).
+export const ownOver = s => Math.max(0, prepOwn(s).length - OWN_MAX);
 export const ownKey = s => { const w = tidyOwn(s); return w ? 'own:' + w : ''; };
 export const titleOf = k => BY.get(k) || null;
 // The chip's words; a person's own title is their words exactly.
@@ -73,7 +83,7 @@ export const cleanTitles = arr => { const seen = new Set(), out = [];
   return out.slice(0, TITLES_MAX); };
 // "a" or "an" before the first title.
 // An abbreviation goes by its first letter's sound ("an EMT", "a UH professor"); a word by its first letter ("an aide").
-const article = w => { const first = String(w).split(/\s+/)[0];
+const article = w => { const first = String(w).split(/\s+/)[0].replace(/\./g, ''); // "R.N." is "an RN"
   if (/^[A-Z]{2,}$/.test(first)) return /^[AEFHILMNORSX]/.test(first) ? 'an' : 'a';
   return /^[aeiou]/i.test(w) && !/^(uni|use|one|eu)/i.test(w) ? 'an' : 'a'; };
 

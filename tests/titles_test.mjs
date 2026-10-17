@@ -42,5 +42,11 @@ ok(T.listKeyFor('  Teacher  ') === 'teacher' && T.listKeyFor('teacher (kumu)') =
 ok(!T.TITLES.some(t => /vap/i.test(t.say + t.label + (t.words ? t.words.source : ''))), 'no "vape" wording (e-cigarettes, R-158)');
 ok(T.cleanTitles(Array.from({ length: 14 }, (_, i) => 'own:t' + i)).length === T.TITLES_MAX, `at most ${T.TITLES_MAX} titles`);
 ok(T.ownKey('x'.repeat(60)).length === 4 + T.OWN_MAX, `own words are cut at ${T.OWN_MAX} characters`);
+// R-212 #10 (the walk): own words go into "As a ..., I support", so they end clean and are never cut mid-word.
+ok(T.asWords([T.ownKey('youth coach,')]) === 'As a youth coach' && T.tidyOwn('nurse,, mom') === 'nurse, mom', 'no double comma from a comma they typed');
+ok(T.tidyOwn("I'm a youth soccer coach") === 'youth soccer coach' && T.tidyOwn('an EMT') === 'EMT' && T.tidyOwn('I’m a nurse') === 'nurse', 'no "As a a ..." from an article they typed');
+ok(T.tidyOwn('retired public school teacher and coach for thirty years') === 'retired public school teacher and coach', 'a long title is cut at a whole word, and a dangling "and" goes');
+ok(T.tidyOwn('R.N.') === 'R.N.' && T.asWords([T.ownKey('R.N.')]) === 'As an R.N.', 'an initial keeps its full stop and takes "an"');
+ok(T.ownOver('x'.repeat(45)) === 5 && T.ownOver('nurse') === 0, 'ownOver says how far past 40 the box is');
 
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
