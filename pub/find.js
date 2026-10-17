@@ -33,20 +33,27 @@ const openWords = si => si.nextOpen ? new Date(si.nextOpen + 'T12:00:00-10:00').
 
 // ---------------- search ----------------
 // Synonym groups: typing any word in a group also searches the others. Phrases ("sugary drink") are matched whole.
+// Words match whole (R-212 #2: "tax" found "taxi" and "taxpayer"), with a plural ending allowed, so every spelling a
+// bill uses is listed here ("e-cigarette", not "e-cig" as the start of it).
 // The official descriptions say "electronic smoking device" and HIPHI says "e-cigarette" (R-158) where many people still
 // say "vape", so all three are in one group: someone who types "vape" finds the e-cigarette bills.
 const SYN = [
-  ['vape', 'vaping', 'vapor', 'e-cig', 'ecig', 'electronic smoking', 'electronic cigarette', 'flavored'],
+  ['vape', 'vaping', 'vapor', 'vapor product', 'e-cig', 'ecig', 'e-cigarette', 'ecigarette', 'electronic smoking', 'electronic cigarette', 'flavored'],
   ['keiki', 'kids', 'children', 'child', 'youth'],
   ['lunch', 'meal'],
   ['soda', 'sugary drink', 'sugary beverage', 'sugar-sweetened', 'sweetened beverage'],
 ];
 const STOP = new Set(['the', 'a', 'an', 'and', 'or', 'of', 'for', 'to', 'in', 'on', 'about', 'with', 'bill', 'bills', 'act']);
 const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// A word joins a group when it is one of its words (or its plural), or the start of one being typed ("chil").
+// The word without a plural ending, both ways ("taxes": "tax", "taxe"; "e-cigarettes": "e-cigarette"), so a plural typed
+// finds the singular too.
+const singles = w => w.length > 3 ? [/es$/, /s$/].filter(r => r.test(w)).map(r => w.replace(r, '')) : [];
 function termsFor(w) {
-  const g = SYN.find(g => g.some(t => w === t || w.startsWith(t) || (w.length >= 4 && t.startsWith(w))));
-  return [...new Set([w, ...(g || [])])];
+  const g = SYN.find(g => g.some(t => w === t || singles(w).includes(t) || t === w + 's' || (w.length >= 4 && t.startsWith(w))));
+  return [...new Set([w, ...singles(w), ...(g || [])])];
 }
+const wholeRe = terms => new RegExp(`(?:^|[^a-z0-9])(?:${terms.map(reEsc).join('|')})(?:s|es|'s)?(?![a-z0-9])`);
 // "hb 1563", "HB1563" and "1563" are bill numbers; anything else is words.
 function parse(q) {
   const raw = plain(q).replace(/[^a-z0-9\s-]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -56,14 +63,15 @@ function parse(q) {
   for (const g of SYN) for (const t of g) if (t.includes(' ') && rest.includes(` ${t}`)) { words.push(t); rest = rest.replace(` ${t}`, ' '); }
   words.push(...rest.split(' ').filter(w => w && !STOP.has(w) && (w.length > 1 || /\d/.test(w))));
   const uniq = [...new Set(words)];
-  return { key: 'w:' + uniq.join(' '), words: uniq.map(w => ({ w, re: new RegExp(`(?:^|[^a-z0-9])(?:${termsFor(w).map(reEsc).join('|')})`), terms: termsFor(w) })) };
+  // re: whole words; pre: words that start with it, used only when no bill has the whole word ("educat").
+  return { key: 'w:' + uniq.join(' '), words: uniq.map(w => ({ w, re: wholeRe(termsFor(w)), pre: new RegExp(`(?:^|[^a-z0-9])(?:${termsFor(w).map(reEsc).join('|')})`), terms: termsFor(w) })) };
 }
 // Where a word is found decides how high the bill ranks: the nickname first (it is the name people have seen), then
 // HIPHI's summary and ask, the official title last.
 const FIELDS = [['hiphi_nickname', 8], ['hiphi_summary', 6], ['hiphi_action', 4], ['description', 3], ['title', 2]];
 const hay = new WeakMap();
 const fieldsOf = b => { let f = hay.get(b); if (!f) { f = FIELDS.map(([k, w]) => [plain(k === 'hiphi_nickname' ? nick(b) : b[k] || ''), w]); hay.set(b, f); } return f; };
-function score(b, P) {
+function score(b, P, k = 're') {   // null when nothing matches
   if (P.num) {
     const m = /^([A-Z]+)\s*(\d+)/.exec(String(b.bill_number).toUpperCase()); if (!m) return null;
     if (P.num.pre && !m[1].startsWith(P.num.pre)) return null;
@@ -71,7 +79,7 @@ function score(b, P) {
     return m[2].startsWith(P.num.n) ? { hits: 1, pts: 40 } : null;
   }
   let hits = 0, pts = 0;
-  for (const w of P.words) { const best = Math.max(0, ...fieldsOf(b).filter(([t]) => w.re.test(t)).map(([, wt]) => wt)); if (best) { hits++; pts += best; } }
+  for (const w of P.words) { const best = Math.max(0, ...fieldsOf(b).filter(([t]) => w[k].test(t)).map(([, wt]) => wt)); if (best) { hits++; pts += best; } }
   if (!hits) return null;
   return { hits, pts: pts + (posInfo(b) ? 20 : b.hiphi_follows ? 5 : 0) + (b.hiphi_summary ? 3 : 0) };
 }
@@ -91,33 +99,81 @@ export function peopleMatches(q, n = 6) {
 }
 const PEOPLE_LABEL = 'People and committees';
 const peopleRow = p => row({ leadHtml: `<span class="lead">${icon(p.icon)}</span>`, title: esc(p.title), sub: esc(p.sub), href: p.href });
-// Every word must match; if nothing does, fall back to bills that match the most words.
-function rank(cands, P) {
+// Every word must match; if nothing does, fall back to bills that match the most words. Whole words first; only when
+// no bill has them, words that start with them. The list says which of these happened (searchNote, R-212 #2), so it
+// carries: total (matches before the cap of 80), fewer (not every word), partial (word starts), also (synonyms found).
+const CAP = 80;
+function rank(cands, P, more = false) {
   if (P.words && !P.words.length) return [];
-  const seen = new Set(), all = [];
-  for (const b of cands) { if (seen.has(b.id)) continue; seen.add(b.id); const s = score(b, P); if (s) all.push({ b, ...s }); }
-  const need = P.num ? 1 : P.words.length;
-  let out = all.filter(x => x.hits >= need);
-  if (!out.length && need > 1) { const top = Math.max(0, ...all.map(x => x.hits)); out = all.filter(x => x.hits === top); }
-  return out.sort((x, y) => y.pts - x.pts || numCmp(x.b, y.b)).slice(0, 80).map(x => x.b);
+  const uniq = [], seen = new Set();
+  for (const b of cands) if (!seen.has(b.id)) { seen.add(b.id); uniq.push(b); }
+  // Every word as whole words, then every word as word starts ("educat funding"), then the most words each way.
+  const need = P.num ? 1 : P.words.length, scored = {};
+  const all = k => scored[k] || (scored[k] = uniq.map(b => ({ b, ...score(b, P, k) })).filter(x => x.hits));
+  const every = k => ({ out: all(k).filter(x => x.hits >= need), fewer: false, k });
+  const most = k => { const top = Math.max(0, ...all(k).map(x => x.hits)); return { out: all(k).filter(x => x.hits === top), fewer: true, k }; };
+  const tries = [() => every('re'), ...(P.words ? [() => every('pre')] : []), ...(need > 1 ? [() => most('re'), () => most('pre')] : [])];
+  let r = { out: [], fewer: false, k: 're' };
+  for (const t of tries) { r = t(); if (r.out.length) break; }
+  const partial = r.out.length > 0 && r.k === 'pre';
+  const res = r.out.sort((x, y) => y.pts - x.pts || numCmp(x.b, y.b)).slice(0, CAP).map(x => x.b);
+  res.total = r.out.length; res.more = more || r.out.length > CAP; res.fewer = r.fewer; res.partial = partial;
+  // Synonyms that brought in a bill: the group's other words, not the typed word or words it is the start of ("chil").
+  // They are named by how many bills each brought in that the typed word alone would not, so a surprising one ("flavored")
+  // is not hidden behind the obvious ones; the "vape" words are left out of HIPHI's sentence (R-158).
+  const own = w => wholeRe([w.w, ...singles(w.w)]), n = new Map();
+  if (P.words) for (const w of P.words) for (const t of w.terms) {
+    if (t === w.w || t.startsWith(w.w) || singles(w.w).includes(t) || /^vap/.test(t)) continue;
+    const re = wholeRe([t]), k = res.filter(b => fieldsOf(b).some(([f]) => re.test(f)) && !fieldsOf(b).some(([f]) => own(w).test(f))).length;
+    if (k) n.set(t, Math.max(k, n.get(t) || 0));
+  }
+  res.also = [...n].sort((x, y) => y[1] - x[1]).map(x => x[0]);
+  return res;
 }
-// The live page asks the database for candidates (every word, with its synonyms, in any of the text columns), then
-// ranks them here with the same rules as the sandbox. HIPHI's bills are fetched separately so a common word
+// One quiet line above the results when the list is not simply "the bills with these words", and one after the bills
+// when the list stopped at 80 (it is about the end of the list, and the sections' own counts add up to it).
+const quote = ws => ws.map(t => `“${esc(t)}”`).join(ws.length === 2 ? ' or ' : ', ').replace(/, (?=[^,]*$)/, ', or ');
+function searchNote(res, P) {
+  if (!res.length || P.num) return '';
+  const one = P.words.length === 1, out = [];
+  if (res.partial) out.push(one ? `Showing bills with words that start with “${esc(P.words[0].w)}”.` : `Showing bills with words that start with ${res.fewer ? 'some of ' : ''}what you typed.`);
+  else if (res.fewer) out.push('No bill has every word you typed, so these have the most of them.');
+  if (res.also.length) out.push(`Also shows bills that say ${quote(res.also.slice(0, 3))}.`);
+  return out.length ? `<p class="fd-note">${out.join(' ')}</p>` : '';
+}
+const capNote = res => res.more ? `<p class="fd-note">That’s the first ${res.length}. Add a word to narrow the list.</p>` : '';
+// The live page asks the database for candidates (every word, with its synonyms, as a whole word in any of the text
+// columns; `start` for words that start with it), then ranks them here with the same rules as the sandbox. The database
+// matches whole words too, so its row limit counts only real matches ("fire" is not crowded out by "firearm", R-212 #2). HIPHI's bills are fetched separately so a common word
 // ("school") cannot push them past the row limit. The nickname column arrived with migration 056; if a database
 // does not have it, the search quietly carries on without it rather than failing.
 let NICK_COL = true;
-async function serverSearch(P, any = false) {
+async function serverSearch(P, any = false, start = false) {
   const sb = await supa(), cols = [...(NICK_COL ? ['hiphi_nickname'] : []), 'hiphi_summary', 'description', 'title'];
   const clean = t => t.replace(/[^a-z0-9 -]/g, '').trim();
-  const inner = w => w.terms.map(clean).filter(Boolean).flatMap(t => cols.map(c => `${c}.ilike."*${t}*"`)).join(',');
+  // Postgres word edges ([[:<:]] and [[:>:]]) need no backslashes inside PostgREST's quoted values.
+  const pat = w => `[[:<:]](${w.terms.map(clean).filter(Boolean).join('|')})${start ? '' : '(s|es)?[[:>:]]'}`;
+  const inner = w => cols.map(c => `${c}.imatch."${pat(w)}"`).join(',');
   const filter = P.num ? `bill_number.ilike.${P.num.pre}*${P.num.n}*` : any ? P.words.map(inner).join(',') : `and(${P.words.map(w => `or(${inner(w)})`).join(',')})`;
   const q = () => sb.from('public_all_bills').select('*').or(filter);
   // The rest of the session: the 80 most recently active that match (the first 80 by number cut off the latest ones).
   const [a, b] = await Promise.all([q().not('hiphi_position', 'is', null).limit(150), q().order('last_action_date', { ascending: false, nullsFirst: false }).limit(80)]);
   const bad = a.error || b.error;
-  if (bad && NICK_COL && !P.num && /hiphi_nickname/.test(bad.message || '')) { NICK_COL = false; return serverSearch(P, any); }
+  if (bad && NICK_COL && !P.num && /hiphi_nickname/.test(bad.message || '')) { NICK_COL = false; return serverSearch(P, any, start); }
   if (bad) throw bad;
-  return [...(a.data || []), ...(b.data || [])];
+  const out = [...(a.data || []), ...(b.data || [])];
+  out.capped = (b.data || []).length >= 80;   // the database stopped at its limit: more bills may match
+  return out;
+}
+// Every word as whole words; then every word as word starts; then any word, whole and then word starts.
+async function liveRank(P) {
+  const multi = P.words?.length > 1;
+  for (const [any, start] of [[false, false], [false, true], [true, false], [true, true]]) {
+    if ((any && !multi) || (start && P.num)) continue;
+    const c = await serverSearch(P, any, start), res = rank(c, P, c.capped);
+    if (res.length || P.num) return res;
+  }
+  return rank([], P);
 }
 // Bills nobody here follows arrive without their hearings, and a status chip without the hearing would say
 // "waiting" when a hearing is set. Load hearings for the moving ones (the same cache the bill page uses, S.xh).
@@ -144,7 +200,7 @@ function startSearch(q) {
   (async () => {
     let res;
     if (DEMO) res = rank([...D.bills, ...D.index], P);
-    else { res = rank(await serverSearch(P), P); if (!res.length && P.words?.length > 1) res = rank(await serverSearch(P, true), P); }
+    else { res = await liveRank(P); }
     await ensureHearings(res.slice(0, 40));
     return res;
   })().then(res => { if (my !== F.seq) return; F.cache.set(P.key, res); if (F.cache.size > 20) F.cache.delete(F.cache.keys().next().value); F.res = res; })
@@ -265,10 +321,10 @@ function resultsBody(q, res) {
     <section aria-labelledby="fd-or-h">${sechead('fd-or-h', 'Or browse issues')}${issueTiles()}</section>`;
   const key = parse(q).key, mv = res.filter(moving), law = res.filter(becameLaw), gone = res.filter(stopped);
   const tag = once();
-  return `${issSec}${whoSec}${mv.length ? `<section aria-labelledby="fd-mv-h">${sechead('fd-mv-h', 'Moving now', tag(plural(mv.length, 'bill'), mv))}${capped('q:' + key, mv, { pos: true }, 12)}</section>`
+  return `${searchNote(res, parse(q))}${issSec}${whoSec}${mv.length ? `<section aria-labelledby="fd-mv-h">${sechead('fd-mv-h', 'Moving now', tag(plural(mv.length, 'bill'), mv))}${capped('q:' + key, mv, { pos: true }, 12)}</section>`
       : `<p class="fd-none">${offSeason() ? `The ${sessionInfo().recapYear} session is over. Here’s where these bills ended up.` : `Nothing that matches “${esc(q)}” is moving right now.`}</p>`}
     ${law.length ? `<section aria-labelledby="fd-law-h">${sechead('fd-law-h', 'Became law', tag(plural(law.length, 'bill'), law))}${billList(law, { pos: true })}</section>` : ''}
-    ${gone.length ? fold('fd-q-' + key, `Did not advance${!mv.length && !law.length ? ` in ${[...new Set(gone.map(b => +b.session_year || sessionInfo().yr))].sort().join(' and ')}` : ''} (${gone.length})`, billList(gone, { why: true }), { open: !mv.length && !law.length }) : ''}`;
+    ${gone.length ? fold('fd-q-' + key, `Did not advance${!mv.length && !law.length ? ` in ${[...new Set(gone.map(b => +b.session_year || sessionInfo().yr))].sort().join(' and ')}` : ''} (${gone.length})`, billList(gone, { why: true }), { open: !mv.length && !law.length }) : ''}${capNote(res)}`;
 }
 // Nothing typed yet: the issues first (people follow issues, R-018), then HIPHI's lists, then bills that need voices
 // this week. The page keeps one main button: the first suggestion is a full action card, and the others are plain
@@ -492,7 +548,7 @@ export function headerSuggest(q) {
   if (P.words && !P.words.length) return { groups: groups([]) };
   if (SUG.has(P.key)) return { groups: groups(SUG.get(P.key)) };
   if (DEMO) return { groups: groups(sugKeep(P.key, rank([...D.bills, ...D.index], P))) };
-  const more = (async () => { let res = rank(await serverSearch(P), P); if (!res.length && P.words?.length > 1) res = rank(await serverSearch(P, true), P); return res; })()
+  const more = liveRank(P)
     .then(res => groups(sugKeep(P.key, res)));
   return { groups: groups([]), more };
 }
