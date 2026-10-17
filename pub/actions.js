@@ -3,7 +3,7 @@
 // One primary button (write testimony, or email the chair once the written deadline has passed), one secondary
 // ("More ways to help") that opens inside the card, never a sheet. Every action counts (Nate, 9/18).
 import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, anyBill, anyHearing, settledOn, goingOn, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, followedIssues, CHAMBER_NAME, codesOf, suggestEvent } from './core.js';
-import { testifyLabel, againLine, mailLabel, letterOn, HELP_WORDS } from './letters.js';
+import { testifyLabel, againLine, mailLabel, letterOn } from './letters.js';
 import { logAct } from './visitlog.js';
 import { issueBand } from './art.js';
 import { armOf, abRankMet, abSeen, shareTag } from './variant.js';
@@ -66,13 +66,6 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   // the person's own stance, so someone who disagrees with HIPHI is helped too. The quick email is one of the other ways.
   // The quick email is the email walkthrough now (R-079, 9/29): data-mailwalk opens it in pub/helper.js, like testimony.
   const differs = agrees(b) === false, emailFirst = false;
-  // Say we help, not just "write testimony" (R-296, Nate 10/17): the walkthrough does the hard part with them, and a
-  // first-timer could not tell. Only beside the plain "Help me write testimony" (not a draft to finish or a letter to send
-  // again); "First time?" goes once they have testified anywhere. Someone who sees the bill differently writes in their
-  // own words, so their line does not promise HIPHI's points.
-  const helpNow = !compact && testifyLabel(b, h, late) === HELP_WORDS && !didKind(b, h, 'testimony');
-  const firstTime = helpNow && ![...S.done].some(x => x.endsWith('|testimony'));
-  const helpLine = helpNow ? `<p class="helpline">We walk you through it, one short step at a time.${differs ? '' : ' Pick the points you agree with and we start the letter for you.'}</p>` : '';
   const testimonyBtn = btn(testifyLabel(b, h, late), { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-helper': h.id, 'data-bill': b.id } });
   const mailWords = mailLabel(b, 'email|' + h.id, 'Send a quick email · 2 min');   // "Send my email again" when one is ready (R-153)
   const emailBtn = btn(mailWords, { kind: 'primary', icon: 'mail', full: true, attrs: { 'data-mailwalk': k } });
@@ -99,7 +92,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     share: btn('Ask a friend to speak up', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-share': k } }) };
   const primary = asking ? followBtn
     : R ? (step ? rankedBtn[step] + (step === 'attend' && S.goOpen.has(k) ? goPanel(b, h, k) : '') : '')
-    : emailFirst ? (didKind(b, h, 'email') ? '' : emailBtn) : (didKind(b, h, 'testimony') ? '' : testimonyBtn + helpLine);
+    : emailFirst ? (didKind(b, h, 'email') ? '' : emailBtn) : (didKind(b, h, 'testimony') ? '' : testimonyBtn);
   const rowFor = x => ({
     testimony: differs ? '' : moreRow('notebook-pen', late ? 'Send late testimony' : 'Write testimony', late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. About 15 minutes the first time (the Capitol site asks for a free account), a few after that.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent'),
     email: differs ? '' : moreRow('mail', mailWords, `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
@@ -147,7 +140,6 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     ${done ? `<div class="donebox" role="status">${icon('circle-check')}<span>${doneKinds.includes('testimony') ? 'You sent testimony. Mahalo!' : doneKinds.map(x => doneLabel(b, h, x)).join(' · ') + '. Mahalo!'}</span>${sentLetter}${lastDone ? `<button type="button" class="btn text sm" data-undo="${esc(k)}|${lastDone}" aria-label="Undo: ${esc(doneLabel(b, h, lastDone))}">Undo</button>` : ''}${emailOnly ? `<p class="small doneafter">Written testimony is different: the committee reads it before it votes.</p>` : ''}</div>` : ''}
 
     ${voices && !emailOnly ? `<p class="proof">${icon('users')}${voices} people have acted on this hearing through HIPHI</p>` : ''}
-    ${firstTime && primary.includes('data-helper') ? `<p class="firsttime">${icon('heart-handshake')}<span>First time? We’ll walk you through it.</span></p>` : ''}
     <div class="btncol">${compact ? '' : primary}${askBtn}
       ${btn(more ? 'Fewer ways to help' : 'More ways to help', { kind: 'secondary', iconEnd: more ? 'chevron-up' : 'chevron-down', full: true, attrs: { 'data-moreways': k, 'aria-expanded': more ? 'true' : 'false', 'aria-controls': 'mw-' + h.id } })}</div>
     ${planned ? planBlock(b, h, k, lastDone !== 'attend') : ''}
