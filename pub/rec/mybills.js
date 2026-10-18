@@ -9,7 +9,7 @@
 import { S, DEMO, app, esc, icon, unfollowIssue, setFollows, catOf, sessionInfo } from '../core.js';
 import { btn } from '../ui.js';
 import { recSec, recRow, recEmpty, wireKit } from './kit.js';
-import { myRows } from '../calm/home.js';
+import { myRows, keep } from '../calm/home.js';
 import { followToggle } from '../actions.js';
 import { nameOf, letGo } from '../mybills.js';
 import { ownLists, followedLists, localFollowed, myListsSection } from '../mylists.js';
@@ -30,7 +30,7 @@ function targetOf(r) {
 function rowHtml(r, edit) {
   const t = edit ? targetOf(r) : null;
   const a = `<a class="rc-row" href="${esc(r.href)}"><span class="rc-rtext"><span class="rc-rname">${r.fresh ? '<span class="rc-new" title="New since your last visit"><span class="sr">New since your last visit: </span></span>' : ''}${esc(r.name)}</span>
-    ${r.text ? `<span class="rc-rstat${r.warn ? ' warn' : ''}">${esc(r.text)}</span>` : ''}</span>${t ? '' : icon('chevron-right', { cls: 'rc-chev' })}</a>`;
+    ${r.text ? `<span class="rc-rstat${r.warn ? ' warn' : ''}">${esc(keep(r.text))}</span>` : ''}</span>${t ? '' : icon('chevron-right', { cls: 'rc-chev' })}</a>`;
   return `<li${t ? ' class="rc-frow"' : ''}>${a}${t ? btn('Stop following', { kind: 'text', sm: true, cls: 'rc-stop', attrs: { 'data-rc-stop': `${t.kind}:${t.id}`, 'aria-label': `Stop following ${t.label}` } }) : ''}</li>`;
 }
 // The person's own lists, the lists shared with them and HIPHI's lists they follow, as quiet rows. myListsSection is called
@@ -50,7 +50,7 @@ function render() {
   if (!document.querySelector('.rc-mine')) S.rcEdit = false;   // arriving afresh: not editing
   const si = sessionInfo(), off = si.phase !== 'in', rows = myRows(), lists = listRows();
   const edit = !!S.rcEdit && rows.length > 0;
-  const head = `<header class="rc-head rc-mhead"><h1 class="rc-h1">My issues</h1>${rows.length ? `<button type="button" class="btn text rc-edit" data-rc-edit aria-pressed="${edit}">${edit ? 'Done' : 'Edit'}</button>` : ''}</header>`;
+  const head = `<header class="rc-head rc-mhead"><h1 class="rc-h1">My issues</h1>${rows.length ? `<button type="button" class="btn text rc-edit" data-rc-edit aria-label="${edit ? 'Done editing' : 'Edit what you follow'}">${edit ? 'Done' : 'Edit'}</button>` : ''}</header>`;
   const links = `<div class="rc-links">${btn(off ? `What you did in ${si.recapYear}` : 'What you’ve done this session', { kind: 'text', iconEnd: 'chevron-right', href: '#/recap' })}
     ${btn('Follow more issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/find' })}</div>`;
   if (!rows.length && !lists.length) return `<div class="rc rc-mine" data-mbroot>${head}${recEmpty('You’re not following any issues yet. Follow one and it shows up here, with where it stands and what you can do.',

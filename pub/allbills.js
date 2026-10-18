@@ -12,7 +12,7 @@ import { S, D, DEMO, app, esc, icon, nick, plain, alive, stopOf, followYear, fin
 import { topicOf } from './topics.js';
 import { billList, fold, wireRows, byUrgency, numCmp } from './mybills.js';
 import { ensureHearings, matchAll } from './find.js';
-import { REC } from './rec/kit.js';
+import { REC, recBack } from './rec/kit.js';
 import { btn, skeleton, empty } from './ui.js';
 
 const A = S.ab ??= { yr: 0, rows: null, busy: false, err: '', q: '', topic: '', pos: '', stand: '', fOpen: false, all: {},
@@ -166,10 +166,17 @@ function groupsHTML() {
 const countLine = () => { const n = shown().length; return `${n} bill${n === 1 ? '' : 's'}${A.q.trim() || activeN() ? ' match' + (n === 1 ? 'es' : '') : ''}`; };
 const fLabel = () => `Filters${activeN() ? ` · ${activeN()}` : ''}`;
 
+// Under ?rec=1 the page is reached from Find (its foot and its search results), so it says the way back (B-4), named for the
+// page behind it, as every calm page below a tab does (R-303).
+function backRow() {
+  if (!REC()) return '';
+  const prev = history.state?.prev, name = prev && !/^#\/allbills/.test(prev) ? app.placeName?.(prev) : '';
+  return recBack(name ? prev : '#/find', name || 'Find');
+}
 function render() {
   const yr = followYear();
   load(yr);
-  const head = `<header class="pagehead"><h1 class="hero">Every bill HIPHI tracks</h1>`;
+  const head = `${backRow()}<header class="pagehead"><h1 class="hero">Every bill HIPHI tracks</h1>`;
   if (A.err && !A.rows) return `<div class="ab">${head}</header>${empty({ title: A.err, text: 'Check your connection and try again.', action: btn('Try again', { kind: 'primary', attrs: { 'data-ab-retry': '' } }) })}</div>`;
   if (!A.rows || A.yr !== yr) return `<div class="ab">${head}</header>${skeleton(6)}</div>`;
   const n = A.rows.length, open = A.fOpen || activeN() > 0;
@@ -177,8 +184,8 @@ function render() {
   const lede = n ? `${yr} session · ${n} bills` : `HIPHI hasn’t added its ${yr} bills yet.`;
   // On a phone the filters wait behind one button (open by itself while one is set, so a person sees what narrowed
   // the list); from 900px they are always a row above the table and the button is hidden.
-  return `<div class="ab">
-    <div class="ab-top">${head}<p class="lede">${lede}</p></header>
+  return `<div class="ab">${backRow()}
+    <div class="ab-top"><header class="pagehead"><h1 class="hero">Every bill HIPHI tracks</h1><p class="lede">${lede}</p></header>
     ${n ? `<div class="ab-tools" role="search">
       <div class="ab-q"><label class="sr" for="ab-q">Search these bills</label>${icon('search')}<input id="ab-q" class="input" type="search" placeholder="${REC() && matchMedia('(max-width: 599px)').matches ? 'Name or number' : 'Search by name or number'}" value="${esc(A.q)}" autocomplete="off" enterkeyhint="search"></div>
       <button type="button" class="btn secondary ab-fbtn" aria-expanded="${open}" aria-controls="ab-filters" data-ab-fbtn>${icon('sliders-horizontal')}<span>${fLabel()}</span></button>
@@ -220,4 +227,5 @@ function wire() {
   const list = document.getElementById('ab-list'); if (list) wireList(list);
 }
 
-export default { tab: 'more', title: () => 'Every bill HIPHI tracks', render, wire };
+// Under ?rec=1 it belongs to Find, where it is reached from (R-303); today it is a row under More.
+export default { tab: REC() ? 'find' : 'more', title: () => 'Every bill HIPHI tracks', render, wire };

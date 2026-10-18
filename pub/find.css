@@ -152,6 +152,7 @@ body.rec .rc-find .fd-stale { opacity: .55; }
 body.rec .rc-frow { display: flex; align-items: center; gap: var(--s8); }
 body.rec .rc-frow > .rc-row { flex: 1 1 auto; min-width: 0; margin-right: 0; }
 body.rec .rc-frow > .btn { flex: none; min-height: 44px; }
+body.rec .rc-frow > .btn.text { margin-right: calc(-1 * var(--s12)); }   /* its words end where the outlined buttons and Edit end */
 body.rec .rc-follow.on { color: var(--n700); }
 body.rec .rc-follow.on .ic { color: var(--ok-text, var(--p700)); }
 @media (min-width: 1100px) {

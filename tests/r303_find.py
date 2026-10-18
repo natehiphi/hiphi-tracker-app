@@ -120,12 +120,18 @@ async def main():
                     who_txt = await pg.evaluate("document.getElementById('fd-who-h')?.closest('section')?.innerText || ''")
                     check(who_txt and not re.search(r'\([A-Z]{2,4}\)', who_txt), f'{tag} search health: committees without their codes')
                     await search(pg, 'how to testify')
-                    check(await pg.evaluate("!!document.querySelector('.rc-places a[href=\"#/help\"]')"), f'{tag} search how to testify: a row to Help')
+                    check(await pg.evaluate("!!document.querySelector('.rc-places a[href=\"#/help\"]') && !document.querySelector('#fd-results .rc-rows a[href^=\"#/bill/\"]')"), f'{tag} search how to testify: a row to Help, and no bills with only "how"')
                     await search(pg, 'my senator')
                     check(await pg.evaluate("!!document.querySelector('.rc-places a[href=\"#/legislators\"]')"), f'{tag} search my senator: a row to your lawmakers')
                     await search(pg, 'HB1563')
-                    check(await pg.evaluate("(document.querySelector('#fd-results .rc-rpart')?.innerText || '').startsWith('Part of: ') && !document.querySelector('#fd-results h2')"), f'{tag} search HB1563: the bill with the issue it is part of, no heading')
+                    t1563 = await pg.evaluate("document.getElementById('fd-results').innerText")
+                    check(t1563.count('Let counties regulate tobacco sales') == 1 and 'HB 1563' in t1563 and not await pg.evaluate("!!document.querySelector('#fd-results h2')"), f'{tag} search HB1563: the bill once (its issue has its name), no heading')
+                    await search(pg, 'HB1803')
+                    check((await pg.evaluate("document.querySelector('#fd-results .rc-rpart')?.innerText || ''")).startswith('Part of: Protect students from extreme heat'), f'{tag} search HB1803: the bill with the issue it is part of')
                     check(not await pg.evaluate(WIDE), f'{tag} search: no sideways scroll')
+                if who == 'leilani':
+                    await search(pg, 'e-cigarettes')
+                    check(re.search(r'which you follow|You follow this issue', await pg.evaluate("document.getElementById('fd-results').innerText")) is not None, f'{tag} leilani search e-cigarettes: a bill on an issue she follows says so')
                 # ---- My issues ----
                 if who != 'none':
                     await go(pg, '#/', '#main .cm-rows, #main .cm')
@@ -161,6 +167,7 @@ async def main():
             check(ph == ('Name or number' if tag == 'phone' else 'Search by name or number'), f'{a}: the placeholder ({ph})')
             check(await pg.evaluate("document.body.innerText.includes('Waiting for a hearing') && !document.body.innerText.includes('Waiting in committee')"), f'{a}: "Waiting for a hearing", one word')
             check(await pg.evaluate("!document.querySelector('.hdr .hsearch') || !document.querySelector('.hdr .hsearch').offsetParent"), f'{a}: no header search box')
+            check(await pg.evaluate("document.querySelector('.ab .rc-back')?.innerText.trim() === 'Find' && [...document.querySelectorAll('[aria-current=page]')].some(x => x.offsetParent && /Find/.test(x.innerText))"), f'{a}: "← Find" and the Find tab lit')
             if tag == 'phone':
                 check(await pg.evaluate("(() => { const f = [...document.querySelectorAll('#ab-list details.mb-fold')]; return f.length >= 2 && f.every(d => !d.open) && document.querySelector('#ab-list > :first-child').matches('section.ab-grp'); })()"), f'{a}: the first group open, the rest closed')
             for word, least in [('vape', 1), ('keiki', 3), ('kim', 0)]:

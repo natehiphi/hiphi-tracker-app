@@ -18,13 +18,14 @@ import F0, { parse, startSearch, searchNote, capNote, issueMatches, peopleMatche
   hiphis, shows } from '../find.js';
 import { moving, becameLaw, stopped, billsOfIssue, what } from '../mybills.js';
 import { recSec, recRow, recFold, recEmpty, wireKit } from './kit.js';
-import { when } from '../calm/home.js';
+import { when, keep } from '../calm/home.js';
 export { headerSuggest } from '../find.js';   // the header's suggestions (app.js asks the find screen's module for them)
 
 const F = S.fd;   // find.js's search state: the query, its results, the cache, which lists are open
 const DAY = 864e5;
 // "Waiting for a hearing · 12 days left": a row says the one phrase; the bill page has the days (R-303, one word each).
 const LEFT = / · \d+ days? left$/;
+const at = iso => keep(when(iso)), on = d => keep(dateLong(d + 'T12:00:00-10:00'));
 
 // ---------------- one line for where a thing stands, in Home's words ----------------
 // An issue: testimony due (amber inside a day, A-5), else its next hearing, else the day it needs a hearing by, else where
@@ -36,14 +37,14 @@ export function issueLine(i) {
   const live = bills.filter(moving), sts = live.map(stopOf);
   const hs = sts.filter(st => st.hearingState === 'scheduled' && st.hearing && Date.parse(st.hearing.scheduled_at) > now).map(st => st.hearing);
   const due = hs.filter(h => h.testimony_deadline && Date.parse(h.testimony_deadline) > now).sort((x, y) => x.testimony_deadline.localeCompare(y.testimony_deadline))[0];
-  if (due) return { text: `Testimony due ${when(due.testimony_deadline)}`, warn: Date.parse(due.testimony_deadline) - now < DAY };
+  if (due) return { text: `Testimony due ${at(due.testimony_deadline)}`, warn: Date.parse(due.testimony_deadline) - now < DAY };
   const h = hs.sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
-  if (h) return { text: `Hearing ${when(h.scheduled_at)}` };
+  if (h) return { text: `Hearing ${at(h.scheduled_at)}` };
   const dl = sts.filter(st => st.phase === 'committee' && st.hearingState === 'none' && st.deadline && !st.deadline.missed).map(st => st.deadline.date).sort()[0];
-  if (dl) { const at = Date.parse(dl + 'T12:00:00-10:00'); return { text: `Needs a hearing by ${dateLong(dl + 'T12:00:00-10:00')}`, warn: at - now < DAY }; }
+  if (dl) return { text: `Needs a hearing by ${on(dl)}`, warn: Date.parse(dl + 'T12:00:00-10:00') - now < DAY };
   if (live.length) return { text: plainStatus(live[0]).short.replace(LEFT, '') };
   if (bills.some(becameLaw)) return { text: 'Became law' };
-  return { text: bills.length ? 'Nothing moving' : 'No bills on it yet' };
+  return { text: bills.length ? 'Did not advance this year' : 'No bills on it yet' };   // Home's words (calm/home.js stateOf, C-15)
 }
 // A bill: its number, then the same phrases ("HB 1563 · Waiting for a hearing").
 export function billLine(b) {
@@ -51,14 +52,17 @@ export function billLine(b) {
   if (stopped(b)) return { text: `${num} · ${plainStatus(b).short}` };
   const st = stopOf(b), h = alive(b) && st.hearingState === 'scheduled' && st.hearing && Date.parse(st.hearing.scheduled_at) > now ? st.hearing : null;
   if (h) { const dl = h.testimony_deadline && Date.parse(h.testimony_deadline) > now ? h.testimony_deadline : '';
-    return dl ? { text: `${num} · Testimony due ${when(dl)}`, warn: Date.parse(dl) - now < DAY } : { text: `${num} · Hearing ${when(h.scheduled_at)}` }; }
+    return dl ? { text: `${num} · Testimony due ${at(dl)}`, warn: Date.parse(dl) - now < DAY } : { text: `${num} · Hearing ${at(h.scheduled_at)}` }; }
   return { text: `${num} · ${plainStatus(b).short.replace(LEFT, '')}` };
 }
 const billName = b => nick(b) || what(b, 90);
-const billRow = b => { const l = billLine(b); return recRow({ name: billName(b), text: l.text, warn: l.warn, href: billPath(b) }); };
-// A bill found by its number says which issue it is part of (the issue is what people follow, R-018).
-const numRow = b => { const l = billLine(b), on = issuesOf(b);
-  return `<li><a class="rc-row" href="${esc(billPath(b))}"><span class="rc-rtext"><span class="rc-rname">${esc(billName(b))}</span><span class="rc-rstat${l.warn ? ' warn' : ''}">${esc(l.text)}</span>${on.length ? `<span class="rc-rpart">Part of: ${esc(on.map(i => i.name).join(' and '))}</span>` : ''}</span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`; };
+// A bill says which issue it is part of (the issue is what people follow, R-018), and that they follow it when they do, unless
+// the issue has the bill's own name (said once, A-14).
+const partOf = b => { const iss = issuesOf(b), name = plain(billName(b)), mine = iss.some(issueFollowed); if (!iss.length) return '';
+  if (iss.length === 1 && plain(iss[0].name) === name) return mine ? 'You follow this issue' : '';
+  return `Part of: ${iss.map(i => i.name).join(' and ')}${mine ? ', which you follow' : ''}`; };
+const billRow = b => { const l = billLine(b), part = partOf(b);
+  return `<li><a class="rc-row" href="${esc(billPath(b))}"><span class="rc-rtext"><span class="rc-rname">${esc(billName(b))}</span><span class="rc-rstat${l.warn ? ' warn' : ''}">${esc(l.text)}</span>${part ? `<span class="rc-rpart">${esc(part)}</span>` : ''}</span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`; };
 // An issue in search: Home's row with one follow control beside it, outlined Follow or a quiet "✓ Following" (the category
 // page's; pressing Following lets it go, with Undo: find.js followIssueNow). No chevron: the button is the row's end.
 const issueRow = i => { const on = issueFollowed(i), l = issueLine(i);
@@ -74,9 +78,9 @@ function moreList(items, n, key, label = '') {
 }
 
 // ---------------- browsing ----------------
-// Needs voices this week: the issues of the bills Find would suggest (rank.js, the person's short list first, then by
-// deadline), one row an issue, a bill on no issue as itself; three show, the rest open in place. Only the three are counted
-// as shown (R-094), and none an issue the person already follows (Home has those).
+// Needs voices this week: the issues of the bills Find would suggest (rank.js: the person's short list, then every other
+// hearing this week), one row an issue, a bill on no issue as itself, soonest deadline first; three show, the rest open in
+// place. Only the three are counted as shown (R-094), and none an issue the person already follows (Home has those).
 const dueAt = h => h.testimony_deadline && Date.parse(h.testimony_deadline) > Date.now() ? Date.parse(h.testimony_deadline) : Date.parse(h.scheduled_at);
 function voices() {
   if (offSeason()) return [];
@@ -86,13 +90,14 @@ function voices() {
     const i = on[0] || null, key = i ? i.id : 'b:' + r.b.id; if (seen.has(key)) return; seen.add(key); out.push({ r, i, b: r.b, h: r.st.hearing }); };
   suggestionList(4).filter(ok).forEach(add);
   byDue(recommendations(200)).filter(ok).forEach(add);
+  // One order for the whole list, soonest first, so "See more" never opens on something due before the rows above it (B-14).
+  out.sort((x, y) => dueAt(x.h) - dueAt(y.h));
   noteShown(out.slice(0, 3).map(e => e.r), 'find');
-  const soon = (x, y) => dueAt(x.h) - dueAt(y.h);
-  return [...out.slice(0, 3).sort(soon), ...out.slice(3).sort(soon)];
+  return out;
 }
 function voiceRow(e) {
   const h = e.h, now = Date.now(), dl = h.testimony_deadline && Date.parse(h.testimony_deadline) > now ? h.testimony_deadline : '';
-  const st = dl ? `Testimony due ${when(dl)}` : `Hearing ${when(h.scheduled_at)}`, warn = !!dl && Date.parse(dl) - now < DAY;
+  const st = dl ? `Testimony due ${at(dl)}` : `Hearing ${at(h.scheduled_at)}`, warn = !!dl && Date.parse(dl) - now < DAY;
   return recRow(e.i ? { name: e.i.name, text: st, warn, href: `#/issue/${e.i.slug}` } : { name: billName(e.b), text: `${spaced(e.b.bill_number)} · ${st}`, warn, href: billPath(e.b) });
 }
 const topicRows = () => `<ul class="rc-rows rc-topics" role="list">${(S.cats || []).map(c => recRow({ name: c.name, text: c.description || '', href: `#/find/category/${c.key}`, lead: c.icon })).join('')}</ul>`;
@@ -116,7 +121,7 @@ const HELP_RE = /\b(testify\w*|testimony|hearings?|how)\b/, LAW_RE = /\b(senator
 function places(q) {
   const t = plain(q), out = [];
   if (LAW_RE.test(t)) out.push({ name: 'Your lawmakers', text: 'Find who represents you', href: '#/legislators', lead: 'landmark' });
-  if (HELP_RE.test(t)) out.push({ name: 'Help', text: 'How hearings and testimony work', href: '#/help', lead: 'circle-help' });
+  if (HELP_RE.test(t)) out.push({ name: 'How to testify', text: 'Help with hearings and testimony', href: '#/help', lead: 'circle-help' });
   return out;
 }
 // People and committees by name: a committee without its code (C-15: codes never appear on a public screen).
@@ -127,7 +132,7 @@ function resultsBody(q, res) {
   const P = parse(q);
   if (P.num) {
     if (!res.length) return `${recEmpty(`No bill has the number “${q}”.`)}${everyLink()}`;
-    return `${moreList(res.map(numRow), 10, 'n-' + P.key)}${capNote(res)}${everyLink()}`;
+    return `${moreList(res.map(billRow), 10, 'n-' + P.key)}${capNote(res)}${everyLink()}`;
   }
   const bills = res.filter(b => !/^GM/i.test(b.bill_number));   // governor's messages come up for their number only
   // The issues: those whose own words match, then those of the matching HIPHI bills still moving whose nickname or summary
@@ -141,7 +146,7 @@ function resultsBody(q, res) {
   // with one of the words ("how") would only be noise under it.
   if (pl.length && res.fewer) { other.length = 0; gone.length = 0; }
   const placesNav = pl.length ? `<nav class="rc-places" aria-label="Places"><ul class="rc-rows" role="list">${pl.map(recRow).join('')}</ul></nav>` : '';
-  if (!iss.length && !who.length && !other.length && !gone.length) return pl.length ? `${placesNav}${everyLink()}`
+  if (!iss.length && !who.length && !other.length && !gone.length) return pl.length ? placesNav
     : `${recEmpty(`Nothing matches “${q}”. Try one word, like e-cigarettes, a bill number like HB 1563, or a lawmaker’s name.`)}${topics()}`;
   const yrs = [...new Set(gone.map(b => +b.session_year || sessionInfo().yr))].sort().join(' and ');
   const quiet = !iss.length && !other.length && gone.length ? `<p class="rc-note rc-none">${offSeason() ? `The ${sessionInfo().recapYear} session is over. Here’s where these bills ended up.` : `Nothing that matches “${esc(q)}” is moving right now.`}</p>` : '';
@@ -150,7 +155,7 @@ function resultsBody(q, res) {
     ${iss.length ? recSec('fd-qi-h', 'Issues', moreList(iss.map(issueRow), 6, 'qi-' + P.key)) : ''}
     ${who.length ? recSec('fd-who-h', 'People and committees', `<ul class="rc-rows" role="list">${who.map(recRow).join('')}</ul>`) : ''}
     ${other.length ? recSec('fd-ob-h', iss.length ? 'Other bills' : 'Bills', moreList(other.map(billRow), 10, 'ob-' + P.key)) : quiet}
-    ${gone.length ? `<div class="rc-folds">${recFold('find-gone', 'Did not advance', `Bills that stopped in ${yrs}`, moreList(gone.map(b => recRow({ name: billName(b), text: `${spaced(b.bill_number)} · ${plainStatus(b).short}`, href: billPath(b) })), 10, 'g-' + P.key),
+    ${gone.length ? `<div class="rc-folds">${recFold('find-gone', 'Did not advance', `Bills that stopped in ${yrs}`, moreList(gone.map(billRow), 10, 'g-' + P.key),
       { open: !iss.length && !other.length && !who.length })}</div>` : ''}
     ${capNote(res)}${everyLink()}`;
 }
@@ -174,7 +179,7 @@ function page(q) {
       <h1 class="fd-h1 hero"><label for="q">Find issues and bills</label></h1>
       <div class="searchbox fd-box${busy ? ' busy' : ''}">${icon('search')}<span class="fd-spin" aria-hidden="true">${icon('loader-circle')}</span>
         <input id="q" class="input" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
-          placeholder="Try e-cigarettes, HB 1563 or a name" value="${esc(q)}">
+          placeholder="${matchMedia('(max-width: 359px)').matches ? 'e-cigarettes or HB 1563' : 'Try e-cigarettes, HB 1563 or a name'}" value="${esc(q)}">
         <button type="button" class="iconbtn clear fd-clear" aria-label="Clear search"${q ? '' : ' hidden'}>${icon('x')}</button></div>
     </form>
     <p class="sr" role="status" id="fd-status"></p>
