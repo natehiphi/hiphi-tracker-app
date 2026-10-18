@@ -135,7 +135,7 @@ function dueSlide(c, hl) {
   const w = `<b>${late ? `Late testimony until ${esc(byWhen(dl))}` : `Send it by ${esc(byWhen(dl))}`}</b> · ${billLink(b)}`;
   const writes = /data-helper|data-mailwalk/.test(p.go);
   const more = [btn(open ? 'Fewer ways to help' : 'More ways to help', { kind: 'text', sm: true, iconEnd: open ? 'chevron-up' : 'chevron-down', attrs: { 'data-moreways': ck, 'aria-expanded': open ? 'true' : 'false', 'aria-controls': 'mw-' + h.id } }),
-    k.items.length > 1 || k.picked ? nextLink(skipKey(x), nameOf(b)) : ''].join('');
+    k.items.length > 1 || k.picked || c.n > 1 ? nextLink(skipKey(x), nameOf(b)) : ''].join('');
   return slideHtml({ hl, id: 't-' + h.id, art: artOf(b), title: goalOf(b), say: `${why}${esc(hears)} ${ask}`, when: w, warn, mins: writes ? 'About 2 minutes' : '',
     before: p.before, go: p.go, more, after: p.after });
 }
@@ -156,8 +156,14 @@ function quietSlide(c, hl) {
   if (k.kind === 'seen') return slideHtml({ hl, id: 'cm-quiet', art: artOf(null), title: 'You’ve seen everything due this week',
     say: 'It’s all still on your list below.', more: btn(`Show the ${k.n === 1 ? 'one' : k.n} you skipped`, { kind: 'text', sm: true, attrs: { 'data-cm-unskip': '1' } }) });
   if (c.thanks) return slideHtml({ hl, id: 'cm-quiet', art: artOf(null), title: 'That’s all for this week', say: 'We’ll keep watch. When your next issue has a hearing, it will be right here.' });
+  // Every bill on their issues is finished for the year: "a hearing will show up here" would be a promise the year cannot keep,
+  // so the page says so and offers the one step that fills it (B-3; the critic's review).
+  const ids = new Set(followedIssues().flatMap(issueBills)), bs = S.bills.filter(b => ids.has(b.id)), over = bs.length && !bs.some(alive) && !looseBills().some(alive);   // as the rows read it
+  if (over) return slideHtml({ hl, id: 'cm-quiet', art: artOf(null), title: nIss > 1 ? 'Your issues are done for this year' : 'Your issue is done for this year',
+    say: 'Bills that did not pass can come back next session. Other bills are still moving and need voices.',
+    more: btn('Find another issue to follow', { kind: 'text', sm: true, iconEnd: 'chevron-right', href: '#/find' }) });
   return slideHtml({ hl, id: 'cm-quiet', art: artOf(null), title: 'Nothing needs you this week',
-    say: `We’re watching your ${nIss ? plural(nIss, 'issue') : c.noun} every day. When one has a hearing, a simple way to help shows up here.` });
+    say: `We’re watching your ${nIss ? plural(nIss, 'issue') : c.noun} every day. When ${nIss === 1 ? 'it has' : 'one has'} a hearing, a simple way to help shows up here.` });
 }
 function theSlide(c) {
   const hl = c.welcome ? 'h2' : 'h1', k = c.card.kind;
@@ -301,8 +307,10 @@ function resultLine(c) {
   if (onCard) { c.why = P.momentText(onCard); c.moments.push(onCard); }
   const g = gn.find(x => x !== onCard);
   if (g) { c.moments.push(g); return `<b>${esc(nameOf(g.b))}:</b> ${esc(P.momentText(g))}`; }
+  // With something on the slide, another issue's news stays on its row (marked New) and is only counted here, so the page
+  // does not open on one issue and then ask about another (A-13; the critic's review).
   const rs = (P.sinceItems() || []).filter(x => x.lead !== 'calendar' && !(c.card.bill && x.b.id === c.card.bill.id));
-  if (rs.length) { const x = rs[0], first = x.text.replace(/^([^.]*\.).*$/, '$1');
+  if (rs.length && !['due', 'late', 'ask'].includes(c.card.kind)) { const x = rs[0], first = x.text.replace(/^([^.]*\.).*$/, '$1');
     return `<b>${esc(nameOf(x.b))}:</b> ${esc(first)}${rs.length > 1 ? ` ${esc(plural(rs.length - 1, 'more result'))} on your ${c.noun} below.` : ''}`; }
   // New hearings are not results: the rows mark them New, and the greeting counts them rather than saying "nothing new".
   if (c.freshN) return `News on ${c.freshN === 1 ? `one of your ${c.noun}` : `${c.freshN} of your ${c.noun}`} since ${esc(sinceWhen())}.`;
@@ -327,7 +335,7 @@ function greeting(c) {
   }
   if (c.thanks) return `<header class="cm-head">${thanksHtml(c.thanks, name)}</header>`;
   const res = resultLine(c), cnt = countLine(c, res);
-  const line = [res, cnt].filter(Boolean).join(' ') || (prevVisit() ? `Nothing new since ${esc(sinceWhen())}. We’re keeping watch.` : '');
+  const line = [res, cnt].filter(Boolean).join(' ') || (prevVisit() ? `Nothing new since ${esc(sinceWhen())}.` : '');   // the slide says we keep watch (A-14)
   return `<header class="cm-head"><p class="cm-hi"><b>${hi}.</b>${line ? ` <span>${line}</span>` : ''}</p></header>`;
 }
 

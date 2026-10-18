@@ -353,7 +353,7 @@ single biggest lever on whether a first-time visitor trusts what they are lookin
 ### A-23 Home has a budget
 
 Home is the screen people come back to, so it has a budget measured on the whole page, not only the first screen:
-**at most four blocks, of at most two shapes** (a card, rows); **one filled button**; **each bill named once**; on a
+**at most four blocks, of at most two shapes** (the slide, rows); **one filled button**; **each bill named once**; on a
 phone **under two screens for someone following 3 issues and three screens for 16**; one row per issue followed. A new
 thing for Home replaces something already there, or goes elsewhere (the issue's page, My issues, More, the Mahalo after
 an action). Checked on every push by `tests/home_calm.py` on the calm Home (R-222), in eight moments for three people,
@@ -555,13 +555,13 @@ which is A-1 again.
 
 ### B-14 Things to do are never folded away, and the button that leads to them says so
 
-On Home, every thing a person can do this week is on the page: the soonest as a full card, the rest one line each, none
+On Home, every thing a person can do this week is on the page: the soonest as the slide (R-295: drawing, goal heading, one full-width button, like a first-visit screen), the rest one line each, none
 behind "Show more", "Ready now?" or a closed fold. On the calm Home (R-222, A-23) "one line each" is the issue's row: it
 names its soonest deadline and how many more are due that week ("Testimony due tomorrow 1:00 PM, and 1 more this
-week"), and "Show the next one" brings each up as the card; a row is never silent about something due. Late testimony counts
-as something due (R-250, Nate 10/11): when nothing is due on time it is the card, and its row says "Late testimony until
+week"), and "Show the next one" brings each up on the slide, as does a tap on a row that has something due (R-295, Nate 10/17, "5a"); the slide's own issue says "On the slide above" in its row; a row is never silent about something due. Late testimony counts
+as something due (R-250, Nate 10/11): when nothing is due on time it is the slide, and its row says "Late testimony until
 today 1:10 PM". A bill followed on its own has a row too, named for the bill with its number on the status line ("HB 1563 ·
-Needs a hearing by Mon, Mar 30"); the card's own bill has none. **One exception, at
+Needs a hearing by Mon, Mar 30"); the slide's own bill has none. **One exception, at
 Nate's word (10/11):** a follower of more than 8 issues sees them grouped by where they stand ("Due this week" first) and
 the first 8, then "Show all N" in place; so something due is folded only when more than 8 issues have something due.
 Folds stay for what is done ("Done this week"), for results, and for detail inside one card or one bill. A button that leads to Home says what the person will do there, not the place: the
@@ -799,7 +799,7 @@ is cut, not made smaller. (Added 10/5, R-174.)
 *Reason.* Nate, 10/5: "The text during onboarding is far too small. Anything that users need to
 read should be prominent and not long." A newcomer reads every word of the first visit, on a phone,
 before they trust the page; 13-14px grey under a 28px heading reads as small print, and long lines
-are skimmed or skipped. Mobile reading guidance puts body text at about 16-18px (Apple's body style is
+are skimmed or skipped. **Home follows it too** (R-295, Nate 10/17: "carry onboarding's warm, welcoming mood onto Home"): the slide and the greeting use the first visit's type step (`body[data-screen="home"] .cm` in base.css), so the page people come back to reads like the screens that welcomed them. Mobile reading guidance puts body text at about 16-18px (Apple's body style is
 17pt), and shorter lines are read more completely (NN/g on web reading). Whether it changes how many
 finish is a guess until `first_visit_funnel` and the five testers show it; checked by
 `tests/fv_type.py`, which walks every version.
