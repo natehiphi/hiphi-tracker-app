@@ -39,8 +39,7 @@ import { WEIGHT, SOON_DAYS, sidePoints } from './rank.js';
 import { btn } from './ui.js';
 import { t, tn, T, trText } from './i18n.js';
 import { langPicker, wireLangPicker } from './langpick.js';
-import { CAPITOL, VOICES, islands, flower } from './art.js';
-import { HELLO_ART } from './hello_art.js';
+import { CAPITOL, VOICES, HELLO, islands, flower } from './art.js';
 import { topics } from './topics.js';
 import { burst, later, swap, reduced } from './fx.js';
 import { LESSON_TITLES } from './topics.js';
@@ -213,7 +212,7 @@ const backBtn = step => btn(t('Back'), { kind: 'text', icon: 'arrow-left', cls: 
 export const topRow = (name, step) => `${chaptersRow(name)}${step > 1 ? `<div class="steps st-steps">${backBtn(step)}</div>` : step === 1 && name === 'topics' ? langPicker('st-lang') : ''}`;
 export const shell = (cls, intro, main, busy = false) => `<div class="st ${cls}"${busy ? ' aria-busy="true"' : ''}><div class="st-intro">${intro}</div><div class="st-main">${main}</div></div>`;
 // The drawing of each step (wide screens show one on every step; phones only where there is room, see start.css).
-export const artFor = name => `<div class="st-art">${name === 'you' ? islands(myIsland()) : name === 'followask' || name === 'hello' ? VOICES : CAPITOL}</div>`;
+export const artFor = name => `<div class="st-art">${name === 'you' ? islands(myIsland()) : name === 'followask' ? VOICES : CAPITOL}</div>`;
 // One line above the choices: a reassurance, which the "pick at least one" message replaces in place (so nothing
 // below it moves and no choice gets covered).
 export const sayRow = (ic, sure) => `<div class="st-say"><p class="st-sure">${icon(ic)}<span>${sure}</span></p><p class="st-alert" id="st-alert" role="alert"></p></div>`;
@@ -341,26 +340,12 @@ export function partnerLine() {
 // path, 'in' or 'off': the name the database already takes for arriving on a shared bill (path 'link'), so no migration.
 export const helloOn = () => !planOn() && !wiz().via;
 S.stHello ??= false;   // drawn in this page's life: the partner's line is said here, and not again on the topics
-const HELLO_LEDE = T('Every year from January to May, the Legislature decides Hawaiʻi’s health laws, often on a few days’ notice. We tell you when your voice counts, and help you say it.');
-// PREVIEW (R-297 options, not for main): ?hello=a|b|c picks the scene and the words Nate chooses from
-const HELLO_OPT = {
-  a: ['Your voice can shape Hawaiʻi’s health', 'We tell you when health bills need you, and help you speak up.'],
-  b: ['Help shape Hawaiʻi’s health laws', 'We tell you when it counts, and help you say it.'],
-  c: ['Speak up for a healthier Hawaiʻi', 'Follow health bills. Add your voice when it counts.'],
-  d: ['Your voice can shape Hawaiʻi’s health', 'Health bills move fast. We’ll tell you when to speak up.'],
-};
 function stepHello() {
   S.stHello = true;
-  const k = new URLSearchParams(location.search).get('hello'), o = HELLO_OPT[k];
-  if (o) return shell('st1 st-hellopage st-hello2', `${langPicker('st-lang')}${partnerLine()}<div class="st-art st-scene">${HELLO_ART[k]}</div>
+  return shell('st1 st-hellopage', `${langPicker('st-lang')}${partnerLine()}<div class="st-art st-scene">${HELLO}</div>
     <p class="st-greet">${flower(22)}<span>${t('Aloha!')}</span></p>
-    <h1 class="hero" id="st-h">${t(o[0])}</h1>
-    <p class="lede">${t(o[1])}</p>`, '');
-  return shell('st1 st-hellopage', `${langPicker('st-lang')}${partnerLine()}${artFor('hello')}
-    <p class="st-greet">${flower(26)}<span>${t('Aloha!')}</span></p>
-    <h1 class="hero" id="st-h">${t('Your voice can shape Hawaiʻi’s health')}</h1>
-    <p class="lede">${t(HELLO_LEDE)}</p>
-    <p class="st-from">${icon('heart')}<span>${t('Free, from the Hawaiʻi Public Health Institute, a nonprofit.')}</span></p>`, '');
+    <h1 class="hero" id="st-h">${t('Your voice can shape Hawaiʻi’s future')}</h1>
+    <p class="lede">${t('Find out when lawmakers are acting on the issues you care about most, and how you can help change what happens.')}</p>`, '');
 }
 function wireHello() {
   if (!helloOn()) { setTimeout(() => app.go('#/start/1', { replace: true }), 0); return; }
