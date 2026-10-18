@@ -49,6 +49,7 @@
 .bl-barnew > .btn.primary { flex: 1 1 auto; min-width: 0; padding-inline: 16px; white-space: normal; }   /* beside "Just looking" it may take two lines; it never runs off the screen (R-067) */
 .bl-barnew > .btn.text { padding-inline: 10px; }
 .bl-barnew > .btn.text { flex: none; }
+@media (max-width: 400px) { .bl-barnew > .btn.primary .ic { display: none; } }   /* "Help me write testimony" (R-296) stays on one line beside "Just looking" down to 360px; the words carry it */
 .bl-notnow { display: flex; justify-content: center; margin-top: 4px; }
 
 /* ---- top of the page: the everyday name (or, without one, what the bill does), then the chips ---- */

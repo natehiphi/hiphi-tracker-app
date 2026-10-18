@@ -61,7 +61,7 @@ JOURNEYS = [
  # budgeted for a first-timer (B-2): the stance question, the bill and its talking points (9/28), the name, the letter, the one-time Capitol account step,
  # one tap to copy and open the Capitol page, and the green box. The quick email is still one of the other ways.
  dict(name='public: decide to act -> testimony sent (first time)', app=PUBLIC, budget=9, start='#/bill/HB2121', skip_wizard=True, steps=[
-   dict(what='choose to testify',        do=click_text('.btn', 'Write my testimony'), reach=hp_seen('Where do you stand')),
+   dict(what='choose to testify',        do=click_text('.btn', 'Help me write testimony'), reach=hp_seen('Where do you stand')),
    dict(what='say where you stand',      do=click_text('#hp-dlg button', 'I support it'), reach=hp_seen('Get to know the bill')),
    dict(what='move on from the bill',     do=click_text('#hp-dlg button', '^Next'), reach="(()=>!!document.getElementById('hp-name'))()"),
    dict(what='type your name',           fill=('#hp-name', 'Kai Ho'), reach="(()=>document.getElementById('hp-name')?.value==='Kai Ho')()"),
@@ -129,12 +129,12 @@ JOURNEYS = [
         reach="(()=>/Sent .*for review|Sent for review/i.test(document.getElementById('toast')?.innerText||''))()"),
  ]),
  # X10-7 / X10-4: someone who follows a bill and starts on Home opens the bill from there with the bill page's tour ON (a fresh browser
- # meets it as a person would): it waits to be asked for ("Take the tour"), so "Write my testimony" is there to press. Counted to the
+ # meets it as a person would): it waits to be asked for ("Take the tour"), so "Help me write testimony" is there to press. Counted to the
  # first answer in the walkthrough; the rest of it is the journey above.
  dict(name='public: Home -> testimony begun (a returning follower, tour on)', app=PUBLIC, budget=3, start='#/', skip_wizard=True, tour=True, steps=[
    dict(what='open the bill from Home', do="(()=>{const a=document.querySelector('main a[href*=\"#/bill/\"]'); if(!a) return false; a.click(); return true;})()",
         reach="(()=>/#\\/bill\\//.test(location.hash) && !document.querySelector('[data-tour]'))()"),
-   dict(what='choose to testify',        do=click_text('.btn', 'Write my testimony|Send late testimony'), reach=hp_seen('Where do you stand')),
+   dict(what='choose to testify',        do=click_text('.btn', 'Help me write testimony|Send late testimony'), reach=hp_seen('Where do you stand')),
    dict(what='say where you stand',      do=click_text('#hp-dlg button', 'I support it'), reach=hp_seen('Get to know the bill')),
  ]),
  # X10-7: an approver arrives from the Slack link (it opens Review on the draft) and approves it: one tap on Approve.

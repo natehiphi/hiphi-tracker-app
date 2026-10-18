@@ -46,14 +46,14 @@ with sync_playwright() as p:
             pg.goto(f'{BASE}/track.html?demo=1&ab=layout.{arm}#/'); ready(pg)
             if arm == 'calm':
                 ok(pg.locator('#main .cm.cm-met').count() == 1 and pg.locator('#main .ah').count() == 0 and 'Aloha, Kai' in pg.locator('#main .cm-hi').first.inner_text(), f'{size} calm: Home is the calm Home (“Aloha, Kai”)')
-                ok(pg.locator('.cm-slide').count() == 1 and 'Write my testimony' in pg.locator('.cm-slide .btn.primary').inner_text(), f'{size} calm: one slide, the soonest testimony deadline (R-295)')
+                ok(pg.locator('.cm-slide').count() == 1 and 'Help me write testimony' in pg.locator('.cm-slide .btn.primary').inner_text(), f'{size} calm: one slide, the soonest testimony deadline (R-295)')
                 ok(pg.locator('#cm-iss-h').count() == 1 and pg.locator('.cm-rows .cm-row').count() == 3, f'{size} calm: then Your issues, one row each ({pg.locator(".cm-rows .cm-row").count()})')
                 ok(not pg.evaluate("document.body.classList.contains('va')") and not pg.evaluate("!!document.querySelector('link[href=\"pub/a/a.css\"]')"), f'{size} calm: the week view’s look is not loaded')
                 if mobile: ok(tabs(pg) == ['Home', 'My issues', 'Find', 'More'], f'{size} calm: today’s tabs {tabs(pg)}')
                 else: ok('More' in pg.locator('.hnav').inner_text(), f'{size} calm: the header’s tabs are today’s')
             elif arm == 'a':
                 ok(pg.locator('#main .ah').count() == 1 and 'Aloha, Kai' in pg.locator('h1').first.inner_text(), f'{size} A: Home is the week view’s (“Aloha, Kai”)')
-                ok(pg.locator('.a-now').count() == 1 and 'Write my testimony' in pg.locator('.a-now').inner_text(), f'{size} A: the Now card leads with the soonest testimony deadline')
+                ok(pg.locator('.a-now').count() == 1 and 'Help me write testimony' in pg.locator('.a-now').inner_text(), f'{size} A: the Now card leads with the soonest testimony deadline')
                 ok(pg.evaluate("document.body.classList.contains('va')") and pg.evaluate("!!document.querySelector('link[href=\"pub/a/a.css\"]')?.sheet"), f'{size} A: its look is on (body.va, pub/a/a.css)')
                 if mobile: ok(tabs(pg) == ['Home', 'My issues', 'Find', 'You'], f'{size} A: the tabs are Home, My issues, Find, You {tabs(pg)}')
                 else: ok('You' in pg.locator('.hnav').inner_text() and 'More' not in pg.locator('.hnav').inner_text(), f'{size} A: the header’s tabs end with You')

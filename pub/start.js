@@ -39,7 +39,7 @@ import { WEIGHT, SOON_DAYS, sidePoints } from './rank.js';
 import { btn } from './ui.js';
 import { t, tn, T, trText } from './i18n.js';
 import { langPicker, wireLangPicker } from './langpick.js';
-import { CAPITOL, VOICES, islands } from './art.js';
+import { CAPITOL, VOICES, islands, flower } from './art.js';
 import { topics } from './topics.js';
 import { burst, later, swap, reduced } from './fx.js';
 import { LESSON_TITLES } from './topics.js';
@@ -212,7 +212,7 @@ const backBtn = step => btn(t('Back'), { kind: 'text', icon: 'arrow-left', cls: 
 export const topRow = (name, step) => `${chaptersRow(name)}${step > 1 ? `<div class="steps st-steps">${backBtn(step)}</div>` : step === 1 && name === 'topics' ? langPicker('st-lang') : ''}`;
 export const shell = (cls, intro, main, busy = false) => `<div class="st ${cls}"${busy ? ' aria-busy="true"' : ''}><div class="st-intro">${intro}</div><div class="st-main">${main}</div></div>`;
 // The drawing of each step (wide screens show one on every step; phones only where there is room, see start.css).
-export const artFor = name => `<div class="st-art">${name === 'you' ? islands(myIsland()) : name === 'followask' ? VOICES : CAPITOL}</div>`;
+export const artFor = name => `<div class="st-art">${name === 'you' ? islands(myIsland()) : name === 'followask' || name === 'hello' ? VOICES : CAPITOL}</div>`;
 // One line above the choices: a reassurance, which the "pick at least one" message replaces in place (so nothing
 // below it moves and no choice gets covered).
 export const sayRow = (ic, sure) => `<div class="st-say"><p class="st-sure">${icon(ic)}<span>${sure}</span></p><p class="st-alert" id="st-alert" role="alert"></p></div>`;
@@ -329,6 +329,38 @@ export function partnerLine() {
   if (S.stWelcome === undefined) { S.stWelcome = null; partnerWelcome(via).then(t => { if (t) { S.stWelcome = t; app.render(); } }).catch(() => {}); }
   return S.stWelcome ? `<p class="st-partner">${icon('sparkles')}<span>${esc(S.stWelcome)}</span></p>` : '';
 }
+// ================= the welcome, before the topics (R-297, Nate 10/17) =================
+// One warm page that says what the tracker is for and why someone would use it, not how the first visit goes (Nate: "We
+// need to explain the purpose of the app and why people would use it. We don't need to explain the onboarding process."):
+// no named parts, no time promise, one button. Its words blend the three he liked (Hawaiʻi's health laws are made each
+// year, often on a few days' notice; we tell you when it counts; we help you say it). It is step 0, so every step after it
+// keeps its number: Home's and More's links to #/start/1 still open the topics, for someone choosing issues again, and
+// only a first visit that has not begun opens here (app.js). Not in the plans (they are not live and have their own first
+// screens) or from a shared bill (that visit begins on the bill). The private counts record it as 'arrive' with this
+// path, 'in' or 'off': the name the database already takes for arriving on a shared bill (path 'link'), so no migration.
+export const helloOn = () => !planOn() && !wiz().via;
+S.stHello ??= false;   // drawn in this page's life: the partner's line is said here, and not again on the topics
+const HELLO_LEDE = T('Every year from January to May, the Legislature decides Hawaiʻi’s health laws, often on a few days’ notice. We tell you when your voice counts, and help you say it.');
+function stepHello() {
+  S.stHello = true;
+  return shell('st1 st-hellopage', `${langPicker('st-lang')}${partnerLine()}${artFor('hello')}
+    <p class="st-greet">${flower(26)}<span>${t('Aloha!')}</span></p>
+    <h1 class="hero" id="st-h">${t('Your voice can shape Hawaiʻi’s health')}</h1>
+    <p class="lede">${t(HELLO_LEDE)}</p>
+    <p class="st-from">${icon('heart')}<span>${t('Free, from the Hawaiʻi Public Health Institute, a nonprofit.')}</span></p>`, '');
+}
+function wireHello() {
+  if (!helloOn()) { setTimeout(() => app.go('#/start/1', { replace: true }), 0); return; }
+  document.body.classList.toggle('st-lessonpage', false);
+  document.body.classList.add('st-hello');   // centred, the button under the words (start.css)
+  const key = `${pathKey()}|arrive`;
+  if (key !== viewKey) { viewKey = key; viewAt = Date.now(); track('arrive', 'view'); }
+  const nb = document.querySelector('[data-stnext]');
+  if (nb) nb.onclick = () => { track('arrive', 'next'); goStep(0, 1); };
+  wireLangPicker(document);
+  fitScreen();
+}
+
 function stepTopics(step) {
   const si = sessionInfo(), off = si.phase !== 'in', yr = off ? si.recapYear : si.yr;
   const next = si.nextOpen ? +si.nextOpen.slice(0, 4) : yr + 1;
@@ -344,7 +376,7 @@ function stepTopics(step) {
       <h1 class="hero" id="st-h">${fill(h)}</h1><p class="lede">${fill(lede)}</p>${sure ? sureWide('clock', sure) : ''}`,
       `${sure ? sayRow('clock', sure) : '<div class="st-say"><p class="st-alert" id="st-alert" role="alert"></p></div>'}${tiles(off, yr)}`);
   }
-  return shell('st1 st-topics', `${topRow('topics', step)}${partnerLine()}${artFor('topics')}
+  return shell('st1 st-topics', `${topRow('topics', step)}${S.stHello ? '' : partnerLine()}${artFor('topics')}
     <h1 class="hero" id="st-h">${off ? t('Get ready for the {next} session', { next }) : t('Speak up for a healthier Hawaiʻi')}</h1>
     <p class="lede">${off ? `${t('The Legislature opens {day}.', { day: esc(shortDay(si.nextOpen)) })}${w && w.length ? ` ${w.length === 1 ? t('In {yr}, 1 bill HIPHI backed became law.', { yr }) : t('In {yr}, {n} bills HIPHI backed became law.', { yr, n: w.length })}` : ''} ${t('Pick what you care about, and we’ll keep watch.')}`
       : t('HIPHI, the Hawaiʻi Public Health Institute, is a nonprofit that follows the health bills. Pick what you care about.')}</p>${off ? '' : promise()}${sureWide('clock', t(SURE1))}`,
@@ -415,11 +447,13 @@ function wire(route) {
   // After this screen's own paint: the rest of the first visit, the bill-level code and the lessons (R-122).
   if (!REST || !C || !LZ) setTimeout(() => Promise.all([restLoad(), coreLoad()]).then(() => { if (!LZ) lessonsLoad().catch(() => {}); app.render(); }).catch(e => console.error(e)), 400);
   if (route.name === 'learn') { if (REST) REST.wireLearn(route); return; }
+  document.body.classList.toggle('st-hello', route.step === 0);
+  if (route.step === 0) { wireHello(); return; }
   const step = route.step || 1, off = isOff(), name = nameAt(step, off);
   const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
   const to = redirectFor(step, off);
   if (to) { setTimeout(() => app.go('#/start/' + to, { replace: true }), 0); return; }
-  if (wiz().step !== step) wizSet({ step });
+  if (wiz().step !== step || !wiz().begun) wizSet({ step, begun: true });   // begun: the welcome is not shown again (R-297)
   const back = !!S.stBack; S.stBack = false;
   // The lesson pages put their button right under the lesson on a wide screen (start.css).
   document.body.classList.toggle('st-lessonpage', name === 'bill');
@@ -546,7 +580,7 @@ export default {
   // The first visit's A/B versions are fixed as it starts (variant.js lockFirstVisit, R-135), before anything asks which.
   // The alerts screen's tab says what its heading says: "Save your profile" unless the old ask is the version shown (the
   // test 'save', R-184; the tab still said "Get alerts on your issues", R-188).
-  title: route => { if (route.name === 'learn') return LESSON_TITLES[learnName(route)]; lockFirstVisit(); const n = nameAt(route.step || 1, isOff());
+  title: route => { if (route.name === 'learn') return LESSON_TITLES[learnName(route)]; lockFirstVisit(); if (route.step === 0) return 'Welcome'; const n = nameAt(route.step || 1, isOff());
     // Once answered, the alerts screen is the "Mahalo!" page (start-rest.js stepThanks, R-140) and its tab says so.
     if (n === 'alerts' && !S.alertEdit && (S.stThanks || textSaved() || mailSent())) return 'Mahalo!';
     if (n === 'join' && !S.alertEdit && S.obThanks) return 'Mahalo!';
@@ -555,6 +589,7 @@ export default {
   render(route) {
     if (route.name === 'learn') return restAsk() ? REST.stepLearn(route) : skel(1);
     lockFirstVisit();
+    if (route.step === 0) return helloOn() ? stepHello() : skel(1);   // the welcome (R-297); wire() sends anyone else to the topics
     const step = route.step || 1, off = isOff();
     if (redirectFor(step, off)) return skel(Math.min(step, total(off)));   // wire() sends them on
     const name = nameAt(step, off);
@@ -567,6 +602,7 @@ export default {
     // A lesson on its own: Next, and on the story's last stage Done (wireLearn changes the words), which goes back where
     // it was opened.
     if (route.name === 'learn') return bar1('Next', 'arrow-right', { 'data-stlearnnext': '1' });
+    if (route.step === 0) return helloOn() ? bar1(t('Let’s begin')) : '';
     const step = route.step || 1, off = isOff();
     if (redirectFor(step, off)) return '';
     const name = nameAt(step, off);

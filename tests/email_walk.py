@@ -180,7 +180,7 @@ with sync_playwright() as pw:
         check('Email about HB 2121' in dlg(p), f'who decides ({wide}): it opens the email walkthrough')
         p.keyboard.press('Escape'); p.wait_for_timeout(1000)
         check(p.locator('#hp-dlg').count() == 0 and p.locator('.bl-side .btn.primary, .actionbar .btn.primary').filter(has_text='testimony').count() >= 1,
-              f'who decides ({wide}): Esc closes it and the page\'s main button is still "Write my testimony"')
+              f'who decides ({wide}): Esc closes it and the page\'s main button is still "Help me write testimony"')
         check(not p.errs, f'who decides ({wide}): no page errors {p.errs}')
         c.close()
 

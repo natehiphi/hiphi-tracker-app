@@ -25,6 +25,10 @@ def ctx(b, w=390, h=844, **kw):
     p = c.new_page(); p.on('pageerror', lambda e: errors.append(f'{w}: {e}'))
     p.on('console', lambda m: errors.append(f'console {w}: {m.text[:140]}') if m.type == 'error' and 'favicon' not in m.text else None)
     return c, p
+# R-297: a first visit opens on the welcome (#/start/0); Let's begin goes on to the topics.
+def past_welcome(p, t=30000):
+    p.wait_for_selector('.st-hellopage, .st-tile, .st-issue', timeout=t)
+    if p.locator('.st-hellopage').count(): p.click('[data-stnext]'); p.wait_for_selector('.st-tile, .st-issue', timeout=t); p.wait_for_timeout(600)
 def fresh(p, extra=''):
     p.goto(BASE + '?demo=1' + extra); p.wait_for_timeout(500); p.evaluate('localStorage.clear(); sessionStorage.clear()')
 def follower(p, extra='', more=()):
@@ -52,7 +56,9 @@ with sync_playwright() as pw:
     # moment) -> the story of a bill, drawn (the "Now you know" moment) -> who speaks for you -> coming up, THEN the ask ->
     # you're all set -> Home ----
     c, p = ctx(b); fresh(p); p.reload(); p.wait_for_timeout(3000)
-    ok(p.evaluate('location.hash') == '#/start/1', 'first visit lands on step 1'); std(p, 'start1', axe=True); shot(p, 'p_s1')
+    ok(p.evaluate('location.hash') == '#/start/0', 'first visit lands on the welcome (R-297)'); std(p, 'welcome', axe=True); shot(p, 'p_s0')
+    p.click('[data-stnext]'); p.wait_for_timeout(1500)
+    ok(p.evaluate('location.hash') == '#/start/1', 'Let’s begin goes on to step 1'); std(p, 'start1', axe=True); shot(p, 'p_s1')
     ok(not COMMUNITY.search(text(p)), 'step 1 has no community-wide totals')
     # Three named parts and no counting, no bar (Nate 9/21), and they are not controls (A-12).
     parts = p.evaluate("[...document.querySelectorAll('.st-chapters li')].map(li => li.textContent.replace(/\\(done\\)/, '').trim())")
@@ -61,7 +67,7 @@ with sync_playwright() as pw:
     ok(p.locator('[role=progressbar], progress').count() == 0 and not re.search(r'step \d+ of \d+', text(p), re.I), 'no progress bar and no "Step N of M"')
     ok(p.locator('.st-chapters button, .st-chapters a').count() == 0, 'the named parts are a signpost, not buttons')
     ok(p.locator('[data-stissue]').count() == 6 and 'About 4 minutes' in text(p), 'six category tiles, and an honest time promise')
-    p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
+    past_welcome(p); p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
     # Screen 2 offers ISSUES, not bills (R-018): the four most important first, then three more per category, and nothing
     # else (R-039, Nate 9/22: the list was way too long).
     ok(p.locator('[data-stpick]').count() > 0, f"issues step offers issues ({p.evaluate('location.hash')})"); std(p, 'start2', axe=True); shot(p, 'p_s2')
@@ -322,7 +328,7 @@ with sync_playwright() as pw:
     visit(p, '/bill/HB1563', wait=2800); ok('Let counties regulate tobacco sales' in text(p), 'an approved nickname from the snapshot leads the bill page (HB 1563)')
     # ---- "Your issues" with three categories (R-039): every category starts open, one ticked in the top group is named
     # on its category's line, and "Follow N issues" counts exactly the ticks on screen (R-023's review, 9/21) ----
-    fresh(p); p.reload(); p.wait_for_timeout(2500)
+    fresh(p); p.reload(); p.wait_for_timeout(2500); past_welcome(p)
     for name in ('Food', 'Tobacco', 'Family'):
         p.evaluate(f"[...document.querySelectorAll('.st-issue')].find(x => /{name}/.test(x.innerText))?.click()"); p.wait_for_timeout(150)
     p.locator('[data-stnext]').click(); p.wait_for_timeout(2200)
@@ -370,7 +376,7 @@ with sync_playwright() as pw:
             bar = p.evaluate("(() => { const a=document.querySelector('.actionbar'); return a ? getComputedStyle(a).display : 'none' })()"); ok(bar == 'none', f'bill page: no detached bottom bar at {W} ({bar})')
             prim = p.evaluate("[...document.querySelectorAll('main .btn.primary')].filter(e=>e.offsetParent!==null && e.getBoundingClientRect().top < innerHeight).length"); ok(prim >= 1, f'bill page: the main action is visible in place at {W}')
         ok(p.locator('#hq').count() == 1 and p.locator('#hq').is_visible(), f'header search box at {W}')
-        fresh(p); p.goto(BASE + '?demo=1#/'); p.reload(); p.wait_for_timeout(2600); std(p, f'start@{W}', desktop=True)
+        fresh(p); p.goto(BASE + '?demo=1#/'); p.reload(); p.wait_for_timeout(2600); past_welcome(p); std(p, f'start@{W}', desktop=True)
         if W == 1440: shot(p, 'd_start1')
         c.close()
 
@@ -406,7 +412,7 @@ with sync_playwright() as pw:
                 ok(not seen, f'#/learn/{lesson} at {W}x{H}: nothing runs over its heading or drawing {seen[:3]}')
         c.close()
     c, p = ctx(b, 1440, 900); fresh(p, '&fv=full'); p.goto(BASE + '?demo=1&fv=full&restart'); p.wait_for_timeout(3000)
-    p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
+    past_welcome(p); p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
     p.locator('[data-alswap="email"]').click(); p.wait_for_timeout(400)
     p.fill('#st-a-email', 'leilani@example.com'); p.locator('#st-send').click(); p.wait_for_selector('.st-thanks #st-h', timeout=8000)
@@ -456,7 +462,7 @@ with sync_playwright() as pw:
         c, p = ctx(b, w, h); follower(p)
         for name, hh in (('home', '/'), ('bill', '/bill/HB2121'), ('find', '/find'), ('bills', '/bills')):
             visit(p, hh, wait=2600); ok(not p.evaluate(checks.OVERFLOW_JS), f'{name} at {w}px: no sideways scroll')
-        fresh(p); p.goto(BASE + '?demo=1#/'); p.reload(); p.wait_for_timeout(2600); ok(not p.evaluate(checks.OVERFLOW_JS), f'start at {w}px: no sideways scroll')
+        fresh(p); p.goto(BASE + '?demo=1#/'); p.reload(); p.wait_for_timeout(2600); ok(not p.evaluate(checks.OVERFLOW_JS), f'welcome at {w}px: no sideways scroll'); past_welcome(p); ok(not p.evaluate(checks.OVERFLOW_JS), f'start at {w}px: no sideways scroll')
         if w == 320: rows = p.evaluate("[...document.querySelectorAll('[data-stissue]')].filter(e=>{const r=e.getBoundingClientRect(); return r.top>=0 && r.bottom<=innerHeight-80}).length"); ok(rows >= 2, f'step 1 at 320px shows {rows} whole issue rows')
         c.close()
 
@@ -473,7 +479,7 @@ with sync_playwright() as pw:
     ok(p.evaluate("document.getAnimations().filter(a=>a.playState==='running' && a.effect && a.effect.getTiming().iterations===Infinity).length") == 0, 'reduced motion: nothing animates forever'); c.close()
     c, p = ctx(b); p.route('**/demo/snapshot.json*', lambda r: r.abort()); p.goto(BASE + '?demo=1'); p.wait_for_timeout(3000)
     ok('Try again' in p.evaluate('document.body.innerText'), 'blocked data shows Try again'); c.close()
-    c, p = ctx(b); fresh(p, '&season=off'); p.goto(BASE + '?demo=1&season=off#/'); p.reload(); p.wait_for_timeout(3000); t = text(p); shot(p, 'p_off_s1')
+    c, p = ctx(b); fresh(p, '&season=off'); p.goto(BASE + '?demo=1&season=off#/'); p.reload(); p.wait_for_timeout(3000); past_welcome(p); p.wait_for_timeout(1500); t = text(p); shot(p, 'p_off_s1')
     ok('January 20' in t and not COMMUNITY.search(t), 'off-season step 1: January 20, no community totals')
     # The between-sessions walk, pressing Next the whole way (R-019: Next went nowhere on the live site, every topic
     # said "0 bills", the recap found nothing, and Home asked for the issues again - and nothing here pressed Next).
@@ -482,7 +488,7 @@ with sync_playwright() as pw:
     t = t + ' ' + ' '.join(p.locator('.st-icount').all_text_contents())
     counts = re.findall(r'\d+ (?:issues?|wins?) in 20\d\d', t)[:3]
     ok(re.search(r'(?<!\d)0 (bills|issues|wins) in', t) is None and re.search(r'[1-9]\d* (?:issues?|wins?) in 20\d\d', t) is not None, f"off-season categories count last session's issues and wins ({counts})")
-    p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(2500); t = text(p); shot(p, 'p_off_recap')
+    past_welcome(p); p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(2500); t = text(p); shot(p, 'p_off_recap')
     ok(p.evaluate('location.hash') == '#/start/2' and 'Your issues' in t, f"off-season Next goes to the issues ({p.evaluate('location.hash')})")
     ok(p.locator('[data-stpick]').count() > 0 and 'Tick every issue' in t, 'the issues screen finds last session\u2019s issues')
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)

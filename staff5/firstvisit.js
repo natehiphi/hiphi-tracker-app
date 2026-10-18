@@ -44,8 +44,9 @@ const PLAN_STEPS = ['island', 'way', 'story', 'picks', 'road', 'find', 'learn', 
 const FLOWS = {
   // 'voice' is the short version's one page in place of the three lessons (R-067 #11, tested with the outside testers).
   // 'alerts' (R-146, 10/4): the alerts ask right after the issues; it was part of "Coming up on your issues" before.
-  in: ['topics', 'issues', 'alerts', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done', ...PLAN_STEPS],
-  off: ['topics', 'issues', 'alerts', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done', ...PLAN_STEPS],
+  // 'arrive' on these two is the welcome before the topics (R-297, 10/17); from a shared bill it is the bill's own card.
+  in: ['arrive', 'topics', 'issues', 'alerts', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done', ...PLAN_STEPS],
+  off: ['arrive', 'topics', 'issues', 'alerts', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done', ...PLAN_STEPS],
   link: ['arrive', 'act', 'followask', 'alerts', 'voice', 'bill', 'session', 'hearing', 'you', 'soon', 'done'],
 };
 const PERIODS = [['4', '4 weeks'], ['12', '12 weeks'], ['52', 'A year']];
@@ -74,7 +75,7 @@ const redraw = sel => { const y = scrollY; hooks.render(); if (sel) document.que
 function sampleRows(weeks) {
   const srcs = [['direct', 9], ['instagram.com', 7], ['keiki-health-fair', 5], ['facebook.com', 3], ['newsletter', 2]];
   const mon = new Date(); mon.setHours(12, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
-  const reach = { topics: 1, issues: .9, alerts: .8, bill: .72, session: .68, hearing: .64, you: .58, soon: .54, done: .5 };
+  const reach = { arrive: 1, topics: .97, issues: .9, alerts: .8, bill: .72, session: .68, hearing: .64, you: .58, soon: .54, done: .5 };
   const time = { topics: 21, issues: 58, alerts: 24, bill: 46, session: 64, hearing: 52, you: 37, soon: 31, done: 14, followask: 12, arrive: 40, act: 95 };
   const rows = [];
   for (let w = 0; w < weeks; w++) {
@@ -168,7 +169,7 @@ function screensHTML(id, title, meta, t, list, of) {
   if (!rows.length) return '';
   const row = s => {
     const n = t.reached[s] || 0, d = of(s), w = Math.min(100, Math.round(100 * n / d)), sk = t.skips[s] || 0, tm = t.tn[s] ? t.tw[s] / t.tn[s] : null;
-    return `<li class="fv-srow"><span class="fv-sname">${esc(NAMES[s] || s)}</span>
+    return `<li class="fv-srow"><span class="fv-sname">${esc(s === 'arrive' && id === 'fv-sh' ? 'The welcome' : NAMES[s] || s)}</span>
       <span class="fv-reach"><span class="fv-bar" aria-hidden="true"><i style="width:${w}%"></i></span><span class="fv-rn"><b>${nf(n)}</b><span class="fv-w"> reached</span> · ${pct(n, d)}</span></span>
       <span class="fv-skip">${sk ? `${nf(sk)}<span class="fv-w"> skipped</span>` : '<span class="fv-none" aria-hidden="true">–</span>'}</span>
       <span class="fv-time">${tm == null ? '<span class="fv-none" aria-hidden="true">–</span>' : `<span class="fv-w">typically </span>${secs(tm)}`}</span></li>`;

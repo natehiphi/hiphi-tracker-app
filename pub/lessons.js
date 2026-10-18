@@ -56,6 +56,7 @@
 import { S, esc, icon, nick, blurb, spaced, sessionInfo, hearingsOf, outcomeOf, codesOf, cmteLabel, roomLabel, legPhoto,
   legTitle, posInfo, plainStatus, dateLong, timeWord, HST, CHAMBER_NAME, myActions } from './core.js';
 import { posChip } from './ui.js';
+import { HELP_WORDS } from './letters.js';
 import { situation, railHTML, railBrief } from './bill.js';
 import { reduced, later, burst, travel, stopTravel } from './fx.js';
 import { endHome } from './variant.js';
@@ -344,7 +345,7 @@ function ctaHTML(E) {
   // testimony is still taken, marked late: the second review, 9/21).
   switch (x.kind) {
     case 'email': return btn('mail', 'Send a quick email', due && `Testimony ${due}`);
-    case 'testify': return btn('notebook-pen', 'Write my testimony', due && due[0].toUpperCase() + due.slice(1));
+    case 'testify': return btn('notebook-pen', HELP_WORDS, due && due[0].toUpperCase() + due.slice(1));
     case 'capitol': return btn('landmark', x.act ? 'Testify at the Capitol site' : 'See the Capitol bill page', x.act && due ? `Testimony ${due}` : '');
     case 'ask': return btn('mail', x.chairs.length > 1 ? 'Ask the chairs for a hearing' : 'Ask the chair for a hearing', 'A short email. About 2 minutes.');
     case 'hold': return btn('mail', 'Email the chair · 2 min', '');

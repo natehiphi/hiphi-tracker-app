@@ -76,7 +76,7 @@ def run(w, h, mobile):
     # "How to get there"; Home does not say "all caught up" (R-005's rule, now for going too).
     pg.goto(BASE + '#/'); pg.reload(); ready(pg)
     hc = pg.locator(f'.hm-main [data-card="{K}"]').first
-    ok(hc.count() == 1 and hc.locator('.goline').count() == 1 and hc.locator('[data-helper]').count() >= 1, f'{tag}: with testimony open, Home keeps the card, with "Write my testimony" and "How to get there"')
+    ok(hc.count() == 1 and hc.locator('.goline').count() == 1 and hc.locator('[data-helper]').count() >= 1, f'{tag}: with testimony open, Home keeps the card, with "Help me write testimony" and "How to get there"')
     ok(hc.locator('.due.warn').count() == 1, f'{tag}: and the deadline keeps its warning')
     ok('caught up' not in pg.inner_text('.hm-main h1'), f'{tag}: Home does not say "all caught up" ({pg.inner_text(".hm-main h1")!r})')
     ok(pg.locator('.gocard').count() == 0, f'{tag}: and no second plan card for the same hearing (said once)')

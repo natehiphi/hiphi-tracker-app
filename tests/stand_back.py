@@ -59,7 +59,7 @@ with sync_playwright() as p:
         ok(sup.get_attribute('aria-pressed') == 'true', f'{tag}: Support marked on the bill page')
         for mode in ('testimony', 'email'):
             k = f'{tag} {mode}, Support marked first:'
-            if mode == 'testimony': pg.locator('.btn', has_text='Write my testimony').first.click()
+            if mode == 'testimony': pg.locator('.btn', has_text='Help me write testimony').first.click()
             else: pg.evaluate(KEEP, [t, mode])
             pg.wait_for_selector('#hp-dlg #hp-sh', timeout=15000); pg.wait_for_timeout(500)
             sub = pg.locator('#hp-dlg .hp-standsub').inner_text() if pg.locator('#hp-dlg .hp-standsub').count() else ''

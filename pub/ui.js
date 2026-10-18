@@ -4,7 +4,7 @@ import { esc, icon, posInfo, issueIcon } from './kernel.js';
 
 const attrs = a => Object.entries(a || {}).filter(([, v]) => v !== undefined && v !== null && v !== false)
   .map(([k, v]) => v === true ? ` ${k}` : ` ${k}="${esc(v)}"`).join('');
-// btn('Write my testimony', { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-helper': id } })
+// btn('Help me write testimony', { kind: 'primary', icon: 'notebook-pen', full: true, attrs: { 'data-helper': id } })
 export function btn(label, { kind = 'primary', icon: ic, iconEnd, full, sm, href, attrs: a, cls = '' } = {}) {
   const c = `btn ${kind}${full ? ' full' : ''}${sm ? ' sm' : ''}${cls ? ' ' + cls : ''}`;
   const inner = `${ic ? icon(ic) : ''}<span>${label}</span>${iconEnd ? icon(iconEnd) : ''}`;

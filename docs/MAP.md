@@ -153,7 +153,7 @@ session is dark (until January 2027).
   (Make a link page; `site_cards`, `public_site_cards`). Home between sessions offers "Write to my legislators".
 - **Speed** (R-067): the Supabase library is pinned (`SUPABASE_JS` in core.js, preloaded in track.html; change both
   together), and boot starts `loadReference()` and `loadPool()` alongside the catalog instead of after it.
-- **Testimony leads** (R-068, Nate 9/27): wherever there is a hearing the main action is "Write my testimony" (bill page
+- **Testimony leads** (R-068, Nate 9/27): wherever there is a hearing the main action is "Help me write testimony" (R-296; "Write my testimony" before 10/17) (bill page
   and action cards), for everyone whatever they think of the bill; the quick email is under More ways to help. The
   walkthrough (`pub/helper.js`) is a sequence (`seqOf`): "Where do you stand?" only when they have not said Support or
   Oppose, About you (a reason is required when the letter is their own), Your letter (Next; Copy, Email it to myself,

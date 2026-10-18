@@ -108,7 +108,7 @@ export function parseRoute(h = location.hash) {
     // and redirectFor sends anything past the end back to the last screen. Every hard cap written in
     // this file has been wrong within a day of the flow growing - first 4, then 9 - and the symptom is
     // silent: the hash moves, the screen does not.
-    case 'start': return { name: 'start', step: Math.max(1, +seg[1] || 1) };
+    case 'start': return { name: 'start', step: seg[1] === '0' ? 0 : Math.max(1, +seg[1] || 1) };   // 0: the welcome (R-297)
     // One lesson on its own, in the moment it is needed (R-067 #11): #/learn/hearing, or #/learn/hearing/<bill id> to
     // teach it on that bill.
     case 'learn': return { name: 'learn', lesson: seg[1] || 'bill', bill: seg[2] || '' };
@@ -247,7 +247,11 @@ export function render() {
   // A mistyped or old address lands on Home with one line saying so, then becomes the plain Home address (R-067).
   if (route.unknown) { history.replaceState(history.state, '', '#/'); setTimeout(() => toast('That page isn’t here. This is the home page.'), 50); }
   // A first visit to the home page starts the guided start where the person left it.
-  if (route.name === 'home' && firstVisit()) { history.replaceState({ y: 0 }, '', `#/start/${readyForSession() ? 2 : wiz().step || 1}`); route = parseRoute(); }
+  // One who has not begun yet opens on the welcome, step 0 (R-297); start.js passes the plans and a shared bill on to step 1.
+  // Begun: any step drawn (start.js sets begun), or, for a first visit already under way before the welcome, a step past
+  // the first or an issue ticked.
+  if (route.name === 'home' && firstVisit()) { const w = wiz(), begun = w.begun || w.step > 1 || (w.issues || []).length;
+    history.replaceState({ y: 0 }, '', `#/start/${readyForSession() ? 2 : begun ? w.step || 1 : 0}`); route = parseRoute(); }
   const scr = SCREENS[route.name] || SCREENS.home;
   const tabs = scr.tabs !== false && !(scr.noTabs && scr.noTabs(route));
   const bar = scr.bar ? scr.bar(route) : '';
