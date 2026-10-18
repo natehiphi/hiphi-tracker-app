@@ -5,7 +5,7 @@
 // you stand?" near the top, keeps community numbers to this one bill, follows the same easiest-first ladder as the
 // action card, and has a real desktop layout (the actions in a side panel that stays in view, no bottom bar).
 import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, blurb, asSentence, cleanDesc, nick, spaced, alive, stopOf, plainStatus, stopDetail, cmteLabel, roomLabel,
-  dueInfo, dayWord, timeWord, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
+  dueInfo, dayWord, timeWord, hearingWhen, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
   pickBill, billRef, billPath, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
   issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber, billTourHeld, billTourSeen, sameIdeaLaw, sameIdeaWords } from './core.js';
@@ -23,7 +23,7 @@ import { followAsk, profileSaved, levelLine, levelBox, wireLevelLine } from './a
 import { celebrate as moment } from './fx.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
 import { abEvent } from './variant.js';
-import { legMoments } from './speakup.js';   // the floor vote's email to their own legislator (R-169)
+import { legMoments, planFor } from './speakup.js';   // the floor vote's email to their own legislator (R-169); the walkthrough a button opens
 import { openAddTo, onListsLine } from './mylists.js';
 import { aboutBill, capitolUrl, billTextUrl } from './billtext.js';   // "Read more about the bill" and the Capitol's links (R-178)
 import { GO_HELP } from './topics.js';   // the first visit's last button (R-190)
@@ -840,7 +840,9 @@ function statusCard(b, x) {
 // do. The section holds its action: on a wide screen the main button sits in the card, above "More ways to help"; on
 // a phone it is in the bottom bar and the card carries the next step. For someone new to acting that next step is
 // testimony, shown as the bigger step right under the quick email rather than folded away.
-function actionSection(b, x) {
+// lead (the issue page, R-303): the card's first line (the bill's number, and its name where an issue has several bills) and
+// the ask go inside the card, as in the card without a hearing (recDo), so both of the issue page's cards read the same.
+function actionSection(b, x, { lead = '' } = {}) {
   if (!x.act) return '';
   const h = x.act.h, done = actedOn(b, h);
   const title = done ? 'Mahalo for speaking up' : x.act.late ? 'You can still be heard' : 'Speak up before the hearing';
@@ -849,8 +851,9 @@ function actionSection(b, x) {
   const big = '';
   // Layout 3 (R-302) keeps the button in the card on a phone too; the bar docks only once the card has scrolled away.
   const main = wide() || REC() ? mainButton(b, x) + (wide() && S.blNew.has(b.id) && firstVisit() && !S.blLooking.has(b.id) ? `<div class="bl-notnow">${notNow()}</div>` : '') : '';
-  return `<section class="bl-sec bl-act${big ? ' bl-hasbig' : ''}" aria-labelledby="bl-act-h"><div class="sechead"><h2 id="bl-act-h">${title}</h2></div>
-    ${actionCard(b, h, { heading: 'h3', compact: true, band: !REC() || wide() })}${main || big ? `<div class="bl-slot">${main}${big}</div>` : ''}
+  const card = actionCard(b, h, { heading: 'h3', compact: true, band: !lead && (!REC() || wide()) });   // no drawing on the issue page (R-303: warm is words)
+  return `<section class="bl-sec bl-act${big ? ' bl-hasbig' : ''}" aria-labelledby="bl-act-h">${lead ? '' : `<div class="sechead"><h2 id="bl-act-h">${title}</h2></div>`}
+    ${lead ? card.replace(/^\s*(<article\b[^>]*>)/, `$1${lead}<h2 class="bl-acth" id="bl-act-h">${title}</h2>`) : card}${main || big ? `<div class="bl-slot">${main}${big}</div>` : ''}
     ${done ? '' : `<p class="bl-learn"><a href="#/learn/hearing/${esc(b.id)}">${icon('circle-help')}<span>New to hearings? What happens at one, about a minute</span></a></p>`}${ask ? `<div class="bl-nudge">${ask}</div>` : ''}</section>`;
 }
 // The floor, conference and the Governor: what the step is and why, in one line (the side card on a wide screen, the
@@ -1077,12 +1080,12 @@ function recSteps(b, x, r) {
 // sentence ("Passed the House."), so the date is said once (A-14, the critic 10/18).
 const recSay = (b, x) => { const t = plainStatus(b).text, first = (/^[^.]*\./.exec(t) || [t])[0];
   return (x.act || (x.waiting && x.st.deadline && !x.st.deadline.missed)) && first !== t && !/\d/.test(first) ? first : t; };
-function recWhere(b, x) {
+function recWhere(b, x, { title = 'Where it is now' } = {}) {
   const r = railInfo(b, x), n = r.names.length, s = r.steps[r.idx], C = N[s.ch] || (s.kind === 'gov' || s.kind === 'law' ? '' : N[r.ci <= 2 ? r.o : r.t]);
   const small = x.law ? (isResolution(b) ? 'Adopted' : 'Became law') : x.stopped ? 'Did not advance' : `Step ${r.idx + 1} of ${n}${C ? ` · In the ${C}` : ''}`;
   const name = x.law ? '' : x.stopped ? r.rest : s.kind === 'cmte' ? s.name : r.rest;
   const steps = recSteps(b, x, r);
-  return `<section class="bl-sec bl-rwhere" aria-labelledby="bl-rw-h"><h2 class="bl-rh" id="bl-rw-h">Where it is now</h2><div class="card">
+  return `<section class="bl-sec bl-rwhere" aria-labelledby="bl-rw-h"><h2 class="bl-rh" id="bl-rw-h">${esc(title)}</h2><div class="card">
     <div class="bl-rail${x.stopped ? ' bl-railstop' : x.law ? ' bl-raillaw' : ''}${n > 8 ? ' bl-many' : ''}" style="--n:${n}"><ol class="bl-dots bl-n${n}" aria-label="The ${n} steps ${isResolution(b) ? 'to adoption' : 'from bill to law'}">${dotItems(r, x)}</ol></div>
     <p class="bl-rnow"><small>${esc(small)}</small>${name ? esc(name) : ''}</p>
     ${x.stopped ? `<p class="bl-rsay">${esc(stopDetail(b))}</p>${sameLine(b)}` : `<p class="bl-rsay">${x.law ? flower(22) : ''}${esc(recSay(b, x))}</p>`}${stoppedNext(b, x)}
@@ -1091,7 +1094,7 @@ function recWhere(b, x) {
 }
 // The action card without a hearing: the deadline it races and the days left, what to do and why, the button, how long
 // it takes and how many have done it (only from 10 people), then More ways to help inside the card.
-function recDo(b, x) {
+function recDo(b, x, { lead = '' } = {}) {
   const main = mainButton(b, x); if (!main) return '';
   const [title, text] = doWords(b, x), dl = x.live && x.st.deadline && !x.st.deadline.missed ? x.st.deadline : null;
   const when = !dl ? '' : x.waiting ? `Needs a hearing by ${dayShort(dl.date)}` : x.kind === 'floor' ? `The ${N[x.st.chamber] || 'full chamber'} votes by ${dayShort(dl.date)}` : `Deadline ${dayShort(dl.date)}`;
@@ -1102,12 +1105,33 @@ function recDo(b, x) {
   const ways = x.live && asking(x) ? `<details class="bl-rways" ${fold(b, 'ways')}><summary><span>More ways to help</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary>
     ${x.kind === 'floor' ? '' : row('user', myDistricts() ? 'Write to your own lawmakers' : 'Find your own lawmakers', 'They listen most to the people they represent.', { href: `#/legislators?from=${encodeURIComponent(billRef(b))}` })}
     ${row('share-2', 'Ask a friend to ask too', 'More voices carry more weight.', { 'data-bl-share': '1' })}</details>` : '';
-  return `<section class="card bl-ract" aria-labelledby="bl-do-h">${when ? `<p class="bl-rwhen${dl.days < 1 ? ' bl-w' : ''}">${icon('clock')}<span>${esc(when)}</span><span class="bl-rpill">${esc(left)}</span></p>` : ''}
+  return `<section class="card bl-ract" aria-labelledby="bl-do-h">${lead}${when ? `<p class="bl-rwhen${dl.days < 1 ? ' bl-w' : ''}">${icon('clock')}<span>${esc(when)}</span><span class="bl-rpill">${esc(left)}</span></p>` : ''}
     <h2 id="bl-do-h">${esc(title)}</h2><p class="bl-rtext">${esc(text)}</p>
     ${b.hiphi_action && x.live && !x.differs ? `<p class="bl-rask"><b>HIPHI asks:</b> ${esc(b.hiphi_action)}</p>` : ''}
     ${main}${more ? `<p class="bl-rmore">${esc(more)}</p>` : ''}${ways}</section>`;
 }
-const recAct = (b, x) => x.act ? actionSection(b, x) : recDo(b, x);
+const recAct = (b, x, o = {}) => x.act ? actionSection(b, x, o) : recDo(b, x, o);
+// Where a bill stands in one line, in this page's words, for a row that names it elsewhere (the issue page's "Bills on this
+// issue", R-303): "Step 6 of 10 · Needs a hearing by Mon 3/30", "Step 5 of 9 · Testimony due Sun 3:00 PM" (a moment in
+// C-15's words: the weekday within the week, the date further out).
+export function recLine(b, x = situation(b)) {
+  if (x.law) return isResolution(b) ? 'Adopted' : 'Became law';
+  if (x.stopped) return 'Did not advance';
+  if (x.ballot) return plainStatus(b).short;
+  const r = railInfo(b, x), h = x.act?.h, dl = x.live && x.st.deadline && !x.st.deadline.missed ? x.st.deadline : null;
+  const at = hearingWhen;
+  const now = h ? (x.act.late || !h.testimony_deadline ? `Hearing ${at(h.scheduled_at)}${x.act.late ? ' · late testimony taken' : ''}` : `Testimony due ${at(h.testimony_deadline)}`)
+    : x.waiting && dl ? `Needs a hearing by ${dayShort(dl.date)}`
+    : x.st.hearingState === 'scheduled' && x.st.hearing ? `Hearing ${at(x.st.hearing.scheduled_at)}` : plainStatus(b).short;
+  return `Step ${r.idx + 1} of ${r.names.length} · ${now}`;
+}
+// The bill page's own parts for a page that shows a bill without being its page (the issue page, R-303 option A): its
+// situation, the layout-3 action card (lead: a first line for it), "Where it is now" (where: its heading), the one line, and
+// the main button (the phone's docked bar). wireBillParts below makes them work there.
+export function billParts(b, { lead = '', where } = {}) {
+  const x = situation(b);
+  return { x, act: recAct(b, x, { lead }), where: recWhere(b, x, { title: where }), line: recLine(b, x), main: mainButton(b, x) };
+}
 // Back, Share and ⋯ (Follow this bill alone, Add to a list, the Capitol's page). The number moved to the title's label.
 function recTop(b) {
   const on = S.watch.has(b.id), alone = issuesOf(b).length ? ' alone' : '', to = backName();
@@ -1172,9 +1196,10 @@ function recPage(num, b, x) {
     <div class="bl-main bl-main2">${rest}</div></div></div>`;
 }
 // Once the action card's button has scrolled up under the top bars, it docks above the tab bar (the mockup's check()).
-function recDock() {
-  if (!onBill() || !REC() || wide()) return;
-  const card = document.querySelector('.bl-rec .bl-ract, .bl-rec .bl-act'), bar = document.querySelector('.actionbar');
+// Any page in layout 3 (#main .bl-rec): the bill page, and the issue page that draws its card (R-303).
+export function recDock() {
+  if (!REC() || wide() || !document.querySelector('#main .bl-rec')) return;
+  const card = document.querySelector('#main .bl-rec .bl-ract, #main .bl-rec .bl-act'), bar = document.querySelector('.actionbar');
   const off = (document.querySelector('.hdr')?.offsetHeight || 0) + (document.querySelector('.bl-top')?.offsetHeight || 0);
   // the card's own button, not its last line: on a short page the card's foot can stay in view after its button has gone
   const btnEl = card?.querySelector('.btn.primary') || card;
@@ -1240,6 +1265,65 @@ const sideWatch = window.ResizeObserver ? new ResizeObserver(fitSide) : null;
 window.addEventListener('resize', fitSide);
 let stanceBusy = false;
 
+// ---------------- the bill's parts, wherever they are drawn ----------------
+// This page and the issue page that shows a bill's own card and "Where it is now" (R-303, option A) wire them the same way:
+// the page's main button moved into the card, the card's buttons and walkthroughs, "Did you send it?", the folds that stay
+// open through a redraw, and the issue's follow. roots: the element (or elements) holding the parts; bar: the docked bar
+// with the main button. Every redraw is the app's own (app.render), so the handlers work on any page, not only this one's
+// address.
+export function wireBillParts(roots, b, { bar = null, x = situation(b) } = {}) {
+  const rs = [roots].flat().filter(Boolean), both = [...rs, bar].filter(Boolean);
+  const each = (sel, fn) => both.forEach(scope => scope.querySelectorAll(sel).forEach(fn));
+  const inPage = (sel, fn) => rs.forEach(scope => scope.querySelectorAll(sel).forEach(fn));
+  // The page's own buttons belong with the card's, above "More ways to help". The card is drawn by actions.js, so they
+  // are drawn next to it and moved in; if the card ever changes shape they simply stay right under it.
+  rs.forEach(r => { const slot = r.querySelector('.bl-slot'), col = r.querySelector('.bl-act .acard > .btncol'); if (slot && col) col.prepend(slot); wireActions(r); wireNudge(r); });
+  inPage('details[data-bl-fold]', d => d.addEventListener('toggle', () => { const k = `${b.id}|${d.dataset.blFold}`; if (d.open) S.blOpen.add(k); else S.blOpen.delete(k); }));
+  each('[data-bl-unfollowissue]', el => el.addEventListener('click', async () => {
+    const i = S.issueById.get(el.dataset.blUnfollowissue); if (!i || el.getAttribute('aria-busy') === 'true') return;
+    el.setAttribute('aria-busy', 'true');
+    if (await setFollows({ issuesOff: [i.id] })) toast(`You no longer follow ${i.name}.`, { undo: async () => { await setFollows({ issuesOn: [i.id] }); app.render(); } });
+    app.render();
+  }));
+  each('[data-bl-followissue]', el => el.addEventListener('click', async () => {
+    const i = S.issueById.get(el.dataset.blFollowissue); if (!i || el.getAttribute('aria-busy') === 'true') return;
+    el.setAttribute('aria-busy', 'true');
+    if (await setFollows({ issuesOn: [i.id] })) {
+      const say = r => r ? toast(profileSaved(r), { yay: true }) : toast(`Following ${i.name}. Its bills come to you, next session’s too.`, { yay: true, undo: async () => { await setFollows({ issuesOff: [i.id] }); app.render(); } });   // no Undo beside a yes (as find.js)
+      app.render();
+      if (!followAsk(i.name, say)) say(null);   // the profile ask after a follow (R-184; a stopped bill's main button is this)
+      return;
+    }
+    app.render();
+  }));
+  inPage('[data-bl-share]', el => el.addEventListener('click', () => { setMenu(false); shareBill(b, x); }));
+  inPage('[data-bl-compose]', el => el.addEventListener('click', () => openComposer(el.dataset.blCompose)));
+  // A mailto opens the mail app and leaves this page as it was; a moment later, ask whether it went.
+  each('[data-bl-mail]', el => el.addEventListener('click', () => setTimeout(() => { S.sentq[x.qKey] = el.dataset.blMail; app.render(); }, 800)));
+  each('[data-bl-go="testify"]', el => el.addEventListener('click', () => app.openHelper(b.id, x.act.h.id)));
+  each('[data-bl-go="compose"]', el => el.addEventListener('click', () => openComposer(x.k)));
+  each('[data-bl-go="share"]', el => el.addEventListener('click', () => shareBill(b, x)));
+  each('[data-bl-sent]', el => el.addEventListener('click', async () => {
+    const hid = S.sentq[x.qKey]; delete S.sentq[x.qKey];
+    if (el.dataset.blSent === 'yes') {
+      await markDone(b.id, hid && hid !== '-' ? hid : '', 'email');
+      if (x.waiting && x.code) { S.done.add(askMark(b, x.code)); saveDone(); }   // asked THIS committee (see askMark)
+      if (x.stepKey && ['floor', 'conference', 'governor'].includes(x.kind)) { S.done.add(askMark(b, x.stepKey)); saveDone(); }   // this stage, done
+      if (await app.newcomerActed(b)) return;
+    }
+    app.render();
+  }));
+  // On this page speakup.js opens the email walkthroughs from the address (#/bill/HB1563); elsewhere (the issue page) the
+  // same buttons name no bill in the address, so they open them here, for this bill, before the mailto or the question.
+  if (!onBill()) both.forEach(scope => scope.addEventListener('click', e => {
+    if (!app.openMail || e.button > 0 || e.metaKey || e.ctrlKey) return;
+    const el = e.target.closest?.('[data-bl-compose], [data-bl-go="compose"], [data-bl-main="ask"], [data-bl-main="hold"], [data-bl-main="remind"], [data-bl-main="floor"], [data-bl-chair][data-bl-mail]');
+    const plan = el && planFor(el, b); if (!plan) return;
+    e.preventDefault(); e.stopPropagation();
+    app.openMail(plan);
+  }, true));
+}
+
 // ---------------- the screen ----------------
 export default {
   // No tab bar here (the page has its own bars); on wide screens the header nav marks where bills live.
@@ -1292,36 +1376,14 @@ export default {
     stampRoot();
     const x = situation(b), bar = document.querySelector('.actionbar'), both = [root, bar].filter(Boolean);
     const each = (sel, fn) => both.forEach(scope => scope.querySelectorAll(sel).forEach(fn));
-    // The page's own buttons belong with the card's, above "More ways to help". The card is drawn by actions.js, so they
-    // are drawn next to it and moved in; if the card ever changes shape they simply stay right under it.
-    const slot = root.querySelector('.bl-slot'), col = root.querySelector('.bl-act .acard > .btncol');
-    if (slot && col) col.prepend(slot);
-    wireActions(root); wireNudge(root);
+    wireBillParts(root, b, { bar, x });   // the card, its walkthroughs and folds: shared with the issue page (R-303)
     root.querySelectorAll('details[data-bl-rfold]').forEach(d => d.addEventListener('toggle', () => saveFold(d.dataset.blRfold, d.open)));
     document.body.classList.toggle('bl-rec', REC()); recDock();
-    root.querySelectorAll('details[data-bl-fold]').forEach(d => d.addEventListener('toggle', () => { const k = `${b.id}|${d.dataset.blFold}`; if (d.open) S.blOpen.add(k); else S.blOpen.delete(k); }));
     root.querySelector('[data-bl-star]')?.addEventListener('click', async e => {
       e.currentTarget.setAttribute('aria-busy', 'true');
       await flipFollow(b);
       app.render();
     });
-    each('[data-bl-unfollowissue]', el => el.addEventListener('click', async () => {
-      const i = S.issueById.get(el.dataset.blUnfollowissue); if (!i || el.getAttribute('aria-busy') === 'true') return;
-      el.setAttribute('aria-busy', 'true');
-      if (await setFollows({ issuesOff: [i.id] })) toast(`You no longer follow ${i.name}.`, { undo: async () => { await setFollows({ issuesOn: [i.id] }); app.render(); } });
-      app.render();
-    }));
-    each('[data-bl-followissue]', el => el.addEventListener('click', async () => {
-      const i = S.issueById.get(el.dataset.blFollowissue); if (!i || el.getAttribute('aria-busy') === 'true') return;
-      el.setAttribute('aria-busy', 'true');
-      if (await setFollows({ issuesOn: [i.id] })) {
-        const say = r => r ? toast(profileSaved(r), { yay: true }) : toast(`Following ${i.name}. Its bills come to you, next session’s too.`, { yay: true, undo: async () => { await setFollows({ issuesOff: [i.id] }); app.render(); } });   // no Undo beside a yes (as find.js)
-        app.render();
-        if (!followAsk(i.name, say)) say(null);   // the profile ask after a follow (R-184; a stopped bill's main button is this)
-        return;
-      }
-      app.render();
-    }));
     // Where do you stand? The answer rides on the follow (that is how it reaches an account, and the bill's totals),
     // so taking a stand on a bill you do not follow yet also follows it, says so, and offers Undo.
     root.querySelectorAll('[data-bl-stance]').forEach(el => el.addEventListener('click', async () => {
@@ -1339,24 +1401,7 @@ export default {
     }));
     root.querySelector('[data-bl-menu]')?.addEventListener('click', e => { e.stopPropagation(); setMenu(document.getElementById('bl-menu').hidden); });
     root.querySelectorAll('[data-bl-addto]').forEach(el => el.addEventListener('click', () => { setMenu(false); openAddTo(b); }));
-    root.querySelectorAll('[data-bl-share]').forEach(el => el.addEventListener('click', () => { setMenu(false); shareBill(b, x); }));
     root.querySelector('[data-bl-close]')?.addEventListener('click', () => setMenu(false));
-    root.querySelectorAll('[data-bl-compose]').forEach(el => el.addEventListener('click', () => openComposer(el.dataset.blCompose)));
-    // A mailto opens the mail app and leaves this page as it was; a moment later, ask whether it went.
-    each('[data-bl-mail]', el => el.addEventListener('click', () => setTimeout(() => { S.sentq[x.qKey] = el.dataset.blMail; app.render(); }, 800)));
-    each('[data-bl-go="testify"]', el => el.addEventListener('click', () => app.openHelper(b.id, x.act.h.id)));
-    each('[data-bl-go="compose"]', el => el.addEventListener('click', () => openComposer(x.k)));
-    each('[data-bl-go="share"]', el => el.addEventListener('click', () => shareBill(b, x)));
-    each('[data-bl-sent]', el => el.addEventListener('click', async () => {
-      const hid = S.sentq[x.qKey]; delete S.sentq[x.qKey];
-      if (el.dataset.blSent === 'yes') {
-        await markDone(b.id, hid && hid !== '-' ? hid : '', 'email');
-        if (x.waiting && x.code) { S.done.add(askMark(b, x.code)); saveDone(); }   // asked THIS committee (see askMark)
-        if (x.stepKey && ['floor', 'conference', 'governor'].includes(x.kind)) { S.done.add(askMark(b, x.stepKey)); saveDone(); }   // this stage, done
-        if (await app.newcomerActed(b)) return;
-      }
-      app.render();
-    }));
     each('[data-bl-newlater]', el => el.addEventListener('click', () => { logVisit('arrive', 'skip', { path: 'link' }); S.blLooking.add(b.id); app.render(); }));
     each('[data-bl-tour]', el => el.addEventListener('click', () => viaStart(b, { viaSkipAsk: true })));
     each('[data-bl-billtour]', el => el.addEventListener('click', () => app.billTour?.()));

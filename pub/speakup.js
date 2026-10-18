@@ -164,7 +164,8 @@ export function openKey(k) {
 // Without the year these buttons fell back to a bare email for anyone who came from a shared link (found 10/5, R-169).
 const numOf = () => { const m = /#\/bill\/(?:(\d{4})\/)?([A-Za-z]+\s?\d+)/.exec(decodeURIComponent(location.hash)) || [];
   return { num: String(m[2] || '').replace(/\s/g, '').toUpperCase(), year: +m[1] || 0 }; };
-function planFor(el, b) {
+// Exported for the issue page's copy of the bill's card (bill.js wireBillParts, R-303), which names no bill in the address.
+export function planFor(el, b) {
   const act = openActions([b], hearingsOf(b))[0] || null, st = stopOf(b), waiting = st.phase === 'committee' && st.hearingState === 'none' && !!st.committee;
   if (el.matches('[data-bl-compose]')) { const hid = el.dataset.blCompose.split('|')[1]; return hid ? { mode: 'email', bill: b.id, hearing: hid, chair: el.dataset.blChair || '' } : null; }
   if (el.matches('[data-bl-go="compose"]')) return act ? { mode: 'email', bill: b.id, hearing: act.h.id } : null;
