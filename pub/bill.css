@@ -64,7 +64,7 @@
 /* R-018: the issue a bill belongs to, and one tap to follow it */
 .bl-page .bl-issue { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin: 0; font-size: var(--t14); color: var(--n700); }
 .bl-page .bl-issue > .ic { width: 20px; height: 20px; color: var(--p700); flex: none; }
-.bl-page .bl-issue > span { flex: 1 1 200px; min-width: 0; }
+.bl-page .bl-issue > .bl-issue-t { flex: 1 1 200px; min-width: 0; margin: 0; }   /* a paragraph, so its issue link is a link in running text (A-6) */
 .bl-page .bl-issue a { font-weight: 700; }
 /* The page a text's link opens (R-299): "Texts: Big moments only · Change" on the issue's "Part of" line, the switch under it
    (no box around it: the switch is the one object, A-17). */
