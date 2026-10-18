@@ -11,6 +11,11 @@ from playwright.sync_api import sync_playwright
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html')
 passes, fails, errors = [], [], []
 def ok(c, m): (passes if c else fails).append(('PASS ' if c else 'FAIL ') + m)
+# R-297: a first visit opens on the welcome (#/start/0), even when the address names the topics; Let's begin goes on to them.
+def tiles(p):
+    p.wait_for_selector('.st-hellopage, .st-tile', timeout=30000)
+    if p.locator('.st-hellopage').count(): p.click('[data-stnext]')
+    p.wait_for_selector('.st-tile', timeout=30000)
 WORDS = """({ xx: null, ilo: {
   'Speak up for a healthier Hawaiʻi': 'ILO Agsao para iti nasalun-at nga Hawaiʻi', 'We keep watch': 'ILO Bantayanmi', 'Back': 'ILO Agsubli', 'Skip': 'ILO Lampasan', 'Next': 'ILO Sumaruno',
   'About 4 minutes. Free.': 'ILO Mga 4 a minuto. Libre.', '{n} issues': 'ILO {n} a banag', '{n} issue': 'ILO {n} a banag', '{what} moving': 'ILO {what} a mapan',
@@ -26,12 +31,12 @@ with sync_playwright() as pw:
         p.add_init_script(init)
         return c, p
     # 1. English
-    c, p = page(); p.goto(BASE + '?demo=1&restart#/start/1'); p.wait_for_selector('.st-tile', timeout=30000); p.wait_for_timeout(500)
+    c, p = page(); p.goto(BASE + '?demo=1&restart#/start/1'); tiles(p); p.wait_for_timeout(500)
     ok(p.evaluate('document.documentElement.lang') == 'en' and p.locator('.lang-pick').count() == 0, 'English: <html lang="en"> and no picker')
     ok('Speak up for a healthier Hawaiʻi' in p.inner_text('#st-h'), 'English: the heading is the English')
     c.close()
     # 2. a preview in another language
-    c, p = page(); p.goto(BASE + '?demo=1&restart&lang=ilo#/start/1'); p.wait_for_selector('.st-tile', timeout=30000); p.wait_for_timeout(500)
+    c, p = page(); p.goto(BASE + '?demo=1&restart&lang=ilo#/start/1'); tiles(p); p.wait_for_timeout(500)
     ok(p.evaluate('document.documentElement.lang') == 'ilo', '?lang=ilo: <html lang="ilo">')
     ok(p.inner_text('#st-h') == 'ILO Agsao para iti nasalun-at nga Hawaiʻi', f'the heading comes from the list ({p.inner_text("#st-h")!r})')
     t = p.inner_text('.st'); ok('ILO Bantayanmi' in t and 'ILO Mga 4 a minuto. Libre.' in t, 'the three lines and the time promise are translated')
@@ -45,12 +50,12 @@ with sync_playwright() as pw:
     ok(len(saved) == 1 and saved[0] and not saved[0].startswith('ILO'), f'what a person picks is saved under the English key, not the translation ({saved})')
     c.close()
     # 3. HIPHI's database text
-    c, p = page(trans=True); p.goto(BASE + '?demo=1&restart#/start/1'); p.wait_for_selector('.st-tile', timeout=30000)
+    c, p = page(trans=True); p.goto(BASE + '?demo=1&restart#/start/1'); tiles(p)
     key = p.evaluate("document.querySelector('.st-tile').dataset.stissue")
     c.close()
     c, p = page(trans=True, live=True)
     p.add_init_script(f"globalThis.__HIPHI_TRANS__ = {{ ilo: [{{ kind: 'category.name', ref: '{key}', text: 'ILO CATNAME' }}, {{ kind: 'category.description', ref: '{key}', text: 'ILO CATDESC' }}] }};")
-    p.goto(BASE + '?demo=1&restart&lang=ilo#/start/1'); p.wait_for_selector('.st-tile', timeout=30000); p.wait_for_timeout(800)
+    p.goto(BASE + '?demo=1&restart&lang=ilo#/start/1'); tiles(p); p.wait_for_timeout(800)
     first = p.locator('.st-tile').first
     ok('ILO CATNAME' in first.inner_text() and 'ILO CATDESC' in first.inner_text(), f'a category tile shows its passed translation ({first.inner_text()[:60]!r})')
     ok(p.locator('.st-tile', has_text='ILO CATNAME').count() == 1, 'only the category with a translation changed; the others stay English')
@@ -71,7 +76,7 @@ with sync_playwright() as pw:
     ok(p.evaluate('document.documentElement.lang') == 'en' and 'More' == p.inner_text('h1').strip(), 'English brings everything back')
     c.close()
     # 5. a language whose list is missing or broken stays English
-    c, p = page(words='({})'); p.goto(BASE + '?demo=1&restart&lang=haw#/start/1'); p.wait_for_selector('.st-tile', timeout=30000)
+    c, p = page(words='({})'); p.goto(BASE + '?demo=1&restart&lang=haw#/start/1'); tiles(p)
     ok('Speak up for a healthier Hawaiʻi' in p.inner_text('#st-h'), 'a language with no word file stays in English')
     c.close(); b.close()
 ok(not errors, 'no console errors' + ('' if not errors else ': ' + ' | '.join(errors[:4])))
