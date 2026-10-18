@@ -36,9 +36,14 @@ import { alertFields, alertButton, wireAlertForm, fmtPhone, phoneDigits, saveTex
 import { codesOn, myEmail, sendCode, verifyCode, codeErr, tooSoon, listenForCode, emailCodesOn, verifyEmailCode } from './phone.js';   // R-155, R-156 D2
 import { hasProfile, myName, myTitles, initials, saveProfile } from './myprofile.js';   // More's first row (R-147)
 import { titleLabel } from './titles.js';
+// The calm redesign (R-303), only with ?rec=1: You, Your alerts and Privacy are drawn by pub/rec/; taking REC() out of the
+// branches below brings today's pages back.
+import { REC } from './rec/kit.js';
+import { youCss, youWait, youView, wireYou, backFrom, privacyRec, wirePrivacyRec } from './rec/you.js';
+import { recAlertsView, wireRecAlerts, yoursNow } from './rec/alerts.js';
 
 // hiphi.org pages, from the site's own footer and menus (research 9/18). Donate stays last wherever these appear.
-const HIPHI = {
+export const HIPHI = {
   about: 'https://www.hiphi.org/about/', act: 'https://www.hiphi.org/act/', news: 'https://www.hiphi.org/sign-up/',
   recap: 'https://www.hiphi.org/policy/legrecap/', donate: 'https://www.hiphi.org/donate/',
   privacy: 'https://www.hiphi.org/privacy/', access: 'https://www.hiphi.org/accessibility-statement/',
@@ -278,6 +283,7 @@ function meRow() {
     <span class="mr-me-t"><span class="mr-me-n">${name ? esc(name) : t('Your profile')}</span>${about ? `<span class="mr-me-s">${esc(about)}</span>` : ''}<span class="mr-me-l">${name ? t('Your profile') : t('Add your name and titles')}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`;
 }
 function moreView() {
+  if (REC()) return youView();
   const d = myDistricts(), s = d && seat('S', d.senate), h = d && seat('H', d.house);
   const legSub = s && h ? t('{a} and {b}', { a: esc(legName(s)), b: esc(legName(h)) }) : t('Find your senator and representative');
   // The person comes first (R-147, Nate 10/4: "located where profiles usually sit"): their profile as the page's first row,
@@ -321,6 +327,7 @@ function moreView() {
   </div>`;
 }
 function wireMore() {
+  if (REC()) { wireYou(); return; }
   wireLangPicker();
   const f = $('.mr-fold'); if (f) f.ontoggle = () => { S.mrFold = f.open; };
   // My issues link (R-123): copied, with a text-it-to-myself way beside it in the toast.
@@ -361,7 +368,7 @@ function phoneInView() {
     <header class="pagehead"><h1 class="hero" id="mr-pi-h" tabindex="-1">Code accepted</h1>
       <p class="lede">This is the sandbox, so you stay signed out. On the real tracker you’re now signed in with ${esc(fmtPhone(PI.phone))}, and your profile is here.</p></header>
     <div class="btnrow">${btn('Back to More', { kind: 'secondary', href: '#/more' })}</div></div>`;
-  return `<div class="mr mr-signin mr-phonein">
+  return `<div class="mr mr-signin mr-phonein${REC() ? ' rc yu' : ''}">${REC() ? backFrom('#/more', 'You') : ''}
     <header class="pagehead"><h1 class="hero" id="mr-pi-h" tabindex="-1">Sign in</h1>
       <p class="lede">${code ? 'Enter the code we just texted you.' : 'With the mobile number you gave us. We’ll text you a 6-digit code. No password.'}</p></header>
     ${DEMO ? notice('info', 'info', 'You’re in the sandbox, so no code is sent and nothing is saved. Type any 6 digits.') : ''}
@@ -436,24 +443,29 @@ function emailForm(returning) {
       </fieldset>
       <div id="mr-si-msg">${M.sendErr ? inlineErr('mr-si-err', M.sendErr) : ''}</div>
       <div class="mr-send">${submitBtn('Email me a link', 'mail', 'mr-si-send')}</div>
-      <p class="small muted mr-returning">${returning}</p>
+      ${returning ? `<p class="small muted mr-returning">${returning}</p>` : ''}
     </form>`;
 }
+// Under ?rec=1 (R-303) a person with no profile meets this page as what they came for, "Sign in with your email" (the
+// assessment: "Add your email" read as the wrong page to a returning person); someone with a profile adds their email to it.
+const signInWords = () => REC() && !S.session && !hasProfile();
+const siHead = () => signInWords() ? 'Sign in with your email' : 'Add your email';
+const recRoot = () => REC() ? ` rc yu">${backFrom('#/more', 'You')}` : '">';
 function signinView() {
   if (byNumber()) return phoneInView();
   // A profile made with a number (R-155): the email joins that same account once its link is opened.
-  if (S.session && !myEmail() && !M.sent) return `<div class="mr mr-signin">
+  if (S.session && !myEmail() && !M.sent) return `<div class="mr mr-signin${recRoot()}
     <header class="pagehead"><h1 class="hero">Add your email</h1>
       <p class="lede">Get alerts by email too, and sign in with either. No password: we email you a link to confirm it.</p></header>
     ${DEMO ? '' : emailForm('Gave this email on another phone or computer before? Sign out first, then sign in with it.')}
   </div>`;
-  if (S.session && !M.sent) return `<div class="mr mr-signin">
+  if (S.session && !M.sent) return `<div class="mr mr-signin${recRoot()}
     <header class="pagehead"><h1 class="hero">You’re signed in</h1>
       <p class="lede">Your email is <span class="strong mr-break">${esc(myEmail())}</span>. Your issues, stances and actions are saved to your account.</p></header>
     <div class="btnrow">${btn('Go to your profile', { kind: 'primary', icon: 'user', href: '#/profile' })}${btn('Back to Home', { kind: 'text', href: '#/' })}</div>
   </div>`;
-  if (M.sent) return `<div class="mr mr-signin">
-    <header class="pagehead"><h1 class="hero">Add your email</h1></header>
+  if (M.sent) return `<div class="mr mr-signin${recRoot()}
+    <header class="pagehead"><h1 class="hero">${siHead()}</h1></header>
     <section class="card mr-sent mr-panel" aria-labelledby="mr-sent-t">
       <span class="mr-sent-ic">${icon('mail-check')}</span>
       <h2 id="mr-sent-t" tabindex="-1">Check your inbox</h2>
@@ -468,13 +480,15 @@ function signinView() {
       <div class="btnrow">${M.demo ? '' : btn('Send it again', { kind: 'text', sm: true, icon: 'rotate-ccw', attrs: { 'data-mr-again': '' } })}${btn('Use a different email', { kind: 'text', sm: true, attrs: { 'data-mr-other': '' } })}</div>
     </section>
   </div>`;
-  return `<div class="mr mr-signin">
-    <header class="pagehead"><h1 class="hero">Add your email</h1>
-      <p class="lede">Get hearing alerts and keep your issues on any device. No password: we email you a link.</p>
+  const si = signInWords();
+  return `<div class="mr mr-signin${recRoot()}
+    <header class="pagehead"><h1 class="hero">${siHead()}</h1>
+      <p class="lede">${si ? 'We email you a link, so there’s no password. New here? The same link makes your profile and keeps your issues on any device.' : 'Get hearing alerts and keep your issues on any device. No password: we email you a link.'}</p>
       ${(pp => pp ? `<p class="mr-back">${icon(pp.then?.addto ? 'list-checks' : 'arrow-left')}<span>${pp.then?.addto ? 'With your email you can make lists of bills. When you open the link, you come back to the bill to finish.' : 'When you open the link, you come back to where you were.'}</span></p>` : '')(pendingPlace())}</header>
     ${DEMO ? notice('info', 'info', 'You’re in the sandbox, so no email is sent and nothing is saved. You can still try the page.') : ''}
-    ${emailForm('Already added your email? Enter it again to sign in on this device.')}
-    ${codesOn() ? `<p class="small mr-returning">Gave us your mobile number instead? <a href="#/signin?by=number">Sign in with your number</a></p>` : ''}
+    ${emailForm(si ? '' : 'Already added your email? Enter it again to sign in on this device.')}
+    ${codesOn() ? `<p class="small mr-returning">Gave us your mobile number instead? <a href="#/signin?by=number">Sign in with your number</a></p>`
+      : si && WIDE?.matches ? `<p class="small mr-returning">Signed up with your number? Add your email on your phone, then sign in here with it.</p>` : ''}
     <section class="mr-priv mr-panel" aria-labelledby="mr-priv-t">
       <h2 id="mr-priv-t">Your privacy</h2>
       <ul class="mr-bullets">${PRIVACY_BULLETS.map(t => `<li>${icon('check')}<span>${t}</span></li>`).join('')}</ul>
@@ -556,17 +570,17 @@ function wireSignin() {
 // ---------------- Get alerts (R-146) ----------------
 // The phone-first box on its own page, for More's alerts row and Home's "Get hearing alerts" between sessions. Email goes
 // to the sign-in page ("Prefer email?"), which keeps its own consent box and the returning person's way in.
-const A = { edit: false, justOn: false };
+export const A = { edit: false, justOn: false };
 // R-229 (Nate 10/10): right after a number is saved, the page offered only Change number and Stop texts, the two ways to undo
 // what was just done (DESIGN B-3, a dead end). For that moment it leads with one way on, and the undo pair drops to a quiet
 // row; a later visit from More keeps them as they were. Leaving the page ends the moment.
 addEventListener('hashchange', () => { if (!/^#\/alerts\b/.test(location.hash)) A.justOn = false; });
 // The texts are about the person's issues, so someone who follows none is sent to the guided picker (the same place as Home's
 // "Pick your issues"), and the page says why; everyone else goes Home.
-const nextStep = () => followsAnything() ? { label: 'Go to Home', icon: 'house', href: '#/' } : { label: 'Pick your issues', icon: 'arrow-right', href: '#/start/1' };
+export const nextStep = () => followsAnything() ? { label: 'Go to Home', icon: 'house', href: '#/' } : { label: 'Pick your issues', icon: 'arrow-right', href: '#/start/1' };
 // Stop texts to any number, from any browser (D1-3): for someone without the browser they signed up on, or a number that is not this
 // device's. It is small and quiet, under the alerts box, and it is also what the text terms page points to.
-const stopNumberBox = () => `<details class="mr-stopnum"><summary>${icon('circle-x')}<span>Stop texts to a number</span>${icon('chevron-down', { cls: 'mr-sn-chev' })}</summary>
+export const stopNumberBox = () => `<details class="mr-stopnum"><summary>${icon('circle-x')}<span>Stop texts to a number</span>${icon('chevron-down', { cls: 'mr-sn-chev' })}</summary>
   <form class="mr-sn-form" id="mr-snform" novalidate><p class="small">Texts to this number end for good, from every browser. No code needed. You can also email <a href="mailto:contact@hiphi.org">contact@hiphi.org</a>.</p>
     <div class="field"><label for="mr-sn-phone">Mobile number</label><input id="mr-sn-phone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="(808) 555-0123" maxlength="20"></div>
     <div id="mr-sn-msg" role="status" aria-live="polite"></div>
@@ -574,6 +588,7 @@ const stopNumberBox = () => `<details class="mr-stopnum"><summary>${icon('circle
 // The carrier's words (C-3) stay on the page; in the moment after saving they sit under the two buttons they explain (R-229).
 const stopLine = () => `<p class="small">Reply STOP to any text to end them. Stopping ends texts to this number from every browser.${DEMO ? ' This is the sandbox, so the number was not saved.' : ''}</p>`;
 function alertsView() {
+  if (REC()) return recAlertsView();
   const t = textSaved();
   // "On" only once the number is confirmed (D1-4, the one rule in alerts.js alertStatus): a number not yet confirmed is
   // "Almost set", with the same words as the alerts step and every other screen. It said "Text alerts are on" over its
@@ -623,7 +638,8 @@ function wireAlerts() {
   wireAlertForm($('#mr-alform'), { pfx: 'mr-al', source: 'more', onDone: r => {
     A.edit = false; A.justOn = r.kind === 'phone'; app.render();
     if (r.kind === 'email') { toast('Check your inbox: open the link to turn on alerts.', { yay: true }); requestAnimationFrame(() => $('#mr-al-t')?.focus()); return; }
-    toast(r.confirmed ? `Text alerts are on for ${fmtPhone(r.phone)}.` : almostLine(fmtPhone(r.phone)), { yay: true });
+    // (with ?rec=1 the page itself says it, over its way on: R-303's Your alerts)
+    if (!REC()) toast(r.confirmed ? `Text alerts are on for ${fmtPhone(r.phone)}.` : almostLine(fmtPhone(r.phone)), { yay: true });
     requestAnimationFrame(() => $('#mr-al-t')?.focus());
   } });
   const ch = $('[data-mr-alchange]');
@@ -648,6 +664,7 @@ function wireAlerts() {
     // Undo within the toast's ten seconds signs the same number up again, under the same words.
     toast('Texts stopped. We won’t text you.', { undo: async () => { try { await saveText(phone, 'more'); } catch (e) { toast(e, true); } app.render(); } });
   };
+  if (REC()) wireRecAlerts();
 }
 
 // ---------------- Settings ----------------
@@ -753,8 +770,13 @@ const PRIVACY_CODES = {
   users: ['Numbers about other people', 'A bill or a hearing may show how many people have acted on it, or how many support or oppose it. These are totals of people who added their email or signed in with their number. They never show a name, and they appear only once 10 people are in them.'],
 };
 
+// The accessibility statement, drawn under the privacy sections (and, with ?rec=1, as a card of its own near the top).
+const ACCESS = () => `<p>We want everyone in Hawaiʻi to be able to use this tracker. It is built to work with screen readers, a keyboard and zoom. Buttons are large enough for a thumb, and motion turns off when your device asks for less of it.</p>
+      <p>If something gets in your way, email <a href="mailto:${EMAIL}">${EMAIL}</a> and we’ll fix it.</p>
+      <p class="mr-ext">${btn('HIPHI’s accessibility statement', { kind: 'text', icon: 'external-link', href: HIPHI.access, attrs: { target: '_blank', rel: 'noopener' } })}</p>`;
 function privacyView() {
   const rows = codesOn() ? PRIVACY.map(([ic, t, p]) => PRIVACY_CODES[ic] ? [ic, ...PRIVACY_CODES[ic]] : [ic, t, p]) : PRIVACY;
+  if (REC()) return privacyRec({ rows, updated: codesOn() ? PRIVACY_CODES_UPDATED : PRIVACY_UPDATED, policy: HIPHI.privacy, a11y: ACCESS() });
   return `<div class="mr mr-privacy">
     <header class="pagehead"><h1 class="hero">Privacy</h1><p class="lede">What we keep, who sees it, and how to remove it.</p></header>
     <div class="card mr-facts">${rows.map(([ic, t, p], i) => `<section aria-labelledby="mr-pv-${i}"><span class="mr-factic">${icon(ic)}</span><div><h2 id="mr-pv-${i}">${t}</h2>${Array.isArray(p) ? `<ul class="mr-factlist">${p.map(x => `<li>${x}</li>`).join('')}</ul>` : p.split("\n\n").map(x => `<p>${x}</p>`).join("")}</div></section>`).join('')}</div>
@@ -762,13 +784,12 @@ function privacyView() {
     <p class="mr-ext">${btn('HIPHI’s website privacy policy', { kind: 'text', icon: 'external-link', href: HIPHI.privacy, attrs: { target: '_blank', rel: 'noopener' } })}</p>
     <section class="mr-access mr-panel" id="mr-access" aria-labelledby="mr-access-t">
       <h2 id="mr-access-t" tabindex="-1">Accessibility</h2>
-      <p>We want everyone in Hawaiʻi to be able to use this tracker. It is built to work with screen readers, a keyboard and zoom. Buttons are large enough for a thumb, and motion turns off when your device asks for less of it.</p>
-      <p>If something gets in your way, email <a href="mailto:${EMAIL}">${EMAIL}</a> and we’ll fix it.</p>
-      <p class="mr-ext">${btn('HIPHI’s accessibility statement', { kind: 'text', icon: 'external-link', href: HIPHI.access, attrs: { target: '_blank', rel: 'noopener' } })}</p>
+      ${ACCESS()}
     </section>
   </div>`;
 }
 function wirePrivacy() {
+  if (REC()) { wirePrivacyRec(); return; }
   // "Accessibility" on More opens this page at its statement. (The router scrolls to the top after wiring, so wait a frame.)
   if (!/[?&]part=access\b/.test(location.hash)) return;
   requestAnimationFrame(() => { const h = $('#mr-access-t'); if (!h) return; h.focus({ preventScroll: true }); h.closest('section').scrollIntoView({ block: 'start' }); });
@@ -778,15 +799,21 @@ function wirePrivacy() {
 const VIEWS = { more: moreView, help: helpView, signin: signinView, privacy: privacyView, alerts: alertsView };
 const WIRES = { more: wireMore, help: wireHelp, signin: wireSignin, privacy: wirePrivacy, alerts: wireAlerts };
 const TITLES = { more: 'More', help: 'Help', signin: 'Add your email', privacy: 'Privacy', alerts: 'Get alerts' };
+// Under ?rec=1 the tab is "You", the alerts page of someone with a profile is "Your alerts", and the email page is named
+// for what a person without a profile came to do (R-303).
+const REC_TITLES = { more: 'You', alerts: () => yoursNow() ? 'Your alerts' : 'Get alerts', signin: () => siHead() };
+const titleOf = name => { const r = REC() && REC_TITLES[name]; return r ? (typeof r === 'function' ? r() : r) : TITLES[name]; };
 export default {
   tab: 'more',
-  title: route => (route.name === 'help' && TALK ? TALK.title(route) : route.name === 'signin' && byNumber() ? 'Sign in' : TITLES[route.name]) || 'More',
+  title: route => (route.name === 'help' && TALK ? TALK.title(route) : route.name === 'signin' && byNumber() ? 'Sign in' : titleOf(route.name)) || 'More',
   render(route) {
+    // R-303: this page group's stylesheet first (pub/rec/you.css), so nothing draws unstyled.
+    if (REC() && !youCss()) return youWait();
     // A fresh arrival (from another screen) starts the page clean; a re-render of the same page keeps what was typed.
     const fresh = !document.querySelector(`#main .mr-${route.name}`);
     if (fresh && route.name === 'signin') { Object.assign(M, { sent: '', err: '', sendErr: '' }); Object.assign(PI, { phone: '', at: null, code: '', done: false }); }
     if (fresh && route.name === 'alerts') A.edit = false;
     return (VIEWS[route.name] || moreView)(route);
   },
-  wire(route) { (WIRES[route.name] || (() => {}))(route); },
+  wire(route) { if (REC() && !youCss()) return; (WIRES[route.name] || (() => {}))(route); },
 };

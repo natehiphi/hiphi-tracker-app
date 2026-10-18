@@ -7,7 +7,10 @@ body[data-screen="next"] .field .help { color: var(--n700); }   /* the privacy l
   body[data-screen="next"] main { max-width: 1120px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: var(--s48); align-items: start; padding-top: 40px; }
   body[data-screen="next"].hasbar main { padding-bottom: var(--s48); }
   body[data-screen="next"] main > .empty { grid-column: 1 / -1; }
+  /* (R-303: this rule had lost its last line and its closing brace, so every rule after it in this file only worked on a
+     laptop: on a phone the "Welcome back" icon sat on its words and the line wrapped in plain text) */
   body[data-screen="next"] .actionbar { position: sticky; bottom: 0; grid-column: 2; grid-row: 3; z-index: 5; border: 0; box-shadow: none; padding: var(--s24) 0 var(--s16);
+    background: linear-gradient(to top, var(--n50) 72%, rgba(244, 247, 249, 0)); }
   body[data-screen="next"] .actionbar .inner { max-width: none; margin: 0; }
   body[data-screen="next"] .actionbar .btn { flex: 0 0 auto; }
 }

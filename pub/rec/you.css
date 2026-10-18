@@ -1,0 +1,133 @@
+/* You and the pages under it, in the calm redesign (R-303), only with ?rec=1 (pub/rec/you.js loads this file and holds
+   a skeleton until it is in). Scoped to body.rec and the .yu root each page carries, so today's pages are untouched. The
+   shapes are the kit's (rec.css): quiet rows, closed cards with a preview, one back row; warm is plain words and space. */
+
+/* One left edge on a laptop (the assessment, frame con 3: the edge jumped 200px between sibling pages): the 1120px frame
+   More and the bill page use, and a reading column inside it, at its left, not centred. */
+@media (min-width: 1100px) {
+  body.rec:is([data-screen="more"], [data-screen="help"], [data-screen="privacy"], [data-screen="alerts"], [data-screen="signin"], [data-screen="profile"], [data-screen="settings"]) main { max-width: 1120px; }
+  body.rec .mr.yu, body.rec .tk.yu, body.rec .rc.yu { max-width: 720px; margin-left: 0; margin-right: 0; }
+}
+body.rec .yu > .rc-back + * { margin-top: 0; }
+body.rec .yu h1.hero { font: 700 var(--t28)/1.15 var(--font-h); letter-spacing: -.02em; color: var(--n900); }
+
+/* ---- You ---- */
+/* each page sets its own spacing: today's ".mr > * + *" and ".tk > * + *" (24-32px between everything) step aside, at a
+   low specificity so the rules below win */
+body.rec :where(.mr.yu-you, .mr.ya, .mr.yu-pv, .tk.yu-help) > * + * { margin-top: 0; }
+body.rec .yu-you .rc-head { margin-bottom: var(--s16); }
+body.rec .yu-me { display: flex; align-items: center; gap: var(--s12); min-height: 80px; padding: var(--s16); background: var(--n0); border: 1px solid var(--n200);
+  border-radius: var(--r16); box-shadow: var(--sh1); color: inherit; text-decoration: none; transition: border-color .12s, background .12s; }
+body.rec .yu-me-new { background: var(--p50); border-color: var(--p100); }
+@media (hover: hover) { body.rec .yu-me:hover { border-color: var(--p300); } }
+body.rec .yu-me:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
+body.rec .yu-av { flex: none; width: 48px; height: 48px; border-radius: 50%; background: var(--p100); color: var(--p800); display: grid; place-items: center;
+  font: 700 var(--t18)/1 var(--font-h); }
+body.rec .yu-me-new .yu-av { background: var(--n0); color: var(--p700); }
+body.rec .yu-av .ic { width: 22px; height: 22px; }
+body.rec .yu-met { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+body.rec .yu-men { font: 600 var(--t18)/1.25 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+body.rec .yu-mes { font-size: var(--t14); line-height: 1.4; color: var(--n700); }
+body.rec .yu-in { margin: var(--s4) 0 0; font-size: var(--t14); color: var(--n700); }
+body.rec .yu-in a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
+body.rec .yu-you .lang-pick { margin-top: var(--s12); }
+body.rec .yu-rows { margin-top: var(--s16); }
+body.rec .yu .rc-rows li { max-width: none; }   /* more.css caps .mr li at 65ch on a laptop, for reading */
+body.rec .yu-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s24); margin-top: var(--s24); padding-top: var(--s8); border-top: 1px solid var(--n200); }
+body.rec .yu-fl { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0; background: none; border: 0; color: var(--p700);
+  font: 700 var(--t14)/1.2 var(--font); text-decoration: none; cursor: pointer; }
+body.rec .yu-fl:hover span, body.rec a.yu-fl:hover, body.rec button.yu-fl:hover { text-decoration: underline; }
+body.rec .yu-fl:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; border-radius: var(--r8); }
+body.rec .yu-flc { width: 16px; height: 16px; flex: none; transition: transform .15s var(--ease); }
+body.rec .yu-fl[aria-expanded="true"] .yu-flc { transform: rotate(180deg); }
+body.rec .rc-card.yu-about { margin-top: var(--s8); padding: var(--s4) var(--s16); }
+body.rec .yu-about .rc-way .rc-chev { width: 18px; height: 18px; color: var(--n500); }
+body.rec .yu-mark { display: grid; place-items: center; }
+body.rec .yu-mark svg { width: 22px; height: 22px; }
+body.rec .yu-src { margin: var(--s16) 0 0; font-size: var(--t13); line-height: 1.45; color: var(--n500); max-width: 60ch; }
+@media (prefers-reduced-motion: reduce) { body.rec .yu-flc, body.rec .yu-me { transition: none; } }
+
+/* ---- Profile's first row (the way to Your alerts) ---- */
+body.rec .rc-card.yu-pfal { padding: var(--s8) var(--s16); }
+/* "Change anything below, then Save." belongs to the sections under it, not to the alerts row (which saves at once) */
+body.rec .pf.yu .yu-pfal + .pf-auto { margin-top: var(--s32); }
+body.rec .pf.yu .pf-auto + .pf-sec { margin-top: var(--s12); }
+
+/* ---- Your alerts ---- */
+
+body.rec .ya-just { margin-top: var(--s16); display: flex; flex-direction: column; align-items: flex-start; gap: var(--s12); }
+body.rec .ya-just > p { margin: 0; }
+body.rec .rc-card.ya-ways { margin-top: var(--s16); padding: var(--s4) var(--s16); }
+body.rec .ya-way { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: var(--s12); align-items: center; min-height: 64px; padding: var(--s12) 0; }
+body.rec .ya-way + .ya-way, body.rec .ya-em + .ya-way { border-top: 1px solid var(--n100); }
+body.rec .ya-wt { min-width: 0; }
+body.rec .ya-wn { margin: 0; font-weight: 700; color: var(--n900); overflow-wrap: anywhere; }
+body.rec .ya-ws { margin: 2px 0 0; font-size: var(--t14); line-height: 1.4; color: var(--n700); }
+body.rec .ya-way > .btn { margin-right: calc(-1 * var(--s12)); }
+body.rec .ya-em { margin: 0 0 var(--s12) 48px; display: flex; flex-direction: column; gap: var(--s8); }
+body.rec .ya-em > p { margin: 0; }
+body.rec .ya-emst:empty { display: none; }
+body.rec .ya-emst { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--ok-text); }
+body.rec .ya-emst .ic { width: 16px; height: 16px; }
+body.rec .ya-lvs { list-style: none; margin: var(--s4) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s16); }
+body.rec .ya-lv { display: flex; flex-direction: column; gap: var(--s8); max-width: none; }   /* more.css caps .mr li at 65ch */
+body.rec .ya-lvn { margin: 0; font: 600 var(--t16)/1.25 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+body.rec .ya-lv .lvl-hint { margin: 0; }
+body.rec .ya-lv .lvl-hint:empty { display: none; }
+body.rec .ya-none { margin: 0; font-size: var(--t16); color: var(--n700); }
+body.rec .ya-none a { font-weight: 700; }
+body.rec .ya-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s8); margin-top: var(--s32); padding-top: var(--s8); border-top: 1px solid var(--n200); color: var(--n700); }
+body.rec .ya-foot p { margin: 0; }
+body.rec .ya-foot .btn { margin-left: calc(-1 * var(--s12)); color: var(--n700); }
+@media (min-width: 600px) {
+  body.rec .ya-lv { display: grid; grid-template-columns: minmax(0, 1fr) 25rem; align-items: center; column-gap: var(--s16); row-gap: var(--s4); }
+  body.rec .ya-lv .lvl-hint { grid-column: 1 / -1; }
+  body.rec .ya-foot .btn { margin-left: 0; }
+}
+
+/* ---- Help ---- */
+body.rec .tk-list.yu { display: block; }
+body.rec .yu-help .tk-search { margin-top: var(--s16); max-width: none; }
+body.rec .yu-par { display: flex; align-items: flex-start; gap: var(--s8); margin: var(--s12) 0 0; font-size: var(--t14); line-height: 1.5; color: var(--n700); }
+body.rec .yu-par .ic { flex: none; width: 18px; height: 18px; margin-top: 2px; color: var(--p700); }
+body.rec .yu-par a { display: inline-block; padding: 12px 0; margin: -12px 0; font-weight: 700; white-space: nowrap; }
+body.rec .yu-help .tk-groups { columns: auto; margin-top: var(--s16); }
+body.rec .yu-help .tk-group { display: block; width: auto; margin: 0; break-inside: auto; }
+body.rec .yu-help .tk-group[hidden] { display: none; }
+body.rec .yu-help .tk-group > summary { margin: 0; border: 0; min-height: 56px; cursor: pointer; }
+body.rec .yu-help .tk-group > summary h2 { flex: 1; min-width: 0; margin: 0; font: 600 var(--t16)/1.25 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+body.rec .yu-help .rc-fin .rc-rows { gap: 0; }
+body.rec .yu-help .rc-fin .rc-row { min-height: 52px; margin: 0 calc(-1 * var(--s8)); padding: var(--s8); }
+@media (hover: hover) { body.rec .yu-help .rc-fin .rc-row:hover { background: var(--n50); } }
+body.rec .yu-help .rc-fin .rc-rname { font: 400 var(--t16)/1.35 var(--font); letter-spacing: 0; }
+body.rec .yu .rc-rows li:has(> [hidden]) { display: none; }
+body.rec .yu-help .tk-none { margin-top: var(--s16); }
+body.rec .yu-help .tk-more { margin-top: var(--s32); }
+body.rec .yu-help .tk-more .rc-h2 { margin-bottom: var(--s4); }
+body.rec .yu-help .tk-keys { padding: 0 var(--s16); }
+body.rec .yu-help .tk-after { margin-top: var(--s8); }
+/* a conversation: its one way back at the top, on Help's own left edge */
+body.rec .yu-conv > .tk-eyebrow { margin-top: var(--s4); }
+
+/* ---- Privacy ---- */
+body.rec .yu-pv > .rc-folds { margin-top: var(--s12); }
+body.rec .rc-card.yu-short { margin-top: var(--s8); }
+body.rec .yu-short .rc-h2 { margin-bottom: var(--s12); }
+body.rec .yu-pv .mr-factlist { margin: 0; padding-left: var(--s24); display: grid; gap: var(--s8); }
+body.rec .yu-pv .mr-factlist li { line-height: 1.5; max-width: 65ch; }
+body.rec .yu-pv .rc-fin { color: var(--n700); }
+body.rec .yu-pv .rc-fin > * + * { margin-top: var(--s8); }
+body.rec .yu-pv .rc-fin p { margin: 0; max-width: 65ch; line-height: 1.5; }
+body.rec .yu-pv .rc-fin { padding-top: var(--s12); }
+/* the preview is the section's own first sentence, on one line */
+body.rec .yu-pv .rc-fold > summary > span { flex: 1 1 auto; min-width: 0; }
+body.rec .yu-pv .rc-fp { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 599px) {   /* a phone has room for two lines, so fewer previews stop mid-word */
+  body.rec .yu-pv .rc-fp { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+}
+body.rec .yu-pv .yu-upd { margin-top: var(--s16); }
+body.rec .yu-pv .mr-ext { margin-top: var(--s4); }
+body.rec .yu-pv .mr-ext .btn { margin-left: calc(-1 * var(--s12)); white-space: normal; text-align: left; }
+
+/* ---- Sign in, Profile and the sign-up box: the back row sits where the bill page's does ---- */
+body.rec .mr.yu > .rc-back { margin-top: 0; }

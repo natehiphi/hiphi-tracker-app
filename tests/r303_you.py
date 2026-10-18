@@ -1,0 +1,230 @@
+# You and the pages under it in the calm redesign (R-303), behind ?rec=1 until Nate's look.
+#   python3 tests/r303_you.py [base] [--shots DIR]
+# base: a served copy (http://localhost:8832); without one this file's own folder is served from disk (no server needed).
+# --shots DIR also writes a phone and a laptop picture of every page it checks.
+# As none (a first-time visitor), Kai and Leilani (the practice copy's sample people) and Kai with a text number (signed up),
+# at 390x844 and 1440x900:
+#   You (#/more): h1 "You"; the profile card, then the rows (Your lawmakers, Your alerts only when signed up, Your session,
+#     Help), then the quiet footer links (About HIPHI, Privacy and accessibility, My issues link); Every bill and Committees
+#     are gone from it; at most one filled button; under 900px tall on a phone.
+#   Profile: its first row is Your alerts; no "Your issues" or Alerts section; "Make your profile" without one.
+#   Your alerts: where texts and email go, a switch per followed issue that saves at once, "Stop all texts" once, the live
+#     consent's words (a few texts a month), never "At most one text a day".
+#   Sign in: "Sign in with your email" without a profile, "Add your email" with one.
+#   Help: the Public Access Room right under the search, the seven groups closed with no counts, no "Reading a bill"; a
+#     conversation has one way back, "Help", on Help's left edge on a laptop.
+#   Privacy: "In short" open, every other section a closed card, Accessibility second, every word of today's page there.
+#   The later-visit ask: the "Welcome back" icon has a gap before its words (a live fix).
+# Without ?rec each page is still today's.
+import sys, os, re
+from urllib.parse import urlparse, unquote
+from playwright.sync_api import sync_playwright
+
+args = [a for a in sys.argv[1:]]
+SHOTS = ''
+if '--shots' in args: i = args.index('--shots'); SHOTS = args[i + 1]; del args[i:i + 2]
+HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
+LOCAL = not args
+BASE = 'http://wt.local' if LOCAL else args[0].rstrip('/').replace('/track.html', '')
+if SHOTS: os.makedirs(SHOTS, exist_ok=True)
+ok_n = fail_n = 0
+def check(cond, what):
+    global ok_n, fail_n
+    if cond: ok_n += 1; print('PASS', what)
+    else: fail_n += 1; print('FAIL', what)
+
+KAI = ['66a32660-b0a7-4a90-a71f-231963619b44', '1dcec7ca-ed94-4a19-9c9c-235514ca7491', '2616613e-a363-418b-ae19-4add60957cd8']
+LEILANI = ['e336663a-0a6b-4dd2-a313-8f6ba0de2d10', '312680f6-e284-4321-8a07-3ee624a0af24', '3699b13d-3466-426d-a2eb-88d20db60c12', '8b1a1b4d-0699-4d8a-970e-4c4ff8d84a1f',
+  'a26e0f87-9d98-4b8e-a326-517f0ec6aa7f', '257867b0-ada6-476b-8eaa-a4914e52da1c', '1dcec7ca-ed94-4a19-9c9c-235514ca7491', '2616613e-a363-418b-ae19-4add60957cd8',
+  '5f4c4ec6-252a-429f-b22b-aab91cd0889a', 'b636541e-aef7-46e8-8a99-fb4b0cf38b50', 'a8690eec-3d30-4c19-9e15-ce5157c6b950', 'fb5e85b5-bf05-4164-8fba-a4f161f7ba83',
+  'de0916f3-e8c6-4f1d-8f08-f106f6d4e3ae', '66a32660-b0a7-4a90-a71f-231963619b44', 'cca05b80-ed45-467b-a019-2bbc4cb289ee', '48742bb7-36d9-4b50-aae2-d19eaf0c872c']
+WHO = {'none': None, 'kai': ('Kai', KAI, False), 'leilani': ('Leilani', LEILANI, False), 'kai+number': ('Kai', KAI, True)}
+
+def init(who):
+    p = WHO[who]
+    if not p: return "(() => { if (sessionStorage.getItem('__set')) return; sessionStorage.setItem('__set', '1'); for (const k of Object.keys(localStorage)) if (k.startsWith('hiphi_')) localStorage.removeItem(k); })()"
+    name, issues, num = p
+    text = "set('hiphi_text', { token: 'demo-token', phone: '8085550123', at: '2026-03-10T09:00:00-10:00', confirmed: true });" if num else ''
+    return f"""(() => {{ if (sessionStorage.getItem('__set')) return; sessionStorage.setItem('__set', '1');
+      for (const k of Object.keys(localStorage)) if (k.startsWith('hiphi_')) localStorage.removeItem(k);
+      const set = (k, v) => localStorage.setItem(k + '_demo', typeof v === 'string' ? v : JSON.stringify(v));
+      set('hiphi_issue_follows', {issues!r}); set('hiphi_watch_ids', []); set('hiphi_cat_follows', []); set('hiphi_skips', []);
+      set('hiphi_wiz', {{ done: true, issues: ['tobacco'], name: '{name}' }}); set('hiphi_onb', {{ lastVisit: '2026-03-15T19:00:00-10:00' }});
+      set('hiphi_done', []); set('hiphi_done_at', {{}}); set('hiphi_stances', {{}}); set('hiphi_demo_seeded', '0');
+      set('hiphi_tour_home', {{ how: 'test' }}); set('hiphi_tour_bill', {{ how: 'test' }}); {text}
+    }})()"""
+
+def serve(route, request=None):
+    f = os.path.join(ROOT, unquote(urlparse(route.request.url).path).lstrip('/'))
+    if os.path.isdir(f): f = os.path.join(f, 'index.html')
+    route.fulfill(path=f) if os.path.isfile(f) else route.fulfill(status=404, body='not found')
+
+def ready(pg, sel):
+    try: pg.wait_for_selector(sel, timeout=40000)
+    except Exception: pass
+    pg.wait_for_timeout(700)
+
+def open_page(pg, hash_, rec=True, sel='#main .rc-h1, #main h1'):
+    pg.goto(f"{BASE}/track.html?demo=1{'&rec=1' if rec else ''}{hash_}"); ready(pg, sel)
+
+def shot(pg, tag, name, full=True):
+    if SHOTS: pg.screenshot(path=os.path.join(SHOTS, f'{tag}_{name}.png'), full_page=full)
+
+H = lambda pg: pg.evaluate('document.documentElement.scrollHeight')
+WIDE = lambda pg: pg.evaluate('document.documentElement.scrollWidth > innerWidth + 1')
+TEXT = lambda pg: pg.evaluate("document.querySelector('#main').innerText")
+FILLED = lambda pg: pg.evaluate("[...document.querySelectorAll('#main .btn.primary')].filter(b => b.offsetParent).length")
+ORDER = """sels => { const els = sels.map(s => document.querySelector(s)); if (els.some(e => !e)) return 'missing ' + sels.filter((s, i) => !els[i]).join(' ');
+  for (let i = 1; i < els.length; i++) if (els[i - 1].compareDocumentPosition(els[i]) & Node.DOCUMENT_POSITION_PRECEDING) return 'out of order at ' + sels[i];
+  return 'ok'; }"""
+
+def main():
+    with sync_playwright() as p:
+        br = p.chromium.launch()
+        for w, h, tag in [(390, 844, 'phone'), (1440, 900, 'laptop')]:
+            for who in WHO:
+                ctx = br.new_context(viewport={'width': w, 'height': h})
+                ctx.add_init_script(init(who))
+                if LOCAL: ctx.route('http://wt.local/**', serve)
+                pg = ctx.new_page(); errs = []
+                pg.on('pageerror', lambda e: errs.append(str(e)))
+                signed = who == 'kai+number'; follows = who != 'none'; t = f'{tag} {who}'
+                # ---- You ----
+                open_page(pg, '#/more', sel='#main .yu-you')
+                check(pg.evaluate("document.querySelector('#main h1')?.innerText") == 'You', f'{t}: You is headed "You"')
+                check(pg.evaluate(ORDER, ['#main .rc-head', '#main .yu-me', '#main .yu-rows', '#main .yu-foot']) == 'ok', f'{t}: the profile card, then the rows, then the footer links')
+                rows = pg.evaluate("[...document.querySelectorAll('#main .yu-rows .rc-rname')].map(e => e.innerText)")
+                want = ['Your lawmakers'] + (['Your alerts'] if signed else []) + ['Your session', 'Help']
+                check(rows == want, f'{t}: the rows are {want} ({rows})')
+                txt = TEXT(pg)
+                check('Every bill HIPHI tracks' not in txt and 'Committees' not in txt, f'{t}: Every bill and Committees have left You')
+                foot = pg.evaluate("[...document.querySelectorAll('#main .yu-foot .yu-fl')].map(e => e.innerText.trim())")
+                check(foot == ['About HIPHI', 'Privacy and accessibility'] + (['Copy My issues link'] if follows else []), f'{t}: the footer links ({foot})')
+                if signed:
+                    check(pg.evaluate("document.querySelector('#main .yu-me').getAttribute('href')") == '#/profile' and 'Kai' in pg.inner_text('#main .yu-me'), f'{t}: the card is the person, to their profile')
+                else:
+                    me = pg.inner_text('#main .yu-me')
+                    check('Get alerts on your issues' in me and pg.evaluate("document.querySelector('#main .yu-me').getAttribute('href')") == '#/alerts' and 'Signed up before?' in txt, f'{t}: the card invites "Get alerts on your issues", with "Signed up before? Sign in"')
+                check(FILLED(pg) <= 1, f'{t}: at most one filled button')
+                pg.click('[data-yu-about]'); pg.wait_for_timeout(200)
+                about = pg.evaluate("!document.getElementById('yu-about').hidden && [...document.querySelectorAll('#yu-about .rc-wt')].map(e => e.innerText)")
+                check(bool(about) and about[-1] == 'Donate' and 'About HIPHI' in about and 'Newsletter' in about, f'{t}: About HIPHI opens HIPHI\'s links, Donate last ({about})')
+                pg.click('[data-yu-about]'); pg.wait_for_timeout(100)
+                if tag == 'phone': check(H(pg) < 900, f'{t}: You is under 900px tall on a phone ({H(pg)})')
+                shot(pg, tag, f'you_{who}')
+                # ---- Profile ----
+                open_page(pg, '#/profile', sel='#main .pf')
+                if signed:
+                    check(pg.evaluate(ORDER, ['#main .pf-head', '#main .yu-pfal', '#main #pf-about']) == 'ok', f'{t}: Profile\'s first row is Your alerts')
+                    check(pg.evaluate("document.querySelector('#main .yu-pfal a').getAttribute('href')") == '#/alerts', f'{t}: it opens #/alerts')
+                    check(pg.evaluate("!document.querySelector('#pf-email, #pf-issues, .pf-lvls')"), f'{t}: no Alerts or Your issues section in Profile')
+                else:
+                    check(pg.evaluate("document.querySelector('#main h1').innerText") == 'Make your profile', f'{t}: without a profile, "Make your profile"')
+                check(pg.evaluate("document.querySelector('#main .rc-back')?.innerText.trim()") in ('You',), f'{t}: Profile\'s back row says You')
+                shot(pg, tag, f'profile_{who}')
+                # ---- Your alerts ----
+                open_page(pg, '#/alerts', sel='#main .mr-alerts')
+                txt = TEXT(pg)
+                check('At most one' not in txt, f'{t}: #/alerts never says "At most one text a day"')
+                if signed:
+                    check(pg.evaluate("document.querySelector('#main h1').innerText") == 'Your alerts', f'{t}: #/alerts is "Your alerts"')
+                    check('Texts to (808) ••• 0123' in txt and 'Change' in txt and 'Email: not added' in txt and 'Add your email' in txt, f'{t}: where texts and email go')
+                    check('A few texts a month' in txt, f'{t}: the live consent\'s words (a few texts a month)')
+                    n = pg.evaluate("document.querySelectorAll('#main .ya-lv .lvl-sw').length")
+                    check(n == len(KAI), f'{t}: a switch for each followed issue ({n})')
+                    check(txt.count('Stop all texts') == 1 and 'Stop texts to a number' not in txt, f'{t}: "Stop all texts" once, at the foot')
+                    check(pg.evaluate(ORDER, ['#main .ya-ways', '#main .ya-lvs', '#main .ya-foot']) == 'ok', f'{t}: ways, then each issue, then Stop')
+                    pg.click('#main .ya-lv:first-child label[for$="-every"]'); pg.wait_for_timeout(600)
+                    lv = pg.evaluate("JSON.parse(localStorage.getItem('hiphi_issue_levels_demo') || '{}')")
+                    first = pg.evaluate("document.querySelector('#main .ya-lv').dataset.lvlIssue")
+                    check(lv.get(first) == 'every' and 'Saved' in pg.inner_text('#main .ya-lv:first-child'), f'{t}: a switch saves at once and says so ({lv.get(first)})')
+                    check(pg.evaluate("!document.querySelector('.actionbar')"), f'{t}: no Save bar')
+                    check(FILLED(pg) == 0, f'{t}: no filled button on Your alerts')
+                    shot(pg, tag, f'alerts_{who}')
+                    pg.click('[data-mr-alchange]'); pg.wait_for_timeout(400)
+                    check(pg.evaluate("document.querySelector('#main h1').innerText") == 'Change your number' and pg.locator('[data-mr-alcancel]').count() == 1, f'{t}: Change opens the number box, with Cancel')
+                    pg.click('[data-mr-alcancel]'); pg.wait_for_timeout(300)
+                    check(pg.evaluate("document.querySelector('#main h1').innerText") == 'Your alerts', f'{t}: Cancel goes back to Your alerts')
+                else:
+                    check(pg.evaluate("document.querySelector('#main h1').innerText") == 'Get alerts on your issues' and 'Stop texts to a number' in txt, f'{t}: without a profile, the sign-up box and the any-number stop')
+                    check('A few texts a month' in txt, f'{t}: the sign-up box carries the live consent words')
+                    shot(pg, tag, f'alerts_{who}')
+                # ---- Sign in ----
+                open_page(pg, '#/signin', sel='#main .mr-signin')
+                head = pg.evaluate("document.querySelector('#main h1').innerText")
+                check(head == ('Add your email' if signed else 'Sign in with your email') and head in pg.title(), f'{t}: the email page is "{head}" ({pg.title()})')
+                if tag == 'phone' and who == 'none': shot(pg, tag, 'signin_none')
+                # ---- Help ----
+                if who in ('none', 'kai'):
+                    open_page(pg, '#/help', sel='#main .tk-list')
+                    check(pg.evaluate("document.querySelector('#main h1').innerText") == 'Help', f'{t}: Help is headed "Help"')
+                    par = pg.evaluate("(() => { const s = document.querySelector('#main .tk-search'), n = s.nextElementSibling; return n && n.innerText.trim(); })()")
+                    check(par == 'Stuck? The Public Access Room helps for free: (808) 587-0478.', f'{t}: the Public Access Room is right under the search ({par})')
+                    check(pg.evaluate("document.querySelector('#main .yu-par a').getAttribute('href')") == 'tel:+18085870478', f'{t}: its number calls')
+                    g = pg.evaluate("[...document.querySelectorAll('[data-tkgroup]')].map(d => d.open)")
+                    check(len(g) == 7 and not any(g), f'{t}: seven groups, all closed ({g})')
+                    check(pg.evaluate("!document.querySelector('#main .tk-gn')") and not re.search(r'\b\d+\b', ''.join(pg.evaluate("[...document.querySelectorAll('[data-tkgroup] > summary')].map(s => s.innerText)"))), f'{t}: no counts on the groups')
+                    check(pg.locator('#main a[href="#/learn/bill"]').count() == 0, f'{t}: "Reading a bill" is not offered')
+                    pg.click('[data-tkgroup="hearings"] > summary'); pg.wait_for_timeout(250)
+                    check(pg.evaluate("document.querySelector('[data-tkgroup=hearings]').open") and pg.locator('[data-tkgroup="hearings"] [data-tkrow]').first.is_visible(), f'{t}: a group opens on {tag}')
+                    pg.fill('#tk-q', 'zoom'); pg.wait_for_timeout(300)
+                    vis = pg.evaluate("[...document.querySelectorAll('[data-tkrow]')].filter(a => a.offsetParent).length")
+                    check(vis >= 1, f'{t}: the search finds questions and opens their groups ({vis})')
+                    pg.fill('#tk-q', ''); pg.wait_for_timeout(200)
+                    shot(pg, tag, f'help_{who}', full=True)
+                    x_list = pg.evaluate("document.querySelector('#main h1').getBoundingClientRect().left")
+                    open_page(pg, '#/help/what-is-a-hearing', sel='#main .tk-conv')
+                    while pg.locator('[data-tknext]').count(): pg.click('[data-tknext]'); pg.wait_for_timeout(350)
+                    backs = pg.evaluate("[...document.querySelectorAll('#main a[href=\"#/help\"]')].map(a => a.innerText.trim())")
+                    check(backs == ['Help'] and 'Ask something else' not in TEXT(pg), f'{t}: a conversation has one way back, "Help" ({backs})')
+                    x_conv = pg.evaluate("document.querySelector('#main .tk-back').getBoundingClientRect().left + 4")
+                    if tag == 'laptop': check(abs(x_conv - x_list) <= 2, f'{t}: the conversation lines up with Help ({x_conv} vs {x_list})')
+                    shot(pg, tag, f'conversation_{who}', full=False)
+                # ---- Privacy ----
+                if who == 'none':
+                    open_page(pg, '#/privacy', rec=False, sel='#main .mr-facts')
+                    old = pg.evaluate("(() => { const n = s => s.replace(/\\s+/g, ' ').trim(); return [...document.querySelectorAll('#main .mr-facts h2, #main .mr-facts li, #main .mr-facts p, #main .mr-access > p')].map(e => n(e.textContent)); })()")
+                    nsec = pg.evaluate("document.querySelectorAll('#main .mr-facts > section').length")
+                    open_page(pg, '#/privacy', sel='#main .yu-pv')
+                    new = pg.evaluate("document.querySelector('#main .yu-pv').textContent.replace(/\\s+/g, ' ')")
+                    missing = [o[:50] for o in old if o.replace(' ', '') not in new.replace(' ', '')]
+                    check(not missing, f'{t}: every word of the privacy page is still there ({missing[:2]})')
+                    folds = pg.evaluate("[...document.querySelectorAll('#main .rc-fold')].map(d => [d.dataset.rcFold, d.open])")
+                    check(len(folds) == nsec and not any(o for _, o in folds) and folds[0][0] == 'privacy-access', f'{t}: In short open, Accessibility second, the rest closed cards ({len(folds)})')
+                    check(pg.evaluate(ORDER, ['#main .yu-short', '#main [data-rc-fold="privacy-access"]']) == 'ok', f'{t}: "In short" first')
+                    if tag == 'phone': check(H(pg) < 2600, f'{t}: Privacy is {H(pg)}px on a phone (8,926 before)')
+                    shot(pg, tag, 'privacy_none')
+                    open_page(pg, '#/privacy?part=access', sel='#main .yu-pv')
+                    check(pg.evaluate("document.querySelector('[data-rc-fold=\"privacy-access\"]').open"), f'{t}: #/privacy?part=access opens Accessibility')
+                # ---- every page: no sideways scroll, no errors ----
+                for hsh in ['#/more', '#/profile', '#/alerts', '#/help', '#/privacy']:
+                    open_page(pg, hsh, sel='#main .yu')
+                    check(not WIDE(pg), f'{t} {hsh}: no sideways scroll')
+                check(not errs, f'{t}: no page errors {errs[:2]}')
+                ctx.close()
+            # ---- the later-visit ask: the eyebrow's icon and words apart (live, no ?rec) ----
+            ctx = br.new_context(viewport={'width': w, 'height': h}); ctx.add_init_script(init('kai'))
+            if LOCAL: ctx.route('http://wt.local/**', serve)
+            pg = ctx.new_page(); open_page(pg, '#/next/legs', rec=False, sel='.nx-eyebrow')
+            gap = pg.evaluate("(() => { const e = document.querySelector('.nx-eyebrow'), i = e.querySelector('svg').getBoundingClientRect(), s = e.querySelector('span').getBoundingClientRect(); return [s.left - i.right, Math.round(s.height), getComputedStyle(e).display]; })()")
+            check(gap[0] >= 4 and gap[2] == 'flex', f'{tag}: "Welcome back" has a gap after its icon ({gap})')
+            shot(pg, tag, 'next_legs', full=False)
+            ctx.close()
+        # ---- without ?rec the old pages are drawn ----
+        ctx = br.new_context(viewport={'width': 390, 'height': 844}); ctx.add_init_script(init('kai+number'))
+        if LOCAL: ctx.route('http://wt.local/**', serve)
+        pg = ctx.new_page()
+        open_page(pg, '#/more', rec=False, sel='#main .mr-more'); txt = TEXT(pg)
+        check(pg.evaluate("document.querySelector('#main h1').innerText") == 'More' and 'Every bill HIPHI tracks' in txt and not pg.evaluate("!!document.querySelector('.yu')"), 'without ?rec: More is today\'s')
+        open_page(pg, '#/profile', rec=False, sel='#main .pf'); check(pg.evaluate("!!document.querySelector('#pf-email') && !!document.querySelector('#pf-issues') && !document.querySelector('.yu-pfal')"), 'without ?rec: Profile keeps its Alerts and Your issues')
+        open_page(pg, '#/alerts', rec=False, sel='#main .mr-alerts'); check(pg.evaluate("document.querySelector('#main h1').innerText") == 'Text alerts are on', 'without ?rec: #/alerts is today\'s')
+        open_page(pg, '#/help', rec=False, sel='#main .tk-list'); check(pg.locator('.tk-gn').count() == 7 and pg.locator('a[href="#/learn/bill"]').count() == 1, 'without ?rec: Help keeps its counts and Reading a bill')
+        open_page(pg, '#/privacy', rec=False, sel='#main .mr-facts'); check(pg.evaluate("!!document.querySelector('.mr-facts') && !document.querySelector('.rc-fold')"), 'without ?rec: Privacy is today\'s')
+        ctx.close()
+        ctx = br.new_context(viewport={'width': 390, 'height': 844}); ctx.add_init_script(init('none'))
+        if LOCAL: ctx.route('http://wt.local/**', serve)
+        pg = ctx.new_page(); open_page(pg, '#/signin', rec=False, sel='#main .mr-signin')
+        check(pg.evaluate("document.querySelector('#main h1').innerText") == 'Add your email', 'without ?rec: the email page is "Add your email"')
+        ctx.close(); br.close()
+    print(f'\n{ok_n} passed, {fail_n} failed'); sys.exit(1 if fail_n else 0)
+main()
