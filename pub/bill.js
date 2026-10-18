@@ -8,7 +8,7 @@ import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, blurb, asSe
   dueInfo, dayWord, timeWord, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
   pickBill, billRef, billPath, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
-  issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, levelOf, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber, billTourHeld, billTourSeen, sameIdeaLaw, sameIdeaWords } from './core.js';
+  issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber, billTourHeld, billTourSeen, sameIdeaLaw, sameIdeaWords } from './core.js';
 import { draftName, draftRank, draftLabel, draftNotes, testifyLabel, mailLabel, letterOn } from './letters.js';
 // "Send my email to the Senate chairs" (R-153): who it goes to now, so "again" never reads as "my email failed".
 const sendTo = x => { const ch = CHAMBER_NAME[S.committees[(x.code || '').split('/')[0]]?.chamber] || ''; return `Send my email to the ${ch ? ch + ' ' : ''}${x.chairs.length > 1 ? 'chairs' : 'chair'}`; };
@@ -19,7 +19,7 @@ import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
 import { stoppedAt } from '../stops.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing } from './actions.js';
 import { flower } from './art.js';
-import { followAsk, profileSaved, levelPick, wireLevels, LEVEL_WORDS } from './alerts.js';   // the profile ask after a follow (R-184); how much an issue texts (R-299)
+import { followAsk, profileSaved, levelLine, levelBox, wireLevelLine } from './alerts.js';   // the profile ask after a follow (R-184); how much an issue texts (R-299)
 import { celebrate as moment } from './fx.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
 import { abEvent } from './variant.js';
@@ -729,7 +729,7 @@ function head(b, x) {
     // A bill that can no longer move does not ask where you stand; it remembers what you said.
     !x.live && (mine === 'support' || mine === 'oppose') ? chip(mine === 'support' ? 'You supported it' : 'You opposed it', '', 'user-check') : ''].filter(Boolean).join('');
   return `<div class="bl-head"><h1 class="${name ? 'hero bl-nick' : 'bl-what'}">${esc(name || plainHead(b))}</h1>
-    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}${chips ? `<div class="chips">${chips}</div>` : ''}${issueLine(b, x)}${textLine(b)}${onListsLine(b)}
+    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}${chips ? `<div class="chips">${chips}</div>` : ''}${issueLine(b, x)}${onListsLine(b)}
     ${aboutFold(b, name ? lede : plainHead(b))}</div>`;
 }
 // One sentence is not enough to decide on (R-178, Nate 10/5): right under it, "Read more about the bill" opens the
@@ -739,28 +739,24 @@ const aboutFold = (b, shown) => `<details class="bl-about" ${fold(b, 'about')} d
     ${aboutBill(b, { shown, pfx: 'bl-ab' })}</details>`;
 // The issue a bill belongs to (R-018: people follow issues, and a bill is one way an issue moves). Its name is the way
 // to its page; beside it, whether the person follows it, or one tap to start. Bills HIPHI only watches have no issue.
+// The page a text's link opens (R-299, Nate 17 Oct: "The one link shows it"): a text links to b/<session>/<NUM>-testify, or
+// to b/<session>/<NUM> for a big push, with ?via=text. On the issue's own "Part of" line, "Texts: Big moments only · Change"
+// (the review, 17 Oct: the issue's name is said once, A-14), and Change opens the issue page's three chips under it (via
+// 'text', for the counts), so the level is one tap from the text with no extra characters in it. The issue followed when
+// a bill is on several and the person follows another of them. Nothing for a bill whose issues the person does not follow.
+const textIssue = b => visitVia() === 'text' ? issuesOf(b).find(issueFollowed) || null : null;
+const TXT = { via: 'text', word: 'Texts', key: 'bl-txt', id: 'bl-lvl' };
 function issueLine(b, x) {
   const iss = issuesOf(b); if (!iss.length) return '';
+  const t = textIssue(b), i = t || iss[0], tx = t ? ` <span class="bl-txt">${levelLine(t, TXT)}</span>` : '', box = t ? levelBox(t, TXT) : '';
   // A stopped bill's main button is already "Follow the issue": the line keeps the issue's name and drops its own button.
-  if (x && followIsMain(b, x)) return `<p class="bl-issue">${icon(catOf(iss[0].category)?.icon || 'heart-pulse')}<span>Part of <a href="#/issue/${esc(iss[0].slug)}">${esc(iss[0].name)}</a></span></p>`;
-  const i = iss[0], on = issueFollowed(i), cat = catOf(i.category);
+  if (x && followIsMain(b, x)) return `<p class="bl-issue">${icon(catOf(i.category)?.icon || 'heart-pulse')}<span>Part of <a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a>${tx}</span></p>${box}`;
+  const on = issueFollowed(i), cat = catOf(i.category);
   // One follow button per bill page, and it is the issue's (R-067; R-061: "Following" must look followed, not like the
   // Follow button with another word). Pressing Following stops following the issue, with Undo.
-  return `<p class="bl-issue">${icon(cat?.icon || 'heart-pulse')}<span>Part of <a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a></span>
+  return `<p class="bl-issue">${icon(cat?.icon || 'heart-pulse')}<span>Part of <a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a>${tx}</span>
     ${firstVisit() ? '' : on ? btn('Following the issue', { kind: 'secondary', sm: true, icon: 'check', cls: 'on', attrs: { 'data-bl-unfollowissue': i.id, 'aria-pressed': 'true', title: 'Following. Press to stop following.' } })
-      : btn('Follow the issue', { kind: 'secondary', sm: true, icon: 'star', attrs: { 'data-bl-followissue': i.id, 'aria-pressed': 'false' } })}</p>`;   // a newcomer has it on their own card (A-14)
-}
-// The page a text's link opens (R-299, Nate 17 Oct: "The one link shows it"): a text links to b/<session>/<NUM>-testify, or
-// to b/<session>/<NUM> for a big push, with ?via=text. Right under the issue, one small line says how much that issue texts,
-// and Change opens the issue page's three chips in place (via 'text', for the counts), so the level is one tap from the
-// text with no extra characters in it. Nothing for a bill whose issues the person does not follow.
-function textLine(b) {
-  if (visitVia() !== 'text') return '';
-  const i = issuesOf(b).find(issueFollowed); if (!i) return '';
-  const open = S.blLvlOpen === i.id;
-  return `<div class="bl-txt"><p class="bl-txline">${icon('message-square')}<span>Texts about ${esc(i.name)}: <b data-bl-lvlnow>${esc(LEVEL_WORDS[levelOf(i.id)])}</b></span>
-      ${btn(open ? 'Close' : 'Change', { kind: 'text', sm: true, cls: 'bl-txchange', attrs: { 'data-bl-lvl': i.id, 'aria-expanded': String(open), 'aria-controls': 'bl-lvl-box' } })}</p>
-    ${open ? `<div id="bl-lvl-box">${levelPick(i, { via: 'text', label: 'Texts about this issue', id: 'bl-lvl' })}</div>` : ''}</div>`;
+      : btn('Follow the issue', { kind: 'secondary', sm: true, icon: 'star', attrs: { 'data-bl-followissue': i.id, 'aria-pressed': 'false' } })}</p>${box}`;   // a newcomer has it on their own card (A-14)
 }
 // Where do you stand? Three toggles, private to the person (it rides on their follow once they sign in; others only
 // ever see totals, from 10 people). Choosing the selected one again clears it. Only for a bill that can still move.
@@ -1178,9 +1174,7 @@ export default {
     each('[data-bl-tour]', el => el.addEventListener('click', () => viaStart(b, { viaSkipAsk: true })));
     each('[data-bl-billtour]', el => el.addEventListener('click', () => app.billTour?.()));
     // The text's line (R-299): Change opens the three chips under it, Close folds them; a tap on one saves it and the line says it.
-    each('[data-bl-lvl]', el => el.addEventListener('click', () => { S.blLvlOpen = S.blLvlOpen === el.dataset.blLvl ? null : el.dataset.blLvl; app.render();
-      requestAnimationFrame(() => (document.querySelector('#bl-lvl-box [aria-pressed="true"]') || document.querySelector('[data-bl-lvl]'))?.focus({ preventScroll: true })); }));
-    const txl = root.querySelector('.bl-txt'); if (txl) wireLevels(txl, { onSet: (id, lv) => root.querySelectorAll('[data-bl-lvlnow]').forEach(e => { e.textContent = LEVEL_WORDS[lv]; }) });
+    if (root.querySelector('[data-lvl-toggle]')) wireLevelLine(root.querySelector('.bl-head') || root);
     each('[data-bl-newfollow]', el => el.addEventListener('click', async () => {
       if (el.getAttribute('aria-busy') === 'true') return;
       el.setAttribute('aria-busy', 'true');

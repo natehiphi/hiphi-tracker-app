@@ -191,14 +191,18 @@ function helpBody() {
 function levelsBody() {
   const iss = followedIssues(); if (!iss.length || !getsAlerts()) return '';
   const d = P.draft.levels || {};
-  return `<fieldset class="mr-set pf-f pf-lvls"><legend>How much each issue sends</legend>
+  return `<fieldset class="mr-set pf-f pf-lvls"><legend>Alerts for each issue</legend>
       <p class="small muted" id="pf-lv-h">${esc(LEVEL_WORDS.big)} is usually a few a month. ${esc(LEVEL_WORDS.every)} is never more than one a day.</p>
       <ul class="pf-lvlist">${iss.map(i => `<li class="field pf-lvrow"><label for="pf-lv-${esc(i.id)}">${esc(i.name)}</label>
         <select id="pf-lv-${esc(i.id)}" data-pf-lv="${esc(i.id)}" aria-describedby="pf-lv-h">${LEVELS.map(k => `<option value="${k}"${(d[i.id] || 'big') === k ? ' selected' : ''}>${esc(LEVEL_WORDS[k])}</option>`).join('')}</select></li>`).join('')}</ul></fieldset>`;
 }
+// Here the hearing box says "alerts" (the review, 17 Oct, P-5): "when a bill gets a hearing", ticked over "Same as each issue
+// above", read as every hearing. The sign-in page's consent box keeps its words (CHOICES in more.js, C-4).
+const EMAIL_ALERTS = 'Email me alerts about my issues';
 // Email can bring every hearing on the person's issues whatever each issue is set to (Nate 17 Oct: the levels are the
 // default for email too, "but the user can change that if they'd like"). Shown while hearing emails are ticked (B-12).
-const EMAIL_SAME = 'Same as each issue above', EMAIL_EVERY = 'Every hearing on my issues';
+// "Every hearing" leaves out the issues set to App only (backend 181), and says so (P-5).
+const EMAIL_SAME = 'Same as each issue above', EMAIL_EVERY = 'Every hearing on my issues (not App only ones)';
 const emailLevelSet = (e, lv) => followedIssues().length ? `<fieldset class="mr-set pf-f pf-elv" id="pf-elv"${e.hearing_alerts ? '' : ' hidden'}><legend>Hearing emails</legend>
     ${radio('pf-elv', 'same', EMAIL_SAME, lv !== 'every')}${radio('pf-elv', 'every', EMAIL_EVERY, lv === 'every')}</fieldset>` : '';
 function alertsBody() {
@@ -211,7 +215,7 @@ function alertsBody() {
     : `<p>${icon('message-square')} Texts: off. <a href="#/alerts">Get text alerts</a></p>`;
   // A profile made with a number (R-155) has no email until it adds one: no email choices to show or change.
   const email = signedIn() && myEmail() ? `<fieldset class="mr-set pf-f"><legend>Emails to <span class="mr-break">${esc(myEmail())}</span></legend>
-      ${CHOICES.map(([k, key, t2, h]) => check(`pf-em-${k}`, t2, h, e[key] === true, ` data-pf-em="${key}"`)).join('')}
+      ${CHOICES.map(([k, key, t2, h]) => check(`pf-em-${k}`, key === 'hearing_alerts' && followedIssues().length ? EMAIL_ALERTS : t2, h, e[key] === true, ` data-pf-em="${key}"`)).join('')}
       ${emailLevelSet(e, P.draft.emailLevel)}
       <p class="small muted">Every email has a one-click unsubscribe.</p></fieldset>`
     : signedIn() ? `<p>${icon('mail')} Email: not added. <a href="#/signin">Add your email</a> to get alerts by email too.</p>`

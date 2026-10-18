@@ -1422,9 +1422,9 @@ const lvlIssue = x => { if (!x?.b || x.mode === 'intro') return null; const i = 
 const reached = () => !!(textSaved()?.confirmed || (S.session && myEmail()));
 function levelUp(x) {
   const i = lvlIssue(x); if (!i) return '';
-  if (x.lvlUp?.id === i.id && levelOf(i.id) === 'every') return `<p class="okmsg hp-lvlok" role="status">${icon('circle-check')}<span>You’ll hear about every hearing on ${esc(i.name)}.</span>${btn('Undo', { kind: 'text', sm: true, icon: 'undo-2', cls: 'hp-inl', attrs: { 'data-hp': 'lvl-undo', id: 'hp-lvl-undo' } })}</p>`;
+  if (x.lvlUp?.id === i.id && levelOf(i.id) === 'every') return `<p class="okmsg hp-lvlok" role="status">${icon('circle-check')}<span>You’ll hear about every hearing on “${esc(i.name)}”.</span>${btn('Undo', { kind: 'text', sm: true, icon: 'undo-2', cls: 'hp-inl', attrs: { 'data-hp': 'lvl-undo', id: 'hp-lvl-undo' } })}</p>`;
   if (levelOf(i.id) === 'every' || !reached()) return '';
-  return `<div class="hp-goask hp-lvl"><p>${textSaved()?.confirmed ? 'Text me' : 'Alert me about'} every hearing on ${esc(i.name)}? <span class="hp-lvlsub">Never more than one a day.</span></p>
+  return `<div class="hp-goask hp-lvl"><p>${textSaved()?.confirmed ? 'Text me about' : 'Alert me about'} every hearing on “${esc(i.name)}”? <span class="hp-lvlsub">Never more than one a day.</span></p>
     ${btn('Yes, every hearing', { kind: 'secondary', sm: true, icon: 'bell', attrs: { 'data-hp': 'lvl-every', id: 'hp-lvl-yes' } })}</div>`;
 }
 // The undo for the follow that sending did, right under the sentence that says it (X10-4, R-180): "Don't follow it" sat
@@ -1898,7 +1898,7 @@ function onClick(e) {
       if (S.helper !== x) return;
       if (ok) x.lvlUp = a === 'lvl-every' ? { id: i.id, was } : null;
       paint({ focus: ok ? (a === 'lvl-every' ? 'hp-lvl-undo' : 'hp-lvl-yes') : '' });
-      if (ok) announce(a === 'lvl-every' ? `You’ll hear about every hearing on ${i.name}.` : `Back to ${LEVEL_WORDS[to].toLowerCase()} for ${i.name}.`);
+      if (ok) announce(a === 'lvl-every' ? `You’ll hear about every hearing on “${i.name}”.` : `Back to ${LEVEL_WORDS[to].toLowerCase()} for “${i.name}”.`);
     });
   }
   else if (a === 'unfollow') { const x = S.helper, i = x.followedIssue; if (i) setFollows({ issuesOff: [i.id] }).then(() => { x.followedIssue = null; paint(); announce(`You no longer follow ${i.name}.`); }); }

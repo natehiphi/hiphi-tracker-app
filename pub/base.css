@@ -368,6 +368,9 @@ a.al-swap { display: inline-flex; align-items: center; min-height: 44px; font-si
 .lvl-hint b .ic { width: 16px; height: 16px; }
 .lvl[aria-busy="true"] .lvl-opts { cursor: progress; }
 @media (hover: hover) { .lvl-opts button.chip:hover { background: var(--p50); border-color: var(--p700); } }
+.lvl-line { display: inline-flex; flex-wrap: wrap; align-items: center; column-gap: var(--s8); font-size: var(--t14); color: var(--n700); }
+.lvl-line b { color: var(--n900); }
+.lvl-line .lvl-toggle { margin-left: -8px; }
 
 .al-nowrap { white-space: nowrap; }
 /* The code step (R-155): the 6-digit code where the number was typed. Wide spacing and tabular digits so a code read off a

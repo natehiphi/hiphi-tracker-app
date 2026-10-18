@@ -172,6 +172,9 @@ export function emailLede() {
 // "Saved." once a tap has kept it (B-7). Drawn on the issue page and the page a text's link opens; Profile > Alerts has the
 // same three names in one list (pub/profile.js). Chosen after acting, never in the first visit.
 export const LEVEL_WORDS = { every: 'Every hearing', big: 'Big moments only', app: 'App only' };
+// One name for the setting everywhere it is shown (A-14, C-15; the review of 17 Oct): the issue page and the text's page
+// call it this, and Profile's list "Alerts for each issue".
+export const LEVEL_NAME = 'Alerts about this issue';
 export const LEVEL_HINT = {
   every: 'Every hearing on this issue’s bills, never more than one a day.',
   big: 'HIPHI’s biggest calls to speak up and key hearings. Usually a few a month.',
@@ -188,6 +191,24 @@ export function levelPick(i, { via, label, id = 'lvl' } = {}) {
     <p class="lvl-h" id="${id}-h">${label}</p>
     <div class="chips lvl-opts" role="group" aria-labelledby="${id}-h" aria-describedby="${id}-x">${lvlChips(cur)}</div>
     <p class="lvl-hint" id="${id}-x" aria-live="polite">${esc(LEVEL_HINT[cur])}</p></div>`;
+}
+// The level in one line, "Alerts: Big moments only · Change" (word: "Texts" on a text's page), with Change opening the
+// chips in place and Close folding them (the review, 17 Oct: the chips always open pushed the issue page's "You can help
+// this week" off a phone's first screen, A-1). key: which line is open (S.lvlOpen), unique on the page; id for the chips.
+export function levelLine(i, { via, word = 'Alerts', key, id = 'lvl' } = {}) {
+  const open = S.lvlOpen === key;
+  return `<span class="lvl-line"><span>${word}: <b data-lvl-now>${esc(LEVEL_WORDS[levelOf(i.id)])}</b></span><span class="lvl-dot" aria-hidden="true">·</span>${btn(open ? 'Close' : 'Change', { kind: 'text', sm: true, cls: 'lvl-toggle', attrs: { 'data-lvl-toggle': key, 'aria-expanded': String(open), 'aria-controls': `${id}-box` } })}</span>`;
+}
+// The chips a levelLine opens, drawn where the screen wants them (under the line, or under the row the line sits in).
+export const levelBox = (i, { via, key, id = 'lvl' } = {}) => S.lvlOpen === key ? `<div class="lvl-box" id="${id}-box">${levelPick(i, { via, label: LEVEL_NAME, id })}</div>` : '';
+// Change and Close, then the chips' taps; a level chosen is said on the line too.
+export function wireLevelLine(root) {
+  if (!root) return;
+  root.querySelectorAll('[data-lvl-toggle]').forEach(el => el.onclick = () => {
+    const k = el.dataset.lvlToggle; S.lvlOpen = S.lvlOpen === k ? null : k; app.render();
+    requestAnimationFrame(() => (document.querySelector(`#${CSS.escape(el.getAttribute('aria-controls') || '')} [aria-pressed="true"]`) || document.querySelector(`[data-lvl-toggle="${CSS.escape(k)}"]`))?.focus({ preventScroll: true }));
+  });
+  wireLevels(root, { onSet: (id, lv) => root.querySelectorAll('[data-lvl-now]').forEach(e => { e.textContent = LEVEL_WORDS[lv]; }) });
 }
 // Taps on a levelPick: drawn again in place, so the focus stays on the chip just pressed; the account keeps it in the
 // background, and a refusal puts the old level back with its reason (kernel.js toasts it). onSet(issueId, level, was).

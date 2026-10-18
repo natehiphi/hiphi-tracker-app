@@ -17,7 +17,7 @@ import { S, D, DEMO, app, esc, icon, nick, posInfo, countOk, issues, issueIcon, 
 import { btn, row, skeleton, notice, inlineErr, chip, posChip } from './ui.js';
 import { actionCard, wireActions, shareIssue } from './actions.js';
 import { calendarUrl } from './core.js';   // the calendar feed (R-125)
-import { followAsk, profileSaved, levelPick, wireLevels, getsAlerts } from './alerts.js';   // the profile ask after a follow (R-184); how much it sends (R-299)
+import { followAsk, profileSaved, levelLine, levelBox, wireLevelLine, getsAlerts } from './alerts.js';   // the profile ask after a follow (R-184); how much it sends (R-299)
 import { logAct } from './visitlog.js';
 import { billList, fold, wireRows, emptyBox, moving, becameLaw, stopped, numCmp, byUrgency, listCards, listPromise, nextYear,
   issueList, issueOrder, billsOfIssue, what } from './mybills.js';
@@ -464,7 +464,7 @@ function issuePageNew(i) {
   const cta = on
     ? `<div class="card fd-follow on"><p class="okmsg" id="fd-issueok" tabindex="-1">${icon('circle-check')}<span>${via ? `You follow this issue, with all of ${esc(via.name)}` : 'You follow this issue'}</span></p>
         <p class="small">Its bills come to you: this session’s, later ones and next session’s.</p>
-        ${getsAlerts() ? levelPick(i, { via: 'issue', label: 'Alerts about this issue', id: 'fd-lvl' }) : ''}
+        ${getsAlerts() ? `<p class="fd-lvl">${levelLine(i, { via: 'issue', key: 'fd:' + i.id, id: 'fd-lvl' })}</p>${levelBox(i, { via: 'issue', key: 'fd:' + i.id, id: 'fd-lvl' })}` : ''}
         <div>${btn('Stop following', { kind: 'text', sm: true, attrs: { 'data-fdunissue': i.id } })}</div></div>`
     : `<div class="fd-cta fd-follow">${btn('Follow this issue', { kind: 'primary', icon: 'star', full: true, attrs: { 'data-fdissue': i.id } })}
         <p class="small muted">Its bills come to you: this session’s, later ones and next session’s.</p></div>`;
@@ -700,7 +700,7 @@ function wireIssues(root) {
 function wirePage(root) {
   wireRows(root);
   wireIssues(root);
-  wireLevels(root);   // the issue's alerts level, for someone alerts reach (R-299): saved on the tap, said in place
+  wireLevelLine(root);   // the issue's alerts level, for someone alerts reach (R-299): one line, Change opens the chips
   root.querySelectorAll('[data-fdmore]').forEach(el => el.onclick = () => { F.more[el.dataset.fdmore] = true; const from = +el.dataset.from || 0, k = el.dataset.fdmore; app.render();
     document.querySelector(`[data-grp="${CSS.escape(k)}"] .mb-row:nth-child(${from + 1}) .mb-main`)?.focus({ preventScroll: true }); });
   root.querySelectorAll('[data-reissue]').forEach(el => el.onclick = () => { delete F.issues[el.dataset.reissue]; app.render(); });
