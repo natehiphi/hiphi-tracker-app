@@ -160,13 +160,14 @@ function stateFor(route) {
   if (route.id) {
     const src = alertById(route.id); if (!src) return null;
     const { ask, msg } = splitAsk(src);
-    return S.leCmp = { key, a: { ...src }, subject: src.subject || '', ask, msg, step: 1, edited: true, dirty: false, savedAt: src.updated_at || src.created_at, q: '' };
+    return S.leCmp = { key, a: { ...src }, subject: src.subject || '', ask, msg, step: 1, edited: true, dirty: false, savedAt: src.updated_at || src.created_at, q: '',
+      push: !!src.big_push, tline: src.text_line || '' };
   }
   const a = { id: null, bill_id: null, list_id: null, segment_id: null, status: 'draft', author_id: S.me?.id };
   if (q.bill) { const b = billById(q.bill) || billByRef(q.bill); if (b) a.bill_id = b.id; }
   else if (q.list) { const l = listById(q.list); if (l) a.list_id = l.id; }
   else if (q.segment) { const sg = segById(q.segment); if (sg) a.segment_id = sg.id; }
-  const c = S.leCmp = { key, a, subject: '', ask: '', msg: '', step: 0, edited: false, dirty: false, savedAt: null, q: '', check: audKey(a) !== '||' };
+  const c = S.leCmp = { key, a, subject: '', ask: '', msg: '', step: 0, edited: false, dirty: false, savedAt: null, q: '', check: audKey(a) !== '||', push: false, tline: '' };
   if (c.check) { fill(c); c.step = 1; }
   return c;
 }
@@ -185,6 +186,8 @@ function problem(c, { brackets = true } = {}) {
     if (at) return [at, 'Replace the text in brackets first.'];
   }
   if (c.subject.trim().length < 3) return ['subj', 'Write a subject.'];
+  if (pushOn(c) && c.tline.trim().length < TEXT_MIN) return ['tline', `Write the text line: at least ${TEXT_MIN} characters.`];
+  if (pushOn(c) && c.tline.trim().length > TEXT_MAX) return ['tline', `Keep the text line to ${TEXT_MAX} characters.`];
   const html = joinAsk(c.ask, c.msg);
   if (htmlToText(html).length < 20) return ['msg', 'Write at least a couple of sentences.'];
   if (html.length > 40000) return ['msg', 'That is too long for an email. Trim it.'];
@@ -194,6 +197,9 @@ async function save(c) {
   const body_html = joinAsk(c.ask, c.msg);
   const row = { bill_id: c.a.bill_id, list_id: c.a.list_id, segment_id: c.a.segment_id, subject: c.subject.trim(), body: htmlToText(body_html), body_html };
   if (c.a.id) row.id = c.a.id;
+  // A big push (R-299) is sent only when it is on, or to take it off one saved before (backend 181 adds the columns, so an
+  // email that never had one saves as it did before the migration).
+  if (c.a.bill_id && (c.push || 'big_push' in c.a)) Object.assign(row, { big_push: !!c.push, text_line: c.push ? c.tline.trim() : null });
   const saved = await DB.saveAlert(row);
   c.a = { ...c.a, ...saved }; c.dirty = false; c.savedAt = new Date().toISOString();
   if (c.key.startsWith('new:')) c.key = 'id:' + saved.id;
@@ -247,6 +253,50 @@ function whoStep(c) {
     <div id="le-whores">${whoResults(c.q)}</div>`;
 }
 
+// A big push (R-299, Nate 17 Oct): one of HIPHI's biggest asks also goes out as a text, to the people who follow the bill's
+// issues at "Big moments only" or "Every hearing" (the default level texts only these and key hearings). Only for an ask
+// about a bill. Suggested limit, at most one per issue a week, or the quiet default gets loud: the hint says it, and a
+// warning names the last big push on one of the bill's issues when it went out in the past 7 days (sent, or waiting for
+// its 4:30 pm email). The text line is the text's words; the bill's link goes after them.
+const TEXT_MIN = 10, TEXT_MAX = 110;
+const pushOn = c => !!(c.push && c.a.bill_id);
+function lastPush(c) {
+  const mine = new Set((S.billIssues || []).filter(x => x.bill_id === c.a.bill_id).map(x => x.issue_id)); if (!mine.size) return null;
+  const since = Date.now() - 7 * 864e5;
+  return (S.alerts || []).filter(a => a.big_push && a.bill_id && String(a.id) !== String(c.a.id) && (a.status === 'sent' || a.scheduled_for))
+    .map(a => ({ a, at: Date.parse(a.sent_at || a.scheduled_for || ''), iss: (S.billIssues || []).find(x => x.bill_id === a.bill_id && mine.has(x.issue_id)) }))
+    .filter(x => x.iss && x.at >= since).sort((p, q) => q.at - p.at)[0] || null;
+}
+const pushWarn = c => { const r = lastPush(c); if (!r) return '';
+  const name = (S.issues || []).find(i => i.id === r.iss.issue_id)?.name || 'one of this bill’s issues';
+  const when = r.a.status === 'sent' ? `went out ${ago(r.a.sent_at)}` : `goes out ${dailyWord(r.a.scheduled_for)} at 4:30 pm`;
+  return notice('warn', 'triangle-alert', `A big push on ${esc(name)} ${esc(when)}: “${esc(r.a.subject || '')}”. Another this week may be one text too many.`); };
+// A text of 59 characters or fewer, with the link, goes as one part; 60 to 110 goes as two, which costs more to send.
+const ONE_PART = 59;
+const countLine = n => n < TEXT_MIN ? `${n} of ${TEXT_MAX} characters, at least ${TEXT_MIN}. Up to ${ONE_PART} sends one text part.`
+  : n <= ONE_PART ? `${n} of ${TEXT_MAX} characters: one text part` : `${n} of ${TEXT_MAX} characters: two text parts. ${ONE_PART} or fewer sends one, which costs less.`;
+// The box says who gets the text (the review, 17 Oct, P-5): the people who follow the bill's issue, named.
+const pushIssue = c => { const l = (S.billIssues || []).find(x => x.bill_id === c.a.bill_id); return l ? (S.issues || []).find(i => i.id === l.issue_id) || null : null; };
+const pushLabel = c => { const i = pushIssue(c); return i ? `Also text everyone following “${esc(i.name)}”` : 'Also text the bill’s followers'; };
+// The text as it will reach a phone: who it is from, the line, the bill's link (b/<session>/<NUM>?via=text, the page that
+// shows the person's level for the issue) and the way to stop. The words around the line are R-208's sending.
+const pushLink = c => { const b = c.a.bill_id ? billById(c.a.bill_id) : null; return b ? `${PUBLIC_APP().replace(/track\.html$/, '')}b/${b.session_year ? b.session_year + '/' : ''}${String(b.bill_number).replace(/\s/g, '')}?via=text` : ''; };
+const pushReads = c => `HIPHI Bill Tracker: ${c.tline.trim() || '…'} ${pushLink(c)} Reply STOP to stop.`;
+// The subject, as a first text line: cut to the limit at a word.
+const fromSubject = t => { t = String(t || '').trim().replace(/\s+/g, ' '); if (t.length <= TEXT_MAX) return t; const cut = t.slice(0, TEXT_MAX); return cut.slice(0, cut.lastIndexOf(' ') > 40 ? cut.lastIndexOf(' ') : TEXT_MAX).replace(/[\s,;:.-]+$/, ''); };
+function pushField(c) {
+  const n = c.tline.trim().length;
+  return `<div class="le-push">
+      <label class="check le-pushck" for="le-push"><input type="checkbox" id="le-push"${c.push ? ' checked' : ''} aria-describedby="le-push-h"><span>${pushLabel(c)}</span></label>
+      <span class="help" id="le-push-h">That makes it a big push. At most one per issue a week keeps texts welcome.</span>
+      <div class="le-pushmore"${c.push ? '' : ' hidden'}>${pushWarn(c)}
+        <div class="field"><label for="le-tline">Text line</label><textarea id="le-tline" class="le-grow" rows="1" maxlength="${TEXT_MAX}" autocomplete="off" aria-describedby="le-tline-h le-tline-n le-tline-err">${esc(c.tline)}</textarea>
+          <span class="help" id="le-tline-h">What the text says. The link to the bill goes after it.</span>
+          <span class="help le-tcount" id="le-tline-n" aria-live="polite">${countLine(n)}</span><div id="le-tline-err" role="alert"></div>
+          <p class="le-treads"><span class="le-mute">The text reads:</span> <span id="le-tline-p">${esc(pushReads(c))}</span></p></div></div>
+    </div>`;
+}
+
 // The rich-text box: the current app's editor (app.js rteHTML / wireRTE) with icons, 44px buttons and a sheet for
 // links instead of window.prompt. Toolbar icons fall back to letters until icons.js has bold/italic/etc.
 const tb = (cmd, label, face) => `<button type="button" data-rte="${cmd}" aria-label="${label}" title="${label}">${face}</button>`;
@@ -259,6 +309,7 @@ function writeStep(c) {
     <p class="le-tofrom"><span>${icon(u.icon)}<span>To ${audHTML(c.a, 'to')}</span></span><span>${icon('user-round')}<span>From ${esc(me.full_name || '')}. Replies come to you.</span></span></p>
     <div class="field"><label for="le-subj">Subject</label><textarea id="le-subj" class="le-grow" rows="1" maxlength="150" aria-describedby="le-subj-err">${esc(c.subject)}</textarea><div id="le-subj-err" role="alert"></div></div>
     <div class="field"><label for="le-ask">The ask</label><textarea id="le-ask" class="le-grow" rows="1" maxlength="200" aria-describedby="le-ask-h le-ask-err">${esc(c.ask)}</textarea><span class="help" id="le-ask-h">One sentence: what to do, and by when. It is the first line of the email.</span><div id="le-ask-err" role="alert"></div></div>
+    ${u.kind === 'bill' ? pushField(c) : ''}
     <div class="field le-msgf"><span class="label" id="le-msg-l">Message</span>
       <div class="le-rte">
         <div class="le-rtebar" role="toolbar" aria-label="Formatting" aria-controls="le-msg">
@@ -319,6 +370,7 @@ function submitStep(c) {
       <div><dt>To</dt><dd>${audHTML(c.a, 'to')}</dd></div>
       <div><dt>From</dt><dd>${esc(me.full_name || '')} <span class="le-mute">&lt;${esc(me.email || '')}&gt;</span></dd></div>
       <div><dt>Subject</dt><dd class="strong">${esc(c.subject)}</dd></div>
+      ${pushOn(c) ? `<div><dt>Text</dt><dd>${esc(c.tline.trim())} <span class="le-mute">(a big push, also texted)</span></dd></div>` : ''}
     </dl></div>
     <h3 class="le-flowh">What happens next</h3>
     <ol class="le-flow">
@@ -352,6 +404,7 @@ function statusView(a) {
   const state = `<section class="card le-state" aria-label="Where it stands">
       <p class="le-stline">${icon(heldNow(a) ? 'hand' : (STATUS[a.status] || STATUS.draft)[1])}<span><b>${esc(heldNow(a) ? HELD : (STATUS[a.status] || STATUS.draft)[0])}.</b> ${line}</span></p>
       ${a.review_note && a.status === 'returned' ? `<blockquote class="le-quote">${esc(a.review_note)}</blockquote>` : ''}
+      ${a.big_push && a.bill_id ? `<p class="le-stline le-pushline">${icon('message-square')}<span><b>A big push, also texted:</b> ${esc(a.text_line || '')}</span></p>` : ''}
       ${stats}
       ${canTest(a) ? btn('Send me a test', { kind: 'text', icon: 'mail-check', attrs: { 'data-le': 'test' } }) : ''}
     </section>`;
@@ -693,6 +746,19 @@ function wire(route, root) {
       };
     }
     wireRTE(root, c);
+    // A big push (R-299): ticking it shows the text line (and the week's warning) without redrawing the page.
+    const ck = root.querySelector('#le-push'), more = root.querySelector('.le-pushmore'), tl = root.querySelector('#le-tline');
+    const paintReads = () => { const e = root.querySelector('#le-tline-p'); if (e) e.textContent = pushReads(c); };
+    if (ck) ck.onchange = () => { c.push = ck.checked; c.dirty = true; c.edited = true; if (more) more.hidden = !c.push;
+      // Ticked with no text line yet: the subject is the first draft of it (the review, 17 Oct), to change or keep.
+      if (c.push && tl && !c.tline.trim()) { c.tline = tl.value = fromSubject(c.subject); root.querySelector('#le-tline-n').textContent = countLine(c.tline.trim().length); paintReads(); }
+      paintSaveState(c); if (c.push) tl?.focus(); };
+    // One line of text in a box that grows, as the subject's: a whole text line is readable on a phone; Enter adds no line.
+    const fitT = () => { if (!tl) return; tl.style.height = 'auto'; tl.style.height = tl.scrollHeight + 2 + 'px'; };
+    if (tl) { tl.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) e.preventDefault(); }; if (c.push) requestAnimationFrame(fitT); }
+    if (ck) ck.addEventListener('change', () => { if (c.push) requestAnimationFrame(fitT); });
+    if (tl) tl.oninput = () => { if (/\n/.test(tl.value)) tl.value = tl.value.replace(/\s*\n\s*/g, ' '); fitT(); c.tline = tl.value; c.dirty = true; c.edited = true; root.querySelector('#le-tline-n').textContent = countLine(tl.value.trim().length); paintReads(); paintSaveState(c);
+      const err = root.querySelector('#le-tline-err'); if (err.innerHTML) { err.innerHTML = ''; tl.removeAttribute('aria-invalid'); } };
   }
 }
 

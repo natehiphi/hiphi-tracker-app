@@ -70,7 +70,7 @@ with sync_playwright() as pw:
     ok('Your home page' in s['first'] and 'Stay connected' not in s['first'], 'new: the last part is named "Your home page"')
     ok('What should people do?' in s['mom'] and 'needs a hearing' in s['mom'] and 'top of your home page' in s['story'], f'new: the story names the real moment (R-219: "Will you speak up on <bill> this week?" and its deadline; a yes says it waits on Home) ({" ".join(s["story"].split())[-90:]})')
     # The alerts moved to right after the issues (R-146), where they cannot read as the end of the visit.
-    ok('Save your profile' in s['alerts'] and 'HIPHI alerts when a bill on your issues gets a hearing or needs you to speak up.' in s['alerts'], 'new: the alerts box names both kinds of alert (C-4; t4/e2, R-265)')
+    ok('Save your profile' in s['alerts'] and 'HIPHI lets you know when your voice matters most.' in s['alerts'], 'new: the alerts box names both kinds of alert (C-4; t4/e2, R-265)')
     ok('Link sent to tester@example.com' in s['mahalo'] and 'when you finish here' in s['mahalo'], 'new: after sending, it says to finish here first')
     ok('See How I Can Help' in s['last'] and 'Coming Up' not in s['last'], f'new: the story\'s last button says what Home is for, "See How I Can Help" (R-190, R-293) ({s["last"].strip()})')
     ok(s['skip'] == 0, 'new: no Skip beside it on the last stage, where it would go to the same place and drop the story\'s tick (R-293, A-14)')

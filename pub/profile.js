@@ -8,11 +8,11 @@
 // It replaces Settings, which it absorbs: the email choices, name, address and "How would you like to help?", your data,
 // signing out and deleting the account. It no longer asks for a phone number for staff: the only number is the text-alert
 // one, which staff never see (R-146); a number saved in Settings before stays on the account and is not shown here.
-import { S, DEMO, app, esc, icon, toast, friendly, textSaved, followedIssues, HST,
+import { S, DEMO, app, esc, icon, toast, friendly, textSaved, followedIssues, HST, LEVELS, levelOf, setIssueLevel,
   LOCAL_KEY, DONE_KEY, DONE_AT_KEY, LISTS_KEY, STANCE_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, CONSENT_KEY, recomputeWatch } from './core.js';
 import { btn, notice, inlineErr } from './ui.js';
 import { CHOICES, check, busy, unbusy, submitBtn, say, myDistricts, distHTML, addrField, wireAddr, rememberDistricts } from './more.js';
-import { alertFields, alertButton, wireAlertForm, phoneDigits, codeStep, confirmWords } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, phoneDigits, codeStep, confirmWords, LEVEL_WORDS, getsAlerts } from './alerts.js';
 import { hasProfile, signedIn, myName, myTitles, myStory, myStories, storyName, quoteLevel, QUOTE, storyAsk, STORY_HINT, myInterests, HELP_GROUPS, HELP_KEYS,
   myHelpNote, initials, saveProfile, loadMe, forgetProfileOnDevice } from './myprofile.js';
 import { pickerHTML, wirePicker } from './titlepick.js';
@@ -72,7 +72,9 @@ function savedNow() {
   return { name: myName(), titles: myTitles(), story: myStory(), stories: myStories(), quote: quoteLevel(),
     help: myInterests().filter(k => HELP_KEYS.includes(k)), helpNote: myHelpNote(),
     sd: d?.senate || null, hd: d?.house || null, addrQ: '',
-    emails: { hearing_alerts: p.hearing_alerts === true, action_alerts: p.action_alerts === true } };
+    emails: { hearing_alerts: p.hearing_alerts === true, action_alerts: p.action_alerts === true },
+    // How much each followed issue sends (R-299), and whether email follows those levels ('same') or brings every hearing.
+    levels: Object.fromEntries(followedIssues().map(i => [i.id, levelOf(i.id)])), emailLevel: p.email_level === 'every' ? 'every' : 'same' };
 }
 const clone = o => JSON.parse(JSON.stringify(o));
 // Compared as saved: words trimmed, empty stories dropped, choices in a set order.
@@ -110,16 +112,20 @@ async function saveAll() {
   if ([...d.help].sort().join() !== [...base.help].sort().join()) patch.interests = [...myInterests().filter(k => !HELP_KEYS.includes(k)), ...d.help];
   if (d.helpNote.trim() !== base.helpNote) patch.helpNote = d.helpNote;
   if (d.sd !== base.sd || d.hd !== base.hd) { patch.house = d.hd; patch.senate = d.sd; }
-  const emails = JSON.stringify(d.emails) !== JSON.stringify(base.emails);
+  const emails = JSON.stringify(d.emails) !== JSON.stringify(base.emails), elevel = d.emailLevel !== base.emailLevel;
+  const levels = Object.entries(d.levels || {}).filter(([id, lv]) => lv !== (base.levels || {})[id]);
   busy(b, 'Saving…'); const m0 = $('#pf-barmsg'); if (m0) { m0.classList.remove('bad'); m0.setAttribute('role', 'status'); m0.textContent = 'Saving your changes…'; }
   try {
     if (Object.keys(patch).length) await saveProfile(patch);
-    if (emails && S.user) {
-      const prefs = { ...(S.user.prefs || {}), ...d.emails, consent_at: new Date().toISOString(), consent_source: 'profile', consent_version: null };
+    for (const [id, lv] of levels) if (!(await setIssueLevel(id, lv, 'profile', { quiet: true })))
+      throw Object.assign(new Error(`We couldn’t save the alerts for ${S.issueById.get(id)?.name || 'an issue'}. Try Save again.`), { plain: true });
+    // The email choices are consent, stamped as given here (C-4); how many hearing emails is a setting inside it (R-299).
+    if ((emails || elevel) && S.user) {
+      const prefs = { ...(S.user.prefs || {}), ...(emails ? { ...d.emails, consent_at: new Date().toISOString(), consent_source: 'profile', consent_version: null } : {}), ...(elevel ? { email_level: d.emailLevel } : {}) };
       if (!DEMO) { const { error } = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id); if (error) throw error; }
-      S.user.prefs = prefs; S.consentCard = false;
+      S.user.prefs = prefs; if (emails) S.consentCard = false;
     }
-  } catch (e) { unbusy(b); const m = $('#pf-barmsg'); if (m) { m.classList.add('bad'); m.setAttribute('role', 'alert'); m.textContent = friendly(e); } return; }
+  } catch (e) { unbusy(b); const m = $('#pf-barmsg'); if (m) { m.classList.add('bad'); m.setAttribute('role', 'alert'); m.textContent = e?.plain ? e.message : friendly(e); } return; }
   if ('house' in patch && d.sd) rememberDistricts(d.sd, d.hd, d.addrQ);
   fresh(); window.onbeforeunload = null; app.render();
   toast('Your profile is saved.', { yay: true }); announce('Your profile is saved.');
@@ -178,21 +184,43 @@ function helpBody() {
       <input id="pf-note" type="text" maxlength="200" value="${esc(P.draft.helpNote)}" autocapitalize="sentences" enterkeyhint="done" placeholder="Like cooking for a rally"></div>`;
 }
 
-// Alerts: the email choices are part of the same draft (R-165).
+// Alerts: the email choices are part of the same draft (R-165), and so is how much each issue sends (R-299).
+// How much each followed issue sends (R-299): one row per issue, its name and a choice of the three levels, kept with the
+// rest at Save. A select, not the issue page's chips: a person following eight issues gets eight short rows, not a screenful
+// of buttons. The line over them says only what the names cannot: how often the usual one comes, and the ceiling.
+function levelsBody() {
+  const iss = followedIssues(); if (!iss.length || !getsAlerts()) return '';
+  const d = P.draft.levels || {};
+  return `<fieldset class="mr-set pf-f pf-lvls"><legend>Alerts for each issue</legend>
+      <p class="small muted" id="pf-lv-h">${esc(LEVEL_WORDS.big)} is usually a few a month. ${esc(LEVEL_WORDS.every)} is never more than one a day.</p>
+      <ul class="pf-lvlist">${iss.map(i => `<li class="field pf-lvrow"><label for="pf-lv-${esc(i.id)}">${esc(i.name)}</label>
+        <select id="pf-lv-${esc(i.id)}" data-pf-lv="${esc(i.id)}" aria-describedby="pf-lv-h">${LEVELS.map(k => `<option value="${k}"${(d[i.id] || 'big') === k ? ' selected' : ''}>${esc(LEVEL_WORDS[k])}</option>`).join('')}</select></li>`).join('')}</ul></fieldset>`;
+}
+// Here the hearing box says "alerts" (the review, 17 Oct, P-5): "when a bill gets a hearing", ticked over "Same as each issue
+// above", read as every hearing. The sign-in page's consent box keeps its words (CHOICES in more.js, C-4).
+const EMAIL_ALERTS = 'Email me alerts about my issues';
+// Email can bring every hearing on the person's issues whatever each issue is set to (Nate 17 Oct: the levels are the
+// default for email too, "but the user can change that if they'd like"). Shown while hearing emails are ticked (B-12).
+// "Every hearing" leaves out the issues set to App only (backend 181), and says so (P-5).
+const EMAIL_SAME = 'Same as each issue above', EMAIL_EVERY = 'Every hearing on my issues (not App only ones)';
+const emailLevelSet = (e, lv) => followedIssues().length ? `<fieldset class="mr-set pf-f pf-elv" id="pf-elv"${e.hearing_alerts ? '' : ' hidden'}><legend>Hearing emails</legend>
+    ${radio('pf-elv', 'same', EMAIL_SAME, lv !== 'every')}${radio('pf-elv', 'every', EMAIL_EVERY, lv === 'every')}</fieldset>` : '';
 function alertsBody() {
   const t = textSaved(), e = P.draft.emails;
   // The texts' state by the one rule (alerts.js alertStatus, D1-4): on only once the number is confirmed; before that
-  // "Almost set" with the alerts step's own words. It read as on for any number.
+  // "Almost set" with the alerts step's own words. It read as on for any number. Since R-299 what they bring is each
+  // issue's level (below), so the line says what texts are for, in the sign-up's own words (t5), not "at most one a day".
   const num = t ? `<span class="strong">${esc(masked(t.phone))}</span>` : '';
-  const texts = t ? `<p>${icon('message-square')} ${t.confirmed ? `<b>Text alerts are on</b> for ${num}: hearings on your issues and HIPHI’s asks, at most one a day.` : `<b>Almost set.</b> ${confirmWords(num)}`}</p><p class="small"><a href="#/alerts">Change number or stop texts</a></p>`
+  const texts = t ? `<p>${icon('message-square')} ${t.confirmed ? `<b>Text alerts are on</b> for ${num}, when your voice matters most.` : `<b>Almost set.</b> ${confirmWords(num)}`}</p><p class="small"><a href="#/alerts">Change number or stop texts</a></p>`
     : `<p>${icon('message-square')} Texts: off. <a href="#/alerts">Get text alerts</a></p>`;
   // A profile made with a number (R-155) has no email until it adds one: no email choices to show or change.
   const email = signedIn() && myEmail() ? `<fieldset class="mr-set pf-f"><legend>Emails to <span class="mr-break">${esc(myEmail())}</span></legend>
-      ${CHOICES.map(([k, key, t2, h]) => check(`pf-em-${k}`, t2, h, e[key] === true, ` data-pf-em="${key}"`)).join('')}
+      ${CHOICES.map(([k, key, t2, h]) => check(`pf-em-${k}`, key === 'hearing_alerts' && followedIssues().length ? EMAIL_ALERTS : t2, h, e[key] === true, ` data-pf-em="${key}"`)).join('')}
+      ${emailLevelSet(e, P.draft.emailLevel)}
       <p class="small muted">Every email has a one-click unsubscribe.</p></fieldset>`
     : signedIn() ? `<p>${icon('mail')} Email: not added. <a href="#/signin">Add your email</a> to get alerts by email too.</p>`
     : `<p>${icon('mail')} Email: not added. <a href="#/signin">Add your email</a> to get alerts by email and keep your profile on any phone.</p>`;
-  return `${texts}${email}`;
+  return `${texts}${levelsBody()}${email}`;
 }
 
 // One line (the review: My issues is a tab and Your session is More's next row, so a second set of links said it twice).
@@ -316,7 +344,11 @@ function wireProfile() {
     const k = c.dataset.pfInt; P.draft.help = c.checked ? [...new Set([...P.draft.help, k])] : P.draft.help.filter(x => x !== k); paintBar(); });
   const note = $('#pf-note');
   if (note) { note.oninput = () => { P.draft.helpNote = note.value; paintBar(); }; note.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); note.blur(); } }; }
-  document.querySelectorAll('[data-pf-em]').forEach(c => c.onchange = () => { P.draft.emails[c.dataset.pfEm] = c.checked; paintBar(); });
+  document.querySelectorAll('[data-pf-em]').forEach(c => c.onchange = () => { P.draft.emails[c.dataset.pfEm] = c.checked;
+    if (c.dataset.pfEm === 'hearing_alerts') { const f = $('#pf-elv'); if (f) f.hidden = !c.checked; }   // which hearings, only while hearing emails are on (B-12)
+    paintBar(); });
+  document.querySelectorAll('[data-pf-lv]').forEach(sel => sel.onchange = () => { P.draft.levels = { ...(P.draft.levels || {}), [sel.dataset.pfLv]: sel.value }; paintBar(); });
+  document.querySelectorAll('input[name="pf-elv"]').forEach(r => r.onchange = () => { if (r.checked) { P.draft.emailLevel = r.value; paintBar(); } });
   if (document.querySelector('#main .actionbar [data-pf-save]')) wireBar();
   window.onbeforeunload = dirty() ? e => { e.preventDefault(); e.returnValue = ''; return ''; } : null;
   document.querySelectorAll('[data-pf-hs]').forEach(b => b.onclick = () => {

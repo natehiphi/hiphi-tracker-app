@@ -64,7 +64,7 @@ with sync_playwright() as pw:
     ok(p.inner_text('#st-h') == 'Save your profile' and p.locator('.st-alertspage .lede').count() == 0 and p.title().startswith('Save your profile'),
        'the heading and the tab ask to save the profile, with no line under it (R-265: the box says what comes)')
     ok(p.locator('#st-a-phone').count() == 1 and p.locator('#st-a-email').count() == 0, 'the mobile number box comes first, alone')
-    ok(('HIPHI alerts when a bill on your issues gets a hearing or needs you to speak up.' in t and 'Up to 1 a day. Msg & data rates may apply. Reply STOP to cancel.' in t) and 'YES' not in t and p.locator('.al-fine a', has_text='Terms').count() == 1 and p.locator('.al-fine a', has_text='Privacy').count() == 1,
+    ok(('HIPHI lets you know when your voice matters most.' in t and 'A few texts a month. Msg & data rates may apply. Reply STOP to cancel.' in t) and 'YES' not in t and p.locator('.al-fine a', has_text='Terms').count() == 1 and p.locator('.al-fine a', has_text='Privacy').count() == 1,
        'the consent line as stored (t4, R-265): who, what, how often, rates, STOP, with the Terms and Privacy links beside it')
     ok(p.evaluate("(() => { const i = document.getElementById('st-a-phone'), h = document.getElementById('st-a-hint'); return !!h && h.getBoundingClientRect().top > i.getBoundingClientRect().bottom && h.getBoundingClientRect().top - i.getBoundingClientRect().bottom < 40 && i.getAttribute('aria-describedby') === 'st-a-hint'; })()"), 'the privacy line sits right under the box, and the box points to it')
     ok('Use email instead' in t, 'email is a link under the box')
@@ -112,7 +112,7 @@ with sync_playwright() as pw:
     p.click('[data-alswap="email"]'); p.wait_for_selector('#st-a-email', timeout=3000); p.wait_for_timeout(200)
     t = text(p)
     ok(p.evaluate("document.activeElement.id") == 'st-a-email', 'the email box takes the focus')
-    ok(('HIPHI alerts when a bill on your issues gets a hearing or needs you to speak up.' in t and 'Up to 1 a day. Unsubscribe anytime.' in t) and 'We never share your email.' in t and 'Text me instead' in t, 'the email words (e2, R-265), and the way back to texts')
+    ok(('HIPHI lets you know when your voice matters most.' in t and 'A few emails a month. Unsubscribe anytime.' in t) and 'We never share your email.' in t and 'Text me instead' in t, 'the email words (e2, R-265), and the way back to texts')
     ok(p.locator('.st-bar button', has_text='Email me').count() == 1, 'the button says Email me (a link)')
     shot(p, '2_alerts_email')
     p.fill('#st-a-email', 'leilani@example'); p.click('#st-send'); p.wait_for_timeout(300)
@@ -176,7 +176,7 @@ with sync_playwright() as pw:
     t = text(p)
     ok('Get alerts on your issues' in t and p.locator('#mr-al-phone').count() == 1 and p.locator('button.al-swap[data-alswap="email"]').count() == 1, 'the page: the phone box, "Use email instead" in place (D1-5)')
     p.click('button.al-swap[data-alswap="email"]'); p.wait_for_selector('#mr-al-email', timeout=3000)
-    ok('Email me a link' in text(p) and ('HIPHI alerts when a bill on your issues gets a hearing or needs you to speak up.' in text(p) and 'Up to 1 a day. Unsubscribe anytime.' in text(p)) and p.locator('#mr-alform input[type=checkbox]').count() == 0, 'Use email instead: the email box under the alerts promise, nothing to tick (D1-5)')
+    ok('Email me a link' in text(p) and ('HIPHI lets you know when your voice matters most.' in text(p) and 'A few emails a month. Unsubscribe anytime.' in text(p)) and p.locator('#mr-alform input[type=checkbox]').count() == 0, 'Use email instead: the email box under the alerts promise, nothing to tick (D1-5)')
     p.fill('#mr-al-email', 'someone@example.org'); p.click('#mr-al-send'); p.wait_for_timeout(900)
     ok(p.inner_text('h1') == 'Alerts almost set' and 'We sent a link to someone@example.org. Tap it to turn on alerts.' in text(p), 'the email given: "Alerts almost set", the link sent (D1-5)')
     p.click('[data-mr-alotheremail]'); p.wait_for_timeout(500)
