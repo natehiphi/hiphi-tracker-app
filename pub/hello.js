@@ -11,8 +11,11 @@ import { aWords, needsSelf } from './titles.js';
 
 // The line the letter closes with when the person has written no sign-off of their own (Nate 10/10).
 export const THANKS = 'Mahalo for your work for our district.';
-// The thank-you line as this person's letters say it (R-259: one of a few, steady for them).
-export const thanksLine = () => vary('hello|thanks', [THANKS, 'Mahalo for all you do for our district.', 'Thank you for your work for our community.']);
+// The thank-you line as this person's letters say it (R-259: one of a few, steady for them). "Our district" is true only of
+// the writer's own lawmaker: a hello to anyone else (Kai to Sen. Kim, who does not represent him) thanks them without
+// claiming a district they share (R-303, the walk of 10/17). own defaults to true: the walkthrough's hello goes to their own two.
+export const thanksLine = (own = true) => own ? vary('hello|thanks', [THANKS, 'Mahalo for all you do for our district.', 'Thank you for your work for our community.'])
+  : vary('hello|thanks', ['Mahalo for your work.', 'Mahalo for all you do.', 'Thank you for your public service.']);
 
 export const sentence = s => { const t = String(s || '').replace(/\s+/g, ' ').trim(); return t && !/[.!?…"”)]$/.test(t) ? t + '.' : t; };
 export const closingOf = c => { const t = String(c || '').replace(/\s+/g, ' ').trim(); return t && !/[,.!]$/.test(t) ? t + ',' : t; };
@@ -120,6 +123,6 @@ export function helloLetter({ to = [], name = '', titles = [], own = false, wher
   // "I also follow" sits above the question, so the letter ends on its ask and the sign-off (the other issues are context for the
   // one it names, not a second request).
   const others = facts.others.length ? vary(k + '|others', [`I also follow ${andList(facts.others.map(inSentence))}.`, `I’m also keeping an eye on ${andList(facts.others.map(inSentence))}.`]) : '';
-  const sign = closingOf(closing) || thanksLine();
+  const sign = closingOf(closing) || thanksLine(own);
   return [greet, who, focus, others, sentence(reason), ask, [sign, n].filter(Boolean).join('\n')].filter(Boolean).join('\n\n');
 }
