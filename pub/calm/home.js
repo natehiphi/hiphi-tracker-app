@@ -309,7 +309,8 @@ export const byImportance = (x, y) => (GORDER[x.g] ?? 9) - (GORDER[y.g] ?? 9) ||
 // The fold never hides a deadline without saying so (B-14; the fresh-eyes review, 10/11): the button says more is due behind
 // it, without a number (R-300: counts left Home's words, "If it's a lot it can be overwhelming").
 const dueAfter = rows => rows.slice(FOLD).some(r => r.g === 'due') ? ' · more due this week' : '';
-// Bills followed on their own have rows too (R-250), so the heading and the fold name what the list holds; one link under it.
+// Bills followed on their own have rows too (R-250), so the heading and the fold name what the list holds; one link under it,
+// and while the fold is shut only the fold, so two "all your issues" links never stand one above the other (the critic, R-300).
 function issuesBlock(rows) {
   if (!rows.length) return '';
   const long = rows.length > FOLD && rows.every(r => r.g), nIss = rows.filter(r => !r.b).length, nB = rows.length - nIss;
@@ -317,7 +318,7 @@ function issuesBlock(rows) {
   return `<section class="cm-issues" aria-labelledby="cm-iss-h"><h2 id="cm-iss-h" class="cm-h">${head}</h2>
     <ul class="cm-rows" role="list">${rows.map((r, n) => long && n >= FOLD ? rowHtml(r).replace('<li>', '<li data-cm-more hidden>') : rowHtml(r)).join('')}</ul>
     ${long ? btn(`Show all your ${noun}${dueAfter(rows)}`, { kind: 'text', icon: 'chevron-down', cls: 'hm-link cm-showall', attrs: { 'data-cm-showall': '' } }) : ''}
-    ${btn('See them all in My issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link cm-all' })}</section>`;
+    ${btn('See them all in My issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link cm-all', attrs: long ? { 'data-cm-more': '', hidden: '' } : {} })}</section>`;
 }
 
 // ---------------- 1. the greeting ----------------

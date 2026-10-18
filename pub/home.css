@@ -352,7 +352,7 @@
 .cm .cm-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s4); }
 .cm .cm-showall { display: flex; width: fit-content; margin: var(--s8) 0 0 -12px; }
 .cm .cm-row { display: flex; align-items: center; gap: var(--s12); min-height: 64px; margin: 0 calc(-1 * var(--s12)); padding: var(--s12); border-radius: var(--r12); color: inherit; text-decoration: none; transition: background .12s; }
-.cm .cm-row:hover { background: var(--n0); }
+@media (hover: hover) { .cm .cm-row:hover { background: var(--n0); } }   /* a finger leaves no hover behind that looks like the slide's own row */
 .cm .cm-rtext { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 /* An issue's name is a heading wherever it stands (A-19); 18px at Home's step, as the mockup's rows. */
 .cm .cm-rname { display: flex; align-items: baseline; gap: var(--s8); font: 600 var(--t16)/1.25 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
@@ -406,7 +406,7 @@
 .cm .cm-pager { display: flex; align-items: center; justify-content: center; gap: var(--s8); }
 .cm .cm-pg { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--n200); background: var(--n0); color: var(--p700); display: grid; place-items: center; }
 .cm .cm-pg .ic { width: 22px; height: 22px; }
-.cm .cm-pg:hover:not([disabled]) { background: var(--p50); }
+@media (hover: hover) { .cm .cm-pg:hover:not([disabled]) { background: var(--p50); } }   /* no tint left on an arrow after a tap */
 .cm .cm-pg[disabled] { color: var(--n300); border-color: var(--n100); background: transparent; cursor: default; }
 .cm .cm-dots { display: flex; align-items: center; gap: var(--s8); padding: 0 var(--s8); }
 .cm .cm-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--n300); transition: background .2s var(--ease), transform .2s var(--ease); }
