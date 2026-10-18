@@ -40,7 +40,7 @@ MEASURE = """async () => {
   if (!root) return null;
   const vis = e => e.offsetHeight > 0, blocks = [...root.children].filter(vis);
   const shapes = new Set();
-  if (root.querySelector('.acard, .hm-ask, .hm-ready, .goitem, .card')) shapes.add('card');
+  if (root.querySelector('.cm-slide, .acard, .hm-ask, .hm-ready, .goitem, .card')) shapes.add('card');   // the slide (R-295) is the one-thing shape
   if (root.querySelector('.cm-rows')) shapes.add('rows');
   const filled = [...root.querySelectorAll('.btn.primary')].filter(vis).length;
   // Each bill named once: its number, and its nickname outside the issue rows' names (55 of 91 issues share their name
@@ -99,7 +99,9 @@ with sync_playwright() as pw:
                 m2 = pg.evaluate(MEASURE)
                 ok(m2['shown'] == n and not m2['showall'] and m2['groups'] == m['groups'], f"{tag}: Show all opens all {n}, still grouped ({m2['shown']})")
                 ok(pg.evaluate("document.activeElement?.classList.contains('cm-row')"), f'{tag}: the first row it opened takes the focus')
-                due = pg.evaluate("() => [...document.querySelectorAll('#main .cm-rows .cm-row')].map(r => /^(Testimony due|Your letter is started · due|Late testimony until)/.test(r.querySelector('.cm-rstat').innerText))")
+                # The slide's own issue says "On the slide above" (R-295): it is due when the slide is testimony due or late.
+                due = pg.evaluate("() => { const sd = /^(Send it by|Late testimony until)/.test(document.querySelector('#main .cm-slide .cm-when b')?.innerText || '');"
+                                  " return [...document.querySelectorAll('#main .cm-rows .cm-row')].map(r => r.classList.contains('on') ? sd : /^(Testimony due|Your letter is started · due|Late testimony until)/.test(r.querySelector('.cm-rstat').innerText)); }")
                 ok(due == sorted(due, reverse=True), f'{tag}: nothing due this week is below an issue with nothing due {due}')
             elif not o.get('off'): ok(not m['groups'] and not m['showall'], f"{tag}: up to 8 issues, no headings and no Show all")
             ok(not errs, f'{tag}: no page errors {errs[:2]}')
@@ -131,23 +133,63 @@ with sync_playwright() as pw:
             pg.goto(f'{BASE}/track.html?demo=1&abrest=today&ab=layout.calm#/')
             pg.wait_for_function("() => !!document.querySelector('#main .cm') && !document.querySelector('.skelpage')", timeout=60000); pg.wait_for_timeout(1500)
             tag = f'{size} R-250 {label}'; m = pg.evaluate(MEASURE); rows = pg.evaluate(ROWS)
-            card = pg.evaluate("document.querySelector('#main .cm-card .acard .btn.primary')?.innerText.trim() || ''")
+            card = pg.evaluate("document.querySelector('#main .cm-slide .btn.primary')?.innerText.trim() || ''")
+            when = pg.evaluate("document.querySelector('#main .cm-slide .cm-when')?.innerText.trim() || ''")
             lede = pg.evaluate("document.querySelector('#main .cm-head .lede')?.innerText || ''")
-            ok(card == 'Send late testimony', f'{tag}: the card is HB 1562\'s late testimony ("{card}")')
+            ok(card == 'Send late testimony' and when.startswith('Late testimony until 1:10 PM today · HB 1562'), f'{tag}: the slide is HB 1562\'s late testimony ("{card}", "{when}")')
             ok('Nothing needs you' not in lede, f'{tag}: the greeting does not say nothing needs you ("{lede[:60]}")')
             ok(m['filled'] == 1 and len(m['shapes']) <= 2 and m['blocks'] <= 4 and not m['twice'], f"{tag}: still inside the budget (A-23: {m['blocks']} blocks, {m['shapes']}, {m['filled']} filled, twice {m['twice'][:2]})")
             if label == 'late testimony':
-                ok(rows and rows[0][1] == 'Late testimony until today 1:10 PM', f'{tag}: the issue row says late testimony is open ({rows})')
+                ok(rows and rows[0][1] == 'On the slide above', f'{tag}: the issue row points to the slide, which says late testimony is open ({rows})')
             else:
                 hd = pg.evaluate("document.querySelector('#cm-iss-h')?.innerText.trim()")
                 hrefs = sorted(r[2] for r in rows)
-                ok(hd == 'Your bills' and hrefs == ['#/bill/HB1563', '#/bill/HB1605', '#/bill/HB1732'], f'{tag}: a row for each bill but the card\'s, opening the bill ("{hd}", {hrefs})')
+                ok(hd == 'Your bills' and hrefs == ['#/bill/2026/HB1563', '#/bill/2026/HB1605', '#/bill/2026/HB1732'], f'{tag}: a row for each bill but the card\'s, opening the bill ("{hd}", {hrefs})')
                 st = {r[2]: r[1] for r in rows}
-                ok(st.get('#/bill/HB1563', '').startswith('HB 1563 · Needs a hearing by') and st.get('#/bill/HB1732', '').startswith('HB 1732 · Needs a hearing by'), f'{tag}: the waiting bills give their number and say they need a hearing ({st})')
+                ok(st.get('#/bill/2026/HB1563', '').startswith('HB 1563 · Needs a hearing by') and st.get('#/bill/2026/HB1732', '').startswith('HB 1732 · Needs a hearing by'), f'{tag}: the waiting bills give their number and say they need a hearing ({st})')
                 ok('Nothing new on your bills' in lede or 'your issues' not in lede, f'{tag}: someone who follows only bills is not told about issues ("{lede[:60]}")')
             ok(not m['wide'] and not errs, f'{tag}: no sideways scroll, no page errors {errs[:2]}')
             pg.screenshot(path=os.path.join(OUT, f"{size}_r250_{label.split()[0]}.png"), full_page=True)
             ctx.close()
+    # ---- R-295 (Nate 10/17, version A "The slide", decisions 1-5): the one thing drawn like an onboarding screen ----
+    # Kai Monday has 3 things this week. The slide: a drawing, a goal heading (h1, not the bill's name), the time it takes,
+    # one filled button in it; the count once, in the greeting; "Show the next one" swaps the slide in place with an Undo;
+    # a row with something to do brings it up onto the slide (5a) and says "On the slide above" (a quiet row keeps its link).
+    # Home reads at onboarding's type step (C-14): the slide's sentence at 18px.
+    from playwright.sync_api import expect
+    SL = """() => { const s = document.querySelector('#main .cm-slide'); if (!s) return null;
+      return { h: s.querySelector('.cm-goal')?.tagName, title: s.querySelector('.cm-goal')?.innerText.trim(), art: !!s.querySelector('.cm-art svg, .cm-art img'),
+        filled: s.querySelectorAll('.btn.primary').length, mins: s.querySelector('.cm-time')?.innerText.trim() || '', say: parseFloat(getComputedStyle(s.querySelector('.cm-say')).fontSize),
+        hi: document.querySelector('#main .cm-hi')?.innerText || '', on: [...document.querySelectorAll('#main .cm-row.on .cm-rname')].map(e => e.firstChild.textContent.trim()),
+        more: [...s.querySelectorAll('.cm-more .btn')].map(e => [e.innerText.trim(), Math.round(e.getBoundingClientRect().top)]) }; }"""
+    for size, (w, h) in [('phone', (390, 844)), ('laptop', (1366, 900))]:
+        ctx = br.new_context(viewport={'width': w, 'height': h}, is_mobile=size == 'phone', has_touch=size == 'phone')
+        ctx.add_init_script("Object.defineProperty(Navigator.prototype,'globalPrivacyControl',{get:()=>true});")
+        ctx.add_init_script(scene('kai', 'mon'))
+        pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+        pg.goto(f'{BASE}/track.html?demo=1&abrest=today&ab=layout.calm#/')
+        pg.wait_for_selector('#main .cm-slide', timeout=60000); pg.wait_for_timeout(1500)
+        tag = f'{size} R-295 slide'; a = pg.evaluate(SL)
+        ok(a['h'] == 'H1' and a['art'] and a['filled'] == 1 and a['mins'] == 'About 2 minutes', f"{tag}: a drawing, the goal as the h1, one filled button, the time it takes ({a['h']}, {a['art']}, {a['filled']}, {a['mins']!r})")
+        ok(not re.search(r'\b[HS]B \d', a['title']), f"{tag}: the heading says the goal, not the bill ({a['title']!r})")
+        ok(a['say'] >= 18, f"{tag}: the sentence at onboarding's step ({a['say']}px)")
+        ok('3 things you can do this week' in a['hi'] and 'of 3' not in pg.inner_text('#main .cm-slide'), f"{tag}: the count said once, in the greeting ({a['hi'][-70:]!r})")
+        ok(len(a['on']) == 1, f"{tag}: one row says the slide is its issue ({a['on']})")
+        ok(len(a['more']) == 2 and a['more'][0][1] == a['more'][1][1], f"{tag}: More ways to help and Show the next one on one line ({a['more']})")
+        first = a['title']
+        pg.click('#main [data-cm-skip]'); pg.wait_for_timeout(900); b = pg.evaluate(SL)
+        ok(b['title'] != first and b['filled'] == 1, f"{tag}: Show the next one brings up the next ({first!r} -> {b['title']!r})")
+        ok(pg.evaluate("document.activeElement?.classList.contains('cm-goal')"), f'{tag}: the new heading takes the focus')
+        ok(pg.locator('#toast .toastundo', has_text='Undo').count() == 1, f'{tag}: it says what it did, with Undo')
+        pick = pg.evaluate("() => { const r = document.querySelector('#main .cm-row[data-cm-pick]:not(.on)'); return r && r.querySelector('.cm-rname').firstChild.textContent.trim(); }")
+        ok(pick, f'{tag}: a row with something to do can be picked ({pick})')
+        if pick:
+            pg.click('#main .cm-row[data-cm-pick]:not(.on)'); pg.wait_for_timeout(900); c = pg.evaluate(SL)
+            ok(c['on'] == [pick] and c['title'] != b['title'], f"{tag}: the row it picked comes onto the slide (5a: {c['on']}, {c['title']!r})")
+            ok(pg.evaluate("location.hash") in ('#/', ''), f"{tag}: and Home stays put ({pg.evaluate('location.hash')})")
+        ok(not errs, f'{tag}: no page errors {errs[:2]}')
+        pg.screenshot(path=os.path.join(OUT, f'{size}_slide_picked.png'), full_page=True)
+        ctx.close()
     br.close()
 print(f'\n{sum(res)}/{len(res)} passed')
 sys.exit(0 if all(res) else 1)

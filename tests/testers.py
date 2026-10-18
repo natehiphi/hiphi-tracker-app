@@ -65,7 +65,7 @@ with sync_playwright() as p:
     pg.wait_for_timeout(1200); leave(pg)
     ids = {x.get('id') for x in sent}
     ok(ids == {pid}, f'the same tester all along, through the reload ({len(ids)} ids)')
-    ok('bill/hb1780' in steps(sent), f'a bill page is a step ({[s for s in steps(sent) if "bill" in s][:2]})')
+    ok(any(x in steps(sent) for x in ('bill/hb1780', 'bill/2026/hb1780')), f'a bill page is a step ({[s for s in steps(sent) if "bill" in s][:2]})')
     d = did(sent)
     ok(d.get('share') == 1 and d.get('followed', 0) >= 1 and d.get('finished') == 1 and d.get('contact') == 1, f'what they did, as totals: shared, followed, finished once, gave a number once ({d})')
     # the walkthrough by its step

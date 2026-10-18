@@ -62,7 +62,7 @@ PUB = [
 # R-187: the live test 'layout', on the same returning visitor. Since R-222 (11 Oct) its first version, the calm Home, is
 # everyone's Home and changes Home only; the bill page is measured once more as a check that it is today's.
 PUB_A = [
-  ('home-a',      '/',             'what needs you',       '.cm-card, .cm-issues'),
+  ('home-a',      '/',             'what needs you',       '.cm-slide, .cm-card, .cm-issues'),   # the slide since R-295
   ('bill-a',      '/bill/HB1563',  'what the bill does',   '.bl-head .lede'),
 ]
 SV = [

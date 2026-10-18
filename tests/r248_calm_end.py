@@ -56,7 +56,8 @@ with sync_playwright() as pw:
         p.evaluate("window.dispatchEvent(new HashChangeEvent('hashchange'))"); p.wait_for_timeout(800)
         ok(p.evaluate('window.__pet') == 1, f'{tag}: a redraw does not replay the petals')
         p.reload(); p.wait_for_selector('#main .cm, #main .hm', timeout=30000); p.wait_for_timeout(1500)
-        h1 = p.locator('#main .cm-head h1').inner_text() if p.locator('#main .cm-head h1').count() else ''
+        # On the slide Home (R-295) the page's h1 is the slide's goal; the greeting is one line above it.
+        h1 = p.locator('#main .cm-head :is(h1, .cm-hi)').first.inner_text() if p.locator('#main .cm-head :is(h1, .cm-hi)').count() else ''
         ok(h1.startswith('Aloha') and p.locator('#main .hm-did').count() == 0 and 'Mahalo' not in p.inner_text('main'), f'{tag}: after a reload the same tab says Aloha, no ticks ({h1!r})')
         ok(p.locator('#main .hm-wins').count() == 0 and p.locator('#main .hm-fin2').count() == 0, f'{tag}: still the calm Home after the reload')
         p.screenshot(path=os.path.join(OUT, f'{tag}_reload.png'), full_page=True)

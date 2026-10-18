@@ -6,10 +6,10 @@
   "sizes": 6
  },
  "publicA|1440|home-a": {
-  "arrival": 259,
-  "colours": 6,
-  "kinds": 6,
-  "sizes": 6
+  "arrival": 183,
+  "colours": 5,
+  "kinds": 4,
+  "sizes": 4
  },
  "publicA|390|bill-a": {
   "arrival": 237,
@@ -18,10 +18,10 @@
   "sizes": 6
  },
  "publicA|390|home-a": {
-  "arrival": 225,
-  "colours": 6,
-  "kinds": 5,
-  "sizes": 6
+  "arrival": 159,
+  "colours": 5,
+  "kinds": 4,
+  "sizes": 4
  },
  "public|1440|alerts": {
   "arrival": 187,
