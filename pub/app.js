@@ -185,7 +185,7 @@ app.placeName = h => {
     case 'list': case 'shared': return (S.lists || []).find(l => l.slug === r.slug)?.title || 'List';
     case 'mylist': return 'Your list';
     case 'bill': return sp(r.num) || 'Bill';
-    case 'legislators': return REC() ? 'Lawmakers' : 'Legislators';   // C-15's word under ?rec=1 (R-303)
+    case 'legislators': return REC() ? 'Your lawmakers' : 'Legislators';   // C-15's word under ?rec=1 (R-303), the You row's name
     case 'legislator': { const l = (S.legislators || []).find(x => x.id === r.id); return l ? `${l.chamber === 'S' ? 'Sen.' : 'Rep.'} ${l.name}` : 'Legislator'; }
     case 'committees': return 'Committees';
     case 'committee': return S.committees?.[r.code]?.name || 'Committee';

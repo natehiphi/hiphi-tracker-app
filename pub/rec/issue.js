@@ -17,9 +17,9 @@
 // and a Follow each, and "Follow all of it, and new ones" at the end. No counts (R-300). An old coalition address
 // (#/find/issue/ctfh) opens its category.
 import { S, D, DEMO, app, esc, icon, toast, nick, spaced, billPath, issueFollowed, issuePos, posInfo, setFollows, unfollowIssue, sessionInfo, findBill, supa,
-  catOf, calendarUrl, stopOf, plainStatus, hearingsOf, openActions, hearingWhen, hiT, fmtDate, issueShareUrl, stopFacts, issuesIn, HST } from '../core.js';
+  catOf, calendarUrl, dateLong, stopOf, plainStatus, hearingsOf, openActions, hearingWhen, hiT, fmtDate, issueShareUrl, stopFacts, issuesIn, HST } from '../core.js';
 import { btn, iconBtn, posChip, skeleton, inlineErr } from '../ui.js';
-import { recHead, recBack, recSec, recRows, recFold, recFolds, recEmpty, wireKit } from './kit.js';
+import { recHead, recBack, recSec, recRows, recFold, recFolds, recEmpty, recFollow, wireKit } from './kit.js';
 import { moving, becameLaw, stopped, numCmp, byUrgency, stoppedWhy, what, billsOfIssue, issueOrder } from '../mybills.js';
 import { ensureHearings } from '../find.js';
 import { followAsk, profileSaved, levelLine, levelBox, wireLevelLine, getsAlerts } from '../alerts.js';
@@ -36,8 +36,6 @@ const yearNow = () => { const si = sessionInfo(); return si.phase === 'in' ? si.
 const originOf = b => b.chamber || (/^S/.test(b.bill_number) ? 'S' : 'H');
 const num = b => spaced(b.bill_number);
 const plainName = t => String(t || '').normalize('NFD').replace(/[̀-ͯʻ‘’']/g, '').toLowerCase().trim();
-// "Mon 3/30", as the bill page says a deadline (bill.js dayShort).
-const dayShort = d => fmtDate(/^\d{4}-\d{2}-\d{2}$/.test(d) ? d + 'T12:00:00-10:00' : d, { weekday: 'short' }).replace(',', '');
 // "HB 1085, SB 1404 and SB 1528"; past four, "HB 1085, SB 1404, SB 1528 and 7 more", so a fold's preview stays one line.
 const numbers = bills => { const ns = bills.map(b => num(b) + (+b.session_year && +b.session_year !== yearNow() ? ` (${b.session_year})` : ''));
   const shown = ns.length > 4 ? [...ns.slice(0, 3), `${ns.length - 3} more`] : ns;
@@ -228,13 +226,15 @@ function issuePage(i) {
 function issueStatus(i) {
   const bills = billsOfIssue(i), now = Date.now();
   if (offSeason()) { const yr = sessionInfo().recapYear; return bills.some(becameLaw) ? { g: 0, text: `Became law in ${yr}` } : { g: bills.length ? 1 : 2, text: bills.length ? `Did not advance in ${yr}` : `No bills in ${yr}` }; }
-  const live = bills.filter(moving); if (!live.length) return { g: 4, text: 'Nothing moving' };
+  // Home's words for the same facts (calm/home.js stateOf), so an issue reads the same here, in search and on My issues
+  // (the wrap-up review, 10/18: "Nothing moving" here was "Did not advance this year" one tap away, "Mon 3/30" was "Mon, Mar 30").
+  const live = bills.filter(moving); if (!live.length) return { g: 4, text: bills.length ? 'Did not advance this year' : 'No bills on it yet' };
   const hs = live.flatMap(hearingsOf), due = openActions(live, hs).filter(x => !x.late && x.h.testimony_deadline && Date.parse(x.h.testimony_deadline) - now < 7 * 864e5)[0];
   if (due) { const t = Date.parse(due.h.testimony_deadline); return { g: 0, t, text: `Testimony due ${hearingWhen(due.h.testimony_deadline)}`, warn: t - now < 864e5 }; }
   const h = hs.filter(x => x.status !== 'cancelled' && Date.parse(x.scheduled_at) > now).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
   if (h) return { g: 1, t: Date.parse(h.scheduled_at), text: `Hearing ${hearingWhen(h.scheduled_at)}` };
   const w = live.map(stopOf).filter(st => st.phase === 'committee' && st.hearingState === 'none' && st.deadline && !st.deadline.missed).sort((x, y) => String(x.deadline.date).localeCompare(String(y.deadline.date)))[0];
-  if (w) return { g: 2, t: hiT(w.deadline.date), text: `Needs a hearing by ${dayShort(w.deadline.date)}`, warn: w.deadline.days < 1 };
+  if (w) return { g: 2, t: hiT(w.deadline.date), text: `Needs a hearing by ${dateLong(w.deadline.date + 'T12:00:00-10:00')}`, warn: w.deadline.days < 1 };
   return { g: 3, text: plainStatus(byUrgency(live)[0]).short };
 }
 // A row: the issue's name and its line (the link), then Follow, outlined, or a quiet "✓ Following" that stops it (Undo).
@@ -246,13 +246,11 @@ function issueSide(i) {
   const bills = billsOfIssue(i), live = offSeason() ? [] : bills.filter(moving), p = issuePos(live.length ? live : bills, i);
   return p && !/support/.test(p) ? posInfo({ hiphi_position: p })?.text || '' : '';
 }
-// The row opens the issue (its chevron says so); Follow beside it, outlined, or the issue page's pale "✓ Following", which
+// The row opens the issue (no chevron: the pill is the row's end, as in search); Follow beside it, outlined, or the issue page's pale "✓ Following", which
 // stops following with Undo (R-061: followed looks followed).
 function catRow(i, st = issueStatus(i)) {
-  const on = issueFollowed(i), side = issueSide(i);
-  const follow = on ? `<button type="button" class="rc-fpill on" data-fdissue="${esc(i.id)}" aria-pressed="true" aria-label="Following ${esc(i.name)}. Press to stop following." title="Following. Press to stop following.">${icon('check')}<span>Following</span></button>`
-    : `<button type="button" class="rc-fpill" data-fdissue="${esc(i.id)}" aria-pressed="false" aria-label="Follow ${esc(i.name)}">${icon('star')}<span>Follow</span></button>`;
-  return `<li class="rc-irow"><a class="rc-row" href="#/issue/${esc(i.slug)}"><span class="rc-rtext"><span class="rc-rname">${esc(i.name)}</span><span class="rc-rstat">${st.warn ? `<b class="rc-warn">${esc(st.text)}</b>` : esc(st.text)}${side ? ` · ${esc(side)}` : ''}</span></span>${icon('chevron-right', { cls: 'rc-chev' })}</a>${follow}</li>`;
+  const on = issueFollowed(i), side = issueSide(i), follow = recFollow(i, on);
+  return `<li class="rc-irow"><a class="rc-row" href="#/issue/${esc(i.slug)}"><span class="rc-rtext"><span class="rc-rname">${esc(i.name)}</span><span class="rc-rstat">${st.warn ? `<b class="rc-warn">${esc(st.text)}</b>` : esc(st.text)}${side ? ` · ${esc(side)}` : ''}</span></span></a>${follow}</li>`;
 }
 function categoryPage(key) {
   const c = catOf(key);
@@ -260,8 +258,16 @@ function categoryPage(key) {
   const all = issueOrder(issuesIn(c.key)).map((i, n) => ({ i, n, st: issueStatus(i) }))
     .sort((x, y) => x.st.g - y.st.g || (x.st.t ?? Infinity) - (y.st.t ?? Infinity) || x.n - y.n), whole = S.catFollows.has(c.key);
   const said = whole ? `<p class="rc-catok" id="rc-catok" tabindex="-1">${icon('circle-check')}<span>You follow all of it</span><span aria-hidden="true">·</span>${btn('Stop', { kind: 'text', sm: true, attrs: { 'data-fdunfollowcat': c.key, 'aria-label': `Stop following all of ${c.name}` } })}</p>` : '';
+  // The issues with nothing moving this year wait in one closed card with their names as its preview, as the issue page keeps
+  // its bills that did not advance (the wrap-up review of 10/18: Tobacco was 1,972px on a phone with 18 equal pills, 9 of its
+  // 17 rows saying nothing moved). Each still has its Follow inside; open, it stays open for this person (B-6).
+  const rows = xs => `<ul class="rc-rows rc-irows" role="list">${xs.map(r => catRow(r.i, r.st)).join('')}</ul>`;
+  const live = all.filter(r => r.st.g < 4), quiet = all.filter(r => r.st.g === 4);
+  const names = quiet.length > 3 ? `${quiet.slice(0, 2).map(r => r.i.name).join(', ')} and ${quiet.length - 2} more` : quiet.map(r => r.i.name).join(', ').replace(/, ([^,]*)$/, ' and $1');
+  const list = !all.length ? recEmpty(`Nothing in ${c.name} yet. Follow it, and new issues come to you as HIPHI takes them up.`)
+    : `${live.length ? rows(live) : ''}${quiet.length ? recFolds([recFold('cat-quiet', 'Nothing moving this year', names, rows(quiet), { open: !live.length })]) : ''}`;
   return `<div class="rc rc-cat">${recHead({ title: c.name, lede: c.description || '', back: recBack('#/find', 'Find'), extra: said })}
-    ${all.length ? `<ul class="rc-rows rc-irows" role="list">${all.map(r => catRow(r.i, r.st)).join('')}</ul>` : recEmpty(`Nothing in ${c.name} yet. Follow it, and new issues come to you as HIPHI takes them up.`)}
+    ${list}
     ${whole ? '' : `<div class="rc-catall">${btn('Follow all of it, and new ones', { kind: 'secondary', icon: 'star', attrs: { 'data-fdcat': c.key, 'aria-label': `Follow all of ${c.name}, and new issues in it` } })}</div>`}</div>`;
 }
 

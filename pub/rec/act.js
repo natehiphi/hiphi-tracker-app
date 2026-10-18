@@ -53,11 +53,12 @@ export const billRow = (b, due, { note = '', href } = {}) => ({ name: headline(b
 
 // The card. when: the moment ("Hearing Wed 1:00 PM"); left: how near ("Tomorrow"); title: what to do; text: one sentence
 // why (escaped here); button: the one filled button (html); more: how long it takes; after: what opens inside (an email);
-// ways: rows (kit recWay) for another way to help.
+// ways: rows (kit recWay) for another way to help, behind "More ways to help" as on the bill page's card and Home's slide (the
+// wrap-up review of 10/18: here they stood open, so the card ended differently from every other card).
 export const recAct = ({ id, when = '', left = '', warn = false, title, text = '', button = '', more = '', after = '', ways = '' }) =>
   `<section class="rc-card rc-act" aria-labelledby="${esc(id)}">${when ? `<p class="rc-awhen${warn ? ' warn' : ''}">${icon('clock')}<span>${esc(when)}</span>${left ? `<span class="rc-apill">${esc(left)}</span>` : ''}</p>` : ''}
     <h2 class="rc-ah" id="${esc(id)}">${esc(title)}</h2>${text ? `<p class="rc-atext">${esc(text)}</p>` : ''}
-    ${button}${more ? `<p class="rc-amore">${esc(more)}</p>` : ''}${after}${ways ? `<div class="rc-aways">${ways}</div>` : ''}</section>`;
+    ${button}${more ? `<p class="rc-amore">${esc(more)}</p>` : ''}${after}${ways ? `<details class="rc-aways"><summary><span>More ways to help</span>${icon('chevron-down', { cls: 'rc-awchev' })}</summary>${ways}</details>` : ''}</section>`;
 
 // The back row (R-303 decision 2): the page this one was opened from when it is one of these, else the default; named as
 // app.placeName names it, "Your lawmakers" for the finder (C-15: lawmakers).

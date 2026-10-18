@@ -41,6 +41,13 @@ export const recFolds = cards => cards.filter(Boolean).length ? `<div class="rc-
 export const recWay = (ic, t, s, attrs = {}) => { const tag = attrs.href ? 'a' : 'button';
   return `<${tag}${tag === 'button' ? ' type="button"' : ''} class="rc-way" ${Object.entries(attrs).map(([k, v]) => `${k}="${esc(v)}"`).join(' ')}><span class="rc-wic">${icon(ic)}</span><span><span class="rc-wt">${esc(t)}</span>${s ? `<span class="rc-ws">${esc(s)}</span>` : ''}</span>${icon('chevron-right', { cls: 'rc-chev' })}</${tag}>`; };
 
+// Follow beside an issue in a list (the category page, search): one outlined pill, "☆ Follow", or once followed the issue
+// page's pale "✓ Following", which stops following with Undo (R-061: followed looks followed). One drawing for one act on
+// every page (the wrap-up review of 10/18 found search drawing it as a plain button and a word). cls: a page's own hook.
+export const recFollow = (i, on, cls = '') => on
+  ? `<button type="button" class="rc-fpill on${cls ? ' ' + cls : ''}" data-fdissue="${esc(i.id)}" aria-pressed="true" aria-label="Following ${esc(i.name)}. Press to stop following." title="Following. Press to stop following.">${icon('check')}<span>Following</span></button>`
+  : `<button type="button" class="rc-fpill${cls ? ' ' + cls : ''}" data-fdissue="${esc(i.id)}" aria-pressed="false" aria-label="Follow ${esc(i.name)}">${icon('star')}<span>Follow</span></button>`;
+
 // A calm empty state: one sentence of what is true and one way on (B-3), no drawing (Nate: warm is words and space).
 export const recEmpty = (text, action = '') => `<div class="rc-empty"><p>${esc(text)}</p>${action}</div>`;
 

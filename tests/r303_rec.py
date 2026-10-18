@@ -13,6 +13,10 @@
 #   The category page (tobacco): Back to Find, no counts, a Follow per issue row, "Follow all of it, and new ones" outlined
 #   at the end, no filled button. An old coalition address opens its category.
 #   Without ?rec the old issue and category pages (.fd-ihead) still draw, with today's tabs.
+#   Across the pages (the wrap-up review, 10/18): the back row at one height on every page below a tab (phone, 1024, laptop);
+#   one left edge for the h1 on a laptop; Find, My issues and Every bill's h1 at 28px; "More ways to help" as words in a
+#   hearing card and behind a toggle in a committee's card; search's Follow is the topic page's pill; Tobacco's quiet issues
+#   in one closed card (the page under 1,500px on a phone); a topic's rows say a deadline in Home's words.
 import sys, os, asyncio
 from urllib.parse import urlparse, unquote
 from playwright.async_api import async_playwright
@@ -173,6 +177,42 @@ async def main():
         check(await pg.evaluate("document.getElementById('hq')?.placeholder") == 'Search issues, bills, lawmakers', 'laptop: the header\'s box says it finds lawmakers')
         check(await pg.evaluate(TABS) == ['Home', 'My issues', 'Find', 'You'], 'laptop: the header\'s tabs are Home, My issues, Find, You')
         await ctx.close()
+
+        # Across the pages (the wrap-up review of 10/18): one back row at the bill page's place, one left edge on a laptop, one
+        # h1 size for the lists, "More ways to help" as words in every card, one Follow drawing, the quiet issues of a topic
+        # folded, and one way of saying a deadline in a row.
+        BACK = "(b => b ? Math.round(b.getBoundingClientRect().top + scrollY) : null)([...document.querySelectorAll('#main .rc-back, #main .bl-back')].find(e => e.getBoundingClientRect().height > 0))"
+        H1X = "Math.round(document.querySelector('#main h1').getBoundingClientRect().left)"
+        PAGES = ['#/bill/HB1563', '#/issue/let-counties-regulate-tobacco', '#/find/category/tobacco', '#/profile', '#/privacy', '#/legislators', '#/committee/EDU', '#/allbills']
+        for w, h, tag in [(390, 844, 'phone'), (1024, 768, 'l1024'), (1440, 900, 'laptop')]:
+            ctx = await ctx_for(br, w, h); tops, xs = {}, {}
+            for r in PAGES + ['#/find', '#/bills', '#/more']:
+                pg, errs = await open_page(ctx, r)
+                await pg.wait_for_timeout(600)
+                if r in PAGES: tops[r] = await pg.evaluate(BACK)
+                xs[r] = await pg.evaluate(H1X)
+                if r in ('#/find', '#/bills', '#/allbills') and w >= 1100: check(await pg.evaluate("getComputedStyle(document.querySelector('#main h1')).fontSize") == '28px', f'{tag} {r}: the h1 is 28px, as My issues and You')
+                check(not errs, f'{tag} {r}: no page errors {errs[:1]}')
+                await pg.close()
+            check(len(set(tops.values())) == 1 and None not in tops.values(), f'{tag}: the back row sits at one height on every page below a tab ({tops})')
+            if w >= 1100: check(len(set(v for k, v in xs.items() if k != '#/legislator/189')) == 1, f'{tag}: one left edge for the h1 ({xs})')
+            await ctx.close()
+        for w, h, tag in [(390, 844, 'phone'), (1440, 900, 'laptop')]:
+            ctx = await ctx_for(br, w, h)
+            pg, errs = await open_page(ctx, '#/issue/safety-for-immigrant-families', wait='.rc-iss[data-shape]')
+            check(await pg.evaluate("(b => !!b && b.classList.contains('text') && !b.classList.contains('secondary'))(document.querySelector('.acard [data-moreways]'))"), f'{tag}: a hearing card\'s More ways to help is words, as on the bill page\'s other card and Home')
+            await pg.goto(f'{BASE}/track.html?demo=1&rec=1#/committee/EDU'); await pg.wait_for_selector('.rc-act', timeout=60000); await pg.wait_for_timeout(500)
+            check(await pg.evaluate("(d => !!d && d.tagName === 'DETAILS' && !d.open && /More ways to help/.test(d.querySelector('summary').textContent))(document.querySelector('.rc-act .rc-aways'))"), f'{tag}: a committee\'s card keeps its other ways behind More ways to help')
+            if w >= 1100: check('In the card at the right' in await pg.inner_text('#main'), f'{tag}: the committee page says the card is at the right')
+            await pg.goto(f'{BASE}/track.html?demo=1&rec=1#/find?q=e-cigarettes'); await pg.wait_for_selector('#fd-results .rc-irow', timeout=60000); await pg.wait_for_timeout(500)
+            check(await pg.evaluate("[...document.querySelectorAll('#fd-results .rc-irow')].every(li => li.querySelector('button.rc-fpill[data-fdissue]'))"), f'{tag}: search draws Follow as the topic page\'s pill')
+            await pg.goto(f'{BASE}/track.html?demo=1&rec=1#/find/category/tobacco'); await pg.wait_for_selector('.rc-cat', timeout=60000); await pg.wait_for_timeout(500)
+            check(await pg.evaluate("(d => !!d && !d.open && d.querySelectorAll('.rc-irow').length >= 5)(document.querySelector('.rc-fold[data-rc-fold=cat-quiet]'))"), f'{tag}: Tobacco\'s issues with nothing moving wait in one closed card')
+            stats = await pg.evaluate("[...document.querySelectorAll('.rc-irow .rc-rstat')].map(e => e.textContent).join('|')")
+            check('Needs a hearing by Mon, Mar 30' in stats and 'Nothing moving' not in stats, f'{tag}: a topic\'s rows say a deadline in Home\'s words')
+            if w < 800: check(await pg.evaluate('document.documentElement.scrollHeight') < 1500, f'{tag}: Tobacco is {await pg.evaluate("document.documentElement.scrollHeight")}px on a phone (1,972 before the fold)')
+            check(not errs, f'{tag} cross-page: no page errors {errs[:2]}')
+            await ctx.close()
 
         # Without ?rec: today's pages.
         ctx = await ctx_for(br, 390, 844)

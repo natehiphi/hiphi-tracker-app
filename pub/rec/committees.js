@@ -87,7 +87,7 @@ export function recDetail(route) {
   }
   // HIPHI's bills here, by what is due; the card's own bill says so rather than repeating it (A-14).
   const bills = billsAt(c.code).filter(ours).map(b => ({ b, due: dueOf(b, c.code) })).sort(byDue);
-  const list = bills.length ? recMore(bills.map(x => billRow(x.b, x.due, { href: billPath(x.b), note: next && x.b.id === next.b.id ? 'In the card above' : '' })), 6, 'cmt-bills')
+  const list = bills.length ? recMore(bills.map(x => billRow(x.b, x.due, { href: billPath(x.b), note: next && x.b.id === next.b.id ? (matchMedia('(min-width: 1100px)').matches ? 'In the card at the right' : 'In the card above') : '' })), 6, 'cmt-bills')
     : recEmpty('None of HIPHI’s bills are here now.', `<a class="rc-tlink cmt-all" href="#/allbills">Every bill HIPHI tracks</a>`);
   // The preview leaves out the chair, named in the head (A-14): "Sen. Kidani (vice chair) and 3 more".
   const lead = members.filter(m => m.role === 'vice_chair').map(m => `${legTitle(m.l)} ${surname(m.l)} (vice chair)`);

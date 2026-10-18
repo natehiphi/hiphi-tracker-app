@@ -1024,6 +1024,7 @@ const recFolds = () => { try { const a = JSON.parse(localStorage.getItem(RFOLD) 
 const saveFold = (name, open) => { try { const s = new Set(recFolds()); if (open) s.add(name); else s.delete(name); localStorage.setItem(RFOLD, JSON.stringify([...s])); } catch { /* private mode: closed next time */ } };
 const recFold = (name, title, prev, inner) => `<details class="bl-rfold" data-bl-rfold="${name}"${recFolds().includes(name) ? ' open' : ''}><summary><span><span class="bl-rft">${esc(title)}</span>${prev ? `<span class="bl-rfp">${esc(prev)}</span>` : ''}</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary><div class="bl-rin">${inner}</div></details>`;
 // "Mon 3/30"; a deadline row's date is a plain day, read at noon in Hawaiʻi.
+const dayLongD = d => dateLong(/^\d{4}-\d{2}-\d{2}$/.test(d) ? d + 'T12:00:00-10:00' : d);   // "Mon, Mar 30", Home's (calm/home.js stateOf)
 const dayShort = d => fmtDate(/^\d{4}-\d{2}-\d{2}$/.test(d) ? d + 'T12:00:00-10:00' : d, { weekday: 'short' }).replace(',', '');
 // A committee report's vote: "9 Ayes: ...; Noes: none; and Excused: none." -> "9 yes, 0 no".
 const votesOf = rep => { const y = /(\d+)\s+Ayes?\b/i.exec(rep || ''), n = /(\d+)\s+No(?:e)?s\b/i.exec(rep || '');
@@ -1097,7 +1098,9 @@ function recWhere(b, x, { title = 'Where it is now' } = {}) {
 function recDo(b, x, { lead = '' } = {}) {
   const main = mainButton(b, x); if (!main) return '';
   const [title, text] = doWords(b, x), dl = x.live && x.st.deadline && !x.st.deadline.missed ? x.st.deadline : null;
-  const when = !dl ? '' : x.waiting ? `Needs a hearing by ${dayShort(dl.date)}` : x.kind === 'floor' ? `The ${N[x.st.chamber] || 'full chamber'} votes by ${dayShort(dl.date)}` : `Deadline ${dayShort(dl.date)}`;
+  // A deadline in Home's words, "Mon, Mar 30" (B-14), as every row that names this bill says it (the wrap-up review of 10/18:
+  // a committee's row said "by Mon, Mar 30" and this card, one tap on, "by Mon 3/30").
+  const when = !dl ? '' : x.waiting ? `Needs a hearing by ${dayLongD(dl.date)}` : x.kind === 'floor' ? `The ${N[x.st.chamber] || 'full chamber'} votes by ${dayLongD(dl.date)}` : `Deadline ${dayLongD(dl.date)}`;
   const left = !dl ? '' : dl.days === 0 ? 'Today' : dl.days === 1 ? '1 day left' : `${dl.days} days left`;
   const mail = ['ask', 'hold', 'remind', 'floor', 'conference', 'governor'].includes(x.kind), n = countOk((S.actionCounts[b.id] || {}).emails);
   const more = mail ? `About 2 minutes${n ? ` · ${n} people have ${/ask|remind/.test(x.kind) ? 'asked' : 'written'} so far` : ''}` : '';
@@ -1112,7 +1115,7 @@ function recDo(b, x, { lead = '' } = {}) {
 }
 const recAct = (b, x, o = {}) => x.act ? actionSection(b, x, o) : recDo(b, x, o);
 // Where a bill stands in one line, in this page's words, for a row that names it elsewhere (the issue page's "Bills on this
-// issue", R-303): "In the Senate · Needs a hearing by Mon 3/30", "In the House · Testimony due Sun 3:00 PM" (a moment in
+// issue", R-303): "In the Senate · Needs a hearing by Mon, Mar 30", "In the House · Testimony due Sun 3:00 PM" (a moment in
 // C-15's words: the weekday within the week, the date further out). The chamber, not "Step 5 of 9": without the step bar
 // beside it a step's number says nothing (the fresh-eyes review, 10/18). when: the moment alone, for the docked button.
 export function recLine(b, x = situation(b), { when = false } = {}) {
@@ -1122,7 +1125,7 @@ export function recLine(b, x = situation(b), { when = false } = {}) {
   const r = railInfo(b, x), s = r.steps[r.idx], C = N[s.ch] || (s.kind === 'gov' || s.kind === 'law' ? '' : N[r.ci <= 2 ? r.o : r.t]);
   const h = x.act?.h, dl = x.live && x.st.deadline && !x.st.deadline.missed ? x.st.deadline : null, at = hearingWhen;
   const now = h ? (x.act.late || !h.testimony_deadline ? `Hearing ${at(h.scheduled_at)}${x.act.late ? ' · late testimony taken' : ''}` : `Testimony due ${at(h.testimony_deadline)}`)
-    : x.waiting && dl ? `Needs a hearing by ${dayShort(dl.date)}`
+    : x.waiting && dl ? `Needs a hearing by ${dayLongD(dl.date)}`
     : x.st.hearingState === 'scheduled' && x.st.hearing ? `Hearing ${at(x.st.hearing.scheduled_at)}` : when ? '' : plainStatus(b).short;
   if (when) return now;
   return C && !/House|Senate|Governor/.test(now) ? `In the ${C} · ${now}` : now;

@@ -17,7 +17,7 @@ import { btn, skeleton, inlineErr } from '../ui.js';
 import F0, { parse, startSearch, searchNote, capNote, issueMatches, peopleMatches, findHooks, wireSearch, wireIssues, offSeason, byDue,
   hiphis, shows } from '../find.js';
 import { moving, becameLaw, stopped, billsOfIssue, what } from '../mybills.js';
-import { recSec, recRow, recFold, recEmpty, wireKit } from './kit.js';
+import { recSec, recRow, recFold, recEmpty, recFollow, wireKit } from './kit.js';
 import { when, keep } from '../calm/home.js';
 export { headerSuggest } from '../find.js';   // the header's suggestions (app.js asks the find screen's module for them)
 
@@ -55,6 +55,10 @@ export function billLine(b) {
     return dl ? { text: `${num} · Testimony due ${at(dl)}`, warn: Date.parse(dl) - now < DAY } : { text: `${num} · Hearing ${at(h.scheduled_at)}` }; }
   return { text: `${num} · ${plainStatus(b).short.replace(LEFT, '')}` };
 }
+// "HB 1085, SB 1404 and SB 1528", past four "HB 1085, SB 1404, SB 1528 and 7 more": the issue page's preview of its own fold
+// of bills that did not advance, so the two folds say the same (C-15: "did not advance", never "stopped").
+const numbers = bs => { const ns = bs.map(b => spaced(b.bill_number)), shown = ns.length > 4 ? [...ns.slice(0, 3), `${ns.length - 3} more`] : ns;
+  return shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown[shown.length - 1]}` : shown[0] || ''; };
 const billName = b => nick(b) || what(b, 90);
 // A bill says which issue it is part of (the issue is what people follow, R-018), and that they follow it when they do, unless
 // the issue has the bill's own name (said once, A-14).
@@ -63,11 +67,12 @@ const partOf = b => { const iss = issuesOf(b), name = plain(billName(b)), mine =
   return `Part of: ${iss.map(i => i.name).join(' and ')}${mine ? ', which you follow' : ''}`; };
 const billRow = b => { const l = billLine(b), part = partOf(b);
   return `<li><a class="rc-row" href="${esc(billPath(b))}"><span class="rc-rtext"><span class="rc-rname">${esc(billName(b))}</span><span class="rc-rstat${l.warn ? ' warn' : ''}">${esc(l.text)}</span>${part ? `<span class="rc-rpart">${esc(part)}</span>` : ''}</span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`; };
-// An issue in search: Home's row with one follow control beside it, outlined Follow or a quiet "✓ Following" (the category
-// page's; pressing Following lets it go, with Undo: find.js followIssueNow). No chevron: the button is the row's end.
+// An issue in search: the category page's row, drawn the same (the wrap-up review of 10/18): the name and Home's line (the
+// link), then the one follow control, the outlined "☆ Follow" pill or the pale "✓ Following" (kit recFollow;
+// pressing Following lets it go, with Undo: find.js followIssueNow).
 const issueRow = i => { const on = issueFollowed(i), l = issueLine(i);
-  return `<li class="rc-frow"><a class="rc-row" href="#/issue/${esc(i.slug)}"><span class="rc-rtext"><span class="rc-rname">${esc(i.name)}</span><span class="rc-rstat${l.warn ? ' warn' : ''}">${esc(l.text)}</span></span></a>
-    ${btn(on ? 'Following' : 'Follow', { kind: on ? 'text' : 'secondary', sm: true, icon: on ? 'check' : '', cls: 'rc-follow' + (on ? ' on' : ''), attrs: { 'data-fdissue': i.id, 'aria-pressed': String(on), 'aria-label': `${on ? 'Following' : 'Follow'} ${i.name}` } })}</li>`; };
+  return `<li class="rc-frow rc-irow"><a class="rc-row" href="#/issue/${esc(i.slug)}"><span class="rc-rtext"><span class="rc-rname">${esc(i.name)}</span><span class="rc-rstat${l.warn ? ' warn' : ''}">${esc(l.text)}</span></span></a>
+    ${recFollow(i, on, 'rc-follow')}</li>`; };
 // A list that shows its first n and opens the rest in place (kit.js recMore's shape, with words of its own); kept open for
 // the visit once opened (F.more), so a follow pressed in the rest does not shut it.
 function moreList(items, n, key, label = '') {
@@ -148,14 +153,13 @@ function resultsBody(q, res) {
   const placesNav = pl.length ? `<nav class="rc-places" aria-label="Places"><ul class="rc-rows" role="list">${pl.map(recRow).join('')}</ul></nav>` : '';
   if (!iss.length && !who.length && !other.length && !gone.length) return pl.length ? placesNav
     : `${recEmpty(`Nothing matches “${q}”. Try one word, like e-cigarettes, a bill number like HB 1563, or a lawmaker’s name.`)}${topics()}`;
-  const yrs = [...new Set(gone.map(b => +b.session_year || sessionInfo().yr))].sort().join(' and ');
   const quiet = !iss.length && !other.length && gone.length ? `<p class="rc-note rc-none">${offSeason() ? `The ${sessionInfo().recapYear} session is over. Here’s where these bills ended up.` : `Nothing that matches “${esc(q)}” is moving right now.`}</p>` : '';
   return `${other.length || gone.length ? searchNote(res, P) : ''}
     ${placesNav}
     ${iss.length ? recSec('fd-qi-h', 'Issues', moreList(iss.map(issueRow), 6, 'qi-' + P.key)) : ''}
     ${who.length ? recSec('fd-who-h', 'People and committees', `<ul class="rc-rows" role="list">${who.map(recRow).join('')}</ul>`) : ''}
     ${other.length ? recSec('fd-ob-h', iss.length ? 'Other bills' : 'Bills', moreList(other.map(billRow), 10, 'ob-' + P.key)) : quiet}
-    ${gone.length ? `<div class="rc-folds">${recFold('find-gone', 'Did not advance', `Bills that stopped in ${yrs}`, moreList(gone.map(billRow), 10, 'g-' + P.key),
+    ${gone.length ? `<div class="rc-folds">${recFold('find-gone', 'Bills that did not advance', numbers(gone), moreList(gone.map(billRow), 10, 'g-' + P.key),
       { open: !iss.length && !other.length && !who.length })}</div>` : ''}
     ${capNote(res)}${everyLink()}`;
 }

@@ -317,7 +317,11 @@ take `letter-spacing: -.02em` and `line-height: 1.15`; 16–18px headings take `
 text keeps normal spacing and 1.4–1.5 line height. **A name that titles an issue, a bill or a category
 is a heading wherever it stands** (a card, a list row, a tile): Poppins 18 (22 in the first visit, C-14), on a phone as on a laptop,
 so the same issue never reads in two faces on two screens (X9-1, R-180). The page's own `h1` keeps its
-larger size.
+larger size. **The quiet row is one step down** (R-300's "the list, quieter"; R-303): a name in Home's row (`.cm-row`) and
+the redesign's (`.rc-row`, `pub/rec/kit.js`) is Poppins at the `--t16` token with its status line at `--t14`, so it reads
+18/16 on Home, whose tokens are a step larger (A-4), and 16/14 on every other page, as the bill page's rows and closed cards
+do. Same face, same token, each page's own step: at 18/16 My issues for someone following sixteen issues would be 1,766px
+on a phone and Find 1,546px, against R-303's budgets of 1,500 and 1,400 (the wrap-up review, 10/18).
 
 *Reason.* Large type set at default spacing looks loose and unfinished; tightening it is most of the
 difference between a heading that looks designed and one that looks typed. Poppins is HIPHI's heading

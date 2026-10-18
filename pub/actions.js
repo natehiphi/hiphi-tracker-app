@@ -143,12 +143,16 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
 
     ${voices && !emailOnly ? `<p class="proof">${icon('users')}${voices} people have acted on this hearing through HIPHI</p>` : ''}
     <div class="btncol">${compact ? '' : primary}${askBtn}
-      ${btn(more ? 'Fewer ways to help' : 'More ways to help', { kind: 'secondary', iconEnd: more ? 'chevron-up' : 'chevron-down', full: true, attrs: { 'data-moreways': k, 'aria-expanded': more ? 'true' : 'false', 'aria-controls': 'mw-' + h.id } })}</div>
+      ${btn(more ? 'Fewer ways to help' : 'More ways to help', { kind: REC() ? 'text' : 'secondary', iconEnd: more ? 'chevron-up' : 'chevron-down', full: true, cls: REC() ? 'mwtoggle' : '', attrs: { 'data-moreways': k, 'aria-expanded': more ? 'true' : 'false', 'aria-controls': 'mw-' + h.id } })}</div>
     ${planned ? planBlock(b, h, k, lastDone !== 'attend') : ''}
     ${more ? `<div class="moreways" id="mw-${esc(h.id)}">${rows}</div>` : ''}
     ${suggest && S.watch.has(b.id) ? `<div class="suggestbar">${btn('Following', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-follow': b.id, 'aria-pressed': 'true', title: 'Following. Press to stop following.' }, cls: 'on' })}</div>` : ''}
   </article>`;
 }
+// The calm redesign (R-303, ?rec=1) draws "More ways to help" as words on a line, the way Home's slide and the bill page's
+// card without a hearing draw it, so the one filled button is the card's only button (A-3; the wrap-up review of 10/18 found
+// it an outlined button in the hearing cards and words everywhere else).
+const REC = () => new URLSearchParams(location.search).has('rec');
 // One row of "More ways to help"; the calm Home's hearing ask draws its own rows with it (R-300).
 export const moreRow = (ic, title, sub, a, doneText) => `<button type="button" class="mwrow"${Object.entries(a).map(([k, v]) => ` ${k}="${esc(v)}"`).join('')}><span class="lead">${icon(ic)}</span><span class="body"><span class="title">${title}</span><span class="sub">${sub}</span></span>${doneText ? chip(doneText, 'ok', 'check') : icon('chevron-right', { cls: 'chev' })}</button>`;
 

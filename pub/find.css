@@ -147,14 +147,12 @@ body.rec .rc-find .rc-none { margin-top: var(--s24); }
 body.rec .rc-rpart { font-size: var(--t13); color: var(--n700); }
 body.rec .rc-every { margin: var(--s24) 0 0 calc(-1 * var(--s12)); }
 body.rec .rc-find .fd-stale { opacity: .55; }
-/* A row with one control at its end (search's Follow, My issues' Stop following): the row is the link, the button its own
-   44px target beside it (a button cannot sit inside a link) */
+/* A row with one control at its end (My issues' Stop following; search's Follow is the kit's pill, rec.css .rc-irow): the row
+   is the link, the button its own 44px target beside it (a button cannot sit inside a link) */
 body.rec .rc-frow { display: flex; align-items: center; gap: var(--s8); }
 body.rec .rc-frow > .rc-row { flex: 1 1 auto; min-width: 0; margin-right: 0; }
 body.rec .rc-frow > .btn { flex: none; min-height: 44px; }
 body.rec .rc-frow > .btn.text { margin-right: calc(-1 * var(--s12)); }   /* its words end where the outlined buttons and Edit end */
-body.rec .rc-follow.on { color: var(--n700); }
-body.rec .rc-follow.on .ic { color: var(--ok-text, var(--p700)); }
 @media (min-width: 1100px) {
   /* the six topics two by two: still quiet rows, not tiles with counts */
   body.rec .rc-rows.rc-topics { display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--s32); }

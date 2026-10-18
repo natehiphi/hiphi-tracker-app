@@ -40,6 +40,26 @@ body.rec .rc-card .rc-row { margin: 0 calc(-1 * var(--s8)); padding: var(--s8); 
 @media (hover: hover) { body.rec .rc-card .rc-row:hover { background: var(--n50); } }
 body.rec .rc-showall { margin: var(--s4) 0 0 calc(-1 * var(--s12)); }
 
+/* Follow: one outlined pill, the bill page's Share pill in shape; followed, a pale "✓ Following" (the issue page's opens a
+   small menu). In the kit since the wrap-up review (10/18): the issue page, the category page and search draw it alike. */
+body.rec .rc-fpill { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--s16); border: 0; border-radius: var(--pill);
+  color: var(--p700); font: 700 var(--t14)/1 var(--font); box-shadow: inset 0 0 0 1.5px var(--p700); background: var(--n0); cursor: pointer; flex: none; }
+body.rec .rc-fpill:hover { background: var(--p50); }
+body.rec .rc-fpill:active { background: var(--p100); transform: scale(.98); }
+body.rec .rc-fpill:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
+body.rec .rc-fpill .ic { width: 18px; height: 18px; }
+body.rec .rc-fpill.on { background: var(--p50); box-shadow: none; padding-right: var(--s12); }
+body.rec .rc-fpill.on:hover { background: var(--p100); }
+body.rec .rc-fpill .rc-fchev { width: 16px; height: 16px; transition: transform .15s var(--ease); }
+body.rec .rc-fpill[aria-expanded="true"] .rc-fchev { transform: rotate(180deg); }
+body.rec .rc-fpill[aria-busy="true"] { opacity: .6; }
+/* An issue in a list with its Follow beside it (the category page, search): the row is the link, the pill its end */
+body.rec .rc-irow { display: flex; align-items: center; gap: var(--s8); }
+body.rec .rc-irow > .rc-row { flex: 1 1 auto; min-width: 0; margin: 0 0 0 calc(-1 * var(--s12)); padding-right: var(--s4); }
+body.rec .rc-irow .rc-warn { color: var(--warn-text); }   /* amber only inside a day, on the time alone (A-5) */
+body.rec .rc-irow > .rc-fpill.on { padding-right: var(--s16); }
+body.rec .rc-fin > .rc-irows { margin-top: var(--s8); }
+
 /* Closed cards with a one-line preview (the bill page's .bl-rfold) */
 body.rec .rc-folds { margin-top: var(--s16); display: flex; flex-direction: column; gap: var(--s8); }
 body.rec .rc-fold { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: 0 var(--s16); }
@@ -65,9 +85,31 @@ body.rec .rc-ws { display: block; font-size: var(--t13); color: var(--n700); mar
 body.rec .rc-empty { padding: var(--s24) 0; color: var(--n700); }
 body.rec .rc-empty p { margin: 0 0 var(--s12); font-size: var(--t16); line-height: 1.5; }
 
+/* One back row, at one place on every page below a tab (R-303 decision 2; the wrap-up review of 10/18 found it at four
+   heights, 90 to 116px on a phone, so it jumped between pages one tap apart): where the bill page's top row puts its back
+   link (bill.css .bl-rtop), 6px under the header on a phone and from 900px, 24px on a laptop, whatever wraps it. */
+body.rec .rc-back { display: flex; width: fit-content; margin-top: -10px; }
+body.rec .rc-top, body.rec .rc-head:has(> .rc-back:first-child) { margin-top: 0; }
+body.rec .ab { padding-top: 0; }
+@media (min-width: 900px) { body.rec .rc-back { margin-top: -26px; } }
+@media (min-width: 1100px) { body.rec .rc-back { margin-top: -8px; } }
+
+/* "More ways to help" in a hearing's card (actions.js under ?rec=1): words on a line under a hairline, as the bill page's card
+   without a hearing draws it (.bl-rways), not a second, outlined button beside the one filled one (A-3; the wrap-up review) */
+body.rec .acard .btncol > .btn.mwtoggle { flex: 1 0 100%; width: 100%; justify-content: flex-start; min-height: 48px; margin-top: var(--s4); padding: 0;
+  border-top: 1px solid var(--n100); border-radius: 0; }
+body.rec .acard .btncol > .btn.mwtoggle:active { background: none; }
+
 /* Laptop: a readable column for reading pages; pages with a side panel set their own grid */
 @media (min-width: 1100px) {
-  body.rec .rc { max-width: 720px; }
+  /* One left edge on a laptop (the wrap-up review, 10/18: the h1 stood at 184, 360 or 384px on a 1440 screen, so it jumped
+     200px between Find, a topic and an issue one tap apart): every page starts where the bill page and You start, a reading
+     column capped at 720px, not centred. Home keeps its own centred column (R-300). */
+  body.rec:is([data-screen="bills"], [data-screen="find"], [data-screen="category"], [data-screen="committees"], [data-screen="committee"],
+    [data-screen="legislators"], [data-screen="legislator"], [data-screen="allbills"]) main { max-width: 1120px; }
+  body.rec .rc { max-width: 720px; margin-left: 0; margin-right: 0; }
+  /* one h1 size for the tab roots and the lists under them (A-4; the review: Find 36, My issues and You 28) */
+  body.rec .rc-find h1.hero, body.rec .ab h1.hero { font-size: var(--t28); }
   body.rec .rc.rc-wide { max-width: 1120px; }
   body.rec .rc-cols { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--s32); align-items: start; }
   body.rec .rc-side { position: sticky; top: calc(var(--header) + var(--s16)); }
@@ -87,7 +129,13 @@ body.rec .rc-ah:first-child { margin-top: 0; }
 body.rec .rc-atext { margin: var(--s4) 0 var(--s12); font-size: var(--t14); line-height: 1.45; color: var(--n700); }
 body.rec .rc-amore { margin: var(--s8) 0 0; font-size: var(--t13); color: var(--n700); }
 body.rec .rc-aways { margin-top: var(--s8); border-top: 1px solid var(--n100); }
-/* The back row's place at the top of a page below a tab, and a link that reads as words inside a sentence */
-body.rec .rc-top { margin-top: var(--s4); }
+body.rec .rc-aways > summary { display: flex; align-items: center; gap: var(--s8); min-height: 48px; list-style: none; cursor: pointer; color: var(--p700); font-weight: 700; }
+body.rec .rc-aways > summary::-webkit-details-marker { display: none; }
+body.rec .rc-aways > summary:hover span { text-decoration: underline; }
+body.rec .rc-aways > summary:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; border-radius: var(--r8); }
+body.rec .rc-awchev { width: 20px; height: 20px; flex: none; transition: transform .2s var(--ease); }
+body.rec .rc-aways[open] > summary .rc-awchev { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { body.rec .rc-awchev { transition: none; } }
+/* A link that reads as words inside a sentence (the back row's place is above, with the back link) */
 body.rec .rc-tlink { display: inline-flex; align-items: center; min-height: 44px; padding: 0; background: none; border: 0; color: var(--p700); font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 body.rec .rc-tlink:hover { text-decoration-thickness: 2px; }

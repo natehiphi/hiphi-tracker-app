@@ -104,7 +104,7 @@ def main():
                     check(pg.evaluate("document.querySelector('#main .yu-me').getAttribute('href')") == '#/profile' and 'Kai' in pg.inner_text('#main .yu-me'), f'{t}: the card is the person, to their profile')
                 else:
                     me = pg.inner_text('#main .yu-me')
-                    check('Get alerts on your issues' in me and pg.evaluate("document.querySelector('#main .yu-me').getAttribute('href')") == '#/alerts' and 'Signed up before?' in txt, f'{t}: the card invites "Get alerts on your issues", with "Signed up before? Sign in"')
+                    check('Get alerts on your issues' in me and pg.evaluate("document.querySelector('#main .yu-me').getAttribute('href')") == '#/alerts' and 'Made one before?' in txt, f'{t}: the card invites "Get alerts on your issues", with "Made one before? Sign in"')
                 check(FILLED(pg) <= 1, f'{t}: at most one filled button')
                 pg.click('[data-yu-about]'); pg.wait_for_timeout(200)
                 about = pg.evaluate("!document.getElementById('yu-about').hidden && [...document.querySelectorAll('#yu-about .rc-wt')].map(e => e.innerText)")

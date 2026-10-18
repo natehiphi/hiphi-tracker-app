@@ -120,7 +120,7 @@ with sync_playwright() as p:
             check(s['filled'] == 1 and pg.locator('.rc-act').count() == 1, f'{tag}: Sen. Kim: ONE card, one filled button ({s["filled"]})')
             if who == 'kai':
                 check(pg.inner_text('.rc-act .rc-ah') == 'Ask Sen. Kim to support Free school bus passes' and pg.inner_text('.rc-act .rc-awhen').startswith('Hearing'), f'{tag}: the most pressing followed bill in her committees leads, with her committee\'s hearing')
-                check('Due tomorrow' in pg.inner_text('.rc-act .rc-aways'), f'{tag}: the testimony deadline is said on the testimony row, not over the email')
+                check('Due tomorrow' in pg.text_content('.rc-act .rc-aways') and pg.evaluate("!document.querySelector('.rc-act .rc-aways').open"), f'{tag}: the testimony deadline is said on the testimony row, not over the email, behind More ways to help')
                 check(pg.locator('#pp-yi').count() == 1 and 'HB 2300' in pg.inner_text('.rc-sec'), f'{tag}: On your issues lists the other followed bill in her committees')
             if who == 'none': check(pg.inner_text('.rc-act .rc-ah') == 'Write to Sen. Kim' and pg.locator('#pp-yi').count() == 0, f'{tag}: no follows, the hello and no On your issues')
             if size == 'phone': check(s['h'] < 1600, f'{tag}: Sen. Kim is {s["h"]}px on a phone (budget 1,600; 4,698 before)')

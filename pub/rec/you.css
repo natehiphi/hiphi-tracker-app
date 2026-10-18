@@ -129,5 +129,4 @@ body.rec .yu-pv .yu-upd { margin-top: var(--s16); }
 body.rec .yu-pv .mr-ext { margin-top: var(--s4); }
 body.rec .yu-pv .mr-ext .btn { margin-left: calc(-1 * var(--s12)); white-space: normal; text-align: left; }
 
-/* ---- Sign in, Profile and the sign-up box: the back row sits where the bill page's does ---- */
-body.rec .mr.yu > .rc-back { margin-top: 0; }
+/* ---- Sign in, Profile and the sign-up box (the back row's place is the kit's, rec.css) ---- */
