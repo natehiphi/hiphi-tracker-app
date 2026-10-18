@@ -130,3 +130,31 @@
 /* Between sessions: what happened to the issue last session, and what to expect (R-067; issues.outlook) */
 .fd-outlook { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s12) 0 0; padding: 10px 12px; border-radius: var(--r12); background: var(--p50); color: var(--n900); }
 .fd-outlook .ic { flex: none; color: var(--p700); margin-top: 2px; }
+
+/* ---- The calm Find under ?rec=1 (R-303, pub/rec/find.js), scoped to body.rec: today's Find is unchanged without it.
+   Home's quiet rows (rec.css .rc-row) for topics, issues, people and bills; the h1 and the box are today's. ---- */
+body.rec .rc-find .fd-search { margin-top: var(--s16); }
+body.rec .rc-newhere { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-top: var(--s4); color: var(--p700); font-weight: 700; text-decoration: none; }
+body.rec .rc-newhere:hover span { text-decoration: underline; }
+body.rec .rc-newhere .ic { width: 18px; height: 18px; }
+body.rec .rc-off { margin-top: var(--s12); }
+/* A topic's one line: at most two lines on a narrow phone, never cut mid-word on a wider one */
+body.rec .rc-topics .rc-rstat { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+body.rec .rc-foot { margin-top: var(--s24); padding-top: var(--s12); border-top: 1px solid var(--n200); }
+body.rec .rc-places { margin-top: var(--s16); }
+body.rec .rc-find .fd-note { margin: var(--s16) 0 0; }
+body.rec .rc-find .rc-none { margin-top: var(--s24); }
+body.rec .rc-rpart { font-size: var(--t13); color: var(--n700); }
+body.rec .rc-every { margin: var(--s24) 0 0 calc(-1 * var(--s12)); }
+body.rec .rc-find .fd-stale { opacity: .55; }
+/* A row with one control at its end (search's Follow, My issues' Stop following): the row is the link, the button its own
+   44px target beside it (a button cannot sit inside a link) */
+body.rec .rc-frow { display: flex; align-items: center; gap: var(--s8); }
+body.rec .rc-frow > .rc-row { flex: 1 1 auto; min-width: 0; margin-right: 0; }
+body.rec .rc-frow > .btn { flex: none; min-height: 44px; }
+body.rec .rc-follow.on { color: var(--n700); }
+body.rec .rc-follow.on .ic { color: var(--ok-text, var(--p700)); }
+@media (min-width: 1100px) {
+  /* the six topics two by two: still quiet rows, not tiles with counts */
+  body.rec .rc-rows.rc-topics { display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--s32); }
+}

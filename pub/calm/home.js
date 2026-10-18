@@ -51,7 +51,8 @@ function dayShort(iso) {
   return Date.parse(iso) - Date.now() < 6 * 864e5 ? new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short' })
     : new Date(iso).toLocaleDateString('en-US', { timeZone: HST, month: 'short', day: 'numeric' });
 }
-const when = iso => `${dayShort(iso)} ${time(iso)}`;
+// "today 2:00 PM", "Wed 9:30 AM", "Mar 30 1:00 PM": Home's words for a time, also the calm Find's and My issues' (R-303).
+export const when = iso => `${dayShort(iso)} ${time(iso)}`;
 const prevVisit = () => S.prevVisit ? Date.parse(S.prevVisit) : 0;
 const isNew = t => { const p = prevVisit(); return !!p && !!t && t > p && t <= Date.now(); };
 const skipKey = x => x.h.id + '|' + x.b.id;
@@ -293,6 +294,9 @@ function stateOf(ids, c) {
 // up onto the slide (decision 5a, data-cm-pick), and a row with nothing to do opens the issue's page as before. What changed
 // since the last visit is a small dot before the name (R-300, Nate's "quieter list"), with its words for a screen reader
 // and on hover; the name stays the row's first text.
+// A row's facts: an issue's, or a bill's followed on its own (its number first in the status line).
+const issueRow = (i, c) => ({ i, ...stateOf(new Set(issueBills(i)), c), name: i.name, href: `#/issue/${i.slug}` });
+const billRow = (b, c) => { const st = stateOf(new Set([b.id]), c); return { b, ...st, name: headline(b), text: `${spaced(b)} · ${st.text}`, href: billPath(b) }; };
 const rowHtml = r => `<li><a class="cm-row${r.on ? ' on' : ''}" href="${esc(r.href)}"${r.pick && !r.on ? ` data-cm-pick="${esc(r.pick)}"` : ''}><span class="cm-rtext"><span class="cm-rname">${esc(r.name)}${r.fresh ? '<span class="cm-new" title="New since your last visit"><span class="sr"> New since your last visit</span></span>' : ''}</span>
     <span class="cm-rstat${r.warn ? ' warn' : ''}">${esc(r.text)}</span></span>${icon('chevron-right', { cls: 'cm-chev' })}</a></li>`;
 // A long list (Nate 10/11, for a follower of dozens like Leilani: "Option number 2, but still grouped by status"): the
@@ -373,8 +377,7 @@ function inSession(si, { welcome, fin }) {
   const slideRow = (i, st) => { const ids = issueBills(i); if (!onSlide || !ids.includes(onSlide)) return st;
     const more = due.filter(x => ids.includes(x.b.id) && x.b.id !== onSlide).length;
     return { ...st, on: true, warn: false, text: `On the slide above${more ? `, and ${more} more this week` : ''}` }; };
-  const rows = [...iss.map(i => ({ i, ...slideRow(i, stateOf(new Set(issueBills(i)), c)), name: i.name, href: `#/issue/${i.slug}` })),
-    ...own.map(b => { const st = stateOf(new Set([b.id]), c); return { b, ...st, name: headline(b), text: `${spaced(b)} · ${st.text}`, href: billPath(b) }; })].sort(byImportance)
+  const rows = [...iss.map(i => slideRow(i, issueRow(i, c))), ...own.map(b => billRow(b, c))].sort(byImportance)
     // Nothing is new seconds after the first visit: everything on the page was just seen there.
     .map(r => ({ ...r, fresh: !welcome && r.fresh }));
   c.freshN = rows.filter(r => r.fresh).length; c.noun = !iss.length && looseBills().length ? 'bills' : 'issues';   // someone who follows only bills has no issues
@@ -405,17 +408,7 @@ function offSession(si, { welcome }) {
   const fin = welcome && P.finNow();
   const card = slideHtml({ hl: fin ? 'h2' : 'h1', id: 'cm-rd', art: `<div class="cm-art">${CAPITOL}</div>`, title: ready[0], say: esc(ready[1].replace(/ It takes (about 2 minutes|30 seconds)\.$/, '')),
     detail: known ? 'About 2 minutes' : 'About 30 seconds', go: btn(known ? 'Write to my legislators' : 'Find my legislators', { kind: 'primary', icon: known ? 'mail' : 'landmark', full: true, href: '#/legislators' }) });
-  // Each issue's outlook (staff write it in Staff v2) to its first sentence: one phrase a row, as in session; the whole
-  // outlook is on the issue's page (Leilani's sixteen ran to 2,600px whole).
-  const first = t => (String(t || '').match(/^.*?[.!?](?=\s|$)/) || [String(t || '')])[0];
-  // "Disposable e-cigarette ban (SB 2175) became law in 2026." under the heading "Disposable e-cigarette ban" says the name
-  // twice (the review of R-222): "Became law in 2026 (SB 2175)."
-  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
-  const unname = (name, t) => { if (!t.startsWith(name + ' ')) return t; const rest = t.slice(name.length + 1), m = /^\(([A-Z]+ ?\d+)\) (.*?)\.?$/.exec(rest);
-    return m ? `${cap(m[2])} (${m[1]}).` : cap(rest); };
-  const own = looseBills();
-  const rows = [...P.myIssues(yr).map(r => ({ name: r.title, text: unname(r.title, first(r.sub)), href: r.href })),
-    ...own.map(b => ({ b, name: headline(b), text: `${spaced(b)} · ${plainStatus(b).short}`, href: billPath(b) }))];
+  const rows = offRows(yr);
   // The Mahalo says where they are, as in session (the fresh-eyes review of R-248); the ticks below say what they did, so the
   // lede does not count their issues again (A-14).
   const hello = fin ? `<h1 class="hero" id="hm-finh">${mahalo(name)}</h1><p class="lede">This is your home page. ${lede}</p>${P.finDid()}`
@@ -426,6 +419,29 @@ function offSession(si, { welcome }) {
     ${issuesBlock(rows)}
     ${P.meetLine() || P.profileLine() ? `<div class="cm-lines">${P.meetLine()}${P.profileLine()}</div>` : ''}
   </div>`;
+}
+
+// Between sessions, one row per issue (or whole topic) followed and per bill followed on its own. Each issue's outlook (staff
+// write it in Staff v2) to its first sentence: one phrase a row, as in session; the whole outlook is on the issue's page
+// (Leilani's sixteen ran to 2,600px whole).
+const first = t => (String(t || '').match(/^.*?[.!?](?=\s|$)/) || [String(t || '')])[0];
+// "Disposable e-cigarette ban (SB 2175) became law in 2026." under the heading "Disposable e-cigarette ban" says the name
+// twice (the review of R-222): "Became law in 2026 (SB 2175)."
+const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+const unname = (name, t) => { if (!t.startsWith(name + ' ')) return t; const rest = t.slice(name.length + 1), m = /^\(([A-Z]+ ?\d+)\) (.*?)\.?$/.exec(rest);
+  return m ? `${cap(m[2])} (${m[1]}).` : cap(rest); };
+const offRows = yr => [...P.myIssues(yr).map(r => ({ name: r.title, text: unname(r.title, first(r.sub)), href: r.href })),
+  ...looseBills().map(b => ({ b, name: headline(b), text: `${spaced(b)} · ${plainStatus(b).short}`, href: billPath(b) }))];
+
+// My issues under ?rec=1 (R-303, pub/rec/mybills.js): every issue and bill followed as Home's rows, in Home's words and
+// order, without the slide (so no row says "On the slide above"), so the two pages never disagree about where one stands.
+// Between sessions, the rows Home shows then.
+export function myRows() {
+  const si = sessionInfo();
+  if (si.phase !== 'in') return offRows(si.recapYear);
+  const due = dueAll(), c = { due, late: lateAll(), asksAll: P.oneIdeaAsks(due), plans: goingPlans(), card: {}, open: openActions(S.bills, S.hearings).filter(x => !settledOn(x.b, x.h)) };
+  const welcome = P.welcomed();
+  return [...followedIssues().map(i => issueRow(i, c)), ...looseBills().map(b => billRow(b, c))].sort(byImportance).map(r => ({ ...r, fresh: !welcome && r.fresh }));
 }
 
 // The page that finished the first visit: .cm-fin (home.js finFx plays the petals once), and .hm-anim on its first draw only,

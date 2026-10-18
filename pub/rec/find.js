@@ -1,0 +1,216 @@
+// Find under ?rec=1 (R-303, Nate's "make best choices" 10/17; backend docs/requests/R-303-assessment/find-search-lists.md).
+// A person comes here to look something up, or to see what HIPHI works on (B-1). Today's Find was 3,284px on Kai's phone, 59%
+// of it a second to-do list after Home's (a full action card and seven bill cards), with counts nobody could read ("10
+// moving") and four kinds of follow control. Here it is the search box, the six topics as quiet rows, at most three issues
+// that need voices this week (Home's rows and words, each to its issue page, which owns the action under option A), and at
+// the foot the power layer: every bill HIPHI tracks, and the committees (moved from More).
+// Search results say each thing once (A-14): the issues, then people and committees (names without codes, C-15), then only
+// the bills on no issue shown above, then "Did not advance" folded; a few words ("testify", "my senator") also offer the page
+// they mean. A bill number lists the bill with the issue it is part of. No governor's messages on a word search (the
+// header's suggestions already leave them out), and no headings with counts (R-300).
+// The search itself is find.js's (its matching rules, its state S.fd, its live queries); this file draws what it finds and
+// puts its painter in findHooks. An issue's, a category's and a list's pages are still find.js's (another builder takes the
+// issue and category pages under rec).
+import { S, app, esc, icon, nick, plain, spaced, billPath, sessionInfo, issuesOf, issueFollowed, stopOf, alive, plainStatus, dateLong,
+  dismissed, suggestionList, recommendations, noteShown } from '../core.js';
+import { btn, skeleton, inlineErr } from '../ui.js';
+import F0, { parse, startSearch, searchNote, capNote, issueMatches, peopleMatches, findHooks, wireSearch, wireIssues, offSeason, byDue,
+  hiphis, shows } from '../find.js';
+import { moving, becameLaw, stopped, billsOfIssue, what } from '../mybills.js';
+import { recSec, recRow, recFold, recEmpty, wireKit } from './kit.js';
+import { when } from '../calm/home.js';
+export { headerSuggest } from '../find.js';   // the header's suggestions (app.js asks the find screen's module for them)
+
+const F = S.fd;   // find.js's search state: the query, its results, the cache, which lists are open
+const DAY = 864e5;
+// "Waiting for a hearing · 12 days left": a row says the one phrase; the bill page has the days (R-303, one word each).
+const LEFT = / · \d+ days? left$/;
+
+// ---------------- one line for where a thing stands, in Home's words ----------------
+// An issue: testimony due (amber inside a day, A-5), else its next hearing, else the day it needs a hearing by, else where
+// its furthest bill is, else what became of it. The same phrases as Home's rows (calm/home.js stateOf), for issues nobody
+// here follows, from the bills and hearings the page already holds.
+export function issueLine(i) {
+  const bills = billsOfIssue(i), now = Date.now();
+  if (offSeason()) { const yr = sessionInfo().recapYear; return { text: bills.some(becameLaw) ? `Became law in ${yr}` : bills.length ? `Did not advance in ${yr}` : `No bills in ${yr}` }; }
+  const live = bills.filter(moving), sts = live.map(stopOf);
+  const hs = sts.filter(st => st.hearingState === 'scheduled' && st.hearing && Date.parse(st.hearing.scheduled_at) > now).map(st => st.hearing);
+  const due = hs.filter(h => h.testimony_deadline && Date.parse(h.testimony_deadline) > now).sort((x, y) => x.testimony_deadline.localeCompare(y.testimony_deadline))[0];
+  if (due) return { text: `Testimony due ${when(due.testimony_deadline)}`, warn: Date.parse(due.testimony_deadline) - now < DAY };
+  const h = hs.sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
+  if (h) return { text: `Hearing ${when(h.scheduled_at)}` };
+  const dl = sts.filter(st => st.phase === 'committee' && st.hearingState === 'none' && st.deadline && !st.deadline.missed).map(st => st.deadline.date).sort()[0];
+  if (dl) { const at = Date.parse(dl + 'T12:00:00-10:00'); return { text: `Needs a hearing by ${dateLong(dl + 'T12:00:00-10:00')}`, warn: at - now < DAY }; }
+  if (live.length) return { text: plainStatus(live[0]).short.replace(LEFT, '') };
+  if (bills.some(becameLaw)) return { text: 'Became law' };
+  return { text: bills.length ? 'Nothing moving' : 'No bills on it yet' };
+}
+// A bill: its number, then the same phrases ("HB 1563 · Waiting for a hearing").
+export function billLine(b) {
+  const now = Date.now(), num = spaced(b.bill_number);
+  if (stopped(b)) return { text: `${num} · ${plainStatus(b).short}` };
+  const st = stopOf(b), h = alive(b) && st.hearingState === 'scheduled' && st.hearing && Date.parse(st.hearing.scheduled_at) > now ? st.hearing : null;
+  if (h) { const dl = h.testimony_deadline && Date.parse(h.testimony_deadline) > now ? h.testimony_deadline : '';
+    return dl ? { text: `${num} · Testimony due ${when(dl)}`, warn: Date.parse(dl) - now < DAY } : { text: `${num} · Hearing ${when(h.scheduled_at)}` }; }
+  return { text: `${num} · ${plainStatus(b).short.replace(LEFT, '')}` };
+}
+const billName = b => nick(b) || what(b, 90);
+const billRow = b => { const l = billLine(b); return recRow({ name: billName(b), text: l.text, warn: l.warn, href: billPath(b) }); };
+// A bill found by its number says which issue it is part of (the issue is what people follow, R-018).
+const numRow = b => { const l = billLine(b), on = issuesOf(b);
+  return `<li><a class="rc-row" href="${esc(billPath(b))}"><span class="rc-rtext"><span class="rc-rname">${esc(billName(b))}</span><span class="rc-rstat${l.warn ? ' warn' : ''}">${esc(l.text)}</span>${on.length ? `<span class="rc-rpart">Part of: ${esc(on.map(i => i.name).join(' and '))}</span>` : ''}</span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`; };
+// An issue in search: Home's row with one follow control beside it, outlined Follow or a quiet "✓ Following" (the category
+// page's; pressing Following lets it go, with Undo: find.js followIssueNow). No chevron: the button is the row's end.
+const issueRow = i => { const on = issueFollowed(i), l = issueLine(i);
+  return `<li class="rc-frow"><a class="rc-row" href="#/issue/${esc(i.slug)}"><span class="rc-rtext"><span class="rc-rname">${esc(i.name)}</span><span class="rc-rstat${l.warn ? ' warn' : ''}">${esc(l.text)}</span></span></a>
+    ${btn(on ? 'Following' : 'Follow', { kind: on ? 'text' : 'secondary', sm: true, icon: on ? 'check' : '', cls: 'rc-follow' + (on ? ' on' : ''), attrs: { 'data-fdissue': i.id, 'aria-pressed': String(on), 'aria-label': `${on ? 'Following' : 'Follow'} ${i.name}` } })}</li>`; };
+// A list that shows its first n and opens the rest in place (kit.js recMore's shape, with words of its own); kept open for
+// the visit once opened (F.more), so a follow pressed in the rest does not shut it.
+function moreList(items, n, key, label = '') {
+  const ul = xs => `<ul class="rc-rows" role="list">${xs.join('')}</ul>`;
+  if (items.length <= n || F.more['rc:' + key]) return ul(items);
+  return `${ul(items.slice(0, n))}<div class="rc-rest" id="rc-rest-${esc(key)}" hidden>${ul(items.slice(n))}</div>
+    <button type="button" class="btn text rc-showall" data-rc-showall="${esc(key)}" aria-expanded="false" aria-controls="rc-rest-${esc(key)}">${icon('chevron-down')}<span>${esc(label || `Show all ${items.length}`)}</span></button>`;
+}
+
+// ---------------- browsing ----------------
+// Needs voices this week: the issues of the bills Find would suggest (rank.js, the person's short list first, then by
+// deadline), one row an issue, a bill on no issue as itself; three show, the rest open in place. Only the three are counted
+// as shown (R-094), and none an issue the person already follows (Home has those).
+const dueAt = h => h.testimony_deadline && Date.parse(h.testimony_deadline) > Date.now() ? Date.parse(h.testimony_deadline) : Date.parse(h.scheduled_at);
+function voices() {
+  if (offSeason()) return [];
+  const skip = dismissed(), now = Date.now(), ok = r => { const h = r.st?.hearing; return !!h && !skip.has(r.b.id) && Date.parse(h.scheduled_at) > now && Date.parse(h.scheduled_at) < now + 7 * DAY; };
+  const out = [], seen = new Set();
+  const add = r => { const on = issuesOf(r.b); if (on.some(issueFollowed)) return;
+    const i = on[0] || null, key = i ? i.id : 'b:' + r.b.id; if (seen.has(key)) return; seen.add(key); out.push({ r, i, b: r.b, h: r.st.hearing }); };
+  suggestionList(4).filter(ok).forEach(add);
+  byDue(recommendations(200)).filter(ok).forEach(add);
+  noteShown(out.slice(0, 3).map(e => e.r), 'find');
+  const soon = (x, y) => dueAt(x.h) - dueAt(y.h);
+  return [...out.slice(0, 3).sort(soon), ...out.slice(3).sort(soon)];
+}
+function voiceRow(e) {
+  const h = e.h, now = Date.now(), dl = h.testimony_deadline && Date.parse(h.testimony_deadline) > now ? h.testimony_deadline : '';
+  const st = dl ? `Testimony due ${when(dl)}` : `Hearing ${when(h.scheduled_at)}`, warn = !!dl && Date.parse(dl) - now < DAY;
+  return recRow(e.i ? { name: e.i.name, text: st, warn, href: `#/issue/${e.i.slug}` } : { name: billName(e.b), text: `${spaced(e.b.bill_number)} · ${st}`, warn, href: billPath(e.b) });
+}
+const topicRows = () => `<ul class="rc-rows rc-topics" role="list">${(S.cats || []).map(c => recRow({ name: c.name, text: c.description || '', href: `#/find/category/${c.key}`, lead: c.icon })).join('')}</ul>`;
+const topics = () => recSec('fd-iss-h', 'Browse by topic', topicRows());
+const openWords = si => si.nextOpen ? new Date(si.nextOpen + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'long', month: 'long', day: 'numeric' }) : 'in January';
+function browse() {
+  const si = sessionInfo(), off = si.phase !== 'in', vs = voices();
+  // Someone on their first visit who came by a shared link lands here (R-238); one quiet line offers the start, and only
+  // to them (a guess: the first visit's own steps are unchanged).
+  const newcomer = app.calmPlace?.() === '#/find' ? `<a class="rc-newhere" href="#/start/0"><span>New here? Pick what you care about</span>${icon('chevron-right')}</a>` : '';
+  return `${newcomer}${off ? `<p class="rc-note rc-off">The Legislature is on break until ${esc(openWords(si))}. You can still look up any ${si.recapYear} bill and see what happened to it.</p>` : ''}
+    ${topics()}
+    ${vs.length ? recSec('fd-voices-h', 'Needs voices this week', moreList(vs.map(voiceRow), 3, 'voices', 'See more with a hearing this week')) : ''}
+    <nav class="rc-foot" aria-label="More to look up"><ul class="rc-rows" role="list">
+      ${recRow({ name: 'Every bill HIPHI tracks', href: '#/allbills', lead: 'list' })}${recRow({ name: 'Committees', href: '#/committees', lead: 'landmark' })}</ul></nav>`;
+}
+
+// ---------------- search results ----------------
+// Words that mean a page rather than a bill (staff search has the same idea): how to testify, and who represents you.
+const HELP_RE = /\b(testify\w*|testimony|hearings?|how)\b/, LAW_RE = /\b(senators?|representatives?|represents?|legislators?|lawmakers?|my rep)\b/;
+function places(q) {
+  const t = plain(q), out = [];
+  if (LAW_RE.test(t)) out.push({ name: 'Your lawmakers', text: 'Find who represents you', href: '#/legislators', lead: 'landmark' });
+  if (HELP_RE.test(t)) out.push({ name: 'Help', text: 'How hearings and testimony work', href: '#/help', lead: 'circle-help' });
+  return out;
+}
+// People and committees by name: a committee without its code (C-15: codes never appear on a public screen).
+const whoRows = q => peopleMatches(q).map(p => { const code = /^#\/committee\/(.+)$/.exec(p.href)?.[1];
+  return { name: code ? (S.committees?.[code]?.name || p.title.replace(/\s*\([A-Z0-9]+\)$/, '')) : p.title, text: p.sub, href: p.href, lead: p.icon }; });
+const everyLink = () => `<p class="rc-every">${btn('See every bill HIPHI tracks', { kind: 'text', iconEnd: 'chevron-right', href: '#/allbills' })}</p>`;
+function resultsBody(q, res) {
+  const P = parse(q);
+  if (P.num) {
+    if (!res.length) return `${recEmpty(`No bill has the number “${q}”.`)}${everyLink()}`;
+    return `${moreList(res.map(numRow), 10, 'n-' + P.key)}${capNote(res)}${everyLink()}`;
+  }
+  const bills = res.filter(b => !/^GM/i.test(b.bill_number));   // governor's messages come up for their number only
+  // The issues: those whose own words match, then those of the matching HIPHI bills still moving whose nickname or summary
+  // has the words (the header's suggestions' rule), so a bill and its twin are said once, through the issue people follow.
+  const direct = issueMatches(q), seen = new Set(direct.map(i => i.id)), iss = [...direct];
+  for (const b of bills) if (!stopped(b) && hiphis(b) && shows(b, P)) for (const i of issuesOf(b)) if (!seen.has(i.id)) { seen.add(i.id); iss.push(i); }
+  const onShown = b => issuesOf(b).some(i => seen.has(i.id));
+  const other = bills.filter(b => !stopped(b) && !onShown(b)), gone = bills.filter(b => stopped(b) && !onShown(b));
+  const pl = places(q), who = whoRows(q);
+  // Words that name a page ("how to testify", "my senator") and that no bill has all of: the page is the answer, and bills
+  // with one of the words ("how") would only be noise under it.
+  if (pl.length && res.fewer) { other.length = 0; gone.length = 0; }
+  const placesNav = pl.length ? `<nav class="rc-places" aria-label="Places"><ul class="rc-rows" role="list">${pl.map(recRow).join('')}</ul></nav>` : '';
+  if (!iss.length && !who.length && !other.length && !gone.length) return pl.length ? `${placesNav}${everyLink()}`
+    : `${recEmpty(`Nothing matches “${q}”. Try one word, like e-cigarettes, a bill number like HB 1563, or a lawmaker’s name.`)}${topics()}`;
+  const yrs = [...new Set(gone.map(b => +b.session_year || sessionInfo().yr))].sort().join(' and ');
+  const quiet = !iss.length && !other.length && gone.length ? `<p class="rc-note rc-none">${offSeason() ? `The ${sessionInfo().recapYear} session is over. Here’s where these bills ended up.` : `Nothing that matches “${esc(q)}” is moving right now.`}</p>` : '';
+  return `${other.length || gone.length ? searchNote(res, P) : ''}
+    ${placesNav}
+    ${iss.length ? recSec('fd-qi-h', 'Issues', moreList(iss.map(issueRow), 6, 'qi-' + P.key)) : ''}
+    ${who.length ? recSec('fd-who-h', 'People and committees', `<ul class="rc-rows" role="list">${who.map(recRow).join('')}</ul>`) : ''}
+    ${other.length ? recSec('fd-ob-h', iss.length ? 'Other bills' : 'Bills', moreList(other.map(billRow), 10, 'ob-' + P.key)) : quiet}
+    ${gone.length ? `<div class="rc-folds">${recFold('find-gone', 'Did not advance', `Bills that stopped in ${yrs}`, moreList(gone.map(b => recRow({ name: billName(b), text: `${spaced(b.bill_number)} · ${plainStatus(b).short}`, href: billPath(b) })), 10, 'g-' + P.key),
+      { open: !iss.length && !other.length && !who.length })}</div>` : ''}
+    ${capNote(res)}${everyLink()}`;
+}
+function results(q) {
+  const P = parse(q), ready = F.key === P.key && !F.busy;
+  if (ready && F.err) return `<div class="fd-err">${inlineErr('fd-err', 'Search didn’t work just now. Check your connection and try again.')}${btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-retry': '1' } })}</div>`;
+  if (!ready || !F.res) return F.shown ? `<div class="fd-stale" inert>${resultsBody(F.shown.q, F.shown.res)}</div>` : skeleton(3);
+  F.shown = { q, res: F.res };
+  return resultsBody(q, F.res);
+}
+
+// ---------------- the page ----------------
+function page(q) {
+  q = (q || '').trim();
+  if (q !== F.cur) F.cur = q;
+  if (q) startSearch(q);
+  const busy = !!(q && F.busy);
+  // The h1 and the box as today's (find.css): the label is the heading, so the box is named by it.
+  return `<div class="fd rc rc-find" data-page="find">
+    <form class="fd-search" role="search" action="#" novalidate>
+      <h1 class="fd-h1 hero"><label for="q">Find issues and bills</label></h1>
+      <div class="searchbox fd-box${busy ? ' busy' : ''}">${icon('search')}<span class="fd-spin" aria-hidden="true">${icon('loader-circle')}</span>
+        <input id="q" class="input" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
+          placeholder="Try e-cigarettes, HB 1563 or a name" value="${esc(q)}">
+        <button type="button" class="iconbtn clear fd-clear" aria-label="Clear search"${q ? '' : ' hidden'}>${icon('x')}</button></div>
+    </form>
+    <p class="sr" role="status" id="fd-status"></p>
+    <div id="fd-results">${q ? results(q) : browse()}</div>
+  </div>`;
+}
+const said = () => !F.cur ? '' : F.busy ? 'Searching' : F.err ? 'Search did not work' : F.res ? `Results for “${F.cur}”` : '';
+// Typing redraws only the results (find.js runQuery and its search call this), so the box keeps its keyboard.
+function paint() {
+  if (document.body.dataset.screen !== 'find') return;
+  const box = document.getElementById('fd-results'); if (!box) { app.render(); return; }
+  box.innerHTML = F.cur ? results(F.cur) : browse();
+  wireResults(box, true);
+  document.querySelector('.fd-box')?.classList.toggle('busy', !!(F.cur && F.busy) || F.pending);
+  const st = document.getElementById('fd-status'); if (st) st.textContent = said();
+}
+findHooks.paint = paint;
+function wireResults(box, links) {
+  if (!box) return;
+  wireKit(box); wireIssues(box);
+  box.querySelectorAll('[data-rc-showall]').forEach(b => b.addEventListener('click', () => { F.more['rc:' + b.dataset.rcShowall] = true; }));
+  box.querySelectorAll('[data-retry]').forEach(el => el.onclick = () => { F.cache.delete(F.key); F.key = null; if (F.cur) startSearch(F.cur); paint(); });
+  // Results painted in place were not there when app.js wired the page's links: keep them in the app.
+  if (links) box.querySelectorAll('a[href^="#/"]').forEach(a => a.addEventListener('click', e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); app.go(a.getAttribute('href')); }));
+}
+
+export default {
+  tab: 'find',
+  title: r => F0.title(r),
+  // A HIPHI list's page is find.js's; its back link names the place it goes (B-4), now that Find lists no lists.
+  render(r) { return r.name === 'find' ? page(r.q) : r.name === 'list' ? F0.render(r).replace(/<span>All lists<\/span>/g, '<span>Find</span>') : F0.render(r); },
+  wire(r) {
+    if (r.name !== 'find') { F0.wire(r); return; }
+    const root = document.querySelector('.fd'); if (!root) return;
+    wireSearch(); wireResults(document.getElementById('fd-results'), false);
+    const st = document.getElementById('fd-status'); if (st) st.textContent = said();
+    if (S.fdFocus) { root.querySelector(S.fdFocus)?.focus({ preventScroll: true }); S.fdFocus = null; }
+  },
+};

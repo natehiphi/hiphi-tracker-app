@@ -393,7 +393,7 @@ function render() {
   return `<div class="mb" data-mbroot>${head}${body}${ownSec}${listSec}${myListsSection()}${onward}</div>`;   // people's own lists (R-013)
 }
 // Letting go of an issue or a whole category, with Undo (B-5): Undo puts back exactly what was followed before.
-async function letGo(change, said) {
+export async function letGo(change, said) {   // also My issues under ?rec=1 (pub/rec/mybills.js)
   const before = { i: new Set(S.issueFollows), c: new Set(S.catFollows) };
   if (!(await change())) return;
   app.render();

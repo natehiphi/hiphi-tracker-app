@@ -40,3 +40,6 @@
 /* "Similar bill: SB 2175" beside the number (billRow's alt; only this page passes it) */
 /* its own last line on a phone (after the status), under the number in the wide table */
 .mb-row .mb-alt { order: 2; flex: 0 0 100%; font-size: var(--t13); color: var(--n700); }
+/* Under ?rec=1 (R-303): one search box on this page, its own (the header's left out on a laptop, as on Find, A4-4) */
+body.rec[data-screen="allbills"] .hdr .hsearch { display: none; }
+body.rec .ab .mb-fold + .mb-fold, body.rec .ab .ab-grp + .mb-fold { margin-top: var(--s12); }
