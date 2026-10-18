@@ -208,7 +208,11 @@ it does that button's job. The screen moves on first and the moment plays over t
 Its words stay for 4 s as a toast. **The first visit's "Mahalo!" is a page, not a moment (R-140, Nate 11 Oct: "too
 quick. Maybe it should be a permanent page that a user hits next on"):** once the alerts screen is answered or skipped, that
 screen turns into the "Mahalo!" page (the same address, so Back finds it), the moment's flower opens once as it arrives,
-and it stays until the person taps Next, which names the next part. The plans' sign-up ends the same way. Under Reduce
+and it stays until the person taps Next, which names the next part. The plans' sign-up ends the same way. Since R-298
+(Nate 17 Oct: it had become "a cold page with way too much text", where the moment had been "a very warm animation") the
+first visit's page is the moment again at full size: the flower large in the middle on a soft glow, opening over about
+1.2 s, six petals drifting off it and gone by 3.4 s, then the words, two lines and one small "Texts go to ... · Change",
+centred, with Next under them on a laptop. Under Reduce
 Motion nothing moves: the words are there and
 the thing that would have burst takes a brief colour change (`fx.js` tint()). Teaching scenes move only when the person taps, and each step's movement is over within about 4
 seconds, in beats that follow its caption. Nothing moves by itself for more than 5 seconds. Under
@@ -641,7 +645,7 @@ sessions "from January," comes before "bills"). It does not say "speak up" or wh
 it already say (A-14), and it stays at three lines on a phone so the box starts within 320px (A-1). The line under the
 number answers what "Save your profile" makes a newcomer wonder, is this an account to set up: "No password needed."
 The code step says what the code does ("Type the code to save your profile."), and once the code proves the number the
-"Mahalo!" page's card starts with "Your profile is saved". A number not yet confirmed, and an email, keep "Almost set" and "to turn
+"Mahalo!" page thanks them by name (since R-298 it has no card: "Texts go to <number> · Change"). A number not yet confirmed, and an email, keep "Almost set" and "to turn
 on alerts" (D1-4).
 
 *Reason.* Nate's product rule, and it matches every piece of consent guidance worth citing. The ask

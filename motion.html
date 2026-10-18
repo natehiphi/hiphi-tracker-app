@@ -207,8 +207,8 @@ if (!window.__moFrame) {
         if (!F.$('.st-tile')) { (await F.mod('./pub/kernel.js')).app.go('#/start/1'); await F.wait('.st-tile[aria-pressed="true"]'); await F.quiet(); }
         F.mark(); F.click('[data-stnext]');
       } },
-    { id: 'mahalo', where: 'First visit, after the alerts ask', name: '“Mahalo!” page', code: 'fx.bloom() on start-rest.js stepThanks', about: 'the flower opens in about 0.7 s; the page waits for Next',
-      what: 'Once the alerts screen is answered or skipped, it turns into the “Mahalo!” page: the flower opens once and the words rise in, and it stays until Next (Nate 11 Oct: the 1.5 s moment was too quick). The first action sent and a law passed keep the 1.5 s moment (fx.celebrate).',
+    { id: 'mahalo', where: 'First visit, after the alerts ask', name: '“Mahalo!” page', code: 'fx.bloom() on start-rest.js stepThanks', about: 'the big flower opens in about 1.2 s, six petals drift off it (gone by 3.4 s); the page waits for Next',
+      what: 'Once the alerts screen is answered or skipped, it turns into the “Mahalo!” page: the big flower opens slowly in the middle, a few petals drift off it, the two lines rise in, and it stays until Next (Nate 11 Oct: the 1.5 s moment was too quick; 17 Oct, R-298: warm again, far fewer words). The first action sent and a law passed keep the 1.5 s moment (fx.celebrate).',
       link: 'track.html?demo=1&restart&fv=full', page: 'track.html', q: FV, h: '#/start/1', seed: SEEN,
       ready: F => F.$('.st-tile'),
       prep: async F => { F.click('.st-tile'); await sleep(200); F.click('[data-stnext]'); await F.wait('[data-stpick]'); await F.quiet();

@@ -55,3 +55,56 @@ html[data-fxdir="back"]::view-transition-new(fx-main) { animation-name: fx-in-l;
   .fx-moment, .fx-moment *, .fx-moment *::before { animation-duration: .001ms !important; animation-delay: 0ms !important; transition-duration: .001ms !important; }
   ::view-transition-old(fx-main), ::view-transition-new(fx-main) { animation: none; }
 }
+
+/* ---- the first visit's "Mahalo!" page (start-rest.js stepThanks; R-298, Nate 17 Oct: warm again, far fewer words) ----
+   The moment's flower at the moment's size and bigger, in the middle on a soft warm glow, opening slowly (about 1.2 s)
+   with six petals drifting off it (fx.js drift), then the two lines rising under it. Next is in the bar from the first
+   frame. These rules sit here, with the motion, and outrank start.css's .st-thanks ones (that file loads later), which the
+   plans' ending (onb.js) still uses. */
+.st.st-mahalo .st-intro { align-items: center; text-align: center; }
+.st.st-mahalo :is(.st-chapters, .st-steps) { align-self: stretch; text-align: left; }
+.st-mhflower { position: relative; display: grid; place-items: center; width: 220px; height: 196px; margin: 8px auto 0;
+  background: radial-gradient(closest-side, var(--o50) 0, var(--o50) 55%, rgba(255, 244, 238, 0) 100%); border-radius: 50%; }
+.st.st-thanks.st-mahalo .fx-bloom { width: 148px; height: 148px; margin: 0; }
+.st.st-mahalo .st-thtitle { margin-top: 4px; }
+.st.st-mahalo .st-thsub { margin: 0; line-height: 1.45; max-width: 30ch; }
+.st-mhhow { font-weight: 400; color: var(--n700); }
+.st-mhwhere { margin: 4px 0 0; font-size: var(--t14); color: var(--n700); }
+/* Change keeps a 44px tap area without moving off the line's baseline (the padding grows the hit area, the margin takes it back). */
+.st-mhwhere .btn.text { display: inline; font-size: inherit; padding: 14px 4px; margin: -14px -4px; min-height: 0; vertical-align: baseline; }
+/* On a phone the flower and the words sit in the middle of the space between Back and Next, not in its top half. */
+@media (max-width: 899px) {
+  .st.st-mahalo { min-height: calc(100dvh - 210px); }
+  .st.st-mahalo .st-intro { flex: 1 1 auto; }
+  .st.st-mahalo .st-mhflower { margin-top: auto; }
+  .st.st-mahalo .st-intro > :last-child { margin-bottom: auto; }
+}
+/* The slow opening, only as the page arrives; the words rise while it opens. */
+.st.st-mahalo.st-thanksnew .fx-bloom .fx-petal { animation-duration: .9s; }
+.st.st-mahalo.st-thanksnew .fx-bloom g > g:nth-child(1) .fx-petal { animation-delay: 0ms; }
+.st.st-mahalo.st-thanksnew .fx-bloom g > g:nth-child(2) .fx-petal { animation-delay: 110ms; }
+.st.st-mahalo.st-thanksnew .fx-bloom g > g:nth-child(3) .fx-petal { animation-delay: 220ms; }
+.st.st-mahalo.st-thanksnew .fx-bloom g > g:nth-child(4) .fx-petal { animation-delay: 330ms; }
+.st.st-mahalo.st-thanksnew .fx-bloom g > g:nth-child(5) .fx-petal { animation-delay: 440ms; }
+.st.st-mahalo.st-thanksnew .fx-bloom .fx-heart { animation-duration: .5s; animation-delay: .75s; }
+.st.st-mahalo.st-thanksnew .fx-bloom .fx-spark { animation-duration: 1.1s; animation-delay: .9s !important; }
+.st.st-mahalo.st-thanksnew .st-thtitle { animation: fx-rise .5s var(--ease) .3s both; }
+.st.st-mahalo.st-thanksnew .st-thsub { animation: fx-rise .5s var(--ease) .4s both; }
+.st.st-mahalo.st-thanksnew .st-mhwhere { animation: fx-rise .5s var(--ease) .5s both; }
+.fx-drift { position: absolute; inset: 0; pointer-events: none; }
+.fx-drift svg { position: absolute; left: 50%; top: 50%; width: calc(17px * var(--k)); height: calc(23px * var(--k)); margin: -11px 0 0 -8px;
+  opacity: 0; animation: fx-drift 2s cubic-bezier(.3, .2, .4, 1) both; }
+/* Each starts at the flower's rim, on its own side, and falls away from it. */
+@keyframes fx-drift { 0% { opacity: 0; transform: translate(calc(var(--dx) * .7), calc(var(--dy) * .25 - 14px)) rotate(0); } 15% { opacity: .95; }
+  70% { opacity: .8; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--dr)); } }
+@media (max-height: 640px) { .st-mhflower { width: 180px; height: 150px; } .st.st-thanks.st-mahalo .fx-bloom { width: 112px; height: 112px; } }
+@media (prefers-reduced-motion: reduce) { .fx-drift { display: none; } }
+/* On a wide screen the page is one centred column, Next under the words: nothing sits on the right any more. (start.js's
+   st-onecol did this only after Skip; "html" outranks start.css, which loads after this file.) */
+@media (min-width: 900px) {
+  html body[data-screen="start"]:has(.st-mahalo) .st-intro { grid-column: 1 / -1; grid-row: 1; position: static; justify-self: center; width: 100%; max-width: 640px; }
+  html body[data-screen="start"]:has(.st-mahalo) .st-main { display: none; }
+  html body[data-screen="start"]:has(.st-mahalo) .actionbar { grid-column: 1 / -1; grid-row: 2; position: static; background: none; }
+  html body[data-screen="start"]:has(.st-mahalo) .actionbar :is(.st-btns, .st-one) { justify-content: center; }
+  html body[data-screen="start"]:has(.st-mahalo) .actionbar .inner { width: 100%; }
+}
