@@ -1,0 +1,74 @@
+/* The calm redesign of the rest of the public pages (R-303), loaded only with ?rec=1 (pub/app.js cssFor), scoped to
+   body.rec. The shapes are the bill page's in layout 3 (bill.css .bl-rec) and Home's quiet rows (home.css .cm-row), so
+   the pages read as one product: warm is plain words and calm space (Nate 10/17), not drawings. */
+
+body.rec .rc { max-width: 640px; margin: 0 auto; padding-bottom: var(--s32); }
+body.rec .rc-head { margin: var(--s16) 0 var(--s8); }
+body.rec .rc-back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-left: -4px; color: var(--p700); font-weight: 700; text-decoration: none; }
+body.rec .rc-back:hover span { text-decoration: underline; }
+body.rec .rc-back .ic { width: 20px; height: 20px; }
+body.rec .rc-eye { margin: var(--s12) 0 0; font: 700 var(--t13)/1.2 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--n700); }
+body.rec .rc-h1 { margin: 2px 0 0; font: 700 var(--t28)/1.15 var(--font-h); letter-spacing: -.02em; color: var(--n900); }
+body.rec .rc-lede { margin: var(--s8) 0 0; font-size: var(--t16); line-height: 1.5; color: var(--n700); max-width: 36em; }
+body.rec .rc-hrow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s12); margin-top: var(--s12); }
+body.rec .rc-hrow .rc-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--p700); font-weight: 700; text-decoration: none; background: none; border: 0; padding: 0; font-size: var(--t16); cursor: pointer; }
+body.rec .rc-hrow .rc-link:hover span { text-decoration: underline; }
+body.rec .rc-hrow .rc-link .ic { width: 18px; height: 18px; }
+
+body.rec .rc-sec { margin-top: var(--s32); }
+body.rec .rc-h2 { margin: 0 0 var(--s8); font: 600 var(--t18)/1.2 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+body.rec .rc-note { margin: calc(-1 * var(--s4)) 0 var(--s8); font-size: var(--t14); color: var(--n700); }
+body.rec .rc-card { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: var(--s16); }
+body.rec .rc-card + .rc-card { margin-top: var(--s12); }
+
+/* Quiet rows: Home's (.cm-row), a white wash on hover only where a pointer hovers */
+body.rec .rc-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s4); }
+body.rec .rc-row { display: flex; align-items: center; gap: var(--s12); min-height: 64px; margin: 0 calc(-1 * var(--s12)); padding: var(--s12); border-radius: var(--r12); color: inherit; text-decoration: none; transition: background .12s; }
+@media (hover: hover) { body.rec .rc-row:hover { background: var(--n0); } }
+body.rec .rc-row:focus-visible { outline: 3px solid var(--p700); outline-offset: 0; }
+body.rec .rc-rtext { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+body.rec .rc-rname { font: 600 var(--t16)/1.25 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+body.rec .rc-rstat { font-size: var(--t14); color: var(--n700); }
+body.rec .rc-rstat.warn { color: var(--warn-text); font-weight: 700; }
+body.rec .rc-chev { flex: none; width: 20px; height: 20px; color: var(--n400); }
+body.rec .rc-lead { flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--p50); color: var(--p700); display: grid; place-items: center; overflow: hidden; }
+body.rec .rc-lead .ic { width: 20px; height: 20px; }
+body.rec .rc-lead img, body.rec .rc-lead .none { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+body.rec .rc-lead .none { display: grid; place-items: center; font-weight: 700; color: var(--p800); background: var(--p100); }
+body.rec .rc-card .rc-rows { margin: calc(-1 * var(--s8)) 0; }
+body.rec .rc-card .rc-row { margin: 0 calc(-1 * var(--s8)); padding: var(--s8); }
+@media (hover: hover) { body.rec .rc-card .rc-row:hover { background: var(--n50); } }
+body.rec .rc-showall { margin: var(--s4) 0 0 calc(-1 * var(--s12)); }
+
+/* Closed cards with a one-line preview (the bill page's .bl-rfold) */
+body.rec .rc-folds { margin-top: var(--s16); display: flex; flex-direction: column; gap: var(--s8); }
+body.rec .rc-fold { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: 0 var(--s16); }
+body.rec .rc-fold > summary { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); min-height: 64px; padding: var(--s12) 0; cursor: pointer; list-style: none; color: var(--n900); }
+body.rec .rc-fold > summary::-webkit-details-marker { display: none; }
+body.rec .rc-fold > summary:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; border-radius: var(--r8); }
+body.rec .rc-ft { display: block; font: 600 var(--t16)/1.25 var(--font-h); }
+body.rec .rc-fp { display: block; margin-top: 3px; font: 400 var(--t13)/1.35 var(--font); color: var(--n700); }
+body.rec .rc-fchev { flex: none; width: 20px; height: 20px; color: var(--n500); transition: transform .15s var(--ease); }
+body.rec .rc-fold[open] > summary .rc-fchev { transform: rotate(180deg); }
+body.rec .rc-fin { padding: var(--s4) 0 var(--s16); border-top: 1px solid var(--n100); }
+@media (prefers-reduced-motion: reduce) { body.rec .rc-fchev, body.rec .rc-row { transition: none; } }
+
+/* A row inside a card that leads somewhere (the bill page's .bl-rway) */
+body.rec .rc-way { display: grid; grid-template-columns: 36px 1fr 20px; gap: var(--s12); align-items: center; width: 100%; min-height: 56px; padding: var(--s8) 0; background: none; border: 0; border-top: 1px solid var(--n100); color: inherit; text-align: left; text-decoration: none; font: inherit; cursor: pointer; }
+body.rec .rc-way:first-child { border-top: 0; }
+body.rec .rc-way:hover .rc-wt { text-decoration: underline; }
+body.rec .rc-wic { width: 36px; height: 36px; border-radius: 50%; background: var(--p50); color: var(--p700); display: grid; place-items: center; }
+body.rec .rc-wic .ic { width: 18px; height: 18px; }
+body.rec .rc-wt { display: block; font-weight: 700; color: var(--n900); }
+body.rec .rc-ws { display: block; font-size: var(--t13); color: var(--n700); margin-top: 2px; }
+
+body.rec .rc-empty { padding: var(--s24) 0; color: var(--n700); }
+body.rec .rc-empty p { margin: 0 0 var(--s12); font-size: var(--t16); line-height: 1.5; }
+
+/* Laptop: a readable column for reading pages; pages with a side panel set their own grid */
+@media (min-width: 1100px) {
+  body.rec .rc { max-width: 720px; }
+  body.rec .rc.rc-wide { max-width: 1120px; }
+  body.rec .rc-cols { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--s32); align-items: start; }
+  body.rec .rc-side { position: sticky; top: calc(var(--header) + var(--s16)); }
+}

@@ -29,6 +29,9 @@ const lazy = (key, load, o = {}) => {
 // (pub/calm/home.js, Direction 1: today's bill page and tabs); 'today' is the Home as it was before, and 'a' is R-071's
 // Layout A from September (pub/a/: its Home, its bill page, "You").
 const oldA = () => armOf('layout') === 'a';
+// The calm redesign of the rest of the public pages (R-303, Nate 10/17), with the bill page in layout 3 (R-302): only with
+// ?rec=1 until his look. Taking this switch out brings back today's pages everywhere.
+const REC = () => new URLSearchParams(location.search).has('rec');
 const calmHome = () => armOf('layout') === 'calm';
 const start = lazy('start', () => import('./start.js'), { tabs: false, title: 'Welcome' }), home = lazy('home', () => oldA() ? import('./a/home.js') : calmHome() ? import('./calm/home.js') : import('./home.js'), { tab: 'home', title: 'Home' });
 const find = lazy('find', () => import('./find.js'), { tab: 'find', title: 'Find' }), people = lazy('people', () => import('./people.js'), { tab: 'more', title: 'Your legislators' });
@@ -42,7 +45,7 @@ const committees = lazy('committees', () => import('./committees.js')), allbills
 // Each screen's stylesheet comes with it (R-122): track.html loads the base and the first screen's own, the rest come on
 // first use, and all of them a moment after the first screen so a later tap never waits. The order of the original list
 // is kept (a later file may override an earlier one; wide.css, the last, overrides them all).
-const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'wide', 'a/a'];
+const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'wide', 'rec/rec', 'a/a'];
 // (SCREEN_CSS, not CSS: that name is the browser’s own object, CSS.escape.)
 // Find, an issue, a category and a list draw their bills with mybills.js's rows, so mybills.css comes with them (R-184: an
 // issue page opened from a shared link drew its rows unstyled for about two seconds, 409px wide on a 375px phone, so the
@@ -52,7 +55,9 @@ const SCREEN_CSS = { start: ['start'], learn: ['start'], next: ['start', 'next']
   more: ['more', 'talk', 'profile'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more', 'profile'], profile: ['more', 'profile'], privacy: ['more'], mylist: ['mylists'], shared: ['mylists'], quiz: ['quiz'] };
 // Version A's look (pub/a/a.css, scoped to body.va and its own classes) comes after wide.css, as track-a.html had it, on
 // every screen but the first visit, which both versions share and other tests compare (R-187).
-const cssFor = name => oldA() && !FIRST_VISIT.includes(name) ? [...(SCREEN_CSS[name] || []), 'a/a'] : SCREEN_CSS[name];
+const cssFor0 = name => oldA() && !FIRST_VISIT.includes(name) ? [...(SCREEN_CSS[name] || []), 'a/a'] : SCREEN_CSS[name];
+// The calm redesign of the other pages (R-303) brings its one stylesheet to every page after the first visit, with ?rec=1.
+const cssFor = name => REC() && !FIRST_VISIT.includes(name) ? [...(cssFor0(name) || []), 'rec/rec'] : cssFor0(name);
 const FIRST_VISIT = ['start', 'learn', 'next'];   // and a later visit's ask (R-237), drawn in the first visit's frame
 const cssLink = n => document.querySelector(`link[rel="stylesheet"][href="pub/${n}.css"]`);
 const cssDone = new Set(), cssP = {};
@@ -260,6 +265,7 @@ export function render() {
   document.body.classList.toggle('withtabs', tabs);
   document.body.classList.toggle('hasbar', !!bar);
   document.body.dataset.screen = route.name;
+  document.body.classList.toggle('rec', REC() && !FIRST_VISIT.includes(route.name));   // R-303, behind ?rec=1
   // The screen's stylesheet first: until it is in, a skeleton under the right header, redrawn when it lands.
   const need = cssFor(route.name), styled = cssReady(need);
   if (!styled) ensureCss(need).then(() => render()).catch(e => console.error(e));
