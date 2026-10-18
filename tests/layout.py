@@ -45,8 +45,8 @@ with sync_playwright() as p:
             pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
             pg.goto(f'{BASE}/track.html?demo=1&ab=layout.{arm}#/'); ready(pg)
             if arm == 'calm':
-                ok(pg.locator('#main .cm.cm-met').count() == 1 and pg.locator('#main .ah').count() == 0 and 'Aloha, Kai' in pg.locator('h1').first.inner_text(), f'{size} calm: Home is the calm Home (“Aloha, Kai”)')
-                ok(pg.locator('.cm-card .acard').count() == 1 and 'Write my testimony' in pg.locator('.cm-card').inner_text(), f'{size} calm: one card, the soonest testimony deadline')
+                ok(pg.locator('#main .cm.cm-met').count() == 1 and pg.locator('#main .ah').count() == 0 and 'Aloha, Kai' in pg.locator('#main .cm-hi').first.inner_text(), f'{size} calm: Home is the calm Home (“Aloha, Kai”)')
+                ok(pg.locator('.cm-slide').count() == 1 and 'Write my testimony' in pg.locator('.cm-slide .btn.primary').inner_text(), f'{size} calm: one slide, the soonest testimony deadline (R-295)')
                 ok(pg.locator('#cm-iss-h').count() == 1 and pg.locator('.cm-rows .cm-row').count() == 3, f'{size} calm: then Your issues, one row each ({pg.locator(".cm-rows .cm-row").count()})')
                 ok(not pg.evaluate("document.body.classList.contains('va')") and not pg.evaluate("!!document.querySelector('link[href=\"pub/a/a.css\"]')"), f'{size} calm: the week view’s look is not loaded')
                 if mobile: ok(tabs(pg) == ['Home', 'My issues', 'Find', 'More'], f'{size} calm: today’s tabs {tabs(pg)}')
@@ -74,11 +74,11 @@ with sync_playwright() as p:
             if mobile:
                 # a saved letter for the hearing the first card offers: one button for it, not two (the fresh-eyes review)
                 pg.goto(f'{BASE}/track.html?demo=1&ab=layout.{arm}#/'); pg.reload(); ready(pg)
-                hid = pg.get_attribute('.a-now [data-helper]' if arm == 'a' else '#main .acard [data-helper]', 'data-helper')
+                hid = pg.get_attribute('.a-now [data-helper]' if arm == 'a' else '#main .cm-slide [data-helper]' if arm == 'calm' else '#main .acard [data-helper]', 'data-helper')
                 pg.evaluate("hid => { const m = JSON.parse(localStorage.getItem('hiphi_me') || '{}'); m.drafts = { [hid]: { body: 'Aloha', at: new Date().toISOString() } }; localStorage.setItem('hiphi_me', JSON.stringify(m)); }", hid)
                 pg.reload(); ready(pg)
                 if arm == 'calm':
-                    ok(pg.locator('#main .hm-draft').count() == 0 and 'Finish sending your testimony' in pg.locator('.cm-card .acard').inner_text(), 'calm: a saved letter shows once, as the card’s “Finish sending your testimony”')
+                    ok(pg.locator('#main .hm-draft').count() == 0 and 'Finish sending your testimony' in pg.locator('.cm-slide').inner_text(), 'calm: a saved letter shows once, as the slide’s “Finish sending your testimony”')
                 elif arm == 'a':
                     ok(pg.locator('#main .hm-draft').count() == 0 and 'Finish sending your testimony' in pg.locator('.a-now').inner_text(), 'A: a saved letter shows once, as the Now card’s “Finish sending your testimony”')
                 else:
@@ -99,7 +99,7 @@ with sync_playwright() as p:
     pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.goto(f'{BASE}/track-a.html?day=tue#/bill/HB1780'); pg.wait_for_url(re.compile(r'track\.html'), timeout=15000); ready(pg)
     q = pg.evaluate("location.search + location.hash")
-    ok('ab=layout.a' in q.replace('%2C', ',').replace('%2E', '.') and 'day=tue' in q and 'demo=1' in q and q.endswith('#/bill/HB1780'), f'track-a.html opens track.html on the week view, keeping the day and the page: {q}')
+    ok('ab=layout.a' in q.replace('%2C', ',').replace('%2E', '.') and 'day=tue' in q and 'demo=1' in q and re.search(r'#/bill/(2026/)?HB1780$', q), f'track-a.html opens track.html on the week view, keeping the day and the page: {q}')
     pg.goto(f'{BASE}/compare.html'); pg.locator('[data-layout="calm"]').click(); pg.wait_for_url(re.compile(r'track\.html'), timeout=15000); ready(pg)
     ok('ab=layout.calm' in pg.url and pg.locator('#main .cm').count() == 1, f'compare.html: Open the calm Home opens it: {pg.url}')
     pg.goto(f'{BASE}/compare.html'); pg.locator('[data-layout="a"]').click(); pg.wait_for_url(re.compile(r'track\.html'), timeout=15000); ready(pg)
@@ -125,7 +125,7 @@ with sync_playwright() as p:
         box = nd.bounding_box(); ok(box and box['height'] >= 24, f'{arm}: Next day is at least 24px tall ({box and round(box["height"])})')
         nd.click(); pg.wait_for_url(re.compile(r'day=tue'), timeout=15000); ready(pg)
         ok('later' not in pg.url and 'Tue, Mar 17, 2026' in pg.locator('.band').inner_text(), f'{arm}: Next day is Tuesday 17 March, and “later” leaves the address ({pg.url[-40:]})')
-        if arm == 'calm': ok(pg.locator('#main .cm.cm-met').count() == 1 and 'Tuesday, March 17' in pg.locator('.cm-head .eyebrow').inner_text(), 'calm: on Tuesday, the calm Home’s everyday shape')
+        if arm == 'calm': ok(pg.locator('#main .cm.cm-met').count() == 1 and pg.locator('#main .cm-slide').count() == 1 and 'Aloha, Kai' in pg.locator('.cm-head .cm-hi').inner_text(), 'calm: on Tuesday, the calm Home’s everyday shape')
         else: ok(pg.locator('#main .hm-follow').count() == 1 and pg.locator('#main .hm-welcome').count() == 0, 'today: on Tuesday, today’s everyday Home')
         ok(seen(pg).get('layout', {}).get('arm') == arm, f'{arm}: that Home meets the layout test ({seen(pg).get("layout")})')
         ok(pg.locator('.band [data-nextday]').count() == 1 and 'day=wed' in pg.locator('.band [data-nextday]').get_attribute('href'), f'{arm}: then Next day is Wednesday')
