@@ -47,12 +47,16 @@ export function recList() {
     const key = codesOf(x.h.committee).sort().join('/') + '|' + x.h.scheduled_at, g = sit.get(key) || { h: x.h, codes: codesOf(x.h.committee).filter(k => S.committees[k]), bills: new Map() };
     g.bills.set(x.b.id, x.b); sit.set(key, g);
   }
+  // By date; a row with a bill the person follows names that bill first and says "On your issues" (the critic: followed rows
+  // first looked like a broken order). A joint hearing in the word list's form (C-15).
   const mineFirst = b => S.watch?.has(b.id) ? 0 : 1;
   const week = [...sit.values()].map(g => ({ ...g, bills: [...g.bills.values()].sort((a, b) => mineFirst(a) - mineFirst(b)) }))
-    .sort((a, b) => mineFirst(a.bills[0]) - mineFirst(b.bills[0]) || a.h.scheduled_at.localeCompare(b.h.scheduled_at));
-  const weekRow = g => { const c0 = S.committees[g.codes[0]] || {}, n = g.bills.length;
-    return { name: `${CHAMBER_NAME[c0.chamber] || ''} ${g.codes.map(k => S.committees[k].name).join(' and ')}`.trim(), href: `#/committee/${g.codes[0]}`,
-      text: [`${billWords(g.bills[0])}${n > 1 ? `, and ${n - 1} more` : ''}`, hearingWhen(g.h.scheduled_at), g.h.room ? roomLabel(g.h.room) : ''].filter(Boolean).join(' · ') }; };
+    .sort((a, b) => a.h.scheduled_at.localeCompare(b.h.scheduled_at));
+  const NUM = ['', 'one', 'two', 'three', 'four'];
+  const weekRow = g => { const c0 = S.committees[g.codes[0]] || {}, n = g.bills.length, ch = CHAMBER_NAME[c0.chamber] || '', names = g.codes.map(k => S.committees[k].name);
+    return { name: names.length > 1 ? `${NUM[names.length] || names.length} ${ch} committees: ${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`.replace(/^\w/, c => c.toUpperCase()) : `${ch} ${names[0]}`.trim(),
+      href: `#/committee/${g.codes[0]}`,
+      text: [S.watch?.has(g.bills[0].id) ? 'On your issues' : '', `${billWords(g.bills[0])}${n > 1 ? `, and ${n - 1} more` : ''}`, hearingWhen(g.h.scheduled_at), g.h.room ? roomLabel(g.h.room) : ''].filter(Boolean).join(' · ') }; };
   const fold = (ch, title) => { const list = cs.filter(c => c.chamber === ch); if (!list.length) return '';
     return recFold('cmt-' + ch, title, `${list.slice(0, 2).map(c => c.name).join(', ')}, and more`, recRows(list.map(c => ({ name: c.name, text: meets(c.code), href: `#/committee/${c.code}` })))); };
   return `<div class="cmt rc cmt-rec">${back}

@@ -60,14 +60,14 @@ function billCard(x, { own, ways = '' } = {}) {
     : x.when === 'now' ? `${num} waits for a hearing in the ${cmteLabel(x.r.committee)}, and ${W} ${roleIt(x.r)}.`
     : x.when === 'next' ? `${num} goes next to the ${cmteLabel(x.r.committee)}, and ${W} ${roleIt(x.r)}.`
     : own ? `Lawmakers listen most to the people they represent, so a note from you about ${num} counts.` : `A short note tells ${W} that people care about ${num}.`;
-  // The moment on the card, the most pressing first: testimony on their committee's hearing (the bill page and the committee
-  // page say the same), the hearing, the cut-off for one there, or their chamber's vote; nothing for a bill only coming to
-  // them next (its dates belong to another committee).
+  // The card's moment is the lawmaker's: their committee's hearing, the cut-off for one there, or their chamber's vote;
+  // nothing for a bill only coming to them next (its dates belong to another committee). A testimony deadline belongs to the
+  // testimony row, so the email never reads as due then (the fresh-eyes review, A-13).
   const due = x.due || dueOf(b), dl = x.h && due.kind === 'testify' ? due.h.testimony_deadline : '';
-  const when = dl ? due.text : x.h ? `Hearing ${hearingWhen(x.h.scheduled_at)}` : x.when === 'next' ? '' : due.kind === 'needs' || due.kind === 'floor' ? due.text : '';
-  const at = dl || x.h?.scheduled_at || '', left = at ? pillFor(at) : when ? daysLeft(due.t) : '';
+  const when = x.h ? `Hearing ${hearingWhen(x.h.scheduled_at)}` : x.when === 'next' ? '' : due.kind === 'needs' || due.kind === 'floor' ? due.text : '';
+  const at = x.h?.scheduled_at || '', left = at ? pillFor(at) : when ? daysLeft(due.t) : '';
   // With testimony open, the walkthrough is the one more way (A-20), unless the card already offers the other lawmaker.
-  const more = ways || (dl && !open ? recWay('notebook-pen', 'Help me write testimony', 'Your own words to the committee, about 15 minutes', { href: billPath(b) + '/testify' }) : '');
+  const more = ways || (dl && !open ? recWay('notebook-pen', 'Help me write testimony', `Due ${hearingWhen(dl)} · your own words to the committee, about 15 minutes`, { href: billPath(b) + '/testify' }) : '');
   return recAct({ id: 'pp-act-h', when, left, warn: at ? Date.parse(at) - Date.now() < 864e5 : due.warn,
     title: v ? `Ask ${W} to ${v} ${name}` : `Write to ${W} about ${name}`, text: why,
     button: mailBtn(l, k, open), more: open ? '' : 'About 2 minutes', after: open ? composer(l, b, k, own ? townOf(saved()) : '') : '', ways: more });
