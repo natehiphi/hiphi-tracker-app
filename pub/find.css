@@ -51,7 +51,7 @@
 .fd-follow.on > .small { text-align: left; color: var(--n700); }
 .fd-follow.on .btn.text { margin-left: -16px; }   /* a small text button's 16px padding: its words on the text edge (X9-1, A-8) */
 .fd-follow.on .fd-lvl { margin: var(--s4) 0 0; }   /* the issue's alerts level (R-299): one line, under the line it qualifies */
-.fd-follow.on .lvl-line .btn.text { margin-left: -8px; }
+.fd-follow.on .lvl-line .btn.text { margin-left: -16px; }
 .fd-follow.on .lvl-box { margin: var(--s8) 0 var(--s4); }
 .fd .okmsg { font-size: var(--t16); align-items: flex-start; }
 .fd .okmsg .ic { width: 20px; height: 20px; margin-top: 2px; }

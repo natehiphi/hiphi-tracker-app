@@ -700,7 +700,7 @@ function wireIssues(root) {
 function wirePage(root) {
   wireRows(root);
   wireIssues(root);
-  wireLevelLine(root);   // the issue's alerts level, for someone alerts reach (R-299): one line, Change opens the chips
+  wireLevelLine(root);   // the issue's alerts level, for someone alerts reach (R-299): one line, Change opens the switch
   root.querySelectorAll('[data-fdmore]').forEach(el => el.onclick = () => { F.more[el.dataset.fdmore] = true; const from = +el.dataset.from || 0, k = el.dataset.fdmore; app.render();
     document.querySelector(`[data-grp="${CSS.escape(k)}"] .mb-row:nth-child(${from + 1}) .mb-main`)?.focus({ preventScroll: true }); });
   root.querySelectorAll('[data-reissue]').forEach(el => el.onclick = () => { delete F.issues[el.dataset.reissue]; app.render(); });

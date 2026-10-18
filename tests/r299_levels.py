@@ -1,15 +1,16 @@
 # R-299 (Nate 17 Oct): how much each followed issue sends, chosen after acting, never in the first visit. In the practice
 # copy served locally:
-#   I1  the issue page: "Alerts about this issue" for a followed issue when alerts can reach the person, Big moments only
-#       chosen; a tap on Every hearing saves it, says "Saved." and is kept after a reload; nothing without a number or email
+#   I1  the issue page: "Alerts about this issue" for a followed issue when alerts can reach the person, a sliding switch of three
+#       radio buttons with a line under it, Big moments only chosen; a tap on Every hearing saves it, says "Saved." and is
+#       kept after a reload; arrow keys move through it; nothing without a number or email
 #       (C-13), nothing for an issue not followed
-#   P1  Profile > Alerts: one row per followed issue with its level; a change waits in the save bar, Save keeps it, Cancel puts
+#   P1  Profile > Alerts: one sliding switch per followed issue, under its name; a change waits in the save bar, Save keeps it, Cancel puts
 #       it back; the text line no longer says "at most one a day"; signed in with an email, "Hearing emails" is there while
 #       hearing emails are ticked and its choice is saved in prefs.email_level
 #   T1  the thank-you after testimony: "Text me every hearing on <issue>?" with "Yes, every hearing"; the yes leaves one line with
 #       Undo, which puts the level back
 #   X1  the page a text's link opens (?via=text): "Texts about <issue>: Big moments only" with Change, which opens the three
-#       chips; a tap there changes the line; nothing without ?via=text
+#       levels; a tap there changes the line; nothing without ?via=text
 #   S1  Staff v2 and v5: an email about a bill has "Big push: also text it", the text line shows once ticked with a live count,
 #       a short line is refused, a big push on the same issue in the past 7 days is warned of; an email to a list has none
 #   G1  the go-live switch: pub/alerts.js WORDS_T5 and text-terms.html's R-299 GO-LIVE block agree
@@ -37,7 +38,7 @@ def setup(follows, text=True, levels=None):
       {"localStorage.setItem('hiphi_text', JSON.stringify({ token: 't-r299', phone: '8085550147', at: new Date().toISOString(), confirmed: true }));" if text else ''}
       {f"localStorage.setItem('hiphi_issue_levels', JSON.stringify({json.dumps(levels)}));" if levels else ''} }}"""
 levels = lambda pg: pg.evaluate("async () => (await import('./pub/core.js')).S.levels")
-pressed = lambda pg, sel='.lvl': pg.evaluate(f"[...document.querySelectorAll('{sel} [data-lvl][aria-pressed=\"true\"]')].map(b => b.innerText.trim())")
+pressed = lambda pg, sel='.lvl': pg.evaluate(f"[...document.querySelectorAll('{sel} [data-lvl]:checked')].map(r => r.closest('.lvl-o').querySelector('.lvl-n').innerText.trim())")
 errs = []
 with sync_playwright() as p:
     br = p.chromium.launch()
@@ -54,15 +55,28 @@ with sync_playwright() as p:
     ok(act is not None and act < 812, f'I1: "You can help this week" starts on the first phone screen ({act})')
     pg.locator('.fd-follow [data-lvl-toggle]').click(); pg.wait_for_timeout(500)
     box = pg.locator('.fd-follow.on .lvl')
-    ok(box.count() == 1 and 'Alerts about this issue' in box.inner_text(), 'I1: Change opens "Alerts about this issue" in place')
-    chips = pg.evaluate("[...document.querySelectorAll('.lvl [data-lvl]')].map(b => b.innerText.trim())")
-    ok(chips == ['Every hearing', 'Big moments only', 'App only'] and pressed(pg) == ['Big moments only'], f'I1: three levels, Big moments only chosen by default ({chips}, {pressed(pg)})')
-    ok('Usually a few a month' in pg.locator('.lvl-hint').inner_text(), 'I1: the line under them says what Big moments only sends')
-    ok(all((b['height'] >= 44) for b in pg.evaluate("[...document.querySelectorAll('.lvl [data-lvl]')].map(b => b.getBoundingClientRect().toJSON())")), 'I1: each chip is 44px tall (A-6)')
-    pg.locator('.lvl [data-lvl="every"]').click(); pg.wait_for_timeout(600)
-    ok(pressed(pg) == ['Every hearing'] and 'Saved.' in pg.locator('.lvl-hint').inner_text() and 'Alerts: Every hearing' in pg.locator('.fd-follow .lvl-line').inner_text(), 'I1: a tap on Every hearing chooses it, says "Saved." and the line says it')
+    ok(box.count() == 1 and pg.locator('.fd-follow.on .lvl-line').inner_text().startswith('Alerts about this issue') and 'Big moments only' not in pg.locator('.fd-follow.on .lvl-line').inner_text(), 'I1: Change opens the switch in place, and the line names it, "Alerts about this issue · Close", without saying the level again (A-14)')
+    ok(pg.evaluate("document.getElementById(document.querySelector('.lvl [role=radiogroup]').getAttribute('aria-labelledby'))?.innerText.trim()") == 'Alerts about this issue', 'I1: the line is the switch\'s label')
+    ok(pg.evaluate("document.activeElement?.dataset?.lvl") == 'big', 'I1: Change puts the focus on the chosen level, so arrow keys work at once')
+    chips = pg.evaluate("[...document.querySelectorAll('.lvl .lvl-o')].map(o => o.querySelector('.lvl-n').innerText.trim())")
+    ok(chips == ['Every hearing', 'Big moments only', 'App only'] and pressed(pg) == ['Big moments only'], f'I1: three levels, most to least, Big moments only chosen by default ({chips}, {pressed(pg)})')
+    ok(pg.locator('.lvl [role="radiogroup"] input[type="radio"][data-lvl]').count() == 3 and pg.evaluate("new Set([...document.querySelectorAll('.lvl [data-lvl]')].map(r => r.name)).size") == 1, 'I1: one radio group of three real radio buttons (Nate 17 Oct: the sliding switch)')
+    ok('Usually a few a month' in pg.locator('.lvl-hint').inner_text() and pg.evaluate("document.querySelector('.lvl [role=radiogroup]').getAttribute('aria-describedby')") == pg.evaluate("document.querySelector('.lvl-hint').id"), 'I1: the line under the switch says what Big moments only sends, and describes the group')
+    pill = lambda: pg.evaluate("(() => { const p = document.querySelector('.lvl-pill').getBoundingClientRect(), o = document.querySelector('.lvl [data-lvl]:checked').closest('.lvl-o').getBoundingClientRect(); return Math.abs(p.left - o.left) < 3 && Math.abs(p.width - o.width) < 3; })()")
+    ok(pill(), 'I1: the white pill sits under the chosen level')
+    ok(all((b['height'] >= 44) for b in pg.evaluate("[...document.querySelectorAll('.lvl .lvl-o')].map(b => b.getBoundingClientRect().toJSON())")), 'I1: each row is at least 44px tall (A-6)')
+    ok(pg.locator('.lvl button.chip').count() == 0, 'I1: no chips')
+    pg.locator('.lvl .lvl-o:has([data-lvl="every"])').click(); pg.wait_for_timeout(600)
+    ok(pressed(pg) == ['Every hearing'] and 'Saved.' in pg.locator('.lvl-hint').inner_text() and 'never more than one a day' in pg.locator('.lvl-hint').inner_text() and 'Saved: Every hearing' in pg.locator('.lvl [role=status]').inner_text(), 'I1: a tap on Every hearing chooses it and says "Saved." with what it sends (and once, to a screen reader)')
+    pg.wait_for_timeout(300); ok(pill(), 'I1: the pill has slid to Every hearing')
     ok(levels(pg).get(ECIG['id']) == 'every', 'I1: the level is kept (the sandbox keeps it in this browser)')
-    ok(pg.evaluate("document.activeElement?.dataset?.lvl") == 'every', 'I1: the focus stays on the chip just pressed')
+    ok(pg.evaluate("document.activeElement?.dataset?.lvl") == 'every', 'I1: the focus is on the level just chosen')
+    pg.keyboard.press('ArrowDown'); pg.wait_for_timeout(250); pg.keyboard.press('ArrowDown'); pg.wait_for_timeout(900)
+    ok(pressed(pg) == ['App only'] and levels(pg).get(ECIG['id']) == 'app' and 'Saved.' in pg.locator('.lvl-hint').inner_text() and 'still see its news here' in pg.locator('.lvl-hint').inner_text(), f'I1: arrow keys move through the levels, and the last one is kept ({pressed(pg)}, {levels(pg).get(ECIG["id"])})')
+    pg.keyboard.press('ArrowUp'); pg.wait_for_timeout(250); pg.keyboard.press('ArrowUp'); pg.wait_for_timeout(900)
+    ok(levels(pg).get(ECIG['id']) == 'every', 'I1: and back up to Every hearing')
+    pg.locator('.fd-follow [data-lvl-toggle]').click(); pg.wait_for_timeout(500)
+    ok('Alerts: Every hearing' in pg.locator('.fd-follow .lvl-line').inner_text() and pg.locator('.fd-follow .lvl').count() == 0, 'I1: Close folds it, and the line says the level chosen')
     pg.reload(); ready(pg); pg.wait_for_timeout(800)
     ok('Alerts: Every hearing' in pg.locator('.fd-follow .lvl-line').inner_text(), 'I1: still Every hearing after a reload')
     pg.evaluate("() => localStorage.removeItem('hiphi_text')"); pg.reload(); ready(pg); pg.wait_for_timeout(800)
@@ -77,18 +91,19 @@ with sync_playwright() as p:
     pg.goto(PUB + '#/profile'); pg.reload(); ready(pg); pg.wait_for_timeout(800)
     al = pg.locator('#pf-email').inner_text()
     ok('when your voice matters most' in al and 'at most one a day' not in al, f'P1: the text line says what texts are for, not "at most one a day" ({al[:90]!r})')
-    rows = pg.evaluate("[...document.querySelectorAll('.pf-lvls select')].map(s => [s.labels[0].innerText.trim(), s.value])")
-    ok(sorted(rows) == sorted([[ECIG['name'], 'big'], [CROSS['name'], 'app']]), f'P1: one row per followed issue, with its level ({rows})')
-    ok('Big moments only is usually a few a month' in pg.locator('.pf-lvls').inner_text() and 'Alerts for each issue' in pg.locator('.pf-lvls legend').inner_text(), 'P1: "Alerts for each issue", and one line says how often the usual level comes')
-    pg.select_option(f'#pf-lv-{ECIG["id"]}', 'every'); pg.wait_for_timeout(400)
+    rows = pg.evaluate("[...document.querySelectorAll('.pf-lvls .lvl-sw')].map(s => [document.getElementById(s.getAttribute('aria-labelledby')).innerText.trim(), s.querySelector('input:checked')?.value])")
+    ok(sorted(rows) == sorted([[ECIG['name'], 'big'], [CROSS['name'], 'app']]) and pg.locator('.pf-lvls select').count() == 0, f'P1: one sliding switch per followed issue, under its name, with its level (Nate 17 Oct: "A switch for each issue") ({rows})')
+    ok('Every hearing: never more than one a day. Big moments only: usually a few a month. App only: no texts or emails.' in pg.locator('.pf-lvls').inner_text() and 'Alerts for each issue' in pg.locator('.pf-lvls legend').inner_text(), 'P1: "Alerts for each issue", and one line says how often the usual level comes')
+    pg.locator(f'label[for="pf-lv-{ECIG["id"]}-every"]').click(); pg.wait_for_timeout(400)
+    ok(pg.evaluate(f"document.getElementById('pf-lv-{ECIG['id']}-every').closest('.lvl-sw').dataset.on") == 'every', 'P1: the pill moves to the level tapped')
     ok(pg.locator('.pf-bar [data-pf-save]').count() == 1 and levels(pg).get(ECIG['id']) is None, 'P1: a change waits in the save bar, not saved yet')
     pg.locator('[data-pf-cancel]').click(); pg.wait_for_timeout(500)
-    ok(pg.locator(f'#pf-lv-{ECIG["id"]}').input_value() == 'big' and pg.locator('.pf-bar').count() == 0, 'P1: Cancel puts it back')
-    pg.select_option(f'#pf-lv-{ECIG["id"]}', 'every'); pg.select_option(f'#pf-lv-{CROSS["id"]}', 'big'); pg.wait_for_timeout(300)
+    ok(pg.locator(f'#pf-lv-{ECIG["id"]}-big').is_checked() and pg.locator('.pf-bar').count() == 0, 'P1: Cancel puts it back')
+    pg.locator(f'label[for="pf-lv-{ECIG["id"]}-every"]').click(); pg.locator(f'label[for="pf-lv-{CROSS["id"]}-big"]').click(); pg.wait_for_timeout(300)
     pg.locator('[data-pf-save]').click(); pg.wait_for_timeout(900)
     lv = levels(pg)
     ok(lv.get(ECIG['id']) == 'every' and lv.get(CROSS['id']) == 'big', f'P1: Save keeps both levels ({lv})')
-    ok(pg.locator('.pf-bar').count() == 0 and pg.locator(f'#pf-lv-{ECIG["id"]}').input_value() == 'every', 'P1: the bar goes and the rows show what was saved')
+    ok(pg.locator('.pf-bar').count() == 0 and pg.locator(f'#pf-lv-{ECIG["id"]}-every').is_checked(), 'P1: the bar goes and the rows show what was saved')
     # Signed in with an email (stood in for, as tests/profile.py does): the email follows the levels unless they choose every hearing.
     pg.evaluate("async () => { const c = await import('./pub/core.js'); c.S.session = { user: { email: 'lei@example.com' } }; c.S.user = { id: 'u1', prefs: { hearing_alerts: true, action_alerts: true, consent_at: '2026-10-01T00:00:00Z' }, created_at: new Date().toISOString() }; c.S.profile = { name: 'Lei', titles: [], interests: [], stories: {} }; c.app.go('#/more'); }")
     pg.wait_for_timeout(500); pg.evaluate("async () => (await import('./pub/core.js')).app.go('#/profile')"); pg.wait_for_timeout(900)
@@ -128,9 +143,11 @@ with sync_playwright() as p:
     ok(line.count() == 1 and 'Texts: Big moments only' in line.inner_text() and line.inner_text().count(CROSS['name']) == 1, f'X1: the "Part of" line says "Texts: Big moments only", the issue named once ({line.inner_text() if line.count() else None!r})')
     ch = pg.locator('.bl-issue [data-lvl-toggle]'); ok(ch.count() == 1 and ch.inner_text().strip() == 'Change' and ch.get_attribute('aria-expanded') == 'false', 'X1: with Change beside it')
     ch.click(); pg.wait_for_timeout(600)
-    ok(pg.locator('#bl-lvl-box .lvl [data-lvl]').count() == 3 and 'Alerts about this issue' in pg.locator('#bl-lvl-box').inner_text() and pg.locator('.bl-issue [data-lvl-toggle]').get_attribute('aria-expanded') == 'true', 'X1: Change opens "Alerts about this issue" in place')
-    pg.locator('#bl-lvl-box [data-lvl="app"]').click(); pg.wait_for_timeout(700)
-    ok('Texts: App only' in pg.locator('.bl-issue').inner_text() and levels(pg).get(CROSS['id']) == 'app', 'X1: a tap there changes the line and the level')
+    ok(pg.locator('#bl-lvl-box .lvl input[type="radio"][data-lvl]').count() == 3 and pg.locator('.bl-issue .lvl-line').inner_text().startswith('Alerts about this issue') and pg.locator('.bl-issue [data-lvl-toggle]').get_attribute('aria-expanded') == 'true', 'X1: Change opens "Alerts about this issue" in place')
+    ok(pg.evaluate("(() => { const s = document.querySelector('#bl-lvl-box .lvl-sw').getBoundingClientRect(), b = document.querySelector('.bl-issue [data-bl-unfollowissue]')?.getBoundingClientRect(); return !b || b.top >= s.bottom || b.left >= s.right; })()"), 'X1: on a phone the switch comes right under its line, before the follow button (the critic, 17 Oct)')
+    pg.locator('#bl-lvl-box .lvl-o:has([data-lvl="app"])').click(); pg.wait_for_timeout(700)
+    pg.locator('.bl-issue [data-lvl-toggle]').click(); pg.wait_for_timeout(500)
+    ok('Texts: App only' in pg.locator('.bl-issue').inner_text() and levels(pg).get(CROSS['id']) == 'app', 'X1: a tap there changes the level, and the line says it once closed')
     pg.goto(PUB + f'#/bill/2026/{NUM}'); pg.reload(); ready(pg); pg.wait_for_timeout(700)
     ok(pg.locator('.bl-txt').count() == 0 and pg.locator('[data-lvl-toggle]').count() == 0, 'X1: no line without ?via=text')
     c.close()

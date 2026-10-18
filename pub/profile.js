@@ -12,7 +12,7 @@ import { S, DEMO, app, esc, icon, toast, friendly, textSaved, followedIssues, HS
   LOCAL_KEY, DONE_KEY, DONE_AT_KEY, LISTS_KEY, STANCE_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, CONSENT_KEY, recomputeWatch } from './core.js';
 import { btn, notice, inlineErr } from './ui.js';
 import { CHOICES, check, busy, unbusy, submitBtn, say, myDistricts, distHTML, addrField, wireAddr, rememberDistricts } from './more.js';
-import { alertFields, alertButton, wireAlertForm, phoneDigits, codeStep, confirmWords, LEVEL_WORDS, getsAlerts } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, phoneDigits, codeStep, confirmWords, LEVEL_WORDS, getsAlerts, levelSwitch } from './alerts.js';
 import { hasProfile, signedIn, myName, myTitles, myStory, myStories, storyName, quoteLevel, QUOTE, storyAsk, STORY_HINT, myInterests, HELP_GROUPS, HELP_KEYS,
   myHelpNote, initials, saveProfile, loadMe, forgetProfileOnDevice } from './myprofile.js';
 import { pickerHTML, wirePicker } from './titlepick.js';
@@ -185,16 +185,17 @@ function helpBody() {
 }
 
 // Alerts: the email choices are part of the same draft (R-165), and so is how much each issue sends (R-299).
-// How much each followed issue sends (R-299): one row per issue, its name and a choice of the three levels, kept with the
-// rest at Save. A select, not the issue page's chips: a person following eight issues gets eight short rows, not a screenful
-// of buttons. The line over them says only what the names cannot: how often the usual one comes, and the ceiling.
+// How much each followed issue sends (R-299): one row per issue, its name and the issue page's sliding switch under it (Nate
+// 17 Oct, of three pictures: "A switch for each issue"), so a person meets one control for this everywhere. Kept with the
+// rest at Save, like every choice in Profile. The line over them says what each name sends, in the switch's order (the
+// critic, 17 Oct: it said nothing of App only), once for all the issues rather than under each switch.
 function levelsBody() {
   const iss = followedIssues(); if (!iss.length || !getsAlerts()) return '';
   const d = P.draft.levels || {};
   return `<fieldset class="mr-set pf-f pf-lvls"><legend>Alerts for each issue</legend>
-      <p class="small muted" id="pf-lv-h">${esc(LEVEL_WORDS.big)} is usually a few a month. ${esc(LEVEL_WORDS.every)} is never more than one a day.</p>
-      <ul class="pf-lvlist">${iss.map(i => `<li class="field pf-lvrow"><label for="pf-lv-${esc(i.id)}">${esc(i.name)}</label>
-        <select id="pf-lv-${esc(i.id)}" data-pf-lv="${esc(i.id)}" aria-describedby="pf-lv-h">${LEVELS.map(k => `<option value="${k}"${(d[i.id] || 'big') === k ? ' selected' : ''}>${esc(LEVEL_WORDS[k])}</option>`).join('')}</select></li>`).join('')}</ul></fieldset>`;
+      <p class="small muted" id="pf-lv-h">${esc(LEVEL_WORDS.every)}: never more than one a day. ${esc(LEVEL_WORDS.big)}: usually a few a month. ${esc(LEVEL_WORDS.app)}: no texts or emails.</p>
+      <ul class="pf-lvlist">${iss.map(i => `<li class="pf-lvrow"><p class="pf-lvn" id="pf-lv-${esc(i.id)}-n">${esc(i.name)}</p>
+        ${levelSwitch(LEVELS.includes(d[i.id]) ? d[i.id] : 'big', { name: `pf-lv-${esc(i.id)}`, a: `aria-labelledby="pf-lv-${esc(i.id)}-n" aria-describedby="pf-lv-h"`, data: ` data-pf-lv="${esc(i.id)}"` })}</li>`).join('')}</ul></fieldset>`;
 }
 // Here the hearing box says "alerts" (the review, 17 Oct, P-5): "when a bill gets a hearing", ticked over "Same as each issue
 // above", read as every hearing. The sign-in page's consent box keeps its words (CHOICES in more.js, C-4).
@@ -347,7 +348,10 @@ function wireProfile() {
   document.querySelectorAll('[data-pf-em]').forEach(c => c.onchange = () => { P.draft.emails[c.dataset.pfEm] = c.checked;
     if (c.dataset.pfEm === 'hearing_alerts') { const f = $('#pf-elv'); if (f) f.hidden = !c.checked; }   // which hearings, only while hearing emails are on (B-12)
     paintBar(); });
-  document.querySelectorAll('[data-pf-lv]').forEach(sel => sel.onchange = () => { P.draft.levels = { ...(P.draft.levels || {}), [sel.dataset.pfLv]: sel.value }; paintBar(); });
+  document.querySelectorAll('[data-pf-lv]').forEach(r => r.onchange = () => {
+    if (!r.checked) return;
+    P.draft.levels = { ...(P.draft.levels || {}), [r.dataset.pfLv]: r.value }; r.closest('.lvl-sw').dataset.on = r.value; paintBar();
+  });
   document.querySelectorAll('input[name="pf-elv"]').forEach(r => r.onchange = () => { if (r.checked) { P.draft.emailLevel = r.value; paintBar(); } });
   if (document.querySelector('#main .actionbar [data-pf-save]')) wireBar();
   window.onbeforeunload = dirty() ? e => { e.preventDefault(); e.returnValue = ''; return ''; } : null;

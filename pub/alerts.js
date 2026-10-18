@@ -166,11 +166,13 @@ export function emailLede() {
 }
 
 // ---------------- How much each issue sends (R-299, Nate 17 Oct) ----------------
-// One level per followed issue (kernel.js levelOf, setIssueLevel), its three names one word each and one plain line each
-// (Nate: "only if it's done smoothly"). The same pressable chips as "Where do you stand?" on a bill (A-12: the chosen one is
-// filled, with a check), so a person meets one kind of choice; the line under them says what the chosen one sends, and
-// "Saved." once a tap has kept it (B-7). Drawn on the issue page and the page a text's link opens; Profile > Alerts has the
-// same three names in one list (pub/profile.js). Chosen after acting, never in the first visit.
+// One level per followed issue (kernel.js levelOf, setIssueLevel), its three names short and one plain line each (Nate:
+// "only if it's done smoothly"). Since Nate's pick of 17 Oct (he called the chips ugly and wanted "something much more
+// delicate, beautiful and intuitive"; the research: docs/requests/R-299.md) a sliding switch: three real radio buttons in
+// one grey track, a white pill behind the chosen one that slides to the next in 200 ms, most to least with the calm default
+// in the middle, and one line under it saying what the chosen level sends. A tap keeps it at once and says "Saved." on that
+// line (B-7, A-16); arrow keys move through it (WAI-ARIA radio group). Drawn on the issue page and the page a text's link
+// opens; Profile > Alerts has the same switch for each issue (pub/profile.js). Chosen after acting, never in the first visit.
 export const LEVEL_WORDS = { every: 'Every hearing', big: 'Big moments only', app: 'App only' };
 // One name for the setting everywhere it is shown (A-14, C-15; the review of 17 Oct): the issue page and the text's page
 // call it this, and Profile's list "Alerts for each issue".
@@ -178,55 +180,77 @@ export const LEVEL_NAME = 'Alerts about this issue';
 export const LEVEL_HINT = {
   every: 'Every hearing on this issue’s bills, never more than one a day.',
   big: 'HIPHI’s biggest calls to speak up and key hearings. Usually a few a month.',
-  app: 'No texts or emails about this issue. It stays in your app.',
+  app: 'No texts or emails about this issue. You’ll still see its news here.',   // most first visits are on a website, not an app (the critic, 17 Oct)
 };
 // Does anything reach this person? A level changes nothing for someone with no number and no email (C-13), so the choice
 // is shown only once alerts can come: a number given (confirmed or not) or an account with an email.
 export const getsAlerts = () => !!(textSaved() || (S.session && S.user && S.session.user?.email));
-const lvlChips = (cur) => LEVELS.map(k => `<button type="button" class="chip" data-lvl="${k}" aria-pressed="${cur === k}">${cur === k ? icon('check') : ''}${LEVEL_WORDS[k]}</button>`).join('');
-// i: the issue; via: 'issue' | 'text' | 'profile' (who set it, for the counts); label: the group's name; id: unique on the page.
-export function levelPick(i, { via, label, id = 'lvl' } = {}) {
+// The switch itself, here and once per issue in Profile > Alerts (Nate 17 Oct: "A switch for each issue"). name: the radio
+// group's name and the start of its ids, unique on the page; a: the group's label and description; data: what each radio
+// carries for its screen.
+export const levelSwitch = (cur, { name, a = '', data = '' }) => `<div class="lvl-sw" role="radiogroup" ${a} data-on="${cur}"><span class="lvl-pill" aria-hidden="true"></span>${LEVELS.map(k => `<label class="lvl-o" for="${name}-${k}"><input type="radio" class="lvl-r" name="${name}" id="${name}-${k}" value="${k}" data-lvl="${k}"${data}${cur === k ? ' checked' : ''}><span class="lvl-n">${esc(LEVEL_WORDS[k])}</span></label>`).join('')}</div>`;
+// i: the issue; via: 'issue' | 'text' | 'profile' (who set it, for the counts); label: the group's name, drawn over it unless
+// the line that opened it already names it (head: false, levelBox); id: unique on the page. The line under the switch is
+// its description; "Saved." is said once, by a status of its own, after the last save (not on every arrow key).
+export function levelPick(i, { via, label, id = 'lvl', head = true } = {}) {
   const cur = levelOf(i.id);
   return `<div class="lvl" data-lvl-issue="${esc(i.id)}" data-lvl-via="${esc(via)}">
-    <p class="lvl-h" id="${id}-h">${label}</p>
-    <div class="chips lvl-opts" role="group" aria-labelledby="${id}-h" aria-describedby="${id}-x">${lvlChips(cur)}</div>
-    <p class="lvl-hint" id="${id}-x" aria-live="polite">${esc(LEVEL_HINT[cur])}</p></div>`;
+    ${head ? `<p class="lvl-h" id="${id}-h">${label}</p>` : ''}
+    ${levelSwitch(cur, { name: id, a: `aria-labelledby="${id}-h" aria-describedby="${id}-x"` })}
+    <p class="lvl-hint" id="${id}-x">${esc(LEVEL_HINT[cur])}</p><span class="sr" role="status"></span></div>`;
 }
 // The level in one line, "Alerts: Big moments only · Change" (word: "Texts" on a text's page), with Change opening the
-// chips in place and Close folding them (the review, 17 Oct: the chips always open pushed the issue page's "You can help
-// this week" off a phone's first screen, A-1). key: which line is open (S.lvlOpen), unique on the page; id for the chips.
+// switch in place and Close folding it (the review, 17 Oct: the choice always open pushed the issue page's "You can help
+// this week" off a phone's first screen, A-1). Open, the line names the setting instead, "Alerts about this issue · Close",
+// and is the switch's label: the switch shows the level, so the line does not say it again (A-14, the critic 17 Oct).
+// key: which line is open (S.lvlOpen), unique on the page; id for the switch.
 export function levelLine(i, { via, word = 'Alerts', key, id = 'lvl' } = {}) {
   const open = S.lvlOpen === key;
-  return `<span class="lvl-line"><span>${word}: <b data-lvl-now>${esc(LEVEL_WORDS[levelOf(i.id)])}</b></span><span class="lvl-dot" aria-hidden="true">·</span>${btn(open ? 'Close' : 'Change', { kind: 'text', sm: true, cls: 'lvl-toggle', attrs: { 'data-lvl-toggle': key, 'aria-expanded': String(open), 'aria-controls': `${id}-box` } })}</span>`;
+  const say = open ? `<span class="lvl-name" id="${id}-h">${LEVEL_NAME}</span>` : `<span>${word}: <b data-lvl-now>${esc(LEVEL_WORDS[levelOf(i.id)])}</b></span>`;
+  return `<span class="lvl-line">${say}<span class="lvl-dot" aria-hidden="true">·</span>${btn(open ? 'Close' : 'Change', { kind: 'text', sm: true, cls: 'lvl-toggle', attrs: { 'data-lvl-toggle': key, 'aria-expanded': String(open), ...(open ? { 'aria-controls': `${id}-box` } : {}) } })}</span>`;
 }
-// The chips a levelLine opens, drawn where the screen wants them (under the line, or under the row the line sits in).
-export const levelBox = (i, { via, key, id = 'lvl' } = {}) => S.lvlOpen === key ? `<div class="lvl-box" id="${id}-box">${levelPick(i, { via, label: LEVEL_NAME, id })}</div>` : '';
-// Change and Close, then the chips' taps; a level chosen is said on the line too.
+// The switch a levelLine opens, drawn where the screen wants it (under the line, or under the row the line sits in).
+export const levelBox = (i, { via, key, id = 'lvl' } = {}) => S.lvlOpen === key ? `<div class="lvl-box" id="${id}-box">${levelPick(i, { via, id, head: false })}</div>` : '';
+// Change and Close (Change puts the focus on the chosen level, so arrow keys work at once), then the switch; a level chosen
+// is said on the line too.
 export function wireLevelLine(root) {
   if (!root) return;
   root.querySelectorAll('[data-lvl-toggle]').forEach(el => el.onclick = () => {
     const k = el.dataset.lvlToggle; S.lvlOpen = S.lvlOpen === k ? null : k; app.render();
-    requestAnimationFrame(() => (document.querySelector(`#${CSS.escape(el.getAttribute('aria-controls') || '')} [aria-pressed="true"]`) || document.querySelector(`[data-lvl-toggle="${CSS.escape(k)}"]`))?.focus({ preventScroll: true }));
+    requestAnimationFrame(() => { const t = document.querySelector(`[data-lvl-toggle="${CSS.escape(k)}"]`), box = t && document.getElementById(t.getAttribute('aria-controls') || '');
+      (box?.querySelector('[data-lvl]:checked') || t)?.focus({ preventScroll: true }); });
   });
   wireLevels(root, { onSet: (id, lv) => root.querySelectorAll('[data-lvl-now]').forEach(e => { e.textContent = LEVEL_WORDS[lv]; }) });
 }
-// Taps on a levelPick: drawn again in place, so the focus stays on the chip just pressed; the account keeps it in the
-// background, and a refusal puts the old level back with its reason (kernel.js toasts it). onSet(issueId, level, was).
+// A choice in a levelPick: the radio is already checked (nothing is drawn again, so the focus stays on it), the pill moves
+// to it and the line under says what it sends; the account keeps it in the background, then the line says "Saved.". Arrow
+// keys check each level they pass, so the saves run one after another and the last one chosen is the one kept; a refusal
+// puts back the level the account has, and kernel.js toasts the reason. onSet(issueId, level, was) after each level kept.
 export function wireLevels(root, { onSet } = {}) {
-  (root || document).querySelectorAll('[data-lvl-issue]').forEach(box => box.querySelectorAll('[data-lvl]').forEach(b => b.onclick = async () => {
-    const id = box.dataset.lvlIssue, k = b.dataset.lvl, was = levelOf(id);
-    if (k === was || box.getAttribute('aria-busy') === 'true') return;
+  (root || document).querySelectorAll('[data-lvl-issue]').forEach(box => {
+    const id = box.dataset.lvlIssue, sw = box.querySelector('.lvl-sw'), hint = box.querySelector('.lvl-hint'), st = box.querySelector('[role="status"]');
     const paint = (lv, saved) => {
-      box.querySelectorAll('[data-lvl]').forEach(x => { const on = x.dataset.lvl === lv; x.setAttribute('aria-pressed', String(on)); x.innerHTML = `${on ? icon('check') : ''}${LEVEL_WORDS[x.dataset.lvl]}`; });
-      const h = box.querySelector('.lvl-hint'); if (h) h.innerHTML = `${saved ? `<b>${icon('circle-check')}Saved.</b> ` : ''}${esc(LEVEL_HINT[lv])}`;
+      box.querySelectorAll('[data-lvl]').forEach(x => { x.checked = x.dataset.lvl === lv; });
+      if (sw) sw.dataset.on = lv;
+      if (hint) hint.innerHTML = `${saved ? `<b>${icon('circle-check')}Saved.</b> ` : ''}${esc(LEVEL_HINT[lv])}`;
+      if (st) st.textContent = saved ? `Saved: ${LEVEL_WORDS[lv]}.` : '';
     };
-    paint(k, false); box.setAttribute('aria-busy', 'true');
-    const ok = await setIssueLevel(id, k, box.dataset.lvlVia);
-    box.removeAttribute('aria-busy');
-    if (!ok) { paint(was, false); return; }
-    paint(k, true);
-    onSet?.(id, k, was);
-  }));
+    let want = null, busy = false;
+    box.querySelectorAll('[data-lvl]').forEach(r => r.onchange = async () => {
+      if (!r.checked) return;
+      want = r.dataset.lvl; paint(want, false);
+      if (busy) return;
+      busy = true; box.setAttribute('aria-busy', 'true');
+      let ok = true;
+      while (ok && want !== levelOf(id)) {
+        const k = want, was = levelOf(id);
+        ok = await setIssueLevel(id, k, box.dataset.lvlVia);
+        if (ok) onSet?.(id, k, was);
+      }
+      busy = false; box.removeAttribute('aria-busy');
+      paint(levelOf(id), ok);
+    });
+  });
 }
 
 // Which box shows, and what was typed in each, kept for this page's life so a redraw (data landing, Back) loses nothing
