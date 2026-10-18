@@ -56,7 +56,8 @@ const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', '
 // My issues draws its issue rows with find.css's .fd-irow, and a list its rows and back link with mybills.css and find.css:
 // without them those pages drew unstyled for 1-3 seconds when opened directly (R-303, the walk of 10/17; R-184's kind).
 const SCREEN_CSS = { start: ['start'], learn: ['start'], next: ['start', 'next'], home: ['home'], recap: ['home'], bills: ['mybills', 'find'], find: ['mybills', 'find'], issue: ['mybills', 'find'], category: ['mybills', 'find'], list: ['mybills', 'find'],
-  bill: ['bill', 'mylists'], legislators: ['people'], legislator: ['people'], committees: ['committees'], committee: ['committees'], allbills: ['allbills'],
+  bill: ['bill', 'mylists'], legislators: ['people'], legislator: ['people'], committees: ['committees'], committee: ['committees'], allbills: ['mybills', 'allbills'],   // its rows are mybills.js's (R-303: drawn unstyled and too wide for 2.5 s without it)
+ 
   more: ['more', 'talk', 'profile'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more', 'profile'], profile: ['more', 'profile'], privacy: ['more'], mylist: ['mybills', 'find', 'mylists'], shared: ['mybills', 'find', 'mylists'], quiz: ['quiz'] };
 // Version A's look (pub/a/a.css, scoped to body.va and its own classes) comes after wide.css, as track-a.html had it, on
 // every screen but the first visit, which both versions share and other tests compare (R-187).
