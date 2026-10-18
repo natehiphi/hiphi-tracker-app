@@ -1,4 +1,6 @@
-/* Committee pages (HANDOFF 3.5/3.6). Deliberately its own small stylesheet rather than reusing
+/* Committee pages (HANDOFF 3.5/3.6). Their root is .cmt, not .cm: Home's calm layout took .cm (home.css, R-300) and its
+   flex and 32px gaps reached these pages once every stylesheet had loaded (R-303, the walk of 10/17).
+    Deliberately its own small stylesheet rather than reusing
    people.css's .pp-photo: that sizing rule is scoped to a .pp ancestor this page doesn't have, and
    reusing the bare class name without it renders the photo at its full natural size (found live). */
 .cm-photo { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; object-position: 50% 18%; background: var(--n100); border: 1px solid var(--n200); flex: none; }
