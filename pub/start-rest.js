@@ -13,11 +13,11 @@ import { HELP_WORDS } from './letters.js';   // the testimony button's words (R-
 import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { GO_HELP } from './topics.js';
-import { afterMove, bloom, burst, later, reduced, petals, swap } from './fx.js';
+import { afterMove, bloom, burst, drift, later, reduced, petals, swap } from './fx.js';
 import { shareLine } from './keep.js';
 import { endHome, armOf, abSeen } from './variant.js';   // and the test 'act' (R-150): today's "Coming up" | three ways to help
 import { nameField, wireName, keepName as keepFirstName, firstName } from './firstname.js';   // the first name on the sign-up (R-294)
-import { alertFields, alertButton, wireAlertForm, alertDoneHTML, changeBtn, fmtPhone, codeStep, alertStatus, alertRowHTML, wireAlertRow, profileAsk, PROFILE_H } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, fmtPhone, confirmWords, codeStep, alertStatus, alertRowHTML, wireAlertRow, profileAsk, PROFILE_H } from './alerts.js';
 const followLabel = n => n ? `Follow ${plural(n, 'issue')}` : 'Follow issues';
 
 // ================= Importance (Nate, 9/21): what HIPHI backs hardest and the team's top priority lead =================
@@ -376,21 +376,31 @@ function stepAlerts(step) {
 // The first success: the "Mahalo!" page (C-7). It celebrates the issues just followed and, when one was given, how we'll
 // reach them. It was a moment over the next screen that left on its own in 1.5 s (R-140, 10/10); Nate 11 Oct: "too
 // quick. Maybe it should be a permanent page that a user hits next on." So it is this step's own answer now: a yes, a code
-// or Skip turns the alerts screen into it (same address, so Back from the next screen finds it), the flower opens once
-// as it arrives, and it stays until Next, whose words name the next part (C-6). The card under it is the one Back used
-// to show ("You're all set"): the number or email, its small print, and "Use a different number".
+// or Skip turns the alerts screen into it (same address, so Back from the next screen finds it), and it stays until Next,
+// whose words name the next part (C-6).
+// Nate 17 Oct (R-298): the page had become "a cold page with way too much text", and the moment before it had been "a very
+// warm animation". So the moment's flower is back at the moment's size, in the middle, opening slowly with a few petals
+// drifting off it (fx.js drift), and the words are two lines and one small "Texts go to ... · Change". Signing in with the
+// number, Reply STOP (the first text says it), the bill count and the sandbox note left the page (the sandbox band says
+// it), and so did "Take me to Home" (his pick, reversing W1-3 on this page: Next is the one way on).
 // A shared bill's visit has no "Mahalo!" (its follow got a small burst on "Follow this issue?"), so it goes straight on.
 function thanksWords(r) {
-  const off = isOff(), n = followedIssues().length, bills = [...S.watch].map(anyBill).filter(b => b && (off || alive(b))).length;
+  const off = isOff(), n = followedIssues().length;
   const first = firstName();
-  return { title: first ? `Mahalo, ${first}!` : 'Mahalo!', sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`,
-    small: off ? 'Their bills come to you as soon as the session starts.' : `That’s ${plural(bills, 'bill')} this session. We’ll watch every one.`,
+  const phone = r?.kind === 'phone', confirmed = phone && !!(r.confirmed || textSaved()?.confirmed);
+  // The second line is how we'll reach them, said honestly (B-7): a number not yet confirmed, and an email whose link is
+  // not yet tapped, are not "on" (D1-4's "Almost set"); out of session nothing comes until January.
+  const how = confirmed ? `We’ll text you when they need you${off ? ', starting in January' : ''}.`
+    : phone ? confirmWords('you')
+    // Not "tap it now": leaving for the inbox would cut the visit short (R-098).
+    : r?.kind === 'email' ? 'When you finish here, tap the link we emailed you to turn on alerts.'
+    // After Skip, what following gives them, so the page does not end on one line (the critic, R-298).
+    : off ? 'Their bills start in January.' : 'You’ll find them on your Home page.';
+  return { title: first ? `Mahalo, ${first}!` : 'Mahalo!', sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`, how,
     // Its button names what comes next (C-6, C-7): right after a sign-up, a plain "Continue" read as the end of the visit.
     // The next part's name is in title case, as a name (Nate 10/6, R-186); both versions of the test 'fv' alike.
     // It names the next part as the strip and the page do, "A bill’s story" (C-15, R-249; it said "How a Bill Becomes Law").
     go: armOf('fv') === 'short' ? 'Next: Why Your Voice Matters' : 'Next: A Bill’s Story',
-    // A number proven by its code (R-155) is done: alerts are on, and the person is signed in with it. Not confirmed yet,
-    // and an email, keep "Almost set" and "to turn on alerts", the words every screen uses for them (D1-4).
     given: !!(r && (r.kind === 'phone' || r.kind === 'email')) };
 }
 // What was given: this visit's answer if it was a number or an email, else what the page already holds (Back, a reload).
@@ -401,20 +411,16 @@ function thanksGiven() {
 }
 function stepThanks(step) {
   const r = thanksGiven(), W = thanksWords(r);
-  const card = r ? `<section class="card st-sent st-alertdone" aria-label="${r.kind === 'phone' ? 'Your text alerts' : 'Your email'}"><span class="st-ilead">${icon(r.kind === 'phone' ? 'message-square' : 'mail-check')}</span>
-      <div class="st-sentbody">${alertDoneHTML(r.kind === 'phone' ? r : { ...r, later: true },
-        { change: `<div class="st-formbtns st-alchange">${changeBtn('data-stalchange', r.kind === 'phone' ? 'Use a different number' : 'Use a different email')}</div>` })}</div></section>` : '';
+  // One small line for what was given, with Change (it opens the same box again, data-stalchange).
+  const where = r ? `<p class="st-mhwhere">${r.kind === 'phone' ? 'Texts go to' : 'Sent to'} <span class="${r.kind === 'phone' ? 'al-nowrap' : 'al-break'}">${esc(r.kind === 'phone' ? fmtPhone(r.phone) : r.email)}</span>
+      <span aria-hidden="true">·</span> ${btn('Change', { kind: 'text', sm: true, attrs: { 'data-stalchange': '1', 'aria-label': r.kind === 'phone' ? 'Change number' : 'Change email' } })}</p>` : '';
   // The flower opens once, as the page arrives; a redraw of the same page (Back, a hearing landing) shows it open.
   const fresh = !S.stThanksSeen; S.stThanksSeen = true;
-  // Someone who already knows the Legislature can leave for Home here in one tap (W1-3, R-239: a returning regular on a new
-  // phone met three screens of lessons with only Next). A quiet sentence under the page, not a second button in the bar:
-  // Next stays the one way on (A-3). What it skips stays one tap away: the story on Help and every bill page, and a later
-  // visit's one ask (pub/nextask.js, R-237) offers the lesson and the address again.
-  const home = `<p class="st-share st-thhome">${icon('house')}<span>Already know how bills move? ${btn('Take me to Home', { kind: 'text', sm: true, attrs: { 'data-sthome': '1' } })}</span></p>`;
-  return shell(`st4 st-alertspage st-thanks${fresh ? ' st-thanksnew' : ''}`, `${topRow('alerts', step)}${bloom()}
+  return shell(`st4 st-alertspage st-thanks st-mahalo${fresh ? ' st-thanksnew' : ''}`, `${topRow('alerts', step)}
+    <div class="st-mhflower">${bloom()}${fresh ? drift() : ''}</div>
     <h1 class="hero st-thtitle" id="st-h" tabindex="-1">${esc(W.title)}</h1>
-    <p class="st-thsub">${esc(W.sub)}</p><p class="lede">${esc(W.small)}</p>${home}`,
-    card);
+    <p class="st-thsub">${esc(W.sub)}${W.how ? `<br><span class="st-mhhow">${esc(W.how)}</span>` : ''}</p>${where}`,
+    '');
 }
 export function leaveAlerts(step, r = null) {
   S.alertEdit = false; keepFirstName();
