@@ -29,8 +29,8 @@ COUNT = """() => { const t = document.querySelector('#main').innerText, n = re =
 UNDRAWN = """async () => { const c = await import('./pub/core.js'), on = new Set([...document.querySelectorAll('#main [data-helper]')].map(e => e.dataset.helper));
   const x = c.openActions(c.S.bills, c.S.hearings).find(x => !on.has(x.h.id) && new Date(x.h.scheduled_at) > Date.now());
   return x ? { id: x.h.id, name: c.nick(x.b) || c.spaced(x.b.bill_number) } : null; }"""
-# the Home before 11 Oct's full cards, the calm Home's card ('a' here: the layout test's 'calm' since 11 Oct)
-FULL = { 'today': '#main .hm-now .acard [data-helper]', 'by-issue': '#main .hm-byissue .acard [data-helper]', 'a': '#main .cm-card .acard [data-helper]' }
+# the Home before 11 Oct's full cards, the calm Home's slide ('a' here: the layout test's 'calm' since 11 Oct; a slide since R-295)
+FULL = { 'today': '#main .hm-now .acard [data-helper]', 'by-issue': '#main .hm-byissue .acard [data-helper]', 'a': '#main .cm-slide [data-helper]' }
 
 with sync_playwright() as p:
     br = p.chromium.launch()

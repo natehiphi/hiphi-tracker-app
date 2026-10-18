@@ -599,8 +599,9 @@ function profileLine(kind = S.nudge) {
   if (S.session) return '';
   abSeen('save');   // where the test's two versions differ on screen: the line's button
   const prof = profileAsk(), ni = followedIssues().length;
-  const what = ni ? `Your ${ni === 1 ? 'issue is' : `${n(ni)} issues are`}` : S.watch.size ? 'The bills you follow are' : 'What you’ve done is';
-  const text = prof ? `${what} kept in this browser only.` : 'Hearings are set about two days ahead.';
+  // Home ends on a wish, not a worry (R-295, gap 8: "Want your issues on your phone too?"); on a phone, the other way round.
+  const want = ni ? `your ${ni === 1 ? 'issue' : 'issues'}` : S.watch.size ? 'the bills you follow' : 'what you’ve done', other = window.matchMedia?.('(pointer: coarse)').matches ? 'laptop' : 'phone';
+  const text = prof ? `Want ${want} on your ${other} too?` : 'Hearings are set about two days ahead.';
   return `<p class="hm-profline">${icon(prof ? 'user-round-plus' : 'bell')}<span>${esc(text)}</span>${btn(prof ? PROFILE_H : 'Get alerts', { kind: 'text', sm: true, cls: 'hm-profbtn', attrs: { 'data-hm-prof': kind } })}</p>`;
 }
 function wireProfileLine(root) {

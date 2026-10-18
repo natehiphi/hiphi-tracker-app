@@ -5,10 +5,14 @@
 // for every moment, phone first:
 //   1. The greeting: their name and one line, the one result worth saying or that nothing is new. Between sessions: the
 //      break, what HIPHI backed that became law, and one link to their session.
-//   2. One card: the soonest thing to do, today's white action card ("1 of 4 due today"; "Show the next one" brings up the
-//      next, as version A's did); the hearing ask when that is sooner; late testimony when nothing is due on time (R-250); a
-//      plan to go on its day. Between sessions, the one thing to do then. Nothing at all when nothing is due: the greeting
-//      says so.
+//   2. The slide (R-295, Nate 10/17, version A "The slide"): the soonest thing to do, drawn like an onboarding screen and
+//      not as a card: the issue's drawing, a heading that says the goal, one sentence, one detail line, the time it takes,
+//      one full-width button in the page and "More ways to help" as text. "Show the next one" brings up the next in place;
+//      a row below with something to do this week brings that one up (decision 5a). The hearing ask when that is sooner;
+//      late testimony when nothing is due on time (R-250); a plan to go on its day. Right after sending, "Mahalo" and the
+//      flower, then the next slide or "That's all for this week". Nothing to do: the Capitol, "Nothing needs you this
+//      week" and no filled button. Between sessions, the one thing to do then, as a slide. Home reads at onboarding's
+//      type size (R-174's step, pub/base.css; C-14).
 //   3. Your issues: one row each, the issue's name, one phrase for where it stands and its next date, soonest first. Amber
 //      only inside 24 hours (A-5). "New" when it changed since the last visit (Nate's answer 2: the one thing, then where
 //      the issues stand, with what changed as a word on the row). Over 8 issues: grouped by where they stand, the first 8,
@@ -23,13 +27,16 @@
 // the whole tab to today's Home, so every new person's first Home was the old one, its wins card included.
 import { S, app, esc, icon, toast, nick, headline, billPath, alive, openActions, dayWord, timeWord, dateLong, hstDay, hiT, HST,
   followedIssues, issueBills, outcomeOf, didKind, sessionInfo, followsAnything, wiz, settledOn, plainStatus, testimonyDraft,
-  followSummary, winsIn, ensureRecapPool, isResolution, nudge, catOf, issueOf } from '../core.js';
+  followSummary, winsIn, ensureRecapPool, isResolution, nudge, catOf, issueOf, DEMO, issuesOf, codesOf, agrees, asSentence, chairContacts } from '../core.js';
 import { btn, chip, skeleton } from '../ui.js';
 import { actionCard, wireActions, wireNudge, goingPlans, goingCard } from '../actions.js';
-import { celebrate } from '../fx.js';
+import { celebrate, bloom, swap, reduced } from '../fx.js';
+import { CAPITOL, issueBand, flower } from '../art.js';
+import { GOAL } from './goals.js';
 import today, { calmParts as P, wireExtras } from '../home.js';
 
-S.aSkip ??= new Set();   // cards passed over with "Show the next one", for this visit
+S.aSkip ??= new Set();   // things passed over with "Show the next one", for this visit
+S.cmPick ??= null;       // the thing a row brought up onto the slide (decision 5a), for this visit
 const plural = (k, one, many = one + 's') => `${k} ${k === 1 ? one : many}`;
 const nameOf = b => nick(b) || headline(b, 70);
 const time = iso => timeWord(iso);   // as the card writes it ("1:00 PM"), so a row and the card read the same
@@ -62,31 +69,132 @@ function lateAll() {
   return openActions(S.bills, S.hearings).filter(x => x.late && !settledOn(x.b, x.h)).sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at));
 }
 
-// ---------------- 2. the one card ----------------
-function theCard(c) {
-  const k = c.card;
+// ---------------- 2. the slide ----------------
+// The issue a bill is followed through (the row below names it), else its first issue.
+const issueFor = b => followedIssues().find(i => issueBills(i).includes(b.id)) || issuesOf(b)[0] || null;
+// The heading says the goal (decision 4, goals.js). Someone who sees it differently from HIPHI, an issue with no line yet
+// and a bill on no issue get the name instead, so the heading never speaks for them.
+const goalOf = b => { const i = issueFor(b); return (agrees(b) !== false && i && GOAL[i.slug]) || (i ? i.name : nameOf(b)); };
+// A drawing on every slide (decision 3): the issue's own, else its topic's scene (art.js issueBand), else the Capitol.
+const artOf = b => `<div class="cm-art">${(b && issueBand(issueFor(b), DEMO)) || CAPITOL}</div>`;
+const NUM = ['', 'One', 'Two', 'Three', 'Four', 'Five'];
+const CH = { S: 'Senate', H: 'House' };
+function whoHears(code) {
+  const cs = codesOf(code), ch = CH[S.committees?.[cs[0]]?.chamber] || '';
+  return cs.length > 1 ? `${NUM[cs.length] || cs.length} ${ch ? ch + ' ' : ''}committees` : `The ${ch ? ch + ' ' : ''}committee`;
+}
+// "today", "tomorrow", "Friday" within the week, "on Mar 30" further out.
+function dayLong(iso) {
+  const d = dayShort(iso);
+  if (d === 'today' || d === 'tomorrow') return d;
+  return Date.parse(iso) - Date.now() < 6 * 864e5 ? new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'long' }) : 'on ' + d;
+}
+// "Send it by Wed 9:30 AM", "Send it by 1:00 PM today" (the words table, section 6).
+const byWhen = iso => { const d = dayShort(iso); return d === 'today' ? `${time(iso)} today` : `${d} ${time(iso)}`; };
+// The card's own pieces (actions.js actionCard): its main button, its done line and its More ways to help are written once,
+// there, and the slide takes them from the card's HTML rather than a second copy (one write surface). What the slide says
+// itself (the goal, the sentence, the detail line) it leaves out.
+const SAID = '.acband, .acrow, .achead, .acwhat, p.meta, p.ask, p.why, p.due, p.proof, p.note, .suggestbar';
+function cardParts(html) {
+  const t = document.createElement('template'); t.innerHTML = html;
+  const a = t.content.querySelector('.acard'), col = a.querySelector('.btncol');
+  col.querySelector('[data-moreways]')?.remove();
+  const before = [], after = []; let past = false;
+  for (const el of a.children) { if (el === col) { past = true; continue; } if (!el.matches(SAID)) (past ? after : before).push(el.outerHTML); }
+  return { go: col.innerHTML.trim(), before: before.join(''), after: after.join('') };
+}
+// The bill's number on the detail line opens its page: the card's linked name went with the card, and the slide is the only
+// place on Home that names the bill (its row says "On the slide above"), so reading the bill first is one tap.
+const billLink = b => `<a class="cm-bill" href="${esc(billPath(b))}">${esc(spaced(b))}</a>`;
+const timeLine = t => `<p class="cm-time">${icon('clock')}<span>${t}</span></p>`;
+// One slide. h: the heading's level (h1, or h2 under the first visit's "Mahalo"). art: the drawing. say: the sentence.
+// when: the detail line. go: the button(s). more: the text links under them.
+const slideHtml = ({ hl, id, art, title, say, when: w = '', warn = false, mins = '', before = '', go = '', more = '', after = '', label }) =>
+  `<section class="cm-slide" aria-labelledby="${id}"${label ? ` aria-label="${esc(label)}"` : ''}>${art}
+    <div class="cm-words"><${hl} class="cm-goal" id="${id}" tabindex="-1">${esc(title)}</${hl}>
+    ${say ? `<p class="cm-say">${say}</p>` : ''}
+    ${w ? `<p class="cm-when${warn ? ' warn' : ''}">${w}</p>` : ''}
+    ${mins ? timeLine(mins) : ''}${before}
+    ${go ? `<div class="cm-go">${go}</div>` : ''}
+    ${more ? `<p class="cm-more">${more}</p>` : ''}${after}</div></section>`;
+const nextLink = (key, name) => btn('Show the next one', { kind: 'text', sm: true, iconEnd: 'arrow-right', attrs: { 'data-cm-skip': key, 'data-cm-name': name } });
+
+function dueSlide(c, hl) {
+  const k = c.card, x = k.items[0], b = x.b, h = x.h, late = k.kind === 'late', ck = `${b.id}|${h.id}`;
   // Right after a first action from a shared link, nothing is singled out: a bigger ask straight after the one just done
   // backfires (R-150's research; R-190 kept it on today's Home).
   const focus = !(c.welcome && !c.fin);
-  if (k.kind === 'due' || k.kind === 'late') {
-    const x = k.items[0], day = hstDay(x.h.testimony_deadline), same = k.items.filter(y => hstDay(y.h.testimony_deadline) === day).length;
-    const ofN = k.kind === 'due' && same > 1 ? `1 of ${same} due ${dayShort(x.h.testimony_deadline)}` : '';   // Nate's answer 4: "1 of 4 due today"
-    const next = k.items.length > 1 ? `<p class="cm-next">${btn('Show the next one', { kind: 'text', sm: true, iconEnd: 'arrow-right', attrs: { 'data-cm-skip': skipKey(x), 'data-cm-name': nameOf(x.b) } })}</p>` : '';
-    // The label names the issue the row below calls it, unless the issue has the bill's own name (55 of 91 do): then the
-    // title already says it, and the label keeps the topic, so the name is said once (A-14).
-    const own = followedIssues().find(i => issueBills(i).includes(x.b.id)), mine = own && own.name !== nameOf(x.b) && own.name !== headline(x.b, 200) ? own : null, cat = mine && catOf(mine.category);
-    return `${actionCard(x.b, x.h, { focus, why: c.why, ofN, twin: S.hmTwins?.get(x.b.id) || null, heading: 'h2', topic: mine ? { key: mine.name, icon: cat?.icon || issueOf(x.b)?.icon } : null })}${next}`;
-  }
-  if (k.kind === 'seen') return `<p class="cm-seen">${icon('eye')}<span>You’ve seen everything due this week.</span>${btn(`Show the ${k.n === 1 ? 'one' : k.n} you skipped`, { kind: 'text', sm: true, attrs: { 'data-cm-unskip': '1' } })}</p>`;
-  if (k.kind === 'ask') return P.askCard(k.ask, focus);
-  if (k.kind === 'go') return goingCard(k.plans);
-  return '';
+  const p = cardParts(actionCard(b, h, { focus, why: c.why, twin: S.hmTwins?.get(b.id) || null, heading: 'h2' }));
+  const differs = agrees(b) === false, opp = b.position === 'oppose', open = S.moreOpen.has(ck);
+  const hears = `${whoHears(h.committee)} ${codesOf(h.committee).length > 1 ? 'hear' : 'hears'} it ${dayLong(h.scheduled_at)}${late ? ` at ${time(h.scheduled_at)}` : ''}.`;
+  const why = c.why ? asSentence(c.why).replace(/([^.!?])$/, '$1.') + ' ' : '';
+  const ask = late ? 'Late testimony is still taken, marked late.'
+    : differs ? 'You see this one differently from HIPHI, and you can still tell them what you think.'
+    : b.hiphi_action ? esc(b.hiphi_action) : `A short note from you can help ${opp ? 'stop it' : 'it pass'}.`;
+  const dl = late ? h.scheduled_at : h.testimony_deadline, warn = Date.parse(dl) - Date.now() < 864e5;
+  const w = `<b>${late ? `Late testimony until ${esc(byWhen(dl))}` : `Send it by ${esc(byWhen(dl))}`}</b> · ${billLink(b)}`;
+  const writes = /data-helper|data-mailwalk/.test(p.go);
+  const more = [btn(open ? 'Fewer ways to help' : 'More ways to help', { kind: 'text', sm: true, iconEnd: open ? 'chevron-up' : 'chevron-down', attrs: { 'data-moreways': ck, 'aria-expanded': open ? 'true' : 'false', 'aria-controls': 'mw-' + h.id } }),
+    k.items.length > 1 || k.picked || c.n > 1 ? nextLink(skipKey(x), nameOf(b)) : ''].join('');
+  return slideHtml({ hl, id: 't-' + h.id, art: artOf(b), title: goalOf(b), say: `${why}${esc(hears)} ${ask}`, when: w, warn, mins: writes ? 'About 2 minutes' : '',
+    before: p.before, go: p.go, more, after: p.after });
 }
-// The card's kind, in order: testimony due (unless the soonest hearing ask runs out first); when nothing is due on time, late
-// testimony (unless the hearing ask runs out before its hearing; R-250); the hearing ask; everything due passed over; a plan
-// to go today or tomorrow. A hearing ask runs out at the end of its cut-off day.
+// The hearing ask (home.js askCard's facts, as a slide): a bill waiting for a hearing before its committee's cut-off.
+function askSlide(c, hl) {
+  const { b, st } = c.card.ask, dl = st.deadline, n = codesOf(st.committee).length, chairs = chairContacts(st.committee).length > 1 ? 'chairs' : 'chair';
+  const cs = whoHears(st.committee).replace(/^The /, n > 1 ? '' : 'A ');
+  const say = `${cs} ${n > 1 ? 'haven’t' : 'hasn’t'} heard it yet. When people ask, the ${chairs} can give it one.`;
+  const at = hiT(dl.date) + 12 * 36e5, warn = at - Date.now() < 864e5;
+  return slideHtml({ hl, id: 'cm-ask-' + b.id, art: artOf(b), title: goalOf(b), say: esc(say), warn,
+    when: `<b>Needs a hearing by ${esc(dateLong(dl.date + 'T12:00:00-10:00'))}</b> · ${billLink(b)}`, mins: 'About 2 minutes',
+    go: btn(`Ask the ${chairs} for a hearing`, { kind: 'primary', icon: 'mail', full: true, href: billPath(b), attrs: { 'data-hm-ask': b.bill_number, 'data-hm-act': '1' } }),
+    more: c.card.picked || c.n > 1 ? nextLink('ask|' + b.id, nameOf(b)) : '' });
+}
+// Nothing to do: the page is allowed to just be calm (no filled button), and "we" keep watch (gap 6).
+function quietSlide(c, hl) {
+  const k = c.card, nIss = followedIssues().length;
+  if (k.kind === 'seen') return slideHtml({ hl, id: 'cm-quiet', art: artOf(null), title: 'You’ve seen everything due this week',
+    say: 'It’s all still on your list below.', more: btn(`Show the ${k.n === 1 ? 'one' : k.n} you skipped`, { kind: 'text', sm: true, attrs: { 'data-cm-unskip': '1' } }) });
+  if (c.thanks) return slideHtml({ hl, id: 'cm-quiet', art: artOf(null), title: 'That’s all for this week', say: 'We’ll keep watch. When your next issue has a hearing, it will be right here.' });
+  // Every bill on their issues is finished for the year: "a hearing will show up here" would be a promise the year cannot keep,
+  // so the page says so and offers the one step that fills it (B-3; the critic's review).
+  const ids = new Set(followedIssues().flatMap(issueBills)), bs = S.bills.filter(b => ids.has(b.id)), over = bs.length && !bs.some(alive) && !looseBills().some(alive);   // as the rows read it
+  if (over) return slideHtml({ hl, id: 'cm-quiet', art: artOf(null), title: nIss > 1 ? 'Your issues are done for this year' : 'Your issue is done for this year',
+    say: 'Bills that did not pass can come back next session. Other bills are still moving and need voices.',
+    more: btn('Find another issue to follow', { kind: 'text', sm: true, iconEnd: 'chevron-right', href: '#/find' }) });
+  return slideHtml({ hl, id: 'cm-quiet', art: artOf(null), title: 'Nothing needs you this week',
+    say: `We’re watching your ${nIss ? plural(nIss, 'issue') : c.noun} every day. When ${nIss === 1 ? 'it has' : 'one has'} a hearing, a simple way to help shows up here.` });
+}
+function theSlide(c) {
+  const hl = c.welcome ? 'h2' : 'h1', k = c.card.kind;
+  if (k === 'due' || k === 'late') return dueSlide(c, hl);
+  if (k === 'ask') return askSlide(c, hl);
+  if (k === 'go') return `<section class="cm-card" aria-label="Your plan">${goingCard(c.card.plans)}</section>`;
+  return quietSlide(c, hl);
+}
+// "Mahalo" right after they sent something from the slide (the mockup's "Right after sending"): the flower opens once
+// (today's small burst, A-10; orange stays the colour of a real step done, C-7), then the next slide.
+function thanksHtml(t, name) {
+  const words = didKind(t.b, t.h, 'testimony') ? `Your testimony is in. The committee reads it before it votes ${dayLong(t.h.scheduled_at)}.`
+    : didKind(t.b, t.h, 'email') ? 'Your email to the chair is sent. Mahalo for speaking up.' : 'Mahalo for speaking up.';
+  const pic = t.fresh ? bloom() : flower(40); t.fresh = false;
+  return `<div class="cm-thanks" role="status">${pic}<p><b>${name ? `Mahalo, ${esc(name)}!` : 'Mahalo!'}</b><span>${esc(words)}</span></p></div>`;
+}
+// The slide, in order: the one they picked from the list (decision 5a); testimony due (unless the soonest hearing ask runs
+// out first); when nothing is due on time, late testimony (unless the hearing ask runs out before its hearing; R-250); the
+// hearing ask; everything due passed over; a plan to go today or tomorrow. A hearing ask runs out at the end of its cut-off
+// day. What was passed over or picked lasts this visit only, so a "not now" is never kept as a "no".
 function pickCard(due, late, asks, plans) {
-  const items = due.filter(x => !S.aSkip.has(skipKey(x))), ask = asks[0];
+  const items = due.filter(x => !S.aSkip.has(skipKey(x))), ask = asks.find(x => !S.aSkip.has('ask|' + x.b.id)), pk = S.cmPick;
+  if (pk) {
+    const i = items.findIndex(x => skipKey(x) === pk);
+    if (i >= 0) { items.unshift(...items.splice(i, 1)); return { kind: 'due', items, bill: items[0].b, picked: true }; }
+    const lt = late.filter(x => !S.aSkip.has(skipKey(x))), j = lt.findIndex(x => skipKey(x) === pk);
+    if (j >= 0) { lt.unshift(...lt.splice(j, 1)); return { kind: 'late', items: lt, bill: lt[0].b, picked: true }; }
+    const a = asks.find(x => 'ask|' + x.b.id === pk);
+    if (a) return { kind: 'ask', ask: a, bill: a.b, picked: true };
+    S.cmPick = null;
+  }
   const askFirst = ask && (!items.length || hiT(ask.st.deadline.date) < Date.parse(items[0].h.testimony_deadline));
   if (items.length && !askFirst) return { kind: 'due', items, bill: items[0].b };
   const lt = due.length ? [] : late.filter(x => !S.aSkip.has(skipKey(x)));
@@ -123,10 +231,10 @@ function stateOf(ids, c) {
   const ds = c.due.filter(x => has(x.b)), d = ds[0];
   // A second bill due this week on the same issue is said on the row, so nothing to do is left off the page (B-14).
   if (d) { const t = Date.parse(d.h.testimony_deadline), more = ds.length > 1 ? `, and ${ds.length - 1} more this week` : '';
-    return { g: 'due', t, warn: t - now < 864e5, fresh: ds.some(x => isNew(Date.parse(x.h.notice_posted_at || 0))), text: `${testimonyDraft(d.h) ? 'Your letter is started · due' : 'Testimony due'} ${when(d.h.testimony_deadline)}${more}` }; }
+    return { g: 'due', t, warn: t - now < 864e5, pick: skipKey(d), fresh: ds.some(x => isNew(Date.parse(x.h.notice_posted_at || 0))), text: `${testimonyDraft(d.h) ? 'Your letter is started · due' : 'Testimony due'} ${when(d.h.testimony_deadline)}${more}` }; }
   // Late testimony is still something to do, so its row says so rather than only "Hearing today" (R-250, B-14).
   const lt = c.late.find(x => has(x.b));
-  if (lt) { const t = Date.parse(lt.h.scheduled_at); return { g: 'due', t, warn: t - now < 864e5, text: `Late testimony until ${when(lt.h.scheduled_at)}` }; }
+  if (lt) { const t = Date.parse(lt.h.scheduled_at); return { g: 'due', t, warn: t - now < 864e5, pick: skipKey(lt), text: `Late testimony until ${when(lt.h.scheduled_at)}` }; }
   const h = S.hearings.filter(x => ids.has(x.bill_id) && x.status !== 'cancelled' && Date.parse(x.scheduled_at) > now && alive(S.bills.find(b => b.id === x.bill_id) || {}))
     .sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
   if (h) { const b = bs.find(x => x.id === h.bill_id), plan = c.plans.some(p => p.h.id === h.id);
@@ -134,7 +242,7 @@ function stateOf(ids, c) {
     return { g: 'hearing', t: Date.parse(h.scheduled_at), fresh: isNew(Date.parse(h.notice_posted_at || 0)), text: `${did ? `${did} · hearing` : 'Hearing'} ${when(h.scheduled_at)}` }; }
   const a = c.asksAll.find(x => has(x.b));
   if (a) { const t = hiT(a.st.deadline.date) + 12 * 36e5;   // the end of the cut-off day
-    return { g: 'needs', t, warn: t - now < 864e5, text: `Needs a hearing by ${dateLong(a.st.deadline.date + 'T12:00:00-10:00')}` }; }
+    return { g: 'needs', t, warn: t - now < 864e5, pick: 'ask|' + a.b.id, text: `Needs a hearing by ${dateLong(a.st.deadline.date + 'T12:00:00-10:00')}` }; }
   // The latest decision in the last 14 days, or a hearing in the last 3 days still waiting for one.
   const past = S.hearings.filter(x => ids.has(x.bill_id) && x.status !== 'cancelled' && Date.parse(x.scheduled_at) <= now && Date.parse(x.scheduled_at) > now - 14 * 864e5)
     .sort((x, y) => y.scheduled_at.localeCompare(x.scheduled_at));
@@ -149,7 +257,9 @@ function stateOf(ids, c) {
   if (live.length) return { g: 'waiting', rank: 3, text: plainStatus(live[0]).short };
   return { g: bs.length ? 'dead' : 'waiting', rank: 4, text: bs.length ? 'Did not advance this year' : 'No bills on it yet' };
 }
-const rowHtml = r => `<li><a class="cm-row" href="${esc(r.href)}"><span class="cm-rtext"><span class="cm-rname">${esc(r.name)}${r.fresh ? ' <span class="cm-new">New<span class="sr"> since your last visit</span></span>' : ''}</span>
+// The issue on the slide says so in its row, so nothing is said twice (A-14); a row with something to do this week brings it
+// up onto the slide (decision 5a, data-cm-pick), and a row with nothing to do opens the issue's page as before.
+const rowHtml = r => `<li><a class="cm-row${r.on ? ' on' : ''}" href="${esc(r.href)}"${r.pick && !r.on ? ` data-cm-pick="${esc(r.pick)}"` : ''}><span class="cm-rtext"><span class="cm-rname">${esc(r.name)}${r.fresh ? ' <span class="cm-new">New<span class="sr"> since your last visit</span></span>' : ''}</span>
     <span class="cm-rstat${r.warn ? ' warn' : ''}">${esc(r.text)}</span></span>${icon('chevron-right', { cls: 'cm-chev' })}</a></li>`;
 // A long list (Nate 10/11, for a follower of dozens like Leilani: "Option number 2, but still grouped by status"): the
 // issues ranked by importance, which is the group order below, then the soonest date, then HIPHI's own order of issues;
@@ -188,53 +298,80 @@ function sinceWhen() {
   const d = new Date(prevVisit()), days = Math.round((hiT(hstDay(Date.now())) - hiT(hstDay(d))) / 864e5);
   return days <= 1 ? 'yesterday' : days < 7 ? d.toLocaleDateString('en-US', { timeZone: HST, weekday: 'long' }) : 'your last visit';
 }
-// One line: their own good news first (a law they spoke up for, a committee's yes after they acted), then the newest
-// result on their issues, then that nothing is new. A result about the card's own bill goes on the card as its reason line,
-// so the bill is named once (A-14). c.moments: the good news said here, seen once in wire().
+// Their own good news first (a law they spoke up for, a committee's yes after they acted), then the newest result on their
+// issues, then what is new. A result about the slide's own bill goes on the slide as its sentence's start, so the bill is
+// named once (A-14). c.moments: the good news said here, seen once in wire(). '' when there is no result.
 function resultLine(c) {
   const gn = P.goodNews();
   const onCard = gn.find(x => c.card.bill && x.b.id === c.card.bill.id);
   if (onCard) { c.why = P.momentText(onCard); c.moments.push(onCard); }
   const g = gn.find(x => x !== onCard);
   if (g) { c.moments.push(g); return `<b>${esc(nameOf(g.b))}:</b> ${esc(P.momentText(g))}`; }
+  // With something on the slide, another issue's news stays on its row (marked New) and is only counted here, so the page
+  // does not open on one issue and then ask about another (A-13; the critic's review).
   const rs = (P.sinceItems() || []).filter(x => x.lead !== 'calendar' && !(c.card.bill && x.b.id === c.card.bill.id));
-  if (rs.length) { const x = rs[0], first = x.text.replace(/^([^.]*\.).*$/, '$1');
+  if (rs.length && !['due', 'late', 'ask'].includes(c.card.kind)) { const x = rs[0], first = x.text.replace(/^([^.]*\.).*$/, '$1');
     return `<b>${esc(nameOf(x.b))}:</b> ${esc(first)}${rs.length > 1 ? ` ${esc(plural(rs.length - 1, 'more result'))} on your ${c.noun} below.` : ''}`; }
   // New hearings are not results: the rows mark them New, and the greeting counts them rather than saying "nothing new".
   if (c.freshN) return `News on ${c.freshN === 1 ? `one of your ${c.noun}` : `${c.freshN} of your ${c.noun}`} since ${esc(sinceWhen())}.`;
-  return prevVisit() ? `Nothing new on your ${c.noun} since ${esc(sinceWhen())}.` : '';
+  return '';
+}
+// The count is said once, here ("10 things you can do this week"), not as "1 of 4" on the slide: a big count on the slide
+// reads like homework (C-7), the opposite of "this is easy" (decision 1, section 7; it replaces R-222's answer 4).
+// After a result the greeting is already two sentences, so "Here's the soonest." goes (the slide shows it anyway).
+function countLine(c, res) {
+  if (!['due', 'late', 'ask'].includes(c.card.kind)) return '';
+  return c.n === 1 ? 'One thing this week.' : `${c.n} things you can do this week.${c.card.picked || res ? '' : ' Here’s the soonest.'}`;
 }
 // The heading on the page load that finished the first visit (R-248): Mahalo and their name, as the ending on Home said it.
 const mahalo = name => name ? `Mahalo, ${esc(name)}!` : 'Mahalo for joining in!';
+// One line, as onboarding's screens start (the mockup's "Aloha, Kai. One thing this week."): the slide's heading is the page's.
 function greeting(c) {
   const name = P.myName(), hi = `Aloha${name ? `, ${esc(name)}` : ''}`;
   if (c.welcome) {
     const said = followSummary() || plural(S.bills.length, 'bill'), fin = P.finNow();
-    return `<header class="cm-head"><h1 class="hero"${fin ? ' id="hm-finh"' : ''}>${fin ? mahalo(name) : hi}</h1><p class="lede">${fin ? 'This is your home page. ' : `You follow ${esc(said)}. `}${c.card.kind ? 'Here’s the first thing you can do.' : 'We keep watch, and when one has a hearing, a simple way to help shows up here.'}</p>${fin ? P.finDid() : ''}</header>`;
+    if (fin) return `<header class="cm-head"><h1 class="hero" id="hm-finh">${mahalo(name)}</h1><p class="lede">This is your home page. ${c.card.kind ? 'Here’s the first thing you can do.' : 'We keep watch, and when one has a hearing, a simple way to help shows up here.'}</p>${P.finDid()}</header>`;
+    return `<header class="cm-head"><p class="cm-hi"><b>${hi}.</b> <span>You follow ${esc(said)}. ${c.card.kind ? 'Here’s the first thing you can do.' : 'We keep watch.'}</span></p></header>`;
   }
-  const line = resultLine(c), quiet = !c.card.kind ? 'Nothing needs you this week. When there’s something you can do, it shows up here.' : '';
-  return `<header class="cm-head"><p class="eyebrow">${esc(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: HST }))}</p>
-    <h1 class="hero">${hi}</h1>${line || quiet ? `<p class="lede">${line}${line && quiet ? ' ' : ''}${quiet}</p>` : ''}</header>`;
+  if (c.thanks) return `<header class="cm-head">${thanksHtml(c.thanks, name)}</header>`;
+  const res = resultLine(c), cnt = countLine(c, res);
+  const line = [res, cnt].filter(Boolean).join(' ') || (prevVisit() ? `Nothing new since ${esc(sinceWhen())}.` : '');   // the slide says we keep watch (A-14)
+  return `<header class="cm-head"><p class="cm-hi"><b>${hi}.</b>${line ? ` <span>${line}</span>` : ''}</p></header>`;
 }
 
 // ---------------- the page, in session ----------------
+// The slide last drawn, once it is settled (testimony sent, or the rest done; core settledOn), becomes the Mahalo for this
+// visit. Found on the next draw, so it follows every way of sending (the letter's walkthrough, the email, an Undo-free mark).
+function thanksNow() {
+  const was = S.cmShown;
+  if (was && settledOn(was.b, was.h)) { S.cmThanks = { ...was, fresh: true }; S.cmShown = null; }
+  if (S.cmThanks && !settledOn(S.cmThanks.b, S.cmThanks.h)) S.cmThanks = null;   // an Undo takes it back
+  return S.cmThanks;
+}
 function inSession(si, { welcome, fin }) {
   const due = dueAll(), asksAll = P.oneIdeaAsks(due), plans = goingPlans();
   const late = lateAll(), card = pickCard(due, late, asksAll, plans);
-  const c = { si, welcome, fin, due, late, asksAll, plans, card, why: undefined, moments: [], open: openActions(S.bills, S.hearings).filter(x => !settledOn(x.b, x.h)) };
+  const c = { si, welcome, fin, due, late, asksAll, plans, card, why: undefined, moments: [], open: openActions(S.bills, S.hearings).filter(x => !settledOn(x.b, x.h)),
+    n: due.length + late.length + asksAll.length, thanks: thanksNow() };
   const iss = followedIssues(), own = looseBills().filter(b => b.id !== card.bill?.id);
-  const rows = [...iss.map(i => ({ i, ...stateOf(new Set(issueBills(i)), c), name: i.name, href: `#/issue/${i.slug}` })),
+  // The slide's own issue: its row says "On the slide above" (and what else on it is due), and stays where it ranks.
+  const onSlide = ['due', 'late', 'ask'].includes(card.kind) ? card.bill.id : null;
+  const slideRow = (i, st) => { const ids = issueBills(i); if (!onSlide || !ids.includes(onSlide)) return st;
+    const more = due.filter(x => ids.includes(x.b.id) && x.b.id !== onSlide).length;
+    return { ...st, on: true, warn: false, text: `On the slide above${more ? `, and ${more} more this week` : ''}` }; };
+  const rows = [...iss.map(i => ({ i, ...slideRow(i, stateOf(new Set(issueBills(i)), c)), name: i.name, href: `#/issue/${i.slug}` })),
     ...own.map(b => { const st = stateOf(new Set([b.id]), c); return { b, ...st, name: headline(b), text: `${spaced(b)} · ${st.text}`, href: billPath(b) }; })].sort(byImportance)
     // Nothing is new seconds after the first visit: everything on the page was just seen there.
     .map(r => ({ ...r, fresh: !welcome && r.fresh }));
   c.freshN = rows.filter(r => r.fresh).length; c.noun = !iss.length && looseBills().length ? 'bills' : 'issues';   // someone who follows only bills has no issues
 
-  const head = greeting(c);   // before the card: it decides the card's reason line (c.why)
+  const head = greeting(c);   // before the slide: it decides the slide's reason (c.why)
   S.cmMoments = c.moments;
+  S.cmShown = card.kind === 'due' || card.kind === 'late' ? { b: card.items[0].b, h: card.items[0].h } : null;
   const lines = [welcome ? '' : P.sessionLink(si.yr), P.profileLine()].filter(Boolean).join('');
   return `<div class="hm cm${welcome ? '' : ' cm-met'}${finCls(welcome)}">
     ${head}
-    ${card.kind ? `<section class="cm-card" aria-label="${card.kind === 'go' ? 'Your plan' : 'The next thing you can do'}">${theCard(c)}</section>` : ''}
+    ${theSlide(c)}
     ${issuesBlock(rows, iss.length + own.length)}
     ${lines ? `<div class="cm-lines">${lines}</div>` : ''}
   </div>`;
@@ -251,8 +388,9 @@ function offSession(si, { welcome }) {
   const known = P.districtsKnown();
   const ready = known ? [`Say aloha before ${nextYr}`, `Lawmakers are writing their ${nextYr} bills now. A short hello from someone in their district tells them what you care about. It takes about 2 minutes.`]
     : ['Get ready for January', 'Know who represents you before the first hearing. It takes 30 seconds.'];
-  const card = `<section class="card hm-ready" aria-labelledby="cm-rd"><h2 id="cm-rd">${ready[0]}</h2><p class="muted">${ready[1]}</p>
-    <div class="btncol">${btn(known ? 'Write to my legislators' : 'Find my legislators', { kind: 'primary', icon: known ? 'mail' : 'landmark', href: '#/legislators' })}</div></section>`;
+  const fin = welcome && P.finNow();
+  const card = slideHtml({ hl: fin ? 'h2' : 'h1', id: 'cm-rd', art: `<div class="cm-art">${CAPITOL}</div>`, title: ready[0], say: esc(ready[1].replace(/ It takes (about 2 minutes|30 seconds)\.$/, '')),
+    mins: known ? 'About 2 minutes' : 'About 30 seconds', go: btn(known ? 'Write to my legislators' : 'Find my legislators', { kind: 'primary', icon: known ? 'mail' : 'landmark', full: true, href: '#/legislators' }) });
   // Each issue's outlook (staff write it in Staff v2) to its first sentence: one phrase a row, as in session; the whole
   // outlook is on the issue's page (Leilani's sixteen ran to 2,600px whole).
   const first = t => (String(t || '').match(/^.*?[.!?](?=\s|$)/) || [String(t || '')])[0];
@@ -266,11 +404,11 @@ function offSession(si, { welcome }) {
     ...own.map(b => ({ b, name: headline(b), text: `${spaced(b)} · ${plainStatus(b).short}`, href: billPath(b) }))];
   // The Mahalo says where they are, as in session (the fresh-eyes review of R-248); the ticks below say what they did, so the
   // lede does not count their issues again (A-14).
-  const fin = welcome && P.finNow();
+  const hello = fin ? `<h1 class="hero" id="hm-finh">${mahalo(name)}</h1><p class="lede">This is your home page. ${lede}</p>${P.finDid()}`
+    : `<p class="cm-hi"><b>Aloha${name ? `, ${esc(name)}` : ''}.</b> <span>${lede}</span></p>${welcome ? '' : P.sessionLink(yr)}`;
   return `<div class="hm cm cm-off${finCls(welcome)}">
-    <header class="cm-head"><h1 class="hero"${fin ? ' id="hm-finh"' : ''}>${fin ? mahalo(name) : `Aloha${name ? `, ${esc(name)}` : ''}`}</h1><p class="lede">${fin ? 'This is your home page. ' : ''}${lede}</p>
-      ${fin ? P.finDid() : ''}${welcome ? '' : P.sessionLink(yr)}</header>
-    <section class="cm-card" aria-label="The thing you can do now">${card}</section>
+    <header class="cm-head">${hello}</header>
+    ${card}
     ${issuesBlock(rows, followedIssues().length + own.length)}
     ${P.meetLine() || P.profileLine() ? `<div class="cm-lines">${P.meetLine()}${P.profileLine()}</div>` : ''}
   </div>`;
@@ -278,6 +416,7 @@ function offSession(si, { welcome }) {
 
 // The page that finished the first visit: .cm-fin (home.js finFx plays the petals once), and .hm-anim on its first draw only,
 // so the ticks rise once and a redraw as data lands does not replay them (home.css).
+const afterSwap = (moved, fn) => moved && typeof moved.then === 'function' ? moved.then(fn, fn) : requestAnimationFrame(fn);
 const finCls = welcome => welcome && P.finNow() ? ` cm-fin${S.hmFinDrawn ? '' : ' hm-anim'}` : '';
 let delegated = false;
 export default {
@@ -298,9 +437,20 @@ export default {
     const root = document.querySelector('#main .cm'); if (!root) return;
     wireActions(root); wireNudge(root); wireExtras(root); P.finFx();
     // "Show the next one" says what it did, with Undo (B-5, A-16): the card it moved is still on its issue's row.
-    root.querySelectorAll('[data-cm-skip]').forEach(el => el.onclick = () => { const k = el.dataset.cmSkip; S.aSkip.add(k); app.render();
-      toast(`${el.dataset.cmName} moved out of the way. It’s still due: the list below says when.`, { undo: () => { S.aSkip.delete(k); app.render(); } }); });
+    // The slide changes in place with onboarding's short slide (fx.js swap, A-10), and its heading takes the focus.
+    const toSlide = () => { const h = document.querySelector('#main .cm-goal'); h?.focus({ preventScroll: true }); };
+    root.querySelectorAll('[data-cm-skip]').forEach(el => el.onclick = () => { const k = el.dataset.cmSkip; S.aSkip.add(k); S.cmPick = null; S.cmThanks = null;
+      afterSwap(swap(() => app.render()), toSlide);
+      toast(`${el.dataset.cmName} moved out of the way. It’s still on your list below.`, { undo: () => { S.aSkip.delete(k); app.render(); } }); });
     root.querySelectorAll('[data-cm-unskip]').forEach(el => el.onclick = () => { S.aSkip.clear(); app.render(); });
+    // A row with something to do this week brings it up onto the slide (decision 5a): the top of Home, the slide in place.
+    // wire() runs before app.js wireFrame, so this handler is first on the row and stops wireFrame's, which opens every "#/"
+    // link whether or not the click was cancelled (the href stays, for a new tab).
+    root.querySelectorAll('[data-cm-pick]').forEach(el => el.onclick = e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+      e.preventDefault(); e.stopImmediatePropagation(); const k = el.dataset.cmPick;
+      S.aSkip.delete(k); S.cmPick = k; S.cmThanks = null;
+      window.scrollTo({ top: 0, behavior: reduced() ? 'auto' : 'smooth' });
+      afterSwap(swap(() => app.render()), toSlide); });
     // "Show all N" opens the rest of a long list where it is, and the first row it opened takes the focus (A-16).
     const all = root.querySelector('[data-cm-showall]');
     if (all) all.onclick = () => { const more = [...root.querySelectorAll('[data-cm-more]')]; more.forEach(el => el.hidden = false); all.remove();

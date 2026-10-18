@@ -7,7 +7,8 @@
 //                  are no petals, only a brief colour change on the thing (tint).
 //   celebrate(...) a moment that fills the screen for at most 1.5 s: the first action sent, a law passed. (The first
 //                  visit's "Mahalo!" after the alerts ask is a page that waits for Next instead, with bloom() on it:
-//                  start-rest.js stepThanks, onb.js stepJoin; R-140, Nate 11 Oct: the moment was "too quick".)
+//                  start-rest.js stepThanks, onb.js stepJoin; R-140, Nate 11 Oct: the moment was "too quick". Since
+//                  R-298, 17 Oct, stepThanks draws it at the moment's size, opening slowly, with drift().)
 //                  No tap is needed. A tap, a key or a scroll closes it at once; a tap on the button under it works as
 //                  usual; it leaves on its own at 1.5 s, and then its words stay for 4 s as a toast. Never mid-way through
 //                  the first visit after the first follow: a full-screen moment there reads as the end (R-140).
@@ -103,6 +104,16 @@ export function bloom() {
     ${sparks.map(([x, y], i) => `<circle class="fx-spark" r="${i % 2 ? 1.1 : 1.6}" fill="${i % 3 ? 'var(--o400)' : '#F9D56E'}" style="--sx:${x}px;--sy:${y}px;animation-delay:${240 + i * 20}ms"/>`).join('')}
     <g>${[0, 72, 144, 216, 288].map((r, i) => `<g transform="rotate(${r})"><ellipse class="fx-petal" cx="0" cy="-8.4" rx="6.1" ry="8.4" fill="var(--o400)" style="animation-delay:${i * 50}ms"/></g>`).join('')}</g>
     <circle class="fx-heart" r="3.3" fill="#F9D56E"/></svg></div>`;
+}
+
+// A few petals that come off the opened flower and drift down and away, once, slowly (R-298, Nate 17 Oct: the first
+// visit's "Mahalo!" should be "a very warm animation" again). Calm, not a shower (R-281: motion in the app's calm style):
+// six petals, each 2 s, the last gone 3.4 s after the page arrives; they sit in the flower's box and never cover the words (they
+// fade before they reach them). Under Reduce Motion they are not drawn at all (fx.css).
+export function drift() {
+  // [x drift px, fall px, turn deg, delay ms, size]: spread both ways, uneven, so it reads as a breeze, not a pattern.
+  const ps = [[-58, 70, -140, 700, 1], [52, 82, 160, 820, .8], [-30, 96, 120, 980, .7], [70, 58, -110, 1100, .9], [-76, 44, 200, 1260, .6], [28, 104, -180, 1400, .75]];
+  return `<div class="fx-drift" aria-hidden="true">${ps.map(([x, y, r, d, k]) => `<svg viewBox="-6 -8 12 16" focusable="false" style="--dx:${x}px;--dy:${y}px;--dr:${r}deg;--k:${k};animation-delay:${d}ms"><ellipse cx="0" cy="0" rx="5" ry="7" fill="var(--o400)"/></svg>`).join('')}</div>`;
 }
 
 // A moment that fills the screen for a short while, then gets out of the way (A-10, C-7; R-140, 10/10). It never blocks:
