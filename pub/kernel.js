@@ -108,6 +108,8 @@ export const S = { sugWhy: new Map(), supa: null, session: null, user: null, wat
   // Following (063, R-018): what the person chose - issues, whole categories, single bills ("direct") and "Not for me"
   // (skips). S.watch is worked out from those (recomputeWatch) and is what every screen reads as "followed bills".
   direct: new Set(), issueFollows: new Set(), catFollows: new Set(), skips: new Set(), viaIssues: new Set(),
+  // How much each followed issue sends (R-299): issue id -> 'every' | 'app'; missing is 'big', the default (levelOf).
+  levels: {},
   cats: [], issues: [], issueById: new Map(), issueBySlug: new Map(), issuesByBill: new Map() };
 export const LISTS_KEY = DEMO ? 'hiphi_list_follows_demo' : 'hiphi_list_follows';
 export const ISSUES_KEY = DEMO ? 'hiphi_issue_follows_demo' : 'hiphi_issue_follows';
@@ -318,8 +320,10 @@ onLang(code => {
 });
 // Follow or unfollow issues and whole categories in one go (the first visit, a category or issue page, Undo).
 export async function setFollows({ issuesOn = [], issuesOff = [], catsOn = [], catsOff = [] } = {}) {
-  const before = { i: new Set(S.issueFollows), c: new Set(S.catFollows) };
+  const before = { i: new Set(S.issueFollows), c: new Set(S.catFollows), l: S.levels };
   issuesOn.forEach(x => S.issueFollows.add(x)); issuesOff.forEach(x => S.issueFollows.delete(x));
+  // An issue no longer followed loses its level, as its issue_follows row (and the level on it) goes (R-299).
+  if (issuesOff.some(x => x in (S.levels || {}))) { const l = { ...S.levels }; issuesOff.forEach(x => delete l[x]); S.levels = l; saveLevels(); }
   catsOn.forEach(x => S.catFollows.add(x)); catsOff.forEach(x => S.catFollows.delete(x));
   recomputeWatch(); saveLocal(); syncText();
   if (S.user && !DEMO) {
@@ -331,9 +335,45 @@ export async function setFollows({ issuesOn = [], issuesOff = [], catsOn = [], c
     if (addC.length) calls.push(S.supa.from('category_follows').insert(addC.map(category => ({ user_id: uid, category }))));
     if (delC.length) calls.push(S.supa.from('category_follows').delete().eq('user_id', uid).in('category', delC));
     const err = (await Promise.all(calls)).find(r => r.error)?.error;
-    if (err) { toast(err, true); S.issueFollows = before.i; S.catFollows = before.c; recomputeWatch(); saveLocal(); return false; }
+    if (err) { toast(err, true); S.issueFollows = before.i; S.catFollows = before.c; S.levels = before.l; saveLevels(); recomputeWatch(); saveLocal(); return false; }
   }
   try { await (await import('./core.js')).loadBills(); } catch (e) { console.error(e); }   // core.js, from the kernel: a dynamic import, never a static cycle (R-122)
+  return true;
+}
+// ---------------- how much each followed issue sends (R-299, Nate 17 Oct) ----------------
+// Nate: "some issues people will be more interested in hearing from than others even if they follow many." So each
+// followed issue has a level: 'every' (every hearing on its bills, still under the one-a-day ceiling), 'big' (HIPHI's big
+// pushes and key hearings: the default for every issue, so a missing level is 'big') or 'app' (no texts or emails about
+// it; it stays in the app). It is chosen after acting, never in the first visit: the thank-you after a letter or an email,
+// Profile > Alerts, the issue page and the page a text's link opens (via says which, for the counts). Signed in, the
+// account keeps it (issue_follows.alert_level, backend 181; set_issue_alert_level also follows the issue when it was not
+// followed); otherwise, and in the sandbox, this browser keeps it (hiphi_issue_levels; its _demo twin in the sandbox).
+// A level chosen while signed out stays on that browser: the merge at sign-in joins the follows, not their levels (a
+// confirmed text number is a signed-in one once codes are on, R-155, so the opt-up after acting is nearly always signed in).
+export const LEVELS = ['every', 'big', 'app'];
+export const LEVELS_KEY = DEMO ? 'hiphi_issue_levels_demo' : 'hiphi_issue_levels';
+const readLevels = () => { try { const o = JSON.parse(localStorage.getItem(LEVELS_KEY) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch { return {}; } };
+function saveLevels() { try { localStorage.setItem(LEVELS_KEY, JSON.stringify(S.levels || {})); } catch { /* private mode */ } }
+export const levelOf = id => { const v = (S.levels || {})[id]; return LEVELS.includes(v) ? v : 'big'; };
+// Set one issue's level, on the screen at once; an issue not followed yet is followed with it (the RPC does the same in
+// the account). False, with everything put back and the reason in a toast (quiet: no toast, the caller says it), when the
+// account could not keep it.
+export async function setIssueLevel(issueId, level, via, { quiet = false } = {}) {
+  if (!LEVELS.includes(level) || !S.issueById?.has(issueId)) return false;
+  const had = S.levels, followed = S.issueFollows.has(issueId);
+  S.levels = { ...(S.levels || {}), [issueId]: level }; saveLevels();
+  if (!followed) { S.issueFollows.add(issueId); recomputeWatch(); saveLocal(); syncText(); }
+  if (S.user && !DEMO) {
+    // It returns the level kept, or null when the account refused it (backend 181): both put everything back.
+    const { data, error } = await S.supa.rpc('set_issue_alert_level', { p_issue: issueId, p_level: level, p_via: via });
+    if (error || data !== level) {
+      S.levels = had; saveLevels();
+      if (!followed) { S.issueFollows.delete(issueId); recomputeWatch(); saveLocal(); syncText(); }
+      if (!quiet) toast(error || 'We couldn’t save that just now. Try again in a moment.', true);
+      return false;
+    }
+  }
+  if (!followed) { try { await (await import('./core.js')).loadBills(); } catch (e) { console.error(e); } }   // its bills come to the page, as setFollows
   return true;
 }
 // The profile at sign-in (R-156, the review): two pure steps, tested in tests/profile.py. pr: the account's profile
@@ -374,7 +414,7 @@ export async function loadUser() {
   // arrive, and firstVisit() must see an action taken on a shared bill, or it would start the first visit over.
   S.done = localDone(); S.doneAt = localDoneAt();
   if (DEMO || !S.session) {
-    S.direct = localWatch(); S.issueFollows = readSet(ISSUES_KEY); S.catFollows = readSet(CATS_KEY); S.skips = readSet(SKIPS_KEY);
+    S.direct = localWatch(); S.issueFollows = readSet(ISSUES_KEY); S.catFollows = readSet(CATS_KEY); S.skips = readSet(SKIPS_KEY); S.levels = readLevels();
     recomputeWatch(); return;
   }
   const { data, error } = await S.supa.rpc('ensure_public_user');
@@ -450,8 +490,12 @@ export async function loadUser() {
   { let toks = []; try { toks = JSON.parse(localStorage.getItem('hiphi_ulist_follows') || '[]'); } catch { /* none */ }
     for (const t of toks) { const r = await S.supa.rpc('follow_user_list', { p_token: t }); if (r.error) console.warn('shared list:', r.error.message); }
     if (toks.length) { try { localStorage.removeItem('hiphi_ulist_follows'); } catch { /* private mode */ } if (S.ul) S.ul.mine = null; } }
-  const [wl, isf, caf, sk] = await Promise.all([S.supa.from('watchlist').select('bill_id,stance'), S.supa.from('issue_follows').select('issue_id'),
+  // Each issue's level rides on its follow (R-299, backend 181). Until 181 is applied the column is not there and that read
+  // fails, so it is asked again without it: the follows must never be lost to a missing level.
+  const follows = () => S.supa.from('issue_follows').select('issue_id,alert_level').then(r => r.error ? S.supa.from('issue_follows').select('issue_id') : r);
+  const [wl, isf, caf, sk] = await Promise.all([S.supa.from('watchlist').select('bill_id,stance'), follows(),
     S.supa.from('category_follows').select('category'), S.supa.from('bill_skips').select('bill_id')]);
+  S.levels = Object.fromEntries((isf.data || []).filter(r => LEVELS.includes(r.alert_level) && r.alert_level !== 'big').map(r => [r.issue_id, r.alert_level])); saveLevels();
   const server = new Set((wl.data || []).map(r => r.bill_id));
   // Issues, whole categories and "Not for me" chosen on this device join the account, as bills and lists do.
   const merge = async (table, col, local, have) => {

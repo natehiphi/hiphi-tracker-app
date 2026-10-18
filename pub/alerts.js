@@ -16,7 +16,7 @@
 // asks for a YES any more. Before the switch it says the number will be confirmed by text (t3), as the code will do.
 // Legal, one line: the text consent words and the privacy page's lines on numbers should be confirmed by a lawyer before
 // any text goes out; carrier registration (10DLC) also reviews this screen, and should name both uses, alerts and sign-in codes.
-import { S, DEMO, app, esc, icon, textSaved, textLists, TEXT_KEY, CONSENT_KEY, supa, sendEmailLink, validEmail, friendly, linkText, nudgeOk, onb, onbSet } from './core.js';
+import { S, DEMO, app, esc, icon, textSaved, textLists, TEXT_KEY, CONSENT_KEY, supa, sendEmailLink, validEmail, friendly, linkText, nudgeOk, onb, onbSet, LEVELS, levelOf, setIssueLevel } from './core.js';
 import { codesOn, loadCodes, sendCode, verifyCode, codeErr, tooSoon, listenForCode, myEmail } from './phone.js';
 import { btn } from './ui.js';
 import { burst } from './fx.js';
@@ -90,11 +90,16 @@ export function followAsk(name, after, { many = false, receipt = '' } = {}) {
 // as agreed is always what was on the screen: the stored words are the two lines joined by a space. Earlier: t2 and t3
 // (backend 128, 141) and e1 (157), about 60 words each.
 // Legal, one line: these words join the lawyer's list (R-149) before any text or email goes to the public.
-export const TEXT_CONSENT = 't4';
-export const EMAIL_CONSENT = 'e2';
-export const ALERT_PROMISE = 'HIPHI alerts when a bill on your issues gets a hearing or needs you to speak up.';
-export const TEXT_FINE = 'Up to 1 a day. Msg & data rates may apply. Reply STOP to cancel.';
-export const EMAIL_FINE = 'Up to 1 a day. Unsubscribe anytime.';
+// R-299 GO-LIVE (Nate 17 Oct): the words for the levels, t5 and e3 (backend 181 stores them), wait behind this one switch
+// until the lawyer has seen them (L-03) and the levels are sending. Nate's line, "HIPHI lets you know when your voice
+// matters most.", and the few-a-month promise without the ceiling, which stays on the Text terms page. Flip it to true
+// together with text-terms.html's "R-299 GO-LIVE" block, in the same commit (tests/r299_levels.py checks they agree).
+export const WORDS_T5 = false;
+export const TEXT_CONSENT = WORDS_T5 ? 't5' : 't4';
+export const EMAIL_CONSENT = WORDS_T5 ? 'e3' : 'e2';
+export const ALERT_PROMISE = WORDS_T5 ? 'HIPHI lets you know when your voice matters most.' : 'HIPHI alerts when a bill on your issues gets a hearing or needs you to speak up.';
+export const TEXT_FINE = WORDS_T5 ? 'A few texts a month. Msg & data rates may apply. Reply STOP to cancel.' : 'Up to 1 a day. Msg & data rates may apply. Reply STOP to cancel.';
+export const EMAIL_FINE = WORDS_T5 ? 'A few emails a month. Unsubscribe anytime.' : 'Up to 1 a day. Unsubscribe anytime.';
 export const TEXT_WORDS = `${ALERT_PROMISE} ${TEXT_FINE}`, EMAIL_WORDS = `${ALERT_PROMISE} ${EMAIL_FINE}`;
 // The one line under the box, where it is typed (P-5): short and positive, never "spam" (the research: a line like it raised a
 // nonprofit's sign-ups from 18% to 27%; "never spam you" cost 19% in another test). The privacy page says the rest.
@@ -158,6 +163,49 @@ export function alertStatus({ fmt = fmtPhone } = {}) {
 export function emailLede() {
   return alertStatus().email === 'on' ? 'Your email alerts are in your profile. Add your mobile number to get texts too.'
     : 'Your email alerts are off. <a href="#/profile">Turn them on in your profile</a>, or add your mobile number to get texts.';
+}
+
+// ---------------- How much each issue sends (R-299, Nate 17 Oct) ----------------
+// One level per followed issue (kernel.js levelOf, setIssueLevel), its three names one word each and one plain line each
+// (Nate: "only if it's done smoothly"). The same pressable chips as "Where do you stand?" on a bill (A-12: the chosen one is
+// filled, with a check), so a person meets one kind of choice; the line under them says what the chosen one sends, and
+// "Saved." once a tap has kept it (B-7). Drawn on the issue page and the page a text's link opens; Profile > Alerts has the
+// same three names in one list (pub/profile.js). Chosen after acting, never in the first visit.
+export const LEVEL_WORDS = { every: 'Every hearing', big: 'Big moments only', app: 'App only' };
+export const LEVEL_HINT = {
+  every: 'Every hearing on this issue’s bills, never more than one a day.',
+  big: 'HIPHI’s biggest calls to speak up and key hearings. Usually a few a month.',
+  app: 'No texts or emails about this issue. It stays in your app.',
+};
+// Does anything reach this person? A level changes nothing for someone with no number and no email (C-13), so the choice
+// is shown only once alerts can come: a number given (confirmed or not) or an account with an email.
+export const getsAlerts = () => !!(textSaved() || (S.session && S.user && S.session.user?.email));
+const lvlChips = (cur) => LEVELS.map(k => `<button type="button" class="chip" data-lvl="${k}" aria-pressed="${cur === k}">${cur === k ? icon('check') : ''}${LEVEL_WORDS[k]}</button>`).join('');
+// i: the issue; via: 'issue' | 'text' | 'profile' (who set it, for the counts); label: the group's name; id: unique on the page.
+export function levelPick(i, { via, label, id = 'lvl' } = {}) {
+  const cur = levelOf(i.id);
+  return `<div class="lvl" data-lvl-issue="${esc(i.id)}" data-lvl-via="${esc(via)}">
+    <p class="lvl-h" id="${id}-h">${label}</p>
+    <div class="chips lvl-opts" role="group" aria-labelledby="${id}-h" aria-describedby="${id}-x">${lvlChips(cur)}</div>
+    <p class="lvl-hint" id="${id}-x" aria-live="polite">${esc(LEVEL_HINT[cur])}</p></div>`;
+}
+// Taps on a levelPick: drawn again in place, so the focus stays on the chip just pressed; the account keeps it in the
+// background, and a refusal puts the old level back with its reason (kernel.js toasts it). onSet(issueId, level, was).
+export function wireLevels(root, { onSet } = {}) {
+  (root || document).querySelectorAll('[data-lvl-issue]').forEach(box => box.querySelectorAll('[data-lvl]').forEach(b => b.onclick = async () => {
+    const id = box.dataset.lvlIssue, k = b.dataset.lvl, was = levelOf(id);
+    if (k === was || box.getAttribute('aria-busy') === 'true') return;
+    const paint = (lv, saved) => {
+      box.querySelectorAll('[data-lvl]').forEach(x => { const on = x.dataset.lvl === lv; x.setAttribute('aria-pressed', String(on)); x.innerHTML = `${on ? icon('check') : ''}${LEVEL_WORDS[x.dataset.lvl]}`; });
+      const h = box.querySelector('.lvl-hint'); if (h) h.innerHTML = `${saved ? `<b>${icon('circle-check')}Saved.</b> ` : ''}${esc(LEVEL_HINT[lv])}`;
+    };
+    paint(k, false); box.setAttribute('aria-busy', 'true');
+    const ok = await setIssueLevel(id, k, box.dataset.lvlVia);
+    box.removeAttribute('aria-busy');
+    if (!ok) { paint(was, false); return; }
+    paint(k, true);
+    onSet?.(id, k, was);
+  }));
 }
 
 // Which box shows, and what was typed in each, kept for this page's life so a redraw (data landing, Back) loses nothing

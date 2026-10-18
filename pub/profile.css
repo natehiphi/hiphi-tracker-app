@@ -148,6 +148,16 @@
 .pf .pf-story-f textarea { min-height: 5.5em; }
 .pf .pf-addstory select { max-width: 100%; }
 .pf .pf-addstory select + select { margin-top: var(--s8); }
+/* How much each issue sends (R-299): one short row per followed issue, its name and a select; side by side from 600px. */
+.pf .pf-lvlist { list-style: none; margin: var(--s8) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s12); }
+.pf .pf-lvrow { margin: 0; }
+.pf .pf-lvrow + .pf-lvrow { margin-top: 0; }
+.pf .pf-lvls > p { margin: 2px 0 0; }
+@media (min-width: 600px) {
+  .pf .pf-lvrow { flex-direction: row; align-items: center; justify-content: space-between; gap: var(--s16); }
+  .pf .pf-lvrow label { flex: 1 1 auto; min-width: 0; }
+  .pf .pf-lvrow select { width: 15rem; flex: none; }
+}
 .pf .pf-promise { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s12) 0 0; font-size: var(--t14); color: var(--n700); }
 .pf .pf-promise .ic { width: 18px; height: 18px; flex: none; margin-top: 1px; color: var(--p700); }
 .pf .pf-curdist { display: flex; gap: var(--s8); align-items: flex-start; margin: 0; }

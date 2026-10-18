@@ -82,6 +82,13 @@
 /* "Stop following <issue>" under the sentence that says it is followed, on the text edge (X10-4; X9-1, A-8) */
 .hp-dlg .hp-next .hp-unf { align-self: flex-start; margin: calc(-1 * var(--s8)) 0 0 -16px; justify-content: flex-start; text-align: left; }
 .hp-dlg .hp-watch .ic-external-link { width: 16px; height: 16px; }
+/* The opt-up after acting (R-299): "Going to the hearing in person?"'s shape (.hp-goask), its reassurance quieter; after
+   the yes, one line with Undo on the text edge. */
+.hp-dlg .hp-lvl .hp-lvlsub { display: block; color: var(--n500); font-size: var(--t14); }
+.hp-dlg .hp-lvlok { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s8); margin: 0; }
+.hp-dlg .hp-lvlok > .ic { flex: none; }
+.hp-dlg .hp-lvlok > span { flex: 1 1 14em; }
+.hp-dlg .hp-lvlok .hp-inl { margin-left: -12px; }
 /* "check your inbox": shown instead of the email ask when the person gave their email on screen 1 */
 .hp-dlg .hp-inbox { display: flex; gap: var(--s12); align-items: flex-start; }
 .hp-dlg .hp-inbox:focus { outline: none; }

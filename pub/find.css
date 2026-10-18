@@ -50,6 +50,7 @@
 .fd-follow.on { background: var(--ok-wash); border-color: var(--ok-wash); box-shadow: none; gap: var(--s4); }
 .fd-follow.on > .small { text-align: left; color: var(--n700); }
 .fd-follow.on .btn.text { margin-left: -16px; }   /* a small text button's 16px padding: its words on the text edge (X9-1, A-8) */
+.fd-follow.on .lvl { margin: var(--s12) 0 var(--s4); }   /* the issue's alerts level (R-299): its own small group, under the line it qualifies (A-8) */
 .fd .okmsg { font-size: var(--t16); align-items: flex-start; }
 .fd .okmsg .ic { width: 20px; height: 20px; margin-top: 2px; }
 .fd .okmsg:focus { outline: none; }   /* focus is sent here only so a screen reader says the new state; it is not a control */
@@ -101,6 +102,8 @@
   .fd-lhead .fd-cta { margin: 0 0 var(--s16); }
   .fd-lhead .fd-follow:not(.on) { align-items: flex-start; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: var(--s16); }
   .fd-lhead .fd-follow.on { margin: 0 0 var(--s16); }
+  /* the follow card with its alerts level (R-299) is taller than the title: both start at the top, no gap over the title */
+  .fd-lhead:has(.lvl) { align-items: start; }
 }
 
 /* ---- issues (R-018): a list of issues on a category page and in search. The row opens the issue's page; its Follow

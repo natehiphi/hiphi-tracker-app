@@ -48,11 +48,12 @@
 import { S, DEMO, app, esc, icon, toast, friendly, spaced, posInfo, cmteLabel, cmtesOf, codesOf, dueInfo, dateLong, timeWord, roomLabel,
   hstDay, HST, anyBill, anyHearing, markDone, toggleWatch, streamOf, reduceMotion, MILESTONES, myActions, POS_WORD, didKind,
   billPath, cleanDesc, nick, agrees, myStance, setStance, sendEmailLink, validEmail, issuesOf, issueFollowed, setFollows,
-  hearingText, chairContacts, legById, legsOf, stopOf, askMark, saveDone, sessionInfo, CHAMBER_NAME, dayWord } from './core.js';
+  hearingText, chairContacts, legById, legsOf, stopOf, askMark, saveDone, sessionInfo, CHAMBER_NAME, dayWord, textSaved, levelOf, setIssueLevel } from './core.js';
 import { btn, iconBtn, notice } from './ui.js';
 import { nudgeCard, wireNudge, declineNudge, goDirections, roomFloor, noteGoing, downloadIcs } from './actions.js';
 import { flower } from './art.js';
-import { profileAsk, alertButton } from './alerts.js';   // the profile ask right under the Mahalo, its button in the bar (R-184)
+import { profileAsk, alertButton, LEVEL_WORDS } from './alerts.js';   // the profile ask right under the Mahalo, its button in the bar (R-184); the levels (R-299)
+import { myEmail } from './phone.js';
 import { introMark } from './speakup.js';
 import { logTime } from './visitlog.js';   // how long a letter took (R-169, backend 143)
 import { readyLetter, readyMail, letterOn, letterCheck, draftNotes, draftName, draftLabel, keepLetter, forgetLetter } from './letters.js';
@@ -1364,7 +1365,7 @@ function doneScreen() {
     </div>${up ? ask : ''}${friendCard(x)}
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
       <p>${esc(next)} ${followWords(x, n)}</p>
-      ${unfollowBtn(x)}
+      ${unfollowBtn(x)}${levelUp(x)}
       ${held ? '' : goingLine(x)}
       ${watch}${fixLine(h)}</section>
     ${storyCard(x)}${profileLine(x)}
@@ -1409,6 +1410,22 @@ function afterSend(x) {
   const two = twoFor(x), L = x.letter || '';
   if (two.length && L.includes(aWords(two))) app.onAct?.('letter_titled');
   if ([myStory(), ...Object.values(myStories())].filter(Boolean).some(st => L.includes(st))) app.onAct?.('letter_story');
+}
+// The opt-up after acting (R-299, Nate 17 Oct: "Opt up after acting"; acting is the strongest sign someone cares about an
+// issue). For someone alerts reach (a confirmed number, or an account with an email) whose issue for this bill is followed
+// below "Every hearing": one quiet question inside "What happens next", right under the sentence that says how they will
+// see what happens, in the shape of "Going to the hearing in person?" beside it. Not a card of its own: the story ask may be
+// on this screen too, and one ask card at a time stays the rule (C-3). Its button is a small outlined one, so the bar's main
+// button stays the only filled one (A-3); after the yes, one line with Undo (B-5). Never for the hello letter, which has no
+// bill. The question names the channel: texts for someone with a number, alerts for email only.
+const lvlIssue = x => { if (!x?.b || x.mode === 'intro') return null; const i = x.followedIssue || issuesOf(x.b)[0]; return i && issueFollowed(i) ? i : null; };
+const reached = () => !!(textSaved()?.confirmed || (S.session && myEmail()));
+function levelUp(x) {
+  const i = lvlIssue(x); if (!i) return '';
+  if (x.lvlUp?.id === i.id && levelOf(i.id) === 'every') return `<p class="okmsg hp-lvlok" role="status">${icon('circle-check')}<span>You’ll hear about every hearing on ${esc(i.name)}.</span>${btn('Undo', { kind: 'text', sm: true, icon: 'undo-2', cls: 'hp-inl', attrs: { 'data-hp': 'lvl-undo', id: 'hp-lvl-undo' } })}</p>`;
+  if (levelOf(i.id) === 'every' || !reached()) return '';
+  return `<div class="hp-goask hp-lvl"><p>${textSaved()?.confirmed ? 'Text me' : 'Alert me about'} every hearing on ${esc(i.name)}? <span class="hp-lvlsub">Never more than one a day.</span></p>
+    ${btn('Yes, every hearing', { kind: 'secondary', sm: true, icon: 'bell', attrs: { 'data-hp': 'lvl-every', id: 'hp-lvl-yes' } })}</div>`;
 }
 // The undo for the follow that sending did, right under the sentence that says it (X10-4, R-180): "Don't follow it" sat
 // under "I plan to go" and read as not going to the hearing. It names the issue, which is what is followed (R-018).
@@ -1476,7 +1493,7 @@ function mailDoneScreen() {
     </div>${up ? ask : ''}${friendCard(x)}
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
       <p>${next}</p>
-      ${unfollowBtn(x)}
+      ${unfollowBtn(x)}${levelUp(x)}
       ${watch}</section>
     ${storyCard(x)}${profileLine(x)}
     ${up ? '' : ask}`;
@@ -1872,6 +1889,18 @@ function onClick(e) {
   else if (a === 'acct-help') { S.helper.acctHelp = true; paint(); }
   else if (a === 'copyopen') copyAndOpen();
   else if (a === 'trouble') { S.helper.trouble = !S.helper.trouble; paint(); }
+  else if (a === 'lvl-every' || a === 'lvl-undo') {
+    // Yes: this issue's every hearing (R-299); Undo puts back the level it had. Said in place, the focus kept on it.
+    const x = S.helper, i = lvlIssue(x); if (!i || t.getAttribute('aria-busy') === 'true') return;
+    t.setAttribute('aria-busy', 'true');
+    const to = a === 'lvl-every' ? 'every' : (x.lvlUp?.was || 'big'), was = levelOf(i.id);
+    setIssueLevel(i.id, to, 'thanks').then(ok => {
+      if (S.helper !== x) return;
+      if (ok) x.lvlUp = a === 'lvl-every' ? { id: i.id, was } : null;
+      paint({ focus: ok ? (a === 'lvl-every' ? 'hp-lvl-undo' : 'hp-lvl-yes') : '' });
+      if (ok) announce(a === 'lvl-every' ? `You’ll hear about every hearing on ${i.name}.` : `Back to ${LEVEL_WORDS[to].toLowerCase()} for ${i.name}.`);
+    });
+  }
   else if (a === 'unfollow') { const x = S.helper, i = x.followedIssue; if (i) setFollows({ issuesOff: [i.id] }).then(() => { x.followedIssue = null; paint(); announce(`You no longer follow ${i.name}.`); }); }
   else if (a === 'download') download();
   // "I already sent it" counts exactly like the green-box button: same honest question, asked without the round trip.

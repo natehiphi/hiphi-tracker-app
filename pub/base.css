@@ -357,6 +357,18 @@ main:focus { outline: none; }
 .al-swap.btn.text { padding-inline: 0; justify-content: flex-start; }
 a.al-swap { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--t14); font-weight: 600; }
 .al-break { overflow-wrap: anywhere; }
+/* How much each followed issue sends (R-299, pub/alerts.js levelPick): the stance's pressable chips (A-12), a 14px label,
+   and one line under them saying what the chosen level sends. Quiet on purpose: no card of its own, no colour but the
+   chosen chip's. The "Saved." mark is a word and an icon, never colour alone (A-5). */
+.lvl { display: flex; flex-direction: column; gap: var(--s8); min-width: 0; }
+.lvl-h { margin: 0; font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.lvl-opts button.chip .ic { stroke-width: 3; }
+.lvl-hint { margin: 0; font-size: var(--t14); line-height: 1.45; color: var(--n700); max-width: 65ch; }
+.lvl-hint b { display: inline-flex; align-items: center; gap: 4px; color: var(--ok-text); }
+.lvl-hint b .ic { width: 16px; height: 16px; }
+.lvl[aria-busy="true"] .lvl-opts { cursor: progress; }
+@media (hover: hover) { .lvl-opts button.chip:hover { background: var(--p50); border-color: var(--p700); } }
+
 .al-nowrap { white-space: nowrap; }
 /* The code step (R-155): the 6-digit code where the number was typed. Wide spacing and tabular digits so a code read off a
    text is easy to check; sized for six digits, never the full width. A new code and a different number sit side by
