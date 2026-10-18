@@ -43,9 +43,9 @@
 .pp .pp-slots { display: flex; flex-direction: column; gap: var(--s12); margin-top: var(--s16); }
 .pp .pp-slots .card + .card { margin-top: 0; }
 /* side by side (from 640px) the two cards share a height, with "See their committees" along the bottom of both;
-   while an email is open in one of them they go back to their own heights, so the other does not stretch */
+   while an email is open in one of them they go back to their own heights, so the other does not stretch (the 640px
+   rule below). On a phone they are a column, where "start" shrank the other card to its words (358 to 337px; R-303). */
 .pp .pp-slots { align-items: stretch; }
-.pp .pp-slots.pp-writing { align-items: start; }
 .pp .pp-card .pp-more { margin-top: auto; }
 
 .pp .pp-card { display: flex; flex-direction: column; gap: var(--s12); }
@@ -151,6 +151,7 @@
 /* wider screens: the senator and representative side by side */
 @media (min-width: 640px) {
   .pp .pp-slots, .pp .pp-skel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s12); }
+  .pp .pp-slots.pp-writing { align-items: start; }
   .pp .pp-actions .btncol { flex-direction: row; }
   .pp .pp-actions .btncol .btn { width: auto; flex: 1 1 0; }
 }
@@ -206,4 +207,36 @@
   .pp .pp-covers { max-width: 65ch; }
   .pp .pp-rest > .pp-sec:first-child { margin-top: var(--s24); }
   .pp .pp-rest > .pp-cmp { padding: var(--s24); }
+}
+
+/* ---- the calm redesign (R-303, ?rec=1; pub/rec/people.js), scoped to body.rec ---- */
+body.rec .pp-rec .pp-rppl { margin-top: var(--s8); }
+body.rec .pp-rec .rc-act .pp-cmp { margin-top: var(--s12); }
+body.rec .pp-rec .pp-rcmp { margin-top: var(--s12); }
+body.rec .pp-rfoot { margin-top: var(--s12); font-size: var(--t14); color: var(--n700); }
+body.rec .pp-rfoot p { display: flex; align-items: center; flex-wrap: wrap; gap: 0 6px; margin: 0; }
+body.rec .pp-rfoot .ic { width: 16px; height: 16px; color: var(--n500); flex: none; }
+body.rec .pp-rdir { margin: var(--s8) 0 0; }
+body.rec .pp-rdir .rc-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; background: none; border: 0; color: var(--p700); font-weight: 700; font-size: var(--t16); cursor: pointer; }
+body.rec .pp-rdir .rc-link .ic { width: 18px; height: 18px; }
+body.rec .pp-rdir .rc-link:hover span { text-decoration: underline; }
+body.rec .pp-dir { margin-top: var(--s8); }
+body.rec .pp-dir .pp-browse { margin-top: var(--s24); }
+body.rec .pp-rec .pp-search { margin-top: var(--s16); }
+body.rec .pp-rsplit { margin-top: var(--s16); }
+body.rec .pp-rsplit .pp-rwhy { margin: var(--s4) 0 var(--s12); font-size: var(--t14); color: var(--n700); }
+/* a lawmaker: the photo beside the name and one district line */
+body.rec .pp-rhead { display: flex; align-items: center; gap: var(--s16); }
+body.rec .pp-rhtext { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s4); min-width: 0; }
+body.rec .pp-rhead .rc-h1 { margin: 0; overflow-wrap: anywhere; }
+body.rec .pp-rdist { margin: 0; font-size: var(--t14); line-height: 1.4; color: var(--n700); }
+body.rec .pp-rnote { margin: var(--s8) 0; }
+body.rec .pp-roffice { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s12) 0 0; font-size: var(--t14); color: var(--n700); overflow-wrap: anywhere; }
+body.rec .pp-roffice .ic { width: 18px; height: 18px; margin-top: 2px; color: var(--n500); flex: none; }
+@media (min-width: 1100px) {
+  body.rec .pp-rec .rc-cols { row-gap: 0; }
+  body.rec .pp-rec .rc-cols > .pp-rmain { grid-column: 1; min-width: 0; }
+  body.rec .pp-rec .rc-cols > .rc-side { grid-column: 2; grid-row: 1 / span 2; }
+  body.rec .pp-rec .rc-side .rc-act { margin-top: var(--s16); }
+  body.rec .pp-photo.xl { width: 96px; height: 96px; }
 }

@@ -72,3 +72,22 @@ body.rec .rc-empty p { margin: 0 0 var(--s12); font-size: var(--t16); line-heigh
   body.rec .rc-cols { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--s32); align-items: start; }
   body.rec .rc-side { position: sticky; top: calc(var(--header) + var(--s16)); }
 }
+
+/* The one action card on the lawmaker and committee pages (pub/rec/act.js recAct), in the bill page's look (.bl-ract): the
+   moment and how near it is, what to do, one sentence why, one filled button, how long it takes, then more ways. */
+body.rec .rc-act { margin-top: var(--s16); }
+body.rec .rc-awhen { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 700; font-size: var(--t14); color: var(--n700); }
+body.rec .rc-awhen .ic { width: 16px; height: 16px; flex: none; }
+body.rec .rc-awhen > span:nth-child(2) { flex: 1; min-width: 0; }
+body.rec .rc-awhen.warn { color: var(--warn-text); }
+body.rec .rc-apill { flex: none; font-size: var(--t13); padding: 2px var(--s8); border-radius: var(--pill); background: var(--n100); white-space: nowrap; }
+body.rec .rc-awhen.warn .rc-apill { background: var(--warn-wash); }
+body.rec .rc-ah { margin: var(--s8) 0 0; font: 600 var(--t18)/1.25 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+body.rec .rc-ah:first-child { margin-top: 0; }
+body.rec .rc-atext { margin: var(--s4) 0 var(--s12); font-size: var(--t14); line-height: 1.45; color: var(--n700); }
+body.rec .rc-amore { margin: var(--s8) 0 0; font-size: var(--t13); color: var(--n700); }
+body.rec .rc-aways { margin-top: var(--s8); border-top: 1px solid var(--n100); }
+/* The back row's place at the top of a page below a tab, and a link that reads as words inside a sentence */
+body.rec .rc-top { margin-top: var(--s4); }
+body.rec .rc-tlink { display: inline-flex; align-items: center; min-height: 44px; padding: 0; background: none; border: 0; color: var(--p700); font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+body.rec .rc-tlink:hover { text-decoration-thickness: 2px; }

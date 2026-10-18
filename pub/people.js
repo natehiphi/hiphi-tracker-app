@@ -17,11 +17,17 @@ import { islands } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { helloFacts, helloLetter, helloSubject, districtWords, vary, townWord, whoLine, ownLine } from './hello.js';   // the hello letter, the same one helper.js writes (R-172)
 import { myName, myTitles } from './myprofile.js';
+// The calm redesign (R-303), only with ?rec=1: the same state, field, lookup and email, laid out as pub/rec/people.js says.
+import { REC } from './rec/kit.js';
+import { recFinder, recPerson, wireRec } from './rec/people.js';
 
 const KEY = 'hiphi_districts';
+// The example the field and its errors give: an address that resolves (the State Capitol's). "Kailua" was the example, and
+// Kailua is split between districts, so it never gave an answer; "45 Kainalu Dr" is not an address (R-303, bug 3).
+export const EXAMPLE = '415 S Beretania St';
 // Screen state for this visit. Nothing here reaches a server; the address itself is never stored.
-const P = { q: '', pick: null, finding: null, err: '', changing: false, remember: true,
-  mail: null, text: {}, copied: null, sent: {}, isl: null, bills: {}, from: '' };
+export const P = { q: '', pick: null, finding: null, err: '', changing: false, remember: true,
+  mail: null, text: {}, copied: null, sent: {}, isl: null, bills: {}, from: '', billFor: {}, enter: false, near: '', dir: false };
 // The debounced address fetch is the one stateful, async part of this page; it is its own module (addresspicker.js)
 // so the onboarding wizard can run a second, independent instance rather than sharing this one.
 const AP = createAddressPicker();
@@ -31,9 +37,9 @@ const AP = createAddressPicker();
 // Island, Senate 5-7 and House 9-14 in Maui County (with Molokaʻi and Lānaʻi), Senate 8 and House 15-17 on Kauaʻi
 // (with Niʻihau), and everything else on Oʻahu. The directory has no island column, so it comes from the number.
 const ISLANDS = [['O', 'Oʻahu', ''], ['H', 'Hawaiʻi Island', ''], ['M', 'Maui County', 'Maui, Molokaʻi and Lānaʻi'], ['K', 'Kauaʻi', 'Kauaʻi and Niʻihau']];
-const ISLAND_NAME = Object.fromEntries(ISLANDS.map(([c, n]) => [c, n]));
+export const ISLAND_NAME = Object.fromEntries(ISLANDS.map(([c, n]) => [c, n]));
 const islandOfSeat = (ch, d) => ch === 'S' ? (d <= 4 ? 'H' : d <= 7 ? 'M' : d === 8 ? 'K' : 'O') : (d <= 8 ? 'H' : d <= 14 ? 'M' : d <= 17 ? 'K' : 'O');
-const islandOf = l => islandOfSeat(l.chamber, l.district);
+export const islandOf = l => islandOfSeat(l.chamber, l.district);
 // The island chain drawing (pub/art.js) names eight islands; a group of districts lights up its main one (Maui
 // County is drawn as Maui, Kauaʻi's group as Kauaʻi).
 const ART_KEY = { O: 'oahu', H: 'hawaii', M: 'maui', K: 'kauai' };
@@ -48,18 +54,18 @@ export function islandKey(senate, house, town = '') {
   if (code === 'K' && /niihau/.test(t)) return 'niihau';
   return ART_KEY[code] || '';
 }
-const CHAMBER_WORD = { S: 'Senate', H: 'House' };
-const PARTY = { D: 'Democrat', R: 'Republican' };
+export const CHAMBER_WORD = { S: 'Senate', H: 'House' };
+export const PARTY = { D: 'Democrat', R: 'Republican' };
 // Place names arrive with a mix of ʻokina, curly quotes, straight quotes and macrons; match without any of them.
 const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[ʻ‘’`'.]/g, '').replace(/[-/]/g, ' ')
   .toLowerCase().replace(/^ft\b/, 'fort').replace(/\s+/g, ' ').trim();
 // Show the ʻokina as an ʻokina (the Capitol pages type it as a quote mark).
-const okina = s => String(s || '').replace(/['‘’`](?=[aeiouāēīōū])/gi, 'ʻ');
-const cover = l => okina(l.places || '').replace(/\b(a )?portions? of\b/gi, 'part of');
+export const okina = s => String(s || '').replace(/['‘’`](?=[aeiouāēīōū])/gi, 'ʻ');
+export const cover = l => okina(l.places || '').replace(/\b(a )?portions? of\b/gi, 'part of');
 
 // The directory can list two people for one seat after a mid-term appointment; the one with a Capitol email serves.
 let seatCache = null;
-function seated() {
+export function seated() {
   if (seatCache && seatCache.src === S.legislators) return seatCache.list;
   const by = new Map();
   for (const l of S.legislators || []) { if (l.active === false) continue; const k = l.chamber + l.district; if (!by.has(k)) by.set(k, []); by.get(k).push(l); }
@@ -67,8 +73,8 @@ function seated() {
   seatCache = { src: S.legislators, list, ids: new Set(list.map(l => l.id)) };
   return list;
 }
-const bySeat = (a, b) => a.district - b.district || a.name.localeCompare(b.name);
-const forDistricts = (sd, hd) => seated().filter(l => (l.chamber === 'S' && l.district === +sd) || (l.chamber === 'H' && l.district === +hd));
+export const bySeat = (a, b) => a.district - b.district || a.name.localeCompare(b.name);
+export const forDistricts = (sd, hd) => seated().filter(l => (l.chamber === 'S' && l.district === +sd) || (l.chamber === 'H' && l.district === +hd));
 
 // One name per place, per island (there are three Waimeas and two Punaluʻus). "portions of Kurtistown and Keaʻau"
 // is two places; "East and Upcountry Maui" is East Maui and Upcountry Maui. Ranges ("Kahuku to Mokulēʻia") read
@@ -142,14 +148,14 @@ function zipTowns(zip) {
 }
 
 // ---------------- remembered districts ----------------
-function saved() {
+export function saved() {
   // Districts saved before 9/19 have no island yet: it is worked out from them here, so nothing needs re-saving.
   try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (d && +d.senate && +d.house) return { senate: +d.senate, house: +d.house, label: String(d.label || ''), island: d.island || islandKey(d.senate, d.house, d.label) }; } catch { /* private mode */ }
   const p = S.profile || {};   // signed in, with a home address saved on the account
   if (p.senate_district && p.house_district) return { senate: +p.senate_district, house: +p.house_district, label: 'Your saved address', account: true, island: islandKey(p.senate_district, p.house_district) };
   return null;
 }
-function remember(pick) {
+export function remember(pick) {
   const s = pick.ids.map(legById).find(l => l?.chamber === 'S'), h = pick.ids.map(legById).find(l => l?.chamber === 'H');
   // The island rides along (never the street) so Home, the recap and the guided start can highlight it in their art.
   // The label kept is a town, never a street: a typed address with no town found used to leave the street (or the
@@ -158,11 +164,11 @@ function remember(pick) {
   const label = pick.kind === 'addr' ? (pick.town || '') : pick.label;
   try { if (s && h) localStorage.setItem(KEY, JSON.stringify({ senate: s.district, house: h.district, label, island: islandKey(s.district, h.district, pick.town || pick.label) })); } catch { /* private mode */ }
 }
-function forget() { try { localStorage.removeItem(KEY); } catch { /* ignore */ } }
-const mine = (l, d = saved()) => !!d && ((l.chamber === 'S' && l.district === d.senate) || (l.chamber === 'H' && l.district === d.house));
-const yoursWord = l => l.chamber === 'S' ? 'Your senator' : 'Your representative';
+export function forget() { try { localStorage.removeItem(KEY); } catch { /* ignore */ } }
+export const mine = (l, d = saved()) => !!d && ((l.chamber === 'S' && l.district === d.senate) || (l.chamber === 'H' && l.district === d.house));
+export const yoursWord = l => l.chamber === 'S' ? 'Your senator' : 'Your representative';
 // A town to put in the email ("I live in Kailua"): never a street address, never a placeholder label.
-const townOf = x => x ? x.town || (x.account || /\d/.test(x.label || '') ? '' : x.label || '') : '';
+export const townOf = x => x ? x.town || (x.account || /\d/.test(x.label || '') ? '' : x.label || '') : '';
 
 // ---------------- suggestions ----------------
 // Ranking (plan 7): with no digits, towns first, then people, then street addresses (a street called "Kailua Blvd"
@@ -190,18 +196,25 @@ function suggest(q) {
     out.person = seated().filter(l => (' ' + norm(l.name)).includes(' ' + k) || norm(l.sort_name).startsWith(k)).slice(0, 3)
       .map(l => ({ kind: 'person', label: `${legTitle(l)} ${l.name}`, sub: `${CHAMBER_WORD[l.chamber]} District ${l.district} · ${ISLAND_NAME[islandOf(l)]}`, ids: [l.id] }));
   }
-  out.addr = AP.results(t).slice(0, digits ? 8 : 4).map(addrSug);
+  // The address table calls "445 N Kainalu Dr" an exact match for "45 Kainalu Dr" (R-303, bug 4): a suggestion is exact
+  // here only when its house number is the one typed, and those come first.
+  const num = houseNum(t);
+  out.addr = AP.results(t).slice(0, digits ? 8 : 4).map(x => addrSug(x, num)).sort((a, b) => b.exact - a.exact);
   if (digits && /^\d/.test(t) && t.length >= 5 && !out.addr.some(x => x.exact)) out.addr.push({ kind: 'typed', label: 'Look up this address', sub: t, q: t });
   return (digits ? [...out.district, ...out.addr, ...out.place, ...out.person] : [...out.place, ...out.person, ...out.addr]).slice(0, 10);
 }
+// The house number someone typed or a suggestion starts with: "45", "92-2016", "110A" ('' when there is none).
+const houseNum = s => (/^\s*(\d+[a-z]?(?:-\d+[a-z]?)?)\b/i.exec(String(s || '')) || [])[1]?.toLowerCase() || '';
 // "445 N Kainalu Dr, Kailua 96734" -> street, and the town as the directory spells it; no town -> the island.
-function addrSug(x) {
+// num: the house number typed; a suggestion with another number says "closest match" (R-303, bug 4).
+function addrSug(x, num = '') {
   let [street, rest = ''] = String(x.label || '').replace(/\s+/g, ' ').trim().split(/,\s*/);
   if (street && street === street.toUpperCase()) street = titleWords(street);   // the address table shouts some streets: "445 N KAINALU DR"
   const isl = x.sd ? islandOfSeat('S', x.sd) : x.hd ? islandOfSeat('H', x.hd) : '';
   const town0 = rest.replace(/\s*\d{5}$/, '').trim(), town = town0 ? (placeIndex().get(norm(town0) + '|' + isl)?.label || titleWords(town0)) : '';
-  const sub = [town || ISLAND_NAME[isl] || '', x.exact === false ? 'closest match' : ''].filter(Boolean).join(' · ');
-  return { kind: 'addr', ...x, label: [street, town].filter(Boolean).join(', '), street, town, sub };
+  const exact = x.exact !== false && (!num || houseNum(street) === num), near = x.exact === false || (!!num && !exact);
+  const sub = [town || ISLAND_NAME[isl] || '', near ? 'closest match' : ''].filter(Boolean).join(' · ');
+  return { kind: 'addr', ...x, exact: exact && !!num, label: [street, town].filter(Boolean).join(', '), street, town, sub };
 }
 const titleWords = s => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 const SUG_ICON = { place: 'house', addr: 'map-pin', typed: 'map-pin', person: 'user', district: 'map' };
@@ -210,13 +223,15 @@ function sugHTML() {
   if (list.length === 1 && list[0].kind === 'nozip') return `<p class="pp-sugnote">${icon('info')}<span>That ZIP code is not in Hawaiʻi. Try your street address or your town.</span></p>`;
   if (list.length === 1 && list[0].kind === 'zipunknown') return `<p class="pp-sugnote">${icon('info')}<span>That ZIP code is for post office boxes. Try your street address or your town.</span></p>`;
   const rows = list.map((x, i) => `<button type="button" class="pp-sugrow" data-pp-sug="${i}"><span class="pp-sugic">${icon(SUG_ICON[x.kind])}</span><span class="pp-sugtext"><span class="pp-sugtitle">${esc(x.kind === 'addr' ? x.street : x.label)}</span>${x.sub ? `<span class="pp-sugsub">${esc(x.sub)}</span>` : ''}</span></button>`).join('');
-  const wait = AP.isLoading() && looksLikeAddress(P.q) && (/\d/.test(P.q) || !list.length) ? `<p class="pp-sugnote" aria-hidden="true">${icon('loader-circle', { cls: 'pp-spin' })}<span>Looking up street addresses…</span></p>` : '';
-  return rows || wait ? `<div class="pp-sugs" role="group" aria-label="Suggestions">${rows}${wait}</div>` : '';
+  const wait = AP.isLoading() && looksLikeAddress(P.q) && (/\d/.test(P.q) || !list.length) ? `<p class="pp-sugnote"${P.enter ? ' role="status"' : ' aria-hidden="true"'}>${icon('loader-circle', { cls: 'pp-spin' })}<span>Looking up street addresses…</span></p>` : '';
+  // Enter on a house number the table does not have: say so, and let them pick, rather than take another house (R-303, bug 4)
+  const near = rows && P.near && P.near === P.q ? `<p class="pp-sugnote" role="status">${icon('info')}<span>${houseNum(P.q) ? 'We couldn’t find that exact address. Pick yours from the list, or check the house number.' : 'Pick your address from the list.'}</span></p>` : '';
+  return rows || wait ? `<div class="pp-sugs" role="group" aria-label="Suggestions">${near}${rows}${wait}</div>` : '';
 }
 
 // ---------------- the email ----------------
 const me = () => { try { return JSON.parse(localStorage.getItem('hiphi_me') || '{}') || {}; } catch { return {}; } };
-const surname = l => (l.sort_name || l.name).split(',')[0].trim();
+export const surname = l => (l.sort_name || l.name).split(',')[0].trim();
 // The hello to one legislator (R-172): the same letter helper.js writes to both (hello.js), with the name and the "I'm a..."
 // title they saved, the issue they picked there (else the default), their reason and sign-off. No blank or placeholder.
 function helloDraft(l) {
@@ -246,8 +261,9 @@ function draft(l, b, where) {
   return { subject: `${spaced(b.bill_number)}: ${verb === 'support' ? 'please support it' : verb === 'oppose' ? 'please oppose it' : 'a few thoughts'}`, body: lines.join('\n\n') };
 }
 const mailto = (l, subject, body) => `mailto:${l.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-function composer(l, b, k, where) {
+export function composer(l, b, k, where) {
   const d = draft(l, b, where), text = P.text[k] ?? d.body, asked = P.sent[k] && b;
+  if (b) P.billFor[k] = b; else delete P.billFor[k];   // the bill this email is about, so sending counts on it (wire)
   return `<div class="pp-cmp" id="pp-cmp-${k}">
     <p class="small"><span class="strong">To:</span> ${esc(legTitle(l))} ${esc(l.name)}, <span class="pp-email">${esc(l.email)}</span></p>
     <p class="small"><span class="strong">Subject:</span> ${esc(d.subject)}</p>
@@ -272,12 +288,12 @@ function contact(l, k, { primary = false } = {}) {
 
 // ---------------- where people come from ----------------
 // ?from= is the bill's address part: HB1563, or 2026/HB1563 for a bill from an earlier session (R-110, billRef).
-const billNum = r => /^(\d{4}\/)?(HB|SB|HCR|SCR|HR|SR|GM)\d+$/i.test(r?.from || '') ? r.from.toUpperCase() : '';
-const refParts = ref => { const [y, n] = String(ref || '').includes('/') ? ref.split('/') : ['', ref]; return { num: n || '', year: +y || 0 }; };
-const numOnly = ref => refParts(ref).num;
-const legHref = (id, from) => `#/legislator/${id}${from ? '?from=' + encodeURIComponent(from) : ''}`;
+export const billNum = r => /^(\d{4}\/)?(HB|SB|HCR|SCR|HR|SR|GM)\d+$/i.test(r?.from || '') ? r.from.toUpperCase() : '';
+export const refParts = ref => { const [y, n] = String(ref || '').includes('/') ? ref.split('/') : ['', ref]; return { num: n || '', year: +y || 0 }; };
+export const numOnly = ref => refParts(ref).num;
+export const legHref = (id, from) => `#/legislator/${id}${from ? '?from=' + encodeURIComponent(from) : ''}`;
 // The bill someone came from, for "Back to HB 1563" and so the email is about it. Loaded once if not on hand.
-function fromBill(ref) {
+export function fromBill(ref) {
   if (!ref) return null;
   const { num, year } = refParts(ref);
   const b = pickBill([...(S.bills || []), ...Object.values(S.extra || {})].filter(x => x.bill_number === num), year);
@@ -288,7 +304,7 @@ function fromBill(ref) {
 const backLink = (href, label) => `<a class="btn text pp-back" href="${esc(href)}" data-back>${icon('arrow-left')}<span>${esc(label)}</span></a>`;
 
 // ---------------- the finder ----------------
-function finderPage(route) {
+export function finderPage(route) {
   const from = billNum(route), b = fromBill(from), sv = saved();
   if (!seated().length) return `<div class="pp">${from ? backLink('#/bill/' + from, `Back to ${spaced(numOnly(from))}`) : ''}
     <div class="pagehead"><h1 class="hero">Your legislators</h1></div>${notice('bad', 'circle-alert', 'We couldn’t load the list of legislators. Check your connection and try again.')}
@@ -302,12 +318,12 @@ function finderPage(route) {
     ${browseHTML(from, pick)}
   </div>`;
 }
-const savedPick = sv => ({ kind: 'saved', label: sv.label, ids: forDistricts(sv.senate, sv.house).map(l => l.id) });
-function searchHTML(sv) {
+export const savedPick = sv => ({ kind: 'saved', label: sv.label, ids: forDistricts(sv.senate, sv.house).map(l => l.id) });
+export function searchHTML(sv, { label = 'Your street address or town' } = {}) {
   return `<form class="pp-search" id="pp-form" role="search" novalidate>
-      <div class="field"><label for="pp-q">Your street address or town</label>
+      <div class="field"><label for="pp-q">${esc(label)}</label>
         <div class="searchbox">${icon('search')}
-          <input id="pp-q" type="text" value="${esc(P.q)}" placeholder="Street address or town, e.g. Kailua" autocomplete="street-address" autocapitalize="words"
+          <input id="pp-q" type="text" value="${esc(P.q)}" placeholder="e.g. ${esc(EXAMPLE)}" autocomplete="street-address" autocapitalize="words"
             spellcheck="false" enterkeyhint="search" aria-describedby="pp-qhelp${P.err ? ' pp-err' : ''}"${P.err ? ' aria-invalid="true"' : ''}>
           <button type="button" class="iconbtn clear" data-pp-clear aria-label="Clear"${P.q ? '' : ' hidden'}>${icon('x')}</button></div>
         <span class="help" id="pp-qhelp">We use it only to look up your districts. It is not saved.</span></div>
@@ -317,13 +333,13 @@ function searchHTML(sv) {
     </form>
     ${sv && P.changing ? `<p class="pp-savedline">${icon('map-pin')}<span>Saved on this device: <span class="strong">${esc(sv.label || 'your districts')}</span></span>${btn('Show', { kind: 'text', sm: true, attrs: { 'data-pp-show': '' } })}</p>` : ''}`;
 }
-const findingHTML = () => `<div class="pp-finding" role="status">${icon('loader-circle', { cls: 'pp-spin' })}<span>Finding the districts for <span class="strong">${esc(P.finding)}</span>…</span></div>
+export const findingHTML = () => `<div class="pp-finding" role="status">${icon('loader-circle', { cls: 'pp-spin' })}<span>Finding the districts for <span class="strong">${esc(P.finding)}</span>…</span></div>
   <div class="pp-skel grid2" aria-hidden="true"><div class="skel"></div><div class="skel"></div></div>`;
 
 // Two slots, always: Senator and Representative. An address fills both. A town can fill one, both, or neither
 // (district lines split towns, and neighbour-island Senate districts name regions, not towns), and then we ask
 // for the street instead of guessing.
-function resultHTML(pick, b, from) {
+export function resultHTML(pick, b, from) {
   const legs = pick.ids.map(legById).filter(l => l && seatCache.ids.has(l.id));
   const sen = legs.filter(l => l.chamber === 'S').sort(bySeat), rep = legs.filter(l => l.chamber === 'H').sort(bySeat);
   const exact = sen.length === 1 && rep.length === 1, where = townOf(pick), label = pick.display || pick.label || 'Your districts';
@@ -366,13 +382,13 @@ function bigCard(l, { eyebrow, b, from, where }) {
     <a class="pp-more" href="${legHref(l.id, from)}"><span>See their committees</span>${icon('chevron-right')}</a>
   </article>`;
 }
-const lrow = (l, from, sv) => row({ leadHtml: legPhoto(l, 'pp-photo sm'), title: `${esc(legTitle(l))} ${esc(l.name)}`,
+export const lrow = (l, from, sv) => row({ leadHtml: legPhoto(l, 'pp-photo sm'), title: `${esc(legTitle(l))} ${esc(l.name)}`,
   sub: `District ${l.district}${l.places ? ' · ' + esc(okina(l.places)) : ''}`, end: mine(l, sv) ? chip('Yours', 'info') : '', href: legHref(l.id, from), cls: 'pp-lrow' });
 
 // Browse: an island picker drawn with the island chain (each button lights up its own island), then that island's
 // senators and representatives. One island at a time, so the list never runs to 18,000px. On a phone the picker is
 // four rows and the list is one column; on a wide screen the picker is four cards and the list a three-column grid.
-function browseHTML(from, pick) {
+export function browseHTML(from, pick, { title = 'Browse all legislators' } = {}) {
   const sv = saved();
   // The person's island, when we know it: from the districts they saved, or from the result on screen.
   const leg0 = pick && pick.ids.map(legById).find(Boolean), home = sv ? ART_KEY_CODE[sv.island] || '' : leg0 && pick.ids.length <= 2 ? islandOf(leg0) : '';
@@ -392,17 +408,17 @@ function browseHTML(from, pick) {
       <h4 class="pp-ch">Representatives</h4><div class="pp-list pp-grid">${rep.map(l => lrow(l, from, sv)).join('')}</div>`;
   }
   return `<section class="pp-browse" aria-labelledby="pp-br-t">
-    <div class="sechead"><h2 id="pp-br-t">Browse all legislators</h2><span class="meta">Choose an island</span></div>
+    <div class="sechead"><h2 id="pp-br-t">${esc(title)}</h2><span class="meta">Choose an island</span></div>
     <div class="pp-isles" role="group" aria-label="Islands">${cards}</div>
     <div class="pp-islbody" id="pp-islbody">${body}</div>
   </section>`;
 }
-const ART_KEY_CODE = { oahu: 'O', hawaii: 'H', maui: 'M', molokai: 'M', lanai: 'M', kahoolawe: 'M', kauai: 'K', niihau: 'K' };
+export const ART_KEY_CODE = { oahu: 'O', hawaii: 'H', maui: 'M', molokai: 'M', lanai: 'M', kahoolawe: 'M', kauai: 'K', niihau: 'K' };
 
 // ---------------- one legislator ----------------
-const ROLE = { chair: 0, vice_chair: 1, member: 2 };
-const roleWord = r => ({ chair: 'Chair', vice_chair: 'Vice chair', member: 'Member' })[r] || 'Member';
-const rolesOf = l => (S.committeeMembers || []).filter(m => m.legislator_id === l.id).sort((a, b) => ROLE[a.role] - ROLE[b.role] || cmteLabel(a.committee).localeCompare(cmteLabel(b.committee)));
+export const ROLE = { chair: 0, vice_chair: 1, member: 2 };
+export const roleWord = r => ({ chair: 'Chair', vice_chair: 'Vice chair', member: 'Member' })[r] || 'Member';
+export const rolesOf = l => (S.committeeMembers || []).filter(m => m.legislator_id === l.id).sort((a, b) => ROLE[a.role] - ROLE[b.role] || cmteLabel(a.committee).localeCompare(cmteLabel(b.committee)));
 // hearingsOf(b) only ever knows about a followed bill's hearings (S.hearings) or one loaded for a
 // single unfollowed bill by link (S.xh). A legislator's committee list now scans every live position
 // bill (S.pool.bills, below), most of which are neither - so an upcoming hearing on one of those has
@@ -413,7 +429,7 @@ const poolHearingsOf = b => {
 };
 // Where a bill stands with one legislator's committees: in one now (or heard there soon), or in one it goes to next
 // in the same chamber. The referral list is the whole path; origin_stops splits it between the two chambers.
-function billAt(b, roles) {
+export function billAt(b, roles) {
   if (!alive(b)) return null;
   const st = stopOf(b), now = Date.now(), refs = b.referrals || [], n = b.origin_stops || refs.length;
   const here = [...codesOf(st.committee), ...poolHearingsOf(b).filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > now).flatMap(h => codesOf(h.committee))];
@@ -426,7 +442,7 @@ function billAt(b, roles) {
 // visitor happens to follow (that was the bug: a visitor with no follows saw an empty section here).
 // Followed bills join the pool so a followed monitor-position bill - excluded from S.pool.bills - still
 // shows. Sorted "now" before "next", and chair before vice-chair before member within each.
-function billsIn(roles) {
+export function billsIn(roles) {
   const all = new Map();
   for (const b of S.bills || []) all.set(b.id, b);
   for (const b of (S.pool && S.pool.bills) || []) if (!all.has(b.id)) all.set(b.id, b);
@@ -434,7 +450,7 @@ function billsIn(roles) {
     .sort((x, y) => (x.when === 'now' ? 0 : 1) - (y.when === 'now' ? 0 : 1) || ROLE[x.r.role] - ROLE[y.r.role]);
 }
 const roleThe = r => r.role === 'chair' ? 'the chair' : r.role === 'vice_chair' ? 'the vice chair' : 'a member';
-function personPage(route) {
+export function personPage(route) {
   const l = legById(route.id), from = billNum(route), b = fromBill(from);
   if (!l) return `<div class="pp">${backLink('#/legislators', 'All legislators')}${empty({ h: 'h1', title: 'We couldn’t find that legislator', text: 'The link may be old. Every senator and representative is on the Legislators page.', action: btn('See all legislators', { kind: 'primary', href: '#/legislators' }) })}</div>`;
   const sv = saved(), k = 'p' + l.id, roles = rolesOf(l), committeeBills = billsIn(roles), last = `${legTitle(l)} ${surname(l)}`;
@@ -466,7 +482,7 @@ function personPage(route) {
           ${yours ? `<span class="pp-yours-side">${yours}</span>` : ''}
           <h2 class="pp-sidehead">Get in touch</h2>
           <div class="pp-actions">${contact(l, k, { primary: true })}</div>
-          ${l.room || l.phone ? `<p class="pp-office">${icon('landmark')}<span>Office: ${l.room ? `Room ${esc(l.room)}, ` : ''}Hawaiʻi State Capitol${l.phone ? `, ${esc(l.phone)}` : ''}</span></p>` : ''}
+          ${l.room ? `<p class="pp-office">${icon('landmark')}<span>Office: Room ${esc(l.room)}, Hawaiʻi State Capitol</span></p>` : ''}
           ${l.capitol_url ? `<p class="pp-ext">${btn('Their page on the Capitol website', { kind: 'text', sm: true, icon: 'external-link', href: l.capitol_url, attrs: { target: '_blank', rel: 'noopener' } })}</p>` : ''}
         </div>
       </aside>
@@ -489,6 +505,7 @@ function paintSug() {
   box.innerHTML = sugHTML(); wireSug();
   const n = box.querySelectorAll('[data-pp-sug]').length, stat = $('#pp-sugstat');
   if (stat) stat.textContent = P.q.trim().length >= 2 ? (n ? `${n} suggestion${n === 1 ? '' : 's'}` : '') : '';
+  if (P.enter && !AP.isLoading()) submit();
 }
 function wireSug() {
   document.querySelectorAll('[data-pp-sug]').forEach((el, i, all) => {
@@ -501,13 +518,28 @@ function wireSug() {
   });
 }
 function onType(v) {
-  P.q = v; P.err = ''; P.pick = null;
+  P.q = v; P.err = ''; P.pick = null; P.enter = false; P.near = '';
   const clear = $('[data-pp-clear]'); if (clear) clear.hidden = !v;
   const inp = $('#pp-q'); if (inp) { inp.removeAttribute('aria-invalid'); $('#pp-err')?.remove(); }
   // Street addresses come from the database: AP waits for a pause in typing. A ZIP alone has no street to match.
   AP.search(v.trim(), paintSug);
   paintSug();
 }
+// Enter (R-303, bug 4). Pressed before the street addresses arrive it waits for them (paintSug calls it again), so it never
+// sends the raw text or picks a town of the same name; a first suggestion with another house number is not taken quietly:
+// the list says "closest match" and the person picks. A town, a person or a district is taken as before.
+export function submit() {
+  const q = P.q.trim(); P.enter = false;
+  if (!q) return showErr('Type your street address or your town.');
+  if (AP.isLoading() && looksLikeAddress(q)) { P.enter = true; paintSug(); return; }
+  const list = suggest(P.q).filter(x => !/zip/.test(x.kind)), first = list[0];
+  if (first?.kind === 'addr' && !first.exact) { P.near = P.q; paintSug(); document.querySelector('[data-pp-sug]')?.focus(); return; }
+  if (first) return choose(first);
+  if (q.length >= 5 && looksLikeAddress(q) && /\d/.test(q)) return choose({ kind: 'typed', q });
+  showErr(/^honolulu$/i.test(norm(q)) ? `Honolulu has many districts, so it takes your street address, like ${EXAMPLE}, Honolulu.`
+    : `We couldn’t find “${q}”. Try your street address with the town, like ${EXAMPLE}, Honolulu, or just your town.`);
+}
+function showErr(t) { P.err = t; app.render(); $('#pp-q')?.focus(); }
 async function choose(x) {
   if (!x || /zip/.test(x.kind)) return;
   // A person or a district is someone to look up, not "your legislators": open their page.
@@ -517,14 +549,14 @@ async function choose(x) {
   try {
     const r = await legLookupAddress(x.q || x.label, x.kind === 'addr' ? x : null);
     P.finding = null;
-    if (!r || r.none || !r.ids?.length) { P.err = 'We couldn’t find that address. Try the house number, street and town, like 45 Kainalu Dr, Kailua. Or pick your town from the list.'; app.render(); $('#pp-q')?.focus(); return; }
+    if (!r || r.none || !r.ids?.length) { P.err = `We couldn’t find that address. Try the house number, street and town, like ${EXAMPLE}, Honolulu. Or pick your town from the list.`; app.render(); $('#pp-q')?.focus(); return; }
     const a = x.kind === 'addr' ? x : addrSug({ label: r.matched || x.q });
     setPick({ kind: 'addr', label: a.town || a.street || r.matched, display: a.label || r.matched, town: a.town, ids: r.ids });
   } catch {
     P.finding = null; P.err = 'We couldn’t look that up. Check your connection and try again, or pick your town instead.'; app.render();
   }
 }
-function setPick(pick) {
+export function setPick(pick) {
   P.pick = pick; P.changing = false; P.mail = null; P.q = '';
   const legs = pick.ids.map(legById).filter(l => l && seated().includes(l));
   pick.ids = legs.map(l => l.id);
@@ -545,13 +577,7 @@ function wire(route) {
   const root = $('.pp'); if (!root) return;
   const from = P.from = billNum(route);
   const form = $('#pp-form'), inp = $('#pp-q');
-  if (form) form.onsubmit = e => {
-    e.preventDefault();
-    const list = suggest(P.q).filter(x => !/zip/.test(x.kind));
-    if (list.length) choose(list[0]);
-    else if (P.q.trim().length >= 5 && looksLikeAddress(P.q)) choose({ kind: 'typed', q: P.q.trim() });
-    else { P.err = P.q.trim() ? 'Try a street address with the town, like 45 Kainalu Dr, Kailua, or just your town.' : 'Type your street address or your town.'; app.render(); $('#pp-q')?.focus(); }
-  };
+  if (form) form.onsubmit = e => { e.preventDefault(); submit(); };
   if (inp) {
     inp.oninput = () => onType(inp.value);
     inp.onkeydown = e => { if (e.key === 'ArrowDown') { const f = document.querySelector('[data-pp-sug]'); if (f) { e.preventDefault(); f.focus(); } } };
@@ -588,11 +614,11 @@ function wire(route) {
   });
   // With a bill, sending counts as an action on it (every action counts); a hello with no bill is just a hello.
   root.querySelectorAll('[data-pp-mailto]').forEach(el => el.addEventListener('click', () => {
-    const b = fromBill(from); if (!b) return;
+    const b = P.billFor[el.dataset.ppMailto] || fromBill(from); if (!b) return;
     setTimeout(() => { P.sent[el.dataset.ppMailto] = true; app.render(); }, 600);
   }));
   root.querySelectorAll('[data-pp-sentyes]').forEach(el => el.onclick = () => {
-    const b = fromBill(from), k = el.dataset.ppSentyes; P.sent[k] = false; P.mail = null;
+    const k = el.dataset.ppSentyes, b = P.billFor[k] || fromBill(from); P.sent[k] = false; P.mail = null;
     if (b) { markDone(b.id, null, 'email', true, { quiet: true }); yay('Mahalo! Lawmakers listen closely to people from their own district.'); }
     app.render();
   });
@@ -613,14 +639,15 @@ function wire(route) {
 export default {
   tab: 'more',
   title: route => {
-    if (route.name === 'legislator') { const l = legById(route.id); return l ? `${legTitle(l)} ${l.name}` : 'Legislator'; }
-    return 'Your legislators';
+    if (route.name === 'legislator') { const l = legById(route.id); return l ? `${legTitle(l)} ${l.name}` : REC() ? 'Lawmaker' : 'Legislator'; }
+    return REC() ? 'Your lawmakers' : 'Your legislators';
   },
   render(route) {
     // Coming back to a page keeps what was found this visit; an open email or an old error does not linger.
-    if (P.lastRoute !== route.name + (route.id || '')) { P.mail = null; P.err = ''; }
+    if (P.lastRoute !== route.name + (route.id || '')) { P.mail = null; P.err = ''; P.near = ''; P.enter = false; }
     P.lastRoute = route.name + (route.id || '');
+    if (REC()) return route.name === 'legislator' ? recPerson(route) : recFinder(route);
     return route.name === 'legislator' ? personPage(route) : finderPage(route);
   },
-  wire,
+  wire(route) { wire(route); if (REC()) wireRec(route); },
 };

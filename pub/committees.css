@@ -6,3 +6,16 @@
 .cm-photo { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; object-position: 50% 18%; background: var(--n100); border: 1px solid var(--n200); flex: none; }
 .cm-photo.none { display: flex; align-items: center; justify-content: center; background: var(--p50); color: var(--p700); font: 700 var(--t16)/1 var(--font-h); }
 .cm-back { margin-bottom: var(--s16); padding-left: 4px; }
+
+/* the calm redesign (R-303, ?rec=1; pub/rec/committees.js), scoped to body.rec */
+body.rec .cmt-rec .cmt-none { margin: 0; }
+body.rec .cmt-rec .rc-empty { padding: var(--s8) 0; }
+body.rec .cmt-rec .rc-lead .cm-photo { width: 40px; height: 40px; border: 0; }
+@media (min-width: 1100px) {
+  /* the wide frame (wide.css gives it to screens with a side column), so the card can sit beside the page; .rc keeps a page
+     without one at its reading width */
+  body.rec[data-screen="committee"] main { max-width: 1120px; }
+  body.rec .cmt-rec .rc-cols { row-gap: 0; }
+  body.rec .cmt-rec .rc-cols > .cmt-rmain { grid-column: 1; min-width: 0; }
+  body.rec .cmt-rec .rc-cols > .rc-side { grid-column: 2; grid-row: 1 / span 2; }
+}
