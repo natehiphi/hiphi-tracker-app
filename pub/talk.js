@@ -11,6 +11,11 @@ import { S, app, esc, icon, sessionInfo, HST } from './core.js';
 import { btn, row } from './ui.js';
 import { MARK } from './art.js';
 import { GROUPS, TALKS } from './talk-data.js';
+// The calm redesign (R-303), only with ?rec=1: "Help", one line and the search; the Public Access Room right under it (the
+// assessment: the human help was 1,060px down, where someone stuck won't look); the seven groups closed on every width with
+// no counts (51 questions at once on a laptop); a conversation's one way back, "← Help", on Help's own left edge.
+import { REC, recRows } from './rec/kit.js';
+import { backFrom } from './rec/you.js';
 
 const BY = new Map(TALKS.map(t => [t.slug, t]));
 const GROUP = new Map(GROUPS.map(g => [g.key, g]));
@@ -165,6 +170,7 @@ function art(key) {
 // the one the last conversation came from (Back lands where you were, B-4) or while a search is typing.
 const narrow = () => !!window.matchMedia?.('(max-width: 599px)').matches;
 function listView() {
+  if (REC()) return recListView();
   const keys = !!window.matchMedia?.('(pointer: fine)').matches, fold = narrow();
   return `<div class="tk tk-list">
     <header class="pagehead"><h1 class="hero">Help</h1>
@@ -210,6 +216,49 @@ function listView() {
     </section>` : ''}
   </div>`;
 }
+// The same list, calm (R-303): the groups are closed cards with no counts, the rows Home's quiet ones. "Reading a bill" is not
+// offered: it draws the old bill page and says "Every bill page looks like this", untrue of layout 3 (section 4 of the
+// assessment). The search, the groups' hooks ([data-tkgroup], [data-tkrow]) and Back to the group last opened are as before.
+function recListView() {
+  const keys = !!window.matchMedia?.('(pointer: fine)').matches;
+  return `<div class="tk tk-list rc yu yu-help">
+    ${backFrom('#/more', 'You')}
+    <header class="rc-head"><h1 class="rc-h1">Help</h1><p class="rc-lede">Short answers in plain words.</p></header>
+    <div class="tk-search">
+      <label class="sr" for="tk-q">Search the questions</label>
+      ${icon('search', { cls: 'tk-sic' })}<input id="tk-q" class="input" type="search" placeholder="Search: deadline, Zoom, deferred" autocomplete="off" enterkeyhint="search" value="${esc(T.q)}">
+    </div>
+    <p class="yu-par">${icon('phone')}<span>Stuck? The Public Access Room helps for free: <a href="${PAR.tel}">${PAR.text}</a>.</span></p>
+    <p class="sr" role="status" id="tk-count"></p>
+    <div class="tk-groups rc-folds">
+      ${GROUPS.map(g => { const list = TALKS.filter(t => t.group === g.key); if (!list.length) return '';
+        return `<details class="tk-group rc-fold" data-tkgroup="${g.key}"${T.q.trim() || T.open === g.key ? ' open' : ''}>
+          <summary><h2 class="rc-ft" id="tk-g-${g.key}">${esc(g.title)}</h2>${icon('chevron-down', { cls: 'rc-fchev' })}</summary>
+          <nav class="rc-fin" aria-labelledby="tk-g-${g.key}">${recRows(list.map(t => ({ name: t.title, href: '#/help/' + t.slug, attrs: { 'data-tkrow': t.slug } })))}</nav>
+        </details>`; }).join('')}
+    </div>
+    <div class="tk-none" hidden><p class="strong">No questions match that.</p><p>Try one word, like hearing or deadline. Or call the Public Access Room above.</p></div>
+    <section class="tk-more" aria-labelledby="tk-lx-t">
+      <h2 class="rc-h2" id="tk-lx-t">Short lessons, with pictures</h2>
+      ${recRows([{ lead: 'route', name: 'How a bill becomes law, drawn', text: 'The story of one bill, about a minute', href: '#/learn/story' },
+        { lead: 'calendar-days', name: 'The session, January to May', text: 'About a minute', href: '#/learn/session' },
+        { lead: 'gavel', name: 'What a hearing is', text: 'About a minute', href: '#/learn/hearing' }])}
+    </section>
+    <section class="tk-more" aria-labelledby="tk-hand-t">
+      <h2 class="rc-h2" id="tk-hand-t">Still have a question?</h2>
+      ${recRows([{ lead: 'mail', name: 'Email HIPHI', text: EMAIL, href: `mailto:${EMAIL}` }])}
+    </section>
+    ${keys ? `<section class="tk-more" aria-labelledby="tk-keys-t">
+      <h2 class="rc-h2" id="tk-keys-t">Keyboard shortcuts</h2>
+      <div class="rc-card tk-keys">
+        <div><kbd>/</kbd><span>Search issues and bills</span></div>
+        <div><kbd>?</kbd><span>Open this page</span></div>
+        <div><kbd>Esc</kbd><span>Close the testimony helper</span></div>
+      </div>
+      <p class="small muted tk-after">Shortcuts are off while you type in a box.</p>
+    </section>` : ''}
+  </div>`;
+}
 // Every word typed must appear somewhere in the conversation (its questions and its answers).
 function filter(q) {
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
@@ -223,7 +272,7 @@ function filter(q) {
 // Which groups are open: all of them wide; on a phone only the last-visited one, or every group with a match while a
 // search is typed. Wide, a group cannot be closed, so its heading is no control (no tab stop, no click).
 function fold() {
-  const n = narrow(), q = T.q.trim();
+  const n = REC() || narrow(), q = T.q.trim();   // with ?rec=1 the groups fold on every width (R-303)
   document.querySelectorAll('[data-tkgroup]').forEach(d => {
     const want = !n || !!q || d.dataset.tkgroup === T.open;
     if (d.open !== want) d.open = want;
@@ -238,7 +287,7 @@ function wireList() {
   if (!foldWired) { foldWired = true; window.matchMedia?.('(max-width: 599px)').addEventListener?.('change', () => $('.tk-groups') && fold()); }
   document.querySelectorAll('[data-tkgroup] > summary').forEach(sm => sm.addEventListener('click', e => {
     const d = sm.parentElement;
-    if (!narrow()) { e.preventDefault(); return; }
+    if (!REC() && !narrow()) { e.preventDefault(); return; }
     // The group opened last is the one Back returns to (the click comes before the browser flips the state).
     if (!T.q.trim()) T.open = d.open ? (T.open === d.dataset.tkgroup ? '' : T.open) : d.dataset.tkgroup;
   }));
@@ -257,7 +306,8 @@ const turnHTML = (t, i, fresh = false) => { const x = t.turns[i], p = paras(x.a)
   </div>`; };
 function nextHTML(t) {
   const more = T.n < t.turns.length;
-  const back = `<a class="btn text tk-else" href="#/help" data-back>${icon('arrow-left')}<span>Ask something else</span></a>`;
+  // With ?rec=1 the page has one way back, at its top (R-303: two links to one place).
+  const back = REC() ? '' : `<a class="btn text tk-else" href="#/help" data-back>${icon('arrow-left')}<span>Ask something else</span></a>`;
   if (more) return `<div class="tk-reply">
       <button type="button" class="btn primary tk-ask" data-tknext>${fmt(t.turns[T.n].q)}</button>
       ${back}
@@ -272,6 +322,12 @@ function nextHTML(t) {
 }
 function convView(t) {
   const g = GROUP.get(t.group);
+  if (REC()) return `<div class="tk tk-conv rc yu yu-conv" data-tkslug="${esc(t.slug)}">
+    <a class="rc-back tk-back" href="#/help" data-back>${icon('arrow-left')}<span>Help</span></a>
+    ${g ? `<p class="tk-eyebrow">${esc(g.title)}</p>` : ''}
+    <div class="tk-thread">${Array.from({ length: T.n }, (_, i) => turnHTML(t, i)).join('')}</div>
+    <div class="tk-next">${nextHTML(t)}</div>
+  </div>`;
   return `<div class="tk tk-conv" data-tkslug="${esc(t.slug)}">
     <a class="btn text tk-back" href="#/help" data-back>${icon('arrow-left')}<span>All questions</span></a>
     ${g ? `<p class="tk-eyebrow">${esc(g.title)}</p>` : ''}

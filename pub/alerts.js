@@ -185,6 +185,14 @@ export const LEVEL_HINT = {
 // Does anything reach this person? A level changes nothing for someone with no number and no email (C-13), so the choice
 // is shown only once alerts can come: a number given (confirmed or not) or an account with an email.
 export const getsAlerts = () => !!(textSaved() || (S.session && S.user && S.session.user?.email));
+// The email boxes where the levels are set (Profile > Alerts, and "Your alerts" under ?rec=1, R-303). Here the hearing box
+// says "alerts" (the review, 17 Oct, P-5): "when a bill gets a hearing", ticked over "Same as each issue above", read as
+// every hearing. The sign-in page's consent box keeps its words (CHOICES in more.js, C-4).
+export const EMAIL_ALERTS = 'Email me alerts about my issues';
+// Email can bring every hearing on the person's issues whatever each issue is set to (Nate 17 Oct: the levels are the
+// default for email too, "but the user can change that if they'd like"). Shown while hearing emails are ticked (B-12).
+// "Every hearing" leaves out the issues set to App only (backend 181), and says so (P-5).
+export const EMAIL_SAME = 'Same as each issue above', EMAIL_EVERY = 'Every hearing on my issues (not App only ones)';
 // The switch itself, here and once per issue in Profile > Alerts (Nate 17 Oct: "A switch for each issue"). name: the radio
 // group's name and the start of its ids, unique on the page; a: the group's label and description; data: what each radio
 // carries for its screen.

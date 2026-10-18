@@ -12,13 +12,18 @@ import { S, DEMO, app, esc, icon, toast, friendly, textSaved, followedIssues, HS
   LOCAL_KEY, DONE_KEY, DONE_AT_KEY, LISTS_KEY, STANCE_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, CONSENT_KEY, recomputeWatch } from './core.js';
 import { btn, notice, inlineErr } from './ui.js';
 import { CHOICES, check, busy, unbusy, submitBtn, say, myDistricts, distHTML, addrField, wireAddr, rememberDistricts } from './more.js';
-import { alertFields, alertButton, wireAlertForm, phoneDigits, codeStep, confirmWords, LEVEL_WORDS, getsAlerts, levelSwitch } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, phoneDigits, codeStep, confirmWords, LEVEL_WORDS, getsAlerts, levelSwitch, EMAIL_ALERTS, EMAIL_SAME, EMAIL_EVERY } from './alerts.js';
 import { hasProfile, signedIn, myName, myTitles, myStory, myStories, storyName, quoteLevel, QUOTE, storyAsk, STORY_HINT, myInterests, HELP_GROUPS, HELP_KEYS,
   myHelpNote, initials, saveProfile, loadMe, forgetProfileOnDevice } from './myprofile.js';
 import { pickerHTML, wirePicker } from './titlepick.js';
 import { codesOn, myEmail, myNumber } from './phone.js';   // sign-in by text code (R-155)
 import { titleLabel } from './titles.js';
 import { logAct } from './visitlog.js';
+// The calm redesign (R-303), only with ?rec=1: Profile keeps one page (R-165) but its alerts get their own page, "Your
+// alerts" (#/alerts, pub/rec/alerts.js), and its first row leads there; "Your issues" goes (My issues is a tab, and its count
+// was wrong: every bill an issue carries, mine-profile-alerts.md section 3).
+import { REC } from './rec/kit.js';
+import { youCss, youWait, backFrom, profileAlertsRow } from './rec/you.js';
 
 const $ = s => document.querySelector(s);
 const DISTRICTS_KEY = 'hiphi_districts';
@@ -35,7 +40,7 @@ const av = (cls = 'pf-av') => { const i = initials(); return `<span class="${cls
 function inviteView() {
   S.alertMode ??= 'phone';
   const b = alertButton('pf-alf');
-  return `<div class="mr pf pf-invite">
+  return `<div class="mr pf pf-invite${REC() ? ' yu' : ''}">${REC() ? backFrom('#/more', 'You') : ''}
     <header class="pagehead"><span class="pf-av pf-av-lg" aria-hidden="true">${icon('user')}</span><h1 class="hero">${codeStep('pf-alf') ? 'Check your texts' : 'Make your profile'}</h1>
       <p class="lede">${codeStep('pf-alf') ? 'Type the 6-digit code from the text to make your profile.' : 'Get a text or email when a bill on your issues has a hearing, in time to speak up. Your issues and letters stay saved. Free, and no password.'}</p></header>
     <form class="card mr-form mr-panel" id="pf-al" novalidate>${alertFields('pf-alf')}
@@ -197,13 +202,7 @@ function levelsBody() {
       <ul class="pf-lvlist">${iss.map(i => `<li class="pf-lvrow"><p class="pf-lvn" id="pf-lv-${esc(i.id)}-n">${esc(i.name)}</p>
         ${levelSwitch(LEVELS.includes(d[i.id]) ? d[i.id] : 'big', { name: `pf-lv-${esc(i.id)}`, a: `aria-labelledby="pf-lv-${esc(i.id)}-n" aria-describedby="pf-lv-h"`, data: ` data-pf-lv="${esc(i.id)}"` })}</li>`).join('')}</ul></fieldset>`;
 }
-// Here the hearing box says "alerts" (the review, 17 Oct, P-5): "when a bill gets a hearing", ticked over "Same as each issue
-// above", read as every hearing. The sign-in page's consent box keeps its words (CHOICES in more.js, C-4).
-const EMAIL_ALERTS = 'Email me alerts about my issues';
-// Email can bring every hearing on the person's issues whatever each issue is set to (Nate 17 Oct: the levels are the
-// default for email too, "but the user can change that if they'd like"). Shown while hearing emails are ticked (B-12).
-// "Every hearing" leaves out the issues set to App only (backend 181), and says so (P-5).
-const EMAIL_SAME = 'Same as each issue above', EMAIL_EVERY = 'Every hearing on my issues (not App only ones)';
+// The words for the email boxes (EMAIL_ALERTS, EMAIL_SAME, EMAIL_EVERY) live in alerts.js, shared with "Your alerts" (R-303).
 const emailLevelSet = (e, lv) => followedIssues().length ? `<fieldset class="mr-set pf-f pf-elv" id="pf-elv"${e.hearing_alerts ? '' : ' hidden'}><legend>Hearing emails</legend>
     ${radio('pf-elv', 'same', EMAIL_SAME, lv !== 'every')}${radio('pf-elv', 'every', EMAIL_EVERY, lv === 'every')}</fieldset>` : '';
 function alertsBody() {
@@ -281,18 +280,20 @@ function profileView() {
   if (signedIn() && !S.user) return `<div class="mr pf"><header class="pagehead"><h1 class="hero">Your profile</h1></header><div class="skelpage" aria-busy="true" aria-label="Loading"><div class="skel" style="height:160px"></div><div class="skel" style="height:280px"></div></div></div>`;
   const name = myName(), s = since(), num = signedIn() ? myNumber() : '';
   // The email and the text number are in Alerts (the review: said twice); the number that signs them in (R-155) stays here.
-  return `<div class="mr pf">
+  const rec = REC();
+  return `<div class="mr pf${rec ? ' yu' : ''}">${rec ? backFrom('#/more', 'You') : ''}
     <header class="pagehead pf-head">${av('pf-av pf-av-lg')}<div class="pf-who"><h1 class="hero" id="pf-h" tabindex="-1">${name ? esc(name) : 'Your profile'}</h1>
       ${num || s ? `<p class="meta pf-since">${[num ? `Signed in with ${esc(masked(num))}` : '', s ? `Speaking up since ${esc(s)}` : ''].filter(Boolean).join(' · ')}</p>` : ''}</div></header>
     ${P.made ? `<p class="okmsg pf-made" role="status">${icon('circle-check')}<span>${esc(P.made)}</span></p>` : ''}
     ${DEMO ? notice('info', 'info', 'You’re in the sandbox: what you change here stays in this browser and is never sent.') : ''}
     <p class="sr" id="pf-live" aria-live="polite"></p>
+    ${rec ? profileAlertsRow() : ''}
     <p class="small muted pf-auto">${icon('pencil')}<span>Change anything below, then Save.</span></p>
     ${sec('about', 'About you', aboutBody())}
     ${sec('story', 'Your stories', storyBody())}
     ${sec('help', 'How you’ll help', helpBody())}
-    ${sec('email', 'Alerts', alertsBody())}
-    ${sec('issues', 'Your issues', issuesBody())}
+    ${rec ? '' : sec('email', 'Alerts', alertsBody())}
+    ${rec ? '' : sec('issues', 'Your issues', issuesBody())}
     ${homeScreenNote()}
     ${sec('data', 'Your data', dataBody())}
   </div>`;
@@ -393,6 +394,7 @@ export default {
   tab: 'more',
   title: () => hasProfile() ? 'Your profile' : 'Make your profile',
   render() {
+    if (REC() && !youCss()) return youWait();   // R-303: this page group's stylesheet first
     // A fresh arrival starts from what is saved, unless a draft is waiting (Save or Cancel ends it); a redraw of the same
     // page keeps the picker and address box as they are.
     if (!P.base || (!document.querySelector('#main .pf') && !dirty())) fresh();
@@ -400,5 +402,5 @@ export default {
   },
   // The save bar, when a draft is waiting (also drawn by paintBar as soon as something changes).
   bar: () => hasProfile() && dirty() ? barHTML() : '',
-  wire() { wireProfile(); },
+  wire() { if (REC() && !youCss()) return; wireProfile(); },
 };
