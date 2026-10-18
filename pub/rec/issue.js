@@ -19,7 +19,7 @@
 import { S, D, DEMO, app, esc, icon, toast, nick, spaced, billPath, issueFollowed, issuePos, posInfo, setFollows, unfollowIssue, sessionInfo, findBill, supa,
   catOf, calendarUrl, dateLong, stopOf, plainStatus, hearingsOf, openActions, hearingWhen, hiT, fmtDate, issueShareUrl, stopFacts, issuesIn, HST } from '../core.js';
 import { btn, iconBtn, posChip, skeleton, inlineErr } from '../ui.js';
-import { recHead, recBack, recSec, recRows, recFold, recFolds, recEmpty, recFollow, wireKit } from './kit.js';
+import { recHead, recBack, recSec, recRows, recFold, recFolds, recEmpty, recFollow, wireKit, BOX } from './kit.js';
 import { moving, becameLaw, stopped, numCmp, byUrgency, stoppedWhy, what, billsOfIssue, issueOrder } from '../mybills.js';
 import { ensureHearings } from '../find.js';
 import { followAsk, profileSaved, levelLine, levelBox, wireLevelLine, getsAlerts } from '../alerts.js';
@@ -261,11 +261,12 @@ function categoryPage(key) {
   // The issues with nothing moving this year wait in one closed card with their names as its preview, as the issue page keeps
   // its bills that did not advance (the wrap-up review of 10/18: Tobacco was 1,972px on a phone with 18 equal pills, 9 of its
   // 17 rows saying nothing moved). Each still has its Follow inside; open, it stays open for this person (B-6).
-  const rows = xs => `<ul class="rc-rows rc-irows" role="list">${xs.map(r => catRow(r.i, r.st)).join('')}</ul>`;
+  // The moving ones in one white box (Nate 18 Oct, card 6); the quiet ones are in their closed card, a box already.
+  const rows = (xs, box = '') => `<ul class="rc-rows rc-irows${box}" role="list">${xs.map(r => catRow(r.i, r.st)).join('')}</ul>`;
   const live = all.filter(r => r.st.g < 4), quiet = all.filter(r => r.st.g === 4);
   const names = quiet.length > 3 ? `${quiet.slice(0, 2).map(r => r.i.name).join(', ')} and ${quiet.length - 2} more` : quiet.map(r => r.i.name).join(', ').replace(/, ([^,]*)$/, ' and $1');
   const list = !all.length ? recEmpty(`Nothing in ${c.name} yet. Follow it, and new issues come to you as HIPHI takes them up.`)
-    : `${live.length ? rows(live) : ''}${quiet.length ? recFolds([recFold('cat-quiet', 'Nothing moving this year', names, rows(quiet), { open: !live.length })]) : ''}`;
+    : `${live.length ? rows(live, ' ' + BOX) : ''}${quiet.length ? recFolds([recFold('cat-quiet', 'Nothing moving this year', names, rows(quiet), { open: !live.length })]) : ''}`;
   return `<div class="rc rc-cat">${recHead({ title: c.name, lede: c.description || '', back: recBack('#/find', 'Find'), extra: said })}
     ${list}
     ${whole ? '' : `<div class="rc-catall">${btn('Follow all of it, and new ones', { kind: 'secondary', icon: 'star', attrs: { 'data-fdcat': c.key, 'aria-label': `Follow all of ${c.name}, and new issues in it` } })}</div>`}</div>`;

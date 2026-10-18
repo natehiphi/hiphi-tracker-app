@@ -6,7 +6,7 @@
 // (committees.js slotLine; taking only the first was a live bug).
 import { S, esc, icon, nick, spaced, billPath, billRef, posInfo, alive, stopOf, legTitle, legsOf, legPhoto, codesOf, hearingWhen, roomLabel, CHAMBER_NAME } from '../core.js';
 import { btn } from '../ui.js';
-import { recHead, recSec, recRows, recMore, recFold, recFolds, recWay, recEmpty, wireKit } from './kit.js';
+import { recHead, recSec, recRows, recMore, recFold, recFolds, recWay, recEmpty, wireKit, BOX } from './kit.js';
 import { recAct, dueOf, byDue, billRow, billWords, pillFor, backRow, atWords } from './act.js';
 import { allCommittees, billsAt, slotsOf, slotLine } from '../committees.js';
 
@@ -61,7 +61,7 @@ export function recList() {
     return recFold('cmt-' + ch, title, `${list.slice(0, 2).map(c => c.name).join(', ')}, and more`, recRows(list.map(c => ({ name: c.name, text: meets(c.code), href: `#/committee/${c.code}` })))); };
   return `<div class="cmt rc cmt-rec">${back}
     ${recHead({ title: 'Committees', lede: 'A bill needs a yes from each committee it is sent to before the full Senate or House votes on it.' })}
-    ${recSec('cmt-wk', 'Hearing HIPHI’s bills this week', week.length ? recMore(week.map(weekRow), 6, 'cmt-wk')
+    ${recSec('cmt-wk', 'Hearing HIPHI’s bills this week', week.length ? recMore(week.map(weekRow), 6, 'cmt-wk', BOX)
       : `<p class="rc-note cmt-none">No hearings on HIPHI’s bills are set for the next seven days.</p>`)}
     ${recFolds([fold('S', 'Senate committees'), fold('H', 'House committees')])}</div>`;
 }

@@ -48,8 +48,9 @@ export const byDue = (x, y) => (x.due.t - y.due.t) || x.b.bill_number.localeComp
 export const billWords = b => nick(b) ? `${nick(b)} (${spaced(b.bill_number)})` : spaced(b.bill_number);
 // One quiet row for a bill: its name, then the number, HIPHI's stance and what is due ("HB 1780 · HIPHI supports · Hearing
 // Wed 1:00 PM"). note replaces what is due ("Comes to Ways and Means next").
-export const billRow = (b, due, { note = '', href } = {}) => ({ name: headline(b, 90), href,
-  text: [spaced(b.bill_number), posInfo(b)?.text || '', note || due.text].filter(Boolean).join(' · '), warn: !note && due.warn });
+// tag: words that end the line (a lawmaker's page: "They chair it").
+export const billRow = (b, due, { note = '', href, tag = '' } = {}) => ({ name: headline(b, 90), href,
+  text: [spaced(b.bill_number), posInfo(b)?.text || '', note || due.text, tag].filter(Boolean).join(' · '), warn: !note && due.warn });
 
 // The card. when: the moment ("Hearing Wed 1:00 PM"); left: how near ("Tomorrow"); title: what to do; text: one sentence
 // why (escaped here); button: the one filled button (html); more: how long it takes; after: what opens inside (an email);

@@ -144,6 +144,7 @@ async def main():
             check(await pg.evaluate("document.querySelector('.rc-cat h1')?.textContent") == 'Tobacco, Nicotine & Alcohol', f'{t}: the category\'s name')
             n = await pg.evaluate("document.querySelectorAll('.rc-irow').length")
             check(n >= 10 and await pg.evaluate("[...document.querySelectorAll('.rc-irow')].every(r => r.querySelector('[data-fdissue]') && r.querySelector('.rc-rstat'))"), f'{t}: {n} issue rows, each with its line and a Follow')
+            check(await pg.evaluate("[...document.querySelectorAll('.rc-cat .rc-irows')].every(u => u.classList.contains('rc-box') === !u.closest('.rc-fold'))"), f'{t}: the moving issues in one white box (card 6), the quiet ones in their closed card')
             check(await pg.evaluate("!!document.querySelector('.rc-irow .rc-fpill.on[aria-pressed=true]') && [...document.querySelectorAll('.rc-irow .rc-rstat')].some(e => /HIPHI opposes/.test(e.textContent))"), f'{t}: a followed issue says Following, and a row says HIPHI opposes')
             check(await pg.evaluate("(b => !!b && b.classList.contains('secondary') && !b.closest('.rc-irows'))(document.querySelector('[data-fdcat]'))"), f'{t}: "Follow all of it, and new ones", outlined, at the end')
             check(await pg.evaluate(FILLED) == 0, f'{t}: no filled button')

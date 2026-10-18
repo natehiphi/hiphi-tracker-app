@@ -17,7 +17,7 @@ import { btn, skeleton, inlineErr } from '../ui.js';
 import F0, { parse, startSearch, searchNote, capNote, issueMatches, peopleMatches, findHooks, wireSearch, wireIssues, offSeason, byDue,
   hiphis, shows } from '../find.js';
 import { moving, becameLaw, stopped, billsOfIssue, what } from '../mybills.js';
-import { recSec, recRow, recFold, recEmpty, recFollow, wireKit } from './kit.js';
+import { recSec, recRow, recFold, recEmpty, recFollow, wireKit, BOX, laterRow, showAll } from './kit.js';
 import { when, keep } from '../calm/home.js';
 export { headerSuggest } from '../find.js';   // the header's suggestions (app.js asks the find screen's module for them)
 
@@ -74,12 +74,12 @@ const issueRow = i => { const on = issueFollowed(i), l = issueLine(i);
   return `<li class="rc-frow rc-irow"><a class="rc-row" href="#/issue/${esc(i.slug)}"><span class="rc-rtext"><span class="rc-rname">${esc(i.name)}</span><span class="rc-rstat${l.warn ? ' warn' : ''}">${esc(l.text)}</span></span></a>
     ${recFollow(i, on, 'rc-follow')}</li>`; };
 // A list that shows its first n and opens the rest in place (kit.js recMore's shape, with words of its own); kept open for
-// the visit once opened (F.more), so a follow pressed in the rest does not shut it.
-function moreList(items, n, key, label = '') {
-  const ul = xs => `<ul class="rc-rows" role="list">${xs.join('')}</ul>`;
+// the visit once opened (F.more), so a follow pressed in the rest does not shut it. In one white box (kit.js BOX, Nate 18
+// Oct), except inside a closed card, which is a box already (box false).
+function moreList(items, n, key, label = '', box = true) {
+  const ul = (xs, id = '') => `<ul class="rc-rows${box ? ' ' + BOX : ''}" role="list"${id ? ` id="rc-more-${esc(id)}"` : ''}>${xs.join('')}</ul>`;
   if (items.length <= n || F.more['rc:' + key]) return ul(items);
-  return `${ul(items.slice(0, n))}<div class="rc-rest" id="rc-rest-${esc(key)}" hidden>${ul(items.slice(n))}</div>
-    <button type="button" class="btn text rc-showall" data-rc-showall="${esc(key)}" aria-expanded="false" aria-controls="rc-rest-${esc(key)}">${icon('chevron-down')}<span>${esc(label || `Show all ${items.length}`)}</span></button>`;
+  return `${ul(items.map((x, i) => i < n ? x : laterRow(x)), key)}${showAll(key, label || `Show all ${items.length}`)}`;
 }
 
 // ---------------- browsing ----------------
@@ -105,7 +105,7 @@ function voiceRow(e) {
   const st = dl ? `Testimony due ${at(dl)}` : `Hearing ${at(h.scheduled_at)}`, warn = !!dl && Date.parse(dl) - now < DAY;
   return recRow(e.i ? { name: e.i.name, text: st, warn, href: `#/issue/${e.i.slug}` } : { name: billName(e.b), text: `${spaced(e.b.bill_number)} · ${st}`, warn, href: billPath(e.b) });
 }
-const topicRows = () => `<ul class="rc-rows rc-topics" role="list">${(S.cats || []).map(c => recRow({ name: c.name, text: c.description || '', href: `#/find/category/${c.key}`, lead: c.icon })).join('')}</ul>`;
+const topicRows = () => `<ul class="rc-rows rc-topics ${BOX}" role="list">${(S.cats || []).map(c => recRow({ name: c.name, text: c.description || '', href: `#/find/category/${c.key}`, lead: c.icon })).join('')}</ul>`;
 const topics = () => recSec('fd-iss-h', 'Browse by topic', topicRows());
 const openWords = si => si.nextOpen ? new Date(si.nextOpen + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'long', month: 'long', day: 'numeric' }) : 'in January';
 function browse() {
@@ -116,7 +116,7 @@ function browse() {
   return `${newcomer}${off ? `<p class="rc-note rc-off">The Legislature is on break until ${esc(openWords(si))}. You can still look up any ${si.recapYear} bill and see what happened to it.</p>` : ''}
     ${topics()}
     ${vs.length ? recSec('fd-voices-h', 'Needs voices this week', moreList(vs.map(voiceRow), 3, 'voices', 'See more with a hearing this week')) : ''}
-    <nav class="rc-foot" aria-label="More to look up"><ul class="rc-rows" role="list">
+    <nav class="rc-foot" aria-label="More to look up"><ul class="rc-rows ${BOX}" role="list">
       ${recRow({ name: 'Every bill HIPHI tracks', href: '#/allbills', lead: 'list' })}${recRow({ name: 'Committees', href: '#/committees', lead: 'landmark' })}</ul></nav>`;
 }
 
@@ -150,16 +150,16 @@ function resultsBody(q, res) {
   // Words that name a page ("how to testify", "my senator") and that no bill has all of: the page is the answer, and bills
   // with one of the words ("how") would only be noise under it.
   if (pl.length && res.fewer) { other.length = 0; gone.length = 0; }
-  const placesNav = pl.length ? `<nav class="rc-places" aria-label="Places"><ul class="rc-rows" role="list">${pl.map(recRow).join('')}</ul></nav>` : '';
+  const placesNav = pl.length ? `<nav class="rc-places" aria-label="Places"><ul class="rc-rows ${BOX}" role="list">${pl.map(recRow).join('')}</ul></nav>` : '';
   if (!iss.length && !who.length && !other.length && !gone.length) return pl.length ? placesNav
     : `${recEmpty(`Nothing matches “${q}”. Try one word, like e-cigarettes, a bill number like HB 1563, or a lawmaker’s name.`)}${topics()}`;
   const quiet = !iss.length && !other.length && gone.length ? `<p class="rc-note rc-none">${offSeason() ? `The ${sessionInfo().recapYear} session is over. Here’s where these bills ended up.` : `Nothing that matches “${esc(q)}” is moving right now.`}</p>` : '';
   return `${other.length || gone.length ? searchNote(res, P) : ''}
     ${placesNav}
     ${iss.length ? recSec('fd-qi-h', 'Issues', moreList(iss.map(issueRow), 6, 'qi-' + P.key)) : ''}
-    ${who.length ? recSec('fd-who-h', 'People and committees', `<ul class="rc-rows" role="list">${who.map(recRow).join('')}</ul>`) : ''}
+    ${who.length ? recSec('fd-who-h', 'People and committees', `<ul class="rc-rows ${BOX}" role="list">${who.map(recRow).join('')}</ul>`) : ''}
     ${other.length ? recSec('fd-ob-h', iss.length ? 'Other bills' : 'Bills', moreList(other.map(billRow), 10, 'ob-' + P.key)) : quiet}
-    ${gone.length ? `<div class="rc-folds">${recFold('find-gone', 'Bills that did not advance', numbers(gone), moreList(gone.map(billRow), 10, 'g-' + P.key),
+    ${gone.length ? `<div class="rc-folds">${recFold('find-gone', 'Bills that did not advance', numbers(gone), moreList(gone.map(billRow), 10, 'g-' + P.key, '', false),
       { open: !iss.length && !other.length && !who.length })}</div>` : ''}
     ${capNote(res)}${everyLink()}`;
 }

@@ -96,6 +96,7 @@ body.rec .yu-help .tk-group { display: block; width: auto; margin: 0; break-insi
 body.rec .yu-help .tk-group[hidden] { display: none; }
 body.rec .yu-help .tk-group > summary { margin: 0; border: 0; min-height: 56px; cursor: pointer; }
 body.rec .yu-help .tk-group > summary h2 { flex: 1; min-width: 0; margin: 0; font: 600 var(--t16)/1.25 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+body.rec .yu-help .tk-group > summary .yu-gic { flex: none; }   /* each group's icon, as today's Help has (Nate 18 Oct, card 15) */
 body.rec .yu-help .rc-fin .rc-rows { gap: 0; }
 body.rec .yu-help .rc-fin .rc-row { min-height: 52px; margin: 0 calc(-1 * var(--s8)); padding: var(--s8); }
 @media (hover: hover) { body.rec .yu-help .rc-fin .rc-row:hover { background: var(--n50); } }

@@ -164,18 +164,23 @@ export function recPerson(route) {
   const m = b ? meetOf(l, b, roles) || { l, b, when: 'about' } : bestFor([l]);
   const card = m ? billCard(m, { own }) : helloCard([l], { own });
   // On your issues: the followed bills in their committees or before their chamber, the card's own bill left out (A-14).
-  // In their hands now first, by what is due, then what comes to them next; four, and the rest in place (B-14).
-  const mine2 = followed().filter(x => x.id !== m?.b?.id).map(x => meetOf(l, x, roles)).filter(Boolean).sort((x, y) => x.t - y.t || byDue(x, y));
-  const yours = mine2.length ? recSec('pp-yi', 'On your issues', recMore(mine2.map(x => billRow(x.b, x.due, { href: billPath(x.b),
+  // The ones they chair first, then in their hands now by what is due, then what comes to them next; four, and the rest in
+  // place (B-14). A bill in a committee they chair says so and comes first, in both lists (Nate 18 Oct, card 18: whether these are only the
+  // committees they chair or every one they sit on is "a big distinction"; the chair decides which bills get a hearing). Every
+  // committee they sit on counts (people.js billsIn); today's page said "they chair it" too.
+  const chairs = x => x.r?.role === 'chair' ? 0 : 1, tag = x => chairs(x) ? '' : 'They chair it';
+  const mine2 = followed().filter(x => x.id !== m?.b?.id).map(x => meetOf(l, x, roles)).filter(Boolean).sort((x, y) => chairs(x) - chairs(y) || x.t - y.t || byDue(x, y));
+  const yours = mine2.length ? recSec('pp-yi', 'On your issues', recMore(mine2.map(x => billRow(x.b, x.due, { href: billPath(x.b), tag: tag(x),
     note: x.when === 'next' ? `Comes to ${short(x.r.committee)} next` : x.when === 'floor' ? x.due.text : '' })), 4, 'pp-yi')) : '';
   // Their committees, every HIPHI bill in them, office and contact: closed, a one-line preview each, remembered open (B-6).
   const cm = roles.length ? recFold('pp-cmtes', 'Their committees', `${roleWord(roles[0].role)} of ${short(roles[0].committee)}${roles.length > 1 ? `, and ${roles.length - 1} more` : ''}`,
     `<p class="rc-note pp-rnote">Committees look at bills before the full ${CHAMBER_NAME[l.chamber]} votes. The chair decides which bills get a hearing.</p>`
     + recRows(roles.map(r => ({ name: short(r.committee), text: [roleWord(r.role), slotsOf(r.committee).length ? `Meets ${slotLine(slotsOf(r.committee))}` : ''].filter(Boolean).join(' · '), href: `#/committee/${r.committee}`, lead: r.role === 'member' ? 'users' : 'landmark' })))) : '';
-  const allB = billsIn(roles).map(x => ({ ...x, due: dueOf(x.b) })).sort((x, y) => (x.when === 'now' ? 0 : 1) - (y.when === 'now' ? 0 : 1) || byDue(x, y));
+  const allB = billsIn(roles).map(x => ({ ...x, due: dueOf(x.b) })).sort((x, y) => chairs(x) - chairs(y) || (x.when === 'now' ? 0 : 1) - (y.when === 'now' ? 0 : 1) || byDue(x, y));
   const pv = allB.find(x => x.b.id !== m?.b?.id) || allB[0];   // the preview names a bill the card does not (A-14)
   const bills = allB.length ? recFold('pp-allbills', 'All HIPHI bills in their committees', billWords(pv.b) + (allB.length > 1 ? ', and more' : ''),
-    recMore(allB.map(x => billRow(x.b, x.due, { href: billPath(x.b), note: x.when === 'next' ? `Comes to ${short(x.r.committee)} next` : '' })), 8, 'pp-allbills')) : '';
+    `<p class="rc-note pp-rnote">${roles.some(r => r.role === 'chair') ? 'Bills in every committee they sit on, the ones they chair first.' : 'Bills in every committee they sit on.'}</p>`
+    + recMore(allB.map(x => billRow(x.b, x.due, { href: billPath(x.b), tag: tag(x), note: x.when === 'next' ? `Comes to ${short(x.r.committee)} next` : '' })), 8, 'pp-allbills')) : '';
   // The phone is said once on the page, inside this card (A-14; the old page said it twice), so the preview only names it.
   const office = recFold('pp-office', 'Office and contact', andList([l.room ? `Room ${l.room} at the Capitol` : 'Their Capitol office', l.phone ? 'their phone' : '', l.capitol_url ? 'their Capitol page' : ''].filter(Boolean)),
     `${l.phone ? recWay('phone', `Call ${l.phone}`, 'Their office at the Capitol', { href: `tel:${l.phone.replace(/[^\d+]/g, '')}`, 'aria-label': `Call ${who(l)} at ${l.phone}` }) : ''}

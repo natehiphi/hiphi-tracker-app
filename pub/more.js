@@ -32,7 +32,8 @@ import { issuesLink } from './core.js';   // the My issues link (R-123)
 import { pendingPlace } from './mylists.js';
 import { t } from './i18n.js';
 import { langPicker, wireLangPicker } from './langpick.js';
-import { alertFields, alertButton, wireAlertForm, fmtPhone, phoneDigits, saveText, stopText, stopNumber, linkSent, codeStep, confirmWords, almostLine, emailLede } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, fmtPhone, phoneDigits, saveText, stopText, stopNumber, linkSent, codeStep, confirmWords, almostLine, emailLede,
+  TEXT_FINE, EMAIL_FINE } from './alerts.js';
 import { codesOn, myEmail, sendCode, verifyCode, codeErr, tooSoon, listenForCode, emailCodesOn, verifyEmailCode } from './phone.js';   // R-155, R-156 D2
 import { hasProfile, myName, myTitles, initials, saveProfile } from './myprofile.js';   // More's first row (R-147)
 import { titleLabel } from './titles.js';
@@ -587,6 +588,10 @@ export const stopNumberBox = () => `<details class="mr-stopnum"><summary>${icon(
     <div class="mr-send">${submitBtn('Stop texts to this number', 'circle-x', 'mr-sn-go')}</div></form></details>`;
 // The carrier's words (C-3) stay on the page; in the moment after saving they sit under the two buttons they explain (R-229).
 const stopLine = () => `<p class="small">Reply STOP to any text to end them. Stopping ends texts to this number from every browser.${DEMO ? ' This is the sandbox, so the number was not saved.' : ''}</p>`;
+// How often, in the consent's own first sentence (t5/e3: "A few texts a month.", "A few emails a month."), so this page promises
+// what the person agreed to on the sign-up. It said "At most one text a day" until Nate's Change of 18 Oct (R-303 card 21);
+// alerts.js WORDS_T5 false brings back "Up to 1 a day." here too. Consent words: a lawyer should confirm them (R-149).
+const often = s => (/^(.+?[.!?])(\s|$)/.exec(s) || [, s])[1];
 function alertsView() {
   if (REC()) return recAlertsView();
   const t = textSaved();
@@ -597,8 +602,8 @@ function alertsView() {
   if (t && !A.edit) return `<div class="mr mr-alerts">
     <header class="pagehead"><h1 class="hero" id="mr-al-t" tabindex="-1">${t.confirmed ? 'Text alerts are on' : 'Alerts almost set'}</h1></header>
     <section class="card mr-panel mr-alon" aria-labelledby="mr-al-t">
-      ${t.confirmed ? `<p>We’ll text ${ph} when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one text a day.</p>`
-        : `<p class="strong">${confirmWords(ph)}</p><p>Then we’ll text you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one text a day.</p>`}
+      ${t.confirmed ? `<p>We’ll text ${ph} when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. ${esc(often(TEXT_FINE))}</p>`
+        : `<p class="strong">${confirmWords(ph)}</p><p>Then we’ll text you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. ${esc(often(TEXT_FINE))}</p>`}
       ${A.justOn && !followsAnything() ? '<p class="strong">You don’t follow any issues yet, so there is nothing to text you about. Pick a few and we’ll text you when one of their bills gets a hearing.</p>' : ''}
       ${A.justOn ? '' : stopLine()}
       ${A.justOn ? `<div class="btnrow">${btn(nextStep().label, { icon: nextStep().icon, href: nextStep().href, attrs: { 'data-mr-alnext': '' } })}</div>
@@ -618,7 +623,7 @@ function alertsView() {
     <header class="pagehead"><h1 class="hero" id="mr-al-t" tabindex="-1">Alerts almost set</h1></header>
     <section class="card mr-panel mr-alon" aria-labelledby="mr-al-t">
       <p class="strong">We sent a link to ${esc(sent)}. Tap it to turn on alerts.</p>
-      <p>Then we’ll email you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. At most one email a day.</p>
+      <p>Then we’ll email you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up on them. ${esc(often(EMAIL_FINE))}</p>
       <p class="small">Can’t find it in a minute? Check your spam or promotions folder.${DEMO ? ' This is the sandbox, so nothing was sent.' : ''}</p>
       <div class="btnrow">${btn('Use a different email', { kind: 'secondary', sm: true, icon: 'pencil', attrs: { 'data-mr-alotheremail': '' } })}</div>
     </section></div>`;

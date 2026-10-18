@@ -1,7 +1,7 @@
 // You (R-303, Nate's "make best choices" of 10/17), behind ?rec=1: the fourth tab's page and the pages under it, in the calm
 // shapes of Home (R-300) and the bill page in layout 3 (R-302). Today's More, Profile, Privacy and Help are drawn without it.
 //   #/more     "You": the person first (their profile card, or the invitation to get alerts), then four quiet rows (your
-//              lawmakers, your alerts, your session, Help) and three quiet footer links (About HIPHI, Privacy and
+//              lawmakers, your alerts, your session, Help; and the event staff posted, when there is one) and three quiet footer links (About HIPHI, Privacy and
 //              accessibility, My issues link: Nate's 10/10 decision keeps it here). It was a 16-destination drawer
 //              (more-help-frame-firstvisit.md section 1); "Every bill HIPHI tracks" and "Committees" moved to Find's foot.
 //   #/privacy  "In short" open, every other section a closed card with its first sentence as the preview, Accessibility its
@@ -19,7 +19,7 @@ import { titleLabel } from '../titles.js';
 import { codesOn } from '../phone.js';
 import { alertStatus } from '../alerts.js';
 import { myDistricts, seat, legName, meetEvent, HIPHI } from '../more.js';
-import { REC, recHead, recBack, recRows, recFold, recFolds, wireKit } from './kit.js';
+import { REC, recHead, recBack, recRow, recRows, recFold, recFolds, wireKit } from './kit.js';
 
 // ---------------- the stylesheet ----------------
 // pub/app.js brings rec/rec.css to every page under ?rec=1; this group's own rules come with the first of its pages. Until
@@ -73,13 +73,20 @@ function lawmakersLine() {
   const s = seat('S', d.senate), h = seat('H', d.house);
   return s && h ? `${legName(s)} and ${legName(h)}` : `Senate District ${d.senate} and House District ${d.house}`;
 }
+// The event staff posted (R-067), its own row on You when there is one (Nate 18 Oct, card 11: on More it was a full row, and
+// the redesign had put it one tap down inside About HIPHI). It opens the event's page in a new tab, so it ends with that
+// mark, not a chevron; without a link it is the words alone.
+function eventRow() {
+  const c = meetEvent(); if (!c) return '';
+  const inner = `<span class="rc-lead">${icon('calendar-days')}</span><span class="rc-rtext"><span class="rc-rname">${esc(c.title)}</span>${c.body ? `<span class="rc-rstat">${esc(c.body)}</span>` : ''}</span>`;
+  return `<li class="yu-event">${c.link_url ? `<a class="rc-row" href="${esc(c.link_url)}" target="_blank" rel="noopener">${inner}${icon('external-link', { cls: 'rc-chev' })}<span class="sr">(opens in a new tab)</span></a>`
+    : `<div class="rc-row">${inner}</div>`}</li>`;
+}
 // The rest of hiphi.org, behind one quiet "About HIPHI" (it was seven cards on a laptop, more-help... section 1 con 5).
-// The event comes first when staff have posted one; Donate stays last (R-067's order).
+// Donate stays last (R-067's order).
 const ext = (lead, title, sub, href, leadHtml = '') => `<a class="rc-way yu-ext" href="${esc(href)}" target="_blank" rel="noopener"><span class="rc-wic">${leadHtml || icon(lead)}</span><span><span class="rc-wt">${title}</span>${sub ? `<span class="rc-ws">${sub}</span>` : ''}</span>${icon('external-link', { cls: 'rc-chev' })}<span class="sr">(opens in a new tab)</span></a>`;
 function aboutHiphi() {
-  const c = meetEvent();
-  return `${c ? (c.link_url ? ext('calendar-days', esc(c.title), esc(c.body || ''), c.link_url) : `<div class="rc-way yu-ext"><span class="rc-wic">${icon('calendar-days')}</span><span><span class="rc-wt">${esc(c.title)}</span><span class="rc-ws">${esc(c.body || '')}</span></span><span></span></div>`) : ''}
-    ${ext('', t('About HIPHI'), t('Hawaiʻi Public Health Institute'), HIPHI.about, `<span class="yu-mark">${MARK}</span>`)}
+  return `${ext('', t('About HIPHI'), t('Hawaiʻi Public Health Institute'), HIPHI.about, `<span class="yu-mark">${MARK}</span>`)}
     ${ext('megaphone', t('Action Center'), t('More ways to speak up for health'), HIPHI.act)}
     ${ext('newspaper', t('Newsletter'), t('HIPHI news and events by email'), HIPHI.news)}
     ${ext('scroll-text', t('Legislative Recap'), t('What passed for health each year'), HIPHI.recap)}
@@ -97,7 +104,7 @@ export function youView() {
     ${recHead({ title: t('You') })}
     ${meCard()}
     ${langPicker('mr-lang')}
-    <nav class="yu-rows" aria-label="${esc(t('You'))}">${recRows(rows)}</nav>
+    <nav class="yu-rows" aria-label="${esc(t('You'))}"><ul class="rc-rows" role="list">${rows.map(recRow).join('')}${eventRow()}</ul></nav>
     <nav class="yu-foot" aria-label="${esc(t('About this tracker'))}">
       <button type="button" class="yu-fl" data-yu-about aria-expanded="${open}" aria-controls="yu-about"><span>${t('About HIPHI')}</span>${icon('chevron-down', { cls: 'yu-flc' })}</button>
       <a class="yu-fl" href="#/privacy">${t('Privacy and accessibility')}</a>

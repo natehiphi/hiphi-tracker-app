@@ -3,14 +3,16 @@
 # On the practice copy (16 Mar 2026), at phone and laptop size, as Kai (3 issues), Leilani (16) and a newcomer:
 #   Find: the box, six topic rows with no counts, at most three issue rows that need voices (opening the rest in place), the
 #     foot rows to Every bill and Committees; no action card, no HIPHI lists, no star, no filled button; the newcomer's line
-#     only for a newcomer; Kai's phone page under 1,400px (3,284 before).
+#     only for a newcomer; Kai's phone page under 1,500px (3,284 before; 1,400 before the white boxes of 18 Oct);
+#   - each list of rows in one white box (Nate 18 Oct, cards 7 and 8), the rows inside a closed card not boxed again.
 #   Search: issues once each (e-cigarettes named once, not three times), one follow control a row, committees without codes,
 #     no governor's messages for "kim", the Places rows for "how to testify" and "my senator", "Part of" for HB1563, the link
 #     to every bill, no headings with counts; Follow works from a row.
 #   Every bill HIPHI tracks: Find's matching ("vape" and "keiki" find bills), "Waiting for a hearing", no header box on a
 #     laptop, "Name or number" on a phone, the groups after the first closed on a phone.
 #   My issues: Home's rows in Home's order, no chips, cards, counts or filled buttons, the two links, Edit with Stop following
-#     and Undo; Leilani's phone page under 1,500px (4,146 before).
+#     and Undo; Leilani's phone page under 1,650px (4,146 before; 1,500 before the white box of 18 Oct, whose rows wrap more);
+#     her sixteen rows in one white box (card 10).
 # No page errors and no sideways scroll anywhere; without ?rec the old pages still draw.
 import sys, os, re, asyncio
 from urllib.parse import urlparse, unquote
@@ -95,10 +97,12 @@ async def main():
                 check(newline == (who == 'none'), f'{t}: "New here?" only for a newcomer from a link ({newline})')
                 check(not await pg.evaluate(WIDE), f'{t}: no sideways scroll')
                 if tag == 'phone' and who == 'kai':
-                    hh = await pg.evaluate(HEIGHT); check(hh < 1400, f'{t}: under 1,400px on a phone ({hh}; 3,284 before)')
+                    hh = await pg.evaluate(HEIGHT); check(hh < 1500, f'{t}: under 1,500px on a phone ({hh}; 3,284 before)')
+                check(await pg.evaluate("[...document.querySelectorAll('#fd-results .rc-rows')].every(u => u.classList.contains('rc-box'))"), f'{t}: every list on Find is in a white box')
                 if nv and await pg.evaluate("!!document.querySelector('[data-rc-showall=voices]')"):
                     await pg.click('[data-rc-showall=voices]'); await pg.wait_for_timeout(200)
-                    check(await pg.evaluate("!document.getElementById('rc-rest-voices').hidden && location.hash === '#/find'"), f'{t}: See more opens in place')
+                    check(await pg.evaluate("!document.querySelector('#rc-more-voices > li[hidden]') && location.hash === '#/find'"), f'{t}: See more opens in place')
+                    check(await pg.evaluate("document.querySelectorAll('#fd-voices-h ~ .rc-rows').length") == 1, f'{t}: opened, it is still one box')
                 # ---- Search (one person is enough for the words; both sizes) ----
                 if who == 'kai':
                     await search(pg, 'e-cigarettes')
@@ -109,6 +113,7 @@ async def main():
                     check(await pg.evaluate("!document.querySelector('#fd-results .mb-star, #fd-results .chip, #fd-results .btn.primary')"), f'{s}: no stars, chips or filled buttons')
                     check(await pg.evaluate(ORDER, ['#fd-qi-h', '#fd-results a[href="#/allbills"]']) == 'ok', f'{s}: Issues first, every bill HIPHI tracks at the foot')
                     check(await pg.evaluate(COUNTED) == [], f'{s}: no headings with counts')
+                    check(await pg.evaluate("[...document.querySelectorAll('#fd-results .rc-rows')].every(u => u.classList.contains('rc-box') === !u.closest('.rc-fold'))"), f'{s}: each list in a white box, except inside a closed card')
                     btn = await pg.query_selector('#fd-results .rc-follow:not(.on)')
                     if btn:
                         iid = await btn.get_attribute('data-fdissue'); await btn.click(); await pg.wait_for_timeout(900)
@@ -145,8 +150,9 @@ async def main():
                     check(await pg.evaluate("!!document.querySelector('.rc-links a[href=\"#/recap\"]') && !!document.querySelector('.rc-links a[href=\"#/find\"]')"), f'{m}: What you\'ve done this session and Follow more issues')
                     check(await pg.evaluate(COUNTED) == [], f'{m}: no headings with counts')
                     check(not await pg.evaluate(WIDE), f'{m}: no sideways scroll')
+                    check(await pg.evaluate("!!document.querySelector('.rc-mrows.rc-box')"), f'{m}: the rows in one white box')
                     if tag == 'phone' and who == 'leilani':
-                        hh = await pg.evaluate(HEIGHT); check(hh < 1500, f'{m}: under 1,500px on a phone ({hh}; 4,146 before)')
+                        hh = await pg.evaluate(HEIGHT); check(hh < 1650, f'{m}: under 1,650px on a phone ({hh}; 4,146 before)')
                     await pg.click('[data-rc-edit]'); await pg.wait_for_timeout(300)
                     n = await pg.evaluate("document.querySelectorAll('[data-rc-stop]').length")
                     check(n == len(mine), f'{m}: Edit puts Stop following on every row ({n})')

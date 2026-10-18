@@ -39,6 +39,28 @@ body.rec .rc-card .rc-rows { margin: calc(-1 * var(--s8)) 0; }
 body.rec .rc-card .rc-row { margin: 0 calc(-1 * var(--s8)); padding: var(--s8); }
 @media (hover: hover) { body.rec .rc-card .rc-row:hover { background: var(--n50); } }
 body.rec .rc-showall { margin: var(--s4) 0 0 calc(-1 * var(--s12)); }
+body.rec .rc-rows > li[hidden] { display: none; }   /* the rest of a "Show all" list (kit.js laterRow); a row's own display wins over [hidden] */
+
+/* One white box around a list (Nate, 18 Oct, Keep or Undo cards 6, 7, 8, 10 and 19: "Can we include the white container box?"),
+   on the topic page, Find, search, My issues and Committees (kit.js BOX): the card's surface with a hairline between rows, as
+   today's lists draw it. It shows where a list starts and ends and makes its rows read as one group (about 30px taller a
+   list). The rows inside keep their words and size; they meet the box's edges, and the hover is the card rows' grey. */
+body.rec .rc-rows.rc-box { gap: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
+body.rec .rc-box > li + li { border-top: 1px solid var(--n100); }
+body.rec .rc-box .rc-row { margin: 0; padding: var(--s12) var(--s16); border-radius: 0; }
+body.rec .rc-box .rc-row:focus-visible { outline-offset: -3px; }   /* inside the box's rounded edge, never clipped by it */
+@media (hover: hover) { body.rec .rc-box .rc-row:hover { background: var(--n50); } }
+/* a row with Follow or Stop at its end: the control keeps the box's inner edge */
+body.rec .rc-box > :is(.rc-irow, .rc-frow) { padding-right: var(--s12); }
+body.rec .rc-box > :is(.rc-irow, .rc-frow) > .rc-row { margin: 0; padding-right: var(--s4); }
+body.rec .rc-box > .rc-frow > .btn.text { margin-right: 0; }
+/* Find's foot, boxed: the box parts it from the lists above, so its hairline goes */
+body.rec .rc-foot:has(> .rc-box) { padding-top: 0; border-top: 0; }
+@media (min-width: 1100px) {
+  /* Find's six topics two by two in one box: no gap between the columns, so the hairlines run across */
+  body.rec .rc-rows.rc-topics.rc-box { column-gap: 0; }
+  body.rec .rc-topics.rc-box > li:nth-child(2) { border-top: 0; }
+}
 
 /* Follow: one outlined pill, the bill page's Share pill in shape; followed, a pale "✓ Following" (the issue page's opens a
    small menu). In the kit since the wrap-up review (10/18): the issue page, the category page and search draw it alike. */

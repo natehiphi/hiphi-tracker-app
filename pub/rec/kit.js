@@ -20,14 +20,20 @@ export const recSec = (id, title, inner, { note = '' } = {}) => `<section class=
 
 // Quiet rows, Home's shape (R-300 "the list, quieter"): a name, one status line, a chevron; the whole row is the link.
 // r: { name, text, href, warn, attrs, lead } (lead: an icon name drawn in a soft circle, for people and places).
+// cls BOX puts the list in one white box with a hairline between rows, as today's lists are (Nate 18 Oct, Keep or Undo
+// cards 6, 7, 8, 10 and 19: "Can we include the white container box?"; rec.css .rc-box).
 export const recRow = r => `<li><a class="rc-row" href="${esc(r.href)}"${Object.entries(r.attrs || {}).map(([k, v]) => ` ${k}="${esc(v)}"`).join('')}>${r.lead ? `<span class="rc-lead">${r.leadHtml || icon(r.lead)}</span>` : r.leadHtml ? `<span class="rc-lead">${r.leadHtml}</span>` : ''}
   <span class="rc-rtext"><span class="rc-rname">${esc(r.name)}</span>${r.text ? `<span class="rc-rstat${r.warn ? ' warn' : ''}">${esc(r.text)}</span>` : ''}</span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`;
+export const BOX = 'rc-box';
 export const recRows = (rows, cls = '') => rows.length ? `<ul class="rc-rows${cls ? ' ' + cls : ''}" role="list">${rows.map(recRow).join('')}</ul>` : '';
 
-// "Show all 12" in place, for long lists (C-15's words); the rest are in the page, hidden, so nothing reloads.
-export const recMore = (rows, n, key) => rows.length <= n ? recRows(rows)
-  : `${recRows(rows.slice(0, n))}<div class="rc-rest" id="rc-rest-${esc(key)}" hidden>${recRows(rows.slice(n))}</div>
-    <button type="button" class="btn text rc-showall" data-rc-showall="${esc(key)}" aria-expanded="false" aria-controls="rc-rest-${esc(key)}">${icon('chevron-down')}<span>Show all ${rows.length}</span></button>`;
+// "Show all 12" in place, for long lists (C-15's words); the rest are in the page, hidden, so nothing reloads. They are rows of
+// the same list (laterRow), so a boxed list opens as one box, not a second one under it.
+export const laterRow = li => li.replace(/^\s*<li\b/, '<li hidden');
+export const showAll = (key, words) => `<button type="button" class="btn text rc-showall" data-rc-showall="${esc(key)}" aria-expanded="false" aria-controls="rc-more-${esc(key)}">${icon('chevron-down')}<span>${esc(words)}</span></button>`;
+export const recMore = (rows, n, key, cls = '') => rows.length <= n ? recRows(rows, cls)
+  : `<ul class="rc-rows${cls ? ' ' + cls : ''}" role="list" id="rc-more-${esc(key)}">${rows.map((r, i) => i < n ? recRow(r) : laterRow(recRow(r))).join('')}</ul>
+    ${showAll(key, `Show all ${rows.length}`)}`;
 
 // A closed card with its title and a one-line preview of what is inside (the bill page's "Who decides next"), remembered
 // open per person on this device (B-6). `name` is unique per page kind ("issue-about"), so one page's choice is not another's.
@@ -55,7 +61,8 @@ export const recEmpty = (text, action = '') => `<div class="rc-empty"><p>${esc(t
 export function wireKit(root = document) {
   root.querySelectorAll('.rc-fold').forEach(d => d.addEventListener('toggle', () => remember(d.dataset.rcFold, d.open)));
   root.querySelectorAll('[data-rc-showall]').forEach(b => b.onclick = () => {
-    const rest = document.getElementById('rc-rest-' + b.dataset.rcShowall); if (!rest) return;
-    rest.hidden = false; b.remove(); rest.querySelector('a, button')?.focus({ preventScroll: true });
+    const list = document.getElementById('rc-more-' + b.dataset.rcShowall); if (!list) return;
+    const rest = [...list.querySelectorAll(':scope > li[hidden]')]; rest.forEach(li => { li.hidden = false; });
+    b.remove(); rest[0]?.querySelector('a, button')?.focus({ preventScroll: true });
   });
 }

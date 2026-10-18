@@ -216,7 +216,8 @@ function listView() {
     </section>` : ''}
   </div>`;
 }
-// The same list, calm (R-303): the groups are closed cards with no counts, the rows Home's quiet ones. "Reading a bill" is not
+// The same list, calm (R-303): the groups are closed cards with no counts, each with its drawn icon in a soft circle (Nate 18
+// Oct, card 15: "add back in the emoji for the different sections"), the rows Home's quiet ones. "Reading a bill" is not
 // offered: it draws the old bill page and says "Every bill page looks like this", untrue of layout 3 (section 4 of the
 // assessment). The search, the groups' hooks ([data-tkgroup], [data-tkrow]) and Back to the group last opened are as before.
 function recListView() {
@@ -233,7 +234,7 @@ function recListView() {
     <div class="tk-groups rc-folds">
       ${GROUPS.map(g => { const list = TALKS.filter(t => t.group === g.key); if (!list.length) return '';
         return `<details class="tk-group rc-fold" data-tkgroup="${g.key}"${T.q.trim() || T.open === g.key ? ' open' : ''}>
-          <summary><h2 class="rc-ft" id="tk-g-${g.key}">${esc(g.title)}</h2>${icon('chevron-down', { cls: 'rc-fchev' })}</summary>
+          <summary><span class="rc-wic yu-gic" aria-hidden="true">${icon(g.icon)}</span><h2 class="rc-ft" id="tk-g-${g.key}">${esc(g.title)}</h2>${icon('chevron-down', { cls: 'rc-fchev' })}</summary>
           <nav class="rc-fin" aria-labelledby="tk-g-${g.key}">${recRows(list.map(t => ({ name: t.title, href: '#/help/' + t.slug, attrs: { 'data-tkrow': t.slug } })))}</nav>
         </details>`; }).join('')}
     </div>

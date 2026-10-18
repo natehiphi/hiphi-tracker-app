@@ -128,6 +128,13 @@ with sync_playwright() as p:
             pg.click('.rc-fold[data-rc-fold=pp-allbills] > summary'); pg.wait_for_timeout(200)
             first = pg.locator('.rc-fold[data-rc-fold=pp-allbills] .rc-rstat').first.inner_text()
             check('HIPHI' in first, f'{tag}: every HIPHI bill in her committees, with the stance ({first})')
+            # Nate 18 Oct, card 18: every committee she sits on, and the ones she chairs say so and come first
+            st = pg.evaluate("[...document.querySelectorAll('.rc-fold[data-rc-fold=pp-allbills] .rc-rstat')].map(e => e.textContent)")
+            ch = ['They chair it' in x for x in st]
+            chairs = pg.evaluate("[...document.querySelectorAll('.rc-fold[data-rc-fold=pp-cmtes] .rc-rstat')].some(e => /^Chair/.test(e.textContent))")
+            check(ch == sorted(ch, reverse=True) and any(ch) == chairs, f'{tag}: "They chair it" on the bills in a committee she chairs, those first ({sum(ch)} of {len(ch)}; chairs one: {chairs})')
+            note = pg.inner_text('.rc-fold[data-rc-fold=pp-allbills] .pp-rnote')
+            check(note.startswith('Bills in every committee they sit on'), f'{tag}: the card says it is every committee they sit on ({note})')
             check(not s['wide'] and s['h1'] == 1 and not pg.errs, f'{tag}: Sen. Kim: one h1, no sideways scroll, no errors {pg.errs[:1]}')
             go(pg, '#/legislator/189?from=HB2121')
             t = pg.inner_text('.rc-act .rc-ah')
@@ -140,6 +147,7 @@ with sync_playwright() as p:
             check(pg.evaluate(ORDER, ['#cmt-wk', '.rc-fold[data-rc-fold=cmt-S]', '.rc-fold[data-rc-fold=cmt-H]']) == 'ok', f'{tag}: Committees: this week\'s hearings first, then the two chambers closed')
             wk = pg.locator('section[aria-labelledby=cmt-wk] .rc-rstat').all_inner_texts()
             check(len(wk) >= 3 and all('(' in t and ')' in t for t in wk), f'{tag}: each of this week\'s hearings names its bill ({wk[:1]})')
+            check(pg.locator('section[aria-labelledby=cmt-wk] > ul.rc-rows.rc-box').count() == 1, f'{tag}: this week\'s hearings in one white box (card 19)')
             check(pg.locator('.rc-top a[href="#/legislators"]').count() == 1, f'{tag}: Committees goes back to Your lawmakers')
             check(not s['wide'] and s['h1'] == 1 and not pg.errs, f'{tag}: Committees: one h1, no sideways scroll, no errors {pg.errs[:1]}')
             go(pg, '#/committee/EDU')

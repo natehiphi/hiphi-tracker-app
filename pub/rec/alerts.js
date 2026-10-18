@@ -3,8 +3,8 @@
 // where texts and email go, "How much each issue sends" (R-299's switch, once per followed issue), and a quiet "Stop all
 // texts" at the foot, said once. Profile's alerts sections and its Save bar for them moved here (mine-profile-alerts.md
 // sections 3-4: alerts started 2,996px down Profile and waited for Save there, while the issue page saved at once).
-// The promise is the live consent's (t5/e3, alerts.js TEXT_FINE/EMAIL_FINE): today's page without ?rec still says "At most
-// one text a day", which only Nate can change (consent words are his call).
+// The promise is the live consent's (t5/e3, alerts.js TEXT_FINE/EMAIL_FINE), as today's page without ?rec says it too since
+// Nate's Change of 18 Oct (it said "At most one text a day").
 // Without a profile, or while a number is being added or changed, #/alerts is the sign-up box as before (pub/more.js), with a
 // back row and the same live promise.
 import { S, DEMO, esc, icon, friendly, textSaved, followedIssues, followsAnything, levelOf } from '../core.js';

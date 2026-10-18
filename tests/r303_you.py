@@ -6,7 +6,9 @@
 # at 390x844 and 1440x900:
 #   You (#/more): h1 "You"; the profile card, then the rows (Your lawmakers, Your alerts only when signed up, Your session,
 #     Help), then the quiet footer links (About HIPHI, Privacy and accessibility, My issues link); Every bill and Committees
-#     are gone from it; at most one filled button; under 900px tall on a phone.
+#     are gone from it; the event staff posted is its own row (Nate 18 Oct, card 11), not inside About HIPHI; at most one
+#     filled button; under 1,050px tall on a phone (900 before the event row);
+#   - Help's seven groups each with its icon (card 15); the live #/alerts says "A few texts a month." (card 21).
 #   Profile: its first row is Your alerts; no "Your issues" or Alerts section; "Make your profile" without one.
 #   Your alerts: where texts and email go, a switch per followed issue that saves at once, "Stop all texts" once, the live
 #     consent's words (a few texts a month), never "At most one text a day".
@@ -94,7 +96,7 @@ def main():
                 check(pg.evaluate("document.querySelector('#main h1')?.innerText") == 'You', f'{t}: You is headed "You"')
                 check(pg.evaluate(ORDER, ['#main .rc-head', '#main .yu-me', '#main .yu-rows', '#main .yu-foot']) == 'ok', f'{t}: the profile card, then the rows, then the footer links')
                 rows = pg.evaluate("[...document.querySelectorAll('#main .yu-rows .rc-rname')].map(e => e.innerText)")
-                want = ['Your lawmakers'] + (['Your alerts'] if signed else []) + ['Your session', 'Help']
+                want = ['Your lawmakers'] + (['Your alerts'] if signed else []) + ['Your session', 'Help', 'Meet HIPHI at the Keiki Health Fair (sample)']   # the sandbox's sample event, last
                 check(rows == want, f'{t}: the rows are {want} ({rows})')
                 txt = TEXT(pg)
                 check('Every bill HIPHI tracks' not in txt and 'Committees' not in txt, f'{t}: Every bill and Committees have left You')
@@ -109,8 +111,10 @@ def main():
                 pg.click('[data-yu-about]'); pg.wait_for_timeout(200)
                 about = pg.evaluate("!document.getElementById('yu-about').hidden && [...document.querySelectorAll('#yu-about .rc-wt')].map(e => e.innerText)")
                 check(bool(about) and about[-1] == 'Donate' and 'About HIPHI' in about and 'Newsletter' in about, f'{t}: About HIPHI opens HIPHI\'s links, Donate last ({about})')
+                check(bool(about) and not any('Keiki' in a for a in about), f'{t}: the event is not said again inside About HIPHI')
+                check(pg.evaluate("document.querySelector('#main .yu-event a')?.getAttribute('target')") == '_blank', f'{t}: the event row opens its page in a new tab')
                 pg.click('[data-yu-about]'); pg.wait_for_timeout(100)
-                if tag == 'phone': check(H(pg) < 900, f'{t}: You is under 900px tall on a phone ({H(pg)})')
+                if tag == 'phone': check(H(pg) < 1050, f'{t}: You is under 1,050px tall on a phone ({H(pg)}; 1,549 before the redesign)')
                 shot(pg, tag, f'you_{who}')
                 # ---- Profile ----
                 open_page(pg, '#/profile', sel='#main .pf')
@@ -126,6 +130,10 @@ def main():
                 open_page(pg, '#/alerts', sel='#main .mr-alerts')
                 txt = TEXT(pg)
                 check('At most one' not in txt, f'{t}: #/alerts never says "At most one text a day"')
+                if signed:   # today's page, without ?rec, says it as the sign-up does since Nate's Change of 18 Oct (card 21)
+                    open_page(pg, '#/alerts', rec=False, sel='#main .mr-alerts'); live = TEXT(pg)
+                    check('A few texts a month.' in live and 'At most one' not in live, f'{t}: the live #/alerts says "A few texts a month."')
+                    open_page(pg, '#/alerts', sel='#main .mr-alerts')
                 if signed:
                     check(pg.evaluate("document.querySelector('#main h1').innerText") == 'Your alerts', f'{t}: #/alerts is "Your alerts"')
                     check('Texts to (808) ••• 0123' in txt and 'Change' in txt and 'Email: not added' in txt and 'Add your email' in txt, f'{t}: where texts and email go')
@@ -163,6 +171,7 @@ def main():
                     check(pg.evaluate("document.querySelector('#main .yu-par a').getAttribute('href')") == 'tel:+18085870478', f'{t}: its number calls')
                     g = pg.evaluate("[...document.querySelectorAll('[data-tkgroup]')].map(d => d.open)")
                     check(len(g) == 7 and not any(g), f'{t}: seven groups, all closed ({g})')
+                    check(pg.locator('[data-tkgroup] > summary .yu-gic .ic').count() == 7, f'{t}: each group has its icon back (card 15)')
                     check(pg.evaluate("!document.querySelector('#main .tk-gn')") and not re.search(r'\b\d+\b', ''.join(pg.evaluate("[...document.querySelectorAll('[data-tkgroup] > summary')].map(s => s.innerText)"))), f'{t}: no counts on the groups')
                     check(pg.locator('#main a[href="#/learn/bill"]').count() == 0, f'{t}: "Reading a bill" is not offered')
                     pg.click('[data-tkgroup="hearings"] > summary'); pg.wait_for_timeout(250)

@@ -8,7 +8,7 @@
 // following all".
 import { S, DEMO, app, esc, icon, unfollowIssue, setFollows, catOf, sessionInfo } from '../core.js';
 import { btn } from '../ui.js';
-import { recSec, recRow, recEmpty, wireKit } from './kit.js';
+import { recSec, recRow, recEmpty, wireKit, BOX } from './kit.js';
 import { myRows, keep } from '../calm/home.js';
 import { followToggle } from '../actions.js';
 import { nameOf, letGo } from '../mybills.js';
@@ -61,8 +61,8 @@ function render() {
   const whole = wholes.map(c => `<p class="rc-whole"><span>Following all of ${esc(c.name)}, and new ones</span>${btn('Stop following all', { kind: 'text', sm: true, attrs: { 'data-rc-stopcat': c.key, 'aria-label': `Stop following all of ${c.name}` } })}</p>`).join('');
   return `<div class="rc rc-mine${edit ? ' editing' : ''}" data-mbroot>${head}
     ${whole ? `<div class="rc-wholes">${whole}</div>` : ''}
-    ${rows.length ? `<ul class="rc-rows rc-mrows" role="list" aria-label="What you follow">${rows.map(r => rowHtml(r, edit)).join('')}</ul>` : `<p class="rc-note rc-none">You’re not following any issues yet.</p>`}
-    ${lists.length ? recSec('ul-mine-h', 'Your lists', `<ul class="rc-rows" role="list">${lists.map(recRow).join('')}</ul>`) : ''}
+    ${rows.length ? `<ul class="rc-rows rc-mrows ${BOX}" role="list" aria-label="What you follow">${rows.map(r => rowHtml(r, edit)).join('')}</ul>` : `<p class="rc-note rc-none">You’re not following any issues yet.</p>`}
+    ${lists.length ? recSec('ul-mine-h', 'Your lists', `<ul class="rc-rows ${BOX}" role="list">${lists.map(recRow).join('')}</ul>`) : ''}
     ${links}</div>`;
 }
 
