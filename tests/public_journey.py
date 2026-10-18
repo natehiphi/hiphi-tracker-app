@@ -100,8 +100,12 @@ with sync_playwright() as pw:
     # left by itself in 1.5 s (R-140, 10/5); Nate 11 Oct: "too quick", so it is a page that waits for Next.
     p.wait_for_selector('.st-thanks #st-h', timeout=5000); p.wait_for_timeout(400)
     ok(p.inner_text('#st-h') == 'Mahalo, Leilani!' and p.locator('#fx-moment:not([hidden])').count() == 0 and p.evaluate('location.hash') == at, 'following shows the "Mahalo!" page in place of the box, with no moment over it')
-    ok('Link sent to leilani@example.com' in p.inner_text('.st-thanks'), 'the "Mahalo!" says where the link went (C-6)')
+    # R-298 (Nate 17 Oct): two lines and one small "Sent to <email> · Change"; the second line says the link is in their email.
+    ok('Sent to leilani@example.com' in p.inner_text('.st-mhwhere') and 'tap the link we emailed you' in p.inner_text('.st-thsub'), 'the "Mahalo!" says where the link went (C-6)')
     ok(p.locator('.actionbar [data-stnext]').is_visible() and p.inner_text('.actionbar [data-stnext]').strip() == 'Next: A Bill’s Story', 'its Next is there at once and names what follows (C-6, R-186, C-15)')
+    # The words rise in under the flower (fx.css, up to 1 s); axe measures contrast on the words people read, once settled,
+    # not a frame where they are still see-through.
+    p.wait_for_function("() => [...document.querySelectorAll('.st-mahalo :is(.st-thtitle, .st-thsub, .st-mhwhere)')].every(e => getComputedStyle(e).opacity === '1')", timeout=5000)
     std(p, 'mahalo', axe=True); shot(p, 'p_mahalo')
     p.wait_for_timeout(3000)
     ok(p.locator('.st-thanks #st-h').count() == 1 and p.evaluate('location.hash') == at, 'it is still there after 3 s: it moves on only with Next (R-140, Nate 11 Oct: a page that waits for Next)')
@@ -219,10 +223,11 @@ with sync_playwright() as pw:
     p.locator('[data-stdone]').click(); p.wait_for_timeout(2500)
     ok(p.evaluate('location.hash') in ('#/', ''), f"finishing lands on Home ({p.evaluate('location.hash')})"); shot(p, 'p_home_welcome', full=True)
     th = text(p); ok('Aloha, Leilani' in th and 'What happens next' not in th, 'Home greets them by name and does not repeat "What happens next" (A-14)')
-    vis_primary = p.evaluate("[...document.querySelectorAll('main .acard .btn.primary')].filter(e=>e.offsetParent!==null).length")
+    vis_primary = p.evaluate("[...document.querySelectorAll('main .btn.primary')].filter(e=>e.offsetParent!==null).map(e => !!e.closest('.cm-slide'))")
     # Since R-190 (Nate 10/6) the finale's "See How I Can Help" opens Home on the things to do this week, none folded, the
     # soonest with the one main button (DESIGN B-14, A-3); it had been "pushes no action", with the rest behind "Ready now?".
-    ok(vis_primary == 1 and p.locator('main [data-hm-toggle]').count() == 0, f'welcome Home leads with one main button and folds nothing to do (R-190) ({vis_primary} primary action buttons visible)')
+    # Since R-295 (Nate 10/17) the soonest is the slide, not a card: its button is the page's one filled button (A-23).
+    ok(vis_primary == [True] and p.locator('main [data-hm-toggle]').count() == 0, f'welcome Home leads with one main button and folds nothing to do (R-190) ({len(vis_primary)} primary action buttons visible, on the slide: {vis_primary})')
     ok(not COMMUNITY.search(th), 'welcome Home has no community-wide totals'); std(p, 'home_welcome', axe=True)
     c.close()
 
@@ -306,7 +311,8 @@ with sync_playwright() as pw:
 
     # ---- 2. a return visit: the ladder ----
     c, p = ctx(b); follower(p, more=WAITING); visit(p, '/', wait=3200); shot(p, 'p_home_return', full=True)
-    first = p.evaluate("document.querySelector('main .acard .btn.primary')?.innerText || ''"); ok('testimony' in first.lower(), f'first card leads with testimony ("{first}")')
+    # Since R-295 (Nate 10/17) the soonest thing to do is the slide, drawn like a first-visit screen, not a card.
+    first = p.evaluate("document.querySelector('main .cm-slide .btn.primary')?.innerText || ''"); ok('testimony' in first.lower(), f'first card leads with testimony ("{first}")')
     # The calm Home (R-222, DESIGN A-23, B-14) has one card: the hearing ask is the card only when its cut-off comes before
     # the soonest testimony deadline; otherwise the waiting bill is said on a row ("Needs a hearing by Mon, Mar 30"), never
     # left off the page. This follower follows HB 1563 and HB 1732 on their own, not their issues.
@@ -318,7 +324,7 @@ with sync_playwright() as pw:
     ok(full <= 2 and asks <= 2 and p.locator('main [data-hm-toggle]').count() == 0 and hgt <= 3600, f'Home: {full} full cards and {asks} ask cards, the rest one line each, nothing folded ({hgt}px) (R-190)')
     # after one action, testimony leads
     p.evaluate("localStorage.setItem('hiphi_done_demo', JSON.stringify(['x|y|share'])); localStorage.setItem('hiphi_done_at_demo', JSON.stringify({'x|y|share': new Date().toISOString()}))")
-    visit(p, '/', wait=3000); first2 = p.evaluate("document.querySelector('main .acard .btn.primary')?.innerText || ''"); ok('testimony' in first2.lower(), f'after an action, testimony leads ("{first2}")')
+    visit(p, '/', wait=3000); first2 = p.evaluate("document.querySelector('main .cm-slide .btn.primary')?.innerText || ''"); ok('testimony' in first2.lower(), f'after an action, testimony leads ("{first2}")')
     for name, h in (('bills', '/bills'), ('find', '/find'), ('search', '/find?q=vape'), ('bill', '/bill/HB2121'), ('bill_nonick', '/bill/' + NONICK), ('bill_late', '/bill/HB1562'), ('legislators', '/legislators'), ('more', '/more'), ('help', '/help'), ('signin', '/signin'), ('privacy', '/privacy')):
         visit(p, h, wait=2800); std(p, name, axe=name in ('bill', 'find', 'signin')); shot(p, 'p_' + name, full=True)
     visit(p, '/bill/HB2121', wait=2800); tb = text(p)
@@ -366,12 +372,20 @@ with sync_playwright() as pw:
             if W == 1440: shot(p, 'd_' + name)
         if W >= 1100:
             visit(p, '/', wait=2800)
-            # Since R-222 (11 Oct) the calm Home is everyone's Home: one card, then one row per issue, in one reading column
-            # centred on a laptop (pub/home.css .cm, max 640px; DESIGN A-23, A-13 one focal point). Today's Home, two columns
-            # across the width, stays testable as layout 'today' (tests/layout.py, tests/home_now.py).
-            col = p.evaluate("(() => { const m=document.querySelector('main').getBoundingClientRect(), c=document.querySelector('main .cm')?.getBoundingClientRect(); return c ? [Math.round(c.width), Math.round(Math.abs((c.left + c.right) / 2 - (m.left + m.right) / 2))] : null })()")
-            ok(col and col[0] <= 680 and col[1] <= 40, f'Home is one centred column at {W} (R-222; width, off centre: {col})')
-            wide_btn = p.evaluate("(() => { const b=document.querySelector('main .acard .btn.primary'); if(!b) return 0; return Math.round(b.getBoundingClientRect().width) })()"); ok(0 < wide_btn < 420, f'card buttons are sized to their label at {W} ({wide_btn}px)')
+            # Since R-222 (11 Oct) the calm Home is everyone's Home: one thing to do, then one row per issue, centred on a laptop
+            # (DESIGN A-23, A-13 one focal point). Since R-295 (Nate 10/17) that one thing is the slide, in two columns on a
+            # laptop like "You're all set!" (the drawing left, the words right; pub/home.css .cm, 980px), and the words, the rows
+            # and the lines under them stay a reading column (640px) on the slide's left edge. Today's Home, two columns across
+            # the width, stays testable as layout 'today' (tests/layout.py, tests/home_now.py).
+            col = p.evaluate("""(() => { const r = s => document.querySelector('main ' + s)?.getBoundingClientRect(), m = document.querySelector('main').getBoundingClientRect();
+              const c = r('.cm'), sl = r('.cm-slide'), a = r('.cm-slide .cm-art'), w = r('.cm-slide .cm-words'), iss = r('.cm-issues');
+              if (!c || !sl || !a || !w || !iss) return null;
+              return { width: Math.round(c.width), off: Math.round(Math.abs((c.left + c.right) / 2 - (m.left + m.right) / 2)),
+                side: a.right <= w.left && a.top < w.bottom && w.top < a.bottom,
+                read: Math.round(Math.max(w.width, iss.width, r('.cm-lines')?.width || 0)), edge: Math.round(Math.abs(iss.left - sl.left)) } })()""")
+            ok(col and col['width'] <= 1000 and col['off'] <= 40 and col['side'] and col['read'] <= 680 and col['edge'] <= 2,
+               f'Home is one centred column at {W}: the slide in two columns, the reading column under it (R-222, R-295; {col})')
+            wide_btn = p.evaluate("(() => { const b=document.querySelector('main .cm-slide .btn.primary'); if(!b) return 0; return Math.round(b.getBoundingClientRect().width) })()"); ok(0 < wide_btn < 420, f'card buttons are sized to their label at {W} ({wide_btn}px)')
             visit(p, '/bill/HB2121', wait=2800)
             bar = p.evaluate("(() => { const a=document.querySelector('.actionbar'); return a ? getComputedStyle(a).display : 'none' })()"); ok(bar == 'none', f'bill page: no detached bottom bar at {W} ({bar})')
             prim = p.evaluate("[...document.querySelectorAll('main .btn.primary')].filter(e=>e.offsetParent!==null && e.getBoundingClientRect().top < innerHeight).length"); ok(prim >= 1, f'bill page: the main action is visible in place at {W}')
