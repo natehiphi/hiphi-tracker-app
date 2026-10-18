@@ -1,0 +1,88 @@
+/* The calm redesign's issue page (R-302's option A) and category page (R-303), behind ?rec=1 (pub/app.js REC_CSS; the
+   stylesheet loads only then), scoped to body.rec. The issue page draws the bill page's own layout-3 parts and look
+   (bill.css .bl-rec: the top row, the action card, "Where it is now"), and the kit's quiet rows and closed cards
+   (rec.css); these are its few rules of its own. One blue for every control (A-12), 44px targets (A-6). */
+
+/* ---- the issue page ---- */
+/* Back names the place behind: no number beside it here, so it has more room than on the bill page */
+body.rec .rc-iss .bl-rtop .bl-back { flex: 0 1 auto; min-width: 0; }
+body.rec .rc-iss .bl-rtop .bl-back span { max-width: min(20em, calc(100vw - 196px)); }   /* Share and ⋯ keep their room down to 320px */
+/* the row under the sentence: HIPHI's side on the left, Follow on the right (the bill page's chips and "Read the bill") */
+body.rec .rc-iss .rc-ihead .bl-rhrow { justify-content: space-between; }
+body.rec .rc-iss .rc-ihead .bl-rhrow > .chip { white-space: normal; }
+body.rec .rc-iss .rc-ihead .bl-rhrow > .rc-fpill, body.rec .rc-iss .rc-ihead .bl-rhrow > .rc-fwrap { margin-left: auto; }
+/* below 360px the chip and the pill do not fit one line: the pill starts the next line, under the chip, not alone at the
+   right edge (its menu then opens to the right) */
+@media (max-width: 359px) {
+  body.rec .rc-iss .rc-ihead .bl-rhrow > .rc-fpill, body.rec .rc-iss .rc-ihead .bl-rhrow > .rc-fwrap { margin-left: 0; }
+  body.rec .rc-iss .rc-ihead .rc-fwrap .rc-fmenu { right: auto; left: 0; }
+}
+
+/* Follow: one outlined pill, the bill page's Share pill in shape; followed, a pale "✓ Following" that opens a small menu */
+body.rec .rc-fpill { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--s16); border: 0; border-radius: var(--pill);
+  color: var(--p700); font: 700 var(--t14)/1 var(--font); box-shadow: inset 0 0 0 1.5px var(--p700); background: var(--n0); cursor: pointer; flex: none; }
+body.rec .rc-fpill:hover { background: var(--p50); }
+body.rec .rc-fpill:active { background: var(--p100); transform: scale(.98); }
+body.rec .rc-fpill:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
+body.rec .rc-fpill .ic { width: 18px; height: 18px; }
+body.rec .rc-fpill.on { background: var(--p50); box-shadow: none; padding-right: var(--s12); }
+body.rec .rc-fpill.on:hover { background: var(--p100); }
+body.rec .rc-fpill .rc-fchev { width: 16px; height: 16px; transition: transform .15s var(--ease); }
+body.rec .rc-fpill[aria-expanded="true"] .rc-fchev { transform: rotate(180deg); }
+body.rec .rc-fpill[aria-busy="true"] { opacity: .6; }
+body.rec .rc-fwrap { position: relative; flex: none; }
+body.rec .rc-fwrap .rc-fmenu { min-width: min(330px, calc(100vw - 32px)); z-index: 20; }
+body.rec .rc-fnote { margin: 0; padding: var(--s8) var(--s12); font-size: var(--t14); color: var(--n700); }
+body.rec .rc-flvl { padding: var(--s4) var(--s12) var(--s8); border-bottom: 1px solid var(--n100); font-size: var(--t14); }
+body.rec .rc-flvl .lvl-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; }
+body.rec .rc-flvl .lvl-box { margin-top: var(--s8); }
+
+/* the action card's first line: the bill's number, which opens its full record, and its name where several bills move */
+body.rec .rc-iss .rc-alead { margin: 0 0 var(--s4); font: 700 var(--t13)/1.35 var(--font); letter-spacing: .03em; color: var(--n700); }
+body.rec .rc-iss .rc-alead a { display: inline-block; padding: 6px 0; margin: -6px 0; color: var(--p700); text-decoration: underline; text-underline-offset: 2px; }
+body.rec .rc-iss .rc-alead a:hover { text-decoration-thickness: 2px; }
+body.rec .rc-iss .bl-ract .rc-alead + .bl-rwhen { margin-top: var(--s4); }
+body.rec .rc-iss .rc-iact { margin-top: var(--s16); }
+body.rec .rc-iss .rc-iact .bl-ract { margin-top: 0; }
+/* the hearing card says its ask inside the card, as the card without a hearing does */
+body.rec .rc-iss .bl-act .acard > .bl-acth { margin: 0 0 var(--s8); font: 600 var(--t18)/1.25 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+body.rec .rc-iss .bl-act .acard > .rc-alead { margin-bottom: var(--s4); }
+body.rec .rc-iss .bl-act { margin-top: 0; }
+/* the rest under the card: "Where HB 1563 is now" or "Bills on this issue", the full record, the closed cards */
+body.rec .rc-iss .rc-irest > .bl-rwhere .bl-rh, body.rec .rc-iss .rc-irest > .rc-sec:first-child { margin-top: var(--s24); }
+body.rec .rc-iss .rc-irest .rc-sec .rc-h2 { margin-bottom: var(--s4); }
+body.rec .rc-iss .rc-record { margin-top: var(--s12); }
+body.rec .rc-iss .rc-irest .rc-folds { margin-top: var(--s16); }
+body.rec .rc-iss .rc-fold[open] > summary .rc-fp { display: none; }   /* open, its rows say the numbers the preview said (A-14) */
+
+/* shape 3, nothing moving: what happened, when the ideas can come back, and Follow as the one filled button */
+body.rec .rc-iss .rc-what h2 { margin-top: 0; }
+body.rec .rc-iss .rc-what .btn.primary { margin-top: var(--s4); }
+body.rec .rc-iss .rc-wdone { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s4) 0 0; font-weight: 700; color: var(--n900); }
+body.rec .rc-iss .rc-wdone .ic { flex: none; width: 20px; height: 20px; margin-top: 1px; color: var(--ok-text); }
+body.rec .rc-iss .rc-wmore { margin: var(--s4) 0 0; }
+body.rec .rc-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--p700); font-weight: 700; text-decoration: none; }
+body.rec .rc-link:hover span { text-decoration: underline; }
+body.rec .rc-link .ic { width: 18px; height: 18px; flex: none; }
+body.rec .rc-iss .rc-err { margin-top: var(--s16); display: flex; flex-direction: column; align-items: flex-start; gap: var(--s12); }
+
+/* the docked bar on this page (bill.css keeps the bill page's): it shows once the card's button has scrolled away */
+body.rec[data-screen="issue"] .actionbar { transition: transform .2s var(--ease), opacity .2s var(--ease); }
+body.rec[data-screen="issue"]:not(.bl-docked) .actionbar { transform: translateY(16px); opacity: 0; pointer-events: none; visibility: hidden; }
+@media (prefers-reduced-motion: reduce) { body.rec[data-screen="issue"] .actionbar, body.rec .rc-fpill .rc-fchev { transition: none; } }
+@media (min-width: 1100px) { body.rec[data-screen="issue"] .actionbar { display: none; } }
+/* the docked button says which bill it is for, and when (it docks under other bills' rows) */
+body.rec[data-screen="issue"] .actionbar .inner { flex-wrap: wrap; row-gap: var(--s4); }
+body.rec .rc-dfor { flex: 1 1 100%; margin: 0; font-size: var(--t13); line-height: 1.3; color: var(--n700); }
+body.rec .rc-dfor b { color: var(--n900); }
+
+/* ---- the category page: quiet issue rows, a Follow beside each ---- */
+body.rec .rc-cat .rc-irows { margin-top: var(--s16); }
+body.rec .rc-irow { display: flex; align-items: center; gap: var(--s8); }
+body.rec .rc-irow > .rc-row { flex: 1 1 auto; min-width: 0; margin: 0 0 0 calc(-1 * var(--s12)); padding-right: var(--s4); }
+body.rec .rc-irow .rc-warn { color: var(--warn-text); }   /* amber only inside a day, on the time alone (A-5) */
+body.rec .rc-irow > .rc-fpill.on { padding-right: var(--s16); }
+body.rec .rc-catall { margin-top: var(--s16); }
+body.rec .rc-catok { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s8); margin: 0; font-weight: 700; color: var(--n900); }
+body.rec .rc-catok .ic { width: 20px; height: 20px; color: var(--ok-text); }
+body.rec .rc-catok .btn.text { min-height: 44px; padding: 0 var(--s4); }

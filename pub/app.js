@@ -42,10 +42,13 @@ const quiz = lazy('quiz', () => import('./quiz.js'), { tab: 'more', title: 'What
 const bill = lazy('bill', () => oldA() ? import('./a/bill.js') : import('./bill.js'), { tabs: false, title: 'Bill' }), mybills = lazy('mybills', () => import('./mybills.js'), { tab: 'bills', title: 'My issues' });
 const mylists = lazy('mylists', () => import('./mylists.js'), { tab: 'bills', title: 'A list' });
 const committees = lazy('committees', () => import('./committees.js')), allbills = lazy('allbills', () => import('./allbills.js'));
+// The calm redesign's issue page (R-302's option A) and category page (R-303), behind ?rec=1: their own module, so today's
+// find.js draws them as before without it.
+const recIssue = lazy('issue', () => import('./rec/issue.js'), { tab: 'find', title: 'Issue' });
 // Each screen's stylesheet comes with it (R-122): track.html loads the base and the first screen's own, the rest come on
 // first use, and all of them a moment after the first screen so a later tap never waits. The order of the original list
 // is kept (a later file may override an earlier one; wide.css, the last, overrides them all).
-const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'wide', 'rec/rec', 'a/a'];
+const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'wide', 'rec/rec', 'rec/issue', 'a/a'];
 // (SCREEN_CSS, not CSS: that name is the browser’s own object, CSS.escape.)
 // Find, an issue, a category and a list draw their bills with mybills.js's rows, so mybills.css comes with them (R-184: an
 // issue page opened from a shared link drew its rows unstyled for about two seconds, 409px wide on a 375px phone, so the
@@ -59,7 +62,10 @@ const SCREEN_CSS = { start: ['start'], learn: ['start'], next: ['start', 'next']
 // every screen but the first visit, which both versions share and other tests compare (R-187).
 const cssFor0 = name => oldA() && !FIRST_VISIT.includes(name) ? [...(SCREEN_CSS[name] || []), 'a/a'] : SCREEN_CSS[name];
 // The calm redesign of the other pages (R-303) brings its one stylesheet to every page after the first visit, with ?rec=1.
-const cssFor = name => REC() && !FIRST_VISIT.includes(name) ? [...(cssFor0(name) || []), 'rec/rec'] : cssFor0(name);
+// The issue page draws the bill page's own action card and "Where it is now" (bill.css), and it and the category page have
+// a few rules of their own (rec/issue.css).
+const REC_CSS = { issue: ['bill', 'rec/issue'], category: ['rec/issue'] };
+const cssFor = name => REC() && !FIRST_VISIT.includes(name) ? [...(cssFor0(name) || []), ...(REC_CSS[name] || []), 'rec/rec'] : cssFor0(name);
 const FIRST_VISIT = ['start', 'learn', 'next'];   // and a later visit's ask (R-237), drawn in the first visit's frame
 const cssLink = n => document.querySelector(`link[rel="stylesheet"][href="pub/${n}.css"]`);
 const cssDone = new Set(), cssP = {};
@@ -87,15 +93,24 @@ try { if (sessionStorage.getItem('hiphi_helper_open')) helperLoad().then(() => r
 
 // name -> screen module. More covers help, sign in, alerts (R-146) and privacy; people covers legislators. The profile
 // (R-147) is its own module, and Settings' old address opens it.
-const SCREENS = { start, learn: start, home, recap: home, bills: mybills, find, issue: find, category: find, list: find, bill, legislators: people, legislator: people,
+const SCREENS = { start, learn: start, home, recap: home, bills: mybills, find, issue: REC() ? recIssue : find, category: REC() ? recIssue : find, list: find, bill, legislators: people, legislator: people,
   committees, committee: committees, allbills, more, help: more, signin: more, alerts: more, settings: profile, profile, privacy: more, mylist: mylists, shared: mylists, quiz, next: nextask };
 // "My issues" (Nate, 9/21, R-018 answer 4): the tab shows what a person follows, issue by issue. Its address stays #/bills.
 const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My issues'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
 // Version A's tabs (R-070 decision 6, tried there): "You" in More's place, for your legislators, your profile and help.
+// The calm redesign has them too (R-303 decision 1, behind ?rec=1): what is left on More is all about the person. The tab
+// still opens #/more and carries the initials once there is a profile.
 const TABS_A = [...TABS.slice(0, 3), ['more', '#/more', 'circle-user', 'You']];
-const tabsNow = () => oldA() ? TABS_A : TABS;
+const tabsNow = () => oldA() || REC() ? TABS_A : TABS;
 // Version A keeps My issues lit on an issue the person follows (R-070 problem 8: it lit Find).
-const tabOf = (route, scr) => oldA() && route.name === 'issue' && issueFollowed(S.issueBySlug.get(route.slug)) ? 'bills' : scr.tab;
+// Under ?rec=1 an issue or a bill lights the tab the person came from (R-303 decision 3): opened from My issues it lights My
+// issues, from Find Find, from Home Home, and a bill opened from that issue keeps it. go() writes the tab lit on the page a
+// link was followed from into the new entry's history.state.from; Back returns to an entry with its own. Opened directly
+// (a shared link), an issue they follow lights My issues and any other Find, as version A did.
+const LIT_FOLLOWS = ['issue', 'bill'];
+const tabOf = (route, scr) => REC() && LIT_FOLLOWS.includes(route.name) && history.state?.from ? history.state.from
+  : (oldA() || REC()) && route.name === 'issue' && issueFollowed(S.issueBySlug.get(route.slug)) ? 'bills' : scr.tab;
+let litTab = '';   // the tab lit on the page drawn last (go() hands it on)
 
 // ---- routes ----
 // New form: #/, #/start/2, #/bills, #/find?q=, #/find/category/<key>, #/issue/<slug> (#/find/issue/<slug> too), #/list/<slug>, #/bill/HB1563 (#/bill/2026/HB1563 for an earlier session's bill), #/legislators,
@@ -169,11 +184,11 @@ app.placeName = h => {
     case 'list': case 'shared': return (S.lists || []).find(l => l.slug === r.slug)?.title || 'List';
     case 'mylist': return 'Your list';
     case 'bill': return sp(r.num) || 'Bill';
-    case 'legislators': return 'Legislators';
+    case 'legislators': return REC() ? 'Lawmakers' : 'Legislators';   // C-15's word under ?rec=1 (R-303)
     case 'legislator': { const l = (S.legislators || []).find(x => x.id === r.id); return l ? `${l.chamber === 'S' ? 'Sen.' : 'Rep.'} ${l.name}` : 'Legislator'; }
     case 'committees': return 'Committees';
     case 'committee': return S.committees?.[r.code]?.name || 'Committee';
-    case 'more': return 'More';
+    case 'more': return REC() ? 'You' : 'More';
     case 'help': return 'Help';
     case 'profile': case 'settings': return 'Your profile';
     case 'quiz': return 'Quiz';
@@ -186,7 +201,8 @@ function go(path, { replace = false, keepScroll = false } = {}) {
   const y = window.scrollY;
   try { history.replaceState({ ...(history.state || {}), y }, ''); } catch { /* ignore */ }
   // prev: the page this step was opened from, so a back link can tell whether real Back leads where it says (R-041).
-  if (replace) history.replaceState({ y: 0, prev: history.state?.prev }, '', path); else history.pushState({ y: 0, prev: location.hash || '#/' }, '', path);
+  // from: the tab lit here, which an issue or a bill opened from this page keeps lit under ?rec=1 (tabOf).
+  if (replace) history.replaceState({ y: 0, prev: history.state?.prev, from: history.state?.from }, '', path); else history.pushState({ y: 0, prev: location.hash || '#/', from: litTab }, '', path);
   render();
   if (!keepScroll) window.scrollTo(0, 0);
 }
@@ -218,9 +234,11 @@ function header(route, scr) {
     : DEMO ? '' : `<a class="hbtn hacct" href="#/signin?by=number">${icon('log-in')}<span>Sign in</span></a>`;
   // Find has its own search box, so the header's box and its magnifier (phones) stay away there (R-238, A4-4: two
   // boxes kept in step read as two searches, and two ways into one search is one too many).
-  const box = route.name === 'find' ? '' : `<form class="hsearch" role="search" data-hsearch><label class="sr" for="hq">Search issues and bills</label>${icon('search')}<input id="hq" type="search" placeholder="Search issues and bills: e-cigarettes, school meals" autocomplete="off" enterkeyhint="search"></form>`;
+  // Under ?rec=1 the box says it finds lawmakers too (R-303 decision 4), as search does since R-238.
+  const sw = REC() ? ['Search issues, bills and lawmakers', 'Search issues, bills, lawmakers'] : ['Search issues and bills', 'Search issues and bills: e-cigarettes, school meals'];
+  const box = route.name === 'find' ? '' : `<form class="hsearch" role="search" data-hsearch><label class="sr" for="hq">${sw[0]}</label>${icon('search')}<input id="hq" type="search" placeholder="${sw[1]}" autocomplete="off" enterkeyhint="search"></form>`;
   const right = inStart ? (S.session || DEMO ? '' : `<a class="hbtn" href="#/signin?by=number">Sign in</a>`)
-    : `${box}${route.name === 'find' ? '' : `<a class="hbtn hsearchbtn" href="#/find" aria-label="Search issues and bills" data-focussearch>${icon('search', { size: 24 })}</a>`}${account}`;
+    : `${box}${route.name === 'find' ? '' : `<a class="hbtn hsearchbtn" href="#/find" aria-label="${sw[0]}" data-focussearch>${icon('search', { size: 24 })}</a>`}${account}`;
   const tab = tabOf(route, scr), nav = inStart ? '' : `<nav class="hnav" aria-label="Main">${tabsNow().map(([t, href, ic, label]) => `<a href="${href}" ${tab === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}</a>`).join('')}</nav>`;
   // "nothing is sent" (R-212 #1): the practice copy keeps drafts on this device but sends nothing anywhere. "nothing is saved or
   // sent" wrapped the band to two lines on a phone, pushing every practice screen down (density, 15 Oct); this fits one line at 360px.
@@ -260,6 +278,7 @@ export function render() {
   if (route.name === 'home' && firstVisit()) { const w = wiz(), begun = w.begun || w.step > 1 || (w.issues || []).length;
     history.replaceState({ y: 0 }, '', `#/start/${readyForSession() ? 2 : begun ? w.step || 1 : 0}`); route = parseRoute(); }
   const scr = SCREENS[route.name] || SCREENS.home;
+  litTab = tabOf(route, scr);
   const tabs = scr.tabs !== false && !(scr.noTabs && scr.noTabs(route));
   const bar = scr.bar ? scr.bar(route) : '';
   document.body.classList.toggle('va', oldA() && !FIRST_VISIT.includes(route.name));
@@ -426,7 +445,7 @@ async function boot() {
     }
     render();
     if (window.__hiphiErrs) window.__hiphiErrs.booted = true;   // track.html's catcher: the app started (R-111)
-    setTimeout(() => ensureCss(CSS_ORDER.filter(n => n !== 'wide' && n !== 'a/a')).catch(() => {}), 2500);   // the other screens' styles, after the first screen
+    setTimeout(() => ensureCss(CSS_ORDER.filter(n => n !== 'wide' && n !== 'a/a' && (REC() || !n.startsWith('rec/')))).catch(() => {}), 2500);   // the other screens' styles, after the first screen (the calm redesign's only with ?rec=1)
     lists?.finishPlace(place);
   } catch (e) {
     console.error(e); reportError('boot', e);
