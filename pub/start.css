@@ -609,3 +609,13 @@ button.st-way:active { transform: scale(.99); }
 }
 /* a short laptop window: the drawing would shrink to an icon (the critic), so it goes, as on short phones */
 @media (min-width: 900px) and (max-height: 700px) { .st-hellopage .st-art { display: none; } }
+
+/* PREVIEW (R-297 options): the scene as a large rounded card */
+.st-hello2 .st-art.st-scene { display: flex; width: 100%; max-width: 440px; margin: 0 auto var(--s8); }
+.st-hello2 .st-art.st-scene svg { width: 100%; height: auto; max-height: none; }
+.st-hello2 .st-greet { font-size: var(--t18); margin: 0; }
+.st-hello2 h1 { margin: 0; }
+.st-hello2 .lede { margin: 0; max-width: 24em; }
+@media (min-width: 900px) { .st-hello2 .st-art.st-scene svg { width: 100%; height: auto; } .st-hello2 .st-art.st-scene { max-width: 520px; } }
+@media (max-width: 22.4375em), (max-width: 899px) and (max-height: 700px) { .st1.st-hello2 .st-art.st-scene { display: flex; max-width: 300px; } }
+@media (min-width: 900px) and (max-height: 700px) { .st-hello2 .st-art.st-scene { display: flex; max-width: 360px; } }

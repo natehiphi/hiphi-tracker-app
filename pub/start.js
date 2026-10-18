@@ -40,6 +40,7 @@ import { btn } from './ui.js';
 import { t, tn, T, trText } from './i18n.js';
 import { langPicker, wireLangPicker } from './langpick.js';
 import { CAPITOL, VOICES, islands, flower } from './art.js';
+import { HELLO_ART } from './hello_art.js';
 import { topics } from './topics.js';
 import { burst, later, swap, reduced } from './fx.js';
 import { LESSON_TITLES } from './topics.js';
@@ -341,8 +342,20 @@ export function partnerLine() {
 export const helloOn = () => !planOn() && !wiz().via;
 S.stHello ??= false;   // drawn in this page's life: the partner's line is said here, and not again on the topics
 const HELLO_LEDE = T('Every year from January to May, the Legislature decides Hawaiʻi’s health laws, often on a few days’ notice. We tell you when your voice counts, and help you say it.');
+// PREVIEW (R-297 options, not for main): ?hello=a|b|c picks the scene and the words Nate chooses from
+const HELLO_OPT = {
+  a: ['Your voice can shape Hawaiʻi’s health', 'We tell you when health bills need you, and help you speak up.'],
+  b: ['Help shape Hawaiʻi’s health laws', 'We tell you when it counts, and help you say it.'],
+  c: ['Speak up for a healthier Hawaiʻi', 'Follow health bills. Add your voice when it counts.'],
+  d: ['Your voice can shape Hawaiʻi’s health', 'Health bills move fast. We’ll tell you when to speak up.'],
+};
 function stepHello() {
   S.stHello = true;
+  const k = new URLSearchParams(location.search).get('hello'), o = HELLO_OPT[k];
+  if (o) return shell('st1 st-hellopage st-hello2', `${langPicker('st-lang')}${partnerLine()}<div class="st-art st-scene">${HELLO_ART[k]}</div>
+    <p class="st-greet">${flower(22)}<span>${t('Aloha!')}</span></p>
+    <h1 class="hero" id="st-h">${t(o[0])}</h1>
+    <p class="lede">${t(o[1])}</p>`, '');
   return shell('st1 st-hellopage', `${langPicker('st-lang')}${partnerLine()}${artFor('hello')}
     <p class="st-greet">${flower(26)}<span>${t('Aloha!')}</span></p>
     <h1 class="hero" id="st-h">${t('Your voice can shape Hawaiʻi’s health')}</h1>
