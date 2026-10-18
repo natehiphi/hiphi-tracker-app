@@ -357,17 +357,31 @@ main:focus { outline: none; }
 .al-swap.btn.text { padding-inline: 0; justify-content: flex-start; }
 a.al-swap { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--t14); font-weight: 600; }
 .al-break { overflow-wrap: anywhere; }
-/* How much each followed issue sends (R-299, pub/alerts.js levelPick): the stance's pressable chips (A-12), a 14px label,
-   and one line under them saying what the chosen level sends. Quiet on purpose: no card of its own, no colour but the
-   chosen chip's. The "Saved." mark is a word and an icon, never colour alone (A-5). */
+/* How much each followed issue sends (R-299, pub/alerts.js levelPick; Nate's pick of 17 Oct, the sliding switch, in place of
+   the chips he called ugly). Three equal parts in one soft track (a tint of what is under it, so it sits as calmly on the
+   follow card's green as on the grey page), a white pill behind the chosen one, outlined in HIPHI blue so the choice shows
+   by shape at 3:1 and not by colour alone (A-5, A-7), its name in blue. The radio buttons are real but unseen: the whole
+   part is the 48px target (A-6) and carries the keyboard's focus ring (A-15). The pill slides in 200 ms (A-10, feedback on
+   a tap); with Reduce Motion it simply moves. A long name ("Big moments only") breaks onto two balanced lines on a phone. */
 .lvl { display: flex; flex-direction: column; gap: var(--s8); min-width: 0; }
 .lvl-h { margin: 0; font-size: var(--t14); font-weight: 700; color: var(--n900); }
-.lvl-opts button.chip .ic { stroke-width: 3; }
+.lvl-sw { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 4px; background: rgba(20,43,53,.07); border-radius: var(--r12); }
+.lvl-pill { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 3); border-radius: 9px; background: var(--n0);
+  box-shadow: 0 0 0 1px var(--p700), 0 1px 3px rgba(20,43,53,.14); transition: transform 200ms var(--ease); }
+.lvl-sw[data-on="big"] .lvl-pill { transform: translateX(100%); }
+.lvl-sw[data-on="app"] .lvl-pill { transform: translateX(200%); }
+.lvl-o { position: relative; z-index: 1; min-width: 0; min-height: 48px; display: flex; align-items: center; justify-content: center; padding: 4px 6px;
+  border-radius: 9px; text-align: center; font-size: var(--t14); font-weight: 700; line-height: 1.2; color: var(--n700); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.lvl-n { text-wrap: balance; }
+.lvl-r { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.lvl-o:has(.lvl-r:checked) { color: var(--p800); }
+.lvl-o:has(.lvl-r:focus-visible) { outline: 2px solid var(--p700); outline-offset: 2px; }
+@media (hover: hover) { .lvl-o:not(:has(.lvl-r:checked)):hover { color: var(--n900); background: rgba(255,255,255,.5); } }
+.lvl[aria-busy="true"] .lvl-o { cursor: progress; }
 .lvl-hint { margin: 0; font-size: var(--t14); line-height: 1.45; color: var(--n700); max-width: 65ch; }
 .lvl-hint b { display: inline-flex; align-items: center; gap: 4px; color: var(--ok-text); }
 .lvl-hint b .ic { width: 16px; height: 16px; }
-.lvl[aria-busy="true"] .lvl-opts { cursor: progress; }
-@media (hover: hover) { .lvl-opts button.chip:hover { background: var(--p50); border-color: var(--p700); } }
+@media (prefers-reduced-motion: reduce) { .lvl-pill { transition: none; } }
 .lvl-line { display: inline-flex; flex-wrap: wrap; align-items: center; column-gap: var(--s8); font-size: var(--t14); color: var(--n700); }
 .lvl-line b { color: var(--n900); }
 .lvl-line .lvl-toggle { margin-left: -8px; }

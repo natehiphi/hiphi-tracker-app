@@ -66,10 +66,11 @@
 .bl-page .bl-issue > .ic { width: 20px; height: 20px; color: var(--p700); flex: none; }
 .bl-page .bl-issue > span { flex: 1 1 200px; min-width: 0; }
 .bl-page .bl-issue a { font-weight: 700; }
-/* The page a text's link opens (R-299): "Texts: Big moments only · Change" on the issue's "Part of" line, the chips under it. */
+/* The page a text's link opens (R-299): "Texts: Big moments only · Change" on the issue's "Part of" line, the switch under it
+   (no box around it: the switch is the one object, A-17). */
 .bl-page .bl-issue .bl-txt { white-space: nowrap; }
 .bl-page .bl-issue .lvl-line { display: inline-flex; vertical-align: middle; }
-.bl-page .bl-head > .lvl-box { padding: var(--s12) var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); }
+.bl-page .bl-head > .lvl-box { max-width: 560px; }
 .bl-page .bl-onlist { margin-top: var(--s8); }   /* which of your own lists the bill is on (R-013) */
 .bl-page .bl-note { margin-top: var(--s16); }
 .bl-page .bl-skel { margin-top: var(--s8); }
