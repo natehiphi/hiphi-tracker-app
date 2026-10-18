@@ -70,7 +70,10 @@
    (no box around it: the switch is the one object, A-17). */
 .bl-page .bl-issue .bl-txt { white-space: nowrap; }
 .bl-page .bl-issue .lvl-line { display: inline-flex; vertical-align: middle; }
-.bl-page .bl-head > .lvl-box { max-width: 560px; }
+.bl-page .bl-issue > .lvl-box { flex: 1 0 100%; max-width: 560px; }
+/* Under 900px the row wraps: the switch comes right under its line and the follow button after it, never between them
+   (a filled "Following" right over the switch read as its Done; the critic, 17 Oct). A-9's 900. */
+@media (max-width: 899px) { .bl-page .bl-issue > .lvl-box { order: 1; } .bl-page .bl-issue > .btn { order: 2; } }
 .bl-page .bl-onlist { margin-top: var(--s8); }   /* which of your own lists the bill is on (R-013) */
 .bl-page .bl-note { margin-top: var(--s16); }
 .bl-page .bl-skel { margin-top: var(--s8); }

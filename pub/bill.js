@@ -741,7 +741,7 @@ const aboutFold = (b, shown) => `<details class="bl-about" ${fold(b, 'about')} d
 // to its page; beside it, whether the person follows it, or one tap to start. Bills HIPHI only watches have no issue.
 // The page a text's link opens (R-299, Nate 17 Oct: "The one link shows it"): a text links to b/<session>/<NUM>-testify, or
 // to b/<session>/<NUM> for a big push, with ?via=text. On the issue's own "Part of" line, "Texts: Big moments only · Change"
-// (the review, 17 Oct: the issue's name is said once, A-14), and Change opens the issue page's three chips under it (via
+// (the review, 17 Oct: the issue's name is said once, A-14), and Change opens the issue page's sliding switch under it (via
 // 'text', for the counts), so the level is one tap from the text with no extra characters in it. The issue followed when
 // a bill is on several and the person follows another of them. Nothing for a bill whose issues the person does not follow.
 const textIssue = b => visitVia() === 'text' ? issuesOf(b).find(issueFollowed) || null : null;
@@ -750,13 +750,15 @@ function issueLine(b, x) {
   const iss = issuesOf(b); if (!iss.length) return '';
   const t = textIssue(b), i = t || iss[0], tx = t ? ` <span class="bl-txt">${levelLine(t, TXT)}</span>` : '', box = t ? levelBox(t, TXT) : '';
   // A stopped bill's main button is already "Follow the issue": the line keeps the issue's name and drops its own button.
-  if (x && followIsMain(b, x)) return `<p class="bl-issue">${icon(catOf(i.category)?.icon || 'heart-pulse')}<span>Part of <a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a>${tx}</span></p>${box}`;
+  if (x && followIsMain(b, x)) return `<div class="bl-issue">${icon(catOf(i.category)?.icon || 'heart-pulse')}<span>Part of <a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a>${tx}</span>${box}</div>`;
   const on = issueFollowed(i), cat = catOf(i.category);
   // One follow button per bill page, and it is the issue's (R-067; R-061: "Following" must look followed, not like the
   // Follow button with another word). Pressing Following stops following the issue, with Undo.
-  return `<p class="bl-issue">${icon(cat?.icon || 'heart-pulse')}<span>Part of <a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a>${tx}</span>
+  // The switch is inside the row, so on a phone it comes right under its line, before the follow button (the critic, 17 Oct:
+  // under a filled "Following the issue" it read as the switch's Done, and pressing that stops following; bill.css).
+  return `<div class="bl-issue">${icon(cat?.icon || 'heart-pulse')}<span>Part of <a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a>${tx}</span>
     ${firstVisit() ? '' : on ? btn('Following the issue', { kind: 'secondary', sm: true, icon: 'check', cls: 'on', attrs: { 'data-bl-unfollowissue': i.id, 'aria-pressed': 'true', title: 'Following. Press to stop following.' } })
-      : btn('Follow the issue', { kind: 'secondary', sm: true, icon: 'star', attrs: { 'data-bl-followissue': i.id, 'aria-pressed': 'false' } })}</p>${box}`;   // a newcomer has it on their own card (A-14)
+      : btn('Follow the issue', { kind: 'secondary', sm: true, icon: 'star', attrs: { 'data-bl-followissue': i.id, 'aria-pressed': 'false' } })}${box}</div>`;   // a newcomer has it on their own card (A-14)
 }
 // Where do you stand? Three toggles, private to the person (it rides on their follow once they sign in; others only
 // ever see totals, from 10 people). Choosing the selected one again clears it. Only for a bill that can still move.
@@ -1173,7 +1175,7 @@ export default {
     each('[data-bl-newlater]', el => el.addEventListener('click', () => { logVisit('arrive', 'skip', { path: 'link' }); S.blLooking.add(b.id); app.render(); }));
     each('[data-bl-tour]', el => el.addEventListener('click', () => viaStart(b, { viaSkipAsk: true })));
     each('[data-bl-billtour]', el => el.addEventListener('click', () => app.billTour?.()));
-    // The text's line (R-299): Change opens the three chips under it, Close folds them; a tap on one saves it and the line says it.
+    // The text's line (R-299): Change opens the sliding switch under it, Close folds it; a tap on a level saves it.
     if (root.querySelector('[data-lvl-toggle]')) wireLevelLine(root.querySelector('.bl-head') || root);
     each('[data-bl-newfollow]', el => el.addEventListener('click', async () => {
       if (el.getAttribute('aria-busy') === 'true') return;

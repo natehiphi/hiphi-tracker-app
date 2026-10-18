@@ -180,7 +180,7 @@ export const LEVEL_NAME = 'Alerts about this issue';
 export const LEVEL_HINT = {
   every: 'Every hearing on this issue’s bills, never more than one a day.',
   big: 'HIPHI’s biggest calls to speak up and key hearings. Usually a few a month.',
-  app: 'No texts or emails about this issue. It stays in your app.',
+  app: 'No texts or emails about this issue. You’ll still see its news here.',   // most first visits are on a website, not an app (the critic, 17 Oct)
 };
 // Does anything reach this person? A level changes nothing for someone with no number and no email (C-13), so the choice
 // is shown only once alerts can come: a number given (confirmed or not) or an account with an email.
@@ -189,30 +189,36 @@ export const getsAlerts = () => !!(textSaved() || (S.session && S.user && S.sess
 // group's name and the start of its ids, unique on the page; a: the group's label and description; data: what each radio
 // carries for its screen.
 export const levelSwitch = (cur, { name, a = '', data = '' }) => `<div class="lvl-sw" role="radiogroup" ${a} data-on="${cur}"><span class="lvl-pill" aria-hidden="true"></span>${LEVELS.map(k => `<label class="lvl-o" for="${name}-${k}"><input type="radio" class="lvl-r" name="${name}" id="${name}-${k}" value="${k}" data-lvl="${k}"${data}${cur === k ? ' checked' : ''}><span class="lvl-n">${esc(LEVEL_WORDS[k])}</span></label>`).join('')}</div>`;
-// i: the issue; via: 'issue' | 'text' | 'profile' (who set it, for the counts); label: the group's name; id: unique on the page.
-export function levelPick(i, { via, label, id = 'lvl' } = {}) {
+// i: the issue; via: 'issue' | 'text' | 'profile' (who set it, for the counts); label: the group's name, drawn over it unless
+// the line that opened it already names it (head: false, levelBox); id: unique on the page. The line under the switch is
+// its description; "Saved." is said once, by a status of its own, after the last save (not on every arrow key).
+export function levelPick(i, { via, label, id = 'lvl', head = true } = {}) {
   const cur = levelOf(i.id);
   return `<div class="lvl" data-lvl-issue="${esc(i.id)}" data-lvl-via="${esc(via)}">
-    <p class="lvl-h" id="${id}-h">${label}</p>
+    ${head ? `<p class="lvl-h" id="${id}-h">${label}</p>` : ''}
     ${levelSwitch(cur, { name: id, a: `aria-labelledby="${id}-h" aria-describedby="${id}-x"` })}
-    <p class="lvl-hint" id="${id}-x" aria-live="polite">${esc(LEVEL_HINT[cur])}</p></div>`;
+    <p class="lvl-hint" id="${id}-x">${esc(LEVEL_HINT[cur])}</p><span class="sr" role="status"></span></div>`;
 }
 // The level in one line, "Alerts: Big moments only · Change" (word: "Texts" on a text's page), with Change opening the
 // switch in place and Close folding it (the review, 17 Oct: the choice always open pushed the issue page's "You can help
-// this week" off a phone's first screen, A-1). key: which line is open (S.lvlOpen), unique on the page; id for the switch.
+// this week" off a phone's first screen, A-1). Open, the line names the setting instead, "Alerts about this issue · Close",
+// and is the switch's label: the switch shows the level, so the line does not say it again (A-14, the critic 17 Oct).
+// key: which line is open (S.lvlOpen), unique on the page; id for the switch.
 export function levelLine(i, { via, word = 'Alerts', key, id = 'lvl' } = {}) {
   const open = S.lvlOpen === key;
-  return `<span class="lvl-line"><span>${word}: <b data-lvl-now>${esc(LEVEL_WORDS[levelOf(i.id)])}</b></span><span class="lvl-dot" aria-hidden="true">·</span>${btn(open ? 'Close' : 'Change', { kind: 'text', sm: true, cls: 'lvl-toggle', attrs: { 'data-lvl-toggle': key, 'aria-expanded': String(open), 'aria-controls': `${id}-box` } })}</span>`;
+  const say = open ? `<span class="lvl-name" id="${id}-h">${LEVEL_NAME}</span>` : `<span>${word}: <b data-lvl-now>${esc(LEVEL_WORDS[levelOf(i.id)])}</b></span>`;
+  return `<span class="lvl-line">${say}<span class="lvl-dot" aria-hidden="true">·</span>${btn(open ? 'Close' : 'Change', { kind: 'text', sm: true, cls: 'lvl-toggle', attrs: { 'data-lvl-toggle': key, 'aria-expanded': String(open), ...(open ? { 'aria-controls': `${id}-box` } : {}) } })}</span>`;
 }
 // The switch a levelLine opens, drawn where the screen wants it (under the line, or under the row the line sits in).
-export const levelBox = (i, { via, key, id = 'lvl' } = {}) => S.lvlOpen === key ? `<div class="lvl-box" id="${id}-box">${levelPick(i, { via, label: LEVEL_NAME, id })}</div>` : '';
+export const levelBox = (i, { via, key, id = 'lvl' } = {}) => S.lvlOpen === key ? `<div class="lvl-box" id="${id}-box">${levelPick(i, { via, id, head: false })}</div>` : '';
 // Change and Close (Change puts the focus on the chosen level, so arrow keys work at once), then the switch; a level chosen
 // is said on the line too.
 export function wireLevelLine(root) {
   if (!root) return;
   root.querySelectorAll('[data-lvl-toggle]').forEach(el => el.onclick = () => {
     const k = el.dataset.lvlToggle; S.lvlOpen = S.lvlOpen === k ? null : k; app.render();
-    requestAnimationFrame(() => (document.querySelector(`#${CSS.escape(el.getAttribute('aria-controls') || '')} [data-lvl]:checked`) || document.querySelector(`[data-lvl-toggle="${CSS.escape(k)}"]`))?.focus({ preventScroll: true }));
+    requestAnimationFrame(() => { const t = document.querySelector(`[data-lvl-toggle="${CSS.escape(k)}"]`), box = t && document.getElementById(t.getAttribute('aria-controls') || '');
+      (box?.querySelector('[data-lvl]:checked') || t)?.focus({ preventScroll: true }); });
   });
   wireLevels(root, { onSet: (id, lv) => root.querySelectorAll('[data-lvl-now]').forEach(e => { e.textContent = LEVEL_WORDS[lv]; }) });
 }
@@ -222,11 +228,12 @@ export function wireLevelLine(root) {
 // puts back the level the account has, and kernel.js toasts the reason. onSet(issueId, level, was) after each level kept.
 export function wireLevels(root, { onSet } = {}) {
   (root || document).querySelectorAll('[data-lvl-issue]').forEach(box => {
-    const id = box.dataset.lvlIssue, sw = box.querySelector('.lvl-sw'), hint = box.querySelector('.lvl-hint');
+    const id = box.dataset.lvlIssue, sw = box.querySelector('.lvl-sw'), hint = box.querySelector('.lvl-hint'), st = box.querySelector('[role="status"]');
     const paint = (lv, saved) => {
       box.querySelectorAll('[data-lvl]').forEach(x => { x.checked = x.dataset.lvl === lv; });
       if (sw) sw.dataset.on = lv;
       if (hint) hint.innerHTML = `${saved ? `<b>${icon('circle-check')}Saved.</b> ` : ''}${esc(LEVEL_HINT[lv])}`;
+      if (st) st.textContent = saved ? `Saved: ${LEVEL_WORDS[lv]}.` : '';
     };
     let want = null, busy = false;
     box.querySelectorAll('[data-lvl]').forEach(r => r.onchange = async () => {

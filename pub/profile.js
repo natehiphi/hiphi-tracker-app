@@ -187,13 +187,13 @@ function helpBody() {
 // Alerts: the email choices are part of the same draft (R-165), and so is how much each issue sends (R-299).
 // How much each followed issue sends (R-299): one row per issue, its name and the issue page's sliding switch under it (Nate
 // 17 Oct, of three pictures: "A switch for each issue"), so a person meets one control for this everywhere. Kept with the
-// rest at Save, like every choice in Profile. The line over them says only what the names cannot: how often the usual one
-// comes, and the ceiling.
+// rest at Save, like every choice in Profile. The line over them says what each name sends, in the switch's order (the
+// critic, 17 Oct: it said nothing of App only), once for all the issues rather than under each switch.
 function levelsBody() {
   const iss = followedIssues(); if (!iss.length || !getsAlerts()) return '';
   const d = P.draft.levels || {};
   return `<fieldset class="mr-set pf-f pf-lvls"><legend>Alerts for each issue</legend>
-      <p class="small muted" id="pf-lv-h">${esc(LEVEL_WORDS.big)} is usually a few a month. ${esc(LEVEL_WORDS.every)} is never more than one a day.</p>
+      <p class="small muted" id="pf-lv-h">${esc(LEVEL_WORDS.every)}: never more than one a day. ${esc(LEVEL_WORDS.big)}: usually a few a month. ${esc(LEVEL_WORDS.app)}: no texts or emails.</p>
       <ul class="pf-lvlist">${iss.map(i => `<li class="pf-lvrow"><p class="pf-lvn" id="pf-lv-${esc(i.id)}-n">${esc(i.name)}</p>
         ${levelSwitch(LEVELS.includes(d[i.id]) ? d[i.id] : 'big', { name: `pf-lv-${esc(i.id)}`, a: `aria-labelledby="pf-lv-${esc(i.id)}-n" aria-describedby="pf-lv-h"`, data: ` data-pf-lv="${esc(i.id)}"` })}</li>`).join('')}</ul></fieldset>`;
 }

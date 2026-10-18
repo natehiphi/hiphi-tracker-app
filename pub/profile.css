@@ -150,7 +150,7 @@
 .pf .pf-addstory select + select { margin-top: var(--s8); }
 /* How much each issue sends (R-299): one row per followed issue, its name over the issue page's sliding switch (base.css
    .lvl-sw, Nate's pick of 17 Oct); the name sits closer to its switch than to the next issue (A-8). From 600px the name
-   and a 22rem switch sit side by side. */
+   and a 25rem switch sit side by side. */
 .pf .pf-lvlist { list-style: none; margin: var(--s8) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s16); }
 .pf .pf-lvrow { margin: 0; display: flex; flex-direction: column; gap: var(--s8); }
 .pf .pf-lvn { margin: 0; font-size: var(--t14); font-weight: 700; color: var(--n900); }
@@ -158,7 +158,7 @@
 @media (min-width: 600px) {
   .pf .pf-lvrow { flex-direction: row; align-items: center; justify-content: space-between; gap: var(--s16); }
   .pf .pf-lvn { flex: 1 1 auto; min-width: 0; }
-  .pf .pf-lvrow .lvl-sw { width: 22rem; flex: none; }
+  .pf .pf-lvrow .lvl-sw { width: 25rem; flex: none; }   /* "Big moments only" on one line */
 }
 .pf .pf-promise { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s12) 0 0; font-size: var(--t14); color: var(--n700); }
 .pf .pf-promise .ic { width: 18px; height: 18px; flex: none; margin-top: 1px; color: var(--p700); }
