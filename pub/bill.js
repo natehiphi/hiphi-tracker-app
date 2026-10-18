@@ -1050,9 +1050,9 @@ function recRecord(b, x, r) {
     const hs = x.hs.filter(h => sameCmte(h.committee, s.code) && h.status !== 'cancelled');
     if (i === r.idx && !x.stopped && !x.law) {
       const st = x.st, h = st.hearing || hs.find(h => new Date(h.scheduled_at) > now);
-      if (h && new Date(h.scheduled_at) > now) return { line: `Hearing ${dayShort(h.scheduled_at)}, ${timeWord(h.scheduled_at)} · ${roomLabel(h.room)}`, warn: true };
+      if (h && new Date(h.scheduled_at) > now) return { line: `Hearing ${dayShort(h.scheduled_at)}, ${timeWord(h.scheduled_at)} · ${roomLabel(h.room)}` };
       if (st.hearingState === 'held' && h) return { line: `Heard ${dayShort(h.scheduled_at)} · waiting for the decision` };
-      return st.deadline && !st.deadline.missed ? { line: `No hearing yet · needs one by ${dayShort(st.deadline.date)}`, warn: true } : { line: 'No hearing yet' };
+      return st.deadline && !st.deadline.missed ? { line: `No hearing yet · needs one by ${dayShort(st.deadline.date)}` } : { line: 'No hearing yet' };
     }
     if (i > r.idx && !x.law) return {};
     const h = hs.filter(h => new Date(h.scheduled_at) <= now).slice(-1)[0], o = h ? outcomeOf(h) : null;
@@ -1068,11 +1068,15 @@ function recSteps(b, x, r) {
   const at = stepAt(r, x), rec = recRecord(b, x, r);
   const rows = r.names.map((nm, i) => { const s = at(i), tag = { now: 'Now', stop: 'Got this far' }[s], d = rec[i];
     const say = d.line ? `<span class="bl-rsd${d.warn ? ' bl-w' : ''}">${esc(d.line)}</span>` : s === 'next' && r.steps[i].kind !== 'cmte' ? `<span class="bl-rsd">${esc(r.desc[i])}</span>` : '';
-    const name = `<span class="bl-rsn">${r.html[i]}${tag ? ` <span class="bl-stag">${tag}</span>` : ''}</span>${say}`;
+    const name = `<span class="bl-rsn">${esc(nm)}${tag ? ` <span class="bl-stag">${tag}</span>` : ''}</span>${say}`;
     const body = d.more ? `<details class="bl-rstep" ${fold(b, 'rstep' + i)}><summary><span>${name}</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary><div class="bl-rx">${d.more}</div></details>` : `<div class="bl-rrow1">${name}</div>`;
     return `<li class="bl-s-${s}"><span class="bl-sdot">${s === 'done' ? icon('check') : s === 'stop' ? icon('x') : ''}</span><div>${body}</div></li>`; }).join('');
   return { html: `<ol class="bl-steplist bl-rsteps">${rows}</ol>`, rec };
 }
+// The status in plain words. When the action card above already gives the hearing or the deadline, only its first
+// sentence ("Passed the House."), so the date is said once (A-14, the critic 10/18).
+const recSay = (b, x) => { const t = plainStatus(b).text, first = (/^[^.]*\./.exec(t) || [t])[0];
+  return (x.act || (x.waiting && x.st.deadline && !x.st.deadline.missed)) && first !== t && !/\d/.test(first) ? first : t; };
 function recWhere(b, x) {
   const r = railInfo(b, x), n = r.names.length, s = r.steps[r.idx], C = N[s.ch] || (s.kind === 'gov' || s.kind === 'law' ? '' : N[r.ci <= 2 ? r.o : r.t]);
   const small = x.law ? (isResolution(b) ? 'Adopted' : 'Became law') : x.stopped ? 'Did not advance' : `Step ${r.idx + 1} of ${n}${C ? ` · In the ${C}` : ''}`;
@@ -1081,7 +1085,7 @@ function recWhere(b, x) {
   return `<section class="bl-sec bl-rwhere" aria-labelledby="bl-rw-h"><h2 class="bl-rh" id="bl-rw-h">Where it is now</h2><div class="card">
     <div class="bl-rail${x.stopped ? ' bl-railstop' : x.law ? ' bl-raillaw' : ''}${n > 8 ? ' bl-many' : ''}" style="--n:${n}"><ol class="bl-dots bl-n${n}" aria-label="The ${n} steps ${isResolution(b) ? 'to adoption' : 'from bill to law'}">${dotItems(r, x)}</ol></div>
     <p class="bl-rnow"><small>${esc(small)}</small>${name ? esc(name) : ''}</p>
-    ${x.stopped ? `<p class="bl-rsay">${esc(stopDetail(b))}</p>${sameLine(b)}` : `<p class="bl-rsay">${x.law ? flower(22) : ''}${esc(plainStatus(b).text)}</p>`}${stoppedNext(b, x)}
+    ${x.stopped ? `<p class="bl-rsay">${esc(stopDetail(b))}</p>${sameLine(b)}` : `<p class="bl-rsay">${x.law ? flower(22) : ''}${esc(recSay(b, x))}</p>`}${stoppedNext(b, x)}
     <details class="bl-steps bl-rall" ${fold(b, 'steps')}><summary><span>See all ${n} steps</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary>${steps.html}
       <p class="bl-learn"><a href="#/learn/session/${esc(b.id)}">${icon('play')}<span>Watch this bill’s trip through the Capitol, about a minute</span></a></p></details></div></section>`;
 }
@@ -1098,7 +1102,7 @@ function recDo(b, x) {
   const ways = x.live && asking(x) ? `<details class="bl-rways" ${fold(b, 'ways')}><summary><span>More ways to help</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary>
     ${x.kind === 'floor' ? '' : row('user', myDistricts() ? 'Write to your own lawmakers' : 'Find your own lawmakers', 'They listen most to the people they represent.', { href: `#/legislators?from=${encodeURIComponent(billRef(b))}` })}
     ${row('share-2', 'Ask a friend to ask too', 'More voices carry more weight.', { 'data-bl-share': '1' })}</details>` : '';
-  return `<section class="card bl-ract" aria-labelledby="bl-do-h">${when ? `<p class="bl-rwhen${dl.days <= 3 ? ' bl-w' : ''}">${icon('clock')}<span>${esc(when)}</span><span class="bl-rpill">${esc(left)}</span></p>` : ''}
+  return `<section class="card bl-ract" aria-labelledby="bl-do-h">${when ? `<p class="bl-rwhen${dl.days < 1 ? ' bl-w' : ''}">${icon('clock')}<span>${esc(when)}</span><span class="bl-rpill">${esc(left)}</span></p>` : ''}
     <h2 id="bl-do-h">${esc(title)}</h2><p class="bl-rtext">${esc(text)}</p>
     ${b.hiphi_action && x.live && !x.differs ? `<p class="bl-rask"><b>HIPHI asks:</b> ${esc(b.hiphi_action)}</p>` : ''}
     ${main}${more ? `<p class="bl-rmore">${esc(more)}</p>` : ''}${ways}</section>`;
@@ -1134,24 +1138,22 @@ function recWho(b, x) {
   const mineL = d ? ['S', 'H'].map(myLeg).filter(Boolean) : [];
   const also = [sp ? per(sp.l, sp.name, `Introduced it${sp.others ? `, with ${sp.others} other${sp.others > 1 ? 's' : ''}` : ''}`, mail(sp.l)) : '',
     mineL.length ? mineL.map(l => per(l, `${legTitle(l)} ${l.name}`, mineLabel(l, d), mail(l))).join('')
-      : per(null, 'Your own senator and representative', 'They listen most to their own district', btn('Find', { kind: 'secondary', sm: true, icon: 'search', href: `#/legislators${from}` }))].join('');
+      : !x.act && asking(x) ? '' : per(null, 'Your own senator and representative', 'They listen most to their own district', btn('Find', { kind: 'secondary', sm: true, icon: 'search', href: `#/legislators${from}` }))].join('');
   const chairs = whoDecides(b, x, { bare: true });
   return `${chairs ? `<div class="bl-whocard bl-rwho">${chairs}</div>` : ''}<p class="bl-rsub">${chairs ? 'Also worth knowing' : 'People to reach'}</p><ul class="bl-rppl">${also}</ul>`;
 }
 const recWhoPrev = x => [x.chairs.length ? `${x.chairs.map(c => `${c.title} ${c.last}`).join(' and ')}, the ${x.chairs.length > 1 ? 'chairs' : 'chair'}` : '', 'the sponsor', 'your lawmakers'].filter(Boolean).join(', ');
-// More details: today's facts, then the Capitol's record in rows that show a count. Testimony is not in the data (only
-// each report's vote), so it is left out rather than promised.
+// More details: today's facts (not who introduced it: the first step and Who decides next say so), then every draft on
+// the Capitol website and every official action, in rows that show a count. Each committee's decision, hearing and video
+// is said once, in its own step under See all steps (A-14, the critic 10/18). Testimony is not in the data (only each
+// report's vote), so it is left out rather than promised.
 function recDetails(b, x) {
-  const now = Date.now(), r = railInfo(b, x), rec = recRecord(b, x, r), versions = ['', ...rec.map(d => d.v).filter(Boolean)];
-  const past = x.hs.filter(h => new Date(h.scheduled_at) <= now && h.status !== 'cancelled');
-  const reps = past.map(h => [h, outcomeOf(h)]).filter(([, o]) => o?.outcome), vids = past.map(h => [h, streamOf(h)]).filter(([, v]) => v), acts = billActs(b);
+  const r = railInfo(b, x), versions = ['', ...recRecord(b, x, r).map(d => d.v).filter(Boolean)], acts = billActs(b);
   const grp = (name, title, items) => items.length ? `<details class="bl-rgrp" ${fold(b, 'rd-' + name)}><summary><span>${title}<span class="bl-rct">${items.length}</span></span>${icon('chevron-down', { cls: 'bl-chev' })}</summary><ul class="bl-rlist" role="list">${items.join('')}</ul></details>` : '';
   const item = (t, s, href) => `<li>${href ? `<a href="${esc(href)}" target="_blank" rel="noopener"><span class="bl-rlt">${esc(t)}${icon('external-link', { cls: 'bl-ext' })}</span>` : `<span class="bl-rlt">${esc(t)}</span>`}${s ? `<span class="bl-rls">${esc(s)}</span>` : ''}${href ? '</a>' : ''}</li>`;
-  return details(b, x).replace(/^<details[^>]*><summary>[\s\S]*?<\/summary>/, '').replace(/<\/details>\s*$/, '') + `<div class="bl-rgrps">
+  const facts = details(b, x).replace(/^<details[^>]*><summary>[\s\S]*?<\/summary>/, '').replace(/<\/details>\s*$/, '').replace(/<div class="bl-kv"><dt>Introduced by<\/dt>[\s\S]*?<\/div>/, '');
+  return facts + `<div class="bl-rgrps">
     ${grp('drafts', 'Drafts of the bill', versions.slice().reverse().map(v => item(v ? draftName(v) : 'As introduced', v === (b.current_version || '') || (!v && !b.current_version) ? 'The current draft, on the Capitol website' : 'On the Capitol website', billTextUrl({ ...b, current_version: v }))))}
-    ${grp('reports', 'Committee decisions', reps.slice().reverse().map(([h, o]) => item(cmteLabel(h.committee), [dayShort(h.scheduled_at), OUTCOME_PLAIN[o.outcome] || 'Decided', votesOf(o.report)].filter(Boolean).join(' · '))))}
-    ${grp('notices', 'Hearings', x.hs.slice().reverse().map(h => item(cmteLabel(h.committee), `${dayShort(h.scheduled_at)}, ${timeWord(h.scheduled_at)} · ${roomLabel(h.room)}${h.status === 'cancelled' ? ' · cancelled' : ''}`)))}
-    ${grp('videos', 'Hearing videos', vids.slice().reverse().map(([h, v]) => item(cmteLabel(h.committee), `${dayShort(h.scheduled_at)} · ${!v.exact ? 'find it on YouTube' : /[?&]t=\d/.test(v.url) ? 'this bill’s part' : 'the recording'}`, v.url)))}
     ${grp('actions', 'Every official action', acts.map(a => item(a.title || '', dayShort(a.occurred_at))))}</div>`;
 }
 function recPage(num, b, x) {
@@ -1161,7 +1163,7 @@ function recPage(num, b, x) {
   const pos = posInfo(b), why = pos ? `why HIPHI ${pos.verb === 'comment on' ? 'comments on' : pos.verb + 's'} it, ` : '';
   const folds = recFold('who', 'Who decides next', recWhoPrev(x), recWho(b, x))
     + recFold('about', 'About the bill', `In the Legislature’s words, ${why}what each draft changed`, aboutBill(b, { reasons: true, pfx: 'bl-rab' }) + draftsSection(b).replace(/^<details[^>]*><summary>[\s\S]*?<\/summary>/, '<div class="bl-rdrafts"><h3 class="ab-h">What each draft changed</h3>').replace(/<\/details>$/, '</div>'))
-    + recFold('more', 'More details', `Sponsors, ${companionsOf(b).length ? `companion ${spaced(companionsOf(b)[0])}, ` : ''}drafts, decisions, hearings, videos`, recDetails(b, x));
+    + recFold('more', 'More details', `Official title, ${companionsOf(b).length ? `companion ${spaced(companionsOf(b)[0])}, ` : ''}every draft and official action`, recDetails(b, x));
   const rest = `${note}${recWhere(b, x)}<div class="bl-rfolds">${folds}</div>`;
   if (!wide()) return `<div class="bl-page bl-rec">${recTop(b)}${recHead(b, x)}${recAct(b, x)}${rest}</div>`;
   return `<div class="bl-page bl-wide bl-rec">${recTop(b)}<div class="cols bl-cols">
@@ -1169,12 +1171,14 @@ function recPage(num, b, x) {
     <aside class="side bl-side" aria-label="Take part">${recAct(b, x)}</aside>
     <div class="bl-main bl-main2">${rest}</div></div></div>`;
 }
-// Once the action card has scrolled up under the top bars, its button docks above the tab bar (the mockup's check()).
+// Once the action card's button has scrolled up under the top bars, it docks above the tab bar (the mockup's check()).
 function recDock() {
   if (!onBill() || !REC() || wide()) return;
   const card = document.querySelector('.bl-rec .bl-ract, .bl-rec .bl-act'), bar = document.querySelector('.actionbar');
   const off = (document.querySelector('.hdr')?.offsetHeight || 0) + (document.querySelector('.bl-top')?.offsetHeight || 0);
-  const on = !card || !!bar?.querySelector('.bl-barq') || card.getBoundingClientRect().bottom < off + 8;
+  // the card's own button, not its last line: on a short page the card's foot can stay in view after its button has gone
+  const btnEl = card?.querySelector('.btn.primary') || card;
+  const on = !card || !!bar?.querySelector('.bl-barq') || btnEl.getBoundingClientRect().bottom < off + 8;
   document.body.classList.toggle('bl-docked', on);
 }
 window.addEventListener('scroll', recDock, { passive: true });
@@ -1264,7 +1268,7 @@ export default {
     const b = drawn(normNum(route.num), +route.year || 0); if (!b) return '';
     const x = situation(b), main = mainButton(b, x);
     // A newcomer on a shared bill can turn the action down right beside it (R-023).
-    return main && firstVisit() && !S.blLooking.has(b.id) && asking(x) ? `<div class="bl-barnew">${notNow()}${main}</div>` : main;
+    return main && !REC() && firstVisit() && !S.blLooking.has(b.id) && asking(x) ? `<div class="bl-barnew">${notNow()}${main}</div>` : main;
   },
   wire(route) {
     const root = document.querySelector('.bl-page'); if (!root) return;
