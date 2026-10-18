@@ -64,7 +64,7 @@ with sync_playwright() as pw:
     ok('Save your profile' in s and 'You’re following “FDA proof required to sell e-cigarettes”.' in s, f'1: Follow opens "Save your profile" with the follow said over it ({s[:90]!r})')
     ok('Nice start. Your profile keeps this issue with you, so you’re ready when it needs you.' in s and 'any phone or computer' not in s, '1: codes off: the line says what the profile keeps, and not "any phone or computer" (a number stays on this phone until codes are on)')
     ok(p.evaluate("document.activeElement?.id") == 'al-sh-h', f'1: on a touch screen the sheet opens on its heading, not the box (no keyboard over Not now) ({p.evaluate("document.activeElement?.id")!r})')
-    ok(('HIPHI alerts when a bill on your issues gets a hearing or needs you to speak up.' in s and 'Up to 1 a day. Msg & data rates may apply. Reply STOP to cancel.' in s), '1: the consent words are the same box’s (C-4; t4, R-265)')
+    ok(('HIPHI lets you know when your voice matters most.' in s and 'A few texts a month. Msg & data rates may apply. Reply STOP to cancel.' in s), '1: the consent words are the same box’s (C-4; t4, R-265)')
     vis = p.evaluate("""() => { const r = e => document.querySelector(e)?.getBoundingClientRect(); const i = r('#al-sh-phone'), b = r('#al-sh-send');
       return !!i && !!b && i.top >= 0 && b.bottom <= innerHeight; }""")
     ok(vis, '1: on an iPhone SE the number box and its button are on the first screen of the sheet')

@@ -90,11 +90,11 @@ export function followAsk(name, after, { many = false, receipt = '' } = {}) {
 // as agreed is always what was on the screen: the stored words are the two lines joined by a space. Earlier: t2 and t3
 // (backend 128, 141) and e1 (157), about 60 words each.
 // Legal, one line: these words join the lawyer's list (R-149) before any text or email goes to the public.
-// R-299 GO-LIVE (Nate 17 Oct): the words for the levels, t5 and e3 (backend 181 stores them), wait behind this one switch
-// until the lawyer has seen them (L-03) and the levels are sending. Nate's line, "HIPHI lets you know when your voice
-// matters most.", and the few-a-month promise without the ceiling, which stays on the Text terms page. Flip it to true
-// together with text-terms.html's "R-299 GO-LIVE" block, in the same commit (tests/r299_levels.py checks they agree).
-export const WORDS_T5 = false;
+// R-299 (Nate 17 Oct): the words for the levels, t5 and e3 (backend 181 stores them), live since Nate's yes of 17 Oct.
+// Nate's line, "HIPHI lets you know when your voice matters most.", and the few-a-month promise without the ceiling,
+// which stays on the Text terms page (text-terms.html, the same day). false puts back t4 and e2; the terms page's "What
+// you get" goes back with it, in the same commit (tests/r299_levels.py checks they agree). The lawyer's list: L-03.
+export const WORDS_T5 = true;
 export const TEXT_CONSENT = WORDS_T5 ? 't5' : 't4';
 export const EMAIL_CONSENT = WORDS_T5 ? 'e3' : 'e2';
 export const ALERT_PROMISE = WORDS_T5 ? 'HIPHI lets you know when your voice matters most.' : 'HIPHI alerts when a bill on your issues gets a hearing or needs you to speak up.';

@@ -62,7 +62,7 @@ with sync_playwright() as pw:
     p.goto(BASE + '?demo=1&codes=0#/signin?by=number'); p.wait_for_selector('#mr-email, #mr-pi-phone', timeout=60000)
     ok(p.locator('#mr-email').count() == 1 and p.locator('#mr-pi-phone').count() == 0, 'codes off: "Sign in" opens the email page')
     p.goto(BASE + '?demo=1&codes=0#/alerts'); p.wait_for_selector('#mr-al-phone', timeout=60000)
-    # Since R-265 one consent line serves codes on and off (t4); the button says what comes ("Text me", not "a code").
+    # Since R-265 one consent line serves codes on and off (t5 since R-299); the button says what comes ("Text me", not "a code").
     ok('Msg & data rates may apply. Reply STOP to cancel.' in text(p) and 'YES' not in text(p) and p.locator('#mr-al-send', has_text='Text me a code').count() == 0, 'codes off: the box\'s one consent line, no code promised, never "reply YES" (R-176, R-265)')
     p.fill('#mr-al-phone', '808 555 0155'); p.click('#mr-al-send'); p.wait_for_timeout(1200)
     # D1-4 (R-180): the page heads "Alerts almost set" with the alerts step's words, not "Text alerts are on" over "We'll text you first".
@@ -80,7 +80,7 @@ with sync_playwright() as pw:
     to_alerts(p, '&codes&fv=full&end=today')
     t = text(p)
     ok('reply YES' not in t, 'codes on: no YES to reply')
-    ok(('HIPHI alerts when a bill on your issues gets a hearing or needs you to speak up.' in t and 'Up to 1 a day. Msg & data rates may apply. Reply STOP to cancel.' in t), 'codes on: the one consent line, the same as codes off (t4, R-265): frequency, rates, STOP')
+    ok(('HIPHI lets you know when your voice matters most.' in t and 'A few texts a month. Msg & data rates may apply. Reply STOP to cancel.' in t), 'codes on: the one consent line, the same as codes off (t5, R-299): frequency, rates, STOP')
     ok(p.locator('#st-send', has_text='Text me a code').count() == 1, 'codes on: the button says what it sends, a code')
     p.fill('#st-a-phone', '(808) 555-0123'); p.click('#st-send'); p.wait_for_selector('#st-a-code', timeout=5000); p.wait_for_timeout(400)
     t = text(p)
@@ -245,7 +245,7 @@ with sync_playwright() as pw:
     m = thanks(p)
     ok('Your profile is saved.' in m and 'Text alerts are on for (808) 555-0123.' in m and p.url.split('#')[1].startswith('/start/'), f'the "Mahalo!" page says the profile is saved and alerts are on (R-188), and the visit goes on (no restart): {m[:120]!r}')
     sign = [json.loads(d or '{}') for k, d in calls if k == 'POST rpc/text_signup']
-    ok(sign and sign[-1].get('p', {}).get('consent') == 't4' and sign[-1]['p'].get('phone') == '8085550123', f'the number is kept with the session, under the t4 words ({sign[-1] if sign else None})')
+    ok(sign and sign[-1].get('p', {}).get('consent') == 't5' and sign[-1]['p'].get('phone') == '8085550123', f'the number is kept with the session, under the t5 words ({sign[-1] if sign else None})')
     links = [k for k, _ in calls if k == 'POST rpc/text_link']
     ok(len(links) >= 2, f'text_link at sign-in and again after the number is kept, to confirm it ({len(links)})')
     ok(json.loads(p.evaluate("localStorage.getItem('hiphi_text')") or '{}').get('confirmed') is True, 'this phone keeps the number as confirmed')
