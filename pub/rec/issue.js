@@ -16,7 +16,7 @@
 // The category page: Back to Find, the name and one sentence, the issues as quiet rows with one status line in Home's words
 // and a Follow each, and "Follow all of it, and new ones" at the end. No counts (R-300). An old coalition address
 // (#/find/issue/ctfh) opens its category.
-import { S, D, DEMO, app, esc, icon, toast, nick, spaced, billPath, issueFollowed, setFollows, unfollowIssue, sessionInfo, findBill, supa,
+import { S, D, DEMO, app, esc, icon, toast, nick, spaced, billPath, issueFollowed, issuePos, posInfo, setFollows, unfollowIssue, sessionInfo, findBill, supa,
   catOf, calendarUrl, stopOf, plainStatus, hearingsOf, openActions, hearingWhen, hiT, fmtDate, issueShareUrl, stopFacts, issuesIn, HST } from '../core.js';
 import { btn, iconBtn, posChip, skeleton, inlineErr } from '../ui.js';
 import { recHead, recBack, recSec, recRows, recFold, recFolds, recEmpty, wireKit } from './kit.js';
@@ -238,11 +238,21 @@ function issueStatus(i) {
   return { g: 3, text: plainStatus(byUrgency(live)[0]).short };
 }
 // A row: the issue's name and its line (the link), then Follow, outlined, or a quiet "✓ Following" that stops it (Undo).
+// HIPHI's side ends the line where it is not simply "supports" (P-4; the fresh-eyes review, 10/18: three of the seventeen
+// tobacco issues are ones HIPHI opposes, and the rows looked alike). Said on every row, "HIPHI supports" ran thirteen
+// times and wrapped each line to three (A-14), so only the exceptions say it: opposes, has comments, depends on the bill.
+// From the moving bills, as on the issue page, else all of this session's.
+function issueSide(i) {
+  const bills = billsOfIssue(i), live = offSeason() ? [] : bills.filter(moving), p = issuePos(live.length ? live : bills, i);
+  return p && !/support/.test(p) ? posInfo({ hiphi_position: p })?.text || '' : '';
+}
+// The row opens the issue (its chevron says so); Follow beside it, outlined, or the issue page's pale "✓ Following", which
+// stops following with Undo (R-061: followed looks followed).
 function catRow(i, st = issueStatus(i)) {
-  const on = issueFollowed(i);
-  const follow = on ? `<button type="button" class="rc-fquiet" data-fdissue="${esc(i.id)}" aria-pressed="true" aria-label="Following ${esc(i.name)}. Press to stop following." title="Following. Press to stop following.">${icon('check')}<span>Following</span></button>`
+  const on = issueFollowed(i), side = issueSide(i);
+  const follow = on ? `<button type="button" class="rc-fpill on" data-fdissue="${esc(i.id)}" aria-pressed="true" aria-label="Following ${esc(i.name)}. Press to stop following." title="Following. Press to stop following.">${icon('check')}<span>Following</span></button>`
     : `<button type="button" class="rc-fpill" data-fdissue="${esc(i.id)}" aria-pressed="false" aria-label="Follow ${esc(i.name)}">${icon('star')}<span>Follow</span></button>`;
-  return `<li class="rc-irow"><a class="rc-row" href="#/issue/${esc(i.slug)}"><span class="rc-rtext"><span class="rc-rname">${esc(i.name)}</span><span class="rc-rstat${st.warn ? ' warn' : ''}">${esc(st.text)}</span></span></a>${follow}</li>`;
+  return `<li class="rc-irow"><a class="rc-row" href="#/issue/${esc(i.slug)}"><span class="rc-rtext"><span class="rc-rname">${esc(i.name)}</span><span class="rc-rstat">${st.warn ? `<b class="rc-warn">${esc(st.text)}</b>` : esc(st.text)}${side ? ` · ${esc(side)}` : ''}</span></span>${icon('chevron-right', { cls: 'rc-chev' })}</a>${follow}</li>`;
 }
 function categoryPage(key) {
   const c = catOf(key);
@@ -341,10 +351,13 @@ export default {
     return i ? issuePage(i) : redirect(r.slug);
   },
   // The phone's docked bar (R-302): the card's own main button, shown once the card has scrolled away (bill.js recDock).
+  // It names its bill and its moment (the fresh-eyes review, 10/18: docked under the list of other bills, or under the bills
+  // that did not advance, "Ask the chairs for a hearing" read as being about the row above it).
   bar(r) {
     if (r.name !== 'issue' || wide()) return '';
-    const i = S.issueBySlug.get(r.slug), m = i && model(i);
-    return m?.state === 'ready' && m.lead ? billParts(m.lead.b).main : '';
+    const i = S.issueBySlug.get(r.slug), m = i && model(i); if (m?.state !== 'ready' || !m.lead) return '';
+    const { b, x } = m.lead, main = billParts(b).main, when = recLine(b, x, { when: true });
+    return main ? `<p class="rc-dfor"><b>${esc(num(b))}</b>${when ? ` · ${esc(when)}` : ''}</p>${main}` : '';
   },
   wire(r) {
     const root = document.querySelector('#main .rc-iss, #main .rc-cat'); if (!root) return;

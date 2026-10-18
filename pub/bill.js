@@ -1112,18 +1112,20 @@ function recDo(b, x, { lead = '' } = {}) {
 }
 const recAct = (b, x, o = {}) => x.act ? actionSection(b, x, o) : recDo(b, x, o);
 // Where a bill stands in one line, in this page's words, for a row that names it elsewhere (the issue page's "Bills on this
-// issue", R-303): "Step 6 of 10 · Needs a hearing by Mon 3/30", "Step 5 of 9 · Testimony due Sun 3:00 PM" (a moment in
-// C-15's words: the weekday within the week, the date further out).
-export function recLine(b, x = situation(b)) {
-  if (x.law) return isResolution(b) ? 'Adopted' : 'Became law';
-  if (x.stopped) return 'Did not advance';
-  if (x.ballot) return plainStatus(b).short;
-  const r = railInfo(b, x), h = x.act?.h, dl = x.live && x.st.deadline && !x.st.deadline.missed ? x.st.deadline : null;
-  const at = hearingWhen;
+// issue", R-303): "In the Senate · Needs a hearing by Mon 3/30", "In the House · Testimony due Sun 3:00 PM" (a moment in
+// C-15's words: the weekday within the week, the date further out). The chamber, not "Step 5 of 9": without the step bar
+// beside it a step's number says nothing (the fresh-eyes review, 10/18). when: the moment alone, for the docked button.
+export function recLine(b, x = situation(b), { when = false } = {}) {
+  if (x.law) return when ? '' : isResolution(b) ? 'Adopted' : 'Became law';
+  if (x.stopped) return when ? '' : 'Did not advance';
+  if (x.ballot) return when ? '' : plainStatus(b).short;
+  const r = railInfo(b, x), s = r.steps[r.idx], C = N[s.ch] || (s.kind === 'gov' || s.kind === 'law' ? '' : N[r.ci <= 2 ? r.o : r.t]);
+  const h = x.act?.h, dl = x.live && x.st.deadline && !x.st.deadline.missed ? x.st.deadline : null, at = hearingWhen;
   const now = h ? (x.act.late || !h.testimony_deadline ? `Hearing ${at(h.scheduled_at)}${x.act.late ? ' · late testimony taken' : ''}` : `Testimony due ${at(h.testimony_deadline)}`)
     : x.waiting && dl ? `Needs a hearing by ${dayShort(dl.date)}`
-    : x.st.hearingState === 'scheduled' && x.st.hearing ? `Hearing ${at(x.st.hearing.scheduled_at)}` : plainStatus(b).short;
-  return `Step ${r.idx + 1} of ${r.names.length} · ${now}`;
+    : x.st.hearingState === 'scheduled' && x.st.hearing ? `Hearing ${at(x.st.hearing.scheduled_at)}` : when ? '' : plainStatus(b).short;
+  if (when) return now;
+  return C && !/House|Senate|Governor/.test(now) ? `In the ${C} · ${now}` : now;
 }
 // The bill page's own parts for a page that shows a bill without being its page (the issue page, R-303 option A): its
 // situation, the layout-3 action card (lead: a first line for it), "Where it is now" (where: its heading), the one line, and

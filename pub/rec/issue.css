@@ -11,13 +11,19 @@ body.rec .rc-iss .bl-rtop .bl-back span { max-width: min(20em, calc(100vw - 196p
 body.rec .rc-iss .rc-ihead .bl-rhrow { justify-content: space-between; }
 body.rec .rc-iss .rc-ihead .bl-rhrow > .chip { white-space: normal; }
 body.rec .rc-iss .rc-ihead .bl-rhrow > .rc-fpill, body.rec .rc-iss .rc-ihead .bl-rhrow > .rc-fwrap { margin-left: auto; }
+/* below 360px the chip and the pill do not fit one line: the pill starts the next line, under the chip, not alone at the
+   right edge (its menu then opens to the right) */
+@media (max-width: 359px) {
+  body.rec .rc-iss .rc-ihead .bl-rhrow > .rc-fpill, body.rec .rc-iss .rc-ihead .bl-rhrow > .rc-fwrap { margin-left: 0; }
+  body.rec .rc-iss .rc-ihead .rc-fwrap .rc-fmenu { right: auto; left: 0; }
+}
 
 /* Follow: one outlined pill, the bill page's Share pill in shape; followed, a pale "✓ Following" that opens a small menu */
 body.rec .rc-fpill { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--s16); border: 0; border-radius: var(--pill);
   color: var(--p700); font: 700 var(--t14)/1 var(--font); box-shadow: inset 0 0 0 1.5px var(--p700); background: var(--n0); cursor: pointer; flex: none; }
 body.rec .rc-fpill:hover { background: var(--p50); }
 body.rec .rc-fpill:active { background: var(--p100); transform: scale(.98); }
-body.rec .rc-fpill:focus-visible, body.rec .rc-fquiet:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
+body.rec .rc-fpill:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
 body.rec .rc-fpill .ic { width: 18px; height: 18px; }
 body.rec .rc-fpill.on { background: var(--p50); box-shadow: none; padding-right: var(--s12); }
 body.rec .rc-fpill.on:hover { background: var(--p100); }
@@ -47,6 +53,7 @@ body.rec .rc-iss .rc-irest > .bl-rwhere .bl-rh, body.rec .rc-iss .rc-irest > .rc
 body.rec .rc-iss .rc-irest .rc-sec .rc-h2 { margin-bottom: var(--s4); }
 body.rec .rc-iss .rc-record { margin-top: var(--s12); }
 body.rec .rc-iss .rc-irest .rc-folds { margin-top: var(--s16); }
+body.rec .rc-iss .rc-fold[open] > summary .rc-fp { display: none; }   /* open, its rows say the numbers the preview said (A-14) */
 
 /* shape 3, nothing moving: what happened, when the ideas can come back, and Follow as the one filled button */
 body.rec .rc-iss .rc-what h2 { margin-top: 0; }
@@ -64,15 +71,17 @@ body.rec[data-screen="issue"] .actionbar { transition: transform .2s var(--ease)
 body.rec[data-screen="issue"]:not(.bl-docked) .actionbar { transform: translateY(16px); opacity: 0; pointer-events: none; visibility: hidden; }
 @media (prefers-reduced-motion: reduce) { body.rec[data-screen="issue"] .actionbar, body.rec .rc-fpill .rc-fchev { transition: none; } }
 @media (min-width: 1100px) { body.rec[data-screen="issue"] .actionbar { display: none; } }
+/* the docked button says which bill it is for, and when (it docks under other bills' rows) */
+body.rec[data-screen="issue"] .actionbar .inner { flex-wrap: wrap; row-gap: var(--s4); }
+body.rec .rc-dfor { flex: 1 1 100%; margin: 0; font-size: var(--t13); line-height: 1.3; color: var(--n700); }
+body.rec .rc-dfor b { color: var(--n900); }
 
 /* ---- the category page: quiet issue rows, a Follow beside each ---- */
 body.rec .rc-cat .rc-irows { margin-top: var(--s16); }
 body.rec .rc-irow { display: flex; align-items: center; gap: var(--s8); }
-body.rec .rc-irow > .rc-row { flex: 1 1 auto; min-width: 0; margin: 0 0 0 calc(-1 * var(--s12)); }
-body.rec .rc-fquiet { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--s12); border: 0; border-radius: var(--pill); background: none;
-  color: var(--n700); font: 700 var(--t14)/1 var(--font); cursor: pointer; flex: none; }
-body.rec .rc-fquiet:hover { background: var(--n100); color: var(--n900); }
-body.rec .rc-fquiet .ic { width: 18px; height: 18px; color: var(--ok-text); }
+body.rec .rc-irow > .rc-row { flex: 1 1 auto; min-width: 0; margin: 0 0 0 calc(-1 * var(--s12)); padding-right: var(--s4); }
+body.rec .rc-irow .rc-warn { color: var(--warn-text); }   /* amber only inside a day, on the time alone (A-5) */
+body.rec .rc-irow > .rc-fpill.on { padding-right: var(--s16); }
 body.rec .rc-catall { margin-top: var(--s16); }
 body.rec .rc-catok { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s8); margin: 0; font-weight: 700; color: var(--n900); }
 body.rec .rc-catok .ic { width: 20px; height: 20px; color: var(--ok-text); }
