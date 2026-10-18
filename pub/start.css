@@ -588,26 +588,43 @@ button.st-way:active { transform: scale(.99); }
    What the tracker is for, said once and large: the scene as a rounded card, a greeting, the heading, one sentence and
    one button (C-1: something given before anything is asked). Centred on every size, the words in the middle of the
    window rather than at its top (a welcome, not a form). body.st-hello is set while it shows (start.js wireHello). */
-.st-hellopage { justify-content: center; min-height: calc(100svh - 210px); }   /* the header, the bar and their room */
+.st-hellopage { --hw: 440px; justify-content: center; min-height: calc(100svh - 210px); }   /* the header, the bar and their room */
 .st-hellopage .st-intro { align-items: center; text-align: center; gap: var(--s12); }
-.st-hellopage .st-art.st-scene { display: flex; justify-content: center; width: 100%; max-width: 440px; margin: 0 auto var(--s8); }
+/* The card's width is --hw (by window) times --hs (by fit level, below), so a fit level only ever shrinks it. */
+.st-hellopage .st-art.st-scene { display: flex; justify-content: center; width: 100%; max-width: calc(var(--hw) * var(--hs, 1)); margin: 0 auto var(--s16); }
 .st-hellopage .st-art.st-scene svg { width: 100%; height: auto; max-height: none; }
 .st-greet { display: flex; align-items: center; justify-content: center; gap: var(--s8); margin: 0; font-family: var(--font-h); font-size: var(--t18); font-weight: 700; color: var(--o700); }
 .st-greet .flower { flex: none; }
+/* "Aloha!" belongs to the heading under it, not to the picture above it (the critic: it sat as far from each) */
+.st-hellopage .st-greet { margin-bottom: calc(var(--s4) * -1); }
+/* A partner's link (?via=): its welcome is said once, under "Aloha!", as plain words (the critic: a boxed second greeting
+   above the picture was read first and pushed the sentence under the bar on small phones). */
+.st-hellopage .st-partner { display: block; padding: 0; background: none; font-weight: 400; font-size: var(--t18); line-height: 1.4; color: var(--n700); text-wrap: balance; }
+.st-hellopage .st-partner .ic { display: none; }
 .st-hellopage h1 { margin: 0; text-wrap: balance; }
 .st-hellopage .lede { margin: 0; max-width: 24em; }
 /* a short phone or laptop window: the card shrinks so the words and the button still fit without scrolling */
-@media (max-width: 22.4375em), (max-width: 899px) and (max-height: 700px) { .st1.st-hellopage .st-art.st-scene { max-width: 300px; } }
+@media (max-width: 22.4375em), (max-width: 899px) and (max-height: 700px) { .st1.st-hellopage { --hw: 300px; } }
 @media (min-width: 900px) {
   body.st-hello[data-screen="start"] main { grid-template-columns: minmax(0, 1fr); justify-items: center; padding-top: 56px; }
   body.st-hello[data-screen="start"] .st-intro { position: static; grid-row: 1; max-width: 640px; gap: var(--s16); }
-  body.st-hello[data-screen="start"] .actionbar { grid-column: 1; grid-row: 2; position: static; background: none; padding-top: var(--s16); }
+  body.st-hello[data-screen="start"] .actionbar { grid-column: 1; grid-row: 2; position: static; background: none; padding-top: var(--s24); }
   body.st-hello[data-screen="start"] .st-one { justify-content: center; }
-  .st-hellopage { min-height: 0; }
-  .st-hellopage .st-art.st-scene { max-width: 520px; }
+  .st-hellopage { --hw: 520px; min-height: 0; }
+  .st-hellopage .st-art.st-scene { margin-bottom: var(--s24); }
 }
 @media (min-width: 900px) and (max-height: 700px) {
   body.st-hello[data-screen="start"] main { padding-top: var(--s24); }
   body.st-hello[data-screen="start"] .st-intro { gap: var(--s8); }
-  .st-hellopage .st-art.st-scene { max-width: 240px; margin-bottom: 0; }
+  .st1.st-hellopage { --hw: 240px; }
+  .st-hellopage .st-art.st-scene { margin-bottom: var(--s8); }
 }
+/* Every window between those (a laptop 701-783px tall, a partner's line, large text): start.js fitScreen() adds .fit1 up
+   while the page still runs past the bottom, and here each level shrinks only the picture, never the words (C-14), so
+   Let's begin stays in view (R-265). The critic found it below the edge at 1280x720 and 1536x730. */
+.st-hellopage.fit1 { --hs: .85; }
+.st-hellopage.fit2 { --hs: .72; }
+.st-hellopage.fit3 { --hs: .6; }
+.st-hellopage.fit4 { --hs: .5; }
+.st-hellopage.fit5 { --hs: .4; }
+@media (min-width: 900px) { body.st-hello[data-screen="start"]:has(.st-hellopage.fit3) main { padding-top: var(--s16); } }

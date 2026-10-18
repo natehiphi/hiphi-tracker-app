@@ -342,8 +342,8 @@ export const helloOn = () => !planOn() && !wiz().via;
 S.stHello ??= false;   // drawn in this page's life: the partner's line is said here, and not again on the topics
 function stepHello() {
   S.stHello = true;
-  return shell('st1 st-hellopage', `${langPicker('st-lang')}${partnerLine()}<div class="st-art st-scene">${HELLO}</div>
-    <p class="st-greet">${flower(22)}<span>${t('Aloha!')}</span></p>
+  return shell('st1 st-hellopage', `${langPicker('st-lang')}<div class="st-art st-scene">${HELLO}</div>
+    <p class="st-greet">${flower(22)}<span>${t('Aloha!')}</span></p>${partnerLine()}
     <h1 class="hero" id="st-h">${t('Your voice can shape Hawaiʻi’s future')}</h1>
     <p class="lede">${t('Find out when lawmakers are acting on the issues you care about most, and how you can help change what happens.')}</p>`, '');
 }
