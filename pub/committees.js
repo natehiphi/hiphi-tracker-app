@@ -26,8 +26,8 @@ function committeeRow(c) {
 function listPage() {
   const cs = allCommittees(), senate = cs.filter(c => c.chamber === 'S'), house = cs.filter(c => c.chamber === 'H');
   const rest = cs.filter(c => c.chamber !== 'S' && c.chamber !== 'H');
-  if (!cs.length) return `<div class="cm">${empty({ title: 'We couldn’t load the committees', text: 'Check your connection and try again.' })}</div>`;
-  return `<div class="cm">
+  if (!cs.length) return `<div class="cmt">${empty({ title: 'We couldn’t load the committees', text: 'Check your connection and try again.' })}</div>`;
+  return `<div class="cmt">
     <div class="pagehead"><h1 class="hero">Committees</h1><p class="lede">Every Senate and House committee. A bill needs a "yes" from each one it is sent to before the full chamber votes.</p></div>
     ${senate.length ? `<div class="sechead"><h2>Senate</h2></div><div class="rows">${senate.map(committeeRow).join('')}</div>` : ''}
     ${house.length ? `<div class="sechead"><h2>House</h2></div><div class="rows">${house.map(committeeRow).join('')}</div>` : ''}
@@ -50,9 +50,9 @@ const backLink = () => `<a class="btn text cm-back" href="#/committees" data-bac
 
 function detailPage(route) {
   const c = (S.committees || {})[route.code];
-  if (!c) return `<div class="cm">${backLink()}${empty({ h: 'h1', title: 'We couldn’t find that committee', text: 'The link may be old. Every committee is on the Committees page.', action: btn('See all committees', { kind: 'primary', href: '#/committees' }) })}</div>`;
+  if (!c) return `<div class="cmt">${backLink()}${empty({ h: 'h1', title: 'We couldn’t find that committee', text: 'The link may be old. Every committee is on the Committees page.', action: btn('See all committees', { kind: 'primary', href: '#/committees' }) })}</div>`;
   const members = legsOf(c.code), slot = slotOf(c.code), bills = billsAt(c.code);
-  return `<div class="cm">
+  return `<div class="cmt">
     ${backLink()}
     <div class="pagehead"><h1 class="hero">${esc(c.name)}</h1>
       <p class="lede">${esc(CHAMBER_NAME[c.chamber] || '')} committee${slot ? ` · Meets ${esc(slotLine(slot))}` : ''}</p></div>
