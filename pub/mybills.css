@@ -155,3 +155,20 @@
 .fd-irow .mb-new::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--p700); flex: none; }
 
 /* A new issue in a category they partly follow (R-018): on My issues since R-222, under the heading. */
+
+/* ---- My issues under ?rec=1 (R-303, pub/rec/mybills.js), scoped to body.rec: Home's quiet rows (rec.css .rc-row), an Edit
+   at the top right, two quiet links. Today's page is unchanged without it. ---- */
+body.rec .rc-mhead { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); }
+body.rec .rc-mhead .rc-h1 { margin: 0; }
+body.rec .rc-edit { flex: none; margin-right: calc(-1 * var(--s12)); }
+/* the frame's own room for the tab bar ends the page (main's padding), so this page adds none: Leilani's sixteen fit in
+   1,500px on a phone (R-303's budget; 4,146 before) */
+body.rec .rc.rc-mine { padding-bottom: 0; }
+/* the dot for "new since your last visit", Home's (.cm-new) */
+body.rec .rc-new { display: inline-block; width: 9px; height: 9px; margin-right: var(--s8); border-radius: 50%; background: var(--p500); vertical-align: 2px; }
+body.rec .rc-links { display: flex; flex-direction: column; align-items: flex-start; margin-top: var(--s12); }
+body.rec .rc-links .btn { margin-left: calc(-1 * var(--s12)); }
+body.rec .rc-wholes { display: flex; flex-direction: column; gap: var(--s4); margin: var(--s12) 0 var(--s4); }
+body.rec .rc-whole { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--s8); margin: 0; padding: var(--s4) 0 var(--s4) var(--s12); border-radius: var(--r12); background: var(--n0); font-size: var(--t14); color: var(--n700); }
+body.rec .rc-ebtns { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); }
+body.rec .rc-mine .rc-none { margin-top: var(--s16); }

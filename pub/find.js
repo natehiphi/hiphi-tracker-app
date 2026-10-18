@@ -28,7 +28,7 @@ const F = S.fd ??= { cur: '', key: null, res: null, busy: false, pending: false,
   issues: {}, iss: {}, lists: {}, more: {}, recs: null, t: 0 };
 const HST = 'Pacific/Honolulu';
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
-const offSeason = () => sessionInfo().phase !== 'in';
+export const offSeason = () => sessionInfo().phase !== 'in';
 const openWords = si => si.nextOpen ? new Date(si.nextOpen + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, weekday: 'long', month: 'long', day: 'numeric' }) : 'in January';
 
 // ---------------- search ----------------
@@ -49,13 +49,13 @@ const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // The word without a plural ending, both ways ("taxes": "tax", "taxe"; "e-cigarettes": "e-cigarette"), so a plural typed
 // finds the singular too.
 const singles = w => w.length > 3 ? [/es$/, /s$/].filter(r => r.test(w)).map(r => w.replace(r, '')) : [];
-function termsFor(w) {
+export function termsFor(w) {
   const g = SYN.find(g => g.some(t => w === t || singles(w).includes(t) || t === w + 's' || (w.length >= 4 && t.startsWith(w))));
   return [...new Set([w, ...singles(w), ...(g || [])])];
 }
-const wholeRe = terms => new RegExp(`(?:^|[^a-z0-9])(?:${terms.map(reEsc).join('|')})(?:s|es|'s)?(?![a-z0-9])`);
+export const wholeRe = terms => new RegExp(`(?:^|[^a-z0-9])(?:${terms.map(reEsc).join('|')})(?:s|es|'s)?(?![a-z0-9])`);
 // "hb 1563", "HB1563" and "1563" are bill numbers; anything else is words.
-function parse(q) {
+export function parse(q) {
   const raw = plain(q).replace(/[^a-z0-9\s-]/g, ' ').replace(/\s+/g, ' ').trim();
   const m = /^([a-z]{1,3})?\s*-?\s*0*(\d{1,4})$/.exec(raw);
   if (m) return { key: 'n:' + (m[1] || '') + m[2], num: { pre: (m[1] || '').toUpperCase(), n: m[2] } };
@@ -71,7 +71,7 @@ function parse(q) {
 const FIELDS = [['hiphi_nickname', 8], ['hiphi_summary', 6], ['hiphi_action', 4], ['description', 3], ['title', 2]];
 const hay = new WeakMap();
 const fieldsOf = b => { let f = hay.get(b); if (!f) { f = FIELDS.map(([k, w]) => [plain(k === 'hiphi_nickname' ? nick(b) : b[k] || ''), w]); hay.set(b, f); } return f; };
-function score(b, P, k = 're') {   // null when nothing matches
+export function score(b, P, k = 're') {   // null when nothing matches
   if (P.num) {
     const m = /^([A-Z]+)\s*(\d+)/.exec(String(b.bill_number).toUpperCase()); if (!m) return null;
     if (P.num.pre && !m[1].startsWith(P.num.pre)) return null;
@@ -130,10 +130,20 @@ function rank(cands, P, more = false) {
   res.also = [...n].sort((x, y) => y[1] - x[1]).map(x => x[0]);
   return res;
 }
+// Every bill in `bills` that Find's rules match, in the order given and with no cap: every word as whole words (with
+// their synonyms), else every word as word starts (a table narrows, so no "most of the words"). Every bill HIPHI tracks filters its table with
+// it under ?rec=1 (R-303), so "vape", "keiki" and "kim" find there what they find on Find (its own box knew none of them).
+export function matchAll(bills, q) {
+  const P = parse(q);
+  if (P.words && !P.words.length) return bills;
+  const need = P.num ? 1 : P.words.length, hits = k => bills.filter(b => (score(b, P, k)?.hits || 0) >= need);
+  for (const k of P.num ? ['re'] : ['re', 'pre']) { const out = hits(k); if (out.length) return out; }
+  return [];
+}
 // One quiet line above the results when the list is not simply "the bills with these words", and one after the bills
 // when the list stopped at 80 (it is about the end of the list, and the sections' own counts add up to it).
 const quote = ws => ws.map(t => `“${esc(t)}”`).join(ws.length === 2 ? ' or ' : ', ').replace(/, (?=[^,]*$)/, ', or ');
-function searchNote(res, P) {
+export function searchNote(res, P) {
   if (!res.length || P.num) return '';
   const one = P.words.length === 1, out = [];
   if (res.partial) out.push(one ? `Showing bills with words that start with “${esc(P.words[0].w)}”.` : `Showing bills with words that start with ${res.fewer ? 'some of ' : ''}what you typed.`);
@@ -141,7 +151,7 @@ function searchNote(res, P) {
   if (res.also.length) out.push(`Also shows bills that say ${quote(res.also.slice(0, 3))}.`);
   return out.length ? `<p class="fd-note">${out.join(' ')}</p>` : '';
 }
-const capNote = res => res.more ? `<p class="fd-note">That’s the first ${res.length}. Add a word to narrow the list.</p>` : '';
+export const capNote = res => res.more ? `<p class="fd-note">That’s the first ${res.length}. Add a word to narrow the list.</p>` : '';
 // The live page asks the database for candidates (every word, with its synonyms, as a whole word in any of the text
 // columns; `start` for words that start with it), then ranks them here with the same rules as the sandbox. The database
 // matches whole words too, so its row limit counts only real matches ("fire" is not crowded out by "firearm", R-212 #2). HIPHI's bills are fetched separately so a common word
@@ -205,7 +215,7 @@ async function ensureStopHistory(bills) {
   const ask = [...new Map(bills.filter(mayBeHeard).map(b => [b.id, b])).values()].filter(b => { try { return stopFacts(b).kind === 'noHearing'; } catch { return false; } }).slice(0, 40);
   for (let i = 0; i < ask.length; i += 6) await Promise.all(ask.slice(i, i + 6).map(ensureHistory));
 }
-function startSearch(q) {
+export function startSearch(q) {
   const P = parse(q);
   if (F.key === P.key && (F.res || F.busy)) return;
   F.key = P.key; F.err = false;
@@ -233,8 +243,11 @@ function runQuery(v) {
   if (q) startSearch(q); else { F.seq++; F.busy = false; F.key = null; }
   paint();
 }
-// Redraw only the results (the search box and its keyboard stay put).
+// Redraw only the results (the search box and its keyboard stay put). The calm Find under ?rec=1 (R-303, pub/rec/find.js)
+// draws its own results with this search, so it puts its painter here.
+export const findHooks = { paint: null };
 function paint() {
+  if (findHooks.paint) return findHooks.paint();
   if (document.body.dataset.screen !== 'find') return;
   const box = document.getElementById('fd-results'); if (!box) { app.render(); return; }
   box.innerHTML = F.cur ? resultsHTML(F.cur) : browseHTML();
@@ -297,7 +310,7 @@ function suggestions() {
   for (const r of byDue(recommendations(200))) { if (list.length >= VOICES) break; if (ok(r) && !have.has(r.b.id)) { list.push(r); have.add(r.b.id); } }
   return F.recs = list;
 }
-const byDue = rs => rs.slice().sort((x, y) => (x.due ?? Infinity) - (y.due ?? Infinity));
+export const byDue = rs => rs.slice().sort((x, y) => (x.due ?? Infinity) - (y.due ?? Infinity));
 // Every bill with a hearing coming up that could be suggested, after the eight: what "See all" opens.
 const moreVoices = shown => { const skip = dismissed(), have = new Set(shown.map(r => r.b.id)); return byDue(recommendations(200)).filter(r => r.st.hearing && !skip.has(r.b.id) && !have.has(r.b.id)); };
 
@@ -492,7 +505,7 @@ function issuePageNew(i) {
 }
 // Search finds issues by name and description too, and they come first: an issue is what people follow. Words match
 // where a word starts, as they do for bills ("bus" finds "buses", not the "bus" inside "abuse"; R-032).
-function issueMatches(q) {
+export function issueMatches(q) {
   const words = plain(q).split(/[^a-z0-9]+/).filter(w => w.length > 2 && !STOP.has(w)); if (!words.length) return [];
   const res = words.map(w => new RegExp(`(?:^|[^a-z0-9])(?:${termsFor(w).map(t => reEsc(plain(t))).join('|')})`));
   const hay = i => plain(`${i.name} ${i.description || ''}`);
@@ -527,8 +540,8 @@ const sugBill = b => ({ href: billPath(b), title: nick(b) || what(b, 90), sub: [
 // come up for their number only.
 const SUG_ROWS = 7;
 const bucket = b => moving(b) ? 0 : becameLaw(b) ? 1 : 2;   // Find's order: still moving, then became law, then the rest
-const hiphis = b => !!(b.hiphi_follows || b.hiphi_position);
-const shows = (b, P) => P.words.every(w => fieldsOf(b).some(([t, wt]) => wt >= 6 && w.re.test(t)));   // nickname 8, HIPHI summary 6
+export const hiphis = b => !!(b.hiphi_follows || b.hiphi_position);
+export const shows = (b, P) => P.words.every(w => fieldsOf(b).some(([t, wt]) => wt >= 6 && w.re.test(t)));   // nickname 8, HIPHI summary 6
 export function headerSuggest(q) {
   const off = offSeason(), P = parse(q);
   const cats = catMatches(q).slice(0, 1).map(c => { const n = catCount(c);
@@ -686,7 +699,7 @@ function wireRegion(root, links) {
     (document.querySelector('.fd-cards .achead a') || document.getElementById('fd-iss-h')?.closest('section')?.querySelector('a') || document.getElementById('main'))?.focus({ preventScroll: true }); }, 0)));
 }
 // Follow and unfollow issues and categories, wherever they are listed.
-function wireIssues(root) {
+export function wireIssues(root) {
   root.querySelectorAll('[data-fdissue]').forEach(el => el.onclick = async () => {
     const i = S.issueById.get(el.dataset.fdissue); if (!i || el.getAttribute('aria-busy') === 'true') return;
     el.setAttribute('aria-busy', 'true'); S.fdFocus = `[data-fdissue="${i.id}"]`;
@@ -721,7 +734,7 @@ function wirePage(root) {
   root.querySelectorAll('[data-unfollowlist]').forEach(el => el.onclick = async () => { try { await unfollowListNow(el.dataset.unfollowlist); } catch (e) { toast(e, true); } });
   if (S.fdFocus) { const t = root.querySelector(S.fdFocus); S.fdFocus = null; t?.focus({ preventScroll: true }); }
 }
-function wireSearch() {
+export function wireSearch() {
   const inp = document.getElementById('q'), form = document.querySelector('.fd-search'), clr = document.querySelector('.fd-clear');
   if (!inp || !form) return;
   const typed = () => {
