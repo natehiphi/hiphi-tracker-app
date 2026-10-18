@@ -50,9 +50,11 @@ const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', '
 // Find, an issue, a category and a list draw their bills with mybills.js's rows, so mybills.css comes with them (R-184: an
 // issue page opened from a shared link drew its rows unstyled for about two seconds, 409px wide on a 375px phone, so the
 // phone zoomed the page out, and a Follow tapped then opened the profile sheet cut off at both edges).
-const SCREEN_CSS = { start: ['start'], learn: ['start'], next: ['start', 'next'], home: ['home'], recap: ['home'], bills: ['mybills'], find: ['mybills', 'find'], issue: ['mybills', 'find'], category: ['mybills', 'find'], list: ['mybills', 'find'],
+// My issues draws its issue rows with find.css's .fd-irow, and a list its rows and back link with mybills.css and find.css:
+// without them those pages drew unstyled for 1-3 seconds when opened directly (R-303, the walk of 10/17; R-184's kind).
+const SCREEN_CSS = { start: ['start'], learn: ['start'], next: ['start', 'next'], home: ['home'], recap: ['home'], bills: ['mybills', 'find'], find: ['mybills', 'find'], issue: ['mybills', 'find'], category: ['mybills', 'find'], list: ['mybills', 'find'],
   bill: ['bill', 'mylists'], legislators: ['people'], legislator: ['people'], committees: ['committees'], committee: ['committees'], allbills: ['allbills'],
-  more: ['more', 'talk', 'profile'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more', 'profile'], profile: ['more', 'profile'], privacy: ['more'], mylist: ['mylists'], shared: ['mylists'], quiz: ['quiz'] };
+  more: ['more', 'talk', 'profile'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more', 'profile'], profile: ['more', 'profile'], privacy: ['more'], mylist: ['mybills', 'find', 'mylists'], shared: ['mybills', 'find', 'mylists'], quiz: ['quiz'] };
 // Version A's look (pub/a/a.css, scoped to body.va and its own classes) comes after wide.css, as track-a.html had it, on
 // every screen but the first visit, which both versions share and other tests compare (R-187).
 const cssFor0 = name => oldA() && !FIRST_VISIT.includes(name) ? [...(SCREEN_CSS[name] || []), 'a/a'] : SCREEN_CSS[name];
