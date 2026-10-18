@@ -55,12 +55,14 @@ function wantsInPerson() {
 // below calls it, so the card and the row are seen to be the same thing (the review of R-222).
 // band: the topic's drawing across the top (R-283, Nate 10/14), on the one big card that leads Home (the focus card) and
 // a bill's page, so a shared link and the page it opens show the same kind of picture. Never on list rows or suggestions.
-export function actionCard(b, h, { focus = false, suggest = null, why, heading = 'h3', compact = false, ofN = '', twin = null, noTopic = false, topic = null, band = focus && !suggest } = {}) {
+// quiet: drawn only to measure (the calm Home's hidden copies that hold the slide's height, R-300), so nothing is counted.
+export function actionCard(b, h, { focus = false, suggest = null, why, heading = 'h3', compact = false, ofN = '', twin = null, noTopic = false, topic = null, band = focus && !suggest, quiet = false } = {}) {
   if (why === undefined && typeof suggest === 'string') why = suggest;
   const k = key(b, h), iss = topic || issueOf(b), due = dueInfo(h), late = !!due?.late, done = actedOn(b, h), more = S.moreOpen.has(k);
   if (due && settledOn(b, h)) due.tone = '';   // settled: the deadline is no longer a warning (going or sharing alone keeps it, R-142)
   const voices = countOk((S.voices || {})[h.id]);
   const chairs = chairContacts(h.committee), chairName = chairs.length ? chairs.map(c => `${c.title} ${c.last}`).join(' and ') : 'the chair';
+  const runs = chairs.length > 1 ? 'run' : 'runs';   // "Chair Lee and Chair Keohokalole, who run this hearing" (R-300)
   const doneKinds = KINDS.filter(x => didKind(b, h, x)), lastDone = doneKinds.slice().sort((x, y) => String((S.doneAt || {})[doneKey(b.id, h.id, y)] || '').localeCompare(String((S.doneAt || {})[doneKey(b.id, h.id, x)] || '')))[0];
   // Testimony leads wherever there is a hearing, for everyone (Nate 9/27, R-068): the walkthrough writes the letter from
   // the person's own stance, so someone who disagrees with HIPHI is helped too. The quick email is one of the other ways.
@@ -77,10 +79,10 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const asking = !!suggest && !S.watch.has(b.id);
   // The rank test is met where its versions differ: testimony sent on this hearing and another step still open (R-135).
   const after = !asking && !compact && didKind(b, h, 'testimony') && !!nextStep(b, h), R = after && ranked();
-  if (after) abRankMet(h.id);
+  if (after && !quiet) abRankMet(h.id);
   const step = R ? nextStep(b, h) : null;
   const inPerson = !asking && !late && !didKind(b, h, 'attend') && new Date(h.scheduled_at) > Date.now() && !(R && step === 'attend') && wantsInPerson();
-  if (inPerson && !SHOWN.has(h.id)) { SHOWN.add(h.id); logAct('ask_shown'); }
+  if (inPerson && !quiet && !SHOWN.has(h.id)) { SHOWN.add(h.id); logAct('ask_shown'); }
   // Said "I plan to go" and the hearing is still ahead (R-142): the card carries "How to get there" under its done line,
   // and "Go to the hearing" leaves More ways to help, since that sign-up is done (Undo is beside the done line).
   const planned = didKind(b, h, 'attend') && goingOn(h);
@@ -95,7 +97,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     : emailFirst ? (didKind(b, h, 'email') ? '' : emailBtn) : (didKind(b, h, 'testimony') ? '' : testimonyBtn);
   const rowFor = x => ({
     testimony: differs ? '' : moreRow('notebook-pen', late ? 'Send late testimony' : 'Write testimony', late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. About 15 minutes the first time (the Capitol site asks for a free account), a few after that.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent'),
-    email: differs ? '' : moreRow('mail', mailWords, `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
+    email: differs ? '' : moreRow('mail', mailWords, `A short note to ${esc(chairName)}, who ${runs} this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
     attend: inPerson || planned ? '' : moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')) + (S.goOpen.has(k) ? goPanel(b, h, k) : ''),
     share: moreRow('share-2', 'Ask a friend to speak up', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
   })[x];
@@ -107,7 +109,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const rows = R ? rankedRows() : [
     // Testimony is listed here only when it is not already the main button (a suggested bill leads with Follow).
     asking ? moreRow('notebook-pen', late ? 'Send late testimony' : HELP_WORDS, late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. About 15 minutes the first time (the Capitol site asks for a free account), a few after that.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent') : '',
-    differs ? '' : moreRow('mail', mailWords, `A short note to ${esc(chairName)}, who runs this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
+    differs ? '' : moreRow('mail', mailWords, `A short note to ${esc(chairName)}, who ${runs} this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
     legRow,
     moreRow('share-2', 'Ask a friend to speak up', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
     inPerson || planned ? '' : moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')),
@@ -147,7 +149,8 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     ${suggest && S.watch.has(b.id) ? `<div class="suggestbar">${btn('Following', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-follow': b.id, 'aria-pressed': 'true', title: 'Following. Press to stop following.' }, cls: 'on' })}</div>` : ''}
   </article>`;
 }
-const moreRow = (ic, title, sub, a, doneText) => `<button type="button" class="mwrow"${Object.entries(a).map(([k, v]) => ` ${k}="${esc(v)}"`).join('')}><span class="lead">${icon(ic)}</span><span class="body"><span class="title">${title}</span><span class="sub">${sub}</span></span>${doneText ? chip(doneText, 'ok', 'check') : icon('chevron-right', { cls: 'chev' })}</button>`;
+// One row of "More ways to help"; the calm Home's hearing ask draws its own rows with it (R-300).
+export const moreRow = (ic, title, sub, a, doneText) => `<button type="button" class="mwrow"${Object.entries(a).map(([k, v]) => ` ${k}="${esc(v)}"`).join('')}><span class="lead">${icon(ic)}</span><span class="body"><span class="title">${title}</span><span class="sub">${sub}</span></span>${doneText ? chip(doneText, 'ok', 'check') : icon('chevron-right', { cls: 'chev' })}</button>`;
 
 // ---- going in person (R-142, Nate 10/4: "People should be provided directions to in-person hearings if they sign up for
 // them") ----
@@ -290,9 +293,10 @@ const goText = (b, h) => [`You plan to go. Arrive by ${arriveBy(h)} with a photo
 // The inline composer that lived here (a draft in the card, "Open in my mail app", "Yes, I sent it") became the email
 // walkthrough in pub/helper.js on 9/29 (R-079): the same steps as testimony, then sending by mail app, Gmail or Outlook.
 // ---- calendar: a real .ics file (a Blob), two events: the testimony deadline (2-hour alarm) and the hearing ----
+const stamp = d => new Date(d).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+const esc2 = t => String(t).replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
+const saveFile = (blob, name) => { const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000); };
 function icsFor(b, h) {
-  const stamp = d => new Date(d).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-  const esc2 = t => String(t).replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
   const url = `${location.origin}${location.pathname}${billPath(b)}`, short = nick(b) || blurb(b, 60);
   // Someone who plans to go (R-142) gets the directions in the hearing's event, its floor in the place, and a reminder to
   // leave an hour and a half before; everyone else, the hearing as it was.
@@ -308,8 +312,19 @@ function icsFor(b, h) {
 }
 // The calendar file, saved; the walkthrough's directions use it too (R-142).
 export function downloadIcs(b, h) {
-  const url = URL.createObjectURL(icsFor(b, h)), a = document.createElement('a'); a.href = url; a.download = `${b.bill_number}-hearing.ics`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+  saveFile(icsFor(b, h), `${b.bill_number}-hearing.ics`);
   S.chips[key(b, h) + 'ics'] = true;
+}
+// A bill waiting for a hearing (the calm Home's hearing ask, R-300): its committee's cut-off as one event at 9 AM that day,
+// with a reminder the day before, so "ask the chair" is not forgotten until it is too late. date: 'YYYY-MM-DD' (Hawaiʻi).
+export function downloadCutoffIcs(b, date) {
+  const url = `${location.origin}${location.pathname}${billPath(b)}`, short = nick(b) || blurb(b, 60), start = `${date}T09:00:00-10:00`;
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//HIPHI//Bill Tracker//EN', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT', `UID:${b.id}-${date}-cutoff@bills.hiphi.org`,
+    `DTSTAMP:${stamp(Date.now())}`, `DTSTART:${stamp(start)}`, `DTEND:${stamp(Date.parse(start) + 15 * 6e4)}`,
+    `SUMMARY:${esc2(`Last day for a hearing: ${spaced(b.bill_number)} (${short})`)}`,
+    `DESCRIPTION:${esc2(`If its committee does not hear it by today, it can’t pass this year. Ask the chair for a hearing: ${url}`)}`, `URL:${url}`,
+    'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc2(`Ask for a hearing on ${spaced(b.bill_number)}`)}`, 'TRIGGER:-P1D', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'];
+  saveFile(new Blob([lines.join('\r\n')], { type: 'text/calendar' }), `${b.bill_number}-cutoff.ics`);
 }
 // Written like a friend talking, not a notice (Nate 9/29: "too professional and not encouraging"). acted: sent by someone who
 // has just spoken up, so it starts from what they did.

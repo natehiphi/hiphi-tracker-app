@@ -369,6 +369,25 @@ for sixteen (the review of 10 Oct 2026, R-222). People came back to a page that 
 same bill up to four ways. A budget on the whole page is what stops it growing back (A-8: prefer removing a card to
 adding one; A-13: one focal point).
 
+**The slide holds still (R-300, Nate's picks of 17 Oct 2026).** The slide is: the drawing, the goal heading, one sentence,
+one detail line ("By tomorrow 1:00 PM · about 2 min · HB 1780", amber only inside 24 hours), the full-width button, "More
+ways to help" (on every slide that has something to do, hearing asks too, opening inline under it), then the pager: back and
+next arrows (44px) around **at most five dots**, a window that slides with the current one, so nobody can tell how many are
+left; a swipe on a touch screen does the same. **Every slide of a deck is as tall as its tallest words**, so the button, More
+ways and the pager sit at the same place on every slide. The greeting is **one line with no count** (Nate: "Remove the XYZ
+things you can do this week. If it's a lot it can be overwhelming", which reverses R-295's "10 things you can do this
+week"); a result on a bill with a slide opens that slide's sentence, any other is a dot on its row. Your issues has no box
+and no headings with counts, a dot for what is new, one link under it. **On a phone the first screen is under 60 words and
+6 text styles** (the amber of A-5 aside), measured with a style as one face, size, weight and colour. Checked by
+`tests/home_calm.py` on every slide of each moment, phone and laptop.
+
+*Reason.* "Show the next one" sat right on testimony slides and left on hearing asks, which had no More ways (199px apart on
+a phone, up to 87px up or down as the words changed length): a control that moves has to be found again on every slide
+(Fitts; NN/g on consistency). Nate tried each way to the next one on a playground and picked the pager with the swipe; a
+count on the slide, or many dots, reads like homework (C-7). Kai's first phone screen held 80 words and 10 text styles. The
+dots, the swipe and the words are guesses until the five testers in November ("How would you get to a different one?") and
+January's counts of actions started from Home.
+
 
 ### A-24 On a laptop, one thing open at a time (Staff v3)
 
@@ -562,12 +581,14 @@ which is A-1 again.
 On Home, every thing a person can do this week is on the page: the soonest as the slide (R-295: drawing, goal heading, one full-width button, like a first-visit screen), the rest one line each, none
 behind "Show more", "Ready now?" or a closed fold. On the calm Home (R-222, A-23) "one line each" is the issue's row: it
 names its soonest deadline and how many more are due that week ("Testimony due tomorrow 1:00 PM, and 1 more this
-week"), and "Show the next one" brings each up on the slide, as does a tap on a row that has something due (R-295, Nate 10/17, "5a"); the slide's own issue says "On the slide above" in its row; a row is never silent about something due. Late testimony counts
+week"), and the slide's pager (its arrows, or a swipe; R-300) brings each up on the slide, as does a tap on a row that has something due, which moves the pager to it (R-295, Nate 10/17, "5a"); the slide's own issue says "On the slide above" in its row; a row is never silent about something due. Late testimony counts
 as something due (R-250, Nate 10/11): when nothing is due on time it is the slide, and its row says "Late testimony until
 today 1:10 PM". A bill followed on its own has a row too, named for the bill with its number on the status line ("HB 1563 ·
 Needs a hearing by Mon, Mar 30"); the slide's own bill has none. **One exception, at
-Nate's word (10/11):** a follower of more than 8 issues sees them grouped by where they stand ("Due this week" first) and
-the first 8, then "Show all N" in place; so something due is folded only when more than 8 issues have something due.
+Nate's word (10/11):** a follower of more than 8 issues sees them in the order of where they stand (what is due first) and
+the first 8, then "Show all your issues" in place, which says "· more due this week" when something due is behind it (no
+number and no headings over the groups since R-300: Nate, 17 Oct, "remove the "due this week xyz" under the "your issues"");
+so something due is folded only when more than 8 issues have something due.
 Folds stay for what is done ("Done this week"), for results, and for detail inside one card or one bill. A button that leads to Home says what the person will do there, not the place: the
 first visit ends on **"See How I Can Help"**, and Home opens on exactly that (C-6: the next screen keeps the button's
 promise).

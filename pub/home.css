@@ -334,7 +334,8 @@
 /* ---------------- the calm Home (R-222 Direction 1, pub/calm/home.js; the layout test's version A) ----------------
    One column, phone first: the greeting, one card, Your issues as rows, two quiet lines. Four blocks (A-23). On a laptop
    the same column, centred at a reading width, so the one card stays the one focal point (A-13). */
-.cm { display: flex; flex-direction: column; gap: var(--s24); max-width: 640px; margin: 0 auto; }
+/* Nate's "quieter list" and "plenty of empty space" (R-300): a little more room between the four blocks (A-8's 32). */
+.cm { display: flex; flex-direction: column; gap: var(--s32); max-width: 640px; margin: 0 auto; }
 .cm .cm-head { display: flex; flex-direction: column; gap: var(--s8); padding-top: var(--s8); }
 .cm .cm-head .eyebrow { font-weight: 400; }
 .cm .cm-head .lede { margin: 0; color: var(--n700); }
@@ -342,69 +343,104 @@
 .cm .cm-head .hm-seslink { margin-top: 0; }
 .cm .cm-lines .hm-meetline { margin: 0; }
 .cm .cm-card { display: flex; flex-direction: column; gap: var(--s8); }
-.cm .cm-next { margin: 0; display: flex; justify-content: flex-end; }
-.cm .cm-seen { display: flex; align-items: center; flex-wrap: wrap; gap: 0 var(--s8); margin: 0; color: var(--n700); }
-.cm .cm-seen > .ic { color: var(--n500); }
 .cm .cm-h { font-size: var(--t22); margin-bottom: var(--s8); }
-.cm .cm-rows { list-style: none; margin: 0; padding: 0; background: var(--n0); border: 1px solid var(--n100); border-radius: var(--r16, 16px); overflow: hidden; }
-.cm .cm-rows li + li { border-top: 1px solid var(--n100); }
-/* A long list, grouped by where each issue stands (Nate 10/11): a small heading over each group, the count beside it. */
-.cm .cm-group + .cm-group { margin-top: var(--s16); }
-.cm .cm-gh { font-size: var(--t16); font-weight: 700; margin: 0 0 var(--s8); }
-.cm .cm-gh .muted { font-weight: 400; }
+/* The one thing, then where things stand: a wider break between them than inside either (A-8, 32 + 16 = 48; R-300, "plenty of
+   empty space"). */
+.cm > .cm-issues { margin-top: var(--s16); }
+/* Your issues, quieter (R-300): no box and no lines between rows, room instead (A-8: space is how sections are made); a row
+   lights up white on the page's grey under a finger or a pointer, and the slide's own row stays lit. */
+.cm .cm-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s4); }
 .cm .cm-showall { display: flex; width: fit-content; margin: var(--s8) 0 0 -12px; }
-.cm .cm-row { display: flex; align-items: center; gap: var(--s12); min-height: 64px; padding: var(--s12) var(--s12) var(--s12) var(--s16); color: inherit; text-decoration: none; transition: background .12s; }
-.cm .cm-row:hover { background: var(--n50); }
+.cm .cm-row { display: flex; align-items: center; gap: var(--s12); min-height: 64px; margin: 0 calc(-1 * var(--s12)); padding: var(--s12); border-radius: var(--r12); color: inherit; text-decoration: none; transition: background .12s; }
+.cm .cm-row:hover { background: var(--n0); }
 .cm .cm-rtext { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-/* An issue's name is a heading wherever it stands (A-19). */
-.cm .cm-rname { font: 600 var(--t18)/1.25 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+/* An issue's name is a heading wherever it stands (A-19); 18px at Home's step, as the mockup's rows. */
+.cm .cm-rname { display: flex; align-items: baseline; gap: var(--s8); font: 600 var(--t16)/1.25 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
 .cm .cm-rstat { font-size: var(--t14); color: var(--n700); }
 .cm .cm-rstat.warn { color: var(--warn-text); font-weight: 700; }   /* amber only inside 24 hours (A-5) */
-.cm .cm-new { display: inline-block; vertical-align: 2px; margin-left: 6px; padding: 1px 8px; border-radius: var(--pill); background: var(--p50); color: var(--p800); font: 700 var(--t13)/1.4 var(--font); letter-spacing: 0; }   /* a label, not a link: a wash, after the name (A-5) */
+/* New since the last visit: a small dot before the name (it is after it in the page, so the name is read first), its words
+   for a screen reader and on hover. A shape, not a colour alone. */
+.cm .cm-new { order: -1; flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--p500); transform: translateY(-2px); }
 .cm .cm-chev { flex: none; color: var(--n400); }
-.cm .cm-all { margin: var(--s4) 0 0 -12px; }
+.cm .cm-all { margin: var(--s8) 0 0 -12px; }
 .cm .cm-lines { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); }
 .cm .cm-lines .hm-profline { margin: 0; }
 
-/* ---- the slide (R-295, version A): the one thing to do drawn like an onboarding screen, no card around it ---- */
-.cm .cm-hi { margin: 0; font-size: var(--t16); color: var(--n700); }
-.cm .cm-hi b { color: var(--n900); }
-.cm .cm-slide { display: flex; flex-direction: column; gap: var(--s16); }
-.cm .cm-art { position: relative; height: 130px; border-radius: var(--r16, 16px); overflow: hidden; background: #EAF7FD; }
+/* ---- the slide (R-295, version A; steadied by R-300): the one thing to do drawn like an onboarding screen, no card ---- */
+.cm .cm-hi { margin: 0; font-size: var(--t16); color: var(--n700); text-wrap: pretty; }
+.cm .cm-hi b { font-weight: 400; }   /* one quiet style for the whole line (R-300): the slide's heading is the page's focal point (A-13) */
+.cm .cm-slide { display: flex; flex-direction: column; gap: var(--s16); touch-action: pan-y; }
+.cm .cm-art { position: relative; height: 152px; border-radius: var(--r16, 16px); overflow: hidden; background: #EAF7FD; }
 .cm .cm-art svg, .cm .cm-art img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }   /* the ground stretches, the people stay whole (art.js) */
 .cm .cm-art .art-capitol { position: static; height: 100%; padding: var(--s8) 0 0; }
 .cm .cm-art:has(.art-capitol) { background: transparent; }
-@media (max-height: 760px) { .cm .cm-art { height: 100px; } }   /* a short phone screen keeps the button near the first screen's edge */
+/* A tall phone gives the drawing a little more room, so the first screen is the greeting and the slide with space around
+   them (R-300: under 60 words and six text styles); a short one keeps the button near the first screen's edge. */
+@media (max-height: 760px) { .cm .cm-art { height: 100px; } }
 .cm-off .cm-art { height: 88px; }   /* between sessions the Capitol is a reminder, not news: the long list of 16 stays under 3 screens (A-23) */
+.cm .cm-col { display: flex; flex-direction: column; gap: var(--s12); min-width: 0; }
+.cm .cm-face { display: flex; flex-direction: column; gap: var(--s16); }
+/* Every slide of a deck as tall as its tallest words: the other slides' words share the grid cell, hidden (pub/calm/home.js
+   ghostOf), so the button, More ways and the pager never move between slides (R-300). */
+.cm .cm-stack { display: grid; }
+.cm .cm-stack > * { grid-area: 1 / 1; }
+.cm .cm-stack > .cm-ghost { visibility: hidden; }
 .cm .cm-words { display: flex; flex-direction: column; gap: var(--s12); }
-.cm .cm-goal { margin: 0; font-size: var(--t28); line-height: 1.15; outline: none; }
+/* The heading's face is set here in full, so a hidden copy (a <p>) holds exactly its room. */
+.cm .cm-goal { margin: 0; font: 700 var(--t28)/1.15 var(--font-h); letter-spacing: -.02em; color: var(--n900); outline: none; }
 .cm .cm-say { margin: 0; color: var(--n700); }
-.cm .cm-when { margin: 0; font-size: var(--t14); color: var(--n700); }
-.cm .cm-when b { color: var(--n900); }
-.cm .cm-when .cm-bill { color: var(--p700); font-weight: 600; text-underline-offset: 3px; padding: 12px 0; }   /* the tap reaches past the text's height (A-6) */
-.cm .cm-when.warn b { color: var(--warn-text); }   /* amber only inside 24 hours (A-5) */
-.cm .cm-time { display: flex; align-items: center; gap: var(--s8); margin: 0; font-size: var(--t14); color: var(--n700); }
-.cm .cm-time .ic { color: var(--p700); }
-.cm .cm-go { display: flex; flex-direction: column; gap: var(--s8); margin-top: var(--s4); }
-.cm .cm-more { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0 var(--s8); margin: 0 -12px; }
-.cm .cm-more .btn { padding-inline: 12px; }   /* "More ways to help" and "Show the next one" share one row on a 390px phone */
+.cm .cm-time { display: flex; align-items: baseline; gap: var(--s8); margin: 0; font-size: var(--t14); color: var(--n700); }
+.cm .cm-time .ic { flex: none; align-self: center; color: var(--p700); }
+.cm .cm-time .warn { color: var(--warn-text); }   /* amber only inside 24 hours (A-5) */
+.cm .cm-time .cm-bill { color: var(--p700); font-weight: 700; text-underline-offset: 3px; padding: 12px 0; white-space: nowrap; }   /* the tap reaches past the text's height (A-6); "HB 2300" never splits */
+.cm .cm-go { display: flex; flex-direction: column; gap: var(--s8); }
+.cm .cm-more { display: flex; margin: 0 -12px; }
+.cm .cm-more .btn { padding-inline: 12px; }   /* lined up with the words; its padding keeps the 44px target */
 .cm .cm-slide .donebox, .cm .cm-slide .twin, .cm .cm-slide .again { margin: 0; }
 .cm .cm-slide .moreways { margin: 0; }
-.cm .cm-row.on { background: var(--p50); }
+.cm a.mwrow { color: inherit; text-decoration: none; }   /* the hearing ask's "Read what the bill does" is a link drawn as a row */
+.cm .cm-row.on { background: var(--n0); }
 .cm .cm-row.on .cm-rstat { color: var(--p800); font-weight: 700; }
-.cm .cm-rname { font-size: var(--t16); }   /* 18px at Home's step, as the mockup's rows */
+/* The pager (R-300, Nate 17 Oct): two 44px arrows (A-6) and at most five dots, the current one blue and larger, an outer one
+   small while more lie beyond it. An arrow at either end looks and is disabled (A-12). */
+.cm .cm-pager { display: flex; align-items: center; justify-content: center; gap: var(--s8); }
+.cm .cm-pg { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--n200); background: var(--n0); color: var(--p700); display: grid; place-items: center; }
+.cm .cm-pg .ic { width: 22px; height: 22px; }
+.cm .cm-pg:hover:not([disabled]) { background: var(--p50); }
+.cm .cm-pg[disabled] { color: var(--n300); border-color: var(--n100); background: transparent; cursor: default; }
+.cm .cm-dots { display: flex; align-items: center; gap: var(--s8); padding: 0 var(--s8); }
+.cm .cm-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--n300); transition: background .2s var(--ease), transform .2s var(--ease); }
+.cm .cm-dots i.on { background: var(--p700); transform: scale(1.25); }
+.cm .cm-dots i.sm { transform: scale(.6); }
+/* Moving between slides: the drawing and the words with their button slide the way the person is going, as the first visit's
+   screens do (fx.css fx-out-l / fx-in-r, 260 ms, A-10); More ways and the pager stay put. A swipe moves them with the finger
+   (--cm-dx, pub/calm/home.js) and they settle back when it falls short. */
+.cm .cm-slide > .cm-art { view-transition-name: cm-art; }
+.cm .cm-face { view-transition-name: cm-face; }
+.cm .cm-slide > .cm-art, .cm .cm-face { transform: translateX(var(--cm-dx, 0)); }
+.cm .cm-slide.cm-settle > .cm-art, .cm .cm-slide.cm-settle .cm-face { transition: transform .2s var(--ease); }
+::view-transition-old(cm-art), ::view-transition-new(cm-art), ::view-transition-old(cm-face), ::view-transition-new(cm-face) { animation-duration: .26s; animation-timing-function: var(--ease); }
+html[data-fxdir="fwd"]::view-transition-old(cm-art), html[data-fxdir="fwd"]::view-transition-old(cm-face) { animation-name: fx-out-l; }
+html[data-fxdir="fwd"]::view-transition-new(cm-art), html[data-fxdir="fwd"]::view-transition-new(cm-face) { animation-name: fx-in-r; }
+html[data-fxdir="back"]::view-transition-old(cm-art), html[data-fxdir="back"]::view-transition-old(cm-face) { animation-name: fx-out-r; }
+html[data-fxdir="back"]::view-transition-new(cm-art), html[data-fxdir="back"]::view-transition-new(cm-face) { animation-name: fx-in-l; }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(cm-art), ::view-transition-new(cm-art), ::view-transition-old(cm-face), ::view-transition-new(cm-face) { animation: none; }
+  .cm .cm-dots i { transition: none; }
+}
 .cm .cm-thanks { display: flex; gap: var(--s12); align-items: center; padding: var(--s12) var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16, 16px); }
 .cm .cm-thanks .fx-bloom { width: 48px; height: 48px; margin: 0; flex: none; }
 .cm .cm-thanks .flower { flex: none; }
 .cm .cm-thanks p { margin: 0; display: flex; flex-direction: column; gap: 2px; }
 .cm .cm-thanks b { font: 700 var(--t22)/1.2 var(--font-h); color: var(--o600); }
-/* A laptop: the slide in two columns like "You're all set!" (the drawing left, the words right), the button sized to its words. */
+/* A laptop: the slide in two columns like "You're all set!" (the drawing left, the words right), the button sized to its
+   words, the pager under it on the words' edge. Tops aligned, so opening More ways moves nothing above it. */
 @media (min-width: 900px) {
   .cm { max-width: 980px; }
   .cm > .cm-issues, .cm > .cm-lines { width: 100%; max-width: 640px; }
-  .cm .cm-slide { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s24) var(--s48, 48px); align-items: center; }
+  .cm .cm-slide { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s24) var(--s48, 48px); align-items: start; }
   .cm .cm-art { height: 220px; }
   .cm .cm-go { flex-direction: row; flex-wrap: wrap; }
   .cm .cm-go .btn.full { width: auto; padding-inline: 30px; }
-  .cm .cm-more { justify-content: flex-start; gap: 0 var(--s24); }
+  .cm .cm-pager { justify-content: flex-start; }
 }
