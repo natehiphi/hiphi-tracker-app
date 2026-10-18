@@ -165,22 +165,30 @@ export function recPerson(route) {
   const card = m ? billCard(m, { own }) : helloCard([l], { own });
   // On your issues: the followed bills in their committees or before their chamber, the card's own bill left out (A-14).
   // The ones they chair first, then in their hands now by what is due, then what comes to them next; four, and the rest in
-  // place (B-14). A bill in a committee they chair says so and comes first, in both lists (Nate 18 Oct, card 18: whether these are only the
+  // place (B-14). A bill in a committee they chair comes first, in both lists (Nate 18 Oct, card 18: whether these are only the
   // committees they chair or every one they sit on is "a big distinction"; the chair decides which bills get a hearing). Every
-  // committee they sit on counts (people.js billsIn); today's page said "they chair it" too.
-  const chairs = x => x.r?.role === 'chair' ? 0 : 1, tag = x => chairs(x) ? '' : 'They chair it';
-  const mine2 = followed().filter(x => x.id !== m?.b?.id).map(x => meetOf(l, x, roles)).filter(Boolean).sort((x, y) => chairs(x) - chairs(y) || x.t - y.t || byDue(x, y));
+  // committee they sit on counts (people.js billsIn). Here a row says "They chair its committee": the fresh-eyes review found
+  // "They chair it" beside a bill's name read as chairing the bill.
+  const chaired = x => x.r?.role === 'chair', tag = x => chaired(x) ? 'They chair its committee' : '';
+  const mine2 = followed().filter(x => x.id !== m?.b?.id).map(x => meetOf(l, x, roles)).filter(Boolean).sort((x, y) => chaired(y) - chaired(x) || x.t - y.t || byDue(x, y));
   const yours = mine2.length ? recSec('pp-yi', 'On your issues', recMore(mine2.map(x => billRow(x.b, x.due, { href: billPath(x.b), tag: tag(x),
     note: x.when === 'next' ? `Comes to ${short(x.r.committee)} next` : x.when === 'floor' ? x.due.text : '' })), 4, 'pp-yi')) : '';
   // Their committees, every HIPHI bill in them, office and contact: closed, a one-line preview each, remembered open (B-6).
   const cm = roles.length ? recFold('pp-cmtes', 'Their committees', `${roleWord(roles[0].role)} of ${short(roles[0].committee)}${roles.length > 1 ? `, and ${roles.length - 1} more` : ''}`,
     `<p class="rc-note pp-rnote">Committees look at bills before the full ${CHAMBER_NAME[l.chamber]} votes. The chair decides which bills get a hearing.</p>`
     + recRows(roles.map(r => ({ name: short(r.committee), text: [roleWord(r.role), slotsOf(r.committee).length ? `Meets ${slotLine(slotsOf(r.committee))}` : ''].filter(Boolean).join(' · '), href: `#/committee/${r.committee}`, lead: r.role === 'member' ? 'users' : 'landmark' })))) : '';
-  const allB = billsIn(roles).map(x => ({ ...x, due: dueOf(x.b) })).sort((x, y) => chairs(x) - chairs(y) || (x.when === 'now' ? 0 : 1) - (y.when === 'now' ? 0 : 1) || byDue(x, y));
+  const allB = billsIn(roles).map(x => ({ ...x, due: dueOf(x.b) })).sort((x, y) => chaired(y) - chaired(x) || (x.when === 'now' ? 0 : 1) - (y.when === 'now' ? 0 : 1) || byDue(x, y));
+  // Every HIPHI bill in their committees: one quiet label over each committee they chair ("Education, which they chair"), then
+  // "Their other committees", so the distinction is said once a group and names the committee (A-14; on Sen. Kim's page every
+  // row said "They chair it"). No labels when they chair none.
+  const allRow = x => billRow(x.b, x.due, { href: billPath(x.b), note: x.when === 'next' ? `Comes to ${short(x.r.committee)} next` : '' });
+  const led = [...new Set(allB.filter(chaired).map(x => x.r.committee))];
+  const groups = led.length ? [...led.map(c => [`${short(c)}, which they chair`, allB.filter(x => chaired(x) && x.r.committee === c)]),
+    ['Their other committees', allB.filter(x => !chaired(x))]].filter(([, xs]) => xs.length) : [['', allB]];
   const pv = allB.find(x => x.b.id !== m?.b?.id) || allB[0];   // the preview names a bill the card does not (A-14)
   const bills = allB.length ? recFold('pp-allbills', 'All HIPHI bills in their committees', billWords(pv.b) + (allB.length > 1 ? ', and more' : ''),
-    `<p class="rc-note pp-rnote">${roles.some(r => r.role === 'chair') ? 'Bills in every committee they sit on, the ones they chair first.' : 'Bills in every committee they sit on.'}</p>`
-    + recMore(allB.map(x => billRow(x.b, x.due, { href: billPath(x.b), tag: tag(x), note: x.when === 'next' ? `Comes to ${short(x.r.committee)} next` : '' })), 8, 'pp-allbills')) : '';
+    `<p class="rc-note pp-rnote">Bills in every committee they sit on.</p>`
+    + groups.map(([h, xs], n) => `${h ? `<p class="pp-rgh">${esc(h)}</p>` : ''}${recMore(xs.map(allRow), groups.length > 1 ? 6 : 8, `pp-allbills-${n}`)}`).join('')) : '';
   // The phone is said once on the page, inside this card (A-14; the old page said it twice), so the preview only names it.
   const office = recFold('pp-office', 'Office and contact', andList([l.room ? `Room ${l.room} at the Capitol` : 'Their Capitol office', l.phone ? 'their phone' : '', l.capitol_url ? 'their Capitol page' : ''].filter(Boolean)),
     `${l.phone ? recWay('phone', `Call ${l.phone}`, 'Their office at the Capitol', { href: `tel:${l.phone.replace(/[^\d+]/g, '')}`, 'aria-label': `Call ${who(l)} at ${l.phone}` }) : ''}

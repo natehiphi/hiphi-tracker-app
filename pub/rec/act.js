@@ -45,10 +45,11 @@ export function dueOf(b, code = '') {
 export const byDue = (x, y) => (x.due.t - y.due.t) || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true });
 
 // A bill named the way every page names it: the nickname first, the number always (frontend CLAUDE.md).
-export const billWords = b => nick(b) ? `${nick(b)} (${spaced(b.bill_number)})` : spaced(b.bill_number);
+// The number never splits across lines ("(HB / 1523)" in a boxed row, the fresh-eyes review): a no-break space, on screen only.
+export const billWords = b => { const n = spaced(b.bill_number).replace(' ', '\u00a0'); return nick(b) ? `${nick(b)} (${n})` : n; };
 // One quiet row for a bill: its name, then the number, HIPHI's stance and what is due ("HB 1780 · HIPHI supports · Hearing
 // Wed 1:00 PM"). note replaces what is due ("Comes to Ways and Means next").
-// tag: words that end the line (a lawmaker's page: "They chair it").
+// tag: words that end the line (a lawmaker's page: "They chair its committee").
 export const billRow = (b, due, { note = '', href, tag = '' } = {}) => ({ name: headline(b, 90), href,
   text: [spaced(b.bill_number), posInfo(b)?.text || '', note || due.text, tag].filter(Boolean).join(' · '), warn: !note && due.warn });
 

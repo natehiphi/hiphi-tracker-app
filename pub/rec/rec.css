@@ -140,6 +140,9 @@ body.rec .acard .btncol > .btn.mwtoggle:active { background: none; }
 /* The one action card on the lawmaker and committee pages (pub/rec/act.js recAct), in the bill page's look (.bl-ract): the
    moment and how near it is, what to do, one sentence why, one filled button, how long it takes, then more ways. */
 body.rec .rc-act { margin-top: var(--s16); }
+/* A lawmaker's bills, one quiet label over each committee they chair (pub/rec/people.js, card 18) */
+body.rec .pp-rgh { margin: var(--s16) 0 var(--s4); font: 700 var(--t14)/1.3 var(--font); color: var(--n800); }
+body.rec .pp-rnote + .pp-rgh { margin-top: var(--s12); }
 body.rec .rc-awhen { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 700; font-size: var(--t14); color: var(--n700); }
 body.rec .rc-awhen .ic { width: 16px; height: 16px; flex: none; }
 body.rec .rc-awhen > span:nth-child(2) { flex: 1; min-width: 0; }

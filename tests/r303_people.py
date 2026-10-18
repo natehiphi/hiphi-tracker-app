@@ -128,13 +128,15 @@ with sync_playwright() as p:
             pg.click('.rc-fold[data-rc-fold=pp-allbills] > summary'); pg.wait_for_timeout(200)
             first = pg.locator('.rc-fold[data-rc-fold=pp-allbills] .rc-rstat').first.inner_text()
             check('HIPHI' in first, f'{tag}: every HIPHI bill in her committees, with the stance ({first})')
-            # Nate 18 Oct, card 18: every committee she sits on, and the ones she chairs say so and come first
-            st = pg.evaluate("[...document.querySelectorAll('.rc-fold[data-rc-fold=pp-allbills] .rc-rstat')].map(e => e.textContent)")
-            ch = ['They chair it' in x for x in st]
-            chairs = pg.evaluate("[...document.querySelectorAll('.rc-fold[data-rc-fold=pp-cmtes] .rc-rstat')].some(e => /^Chair/.test(e.textContent))")
-            check(ch == sorted(ch, reverse=True) and any(ch) == chairs, f'{tag}: "They chair it" on the bills in a committee she chairs, those first ({sum(ch)} of {len(ch)}; chairs one: {chairs})')
+            # Nate 18 Oct, card 18: every committee she sits on, each one she chairs labelled once over its bills and first (the
+            # fresh-eyes review: "They chair it" on every row read as chairing the bill)
+            led = pg.evaluate("[...document.querySelectorAll('.rc-fold[data-rc-fold=pp-cmtes] .rc-row')].filter(a => /^Chair/.test(a.querySelector('.rc-rstat')?.textContent || '')).map(a => a.querySelector('.rc-rname').textContent)")
+            labels = pg.evaluate("[...document.querySelectorAll('.rc-fold[data-rc-fold=pp-allbills] .pp-rgh')].map(e => e.textContent)")
+            check(bool(led) and labels[:1] == [f'{led[0]}, which they chair'] and all(x.endswith('which they chair') for x in labels[:-1]) and labels[-1] in ('Their other committees', f'{led[-1]}, which they chair'),
+                  f'{tag}: a label over the bills in each committee she chairs, first ({labels}; chairs {led})')
+            check(not pg.evaluate("[...document.querySelectorAll('.rc-fold[data-rc-fold=pp-allbills] .rc-rstat')].some(e => /They chair it/.test(e.textContent))"), f'{tag}: no row says "They chair it"')
             note = pg.inner_text('.rc-fold[data-rc-fold=pp-allbills] .pp-rnote')
-            check(note.startswith('Bills in every committee they sit on'), f'{tag}: the card says it is every committee they sit on ({note})')
+            check(note == 'Bills in every committee they sit on.', f'{tag}: the card says it is every committee they sit on ({note})')
             check(not s['wide'] and s['h1'] == 1 and not pg.errs, f'{tag}: Sen. Kim: one h1, no sideways scroll, no errors {pg.errs[:1]}')
             go(pg, '#/legislator/189?from=HB2121')
             t = pg.inner_text('.rc-act .rc-ah')
