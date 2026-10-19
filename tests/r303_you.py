@@ -19,8 +19,10 @@
 #     conversation has one way back, "Help", on Help's left edge on a laptop.
 #   Privacy: "In short" open, every other section a closed card, Accessibility second, every word of today's page there.
 #   The later-visit ask: the "Welcome back" icon has a gap before its words (a live fix).
-# Without ?rec each page is still today's. With ?rec=1&boxes=1 (the practice copy only, Nate's look of 18 Oct) every list on the
-# grey is in the white box: Home's Your issues, You's rows, Help's lessons; without &boxes=1, none of them.
+# Without ?rec each page is still today's. Home's Your issues is in the white box with ?rec=1 (Nate 18 Oct, "I'll go with the
+# box for the home page"), its slide's row lit pale blue and each day kept on one line with its time at 360px; today's Home has
+# no box. With ?rec=1&boxes=1 (the practice copy only, Nate's look of 18 Oct) the other lists on the grey are in the white box
+# too: You's rows, Help's lessons; without &boxes=1, neither.
 import sys, os, re
 from urllib.parse import urlparse, unquote
 from playwright.sync_api import sync_playwright
@@ -244,19 +246,29 @@ def main():
         pg = ctx.new_page(); open_page(pg, '#/signin', rec=False, sel='#main .mr-signin')
         check(pg.evaluate("document.querySelector('#main h1').innerText") == 'Add your email', 'without ?rec: the email page is "Add your email"')
         ctx.close()
-        # ---- ?rec=1&boxes=1, Nate's look at every list in the white box (18 Oct); nothing changes without &boxes=1 ----
-        ctx = br.new_context(viewport={'width': 390, 'height': 844}); ctx.add_init_script(init('kai'))
+        # ---- Home's Your issues in the white box with ?rec=1 (Nate 18 Oct: "I'll go with the box for the home page"); today's has none ----
+        ctx = br.new_context(viewport={'width': 360, 'height': 800}); ctx.add_init_script(init('kai'))
         if LOCAL: ctx.route('http://wt.local/**', serve)
         pg = ctx.new_page()
         BOXED = "(s => { const e = document.querySelector(s), c = e && getComputedStyle(e); return !!c && c.backgroundColor === 'rgb(255, 255, 255)' && parseFloat(c.borderTopWidth) > 0; })"
-        for route, sel, name in (('#/', '#main .cm .cm-rows', 'Home\'s Your issues'), ('#/more', '#main .yu-rows .rc-rows', 'You\'s rows'), ('#/help', '#main .tk-more .rc-rows', 'Help\'s lessons')):
+        for q, want in (('', False), ('&rec=1', True)):
+            pg.goto(f"{BASE}/track.html?demo=1{q}#/"); ready(pg, '#main .cm-goal'); pg.wait_for_selector('#main .cm .cm-rows', timeout=30000)
+            check(pg.evaluate(BOXED + "('#main .cm .cm-rows')") == want, f"Home's Your issues: {'in the white box with ?rec=1' if want else 'no box without ?rec'}")
+        lit = pg.evaluate("(() => { const r = document.querySelector('#main .cm-row.on'); return r ? getComputedStyle(r).backgroundColor : null; })()")
+        check(lit not in (None, 'rgb(255, 255, 255)', 'rgba(0, 0, 0, 0)'), f"Home's box: the slide's row stays lit in pale blue, not white on white ({lit})")
+        days = pg.evaluate("[...document.querySelectorAll('#main .cm-rstat .cm-when')].map(e => [e.textContent, e.getClientRects().length, getComputedStyle(e).whiteSpace])")
+        check(days and all(n == 1 and ws == 'nowrap' for _, n, ws in days), f"Home's box at 360px: each day stays on one line with its time ({days[:2]})")
+        ctx.close()
+        # ---- ?rec=1&boxes=1, Nate's look at the seven other lists in the white box (18 Oct); nothing changes without &boxes=1 ----
+        ctx = br.new_context(viewport={'width': 390, 'height': 844}); ctx.add_init_script(init('kai'))
+        if LOCAL: ctx.route('http://wt.local/**', serve)
+        pg = ctx.new_page()
+        for route, sel, name in (('#/more', '#main .yu-rows .rc-rows', 'You\'s rows'), ('#/help', '#main .tk-more .rc-rows', 'Help\'s lessons')):
             for q, want in (('&rec=1', False), ('&rec=1&boxes=1', True), ('&boxes=1', None)):
                 pg.goto(f"{BASE}/track.html?demo=1{q}{route}"); ready(pg, '#main h1, #main .rc-h1, #main .cm-goal')
                 if want is None: check(not pg.evaluate("document.documentElement.classList.contains('rc-boxall')"), f'{name}: &boxes=1 without ?rec changes nothing'); continue
                 pg.wait_for_selector(sel, timeout=30000)
                 check(pg.evaluate(BOXED + f"({sel!r})") == want, f'{name}: {"in the white box with &boxes=1" if want else "no box without &boxes=1"}')
-        pg.goto(f"{BASE}/track.html?demo=1&rec=1&boxes=1#/"); ready(pg, '#main .cm-rows')
-        check(pg.evaluate("getComputedStyle(document.querySelector('#main .cm-row.on') || document.body).backgroundColor") != 'rgb(255, 255, 255)', 'Home with the box: the slide\'s row stays lit, not white on white')
         ctx.close(); br.close()
     # The live Alerts page's words are the Text terms page's (alerts.js GETS_*, levelsWhere): the terms still hold each piece.
     terms = re.sub(r'<[^>]+>', '', re.sub(r'<!--.*?-->', '', open(os.path.join(ROOT, 'text-terms.html'), encoding='utf8').read(), flags=re.S))

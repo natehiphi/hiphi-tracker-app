@@ -14,7 +14,8 @@
 //      (R-250); a plan to go on its day. Right after sending, "Mahalo" and the flower, then the next slide or "That's all for
 //      this week". Nothing to do: the Capitol, "Nothing needs you this week" and no filled button. Between sessions, the one
 //      thing to do then, as a slide. Home reads at onboarding's type size (R-174's step, pub/base.css; C-14).
-//   3. Your issues, quieter (R-300): one row each, no box, the issue's name, one phrase for where it stands and its next
+//   3. Your issues, quieter (R-300): one row each, no box (with ?rec=1 the white box, Nate 18 Oct, R-303; rec.css),
+//      the issue's name, one phrase for where it stands and its next
 //      date, most important first. Amber only inside 24 hours (A-5). A dot before the name when it changed since the last
 //      visit. Over 8 issues: in the order of where they stand, the first 8, then "Show all your issues" (no headings since
 //      R-300; Nate 10/11 for the order). A bill followed on its own gets a row of its own (R-250).
@@ -53,8 +54,10 @@ function dayShort(iso) {
 }
 // "today 2:00 PM", "Wed 9:30 AM", "Mar 30 1:00 PM": Home's words for a time, also the calm Find's and My issues' (R-303).
 export const when = iso => `${dayShort(iso)} ${time(iso)}`;
-// For the calm pages' rows (R-303): a time or a date never breaks across lines ("1:10 / PM", "Mar / 30"; A-8).
-export const keep = t => String(t).replace(/(\d) ([AP]M)\b/g, '$1\u00a0$2').replace(/\b([A-Z][a-z]{2}) (\d{1,2})\b/g, '$1\u00a0$2');
+// For the calm pages' rows (R-303): a time or a date never breaks across lines ("1:10 / PM", "Mar / 30"; A-8), nor a day
+// from its time ("tomorrow / 3:00 PM", "Mar 30 / 1:00 PM"; the white boxes are narrower, 18 Oct).
+export const keep = t => String(t).replace(/(\d) ([AP]M)\b/g, '$1\u00a0$2').replace(/\b([A-Z][a-z]{2}) (\d{1,2})\b/g, '$1\u00a0$2')
+  .replace(/\b(today|tomorrow|[A-Z][a-z]{2}\u00a0\d{1,2}) (\d{1,2}:\d{2})/g, '$1\u00a0$2');
 const prevVisit = () => S.prevVisit ? Date.parse(S.prevVisit) : 0;
 const isNew = t => { const p = prevVisit(); return !!p && !!t && t > p && t <= Date.now(); };
 const skipKey = x => x.h.id + '|' + x.b.id;
@@ -299,8 +302,11 @@ function stateOf(ids, c) {
 // A row's facts: an issue's, or a bill's followed on its own (its number first in the status line).
 const issueRow = (i, c) => ({ i, ...stateOf(new Set(issueBills(i)), c), name: i.name, href: `#/issue/${i.slug}` });
 const billRow = (b, c) => { const st = stateOf(new Set([b.id]), c); return { b, ...st, name: headline(b), text: `${spaced(b)} · ${st.text}`, href: billPath(b) }; };
+// A deadline stays whole on its line: the day and its time in one span ("Testimony due Sun / 3:00 PM" broke in the
+// redesign's narrower white box, R-303), held on one line by rec.css with ?rec=1 only; today's Home wraps as before.
+const whole = t => t.replace(/\b((?:today|tomorrow|Mon|Tue|Wed|Thu|Fri|Sat|Sun|[A-Z][a-z]{2} \d{1,2}) \d{1,2}:\d{2} [AP]M)/g, '<span class="cm-when">$1</span>');
 const rowHtml = r => `<li><a class="cm-row${r.on ? ' on' : ''}" href="${esc(r.href)}"${r.pick && !r.on ? ` data-cm-pick="${esc(r.pick)}"` : ''}><span class="cm-rtext"><span class="cm-rname">${esc(r.name)}${r.fresh ? '<span class="cm-new" title="New since your last visit"><span class="sr"> New since your last visit</span></span>' : ''}</span>
-    <span class="cm-rstat${r.warn ? ' warn' : ''}">${esc(r.text)}</span></span>${icon('chevron-right', { cls: 'cm-chev' })}</a></li>`;
+    <span class="cm-rstat${r.warn ? ' warn' : ''}">${whole(esc(r.text))}</span></span>${icon('chevron-right', { cls: 'cm-chev' })}</a></li>`;
 // A long list (Nate 10/11, for a follower of dozens like Leilani: "Option number 2, but still grouped by status"): the
 // issues ranked by importance, which is the group order below, then the soonest date, then HIPHI's own order of issues; the
 // first FOLD show and "Show all your issues" opens the rest in place. No headings over the groups since R-300 (Nate 17 Oct:

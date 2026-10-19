@@ -180,7 +180,10 @@ it looks fine on a good laptop screen.
 ### A-8 Spacing comes from the scale, and space is how sections are made
 
 4/8/12/16/24/32/48. Related things sit closer together than unrelated things; that proximity is what
-makes a group, not a border and not a card. Prefer removing a card to adding one.
+makes a group, not a border and not a card. Prefer removing a card to adding one. **Lists of tappable rows get a box**
+(Nate 18 Oct 2026, R-303): in the redesign (?rec=1) a list of rows to tap sits in one white box with a hairline between rows
+(rec.css .rc-box, kit.js BOX), so it shows where it starts and ends; so far the topic page, Find, search, My issues,
+Committees and Home; seven other lists wait for his pick on Where the Box Goes.
 
 *Reason.* Gestalt proximity. Nate's word for the failure is "disharmony", and its usual cause is
 arbitrary spacing — two gaps that differ by 3px read as a mistake even when nobody can say why.
@@ -380,8 +383,10 @@ next arrows (44px) around **at most five dots**, a window that slides with the c
 left; a swipe on a touch screen does the same. **Every slide of a deck is as tall as its tallest words**, so the button, More
 ways and the pager sit at the same place on every slide. The greeting is **one line with no count** (Nate: "Remove the XYZ
 things you can do this week. If it's a lot it can be overwhelming", which reverses R-295's "10 things you can do this
-week"); a result on a bill with a slide opens that slide's sentence, any other is a dot on its row. Your issues has no box
-and no headings with counts, a dot for what is new, one link under it. **On a phone the first screen is under 60 words and
+week"); a result on a bill with a slide opens that slide's sentence, any other is a dot on its row. Your issues has no
+headings with counts, a dot for what is new, one link under it; in the redesign (?rec=1) its rows sit in the white box
+(Nate 18 Oct 2026, R-303: "I'll go with the box for the home page", which reverses R-300's "no box"; A-8), the slide's own
+row lit pale blue inside it and each day kept whole with its time. **On a phone the first screen is under 60 words and
 6 text styles** (the amber of A-5 aside), measured with a style as one face, size, weight and colour. Checked by
 `tests/home_calm.py` on every slide of each moment, phone and laptop.
 
