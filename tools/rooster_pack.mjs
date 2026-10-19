@@ -44,4 +44,14 @@ fs.writeFileSync(path.join(root, 'pub', 'rooster.css'), `/* The rooster's animat
    change the animation file and pack again. The wrapper (.ro) is in fx.css. */
 ${css.join('\n\n')}
 `);
+// The error cards' rooster is everyone's since Nate's Keep (19 Oct, R-308): the live site loads it, and only it, the first
+// time an error card is drawn (kernel.js errArt). One small module with its rules inside, so it lands in one piece; its
+// <div>s are already <span>s (an error card's art may sit in a <p>), as fx.js does for the others.
+const errCss = css.find(c => c.startsWith('/* error:'));
+fs.writeFileSync(path.join(root, 'pub', 'rooster-error.js'), `// The error cards' rooster, packed by tools/rooster_pack.mjs from rooster/animations/error.html (R-308, Nate's Keep
+// 19 Oct). Do not edit by hand. Loaded by kernel.js errArt the first time an error card is drawn, on the live site too.
+export const MS = ${meta.error.ms};
+export const CSS = ${JSON.stringify(errCss)};
+export const STAGE = ${JSON.stringify(out.error.replace(/<div\b/g, '<span data-rb').replace(/<\/div>/g, '</span>'))};
+`);
 console.log('packed', Object.keys(out).join(', '), 'from', src);

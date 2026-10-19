@@ -4,8 +4,8 @@
 // shared with it is imported from start.js (a read-only view of its state: the lessons through lessons()).
 import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, lessons, stepOf, coverOn } from './start.js';
 import { situation } from './bill.js';   // the bill page's own reading of where a bill is (R-255: the story leans to one still waiting for a hearing)
-import { fxArt, S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind, textSaved,
-  openActions, waitingBills, chairContacts, askedChair, agrees, dateLong, toast } from './core.js';
+import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind, textSaved,
+  openActions, waitingBills, chairContacts, askedChair, agrees, dateLong } from './core.js';
 import { myLegs, introState } from './speakup.js';   // the hello to their legislators (R-150)
 import { myStories, saveProfile, storyAsk } from './myprofile.js';   // one sentence on why an issue matters, kept for January (R-150)
 import { btn, chip, posChip } from './ui.js';
@@ -13,7 +13,7 @@ import { HELP_WORDS } from './letters.js';   // the testimony button's words (R-
 import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { GO_HELP } from './topics.js';
-import { afterMove, bloom, burst, drift, later, reduced, petals, swap, fxOn, cheer, rooster, roosterAt } from './fx.js';
+import { afterMove, bloom, burst, drift, later, reduced, petals, swap, fxOn, rooster, coverFold } from './fx.js';
 // R-307's words on trial, with the two others offered for Nate's pick (?fxw=2 or 3 on the practice copy).
 const VOICE_WORDS = () => ['You’re ready to speak up.', 'Your voice is ready.', 'Now you know how to be heard.'][(+new URLSearchParams(location.search).get('fxw') || 1) - 1] || 'You’re ready to speak up.';
 import { shareLine } from './keep.js';
@@ -589,7 +589,7 @@ function cuCard(it, k, now) {
   return `<li class="st-cu" style="--k:${k}">${card}${act}</li>`;
 }
 // The one honest line where nothing is coming up, in the place the list would be (Nate 10/5): never an empty block.
-const nothingCard = text => `<section class="st-nothing">${fxArt('empty', { size: 56, key: 'st-nothing' }) || `<span class="st-ilead" aria-hidden="true">${icon('calendar-clock')}</span>`}<p>${esc(text)}</p></section>`;
+const nothingCard = text => `<section class="st-nothing"><span class="st-ilead" aria-hidden="true">${icon('calendar-clock')}</span><p>${esc(text)}</p></section>`;
 function nothingWords() {
   // Following nothing is the reason there is nothing here: say so, with the way out (B-8, B-3, R-249).
   if (!followedIssues().length) return 'You’re not following anything yet. Follow an issue and its hearings show up on your home page.';
@@ -977,11 +977,10 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       // that filled the screen with three ticks over the Capitol, which read as the end with Stay connected still to
       // come (Nate: "makes it feel like everything is done", R-140).
       S.stLearned = true;
-      // R-307 on trial (?demo=1&fx=voice): the story's end gets its small win, a burst and the rooster just above the
-      // button, and the words as a toast over the next screen (C-7: a small burst mid-visit, never a full-screen moment).
-      // The rooster stands on the next screen's Next once it has slid in (on a laptop that button is elsewhere).
-      // No petals of its own: the strip's tick on the next screen keeps its burst, so this is the rooster and the toast.
-      if (fxOn('voice')) { toast(VOICE_WORDS(), { yay: true }); later(() => roosterAt(document.querySelector('.actionbar [data-stnext]') || nb), 280); }
+      // R-307 on trial (?demo=1&fx=voice; Nate 19 Oct: "a celebration at the end of the bills story", not on the page after
+      // it, which the ending on Home no longer has): the issues' cover with the rooster over the story's last stage; as it
+      // fades, the visit moves on, so the next screen (Home, with its own welcome) arrives after it, never under it.
+      if (fxOn('voice')) { coverFold({ art: rooster('big-win', { size: 168, cls: 'st-cvro', fit: 1600 }), title: VOICE_WORDS(), sub: 'You know when your voice counts most.', go: next, goAtEnd: true }); return; }
       next();
     };
   }
@@ -1006,7 +1005,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
         const found = res.ids.map(id => S.legislators.find(l => l.id === id)).filter(Boolean);
         try { localStorage.setItem('hiphi_districts', JSON.stringify({ senate: found.find(l => l.chamber === 'S')?.district || null, house: found.find(l => l.chamber === 'H')?.district || null })); } catch { /* ignore */ }
         app.render();
-        later(() => cheer('found', document.getElementById('st-legs'), 14, 70, { side: 'text', at: document.getElementById('st-h') }), 300);   // found: a small celebration (C-7); R-308's rooster with fx=found
+        later(() => burst(document.getElementById('st-legs'), 14, 70), 300);   // found: a small celebration (C-7)
       } catch { S.stAddr.finding = false; S.stAddr.err = 'We couldn’t look that up just now. Check your connection and try again.'; app.render(); }
     };
     function wireSugs() {

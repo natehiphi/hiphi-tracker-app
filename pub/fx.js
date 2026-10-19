@@ -22,7 +22,7 @@
 // Orange is the celebration colour and appears in these and almost nowhere else (C-7).
 //   rooster(id, o)  R-308, the practice copy only (fxOn): the HIPHI rooster drawn for one moment on trial. roosterAt(el, id)
 //                  floats a small one just above a thing done, like burst().
-import { icon, toast, DEMO, fxHook, esc } from './kernel.js';
+import { icon, toast, DEMO, esc } from './kernel.js';
 
 export const reduced = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 // A pause that only exists when things move: under Reduce Motion the next beat happens at once.
@@ -181,8 +181,9 @@ export function celebrate({ title, sub = '', small = '', go = 'Continue', alt = 
 }
 
 // ================= R-308: the rooster, on trial on the practice copy only =================
-// Nate (18 Oct): the rooster "everywhere it fits" (wins big and small, empty lists, errors, sending, reminders; never the
-// streak or idle ones), warm but calm (R-281's cartoon was over the top). Each moment is switched on by name in the
+// Nate (18 Oct): the rooster "everywhere it fits", warm but calm (R-281's cartoon was over the top). His choices on the
+// review page (19 Oct): the error cards' rooster is everyone's (kernel.js errArt); alerts, empty lists, the reminder,
+// Sending…, a stance, the toast and the hello page went back to today's; the rest stay on trial here. Each moment is switched on by name in the
 // address, ?demo=1&fx=voice,toast or fx=all, so he can see each one beside today's; without it every screen is exactly as
 // it was, and the live page never downloads the rooster (no DEMO, no fx: nothing here runs).
 const FXS = DEMO ? (new URLSearchParams(location.search).get('fx') || '').split(',').map(x => x.trim()).filter(Boolean) : [];
@@ -274,15 +275,82 @@ export function cheer(id, el, n, dist, o = {}) {
   if (!fxOn(id) || (o.alone && document.querySelector('.toastmsg .ro, .ro-float'))) return;
   roosterAt(o.at || el, 'small-win', o);
 }
-// The hooks the kernel asks through (kernel.js fxHook): the yay toast's mark, and the art of an error or an empty list.
-if (FXS.length) {
-  fxHook.cheer = (id, el, n, dist, o) => { if (fxOn(id)) cheer(id, el, n, dist, o); };
-  if (fxOn('toast')) fxHook.yay = () => rooster('small-win', { size: 32, cls: 'ro-toast', delay: 180 });
-  fxHook.art = (id, o = {}) => {
-    if (id === 'error' && fxOn('error')) return rooster('error', { size: o.size || 96, cls: 'ro-art', key: o.key || '' });
-    if (id === 'empty' && fxOn('empty')) return rooster('empty-state', { size: o.size || 96, cls: 'ro-art', key: o.key || '', stop: 5000 });
-    if (id === 'reminder' && fxOn('reminder')) return rooster('deadline-reminder', { size: o.size || 30, cls: 'ro-due', key: o.key || '' });
-    if (id === 'sending' && fxOn('sending')) return rooster('submitting', { size: o.size || 26, cls: 'ro-busy', stop: 5000 });
-    return '';
-  };
+
+// ---- Nate's changes of 19 Oct, still on trial ----
+// The issues' cover (start-rest.js coverAndFold, R-306 E, everyone's) for the other moments he wanted as big: the whole
+// window warm, the rooster in the middle with the words, then after `ms` or at a tap or a key it folds away: into `to`
+// (a band at the top of the page, drawn held by fxBand() while the cover is up; or any element, like the quiz's badge),
+// the rooster flying to its place there, or it fades where there is no `to`. Nothing under it can be tapped while it is up
+// (it takes the taps; a tap only ends it sooner). `go` moves the flow on: under the cover at 0.17 s, as the issues' does
+// (the screen is drawn while nothing moves), or with `goAtEnd` once it has gone (the story's end: the next screen keeps
+// its own arrival). Under Reduce Motion there is no cover: the flow moves on, the band shows at once, and the words come as a
+// toast where there is no band (A-10: the words always).
+let bandHeld = false;
+export const COVER_MS = 1800, FOLD_MS = 650;
+export function coverFold({ art, title, sub = '', go = () => {}, to = '', goAtEnd = false, ms = COVER_MS }) {
+  if (reduced()) { bandHeld = false; go(); if (!to) toast(title, { yay: true }); return; }
+  document.getElementById('fx-cover')?.remove();
+  const el = document.createElement('div'); el.id = 'fx-cover'; el.className = 'st-cover fx-cover';
+  el.innerHTML = `<div class="st-cvin" role="status" aria-live="polite"><div class="st-cvflower">${art}${drift()}</div>
+    <p class="st-cvtitle">${esc(title)}</p>${sub ? `<p class="st-cvsub">${esc(sub)}</p>` : ''}</div>`;
+  document.body.appendChild(el);
+  bandHeld = !!to;
+  let moved = goAtEnd, timeUp = false, folded = false;
+  const tryFold = () => { if (moved && timeUp) fold(); };
+  const early = () => { timeUp = true; tryFold(); };
+  el.addEventListener('pointerdown', early);
+  const onKey = e => { if (!['Tab', 'Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) early(); };
+  document.addEventListener('keydown', onKey, true);
+  setTimeout(early, ms);
+  if (!goAtEnd) setTimeout(() => { go(); window.scrollTo(0, 0); moved = true; tryFold(); }, 170);
+  function fold() {
+    if (folded) return; folded = true;
+    document.removeEventListener('keydown', onKey, true);
+    const land = () => { bandHeld = false; document.querySelectorAll('.fx-band.st-mbhold').forEach(b => b.classList.replace('st-mbhold', 'st-mbland'));
+      el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, easing: 'ease-out', fill: 'forwards' }).finished.then(() => el.remove(), () => el.remove()); };
+    const dest = to && document.querySelector(to);
+    if (!dest || !el.animate) {
+      // No place to fold into: the cover fades, and the story's end moves on as it goes.
+      el.classList.add('st-cvout'); setTimeout(() => { el.remove(); bandHeld = false; if (goAtEnd) go(); }, 240); return;
+    }
+    const r = dest.getBoundingClientRect(), vw = innerWidth, vh = innerHeight, round = getComputedStyle(dest).borderRadius || '12px';
+    const opt = { duration: FOLD_MS, easing: 'cubic-bezier(.45, 0, .2, 1)', fill: 'forwards' };
+    el.animate([{ clipPath: 'inset(0px 0px 0px 0px round 0px)' }, { clipPath: `inset(${r.top}px ${vw - r.right}px ${vh - r.bottom}px ${r.left}px round ${round})` }], opt);
+    el.querySelectorAll('.st-cvtitle, .st-cvsub, .fx-drift').forEach(w => w.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' }));
+    // The rooster flies to the band's rooster (its centre there, scaled to its size), or into the element and fades as it lands.
+    const from = el.querySelector('.st-cvflower > .ro'), at = dest.querySelector('.ro') || dest;
+    let t = null;
+    if (from) { const a = from.getBoundingClientRect(), b = at.getBoundingClientRect(), k = b.height / a.height;
+      from.style.transformOrigin = 'center';
+      t = from.animate([{ transform: 'none', opacity: 1 }, { transform: `translate(${b.left + b.width / 2 - (a.left + a.width / 2)}px, ${b.top + b.height / 2 - (a.top + a.height / 2)}px) scale(${k})`, opacity: at === dest ? 0 : 1 }], opt); }
+    (t ? t.finished : new Promise(res => setTimeout(res, FOLD_MS))).then(land, land);
+  }
 }
+// The band a cover folds into, at the top of the page it leaves (the issues' band, fx.css .st-mhband): the rooster standing
+// and the words, held unseen while the cover is up. Stays until the person moves on.
+export const fxBand = ({ title, sub = '', size = 52 }) => `<div class="st-mhband fx-band${bandHeld ? ' st-mbhold' : ''}" role="status"><span class="st-mbflower">${rooster('small-win', { size, still: true })}</span>
+  <div class="st-mbwords"><b class="st-mbtitle">${esc(title)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</div></div>`;
+
+// ?demo=1&fx=law&plant=law and fx=goodnews&plant=goodnews (Nate 19 Oct: "I couldn't try it on new"): the practice copy
+// plants what the moment needs, so the link reaches it directly, every time it is opened. Home reads what is followed as
+// it starts, so it takes two loads: the first follows the issues of the seeded actions (seed=1) and makes Home forget the
+// good news it has shown, then loads again; on the second, law makes a bill they supported and spoke up on law today and
+// draws Home again. Home's own moment then plays as it would.
+const PLANT = FXS.length ? new URLSearchParams(location.search).get('plant') : '';
+if (PLANT === 'law' || PLANT === 'goodnews') (async () => {
+  const c = await import('./core.js');
+  for (let i = 0; i < 300 && !(c.D.bills?.length && c.myActions().length); i++) await new Promise(r => setTimeout(r, 100));
+  if (!c.myActions().length) return;
+  let second = false; try { second = sessionStorage.getItem('hiphi_fxplant') === PLANT; sessionStorage.removeItem('hiphi_fxplant'); } catch { /* no second load */ }
+  if (!second) {
+    for (const a of c.myActions()) c.S.direct.add(a.bill_id);
+    c.recomputeWatch(); c.saveLocal();
+    try { localStorage.removeItem('hiphi_moments_shown'); localStorage.removeItem('hiphi_moments_seen'); sessionStorage.setItem('hiphi_fxplant', PLANT); } catch { return; }
+    location.replace(location.pathname + location.search + '#/'); location.reload(); return;
+  }
+  if (PLANT !== 'law') return;
+  const b = c.myActions().map(a => c.D.bills.find(x => x.id === a.bill_id)).find(x => x && /support/.test(x.hiphi_position || ''));
+  if (b) for (const arr of [c.S.bills, c.D.bills, c.S.featured?.bills, c.S.pool?.bills, c.S.results, c.S.browse?.rows]) {
+    const x = (arr || []).find(y => y.id === b.id); if (x) { x.stage = 'enacted'; x.last_action_date = new Date().toISOString().slice(0, 10); } }
+  c.saveLocal(); c.app.render();
+})().catch(e => console.error(e));

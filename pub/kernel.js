@@ -36,12 +36,20 @@ if (DEMO) {
     for (const f of ['getItem', 'setItem', 'removeItem']) { const orig = P[f]; P[f] = function (k, ...a) { return orig.call(this, apart(k), ...a); }; }
   } catch { /* storage blocked: nothing to keep apart */ }
 }
-// R-308 (practice copy only): the rooster's moments on trial, ?demo=1&fx=<id>[,<id>] or fx=all (pub/fx.js fxOn). The kernel
-// cannot import fx.js (fx.js imports the kernel), so fx.js fills these hooks once it is in, and the few places that draw
-// a moment outside fx.js's importers (the yay toast, the boot's error card, the empty lists) ask through them. Without
-// fx= nothing is filled, nothing extra loads, and every screen is as it was.
-export const fxHook = { yay: null, art: null, cheer: null };   // the toast's mark, an error's or empty list's art, a small win
-export const fxArt = (id, o) => (fxHook.art && fxHook.art(id, o)) || '';
+// The error cards' rooster, everyone's since Nate's Keep (19 Oct, R-308): it tilts its head once above the words (A-10: the
+// words say what went wrong; the bird is only warmth). Its drawing (pub/rooster-error.js, about 5 KB, its rules inside) is
+// fetched the first time an error card is drawn, never before, so a visit without an error loads nothing new. The box keeps
+// its place while it comes; if it cannot come (offline), the empty box is taken out, so the card is as it was.
+let errStage = '', errLoad = null;
+export function errArt({ size = 96 } = {}) {
+  if (!errStage && !errLoad) errLoad = import('./rooster-error.js').then(m => {
+    const st = document.createElement('style'); st.textContent = m.CSS; document.head.appendChild(st); errStage = m.STAGE;
+    document.querySelectorAll('.ro[data-ro="error"] > .ro-st:empty').forEach(e => { e.innerHTML = errStage; });
+  }, () => { errLoad = null; document.querySelectorAll('.ro[data-ro="error"]').forEach(e => { if (!e.firstElementChild?.firstElementChild) e.remove(); }); });
+  return `<span class="ro ro-art" data-ro="error" style="--ro:${size}" aria-hidden="true"><span class="ro-st">${errStage}</span></span>`;
+}
+// R-308 (practice copy only): the rooster's moments still on trial, ?demo=1&fx=<id>[,<id>] or fx=all (pub/fx.js fxOn).
+// Without fx= nothing more loads, and every screen is as it was.
 if (DEMO && /[?&]fx=/.test(location.search)) import('./fx.js').catch(e => console.error(e));
 export const $ = s => document.querySelector(s);
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -57,7 +65,7 @@ export function toast(m, opt = {}) {
   box.innerHTML = '';
   const el = document.createElement('div'); el.className = 'toastmsg' + (opt.err ? ' err' : opt.yay ? ' yay' : '');
   const btnLabel = opt.also ? opt.also.label : opt.undo ? 'Undo' : '';
-  el.innerHTML = (opt.yay ? (fxHook.yay && fxHook.yay()) || `<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9.5" fill="var(--ok-text)"/><path class="ck" d="M5.5 10.4l3 3 6-6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '')
+  el.innerHTML = (opt.yay ? `<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9.5" fill="var(--ok-text)"/><path class="ck" d="M5.5 10.4l3 3 6-6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '')
     + `<span>${esc(opt.err ? friendly(m) : m)}</span>` + (btnLabel ? `<button type="button" class="toastundo">${esc(btnLabel)}</button>` : '');
   const run = opt.also ? opt.also.action : opt.undo;
   if (run) el.querySelector('.toastundo').onclick = async () => { box.innerHTML = ''; try { await run(); } catch (e) { toast(e, true); } app.render(); };

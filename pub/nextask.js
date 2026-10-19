@@ -22,7 +22,7 @@ import { createAddressPicker } from './addresspicker.js';
 import { alertFields, wireAlertForm, alertButton, alertDoneHTML, codeStep, profileAsk, PROFILE_H, profileLede, alertsGiven } from './alerts.js';
 import { declineNudge, doShare } from './actions.js';
 import { newIssues } from './home.js';
-import { burst, later, cheer } from './fx.js';
+import { burst, later, fxOn, rooster, coverFold, fxBand } from './fx.js';
 import { abSeen, armOf } from './variant.js';
 import { logAsk } from './visitlog.js';
 
@@ -109,8 +109,9 @@ function notNow(k) {
 // ---------------- the frame: the first visit's ----------------
 // "Not now" is an outlined button beside the filled one, as on the first visit's own asks (C-3: an equal choice; the review
 // of 10/11). The line over the drawing says why the page is here and where both answers lead (P-4, C-6).
-const shell = (k, art, h, lede, main) => `<div class="st st1 nx nx-${k}"><div class="st-intro">
-    <p class="nx-eyebrow">${icon('sparkles')}<span>Welcome back · one quick thing, then Home</span></p><div class="st-art">${art}</div>
+// `top` (R-308 on trial): a band that takes the eyebrow's and the drawing's place at the top (fx.js fxBand).
+const shell = (k, art, h, lede, main, top = '') => `<div class="st st1 nx nx-${k}"><div class="st-intro">
+    ${top || `<p class="nx-eyebrow">${icon('sparkles')}<span>Welcome back · one quick thing, then Home</span></p><div class="st-art">${art}</div>`}
     <h1 class="hero" id="st-h">${h}</h1>${lede ? `<p class="lede">${lede}</p>` : ''}</div><div class="st-main">${main}</div></div>`;
 const bar = (label, opt = {}, attrs = { 'data-nxgo': '1' }) => `<div class="st-bar"><div class="st-btns">
   ${btn('Not now', { kind: 'secondary', attrs: { 'data-nxno': '1' } })}${btn(label, { kind: 'primary', ...opt, attrs })}</div></div>`;
@@ -148,7 +149,7 @@ function legsPage() {
   }
   return shell('legs', islands(''), A.pick ? 'These two speak for&nbsp;you' : 'Who speaks for you?',
     A.pick ? '' : 'One senator and one representative speak for where you live, and they listen closest to you. Find yours in about 30 seconds.',
-    `<div class="st-legwrap">${body}</div>`);
+    `<div class="st-legwrap">${body}</div>`, A.pick && S.nxFound && fxOn('found') ? fxBand({ title: 'Found them!', sub: 'Your senator and representative are below.' }) : '');
 }
 function wireLegs() {
   const box = document.querySelector('[data-nxaddr]');
@@ -164,8 +165,12 @@ function wireLegs() {
       const found = res.ids.map(id => S.legislators.find(l => l.id === id)).filter(Boolean);
       try { localStorage.setItem('hiphi_districts', JSON.stringify({ senate: found.find(l => l.chamber === 'S')?.district || null, house: found.find(l => l.chamber === 'H')?.district || null })); } catch { /* ignore */ }
       did('legs');
+      // R-308 on trial (?demo=1&fx=found; Nate 19 Oct: "a similar animation as ... after picking issues and signing up for
+      // alerts. Full page that reverts to just a top band."): the issues' cover with the rooster, folding into a band on top
+      // of the legislators found. Today's: a small celebration (C-7).
+      if (fxOn('found')) { S.nxFound = true; coverFold({ art: rooster('big-win', { size: 168, cls: 'st-cvro', fit: 1600 }), title: 'Found them!', sub: 'These two speak for you.', go: () => app.render(), to: '.fx-band' }); return; }
       app.render();
-      later(() => cheer('found', document.getElementById('st-legs'), 14, 70, { side: 'text', at: document.getElementById('st-h') }), 300);   // found: a small celebration (C-7); R-308's rooster with fx=found
+      later(() => burst(document.getElementById('st-legs'), 14, 70), 300);
     } catch { S.nxAddr.finding = false; S.nxAddr.err = 'We couldn’t look that up just now. Check your connection and try again.'; app.render(); }
   };
   function wireSugs() {
@@ -199,7 +204,7 @@ function wireAlerts() {
   // The visit's one profile ask (C-3): nothing else asks again this visit.
   S.nudge = null; S.nudgedThisVisit = true;
   const f = document.getElementById('nx-aform');
-  if (f) wireAlertForm(f, { pfx: 'nx-a', source: 'home', onSwap: () => app.render(), onDone: r => { S.nxAlert = r; did('alerts'); app.render(); later(() => cheer('alerts', document.getElementById('st-h'), 14, 70, { side: 'text' }), 200); } });
+  if (f) wireAlertForm(f, { pfx: 'nx-a', source: 'home', onSwap: () => app.render(), onDone: r => { S.nxAlert = r; did('alerts'); app.render(); later(() => burst(document.getElementById('st-h'), 14, 70), 200); } });
 }
 
 // ---------------- issues: new issues HIPHI took up, in a topic they follow (R-018; a Home card until R-237) ----------------

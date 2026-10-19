@@ -2,7 +2,7 @@
 // Home ("Do this now"), Find (suggestions) and the bill page, so it looks and behaves the same everywhere.
 // One primary button (write testimony, or email the chair once the written deadline has passed), one secondary
 // ("More ways to help") that opens inside the card, never a sheet. Every action counts (Nate, 9/18).
-import { S, DEMO, fxHook, fxArt, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, anyBill, anyHearing, settledOn, goingOn, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, followedIssues, CHAMBER_NAME, codesOf, suggestEvent } from './core.js';
+import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, anyBill, anyHearing, settledOn, goingOn, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, followedIssues, CHAMBER_NAME, codesOf, suggestEvent } from './core.js';
 import { testifyLabel, againLine, mailLabel, letterOn, HELP_WORDS } from './letters.js';
 import { logAct } from './visitlog.js';
 import { issueBand } from './art.js';
@@ -134,7 +134,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     <p class="meta"${compact ? ` id="t-${esc(h.id)}"` : ''}>${esc(spaced(b.bill_number))} · ${esc(cmteLabel(h.committee))}</p>
     ${b.hiphi_action && !differs ? `<p class="ask">${esc(b.hiphi_action)}</p>` : ''}
     ${why ? `<p class="why">${icon('sparkles')}${esc(why)}</p>` : ''}
-    ${due ? `<p class="due ${due.tone}">${remArt(due, k) || icon('clock')}<span>${due.html}${ofN ? ` <span class="ofn">· ${esc(ofN)}</span>` : ''}</span></p>` : ''}
+    ${due ? `<p class="due ${due.tone}">${icon('clock')}<span>${due.html}${ofN ? ` <span class="ofn">· ${esc(ofN)}</span>` : ''}</span></p>` : ''}
     <p class="meta hearing">${esc(hearingText(h))}</p>
     ${done ? '' : againLine(b, h)}
     ${twin ? `<p class="twin">${icon('copy')}<span>Its twin in the ${esc(CHAMBER_NAME[twin.h.committee && codesOf(twin.h.committee)[0] && S.committees[codesOf(twin.h.committee)[0]]?.chamber] || 'other chamber')}, <a href="${billPath(twin.b)}">${esc(spaced(twin.b.bill_number))}</a>: ${esc([twin.h.testimony_deadline ? (dueInfo(twin.h)?.text || '').replace(/\.$/, '') : '', hearingText(twin.h).replace(/ · Room.*$/, '').replace(/^Hearing/, 'hearing')].filter(Boolean).join(' · '))}.</span></p>` : ''}
@@ -506,10 +506,6 @@ export function nudgeCard(kind = S.nudge, pfx = 'ng', { bar = false } = {}) {
 }
 // "Not now" to the profile ask: quiet for 14 days, then 60 (kernel nudgeOk). With bar, the host's bar holds both answers,
 // "Not now" and the box's own button (the letter's Mahalo, R-205 C4: "Done" there closed the Mahalo before the share ask).
-// R-308 on trial (?demo=1&fx=reminder): the first card due within a day gets the rooster's "ahem" in the clock's place,
-// once per page load (a redraw shows it standing). Through the kernel's hook, so this file loads nothing new.
-let remFirst = '';
-const remArt = (due, k) => { if (!due.late && due.tone === 'warn' && !remFirst) remFirst = k; return k === remFirst ? fxArt('reminder', { key: `rem-${k}` }) : ''; };
 export function declineNudge() { const n = (onb().nudgeNo || 0) + 1; onbSet({ nudgeNo: n, nudgeNoAt: new Date().toISOString() }); S.nudge = false; }
 // The letter helper passes its own prefix and redraw: its box once looked up 'ng-' ids its copy no longer had, so Text me
 // there was never wired (found 10/5 building R-155).
@@ -518,8 +514,5 @@ export function wireNudge(root = document, { pfx = 'ng', redraw } = {}) {
   // Not now redraws its host: the letter's Mahalo is a dialog that app.render() does not draw, so its card stayed (R-184).
   root.querySelectorAll('[data-nudgeno]').forEach(el => el.onclick = e => { e.preventDefault(); declineNudge(); again(); if (redraw) app.render(); });
   const f = root.querySelector('.ngform'); if (!f) return;
-  wireAlertForm(f, { pfx, source: S.nudge === 'action' ? 'action' : 'home', onSwap: again, onDone: r => { if (r.kind === 'phone') S.nudgeText = r.phone; else S.nudgeSent = r.email; again();
-    // R-308 on trial (?demo=1&fx=alerts): alerts turned on from Home's ask is a small win, the rooster over the card's words.
-    // (Through the kernel's hook, so this file does not load fx.js where it did not before.)
-    if (fxHook.cheer) requestAnimationFrame(() => fxHook.cheer('alerts', document.querySelector('.nudgecard .strong, .nudgecard p'), 10, 40)); } });
+  wireAlertForm(f, { pfx, source: S.nudge === 'action' ? 'action' : 'home', onSwap: again, onDone: r => { if (r.kind === 'phone') S.nudgeText = r.phone; else S.nudgeSent = r.email; again(); } });
 }

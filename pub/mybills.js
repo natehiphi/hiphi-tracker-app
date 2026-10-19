@@ -7,7 +7,7 @@
 // with Find (search, issue and category pages, HIPHI's lists, the suggestion rows), so a bill and an issue each look
 // and follow the same way everywhere. On a phone a bill row is a small stack; from 1100px the same markup lines up as
 // a table with a header row (bill, status, next date, stance, follow).
-import { fxArt, S, D, DEMO, esc, icon, nick, blurb, spaced, billPath, alive, stopOf, plainStatus, dueInfo, dayWord, timeWord, hearingWhen, dateLong, hstDay,
+import { S, D, DEMO, esc, icon, nick, blurb, spaced, billPath, alive, stopOf, plainStatus, dueInfo, dayWord, timeWord, hearingWhen, dateLong, hstDay,
   sessionInfo, issueIcon, findBill, posInfo, myStance, countOk, listBillsFor, app, toast, issueBills, issueFollowed, followedIssues, viaIssue,
   issuePos, setFollows, unfollowIssue, catOf, issuesIn, followSummary, HELD_RE, whyStoppedShort, roomLabel, CHAMBER_NAME, codesOf } from './core.js';
 import { btn, iconBtn, row, posChip, chip } from './ui.js';
@@ -380,7 +380,7 @@ function render() {
       ${cats.map(catSec).join('')}` : lists.length && listLine
     ? emptyBox({ art: VOICES, title: off ? `You’re set for the ${nextYear(si)} session` : 'No issues here yet', text: listLine,
         action: `<div class="btncol mb-emptybtns">${btn('Browse issues', { kind: 'primary', icon: 'search', href: '#/find' })}</div>` })
-    : emptyBox({ art: fxArt('empty', { key: 'mb-empty' }) || VOICES, title: 'You’re not following any issues yet.',
+    : emptyBox({ art: VOICES, title: 'You’re not following any issues yet.',
         text: 'Follow an issue and its bills show up here, with the next hearing and what you can do about it.',
         action: `<div class="btncol mb-emptybtns">${btn('Pick what you care about', { kind: 'primary', icon: 'list-checks', href: '#/start/1' })}${btn('Browse issues', { kind: 'text', href: '#/find' })}</div>` });
   const ownSec = own.length ? `<section class="mb-own" aria-labelledby="mb-own-h"><div class="sechead"><h2 id="mb-own-h">${cats.length ? 'Other bills you follow' : 'Bills you follow'}</h2></div>
