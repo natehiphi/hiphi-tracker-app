@@ -190,9 +190,16 @@ let lastChapter = -1;
 // The "Mahalo!" page ends "Your issues" (R-140): there the part shows as done and the next one is not yet current, so the
 // row says what the button says, that more follows (the review, 11 Oct).
 const thanksUp = name => !planOn() && name === 'alerts' && !S.alertEdit && !!(S.stThanks || textSaved() || mailSent());
+// R-306 (Nate 18 Oct: the "Mahalo!" page "stops people from thinking they need to continue"; then "Build all three options
+// and let me choose between them after experiencing them"): three ways to celebrate without the page reading as the end, on
+// the practice copy only, ?demo=1&mahalo=a|b|c. a: the page as a bridge (forward words, the story's bill peeking up);
+// b: no page, the "Mahalo!" a band on top of the story; c: the page moves on by itself after a few seconds. Without the
+// parameter, and always on the live site, today's page. Not an A/B test (decision 10): nobody is put in a version.
+export const mahaloTry = () => { if (!DEMO || planOn()) return ''; const v = new URLSearchParams(location.search).get('mahalo') || ''; return /^[abc]$/.test(v) ? v : ''; };
 function chaptersRow(name) {
   const k0 = chapterOf(name); if (k0 < 0) return '';
-  const k = thanksUp(name) ? k0 + 1 : k0, on = thanksUp(name) ? -1 : k;
+  // In the R-306 versions the part that comes next is marked as the one they are in, so the strip says the visit goes on.
+  const k = thanksUp(name) ? k0 + 1 : k0, on = thanksUp(name) ? (mahaloTry() ? k : -1) : k;
   // A chapter behind the person is ticked only when they did it (C-7, R-249): "Your issues" with nothing followed, or the
   // story they pressed Skip on, keeps its plain dot and reads "(skipped)", so the strip never claims a step that was not taken.
   const skipped = i => !planOn() && ((i === 0 && !followsAnything()) || (i === 1 && !!S.stSkipped?.has('lesson')));
@@ -432,6 +439,9 @@ export const busy = (el, label) => { if (!el) return; el.setAttribute('aria-busy
 function redirectFor(step, off) {
   const n = nameAt(step, off), T = total(off);
   if (step > T) return T;
+  // R-306's version b has no "Mahalo!" page: once answered, the alerts screen is passed over (Back from the story goes to the
+  // issues); Change on the story's band opens the box again (S.alertEdit).
+  if (n === 'alerts' && mahaloTry() === 'b' && !S.alertEdit && (S.stThanks || textSaved() || mailSent())) return step + 1;
   if (n === 'alerts') return S.alertsShown || askAlerts() || S.stThanks ? 0 : step + 1;   // or its "Mahalo!" page (R-140)
   if (wiz().via) return n === 'followask' && (viaFollowed() || wiz().viaSkipAsk) ? step + 1 : 0;
   if (n === 'issues') return pickedIssues().length ? 0 : stepOf('topics', off);
