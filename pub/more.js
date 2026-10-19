@@ -22,7 +22,7 @@
 // behaviour (CONSENT_KEY) are unchanged. What changed: no digest menu (no digest email is sent to the public; the
 // only emails are the two opt-ins, migration 045), one Save button, "Your data" now says the same as Privacy,
 // deleting the account asks on the page instead of a browser pop-up, and every error is a sentence.
-import { S, DEMO, app, esc, icon, ICONS, toast, friendly, yay, supa, fetchAddrSuggest, looksLikeAddress, legTitle,
+import { S, DEMO, fxHook, app, esc, icon, ICONS, toast, friendly, yay, supa, fetchAddrSuggest, looksLikeAddress, legTitle,
   CONSENT_KEY, LOCAL_KEY, DONE_KEY, DONE_AT_KEY, LISTS_KEY, STANCE_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, recomputeWatch, fmtDate,
   sendEmailLink, validEmail, textSaved, followsAnything } from './core.js';
 import { btn, row, notice, inlineErr, skeleton } from './ui.js';
@@ -171,6 +171,9 @@ export function wireAddr(pfx, st, onChange = () => {}) {
     if (dist) dist.innerHTML = sd ? distHTML(sd, hd) : `${icon('info')}<span>We couldn’t find districts for that address. Try a nearby address.</span>`;
     // Focus moves to the answer, not back to the box: on a phone that would pop the keyboard up over it.
     dist?.focus({ preventScroll: true }); onChange();
+    // R-308 on trial (?demo=1&fx=found): districts found are a small win, the rooster just above them (kernel hook: this
+    // file loads nothing new).
+    if (sd && dist && fxHook.cheer) fxHook.cheer('found', dist, 10, 40);
   };
   inp.oninput = () => {
     const q = inp.value; Object.assign(st, { q, picked: false, sd: null, hd: null, failed: false });

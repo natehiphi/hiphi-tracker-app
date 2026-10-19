@@ -40,7 +40,7 @@ if (DEMO) {
 // cannot import fx.js (fx.js imports the kernel), so fx.js fills these hooks once it is in, and the few places that draw
 // a moment outside fx.js's importers (the yay toast, the boot's error card, the empty lists) ask through them. Without
 // fx= nothing is filled, nothing extra loads, and every screen is as it was.
-export const fxHook = { yay: null, art: null };
+export const fxHook = { yay: null, art: null, cheer: null };   // the toast's mark, an error's or empty list's art, a small win
 export const fxArt = (id, o) => (fxHook.art && fxHook.art(id, o)) || '';
 if (DEMO && /[?&]fx=/.test(location.search)) import('./fx.js').catch(e => console.error(e));
 export const $ = s => document.querySelector(s);
