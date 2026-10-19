@@ -324,8 +324,11 @@ function wireStories() {
   document.querySelectorAll('input[name="pf-quote"]').forEach(r => r.onchange = () => { if (r.checked) { P.draft.quote = r.value; paintBar(); } });
 }
 
+// #/profile?to=alerts, from the Alerts page's "Alerts in your profile" (R-303): open at the switch for each issue, once per arrival.
+let landed = false; addEventListener('hashchange', () => { landed = false; });
 function wireProfile() {
   if (!hasProfile()) { wireInvite(); return; }
+  if (!landed && /[?&]to=alerts\b/.test(location.hash)) { landed = true; requestAnimationFrame(() => { const l = $('.pf-lvls') || $('#pf-email'); if (l) { l.scrollIntoView({ block: 'start' }); l.querySelector('input')?.focus({ preventScroll: true }); } }); }
   const nm = $('#pf-name');
   if (nm) { nm.oninput = () => { P.draft.name = nm.value; paintBar(); }; nm.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); nm.blur(); } }; }
   wirePicker($('#pf-tp-host'), 'pf', P.tp, chosen => { P.draft.titles = [...chosen]; paintBar(); });

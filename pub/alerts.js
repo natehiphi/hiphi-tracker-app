@@ -109,8 +109,10 @@ export const TEXT_WORDS = `${ALERT_PROMISE} ${TEXT_FINE}`, EMAIL_WORDS = `${ALER
 export const GETS_WHAT = 'when your voice matters most on the issues you follow: HIPHI’s biggest calls to speak up and key hearings on their bills.';
 export const GETS_TEXTS = 'Usually a few texts a month while the Legislature meets, and never more than one text a day.';
 export const GETS_EMAILS = 'Usually a few emails a month while the Legislature meets.';
-// text: the link in a text is one more place to change it (an email has no such link).
-export const levelsWhere = text => `For each issue you choose how much: ${LEVEL_WORDS.every}, ${LEVEL_WORDS.big} (where every issue starts) or ${LEVEL_WORDS.app}. Change it under Alerts in your profile${text ? ', on the issue’s page, or from the link in any text' : ' or on the issue’s page'}.`;
+// HTML: the three names bold as on the terms page, and "Alerts in your profile" a link that opens Profile at the switch for
+// each issue (the fresh-eyes review, 18 Oct: named but not reachable, B-3). text: the link in a text is one more place to
+// change it (an email has no such link).
+export const levelsWhere = text => `For each issue you choose how much: <b>${LEVEL_WORDS.every}</b>, <b>${LEVEL_WORDS.big}</b> (where every issue starts) or <b>${LEVEL_WORDS.app}</b> (no texts${text ? '' : ' or emails'} about it). Change it under <a href="#/profile?to=alerts">Alerts in your profile</a>${text ? ', on the issue’s page, or from the link in any text' : ' or on the issue’s page'}.`;
 // The one line under the box, where it is typed (P-5): short and positive, never "spam" (the research: a line like it raised a
 // nonprofit's sign-ups from 18% to 27%; "never spam you" cost 19% in another test). The privacy page says the rest.
 const hintFor = phone => phone ? 'We never share your number.' : 'We never share your email.';

@@ -592,7 +592,7 @@ const stopLine = () => `<p class="small">Reply STOP to any text to end them. Sto
 // R-303, Nate 18 Oct: "Update the live alerts page to match reality"). It said a text for every hearing on your issues,
 // while every issue starts on Big moments only (R-299); before 18 Oct it also said "At most one text a day". Consent and
 // what it promises: a lawyer should confirm the words (R-149, L-03).
-const levelsLine = text => `<p class="small">${esc(levelsWhere(text))}</p>`;
+const levelsLine = text => `<p class="small">${levelsWhere(text)}</p>`;
 function alertsView() {
   if (REC()) return recAlertsView();
   const t = textSaved();

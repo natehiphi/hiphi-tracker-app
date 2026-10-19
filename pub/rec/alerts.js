@@ -84,7 +84,7 @@ export function signupView() {
     <section class="card mr-panel mr-alon" aria-labelledby="mr-al-t">
       <p class="strong">We sent a link to ${esc(sent)}. Tap it to turn on alerts.</p>
       <p>Then we’ll email you ${esc(GETS_WHAT)} ${esc(GETS_EMAILS)}</p>
-      <p class="small">${esc(levelsWhere(false))}</p>
+      <p class="small">${levelsWhere(false)}</p>
       <p class="small">Can’t find it in a minute? Check your spam or promotions folder.${DEMO ? ' This is the sandbox, so nothing was sent.' : ''}</p>
       <div class="btnrow">${btn('Use a different email', { kind: 'secondary', sm: true, icon: 'pencil', attrs: { 'data-mr-alotheremail': '' } })}</div>
     </section></div>`;

@@ -138,6 +138,10 @@ def main():
                     check('Usually a few texts a month while the Legislature meets, and never more than one text a day.' in live and 'At most one' not in live, f'{t}: the live #/alerts says how often, as the Text terms do')
                     check('when your voice matters most on the issues you follow' in live and 'gets a hearing' not in live, f'{t}: the live #/alerts says what comes, not a text for every hearing')
                     check('Big moments only (where every issue starts)' in live and 'from the link in any text' in live, f'{t}: the live #/alerts says each issue\'s level and where to change it')
+                    check('App only (no texts about it)' in live, f'{t}: the live #/alerts says what App only means')
+                    pg.click('#main a[href="#/profile?to=alerts"]'); pg.wait_for_selector('#main .pf-lvls', timeout=30000); pg.wait_for_timeout(900)
+                    top = pg.evaluate("document.querySelector('#main .pf-lvls').getBoundingClientRect().top")
+                    check(0 <= top < 400, f'{t}: "Alerts in your profile" opens Profile at the switch for each issue ({round(top)}px from the top)')
                     open_page(pg, '#/alerts', sel='#main .mr-alerts')
                 if signed:
                     check(pg.evaluate("document.querySelector('#main h1').innerText") == 'Your alerts', f'{t}: #/alerts is "Your alerts"')
