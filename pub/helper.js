@@ -1706,7 +1706,7 @@ async function confirmSent() {
   x.busy = false; x.screen = 'done'; saveDraft();
   paint({ focus: 'hp-done-t', top: true });
   x.askShown = !!S.nudge;
-  if (x.first) requestAnimationFrame(burst);
+  if (x.first && !fxOn('sent')) requestAnimationFrame(burst);   // with the rooster on trial (fx=sent) its hop is the one celebration (calm, R-281)
 }
 // First testimony ever: 16 hibiscus burst from behind the title over 900 ms, once. Under reduce-motion the title takes a
 // brief colour change instead (R-140: the words and a colour, nothing moves). Inside the dialog, because a modal dialog
