@@ -399,7 +399,12 @@ function thanksWords(r) {
   // R-306: the versions on trial never point to Home before the visit ends (it read as a goodbye); a says what comes next
   // instead, and all three keep the words for how we'll reach them.
   const ahead = mahaloTry() ? (r?.kind === 'phone' || r?.kind === 'email' ? how : '') : how;
-  return { title: first ? `Mahalo, ${first}!` : 'Mahalo!', sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`, how: ahead,
+  // R-306 e's words (Nate 18 Oct: "Let's go with "we'll watch these with you, Leilani""): not a thank-you, which closes an
+  // exchange and read as the end; the visit's own end keeps "Mahalo for joining in". One issue: "this one".
+  const them = n === 1 ? 'this one' : 'these';
+  const title = mahaloTry() === 'e' ? (first ? `We’ll watch ${them} with\u00a0you, ${first}.` : `We’ll watch ${them} with\u00a0you.`)   // "you" never alone on a line
+    : first ? `Mahalo, ${first}!` : 'Mahalo!';
+  return { title, sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`, how: ahead,
     next: n === 1 ? 'Next, see what could happen to it.' : 'Next, see what could happen to one of them.',
     // Its button names what comes next (C-6, C-7): right after a sign-up, a plain "Continue" read as the end of the visit.
     // The next part's name is in title case, as a name (Nate 10/6, R-186); both versions of the test 'fv' alike.
