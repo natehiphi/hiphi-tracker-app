@@ -19,7 +19,7 @@ import { titleLabel } from '../titles.js';
 import { codesOn } from '../phone.js';
 import { alertStatus } from '../alerts.js';
 import { myDistricts, seat, legName, meetEvent, HIPHI } from '../more.js';
-import { REC, recHead, recBack, recRow, recRows, recFold, recFolds, wireKit } from './kit.js';
+import { REC, recHead, recBack, recRow, recRows, recFold, recFolds, wireKit, BOX, keep } from './kit.js';
 
 // ---------------- the stylesheet ----------------
 // pub/app.js brings rec/rec.css to every page under ?rec=1; this group's own rules come with the first of its pages. Until
@@ -78,7 +78,7 @@ function lawmakersLine() {
 // mark, not a chevron; without a link it is the words alone.
 function eventRow() {
   const c = meetEvent(); if (!c) return '';
-  const inner = `<span class="rc-lead">${icon('calendar-days')}</span><span class="rc-rtext"><span class="rc-rname">${esc(c.title)}</span>${c.body ? `<span class="rc-rstat">${esc(c.body)}</span>` : ''}</span>`;
+  const inner = `<span class="rc-lead">${icon('calendar-days')}</span><span class="rc-rtext"><span class="rc-rname">${esc(c.title)}</span>${c.body ? `<span class="rc-rstat">${esc(keep(c.body))}</span>` : ''}</span>`;
   return `<li class="yu-event">${c.link_url ? `<a class="rc-row" href="${esc(c.link_url)}" target="_blank" rel="noopener">${inner}${icon('external-link', { cls: 'rc-chev' })}<span class="sr">(opens in a new tab)</span></a>`
     : `<div class="rc-row">${inner}</div>`}</li>`;
 }
@@ -104,7 +104,7 @@ export function youView() {
     ${recHead({ title: t('You') })}
     ${meCard()}
     ${langPicker('mr-lang')}
-    <nav class="yu-rows" aria-label="${esc(t('You'))}"><ul class="rc-rows" role="list">${rows.map(recRow).join('')}${eventRow()}</ul></nav>
+    <nav class="yu-rows" aria-label="${esc(t('You'))}"><ul class="rc-rows ${BOX}" role="list">${rows.map(recRow).join('')}${eventRow()}</ul></nav>
     <nav class="yu-foot" aria-label="${esc(t('About this tracker'))}">
       <button type="button" class="yu-fl" data-yu-about aria-expanded="${open}" aria-controls="yu-about"><span>${t('About HIPHI')}</span>${icon('chevron-down', { cls: 'yu-flc' })}</button>
       <a class="yu-fl" href="#/privacy">${t('Privacy and accessibility')}</a>

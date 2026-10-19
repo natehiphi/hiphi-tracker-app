@@ -21,8 +21,9 @@
 #   The later-visit ask: the "Welcome back" icon has a gap before its words (a live fix).
 # Without ?rec each page is still today's. Home's Your issues is in the white box with ?rec=1 (Nate 18 Oct, "I'll go with the
 # box for the home page"), its slide's row lit pale blue and each day kept on one line with its time at 360px; today's Home has
-# no box. With ?rec=1&boxes=1 (the practice copy only, Nate's look of 18 Oct) the other lists on the grey are in the white box
-# too: You's rows, Help's lessons; without &boxes=1, neither.
+# no box. The seven other lists are in the white box with ?rec=1 too (Nate 18 Oct, "Box all seven"): You's rows, Help's
+# lessons and Email HIPHI, Your lawmakers, a lawmaker's On your issues, a committee's bills, the issue page's Bills on this
+# issue and its one record row; a day and its time stay on one line in them; no list in the redesign is left on the grey.
 import sys, os, re
 from urllib.parse import urlparse, unquote
 from playwright.sync_api import sync_playwright
@@ -259,16 +260,26 @@ def main():
         days = pg.evaluate("[...document.querySelectorAll('#main .cm-rstat .cm-when')].map(e => [e.textContent, e.getClientRects().length, getComputedStyle(e).whiteSpace])")
         check(days and all(n == 1 and ws == 'nowrap' for _, n, ws in days), f"Home's box at 360px: each day stays on one line with its time ({days[:2]})")
         ctx.close()
-        # ---- ?rec=1&boxes=1, Nate's look at the seven other lists in the white box (18 Oct); nothing changes without &boxes=1 ----
-        ctx = br.new_context(viewport={'width': 390, 'height': 844}); ctx.add_init_script(init('kai'))
+        # ---- The seven other places in the white box (Nate 18 Oct, "Box all seven"), as Leilani with her districts saved ----
+        ctx = br.new_context(viewport={'width': 390, 'height': 844}); ctx.add_init_script(init('leilani'))
+        ctx.add_init_script("localStorage.setItem('hiphi_districts_demo', JSON.stringify({ senate: 13, house: 29, label: 'Kalihi', island: 'oahu' }))")
         if LOCAL: ctx.route('http://wt.local/**', serve)
         pg = ctx.new_page()
-        for route, sel, name in (('#/more', '#main .yu-rows .rc-rows', 'You\'s rows'), ('#/help', '#main .tk-more .rc-rows', 'Help\'s lessons')):
-            for q, want in (('&rec=1', False), ('&rec=1&boxes=1', True), ('&boxes=1', None)):
-                pg.goto(f"{BASE}/track.html?demo=1{q}{route}"); ready(pg, '#main h1, #main .rc-h1, #main .cm-goal')
-                if want is None: check(not pg.evaluate("document.documentElement.classList.contains('rc-boxall')"), f'{name}: &boxes=1 without ?rec changes nothing'); continue
-                pg.wait_for_selector(sel, timeout=30000)
-                check(pg.evaluate(BOXED + f"({sel!r})") == want, f'{name}: {"in the white box with &boxes=1" if want else "no box without &boxes=1"}')
+        LOOSE = "[...document.querySelectorAll('#main .rc-rows:not(.rc-box, .rc-fold .rc-rows, .rc-card .rc-rows, .card .rc-rows)')].filter(u => u.offsetParent).length"
+        for route, sel, name in (("#/more", "#main .yu-rows .rc-rows", "You's rows"), ("#/help", "#main .tk-more .rc-rows", "Help's lessons"),
+                                 ("#/help", "#main .tk-more + .tk-more .rc-rows", "Help's Email HIPHI"), ("#/legislators", "#main .pp-rppl", "Your lawmakers"),
+                                 ("#/legislator/189", "#rc-more-pp-yi", "a lawmaker's On your issues"), ("#/committee/EDU", "#rc-more-cmt-bills", "a committee's bills"),
+                                 ("#/issue/safety-for-immigrant-families", "#main .rc-irest .rc-sec .rc-rows", "the issue page's Bills on this issue"),
+                                 ("#/issue/let-counties-regulate-tobacco", "#main .rc-record", "the issue page's record row")):
+            pg.goto(f"{BASE}/track.html?demo=1&rec=1{route}"); ready(pg, '#main h1, #main .rc-h1')
+            try: pg.wait_for_selector(sel, timeout=30000)
+            except Exception: pass
+            check(pg.evaluate(BOXED + f"({sel!r})"), f'{name}: in the white box with ?rec=1')
+            check(pg.evaluate(LOOSE) == 0, f'{route}: no list left on the grey')
+            split = pg.evaluate("[...document.querySelectorAll('#main .rc-box .rc-rstat')].map(e => e.textContent).filter(t => / ([AP]M)\\b|\\b(today|tomorrow|[A-Z][a-z]{2}) \\d/.test(t))")
+            check(not split, f'{name}: a day, a date and a time never split across lines ({split[:2]})')
+        pg.goto(f"{BASE}/track.html?demo=1&boxes=1#/more"); ready(pg, '#main h1')
+        check(not pg.evaluate("document.documentElement.classList.contains('rc-boxall')"), 'the &boxes=1 preview is gone')
         ctx.close(); br.close()
     # The live Alerts page's words are the Text terms page's (alerts.js GETS_*, levelsWhere): the terms still hold each piece.
     terms = re.sub(r'<[^>]+>', '', re.sub(r'<!--.*?-->', '', open(os.path.join(ROOT, 'text-terms.html'), encoding='utf8').read(), flags=re.S))

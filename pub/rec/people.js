@@ -10,7 +10,7 @@
 // Street addresses never reach a web address and are never kept (people.js): only the districts and the town are.
 import { S, app, esc, icon, spaced, nick, billPath, legById, legTitle, legPhoto, posInfo, cmteLabel, codesOf, stopOf, alive, agrees, didKind, hearingWhen, CHAMBER_NAME } from '../core.js';
 import { btn, chip, notice } from '../ui.js';
-import { recHead, recBack, recSec, recRows, recMore, recFold, recFolds, recWay, recEmpty, wireKit } from './kit.js';
+import { recHead, recBack, recSec, recRows, recMore, recFold, recFolds, recWay, recEmpty, wireKit, BOX } from './kit.js';
 import { recAct, dueOf, byDue, billRow, billWords, pillFor, daysLeft, backRow, atWords } from './act.js';
 import { slotsOf, slotLine } from '../committees.js';
 import { P, seated, saved, savedPick, forget, remember, mine, yoursWord, legHref, billNum, fromBill, numOnly, rolesOf, billAt, billsIn, composer,
@@ -122,7 +122,7 @@ export function recFinder(route) {
   // On a laptop the card sits at the side, as on a lawmaker's page and the bill page (rc-cols; the fresh-eyes review).
   return `<div class="pp rc rc-wide pp-rec pp-rknown">${back}<div class="rc-cols"><div class="pp-rmain">${recHead({ title: 'Your lawmakers' })}
     <h2 class="sr" id="pp-for" tabindex="-1">Your senator and representative${place ? ` for ${esc(place)}` : ''}</h2>
-    ${recRows(two.map(l => personRow(l, from, `${yoursWord(l)} · District ${l.district}`)), 'pp-rppl')}</div>
+    ${recRows(two.map(l => personRow(l, from, `${yoursWord(l)} · District ${l.district}`)), 'pp-rppl ' + BOX)}</div>
     <aside class="rc-side pp-ract" aria-label="Take part">${card}</aside>
     <div class="pp-rmain pp-rmain2"><div class="pp-rfoot"><p>${place ? `${icon('map-pin')}<span>${esc(place)}</span> · ` : ''}<button type="button" class="rc-tlink" data-pp-change>Change address</button></p>
       <p><span>${saveLine}</span></p></div>
@@ -172,7 +172,7 @@ export function recPerson(route) {
   const chaired = x => x.r?.role === 'chair', tag = x => chaired(x) ? 'They chair its committee' : '';
   const mine2 = followed().filter(x => x.id !== m?.b?.id).map(x => meetOf(l, x, roles)).filter(Boolean).sort((x, y) => chaired(y) - chaired(x) || x.t - y.t || byDue(x, y));
   const yours = mine2.length ? recSec('pp-yi', 'On your issues', recMore(mine2.map(x => billRow(x.b, x.due, { href: billPath(x.b), tag: tag(x),
-    note: x.when === 'next' ? `Comes to ${short(x.r.committee)} next` : x.when === 'floor' ? x.due.text : '' })), 4, 'pp-yi')) : '';
+    note: x.when === 'next' ? `Comes to ${short(x.r.committee)} next` : x.when === 'floor' ? x.due.text : '' })), 4, 'pp-yi', BOX)) : '';
   // Their committees, every HIPHI bill in them, office and contact: closed, a one-line preview each, remembered open (B-6).
   const cm = roles.length ? recFold('pp-cmtes', 'Their committees', `${roleWord(roles[0].role)} of ${short(roles[0].committee)}${roles.length > 1 ? `, and ${roles.length - 1} more` : ''}`,
     `<p class="rc-note pp-rnote">Committees look at bills before the full ${CHAMBER_NAME[l.chamber]} votes. The chair decides which bills get a hearing.</p>`

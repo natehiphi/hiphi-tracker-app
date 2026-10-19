@@ -22,8 +22,13 @@ export const recSec = (id, title, inner, { note = '' } = {}) => `<section class=
 // r: { name, text, href, warn, attrs, lead } (lead: an icon name drawn in a soft circle, for people and places).
 // cls BOX puts the list in one white box with a hairline between rows, as today's lists are (Nate 18 Oct, Keep or Undo
 // cards 6, 7, 8, 10 and 19: "Can we include the white container box?"; rec.css .rc-box).
+// keep(): in every row of the calm pages (recRow; the lists are all in the white box since Nate's "Box all seven", 18 Oct),
+// a time or a date never breaks across lines ("1:10 / PM", "Mar / 30"; A-8), nor a day from its time ("tomorrow / 3:00 PM",
+// "Mar 30 / 1:00 PM"; the boxes are narrower).
+export const keep = t => String(t).replace(/(\d) ([AP]M)\b/g, '$1\u00a0$2').replace(/\b([A-Z][a-z]{2}) (\d{1,2})\b/g, '$1\u00a0$2')
+  .replace(/\b(today|tomorrow|[A-Z][a-z]{2}\u00a0\d{1,2}) (\d{1,2}:\d{2})/g, '$1\u00a0$2');
 export const recRow = r => `<li><a class="rc-row" href="${esc(r.href)}"${Object.entries(r.attrs || {}).map(([k, v]) => ` ${k}="${esc(v)}"`).join('')}>${r.lead ? `<span class="rc-lead">${r.leadHtml || icon(r.lead)}</span>` : r.leadHtml ? `<span class="rc-lead">${r.leadHtml}</span>` : ''}
-  <span class="rc-rtext"><span class="rc-rname">${esc(r.name)}</span>${r.text ? `<span class="rc-rstat${r.warn ? ' warn' : ''}">${esc(r.text)}</span>` : ''}</span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`;
+  <span class="rc-rtext"><span class="rc-rname">${esc(r.name)}</span>${r.text ? `<span class="rc-rstat${r.warn ? ' warn' : ''}">${esc(keep(r.text))}</span>` : ''}</span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`;
 export const BOX = 'rc-box';
 export const recRows = (rows, cls = '') => rows.length ? `<ul class="rc-rows${cls ? ' ' + cls : ''}" role="list">${rows.map(recRow).join('')}</ul>` : '';
 

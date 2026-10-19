@@ -39,7 +39,11 @@ body.rec .rc-iss .bl-act { margin-top: 0; }
 /* the rest under the card: "Where HB 1563 is now" or "Bills on this issue", the full record, the closed cards */
 body.rec .rc-iss .rc-irest > .bl-rwhere .bl-rh, body.rec .rc-iss .rc-irest > .rc-sec:first-child { margin-top: var(--s24); }
 body.rec .rc-iss .rc-irest .rc-sec .rc-h2 { margin-bottom: var(--s4); }
-body.rec .rc-iss .rc-record { margin-top: var(--s12); }
+body.rec .rc-iss .rc-record { margin-top: var(--s16); }   /* the gap the closed cards below keep: one gap between white blocks (A-8) */
+/* bill.css draws the bill page's own folds 8px wider than their text (.bl-page details > summary); a closed card here lines up
+   with the boxes above it, as on a lawmaker's and a committee's page (the fresh-eyes review, 18 Oct) */
+body.rec .rc-iss .rc-fold > summary { margin: 0; }
+body.rec .rc-iss .rc-fold > summary:hover { background: none; }
 body.rec .rc-iss .rc-irest .rc-folds { margin-top: var(--s16); }
 body.rec .rc-iss .rc-fold[open] > summary .rc-fp { display: none; }   /* open, its rows say the numbers the preview said (A-14) */
 

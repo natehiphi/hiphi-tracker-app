@@ -182,8 +182,10 @@ it looks fine on a good laptop screen.
 4/8/12/16/24/32/48. Related things sit closer together than unrelated things; that proximity is what
 makes a group, not a border and not a card. Prefer removing a card to adding one. **Lists of tappable rows get a box**
 (Nate 18 Oct 2026, R-303): in the redesign (?rec=1) a list of rows to tap sits in one white box with a hairline between rows
-(rec.css .rc-box, kit.js BOX), so it shows where it starts and ends; so far the topic page, Find, search, My issues,
-Committees and Home; seven other lists wait for his pick on Where the Box Goes.
+(rec.css .rc-box, kit.js BOX), so it shows where it starts and ends: every such list in the redesign (the topic page,
+Find, search, My issues, Committees, Home, and since his "Box all seven" You, Help, Your lawmakers, a lawmaker's On your
+issues, a committee's bills and the issue page's two lists). Lists inside a card or a closed card keep that card. In the
+narrower box a day, a date and its time stay on one line (kit.js keep, in every row).
 
 *Reason.* Gestalt proximity. Nate's word for the failure is "disharmony", and its usual cause is
 arbitrary spacing — two gaps that differ by 3px read as a mistake even when nobody can say why.

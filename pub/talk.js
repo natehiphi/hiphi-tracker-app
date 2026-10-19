@@ -14,7 +14,7 @@ import { GROUPS, TALKS } from './talk-data.js';
 // The calm redesign (R-303), only with ?rec=1: "Help", one line and the search; the Public Access Room right under it (the
 // assessment: the human help was 1,060px down, where someone stuck won't look); the seven groups closed on every width with
 // no counts (51 questions at once on a laptop); a conversation's one way back, "← Help", on Help's own left edge.
-import { REC, recRows } from './rec/kit.js';
+import { REC, recRows, BOX } from './rec/kit.js';
 import { backFrom } from './rec/you.js';
 
 const BY = new Map(TALKS.map(t => [t.slug, t]));
@@ -243,11 +243,11 @@ function recListView() {
       <h2 class="rc-h2" id="tk-lx-t">Short lessons, with pictures</h2>
       ${recRows([{ lead: 'route', name: 'How a bill becomes law, drawn', text: 'The story of one bill, about a minute', href: '#/learn/story' },
         { lead: 'calendar-days', name: 'The session, January to May', text: 'About a minute', href: '#/learn/session' },
-        { lead: 'gavel', name: 'What a hearing is', text: 'About a minute', href: '#/learn/hearing' }])}
+        { lead: 'gavel', name: 'What a hearing is', text: 'About a minute', href: '#/learn/hearing' }], BOX)}
     </section>
     <section class="tk-more" aria-labelledby="tk-hand-t">
       <h2 class="rc-h2" id="tk-hand-t">Still have a question?</h2>
-      ${recRows([{ lead: 'mail', name: 'Email HIPHI', text: EMAIL, href: `mailto:${EMAIL}` }])}
+      ${recRows([{ lead: 'mail', name: 'Email HIPHI', text: EMAIL, href: `mailto:${EMAIL}` }], BOX)}
     </section>
     ${keys ? `<section class="tk-more" aria-labelledby="tk-keys-t">
       <h2 class="rc-h2" id="tk-keys-t">Keyboard shortcuts</h2>

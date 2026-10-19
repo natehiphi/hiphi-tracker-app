@@ -182,7 +182,7 @@ function folds(m, { goneOpen = false } = {}) {
 // name only when it differs from the issue's (said once, small, here).
 function recordRow(b, i) {
   const own = nick(b) && plainName(nick(b)) !== plainName(i.name) ? `${nick(b)} · w` : 'W';
-  return recRows([{ name: `${num(b)}’s full record`, text: `${own}ho decides next, what it says, every draft and vote`, href: billPath(b), lead: 'scroll-text' }], 'rc-record');
+  return recRows([{ name: `${num(b)}’s full record`, text: `${own}ho decides next, what it says, every draft and vote`, href: billPath(b), lead: 'scroll-text' }], 'rc-record ' + BOX);
 }
 // Shape 2's rows: each bill once, in the bill page's words; the one in the card says so (as Home's row says "On the slide
 // above"), so the card's bill is not described twice.
@@ -191,7 +191,7 @@ function billRows(m) {
   const rows = m.mv.map(b => { const pre = m.named ? `${num(b)} · ` : '';
     return { name: m.versions ? `${versionName(b)} · ${num(b)}` : m.named ? nick(b) || what(b, 90) : num(b), text: pre + (b === lead ? here : recLine(b)), href: billPath(b) }; });
   const note = m.versions ? 'The House and the Senate each have a version. Either one can become law.' : '';
-  return recSec('rc-ibills-h', 'Bills on this issue', recRows(rows), { note });
+  return recSec('rc-ibills-h', 'Bills on this issue', recRows(rows, BOX), { note });
 }
 function issuePage(i) {
   const m = model(i), top = topRow(i);

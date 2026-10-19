@@ -54,10 +54,8 @@ function dayShort(iso) {
 }
 // "today 2:00 PM", "Wed 9:30 AM", "Mar 30 1:00 PM": Home's words for a time, also the calm Find's and My issues' (R-303).
 export const when = iso => `${dayShort(iso)} ${time(iso)}`;
-// For the calm pages' rows (R-303): a time or a date never breaks across lines ("1:10 / PM", "Mar / 30"; A-8), nor a day
-// from its time ("tomorrow / 3:00 PM", "Mar 30 / 1:00 PM"; the white boxes are narrower, 18 Oct).
-export const keep = t => String(t).replace(/(\d) ([AP]M)\b/g, '$1\u00a0$2').replace(/\b([A-Z][a-z]{2}) (\d{1,2})\b/g, '$1\u00a0$2')
-  .replace(/\b(today|tomorrow|[A-Z][a-z]{2}\u00a0\d{1,2}) (\d{1,2}:\d{2})/g, '$1\u00a0$2');
+// keep(): a date or time never breaks across lines; in the kit since every boxed list uses it (rec/kit.js).
+export { keep } from '../rec/kit.js';
 const prevVisit = () => S.prevVisit ? Date.parse(S.prevVisit) : 0;
 const isNew = t => { const p = prevVisit(); return !!p && !!t && t > p && t <= Date.now(); };
 const skipKey = x => x.h.id + '|' + x.b.id;
