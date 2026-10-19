@@ -13,7 +13,7 @@ import { HELP_WORDS } from './letters.js';   // the testimony button's words (R-
 import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { GO_HELP } from './topics.js';
-import { afterMove, bloom, burst, drift, later, reduced, petals, swap } from './fx.js';
+import { afterMove, bloom, burst, celebrate, drift, later, reduced, petals, swap } from './fx.js';
 import { shareLine } from './keep.js';
 import { endHome, armOf, abSeen } from './variant.js';   // and the test 'act' (R-150): today's "Coming up" | three ways to help
 import { nameField, wireName, keepName as keepFirstName, firstName } from './firstname.js';   // the first name on the sign-up (R-294)
@@ -452,6 +452,12 @@ function autoGo(step) {
     if (left <= 0) { clearInterval(autoT); S.stAutoStop = true; track('alerts', 'next'); goStep(step, step + 1); }
   }, 1000);
 }
+// R-306 d: the full-screen moment (fx.js celebrate: the flower, the words, gone on its own in 1.5 s or at a tap, never
+// blocking; its words then stay 4 s as a toast). It is what the first visit had from 10/10 to 11 Oct, minus the page.
+function mahaloMoment() {
+  const W = thanksWords(thanksGiven());
+  celebrate({ title: W.title, sub: W.sub, small: W.how, go: 'Continue' });
+}
 // R-306 b: the "Mahalo!" as a band on top of the next screen (the story, or the short version's one page). It stays
 // until they move on in the story; Change opens the alerts box again.
 function mahaloBand() {
@@ -469,6 +475,8 @@ export function leaveAlerts(step, r = null) {
   S.stThanks = r || { kind: 'none' }; S.stThanksSeen = false; S.stAutoStop = false;
   // R-306 b: no "Mahalo!" page; the next screen opens with the band.
   if (mahaloTry() === 'b') { S.stBand = true; S.stBandSeen = false; goStep(step, step + 1); return; }
+  // R-306 d: no page either; the next screen comes first and the moment plays over it once its slide has ended (A-10).
+  if (mahaloTry() === 'd') { afterMove(goStep(step, step + 1), mahaloMoment); return; }
   // The same address, drawn again as the "Mahalo!" page: it slides in like a new screen, and focus goes to its heading
   // (the button that had it, "Text me a code" or "Confirm", is gone).
   afterMove(swap(() => { app.render(); window.scrollTo(0, 0); }, 'fwd'), () => document.getElementById('st-h')?.focus({ preventScroll: true }));
@@ -911,6 +919,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       if (wiz().via) { goStep(step, step + 2); return; }
       S.stThanks = { kind: 'none', noAsk: true }; S.stThanksSeen = false; S.stAutoStop = false;
       if (mahaloTry() === 'b') { S.stBand = true; S.stBandSeen = false; }   // R-306 b: the alerts screen is passed over to the story's band
+      if (mahaloTry() === 'd') { afterMove(goStep(step, step + 2), mahaloMoment); return; }   // R-306 d: straight to the story, the moment over it
       goStep(step, step + 1);
     };
   }

@@ -87,6 +87,22 @@ with sync_playwright() as pw:
     p.click('[data-stmhstay]'); p.wait_for_timeout(7000)
     ok(p.locator('.st-mahalo').count() == 1 and p.locator('#st-mhauto').count() == 0, 'c: Stay here stops it')
     c.close()
+
+    # d: no page; the full-screen moment over the story, gone on its own.
+    c, p = page(); to_alerts(p, '&mahalo=d'); p.click('[data-stskip]'); p.wait_for_timeout(700)
+    ok(p.locator('#fx-moment:not([hidden])').count() == 1 and 'Mahalo!' in p.inner_text('#fx-moment') and p.locator('.st-lesson').count() == 1,
+       'd: Skip shows the moment over the story')
+    p.screenshot(path=f'{OUT}/d-moment.png')
+    p.wait_for_timeout(1800)
+    ok(p.locator('#fx-moment:not([hidden])').count() == 0 and p.locator('.st-lesson').count() == 1 and p.locator('.st-mahalo, .st-mhband').count() == 0,
+       'd: the moment is gone on its own and the story stays, with no page or band')
+    p.screenshot(path=f'{OUT}/d-after.png')
+    p.click('[data-stback]'); p.wait_for_timeout(1500)
+    ok(p.locator('.st2').count() == 1, 'd: Back from the story passes the alerts screen to the issues')
+    c.close()
+    c, p = page(); to_alerts(p, '&mahalo=d'); by_phone(p)
+    ok(p.locator('.st-lesson').count() == 1 and p.locator('.st-mahalo').count() == 0, 'd: after a number, the story (the moment has come and gone)')
+    c.close()
     b.close()
 
 for x in passes + fails: print(x)
