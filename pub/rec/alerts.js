@@ -7,11 +7,13 @@
 // Nate's Change of 18 Oct (it said "At most one text a day").
 // Without a profile, or while a number is being added or changed, #/alerts is the sign-up box as before (pub/more.js), with a
 // back row and the same live promise.
+// A link sent and not yet opened says what comes, in the Text terms page's words, as today's page does (alerts.js GETS_*, Nate's
+// "match reality" of 18 Oct).
 import { S, DEMO, esc, icon, friendly, textSaved, followedIssues, followsAnything, levelOf } from '../core.js';
 import { btn, inlineErr } from '../ui.js';
 import { CHOICES, check, submitBtn, stopNumberBox, nextStep, A } from '../more.js';
 import { alertFields, alertButton, codeStep, confirmWords, almostLine, alertStatus, LEVEL_WORDS, levelSwitch, wireLevels,
-  ALERT_PROMISE, TEXT_FINE, EMAIL_FINE, EMAIL_ALERTS, EMAIL_SAME, EMAIL_EVERY, linkSent } from '../alerts.js';
+  ALERT_PROMISE, TEXT_FINE, EMAIL_FINE, EMAIL_ALERTS, EMAIL_SAME, EMAIL_EVERY, linkSent, GETS_WHAT, GETS_EMAILS, levelsWhere } from '../alerts.js';
 import { hasProfile, signedIn } from '../myprofile.js';
 import { myEmail } from '../phone.js';
 import { recHead, recSec } from './kit.js';
@@ -81,7 +83,8 @@ export function signupView() {
     <header class="rc-head"><h1 class="rc-h1" id="mr-al-t" tabindex="-1">Alerts almost set</h1></header>
     <section class="card mr-panel mr-alon" aria-labelledby="mr-al-t">
       <p class="strong">We sent a link to ${esc(sent)}. Tap it to turn on alerts.</p>
-      <p>Then ${esc(ALERT_PROMISE)} ${esc(first(EMAIL_FINE))}</p>
+      <p>Then we’ll email you ${esc(GETS_WHAT)} ${esc(GETS_EMAILS)}</p>
+      <p class="small">${esc(levelsWhere(false))}</p>
       <p class="small">Can’t find it in a minute? Check your spam or promotions folder.${DEMO ? ' This is the sandbox, so nothing was sent.' : ''}</p>
       <div class="btnrow">${btn('Use a different email', { kind: 'secondary', sm: true, icon: 'pencil', attrs: { 'data-mr-alotheremail': '' } })}</div>
     </section></div>`;

@@ -8,7 +8,9 @@
 #     Help), then the quiet footer links (About HIPHI, Privacy and accessibility, My issues link); Every bill and Committees
 #     are gone from it; the event staff posted is its own row (Nate 18 Oct, card 11), not inside About HIPHI; at most one
 #     filled button; under 1,050px tall on a phone (900 before the event row);
-#   - Help's seven groups each with its icon (card 15); the live #/alerts says "A few texts a month." (card 21).
+#   - Help's seven groups each with its icon (card 15); the live #/alerts says what really comes, in the Text terms page's
+#     words (Nate 18 Oct, "match reality"): when your voice matters most, usually a few texts a month and never more than
+#     one a day, each issue's level and where to change it; never a text for every hearing (card 21, then his ask).
 #   Profile: its first row is Your alerts; no "Your issues" or Alerts section; "Make your profile" without one.
 #   Your alerts: where texts and email go, a switch per followed issue that saves at once, "Stop all texts" once, the live
 #     consent's words (a few texts a month), never "At most one text a day".
@@ -132,7 +134,9 @@ def main():
                 check('At most one' not in txt, f'{t}: #/alerts never says "At most one text a day"')
                 if signed:   # today's page, without ?rec, says it as the sign-up does since Nate's Change of 18 Oct (card 21)
                     open_page(pg, '#/alerts', rec=False, sel='#main .mr-alerts'); live = TEXT(pg)
-                    check('A few texts a month.' in live and 'At most one' not in live, f'{t}: the live #/alerts says "A few texts a month."')
+                    check('Usually a few texts a month while the Legislature meets, and never more than one text a day.' in live and 'At most one' not in live, f'{t}: the live #/alerts says how often, as the Text terms do')
+                    check('when your voice matters most on the issues you follow' in live and 'gets a hearing' not in live, f'{t}: the live #/alerts says what comes, not a text for every hearing')
+                    check('Big moments only (where every issue starts)' in live and 'from the link in any text' in live, f'{t}: the live #/alerts says each issue\'s level and where to change it')
                     open_page(pg, '#/alerts', sel='#main .mr-alerts')
                 if signed:
                     check(pg.evaluate("document.querySelector('#main h1').innerText") == 'Your alerts', f'{t}: #/alerts is "Your alerts"')
@@ -235,5 +239,11 @@ def main():
         pg = ctx.new_page(); open_page(pg, '#/signin', rec=False, sel='#main .mr-signin')
         check(pg.evaluate("document.querySelector('#main h1').innerText") == 'Add your email', 'without ?rec: the email page is "Add your email"')
         ctx.close(); br.close()
+    # The live Alerts page's words are the Text terms page's (alerts.js GETS_*, levelsWhere): the terms still hold each piece.
+    terms = re.sub(r'<[^>]+>', '', re.sub(r'<!--.*?-->', '', open(os.path.join(ROOT, 'text-terms.html'), encoding='utf8').read(), flags=re.S))
+    al = open(os.path.join(ROOT, 'pub', 'alerts.js'), encoding='utf8').read()
+    pieces = [re.search(r"export const GETS_WHAT = '(.+?)';", al).group(1), re.search(r"export const GETS_TEXTS = '(.+?)';", al).group(1),
+              'Big moments only (where every issue starts)', 'Change it under Alerts in your profile, on the issue’s page, or from the link in any text.']
+    check(all(x in terms for x in pieces), f'the Text terms page holds every piece of the Alerts page\'s words ({[x[:30] for x in pieces if x not in terms]})')
     print(f'\n{ok_n} passed, {fail_n} failed'); sys.exit(1 if fail_n else 0)
 main()

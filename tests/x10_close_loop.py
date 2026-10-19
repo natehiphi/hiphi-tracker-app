@@ -160,7 +160,7 @@ def run(br, w, h, tag):
     c, p = context([WIZ("{ step: 1, done: true }")])
     p.goto(PUB + '#/more'); ready(p)
     me = txt(p, 'a.mr-me')
-    ok('Get alerts and make your profile' in me and 'A text or email when your issues have a hearing' in me, f'{tag}: More\'s first row is named for alerts ({me[:80]!r})')
+    ok('Get alerts and make your profile' in me and 'A text or email when your voice matters most on your issues' in me, f'{tag}: More\'s first row is named for alerts ({me[:80]!r})')
     p.screenshot(path=f'{OUT}/{tag}-6-more.png')
     c.close()
     ok(not errs, f'{tag}: no page errors ' + '; '.join(errs[:3]))

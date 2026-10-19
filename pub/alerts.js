@@ -101,6 +101,16 @@ export const ALERT_PROMISE = WORDS_T5 ? 'HIPHI lets you know when your voice mat
 export const TEXT_FINE = WORDS_T5 ? 'A few texts a month. Msg & data rates may apply. Reply STOP to cancel.' : 'Up to 1 a day. Msg & data rates may apply. Reply STOP to cancel.';
 export const EMAIL_FINE = WORDS_T5 ? 'A few emails a month. Unsubscribe anytime.' : 'Up to 1 a day. Unsubscribe anytime.';
 export const TEXT_WORDS = `${ALERT_PROMISE} ${TEXT_FINE}`, EMAIL_WORDS = `${ALERT_PROMISE} ${EMAIL_FINE}`;
+// What the alerts bring, said once they are given (R-303, Nate 18 Oct: "Update the live alerts page to match reality"). The
+// Alerts page said "when a bill on your issues gets a hearing", but every issue starts on Big moments only (R-299), so most
+// hearings send nothing. These are the Text terms page's "What you get" (text-terms.html), cut but never reworded, so the two
+// pages say one thing (tests/r303_you.py checks the terms page still holds each piece). They come after the consent, never in
+// its place (C-4); a lawyer should confirm them with it (R-149, L-03).
+export const GETS_WHAT = 'when your voice matters most on the issues you follow: HIPHI’s biggest calls to speak up and key hearings on their bills.';
+export const GETS_TEXTS = 'Usually a few texts a month while the Legislature meets, and never more than one text a day.';
+export const GETS_EMAILS = 'Usually a few emails a month while the Legislature meets.';
+// text: the link in a text is one more place to change it (an email has no such link).
+export const levelsWhere = text => `For each issue you choose how much: ${LEVEL_WORDS.every}, ${LEVEL_WORDS.big} (where every issue starts) or ${LEVEL_WORDS.app}. Change it under Alerts in your profile, on the issue’s page${text ? ', or from the link in any text' : ''}.`;
 // The one line under the box, where it is typed (P-5): short and positive, never "spam" (the research: a line like it raised a
 // nonprofit's sign-ups from 18% to 27%; "never spam you" cost 19% in another test). The privacy page says the rest.
 const hintFor = phone => phone ? 'We never share your number.' : 'We never share your email.';
@@ -458,7 +468,7 @@ export function alertDoneHTML(r, { change = '' } = {}) {
   // Almost, not done: the first text confirms the number, and only then do alerts start (B-7: nothing looks finished
   // before it is). The same words as alertStatus()'s "Almost set", which every other screen shows (D1-4).
   if (r.kind === 'phone') return `${prof}<p class="strong">${confirmWords(`<span class="al-nowrap">${esc(fmtPhone(r.phone))}</span>`)}</p>
-    <p class="small">Then we’ll text you when a bill on your issues gets a hearing, and when HIPHI asks people to speak up. Reply STOP any time.</p>
+    <p class="small">Then we’ll text you ${GETS_WHAT} Reply STOP any time.</p>
     ${r.demo && !prof ? '<p class="small muted">This is the sandbox, so the number was not saved.</p>' : ''}${change}`;
   // r.later: inside the first visit, where leaving for the inbox would cut it short (R-098), so: finish here first.
   const turnOn = profileAsk() ? 'to finish your profile and turn on alerts' : 'to turn on alerts';

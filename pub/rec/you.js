@@ -59,7 +59,7 @@ export function backFrom(href, label) {
 // people come here for (X10-4), worded as the alerts page's own heading, so the row and the page it opens agree (A-14).
 function meCard() {
   if (!hasProfile()) return `<a class="yu-me yu-me-new" href="#/alerts"><span class="yu-av" aria-hidden="true">${icon('bell')}</span>
-      <span class="yu-met"><span class="yu-men">${t('Get alerts on your issues')}</span><span class="yu-mes">${t('A text or email when a bill on your issues gets a hearing. Free.')}</span></span>${icon('chevron-right', { cls: 'rc-chev' })}</a>
+      <span class="yu-met"><span class="yu-men">${t('Get alerts on your issues')}</span><span class="yu-mes">${t('A text or email when your voice matters most on your issues. Free.')}</span></span>${icon('chevron-right', { cls: 'rc-chev' })}</a>
     <p class="yu-in">${t('Made one before? {a}Sign in{b}', { a: `<a href="${codesOn() ? '#/signin?by=number' : '#/signin'}">`, b: '</a>' })}</p>`;   // the profile page's words (one name per thing, C-15)
   const name = myName(), ini = initials(name), d = myDistricts(), ts = myTitles();
   const about = [ts.slice(0, 2).map(titleLabel).join(', '), d ? `Senate ${d.senate}, House ${d.house}` : ''].filter(Boolean).join(' · ');
