@@ -193,20 +193,17 @@ let lastChapter = -1;
 // The "Mahalo!" page ends "Your issues" (R-140): there the part shows as done and the next one is not yet current, so the
 // row says what the button says, that more follows (the review, 11 Oct).
 const thanksUp = name => !planOn() && name === 'alerts' && !S.alertEdit && !!(S.stThanks || textSaved() || mailSent());
-// R-306 (Nate 18 Oct: the "Mahalo!" page "stops people from thinking they need to continue"; then "Build all three options
-// and let me choose between them after experiencing them"): three ways to celebrate without the page reading as the end, on
-// the practice copy only, ?demo=1&mahalo=a|b|c. a: the page as a bridge (forward words, the story's bill peeking up);
-// b: no page, the "Mahalo!" a band on top of the story; c: the page moves on by itself after a few seconds; d (Nate 18 Oct:
-// "option C but the animation moves much quicker. Almost like it was option B, but just with an animation that was full
-// screen for a brief moment and then disappeared"): no page, the full-screen moment over the story for 1.5 s; e (Nate 18 Oct:
-// "show it full screen and have it animate itself to just exit at the top like Option B"): the whole screen is the "Mahalo!",
-// then it folds up into B's band at the top of the story. Without the
-// parameter, and always on the live site, today's page. Not an A/B test (decision 10): nobody is put in a version.
-export const mahaloTry = () => { if (!DEMO || planOn()) return ''; const v = new URLSearchParams(location.search).get('mahalo') || ''; return /^[a-e]$/.test(v) ? v : ''; };
+// R-306 (Nate 18 Oct: the "Mahalo!" page "stops people from thinking they need to continue"): of five versions tried on the
+// practice copy he chose e, "Yes make it go live": the whole window is the celebration, then it folds up into a band at the
+// top of A bill's story (start-rest.js coverAndFold, mahaloBand). Everyone's now, live site included; a plan (planOn) keeps
+// its own page. The old page stays reachable on the practice copy only, ?demo=1&mahalo=old, for the review page's
+// "current version" (R-308). Not an A/B test (decision 10): nobody is put in a version.
+export const mahaloOld = () => DEMO && !planOn() && new URLSearchParams(location.search).get('mahalo') === 'old';
+export const coverOn = () => !planOn() && !mahaloOld();
 function chaptersRow(name) {
   const k0 = chapterOf(name); if (k0 < 0) return '';
   // In the R-306 versions the part that comes next is marked as the one they are in, so the strip says the visit goes on.
-  const k = thanksUp(name) ? k0 + 1 : k0, on = thanksUp(name) ? (mahaloTry() ? k : -1) : k;
+  const k = thanksUp(name) ? k0 + 1 : k0, on = thanksUp(name) ? (coverOn() ? k : -1) : k;
   // A chapter behind the person is ticked only when they did it (C-7, R-249): "Your issues" with nothing followed, or the
   // story they pressed Skip on, keeps its plain dot and reads "(skipped)", so the strip never claims a step that was not taken.
   const skipped = i => !planOn() && ((i === 0 && !followsAnything()) || (i === 1 && !!S.stSkipped?.has('lesson')));
@@ -446,9 +443,9 @@ export const busy = (el, label) => { if (!el) return; el.setAttribute('aria-busy
 function redirectFor(step, off) {
   const n = nameAt(step, off), T = total(off);
   if (step > T) return T;
-  // R-306's version b has no "Mahalo!" page: once answered, the alerts screen is passed over (Back from the story goes to the
-  // issues); Change on the story's band opens the box again (S.alertEdit).
-  if (n === 'alerts' && /[bde]/.test(mahaloTry()) && !S.alertEdit && (S.stThanks || textSaved() || mailSent())) return step + 1;
+  // R-306: no "Mahalo!" page; once answered, the alerts screen is passed over (Back from the story goes to the issues);
+  // Change on the story's band opens the box again (S.alertEdit).
+  if (n === 'alerts' && coverOn() && !S.alertEdit && (S.stThanks || textSaved() || mailSent())) return step + 1;
   if (n === 'alerts') return S.alertsShown || askAlerts() || S.stThanks ? 0 : step + 1;   // or its "Mahalo!" page (R-140)
   if (wiz().via) return n === 'followask' && (viaFollowed() || wiz().viaSkipAsk) ? step + 1 : 0;
   if (n === 'issues') return pickedIssues().length ? 0 : stepOf('topics', off);

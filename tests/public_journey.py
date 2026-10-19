@@ -96,26 +96,28 @@ with sync_playwright() as pw:
     std(p, 'alerts', axe=True); shot(p, 'p_alerts')
     p.locator('[data-alswap="email"]').click(); p.wait_for_timeout(400)
     at = p.evaluate('location.hash'); p.fill('#st-a-name', 'Leilani'); p.fill('#st-a-email', 'leilani@example.com'); p.locator('#st-send').click()
-    # The first success: the alerts screen turns into the "Mahalo!" page, at the same address (C-7). It was a moment that
-    # left by itself in 1.5 s (R-140, 10/5); Nate 11 Oct: "too quick", so it is a page that waits for Next.
-    p.wait_for_selector('.st-thanks #st-h', timeout=5000); p.wait_for_timeout(400)
-    ok(p.inner_text('#st-h') == 'Mahalo, Leilani!' and p.locator('#fx-moment:not([hidden])').count() == 0 and p.evaluate('location.hash') == at, 'following shows the "Mahalo!" page in place of the box, with no moment over it')
-    # R-298 (Nate 17 Oct): two lines and one small "Sent to <email> · Change"; the second line says the link is in their email.
-    ok('Sent to leilani@example.com' in p.inner_text('.st-mhwhere') and 'tap the link we emailed you' in p.inner_text('.st-thsub'), 'the "Mahalo!" says where the link went (C-6)')
-    ok(p.locator('.actionbar [data-stnext]').is_visible() and p.inner_text('.actionbar [data-stnext]').strip() == 'Next: A Bill’s Story', 'its Next is there at once and names what follows (C-6, R-186, C-15)')
-    # The words rise in under the flower (fx.css, up to 1 s); axe measures contrast on the words people read, once settled,
-    # not a frame where they are still see-through.
-    p.wait_for_function("() => [...document.querySelectorAll('.st-mahalo :is(.st-thtitle, .st-thsub, .st-mhwhere)')].every(e => getComputedStyle(e).opacity === '1')", timeout=5000)
+    # The first success (C-7, R-306, Nate 18 Oct: the "Mahalo!" page "stops people from thinking they need to continue";
+    # his pick of five, "Yes make it go live"): the whole window becomes the celebration, header and bar too, greeting them
+    # by name; the story is drawn under it; then it folds into a band at the top of A bill's story, which stays until the
+    # story's first Next. No page that waits, and no fx.js moment over it.
+    p.wait_for_selector('#st-cover', timeout=5000); p.wait_for_timeout(700)
+    ok('We’ll watch these with\u00a0you, Leilani.' in p.inner_text('#st-cover') and p.locator('#fx-moment:not([hidden])').count() == 0,
+       'following covers the window with the celebration, by name, with no moment over it')
+    shot(p, 'p_mahalo_cover')
+    p.wait_for_selector('.st-lesson .st-mhband:not(.st-mbhold)', timeout=6000); p.wait_for_timeout(700)
+    ok(p.locator('#st-cover').count() == 0 and p.evaluate('location.hash') != at, f"then it folds into the band on the story, at the story's own address ({p.evaluate('location.hash')})")
+    # R-298's words kept on the band: "Sent to <email> · Change", and the line that says the link is in their email.
+    ok('Sent to leilani@example.com' in p.inner_text('.st-mbwhere') and 'tap the link we emailed you' in p.inner_text('.st-mhband'), 'the band says where the link went (C-6)')
+    ok('Home page' not in p.inner_text('.st-mhband'), 'the band never points to Home before the visit ends (R-306)')
+    ok(p.locator('.actionbar [data-stnext]').is_visible(), "the story's Next is there as it lands (A-10: a celebration never blocks)")
+    p.wait_for_function("() => [...document.querySelectorAll('.st-mhband .st-mbwords > *')].every(e => getComputedStyle(e).opacity === '1')", timeout=5000)
     std(p, 'mahalo', axe=True); shot(p, 'p_mahalo')
-    p.wait_for_timeout(3000)
-    ok(p.locator('.st-thanks #st-h').count() == 1 and p.evaluate('location.hash') == at, 'it is still there after 3 s: it moves on only with Next (R-140, Nate 11 Oct: a page that waits for Next)')
-    p.locator('.actionbar [data-stnext]').click(); p.wait_for_timeout(1500)
     fi = p.evaluate("JSON.parse(localStorage.getItem('hiphi_issue_follows_demo') || '[]').length + JSON.parse(localStorage.getItem('hiphi_cat_follows_demo') || '[]').length")
     ok(fi >= 1, f'what is saved is issues, not a list of bills ({fi} issue or category follows)')
     # "Where do you stand?" left the first visit (R-053, 9/26): the answer changed nothing the person saw next (C-13).
-    # The bill page asks it instead (checked below). After "Mahalo!" comes the story.
+    # The bill page asks it instead (checked below). After the celebration comes the story.
     ok(re.search(r'where do you stand', text(p), re.I) is None and p.locator('[data-ststance]').count() == 0, f"no stance screen after the issues ({p.evaluate('location.hash')})")
-    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story', 'the story of a bill comes straight after "Mahalo!"')
+    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story', 'the story of a bill comes straight after the celebration')
     # How a bill becomes law (R-062, Nate 9/29): ONE page in four stages, walked with the page's own Next: the bill itself,
     # its road to where it is, then a choice at each of the bill's two moments (R-255, Nate 10/12): "needed a hearing, what
     # should people do?" and "its hearing is set, now what?", each choice playing what CAN happen, third person, text light.
@@ -132,7 +134,11 @@ with sync_playwright() as pw:
     ok(re.search(r'SB.2175', draw1) is not None and 'Disposable' in draw1 and 'HIPHI' in draw1, f'stage 1 draws the bill: its number, its name, HIPHI’s stamp ({draw1[:80]})')
     ok('SB means Senate Bill' in cap1 and 'HIPHI strongly supports it' in cap1, 'stage 1 says what it is in plain words')
     top = p.evaluate("Math.round(document.getElementById('lx-story').getBoundingClientRect().top)")
-    ok(0 < top <= 320, f'the drawing starts within 320px (A-1: {top}px)')
+    # On its first stage the story carries the celebration's band (R-306, Nate's pick of 18 Oct; gone on the first Next), so
+    # the drawing starts within 320px under it; the drawing's bottom must still be on the first screen (R-265).
+    band = p.evaluate("Math.round((b => b ? b.getBoundingClientRect().height + 12 : 0)(document.querySelector('.st-mhband')))")
+    bot = p.evaluate("Math.round(document.getElementById('lx-story').getBoundingClientRect().bottom)")
+    ok(0 < top <= 320 + band and bot <= p.viewport_size['height'], f'the drawing starts within 320px, under the band (A-1: {top}px, band {band}px, bottom {bot}px)')
     ok(p.locator('.lx-l-story :is(button, a, input, [role=button], [tabindex])').count() == 0 and p.locator('#lx-story :is(button, a, [tabindex])').count() == 0,
        'stages 1 and 2 have nothing to press but the page’s own buttons (A-12)')
     ok(p.evaluate("document.querySelector('.st-chapters li[aria-current=step]')?.textContent.trim()") == 'A bill’s story', 'the story is in "A bill’s story"')
@@ -429,8 +435,8 @@ with sync_playwright() as pw:
     past_welcome(p); p.locator('[data-stissue]').first.click(); p.locator('[data-stnext]').click(); p.wait_for_timeout(1800)
     p.locator('[data-stnext]').click(); p.wait_for_timeout(1500)
     p.locator('[data-alswap="email"]').click(); p.wait_for_timeout(400)
-    p.fill('#st-a-email', 'leilani@example.com'); p.locator('#st-send').click(); p.wait_for_selector('.st-thanks #st-h', timeout=8000)
-    p.wait_for_timeout(400); p.locator('.actionbar [data-stnext]').click(); p.wait_for_timeout(1800)   # the "Mahalo!" page waits for its Next (R-140, Nate 11 Oct)
+    p.fill('#st-a-email', 'leilani@example.com'); p.locator('#st-send').click(); p.wait_for_selector('.st-lesson .st-mhband:not(.st-mbhold)', timeout=8000)
+    p.wait_for_timeout(600)   # the celebration folds into the story's band (R-306)
     ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story', f"the first visit on a laptop reaches the story ({p.evaluate('location.hash')})")
     for k in (1, 2, 3):
         if k > 1: p.locator('[data-stnext]').click(); p.wait_for_timeout(1900)

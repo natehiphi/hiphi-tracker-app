@@ -2,7 +2,7 @@
 // why your voice counts, your legislators, the email ask, the finale, and the lessons' own pages. start.js draws the
 // frame and the topics screen with the kernel alone and loads this module right after that first paint; every helper
 // shared with it is imported from start.js (a read-only view of its state: the lessons through lessons()).
-import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, lessons, stepOf, mahaloTry, fitScreen } from './start.js';
+import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, lessons, stepOf, coverOn } from './start.js';
 import { situation } from './bill.js';   // the bill page's own reading of where a bill is (R-255: the story leans to one still waiting for a hearing)
 import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind, textSaved,
   openActions, waitingBills, chairContacts, askedChair, agrees, dateLong } from './core.js';
@@ -13,7 +13,7 @@ import { HELP_WORDS } from './letters.js';   // the testimony button's words (R-
 import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { GO_HELP } from './topics.js';
-import { afterMove, bloom, burst, celebrate, drift, later, reduced, petals, swap } from './fx.js';
+import { afterMove, bloom, burst, drift, later, reduced, petals, swap } from './fx.js';
 import { shareLine } from './keep.js';
 import { endHome, armOf, abSeen } from './variant.js';   // and the test 'act' (R-150): today's "Coming up" | three ways to help
 import { nameField, wireName, keepName as keepFirstName, firstName } from './firstname.js';   // the first name on the sign-up (R-294)
@@ -396,13 +396,13 @@ function thanksWords(r) {
     : r?.kind === 'email' ? 'When you finish here, tap the link we emailed you to turn on alerts.'
     // After Skip, what following gives them, so the page does not end on one line (the critic, R-298).
     : off ? 'Their bills start in January.' : 'You’ll find them on your Home page.';
-  // R-306: the versions on trial never point to Home before the visit ends (it read as a goodbye); a says what comes next
-  // instead, and all three keep the words for how we'll reach them.
-  const ahead = mahaloTry() ? (r?.kind === 'phone' || r?.kind === 'email' ? how : '') : how;
+  // R-306: the cover and its band never point to Home before the visit ends (it read as a goodbye); they keep only the
+  // words for how we'll reach them. The old page (?demo=1&mahalo=old) keeps all of its words.
+  const ahead = coverOn() ? (r?.kind === 'phone' || r?.kind === 'email' ? how : '') : how;
   // R-306 e's words (Nate 18 Oct: "Let's go with "we'll watch these with you, Leilani""): not a thank-you, which closes an
   // exchange and read as the end; the visit's own end keeps "Mahalo for joining in". One issue: "this one".
   const them = n === 1 ? 'this one' : 'these';
-  const title = mahaloTry() === 'e' ? (first ? `We’ll watch ${them} with\u00a0you, ${first}.` : `We’ll watch ${them} with\u00a0you.`)   // "you" never alone on a line
+  const title = coverOn() ? (first ? `We’ll watch ${them} with\u00a0you, ${first}.` : `We’ll watch ${them} with\u00a0you.`)   // "you" never alone on a line
     : first ? `Mahalo, ${first}!` : 'Mahalo!';
   return { title, sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`, how: ahead,
     next: n === 1 ? 'Next, see what could happen to it.' : 'Next, see what could happen to one of them.',
@@ -425,49 +425,17 @@ function stepThanks(step) {
       <span aria-hidden="true">·</span> ${btn('Change', { kind: 'text', sm: true, attrs: { 'data-stalchange': '1', 'aria-label': r.kind === 'phone' ? 'Change number' : 'Change email' } })}</p>` : '';
   // The flower opens once, as the page arrives; a redraw of the same page (Back, a hearing landing) shows it open.
   const fresh = !S.stThanksSeen; S.stThanksSeen = true;
-  const v = mahaloTry();
-  // R-306 a: the same page as a bridge: a smaller flower, words that say what is next, and the story's own bill under them.
-  const peek = v === 'a' ? peekCard() : '';
-  // R-306 c: the page moves on by itself; the line says when, and Stay here stops it (wireStep starts the count).
-  const auto = v === 'c' && !S.stAutoStop ? `<p class="st-mhauto" id="st-mhauto" aria-live="polite"><span>Going on to A bill’s story in <span id="st-mhcount">${AUTO_S}</span>…</span>
-      ${btn('Stay here', { kind: 'text', sm: true, attrs: { 'data-stmhstay': '1' } })}</p>` : '';
-  return shell(`st4 st-alertspage st-thanks st-mahalo${v ? ' st-mh' + v : ''}${fresh ? ' st-thanksnew' : ''}`, `${topRow('alerts', step)}
+  return shell(`st4 st-alertspage st-thanks st-mahalo${fresh ? ' st-thanksnew' : ''}`, `${topRow('alerts', step)}
     <div class="st-mhflower">${bloom()}${fresh ? drift() : ''}</div>
     <h1 class="hero st-thtitle" id="st-h" tabindex="-1">${esc(W.title)}</h1>
-    <p class="st-thsub">${esc(W.sub)}${W.how ? `<br><span class="st-mhhow">${esc(W.how)}</span>` : ''}${v === 'a' ? `<br><b class="st-mhnext">${esc(W.next)}</b>` : ''}</p>${where}${peek}${auto}`,
+    <p class="st-thsub">${esc(W.sub)}${W.how ? `<br><span class="st-mhhow">${esc(W.how)}</span>` : ''}</p>${where}`,
     '');
 }
-// R-306 a: the first thing of the next part, peeking up under the words, so the page does not look finished (NN/g's
-// "illusion of completeness"). The bill is the one the story will tell.
-function peekCard() {
-  const b = exampleBill(); if (!b) return '';
-  return `<div class="card st-mhpeek" aria-hidden="true"><span class="st-mhpeekl">Up next · A bill’s story</span>
-    <b>${esc(nick(b) || b.title || b.bill_number)}</b><span class="st-mhpeekp">How it got here, and how you could help it</span></div>`;
-}
-// R-306 c: seconds before the page moves on. Long enough for the flower and the two lines; the button works at once (A-10).
-const AUTO_S = 6;
-let autoT = 0;
-function autoGo(step) {
-  clearInterval(autoT);
-  const at = location.hash; let left = AUTO_S;
-  autoT = setInterval(() => {
-    const el = document.getElementById('st-mhcount');
-    if (location.hash !== at || !el || S.stAutoStop) { clearInterval(autoT); return; }
-    left -= 1; el.textContent = String(Math.max(left, 0));
-    if (left <= 0) { clearInterval(autoT); S.stAutoStop = true; track('alerts', 'next'); goStep(step, step + 1); }
-  }, 1000);
-}
-// R-306 d: the full-screen moment (fx.js celebrate: the flower, the words, gone on its own in 1.5 s or at a tap, never
-// blocking; its words then stay 4 s as a toast). It is what the first visit had from 10/10 to 11 Oct, minus the page.
-function mahaloMoment() {
-  const W = thanksWords(thanksGiven());
-  celebrate({ title: W.title, sub: W.sub, small: W.how, go: 'Continue' });
-}
-// R-306 e: the whole window is the "Mahalo!" (the bar, the header and the sandbox band too: Nate saw d's card leave the
+// R-306 e (everyone's since Nate's yes, 18 Oct): the whole window is the celebration (the bar, the header and the sandbox band too: Nate saw d's card leave the
 // page showing around it), the flower opening with petals drifting off it; then, after 1.8 s or at a tap or a key, it folds
 // up into the band at the top of the story: the warm ground shrinks to the band's box, the flower flies to its place
 // in it, the words fade, and the band's own words rise as it lands (0.65 s, then a 0.18 s cross-fade). Under Reduce Motion there is no cover:
-// the story opens with the band, as in b. `go` moves the flow on; it runs under the cover.
+// the story opens with the band. `go` moves the flow on; it runs under the cover.
 const COVER_MS = 1800, FOLD_MS = 650;   // the flower opens from 0.3 s to about 1.2 s and the words have risen by 1.25 s
 function coverAndFold(go) {
   S.stBand = true; S.stBandSeen = true;
@@ -515,10 +483,10 @@ function coverAndFold(go) {
     (t ? t.finished : new Promise(res => setTimeout(res, FOLD_MS))).then(land, land);
   }
 }
-// R-306 b: the "Mahalo!" as a band on top of the next screen (the story, or the short version's one page). It stays
-// until they move on in the story; Change opens the alerts box again.
+// R-306: the celebration as a band on top of the next screen (the story, or the short version's one page), where the cover
+// folds to. It stays until they move on in the story; Change opens the alerts box again.
 function mahaloBand() {
-  if (!/[be]/.test(mahaloTry()) || !S.stBand) return '';
+  if (!coverOn() || !S.stBand) return '';
   const r = thanksGiven(), W = thanksWords(r);
   const fresh = !S.stBandSeen; S.stBandSeen = true;
   const change = r ? ` <span aria-hidden="true">·</span> ${btn('Change', { kind: 'text', sm: true, attrs: { 'data-stbandchange': '1', 'aria-label': r.kind === 'phone' ? 'Change number' : 'Change email' } })}` : '';
@@ -530,14 +498,10 @@ function mahaloBand() {
 export function leaveAlerts(step, r = null) {
   S.alertEdit = false; keepFirstName();
   if (wiz().via) { goStep(step, step + 1); return; }
-  S.stThanks = r || { kind: 'none' }; S.stThanksSeen = false; S.stAutoStop = false;
-  // R-306 b: no "Mahalo!" page; the next screen opens with the band.
-  if (mahaloTry() === 'b') { S.stBand = true; S.stBandSeen = false; goStep(step, step + 1); return; }
-  // R-306 d: no page either; the next screen comes first and the moment plays over it once its slide has ended (A-10).
-  if (mahaloTry() === 'd') { afterMove(goStep(step, step + 1), mahaloMoment); return; }
-  // R-306 e: the cover goes up over this screen first, the story is drawn under it, then the cover folds into the band.
-  if (mahaloTry() === 'e') { coverAndFold(() => goStep(step, step + 1, { quiet: true })); return; }
-  // The same address, drawn again as the "Mahalo!" page: it slides in like a new screen, and focus goes to its heading
+  S.stThanks = r || { kind: 'none' }; S.stThanksSeen = false;
+  // R-306: the cover goes up over this screen first, the story is drawn under it, then the cover folds into the band.
+  if (coverOn()) { coverAndFold(() => goStep(step, step + 1, { quiet: true })); return; }
+  // The old page (?demo=1&mahalo=old, a plan): the same address, drawn again as the "Mahalo!" page: it slides in like a new screen, and focus goes to its heading
   // (the button that had it, "Text me a code" or "Confirm", is gone).
   afterMove(swap(() => { app.render(); window.scrollTo(0, 0); }, 'fwd'), () => document.getElementById('st-h')?.focus({ preventScroll: true }));
 }
@@ -977,10 +941,8 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       // bill's visit has no "Mahalo!" and passes the screen over.
       if (askAlerts()) { goStep(step, step + 1); return; }
       if (wiz().via) { goStep(step, step + 2); return; }
-      S.stThanks = { kind: 'none', noAsk: true }; S.stThanksSeen = false; S.stAutoStop = false;
-      if (mahaloTry() === 'b') { S.stBand = true; S.stBandSeen = false; }   // R-306 b: the alerts screen is passed over to the story's band
-      if (mahaloTry() === 'd') { afterMove(goStep(step, step + 2), mahaloMoment); return; }   // R-306 d: straight to the story, the moment over it
-      if (mahaloTry() === 'e') { coverAndFold(() => goStep(step, step + 2, { quiet: true })); return; }   // R-306 e: the cover, folding into the story's band
+      S.stThanks = { kind: 'none', noAsk: true }; S.stThanksSeen = false;
+      if (coverOn()) { coverAndFold(() => goStep(step, step + 2, { quiet: true })); return; }   // R-306 e: the cover, folding into the story's band
       goStep(step, step + 1);
     };
   }
@@ -1074,13 +1036,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       leaveAlerts(step, r);
     } });
     wireName($('#st-aform'), 'st-a');
-    $$('[data-stalchange]').forEach(el => el.onclick = () => { clearInterval(autoT); alertChange(); app.render(); focusAlert(); });
-    // R-306 c: the page moves on by itself, unless it was reached by Back or Stay here was pressed.
-    if (mahaloTry() === 'c' && !$('#st-aform')) {
-      if (back) S.stAutoStop = true;
-      if (!S.stAutoStop && document.getElementById('st-mhcount')) autoGo(step); else document.getElementById('st-mhauto')?.remove();
-      $$('[data-stmhstay]').forEach(el => el.onclick = () => { S.stAutoStop = true; clearInterval(autoT); document.getElementById('st-mhauto')?.remove(); fitScreen(); document.querySelector('.actionbar [data-stnext]')?.focus(); });
-    }
+    $$('[data-stalchange]').forEach(el => el.onclick = () => { alertChange(); app.render(); focusAlert(); });
     // The "Mahalo!" page's Next (the answer was counted when it was given; a page drawn on Back counts its Next).
     const nb = $('[data-stnext]'); if (nb && !$('#st-aform')) nb.onclick = () => { if (back) track(name, 'next'); goStep(step, step + 1); };
   }

@@ -1,4 +1,5 @@
-# The "Mahalo!" page after the alerts ask (R-298, Nate 17 Oct: "a very warm animation" again, not "a cold page with way
+# The old "Mahalo!" page after the alerts ask, kept on the practice copy as ?demo=1&mahalo=old since R-306 made the
+# fold everyone's (Nate 18 Oct); the fold's own checks are tests/mahalo_try.py. (R-298, Nate 17 Oct: "a very warm animation" again, not "a cold page with way
 # too much text"). It was W1-3's test of "Take me to Home" (R-239), which Nate dropped from the page on 17 Oct.
 # python3 tests/mahalo_home.py [base_url]   (sandbox; a phone at 390x844, an iPhone SE at 375x667 and a laptop at 1366x900)
 # Checks, after a number and its code and after Skip: the big flower and its drifting petals as the page arrives (none
@@ -25,7 +26,7 @@ def ctx(b, w, h, dark=False):
     p.on('console', lambda m: errors.append(f'console {w}: {m.text[:160]}') if m.type == 'error' and 'favicon' not in m.text else None)
     return c, p
 def to_thanks(p, number=False):
-    p.goto(BASE + '?demo=1&codes=1&restart'); past_welcome(p, 15000); p.wait_for_timeout(800)
+    p.goto(BASE + '?demo=1&codes=1&restart&mahalo=old'); past_welcome(p, 15000); p.wait_for_timeout(800)
     p.locator('.st-tile', has_text='Food').first.click(); p.wait_for_timeout(200)
     p.click('[data-stnext]'); p.wait_for_selector('[data-stpick]', timeout=10000); p.wait_for_timeout(800)
     p.click('[data-stnext]'); p.wait_for_selector('.st-alertspage', timeout=10000); p.wait_for_timeout(700)

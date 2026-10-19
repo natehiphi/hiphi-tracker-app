@@ -109,20 +109,9 @@ html[data-fxdir="back"]::view-transition-new(fx-main) { animation-name: fx-in-l;
   html body[data-screen="start"]:has(.st-mahalo) .actionbar .inner { width: 100%; }
 }
 
-/* ---- R-306 (Nate 18 Oct): three ways for the "Mahalo!" not to read as the end, practice copy only (?demo=1&mahalo=a|b|c,
-   start.js mahaloTry). a: the page as a bridge; b: a band on top of the story; c: the page moves on by itself. ---- */
-/* a: a smaller flower, the words that say what is next, and the story's bill peeking up under them. */
-.st.st-mha .st-mhflower { width: 150px; height: 128px; }
-.st.st-thanks.st-mha .fx-bloom { width: 96px; height: 96px; }
-.st-mhnext { display: inline-block; margin-top: 8px; color: var(--n900); }
-.st-mhpeek { align-self: stretch; display: flex; flex-direction: column; gap: 2px; margin-top: 18px; padding: 12px 14px; text-align: left; border-radius: var(--r12); }
-.st-mhpeekl { font-size: var(--t13); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--n700); }
-.st-mhpeek b { font-size: var(--t16); color: var(--n900); }
-.st-mhpeekp { font-size: var(--t14); color: var(--n700); }
-.st.st-mahalo.st-thanksnew .st-mhpeek { animation: fx-rise .5s var(--ease) .65s both; }
-/* On a phone the bill's card sits low, just over the bar, so it reads as the next thing coming up. */
-@media (max-width: 899px) { .st.st-mha .st-intro > .st-mhpeek:last-child { margin: auto 0 0; } }
-/* b: the band: the flower small at its left, the words beside it, on the celebration's warm ground (C-7: orange). */
+/* ---- R-306 (Nate 18 Oct, his pick of five, everyone's since his yes): the celebration covers the whole window, then folds
+   into a band at the top of A bill's story (start-rest.js coverAndFold, mahaloBand). ---- */
+/* The band: the flower small at its left, the words beside it, on the celebration's warm ground (C-7: orange). */
 .st-mhband { display: flex; align-items: center; gap: 12px; margin: 4px 0 12px; padding: 10px 14px 10px 10px; border-radius: var(--r12);
   background: var(--o50); border: 1px solid color-mix(in srgb, var(--o400) 45%, transparent); text-align: left; }
 .st-mbflower { flex: none; display: grid; place-items: center; width: 52px; height: 52px; }
@@ -136,10 +125,7 @@ html[data-fxdir="back"]::view-transition-new(fx-main) { animation-name: fx-in-l;
 .st-mhband:not(.st-mbnew) :is(.fx-petal, .fx-heart, .fx-spark) { animation: none !important; }
 .st-mhband:not(.st-mbnew) .fx-spark { opacity: 0; }
 .st-mhband.st-mbgone { opacity: 0; transform: translateY(-6px); transition: opacity .22s var(--ease), transform .22s var(--ease); }
-/* c: the line that says when the page moves on, and Stay here. */
-.st-mhauto { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 4px 10px; margin: 14px 0 0; font-size: var(--t14); color: var(--n700); }
-.st-mhauto .btn.text { padding: 12px 6px; margin: -12px -6px; min-height: 0; font-size: inherit; }
-/* e: the cover. The whole window, above the header, the sandbox band and the bar (they are under 100), on the celebration's
+/* The cover. The whole window, above the header, the sandbox band and the bar (they are under 100), on the celebration's
    warm ground; the flower large in the middle, opening slowly with petals drifting off it, the words rising under it. It fades
    in over the screen being left (0.2 s). Its fold into the band is done in start-rest.js (Web Animations). */
 .st-cover { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 24px;
