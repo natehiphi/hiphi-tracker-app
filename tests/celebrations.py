@@ -3,7 +3,7 @@
 #   - it appears with fx=<id>, and not without it (today's screen), and never without demo=1 (the live site loads nothing)
 #   - its words are visible; a full-screen one ends at once on a key; a small one never covers Next or the thing pressed
 #   - no sideways scroll, and a first-visit page that must fit (R-265) is no taller than today's
-#   - Reduce Motion: the bird is there, still (no running animation in it), and the words are there
+#   - Reduce Motion: the bird is there, still (nothing in it moves: no running transform; the busy dots may fade), and the words are there
 #   - no page errors
 # and for the full-screen ones and `voice`, on a phone page with the CPU slowed 4x (CDP), the longest gap between frames
 # while it moves (target under about 70 ms; no view transition under a cover).
@@ -225,7 +225,7 @@ def run_one(b, mid, m, w, h, fx, reduced=False, frames=False, shots=None, video=
         r['hscroll'] = p.evaluate("document.scrollingElement.scrollWidth > innerWidth + 1")
         r['sh'] = p.evaluate("document.scrollingElement.scrollHeight"); r['ih'] = h
         if reduced and fx:
-            r['moving'] = p.evaluate("""s => [...document.querySelectorAll('.ro')].reduce((n, e) => n + e.getAnimations({ subtree: true }).filter(a => a.playState === 'running').length, 0)""", m['sel'])
+            r['moving'] = p.evaluate("""s => [...document.querySelectorAll('.ro')].reduce((n, e) => n + e.getAnimations({ subtree: true }).filter(a => a.playState === 'running' && a.effect.getKeyframes().some(k => k.transform && k.transform !== 'none')).length, 0)""", m['sel'])
         if shots is not None:
             if not fx or not m.get('stills'): p.screenshot(path=os.path.join(shots, 'new.png' if fx else 'current.png'))
         if m['kind'] == 'full' and m.get('end') and fx and not reduced and not frames:

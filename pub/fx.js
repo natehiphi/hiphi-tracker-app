@@ -197,7 +197,7 @@ export const fxReady = FXS.length ? Promise.all([
   // The stages are drawn with <div>s; inside a <p> (the hello's "Aloha!" line, a card's "Testimony due" line) the page's
   // parser would close the <p> at the first <div> and spill the bird out of its box, full size. So they become <span>s,
   // drawn as blocks (fx.css), which may sit anywhere.
-  import('./rooster.js').then(m => { RO = { META: m.META, STAGE: Object.fromEntries(Object.entries(m.STAGE).map(([k, v]) => [k, v.replace(/<div\b/g, '<span').replace(/<\/div>/g, '</span>')])) }; })]).then(() => { fill(document); }).catch(e => console.error(e)) : Promise.resolve();
+  import('./rooster.js').then(m => { RO = { META: m.META, STAGE: Object.fromEntries(Object.entries(m.STAGE).map(([k, v]) => [k, v.replace(/<div\b/g, '<span data-rb').replace(/<\/div>/g, '</span>')])) }; })]).then(() => { fill(document); }).catch(e => console.error(e)) : Promise.resolve();
 const META = id => (RO && RO.META[id]) || { ms: 0, loop: false };
 // Moments already started on this page load, by key, with when they started: a screen drawn again (a redraw on data
 // landing, Back) picks the rooster up where it was, or shows it still in its last pose once it is over, instead of
