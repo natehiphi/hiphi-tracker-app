@@ -5,42 +5,42 @@
    "arms": {
     "today": [
      {
-      "file": "end/today-5.jpg",
+      "file": "end/today-4.jpg",
       "title": "A bill’s story",
-      "sig": "7948c7b37f69",
-      "date": "2026-10-17"
+      "sig": "a344e4f1baad",
+      "date": "2026-10-19"
+     },
+     {
+      "file": "end/today-5.jpg",
+      "title": "Coming up on your issues",
+      "sig": "9c1920cc4708",
+      "date": "2026-10-19"
      },
      {
       "file": "end/today-6.jpg",
-      "title": "Coming up on your issues",
-      "sig": "9c1920cc4708",
-      "date": "2026-10-16"
+      "title": "You’re all set!",
+      "sig": "e551f1f3446e",
+      "date": "2026-10-19"
      },
      {
       "file": "end/today-7.jpg",
-      "title": "You’re all set!",
-      "sig": "e551f1f3446e",
-      "date": "2026-10-17"
-     },
-     {
-      "file": "end/today-8.jpg",
       "title": "Home",
       "sig": "1031f251c2e9",
-      "date": "2026-10-18"
+      "date": "2026-10-19"
      }
     ],
     "home": [
      {
-      "file": "end/home-5.jpg",
+      "file": "end/home-4.jpg",
       "title": "A bill’s story",
-      "sig": "f39c22ec6df8",
-      "date": "2026-10-17"
+      "sig": "59bc93392d50",
+      "date": "2026-10-19"
      },
      {
-      "file": "end/home-6.jpg",
+      "file": "end/home-5.jpg",
       "title": "Mahalo for joining in!",
       "sig": "8ca30c95da12",
-      "date": "2026-10-18"
+      "date": "2026-10-19"
      }
     ]
    }
@@ -49,54 +49,54 @@
    "arms": {
     "full": [
      {
+      "file": "fv/full-3.jpg",
+      "title": "Save your profile",
+      "sig": "8ee18373f20c",
+      "date": "2026-10-19"
+     },
+     {
       "file": "fv/full-4.jpg",
-      "title": "Mahalo!",
-      "sig": "9cb603c90972",
-      "date": "2026-10-18"
+      "title": "A bill’s story",
+      "sig": "a344e4f1baad",
+      "date": "2026-10-19"
      },
      {
       "file": "fv/full-5.jpg",
-      "title": "A bill’s story",
-      "sig": "7948c7b37f69",
-      "date": "2026-10-17"
+      "title": "Coming up on your issues",
+      "sig": "9c1920cc4708",
+      "date": "2026-10-19"
      },
      {
       "file": "fv/full-6.jpg",
-      "title": "Coming up on your issues",
-      "sig": "9c1920cc4708",
-      "date": "2026-10-16"
-     },
-     {
-      "file": "fv/full-7.jpg",
       "title": "You’re all set!",
       "sig": "e551f1f3446e",
-      "date": "2026-10-17"
+      "date": "2026-10-19"
      }
     ],
     "short": [
      {
+      "file": "fv/short-3.jpg",
+      "title": "Save your profile",
+      "sig": "534bbaa9b4f6",
+      "date": "2026-10-19"
+     },
+     {
       "file": "fv/short-4.jpg",
-      "title": "Mahalo!",
-      "sig": "096800dc07f6",
-      "date": "2026-10-18"
+      "title": "Your voice counts here",
+      "sig": "a5309d58c6e6",
+      "date": "2026-10-19"
      },
      {
       "file": "fv/short-5.jpg",
-      "title": "Your voice counts here",
-      "sig": "3e59aecad249",
-      "date": "2026-10-16"
+      "title": "Coming up on your issues",
+      "sig": "08a2dcb765a6",
+      "date": "2026-10-19"
      },
      {
       "file": "fv/short-6.jpg",
-      "title": "Coming up on your issues",
-      "sig": "08a2dcb765a6",
-      "date": "2026-10-16"
-     },
-     {
-      "file": "fv/short-7.jpg",
       "title": "You’re all set!",
       "sig": "578c84f3fc39",
-      "date": "2026-10-17"
+      "date": "2026-10-19"
      }
     ]
    }
@@ -138,15 +138,15 @@
      },
      {
       "file": "email/finale-4.jpg",
-      "title": "Mahalo!",
-      "sig": "9cb603c90972",
-      "date": "2026-10-18"
+      "title": "A bill’s story",
+      "sig": "a344e4f1baad",
+      "date": "2026-10-19"
      },
      {
       "file": "email/finale-5.jpg",
-      "title": "A bill’s story",
-      "sig": "7948c7b37f69",
-      "date": "2026-10-17"
+      "title": "Coming up on your issues",
+      "sig": "9c1920cc4708",
+      "date": "2026-10-19"
      }
     ],
     "after": [
@@ -158,21 +158,21 @@
      },
      {
       "file": "email/after-3.jpg",
-      "title": "Mahalo!",
-      "sig": "9cb603c90972",
-      "date": "2026-10-18"
+      "title": "A bill’s story",
+      "sig": "a344e4f1baad",
+      "date": "2026-10-19"
      },
      {
       "file": "email/after-4.jpg",
-      "title": "A bill’s story",
-      "sig": "7948c7b37f69",
-      "date": "2026-10-17"
+      "title": "Coming up on your issues",
+      "sig": "9c1920cc4708",
+      "date": "2026-10-19"
      },
      {
       "file": "email/after-5.jpg",
-      "title": "Coming up on your issues",
-      "sig": "9c1920cc4708",
-      "date": "2026-10-16"
+      "title": "You’re all set!",
+      "sig": "e551f1f3446e",
+      "date": "2026-10-19"
      }
     ]
    }
@@ -240,9 +240,9 @@
      },
      {
       "file": "onb/today-4.jpg",
-      "title": "Mahalo!",
-      "sig": "9cb603c90972",
-      "date": "2026-10-18"
+      "title": "A bill’s story",
+      "sig": "a344e4f1baad",
+      "date": "2026-10-19"
      }
     ],
     "p1": [
@@ -449,54 +449,54 @@
    "arms": {
     "today": [
      {
-      "file": "act/today-5.jpg",
+      "file": "act/today-4.jpg",
       "title": "A bill’s story",
-      "sig": "7948c7b37f69",
-      "date": "2026-10-17"
+      "sig": "a344e4f1baad",
+      "date": "2026-10-19"
+     },
+     {
+      "file": "act/today-5.jpg",
+      "title": "Coming up on your issues",
+      "sig": "9c1920cc4708",
+      "date": "2026-10-19"
      },
      {
       "file": "act/today-6.jpg",
-      "title": "Coming up on your issues",
-      "sig": "9c1920cc4708",
-      "date": "2026-10-16"
+      "title": "You’re all set!",
+      "sig": "e551f1f3446e",
+      "date": "2026-10-19"
      },
      {
       "file": "act/today-7.jpg",
-      "title": "You’re all set!",
-      "sig": "e551f1f3446e",
-      "date": "2026-10-17"
-     },
-     {
-      "file": "act/today-8.jpg",
       "title": "Home",
       "sig": "1031f251c2e9",
-      "date": "2026-10-18"
+      "date": "2026-10-19"
      }
     ],
     "three": [
      {
-      "file": "act/three-5.jpg",
+      "file": "act/three-4.jpg",
       "title": "A bill’s story",
-      "sig": "7948c7b37f69",
-      "date": "2026-10-17"
+      "sig": "a344e4f1baad",
+      "date": "2026-10-19"
+     },
+     {
+      "file": "act/three-5.jpg",
+      "title": "Three ways to help this week",
+      "sig": "607c2eae7acf",
+      "date": "2026-10-19"
      },
      {
       "file": "act/three-6.jpg",
-      "title": "Three ways to help this week",
-      "sig": "607c2eae7acf",
-      "date": "2026-10-17"
+      "title": "You’re all set!",
+      "sig": "e551f1f3446e",
+      "date": "2026-10-19"
      },
      {
       "file": "act/three-7.jpg",
-      "title": "You’re all set!",
-      "sig": "e551f1f3446e",
-      "date": "2026-10-17"
-     },
-     {
-      "file": "act/three-8.jpg",
       "title": "Home",
       "sig": "1031f251c2e9",
-      "date": "2026-10-18"
+      "date": "2026-10-19"
      }
     ]
    }
