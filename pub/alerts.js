@@ -110,7 +110,7 @@ export const GETS_WHAT = 'when your voice matters most on the issues you follow:
 export const GETS_TEXTS = 'Usually a few texts a month while the Legislature meets, and never more than one text a day.';
 export const GETS_EMAILS = 'Usually a few emails a month while the Legislature meets.';
 // text: the link in a text is one more place to change it (an email has no such link).
-export const levelsWhere = text => `For each issue you choose how much: ${LEVEL_WORDS.every}, ${LEVEL_WORDS.big} (where every issue starts) or ${LEVEL_WORDS.app}. Change it under Alerts in your profile, on the issue’s page${text ? ', or from the link in any text' : ''}.`;
+export const levelsWhere = text => `For each issue you choose how much: ${LEVEL_WORDS.every}, ${LEVEL_WORDS.big} (where every issue starts) or ${LEVEL_WORDS.app}. Change it under Alerts in your profile${text ? ', on the issue’s page, or from the link in any text' : ' or on the issue’s page'}.`;
 // The one line under the box, where it is typed (P-5): short and positive, never "spam" (the research: a line like it raised a
 // nonprofit's sign-ups from 18% to 27%; "never spam you" cost 19% in another test). The privacy page says the rest.
 const hintFor = phone => phone ? 'We never share your number.' : 'We never share your email.';

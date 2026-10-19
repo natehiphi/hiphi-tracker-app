@@ -642,7 +642,8 @@ also include a phone number option which should be more prominent").** In the fi
 screen right after the issues are followed and before the "Mahalo!", which then celebrates both (the follow is
 the success; the "Mahalo!" page comes once the person has answered, A-10). It is one box everywhere (`pub/alerts.js`: the
 first visit, Home, after a first action, More): a mobile number first, email as a link under it, the same two
-kinds of alert named for either (C-4), how often ("at most one a day"), and for texts the carrier words
+kinds of alert named for either (C-4), how often ("a few a month" since t5/e3, R-299; the one-a-day ceiling is said on the
+Text terms page and the Alerts page, R-303), and for texts the carrier words
 (message and data rates, STOP, HELP). Until 10/4 the ask sat on "Coming up on your issues", after the story and
 the address (Nate 9/21: after the value), where most people never reached it.
 
