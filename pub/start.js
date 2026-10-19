@@ -195,9 +195,11 @@ const thanksUp = name => !planOn() && name === 'alerts' && !S.alertEdit && !!(S.
 // the practice copy only, ?demo=1&mahalo=a|b|c. a: the page as a bridge (forward words, the story's bill peeking up);
 // b: no page, the "Mahalo!" a band on top of the story; c: the page moves on by itself after a few seconds; d (Nate 18 Oct:
 // "option C but the animation moves much quicker. Almost like it was option B, but just with an animation that was full
-// screen for a brief moment and then disappeared"): no page, the full-screen moment over the story for 1.5 s. Without the
+// screen for a brief moment and then disappeared"): no page, the full-screen moment over the story for 1.5 s; e (Nate 18 Oct:
+// "show it full screen and have it animate itself to just exit at the top like Option B"): the whole screen is the "Mahalo!",
+// then it folds up into B's band at the top of the story. Without the
 // parameter, and always on the live site, today's page. Not an A/B test (decision 10): nobody is put in a version.
-export const mahaloTry = () => { if (!DEMO || planOn()) return ''; const v = new URLSearchParams(location.search).get('mahalo') || ''; return /^[abcd]$/.test(v) ? v : ''; };
+export const mahaloTry = () => { if (!DEMO || planOn()) return ''; const v = new URLSearchParams(location.search).get('mahalo') || ''; return /^[a-e]$/.test(v) ? v : ''; };
 function chaptersRow(name) {
   const k0 = chapterOf(name); if (k0 < 0) return '';
   // In the R-306 versions the part that comes next is marked as the one they are in, so the strip says the visit goes on.
@@ -443,7 +445,7 @@ function redirectFor(step, off) {
   if (step > T) return T;
   // R-306's version b has no "Mahalo!" page: once answered, the alerts screen is passed over (Back from the story goes to the
   // issues); Change on the story's band opens the box again (S.alertEdit).
-  if (n === 'alerts' && /[bd]/.test(mahaloTry()) && !S.alertEdit && (S.stThanks || textSaved() || mailSent())) return step + 1;
+  if (n === 'alerts' && /[bde]/.test(mahaloTry()) && !S.alertEdit && (S.stThanks || textSaved() || mailSent())) return step + 1;
   if (n === 'alerts') return S.alertsShown || askAlerts() || S.stThanks ? 0 : step + 1;   // or its "Mahalo!" page (R-140)
   if (wiz().via) return n === 'followask' && (viaFollowed() || wiz().viaSkipAsk) ? step + 1 : 0;
   if (n === 'issues') return pickedIssues().length ? 0 : stepOf('topics', off);

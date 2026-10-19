@@ -103,6 +103,31 @@ with sync_playwright() as pw:
     c, p = page(); to_alerts(p, '&mahalo=d'); by_phone(p)
     ok(p.locator('.st-lesson').count() == 1 and p.locator('.st-mahalo').count() == 0, 'd: after a number, the story (the moment has come and gone)')
     c.close()
+
+    # e: the whole window is the Mahalo, then it folds into the band on the story. Frames for the pictures Nate sees.
+    corners = "() => [[2,2],[innerWidth-3,2],[2,innerHeight-3],[innerWidth-3,innerHeight-3],[innerWidth/2,innerHeight-30]].every(([x,y]) => !!document.elementFromPoint(x,y)?.closest('#st-cover'))"
+    for w, h, tag in ((390, 844, 'phone'), (1280, 720, 'laptop')):
+        c = b.new_context(viewport={'width': w, 'height': h}, is_mobile=w < 600, has_touch=w < 600, device_scale_factor=2 if w < 600 else 1)
+        p = c.new_page(); p.on('pageerror', lambda e: errors.append(str(e)))
+        to_alerts(p, '&mahalo=e'); by_phone(p) if tag == 'laptop' else p.click('[data-stskip]')
+        if tag == 'laptop': pass
+        else:
+            p.wait_for_timeout(900)
+            ok(p.evaluate(corners), f'e {tag}: the cover fills the whole window, header and bar too')
+            p.screenshot(path=f'{OUT}/e-1-cover-{tag}.png')
+            p.wait_for_timeout(950); p.screenshot(path=f'{OUT}/e-2-folding-{tag}.png')
+        p.wait_for_timeout(1500)
+        ok(p.locator('#st-cover').count() == 0 and p.locator('.st-lesson .st-mhband:not(.st-mbhold)').count() == 1, f'e {tag}: the cover has folded into the band on the story')
+        p.screenshot(path=f'{OUT}/e-3-landed-{tag}.png')
+        c.close()
+    c, p = page(); to_alerts(p, '&mahalo=e'); p.click('[data-stskip]'); p.wait_for_timeout(500)
+    p.touchscreen.tap(200, 400); p.wait_for_timeout(1000)
+    ok(p.locator('#st-cover').count() == 0 and p.locator('.st-mhband:not(.st-mbhold)').count() == 1, 'e: a tap folds it at once')
+    p.emulate_media(reduced_motion='reduce'); c.close()
+    c = b.new_context(viewport={'width': 390, 'height': 844}, reduced_motion='reduce'); p = c.new_page()
+    to_alerts(p, '&mahalo=e'); p.click('[data-stskip]'); p.wait_for_timeout(600)
+    ok(p.locator('#st-cover').count() == 0 and p.locator('.st-mhband:not(.st-mbhold)').count() == 1, 'e: under Reduce Motion, no cover, the band at once')
+    c.close()
     b.close()
 
 for x in passes + fails: print(x)

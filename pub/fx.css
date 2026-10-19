@@ -139,3 +139,23 @@ html[data-fxdir="back"]::view-transition-new(fx-main) { animation-name: fx-in-l;
 /* c: the line that says when the page moves on, and Stay here. */
 .st-mhauto { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 4px 10px; margin: 14px 0 0; font-size: var(--t14); color: var(--n700); }
 .st-mhauto .btn.text { padding: 12px 6px; margin: -12px -6px; min-height: 0; font-size: inherit; }
+/* e: the cover. The whole window, above the header, the sandbox band and the bar (they are under 100), on the celebration's
+   warm ground; the flower large in the middle, opening slowly with petals drifting off it, the words rising under it. It fades
+   in over the screen being left (0.2 s). Its fold into the band is done in start-rest.js (Web Animations). */
+.st-cover { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 24px;
+  background: radial-gradient(circle at 50% 42%, #fff 0, var(--o50) 62%); animation: st-cvin .2s var(--ease) both; }
+.st-cvin { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; }
+.st-cvflower { position: relative; display: grid; place-items: center; width: 220px; height: 200px; }
+.st-cover .fx-bloom { width: 168px; height: 168px; margin: 0; }
+.st-cover .fx-bloom .fx-petal { animation-duration: .9s; }
+.st-cover .fx-bloom g > g:nth-child(2) .fx-petal { animation-delay: 110ms; }
+.st-cover .fx-bloom g > g:nth-child(3) .fx-petal { animation-delay: 220ms; }
+.st-cover .fx-bloom g > g:nth-child(4) .fx-petal { animation-delay: 330ms; }
+.st-cover .fx-bloom g > g:nth-child(5) .fx-petal { animation-delay: 440ms; }
+.st-cvtitle { display: inline-block; margin: 0; font: 700 var(--t28)/1.15 var(--font-h); color: var(--o700); animation: fx-rise .5s var(--ease) .3s both; }
+.st-cvsub { margin: 0; font-size: var(--t18); font-weight: 700; color: var(--n900); animation: fx-rise .5s var(--ease) .45s both; }
+.st-cover.st-cvout { opacity: 0; transition: opacity .22s var(--ease); }
+@keyframes st-cvin { from { opacity: 0; } to { opacity: 1; } }
+/* The band under the cover until it lands, then its other lines rise in. */
+.st-mhband.st-mbhold { visibility: hidden; }
+.st-mhband.st-mbland .st-mbwords > :not(.st-mbtitle) { animation: fx-rise .35s var(--ease) both; }
