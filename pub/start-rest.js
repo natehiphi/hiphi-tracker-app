@@ -459,11 +459,11 @@ function mahaloMoment() {
   celebrate({ title: W.title, sub: W.sub, small: W.how, go: 'Continue' });
 }
 // R-306 e: the whole window is the "Mahalo!" (the bar, the header and the sandbox band too: Nate saw d's card leave the
-// page showing around it), the flower opening with petals drifting off it; then, after 1.5 s or at a tap or a key, it folds
-// up into the band at the top of the story: the warm ground shrinks to the band's box, the flower and "Mahalo!" fly to
-// theirs, the other line fades, and the band is there when it lands (0.65 s). Under Reduce Motion there is no cover:
+// page showing around it), the flower opening with petals drifting off it; then, after 1.8 s or at a tap or a key, it folds
+// up into the band at the top of the story: the warm ground shrinks to the band's box, the flower flies to its place
+// in it, the words fade, and the band's own words rise as it lands (0.65 s, then a 0.18 s cross-fade). Under Reduce Motion there is no cover:
 // the story opens with the band, as in b. `go` moves the flow on; it runs under the cover.
-const COVER_MS = 1500, FOLD_MS = 650;
+const COVER_MS = 1800, FOLD_MS = 650;   // the flower opens from 0.3 s to about 1.2 s and the words have risen by 1.25 s
 function coverAndFold(go) {
   S.stBand = true; S.stBandSeen = true;
   if (reduced()) { go(); return; }
@@ -481,13 +481,18 @@ function coverAndFold(go) {
   const onKey = e => { if (!['Tab', 'Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) early(); };
   document.addEventListener('keydown', onKey, true);
   setTimeout(early, COVER_MS);
-  // The flow moves on under the cover once it has faded in, so the old screen never shows sliding away.
-  setTimeout(() => afterMove(go(), () => { window.scrollTo(0, 0); moved = true; tryFold(); }), 220);
+  // The flow moves on under the cover once it has faded in (0.16 s), without a slide, and before the flower starts to open
+  // (0.3 s, fx.css): drawing the story is the heaviest moment, so it happens while nothing on the cover moves.
+  setTimeout(() => { go(); window.scrollTo(0, 0); moved = true; tryFold(); }, 170);
   function fold() {
     if (folded) return; folded = true;
     document.removeEventListener('keydown', onKey, true);
     const band = document.querySelector('.st-mhband');
-    const land = () => { S.stBandHold = false; document.querySelectorAll('.st-mhband.st-mbhold').forEach(b => b.classList.replace('st-mbhold', 'st-mbland')); el.remove(); };
+    // Landed: the band shows under the cover, in the same place, and the cover fades off it (0.18 s), so what differs
+    // between them (the band's border, its other lines) comes in softly instead of in one frame.
+    const land = () => { S.stBandHold = false; document.querySelectorAll('.st-mhband.st-mbhold').forEach(b => b.classList.replace('st-mbhold', 'st-mbland'));
+      if (!el.animate || reduced()) { el.remove(); return; }
+      el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, easing: 'ease-out', fill: 'forwards' }).finished.then(() => el.remove(), () => el.remove()); };
     if (!band || !el.animate) { el.classList.add('st-cvout'); setTimeout(land, 240); return; }
     const r = band.getBoundingClientRect(), vw = innerWidth, vh = innerHeight;
     const opt = { duration: FOLD_MS, easing: 'cubic-bezier(.45, 0, .2, 1)', fill: 'forwards' };
@@ -497,10 +502,11 @@ function coverAndFold(go) {
       const dx = mid ? b.left + b.width / 2 - (a.left + a.width / 2) : b.left - a.left, dy = mid ? b.top + b.height / 2 - (a.top + a.height / 2) : b.top - a.top;
       from.style.transformOrigin = mid ? 'center' : 'top left';
       return from.animate([{ transform: 'none' }, { transform: `translate(${dx}px, ${dy}px) scale(${k})` }], opt); };
-    el.querySelector('.st-cvsub').animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, fill: 'forwards' });
-    el.querySelector('.fx-drift')?.remove();
-    fly(el.querySelector('.fx-bloom'), band.querySelector('.fx-bloom'), true);
-    const t = fly(el.querySelector('.st-cvtitle'), band.querySelector('.st-mbtitle'), false);
+    // The words fade as the fold starts and the band's own rise as it lands: flown, "Mahalo!" crossed over the flower on
+    // its way up (the frames, 18 Oct). Only the flower travels.
+    el.querySelectorAll('.st-cvtitle, .st-cvsub').forEach(w => w.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' }));
+    el.querySelector('.fx-drift')?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
+    const t = fly(el.querySelector('.fx-bloom'), band.querySelector('.fx-bloom'), true);
     (t ? t.finished : new Promise(res => setTimeout(res, FOLD_MS))).then(land, land);
   }
 }
@@ -525,7 +531,7 @@ export function leaveAlerts(step, r = null) {
   // R-306 d: no page either; the next screen comes first and the moment plays over it once its slide has ended (A-10).
   if (mahaloTry() === 'd') { afterMove(goStep(step, step + 1), mahaloMoment); return; }
   // R-306 e: the cover goes up over this screen first, the story is drawn under it, then the cover folds into the band.
-  if (mahaloTry() === 'e') { coverAndFold(() => goStep(step, step + 1)); return; }
+  if (mahaloTry() === 'e') { coverAndFold(() => goStep(step, step + 1, { quiet: true })); return; }
   // The same address, drawn again as the "Mahalo!" page: it slides in like a new screen, and focus goes to its heading
   // (the button that had it, "Text me a code" or "Confirm", is gone).
   afterMove(swap(() => { app.render(); window.scrollTo(0, 0); }, 'fwd'), () => document.getElementById('st-h')?.focus({ preventScroll: true }));
@@ -969,7 +975,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       S.stThanks = { kind: 'none', noAsk: true }; S.stThanksSeen = false; S.stAutoStop = false;
       if (mahaloTry() === 'b') { S.stBand = true; S.stBandSeen = false; }   // R-306 b: the alerts screen is passed over to the story's band
       if (mahaloTry() === 'd') { afterMove(goStep(step, step + 2), mahaloMoment); return; }   // R-306 d: straight to the story, the moment over it
-      if (mahaloTry() === 'e') { coverAndFold(() => goStep(step, step + 2)); return; }   // R-306 e: the cover, folding into the story's band
+      if (mahaloTry() === 'e') { coverAndFold(() => goStep(step, step + 2, { quiet: true })); return; }   // R-306 e: the cover, folding into the story's band
       goStep(step, step + 1);
     };
   }

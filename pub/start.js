@@ -129,10 +129,13 @@ window.addEventListener('pagehide', () => { if (document.body.dataset.screen ===
 
 // ---------- moving between screens: forward steps are tagged, so the on-screen Back can use the real Back ----------
 // Returns the slide's promise (fx.js afterMove): a moment that plays over the new screen waits for the slide to end.
-export function goStep(from, to) {
+export function goStep(from, to, { quiet = false } = {}) {
   LZ?.lessonStop();
   // Past the last step: Home (only the version that ends on Home gets here; today's last screen calls finish() itself).
   if (to > total(isOff())) { finish(); return; }
+  // Under R-306 e's cover the screen changes without the slide: a view transition draws the whole page, the cover too, as a
+  // still picture while it runs, which froze the opening flower for a quarter second.
+  if (quiet) { app.go('#/start/' + to); try { history.replaceState({ ...(history.state || {}), stFrom: from }, ''); } catch { /* ignore */ } return null; }
   return swap(() => {
     app.go('#/start/' + to);
     try { history.replaceState({ ...(history.state || {}), stFrom: from }, ''); } catch { /* ignore */ }
