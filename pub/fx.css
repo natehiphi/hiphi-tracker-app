@@ -108,3 +108,34 @@ html[data-fxdir="back"]::view-transition-new(fx-main) { animation-name: fx-in-l;
   html body[data-screen="start"]:has(.st-mahalo) .actionbar :is(.st-btns, .st-one) { justify-content: center; }
   html body[data-screen="start"]:has(.st-mahalo) .actionbar .inner { width: 100%; }
 }
+
+/* ---- R-306 (Nate 18 Oct): three ways for the "Mahalo!" not to read as the end, practice copy only (?demo=1&mahalo=a|b|c,
+   start.js mahaloTry). a: the page as a bridge; b: a band on top of the story; c: the page moves on by itself. ---- */
+/* a: a smaller flower, the words that say what is next, and the story's bill peeking up under them. */
+.st.st-mha .st-mhflower { width: 150px; height: 128px; }
+.st.st-thanks.st-mha .fx-bloom { width: 96px; height: 96px; }
+.st-mhnext { display: inline-block; margin-top: 8px; color: var(--n900); }
+.st-mhpeek { align-self: stretch; display: flex; flex-direction: column; gap: 2px; margin-top: 18px; padding: 12px 14px; text-align: left; border-radius: var(--r12); }
+.st-mhpeekl { font-size: var(--t13); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--n700); }
+.st-mhpeek b { font-size: var(--t16); color: var(--n900); }
+.st-mhpeekp { font-size: var(--t14); color: var(--n700); }
+.st.st-mahalo.st-thanksnew .st-mhpeek { animation: fx-rise .5s var(--ease) .65s both; }
+/* On a phone the bill's card sits low, just over the bar, so it reads as the next thing coming up. */
+@media (max-width: 899px) { .st.st-mha .st-intro > .st-mhpeek:last-child { margin: auto 0 0; } }
+/* b: the band: the flower small at its left, the words beside it, on the celebration's warm ground (C-7: orange). */
+.st-mhband { display: flex; align-items: center; gap: 12px; margin: 4px 0 12px; padding: 10px 14px 10px 10px; border-radius: var(--r12);
+  background: var(--o50); border: 1px solid color-mix(in srgb, var(--o400) 45%, transparent); text-align: left; }
+.st-mbflower { flex: none; display: grid; place-items: center; width: 52px; height: 52px; }
+.st-mhband .fx-bloom { width: 52px; height: 52px; margin: 0; }
+.st-mbwords { display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: var(--t14); color: var(--n700); line-height: 1.4; }
+.st-mbtitle { font: 700 var(--t18)/1.2 var(--font-h); color: var(--o700); }
+.st-mbwhere .btn.text { display: inline; font-size: inherit; padding: 14px 4px; margin: -14px -4px; min-height: 0; vertical-align: baseline; }
+/* Opening: the flower as on the page, a little quicker; the words rise beside it. Not replayed on a redraw. */
+.st-mhband.st-mbnew .fx-petal { animation-duration: .8s; }
+.st-mhband.st-mbnew .st-mbwords { animation: fx-rise .45s var(--ease) .25s both; }
+.st-mhband:not(.st-mbnew) :is(.fx-petal, .fx-heart, .fx-spark) { animation: none !important; }
+.st-mhband:not(.st-mbnew) .fx-spark { opacity: 0; }
+.st-mhband.st-mbgone { opacity: 0; transform: translateY(-6px); transition: opacity .22s var(--ease), transform .22s var(--ease); }
+/* c: the line that says when the page moves on, and Stay here. */
+.st-mhauto { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 4px 10px; margin: 14px 0 0; font-size: var(--t14); color: var(--n700); }
+.st-mhauto .btn.text { padding: 12px 6px; margin: -12px -6px; min-height: 0; font-size: inherit; }

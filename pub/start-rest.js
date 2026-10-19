@@ -2,7 +2,7 @@
 // why your voice counts, your legislators, the email ask, the finale, and the lessons' own pages. start.js draws the
 // frame and the topics screen with the kernel alone and loads this module right after that first paint; every helper
 // shared with it is imported from start.js (a read-only view of its state: the lessons through lessons()).
-import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, lessons, stepOf } from './start.js';
+import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, lessons, stepOf, mahaloTry, fitScreen } from './start.js';
 import { situation } from './bill.js';   // the bill page's own reading of where a bill is (R-255: the story leans to one still waiting for a hearing)
 import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind, textSaved,
   openActions, waitingBills, chairContacts, askedChair, agrees, dateLong } from './core.js';
@@ -251,7 +251,7 @@ function stepVoice(step) {
       : ['bell', 'We tell you when', off ? 'When the session opens and a bill on your issues has a hearing, we tell you what to do and by when.' : 'When a bill on your issues has a hearing, we tell you what to do and by when.'],
   ];
   const story = `<a href="#/learn/story${b ? '/' + esc(b.id) : ''}">See how a bill becomes law</a>`;
-  return shell('st1 st-voicepage', `${topRow('voice', step)}${artFor('voice')}
+  return shell('st1 st-voicepage', `${topRow('voice', step)}${mahaloBand()}${artFor('voice')}
     <h1 class="hero" id="st-h">Your voice counts here</h1>
     <p class="lede">People all over Hawaiʻi write to lawmakers every session. Your note joins theirs, and a friend’s can too.</p>`,
     `<ol class="st-voice" role="list">${pts.map(([ic, h, p]) => `<li><span class="st-vic">${icon(ic)}</span><div><b>${esc(h)}</b><span>${esc(p)}</span></div></li>`).join('')}</ol>
@@ -275,7 +275,7 @@ function stepLesson(step) {
   const E = example();
   if (!E) return skel(step, 'Finding a bill to show you');   // last session's bills are still on their way
   const L = lessons().lessonHTML('story', E);
-  return shell('st-lesson', `${topRow('bill', step)}${L.intro}`, L.main);
+  return shell('st-lesson', `${topRow('bill', step)}${mahaloBand()}${L.intro}`, L.main);
 }
 
 // ================= Stay connected, 1: who speaks for you, by street address =================
@@ -396,7 +396,11 @@ function thanksWords(r) {
     : r?.kind === 'email' ? 'When you finish here, tap the link we emailed you to turn on alerts.'
     // After Skip, what following gives them, so the page does not end on one line (the critic, R-298).
     : off ? 'Their bills start in January.' : 'You’ll find them on your Home page.';
-  return { title: first ? `Mahalo, ${first}!` : 'Mahalo!', sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`, how,
+  // R-306: the versions on trial never point to Home before the visit ends (it read as a goodbye); a says what comes next
+  // instead, and all three keep the words for how we'll reach them.
+  const ahead = mahaloTry() ? (r?.kind === 'phone' || r?.kind === 'email' ? how : '') : how;
+  return { title: first ? `Mahalo, ${first}!` : 'Mahalo!', sub: `You’re following ${n ? plural(n, 'issue') : 'your picks'}.`, how: ahead,
+    next: n === 1 ? 'Next, see what could happen to it.' : 'Next, see what could happen to one of them.',
     // Its button names what comes next (C-6, C-7): right after a sign-up, a plain "Continue" read as the end of the visit.
     // The next part's name is in title case, as a name (Nate 10/6, R-186); both versions of the test 'fv' alike.
     // It names the next part as the strip and the page do, "A bill’s story" (C-15, R-249; it said "How a Bill Becomes Law").
@@ -416,16 +420,55 @@ function stepThanks(step) {
       <span aria-hidden="true">·</span> ${btn('Change', { kind: 'text', sm: true, attrs: { 'data-stalchange': '1', 'aria-label': r.kind === 'phone' ? 'Change number' : 'Change email' } })}</p>` : '';
   // The flower opens once, as the page arrives; a redraw of the same page (Back, a hearing landing) shows it open.
   const fresh = !S.stThanksSeen; S.stThanksSeen = true;
-  return shell(`st4 st-alertspage st-thanks st-mahalo${fresh ? ' st-thanksnew' : ''}`, `${topRow('alerts', step)}
+  const v = mahaloTry();
+  // R-306 a: the same page as a bridge: a smaller flower, words that say what is next, and the story's own bill under them.
+  const peek = v === 'a' ? peekCard() : '';
+  // R-306 c: the page moves on by itself; the line says when, and Stay here stops it (wireStep starts the count).
+  const auto = v === 'c' && !S.stAutoStop ? `<p class="st-mhauto" id="st-mhauto" aria-live="polite"><span>Going on to A bill’s story in <span id="st-mhcount">${AUTO_S}</span>…</span>
+      ${btn('Stay here', { kind: 'text', sm: true, attrs: { 'data-stmhstay': '1' } })}</p>` : '';
+  return shell(`st4 st-alertspage st-thanks st-mahalo${v ? ' st-mh' + v : ''}${fresh ? ' st-thanksnew' : ''}`, `${topRow('alerts', step)}
     <div class="st-mhflower">${bloom()}${fresh ? drift() : ''}</div>
     <h1 class="hero st-thtitle" id="st-h" tabindex="-1">${esc(W.title)}</h1>
-    <p class="st-thsub">${esc(W.sub)}${W.how ? `<br><span class="st-mhhow">${esc(W.how)}</span>` : ''}</p>${where}`,
+    <p class="st-thsub">${esc(W.sub)}${W.how ? `<br><span class="st-mhhow">${esc(W.how)}</span>` : ''}${v === 'a' ? `<br><b class="st-mhnext">${esc(W.next)}</b>` : ''}</p>${where}${peek}${auto}`,
     '');
+}
+// R-306 a: the first thing of the next part, peeking up under the words, so the page does not look finished (NN/g's
+// "illusion of completeness"). The bill is the one the story will tell.
+function peekCard() {
+  const b = exampleBill(); if (!b) return '';
+  return `<div class="card st-mhpeek" aria-hidden="true"><span class="st-mhpeekl">Up next · A bill’s story</span>
+    <b>${esc(nick(b) || b.title || b.bill_number)}</b><span class="st-mhpeekp">How it got here, and how you could help it</span></div>`;
+}
+// R-306 c: seconds before the page moves on. Long enough for the flower and the two lines; the button works at once (A-10).
+const AUTO_S = 6;
+let autoT = 0;
+function autoGo(step) {
+  clearInterval(autoT);
+  const at = location.hash; let left = AUTO_S;
+  autoT = setInterval(() => {
+    const el = document.getElementById('st-mhcount');
+    if (location.hash !== at || !el || S.stAutoStop) { clearInterval(autoT); return; }
+    left -= 1; el.textContent = String(Math.max(left, 0));
+    if (left <= 0) { clearInterval(autoT); S.stAutoStop = true; track('alerts', 'next'); goStep(step, step + 1); }
+  }, 1000);
+}
+// R-306 b: the "Mahalo!" as a band on top of the next screen (the story, or the short version's one page). It stays
+// until they move on in the story; Change opens the alerts box again.
+function mahaloBand() {
+  if (mahaloTry() !== 'b' || !S.stBand) return '';
+  const r = thanksGiven(), W = thanksWords(r);
+  const fresh = !S.stBandSeen; S.stBandSeen = true;
+  const change = r ? ` <span aria-hidden="true">·</span> ${btn('Change', { kind: 'text', sm: true, attrs: { 'data-stbandchange': '1', 'aria-label': r.kind === 'phone' ? 'Change number' : 'Change email' } })}` : '';
+  const where = r ? `<span class="st-mbwhere">${r.kind === 'phone' ? 'Texts go to' : 'Sent to'} <span class="${r.kind === 'phone' ? 'al-nowrap' : 'al-break'}">${esc(r.kind === 'phone' ? fmtPhone(r.phone) : r.email)}</span>${change}</span>` : '';
+  return `<div class="st-mhband${fresh ? ' st-mbnew' : ''}" role="status"><span class="st-mbflower">${bloom()}</span>
+    <div class="st-mbwords"><b class="st-mbtitle">${esc(W.title)}</b><span>${esc(W.sub)}${W.how ? ` ${esc(W.how)}` : ''}</span>${where}</div></div>`;
 }
 export function leaveAlerts(step, r = null) {
   S.alertEdit = false; keepFirstName();
   if (wiz().via) { goStep(step, step + 1); return; }
-  S.stThanks = r || { kind: 'none' }; S.stThanksSeen = false;
+  S.stThanks = r || { kind: 'none' }; S.stThanksSeen = false; S.stAutoStop = false;
+  // R-306 b: no "Mahalo!" page; the next screen opens with the band.
+  if (mahaloTry() === 'b') { S.stBand = true; S.stBandSeen = false; goStep(step, step + 1); return; }
   // The same address, drawn again as the "Mahalo!" page: it slides in like a new screen, and focus goes to its heading
   // (the button that had it, "Text me a code" or "Confirm", is gone).
   afterMove(swap(() => { app.render(); window.scrollTo(0, 0); }, 'fwd'), () => document.getElementById('st-h')?.focus({ preventScroll: true }));
@@ -772,6 +815,26 @@ export function wireLearn(route) {
   document.querySelector('[data-stlearnback]')?.addEventListener('click', () => { if (lessons().lessonPrev(name)) label(); else leave(); });
   if (nb) nb.onclick = () => { if (lessons().lessonNext(name, E)) label(); else leave(); };   // past its last step the lesson is done
 }
+// Change on the "Mahalo!" (the page's line, or R-306 b's band): the alerts box again, with what was given in it.
+function alertChange() {
+  S.alertEdit = true;
+  if (!textSaved()) { S.alertMode = 'email'; S.alertDraft.email = mailSent(); S.stMail.sent = ''; try { sessionStorage.removeItem('hiphi_link_sent'); } catch { /* ignore */ } }
+  else { S.alertMode = 'phone'; S.alertDraft.phone = fmtPhone(textSaved().phone); }
+}
+const focusAlert = () => requestAnimationFrame(() => { const i = document.getElementById(`st-a-${S.alertMode}`); if (i) { i.focus(); i.select(); } });
+// R-306 b: the band's Change goes back to the alerts box; the band leaves once they move on in the story.
+function wireBand() {
+  document.querySelectorAll('[data-stbandchange]').forEach(el => el.onclick = () => {
+    alertChange(); S.stBack = true; lessons()?.lessonStop?.();
+    afterMove(swap(() => app.go('#/start/' + stepOf('alerts', isOff())), 'back'), focusAlert);
+  });
+}
+function dropBand() {
+  if (!S.stBand) return; S.stBand = false;
+  const el = document.querySelector('.st-mhband'); if (!el) return;
+  if (reduced()) { el.remove(); return; }
+  el.classList.add('st-mbgone'); later(() => el.remove(), 260);
+}
 export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
   if (name === 'issues') {
     const save = picks => { const m = model2(); if (m.sig) wizSet({ picksFor: m.sig, picks }); };
@@ -846,7 +909,8 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       // bill's visit has no "Mahalo!" and passes the screen over.
       if (askAlerts()) { goStep(step, step + 1); return; }
       if (wiz().via) { goStep(step, step + 2); return; }
-      S.stThanks = { kind: 'none', noAsk: true }; S.stThanksSeen = false;
+      S.stThanks = { kind: 'none', noAsk: true }; S.stThanksSeen = false; S.stAutoStop = false;
+      if (mahaloTry() === 'b') { S.stBand = true; S.stBandSeen = false; }   // R-306 b: the alerts screen is passed over to the story's band
       goStep(step, step + 1);
     };
   }
@@ -866,8 +930,10 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
     label();
     // A stage can change without Next: Back, or a tap on the story's own stage dots.
     $('.st')?.addEventListener('click', () => requestAnimationFrame(label));
+    wireBand();
     if (nb) nb.onclick = () => {
-      if (lessons().lessonNext('story', E)) { label(); return; }
+      if (lessons().lessonNext('story', E)) { label(); dropBand(); return; }
+      S.stBand = false;
       // Finishing "How a bill becomes law" is a part of the first visit finished: its name ticks green at the top of the
       // next screen with a small burst (tickChapter, C-7), as the short version's page does. Until 10/4 this was a moment
       // that filled the screen with three ticks over the Capitol, which read as the end with Stay connected still to
@@ -913,7 +979,8 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
 
   if (name === 'soon') document.querySelectorAll('.st-soon [data-helper]').forEach(el => el.onclick = () => app.openHelper(el.dataset.bill, el.dataset.helper));
   if (name === 'voice') {
-    const nb = $('[data-stnext]'); if (nb) nb.onclick = next;
+    wireBand();
+    const nb = $('[data-stnext]'); if (nb) nb.onclick = () => { S.stBand = false; next(); };
   }
   if (name === 'soon') {
     abSeen('act');   // the test 'act' (R-150): the two versions differ on this page and nowhere else
@@ -937,12 +1004,13 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       leaveAlerts(step, r);
     } });
     wireName($('#st-aform'), 'st-a');
-    $$('[data-stalchange]').forEach(el => el.onclick = () => {
-      S.alertEdit = true;
-      if (!textSaved()) { S.alertMode = 'email'; S.alertDraft.email = mailSent(); S.stMail.sent = ''; try { sessionStorage.removeItem('hiphi_link_sent'); } catch { /* ignore */ } }
-      else { S.alertMode = 'phone'; S.alertDraft.phone = fmtPhone(textSaved().phone); }
-      app.render(); requestAnimationFrame(() => { const i = document.getElementById(`st-a-${S.alertMode}`); if (i) { i.focus(); i.select(); } });
-    });
+    $$('[data-stalchange]').forEach(el => el.onclick = () => { clearInterval(autoT); alertChange(); app.render(); focusAlert(); });
+    // R-306 c: the page moves on by itself, unless it was reached by Back or Stay here was pressed.
+    if (mahaloTry() === 'c' && !$('#st-aform')) {
+      if (back) S.stAutoStop = true;
+      if (!S.stAutoStop && document.getElementById('st-mhcount')) autoGo(step); else document.getElementById('st-mhauto')?.remove();
+      $$('[data-stmhstay]').forEach(el => el.onclick = () => { S.stAutoStop = true; clearInterval(autoT); document.getElementById('st-mhauto')?.remove(); fitScreen(); document.querySelector('.actionbar [data-stnext]')?.focus(); });
+    }
     // The "Mahalo!" page's Next (the answer was counted when it was given; a page drawn on Back counts its Next).
     const nb = $('[data-stnext]'); if (nb && !$('#st-aform')) nb.onclick = () => { if (back) track(name, 'next'); goStep(step, step + 1); };
   }
