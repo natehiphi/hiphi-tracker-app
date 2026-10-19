@@ -37,7 +37,7 @@ ok(eq(T.findTitles('coa').map(t => t.k), ['coach']), '"coa" finds coach or youth
 ok(eq(T.findTitles('stud').map(t => t.k), ['student-hs', 'student-college']), '"stud" finds both kinds of student');
 ok(T.findTitles('teach', ['teacher']).length === 0, 'a title already picked is not suggested again');
 ok(eq(T.cleanTitles(['parent', 'own:  youth   coach ', 'gone-key', 'student', 'PARENT', 'own:Youth Coach', 'own:<b>x</b>']), ['parent', 'own:youth coach', 'own:bx/b']), 'cleaning: repeats, unknown keys, the bare student choice and <> go');
-ok(eq(T.cleanTitles(['own:Teacher', 'teacher', 'own:kupuna (older adult)', 'own:Student']), ['teacher', 'kupuna', 'own:Student']), 'own words that are a list title become that title (the bare "student" stays theirs) (R-156)');
+ok(eq(T.cleanTitles(['own:Teacher', 'teacher', 'own:Kupuna', 'own:Student']), ['teacher', 'kupuna', 'own:Student']), 'own words that are a list title become that title (the bare "student" stays theirs) (R-156)');
 ok(T.listKeyFor('  Teacher  ') === 'teacher' && T.listKeyFor('teacher (kumu)') === 'teacher' && T.listKeyFor('youth soccer coach') === '', 'listKeyFor: a list title by its words, else nothing');
 ok(!T.TITLES.some(t => /vap/i.test(t.say + t.label + (t.words ? t.words.source : ''))), 'no "vape" wording (e-cigarettes, R-158)');
 ok(T.cleanTitles(Array.from({ length: 14 }, (_, i) => 'own:t' + i)).length === T.TITLES_MAX, `at most ${T.TITLES_MAX} titles`);

@@ -18,7 +18,7 @@
 //           name a group only when you are authorized to speak for it; Nate said no to speaking for a group)
 export const TITLES = [
   { k: 'parent', label: 'parent', say: 'parent', first: true, group: 'family', topics: ['food', 'tobacco', 'around', 'family', 'care'], words: /\b(school|keiki|kids?|child(ren)?|youth|teens?|bab(y|ies)|famil(y|ies)|parent|minor)/i },
-  { k: 'kupuna', label: 'kupuna (older adult)', say: 'kupuna', first: true, group: 'family', topics: ['care', 'family', 'food', 'around'], words: /(kupuna|kūpuna|older adult|senior|elder|aging|medicare|caregiver|long-term care|pedestrian|crosswalk)/i },
+  { k: 'kupuna', label: 'kupuna', say: 'kupuna', first: true, group: 'family', topics: ['care', 'family', 'food', 'around'], words: /(kupuna|kūpuna|older adult|senior|elder|aging|medicare|caregiver|long-term care|pedestrian|crosswalk)/i },
   { k: 'student', label: 'student', say: 'student', group: 'school', pick: ['student-hs', 'student-college'], topics: [], words: null },
   { k: 'student-hs', label: 'high school student', say: 'high school student', first: true, group: 'school', topics: ['food', 'tobacco', 'around', 'climate'], words: /\b(school|student|youth|teens?|e-cig|electronic smoking|nicotine|flavor|bus|heat)/i },
   { k: 'student-college', label: 'college student', say: 'college student', first: true, group: 'school', topics: ['food', 'family', 'care', 'around', 'climate'], words: /\b(student|college|universit|tuition|snap|rent|bus|transit|tax credit for training)/i },
