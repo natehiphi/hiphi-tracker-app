@@ -22,7 +22,7 @@
 // Orange is the celebration colour and appears in these and almost nowhere else (C-7).
 //   rooster(id, o)  R-308, the practice copy only (fxOn): the HIPHI rooster drawn for one moment on trial. roosterAt(el, id)
 //                  floats a small one just above a thing done, like burst().
-import { icon, toast, DEMO, fxHook } from './kernel.js';
+import { icon, toast, DEMO, fxHook, esc } from './kernel.js';
 
 export const reduced = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 // A pause that only exists when things move: under Reduce Motion the next beat happens at once.
@@ -194,11 +194,15 @@ export const fxOn = id => FXS.length > 0 && (FXS.includes('all') || FXS.includes
 let RO = null;
 export const fxReady = FXS.length ? Promise.all([
   new Promise(res => { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'pub/rooster.css'; l.onload = l.onerror = res; document.head.appendChild(l); }),
-  import('./rooster.js').then(m => { RO = m; })]).then(() => { fill(document); }).catch(e => console.error(e)) : Promise.resolve();
+  // The stages are drawn with <div>s; inside a <p> (the hello's "Aloha!" line, a card's "Testimony due" line) the page's
+  // parser would close the <p> at the first <div> and spill the bird out of its box, full size. So they become <span>s,
+  // drawn as blocks (fx.css), which may sit anywhere.
+  import('./rooster.js').then(m => { RO = { META: m.META, STAGE: Object.fromEntries(Object.entries(m.STAGE).map(([k, v]) => [k, v.replace(/<div\b/g, '<span').replace(/<\/div>/g, '</span>')])) }; })]).then(() => { fill(document); }).catch(e => console.error(e)) : Promise.resolve();
 const META = id => (RO && RO.META[id]) || { ms: 0, loop: false };
-// Keys of moments already played on this page load: a screen drawn again (a redraw on data, Back) shows the rooster still,
-// in its last pose, instead of playing it again (A-10: nothing replays by itself).
-const played = new Set();
+// Moments already started on this page load, by key, with when they started: a screen drawn again (a redraw on data
+// landing, Back) picks the rooster up where it was, or shows it still in its last pose once it is over, instead of
+// playing it again (A-10: nothing replays by itself).
+const played = new Map();
 // rooster(id, { size, cls, key, at, fit, delay, stop, still }) returns the markup: a box `size` px square (size 0: the
 // page's CSS sets --ro; the bird fills most of it) that takes no taps and is hidden from screen readers; the words beside it always say what it means (A-10).
 //   key    once per page load under this key; after that, still        at     start this many ms into it (the law: the bloom)
@@ -206,8 +210,7 @@ const played = new Set();
 //   stop   loops only: pause after this many ms (submitting at 5 s, empty-state after one cycle; A-10's 5 s)
 //   still  drawn in its last pose, nothing moves
 export function rooster(id, { size = 48, cls = '', key = '', at = 0, fit = 0, delay = 0, stop = 0, still = false } = {}) {
-  if (key && played.has(key)) still = true; else if (key) played.add(key);
-  const d = Object.entries({ at, fit, delay, stop }).filter(([, v]) => v).map(([k, v]) => ` data-ro-${k}="${v}"`).join('');
+  const d = Object.entries({ key, at, fit, delay, stop }).filter(([, v]) => v).map(([k, v]) => ` data-ro-${k}="${esc(v)}"`).join('');
   return `<span class="ro${cls ? ' ' + cls : ''}" data-ro="${id}"${still ? ' data-ro-still="1"' : ''}${d}${size ? ` style="--ro:${size}"` : ''} aria-hidden="true"><span class="ro-st">${RO ? RO.STAGE[id] || '' : ''}</span></span>`;
 }
 // What the markup asks for, done once it is in the page: its animations are the CSS ones of rooster.css, steered here
@@ -217,11 +220,16 @@ function steer(r) {
   if (reduced()) return;   // rooster.css draws it still under Reduce Motion; nothing to time
   const an = r.getAnimations ? r.getAnimations({ subtree: true }) : [];
   const ds = r.dataset, m = META(ds.ro);
+  let gone = 0;   // ms of it already played under this key (a redraw)
+  if (ds.roKey) { const t0 = played.get(ds.roKey), now = performance.now(); if (t0 === undefined) played.set(ds.roKey, now); else gone = now - t0; }
+  const lasts = m.loop ? (+ds.roStop || m.ms) : (+ds.roFit || m.ms) - (+ds.roAt || 0) + (+ds.roDelay || 0);   // how long it plays, ms
+  if (gone && gone >= lasts) ds.roStill = '1';
   if (ds.roStill) { an.forEach(a => { try { if (a.effect?.getTiming().iterations === Infinity) a.pause(); else a.finish(); } catch { a.pause(); } }); return; }
   if (+ds.roFit && m.ms) an.forEach(a => { a.playbackRate = m.ms / +ds.roFit; });
-  if (+ds.roAt) an.forEach(a => { a.currentTime = +ds.roAt; });
-  if (+ds.roDelay) { an.forEach(a => a.pause()); setTimeout(() => an.forEach(a => { if (a.playState === 'paused') a.play(); }), +ds.roDelay); }
-  if (+ds.roStop) setTimeout(() => r.classList.add('ro-paused'), +ds.roStop + (+ds.roDelay || 0));
+  const from = (+ds.roAt || 0) + gone * (+ds.roFit && m.ms ? m.ms / +ds.roFit : 1);
+  if (from) an.forEach(a => { a.currentTime = from; });
+  if (+ds.roDelay && !gone) { an.forEach(a => a.pause()); setTimeout(() => an.forEach(a => { if (a.playState === 'paused') a.play(); }), +ds.roDelay); }
+  if (+ds.roStop) setTimeout(() => r.classList.add('ro-paused'), Math.max(0, +ds.roStop + (gone ? 0 : +ds.roDelay || 0) - gone));
 }
 // Fill any box drawn before the rooster arrived, and steer every new one (a screen's markup goes in as a string, so the
 // page is watched rather than each screen calling in).

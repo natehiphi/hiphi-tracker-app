@@ -162,6 +162,7 @@ html[data-fxdir="back"]::view-transition-new(fx-main) { animation-name: fx-in-l;
 .ro .ro-st { position: absolute; display: block; flex: none; left: 50%; top: 50%; width: 480px; height: 480px; margin: -240px 0 0 -240px;
   transform: scale(calc(var(--ro, 48) / 240)); transform-origin: 50% 50%; }
 /* Floating just above a thing done (fx.js roosterAt), its feet on the top edge of that thing. */
+.ro .ro-st span { display: block; }   /* the stage's boxes (fx.js turns its divs into spans) */
 .ro-float { position: fixed; z-index: 95; pointer-events: none; line-height: 0; translate: -50% -100%; }
 /* In the yay toast, in place of the green check: a little bigger than the check, in the same place. */
 .toastmsg .ro-toast { margin: -6px -2px -6px -6px; }

@@ -79,9 +79,10 @@ def walk_testimony(p, fx):
         b.first.click(); p.wait_for_timeout(800)
 def send_testimony(p): p.locator('#hp-dlg [data-hp="sent"], #hp-dlg [data-hp="confirm"]').first.click()
 
-def home_seed(p, fx):
+def home_seed(p, fx, again=True):
     p.goto(url('&seed=1&ab=layout.today', fx, '#/')); ready(p); p.wait_for_timeout(700)
-    p.evaluate(FOLLOW); p.reload(); ready(p); p.wait_for_timeout(700)
+    p.evaluate(FOLLOW)
+    if again: p.reload(); ready(p); p.wait_for_timeout(700)   # (good news is seen on the next drawing, so its check reloads itself)
 def quiz_to_last(p, fx):
     p.goto(url('', fx, '#/quiz')); ready(p); p.wait_for_timeout(500); p.click('[data-qz=start]'); p.wait_for_timeout(500)
     for k in range(4): p.locator('[data-pick]').first.click(); p.wait_for_timeout(500)
@@ -125,7 +126,7 @@ M = {
   'alerts':   dict(kind='small', title='Alerts turned on', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), alerts_typed(p, fx)), trigger=lambda p: p.click('#nx-send'),
                    sel='.ro-float .ro', words='Mahalo!', peak=None, next='.actionbar .btn.primary',
                    stills=[100, 250, 450, 650], what='The burst and the rooster above the “Mahalo!” heading once the number is in (also More’s alerts row and Home’s ask).'),
-  'goodnews': dict(kind='small', title='Good news on Home', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), home_seed(p, fx)),
+  'goodnews': dict(kind='small', title='Good news on Home', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), home_seed(p, fx, again=False)),
                    trigger=lambda p: (p.reload(), ready(p)), sel='.ro-float .ro', words='Got it', peak=None,
                    stills=[100, 250, 450, 650], what='The rooster beside each new good-news card’s icon as it bursts, once.'),
   'quiz':     dict(kind='small', title='The daily game’s result', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), quiz_to_last(p, fx)),
@@ -206,11 +207,13 @@ def run_one(b, mid, m, w, h, fx, reduced=False, frames=False, shots=None, video=
             cdp.send('Emulation.setCPUThrottlingRate', {'rate': 1})
         else:
             if shots is not None and m.get('stills') and fx:
+                # The stills through it, and new.png at its fullest (the peak), in time order.
+                plan = sorted([(t, f'new-{k + 1}.png') for k, t in enumerate(m['stills'])] + [(m['peak'] if m['peak'] is not None else 200, 'new.png')])
                 last = 0
-                for k, t in enumerate(m['stills']):
-                    p.wait_for_timeout(max(0, t - last)); last = t
-                    p.screenshot(path=os.path.join(shots, f'new-{k + 1}.png')); stills.append(f'new-{k + 1}.png')
-                p.wait_for_timeout(max(0, (m['peak'] or 300) - last)) if (m['peak'] or 300) > last else None
+                for t, name in plan:
+                    p.wait_for_timeout(max(0, t - last)); last = max(last, t)
+                    p.screenshot(path=os.path.join(shots, name))
+                    if name != 'new.png': stills.append(name)
             elif m.get('peak'): p.wait_for_timeout(m['peak'])
         r['stills'] = stills
         smp = p.evaluate("window.__smp || {}") if not frames else {}
@@ -224,7 +227,7 @@ def run_one(b, mid, m, w, h, fx, reduced=False, frames=False, shots=None, video=
         if reduced and fx:
             r['moving'] = p.evaluate("""s => [...document.querySelectorAll('.ro')].reduce((n, e) => n + e.getAnimations({ subtree: true }).filter(a => a.playState === 'running').length, 0)""", m['sel'])
         if shots is not None:
-            p.screenshot(path=os.path.join(shots, 'new.png' if fx else 'current.png'))
+            if not fx or not m.get('stills'): p.screenshot(path=os.path.join(shots, 'new.png' if fx else 'current.png'))
         if m['kind'] == 'full' and m.get('end') and fx and not reduced and not frames:
             p.keyboard.press('Enter') if mid != 'follow' else p.keyboard.press('Space')
             p.wait_for_timeout(1100)
