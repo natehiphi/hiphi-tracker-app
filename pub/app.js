@@ -32,6 +32,10 @@ const oldA = () => armOf('layout') === 'a';
 // The calm redesign of the rest of the public pages (R-303, Nate 10/17), with the bill page in layout 3 (R-302): only with
 // ?rec=1 until his look. Taking this switch out brings back today's pages everywhere.
 const REC = () => new URLSearchParams(location.search).has('rec');
+// ?demo=1&rec=1&boxes=1, the practice copy only (R-303, Nate 18 Oct: "Show me all the places that don't have a box and what
+// they would look like with a box"): every list still on the page's grey is drawn in the white box, for his look (rec.css
+// "Every list boxed"). Nothing changes without &boxes=1. Once he has picked, this line and that block go.
+if (DEMO && REC() && new URLSearchParams(location.search).has('boxes')) document.documentElement.classList.add('rc-boxall');
 const calmHome = () => armOf('layout') === 'calm';
 const start = lazy('start', () => import('./start.js'), { tabs: false, title: 'Welcome' }), home = lazy('home', () => oldA() ? import('./a/home.js') : calmHome() ? import('./calm/home.js') : import('./home.js'), { tab: 'home', title: 'Home' });
 const find = lazy('find', () => REC() ? import('./rec/find.js') : import('./find.js'), { tab: 'find', title: 'Find' }), people = lazy('people', () => import('./people.js'), { tab: 'more', title: 'Your legislators' });

@@ -62,6 +62,26 @@ body.rec .rc-foot:has(> .rc-box) { padding-top: 0; border-top: 0; }
   body.rec .rc-topics.rc-box > li:nth-child(2) { border-top: 0; }
 }
 
+/* Every list boxed: ?demo=1&rec=1&boxes=1 only, for Nate's look (R-303, 18 Oct: "Show me all the places that don't have a box
+   and what they would look like with a box"; pub/app.js puts .rc-boxall on <html>). Each list still on the page's grey gets the
+   same white box as above (.rc-box): Home's Your issues, You's rows, Help's lessons and Email HIPHI, Your lawmakers, a
+   lawmaker's On your issues, a committee's bills, the issue page's Bills on this issue and its record. Lists already in a card
+   or a closed card keep theirs. On Home, the row the slide is about stays lit in pale blue, since white is now the box.
+   Delete this block (and app.js's line) once he has picked; a place he keeps gets BOX in its own module instead. */
+html.rc-boxall body.rec .rc-rows:not(.rc-box, .rc-fold .rc-rows, .rc-card .rc-rows, .card .rc-rows),
+html.rc-boxall body.rec .cm .cm-rows { gap: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
+html.rc-boxall body.rec .rc-rows:not(.rc-box, .rc-fold .rc-rows, .rc-card .rc-rows, .card .rc-rows) > li + li,
+html.rc-boxall body.rec .cm .cm-rows > li + li { border-top: 1px solid var(--n100); }
+html.rc-boxall body.rec .rc-rows:not(.rc-box, .rc-fold .rc-rows, .rc-card .rc-rows, .card .rc-rows) .rc-row,
+html.rc-boxall body.rec .cm .cm-rows .cm-row { margin: 0; padding: var(--s12) var(--s16); border-radius: 0; }
+html.rc-boxall body.rec .rc-rows:not(.rc-box, .rc-fold .rc-rows, .rc-card .rc-rows, .card .rc-rows) .rc-row:focus-visible,
+html.rc-boxall body.rec .cm .cm-rows .cm-row:focus-visible { outline-offset: -3px; }
+@media (hover: hover) {
+  html.rc-boxall body.rec .rc-rows:not(.rc-box, .rc-fold .rc-rows, .rc-card .rc-rows, .card .rc-rows) .rc-row:hover,
+  html.rc-boxall body.rec .cm .cm-rows .cm-row:hover { background: var(--n50); }
+}
+html.rc-boxall body.rec .cm .cm-rows .cm-row.on { background: var(--p50); }
+
 /* Follow: one outlined pill, the bill page's Share pill in shape; followed, a pale "✓ Following" (the issue page's opens a
    small menu). In the kit since the wrap-up review (10/18): the issue page, the category page and search draw it alike. */
 body.rec .rc-fpill { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--s16); border: 0; border-radius: var(--pill);
