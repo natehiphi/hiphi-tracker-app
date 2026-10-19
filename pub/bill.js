@@ -4,7 +4,7 @@
 // Follow-ups after Nate's review (9/19): the page leads with the bill's everyday name when it has one, asks "Where do
 // you stand?" near the top, keeps community numbers to this one bill, follows the same easiest-first ladder as the
 // action card, and has a real desktop layout (the actions in a side panel that stays in view, no bottom bar).
-import { S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, blurb, asSentence, cleanDesc, nick, spaced, alive, stopOf, plainStatus, stopDetail, cmteLabel, roomLabel,
+import { fxArt, S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, blurb, asSentence, cleanDesc, nick, spaced, alive, stopOf, plainStatus, stopDetail, cmteLabel, roomLabel,
   dueInfo, dayWord, timeWord, hearingWhen, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
   pickBill, billRef, billPath, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
@@ -20,7 +20,7 @@ import { stoppedAt } from '../stops.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing } from './actions.js';
 import { flower } from './art.js';
 import { followAsk, profileSaved, levelLine, levelBox, wireLevelLine } from './alerts.js';   // the profile ask after a follow (R-184); how much an issue texts (R-299)
-import { celebrate as moment } from './fx.js';
+import { celebrate as moment, fxOn, rooster, cheer } from './fx.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
 import { abEvent } from './variant.js';
 import { legMoments, planFor } from './speakup.js';   // the floor vote's email to their own legislator (R-169); the walkthrough a button opens
@@ -702,7 +702,8 @@ app.newcomerActed = async b => {
   homeAfterAct(b);
   moment({ title: 'Mahalo!', sub: `You spoke up on ${nick(b) || spaced(b.bill_number)}.`,
     small: follow ? `We’ll follow ${i.name === (nick(b) || '') ? 'this issue' : i.name} for you, so you can see what happens next.` : 'That’s how bills move: committees hear from the people who write.',
-    go: GO_HELP, alt: follow ? { label: `Stop following ${i.name}`, act: () => setFollows({ issuesOff: [i.id] }) } : null });
+    go: GO_HELP, alt: follow ? { label: `Stop following ${i.name}`, act: () => setFollows({ issuesOff: [i.id] }) } : null,
+    art: fxOn('sent') ? rooster('big-win', { size: 120, cls: 'fx-mro', fit: 1450 }) : '' });   // R-308 on trial: the rooster's hop, in the moment's 1.5 s
   return true;
 };
 // After testimony or an email sent from the walkthrough (helper.js), its Done: a first visit that began on this bill ends
@@ -1214,8 +1215,8 @@ export function recDock() {
 window.addEventListener('scroll', recDock, { passive: true });
 const loading = () => `<div class="bl-skel">${skeleton(4)}</div>`;
 const shell = (num, inner) => `<div class="bl-page${wide() ? ' bl-wide' : ''}">${topbar(num, null)}${inner}</div>`;
-const missing = (num, year) => `<div class="empty bl-empty">${icon('search', { size: 40 })}<h1>We couldn’t find ${esc(spaced(num) || 'that bill')}${year ? ` from the ${year} session` : ''}</h1><p>Check the number, or search for the bill by a word like e-cigarettes.</p>${btn('Search bills', { kind: 'primary', icon: 'search', href: `#/find?q=${encodeURIComponent(num)}` })}</div>`;
-const failed = () => `<div class="empty bl-empty" role="alert">${icon('circle-alert', { size: 40 })}<h1>We couldn’t load this bill</h1><p>Check your connection and try again.</p>${btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { 'data-bl-retry': '1' } })}</div>`;
+const missing = (num, year) => `<div class="empty bl-empty">${fxArt('error') || icon('search', { size: 40 })}<h1>We couldn’t find ${esc(spaced(num) || 'that bill')}${year ? ` from the ${year} session` : ''}</h1><p>Check the number, or search for the bill by a word like e-cigarettes.</p>${btn('Search bills', { kind: 'primary', icon: 'search', href: `#/find?q=${encodeURIComponent(num)}` })}</div>`;
+const failed = () => `<div class="empty bl-empty" role="alert">${fxArt('error') || icon('circle-alert', { size: 40 })}<h1>We couldn’t load this bill</h1><p>Check your connection and try again.</p>${btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { 'data-bl-retry': '1' } })}</div>`;
 
 // ---------------- actions ----------------
 // Scroll something into view under the bars that stay on screen. Nothing moves when it is already in view (on a wide
@@ -1403,6 +1404,8 @@ export default {
         }
       } finally { stanceBusy = false; }
       app.render();
+      // R-308 on trial (?demo=1&fx=stance): a stance taken is a small win (C-7), the burst and the rooster just above the choice.
+      if (fxOn('stance') && myStance(b.id)) cheer('stance', document.querySelector(`[data-bl-stance="${myStance(b.id)}"]`), 10, 40);
     }));
     root.querySelector('[data-bl-menu]')?.addEventListener('click', e => { e.stopPropagation(); setMenu(document.getElementById('bl-menu').hidden); });
     root.querySelectorAll('[data-bl-addto]').forEach(el => el.addEventListener('click', () => { setMenu(false); openAddTo(b); }));

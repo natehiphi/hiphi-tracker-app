@@ -16,10 +16,10 @@
 // asks for a YES any more. Before the switch it says the number will be confirmed by text (t3), as the code will do.
 // Legal, one line: the text consent words and the privacy page's lines on numbers should be confirmed by a lawyer before
 // any text goes out; carrier registration (10DLC) also reviews this screen, and should name both uses, alerts and sign-in codes.
-import { S, DEMO, app, esc, icon, textSaved, textLists, TEXT_KEY, CONSENT_KEY, supa, sendEmailLink, validEmail, friendly, linkText, nudgeOk, onb, onbSet, LEVELS, levelOf, setIssueLevel } from './core.js';
+import { fxArt, S, DEMO, app, esc, icon, textSaved, textLists, TEXT_KEY, CONSENT_KEY, supa, sendEmailLink, validEmail, friendly, linkText, nudgeOk, onb, onbSet, LEVELS, levelOf, setIssueLevel } from './core.js';
 import { codesOn, loadCodes, sendCode, verifyCode, codeErr, tooSoon, listenForCode, myEmail } from './phone.js';
 import { btn } from './ui.js';
-import { burst } from './fx.js';
+import { burst, cheer, fxOn } from './fx.js';
 import { abEvent, armOf, abSeen } from './variant.js';
 
 // ---------------- The profile ask (R-184) ----------------
@@ -398,7 +398,7 @@ export function wireAlertForm(form, { pfx, source, onDone, onSwap }) {
     if (!v) { show(email ? 'Add your email, or skip this for now.' : 'Add your mobile number, or skip this for now.'); return; }
     // Checked only now, never while typing (C-9), and before anything is sent.
     if (email ? !validEmail(v) : !phoneDigits(v)) { show(email ? EMAIL_ERR : PHONE_ERR); return; }
-    if (b) { b.setAttribute('aria-busy', 'true'); b.innerHTML = `${icon('loader-circle')}<span>${email ? 'Saving…' : 'Sending…'}</span>`; }
+    if (b) { b.setAttribute('aria-busy', 'true'); b.innerHTML = `${fxArt('sending') || icon('loader-circle')}<span>${email ? 'Saving…' : 'Sending…'}</span>`; }
     const codes = !email && await loadCodes();
     try {
       // Codes on (R-155): text a code first; the box turns into the code field, and the number is kept once it is proven.
@@ -542,7 +542,7 @@ export function wireAlertRow(root = document, { source = 'first_visit' } = {}) {
       S.stCalm = true; try { app.render(); } finally { S.stCalm = false; }
       const row = document.querySelector('[data-alrow]'); if (!row) return;
       row.focus({ preventScroll: true });   // the page is the same length, so the row is where the button was
-      if (now.key === 'on' || now.key === 'almost') burst(row.querySelector('.st-rc'), 12, 44);
+      if (now.key === 'on' || now.key === 'almost') cheer('alerts', row.querySelector('.st-rc'), 12, 44);
     } });
   };
 }

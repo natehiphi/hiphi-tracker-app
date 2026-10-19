@@ -8,7 +8,7 @@
 // approved. Where it would live once approved: More, and the Mahalo's "Bring one friend along".
 import { DEMO, esc, icon, toast, app } from './core.js';
 import { btn } from './ui.js';
-import { burst } from './fx.js';
+import { burst, cheer } from './fx.js';
 import { QUESTIONS, TYPES, SHARE_TEXT, INTRO, resultOf } from './quiz-data.js';
 
 const KEY = 'hiphi_quiz', PICKS = 'hiphi_quiz_picks', N = QUESTIONS.length;
@@ -107,6 +107,6 @@ export default {
       keep(resultOf(Q.picks)); Q.celebrate = true; go('#/quiz/result');
     });
     // A small celebration for a finished quiz, sized like the other small wins (DESIGN.md C-7; the motion honours Reduce Motion).
-    if (Q.celebrate && Q.v?.view === 'r') { Q.celebrate = false; const b = document.getElementById('qz-badge'); if (b) burst(b); }
+    if (Q.celebrate && Q.v?.view === 'r') { Q.celebrate = false; const b = document.getElementById('qz-badge'); if (b) cheer('quiz', b, 12, 52, { side: 'right' }); }
   },
 };

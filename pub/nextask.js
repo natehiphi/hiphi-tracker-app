@@ -22,7 +22,7 @@ import { createAddressPicker } from './addresspicker.js';
 import { alertFields, wireAlertForm, alertButton, alertDoneHTML, codeStep, profileAsk, PROFILE_H, profileLede, alertsGiven } from './alerts.js';
 import { declineNudge, doShare } from './actions.js';
 import { newIssues } from './home.js';
-import { burst, later } from './fx.js';
+import { burst, later, cheer } from './fx.js';
 import { abSeen, armOf } from './variant.js';
 import { logAsk } from './visitlog.js';
 
@@ -165,7 +165,7 @@ function wireLegs() {
       try { localStorage.setItem('hiphi_districts', JSON.stringify({ senate: found.find(l => l.chamber === 'S')?.district || null, house: found.find(l => l.chamber === 'H')?.district || null })); } catch { /* ignore */ }
       did('legs');
       app.render();
-      later(() => burst(document.getElementById('st-legs'), 14, 70), 300);   // found: a small celebration (C-7)
+      later(() => cheer('found', document.getElementById('st-legs'), 14, 70), 300);   // found: a small celebration (C-7); R-308's rooster with fx=found
     } catch { S.nxAddr.finding = false; S.nxAddr.err = 'We couldn’t look that up just now. Check your connection and try again.'; app.render(); }
   };
   function wireSugs() {
@@ -199,7 +199,7 @@ function wireAlerts() {
   // The visit's one profile ask (C-3): nothing else asks again this visit.
   S.nudge = null; S.nudgedThisVisit = true;
   const f = document.getElementById('nx-aform');
-  if (f) wireAlertForm(f, { pfx: 'nx-a', source: 'home', onSwap: () => app.render(), onDone: r => { S.nxAlert = r; did('alerts'); app.render(); later(() => burst(document.getElementById('st-h'), 14, 70), 200); } });
+  if (f) wireAlertForm(f, { pfx: 'nx-a', source: 'home', onSwap: () => app.render(), onDone: r => { S.nxAlert = r; did('alerts'); app.render(); later(() => cheer('alerts', document.getElementById('st-h'), 14, 70), 200); } });
 }
 
 // ---------------- issues: new issues HIPHI took up, in a topic they follow (R-018; a Home card until R-237) ----------------

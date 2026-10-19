@@ -45,13 +45,14 @@
 // "Your email is ready", addressed to the new people and step, with the same check; either one can start from the
 // other's answers. And a short reminder to the same chair when the bill still has no hearing a week before its deadline
 // (x.remind; Nate: "Yes for now, but needs to be reconsidered").
-import { S, DEMO, app, esc, icon, toast, friendly, spaced, posInfo, cmteLabel, cmtesOf, codesOf, dueInfo, dateLong, timeWord, roomLabel,
+import { fxArt, S, DEMO, app, esc, icon, toast, friendly, spaced, posInfo, cmteLabel, cmtesOf, codesOf, dueInfo, dateLong, timeWord, roomLabel,
   hstDay, HST, anyBill, anyHearing, markDone, toggleWatch, streamOf, reduceMotion, MILESTONES, myActions, POS_WORD, didKind,
   billPath, cleanDesc, nick, agrees, myStance, setStance, sendEmailLink, validEmail, issuesOf, issueFollowed, setFollows,
   hearingText, chairContacts, legById, legsOf, stopOf, askMark, saveDone, sessionInfo, CHAMBER_NAME, dayWord, textSaved, levelOf, setIssueLevel } from './core.js';
 import { btn, iconBtn, notice } from './ui.js';
 import { nudgeCard, wireNudge, declineNudge, goDirections, roomFloor, noteGoing, downloadIcs } from './actions.js';
 import { flower } from './art.js';
+import { fxOn, rooster } from './fx.js';   // R-308: the rooster on trial, practice copy only
 import { profileAsk, alertButton, LEVEL_WORDS } from './alerts.js';   // the profile ask right under the Mahalo, its button in the bar (R-184); the levels (R-299)
 import { myEmail } from './phone.js';
 import { introMark } from './speakup.js';
@@ -1343,6 +1344,9 @@ function fixLine(h, inList = false) {
   const words = `<b>Need to change it?</b> Email or call the committee at ${ways.join('. Or ')}.`;
   return inList ? `<p>${words}</p>` : `<p class="note hp-fix">${icon('pencil')}<span>${words}</span></p>`;
 }
+// The thank-you's badge: the flower, or (R-308 on trial, ?demo=1&fx=sent) the rooster's hop, once per send (a redraw of
+// the same page shows it standing), in 1.5 s like a moment (A-10).
+const doneArt = x => { if (!fxOn('sent')) return flower(56); x.roKey ||= `sent-${Date.now()}`; return rooster('big-win', { size: 84, key: x.roKey, fit: 1450 }); };
 // Confirmation: the reward is what happens next, not points (plan section 1).
 function doneScreen() {
   const x = S.helper, { b, h } = x, n = spaced(b.bill_number), first = firstOf(x.name);
@@ -1356,7 +1360,7 @@ function doneScreen() {
   // 'save''s second version.
   const ask = emailAsk(x), up = profileAsk();
   return `<div class="hp-hero">
-      <div class="hp-badge" aria-hidden="true">${flower(56)}</div>
+      <div class="hp-badge" aria-hidden="true">${doneArt(x)}</div>
       <h2 class="hp-mahalo" id="hp-done-t" tabindex="-1">${first ? `Mahalo, ${esc(first)}!` : 'Mahalo!'}</h2>
       ${DEMO ? notice('info', 'info', 'Practice: nothing went to the Capitol. This is what someone sees after sending.') : ''}
       <p class="hp-lede">${DEMO ? 'When you send it for real, the committee reads it before they vote, and it becomes part of the public record.' : x.late ? `You sent testimony on ${esc(n)}. It’s on the record, marked late. It may reach them after the vote.`
@@ -1486,7 +1490,7 @@ function mailDoneScreen() {
   const v = h && streamOf(h);
   const watch = v ? `<a class="btn text hp-watch" href="${esc(v.url)}" target="_blank" rel="noopener">${icon('play')}<span>${v.state === 'live' ? 'Watch live now' : v.state === 'after' ? 'Watch the recording' : 'Watch it live on YouTube'}</span>${icon('external-link')}</a>` : '';
   return `<div class="hp-hero">
-      <div class="hp-badge" aria-hidden="true">${flower(56)}</div>
+      <div class="hp-badge" aria-hidden="true">${doneArt(x)}</div>
       <h2 class="hp-mahalo" id="hp-done-t" tabindex="-1">${first ? `Mahalo, ${esc(first)}!` : 'Mahalo!'}</h2>
       <p class="hp-lede">${esc(lede)}</p>
       ${miles.length ? `<div class="chips hp-miles" aria-label="Milestones you just earned">${miles.map(m => `<span class="chip yay">${flower(16)}${esc(m)}</span>`).join('')}</div>` : ''}
@@ -1524,14 +1528,14 @@ function foot() {
   if (x.screen === 'know') return row(back + btn('Next', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }));
   if (x.screen === 1) return row((seqOf(x)[0] === 1 ? '' : back) + `<button type="submit" form="hp-form" class="btn primary full hp-main"><span>${isMail(x) ? 'See my email' : 'See my letter'}</span>${icon('arrow-right')}</button>`);
   // Sending an email: the send buttons are the main choice until one is used; then "Yes, I sent it" is (A-3).
-  if (x.screen === 'mail') return row(back + (x.busy ? `<button type="button" class="btn primary hp-main" aria-busy="true">${icon('loader-circle')}<span>Saving…</span></button>`
+  if (x.screen === 'mail') return row(back + (x.busy ? `<button type="button" class="btn primary hp-main" aria-busy="true">${fxArt('sending') || icon('loader-circle')}<span>Saving…</span></button>`
     : x.asked ? btn('Yes, I sent it', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'mailsent' } }) : ''),
     x.busy ? '' : (x.asked ? btn('Something went wrong', { kind: 'text', sm: true, attrs: { 'data-hp': 'trouble' } }) : btn('I already sent it', { kind: 'text', sm: true, attrs: { 'data-hp': 'mailsent' } })) + later);
   if (x.screen === 2) return row((seqOf(x)[0] === 2 ? '' : back) + btn('Next', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }), later);   // the reminder starts here (R-153)
   if (x.screen === 'acct') return row(back + (!x.acctNew ? '' : x.acctBack ? btn('I’m signed up', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'acct-done' } })
     : capitolLink(x.b, x.h, 'Open the Capitol page', { kind: 'primary', cls: 'hp-main' })),
     (x.acctNew && x.acctBack ? btn('The email hasn’t come', { kind: 'text', sm: true, attrs: { 'data-hp': 'acct-help' } }) : '') + later);
-  if (x.screen === 3) return row(back + (x.busy ? `<button type="button" class="btn primary hp-main" aria-busy="true">${icon('loader-circle')}<span>Saving…</span></button>`
+  if (x.screen === 3) return row(back + (x.busy ? `<button type="button" class="btn primary hp-main" aria-busy="true">${fxArt('sending') || icon('loader-circle')}<span>Saving…</span></button>`
     : x.back ? btn(DEMO ? 'Finish practice' : 'Yes, I saw the green box', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'confirm' } })
     : btn(DEMO ? 'Copy my letter' : 'Copy my letter and open the Capitol page', { kind: 'primary', icon: 'copy', cls: 'hp-main', attrs: { 'data-hp': 'copyopen' } })),
     x.busy ? '' : (x.back ? (DEMO ? '' : btn('Something went wrong', { kind: 'text', sm: true, attrs: { 'data-hp': 'trouble' } })) : btn('I already sent it', { kind: 'text', sm: true, attrs: { 'data-hp': 'sent' } })) + later);

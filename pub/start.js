@@ -34,14 +34,14 @@
 // The lessons, and the bill page's helpers they draw with, load once the topics screen is up (R-122): a newcomer's first
 // screen does not need them, and on a slow phone every file competes for the same thin pipe. Until they are in, a step
 // that needs the example bill shows a skeleton and is drawn again when they land; wire() asks for them at the first step.
-import { S, D, DEMO, app, esc, icon, alive, sessionInfo, wiz, wizSet, HST, nudge, loadCatalog, recomputeWatch, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, issuePos, issuesOf, textSaved } from './kernel.js';
+import { fxArt, S, D, DEMO, app, esc, icon, alive, sessionInfo, wiz, wizSet, HST, nudge, loadCatalog, recomputeWatch, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, issuePos, issuesOf, textSaved } from './kernel.js';
 import { WEIGHT, SOON_DAYS, sidePoints } from './rank.js';
 import { btn } from './ui.js';
 import { t, tn, T, trText } from './i18n.js';
 import { langPicker, wireLangPicker } from './langpick.js';
 import { CAPITOL, VOICES, HELLO, islands, flower } from './art.js';
 import { topics } from './topics.js';
-import { burst, later, swap, reduced } from './fx.js';
+import { burst, later, swap, reduced, fxOn, rooster } from './fx.js';
 import { LESSON_TITLES } from './topics.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
 import { wireShareLine } from './keep.js';
@@ -354,7 +354,7 @@ S.stHello ??= false;   // drawn in this page's life: the partner's line is said 
 function stepHello() {
   S.stHello = true;
   return shell('st1 st-hellopage', `${langPicker('st-lang')}<div class="st-art st-scene">${HELLO}</div>
-    <p class="st-greet">${flower(22)}<span>${t('Aloha!')}</span></p>${partnerLine()}
+    <p class="st-greet">${fxOn('welcome') ? rooster('welcome', { size: 52, cls: 'st-greetro', key: 'welcome' }) : flower(22)}<span>${t('Aloha!')}</span></p>${partnerLine()}
     <h1 class="hero" id="st-h">${t('Your voice can shape Hawaiʻi’s future')}</h1>
     <p class="lede">${t('Find out when lawmakers are acting on the issues you care about most, and how you can help change what happens.')}</p>`, '');
 }
@@ -400,7 +400,7 @@ function stepTopics(step) {
 // "Follow all" per category, which also brings issues HIPHI takes up there later (R-018).
 export const skel = (step, said = 'Finding HIPHI’s issues for you') => shell('', `<p class="sr" role="status">${said}</p>
   <div class="skel" style="height:34px;width:80%"></div><div class="skel" style="height:64px"></div>`, '<div class="skel" style="height:96px"></div>'.repeat(3), true);   // short enough to fit a phone too (R-265)
-export const loadErr = step => shell('', `${topRow('issues', step)}`, `<div class="empty st-err"><h1 class="st-errh" id="st-h">We couldn’t load the issues</h1><p>Check your connection and try again.</p></div>`);
+export const loadErr = step => shell('', `${topRow('issues', step)}`, `<div class="empty st-err">${fxArt('error', { size: 88 })}<h1 class="st-errh" id="st-h">We couldn’t load the issues</h1><p>Check your connection and try again.</p></div>`);
 const LEARN = ['story', 'bill', 'session', 'hearing'];
 const STEPS = ['issues', 'alerts', 'bill', 'voice', 'you', 'soon', 'done', 'followask'];   // the steps start-rest.js draws
 export const learnName = route => LEARN.includes(route.lesson) ? route.lesson : 'bill';

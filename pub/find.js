@@ -10,7 +10,7 @@
 // On a wide screen (1100px and up) the page stops being a phone column: the issues are a grid of tiles, HIPHI's
 // lists are cards side by side, bills are table rows (mybills.js), a list's Follow button sits beside its title, and
 // the suggestion card shares its row with the other bills that have a hearing this week.
-import { S, D, DEMO, app, esc, icon, nick, posInfo, countOk, issues, issueIcon, groupNames, wiz, sessionInfo, suggestionList, recommendations, reasonOf, noteShown, dismissed,
+import { fxArt, S, D, DEMO, app, esc, icon, nick, posInfo, countOk, issues, issueIcon, groupNames, wiz, sessionInfo, suggestionList, recommendations, reasonOf, noteShown, dismissed,
   browseCoalition, curate, listBillsFor, followList, toggleWatch, loadBills, saveLocal, saveListFollows, nudge, toast, supa, plain, POS_RANK,
   pickedTopic, findBill, stopOf, dayWord, issueBills, issuesIn, issueFollowed, issuePos, setFollows, unfollowIssue, ensureRecapPool,
   recomputeWatch, plainStatus, spaced, billPath, issuesOf, openActions, hearingsOf, legTitle, CHAMBER_NAME, sessionWords, stopFacts, ensureHistory } from './core.js';
@@ -344,7 +344,7 @@ function resultsBody(q, res) {
   const iss = issueMatches(q), issSec = iss.length ? `<section aria-labelledby="fd-qi-h">${sechead('fd-qi-h', 'Issues', plural(iss.length, 'issue'))}${issueList(iss)}</section>` : '';
   // A legislator or a committee whose name was typed (R-238, A4-3), before the bills: a name is what they came for.
   const who = peopleMatches(q), whoSec = who.length ? `<section aria-labelledby="fd-who-h">${sechead('fd-who-h', PEOPLE_LABEL)}<div class="rows fd-rows fd-who">${who.map(peopleRow).join('')}</div></section>` : '';
-  if (!res.length) return `${issSec}${whoSec}${iss.length || who.length ? '' : emptyBox({ title: `No bills match “${esc(q)}”`, text: 'Try a bill number like HB 1563, a word like e-cigarettes, or a legislator’s name.' })}
+  if (!res.length) return `${issSec}${whoSec}${iss.length || who.length ? '' : emptyBox({ art: fxArt('empty'), title: `No bills match “${esc(q)}”`, text: 'Try a bill number like HB 1563, a word like e-cigarettes, or a legislator’s name.' })}
     <section aria-labelledby="fd-or-h">${sechead('fd-or-h', 'Or browse issues')}${issueTiles()}</section>`;
   const key = parse(q).key, mv = res.filter(moving), law = res.filter(becameLaw), gone = res.filter(stopped);
   const tag = once();

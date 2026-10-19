@@ -32,7 +32,7 @@ import { S, app, esc, icon, nick, headline, billPath, alive, openActions, dayWor
   followSummary, winsIn, ensureRecapPool, isResolution, nudge, catOf, issueOf, DEMO, issuesOf, codesOf, agrees, asSentence, chairContacts } from '../core.js';
 import { btn, chip, skeleton } from '../ui.js';
 import { actionCard, wireActions, wireNudge, goingPlans, goingCard, moreRow, downloadCutoffIcs } from '../actions.js';
-import { celebrate, bloom, swap, reduced } from '../fx.js';
+import { celebrate, bloom, swap, reduced, fxOn, rooster } from '../fx.js';
 import { CAPITOL, issueBand, flower } from '../art.js';
 import { GOAL } from './goals.js';
 import today, { calmParts as P, wireExtras } from '../home.js';
@@ -529,6 +529,7 @@ export default {
     // full-screen moment the first time it is said (C-7, the biggest there is).
     const ms = S.cmMoments || []; S.cmMoments = null;
     const m = ms.filter(x => P.seeMoment(x)).find(x => x.kind === 'law');
-    if (m) setTimeout(() => celebrate({ title: `A bill you spoke up for ${isResolution(m.b) ? 'was adopted' : 'became law'}`, sub: `${nameOf(m.b)}. Mahalo for speaking up.`, go: 'Continue' }), 400);
+    if (m) setTimeout(() => celebrate({ title: `A bill you spoke up for ${isResolution(m.b) ? 'was adopted' : 'became law'}`, sub: `${nameOf(m.b)}. Mahalo for speaking up.`, go: 'Continue',
+      art: fxOn('law') ? rooster('bill-passed', { size: 132, cls: 'fx-mro', at: 1250 }) : '' }), 400);   // R-308 on trial: the lei blooming on the rooster
   },
 };

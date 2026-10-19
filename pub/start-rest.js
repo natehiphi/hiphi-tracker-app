@@ -4,8 +4,8 @@
 // shared with it is imported from start.js (a read-only view of its state: the lessons through lessons()).
 import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, lessons, stepOf, coverOn } from './start.js';
 import { situation } from './bill.js';   // the bill page's own reading of where a bill is (R-255: the story leans to one still waiting for a hearing)
-import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind, textSaved,
-  openActions, waitingBills, chairContacts, askedChair, agrees, dateLong } from './core.js';
+import { fxArt, S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind, textSaved,
+  openActions, waitingBills, chairContacts, askedChair, agrees, dateLong, toast } from './core.js';
 import { myLegs, introState } from './speakup.js';   // the hello to their legislators (R-150)
 import { myStories, saveProfile, storyAsk } from './myprofile.js';   // one sentence on why an issue matters, kept for January (R-150)
 import { btn, chip, posChip } from './ui.js';
@@ -13,7 +13,9 @@ import { HELP_WORDS } from './letters.js';   // the testimony button's words (R-
 import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { GO_HELP } from './topics.js';
-import { afterMove, bloom, burst, drift, later, reduced, petals, swap } from './fx.js';
+import { afterMove, bloom, burst, drift, later, reduced, petals, swap, fxOn, cheer, rooster } from './fx.js';
+// R-307's words on trial, with the two others offered for Nate's pick (?fxw=2 or 3 on the practice copy).
+const VOICE_WORDS = () => ['Your voice is ready.', 'You’re ready to speak up.', 'Now you know how to be heard.'][(+new URLSearchParams(location.search).get('fxw') || 1) - 1] || 'Your voice is ready.';
 import { shareLine } from './keep.js';
 import { endHome, armOf, abSeen } from './variant.js';   // and the test 'act' (R-150): today's "Coming up" | three ways to help
 import { nameField, wireName, keepName as keepFirstName, firstName } from './firstname.js';   // the first name on the sign-up (R-294)
@@ -443,7 +445,10 @@ function coverAndFold(go) {
   const W = thanksWords(thanksGiven());
   document.getElementById('st-cover')?.remove();
   const el = document.createElement('div'); el.id = 'st-cover'; el.className = 'st-cover';
-  el.innerHTML = `<div class="st-cvin" role="status" aria-live="polite"><div class="st-cvflower">${bloom()}${drift()}</div>
+  // R-308 on trial (?demo=1&fx=follow): the rooster in the flower's place, bobbing once as the flower would open (from
+  // 0.3 s, after the story is drawn under the cover), then flown into the band like the flower.
+  const art = fxOn('follow') ? rooster('small-win', { size: 168, cls: 'st-cvro', delay: 420 }) : bloom();
+  el.innerHTML = `<div class="st-cvin" role="status" aria-live="polite"><div class="st-cvflower">${art}${drift()}</div>
     <p class="st-cvtitle">${esc(W.title)}</p><p class="st-cvsub">${esc(W.sub)}</p></div>`;
   document.body.appendChild(el);
   S.stBandHold = true;
@@ -479,7 +484,7 @@ function coverAndFold(go) {
     // its way up (the frames, 18 Oct). Only the flower travels.
     el.querySelectorAll('.st-cvtitle, .st-cvsub').forEach(w => w.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' }));
     el.querySelector('.fx-drift')?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
-    const t = fly(el.querySelector('.fx-bloom'), band.querySelector('.fx-bloom'), true);
+    const t = fly(el.querySelector('.st-cvflower > .fx-bloom, .st-cvflower > .ro'), band.querySelector('.st-mbflower > .fx-bloom, .st-mbflower > .ro'), true);
     (t ? t.finished : new Promise(res => setTimeout(res, FOLD_MS))).then(land, land);
   }
 }
@@ -492,7 +497,8 @@ function mahaloBand() {
   const change = r ? ` <span aria-hidden="true">·</span> ${btn('Change', { kind: 'text', sm: true, attrs: { 'data-stbandchange': '1', 'aria-label': r.kind === 'phone' ? 'Change number' : 'Change email' } })}` : '';
   const where = r ? `<span class="st-mbwhere">${r.kind === 'phone' ? 'Texts go to' : 'Sent to'} <span class="${r.kind === 'phone' ? 'al-nowrap' : 'al-break'}">${esc(r.kind === 'phone' ? fmtPhone(r.phone) : r.email)}</span>${change}</span>` : '';
   // R-306 e: the band waits, unseen, under the cover until the cover has folded into it (S.stBandHold).
-  return `<div class="st-mhband${fresh ? ' st-mbnew' : ''}${S.stBandHold ? ' st-mbhold' : ''}" role="status"><span class="st-mbflower">${bloom()}</span>
+  const art = fxOn('follow') ? rooster('small-win', { size: 52, still: true }) : bloom();   // R-308: the rooster the cover flew in, standing
+  return `<div class="st-mhband${fresh ? ' st-mbnew' : ''}${S.stBandHold ? ' st-mbhold' : ''}" role="status"><span class="st-mbflower">${art}</span>
     <div class="st-mbwords"><b class="st-mbtitle">${esc(W.title)}</b><span>${esc(W.sub)}${W.how ? ` ${esc(W.how)}` : ''}</span>${where}</div></div>`;
 }
 export function leaveAlerts(step, r = null) {
@@ -583,7 +589,7 @@ function cuCard(it, k, now) {
   return `<li class="st-cu" style="--k:${k}">${card}${act}</li>`;
 }
 // The one honest line where nothing is coming up, in the place the list would be (Nate 10/5): never an empty block.
-const nothingCard = text => `<section class="st-nothing"><span class="st-ilead" aria-hidden="true">${icon('calendar-clock')}</span><p>${esc(text)}</p></section>`;
+const nothingCard = text => `<section class="st-nothing">${fxArt('empty', { size: 56, key: 'st-nothing' }) || `<span class="st-ilead" aria-hidden="true">${icon('calendar-clock')}</span>`}<p>${esc(text)}</p></section>`;
 function nothingWords() {
   // Following nothing is the reason there is nothing here: say so, with the way out (B-8, B-3, R-249).
   if (!followedIssues().length) return 'You’re not following anything yet. Follow an issue and its hearings show up on your home page.';
@@ -790,7 +796,7 @@ function stepDone(step) {
     : did ? 'Mahalo for joining in. Here’s what you did today.' : 'Here’s where things stand.';
   const art = CAPITOL.replace(/<circle ([^>]*fill="var\(--o400\)"[^>]*)\/>/, '<circle class="st-sun" $1/>');
   return shell(`st-done${S.stCalm ? ' st-calm' : ''}`, `${topRow('done', step)}
-    <div class="st-fx" aria-hidden="true"><div class="st-finart">${art}</div><div class="st-petals">${petals()}</div>
+    <div class="st-fx" aria-hidden="true"><div class="st-finart">${art}</div>${fxOn('finale') ? `<div class="st-finro">${rooster('milestone', { size: 0, key: 'finale' })}</div>` : ''}<div class="st-petals">${petals()}</div>
       <div class="st-blooms">${[0, 1, 2, 3, 4].map(i => `<span style="--k:${i}">${flower(22 + (i % 2) * 8)}</span>`).join('')}</div></div>
     <h1 class="hero" id="st-h">You’re all set${name ? `, ${esc(name)}` : ''}!</h1>
     <p class="lede">${lede}</p>`,
@@ -970,7 +976,11 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       // next screen with a small burst (tickChapter, C-7), as the short version's page does. Until 10/4 this was a moment
       // that filled the screen with three ticks over the Capitol, which read as the end with Stay connected still to
       // come (Nate: "makes it feel like everything is done", R-140).
-      S.stLearned = true; next();
+      S.stLearned = true;
+      // R-307 on trial (?demo=1&fx=voice): the story's end gets its small win, a burst and the rooster just above the
+      // button, and the words as a toast over the next screen (C-7: a small burst mid-visit, never a full-screen moment).
+      if (fxOn('voice')) { cheer('voice', nb, 12, 48); toast(VOICE_WORDS(), { yay: true }); }
+      next();
     };
   }
 
@@ -994,7 +1004,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
         const found = res.ids.map(id => S.legislators.find(l => l.id === id)).filter(Boolean);
         try { localStorage.setItem('hiphi_districts', JSON.stringify({ senate: found.find(l => l.chamber === 'S')?.district || null, house: found.find(l => l.chamber === 'H')?.district || null })); } catch { /* ignore */ }
         app.render();
-        later(() => burst(document.getElementById('st-legs'), 14, 70), 300);   // found: a small celebration (C-7)
+        later(() => cheer('found', document.getElementById('st-legs'), 14, 70), 300);   // found: a small celebration (C-7); R-308's rooster with fx=found
       } catch { S.stAddr.finding = false; S.stAddr.err = 'We couldn’t look that up just now. Check your connection and try again.'; app.render(); }
     };
     function wireSugs() {

@@ -130,12 +130,13 @@ export function drift() {
 // `alt` ({ label, act }) is an Undo for something the moment did on the person's behalf (R-067). It lives in a toast with
 // its own 10 s clock, not on the moment, which is gone in 1.5 s.
 let live = null;
-export function celebrate({ title, sub = '', small = '', go = 'Continue', alt = null }, then = () => {}) {
+// `art` (R-308, the practice copy's rooster on trial) is drawn in the flower's place.
+export function celebrate({ title, sub = '', small = '', go = 'Continue', alt = null, art = '' }, then = () => {}) {
   live?.('replaced');
   let m = document.getElementById('fx-moment');
   if (!m) { m = document.createElement('div'); m.id = 'fx-moment'; m.className = 'fx-moment'; document.body.appendChild(m); }
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  m.innerHTML = `<div class="fx-mcard" role="status" aria-live="polite">${bloom()}
+  m.innerHTML = `<div class="fx-mcard" role="status" aria-live="polite">${art || bloom()}
     <p class="fx-mtitle" id="fx-mt">${esc(title)}</p>
     <div id="fx-ms">${sub ? `<p class="fx-msub">${esc(sub)}</p>` : ''}${small ? `<p class="fx-msmall">${esc(small)}</p>` : ''}</div>
     <button type="button" class="btn primary fx-mgo" id="fx-mgo"><span>${esc(go)}</span>${icon('arrow-right')}</button></div>`;
@@ -198,8 +199,8 @@ const META = id => (RO && RO.META[id]) || { ms: 0, loop: false };
 // Keys of moments already played on this page load: a screen drawn again (a redraw on data, Back) shows the rooster still,
 // in its last pose, instead of playing it again (A-10: nothing replays by itself).
 const played = new Set();
-// rooster(id, { size, cls, key, at, fit, delay, stop, still }) returns the markup: a box `size` px square (the bird fills
-// most of it) that takes no taps and is hidden from screen readers; the words beside it always say what it means (A-10).
+// rooster(id, { size, cls, key, at, fit, delay, stop, still }) returns the markup: a box `size` px square (size 0: the
+// page's CSS sets --ro; the bird fills most of it) that takes no taps and is hidden from screen readers; the words beside it always say what it means (A-10).
 //   key    once per page load under this key; after that, still        at     start this many ms into it (the law: the bloom)
 //   fit    play it in this many ms (big-win's 1.6 s in a 1.5 s moment)  delay  hold the first pose this long, then play
 //   stop   loops only: pause after this many ms (submitting at 5 s, empty-state after one cycle; A-10's 5 s)
@@ -207,7 +208,7 @@ const played = new Set();
 export function rooster(id, { size = 48, cls = '', key = '', at = 0, fit = 0, delay = 0, stop = 0, still = false } = {}) {
   if (key && played.has(key)) still = true; else if (key) played.add(key);
   const d = Object.entries({ at, fit, delay, stop }).filter(([, v]) => v).map(([k, v]) => ` data-ro-${k}="${v}"`).join('');
-  return `<span class="ro${cls ? ' ' + cls : ''}" data-ro="${id}"${still ? ' data-ro-still="1"' : ''}${d} style="--ro:${size}" aria-hidden="true"><span class="ro-st">${RO ? RO.STAGE[id] || '' : ''}</span></span>`;
+  return `<span class="ro${cls ? ' ' + cls : ''}" data-ro="${id}"${still ? ' data-ro-still="1"' : ''}${d}${size ? ` style="--ro:${size}"` : ''} aria-hidden="true"><span class="ro-st">${RO ? RO.STAGE[id] || '' : ''}</span></span>`;
 }
 // What the markup asks for, done once it is in the page: its animations are the CSS ones of rooster.css, steered here
 // with the Web Animations API (each element's getAnimations()), so a rooster can start part-way, end sooner or stop.
@@ -254,10 +255,12 @@ export function cheer(id, el, n, dist, o) {
 }
 // The hooks the kernel asks through (kernel.js fxHook): the yay toast's mark, and the art of an error or an empty list.
 if (FXS.length) {
+  fxHook.cheer = (id, el, n, dist, o) => { if (fxOn(id)) cheer(id, el, n, dist, o); };
   if (fxOn('toast')) fxHook.yay = () => rooster('small-win', { size: 32, cls: 'ro-toast', delay: 180 });
   fxHook.art = (id, o = {}) => {
     if (id === 'error' && fxOn('error')) return rooster('error', { size: o.size || 96, cls: 'ro-art', key: o.key || '' });
     if (id === 'empty' && fxOn('empty')) return rooster('empty-state', { size: o.size || 96, cls: 'ro-art', key: o.key || '', stop: 5000 });
+    if (id === 'reminder' && fxOn('reminder')) return rooster('deadline-reminder', { size: o.size || 30, cls: 'ro-due', key: o.key || '' });
     if (id === 'sending' && fxOn('sending')) return rooster('submitting', { size: o.size || 26, cls: 'ro-busy', stop: 5000 });
     return '';
   };
