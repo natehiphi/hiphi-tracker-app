@@ -328,7 +328,7 @@ function wireGood() {
   gd.fresh.forEach(() => logAct('moment'));   // counted privately, kind only (migration 106)
   // The card is looked up when the burst is due, in the page as it is then: a redraw in between must not burst the old copy.
   gd.cards.filter(x => isNew.has(x.key) && x.kind !== 'law').forEach((x, i) => later(() => {
-    const el = document.querySelector(`#main [data-gn-key="${CSS.escape(x.key)}"] .hm-gnic`); if (el) cheer('goodnews', el); }, i * 350));
+    const el = document.querySelector(`#main [data-gn-key="${CSS.escape(x.key)}"] .hm-gnic`); if (el) cheer('goodnews', el, 12, 52, { side: 'on', size: 36 }); }, i * 350));
   return [...gd.cards, ...gd.reason].find(x => x.kind === 'law' && isNew.has(x.key)) || null;
 }
 // "Got it" removes one card: it fades, the page is drawn again, and the next waiting card takes its place (it bursts as it

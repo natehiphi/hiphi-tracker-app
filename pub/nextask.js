@@ -165,7 +165,7 @@ function wireLegs() {
       try { localStorage.setItem('hiphi_districts', JSON.stringify({ senate: found.find(l => l.chamber === 'S')?.district || null, house: found.find(l => l.chamber === 'H')?.district || null })); } catch { /* ignore */ }
       did('legs');
       app.render();
-      later(() => cheer('found', document.getElementById('st-legs'), 14, 70, { side: 'corner' }), 300);   // found: a small celebration (C-7); R-308's rooster with fx=found
+      later(() => cheer('found', document.getElementById('st-legs'), 14, 70, { side: 'text', at: document.getElementById('st-h') }), 300);   // found: a small celebration (C-7); R-308's rooster with fx=found
     } catch { S.nxAddr.finding = false; S.nxAddr.err = 'We couldn’t look that up just now. Check your connection and try again.'; app.render(); }
   };
   function wireSugs() {
@@ -199,7 +199,7 @@ function wireAlerts() {
   // The visit's one profile ask (C-3): nothing else asks again this visit.
   S.nudge = null; S.nudgedThisVisit = true;
   const f = document.getElementById('nx-aform');
-  if (f) wireAlertForm(f, { pfx: 'nx-a', source: 'home', onSwap: () => app.render(), onDone: r => { S.nxAlert = r; did('alerts'); app.render(); later(() => cheer('alerts', document.getElementById('st-h'), 14, 70), 200); } });
+  if (f) wireAlertForm(f, { pfx: 'nx-a', source: 'home', onSwap: () => app.render(), onDone: r => { S.nxAlert = r; did('alerts'); app.render(); later(() => cheer('alerts', document.getElementById('st-h'), 14, 70, { side: 'text' }), 200); } });
 }
 
 // ---------------- issues: new issues HIPHI took up, in a topic they follow (R-018; a Home card until R-237) ----------------

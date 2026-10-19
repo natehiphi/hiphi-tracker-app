@@ -165,7 +165,7 @@ html[data-fxdir="back"]::view-transition-new(fx-main) { animation-name: fx-in-l;
 /* The stage's boxes (fx.js turns its divs into spans, marked data-rb). Kept at one class of weight, so rooster.css (loaded
    after this file) still hides its rings and feathers under Reduce Motion. */
 :where(.ro) [data-rb] { display: block; }
-.ro-float { position: fixed; z-index: 95; pointer-events: none; line-height: 0; translate: -50% -100%; }
+.ro-float { position: fixed; z-index: 95; pointer-events: none; line-height: 0; translate: -50% -100%; overflow: clip; overflow-clip-margin: 6px; }   /* clipped near its box, so a bird at the screen's edge never widens the page */
 /* In the yay toast, in place of the green check: a little bigger than the check, in the same place. */
 .toastmsg .ro-toast { margin: -6px -2px -6px -6px; }
 /* The art of an error or an empty list, where the drawing was. */
@@ -175,16 +175,23 @@ html[data-fxdir="back"]::view-transition-new(fx-main) { animation-name: fx-in-l;
 /* The rooster in a full-screen moment's card (fx.js celebrate's art: the first action sent, a law). */
 .fx-mcard .fx-mro { display: block; margin: 0 auto 8px; }
 .st-cover .st-cvro { will-change: transform; }
+/* With the rooster in the flower's place, the drifting petals leave from its middle, not its feet. */
+.st-cover .st-cvflower:has(.st-cvro) .fx-drift { inset: -56px 0 56px; }
 /* The finale (R-308 on trial, ?demo=1&fx=finale): the rooster crows on the ground in front of the Capitol, inside the
    drawing's own box, so the page is no taller (R-265: what must fit still fits). Its size follows the drawing's as the
    page makes room (start.css .st-done.fitN). */
-.st-fx .st-finro { position: absolute; right: 2%; bottom: 0; line-height: 0; pointer-events: none; --ro: 96; }
-@media (min-width: 900px) { .st-fx .st-finro { --ro: 116; } }
-.st-done.fit1 .st-fx .st-finro { --ro: 72; }
-.st-done.fit3 .st-fx .st-finro { --ro: 52; }
-.st-done.fit7 .st-fx .st-finro { --ro: 40; }
+/* Low and right, beside the row of flowers under the Capitol: clear of its columns and of the sun at the top right. */
+.st-fx .st-finro { position: absolute; right: -4%; bottom: -8px; line-height: 0; pointer-events: none; --ro: 80; overflow: clip; overflow-clip-margin: 14px; }
+@media (min-width: 900px) { .st-fx .st-finro { --ro: 96; } }
+.st-done.fit1 .st-fx .st-finro { --ro: 60; }
+.st-done.fit3 .st-fx .st-finro { --ro: 46; }
+.st-done.fit7 .st-fx .st-finro { --ro: 36; }
 /* In a card's "Testimony due" line, in the clock's place, without making the line taller. */
 .acard .due .ro-due { margin: -6px -2px -6px -6px; }
 /* The first visit's hello: the rooster struts in beside "Aloha!" where the small flower was; the negative margins keep the
    line its height, so the page fits as before (R-265). */
-.st-greet .st-greetro { margin: -16px 2px -14px -10px; }
+.st-greet .st-greetro { margin: -16px -10px -14px -6px; }   /* the bird sits left of its box's middle (its tail behind it), so the right margin pulls the words in */
+/* The legislators found pop in at 112% (start.css .st-leg, fx-pop), a little wider than a phone: the browser then zooms the
+   page out for a moment and the bar at the bottom drops half off the screen, the moment the rooster plays there. On the
+   pages trying a moment, the list clips that overflow sideways (today's pages keep it until Nate decides; it is a live bug). */
+html.fx-try .st-legs { overflow-x: clip; }

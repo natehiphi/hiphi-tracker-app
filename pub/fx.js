@@ -237,6 +237,8 @@ function fill(root) {
   if (!RO) return;
   root.querySelectorAll?.('.ro[data-ro]').forEach(r => { const st = r.firstElementChild; if (st && !st.firstElementChild) st.innerHTML = RO.STAGE[r.dataset.ro] || ''; steer(r); });
 }
+// html.fx-try marks a page with a moment on trial, for fixes that should reach only those pages until Nate decides (fx.css).
+if (FXS.length) document.documentElement.classList.add('fx-try');
 if (FXS.length) {
   const watch = () => new MutationObserver(ms => { if (!RO) return; for (const x of ms) for (const n of x.addedNodes) if (n.nodeType === 1) { if (n.matches('.ro[data-ro]')) fill(n.parentNode || n); else if (n.querySelector('.ro[data-ro]')) fill(n); } })
     .observe(document.body, { childList: true, subtree: true });
@@ -249,10 +251,15 @@ export function roosterAt(el, id = 'small-win', { size = 44, side = 'above' } = 
   if (!el || !RO || !el.isConnected) return null;
   const r = el.getBoundingClientRect(), f = document.createElement('div');
   f.className = 'ro-float'; f.setAttribute('aria-hidden', 'true');
-  // 'above' (centred on its top edge), 'right' (beside it), or 'corner' (inside its top right corner, for a list whose rows
-  // keep their right side free: the address found, where above would sit on the address line).
-  const x = side === 'right' ? r.right + 6 + size / 2 : side === 'corner' ? r.right - size / 2 - 8 : r.left + r.width / 2;
-  const y = side === 'right' ? r.top + r.height / 2 + size / 2 : side === 'corner' ? r.top + size + 6 : r.top - 2;
+  // 'above' (centred on its top edge), 'right' (beside it), 'on' (over it: a card's icon), or 'text' (just after the last
+  // word of a heading, in the clear space beside it; where the line runs to the edge, just above that last word).
+  let x = side === 'right' ? r.right + 6 + size / 2 : r.left + r.width / 2;
+  let y = side === 'right' ? r.top + r.height / 2 + size / 2 : side === 'on' ? r.top + r.height / 2 + size / 2 : r.top - 2;
+  if (side === 'text') {
+    const rg = document.createRange(); rg.selectNodeContents(el); const ls = [...rg.getClientRects()].filter(q => q.width), q = ls[ls.length - 1] || r;
+    x = q.right + 8 + size / 2; y = q.top + q.height / 2 + size / 2;
+    if (x + size / 2 > innerWidth - 4) { x = q.right - size / 2; y = q.top - 2; }
+  }
   f.style.left = `${Math.round(Math.min(innerWidth - size / 2 - 4, Math.max(size / 2 + 4, x)))}px`; f.style.top = `${Math.round(Math.max(size + 4, y))}px`;
   f.innerHTML = rooster(id, { size });
   document.body.appendChild(f);
@@ -260,9 +267,12 @@ export function roosterAt(el, id = 'small-win', { size = 44, side = 'above' } = 
   return f;
 }
 // burst() with the rooster beside it when that moment is switched on: the one call the small wins make (C-7).
-export function cheer(id, el, n, dist, o) {
+// o.at: the rooster stands by another element than the one the petals leave (the heading beside a list found).
+// o.alone: the rooster only if no other rooster is already on screen (a tap that also brings a toast with its own).
+export function cheer(id, el, n, dist, o = {}) {
   burst(el, n, dist);
-  if (fxOn(id)) roosterAt(el, 'small-win', o);
+  if (!fxOn(id) || (o.alone && document.querySelector('.toastmsg .ro, .ro-float'))) return;
+  roosterAt(o.at || el, 'small-win', o);
 }
 // The hooks the kernel asks through (kernel.js fxHook): the yay toast's mark, and the art of an error or an empty list.
 if (FXS.length) {

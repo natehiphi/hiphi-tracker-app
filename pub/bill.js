@@ -1405,7 +1405,8 @@ export default {
       } finally { stanceBusy = false; }
       app.render();
       // R-308 on trial (?demo=1&fx=stance): a stance taken is a small win (C-7), the burst and the rooster just above the choice.
-      if (fxOn('stance') && myStance(b.id)) cheer('stance', document.querySelector(`[data-bl-stance="${myStance(b.id)}"]`), 10, 40);
+      // The rooster beside the question, in the clear space after it; not when the follow's toast already shows one (fx=all).
+      if (fxOn('stance') && myStance(b.id)) cheer('stance', document.querySelector(`[data-bl-stance="${myStance(b.id)}"]`), 10, 40, { side: 'text', at: document.getElementById('bl-stance-h'), alone: true });
     }));
     root.querySelector('[data-bl-menu]')?.addEventListener('click', e => { e.stopPropagation(); setMenu(document.getElementById('bl-menu').hidden); });
     root.querySelectorAll('[data-bl-addto]').forEach(el => el.addEventListener('click', () => { setMenu(false); openAddTo(b); }));

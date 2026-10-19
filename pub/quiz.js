@@ -107,6 +107,7 @@ export default {
       keep(resultOf(Q.picks)); Q.celebrate = true; go('#/quiz/result');
     });
     // A small celebration for a finished quiz, sized like the other small wins (DESIGN.md C-7; the motion honours Reduce Motion).
-    if (Q.celebrate && Q.v?.view === 'r') { Q.celebrate = false; const b = document.getElementById('qz-badge'); if (b) cheer('quiz', b, 12, 52, { side: 'right' }); }
+    // Two frames on, once the page has scrolled to its top, so the petals leave the badge itself.
+    if (Q.celebrate && Q.v?.view === 'r') { Q.celebrate = false; requestAnimationFrame(() => requestAnimationFrame(() => { const b = document.getElementById('qz-badge'); if (b) cheer('quiz', b, 12, 34, { side: 'right' }); })); }
   },
 };

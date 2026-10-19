@@ -15,7 +15,7 @@ import { createAddressPicker } from './addresspicker.js';
 import { GO_HELP } from './topics.js';
 import { afterMove, bloom, burst, drift, later, reduced, petals, swap, fxOn, cheer, rooster, roosterAt } from './fx.js';
 // R-307's words on trial, with the two others offered for Nate's pick (?fxw=2 or 3 on the practice copy).
-const VOICE_WORDS = () => ['Your voice is ready.', 'You’re ready to speak up.', 'Now you know how to be heard.'][(+new URLSearchParams(location.search).get('fxw') || 1) - 1] || 'Your voice is ready.';
+const VOICE_WORDS = () => ['You’re ready to speak up.', 'Your voice is ready.', 'Now you know how to be heard.'][(+new URLSearchParams(location.search).get('fxw') || 1) - 1] || 'You’re ready to speak up.';
 import { shareLine } from './keep.js';
 import { endHome, armOf, abSeen } from './variant.js';   // and the test 'act' (R-150): today's "Coming up" | three ways to help
 import { nameField, wireName, keepName as keepFirstName, firstName } from './firstname.js';   // the first name on the sign-up (R-294)
@@ -980,7 +980,8 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       // R-307 on trial (?demo=1&fx=voice): the story's end gets its small win, a burst and the rooster just above the
       // button, and the words as a toast over the next screen (C-7: a small burst mid-visit, never a full-screen moment).
       // The rooster stands on the next screen's Next once it has slid in (on a laptop that button is elsewhere).
-      if (fxOn('voice')) { burst(nb, 12, 48); toast(VOICE_WORDS(), { yay: true }); later(() => roosterAt(document.querySelector('.actionbar [data-stnext]') || nb), 280); }
+      // No petals of its own: the strip's tick on the next screen keeps its burst, so this is the rooster and the toast.
+      if (fxOn('voice')) { toast(VOICE_WORDS(), { yay: true }); later(() => roosterAt(document.querySelector('.actionbar [data-stnext]') || nb), 280); }
       next();
     };
   }
@@ -1005,7 +1006,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
         const found = res.ids.map(id => S.legislators.find(l => l.id === id)).filter(Boolean);
         try { localStorage.setItem('hiphi_districts', JSON.stringify({ senate: found.find(l => l.chamber === 'S')?.district || null, house: found.find(l => l.chamber === 'H')?.district || null })); } catch { /* ignore */ }
         app.render();
-        later(() => cheer('found', document.getElementById('st-legs'), 14, 70, { side: 'corner' }), 300);   // found: a small celebration (C-7); R-308's rooster with fx=found
+        later(() => cheer('found', document.getElementById('st-legs'), 14, 70, { side: 'text', at: document.getElementById('st-h') }), 300);   // found: a small celebration (C-7); R-308's rooster with fx=found
       } catch { S.stAddr.finding = false; S.stAddr.err = 'We couldn’t look that up just now. Check your connection and try again.'; app.render(); }
     };
     function wireSugs() {

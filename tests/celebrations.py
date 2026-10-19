@@ -103,8 +103,8 @@ M = {
                    sel='#st-cover .ro', cur_sel='#st-cover .fx-bloom', words='We’ll watch these with', peak=1050, frames=2600, end='#st-cover', rsel='.st-mhband .ro',
                    stills=[350, 700, 1100, 2300], what='The rooster bobs once in the flower’s place on the full-window cover, then flies into the band at the top of A bill’s story.'),
   'voice':    dict(kind='small', title='End of A bill’s story (R-307)', reach=fv_story_last, trigger=lambda p: p.click('[data-stnext]'),
-                   sel='.ro-float .ro', words='Your voice is ready.', new_words=True, peak=330, frames=1400, next='.actionbar [data-stnext]',
-                   stills=[100, 250, 450, 650], what='A small burst and the rooster just above Next as the story ends; “Your voice is ready.” as a toast over the next screen.'),
+                   sel='.ro-float .ro', words='You’re ready to speak up.', new_words=True, peak=330, frames=1400, next='.actionbar [data-stnext]',
+                   stills=[100, 250, 450, 650], what='The rooster on the next screen’s Next as the story ends, and “You’re ready to speak up.” as a toast over it.'),
   'sent':     dict(kind='full', title='The first action sent (the thank-you)', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), walk_testimony(p, fx)), trigger=send_testimony,
                    sel='#hp-dlg .hp-badge .ro', cur_sel='#hp-dlg .hp-badge svg', words='Mahalo', peak=900, frames=2000, wait_sel='#hp-done-t',
                    stills=[200, 500, 900, 1500], what='The rooster hops and flaps at the head of the testimony or email thank-you (1.5 s); the first action’s moment from a bill gets it in place of the flower.'),
@@ -254,6 +254,15 @@ with sync_playwright() as pw:
     ok(not any('rooster' in u for u in reqs) and p.locator('.ro').count() == 0, 'practice copy without fx=: the rooster never loaded, none drawn')
     c.close()
 
+    # fx=all: a stance that also follows the bill brings the toast's rooster, and then the stance shows only its petals,
+    # so one tap never brings two roosters.
+    if not ONLY or 'stance' in ONLY:
+        c = ctx_for(b, 390, 844, smp=sampler('.ro-float .ro', None)); c.add_init_script(f'({SKIP})()'); p = c.new_page()
+        p.goto(url('', 'stance,toast', '#/bill/HB2121')); ready(p); p.wait_for_timeout(1200)
+        p.evaluate("window.__smp = { has: 0, any: 0, covers: false }"); p.locator('[data-bl-stance="support"]').first.click(); p.wait_for_timeout(900)
+        sm = p.evaluate('window.__smp')
+        ok(sm['has'] == 0 and p.locator('.toastmsg .ro').count() == 1, f'fx=stance,toast: one tap, one rooster (the toast’s; floats seen {sm["has"]})')
+        c.close()
     for mid, m in M.items():
         if ONLY and mid not in ONLY: continue
         shots = None
