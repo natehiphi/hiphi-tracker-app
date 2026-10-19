@@ -107,7 +107,7 @@ export default {
       const type = resultOf(Q.picks); keep(type);
       // R-308 on trial (?demo=1&fx=quiz; Nate 19 Oct: "Should be bigger, like picking issues."): the issues' cover with the
       // rooster and the result's name, folding into the result's badge (inside the game, C-7's exception).
-      if (fxOn('quiz')) { coverFold({ art: rooster('big-win', { size: 168, cls: 'st-cvro', fit: 1600 }), title: TYPES[type].name, sub: 'Your way to help', go: () => go('#/quiz/result'), to: '#qz-badge' }); return; }
+      if (fxOn('quiz')) { coverFold({ art: rooster('big-win', { size: 168, cls: 'st-cvro', fit: 1600 }), title: TYPES[type].name, sub: 'Your way to help, from the quiz', go: () => go('#/quiz/result'), to: '#qz-badge' }); return; }
       Q.celebrate = true; go('#/quiz/result');
     });
     // A small celebration for a finished quiz, sized like the other small wins (DESIGN.md C-7; the motion honours Reduce Motion).

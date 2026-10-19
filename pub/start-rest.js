@@ -980,7 +980,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       // R-307 on trial (?demo=1&fx=voice; Nate 19 Oct: "a celebration at the end of the bills story", not on the page after
       // it, which the ending on Home no longer has): the issues' cover with the rooster over the story's last stage; as it
       // fades, the visit moves on, so the next screen (Home, with its own welcome) arrives after it, never under it.
-      if (fxOn('voice')) { coverFold({ art: rooster('big-win', { size: 168, cls: 'st-cvro', fit: 1600 }), title: VOICE_WORDS(), sub: 'You know when your voice counts most.', go: next, goAtEnd: true }); return; }
+      if (fxOn('voice')) { coverFold({ art: rooster('big-win', { size: 168, cls: 'st-cvro', fit: 1600 }), title: VOICE_WORDS(), go: next, goAtEnd: true }); return; }
       next();
     };
   }
