@@ -41,7 +41,11 @@ JOURNEYS = [
  # first visit rebuilt 9/21 (R-023, pub/start.js): tick a category tile, Next, then the issues screen, where HIPHI's own
  # picks among the four shown start ticked (B-12), so reading them and deciding is the same step as "Follow N issues".
  # Following is done when the "Mahalo!" page says so (R-140, Nate 11 Oct: a page that waits for Next); its Next belongs to the next part of the visit.
- dict(name='public: arrive -> follow a first issue', app=PUBLIC, budget=3, start='#/', steps=[
+ # Since R-297 (Nate 10/17) a first visit opens on a welcome page, so Let's begin is a counted step: 4 against B-2's 3, the
+ # accepted exception in DESIGN-AUDIT section 4. This journey broke at "tick a category" until it tapped it (R-305).
+ dict(name='public: arrive -> follow a first issue', app=PUBLIC, budget=4, start='#/', steps=[
+   dict(what="Let's begin, past the welcome", do=click_text('.st-bar [data-stnext]', '^Let.s begin$'),
+        reach="(()=>!document.querySelector('.st-hellopage') && !!document.querySelector('[data-stissue]'))()"),
    dict(what='tick a category', do="""(()=>{const e=[...document.querySelectorAll('[data-stissue]')].find(x=>x.offsetParent!==null); if(!e)return false; e.click(); return true;})()""",
         reach="(()=>!!document.querySelector('[data-stissue][aria-pressed=true]'))()"),
    dict(what='Next, to its issues', do=click_text('.st-bar [data-stnext]', '^Next$'),
