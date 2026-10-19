@@ -109,8 +109,8 @@ M = {
                    sel='#hp-dlg .hp-badge .ro', cur_sel='#hp-dlg .hp-badge svg', words='Mahalo', peak=900, frames=2000, wait_sel='#hp-done-t',
                    stills=[200, 500, 900, 1500], what='The rooster hops and flaps at the head of the testimony or email thank-you (1.5 s); the first action’s moment from a bill gets it in place of the flower.'),
   'law':      dict(kind='full', title='A bill becomes law', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), home_seed(p, fx)), trigger=lambda p: p.evaluate(LAW),
-                   sel='#fx-moment .ro', cur_sel='#fx-moment .fx-bloom', words='became law', peak=1000, frames=1900, end='#fx-moment .fx-mcard', pre=400,
-                   stills=[500, 800, 1100, 1500], what='The full-screen moment shows the rooster from the lei’s bloom (the last 1.6 s of it) in place of the flower, then folds to the toast as today.'),
+                   sel='#fx-moment .ro', cur_sel='#fx-moment .fx-bloom', words='became law', peak=600, frames=1900, end='#fx-moment .fx-mcard', pre=400,
+                   stills=[150, 450, 800, 1300], what='The full-screen moment shows the rooster from the lei’s bloom (the last 1.6 s of it) in place of the flower, then folds to the toast as today.'),
   'finale':   dict(kind='full', title='The end of the first visit', reach=fv_soon, trigger=lambda p: p.click('[data-stnext]'),
                    sel='.st-finro .ro', words='You’re all set', peak=2000, frames=3000, fit=True, wait_sel='.st-did',
                    stills=[400, 1000, 1800, 2600], what='The rooster crows in front of the Capitol as the petals fall, inside the drawing’s box, so the page is no taller.'),
@@ -122,16 +122,16 @@ M = {
                    stills=[100, 250, 450, 650], what='The burst and the rooster just above the answer picked.'),
   'found':    dict(kind='small', title='An address found', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), legs_typed(p, fx)), trigger=pick_addr,
                    sel='.ro-float .ro', words='speak for you', peak=None, next='.actionbar .btn.primary',
-                   stills=[100, 250, 450, 650], what='The burst and the rooster above the two legislators found.'),
+                   stills=[0, 120, 260, 420], what='The burst and the rooster above the two legislators found.'),
   'alerts':   dict(kind='small', title='Alerts turned on', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), alerts_typed(p, fx)), trigger=lambda p: p.click('#nx-send'),
                    sel='.ro-float .ro', words='Mahalo!', peak=None, next='.actionbar .btn.primary',
-                   stills=[100, 250, 450, 650], what='The burst and the rooster above the “Mahalo!” heading once the number is in (also More’s alerts row and Home’s ask).'),
+                   stills=[0, 120, 260, 420], what='The burst and the rooster above the “Mahalo!” heading once the number is in (also More’s alerts row and Home’s ask).'),
   'goodnews': dict(kind='small', title='Good news on Home', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), home_seed(p, fx, again=False)),
                    trigger=lambda p: (p.reload(), ready(p)), sel='.ro-float .ro', words='Got it', peak=None,
-                   stills=[100, 250, 450, 650], what='The rooster beside each new good-news card’s icon as it bursts, once.'),
+                   stills=[0, 120, 260, 420], what='The rooster beside each new good-news card’s icon as it bursts, once.'),
   'quiz':     dict(kind='small', title='The daily game’s result', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), quiz_to_last(p, fx)),
                    trigger=lambda p: p.locator('[data-pick]').first.click(), sel='.ro-float .ro', words='Your one step', peak=None,
-                   stills=[100, 250, 450, 650], what='The burst and the rooster beside the result’s badge (inside the game, C-7’s exception).'),
+                   stills=[0, 120, 260, 420], what='The burst and the rooster beside the result’s badge (inside the game, C-7’s exception).'),
   'welcome':  dict(kind='small', title='The first visit’s hello page', reach=lambda p, fx: (p.goto(url('', fx)), p.wait_for_timeout(300), p.evaluate('localStorage.clear(); sessionStorage.clear()')),
                    trigger=lambda p: (p.goto(url('&restart', p.__fx)), p.wait_for_selector('.st-hellopage', timeout=60000)),
                    sel='.st-greet .ro', cur_sel='.st-greet svg', words='Aloha!', peak=1300, next='[data-stnext]', fit=True,
@@ -194,7 +194,7 @@ def run_one(b, mid, m, w, h, fx, reduced=False, frames=False, shots=None, video=
         # The small ones that come after a lookup: wait for the bird (or for today's screen to settle).
         if m.get('peak') is None:
             if fx:
-                try: p.wait_for_selector(m['sel'], timeout=8000, state='attached'); p.wait_for_timeout(150 if reduced else 250)
+                try: p.wait_for_selector(m['sel'], timeout=8000, state='attached'); p.wait_for_timeout(0 if shots is not None else 150 if reduced else 250)
                 except Exception: pass
             else: p.wait_for_timeout(1500)
         stills = []
@@ -208,7 +208,7 @@ def run_one(b, mid, m, w, h, fx, reduced=False, frames=False, shots=None, video=
         else:
             if shots is not None and m.get('stills') and fx:
                 # The stills through it, and new.png at its fullest (the peak), in time order.
-                plan = sorted([(t, f'new-{k + 1}.png') for k, t in enumerate(m['stills'])] + [(m['peak'] if m['peak'] is not None else 200, 'new.png')])
+                plan = sorted([(t, f'new-{k + 1}.png') for k, t in enumerate(m['stills'])] + [(m['peak'] if m['peak'] is not None else 60, 'new.png')])
                 last = 0
                 for t, name in plan:
                     p.wait_for_timeout(max(0, t - last)); last = max(last, t)

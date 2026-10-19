@@ -165,7 +165,7 @@ function wireLegs() {
       try { localStorage.setItem('hiphi_districts', JSON.stringify({ senate: found.find(l => l.chamber === 'S')?.district || null, house: found.find(l => l.chamber === 'H')?.district || null })); } catch { /* ignore */ }
       did('legs');
       app.render();
-      later(() => cheer('found', document.getElementById('st-legs'), 14, 70), 300);   // found: a small celebration (C-7); R-308's rooster with fx=found
+      later(() => cheer('found', document.getElementById('st-legs'), 14, 70, { side: 'corner' }), 300);   // found: a small celebration (C-7); R-308's rooster with fx=found
     } catch { S.nxAddr.finding = false; S.nxAddr.err = 'We couldn’t look that up just now. Check your connection and try again.'; app.render(); }
   };
   function wireSugs() {

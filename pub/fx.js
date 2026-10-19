@@ -249,7 +249,10 @@ export function roosterAt(el, id = 'small-win', { size = 44, side = 'above' } = 
   if (!el || !RO || !el.isConnected) return null;
   const r = el.getBoundingClientRect(), f = document.createElement('div');
   f.className = 'ro-float'; f.setAttribute('aria-hidden', 'true');
-  const x = side === 'right' ? r.right + 6 + size / 2 : r.left + r.width / 2, y = side === 'right' ? r.top + r.height / 2 + size / 2 : r.top - 2;
+  // 'above' (centred on its top edge), 'right' (beside it), or 'corner' (inside its top right corner, for a list whose rows
+  // keep their right side free: the address found, where above would sit on the address line).
+  const x = side === 'right' ? r.right + 6 + size / 2 : side === 'corner' ? r.right - size / 2 - 8 : r.left + r.width / 2;
+  const y = side === 'right' ? r.top + r.height / 2 + size / 2 : side === 'corner' ? r.top + size + 6 : r.top - 2;
   f.style.left = `${Math.round(Math.min(innerWidth - size / 2 - 4, Math.max(size / 2 + 4, x)))}px`; f.style.top = `${Math.round(Math.max(size + 4, y))}px`;
   f.innerHTML = rooster(id, { size });
   document.body.appendChild(f);

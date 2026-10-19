@@ -1005,7 +1005,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
         const found = res.ids.map(id => S.legislators.find(l => l.id === id)).filter(Boolean);
         try { localStorage.setItem('hiphi_districts', JSON.stringify({ senate: found.find(l => l.chamber === 'S')?.district || null, house: found.find(l => l.chamber === 'H')?.district || null })); } catch { /* ignore */ }
         app.render();
-        later(() => cheer('found', document.getElementById('st-legs'), 14, 70), 300);   // found: a small celebration (C-7); R-308's rooster with fx=found
+        later(() => cheer('found', document.getElementById('st-legs'), 14, 70, { side: 'corner' }), 300);   // found: a small celebration (C-7); R-308's rooster with fx=found
       } catch { S.stAddr.finding = false; S.stAddr.err = 'We couldn’t look that up just now. Check your connection and try again.'; app.render(); }
     };
     function wireSugs() {
