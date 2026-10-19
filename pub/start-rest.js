@@ -13,7 +13,7 @@ import { HELP_WORDS } from './letters.js';   // the testimony button's words (R-
 import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { GO_HELP } from './topics.js';
-import { afterMove, bloom, burst, drift, later, reduced, petals, swap, fxOn, cheer, rooster } from './fx.js';
+import { afterMove, bloom, burst, drift, later, reduced, petals, swap, fxOn, cheer, rooster, roosterAt } from './fx.js';
 // R-307's words on trial, with the two others offered for Nate's pick (?fxw=2 or 3 on the practice copy).
 const VOICE_WORDS = () => ['Your voice is ready.', 'You’re ready to speak up.', 'Now you know how to be heard.'][(+new URLSearchParams(location.search).get('fxw') || 1) - 1] || 'Your voice is ready.';
 import { shareLine } from './keep.js';
@@ -979,7 +979,8 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       S.stLearned = true;
       // R-307 on trial (?demo=1&fx=voice): the story's end gets its small win, a burst and the rooster just above the
       // button, and the words as a toast over the next screen (C-7: a small burst mid-visit, never a full-screen moment).
-      if (fxOn('voice')) { cheer('voice', nb, 12, 48); toast(VOICE_WORDS(), { yay: true }); }
+      // The rooster stands on the next screen's Next once it has slid in (on a laptop that button is elsewhere).
+      if (fxOn('voice')) { burst(nb, 12, 48); toast(VOICE_WORDS(), { yay: true }); later(() => roosterAt(document.querySelector('.actionbar [data-stnext]') || nb), 280); }
       next();
     };
   }
