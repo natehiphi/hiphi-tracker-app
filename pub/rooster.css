@@ -1,0 +1,225 @@
+/* The rooster's animations, packed by tools/rooster_pack.mjs from rooster/animations (R-308). Do not edit by hand:
+   change the animation file and pack again. The wrapper (.ro) is in fx.css. */
+/* small-win: Small win · head bob (once, 600 ms) */
+.ro-s-body{transform-box:fill-box;transform-origin:50% 100%;animation:ro-s-body .45s cubic-bezier(.2,.7,.3,1) .1s both}
+.ro-s-head{transform-box:fill-box;transform-origin:20% 90%;animation:ro-s-head .45s cubic-bezier(.2,.7,.3,1) .1s both}
+.ro-s-comb{transform-box:fill-box;transform-origin:50% 115%;animation:ro-s-comb .5s ease .1s both}
+.ro-s-tail{transform-box:fill-box;transform-origin:100% 80%;animation:ro-s-tail .45s cubic-bezier(.2,.7,.3,1) .1s both}
+.ro-s-spark{transform-box:fill-box;transform-origin:0% 100%;opacity:0;animation:ro-s-spark .5s cubic-bezier(.34,1.4,.64,1) .22s both}
+@keyframes ro-s-body{0%{transform:scale(1,1)}30%{transform:scale(1.04,.95)}62%{transform:scale(.98,1.03)}100%{transform:scale(1,1)}}
+@keyframes ro-s-head{0%{transform:rotate(0)}30%{transform:rotate(10deg)}62%{transform:rotate(-6deg)}100%{transform:rotate(0)}}
+@keyframes ro-s-comb{0%,30%{transform:rotate(0)}55%{transform:rotate(-9deg)}78%{transform:rotate(6deg)}100%{transform:rotate(0)}}
+@keyframes ro-s-tail{0%{transform:rotate(0)}35%{transform:rotate(-10deg)}70%{transform:rotate(4deg)}100%{transform:rotate(0)}}
+@keyframes ro-s-spark{0%{opacity:0;transform:scale(.4)}40%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.15)}}
+@media (prefers-reduced-motion: reduce){
+.ro-s-body,.ro-s-head,.ro-s-comb,.ro-s-tail{animation:none}
+.ro-s-spark{display:none}
+}
+
+/* big-win: Big win · hop and ta-da (once, 1600 ms) */
+.ro-r-pop{transform-origin:50% 92%;animation:ro-r-pop .34s cubic-bezier(.34,1.4,.64,1) both}
+.ro-r-hop{transform-box:fill-box;transform-origin:50% 100%;animation:ro-r-hop 1.3s cubic-bezier(.2,.7,.3,1) .2s both}
+.ro-r-wing{transform-box:fill-box;transform-origin:85% 15%;animation:ro-r-flap 1.3s linear .2s both}
+.ro-r-wing2{transform-box:fill-box;transform-origin:85% 15%;animation:ro-r-flap2 1.3s linear .2s both}
+.ro-r-tail{transform-box:fill-box;transform-origin:100% 80%;animation:ro-r-tail 1.3s cubic-bezier(.2,.7,.3,1) .2s both}
+.ro-r-head{transform-box:fill-box;transform-origin:20% 90%;animation:ro-r-head 1.3s cubic-bezier(.2,.7,.3,1) .2s both}
+.ro-r-comb{transform-box:fill-box;transform-origin:50% 115%;animation:ro-r-comb 1.3s ease .2s both}
+.ro-r-eye{transform-box:fill-box;transform-origin:center;animation:ro-r-blink .22s ease 1.34s both}
+.ro-r-shadow{transform-origin:center;animation:ro-r-shadow 1.3s cubic-bezier(.2,.7,.3,1) .2s both}
+.ro-r-ring{transform-origin:center;opacity:0;animation:ro-r-ring .6s cubic-bezier(.2,.7,.3,1) 1s both}
+.ro-robigwin-feather{position:absolute;left:240px;top:214px;width:17px;height:23px;margin:-11px 0 0 -8px;opacity:0;animation:ro-robigwin-drift 1.2s cubic-bezier(.3,.2,.4,1) both}
+.ro-robigwin-petal{position:absolute;left:236px;top:314px;width:8px;height:12px;border-radius:50% / 60% 60% 40% 40%;opacity:0;animation:ro-robigwin-petalfly .6s cubic-bezier(.2,.7,.3,1) 1s both}
+@keyframes ro-r-pop{0%{opacity:0;transform:scale(.4)}70%{opacity:1;transform:scale(1.08)}100%{transform:scale(1)}}
+@keyframes ro-r-hop{0%{transform:translateY(0) scale(1,1)}12%{transform:translateY(0) scale(1.08,.9)}30%{transform:translateY(-56px) scale(.94,1.08)}45%{transform:translateY(-64px) scale(1,1)}62%{transform:translateY(0) scale(1.12,.88)}74%{transform:translateY(-6px) scale(.97,1.03)}86%,100%{transform:translateY(0) scale(1,1)}}
+@keyframes ro-r-flap{0%,14%{transform:rotate(0)}22%{transform:rotate(50deg)}30%{transform:rotate(-6deg)}38%{transform:rotate(50deg)}46%{transform:rotate(-6deg)}54%{transform:rotate(40deg)}62%{transform:rotate(0)}70%,86%{transform:rotate(72deg)}100%{transform:rotate(0)}}
+@keyframes ro-r-flap2{0%,14%{transform:rotate(0)}22%{transform:rotate(35deg)}30%{transform:rotate(0)}38%{transform:rotate(35deg)}46%{transform:rotate(0)}54%{transform:rotate(28deg)}62%{transform:rotate(0)}70%,86%{transform:rotate(55deg)}100%{transform:rotate(0)}}
+@keyframes ro-r-tail{0%,12%{transform:rotate(0)}30%{transform:rotate(-14deg)}62%{transform:rotate(10deg)}78%{transform:rotate(-4deg)}100%{transform:rotate(0)}}
+@keyframes ro-r-head{0%{transform:rotate(0)}12%{transform:rotate(6deg)}30%,45%{transform:rotate(-10deg)}62%{transform:rotate(4deg)}80%,100%{transform:rotate(0)}}
+@keyframes ro-r-comb{0%,60%{transform:rotate(0)}68%{transform:rotate(-8deg)}78%{transform:rotate(6deg)}88%{transform:rotate(-2deg)}100%{transform:rotate(0)}}
+@keyframes ro-r-blink{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.1)}}
+@keyframes ro-r-shadow{0%,12%{transform:scaleX(1.1);opacity:.22}30%,45%{transform:scaleX(.6);opacity:.1}62%{transform:scaleX(1.15);opacity:.26}100%{transform:scaleX(1);opacity:.2}}
+@keyframes ro-r-ring{0%{opacity:1;transform:scale(.5)}100%{opacity:0;transform:scale(1.6)}}
+@keyframes ro-robigwin-drift{0%{opacity:0;transform:translate(calc(var(--dx) * .7),calc(var(--dy) * .25 - 14px)) rotate(0)}15%{opacity:.95}70%{opacity:.8}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--dr))}}
+@keyframes ro-robigwin-petalfly{0%{opacity:0;transform:translate(0,0) scale(.4) rotate(0)}20%{opacity:1}100%{opacity:0;transform:translate(var(--x),var(--y)) scale(1) rotate(160deg)}}
+@media (prefers-reduced-motion: reduce){
+.ro-r-pop,.ro-r-hop,.ro-r-wing,.ro-r-wing2,.ro-r-tail,.ro-r-head,.ro-r-comb,.ro-r-eye,.ro-r-shadow{animation:none}
+.ro-r-ring,.ro-robigwin-feather,.ro-robigwin-petal{display:none}
+}
+
+/* milestone: Milestone · crow (once, 2600 ms) */
+.ro-m-pop{transform-origin:50% 92%;animation:ro-m-pop .34s cubic-bezier(.34,1.4,.64,1) both}
+.ro-m-body{transform-box:fill-box;transform-origin:50% 100%;animation:ro-m-body 2.2s cubic-bezier(.2,.7,.3,1) .2s both}
+.ro-m-wing{transform-box:fill-box;transform-origin:85% 15%;animation:ro-m-wing 2.2s linear .2s both}
+.ro-m-wing2{transform-box:fill-box;transform-origin:85% 15%;animation:ro-m-wing2 2.2s linear .2s both}
+.ro-m-tail{transform-box:fill-box;transform-origin:100% 80%;animation:ro-m-tail 2.2s cubic-bezier(.2,.7,.3,1) .2s both}
+.ro-m-head{transform-box:view-box;transform-origin:118px 100px;animation:ro-m-head 2.2s cubic-bezier(.2,.7,.3,1) .2s both}
+.ro-m-comb{transform-box:fill-box;transform-origin:50% 115%;animation:ro-m-comb 2.2s ease .2s both}
+.ro-m-closed{animation:ro-m-hide 2.2s linear .2s both}
+.ro-m-open{opacity:0;animation:ro-m-show 2.2s linear .2s both}
+.ro-m-wave{transform-box:fill-box;transform-origin:0% 50%;opacity:0}
+.ro-m-w1{animation:ro-m-w1 2.2s ease-out .2s both}
+.ro-m-w2{animation:ro-m-w2 2.2s ease-out .2s both}
+.ro-m-w3{animation:ro-m-w3 2.2s ease-out .2s both}
+.ro-m-eye{transform-box:fill-box;transform-origin:center;animation:ro-m-blink .22s ease 2.3s both}
+.ro-m-shadow{transform-origin:center;animation:ro-m-shadow 2.2s cubic-bezier(.2,.7,.3,1) .2s both}
+.ro-m-ring{transform-origin:center;opacity:0;animation:ro-m-ring .6s cubic-bezier(.2,.7,.3,1) 1.74s both}
+.ro-romilest-feather{position:absolute;left:240px;top:200px;width:17px;height:23px;margin:-11px 0 0 -8px;opacity:0;animation:ro-romilest-drift 1.4s cubic-bezier(.3,.2,.4,1) both}
+.ro-romilest-petal{position:absolute;left:236px;top:328px;width:9px;height:13px;border-radius:50% / 60% 60% 40% 40%;opacity:0;animation:ro-romilest-petalfly .7s cubic-bezier(.2,.7,.3,1) 1.72s both}
+@keyframes ro-m-pop{0%{opacity:0;transform:scale(.4)}70%{opacity:1;transform:scale(1.08)}100%{transform:scale(1)}}
+@keyframes ro-m-body{0%{transform:translateY(0) scale(1,1)}10%{transform:translateY(0) scale(1.1,.86)}22%{transform:translateY(-60px) scale(.93,1.1)}32%{transform:translateY(-66px) scale(1,1)}45%{transform:translateY(-62px) scale(1.02,.99)}58%{transform:translateY(-66px) scale(1,1)}70%{transform:translateY(0) scale(1.14,.86)}80%{transform:translateY(-8px) scale(.97,1.03)}90%,100%{transform:translateY(0) scale(1,1)}}
+@keyframes ro-m-wing{0%,10%{transform:rotate(0)}14%{transform:rotate(50deg)}20%{transform:rotate(-6deg)}26%{transform:rotate(50deg)}34%{transform:rotate(66deg)}45%{transform:rotate(56deg)}56%{transform:rotate(66deg)}64%{transform:rotate(0)}72%{transform:rotate(-4deg)}100%{transform:rotate(0)}}
+@keyframes ro-m-wing2{0%,10%{transform:rotate(0)}14%{transform:rotate(35deg)}20%{transform:rotate(0)}26%{transform:rotate(35deg)}34%{transform:rotate(50deg)}45%{transform:rotate(42deg)}56%{transform:rotate(50deg)}64%,100%{transform:rotate(0)}}
+@keyframes ro-m-tail{0%,10%{transform:rotate(0)}22%{transform:rotate(-10deg)}34%,56%{transform:rotate(-18deg)}70%{transform:rotate(10deg)}84%{transform:rotate(-4deg)}100%{transform:rotate(0)}}
+@keyframes ro-m-head{0%{transform:rotate(0)}10%{transform:rotate(8deg)}22%{transform:rotate(-10deg)}32%{transform:rotate(-28deg)}40%{transform:rotate(-25deg)}48%{transform:rotate(-29deg)}56%{transform:rotate(-26deg)}66%{transform:rotate(4deg)}80%,100%{transform:rotate(0)}}
+@keyframes ro-m-comb{0%,66%{transform:rotate(0)}72%{transform:rotate(-8deg)}80%{transform:rotate(6deg)}90%{transform:rotate(-2deg)}100%{transform:rotate(0)}}
+@keyframes ro-m-hide{0%,31%{opacity:1}32%,57%{opacity:0}58%,100%{opacity:1}}
+@keyframes ro-m-show{0%,31%{opacity:0}32%,57%{opacity:1}58%,100%{opacity:0}}
+@keyframes ro-m-w1{0%,33%{opacity:0;transform:scale(.5)}36%{opacity:1}46%{opacity:0;transform:scale(1.3)}100%{opacity:0}}
+@keyframes ro-m-w2{0%,39%{opacity:0;transform:scale(.5)}42%{opacity:1}52%{opacity:0;transform:scale(1.3)}100%{opacity:0}}
+@keyframes ro-m-w3{0%,45%{opacity:0;transform:scale(.5)}48%{opacity:1}58%{opacity:0;transform:scale(1.3)}100%{opacity:0}}
+@keyframes ro-m-blink{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.1)}}
+@keyframes ro-m-shadow{0%,10%{transform:scaleX(1.12);opacity:.24}22%,58%{transform:scaleX(.6);opacity:.1}70%{transform:scaleX(1.18);opacity:.28}100%{transform:scaleX(1);opacity:.2}}
+@keyframes ro-m-ring{0%{opacity:1;transform:scale(.5)}100%{opacity:0;transform:scale(1.8)}}
+@keyframes ro-romilest-drift{0%{opacity:0;transform:translate(calc(var(--dx) * .7),calc(var(--dy) * .25 - 14px)) rotate(0)}15%{opacity:.95}70%{opacity:.8}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--dr))}}
+@keyframes ro-romilest-petalfly{0%{opacity:0;transform:translate(0,0) scale(.4) rotate(0)}20%{opacity:1}100%{opacity:0;transform:translate(var(--x),var(--y)) scale(1) rotate(160deg)}}
+@media (prefers-reduced-motion: reduce){
+.ro-m-pop,.ro-m-body,.ro-m-wing,.ro-m-wing2,.ro-m-tail,.ro-m-head,.ro-m-comb,.ro-m-eye,.ro-m-shadow{animation:none}
+.ro-m-closed{animation:none;opacity:1}
+.ro-m-open,.ro-m-wave,.ro-m-ring,.ro-romilest-feather,.ro-romilest-petal{display:none}
+}
+
+/* bill-passed: Bill passed · lei bloom (once, 2900 ms) */
+.ro-ld-pop{transform-origin:50% 92%;animation:ro-ld-pop .34s cubic-bezier(.34,1.4,.64,1) both}
+.ro-ld-hop{transform-box:fill-box;transform-origin:50% 100%;animation:ro-ld-hop 1.3s cubic-bezier(.2,.7,.3,1) .2s both}
+.ro-ld-puff{transform-box:view-box;transform-origin:100px 186px;animation:ro-ld-puff 1.6s cubic-bezier(.4,0,.3,1) 1.55s both}
+.ro-ld-wing{transform-box:fill-box;transform-origin:85% 15%;animation:ro-ld-flap 1.3s linear .2s both}
+.ro-ld-tail{transform-box:fill-box;transform-origin:100% 80%;animation:ro-ld-tail 1.3s cubic-bezier(.2,.7,.3,1) .2s both}
+.ro-ld-head{transform-box:view-box;transform-origin:118px 100px;animation:ro-ld-head 1.3s cubic-bezier(.2,.7,.3,1) .2s both}
+.ro-ld-proud{transform-box:view-box;transform-origin:118px 100px;animation:ro-ld-proud 1.6s cubic-bezier(.4,0,.3,1) 1.55s both}
+.ro-ld-comb{transform-box:fill-box;transform-origin:50% 115%;animation:ro-ld-comb 1.3s ease .2s both}
+.ro-ld-shadow{transform-origin:center;animation:ro-ld-shadow 1.3s cubic-bezier(.2,.7,.3,1) .2s both}
+.ro-ld-leaf{transform-box:view-box;transform-origin:0 0;opacity:0;animation:ro-ld-leaf .4s cubic-bezier(.3,.7,.4,1) both}
+.ro-ld-pet{transform-box:view-box;transform-origin:0 0;opacity:0;animation:ro-ld-pet .55s cubic-bezier(.3,.7,.4,1) both}
+.ro-ld-spark{transform-box:fill-box;transform-origin:center;opacity:0;animation:ro-ld-spark .6s ease-out both}
+.ro-ld-eye{animation:ro-ld-eyeoff .9s linear 1.95s both}
+.ro-ld-happy{opacity:0;animation:ro-ld-eyeon .9s linear 1.95s both}
+@keyframes ro-ld-pop{0%{opacity:0;transform:scale(.4)}70%{opacity:1;transform:scale(1.08)}100%{transform:scale(1)}}
+@keyframes ro-ld-hop{0%{transform:translateY(0) scale(1,1)}12%{transform:translateY(0) scale(1.08,.9)}30%{transform:translateY(-56px) scale(.94,1.08)}45%{transform:translateY(-64px) scale(1,1)}62%{transform:translateY(0) scale(1.12,.88)}74%{transform:translateY(-6px) scale(.97,1.03)}86%,100%{transform:translateY(0) scale(1,1)}}
+@keyframes ro-ld-puff{0%{transform:scale(1,1)}20%,70%{transform:scale(1.03,1.035)}100%{transform:scale(1,1)}}
+@keyframes ro-ld-flap{0%,14%{transform:rotate(0)}22%{transform:rotate(50deg)}30%{transform:rotate(-6deg)}38%{transform:rotate(50deg)}46%{transform:rotate(-6deg)}54%{transform:rotate(40deg)}66%,100%{transform:rotate(0)}}
+@keyframes ro-ld-tail{0%,12%{transform:rotate(0)}30%{transform:rotate(-14deg)}62%{transform:rotate(10deg)}78%{transform:rotate(-4deg)}100%{transform:rotate(0)}}
+@keyframes ro-ld-head{0%{transform:rotate(0)}12%{transform:rotate(6deg)}30%,45%{transform:rotate(-10deg)}62%{transform:rotate(4deg)}80%,100%{transform:rotate(0)}}
+@keyframes ro-ld-proud{0%{transform:rotate(0)}20%,70%{transform:rotate(-9deg)}100%{transform:rotate(0)}}
+@keyframes ro-ld-comb{0%,60%{transform:rotate(0)}68%{transform:rotate(-8deg)}78%{transform:rotate(6deg)}88%{transform:rotate(-2deg)}100%{transform:rotate(0)}}
+@keyframes ro-ld-shadow{0%,12%{transform:scaleX(1.1);opacity:.22}30%,45%{transform:scaleX(.6);opacity:.1}62%{transform:scaleX(1.15);opacity:.26}100%{transform:scaleX(1);opacity:.2}}
+@keyframes ro-ld-leaf{0%{opacity:0;transform:scale(0) rotate(-40deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes ro-ld-pet{0%{opacity:0;transform:scale(0) rotate(-100deg)}55%{opacity:1;transform:scale(1.18) rotate(10deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes ro-ld-spark{0%{opacity:0;transform:scale(.3)}40%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.8)}}
+@keyframes ro-ld-eyeoff{0%{opacity:1}5%,90%{opacity:0}100%{opacity:1}}
+@keyframes ro-ld-eyeon{0%{opacity:0}5%,90%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion: reduce){
+.ro-ld-pop,.ro-ld-hop,.ro-ld-puff,.ro-ld-wing,.ro-ld-tail,.ro-ld-head,.ro-ld-proud,.ro-ld-comb,.ro-ld-shadow,.ro-ld-eye{animation:none}
+.ro-ld-happy,.ro-ld-spark{display:none}
+.ro-ld-leaf,.ro-ld-pet{animation:none;opacity:1}
+}
+
+/* welcome: Welcome · strut and wave (once, 2300 ms) */
+.ro-w-enter{animation:ro-w-enter .9s cubic-bezier(.2,.7,.3,1) .1s both}
+.ro-w-bob{animation:ro-w-bob .9s linear .1s both}
+.ro-w-legA{transform-box:view-box;transform-origin:90px 156px;animation:ro-w-legA .9s linear .1s both}
+.ro-w-legB{transform-box:view-box;transform-origin:110px 156px;animation:ro-w-legB .9s linear .1s both}
+.ro-w-wing{transform-box:fill-box;transform-origin:85% 15%;animation:ro-w-wave 1s ease-in-out 1s both}
+.ro-w-head{transform-box:view-box;transform-origin:118px 100px;animation:ro-w-head 1s cubic-bezier(.2,.7,.3,1) 1s both}
+.ro-w-comb{transform-box:fill-box;transform-origin:50% 115%;animation:ro-w-comb .5s ease .95s both}
+.ro-w-tail{transform-box:fill-box;transform-origin:100% 80%;animation:ro-w-tail .5s ease .95s both}
+.ro-w-eye{transform-box:fill-box;transform-origin:center;animation:ro-w-blink .22s ease 2.05s both}
+@keyframes ro-w-enter{0%{transform:translateX(-340px)}100%{transform:translateX(0)}}
+@keyframes ro-w-bob{0%{transform:translateY(0)}12.5%{transform:translateY(-6px)}25%{transform:translateY(0)}37.5%{transform:translateY(-6px)}50%{transform:translateY(0)}62.5%{transform:translateY(-6px)}75%{transform:translateY(0)}87.5%{transform:translateY(-3px)}100%{transform:translateY(0)}}
+@keyframes ro-w-legA{0%{transform:rotate(18deg)}25%{transform:rotate(-18deg)}50%{transform:rotate(18deg)}75%{transform:rotate(-14deg)}100%{transform:rotate(0)}}
+@keyframes ro-w-legB{0%{transform:rotate(-18deg)}25%{transform:rotate(18deg)}50%{transform:rotate(-18deg)}75%{transform:rotate(14deg)}100%{transform:rotate(0)}}
+@keyframes ro-w-wave{0%{transform:rotate(0)}18%{transform:rotate(105deg)}32%{transform:rotate(88deg)}46%{transform:rotate(112deg)}60%{transform:rotate(88deg)}74%{transform:rotate(105deg)}100%{transform:rotate(0)}}
+@keyframes ro-w-head{0%{transform:rotate(0)}20%,80%{transform:rotate(-6deg)}100%{transform:rotate(0)}}
+@keyframes ro-w-comb{0%{transform:rotate(0)}30%{transform:rotate(-6deg)}60%{transform:rotate(4deg)}100%{transform:rotate(0)}}
+@keyframes ro-w-tail{0%{transform:rotate(0)}35%{transform:rotate(-10deg)}70%{transform:rotate(4deg)}100%{transform:rotate(0)}}
+@keyframes ro-w-blink{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.1)}}
+@media (prefers-reduced-motion: reduce){
+.ro-w-enter,.ro-w-bob,.ro-w-legA,.ro-w-legB,.ro-w-wing,.ro-w-head,.ro-w-comb,.ro-w-tail,.ro-w-eye{animation:none}
+}
+
+/* submitting: Submitting · pecking loop (loop, 1000 ms) */
+.ro-p-upper{transform-box:view-box;transform-origin:100px 158px;animation:ro-p-peck 1s cubic-bezier(.2,.7,.3,1) infinite}
+.ro-p-head{transform-box:view-box;transform-origin:118px 100px;animation:ro-p-nod 1s cubic-bezier(.2,.7,.3,1) infinite}
+.ro-p-tail{transform-box:fill-box;transform-origin:100% 80%;animation:ro-p-tail 1s ease infinite}
+.ro-p-shadow{transform-origin:center;animation:ro-p-shadow 1s cubic-bezier(.2,.7,.3,1) infinite}
+.ro-p-dot{width:10px;height:10px;border-radius:50%;background:#00698E;opacity:.25;animation:ro-p-dot 1.2s ease-in-out infinite}
+.ro-p-dot2{animation-delay:.2s}
+.ro-p-dot3{animation-delay:.4s}
+.ro-paused .ro-p-upper,.ro-paused .ro-p-head,.ro-paused .ro-p-tail,.ro-paused .ro-p-shadow,.ro-paused .ro-p-dot{animation-play-state:paused}
+@keyframes ro-p-peck{0%,20%{transform:rotate(0)}32%{transform:rotate(22deg)}38%{transform:rotate(16deg)}44%{transform:rotate(22deg)}56%,100%{transform:rotate(0)}}
+@keyframes ro-p-nod{0%,20%{transform:rotate(0)}32%{transform:rotate(10deg)}38%{transform:rotate(4deg)}44%{transform:rotate(10deg)}56%,100%{transform:rotate(0)}}
+@keyframes ro-p-tail{0%,30%{transform:rotate(0)}44%{transform:rotate(-6deg)}62%{transform:rotate(3deg)}76%,100%{transform:rotate(0)}}
+@keyframes ro-p-shadow{0%,20%{transform:scaleX(1)}32%,44%{transform:scaleX(1.08) translateX(6px)}56%,100%{transform:scaleX(1)}}
+@keyframes ro-p-dot{0%,100%{opacity:.25;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
+@media (prefers-reduced-motion: reduce){
+.ro-p-upper,.ro-p-head,.ro-p-tail,.ro-p-shadow{animation:none}
+.ro-p-dot{animation-duration:2.4s}
+}
+
+/* error: Error · gentle head tilt (once, 1500 ms) */
+.ro-e-body{transform-box:fill-box;transform-origin:50% 100%;animation:ro-e-body 1.4s cubic-bezier(.2,.7,.3,1) .1s both}
+.ro-e-head{transform-box:view-box;transform-origin:118px 100px;animation:ro-e-head 1.4s cubic-bezier(.2,.7,.3,1) .1s both}
+.ro-e-tail{transform-box:fill-box;transform-origin:100% 80%;animation:ro-e-tail 1.4s cubic-bezier(.2,.7,.3,1) .1s both}
+.ro-e-wing{transform-box:fill-box;transform-origin:85% 15%;animation:ro-e-wing 1.4s cubic-bezier(.2,.7,.3,1) .1s both}
+.ro-e-brow{opacity:0;animation:ro-e-brow 1.4s ease .1s both}
+.ro-e-eye{transform-box:fill-box;transform-origin:center;animation:ro-e-blink .3s ease .8s both}
+@keyframes ro-e-body{0%{transform:scale(1,1)}35%{transform:scale(1.01,.97)}100%{transform:scale(1,.985)}}
+@keyframes ro-e-head{0%{transform:rotate(0)}35%,75%{transform:rotate(9deg)}100%{transform:rotate(3deg)}}
+@keyframes ro-e-tail{0%{transform:rotate(0)}35%{transform:rotate(10deg)}100%{transform:rotate(5deg)}}
+@keyframes ro-e-wing{0%{transform:rotate(0)}35%{transform:rotate(-6deg)}100%{transform:rotate(-3deg)}}
+@keyframes ro-e-brow{0%,20%{opacity:0}35%,100%{opacity:1}}
+@keyframes ro-e-blink{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.1)}}
+@media (prefers-reduced-motion: reduce){
+.ro-e-body,.ro-e-head,.ro-e-tail,.ro-e-wing,.ro-e-eye{animation:none}
+.ro-e-brow{animation:none;opacity:1}
+}
+
+/* empty-state: Empty state · peck and look up (loop, 5000 ms) */
+.ro-n-upper{transform-box:view-box;transform-origin:100px 158px;animation:ro-n-upper 5s cubic-bezier(.2,.7,.3,1) infinite}
+.ro-n-head{transform-box:view-box;transform-origin:118px 100px;animation:ro-n-head 5s cubic-bezier(.2,.7,.3,1) infinite}
+.ro-n-comb{transform-box:fill-box;transform-origin:50% 115%;animation:ro-n-comb 5s ease infinite}
+.ro-n-tail{transform-box:fill-box;transform-origin:100% 80%;animation:ro-n-tail 5s ease infinite}
+.ro-n-eye{transform-box:fill-box;transform-origin:center;animation:ro-n-blink 5s linear infinite}
+.ro-n-shadow{transform-origin:center;animation:ro-n-shadow 5s cubic-bezier(.2,.7,.3,1) infinite}
+.ro-paused .ro-n-upper,.ro-paused .ro-n-head,.ro-paused .ro-n-comb,.ro-paused .ro-n-tail,.ro-paused .ro-n-eye,.ro-paused .ro-n-shadow{animation-play-state:paused}
+@keyframes ro-n-upper{0%,8%{transform:rotate(0)}13%{transform:rotate(28deg)}16%{transform:rotate(20deg)}19%{transform:rotate(28deg)}26%,34%{transform:rotate(0)}39%{transform:rotate(28deg)}43%,100%{transform:rotate(0)}}
+@keyframes ro-n-head{0%,8%{transform:rotate(0)}13%{transform:rotate(12deg)}16%{transform:rotate(6deg)}19%{transform:rotate(12deg)}26%,34%{transform:rotate(0)}39%{transform:rotate(12deg)}43%,52%{transform:rotate(0)}58%,74%{transform:rotate(-10deg)}80%,100%{transform:rotate(0)}}
+@keyframes ro-n-comb{0%,78%{transform:rotate(0)}83%{transform:rotate(-5deg)}87%{transform:rotate(3deg)}91%,100%{transform:rotate(0)}}
+@keyframes ro-n-tail{0%,24%{transform:rotate(0)}28%{transform:rotate(-8deg)}32%{transform:rotate(3deg)}36%,100%{transform:rotate(0)}}
+@keyframes ro-n-blink{0%,64%{transform:scaleY(1)}66%{transform:scaleY(.1)}68%,100%{transform:scaleY(1)}}
+@keyframes ro-n-shadow{0%,8%{transform:scaleX(1)}13%,19%{transform:scaleX(1.08) translateX(6px)}26%,34%{transform:scaleX(1)}39%{transform:scaleX(1.08) translateX(6px)}43%,100%{transform:scaleX(1)}}
+@media (prefers-reduced-motion: reduce){
+.ro-n-upper,.ro-n-head,.ro-n-comb,.ro-n-tail,.ro-n-shadow{animation:none}
+}
+
+/* deadline-reminder: Deadline reminder · ahem (once, 1500 ms) */
+.ro-a-body{transform-box:fill-box;transform-origin:50% 100%;animation:ro-a-body 1.4s cubic-bezier(.2,.7,.3,1) .1s both}
+.ro-a-head{transform-box:view-box;transform-origin:118px 100px;animation:ro-a-head 1.4s cubic-bezier(.2,.7,.3,1) .1s both}
+.ro-a-wing{transform-box:fill-box;transform-origin:85% 15%;animation:ro-a-wing 1.4s cubic-bezier(.2,.7,.3,1) .1s both}
+.ro-a-tail{transform-box:fill-box;transform-origin:100% 80%;animation:ro-a-tail 1.4s cubic-bezier(.2,.7,.3,1) .1s both}
+.ro-a-closed{animation:ro-a-hide 1.4s linear .1s both}
+.ro-a-open{opacity:0;animation:ro-a-show 1.4s linear .1s both}
+.ro-a-wave{transform-box:fill-box;transform-origin:0% 50%;opacity:0;animation:ro-a-wave 1.4s ease-out .1s both}
+.ro-a-eye{transform-box:fill-box;transform-origin:center;animation:ro-a-blink .22s ease 1.25s both}
+@keyframes ro-a-body{0%{transform:scale(1,1)}25%,65%{transform:scale(1.04,1.03)}100%{transform:scale(1,1)}}
+@keyframes ro-a-head{0%{transform:rotate(0)}25%{transform:rotate(-8deg)}40%{transform:rotate(-5deg)}55%{transform:rotate(-8deg)}75%,100%{transform:rotate(0)}}
+@keyframes ro-a-wing{0%{transform:rotate(0)}25%,65%{transform:rotate(-16deg)}100%{transform:rotate(0)}}
+@keyframes ro-a-tail{0%{transform:rotate(0)}25%,65%{transform:rotate(-8deg)}100%{transform:rotate(0)}}
+@keyframes ro-a-hide{0%,31%{opacity:1}32%,51%{opacity:0}52%,100%{opacity:1}}
+@keyframes ro-a-show{0%,31%{opacity:0}32%,51%{opacity:1}52%,100%{opacity:0}}
+@keyframes ro-a-wave{0%,33%{opacity:0;transform:scale(.6)}40%{opacity:1}70%,100%{opacity:0;transform:scale(1.25)}}
+@keyframes ro-a-blink{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.1)}}
+@media (prefers-reduced-motion: reduce){
+.ro-a-body,.ro-a-head,.ro-a-wing,.ro-a-tail,.ro-a-eye{animation:none}
+.ro-a-closed{animation:none;opacity:1}
+.ro-a-open,.ro-a-wave{display:none}
+}
