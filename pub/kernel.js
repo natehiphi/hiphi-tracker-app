@@ -36,6 +36,13 @@ if (DEMO) {
     for (const f of ['getItem', 'setItem', 'removeItem']) { const orig = P[f]; P[f] = function (k, ...a) { return orig.call(this, apart(k), ...a); }; }
   } catch { /* storage blocked: nothing to keep apart */ }
 }
+// R-308 (practice copy only): the rooster's moments on trial, ?demo=1&fx=<id>[,<id>] or fx=all (pub/fx.js fxOn). The kernel
+// cannot import fx.js (fx.js imports the kernel), so fx.js fills these hooks once it is in, and the few places that draw
+// a moment outside fx.js's importers (the yay toast, the boot's error card, the empty lists) ask through them. Without
+// fx= nothing is filled, nothing extra loads, and every screen is as it was.
+export const fxHook = { yay: null, art: null };
+export const fxArt = (id, o) => (fxHook.art && fxHook.art(id, o)) || '';
+if (DEMO && /[?&]fx=/.test(location.search)) import('./fx.js').catch(e => console.error(e));
 export const $ = s => document.querySelector(s);
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const HST = 'Pacific/Honolulu';
@@ -50,7 +57,7 @@ export function toast(m, opt = {}) {
   box.innerHTML = '';
   const el = document.createElement('div'); el.className = 'toastmsg' + (opt.err ? ' err' : opt.yay ? ' yay' : '');
   const btnLabel = opt.also ? opt.also.label : opt.undo ? 'Undo' : '';
-  el.innerHTML = (opt.yay ? `<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9.5" fill="var(--ok-text)"/><path class="ck" d="M5.5 10.4l3 3 6-6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '')
+  el.innerHTML = (opt.yay ? (fxHook.yay && fxHook.yay()) || `<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9.5" fill="var(--ok-text)"/><path class="ck" d="M5.5 10.4l3 3 6-6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '')
     + `<span>${esc(opt.err ? friendly(m) : m)}</span>` + (btnLabel ? `<button type="button" class="toastundo">${esc(btnLabel)}</button>` : '');
   const run = opt.also ? opt.also.action : opt.undo;
   if (run) el.querySelector('.toastundo').onclick = async () => { box.innerHTML = ''; try { await run(); } catch (e) { toast(e, true); } app.render(); };

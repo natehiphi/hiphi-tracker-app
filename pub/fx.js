@@ -20,7 +20,9 @@
 //   petals()       the finale's falling petals, the peak at the end of the first visit (C-7).
 // Every moment plays side by side, at full speed or slowed, on the private motion page (motion.html, X11-4).
 // Orange is the celebration colour and appears in these and almost nowhere else (C-7).
-import { icon, toast } from './kernel.js';
+//   rooster(id, o)  R-308, the practice copy only (fxOn): the HIPHI rooster drawn for one moment on trial. roosterAt(el, id)
+//                  floats a small one just above a thing done, like burst().
+import { icon, toast, DEMO, fxHook } from './kernel.js';
 
 export const reduced = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 // A pause that only exists when things move: under Reduce Motion the next beat happens at once.
@@ -175,4 +177,88 @@ export function celebrate({ title, sub = '', small = '', go = 'Continue', alt = 
   m.querySelector('#fx-mgo').focus({ preventScroll: true });
   live = close;
   return close;
+}
+
+// ================= R-308: the rooster, on trial on the practice copy only =================
+// Nate (18 Oct): the rooster "everywhere it fits" (wins big and small, empty lists, errors, sending, reminders; never the
+// streak or idle ones), warm but calm (R-281's cartoon was over the top). Each moment is switched on by name in the
+// address, ?demo=1&fx=voice,toast or fx=all, so he can see each one beside today's; without it every screen is exactly as
+// it was, and the live page never downloads the rooster (no DEMO, no fx: nothing here runs).
+const FXS = DEMO ? (new URLSearchParams(location.search).get('fx') || '').split(',').map(x => x.trim()).filter(Boolean) : [];
+export const fxOn = id => FXS.length > 0 && (FXS.includes('all') || FXS.includes(id));
+// The packed animations (pub/rooster.js, made by tools/rooster_pack.mjs): META {id: {ms, loop}}, STAGE {id: markup of a
+// 480x480 stage with the bird, about 240 px of it, in the middle}. Loaded only when a moment is switched on: the stylesheet
+// as a link, the markup as a module. Nothing waits for them: a rooster asked for before they land is drawn as an empty box
+// and filled the moment they do (fill()).
+let RO = null;
+export const fxReady = FXS.length ? Promise.all([
+  new Promise(res => { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'pub/rooster.css'; l.onload = l.onerror = res; document.head.appendChild(l); }),
+  import('./rooster.js').then(m => { RO = m; })]).then(() => { fill(document); }).catch(e => console.error(e)) : Promise.resolve();
+const META = id => (RO && RO.META[id]) || { ms: 0, loop: false };
+// Keys of moments already played on this page load: a screen drawn again (a redraw on data, Back) shows the rooster still,
+// in its last pose, instead of playing it again (A-10: nothing replays by itself).
+const played = new Set();
+// rooster(id, { size, cls, key, at, fit, delay, stop, still }) returns the markup: a box `size` px square (the bird fills
+// most of it) that takes no taps and is hidden from screen readers; the words beside it always say what it means (A-10).
+//   key    once per page load under this key; after that, still        at     start this many ms into it (the law: the bloom)
+//   fit    play it in this many ms (big-win's 1.6 s in a 1.5 s moment)  delay  hold the first pose this long, then play
+//   stop   loops only: pause after this many ms (submitting at 5 s, empty-state after one cycle; A-10's 5 s)
+//   still  drawn in its last pose, nothing moves
+export function rooster(id, { size = 48, cls = '', key = '', at = 0, fit = 0, delay = 0, stop = 0, still = false } = {}) {
+  if (key && played.has(key)) still = true; else if (key) played.add(key);
+  const d = Object.entries({ at, fit, delay, stop }).filter(([, v]) => v).map(([k, v]) => ` data-ro-${k}="${v}"`).join('');
+  return `<span class="ro${cls ? ' ' + cls : ''}" data-ro="${id}"${still ? ' data-ro-still="1"' : ''}${d} style="--ro:${size}" aria-hidden="true"><span class="ro-st">${RO ? RO.STAGE[id] || '' : ''}</span></span>`;
+}
+// What the markup asks for, done once it is in the page: its animations are the CSS ones of rooster.css, steered here
+// with the Web Animations API (each element's getAnimations()), so a rooster can start part-way, end sooner or stop.
+function steer(r) {
+  if (r.dataset.roOn) return; r.dataset.roOn = '1';
+  if (reduced()) return;   // rooster.css draws it still under Reduce Motion; nothing to time
+  const an = r.getAnimations ? r.getAnimations({ subtree: true }) : [];
+  const ds = r.dataset, m = META(ds.ro);
+  if (ds.roStill) { an.forEach(a => { try { if (a.effect?.getTiming().iterations === Infinity) a.pause(); else a.finish(); } catch { a.pause(); } }); return; }
+  if (+ds.roFit && m.ms) an.forEach(a => { a.playbackRate = m.ms / +ds.roFit; });
+  if (+ds.roAt) an.forEach(a => { a.currentTime = +ds.roAt; });
+  if (+ds.roDelay) { an.forEach(a => a.pause()); setTimeout(() => an.forEach(a => { if (a.playState === 'paused') a.play(); }), +ds.roDelay); }
+  if (+ds.roStop) setTimeout(() => r.classList.add('ro-paused'), +ds.roStop + (+ds.roDelay || 0));
+}
+// Fill any box drawn before the rooster arrived, and steer every new one (a screen's markup goes in as a string, so the
+// page is watched rather than each screen calling in).
+function fill(root) {
+  if (!RO) return;
+  root.querySelectorAll?.('.ro[data-ro]').forEach(r => { const st = r.firstElementChild; if (st && !st.firstElementChild) st.innerHTML = RO.STAGE[r.dataset.ro] || ''; steer(r); });
+}
+if (FXS.length) {
+  const watch = () => new MutationObserver(ms => { if (!RO) return; for (const x of ms) for (const n of x.addedNodes) if (n.nodeType === 1) { if (n.matches('.ro[data-ro]')) fill(n.parentNode || n); else if (n.querySelector('.ro[data-ro]')) fill(n); } })
+    .observe(document.body, { childList: true, subtree: true });
+  if (document.body) watch(); else document.addEventListener('DOMContentLoaded', watch);
+}
+// A small rooster just above a thing done (an address found, a stance, alerts on), floating like burst()'s petals: it takes
+// no taps and sits above the element, never over it or under it, so the button just pressed and Next stay clear (A-10).
+// Gone with its animation (+150 ms). Under Reduce Motion it is drawn still for a moment instead.
+export function roosterAt(el, id = 'small-win', { size = 44, side = 'above' } = {}) {
+  if (!el || !RO || !el.isConnected) return null;
+  const r = el.getBoundingClientRect(), f = document.createElement('div');
+  f.className = 'ro-float'; f.setAttribute('aria-hidden', 'true');
+  const x = side === 'right' ? r.right + 6 + size / 2 : r.left + r.width / 2, y = side === 'right' ? r.top + r.height / 2 + size / 2 : r.top - 2;
+  f.style.left = `${Math.round(Math.min(innerWidth - size / 2 - 4, Math.max(size / 2 + 4, x)))}px`; f.style.top = `${Math.round(Math.max(size + 4, y))}px`;
+  f.innerHTML = rooster(id, { size });
+  document.body.appendChild(f);
+  setTimeout(() => f.remove(), reduced() ? 900 : (META(id).ms || 600) + 150);
+  return f;
+}
+// burst() with the rooster beside it when that moment is switched on: the one call the small wins make (C-7).
+export function cheer(id, el, n, dist, o) {
+  burst(el, n, dist);
+  if (fxOn(id)) roosterAt(el, 'small-win', o);
+}
+// The hooks the kernel asks through (kernel.js fxHook): the yay toast's mark, and the art of an error or an empty list.
+if (FXS.length) {
+  if (fxOn('toast')) fxHook.yay = () => rooster('small-win', { size: 32, cls: 'ro-toast', delay: 180 });
+  fxHook.art = (id, o = {}) => {
+    if (id === 'error' && fxOn('error')) return rooster('error', { size: o.size || 96, cls: 'ro-art', key: o.key || '' });
+    if (id === 'empty' && fxOn('empty')) return rooster('empty-state', { size: o.size || 96, cls: 'ro-art', key: o.key || '', stop: 5000 });
+    if (id === 'sending' && fxOn('sending')) return rooster('submitting', { size: o.size || 26, cls: 'ro-busy', stop: 5000 });
+    return '';
+  };
 }

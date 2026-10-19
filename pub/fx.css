@@ -152,3 +152,20 @@ html[data-fxdir="back"]::view-transition-new(fx-main) { animation-name: fx-in-l;
 .st-mhband.st-mbhold { visibility: hidden; }
 .st-mhband.st-mbland .st-mbwords > * { animation: fx-rise .35s var(--ease) both; }
 .st-mhband.st-mbland .st-mbwords > :not(.st-mbtitle) { animation-delay: .06s; }
+
+/* ---- R-308: the rooster's box (fx.js rooster; the practice copy only, ?demo=1&fx=...). Its animations are in rooster.css,
+   loaded only when a moment is switched on. The box is `--ro` px square and takes no taps; the 480 px stage inside is
+   scaled so the bird (about 240 px of it) fills the box, and may reach a little past it (a hop, a spark). ---- */
+/* Doubled classes: the box is a span, and screens style their spans (.toastmsg span grows to fill the toast). */
+.ro.ro { position: relative; display: inline-block; flex: none; margin: 0; padding: 0; min-width: 0; max-width: none; width: calc(var(--ro, 48) * 1px); height: calc(var(--ro, 48) * 1px);
+  pointer-events: none; vertical-align: middle; line-height: 0; }
+.ro .ro-st { position: absolute; display: block; flex: none; left: 50%; top: 50%; width: 480px; height: 480px; margin: -240px 0 0 -240px;
+  transform: scale(calc(var(--ro, 48) / 240)); transform-origin: 50% 50%; }
+/* Floating just above a thing done (fx.js roosterAt), its feet on the top edge of that thing. */
+.ro-float { position: fixed; z-index: 95; pointer-events: none; line-height: 0; translate: -50% -100%; }
+/* In the yay toast, in place of the green check: a little bigger than the check, in the same place. */
+.toastmsg .ro-toast { margin: -6px -2px -6px -6px; }
+/* The art of an error or an empty list, where the drawing was. */
+.empty .ro-art, .st-nothing .ro-art { display: block; margin: 0 auto 4px; }
+/* Pecking in place of the spinner on a busy button. */
+.btn .ro-busy { margin: -6px 0; }
