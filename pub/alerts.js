@@ -287,21 +287,24 @@ export function alertFields(pfx, { emailHref = '', compact = false, swap: withSw
   if (S.alertCode?.pfx === pfx) return codeFields(pfx, { emailHref, withSwap });
   const phone = S.alertMode !== 'email', v = S.alertDraft[phone ? 'phone' : 'email'];
   const hint = `<p class="help al-hint" id="${pfx}-hint">${hintFor(phone)}</p>`;
-  const field = phone
-    ? `<div class="field al-field"><label for="${pfx}-phone">Mobile number</label>
-        <input id="${pfx}-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel-national" enterkeyhint="send" placeholder="(808) 555-0123" maxlength="20" value="${esc(v)}" aria-describedby="${pfx}-hint">
-        <span class="err" id="${pfx}-err" role="alert"></span>${hint}</div>`
-    : `<div class="field al-field"><label for="${pfx}-email">Your email</label>
-        <input id="${pfx}-email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="name@example.com" value="${esc(v)}" aria-describedby="${pfx}-hint">
-        <span class="err" id="${pfx}-err" role="alert"></span>${hint}</div>`;
-  const swap = phone
+  // The way to the other kind sits on the label's line, at the right (R-311, Nate 10/20): under the fine print it fell below
+  // a phone's first screen once the drawing filled the column.
+  const swap = !withSwap ? '' : phone
     ? (emailHref ? `<a class="al-swap" href="${emailHref}">Use email instead</a>` : `<button type="button" class="btn text sm al-swap" data-alswap="email">Use email instead</button>`)
     : `<button type="button" class="btn text sm al-swap" data-alswap="phone">Text me instead</button>`;
+  const label = (id, words) => swap ? `<div class="al-lblrow"><label for="${id}">${words}</label>${swap}</div>` : `<label for="${id}">${words}</label>`;
+  const field = phone
+    ? `<div class="field al-field">${label(`${pfx}-phone`, 'Mobile number')}
+        <input id="${pfx}-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel-national" enterkeyhint="send" placeholder="(808) 555-0123" maxlength="20" value="${esc(v)}" aria-describedby="${pfx}-hint">
+        <span class="err" id="${pfx}-err" role="alert"></span>${hint}</div>`
+    : `<div class="field al-field">${label(`${pfx}-email`, 'Your email')}
+        <input id="${pfx}-email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" placeholder="name@example.com" value="${esc(v)}" aria-describedby="${pfx}-hint">
+        <span class="err" id="${pfx}-err" role="alert"></span>${hint}</div>`;
   // What comes, at reading size; then the fine print and the links the carriers ask for at the sign-up (terms AND privacy,
   // R-180, D1-2), in running text (WCAG 2.5.8's inline exception, A-6). The two lines' words are exactly the stored version.
   const links = phone ? '<a href="text-terms.html">Terms</a> · <a href="#/privacy">Privacy</a>' : '<a href="#/privacy">Privacy</a>';
   return `${field}<p class="al-line${compact ? ' small' : ''}">${ALERT_PROMISE}</p>
-    <p class="al-fine">${phone ? TEXT_FINE : EMAIL_FINE} ${links}${DEMO ? '<br>In the sandbox nothing is sent or saved.' : ''}</p>${withSwap ? `<p class="al-swaprow">${swap}</p>` : ''}`;
+    <p class="al-fine">${phone ? TEXT_FINE : EMAIL_FINE} ${links}${DEMO ? '<br>In the sandbox nothing is sent or saved.' : ''}</p>`;
 }
 // The code step (R-155): where the number was, the code we just texted to it, with a new code, a different number and email
 // one tap away (a code that never comes has a way out, B-3). One field, filled in by the phone itself where it can (iPhone:

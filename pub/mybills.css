@@ -175,6 +175,14 @@ body.rec .rc-links .btn { margin-left: calc(-1 * var(--s12)); }
 body.rec .rc-wholes { display: flex; flex-direction: column; gap: var(--s4); margin: var(--s12) 0 var(--s4); }
 body.rec .rc-whole { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--s8); margin: 0; padding: var(--s4) 0 var(--s4) var(--s12); border-radius: var(--r12); background: var(--n0); font-size: var(--t14); color: var(--n700); }
 body.rec .rc-ebtns { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); }
+/* The lanai drawing on the redesign's empty page (R-311, Nate 10/20), sized like .mb-empty's: the column up to 420px, 280px
+   in a short laptop window so the button stays in view. */
+body.rec .rc-eart { width: 100%; max-width: 420px; margin-top: var(--s16); }
+body.rec .rc-eart svg.art-nb { display: block; width: 100%; height: auto; }
+body.rec .rc-eart + .rc-empty { padding-top: var(--s16); }
+@media (min-width: 900px) and (max-height: 760px) { body.rec .rc-eart { max-width: 280px; } }
+@media (max-width: 899px) and (max-height: 700px) { body.rec .rc-eart { max-width: 240px; } }   /* a short phone, the same (A-1) */
+body.rec .rc-eart + .rc-empty p { max-width: 420px; }   /* the line sits under the drawing as one block, no orphan on a laptop */
 body.rec .rc-mine .rc-none { margin-top: var(--s16); }
 /* "New list" beside Your lists, and with no lists one quiet line on how a list is made (R-303; today's page's, mylists.js
    myListsSection). A text button, so it never competes with the rows (A-5, C-1). */

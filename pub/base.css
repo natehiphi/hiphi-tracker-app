@@ -354,6 +354,11 @@ main:focus { outline: none; }
 .al-fine { margin: 0; font-size: var(--t13); line-height: 1.45; color: var(--n500); max-width: 65ch; }
 .al-hint { margin: var(--s4) 0 0; }
 .al-swaprow { margin: 0; }
+/* The label and, at the right, the way to the other kind (R-311). The link keeps its 44px target; it reaches 10px up into
+   the space above and only 6px down (the field's gap), so the row stays about a label's height and the target never covers
+   the box under it. */
+.al-lblrow { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); flex-wrap: wrap; }
+.al-lblrow .al-swap { margin-block: -10px -6px; }
 .al-swap.btn.text { padding-inline: 0; justify-content: flex-start; }
 a.al-swap { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--t14); font-weight: 600; }
 .al-break { overflow-wrap: anywhere; }

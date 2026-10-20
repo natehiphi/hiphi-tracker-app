@@ -13,6 +13,7 @@ import { myRows, keep } from '../calm/home.js';
 import { followToggle } from '../actions.js';
 import { nameOf, letGo } from '../mybills.js';
 import { ownLists, followedLists, localFollowed, myListsSection, wireMyLists, canMake } from '../mylists.js';
+import { EMPTY_ART } from '../art.js';
 
 // What a row lets go of in Edit: the issue, the bill followed on its own, or (between sessions, when Home's rows name it) a
 // whole topic.
@@ -63,7 +64,8 @@ function render() {
   const head = `<header class="rc-head rc-mhead"><h1 class="rc-h1">My issues</h1>${rows.length ? `<button type="button" class="btn text rc-edit" data-rc-edit aria-label="${edit ? 'Done editing' : 'Edit what you follow'}">${edit ? 'Done' : 'Edit'}</button>` : ''}</header>`;
   const links = `<div class="rc-links">${btn(off ? `What you did in ${si.recapYear}` : 'What you’ve done this session', { kind: 'text', iconEnd: 'chevron-right', href: '#/recap' })}
     ${btn('Follow more issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/find' })}</div>`;
-  if (!rows.length && !lists.length) return `<div class="rc rc-mine" data-mbroot>${head}${recEmpty('You’re not following any issues yet. Follow one and it shows up here, with where it stands and what you can do.',
+  // Nothing followed: the lanai drawing, the line, the buttons (A-13; R-311, Nate 10/20), as the old page's empty box.
+  if (!rows.length && !lists.length) return `<div class="rc rc-mine" data-mbroot>${head}<div class="art rc-eart">${EMPTY_ART}</div>${recEmpty('You’re not following any issues yet. Follow one and it shows up here, with where it stands and what you can do.',
     `<div class="rc-ebtns">${btn('Pick what you care about', { kind: 'primary', icon: 'list-checks', href: '#/start/1' })}${btn('Browse issues', { kind: 'text', href: '#/find' })}</div>`)}</div>`;
   // A topic followed whole brings new issues too; in Edit it says so once, with its own Stop (in session its issues are rows;
   // between sessions Home's rows already name the topic, and its row has the Stop).
