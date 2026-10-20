@@ -13,6 +13,11 @@ body[data-screen="next"] .field .help { color: var(--n700); }   /* the privacy l
     background: linear-gradient(to top, var(--n50) 72%, rgba(244, 247, 249, 0)); }
   body[data-screen="next"] .actionbar .inner { max-width: none; margin: 0; }
   body[data-screen="next"] .actionbar .btn { flex: 0 0 auto; }
+  /* R-311: the left column (eyebrow, drawing, heading) is taller than the choices since the drawings fill it, and grid
+     rows spread that height over every row it spans, which left the buttons 100-290px under their card. The bar sits in
+     row 2 right under the choices; the flexible third row takes the rest. */
+  body[data-screen="next"] main { grid-template-rows: auto auto 1fr; }
+  body[data-screen="next"] .actionbar { grid-row: 2; }
 }
 @media (min-width: 1100px) {
   body[data-screen="next"] main { column-gap: 64px; }
@@ -31,11 +36,5 @@ body[data-screen="next"] .field .help { color: var(--n700); }   /* the privacy l
 .nx-quote { margin: 0; padding: var(--s16); color: var(--n700); border-left: 4px solid var(--p300); }   /* not italic: the face has no italic ʻokina */
 .nx-iss { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); }
 @media (prefers-reduced-motion: reduce) { .nx-moments li { animation: none; } }
-/* R-311: on a phone the scene drawings line up with the eyebrow and heading, as on a laptop. Share's beach tells its story
-   (the phone shown to a friend) only at about 160px wide, so it is larger there; Alerts keeps start.css's size so its
-   number box stays within A-1's 400px limit (98px tall put it at about 420). Short phones (fit1, fit2) keep the smaller sizes. */
-@media (max-width: 37.5em) {
-  .nx .st-art:has(.art-nb) { justify-content: flex-start; }
-  .nx .st-art svg.art-nb { width: auto; }
-  .nx-share:not(.fit1):not(.fit2) .st-art svg.art-nb { width: auto; height: 98px; }
-}
+/* R-311: the scene drawings sit left with the heading on these screens; their full-width size is start.css's. */
+.nx .st-art:has(.art-nb) { justify-content: flex-start; }

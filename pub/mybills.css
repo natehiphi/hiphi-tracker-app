@@ -8,6 +8,10 @@
 .mb-emptybtns { width: 100%; max-width: 320px; margin-top: var(--s4); }
 .mb-empty h1, .mb-empty h2 { font-size: var(--t18); letter-spacing: -.01em; line-height: 1.25; }
 .mb-empty .art { max-width: 220px; }
+.mb-empty .art:has(.art-nb) { max-width: 420px; }   /* R-311: the lanai scene fills the column, like the welcome (Nate 20 Oct) */
+.mb-empty .art svg.art-nb { width: 100%; max-width: none; height: auto; }   /* the svg is .art too */
+.mb-empty .art:has(.art-nb) { margin-bottom: var(--s24); }
+@media (min-width: 900px) and (max-height: 760px) { .mb-empty .art:has(.art-nb) { max-width: 280px; } }   /* a short laptop window keeps the button in view */
 .mb-empty p { max-width: 48ch; }
 .mb .btn.text:hover { background: var(--p50); text-decoration: none; }
 
