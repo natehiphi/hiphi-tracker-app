@@ -42,7 +42,7 @@ with sync_playwright() as p:
             ctx = br.new_context(viewport={'width': 390, 'height': 844} if mobile else {'width': 1280, 'height': 800}, is_mobile=mobile, has_touch=mobile)
             ctx.add_init_script(f"({KAI})()")
             pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
-            pg.goto(f'{BASE}/track.html?demo=1&ab={ab}#/'); ready(pg)
+            pg.goto(f'{BASE}/track.html?demo=1{"" if arm == "a" else "&rec=0"}&ab={ab}#/'); ready(pg)
             full = pg.eval_on_selector_all(FULL[arm], 'bs => bs.map(b => b.dataset.helper)')
             ok(len(full) >= (1 if arm == 'a' else 2), f'{size} {arm}: Home draws its full cards ({len(full)})')
             # 1. a letter saved for a full card's hearing: the first card, and on today's Home the second too

@@ -76,13 +76,22 @@ body.rec .ya-lv .lvl-hint { margin: 0; }
 body.rec .ya-lv .lvl-hint:empty { display: none; }
 body.rec .ya-none { margin: 0; font-size: var(--t16); color: var(--n700); }
 body.rec .ya-none a { font-weight: 700; }
-body.rec .ya-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s8); margin-top: var(--s32); padding-top: var(--s8); border-top: 1px solid var(--n200); color: var(--n700); }
+body.rec .ya-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 0; margin-top: var(--s32); padding-top: var(--s8); border-top: 1px solid var(--n200); color: var(--n700); }
 body.rec .ya-foot p { margin: 0; }
-body.rec .ya-foot .btn { margin-left: calc(-1 * var(--s12)); color: var(--n700); }
+body.rec .ya-foot .btn { margin-left: calc(-1 * var(--s16)); color: var(--n700); }   /* its words line up under the STOP line */
+/* The page's end (R-303): "Stop texts to this phone" for this device's number, under the STOP line on every width (it floated
+   mid-row on a laptop), then "Not your phone? Stop texts to another number", closed, for any other number on any device
+   (D1-3, more.js stopNumberBox). One rule above both; the fold is as quiet as the Stop beside it. */
+body.rec .ya-end { margin-top: var(--s32); padding-top: var(--s8); border-top: 1px solid var(--n200); color: var(--n700); }
+body.rec .ya-end > .ya-foot { margin-top: 0; padding-top: 0; border-top: 0; }
+body.rec .ya-end > .mr-stopnum { margin-top: var(--s4); padding-top: 0; border-top: 0; }
+body.rec .ya-end > .mr-stopnum > summary { display: inline-flex; font-weight: 600; font-size: var(--t14); }
+body.rec .ya-end > .mr-stopnum > summary > span { flex: none; }
+body.rec .ya-end > .mr-stopnum > summary .ic { width: 18px; height: 18px; }
+body.rec .ya-end .mr-sn-form { max-width: 28rem; }
 @media (min-width: 600px) {
   body.rec .ya-lv { display: grid; grid-template-columns: minmax(0, 1fr) 25rem; align-items: center; column-gap: var(--s16); row-gap: var(--s4); }
   body.rec .ya-lv .lvl-hint { grid-column: 1 / -1; }
-  body.rec .ya-foot .btn { margin-left: 0; }
 }
 
 /* ---- Help ---- */

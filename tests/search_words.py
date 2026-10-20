@@ -21,10 +21,13 @@ def check(ok, what):
 
 def search(pg, q):
     pg.goto(f'{PAGE}#/find?q={q}')
-    pg.wait_for_function("() => { const s = document.getElementById('fd-status'); return s && /found|No bills/.test(s.textContent) }", timeout=20000)
+    # R-303: the calm redesign's Find (everyone's since 19 Oct) says "Results for “tax”" with no count (no counts on
+    # screen, R-300), so the number is the search's own (S.fd.res, find.js's state, the same under either page); the notes
+    # are find.js's .fd-note in both.
+    pg.wait_for_function("() => { const s = document.getElementById('fd-status'); return s && /found|No bills|Results for/.test(s.textContent) }", timeout=20000)
     notes = pg.locator('.fd-note').all_text_contents()
-    n = re.match(r'(\d+)', pg.locator('#fd-status').text_content() or '')
-    return int(n.group(1)) if n else 0, ' '.join(notes)
+    n = pg.evaluate("async () => ((await import('./pub/core.js')).S.fd.res || []).length")
+    return n, ' '.join(notes)
 
 with sync_playwright() as p:
     br = p.chromium.launch(); pg = br.new_page(viewport={'width': 390, 'height': 844})

@@ -49,8 +49,10 @@ with sync_playwright() as p:
     paths = pg.evaluate("async n => { const c = await import('./pub/core.js'); return c.D.bills.filter(b => b.bill_number === n).map(b => [b.session_year, c.billPath(b)]).sort(); }", num)
     ok(paths == [[2025, f'#/bill/2025/{num}'], [2026, f'#/bill/2026/{num}']], f'billPath: each bill carries its own year (R-212 #18): {paths}')
     pg.goto(BASE + f'#/legislators?from=2025/{num}'); ready(pg)
-    back = pg.locator('a.pp-back').first
-    ok(back.count() == 1 and back.get_attribute('href') == f'#/bill/2025/{num}' and f'Back to {sp}' in back.inner_text(),
+    # The calm redesign's back row (a.rc-back, pub/rec/act.js backRow), everyone's since 19 Oct (R-303), names the bill by its
+    # number alone ("HB 1234"); the old page's a.pp-back said "Back to HB 1234".
+    back = pg.locator('a.rc-back').first
+    ok(back.count() == 1 and back.get_attribute('href') == f'#/bill/2025/{num}' and sp in back.inner_text(),
        'the legislators page goes back to the 2025 bill, named by its number: ' + (back.get_attribute('href') or '') + ' ' + (back.inner_text() if back.count() else ''))
     # 3. a year with no such bill says so
     only = state['only']

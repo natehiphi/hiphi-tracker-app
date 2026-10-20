@@ -1,4 +1,4 @@
-# The calm redesign of the pages after the first visit (R-303), behind ?rec=1 until Nate's look.
+# The calm redesign of the pages after the first visit (R-303), everyone's since 19 Oct (Nate).
 #   python3 tests/r303_rec.py [base]
 # base: a served copy (http://localhost:8832); without one the test serves this checkout from disk as http://wt.local.
 # Checks, on the practice copy as Kai (who follows three issues), at phone (390x844) and laptop (1440x900):
@@ -12,7 +12,7 @@
 #   Follow as the filled button. A followed issue's "Following" opens the menu, Stop following has Undo.
 #   The category page (tobacco): Back to Find, no counts, a Follow per issue row, "Follow all of it, and new ones" outlined
 #   at the end, no filled button. An old coalition address opens its category.
-#   Without ?rec the old issue and category pages (.fd-ihead) still draw, with today's tabs.
+#   With ?rec=0 (the way back) the old issue and category pages (.fd-ihead) still draw, with the old tabs.
 #   Across the pages (the wrap-up review, 10/18): the back row at one height on every page below a tab (phone, 1024, laptop);
 #   one left edge for the h1 on a laptop; Find, My issues and Every bill's h1 at 28px; "More ways to help" as words in a
 #   hearing card and behind a toggle in a committee's card; search's Follow is the topic page's pill; Tobacco's quiet issues
@@ -54,7 +54,7 @@ async def ctx_for(br, w, h):
 async def open_page(ctx, hash_, rec=True, wait='#main'):
     pg = await ctx.new_page(); errs = []
     pg.on('pageerror', lambda e: errs.append(str(e)))
-    await pg.goto(f"{BASE}/track.html?demo=1{'&rec=1' if rec else ''}{hash_}")
+    await pg.goto(f"{BASE}/track.html?demo=1{'&rec=1' if rec else '&rec=0'}{hash_}")
     await pg.wait_for_selector(wait, timeout=60000)
     await pg.wait_for_timeout(700)
     return pg, errs
@@ -215,15 +215,15 @@ async def main():
             check(not errs, f'{tag} cross-page: no page errors {errs[:2]}')
             await ctx.close()
 
-        # Without ?rec: today's pages.
+        # With ?rec=0 (the way back, R-303): the old pages.
         ctx = await ctx_for(br, 390, 844)
         pg, errs = await open_page(ctx, '#/issue/let-counties-regulate-tobacco', rec=False, wait='#main .fd')
         await pg.wait_for_selector('.fd-ihead', timeout=30000)
-        check(await pg.evaluate("!!document.querySelector('.fd-ihead h1') && !document.querySelector('.rc-iss')"), 'without ?rec the old issue page (.fd-ihead) still draws')
-        check(await pg.evaluate(TABS) == ['Home', 'My issues', 'Find', 'More'], 'without ?rec the tabs are today\'s')
-        await pg.goto(f'{BASE}/track.html?demo=1#/find/category/tobacco'); await pg.wait_for_selector('.fd .fd-ihead', timeout=60000)
-        check(await pg.evaluate("!document.querySelector('.rc-cat') && !!document.querySelector('[data-fdcat]')"), 'without ?rec the old category page still draws')
-        check(not errs, f'without rec: no page errors {errs[:2]}')
+        check(await pg.evaluate("!!document.querySelector('.fd-ihead h1') && !document.querySelector('.rc-iss')"), 'with ?rec=0 the old issue page (.fd-ihead) still draws')
+        check(await pg.evaluate(TABS) == ['Home', 'My issues', 'Find', 'More'], 'with ?rec=0 the tabs are the old ones')
+        await pg.goto(f'{BASE}/track.html?demo=1&rec=0#/find/category/tobacco'); await pg.wait_for_selector('.fd .fd-ihead', timeout=60000)
+        check(await pg.evaluate("!document.querySelector('.rc-cat') && !!document.querySelector('[data-fdcat]')"), 'with ?rec=0 the old category page still draws')
+        check(not errs, f'with ?rec=0: no page errors {errs[:2]}')
         await ctx.close()
         await br.close()
     print(f'\n{ok} passed, {fail} failed'); sys.exit(1 if fail else 0)

@@ -48,5 +48,12 @@ ok(T.tidyOwn("I'm a youth soccer coach") === 'youth soccer coach' && T.tidyOwn('
 ok(T.tidyOwn('retired public school teacher and coach for thirty years') === 'retired public school teacher and coach', 'a long title is cut at a whole word, and a dangling "and" goes');
 ok(T.tidyOwn('R.N.') === 'R.N.' && T.asWords([T.ownKey('R.N.')]) === 'As an R.N.', 'an initial keeps its full stop and takes "an"');
 ok(T.ownOver('x'.repeat(45)) === 5 && T.ownOver('nurse') === 0, 'ownOver says how far past 40 the box is');
+// R-212 #23 (the Clinician Voice): the clinician titles, found by their license letters; "writing for myself" on any title.
+ok(['np', 'pa', 'pharmacist', 'dietitian'].every(k => T.titleOf(k)?.group === 'health'), 'nurse practitioner, physician assistant, pharmacist and dietitian are in Health');
+ok(T.findTitles('APRN')[0]?.k === 'np' && T.findTitles('np')[0]?.k === 'np' && T.findTitles('PA-C')[0]?.k === 'pa' && T.findTitles('pharm')[0]?.k === 'pharmacist', 'license letters find their title');
+ok(T.listKeyFor('RN') === 'nurse' && T.listKeyFor('physician') === 'doctor' && T.listKeyFor('MD') === 'doctor' && T.listKeyFor('APRN') === 'np', 'typing RN, physician, MD or APRN is that title');
+ok(T.asWords(['np']) === 'As a nurse practitioner' && T.asWords(['pa']) === 'As a physician assistant', 'the letter says the words, not the letters');
+ok(T.needsSelf(['nurse'], null) === false && T.needsSelf(['nurse'], true) === true && T.needsSelf(['faith'], false) === false && T.needsSelf(['faith'], null) === true && T.needsSelf([], true) === false, '"writing for myself": the person\'s choice for any title, the group titles by default');
+ok(T.asWords(['nurse'], true) === 'As a nurse, writing for myself' && T.asWords(['faith'], false) === 'As a faith leader', 'asWords follows the choice');
 
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

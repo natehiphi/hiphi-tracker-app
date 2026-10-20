@@ -1,7 +1,7 @@
 // "Your alerts" (R-303, behind ?rec=1): #/alerts for someone who has a profile (a text number on this device, or an account).
 // It holds every alerts setting in one place, each saving the moment it changes, as the issue page's switch does (B-7, A-15):
-// where texts and email go, "How much each issue sends" (R-299's switch, once per followed issue), and a quiet "Stop all
-// texts" at the foot, said once. Profile's alerts sections and its Save bar for them moved here (mine-profile-alerts.md
+// where texts and email go, "How much each issue sends" (R-299's switch, once per followed issue), and a quiet "Stop texts
+// to this phone" at the foot, said once. Profile's alerts sections and its Save bar for them moved here (mine-profile-alerts.md
 // sections 3-4: alerts started 2,996px down Profile and waited for Save there, while the issue page saved at once).
 // The promise is the live consent's (t5/e3, alerts.js TEXT_FINE/EMAIL_FINE), as today's page without ?rec says it too since
 // Nate's Change of 18 Oct (it said "At most one text a day").
@@ -9,7 +9,7 @@
 // back row and the same live promise.
 // A link sent and not yet opened says what comes, in the Text terms page's words, as today's page does (alerts.js GETS_*, Nate's
 // "match reality" of 18 Oct).
-import { S, DEMO, esc, icon, friendly, textSaved, followedIssues, followsAnything, levelOf } from '../core.js';
+import { S, DEMO, app, esc, icon, friendly, textSaved, followedIssues, followsAnything, levelOf } from '../core.js';
 import { btn, inlineErr } from '../ui.js';
 import { CHOICES, check, submitBtn, stopNumberBox, nextStep, A } from '../more.js';
 import { alertFields, alertButton, codeStep, confirmWords, almostLine, alertStatus, LEVEL_WORDS, levelSwitch, wireLevels,
@@ -58,6 +58,19 @@ function levels() {
     { note: `${LEVEL_WORDS.every}: never more than one a day. ${LEVEL_WORDS.big}: usually a few a month. ${LEVEL_WORDS.app}: no texts or emails.` })
     .replace('<p class="rc-note">', '<p class="rc-note" id="ya-lv-h">');
 }
+// Stop texts to any number, from any browser (D1-3): the fold today's page has under a saved number, back at the foot of Your
+// alerts (R-303: it was drawn only without a profile, so a person with one could not stop another number). Closed and quiet; its
+// button is outlined, as Your alerts has no filled button (the page's one action is each switch), and it is left out of the
+// moment right after saving (R-229: no extra boxes then).
+// Its words here (fresh-eyes review, 19 Oct): with a number saved, the summary says it is for another phone, so it cannot be
+// mistaken for "Stop texts to this phone" above it, and the one explanation (said once, here) reads "on every device". Each
+// swap is a plain string replace on more.js's markup; one that no longer matches leaves today's words, never a broken box.
+const stopNum = (t = textSaved()) => {
+  let h = stopNumberBox().replace('class="btn primary" id="mr-sn-go"', 'class="btn secondary" id="mr-sn-go"')
+    .replace('Texts to this number end for good, from every browser.', 'Texts to the number you type here end for good, on every device.');
+  if (t) h = h.replace('<span>Stop texts to a number</span>', '<span>Not your phone? Stop texts to another number</span>');
+  return h;
+};
 export function yoursView() {
   const t = textSaved(), st = alertStatus({ fmt: masked });
   // Right after a number is saved (R-229): one way on first, then the settings it can change.
@@ -70,7 +83,9 @@ export function yoursView() {
     ${just}
     <section class="rc-card ya-ways" aria-label="Where alerts go">${texts()}${email()}</section>
     ${levels()}
-    ${t ? `<div class="ya-foot"><p class="small">Reply STOP to any text to end them.${DEMO ? ' This is the sandbox, so nothing is sent.' : ''}</p>${btn('Stop all texts', { kind: 'text', sm: true, attrs: { 'data-mr-alstop': '' } })}</div>` : ''}
+    ${t || !A.justOn ? `<div class="ya-end">
+      ${t ? `<div class="ya-foot"><p class="small">Reply STOP to any text to end them.${DEMO ? ' This is the sandbox, so nothing is sent.' : ''}</p>${btn('Stop texts to this phone', { kind: 'text', sm: true, attrs: { 'data-mr-alstop': '' } })}</div>` : ''}
+      ${A.justOn ? '' : stopNum()}</div>` : ''}
   </div>`;
 }
 // The sign-up box, with a back row and the live promise (t5/e3): no profile yet, a number being added or changed, the code.
@@ -112,6 +127,17 @@ async function savePrefs(patch, consent) {
 export function wireRecAlerts() {
   const root = $('#main .ya'); if (!root) return;
   wireLevels(root);
+  // "Stop texts to a number" is wired by more.js wireAlerts (the live RPC, text_stop_number). When the number stopped was this
+  // device's own, the device forgets it, so Your alerts is redrawn (or, with no other way left, the sign-up box) with the
+  // fold still open and its answer kept, as today's page does with its own box.
+  const sn = $('#mr-snform'), go = sn?.onsubmit;
+  if (sn && go) sn.onsubmit = async e => {
+    const had = textSaved(); await go(e);
+    if (!had || textSaved()) return;
+    const said = $('#mr-sn-msg')?.innerHTML || ''; app.render();
+    const f = $('.mr-stopnum'), m = $('#mr-sn-msg'); if (f) f.open = true; if (m) m.innerHTML = said;
+    $('#mr-sn-msg')?.closest('.mr-stopnum')?.querySelector('summary')?.focus();
+  };
   const said = (text, bad = false) => { const el = $('#ya-emst'); if (el) el.innerHTML = bad ? inlineErr('ya-em-err', text) : text ? `${icon('circle-check')}<span>${esc(text)}</span>` : ''; };
   root.querySelectorAll('[data-ya-em]').forEach(c => c.onchange = async () => {
     const key = c.dataset.yaEm, on = c.checked; c.disabled = true; said('');

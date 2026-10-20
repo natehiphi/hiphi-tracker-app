@@ -172,3 +172,12 @@ body.rec .rc-wholes { display: flex; flex-direction: column; gap: var(--s4); mar
 body.rec .rc-whole { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--s8); margin: 0; padding: var(--s4) 0 var(--s4) var(--s12); border-radius: var(--r12); background: var(--n0); font-size: var(--t14); color: var(--n700); }
 body.rec .rc-ebtns { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); }
 body.rec .rc-mine .rc-none { margin-top: var(--s16); }
+/* "New list" beside Your lists, and with no lists one quiet line on how a list is made (R-303; today's page's, mylists.js
+   myListsSection). A text button, so it never competes with the rows (A-5, C-1). */
+body.rec .rc-mine .rc-shead { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); margin-bottom: var(--s8); }
+body.rec .rc-mine .rc-shead .rc-h2 { margin: 0; }
+body.rec .rc-mine .rc-shead .rc-ulnew { flex: none; margin-right: calc(-1 * var(--s12)); }
+body.rec .rc-ulhint { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s4); margin-top: var(--s24); }
+body.rec .rc-ulhint p { display: flex; gap: var(--s8); margin: 0; font-size: var(--t14); line-height: 1.45; color: var(--n700); }
+body.rec .rc-ulhint p .ic { flex: none; width: 18px; height: 18px; margin-top: 1px; }
+body.rec .rc-ulhint .rc-ulnew { margin-left: calc(-1 * var(--s12)); }

@@ -23,15 +23,21 @@ export const TITLES = [
   { k: 'student-hs', label: 'high school student', say: 'high school student', first: true, group: 'school', topics: ['food', 'tobacco', 'around', 'climate'], words: /\b(school|student|youth|teens?|e-cig|electronic smoking|nicotine|flavor|bus|heat)/i },
   { k: 'student-college', label: 'college student', say: 'college student', first: true, group: 'school', topics: ['food', 'family', 'care', 'around', 'climate'], words: /\b(student|college|universit|tuition|snap|rent|bus|transit|tax credit for training)/i },
   { k: 'teacher', label: 'teacher (kumu)', say: 'teacher', first: true, group: 'school', topics: ['food', 'tobacco', 'around', 'climate'], words: /\b(school|student|classroom|keiki|kids?|child(ren)?|youth|teach|heat)/i },
-  { k: 'nurse', label: 'nurse', say: 'nurse', first: true, group: 'health', topics: ['care', 'tobacco', 'food', 'climate', 'around'], words: /(health|nurs|vaccin|medical|hospital|clinic|e-cig|electronic smoking|tobacco|nicotine|sugary|alcohol|abortion|preventive)/i },
-  { k: 'doctor', label: 'doctor', say: 'doctor', first: true, group: 'health', topics: ['care', 'tobacco', 'food', 'climate', 'around'], words: /(health|physician|doctor|vaccin|medical|hospital|clinic|e-cig|electronic smoking|tobacco|nicotine|sugary|alcohol|abortion|preventive)/i },
+  { k: 'nurse', label: 'nurse', say: 'nurse', also: ['rn', 'registered nurse', 'lpn', 'licensed practical nurse'], first: true, group: 'health', topics: ['care', 'tobacco', 'food', 'climate', 'around'], words: /(health|nurs|vaccin|medical|hospital|clinic|e-cig|electronic smoking|tobacco|nicotine|sugary|alcohol|abortion|preventive)/i },
+  { k: 'doctor', label: 'doctor', say: 'doctor', also: ['physician', 'md', 'm.d.', 'pediatrician', 'family doctor'], first: true, group: 'health', topics: ['care', 'tobacco', 'food', 'climate', 'around'], words: /(health|physician|doctor|vaccin|medical|hospital|clinic|e-cig|electronic smoking|tobacco|nicotine|sugary|alcohol|abortion|preventive)/i },
   { k: 'business', label: 'small business owner', say: 'small business owner', first: true, group: 'work', topics: ['family', 'tobacco', 'food'], words: /\b(business|wage|tax|retail|sales|store|leave|employ|license)/i },
   { k: 'volunteer', label: 'community volunteer', say: 'community volunteer', first: true, group: 'community', topics: [], words: /\b(volunteer|nonprofit|community)/i },
   { k: 'grandparent', label: 'grandparent', say: 'grandparent', group: 'family', topics: ['food', 'tobacco', 'around', 'family', 'care'], words: /\b(school|keiki|kids?|child(ren)?|youth|teens?|grand|famil(y|ies))/i },
   { k: 'caregiver', label: 'family caregiver (for an older or disabled relative)', say: 'family caregiver', group: 'family', topics: ['family', 'care'], words: /(caregiver|kupuna|kūpuna|disab|long-term|leave|elder|older|medical)/i },
   { k: 'renter', label: 'renter', say: 'renter', group: 'family', topics: ['family'], words: /\b(rent|renter|housing|homes?|landlord|evict)/i },
-  { k: 'dental', label: 'dentist or dental worker', say: 'dental professional', group: 'health', topics: ['care', 'food'], words: /(dental|dentist|hygien|oral|teeth|tooth|filling|sugary|fluorid)/i },
-  { k: 'health-worker', label: 'health care worker (pharmacy, community health, other)', say: 'health care worker', group: 'health', topics: ['care', 'tobacco', 'food'], words: /(health|medical|pharm|vaccin|hospital|clinic|community health|medicaid)/i },
+  { k: 'dental', label: 'dentist or dental worker', say: 'dental professional', also: ['dentist', 'dental hygienist'], group: 'health', topics: ['care', 'food'], words: /(dental|dentist|hygien|oral|teeth|tooth|filling|sugary|fluorid)/i },
+  // R-212 #23 (the Clinician Voice): the titles a clinician looked for and could not find. A license's letters find its
+  // title ("NP", "APRN", "PA"); the letter says the words, which every reader knows.
+  { k: 'np', label: 'nurse practitioner (NP, APRN)', say: 'nurse practitioner', also: ['np', 'aprn', 'advanced practice registered nurse'], group: 'health', topics: ['care', 'tobacco', 'food', 'family'], words: /(health|nurs|vaccin|medical|clinic|primary care|e-cig|electronic smoking|tobacco|nicotine|sugary|preventi|medicaid)/i },
+  { k: 'pa', label: 'physician assistant (PA)', say: 'physician assistant', also: ['pa', 'pa-c'], group: 'health', topics: ['care', 'tobacco', 'food'], words: /(health|medical|clinic|hospital|vaccin|e-cig|electronic smoking|tobacco|nicotine|medicaid)/i },
+  { k: 'pharmacist', label: 'pharmacist', say: 'pharmacist', also: ['pharmd', 'pharm.d.'], group: 'health', topics: ['care', 'tobacco'], words: /(pharm|drug|prescri|medication|vaccin|nicotine|tobacco|e-cig|electronic smoking|cessation|naloxone)/i },
+  { k: 'dietitian', label: 'dietitian or nutritionist', say: 'dietitian', also: ['rd', 'rdn', 'nutritionist', 'registered dietitian'], group: 'health', topics: ['food', 'care'], words: /(nutritio|diet|food|meal|lunch|sugary|beverage|snap|wic|diabetes|obesity|produce)/i },
+  { k: 'health-worker', label: 'health care worker (community health, medical assistant, other)', say: 'health care worker', group: 'health', topics: ['care', 'tobacco', 'food'], words: /(health|medical|pharm|vaccin|hospital|clinic|community health|medicaid)/i },
   { k: 'public-health', label: 'public health worker', say: 'public health worker', group: 'health', self: true, topics: ['food', 'tobacco', 'care', 'family', 'around', 'climate'], words: /(public health|prevent|tobacco|e-cig|electronic smoking|sugary|nutrition|snap|injur|pedestrian|vaccin|pesticid)/i },
   { k: 'social-worker', label: 'social worker or counselor', say: 'social worker or counselor', group: 'health', topics: ['family', 'care', 'tobacco'], words: /(mental|neglect|poverty|famil|child|substance|youth|counsel|homeless|prison)/i },
   { k: 'first-responder', label: 'first responder (fire, police, EMS)', say: 'first responder', group: 'health', topics: ['around', 'tobacco', 'climate'], words: /(traffic|crash|driv|dui|pedestrian|crosswalk|speed|camera|wildfire|fire|emergenc|alcohol)/i },
@@ -74,7 +80,7 @@ export const titleSay = t => isOwn(t) ? ownWords(t) : (BY.get(t)?.say || '');
 // Own words that are a list title ("teacher", "Kupuna", "teacher (kumu)") are that title, so staff's "They are" filter and
 // the bill fit find them (the review, 10/5). The bare "student" stays their words: it could be either kind.
 const SAID = new Map();
-for (const t of TITLES) if (!t.pick) for (const w of [t.say, t.label, t.label.replace(/\s*\(.*\)\s*$/, '')]) SAID.set(w.toLowerCase(), t.k);
+for (const t of TITLES) if (!t.pick) for (const w of [t.say, t.label, t.label.replace(/\s*\(.*\)\s*$/, ''), ...(t.also || [])]) SAID.set(w.toLowerCase(), t.k);
 export const listKeyFor = words => SAID.get(String(words || '').replace(/\s+/g, ' ').trim().toLowerCase()) || '';
 // Keys only from the list (an old key that left the list is dropped, never shown as a blank chip).
 export const cleanTitles = arr => { const seen = new Set(), out = [];
@@ -102,14 +108,19 @@ export function pickTitle(titles, about = {}) {
   const list = cleanTitles(titles); if (!list.length) return [];
   return [list.map((t, i) => ({ t, i, s: fitScore(t, about) })).sort((a, b) => b.s - a.s || a.i - b.i)[0].t];
 }
-// Does a letter with these titles add "writing for myself"?
-export const needsSelf = two => two.some(t => BY.get(t)?.self);
+// Does a letter with these titles add "writing for myself"? The four group titles do unless the person turned it off, and any
+// title does when they turned it on (R-212 #23: a nurse at a hospital may not want to sound like the hospital). The choice is
+// the person's, on this device, for every letter: 'hiphi_self' is '1' (on) or '0' (off); unset follows the titles.
+export const SELF_KEY = 'hiphi_self';
+export const selfPref = () => { try { const v = globalThis.localStorage?.getItem(SELF_KEY); return v === '1' ? true : v === '0' ? false : null; } catch { return null; } };
+export const setSelfPref = on => { try { globalThis.localStorage?.setItem(SELF_KEY, on ? '1' : '0'); } catch { /* this visit only */ } };
+export const needsSelf = (two, pref = selfPref()) => two.length > 0 && (pref ?? two.some(t => BY.get(t)?.self));
 // "parent", "parent and teacher", "parent, teacher and coach" (any number since R-165).
 const listOf = xs => xs.length <= 2 ? xs.join(' and ') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
 // "As a parent and teacher" / "As a faith leader, writing for myself" / '' when there are none.
-export function asWords(two) {
+export function asWords(two, self = needsSelf(two)) {
   const says = two.map(titleSay).filter(Boolean); if (!says.length) return '';
-  return `As ${article(says[0])} ${listOf(says)}${needsSelf(two) ? ', writing for myself' : ''}`;
+  return `As ${article(says[0])} ${listOf(says)}${self ? ', writing for myself' : ''}`;
 }
 // "a parent and teacher" for a sentence that already has its subject ("My name is Leilani, a parent and teacher, and ...").
 export function aWords(two) { const says = two.map(titleSay).filter(Boolean); return says.length ? `${article(says[0])} ${listOf(says)}` : ''; }
@@ -121,7 +132,7 @@ export const withTitles = (two, sentence) => { const a = asWords(two); if (!a) r
 export function findTitles(q, have = []) {
   const s = String(q || '').trim().toLowerCase(); if (!s) return [];
   const words = t => t.label.toLowerCase().split(/[^a-zʻāēīōū]+/i);
-  return TITLES.filter(t => !t.pick && !have.includes(t.k) && (t.label.toLowerCase().startsWith(s) || words(t).some(w => w.startsWith(s))))
+  return TITLES.filter(t => !t.pick && !have.includes(t.k) && (t.label.toLowerCase().startsWith(s) || words(t).some(w => w.startsWith(s)) || (t.also || []).some(a => a.startsWith(s))))
     .sort((a, b) => (b.first ? 1 : 0) - (a.first ? 1 : 0)).slice(0, 6);
 }
 export const FIRST = TITLES.filter(t => t.first);

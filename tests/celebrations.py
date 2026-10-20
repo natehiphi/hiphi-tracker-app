@@ -42,6 +42,8 @@ REM = """async () => { const c = await import('./pub/core.js'); const b = c.D.bi
 # button is drawn with the very markup alerts.js uses (the checks above it use the real send).
 STAGE_BUSY = """async () => { const k = await import('./pub/kernel.js'); const b = document.querySelector('#nx-send');
   b.setAttribute('aria-busy', 'true'); b.innerHTML = `${k.fxArt('sending') || k.icon('loader-circle')}<span>Sending…</span>`; }"""
+# A planted link (fx.js plant=) loads twice; it is in once the second load has taken its mark and Home is drawn.
+PLANTED = "() => { try { return !sessionStorage.getItem('hiphi_fxplant') && performance.getEntriesByType('navigation')[0]?.type === 'reload' && !!document.querySelector('#main [data-gn-key]'); } catch { return false; } }"
 def ready(p, t=60000):
     p.wait_for_function("() => !!document.querySelector('main') && !document.querySelector('.skelpage') && !document.querySelector('.boot-note')", timeout=t)
 def url(extra, fx, hash_=''):
@@ -102,52 +104,31 @@ M = {
   'follow':   dict(kind='full', title='The first follow (the cover)', reach=lambda p, fx: fv_alerts(p, fx), trigger=lambda p: p.click('[data-stskip]'),
                    sel='#st-cover .ro', cur_sel='#st-cover .fx-bloom', words='We’ll watch these with', peak=1050, frames=2600, end='#st-cover', rsel='.st-mhband .ro',
                    stills=[350, 700, 1100, 2300], what='The rooster bobs once in the flower’s place on the full-window cover, then flies into the band at the top of A bill’s story.'),
-  'voice':    dict(kind='small', title='End of A bill’s story (R-307)', reach=fv_story_last, trigger=lambda p: p.click('[data-stnext]'),
-                   sel='.ro-float .ro', words='You’re ready to speak up.', new_words=True, peak=330, frames=1400, next='.actionbar [data-stnext]',
-                   stills=[100, 250, 450, 650], what='The rooster on the next screen’s Next as the story ends, and “You’re ready to speak up.” as a toast over it.'),
+  'voice':    dict(kind='full', title='End of A bill’s story (R-307)', reach=fv_story_last, trigger=lambda p: p.click('[data-stnext]'),
+                   sel='#fx-cover .ro', words='You’re ready to speak up.', new_words=True, rwords=True, peak=1000, frames=2600, end='#fx-cover', rnone=True,
+                   stills=[300, 700, 1100, 1500], what='The story’s last Next: the issues’ cover over the story, the rooster’s hop and “You’re ready to speak up.”; as it fades, the visit moves on.'),
   'sent':     dict(kind='full', title='The first action sent (the thank-you)', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), walk_testimony(p, fx)), trigger=send_testimony,
                    sel='#hp-dlg .hp-badge .ro', cur_sel='#hp-dlg .hp-badge svg', words='Mahalo', peak=900, frames=2000, wait_sel='#hp-done-t',
                    stills=[200, 500, 900, 1500], what='The rooster hops and flaps at the head of the testimony or email thank-you (1.5 s); the first action’s moment from a bill gets it in place of the flower.'),
-  'law':      dict(kind='full', title='A bill becomes law', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), home_seed(p, fx)), trigger=lambda p: p.evaluate(LAW),
-                   sel='#fx-moment .ro', cur_sel='#fx-moment .fx-bloom', words='became law', peak=600, frames=1900, end='#fx-moment .fx-mcard', pre=400,
-                   stills=[150, 450, 800, 1300], what='The full-screen moment shows the rooster from the lei’s bloom (the last 1.6 s of it) in place of the flower, then folds to the toast as today.'),
+  'law':      dict(kind='full', title='A bill becomes law', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), p.goto(url('&seed=1&ab=layout.today', '')), ready(p)),
+                   trigger=lambda p: (p.goto(url('&seed=1&ab=layout.today&plant=law', p.__fx or 'none', '#/')), p.wait_for_selector('#fx-moment .fx-mcard', timeout=30000, state='attached')),
+                   sel='#fx-moment .ro', cur_sel='#fx-moment .fx-bloom', words='became law', peak=500, frames=2400, end='#fx-moment .fx-mcard', plants=True,
+                   stills=[100, 300, 700, 1100], what='The link plants a bill you spoke up for becoming law; Home’s full-screen moment shows the rooster from the lei’s bloom in place of the flower.'),
   'finale':   dict(kind='full', title='The end of the first visit', reach=fv_soon, trigger=lambda p: p.click('[data-stnext]'),
                    sel='.st-finro .ro', words='You’re all set', peak=2000, frames=3000, fit=True, wait_sel='.st-did',
-                   stills=[400, 1000, 1800, 2600], what='The rooster crows in front of the Capitol as the petals fall, inside the drawing’s box, so the page is no taller.'),
-  'toast':    dict(kind='small', title='Every yay toast', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), p.goto(url('', fx, '#/bill/HB2121')), ready(p), p.wait_for_timeout(1200)),
-                   trigger=lambda p: p.locator('[data-bl-stance="support"]').first.click(), sel='.toastmsg .ro', cur_sel='.toastmsg.yay svg', words='You now follow', peak=500,
-                   stills=[150, 300, 500, 800], what='A small rooster holds still, then bobs once, where the green tick was in every yay toast.'),
-  'stance':   dict(kind='small', title='A stance taken on a bill', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), p.goto(url('', fx, '#/bill/HB2121')), ready(p), p.wait_for_timeout(1200)),
-                   trigger=lambda p: p.locator('[data-bl-stance="support"]').first.click(), sel='.ro-float .ro', words='Saved', peak=300, next='[data-bl-stance="support"]',
-                   stills=[100, 250, 450, 650], what='The burst and the rooster just above the answer picked.'),
-  'found':    dict(kind='small', title='An address found', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), legs_typed(p, fx)), trigger=pick_addr,
-                   sel='.ro-float .ro', words='speak for you', peak=None, next='.actionbar .btn.primary',
-                   stills=[0, 120, 260, 420], what='The burst and the rooster above the two legislators found.'),
-  'alerts':   dict(kind='small', title='Alerts turned on', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), alerts_typed(p, fx)), trigger=lambda p: p.click('#nx-send'),
-                   sel='.ro-float .ro', words='Mahalo!', peak=None, next='.actionbar .btn.primary',
-                   stills=[0, 120, 260, 420], what='The burst and the rooster above the “Mahalo!” heading once the number is in (also More’s alerts row and Home’s ask).'),
-  'goodnews': dict(kind='small', title='Good news on Home', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), home_seed(p, fx, again=False)),
-                   trigger=lambda p: (p.reload(), ready(p)), sel='.ro-float .ro', words='Got it', peak=None,
-                   stills=[0, 120, 260, 420], what='The rooster beside each new good-news card’s icon as it bursts, once.'),
-  'quiz':     dict(kind='small', title='The daily game’s result', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), quiz_to_last(p, fx)),
-                   trigger=lambda p: p.locator('[data-pick]').first.click(), sel='.ro-float .ro', words='Your one step', peak=None,
-                   stills=[0, 120, 260, 420], what='The burst and the rooster beside the result’s badge (inside the game, C-7’s exception).'),
-  'welcome':  dict(kind='small', title='The first visit’s hello page', reach=lambda p, fx: (p.goto(url('', fx)), p.wait_for_timeout(300), p.evaluate('localStorage.clear(); sessionStorage.clear()')),
-                   trigger=lambda p: (p.goto(url('&restart', p.__fx)), p.wait_for_selector('.st-hellopage', timeout=60000)),
-                   sel='.st-greet .ro', cur_sel='.st-greet svg', words='Aloha!', peak=1300, next='[data-stnext]', fit=True,
-                   stills=[200, 700, 1300, 2200], what='The rooster struts in and waves beside “Aloha!”, in the small flower’s place; the page keeps its height.'),
-  'sending':  dict(kind='small', title='Sending… and Saving…', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), alerts_typed(p, fx)), trigger=lambda p: p.click('#nx-send'),
-                   sel='.ro-busy', words='', peak=1200, busy=True, stage=lambda p: p.evaluate(STAGE_BUSY),
-                   stills=[150, 450, 750, 1050], what='A tiny pecking rooster in place of the spinner on a busy button, stopped at 5 s.'),
-  'error':    dict(kind='small', title='Error cards', reach=lambda p, fx: p.route('**/demo/snapshot.json*', lambda r: r.abort()),
-                   trigger=lambda p: (p.goto(url('', p.__fx)), p.wait_for_selector('text=Try again', timeout=30000)), sel='.empty .ro', words='We couldn’t load', peak=900,
-                   stills=[200, 500, 900, 1400], what='The rooster tilts its head above the words of an error card (the bills not loading, a bill not found, the issues not loading).'),
-  'empty':    dict(kind='small', title='Empty lists', reach=lambda p, fx: p.context.add_init_script(f'({SKIP})()'),
-                   trigger=lambda p: (p.goto(url('', p.__fx, '#/find?q=zzzzqq')), ready(p), p.wait_for_selector('text=No bills match', timeout=15000)), sel='.empty .ro', words='No bills match', peak=2000,
-                   stills=[500, 1500, 2500, 3500], what='The rooster pecks and looks up once above an empty list, then stands still (A-10’s 5 s).'),
-  'reminder': dict(kind='small', title='Testimony due within a day', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), p.goto(url('&ab=layout.today', fx, '#/')), ready(p), p.wait_for_timeout(800), p.evaluate(REM)),
-                   trigger=lambda p: (p.reload(), ready(p)), sel='.acard .due .ro', cur_sel='.acard .due.warn', words='Testimony due', peak=800,
-                   stills=[200, 500, 800, 1300], what='The rooster’s chest-puff “ahem” in the clock’s place on the first card due within a day, once.'),
+                   stills=[400, 1000, 1800, 2600], what='The rooster crows on the left of the Capitol, facing it, as the petals fall, inside the drawing’s box, so the page is no taller.'),
+  'found':    dict(kind='full', title='Legislators found', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), legs_typed(p, fx)), trigger=pick_addr,
+                   sel='#fx-cover .ro', words='These two speak for', peak=1100, frames=2800, end='#fx-cover', rsel='.fx-band .ro', wait_sel='#st-legs',
+                   stills=[500, 1000, 2000, 2600], what='The issues’ cover with the rooster and “Found them!”, folding into a band on top of the two legislators found.'),
+  'goodnews': dict(kind='small', title='Good news on Home', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), p.goto(url('&seed=1&ab=layout.today', '')), ready(p)),
+                   trigger=lambda p: (p.goto(url('&seed=1&ab=layout.today&plant=goodnews', p.__fx or 'none', '#/')), p.wait_for_function(PLANTED, timeout=30000)), sel='.ro-float .ro', cur_sel='.hm-gnic', words='Got it', peak=None, plants=True,
+                   stills=[0, 120, 260, 420], what='The link plants new good news; the rooster hops on each new good-news card’s icon as it bursts, once.'),
+  'quiz':     dict(kind='full', title='The daily game’s result', reach=lambda p, fx: (p.context.add_init_script(f'({SKIP})()'), quiz_to_last(p, fx)),
+                   trigger=lambda p: p.locator('[data-pick]').first.click(), sel='#fx-cover .ro', cur_sel='#qz-badge', words='Your way to help', peak=1000, frames=2800, end='#fx-cover', rnone=True,
+                   stills=[300, 700, 1300, 2200], what='The issues’ cover with the rooster and the result’s name, folding into the result’s badge (inside the game, C-7’s exception).'),
+  'error':    dict(kind='small', title='Error cards (everyone’s)', reach=lambda p, fx: p.route('**/demo/snapshot.json*', lambda r: r.abort()),
+                   trigger=lambda p: (p.goto(url('', p.__fx)), p.wait_for_selector('text=Try again', timeout=30000)), sel='.empty .ro', words='We couldn’t load', peak=900, always=True,
+                   stills=[200, 500, 900, 1400], what='Kept (Nate 19 Oct): the rooster tilts its head above the words of an error card, for everyone.'),
 }
 
 # Watches every frame from the page's start: the most roosters seen at once (the moment's own, and any at all), and whether
@@ -181,12 +162,14 @@ def run_one(b, mid, m, w, h, fx, reduced=False, frames=False, shots=None, video=
         m['reach'](p, fx)
         sh0 = p.evaluate("document.scrollingElement.scrollHeight")
         cdp = None
+        REC = "window.__fr = []; window.__frOn = true; window.__vt0 = window.__vt; (function f(t) { if (!window.__frOn) return; window.__fr.push(t); requestAnimationFrame(f); })(performance.now())"
         if frames:
             cdp = c.new_cdp_session(p); cdp.send('Emulation.setCPUThrottlingRate', {'rate': 4})
-            p.evaluate("window.__fr = []; window.__frOn = true; window.__vt0 = window.__vt; (function f(t) { if (!window.__frOn) return; window.__fr.push(t); requestAnimationFrame(f); })(performance.now())")
+            if not m.get('plants'): p.evaluate(REC)
         if not frames: p.evaluate("window.__busy = false; window.__smp && (window.__smp = { has: 0, any: 0, covers: false })")
         t0 = time.time()
         (m['stage'] if (shots is not None and m.get('stage')) else m['trigger'])(p)
+        if frames and m.get('plants'): p.evaluate(REC)   # a planted link loads again: time its frames from the moment
         if m.get('wait_sel'): p.wait_for_selector(m['wait_sel'], timeout=20000)
         if m.get('pre'): p.wait_for_timeout(m['pre'])
         sel = m['sel'] if fx else (m.get('cur_sel') or m['sel'])
@@ -213,6 +196,7 @@ def run_one(b, mid, m, w, h, fx, reduced=False, frames=False, shots=None, video=
                 for t, name in plan:
                     p.wait_for_timeout(max(0, t - last)); last = max(last, t)
                     p.screenshot(path=os.path.join(shots, name))
+                    if name == 'new.png': r['peak_body'] = p.evaluate("document.body.innerText")   # the words at its fullest (a cover is gone by the end)
                     if name != 'new.png': stills.append(name)
             elif m.get('peak'): p.wait_for_timeout(m['peak'])
         r['stills'] = stills
@@ -221,6 +205,7 @@ def run_one(b, mid, m, w, h, fx, reduced=False, frames=False, shots=None, video=
         r['rooster'] = max(p.locator('.ro').count(), smp.get('any', 0))
         if m.get('next') and fx and not frames: r['covers'] = bool(smp.get('covers')); r['cover_at'] = smp.get('at')
         body = p.evaluate("document.body.innerText").replace(' ', ' ')
+        body += ' ' + r.get('peak_body', '').replace('\u00a0', ' ')
         r['words'] = (m['words'].lower() in body.lower()) if m['words'] else True   # innerText follows text-transform
         r['hscroll'] = p.evaluate("document.scrollingElement.scrollWidth > innerWidth + 1")
         r['sh'] = p.evaluate("document.scrollingElement.scrollHeight"); r['ih'] = h
@@ -249,20 +234,24 @@ with sync_playwright() as pw:
     live = p.evaluate("async () => { const f = await import(new URL('pub/fx.js', location.href).href); return Object.fromEntries(" + json.dumps(list(M)) + ".map(k => [k, f.fxOn(k)])); }")
     ok(not any(live.values()) and not any('rooster' in u for u in reqs), f'live site with ?fx=all: nothing on, the rooster never loaded ({sum(live.values())} on)')
     c.close()
+    # The error card's rooster is everyone's: on the live site an error card draws it, and only rooster-error.js loads.
+    c = ctx_for(b, 390, 844); p = c.new_page(); reqs = []; p.on('request', lambda q: reqs.append(q.url))
+    p.route('**/rest/v1/**', lambda r: r.abort()); p.route('**/demo/snapshot.json*', lambda r: r.abort())
+    p.goto(BASE); p.wait_for_selector('text=Try again', timeout=60000); p.wait_for_timeout(800)
+    ro = [u.split('/')[-1].split('?')[0] for u in reqs if 'rooster' in u]
+    ok(p.locator('.empty .ro[data-ro=error] svg').count() == 1 and ro == ['rooster-error.js'], f'live site, an error card: its rooster drawn, only rooster-error.js loaded ({ro})')
+    c.close()
+    # Offline: the drawing cannot come, so the empty box goes and the card is as it was.
+    c = ctx_for(b, 390, 844); p = c.new_page(); p.route('**/rooster-error.js*', lambda r: r.abort()); p.route('**/demo/snapshot.json*', lambda r: r.abort())
+    p.goto(BASE + '?demo=1'); p.wait_for_selector('text=Try again', timeout=60000); p.wait_for_timeout(800)
+    ok(p.locator('.empty .ro').count() == 0, 'the error rooster cannot load: no empty box is left')
+    c.close()
     c = ctx_for(b, 390, 844); p = c.new_page(); reqs = []; p.on('request', lambda q: reqs.append(q.url))
     p.goto(BASE + '?demo=1'); ready(p); p.wait_for_timeout(800)
     ok(not any('rooster' in u for u in reqs) and p.locator('.ro').count() == 0, 'practice copy without fx=: the rooster never loaded, none drawn')
     c.close()
 
-    # fx=all: a stance that also follows the bill brings the toast's rooster, and then the stance shows only its petals,
-    # so one tap never brings two roosters.
-    if not ONLY or 'stance' in ONLY:
-        c = ctx_for(b, 390, 844, smp=sampler('.ro-float .ro', None)); c.add_init_script(f'({SKIP})()'); p = c.new_page()
-        p.goto(url('', 'stance,toast', '#/bill/HB2121')); ready(p); p.wait_for_timeout(1200)
-        p.evaluate("window.__smp = { has: 0, any: 0, covers: false }"); p.locator('[data-bl-stance="support"]').first.click(); p.wait_for_timeout(900)
-        sm = p.evaluate('window.__smp')
-        ok(sm['has'] == 0 and p.locator('.toastmsg .ro').count() == 1, f'fx=stance,toast: one tap, one rooster (the toast’s; floats seen {sm["has"]})')
-        c.close()
+    # (The stance and the toast went back to today's on 19 Oct; their joint check went with them.)
     for mid, m in M.items():
         if ONLY and mid not in ONLY: continue
         shots = None
@@ -274,7 +263,8 @@ with sync_playwright() as pw:
             if new.get('stopped') or cur.get('stopped'):
                 ok(False, f'{mid} {tag}: stopped: new={new.get("stopped")} current={cur.get("stopped")}'); continue
             ok(new['has'] >= 1, f'{mid} {tag}: the rooster appears with fx={mid}')
-            ok(cur['rooster'] == 0, f'{mid} {tag}: no rooster without fx= (today’s screen)')
+            if m.get('always'): ok(cur['has'] >= 1, f'{mid} {tag}: kept, so the rooster is there without fx= too')
+            else: ok(cur['rooster'] == 0, f'{mid} {tag}: no rooster without fx= (today’s screen)')
             ok(new['words'], f'{mid} {tag}: its words are visible ({m["words"]!r})')
             if not m.get('new_words'): ok(cur['words'], f'{mid} {tag}: today’s words are there too')
             ok(not new['hscroll'], f'{mid} {tag}: no sideways scroll')
@@ -288,11 +278,11 @@ with sync_playwright() as pw:
         rd = run_one(b, mid, m, 390, 844, mid, reduced=True)
         if rd.get('stopped'): ok(False, f'{mid} reduced: stopped: {rd["stopped"]}')
         else:
-            ok(rd['has'] >= 1 or m.get('busy'), f'{mid} reduced: the rooster is there')
+            ok(rd['has'] >= 1 or m.get('busy') or m.get('rnone'), f'{mid} reduced: the rooster is there' + (' (none: no cover under Reduce Motion)' if m.get('rnone') else ''))
             ok(rd.get('moving', 0) == 0, f'{mid} reduced: nothing in it moves ({rd.get("moving")} running)')
             ok(rd['words'], f'{mid} reduced: the words are there')
             ok(not rd['errs'], f'{mid} reduced: no page errors {rd["errs"][:2]}')
-            info[mid]['reduced_ok'] = (rd['has'] >= 1 or bool(m.get('busy'))) and rd.get('moving', 0) == 0 and rd['words']
+            info[mid]['reduced_ok'] = (rd['has'] >= 1 or bool(m.get('busy')) or bool(m.get('rnone'))) and rd.get('moving', 0) == 0 and rd['words']
         # Smoothness: the full-screen ones and voice, phone, CPU 4x slower.
         if m['kind'] == 'full' or mid == 'voice':
             fr = run_one(b, mid, m, 390, 844, mid, frames=True)

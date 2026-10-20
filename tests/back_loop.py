@@ -11,6 +11,12 @@ def check(c, m):
     global ok, fail
     print('PASS' if c else 'FAIL', m); ok += bool(c); fail += (not c)
 def h(pg): return pg.evaluate('location.hash')
+# R-303: in the calm redesign (everyone's since 19 Oct) the committee members are inside the bill page's closed "Who decides
+# next" card, a legislator's page goes back by .rc-back (the old page's .pp-back), and an issue's page by the Back in its
+# top row (.bl-rtop .bl-back, the old .fd-back).
+PP_BACK = '.pp-back, .rc-back'
+# the redesign's back link names the bill with its year (#/bill/2026/HB1782): the same bill
+BILL = ('#/bill/HB1782', '#/bill/2026/HB1782')
 with sync_playwright() as p:
     b = p.chromium.launch()
     for vw, vh, mob in [(390, 844, True), (1280, 800, False)]:
@@ -25,12 +31,13 @@ with sync_playwright() as p:
         pg.evaluate("location.hash = '#/bill/HB1782'"); pg.wait_for_timeout(1500)
         start = h(pg)
         # 1. bill -> a committee member (link carries ?from=) -> "Back to HB 1782" -> the bill's Back
+        pg.evaluate("document.querySelectorAll('details.bl-rfold[data-bl-rfold=\"who\"]').forEach(d => d.open = true)")
         mem = pg.locator('a.bl-mem, a.bl-who').first
         if mem.count():
             mem.scroll_into_view_if_needed(); mem.click(); pg.wait_for_timeout(900)
             check('#/legislator/' in h(pg), f'{tag}: a committee member opens their page ({h(pg)})')
-            pg.locator('.pp-back').first.click(); pg.wait_for_timeout(900)
-            check(h(pg).startswith('#/bill/HB1782'), f'{tag}: "Back to HB 1782" returns to the bill ({h(pg)})')
+            pg.locator(PP_BACK).first.click(); pg.wait_for_timeout(900)
+            check(h(pg).startswith(BILL), f'{tag}: "Back to HB 1782" returns to the bill ({h(pg)})')
             pg.locator('[data-bl-back]').first.click(); pg.wait_for_timeout(900)
             check('#/legislator/' not in h(pg), f'{tag}: the bill page\'s Back does not return to the legislator ({h(pg)})')
         else:
@@ -44,8 +51,8 @@ with sync_playwright() as p:
         pg.locator('#pp-q').fill('Rhoads'); pg.wait_for_timeout(900)
         pg.locator('[data-pp-sug]').first.click(); pg.wait_for_timeout(900)
         check('#/legislator/' in h(pg), f'{tag}: from the list, a legislator opens ({h(pg)})')
-        pg.locator('.pp-back').first.click(); pg.wait_for_timeout(900)
-        check(h(pg).startswith('#/bill/HB1782'), f'{tag}: "Back to HB 1782" from a legislator opened via the list ({h(pg)})')
+        pg.locator(PP_BACK).first.click(); pg.wait_for_timeout(900)
+        check(h(pg).startswith(BILL), f'{tag}: "Back to HB 1782" from a legislator opened via the list ({h(pg)})')
         seen = []
         for i in range(6):   # keep pressing each page's own Back; it must leave the bill/legislator pair
             before = h(pg); seen.append(before)
@@ -53,16 +60,16 @@ with sync_playwright() as p:
             elif pg.locator('[data-back]').count(): pg.locator('[data-back]').first.click()
             else: break
             pg.wait_for_timeout(900)
-            if not (h(pg).startswith('#/bill/HB1782') or h(pg).startswith('#/legislator')): break
+            if not (h(pg).startswith(BILL) or h(pg).startswith('#/legislator')): break
         seen.append(h(pg))
-        check(not (h(pg).startswith('#/bill/HB1782') or h(pg).startswith('#/legislator/')), f'{tag}: pressing Back repeatedly gets out: ' + ' > '.join(seen))
+        check(not (h(pg).startswith(BILL) or h(pg).startswith('#/legislator/')), f'{tag}: pressing Back repeatedly gets out: ' + ' > '.join(seen))
         # 3. Find -> category -> issue -> category back link -> browser Back must not return to the issue page twice
         pg.evaluate("location.hash = '#/find'"); pg.wait_for_timeout(1200)
         cat = pg.locator('a[href^="#/find/category/"]').first; cat.scroll_into_view_if_needed(); cat.click(); pg.wait_for_timeout(1000)
         chref = h(pg)
         iss = pg.locator('a[href^="#/issue/"]').first; iss.scroll_into_view_if_needed(); iss.click(); pg.wait_for_timeout(1000)
         ihref = h(pg)
-        pg.locator('.fd-back').first.click(); pg.wait_for_timeout(900)
+        pg.locator('.fd-back, .bl-rtop .bl-back').first.click(); pg.wait_for_timeout(900)
         check(h(pg) == chref, f'{tag}: the issue page\'s back link returns to its category ({h(pg)})')
         pg.go_back(); pg.wait_for_timeout(900)
         check(h(pg) != ihref, f'{tag}: the browser\'s Back then does not bounce into the issue page again ({h(pg)})')

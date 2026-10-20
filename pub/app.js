@@ -2,7 +2,7 @@
 // Every screen is a module with { render(route), wire(route), bar?(route), tabs, tab }. This file decides which one
 // shows, draws the header, the sandbox band and the bottom tab bar, and owns Back, scroll and the first load.
 import { reportError } from './errlog.js';   // first, so its handlers are in place before the screens' code runs (R-111)
-import { fxArt, initLang, isEn, loadDbTranslations, S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, onb, onbSet, wiz, firstVisit, readyForSession, sessionInfo, loadCatalog, applyCachedCatalog, followsAnything, hstDay, restoreFollows, issueFollowed } from './kernel.js';
+import { errArt, initLang, isEn, loadDbTranslations, S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, onb, onbSet, wiz, firstVisit, readyForSession, sessionInfo, loadCatalog, applyCachedCatalog, followsAnything, hstDay, restoreFollows, issueFollowed } from './kernel.js';
 import { MARK } from './art.js';
 import { skeleton, btn, keepWordsWhole } from './ui.js';
 import { logDay, logAct } from './visitlog.js';
@@ -28,11 +28,11 @@ const lazy = (key, load, o = {}) => {
 // Since 11 Oct (R-222) the test has three versions and the calm Home is the first, everyone's Home while the test is off
 // (pub/calm/home.js, Direction 1: today's bill page and tabs); 'today' is the Home as it was before, and 'a' is R-071's
 // Layout A from September (pub/a/: its Home, its bill page, "You").
-const oldA = () => armOf('layout') === 'a';
-// The calm redesign of the rest of the public pages (R-303, Nate 10/17), with the bill page in layout 3 (R-302): only with
-// ?rec=1 until his look. Taking this switch out brings back today's pages everywhere.
-const REC = () => new URLSearchParams(location.search).has('rec');
-const calmHome = () => armOf('layout') === 'calm';
+const oldA = () => !REC() && armOf('layout') === 'a';   // the layout test ended 19 Oct (backend 182): the redesign replaces A and today's Home
+// The calm redesign of the rest of the public pages (R-303, Nate 10/17), with the bill page in layout 3 (R-302):
+// everyone's since Nate's 19 Oct "make the new rec version the main version"; ?rec=0 brings back the old pages everywhere.
+const REC = () => new URLSearchParams(location.search).get('rec') !== '0';   // everyone's since 19 Oct (Nate); ?rec=0 brings back the old pages
+const calmHome = () => REC() || armOf('layout') === 'calm';   // the redesign is built on the calm Home (everyone's since 11 Oct)
 const start = lazy('start', () => import('./start.js'), { tabs: false, title: 'Welcome' }), home = lazy('home', () => oldA() ? import('./a/home.js') : calmHome() ? import('./calm/home.js') : import('./home.js'), { tab: 'home', title: 'Home' });
 const find = lazy('find', () => REC() ? import('./rec/find.js') : import('./find.js'), { tab: 'find', title: 'Find' }), people = lazy('people', () => import('./people.js'), { tab: 'more', title: 'Your legislators' });
 const more = lazy('more', () => import('./more.js'), { tab: 'more', title: 'More' });
@@ -362,7 +362,7 @@ function wireFrame() {
     if (suggestMod) arm(); else inp.addEventListener('focus', arm, { once: true }); }
 }
 // Honest words (R-122): offline is the person's connection; anything else is ours, and says so.
-const errorCard = () => `<div class="empty">${fxArt('error')}<h2>We couldn’t load the bills</h2><p>${navigator.onLine === false ? 'You’re offline. Check your connection and try again.' : 'The tracker can’t reach its data right now. It’s not you. Check your connection and try again in a minute.'}</p>${btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { onclick: 'location.reload()' } })}</div>`;
+const errorCard = () => `<div class="empty">${errArt()}<h2>We couldn’t load the bills</h2><p>${navigator.onLine === false ? 'You’re offline. Check your connection and try again.' : 'The tracker can’t reach its data right now. It’s not you. Check your connection and try again in a minute.'}</p>${btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { onclick: 'location.reload()' } })}</div>`;
 
 // ---- keyboard (people with a keyboard only; Help lists these) ----
 document.addEventListener('keydown', e => {

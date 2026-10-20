@@ -8,7 +8,7 @@
 // approved. Where it would live once approved: More, and the Mahalo's "Bring one friend along".
 import { DEMO, esc, icon, toast, app } from './core.js';
 import { btn } from './ui.js';
-import { burst, cheer } from './fx.js';
+import { burst, fxOn, rooster, coverFold } from './fx.js';
 import { QUESTIONS, TYPES, SHARE_TEXT, INTRO, resultOf } from './quiz-data.js';
 
 const KEY = 'hiphi_quiz', PICKS = 'hiphi_quiz_picks', N = QUESTIONS.length;
@@ -104,10 +104,13 @@ export default {
       const n = Q.v.n; Q.picks[n - 1] = el.dataset.pick; savePicks();
       if (n < N) return go(`#/quiz/${n + 1}`);
       if (!complete()) { let i = 0; while (Q.picks[i]) i++; return go(`#/quiz/${i + 1}`); }
-      keep(resultOf(Q.picks)); Q.celebrate = true; go('#/quiz/result');
+      const type = resultOf(Q.picks); keep(type);
+      // R-308 on trial (?demo=1&fx=quiz; Nate 19 Oct: "Should be bigger, like picking issues."): the issues' cover with the
+      // rooster and the result's name, folding into the result's badge (inside the game, C-7's exception).
+      if (fxOn('quiz')) { coverFold({ art: rooster('big-win', { size: 168, cls: 'st-cvro', fit: 1600 }), title: TYPES[type].name, sub: 'Your way to help, from the quiz', go: () => go('#/quiz/result'), to: '#qz-badge' }); return; }
+      Q.celebrate = true; go('#/quiz/result');
     });
     // A small celebration for a finished quiz, sized like the other small wins (DESIGN.md C-7; the motion honours Reduce Motion).
-    // Two frames on, once the page has scrolled to its top, so the petals leave the badge itself.
-    if (Q.celebrate && Q.v?.view === 'r') { Q.celebrate = false; requestAnimationFrame(() => requestAnimationFrame(() => { const b = document.getElementById('qz-badge'); if (b) cheer('quiz', b, 12, 34, { side: 'right' }); })); }
+    if (Q.celebrate && Q.v?.view === 'r') { Q.celebrate = false; const b = document.getElementById('qz-badge'); if (b) burst(b); }
   },
 };

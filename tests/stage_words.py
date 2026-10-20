@@ -32,6 +32,12 @@ def show(pg, pick, patch):
     pg.evaluate("location.hash = '#/find'"); pg.wait_for_timeout(300)
     pg.evaluate(f"location.hash = '#/bill/{num}'"); pg.wait_for_timeout(1800)
     return num, pg.inner_text('main')
+# R-303: the calm redesign (everyone's since 19 Oct) says where the bill is under "Where it is now" (.bl-rnow: a small
+# "Step 7 of 9 · In the Senate", then the words the old rail put in .bl-nowlbl, without its "Now: " lead) and why a bill
+# stopped right under it (.bl-rsay, the old .bl-why). Either page's words count; tests/bill_stages.py keeps ?rec=0.
+NOW = """(() => { const o = document.querySelector('.bl-nowlbl'); if (o) return o.textContent;
+  const r = document.querySelector('.bl-rnow'); if (!r) return ''; const c = r.cloneNode(true); c.querySelector('small')?.remove(); return c.textContent.trim(); })()"""
+WHY = "document.querySelector('.bl-rail + .bl-why, .bl-rnow + .bl-rsay')?.textContent || ''"
 def status(pg, num, patch):
     return pg.evaluate("""async ({ num, patch }) => { const c = await import('./pub/core.js'); const b = { ...c.D.bills.find(x => x.bill_number === num), ...patch };
       const p = c.plainStatus(b), st = c.stopOf(b); return { text: p.text, short: p.short, dl: st.deadline && st.deadline.date, key: st.deadlineKey, detail: c.stopDetail(b) }; }""", {'num': num, 'patch': patch})
@@ -45,8 +51,8 @@ with sync_playwright() as p:
         num, t = show(pg, '^HB', {'stage': 'first_floor', 'last_action': 'Reported from FIN, recommending passage on Third Reading.', 'died_at_stage': None, 'died_deadline': None})
         check('Next is a vote of the full House' in t and 'Stopped' not in t, f'{w} {num} first_floor: "Next is a vote of the full House", not stopped')
         num, t = show(pg, '^SB', {'stage': 'second_floor', 'last_action': 'Reported from FIN, recommending passage on Third Reading.', 'died_at_stage': None, 'died_deadline': None})
-        cap = pg.evaluate("document.querySelector('.bl-nowlbl')?.textContent || ''")
-        check('Next is a vote of the full House' in t and cap == 'Now: Waiting for the House vote', f'{w} {num} second_floor: waiting for the House vote ("{cap}")')
+        cap = pg.evaluate(NOW)
+        check('Next is a vote of the full House' in t and cap.replace('Now: ', '') == 'Waiting for the House vote', f'{w} {num} second_floor: waiting for the House vote ("{cap}")')
         # a constitutional amendment for the ballot
         num, t = show(pg, '^HB', {'stage': 'ballot', 'last_action': 'Enrolled to Governor.', 'died_at_stage': None, 'died_deadline': None})
         check('The voters decide' in t and 'Goes to the voters' in t, f'{w} {num} ballot: the voters decide in November')
@@ -68,9 +74,9 @@ with sync_playwright() as p:
         num, t = show(pg, '^HB', {'stage': 'dead', 'died_at_stage': 'first_floor', 'died_deadline': 'Crossover 3/12/26', 'last_action': 'Reported from FIN, recommending passage on Third Reading.'})
         top = pg.evaluate("document.querySelector('.bl-status .bl-say')?.textContent || ''")
         check(top == '', f'{w} {num} stopped: no sentence at the top of the card, the reason is only under the step bar (R-085; "{top[:80]}")')
-        why = pg.evaluate("document.querySelector('.bl-rail + .bl-why')?.textContent || ''")
+        why = pg.evaluate(WHY)
         check('Its House committees passed it' in why and 'Bills had to pass the full House by Mar 12' in why, f'{w} {num} stopped at first_floor: under the step bar, the rule and its date (R-085; "{why[:110]}")')
-        cap = pg.evaluate("document.querySelector('.bl-nowlbl')?.textContent || ''")
+        cap = pg.evaluate(NOW)
         check(cap == 'Did not reach the House vote', f'{w} {num} stopped at first_floor: the step bar stops at the House vote ("{cap}")')
         # the Senate's own Triple filing date
         s = status(pg, num, {'bill_number': 'SB9999', 'chamber': 'S', 'stage': 'first_triple', 'referrals': ['HHS', 'CPN', 'WAM'], 'origin_stops': 3, 'last_action': 'Referred to HHS, CPN, WAM.', 'died_at_stage': None, 'died_deadline': None})

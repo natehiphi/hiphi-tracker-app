@@ -126,7 +126,8 @@ document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click'
   const day = setScene(); if (!day) return;
   const ab = [...abIn.filter(x => !x.startsWith('layout.')), 'layout.' + b.dataset.layout].join(',');
   // &abrest=today: every other test at today's version, whatever the switches, so the two differ only in what is compared (R-192).
-  location.href = `${b.dataset.open}?demo=1${day === 'mon' ? '' : '&day=' + day}&abrest=today&ab=${ab}#/`;
+  // The layout test ended 19 Oct (R-303): the calm Home is everyone's, and the other two open on the way back, ?rec=0.
+  location.href = `${b.dataset.open}?demo=1${day === 'mon' ? '' : '&day=' + day}${b.dataset.layout === 'calm' ? '' : '&rec=0'}&abrest=today&ab=${ab}#/`;
 }));
 </script>
 </body>

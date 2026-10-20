@@ -22,14 +22,16 @@ ALL = """async () => { const c = await import('./pub/core.js'); await c.loadPool
 
 with sync_playwright() as p:
     br = p.chromium.launch(); errs = []
-    def fresh(hash='#/find', init=''):
+    def fresh(hash='#/find', init='', url=URL):
         ctx = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)
         ctx.add_init_script(TOUR_SEEN + init)
         pg = ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e)))
-        pg.goto(URL + hash); pg.wait_for_timeout(3500); return pg
+        pg.goto(url + hash); pg.wait_for_timeout(3500); return pg
 
-    # 1. Someone new, on Find.
-    pg = fresh(); L = pg.evaluate(LIST, 4)
+    # 1. Someone new, on Find. R-303: the calm redesign's Find (everyone's since 19 Oct) has no suggested card; its "Needs
+    # voices this week" lists the issues of the short list's bills with a hearing this week, soonest first. The card and
+    # its reason are the old Find's, which ?rec=0 brings back, so they are checked there; the redesign's rows after.
+    pg = fresh(url=URL + '&rec=0'); L = pg.evaluate(LIST, 4)
     check(len(L) == 4, f"Find's short list has four ({[x['n'] for x in L]})")
     check(len({x['issue'] for x in L}) == len(L), 'one bill per issue')
     check(max([sum(1 for y in L if y['cat'] == x['cat']) for x in L if x['cat']] or [0]) <= 2, 'at most two per category')
@@ -43,6 +45,25 @@ with sync_playwright() as p:
     seen = pg.evaluate("JSON.parse(localStorage.getItem('hiphi_sugg_seen_demo') || '{}')")
     check(all(x['id'] in seen for x in L), 'what was shown is remembered on this device')
     check(pg.evaluate("!/recommend/i.test(document.body.innerText)"), 'nothing on the page says "recommended"')
+    pg = fresh()
+    R = pg.evaluate("""async () => { const c = await import('./pub/core.js'); await c.loadPool();
+      const wk = Date.now() + 7 * 864e5, l = c.suggestionList(4).filter(r => r.st?.hearing && Date.parse(r.st.hearing.scheduled_at) < wk);
+      return { want: l.map(r => c.issuesOf(r.b)[0]?.slug).filter(Boolean),
+        rows: [...document.querySelectorAll('[aria-labelledby="fd-voices-h"] a[href^="#/issue/"]')].map(a => a.getAttribute('href').slice(8)) }; }""")
+    check(R['want'] and all(x in R['rows'] for x in R['want']), f"redesign: Needs voices this week lists the short list's issues with a hearing this week ({R['want']})")
+    seen = pg.evaluate("JSON.parse(localStorage.getItem('hiphi_sugg_seen_demo') || '{}')")
+    check(len(seen) == min(3, len(R['rows'])), f'redesign: the rows shown (three) are remembered on this device ({len(seen)})')
+    check(pg.evaluate("!/recommend/i.test(document.body.innerText)"), 'redesign: nothing on the page says "recommended"')
+    # The redesign's best pick leads its list with its reason (Nate 19 Oct: today's Find's first card, as a quiet row).
+    P = pg.evaluate("""async () => { const c = await import('./pub/core.js'); await c.loadPool();
+      const now = Date.now(), wk = now + 7 * 864e5, l = c.suggestionList(4).filter(r => r.st?.hearing && Date.parse(r.st.hearing.scheduled_at) > now && Date.parse(r.st.hearing.scheduled_at) < wk)[0];
+      const li = document.querySelector('[aria-labelledby="fd-voices-h"] .rc-rows > li');
+      return { want: l ? (c.issuesOf(l.b)[0] ? '#/issue/' + c.issuesOf(l.b)[0].slug : null) : null, why: l ? l.why : '', n: l ? l.b.bill_number : '',
+        href: li?.querySelector('a')?.getAttribute('href') || '', pick: !!li?.classList.contains('rc-pick'), said: li?.querySelector('.rc-why')?.innerText.trim() || '',
+        picks: document.querySelectorAll('.rc-pick').length, filled: document.querySelectorAll('#main .btn.primary').length }; }""")
+    check(P['pick'] and P['picks'] == 1 and (P['want'] is None or P['href'] == P['want']), f"redesign: the short list's best pick ({P['n']}) leads Needs voices this week ({P['href']})")
+    check(P['why'] and P['said'] == P['why'], f"redesign: the pick says the list's reason ({P['said']!r})")
+    check(P['filled'] == 0, 'redesign: no filled button on Find')
 
     # 2. Home's one suggestion is Find's first (someone who follows one bill, so Home has room for a suggestion).
     pg2 = fresh('#/')

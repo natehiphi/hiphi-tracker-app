@@ -54,7 +54,7 @@ def open_home(br, tag, w, h, extra_init='', reduced=False):
     ctx.add_init_script(BURSTS)
     if extra_init: ctx.add_init_script(extra_init)
     pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
-    pg.goto(ROOT + 'track.html?demo=1&seed=1&ab=layout.today#/', wait_until='domcontentloaded'); ready(pg)
+    pg.goto(ROOT + 'track.html?demo=1&seed=1&rec=0&ab=layout.today#/', wait_until='domcontentloaded'); ready(pg)
     pg.evaluate(FOLLOW); pg.reload(wait_until='domcontentloaded'); ready(pg)
     return ctx, pg, errs
 with sync_playwright() as p:

@@ -20,11 +20,15 @@ def ctx(b, w=390, h=844):
     p = c.new_page(); p.on('pageerror', lambda e: errors.append(f'{w}: {e}'))
     p.on('console', lambda m: errors.append(f'console {w}: {m.text[:140]}') if m.type == 'error' and 'favicon' not in m.text else None)
     return c, p
-def start(p):   # a returning person (the first visit done), so Home does not send them into the guided start
-    p.goto(BASE + '?demo=1'); p.wait_for_timeout(400)
+# R-303: the calm redesign (everyone's since 19 Oct) draws Help its own way (no counts, the groups closed on every width,
+# one way back; tests/r303_you.py checks it), so this checks the old Help that ?rec=0 brings back, and at the end walks
+# every conversation once more in the redesign.
+Q = '?demo=1&rec=0'
+def start(p, q=None):   # a returning person (the first visit done), so Home does not send them into the guided start
+    p.goto(BASE + (q or Q)); p.wait_for_timeout(400)
     p.evaluate("localStorage.clear(); sessionStorage.clear(); localStorage.setItem('hiphi_wiz', JSON.stringify({step:1,done:true,skipped:true}))")
-def go(p, h, wait=2600):
-    p.goto(BASE + '?demo=1#' + h.lstrip('#')); p.reload(); p.wait_for_timeout(wait)
+def go(p, h, wait=2600, q=None):
+    p.goto(BASE + (q or Q) + '#' + h.lstrip('#')); p.reload(); p.wait_for_timeout(wait)
 def std(p, name, desktop=False):
     r = checks.page_report(p, name)
     ok(not r['emoji'], f'{name}: no emoji {r["emoji"][:3]}')
@@ -142,8 +146,9 @@ with sync_playwright() as pw:
     go(p, '/help/no-such-question')
     ok(p.evaluate('location.hash') == '#/help' and p.locator('[data-tkrow]').count() == len(TALKS), 'an unknown question falls back to the list')
     # every conversation walks cleanly: no raw markup, nothing empty, a drawing only where one was asked for
-    go(p, '/help'); bad = []
-    for t in TALKS:
+    def walk(p, q=None):
+      go(p, '/help', q=q); bad = []
+      for t in TALKS:
         p.evaluate(f"location.hash = '#/help/{t['slug']}'"); p.wait_for_timeout(250)
         while p.locator('[data-tknext]').count(): p.click('[data-tknext]'); p.wait_for_timeout(60)
         body = p.inner_text('.tk-thread')
@@ -152,8 +157,14 @@ with sync_playwright() as pw:
            or any(not s.strip() for s in p.evaluate("[...document.querySelectorAll('.tk-b')].map(b => b.innerText)")):
             bad.append(t['slug'])
         if checks.page_report(p, t['slug'])['overflow']: bad.append(t['slug'] + ':overflow')
+      return bad
+    bad = walk(p)
     ok(not bad, f'all {len(TALKS)} conversations walk to the end cleanly {bad[:5]}')
     r = checks.page_report(p, 'last'); ok(not r['emoji'], 'no emoji in the drawings or words')
+    c.close()
+    # the same walk in the redesign, on a phone
+    c, p = ctx(b); start(p, '?demo=1'); bad = walk(p, '?demo=1')
+    ok(not bad, f'redesign: all {len(TALKS)} conversations walk to the end cleanly {bad[:5]}')
     c.close()
 
     # ---- reduced motion: everything still works, with no movement ----

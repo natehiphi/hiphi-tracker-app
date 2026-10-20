@@ -13,6 +13,13 @@ def ok(c, m): res.append(bool(c)); print('PASS' if c else 'FAIL', m)
 def ready(pg):
     pg.wait_for_function("() => !!document.querySelector('main') && !document.querySelector('.skelpage')", timeout=60000); pg.wait_for_timeout(500)
 SKIP = "() => { try { const w = JSON.parse(localStorage.getItem('hiphi_wiz') || '{}'); localStorage.setItem('hiphi_wiz', JSON.stringify({ ...w, done: true, step: 99 })); localStorage.setItem('hiphi_tour_bill', '{\"how\":\"test\"}'); localStorage.setItem('hiphi_tour_home', '{\"how\":\"test\"}'); } catch {} }"
+# R-303: the calm redesign (the default) keeps Add to a list in the bill page's ⋯ menu on a laptop too (pub/bill.js recTop),
+# so the menu is opened first when the item is not already showing
+def addto(pg):
+    if not pg.locator('[data-bl-addto]').first.is_visible(): pg.locator('[data-bl-menu]').click(); pg.wait_for_timeout(200)
+    return pg.locator('[data-bl-addto]').filter(visible=True).first
+# a list's row on My issues: a.row on the old page, a.rc-row in the redesign's "Your lists" (pub/rec/mybills.js, R-303)
+LROW = lambda name: f'a.row:has-text("{name}"), a.rc-row:has-text("{name}")'
 def toast(pg): return pg.locator('.toastmsg').first.inner_text() if pg.locator('.toastmsg').count() else ''
 with sync_playwright() as p:
     br = p.chromium.launch()
@@ -23,7 +30,7 @@ with sync_playwright() as p:
     nums = pg.evaluate("async () => { const c = await import('./pub/core.js'); return (c.D.bills || []).filter(b => b.bill_number).slice(0, 3).map(b => b.bill_number); }")
     num = nums[0]
     pg.goto(BASE + f'#/bill/{num}'); ready(pg)
-    add = pg.locator('[data-bl-addto]').first
+    add = addto(pg)
     ok(add.count() == 1 and add.is_visible(), f'the bill page ({num}) offers Add to a list on a laptop')
     add.click(); pg.wait_for_timeout(500)
     dlg = pg.locator('dialog.ul-sheet[open]')
@@ -43,14 +50,14 @@ with sync_playwright() as p:
     ol = pg.locator('.bl-onlist').first
     ok(ol.count() == 1 and 'Bills for my class' in ol.inner_text(), 'the bill page now says it is on your list: ' + (ol.inner_text() if ol.count() else ''))
     # a second bill on the list, for Take off later; and a name typed then Done makes that list (C-9)
-    pg.goto(BASE + f'#/bill/{nums[1]}'); ready(pg); pg.locator('[data-bl-addto]').first.click(); pg.wait_for_timeout(400)
+    pg.goto(BASE + f'#/bill/{nums[1]}'); ready(pg); addto(pg).click(); pg.wait_for_timeout(400)
     pg.locator('dialog.ul-sheet[open] [data-ulpick]').first.check(); pg.wait_for_timeout(400)
     pg.locator('dialog.ul-sheet[open] #ul-newt').fill('Typed then Done')
     pg.locator('dialog.ul-sheet[open] [data-uldone]').click(); pg.wait_for_timeout(600)
     ok(pg.locator('dialog.ul-sheet[open]').count() == 0 and 'Typed then Done' in pg.locator('.bl-onlist').inner_text(), 'a name typed then Done makes that list and adds the bill, then closes')
     # an error in the sheet is red, right under the lists: fill the first list to its 200-bill cap
     pg.evaluate("async () => { const c = await import('./pub/core.js'); const l = c.S.ul.mine.find(x => x.title === 'Typed then Done'); l.bill_ids = [...l.bill_ids, ...Array.from({ length: 199 }, (_, i) => 'x' + i)]; }")
-    pg.goto(BASE + f'#/bill/{nums[2]}'); ready(pg); pg.locator('[data-bl-addto]').first.click(); pg.wait_for_timeout(400)
+    pg.goto(BASE + f'#/bill/{nums[2]}'); ready(pg); addto(pg).click(); pg.wait_for_timeout(400)
     pg.locator('dialog.ul-sheet[open] label:has-text("Typed then Done") input').click(); pg.wait_for_timeout(400)
     stat = pg.locator('#ul-shstat')
     ok('200 bills' in stat.inner_text() and 'bad' in (stat.get_attribute('class') or '') and pg.evaluate("document.querySelector('#ul-shstat').previousElementSibling.querySelector('.ul-pick') !== null"),
@@ -58,7 +65,7 @@ with sync_playwright() as p:
     pg.locator('dialog.ul-sheet[open] [data-uldone]').click(); pg.wait_for_timeout(300)
     pg.goto(BASE + '#/bills'); ready(pg)
     ok(pg.locator('#ul-mine-h').count() == 1 and 'Bills for my class' in pg.locator('main').inner_text(), 'My issues shows Your lists with it')
-    pg.locator('a.row:has-text("Bills for my class")').first.click(); ready(pg)
+    pg.locator(LROW('Bills for my class')).first.click(); ready(pg)
     ok(pg.locator('h1').inner_text() == 'Bills for my class' and 'Private' in pg.locator('main .meta').first.inner_text(), 'its page: name, and private')
     ok(pg.locator('main .mb-row').count() == 2, 'both bills are on it')
     hb = pg.evaluate("(() => { const h = document.querySelector('.ul h1').getBoundingClientRect(), b = document.querySelector('.ul-actions .btn').getBoundingClientRect(); return [Math.round(h.top), Math.round(h.bottom), Math.round(b.top)]; })()")
@@ -128,8 +135,15 @@ with sync_playwright() as p:
     ok(pg.url.endswith('#/bills') and 'Bills for room 12' not in pg.locator('main').inner_text(), 'Remove list takes it off My issues')
     pg.locator('.toastmsg button:has-text("Undo")').first.click(); pg.wait_for_timeout(700)
     ok('Bills for room 12' in pg.locator('main').inner_text(), 'Undo brings it back')
-    # an empty list, made from My issues
+    # an empty list, made from My issues. R-303: the redesign's My issues (pub/rec/mybills.js) has a quiet New list beside Your
+    # lists (New list when there are none too); then made on the old page (?rec=0) so the way back stays guarded
     pg.goto(BASE + '#/bills'); ready(pg)
+    ok(pg.locator('.rc-mine [data-ulnew]').count() >= 1, 'My issues (the redesign) offers New list')
+    if pg.locator('.rc-mine [data-ulnew]').count():
+        pg.locator('.rc-mine [data-ulnew]').first.click(); pg.wait_for_timeout(300)
+        ok(pg.locator('dialog.ul-sheet[open] #ul-newt').count() == 1, 'and it opens the New list sheet')
+        pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
+    pg.goto(BASE + '&rec=0#/bills'); ready(pg)
     pg.locator('[data-ulnew]').first.click(); pg.wait_for_timeout(300)
     pg.locator('dialog.ul-sheet[open] #ul-newt').fill('Later'); pg.locator('dialog.ul-sheet[open] [data-ulmake] button[type=submit]').click(); pg.wait_for_timeout(600)
     ok(pg.locator('h1').inner_text() == 'Later' and pg.locator('[data-ulfind]').count() == 1 and pg.locator('[data-ulsharemake]').count() == 0, 'an empty list leads with Find bills to add, and no Share yet')
@@ -156,7 +170,7 @@ with sync_playwright() as p:
     ok(pp.evaluate("document.documentElement.scrollWidth") <= 390, 'nothing wider than the phone')
     pp.screenshot(path=f'{SHOTS}/ul_sheet_390.png')
     d.locator('[data-uldone]').first.click(); pp.wait_for_timeout(300)
-    pp.goto(BASE + '#/bills'); ready(pp); pp.locator('a.row:has-text("Phone list")').first.click(); ready(pp)
+    pp.goto(BASE + '#/bills'); ready(pp); pp.locator(LROW('Phone list')).first.click(); ready(pp)
     print('INFO phone, unshared: first bill at', pp.evaluate("Math.round(document.querySelector('main .mb-row, main .mb-fold').getBoundingClientRect().top)"))
     pp.locator('[data-ulsharemake]').click(); pp.wait_for_timeout(900)
     top = pp.evaluate("Math.round(document.querySelector('main .mb-row').getBoundingClientRect().top)")
@@ -169,7 +183,7 @@ with sync_playwright() as p:
     top2 = pp.evaluate("Math.round((document.querySelector('main .mb-row') || document.querySelector('main .mb-fold')).getBoundingClientRect().top)")
     print(f'INFO someone else\'s list on a phone: first bill at {top2}px')
     pp.screenshot(path=f'{SHOTS}/ul_theirs_390.png')
-    pp.goto(BASE + '#/bills'); ready(pp); pp.locator('[data-ulnew]').first.click(); pp.wait_for_timeout(300)
+    pp.goto(BASE + '&rec=0#/bills'); ready(pp); pp.locator('[data-ulnew]').first.click()   # the old page's New list (R-303, above); pp.wait_for_timeout(300)
     pp.locator('dialog.ul-sheet[open] #ul-newt').fill('Empty one'); pp.locator('dialog.ul-sheet[open] [data-ulmake] button[type=submit]').click(); pp.wait_for_timeout(600)
     ok('Add bills from any bill’s page' in pp.locator('.ul-say').inner_text(), 'on a phone the empty list says where bills are added')
     ok(not perr, f'phone: no page errors {perr[:2]}')

@@ -93,7 +93,9 @@ with sync_playwright() as p:
     ok(url + '/rest/v1/rpc/log_public_error' in html and html.count(key) >= 2, "track.html's early catcher uses the same address and key as pub/core.js")
     # 9. the privacy page says so
     ctx, sent = context(); pg = ctx.new_page(); pg.goto(BASE + '#/privacy'); ready(pg)
-    t = pg.locator('main').inner_text()
+    # R-303: the redesign's privacy page keeps its sections in closed cards (pub/rec/you.js privacyRec), so the words are
+    # read from the page's text, not only what is drawn open
+    t = pg.locator('main').text_content()
     ok('If the page breaks' in t and 'built to leave out who you are' in t, 'the privacy page says what is reported and what never is')
     ctx.close()
     br.close()

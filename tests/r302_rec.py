@@ -2,8 +2,9 @@
 #   python3 tests/r302_rec.py [base]      base defaults to http://localhost:8832
 # Checks, at phone and laptop size, on HB 1563 (waiting for a hearing) and HB 1780 (hearing Wednesday): the order (name,
 # action card, Where it is now, three closed cards), the main button inside the action card, no page errors; on a phone the
-# button docks only once the card has scrolled away, and a card opened stays open after a reload (hiphi_recfold). Without
-# ?rec the page is today's (the stance card is still there).
+# button docks only once the card has scrolled away, and a card opened stays open after a reload (hiphi_recfold). With
+# ?rec=0 the page is the old one (the stance card is still there): the redesign is everyone's since 19 Oct (R-303), and
+# ?rec=0 is the way back, so it stays guarded.
 import sys, asyncio
 from playwright.async_api import async_playwright
 
@@ -32,8 +33,10 @@ async def main():
                 await pg.wait_for_timeout(800)
                 check(await pg.evaluate(ORDER) == 'ok', f'{tag} {num}: name, action, where it is, then the cards')
                 check(await pg.evaluate("!!document.querySelector('.bl-ract .btn.primary, .bl-act .btn.primary')"), f'{tag} {num}: the main button is in the action card')
-                check(await pg.evaluate("[...document.querySelectorAll('.bl-rfold')].map(d => d.dataset.blRfold + (d.open ? '+' : '')).join()") == 'who,about,more', f'{tag} {num}: three cards, closed on a first visit')
-                check(await pg.evaluate("!document.querySelector('.bl-stance, .bl-others, .bl-newbie')"), f'{tag} {num}: no stance card, others block or New here card')
+                # R-303: a fourth closed card, Others following this bill, when a group number reaches 10 people
+                check(await pg.evaluate("[...document.querySelectorAll('.bl-rfold')].map(d => d.dataset.blRfold + (d.open ? '+' : '')).join()") in ('who,about,more', 'who,about,more,others'), f'{tag} {num}: three cards (four with Others following), closed on a first visit')
+                check(await pg.evaluate("!document.querySelector('.bl-newbie') && ![...document.querySelectorAll('.bl-others')].some(e => !e.closest('.bl-rfold[data-bl-rfold=others]'))"), f'{tag} {num}: no New here card; Others following only inside its closed card')
+                check(await pg.evaluate("(() => { const s = document.querySelector('.bl-rstance'), a = document.querySelector('.bl-ract, .bl-act'); return !!s && !!(a.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING); })()"), f'{tag} {num}: Where do you stand? comes after the action card (R-303)')
                 if w < 800:
                     check(not await pg.evaluate("document.body.classList.contains('bl-docked')"), f'{num}: no docked button while the card is in view')
                     await pg.evaluate("window.scrollTo(0, 1200)"); await pg.wait_for_timeout(300)
@@ -47,8 +50,8 @@ async def main():
                 check(not errs, f'{tag} {num}: no page errors {errs[:2]}')
                 await ctx.close()
         ctx = await br.new_context(viewport={'width': 375, 'height': 812}); pg = await ctx.new_page()
-        await pg.goto(f'{BASE}/track.html?demo=1#/bill/HB1780'); await pg.wait_for_selector('.bl-page .bl-head', timeout=40000)
-        check(await pg.evaluate("!document.querySelector('.bl-rec') && !!document.querySelector('.bl-stance')"), 'without ?rec the page is today\'s')
+        await pg.goto(f'{BASE}/track.html?demo=1&rec=0#/bill/HB1780'); await pg.wait_for_selector('.bl-page .bl-head', timeout=40000)
+        check(await pg.evaluate("!document.querySelector('.bl-rec') && !!document.querySelector('.bl-stance')"), 'with ?rec=0 the page is the old one')
         await br.close()
     print(f'\n{ok} passed, {fail} failed'); sys.exit(1 if fail else 0)
 asyncio.run(main())

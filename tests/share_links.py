@@ -40,17 +40,21 @@ with sync_playwright() as p:
     # ---- 2. Share this issue ----
     islug = next((i['slug'] for i in snap['issues'] if any(r['bill_id'] == bill['id'] and r['issue_id'] == i['id'] for r in snap.get('billIssues', []))), None)
     pg.goto(PUB + f'#/issue/{islug}'); ready(pg)
-    sb = pg.locator('[data-shareissue]').first
+    # R-303: the calm redesign's issue page (everyone's since 19 Oct) has Share in its top row (data-rc-ishare), the old
+    # page's under the heading (data-shareissue); both open the same sheet (actions.js shareIssue).
+    sb = pg.locator('[data-shareissue], [data-rc-ishare]').first
     ok(sb.count() == 1 and sb.inner_text().strip() == 'Share', 'the issue page offers Share (one word for it, R-205 S3)')
     pg.evaluate("() => navigator.clipboard.writeText('')"); sb.click(); pg.wait_for_timeout(600)
     # A laptop with no share menu gets the sheet's box (R-205 S2): Copy message copies the words and the link.
     pg.locator('dialog.af-sheet [data-af="copy"]').click(); pg.wait_for_timeout(500); t = clip(pg)
     ok('Copied' in pg.locator('dialog.af-sheet .af-status').inner_text(), 'the sheet says Copied, and it stays on screen')
     pg.locator('dialog.af-sheet [data-af="close"]').first.click(); pg.wait_for_timeout(500)
-    iname = pg.locator('.fd-ihead h1').inner_text()
+    iname = pg.locator('.fd-ihead h1, .rc-ihead h1').first.inner_text()
     ok(iname in t and t.count('http') == 1 and f'i/demo/{islug}' in t, f'the issue share text names the issue with its link once: {t[:120]}')
     ok('sp=copy' in t, 'the copied link says it was copied (?sp=copy, R-205 K2)')
-    ok('Shared' in pg.locator('[data-shareissue]').first.inner_text(), 'the button then says Shared')
+    # The old page's button then says Shared; the redesign's keeps saying Share (the sheet said Copied already, A-14).
+    if pg.locator('[data-shareissue]').count():
+        ok('Shared' in pg.locator('[data-shareissue]').first.inner_text(), 'the button then says Shared')
     # ---- 3. the finale's line, for someone who follows an issue ----
     pg.evaluate("async s => { const c = await import('./pub/core.js'); const i = c.S.issues.find(x => x.slug === s); await c.setFollows({ issuesOn: [i.id] }); }", islug)
     line = pg.evaluate("async () => (await import('./pub/keep.js')).shareLine()")
@@ -58,7 +62,17 @@ with sync_playwright() as p:
     ctx.close()
     # ---- 4. a newcomer on a shared link: the deadline up top, no partner welcome, no automatic tour ----
     ctx = context(390, 844); pg = ctx.new_page(); errs2 = []; pg.on('pageerror', lambda e: errs2.append(str(e)))
+    # R-303: the calm redesign (everyone's since 19 Oct) has no "New here?" card: its action card, on the first phone
+    # screen, says when testimony is due; still no partner welcome and no tour by itself.
     pg.goto(PUB + f'&via=share&restart#/bill/{NUM}'); ready(pg); pg.wait_for_timeout(2500)
+    act = pg.locator('.bl-ract, .bl-act').first
+    ok(act.count() == 1 and 'Testimony due' in act.inner_text() and act.bounding_box()['y'] < 844, 'redesign: the first card says when testimony is due, on the first phone screen')
+    ok('friends of' not in pg.locator('main').inner_text(), 'redesign: a friend\'s shared link gets no partner welcome line')
+    ok(pg.locator('.tr-tip').count() == 0, 'redesign: no tour started by itself')
+    ctx.close()
+    # The old page, which ?rec=0 brings back: the "New here?" card, the head's chip, the quiet tour line.
+    ctx = context(390, 844); pg = ctx.new_page(); pg.on('pageerror', lambda e: errs2.append(str(e)))
+    pg.goto(PUB + f'&rec=0&via=share&restart#/bill/{NUM}'); ready(pg); pg.wait_for_timeout(2500)
     card = pg.locator('.bl-newbie')
     ok(card.count() == 1 and 'New here?' in card.inner_text(), 'the "New here?" card shows')
     ok('Testimony is due' in card.inner_text(), 'the card says when testimony is due')

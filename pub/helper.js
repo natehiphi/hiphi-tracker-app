@@ -45,7 +45,7 @@
 // "Your email is ready", addressed to the new people and step, with the same check; either one can start from the
 // other's answers. And a short reminder to the same chair when the bill still has no hearing a week before its deadline
 // (x.remind; Nate: "Yes for now, but needs to be reconsidered").
-import { fxArt, S, DEMO, app, esc, icon, toast, friendly, spaced, posInfo, cmteLabel, cmtesOf, codesOf, dueInfo, dateLong, timeWord, roomLabel,
+import { S, DEMO, app, esc, icon, toast, friendly, spaced, posInfo, cmteLabel, cmtesOf, codesOf, dueInfo, dateLong, timeWord, roomLabel,
   hstDay, HST, anyBill, anyHearing, markDone, toggleWatch, streamOf, reduceMotion, MILESTONES, myActions, POS_WORD, didKind,
   billPath, cleanDesc, nick, agrees, myStance, setStance, sendEmailLink, validEmail, issuesOf, issueFollowed, setFollows,
   hearingText, chairContacts, legById, legsOf, stopOf, askMark, saveDone, sessionInfo, CHAMBER_NAME, dayWord, textSaved, levelOf, setIssueLevel } from './core.js';
@@ -60,7 +60,7 @@ import { logTime } from './visitlog.js';   // how long a letter took (R-169, bac
 import { readyLetter, readyMail, letterOn, letterCheck, draftNotes, draftName, draftLabel, keepLetter, forgetLetter } from './letters.js';
 import { myDistricts } from './speakup.js';
 import { hasProfile, myName, myTitles, myStory, myStories, myInterests, storyFor, otherStory, storyAsk, storyName, STORY_HINT, saveProfile } from './myprofile.js';   // R-147, R-156, R-165
-import { pickTitle, asWords, aWords, needsSelf, cleanTitles, titleLabel } from './titles.js';
+import { pickTitle, asWords, aWords, needsSelf, setSelfPref, cleanTitles, titleLabel } from './titles.js';
 import { pickerHTML, wirePicker, pendingTitle } from './titlepick.js';
 import { aboutBill as readMore, billTextUrl } from './billtext.js';   // "Read more about the bill" where people pick a side (R-178)
 import { sentence, closingOf, andList, districtWords, helloSubject, helloFacts, helloLetter, thanksLine, vary, townWord, whoLine, standLine, ownLine } from './hello.js';   // the hello letter, shared with people.js (R-172)
@@ -1149,16 +1149,19 @@ function saysBox(x) {
   if (x.remind) return '';
   const all = titlesOf(x), parts = [];
   const usual = x.b ? pickTitle(all, aboutBill(x.b)) : all.slice(0, 1), two = twoFor(x);
-  if (all.length) parts.push(['titles', asWords(two.length ? two : usual), two.length > 0]);
+  if (all.length) parts.push(['titles', asWords(two.length ? two : usual, false), two.length > 0]);
+  // "Writing for myself" for any title (R-212 #23), on by default only for the group titles; the choice stays for every letter.
+  if (two.length) parts.push(['self', 'Writing for myself', needsSelf(two)]);
   if (isMail(x) ? x.mode === 'email' && x.to.some(t => isMineLeg(t.leg)) : !!liveLine(x.h)) parts.push(['live', isMail(x) ? 'You live in their district' : liveLine(x.h).replace(/\.$/, ''), !x.noLive]);
   const saved = [myStory(), ...Object.values(myStories())].includes(x.why.trim());
   if (x.why.trim() && !own2()) parts.push(['why', saved ? 'Your story' : 'Your reason', !x.noWhy]);
   if (!parts.length) return '';
   // A part left out says so, with a plus to put it back (the review: a plain outline read as still in).
-  const out = parts.some(([, , on]) => !on);
+  // "Writing for myself" off is an offer to add it, not a part left out.
+  const out = parts.some(([k, , on]) => !on && k !== 'self');
   return `<div class="hp-says" role="group" aria-labelledby="hp-says-t"><p class="hp-says-t" id="hp-says-t">About you, in this ${isMail(x) ? 'email' : 'letter'}</p>
-    <div class="chips">${parts.map(([k, l, on]) => `<button type="button" class="chip tp-c${on ? '' : ' hp-out'}" id="hp-says-${k}" data-hp="says" data-v="${k}" aria-pressed="${on}">${icon(on ? 'check' : 'plus')}<span>${esc(l)}${on ? '' : ' · left out'}</span></button>`).join('')}</div>
-    <p class="small muted">${isMail(x) ? '' : 'Testimony is posted publicly. '}${out ? 'Tap one to put it back.' : 'Tap one to leave it out.'}</p></div>`;
+    <div class="chips">${parts.map(([k, l, on]) => `<button type="button" class="chip tp-c${on ? '' : ' hp-out'}" id="hp-says-${k}" data-hp="says" data-v="${k}" aria-pressed="${on}">${icon(on ? 'check' : 'plus')}<span>${k === 'self' && !on ? 'Add “writing for myself”' : `${esc(l)}${on ? '' : ' · left out'}`}</span></button>`).join('')}</div>
+    <p class="small muted">${isMail(x) ? '' : 'Testimony is posted publicly. '}${out ? 'Tap one to put it back.' : 'Tap one to leave it out.'}${parts.some(([k]) => k === 'self') ? ' “Writing for myself” says you speak as yourself, not for your workplace; your next letters keep your choice.' : ''}</p></div>`;
 }
 // Delete the kept letter or email this one started from (B-5: with Undo), under the words.
 const forgetLink = x => x.again ? `<div class="hp-forget">${btn(`Delete this saved ${savedWord(x.again)}`, { kind: 'text', sm: true, icon: 'trash-2', cls: 'hp-quietbtn', attrs: { 'data-hp': 'again-forget' } })}</div>` : '';
@@ -1528,14 +1531,14 @@ function foot() {
   if (x.screen === 'know') return row(back + btn('Next', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }));
   if (x.screen === 1) return row((seqOf(x)[0] === 1 ? '' : back) + `<button type="submit" form="hp-form" class="btn primary full hp-main"><span>${isMail(x) ? 'See my email' : 'See my letter'}</span>${icon('arrow-right')}</button>`);
   // Sending an email: the send buttons are the main choice until one is used; then "Yes, I sent it" is (A-3).
-  if (x.screen === 'mail') return row(back + (x.busy ? `<button type="button" class="btn primary hp-main" aria-busy="true">${fxArt('sending') || icon('loader-circle')}<span>Saving…</span></button>`
+  if (x.screen === 'mail') return row(back + (x.busy ? `<button type="button" class="btn primary hp-main" aria-busy="true">${icon('loader-circle')}<span>Saving…</span></button>`
     : x.asked ? btn('Yes, I sent it', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'mailsent' } }) : ''),
     x.busy ? '' : (x.asked ? btn('Something went wrong', { kind: 'text', sm: true, attrs: { 'data-hp': 'trouble' } }) : btn('I already sent it', { kind: 'text', sm: true, attrs: { 'data-hp': 'mailsent' } })) + later);
   if (x.screen === 2) return row((seqOf(x)[0] === 2 ? '' : back) + btn('Next', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }), later);   // the reminder starts here (R-153)
   if (x.screen === 'acct') return row(back + (!x.acctNew ? '' : x.acctBack ? btn('I’m signed up', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'acct-done' } })
     : capitolLink(x.b, x.h, 'Open the Capitol page', { kind: 'primary', cls: 'hp-main' })),
     (x.acctNew && x.acctBack ? btn('The email hasn’t come', { kind: 'text', sm: true, attrs: { 'data-hp': 'acct-help' } }) : '') + later);
-  if (x.screen === 3) return row(back + (x.busy ? `<button type="button" class="btn primary hp-main" aria-busy="true">${fxArt('sending') || icon('loader-circle')}<span>Saving…</span></button>`
+  if (x.screen === 3) return row(back + (x.busy ? `<button type="button" class="btn primary hp-main" aria-busy="true">${icon('loader-circle')}<span>Saving…</span></button>`
     : x.back ? btn(DEMO ? 'Finish practice' : 'Yes, I saw the green box', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'confirm' } })
     : btn(DEMO ? 'Copy my letter' : 'Copy my letter and open the Capitol page', { kind: 'primary', icon: 'copy', cls: 'hp-main', attrs: { 'data-hp': 'copyopen' } })),
     x.busy ? '' : (x.back ? (DEMO ? '' : btn('Something went wrong', { kind: 'text', sm: true, attrs: { 'data-hp': 'trouble' } })) : btn('I already sent it', { kind: 'text', sm: true, attrs: { 'data-hp': 'sent' } })) + later);
@@ -1815,6 +1818,7 @@ function onClick(e) {
     if (v === 'titles') x.use = was ? [] : null;
     else if (v === 'live') x.noLive = was;
     else if (v === 'why') x.noWhy = was;
+    else if (v === 'self') setSelfPref(!was);
     syncLetter(x);
     x.copied = x.saved = false; saveDraft(); paint({ focus: 'hp-says-' + v });
     announce(was ? 'Left out.' : 'Put back in.');

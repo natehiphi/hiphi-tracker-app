@@ -175,7 +175,9 @@ with sync_playwright() as pw:
     c, p = ctx(b, 390, 844); visit(p, '/more')
     ok(not p.locator('#hq').is_visible() and p.locator('.hsearchbtn').is_visible(), 'phone: the header has the magnifier, not a box')
     visit(p, '/find'); p.locator('#q').fill('e-cig'); p.wait_for_timeout(1500)
-    ok(not state(p)['open'] and p.locator('#fd-results .mb-row, #fd-results .fd-irow').count() > 0, 'phone: Find lists results as you type, no header list')
+    # R-303: the calm redesign's Find (everyone's since 19 Oct) draws an issue as .rc-irow and a bill under "Bills" or
+    # "Other bills" as .rc-row; the topic rows before typing are .rc-row too, so only result rows count.
+    ok(not state(p)['open'] and p.locator('#fd-results .mb-row, #fd-results .fd-irow, #fd-results .rc-irow, #fd-results [aria-labelledby="fd-ob-h"] .rc-row').count() > 0, 'phone: Find lists results as you type, no header list')
     c.close()
 
     # ---- the live site: issues at once, then bills from the database (read-only public views) ----

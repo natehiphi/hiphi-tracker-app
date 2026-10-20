@@ -4,7 +4,7 @@
 // Follow-ups after Nate's review (9/19): the page leads with the bill's everyday name when it has one, asks "Where do
 // you stand?" near the top, keeps community numbers to this one bill, follows the same easiest-first ladder as the
 // action card, and has a real desktop layout (the actions in a side panel that stays in view, no bottom bar).
-import { fxArt, S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, blurb, asSentence, cleanDesc, nick, spaced, alive, stopOf, plainStatus, stopDetail, cmteLabel, roomLabel,
+import { errArt, S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, blurb, asSentence, cleanDesc, nick, spaced, alive, stopOf, plainStatus, stopDetail, cmteLabel, roomLabel,
   dueInfo, dayWord, timeWord, hearingWhen, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
   pickBill, billRef, billPath, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
@@ -20,7 +20,7 @@ import { stoppedAt } from '../stops.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing } from './actions.js';
 import { flower } from './art.js';
 import { followAsk, profileSaved, levelLine, levelBox, wireLevelLine } from './alerts.js';   // the profile ask after a follow (R-184); how much an issue texts (R-299)
-import { celebrate as moment, fxOn, rooster, cheer } from './fx.js';
+import { celebrate as moment, fxOn, rooster } from './fx.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
 import { abEvent } from './variant.js';
 import { legMoments, planFor } from './speakup.js';   // the floor vote's email to their own legislator (R-169); the walkthrough a button opens
@@ -770,10 +770,11 @@ function issueLine(b, x) {
 // say; before that it stays on this device. Never only "private", which was untrue for anyone with a profile.
 const stanceWho = () => signedIn() ? 'Only you and HIPHI staff see your answer. Others see totals.' : 'Your answer stays on this device. Others see only totals.';
 const STANCES = [['support', 'Support'], ['oppose', 'Oppose'], ['unsure', 'Not sure yet']];
-function stanceInner(b, x) {
+function stanceInner(b, x, { said = false } = {}) {
   const mine = myStance(b.id);
   // Someone who sees it differently from HIPHI is never handed HIPHI's letter; where no action card says so, say it here.
-  const own = x.differs && !x.act && !wide() ? `<p class="note">${icon('info')}<span>You see this one differently from HIPHI. You can still tell lawmakers what you think, in your own words.</span></p>` : '';
+  // said: layout 3's action card already says it (A-14).
+  const own = x.differs && !x.act && !said && !wide() ? `<p class="note">${icon('info')}<span>You see this one differently from HIPHI. You can still tell lawmakers what you think, in your own words.</span></p>` : '';
   return `<h2 id="bl-stance-h">Where do you stand?</h2>
     <div class="chips" role="group" aria-labelledby="bl-stance-h">${STANCES.map(([v, label]) => `<button type="button" class="chip" data-bl-stance="${v}" aria-pressed="${mine === v}">${mine === v ? icon('check') : ''}${label}</button>`).join('')}</div>
     <p class="bl-stnote">${mine ? 'Saved. ' : ''}${stanceWho()}</p>${own}`;
@@ -788,9 +789,11 @@ function sideTools(b) {
 }
 // Community numbers live here, inside one bill, and nowhere wider (Nate, 9/19): how its followers lean, and what has
 // been done about it through HIPHI. Every number is shown only from 10 people; with none, the block is not drawn.
-function othersBlock(b) {
+// Layout 3 (R-303) draws the same lines inside its closed card "Others following this bill" (bare: no card or heading of its
+// own), and leaves out the emails when its action card already says how many have written (noEmails, A-14).
+function othersBlock(b, { bare = false, noEmails = false } = {}) {
   const s = (S.billStances || {})[b.id], split = s && countOk(s.people) && (s.support || s.oppose) ? s : null;
-  const ac = S.actionCounts[b.id] || {}, fol = countOk(b.watchers), t = countOk(ac.testimonies), e = countOk(ac.emails), a = countOk(ac.attending);
+  const ac = S.actionCounts[b.id] || {}, fol = countOk(b.watchers), t = countOk(ac.testimonies), e = noEmails ? 0 : countOk(ac.emails), a = countOk(ac.attending);
   if (!split && !fol && !t && !e && !a) return '';
   const say = (k, w) => `${k} ${k === 1 ? w + 's' : w} it`;
   let stand = '';
@@ -805,6 +808,7 @@ function othersBlock(b) {
   // who follow it by itself, so "86 took a stand" sat beside "22 follow" with nothing to tie them (R-212 #5).
   const more = split && fol && split.people > fol;
   const lines = [fol ? `${fol} people follow this bill directly.${more ? ' More get its news through an issue they follow.' : ''}` : '', sent ? `People have sent ${sent} through HIPHI.` : '', a ? `${a} said they would go to a hearing.` : ''].filter(Boolean);
+  if (bare) return `<div class="bl-others bl-roth">${stand}${lines.length ? `<p class="bl-ocount">${lines.map(esc).join(' ')}</p>` : ''}</div>`;
   return `<section class="card flat bl-others" aria-labelledby="bl-oth-h"><h2 id="bl-oth-h">${icon('users')}<span>Others following this bill</span></h2>
     ${stand}${lines.length ? `<p class="bl-ocount">${lines.map(esc).join(' ')}</p>` : ''}</section>`;
 }
@@ -1018,7 +1022,7 @@ function page(num, b) {
 // details as closed cards that each person's browser remembers. One version (the 15 Oct freeze rules out "try both"),
 // behind ?rec=1 until Nate's look; today's page stays the default without it. Its parts are today's (situation,
 // mainButton, actionSection, railInfo, whoDecides, aboutBill), so the hooks in wire() serve both.
-const REC = () => new URLSearchParams(location.search).has('rec');
+const REC = () => new URLSearchParams(location.search).get('rec') !== '0';   // everyone's since 19 Oct (Nate); ?rec=0 brings back the old pages
 // Which cards this person opened last time (spec: "Coming back"): names in localStorage, on this device only.
 const RFOLD = 'hiphi_recfold';
 const recFolds = () => { try { const a = JSON.parse(localStorage.getItem(RFOLD) || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
@@ -1094,6 +1098,7 @@ function recWhere(b, x, { title = 'Where it is now' } = {}) {
     <details class="bl-steps bl-rall" ${fold(b, 'steps')}><summary><span>See all ${n} steps</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary>${steps.html}
       <p class="bl-learn"><a href="#/learn/session/${esc(b.id)}">${icon('play')}<span>Watch this bill’s trip through the Capitol, about a minute</span></a></p></details></div></section>`;
 }
+const RMAIL = ['ask', 'hold', 'remind', 'floor', 'conference', 'governor'];
 // The action card without a hearing: the deadline it races and the days left, what to do and why, the button, how long
 // it takes and how many have done it (only from 10 people), then More ways to help inside the card.
 function recDo(b, x, { lead = '' } = {}) {
@@ -1103,7 +1108,7 @@ function recDo(b, x, { lead = '' } = {}) {
   // a committee's row said "by Mon, Mar 30" and this card, one tap on, "by Mon 3/30").
   const when = !dl ? '' : x.waiting ? `Needs a hearing by ${dayLongD(dl.date)}` : x.kind === 'floor' ? `The ${N[x.st.chamber] || 'full chamber'} votes by ${dayLongD(dl.date)}` : `Deadline ${dayLongD(dl.date)}`;
   const left = !dl ? '' : dl.days === 0 ? 'Today' : dl.days === 1 ? '1 day left' : `${dl.days} days left`;
-  const mail = ['ask', 'hold', 'remind', 'floor', 'conference', 'governor'].includes(x.kind), n = countOk((S.actionCounts[b.id] || {}).emails);
+  const mail = RMAIL.includes(x.kind), n = countOk((S.actionCounts[b.id] || {}).emails);
   const more = mail ? `About 2 minutes${n ? ` · ${n} people have ${/ask|remind/.test(x.kind) ? 'asked' : 'written'} so far` : ''}` : '';
   const row = (ic, t, s, attrs) => `<${attrs.href ? 'a' : 'button type="button"'} class="bl-rway" ${Object.entries(attrs).map(([k, v]) => `${k}="${esc(v)}"`).join(' ')}><span class="bl-rwic">${icon(ic)}</span><span><span class="bl-rwt">${esc(t)}</span><span class="bl-rws">${esc(s)}</span></span>${icon('chevron-right', { cls: 'bl-chevr' })}</${attrs.href ? 'a' : 'button'}>`;
   const ways = x.live && asking(x) ? `<details class="bl-rways" ${fold(b, 'ways')}><summary><span>More ways to help</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary>
@@ -1191,14 +1196,23 @@ function recPage(num, b, x) {
   if (firstVisit() && !S.blNew.has(b.id)) { logVisit('arrive', 'view', { path: 'link' }); S.blNew.add(b.id); }
   const note = b.sandbox_untracked ? `<div class="notice info bl-note">${icon('info')}<div>This bill is not on HIPHI’s list, so the sandbox has only its number and title. The live tracker shows every bill in full.</div></div>` : '';
   const pos = posInfo(b), why = pos ? `why HIPHI ${pos.verb === 'comment on' ? 'comments on' : pos.verb + 's'} it, ` : '';
+  // What the action card without a hearing (recDo) already says, so the parts below do not say it again (A-14): how many
+  // have emailed, and "You see this one differently from HIPHI".
+  const doCard = !x.act && !!mainButton(b, x), cardSays = doCard && /differently from HIPHI/.test(doWords(b, x)[1] || '');
+  // Others following this bill: group numbers only from 10 people (countOk); no card at all without one.
+  const others = othersBlock(b, { bare: true, noEmails: doCard && RMAIL.includes(x.kind) });
   const folds = recFold('who', 'Who decides next', recWhoPrev(x), recWho(b, x))
     + recFold('about', 'About the bill', `In the Legislature’s words, ${why}what each draft changed`, aboutBill(b, { reasons: true, pfx: 'bl-rab' }) + draftsSection(b).replace(/^<details[^>]*><summary>[\s\S]*?<\/summary>/, '<div class="bl-rdrafts"><h3 class="ab-h">What each draft changed</h3>').replace(/<\/details>$/, '</div>'))
-    + recFold('more', 'More details', `Official title, ${companionsOf(b).length ? `companion ${spaced(companionsOf(b)[0])}, ` : ''}every draft and official action`, recDetails(b, x));
-  const rest = `${note}${recWhere(b, x)}<div class="bl-rfolds">${folds}</div>`;
+    + recFold('more', 'More details', `Official title, ${companionsOf(b).length ? `companion ${spaced(companionsOf(b)[0])}, ` : ''}every draft and official action`, recDetails(b, x))
+    + (others ? recFold('others', 'Others following this bill', 'How people lean and what they have done', others) : '');
+  // Where do you stand? (R-303, Nate 19 Oct: back on the calm page) A quiet card after the action, never above it: on a
+  // phone under Where it is now, on a wide screen under the action card in the side panel. Only while the bill can move.
+  const stance = x.live ? `<section class="card flat bl-stance bl-rstance" aria-labelledby="bl-stance-h">${stanceInner(b, x, { said: cardSays })}</section>` : '';
+  const rest = `${note}${recWhere(b, x)}${wide() ? '' : stance}<div class="bl-rfolds">${folds}</div>`;
   if (!wide()) return `<div class="bl-page bl-rec">${recTop(b)}${recHead(b, x)}${recAct(b, x)}${rest}</div>`;
   return `<div class="bl-page bl-wide bl-rec">${recTop(b)}<div class="cols bl-cols">
     <div class="bl-main">${recHead(b, x)}</div>
-    <aside class="side bl-side" aria-label="Take part">${recAct(b, x)}</aside>
+    <aside class="side bl-side" aria-label="Take part">${recAct(b, x)}${stance}</aside>
     <div class="bl-main bl-main2">${rest}</div></div></div>`;
 }
 // Once the action card's button has scrolled up under the top bars, it docks above the tab bar (the mockup's check()).
@@ -1215,8 +1229,8 @@ export function recDock() {
 window.addEventListener('scroll', recDock, { passive: true });
 const loading = () => `<div class="bl-skel">${skeleton(4)}</div>`;
 const shell = (num, inner) => `<div class="bl-page${wide() ? ' bl-wide' : ''}">${topbar(num, null)}${inner}</div>`;
-const missing = (num, year) => `<div class="empty bl-empty">${fxArt('error') || icon('search', { size: 40 })}<h1>We couldn’t find ${esc(spaced(num) || 'that bill')}${year ? ` from the ${year} session` : ''}</h1><p>Check the number, or search for the bill by a word like e-cigarettes.</p>${btn('Search bills', { kind: 'primary', icon: 'search', href: `#/find?q=${encodeURIComponent(num)}` })}</div>`;
-const failed = () => `<div class="empty bl-empty" role="alert">${fxArt('error') || icon('circle-alert', { size: 40 })}<h1>We couldn’t load this bill</h1><p>Check your connection and try again.</p>${btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { 'data-bl-retry': '1' } })}</div>`;
+const missing = (num, year) => `<div class="empty bl-empty">${errArt()}<h1>We couldn’t find ${esc(spaced(num) || 'that bill')}${year ? ` from the ${year} session` : ''}</h1><p>Check the number, or search for the bill by a word like e-cigarettes.</p>${btn('Search bills', { kind: 'primary', icon: 'search', href: `#/find?q=${encodeURIComponent(num)}` })}</div>`;
+const failed = () => `<div class="empty bl-empty" role="alert">${errArt()}<h1>We couldn’t load this bill</h1><p>Check your connection and try again.</p>${btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { 'data-bl-retry': '1' } })}</div>`;
 
 // ---------------- actions ----------------
 // Scroll something into view under the bars that stay on screen. Nothing moves when it is already in view (on a wide
@@ -1404,9 +1418,6 @@ export default {
         }
       } finally { stanceBusy = false; }
       app.render();
-      // R-308 on trial (?demo=1&fx=stance): a stance taken is a small win (C-7), the burst and the rooster just above the choice.
-      // The rooster beside the question, in the clear space after it; not when the follow's toast already shows one (fx=all).
-      if (fxOn('stance') && myStance(b.id)) cheer('stance', document.querySelector(`[data-bl-stance="${myStance(b.id)}"]`), 10, 40, { side: 'text', at: document.getElementById('bl-stance-h'), alone: true });
     }));
     root.querySelector('[data-bl-menu]')?.addEventListener('click', e => { e.stopPropagation(); setMenu(document.getElementById('bl-menu').hidden); });
     root.querySelectorAll('[data-bl-addto]').forEach(el => el.addEventListener('click', () => { setMenu(false); openAddTo(b); }));

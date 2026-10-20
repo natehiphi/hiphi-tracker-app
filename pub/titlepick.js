@@ -60,7 +60,8 @@ export function pickerHTML(pfx, st, o) {
     <button type="button" class="explain tp-morebtn" data-tp-more aria-expanded="${!!st.more}" aria-controls="${pfx}-tpm">${icon(st.more ? 'chevron-up' : 'chevron-down')}<span>${st.more ? 'Fewer titles' : 'More titles'}</span></button>${more}
     <div class="field tp-type"><label for="${pfx}-tq">Or type one, in your own words</label>
       <input id="${pfx}-tq" type="text" value="${esc(q)}" maxlength="${OWN_MAX + 60}" autocomplete="off" autocapitalize="none" spellcheck="true" placeholder="like youth soccer coach"
-        role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${pfx}-tpl">
+        role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${pfx}-tpl" aria-describedby="${pfx}-tqh">
+      <span class="help" id="${pfx}-tqh">A credential or field fits too, like “pediatric nurse practitioner” or “retired RN”.</span>
       <div class="tp-box" id="${pfx}-tpb">${listHTML(pfx, st)}</div></div>`}
     ${addOnly ? `<div class="btnrow tp-done"><button type="button" class="btn secondary sm" data-tp-done>${icon('check')}<span>Done adding</span></button></div>` : ''}
   </fieldset>`;
@@ -101,7 +102,8 @@ export function wirePicker(root, pfx, st, onChange = () => {}) {
     box.innerHTML = listHTML(pfx, st);
     const os = opts(), open = os.length > 0;
     inp.setAttribute('aria-expanded', String(open));
-    if (box.querySelector('.tp-note')) inp.setAttribute('aria-describedby', `${pfx}-tpn`); else inp.removeAttribute('aria-describedby');
+    // The hint (R-212 #23) always; the note about the 40 letters when there is one.
+    inp.setAttribute('aria-describedby', box.querySelector('.tp-note') ? `${pfx}-tqh ${pfx}-tpn` : `${pfx}-tqh`);
     if (open && st.active >= 0) inp.setAttribute('aria-activedescendant', `${pfx}-tpo${st.active}`); else inp.removeAttribute('aria-activedescendant');
     os.forEach(o => { o.onmousedown = e => e.preventDefault(); o.onclick = () => choose(o.dataset.tpo); });
   };

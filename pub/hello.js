@@ -40,7 +40,7 @@ export function whoLine(name, titles, key) {
   const who = n && t ? vary(key + '|who', [`My name is ${n}, and I’m ${t}.`, `I’m ${n}, ${t}.`, `My name is ${n}. I’m ${t}.`])
     : n ? vary(key + '|who', [`My name is ${n}.`, `I’m ${n}.`]) : t ? `I’m ${t}.` : '';
   // A faith leader, board member, nonprofit or public health worker says they are not speaking for their group (R-147).
-  const self = t && needsSelf(titles) ? vary(key + '|self', ['I’m writing for myself, not for any group.', 'I’m speaking only for myself here.']) : '';
+  const self = t && needsSelf(titles) ? vary(key + '|self', ['I’m writing for myself, not for any group.', 'I’m writing for myself, not for my workplace.']) : '';
   return [who, self].filter(Boolean).join(' ');
 }
 // Where they stand, in one sentence. pos: HIPHI's position word when the letter carries it (strongly_support...), else the
@@ -92,9 +92,11 @@ export function helloFacts(pick = '') {
   const support = all.filter(b => st(b.id) === 'support'), oppose = all.filter(b => st(b.id) === 'oppose');
   const stood = [...support, ...oppose], followed = followedIssues();
   const first = support[0] || oppose[0] || null, firstIssues = first ? issuesOf(first) : [];
-  // The default: the issue of the first bill they took a stand on (when they follow that issue), else the first they follow.
+  // The default: the issue of the first bill they took a stand on (when they follow that issue), else the first they follow,
+  // else the issue of a bill they follow on its own (R-212 #25: someone who follows bills one by one follows no issue).
   const standIssue = firstIssues.find(i => followed.some(f => f.id === i.id)) || null;
-  const def = standIssue || followed[0] || firstIssues[0] || null;
+  const watched = followed.length || firstIssues.length ? null : all.filter(b => S.watch?.has(b.id)).map(b => issuesOf(b)[0]).find(Boolean) || null;
+  const def = standIssue || followed[0] || firstIssues[0] || watched;
   const top = followed.find(i => i.id === pick) || def;
   const bill = top ? stood.find(b => issuesOf(b).some(i => i.id === top.id)) || null : null;
   return { issues: followed, top, bill, billSupport: !!bill && st(bill.id) === 'support',

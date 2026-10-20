@@ -23,6 +23,8 @@ export function createAddressPicker() {
     timer = setTimeout(async () => {
       let results; try { results = await fetchAddrSuggest(q); } catch { results = []; }
       if (latestQ !== q) return;   // superseded by later typing
+      // The address table can hold one address twice ("416 Wailea St, Waimanalo 96795"): one row each (the critic, 19 Oct).
+      const seen = new Set(); results = (results || []).filter(r => { const k = String(r.label || '').toLowerCase().replace(/\s+/g, ' ').trim(); return !seen.has(k) && seen.add(k); });
       addr = { q, results }; loading = false; onDone();
     }, 250);
   }

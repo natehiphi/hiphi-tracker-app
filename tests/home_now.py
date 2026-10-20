@@ -8,7 +8,7 @@ BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html?d
 # deadlines, other bill ids) and fail for reasons that are not the page's (R-243)
 if 'demo=1' not in BASE: BASE += ('&' if '?' in BASE else '?') + 'demo=1'
 # The Home before 11 Oct (layout 'today'): automated browsers get the calm Home since R-222, which this test does not read.
-BASE += '&ab=layout.today'
+BASE += '&rec=0&ab=layout.today'
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 res = []
 def ok(c, m): res.append(bool(c)); print('PASS' if c else 'FAIL', m)

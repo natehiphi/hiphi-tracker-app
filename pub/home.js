@@ -12,7 +12,7 @@
 // are gone (Nate, 9/19); numbers about other people appear only inside one bill or one hearing.
 // On wide screens Home is two columns (wide.css .cols): things to do on the left, your session, what's new and the
 // suggestion on the right. The full bill list lives in My bills.
-import { fxArt, S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive, issues, issueOf, openActions, waitingBills, askedChair, nextWords, issuesLink, companionsOf,
+import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive, issues, issueOf, openActions, waitingBills, askedChair, nextWords, issuesLink, companionsOf,
   actedOn, settledOn, didKind, agrees, doneKey, KINDS, dismissed, suggestionList, reasonOf, noteShown, wiz, groupNames, sessionInfo, myActions, MILESTONES,
   nudge, CONSENT_KEY, textSaved, countOk, anyBill, anyHearing, outcomeOf, plainStatus, whyStopped, cmteLabel, codesOf, CHAMBER_NAME,
   issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, hearingWhen, dateLong, hstDay, hiT, pickedTopic, followSummary, followedIssues,
@@ -328,7 +328,7 @@ function wireGood() {
   gd.fresh.forEach(() => logAct('moment'));   // counted privately, kind only (migration 106)
   // The card is looked up when the burst is due, in the page as it is then: a redraw in between must not burst the old copy.
   gd.cards.filter(x => isNew.has(x.key) && x.kind !== 'law').forEach((x, i) => later(() => {
-    const el = document.querySelector(`#main [data-gn-key="${CSS.escape(x.key)}"] .hm-gnic`); if (el) cheer('goodnews', el, 12, 52, { side: 'on', size: 36 }); }, i * 350));
+    const el = document.querySelector(`#main [data-gn-key="${CSS.escape(x.key)}"] .hm-gnic`); if (el) cheer('goodnews', el, 12, 52, { side: 'on', size: 48 }); }, i * 350));
   return [...gd.cards, ...gd.reason].find(x => x.kind === 'law' && isNew.has(x.key)) || null;
 }
 // "Got it" removes one card: it fades, the page is drawn again, and the next waiting card takes its place (it bursts as it
@@ -625,7 +625,7 @@ function returnView(si, { cards, asks, open, total, folded, sug, inCards }) {
   let quiet = '';
   if (!total) {
     quiet = cards.length || folded.length
-      ? empty({ art: fxArt('empty', { key: 'hm-alldone' }) || islands(myIsland()), text: 'You’ve done everything on your list this week. Mahalo! New hearings usually post by Friday.' })
+      ? empty({ art: islands(myIsland()), text: 'You’ve done everything on your list this week. Mahalo! New hearings usually post by Friday.' })
       : live ? `<p class="lede">Nothing needs you right now. When one of the ${live === 1 ? 'bill' : `${n(live)} bills`} on your issues has a hearing, a simple way to help shows up here.</p>`
       : `<div class="hm-quiet"><p class="lede">Their record stays in My issues. Other bills are still moving and need voices.</p>${btn('Find bills still moving', { kind: sug ? 'secondary' : 'primary', icon: 'search', href: '#/find' })}</div>`;
   }
