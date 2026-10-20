@@ -343,11 +343,15 @@ export function resultHTML(pick, b, from) {
   const legs = pick.ids.map(legById).filter(l => l && seatCache.ids.has(l.id));
   const sen = legs.filter(l => l.chamber === 'S').sort(bySeat), rep = legs.filter(l => l.chamber === 'H').sort(bySeat);
   const exact = sen.length === 1 && rep.length === 1, where = townOf(pick), label = pick.display || pick.label || 'Your districts';
+  // R-212 #21 (the District Watcher): a town is never saved or called "yours", even when it finds one of each. Its people
+  // come from the Legislature's district descriptions, which name only some towns (Kailua is two House districts and the
+  // list may name one), so a town once saved the wrong representative. Only a street address says who is yours.
+  const sure = exact && pick.kind !== 'place';
   const split = [sen, rep].some(x => x.length > 1), none = [sen, rep].filter(x => !x.length).map(x => x === sen ? 'senator' : 'representative');
   const why = !exact ? (split ? `${esc(pick.label)} is split between districts, so it depends on your street.` : `The town alone doesn’t tell us your ${none.join(' or ')}. Your street address will.`) : '';
   const slot = (list, ch) => {
     const word = ch === 'S' ? 'senator' : 'representative', Word = ch === 'S' ? 'Senators' : 'Representatives';
-    if (list.length === 1) return bigCard(list[0], { eyebrow: exact ? yoursWord(list[0]) : `${ch === 'S' ? 'Senator' : 'Representative'} for ${pick.label}`, b, from, where });
+    if (list.length === 1) return bigCard(list[0], { eyebrow: sure ? yoursWord(list[0]) : `${ch === 'S' ? 'Senator' : 'Representative'} for ${pick.label}`, b, from, where });
     // Neighbour-island Senate districts name regions ("South Maui"), not towns: show the island's few senators.
     const isl = !list.length && pick.island ? seated().filter(l => l.chamber === ch && islandOf(l) === pick.island).sort(bySeat) : [];
     if (isl.length > 1 && isl.length <= 4) return `<div class="card pp-slot"><p class="pp-eyebrow">${Word} for ${esc(ISLAND_NAME[pick.island])}</p>
@@ -361,12 +365,12 @@ export function resultHTML(pick, b, from) {
   return `<section class="pp-result" aria-labelledby="pp-for">
     <div class="pp-for">${icon(pick.kind === 'place' ? 'house' : 'map-pin')}<h2 id="pp-for" tabindex="-1"><span class="sr">Results for </span>${esc(label)}</h2>
       ${btn('Change', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-pp-change': '' } })}</div>
-    ${exact ? `<p class="pp-intro">They work for you. A short, friendly note from someone in their district gets read.</p>`
+    ${sure ? `<p class="pp-intro">They work for you. A short, friendly note from someone in their district gets read.</p>`
+      : exact ? `<div class="pp-notice">${notice('info', 'info', `<p>District lines can split a town, so these two may not be yours. Your street address tells for sure, and then this device can remember them.</p>`)}${btn('Use my street address', { kind: 'secondary', icon: 'map-pin', full: true, attrs: { 'data-pp-street': '' } })}</div>`
       : `<div class="pp-notice">${notice('info', 'info', `<p>${why}</p>`)}${btn('Use my street address', { kind: 'secondary', icon: 'map-pin', full: true, attrs: { 'data-pp-street': '' } })}</div>`}
     <div class="pp-slots grid2${P.mail ? ' pp-writing' : ''}">${slot(sen, 'S')}${slot(rep, 'H')}</div>
-    ${exact ? `<label class="check pp-remember"><input type="checkbox" id="pp-remember"${P.remember ? ' checked' : ''} aria-describedby="pp-remhelp">
+    ${sure ? `<label class="check pp-remember"><input type="checkbox" id="pp-remember"${P.remember ? ' checked' : ''} aria-describedby="pp-remhelp">
       <span><span class="strong">Remember on this device</span><span class="help" id="pp-remhelp">Bill pages will point out your senator and representative. Saved only on this device.</span></span></label>` : ''}
-    ${exact && pick.kind === 'place' ? `<p class="pp-fine">${icon('info')}<span>Found by town. District lines can split a town, so your street address is the surest way.</span></p>` : ''}
   </section>`;
 }
 function bigCard(l, { eyebrow, b, from, where }) {
@@ -560,7 +564,7 @@ export function setPick(pick) {
   P.pick = pick; P.changing = false; P.mail = null; P.q = '';
   const legs = pick.ids.map(legById).filter(l => l && seated().includes(l));
   pick.ids = legs.map(l => l.id);
-  if (P.remember && legs.filter(l => l.chamber === 'S').length === 1 && legs.filter(l => l.chamber === 'H').length === 1) remember(pick);
+  if (P.remember && pick.kind !== 'place' && legs.filter(l => l.chamber === 'S').length === 1 && legs.filter(l => l.chamber === 'H').length === 1) remember(pick);
   app.render();
   // Move to the answer: the keyboard closes and a screen reader hears where the results are for.
   requestAnimationFrame(() => { const h = $('#pp-for'); if (!h) return; h.focus({ preventScroll: true }); h.closest('.pp-result')?.scrollIntoView({ block: 'nearest' }); });

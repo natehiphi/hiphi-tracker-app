@@ -153,8 +153,10 @@ function legsPage() {
 }
 function wireLegs() {
   const box = document.querySelector('[data-nxaddr]');
-  const paint = () => { const el = document.getElementById('nx-sugs'); if (!el) return; el.innerHTML = sugsHTML(); wireSugs(); };
-  if (box) box.oninput = () => { S.nxAddr.q = box.value; S.nxAddr.err = ''; AP.search(box.value.trim(), paint); paint(); };
+  // Enter pressed while the suggestions are still on their way waits for them (R-212 #21, as people.js since R-303).
+  let enterWaits = false;
+  const paint = () => { const el = document.getElementById('nx-sugs'); if (!el) return; el.innerHTML = sugsHTML(); wireSugs(); if (enterWaits && !AP.isLoading()) { enterWaits = false; onEnter(); } };
+  if (box) box.oninput = () => { S.nxAddr.q = box.value; S.nxAddr.err = ''; enterWaits = false; AP.search(box.value.trim(), paint); paint(); };
   const look = async r => {
     S.nxAddr.finding = true; app.render();
     try {
@@ -178,9 +180,13 @@ function wireLegs() {
     document.querySelectorAll('[data-nxtyped]').forEach(el => el.onclick = () => look({ label: S.nxAddr.q.trim(), pt: null }));
   }
   wireSugs();
-  if (box) box.onkeydown = e => { if (e.key !== 'Enter') return; e.preventDefault();
-    const q = box.value.trim(), r = AP.results(q)[0];
-    if (r) look({ label: r.label, pt: r }); else if (typed(q, [])) look({ label: q, pt: null }); };
+  function onEnter() {
+    const q = (box?.value || '').trim(), r = AP.results(q)[0];
+    if (AP.isLoading()) { enterWaits = true; return; }
+    if (r) look({ label: r.label, pt: r }); else if (typed(q, [])) look({ label: q, pt: null });
+    else if (q) { S.nxAddr.err = 'Type your house number and street, like 45-600 Keaahala Rd.'; paint(); }
+  }
+  if (box) box.onkeydown = e => { if (e.key !== 'Enter') return; e.preventDefault(); onEnter(); };
   const clear = document.querySelector('[data-nxclear]');
   if (clear) clear.onclick = () => { S.nxAddr = { q: '', pick: null, finding: false, err: '' }; app.render(); requestAnimationFrame(() => document.getElementById('nx-addr')?.focus()); };
 }

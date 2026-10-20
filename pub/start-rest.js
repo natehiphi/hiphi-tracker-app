@@ -989,9 +989,12 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
   if (name === 'you') {
     const abox = $('[data-staddr]');
     // Only the list under the box is redrawn while typing; the box itself stays, with the cursor where the person put it.
-    const paintSugs = () => { const box = document.getElementById('st-addrsugs'); if (!box) return; box.innerHTML = addrSugsHTML(); wireSugs(); };
+    // Enter pressed while the suggestions are still on their way waits for them (R-212 #21, as people.js since R-303):
+    // it used to look up the half-matched text as typed, or do nothing.
+    let enterWaits = false;
+    const paintSugs = () => { const box = document.getElementById('st-addrsugs'); if (!box) return; box.innerHTML = addrSugsHTML(); wireSugs(); if (enterWaits && !APstart.isLoading()) { enterWaits = false; onEnter(); } };
     if (abox) abox.oninput = () => {
-      S.stAddr.q = abox.value; S.stAddr.err = '';
+      S.stAddr.q = abox.value; S.stAddr.err = ''; enterWaits = false;
       APstart.search(abox.value.trim(), paintSugs);
       paintSugs();
     };
@@ -1013,9 +1016,13 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       $$('[data-staddrtyped]').forEach(el => el.onclick = () => look({ label: S.stAddr.q.trim(), pt: null }));
     }
     wireSugs();
-    if (abox) abox.onkeydown = e => { if (e.key !== 'Enter') return; e.preventDefault();
-      const q = abox.value.trim(), r = APstart.results(q)[0];
-      if (r) look({ label: r.label, pt: r }); else if (typed(q, [])) look({ label: q, pt: null }); };
+    function onEnter() {
+      const q = (abox?.value || '').trim(), r = APstart.results(q)[0];
+      if (APstart.isLoading()) { enterWaits = true; return; }
+      if (r) look({ label: r.label, pt: r }); else if (typed(q, [])) look({ label: q, pt: null });
+      else if (q) { S.stAddr.err = 'Type your house number and street, like 45-600 Keaahala Rd.'; paintSugs(); }
+    }
+    if (abox) abox.onkeydown = e => { if (e.key !== 'Enter') return; e.preventDefault(); onEnter(); };
     const aclear = $('[data-staddrclear]'); if (aclear) aclear.onclick = () => { S.stAddr = { q: '', pick: null, finding: false, err: '' }; app.render(); requestAnimationFrame(() => document.getElementById('st-addr')?.focus()); };
     const nb = $('[data-stnext]'); if (nb) nb.onclick = () => { track(name, 'next', { counts: { address: !!S.stAddr.pick } }); goStep(step, step + 1); };
   }

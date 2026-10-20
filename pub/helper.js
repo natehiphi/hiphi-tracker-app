@@ -60,7 +60,7 @@ import { logTime } from './visitlog.js';   // how long a letter took (R-169, bac
 import { readyLetter, readyMail, letterOn, letterCheck, draftNotes, draftName, draftLabel, keepLetter, forgetLetter } from './letters.js';
 import { myDistricts } from './speakup.js';
 import { hasProfile, myName, myTitles, myStory, myStories, myInterests, storyFor, otherStory, storyAsk, storyName, STORY_HINT, saveProfile } from './myprofile.js';   // R-147, R-156, R-165
-import { pickTitle, asWords, aWords, needsSelf, cleanTitles, titleLabel } from './titles.js';
+import { pickTitle, asWords, aWords, needsSelf, setSelfPref, cleanTitles, titleLabel } from './titles.js';
 import { pickerHTML, wirePicker, pendingTitle } from './titlepick.js';
 import { aboutBill as readMore, billTextUrl } from './billtext.js';   // "Read more about the bill" where people pick a side (R-178)
 import { sentence, closingOf, andList, districtWords, helloSubject, helloFacts, helloLetter, thanksLine, vary, townWord, whoLine, standLine, ownLine } from './hello.js';   // the hello letter, shared with people.js (R-172)
@@ -1149,15 +1149,18 @@ function saysBox(x) {
   if (x.remind) return '';
   const all = titlesOf(x), parts = [];
   const usual = x.b ? pickTitle(all, aboutBill(x.b)) : all.slice(0, 1), two = twoFor(x);
-  if (all.length) parts.push(['titles', asWords(two.length ? two : usual), two.length > 0]);
+  if (all.length) parts.push(['titles', asWords(two.length ? two : usual, false), two.length > 0]);
+  // "Writing for myself" for any title (R-212 #23), on by default only for the group titles; the choice stays for every letter.
+  if (two.length) parts.push(['self', 'Writing for myself', needsSelf(two)]);
   if (isMail(x) ? x.mode === 'email' && x.to.some(t => isMineLeg(t.leg)) : !!liveLine(x.h)) parts.push(['live', isMail(x) ? 'You live in their district' : liveLine(x.h).replace(/\.$/, ''), !x.noLive]);
   const saved = [myStory(), ...Object.values(myStories())].includes(x.why.trim());
   if (x.why.trim() && !own2()) parts.push(['why', saved ? 'Your story' : 'Your reason', !x.noWhy]);
   if (!parts.length) return '';
   // A part left out says so, with a plus to put it back (the review: a plain outline read as still in).
-  const out = parts.some(([, , on]) => !on);
+  // "Writing for myself" off is an offer to add it, not a part left out.
+  const out = parts.some(([k, , on]) => !on && k !== 'self');
   return `<div class="hp-says" role="group" aria-labelledby="hp-says-t"><p class="hp-says-t" id="hp-says-t">About you, in this ${isMail(x) ? 'email' : 'letter'}</p>
-    <div class="chips">${parts.map(([k, l, on]) => `<button type="button" class="chip tp-c${on ? '' : ' hp-out'}" id="hp-says-${k}" data-hp="says" data-v="${k}" aria-pressed="${on}">${icon(on ? 'check' : 'plus')}<span>${esc(l)}${on ? '' : ' · left out'}</span></button>`).join('')}</div>
+    <div class="chips">${parts.map(([k, l, on]) => `<button type="button" class="chip tp-c${on ? '' : ' hp-out'}" id="hp-says-${k}" data-hp="says" data-v="${k}" aria-pressed="${on}">${icon(on ? 'check' : 'plus')}<span>${k === 'self' && !on ? 'Add “writing for myself”' : `${esc(l)}${on ? '' : ' · left out'}`}</span></button>`).join('')}</div>
     <p class="small muted">${isMail(x) ? '' : 'Testimony is posted publicly. '}${out ? 'Tap one to put it back.' : 'Tap one to leave it out.'}</p></div>`;
 }
 // Delete the kept letter or email this one started from (B-5: with Undo), under the words.
@@ -1815,6 +1818,7 @@ function onClick(e) {
     if (v === 'titles') x.use = was ? [] : null;
     else if (v === 'live') x.noLive = was;
     else if (v === 'why') x.noWhy = was;
+    else if (v === 'self') setSelfPref(!was);
     syncLetter(x);
     x.copied = x.saved = false; saveDraft(); paint({ focus: 'hp-says-' + v });
     announce(was ? 'Left out.' : 'Put back in.');
