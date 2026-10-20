@@ -873,6 +873,8 @@ function dropBand() {
   if (reduced()) { el.remove(); return; }
   el.classList.add('st-mbgone'); later(() => el.remove(), 260);
 }
+// The house number at the start of an address: "45", "92-2016", "110a" ('' when there is none).
+const houseNo = s => (/^\s*(\d+[a-z]?(?:-\d+[a-z]?)?)\b/i.exec(String(s || '')) || [])[1]?.toLowerCase() || '';
 export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
   if (name === 'issues') {
     const save = picks => { const m = model2(); if (m.sig) wizSet({ picksFor: m.sig, picks }); };
@@ -1017,10 +1019,12 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
     }
     wireSugs();
     function onEnter() {
-      const q = (abox?.value || '').trim(), r = APstart.results(q)[0];
-      if (APstart.isLoading()) { enterWaits = true; return; }
-      if (r) look({ label: r.label, pt: r }); else if (typed(q, [])) look({ label: q, pt: null });
-      else if (q) { S.stAddr.err = 'Type your house number and street, like 45-600 Keaahala Rd.'; paintSugs(); }
+      // Enter takes a suggestion only for the house number typed (the critic, 19 Oct: "Kailua" + Enter took the first street
+      // address the table had, 92-2016 Kailua Blvd on Hawaiʻi Island, and saved its legislators as theirs). A town is not enough.
+      const q = (abox?.value || '').trim(), n = houseNo(q), r = n ? APstart.results(q).find(x => houseNo(x.label) === n) : null;
+      if (APstart.isLoading() && n) { enterWaits = true; return; }
+      if (r) look({ label: r.label, pt: r }); else if (n && typed(q, [])) look({ label: q, pt: null });
+      else if (q) { S.stAddr.err = 'Add your house number and street, like 45-600 Keaahala Rd. District lines split towns.'; paintSugs(); }
     }
     if (abox) abox.onkeydown = e => { if (e.key !== 'Enter') return; e.preventDefault(); onEnter(); };
     const aclear = $('[data-staddrclear]'); if (aclear) aclear.onclick = () => { S.stAddr = { q: '', pick: null, finding: false, err: '' }; app.render(); requestAnimationFrame(() => document.getElementById('st-addr')?.focus()); };

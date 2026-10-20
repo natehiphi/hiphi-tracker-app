@@ -1161,7 +1161,7 @@ function saysBox(x) {
   const out = parts.some(([k, , on]) => !on && k !== 'self');
   return `<div class="hp-says" role="group" aria-labelledby="hp-says-t"><p class="hp-says-t" id="hp-says-t">About you, in this ${isMail(x) ? 'email' : 'letter'}</p>
     <div class="chips">${parts.map(([k, l, on]) => `<button type="button" class="chip tp-c${on ? '' : ' hp-out'}" id="hp-says-${k}" data-hp="says" data-v="${k}" aria-pressed="${on}">${icon(on ? 'check' : 'plus')}<span>${k === 'self' && !on ? 'Add “writing for myself”' : `${esc(l)}${on ? '' : ' · left out'}`}</span></button>`).join('')}</div>
-    <p class="small muted">${isMail(x) ? '' : 'Testimony is posted publicly. '}${out ? 'Tap one to put it back.' : 'Tap one to leave it out.'}</p></div>`;
+    <p class="small muted">${isMail(x) ? '' : 'Testimony is posted publicly. '}${out ? 'Tap one to put it back.' : 'Tap one to leave it out.'}${parts.some(([k]) => k === 'self') ? ' “Writing for myself” says you speak as yourself, not for your workplace; your next letters keep your choice.' : ''}</p></div>`;
 }
 // Delete the kept letter or email this one started from (B-5: with Undo), under the words.
 const forgetLink = x => x.again ? `<div class="hp-forget">${btn(`Delete this saved ${savedWord(x.again)}`, { kind: 'text', sm: true, icon: 'trash-2', cls: 'hp-quietbtn', attrs: { 'data-hp': 'again-forget' } })}</div>` : '';

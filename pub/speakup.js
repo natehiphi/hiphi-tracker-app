@@ -11,14 +11,14 @@
 //    in a committee one of theirs chairs / sits on). A hearing's moment is a row under "More ways to help"
 //    (actions.js), where testimony still leads; the others are one card on Home, as the main suggestion only when Home
 //    has nothing more urgent (no testimony, no ask of a chair).
-// 3. The one-time introduction (R-080 C): a card on Home once someone has found their legislators and follows an issue,
+// 3. The one-time introduction (R-080 C): a card on Home once someone has found their legislators and follows anything,
 //    "Introduce yourself to your legislators". Sent or "No thanks", it never comes back (hiphi_intro, this browser).
 // Home (pub/home.js) belongs to another session too: its wire() already calls wireActions(root), and wireActions calls
 // mountHome(root) here, which adds the cards to the page Home just drew.
 // Who "your legislators" are: the districts this browser keeps after the address step or the Legislators page
 // (hiphi_districts: the two district numbers, never the address) or, signed in, the account's districts.
 import { S, esc, icon, spaced, nick, blurb, alive, posInfo, stopOf, hearingsOf, openActions, legsOf, askMark, agrees, myStance,
-  followedIssues, firstVisit, cmteLabel, CHAMBER_NAME, app, billPath } from './core.js';
+  followsAnything, firstVisit, cmteLabel, CHAMBER_NAME, app, billPath } from './core.js';
 import { btn } from './ui.js';
 
 const DISTRICTS_KEY = 'hiphi_districts', INTRO_KEY = 'hiphi_intro', SKIP_KEY = 'hiphi_speak_skip';
@@ -91,6 +91,11 @@ function momentWords(b, m) {
 // The row under "More ways to help" on an action card, for a hearing where one of theirs sits on the committee.
 export function hearingRow(b, h, moreRow) {
   const m = legMoments(b, { all: true }).find(x => x.kind === 'hearing' && x.h.id === h.id); if (!m) return '';
+  // Their own senator chairs it (R-212 #25): the card's "Send a quick email" already goes to them and says "your senator", so
+  // a second row to the same person is left out. Someone who sees the bill differently has no chair row, so this one stays.
+  const chairIds = new Set(legsOf(m.code).filter(x => x.role === 'chair').map(x => x.l.id));
+  // A joint hearing has two chairs, and the card's row names both without saying which is theirs, so this row stays there.
+  if (agrees(b) !== false && chairIds.size === 1 && m.legs.every(l => chairIds.has(l.id))) return '';
   const who = m.legs.map(legName).join(' and '), your = m.legs.length === 1 ? `Your ${legWord(m.legs[0])}` : 'Your legislators';
   return moreRow('user-check', `Write to ${esc(who)} · 3 min`, `${your} ${m.chair ? 'chairs' : m.legs.length > 1 ? 'sit on' : 'sits on'} this committee. A note from someone they represent carries weight.`,
     { 'data-speak': `${b.id}|${m.key}`, 'data-mail-h': h.id }, momentSent(b, m) && 'Sent');
@@ -117,12 +122,14 @@ function momentCard({ b, m }, primary) {
 export const introState = () => read(INTRO_KEY, null);
 export function introMark(how) { write(INTRO_KEY, { how, at: new Date().toISOString() }); }
 // Offered once someone has found their legislators (an address, a district or the account's) and follows an issue.
-export const introOffered = () => !introState() && !firstVisit() && followedIssues().length > 0 && myLegs().some(l => l.email);
+// Anyone who follows something: an issue, a single bill, a topic or a list (R-212 #25, the Capitol Regular follows bills one
+// by one and an issue never; the card waited for an issue). The letter names the issue of a bill they follow (hello.js).
+export const introOffered = () => !introState() && !firstVisit() && (followsAnything() || (S.listFollows?.size || 0) > 0) && myLegs().some(l => l.email);
 function introCard() {
   const legs = myLegs().filter(l => l.email), names = legs.map(legName).join(' and ');
   return `<section class="card sp-card sp-intro" aria-labelledby="sp-it" data-sp="intro">
     <h2 class="sp-t" id="sp-it">${icon('hand-heart')}<span>Introduce yourself to your ${legs.length === 1 ? legWord(legs[0]) : 'legislators'}</span></h2>
-    <p class="small">A short hello to ${esc(names)}: who you are and the issues you follow. About 3 minutes, and they know you before any vote.</p>
+    <p class="small">A short hello to ${esc(names)}: who you are and what you care about. About 3 minutes, and they know you before any vote.</p>
     <div class="btnrow sp-btns">${btn('Write my introduction', { kind: 'secondary', icon: 'mail', attrs: { 'data-speak-intro': '1' } })}
       ${btn('No thanks', { kind: 'text', sm: true, attrs: { 'data-speak-introno': '1' } })}</div>
   </section>`;

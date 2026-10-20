@@ -151,6 +151,8 @@ function legsPage() {
     A.pick ? '' : 'One senator and one representative speak for where you live, and they listen closest to you. Find yours in about 30 seconds.',
     `<div class="st-legwrap">${body}</div>`, A.pick && S.nxFound && fxOn('found') ? fxBand({ title: 'Found them!', sub: 'Your senator and representative are below.' }) : '');
 }
+// The house number at the start of an address: "45", "92-2016", "110a" ('' when there is none).
+const houseNo = s => (/^\s*(\d+[a-z]?(?:-\d+[a-z]?)?)\b/i.exec(String(s || '')) || [])[1]?.toLowerCase() || '';
 function wireLegs() {
   const box = document.querySelector('[data-nxaddr]');
   // Enter pressed while the suggestions are still on their way waits for them (R-212 #21, as people.js since R-303).
@@ -181,10 +183,12 @@ function wireLegs() {
   }
   wireSugs();
   function onEnter() {
-    const q = (box?.value || '').trim(), r = AP.results(q)[0];
-    if (AP.isLoading()) { enterWaits = true; return; }
-    if (r) look({ label: r.label, pt: r }); else if (typed(q, [])) look({ label: q, pt: null });
-    else if (q) { S.nxAddr.err = 'Type your house number and street, like 45-600 Keaahala Rd.'; paint(); }
+    // Enter takes a suggestion only for the house number typed (the critic, 19 Oct: "Kailua" + Enter took the first street
+    // address the table had, 92-2016 Kailua Blvd on Hawaiʻi Island, and saved its legislators as theirs). A town is not enough.
+    const q = (box?.value || '').trim(), n = houseNo(q), r = n ? AP.results(q).find(x => houseNo(x.label) === n) : null;
+    if (AP.isLoading() && n) { enterWaits = true; return; }
+    if (r) look({ label: r.label, pt: r }); else if (n && typed(q, [])) look({ label: q, pt: null });
+    else if (q) { S.nxAddr.err = 'Add your house number and street, like 45-600 Keaahala Rd. District lines split towns.'; paint(); }
   }
   if (box) box.onkeydown = e => { if (e.key !== 'Enter') return; e.preventDefault(); onEnter(); };
   const clear = document.querySelector('[data-nxclear]');

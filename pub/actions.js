@@ -9,7 +9,7 @@ import { issueBand } from './art.js';
 import { armOf, abRankMet, abSeen, shareTag } from './variant.js';
 import { picShare, picSeen } from './sharepic.js';
 import { btn, chip, posChip, iconBtn, issueLine } from './ui.js';
-import { hearingRow, mountHome, openKey } from './speakup.js';
+import { hearingRow, mountHome, openKey, myLegs } from './speakup.js';
 import { alertFields, alertButton, wireAlertForm, alertDoneHTML, codeStep, profileAsk, profileLede, PROFILE_H } from './alerts.js';
 
 const key = (b, h) => `${b.id}|${h.id}`;
@@ -63,6 +63,10 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const voices = countOk((S.voices || {})[h.id]);
   const chairs = chairContacts(h.committee), chairName = chairs.length ? chairs.map(c => `${c.title} ${c.last}`).join(' and ') : 'the chair';
   const runs = chairs.length > 1 ? 'run' : 'runs';   // "Chair Lee and Chair Keohokalole, who run this hearing" (R-300)
+  // The chair is their own senator or representative (R-212 #25): the one email row says so, and the second row to the same
+  // person is gone (speakup.js hearingRow).
+  const ownChair = chairs.length === 1 && chairs[0].leg && myLegs().some(l => l.id === chairs[0].leg.id) ? (chairs[0].leg.chamber === 'S' ? 'your senator' : 'your representative') : '';
+  const chairWho = ownChair ? `${chairName}, ${ownChair},` : `${chairName},`;
   const doneKinds = KINDS.filter(x => didKind(b, h, x)), lastDone = doneKinds.slice().sort((x, y) => String((S.doneAt || {})[doneKey(b.id, h.id, y)] || '').localeCompare(String((S.doneAt || {})[doneKey(b.id, h.id, x)] || '')))[0];
   // Testimony leads wherever there is a hearing, for everyone (Nate 9/27, R-068): the walkthrough writes the letter from
   // the person's own stance, so someone who disagrees with HIPHI is helped too. The quick email is one of the other ways.
@@ -97,7 +101,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     : emailFirst ? (didKind(b, h, 'email') ? '' : emailBtn) : (didKind(b, h, 'testimony') ? '' : testimonyBtn);
   const rowFor = x => ({
     testimony: differs ? '' : moreRow('notebook-pen', late ? 'Send late testimony' : 'Write testimony', late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. About 15 minutes the first time (the Capitol site asks for a free account), a few after that.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent'),
-    email: differs ? '' : moreRow('mail', mailWords, `A short note to ${esc(chairName)}, who ${runs} this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
+    email: differs ? '' : moreRow('mail', mailWords, `A short note to ${esc(chairWho)} who ${runs} this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
     attend: inPerson || planned ? '' : moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')) + (S.goOpen.has(k) ? goPanel(b, h, k) : ''),
     share: moreRow('share-2', 'Ask a friend to speak up', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
   })[x];
@@ -109,7 +113,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const rows = R ? rankedRows() : [
     // Testimony is listed here only when it is not already the main button (a suggested bill leads with Follow).
     asking ? moreRow('notebook-pen', late ? 'Send late testimony' : HELP_WORDS, late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. About 15 minutes the first time (the Capitol site asks for a free account), a few after that.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent') : '',
-    differs ? '' : moreRow('mail', mailWords, `A short note to ${esc(chairName)}, who ${runs} this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
+    differs ? '' : moreRow('mail', mailWords, `A short note to ${esc(chairWho)} who ${runs} this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
     legRow,
     moreRow('share-2', 'Ask a friend to speak up', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
     inPerson || planned ? '' : moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')),

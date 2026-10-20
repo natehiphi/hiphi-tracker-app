@@ -11,7 +11,7 @@
 // panel at the side), bills named by their nickname when they have one, and the remembered districts now carry the
 // person's island ('hiphi_districts' = { senate, house, label, island }) so other screens can highlight it.
 import { S, app, esc, icon, blurb, nick, spaced, billPath, pickBill, alive, plainStatus, posInfo, cmteLabel, codesOf, stopOf, hearingsOf,
-  ensureBill, legById, legTitle, legPhoto, looksLikeAddress, legLookupAddress, markDone, yay } from './core.js';
+  ensureBill, legById, legTitle, legPhoto, looksLikeAddress, legLookupAddress, markDone, yay, sessionInfo, HST } from './core.js';
 import { btn, chip, notice, inlineErr, empty, row } from './ui.js';
 import { islands } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
@@ -27,7 +27,7 @@ const KEY = 'hiphi_districts';
 export const EXAMPLE = '415 S Beretania St';
 // Screen state for this visit. Nothing here reaches a server; the address itself is never stored.
 export const P = { q: '', pick: null, finding: null, err: '', changing: false, remember: true,
-  mail: null, text: {}, copied: null, sent: {}, isl: null, bills: {}, from: '', billFor: {}, enter: false, near: '', dir: false };
+  mail: null, text: {}, copied: null, sent: {}, isl: null, bills: {}, from: '', billFor: {}, enter: false, near: '', dir: false, open: new Set() };
 // The debounced address fetch is the one stateful, async part of this page; it is its own module (addresspicker.js)
 // so the onboarding wizard can run a second, independent instance rather than sharing this one.
 const AP = createAddressPicker();
@@ -439,7 +439,11 @@ export function billAt(b, roles) {
   const here = [...codesOf(st.committee), ...poolHearingsOf(b).filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > now).flatMap(h => codesOf(h.committee))];
   const leg = st.leg === 'second' ? refs.slice(n) : refs.slice(0, n), i = leg.findIndex(c => codesOf(c).some(x => here.includes(x)));
   const next = i >= 0 ? leg.slice(i + 1).flatMap(codesOf) : [];
-  const r1 = roles.find(r => here.includes(r.committee)); if (r1) return { r: r1, when: 'now' };
+  // The soonest hearing ahead in one of their committees: what the list leads with (R-212 #25, the fold must not hide a bill
+  // whose testimony is due tomorrow behind six that only wait).
+  const ahead = poolHearingsOf(b).filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > now && codesOf(h.committee).some(c => roles.some(r => r.committee === c)))
+    .map(h => new Date(h.testimony_deadline && new Date(h.testimony_deadline) > now ? h.testimony_deadline : h.scheduled_at).getTime()).sort((x, y) => x - y)[0] || null;
+  const r1 = roles.find(r => here.includes(r.committee)); if (r1) return { r: r1, when: 'now', soon: ahead };
   const r2 = roles.find(r => next.includes(r.committee)); return r2 ? { r: r2, when: 'next' } : null;
 }
 // Every live bill HIPHI has a position on that touches one of their committees, not just the ones the
@@ -450,16 +454,27 @@ export function billsIn(roles) {
   const all = new Map();
   for (const b of S.bills || []) all.set(b.id, b);
   for (const b of (S.pool && S.pool.bills) || []) if (!all.has(b.id)) all.set(b.id, b);
+  // A hearing ahead first, the soonest deadline first; then the rest of "now", then "next"; chair before member; bill numbers
+  // as numbers (HB 299 before HB 2540).
+  const num = b => +String(b.bill_number).replace(/\D/g, '') || 0;
   return [...all.values()].map(b => ({ b, ...billAt(b, roles) })).filter(x => x.r)
-    .sort((x, y) => (x.when === 'now' ? 0 : 1) - (y.when === 'now' ? 0 : 1) || ROLE[x.r.role] - ROLE[y.r.role]);
+    .sort((x, y) => (x.when === 'now' ? 0 : 1) - (y.when === 'now' ? 0 : 1) || (x.soon ? 0 : 1) - (y.soon ? 0 : 1) || (x.soon || 0) - (y.soon || 0)
+      || ROLE[x.r.role] - ROLE[y.r.role] || String(x.b.bill_number).replace(/\d/g, '').localeCompare(String(y.b.bill_number).replace(/\d/g, '')) || num(x.b) - num(y.b));
 }
 const roleThe = r => r.role === 'chair' ? 'the chair' : r.role === 'vice_chair' ? 'the vice chair' : 'a member';
+// A chair's page listed every bill in their committees, 40 rows for a money chair (R-212 #25, the District Watcher): the
+// first SHOWN, then the rest behind one fold that stays open while they write (P.open, kept for the visit).
+const SHOWN = 6;
+// The day the next session opens, as Home says it: "Wednesday, January 20" (R-212 #25: between sessions the page said
+// nothing about why their committees have no bills).
+const opensWord = () => { const n = sessionInfo().nextOpen; return n ? new Date(n + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: HST }) : ''; };
 export function personPage(route) {
   const l = legById(route.id), from = billNum(route), b = fromBill(from);
   if (!l) return `<div class="pp">${backLink('#/legislators', 'All legislators')}${empty({ h: 'h1', title: 'We couldn’t find that legislator', text: 'The link may be old. Every senator and representative is on the Legislators page.', action: btn('See all legislators', { kind: 'primary', href: '#/legislators' }) })}</div>`;
   const sv = saved(), k = 'p' + l.id, roles = rolesOf(l), committeeBills = billsIn(roles), last = `${legTitle(l)} ${surname(l)}`;
   const onBill = b && billAt(b, roles), yours = mine(l) ? chip(yoursWord(l), 'info', 'user-check') : '';
-  const chamber = l.chamber === 'S' ? 'Senate' : 'House';
+  const chamber = l.chamber === 'S' ? 'Senate' : 'House', si = sessionInfo(), off = si.phase !== 'in', opens = off ? opensWord() : '';
+  const reach = !!(l.email || l.phone);
   const billName = b ? `${esc(spaced(b.bill_number))}${nick(b) ? ` (${esc(nick(b))})` : ''}` : '';
   // A bill leads with its everyday name when staff have written one; what it does is the second line.
   const billRow = ({ b: x, r, when }) => {
@@ -485,18 +500,25 @@ export function personPage(route) {
         <div class="pp-sidecard">
           ${yours ? `<span class="pp-yours-side">${yours}</span>` : ''}
           <h2 class="pp-sidehead">Get in touch</h2>
-          <div class="pp-actions">${contact(l, k, { primary: true })}</div>
+          ${reach ? `<div class="pp-actions">${contact(l, k, { primary: true })}</div>${off && l.email && !b ? `<p class="small muted pp-hellonote">A short hello now helps them know you before the session.</p>` : ''}`
+            : `<p class="pp-nocontact">${icon('info')}<span>No email or phone number is listed for ${esc(last)} yet.</span></p>`}
           ${l.room ? `<p class="pp-office">${icon('landmark')}<span>Office: Room ${esc(l.room)}, Hawaiʻi State Capitol</span></p>` : ''}
-          ${l.capitol_url ? `<p class="pp-ext">${btn('Their page on the Capitol website', { kind: 'text', sm: true, icon: 'external-link', href: l.capitol_url, attrs: { target: '_blank', rel: 'noopener' } })}</p>` : ''}
+          ${l.capitol_url ? `<p class="pp-ext">${btn(reach ? 'Their page on the Capitol website' : 'Look for their phone on the Capitol website', { kind: 'text', sm: true, icon: 'external-link', href: l.capitol_url, attrs: { target: '_blank', rel: 'noopener' } })}</p>` : ''}
         </div>
       </aside>
       <div class="pp-rest">
         ${P.mail === k ? composer(l, b, k, mine(l, sv) ? townOf(sv) : '') : ''}
+        ${off ? `<p class="pp-offline">${icon('calendar-days')}<span>The Legislature is on break${opens ? ` until ${esc(opens)}` : ''}. ${roles.length ? `These are their ${si.recapYear} committees. New ones are set when the session opens.` : 'Committees are set when the session opens.'}</span></p>` : ''}
         ${roles.length ? `<section class="pp-sec" aria-labelledby="pp-cm"><h2 id="pp-cm">Committees</h2>
           <p class="pp-explain">Committees look at bills before the full ${chamber} votes. The chair decides which bills get a hearing.</p>
-          <ul class="pp-cmtes">${roles.map(r => `<li>${icon(r.role === 'member' ? 'users' : 'landmark')}<span><span class="strong">${roleWord(r.role)}</span> of the ${esc(cmteLabel(r.committee))}</span></li>`).join('')}</ul></section>` : ''}
+          <ul class="pp-cmtes">${roles.map(r => `<li>${icon(r.role === 'member' ? 'users' : 'landmark')}<span><span class="strong">${roleWord(r.role)}</span> of the ${esc(cmteLabel(r.committee))}</span></li>`).join('')}</ul></section>`
+          : off ? '' : `<p class="pp-explain pp-nocmte">${/speaker/i.test(l.title || '') && !/vice/i.test(l.title || '') ? `As Speaker, ${esc(last)} leads the House and does not sit on its committees.`
+            : /president/i.test(l.title || '') && !/vice/i.test(l.title || '') ? `As Senate President, ${esc(last)} leads the Senate and does not sit on its committees.` : `No committees are listed for ${esc(last)} this year.`}</p>`}
         ${committeeBills.length ? `<section class="pp-sec" aria-labelledby="pp-fb"><h2 id="pp-fb">Bills in their committees</h2>
-          <div class="rows">${committeeBills.map(billRow).join('')}</div></section>` : ''}
+          <div class="rows">${committeeBills.slice(0, SHOWN).map(billRow).join('')}</div>
+          ${committeeBills.length > SHOWN ? `<details class="pp-fold" data-pp-fold="bills-${l.id}"${P.open.has('bills-' + l.id) ? ' open' : ''}><summary><span>Show all ${committeeBills.length} bills${committeeBills.slice(SHOWN).some(x => x.soon && x.soon - Date.now() < 7 * 864e5) ? ' · more due this week' : ''}</span>${icon('chevron-down', { cls: 'pp-chev' })}</summary>
+            <div class="rows">${committeeBills.slice(SHOWN).map(billRow).join('')}</div></details>` : ''}</section>`
+          : roles.length && !off ? `<section class="pp-sec" aria-labelledby="pp-fb"><h2 id="pp-fb">Bills in their committees</h2><p class="pp-explain">None of the bills HIPHI follows is in their committees right now.</p></section>` : ''}
       </div>
     </div>
   </div>`;
@@ -606,6 +628,7 @@ function wire(route) {
     requestAnimationFrame(() => { document.querySelector(`[data-pp-mail="${k}"]`)?.focus({ preventScroll: true });
       if (P.mail === k) document.getElementById('pp-cmp-' + k)?.scrollIntoView({ block: 'nearest' }); });
   });
+  root.querySelectorAll('[data-pp-fold]').forEach(el => el.ontoggle = () => { const k = el.dataset.ppFold; if (el.open) P.open.add(k); else P.open.delete(k); });
   root.querySelectorAll('[data-pp-msg]').forEach(ta => {
     const grow = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 2 + 'px'; };
     grow();

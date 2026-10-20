@@ -135,6 +135,22 @@
 .pp .pp-cmtes li + li { border-top: 1px solid var(--n100); }
 .pp .pp-cmtes .ic { width: 20px; height: 20px; margin-top: 2px; color: var(--p700); }
 .pp .pp-sec .rows { margin-top: var(--s12); }
+/* Between sessions (R-212 #25): one quiet line on why the committees have no bills yet. */
+.pp .pp-offline { display: flex; gap: var(--s8); align-items: flex-start; margin-top: var(--s24); font-size: var(--t14); color: var(--n500); max-width: 65ch; }
+.pp .pp-nocontact { display: flex; gap: var(--s8); align-items: flex-start; margin-top: var(--s16); font-size: var(--t14); color: var(--n500); }
+.pp .pp-nocontact .ic { width: 18px; height: 18px; flex: none; margin-top: 2px; }
+.pp .pp-hellonote { margin-top: var(--s8); }
+.pp .pp-nocmte { margin-top: var(--s24); }
+.pp .pp-offline .ic { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--n500); }
+/* A long list of bills folds after six (R-212 #25); the fold reads like the bill page's "Show all members". */
+.pp .pp-fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: var(--s8); min-height: 48px; margin-top: var(--s8); color: var(--p700); font-weight: 700; font-size: var(--t14); border-radius: var(--r8); }
+.pp .pp-fold > summary::-webkit-details-marker { display: none; }
+.pp .pp-fold > summary:hover { background: var(--p50); }
+.pp .pp-fold > summary:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
+.pp .pp-fold > summary .pp-chev { width: 20px; height: 20px; flex: none; color: inherit; transition: transform .2s var(--ease); }
+.pp .pp-fold[open] > summary .pp-chev { transform: rotate(180deg); }
+.pp .pp-fold .rows { margin-top: 0; }
+@media (prefers-reduced-motion: reduce) { .pp .pp-fold > summary .pp-chev { transition: none; } }
 .pp .pp-billrow .title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; }
 .pp .pp-ext { margin: var(--s24) 0 0 -12px; }
 .pp .pp-retry { margin-top: var(--s16); }

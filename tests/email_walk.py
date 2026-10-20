@@ -322,12 +322,18 @@ with sync_playwright() as pw:
         check(f'The health issue I care about most is {low(snap["issues"][0]["name"])}.' in letter and 'I also follow' not in letter, f'{tag}: one issue is named, no other line')
         c.close()
         # nothing followed: the letter claims no bills it has not followed (Nate 10/10), and it still asks its one question.
-        # The intro card is offered only once an issue is followed, so this reads the legislators page's letter (the same builder).
-        c, p = ctx(br, wide); follower(p, pre=districts + "localStorage.setItem('hiphi_issue_follows_demo', '[]');" + "localStorage.setItem('hiphi_me', JSON.stringify({ name: 'Kai Ho' }));"); visit(p, f"/legislator/{sen['id']}")
+        # Nothing at all is followed here (no bill either), so this reads the legislators page's letter (the same builder).
+        c, p = ctx(br, wide); follower(p, follow=[], pre=districts + "localStorage.setItem('hiphi_issue_follows_demo', '[]');" + "localStorage.setItem('hiphi_me', JSON.stringify({ name: 'Kai Ho' }));"); visit(p, f"/legislator/{sen['id']}")
         p.locator('[data-pp-mail]').first.click(); p.wait_for_timeout(700)
         nl = p.locator('textarea[data-pp-msg]').first.input_value() if p.locator('textarea[data-pp-msg]').count() else ''
         check('I care about the health of our community.' in nl and 'I follow' not in nl and 'The health issue' not in nl and 'What health issues are you working on' in nl and not any(t in nl for t in BAD),
               f'{tag}: nothing followed, the letter says the person cares and makes no claim of following ({nl.splitlines()[2:3]})')
+        c.close()
+        # R-212 #25: bills followed one by one and no issue: the letter names the issue of a followed bill.
+        c, p = ctx(br, wide); follower(p, pre=districts + "localStorage.setItem('hiphi_issue_follows_demo', '[]');" + "localStorage.setItem('hiphi_me', JSON.stringify({ name: 'Kai Ho' }));"); visit(p, f"/legislator/{sen['id']}")
+        p.locator('[data-pp-mail]').first.click(); p.wait_for_timeout(700)
+        nl = p.locator('textarea[data-pp-msg]').first.input_value() if p.locator('textarea[data-pp-msg]').count() else ''
+        check(('The health issue' in nl or 'What I care about most' in nl) and not any(t in nl for t in BAD), f'{tag}: bills followed, no issue: the letter names a followed bill\'s issue ({nl.splitlines()[4:5]})')
         shot(p, f'{tag}_hello_3_letter_nothing_followed'); c.close()
         # six issues: four show (the one picked among them), "Show all" opens the rest, and a pick made among the hidden ones stays shown
         six = [i['id'] for i in snap['issues'][0:6]]
