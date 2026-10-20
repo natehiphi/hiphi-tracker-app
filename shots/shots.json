@@ -106,17 +106,17 @@
     "today": [
      {
       "file": "rank/today-1.jpg",
-      "title": "You’re all caught up",
-      "sig": "ce6809c15465",
-      "date": "2026-10-16"
+      "title": "That’s all for this week",
+      "sig": "436fbbcb203e",
+      "date": "2026-10-20"
      }
     ],
     "ranked": [
      {
       "file": "rank/ranked-1.jpg",
-      "title": "You’re all caught up",
-      "sig": "4e7a3700e0f7",
-      "date": "2026-10-16"
+      "title": "That’s all for this week",
+      "sig": "436fbbcb203e",
+      "date": "2026-10-20"
      }
     ]
    }
@@ -202,17 +202,17 @@
     "by-day": [
      {
       "file": "home/by-day-1.jpg",
-      "title": "4 things you can do this week",
-      "sig": "ec5c523ac4df",
-      "date": "2026-10-17"
+      "title": "Help make walking to school safer",
+      "sig": "7c620d34421e",
+      "date": "2026-10-20"
      }
     ],
     "by-issue": [
      {
       "file": "home/by-issue-1.jpg",
-      "title": "4 things you can do this week",
-      "sig": "f107576a5d57",
-      "date": "2026-10-17"
+      "title": "Help make walking to school safer",
+      "sig": "7c620d34421e",
+      "date": "2026-10-20"
      }
     ]
    }
@@ -411,8 +411,8 @@
      {
       "file": "save/alerts-1.jpg",
       "title": "FDA proof required to sell e-cigarettes",
-      "sig": "189aa98c9098",
-      "date": "2026-10-17"
+      "sig": "c7b640d4e6ed",
+      "date": "2026-10-20"
      }
     ]
    }
@@ -430,17 +430,17 @@
     "today": [
      {
       "file": "layout/today-1.jpg",
-      "title": "4 things you can do this week",
-      "sig": "ec5c523ac4df",
-      "date": "2026-10-17"
+      "title": "Help make walking to school safer",
+      "sig": "7c620d34421e",
+      "date": "2026-10-20"
      }
     ],
     "a": [
      {
       "file": "layout/a-1.jpg",
-      "title": "Aloha",
-      "sig": "56f8a12d5cb2",
-      "date": "2026-10-17"
+      "title": "Help make walking to school safer",
+      "sig": "7c620d34421e",
+      "date": "2026-10-20"
      }
     ]
    }
