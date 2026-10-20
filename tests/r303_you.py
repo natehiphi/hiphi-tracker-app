@@ -1,4 +1,4 @@
-# You and the pages under it in the calm redesign (R-303), behind ?rec=1 until Nate's look.
+# You and the pages under it in the calm redesign (R-303), everyone's since 19 Oct (Nate).
 #   python3 tests/r303_you.py [base] [--shots DIR]
 # base: a served copy (http://localhost:8832); without one this file's own folder is served from disk (no server needed).
 # --shots DIR also writes a phone and a laptop picture of every page it checks.
@@ -8,20 +8,20 @@
 #     Help), then the quiet footer links (About HIPHI, Privacy and accessibility, My issues link); Every bill and Committees
 #     are gone from it; the event staff posted is its own row (Nate 18 Oct, card 11), not inside About HIPHI; at most one
 #     filled button; under 1,050px tall on a phone (900 before the event row);
-#   - Help's seven groups each with its icon (card 15); the live #/alerts says what really comes, in the Text terms page's
+#   - Help's seven groups each with its icon (card 15); the old #/alerts (?rec=0) says what really comes, in the Text terms page's
 #     words (Nate 18 Oct, "match reality"): when your voice matters most, usually a few texts a month and never more than
 #     one a day, each issue's level and where to change it; never a text for every hearing (card 21, then his ask).
 #   Profile: its first row is Your alerts; no "Your issues" or Alerts section; "Make your profile" without one.
-#   Your alerts: where texts and email go, a switch per followed issue that saves at once, "Stop all texts" once, the live
+#   Your alerts: where texts and email go, a switch per followed issue that saves at once, "Stop texts to this phone" once and the closed "Not your phone? Stop texts to another number" fold, the live
 #     consent's words (a few texts a month), never "At most one text a day".
 #   Sign in: "Sign in with your email" without a profile, "Add your email" with one.
 #   Help: the Public Access Room right under the search, the seven groups closed with no counts, no "Reading a bill"; a
 #     conversation has one way back, "Help", on Help's left edge on a laptop.
-#   Privacy: "In short" open, every other section a closed card, Accessibility second, every word of today's page there.
+#   Privacy: "In short" open, every other section a closed card, Accessibility second, every word of the old page (?rec=0) there.
 #   The later-visit ask: the "Welcome back" icon has a gap before its words (a live fix).
-# Without ?rec each page is still today's. Home's Your issues is in the white box with ?rec=1 (Nate 18 Oct, "I'll go with the
-# box for the home page"), its slide's row lit pale blue and each day kept on one line with its time at 360px; today's Home has
-# no box. The seven other lists are in the white box with ?rec=1 too (Nate 18 Oct, "Box all seven"): You's rows, Help's
+# With ?rec=0 (the way back since the redesign became everyone's, R-303) each page is still the old one. Home's Your issues is
+# in the white box with ?rec=1 (Nate 18 Oct, "I'll go with the box for the home page"), its slide's row lit pale blue and each
+# day kept on one line with its time at 360px; the old Home (?rec=0) has no box. The seven other lists are in the white box with ?rec=1 too (Nate 18 Oct, "Box all seven"): You's rows, Help's
 # lessons and Email HIPHI, Your lawmakers, a lawmaker's On your issues, a committee's bills, the issue page's Bills on this
 # issue and its one record row; a day and its time stay on one line in them; no list in the redesign is left on the grey.
 import sys, os, re
@@ -73,7 +73,7 @@ def ready(pg, sel):
     pg.wait_for_timeout(700)
 
 def open_page(pg, hash_, rec=True, sel='#main .rc-h1, #main h1'):
-    pg.goto(f"{BASE}/track.html?demo=1{'&rec=1' if rec else ''}{hash_}"); ready(pg, sel)
+    pg.goto(f"{BASE}/track.html?demo=1{'&rec=1' if rec else '&rec=0'}{hash_}"); ready(pg, sel)
 
 def shot(pg, tag, name, full=True):
     if SHOTS: pg.screenshot(path=os.path.join(SHOTS, f'{tag}_{name}.png'), full_page=full)
@@ -136,12 +136,12 @@ def main():
                 open_page(pg, '#/alerts', sel='#main .mr-alerts')
                 txt = TEXT(pg)
                 check('At most one' not in txt, f'{t}: #/alerts never says "At most one text a day"')
-                if signed:   # today's page, without ?rec, says it as the sign-up does since Nate's Change of 18 Oct (card 21)
+                if signed:   # the old page, with ?rec=0, says it as the sign-up does since Nate's Change of 18 Oct (card 21)
                     open_page(pg, '#/alerts', rec=False, sel='#main .mr-alerts'); live = TEXT(pg)
-                    check('Usually a few texts a month while the Legislature meets, and never more than one text a day.' in live and 'At most one' not in live, f'{t}: the live #/alerts says how often, as the Text terms do')
-                    check('when your voice matters most on the issues you follow' in live and 'gets a hearing' not in live, f'{t}: the live #/alerts says what comes, not a text for every hearing')
-                    check('Big moments only (where every issue starts)' in live and 'from the link in any text' in live, f'{t}: the live #/alerts says each issue\'s level and where to change it')
-                    check('App only (no texts about it)' in live, f'{t}: the live #/alerts says what App only means')
+                    check('Usually a few texts a month while the Legislature meets, and never more than one text a day.' in live and 'At most one' not in live, f'{t}: the old #/alerts (?rec=0) says how often, as the Text terms do')
+                    check('when your voice matters most on the issues you follow' in live and 'gets a hearing' not in live, f'{t}: the old #/alerts (?rec=0) says what comes, not a text for every hearing')
+                    check('Big moments only (where every issue starts)' in live and 'from the link in any text' in live, f'{t}: the old #/alerts (?rec=0) says each issue\'s level and where to change it')
+                    check('App only (no texts about it)' in live, f'{t}: the old #/alerts (?rec=0) says what App only means')
                     pg.click('#main a[href="#/profile?to=alerts"]'); pg.wait_for_selector('#main .pf-lvls', timeout=30000); pg.wait_for_timeout(900)
                     top = pg.evaluate("document.querySelector('#main .pf-lvls').getBoundingClientRect().top")
                     check(0 <= top < 400, f'{t}: "Alerts in your profile" opens Profile at the switch for each issue ({round(top)}px from the top)')
@@ -152,7 +152,9 @@ def main():
                     check('A few texts a month' in txt, f'{t}: the live consent\'s words (a few texts a month)')
                     n = pg.evaluate("document.querySelectorAll('#main .ya-lv .lvl-sw').length")
                     check(n == len(KAI), f'{t}: a switch for each followed issue ({n})')
-                    check(txt.count('Stop all texts') == 1 and 'Stop texts to a number' not in txt, f'{t}: "Stop all texts" once, at the foot')
+                    check(txt.count('Stop texts to this phone') == 1 and 'Not your phone? Stop texts to another number' in txt and pg.locator('#main .ya-end > details.mr-stopnum:not([open])').count() == 1, f'{t}: "Stop texts to this phone" once, at the foot, then the closed "Not your phone? Stop texts to another number" fold')
+                    fb = pg.evaluate("(() => { const p = document.querySelector('#main .ya-foot p'), b = document.querySelector('#main .ya-foot .btn'); return b.getBoundingClientRect().top >= p.getBoundingClientRect().bottom - 1 })()")
+                    check(fb, f'{t}: the stop button sits under the STOP line, not beside it')
                     check(pg.evaluate(ORDER, ['#main .ya-ways', '#main .ya-lvs', '#main .ya-foot']) == 'ok', f'{t}: ways, then each issue, then Stop')
                     pg.click('#main .ya-lv:first-child label[for$="-every"]'); pg.wait_for_timeout(600)
                     lv = pg.evaluate("JSON.parse(localStorage.getItem('hiphi_issue_levels_demo') || '{}')")
@@ -223,38 +225,38 @@ def main():
                     check(not WIDE(pg), f'{t} {hsh}: no sideways scroll')
                 check(not errs, f'{t}: no page errors {errs[:2]}')
                 ctx.close()
-            # ---- the later-visit ask: the eyebrow's icon and words apart (live, no ?rec) ----
+            # ---- the later-visit ask: the eyebrow's icon and words apart (a live fix, on the page everyone gets since R-303) ----
             ctx = br.new_context(viewport={'width': w, 'height': h}); ctx.add_init_script(init('kai'))
             if LOCAL: ctx.route('http://wt.local/**', serve)
-            pg = ctx.new_page(); open_page(pg, '#/next/legs', rec=False, sel='.nx-eyebrow')
+            pg = ctx.new_page(); open_page(pg, '#/next/legs', sel='.nx-eyebrow')
             gap = pg.evaluate("(() => { const e = document.querySelector('.nx-eyebrow'), i = e.querySelector('svg').getBoundingClientRect(), s = e.querySelector('span').getBoundingClientRect(); return [s.left - i.right, Math.round(s.height), getComputedStyle(e).display]; })()")
             check(gap[0] >= 4 and gap[2] == 'flex', f'{tag}: "Welcome back" has a gap after its icon ({gap})')
             shot(pg, tag, 'next_legs', full=False)
             ctx.close()
-        # ---- without ?rec the old pages are drawn ----
+        # ---- with ?rec=0 (the way back, R-303) the old pages are drawn ----
         ctx = br.new_context(viewport={'width': 390, 'height': 844}); ctx.add_init_script(init('kai+number'))
         if LOCAL: ctx.route('http://wt.local/**', serve)
         pg = ctx.new_page()
         open_page(pg, '#/more', rec=False, sel='#main .mr-more'); txt = TEXT(pg)
-        check(pg.evaluate("document.querySelector('#main h1').innerText") == 'More' and 'Every bill HIPHI tracks' in txt and not pg.evaluate("!!document.querySelector('.yu')"), 'without ?rec: More is today\'s')
-        open_page(pg, '#/profile', rec=False, sel='#main .pf'); check(pg.evaluate("!!document.querySelector('#pf-email') && !!document.querySelector('#pf-issues') && !document.querySelector('.yu-pfal')"), 'without ?rec: Profile keeps its Alerts and Your issues')
-        open_page(pg, '#/alerts', rec=False, sel='#main .mr-alerts'); check(pg.evaluate("document.querySelector('#main h1').innerText") == 'Text alerts are on', 'without ?rec: #/alerts is today\'s')
-        open_page(pg, '#/help', rec=False, sel='#main .tk-list'); check(pg.locator('.tk-gn').count() == 7 and pg.locator('a[href="#/learn/bill"]').count() == 1, 'without ?rec: Help keeps its counts and Reading a bill')
-        open_page(pg, '#/privacy', rec=False, sel='#main .mr-facts'); check(pg.evaluate("!!document.querySelector('.mr-facts') && !document.querySelector('.rc-fold')"), 'without ?rec: Privacy is today\'s')
+        check(pg.evaluate("document.querySelector('#main h1').innerText") == 'More' and 'Every bill HIPHI tracks' in txt and not pg.evaluate("!!document.querySelector('.yu')"), 'with ?rec=0: More is the old one')
+        open_page(pg, '#/profile', rec=False, sel='#main .pf'); check(pg.evaluate("!!document.querySelector('#pf-email') && !!document.querySelector('#pf-issues') && !document.querySelector('.yu-pfal')"), 'with ?rec=0: Profile keeps its Alerts and Your issues')
+        open_page(pg, '#/alerts', rec=False, sel='#main .mr-alerts'); check(pg.evaluate("document.querySelector('#main h1').innerText") == 'Text alerts are on', 'with ?rec=0: #/alerts is the old one')
+        open_page(pg, '#/help', rec=False, sel='#main .tk-list'); check(pg.locator('.tk-gn').count() == 7 and pg.locator('a[href="#/learn/bill"]').count() == 1, 'with ?rec=0: Help keeps its counts and Reading a bill')
+        open_page(pg, '#/privacy', rec=False, sel='#main .mr-facts'); check(pg.evaluate("!!document.querySelector('.mr-facts') && !document.querySelector('.rc-fold')"), 'with ?rec=0: Privacy is the old one')
         ctx.close()
         ctx = br.new_context(viewport={'width': 390, 'height': 844}); ctx.add_init_script(init('none'))
         if LOCAL: ctx.route('http://wt.local/**', serve)
         pg = ctx.new_page(); open_page(pg, '#/signin', rec=False, sel='#main .mr-signin')
-        check(pg.evaluate("document.querySelector('#main h1').innerText") == 'Add your email', 'without ?rec: the email page is "Add your email"')
+        check(pg.evaluate("document.querySelector('#main h1').innerText") == 'Add your email', 'with ?rec=0: the email page is "Add your email"')
         ctx.close()
-        # ---- Home's Your issues in the white box with ?rec=1 (Nate 18 Oct: "I'll go with the box for the home page"); today's has none ----
+        # ---- Home's Your issues in the white box with ?rec=1 (Nate 18 Oct: "I'll go with the box for the home page"); the old Home (?rec=0) has none ----
         ctx = br.new_context(viewport={'width': 360, 'height': 800}); ctx.add_init_script(init('kai'))
         if LOCAL: ctx.route('http://wt.local/**', serve)
         pg = ctx.new_page()
         BOXED = "(s => { const e = document.querySelector(s), c = e && getComputedStyle(e); return !!c && c.backgroundColor === 'rgb(255, 255, 255)' && parseFloat(c.borderTopWidth) > 0; })"
-        for q, want in (('', False), ('&rec=1', True)):
+        for q, want in (('&rec=0', False), ('&rec=1', True)):
             pg.goto(f"{BASE}/track.html?demo=1{q}#/"); ready(pg, '#main .cm-goal'); pg.wait_for_selector('#main .cm .cm-rows', timeout=30000)
-            check(pg.evaluate(BOXED + "('#main .cm .cm-rows')") == want, f"Home's Your issues: {'in the white box with ?rec=1' if want else 'no box without ?rec'}")
+            check(pg.evaluate(BOXED + "('#main .cm .cm-rows')") == want, f"Home's Your issues: {'in the white box with ?rec=1' if want else 'no box with ?rec=0'}")
         lit = pg.evaluate("(() => { const r = document.querySelector('#main .cm-row.on'); return r ? getComputedStyle(r).backgroundColor : null; })()")
         check(lit not in (None, 'rgb(255, 255, 255)', 'rgba(0, 0, 0, 0)'), f"Home's box: the slide's row stays lit in pale blue, not white on white ({lit})")
         days = pg.evaluate("[...document.querySelectorAll('#main .cm-rstat .cm-when')].map(e => [e.textContent, e.getClientRects().length, getComputedStyle(e).whiteSpace])")

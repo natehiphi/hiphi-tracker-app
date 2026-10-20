@@ -19,7 +19,7 @@ def tiles(p):
 WORDS = """({ xx: null, ilo: {
   'Speak up for a healthier Hawaiʻi': 'ILO Agsao para iti nasalun-at nga Hawaiʻi', 'We keep watch': 'ILO Bantayanmi', 'Back': 'ILO Agsubli', 'Skip': 'ILO Lampasan', 'Next': 'ILO Sumaruno',
   'About 4 minutes. Free.': 'ILO Mga 4 a minuto. Libre.', '{n} issues': 'ILO {n} a banag', '{n} issue': 'ILO {n} a banag', '{what} moving': 'ILO {what} a mapan',
-  'Your first visit': 'ILO Umuna a pagsarungkarmo', 'More': 'ILO Dadduma pay', 'Help': 'ILO Tulong', 'Privacy': 'ILO Privacy', 'From HIPHI': 'ILO Manipud HIPHI', 'Language': 'ILO Pagsasao' } })"""
+  'Your first visit': 'ILO Umuna a pagsarungkarmo', 'More': 'ILO Dadduma pay', 'Help': 'ILO Tulong', 'Privacy': 'ILO Privacy', 'From HIPHI': 'ILO Manipud HIPHI', 'Language': 'ILO Pagsasao', 'You': 'ILO Sika' } })"""
 with sync_playwright() as pw:
     b = pw.chromium.launch()
     def page(extra='', live=False, trans=False, words=WORDS, w=390, h=844):
@@ -68,12 +68,13 @@ with sync_playwright() as pw:
     ok([o.strip() for o in opts] == ['English', 'Ilokano'], f'each language is named in itself ({opts})')
     ok(all(p.locator('.lp-opt').nth(i).get_attribute('lang') in ('en', 'ilo') for i in range(2)), 'each option carries its own lang attribute')
     p.click('.lp-opt[data-lang="ilo"]'); p.wait_for_timeout(900)
-    ok(p.evaluate('document.documentElement.lang') == 'ilo' and 'ILO Dadduma pay' in p.inner_text('h1'), 'choosing it changes the page at once')
+    # R-303: the calm redesign is the default, and the fourth tab's page is headed "You" (pub/rec/you.js), not "More"
+    ok(p.evaluate('document.documentElement.lang') == 'ilo' and 'ILO Sika' in p.inner_text('h1'), 'choosing it changes the page at once')
     ok(p.evaluate("localStorage.getItem('hiphi_lang') || localStorage.getItem('hiphi_lang_demo')") == 'ilo', 'and is remembered on this device')
     p.reload(); p.wait_for_selector('.mr-more', timeout=30000); p.wait_for_timeout(600)
-    ok(p.evaluate('document.documentElement.lang') == 'ilo' and 'ILO Dadduma pay' in p.inner_text('h1'), 'a reload stays in it')
+    ok(p.evaluate('document.documentElement.lang') == 'ilo' and 'ILO Sika' in p.inner_text('h1'), 'a reload stays in it')
     p.click('.lang-pick summary'); p.click('.lp-opt[data-lang="en"]'); p.wait_for_timeout(800)
-    ok(p.evaluate('document.documentElement.lang') == 'en' and 'More' == p.inner_text('h1').strip(), 'English brings everything back')
+    ok(p.evaluate('document.documentElement.lang') == 'en' and 'You' == p.inner_text('h1').strip(), 'English brings everything back')
     c.close()
     # 5. a language whose list is missing or broken stays English
     c, p = page(words='({})'); p.goto(BASE + '?demo=1&restart&lang=haw#/start/1'); tiles(p)

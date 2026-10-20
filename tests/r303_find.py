@@ -1,9 +1,10 @@
-# Find, search, Every bill HIPHI tracks and My issues in the calm redesign (R-303), behind ?rec=1 until Nate's look.
+# Find, search, Every bill HIPHI tracks and My issues in the calm redesign (R-303), everyone's since 19 Oct (Nate).
 #   python3 tests/r303_find.py [base]      base defaults to this folder, served from disk as http://wt.local (no server)
 # On the practice copy (16 Mar 2026), at phone and laptop size, as Kai (3 issues), Leilani (16) and a newcomer:
 #   Find: the box, six topic rows with no counts, at most three issue rows that need voices (opening the rest in place), the
-#     foot rows to Every bill and Committees; no action card, no HIPHI lists, no star, no filled button; the newcomer's line
-#     only for a newcomer; Kai's phone page under 1,500px (3,284 before; 1,400 before the white boxes of 18 Oct);
+#     best pick first with its reason, then Lists from HIPHI in a white box (Nate 19 Oct), the foot rows to Every bill and
+#     Committees; no action card, no star, no filled button; the newcomer's line only for a newcomer; Kai's phone page under
+#     1,850px (3,284 before; 1,400 before the white boxes of 18 Oct; 1,443 before the pick's reason and the lists of 19 Oct);
 #   - each list of rows in one white box (Nate 18 Oct, cards 7 and 8), the rows inside a closed card not boxed again.
 #   Search: issues once each (e-cigarettes named once, not three times), one follow control a row, committees without codes,
 #     no governor's messages for "kim", the Places rows for "how to testify" and "my senator", "Part of" for HB1563, the link
@@ -11,9 +12,9 @@
 #   Every bill HIPHI tracks: Find's matching ("vape" and "keiki" find bills), "Waiting for a hearing", no header box on a
 #     laptop, "Name or number" on a phone, the groups after the first closed on a phone.
 #   My issues: Home's rows in Home's order, no chips, cards, counts or filled buttons, the two links, Edit with Stop following
-#     and Undo; Leilani's phone page under 1,650px (4,146 before; 1,500 before the white box of 18 Oct, whose rows wrap more);
+#     and Undo; Leilani's phone page under 1,800px (4,146 before; 1,500 before the white box of 18 Oct, whose rows wrap more; 1,650 before New list came back, 19 Oct; many issues: R-313);
 #     her sixteen rows in one white box (card 10).
-# No page errors and no sideways scroll anywhere; without ?rec the old pages still draw.
+# No page errors and no sideways scroll anywhere; with ?rec=0 (the way back) the old pages still draw.
 import sys, os, re, asyncio
 from urllib.parse import urlparse, unquote
 from playwright.async_api import async_playwright
@@ -56,7 +57,7 @@ async def ctx_for(br, who, w, h):
     return ctx, pg, errs
 
 async def go(pg, route, sel, rec=True):
-    await pg.goto(f'{BASE}/track.html?demo=1{"&rec=1" if rec else ""}{route}')
+    await pg.goto(f'{BASE}/track.html?demo=1{"&rec=1" if rec else "&rec=0"}{route}')
     await pg.wait_for_selector(sel, timeout=60000)
     await pg.wait_for_timeout(700)
 
@@ -90,14 +91,24 @@ async def main():
                 if nv is not None:
                     check(0 < len(nv) <= 3 and all(re.match(r'^#/(issue|bill)/', x) for x in nv), f'{t}: at most three rows need voices, each to its issue (or bill) page {nv}')
                     check(await pg.evaluate("!!document.querySelector('[data-rc-showall=voices]')") or len(nv) < 3, f'{t}: "See more with a hearing this week" when there are more')
-                check(await pg.evaluate("!document.querySelector('#main .acard, #fd-lists-h, #main .mb-star, #main .btn.primary')"), f'{t}: no action card, HIPHI lists, star or filled button')
+                check(await pg.evaluate("!document.querySelector('#main .acard, #main .mb-star, #main .btn.primary')"), f'{t}: no action card, star or filled button')
+                check(await pg.evaluate(ORDER, ['#fd-iss-h', '#fd-lists-h', '.rc-foot']) == 'ok', f'{t}: Lists from HIPHI after the topics, before the foot')
+                ls = await pg.evaluate("[...document.querySelectorAll('.rc-lists.rc-box .rc-row')].map(a => a.getAttribute('href'))")
+                check(len(ls) >= 2 and all(x.startswith('#/list/') for x in ls), f'{t}: the HIPHI lists as rows in a white box, each to its page {ls}')
+                if nv:
+                    pk = await pg.evaluate("(() => { const li = document.querySelector('#fd-voices-h ~ .rc-rows > li'); return li ? [li.classList.contains('rc-pick'), li.querySelector('.rc-why')?.innerText.trim() || ''] : [false, ''] })()")
+                    check(pk[0] and pk[1], f'{t}: the best pick leads, with its reason ({pk[1]!r})')
+                    lb = await pg.evaluate("(() => { const li = document.querySelector('#fd-voices-h ~ .rc-rows > li.rc-pick'); if (!li) return ['', '', '']; const l = li.querySelector('.rc-pickby'), n = li.querySelector('.rc-rname'); return [l?.innerText.trim() || '', l && n && l.getBoundingClientRect().bottom <= n.getBoundingClientRect().top + 1 ? 'above' : 'not above', getComputedStyle(li.querySelector('.rc-why')).color] })()")
+                    check(lb[0] == 'HIPHI’s pick for you' and lb[1] == 'above' and lb[2] == 'rgb(52, 72, 82)', f'{t}: the pick says why it leads, above its name, in grey not link blue {lb}')
+                cut = await pg.evaluate("[...document.querySelectorAll('.rc-lists .rc-rstat')].filter(e => e.scrollHeight > e.clientHeight + 1).length")
+                check(cut == 0, f'{t}: the HIPHI lists say what they cover whole, nothing cut ({cut} cut)')
                 check(await pg.evaluate("!!document.querySelector('.rc-foot a[href=\"#/allbills\"]') && !!document.querySelector('.rc-foot a[href=\"#/committees\"]')"), f'{t}: Every bill HIPHI tracks and Committees at the foot')
                 check(await pg.evaluate(COUNTED) == [], f'{t}: no headings with counts')
                 newline = await pg.evaluate("!!document.querySelector('.rc-newhere[href=\"#/start/0\"]')")
                 check(newline == (who == 'none'), f'{t}: "New here?" only for a newcomer from a link ({newline})')
                 check(not await pg.evaluate(WIDE), f'{t}: no sideways scroll')
                 if tag == 'phone' and who == 'kai':
-                    hh = await pg.evaluate(HEIGHT); check(hh < 1500, f'{t}: under 1,500px on a phone ({hh}; 3,284 before)')
+                    hh = await pg.evaluate(HEIGHT); check(hh < 1850, f'{t}: under 1,850px on a phone ({hh}; 3,284 before)')
                 check(await pg.evaluate("[...document.querySelectorAll('#fd-results .rc-rows')].every(u => u.classList.contains('rc-box'))"), f'{t}: every list on Find is in a white box')
                 if nv and await pg.evaluate("!!document.querySelector('[data-rc-showall=voices]')"):
                     await pg.click('[data-rc-showall=voices]'); await pg.wait_for_timeout(200)
@@ -152,7 +163,7 @@ async def main():
                     check(not await pg.evaluate(WIDE), f'{m}: no sideways scroll')
                     check(await pg.evaluate("!!document.querySelector('.rc-mrows.rc-box')"), f'{m}: the rows in one white box')
                     if tag == 'phone' and who == 'leilani':
-                        hh = await pg.evaluate(HEIGHT); check(hh < 1650, f'{m}: under 1,650px on a phone ({hh}; 4,146 before)')
+                        hh = await pg.evaluate(HEIGHT); check(hh < 1800, f'{m}: under 1,800px on a phone ({hh}; 4,146 before)')
                     await pg.click('[data-rc-edit]'); await pg.wait_for_timeout(300)
                     n = await pg.evaluate("document.querySelectorAll('[data-rc-stop]').length")
                     check(n == len(mine), f'{m}: Edit puts Stop following on every row ({n})')
@@ -187,13 +198,13 @@ async def main():
         ctx, pg, errs = await ctx_for(br, 'kai', 390, 844)
         await go(pg, '#/list/keiki-health', '.fd[data-page="list"]')
         check(await pg.evaluate("document.querySelector('.fd-back')?.innerText.trim()") == 'Find', 'a HIPHI list: the back link says Find')
-        # ---- without ?rec the old pages still draw ----
+        # ---- with ?rec=0 the old pages still draw (the way back, R-303) ----
         await go(pg, '#/find', '.fd[data-page="find"] #fd-iss-h', rec=False)
-        check(await pg.evaluate("!document.querySelector('.rc-find') && document.getElementById('fd-iss-h').innerText.trim() === 'Browse issues'"), 'without ?rec: today\'s Find')
+        check(await pg.evaluate("!document.querySelector('.rc-find') && document.getElementById('fd-iss-h').innerText.trim() === 'Browse issues'"), 'with ?rec=0: the old Find')
         await go(pg, '#/bills', '.mb[data-mbroot]', rec=False)
-        check(await pg.evaluate("!document.querySelector('.rc-mine') && !!document.querySelector('.fd-irow')"), 'without ?rec: today\'s My issues')
+        check(await pg.evaluate("!document.querySelector('.rc-mine') && !!document.querySelector('.fd-irow')"), 'with ?rec=0: the old My issues')
         await go(pg, '#/allbills', '#ab-q', rec=False)
-        check(await pg.evaluate("document.getElementById('ab-q').placeholder === 'Search by name or number' && document.body.innerText.includes('Waiting in committee')"), 'without ?rec: today\'s Every bill HIPHI tracks')
+        check(await pg.evaluate("document.getElementById('ab-q').placeholder === 'Search by name or number' && document.body.innerText.includes('Waiting in committee')"), 'with ?rec=0: the old Every bill HIPHI tracks')
         check(not errs, f'old pages: no page errors {errs[:2]}')
         await ctx.close()
         await br.close()

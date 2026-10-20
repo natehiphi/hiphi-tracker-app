@@ -156,7 +156,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
 // The calm redesign (R-303, ?rec=1) draws "More ways to help" as words on a line, the way Home's slide and the bill page's
 // card without a hearing draw it, so the one filled button is the card's only button (A-3; the wrap-up review of 10/18 found
 // it an outlined button in the hearing cards and words everywhere else).
-const REC = () => new URLSearchParams(location.search).has('rec');
+const REC = () => new URLSearchParams(location.search).get('rec') !== '0';   // everyone's since 19 Oct (Nate); ?rec=0 brings back the old pages
 // One row of "More ways to help"; the calm Home's hearing ask draws its own rows with it (R-300).
 export const moreRow = (ic, title, sub, a, doneText) => `<button type="button" class="mwrow"${Object.entries(a).map(([k, v]) => ` ${k}="${esc(v)}"`).join('')}><span class="lead">${icon(ic)}</span><span class="body"><span class="title">${title}</span><span class="sub">${sub}</span></span>${doneText ? chip(doneText, 'ok', 'check') : icon('chevron-right', { cls: 'chev' })}</button>`;
 

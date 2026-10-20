@@ -21,6 +21,7 @@ def ok(c, m): res.append(bool(c)); print('PASS' if c else 'FAIL', m)
 def ready(pg): pg.wait_for_function("() => !!document.querySelector('main') && !document.querySelector('.skelpage')", timeout=60000); pg.wait_for_timeout(1200)
 SKIP = "() => { try { for (const x of ['', '_demo']) { localStorage.setItem('hiphi_wiz' + x, JSON.stringify({ done: true, step: 99 })); localStorage.setItem('hiphi_tour_bill' + x, '{\"how\":\"test\"}'); localStorage.setItem('hiphi_tour_home' + x, '{\"how\":\"test\"}'); } } catch {} }"
 GPC = "Object.defineProperty(navigator, 'globalPrivacyControl', { get: () => true })"
+SHOWN = "[...document.querySelectorAll('[data-bl-followissue], [data-bl-newfollow]')].filter(e => e.offsetParent !== null && getComputedStyle(e).visibility !== 'hidden').length"
 dlg = lambda pg: pg.locator('#hp-dlg').inner_text() if pg.locator('#hp-dlg').count() else ''
 
 def go(pg, path, extra=''):
@@ -66,10 +67,14 @@ def run(w, h, mobile):
     pg.screenshot(path=os.path.join(OUT, f'{tag}-c3-5-email-note.png'))
 
     # X2-5: the privacy page.
-    go(pg, 'privacy'); t = pg.locator('main').inner_text()
+    # R-303: the redesign's privacy page keeps its sections in closed cards (pub/rec/you.js privacyRec), each titled in a
+    # summary rather than an h2, so the words are read from the page's text and the screenshot opens that card
+    go(pg, 'privacy'); t = pg.locator('main').text_content()
     ok('Anthropic’s Claude' in t and 'can’t read anyone’s email, phone number, address, story or notes' in t and 'director says yes' in t,
        f'{tag} X2-5: the privacy page names the AI helper and what it can’t read')
-    pg.locator('h2', has_text='Services that run the tracker').scroll_into_view_if_needed(); pg.screenshot(path=os.path.join(OUT, f'{tag}-x2-5-privacy.png'))
+    svc = pg.locator('h2, details.rc-fold', has_text='Services that run the tracker').first
+    if svc.evaluate("e => e.tagName") == 'DETAILS': svc.evaluate("e => { e.open = true; }")
+    svc.scroll_into_view_if_needed(); pg.screenshot(path=os.path.join(OUT, f'{tag}-x2-5-privacy.png'))
 
     # C2-1: on time, "Yes, I have an account": no "account you just made"; the Mahalo has the fix line.
     send = walk_testimony(pg, 'HB1523', 'acct-yes', f'{tag}-c2-1-yes')
@@ -120,21 +125,25 @@ def run(w, h, mobile):
 
     # C1-7: a suggested card's Follow (Find's suggestions, as someone who follows one issue).
     ctx = ctx_new(); pg = ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e)))
-    go(pg, 'find')
+    # R-303: the redesign's Find (pub/rec/find.js) lists issues as rows that open the issue page, with no Follow on them, so
+    # the suggested cards and their words are the old page's (?rec=0)
+    go(pg, 'find', '&rec=0')
     labels = pg.evaluate("[...document.querySelectorAll('.acard [data-follow][aria-pressed=\"false\"]')].map(b => [b.innerText.trim(), b.getAttribute('aria-label') || ''])")
     ok(labels and all(l[0] in ('Follow this issue', 'Follow this bill') for l in labels) and any(l[0] == 'Follow this issue' and l[1].startswith('Follow this issue: ') for l in labels),
        f'{tag} C1-7: a suggested card says "Follow this issue" and names it for a screen reader ({labels[:2]})')
     if labels: pg.locator('.acard [data-follow]').first.scroll_into_view_if_needed(); pg.screenshot(path=os.path.join(OUT, f'{tag}-c1-7-suggested.png'))
 
     # B3-3: a watched bill with a hearing whose deadline passed (HB 1605): "Anyone", and the late line.
-    go(pg, 'bill/HB1605'); t = pg.locator('main').inner_text()
+    # R-303: on the redesign's bill page the late line sits in the closed "Who decides next" card, so read the page's text
+    go(pg, 'bill/HB1605'); t = pg.locator('main').text_content()
     ok('Anyone in Hawaiʻi' not in t and ('Anyone can still send it on the Capitol website; it will be marked late.' in t or 'Anyone can send testimony on the Capitol website.' in t),
        f'{tag} B3-3: "Anyone can send testimony", with the late line after the deadline')
     # B3-3: a stopped bill in session (SB 1525): the later steps are "not reached"; one "Follow the issue".
     go(pg, 'bill/SB1525'); t = pg.locator('main').inner_text()
     sr = pg.evaluate("[...document.querySelectorAll('.bl-dots .sr')].map(e => e.textContent)")
     ok(sr and not any('still ahead' in s for s in sr) and any('not reached' in s for s in sr), f'{tag} B3-3: after a stop, screen readers hear "not reached" ({sr[-1] if sr else ""})')
-    nf = pg.evaluate("[...document.querySelectorAll('[data-bl-followissue], [data-bl-newfollow]')].filter(e => e.offsetParent !== null).length")
+    # R-303: the redesign keeps the action bar's copy of the card's button hidden (visibility) until the card scrolls away
+    nf = pg.evaluate(SHOWN)
     ok(nf == 1, f'{tag} B3-3: one "Follow the issue" on the stopped bill’s screen ({nf})')
     pg.screenshot(path=os.path.join(OUT, f'{tag}-b3-3-stopped-in-session.png'))
     ctx.close()
@@ -146,9 +155,9 @@ def run(w, h, mobile):
         t = pg.locator('main').inner_text()
         ok('Did not advance in 2026. This bill can’t come back, but its idea can, as a new bill when the Legislature meets on January 20.' in t,
            f'{tag} B3-1 ({who}): the stopped bill says what happens next')
-        main = pg.locator('.actionbar .btn.primary, .bl-do .btn.primary').first
+        main = pg.locator('.actionbar .btn.primary, .bl-do .btn.primary, .bl-ract .btn.primary').filter(visible=True).first   # .bl-ract: the redesign's action card (R-303)
         ok(main.count() and main.inner_text().strip() == 'Follow the issue', f'{tag} B3-1 ({who}): the main button is "Follow the issue" ({main.inner_text().strip() if main.count() else ""})')
-        nf = pg.evaluate("[...document.querySelectorAll('[data-bl-followissue], [data-bl-newfollow]')].filter(e => e.offsetParent !== null).length")
+        nf = pg.evaluate(SHOWN)
         ok(nf == 1, f'{tag} B3-1 ({who}): one follow ask on the page ({nf})')
         fl = pg.locator('.bl-after a[href^="#/legislators"]')
         ok(fl.count() == 1 and 'Find your legislators' in fl.inner_text(), f'{tag} B3-1 ({who}): "Find your legislators" is the second choice')

@@ -28,11 +28,11 @@ const lazy = (key, load, o = {}) => {
 // Since 11 Oct (R-222) the test has three versions and the calm Home is the first, everyone's Home while the test is off
 // (pub/calm/home.js, Direction 1: today's bill page and tabs); 'today' is the Home as it was before, and 'a' is R-071's
 // Layout A from September (pub/a/: its Home, its bill page, "You").
-const oldA = () => armOf('layout') === 'a';
-// The calm redesign of the rest of the public pages (R-303, Nate 10/17), with the bill page in layout 3 (R-302): only with
-// ?rec=1 until his look. Taking this switch out brings back today's pages everywhere.
-const REC = () => new URLSearchParams(location.search).has('rec');
-const calmHome = () => armOf('layout') === 'calm';
+const oldA = () => !REC() && armOf('layout') === 'a';   // the layout test ended 19 Oct (backend 182): the redesign replaces A and today's Home
+// The calm redesign of the rest of the public pages (R-303, Nate 10/17), with the bill page in layout 3 (R-302):
+// everyone's since Nate's 19 Oct "make the new rec version the main version"; ?rec=0 brings back the old pages everywhere.
+const REC = () => new URLSearchParams(location.search).get('rec') !== '0';   // everyone's since 19 Oct (Nate); ?rec=0 brings back the old pages
+const calmHome = () => REC() || armOf('layout') === 'calm';   // the redesign is built on the calm Home (everyone's since 11 Oct)
 const start = lazy('start', () => import('./start.js'), { tabs: false, title: 'Welcome' }), home = lazy('home', () => oldA() ? import('./a/home.js') : calmHome() ? import('./calm/home.js') : import('./home.js'), { tab: 'home', title: 'Home' });
 const find = lazy('find', () => REC() ? import('./rec/find.js') : import('./find.js'), { tab: 'find', title: 'Find' }), people = lazy('people', () => import('./people.js'), { tab: 'more', title: 'Your legislators' });
 const more = lazy('more', () => import('./more.js'), { tab: 'more', title: 'More' });

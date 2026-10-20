@@ -8,7 +8,7 @@
 //   a lawmaker: who they are in one line, ONE card, "On your issues", then three closed cards (their committees, every
 //   HIPHI bill in them, office and contact: the phone said once).
 // Street addresses never reach a web address and are never kept (people.js): only the districts and the town are.
-import { S, app, esc, icon, spaced, nick, billPath, legById, legTitle, legPhoto, posInfo, cmteLabel, codesOf, stopOf, alive, agrees, didKind, hearingWhen, CHAMBER_NAME } from '../core.js';
+import { S, app, esc, icon, spaced, nick, billPath, legById, legTitle, legPhoto, posInfo, cmteLabel, codesOf, stopOf, alive, agrees, didKind, hearingWhen, CHAMBER_NAME, sessionInfo, HST } from '../core.js';
 import { btn, chip, notice } from '../ui.js';
 import { recHead, recBack, recSec, recRows, recMore, recFold, recFolds, recWay, recEmpty, wireKit, BOX } from './kit.js';
 import { recAct, dueOf, byDue, billRow, billWords, pillFor, daysLeft, backRow, atWords } from './act.js';
@@ -154,6 +154,28 @@ function districtLine(l) {
   return `${CHAMBER_NAME[l.chamber]} District ${l.district}${words ? ' · ' + words : ''}`;
 }
 const andList = xs => xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
+// Why a page is quiet, said once under the name in the old page's words (people.js personPage, R-212 #25): between sessions
+// their committees have no bills yet; the Speaker and the Senate President sit on none; someone else has none listed. The
+// day the session opens is said as Home says it ("Wednesday, January 20"); people.js keeps its own copy unexported.
+const opensWord = () => { const n = sessionInfo().nextOpen; return n ? new Date(n + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: HST }) : ''; };
+function quietLine(l, roles) {
+  const si = sessionInfo(), W = who(l), quiet = (ic, t) => `<p class="pp-rquiet">${icon(ic)}<span>${esc(t)}</span></p>`;
+  if (si.phase !== 'in') { const opens = opensWord();
+    return quiet('calendar-days', `The Legislature is on break${opens ? ` until ${opens}` : ''}. ${roles.length ? `These are their ${si.recapYear} committees. New ones are set when the session opens.` : 'Committees are set when the session opens.'}`); }
+  if (roles.length) return '';
+  const t = l.title || '';
+  return quiet('info', /speaker/i.test(t) && !/vice/i.test(t) ? `As Speaker, ${W} leads the House and does not sit on its committees.`
+    : /president/i.test(t) && !/vice/i.test(t) ? `As Senate President, ${W} leads the Senate and does not sit on its committees.` : `No committees are listed for ${W} this year.`);
+}
+// No email listed: no "Write to" card without a button (19 Oct, Sen. Kidani). Their phone when there is one, else the old
+// page's line and the Capitol link it pointed to (people.js pp-nocontact).
+function reachCard(l) {
+  const W = who(l);
+  if (l.phone) return recAct({ id: 'pp-act-h', title: `Call ${W}`, text: `No email address is listed for ${W} yet. Their office at the Capitol takes calls.`,
+    button: btn(`Call ${l.phone}`, { kind: 'primary', icon: 'phone', full: true, href: `tel:${l.phone.replace(/[^\d+]/g, '')}`, attrs: { 'aria-label': `Call ${W} at ${l.phone}` } }) });
+  return recAct({ id: 'pp-act-h', title: `Get in touch with ${W}`, text: 'No email or phone is listed yet.',
+    button: l.capitol_url ? btn('Find their phone on the Capitol site', { kind: 'secondary', icon: 'external-link', full: true, cls: 'pp-rreach', href: l.capitol_url, attrs: { target: '_blank', rel: 'noopener' } }) : '' });
+}
 
 export function recPerson(route) {
   const l = legById(route.id), from = billNum(route), b = fromBill(from);
@@ -162,7 +184,7 @@ export function recPerson(route) {
   const sv = saved(), own = mine(l, sv), roles = rolesOf(l), k = 'a' + l.id;
   // The card: the bill they came from, else the most pressing followed bill in their committees, else the hello.
   const m = b ? meetOf(l, b, roles) || { l, b, when: 'about' } : bestFor([l]);
-  const card = m ? billCard(m, { own }) : helloCard([l], { own });
+  const card = !l.email ? reachCard(l) : m ? billCard(m, { own }) : helloCard([l], { own });
   // On your issues: the followed bills in their committees or before their chamber, the card's own bill left out (A-14).
   // The ones they chair first, then in their hands now by what is due, then what comes to them next; four, and the rest in
   // place (B-14). A bill in a committee they chair comes first, in both lists (Nate 18 Oct, card 18: whether these are only the
@@ -190,13 +212,13 @@ export function recPerson(route) {
     `<p class="rc-note pp-rnote">Bills in every committee they sit on.</p>`
     + groups.map(([h, xs], n) => `${h ? `<p class="pp-rgh">${esc(h)}</p>` : ''}${recMore(xs.map(allRow), groups.length > 1 ? 6 : 8, `pp-allbills-${n}`)}`).join('')) : '';
   // The phone is said once on the page, inside this card (A-14; the old page said it twice), so the preview only names it.
-  const office = recFold('pp-office', 'Office and contact', andList([l.room ? `Room ${l.room} at the Capitol` : 'Their Capitol office', l.phone ? 'their phone' : '', l.capitol_url ? 'their Capitol page' : ''].filter(Boolean)),
-    `${l.phone ? recWay('phone', `Call ${l.phone}`, 'Their office at the Capitol', { href: `tel:${l.phone.replace(/[^\d+]/g, '')}`, 'aria-label': `Call ${who(l)} at ${l.phone}` }) : ''}
-     ${l.capitol_url ? recWay('external-link', 'Their page on the Capitol website', 'Bills they introduced and their votes', { href: l.capitol_url, target: '_blank', rel: 'noopener' }) : ''}
+  const office = recFold('pp-office', 'Office and contact', andList([l.room ? `Room ${l.room} at the Capitol` : 'Their Capitol office', l.phone && l.email ? 'their phone' : '', l.capitol_url && (l.email || l.phone) ? 'their Capitol page' : ''].filter(Boolean)),
+    `${l.phone && l.email ? recWay('phone', `Call ${l.phone}`, 'Their office at the Capitol', { href: `tel:${l.phone.replace(/[^\d+]/g, '')}`, 'aria-label': `Call ${who(l)} at ${l.phone}` }) : ''}
+     ${l.capitol_url && (l.email || l.phone) ? recWay('external-link', 'Their page on the Capitol website', 'Bills they introduced and their votes', { href: l.capitol_url, target: '_blank', rel: 'noopener' }) : ''}
      <p class="pp-roffice">${icon('landmark')}<span>${l.room ? `Room ${esc(l.room)}, ` : ''}Hawaiʻi State Capitol, 415 S Beretania St, Honolulu${l.email ? `<br>${esc(l.email)}` : ''}</span></p>
      ${l.places ? `<p class="pp-roffice">${icon('map')}<span>${PARTY[l.party] ? esc(PARTY[l.party]) + '. ' : ''}${CHAMBER_NAME[l.chamber]} District ${l.district} covers ${esc(cover(l))}.</span></p>` : ''}`);
   const head = `<header class="rc-head pp-rhead">${legPhoto(l, 'pp-photo xl')}<div class="pp-rhtext">${own ? `<span class="pp-ryours">${chip(yoursWord(l), 'info', 'user-check')}</span>` : ''}
-    <h1 class="rc-h1">${esc(full(l))}</h1><p class="pp-rdist">${esc(districtLine(l))}</p></div></header>`;
+    <h1 class="rc-h1">${esc(full(l))}</h1><p class="pp-rdist">${esc(districtLine(l))}</p></div></header>${quietLine(l, roles)}`;
   const rest = `${yours}${recFolds([cm, bills, office])}`;
   return `<div class="pp rc rc-wide pp-rec pp-rperson">${back}<div class="rc-cols"><div class="pp-rmain">${head}</div>
     <aside class="rc-side pp-ract" aria-label="Take part">${card}</aside><div class="pp-rmain pp-rmain2">${rest}</div></div></div>`;

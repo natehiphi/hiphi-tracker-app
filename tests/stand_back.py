@@ -53,7 +53,17 @@ with sync_playwright() as p:
             pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
 
         # Support marked on the bill page first: still asked, with Support chosen and said; Next keeps it
-        pg.goto(BASE + '#/bill/HB1523'); pg.wait_for_selector('[data-bl-stance="support"]', timeout=30000); pg.wait_for_timeout(400)
+        # R-303: the calm redesign's bill page (everyone's since 19 Oct) has "Where do you stand?" again, a quiet card after the
+        # action (under Where it is now on a phone, under the action card on a laptop); Support is marked there first, then the
+        # same on the old page ?rec=0 brings back, which the walkthrough checks below use.
+        pg.goto(BASE + '#/bill/HB1523'); pg.wait_for_selector('.bl-rec [data-bl-stance="support"]', timeout=30000); pg.wait_for_timeout(400)
+        sup = pg.locator('[data-bl-stance="support"]')
+        if sup.get_attribute('aria-pressed') == 'true': sup.click(); pg.wait_for_timeout(600)
+        sup.click(); pg.wait_for_timeout(600)
+        ok(sup.get_attribute('aria-pressed') == 'true' and pg.evaluate(f"async () => (await import('./pub/core.js')).myStance('{t['b']}')") == 'support', f'{tag}: Support marked on the bill page (the default, calm page)')
+        ok(pg.evaluate("(() => { const s = document.querySelector('.bl-rstance'), a = document.querySelector('.bl-ract, .bl-act'); return !!s && !!a && !!(a.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING) && !s.querySelector('.btn.primary'); })()"),
+           f'{tag}: the stance card comes after the action card, with no filled button of its own')
+        pg.goto(BASE + ('&' if '?' in BASE else '?') + 'rec=0#/bill/HB1523'); pg.wait_for_selector('[data-bl-stance="support"]', timeout=30000); pg.wait_for_timeout(400)
         sup = pg.locator('[data-bl-stance="support"]')
         if sup.get_attribute('aria-pressed') != 'true': sup.click(); pg.wait_for_timeout(600)
         ok(sup.get_attribute('aria-pressed') == 'true', f'{tag}: Support marked on the bill page')

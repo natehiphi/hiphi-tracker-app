@@ -20,6 +20,11 @@ def ctx(b, w, hh):
     p = c.new_page(); p.on('pageerror', lambda e: errors.append(f'{w}: {e}'))
     return c, p
 def back_text(p): return p.locator('[data-bl-back] span').first.inner_text().strip()
+# R-303: the calm redesign (everyone's since 19 Oct) draws Find's "People and committees" as a .rc-sec labelled by
+# #fd-who-h (the old page's .fd-who), its bills under #fd-ob-h ("Bills", "Other bills"), and lists no bill on Find
+# before a search (its browse rows are topics and issues).
+WHO = '.fd-who, section[aria-labelledby="fd-who-h"]'
+def who_a(sel=''): return ', '.join(f'{w} a{sel}' for w in WHO.split(', '))
 
 with sync_playwright() as pw:
     b = pw.chromium.launch()
@@ -51,12 +56,14 @@ with sync_playwright() as pw:
         p.goto(f'{HOST}/track.html?demo=1&seed=1#/'); p.reload(); p.wait_for_timeout(3000)
         p.evaluate("document.querySelector('a[href=\"#/find\"]').click()"); p.wait_for_timeout(900)
         bill = p.locator('#fd-results a[href^="#/bill/"]').first
+        if not bill.count():   # the redesign's Find: a bill is one search away
+            p.locator('#q').fill('HB1523'); p.wait_for_timeout(1500); bill = p.locator('#fd-results a[href^="#/bill/"]').first
         if bill.count():
             bill.scroll_into_view_if_needed(); bill.click(); p.wait_for_timeout(1500)
             ok(h(p).startswith('#/bill/') and back_text(p) == 'Find', f'{tag}: from Find, Back says Find ("{back_text(p)}", {h(p)})')
             ok(p.locator('[data-bl-back]').first.get_attribute('aria-label') == 'Back to Find', f'{tag}: a screen reader hears "Back to Find"')
             p.locator('[data-bl-back]').first.click(); p.wait_for_timeout(900)
-            ok(h(p) == '#/find', f'{tag}: and returns to Find ({h(p)})')
+            ok(h(p) == '#/find' or h(p).startswith('#/find?q='), f'{tag}: and returns to Find, with the search it came from in the redesign ({h(p)})')
         else: ok(False, f'{tag}: Find lists no bill to open')
         # an issue's page (Find -> a category -> an issue), then a bill on it: Back names the issue
         p.evaluate("location.hash = '#/find'"); p.wait_for_timeout(1000)
@@ -70,8 +77,9 @@ with sync_playwright() as pw:
                 bill.scroll_into_view_if_needed(); bill.click(); p.wait_for_timeout(1500)
                 bt = back_text(p)
                 ok(bt and bt != 'Back' and (name.startswith(bt.rstrip('…')) or bt in name or name in bt), f'{tag}: from an issue, Back names it ("{bt}" for "{name}")')
-                fits = p.evaluate("(() => { const s = document.querySelector('[data-bl-back] span'); const r = s.getBoundingClientRect(); const n = document.querySelector('.bl-num').getBoundingClientRect(); return r.right <= n.left + 1; })()")
-                ok(fits, f'{tag}: the name stays beside the number without pushing it')
+                # the old page has the number beside Back; the redesign moved it above the title, so Share and ⋯ are beside it
+                fits = p.evaluate("(() => { const s = document.querySelector('[data-bl-back] span'); const r = s.getBoundingClientRect(); const n = (document.querySelector('.bl-num') || document.querySelector('.bl-top .bl-tools')).getBoundingClientRect(); return r.right <= n.left + 1; })()")
+                ok(fits, f'{tag}: the name stays beside the number (the redesign: Share and ⋯) without pushing it')
                 if phone: p.screenshot(path=f'{OUT}/back_issue_{w}.png')
                 p.locator('[data-bl-back]').first.click(); p.wait_for_timeout(900)
                 ok('/issue/' in h(p), f'{tag}: and returns to the issue ({h(p)})')
@@ -91,16 +99,16 @@ with sync_playwright() as pw:
         if not phone: p.screenshot(path=f'{OUT}/find_onebox_{w}.png')
         # ---- A4-3: people and committees by name ----
         p.locator('#q').fill('Iwamoto'); p.wait_for_timeout(1500)
-        ok(p.locator('#fd-who-h').count() == 1 and p.locator('#fd-who-h').inner_text() == 'People and committees' and p.locator('.fd-who a[href="#/legislator/301"]').count() == 1,
+        ok(p.locator('#fd-who-h').count() == 1 and p.locator('#fd-who-h').inner_text() == 'People and committees' and p.locator(who_a('[href="#/legislator/301"]')).count() == 1,
            f'{tag}: Find: "Iwamoto" lists Rep. Kim Coco Iwamoto under People and committees')
         p.locator('#q').fill('TRS'); p.wait_for_timeout(1500)
-        ok(p.locator('.fd-who a[href="#/committee/TRS"]').count() == 1, f'{tag}: Find: "TRS" finds the Transportation committee by its code')
+        ok(p.locator(who_a('[href="#/committee/TRS"]')).count() == 1, f'{tag}: Find: "TRS" finds the Transportation committee by its code')
         p.locator('#q').fill('health'); p.wait_for_timeout(1500)
-        ok(p.locator('.fd-who a[href^="#/committee/"]').count() >= 2, f'{tag}: Find: "health" lists the Health committees ({p.locator(".fd-who a").count()})')
-        who = p.locator('.fd-who').first.bounding_box(); mv = p.locator('#fd-mv-h, #fd-law-h').first.bounding_box()
+        ok(p.locator(who_a('[href^="#/committee/"]')).count() >= 2, f'{tag}: Find: "health" lists the Health committees ({p.locator(who_a()).count()})')
+        who = p.locator(WHO).first.bounding_box(); mv = p.locator('#fd-mv-h, #fd-law-h, #fd-ob-h').first.bounding_box()
         ok(who and (not mv or who['y'] < mv['y']), f'{tag}: the people come before the bills')
         if phone: p.screenshot(path=f'{OUT}/find_people_{w}.png')
-        p.locator('.fd-who a[href^="#/committee/"]').first.click(); p.wait_for_timeout(1200)
+        p.locator(who_a('[href^="#/committee/"]')).first.click(); p.wait_for_timeout(1200)
         ok(h(p).startswith('#/committee/'), f'{tag}: a committee row opens its page ({h(p)})')
         p.locator('#q').fill('') if p.locator('#q').count() else None
         if not phone:

@@ -249,6 +249,11 @@ body.rec .pp-rdist { margin: 0; font-size: var(--t14); line-height: 1.4; color: 
 body.rec .pp-rnote { margin: var(--s8) 0; }
 body.rec .pp-roffice { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s12) 0 0; font-size: var(--t14); color: var(--n700); overflow-wrap: anywhere; }
 body.rec .pp-roffice .ic { width: 18px; height: 18px; margin-top: 2px; color: var(--n500); flex: none; }
+/* Why the page is quiet (between sessions, no committees), one line under the name (R-212 #25 in the redesign). */
+body.rec .pp-rquiet { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s16) 0 0; max-width: 65ch; font-size: var(--t14); line-height: 1.45; color: var(--n700); }
+body.rec .pp-rquiet .ic { width: 18px; height: 18px; margin-top: 2px; color: var(--n500); flex: none; }
+/* The Capitol link: one line at 390 (its words and narrower side padding, fresh-eyes review 19 Oct); narrower still, it wraps inside its button instead of running past the edge. */
+body.rec .pp-rec .btn.pp-rreach { white-space: normal; height: auto; min-height: 48px; padding: var(--s8) var(--s16); line-height: 1.25; text-align: center; }
 @media (min-width: 1100px) {
   body.rec .pp-rec .rc-cols { row-gap: 0; }
   body.rec .pp-rec .rc-cols > .pp-rmain { grid-column: 1; min-width: 0; }

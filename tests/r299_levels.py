@@ -13,6 +13,7 @@
 #       levels; a tap there changes the line; nothing without ?via=text
 #   S1  Staff v2 and v5: an email about a bill has "Big push: also text it", the text line shows once ticked with a live count,
 #       a short line is refused, a big push on the same issue in the past 7 days is warned of; an email to a list has none
+#   I1R, P1R  the same in the calm redesign (R-303, the default): the issue page's Following menu, and Your alerts
 #   G1  the go-live switch: pub/alerts.js WORDS_T5 and text-terms.html's R-299 GO-LIVE block agree
 #   python3 tests/r299_levels.py [base]     base defaults to http://localhost:8832/
 import sys, re, os, json
@@ -20,6 +21,10 @@ from playwright.sync_api import sync_playwright
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/').rstrip('/') + '/'
 if BASE.endswith('track.html/'): BASE = BASE[:-len('track.html/')]
 PUB = BASE + 'track.html?demo=1'
+# R-303: the calm redesign is the default. I1 and P1 below check the old issue page's follow card and Profile's save bar,
+# which only ?rec=0 draws now, so they keep guarding the way back; I1R and P1R check the same choices where the redesign
+# put them (the issue page's "Following" menu, pub/rec/issue.js followPill; "Your alerts", pub/rec/alerts.js levels).
+PUB0 = BASE + 'track.html?demo=1&rec=0'
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 snap = json.load(open(os.path.join(ROOT, 'demo', 'snapshot.json')))
 ISS = {i['slug']: i for i in snap['issues']}
@@ -47,8 +52,8 @@ with sync_playwright() as p:
         pg.on('pageerror', lambda e: errs.append(str(e)[:200])); return c, pg
     # ---- I1: the issue page ----
     c, pg = phone()
-    pg.goto(PUB + '#/'); ready(pg); pg.evaluate(setup([ECIG['id']]))
-    pg.goto(PUB + f'#/issue/{ECIG["slug"]}'); pg.reload(); ready(pg); pg.wait_for_timeout(800)
+    pg.goto(PUB0 + '#/'); ready(pg); pg.evaluate(setup([ECIG['id']]))
+    pg.goto(PUB0 + f'#/issue/{ECIG["slug"]}'); pg.reload(); ready(pg); pg.wait_for_timeout(800)
     line = pg.locator('.fd-follow.on .lvl-line')
     ok(line.count() == 1 and 'Alerts: Big moments only' in line.inner_text() and pg.locator('.fd-follow.on .lvl').count() == 0, 'I1: a followed issue has one line, "Alerts: Big moments only · Change", in its follow card (A-1: no chips until asked)')
     act = pg.evaluate("document.querySelector('#fd-iact-h')?.getBoundingClientRect().top")
@@ -81,14 +86,14 @@ with sync_playwright() as p:
     ok('Alerts: Every hearing' in pg.locator('.fd-follow .lvl-line').inner_text(), 'I1: still Every hearing after a reload')
     pg.evaluate("() => localStorage.removeItem('hiphi_text')"); pg.reload(); ready(pg); pg.wait_for_timeout(800)
     ok(pg.locator('.fd-follow.on').count() == 1 and pg.locator('.lvl-line').count() == 0, 'I1: no number and no email: no level to choose (C-13)')
-    pg.goto(PUB + f'#/issue/{CROSS["slug"]}'); ready(pg); pg.wait_for_timeout(800)
+    pg.goto(PUB0 + f'#/issue/{CROSS["slug"]}'); ready(pg); pg.wait_for_timeout(800)
     ok(pg.locator('.lvl-line').count() == 0, 'I1: an issue not followed has no level')
     c.close()
 
     # ---- P1: Profile > Alerts ----
     c, pg = phone()
-    pg.goto(PUB + '#/'); ready(pg); pg.evaluate(setup([ECIG['id'], CROSS['id']], levels={CROSS['id']: 'app'}))
-    pg.goto(PUB + '#/profile'); pg.reload(); ready(pg); pg.wait_for_timeout(800)
+    pg.goto(PUB0 + '#/'); ready(pg); pg.evaluate(setup([ECIG['id'], CROSS['id']], levels={CROSS['id']: 'app'}))
+    pg.goto(PUB0 + '#/profile'); pg.reload(); ready(pg); pg.wait_for_timeout(800)
     al = pg.locator('#pf-email').inner_text()
     ok('when your voice matters most' in al and 'at most one a day' not in al, f'P1: the text line says what texts are for, not "at most one a day" ({al[:90]!r})')
     rows = pg.evaluate("[...document.querySelectorAll('.pf-lvls .lvl-sw')].map(s => [document.getElementById(s.getAttribute('aria-labelledby')).innerText.trim(), s.querySelector('input:checked')?.value])")
@@ -117,6 +122,51 @@ with sync_playwright() as p:
     ok(prefs.get('email_level') == 'every' and prefs.get('consent_at') == '2026-10-01T00:00:00Z', f'P1: saved as prefs.email_level, the consent stamp untouched ({prefs})')
     pg.locator('label[for="pf-em-alerts"]').click(); pg.wait_for_timeout(300)
     ok(not pg.locator('#pf-elv').is_visible(), 'P1: with hearing emails unticked, "Hearing emails" folds away (B-12)')
+    pg.evaluate("async () => { const c = await import('./pub/core.js'); c.S.session = null; c.S.user = null; c.S.profile = {}; }")
+    c.close()
+
+    # ---- I1R: the redesign's issue page (R-303): the level sits in the "Following" pill's menu (pub/rec/issue.js followPill) ----
+    c, pg = phone()
+    pg.goto(PUB + '#/'); ready(pg); pg.evaluate(setup([ECIG['id']]))
+    pg.goto(PUB + f'#/issue/{ECIG["slug"]}'); pg.reload(); ready(pg); pg.wait_for_timeout(800)
+    ok(pg.locator('[data-rc-fmenu]').count() == 1 and not pg.locator('.rc-fmenu .lvl-line').is_visible(), 'I1R: a followed issue shows "Following", the level folded into its menu (A-1)')
+    pg.locator('[data-rc-fmenu]').click(); pg.wait_for_timeout(400)
+    ok('Alerts: Big moments only' in pg.locator('.rc-fmenu .lvl-line').inner_text() and pg.locator('.rc-fmenu .lvl').count() == 0, 'I1R: its menu has one line, "Alerts: Big moments only · Change"')
+    pg.locator('.rc-fmenu [data-lvl-toggle]').click(); pg.wait_for_timeout(600)
+    ok(pg.locator('.rc-fmenu .lvl input[type="radio"][data-lvl]').count() == 3 and pressed(pg) == ['Big moments only'] and pg.locator('.rc-fmenu').is_visible(), 'I1R: Change opens the three levels in the menu, which stays open, Big moments only chosen')
+    ok(pg.evaluate("document.activeElement?.dataset?.lvl") == 'big', 'I1R: Change puts the focus on the chosen level')
+    pg.locator('.rc-fmenu .lvl-o:has([data-lvl="every"])').click(); pg.wait_for_timeout(700)
+    ok(pressed(pg) == ['Every hearing'] and 'Saved.' in pg.locator('.rc-fmenu .lvl-hint').inner_text() and levels(pg).get(ECIG['id']) == 'every', 'I1R: a tap on Every hearing saves it at once and says "Saved."')
+    pg.reload(); ready(pg); pg.wait_for_timeout(800); pg.locator('[data-rc-fmenu]').click(); pg.wait_for_timeout(400)
+    ok('Alerts: Every hearing' in pg.locator('.rc-fmenu .lvl-line').inner_text(), 'I1R: still Every hearing after a reload')
+    pg.evaluate("() => localStorage.removeItem('hiphi_text')"); pg.reload(); ready(pg); pg.wait_for_timeout(800); pg.locator('[data-rc-fmenu]').click(); pg.wait_for_timeout(400)
+    ok(pg.locator('.lvl-line').count() == 0 and pg.locator('.rc-fmenu [data-fdunissue]').is_visible(), 'I1R: no number and no email: no level to choose, only Stop following (C-13)')
+    pg.goto(PUB + f'#/issue/{CROSS["slug"]}'); ready(pg); pg.wait_for_timeout(800)
+    ok(pg.locator('.lvl-line').count() == 0 and pg.locator('[data-fdissue]').count() >= 1, 'I1R: an issue not followed has Follow and no level')
+    c.close()
+
+    # ---- P1R: "Your alerts" (R-303, pub/rec/alerts.js levels): Profile's switches moved here, each saving as it moves ----
+    c, pg = phone()
+    pg.goto(PUB + '#/'); ready(pg); pg.evaluate(setup([ECIG['id'], CROSS['id']], levels={CROSS['id']: 'app'}))
+    pg.goto(PUB + '#/alerts'); pg.reload(); ready(pg); pg.wait_for_timeout(800)
+    ways = pg.locator('.ya-ways').inner_text()
+    ok('On.' in ways and 'at most one a day' not in ways.lower(), f'P1R: the texts line says they are on, not "at most one a day" ({ways[:80]!r})')
+    rows = pg.evaluate("[...document.querySelectorAll('.ya-lvs .lvl-sw')].map(s => [document.getElementById(s.getAttribute('aria-labelledby')).innerText.trim(), s.querySelector('input:checked')?.value])")
+    ok(sorted(rows) == sorted([[ECIG['name'], 'big'], [CROSS['name'], 'app']]), f'P1R: one sliding switch per followed issue, under its name, with its level ({rows})')
+    ok('Every hearing: never more than one a day. Big moments only: usually a few a month. App only: no texts or emails.' in pg.locator('.mr-alerts').inner_text() and 'How much each issue sends' in pg.locator('.mr-alerts').inner_text(), 'P1R: "How much each issue sends", and one line says how often each level comes')
+    row = pg.locator(f'.ya-lv[data-lvl-issue="{ECIG["id"]}"]')
+    row.locator('.lvl-o:has([data-lvl="every"])').click(); pg.wait_for_timeout(800)
+    ok(levels(pg).get(ECIG['id']) == 'every' and 'Saved.' in row.locator('.lvl-hint').inner_text() and pg.locator('.pf-bar').count() == 0, 'P1R: a tap saves at once and says "Saved." under that switch, no save bar (B-7)')
+    pg.evaluate("async () => { const c = await import('./pub/core.js'); c.S.session = { user: { email: 'lei@example.com' } }; c.S.user = { id: 'u1', prefs: { hearing_alerts: true, action_alerts: true, consent_at: '2026-10-01T00:00:00Z' }, created_at: new Date().toISOString() }; c.S.profile = { name: 'Lei', titles: [], interests: [], stories: {} }; c.app.go('#/more'); }")
+    pg.wait_for_timeout(500); pg.evaluate("async () => (await import('./pub/core.js')).app.go('#/alerts')"); pg.wait_for_timeout(900)
+    elv = pg.locator('#ya-elv')
+    ok(elv.count() == 1 and elv.is_visible() and 'Same as each issue above' in elv.inner_text() and 'Every hearing on my issues (not App only ones)' in elv.inner_text(), 'P1R: signed in with an email, "Hearing emails" offers the same as each issue, or every hearing but App only ones')
+    ok('Email me alerts about my issues' in pg.locator('label[for="ya-em-alerts"]').inner_text() and pg.locator('#ya-elv-same').is_checked(), 'P1R: the box over it says "Email me alerts about my issues", the same as each issue the default')
+    pg.locator('label[for="ya-elv-every"]').click(); pg.wait_for_timeout(800)
+    prefs = pg.evaluate("async () => (await import('./pub/core.js')).S.user.prefs")
+    ok(prefs.get('email_level') == 'every' and prefs.get('consent_at') == '2026-10-01T00:00:00Z', f'P1R: saved at once as prefs.email_level, the consent stamp untouched ({prefs})')
+    pg.locator('label[for="ya-em-alerts"]').click(); pg.wait_for_timeout(600)
+    ok(not pg.locator('#ya-elv').is_visible(), 'P1R: with hearing emails unticked, "Hearing emails" folds away (B-12)')
     pg.evaluate("async () => { const c = await import('./pub/core.js'); c.S.session = null; c.S.user = null; c.S.profile = {}; }")
     c.close()
 

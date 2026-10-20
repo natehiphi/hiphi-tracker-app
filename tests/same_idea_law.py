@@ -30,7 +30,8 @@ with sync_playwright() as pw:
         line = p.locator('.bl-sameidea')
         ok(line.count() == 1 and 'The same idea became law as SB 2175, Act 189.' in line.inner_text(), f'{tag}: the line is on the page ({line.inner_text() if line.count() else "none"!r})')
         ok(p.locator('.bl-sameidea a[href$="SB2175"]').count() == 1, f'{tag}: and links to the law')
-        ok(p.evaluate("(() => { const w = document.querySelector('.bl-why'), s = document.querySelector('.bl-sameidea'); return !!w && !!s && w.compareDocumentPosition(s) & 4; })()"), f'{tag}: it sits right under why the bill stopped')
+        # R-303: the calm redesign puts why it stopped in .bl-rsay under "Where it is now" (the old rail's .bl-why)
+        ok(p.evaluate("(() => { const w = document.querySelector('.bl-why, .bl-rnow + .bl-rsay'), s = document.querySelector('.bl-sameidea'); return !!w && !!s && w.compareDocumentPosition(s) & 4; })()"), f'{tag}: it sits right under why the bill stopped')
         ok(not p.evaluate('document.documentElement.scrollWidth > innerWidth + 1'), f'{tag}: no sideways scroll')
         if W == 390: p.screenshot(path=os.path.join(OUT, 'same_idea_390.png'))
         # a stopped bill whose companion did not become law

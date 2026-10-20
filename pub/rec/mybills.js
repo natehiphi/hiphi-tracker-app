@@ -8,11 +8,11 @@
 // following all".
 import { S, DEMO, app, esc, icon, unfollowIssue, setFollows, catOf, sessionInfo } from '../core.js';
 import { btn } from '../ui.js';
-import { recSec, recRow, recEmpty, wireKit, BOX } from './kit.js';
+import { recRow, recEmpty, wireKit, BOX } from './kit.js';
 import { myRows, keep } from '../calm/home.js';
 import { followToggle } from '../actions.js';
 import { nameOf, letGo } from '../mybills.js';
-import { ownLists, followedLists, localFollowed, myListsSection } from '../mylists.js';
+import { ownLists, followedLists, localFollowed, myListsSection, wireMyLists, canMake } from '../mylists.js';
 
 // What a row lets go of in Edit: the issue, the bill followed on its own, or (between sessions, when Home's rows name it) a
 // whole topic.
@@ -46,6 +46,16 @@ function listRows() {
   return [...own, ...theirs, ...local, ...hiphi];
 }
 
+// Your lists, with a quiet "New list" beside the heading (today's page's, mylists.js myListsSection: [data-ulnew] opens the
+// same sheet, or the sign-in page for someone who cannot make one yet). With no lists, one quiet line that lists exist and how
+// a list is made; nobody is asked for anything (C-1), so a signed-out person, who could not make one, gets no line.
+function listsPart(lists) {
+  const make = label => btn(label, { kind: 'text', sm: true, icon: 'plus', cls: 'rc-ulnew', attrs: { 'data-ulnew': '1' } });
+  if (lists.length) return `<section class="rc-sec" aria-labelledby="ul-mine-h"><div class="rc-shead"><h2 class="rc-h2" id="ul-mine-h">Your lists</h2>${canMake() ? make('New list') : ''}</div>
+    <ul class="rc-rows ${BOX}" role="list">${lists.map(recRow).join('')}</ul></section>`;
+  return canMake() ? `<div class="rc-ulhint"><p>${icon('list-checks')}<span>Keep bills together in a list, and share it by a link if you like. Open a bill and choose <b>Add to a list</b>.</span></p>${make('New list')}</div>` : '';
+}
+
 function render() {
   if (!document.querySelector('.rc-mine')) S.rcEdit = false;   // arriving afresh: not editing
   const si = sessionInfo(), off = si.phase !== 'in', rows = myRows(), lists = listRows();
@@ -62,7 +72,7 @@ function render() {
   return `<div class="rc rc-mine${edit ? ' editing' : ''}" data-mbroot>${head}
     ${whole ? `<div class="rc-wholes">${whole}</div>` : ''}
     ${rows.length ? `<ul class="rc-rows rc-mrows ${BOX}" role="list" aria-label="What you follow">${rows.map(r => rowHtml(r, edit)).join('')}</ul>` : `<p class="rc-note rc-none">You’re not following any issues yet.</p>`}
-    ${lists.length ? recSec('ul-mine-h', 'Your lists', `<ul class="rc-rows ${BOX}" role="list">${lists.map(recRow).join('')}</ul>`) : ''}
+    ${listsPart(lists)}
     ${links}</div>`;
 }
 
@@ -84,7 +94,7 @@ export default {
   render,
   wire() {
     const root = document.querySelector('.rc-mine'); if (!root) return;
-    wireKit(root);
+    wireKit(root); wireMyLists(root);
     const ed = root.querySelector('[data-rc-edit]');
     if (ed) ed.onclick = () => { S.rcEdit = !S.rcEdit; S.rcFocus = '[data-rc-edit]'; app.render(); };
     // After a row goes, the focus moves to the next row's Stop (or the one before, or Done), never to the top of the page.

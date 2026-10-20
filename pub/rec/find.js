@@ -12,11 +12,11 @@
 // puts its painter in findHooks. An issue's, a category's and a list's pages are still find.js's (another builder takes the
 // issue and category pages under rec).
 import { S, app, esc, icon, nick, plain, spaced, billPath, sessionInfo, issuesOf, issueFollowed, stopOf, alive, plainStatus, dateLong,
-  dismissed, suggestionList, recommendations, noteShown } from '../core.js';
+  dismissed, suggestionList, recommendations, noteShown, reasonOf, issueIcon } from '../core.js';
 import { btn, skeleton, inlineErr } from '../ui.js';
 import F0, { parse, startSearch, searchNote, capNote, issueMatches, peopleMatches, findHooks, wireSearch, wireIssues, offSeason, byDue,
   hiphis, shows } from '../find.js';
-import { moving, becameLaw, stopped, billsOfIssue, what } from '../mybills.js';
+import { moving, becameLaw, stopped, billsOfIssue, what, stoppedWhy } from '../mybills.js';
 import { recSec, recRow, recFold, recEmpty, recFollow, wireKit, BOX, laterRow, showAll } from './kit.js';
 import { when, keep } from '../calm/home.js';
 export { headerSuggest } from '../find.js';   // the header's suggestions (app.js asks the find screen's module for them)
@@ -46,10 +46,13 @@ export function issueLine(i) {
   if (bills.some(becameLaw)) return { text: 'Became law' };
   return { text: bills.length ? 'Did not advance this year' : 'No bills on it yet' };   // Home's words (calm/home.js stateOf, C-15)
 }
-// A bill: its number, then the same phrases ("HB 1563 · Waiting for a hearing").
+// A bill: its number, then the same phrases ("HB 1563 · Waiting for a hearing"). One that did not advance says why, in the
+// few words the issue page's fold uses ("HB 2256 · Passed 1 committee; no hearing in House Finance by Mar 6"; stoppedWhy):
+// "Did not advance" alone told nobody what happened (Nate, 19 Oct).
 export function billLine(b) {
   const now = Date.now(), num = spaced(b.bill_number);
-  if (stopped(b)) return { text: `${num} · ${plainStatus(b).short}` };
+  if (stopped(b)) { let why = ''; try { why = stoppedWhy(b); } catch { /* a bill without its record: the plain status */ }
+    return { text: `${num} · ${why || plainStatus(b).short}` }; }
   const st = stopOf(b), h = alive(b) && st.hearingState === 'scheduled' && st.hearing && Date.parse(st.hearing.scheduled_at) > now ? st.hearing : null;
   if (h) { const dl = h.testimony_deadline && Date.parse(h.testimony_deadline) > now ? h.testimony_deadline : '';
     return dl ? { text: `${num} · Testimony due ${at(dl)}`, warn: Date.parse(dl) - now < DAY } : { text: `${num} · Hearing ${at(h.scheduled_at)}` }; }
@@ -66,7 +69,7 @@ const partOf = b => { const iss = issuesOf(b), name = plain(billName(b)), mine =
   if (iss.length === 1 && plain(iss[0].name) === name) return mine ? 'You follow this issue' : '';
   return `Part of: ${iss.map(i => i.name).join(' and ')}${mine ? ', which you follow' : ''}`; };
 const billRow = b => { const l = billLine(b), part = partOf(b);
-  return `<li><a class="rc-row" href="${esc(billPath(b))}"><span class="rc-rtext"><span class="rc-rname">${esc(billName(b))}</span><span class="rc-rstat${l.warn ? ' warn' : ''}">${esc(l.text)}</span>${part ? `<span class="rc-rpart">${esc(part)}</span>` : ''}</span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`; };
+  return `<li><a class="rc-row" href="${esc(billPath(b))}"><span class="rc-rtext"><span class="rc-rname">${esc(billName(b))}</span><span class="rc-rstat${l.warn ? ' warn' : ''}">${esc(keep(l.text))}</span>${part ? `<span class="rc-rpart">${esc(part)}</span>` : ''}</span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`; };
 // An issue in search: the category page's row, drawn the same (the wrap-up review of 10/18): the name and Home's line (the
 // link), then the one follow control, the outlined "☆ Follow" pill or the pale "✓ Following" (kit recFollow;
 // pressing Following lets it go, with Undo: find.js followIssueNow).
@@ -84,8 +87,10 @@ function moreList(items, n, key, label = '', box = true) {
 
 // ---------------- browsing ----------------
 // Needs voices this week: the issues of the bills Find would suggest (rank.js: the person's short list, then every other
-// hearing this week), one row an issue, a bill on no issue as itself, soonest deadline first; three show, the rest open in
-// place. Only the three are counted as shown (R-094), and none an issue the person already follows (Home has those).
+// hearing this week), one row an issue, a bill on no issue as itself. The best pick leads with its one reason (rank.js's
+// biggest part of its score, "One of HIPHI's top priorities"; Nate 19 Oct, today's Find's first card in a quiet row), then
+// the rest soonest deadline first; three show, the rest open in place. Only the three are counted as shown (R-094), and none
+// an issue the person already follows (Home has those).
 const dueAt = h => h.testimony_deadline && Date.parse(h.testimony_deadline) > Date.now() ? Date.parse(h.testimony_deadline) : Date.parse(h.scheduled_at);
 function voices() {
   if (offSeason()) return [];
@@ -94,17 +99,29 @@ function voices() {
   const add = r => { const on = issuesOf(r.b); if (on.some(issueFollowed)) return;
     const i = on[0] || null, key = i ? i.id : 'b:' + r.b.id; if (seen.has(key)) return; seen.add(key); out.push({ r, i, b: r.b, h: r.st.hearing }); };
   suggestionList(4).filter(ok).forEach(add);
+  const top = out[0] || null; if (top) top.why = reasonOf(top.b);
   byDue(recommendations(200)).filter(ok).forEach(add);
-  // One order for the whole list, soonest first, so "See more" never opens on something due before the rows above it (B-14).
-  out.sort((x, y) => dueAt(x.h) - dueAt(y.h));
+  // After the pick, one order, soonest first, so "See more" never opens on something due before the rows above it (B-14).
+  const rest = out.slice(1).sort((x, y) => dueAt(x.h) - dueAt(y.h)); out.length = 0; out.push(...(top ? [top] : []), ...rest);
   noteShown(out.slice(0, 3).map(e => e.r), 'find');
   return out;
 }
 function voiceRow(e) {
   const h = e.h, now = Date.now(), dl = h.testimony_deadline && Date.parse(h.testimony_deadline) > now ? h.testimony_deadline : '';
   const st = dl ? `Testimony due ${at(dl)}` : `Hearing ${at(h.scheduled_at)}`, warn = !!dl && Date.parse(dl) - now < DAY;
-  return recRow(e.i ? { name: e.i.name, text: st, warn, href: `#/issue/${e.i.slug}` } : { name: billName(e.b), text: `${spaced(e.b.bill_number)} · ${st}`, warn, href: billPath(e.b) });
+  const r = e.i ? { name: e.i.name, text: st, warn, href: `#/issue/${e.i.slug}` } : { name: billName(e.b), text: `${spaced(e.b.bill_number)} · ${st}`, warn, href: billPath(e.b) };
+  if (!e.why) return recRow(r);
+  // The pick: the same row with a label above its name saying why it leads a list otherwise soonest first (fresh-eyes review,
+  // 19 Oct: without it the list looked mis-sorted), and its reason as a last line, both grey (the row is still the one link;
+  // no card, no button, A-20).
+  return `<li class="rc-pick"><a class="rc-row" href="${esc(r.href)}"><span class="rc-rtext"><span class="rc-pickby">${icon('sparkles')}<span>HIPHI’s pick for you</span></span><span class="rc-rname">${esc(r.name)}</span><span class="rc-rstat${warn ? ' warn' : ''}">${esc(keep(r.text))}</span><span class="rc-why">${esc(e.why)}</span></span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`;
 }
+// Lists from HIPHI (Keiki health, Tobacco-free Hawaiʻi): quiet rows in a white box near the foot (A-8), each to the list's page,
+// whose one button follows it (one filled button a screen, A-20). A followed list says so in place of what it covers.
+const listRows = () => { const ls = S.lists || []; if (!ls.length) return '';
+  return recSec('fd-lists-h', 'Lists from HIPHI', `<ul class="rc-rows rc-lists ${BOX}" role="list">${ls.map(l => recRow({ name: l.title,
+    text: S.listFollows?.has(l.id) ? 'You follow this list' : l.description || '', href: `#/list/${encodeURIComponent(l.slug)}`, lead: issueIcon(l.icon, 'list') })).join('')}</ul>`,
+    { note: offSeason() ? 'Follow a list now and its bills come to you as HIPHI adds them.' : 'Follow a list to follow its bills, plus any HIPHI adds later.' }); };
 const topicRows = () => `<ul class="rc-rows rc-topics ${BOX}" role="list">${(S.cats || []).map(c => recRow({ name: c.name, text: c.description || '', href: `#/find/category/${c.key}`, lead: c.icon })).join('')}</ul>`;
 const topics = () => recSec('fd-iss-h', 'Browse by topic', topicRows());
 const openWords = si => si.nextOpen ? new Date(si.nextOpen + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'long', month: 'long', day: 'numeric' }) : 'in January';
@@ -116,6 +133,7 @@ function browse() {
   return `${newcomer}${off ? `<p class="rc-note rc-off">The Legislature is on break until ${esc(openWords(si))}. You can still look up any ${si.recapYear} bill and see what happened to it.</p>` : ''}
     ${topics()}
     ${vs.length ? recSec('fd-voices-h', 'Needs voices this week', moreList(vs.map(voiceRow), 3, 'voices', 'See more with a hearing this week')) : ''}
+    ${listRows()}
     <nav class="rc-foot" aria-label="More to look up"><ul class="rc-rows ${BOX}" role="list">
       ${recRow({ name: 'Every bill HIPHI tracks', href: '#/allbills', lead: 'list' })}${recRow({ name: 'Committees', href: '#/committees', lead: 'landmark' })}</ul></nav>`;
 }
@@ -213,7 +231,7 @@ function wireResults(box, links) {
 export default {
   tab: 'find',
   title: r => F0.title(r),
-  // A HIPHI list's page is find.js's; its back link names the place it goes (B-4), now that Find lists no lists.
+  // A HIPHI list's page is find.js's; its back link names the place it goes (B-4): Find, where its row is.
   render(r) { return r.name === 'find' ? page(r.q) : r.name === 'list' ? F0.render(r).replace(/<span>All lists<\/span>/g, '<span>Find</span>') : F0.render(r); },
   wire(r) {
     if (r.name !== 'find') { F0.wire(r); return; }

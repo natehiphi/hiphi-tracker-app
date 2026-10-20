@@ -1,4 +1,4 @@
-# Your lawmakers, a lawmaker's page, Committees and a committee's page in the calm redesign (R-303, behind ?rec=1), and the
+# Your lawmakers, a lawmaker's page, Committees and a committee's page in the calm redesign (R-303, everyone's since 19 Oct), and the
 # live fixes made on the way (people-committees.md, bugs 2-7).
 #   python3 tests/r303_people.py [base]     base: a server for the folder (http://localhost:8832), or wt.local (the default),
 #                                           which serves this worktree from disk with no server (Playwright routes).
@@ -11,7 +11,7 @@
 #   - Committees: "Hearing HIPHI's bills this week" first, the two chambers closed; Education: every meeting day, ONE card
 #     with "Help me write testimony" opening HB 1780's walkthrough, HIPHI's bills by what is due, Members closed;
 #   - no page errors, no sideways scroll, one h1;
-#   - without ?rec the old pages still draw, with the live fixes: every meeting day; the example; the phone once; the
+#   - with ?rec=0 (the way back) the old pages still draw, with the live fixes: every meeting day; the example; the phone once; the
 #     other card keeps its width when an email opens; the hello's "our district" only to one's own lawmaker; Enter before
 #     the street suggestions arrive waits for them, and a different house number is never taken quietly (these two use the
 #     live address table, so they need the network).
@@ -59,7 +59,7 @@ def page(br, w, h, who='kai', dist=''):
     return ctx, pg
 
 def go(pg, hash, rec=True, sel='#main h1'):
-    pg.goto(f'{BASE}/track.html?demo=1{"&rec=1" if rec else ""}{hash}')
+    pg.goto(f'{BASE}/track.html?demo=1{"&rec=1" if rec else "&rec=0"}{hash}')
     pg.wait_for_selector(sel, timeout=40000); pg.wait_for_timeout(700)
 
 SHAPE = """() => ({ h: document.documentElement.scrollHeight, wide: document.documentElement.scrollWidth > innerWidth + 1,
@@ -164,18 +164,18 @@ with sync_playwright() as p:
             check(not s['wide'] and s['h1'] == 1 and not pg.errs, f'{tag}: Education: one h1, no sideways scroll, no errors {pg.errs[:1]}')
             ctx.close()
 
-    # ---- without ?rec: the old pages, with the live fixes ----
+    # ---- with ?rec=0 (the way back, R-303): the old pages, with the live fixes ----
     ctx, pg = page(br, 390, 844, 'kai')
     go(pg, '#/legislators', rec=False)
-    check(pg.locator('.pp-isle').count() == 4 and pg.inner_text('#main h1') == 'Your legislators' and pg.locator('.rc').count() == 0, 'without ?rec the finder is today\'s (the islands)')
+    check(pg.locator('.pp-isle').count() == 4 and pg.inner_text('#main h1') == 'Your legislators' and pg.locator('.rc').count() == 0, 'with ?rec=0 the finder is the old one (the islands)')
     check('415 S Beretania St' in (pg.get_attribute('#pp-q', 'placeholder') or ''), 'live: the finder\'s example resolves (it was "Kailua", which is split)')
     go(pg, '#/legislator/189', rec=False)
-    check(pg.locator('.pp-person .pp-billrow').count() > 5, 'without ?rec a lawmaker\'s page is today\'s')
+    check(pg.locator('.pp-person .pp-billrow').count() > 5, 'with ?rec=0 a lawmaker\'s page is the old one')
     go(pg, '#/legislator/302', rec=False)
     n = pg.evaluate("document.querySelector('.pp-person').textContent.split('808-586-6050').length - 1")
     check(n == 1, f'live: the phone is said once on a lawmaker\'s page ({n})')
     go(pg, '#/committees', rec=False)
-    check(pg.locator('.cmt .sechead').count() >= 2 and pg.locator('.cmt-rec').count() == 0, 'without ?rec Committees is today\'s')
+    check(pg.locator('.cmt .sechead').count() >= 2 and pg.locator('.cmt-rec').count() == 0, 'with ?rec=0 Committees is the old one')
     go(pg, '#/committee/EDU', rec=False)
     check('Meets Mon, Wed and Fri' in pg.inner_text('.cmt .lede'), f'live: a committee says every meeting day ({pg.inner_text(".cmt .lede")})')
     # the hello to someone else's lawmaker does not say "our district"

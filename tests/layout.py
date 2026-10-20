@@ -1,7 +1,9 @@
 # The layout test (R-187, pub/variant.js 'layout', backend migrations 149 and 169). Since 11 Oct (R-222, Nate: "This becomes
 # the default home, while the other home screens become other testable home pages") it has three versions: 'calm', the calm
-# Home (pub/calm/home.js, Direction 1, today's bill page and tabs), first and everyone's while the test is off; 'today', the
-# Home before 11 Oct; 'a', R-071's week view from September (pub/a/: its Home, bill page and tabs).
+# Home (pub/calm/home.js, Direction 1), first and everyone's while the test is off; 'today', the Home before 11 Oct; 'a',
+# R-071's week view from September (pub/a/: its Home, bill page and tabs). Since 19 Oct the calm redesign (R-303) is
+# everyone's: 'calm' and 'today' get its bill page (.bl-rec) and tabs (Home, My issues, Find, You); with ?rec=0 (the way back)
+# they get the old bill page with its status card and the tabs ending in More.
 #   1. the practice copy, each version forced, a returning follower (Kai, as compare.html sets him up) on a phone and a
 #      laptop: each Home, its bill page and tabs; Your session stays today's; the old address and the compare page (three
 #      buttons) lead to them; nothing wider than the screen; no page errors
@@ -43,14 +45,17 @@ with sync_playwright() as p:
             ctx = br.new_context(viewport={'width': 390, 'height': 844} if mobile else {'width': 1280, 'height': 800}, is_mobile=mobile, has_touch=mobile)
             ctx.add_init_script(f"({KAI})()")
             pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+            # Since 19 Oct the test has ended (R-303, backend 182): by default every version gets the calm Home, the redesign's
+            # tabs and bill page; the three still differ on the way back, ?rec=0, checked below as before.
             pg.goto(f'{BASE}/track.html?demo=1&ab=layout.{arm}#/'); ready(pg)
+            ok(pg.locator('#main .cm.cm-met').count() == 1 and pg.locator('#main .ah').count() == 0 and not pg.evaluate("document.body.classList.contains('va')"), f'{size} {arm}: by default Home is the calm Home, the week view’s look not loaded (R-303)')
+            if mobile: ok(tabs(pg) == ['Home', 'My issues', 'Find', 'You'], f'{size} {arm}: by default the redesign’s tabs {tabs(pg)}')
+            pg.goto(f'{BASE}/track.html?demo=1&rec=0&ab=layout.{arm}#/'); pg.reload(); ready(pg)
             if arm == 'calm':
                 ok(pg.locator('#main .cm.cm-met').count() == 1 and pg.locator('#main .ah').count() == 0 and 'Aloha, Kai' in pg.locator('#main .cm-hi').first.inner_text(), f'{size} calm: Home is the calm Home (“Aloha, Kai”)')
                 ok(pg.locator('.cm-slide').count() == 1 and 'Help me write testimony' in pg.locator('.cm-slide .btn.primary').inner_text(), f'{size} calm: one slide, the soonest testimony deadline (R-295)')
                 ok(pg.locator('#cm-iss-h').count() == 1 and pg.locator('.cm-rows .cm-row').count() == 3, f'{size} calm: then Your issues, one row each ({pg.locator(".cm-rows .cm-row").count()})')
                 ok(not pg.evaluate("document.body.classList.contains('va')") and not pg.evaluate("!!document.querySelector('link[href=\"pub/a/a.css\"]')"), f'{size} calm: the week view’s look is not loaded')
-                if mobile: ok(tabs(pg) == ['Home', 'My issues', 'Find', 'More'], f'{size} calm: today’s tabs {tabs(pg)}')
-                else: ok('More' in pg.locator('.hnav').inner_text(), f'{size} calm: the header’s tabs are today’s')
             elif arm == 'a':
                 ok(pg.locator('#main .ah').count() == 1 and 'Aloha, Kai' in pg.locator('h1').first.inner_text(), f'{size} A: Home is the week view’s (“Aloha, Kai”)')
                 ok(pg.locator('.a-now').count() == 1 and 'Help me write testimony' in pg.locator('.a-now').inner_text(), f'{size} A: the Now card leads with the soonest testimony deadline')
@@ -60,20 +65,29 @@ with sync_playwright() as p:
             else:
                 ok(pg.locator('#main .ah').count() == 0 and pg.locator('#main .hm-follow').count() == 1, f'{size} today: Home is today’s')
                 ok(not pg.evaluate("document.body.classList.contains('va')") and not pg.evaluate("!!document.querySelector('link[href=\"pub/a/a.css\"]')"), f'{size} today: version A’s look is never loaded')
-                if mobile: ok(tabs(pg) == ['Home', 'My issues', 'Find', 'More'], f'{size} today: the tabs end with More {tabs(pg)}')
             ok(pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), f'{size} {arm}: Home has no sideways scroll')
             ok(seen(pg).get('layout', {}).get('arm') == arm, f'{size} {arm}: Home meets the layout test, as {arm} ({seen(pg).get("layout")})')
             pg.screenshot(path=os.path.join(OUT, f'layout_home_{arm}_{size}.png'))
             # the bill page
             pg.goto(f'{BASE}/track.html?demo=1&ab=layout.{arm}#/bill/HB1780'); pg.reload(); ready(pg); pg.wait_for_selector('.bl-head', timeout=30000)
             trk, stat = pg.locator('.a-track').count(), pg.locator('.bl-status').count()
-            if arm == 'a': ok(trk == 1 and stat == 0 and 'step 3 of 6' in pg.locator('.a-track').inner_text(), f'{size} A: the bill page opens on where it is (“In the Senate, step 3 of 6”)')
-            else: ok(trk == 0 and stat == 1, f'{size} {arm}: the bill page is today’s, with its status card')
+            ok(trk == 0 and pg.locator('.bl-rec .bl-rwhere').count() == 1, f'{size} {arm}: the bill page is the redesign’s (R-303), with Where it is now')
             ok(pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), f'{size} {arm}: the bill page has no sideways scroll')
             pg.screenshot(path=os.path.join(OUT, f'layout_bill_{arm}_{size}.png'))
+            if arm == 'a':
+                pg.goto(f'{BASE}/track.html?demo=1&rec=0&ab=layout.a#/bill/HB1780'); pg.reload(); ready(pg); pg.wait_for_selector('.bl-head', timeout=30000)
+                ok(pg.locator('.a-track').count() == 1 and pg.locator('.bl-status').count() == 0 and 'step 3 of 6' in pg.locator('.a-track').inner_text(), f'{size} A: with ?rec=0 the bill page opens on where it is (“In the Senate, step 3 of 6”)')
+            else:
+                # ?rec=0 brings back the old bill page and tabs (the way back since the redesign became everyone's, R-303)
+                pg.goto(f'{BASE}/track.html?demo=1&rec=0&ab=layout.{arm}#/bill/HB1780'); pg.reload(); ready(pg); pg.wait_for_selector('.bl-head', timeout=30000)
+                ok(pg.locator('.bl-status').count() == 1 and pg.locator('.bl-rec').count() == 0, f'{size} {arm}: with ?rec=0 the bill page is the old one, with its status card')
+                if mobile:
+                    pg.goto(f'{BASE}/track.html?demo=1&rec=0&ab=layout.{arm}#/'); pg.reload(); ready(pg)
+                    ok(tabs(pg) == ['Home', 'My issues', 'Find', 'More'], f'{size} {arm}: with ?rec=0 the tabs end with More {tabs(pg)}')
+                else: ok('More' in pg.locator('.hnav').inner_text(), f'{size} {arm}: with ?rec=0 the header’s tabs end with More')
             if mobile:
                 # a saved letter for the hearing the first card offers: one button for it, not two (the fresh-eyes review)
-                pg.goto(f'{BASE}/track.html?demo=1&ab=layout.{arm}#/'); pg.reload(); ready(pg)
+                pg.goto(f'{BASE}/track.html?demo=1&rec=0&ab=layout.{arm}#/'); pg.reload(); ready(pg)
                 hid = pg.get_attribute('.a-now [data-helper]' if arm == 'a' else '#main .cm-slide [data-helper]' if arm == 'calm' else '#main .acard [data-helper]', 'data-helper')
                 pg.evaluate("hid => { const m = JSON.parse(localStorage.getItem('hiphi_me') || '{}'); m.drafts = { [hid]: { body: 'Aloha', at: new Date().toISOString() } }; localStorage.setItem('hiphi_me', JSON.stringify(m)); }", hid)
                 pg.reload(); ready(pg)
@@ -115,9 +129,10 @@ with sync_playwright() as p:
     for arm in ('today', 'calm'):
         ctx = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True); ctx.add_init_script(f"({KAI})()")
         pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
-        pg.goto(f'{BASE}/track.html?demo=1&ab=layout.{arm}#/'); ready(pg)
+        rz = '&rec=0' if arm == 'today' else ''   # the Home before 11 Oct only on the way back since the test ended (R-303)
+        pg.goto(f'{BASE}/track.html?demo=1{rz}&ab=layout.{arm}#/'); ready(pg)
         # just finished the first visit: the welcome lasts the rest of the visit (start.js welcome())
-        pg.evaluate("sessionStorage.setItem('hiphi_welcome', '1'); localStorage.removeItem('hiphi_ab_demo')"); pg.goto(f'{BASE}/track.html?demo=1&ab=layout.{arm}#/'); pg.reload(); ready(pg)
+        pg.evaluate("sessionStorage.setItem('hiphi_welcome', '1'); localStorage.removeItem('hiphi_ab_demo')"); pg.goto(f'{BASE}/track.html?demo=1{rz}&ab=layout.{arm}#/'); pg.reload(); ready(pg)
         ok((pg.locator('#main .hm-welcome').count() == 1 if arm == 'today' else pg.locator('#main .cm:not(.cm-met)').count() == 1) and pg.locator('#main .ah').count() == 0, f'{arm}: right after the first visit, Home keeps its welcome shape')
         ok('layout' not in seen(pg), f'{arm}: the welcome Home does not meet the layout test')
         nd = pg.locator('.band [data-nextday]')

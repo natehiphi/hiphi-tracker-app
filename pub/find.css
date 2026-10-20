@@ -145,6 +145,13 @@ body.rec .rc-places { margin-top: var(--s16); }
 body.rec .rc-find .fd-note { margin: var(--s16) 0 0; }
 body.rec .rc-find .rc-none { margin-top: var(--s24); }
 body.rec .rc-rpart { font-size: var(--t13); color: var(--n700); }
+/* Find's best pick: its one reason under its status, small and quiet (R-303, Nate 19 Oct).
+   The label above its name says why it leads a list otherwise soonest first (fresh-eyes review, 19 Oct: it read as mis-sorted);
+   label and reason are grey, not link blue (blue reads as a link), with only the icon tinted. */
+body.rec .rc-pickby { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; font-size: var(--t13); font-weight: 700; color: var(--n700); }
+body.rec .rc-pickby .ic { flex: none; width: 14px; height: 14px; color: var(--p700); }
+body.rec .rc-why { display: block; margin-top: 2px; font-size: var(--t13); color: var(--n700); }
+/* Lists from HIPHI: what a list covers, whole (a two-line clamp cut it mid-word on a phone; fresh-eyes review, 19 Oct) */
 body.rec .rc-every { margin: var(--s24) 0 0 calc(-1 * var(--s12)); }
 body.rec .rc-find .fd-stale { opacity: .55; }
 /* A row with one control at its end (My issues' Stop following; search's Follow is the kit's pill, rec.css .rc-irow): the row

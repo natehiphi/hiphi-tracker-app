@@ -31,7 +31,8 @@ with sync_playwright() as p:
     br = p.chromium.launch(); errs = []
     pg = br.new_page(viewport={'width': 1366, 'height': 900})
     pg.on('pageerror', lambda e: errs.append(str(e)))
-    pg.goto(f'{HOST}/track.html#/find?q=e-cigarette')
+    # The old Find, which ?rec=0 brings back (R-303); the redesign's search is checked after it.
+    pg.goto(f'{HOST}/track.html?rec=0#/find?q=e-cigarette')
     pg.wait_for_function("() => document.querySelectorAll('.mb-row.why').length > 10", timeout=30000)
     pg.wait_for_timeout(1500)   # the stopped bills' old hearings arrive after the list (ensureStopHistory)
     pg.evaluate("document.querySelectorAll('details').forEach(d => d.open = true)")
@@ -43,6 +44,20 @@ with sync_playwright() as p:
     check(any('HIPHI' in (who or '') for _, _, who in rows), "stopped rows show HIPHI's position")
     hdrs = pg.locator('.mb-row.why').first.locator('xpath=ancestor::div[contains(@class,"mb-list")]').locator('.mb-hdr').text_content() or ''
     check('HIPHI’s position' in hdrs and 'Your stance' not in hdrs, f'the stopped list\'s column is "HIPHI’s position" ({hdrs!r})')
+    # R-303, the redesign (everyone's since 19 Oct): search's "Bills that did not advance" says the same reason after the
+    # number ("HB 2256 · Passed 1 committee; no hearing in House Finance by Mar 6"; Nate 19 Oct), not "Did not advance". It
+    # lists only the bills on no issue shown above it, so it checks the ones it lists.
+    pg.goto(f'{HOST}/track.html#/find?q=e-cigarette')
+    pg.wait_for_selector('[data-rc-fold=find-gone] .rc-row', timeout=30000, state='attached')
+    pg.wait_for_timeout(2500)   # the stopped bills' old hearings arrive after the list (ensureStopHistory), and repaint it
+    pg.evaluate("document.querySelectorAll('details').forEach(d => d.open = true)")
+    said = pg.evaluate("[...document.querySelectorAll('[data-rc-fold=find-gone] .rc-rstat')].map(e => e.textContent.replace(/\\u00a0/g, ' '))")
+    rgot = dict(x.split(' · ', 1) for x in said if ' · ' in x)
+    both = [n for n in WANT if n in rgot]
+    check(both, f'redesign: the search fold lists some of the bills checked above ({both})')
+    for num in both:
+        check(rgot[num] == WANT[num], f'redesign: {num} says "{WANT[num]}" in search (got "{rgot[num]}")')
+    check(said and not any(x.endswith('· Did not advance') for x in said), f'redesign: no row in the fold says only "Did not advance" ({len(said)} rows)')
     pg.goto(f'{HOST}/track.html#/bill/HB380')
     pg.wait_for_timeout(6000)
     body = pg.locator('body').inner_text()

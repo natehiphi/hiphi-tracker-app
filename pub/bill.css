@@ -509,6 +509,11 @@
 .bl-rec .bl-rlist a .bl-rlt { color: var(--p700); }
 .bl-rec .bl-rlt .bl-ext { margin-left: 4px; vertical-align: -2px; }
 .bl-rec .bl-rls { display: block; color: var(--n700); font-size: var(--t13); margin-top: 2px; }
+/* Where do you stand? (quiet, flat, after the action: under Where it is now on a phone, under the action card on a wide
+   screen) and Others following this bill, a fourth closed card (R-303). One filled button per screen stays the action's (A-3). */
+.bl-rec .bl-rstance { padding: var(--s16); }
+.bl-page.bl-wide.bl-rec .bl-side .bl-rstance { margin-top: var(--s16); }
+.bl-rec .bl-roth { margin-top: var(--s12); }
 /* the dock: the bar shows only once the action card has scrolled up (bl-docked, bill.js recDock) */
 body[data-screen="bill"].bl-rec .actionbar { transition: transform .2s var(--ease), opacity .2s var(--ease); }
 body[data-screen="bill"].bl-rec:not(.bl-docked) .actionbar { transform: translateY(16px); opacity: 0; pointer-events: none; visibility: hidden; }

@@ -5,7 +5,7 @@
 // like Home's, and closed cards that show a one-line preview of what is inside and stay open for the person who opened them.
 import { esc, icon } from '../kernel.js';
 
-export const REC = () => new URLSearchParams(location.search).has('rec');
+export const REC = () => new URLSearchParams(location.search).get('rec') !== '0';   // everyone's since 19 Oct (Nate); ?rec=0 brings back the old pages
 
 // The page's top: a small label (what kind of page, or a bill number), the name as the one h1, one plain sentence.
 // `extra` is a row under it (a stance chip, a link); `back` is a link that says where it goes (B-4).
