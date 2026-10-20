@@ -31,3 +31,11 @@ body[data-screen="next"] .field .help { color: var(--n700); }   /* the privacy l
 .nx-quote { margin: 0; padding: var(--s16); color: var(--n700); border-left: 4px solid var(--p300); }   /* not italic: the face has no italic ʻokina */
 .nx-iss { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); }
 @media (prefers-reduced-motion: reduce) { .nx-moments li { animation: none; } }
+/* R-311: on a phone the scene drawings line up with the eyebrow and heading, as on a laptop. Share's beach tells its story
+   (the phone shown to a friend) only at about 160px wide, so it is larger there; Alerts keeps start.css's size so its
+   number box stays within A-1's 400px limit (98px tall put it at about 420). Short phones (fit1, fit2) keep the smaller sizes. */
+@media (max-width: 37.5em) {
+  .nx .st-art:has(.art-nb) { justify-content: flex-start; }
+  .nx .st-art svg.art-nb { width: auto; }
+  .nx-share:not(.fit1):not(.fit2) .st-art svg.art-nb { width: auto; height: 98px; }
+}
