@@ -17,7 +17,7 @@
 import { S, DEMO, app, esc, icon, toast, wiz, nudgeOk, followsAnything, myActions, openActions, actedOn, legTitle, legPhoto,
   issueFollowed, setFollows, followedIssues, CONSENT_KEY, firstVisit } from './core.js';
 import { btn } from './ui.js';
-import { CAPITOL, VOICES, islands } from './art.js';
+import { CAPITOL, ALERTS_ART, SHARE_ART, islands } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { alertFields, wireAlertForm, alertButton, alertDoneHTML, codeStep, profileAsk, PROFILE_H, profileLede, alertsGiven } from './alerts.js';
 import { declineNudge, doShare } from './actions.js';
@@ -193,7 +193,7 @@ function alertsPage() {
     ? `<section class="card st-sent st-alertdone"><span class="st-ilead">${icon(done.kind === 'phone' ? 'message-square' : 'mail-check')}</span>
         <div class="st-sentbody">${alertDoneHTML(done.kind === 'phone' ? { kind: 'phone', phone: done.phone, demo: DEMO } : { kind: 'email', email: done.email, demo: DEMO })}</div></section>`
     : `<form class="card st-form st-askcard st-alertform" id="nx-aform" novalidate>${alertFields('nx-a')}</form>`;
-  return shell('alerts', VOICES, done ? 'Mahalo!' : codeStep('nx-a') ? 'Check your texts' : prof ? PROFILE_H : 'Get alerts on your issues', esc(lede), body);
+  return shell('alerts', ALERTS_ART, done ? 'Mahalo!' : codeStep('nx-a') ? 'Check your texts' : prof ? PROFILE_H : 'Get alerts on your issues', esc(lede), body);
 }
 function wireAlerts() {
   // The visit's one profile ask (C-3): nothing else asks again this visit.
@@ -229,7 +229,7 @@ const learnPage = () => shell('learn', CAPITOL, 'The three moments when you can 
 
 // ---------------- share: bring a friend along ----------------
 const SHARE_TEXT = 'I’m following Hawaiʻi’s health bills with HIPHI’s tracker. It tells you when a short note can help.';
-const sharePage = () => shell('share', VOICES, 'Bring a friend along', 'Bills move when more neighbors speak up. Send the tracker to one person who cares about what you do.',
+const sharePage = () => shell('share', SHARE_ART, 'Bring a friend along', 'Bills move when more neighbors speak up. Send the tracker to one person who cares about what you do.',
   `<p class="nx-quotel">What we’ll send</p><blockquote class="card nx-quote">${esc(SHARE_TEXT)}</blockquote>`);
 
 // ---------------- phone: keep the tracker on your phone (a Home card until R-237) ----------------

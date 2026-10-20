@@ -12,7 +12,7 @@ import { fxArt, S, D, DEMO, esc, icon, nick, blurb, spaced, billPath, alive, sto
   issuePos, setFollows, unfollowIssue, catOf, issuesIn, followSummary, HELD_RE, whyStoppedShort, roomLabel, CHAMBER_NAME, codesOf } from './core.js';
 import { btn, iconBtn, row, posChip, chip } from './ui.js';
 import { followToggle } from './actions.js';
-import { VOICES } from './art.js';
+import { EMPTY_ART } from './art.js';
 import { myListsSection, wireMyLists } from './mylists.js';
 
 // ---- words for one bill ----
@@ -378,9 +378,9 @@ function render() {
   const anything = cats.length || own.length;
   const body = anything ? `${off ? `<p class="mb-note">The ${esc(String(si.recapYear))} session is over. The next one opens ${esc(nextOpenWords(si))}, and the bills on your issues come here as HIPHI takes them up.</p>` : ''}
       ${cats.map(catSec).join('')}` : lists.length && listLine
-    ? emptyBox({ art: VOICES, title: off ? `You’re set for the ${nextYear(si)} session` : 'No issues here yet', text: listLine,
+    ? emptyBox({ art: EMPTY_ART, title: off ? `You’re set for the ${nextYear(si)} session` : 'No issues here yet', text: listLine,
         action: `<div class="btncol mb-emptybtns">${btn('Browse issues', { kind: 'primary', icon: 'search', href: '#/find' })}</div>` })
-    : emptyBox({ art: fxArt('empty', { key: 'mb-empty' }) || VOICES, title: 'You’re not following any issues yet.',
+    : emptyBox({ art: fxArt('empty', { key: 'mb-empty' }) || EMPTY_ART, title: 'You’re not following any issues yet.',
         text: 'Follow an issue and its bills show up here, with the next hearing and what you can do about it.',
         action: `<div class="btncol mb-emptybtns">${btn('Pick what you care about', { kind: 'primary', icon: 'list-checks', href: '#/start/1' })}${btn('Browse issues', { kind: 'text', href: '#/find' })}</div>` });
   const ownSec = own.length ? `<section class="mb-own" aria-labelledby="mb-own-h"><div class="sechead"><h2 id="mb-own-h">${cats.length ? 'Other bills you follow' : 'Bills you follow'}</h2></div>
