@@ -628,3 +628,8 @@ button.st-way:active { transform: scale(.99); }
 .st-hellopage.fit4 { --hs: .5; }
 .st-hellopage.fit5 { --hs: .4; }
 @media (min-width: 900px) { body.st-hello[data-screen="start"]:has(.st-hellopage.fit3) main { padding-top: var(--s16); } }
+/* R-311 (Nate 20 Oct: "full width, like the welcome"): the scene drawings (art.js, .art-nb) fill the column, up to 420px,
+   on the first visit and the later asks alike. A screen that would then run past the window gets its fit levels as before
+   (.fit1 88px, .fit2 64px tall, and so on), so the drawing gives way before the words do. */
+.st:not(.fit1):not(.fit2):not(.fit3):not(.fit4):not(.fit5):not(.fit6):not(.fit7):not(.fit8):not(.fit9):not(.fit10) .st-art svg.art-nb { width: 100%; max-width: 420px; height: auto; max-height: none; }
+.st .st-art svg.art-nb { width: auto; }
