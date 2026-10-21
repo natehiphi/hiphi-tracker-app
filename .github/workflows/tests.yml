@@ -136,6 +136,9 @@ jobs:
       - name: The public page's words on a phone and a laptop, testimony to sharing (R-199 wave 1, R-244)
         if: ${{ !cancelled() }}
         run: python3 tests/r199_words.py
+      - name: "The story kept when written: with no profile, a letter's reason stays on the device for the next letter (R-212 #26)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/story_kept.py
       - name: "Staff v2, Session setup > Tests: the list, each test's versions as pictures side by side, the switches; the practice copy follows them (R-192, R-201)"
         if: ${{ !cancelled() }}
         run: python3 tests/versions.py

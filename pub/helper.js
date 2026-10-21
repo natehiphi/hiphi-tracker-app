@@ -158,6 +158,12 @@ const titlesOf = o => cleanTitles(o.tp ? o.tp.chosen : o.titles || []);
 // this letter goes, the first of its issues.
 const catsOf = b => { if (!b) return []; const is = (issuesOf(b) || []).slice().sort((p, q) => (issueFollowed(q) ? 1 : 0) - (issueFollowed(p) ? 1 : 0));
   return [...is.map(i => i.id), ...new Set(is.map(i => i.category).filter(Boolean))]; };
+// R-212 #26 (the Person Who Lived It walk: "the story is lost if the letter comes before the profile"): with no profile,
+// the reason they write is kept on this phone unless they untick it, so the next letter starts from it and a profile
+// made later takes it along (kernel.js profileJoin). Ticked only when no story is kept yet; a story already kept is
+// replaced only on purpose. With a profile the story goes to the account, where HIPHI staff can see it, so it stays a
+// choice they make (unticked, R-156 B3).
+const keepFirst = saved => !hasProfile() && !saved;
 const topicOf = x => { const k = catsOf(x.b)[0] || ''; return S.issueById?.get(k) ? k : ''; };
 const topicName = storyName;
 // x.use: the person's own choice for this letter, in the order of their titles; [] means no titles in this letter.
@@ -461,7 +467,7 @@ function openMail(o = {}) {
   const me = loadMe(), mineWhy = (b && me.whyBill === b.id ? me.why || '' : mode === 'intro' ? me.introWhy || '' : ''), saved = mineWhy ? null : storyFor(catsOf(mode === 'intro' ? null : b));
   const x = { mode, b, h, code, to, moment: o.moment || null, screen: 1, name: myName(), email: me.email || '', closing: me.closing || '',
     why: mineWhy || saved?.text || '', topic: mode === 'intro' ? me.introIssue || '' : '', points: [], pointsText: '',
-    tp: { chosen: myTitles(), q: '', more: false, active: -1 }, use: null, saveStory: false,
+    tp: { chosen: myTitles(), q: '', more: false, active: -1 }, use: null, saveStory: keepFirst(saved),
     whyStory: !!saved, offer: !mineWhy && !saved && mode !== 'intro' ? otherStory(catsOf(b)) : null,
     letter: '', subject: '', edited: false, built: null, errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement) };
   if (!S.session && validEmail(x.email) && linkAlready(x.email.trim())) { x.link = 'sent'; x.linkTo = x.email.trim(); }
@@ -507,7 +513,7 @@ function open(billId, hearingId, { view = null } = {}) {
     // another topic is offered, never filled in.
     why: d ? d.why || '' : me.whyBill === b.id ? me.why || '' : saved?.text || '',
     whyStory: !!saved, offer: fresh && !saved ? otherStory(catsOf(b)) : null, noLive: !!d?.noLive, noWhy: !!d?.noWhy, mild: !!d?.mild,
-    tp: { chosen: myTitles(), q: '', more: false, active: -1 }, use: d?.use || null, saveStory: false,
+    tp: { chosen: myTitles(), q: '', more: false, active: -1 }, use: d?.use || null, saveStory: keepFirst(saved),
     letter: '', edited: false, built: null, errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement) };
   // A link already sent to this address during this visit (from an earlier letter, or before "I'll finish later"):
   // the confirmation says where to finish instead of asking again.
@@ -1072,8 +1078,8 @@ function aboutScreen() {
         <textarea id="hp-why" name="why" rows="3" placeholder="${own2() ? 'I think… because…' : x.mode === 'intro' ? 'For example: my mom’s prescriptions cost more every year.' : esc(storyAsk(!!x.b))}" aria-describedby="hp-why-help" autocapitalize="sentences"${x.errs.why ? ' aria-invalid="true"' : ''}>${esc(x.why)}</textarea>${x.errs.why ? errHTML('why') : ''}
         <span class="help" id="hp-why-help">${whyHelp(x)}</span>
         ${x.offer && !x.why.trim() ? `<p class="hp-offer">${btn(`Use your story about “${topicName(x.offer.topic)}”`, { kind: 'text', sm: true, icon: 'user', cls: 'hp-inl', attrs: { 'data-hp': 'usestory' } })}</p>` : ''}
-        ${hasProfile() ? `<label class="check hp-savest" for="hp-savestory"><input type="checkbox" id="hp-savestory"${x.saveStory ? ' checked' : ''}><span>Save this to my profile${topicOf(x) ? ` as my story about “${esc(topicName(topicOf(x)))}”` : ' as my story'}, ready for my next ${isMail(x) ? 'email' : 'letter'}</span></label>
-          <span class="help hp-savelen" id="hp-savelen">${x.why.trim().length > 600 ? 'Your profile keeps the first 600 characters.' : ''}</span>` : ''}</div>
+        <label class="check hp-savest" for="hp-savestory"><input type="checkbox" id="hp-savestory"${x.saveStory ? ' checked' : ''}><span>${hasProfile() ? 'Save this to my profile' : 'Keep this on this device'}${topicOf(x) ? ` as my story about “${esc(topicName(topicOf(x)))}”` : ' as my story'}, ready for my next ${isMail(x) ? 'email' : 'letter'}</span></label>
+          <span class="help hp-savelen" id="hp-savelen">${x.why.trim().length > 600 ? `${hasProfile() ? 'Your profile keeps' : 'This device keeps'} the first 600 characters.` : ''}</span></div>
       <div class="field"><label for="hp-closing">How you’d like to sign off <span class="hp-opt">(optional)</span></label>
         <input id="hp-closing" name="closing" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="${x.mode === 'intro' ? esc(thanksLine()) : 'Mahalo'}" value="${esc(x.closing)}" aria-describedby="hp-closing-help">
         <div class="hp-sugs" role="group" aria-label="Ideas for signing off">${CLOSINGS.map(c => `<button type="button" class="chip hp-sug" data-hp="closing" data-v="${esc(c)}" aria-pressed="${x.closing.trim() === c}">${esc(c)}</button>`).join('')}</div>
@@ -1083,7 +1089,7 @@ function aboutScreen() {
 // Under the "why" box: where its words came from (their saved story, R-147; by topic since R-156), else what it is for.
 function whyHelp(x) {
   const saved = x.whyStory && storyFor(catsOf(x.mode === 'intro' ? null : x.b));
-  if (saved && x.why.trim() === saved.text) return `${icon('user')} Your story${saved.topic && topicName(saved.topic) ? ` about “${esc(topicName(saved.topic))}”` : ''}, from your profile. Change it to fit this bill.`;
+  if (saved && x.why.trim() === saved.text) return `${icon('user')} Your story${saved.topic && topicName(saved.topic) ? ` about “${esc(topicName(saved.topic))}”` : ''}, ${hasProfile() ? 'from your profile' : 'kept on this device'}. Change it to fit this bill.`;
   if (x.mode === 'intro') return 'One or two sentences in your own words. Leave it empty if you like.';
   return own2() ? `This is the heart of your ${isMail(x) ? 'email' : 'letter'}. One or two sentences in your own words.` : 'One or two sentences. A personal reason carries the most weight, but you can leave it empty.';
 }
@@ -1403,6 +1409,9 @@ function storyCard(x) {
 }
 // The profile, named once after a letter (R-156 C2): what was kept and where it is. Decided at the send (x.tellProfile).
 function profileLine(x) {
+  // The sent letter stays in Your letters, so "removed" says only what is true: it won't start the next one (the critic).
+  if (x.storyKept === 'gone') return `<p class="hp-profline" id="hp-kept" tabindex="-1">${icon('circle-check')}<span>Removed. Your story won’t be filled in for your next ${isMail(x) ? 'email' : 'letter'}.</span></p>`;
+  if (x.storyKept) return `<p class="hp-profline" id="hp-kept" tabindex="-1">${icon('user')}<span>Your story is kept on this device, ready for your next ${isMail(x) ? 'email' : 'letter'}.</span>${btn('Remove it', { kind: 'text', sm: true, cls: 'hp-inl', attrs: { 'data-hp': 'storyforget' } })}</p>`;
   if (!x.tellProfile) return '';
   const bits = [x.name.trim() ? 'name' : '', titlesOf(x).length ? 'titles' : '', x.storySaved || x.askStory === 'saved' ? 'story' : ''].filter(Boolean);
   if (!bits.length) return '';
@@ -1628,7 +1637,7 @@ function toLetter() {
     const titles = cleanTitles(x.tp?.chosen), patch = {}, t = topicOf(x), why = x.why.trim().slice(0, 600), st = myStories();
     if (x.name.trim() && (x.name.trim() !== x.name0 || x.name.trim() !== myName())) patch.name = x.name.trim();
     if (JSON.stringify(titles) !== JSON.stringify(myTitles())) patch.titles = titles;
-    if (x.saveStory && why && why !== (t ? st[t] : myStory())) { if (t) patch.stories = { ...st, [t]: why }; else patch.story = why; x.storySaved = true; }
+    if (x.saveStory && why && why !== (t ? st[t] : myStory())) { if (t) patch.stories = { ...st, [t]: why }; else patch.story = why; x.storySaved = true; x.storyKept = !hasProfile() && (t || 'any'); }
     if (Object.keys(patch).length) saveProfile(patch).catch(e => console.warn('profile:', e?.message || e)); }
   if (hasEmail && email) sendLink(x);   // in the background: the letter never waits for it
   goTo(2);
@@ -1835,6 +1844,13 @@ function onClick(e) {
       if (S.helper !== x) return; x.askStory = 'saved'; paint({ focus: 'hp-done-t' }); announce('Saved in your profile.');
     }, e => { const m = dlg?.querySelector('#hp-sa-msg'); if (m) m.innerHTML = `<p class="inlinemsg" role="alert">${icon('circle-alert')}<span>${esc(friendly(e))}</span></p>`; });
   }
+  else if (a === 'storyforget') {   // R-212 #26: the story kept on this phone at the send, taken back
+    const x = S.helper, k = x.storyKept; if (!k || k === 'gone') return;
+    const { [k]: _, ...rest } = myStories();
+    // This bill's reason goes too, or reopening the bill would fill it in again.
+    if (x.b && loadMe().whyBill === x.b.id) saveMe({ why: '', whyBill: null }); else if (!x.b) saveMe({ introWhy: '' });
+    saveProfile(k === 'any' ? { story: '' } : { stories: rest }).then(() => { if (S.helper !== x) return; x.storyKept = 'gone'; x.storySaved = false; paint({ focus: 'hp-kept' }); });
+  }
   else if (a === 'storyno') {
     const x = S.helper, k = topicOf(x) || 'any'; saveMe({ storyNo: [...new Set([...(loadMe().storyNo || []), k])] });
     x.askStory = null; paint({ focus: 'hp-done-t' });
@@ -1957,7 +1973,7 @@ function onInput(e) {
     saveMe(f === 'why' ? (x.b ? { why: t.value, whyBill: x.b.id } : { introWhy: t.value }) : { [f]: t.value.trim() });
     if (f === 'closing') dlg.querySelectorAll('.hp-sug').forEach(s => s.setAttribute('aria-pressed', String(s.dataset.v === t.value.trim())));
     if (x.errs[f] && t.value.trim()) setErr(f, false);
-    if (f === 'why') { grow(t); const n = dlg.querySelector('#hp-savelen'); if (n) n.textContent = t.value.trim().length > 600 ? 'Your profile keeps the first 600 characters.' : ''; }
+    if (f === 'why') { grow(t); const n = dlg.querySelector('#hp-savelen'); if (n) n.textContent = t.value.trim().length > 600 ? `${hasProfile() ? 'Your profile keeps' : 'This device keeps'} the first 600 characters.` : ''; }
   } else if (t.id === 'hp-sa') {
     x.storyDraft = t.value;
   } else if (t.id === 'hp-savestory') {
