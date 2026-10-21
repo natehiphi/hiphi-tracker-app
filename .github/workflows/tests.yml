@@ -142,6 +142,9 @@ jobs:
       - name: "Your letters: the session page's day, stance and Your letter / Your email, the profile's list, a letter whose hearing is gone (R-212 #27)"
         if: ${{ !cancelled() }}
         run: python3 tests/my_letters.py
+      - name: "Delete buttons: a story, a letter and a phone-only profile, each with Undo or a question on the page (R-212 #28)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/delete_buttons.py
       - name: "Staff v2, Session setup > Tests: the list, each test's versions as pictures side by side, the switches; the practice copy follows them (R-192, R-201)"
         if: ${{ !cancelled() }}
         run: python3 tests/versions.py

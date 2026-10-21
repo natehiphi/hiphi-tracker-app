@@ -19,7 +19,8 @@ import { pickerHTML, wirePicker } from './titlepick.js';
 import { codesOn, myEmail, myNumber } from './phone.js';   // sign-in by text code (R-155)
 import { titleLabel } from './titles.js';
 import { logAct } from './visitlog.js';
-import { lettersList, wireKept, LETTERS_LEDE } from './myletters.js';   // R-212 #27
+import { lettersList, wireKept, wireDelete, LETTERS_LEDE } from './myletters.js';   // R-212 #27, #28
+import { stopText } from './alerts.js';
 // The calm redesign (R-303), only with ?rec=1: Profile keeps one page (R-165) but its alerts get their own page, "Your
 // alerts" (#/alerts, pub/rec/alerts.js), and its first row leads there; "Your issues" goes (My issues is a tab, and its count
 // was wrong: every bill an issue carries, mine-profile-alerts.md section 3).
@@ -152,10 +153,32 @@ function aboutBody() {
 }
 
 // Your stories: one for any issue, and one for any issue they choose, the issues they follow first (R-165).
+// A saved story has its own Delete (R-212 #28): emptying the box and pressing Save was the only way, and nothing said so.
 function storyField(k, text) {
-  const id = k ? `pf-st-${k}` : 'pf-st-any', name = storyName(k);
+  const id = k ? `pf-st-${k}` : 'pf-st-any', name = storyName(k), saved = k ? P.base.stories[k] : P.base.story;
   return `<div class="field pf-f pf-story-f" data-story="${esc(k)}"><label for="${id}">${k ? `Your story about “${esc(name)}”` : 'Your story'}</label>
-      <textarea id="${id}" rows="3" maxlength="600" autocapitalize="sentences" aria-describedby="pf-story-h">${esc(text)}</textarea></div>`;
+      <textarea id="${id}" rows="3" maxlength="600" autocapitalize="sentences" aria-describedby="pf-story-h">${esc(text)}</textarea>
+      ${saved ? `<div class="pf-stdel">${btn('Delete this story', { kind: 'text', sm: true, icon: 'trash-2', attrs: { 'data-pf-stdel': k, 'aria-label': `Delete ${storyWhat(k)}` } })}</div>` : ''}</div>`;
+}
+const storyWhat = k => k ? `your story about “${storyName(k)}”` : 'your story';
+const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+// Deleted at once, on this device and with the account, with Undo in its place until they leave the page (B-5).
+// P.storyGone: every story deleted on this visit, each with its own Undo (the critic: a second delete took the first's away).
+const storyGone = () => (P.storyGone || []).map(g => `<div class="notice ok pf-stgone">${icon('circle-check')}<div><p>${esc(cap(storyWhat(g.k)))} is deleted.</p>${btn('Undo', { kind: 'text', sm: true, icon: 'undo-2', attrs: { 'data-pf-stundo': g.k, 'aria-label': `Undo: bring back ${storyWhat(g.k)}` } })}</div></div>`).join('');
+async function deleteStory(k) {
+  const text = k ? P.base.stories[k] : P.base.story; if (!text) return;
+  const rest = Object.fromEntries(Object.entries(P.base.stories).filter(([x]) => x !== k));
+  try { await saveProfile(k ? { stories: rest } : { story: '' }); } catch (e) { toast(e, true); return; }
+  if (k) { P.base.stories = rest; delete P.draft.stories[k]; P.newStories = P.newStories.filter(x => x !== k); } else { P.base.story = ''; P.draft.story = ''; }
+  P.storyGone = [{ k, text }, ...(P.storyGone || []).filter(g => g.k !== k)]; paintBar();
+  repaintStories(`[data-pf-stundo="${CSS.escape(k)}"]`); announce(`${cap(storyWhat(k))} is deleted.`);
+}
+async function undoStory(k) {
+  const g = (P.storyGone || []).find(x => x.k === k); if (!g) return;
+  try { await saveProfile(g.k ? { stories: { ...P.base.stories, [g.k]: g.text } } : { story: g.text }); } catch (e) { toast(e, true); return; }
+  if (g.k) { P.base.stories = { ...P.base.stories, [g.k]: g.text }; P.draft.stories[g.k] = g.text; } else { P.base.story = g.text; P.draft.story = g.text; }
+  P.storyGone = P.storyGone.filter(x => x !== g); paintBar();
+  repaintStories(`[data-pf-stdel="${CSS.escape(g.k)}"]`);   // its Delete, not the box: a phone's keyboard stays down announce(`${cap(storyWhat(g.k))} is kept.`);
 }
 const storyKeys = () => [...new Set([...Object.keys(P.base.stories), ...P.newStories, ...Object.keys(P.draft.stories)])];
 function storyBody() {
@@ -163,6 +186,7 @@ function storyBody() {
   const follow = followedIssues().filter(i => !have.has(i.id)), others = (S.issues || []).filter(i => !have.has(i.id) && !follow.includes(i));
   return `<p class="pf-warm" id="pf-story-h">${esc(storyAsk(''))} ${esc(STORY_HINT)} We’ll put it in your letters, and you can change it in each one.</p>
     <p class="small muted">Testimony is public: a story you send is posted with your letter.</p>
+    ${storyGone()}
     ${storyField('', d.story)}
     ${keys.map(k => storyField(k, d.stories[k] || '')).join('')}
     ${keys.length < 20 && (follow.length || others.length) ? `<div class="field pf-f pf-addstory"><label for="pf-st-add">Add a story about one issue</label>
@@ -230,7 +254,8 @@ function issuesBody() {
   return `<p>${n || b ? `You follow ${n ? `${n} ${n === 1 ? 'issue' : 'issues'}` : ''}${n && b ? ' and ' : ''}${b ? `${b} ${b === 1 ? 'bill' : 'bills'}` : ''}.` : 'You don’t follow any issues yet.'} <a href="#/bills">${n || b ? 'See them in My issues' : 'Find issues to follow'}</a></p>`;
 }
 function dataBody() {
-  if (!signedIn()) return `<p>Your profile is saved on this phone. ${codesOn() ? '<a href="#/signin?by=number">Sign in with your number</a> to keep it on any phone or computer.' : 'Adding your email (under Alerts) keeps it on any phone or computer.'} HIPHI staff never see your text-alert number. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>`;
+  if (!signedIn()) return `<p>Your profile is saved on this phone. ${codesOn() ? '<a href="#/signin?by=number">Sign in with your number</a> to keep it on any phone or computer.' : 'Adding your email (under Alerts) keeps it on any phone or computer.'} HIPHI staff never see your text-alert number. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>
+    ${deviceDelete()}`;
   // What we keep and who sees it, as a short list (X4-5, R-180: it was one 90-word paragraph, well above grade 8). The same
   // facts as R-151's and R-153's wording (10/4, the privacy page made accurate; kept emails); the privacy page has the long
   // form. Signed in with a number only (R-155): the number signs them in and staff never see it; no email, so none opened.
@@ -254,6 +279,25 @@ function accountButtons() {
         <div id="mr-del-msg"></div>
         <div class="btnrow">${btn('Yes, delete my account', { kind: 'danger', icon: 'trash-2', attrs: { 'data-mr-del': 'yes' } })}${btn('Keep my account', { kind: 'text', attrs: { 'data-mr-del': 'no' } })}</div>
       </div>` : `<div class="mr-delrow">${btn('Delete my account', { kind: 'danger', icon: 'trash-2', attrs: { 'data-mr-del': 'ask' } })}</div>`}`;
+}
+
+// A profile kept only on this phone (a text number, no sign-in) gets the same real Delete as an account (R-212 #28): it had
+// none, so the only way out was clearing the browser. It stops the texts (text_stop, as "Stop texts" does: the row is kept
+// marked stopped, so the number is never texted again) and clears this phone, as deleting an account does.
+function deviceDelete() {
+  return P.del ? `<div class="mr-confirm" role="group" aria-labelledby="mr-del-t">
+      ${notice('bad', 'triangle-alert', `<p class="strong" id="mr-del-t" tabindex="-1">Delete your profile for good?</p><p>This stops your text alerts and deletes your profile from this phone: your stories, your saved letters, the issues and bills you follow, where you stand on them and the actions you marked. It can’t be undone.</p><p>Letters you already sent stay with the Capitol and the people you wrote to. We keep a note that your number stopped texts, so we don’t text it again unless you sign up again.</p>`)}
+      <div id="mr-del-msg"></div>
+      <div class="btnrow">${btn('Yes, delete my profile', { kind: 'danger', icon: 'trash-2', attrs: { 'data-mr-del': 'yes' } })}${btn('Keep my profile', { kind: 'text', attrs: { 'data-mr-del': 'no' } })}</div>
+    </div>` : `<div class="mr-delrow">${btn('Delete my profile', { kind: 'danger', icon: 'trash-2', attrs: { 'data-mr-del': 'ask' } })}</div>`;
+}
+// Everything this phone keeps for the person, after their account or their phone-only profile is deleted.
+function forgetEverythingHere() {
+  try { [LOCAL_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, STANCE_KEY, DONE_KEY, DONE_AT_KEY, LISTS_KEY, CONSENT_KEY, DISTRICTS_KEY, 'hiphi_ulist_follows'].forEach(k => localStorage.removeItem(k));
+    const w = JSON.parse(localStorage.getItem('hiphi_wiz') || 'null'); if (w && w.issues?.length) { w.issues = []; localStorage.setItem('hiphi_wiz', JSON.stringify(w)); } } catch { /* private mode */ }
+  S.direct = new Set(); S.issueFollows = new Set(); S.catFollows = new Set(); S.skips = new Set(); recomputeWatch();
+  forgetProfileOnDevice();   // the name, titles, stories, letters, drafts and districts kept here (R-156: the name and drafts stayed)
+  S.stances = {}; S.done = new Set(); S.doneAt = {}; S.listFollows = new Set(); P.del = false; if (S.ul) { S.ul.mine = null; S.ul.shared = {}; }
 }
 
 // Add to Home Screen on an iPhone (R-156 D3): Safari clears a website's saved data after seven days without a visit, which
@@ -304,7 +348,7 @@ function profileView() {
 // story boxes added but not yet written. A draft is kept until Save or Cancel, across redraws and other pages.
 function fresh() {
   const base = savedNow();
-  Object.assign(P, { del: false, made: P.made || '', hsHow: false, otherOpen: false, newStories: [], base, draft: clone(base),
+  Object.assign(P, { del: false, storyGone: [], made: P.made || '', hsHow: false, otherOpen: false, newStories: [], base, draft: clone(base),
     tp: { chosen: [...base.titles], q: '', more: false, active: -1 },
     addr: { q: '', sd: null, hd: null, picked: false, results: [] } });
 }
@@ -324,6 +368,16 @@ function wireStories() {
     if (v === 'other') { P.otherOpen = true; repaintStories('#pf-st-other'); return; } addStory(v); };
   const oth = $('#pf-st-other'); if (oth) oth.onchange = () => { if (oth.value) addStory(oth.value); };
   document.querySelectorAll('input[name="pf-quote"]').forEach(r => r.onchange = () => { if (r.checked) { P.draft.quote = r.value; paintBar(); } });
+  document.querySelectorAll('[data-pf-stdel]').forEach(b => b.onclick = () => deleteStory(b.dataset.pfStdel));
+  document.querySelectorAll('[data-pf-stundo]').forEach(b => b.onclick = () => undoStory(b.dataset.pfStundo));
+}
+// Your letters, drawn again after a Delete or an Undo (R-212 #28), without redrawing the page (a draft and the keyboard stay).
+function repaintLetters(focusSel, said) {
+  const s = $('#pf-letters'); if (!s) return;
+  s.innerHTML = `<h2 id="pf-letters-t" tabindex="-1">Your letters</h2><p class="small muted">${esc(LETTERS_LEDE)}</p>${lettersList()}`;
+  wireKept(s); wireDelete(s, repaintLetters);
+  const f = focusSel && s.querySelector(focusSel); (f || s.querySelector('h2'))?.focus?.({ preventScroll: true });
+  if (said) announce(said);
 }
 
 // #/profile?to=alerts, from the Alerts page's "Alerts in your profile" (R-303): open at the switch for each issue, once per arrival.
@@ -347,7 +401,7 @@ function wireProfile() {
     if (adb.value.trim() && !P.addr.picked && document.activeElement?.closest?.('#pf-ad-sugs') == null) flash('pf-ad-st', 'Pick your address from the list to find your senator and representative.', true);
   }, 250));
   wireStories();
-  wireKept($('#pf-letters') || document.createElement('div'));
+  const ls = $('#pf-letters'); if (ls) { wireKept(ls); wireDelete(ls, repaintLetters); }
   document.querySelectorAll('[data-pf-int]').forEach(c => c.onchange = () => {
     const k = c.dataset.pfInt; P.draft.help = c.checked ? [...new Set([...P.draft.help, k])] : P.draft.help.filter(x => x !== k); paintBar(); });
   const note = $('#pf-note');
@@ -381,14 +435,17 @@ function wireProfile() {
   const yes = $('[data-mr-del="yes"]');
   if (yes) yes.onclick = async () => {
     busy(yes, 'Deleting…');
+    if (!signedIn()) {   // a profile kept only on this phone: its texts stop, then the phone forgets it all
+      try { await stopText(); } catch (e) { unbusy(yes); say('mr-del-msg', inlineErr('mr-del-err', friendly(e))); return; }
+      forgetEverythingHere(); fresh();
+      app.go('#/', { replace: true });
+      toast('Your profile is deleted. Mahalo.');
+      return;
+    }
     const { error } = await S.supa.rpc('delete_my_account');
     if (error) { unbusy(yes); say('mr-del-msg', inlineErr('mr-del-err', friendly(error))); return; }
     // The account is gone; its copies on this device go too (as Settings did), and the profile kept here with them.
-    try { [LOCAL_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, STANCE_KEY, DONE_KEY, DONE_AT_KEY, LISTS_KEY, CONSENT_KEY, DISTRICTS_KEY, 'hiphi_ulist_follows'].forEach(k => localStorage.removeItem(k));
-      const w = JSON.parse(localStorage.getItem('hiphi_wiz') || 'null'); if (w && w.issues?.length) { w.issues = []; localStorage.setItem('hiphi_wiz', JSON.stringify(w)); } } catch { /* private mode */ }
-    S.direct = new Set(); S.issueFollows = new Set(); S.catFollows = new Set(); S.skips = new Set(); recomputeWatch();
-    forgetProfileOnDevice();   // the name, titles, stories, drafts and districts kept here (R-156: the name and drafts stayed)
-    S.stances = {}; S.done = new Set(); S.doneAt = {}; S.listFollows = new Set(); P.del = false; if (S.ul) { S.ul.mine = null; S.ul.shared = {}; }
+    forgetEverythingHere();
     try { await S.supa.auth.signOut(); } catch { /* the account is already deleted */ }
     S.session = null; S.user = null;
     app.go('#/', { replace: true });

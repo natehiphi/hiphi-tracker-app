@@ -147,6 +147,23 @@
 .pf .pf-helpg legend { font-size: var(--t16); color: var(--n900); }
 .pf .pf-story-f textarea { min-height: 5.5em; }
 .pf .pf-addstory select { max-width: 100%; }
+/* Real Delete buttons (R-212 #28): under a saved story, at the end of each kept letter's row, and the Undo that takes their
+   place (B-5). The letter's Delete sits beside its row, not inside it (one button, one job); 44px targets (C-2). */
+.pf .pf-stdel { display: flex; justify-content: flex-end; margin-top: var(--s4); }
+.pf .pf-stdel .btn, .pf .myl-item > .myl-del { color: var(--n700); }
+.pf .pf-stdel .btn:hover, .pf .myl-item > .myl-del:hover { color: var(--bad-text); }
+.pf .pf-stdel .btn, .pf .myl-del, .pf .pf-stgone .btn, .pf .myl-gone .btn { min-height: 44px; }
+.pf .pf-stgone, .pf .myl-gone { margin: var(--s12) 0; }
+.pf .pf-stgone > div, .pf .myl-gone > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s4) var(--s12); width: 100%; }
+.pf .pf-stgone p, .pf .myl-gone p { margin: 0; }
+.pf .myl-item { display: flex; align-items: center; }
+.pf .myl-item > .row { flex: 1 1 auto; min-width: 0; }
+.pf .myl-item > .myl-del { flex: none; margin: 0 var(--s8) 0 var(--s8); }
+.pf .rows > .myl-item + .myl-item { border-top: 1px solid var(--n100); }
+/* A phone: the trash alone (its label says what), and no chevron, so the row keeps its width; a hairline keeps the two apart. */
+@media (max-width: 420px) { .pf .myl-item > .myl-del span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .pf .myl-item > .row .chev { display: none; }
+  .pf .myl-item > .myl-del { margin: 0 var(--s4); border-left: 1px solid var(--n100); border-radius: 0; } }
 .pf .pf-addstory select + select { margin-top: var(--s8); }
 /* How much each issue sends (R-299): one row per followed issue, its name over the issue page's sliding switch (base.css
    .lvl-sw, Nate's pick of 17 Oct); the name sits closer to its switch than to the next issue (A-8). From 600px the name
