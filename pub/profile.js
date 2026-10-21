@@ -254,7 +254,7 @@ function issuesBody() {
   return `<p>${n || b ? `You follow ${n ? `${n} ${n === 1 ? 'issue' : 'issues'}` : ''}${n && b ? ' and ' : ''}${b ? `${b} ${b === 1 ? 'bill' : 'bills'}` : ''}.` : 'You don’t follow any issues yet.'} <a href="#/bills">${n || b ? 'See them in My issues' : 'Find issues to follow'}</a></p>`;
 }
 function dataBody() {
-  if (!signedIn()) return `<p>Your profile is saved on this phone. ${codesOn() ? '<a href="#/signin?by=number">Sign in with your number</a> to keep it on any phone or computer.' : 'Adding your email (under Alerts) keeps it on any phone or computer.'} HIPHI staff never see your text-alert number. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>
+  if (!signedIn()) return `<p>Your profile is saved on this device. ${codesOn() ? '<a href="#/signin?by=number">Sign in with your number</a> to keep it on any phone or computer.' : 'Adding your email (under Alerts) keeps it on any phone or computer.'} HIPHI staff never see your text-alert number. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>
     ${deviceDelete()}`;
   // What we keep and who sees it, as a short list (X4-5, R-180: it was one 90-word paragraph, well above grade 8). The same
   // facts as R-151's and R-153's wording (10/4, the privacy page made accurate; kept emails); the privacy page has the long
@@ -286,7 +286,7 @@ function accountButtons() {
 // marked stopped, so the number is never texted again) and clears this phone, as deleting an account does.
 function deviceDelete() {
   return P.del ? `<div class="mr-confirm" role="group" aria-labelledby="mr-del-t">
-      ${notice('bad', 'triangle-alert', `<p class="strong" id="mr-del-t" tabindex="-1">Delete your profile for good?</p><p>This stops your text alerts and deletes your profile from this phone: your stories, your saved letters, the issues and bills you follow, where you stand on them and the actions you marked. It can’t be undone.</p><p>Letters you already sent stay with the Capitol and the people you wrote to. We keep a note that your number stopped texts, so we don’t text it again unless you sign up again.</p>`)}
+      ${notice('bad', 'triangle-alert', `<p class="strong" id="mr-del-t" tabindex="-1">Delete your profile for good?</p><p>This stops your text alerts and deletes your profile from this device: your stories, your saved letters, the issues and bills you follow, where you stand on them and the actions you marked. It can’t be undone.</p><p>Letters you already sent stay with the Capitol and the people you wrote to. We keep a note that your number stopped texts, so we don’t text it again unless you sign up again.</p>`)}
       <div id="mr-del-msg"></div>
       <div class="btnrow">${btn('Yes, delete my profile', { kind: 'danger', icon: 'trash-2', attrs: { 'data-mr-del': 'yes' } })}${btn('Keep my profile', { kind: 'text', attrs: { 'data-mr-del': 'no' } })}</div>
     </div>` : `<div class="mr-delrow">${btn('Delete my profile', { kind: 'danger', icon: 'trash-2', attrs: { 'data-mr-del': 'ask' } })}</div>`;

@@ -48,7 +48,8 @@
 import { S, DEMO, app, esc, icon, toast, friendly, spaced, posInfo, cmteLabel, cmtesOf, codesOf, dueInfo, dateLong, timeWord, roomLabel,
   hstDay, HST, anyBill, anyHearing, markDone, toggleWatch, streamOf, reduceMotion, MILESTONES, myActions, POS_WORD, didKind,
   billPath, cleanDesc, nick, agrees, myStance, setStance, sendEmailLink, validEmail, issuesOf, issueFollowed, setFollows,
-  hearingText, chairContacts, legById, legsOf, stopOf, askMark, saveDone, sessionInfo, CHAMBER_NAME, dayWord, textSaved, levelOf, setIssueLevel } from './core.js';
+  hearingText, chairContacts, legById, legsOf, stopOf, askMark, saveDone, sessionInfo, CHAMBER_NAME, dayWord, textSaved, levelOf, setIssueLevel,
+  openActions, actedOn, headline, wiz } from './core.js';
 import { btn, iconBtn, notice } from './ui.js';
 import { nudgeCard, wireNudge, declineNudge, goDirections, roomFloor, noteGoing, downloadIcs } from './actions.js';
 import { flower } from './art.js';
@@ -1389,9 +1390,28 @@ function doneScreen() {
       <p>${esc(next)} ${followWords(x, n)}</p>
       ${unfollowBtn(x)}${levelUp(x)}
       ${held ? '' : goingLine(x)}
-      ${watch}${fixLine(h)}</section>
+      ${watch}${fixLine(h)}</section>${nextUp(x)}
     ${storyCard(x)}${profileLine(x)}
     ${up ? '' : ask}`;
+}
+// The next one (R-212 #29, the walk's Tier 2): after a letter or an email, the soonest other testimony still open on what
+// they follow, not yet acted on, where they have not said they see it differently: "Next: More local food in school meals",
+// when its testimony closes, and a button that starts that letter. A quiet card below "What happens next" (one ask card at a time stays the rule, C-3:
+// this is the way on, not an ask), its button outlined so the bar's main button stays the only filled one (A-3). Not in a
+// first visit, whose plan has its own next step (R-164). Late ones are Home's (an email to the chair), never offered here.
+const inFirstVisit = () => { const w = wiz(); return !w.done && !w.skipped; };
+const nextUps = x => inFirstVisit() ? [] : openActions(S.bills, S.hearings).filter(({ b, h, late }) => !late && h.testimony_deadline
+  && b.id !== x.b?.id && !actedOn(b, h) && agrees(b) !== false);
+function nextUp(x) {
+  const all = nextUps(x), o = all[0]; if (!o) return '';
+  const n = spaced(o.b.bill_number), iso = o.h.testimony_deadline, day = dayWord(iso).replace(/\s*\(.*\)$/, '');
+  const more = all.length - 1;
+  // The heading names the bill in plain words and the line says the deadline once, with the number (the critic: "HB 1780"
+  // means nothing to a resident, and "due tomorrow" twice was one fact read twice, A-14).
+  const rest = more === 1 ? ' Another bill you follow closes soon too. It’s on Home.' : more > 1 ? ` ${more} more bills you follow close soon too. They’re on Home.` : '';
+  return `<section class="card hp-nextup" aria-labelledby="hp-nu-t"><h3 id="hp-nu-t">Next: ${esc(headline(o.b, 90))}</h3>
+    <p>Testimony on ${esc(n)} closes ${esc(day)} at ${esc(timeWord(iso))}.${rest}</p>
+    <div class="btnrow">${btn('Write testimony', { kind: 'secondary', sm: true, icon: 'pencil', attrs: { 'data-hp': 'nextup', 'data-b': o.b.id, 'data-h': o.h.id, 'aria-label': `Write testimony on ${n}` } })}</div></section>`;
 }
 // Going in person (R-142, Nate 10/4: directions for people who sign up for a hearing in person). Someone who said they'd
 // testify in person is shown where and when; anyone else is asked once in a line. "I plan to go" is the card's own
@@ -1519,7 +1539,7 @@ function mailDoneScreen() {
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
       <p>${next}</p>
       ${unfollowBtn(x)}${levelUp(x)}
-      ${watch}</section>
+      ${watch}</section>${nextUp(x)}
     ${storyCard(x)}${profileLine(x)}
     ${up ? '' : ask}`;
 }
@@ -1865,6 +1885,8 @@ function onClick(e) {
     x.askStory = null; paint({ focus: 'hp-done-t' });
   }
   else if (a === 'toprofile') { afterClose = () => app.go('#/profile'); requestClose(); }
+  // The next letter (R-212 #29): this one closes, and the helper opens on that bill's hearing over the page behind.
+  else if (a === 'nextup') { const { b: bid, h: hid } = t.dataset; afterClose = () => open(bid, hid); requestClose(); }
   else if (a === 'use') {
     // This letter's titles (R-165): a tap adds or takes one off, as many as they like; untapping all writes the letter
     // without titles. A tap never changes the profile.
