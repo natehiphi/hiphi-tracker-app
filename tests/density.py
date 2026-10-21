@@ -38,17 +38,18 @@ SEED = ("try { localStorage.setItem('hiphi_watch_ids_demo', %s);"
         "localStorage.setItem('hiphi_wiz', JSON.stringify({done:true, issues:['vaping']})); } catch (e) {}"
         % (json.dumps(json.dumps(FOLLOWS)), json.dumps(json.dumps([ISSUE]))))
 
-# screen, route, what the person came for, selector for it
+# screen, route, what the person came for, selector for it. Since a2244cd6 (19 Oct, R-303) the calm redesign is everyone's
+# page, so these name the redesign's elements (?rec=0, the old pages, is not measured).
 PUB = [
   ('start',       '/start/1',      'the first question',   '.st-rrow, .st1 button, .st1 .row'),
-  ('home',        '/',             'what needs you',       '.acard, .hm-quiet, .hm-card, .hm .row, .mwrow'),
-  ('mybills',     '/bills',        'an issue you follow',  '.fd-irow, .mb-row, .mb-main'),
-  ('find',        '/find',         'a way in',             '.fd-row, .fd .row, .fd-issue'),
-  ('category',    '/find/category/food', 'its first issue', '.fd-irow'),
-  ('issue',       '/issue/disposable-e-cigarette-ban', 'what the issue is', '.fd-ihead .lede'),
+  ('home',        '/',             'what needs you',       '.cm-slide, .cm-card, .cm-issues'),
+  ('mybills',     '/bills',        'an issue you follow',  '.rc-mrows .rc-row'),
+  ('find',        '/find',         'a way in',             '.fd-search .searchbox, .rc-topics .rc-row'),   # the search box, then the topics
+  ('category',    '/find/category/food', 'its first issue', '.rc-irows .rc-row'),
+  ('issue',       '/issue/disposable-e-cigarette-ban', 'what the issue is', '.rc-ihead .lede'),
   ('bill',        '/bill/HB1563',  'what the bill does',   '.bl-head .lede'),
-  ('legislators', '/legislators',  'your island',          '.pp-isle'),
-  ('more',        '/more',         'the first choice',     '.mr-me, .mwrow, .mr .row'),   # since R-147 the person (or Make your profile) comes first
+  ('legislators', '/legislators',  'the address box',      '.pp-search .searchbox'),   # the redesign asks for the address, not the island
+  ('more',        '/more',         'the first choice',     '.yu-me, .yu-rows .rc-row'),   # since R-147 the person (or Make your profile) comes first
   # R-091: every bill HIPHI tracks, grouped by hearing status
   ('allbills',    '/allbills',     'the first bill',       '#ab-list .mb-row'),
   # R-146: a person comes here to say how to reach them about their issues (the first visit's step 3, and More's page)
@@ -57,7 +58,7 @@ PUB = [
   # X9-6 (R-180 wave 3): the sign-in, the profile and the privacy page were not measured
   ('signin',      '/signin',       'the email box',        '#mr-email, .mr-form input'),
   ('profile',     '/profile',      'the invitation',       '.pf-invite .card, .pf-invite form, .pf .card'),
-  ('privacy',     '/privacy',      'what we have on you',  '.mr-facts section'),
+  ('privacy',     '/privacy',      'what we have on you',  '.yu-short'),
 ]
 # R-187: the live test 'layout', on the same returning visitor. Since R-222 (11 Oct) its first version, the calm Home, is
 # everyone's Home and changes Home only; the bill page is measured once more as a check that it is today's.
@@ -118,8 +119,9 @@ CHOICES_JS = r"""(() => {
   document.querySelectorAll('a[href], button, input:not([type=hidden]), select, textarea, summary, [role=button], [role=tab]').forEach(e => {
     if (e.offsetParent === null || e.closest('.skip')) return;
     // Inside a closed fold (<details>) nothing but its summary can be seen or tapped; Chrome still gives the hidden
-    // contents a box, so the bill page's committee links under "See all steps" counted as three controls (R-081).
-    const fold = e.closest('details:not([open])'); if (fold && e.parentElement !== fold) return;
+    // contents a box, so the bill page's committee links under "See all steps" counted as three controls (R-081). Only the
+    // fold's own summary counts: a control sitting directly in the fold (the bill page's "More ways to help" rows) is hidden too.
+    const fold = e.closest('details:not([open])'), sum = e.closest('summary'); if (fold && !(sum && sum.parentElement === fold)) return;
     const r = e.getBoundingClientRect();
     if (r.top >= H || r.bottom <= 0 || r.width < 8 || r.height < 8) return;
     if (getComputedStyle(e).visibility === 'hidden') return;
