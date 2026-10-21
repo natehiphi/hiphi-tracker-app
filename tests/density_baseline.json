@@ -30,7 +30,7 @@
   "sizes": 5
  },
  "public|1440|allbills": {
-  "arrival": 446,
+  "arrival": 493,
   "colours": 5,
   "kinds": 5,
   "sizes": 5
@@ -42,13 +42,13 @@
   "sizes": 6
  },
  "public|1440|category": {
-  "arrival": 397,
+  "arrival": 243,
   "colours": 6,
   "kinds": 3,
   "sizes": 5
  },
  "public|1440|find": {
-  "arrival": 310,
+  "arrival": 188,
   "colours": 2,
   "kinds": 2,
   "sizes": 5
@@ -60,37 +60,37 @@
   "sizes": 4
  },
  "public|1440|home": {
-  "arrival": 219,
+  "arrival": 191,
   "colours": 6,
   "kinds": 4,
   "sizes": 6
  },
  "public|1440|issue": {
-  "arrival": 240,
+  "arrival": 222,
   "colours": 7,
   "kinds": 7,
   "sizes": 5
  },
  "public|1440|legislators": {
-  "arrival": 391,
+  "arrival": 307,
   "colours": 3,
   "kinds": 5,
   "sizes": 4
  },
  "public|1440|more": {
-  "arrival": 198,
+  "arrival": 188,
   "colours": 3,
   "kinds": 3,
   "sizes": 5
  },
  "public|1440|mybills": {
-  "arrival": 250,
+  "arrival": 193,
   "colours": 5,
   "kinds": 2,
   "sizes": 6
  },
  "public|1440|privacy": {
-  "arrival": 239,
+  "arrival": 234,
   "colours": 3,
   "kinds": 1,
   "sizes": 4
@@ -132,13 +132,13 @@
   "sizes": 6
  },
  "public|390|category": {
-  "arrival": 379,
+  "arrival": 217,
   "colours": 6,
   "kinds": 3,
   "sizes": 5
  },
  "public|390|find": {
-  "arrival": 258,
+  "arrival": 160,
   "colours": 2,
   "kinds": 2,
   "sizes": 5
@@ -150,19 +150,19 @@
   "sizes": 4
  },
  "public|390|home": {
-  "arrival": 226,
+  "arrival": 167,
   "colours": 6,
   "kinds": 3,
   "sizes": 6
  },
  "public|390|issue": {
-  "arrival": 225,
+  "arrival": 239,
   "colours": 6,
   "kinds": 4,
   "sizes": 5
  },
  "public|390|legislators": {
-  "arrival": 382,
+  "arrival": 281,
   "colours": 3,
   "kinds": 5,
   "sizes": 4
@@ -174,13 +174,13 @@
   "sizes": 5
  },
  "public|390|mybills": {
-  "arrival": 208,
+  "arrival": 169,
   "colours": 5,
   "kinds": 2,
   "sizes": 6
  },
  "public|390|privacy": {
-  "arrival": 197,
+  "arrival": 208,
   "colours": 3,
   "kinds": 1,
   "sizes": 4
@@ -192,7 +192,7 @@
   "sizes": 4
  },
  "public|390|signin": {
-  "arrival": 354,
+  "arrival": 404,
   "colours": 6,
   "kinds": 4,
   "sizes": 4
