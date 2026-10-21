@@ -16,7 +16,7 @@
 import { S, SESSION_OVER, esc, myIssueIds } from './data.js';
 import { icon, btn, empty, sectionNav, row, switchRow } from './ui.js';
 import { plural, isSide, pageHead } from './lists.js';
-import { indexLinks, isDraft } from './prep.js';
+import { indexLinks, isDraft, myIssuesPrep, renderMinePrep } from './prep.js';
 import { supports, setSupport, coalFactsLine } from './coalition.js';
 import { iconName } from './lists.js';   // R-277 fix 15: not from setup.js, which loads only when opened
 import { standOf, bodyHTML, toolsHTML, wireTools } from './issuestand.js';
@@ -49,6 +49,8 @@ export default {
   tab: 'myissues',
   title: () => 'My issues',
   render() {
+    // R-316 W16: between sessions, My issues opens as the 2027 prep list, as Nate chose for Staff v2 on 10/16 (R-263).
+    if (myIssuesPrep()) return renderMinePrep();
     const list = myIssues();
     const owned = list.filter(x => x.own).length, helped = list.length - owned;
     const who = [owned ? `You own ${plural(owned, 'issue')}` : '', helped ? `${owned ? 'help' : 'You help'} on ${helped}` : ''].filter(Boolean).join(' and ');
@@ -67,6 +69,7 @@ export default {
   // The switches act as the coalition page's does (saved to your settings, with Undo); once on, the coalition moves up to
   // yours, and focus follows it there.
   wire(route, app) {
+    if (myIssuesPrep()) return;
     wireTools(app, 'mi-q', { get: () => Q().q, set: v => { Q().q = v; }, paint: () => { const b = app.querySelector('#mi-q-body'); if (b) b.innerHTML = bodyHTML(myIssues(), opts()); } });
     app.querySelectorAll('[data-misup]').forEach(el => el.onchange = () => {
       const c = (S.campaigns || []).find(x => String(x.id) === el.dataset.misup); if (!c) return;

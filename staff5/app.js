@@ -483,7 +483,10 @@ function sandboxExtras() {
     if (a) { S.me = a;
       // Follows are per person: the seeded one is Nate's, so a teammate starts from their own, as live (R-022).
       S.follows = new Set(Object.entries(S.followersBy || {}).filter(([, ids]) => ids.includes(a.id)).map(([id]) => id));
-      if (S.buildDemoInbox) S.inbox = S.buildDemoInbox(); } }
+      if (S.buildDemoInbox) S.inbox = S.buildDemoInbox();
+      // Between sessions, someone who owns no issue (Patti, Julie) helps on two, so a helper's prep on Today can be seen (R-316 W4).
+      if (SESSION_OVER && !S.issues.some(i => i.owner_id === a.id)) S.issueHelpers = S.issues.filter(i => i.owner_id && !i.archived_at).sort((x, y) => x.name.localeCompare(y.name)).slice(0, 2)
+        .map(i => ({ issue_id: i.id, advocate_id: a.id, added_by: i.owner_id, added_at: '2026-10-01T00:00:00Z' })); } }
   // One hearing this week with no testimony draft, so the card people will meet in January ("No testimony draft yet ... Make the
   // draft now") can be practised: the sandbox gave every hearing its draft (R-152 D). The last such hearing in the next week.
   if (!S.noDraftSeeded && !SESSION_OVER) {

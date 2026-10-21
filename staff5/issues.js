@@ -21,7 +21,10 @@ import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on 
 import { plural, pageHead, afterClose, billName, isSide } from './lists.js';
 import { convSectionHTML, wireConvSection } from './conversation.js';
 import { FV_HREF, fvView, fvTitle, fvBack, renderFirstVisit, wireFirstVisit } from './firstvisit.js';
-import { prepView, prepTitle, renderPrep, wirePrep, prepCardHTML, wirePrepCard, prepMenu, isDraft } from './prep.js';
+import { prepView, prepTitle, renderPrep, wirePrep, prepCardHTML, wirePrepCard, prepMenu, isDraft, stateOf, prepListHref } from './prep.js';
+// Where an issue's Back goes (R-316 W16): to the prep list or the Prep board it was opened from, to My issues, else All issues.
+const backTo = route => route.q?.from === 'prep' ? { href: prepListHref(), label: 'Your issues for 2027' } : route.q?.from === 'board' ? { href: '#/outreach/issues?view=prep', label: 'Prep board' }
+  : route.q?.from === 'mine' ? { href: '#/my-issues', label: 'My issues' } : { href: '#/outreach/issues', label: 'All issues' };
 import { testimonyOf, dueOf } from './hearing.js';
 import { isPos, dayOf, dueWhen, waitingOfBills } from './standing.js';
 import { weekOfBills, standWeekHTML, wireWeek } from './coalition.js';
@@ -450,9 +453,13 @@ function pageRender(route) {
       ${iconBtn('ellipsis', `More for ${i.name}`, { 'data-is': 'more', 'aria-haspopup': 'dialog' }, 'le-hmore')}
     </header>
     ${i.archived_at ? notice('warn', 'archive', '<b>Archived.</b> The public does not see it, and its followers do not get its bills.', btn('Restore', { kind: 'secondary', sm: true, attrs: { 'data-is': 'restore' } })) : ''}`;
-  const work = `${weekHTML(i, now)}${billsHTML(i, now, earlier)}${prepCardHTML(i, { outlook: SESSION_OVER ? '' : outlook })}`;
+  // R-316 W16: between sessions the 2027 prep is the work, so its card comes first (Mark ready sat below the screen on all
+  // 28 of Lauren's issues); once approved it folds and goes back under the bills.
+  const prep = prepCardHTML(i, { outlook: SESSION_OVER ? '' : outlook }), prepFirst = SESSION_OVER && !isDraft(i) && !i.archived_at && stateOf(i) !== 'approved';
+  const work = prepFirst ? `${prep}${weekHTML(i, now)}${billsHTML(i, now, earlier)}` : `${weekHTML(i, now)}${billsHTML(i, now, earlier)}${prep}`;
+  const bk = backTo(route);
   const aside = `${publicCard(i)}${i.archived_at ? '' : relatedHTML(i)}`;
-  const back = `<a class="le-deskback" href="${from ? billRoute(from) : route.q?.from === 'mine' ? '#/my-issues' : '#/outreach/issues'}" data-back${from ? ` aria-label="Back to ${esc(from.bill_number)}"` : ''}>${icon('chevron-left')}<span>${from ? `Back to ${esc(from.bill_number)}` : route.q?.from === 'mine' ? 'My issues' : 'All issues'}</span></a>`;
+  const back = `<a class="le-deskback" href="${from ? billRoute(from) : bk.href}" data-back${from ? ` aria-label="Back to ${esc(from.bill_number)}"` : ''}>${icon('chevron-left')}<span>${from ? `Back to ${esc(from.bill_number)}` : esc(bk.label)}</span></a>`;
   // A laptop: the issue and its week on the left; its public side and related issues in the one side panel (as a
   // coalition's page keeps sharing and support there). A phone reads it all in one column, the work first.
   if (side) return `<div class="le-page le-list is-page is-two">${back}<div class="sv-cols is-cols">
@@ -574,7 +581,7 @@ export const issuePage = {
   title: route => issueById(route.id)?.name || 'Issue',
   // "Back to SB2175" fits on a phone too (R-226, the fresh-eyes review 10/10), so it keeps its words there: full.
   // From My issues (R-263), Back returns there.
-  back: route => { const from = billFrom(route); return from ? { href: billRoute(from), label: `Back to ${from.bill_number}`, full: true } : route.q?.from === 'mine' ? { href: '#/my-issues', label: 'My issues' } : { href: '#/outreach/issues', label: 'All issues' }; },
+  back: route => { const from = billFrom(route); return from ? { href: billRoute(from), label: `Back to ${from.bill_number}`, full: true } : backTo(route); },
   render: pageRender,
   wire(route, root) {
     const i = issueById(route.id); if (!i) return;

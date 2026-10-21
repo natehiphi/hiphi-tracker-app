@@ -26,7 +26,10 @@ const DEMO_OFF = DEMO && new URLSearchParams(location.search).get('season') === 
 // `&season=opening` (R-118) starts the clock on 22 January, inside the opening weeks (10 to 31 January), so Today shows the
 // new bills to sort and an issue's prep card folds. The bills stay the March snapshot, as with season=off.
 const DEMO_OPENING = DEMO && new URLSearchParams(location.search).get('season') === 'opening';
-export const DEMO_ASOF = DEMO_OFF ? '2026-09-18T09:00:00-10:00' : DEMO_OPENING ? '2026-01-22T09:00:00-10:00' : '2026-03-16T09:00:00-10:00';
+// R-316: `&season=off&day=2026-11-05` starts that between-sessions clock on another autumn day instead (9:00 HST), so the
+// 2027 issue prep's last week and the days after its due date (Fri 6 Nov) can be checked on the practice copy.
+const DEMO_OFFDAY = (d => DEMO_OFF && /^2026-(09|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(d || '') ? d : '')(new URLSearchParams(location.search).get('day'));
+export const DEMO_ASOF = DEMO_OFFDAY ? `${DEMO_OFFDAY}T09:00:00-10:00` : DEMO_OFF ? '2026-09-18T09:00:00-10:00' : DEMO_OPENING ? '2026-01-22T09:00:00-10:00' : '2026-03-16T09:00:00-10:00';
 if (DEMO) {
   const RD = Date, off = RD.now() - new RD(DEMO_ASOF).getTime();
   window.Date = class extends RD { constructor(...a) { a.length ? super(...a) : super(RD.now() - off); } static now() { return RD.now() - off; } };
@@ -1553,7 +1556,8 @@ export async function demoInit() {
   for (const i of S.issues) { const n = {}; for (const x of S.billIssues) if (x.issue_id === i.id) for (const a of sc.assignments[x.bill_id] || []) n[a] = (n[a] || 0) + 1;
     i.owner_id ??= Object.entries(n).sort((a, b) => b[1] - a[1])[0]?.[0] || S.me.id; }
   // Two issues someone else owns, each with a hearing ahead, with this person as a helper, so the sandbox's My issues shows "You help on it" (R-263).
-  S.issueHelpers = S.issues.filter(i => i.owner_id !== S.me.id && S.billIssues.some(x => x.issue_id === i.id && (S.hearings || []).some(h => h.bill_id === x.bill_id && h.status === 'scheduled' && new Date(h.scheduled_at) > new Date(DEMO_ASOF)))).sort((x, y) => x.name.localeCompare(y.name)).slice(0, 2)
+  // Between sessions no hearing is ahead, so any two (R-316 W4: a helper's Today shows the prep they help with).
+  S.issueHelpers = S.issues.filter(i => i.owner_id !== S.me.id && (DEMO_OFF || S.billIssues.some(x => x.issue_id === i.id && (S.hearings || []).some(h => h.bill_id === x.bill_id && h.status === 'scheduled' && new Date(h.scheduled_at) > new Date(DEMO_ASOF))))).sort((x, y) => x.name.localeCompare(y.name)).slice(0, 2)
     .map(i => ({ issue_id: i.id, advocate_id: S.me.id, added_by: i.owner_id, added_at: '2026-10-01T00:00:00Z' }));
   // Versions and outcomes are in the snapshot; one follow and one attendance
   // are seeded so those panels have something to show.

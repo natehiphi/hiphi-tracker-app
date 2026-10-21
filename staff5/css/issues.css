@@ -285,6 +285,13 @@
 .pr-step .pr-go { flex: none; font-size: var(--t14); font-weight: 700; color: var(--p700); }
 .pr-step:hover .pr-go { text-decoration: underline; }
 .pr-step:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+/* R-316 W16: the talking points in full on their step (no two-line clamp), one per line with a quiet bar in front. */
+.pr-step .sub.pr-subl { display: block; -webkit-line-clamp: none; overflow: visible; }
+.pr-pts { display: flex; flex-direction: column; gap: var(--s4); margin-top: 2px; }
+.pr-pt { display: block; padding-left: var(--s8); border-left: 2px solid var(--n200); color: var(--n800, var(--n900)); }
+/* The top-issue step with an admin's Confirm beside it. */
+.pr-steps li.pr-hastop { display: flex; align-items: center; gap: var(--s12); }
+.pr-hastop .pr-step { flex: 1 1 auto; min-width: 0; }
 .pr-foot { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s8) var(--s12); margin-top: var(--s12); padding-top: var(--s12); border-top: 1px solid var(--n100); }
 .pr-foot .btn[aria-disabled="true"] { opacity: .55; }
 .pr-dots { display: inline-flex; gap: 3px; vertical-align: middle; }

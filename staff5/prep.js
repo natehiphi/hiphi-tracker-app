@@ -7,10 +7,10 @@
 // Three places: My issues (#/outreach/issues?view=mine), the prep board for admins (?view=prep), and the prep card on an
 // issue's own page, which is where every step is done. A new issue is a draft until an admin publishes it, and the card
 // on a draft lists what it still needs instead (the database refuses to publish one that lacks any: issue_missing()).
-import { S, DB, hooks, esc, advocate } from './data.js';
+import { S, DB, DEMO, SESSION_OVER, hooks, esc, advocate } from './data.js';
 import { plain, legislativeDay } from './model.js';
-import { icon, btn, iconBtn, chip, empty, toast, openSheet, closeSheet, notice, avatar, pickerSheet, menuSheet, confirmSheet, segmented, filterBtn } from './ui.js';
-import { plural, afterClose } from './lists.js';
+import { icon, btn, iconBtn, chip, empty, toast, openSheet, closeSheet, notice, avatar, pickerSheet, menuSheet, confirmSheet, segmented, filterBtn, sectionNav } from './ui.js';
+import { plural, afterClose, pageHead } from './lists.js';
 
 const live = () => (S.issues || []).filter(i => !i.archived_at);
 const byName = (a, b) => a.name.localeCompare(b.name);
@@ -32,6 +32,18 @@ const dueDay = () => new Date(`${S.issuePrep?.due || '2026-11-06'}T12:00:00-10:0
 export const dueText = () => { const d = dueDay(), o = { timeZone: 'Pacific/Honolulu' };
   return `${d.toLocaleDateString('en-US', { ...o, weekday: 'short' })} ${d.toLocaleDateString('en-US', { ...o, day: 'numeric' })} ${d.toLocaleDateString('en-US', { ...o, month: 'short' })}`; };
 const pastDue = () => Date.now() > dueDay().getTime() + 12 * 3600e3;
+// The last second of the due day, in Hawaiʻi: when Today's prep task turns overdue (R-316 W4).
+export const dueEnd = () => dueDay().getTime() + 12 * 3600e3 - 1000;
+// "today", "tomorrow", "Fri" within the week, else "Fri 6 Nov".
+const dueWord = () => { const h = d => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }), day = h(dueDay()), now = Date.now();
+  return day === h(now) ? 'today' : day === h(now + 864e5) ? 'tomorrow' : dueEnd() > now && dueEnd() - now < 6 * 864e5 ? dueDay().toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'short' }) : dueText(); };
+const clip = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).replace(/\s\S*$/, '') + '…' : s; };
+
+// R-316 (Nate's whole review of Staff v5, 21 Oct). On the practice copy only until he says yes on 26 Oct: W4, the prep as a
+// task on everyone's Today and, for admins, one line naming who is behind; W17, an admin approving the issues they own
+// without marking them ready first (review_issue('approve') does not need the ready state, 091).
+export const PREP_TODAY = () => DEMO;
+const SELF_APPROVE = () => DEMO;
 
 // ---- the six steps of a prepared issue (R-288 added "Top issue for 2027?") ----
 const pointsOf = i => i.talking_points || [];
@@ -39,7 +51,9 @@ export const STEPS = [
   { k: 'wording', label: 'Name and description', todo: 'Check they still say it right', done: i => !!i.wording_checked_at, did: () => 'Checked' },
   { k: 'outlook', label: 'Between sessions', todo: 'Check what the public reads until January', done: i => !!i.outlook_checked_at, did: () => 'Checked' },
   { k: 'goal', label: 'HIPHI’s goal for 2027', todo: 'One or two sentences. Staff only', done: i => !!(i.goal || '').trim(), did: i => i.goal },
-  { k: 'points', label: 'Talking points', todo: 'Three to five, for people’s letters', done: i => pointsOf(i).length >= 3, did: i => plural(pointsOf(i).length, 'point') },
+  { k: 'points', label: 'Talking points', todo: 'Three to five, for people’s letters', done: i => pointsOf(i).length >= 3, did: i => plural(pointsOf(i).length, 'point'),
+    // R-316 W16: the points themselves, so an approver reads them here instead of opening the edit box (spans: it is a button).
+    list: i => `<span class="pr-pts">${pointsOf(i).map(p => `<span class="pr-pt">${esc(p)}</span>`).join('')}</span>` },
   { k: 'top', label: 'Top issue for 2027?', todo: 'Should HIPHI lead with it this session?', done: i => !!i.top_pick, did: i => i.top_pick === 'no' ? 'No' : i.recommended ? 'Yes, confirmed' : `Yes, waiting for ${adminWord()} to confirm` },
   { k: 'plan', label: 'Keep, merge or retire', todo: 'What happens to it in 2027', done: i => !!i.proposal, did: i => i.proposal === 'merge' ? `Merge into ${S.issues.find(x => x.id === i.proposal_into)?.name || 'another issue'}` : i.proposal === 'retire' ? 'Retire it' : 'Keep it' },
 ];
@@ -74,19 +88,73 @@ export function missing(i) {
 const mine = () => live().filter(i => S.me && i.owner_id === S.me.id && !isDraft(i));
 const helping = () => { const ids = new Set((S.issueHelpers || []).filter(h => h.advocate_id === S.me?.id).map(h => h.issue_id)); return live().filter(i => ids.has(i.id) && i.owner_id !== S.me?.id); };
 const myDrafts = () => live().filter(i => isDraft(i) && (i.owner_id === S.me?.id || i.created_by === S.me?.id));
-const waitingForAdmin = () => live().filter(i => stateOf(i) === 'ready');
+// W17: an admin's own issues are approved straight from their card, so they are not "waiting for you".
+const waitingForAdmin = () => live().filter(i => stateOf(i) === 'ready' && !(SELF_APPROVE() && i.owner_id === S.me?.id));
+const isDone = i => ['ready', 'approved'].includes(stateOf(i));
+const ordered = l => l.slice().sort((a, b) => ORDER[stateOf(a)] - ORDER[stateOf(b)] || byName(a, b));
+// R-316 W16: an issue opened from a prep list comes back to it, and says so (issues.js reads ?from=prep and ?from=board).
+export const issueHref = (i, from = '') => `#/issue/${encodeURIComponent(i.id)}${from ? `?from=${from}` : ''}`;
+// Between sessions My issues is the prep list (myIssuesPrep); otherwise it is ?view=mine.
+export const prepListHref = () => myIssuesPrep() ? '#/my-issues' : '#/outreach/issues?view=mine';
+// The walk-through (W16): after Mark ready, your next unfinished issue; after Approve, the next one waiting.
+const nextToDo = i => ordered(mine().filter(x => x.id !== i.id && !isDone(x)))[0] || null;
+function nextWaiting(i) {
+  const l = waitingForAdmin().sort(byName), at = l.findIndex(x => x.id === i.id);
+  return (at < 0 ? l : [...l.slice(at + 1), ...l.slice(0, at)]).find(x => x.id !== i.id) || null;
+}
+const selfApproves = i => SELF_APPROVE() && isAdmin() && !!S.me && i.owner_id === S.me.id && stateOf(i) !== 'ready';
+const nextAfterApprove = i => selfApproves(i) ? nextToDo(i) : nextWaiting(i);
+const walkFrom = () => ['prep', 'board'].includes(S.route?.q?.from) ? S.route.q.from : 'prep';
+
+// Each owner's progress, least done first: "Kevin 4/10" (ready or approved, of their issues).
+export function ownerProgress() {
+  const per = new Map();
+  for (const i of live()) { if (isDraft(i) || !i.owner_id) continue; const e = per.get(i.owner_id) || { id: i.owner_id, total: 0, done: 0 }; e.total++; if (isDone(i)) e.done++; per.set(i.owner_id, e); }
+  return [...per.values()].sort((a, b) => a.done / a.total - b.done / b.total || b.total - a.total || first(advocate(a.id)).localeCompare(first(advocate(b.id))));
+}
+
+// ---- W4: the prep as one task on a person's Today (today.js todayItems), practice copy only for now ----
+// Their own issues not yet ready; someone who owns none gets the ones they help on. It stays after the due day, overdue,
+// until each is done (Nate's pick in the review); there is no Slack nudge (PREP-2027-PLAN decision 7).
+export function prepTaskOf(id) {
+  if (!PREP_TODAY() || !SESSION_OVER || !id || !(S.issues || []).length) return null;
+  const own = live().filter(i => i.owner_id === id && !isDraft(i)), left = ordered(own.filter(i => !isDone(i)));
+  if (left.length) return { own: true, total: own.length, ready: own.length - left.length, back: left.filter(i => stateOf(i) === 'sent_back'), next: left[0] };
+  const hs = new Set((S.issueHelpers || []).filter(h => h.advocate_id === id).map(h => h.issue_id));
+  const help = live().filter(i => hs.has(i.id) && i.owner_id !== id && !isDraft(i)), hl = ordered(help.filter(i => !isDone(i)));
+  if (!hl.length) return null;
+  return { own: false, total: help.length, ready: help.length - hl.length, back: [], next: hl[0], owners: [...new Set(hl.map(i => i.owner_id))].map(advocate).filter(Boolean) };
+}
+// W4: an admin's one line on Mine and Team Today, from a week before the due day until every issue is approved.
+function adminPrepLine() {
+  if (!isAdmin()) return '';
+  const ok = live().filter(i => !isDraft(i)), n = ok.filter(i => stateOf(i) === 'approved').length, now = Date.now();
+  if (!ok.length || n === ok.length || now < dueEnd() - 7 * 864e5) return '';
+  const behind = ownerProgress().filter(o => o.done < o.total && o.id !== S.me?.id), shown = behind.slice(0, 3), wait = waitingForAdmin().length;
+  const names = shown.map(o => `<a href="#/outreach/issues?view=prep&who=${encodeURIComponent(o.id)}">${esc(first(advocate(o.id)))} ${o.done}/${o.total}</a>`).join(', ');
+  const late = now > dueEnd(), soon = dueEnd() - now < 2 * 864e5;
+  return notice(late || soon ? 'warn' : 'info', 'clipboard-check', `<b>Team issues for 2027: ${n} of ${ok.length} approved</b>, ${late ? `were due ${esc(dueText())}` : `due ${esc(dueWord())}`}.${shown.length ? ` Behind: ${names}${behind.length > 3 ? ` and ${behind.length - 3} more` : ''}.` : ''}`,
+    btn(wait ? `Review ${wait} waiting` : 'Open the board', { kind: 'secondary', href: `#/outreach/issues?view=prep${wait ? '&f=wait' : ''}` }));
+}
 
 // ---- the notice on Today: one line, only when there is something for this person (today.js oneNotice) ----
 export function todayPrepNotice() {
   if (!S.me || !(S.issues || []).length) return '';
+  const line = PREP_TODAY() && SESSION_OVER ? adminPrepLine() : ''; if (line) return line;
   const wait = isAdmin() ? waitingForAdmin().length + live().filter(isDraft).length : 0;
   if (wait) return notice('info', 'clipboard-check', `<b>${plural(wait, 'issue')} waiting for you.</b> Approve ${wait === 1 ? 'it' : 'them'} or send ${wait === 1 ? 'it' : 'them'} back.`, btn('Review', { kind: 'secondary', href: '#/outreach/issues?view=prep&f=wait' }));
-  const own = mine(), left = own.filter(i => !['ready', 'approved'].includes(stateOf(i)));
+  // W4 (practice copy): an owner's and a helper's prep is a task in Today's list instead (prepTaskOf).
+  if (PREP_TODAY() && SESSION_OVER) return '';
+  const own = mine(), left = own.filter(i => !isDone(i));
   if (!left.length) return '';
-  const back = own.filter(i => stateOf(i) === 'sent_back').length;
+  const backs = ordered(own.filter(i => stateOf(i) === 'sent_back'));
   // After the due day the notice is for what came back, not a standing reminder (R-118: it had no end date).
-  if (!back && Date.now() > dueDay().getTime() + 864e5) return '';
-  return notice(back ? 'warn' : 'info', 'clipboard-list', `<b>Your issues for 2027:</b> ${own.length - left.length} of ${own.length} ready${back ? `, ${back} sent back` : ''}. Due ${esc(dueText())}.`, btn('Open the list', { kind: 'secondary', href: '#/outreach/issues?view=mine' }));
+  if (!backs.length && Date.now() > dueDay().getTime() + 864e5) return '';
+  const tally = `${own.length - left.length} of ${own.length} ready, due ${esc(dueText())}.`;
+  // R-316 W16: a sent-back issue is named, with who sent it and the first words of the note, one tap from it.
+  if (backs.length) { const b0 = backs[0];
+    return notice('warn', 'undo-2', `<b>${esc(first(advocate(b0.prep_by)))} sent back ${esc(b0.name)}:</b> “${esc(clip(b0.prep_note, 80))}”${backs.length > 1 ? ` (and ${backs.length - 1} more)` : ''}. Your issues for 2027: ${tally}`, btn('Open it', { kind: 'secondary', href: issueHref(b0, 'prep') })); }
+  return notice('info', 'clipboard-list', `<b>Your issues for 2027:</b> ${tally}`, btn('Open the list', { kind: 'secondary', href: prepListHref() }));
 }
 // The two links under the Issues index heading; My issues (R-263) shows only the person's own, without the admins' board.
 export function indexLinks({ mineOnly = false } = {}) {
@@ -225,9 +293,11 @@ function peopleHTML(i) {
   </div>`;
 }
 function stepsHTML(i, steps) {
-  return `<ol class="pr-steps">${steps.map(s => { const d = s.done(i), sub = d ? s.did(i) : s.todo;
-    return `<li><button type="button" class="pr-step${d ? ' done' : ''}" data-prstep="${s.k}">${icon(d ? 'circle-check' : 'circle', { cls: 'pr-mark' })}
-      <span class="body"><span class="title">${esc(s.label)}</span><span class="sub">${esc(sub)}</span></span><span class="pr-go">${d ? 'Change' : 'Do it'}</span></button></li>`; }).join('')}</ol>`;
+  return `<ol class="pr-steps">${steps.map(s => { const d = s.done(i), full = d && !!s.list, sub = full ? s.list(i) : esc(d ? s.did(i) : s.todo);
+    // R-316 W16: an admin confirms a top issue right on its step, as on the board's Top issues view.
+    const conf = s.k === 'top' && isAdmin() && i.top_pick === 'yes' && !isDraft(i) ? topBtn(i) : '';
+    return `<li${conf ? ' class="pr-hastop"' : ''}><button type="button" class="pr-step${d ? ' done' : ''}" data-prstep="${s.k}">${icon(d ? 'circle-check' : 'circle', { cls: 'pr-mark' })}
+      <span class="body"><span class="title">${esc(s.label)}</span><span class="sub${full ? ' pr-subl' : ''}">${sub}</span></span><span class="pr-go">${d ? 'Change' : 'Do it'}</span></button>${conf}</li>`; }).join('')}</ol>`;
 }
 // `outlook` (v3): in session the issue's page puts what the public reads between sessions in here, folded with the rest
 // of the 2027 work, instead of under the issue's name.
@@ -247,12 +317,15 @@ export function prepCardHTML(i, { outlook = '' } = {}) {
   const note = st === 'sent_back' ? notice('warn', 'undo-2', `<b>${esc(first(by))} sent it back:</b> ${esc(i.prep_note || '')}`)
     : st === 'approved' ? notice('ok', 'circle-check', `<b>Approved${by ? ` by ${esc(first(by))}` : ''}.</b>${i.prep_note ? ` ${esc(i.prep_note)}` : ''}`, isAdmin() ? btn('Undo', { kind: 'text', attrs: { 'data-pr': 'undo' } }) : '') : '';
   let foot = '';
+  const apLabel = nextAfterApprove(i) ? 'Approve and open the next' : 'Approve';
   if (st === 'ready') foot = isAdmin()
-    ? `${btn('Approve', { icon: 'check', attrs: { 'data-pr': 'approve' } })}${btn('Send back', { kind: 'secondary', attrs: { 'data-pr': 'sendback', 'aria-haspopup': 'dialog' } })}${owner ? btn('Not ready yet', { kind: 'text', attrs: { 'data-pr': 'unready' } }) : ''}`
+    ? `${btn(apLabel, { icon: 'check', attrs: { 'data-pr': 'approve' } })}${btn('Send back', { kind: 'secondary', attrs: { 'data-pr': 'sendback', 'aria-haspopup': 'dialog' } })}${owner ? btn('Not ready yet', { kind: 'text', attrs: { 'data-pr': 'unready' } }) : ''}`
     : `<span class="small">Waiting for ${esc(adminWord())} to approve it.</span>${owner ? btn('Not ready yet', { kind: 'text', attrs: { 'data-pr': 'unready' } }) : ''}`;
-  else if (st !== 'approved' && (owner || isAdmin())) foot = `${btn('Mark ready', { icon: 'send', attrs: { 'data-pr': 'ready', ...(n < STEPS.length ? { 'aria-disabled': 'true' } : {}) } })}<span class="small muted">${n < STEPS.length ? `${STEPS.length - n} step${STEPS.length - n === 1 ? '' : 's'} left.` : `${esc(Cap(adminWord()))} approve${adminWord() === 'you' ? '' : 's'} it next.`}</span>`;
+  // W17: on an issue an admin owns, Approve as soon as the six steps are done; nobody else needs to see it ready.
+  else if (st !== 'approved' && selfApproves(i)) foot = `${btn(apLabel, { icon: 'check', attrs: { 'data-pr': 'approve', ...(n < STEPS.length ? { 'aria-disabled': 'true' } : {}) } })}<span class="small muted">${n < STEPS.length ? `${STEPS.length - n} step${STEPS.length - n === 1 ? '' : 's'} left.` : 'You own it, so your approval is the last step.'}</span>`;
+  else if (st !== 'approved' && (owner || isAdmin())) foot = `${btn(owner && nextToDo(i) ? 'Mark ready and open the next' : 'Mark ready', { icon: 'send', attrs: { 'data-pr': 'ready', ...(n < STEPS.length ? { 'aria-disabled': 'true' } : {}) } })}<span class="small muted">${n < STEPS.length ? `${STEPS.length - n} step${STEPS.length - n === 1 ? '' : 's'} left.` : `${esc(Cap(adminWord()))} approve${adminWord() === 'you' ? '' : 's'} it next.`}</span>`;
   else if (st !== 'approved') foot = `<span class="small muted">${esc(first(ownerOfIssue(i)))} marks it ready.</span>`;
-  const inner = `${outlook ? `<div class="pr-outlook">${outlook}</div>` : ''}<p class="small pr-lede">Due ${esc(dueText())}</p>
+  const inner = `${outlook ? `<div class="pr-outlook">${outlook}</div>` : ''}<p class="small pr-lede">Due ${esc(dueText())} · <a href="#/help/prep">How to get an issue ready</a></p>
     ${note}${peopleHTML(i)}${stepsHTML(i, STEPS)}
     ${foot ? `<div class="pr-foot">${foot}</div>` : ''}`;
   // Session work first (R-118): once the issue is approved, or the session is under way, the card folds to one line and
@@ -272,13 +345,16 @@ export function wirePrepCard(i, root) {
   const on = (k, fn) => card.querySelector(`[data-pr="${k}"]`)?.addEventListener('click', fn);
   on('owner', () => changeOwner(i));
   on('helper', () => addHelper(i));
+  const stillToDo = () => { const left = STEPS.filter(s => !s.done(i)); toast(`Still to do: ${left.map(s => s.label.toLowerCase()).join(', ')}.`); openStep(i, left[0].k); };
   on('ready', async e => {
-    if (e.currentTarget.getAttribute('aria-disabled') === 'true') { const left = STEPS.filter(s => !s.done(i)); toast(`Still to do: ${left.map(s => s.label.toLowerCase()).join(', ')}.`); openStep(i, left[0].k); return; }
-    try { await DB.updateIssue(i.id, { prep_state: 'ready' }); hooks.render(); toast(`Marked ready. ${Cap(adminWord())} approve${adminWord() === 'you' ? '' : 's'} it next.`, { ok: true, undo: async () => { await DB.updateIssue(i.id, { prep_state: 'todo' }); hooks.render(); } }); }
+    if (e.currentTarget.getAttribute('aria-disabled') === 'true') return stillToDo();
+    const nx = S.me && i.owner_id === S.me.id ? nextToDo(i) : null;
+    try { await DB.updateIssue(i.id, { prep_state: 'ready' }); if (nx) S.go(issueHref(nx, walkFrom())); else hooks.render(); toast(`Marked ready. ${Cap(adminWord())} approve${adminWord() === 'you' ? '' : 's'} it next.`, { ok: true, undo: async () => { await DB.updateIssue(i.id, { prep_state: 'todo' }); hooks.render(); } }); }
     catch (err) { toast(err, { err: true }); }
   });
   on('unready', async () => { try { await DB.updateIssue(i.id, { prep_state: 'todo' }); hooks.render(); toast('Taken back. Mark it ready again when it is.'); } catch (err) { toast(err, { err: true }); } });
-  on('approve', () => approve(i));
+  on('approve', e => e.currentTarget.getAttribute('aria-disabled') === 'true' ? stillToDo() : approve(i, nextAfterApprove(i)));
+  card.querySelectorAll('[data-prtop]').forEach(el => el.onclick = () => toggleTop(i));
   on('sendback', () => sendBack(i));
   on('undo', async () => { try { await DB.reviewIssue(i.id, 'undo'); hooks.render(); toast('Approval undone. It is waiting for approval again.'); } catch (err) { toast(err, { err: true }); } });
   on('publish', async e => {
@@ -293,7 +369,15 @@ export function wirePrepCard(i, root) {
     void e;
   });
 }
-async function approve(i) {
+// Confirming a top issue turns on the silent pre-tick (issues.recommended, 063); the card and the board share it.
+async function toggleTop(i) {
+  const was = !!i.recommended;
+  try { await DB.updateIssue(i.id, { recommended: !was }); hooks.render();
+    toast(was ? `${i.name}: no longer pre-ticked.` : `${i.name}: confirmed.`, { ok: !was, undo: async () => { await DB.updateIssue(i.id, { recommended: was }); hooks.render(); } }); }
+  catch (e) { toast(e, { err: true }); }
+}
+// `next` (W16): the issue to open after this one, so approving walks the list.
+async function approve(i, next = null) {
   const into = i.proposal === 'merge' ? S.issues.find(x => x.id === i.proposal_into) : null;
   if (i.proposal === 'merge' || i.proposal === 'retire') {
     const ok = await confirmSheet({ title: i.proposal === 'merge' ? `Approve and merge into ${esc(into?.name || 'the other issue')}?` : `Approve and retire ${esc(i.name)}?`, ok: i.proposal === 'merge' ? 'Approve and merge' : 'Approve and retire', danger: true,
@@ -301,7 +385,7 @@ async function approve(i) {
     if (!ok) return;
   }
   try {
-    await DB.reviewIssue(i.id, 'approve'); hooks.render();
+    await DB.reviewIssue(i.id, 'approve'); if (next) S.go(issueHref(next, walkFrom())); else hooks.render();
     const canUndo = !['merge', 'retire'].includes(i.proposal);
     toast(i.owner_id && i.owner_id !== S.me?.id ? `Approved. ${first(ownerOfIssue(i))} gets a Slack message.` : 'Approved.', { ok: true, ...(canUndo ? { undo: async () => { await DB.reviewIssue(i.id, 'undo'); hooks.render(); } } : {}) });
   } catch (e) { toast(e, { err: true }); }
@@ -336,19 +420,20 @@ const listsLine = () => { const ls = S.lists || [], on = ls.filter(l => l.is_pub
 const ORDER = { sent_back: 0, started: 1, todo: 2, ready: 3, approved: 4, draft: 5 };
 function prepRow(i, { owner = false } = {}) {
   const o = ownerOfIssue(i);
-  return `<li class="pr-row"><a class="pr-main" href="#/issue/${encodeURIComponent(i.id)}">
+  return `<li class="pr-row"><a class="pr-main" href="${issueHref(i, 'prep')}">
       <span class="title">${esc(i.name)}</span>
       <span class="sub">${progress(i)}${owner ? `<span class="pr-owner">${o ? esc(first(o)) : 'No owner'}</span>` : ''}</span></a>
     <span class="pr-end">${rowState(i)}</span></li>`;
 }
-function mineRender() {
+// `asMyIssues` (R-316 W16): between sessions My issues itself is this list, as Nate chose for Staff v2 on 10/16 (R-263).
+function mineRender({ asMyIssues = false } = {}) {
   const own = mine().sort((a, b) => ORDER[stateOf(a)] - ORDER[stateOf(b)] || byName(a, b)), help = helping().sort(byName), drafts = myDrafts();
   const ready = own.filter(i => ['ready', 'approved'].includes(stateOf(i))).length;
   const lede = own.length ? `${ready} of ${own.length} ready. Due ${esc(dueText())}${pastDue() ? ' (past due)' : ''}.` : 'Getting the issues ready for 2027.';
   const next = own.find(i => !['ready', 'approved'].includes(stateOf(i)));
   return `<div class="le-page pr-page">
-    ${subHead('Your issues for 2027', lede, ['#/my-issues', 'My issues'])}
-    ${next ? `<div class="pr-next">${btn(`Next: ${esc(next.name)}`, { iconEnd: 'arrow-right', href: '#/issue/' + encodeURIComponent(next.id) })}</div>` : ''}
+    ${asMyIssues ? pageHead(sectionNav('issues', 'mine'), 'My issues', `Your issues for 2027: ${lede}`, '') : subHead('Your issues for 2027', lede, myIssuesPrep() ? ['#/outreach/issues', 'All issues'] : ['#/my-issues', 'My issues'])}
+    ${next ? `<div class="pr-next">${btn(`Next: ${esc(next.name)}`, { iconEnd: 'arrow-right', href: issueHref(next, 'prep') })}</div>` : ''}
     ${!own.length && !help.length && !drafts.length ? `<div class="le-empty">${empty({ title: 'No issues are yours yet', text: `${esc(Cap(adminWord()))} give${adminWord() === 'you' ? '' : 's'} out the issues. Any you own or help on show here.`, action: btn('See all issues', { kind: 'secondary', href: '#/outreach/issues' }) })}</div>` : ''}
     ${own.length ? `<section class="le-sec" aria-labelledby="pr-mine"><div class="le-sechead"><h2 id="pr-mine">Yours</h2></div><ul class="rows pr-rows">${own.map(i => prepRow(i)).join('')}</ul></section>` : ''}
     ${help.length ? `<section class="le-sec" aria-labelledby="pr-help"><div class="le-sechead"><h2 id="pr-help">Helping</h2><span class="meta">${plural(help.length, 'issue')}</span></div><ul class="rows pr-rows">${help.map(i => prepRow(i, { owner: true })).join('')}</ul></section>` : ''}
@@ -356,6 +441,10 @@ function mineRender() {
     ${drafts.length ? `<section class="le-sec" aria-labelledby="pr-dr"><div class="le-sechead"><h2 id="pr-dr">Your drafts</h2><span class="meta">not public yet</span></div><ul class="rows pr-rows">${drafts.map(i => prepRow(i)).join('')}</ul></section>` : ''}
   </div>`;
 }
+
+// Between sessions, My issues opens as the prep list for anyone with an issue to get ready (myissues.js).
+export const myIssuesPrep = () => !!SESSION_OVER && !!S.me && (mine().length + helping().length + myDrafts().length) > 0;
+export const renderMinePrep = () => mineRender({ asMyIssues: true });
 
 // ---- the prep board (?view=prep): every issue, its owner, its steps, and what is waiting for an admin ----
 const FILTERS = [['all', 'All'], ['wait', 'Waiting for you'], ['sent_back', 'Sent back'], ['todo', 'Not started'], ['top', 'Top issues'], ['draft', 'Drafts']];
@@ -367,7 +456,7 @@ const topSays = i => { const o = ownerOfIssue(i), who = o ? first(o) : 'The owne
 const topBtn = i => `<button type="button" class="pr-topbtn" data-prtop="${esc(i.id)}" aria-pressed="${!!i.recommended}" aria-label="Confirm ${esc(i.name)} as a top issue"${i.recommended ? ' title="Confirmed. Tap to undo"' : ''}>${icon(i.recommended ? 'circle-check' : 'star')}<span>${i.recommended ? 'Confirmed' : 'Confirm'}</span></button>`;
 function boardRow(i, top = false) {
   const o = ownerOfIssue(i);
-  return `<li class="pr-row pr-brow"><a class="pr-main" href="#/issue/${encodeURIComponent(i.id)}"><span class="title">${esc(i.name)}</span><span class="sub">${isDraft(i) ? '' : progress(i)}${top ? `<span class="pr-owner">${esc(topSays(i))}</span>` : ''}</span></a>
+  return `<li class="pr-row pr-brow"><a class="pr-main" href="${issueHref(i, 'board')}"><span class="title">${esc(i.name)}</span><span class="sub">${isDraft(i) ? '' : progress(i)}${top ? `<span class="pr-owner">${esc(topSays(i))}</span>` : ''}</span></a>
     <button type="button" class="pr-ownbtn" data-prown="${esc(i.id)}" aria-haspopup="dialog" aria-label="Owner of ${esc(i.name)}: ${esc(o?.full_name || 'nobody')}. Change">${avatar(o, 24)}<span>${esc(o ? first(o) : 'Nobody')}</span>${icon('chevron-down', { cls: 'chev' })}</button>
     ${top ? topBtn(i) : ''}<span class="pr-end">${rowState(i)}</span></li>`;
 }
@@ -388,11 +477,15 @@ function tellHTML() {
 }
 function boardRender(route) {
   const st = B(); if (route.q?.f && FILTERS.some(x => x[0] === route.q.f)) st.f = route.q.f;
+  // W4: Today's "Behind: Rick 0/7" opens the board on that owner (once per link, so the buttons still change it).
+  if (route.q?.who && st.whoQ !== route.q.who) { st.who = st.whoQ = route.q.who; st.f = 'all'; }
   const ok = live().filter(i => !isDraft(i)), counts = k => live().filter(i => inFilter(i, k) && (!st.who || i.owner_id === st.who)).length, n = ok.filter(i => stateOf(i) === 'approved').length;
   // Until someone picks a filter: what is waiting for the admin if anything is, otherwise everything.
   const f = st.f || (counts('wait') ? 'wait' : 'all');
   const per = {}; for (const i of ok) if (i.owner_id) per[i.owner_id] = (per[i.owner_id] || 0) + 1;
-  const perLine = Object.entries(per).sort((a, b) => b[1] - a[1]).map(([id, c]) => `<button type="button" class="pr-whob" data-prwho="${esc(id)}" aria-pressed="${st.who === id}">${esc(first(advocate(id)))} ${c}</button>`).join('');
+  // W4 (practice copy): each owner's progress, least done first ("Kevin 4/10"), so who is behind shows without scanning.
+  const perLine = PREP_TODAY() ? ownerProgress().map(o => `<button type="button" class="pr-whob" data-prwho="${esc(o.id)}" aria-pressed="${st.who === o.id}" aria-label="${esc(`${first(advocate(o.id))}: ${o.done} of ${o.total} ready or approved`)}">${esc(first(advocate(o.id)))} ${o.done}/${o.total}</button>`).join('')
+    : Object.entries(per).sort((a, b) => b[1] - a[1]).map(([id, c]) => `<button type="button" class="pr-whob" data-prwho="${esc(id)}" aria-pressed="${st.who === id}">${esc(first(advocate(id)))} ${c}</button>`).join('');
   return `<div class="le-page pr-page pr-board">
     ${subHead('Prep board', `${n} of ${ok.length} approved · due ${esc(dueText())}. Owners work through their issues and mark them ready; you approve or send back.`)}
     ${isAdmin() ? tellHTML() : ''}
@@ -416,12 +509,7 @@ export function wirePrep(route, root) {
     pickerSheet({ title: 'Show', value: e.currentTarget.dataset.prfilter, options: FILTERS.map(([k, l]) => [k, l, null, k === 'all' ? '' : plural(counts(k), 'issue')]), onPick: val => { st.f = val; hooks.render(); requestAnimationFrame(() => document.querySelector('[data-prfilter]')?.focus()); } }); });
   root.querySelectorAll('[data-prwho]').forEach(el => el.onclick = () => { const id = el.dataset.prwho || null; st.who = st.who === id ? null : id; if (st.who) st.f = 'all'; hooks.render(); });
   wireRows();
-  root.querySelectorAll('[data-prtop]').forEach(el => el.onclick = async () => {
-    const i = S.issues.find(x => x.id === el.dataset.prtop); if (!i) return; const was = !!i.recommended;
-    try { await DB.updateIssue(i.id, { recommended: !was }); hooks.render();
-      toast(was ? `${i.name}: no longer pre-ticked.` : `${i.name}: confirmed.`, { ok: !was, undo: async () => { await DB.updateIssue(i.id, { recommended: was }); hooks.render(); } }); }
-    catch (e) { toast(e, { err: true }); }
-  });
+  root.querySelectorAll('[data-prtop]').forEach(el => el.onclick = () => { const i = S.issues.find(x => x.id === el.dataset.prtop); if (i) toggleTop(i); });
   root.querySelector('[data-pr="tell"]')?.addEventListener('click', async e => {
     const b = e.currentTarget; b.setAttribute('aria-busy', 'true'); b.disabled = true;
     // M1-1: say how many were actually sent a message, and name anyone the tracker could not reach.

@@ -60,7 +60,7 @@ import { newSteps, markNewStep } from './help.js';
 import { draftAsking, makeDraftNow } from './testimony.js';
 import { openLook, lookFacts } from './look.js';
 import { billPane, bpHearing, bpFacts, bpOpen } from './billpane.js';   // R-277 fix 17: one open-bill panel for Today and Bills
-import { todayPrepNotice } from './prep.js';
+import { todayPrepNotice, prepTaskOf, dueEnd as prepDue, issueHref, prepListHref } from './prep.js';
 import { sessionGates, lastSlotBefore, noticeByFor, billByNum, plainDeadlines, plainGate } from './model.js';
 import { dailyWord } from './composer.js';   // which 4:30 pm email a Send joins
 import { testimonyOf, agendaOf, unfile } from './hearing.js';   // where a hearing's testimony stands, in the coalition page's words (v4, R-269)
@@ -183,7 +183,7 @@ const msgBtn = (b, ids) => ({ label: `Message ${msgWho(ids)}`, href: mentionHref
 // The letter-writer tasks (R-148) are off Today until Nate's February check (R-266); the drafts notes on each bill's
 // Public tab and the public warning work as before.
 const DNOTE_ON = false;
-const RANK = { file: 1, review: 2, review2: 2, revise: 3, submit: 4, write: 5, send: 6, fix: 7, email: 8, stale: 9, dnote: 9.5, ask: 10, chair: 11, nodraft: 12, reply: 13, todo: 14, followup: 15, notice: 16, wait: 30 };
+const RANK = { prep: 14.5, file: 1, review: 2, review2: 2, revise: 3, submit: 4, write: 5, send: 6, fix: 7, email: 8, stale: 9, dnote: 9.5, ask: 10, chair: 11, nodraft: 12, reply: 13, todo: 14, followup: 15, notice: 16, wait: 30 };
 const TESTIMONY = new Set(['file', 'review', 'review2', 'revise', 'submit', 'write', 'stale', 'nodraft', 'wait']);
 const byBill = () => { const m = new Map(); for (const h of S.hearings || []) { if (!m.has(h.bill_id)) m.set(h.bill_id, []); m.get(h.bill_id).push(h); } return m; };
 export function hearingFor(d, idx) {
@@ -465,6 +465,16 @@ export function todayItems(scope = 'mine', who = null, drop = null) {   // `drop
       btns: [{ label: 'Done', act: 'fu' }, p.phone ? { label: 'Call', href: `tel:${p.phone}`, ext: true, mail: true } : p.email ? { label: 'Email', href: `mailto:${p.email}`, ext: true, mail: true } : null].filter(Boolean) });
   }
 
+  // ---- R-316 W4 (practice copy until Nate's yes): getting your issues ready for 2027, one task that counts as work ----
+  // Your own issues not yet ready, else the ones you help on, due the prep's due day (it turns overdue after it and stays
+  // until each is ready). Not on Team's own list: the admins' "Issues for 2027" line names who is behind there.
+  if (!team) { const pt = prepTaskOf(me.id);
+    if (pt) { const left = pt.total - pt.ready, href = self ? prepListHref() : `#/outreach/issues?view=prep&who=${encodeURIComponent(me.id)}`;
+      push({ kind: 'prep', key: `prep:${me.id}`, b: null, due: prepDue(), who: 'yours', kd: ['clipboard-list', 'Issues for 2027'], href,
+        s: pt.own ? `${self ? 'Yours' : 'Theirs'}: ${pt.ready} of ${plural(pt.total, 'issue')} ready` : `Help ${esc(pt.owners.map(a => first(a.id)).join(' and '))} with ${plural(left, 'issue')}: ${pt.ready} of ${pt.total} ready`,
+        why: pt.back.length ? `${esc(first(pt.back[0].prep_by))} sent back ${esc(pt.back[0].name)}${pt.back[0].prep_note ? `: “${esc(clip(pt.back[0].prep_note, 70))}”` : ''}${pt.back.length > 1 ? ` (and ${pt.back.length - 1} more)` : ''}` : `Next: ${esc(pt.next.name)}`,
+        btns: [{ label: pt.back.length ? 'Open what came back' : 'Open the next one', href: issueHref(pt.back[0] || pt.next, 'prep') }, { label: 'See the list', href, text: true }] }); } }
+
   // ---- the inbox's "Needs you": replies and mentions, then notices (mine only: nobody else's inbox is loaded) ----
   const unread = self ? (S.inbox || []).filter(i => i.direct && i.unread) : [];
   const msgBy = new Map(), st = self ? msgState() : null;
@@ -508,7 +518,7 @@ export function todayItems(scope = 'mine', who = null, drop = null) {   // `drop
   // A teammate's steps are theirs to take. On a bill the one thing to do about someone else's step is to ask them about
   // it, so the button is "Message Kevin" (R-022); "Open bill" said again what the bill line above it already does (A-14).
   if (!self) for (const t of tasks) { t.ro = true;
-    t.btns = t.b ? [msgBtn(t.b, [me.id])] : t.kind === 'followup' ? [{ label: 'Open their page', href: `#/person/${t.f.person_id}`, text: true }] : t.a ? [{ label: 'Open the email', href: `#/email/${t.a.id}`, text: true }] : []; }
+    t.btns = t.b ? [msgBtn(t.b, [me.id])] : t.kind === 'prep' ? [{ label: 'See their issues', href: t.href, text: true }] : t.kind === 'followup' ? [{ label: 'Open their page', href: `#/person/${t.f.person_id}`, text: true }] : t.a ? [{ label: 'Open the email', href: `#/email/${t.a.id}`, text: true }] : []; }
 
   // ---- cards: one per bill ----
   // Every approval is its own card, with its own deadline and Review button: five drafts to review are five things to
@@ -754,7 +764,7 @@ const STEP = { nodraft: ['Draft testimony', 'file-text'], write: ['Draft testimo
   revise: ['Revise testimony', 'undo-2'], review: ['Approve testimony', 'scan-eye'], review2: ['Second approval', 'scan-eye'],
   file: ['File testimony', 'clipboard-check'], stale: ['Update testimony', 'refresh-cw'], ask: ['Write the public ask', 'megaphone'],
   dnote: ['Note to letter-writers', 'pencil'], chair: ['Ask the chair for a hearing', 'mail'], email: ['Approve email', 'scan-eye'],
-  fix: ['Fix email', 'undo-2'], send: ['Send email', 'send'], todo: ['To-do', 'list-todo'], followup: ['Follow up', 'user-round'],
+  fix: ['Fix email', 'undo-2'], send: ['Send email', 'send'], todo: ['To-do', 'list-todo'], prep: ['Get issues ready', 'clipboard-list'], followup: ['Follow up', 'user-round'],
   reply: ['Reply', 'message-circle'], notice: ['Notice', 'bell'] };
 // A step waiting on someone else names that step (its chip says which), so Team reads the same way.
 const WAITSTEP = { Approved: 'file', Draft: 'write', 'Sent back': 'revise', 'Waiting for approval': 'review', 'Waiting for second approval': 'review2', Email: 'email', 'To-do': 'todo' };
@@ -790,6 +800,7 @@ function card(c, i, team, o = {}) {
   if (b && c.tasks.every(t => t.kind === 'reply')) return msgCard(c, i, k);
   if (c.hear) return slipHearCard(c, i, k, o);
   const top = b ? `<a class="td-bill${b.nickname ? ' td-named' : ''}" href="${billRoute(b)}">${billName(b)}</a>`
+    : p.kd ? `<a class="td-bill td-kind" href="${esc(p.href)}">${icon(p.kd[0])}<span>${esc(p.kd[1])}</span></a>`
     : p.kind === 'followup' ? `<a class="td-bill td-kind" href="#/person/${esc(p.f.person_id)}">${icon('user-round')}<span>To-do</span></a>`
     : p.a ? `<a class="td-bill td-kind" href="#/email/${esc(p.a.id)}">${icon('mail')}<span>Email to supporters</span></a>`
     : `<span class="td-bill td-kind">${icon('bell')}<span>From the tracker</span></span>`;
@@ -829,7 +840,7 @@ function msgCard(c, i, k) {
 // The open item is a card's key, remembered for the visit (B-6): back from a bill, the same one is open. On arrival the
 // first row, the most urgent, is open; when the open one is done, the row that took its place opens (S.tdSel.i).
 let ROWS = [], ROWOPT = new Map();   // the rows' keys in the order drawn (for j/k and the arrows), and each row's o
-const kindOf = p => p.kind === 'followup' ? ['user-round', 'To-do'] : p.a ? ['mail', 'Email to supporters'] : ['bell', 'From the tracker'];
+const kindOf = p => p.kd ? p.kd : p.kind === 'followup' ? ['user-round', 'To-do'] : p.a ? ['mail', 'Email to supporters'] : ['bell', 'From the tracker'];
 // A row is drawn unselected; render() marks the one open (markSel), because which one that is depends on every row.
 // The row's text is one button (choosing it opens the item); the step's own button sits beside it, never inside it.
 function row(c, filled, o = {}) {
@@ -885,7 +896,7 @@ function rowWords(p, x, st) {
 // down. A row is the urgency mark, the bill, its step and whose it is, and opens the bill (its steps are there, and on that
 // person's own Today); someone's own step keeps nothing extra. `o.label` names whose it is, as on a laptop's row.
 function mrow(c, o = {}) {
-  const p = c.p || {}, b = c.b, href = b ? billRoute(b) : p.kind === 'followup' ? `#/person/${p.f.person_id}` : p.a ? `#/email/${p.a.id}` : '#/';
+  const p = c.p || {}, b = c.b, href = b ? billRoute(b) : p.href ? p.href : p.kind === 'followup' ? `#/person/${p.f.person_id}` : p.a ? `#/email/${p.a.id}` : '#/';
   const name = b ? `${lead(b)}${b.priority === 1 ? ' ' + P1 : ''}` : `<b>${kindOf(p)[1]}</b>`;
   return `<a class="td-mrow" href="${esc(href)}"${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${urgBlock(c.wait ? null : p.due, untilOf(p), approveAct(p))}<span class="td-mmain"><span class="td-mb">${name}</span><span class="td-ms">${c.hear ? '' : stepTag(stepOf(p))}<span class="td-rd">${o.label ? `<span class="td-mwho">${esc(o.label)}</span> · ` : ''}${rowWords(p, p.ro ? null : (p.btns || [])[0], c.hear ? null : stepOf(p))}</span></span></span>${icon('chevron-right', { cls: 'chev' })}</a>`;
 }
@@ -979,7 +990,7 @@ function billPaneOf(c, k, o, { close = '', headId, from = 'today', facts = false
   const step = `<p class="bp-s"${b ? '' : ` id="${esc(headId)}"`}>${p.ps || p.s}</p>${w ? `<p class="bp-why">${w}</p>` : ''}
     ${p.note ? `<p class="td-note">${p.note}</p>` : ''}${p.q ? `<blockquote class="td-q bp-q">${p.q}</blockquote>` : ''}
     ${acts ? `<div class="bp-acts">${acts}</div>` : ''}`;
-  const open = b ? bpOpen(b) : p.kind === 'followup' ? [`#/person/${p.f.person_id}`, 'Open their page'] : p.a ? [`#/email/${p.a.id}`, 'Open the email'] : null;
+  const open = b ? bpOpen(b) : p.href ? null : p.kind === 'followup' ? [`#/person/${p.f.person_id}`, 'Open their page'] : p.a ? [`#/email/${p.a.id}`, 'Open the email'] : null;
   return billPane({ b, kind: kd ? `<span class="td-rkind">${icon(kd[0])}<span>${kd[1]}</span></span>` : '', p1: b?.priority === 1 ? P1 : '', headId, more, close,
     due: paneDue(p), hear: paneHearing(c, from), step, rest: paneAlso(c) + (b ? bpFacts(lookFacts(b, factsOpt), { open: facts }) : ''), open });
 }
@@ -1447,7 +1458,7 @@ function wkAlso(all, now, wkend, max = Infinity) {
   const msg = t => t.kind === 'reply' || t.kind === 'notice', msgs = all.filter(msg), per = new Map();
   for (const t of all) { if (msg(t)) continue; const k = t.b ? 'b' + t.b.id : t.key; if (!per.has(k)) per.set(k, []); per.get(k).push(t); }
   const rows = [...per.values()].slice(0, max).map(g => {
-    const t = g[0], more = g.length - 1, href = t.b ? `${billRoute(t.b)}` : t.kind === 'followup' ? `#/person/${t.f.person_id}` : t.a ? `#/email/${t.a.id}` : '';
+    const t = g[0], more = g.length - 1, href = t.b ? `${billRoute(t.b)}` : t.href ? t.href : t.kind === 'followup' ? `#/person/${t.f.person_id}` : t.a ? `#/email/${t.a.id}` : '';
     const late = t.due != null && t.due < now, day = wkend && t.due != null ? `<b>${esc(dayFmt(hst(t.due), { weekday: 'short' }))}</b> · ` : '';
     const inner = `${icon(WK_ICON[t.kind] || 'list-todo')}<span class="wk-ot">${day}${t.b ? `${lead(t.b)} · ` : ''}${t.s}${late ? (lateNow(t) ? ` <span class="sv-count soon">${esc(lateLine(untilOf(t), { lower: true }))}</span>` : ` <span class="sv-count late">overdue</span>`) : ''}${more ? ` <span class="wk-more">+${more} more</span>` : ''}</span>`;
     return `<li>${href ? `<a class="wk-oth${t.kind === 'wait' ? ' wk-q' : ''}" href="${esc(href)}">${inner}</a>` : `<div class="wk-oth">${inner}</div>`}</li>`;
@@ -1640,7 +1651,7 @@ function slipping() {
   const now = Date.now(), me = S.me.id, steps = new Map();
   for (const a of teammates()) {
     for (const t of (a.id === me ? items('mine') : items('person', a.id)).tasks) {
-      if (t.kind === 'wait' || t.due == null) continue;
+      if (t.kind === 'wait' || t.kind === 'prep' || t.due == null) continue;
       if (!(t.due - now <= DAY || (t.kind === 'nodraft' && t.due - now <= 2 * DAY))) continue;
       let e = steps.get(t.key); if (!e) steps.set(t.key, e = { t, yours: [], any: [] });
       if (a.id === me) e.t = t;   // the viewer's own copy keeps its real buttons
@@ -2052,7 +2063,7 @@ function render(route) {
   if (openWeeks() && !S.tdTriage && !S.tdTriageLoading) { S.tdTriageLoading = true; DB.triageCounts().then(c => { S.tdTriage = c || {}; if (S.route?.name === 'today') hooks.render(); }).catch(() => { S.tdTriage = {}; }); }
   if (viewOf(route) === 'week') return weekPage(route, scope, who, r);
   LASTSG = new Map();   // suggestions are This week's (R-264)
-  const open = S.tdOpen ??= { later: false, digest: false };
+  const open = S.tdOpen ??= { digest: false };   // later: unset, so Coming up can start open (R-316 W4)
   const off = SESSION_OVER, rows = WIDE();
   // Kris and Saya own no bills: beside "The team's week" their own "This week" (all zeros) and "None of your bills has
   // to be heard" contradicted the page (fresh-eyes review, 9/21), so the coalition's week stands in for both.
@@ -2091,7 +2102,7 @@ function render(route) {
     const groupHtml = (g, gi) => {
       if (g.merged) return `<section class="td-group td-nowl" aria-labelledby="td-g-now"><h2 class="td-h"${gi === 0 ? ' data-top tabindex="-1"' : ''}>${groupHead(`${icon('clock', { cls: 'td-soon' })}${esc(g.title)}`, g.n, { id: 'td-g-now' })}</h2>
         <div class="td-list">${g.merged.map(({ c, gk }) => gk ? card(c, 500 + i++, false, { filled: false, gk }) : card(c, i++, false, { filled: true })).join('')}</div></section>`;
-      const fold = g.id === 'later', isOpen = !fold || open.later, filled = NOW_GROUPS.has(g.id);
+      const fold = g.id === 'later', isOpen = !fold || (open.later ?? g.cards.some(c => c.p?.kind === 'prep')), filled = NOW_GROUPS.has(g.id);
       const title = g.id === 'overdue' ? `${icon('circle-alert', { cls: 'td-late' })}Overdue` : g.id === 'lateopen' ? `<span class="td-lateopen">${icon('clock', { cls: 'td-soon' })}${esc(g.title)}</span>` : esc(g.title);
       // Numbers only where they ask for action (R-264): Overdue and Today say how many; a fold says what it holds.
       // R-277 fix 18 (V-5): a group shows its first 10, most urgent first, then "Show all N" (at a February peak "Needs you
@@ -2113,7 +2124,8 @@ function render(route) {
         // hearing-day Today opened on "HEAL this week" and never said nothing was hers).
         : coal ? `<p class="td-quiet" data-top tabindex="-1">${icon('circle-check')}<span>Nothing needs you today.</span></p>`
         : `<div class="td-empty" data-top tabindex="-1">${empty({ art: scope === 'mine' ? yay() : '', title: who ? `Nothing is waiting on ${esc(name)}.` : scope === 'none' ? 'Nothing is open on the bills nobody owns.' : 'All clear for today.', text: nextHearingText(scope, who), action: scope !== 'mine' ? btn('Back to my list', { kind: 'secondary', attrs: { 'data-seg': 'tdscope', 'data-val': 'mine' } }) : btn('See your bills', { href: '#/bills' }) })}</div>`);
-    } else body = (clear && !cd.cards.length ? `<div class="td-clear">${scope === 'mine' ? yay() : ''}<div><p class="td-clear-t">${who ? `Nothing for ${esc(name)} today.` : scope === 'none' ? 'Nothing is due today on the bills nobody owns.' : 'All clear for today.'}</p><p class="small muted">${nextHearingText(scope, who)}</p></div></div>` : '')
+    // R-316 W4: with the 2027 prep in the list, "All clear" above it said there was nothing to do, and pushed it down.
+    } else body = (clear && !cd.cards.length && !groups.some(g => g.cards.some(c => c.p?.kind === 'prep')) ? `<div class="td-clear">${scope === 'mine' ? yay() : ''}<div><p class="td-clear-t">${who ? `Nothing for ${esc(name)} today.` : scope === 'none' ? 'Nothing is due today on the bills nobody owns.' : 'All clear for today.'}</p><p class="small muted">${nextHearingText(scope, who)}</p></div></div>` : '')
       + groups.map(groupHtml).join('') + coalDueHtml(cd, rows, false);
     body += waitingGroup(scope, who) + coal + (scope === 'mine' ? startCard() : '');
   }
@@ -2344,7 +2356,7 @@ function wire(route, root) {
   main.querySelector('[data-dlfold]')?.addEventListener('toggle', e => { (S.tdOpen ??= {}).dl = e.target.open; });   // R-277 fix 18
   main.querySelectorAll('[data-who]').forEach(el => el.onclick = () => setWho(el.dataset.who, `[data-who="${el.dataset.who}"]`));
   main.querySelectorAll('[data-fold]').forEach(el => el.onclick = () => {
-    const k = el.dataset.fold, open = S.tdOpen ??= {}; open[k] = !open[k];
+    const k = el.dataset.fold, open = S.tdOpen ??= {}; open[k] = el.getAttribute('aria-expanded') !== 'true';   // a fold may start open (R-316 W4)
     // Opening the digest is reading it: every official update it stands for counts as read.
     if (k === 'digest' && open[k]) { const keys = digest(scopeOf()).keys; if (keys.length) DB.inboxMark(keys).catch(() => {}); }
     S.tdRefocus = `[data-fold="${k}"]`; hooks.render();
