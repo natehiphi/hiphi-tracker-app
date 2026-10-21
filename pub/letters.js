@@ -86,6 +86,8 @@ export function readyMail(b, key, done = false) {
   const letter = letterOn(b) || twinOf(b, 'testimony');
   return letter ? { rec: letter, twin: letter.bill !== b.id, from: 'testimony' } : null;
 }
+// Every letter and email kept on this device, newest first (R-212 #27: the session page and the profile list them).
+export const keptLetters = () => Object.values(all()).filter(ok).map(L => ({ ...L, kind: kindOf(L) })).sort((x, y) => String(y.sent).localeCompare(String(x.sent)));
 // After the green box, or "Yes, I sent it": this replaces the bill's last one of its kind, here and on the account.
 export function keepLetter(rec) {
   if (!ok(rec)) return;

@@ -96,7 +96,10 @@ export function seedDemoMail(remind = false) {
       me.letters = { ...(me.letters || {}), [k]: { v: 1, kind: 'email', demo: true, mode: 'email', bill: b.id, num: b.bill_number, nick: b.hiphi_nickname || '', yr: b.session_year,
         key: 'email|' + code, code, h: '', at: '', sent: remind ? '2026-03-09T20:00:00.000Z' : '2026-02-25T20:00:00.000Z', draft: remind ? 'HD2' : 'HD1', stance: 'support', ours: true,
         pos: b.hiphi_position || '', name: me.name || 'Kalani Practice', why: 'Our county should be able to protect kids from tobacco where they live.', points: pts,
-        pointsText: pts.join(' '), closing: 'Mahalo', letter: '', edited: false, subject: '', parts: null } };
+        pointsText: pts.join(' '), closing: 'Mahalo', edited: false, subject: '', parts: null,
+        // Its words, so "Your email" on the session page and the profile opens it (R-212 #27); not edited, so sending it
+        // again still writes it afresh for the next step.
+        letter: `Aloha Chair,\n\nMy name is ${me.name || 'Kalani Practice'}, and I support ${b.bill_number.replace(/^([A-Z]+)/, '$1 ')}. Please ${remind ? 'schedule it for a hearing before the deadline' : 'give it a hearing'}.\n\nOur county should be able to protect kids from tobacco where they live.${pts.length ? `\n\n${pts.join(' ')}` : ''}\n\nMahalo,\n${me.name || 'Kalani Practice'}` } };
       localStorage.setItem('hiphi_me', JSON.stringify(me));
     }
     // and the ask it stands for, marked sent for that committee, as a real send would have

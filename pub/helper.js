@@ -503,7 +503,11 @@ app.openMail = openMail;
 // view: a letter already sent, kept by keepLetter (W1-1, R-239): opened to read, copy or send again, not to write.
 function open(billId, hearingId, { view = null } = {}) {
   if (S.helper) return;
-  const h = anyHearing(hearingId), b = h && anyBill(billId || h.bill_id);
+  // A sent letter opened from the session page or the profile (R-212 #27) may be for a hearing the page no longer holds
+  // (hearings are kept 30 days) or for none (an email to a chair or to their legislators): it carries its committee and
+  // date, which is all the reader needs.
+  const h = anyHearing(hearingId) || (view ? { id: view.h || '', bill_id: view.bill, committee: view.code || '', scheduled_at: view.at || '', status: '', gone: true } : null),
+    b = h && anyBill(billId || h.bill_id);
   if (!b || !h) { toast('We couldn’t open the letter helper. Try again in a moment.', { err: true }); return; }
   const me = loadMe(), d = (me.drafts || {})[h.id], fresh = !d && me.whyBill !== b.id, saved = fresh ? storyFor(catsOf(b)) : null;
   const x = { mode: 'testimony', b, h, screen: 1, name: myName(), email: me.email || '', closing: me.closing || '', points: d?.points || [],
@@ -789,7 +793,7 @@ const goNext = () => { const x = S.helper, s = seqOf(x); goTo(s[Math.min(s.lengt
 const goBack = () => { const x = S.helper, s = seqOf(x); const i = s.indexOf(x.screen); if (i > 0) goTo(s[i - 1]); };
 // The dialog's name: "Testimony on HB 1523", "Email about HB 1523", "Write to Rep. Marten", "Introduce yourself".
 const shortName = t => t.leg ? `${t.leg.chamber === 'S' ? 'Sen.' : 'Rep.'} ${legSurname(t.leg)}` : t.greet;
-const titleOf = x => x.mode === 'intro' ? 'Introduce yourself' : x.mode === 'legislators' ? `Write to ${x.to.length === 1 ? shortName(x.to[0]) : 'your legislators'}`
+const titleOf = x => x.view?.kind === 'email' ? `Your email about ${spaced(x.b.bill_number)}` : x.mode === 'intro' ? 'Introduce yourself' : x.mode === 'legislators' ? `Write to ${x.to.length === 1 ? shortName(x.to[0]) : 'your legislators'}`
   : `${x.mode === 'email' ? 'Email about' : 'Testimony on'} ${spaced(x.b.bill_number)}`;
 function inner() {
   const x = S.helper, done = x.screen === 'done', total = seqOf(x).length, step = done ? total : stepNo(x), title = titleOf(x);
@@ -1245,7 +1249,7 @@ function mailScreen() {
 }
 
 // A copy that survives any browser: their own mail app, addressed to nobody, the letter as the body (R-068).
-const selfMail = x => `mailto:?subject=${encodeURIComponent(`My testimony on ${spaced(x.b.bill_number)}`)}&body=${encodeURIComponent(x.letter)}`;
+const selfMail = x => `mailto:?subject=${encodeURIComponent(`My ${x.view?.kind === 'email' ? 'email about' : 'testimony on'} ${spaced(x.b.bill_number)}`)}&body=${encodeURIComponent(x.letter)}`;
 
 // The Capitol account, once (R-068): the hardest part for a first-timer was one line in a list they had to remember on
 // another website. Asked once per browser; "yes" is remembered (hiphi_me.capitolAcct) and the step never shows again.
@@ -1293,13 +1297,16 @@ const readBill = (b, label) => btn(label, { kind: 'text', sm: true, cls: 'hp-inl
 // The letter they sent (W1-1, R-239): its words to read or copy, the ways the letter screen keeps it, the Capitol page to send
 // it again (a tab closed by mistake), and how to change it once it is in (fixLine). Read only: a change is a new letter.
 function viewScreen() {
-  const x = S.helper, { b, h } = x, L = x.view, file = `${b.bill_number}-testimony.txt`, hearing = L.at || h.scheduled_at;
+  const x = S.helper, { b, h } = x, L = x.view, file = fileOf(x), hearing = L.at || h.scheduled_at;
   // One date, the hearing's, as the bill page says it ("You testified" sits on that hearing). Sending it again is offered only
   // while that hearing is ahead: after it, the Capitol page takes no testimony for it, and its letter names that committee's
   // chairs ("Send my letter again" on the bill page re-addresses it for the next hearing, R-148). The critic, 12 Oct.
-  const again = viewAgain(x);
-  return `<div class="hp-top">${screenHead(1, 'Your letter')}
-      <p class="hp-sub" id="hp-lsub">${x.rebuilt ? 'Your letter, written again from your answers,' : 'The letter as it went in,'} for the ${esc(cmteLabel(L.code || h.committee))} hearing${hearing ? ` of ${esc(dateLong(hearing))}` : ''}. Copy it for a call or an email${again ? ', or send it again at the Capitol' : ''}.</p></div>
+  const again = viewAgain(x), mail = L.kind === 'email', code = L.code || h.committee;
+  // An email (R-212 #27): who it went to and when; it is sent again from the bill page's next step, not from here.
+  const sub = mail ? `The email as you sent it${L.sent ? ` on ${esc(dateLong(L.sent))}` : ''}, ${L.mode === 'legislators' ? 'to your legislators' : code ? `to the chair of the ${esc(cmteLabel(code))}` : 'to a committee chair'}. Copy it to send again or to keep.`
+    : `${x.rebuilt ? 'Your letter, written again from your answers,' : 'The letter as it went in,'} for the ${esc(cmteLabel(code))} hearing${hearing ? ` of ${esc(dateLong(hearing))}` : ''}. Copy it for a call or an email${again ? ', or send it again at the Capitol' : ''}.`;
+  return `<div class="hp-top">${screenHead(1, mail ? 'Your email' : 'Your letter')}
+      <p class="hp-sub" id="hp-lsub">${sub}</p></div>
     ${x.copyFail ? `<div class="inlinemsg" role="alert">${icon('circle-alert')}<span>We couldn’t copy it for you. Your letter is selected: choose Copy, or select all of it and copy it yourself.</span></div>` : ''}
     <div class="hp-under">${x.copyChip ? `<span class="okmsg">${icon('check')}Copied</span>` : ''}
       <a class="btn text" href="${esc(selfMail(x))}" data-hp="selfmail">${icon('mail')}<span>Email it to myself</span></a>
@@ -1308,9 +1315,11 @@ function viewScreen() {
       ${again ? capitolLink(b, h, 'Open the Capitol page', { kind: 'text' }) : ''}</div>
     ${practiceNote()}
     <textarea id="hp-letter" class="hp-letter" aria-labelledby="hp-sh" aria-describedby="hp-lsub" readonly rows="6">${esc(x.letter)}</textarea>
-    ${fixLine(h)}`;
+    ${mail ? '' : fixLine(h)}`;
 }
-const viewAgain = x => x.h.status !== 'cancelled' && new Date(x.h.scheduled_at) > Date.now();
+const viewAgain = x => x.view?.kind !== 'email' && x.h.status !== 'cancelled' && new Date(x.h.scheduled_at) > Date.now();
+// The file a letter downloads as: "HB1523-testimony.txt", or "HB1523-email.txt" for a kept email (R-212 #27).
+const fileOf = x => `${x.b.bill_number}-${x.view?.kind === 'email' ? 'email' : 'testimony'}.txt`;
 function sendScreen() {
   const x = S.helper, { b, h } = x;
   // "Open the Capitol page" is the footer's main button, so the checklist does not repeat it (assessment, 9/19).
@@ -1527,7 +1536,7 @@ function foot() {
   // A sent letter (W1-1): Copy is what it is opened for (a call from the committee, a closed Capitol tab), so it is the bar's
   // one button, on every phone's first screen; "Copied" says it in place for two seconds.
   if (x.screen === 'view') return row(btn('Close', { kind: 'text', cls: 'hp-back', attrs: { 'data-hp': 'close' } })
-    + btn(x.copyChip ? 'Copied' : 'Copy my letter', { kind: 'primary', icon: x.copyChip ? 'check' : 'copy', cls: 'hp-main', attrs: { 'data-hp': 'copy', id: 'hp-cp' } }));
+    + btn(x.copyChip ? 'Copied' : x.view?.kind === 'email' ? 'Copy my email' : 'Copy my letter', { kind: 'primary', icon: x.copyChip ? 'check' : 'copy', cls: 'hp-main', attrs: { 'data-hp': 'copy', id: 'hp-cp' } }));
   if (x.screen === 'stand') return row(btn('Close', { kind: 'text', cls: 'hp-back', attrs: { 'data-hp': 'close' } })
     + (x.stance ? btn('Next', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }) : ''));
   // Your letter is ready (R-148): use it, or update it when the bill changed in a way that matters; a new letter either way.
@@ -1687,7 +1696,7 @@ function copyAndOpen() {
   x.away = true; x.copied3 = true; saveDraft(); paint();
 }
 function download() {
-  const x = S.helper, file = `${x.b.bill_number}-testimony.txt`;
+  const x = S.helper, file = fileOf(x);
   const url = URL.createObjectURL(new Blob([x.letter.replace(/\r?\n/g, '\r\n')], { type: 'text/plain;charset=utf-8' }));
   const a = document.createElement('a'); a.href = url; a.download = file; (dlg || document.body).appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);

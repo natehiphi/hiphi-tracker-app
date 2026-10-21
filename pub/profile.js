@@ -19,6 +19,7 @@ import { pickerHTML, wirePicker } from './titlepick.js';
 import { codesOn, myEmail, myNumber } from './phone.js';   // sign-in by text code (R-155)
 import { titleLabel } from './titles.js';
 import { logAct } from './visitlog.js';
+import { lettersList, wireKept, LETTERS_LEDE } from './myletters.js';   // R-212 #27
 // The calm redesign (R-303), only with ?rec=1: Profile keeps one page (R-165) but its alerts get their own page, "Your
 // alerts" (#/alerts, pub/rec/alerts.js), and its first row leads there; "Your issues" goes (My issues is a tab, and its count
 // was wrong: every bill an issue carries, mine-profile-alerts.md section 3).
@@ -291,6 +292,7 @@ function profileView() {
     <p class="small muted pf-auto">${icon('pencil')}<span>Change anything below, then Save.</span></p>
     ${sec('about', 'About you', aboutBody())}
     ${sec('story', 'Your stories', storyBody())}
+    ${(l => l ? sec('letters', 'Your letters', `<p class="small muted">${esc(LETTERS_LEDE)}</p>${l}`) : '')(lettersList())}
     ${sec('help', 'How you’ll help', helpBody())}
     ${rec ? '' : sec('email', 'Alerts', alertsBody())}
     ${rec ? '' : sec('issues', 'Your issues', issuesBody())}
@@ -345,6 +347,7 @@ function wireProfile() {
     if (adb.value.trim() && !P.addr.picked && document.activeElement?.closest?.('#pf-ad-sugs') == null) flash('pf-ad-st', 'Pick your address from the list to find your senator and representative.', true);
   }, 250));
   wireStories();
+  wireKept($('#pf-letters') || document.createElement('div'));
   document.querySelectorAll('[data-pf-int]').forEach(c => c.onchange = () => {
     const k = c.dataset.pfInt; P.draft.help = c.checked ? [...new Set([...P.draft.help, k])] : P.draft.help.filter(x => x !== k); paintBar(); });
   const note = $('#pf-note');

@@ -17,12 +17,13 @@ import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive
   nudge, CONSENT_KEY, textSaved, countOk, anyBill, anyHearing, outcomeOf, plainStatus, whyStopped, cmteLabel, codesOf, CHAMBER_NAME,
   issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, hearingWhen, dateLong, hstDay, hiT, pickedTopic, followSummary, followedIssues,
   issueFollowed, issueBills, catOf, setFollows, app, toast, roomLabel, viaIssue, followsAnything, ensureRecapPool, winsIn, EARLIER_WINS, supa, HELD_RE,
-  results, RESULT_MILESTONES, isResolution, sideOf, streamOf, wizSet } from './core.js';
+  results, RESULT_MILESTONES, isResolution, sideOf, streamOf, wizSet, myStance } from './core.js';
 import { burst, celebrate, petals, later, fxOn, rooster, cheer } from './fx.js';
 import { alertStatus, openAlertsSheet, profileAsk, profileLede, PROFILE_H } from './alerts.js';   // the one status rule for alerts (D1-4)
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, declineNudge, goingPlans, goingCard } from './actions.js';
 import { CAPITOL, islands, flower } from './art.js';
+import { lettersFor, letterButtons, wireKept } from './myletters.js';
 // More's account cards (the follow-ups after a sign-in) load with More itself, on first use: only a signed-in person
 // sees them, and Home must not carry More, People and the address picker for everyone (R-122).
 let more = null; const moreLoad = () => import('./more.js').then(m => { more = m; app.render(); });
@@ -87,7 +88,7 @@ function impacts(acts) {
     const hd = heard.get(b.id);
     if (hd && tone === 'wait' && !hs.length) { const h = hd.h, ahead = new Date(h.scheduled_at) > now;
       tone = 'up'; moved = false; text = `It got a hearing${ahead ? `: ${who(h.committee)} hears it ${dayWord(h.scheduled_at)} at ${timeWord(h.scheduled_at)}` : ` on ${dateLong(h.scheduled_at)}`}.`; }
-    return { b, tone, did: `You ${list(v)}.`, text, moved };
+    return { b, tone, did: `You ${list(v)}.`, text, moved, at: x.at };
   }).filter(Boolean);
 }
 // The marks follow the person's side (sideOf): for someone against a bill, its moving on is not their win and its
@@ -142,7 +143,7 @@ const MARKS = { up: 'circle-check', wait: 'hourglass', stop: 'archive', on: 'arr
 // A result row opens the bill. It leads with the bill's everyday name when staff have written one; the number
 // always shows.
 const impRow = x => `<a class="hm-imp" href="${billPath(x.b)}"><span class="hm-mark t-${x.tone}">${x.tone === 'law' ? flower(22) : icon(MARKS[x.tone])}</span>
-  <span class="hm-impb"><span class="hm-impt">${esc(nick(x.b) || blurb(x.b, 200))}</span><span class="hm-impr"><b>${esc(spaced(x.b.bill_number))}</b> · ${esc(x.did)} ${esc(x.text)}</span>${x.tone === 'up' || x.tone === 'wait' ? (n => n ? `<span class="hm-impnext">${esc(n)}</span>` : '')(nextWords(x.b)) : ''}</span>${icon('chevron-right', { cls: 'hm-chev' })}</a>`;   // "What's next" (R-126)
+  <span class="hm-impb"><span class="hm-impt">${esc(nick(x.b) || blurb(x.b, 200))}</span><span class="hm-impr"><b>${esc(spaced(x.b.bill_number))}</b>${x.meta ? ` · ${esc(x.meta)}` : ''} · ${esc(x.did)} ${esc(x.text)}</span>${x.tone === 'up' || x.tone === 'wait' ? (n => n ? `<span class="hm-impnext">${esc(n)}</span>` : '')(nextWords(x.b)) : ''}</span>${icon('chevron-right', { cls: 'hm-chev' })}</a>`;   // "What's next" (R-126)
 // A text button that opens a list in place. The box is only shown or hidden (no redraw), so keyboard focus stays on
 // the button; the button sits above the box so it does not move when the box opens. data-hm-toggle is its first
 // data attribute: app.js uses that to give focus back after a redraw.
@@ -155,9 +156,18 @@ function toggle(id, box, more, less = 'Show fewer') {
 function impList(rows, first) {
   if (!rows.length) return '';
   const rest = rows.slice(first);
-  return `<div class="hm-imps">${rows.slice(0, first).map(impRow).join('')}
-    ${rest.length ? `${toggle('imps', 'hm-imprest', `See all (${rows.length})`)}<div id="hm-imprest" class="hm-imprest"${S.hmOpen.imps ? '' : ' hidden'}>${rest.map(impRow).join('')}</div>` : ''}</div>`;
+  return `<div class="hm-imps">${rows.slice(0, first).map(impItem).join('')}
+    ${rest.length ? `${toggle('imps', 'hm-imprest', `See all (${rows.length})`)}<div id="hm-imprest" class="hm-imprest"${S.hmOpen.imps ? '' : ' hidden'}>${rest.map(impItem).join('')}</div>` : ''}</div>`;
 }
+// The session page's row (R-212 #27, the walkers: a sent letter could not be found again once its hearing was past): the
+// day they last acted and where they stood lead the line, and their letter and email open from under it (pub/myletters.js).
+// The buttons sit outside the row's link, so each is its own tap.
+const STANCE_SAID = { support: 'In support', oppose: 'In opposition', comments: 'Comments' };
+function withMine(x, yr) {
+  const Ls = lettersFor(x.b.id, yr), st = myStance(x.b.id) || Ls[0]?.stance;
+  return { ...x, meta: [(x.at || Ls[0]?.sent) ? dateLong(x.at || Ls[0].sent) : '', STANCE_SAID[st] || ''].filter(Boolean).join(' · '), mine: letterButtons(Ls) };
+}
+const impItem = x => x.mine ? `<div class="hm-impw">${impRow(x)}<div class="hm-implet">${x.mine}</div></div>` : impRow(x);
 
 // ---------------- milestones ----------------
 // They mark real acts and never expire. "I plan to go" counts as an action straight away, but "Showed up" waits
@@ -962,7 +972,7 @@ function recapView() {
   const real = acts.filter(a => a.kind !== 'attend' || (h => h && new Date(h.scheduled_at) <= Date.now())(anyHearing(a.hearing_id)));
   const RANK = { law: 0, up: 1, wait: 2, on: 2, stop: 3 };
   // One list of what happened, wins first (the review 9/30: a separate "Good news" list said the same results twice, A-14).
-  const acted = impacts(acts).sort((p, q) => RANK[p.tone] - RANK[q.tone]), followed = followedRows(yr, new Set(acted.map(x => x.b.id))).sort((p, q) => RANK[p.tone] - RANK[q.tone]);
+  const acted = impacts(acts).sort((p, q) => RANK[p.tone] - RANK[q.tone]).map(x => withMine(x, yr)), followed = followedRows(yr, new Set(acted.map(x => x.b.id))).sort((p, q) => RANK[p.tone] - RANK[q.tone]);
   const mine = myIssues(yr), stands = Object.entries(S.stances || {}).filter(([id, v]) => (v === 'support' || v === 'oppose') && (b => !b || !b.session_year || b.session_year === yr)(anyBill(id))).length;
   const said = acts.length || !so ? recapSaid(acts, acted, followed, yr)
     : followed.length ? `You follow ${plural(followed.length, 'bill')} this session. When one has a hearing, a simple way to help shows up on Home.` : '';
@@ -1112,7 +1122,7 @@ export default {
   },
   wire() {
     const root = document.querySelector('#main .hm'); if (!root) return;
-    wireActions(root); wireNudge(root); wireExtras(root);
+    wireActions(root); wireNudge(root); wireExtras(root); wireKept(root);
     // Lists open in place without a redraw, so keyboard focus stays on the button that opened them.
     root.querySelectorAll('[data-hm-toggle]').forEach(el => el.onclick = () => {
       const box = document.getElementById(el.getAttribute('aria-controls')); if (!box) return;

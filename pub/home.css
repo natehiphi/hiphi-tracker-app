@@ -122,6 +122,11 @@
 .hm .hm-imprest[hidden] { display: none; }
 .hm .hm-imprest { display: flex; flex-direction: column; }
 .hm .hm-imps .hm-toggle { margin-top: 0; margin-bottom: 0; }
+/* The session page's letter and email under a row (R-212 #27): lined up with the row's words, inside its divider. */
+.hm .hm-impw { display: flex; flex-direction: column; }
+.hm .hm-imps > .hm-impw:first-child > .hm-imp { border-top: 0; }
+.hm .hm-impw > .hm-imp { padding-bottom: var(--s4); }
+.hm .hm-implet { display: flex; flex-wrap: wrap; gap: 0 var(--s8); padding: 0 0 var(--s8) calc(36px + var(--s12) - var(--s16)); }   /* the text buttons' own 16px: their icons line up with the words */
 
 /* explore (following nothing) */
 .hm .hm-start { display: flex; align-items: center; flex-wrap: wrap; gap: 0 var(--s4); color: var(--n700); }
