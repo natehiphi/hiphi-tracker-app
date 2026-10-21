@@ -793,7 +793,7 @@ const goNext = () => { const x = S.helper, s = seqOf(x); goTo(s[Math.min(s.lengt
 const goBack = () => { const x = S.helper, s = seqOf(x); const i = s.indexOf(x.screen); if (i > 0) goTo(s[i - 1]); };
 // The dialog's name: "Testimony on HB 1523", "Email about HB 1523", "Write to Rep. Marten", "Introduce yourself".
 const shortName = t => t.leg ? `${t.leg.chamber === 'S' ? 'Sen.' : 'Rep.'} ${legSurname(t.leg)}` : t.greet;
-const titleOf = x => x.view?.kind === 'email' ? `Your email about ${spaced(x.b.bill_number)}` : x.mode === 'intro' ? 'Introduce yourself' : x.mode === 'legislators' ? `Write to ${x.to.length === 1 ? shortName(x.to[0]) : 'your legislators'}`
+const titleOf = x => x.view && x.screen === 'view' ? `Your ${x.view.kind === 'email' ? 'email about' : 'letter on'} ${spaced(x.b.bill_number)}` : x.mode === 'intro' ? 'Introduce yourself' : x.mode === 'legislators' ? `Write to ${x.to.length === 1 ? shortName(x.to[0]) : 'your legislators'}`
   : `${x.mode === 'email' ? 'Email about' : 'Testimony on'} ${spaced(x.b.bill_number)}`;
 function inner() {
   const x = S.helper, done = x.screen === 'done', total = seqOf(x).length, step = done ? total : stepNo(x), title = titleOf(x);
@@ -1303,8 +1303,8 @@ function viewScreen() {
   // chairs ("Send my letter again" on the bill page re-addresses it for the next hearing, R-148). The critic, 12 Oct.
   const again = viewAgain(x), mail = L.kind === 'email', code = L.code || h.committee;
   // An email (R-212 #27): who it went to and when; it is sent again from the bill page's next step, not from here.
-  const sub = mail ? `The email as you sent it${L.sent ? ` on ${esc(dateLong(L.sent))}` : ''}, ${L.mode === 'legislators' ? 'to your legislators' : code ? `to the chair of the ${esc(cmteLabel(code))}` : 'to a committee chair'}. Copy it to send again or to keep.`
-    : `${x.rebuilt ? 'Your letter, written again from your answers,' : 'The letter as it went in,'} for the ${esc(cmteLabel(code))} hearing${hearing ? ` of ${esc(dateLong(hearing))}` : ''}. Copy it for a call or an email${again ? ', or send it again at the Capitol' : ''}.`;
+  const sub = mail ? `The email as you sent it${L.sent ? ` on ${esc(dateLong(L.sent))}` : ''}, ${L.mode === 'legislators' ? 'to your legislators' : code ? `to the chair of the ${esc(cmteLabel(code))}` : 'to a committee chair'}. Copy it to keep, or to use in a call or another email.`
+    : `${x.rebuilt ? `Your letter${L.sent ? ` of ${esc(dateLong(L.sent))}` : ''}, written again from your answers,` : `The letter you sent${L.sent ? ` on ${esc(dateLong(L.sent))}` : ''},`} for the ${esc(cmteLabel(code))} hearing${hearing ? ` of ${esc(dateLong(hearing))}` : ''}. Copy it for a call or an email${again ? ', or send it again at the Capitol' : ''}.`;
   return `<div class="hp-top">${screenHead(1, mail ? 'Your email' : 'Your letter')}
       <p class="hp-sub" id="hp-lsub">${sub}</p></div>
     ${x.copyFail ? `<div class="inlinemsg" role="alert">${icon('circle-alert')}<span>We couldn’t copy it for you. Your letter is selected: choose Copy, or select all of it and copy it yourself.</span></div>` : ''}

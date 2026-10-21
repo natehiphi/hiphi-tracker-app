@@ -143,7 +143,7 @@ const MARKS = { up: 'circle-check', wait: 'hourglass', stop: 'archive', on: 'arr
 // A result row opens the bill. It leads with the bill's everyday name when staff have written one; the number
 // always shows.
 const impRow = x => `<a class="hm-imp" href="${billPath(x.b)}"><span class="hm-mark t-${x.tone}">${x.tone === 'law' ? flower(22) : icon(MARKS[x.tone])}</span>
-  <span class="hm-impb"><span class="hm-impt">${esc(nick(x.b) || blurb(x.b, 200))}</span><span class="hm-impr"><b>${esc(spaced(x.b.bill_number))}</b>${x.meta ? ` · ${esc(x.meta)}` : ''} · ${esc(x.did)} ${esc(x.text)}</span>${x.tone === 'up' || x.tone === 'wait' ? (n => n ? `<span class="hm-impnext">${esc(n)}</span>` : '')(nextWords(x.b)) : ''}</span>${icon('chevron-right', { cls: 'hm-chev' })}</a>`;   // "What's next" (R-126)
+  <span class="hm-impb"><span class="hm-impt">${esc(nick(x.b) || blurb(x.b, 200))}</span><span class="hm-impr"><b>${esc(spaced(x.b.bill_number))}</b> · ${esc(x.did)} ${esc(x.text)}</span>${x.tone === 'up' || x.tone === 'wait' ? (n => n ? `<span class="hm-impnext">${esc(n)}</span>` : '')(nextWords(x.b)) : ''}</span>${icon('chevron-right', { cls: 'hm-chev' })}</a>`;   // "What's next" (R-126)
 // A text button that opens a list in place. The box is only shown or hidden (no redraw), so keyboard focus stays on
 // the button; the button sits above the box so it does not move when the box opens. data-hm-toggle is its first
 // data attribute: app.js uses that to give focus back after a redraw.
@@ -160,12 +160,14 @@ function impList(rows, first) {
     ${rest.length ? `${toggle('imps', 'hm-imprest', `See all (${rows.length})`)}<div id="hm-imprest" class="hm-imprest"${S.hmOpen.imps ? '' : ' hidden'}>${rest.map(impItem).join('')}</div>` : ''}</div>`;
 }
 // The session page's row (R-212 #27, the walkers: a sent letter could not be found again once its hearing was past): the
-// day they last acted and where they stood lead the line, and their letter and email open from under it (pub/myletters.js).
-// The buttons sit outside the row's link, so each is its own tap.
-const STANCE_SAID = { support: 'In support', oppose: 'In opposition', comments: 'Comments' };
+// line says where they stood and the day they last acted, in its own sentence ("You testified in support on Tue, Feb 17.": an
+// unlabelled date beside the number read as the hearing's, the critic 20 Oct), and their letter and email open from under it
+// (pub/myletters.js). The buttons sit outside the row's link, so each is its own tap.
+const STANCE_SAID = { support: 'in support', oppose: 'in opposition', comments: 'with comments' };
 function withMine(x, yr) {
-  const Ls = lettersFor(x.b.id, yr), st = myStance(x.b.id) || Ls[0]?.stance;
-  return { ...x, meta: [(x.at || Ls[0]?.sent) ? dateLong(x.at || Ls[0].sent) : '', STANCE_SAID[st] || ''].filter(Boolean).join(' · '), mine: letterButtons(Ls) };
+  const Ls = lettersFor(x.b.id, yr), st = myStance(x.b.id) || Ls[0]?.stance, at = x.at || Ls[0]?.sent;
+  const did = `${x.did.replace(/\.$/, '')}${STANCE_SAID[st] ? ` ${STANCE_SAID[st]}` : ''}${at ? ` on ${dateLong(at)}` : ''}.`;
+  return { ...x, did, mine: letterButtons(Ls) };
 }
 const impItem = x => x.mine ? `<div class="hm-impw">${impRow(x)}<div class="hm-implet">${x.mine}</div></div>` : impRow(x);
 

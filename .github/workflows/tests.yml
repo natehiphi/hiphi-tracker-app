@@ -139,6 +139,9 @@ jobs:
       - name: "The story kept when written: with no profile, a letter's reason stays on the device for the next letter (R-212 #26)"
         if: ${{ !cancelled() }}
         run: python3 tests/story_kept.py
+      - name: "Your letters: the session page's day, stance and Your letter / Your email, the profile's list, a letter whose hearing is gone (R-212 #27)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/my_letters.py
       - name: "Staff v2, Session setup > Tests: the list, each test's versions as pictures side by side, the switches; the practice copy follows them (R-192, R-201)"
         if: ${{ !cancelled() }}
         run: python3 tests/versions.py

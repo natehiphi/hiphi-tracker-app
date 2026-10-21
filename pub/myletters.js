@@ -10,7 +10,7 @@ const slotOf = L => L.kind === 'email' ? 'email:' + L.bill : L.bill;
 const STANCE = { support: 'In support', oppose: 'In opposition', comments: 'Comments' };
 // An email kept with no words (only the practice copy's sample) cannot be shown as it went: it is listed, not opened.
 const opens = L => L.kind !== 'email' || !!String(L.letter || '').trim();
-const kindWord = L => L.kind === 'email' ? 'Email' : 'Testimony';
+const kindWord = L => L.kind === 'email' ? 'Email' : 'Letter';   // "Your letter" on the session page opens it: one word for it (the critic, 20 Oct)
 // To whom, in the words the bill page uses: the hearing's committee, a chair, or their own legislators.
 function toWhom(L) {
   const c = L.code ? cmteLabel(L.code) : '';   // "House Health Committee": the short name dropped the chamber
@@ -18,7 +18,7 @@ function toWhom(L) {
   if (L.mode === 'legislators') return 'To your legislators';
   return c ? `To the ${c} chair` : '';
 }
-// "Thu, Feb 12 · In support · House Health hearing"
+// "Thu, Feb 12 · In support · House Health Committee hearing"
 export const letterFacts = L => [L.sent ? dateLong(L.sent) : '', STANCE[L.stance] || '', toWhom(L)].filter(Boolean).join(' · ');
 
 // This session's letters for one bill (the session page's row): testimony first, then the email.
@@ -51,4 +51,5 @@ export function wireKept(root = document) {
   root.querySelectorAll('[data-myl]').forEach(el => el.onclick = e => { e.preventDefault(); openKept(el.dataset.myl); });
 }
 // The words for the profile's section, so the page and its test say the same.
-export const LETTERS_LEDE = 'The last letter and email you sent on each bill. Only you can see them. Open one to read, copy or download it.';
+// Not "only you can see them": the Capitol posts testimony publicly (Your stories says so just above); only this list is theirs.
+export const LETTERS_LEDE = 'The last letter and email you sent on each bill, kept here for you. The Capitol posts testimony publicly; an email went only to the people you wrote to. Open one to read, copy or download it.';
