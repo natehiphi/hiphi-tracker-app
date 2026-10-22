@@ -746,11 +746,21 @@ const tDue = t => TESTIMONY.has(t.kind) && !!t.h && t.due != null;
 // Late testimony right now: the written deadline has passed and its hearing has not begun (A-5, R-250).
 const lateNow = t => { const u = untilOf(t), now = Date.now(); return !!u && t.due != null && t.due <= now && new Date(u).getTime() > now; };
 const dueIso = t => t.due == null ? null : new Date(t.due).toISOString();
+// R-316 W31 (Show me, practice copy): when to hand the testimony on, not only when it is due. The writer sends for approval
+// 12 hours before the deadline and the filer files 2 hours before (the slip times Nate set on 12 Oct, R-267), so at 9:00
+// SB3234 no longer reads "29m to revise" as if 29 minutes were left for writing, approving and filing. Weekend deadlines
+// use the Capitol's own time; no Friday cutoff is made up. Only these two steps get the words.
+const HAND_ON = () => DEMO;
+const HAND = { write: ['Send for approval', 12], submit: ['Send for approval', 12], revise: ['Send for approval', 12], nodraft: ['Send for approval', 12], file: ['File', 2] };
+export function handOn(t) {
+  const w = HAND_ON() && HAND[t.kind]; if (!w || !tDue(t) || lateNow(t) || t.due <= Date.now()) return '';
+  const at = t.due - w[1] * HR; return at > Date.now() ? `${w[0]} by ${atLine(at)}` : `${w[0]} now`;
+}
 function why(t, team, mark = false) {
   const who = t.kind === 'wait' ? '' : t.who === 'anyone' ? 'Open to anyone' : team && !['reply', 'notice', 'email', 'fix', 'send'].includes(t.kind) ? 'Yours' : '';
   const due = t.kind === 'chair' ? '' : tDue(t) ? (mark ? esc(lateNow(t) ? lateLine(untilOf(t)) : testDueText(t.due)) : lateNow(t) ? countdown(dueIso(t), { until: untilOf(t) }) : dueChip(t.due, testDueLeft(t.due)))
     : t.due != null ? (mark ? '' : cd(t.due)) : (t.kind === 'todo' || t.kind === 'followup') ? 'No due date' : '';
-  const parts = [who, ...String(t.why || '').split(' · '), due, ...(t.h && t.kind !== 'nodraft' ? [`${esc(t.h.committee)} hearing ${whenLine(t.h.scheduled_at)}`, t.h.room ? esc(room(t.h.room)) : ''] : [])].filter(Boolean);
+  const parts = [who, ...String(t.why || '').split(' · '), handOn(t) ? esc(handOn(t)) : '', due, ...(t.h && t.kind !== 'nodraft' ? [`${esc(t.h.committee)} hearing ${whenLine(t.h.scheduled_at)}`, t.h.room ? esc(room(t.h.room)) : ''] : [])].filter(Boolean);
   // Short parts never break inside ("Rm 225" stays together); a long one (two chairs' names) may wrap.
   // The dot stays with the part before it (a no-break space), so a wrapped line never starts with "·".
   return parts.map(x => `<span class="td-part${x.replace(/<[^>]+>/g, '').length > 28 ? ' long' : ''}">${x}</span>`).join(' · ');
@@ -931,7 +941,9 @@ function rowWords(p, x, st) {
     // back · due Wed 9:30 AM") and the hearing moves to the open item; words are swapped, not added.
     const early = p.due != null && p.due > Date.now() && hst(p.due) !== hst(p.h.scheduled_at);
     const at = early ? `${p.kind === 'nodraft' && p.due - Date.now() > 2 * DAY ? 'New hearing · due' : 'due'} ${whenLine(new Date(p.due).toISOString())}` : `${esc(p.h.committee)} hearing ${whenLine(p.h.scheduled_at)}`;
-    return [p.who === 'coal' ? esc(p.wn || '') : '', by, early && !by && p.who !== 'coal' ? at.charAt(0).toUpperCase() + at.slice(1) : at].filter(Boolean).join(' · ');   // W20: whose it is, on a helper's row
+    // W31: the writer's and filer's row says when to hand it on in place of the hearing (the open item keeps the hearing).
+    const hand = p.who !== 'coal' && handOn(p);
+    return [p.who === 'coal' ? esc(p.wn || '') : '', by, hand ? esc(hand) : early && !by && p.who !== 'coal' ? at.charAt(0).toUpperCase() + at.slice(1) : at].filter(Boolean).join(' · ');   // W20: whose it is, on a helper's row
   }
   if (p.kind === 'notice' && st === STEP.revise) return 'Sent back: fix it, then resubmit';
   if (st) { const t = String(p.s || '').replace(/^Ask the chairs\b/, 'Ask the chair'), lead = st[0].toLowerCase();   // "chairs" is the same step (W1)
@@ -977,7 +989,7 @@ function paneFit(pane) {
 function paneDue(t) {
   if (t.kind === 'chair' || t.kind === 'wait') return '';
   if (lateNow(t)) return countdown(dueIso(t), { until: untilOf(t) });   // said once: the missed deadline is not repeated beside it
-  if (tDue(t)) return dueChip(t.due, testDueLeft(t.due));
+  if (tDue(t)) return dueChip(t.due, testDueLeft(t.due)) + (handOn(t) ? `<span class="bp-dw td-hand">${esc(handOn(t))}</span>` : '');   // W31
   if (t.due != null) return cd(t.due, 'due');
   return t.kind === 'todo' || t.kind === 'followup' ? '<span class="bp-dw">No due date</span>' : '';
 }
