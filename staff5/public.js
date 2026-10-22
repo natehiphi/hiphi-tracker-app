@@ -19,7 +19,7 @@
 // HIPHI's side, who tap them into a letter sent under their own name. Claude drafted the first 248; a save here marks them
 // as the team's (talking_points_edited_at), so a later draft run never overwrites them.
 import { S, DB, DEMO, esc } from './data.js';
-import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, shareKit, hearingAhead, askReach } from './model.js';
+import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, publicResponse, shareKit, hearingAhead, askReach } from './model.js';
 import { icon, btn, iconBtn, toast, switchRow, openSheet, closeSheet } from './ui.js';
 import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
 import { issuesOfBill, openIssuePicker, whyNot, issueLinkHref } from './issues.js';
@@ -202,7 +202,7 @@ export function renderPublic(b) {
   // under the editor); "Write it" on Today still lands on the ask below it (?focus=ask, wirePublic).
   const spread = `<section class="bw-sec bw-pblk bw-kit" aria-labelledby="bw-spread-h">
     <h2 id="bw-spread-h">Share kit</h2>
-    <p class="small bw-resp">${publicWords(b) ? `${icon('users')}<span>${esc(publicWords(b))}.${DEMO ? ' <span class="muted">(sample numbers)</span>' : ''}</span>` : '<span class="muted">No one from the public has followed or acted on this bill yet.</span>'}</p>
+    <p class="small bw-resp">${publicWords(b) ? `${icon('users')}<span>${esc(publicWords(b))}.${DEMO ? ' <span class="muted">(sample numbers)</span>' : ''}</span>` : '<span class="muted">No public counts yet: actions are counted from 10 people.</span>'}${publicWords(b) && !((publicResponse(b) || {}).people >= 10) ? ' <span class="muted">Actions show from 10 people.</span>' : ''}</p>
     <div class="bw-acts bw-spreadacts">${listed ? `${btn('Copy share link', { kind: 'text', icon: 'link', attrs: { 'data-kit': 'link' } })}${btn('Copy a ready message', { kind: 'text', icon: 'message-square', attrs: { 'data-kit': 'msg' } })}` : ''}${btn('Email supporters', { kind: 'text', icon: 'mail', attrs: { 'data-email': '1', ...(emailOk ? {} : { 'aria-disabled': 'true' }) } })}</div>
     <p class="small muted">${[listed ? '' : 'Make it public to get its share link.', emailOk ? 'Someone who approves emails checks it before it sends.' : b.position === 'monitor' ? 'Monitor bills get no supporter emails. Take a position first.' : ''].filter(Boolean).join(' ')}</p>
   </section>`;

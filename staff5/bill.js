@@ -293,7 +293,7 @@ const issueChips = b => issuesOfBill(b.id).map(i => `<a class="bw-ichip" href="$
 // Phones: a row of chips under the status sentence, the pickers first and then the issues.
 // R-316 W50: in session the goal set for the issue in the autumn prep is one staff-only line here, so it does not vanish
 // into the folded prep card (it is used nowhere else). Between sessions the issue's prep card shows it.
-const goalLine = b => { if (SESSION_OVER) return ''; const i = issuesOfBill(b.id).find(x => (x.goal || '').trim()); return i ? `<p class="bw-igoal small"><b>Our ${esc(SESSION_YEAR)} goal</b> <span class="muted">(staff only)</span>: ${esc(i.goal)}</p>` : ''; };
+const goalLine = b => { if (SESSION_OVER) return ''; const i = issuesOfBill(b.id).find(x => (x.goal || '').trim()); return i ? `<p class="bw-igoal small"><b>${esc(i.name)}: our ${esc(SESSION_YEAR)} goal</b> <span class="muted">(staff only)</span>: ${esc(i.goal)}</p>` : ''; };
 const teamChips = b => `<div class="bw-chips">${teamPicks(b).map(([, p]) => p).join('')}${followFlag(b)}${issueChips(b)}</div>${goalLine(b)}`;
 // Desktop: the same three pickers as labelled lines in the side panel (they open as popovers beside the chip), and who
 // follows the bill.

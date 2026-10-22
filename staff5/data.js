@@ -1568,7 +1568,9 @@ export async function demoInit() {
   // Sample public response for the sandbox (R-117): made up from each bill's id, as the public sandbox's follower counts are.
   { const seed = id => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
     S.pubCounts = Object.fromEntries(snap.bills.filter(b => b.position && b.position !== 'monitor').map(b => { const s = seed(b.id);
-      return [b.id, { followers: b.priority === 1 ? 12 + s % 40 : s % 9, emails: s % 5, testimonies: b.priority === 1 ? s % 7 : s % 3, attending: s % 2, shares: s % 4, people: s % 9 }]; })); }
+      // R-316 W45: as live (089), actions count only from 10 people, so a bill with fewer shows none here either.
+      const people = b.priority === 1 ? 10 + s % 20 : s % 9, act = people >= 10;
+      return [b.id, { followers: b.priority === 1 ? 12 + s % 40 : s % 9, emails: act ? 3 + s % 5 : 0, testimonies: act ? 2 + s % 7 : 0, attending: act ? s % 3 : 0, shares: act ? 1 + s % 4 : 0, people }]; })); }
   S.demoTriaged = new Set();
   // Sandbox inbox: messages from others, the seeded workflow, and official actions on my bills.
   // A message reaches the bill's owners and followers, anyone who wrote on it lately, and anyone @mentioned, as the

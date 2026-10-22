@@ -1532,20 +1532,25 @@ const ASK_SAYS = { strongly_support: 'HIPHI strongly supports', support: 'HIPHI 
 // Saya's 16 asks across every coalition became CTFH's 3.
 const ASKS_CAP = 8;   // R-277 fix 18: the asks Outreach shows before "Show all N"
 function weekAsks({ mine = false } = {}) {
-  const now = Date.now(), end = new Date(dayAdd(mondayOf(now), 7) + 'T00:00:00-10:00').getTime(), seen = new Map();
+  // R-316 W45: the next 7 days, not the calendar week (on a Friday it showed two days). An ask closing within 3 hours stays
+  // on both views, greyed "post only" (`soon`): too late for the newsletter, still worth a post.
+  const now = Date.now(), end = now + 7 * DAY, seen = new Map();
   const co = mine ? coalPicked() : null, keep = !mine ? () => true : co ? b => (S.billCampaigns[b.id] || []).some(id => co.ids.has(id)) : b => isMine(b);
   for (const h of S.hearings) {
     if (h.status === 'cancelled') continue;
     const due = testDue(h), b = S.bills.find(x => x.id === h.bill_id);
-    if (!b || isMon(b) || !b.position || !b.is_public || b.tracked === false || !(due > now) || due >= end || !keep(b) || (mine && due - now < 3 * HR)) continue;
-    if (!seen.has(b.id) || due < seen.get(b.id).due) seen.set(b.id, { b, h, due });
+    if (!b || isMon(b) || !b.position || !b.is_public || b.tracked === false || !(due > now) || due >= end || !keep(b)) continue;
+    if (!seen.has(b.id) || due < seen.get(b.id).due) seen.set(b.id, { b, h, due, soon: due - now < 3 * HR });
   }
   return [...seen.values()].sort((x, y) => x.due - y.due);
 }
-const askName = b => b.nickname ? `${b.nickname} (${billNum(b)})` : billNum(b);
+// W45: the bill as the share kit names it for the public (model.js shareKit): "HB 2121", spaced, no draft code, the name once.
+const pubNum = b => String(b.bill_number || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2');
+const askName = b => b.nickname ? `${b.nickname} (${pubNum(b)})` : pubNum(b);
 const askLine = b => liveAsk(b).replace(/([^.!?])$/, '$1.') || `Please speak up on ${askName(b)}.`;   // an ask past its date is left out (Z1-3)
 export function weekAsksText(items, kind) {
   const via = kind === 'social' ? 'social' : 'newsletter';
+  if (kind !== 'social') items = items.filter(x => !x.soon);   // W45: closing within 3 hours is too late for a newsletter
   if (kind === 'social') return items.map(x => { const link = `${sharePageUrl(x.b, 'testify')}?via=${via}`, due = `Testimony due ${fmtDT(x.due)}.`;
     let ask = askLine(x.b); const room = 280 - (askName(x.b).length + due.length + link.length + 6); if (ask.length > room) ask = ask.slice(0, Math.max(room - 1, 20)).replace(/\s+\S*$/, '') + '…';
     return `${askName(x.b)}: ${ask} ${due} ${link}`; }).join('\n\n');
@@ -1559,12 +1564,13 @@ export function weekAsksText(items, kind) {
 export function weekAsksHTML({ mine = false, open = false } = {}) {
   const items = weekAsks({ mine }); S.tdAsks = items;
   const sub = 'Each bill’s ask, its deadline and its share page. Arrivals from the newsletter and from posts are counted apart.';
-  if (!items.length) return open ? `<section class="td-asks td-asksopen" aria-label="This week’s asks"><p class="td-asknone">${esc(`No bill ${mine ? `on ${coalPicked() ? 'your coalitions' : 'your list'} ` : 'on the public page '}has testimony due later this week${mine ? ' (or it closes within 3 hours)' : ''}.`)}</p></section>` : '';
+  if (!items.length) return open ? `<section class="td-asks td-asksopen" aria-label="This week’s asks"><p class="td-asknone">${esc(`No bill ${mine ? `on ${coalPicked() ? 'your coalitions' : 'your list'} ` : 'on the public page '}has testimony due in the next 7 days.`)}</p></section>` : '';
   // R-277 fix 18 (V-1): at a February peak the list ran 14 -> 61 asks and the copy buttons sank under it. Open on Outreach,
   // the buttons sit above the list, P1 bills come first, then the soonest deadline, and the list shows 8 then "Show all N".
   // The copy is always of every ask in the list, shown or not.
   const copy = `<div class="btnrow td-askcopy">${btn('Copy for the newsletter', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-wkasks': 'newsletter' } })}${btn('Copy for a post', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-wkasks': 'social' } })}</div>`;
-  const li = x => `<li>${billTag(x.b, 80)}${x.b.priority === 1 ? ' ' + P1 : ''} <span class="muted">· ${esc(ASK_SAYS[x.b.position] || '')} · due ${esc(fmtDT(x.due))}</span></li>`;
+  // W45: "due today 2:00 PM" (model.js whenAt, Today's wording); one closing within 3 hours is greyed, "post only".
+  const li = x => `<li${x.soon ? ' class="td-asksoon"' : ''}>${billTag(x.b, 80)}${x.b.priority === 1 ? ' ' + P1 : ''} <span class="muted">· ${esc(ASK_SAYS[x.b.position] || '')} · ${x.soon ? `closes in ${esc(spanOf(x.due))}: post only` : `due ${esc(whenAt(new Date(x.due).toISOString()))}`}</span></li>`;
   if (open) {
     const ord = items.slice().sort((x, y) => (x.b.priority === 1 ? 0 : 1) - (y.b.priority === 1 ? 0 : 1) || x.due - y.due); S.tdAsks = ord;
     const all = !!S.asksAll, shown = all ? ord : ord.slice(0, ASKS_CAP);

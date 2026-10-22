@@ -57,7 +57,8 @@ export const weekOf = c => weekOfBills(billsOf(c));
 // Your support: 'all' (Kris), a list of ids (Saya: CTFH), or nothing yet.
 const pref = () => S.me?.prefs?.coalitions;
 export const supports = c => { const v = pref(); return v === 'all' || (Array.isArray(v) && v.includes(c.id)); };
-const publicLink = c => `${PUBLIC_APP()}#/issue/${encodeURIComponent(c.slug)}`;
+// R-316 W45: the link on the coalition's card says where it came from, so partners' visits are counted apart.
+const publicLink = c => `${PUBLIC_APP()}?utm_source=coalition-card&utm_campaign=${String(c.slug || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40)}#/issue/${encodeURIComponent(c.slug)}`;
 const embedUrl = (c, { preview = false } = {}) => { const u = new URL('embed.html', location.href); u.search = ''; u.hash = ''; if (preview && DEMO) u.searchParams.set('demo', '1'); u.searchParams.set('coalition', c.slug); return u.href; };
 const embedCode = c => `<iframe id="hiphi-tracker" src="${embedUrl(c)}" title="${esc(`HIPHI: ${c.public_name || c.name} bills`)}" style="width:100%;border:0;min-height:420px" loading="lazy"></iframe>\n<script>addEventListener('message',function(e){if(e.data&&e.data.hiphiTrackerHeight)document.getElementById('hiphi-tracker').style.height=e.data.hiphiTrackerHeight+'px'})<\/script>`;
 // The memo for this coalition's partners; from= gives the memo a back link to this page.

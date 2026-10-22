@@ -446,7 +446,9 @@ export function memoData() {
   // A bill with testimony open links its testify page (b/HB2121-testify, the walkthrough), not the plain bill page: the
   // memo carried no ask, and partners landed where they could not act (R-267).
   const line = (b, text, ask = '') => ({ num: billNum(b).replace(/^(\D+)/, '$1 '), name: short(b), text: `${MEMO_SAYS[b.position] ? MEMO_SAYS[b.position] + '. ' : ''}${text}`,
-    href: partners && b.is_public && b.tracked !== false ? sharePageUrl(b, ask) : '' });   // the share page: a partner's text previews with the bill's name (R-117)
+    href: partners && b.is_public && b.tracked !== false ? sharePageUrl(b, ask) + via : '' });
+  // R-316 W45: the partner update's links say where they came from, so its visits count apart from a friend's link.
+  const via = `?utm_source=partner-update&utm_campaign=${(S.campaigns.find(c => c.id === v.coalition)?.slug || 'all').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40) || 'all'}`;   // the share page: a partner's text previews with the bill's name (R-117)
   const more = (n, what = 'more') => n > 0 ? [`…and ${n} ${what}.`] : [];
   const when = x => x.days <= 0 ? 'today' : x.days === 1 ? 'tomorrow' : `${x.days} days`;
   const monday = (() => { const d = new Date(hstDayOf(now) + 'T12:00:00-10:00'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'Pacific/Honolulu' }); })();
