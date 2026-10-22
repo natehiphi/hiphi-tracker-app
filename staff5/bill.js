@@ -753,7 +753,7 @@ async function toggleAttend(b, hid) {
 S.bwTodoOpen ??= new Set();
 // R-316 W58 (Show me, practice copy): For and Due on the same line as the to-do, so giving Kris a dated to-do is one go
 // (it took 10 clicks across three sheets). For starts at Anyone.
-const TODO_FOR = () => DEMO;
+const TODO_FOR = () => true;   // Nate's go 10/22 (R-332)
 const todoForm = d => { const ppl = (S.advocates || []).filter(a => a.is_active !== false && a.id !== S.me?.id).sort((x, y) => x.full_name.localeCompare(y.full_name));
   return `<form class="bw-addrow bw-addfor" data-todoadd novalidate><label class="sr" for="bw-tdnew">Add a to-do</label><input id="bw-tdnew" class="input" maxlength="200" placeholder="Add a to-do" autocomplete="off" value="${esc(d)}">
     <label class="bw-tdf"><span>For</span><select id="bw-tdfor" class="input"><option value="">Anyone</option>${S.me ? `<option value="${esc(S.me.id)}">You</option>` : ''}${ppl.map(a => `<option value="${esc(a.id)}">${esc(a.full_name)}</option>`).join('')}</select></label>
