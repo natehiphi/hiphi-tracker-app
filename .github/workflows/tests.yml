@@ -79,6 +79,9 @@ jobs:
       - name: "Staff v5: no label spills out of its card at 1280 and 1440 (R-316 W54)"
         if: ${{ !cancelled() }}
         run: python3 tests/staff5_overflow.py
+      - name: "Staff v5: My issues and Bills give the same testimony step and due time (R-316 W23)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/staff5_step_match.py
       - name: Year-proof bill links
         if: ${{ !cancelled() }}
         run: python3 tests/year_links.py

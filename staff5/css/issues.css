@@ -436,6 +436,8 @@
 .ist-page .ist-need .ic { color: var(--warn-text); }
 .ist-page .ist-hear .ic, .ist-page .ist-ahead .ic, .ist-page .ist-off .ic { color: var(--n500); }
 .ist-page .ist-hear { font-weight: 700; color: var(--n900); }
+.ist-page .ist-nb { white-space: nowrap; }
+.ist-page .ist-hear.ist-filed { font-weight: 400; color: var(--n700); }   /* R-316 W23: filed asks nothing more of you */
 .ist-page .ist-bills { font-size: var(--t13); color: var(--n500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ist-page .ist-row .chev { flex: none; width: 20px; height: 20px; color: var(--n400); }
 .ist-page .ist-empty, .ist-page .ist-off, .ist-page .ist-found { margin: 0; padding: var(--s8) 0; font-size: var(--t14); color: var(--n700); }

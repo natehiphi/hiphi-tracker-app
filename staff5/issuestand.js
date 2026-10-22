@@ -18,7 +18,7 @@
 // "Past a deadline" is read from the deadline each bill is racing (stops.js billStop): a later one means it already cleared
 // the earlier; one through the Legislature (Governor, law) is past every committee deadline.
 import { S, SESSION_YEAR, SESSION_OVER, esc, fmtDT } from './data.js';
-import { stopOf, riskOf, diedish, hearingAhead, billNum, plain, whenAt, deadlineName, gateNeed } from './model.js';
+import { stopOf, riskOf, diedish, hearingAhead, billNum, plain, whenAt, deadlineName, gateNeed, testStep, lateWord, stepKey } from './model.js';
 import { icon, iconBtn } from './ui.js';
 import { plural } from './lists.js';
 import { dayOf } from './standing.js';
@@ -37,11 +37,15 @@ const names = (l, i) => { if (l.length > 2) return plural(l.length, 'bill');
   const n = l.map(b => shortName(b, i)), twin = n.length === 2 && n[0] === n[1];
   return twin ? `${num(l[0])} and ${num(l[1])}` : n.join(' and '); };
 const THROUGH = new Set(['governor', 'law', 'ballot']);
+// When an issue's hearing asks something of us: its testimony due time while open, else the hearing.
+const hearWhen = x => x ? x.ts?.at || x.h.scheduled_at : undefined;
 
 export function standOf(i) {
   const bills = billsOf(i).filter(b => thisSession(b) && b.tracked !== false).sort(byNum);
   const going = bills.filter(b => !diedish(b)), gone = bills.filter(diedish);
-  const hears = going.map(b => ({ b, h: hearingAhead(b) })).filter(x => x.h).sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at));
+  // R-316 W23: the hearing that leads is the one whose testimony is due first (model.js testStep, Bills' Next column's rule),
+  // so an issue's line says "Revise · due Wed 3/18, 9:30 AM", not the hearing day; filed and stepless bills come after.
+  const hears = going.map(b => { const h = hearingAhead(b), ts = h && testStep(b, h); return h && { b, h, ts, k: stepKey(ts, h) }; }).filter(Boolean).sort((x, y) => x.k.localeCompare(y.k));
   const hear = hears[0] || null, out = { i, bills, going, gone, hear, state: 'none', when: null, mark: '' };
   if (!bills.length) return out;
   // Between sessions every bill has stopped; saying so on each line says nothing (A-14), so the lines carry no mark.
@@ -52,7 +56,7 @@ export function standOf(i) {
   const past = (b, date) => { const s = st.get(b.id), d = dl(b); return d ? d.date > date : THROUGH.has(s.phase); };
   if (i.stance === 'oppose') {
     const next = going.map(dl).filter(Boolean).sort((x, y) => x.date.localeCompare(y.date))[0] || null;
-    return { ...out, state: 'oppose', next, when: hear?.h.scheduled_at || (next ? next.date + 'T23:59:59-10:00' : null) };
+    return { ...out, state: 'oppose', next, when: hearWhen(hear) || (next ? next.date + 'T23:59:59-10:00' : null) };
   }
   // HIPHI's side: no Monitor, and none it opposes (unless no stance and nothing else is on it).
   let side = going.filter(b => b.position && b.position !== 'monitor' && !AGAINST.has(b.position));
@@ -60,12 +64,12 @@ export function standOf(i) {
   const risky = side.filter(riskOf).sort((x, y) => dl(x).date.localeCompare(dl(y).date));
   if (risky.length) {
     const d = dl(risky[0]), facing = risky.filter(b => dl(b).date === d.date && !hearingAhead(b)), carried = side.filter(b => past(b, d.date));
-    return { ...out, state: carried.length ? 'dying' : 'risk', deadline: d, facing, carried, when: [d.date + 'T23:59:59-10:00', hear?.h.scheduled_at].filter(Boolean).sort()[0] };
+    return { ...out, state: carried.length ? 'dying' : 'risk', deadline: d, facing, carried, when: [d.date + 'T23:59:59-10:00', hearWhen(hear)].filter(Boolean).sort()[0] };
   }
   const next = side.map(dl).filter(Boolean).sort((x, y) => x.date.localeCompare(y.date))[0] || null;
-  if (!next) return { ...out, state: side.some(b => THROUGH.has(st.get(b.id).phase)) ? 'safe' : 'ahead', when: hear?.h.scheduled_at || null };
+  if (!next) return { ...out, state: side.some(b => THROUGH.has(st.get(b.id).phase)) ? 'safe' : 'ahead', when: hearWhen(hear) || null };
   const carried = side.filter(b => past(b, next.date)), facing = side.filter(b => dl(b)?.date === next.date && st.get(b.id).column === 'a' && !hearingAhead(b));
-  return { ...out, state: carried.length ? 'safe' : 'ahead', deadline: next, facing, carried, when: hear?.h.scheduled_at && hear.h.scheduled_at < next.date ? hear.h.scheduled_at : next.date + 'T23:59:59-10:00' };
+  return { ...out, state: carried.length ? 'safe' : 'ahead', deadline: next, facing, carried, when: hearWhen(hear) && hearWhen(hear) < next.date ? hearWhen(hear) : next.date + 'T23:59:59-10:00' };
 }
 
 // The mark on an issue's line, in words and an icon, never colour alone (A-5). The hearing, when one is set, leads.
@@ -73,7 +77,10 @@ export function standOf(i) {
 // repeating the date and the warning icon 28 times; the heading carries both.
 export function markHTML(x, { under = null } = {}) {
   const { i, hear } = x, parts = [];
-  if (hear) parts.push(`<span class="ist-m ist-hear">${icon('calendar-days')}<span>Hearing ${esc(whenAt(hear.h.scheduled_at))} · ${esc(shortName(hear.b, i))}</span></span>`);
+  if (hear) { const { ts, h } = hear, nb = t => `<span class="ist-nb">${esc(whenAt(t))}</span>`, at = nb(h.scheduled_at);   // a time never splits on a phone
+    // R-316 W23: the step and when it is really due, as Bills' Next column says it; the hearing only when no step is due.
+    const w = !ts ? `Hearing ${at}` : ts.at ? `${esc(ts.w)} · testimony due ${nb(ts.at)}` : ts.late ? `${esc(lateWord(ts))} · until the hearing ${at}` : `${esc(ts.w)} · hearing ${at}`;
+    parts.push(`<span class="ist-m ist-hear${ts?.w === 'Filed' ? ' ist-filed' : ''}"${ts ? ` data-step="${esc(ts.w)}" data-due="${esc(ts.at || '')}" data-bill="${esc(hear.b.id)}"` : ''}>${icon('calendar-days')}<span>${w} · ${esc(shortName(hear.b, i))}</span></span>`); }
   const dlw = d => `${deadlineName(d)} ${dayAt(d.date)}`;   // "Second lateral", never a bare "Lateral" (R-316 W1, C-15)
   const say = {
     risk: () => `<span class="ist-m ist-risk">${icon('triangle-alert')}<span><b>At risk</b> · ${esc(dlw(x.deadline))} · ${esc(names(x.facing, i))} still ${x.facing.length === 1 ? 'needs' : 'need'} a hearing, no bill past it</span></span>`,
