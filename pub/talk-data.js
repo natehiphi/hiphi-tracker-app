@@ -462,6 +462,16 @@ export const TALKS = [
     ],
     related: ['disagree', 'what-is-hiphi', 'where-you-stand'] },
 
+  // R-328 batch H (Nate 10/22): partner groups. The rules are the plan page's "Who can join" and pub/groups.js's own words.
+  { slug: 'advocacy-groups', group: 'hiphi', title: 'Can my group add its bills to the tracker?',
+    turns: [
+      { q: 'Can my group add its bills to the tracker?', a: 'Yes. An advocacy group can add the bills it works on, in its own words, with its name on them. HIPHI looks over every word before it goes public.' },
+      { q: 'Which groups can join?', a: 'Any advocacy group in Hawaiʻi, on any bill. Candidates, campaigns and political parties can’t. On a bill HIPHI supports or opposes, your group takes the same side, or leaves that bill out.' },
+      { q: 'How do we start?', a: 'Send the short form on the **For advocacy groups** page. HIPHI will be in touch by email.' },
+    ],
+    act: { label: 'For advocacy groups', href: '#/groups', icon: 'handshake' },
+    related: ['why-positions', 'what-is-hiphi', 'contact'] },
+
   { slug: 'disagree', group: 'hiphi', title: 'Can I disagree with HIPHI?',
     turns: [
       { q: 'Can I disagree with HIPHI?', a: 'Of course. Your view is yours. Say where you stand on a bill’s page, and the tracker helps you either way.' },

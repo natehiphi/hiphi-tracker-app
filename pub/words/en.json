@@ -17,6 +17,7 @@
   "About this tracker",
   "Accessibility",
   "Action Center",
+  "Add your group’s bills and words to the tracker",
   "Add your name and titles",
   "Aloha!",
   "Back",
@@ -29,6 +30,7 @@
   "Every Senate and House committee, who sits on it, and what it has now",
   "Find out when lawmakers are acting on the issues you care about most, and how you can help change what happens.",
   "Find your senator and representative",
+  "For advocacy groups",
   "From HIPHI",
   "Get alerts and make your profile",
   "Get ready for the {next} session",
@@ -82,7 +84,7 @@
  ],
  "files": {
   "pub/langpick.js": 1,
-  "pub/more.js": 45,
+  "pub/more.js": 48,
   "pub/start.js": 33
  }
 }

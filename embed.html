@@ -58,6 +58,10 @@ tr.row:hover td{background:#F7FAFB}
 .act{display:inline-block;margin-top:5px;font-size:12.5px;font-weight:600;color:var(--red)}
 .foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px 12px;margin-top:9px;font-size:12.5px;color:var(--muted)}
 .foot a{color:var(--teal);font-weight:600;text-decoration:none}
+/* The invitation to groups who see the table on a partner's site (R-328 batch H): one quiet line, under the foot. */
+.join{margin:4px 0 0;font-size:12.5px;color:var(--muted)}
+.join a{color:var(--teal);font-weight:500;text-decoration:none}
+.foot a:hover,.join a:hover{text-decoration:underline}
 .empty{padding:26px 14px;text-align:center;color:var(--muted)}
 .empty a{color:var(--teal);font-weight:600}
 /* A phone, or a narrow sidebar on a partner's site: one block a bill, the side and the stage under its name, wrapping
@@ -78,6 +82,7 @@ tr.row:hover td{background:#F7FAFB}
 <p class="note" id="note" hidden></p>
 <div class="wrap"><table><thead><tr id="heads"><th>Bill</th><th class="h-pos">HIPHI’s position</th><th>Where it stands</th></tr></thead><tbody id="rows"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody></table></div>
 <div class="foot"><span id="count" aria-live="polite"></span><a id="all" target="_blank" rel="noopener">See every bill and take action ›</a></div>
+<p class="join">Are you an advocacy group? <a id="join" target="_blank" rel="noopener">Add your bills ›</a></p>
 <script type="module">
 const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
@@ -212,6 +217,7 @@ if ('ResizeObserver' in window) new ResizeObserver(tellHeight).observe(document.
 document.fonts?.ready.then(tellHeight);
 (async () => {
   const all = document.getElementById('all'); all.href = `${TRACK}#/allbills`;
+  document.getElementById('join').href = `${TRACK}#/groups`;   // For advocacy groups (R-328 batch H)
   if (NOPOS) { document.body.classList.add('nopos'); document.querySelector('.h-pos').remove(); document.querySelector('#rows td').colSpan = 2; }
   try {
     let rows = DEMO ? await loadDemo() : await loadLive();
