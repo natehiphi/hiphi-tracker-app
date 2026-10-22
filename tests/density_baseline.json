@@ -1,9 +1,9 @@
 {
  "publicA|1440|bill-a": {
-  "arrival": 220,
+  "arrival": 261,
   "colours": 6,
-  "kinds": 11,
-  "sizes": 6
+  "kinds": 16,
+  "sizes": 5
  },
  "publicA|1440|home-a": {
   "arrival": 183,
@@ -12,10 +12,10 @@
   "sizes": 4
  },
  "publicA|390|bill-a": {
-  "arrival": 237,
-  "colours": 6,
-  "kinds": 10,
-  "sizes": 6
+  "arrival": 278,
+  "colours": 5,
+  "kinds": 8,
+  "sizes": 5
  },
  "publicA|390|home-a": {
   "arrival": 159,
@@ -36,10 +36,10 @@
   "sizes": 5
  },
  "public|1440|bill": {
-  "arrival": 220,
+  "arrival": 261,
   "colours": 6,
-  "kinds": 11,
-  "sizes": 6
+  "kinds": 16,
+  "sizes": 5
  },
  "public|1440|category": {
   "arrival": 243,
@@ -126,10 +126,10 @@
   "sizes": 5
  },
  "public|390|bill": {
-  "arrival": 237,
-  "colours": 6,
-  "kinds": 10,
-  "sizes": 6
+  "arrival": 278,
+  "colours": 5,
+  "kinds": 8,
+  "sizes": 5
  },
  "public|390|category": {
   "arrival": 217,
