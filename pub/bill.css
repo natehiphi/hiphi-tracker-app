@@ -430,6 +430,12 @@
 .bl-rec .bl-rread:hover { text-decoration: underline; }
 .bl-rec .bl-rread .ic { width: 18px; height: 18px; }
 .bl-rec .bl-ext { width: 14px; height: 14px; color: var(--n500); }
+/* who introduced it, under the name (R-212 #41): a quiet line, the names links; "and 6 others" a link-styled button (A-6: 44px tall) */
+.bl-rec .bl-rspons { margin: var(--s4) 0 0; font-size: var(--t14); color: var(--n700); line-height: 1.5; }
+.bl-rec .bl-rspons a { color: var(--p700); font-weight: 600; }
+.bl-rec .bl-rsmore { display: inline; margin: 0; padding: 12px 0; border: 0; background: none; color: var(--p700); font: inherit; font-weight: 600; cursor: pointer; }
+.bl-rec .bl-rsmore .bl-rschev { width: 14px; height: 14px; vertical-align: -2px; margin-left: 2px; }
+.bl-rec .bl-rsmore:hover { text-decoration: underline; }
 /* the action card */
 .bl-rec .bl-ract { margin-top: var(--s16); }
 .bl-rec .bl-ract h2 { font: 600 var(--t18)/1.25 var(--font-h); letter-spacing: -.01em; margin: var(--s8) 0 0; }

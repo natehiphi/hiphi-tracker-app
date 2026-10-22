@@ -261,3 +261,5 @@ body.rec .pp-rec .btn.pp-rreach { white-space: normal; height: auto; min-height:
   body.rec .pp-rec .rc-side .rc-act { margin-top: var(--s16); }
   body.rec .pp-photo.xl { width: 96px; height: 96px; }
 }
+/* "HIPHI bills they also signed": a second list in Bills they introduced, a section's gap and a row title's weight (R-212 #41, A-8) */
+body.rec .pp-rgh.pp-rgh2 { margin-top: var(--s24); font: 700 var(--t16)/1.3 var(--font); }

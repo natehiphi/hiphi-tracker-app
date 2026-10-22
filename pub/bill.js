@@ -8,7 +8,7 @@ import { errArt, S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, blu
   dueInfo, dayWord, timeWord, hearingWhen, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
   pickBill, billRef, billPath, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
-  issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber, billTourHeld, billTourSeen, sameIdeaLaw, sameIdeaWords } from './core.js';
+  issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber, billTourHeld, billTourSeen, sameIdeaLaw, sameIdeaWords, sponsorsOf } from './core.js';
 import { draftName, draftRank, draftLabel, draftNotes, testifyLabel, mailLabel, letterOn } from './letters.js';
 // "Send my email to the Senate chairs" (R-153): who it goes to now, so "again" never reads as "my email failed".
 const sendTo = x => { const ch = CHAMBER_NAME[S.committees[(x.code || '').split('/')[0]]?.chamber] || ''; return `Send my email to the ${ch ? ch + ' ' : ''}${x.chairs.length > 1 ? 'chairs' : 'chair'}`; };
@@ -1031,12 +1031,10 @@ function hearingsSection(b, x) {
 
 // ---------------- More details: the official record, folded ----------------
 // The committee path with check marks (passed stops struck through read as "cancelled" to newcomers, walk 9/18).
+// Every introducer, each linked to their page when they are a lawmaker we know (R-212 #41; the list was cut at six). HTML.
 function sponsorText(b) {
-  const o = originOf(b);
-  const names = (b.sponsors || []).map(s => typeof s === 'string' ? s : s?.n || s?.name || '').filter(Boolean).map(n => {
-    const l = (S.legislators || []).find(l => l.chamber === o && (l.sort_name || '').split(',')[0].trim().toUpperCase() === n.trim().toUpperCase());
-    return l ? `${legTitle(l)} ${l.name}` : titleCase(n); });
-  if (names.length > 6) return `${names.slice(0, 6).join(', ')} and ${names.length - 6} more`;
+  const from = `?from=${encodeURIComponent(billRef(b))}`;
+  const names = sponsorsOf(b).map(s => s.l ? `<a href="#/legislator/${s.l.id}${from}">${esc(s.name)}</a>` : esc(s.name));
   return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0] || '';
 }
 function details(b, x) {
@@ -1046,7 +1044,7 @@ function details(b, x) {
     b.title ? ['Official title', esc(titleCase(b.title))] : null,
     // The official summary in full is under "Read more about the bill", by the bill's name (R-178).
     // The committees, in order, are the pathway's own steps since R-081 (See all steps), so they are not repeated here.
-    spons ? ['Introduced by', esc(spons)] : null,
+    spons ? ['Introduced by', spons] : null,
     b.last_action ? ['Last official action', `${esc(b.last_action)}${b.last_action_date ? `<span class="bl-date">${esc(fmtDate(b.last_action_date, { month: 'short', day: 'numeric', year: 'numeric' }))}</span>` : ''}`] : null,
     comp.length ? [`Companion bill${comp.length > 1 ? 's' : ''}`, `${comp.map(c => `<a href="#/bill/${esc(sameYear(b) + c)}">${esc(spaced(c))}</a>`).join(', ')}<span class="bl-date">The same idea, filed in the ${N[/^S/.test(comp[0]) ? 'S' : 'H']} too. Either one can become law.</span>`] : null,
     // The draft ("House draft 3") is named once, under "Read more about the bill" (R-178, A-14).
@@ -1103,10 +1101,8 @@ const votesOf = rep => { const y = /(\d+)\s+Ayes?\b/i.exec(rep || ''), n = /(\d+
   return y ? `${y[1]} yes${no === null ? '' : `, ${no} no`}` : ''; };
 // The bill's first sponsor, matched to a legislator as sponsorText does, and how many others signed on.
 function sponsorLead(b) {
-  const list = (b.sponsors || []).map(s => typeof s === 'string' ? s : s?.n || s?.name || '').filter(n => n && !/^[A-Z]\.$/.test(n.trim()));
-  if (!list.length) return null;
-  const l = (S.legislators || []).find(l => l.chamber === originOf(b) && (l.sort_name || '').split(',')[0].trim().toUpperCase() === list[0].trim().toUpperCase()) || null;
-  return { l, name: l ? `${legTitle(l)} ${l.name}` : titleCase(list[0]), others: list.length - 1 };
+  const list = sponsorsOf(b); if (!list.length) return null;
+  return { l: list[0].l, name: list[0].name, others: list.length - 1 };
 }
 // What each step did, from the record the page already has: the committee's hearing and report, the drafts it made (the
 // k-th "passed with changes" in a chamber made HDk or SDk), the floor votes from the official actions.
@@ -1115,8 +1111,8 @@ function recRecord(b, x, r) {
   const notes = S.blDrafts?.get(b.id) || [], made = { H: 0, S: 0 }, now = Date.now();
   let vi = 0;
   return r.steps.map((s, i) => {
-    if (s.kind === 'intro') { const a = acts[0], sp = sponsorLead(b);
-      return { line: [a ? dayShort(a.occurred_at) : '', sp ? `By ${sp.name}${sp.others ? ` and ${sp.others} other${sp.others > 1 ? 's' : ''}` : ''}` : ''].filter(Boolean).join(' · ') }; }
+    // Who introduced it is said once, under the bill's name (R-212 #41, A-14), so the first step keeps only its day.
+    if (s.kind === 'intro') { const a = acts[0]; return { line: a ? dayShort(a.occurred_at) : '' }; }
     if (s.kind === 'vote' || s.kind === 'final') { if (i >= r.idx && !x.law) return {}; const a = votes[vi++];
       if (!a) return { line: 'Passed' };
       const t = a.title || '', no = /none voting no/i.test(t) ? 'no one voted no' : (m => m ? `${m[1]} no` : '')(/voting no \((\d+)\)/i.exec(t));
@@ -1229,7 +1225,18 @@ function recHead(b, x) {
   // "Read the bill" opens the Capitol's text for now; the reading view in the app waits for its migration (R-302).
   const read = `<a class="bl-rread" href="${esc(billTextUrl(b))}" target="_blank" rel="noopener" data-ab-go="text">${icon('book-open')}<span>Read the bill</span>${icon('external-link', { cls: 'bl-ext' })}</a>`;
   return `<div class="bl-head bl-rhead"><p class="bl-reye">${esc(spaced(b.bill_number))}</p><h1 class="${name ? 'hero bl-nick' : 'bl-what'}">${esc(name || plainHead(b))}</h1>
-    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}<div class="bl-rhrow">${chips}${read}</div>${textIssue(b) ? issueLine(b, x) : ''}${onListsLine(b)}</div>`;
+    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}<div class="bl-rhrow">${chips}${read}</div>${sponsorLine(b)}${textIssue(b) ? issueLine(b, x) : ''}${onListsLine(b)}</div>`;
+}
+// Who introduced it, up top (R-212 #41: sponsors were on 734 of 734 bills, folded under More details and cut at six). The first
+// name links to their page; "and 6 others" opens every name in place, each linked (S.blSpons, for the visit).
+function sponsorLine(b) {
+  const list = sponsorsOf(b); if (!list.length) return '';
+  const from = `?from=${encodeURIComponent(billRef(b))}`, open = S.blSpons?.has(b.id);
+  const link = s => s.l ? `<a href="#/legislator/${s.l.id}${from}">${esc(s.name)}</a>` : esc(s.name);
+  const rest = list.length - 1, all = list.map(link);
+  const names = open || rest < 2 ? (all.length > 1 ? `${all.slice(0, -1).join(', ')} and ${all[all.length - 1]}` : all[0])
+    : `${all[0]} and <button type="button" class="bl-rsmore" data-bl-spons aria-expanded="false">${rest} others${icon('chevron-down', { cls: 'bl-rschev' })}</button>`;
+  return `<p class="bl-rspons">Introduced by ${names}</p>`;
 }
 // Who decides next: the chairs (today's card), then the sponsor and the person's own lawmakers, moved up from More details.
 function recWho(b, x) {
@@ -1237,13 +1244,13 @@ function recWho(b, x) {
   const per = (l, name, role, act) => `<li class="bl-rper">${l ? legPhoto(l, 'bl-photo sm') : `<span class="bl-rav">${icon('map-pin')}</span>`}<span class="bl-whot">${l ? `<a class="bl-name" href="#/legislator/${l.id}${from}">${esc(name)}</a>` : `<span class="bl-name">${esc(name)}</span>`}<span class="bl-role">${esc(role)}</span></span>${act}</li>`;
   const mail = l => l?.email ? btn('Email', { kind: 'secondary', sm: true, icon: 'mail', href: mailFor(b, x, [contactOf(l)], 'own'), attrs: { 'aria-label': `Email ${legTitle(l)} ${surname(l)}` } }) : '';
   const mineL = d ? ['S', 'H'].map(myLeg).filter(Boolean) : [];
-  const also = [sp ? per(sp.l, sp.name, `Introduced it${sp.others ? `, with ${sp.others} other${sp.others > 1 ? 's' : ''}` : ''}`, mail(sp.l)) : '',
+  const also = [sp ? per(sp.l, sp.name, 'Introduced it', mail(sp.l)) : '',   // how many others: the line under the name (R-212 #41, A-14)
     mineL.length ? mineL.map(l => per(l, `${legTitle(l)} ${l.name}`, mineLabel(l, d), mail(l))).join('')
       : !x.act && asking(x) ? '' : per(null, 'Your own senator and representative', 'They listen most to their own district', btn('Find', { kind: 'secondary', sm: true, icon: 'search', href: `#/legislators${from}` }))].join('');
   const chairs = whoDecides(b, x, { bare: true });
   return `${chairs ? `<div class="bl-whocard bl-rwho">${chairs}</div>` : ''}<p class="bl-rsub">${chairs ? 'Also worth knowing' : 'People to reach'}</p><ul class="bl-rppl">${also}</ul>`;
 }
-const recWhoPrev = x => [x.chairs.length ? `${x.chairs.map(c => `${c.title} ${c.last}`).join(' and ')}, the ${x.chairs.length > 1 ? 'chairs' : 'chair'}` : '', 'the sponsor', 'your lawmakers'].filter(Boolean).join(', ');
+const recWhoPrev = x => [x.chairs.length ? `${x.chairs.map(c => `${c.title} ${c.last}`).join(' and ')}, the ${x.chairs.length > 1 ? 'chairs' : 'chair'}` : '', 'who introduced it', 'your lawmakers'].filter(Boolean).join(', ');
 // More details: today's facts (not who introduced it: the first step and Who decides next say so), then every draft on
 // the Capitol website and every official action, in rows that show a count. Each committee's decision, hearing and video
 // is said once, in its own step under See all steps (A-14, the critic 10/18). Testimony is not in the data (only each
@@ -1463,6 +1470,9 @@ export default {
     const x = situation(b), bar = document.querySelector('.actionbar'), both = [root, bar].filter(Boolean);
     const each = (sel, fn) => both.forEach(scope => scope.querySelectorAll(sel).forEach(fn));
     wireBillParts(root, b, { bar, x });   // the card, its walkthroughs and folds: shared with the issue page (R-303)
+    // "and 6 others": every name in place; focus goes to the second name, the first one the button hid.
+    root.querySelectorAll('[data-bl-spons]').forEach(el => el.onclick = () => { (S.blSpons ??= new Set()).add(b.id); app.render();
+      requestAnimationFrame(() => document.querySelectorAll('.bl-rspons a')[1]?.focus()); });
     root.querySelectorAll('details[data-bl-rfold]').forEach(d => d.addEventListener('toggle', () => saveFold(d.dataset.blRfold, d.open)));
     document.body.classList.toggle('bl-rec', REC()); recDock();
     root.querySelector('[data-bl-star]')?.addEventListener('click', async e => {
