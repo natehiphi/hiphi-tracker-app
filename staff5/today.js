@@ -778,7 +778,7 @@ const dueIso = t => t.due == null ? null : new Date(t.due).toISOString();
 // 12 hours before the deadline and the filer files 2 hours before (the slip times Nate set on 12 Oct, R-267), so at 9:00
 // SB3234 no longer reads "29m to revise" as if 29 minutes were left for writing, approving and filing. Weekend deadlines
 // use the Capitol's own time; no Friday cutoff is made up. Only these two steps get the words.
-const HAND_ON = () => DEMO;
+const HAND_ON = () => true;   // live 10/22 at Nate's yes (R-330)
 const HAND = { write: ['Send for approval', 12], submit: ['Send for approval', 12], revise: ['Send for approval', 12], nodraft: ['Send for approval', 12], file: ['File', 2] };
 // Nate 10/22: when the writer's 12 hours before falls overnight (after 4:00 PM or before 8:00 AM), the hand-on is 4:00 PM
 // the day before the deadline, so nobody is asked to send for approval at 9:00 PM or 3:00 AM. Filing stays 2 hours before.
@@ -1847,7 +1847,7 @@ const slipAv = ids => ids.length ? ids.slice(0, 2).map(id => avatar(advocate(id)
 const wasOwner = b => { const id = b && (S.assignments[b.id] || []).find(x => !live(x)); return id ? ` (was ${advocate(id).full_name.split(' ')[0]}’s, turned off)` : ''; };
 // R-316 W42 (Show me, practice copy): a teammate's Slipping row gets Alert Lauren, a one-line message on the bill with Undo (it was
 // 4 or 5 clicks through the panel), and for admins Give to… beside Message: the to-do if the row is one, else the bill.
-const NUDGE = () => DEMO;
+const NUDGE = () => true;   // live 10/22 at Nate's yes (R-330)
 const NUDGED = new Map();   // the row's task key -> whom the alert goes to
 // "Alert Lauren" (C-15: staff's Slack messages are alerts, never nudges or reminders), saying whom it reaches.
 const alertWord = p => { const ids = NUDGED.get(p.key) || []; return ids.length === 1 ? `Alert ${first(ids[0])}` : 'Alert them'; };
