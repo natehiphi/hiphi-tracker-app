@@ -71,7 +71,9 @@ function render() {
   const head = recHead({ title: 'This week’s asks', lede: 'Testimony due in the next 7 days on bills HIPHI takes a stand on.' });
   if (!S.pool) return `<div class="rc wk">${backRow()}${head}${W.err ? recEmpty('The list didn’t load just now. Check your connection and try again.', btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-wk-retry': '' } })) : skeleton(4)}</div>`;
   const si = sessionInfo(), items = si.phase === 'in' ? weekAsks() : [];
-  const every = `<p class="rc-every">${btn('See every bill HIPHI tracks', { kind: 'text', iconEnd: 'chevron-right', href: '#/allbills' })}</p>`;
+  // A group that passes the week on may want the bills on its own site too (R-212 #38, the Partner Staffer).
+  const every = `<p class="rc-every">${btn('See every bill HIPHI tracks', { kind: 'text', iconEnd: 'chevron-right', href: '#/allbills' })}</p>
+    <p class="rc-every">${btn('Put bills on your website', { kind: 'text', icon: 'code', href: '#/embed' })}</p>`;
   if (!items.length) {
     const why = si.phase !== 'in' ? `The Legislature is on break until ${openWords(si)}. Once hearings start, this page lists each week’s asks.`
       : 'No testimony is due in the next 7 days on the bills HIPHI takes a stand on. New hearings are posted most weekdays, so check back soon.';

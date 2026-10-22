@@ -8,6 +8,7 @@
 // search box (arrow keys, Enter, Esc); removing is in each row's menu, which opens by its button; both have Undo.
 import { S, DB, hooks, esc, advocate } from './data.js';
 import { billNum, PUBLIC_APP, billById, plain } from './model.js';
+import { embedSnippet } from '../pub/embedsnippet.js';
 import { icon, btn, iconBtn, switchRow, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet } from './ui.js';
 import { listById, listRows, listIcon, plural, afterClose, openListForm, updatedLine, billName, isSide } from './lists.js';
 import * as SP from './supporters.js';
@@ -16,7 +17,7 @@ import { billRoute } from './model.js';
 const publicLink = l => `${PUBLIC_APP()}#list=${l.slug}`;
 function embedCode(l) {
   const u = new URL('embed.html', location.href); u.search = ''; u.hash = ''; u.searchParams.set('list', l.slug);
-  return `<iframe id="hiphi-tracker" src="${u.href}" title="HIPHI bill list" style="width:100%;border:0;min-height:420px" loading="lazy"></iframe>\n<script>addEventListener('message',function(e){if(e.data&&e.data.hiphiTrackerHeight)document.getElementById('hiphi-tracker').style.height=e.data.hiphiTrackerHeight+'px'})<\/script>`;
+  return embedSnippet(u.href, `HIPHI: ${l.title || 'bill list'}`);   // pub/embedsnippet.js (R-212 #38)
 }
 const numOf = b => billNum(b);
 const V = () => S.leList ??= { q: {}, focus: '' };

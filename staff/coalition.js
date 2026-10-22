@@ -18,6 +18,7 @@ import { icon, btn, chip, row, empty, toast, switchRow, avatar, pickerSheet, ope
 import { plural, isSide, thSort, sortBy, wireTable, DASH, pageHead, afterClose } from './lists.js';
 import { iconName } from './setup.js';
 import { issuesOfBill } from './issues.js';
+import { embedSnippet } from '../pub/embedsnippet.js';
 import { sittingOf, goersOf, goingWords, testimonyOf, dueOf, dueTone } from './hearing.js';
 import { billSub, wireLinks } from './pathway.js';
 import { rerender } from './bill.js';
@@ -56,7 +57,7 @@ const pref = () => S.me?.prefs?.coalitions;
 export const supports = c => { const v = pref(); return v === 'all' || (Array.isArray(v) && v.includes(c.id)); };
 const publicLink = c => `${PUBLIC_APP()}#/issue/${encodeURIComponent(c.slug)}`;
 const embedUrl = (c, { preview = false } = {}) => { const u = new URL('embed.html', location.href); u.search = ''; u.hash = ''; if (preview && DEMO) u.searchParams.set('demo', '1'); u.searchParams.set('coalition', c.slug); return u.href; };
-const embedCode = c => `<iframe id="hiphi-tracker" src="${embedUrl(c)}" title="${esc(`HIPHI: ${c.public_name || c.name} bills`)}" style="width:100%;border:0;min-height:420px" loading="lazy"></iframe>\n<script>addEventListener('message',function(e){if(e.data&&e.data.hiphiTrackerHeight)document.getElementById('hiphi-tracker').style.height=e.data.hiphiTrackerHeight+'px'})<\/script>`;
+const embedCode = c => embedSnippet(embedUrl(c), `HIPHI: ${c.public_name || c.name} bills`);   // pub/embedsnippet.js (R-212 #38)
 // The memo for this coalition's partners; from= gives the memo a back link to this page.
 const memoHref = c => `#/bills/memo?coalition=${encodeURIComponent(c.id)}&audience=partners&from=${encodeURIComponent(c.id)}`;
 // Bills, opened on every bill of this coalition (filters.js openCoalition).

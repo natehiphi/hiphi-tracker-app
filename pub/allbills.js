@@ -193,7 +193,8 @@ function render() {
     ${n ? `<div class="ab-filters${open ? '' : ' shut'}" id="ab-filters">${filtersHTML()}</div>
     <p class="sr" id="ab-count" aria-live="polite">${countLine()}</p>` : ''}
     <div id="ab-list">${n ? groupsHTML() : ''}</div>
-  </div>`;
+    <p class="rc-every ab-embed">${btn('Put these bills on your website', { kind: 'text', icon: 'code', href: '#/embed' })}</p>
+  </div>`;   // R-212 #38
 }
 
 // A search or a filter redraws only the list and the filter counts, so the box or the dropdown keeps its focus.

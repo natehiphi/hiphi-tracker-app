@@ -1,0 +1,12 @@
+/* Put bills on your website (#/embed, R-212 #38): the choices, the code and the live preview. */
+.em .field + .field, .em .field + .em-check { margin-top: var(--s16); }
+.em .em-check { display: flex; gap: var(--s12); align-items: flex-start; margin-top: var(--s16); line-height: 1.4; cursor: pointer; }
+.em .em-check input { flex: 0 0 auto; width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--p700); }
+.em .em-check .help { display: block; margin-top: 2px; font-size: var(--t14); color: var(--n500); }
+.em .em-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s16); }
+@media (max-width: 599px) { .em .em-acts > .btn.primary { width: 100%; justify-content: center; } }
+.em .em-said { min-height: 1.5em; margin: var(--s8) 0; color: var(--ok-text); font-weight: 600; }
+.em .em-code { width: 100%; min-height: 7rem; padding: var(--s12); font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--n700); background: var(--n50, #F7FAFB);
+  border: 1px solid var(--n400); border-radius: var(--r12); resize: vertical; overflow-wrap: anywhere; }
+.em .em-frame { border: 1px dashed var(--n400); border-radius: var(--r12); padding: var(--s8); background: var(--n0); }
+.em .em-frame iframe { display: block; width: 100%; height: 480px; border: 0; }
