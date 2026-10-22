@@ -29,9 +29,9 @@
 // the whole tab to today's Home, so every new person's first Home was the old one, its wins card included.
 import { S, app, esc, icon, nick, headline, billPath, alive, openActions, dayWord, timeWord, dateLong, hstDay, hiT, HST,
   followedIssues, issueBills, outcomeOf, didKind, sessionInfo, followsAnything, wiz, settledOn, plainStatus, testimonyDraft,
-  followSummary, winsIn, ensureRecapPool, isResolution, nudge, catOf, issueOf, DEMO, issuesOf, codesOf, agrees, asSentence, chairContacts } from '../core.js';
+  followSummary, winsIn, ensureRecapPool, isResolution, nudge, catOf, issueOf, DEMO, issuesOf, codesOf, agrees, asSentence, chairContacts, myActions, anyBill, anyHearing } from '../core.js';
 import { btn, chip, skeleton } from '../ui.js';
-import { actionCard, wireActions, wireNudge, goingPlans, goingCard, moreRow, downloadCutoffIcs } from '../actions.js';
+import { actionCard, wireActions, wireNudge, goingPlans, goingCard, moreRow, downloadCutoffIcs, remindWhen, remindDone } from '../actions.js';
 import { celebrate, bloom, swap, reduced, fxOn, rooster } from '../fx.js';
 import { CAPITOL, issueBand, flower } from '../art.js';
 import { GOAL } from './goals.js';
@@ -74,6 +74,18 @@ function dueAll() {
 // for the page, and companions heard late on the same day are rare.
 function lateAll() {
   return openActions(S.bills, S.hearings).filter(x => x.late && !settledOn(x.b, x.h)).sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at));
+}
+// The reminder (R-212 #35, the Neighborhood Captain's Tuesday): a hearing they shared whose testimony closes today or
+// tomorrow (actions.js remindWhen). Read from this browser's share marks, so a bill shared but not followed counts too. While
+// their own testimony on it is still due, its slide leads and the reminder waits until they have sent theirs.
+function remindAll(due) {
+  const mine = new Set(due.map(x => x.h.id)), seen = new Set(), out = [];
+  for (const a of myActions()) {
+    if (a.kind !== 'share' || !a.hearing_id || mine.has(a.hearing_id) || seen.has(a.hearing_id)) continue;
+    const h = anyHearing(a.hearing_id), b = h && anyBill(a.bill_id), w = b && remindWhen(b, h);
+    if (w) { seen.add(h.id); out.push({ b, h, w }); }
+  }
+  return out;
 }
 
 // ---------------- 2. the slide ----------------
@@ -193,6 +205,17 @@ function askParts(c, e, hl) {
     go: btn(`Ask the ${chairs} for a hearing`, { kind: 'primary', icon: 'mail', full: true, href: billPath(b), attrs: { 'data-hm-ask': b.bill_number, 'data-hm-act': '1' } }),
     after: rows, mk, mw };
 }
+// The reminder as a slide: one question for a heading (Nate's words, R-212 #35), the friends they asked in the sentence, the
+// deadline on the detail line, "Remind your friends" (the sheet, its words a reminder: askfriend.js; share-2, not the alerts'
+// bell, since it goes to them) and "Not now" under it, which brings it back once on the closing day.
+function remindParts(c, e, hl) {
+  const { b, h, w } = e.x, dl = h.testimony_deadline, ck = `${b.id}|${h.id}`;
+  return { hl, id: 'cm-rm-' + h.id, art: artOf(b), title: `Closes ${w}. Send a reminder?`,
+    say: esc(`You asked friends to send testimony on ${nameOf(b)}. A short reminder before it closes helps the ones who meant to write.`),
+    detail: detailLine(`By ${byWhen(dl)}`, Date.parse(dl) - Date.now() < 864e5, '', b),
+    go: btn('Remind your friends', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-cm-remind': ck } }),
+    more: btn('Not now', { kind: 'text', sm: true, attrs: { 'data-cm-remno': `${h.id}|${w}` } }) };
+}
 // Nothing to do: the page is allowed to just be calm (no filled button), and "we" keep watch (gap 6).
 function quietSlide(c, hl) {
   const nIss = followedIssues().length, quiet = (id, title, say, more = '') => slideHtml({ hl, id, art: artOf(null), title, say, more });
@@ -210,7 +233,7 @@ function theSlide(c) {
   const hl = c.welcome ? 'h2' : 'h1', k = c.card.kind;
   if (k === 'go') return `<section class="cm-card" aria-label="Your plan">${goingCard(c.card.plans)}</section>`;
   if (!c.entry) return quietSlide(c, hl);
-  const parts = e => e.kind === 'ask' ? askParts(c, e, hl) : dueParts(c, e, hl, e === c.entry);
+  const parts = e => e.kind === 'ask' ? askParts(c, e, hl) : e.kind === 'remind' ? remindParts(c, e, hl) : dueParts(c, e, hl, e === c.entry);
   const ghosts = c.deck.filter(e => e !== c.entry).map(e => wordsHtml(parts(e), true)).join('');
   return slideHtml(parts(c.entry), { ghosts, pager: pagerHtml(c.deck.length, c.at) });
 }
@@ -227,10 +250,11 @@ function thanksHtml(t, name) {
 // asks when nothing is due on time (R-250), else after everything, so a row's "Late testimony until" still has its slide. A
 // row with something to do moves the pager to its slide (decision 5a). Moving is browsing, not skipping: nothing is put
 // aside, so there is no "You've seen everything" ending (and no "Nothing needs you this week" after Malia's asks).
-function deckOf(due, late, asks) {
-  const on = kind => x => ({ kind, x, b: x.b, key: kind === 'ask' ? 'ask|' + x.b.id : skipKey(x),
+// A reminder to friends (R-212 #35) takes its place by its deadline, after their own testimony due at the same moment.
+function deckOf(due, late, asks, reminds = []) {
+  const on = kind => x => ({ kind, x, b: x.b, key: kind === 'ask' ? 'ask|' + x.b.id : kind === 'remind' ? 'remind|' + x.h.id : skipKey(x),
     t: kind === 'ask' ? hiT(x.st.deadline.date) : Date.parse(kind === 'late' ? x.h.scheduled_at : x.h.testimony_deadline) });
-  const timed = [...due.map(on('due')), ...(due.length ? [] : late.map(on('late'))), ...asks.map(on('ask'))].sort((x, y) => x.t - y.t);   // stable: a tie stays testimony first
+  const timed = [...due.map(on('due')), ...(due.length ? [] : late.map(on('late'))), ...asks.map(on('ask')), ...reminds.map(on('remind'))].sort((x, y) => x.t - y.t);   // stable: a tie stays testimony first
   return due.length ? [...timed, ...late.map(on('late'))] : timed;
 }
 // The slide the pager is on: the one the person moved to, else the soonest; when that one has just been sent (it leaves the
@@ -350,7 +374,7 @@ function greeting(c) {
   // One line and no count (R-300, Nate 17 Oct: "Remove the XYZ things you can do this week. If it's a lot it can be
   // overwhelming"; it reverses R-295's count). What changed is a dot on its row, and a result on a bill with a slide opens
   // that slide's sentence (A-14), so the greeting says hello and what the page is for. Words for Nate's look.
-  const line = ['due', 'late', 'ask'].includes(c.card.kind) ? 'Here’s how you can help.'
+  const line = ['due', 'late', 'ask', 'remind'].includes(c.card.kind) ? 'Here’s how you can help.'
     : c.freshN ? `There’s news on your ${c.noun} below.` : prevVisit() ? `Nothing new since ${esc(sinceWhen())}.` : '';   // the slide says we keep watch (A-14)
   return `<header class="cm-head"><p class="cm-hi"><b>${hi}.</b>${line ? ` <span>${line}</span>` : ''}</p></header>`;
 }
@@ -366,7 +390,7 @@ function thanksNow() {
 }
 function inSession(si, { welcome, fin }) {
   const due = dueAll(), asksAll = P.oneIdeaAsks(due), plans = goingPlans(), late = lateAll();
-  const deck = deckOf(due, late, asksAll), at = placeIn(deck), entry = deck[at] || null;
+  const deck = deckOf(due, late, asksAll, remindAll(due)), at = placeIn(deck), entry = deck[at] || null;
   // Good news on a bill with a slide opens that slide's sentence (the R-295 rule, now for every slide of the deck); it is seen
   // once the slide is shown. A law they spoke up for still gets its full-screen moment (C-7) wherever its row is.
   const gn = P.goodNews();
@@ -378,7 +402,7 @@ function inSession(si, { welcome, fin }) {
     : soon.length ? { kind: 'go', plans: soon, bill: soon[0].b } : { kind: '' };
   const c = { si, welcome, fin, due, late, asksAll, plans, card, deck, entry, at, moments: [entry?.g, law].filter(Boolean),
     open: openActions(S.bills, S.hearings).filter(x => !settledOn(x.b, x.h)), thanks: thanksNow() };
-  S.cmKeys = deck.map(e => e.key); S.cmMk = entry ? (entry.kind === 'ask' ? entry.key : `${entry.b.id}|${entry.x.h.id}`) : null;
+  S.cmKeys = deck.map(e => e.key); S.cmMk = entry ? (entry.kind === 'ask' || entry.kind === 'remind' ? entry.key : `${entry.b.id}|${entry.x.h.id}`) : null;
   const iss = followedIssues(), own = looseBills().filter(b => b.id !== card.bill?.id);
   // The slide's own issue: its row says "On the slide above" (and what else on it is due), and stays where it ranks.
   const onSlide = ['due', 'late', 'ask'].includes(card.kind) ? card.bill.id : null;
@@ -521,6 +545,12 @@ export default {
     const askOf = id => (P.oneIdeaAsks(dueAll()).find(x => x.b.id === id) || {});
     root.querySelectorAll('[data-cm-askf]').forEach(el => el.onclick = async () => { const { b } = askOf(el.dataset.cmAskf); if (!b) return;
       const how = await (await import('../askfriend.js')).askFriend({ b, ask: 'ask' }); if (how) app.render(); });
+    // The reminder (R-212 #35): the sheet with the reminder's words; sent it leaves the deck; "Not now" the day before brings it back on the day.
+    root.querySelectorAll('[data-cm-remind]').forEach(el => el.onclick = async () => {
+      const [bid, hid] = el.dataset.cmRemind.split('|'), b = anyBill(bid), h = anyHearing(hid); if (!b || !h) return;
+      const how = await (await import('../askfriend.js')).askFriend({ b, h, remind: true }); if (how) app.render(); });
+    root.querySelectorAll('[data-cm-remno]').forEach(el => el.onclick = () => { const [hid, w] = el.dataset.cmRemno.split('|'); remindDone(hid, w); app.render();
+      requestAnimationFrame(() => goal()?.focus({ preventScroll: true })); });
     root.querySelectorAll('[data-cm-cutoff]').forEach(el => el.onclick = () => { const { b, st } = askOf(el.dataset.cmCutoff); if (!b) return;
       downloadCutoffIcs(b, st.deadline.date); S.chips['ask|' + b.id + 'ics'] = true; app.render(); });
     // "Show all N" opens the rest of a long list where it is, and the first row it opened takes the focus (A-16).

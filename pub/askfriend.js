@@ -21,7 +21,7 @@
 // message they send themselves.
 import { esc, icon, nick, spaced, didKind, markDone, dueWords, dayWord, dateLong, timeWord, roomLabel, issueShareUrl, HEARING_ASKS, app } from './core.js';   // dueWords: the email's subject, read later
 import { btn } from './ui.js';
-import { shareFor, shareIssueText } from './actions.js';
+import { shareFor, shareIssueText, remindFor, remindDone } from './actions.js';
 import { abSeen } from './variant.js';
 import { picSeen } from './sharepic.js';
 
@@ -102,13 +102,16 @@ const MAIL_ORDER = () => { try { return matchMedia('(pointer: coarse)').matches 
 let dlg = null;
 // Open the sheet. b: the bill (or null with issue); h: the hearing of the moment, if any; did: what they just did (an action
 // kind or an ask); ask: the one ask when there is no hearing ahead; acted: the message starts from what they did; chamber,
-// law, differs: as shareFor; issue: share an issue instead of a bill. Resolves to 'shared' | 'email' | 'copied' | '' once the
+// law, differs: as shareFor; issue: share an issue instead of a bill; remind: the one reminder before testimony closes, to
+// the friends they already asked (R-212 #35, actions.js remindFor). Resolves to 'shared' | 'email' | 'copied' | '' once the
 // sheet is closed, after the share was marked done.
-export function askFriend({ b = null, h = null, did = '', ask = '', acted = false, chamber = '', law = false, differs = false, issue = null } = {}) {
-  const choices = issue ? [{ ask: 'follow', h: null, label: 'Follow the issue', sub: 'We’ll tell them when their voice can count.', done: false }] : choicesFor(b, h, { did, ask });
+export function askFriend({ b = null, h = null, did = '', ask = '', acted = false, chamber = '', law = false, differs = false, issue = null, remind = false } = {}) {
+  const choices = issue ? [{ ask: 'follow', h: null, label: 'Follow the issue', sub: 'We’ll tell them when their voice can count.', done: false }]
+    : remind ? choicesFor(b, h, { ask: 'testify' }).filter(c => c.ask === 'testify').map(c => ({ ...c, done: false, sub: '' })) : choicesFor(b, h, { did, ask });
   let pick = choices[0], result = '', edited = null, status = '', marked = false;
   const msgFor = c => {
     if (issue) { const t = shareIssueText(issue); return { title: issue.name, text: t, url: issueShareUrl(issue), ab: '', pic: null }; }
+    if (remind) return remindFor(b, c.h || h);
     return shareFor(b, c.h || h, { acted, ask: c.ask, chamber, law, differs });
   };
   // Marked once, whatever the way (copies count too, as since 9/18; only the words say "Copied" rather than "Sent").
@@ -117,6 +120,8 @@ export function askFriend({ b = null, h = null, did = '', ask = '', acted = fals
     if (marked) return; marked = true;
     try { if (t.ab) abSeen('share', { bill: t.ab }); picSeen(t.pic); } catch { /* counting never gets in the way */ }
     if (issue) { (await import('./visitlog.js')).logAct('share', { sp: way }); return; }
+    // A reminder is counted as a share (visit_counts), and the hearing's share mark is already there.
+    if (remind) { remindDone(h.id); (await import('./visitlog.js')).logAct('share', { sp: way }); return; }
     if (!didKind(b, pick.h || h, 'share')) await markDone(b.id, (pick.h || h)?.id || '', 'share', true, { quiet: true, sp: way });
   };
   const share = async (t, way = 'sheet') => {
@@ -134,26 +139,26 @@ export function askFriend({ b = null, h = null, did = '', ask = '', acted = fals
         const t = msgFor(pick), shown = edited ?? `${t.text}\n\n${t.url}`;
         // Each way out carries its own tag (K2), swapped into the link wherever it is in their words.
         // read at the moment of sending, so their edits since this was drawn go out too
-        const out = way => (edited ?? shown).split(t.url).join(tagged(t.url, way)), subj = subjectFor(b, { ...pick, title: issue ? issue.name : '' });
+        const out = way => (edited ?? shown).split(t.url).join(tagged(t.url, way)), subj = `${remind ? 'Reminder: ' : ''}${subjectFor(b, { ...pick, title: issue ? issue.name : '' })}`;
         const L = mailLinks(subj, out('email'));
         const action = !issue && pick.ask !== 'follow';
         // Y1: only where the walkthrough can take them straight there (a hearing ahead) and they have not acted yet.
-        const yours = !issue && !acted && b && pick.h && !pick.done && (pick.ask === 'testify' || pick.ask === 'email');
+        const yours = !issue && !remind && !acted && b && pick.h && !pick.done && (pick.ask === 'testify' || pick.ask === 'email');
         const yoursLine = `<p class="af-yours">Do yours first, and your message can say you did.
             ${btn('Send yours first', { kind: 'text', sm: true, icon: 'arrow-right', attrs: { 'data-af': 'yours' } })}</p>`;
         dlg.innerHTML = `<div class="af-in">
-          <div class="af-top"><h2 id="af-h" tabindex="-1">${action ? 'Ask a friend to speak up' : 'Share with a friend'}</h2>
+          <div class="af-top"><h2 id="af-h" tabindex="-1">${remind ? 'Remind your friends' : action ? 'Ask a friend to speak up' : 'Share with a friend'}</h2>
             <button type="button" class="iconbtn af-x" data-af="close" aria-label="Close">${icon('x')}</button></div>
           ${choices.length > 1 ? `<fieldset class="af-asks"><legend>What should your friend do?</legend>
             ${choices.map((c, i) => `<label class="af-ask${c.ask === pick.ask ? ' on' : ''}"><input type="radio" name="af-ask" value="${c.ask}"${c.ask === pick.ask ? ' checked' : ''} id="af-ask-${i}">
               <span class="af-asktx"><b>${esc(c.label)}</b><span>${esc(c.sub)}${c.done ? ` · <span class="af-did">${icon('check')}you did this</span>` : ''}</span></span></label>`).join('')}</fieldset>`
-            : `<p class="af-one">You’re asking them to: <b>${esc(pick.label)}</b>${pick.sub && pick.ask !== 'follow' ? `<span> · ${esc(pick.sub)}</span>` : ''}</p>`}
+            : `<p class="af-one">${remind ? 'You’re reminding them to' : 'You’re asking them to'}: <b>${esc(pick.label)}</b>${pick.sub && pick.ask !== 'follow' ? `<span> · ${esc(pick.sub)}</span>` : ''}</p>`}
           ${yours && !phone ? yoursLine : ''}
           ${phone ? `<div class="field af-msgf"><label for="af-msg">Your message</label>
             <textarea id="af-msg" rows="5" spellcheck="true" autocapitalize="sentences">${esc(shown)}</textarea>
             <span class="help">Change anything you like. The link at the end opens the ${action ? 'steps' : 'page'} for them.</span></div>
             <p class="af-status${status ? '' : ' empty'}" role="status">${status ? `${icon('circle-check')}<span>${esc(status)}</span>` : ''}</p>
-            <div class="af-send">${btn('Send to a friend', { kind: 'primary', icon: 'share-2', attrs: { 'data-af': 'sheet' } })}${btn('Copy message', { kind: 'secondary', icon: 'copy', attrs: { 'data-af': 'copy' } })}</div>
+            <div class="af-send">${btn(remind ? 'Send the reminder' : 'Send to a friend', { kind: 'primary', icon: 'share-2', attrs: { 'data-af': 'sheet' } })}${btn('Copy message', { kind: 'secondary', icon: 'copy', attrs: { 'data-af': 'copy' } })}</div>
             ${yours ? yoursLine : ''}` : ''}
           <div class="af-sees" id="af-sees" aria-live="polite"><p class="af-k">${phone ? 'The link shows this' : 'The link’s card, in a text or a post'}</p>
             <div class="af-card" data-af-card>${skeleton()}</div></div>
@@ -192,7 +197,7 @@ export function askFriend({ b = null, h = null, did = '', ask = '', acted = fals
           if (ask === 'testify') app.openHelper(b.id, hid); else app.openMail?.({ mode: 'email', bill: b.id, hearing: hid }); });
         dlg.querySelectorAll('[data-af="sheet"]').forEach(x => x.onclick = async () => {
           const ok = await share(edited != null ? { ...t, text: edited.split(t.url).join('').trim() } : t);
-          if (ok) { if (phone) return dlg.close(); status = 'Sent. Mahalo for bringing a friend.'; paint('af-status'); }
+          if (ok) { if (phone) return dlg.close(); status = remind ? 'Sent. A reminder at the right moment helps.' : 'Sent. Mahalo for bringing a friend.'; paint('af-status'); }
           else if (ok === null) { status = phone ? 'That didn’t open. Try Copy message, then paste it into a text.' : 'That didn’t open. Try Email it or Copy message.'; paint('af-status'); }
         });
         if (focus) requestAnimationFrame(() => (focus === 'af-status' ? dlg.querySelector('[data-af="close"]') : dlg.querySelector('#' + focus))?.focus({ preventScroll: true }));
