@@ -200,6 +200,9 @@ jobs:
       - name: "Legislators by name and title: \"Senator Chang\" in the header search and the finder (R-212 #40)"
         if: ${{ !cancelled() }}
         run: python3 tests/legislator_names.py http://localhost:8832/ /tmp
+      - name: "Sponsors cleaned, up top and clickable, and Bills they filed on a lawmaker's page (R-212 #41)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/sponsors.py http://localhost:8832/ /tmp
       - name: "Staff v2, Session setup > Tests: the list, each test's versions as pictures side by side, the switches; the practice copy follows them (R-192, R-201)"
         if: ${{ !cancelled() }}
         run: python3 tests/versions.py

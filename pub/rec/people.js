@@ -8,7 +8,7 @@
 //   a lawmaker: who they are in one line, ONE card, "On your issues", then three closed cards (their committees, every
 //   HIPHI bill in them, office and contact: the phone said once).
 // Street addresses never reach a web address and are never kept (people.js): only the districts and the town are.
-import { S, app, esc, icon, spaced, nick, billPath, legById, legTitle, legPhoto, posInfo, cmteLabel, codesOf, stopOf, alive, agrees, didKind, hearingWhen, CHAMBER_NAME, sessionInfo, HST } from '../core.js';
+import { S, app, esc, icon, spaced, nick, billPath, filedBy, legById, legTitle, legPhoto, posInfo, cmteLabel, codesOf, stopOf, alive, agrees, didKind, hearingWhen, CHAMBER_NAME, sessionInfo, HST } from '../core.js';
 import { btn, chip, notice } from '../ui.js';
 import { recHead, recBack, recSec, recRows, recMore, recFold, recFolds, recWay, recEmpty, wireKit, BOX } from './kit.js';
 import { recAct, dueOf, byDue, billRow, billWords, pillFor, daysLeft, backRow, atWords } from './act.js';
@@ -217,11 +217,34 @@ export function recPerson(route) {
      ${l.capitol_url && (l.email || l.phone) ? recWay('external-link', 'Their page on the Capitol website', 'Bills they introduced and their votes', { href: l.capitol_url, target: '_blank', rel: 'noopener' }) : ''}
      <p class="pp-roffice">${icon('landmark')}<span>${l.room ? `Room ${esc(l.room)}, ` : ''}Hawaiʻi State Capitol, 415 S Beretania St, Honolulu${l.email ? `<br>${esc(l.email)}` : ''}</span></p>
      ${l.places ? `<p class="pp-roffice">${icon('map')}<span>${PARTY[l.party] ? esc(PARTY[l.party]) + '. ' : ''}${CHAMBER_NAME[l.chamber]} District ${l.district} covers ${esc(cover(l))}.</span></p>` : ''}`);
+  const filed = filedCard(l);
   const head = `<header class="rc-head pp-rhead">${legPhoto(l, 'pp-photo xl')}<div class="pp-rhtext">${own ? `<span class="pp-ryours">${chip(yoursWord(l), 'info', 'user-check')}</span>` : ''}
     <h1 class="rc-h1">${esc(full(l))}</h1><p class="pp-rdist">${esc(districtLine(l))}</p></div></header>${quietLine(l, roles)}`;
-  const rest = `${yours}${recFolds([cm, bills, office])}`;
+  const rest = `${yours}${recFolds([cm, bills, filed, office])}`;
   return `<div class="pp rc rc-wide pp-rec pp-rperson">${back}<div class="rc-cols"><div class="pp-rmain">${head}</div>
     <aside class="rc-side pp-ract" aria-label="Take part">${card}</aside><div class="pp-rmain pp-rmain2">${rest}</div></div></div>`;
+}
+
+// "Bills they filed" (R-212 #41, the District Watcher: "no list of bills a legislator filed"): the bills with their name first,
+// HIPHI's first, then HIPHI's bills they signed on to, and how many more carry their name. Closed like the cards beside it (B-6);
+// asked of the public view once a visit (core.js filedBy), the page drawn again when it answers.
+const nBills = (n, w = 'bill') => `${n.toLocaleString('en-US')} ${w}${n === 1 ? '' : 's'}`;
+function filedCard(l) {
+  const f = S.filed?.[l.id];
+  if (f === undefined) filedBy(l).then(() => { if (new RegExp(`^#/legislator/${l.id}(\\?|$)`).test(location.hash)) app.render(); });
+  if (!f || f === 'loading') return recFold('pp-filed', 'Bills they introduced', 'Looking them up…', `<p class="rc-note pp-rnote">Looking up the bills they introduced…</p>`);
+  if (f === 'error') return recFold('pp-filed', 'Bills they introduced', 'Could not load just now',
+    `<p class="rc-note pp-rnote">The list could not load just now. Try again in a minute${l.capitol_url ? ', or see them on the Capitol website' : ''}.</p>`
+    + (l.capitol_url ? recWay('external-link', 'Their page on the Capitol website', 'Bills they introduced and their votes', { href: l.capitol_url, target: '_blank', rel: 'noopener' }) : ''));
+  const { lead, also, alsoN, year } = f, ours = lead.filter(b => posInfo(b)).length;
+  const row = b => billRow(b, dueOf(b), { href: billPath(b) });
+  if (!lead.length && !alsoN) return recFold('pp-filed', 'Bills they introduced', `None in ${year}`, `<p class="rc-note pp-rnote">No bills carry their name in ${year} yet.</p>`);
+  const prev = lead.length ? `Introduced ${nBills(lead.length)}${ours ? `, ${ours} of them HIPHI’s` : ''}` : `Signed ${nBills(alsoN)} another lawmaker introduced`;
+  const others = alsoN - also.length;
+  return recFold('pp-filed', 'Bills they introduced', prev,
+    (lead.length ? `${ours && ours < lead.length ? `<p class="rc-note pp-rnote">In ${year}, HIPHI’s first.</p>` : ''}${recMore(lead.map(row), 6, 'pp-filed')}` : '')
+    + (also.length ? `<p class="pp-rgh pp-rgh2">HIPHI bills they also signed</p>${recMore(also.map(row), 4, 'pp-filed-also')}` : '')
+    + (others > 0 ? `<p class="rc-note pp-rnote pp-rfiled">They also signed ${also.length ? `${others.toLocaleString('en-US')} more ${others === 1 ? 'bill' : 'bills'}` : nBills(others)} that another lawmaker introduced.</p>` : ''));
 }
 
 // ---------------- wiring (people.js wire() does the field, the suggestions and the email) ----------------

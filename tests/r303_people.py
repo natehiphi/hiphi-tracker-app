@@ -6,7 +6,7 @@
 #   - the finder not known yet: "Who represents you?", one field "Your street address, town, district or a lawmaker’s name" (R-212 #40) with a working example, the
 #     directory folded to one link that opens it in place; known: two quiet person rows, ONE card, one filled button, no lede;
 #     the card's email opens with the bill (kai: HB 1780 with Sen. Kim), and the mail app's button is then the one filled one;
-#   - a lawmaker (Sen. Kim, 189): the head, ONE card, On your issues, three closed cards; under 1,600px on a phone; ?from= a
+#   - a lawmaker (Sen. Kim, 189): the head, ONE card, On your issues, four closed cards (Bills they introduced since R-212 #41); under 1,600px on a phone; ?from= a
 #     bill makes the card about that bill; the phone said once (Rep. Hussey, 302); on a laptop the card is at the side;
 #   - Committees: "Hearing HIPHI's bills this week" first, the two chambers closed; Education: every meeting day, ONE card
 #     with "Help me write testimony" opening HB 1780's walkthrough, HIPHI's bills by what is due, Members closed;
@@ -116,7 +116,7 @@ with sync_playwright() as p:
             order = pg.evaluate(ORDER, ['.pp-rhead', '.rc-act', '.rc-folds'])
             check(order == 'ok', f'{tag}: Sen. Kim: the head, the card, then the closed cards ({order})')
             folds = pg.evaluate("[...document.querySelectorAll('.rc-fold')].map(d => d.dataset.rcFold + (d.open ? '+' : '')).join()")
-            check(folds == 'pp-cmtes,pp-allbills,pp-office', f'{tag}: three closed cards: their committees, all HIPHI bills, office and contact ({folds})')
+            check(folds == 'pp-cmtes,pp-allbills,pp-filed,pp-office', f'{tag}: four closed cards: their committees, all HIPHI bills, bills they introduced (R-212 #41), office and contact ({folds})')
             check(s['filled'] == 1 and pg.locator('.rc-act').count() == 1, f'{tag}: Sen. Kim: ONE card, one filled button ({s["filled"]})')
             if who == 'kai':
                 check(pg.inner_text('.rc-act .rc-ah') == 'Ask Sen. Kim to support Free school bus passes' and pg.inner_text('.rc-act .rc-awhen').startswith('Hearing'), f'{tag}: the most pressing followed bill in her committees leads, with her committee\'s hearing')

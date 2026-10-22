@@ -240,6 +240,56 @@ export const legsOf = code => { const cs = codesOf(code), rank = { chair: 0, vic
 export const legPhoto = (l, cls = 'lphoto') => l.photo_url ? `<img class="${cls}" src="${esc(l.photo_url)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'${cls} none',textContent:'${esc((l.name || '?')[0])}'}))">` : `<span class="${cls} none">${esc((l.name || '?')[0])}</span>`;
 // the places a legislator's district covers, one name each
 export const placesOf = l => (l.places || '').split(/,\s*/).map(x => x.replace(/^(a )?portions? of\s+/i, '').trim()).filter(Boolean);
+// A bill's introducers, cleaned (R-212 #41, the District Watcher). The Capitol lists surnames in capitals, and two lawmakers
+// named Lee come with an initial that the export splits into its own name ("LEE", "M." in the House; "LEE", "C." in the
+// Senate), so an initial alone is dropped: within one chamber the surname is enough. Names added later come in mixed case
+// ("San Buenaventura"), the same person. A governor's message names "governor". Each is matched to a lawmaker of the bill's
+// own chamber (introducers are always from it), so the bill page can link the name and their page can list the bill.
+const originOf = b => b.chamber || (/^S/.test(b.bill_number || '') ? 'S' : 'H');
+const legSurname = l => String(l.sort_name || l.name || '').split(',')[0].trim();
+export function sponsorsOf(b) {
+  const seen = new Set(), out = [];
+  for (const s of b.sponsors || []) {
+    const n = String(typeof s === 'string' ? s : s?.n || s?.name || '').trim();
+    if (!n || /^[A-Z]\.?$/i.test(n) || seen.has(n.toUpperCase())) continue;
+    seen.add(n.toUpperCase());
+    if (/^governor$/i.test(n)) { out.push({ n, name: 'The Governor', l: null }); continue; }
+    const l = (S.legislators || []).find(l => l.chamber === originOf(b) && legSurname(l).toUpperCase() === n.toUpperCase()) || null;
+    out.push({ n, name: l ? `${legTitle(l)} ${l.name}` : titleCase(n), l });
+  }
+  return out;
+}
+// The bills a lawmaker introduced, their name first, and those they signed on to (R-212 #41, "Bills they filed"). Three small
+// questions to the public view, not every row: Sen. Chang's name is on 1,457 of 6,728 bills, first on 218. Rows carry only what
+// a list row needs. S.filed[id]: undefined (not asked), 'loading', 'error', or { lead, also, alsoN, year }: the session the
+// app is on or just finished (a new Legislature's numbers start again, so 2027's list starts empty).
+const FILED_COLS = 'id,bill_number,session_year,chamber,title,description,committee,referrals,stage,last_action,last_action_date,origin_stops,second_stops,died_deadline,died_at_stage,hiphi_position,hiphi_nickname,hiphi_follows,sponsors';
+const filedSort = (x, y) => (posInfo(y) ? 1 : 0) - (posInfo(x) ? 1 : 0) || (isResolution(x) ? 1 : 0) - (isResolution(y) ? 1 : 0) || x.bill_number.localeCompare(y.bill_number, 'en', { numeric: true });
+export async function filedBy(l) {
+  S.filed ??= {};
+  if (S.filed[l.id]) return S.filed[l.id];
+  S.filed[l.id] = 'loading';
+  const sur = legSurname(l), forms = [...new Set([sur.toUpperCase(), sur])];
+  const isLead = b => { const s = sponsorsOf(b)[0]; return !!s && s.l?.id === l.id; }, year = sessionInfo().recapYear;
+  try {
+    let lead, also, alsoN;
+    if (DEMO) {
+      const mine = D.bills.filter(b => sponsorsOf(b).some(s => s.l?.id === l.id));
+      lead = mine.filter(isLead); also = mine.filter(b => !isLead(b) && posInfo(b)); alsoN = mine.length - lead.length;
+    } else {
+      const sb = await supa(), named = forms.map(f => `sponsors.cs.${JSON.stringify([{ n: f }])}`).join(',');
+      const [a, c, n] = await Promise.all([
+        sb.from('public_all_bills').select(FILED_COLS).eq('chamber', l.chamber).eq('session_year', year).in('sponsors->0->>n', forms).order('bill_number').limit(1000),
+        sb.from('public_all_bills').select(FILED_COLS).eq('chamber', l.chamber).eq('session_year', year).or(named).not('hiphi_position', 'is', null).limit(300),
+        sb.from('public_all_bills').select('id', { count: 'exact', head: true }).eq('chamber', l.chamber).eq('session_year', year).or(named)]);
+      if (a.error || c.error || n.error) throw a.error || c.error || n.error;
+      lead = (a.data || []).filter(isLead); also = (c.data || []).filter(b => !isLead(b) && posInfo(b));
+      alsoN = Math.max(0, (n.count || 0) - lead.length);
+    }
+    S.filed[l.id] = { lead: lead.sort(filedSort), also: also.sort(filedSort), alsoN, year };
+  } catch { S.filed[l.id] = 'error'; }
+  return S.filed[l.id];
+}
 // what the box suggests
 export const looksLikeAddress = q => q.trim().length >= 3 && !/^(senate|house|sd|hd)?\s*(district)?\s*\d{1,2}$/i.test(q.trim());
 // Suggestions come from our own table of every Hawaiʻi street address (with districts), one fast query.
