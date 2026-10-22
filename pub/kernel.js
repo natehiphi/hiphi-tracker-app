@@ -218,11 +218,23 @@ export const issuesLink = () => {
   const parts = [...[...(S.catFollows || [])].map(k => 'cat:' + k), ...[...(S.issueFollows || [])].map(id => S.issueById?.get(id)?.slug).filter(Boolean)];
   return parts.length ? `${location.origin}${location.pathname}${DEMO ? location.search : ''}#/follow/${parts.join(',')}` : '';
 };
+// What someone follows, in words (R-212 #37): whole topics by their names, then the issues outside them. names: the short
+// list ("Food & Nutrition, Clean air and 2 more"), all: every name, noun: "this topic", "this issue" or "these".
+export function followNames() {
+  const cats = [...(S.catFollows || [])].map(k => (S.cats || []).find(c => c.key === k)).filter(Boolean);
+  const inCat = i => (i.categories || [i.category]).some(c => S.catFollows.has(c));
+  const ns = [...cats.map(c => c.name), ...followedIssues().filter(i => !inCat(i)).map(i => i.name)];
+  const join = xs => xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0] || '';
+  return { count: ns.length, names: ns.length > 3 ? `${ns.slice(0, 2).join(', ')} and ${ns.length - 2} more` : join(ns), all: join(ns),
+    noun: ns.length > 1 ? 'these' : cats.length ? 'this topic' : 'this issue' };
+}
 // An issue's calendar feed (R-125, the assessment's W3): cal/<slug>.ics, built daily by tools/share_pages.mjs with every
 // hearing and testimony deadline on the issue's bills; webcal:// opens the phone's calendar app to subscribe. The sandbox
 // has no feeds, so it points at the issue page.
 export const calendarUrl = i => DEMO ? `#/issue/${i.slug}` : `webcal://${location.host}${location.pathname.replace(/[^/]*$/, '')}cal/${i.slug}.ics`;
-export async function restoreFollows(slugs) {
+// friend: the link came from someone else (R-212 #37), so it says these are the issues their friend sent, which this
+// browser now follows alongside any of its own.
+export async function restoreFollows(slugs, { friend = false } = {}) {
   const issuesOn = [], catsOn = [];
   for (const x of slugs || []) {
     if (x.startsWith('cat:')) { if ((S.cats || []).some(c => c.key === x.slice(4))) catsOn.push(x.slice(4)); }
@@ -232,8 +244,11 @@ export async function restoreFollows(slugs) {
   const ok = await setFollows({ issuesOn, catsOn });
   if (!ok) return false;
   wizSet({ done: true, skipped: true });   // they have a setup: no first visit
-  const n = followedIssues().length;
-  toast(`Your ${n === 1 ? 'issue is' : `${n} issues are`} here. Mahalo!`, { yay: true });
+  // A friend's link is counted in issues, the thing My issues lists (a whole topic brings each issue in it; the critic of
+  // 10/22: "3 issues" read wrong beside a dozen rows), and it lands on My issues, where they are (app.js).
+  const n = followedIssues().length, sent = S.issues.filter(i => issuesOn.includes(i.id) || (i.categories || [i.category]).some(c => catsOn.includes(c))).length;
+  toast(friend ? `You now follow ${sent === 1 ? 'the issue' : `${sent} issues`} your friend sent. Mahalo!`
+    : `Your ${n === 1 ? 'issue is' : `${n} issues are`} here. Mahalo!`, { yay: true });
   try { app.onAct?.('restore'); } catch { /* counted only */ }
   return true;
 }

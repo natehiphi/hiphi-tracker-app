@@ -9,7 +9,7 @@
 // It also holds what the other pages under You share: the back row that names the page behind (B-4), the "Your alerts" row
 // Profile starts with, and this page group's stylesheet (pub/rec/you.css), which comes with the first page drawn under
 // ?rec=1 and holds a skeleton until it is in, so nothing draws unstyled.
-import { S, app, esc, icon, toast, issuesLink } from '../core.js';
+import { S, app, esc, icon, issuesLink } from '../core.js';
 import { skeleton } from '../ui.js';
 import { MARK } from '../art.js';
 import { t } from '../i18n.js';
@@ -108,7 +108,7 @@ export function youView() {
     <nav class="yu-foot" aria-label="${esc(t('About this tracker'))}">
       <button type="button" class="yu-fl" data-yu-about aria-expanded="${open}" aria-controls="yu-about"><span>${t('About HIPHI')}</span>${icon('chevron-down', { cls: 'yu-flc' })}</button>
       <a class="yu-fl" href="#/privacy">${t('Privacy and accessibility')}</a>
-      ${issuesLink() ? `<button type="button" class="yu-fl" data-mr-keep aria-describedby="yu-keep-h">${icon('copy', { cls: 'yu-flc' })}<span>${t('Copy My issues link')}</span></button><span class="sr" id="yu-keep-h">${t('A link that opens your issues on any phone or browser. No account needed.')}</span>` : ''}
+      ${issuesLink() ? `<button type="button" class="yu-fl" data-mr-keep aria-describedby="yu-keep-h">${icon('share-2', { cls: 'yu-flc' })}<span>${t('Send my issues to a friend')}</span></button><span class="sr" id="yu-keep-h">${t('A link that follows your issues on any phone. No account needed.')}</span>` : ''}
     </nav>
     <div class="rc-card yu-about" id="yu-about"${open ? '' : ' hidden'}>${aboutHiphi()}</div>
     <p class="yu-src">${t('Bill details come from the Hawaiʻi State Legislature and update several times a day. Positions marked HIPHI are HIPHI’s own.')}</p>
@@ -120,10 +120,9 @@ export function wireYou() {
   const b = root.querySelector('[data-yu-about]'), box = root.querySelector('#yu-about');
   if (b && box) b.onclick = () => { S.yuAbout = !S.yuAbout; b.setAttribute('aria-expanded', String(S.yuAbout)); box.hidden = !S.yuAbout;
     if (S.yuAbout) box.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); };
-  // My issues link (R-123): copied, or, where copying is refused, a text to oneself with it.
-  root.querySelector('[data-mr-keep]')?.addEventListener('click', async () => { const link = issuesLink();
-    try { await navigator.clipboard.writeText(link); toast('Your issues link is copied. Paste it into a text or a note, and open it on any phone.', { yay: true }); }
-    catch { location.href = `sms:?&body=${encodeURIComponent('My issues on HIPHI’s Bill Tracker: ' + link)}`; } });
+  // "Send my issues to a friend" (R-212 #37; the My issues link of R-123, renamed for what people did with it): the
+  // ask-a-friend sheet, whose Copy link also takes the issues to another phone of their own.
+  root.querySelector('[data-mr-keep]')?.addEventListener('click', async () => { (await import('../askfriend.js')).askFriend({ mine: true }); });
 }
 
 // ---------------- Profile's first row ----------------

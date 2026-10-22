@@ -6,7 +6,7 @@
 // blurbs, chips, counts or buttons; then "Your lists" when there are any; then two quiet links. "Edit" at the top right is the
 // tidying: each row gets "Stop following" (Undo in the toast, as today), and a topic followed whole says so, with "Stop
 // following all".
-import { S, DEMO, app, esc, icon, unfollowIssue, setFollows, catOf, sessionInfo } from '../core.js';
+import { S, DEMO, app, esc, icon, unfollowIssue, setFollows, catOf, sessionInfo, issuesLink } from '../core.js';
 import { btn } from '../ui.js';
 import { recRow, recEmpty, wireKit, BOX } from './kit.js';
 import { myRows, keep } from '../calm/home.js';
@@ -61,7 +61,9 @@ function render() {
   if (!document.querySelector('.rc-mine')) S.rcEdit = false;   // arriving afresh: not editing
   const si = sessionInfo(), off = si.phase !== 'in', rows = myRows(), lists = listRows();
   const edit = !!S.rcEdit && rows.length > 0;
-  const head = `<header class="rc-head rc-mhead"><h1 class="rc-h1">My issues</h1>${rows.length ? `<button type="button" class="btn text rc-edit" data-rc-edit aria-label="${edit ? 'Done editing' : 'Edit what you follow'}">${edit ? 'Done' : 'Edit'}</button>` : ''}</header>`;
+  // "Send to a friend" (R-212 #37): all of them at once, where a person looks for "my issues" (the critic, 10/22); not while editing.
+  const send = rows.length && !edit && issuesLink() ? `<button type="button" class="btn text rc-edit rc-send" data-rc-mine aria-label="Send my issues to a friend">${icon('share-2')}<span>Send<span class="rc-sendx"> to a friend</span></span></button>` : '';
+  const head = `<header class="rc-head rc-mhead"><h1 class="rc-h1">My issues</h1>${send}${rows.length ? `<button type="button" class="btn text rc-edit" data-rc-edit aria-label="${edit ? 'Done editing' : 'Edit what you follow'}">${edit ? 'Done' : 'Edit'}</button>` : ''}</header>`;
   const links = `<div class="rc-links">${btn(off ? `What you did in ${si.recapYear}` : 'What you’ve done this session', { kind: 'text', iconEnd: 'chevron-right', href: '#/recap' })}
     ${btn('Follow more issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/find' })}</div>`;
   // Nothing followed: the lanai drawing, the line, the buttons (A-13; R-311, Nate 10/20), as the old page's empty box.
@@ -97,6 +99,7 @@ export default {
   wire() {
     const root = document.querySelector('.rc-mine'); if (!root) return;
     wireKit(root); wireMyLists(root);
+    root.querySelector('[data-rc-mine]')?.addEventListener('click', async () => { (await import('../askfriend.js')).askFriend({ mine: true }); });
     const ed = root.querySelector('[data-rc-edit]');
     if (ed) ed.onclick = () => { S.rcEdit = !S.rcEdit; S.rcFocus = '[data-rc-edit]'; app.render(); };
     // After a row goes, the focus moves to the next row's Stop (or the one before, or Done), never to the top of the page.

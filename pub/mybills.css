@@ -165,6 +165,8 @@
 body.rec .rc-mhead { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); }
 body.rec .rc-mhead .rc-h1 { margin: 0; }
 body.rec .rc-edit { flex: none; margin-right: calc(-1 * var(--s12)); }
+body.rec .rc-mhead .rc-send { margin: 0 0 0 auto; }   /* "Send to a friend" sits beside Edit, at the right (R-212 #37) */
+@media (max-width: 479px) { body.rec .rc-mhead .rc-sendx { display: none; } }   /* a phone: "Send", so "My issues" keeps one line */
 /* the frame's own room for the tab bar ends the page (main's padding), so this page adds none: Leilani's sixteen fit in
    1,500px on a phone (R-303's budget; 4,146 before) */
 body.rec .rc.rc-mine { padding-bottom: 0; }

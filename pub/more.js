@@ -318,7 +318,7 @@ function moreView() {
       </details>`}
     </nav>
     ${issuesLink() ? `<h2 class="mr-grouphead" id="mr-g-keep">${t('Your issues, anywhere')}</h2>
-    <div class="rows mr-grid" aria-labelledby="mr-g-keep">${row({ lead: 'link', title: t('My issues link'), sub: t('Open it in any browser or phone and your issues come with you. No account needed.'), attrs: { 'data-mr-keep': '1', role: 'button', tabindex: '0' } })}</div>` : ''}
+    <div class="rows mr-grid" aria-labelledby="mr-g-keep">${row({ lead: 'share-2', title: t('Send my issues to a friend'), sub: t('A link that follows your issues on any phone. No account needed.'), attrs: { 'data-mr-keep': '1', role: 'button', tabindex: '0' } })}</div>` : ''}
     <h2 class="mr-grouphead" id="mr-g-about">${t('About this tracker')}</h2>
     <nav class="rows mr-grid grid3" aria-labelledby="mr-g-about">
       ${row({ lead: 'lock', title: t('Privacy'), sub: t('What we keep and who sees it'), href: '#/privacy' })}
@@ -332,7 +332,7 @@ function wireMore() {
   wireLangPicker();
   const f = $('.mr-fold'); if (f) f.ontoggle = () => { S.mrFold = f.open; };
   // My issues link (R-123): copied, with a text-it-to-myself way beside it in the toast.
-  $('[data-mr-keep]')?.addEventListener('click', async () => { const link = issuesLink(); try { await navigator.clipboard.writeText(link); toast('Your issues link is copied. Paste it into a text or a note, and open it on any phone.', { yay: true }); } catch { location.href = `sms:?&body=${encodeURIComponent('My issues on HIPHI’s Bill Tracker: ' + link)}`; } });
+  $('[data-mr-keep]')?.addEventListener('click', async () => { (await import('./askfriend.js')).askFriend({ mine: true }); });   // R-212 #37
 }
 
 // ---------------- Help ----------------

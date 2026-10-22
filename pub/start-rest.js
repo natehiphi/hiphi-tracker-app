@@ -808,7 +808,7 @@ function stepDone(step) {
       <li style="--k:1"><span class="st-nic">${icon('calendar-clock')}</span><div>${told ? '<b>When it’s your moment, we tell you.</b><span>Most ways to help take about 2 minutes.</span>'
         : '<b>When it’s your moment, it’s on your home page.</b><span>Most ways to help take about 2 minutes.</span>'}</div></li>
       <li style="--k:2"><span class="st-nic">${icon('circle-check')}</span><div><b>You see what happened.</b><span>Every result is on your home page.</span></div></li>
-    </ol>${shareLine()}`);   // the My issues link lives only under More since 10/10 (R-123 (a))
+    </ol>${shareLine()}`);   // two issues or more: "Send my issues to a friend" (R-212 #37, Nate 10/22); one: that issue's share
 }
 
 

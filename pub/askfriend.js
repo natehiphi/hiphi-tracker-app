@@ -19,7 +19,7 @@
 // A share is marked done once (an action, as every share has been since 9/18), and after it nothing asks again: Nate 10/7,
 // "Do not ask them to keep sharing after they've done it". The person's words never leave this browser except in the
 // message they send themselves.
-import { esc, icon, nick, spaced, didKind, markDone, dueWords, dayWord, dateLong, timeWord, roomLabel, issueShareUrl, HEARING_ASKS, app } from './core.js';   // dueWords: the email's subject, read later
+import { S, esc, icon, nick, spaced, didKind, markDone, dueWords, dayWord, dateLong, timeWord, roomLabel, issueShareUrl, issuesLink, followNames, HEARING_ASKS, app } from './core.js';   // dueWords: the email's subject, read later
 import { btn } from './ui.js';
 import { shareFor, shareIssueText, remindFor, remindDone } from './actions.js';
 import { abSeen } from './variant.js';
@@ -103,13 +103,16 @@ let dlg = null;
 // Open the sheet. b: the bill (or null with issue); h: the hearing of the moment, if any; did: what they just did (an action
 // kind or an ask); ask: the one ask when there is no hearing ahead; acted: the message starts from what they did; chamber,
 // law, differs: as shareFor; issue: share an issue instead of a bill; remind: the one reminder before testimony closes, to
-// the friends they already asked (R-212 #35, actions.js remindFor). Resolves to 'shared' | 'email' | 'copied' | '' once the
+// the friends they already asked (R-212 #35, actions.js remindFor); mine: send all the issues they follow (R-212 #37, the
+// Neighborhood Captain: "Send my issues to a friend", the My issues link of R-123 put to a friend's use). Resolves to 'shared' | 'email' | 'copied' | '' once the
 // sheet is closed, after the share was marked done.
-export function askFriend({ b = null, h = null, did = '', ask = '', acted = false, chamber = '', law = false, differs = false, issue = null, remind = false } = {}) {
-  const choices = issue ? [{ ask: 'follow', h: null, label: 'Follow the issue', sub: 'We’ll tell them when their voice can count.', done: false }]
+export function askFriend({ b = null, h = null, did = '', ask = '', acted = false, chamber = '', law = false, differs = false, issue = null, remind = false, mine = false } = {}) {
+  if (mine) { const m = myIssues(); if (!m.url) return Promise.resolve(''); issue = { name: m.title, mine: m }; }
+  const choices = issue?.mine ? [{ ask: 'follow', h: null, label: 'Follow your issues', sub: issue.mine.names, done: false }] : issue ? [{ ask: 'follow', h: null, label: 'Follow the issue', sub: 'We’ll tell them when their voice can count.', done: false }]
     : remind ? choicesFor(b, h, { ask: 'testify' }).filter(c => c.ask === 'testify').map(c => ({ ...c, done: false, sub: '' })) : choicesFor(b, h, { did, ask });
   let pick = choices[0], result = '', edited = null, status = '', marked = false;
   const msgFor = c => {
+    if (issue?.mine) return { title: issue.mine.title, text: issue.mine.text, url: issue.mine.url, ab: '', pic: null };
     if (issue) { const t = shareIssueText(issue); return { title: issue.name, text: t, url: issueShareUrl(issue), ab: '', pic: null }; }
     if (remind) return remindFor(b, c.h || h);
     return shareFor(b, c.h || h, { acted, ask: c.ask, chamber, law, differs });
@@ -147,9 +150,9 @@ export function askFriend({ b = null, h = null, did = '', ask = '', acted = fals
         const yoursLine = `<p class="af-yours">Do yours first, and your message can say you did.
             ${btn('Send yours first', { kind: 'text', sm: true, icon: 'arrow-right', attrs: { 'data-af': 'yours' } })}</p>`;
         dlg.innerHTML = `<div class="af-in">
-          <div class="af-top"><h2 id="af-h" tabindex="-1">${remind ? 'Remind your friends' : action ? 'Ask a friend to speak up' : 'Share with a friend'}</h2>
+          <div class="af-top"><h2 id="af-h" tabindex="-1">${issue?.mine ? 'Send my issues to a friend' : remind ? 'Remind your friends' : action ? 'Ask a friend to speak up' : 'Share with a friend'}</h2>
             <button type="button" class="iconbtn af-x" data-af="close" aria-label="Close">${icon('x')}</button></div>
-          ${choices.length > 1 ? `<fieldset class="af-asks"><legend>What should your friend do?</legend>
+          ${issue?.mine ? '' : choices.length > 1 ? `<fieldset class="af-asks"><legend>What should your friend do?</legend>
             ${choices.map((c, i) => `<label class="af-ask${c.ask === pick.ask ? ' on' : ''}"><input type="radio" name="af-ask" value="${c.ask}"${c.ask === pick.ask ? ' checked' : ''} id="af-ask-${i}">
               <span class="af-asktx"><b>${esc(c.label)}</b><span>${esc(c.sub)}${c.done ? ` · <span class="af-did">${icon('check')}you did this</span>` : ''}</span></span></label>`).join('')}</fieldset>`
             : `<p class="af-one">${remind ? 'You’re reminding them to' : 'You’re asking them to'}: <b>${esc(pick.label)}</b>${pick.sub && pick.ask !== 'follow' ? `<span> · ${esc(pick.sub)}</span>` : ''}</p>`}
@@ -188,7 +191,7 @@ export function askFriend({ b = null, h = null, did = '', ask = '', acted = fals
           else { const ta = dlg.querySelector('#af-msg'); ta.focus(); ta.select(); status = phone ? 'Your message is selected. Tap it and choose Copy.' : 'Your message is selected. Copy it with Ctrl+C, or ⌘C on a Mac.'; const s = dlg.querySelector('.af-status'); s.classList.remove('empty'); s.innerHTML = `${icon('info')}<span>${esc(status)}</span>`; }
         });
         dlg.querySelector('[data-af="link"]')?.addEventListener('click', async () => {
-          const u = tagged(t.url, 'copy');
+          const u = tagged(issue?.mine ? issue.mine.plain : t.url, 'copy');
           if (await copy(u)) { await mark('copy', t); status = 'Link copied.'; paint('af-status'); }
           else { status = `Copy this link: ${u}`; const s = dlg.querySelector('.af-status'); s.classList.remove('empty'); s.innerHTML = `${icon('info')}<span>${esc(status)}</span>`; }
         });
@@ -208,6 +211,14 @@ export function askFriend({ b = null, h = null, did = '', ask = '', acted = fals
       requestAnimationFrame(() => dlg.querySelector('#af-h')?.focus({ preventScroll: true }));
     });
   }
+}
+// All they follow, for a friend (R-212 #37): the names (kernel.js followNames: whole topics by their own names), the message,
+// and the My issues link (kernel.js issuesLink, R-123) marked ?f=1 in the message, so the friend's arrival says "your friend
+// sent"; Copy link gives the plain address, for their own other phone.
+function myIssues() {
+  const f = followNames(), link = issuesLink(), them = f.count === 1 ? 'it' : 'them';
+  return { url: link ? `${link}?f=1` : '', plain: link, names: f.names, title: 'Follow these with me',
+    text: `I follow ${f.noun} at the Hawaiʻi Legislature with HIPHI’s Bill Tracker: ${f.all}. Open the link and you’ll follow ${them} too, no sign-up needed, and see when your voice can count.` };
 }
 const skeleton = () => '<span class="af-skel" aria-hidden="true"></span><span class="sr">Loading what your friend sees</span>';
 async function copy(text) {

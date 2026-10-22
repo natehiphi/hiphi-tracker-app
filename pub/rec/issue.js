@@ -116,7 +116,8 @@ function topRow(i) {
         <div class="bl-menu" id="rc-imenu" hidden>${items}</div></div></div></div>`;
 }
 // Follow: one outlined pill. Once followed it reads "✓ Following" and opens a small menu (A-20): how much this issue sends,
-// for someone alerts reach (R-299's line and switch), and Stop following (Undo in its toast, B-5). The menu stays open
+// for someone alerts reach (R-299's line and switch), "Send my issues to a friend" (R-212 #37: by Follow, the moment they
+// have just chosen), and Stop following (Undo in its toast, B-5). The menu stays open
 // through a redraw (S.rcFmenu), so changing the level keeps it in place.
 function followPill(i) {
   if (!issueFollowed(i)) return `<button type="button" class="rc-fpill" data-fdissue="${esc(i.id)}" aria-pressed="false" aria-label="Follow this issue: ${esc(i.name)}">${icon('star')}<span>Follow</span></button>`;
@@ -124,6 +125,7 @@ function followPill(i) {
   const lvl = getsAlerts() ? `<div class="rc-flvl">${levelLine(i, { via: 'issue', key: 'fd:' + i.id, id: 'fd-lvl' })}${levelBox(i, { via: 'issue', key: 'fd:' + i.id, id: 'fd-lvl' })}</div>` : '';
   return `<div class="rc-fwrap"><button type="button" class="rc-fpill on" data-rc-fmenu="${esc(i.id)}" aria-expanded="${open}" aria-controls="rc-fmenu" aria-label="Following ${esc(i.name)}: alerts and stop following">${icon('check')}<span>Following</span>${icon('chevron-down', { cls: 'rc-fchev' })}</button>
     <div class="bl-menu rc-fmenu" id="rc-fmenu"${open ? '' : ' hidden'}>${via ? `<p class="rc-fnote">You follow it with all of ${esc(via.name)}.</p>` : ''}${lvl}
+      <button type="button" class="bl-mi" data-rc-mine>${icon('share-2')}<span>Send my issues to a friend</span></button>
       <button type="button" class="bl-mi" data-fdunissue="${esc(i.id)}">${icon('x')}<span>Stop following</span></button></div></div>`;
 }
 // The name block: the issue's name (the one h1), its one sentence, then a row with HIPHI's side and Follow, laid out as the
@@ -321,6 +323,7 @@ function wireFollows(root) {
     S.rcFocus = el.closest('.rc-irow') ? `[data-fdissue="${i.id}"]` : on ? `[data-rc-fmenu="${i.id}"]` : `[data-fdissue="${i.id}"]`;
     await followNow(i, on);
   });
+  root.querySelectorAll('[data-rc-mine]').forEach(el => el.onclick = async () => { S.rcFmenu = null; (await import('../askfriend.js')).askFriend({ mine: true }).then(() => app.render()); });
   root.querySelectorAll('[data-fdunissue]').forEach(el => el.onclick = async () => { const i = S.issueById.get(el.dataset.fdunissue); if (!i) return; S.rcFocus = `[data-fdissue="${i.id}"]`; await followNow(i, false); });
   root.querySelectorAll('[data-fdcat]').forEach(el => el.onclick = () => followCatNow(el.dataset.fdcat, true));
   root.querySelectorAll('[data-fdunfollowcat]').forEach(el => el.onclick = () => followCatNow(el.dataset.fdunfollowcat, false));

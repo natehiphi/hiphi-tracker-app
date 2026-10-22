@@ -151,7 +151,8 @@ export function parseRoute(h = location.hash) {
     // /attend (R-205) opens the hearing's when-and-where, for a friend asked to come to it.
     case 'bill': { const yr = /^\d{4}$/.test(seg[1] || '') ? +seg[1] : 0, open = seg[yr ? 3 : 2]; return { name: 'bill', num: String((yr ? seg[2] : seg[1]) || '').toUpperCase(), year: yr || undefined, open: ['testify', 'email', 'attend', 'ask', 'floor', 'conference', 'governor'].includes(open) ? open : undefined }; }
     // #/follow/flavored-tobacco-ban,cat:keiki: a "My issues link" (R-123): follows those issues in this browser, then Home.
-    case 'follow': return { name: 'follow', slugs: String(seg[1] || '').split(',').map(x => x.trim()).filter(Boolean) };
+    // ?f=1: sent by a friend ("Send my issues to a friend", R-212 #37), so the arrival says whose issues these are.
+    case 'follow': return { name: 'follow', slugs: String(seg[1] || '').split(',').map(x => x.trim()).filter(Boolean), friend: q.get('f') === '1' };
     case 'legislators': return { name: 'legislators', from: q.get('from') || '' };
     case 'legislator': return { name: 'legislator', id: +seg[1] || 0, from: q.get('from') || '' };
     case 'committee': return { name: 'committee', code: String(seg[1] || '').toUpperCase() };
@@ -271,7 +272,7 @@ export function render() {
   // A "My issues link" (R-123): follow its issues, say so, and land on Home (the first visit is skipped: they have a setup).
   // The redraw after the restore (R-187): restoreFollows loads the followed bills after this first draw, so without it Home
   // could stay on "finished for this session" until the next reload (seen on the practice copy's See it links).
-  if (route.name === 'follow') { restoreFollows(route.slugs).then(() => render()).catch(e => console.error(e)); history.replaceState({ y: 0 }, '', '#/'); route = parseRoute(); }
+  if (route.name === 'follow') { restoreFollows(route.slugs, { friend: route.friend }).then(() => render()).catch(e => console.error(e)); history.replaceState({ y: 0 }, '', route.friend ? '#/bills' : '#/'); route = parseRoute(); }
   // A mistyped or old address lands on Home with one line saying so, then becomes the plain Home address (R-067).
   if (route.unknown) { history.replaceState(history.state, '', '#/'); setTimeout(() => toast('That page isn’t here. This is the home page.'), 50); }
   // A first visit to the home page starts the guided start where the person left it.
