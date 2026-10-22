@@ -350,7 +350,7 @@ export const pIssuePath = (slug, issueSlug) => `#/from/${encodeURIComponent(slug
 // billtext.js aboutBill's partners option. h is the heading tag the section's own parts use.
 export function aboutHtml(b, { h = 'h3' } = {}) {
   return onBill(b).map(r => {
-    const pts = (r.points || []).filter(Boolean), verb = sideVerb(r.side) === 'has comments on' ? 'comments on' : sideVerb(r.side);
+    const pts = (r.points || []).filter(Boolean), verb = sideVerb(r.side, { strong: true }) === 'has comments on' ? 'comments on' : sideVerb(r.side, { strong: true });   // "strongly supports", as its chip and HIPHI's own heading say
     return `<div class="ab-part pw-about"><${h} class="ab-h">Why ${esc(r.partner_name)} ${verb} it</${h}>
       ${r.summary ? `<p class="pw-sum">${esc(r.summary)}</p>` : ''}${pts.length ? `<ul class="ab-pts" role="list">${pts.map(p => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
       ${r.ask ? `<p class="pw-ask">${icon('megaphone')}<span><b>Their ask:</b> ${esc(r.ask)}${r.ask_until ? ` Until ${esc(dayWords(r.ask_until))}.` : ''}</span></p>` : ''}
