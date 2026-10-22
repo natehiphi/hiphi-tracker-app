@@ -535,6 +535,22 @@ const dueMs = h => h?.testimony_deadline ? new Date(h.testimony_deadline).getTim
 export const standingIn = (a, h) => !!a?.is_reviewer && !a.is_admin && !a.can_approve && dueMs(h) != null && dueMs(h) - Date.now() <= STAND_IN_HOURS * 3600e3;
 export const canFirstApprove = (a, d, h) => !!a && (!!a.is_admin || ((!!a.can_approve || standingIn(a, h)) && d?.submitted_by !== a.id));
 export const canSecondApprove = (a, d) => !!a?.is_reviewer && d?.approved_by !== a.id;
+// R-316 W20 (C-10, G3-5): who can give the first approval, said one way on every screen: "Kris or Nate; Jess or Jaylen can
+// stand in until 3:00 PM" (a second approver may stand in from 6 hours before the deadline). The sender is left out unless
+// an admin; "you" first when you are one of them.
+export function approverWords(d, h, meId = S.me?.id) {
+  const act = (S.advocates || []).filter(a => a.is_active !== false), nm = a => a.id === meId ? 'you' : a.full_name.split(' ')[0];
+  const or = xs => xs.length < 2 ? (xs[0] || '') : `${xs.slice(0, -1).join(', ')} or ${xs[xs.length - 1]}`;
+  const order = xs => [...xs.filter(a => a.id === meId), ...xs.filter(a => a.id !== meId)].map(nm);
+  const main = act.filter(a => a.is_admin || (a.can_approve && a.id !== d?.submitted_by));
+  const stand = act.filter(a => a.is_reviewer && !a.is_admin && !a.can_approve && a.id !== d?.submitted_by), due = dueMs(h);
+  let s = or(order(main)) || 'an admin';
+  if (stand.length && due != null && due > Date.now()) {
+    const open = due - Date.now() <= STAND_IN_HOURS * 3600e3;
+    s += `; ${or(order(stand))} can stand in${open ? '' : ` from ${whenAt(new Date(due - STAND_IN_HOURS * 3600e3).toISOString())}`}`;   // the deadline is said above it
+  }
+  return s;
+}
 export const alertsToReview = () => (S.alerts || []).filter(a => a.status === 'submitted' && approves(S.me) && a.author_id !== S.me?.id);
 export const alertTarget = a => a.bill_id ? (billById(a.bill_id) ? billNum(billById(a.bill_id)) : 'a bill') : a.list_id ? ((S.lists || []).find(l => l.id === a.list_id)?.title || 'a list') : ((S.segments || []).find(x => x.id === a.segment_id)?.name || 'a segment');
 export const RTE_TAGS = { P: 'p', DIV: 'p', BR: 'br', B: 'b', STRONG: 'b', I: 'i', EM: 'i', U: 'u', A: 'a', UL: 'ul', OL: 'ol', LI: 'li', H1: 'h3', H2: 'h3', H3: 'h3', H4: 'h3', BLOCKQUOTE: 'blockquote' };

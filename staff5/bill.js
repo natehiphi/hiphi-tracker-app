@@ -24,7 +24,7 @@ import { renderPublic, wirePublic, wireDraftsFocus } from './public.js';
 import { renderEarlier, wireTestimony, earlierCount, testimonyHref, onNextUp, draftNowBtn, makeDraftNow } from './testimony.js';
 import { holdBack } from './review.js';
 import { sittingOf, goersOf, agendaOf } from './hearing.js';
-import { billRoute, billByNum, MEMO_SAYS, whenAt, roomName, wantsHearing, plain, companionsOf } from './model.js';
+import { billRoute, billByNum, MEMO_SAYS, whenAt, roomName, wantsHearing, plain, companionsOf, approverWords } from './model.js';
 import { askConflict } from './conflict.js';
 import { untrackedHTML, wireUntracked, untrackedOf } from './untracked.js';
 import { issuesOfBill, issueLinkHref } from './issues.js';
@@ -415,12 +415,18 @@ function whoLine(d) {
   // A reviewer standing in near the deadline (R-103) is not in the usual list, so the line says why Approve is theirs too.
   // The person who sent it is not among those it waits for, unless an admin (who may approve their own, Nate 10/5): Kris read
   // "waiting for you or Nate" on the draft she had just sent (R-267).
-  if (d.status === 'review') return `Sent by ${nameOf(d.submitted_by)} ${dWhen(d.submitted_at)} · waiting for ${waitingFor(a => a.is_admin || (a.can_approve && a.id !== d.submitted_by))}${d.submitted_by !== S.me?.id && standingIn(S.me, draftHearing(d)) ? '. Testimony is due soon, so you can stand in' : ''}`;
+  if (d.status === 'review') return `Sent by ${nameOf(d.submitted_by)} ${dWhen(d.submitted_at)} · waiting for ${approverWords(d, draftHearing(d))}`;   // R-316 W20: one list, stand-ins named
+  if (d.status === 'approved') { const f = filerOf(d); return `Ready to file · ${f ? (f === S.me?.id ? 'you file it' : `${nameOf(f)} files it`) : 'anyone can file it'}`; }   // W20 (C-7)
   if (d.status === 'second_review') return `Approved by ${nameOf(d.approved_by)} ${dWhen(d.approved_at)} · waiting for ${waitingFor(a => a.is_reviewer)}`;
   return draftWho(d).replace(/ \u00b7 file it at the Capitol, then mark it filed$/, '');
 }
+// R-316 W20 (FD-3, C-7): who holds a draft: whoever sent it for approval, else the bill's owner (R-267 Fix it #8; the
+// writer replaces this when R-267 lands). Only that person gets the filled Resubmit or File; others get it outlined.
+const filerOf = d => d.submitted_by || (S.assignments[d.bill_id] || [])[0] || null;
 function testimonyBlock(b, d, { primary = true, title = '' } = {}) {
   const me = S.me || {}, acts = d.status === 'cancelled' ? [] : draftActions(d).map(a => a[0]);
+  const holder = filerOf(d), mineHeld = !holder || holder === me.id;
+  if (['draft', 'approved'].includes(d.status) && !mineHeld) primary = false;
   const own = d.submitted_by && d.submitted_by === me.id;
   const second = d.status === 'second_review' || !!d.second_approved_by || (['draft', 'review'].includes(d.status) && firstForBill(d));
   const kind = primary ? 'primary' : 'secondary';
@@ -451,7 +457,7 @@ function testimonyBlock(b, d, { primary = true, title = '' } = {}) {
     ${title ? `<p class="bw-tbt">${title}</p>` : ''}
     ${['cancelled', 'filed'].includes(d.status) ? '' : stepBar(d.status, { second })}
     ${sentBack ? '' : `<p class="bw-who">${esc(whoLine(d))}${own && acts.includes('approve') ? ` ${chip('Your own draft')}` : ''}</p>`}
-    ${sentBack ? `<blockquote class="bw-quote"><span class="meta">Sent back</span>${esc(d.review_note)}</blockquote>` : ''}
+    ${sentBack ? `<blockquote class="bw-quote"><span class="meta">Sent back</span>${esc(d.review_note)}</blockquote><p class="bw-who">${esc(holder ? (holder === me.id ? 'Yours to revise' : `${nameOf(holder)}’s to revise`) : 'Anyone can revise it')}</p>` : ''}
     ${from ? `<p class="bw-from">${icon('copy')}<span>${esc(from)}</span></p>` : ''}
     ${stale ? notice('warn', 'triangle-alert', `The bill is now ${esc(b.current_version)}. This draft was written for ${esc(d.version || 'the introduced bill')}; check it before it goes out.${changedSince(b, d.version) ? ` What changed: ${esc(changedSince(b, d.version))}` : ''}`) : ''}
     ${main || alt ? `<div class="bw-acts">${main}${alt}</div>` : ''}
@@ -492,7 +498,7 @@ function hearingCard(b, h, i) {
   // No draft yet: the tracker makes one from the hearing notice; if it has not, anyone can ask for it now (R-102).
   const noDraft = !d ? (S.failed?.('testimony drafts') ? '<p class="small muted bw-nodraft">The testimony drafts did not load. Reload, then look again.</p>'
     : b.position && b.position !== 'monitor'
-    ? `<div class="bw-nodraft"><p class="small muted">No testimony draft yet.</p>${h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now() ? draftNowBtn(h) : ''}</div>`
+    ? `<div class="bw-nodraft"><p class="small muted">No draft yet.</p>${h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now() ? draftNowBtn(h) : ''}</div>`
     : '<p class="small muted bw-nodraft">Monitor bills get no testimony draft.</p>') : '';
   return `<section class="card bw-next" aria-labelledby="bw-nx-${i}">
     <div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-nx-${i}">${i === 0 ? 'Next up' : 'Also coming up'}</h2><span class="bw-nhacts">${btn('Hearing page', { kind: 'text', sm: true, iconEnd: 'chevron-right', href: `#/hearing/${encodeURIComponent(h.id)}?from=${encodeURIComponent(b.bill_number)}`, cls: 'bw-hpage', attrs: { 'aria-label': `The ${h.committee} hearing's page` } })}${iconBtn('ellipsis', 'More for this hearing', { 'data-hmenu': h.id })}</span></div>

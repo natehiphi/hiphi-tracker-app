@@ -61,7 +61,7 @@ import { draftAsking, makeDraftNow } from './testimony.js';
 import { openLook, lookFacts } from './look.js';
 import { billPane, bpHearing, bpFacts, bpOpen } from './billpane.js';   // R-277 fix 17: one open-bill panel for Today and Bills
 import { todayPrepNotice, prepTaskOf, dueEnd as prepDue, issueHref, prepListHref } from './prep.js';
-import { sessionGates, lastSlotBefore, noticeByFor, billByNum, plainDeadlines, plainGate, askWords, gateName, wantsHearing, companionsOf, sittingDraft } from './model.js';
+import { sessionGates, lastSlotBefore, noticeByFor, billByNum, plainDeadlines, plainGate, askWords, gateName, wantsHearing, companionsOf, sittingDraft, standingIn, approverWords } from './model.js';
 import { dailyWord } from './composer.js';   // which 4:30 pm email a Send joins
 import { testimonyOf, agendaOf, unfile } from './hearing.js';   // where a hearing's testimony stands, in the coalition page's words (v4, R-269)
 
@@ -334,12 +334,14 @@ export function todayItems(scope = 'mine', who = null, drop = null) {   // `drop
         const at = two ? d.approved_at : d.submitted_at, h0 = at ? (now - new Date(at)) / HR : null;
         // v4 (R-269 follow-up): who else can give it, so one review asked of four people is not done four times or by nobody
         // (fresh-eyes, third pass): "Nate can approve it too", "Jaylen can give it too".
-        const also = S.advocates.filter(a => a.is_active !== false && a.id !== me.id && a.id !== d.submitted_by && (two ? a.is_reviewer : approves(a))).map(a => a.id);
+        const also = S.advocates.filter(a => a.is_active !== false && a.id !== me.id && a.id !== d.submitted_by && (two ? a.is_reviewer : approves(a) || standingIn(a, h))).map(a => a.id);
         const sent = h0 == null ? '' : `${two ? 'Approved' : 'Sent'} ${h0 < 1 ? 'just now' : h0 < 48 ? Math.round(h0) + 'h ago' : Math.round(h0 / 24) + ' days ago'}`;
-        push({ ...base, kind: two ? 'review2' : 'review', who: 'yours', why: [sent, also.length ? `${names(also)} can ${two ? 'give it' : 'approve it'} too` : ''].filter(Boolean).join(' · '),
+        // R-316 W20 (G3-5): a second approver giving the first approval near the deadline is standing in, and the row says so.
+        const stand = !two && !approves(me) && standingIn(me, h) ? `Standing in for ${approverList(d.submitted_by)}` : '';
+        push({ ...base, kind: two ? 'review2' : 'review', who: 'yours', why: [stand, sent, also.length ? `${names(also)} can ${two ? 'give it' : 'approve it'} too` : ''].filter(Boolean).join(' · '),
           s: two ? `Give the second approval on ${who} testimony` : `Approve ${who} ${subMe || !d.submitted_by ? c + ' ' : ''}testimony`,
           btns: [{ label: 'Review', href: `#/review/${encodeURIComponent(d.id)}`, review: true }] });
-      } else if (team) wait(two ? reviewers() : approverList(), two ? 'second approval' : 'approval', two ? 'Waiting for second approval' : 'Waiting for approval', ids(a => two ? a.is_reviewer : approves(a)));
+      } else if (team) wait(two ? reviewers() : approverWords(d, h, null), two ? 'second approval' : 'approval', two ? 'Waiting for second approval' : 'Waiting for approval', ids(a => two ? a.is_reviewer : approves(a) || standingIn(a, h)));   // W20: one list, stand-ins named
       continue;
     }
     // Monitor bills are watched, not worked: the draft made automatically from each hearing notice stays off Today
@@ -347,12 +349,15 @@ export function todayItems(scope = 'mine', who = null, drop = null) {   // `drop
     if (b.position === 'monitor' && !d.submitted_at && !d.review_note) continue;
     const mine = (ownMe || subMe) && !muted(b), open = !own(b) && !d.submitted_by && inScope(b);
     if (d.status === 'approved') {
+      // R-316 W20 (T-3): whoever sent it for approval files it (the owner when nobody sent it), as the bill page, Review and
+      // Help say; the owner of a draft someone else sent sees "Patti: to file it" under Waiting on others, not a File step.
+      const filer = d.submitted_by || own(b), fileMe = !!filer && filer === me.id && !muted(b);
       // Past the written deadline with the hearing still to come, it is late testimony (R-250): the step says so, so the
       // amber mark beside it reads as time left to file late, not as how late it is (fresh-eyes review, R-264).
       const lt = due != null && due <= now && h && new Date(h.scheduled_at).getTime() > now ? 'late ' : '';
-      if (mine || open) push({ ...base, kind: 'file', who: mine ? 'yours' : 'anyone', s: mine && self ? `File your ${lt}testimony at the Capitol` : `File the ${c} ${lt}testimony at the Capitol`,
+      if (fileMe || open) push({ ...base, kind: 'file', who: fileMe ? 'yours' : 'anyone', s: fileMe && self ? `File your ${lt}testimony at the Capitol` : `File the ${c} ${lt}testimony at the Capitol`,
         btns: [{ label: 'File at the Capitol', href: capitolUrl(b), ext: true }, { label: LOOK.filed, act: 'file' }] });
-      else if (team) wait(first(d.submitted_by || own(b)), 'to file it', 'Approved', [d.submitted_by, own(b)]);   // either of them may file it
+      else if (team) wait(first(filer), 'to file it', 'Approved', [filer]);
       continue;
     }
     // draft: sent back with a note, pulled back after submitting, or never submitted
@@ -787,6 +792,9 @@ const NOTICE = { testimony: ['Testimony update', 'bell'], deadline: ['Deadline a
 const stepOf = p => p.kind === 'notice' ? (/^(Changes requested|Your testimony was sent back)/i.test(unslack(p.i?.title || '')) ? STEP.revise : NOTICE[p.i?.kind] || STEP.notice)
   : STEP[p.kind === 'wait' ? WAITSTEP[p.chip] : p.kind] || null;
 const stepTag = st => st ? `<b class="td-step">${esc(st[0])}</b><span class="td-stepdot" aria-hidden="true"> · </span>` : '';
+// R-316 W23 (FD-4): a new hearing's draft sits in Needs you today on purpose (X10-5), but "6d to draft" there read as
+// due in six days; its mark says "New" and the row says when testimony is due.
+const newMark = p => p.kind === 'nodraft' && p.due != null && p.due - Date.now() > 2 * DAY ? `<span class="td-urg"><span class="sv-urg" role="img" aria-label="New hearing"><b>New</b><span>hearing</span></span></span>` : '';
 const urgBlock = (due, until = null, act) => `<span class="td-urg">${urgentMark(due == null ? null : new Date(due).toISOString(), { until, act })}</span>`;
 const lookBtn = b => iconBtn('chevron-right', `Quick look at ${billSay(b)}`, { 'data-look': '1' }, 'td-look');
 // Every card drawn, by the key its "…" button carries, so the menu opens on the card that was drawn: in Team the same
@@ -880,7 +888,7 @@ function row(c, filled, o = {}) {
   // A teammate's step is theirs to take: its row has no button, and the open item offers "Message Kevin".
   const x = p.ro ? null : (p.btns || [])[0], fill = filled && p.kind !== 'reply' && !p.seen && x && !x.text;
   const what = `<span class="td-rs">${stepTag(stepOf(p))}<span class="td-rd">${p.seen ? SEEN() + ' ' : ''}${rowWords(p, x, stepOf(p))}</span></span>${n > 0 ? `<span class="td-rplus">+${n}<span class="td-rmore"> on this ${b ? 'bill' : 'item'}</span></span>` : ''}`;   // "+2 on this bill" (P-4: "+2 more" said more of what?)
-  return `<div data-k="${ek}" class="td-row${p.seen ? ' td-seen' : ''}"${fill ? ' data-fill="1"' : ''}${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${sel(`${urgBlock(p.due, untilOf(p), approveAct(p))}${o.av ? `<span class="td-rav">${o.av}</span>` : ''}<span class="td-rmain">${name}${what}</span>`)}
+  return `<div data-k="${ek}" class="td-row${p.seen ? ' td-seen' : ''}"${fill ? ' data-fill="1"' : ''}${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${sel(`${newMark(p) || urgBlock(p.due, untilOf(p), approveAct(p))}${o.av ? `<span class="td-rav">${o.av}</span>` : ''}<span class="td-rmain">${name}${what}</span>`)}
     <span class="td-ract">${x ? button(p, x, true, filled && p.kind !== 'reply') : ''}</span>${end}</div>`;
 }
 // A row says what its button does not (A-14): beside "File at the Capitol" or "Make the draft now" the step's own words
@@ -895,8 +903,12 @@ const SKIP = new Set(['the', 'at', 'it', 'now', 'a', 'to', 'your', 'on']);
 const TESTI = new Set(['nodraft', 'write', 'submit', 'revise', 'review', 'review2', 'file', 'stale', 'ask']);
 function rowWords(p, x, st) {
   if (st && p.h && TESTI.has(p.kind)) {
-    const by = /^review/.test(p.kind) && p.d?.submitted_by ? (p.d.submitted_by === S.me?.id ? 'Your own draft' : `From ${esc(first(p.d.submitted_by))}`) : p.kind === 'revise' ? 'Sent back' : '';
-    return [by, `${esc(p.h.committee)} hearing ${whenLine(p.h.scheduled_at)}`].filter(Boolean).join(' · ');
+    const by = /^review/.test(p.kind) && p.d?.submitted_by ? (p.d.submitted_by === S.me?.id ? 'Your own draft' : `From ${esc(first(p.d.submitted_by))}`) : p.kind === 'revise' && p.who !== 'coal' ? 'Sent back' : '';
+    // R-316 W23 (T-16, FD-4): when testimony is due on an earlier day than the hearing, the row says when it is due ("Sent
+    // back · due Wed 9:30 AM") and the hearing moves to the open item; words are swapped, not added.
+    const early = p.due != null && p.due > Date.now() && hst(p.due) !== hst(p.h.scheduled_at);
+    const at = early ? `due ${whenLine(new Date(p.due).toISOString())}` : `${esc(p.h.committee)} hearing ${whenLine(p.h.scheduled_at)}`;
+    return [p.who === 'coal' ? esc(p.wn || '') : '', by, early && !by && p.who !== 'coal' ? at.charAt(0).toUpperCase() + at.slice(1) : at].filter(Boolean).join(' · ');   // W20: whose it is, on a helper's row
   }
   if (p.kind === 'notice' && st === STEP.revise) return 'Sent back: fix it, then resubmit';
   if (st) { const t = String(p.s || '').replace(/^Ask the chairs\b/, 'Ask the chair'), lead = st[0].toLowerCase();   // "chairs" is the same step (W1)
@@ -1404,7 +1416,7 @@ function weekOf(mon, scope, who, r) {
     const c = wk.get(t.due == null || t.due < now ? today : hst(t.due)); if (!c) continue;
     if (!(TESTIMONY.has(t.kind) && t.h && t.b)) { c.other.push(t); continue; }
     const g = card(c, t.h), st = wkState(t), ex = g.rows.find(x => x.b.id === t.b.id);
-    if (!ex) g.rows.push({ b: t.b, st, t }); else if (st[2] < ex.st[2]) Object.assign(ex, { st, t });
+    if (!ex) g.rows.push({ b: t.b, st, t, h: t.h }); else if (st[2] < ex.st[2]) Object.assign(ex, { st, t, h: t.h });
   }
   // Every deadline in the week, not only those a step exists for yet. A "no draft" step is made only 7 days ahead, so
   // the Sunday deadline for a Monday hearing next week was nowhere on this week (R-025).
@@ -1414,7 +1426,7 @@ function weekOf(mon, scope, who, r) {
     const b = billById(h.bill_id), d = b && draftOf(h); // A draft waiting on approvers is no step of the owner's, so it made no row and the deadline left the owner's week
     // (HB1523, due 3 PM, missing from Lauren's Monday; R-267): it shows here, "In review".
     if (!b || b.position === 'monitor' || !okH(h, b) || diedish(b) || (d && !coal && !['review', 'second_review'].includes(d.status)) || d?.status === 'filed') continue;
-    const g = card(c, h); if (!g.rows.some(x => x.b.id === b.id)) g.rows.push({ b, st: draftState(d) });
+    const g = card(c, h); if (!g.rows.some(x => x.b.id === b.id)) g.rows.push({ b, st: draftState(d), h });
   }
   // How many more of each sitting's bills are already filed: a manager's "are we nearly there".
   const keys = new Set([...wk.values()].flatMap(c => [...c.dl.keys()])), filed = new Map();
@@ -1426,8 +1438,19 @@ function weekOf(mon, scope, who, r) {
 // One bill in a card or a block: the number (and P1) with the one fact that matters here, then its name on one line.
 // The public's response under each bill ("6 follow · 2 emailed · 1 going · 1 shared") is the hearing page's, not the
 // week's: four numbers under every bill that asked nothing of anyone (R-264).
-function wkBill(b, right, owners) {
-  const own = owners ? avatar(advocate((S.assignments[b.id] || [])[0]), 20) : '';
+// R-316 W20 (C-11): a deadline card's bill shows who its step waits on (the approvers, the second approvers, or whoever
+// files or revises it), not always the owner; nobody at all says "No owner" in words.
+function wkOn(b, h) {
+  const d = h && draftOf(h); if (!d) return null;
+  const act = S.advocates.filter(a => a.is_active !== false);
+  if (d.status === 'review') return act.filter(a => canFirstApprove(a, d, h)).map(a => a.id);
+  if (d.status === 'second_review') return act.filter(a => canSecondApprove(a, d)).map(a => a.id);
+  if (d.status === 'approved' || d.status === 'draft') { const f = d.submitted_by || (S.assignments[b.id] || [])[0]; return f ? [f] : []; }
+  return null;
+}
+function wkBill(b, right, owners, on = null) {
+  const ids = (on ?? [(S.assignments[b.id] || [])[0]]).filter(Boolean);
+  const own = !owners ? '' : !ids.length ? '<span class="wk-noown">No owner</span>' : ids.slice(0, 2).map(id => avatar(advocate(id), 20)).join('') + (ids.length > 2 ? `<span class="td-ravn">+${ids.length - 2}</span>` : '');
   return `<li><a class="wk-bill${b.position === 'monitor' ? ' wk-mon' : ''}" href="${billRoute(b)}"><span class="wk-b1">${b.nickname ? `<b class="td-nick wk-nick">${esc(b.nickname)}</b>` : `<b class="td-num">${esc(billNum(b))}</b>`}${b.priority === 1 ? P1 : ''}${right ? `<span class="wk-right">${right}</span>` : ''}</span><span class="wk-b2">${b.nickname ? `<span class="bn-num">${esc(billNum(b))}</span>` : `<span class="wk-name">${esc(blurb(b, 80))}</span>`}${own}</span></a></li>`;
 }
 // "1:00 PM", or "Sun 3:00 PM" in the weekend column, which holds two days.
@@ -1439,7 +1462,7 @@ function wkDeadline(g, owners, now, wkend, max = Infinity) {
   const head = open ? lateLine(g.h.scheduled_at) : late ? 'Testimony\u00a0overdue' : `${wkWhen(g.due, wkend)} · Testimony\u00a0due`;
   const when = open ? '' : ms <= 0 ? `was due ${whenAt(g.due)}` : hst(g.due) === hst(now) ? `in ${spanOf(g.due)}` : '';   // R-277 fix 3; late and still accepted is said once, in the head
   const rows = g.rows.sort((x, y) => x.st[2] - y.st[2] || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true })).slice(0, max)
-    .map(x => wkBill(x.b, `<span class="sr">Testimony: </span>${chip(x.st[0], '', x.st[1], { sm: true })}`, owners)).join('');
+    .map(x => wkBill(x.b, `<span class="sr">Testimony: </span>${chip(x.st[0], '', x.st[1], { sm: true })}`, owners, wkOn(x.b, x.t?.h || x.h))).join('');
   return `<section class="wk-blk wk-dl${late ? ' late' : soon ? ' soon' : ''}" data-at="${g.due}" aria-label="${esc(`${head}${when ? ', ' + when : ''}, ${what}`)}">
     <p class="wk-bh">${icon(late ? 'circle-alert' : 'clock')}<b>${esc(head)}</b></p>
     <p class="wk-bs">${when ? `<span class="wk-when">${esc(when)}</span> · ` : ''}${esc(what)}</p>
@@ -1804,12 +1827,16 @@ function coalDue(r, skip = new Set()) {
     const d = draftOf(h), due = testDue(h);
     if ((due <= now || hst(due) === today) && (!d || d.status === 'draft')) {
       const k = !d ? 'nodraft' : d.review_note ? 'revise' : 'write';
-      const w = has(ownerOf(b));
-      tasks.push({ kind: k, key: `cd:${h.id}`, b, h, d, due, who: 'coal', rank: RANK[k],
+      const w = has(ownerOf(b)), ow = ownerOf(b);
+      // R-316 W20 (C-2, B-11, L-8): the row keeps the owner's name ("Lauren's · Sent back · TRN hearing…"), and a helper who
+      // writes it can finish from here: Resubmit (or Send for approval) and Message Lauren in the open item, the Doc on the
+      // row. When R-267's writer lands, the name becomes the writer's.
+      tasks.push({ kind: k, key: `cd:${h.id}`, b, h, d, due, who: 'coal', rank: RANK[k], wn: `${w} to ${k === 'revise' ? 'revise, you can resubmit' : k === 'write' ? 'finish, you can send it' : 'draft'}`,
         s: esc(!d ? `${w} to draft the testimony · new ${h.committee} hearing ${hearingDay(h)}` : d.review_note ? `${w} to revise the testimony · sent back` : `${w} to finish the testimony · in draft`),
         ps: esc(!d ? `${w} to draft: a new ${h.committee} hearing ${hearingDay(h)} and no draft yet` : d.review_note ? `${w} to revise: sent back` : `${w} to finish: the draft is not submitted yet`),
         q: d?.review_note ? esc(d.review_note) : '',
-        btns: [!d ? { label: draftAsking(h) ? 'Making the draft…' : 'Make the draft now', act: 'draftnow' } : d.doc_url ? { label: LOOK.doc, href: d.doc_url, ext: true, doc: true } : { label: 'Open the bill', href: billRoute(b) }] });
+        btns: [!d ? { label: draftAsking(h) ? 'Making the draft…' : 'Make the draft now', act: 'draftnow' } : d.doc_url ? { label: LOOK.doc, href: d.doc_url, ext: true, doc: true } : { label: 'Open the bill', href: billRoute(b) },
+          ...(d ? [{ label: d.review_note ? 'Resubmit' : 'Send for approval', act: 'submit' }] : []), ...(ow && ow !== S.me?.id ? [{ ...msgBtn(b, [ow]), text: true }] : [])] });
     }
     // An ask helps only while the public can still send written testimony on time: due today, or late before that closes.
     if (['strongly_support', 'strongly_oppose'].includes(b.position) && !liveAsk(b) && !asked.has(b.id) && due > now) {

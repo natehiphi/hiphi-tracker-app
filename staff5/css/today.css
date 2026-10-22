@@ -807,3 +807,5 @@
 .td-root .td-startph { display: flex; align-items: flex-start; gap: var(--s8); margin-top: var(--s16); font-size: var(--t14); color: var(--n700); }
 .td-root .td-startph .ic { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--n500); }
 .td-root .td-startf { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8); }
+/* R-316 W20 (C-11): a bill with nobody on its step says so in words on This week's cards. */
+.td-root .wk-noown { font-size: var(--t13); font-weight: 600; color: var(--n500); white-space: nowrap; }

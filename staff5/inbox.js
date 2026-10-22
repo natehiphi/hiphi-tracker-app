@@ -50,7 +50,7 @@ function hearingNews(i, b) {
   const [said] = plainAction(unslack(i.title)), m = /^Hearing set: (\S+) (.+)$/.exec(said || ''); if (!m) return null;
   const h = (S.hearings || []).find(x => x.bill_id === b.id && x.status !== 'cancelled' && String(x.committee).replace(/\s+/g, '').replace(/,/g, '/') === m[1] && new Date(x.scheduled_at) > Date.now());
   const none = h && b.position && b.position !== 'monitor' && !draftFor(b.id, h.committee) && !S.failed?.('testimony drafts');
-  return { t: `New hearing: ${m[1]} ${m[2]}`, sub: none ? 'No testimony draft yet. Open the bill and make it.' : '', tab: '' };
+  return { t: `New hearing: ${m[1]} ${m[2]}`, sub: none ? 'No draft yet. Open the bill and make it.' : '', tab: '' };
 }
 function item(i, inBlock = false) {
   const b = i.bill_id && billById(i.bill_id), news = hearingNews(i, b), href = news?.tab ? `${billRoute(b)}/${news.tab}` : hrefOf(i);
