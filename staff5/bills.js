@@ -10,7 +10,7 @@
 // bill stands" box became one deadline sentence, Edit and Columns went into "…", tick boxes come with "Select bills",
 // and the quick-look column went (a click on the row is the quick look). Phones keep their rows and sheets.
 import { S, DB, DEADLINES, esc, fmtDate, fmtDT, effStage, owners, isMuted, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks } from './data.js';
-import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionClock, gateNeed, deadlineName, billSay, askWords, draftFor } from './model.js';
+import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionClock, gateNeed, deadlineName, billSay, askWords, testStep, lateWord } from './model.js';
 import { CHAMBER_NAME, HELD_RE, stoppedAt } from '../stops.js';
 import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, keysUsed, POS_WORD, posIcons, whoseSeg, showAllBtn, filterBtn } from './ui.js';
 import { bl, save, setCompact, shownBills, freshFacts, QUICK, quickCount, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, settled, hoverNow, typingIn, deskBack,
@@ -42,19 +42,8 @@ const NATURAL = {
 const STAGE_ORDER = Object.fromEntries(STAGES.map(([k], i) => [k, i]));
 const POS_ORDER = ['strongly_support', 'support', 'support_amend', 'neutral', 'oppose', 'strongly_oppose', 'monitor'];
 // R-316 W23 (C-4): with a hearing set, the Next column is the testimony step and when it is due, in Today's words
-// ("Revise · Wed 3/18", "9:30 AM · hearing 3/20"), so HB2121 (filed) and HB1573 (to revise by Wednesday) no longer look
-// alike; it sorts by that time. Monitor bills, and bills with no position, keep the hearing.
-const STEP_WORD = { review: 'Approve', second_review: '2nd approval', approved: 'File' };
-function testStep(b, h) {
-  if (!h || !b.position || b.position === 'monitor') return null;
-  const d = draftFor(b.id, h.committee); if (d?.status === 'cancelled') return null;
-  if (d?.status === 'filed') return { w: 'Filed', at: null };
-  const due = h.testimony_deadline || new Date(new Date(h.scheduled_at) - 864e5).toISOString();
-  // Past the deadline with the hearing still ahead, the Capitol still takes late testimony (W38: HB1562 lost its step word).
-  const open = new Date(due) > Date.now();
-  return { w: !d ? 'No draft yet' : d.status === 'draft' ? (d.review_note ? 'Revise' : 'Write') : STEP_WORD[d.status] || 'Draft', at: open ? due : null,
-    late: !open && new Date(h.scheduled_at) > Date.now() };
-}
+// ("Revise · Wed 3/18", "9:30 AM · hearing 3/20"); it sorts by that time. The step is model.js testStep, which My issues
+// uses too, so the two screens never disagree.
 const nextKey = b => { const s = stOf(b), ts = s.hearingState === 'scheduled' ? testStep(b, s.hearing) : null; return ts?.at || s.hearing?.scheduled_at || (s.deadline && !s.deadline.missed ? s.deadline.date : '9'); };
 const SORTS = { num: null, stage: b => STAGE_ORDER[effStage(b)] ?? 99, next: nextKey, pos: b => POS_ORDER.indexOf(b.position || 'monitor'), pri: b => b.priority || 9,
   own: b => ownerOf(b)?.full_name || '~', last: b => b.last_action_date || '', pulse: b => S.pulse[b.id]?.last_team_touch || '' };
@@ -150,7 +139,7 @@ function nextCell(b) {
   if (s.hearingState === 'scheduled') { const [day, ...time] = fmtDT(s.hearing.scheduled_at).split(', '), room = roomShort(s.hearing.room), ts = testStep(b, s.hearing);
     if (ts?.at) { const [dd, ...dt] = fmtDT(ts.at).split(', ');
       return [`${esc(ts.w)} · ${esc(dd)}`, `${esc(dt.join(', '))}${xw(` · hearing ${md(s.hearing.scheduled_at)}`)}`, `${ts.w}: testimony due ${fmtDT(ts.at)}. Hearing ${fmtDT(s.hearing.scheduled_at)}, ${s.hearing.committee}`]; }
-    if (ts?.late) { const w = ts.w === 'File' ? 'File late' : `${ts.w} · late`;
+    if (ts?.late) { const w = lateWord(ts);
       return [`${esc(w)} · ${esc(day)}`, `${xw('until ')}${esc(time.join(', '))}${xw(' hearing')}`, `${ts.w}: the deadline has passed; late testimony is taken until the hearing, ${fmtDT(s.hearing.scheduled_at)}, ${s.hearing.committee}`]; }
     if (ts?.w === 'Filed') return ['Filed', `${xw('hearing ')}${esc(day)}`, `Testimony filed. Hearing ${fmtDT(s.hearing.scheduled_at)}, ${s.hearing.committee}`];
     // compact rows drop what the group row already says ("Hearing scheduled") and the room, so the time is never cut
@@ -439,7 +428,8 @@ function table(groups) {
       // is in the docked bill and on hover (rule 2: summaries live in the open item).
       case 'title': return `<td class="bl-ti">${two(ci ? (b.nickname ? `<b>${esc(b.nickname)}</b>` : esc(summaryOf(b))) : `${b.nickname ? `<b>${esc(b.nickname)}</b> <br>` : ''}${esc(summaryOf(b))}`, fullTitle(b))}</td>`;
       case 'where': return `<td>${lines(whereCell(b))}</td>`;
-      case 'next': { const c3 = nextCell(b); return `<td>${c3[0] ? lines(c3) : none}</td>`; }
+      case 'next': { const c3 = nextCell(b), s = stOf(b), ts = s.hearingState === 'scheduled' ? testStep(b, s.hearing) : null;   // data-step/-due: the same facts as My issues (staff5_step_match.py)
+        return `<td${ts ? ` data-step="${esc(ts.w)}" data-due="${esc(ts.at || '')}"` : ''}>${c3[0] ? lines(c3) : none}</td>`; }
       case 'cmte': { const r = (b.referrals || []).join(', '); return `<td>${r ? two(esc(r), glossCommittee((b.referrals || []).join('/'))) : none}</td>`; }
       case 'coal': { const n = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(x => x.id === id)?.name).filter(Boolean).join(', '); return `<td>${n ? two(esc(n), n) : none}</td>`; }
       case 'last': return `<td>${b.last_action ? two(`${b.last_action_date ? `<span class="bl-date">${md(b.last_action_date)}</span> ` : ''}${esc(b.last_action)}`, b.last_action) : none}</td>`;

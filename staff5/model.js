@@ -733,6 +733,24 @@ export function earlierFiled(h, billId) {
 export function draftFor(billId, committee) {
   return (S.drafts[billId] || []).find(d => d.committee === committee && d.status !== 'cancelled');
 }
+// R-316 W23 (C-4): a bill's testimony step for a hearing and when it is really due, the one rule behind Bills' Next column
+// and My issues' rows, so the two screens can never disagree (HB2121 filed and HB1573 to revise by Wednesday no longer look
+// alike). Monitor bills, and bills with no position, have no step: they keep the hearing.
+const STEP_WORD = { review: 'Approve', second_review: '2nd approval', approved: 'File' };
+export function testStep(b, h) {
+  if (!h || !b.position || b.position === 'monitor') return null;
+  const d = draftFor(b.id, h.committee); if (d?.status === 'cancelled') return null;
+  if (d?.status === 'filed') return { w: 'Filed', at: null };
+  const due = h.testimony_deadline || new Date(new Date(h.scheduled_at) - 864e5).toISOString();
+  // Past the deadline with the hearing still ahead, the Capitol still takes late testimony (W38: HB1562 lost its step word).
+  const open = new Date(due) > Date.now();
+  return { w: !d ? 'No draft yet' : d.status === 'draft' ? (d.review_note ? 'Revise' : 'Write') : STEP_WORD[d.status] || 'Draft', at: open ? due : null,
+    late: !open && new Date(h.scheduled_at) > Date.now() };
+}
+// The step's word once the deadline has passed: "File late", or "Write · late".
+export const lateWord = ts => ts.w === 'File' ? 'File late' : `${ts.w} · late`;
+// What still needs doing sorts first, by when it is due (late ones by their hearing); filed and stepless ones after.
+export const stepKey = (ts, h) => ts?.at ? '0' + ts.at : ts?.late ? '0' + h.scheduled_at : '1' + h.scheduled_at;
 export const STAGE_GLOSS = {
   introduced: 'Introduced. Waiting for its committee referrals and a first hearing.',
   first_triple: 'Triple filing: a bill sent to three or more committees has to clear its first one by this date, or it is dead.',
