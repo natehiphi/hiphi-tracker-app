@@ -715,7 +715,7 @@ export function chairMail(code) {
 // saved with its answer (asked, will_schedule, said_no, left_message) and the committee it was asked in. A reply is a new
 // row, so the first row says who asked and when, the newest says where it stands. One record for every screen: each
 // teammate's row, the push board, Holding our bills, Slipping, the chair's Last contact and What changed.
-export const ASK_LOG = () => DEMO;
+export const ASK_LOG = () => true;   // live at Nate's yes 10/22, migration 183 applied (R-316 W3)
 export const ASK_ANSWERS = [['asked', 'Asked for a hearing', 'send'], ['will_schedule', 'Will schedule', 'calendar-check'], ['said_no', 'Said no', 'circle-x'], ['left_message', 'Left a message', 'voicemail']];
 const ASK_REPLY = { asked: 'no reply yet', left_message: 'left a message', will_schedule: 'will schedule', said_no: 'said no' };
 export const chairIdsOf = code => codesOf(code).map(k => (S.committeeMembers || []).find(m => m.committee === k && m.role === 'chair')?.legislator_id).filter(Boolean);
