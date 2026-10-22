@@ -1452,7 +1452,8 @@ function wkHearing(list, owners, now, wkend, max = Infinity) {
 }
 // A step with a time of its own (the public ask, due when its hearing starts) takes its place in the day's order.
 // Its own words there (t.wk) leave the time out: the line already starts with it.
-const wkStep = (t, wkend) => `<a class="wk-oth wk-timed" data-at="${t.due}" href="${billRoute(t.b)}">${icon(WK_ICON[t.kind] || 'list-todo')}<span class="wk-ot"><b>${esc(wkWhen(t.due, wkend))}</b> · ${lead(t.b)} · ${t.wk || t.s}</span></a>`;
+// R-316 W54: the time, then the step, then the bill ("4:00 PM · Write the public ask · HB2121"), as Today's rows read.
+const wkStep = (t, wkend) => `<a class="wk-oth wk-timed" data-at="${t.due}" href="${billRoute(t.b)}">${icon(WK_ICON[t.kind] || 'list-todo')}<span class="wk-ot"><b>${esc(wkWhen(t.due, wkend))}</b> · ${t.wk || t.s} · ${lead(t.b)}</span></a>`;
 // Everything else that day, one row per bill (the first step leads, the rest are counted). Messages are not calendar
 // items: they fold into one row that opens the list, where they are answered (Nate, 9/21).
 function wkAlso(all, now, wkend, max = Infinity) {
@@ -1692,7 +1693,7 @@ function slipping() {
 }
 // "You", "You or Jaylen", "Kevin", "No owner": whoever a Slipping row waits on, in words and as avatars.
 const slipWho = ids => ids.length ? ids.map(id => id === S.me.id ? 'You' : first(id)).join(ids.length > 2 ? ', ' : ' or ').replace(/, ([^,]+)$/, ' or $1') : 'No owner';
-const slipAv = ids => ids.length ? ids.slice(0, 3).map(id => avatar(advocate(id), 24)).join('') + (ids.length > 3 ? `<span class="td-ravn">+${ids.length - 3}</span>` : '') : avatar(null, 24);
+const slipAv = ids => ids.length ? ids.slice(0, 2).map(id => avatar(advocate(id), 24)).join('') + (ids.length > 2 ? `<span class="td-ravn">+${ids.length - 2}</span>` : '') : avatar(null, 24);   // two faces at most (W54)
 // The row options: a teammate's step offers "Message Kevin" in the open item; your own (even shared) keeps its button.
 const slipOpt = r => ({ gk: 'sl', av: slipAv(r.ids), label: r.hear ? 'Nobody going yet' : slipWho(r.ids), msg: r.p && r.p.ro && r.b ? r.ids.filter(id => id !== S.me.id) : null });
 function slipHearRow(c, ek, sel, end, o) {

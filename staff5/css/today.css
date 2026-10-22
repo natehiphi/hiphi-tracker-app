@@ -375,6 +375,9 @@
   .td-root .wk-hr a.wk-bill:hover { background: var(--n200); }
   .td-root a.wk-bill:focus-visible, .td-root a.wk-oth:focus-visible { outline-offset: -2px; }
   .td-root .wk-b1 { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; min-width: 0; }
+  /* R-316 W54: a long state ("Waiting for second approval") wraps inside its card instead of running off it at 1280-1440. */
+  .td-root .wk-blk .sv-chip { max-width: 100%; white-space: normal; height: auto; text-align: left; }
+  .td-root .wk-blk .wk-right { max-width: 100%; min-width: 0; flex-wrap: wrap; }
   .td-root .wk-bill .td-num { font-size: var(--t13); line-height: 20px; font-weight: 600; }   /* a step under the 14px bold titles (A-13); Poppins titles wrapped "Testimony / due" at 1440 */
   .td-root .wk-bill .sv-p1 { height: 18px; }
   .td-root .wk-right { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; flex: none; }
@@ -751,6 +754,7 @@
 /* Slipping's rows are a little tighter than Today's (48px, still a pointer target, A-6), so a busy day's list, steps and
    hearings nobody is going to, fits on Team's first screen whole (Nate's target: all of it, at 1440 and 1280). */
 .td-root .td-slip .td-row { min-height: 48px; }
+.td-root .td-slip .td-rav { min-width: 72px; }   /* R-316 W54: two faces and "+N" in a column of one width, so the rows line up */
 .td-root .td-slip .td-rsel { padding-top: 3px; padding-bottom: 3px; }
 /* In Slipping the bill's number and its step say which it is; its name would only be a sliver beside whom it waits on. */
 .td-root .td-slip .td-row:not(.td-rhear) .td-rn { display: none; }

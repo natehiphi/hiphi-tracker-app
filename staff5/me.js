@@ -54,7 +54,7 @@ export default {
     const remTimes = { morning: `At ${hhmm(r.morning)}`, before: `${r.hours_before} hour${Number(r.hours_before) === 1 ? '' : 's'} before`, after: `At ${hhmm(r.after)}` };
     // Everything a person changes now and then sits behind one fold, closed until they open it (B-12).
     const fine = mode === 'app' ? '' : `<details class="st-fine"${S.meFine ? ' open' : ''}><summary><span>Fine-tune what you are told, and when</span>${icon('chevron-down', { cls: 'st-fchev' })}</summary><div class="st-finein">
-        ${mode === 'slack' ? `<h3 class="st-h3">Testimony deadlines</h3><p class="small muted st-note">Only for bills you own, until the testimony is marked filed.</p>
+        ${helper ? '' : mode === 'slack' ? `<h3 class="st-h3">Testimony deadlines</h3><p class="small muted st-note">Only for bills you own, until the testimony is marked filed.</p>
         <div class="card st-list">${REM.map(([k, l]) => switchRow('st-rem-' + k, l, r[k + '_on'], remTimes[k], { 'data-rem': k })).join('')}</div>
         ${r.morning_on || r.before_on || r.after_on ? `<h3 class="st-h3">Alert times</h3>
         <div class="card st-grid st-times">${r.morning_on ? field('st-mont', 'Morning alert', `<input id="st-mont" type="time" value="${esc(r.morning)}" data-remv="morning">`) : ''}
@@ -73,7 +73,7 @@ export default {
           <div class="card st-opts">
             ${opt('slack', 'Slack DM', esc(slackState) + (toEmail ? '. An admin has sent testimony steps to email for everyone.' : ''))}
             ${opt('email', 'Email', `To ${esc(me.email || 'your address')}. Testimony steps only; deadline alerts come only by Slack.${paused ? ' <b>Email is paused by an admin, so these are held.</b>' : ''}`)}
-            ${opt('app', 'Only in the app', `No alerts, except when ${me.is_admin || me.can_approve || me.is_reviewer ? 'you stand in for an approver or ' : ''}a step is passed to you. Today still lists everything.${mode === 'app' && liveOwned(me) ? ` <b>Deadline alerts for your ${liveOwned(me)} live bill${liveOwned(me) === 1 ? '' : 's'} with a hearing ahead go to nobody.</b>` : ''}`)}
+            ${opt('app', 'Only in the app', `No alerts, except when ${me.is_admin || me.can_approve || me.is_reviewer ? 'you stand in for an approver or ' : ''}a step is passed to you. Today still lists everything.${mode === 'app' && liveOwned(me) ? ` <b>Deadline alerts for your ${liveOwned(me)} bill${liveOwned(me) === 1 ? '' : 's'} with a hearing ahead won’t reach anyone. Pick Slack DM to get them.</b>` : ''}`)}
           </div></fieldset>
         <div class="btnrow st-acts">${btn('Send me a test DM', { kind: 'secondary', icon: 'send', attrs: { 'data-test': '1' } })}</div>
         ${fine}
