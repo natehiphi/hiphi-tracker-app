@@ -284,6 +284,7 @@ export function loadPublic() {
   PUBP = Promise.all([soft(partnerBills()), soft(partnerIssues()), soft(partnersPublic())]).then(([rows, issues, partners]) => {
     const byBill = new Map();
     for (const r of rows) { if (!byBill.has(r.bill_id)) byBill.set(r.bill_id, []); byBill.get(r.bill_id).push(r); }
+    S.pwNames = new Map(partners.map(p => [p.slug, p.name]));   // app.js placeName: a Back link names the partner's page
     return (PUB = { rows, issues, partners, byBill });
   });
   return PUBP;

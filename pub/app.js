@@ -48,6 +48,8 @@ const embed = lazy('embed', () => import('./embedcode.js'), { tab: 'find', title
 const partner = lazy('partner', () => import('./partner.js'), { tab: 'more', title: 'Your group' });
 // For advocacy groups, its request form, and the sign-in link HIPHI copies for a partner person (R-328 batch H, pub/groups.js).
 const groups = lazy('groups', () => import('./groups.js'), { tab: 'more', title: 'For advocacy groups' });
+// A HIPHI partner's own public page and its issues (R-328 batch D, pub/partnerpub.js): #/from/<slug>[/<issue slug>].
+const from = lazy('from', () => import('./partnerpub.js'), { tab: 'find', title: 'Partner' });
 // The calm redesign's issue page (R-302's option A) and category page (R-303), behind ?rec=1: their own module, so today's
 // find.js draws them as before without it.
 const recIssue = lazy('issue', () => import('./rec/issue.js'), { tab: 'find', title: 'Issue' });
@@ -64,7 +66,7 @@ const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', '
 const SCREEN_CSS = { start: ['start'], learn: ['start'], next: ['start', 'next'], home: ['home'], recap: ['home'], bills: ['mybills', 'find'], find: ['mybills', 'find'], issue: ['mybills', 'find'], category: ['mybills', 'find'], list: ['mybills', 'find'],
   bill: ['bill', 'mylists'], legislators: ['people'], legislator: ['people'], committees: ['committees'], committee: ['committees'], allbills: ['mybills', 'allbills'], week: ['mybills', 'find', 'week'], embed: ['embedcode'],   // its rows are mybills.js's (R-303: drawn unstyled and too wide for 2.5 s without it)
  
-  more: ['more', 'talk', 'profile'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more', 'profile'], profile: ['more', 'profile'], privacy: ['more'], mylist: ['mybills', 'find', 'mylists'], shared: ['mybills', 'find', 'mylists'], quiz: ['quiz'], partner: ['partner'], groups: ['groups'], link: ['groups'] };
+  more: ['more', 'talk', 'profile'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more', 'profile'], profile: ['more', 'profile'], privacy: ['more'], mylist: ['mybills', 'find', 'mylists'], shared: ['mybills', 'find', 'mylists'], quiz: ['quiz'], partner: ['partner'], groups: ['groups'], link: ['groups'], from: ['mybills', 'find'] };
 // Version A's look (pub/a/a.css, scoped to body.va and its own classes) comes after wide.css, as track-a.html had it, on
 // every screen but the first visit, which both versions share and other tests compare (R-187).
 const cssFor0 = name => oldA() && !FIRST_VISIT.includes(name) ? [...(SCREEN_CSS[name] || []), 'a/a'] : SCREEN_CSS[name];
@@ -101,7 +103,7 @@ try { if (sessionStorage.getItem('hiphi_helper_open')) helperLoad().then(() => r
 // name -> screen module. More covers help, sign in, alerts (R-146) and privacy; people covers legislators. The profile
 // (R-147) is its own module, and Settings' old address opens it.
 const SCREENS = { start, learn: start, home, recap: home, bills: mybills, find, issue: REC() ? recIssue : find, category: REC() ? recIssue : find, list: find, bill, legislators: people, legislator: people,
-  committees, committee: committees, allbills, more, help: more, signin: more, alerts: more, settings: profile, profile, privacy: more, mylist: mylists, shared: mylists, quiz, next: nextask, week, embed, partner, groups, link: groups };
+  committees, committee: committees, allbills, more, help: more, signin: more, alerts: more, settings: profile, profile, privacy: more, mylist: mylists, shared: mylists, quiz, next: nextask, week, embed, partner, groups, link: groups, from };
 // "My issues" (Nate, 9/21, R-018 answer 4): the tab shows what a person follows, issue by issue. Its address stays #/bills.
 const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My issues'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
 // Version A's tabs (R-070 decision 6, tried there): "You" in More's place, for your legislators, your profile and help.
@@ -174,6 +176,8 @@ export function parseRoute(h = location.hash) {
     // #/link/<token_hash>: a partner person's one-time sign-in link (Staff v5 copies it). Opening it spends nothing; its
     // Continue signs in (pub/groups.js). Error reports name the screen only (errlog.js placeOf), never the token.
     case 'link': return { name: 'link', token: seg[1] || '' };
+    // R-328 batch D: a HIPHI partner's public page, #/from/<slug>, and one of its issues, #/from/<slug>/<issue slug>.
+    case 'from': return { name: 'from', slug: (seg[1] || '').toLowerCase(), issue: seg[2] || '' };
     case 'quiz': return DEMO ? { name: 'quiz', step: seg[1] === 'result' ? 6 : Math.min(5, Math.max(0, +seg[1] || 0)) } : { name: 'home', unknown: true };
     default: return SCREENS[seg[0]] ? { name: seg[0] } : { name: 'home', unknown: true };   // a mistyped or old address: Home, with a word (R-067)
   }
@@ -210,6 +214,7 @@ app.placeName = h => {
     case 'partner': return 'Your group';
     case 'groups': return 'For advocacy groups';
     case 'link': return 'Sign in';
+    case 'from': return S.pwNames?.get(r.slug) || 'Partner';
     case 'committee': return S.committees?.[r.code]?.name || 'Committee';
     case 'more': return REC() ? 'You' : 'More';
     case 'help': return 'Help';
@@ -454,12 +459,23 @@ async function boot() {
     // them in (R-013): that link opens the plain address, so the place was kept in this browser (pub/mylists.js).
     let place = null, lists = null;
     if (S.user) { lists = await import('./mylists.js'); place = lists.takePlace(); if (place) history.replaceState({ y: 0 }, '', place.hash); }
-    const r = parseRoute();
+    let r = parseRoute();
+    // A partner's own link (?via=<slug>, R-328 batch D: "opens the tracker with your bills first"): someone past the first
+    // visit who opens the tracker itself (plain Home) lands on the partner's page, its bills and issues in its own words and
+    // its welcome line, with Home behind it for Back. The first visit keeps its own path (its first screen says the welcome).
+    // Only a group that writes on the tracker; a link-only partner's ?via= opens Home as before.
+    let viaOpened = false;
+    if (r.name === 'home' && !r.unknown && !place && !firstVisit() && /[?&]via=[a-z0-9-]{2,40}(&|$)/i.test(location.search) && !/[?&]via=(share|text|week|quiz|alert)(&|$)/i.test(location.search)) {
+      try {
+        const P = await import('./partners.js'); await P.loadPublic(); const p = P.viaPartner();
+        if (p) { viaOpened = true; history.replaceState({ y: 0 }, '', '#/'); history.pushState({ y: 0, arrived: true, prev: '#/' }, '', P.fromPath(p.slug)); await ensureScreen(parseRoute()); r = parseRoute(); }
+      } catch (e) { console.error(e); }
+    }
     S.arrivedOn = r.name;   // where this page load began (linkNewcomer, R-238)
     // A later visit's one ask (R-237): only when they opened the tracker itself (plain Home), never on arrival from an alert,
     // an email or a shared link (those open their own address), and only on a new day's first arrival. pickAsk says which,
     // if any (none with testimony due within a day on what they follow).
-    if (fresh && r.name === 'home' && !r.unknown && !place) {
+    if (fresh && r.name === 'home' && !r.unknown && !place && !viaOpened) {
       try { const k = (await import('./nextask.js')).pickAsk(); if (k) { history.replaceState({ y: 0 }, '', `#/next/${k}`); await ensureScreen(parseRoute()); } } catch (e) { console.error(e); }
     }
     if (r.legacy) {
