@@ -181,3 +181,17 @@ body.rec .rc-aways[open] > summary .rc-awchev { transform: rotate(180deg); }
 /* A link that reads as words inside a sentence (the back row's place is above, with the back link) */
 body.rec .rc-tlink { display: inline-flex; align-items: center; min-height: 44px; padding: 0; background: none; border: 0; color: var(--p700); font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 body.rec .rc-tlink:hover { text-decoration-thickness: 2px; }
+
+/* HIPHI's partners on the public screens (R-328 batch D, pub/partners.js): a partner's words always sit under its name, its
+   side is the plain grey chip (base .chip, never HIPHI's blue .chip.info, so nothing reads as HIPHI's), and its words read
+   at the size of HIPHI's own (A-19). The chip wraps: a long group name with "strongly supports" passes 320px. */
+.chip.pw-chip { white-space: normal; text-align: left; }
+.pw-about .pw-sum { color: var(--n900); }
+.pw-ask, .pw-whose, .pw-welcome { display: flex; gap: var(--s8); align-items: flex-start; margin: 0; max-width: 65ch; }
+.pw-ask .ic, .pw-whose .ic { flex: none; width: 18px; height: 18px; margin-top: 3px; color: var(--n500); }
+.pw-whose { font-size: var(--t14); color: var(--n700); }
+.pw-whose a { color: var(--p700); font-weight: 700; }
+.pw-welcome { padding: 10px 12px; border-radius: var(--r12); background: var(--p50); color: var(--n900); font-weight: 700; }
+.pw-welcome .ic { flex: none; width: 20px; height: 20px; margin-top: 2px; color: var(--p700); }
+.pw-noside { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); }
+.pw-noside p { margin: 0; color: var(--n700); max-width: 65ch; }

@@ -55,7 +55,7 @@ const ON = !!SANDBOX_MODE && SANDBOX_MODE !== '0';
 const VIA = (() => { try { return (new URLSearchParams(location.search).get('via') || '').toLowerCase(); } catch { return ''; } })();
 const SB_PUBLIC = ON || (DEMO && VIA === 'keiki-smiles');
 const KEY = 'hiphi_partner_sandbox';   // the sandbox's own copy (the storage shim adds _demo); one tab, so a new tab starts fresh
-const BILLS = { HB1671: '8e8609a7-0259-424e-a50c-235e15a4543c', HB1431: '1b935416-9fe1-4c22-957b-cc0ddb3d9705', HB1779: '3c6cf04d-1409-4a9b-baef-911952f124e1' };
+const BILLS = { HB1671: '8e8609a7-0259-424e-a50c-235e15a4543c', HB1431: '1b935416-9fe1-4c22-957b-cc0ddb3d9705', HB1779: '3c6cf04d-1409-4a9b-baef-911952f124e1', HB1349: '7d6caa6e-9e33-4cda-a45b-43b94e2c6dc4' };
 const ISSUES = { fillings: '0ab445fa-fa83-46ef-8ed8-5f213a2ee216', meals: '05e0d6a9-4ea7-456c-b219-e3632ade358b' };
 const OWN_ISSUE = 'b7f1c2a0-0000-4000-8000-00000000a001';
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'x' + Math.random().toString(16).slice(2));
@@ -96,7 +96,15 @@ function sample() {
           summary: 'Gives free school meals to every public and charter school student. Healthy meals at school mean fewer sugary snacks and fewer cavities.',
           points: ['About 40% of keiki eat a sugary snack instead of lunch when lunch costs money.', 'Free meals for all take the shame out of the lunch line.', 'Healthy food at school protects teeth as well as grades.'],
           ask: 'Ask your representative to support free school meals.', ask_until: plusDays(day, 30), issue_ids: [ISSUES.meals],
-          written_at: at(2, '15:10'), sent_at: at(2, '15:12'), reviewed_at: at(1, '10:30'), review_note: 'Please say where the 40% figure comes from.' }) }],
+          written_at: at(2, '15:10'), sent_at: at(2, '15:12'), reviewed_at: at(1, '10:30'), review_note: 'Please say where the 40% figure comes from.' }) },
+      // HB 1349, a bill HIPHI only monitors (no side): live words, so the public screens show a bill only a partner works on.
+      { id: 'pb-4', bill_id: BILLS.HB1349, bill_number: 'HB1349', session_year: 2026, hidden: false, removed: false, side_clash: false, hiphi_side: null,
+        live: words({ state: 'live', side: 'support', nickname: 'Health coverage for every keiki',
+          summary: 'Pays for Medicaid and CHIP coverage for pregnant people and children with low incomes, whatever their immigration status. Covered keiki get dental checkups too.',
+          points: ['A child with coverage sees a dentist before a cavity becomes an emergency.', 'Care in pregnancy means healthier babies and fewer costly hospital stays.', 'Families should not have to choose between rent and a checkup.'],
+          ask: 'Ask your representative to move this bill forward.', ask_until: plusDays(day, 20), issue_ids: [OWN_ISSUE],
+          written_at: at(12, '09:15'), sent_at: at(12, '09:20'), reviewed_at: at(11, '13:00') }),
+        open: null }],
     issues: [{ id: OWN_ISSUE, slug: 'healthy-keiki-teeth', hidden: false, removed: false,
       live: { id: uid(), state: 'live', name: 'Healthy keiki teeth', description: 'Dental care every child in Hawaiʻi can reach: at school, at checkups and close to home.', stance: 'support',
         written_at: at(9, '17:00'), sent_at: at(9, '17:02'), reviewed_at: at(7, '11:40'), review_note: null }, open: null }],
@@ -336,16 +344,16 @@ export const dayWords = day => day ? new Date(`${String(day).slice(0, 10)}T12:00
 export const fromPath = slug => `#/from/${encodeURIComponent(slug)}`;
 export const pIssuePath = (slug, issueSlug) => `#/from/${encodeURIComponent(slug)}/${encodeURIComponent(issueSlug)}`;
 // The partners' words under "About the bill", after HIPHI's own (unchanged): the reasons under the partner's name, its
-// plain summary, its ask while it lasts, its note on a draft, and whose words these are. h is the heading tag and hCls its
-// class, so the words sit in the section's own outline.
-export function aboutHtml(b, { h = 'h3', hCls = 'ab-h' } = {}) {
+// plain summary, its ask while it lasts, its note on a draft, and whose words these are; one .ab-part each, for
+// billtext.js aboutBill's partners option. h is the heading tag the section's own parts use.
+export function aboutHtml(b, { h = 'h3' } = {}) {
   return onBill(b).map(r => {
     const pts = (r.points || []).filter(Boolean), verb = sideVerb(r.side) === 'has comments on' ? 'comments on' : sideVerb(r.side);
-    return `<section class="pw-about" aria-label="${esc(r.partner_name)}"><${h} class="${hCls}">Why ${esc(r.partner_name)} ${verb} it</${h}>
-      ${r.summary ? `<p class="pw-sum">${esc(r.summary)}</p>` : ''}${pts.length ? `<ul class="pw-pts">${pts.map(p => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
-      ${r.ask ? `<p class="pw-ask">${icon('megaphone')}<span><b>Their ask:</b> ${esc(r.ask)}${r.ask_until ? ` <span class="muted">Until ${esc(dayWords(r.ask_until))}.</span>` : ''}</span></p>` : ''}
+    return `<div class="ab-part pw-about"><${h} class="ab-h">Why ${esc(r.partner_name)} ${verb} it</${h}>
+      ${r.summary ? `<p class="pw-sum">${esc(r.summary)}</p>` : ''}${pts.length ? `<ul class="ab-pts" role="list">${pts.map(p => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
+      ${r.ask ? `<p class="pw-ask">${icon('megaphone')}<span><b>Their ask:</b> ${esc(r.ask)}${r.ask_until ? ` Until ${esc(dayWords(r.ask_until))}.` : ''}</span></p>` : ''}
       ${r.draft_note ? `<p class="pw-draft"><b>${r.draft_version ? `On ${esc(r.draft_version)}:` : 'On the latest draft:'}</b> ${esc(r.draft_note)}</p>` : ''}
-      <p class="pw-whose small muted">${icon('handshake')}<span>A HIPHI partner. These are its own words. <a href="${fromPath(r.partner_slug)}">More from ${esc(r.partner_name)}</a></span></p></section>`;
+      <p class="pw-whose">${icon('handshake')}<span>A HIPHI partner. These are its own words. <a href="${fromPath(r.partner_slug)}">More from ${esc(r.partner_name)}</a></span></p></div>`;
   }).join('');
 }
 // The walkthrough's "Points you can make": each partner's points on this bill, offered only to someone on that partner's

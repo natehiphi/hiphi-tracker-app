@@ -38,8 +38,9 @@ const words = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').tri
 // What "Read more about the bill" opens. shown: the words already on screen above it, so the Legislature's summary is
 // left out when it is the very same words (A-14). reasons: false where the next step lists HIPHI's points anyway. h: the
 // heading level under the screen's own. pfx keeps ids apart when the bill page and a letter show it at once. quiet: the
-// whole bill as a text link, where outlined buttons are the answers to pick (a letter's first step, A-13).
-export function aboutBill(b, { shown = '', reasons = true, h = 'h3', pfx = 'ab', quiet = false } = {}) {
+// whole bill as a text link, where outlined buttons are the answers to pick (a letter's first step, A-13). partners: the
+// HIPHI partners' own words (pub/partners.js aboutHtml, R-328), drawn right after HIPHI's reasons and before the bill.
+export function aboutBill(b, { shown = '', reasons = true, h = 'h3', pfx = 'ab', quiet = false, partners = '' } = {}) {
   const d = cleanDesc(b.description), official = d && !words(shown).includes(words(d)) ? d : '';
   const why = reasons && WHY[b.hiphi_position], pts = why && Array.isArray(b.hiphi_points) ? b.hiphi_points.filter(Boolean) : [];
   // Hawaiʻi bills mark what they repeal "bracketed and stricken", so the words are crossed out as well as in brackets.
@@ -47,7 +48,7 @@ export function aboutBill(b, { shown = '', reasons = true, h = 'h3', pfx = 'ab',
   const ext = { target: '_blank', rel: 'noopener' };
   return `<div class="ab">
     ${official ? `<div class="ab-part"><${h} class="ab-h">In the Legislature’s words</${h}><p>${esc(official)}</p></div>` : ''}
-    ${pts.length ? `<div class="ab-part"><${h} class="ab-h">${esc(why)}</${h}><ul class="ab-pts" role="list">${pts.map(s => `<li>${esc(s)}</li>`).join('')}</ul></div>` : ''}
+    ${pts.length ? `<div class="ab-part"><${h} class="ab-h">${esc(why)}</${h}><ul class="ab-pts" role="list">${pts.map(s => `<li>${esc(s)}</li>`).join('')}</ul></div>` : ''}${partners}
     <div class="ab-part ab-read">
       ${btn('Read the whole bill', { kind: quiet ? 'text' : 'secondary', sm: quiet, icon: 'file-text', iconEnd: 'external-link', cls: quiet ? 'ab-cap' : '', href: billTextUrl(b), attrs: { ...ext, 'data-ab-go': 'text', 'aria-describedby': `${pfx}-tip` } })}
       <p class="ab-tip" id="${pfx}-tip">${esc(draft)} on the Capitol website. Crossed-out words in [brackets] are being taken out of the law. Underlined words are being added.</p>
