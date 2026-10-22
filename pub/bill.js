@@ -27,6 +27,8 @@ import { legMoments, planFor } from './speakup.js';   // the floor vote's email 
 import { openAddTo, onListsLine } from './mylists.js';
 import { aboutBill, capitolUrl, billTextUrl } from './billtext.js';   // "Read more about the bill" and the Capitol's links (R-178)
 import { GO_HELP } from './topics.js';   // the first visit's last button (R-190)
+// HIPHI's partners' own words (R-328 batch D): always under the partner's name, its side a grey chip, never HIPHI's blue one.
+import { onBill as partnerRows, hiphiSide, sideChip, noSideLine, aboutHtml, viaWelcome } from './partners.js';
 
 const N = CHAMBER_NAME;
 const normNum = n => String(n || '').replace(/\s/g, '').toUpperCase();
@@ -790,23 +792,35 @@ function plainHead(b) {
 // The name leads when the bill has one ("Disposable e-cigarette ban"), with what it does right under it. The number stays in
 // the top bar. The official "Relating to…" title never shows up here, so the lede is only ever a summary.
 function head(b, x) {
-  const p = posInfo(b), name = nick(b), mine = myStance(b.id);
+  const p = posInfo(b), name = nick(b), mine = myStance(b.id), pw = partnerSide(b);
   const lede = name && (b.hiphi_summary || cleanDesc(b.description)) ? blurb(b, 320) : '';
   const chips = [x.law ? chip(isResolution(b) ? 'Adopted' : 'Became law', 'ok', 'circle-check') : x.ballot ? chip('Goes to the voters', 'ok', 'circle-check') : x.stopped ? chip(isResolution(b) ? 'Not adopted' : 'Did not advance', '', 'archive') : '',
-    p ? posChip(b) : b.hiphi_position === 'monitor' ? chip('HIPHI is watching it', '', 'eye') : '',
+    p ? posChip(b) : b.hiphi_position === 'monitor' && !pw ? chip('HIPHI is watching it', '', 'eye') : '',
     // The testimony deadline on the first phone screen (R-114): a newcomer from a link should not have to scroll to it.
     x.act?.h?.testimony_deadline && new Date(x.act.h.testimony_deadline) > Date.now() && !dueInfo(x.act.h)?.late ? chip(`Testimony due ${dueWords(x.act.h.testimony_deadline)}`, 'info', 'calendar-clock') : '',
     // A bill that can no longer move does not ask where you stand; it remembers what you said.
     !x.live && (mine === 'support' || mine === 'oppose') ? chip(mine === 'support' ? 'You supported it' : 'You opposed it', '', 'user-check') : ''].filter(Boolean).join('');
   return `<div class="bl-head"><h1 class="${name ? 'hero bl-nick' : 'bl-what'}">${esc(name || plainHead(b))}</h1>
-    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}${chips ? `<div class="chips">${chips}</div>` : ''}${issueLine(b, x)}${onListsLine(b)}
+    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}${chips ? `<div class="chips">${chips}</div>` : ''}${pw}${issueLine(b, x)}${onListsLine(b)}
     ${aboutFold(b, name ? lede : plainHead(b))}</div>`;
 }
+// A bill HIPHI has taken no side on (it only monitors it, is neutral, or has no position) that a HIPHI partner has words
+// on (R-328 batch D, Nate 22 Oct): the partner's own side as a plain grey chip under its name, and one line saying plainly
+// that HIPHI hasn't taken a position, so nothing in the head reads as HIPHI's (A-5: the words say whose, not the colour).
+// HIPHI's own "HIPHI has comments" chip stays beside it; "HIPHI is watching it" gives way to the line, which says HIPHI's
+// stance once (A-14). '' where HIPHI has a side or no partner has approved words: the head is as it was.
+function partnerSide(b) {
+  const rows = hiphiSide(b) ? [] : partnerRows(b); if (!rows.length) return '';
+  return `<div class="pw-noside bl-pwside">${rows.map(sideChip).join('')}<p>${esc(noSideLine(rows, b))}</p></div>`;
+}
+// What a partner's link (?via=) says on one of its bills, once, near the top (R-328 batch D). The old pages' "New here?"
+// card already leads with the partner's welcome on a first visit, so the line is left out wherever that card is drawn.
+const welcomeLine = (b, card = false) => card ? '' : viaWelcome(b);
 // One sentence is not enough to decide on (R-178, Nate 10/5): right under it, "Read more about the bill" opens the
 // Legislature's own summary, HIPHI's reasons and the whole bill on the Capitol website (pub/billtext.js). Folded, so the
 // page reads as before for anyone who doesn't want it; it stays open through redraws like the page's other folds.
 const aboutFold = (b, shown) => `<details class="bl-about" ${fold(b, 'about')} data-ab-more="${esc(b.id)}"><summary>${icon('book-open')}<span>Read more about the bill</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary>
-    ${aboutBill(b, { shown, pfx: 'bl-ab' })}</details>`;
+    ${aboutBill(b, { shown, pfx: 'bl-ab', partners: aboutHtml(b) })}</details>`;
 // The issue a bill belongs to (R-018: people follow issues, and a bill is one way an issue moves). Its name is the way
 // to its page; beside it, whether the person follows it, or one tap to start. Bills HIPHI only watches have no issue.
 // The page a text's link opens (R-299, Nate 17 Oct: "The one link shows it"): a text links to b/<session>/<NUM>-testify, or
@@ -1066,14 +1080,14 @@ function page(num, b) {
   const x = situation(b);
   if (REC()) return recPage(num, b, x);
   const note = b.sandbox_untracked ? `<div class="notice info bl-note">${icon('info')}<div>This bill is not on HIPHI’s list, so the sandbox has only its number and title. The live tracker shows every bill in full.</div></div>` : '';
-  if (!wide()) return `<div class="bl-page">${topbar(num, b)}${head(b, x)}${friendCard(b, x)}${newcomer(b, x)}${tourOffer()}
+  if (!wide()) return `<div class="bl-page">${topbar(num, b)}${welcomeLine(b, newbie(b))}${head(b, x)}${friendCard(b, x)}${newcomer(b, x)}${tourOffer()}
     ${x.live ? `<section class="card bl-stance" aria-labelledby="bl-stance-h">${stanceInner(b, x)}</section>` : ''}${note}
     ${statusCard(b, x)}${actionSection(b, x)}${othersBlock(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}${draftsSection(b)}</div>`;
   // Reading and keyboard order (R-067: the main action was the 11th Tab stop on a laptop): the bill's name and what it
   // does, then the side panel with the action, then the rest. The grid puts the side panel on the right for the whole
   // height (bill.css .bl-cols), so the page looks as before.
   return `<div class="bl-page bl-wide">${topbar(num, b)}<div class="cols bl-cols">
-    <div class="bl-main">${head(b, x)}${tourOffer()}</div>
+    <div class="bl-main">${welcomeLine(b, newbie(b))}${head(b, x)}${tourOffer()}</div>
     <aside class="side bl-side" aria-label="Take part">
       <p class="bl-sidenum">${esc(spaced(b.bill_number))}</p>
       ${friendCard(b, x)}${newcomer(b, x)}${actionSection(b, x) || doCard(b, x)}
@@ -1218,14 +1232,14 @@ function recTop(b) {
         </div></div></div></div>`;
 }
 function recHead(b, x) {
-  const name = nick(b), mine = myStance(b.id), lede = name && (b.hiphi_summary || cleanDesc(b.description)) ? blurb(b, 320) : '';
+  const name = nick(b), mine = myStance(b.id), lede = name && (b.hiphi_summary || cleanDesc(b.description)) ? blurb(b, 320) : '', pw = partnerSide(b);
   const chips = [x.law ? chip(isResolution(b) ? 'Adopted' : 'Became law', 'ok', 'circle-check') : x.ballot ? chip('Goes to the voters', 'ok', 'circle-check') : x.stopped ? chip(isResolution(b) ? 'Not adopted' : 'Did not advance', '', 'archive') : '',
-    posInfo(b) ? posChip(b) : b.hiphi_position === 'monitor' ? chip('HIPHI is watching it', '', 'eye') : '',
+    posInfo(b) ? posChip(b) : b.hiphi_position === 'monitor' && !pw ? chip('HIPHI is watching it', '', 'eye') : '',
     !x.live && (mine === 'support' || mine === 'oppose') ? chip(mine === 'support' ? 'You supported it' : 'You opposed it', '', 'user-check') : ''].filter(Boolean).join('');
   // "Read the bill" opens the Capitol's text for now; the reading view in the app waits for its migration (R-302).
   const read = `<a class="bl-rread" href="${esc(billTextUrl(b))}" target="_blank" rel="noopener" data-ab-go="text">${icon('book-open')}<span>Read the bill</span>${icon('external-link', { cls: 'bl-ext' })}</a>`;
   return `<div class="bl-head bl-rhead"><p class="bl-reye">${esc(spaced(b.bill_number))}</p><h1 class="${name ? 'hero bl-nick' : 'bl-what'}">${esc(name || plainHead(b))}</h1>
-    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}<div class="bl-rhrow">${chips}${read}</div>${sponsorLine(b)}${textIssue(b) ? issueLine(b, x) : ''}${onListsLine(b)}</div>`;
+    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}<div class="bl-rhrow">${chips}${read}</div>${pw}${sponsorLine(b)}${textIssue(b) ? issueLine(b, x) : ''}${onListsLine(b)}</div>`;
 }
 // Who introduced it, up top (R-212 #41: sponsors were on 734 of 734 bills, folded under More details and cut at six). The first
 // name links to their page; "and 6 others" opens every name in place, each linked (S.blSpons, for the visit).
@@ -1269,22 +1283,24 @@ function recPage(num, b, x) {
   if (firstVisit() && !S.blNew.has(b.id)) { logVisit('arrive', 'view', { path: 'link' }); S.blNew.add(b.id); }
   const note = b.sandbox_untracked ? `<div class="notice info bl-note">${icon('info')}<div>This bill is not on HIPHI’s list, so the sandbox has only its number and title. The live tracker shows every bill in full.</div></div>` : '';
   const pos = posInfo(b), why = pos ? `why HIPHI ${pos.verb === 'comment on' ? 'comments on' : pos.verb + 's'} it, ` : '';
+  // The partners' reasons follow HIPHI's inside About the bill (R-328 batch D), and the card's line names them too.
+  const pw = partnerRows(b), theirs = pw.length === 1 ? `${pw[0].partner_name}’s reasons, ` : pw.length ? 'partners’ reasons, ' : '';
   // What the action card without a hearing (recDo) already says, so the parts below do not say it again (A-14): how many
   // have emailed, and "You see this one differently from HIPHI".
   const doCard = !x.act && !!mainButton(b, x), cardSays = doCard && /differently from HIPHI/.test(doWords(b, x)[1] || '');
   // Others following this bill: group numbers only from 10 people (countOk); no card at all without one.
   const others = othersBlock(b, { bare: true, noEmails: doCard && RMAIL.includes(x.kind) });
   const folds = recFold('who', 'Who decides next', recWhoPrev(x), recWho(b, x))
-    + recFold('about', 'About the bill', `In the Legislature’s words, ${why}what each draft changed`, aboutBill(b, { reasons: true, pfx: 'bl-rab' }) + draftsSection(b).replace(/^<details[^>]*><summary>[\s\S]*?<\/summary>/, '<div class="bl-rdrafts"><h3 class="ab-h">What each draft changed</h3>').replace(/<\/details>$/, '</div>'))
+    + recFold('about', 'About the bill', `In the Legislature’s words, ${why}${theirs}what each draft changed`, aboutBill(b, { reasons: true, pfx: 'bl-rab', partners: aboutHtml(b) }) + draftsSection(b).replace(/^<details[^>]*><summary>[\s\S]*?<\/summary>/, '<div class="bl-rdrafts"><h3 class="ab-h">What each draft changed</h3>').replace(/<\/details>$/, '</div>'))
     + recFold('more', 'More details', `Official title, ${companionsOf(b).length ? `companion ${spaced(companionsOf(b)[0])}, ` : ''}every draft and official action`, recDetails(b, x))
     + (others ? recFold('others', 'Others following this bill', 'How people lean and what they have done', others) : '');
   // Where do you stand? (R-303, Nate 19 Oct: back on the calm page) A quiet card after the action, never above it: on a
   // phone under Where it is now, on a wide screen under the action card in the side panel. Only while the bill can move.
   const stance = x.live ? `<section class="card flat bl-stance bl-rstance" aria-labelledby="bl-stance-h">${stanceInner(b, x, { said: cardSays })}</section>` : '';
   const rest = `${note}${recWhere(b, x)}${wide() ? '' : stance}<div class="bl-rfolds">${folds}</div>`;
-  if (!wide()) return `<div class="bl-page bl-rec">${recTop(b)}${recHead(b, x)}${friendCard(b, x)}${recAct(b, x)}${rest}</div>`;
+  if (!wide()) return `<div class="bl-page bl-rec">${recTop(b)}${welcomeLine(b)}${recHead(b, x)}${friendCard(b, x)}${recAct(b, x)}${rest}</div>`;
   return `<div class="bl-page bl-wide bl-rec">${recTop(b)}<div class="cols bl-cols">
-    <div class="bl-main">${recHead(b, x)}</div>
+    <div class="bl-main">${welcomeLine(b)}${recHead(b, x)}</div>
     <aside class="side bl-side" aria-label="Take part">${friendCard(b, x)}${recAct(b, x)}${stance}</aside>
     <div class="bl-main bl-main2">${rest}</div></div></div>`;
 }
