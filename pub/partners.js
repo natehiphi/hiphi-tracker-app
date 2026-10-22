@@ -50,6 +50,10 @@ const refuse = m => Object.assign(new Error(m), { sandbox: true });
 // (example.org); the dates follow the practice copy's clock, so "today" is its Monday.
 export const SANDBOX_MODE = DEMO ? (new URLSearchParams(location.search).get('partner') || '') : '';
 const ON = !!SANDBOX_MODE && SANDBOX_MODE !== '0';
+// This visit's ?via= slug (a partner's link). The practice copy's public screens show the sample group's approved words with
+// ?partner (any value but 0) or ?via=keiki-smiles; without either nothing changes, so other tests' recorded screens hold.
+const VIA = (() => { try { return (new URLSearchParams(location.search).get('via') || '').toLowerCase(); } catch { return ''; } })();
+const SB_PUBLIC = ON || (DEMO && VIA === 'keiki-smiles');
 const KEY = 'hiphi_partner_sandbox';   // the sandbox's own copy (the storage shim adds _demo); one tab, so a new tab starts fresh
 const BILLS = { HB1671: '8e8609a7-0259-424e-a50c-235e15a4543c', HB1431: '1b935416-9fe1-4c22-957b-cc0ddb3d9705', HB1779: '3c6cf04d-1409-4a9b-baef-911952f124e1' };
 const ISSUES = { fillings: '0ab445fa-fa83-46ef-8ed8-5f213a2ee216', meals: '05e0d6a9-4ea7-456c-b219-e3632ade358b' };
@@ -206,7 +210,7 @@ export function myPartner({ fresh = false } = {}) {
 }
 export const myPartnerNow = () => mine;   // what the last answer was, or null while it is coming
 export const forget = () => { mineP = null; mine = null; };
-const changed = r => { mineP = null; return r; };   // every change is followed by a fresh my_partner
+const changed = r => { mineP = null; forgetPublic(); return r; };   // every change is followed by a fresh my_partner (and public copy)
 export const agreeTerms = slug => rpc('partner_agree_terms', { p_slug: slug }).then(changed);
 export const saveBill = p => rpc('partner_save_bill', { p }).then(changed);
 export const billChange = p => rpc('partner_bill_change', { p }).then(changed);
@@ -220,7 +224,7 @@ export const invite = p => rpc('partner_invite', { p }).then(changed);
 // other side, the ask only until its end date.
 function sandboxPublicBills() {
   const day = today(), out = [];
-  for (const g of ON ? sb().groups : []) {
+  for (const g of SB_PUBLIC ? sb().groups : []) {
     if (g.status !== 'active') continue;
     for (const pb of g.bills) {
       const w = pb.live; if (!w || pb.hidden || pb.removed || pb.side_clash) continue;
@@ -246,7 +250,7 @@ export async function partnerBills({ billIds = null, slug = null } = {}) {
 export async function partnerIssues({ slug = null } = {}) {
   if (DEMO) {
     const pub = sandboxPublicBills();
-    return (ON ? sb().groups : []).filter(g => g.status === 'active' && (!slug || g.slug === slug)).flatMap(g => g.issues.filter(i => i.live && !i.hidden && !i.removed)
+    return (SB_PUBLIC ? sb().groups : []).filter(g => g.status === 'active' && (!slug || g.slug === slug)).flatMap(g => g.issues.filter(i => i.live && !i.hidden && !i.removed)
       .map(i => ({ id: i.id, partner_slug: g.slug, partner_name: g.name, slug: i.slug, name: i.live.name, description: i.live.description, stance: i.live.stance,
         approved_at: i.live.reviewed_at, bill_ids: pub.filter(r => r.partner_slug === g.slug && (r.issue_ids || []).includes(i.id)).map(r => r.bill_id) })));
   }
@@ -255,8 +259,124 @@ export async function partnerIssues({ slug = null } = {}) {
 }
 // The groups the public may name (public_partners: slug, welcome, name, website, about, writes).
 export async function partnersPublic() {
-  if (DEMO) return (ON ? sb().groups : []).filter(g => g.status !== 'waiting').map(g => ({ slug: g.slug, welcome: g.welcome, name: g.name, website: g.website, about: g.about, writes: g.status === 'active' }));
+  if (DEMO) return (SB_PUBLIC ? sb().groups : []).filter(g => g.status !== 'waiting').map(g => ({ slug: g.slug, welcome: g.welcome, name: g.name, website: g.website, about: g.about, writes: g.status === 'active' }));
   const c = await supa(), { data, error } = await c.from('public_partners').select('*'); if (error) throw error; return data || [];
+}
+
+// ---------------- partner words on the public screens (batch D) ----------------
+// The bill page, Find, the issue pages, the rows and the testimony walkthrough all read one copy of what partners may say,
+// asked once per page load (three small reads of public views) and only by a screen that shows it. A screen draws
+// synchronously: pubNow() answers null the first time, starts the reads, and redraws the page when they arrive with
+// anything to show, so the partner lines appear a moment after the screen; a failed read shows no partner words, never a
+// broken page.
+let PUB = null, PUBP = null, redrawAsked = false;
+export function loadPublic() {
+  if (PUBP) return PUBP;
+  const soft = p => p.catch(e => { console.error(e); return []; });
+  PUBP = Promise.all([soft(partnerBills()), soft(partnerIssues()), soft(partnersPublic())]).then(([rows, issues, partners]) => {
+    const byBill = new Map();
+    for (const r of rows) { if (!byBill.has(r.bill_id)) byBill.set(r.bill_id, []); byBill.get(r.bill_id).push(r); }
+    return (PUB = { rows, issues, partners, byBill });
+  });
+  return PUBP;
+}
+export function pubNow() {
+  if (PUB) return PUB;
+  if (!redrawAsked) { redrawAsked = true; loadPublic().then(d => { if (d.rows.length || d.issues.length || d.partners.length) app.render(); }).catch(e => console.error(e)); }
+  return null;
+}
+// After a partner's own change in the corner, the public copy is asked again on the next draw.
+export const forgetPublic = () => { PUB = null; PUBP = null; redrawAsked = false; };
+// This visit's partner (?via=<slug>) when it names a group that writes on the tracker; null otherwise (a link-only
+// partner's ?via= keeps its welcome line on the first visit, as before).
+export const viaSlug = () => VIA;
+export function viaPartner() { const d = pubNow(); return (d && VIA && d.partners.find(p => p.slug === VIA && p.writes)) || null; }
+export const partnerOf = slug => (pubNow()?.partners || []).find(p => p.slug === slug) || null;
+const bid = b => (typeof b === 'string' ? b : b?.id) || '';
+// Approved partner words on one bill: this visit's partner first, then the earliest approved.
+export function onBill(b) {
+  const rows = pubNow()?.byBill.get(bid(b)) || [];
+  return rows.slice().sort((x, y) => (y.partner_slug === VIA) - (x.partner_slug === VIA) || String(x.approved_at).localeCompare(String(y.approved_at)));
+}
+// HIPHI's side on a bill as partners are bound by it: support or oppose of any strength; Monitor and Neutral are no side.
+export const hiphiSide = b => sideFamily(b?.hiphi_position);
+// "supports", "strongly supports", "opposes", "has comments on": a partner's side in a sentence about it.
+export function sideVerb(side, { strong = false } = {}) {
+  const f = familyOf(side), s = f === 'support' ? 'supports' : f === 'oppose' ? 'opposes' : 'has comments on';
+  return strong && /^strongly_/.test(side || '') ? 'strongly ' + s : s;
+}
+const many = v => ({ supports: 'support', opposes: 'oppose', 'has comments on': 'have comments on' }[v] || v);
+// One line for a bill's row in a list or search (the plan of 10/21): beside HIPHI's own side, "Keiki Smiles Alliance
+// supports it too"; on a bill HIPHI has no side on, "From a partner: Keiki Smiles Alliance supports it", so the row never
+// reads as HIPHI's. '' when no partner has approved words on it.
+export function rowLine(b) {
+  const rows = onBill(b); if (!rows.length) return '';
+  const names = rows.map(r => r.partner_name), more = names.length - 1;
+  const who = more ? `${names[0]} and ${more === 1 ? names[1] : `${more} other partners`}` : names[0];
+  const verb = more ? many(sideVerb(rows[0].side)) : sideVerb(rows[0].side);
+  if (hiphiSide(b)) return `${who} ${verb} it too`;
+  if (new Set(rows.map(r => familyOf(r.side))).size > 1) return `From ${names.length} partners, who differ on it`;
+  return `From a partner: ${who} ${verb} it`;
+}
+// A partner's own side as a plain grey chip, never HIPHI's blue one: "Keiki Smiles Alliance supports".
+export function sideChip(r) {
+  const f = familyOf(r.side), ic = f === 'support' ? 'thumbs-up' : f === 'oppose' ? 'thumbs-down' : 'message-square';
+  return `<span class="chip pw-chip">${icon(ic)}${esc(`${r.partner_name} ${sideVerb(r.side, { strong: true })}`)}</span>`;
+}
+// On a bill HIPHI has taken no side on, the line under the partner's chip.
+export function noSideLine(rows) {
+  const fams = new Set(rows.map(r => familyOf(r.side))), one = rows.length === 1, f = [...fams][0];
+  const ask = fams.size > 1 ? 'HIPHI’s partners differ on it.' : f === 'neutral' ? `${one ? 'A partner has' : 'Partners have'} comments on it.`
+    : `${one ? 'A partner asks' : 'Partners ask'} you to ${f} it.`;
+  return `HIPHI hasn’t taken a position on this bill. ${ask}`;
+}
+// A partner's day as people say it: "Thu, Apr 2".
+export const dayWords = day => day ? new Date(`${String(day).slice(0, 10)}T12:00:00-10:00`).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'short', month: 'short', day: 'numeric' }) : '';
+// A partner's public page (its bills and issues) and one of its issues.
+export const fromPath = slug => `#/from/${encodeURIComponent(slug)}`;
+export const pIssuePath = (slug, issueSlug) => `#/from/${encodeURIComponent(slug)}/${encodeURIComponent(issueSlug)}`;
+// The partners' words under "About the bill", after HIPHI's own (unchanged): the reasons under the partner's name, its
+// plain summary, its ask while it lasts, its note on a draft, and whose words these are. h is the heading tag and hCls its
+// class, so the words sit in the section's own outline.
+export function aboutHtml(b, { h = 'h3', hCls = 'ab-h' } = {}) {
+  return onBill(b).map(r => {
+    const pts = (r.points || []).filter(Boolean), verb = sideVerb(r.side) === 'has comments on' ? 'comments on' : sideVerb(r.side);
+    return `<section class="pw-about" aria-label="${esc(r.partner_name)}"><${h} class="${hCls}">Why ${esc(r.partner_name)} ${verb} it</${h}>
+      ${r.summary ? `<p class="pw-sum">${esc(r.summary)}</p>` : ''}${pts.length ? `<ul class="pw-pts">${pts.map(p => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
+      ${r.ask ? `<p class="pw-ask">${icon('megaphone')}<span><b>Their ask:</b> ${esc(r.ask)}${r.ask_until ? ` <span class="muted">Until ${esc(dayWords(r.ask_until))}.</span>` : ''}</span></p>` : ''}
+      ${r.draft_note ? `<p class="pw-draft"><b>${r.draft_version ? `On ${esc(r.draft_version)}:` : 'On the latest draft:'}</b> ${esc(r.draft_note)}</p>` : ''}
+      <p class="pw-whose small muted">${icon('handshake')}<span>A HIPHI partner. These are its own words. <a href="${fromPath(r.partner_slug)}">More from ${esc(r.partner_name)}</a></span></p></section>`;
+  }).join('');
+}
+// The walkthrough's "Points you can make": each partner's points on this bill, offered only to someone on that partner's
+// side (stance 'support' | 'oppose'), as HIPHI's are offered only to people who agree with HIPHI.
+export function pointsFor(b, stance) {
+  if (!stance) return [];
+  return onBill(b).filter(r => familyOf(r.side) === stance && (r.points || []).some(Boolean))
+    .map(r => ({ slug: r.partner_slug, name: r.partner_name, points: r.points.filter(Boolean) }));
+}
+// The partner's welcome line for this visit (?via=), on the page of one of its bills or its own page (the first visit's
+// screens say it already): the line staff or the partner wrote, or nothing.
+export function viaWelcome(b = null) {
+  const p = viaPartner(); if (!p || !p.welcome) return '';
+  if (b && !onBill(b).some(r => r.partner_slug === p.slug)) return '';
+  return `<p class="pw-welcome">${icon('sparkles')}<span>${esc(p.welcome)}</span></p>`;
+}
+// Find's "From our partners": each group that writes and has approved bills or issues, this visit's partner first.
+export function fromGroups() {
+  const d = pubNow(); if (!d) return [];
+  return d.partners.filter(p => p.writes).map(p => ({ ...p,
+    bills: [...new Set(d.rows.filter(r => r.partner_slug === p.slug).map(r => r.bill_id))],
+    issues: d.issues.filter(i => i.partner_slug === p.slug) }))
+    .filter(g => g.bills.length || g.issues.length)
+    .sort((x, y) => (y.slug === VIA) - (x.slug === VIA) || x.name.localeCompare(y.name));
+}
+// One partner issue, by the partner's slug and the issue's.
+export const pIssue = (slug, issueSlug) => (pubNow()?.issues || []).find(i => i.partner_slug === slug && i.slug === issueSlug) || null;
+// An issue's stance as the partner's plain grey chip: "Keiki Smiles Alliance supports" (mixed: "has mixed views").
+export function issueChip(i) {
+  const s = i.stance === 'support' ? ['thumbs-up', 'supports'] : i.stance === 'oppose' ? ['thumbs-down', 'opposes'] : ['scale', 'has mixed views'];
+  return `<span class="chip pw-chip">${icon(s[0])}${esc(`${i.partner_name} ${s[1]}`)}</span>`;
 }
 
 // ---------------- the group's own words, shared by You and the corner ----------------
