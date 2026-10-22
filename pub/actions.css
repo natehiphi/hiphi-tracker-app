@@ -106,3 +106,8 @@
 .acard .acband { position: relative; margin: calc(-1 * var(--s16)) calc(-1 * var(--s16)) var(--s4); height: 120px; border-radius: calc(var(--r16) - 1px) calc(var(--r16) - 1px) 0 0; overflow: hidden; }
 .acard .acband svg, .acard .acband img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }   /* the ground layer stretches, the people stay whole (art.js) */
 @media (max-height: 760px) { .acard .acband { height: 80px; } }   /* shorter screens, most phones in their browser: a smaller band, so the main button sits near the first screen's edge; hiding it there meant most phones never saw it (Nate 10/14: "Smaller on phones") */
+/* The Zoom way under "where and when" (R-212 #32): a quiet line, the panel's own colours. */
+.gozoom { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s12) 0 0; line-height: 1.45; }
+.gozoom .ic { flex: none; width: 18px; height: 18px; margin-top: 2px; color: var(--p700); }
+.zoomgo { display: block; margin: var(--s8) 0; }
+.gopanel .gozoom:first-child { margin: 0 0 var(--s12); }

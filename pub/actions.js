@@ -9,7 +9,7 @@ import { issueBand } from './art.js';
 import { armOf, abRankMet, abSeen, shareTag } from './variant.js';
 import { picShare, picSeen } from './sharepic.js';
 import { btn, chip, posChip, iconBtn, issueLine } from './ui.js';
-import { hearingRow, mountHome, openKey, myLegs } from './speakup.js';
+import { hearingRow, mountHome, openKey, myLegs, myDistricts } from './speakup.js';
 import { alertFields, alertButton, wireAlertForm, alertDoneHTML, codeStep, profileAsk, profileLede, PROFILE_H } from './alerts.js';
 
 const key = (b, h) => `${b.id}|${h.id}`;
@@ -149,6 +149,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     <div class="btncol">${compact ? '' : primary}${askBtn}
       ${btn(more ? 'Fewer ways to help' : 'More ways to help', { kind: REC() ? 'text' : 'secondary', iconEnd: more ? 'chevron-up' : 'chevron-down', full: true, cls: REC() ? 'mwtoggle' : '', attrs: { 'data-moreways': k, 'aria-expanded': more ? 'true' : 'false', 'aria-controls': 'mw-' + h.id } })}</div>
     ${planned ? planBlock(b, h, k, lastDone !== 'attend') : ''}
+    ${!planned && onZoom(b, h) ? zoomBlock(b, h) : ''}
     ${more ? `<div class="moreways" id="mw-${esc(h.id)}">${rows}</div>` : ''}
     ${suggest && S.watch.has(b.id) ? `<div class="suggestbar">${btn('Following', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-follow': b.id, 'aria-pressed': 'true', title: 'Following. Press to stop following.' }, cls: 'on' })}</div>` : ''}
   </article>`;
@@ -174,8 +175,10 @@ const CAPITOL = 'Hawaiʻi State Capitol, 415 S Beretania St, Honolulu, HI 96813'
 const DIRECTIONS = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent('Hawaii State Capitol, 415 S Beretania St, Honolulu, HI 96813');
 const MAP = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('Hawaii State Capitol, 415 S Beretania St, Honolulu, HI 96813');
 const PAR_TEL = 'tel:+18085870478', PAR_SHOW = '(808) 587-0478';
+// Buses (R-212 #32, checked 21 Oct 2026): TheBus's downtown guide and its 2025 route flyers list routes A and 4 to Beretania
+// and Punchbowl, by the Capitol, and many more along Beretania. Route numbers change with TheBus's service updates.
 const GO = {
-  bus: 'Many buses stop on Beretania Street, in front of the Capitol.',
+  bus: 'TheBus routes A and 4 stop at Beretania and Punchbowl, by the Capitol, and many more run along Beretania Street. Times: thebus.org.',
   car: 'Driving? There’s paid parking under the Capitol (enter from Miller Street) and in the state lots nearby.',
   id: 'Bring a photo ID. Security checks it and your bag, so bring as little as you can.',
   help: 'The Public Access Room, Room 401, helps for free',
@@ -211,13 +214,83 @@ function goChange(h) {
   return bits.join(' ');
 }
 
-// Before the sign-up (and after the hearing): where and when, and what saying "I plan to go" brings (C-6).
+// ---- speaking: in person or on Zoom (R-212 #32; the Person Who Lived It walk: "nothing for speaking on Zoom, and ticking
+// Zoom in the profile turns into In person") ----
+// How someone said they will speak at a hearing, chosen on the walkthrough's send step: 'person', 'zoom' or 'written'. This
+// browser only, like the going note above; the Capitol's own form is where the choice really counts.
+// The facts, checked 21 Oct 2026 in the 2026 hearing notices (House HLT and Senate HHS, 11 Feb 2026) and the Public Access
+// Room's pages: written, videoconference and in-person testimony are all taken; the choice is made on the Capitol's form while
+// sending written testimony, at least 24 hours ahead; the chair may limit speakers and time ("written submissions will be
+// considered"); the House is "not responsible for bad connections on the testifier's end"; the live stream has closed
+// captions; interpreters (oral, written or ASL) and other accommodations are asked of the committee "as early as possible".
+// Joining (the Legislature's remote testimony steps as PAR, the ACLU of Hawaiʻi and a senator's guide describe them): log in
+// 20 to 30 minutes ahead, the Join button is beside the bill under Your Testimony, and the Zoom name matches the testimony's.
+// Public libraries help people connect to a hearing (PAR's Engagement 101, the library system's legislative guide).
+const SPEAK_KEY = 'hiphi_speak';
+const speakSaved = () => { try { return JSON.parse(localStorage.getItem(SPEAK_KEY) || '{}') || {}; } catch { return {}; } };
+export const speakHow = hid => speakSaved()[hid] || null;
+export function setSpeak(hid, how) {
+  try { const m = speakSaved(); if (how) m[hid] = how; else delete m[hid]; localStorage.setItem(SPEAK_KEY, JSON.stringify(m)); } catch { /* private mode */ }
+}
+// Off Oʻahu, by their senate district (as home.js picks out the island): 1-4 Hawaiʻi Island, 5-7 Maui County, 8 Kauaʻi.
+function offOahu() {
+  const sd = +(myDistricts()?.senate || 0);
+  return !sd || sd > 8 ? '' : sd <= 4 ? 'Hawaiʻi Island' : sd <= 7 ? 'Maui County' : 'Kauaʻi';
+}
+// The Zoom line under "where and when" (the hearing card's going panel); someone on a neighbor island is named first.
+function zoomLine(h) {
+  if (!goingOn(h) || dueInfo(h)?.late) return '';
+  const isle = offOahu();
+  return `<p class="gozoom">${icon('video')}<span>${isle ? `<b>${isle === 'Maui County' ? 'In' : 'On'} ${esc(isle)}? You can speak on Zoom from home.</b>` : '<b>Can’t get to the Capitol? You can speak on Zoom.</b>'} Choose <b>Zoom</b> instead of <b>In person</b> when you send testimony on the Capitol form.</span></p>`;
+}
+// Interpreters and other help, asked of the committee: its chair's office (core.js chairContacts) is where the clerk works.
+function accessLine(h) {
+  const c = chairContacts(h.committee).find(x => x.phone), tel = c ? String(c.phone).replace(/[^\d+]/g, '') : '';
+  return `<b>Need an interpreter?</b> Any language or ASL, or other help: ask the committee as early as you can${c ? `, at Chair ${esc(c.last)}’s office, <a href="tel:${esc(tel)}">${esc(c.phone)}</a>` : ''}. The live stream has captions.`;
+}
+// Speaking on Zoom: the checklist, on the walkthrough's last page, the card and Home's hearing-day card. hp: as goDirections.
+export function zoomChecklist(b, h, { hp = false } = {}) {
+  const k = key(b, h), sent = didKind(b, h, 'testimony'), ics = S.chips[k + 'ics'];
+  // In time order, four steps (the critic, 21 Oct): an interpreter is asked for ahead, so that line goes on the day itself.
+  const ahead = new Date(h.scheduled_at).getTime() - Date.now() > 864e5;
+  const li = (ic, html) => `<li>${icon(ic)}<span>${html}</span></li>`;
+  return `<section class="godir zoomdir" id="zd-${esc(h.id)}" ${hp ? `aria-labelledby="zdt-${esc(h.id)}"` : 'aria-label="Speaking on Zoom"'}>
+    ${hp ? `<h3 class="godir-t" id="zdt-${esc(h.id)}" tabindex="-1">Speaking on Zoom</h3>` : ''}
+    <ul class="godir-list" role="list">
+      ${sent ? '' : li('notebook-pen', `<b>Ask to speak.</b> When you send testimony on the Capitol form, choose <b>Zoom</b>. It closes ${h.testimony_deadline ? esc(dueWords(h.testimony_deadline)) : 'a day before the hearing'}.`)}
+      ${li('smartphone', '<b>Before you start.</b> A phone or computer with a microphone, a quiet spot and a steady connection.')}
+      ${li('log-in', `<b>Joining.</b> About 20 minutes before ${esc(timeWord(h.scheduled_at))}, log in to the Capitol website. Under <b>Your Testimony</b>, the <b>Join</b> button beside this bill opens Zoom. Use the same first and last name in Zoom as on your testimony, so the chair can find you.${capitolOpen()}`)}
+      ${li('mic', '<b>When you’re called.</b> Stay muted until the chair calls your name. Then unmute and speak for a minute or two.')}
+      ${li('phone', `<b>Stuck?</b> The Public Access Room helps for free: <a href="${PAR_TEL}">${PAR_SHOW}</a>. Public libraries can help you connect too.`)}
+      ${ahead ? li('globe', accessLine(h)) : ''}
+    </ul>
+    <div class="btnrow">${btn('Add to my calendar', { kind: 'text', sm: true, icon: 'calendar-plus', attrs: hp ? { 'data-hp': 'goics' } : { 'data-ics': k } })}</div>
+    ${ics ? `<p class="okmsg" role="status">${icon('circle-check')}<span>Saved. Open the file to add it to your calendar.</span></p>` : ''}
+    <p class="small muted">When time is short, the chair may not reach every speaker, and a call can drop. Your written testimony is read either way.</p>
+  </section>`;
+}
+// The Capitol website, where the Join button is (its testimony page asks them to log in first). The practice copy opens
+// nothing real (R-212 #1), so there it is only named.
+const CAPITOL_TESTIMONY = 'https://www.capitol.hawaii.gov/account/submittestimony.aspx';
+const capitolOpen = (main = false) => DEMO ? '' : `<span class="zoomgo">${btn('Open the Capitol website', { kind: main ? 'primary' : 'secondary', sm: !main, full: main, icon: 'log-in', iconEnd: 'external-link', href: CAPITOL_TESTIMONY, attrs: { target: '_blank', rel: 'noopener' } })}</span>`;
+// On the card of someone speaking on Zoom (chosen in the walkthrough) while the hearing is ahead: "How to join on Zoom" opens
+// the checklist in place, and "Not speaking after all" takes the choice back (this browser only: the Capitol need not be told).
+function zoomBlock(b, h, pre = '') {
+  const k = pre + 'zm:' + key(b, h), open = S.goOpen.has(k), today = /^today/.test(dayWord(h.scheduled_at));
+  return `${today ? capitolOpen(true) : ''}<div class="goline">${btn('How to join on Zoom', { kind: 'secondary', sm: true, icon: 'video', iconEnd: open ? 'chevron-up' : 'chevron-down', attrs: { 'data-go': k, 'aria-expanded': open ? 'true' : 'false', 'aria-controls': 'zd-' + h.id } })}
+      ${btn('Not speaking after all', { kind: 'text', sm: true, attrs: { 'data-unspeak': h.id } })}</div>
+    ${open ? zoomChecklist(b, h) : ''}`;
+}
+const onZoom = (b, h) => speakHow(h.id) === 'zoom' && goingOn(h) && h.status !== 'cancelled';
+
+// Before the sign-up (and after the hearing): where and when, and what saying "I plan to go" brings (C-6), and the Zoom way.
 function goPanel(b, h, k) {
-  const going = didKind(b, h, 'attend'), held = !goingOn(h);
-  return `<div class="gopanel">
+  const going = didKind(b, h, 'attend'), held = !goingOn(h), first = !!offOahu();
+  return `<div class="gopanel">${first ? zoomLine(h) : ''}
     <p>Hawaiʻi State Capitol, 415 S Beretania St, ${esc(roomFloor(h))}. ${esc(dateLong(h.scheduled_at))} at ${esc(timeWord(h.scheduled_at))}. Anyone can sit in and listen, with no sign-up.${held ? '' : ' Tap <b>I plan to go</b>, and you get directions, parking and how to find the room.'}</p>
     <div class="btnrow"><button type="button" class="chip" data-attend="${esc(k)}" aria-pressed="${going}">${icon(going ? 'check' : 'map-pin')}${going ? (held ? 'You went' : 'You plan to go') : 'I plan to go'}</button>
-      <a class="btn text sm" href="${MAP}" target="_blank" rel="noopener">${icon('map')}Map</a></div></div>`;
+      <a class="btn text sm" href="${MAP}" target="_blank" rel="noopener">${icon('map')}Map</a></div>
+    ${first ? '' : zoomLine(h)}</div>`;
 }
 // The card after the sign-up: what changed since, and "How to get there" opening the directions in place.
 // cant: "I can't go" beside it, when the done line's Undo would take back a later step instead (testimony, say).
@@ -234,8 +307,13 @@ export function goDirections(b, h, { hp = false } = {}) {
   const k = key(b, h), late = !!dueInfo(h)?.late, sent = didKind(b, h, 'testimony'), ics = S.chips[k + 'ics'];
   // To speak in person: chosen on the Capitol's testimony form, then the list at the room (the Public Access Room: "sign up
   // to speak when you first get to the meeting room").
-  const speak = late ? '<b>Listening.</b> Testimony is closed for this hearing, but anyone can sit in and listen.'
-    : sent ? '<b>To speak.</b> If you chose <b>In person</b> on the Capitol form, put your name on the list to speak when you get to the room. Speakers often get a minute or two.'
+  // Sent as written only (their walkthrough said so): the chair can still take speakers who sign up at the room, so they are
+  // told how, never promised a turn (R-212 #32).
+  const how = speakHow(h.id);
+  const speak = sent && how === 'written' ? '<b>To speak.</b> You sent it as written testimony only, and you can still ask: put your name on the list to speak when you get to the room. The chair decides when time is short.'
+    : sent && how === 'person' ? '<b>To speak.</b> You chose <b>In person</b> on the Capitol form. Put your name on the list to speak when you get to the room. Speakers often get a minute or two.'
+    : late ? '<b>Listening.</b> Testimony is closed for this hearing, but anyone can sit in and listen.'
+    : sent ? '<b>To speak.</b> If you chose <b>In person</b> on the Capitol form, put your name on the list to speak when you get to the room. Sent it as written only? You can still ask there; the chair decides. Speakers often get a minute or two.'
     : '<b>To speak.</b> Choose <b>In person</b> when you send testimony on the Capitol form. When you get to the room, put your name on the list to speak. Speakers often get a minute or two.';
   const li = (ic, html) => `<li>${icon(ic)}<span>${html}</span></li>`;
   return `<section class="godir" id="gd-${esc(h.id)}" ${hp ? `aria-labelledby="gdt-${esc(h.id)}"` : 'aria-label="How to get there"'}>
@@ -247,6 +325,7 @@ export function goDirections(b, h, { hp = false } = {}) {
       ${li('building', `<b>Finding the room.</b> ${esc(findRoom(h))}`)}
       ${li('mic', speak)}
       ${li('phone', `<b>Questions on the day?</b> ${esc(GO.help)}: <a href="${PAR_TEL}">${PAR_SHOW}</a>.`)}
+      ${li('globe', accessLine(h))}
     </ul>
     <div class="btnrow">${btn('Directions', { kind: 'secondary', sm: true, icon: 'map', iconEnd: 'external-link', href: DIRECTIONS, attrs: { target: '_blank', rel: 'noopener', 'data-godir': '1' } })}
       ${btn('Add to my calendar', { kind: 'text', sm: true, icon: 'calendar-plus', attrs: hp ? { 'data-hp': 'goics' } : { 'data-ics': k } })}</div>
@@ -268,16 +347,31 @@ export function goingPlans(drawn = new Set()) {
     if (!goingOn(h) || t > now + 8 * 864e5) continue;
     const next = h.status === 'cancelled' ? S.hearings.filter(x => x.bill_id === b.id && x.id !== h.id && x.status === 'scheduled' && x.committee === h.committee && new Date(x.scheduled_at) > now)
       .sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0] || null : null;
-    out.push({ b, h, next, soon: t - now < 2 * 864e5 && /^(today|tomorrow)/.test(dayWord(h.scheduled_at)) });
+    out.push({ b, h, next, soon: t - now < 2 * 864e5 && /^(today|tomorrow)/.test(dayWord(h.scheduled_at)), today: /^today/.test(dayWord(h.scheduled_at)) });
+  }
+  // Speaking on Zoom (R-212 #32): the hearing-day card, from the day before, with how to join. Going in person as well is
+  // drawn as going (its directions say how to speak there).
+  for (const [hid, how] of Object.entries(speakSaved())) {
+    if (how !== 'zoom' || seen.has(hid) || drawn.has(hid)) continue;
+    const h = anyHearing(hid), b = h && anyBill(h.bill_id);
+    if (!h || !b || !onZoom(b, h)) continue;
+    const t = new Date(h.scheduled_at).getTime();
+    if (t - now > 2 * 864e5 || !/^(today|tomorrow)/.test(dayWord(h.scheduled_at))) continue;
+    seen.add(hid); out.push({ b, h, next: null, soon: true, zoom: true, today: /^today/.test(dayWord(h.scheduled_at)) });
   }
   return out.sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at));
 }
 const cap1 = t => t.charAt(0).toUpperCase() + t.slice(1);
 export function goingCard(plans) {
   if (!plans.length) return '';
-  const item = ({ b, h, next }) => {
+  const allZoom = plans.every(p => p.zoom);
+  const item = ({ b, h, next, zoom }) => {
     const k = 'hm:' + key(b, h), open = S.goOpen.has(k), ch = goChange(h), name = nick(b) || blurb(b, 80);
     const head = `<p class="goitem-t"><a href="${billPath(b)}">${esc(name)}</a></p>`;
+    if (zoom) return `<div class="goitem">
+      <p class="goitem-when">${esc(cap1(dayWord(h.scheduled_at)))} at ${esc(timeWord(h.scheduled_at))}</p>${head}
+      <p class="meta">${esc(spaced(b.bill_number))} · ${esc(cmteLabel(h.committee))}${allZoom ? '' : ' · On Zoom'}</p>
+      ${zoomBlock(b, h, 'hm:')}</div>`;
     if (h.status === 'cancelled') return `<div class="goitem">${head}
       <p class="note gochange">${icon('triangle-alert')}<span>The hearing on ${esc(dateLong(h.scheduled_at))} was cancelled.${next ? ` It’s now ${esc(dateLong(next.scheduled_at))} at ${esc(timeWord(next.scheduled_at))}, ${esc(roomFloor(next))}.` : ' If it’s set again, it shows on the bill’s page.'}</span></p>
       <div class="btnrow">${next ? btn('I’ll go to the new one', { kind: 'secondary', sm: true, icon: 'map-pin', attrs: { 'data-goswitch': `${b.id}|${h.id}|${next.id}` } }) : ''}
@@ -291,10 +385,13 @@ export function goingCard(plans) {
       ${open ? goDirections(b, h) : ''}</div>`;
   };
   return `<section class="card gocard" aria-labelledby="gocard-t">
-    <h2 class="gocard-t" id="gocard-t">${icon('map-pin')}<span>${plans.length === 1 ? 'You plan to go' : `You plan to go to ${plans.length} hearings`}</span></h2>
+    <h2 class="gocard-t" id="gocard-t">${icon(plans.every(p => p.zoom) ? 'video' : 'map-pin')}<span>${plans.every(p => p.zoom) ? (plans.length === 1 ? 'You’re speaking on Zoom' : `You’re speaking on Zoom at ${plans.length} hearings`)
+      : plans.some(p => p.zoom) ? `Your ${plans.length} hearings` : plans.length === 1 ? 'You plan to go' : `You plan to go to ${plans.length} hearings`}</span></h2>
     ${plans.map(item).join('')}</section>`;
 }
 // The calendar file's words for someone going: the same facts as the list, as plain text.
+// Speaking on Zoom (R-212 #32): the checklist's steps, as plain text.
+const zoomText = h => `You're speaking on Zoom. About 20 minutes before ${timeWord(h.scheduled_at)}, log in on the Capitol website; under Your Testimony, the Join button beside this bill opens Zoom. Use the same name as on your testimony, and stay muted until the chair calls you. Stuck? The Public Access Room: ${PAR_SHOW}.`;
 const goText = (b, h) => [`You plan to go. Arrive by ${arriveBy(h)} with a photo ID.`, findRoom(h), `${GO.bus} ${GO.car}`, `Questions on the day? ${GO.help}: ${PAR_SHOW}.`].join(' ');
 
 // ---- email the chair ----
@@ -308,14 +405,14 @@ function icsFor(b, h) {
   const url = `${location.origin}${location.pathname}${billPath(b)}`, short = nick(b) || blurb(b, 60);
   // Someone who plans to go (R-142) gets the directions in the hearing's event, its floor in the place, and a reminder to
   // leave an hour and a half before; everyone else, the hearing as it was.
-  const going = didKind(b, h, 'attend');
+  const going = didKind(b, h, 'attend'), zoom = !going && onZoom(b, h);
   const ev = (uid, start, mins, title, desc, alarm) => ['BEGIN:VEVENT', `UID:${uid}@bills.hiphi.org`, `DTSTAMP:${stamp(Date.now())}`, `DTSTART:${stamp(start)}`, `DTEND:${stamp(new Date(start).getTime() + mins * 6e4)}`,
     `SUMMARY:${esc2(title)}`, `DESCRIPTION:${esc2(desc)}`, `LOCATION:${esc2(CAPITOL + ', ' + (going ? roomFloor(h) : roomLabel(h.room)))}`, `URL:${url}`,
     ...(alarm ? ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc2(title)}`, `TRIGGER:${alarm}`, 'END:VALARM'] : []), 'END:VEVENT'];
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//HIPHI//Bill Tracker//EN', 'CALSCALE:GREGORIAN',
     ...(h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? ev(h.id + '-due', h.testimony_deadline, 15, `Testimony due: ${spaced(b.bill_number)} (${short})`, `Send testimony in 5 minutes: ${url}`, '-PT2H') : []),
     ...ev(h.id + '-hearing', h.scheduled_at, 60, `Hearing: ${spaced(b.bill_number)} (${short})`,
-      going ? `${cmteLabel(h.committee)}. ${goText(b, h)} ${url}` : `${cmteLabel(h.committee)}. Anyone can attend. ${url}`, going ? '-PT90M' : ''), 'END:VCALENDAR'];
+      going ? `${cmteLabel(h.committee)}. ${goText(b, h)} ${url}` : zoom ? `${cmteLabel(h.committee)}. ${zoomText(h)} ${url}` : `${cmteLabel(h.committee)}. Anyone can attend. ${url}`, going ? '-PT90M' : zoom ? '-PT30M' : ''), 'END:VCALENDAR'];
   return new Blob([lines.join('\r\n')], { type: 'text/calendar' });
 }
 // The calendar file, saved; the walkthrough's directions use it too (R-142).
@@ -453,6 +550,7 @@ export function wireActions(root = document) {
     const how = await (await import('./askfriend.js')).askFriend({ b, h, did, acted: !!did }); if (how === 'copied') S.chips[k + 'share'] = true;
     if (how) app.render(); });
   $$('[data-go]').forEach(el => el.onclick = () => { const k = el.dataset.go; S.goOpen.has(k) ? S.goOpen.delete(k) : S.goOpen.add(k); app.render(); });
+  $$('[data-unspeak]').forEach(el => el.onclick = () => { setSpeak(el.dataset.unspeak, 'written'); toast('OK, we’ll stop showing how to join. You don’t need to tell the Capitol. Your written testimony still counts.'); app.render(); });
   // "I plan to go" under the ask their profile chose (C1) is that ask taken.
   $$('[data-attend]').forEach(el => el.onclick = async () => { const [bid, hid] = el.dataset.attend.split('|'), on = !S.done.has(doneKey(bid, hid, 'attend'));
     if (on && el.closest('.acard')?.querySelector('[data-asked]')) logAct('ask_acted');
