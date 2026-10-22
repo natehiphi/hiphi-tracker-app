@@ -15,6 +15,7 @@ import { S, DB, DEMO, DEMO_ASOF, LIVE_REFRESH, SESSION_OVER, APP_URL, LINK_ERR, 
 import { icon, btn, iconBtn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, closeSheet, takeSheetEntry, avatar, keysOn } from './ui.js';
 import { MARK } from '../pub/art.js';
 import { reportError } from './errlog.js';
+import { installAskWatch, loadAsks } from './chairask.js';   // R-316 W3
 import { exactBill, inboxCount, billRoute, FACTS, draftFor, diedish } from './model.js';
 import today, { reviewQueue } from './today.js';
 import review from './review.js';
@@ -328,7 +329,8 @@ export function render() {
   if (location.hash !== lastKey) { lastKey = location.hash; if (!app.contains(document.activeElement) || document.activeElement === document.body) app.querySelector('main')?.focus({ preventScroll: true }); }
 }
 hooks.render = () => render();
-hooks.afterLoad = () => FACTS.clear();   // the derived facts are rebuilt from the new rows (R-152 B)
+hooks.afterLoad = () => { FACTS.clear(); loadAsks(); };   // the derived facts are rebuilt from the new rows (R-152 B); R-316 W3's chair asks
+installAskWatch();
 hooks.toast = (m, err) => toast(m, err ? { err: true } : {});
 hooks.onAuth = () => boot();
 hooks.onRecovery = () => renderRecovery();

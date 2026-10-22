@@ -71,7 +71,7 @@ export function holdingHTML() {
   const head = `<p class="hb-sum">${esc(out.length ? `${plural(out.length, 'chair')} ${out.length === 1 ? 'holds' : 'hold'} ${whose} with no hearing yet, the soonest ask first.` : `No chair holds ${whose} without a hearing.`)}</p>`;
   const card = g => { const n = g.rows.length, aw = g.rows[0].aw, codes = [...new Set(g.rows.flatMap(x => codesOf(x.st.committee)).filter(k => (S.committeeMembers || []).some(m => m.committee === k && m.role === 'chair' && m.legislator_id === g.id)))];
     const asked = g.rows.filter(x => askState(x.b, x.st.committee).k !== 'none').length, m = chairMail(codes[0]);
-    const mail = m ? chairEmailHref({ ...m, who: `${g.l.chamber === 'S' ? 'Sen.' : 'Rep.'} ${g.l.sort_name.split(',')[0]}`, email: g.l.email || m.email.split(',')[0] }, g.rows, g.rows[0].st.deadline) : '';
+    const mail = m ? chairEmailHref({ ...m, who: `${g.l.chamber === 'S' ? 'Sen.' : 'Rep.'} ${g.l.sort_name.split(',')[0]}`, email: g.l.email || m.email.split(',')[0], legId: g.l.id }, g.rows, g.rows[0].st.deadline) : '';
     return `<li class="hb-card"><div class="hb-top"><a class="hb-name" href="#/legislator/${esc(g.l.id)}?from=holding"><b>${esc(`${g.l.chamber === 'S' ? 'Sen.' : 'Rep.'} ${g.l.name}`)}</b></a>
       <span class="hb-meta">${esc([`Chair, ${codes.map(cmteName).join(' and ')}`, plural(n, 'bill'), aw ? (aw.a.passed ? 'notice time passed' : `ask by ${aw.day}`) : '', asked ? `${asked} asked` : 'nobody asked yet', lastWith(g.id)].filter(Boolean).join(' · '))}</span>
       ${mail ? btn(n > 1 ? 'Email about all of them' : 'Email the chair', { kind: 'secondary', sm: true, icon: 'mail', href: mail }) : ''}</div>

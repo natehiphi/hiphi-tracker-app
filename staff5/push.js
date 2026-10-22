@@ -9,7 +9,8 @@
 // Until W3 records every ask (a database change, Nate's call), "asked" is a conversation logged with that chair about
 // that bill, the record the Legislators page already keeps; "Mark asked" logs one. W3's "Did you send it?" replaces it.
 import { S, DB, DEMO, esc, advocate } from './data.js';
-import { chairMail, codesOf, askWords, billTag, billSay, billRoute, blurb } from './model.js';
+import { chairMail, codesOf, askWords, billTag, billSay, billRoute, blurb, ASK_LOG, chairAskOf, chairAskMail, chairIdsOf } from './model.js';
+import { askLine, askedChip, answerSheet } from './chairask.js';   // R-316 W3
 import { icon, btn, iconBtn, avatar, toast, pickerSheet, menuSheet } from './ui.js';
 
 export const PUSH_BOARD = () => DEMO;
@@ -32,27 +33,21 @@ function whenWord(t) {
 export const noticeWhen = t => `${dayAt(t)}, ${timeAt(t)}`;
 
 // The chairs' legislator ids for a committee ("HHS/CPN": both chairs).
-export const chairIds = code => codesOf(code).map(k => (S.committeeMembers || []).find(m => m.committee === k && m.role === 'chair')?.legislator_id).filter(Boolean);
-const notesAll = () => { const seen = new Set(), out = [];
-  for (const n of [...(S.demoNotes || []), ...Object.values(S.legNotes || {}).flat()]) if (n && !seen.has(String(n.id))) { seen.add(String(n.id)); out.push(n); }
-  return out; };
-export function askedOf(b, code) {
-  const ids = new Set(chairIds(code)); if (!ids.size) return null;
-  const n = notesAll().filter(x => x.bill_id === b.id && ids.has(x.legislator_id)).sort((x, y) => String(y.created_at).localeCompare(String(x.created_at)))[0];
-  return n ? { by: n.advocate_id, at: new Date(n.created_at).getTime(), n } : null;
-}
+export const chairIds = chairIdsOf;
+// R-316 W3: the record is model.js chairAskOf (a conversation with the chair on the bill, with its answer once 183 is in).
+export const askedOf = (b, code) => chairAskOf(b, code);
 // W14: an ask handed to someone is a to-do with this title, so it shows on their Today with its due day.
 export const ASK_TODO = /^Ask (?:the chairs?|(?:Rep|Sen)\. .+?) for a hearing on (\S+)/;
 export const askTodoOf = b => (S.todos?.[b.id] || []).find(t => !t.done && ASK_TODO.test(t.title || '')) || null;
 // Where a bill's chair ask stands: asked, being asked by someone, or not yet.
 export function askState(b, code) {
   const a = askedOf(b, code);
-  if (a) return { k: 'asked', words: `Asked by ${isMeId(a.by) ? 'you' : firstOf(a.by)} ${whenWord(a.at)}`, a };
+  if (a) return { k: 'asked', words: ASK_LOG() ? askLine(a) : `Asked by ${isMeId(a.by) ? 'you' : firstOf(a.by)} ${whenWord(a.at)}`, a, b, code };
   const t = askTodoOf(b);
   if (t && t.assignee_id) return { k: 'giving', words: isMeId(t.assignee_id) ? 'You are asking' : `${firstOf(t.assignee_id)} is asking`, t };
   return { k: 'none', words: 'Not asked yet' };
 }
-export const askChip = s => `<span class="pb-st pb-${s.k}">${icon(s.k === 'asked' ? 'check' : s.k === 'giving' ? 'user-round' : 'circle-dashed')}<span>${esc(s.words)}</span></span>`;
+export const askChip = s => s.k === 'asked' && ASK_LOG() && s.b ? askedChip(s.b, s.code, s.a) : `<span class="pb-st pb-${s.k}">${icon(s.k === 'asked' ? 'check' : s.k === 'giving' ? 'user-round' : 'circle-dashed')}<span>${esc(s.words)}</span></span>`;
 
 // The bills with no hearing under one deadline, grouped by committee (its chair or chairs), soonest ask-by first.
 export function chairGroups(need) {
@@ -65,6 +60,8 @@ export function chairGroups(need) {
 }
 // The one email to a chair, listing every bill the chair holds for this deadline.
 export function chairEmailHref(m, rows, dl) {
+  if (ASK_LOG()) { const code = rows[0]?.st?.committee, to = m.legId ? { who: m.who, email: m.email, legId: m.legId } : null;
+    const r = code && chairAskMail(code, rows.map(x => x.b), { dl, to, codes: rows.map(x => x.st.committee) }); if (r) return r.href; }
   const bs = rows.map(x => x.b), one = bs.length === 1, me = (S.me?.full_name || '').split(' ')[0];
   const line = b => `${b.bill_number}${blurb(b, 100) ? ` (${blurb(b, 100)})` : ''}`;
   const when = dl ? ` before the ${dl.label} deadline on ${new Date(dl.date + 'T12:00:00-10:00').toLocaleDateString('en-US', { ...HST, weekday: 'long', month: 'long', day: 'numeric' })}` : '';
@@ -81,7 +78,9 @@ export function chairGroupHTML(g, { owners = false, more = () => '', key = '' } 
   const st = g.rows.map(x => askState(x.b, g.code)), open = st.filter(s => s.k === 'none').length;
   const by = g.aw ? (g.aw.a.passed ? 'notice time passed' : `ask by ${g.aw.day}`) : '';
   const head = [g.m ? `<b>${esc(g.m.who)}</b>` : '<b>No chair listed</b>', esc(g.code || 'no committee yet'), esc(plural(g.rows.length, 'bill')), esc(by)].filter(Boolean).join(' · ');
-  const acts = g.m ? `${btn(g.m.n > 1 ? "Email the chairs" : g.rows.length > 1 ? `Email ${g.m.who}` : "Email the chair", { kind: 'secondary', sm: true, icon: 'mail', href: chairEmailHref(g.m, g.rows, g.rows[0].st.deadline) })}${open ? btn('Mark asked', { kind: 'text', sm: true, icon: 'check', attrs: { 'data-pbasked': k } }) : ''}${GIVE_ASK() && open ? iconBtn('ellipsis', `More for the ask to ${g.m.who}`, { 'data-pbmore': k, 'aria-haspopup': 'dialog' }, 'td-more') : ''}` : '';
+  // R-316 W3: once asked, a bill leaves the email; with every bill asked the chair's line has no button (the rows say who).
+  const mailRows = ASK_LOG() ? g.rows.filter((x, i) => st[i].k !== 'asked') : g.rows;
+  const acts = g.m && !mailRows.length ? '' : g.m ? `${btn(g.m.n > 1 ? "Email the chairs" : g.rows.length > 1 ? `Email ${g.m.who}` : "Email the chair", { kind: 'secondary', sm: true, icon: 'mail', href: chairEmailHref(g.m, mailRows, g.rows[0].st.deadline) })}${open ? btn('Mark asked', { kind: 'text', sm: true, icon: 'check', attrs: { 'data-pbasked': k } }) : ''}${GIVE_ASK() && open ? iconBtn('ellipsis', `More for the ask to ${g.m.who}`, { 'data-pbmore': k, 'aria-haspopup': 'dialog' }, 'td-more') : ''}` : '';
   const mores = g.rows.map(x => more(x)), gap = mores.some(Boolean) ? '<span class="pb-nomore" aria-hidden="true"></span>' : '';
   const rows = g.rows.map((x, i) => { const own = owners ? avatar(advocate((S.assignments[x.b.id] || [])[0]), 20) : '';
     const nb = askWords(x.st);
@@ -97,7 +96,7 @@ async function markAsked(k, el, after) {
   el?.setAttribute('aria-busy', 'true');
   try {
     const made = [];
-    for (const x of todo) for (const id of ids) made.push([await DB.addLegNote(id, x.b.id, `Asked for a hearing on ${x.b.bill_number} (${g.code}).`), id]);   // one wording with logAsk
+    for (const x of todo) for (const id of ids) made.push([await DB.addLegNote(id, x.b.id, `Asked for a hearing on ${x.b.bill_number} (${g.code}).`, ASK_LOG() ? { answer: 'asked', committee: g.code } : {}), id]);   // one wording with logAsk
     for (const x of todo) { const t = askTodoOf(x.b); if (t && isMeId(t.assignee_id)) await DB.updateTodo(x.b.id, t.id, { done: true }); }
     toast(`Marked asked: ${todo.length === 1 ? billSay(todo[0].b) : plural(todo.length, 'bill')} with ${g.m?.who || 'the chair'}. The team sees it on ${todo.length === 1 ? 'the bill' : 'each bill'}.`,
       { ok: true, undo: async () => { for (const [n, id] of made) await DB.delLegNote(n.id, id); after(); } });
@@ -130,11 +129,14 @@ export function giveAsk(rows, code, after) {
 }
 // The asker's Done on an ask to-do is the ask made: it is logged with the chair, so everyone's row says "Asked by Kris".
 export async function logAsk(b, code) {
-  const made = []; for (const id of chairIds(code)) made.push([await DB.addLegNote(id, b.id, `Asked for a hearing on ${b.bill_number} (${code}).`), id]);
+  const made = []; for (const id of chairIds(code)) made.push([await DB.addLegNote(id, b.id, `Asked for a hearing on ${b.bill_number} (${code}).`, ASK_LOG() ? { answer: 'asked', committee: code } : {}), id]);
   return async () => { for (const [n, id] of made) await DB.delLegNote(n.id, id); };
 }
 export function wirePush(root, after) {
-  root.querySelectorAll('[data-pbasked]').forEach(el => el.onclick = () => markAsked(el.dataset.pbasked, el, after));
+  // R-316 W3: Mark asked opens the same one-tap answers as "Did you send it?" (one way to say it, ui-critic M3).
+  root.querySelectorAll('[data-pbasked]').forEach(el => el.onclick = () => { const g = GROUPS.get(el.dataset.pbasked);
+    if (ASK_LOG() && g) return answerSheet(g.rows.filter(x => askState(x.b, g.code).k === 'none').map(x => x.b.id), g.code);
+    markAsked(el.dataset.pbasked, el, after); });
   // Two actions on the chair's line (A-20): the email and Mark asked; handing the ask on is in its "…".
   root.querySelectorAll('[data-pbmore]').forEach(el => el.onclick = () => { const g = GROUPS.get(el.dataset.pbmore); if (!g) return;
     menuSheet({ title: esc(`The ask to ${g.m?.who || 'the chair'}`), items: [{ label: 'Give this ask to…', icon: 'user-round', sub: 'It lands on their Today with the email button', run: () => giveAsk(g.rows.filter(x => askState(x.b, g.code).k === 'none'), g.code, after) }] }); });

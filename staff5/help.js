@@ -355,8 +355,11 @@ const GUIDES = ['howto', 'hearing', 'talk', 'changes', 'calendar', 'moments'];
 // Help's first page lists these first (W37), the jobs before the reference.
 const HOWTO_IDS = ['howto', 'hearing', 'talk', 'file', 'changes', 'versions', 'moments', 'calendar'];
 const slackChannel = () => String((S.slackCfg || {}).help_channel || (S.slackCfg || {}).main_channel || '#hearing-alerts').replace(/^#/, '');
-const askSlack = q => { const words = `${q.trim()} (from Help)`, ch = slackChannel();
-  return `<div class="st-ask"><p class="small muted">Still stuck? Ask the team. This copies your words and opens Slack’s #${esc(ch)}; paste them there and send.</p>
+// Nate 10/22: the question goes to him, "just a dm to me". His Slack account is linked the first time the tracker messages
+// him (advocates.slack_user_id); until then it falls back to the channel. Slack's app_redirect opens a DM from a user id.
+const nateSlack = () => (S.advocates || []).find(a => a.initials === 'NT' && a.slack_user_id) || null;
+const askSlack = q => { const words = `${q.trim()} (from Help)`, n = nateSlack(), ch = n ? n.slack_user_id : slackChannel(), to = n ? (n.id === S.me?.id ? 'your own Slack messages' : 'a Slack message to Nate') : `Slack’s #${ch}`;
+  return `<div class="st-ask"><p class="small muted">Still stuck? Ask ${n && n.id !== S.me?.id ? 'Nate' : 'the team'}. This copies your words and opens ${esc(to)}; paste them there and send.</p>
     ${btn('Ask in Slack', { kind: 'secondary', sm: true, icon: 'message-circle', iconEnd: 'external-link', href: `https://slack.com/app_redirect?channel=${encodeURIComponent(ch)}`, target: '_blank', attrs: { 'data-askslack': words } })}
     <p class="small muted st-askw">“${esc(words)}”</p></div>`; };
 const missHTML = q => `<p class="st-none" role="status">Nothing in Help mentions “${esc(q.trim())}”. Try another word, or one of these guides:</p>

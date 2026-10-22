@@ -711,6 +711,58 @@ export function chairMail(code) {
   if (!out.length) return null;
   return { ...out[0], n: out.length, email: out.map(x => x.email).join(','), who: out.map(x => `${x.title} ${x.last}`).join(' and ') };
 }
+// R-316 W3 (practice copy until Nate's yes and migration 183): every ask to a chair is a conversation with the chair,
+// saved with its answer (asked, will_schedule, said_no, left_message) and the committee it was asked in. A reply is a new
+// row, so the first row says who asked and when, the newest says where it stands. One record for every screen: each
+// teammate's row, the push board, Holding our bills, Slipping, the chair's Last contact and What changed.
+export const ASK_LOG = () => DEMO;
+export const ASK_ANSWERS = [['asked', 'Asked for a hearing', 'send'], ['will_schedule', 'Will schedule', 'calendar-check'], ['said_no', 'Said no', 'circle-x'], ['left_message', 'Left a message', 'voicemail']];
+const ASK_REPLY = { asked: 'no reply yet', left_message: 'left a message', will_schedule: 'will schedule', said_no: 'said no' };
+export const chairIdsOf = code => codesOf(code).map(k => (S.committeeMembers || []).find(m => m.committee === k && m.role === 'chair')?.legislator_id).filter(Boolean);
+// Every conversation the app holds: the practice copy's, each legislator page's, and the chair asks loaded at sign-in.
+export function legNotesAll() {
+  const seen = new Set(), out = [];
+  for (const n of [...(S.demoNotes || []), ...Object.values(S.legNotes || {}).flat(), ...(S.chairAsks || [])]) if (n && !seen.has(String(n.id))) { seen.add(String(n.id)); out.push(n); }
+  return out;
+}
+// The ask to this committee's chair on this bill: who asked first and when, and the newest answer. Before W3 any
+// conversation with the chair about the bill counted; a row that names another committee is a different ask.
+export function chairAskOf(b, code) {
+  const ids = new Set(chairIdsOf(code)); if (!ids.size || !b) return null;
+  const rows = legNotesAll().filter(n => n.bill_id === b.id && ids.has(n.legislator_id) && (!n.committee || !code || n.committee === code))
+    .sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)));
+  if (!rows.length) return null;
+  const first = rows[0], last = rows.at(-1);
+  return { by: first.advocate_id, at: new Date(first.created_at).getTime(), answer: last.answer || 'asked', last, n: first, rows };
+}
+export const askReply = a => ASK_REPLY[a?.answer] || ASK_REPLY.asked;
+// The two emails Nate approves (W3), used everywhere a chair is asked: the hearing request (one bill, or one email listing
+// all of a chair's bills) and, for a bill heard but not voted on, the request to schedule decision making. Each address
+// is remembered with its bills and committee, so a click on it anywhere can ask "Did you send it?" (chairask.js).
+export const ASK_MAILS = new Map();
+const longDay = d => new Date(String(d).length === 10 ? d + 'T12:00:00-10:00' : d).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'long', month: 'long', day: 'numeric' });
+// `to`: one chair of a joint committee ({ who, email, legId }, Holding our bills); `codes`: each bill's own committee.
+export function chairAskMail(code, bills, { dl = null, heardAt = null, to = null, codes = null } = {}) {
+  const m = to ? { ...chairMail(code), ...to } : chairMail(code); if (!m || !m.email || !bills.length) return null;
+  const me = S.me?.full_name || '', one = bills.length === 1;
+  const line = b => `${b.bill_number}${blurb(b, 100) ? ` (${blurb(b, 100)})` : ''}`;
+  const by = dl ? ` before the ${dl.label} deadline on ${longDay(dl.date)}` : '';
+  const sign = `\n\nMahalo,\n${me}${me ? '\n' : ''}Hawaiʻi Public Health Institute`;
+  let subject, body;
+  if (heardAt) {
+    subject = `Request for decision making on ${bills[0].bill_number}`;
+    body = `Aloha ${m.who},\n\nMahalo for hearing ${line(bills[0])} on ${longDay(heardAt)}. On behalf of the Hawaiʻi Public Health Institute, I respectfully ask you to schedule it for decision making${by}.${sign}`;
+  } else if (one) {
+    subject = `Request for a hearing on ${bills[0].bill_number}`;
+    body = `Aloha ${m.who},\n\nOn behalf of the Hawaiʻi Public Health Institute, I respectfully ask you to schedule a hearing on ${line(bills[0])}${by}.${sign}`;
+  } else {
+    subject = `Request for hearings on ${bills.map(b => b.bill_number).join(', ')}`;
+    body = `Aloha ${m.who},\n\nOn behalf of the Hawaiʻi Public Health Institute, I respectfully ask you to schedule hearings on these bills${by}:\n\n${bills.map(b => '- ' + line(b)).join('\n')}${sign}`;
+  }
+  const href = `mailto:${m.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  ASK_MAILS.set(href, { items: bills.map((b, i) => ({ id: b.id, code: codes?.[i] || code, legs: to?.legId ? [to.legId] : null })), who: m.who, decide: !!heardAt });
+  return { href, m };
+}
 // R-316 W28 (G3-8): someone turned off is not going anywhere, so they leave the going lists and counts.
 export const attendees = h => (S.attend?.[h.id] || []).map(advocate).filter(a => a && a.is_active !== false);
 export const OUTCOME_LABEL = { passed: 'Passed', passed_amended: 'Passed with amendments', deferred: 'Deferred', recommitted: 'Recommitted' };
@@ -864,13 +916,14 @@ export function suggestions(bills, { cap = SUGGEST_CAP, skip = () => false } = {
     const st = stopOf(b), ahead = hearingAhead(b), name = b.nickname || blurb(b, 60);
 
     // 1. Waiting in committee with a deadline in sight and nobody has asked for a hearing.
-    if (!ahead && wantsHearing(b) && st.column === 'a' && st.committee && st.deadline && !st.deadline.missed) {
-      const m = chairMail(st.committee), two = m && m.n > 1;
+    // R-316 W3: asked by anyone is done for everyone (the record, not each person's own Done).
+    if (!ahead && wantsHearing(b) && st.column === 'a' && st.committee && st.deadline && !st.deadline.missed && !(ASK_LOG() && chairAskOf(b, st.committee))) {
+      const m = chairMail(st.committee), two = m && m.n > 1, w3 = ASK_LOG() ? chairAskMail(st.committee, [b], { dl: st.deadline }) : null;
       add({ kind: 'chair', key: `sg:chair:${b.id}:${st.deadline.date}`, b,
         title: `Ask the chair${two ? 's' : ''} of ${st.committee} for a hearing`,
         why: `No hearing yet · ${st.deadline.label} deadline ${fmtDate(st.deadline.date)}, ${st.deadline.days <= 0 ? 'today' : st.deadline.days + ' days'}${noticeByFor(st) ? ` · the notice has to post by ${fmtDate(noticeByFor(st), { weekday: 'short' }).replace(',', '')}` : ''}${m ? ` · ${m.who}` : ''}`,
         urgent: st.deadline.days <= RISK_DAYS,
-        act: m ? { label: `Email the chair${two ? 's' : ''}`, href: `mailto:${m.email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}&body=${encodeURIComponent(`Aloha ${m.who},\n\nThe Hawaiʻi Public Health Institute asks you to schedule a hearing on ${b.bill_number}${name ? ` (${name})` : ''} before the ${st.deadline.label} deadline on ${fmtDate(st.deadline.date)}.\n\nMahalo,\n${(S.me?.full_name || '').split(' ')[0]}`)}`, ext: true }
+        act: m ? { label: `Email the chair${two ? 's' : ''}`, href: w3 ? w3.href : `mailto:${m.email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}&body=${encodeURIComponent(`Aloha ${m.who},\n\nThe Hawaiʻi Public Health Institute asks you to schedule a hearing on ${b.bill_number}${name ? ` (${name})` : ''} before the ${st.deadline.label} deadline on ${fmtDate(st.deadline.date)}.\n\nMahalo,\n${(S.me?.full_name || '').split(' ')[0]}`)}`, ext: true }
           : { label: 'Open the bill', href: billRoute(b) },
         log: { type: 'meeting', title: `Asked ${m ? m.who : 'the chair'} for a hearing` } });
     }

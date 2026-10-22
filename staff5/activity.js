@@ -17,6 +17,7 @@ import { chip } from './ui.js';   // R-277 fix 4 (U-8): "New" is a status chip l
 import { rerender, drafts, firstName, dayOf, viewIsNew, afterBack } from './bill.js';
 import { issuesOfBill } from './issues.js';
 import { convSectionHTML, wireConvSection, logConversation, refreshConversations } from './conversation.js';
+import { ASK_LOG } from './model.js';   // R-316 W3 (practice copy)
 
 // v3's words: an "action alert" is a "supporter email" (R-264), on screen only; the stored type stays action_alert.
 const LOG_LABEL = { ...Object.fromEntries(LOG_TYPES), action_alert: 'Supporter email' };
@@ -172,7 +173,10 @@ const enterSends = () => { try { return matchMedia('(hover: hover) and (pointer:
 // The stream opens at its newest entry, so on desktop "Log" sits there too, under the message box; on a phone the box
 // is the page's bottom bar and has no room for it, so it stays at the top of the stream. One button for anything that
 // happened: it asks whether it was a talk with a legislator (the conversation dialog) or anything else (v3).
-const logBtn = btn('Log what happened', { kind: 'text', icon: 'notebook-pen', attrs: { 'data-log': '1', 'aria-haspopup': 'dialog' } });
+const logBtn0 = btn('Log what happened', { kind: 'text', icon: 'notebook-pen', attrs: { 'data-log': '1', 'aria-haspopup': 'dialog' } });
+// R-316 W3 (S-10): a talk with a legislator was three clicks deep (Activity, Log what happened, Talked with a legislator).
+const talkBtn = () => btn('Log a talk with a legislator', { kind: 'text', icon: 'message-square-plus', attrs: { 'data-logtalk': '1', 'aria-haspopup': 'dialog' } });
+const logBtn = { toString: () => ASK_LOG() ? talkBtn() + logBtn0 : logBtn0 };
 export function composerBar(b, { hint: inline = false } = {}) {
   const d = drafts.get(b.id + ':chat') || '';
   // v3: no help line under the box. The placeholder says what it does, and Enter sends as it does in Slack.
@@ -200,6 +204,7 @@ export function wireActivity(pnl, b, route, root) {
   // Nothing to scroll to on open any more: the newest entry is the first one.
   if (unreadCount(b)) DB.markChatSeen(b.id).catch(() => {});
   pnl.querySelector('[data-log]').onclick = () => logChooser(b);
+  pnl.querySelectorAll('[data-logtalk]').forEach(el => el.onclick = () => logConversation({ bill: b, onDone: refreshConversations }));
   wireConvSection(pnl, convOpts(b));
   wireStream(pnl.querySelector('#bw-stream'), b);
   const form = root.querySelector('.bw-composer'); if (!form) return;
