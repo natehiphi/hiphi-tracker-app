@@ -68,7 +68,8 @@ import { movedTasks, seedMoved, moveMe, notGoing, keepAskUp } from './moved.js';
 import { ASK_LOG, chairAskOf, chairAskMail, legNotesAll } from './model.js';
 import { askedChip, askDone, afterMail } from './chairask.js';   // R-316 W3 (practice copy)
 import { PUSH_BOARD, GIVE_ASK, chairGroups, chairGroupHTML, wirePush, resetPush, noticeWhen, askState, askChip, ASK_TODO as CHAIR_TODO, chairEmailHref, giveAsk, assignAsk, logAsk } from './push.js';   // R-316 W5, W14 (practice copy)   // which 4:30 pm email a Send joins
-import { testimonyOf, agendaOf, unfile } from './hearing.js';   // where a hearing's testimony stands, in the coalition page's words (v4, R-269)
+import { testimonyOf, agendaOf, unfile } from './hearing.js';
+import { partnerToday, partnerPane, wirePartner, pqItems } from './partnerq.js';   // R-328 B: partner words to approve (approvers only)   // where a hearing's testimony stands, in the coalition page's words (v4, R-269)
 
 const HR = 36e5, DAY = 864e5;
 import { billRoute, whenAt, spanOf, dueLine, roomName, hearingWhen } from './model.js';   // R-277 fix 3: one way to say time
@@ -1082,6 +1083,7 @@ function paneInner(k) {
   if (c.cluster) return paneCluster(c);
   if (c.newh) return paneNew(c);
   if (c.hear) return paneSlipHear(c);
+  if (c.partner) return partnerPane(c);   // R-328 B
   return billPaneOf(c, k, ROWOPT.get(k) || {}, { close: PCLOSE(), headId: 'td-pane-h' });
 }
 // R-277 fix 17 (U-1): the open item, drawn by billpane.js in the order every open bill has, on Today and Bills alike: the
@@ -2305,6 +2307,11 @@ function render(route) {
     const rg = took.size ? todayItems(scope, who, took) : r;
     const groups = rg.groups.map(g => { const cs = g.cards.filter(c => !c.wait); return { ...g, cards: cs, n: cs.reduce((s, c) => s + (c.cluster ? (g.id === 'overdue' || g.id === 'lateopen' ? c.cluster.filter(t => t.due != null && t.due <= Date.now()).length || 1 : c.cluster.length) : 1), 0) }; }).filter(g => g.cards.length);
     let clear = !groups.some(g => NOW_GROUPS.has(g.id));
+    // R-328 B: partner words to approve (partner approvers, on their own list) come after what is late or due today:
+    // they have no deadline. Drawn where they sit, so their rows join the laptop's list in order (j/k, the open item).
+    const ptN = scope === 'mine' && !who ? pqItems().length : 0; let ptDone = false;
+    const ptHtml = () => { if (ptDone || scope !== 'mine' || who) return ''; ptDone = true; return partnerToday({ rows, reg: (k, c) => { CARDS.set(k, c); ROWS.push(k); } }).html; };
+    if (ptN) clear = false;
     // R-316 W1: never "All clear" while a P1 bill's hearing notice must post within 3 days.
     const askSoon = groups.some(g => g.cards.some(c => c.p?.kind === 'chair' && c.p.due - Date.now() <= 3 * DAY));
     // R-277 fix 16: a phone on a hearing day. What is late and what is due today were two or three headed lists (late
@@ -2339,7 +2346,8 @@ function render(route) {
     if (!groups.length) {
       // Nothing of your own. Between sessions that is normal, and a coalition's week is real content: either way the
       // page leads with what there is, never an "All clear" card and a button to go and find bills (R-022).
-      body = (off ? `<p class="td-quiet" data-top tabindex="-1">${esc(who ? `Nothing is open on ${name}’s list.` : 'Nothing is open on your list.')}</p>`
+      // R-328 B: partner words waiting are something to do, so no "All clear" over them.
+      body = ptN ? ptHtml() + (cd.cards.length ? coalDueHtml(cd, rows, false) : '') : (off ? `<p class="td-quiet" data-top tabindex="-1">${esc(who ? `Nothing is open on ${name}’s list.` : 'Nothing is open on your list.')}</p>`
         // v4 (R-269, T2): "Nothing of your own is due today" sat over a draft due in 29 minutes on the coalition's bill
         // below it. Now the quiet line is said only when nothing there is due today either, and says just that.
         : cd.cards.length ? coalDueHtml(cd, rows, true)
@@ -2349,10 +2357,10 @@ function render(route) {
         // R-316 W7 (G3-12, FR-3): someone who owns no bill, follows none and helps on no coalition was told "All clear… on
         // your bills". Their first step is their coalition, whose switches are on My issues.
         : scope === 'mine' && !who && !S.bills.some(isMine) && !coalPicked() ? `<div class="td-empty" data-top tabindex="-1">${empty({ title: 'Pick the coalition you help on', text: 'Its hearings and testimony show here once you switch on I help on it. My issues lists every coalition.', action: btn('Pick your coalition', { href: '#/my-issues' }) })}</div>`
-        : `<div class="td-empty" data-top tabindex="-1">${empty({ art: scope === 'mine' ? yay() : '', title: who ? `Nothing is waiting on ${esc(name)}.` : scope === 'none' ? 'Nothing is open on the bills nobody owns.' : 'All clear for today.', text: nextHearingText(scope, who), action: scope !== 'mine' ? btn('Back to my list', { kind: 'secondary', attrs: { 'data-seg': 'tdscope', 'data-val': 'mine' } }) : btn('See your bills', { href: '#/bills' }) })}</div>`);
+        : `<div class="td-empty" data-top tabindex="-1">${empty({ art: scope === 'mine' ? yay() : '', title: who ? `Nothing is waiting on ${esc(name)}.` : scope === 'none' ? 'Nothing is open on the bills nobody owns.' : 'All clear for today.', text: nextHearingText(scope, who), action: scope !== 'mine' ? btn('Back to my list', { kind: 'secondary', attrs: { 'data-seg': 'tdscope', 'data-val': 'mine' } }) : btn('See your bills', { href: '#/bills' }) })}</div>`) + ptHtml();
     // R-316 W4: with the 2027 prep in the list, "All clear" above it said there was nothing to do, and pushed it down.
     } else body = (clear && !cd.cards.length && !groups.some(g => g.cards.some(c => c.p?.kind === 'prep')) ? `<div class="td-clear">${scope === 'mine' ? yay() : ''}<div><p class="td-clear-t">${who ? `Nothing for ${esc(name)} today.` : scope === 'none' ? 'Nothing is due today on the bills nobody owns.' : askSoon ? 'Nothing due today.' : 'All clear for today.'}</p><p class="small muted">${nextHearingText(scope, who)}</p></div></div>` : '')
-      + groups.map(groupHtml).join('') + coalDueHtml(cd, rows, false);
+      + groups.map((g, gi) => (!ptDone && !NOW_GROUPS.has(g.id) && g.id !== 'now' ? ptHtml() : '') + groupHtml(g, gi)).join('') + ptHtml() + coalDueHtml(cd, rows, false);
     body += waitingGroup(scope, who) + coal + (scope === 'mine' ? startCard(!r.dueNow && !cd.cards.length) : '');
   }
   // A teammate's list is for looking: say so once. It is the top of the list, so it takes the focus when this list is
@@ -2573,6 +2581,7 @@ function wireControls(el) {
   el.querySelectorAll('[data-more]').forEach(x => x.onclick = () => { const c = cardOf(x.dataset.more); if (c) moreMenu(c, { pane: !!x.dataset.pane }); });
   el.querySelectorAll('[data-going]').forEach(x => x.onclick = () => { const h = (S.hearings || []).find(y => String(y.id) === x.dataset.going); if (h) { S.tdRefocus = '#td-pane [data-going]'; toggleGoing(h); } });
   el.querySelectorAll('[data-pclose]').forEach(x => x.onclick = () => { closePane(); S.panelClosed?.(); });
+  wirePartner(el);   // R-328 B: Approve and Ask for a change, in a card or the open item
 }
 // v4 (R-269 follow-up): a bill's name squeezed to a stub ("D", "You…", half a letter beside P1) read as a bug (fresh-eyes,
 // third pass, A-24): with room for fewer than about sixteen letters ("Disposable e…" was barely better) the name goes, the

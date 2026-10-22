@@ -183,6 +183,7 @@ export const DB = {
   logout() { DEMO ? location.reload() : S.supa.auth.signOut(); },
   async loadAll() {
     if (DEMO) return;
+    S.pq = undefined; S.pg = undefined;   // R-328 B: Today's partner words and the Partners screen read again too
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
@@ -1190,6 +1191,134 @@ export const DB = {
     if (error) { Object.assign(p, before); throw error; }
   },
 
+  // ---- partner groups that write on the public tracker (backend 184, R-328 batch B) ----
+  // Staff v5's Partners screen (partnergroups.js) and Today's "Partner words to approve" (partnerq.js). Any staff member
+  // may read the tables; every write is one of 184's functions, which refuse in plain words (shown as they are, B-8). A
+  // "link" partner is still the Make a link kind above. The sandbox keeps a sample group, Keiki Smiles Alliance, with its
+  // words, a group waiting for approval and a request to join, in memory (demoPartners), kept across a person switch.
+  // partner_queue(): the words and issues sent, groups waiting, new requests; plus the names of a group's own issues
+  // that its words are placed under (HIPHI's own are in S.issues).
+  async partnerQueue() {
+    if (DEMO) { const d = demoPartners(); return { bills: d.queue.filter(x => x.kind === 'bill').map(x => ({ ...x })), issues: d.queue.filter(x => x.kind === 'issue').map(x => ({ ...x })),
+      groups: d.groups.filter(g => g.status === 'waiting').map(g => ({ ...g })), requests: d.requests.filter(r => r.state === 'new').map(r => ({ ...r })), issueNames: { ...d.issueNames } }; }
+    const { data, error } = await S.supa.rpc('partner_queue'); if (error) throw error;
+    const q = data || {}; q.issueNames = {};
+    const ids = [...new Set((q.bills || []).flatMap(b => [...(b.words?.issue_ids || []), ...(b.live?.issue_ids || [])]))].filter(id => !(S.issues || []).some(i => i.id === id));
+    if (ids.length) { const r = await S.supa.from('partner_issue_words').select('partner_issue_id,name,state').in('partner_issue_id', ids).in('state', ['live', 'sent', 'changes', 'draft']);
+      for (const w of r.data || []) if (!q.issueNames[w.partner_issue_id] || w.state === 'live') q.issueNames[w.partner_issue_id] = w.name; }
+    return q;
+  },
+  // Approve (approve: true) or Ask for a change (a note the group sees). it: a queue item ({ kind, id }).
+  async partnerReview(it, approve, note = null) {
+    if (DEMO) {
+      if (!pApprover()) throw pErr('Only a partner approver decides on partner words');
+      if (!approve && !String(note || '').trim()) throw pErr('Say what to change');
+      const d = demoPartners(), x = d.queue.find(q => q.kind === it.kind && q.id === it.id); if (!x) throw pErr('Already decided, or taken back by the group');
+      d.queue = d.queue.filter(q => q !== x);
+      if (x.kind === 'bill') { const c = d.counts[x.partner_slug] ??= { live: 0, waiting: 0, changes: 0 }; c.waiting = Math.max(0, c.waiting - 1); if (!approve) c.changes++; else if (!x.live) c.live++; }
+      return;
+    }
+    const { data, error } = await S.supa.rpc('partner_review', { p: { kind: it.kind, id: it.id, approve: !!approve, note: note || null } }); if (error) throw error; return data;
+  },
+  // The Partners screen: every group (link-only ones too), its people (not removed), its bills' counts (live, waiting for
+  // approval, changes asked) and its link's first visits in 12 weeks (first_visit_sources; null when that read fails).
+  async loadPartnerGroups() {
+    if (DEMO) { const d = demoPartners(); await this.loadPartners();
+      const groups = [...d.groups, ...(S.partners || []).filter(p => !d.groups.some(g => g.slug === p.slug)).map(p => ({ website: null, about: null, status: 'link', added_by: null, ...p }))];
+      return S.pg = { groups: groups.map(g => ({ ...g })), people: d.people.filter(p => !p.removed_at).map(p => ({ ...p })), counts: JSON.parse(JSON.stringify(d.counts)), visits: { ...d.visits }, sample: true, at: Date.now() }; }
+    const [g, pp, pb, pw, fv] = await Promise.all([
+      S.supa.from('partners').select('*').order('name').order('slug'),
+      S.supa.from('partner_people').select('id,partner_slug,email,name,role,user_id,invited_at,joined_at,terms_at,removed_at').is('removed_at', null).order('invited_at').order('id'),
+      allRows(o => S.supa.from('partner_bills').select('id,partner_slug,removed_at,hidden_at,side_clash_at', o).order('id')),
+      allRows(o => S.supa.from('partner_bill_words').select('id,partner_bill_id,state', o).in('state', ['live', 'sent', 'changes']).order('id')),
+      this.firstVisitSources(12).catch(() => null),
+    ]);
+    for (const r of [g, pp, pb, pw]) if (r.error) throw r.error;
+    const states = new Map(); for (const w of pw.data || []) (states.get(w.partner_bill_id) || states.set(w.partner_bill_id, new Set()).get(w.partner_bill_id)).add(w.state);
+    const counts = {};
+    for (const b of pb.data || []) { if (b.removed_at) continue; const st = states.get(b.id) || new Set(), c = counts[b.partner_slug] ??= { live: 0, waiting: 0, changes: 0 };
+      if (st.has('live') && !b.hidden_at && !b.side_clash_at) c.live++; if (st.has('sent')) c.waiting++; if (st.has('changes')) c.changes++; }
+    const visits = fv ? {} : null; for (const r of fv || []) visits[r.source] = (visits[r.source] || 0) + (Number(r.visits) || 0);
+    return S.pg = { groups: g.data || [], people: pp.data || [], counts, visits, at: Date.now() };
+  },
+  // Add a group, or change its details. p: { slug?, name, website, about, welcome }. A new group comes back 'waiting'
+  // (a second approver turns it on); write: true also turns a link-only partner into a writing group.
+  async partnerGroupSave(p) {
+    const row = { ...(p.slug ? { slug: p.slug } : {}), name: String(p.name || '').trim(), website: p.website || null, about: p.about || null, welcome: p.welcome || null, write: p.write !== false };
+    let out;
+    if (DEMO) {
+      if (!pAdmitter()) throw pErr('Only an admin or a partner approver adds partner groups');
+      const d = demoPartners(), slug = row.slug || partnerSlug(row.name), was = d.groups.find(g => g.slug === slug), link = (S.partners || []).find(x => x.slug === slug);
+      if (was) { Object.assign(was, { name: row.name || was.name, website: row.website, about: row.about, welcome: row.welcome }); out = was; }
+      else { out = { slug, name: row.name, website: row.website, about: row.about, welcome: row.welcome, status: row.write ? 'waiting' : 'link', added_by: S.me?.id || null, approved_by: null, approved_at: null, paused_at: null, created_at: link?.created_at || new Date().toISOString() }; d.groups.push(out); }
+      out = { ...out };
+    } else { const { data, error } = await S.supa.rpc('partner_group_save', { p: row }); if (error) throw error; out = data; }
+    // The Make a link list (firstvisit.js) is the same table: keep it in step.
+    const pl = S.partners?.find(x => x.slug === out.slug);
+    if (pl) Object.assign(pl, { name: out.name, welcome: out.welcome }); else if (S.partners) S.partners.push({ slug: out.slug, name: out.name, welcome: out.welcome, created_at: out.created_at });
+    return out;
+  },
+  // Approve (a second approver), pause or resume a group. act: 'approve' | 'pause' | 'resume'.
+  async partnerGroupSet(slug, act) {
+    if (DEMO) {
+      const g = demoPartners().groups.find(x => x.slug === slug); if (!g) throw pErr('No such partner group');
+      if (act === 'approve') { if (g.status !== 'waiting') throw pErr(`A partner group cannot go from ${g.status} to active`); if (!pApprover()) throw pErr('Only a partner approver approves a group');
+        if (g.added_by === S.me?.id) throw pErr('Someone other than the person who added the group approves it'); Object.assign(g, { status: 'active', approved_by: S.me.id, approved_at: new Date().toISOString() }); }
+      else { if (!pAdmitter()) throw pErr('Only an admin or a partner approver changes a partner group');
+        const to = act === 'pause' ? ['active', 'paused'] : ['paused', 'active']; if (g.status !== to[0]) throw pErr(`A partner group cannot go from ${g.status} to ${to[1]}`);
+        Object.assign(g, { status: to[1], paused_at: act === 'pause' ? new Date().toISOString() : null }); }
+      return { ...g };
+    }
+    const { data, error } = await S.supa.rpc('partner_group_set', { p: { slug, do: act } }); if (error) throw error; return data;
+  },
+  // Add a person to a group (the first is its lead) or put a removed one back. p: { slug, email, name, role? }.
+  async partnerPersonSave(p) {
+    const row = { slug: p.slug, email: String(p.email || '').trim().toLowerCase(), name: String(p.name || '').trim() || null, ...(p.role ? { role: p.role } : {}) };
+    if (DEMO) {
+      if (!pAdmitter()) throw pErr('Only an admin or a partner approver adds partner people');
+      const d = demoPartners(), g = d.groups.find(x => x.slug === row.slug); if (!g || g.status === 'link') throw pErr('Add the group first');
+      if (S.advocates.some(a => (a.email || '').toLowerCase() === row.email)) throw pErr('That is a HIPHI team address');
+      let x = d.people.find(q => q.partner_slug === row.slug && q.email.toLowerCase() === row.email);
+      const lead = d.people.some(q => q.partner_slug === row.slug && q.role === 'lead' && !q.removed_at);
+      if (x) Object.assign(x, { removed_at: null, name: row.name || x.name, role: row.role || x.role });
+      else { x = { id: crypto.randomUUID(), partner_slug: row.slug, email: row.email, name: row.name, role: row.role || (lead ? 'member' : 'lead'), user_id: null, invited_at: new Date().toISOString(), joined_at: null, terms_at: null, removed_at: null }; d.people.push(x); }
+      return { ...x };
+    }
+    const { data, error } = await S.supa.rpc('partner_person_save', { p: row }); if (error) throw error; return data;
+  },
+  async partnerPersonRemove(id) {
+    if (DEMO) { if (!pAdmitter()) throw pErr('Only an admin or a partner approver adds partner people');
+      const x = demoPartners().people.find(q => q.id === id && !q.removed_at); if (!x) throw pErr('That person is not on a group'); x.removed_at = new Date().toISOString(); return; }
+    const { error } = await S.supa.rpc('partner_person_save', { p: { remove: id } }); if (error) throw error;
+  },
+  // Who approves partners (admins name them; Nate and Jess, Nate 10/22).
+  async partnerSetApprover(advocateId, on) {
+    if (DEMO) { if (!S.me?.is_admin) throw pErr('Only an admin names partner approvers'); const d = demoPartners();
+      d.approvers = on ? [...new Set([...d.approvers, advocateId])] : d.approvers.filter(x => x !== advocateId); }
+    else { const { error } = await S.supa.rpc('partner_set_approver', { p_advocate: advocateId, p_on: !!on }); if (error) throw error; }
+    const a = advocate(advocateId); if (a) a.approves_partners = !!on;
+  },
+  // A request to join: 'added' (with the group it became), 'declined', or 'new' again (Undo).
+  async partnerRequestHandle(id, state, slug = null) {
+    if (DEMO) { if (!pAdmitter()) throw pErr('Only an admin or a partner approver handles requests');
+      const r = demoPartners().requests.find(x => x.id === id); if (!r) throw pErr('No such request'); Object.assign(r, { state, partner_slug: slug || null }); return { ...r }; }
+    const { data, error } = await S.supa.rpc('partner_request_handle', { p: { id, state, partner_slug: slug || null } }); if (error) throw error; return data;
+  },
+  // A partner person's one-time sign-in link, for the admitter to send from their own email (team-admin's partner_link,
+  // R-328 B). Nothing is emailed. Until that function is deployed the answer has no action: 'partner_link', and this says so
+  // in plain words (err.setup) rather than passing on the old function's "Which person?".
+  async partnerLink(personId) {
+    const setup = () => Object.assign(new Error('Sign-in links need a one-time setup by Nate; until then ask the person to sign in on the tracker with their email.'), { setup: true });
+    if (DEMO) throw Object.assign(new Error('The practice copy makes no sign-in links. In the live app this gives the person’s one-time link, to copy and send from your own email.'), { practice: true });
+    const { data } = await S.supa.auth.getSession();
+    let r; try { r = await fetch(`${SUPABASE_URL}/functions/v1/team-admin`, { method: 'POST', headers: { authorization: `Bearer ${data.session?.access_token}`, apikey: SUPABASE_KEY, 'content-type': 'application/json' }, body: JSON.stringify({ action: 'partner_link', person_id: personId, redirect_to: APP_URL + 'track.html' }) }); }
+    catch (e) { if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('You’re offline. Try again when you are connected.'); throw setup(); }
+    const j = await r.json().catch(() => null);
+    if (!j || j.action !== 'partner_link') throw setup();
+    if (!j.ok) throw new Error(j.error || 'The link could not be made. Try again.');
+    return j;
+  },
+
   // ---- people (CRM) ----
   async loadPeople() {
     if (S.peopleLoaded || S.peopleLoading) return; S.peopleLoading = true;
@@ -1509,6 +1638,8 @@ export async function demoInit() {
   for (const [id, full_name, initials, color, co] of [['aaaaaaaa-0000-4000-8000-00000000a011', 'Patti', 'PH', '#8e5ea2', 'HEAL'], ['aaaaaaaa-0000-4000-8000-00000000a012', 'Julie', 'JMM', '#3b8d6e', 'HIAPA']])
     if (!S.advocates.some(a => a.initials === initials) && coalId(co)) S.advocates.push({ id, full_name, initials, color, email: null, is_admin: false, is_reviewer: false, can_approve: false, is_active: true, focus_areas: null, prefs: { coalitions: [coalId(co)] } });
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];
+  // R-328 B: Nate and Jess approve partners (Nate 10/22); a practice change to who does is kept with the sample partner.
+  { const ap = PRACTICE?.partners?.approvers || S.advocates.filter(a => ['NT', 'JS'].includes(a.initials)).map(a => a.id); for (const a of S.advocates) a.approves_partners = ap.includes(a.id); }
   const byIni = Object.fromEntries(S.advocates.map(a => [a.initials, a.id]));
   S.campaigns = snap.campaigns; hooks.afterLoad();
   S.slots = snap.slots;
@@ -1714,6 +1845,7 @@ export async function demoInit() {
     S.follows = new Set(Object.entries(S.followersBy).filter(([, ids]) => ids.includes(S.me.id)).map(([id]) => id));
     S.legNotes = {}; S.convCache = {};
     S.noDraftSeeded = true;   // the kept drafts already have the "Make the draft now" hearings without a draft (app.js sandboxExtras)
+    if (PRACTICE.partners) S.pDemo = PRACTICE.partners;   // R-328 B: the sample partner's groups, people and words as practised
   }
   if (DEMO) addEventListener('pagehide', savePractice);
   S.feed = DEMO_TL.filter(t => t.source === 'team');
@@ -1728,6 +1860,69 @@ export async function demoInit() {
   S.inbox = S.buildDemoInbox();
 }
 
+// ---- partners (R-328 batch B): who may, the link name, and the sandbox's sample group ----
+const pApprover = () => !!S.me && S.me.is_active !== false && !!S.me.approves_partners;
+const pAdmitter = () => !!S.me && S.me.is_active !== false && (!!S.me.is_admin || !!S.me.approves_partners);
+// A refusal in the database's own words, as 184's functions raise them (ui.js friendly() shows a P0001 as it is).
+const pErr = m => Object.assign(new Error(m), { code: 'P0001' });
+// The ?via= name a group's name makes, as the database's partner_slugify(name, 40) does: lower case, kahakō vowels as
+// their plain letter, the ʻokina and straight apostrophes dropped, anything else between words a dash.
+export const partnerSlug = s => String(s || '').toLowerCase().replace(/[āēīōū]/g, c => ({ ā: 'a', ē: 'e', ī: 'i', ō: 'o', ū: 'u' })[c])
+  .replace(/[ʻ']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+// Nate's sample (brief of 22 Oct): Keiki Smiles Alliance, its lead Leilani K., an edit waiting on a bill HIPHI supports
+// (SB 2345, warning labels on sugary drinks), new words on a bill HIPHI has no position on (SB 2073, water fluoridation,
+// untracked), an issue of its own, a request to join and a group waiting for approval (added by Jess, so Nate can
+// practise Approve; one he adds himself waits for Jess). Times are set from the practice clock when first asked for.
+const KS = 'keiki-smiles-alliance';
+function demoPartners() {
+  if (S.pDemo) return S.pDemo;
+  const id = x => S.advocates.find(a => a.initials === x)?.id || null, nate = id('NT'), jess = id('JS');
+  const ago = m => new Date(Date.now() - m * 60e3).toISOString(), days = n => ago(n * 1440);
+  const inDays = n => new Date(Date.now() + n * 864e5).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+  const b1 = S.bills.find(b => b.bill_number === 'SB2345') || S.bills.find(b => b.is_public && b.position === 'support');
+  const b2 = (S.snapshot?.index || []).find(b => b.bill_number === 'SB2073') || (S.snapshot?.index || []).find(b => /^SB\d+$/.test(b.bill_number));
+  const iss = (S.issues || []).find(i => i.slug === 'sugary-drink-warning-labels'), own = 'aaaaaaaa-0000-4000-8000-0000000b0001';
+  const live = { id: 'aaaaaaaa-0000-4000-8000-0000000b0010', state: 'live', side: 'support', nickname: 'Warning labels on sugary drinks',
+    summary: 'Puts warning labels on high-sugar drinks from July 2027, so families see the risk before they buy.',
+    points: ['Sugary drinks are a leading cause of tooth decay in keiki.', 'A label at the shelf reaches parents when they choose a drink.', 'Labels cost stores little and need no new staff.'],
+    ask: null, ask_until: null, draft_version: null, draft_note: null, issue_ids: iss ? [iss.id] : [], written_at: days(15), sent_at: days(15), reviewed_at: days(14), review_note: null };
+  const edit = { ...live, id: 'aaaaaaaa-0000-4000-8000-0000000b0011', state: 'sent', reviewed_at: null,
+    summary: 'Puts warning labels on high-sugar drinks from July 2027, so families see the risk to keiki teeth before they buy.',
+    points: ['Sugary drinks are a leading cause of tooth decay in keiki.', 'Tooth decay is one of the most common childhood illnesses in Hawaiʻi.', 'A label at the shelf reaches parents when they choose a drink.', 'Labels cost stores little and need no new staff.'],
+    ask: 'Ask your senator to vote yes on SB 2345.', ask_until: inDays(11), issue_ids: [...(iss ? [iss.id] : []), own], written_at: ago(75), sent_at: ago(48) };
+  const fresh = { id: 'aaaaaaaa-0000-4000-8000-0000000b0012', state: 'sent', side: 'support', nickname: 'Fluoride in public water',
+    summary: 'Has the bigger public water systems add fluoride at the level health experts recommend, which helps keep teeth free of cavities.',
+    points: ['Fluoride in water is one of the cheapest ways to prevent tooth decay.', 'Families on every island would get it without an extra trip to the dentist.'],
+    ask: null, ask_until: null, draft_version: null, draft_note: null, issue_ids: [own], written_at: ago(17 * 60 + 30), sent_at: ago(17 * 60 + 20), reviewed_at: null, review_note: null };
+  const base = { partner_slug: KS, partner_name: 'Keiki Smiles Alliance', by: 'Leilani K.' };
+  S.pDemo = {
+    approvers: [nate, jess].filter(Boolean),
+    groups: [
+      { slug: KS, name: 'Keiki Smiles Alliance', welcome: 'Aloha, friends of Keiki Smiles Alliance! These are the bills we care about.', website: 'https://example.org', about: 'Oral health for keiki',
+        status: 'active', added_by: nate, approved_by: jess, approved_at: days(20), paused_at: null, created_at: days(21) },
+      { slug: 'hana-healthy-families', name: 'Hāna Healthy Families', welcome: null, website: 'https://example.net', about: 'Healthy food and drinks for families in East Maui',
+        status: 'waiting', added_by: jess, approved_by: null, approved_at: null, paused_at: null, created_at: ago(40) },
+    ],
+    people: [
+      { id: 'aaaaaaaa-0000-4000-8000-0000000b0101', partner_slug: KS, email: 'leilani@example.org', name: 'Leilani K.', role: 'lead', user_id: 'demo', invited_at: days(20), joined_at: days(19), terms_at: days(19), removed_at: null },
+      { id: 'aaaaaaaa-0000-4000-8000-0000000b0102', partner_slug: KS, email: 'kawika@example.org', name: 'Kawika M.', role: 'member', user_id: null, invited_at: days(4), joined_at: null, terms_at: null, removed_at: null },
+      { id: 'aaaaaaaa-0000-4000-8000-0000000b0103', partner_slug: 'hana-healthy-families', email: 'noelani@example.net', name: 'Noelani P.', role: 'lead', user_id: null, invited_at: ago(38), joined_at: null, terms_at: null, removed_at: null },
+    ],
+    queue: [
+      ...(b1 ? [{ kind: 'bill', ...base, id: edit.id, bill_id: b1.id, bill_number: b1.bill_number, title: b1.title, hiphi_position: b1.position, hiphi_public: b1.is_public, flag: null, words: edit, live }] : []),
+      ...(b2 ? [{ kind: 'bill', ...base, id: fresh.id, bill_id: b2.id, bill_number: b2.bill_number, title: b2.title, hiphi_position: null, hiphi_public: false, flag: 'none', words: fresh, live: null }] : []),
+      { kind: 'issue', ...base, id: 'aaaaaaaa-0000-4000-8000-0000000b0020', issue_id: own, live: null,
+        words: { id: 'aaaaaaaa-0000-4000-8000-0000000b0020', partner_issue_id: own, state: 'sent', name: 'Healthy keiki teeth', description: 'Bills that help keiki keep healthy teeth: fluoride in water, dental checkups and fewer sugary drinks.', stance: 'support', written_at: ago(30), sent_at: ago(25), reviewed_at: null, review_note: null } },
+    ],
+    issueNames: { [own]: 'Healthy keiki teeth' },
+    requests: [{ id: 'aaaaaaaa-0000-4000-8000-0000000b0201', created_at: days(3), group_name: 'Kauaʻi Youth Breathe Easy', website: 'https://example.com', about: 'Youth leaders keeping e-cigarettes away from Kauaʻi teens',
+      contact_name: 'Malia S.', contact_email: 'malia@example.com', note: 'We testified on the disposable e-cigarette ban last year and would like to share our talking points.', state: 'new', partner_slug: null }],
+    counts: { [KS]: { live: 3, waiting: b1 && b2 ? 2 : 1, changes: 0 } },
+    visits: { [KS]: 140 },
+  };
+  return S.pDemo;
+}
+
 // R-316 W38: keep this tab's practice changes for the next load (a person switch reloads the page with &as=). The team's
 // columns on each bill, not the Capitol's; follows are filed under whoever is practising, as each person's own.
 const TEAM_COLS = ['tracked', 'position', 'priority', 'stage_override', 'internal_notes', 'is_public', 'public_summary', 'public_action', 'public_action_until', 'nickname'];
@@ -1737,7 +1932,7 @@ export function savePractice() {
   for (const id of Object.keys(fb)) if (!S.follows?.has(id)) fb[id] = fb[id].filter(x => x !== me);
   for (const id of S.follows || []) if (!(fb[id] ??= []).includes(me)) fb[id].push(me);
   const p = { v: PRACTICE_V, asof: DEMO_ASOF, clock: Date.now(), drafts: S.drafts, todos: S.todos, attend: S.attend, messages: S.messages, followersBy: fb,
-    assignments: S.assignments, billCampaigns: S.billCampaigns, demoNotes: S.demoNotes || [], tl: DEMO_TL.filter(t => t.source !== 'auto'),
+    assignments: S.assignments, billCampaigns: S.billCampaigns, demoNotes: S.demoNotes || [], tl: DEMO_TL.filter(t => t.source !== 'auto'), partners: S.pDemo || null,
     bills: Object.fromEntries(S.bills.map(b => [b.id, Object.fromEntries(TEAM_COLS.map(k => [k, b[k] ?? null]))])) };
   try { sessionStorage.setItem(PRACTICE_KEY, JSON.stringify(p)); } catch { /* a full or blocked store: the next load starts fresh */ }
 }
