@@ -431,3 +431,6 @@
 }
 @container letable (max-width: 1079px) { .le-page .le-temails .c-clicks { display: none; } .le-page .le-tlists .c-owner { display: none; } }
 @container letable (max-width: 899px) { .le-page .le-temails .c-writer { display: none; } }
+/* R-316 W54 (FR-10, S-11): the status chip wraps inside its cell instead of trailing a stray "..". */
+.le-page .le-temails td.c-status { overflow: visible; text-overflow: clip; white-space: normal; }
+.le-page .le-temails td.c-status .sv-chip { max-width: 100%; height: auto; white-space: normal; }

@@ -22,7 +22,9 @@ const dash = v => v || '—';
 function chairLine(code) {
   const m = chairMail(code);
   if (!m) return '';
-  return `${esc(m.who)}${m.email ? ` · <a href="mailto:${esc(m.email)}">${esc(m.email.replace(/,\s*/g, ', '))}</a>` : ''}`;   // two chairs' addresses, a space between
+  // R-316 W54 (S-11): an address breaks only at its "@" ("capitol.hawaii.go / v" was cut mid-word); two chairs', a space between.
+  const mail = e => e.split(/,\s*/).map(x => x.split('@').map(p => `<span class="nobr">${esc(p)}</span>`).join('@<wbr>')).join(', ');
+  return `${esc(m.who)}${m.email ? ` · <a href="mailto:${esc(m.email)}">${mail(m.email)}</a>` : ''}`;
 }
 
 // The Capitol writes sponsors in capitals and splits "LEE, M." into two; put the initial back on its name and
