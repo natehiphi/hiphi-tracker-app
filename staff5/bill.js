@@ -731,6 +731,13 @@ async function toggleAttend(b, hid) {
 // To do: until there is a task, one line, "Add a task", that opens the box (v3: an empty form is not worth a section).
 // The box stays open for the visit once opened, so a second task follows the first.
 S.bwTodoOpen ??= new Set();
+// R-316 W58 (Show me, practice copy): For and Due on the same line as the to-do, so giving Kris a dated to-do is one go
+// (it took 10 clicks across three sheets). For starts at Anyone.
+const TODO_FOR = () => DEMO;
+const todoForm = d => { const ppl = (S.advocates || []).filter(a => a.is_active !== false && a.id !== S.me?.id).sort((x, y) => x.full_name.localeCompare(y.full_name));
+  return `<form class="bw-addrow bw-addfor" data-todoadd novalidate><label class="sr" for="bw-tdnew">Add a to-do</label><input id="bw-tdnew" class="input" maxlength="200" placeholder="Add a to-do" autocomplete="off" value="${esc(d)}">
+    <label class="bw-tdf"><span>For</span><select id="bw-tdfor" class="input"><option value="">Anyone</option>${S.me ? `<option value="${esc(S.me.id)}">You</option>` : ''}${ppl.map(a => `<option value="${esc(a.id)}">${esc(a.full_name)}</option>`).join('')}</select></label>
+    <label class="bw-tdf"><span>Due</span><input id="bw-tddue" class="input" type="date" min="${esc(hiToday())}"></label>${btn('Add', { kind: 'secondary', icon: 'plus', attrs: { type: 'submit' } })}</form>`; };
 function todoSection(b) {
   const today = hiToday();
   const list = (S.todos[b.id] || []).slice().sort((x, y) => (x.done - y.done) || (x.sort_order - y.sort_order) || String(x.created_at).localeCompare(String(y.created_at)));
@@ -746,7 +753,7 @@ function todoSection(b) {
     </li>`;
   }).join('');
   const d = drafts.get(b.id + ':todo') || '';
-  const add = S.bwTodoOpen.has(b.id) || d
+  const add = (S.bwTodoOpen.has(b.id) || d) && TODO_FOR() ? todoForm(d) : S.bwTodoOpen.has(b.id) || d
     ? `<form class="bw-addrow" data-todoadd novalidate><label class="sr" for="bw-tdnew">Add a to-do</label><input id="bw-tdnew" class="input" maxlength="200" placeholder="Add a to-do" autocomplete="off" value="${esc(d)}">${btn('Add', { kind: 'secondary', icon: 'plus', attrs: { type: 'submit' } })}</form>`
     : btn('Add a to-do', {   /* R-277 W-2, C-15: to-do */ kind: 'text', icon: 'plus', cls: 'bw-todoadd', attrs: { 'data-todoopen': '1' } });
   if (!rows) return `<section class="bw-sec bw-todo0" aria-labelledby="bw-todo-h"><h2 id="bw-todo-h" class="sr">To-dos</h2>${add}</section>`;
@@ -1155,7 +1162,12 @@ function wireOverview(pnl, b) {
       e.preventDefault();
       const title = inp.value.trim();
       if (!title) { toast('Type the to-do first.'); inp.focus(); return; }
-      try { await DB.addTodo(b.id, title); drafts.delete(b.id + ':todo'); rerender('#bw-tdnew'); toast('To-do added.'); }
+      const forId = pnl.querySelector('#bw-tdfor')?.value ?? null, due = pnl.querySelector('#bw-tddue')?.value || null;
+      try { await DB.addTodo(b.id, title);
+        if (TODO_FOR()) { const t = (S.todos[b.id] || []).at(-1); if (t) await DB.updateTodo(b.id, t.id, { assignee_id: forId || null, due_date: due }); }   // W58
+        drafts.delete(b.id + ':todo'); rerender('#bw-tdnew');
+        const whom = forId && forId !== S.me?.id ? (advocate(forId)?.full_name || '').split(' ')[0] : '';
+        toast(whom ? `${whom} has it now and gets a Slack message.${due ? ` Due ${dayOf(due)}.` : ''}` : `To-do added${forId ? ' for you' : ''}${due ? `, due ${dayOf(due)}` : ''}.`); }
       catch (x) { toast(x, { err: true }); }
     };
   }
