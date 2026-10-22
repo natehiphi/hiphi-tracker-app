@@ -65,7 +65,11 @@ function suggested(r) {
 const campOf = (t, r) => S.campaigns.find(c => c.id === t.pick[r.id]) || suggested(r);
 // What the card says, before anyone changes it: the coalition's owner, Monitor, P2 (what triage_track sets). An owner
 // picked on the card stays put when the coalition changes; one that was not picked follows the coalition.
-const ownIdOf = (t, r) => { const o = t.own[r.id]; return o === undefined ? (campOf(t, r)?.owner_id || null) : o === 'none' ? null : o; };
+// R-316 W50: the issue's owner first, as the issue picker promises ("Its owner leads the bill"), then the coalition's;
+// an owner picked on the card is never overridden.
+const ownIdOf = (t, r) => { const o = t.own[r.id]; return o === undefined ? (issOf(t, r)?.owner_id || campOf(t, r)?.owner_id || null) : o === 'none' ? null : o; };
+const ownWhy = (t, r) => { if (t.own[r.id] !== undefined) return ''; const i = issOf(t, r), c = campOf(t, r);
+  return i?.owner_id ? `Owns ${i.name}` : c?.owner_id ? `Owns ${c.name}` : ''; };
 const posOf = (t, r) => t.pos[r.id] || 'monitor';
 // R-088 part 2: the issue the bill goes on with Track. The suggestion (the earlier look-alike's issue, else the words,
 // staff/suggest_issue.js) is preselected; staff pick another or "No issue". Worked out once per card.
@@ -137,7 +141,7 @@ function why(r) {
 const pickers = (t, r) => { const c = campOf(t, r), own = advocate(ownIdOf(t, r)), pos = posOf(t, r);
   return `<div class="st-tpick">
       <div class="st-pickrow"><span class="st-lab" id="st-clab">Coalition</span>${pickerChip(c?.name || 'Choose', { 'data-tcoal': '1', 'aria-describedby': 'st-clab' }, iconName(c?.icon))}</div>
-      <div class="st-pickrow"><span class="st-lab" id="st-olab">Owner</span>${pickerChip(own ? own.full_name : 'No owner', { 'data-town': '1', 'aria-describedby': 'st-olab' }, own ? 'user-round' : 'circle-dashed')}</div>
+      <div class="st-pickrow"><span class="st-lab" id="st-olab">Owner</span>${pickerChip(own ? own.full_name : 'No owner', { 'data-town': '1', 'aria-describedby': 'st-olab' }, own ? 'user-round' : 'circle-dashed')}${own && ownWhy(t, r) ? `<span class="small muted st-owhy">${esc(ownWhy(t, r))}</span>` : ''}</div>
       <div class="st-pickrow"><span class="st-lab" id="st-plab">Position</span>${pickerChip(POS_WORD[pos] || pos, { 'data-tposp': '1', 'aria-describedby': 'st-plab' }, POS_ICON[pos])}</div>
       <div class="st-pickrow"><span class="st-lab" id="st-ilab">Issue</span>${pickerChip(issOf(t, r)?.name || 'No issue', { 'data-tiss': '1', 'aria-describedby': 'st-ilab' }, issOf(t, r) ? 'tag' : 'circle-dashed')}</div>
     </div>`; };

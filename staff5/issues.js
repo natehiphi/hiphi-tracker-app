@@ -446,7 +446,7 @@ function pageRender(route) {
       <span class="le-licon">${icon(c?.icon || 'tag')}</span>
       <div class="le-lhbody"><h1>${esc(i.name)}</h1>
         ${i.description ? `<p class="le-ldesc">${esc(i.description)}</p>` : ''}
-        ${SESSION_OVER ? outlook : ''}
+        ${SESSION_OVER ? outlook : (i.goal || '').trim() ? `<p class="le-ldesc is-goal"><span class="meta">Our ${esc(SESSION_YEAR)} goal, staff only: </span>${esc(i.goal)}</p>` : ''}
         <div class="is-stline"><span class="is-stl">HIPHI’s stance</span>${stanceChip(i, { 'data-is': 'stance' })}</div>
         ${stanceNote(i, now)}
         <p class="meta">${esc(c?.name || i.category)}${also.length ? ` · also in ${esc(also.map(x => x.name).join(' and '))}` : ''}${i.recommended ? ' · Pre-ticked for new visitors' : ''}</p></div>

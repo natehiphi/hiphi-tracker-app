@@ -14,7 +14,7 @@
 import { S, DB, DEMO, APP_URL, STAGES, STAGE_LABEL, hooks, esc, fmtDT, fmtDate, advocate, capitolUrl, isOwner, isMuted } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
 import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteName, streamOf, draftFor, draftWho, draftActions, chairMail, billNum, billSay, blurb, titleCaseTitle, sponsorName, legsOf, legTitle, legById, lastSlotBefore, unreadCount, listNames, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, nameOf, dWhen, standingIn, draftHearing, liveAsk, billRef } from './model.js';
-import { personById, changedSince, startedFromLine } from './data.js';
+import { personById, changedSince, startedFromLine, SESSION_OVER, SESSION_YEAR } from './data.js';
 import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, POS_SUB, posIcons, ownerOf, countdown, stepBar, stageRibbon, empty, notice, toast, openSheet, closeSheet,
   pickerSheet, menuSheet, confirmSheet, field, keysOn } from './ui.js';
 import { goingBtn, docBtn, filedBtn, showAllBtn, mayUnfile, undoFiledLink } from './ui.js';   // R-277 fix 4: one look per action
@@ -291,7 +291,10 @@ const sameName = (i, b) => (i.name || '').trim().toLowerCase() === (b.nickname |
 // R-277 fix 20 (U-8): the bill's issue is a link and looks like one (a chip is a status, never a button or a link).
 const issueChips = b => issuesOfBill(b.id).map(i => `<a class="bw-ichip" href="${esc(issueLinkHref(i, b))}" aria-label="Issue: ${esc(i.name)}. Open it">${icon('tag')}<span>${sameName(i, b) ? 'Its issue' : `Issue: ${esc(i.name)}`}</span>${icon('chevron-right', { cls: 'chev' })}</a>`).join('');
 // Phones: a row of chips under the status sentence, the pickers first and then the issues.
-const teamChips = b => `<div class="bw-chips">${teamPicks(b).map(([, p]) => p).join('')}${followFlag(b)}${issueChips(b)}</div>`;
+// R-316 W50: in session the goal set for the issue in the autumn prep is one staff-only line here, so it does not vanish
+// into the folded prep card (it is used nowhere else). Between sessions the issue's prep card shows it.
+const goalLine = b => { if (SESSION_OVER) return ''; const i = issuesOfBill(b.id).find(x => (x.goal || '').trim()); return i ? `<p class="bw-igoal small"><b>Our ${esc(SESSION_YEAR)} goal</b> <span class="muted">(staff only)</span>: ${esc(i.goal)}</p>` : ''; };
+const teamChips = b => `<div class="bw-chips">${teamPicks(b).map(([, p]) => p).join('')}${followFlag(b)}${issueChips(b)}</div>${goalLine(b)}`;
 // Desktop: the same three pickers as labelled lines in the side panel (they open as popovers beside the chip), and who
 // follows the bill.
 const teamCard = b => { const f = followText(b);
@@ -1000,7 +1003,7 @@ function headHTML(b, { chips }) {
   return `<header class="bw-head">
     ${nick ? `<h1 class="bw-title bw-h1">${esc(nick)}</h1>${numRow}` : `${numRow}
     <p class="bw-title${sum ? ' bw-long' : ''}">${esc(billName(b))}</p>`}
-    ${nick && sum ? `<p class="bw-lede">${esc(sum)}</p>` : ''}
+    ${nick && sum ? `<p class="bw-lede">${esc(sum)}</p>` : ''}${iss ? goalLine(b) : ''}
     <div class="bw-ribwrap${b.stage_override ? ' bw-ribset' : ''}">${stageRibbon(b)}${stageSet(b)}</div>
     <p class="bw-status">${icon('route')}<span>${statusSentence(b, { chair: true, hearing: !hearingAhead(b) })}</span></p>
     ${chips ? teamChips(b) : ''}
