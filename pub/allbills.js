@@ -135,17 +135,37 @@ function readAddr() {
 function writeAddr() {
   const p = new URLSearchParams();
   for (const [k, name] of ADDR) { const x = String(A[k] || '').trim(); if (x) p.set(name, x); }
-  if ([...p.keys()].length) p.set('session', String(A.yr || followYear()));
+  // The session is named once anything is set, and always for an earlier session's list, so a reload stays on it.
+  const yr = A.yr || followYear();
+  if ([...p.keys()].length || yr !== followYear()) p.set('session', String(yr));
   const qs = p.toString().replace(/\+/g, '%20');
   lastQs = qs;
-  if (!/^#\/allbills(\?|$)/.test(location.hash)) return;
+  if (!/^#\/allbills(\?|$)/.test(location.hash) || location.hash === '#/allbills' + (qs ? '?' + qs : '')) return;
   try { history.replaceState(history.state, '', '#/allbills' + (qs ? '?' + qs : '')); } catch { /* ignore */ }
 }
 // A topic in an old link that this session has no more (or a typo) is dropped once the topics are known, so the list
 // never reads "No bill fits these filters" with a dropdown that shows nothing set.
+// A position or stage the page does not know was already left out by readAddr; writing the address again drops it there
+// too, so a copied link does not pass the typo on.
 function dropUnknownTopic() {
-  if (!A.topic || !S.cats?.length || A.topic === 'other' || S.cats.some(c => c.key === A.topic)) return;
-  A.topic = ''; writeAddr();
+  if (A.topic && S.cats?.length && A.topic !== 'other' && !S.cats.some(c => c.key === A.topic)) A.topic = '';
+  writeAddr();
+}
+// On a phone the filters wait behind their button even when a link set some (a shared link opened on the dropdowns, and
+// the first bill fell to 800px: A-1). What is set shows as one row of buttons under it instead, each taking its filter off,
+// then "Show every bill"; from 900px the dropdowns are always in view and the row is hidden (allbills.css).
+function setHTML() {
+  if (!activeN()) return '';
+  const chips = FACETS.filter(([k]) => A[k]).map(([k, label, opts]) => {
+    const words = (opts().find(([v]) => v === A[k]) || [])[1] || A[k];
+    return `<button type="button" class="ab-chip" data-ab-unset="${k}" aria-label="${esc(label)}: ${esc(words)}. Take this filter off">${esc(words)}${icon('x')}</button>`;
+  }).join('');
+  return `<div class="ab-set" id="ab-set"><span class="sr">Filters set:</span>${chips}${btn('Show every bill', { kind: 'text', attrs: { 'data-ab-every': '' } })}</div>`;
+}
+// "2026 session · 45 of 734 bills" once a search or filter narrows it (the critic, R-212 #43: a shared link said 734).
+function ledeText(yr) {
+  const n = A.rows.length; if (!n) return '';
+  return A.q.trim() || activeN() ? `${yr} session · ${shown().length} of ${n} bills` : `${yr} session · ${n} bills`;
 }
 // Under ?rec=1 (R-303) the box matches as Find does (find.js matchAll: whole words with their synonyms, then word starts, a
 // number as a number), so "vape" finds the e-cigarette bills here too (it found none) and "keiki" the children's bills.
@@ -212,24 +232,26 @@ function backRow() {
 }
 function render() {
   readAddr();
-  const yr = A.addrYr || followYear();
+  const yr = A.addrYr || followYear(), now = followYear();
   load(yr);
   if (A.rows && A.yr === yr) dropUnknownTopic();
   const head = `${backRow()}<header class="pagehead"><h1 class="hero">Every bill HIPHI tracks</h1>`;
   if (A.err && !A.rows) return `<div class="ab">${head}</header>${empty({ title: A.err, text: 'Check your connection and try again.', action: btn('Try again', { kind: 'primary', attrs: { 'data-ab-retry': '' } }) })}</div>`;
   if (!A.rows || A.yr !== yr) return `<div class="ab">${head}</header>${skeleton(6)}</div>`;
-  const n = A.rows.length, open = A.fOpen || activeN() > 0;
-  // One line on a phone, so the first bill starts high (DESIGN A-1).
-  const lede = n ? `${yr} session · ${n} bills` : `HIPHI hasn’t added its ${yr} bills yet.`;
-  // On a phone the filters wait behind one button (open by itself while one is set, so a person sees what narrowed
-  // the list); from 900px they are always a row above the table and the button is hidden.
+  const n = A.rows.length, open = A.fOpen;
+  // One line on a phone, so the first bill starts high (DESIGN A-1). An earlier session's list (an old link) says so and
+  // leads to this session's; an earlier session with nothing here is past, not "yet".
+  const lede = n ? ledeText(yr) : yr < now ? `HIPHI didn’t track ${yr} bills on this tracker.` : `HIPHI hasn’t added its ${yr} bills yet.`;
+  const newer = yr < now ? `<p class="ab-newer">${n ? `This is the ${yr} session. ` : ''}${btn(`See the ${now} bills`, { kind: n ? 'text' : 'primary', iconEnd: 'chevron-right', href: '#/allbills' })}</p>` : '';
+  // On a phone the filters wait behind one button, and what is set shows under it (setHTML); from 900px they are
+  // always a row above the table and the button is hidden.
   return `<div class="ab">${backRow()}
-    <div class="ab-top"><header class="pagehead"><h1 class="hero">Every bill HIPHI tracks</h1><p class="lede">${lede}</p></header>
+    <div class="ab-top"><header class="pagehead"><h1 class="hero">Every bill HIPHI tracks</h1><p class="lede" id="ab-lede">${lede}</p>${newer}</header>
     ${n ? `<div class="ab-tools" role="search">
       <div class="ab-q"><label class="sr" for="ab-q">Search these bills</label>${icon('search')}<input id="ab-q" class="input" type="search" placeholder="${REC() && matchMedia('(max-width: 599px)').matches ? 'Name or number' : 'Search by name or number'}" value="${esc(A.q)}" autocomplete="off" enterkeyhint="search"></div>
       <button type="button" class="btn secondary ab-fbtn" aria-expanded="${open}" aria-controls="ab-filters" data-ab-fbtn>${icon('sliders-horizontal')}<span>${fLabel()}</span></button>
     </div>` : ''}</div>
-    ${n ? `<div class="ab-filters${open ? '' : ' shut'}" id="ab-filters">${filtersHTML()}</div>
+    ${n ? `<div class="ab-filters${open ? '' : ' shut'}" id="ab-filters">${filtersHTML()}</div>${setHTML()}
     <p class="sr" id="ab-count" aria-live="polite">${countLine()}</p>` : ''}
     <div id="ab-list">${n ? groupsHTML() : ''}</div>
     <p class="rc-every ab-embed">${btn('Put these bills on your website', { kind: 'text', icon: 'code', href: '#/embed' })}</p>
@@ -245,6 +267,20 @@ function redrawList() {
   if (f) { const had = document.activeElement?.id; f.innerHTML = filtersHTML(); wireFilters(f); if (had && f.querySelector('#' + had)) document.getElementById(had).focus(); }
   const fb = document.querySelector('[data-ab-fbtn]'); if (fb) { fb.querySelector('span').textContent = fLabel(); }
   const c = document.getElementById('ab-count'); if (c) c.textContent = countLine();
+  const l = document.getElementById('ab-lede'); if (l && A.rows?.length) l.textContent = ledeText(A.yr);
+  const old = document.getElementById('ab-set'), now = setHTML();
+  if (old) old.outerHTML = now || '<div id="ab-set" hidden></div>';
+  else if (now) f?.insertAdjacentHTML('afterend', now);
+  wireSet();
+}
+function wireSet() {
+  const box = document.getElementById('ab-set'); if (!box) return;
+  box.querySelectorAll('[data-ab-unset]').forEach(el => el.onclick = () => {
+    A[el.dataset.abUnset] = ''; A.all = {}; redrawList();
+    (document.querySelector('#ab-set [data-ab-unset]') || document.querySelector('[data-ab-fbtn]'))?.focus();
+  });
+  const ev = box.querySelector('[data-ab-every]');
+  if (ev) ev.onclick = () => { A.q = ''; clearFilters(); const q = document.getElementById('ab-q'); if (q) q.value = ''; redrawList(); document.querySelector('[data-ab-fbtn]')?.focus(); };
 }
 const clearFilters = () => { for (const [k] of FACETS) A[k] = ''; A.all = {}; };
 function wireFilters(root) {
@@ -265,6 +301,7 @@ function wire() {
   const fb = main.querySelector('[data-ab-fbtn]'), f = document.getElementById('ab-filters');
   if (fb && f) fb.addEventListener('click', () => { A.fOpen = f.classList.contains('shut'); f.classList.toggle('shut', !A.fOpen); fb.setAttribute('aria-expanded', String(A.fOpen)); if (A.fOpen) f.querySelector('select')?.focus(); });
   if (f) wireFilters(f);
+  wireSet();
   const list = document.getElementById('ab-list'); if (list) wireList(list);
 }
 

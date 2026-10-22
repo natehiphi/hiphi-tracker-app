@@ -14,9 +14,17 @@
 .ab-f select { -webkit-appearance: none; appearance: none; padding-right: 40px; background: var(--n0) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center; cursor: pointer; }
 .ab-f select.set { border-color: var(--p700); box-shadow: 0 0 0 1px var(--p700); }
 .ab-fclear { display: flex; align-items: flex-end; }
+/* What a link or a choice set, under the Filters button on a phone while the dropdowns are closed (R-212 #43): each
+   button takes its filter off. Hidden while the dropdowns show, and from 900px where they always do. */
+.ab-set { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin: var(--s4) 0 var(--s12); }
+.ab-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px 12px 6px 14px; border: 1px solid var(--p700); border-radius: var(--pill); background: var(--p50); color: var(--p800); font: inherit; font-size: var(--t14); font-weight: 600; line-height: 1.2; text-align: left; cursor: pointer; }
+.ab-chip .ic { width: 16px; height: 16px; flex: none; }
+.ab-filters:not(.shut) + .ab-set, .ab-set[hidden] { display: none; }
+.ab-newer { margin: var(--s4) 0 0; }
 @media (min-width: 900px) {
   body[data-screen="allbills"] main { max-width: 1120px; }   /* room for three dropdowns side by side */
   .ab-fbtn { display: none; }
+  .ab-set { display: none; }
   .ab-filters, .ab-filters.shut { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; gap: var(--s16); padding: 0; background: none; border: 0; margin: 0 0 var(--s8); }
   .ab-f label { font-size: var(--t13); }
 }
