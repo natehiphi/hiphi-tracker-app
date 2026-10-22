@@ -1,0 +1,182 @@
+/* A partner group's corner (R-328 batch C, pub/partner.js) and its card on You (pub/partners.js youCard). Built on the calm
+   pages' kit (rec/rec.css: .rc, .rc-head, .rc-rows.rc-box, .rc-card), with base.css's fields, buttons, chips and notices.
+   One readable column for the forms (CLAUDE.md: a readable column for forms and focused tasks); the corner gets a side
+   column for its teammates and link from 1100px (A-9). Every status has words and an icon (A-5); targets are 44px (A-6);
+   sizes and spaces come from the tokens (A-4, A-8). */
+
+/* ---- the card on You ---- */
+.pt-you { display: flex; align-items: center; gap: var(--s12); margin-top: var(--s12); padding: var(--s16); background: var(--n0); border: 1px solid var(--n200);
+  border-radius: var(--r16); box-shadow: var(--sh1); color: inherit; text-decoration: none; transition: border-color .12s; }
+@media (hover: hover) { .pt-you:hover { border-color: var(--p300); } }
+.pt-you:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
+.pt-you-ic { flex: none; width: 48px; height: 48px; border-radius: 50%; background: var(--p50); color: var(--p700); display: grid; place-items: center; }
+.pt-you-ic .ic { width: 22px; height: 22px; }
+.pt-you-t { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pt-you-k { font: 700 var(--t13)/1.2 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--n700); }
+.pt-you-n { font: 600 var(--t18)/1.25 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+.pt-you-s { font-size: var(--t14); line-height: 1.4; color: var(--n700); }
+.pt-you-need { display: flex; gap: 6px; align-items: flex-start; margin-top: var(--s4); font-size: var(--t14); font-weight: 700; color: var(--p800); }
+.pt-you-need .ic { flex: none; width: 16px; height: 16px; margin-top: 2px; }
+.pt-you-chev { flex: none; width: 20px; height: 20px; color: var(--n400); }
+
+/* ---- the pages ---- */
+.pt .rc-lede .chip { vertical-align: 1px; margin-right: 2px; }
+.pt-notice { margin-top: var(--s16); }
+.pt-notice p + p { margin-top: var(--s8); }
+.pt-act { margin: var(--s16) 0 0; display: flex; flex-wrap: wrap; gap: var(--s8); }
+.pt-empty { margin: 0; padding: var(--s8) 0; color: var(--n700); }
+.pt-empty .pt-spin { width: 18px; height: 18px; vertical-align: -3px; animation: spin 1s linear infinite; }
+.pt-also { margin: var(--s12) 0 0; font-size: var(--t14); color: var(--n700); }
+.pt-q { margin-top: var(--s16); color: var(--n700); }
+.pt-h3 { font: 600 var(--t16)/1.25 var(--font-h); color: var(--n900); margin: 0 0 var(--s12); }
+.pt .rc-sec.pt-sec { margin-top: var(--s32); }
+.pt .rc-sec .rc-note + .rc-rows { margin-top: var(--s8); }
+
+/* one bill or issue row: its number, its name, its status (a chip with an icon and words, then one plain line) */
+.pt-num { font: 700 var(--t13)/1.2 var(--font); letter-spacing: .04em; color: var(--n700); }
+.pt-st { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); margin-top: var(--s4); }
+.pt-st .rc-rstat { flex: 1 1 12em; min-width: 0; }
+.chip.pt-chip { white-space: normal; text-align: left; }
+.chip.pt-chip.live { background: var(--ok-wash); color: var(--ok-text); }
+.chip.pt-chip.ask { background: var(--p50); color: var(--p800); }
+.chip.pt-chip.off { background: var(--n100); color: var(--n900); }
+.pt-gone { margin-top: var(--s16); color: var(--n700); }
+.pt-gonelist { list-style: none; margin: var(--s4) 0 0; padding: 0; }
+.pt-gonelist li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--s8); min-height: 44px; font-size: var(--t14); border-top: 1px solid var(--n200); }
+
+/* teammates */
+.pt-prow { display: flex; align-items: center; gap: var(--s12); min-height: 64px; }
+.pt-av { font: 700 var(--t14)/1 var(--font-h); color: var(--p800); background: var(--p100); }
+.pt-me { font: 400 var(--t14)/1 var(--font); color: var(--n700); }
+.pt .pt-prow .rc-rstat { overflow-wrap: anywhere; }
+.pt-off { flex: none; margin-right: calc(-1 * var(--s8)); }
+.pt-invite { margin-top: var(--s16); }
+.pt-invite .notice { margin-bottom: var(--s16); }
+body.rec .rc-note.pt-leadnote, .pt-leadnote { margin-top: var(--s12); }   /* past the kit's -4px under a heading */
+
+/* the group's link */
+.pt-linkbox { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); padding: var(--s12) var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); }
+.pt-url { flex: 1 1 16em; min-width: 0; font-size: var(--t14); line-height: 1.45; color: var(--n900); overflow-wrap: anywhere; user-select: all; }
+body.rec .rc-note.pt-linknote, .pt-linknote { margin-top: var(--s8); }
+
+/* the terms */
+.pt-terms-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s12); }
+.pt-terms-list li { display: flex; gap: var(--s12); align-items: flex-start; font-size: var(--t16); line-height: 1.45; color: var(--n900); }
+.pt-terms-list .ic { flex: none; width: 22px; height: 22px; margin-top: 1px; color: var(--p700); }
+.pt-terms .rc-card { margin-top: var(--s16); }
+
+/* Add a bill */
+.pt-search { margin-top: var(--s16); }
+.pt-search .searchbox .ic-search { top: 14px; }
+#pt-q { padding-left: 44px; padding-right: 14px; }   /* past the magnifier: .field input's own padding is the stronger rule */
+.pt-res { margin-top: var(--s16); }
+
+/* ---- the editor and the issue form ---- */
+.pt-form { margin-top: var(--s16); }
+.pt-all > .sr + * { margin-top: 0; }
+.pt-all { border: 0; margin: 0; padding: 0; min-width: 0; }
+.pt-all:disabled { opacity: .7; }
+.pt-f { border: 0; margin: 0; padding: 0; min-width: 0; }
+.pt-all > * + * { margin-top: var(--s24); }
+.pt-legend { padding: 0; margin-bottom: 6px; font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.pt-legend.sm { margin-bottom: var(--s4); }
+.pt-pcount { font-weight: 400; color: var(--n700); }
+.pt-help { margin-top: 6px; font-size: var(--t14); color: var(--n700); }
+.pt .help { display: block; font-size: var(--t14); color: var(--n700); }
+.pt-field + .pt-field { margin-top: var(--s24); }
+.pt .field input.pt-short { width: auto; min-width: 12em; max-width: 100%; }
+.pt-fixed { margin: 0; color: var(--n900); }
+.pt-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 var(--s12); font-size: var(--t13); color: var(--n700); }
+.pt-count { margin-left: auto; font-variant-numeric: tabular-nums; }
+.pt-grade { font-size: var(--t13); color: var(--n700); }
+.pt-hints:empty { display: none; }
+.pt-hints { display: flex; flex-direction: column; gap: var(--s4); }
+.pt-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s8); padding: 2px var(--s4) 2px var(--s12); border-radius: var(--r12); background: var(--p50); color: var(--p900); font-size: var(--t14); }
+.pt-hint > .ic { width: 16px; height: 16px; color: var(--p700); flex: none; }
+.pt-hint .btn.text { margin-left: auto; }
+
+/* the side: three choices side by side, the one HIPHI's bill rules out greyed with its reason under them (A-12) */
+.pt-seg { display: flex; flex-wrap: wrap; gap: var(--s8); }
+.pt-opt { position: relative; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 var(--s16); border-radius: var(--pill);
+  background: var(--n0); box-shadow: inset 0 0 0 1.5px var(--n400); color: var(--n900); font-weight: 700; cursor: pointer; }
+.pt-opt input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.pt-opt:hover { background: var(--n50); }
+.pt-opt.on { background: var(--p700); box-shadow: inset 0 0 0 1.5px var(--p700); color: #fff; }
+.pt-opt.on::before { content: ''; width: 14px; height: 8px; margin: -3px 8px 0 -2px; border: solid currentColor; border-width: 0 0 2.5px 2.5px; transform: rotate(-45deg); }
+.pt-opt.off { background: var(--n100); box-shadow: none; color: var(--n500); cursor: not-allowed; }
+.pt-opt.off input { cursor: not-allowed; }
+.pt-opt:has(input:focus-visible) { outline: 3px solid var(--p700); outline-offset: 2px; }
+.pt-strength { margin-top: var(--s12); }
+.pt-radios { display: flex; flex-wrap: wrap; gap: 0 var(--s24); }
+.pt-radio { min-height: 44px; align-items: center; padding: 0; }
+
+/* talking points, numbered, each with its own count */
+.pt-plist { list-style: none; margin: var(--s8) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s12); }
+.pt-prow2 { display: flex; align-items: flex-start; gap: var(--s8); }
+.pt-pn { flex: none; width: 28px; height: 28px; margin-top: 10px; border-radius: 50%; background: var(--n100); color: var(--n700); font: 700 var(--t13)/28px var(--font); text-align: center; }
+.pt-prow2 textarea { flex: 1 1 auto; min-width: 0; min-height: 64px; padding: 10px 14px; border: 1px solid var(--n400); border-radius: var(--r12); background: var(--n0); font-size: var(--t16); line-height: 1.45; color: var(--n900); resize: vertical; }
+.pt-prow2 textarea:focus { outline: none; border-color: var(--p700); box-shadow: 0 0 0 2px var(--p700); }
+.pt-point > .pt-meta, .pt-point > .pt-hints { margin: var(--s4) 0 0 36px; }
+.pt-pdel { margin-top: 2px; }
+.pt-points > .btn.text { margin: var(--s8) 0 0 calc(-1 * var(--s12)); }
+.pt-points > .pt-grade { display: block; margin-top: var(--s4); }
+
+/* draft notes and issues: closed cards with a one-line preview (B-12; the kit's .rc-fold shape) */
+.pt-fold { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); padding: 0 var(--s16); }
+.pt-fold + .pt-fold { margin-top: var(--s8); }
+.pt-fold > summary { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); min-height: 64px; padding: var(--s12) 0; cursor: pointer; list-style: none; color: var(--n900); }
+.pt-fold > summary::-webkit-details-marker { display: none; }
+.pt-fold > summary:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; border-radius: var(--r8); }
+.pt-ft { display: block; font: 600 var(--t16)/1.25 var(--font-h); }
+.pt-fp { display: block; margin-top: 3px; font-size: var(--t14); line-height: 1.35; color: var(--n700); }
+.pt-fchev { flex: none; width: 20px; height: 20px; color: var(--n500); transition: transform .15s var(--ease); }
+.pt-fold[open] > summary .pt-fchev { transform: rotate(180deg); }
+.pt-fin { padding: var(--s12) 0 var(--s16); border-top: 1px solid var(--n100); }
+.pt-ilist { display: flex; flex-direction: column; }
+.pt-ilist:empty { display: none; }
+.pt-ibox { align-items: flex-start; border-top: 1px solid var(--n100); }
+.pt-ibox:first-child { border-top: 0; }
+.pt-iname { display: block; color: var(--n900); font-weight: 700; }
+.pt-ikind { display: block; font-size: var(--t13); color: var(--n700); }
+.pt-iq { margin: var(--s12) 0 var(--s4); }
+.pt-fin .err[hidden] { display: none; }
+
+/* the buttons, next to what they send (A-3: Send to HIPHI the one primary) */
+.pt-actions { padding-top: var(--s8); }
+.pt-btns { display: flex; flex-wrap: wrap; gap: var(--s8); }
+.pt-btns .btn { flex: 1 1 10em; }
+.pt-after { margin-top: var(--s8); color: var(--n700); }
+.pt-ferr:not(:empty) { margin-bottom: var(--s12); }
+
+/* the changes that go live now */
+.pt-nowcard { padding: var(--s4) var(--s16); }
+.pt-now { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8) var(--s16); padding: var(--s12) 0; border-top: 1px solid var(--n100); }
+.pt-now:first-child { border-top: 0; }
+.pt-now > div:first-child { flex: 1 1 14em; min-width: 0; }
+.pt-nt { font-weight: 700; color: var(--n900); }
+.pt-now .small { color: var(--n700); }
+.pt-nowbtns { display: flex; flex-wrap: wrap; gap: var(--s8); }
+.pt-move { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s8) var(--s12); }
+.pt-move[hidden] { display: none; }
+.btn.text.pt-danger { color: var(--bad-text); }
+.pt .rc-sec + .pt-ferr, .pt-nowcard + .pt-ferr { margin-top: var(--s12); }
+
+@media (prefers-reduced-motion: reduce) { .pt-you, .pt-fchev { transition: none; } .pt-empty .pt-spin { animation: none; } }
+
+/* phones under 360px (A-9's floor, in em so a larger text size moves it too) */
+@media (max-width: 22.4375em) {
+  .pt-seg { gap: 6px; }
+  .pt-opt { padding: 0 var(--s12); }
+  .pt-btns .btn { flex: 1 1 100%; }
+  .pt-point > .pt-meta, .pt-point > .pt-hints { margin-left: 0; }
+}
+
+/* laptops: the corner's teammates and link beside its bills (A-9, 1100px); the forms stay one readable column */
+@media (min-width: 1100px) {
+  body[data-screen="partner"] main { max-width: 1120px; }
+  body.rec .rc.pt-corner { max-width: 1040px; }
+  .pt-cols { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--s48); align-items: start; }
+  /* not sticky: with the invite form open the side is taller than a laptop's window */
+  .pt-side > .rc-sec:first-child { margin-top: var(--s32); }
+  .pt-btns .btn { flex: 0 0 auto; }
+}

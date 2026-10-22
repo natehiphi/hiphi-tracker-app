@@ -42,6 +42,8 @@ import { titleLabel } from './titles.js';
 import { REC } from './rec/kit.js';
 import { youCss, youWait, youView, wireYou, backFrom, privacyRec, wirePrivacyRec } from './rec/you.js';
 import { recAlertsView, wireRecAlerts, yoursNow } from './rec/alerts.js';
+// A partner group's card (R-328): "Your group" for a signed-in person on one, under their own card; nothing for anyone else.
+import { youCard } from './partners.js';
 
 // hiphi.org pages, from the site's own footer and menus (research 9/18). Donate stays last wherever these appear.
 export const HIPHI = {
@@ -283,8 +285,11 @@ function meRow() {
   return `<a class="card mr-me" href="#/profile"><span class="pf-av" aria-hidden="true">${ini ? esc(ini) : icon('user')}</span>
     <span class="mr-me-t"><span class="mr-me-n">${name ? esc(name) : t('Your profile')}</span>${about ? `<span class="mr-me-s">${esc(about)}</span>` : ''}<span class="mr-me-l">${name ? t('Your profile') : t('Add your name and titles')}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`;
 }
+// You is drawn by pub/rec/you.js; the partner card goes in after the person's own card, before the rows (a hook from
+// here until rec/you.js draws it itself: if its markup changes, the card is simply left out).
+const withGroup = html => { const c = youCard(); return c && html.includes('<nav class="yu-rows"') ? html.replace('<nav class="yu-rows"', () => `${c}<nav class="yu-rows"`) : html; };
 function moreView() {
-  if (REC()) return youView();
+  if (REC()) return withGroup(youView());
   const d = myDistricts(), s = d && seat('S', d.senate), h = d && seat('H', d.house);
   const legSub = s && h ? t('{a} and {b}', { a: esc(legName(s)), b: esc(legName(h)) }) : t('Find your senator and representative');
   // The person comes first (R-147, Nate 10/4: "located where profiles usually sit"): their profile as the page's first row,
@@ -299,6 +304,7 @@ function moreView() {
   return `<div class="mr mr-more">
     <header class="pagehead"><h1 class="hero">${t('More')}</h1></header>
     ${me}
+    ${youCard()}
     ${langPicker('mr-lang')}
     <nav class="rows mr-grid grid3" aria-label="Tracker">
       ${row({ lead: 'sparkles', title: t('Your session'), sub: t('What you did and what came of it. Only you see it.'), href: '#/recap' })}
