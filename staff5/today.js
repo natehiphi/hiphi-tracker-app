@@ -61,7 +61,7 @@ import { draftAsking, makeDraftNow } from './testimony.js';
 import { openLook, lookFacts } from './look.js';
 import { billPane, bpHearing, bpFacts, bpOpen } from './billpane.js';   // R-277 fix 17: one open-bill panel for Today and Bills
 import { todayPrepNotice, prepTaskOf, dueEnd as prepDue, issueHref, prepListHref } from './prep.js';
-import { sessionGates, lastSlotBefore, noticeByFor, billByNum, plainDeadlines, plainGate } from './model.js';
+import { sessionGates, lastSlotBefore, noticeByFor, billByNum, plainDeadlines, plainGate, askWords, gateName } from './model.js';
 import { dailyWord } from './composer.js';   // which 4:30 pm email a Send joins
 import { testimonyOf, agendaOf, unfile } from './hearing.js';   // where a hearing's testimony stands, in the coalition page's words (v4, R-269)
 
@@ -421,10 +421,11 @@ export function todayItems(scope = 'mine', who = null, drop = null) {   // `drop
     if (!ups.length && b.priority === 1) {
       const st = stopOf(b);
       if (st.column === 'a' && st.deadline && !st.deadline.missed && st.deadline.days <= 14 && st.committee) {
-        const m = chairMail(st.committee), days = st.deadline.days, two = m && m.n > 1;
+        // R-316 W1: due when the hearing notice must post (askWords), so "9d to ask" counts to the day that matters.
+        const m = chairMail(st.committee), two = m && m.n > 1, aw = askWords(st);
         const body = `Aloha ${m ? m.who : 'Chair'},\n\nThe Hawaiʻi Public Health Institute asks you to schedule a hearing on ${b.bill_number}${blurb(b, 120) ? ` (${blurb(b, 120)})` : ''} before the ${st.deadline.label} deadline on ${fmtDate(st.deadline.date)}.\n\nMahalo,\n${(viewer.full_name || '').split(' ')[0]}`;
-        push({ kind: 'chair', key: `s:${b.id}:chair`, b, st, due: new Date(st.deadline.date + 'T23:59:59-10:00').getTime(), who,
-          s: `Ask the chair${two ? 's' : ''} for a hearing: ${days <= 0 ? 'the deadline is today' : plural(days, 'day') + ' left'}`,
+        push({ kind: 'chair', key: `s:${b.id}:chair`, b, st, due: aw.a.at, dl: aw.a.dl, passed: aw.a.passed, who,
+          s: `Ask the chair${two ? 's' : ''} for a hearing: ${esc(aw.line)}`,
           why: `${esc(deadlineName(st.deadline))} ${fmtDate(st.deadline.date + 'T12:00:00-10:00', { weekday: 'short' }).replace(',', '')}: it must ${esc(gateNeed(st.deadline.label))}${m ? ' · ' + esc(m.who) : ''}`,
           btns: m ? [{ label: `Email the chair${two ? 's' : ''}`, href: `mailto:${m.email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}&body=${encodeURIComponent(body)}`, ext: true, mail: true }]
             : [{ label: 'Open bill', href: `${billRoute(b)}` }] });
@@ -756,7 +757,7 @@ function alsoRow(t, c) {
 // R-271 (Nate 10/13): the block names what the hours are for, so a card never says only that a bill is due.
 const ACT = { file: 'to file', review: 'to approve', review2: 'to approve', email: 'to approve', revise: 'to revise', submit: 'to submit', write: 'to write',
   nodraft: 'to draft', ask: 'to write', dnote: 'to write', stale: 'to update', send: 'to send', fix: 'to fix', chair: 'to ask' };
-const approveAct = t => t ? ACT[t.kind] : undefined;
+const approveAct = t => t ? (t.kind === 'chair' && t.passed ? 'left' : ACT[t.kind]) : undefined;   // past the notice time it is days left, not "to ask" (W1)
 // R-279 (Nate 10/13): "it's important that it's clear what each item is doing". Every row's second line starts with the
 // step's name, one short phrase per kind, so a list reads as draft, approve, file, ask the chair at a glance. Plain words
 // in bold, no chip or icon: the chips made each row "too dense with text" (Nate, same day); colour stays urgency (A-5).
@@ -885,7 +886,7 @@ function rowWords(p, x, st) {
     return [by, `${esc(p.h.committee)} hearing ${whenLine(p.h.scheduled_at)}`].filter(Boolean).join(' · ');
   }
   if (p.kind === 'notice' && st === STEP.revise) return 'Sent back: fix it, then resubmit';
-  if (st) { const t = String(p.s || ''), lead = st[0].toLowerCase();
+  if (st) { const t = String(p.s || '').replace(/^Ask the chairs\b/, 'Ask the chair'), lead = st[0].toLowerCase();   // "chairs" is the same step (W1)
     if (t.toLowerCase().startsWith(lead)) { const rest = t.slice(lead.length).replace(/^[\s:·,-]+/, ''); if (rest) return rest.charAt(0).toUpperCase() + rest.slice(1); } }
   const words = x && !x.text ? String(x.label || '').split(/\s+/).map(SIG).filter(w => w && !SKIP.has(w)) : [];
   const said = String(p.s || '').replace(/<[^>]+>/g, ' ').toLowerCase();
@@ -1465,6 +1466,9 @@ function wkAlso(all, now, wkend, max = Infinity) {
   }).join('') + (msgs.length && per.size < max ? `<li><a class="wk-oth" href="#/">${icon('message-circle')}<span class="wk-ot">${esc(plural(msgs.length, 'message'))} to answer, in the list</span></a></li>` : '');
   return `<section class="wk-blk wk-also" aria-label="Other to-dos"><p class="wk-bh">${icon('list-todo')}<b>Other to-dos</b></p><ul class="wk-others">${rows}</ul></section>`;
 }
+// R-316 W1: a session deadline's day says so in its own column ("Second lateral"), not only in the box above the week.
+const dlChip = d => Object.entries(DEADLINES || {}).flatMap(([k, l]) => (l || []).filter(x => x[1] === d).map(x => gateName({ phase: k, label: x[0] })))
+  .map(n => `<span class="wk-dlday">${icon('flag')}${esc(n)}</span>`).join('');
 function weekView(route, scope, who, r) {
   const now = Date.now(), today = hst(now), off = weekOff(route), mon = dayAdd(mondayOf(now), off * 7), wk = weekOf(mon, scope, who, r), days = [...wk.keys()];
   const owners = scope === 'team', all = [...wk.values()];
@@ -1490,7 +1494,7 @@ function weekView(route, scope, who, r) {
   const dayHtml = d => {
     const isToday = d === today, past = d < today, html = body([wk.get(d)], false, 'wk:' + d);
     return `<section class="td-day wk-day${isToday ? ' today' : past ? ' past' : ''}" data-day="${d}" aria-labelledby="td-d-${d}"${isToday ? ' aria-current="date"' : ''}>
-      <div class="td-dh"><h3 id="td-d-${d}">${esc(dayFmt(d, { weekday: 'short' }))} <span class="td-dom">${esc(dayFmt(d, { day: 'numeric' }))}</span></h3>${isToday ? ' ' + chip('Today', 'info') : ''}</div>
+      <div class="td-dh"><h3 id="td-d-${d}">${esc(dayFmt(d, { weekday: 'short' }))} <span class="td-dom">${esc(dayFmt(d, { day: 'numeric' }))}</span></h3>${isToday ? ' ' + chip('Today', 'info') : ''}${dlChip(d)}</div>
       <div class="wk-col">${html || `<p class="td-dnone">${past ? 'Nothing was scheduled.' : 'Nothing scheduled.'}</p>`}</div></section>`;
   };
   // Saturday and Sunday share one place, added only in a week that has something then, and never called Friday (bug 4,
@@ -1652,7 +1656,8 @@ function slipping() {
   for (const a of teammates()) {
     for (const t of (a.id === me ? items('mine') : items('person', a.id)).tasks) {
       if (t.kind === 'wait' || t.kind === 'prep' || t.due == null) continue;
-      if (!(t.due - now <= DAY || (t.kind === 'nodraft' && t.due - now <= 2 * DAY))) continue;
+      const sd = t.kind === 'chair' && t.dl ? t.dl : t.due;   // R-316 W1: a chair ask counts to its deadline here, as before
+      if (!(sd - now <= DAY || (t.kind === 'nodraft' && t.due - now <= 2 * DAY))) continue;
       let e = steps.get(t.key); if (!e) steps.set(t.key, e = { t, yours: [], any: [] });
       if (a.id === me) e.t = t;   // the viewer's own copy keeps its real buttons
       (t.who === 'yours' ? e.yours : e.any).push(a.id);
@@ -2084,6 +2089,8 @@ function render(route) {
     const rg = took.size ? todayItems(scope, who, took) : r;
     const groups = rg.groups.map(g => { const cs = g.cards.filter(c => !c.wait); return { ...g, cards: cs, n: cs.reduce((s, c) => s + (c.cluster ? (g.id === 'overdue' || g.id === 'lateopen' ? c.cluster.filter(t => t.due != null && t.due <= Date.now()).length || 1 : c.cluster.length) : 1), 0) }; }).filter(g => g.cards.length);
     let clear = !groups.some(g => NOW_GROUPS.has(g.id));
+    // R-316 W1: never "All clear" while a P1 bill's hearing notice must post within 3 days.
+    const askSoon = groups.some(g => g.cards.some(c => c.p?.kind === 'chair' && c.p.due - Date.now() <= 3 * DAY));
     // R-277 fix 16: a phone on a hearing day. What is late and what is due today were two or three headed lists (late
     // testimony still open, overdue, needs you today, and the coalition's due today below them), so the item with 40
     // minutes left could sit under one with six hours. They become one list, the least time left first: late testimony
@@ -2102,7 +2109,7 @@ function render(route) {
     const groupHtml = (g, gi) => {
       if (g.merged) return `<section class="td-group td-nowl" aria-labelledby="td-g-now"><h2 class="td-h"${gi === 0 ? ' data-top tabindex="-1"' : ''}>${groupHead(`${icon('clock', { cls: 'td-soon' })}${esc(g.title)}`, g.n, { id: 'td-g-now' })}</h2>
         <div class="td-list">${g.merged.map(({ c, gk }) => gk ? card(c, 500 + i++, false, { filled: false, gk }) : card(c, i++, false, { filled: true })).join('')}</div></section>`;
-      const fold = g.id === 'later', isOpen = !fold || (open.later ?? g.cards.some(c => c.p?.kind === 'prep')), filled = NOW_GROUPS.has(g.id);
+      const fold = g.id === 'later', isOpen = !fold || (open.later ?? g.cards.some(c => c.p?.kind === 'prep' || c.p?.kind === 'chair')), filled = NOW_GROUPS.has(g.id);
       const title = g.id === 'overdue' ? `${icon('circle-alert', { cls: 'td-late' })}Overdue` : g.id === 'lateopen' ? `<span class="td-lateopen">${icon('clock', { cls: 'td-soon' })}${esc(g.title)}</span>` : esc(g.title);
       // Numbers only where they ask for action (R-264): Overdue and Today say how many; a fold says what it holds.
       // R-277 fix 18 (V-5): a group shows its first 10, most urgent first, then "Show all N" (at a February peak "Needs you
@@ -2125,7 +2132,7 @@ function render(route) {
         : coal ? `<p class="td-quiet" data-top tabindex="-1">${icon('circle-check')}<span>Nothing needs you today.</span></p>`
         : `<div class="td-empty" data-top tabindex="-1">${empty({ art: scope === 'mine' ? yay() : '', title: who ? `Nothing is waiting on ${esc(name)}.` : scope === 'none' ? 'Nothing is open on the bills nobody owns.' : 'All clear for today.', text: nextHearingText(scope, who), action: scope !== 'mine' ? btn('Back to my list', { kind: 'secondary', attrs: { 'data-seg': 'tdscope', 'data-val': 'mine' } }) : btn('See your bills', { href: '#/bills' }) })}</div>`);
     // R-316 W4: with the 2027 prep in the list, "All clear" above it said there was nothing to do, and pushed it down.
-    } else body = (clear && !cd.cards.length && !groups.some(g => g.cards.some(c => c.p?.kind === 'prep')) ? `<div class="td-clear">${scope === 'mine' ? yay() : ''}<div><p class="td-clear-t">${who ? `Nothing for ${esc(name)} today.` : scope === 'none' ? 'Nothing is due today on the bills nobody owns.' : 'All clear for today.'}</p><p class="small muted">${nextHearingText(scope, who)}</p></div></div>` : '')
+    } else body = (clear && !cd.cards.length && !groups.some(g => g.cards.some(c => c.p?.kind === 'prep')) ? `<div class="td-clear">${scope === 'mine' ? yay() : ''}<div><p class="td-clear-t">${who ? `Nothing for ${esc(name)} today.` : scope === 'none' ? 'Nothing is due today on the bills nobody owns.' : askSoon ? 'Nothing due today.' : 'All clear for today.'}</p><p class="small muted">${nextHearingText(scope, who)}</p></div></div>` : '')
       + groups.map(groupHtml).join('') + coalDueHtml(cd, rows, false);
     body += waitingGroup(scope, who) + coal + (scope === 'mine' ? startCard() : '');
   }

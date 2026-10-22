@@ -10,7 +10,7 @@
 // bill stands" box became one deadline sentence, Edit and Columns went into "…", tick boxes come with "Select bills",
 // and the quick-look column went (a click on the row is the quick look). Phones keep their rows and sheets.
 import { S, DB, DEADLINES, esc, fmtDate, fmtDT, effStage, owners, isMuted, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks } from './data.js';
-import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionClock, gateNeed, deadlineName, billSay } from './model.js';
+import { factsOf, stopOf, whyDead, billNum, glossCommittee, roomShort, sessionClock, gateNeed, deadlineName, billSay, askWords } from './model.js';
 import { CHAMBER_NAME, HELD_RE, stoppedAt } from '../stops.js';
 import { icon, btn, iconBtn, groupHead, segmented, empty, notice, toast, menuSheet, pickerSheet, openSheet, switchRow, avatar, ownerOf, keysOn, keysUsed, POS_WORD, posIcons, whoseSeg, showAllBtn, filterBtn } from './ui.js';
 import { bl, save, setCompact, shownBills, freshFacts, QUICK, quickCount, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, settled, hoverNow, typingIn, deskBack,
@@ -142,8 +142,11 @@ function nextCell(b) {
   const days = s.deadline.days, left = days <= 0 ? 'today' : `${days === 1 ? '1 day' : days + ' days'}${xw(' left')}`;
   // At risk needs no word here: those rows sit under the "At risk: no hearing yet" group row.
   const why = `${deadlineName(s.deadline)} ${md(s.deadline.date)}: it must ${gateNeed(s.deadline.label)}`;
-  if (s.phase === 'committee') return [`Hearing by ${md(s.deadline.date)}`, left, `${why}${f.risk ? '. At risk: no hearing yet' : ''}. ${days <= 0 ? 'Today' : days === 1 ? '1 day left' : days + ' days left'}`];
-  return [`${esc(s.deadline.label)} ${md(s.deadline.date)}`, left, why];
+  // R-316 W1: a bill waiting for a hearing counts to when its notice must post, in Today's words ("Ask by Wed 3/25 · 9d to ask").
+  if (s.phase === 'committee') { const aw = s.hearingState === 'scheduled' ? null : askWords(s);
+    if (aw && aw.a.notice) return [aw.a.passed ? 'Notice time passed' : `Ask by ${esc(aw.day)}`, aw.a.passed ? `${xw('hearing by ')}${md(s.deadline.date)}` : `${esc(aw.left)}${xw(' to ask')}`, `${why}${f.risk ? '. At risk: no hearing yet' : ''}. Ask the chair: ${aw.line}`];
+    return [`Hearing by ${md(s.deadline.date)}`, left, `${why}${f.risk ? '. At risk: no hearing yet' : ''}. ${days <= 0 ? 'Today' : days === 1 ? '1 day left' : days + ' days left'}`]; }
+  return [`${esc(deadlineName(s.deadline))} ${md(s.deadline.date)}`, left, why];
 }
 const pulseText = b => { const d = daysAgo(S.pulse[b.id]?.last_team_touch); return d == null ? 'Never' : d <= 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d}d ago`; };
 // A bill is named by its nickname when it has one (every bill with a position does), then its plain summary.

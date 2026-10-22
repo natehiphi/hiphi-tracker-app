@@ -734,6 +734,25 @@ export function noticeByFor(st) {
   const ls = lastSlotBefore(st.committee, st.deadline.date, S.slots, st);
   return ls && ls.noticeBy > Date.now() - 864e5 ? ls.noticeBy : null;
 }
+// R-316 W1: when to ask a chair for a hearing by. A chair can only hear a bill whose notice posts 48 (or 72) hours before
+// the committee's last regular meeting before the deadline, so that notice time is the ask's real deadline, not the
+// deadline day (Kevin's SB2175 said "14 days left" with 9 days to its notice). With no meeting slot known it falls back to
+// the deadline. `passed`: the notice time is gone, so only the chair can help now (Help's 48-hour notice entry).
+export function askBy(st) {
+  if (!st?.deadline?.date) return null;
+  const dl = new Date(st.deadline.date + 'T23:59:59-10:00').getTime(), ls = st.committee ? lastSlotBefore(st.committee, st.deadline.date, S.slots, st) : null;
+  const nb = ls ? new Date(ls.noticeBy).getTime() : null;
+  return nb == null ? { at: dl, dl, notice: null, passed: false } : nb > Date.now() ? { at: nb, dl, notice: nb, passed: false } : { at: dl, dl, notice: nb, passed: true };
+}
+const askDay = t => new Date(t).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'short', month: 'numeric', day: 'numeric' }).replace(',', '');
+// One wording on every screen (W1): the chip "9d to ask" and the line "notice by Wed 3/25". `d`: calendar days to the ask-by day.
+export function askWords(st) {
+  const a = askBy(st); if (!a) return null;
+  // Counted as Today's urgency mark counts (spanOf: "8d", "30h", rounded down), so one bill says one number everywhere.
+  const d = Math.floor((a.at - Date.now()) / 864e5), left = spanOf(a.at), chip = a.passed ? 'Notice time passed' : `${spanOf(a.at, { short: true })} to ask`;
+  const line = a.passed ? `the notice time passed ${askDay(a.notice)}: only the chair can help now` : a.notice ? `notice by ${askDay(a.notice)}` : `${deadlineName(st.deadline)} ${askDay(a.at)}`;
+  return { a, d, chip, left, line, day: a.notice && !a.passed ? askDay(a.notice) : askDay(a.dl) };
+}
 
 // ---- suggestions ----
 // Today's promise is a list you can clear, so a suggestion must never look like a task that is due. These are

@@ -265,6 +265,9 @@
   .td-root .td-day { min-height: 220px; padding-bottom: var(--s8); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); }
   .td-root .td-dh { position: sticky; top: var(--header); z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s4); padding: var(--s8) var(--s12); background: var(--n0); border-bottom: 1px solid var(--n100); border-radius: var(--r12) var(--r12) 0 0; }
   .td-root .td-dh h3 { font-size: var(--t16); line-height: 24px; color: var(--n700); }
+  /* R-316 W1: a session deadline on its day's column. */
+  .td-root .wk-dlday { display: inline-flex; align-items: center; gap: var(--s4); font-size: var(--t12, 12px); font-weight: 700; color: var(--n800, var(--n900)); }
+  .td-root .wk-dlday svg { width: 14px; height: 14px; }
   .td-root .td-dom { color: var(--n900); }
   .td-root .td-dsum { flex: 1 1 100%; font-size: var(--t13); line-height: 18px; color: var(--n500); }
   /* today: a blue edge, a tinted header and the word "Today" */

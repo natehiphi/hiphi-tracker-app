@@ -18,7 +18,7 @@
 // "Past a deadline" is read from the deadline each bill is racing (stops.js billStop): a later one means it already cleared
 // the earlier; one through the Legislature (Governor, law) is past every committee deadline.
 import { S, SESSION_YEAR, SESSION_OVER, esc, fmtDT } from './data.js';
-import { stopOf, riskOf, diedish, hearingAhead, billNum, plain, whenAt } from './model.js';
+import { stopOf, riskOf, diedish, hearingAhead, billNum, plain, whenAt, deadlineName } from './model.js';
 import { icon, iconBtn } from './ui.js';
 import { plural } from './lists.js';
 import { dayOf } from './standing.js';
@@ -72,7 +72,7 @@ export function standOf(i) {
 export function markHTML(x) {
   const { i, hear } = x, parts = [];
   if (hear) parts.push(`<span class="ist-m ist-hear">${icon('calendar-days')}<span>Hearing ${esc(whenAt(hear.h.scheduled_at))} · ${esc(shortName(hear.b, i))}</span></span>`);
-  const dlw = d => `${d.label} ${dayAt(d.date)}`;
+  const dlw = d => `${deadlineName(d)} ${dayAt(d.date)}`;   // "Second lateral", never a bare "Lateral" (R-316 W1, C-15)
   const say = {
     risk: () => `<span class="ist-m ist-risk">${icon('triangle-alert')}<span><b>At risk</b> · ${esc(dlw(x.deadline))} · ${esc(names(x.facing, i))} still ${x.facing.length === 1 ? 'needs' : 'need'} a hearing, no bill past it</span></span>`,
     dying: () => `<span class="ist-m ist-dying">${icon('circle-alert')}<span><b>Safe, a bill dying</b> · ${esc(names(x.carried, i))} past ${esc(x.deadline.label)} · ${esc(names(x.facing, i))} ${x.facing.length === 1 ? 'dies' : 'die'} ${esc(dayAt(x.deadline.date))} without a hearing</span></span>`,

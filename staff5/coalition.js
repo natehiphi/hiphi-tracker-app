@@ -16,7 +16,7 @@
 // pieces (its hearings, its bills at risk, the ones racing the next deadline) are shared with an issue's page (issues.js),
 // built from any set of bills. "I support this coalition" lives only here now (My settings no longer lists coalitions).
 import { S, DB, DEMO, SESSION_OVER, hooks, esc, fmtDT, fmtDate, advocate } from './data.js';
-import { billTag, billSay, diedish, riskOf, stopOf, noticeByFor, roomShort, PUBLIC_APP, hiToday, hstDayOf, billById } from './model.js';
+import { billTag, billSay, diedish, riskOf, stopOf, noticeByFor, roomShort, PUBLIC_APP, hiToday, hstDayOf, billById, askWords } from './model.js';
 import { icon, btn, chip, row, empty, toast, switchRow, avatar, pickerSheet, openSheet, sectionNav, clockDay, lateLine } from './ui.js';
 import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { plural, isSide, thSort, sortBy, wireTable, DASH, pageHead, afterClose } from './lists.js';
@@ -202,11 +202,12 @@ export function hearingsSec(bills, { key, from = '' } = {}) {
 // to post a hearing 48 or 72 hours ahead (model.js noticeByFor).
 function riskSec(key, list) {
   const rowOf = ({ b, st }) => {
-    const nb = noticeByFor(st), dl = st.deadline, left = dl.days <= 0 ? 'Last day today' : `${dl.days} day${dl.days === 1 ? '' : 's'} left`;
+    // R-316 W1: the count is to when the notice must post ("9d to ask"), as on Today and Bills.
+    const nb = noticeByFor(st), dl = st.deadline, aw = askWords(st), left = aw ? aw.chip : dl.days <= 0 ? 'Last day today' : `${dl.days} day${dl.days === 1 ? '' : 's'} left`;
     return `<a class="row co-brow" href="${billRoute(b)}"><span class="body"><span class="title">${name(b)}</span>
       <span class="sub">Needs a hearing in ${esc(st.committee || 'committee')} by ${esc(dayOf(dl.date + 'T12:00:00-10:00'))}${nb ? `. The notice has to post by ${esc(fmtDT(nb))}` : ''}</span>
       <span class="co-facts">${ownerBit(b)}</span></span>
-      <span class="end"><span class="sv-count${dl.days <= 0 ? ' soon' : ''}">${icon('clock')}${esc(left)}</span>${icon('chevron-right', { cls: 'chev' })}</span></a>`;
+      <span class="end"><span class="sv-count${(aw ? aw.d <= 1 || aw.a.passed : dl.days <= 0) ? ' soon' : ''}">${icon('clock')}${esc(left)}</span>${icon('chevron-right', { cls: 'chev' })}</span></a>`;
   };
   return sec('co-s2', 'At risk before the deadline', list.length, `<div class="rows co-rows">${folded(key + '|r', list.map(rowOf))}</div>`);
 }
