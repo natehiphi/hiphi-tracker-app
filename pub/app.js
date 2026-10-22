@@ -44,13 +44,15 @@ const mylists = lazy('mylists', () => import('./mylists.js'), { tab: 'bills', ti
 const committees = lazy('committees', () => import('./committees.js')), allbills = lazy('allbills', () => import('./allbills.js'));
 const week = lazy('week', () => import('./week.js'), { tab: 'find', title: 'This week’s asks' });   // R-212 #36, a row on Find
 const embed = lazy('embed', () => import('./embedcode.js'), { tab: 'find', title: 'Put bills on your website' });   // R-212 #38, a row on Find
+// A partner group's corner (R-328, Nate 10/22): its bills and words for HIPHI to approve, under You (pub/partner.js).
+const partner = lazy('partner', () => import('./partner.js'), { tab: 'more', title: 'Your group' });
 // The calm redesign's issue page (R-302's option A) and category page (R-303), behind ?rec=1: their own module, so today's
 // find.js draws them as before without it.
 const recIssue = lazy('issue', () => import('./rec/issue.js'), { tab: 'find', title: 'Issue' });
 // Each screen's stylesheet comes with it (R-122): track.html loads the base and the first screen's own, the rest come on
 // first use, and all of them a moment after the first screen so a later tap never waits. The order of the original list
 // is kept (a later file may override an earlier one; wide.css, the last, overrides them all).
-const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'week', 'embedcode', 'wide', 'rec/rec', 'rec/issue', 'a/a'];
+const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'week', 'embedcode', 'partner', 'wide', 'rec/rec', 'rec/issue', 'a/a'];
 // (SCREEN_CSS, not CSS: that name is the browser’s own object, CSS.escape.)
 // Find, an issue, a category and a list draw their bills with mybills.js's rows, so mybills.css comes with them (R-184: an
 // issue page opened from a shared link drew its rows unstyled for about two seconds, 409px wide on a 375px phone, so the
@@ -60,7 +62,7 @@ const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', '
 const SCREEN_CSS = { start: ['start'], learn: ['start'], next: ['start', 'next'], home: ['home'], recap: ['home'], bills: ['mybills', 'find'], find: ['mybills', 'find'], issue: ['mybills', 'find'], category: ['mybills', 'find'], list: ['mybills', 'find'],
   bill: ['bill', 'mylists'], legislators: ['people'], legislator: ['people'], committees: ['committees'], committee: ['committees'], allbills: ['mybills', 'allbills'], week: ['mybills', 'find', 'week'], embed: ['embedcode'],   // its rows are mybills.js's (R-303: drawn unstyled and too wide for 2.5 s without it)
  
-  more: ['more', 'talk', 'profile'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more', 'profile'], profile: ['more', 'profile'], privacy: ['more'], mylist: ['mybills', 'find', 'mylists'], shared: ['mybills', 'find', 'mylists'], quiz: ['quiz'] };
+  more: ['more', 'talk', 'profile'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more', 'profile'], profile: ['more', 'profile'], privacy: ['more'], mylist: ['mybills', 'find', 'mylists'], shared: ['mybills', 'find', 'mylists'], quiz: ['quiz'], partner: ['partner'] };
 // Version A's look (pub/a/a.css, scoped to body.va and its own classes) comes after wide.css, as track-a.html had it, on
 // every screen but the first visit, which both versions share and other tests compare (R-187).
 const cssFor0 = name => oldA() && !FIRST_VISIT.includes(name) ? [...(SCREEN_CSS[name] || []), 'a/a'] : SCREEN_CSS[name];
@@ -97,7 +99,7 @@ try { if (sessionStorage.getItem('hiphi_helper_open')) helperLoad().then(() => r
 // name -> screen module. More covers help, sign in, alerts (R-146) and privacy; people covers legislators. The profile
 // (R-147) is its own module, and Settings' old address opens it.
 const SCREENS = { start, learn: start, home, recap: home, bills: mybills, find, issue: REC() ? recIssue : find, category: REC() ? recIssue : find, list: find, bill, legislators: people, legislator: people,
-  committees, committee: committees, allbills, more, help: more, signin: more, alerts: more, settings: profile, profile, privacy: more, mylist: mylists, shared: mylists, quiz, next: nextask, week, embed };
+  committees, committee: committees, allbills, more, help: more, signin: more, alerts: more, settings: profile, profile, privacy: more, mylist: mylists, shared: mylists, quiz, next: nextask, week, embed, partner };
 // "My issues" (Nate, 9/21, R-018 answer 4): the tab shows what a person follows, issue by issue. Its address stays #/bills.
 const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My issues'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
 // Version A's tabs (R-070 decision 6, tried there): "You" in More's place, for your legislators, your profile and help.
@@ -160,6 +162,9 @@ export function parseRoute(h = location.hash) {
     case 'help': return { name: 'help', slug: seg[1] || '' };   // #/help/<slug> opens one conversation (R-075, pub/talk.js)
     // R-217: a draft, the practice copy only until Nate says yes. #/quiz the start (or the kept result), #/quiz/1 to #/quiz/5 the questions
     // (each step its own history entry, so a phone's back gesture steps back through them), #/quiz/result.
+    // R-328: a partner group's corner, #/partner (its bills, issues, teammates and link), #/partner/add (find a bill),
+    // #/partner/bill/<bill id> (the one-screen editor) and #/partner/issue/<id or new>; ?g=<slug> picks one of several groups.
+    case 'partner': return { name: 'partner', part: ['add', 'bill', 'issue'].includes(seg[1]) ? seg[1] : '', id: seg[2] || '', g: q.get('g') || '' };
     case 'quiz': return DEMO ? { name: 'quiz', step: seg[1] === 'result' ? 6 : Math.min(5, Math.max(0, +seg[1] || 0)) } : { name: 'home', unknown: true };
     default: return SCREENS[seg[0]] ? { name: seg[0] } : { name: 'home', unknown: true };   // a mistyped or old address: Home, with a word (R-067)
   }
@@ -193,6 +198,7 @@ app.placeName = h => {
     case 'committees': return 'Committees';
     case 'week': return 'This week’s asks';
     case 'embed': return 'Put bills on your website';
+    case 'partner': return 'Your group';
     case 'committee': return S.committees?.[r.code]?.name || 'Committee';
     case 'more': return REC() ? 'You' : 'More';
     case 'help': return 'Help';
@@ -451,7 +457,8 @@ async function boot() {
     }
     render();
     if (window.__hiphiErrs) window.__hiphiErrs.booted = true;   // track.html's catcher: the app started (R-111)
-    setTimeout(() => ensureCss(CSS_ORDER.filter(n => n !== 'wide' && n !== 'a/a' && (REC() || !n.startsWith('rec/')))).catch(() => {}), 2500);   // the other screens' styles, after the first screen (the calm redesign's only with ?rec=1)
+    // (Not the partner corner's: few people have one, and its card on You asks for it, R-328.)
+    setTimeout(() => ensureCss(CSS_ORDER.filter(n => n !== 'wide' && n !== 'a/a' && n !== 'partner' && (REC() || !n.startsWith('rec/')))).catch(() => {}), 2500);   // the other screens' styles, after the first screen (the calm redesign's only with ?rec=1)
     lists?.finishPlace(place);
   } catch (e) {
     console.error(e); reportError('boot', e);
