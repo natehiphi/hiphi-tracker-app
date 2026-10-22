@@ -188,7 +188,7 @@ const msgBtn = (b, ids) => ({ label: `Message ${msgWho(ids)}`, href: mentionHref
 // The letter-writer tasks (R-148) are off Today until Nate's February check (R-266); the drafts notes on each bill's
 // Public tab and the public warning work as before.
 const DNOTE_ON = false;
-const RANK = { prep: 14.5, file: 1, review: 2, review2: 2, revise: 3, submit: 4, write: 5, send: 6, fix: 7, email: 8, stale: 9, dnote: 9.5, ask: 10, chair: 11, nodraft: 12, reply: 13, todo: 14, followup: 15, notice: 16, wait: 30 };
+const RANK = { prep: 14.5, noowner: 13.5, file: 1, review: 2, review2: 2, revise: 3, submit: 4, write: 5, send: 6, fix: 7, email: 8, stale: 9, dnote: 9.5, ask: 10, chair: 11, nodraft: 12, reply: 13, todo: 14, followup: 15, notice: 16, wait: 30 };
 const TESTIMONY = new Set(['file', 'review', 'review2', 'revise', 'submit', 'write', 'stale', 'nodraft', 'wait']);
 const byBill = () => { const m = new Map(); for (const h of S.hearings || []) { if (!m.has(h.bill_id)) m.set(h.bill_id, []); m.get(h.bill_id).push(h); } return m; };
 export function hearingFor(d, idx) {
@@ -476,6 +476,16 @@ export function todayItems(scope = 'mine', who = null, drop = null) {   // `drop
       btns: [kit ? { label: 'Open the share kit', href: `#/hearing/${encodeURIComponent(kit.id)}?from=today&kit=1` } : null,
         cm ? { label: cm.n > 1 ? "Email the chairs" : `Email ${cm.who}`, href: chairEmailHref(cm, [{ b, st: cst }], cst.deadline), ext: true, mail: true } : null, { label: cm ? 'Done, I asked' : 'Done', act: 'todo' }].filter(Boolean) });
     else if (team && asg) push({ ...base, kind: 'wait', key: `w:t${t.id}`, s: `Waiting for ${esc(first(t.assignee_id))}: ${esc(lowerFirst(t.title))}`, ws: `${esc(first(t.assignee_id))}: ${esc(lowerFirst(t.title))}`, chip: 'To-do', on: [t.assignee_id] });
+  }
+
+  // ---- R-316 W42 (practice copy): a live bill with a position and no owner, on its issue owner's Today: Take it ----
+  if (NUDGE() && self) for (const b of S.bills) {
+    if (!b.position || b.position === 'monitor' || b.tracked === false || diedish(b) || own(b)) continue;
+    const iss = (S.billIssues || []).filter(x => x.bill_id === b.id).map(x => (S.issues || []).find(i => i.id === x.issue_id)).find(i => i && i.owner_id === me.id);
+    if (!iss) continue;
+    const st = stopOf(b), dl = st.deadline && !st.deadline.missed ? new Date(st.deadline.date + 'T23:59:59-10:00').getTime() : null;
+    push({ kind: 'noowner', key: `no:${b.id}`, b, due: dl, who: 'yours', kd: ['user-round', 'No owner'], s: `No owner · you own its issue, ${esc(iss.name)}`,
+      btns: [{ label: 'Take it', act: 'takebill' }, { label: 'Give to…', act: 'giveto', text: true }] });
   }
 
   // ---- my follow-ups with supporters ----
@@ -919,7 +929,7 @@ function row(c, filled, o = {}) {
     : `<span class="td-rb${b.priority === 1 ? ' td-rbp1' : ''}"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''}<span class="td-rn">${esc(blurb(b, 80))}</span></span>`)
     : (([ic, w]) => `<span class="td-rb td-rkind">${icon(ic)}<span>${w}</span></span>`)(kindOf(p));
   // A teammate's step is theirs to take: its row has no button, and the open item offers "Message Kevin".
-  const x = p.ro ? null : (p.btns || [])[0], fill = filled && p.kind !== 'reply' && !p.seen && x && !x.text;
+  const x = p.ro ? (o.nudge ? { label: 'Nudge', act: 'nudge' } : null) : (p.btns || [])[0], fill = filled && p.kind !== 'reply' && !p.seen && x && !x.text;
   const what = `<span class="td-rs">${stepTag(stepOf(p))}<span class="td-rd">${p.seen ? SEEN() + ' ' : ''}${o.note ? `${esc(o.note)} · ` : ''}${rowWords(p, x, stepOf(p))}</span></span>${n > 0 ? `<span class="td-rplus">+${n}<span class="td-rmore"> on this ${b ? 'bill' : 'item'}</span></span>` : ''}`;   // "+2 on this bill" (P-4: "+2 more" said more of what?)
   return `<div data-k="${ek}" class="td-row${p.seen ? ' td-seen' : ''}"${fill ? ' data-fill="1"' : ''}${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${sel(`${newMark(p) || urgBlock(p.due, untilOf(p), approveAct(p))}${o.av ? `<span class="td-rav">${o.av}</span>` : ''}<span class="td-rmain">${name}${what}</span>`)}
     <span class="td-ract">${x ? button(p, x, true, filled && p.kind !== 'reply') : ''}</span>${end}</div>`;
@@ -1046,7 +1056,8 @@ function billPaneOf(c, k, o, { close = '', headId, from = 'today', facts = false
   const p = c.p || {}, b = c.b, kd = b ? null : kindOf(p);
   const more = b || p.kind === 'followup' || p.a ? iconBtn('ellipsis', `More for ${b ? billSay(b) : 'this item'}`, { 'data-more': k, 'data-pane': '1' }, 'td-more bp-more') : '';
   if (!c.p) return billPane({ b, p1: b.priority === 1 ? P1 : '', headId, more, close, ...billOnly(b, from), rest: bpFacts(lookFacts(b, factsOpt), { open: true }), open: bpOpen(b) });
-  const acts = (o.msg && b ? [msgBtn(b, o.msg)] : p.btns || []).map((x, j) => button(p, x, j === 0, !o.outline)).join('');
+  const acts = (o.nudge && b ? [{ label: 'Nudge', act: 'nudge' }, { ...msgBtn(b, o.msg), text: true }, ...(S.me.is_admin ? [{ label: 'Give to…', act: 'giveto', text: true }] : [])]
+    : o.msg && b ? [msgBtn(b, o.msg)] : p.btns || []).map((x, j) => button(p, x, j === 0, !o.outline)).join('');
   const w = paneWhy(p, o.msg, o.label);
   const step = `<p class="bp-s"${b ? '' : ` id="${esc(headId)}"`}>${p.ps || p.s}</p>${w ? `<p class="bp-why">${w}</p>` : ''}
     ${p.note ? `<p class="td-note">${p.note}</p>` : ''}${p.q ? `<blockquote class="td-q bp-q">${p.q}</blockquote>` : ''}
@@ -1280,6 +1291,15 @@ function giveTodo(t) {
         redraw();
       } catch (e) { toast(e, { err: true }); }
     } });
+}
+// R-316 W42: an admin hands a teammate's bill on. A testimony draft stays with the person who sent it until R-267's writer
+// lands (only then do drafts move), so the picker says so.
+function giveBill(t) {
+  const b = t.b, prev = (S.assignments[b.id] || [])[0] || null, d = t.d || null, by = d?.created_by || d?.submitted_by || prev;
+  pickerSheet({ title: `Give ${esc(billSay(b))} to`, value: prev || '', help: d && by ? esc(`The draft stays with ${first(by)}, who sent it.`) : '',
+    options: teammates().sort((x, y) => (y.id === S.me.id) - (x.id === S.me.id) || x.full_name.localeCompare(y.full_name)).map(a => [a.id, a.id === S.me.id ? 'You' : a.full_name, 'user-round', a.id === prev ? 'Owns it now' : '']),
+    onPick: async id => { if (id === prev) return;
+      try { await DB.setOwner(b.id, id); toast(`${id === S.me.id ? 'You own' : first(id) + ' owns'} ${billSay(b)} now.`, { ok: true, undo: async () => { await DB.setOwner(b.id, prev); redraw(); } }); redraw(); } catch (e) { toast(e, { err: true }); } } });
 }
 // "Team load": open cards for each teammate, as their own Today would count them (a review cluster counts each draft).
 const openCount = r => r.cards.reduce((s, c) => s + (c.wait ? 0 : c.cluster ? c.cluster.length : c.newh ? c.newh.length : 1), 0);
@@ -1786,7 +1806,11 @@ const slipWho = ids => ids.length ? ids.map(id => id === S.me.id ? 'You' : first
 const slipAv = ids => ids.length ? ids.slice(0, 2).map(id => avatar(advocate(id), 24)).join('') + (ids.length > 2 ? `<span class="td-ravn">+${ids.length - 2}</span>` : '') : avatar(null, 24);   // two faces at most (W54)
 // The row options: a teammate's step offers "Message Kevin" in the open item; your own (even shared) keeps its button.
 const wasOwner = b => { const id = b && (S.assignments[b.id] || []).find(x => !live(x)); return id ? ` (was ${advocate(id).full_name.split(' ')[0]}’s, turned off)` : ''; };
-const slipOpt = r => ({ gk: 'sl', av: slipAv(r.ids), note: !r.ids.length && !r.hear && wasOwner(r.b) ? `No owner${wasOwner(r.b)}` : '', label: r.hear ? 'Nobody going yet' : slipWho(r.ids) + (r.ids.length ? '' : wasOwner(r.b)), msg: r.p && r.p.ro && r.b ? r.ids.filter(id => id !== S.me.id) : null });
+// R-316 W42 (Show me, practice copy): a teammate's Slipping row gets Nudge, a one-line message on the bill with Undo (it was
+// 4 or 5 clicks through the panel), and for admins Give to… beside Message: the to-do if the row is one, else the bill.
+const NUDGE = () => DEMO;
+const NUDGED = new Map();   // the row's task key -> whom a Nudge goes to
+const slipOpt = r => ({ gk: 'sl', nudge: NUDGE() && r.p && r.p.ro && r.b && r.ids.some(id => id !== S.me.id) ? (NUDGED.set(r.p.key, r.ids.filter(id => id !== S.me.id)), true) : false, av: slipAv(r.ids), note: !r.ids.length && !r.hear && wasOwner(r.b) ? `No owner${wasOwner(r.b)}` : '', label: r.hear ? 'Nobody going yet' : slipWho(r.ids) + (r.ids.length ? '' : wasOwner(r.b)), msg: r.p && r.p.ro && r.b ? r.ids.filter(id => id !== S.me.id) : null });
 function slipHearRow(c, ek, sel, end, o) {
   const h = c.hear.h, soon = c.hear.t - Date.now() <= DAY;   // R-277 fix 3: hours from model.js spanOf, as every mark
   const mark = `<span class="td-urg"><span class="sv-urg${soon ? ' soon' : ''}" role="img" aria-label="${esc(`${spanOf(c.hear.t)} to the hearing`)}"><b>${esc(spanOf(c.hear.t, { short: true }))}</b><span>to hearing</span></span></span>`;
@@ -1812,6 +1836,7 @@ function paneSlipHear(c) {
 // Team for Nate, Jess and Jaylen: Slipping first, then each person's list (folded). `rows`: the laptop's one-line rows.
 function slipHtml(rows) {
   const sl = slipping(); let i = 0;
+  for (const r of sl.rows) for (const t of r.tasks || []) if (!LAST.has(t.key)) LAST.set(t.key, t);   // a teammate's step's Nudge finds its record (W42)
   const head = `<h2 class="td-h" data-top tabindex="-1">${groupHead(`${icon('clock', { cls: 'td-soon' })}Slipping`, sl.rows.length || '', { id: 'td-g-slip' })}</h2>`;
   if (!sl.rows.length) return `<section class="td-group td-slip" aria-labelledby="td-g-slip">${head}<p class="td-quiet">${icon('circle-check')}<span>Nothing is slipping on the team: nothing late or due within a day${SLIP_NOBODY ? ', and someone is going to every hearing today and tomorrow' : ''}.</span></p></section>`;
   const now = Date.now(), filled = r => !!r.p && !r.p.ro && r.p.due <= endOfToday();
@@ -2348,6 +2373,12 @@ async function run(t, act, el) {
       const unlog = t.ask ? await logAsk(b, t.ask) : null;   // R-316 W14: the ask is made, so the team's rows say so
       toast(t.ask ? `Done: the ask is logged, so the team sees “Asked by ${(S.me.full_name || '').split(' ')[0]}” on ${billSay(b)}.` : `Done: ${clip(t.t.title, 60)}`, { ok: true, undo: async () => { await DB.updateTodo(b.id, t.t.id, { done: false }); if (unlog) await unlog(); redraw(); } }); redraw(); });
     case 'giveask': return giveAsk([{ b, st: t.st }], t.st.committee, redraw);   // R-316 W14
+    case 'nudge': return busy(el, async () => {   // R-316 W42
+      const ids = NUDGED.get(t.key) || [], due = t.due == null ? '' : lateNow(t) ? ' is past its deadline, still taken until the hearing' : t.due <= Date.now() ? ' is overdue' : ` is due ${atLine(t.due)}`;
+      const m = await DB.sendMessage(b.id, `${ids.map(id => '@' + first(id)).join(' ')} A nudge from Slipping: ${String(t.ps || t.s || '').replace(/<[^>]+>/g, '').replace(/&[a-z#0-9]+;/g, ' ')}${due}. Can you get it in?`);
+      toast(`Nudged ${names(ids)} in the messages on ${billSay(b)}. Slack tells ${ids.length === 1 ? first(ids[0]) : 'them'}.`, { ok: true, undo: async () => { await DB.deleteMessage(m); redraw(); } }); redraw(); });
+    case 'giveto': return t.kind === 'todo' ? giveTodo(t) : giveBill(t);
+    case 'takebill': return busy(el, async () => { await DB.setOwner(b.id, S.me.id); toast(`You own ${billSay(b)} now.`, { ok: true, undo: async () => { await DB.setOwner(b.id, null); redraw(); } }); redraw(); });
     case 'fu': return busy(el, async () => {
       const f = t.f; await DB.doneFollowup(f.id);
       // There is no "not done" call, so Undo adds the same follow-up back.

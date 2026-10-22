@@ -297,7 +297,13 @@ const issueChips = b => issuesOfBill(b.id).map(i => `<a class="bw-ichip" href="$
 // R-316 W50: in session the goal set for the issue in the autumn prep is one staff-only line here, so it does not vanish
 // into the folded prep card (it is used nowhere else). Between sessions the issue's prep card shows it.
 const goalLine = b => { if (SESSION_OVER) return ''; const i = issuesOfBill(b.id).find(x => (x.goal || '').trim()); return i ? `<p class="bw-igoal small"><b>${esc(i.name)}: our ${esc(SESSION_YEAR)} goal</b> <span class="muted">(staff only)</span>: ${esc(i.goal)}</p>` : ''; };
-const teamChips = b => `<div class="bw-chips">${teamPicks(b).map(([, p]) => p).join('')}${followFlag(b)}${issueChips(b)}</div>${goalLine(b)}`;
+// R-316 W42 (Show me, practice copy): a live bill HIPHI has a position on but nobody owns says so, names who owns its issue,
+// and offers Take it (HB2208, which needs a hearing by 3/30, and HB1850 were left with no owner after their twins stopped).
+const NO_OWNER = () => DEMO;
+const noOwnerLine = b => { if (!NO_OWNER() || ownerOf(b) || !b.position || b.position === 'monitor' || diedish(b) || b.tracked === false || !S.me) return '';
+  const io = issuesOfBill(b.id).map(i => advocate(i.owner_id)).find(a => a && a.is_active !== false);
+  return `<p class="bw-noown">${icon('user-round')}<span>${esc(['No owner', io ? `${io.id === S.me.id ? 'You own' : io.full_name.split(' ')[0] + ' owns'} its issue` : ''].filter(Boolean).join(' · '))}</span>${btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-bwtake': b.id } })}</p>`; };
+const teamChips = b => `<div class="bw-chips">${teamPicks(b).map(([, p]) => p).join('')}${followFlag(b)}${issueChips(b)}</div>${noOwnerLine(b)}${goalLine(b)}`;
 // Desktop: the same three pickers as labelled lines in the side panel (they open as popovers beside the chip), and who
 // follows the bill.
 const teamCard = b => { const f = followText(b);
@@ -305,6 +311,7 @@ const teamCard = b => { const f = followText(b);
     <div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-teamc-h">Team</h2>${followFlag(b)}</div>
     ${teamPicks(b).map(([l, p]) => `<div class="bw-ctl"><span class="bw-ctll" aria-hidden="true">${l}</span>${p}</div>`).join('')}
     ${f ? `<div class="bw-ctl"><span class="bw-ctll">Following</span><span class="bw-ctlv">${esc(f)}</span></div>` : ''}
+    ${noOwnerLine(b)}
   </section>`; };
 // A position change says what it did (X10-6, R-180 wave 3): "Saved. The public page now says HIPHI opposes. 1 approved testimony says
 // support: open it." Testimony already approved or waiting for approval was written for the old position and is the one thing the
@@ -1108,6 +1115,7 @@ export default {
     // header chips
     page.querySelector('[data-bwpick="pos"]').onclick = () => pickPosition(b);
     page.querySelector('[data-bwpick="own"]').onclick = () => pickOwner(b);
+    page.querySelectorAll('[data-bwtake]').forEach(el => el.onclick = async () => { try { await DB.setOwner(b.id, S.me.id); FACTS.clear(); rerender(); toast(`You own ${billSay(b)} now.`, { ok: true, undo: async () => { await DB.setOwner(b.id, null); FACTS.clear(); rerender(); } }); } catch (e) { toast(e, { err: true }); } });   // W42
     // Next up
     page.querySelectorAll('[data-dact]').forEach(el => el.onclick = () => { const d = draftById(b, el.dataset.draft); if (d) runDraft(b, d, el.dataset.dact, el); });
     page.querySelectorAll('[data-attend]').forEach(el => el.onclick = () => toggleAttend(b, el.dataset.attend));
