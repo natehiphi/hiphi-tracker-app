@@ -288,8 +288,12 @@ function meRow() {
 // You is drawn by pub/rec/you.js; the partner card goes in after the person's own card, before the rows (a hook from
 // here until rec/you.js draws it itself: if its markup changes, the card is simply left out).
 const withGroup = html => { const c = youCard(); return c && html.includes('<nav class="yu-rows"') ? html.replace('<nav class="yu-rows"', () => `${c}<nav class="yu-rows"`) : html; };
+// For advocacy groups (R-328 batch H, pub/groups.js): one quiet link in You's footer, after Privacy (the plan page: "linked
+// from You, Help and the footer"). Put in from here until rec/you.js draws it itself; if its footer's markup changes, the
+// link is simply left out.
+const withJoin = html => html.replace(/(<a class="yu-fl" href="#\/privacy">[^<]*<\/a>)/, (m) => `${m}<a class="yu-fl" href="#/groups">${t('For advocacy groups')}</a>`);
 function moreView() {
-  if (REC()) return withGroup(youView());
+  if (REC()) return withJoin(withGroup(youView()));
   const d = myDistricts(), s = d && seat('S', d.senate), h = d && seat('H', d.house);
   const legSub = s && h ? t('{a} and {b}', { a: esc(legName(s)), b: esc(legName(h)) }) : t('Find your senator and representative');
   // The person comes first (R-147, Nate 10/4: "located where profiles usually sit"): their profile as the page's first row,
@@ -329,6 +333,7 @@ function moreView() {
     <nav class="rows mr-grid grid3" aria-labelledby="mr-g-about">
       ${row({ lead: 'lock', title: t('Privacy'), sub: t('What we keep and who sees it'), href: '#/privacy' })}
       ${row({ lead: A11Y_ICON, title: t('Accessibility'), sub: t('Built to work for everyone'), href: '#/privacy?part=access' })}
+      ${row({ lead: 'handshake', title: t('For advocacy groups'), sub: t('Add your group’s bills and words to the tracker'), href: '#/groups' })}
       ${DEMO ? row({ lead: 'school', title: t('Leave the practice copy'), sub: t('Back to the real tracker'), href: 'track.html' })
         : row({ lead: 'school', title: t('Try the practice copy'), sub: t('The 2026 session’s bills, for practice or a class. Nothing is sent.'), href: 'track.html?demo=1' })}
     </nav>

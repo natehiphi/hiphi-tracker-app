@@ -107,7 +107,7 @@ def main():
                 txt = TEXT(pg)
                 check('Every bill HIPHI tracks' not in txt and 'Committees' not in txt, f'{t}: Every bill and Committees have left You')
                 foot = pg.evaluate("[...document.querySelectorAll('#main .yu-foot .yu-fl')].map(e => e.innerText.trim())")
-                check(foot == ['About HIPHI', 'Privacy and accessibility', 'Leave the practice copy' if '?demo' in pg.url else 'Practice on the 2026 bills'] + (['Send my issues to a friend'] if follows else []), f'{t}: the footer links ({foot})')   # R-212 #37, #39
+                check(foot == ['About HIPHI', 'Privacy and accessibility', 'For advocacy groups', 'Leave the practice copy' if '?demo' in pg.url else 'Practice on the 2026 bills'] + (['Send my issues to a friend'] if follows else []), f'{t}: the footer links ({foot})')   # R-212 #37, #39; R-328 H
                 if signed:
                     check(pg.evaluate("document.querySelector('#main .yu-me').getAttribute('href')") == '#/profile' and 'Kai' in pg.inner_text('#main .yu-me'), f'{t}: the card is the person, to their profile')
                 else:

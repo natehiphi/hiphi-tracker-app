@@ -1,0 +1,80 @@
+/* For advocacy groups (#/groups) and the partner sign-in link (#/link/<token>), pub/groups.js (R-328 batch H). Built on the
+   calm pages' kit (rec/rec.css: .rc, .rc-head, .rc-sec, .rc-card) with base.css's fields, buttons and notices, in the partner
+   corner's look (partner.css). One readable column on a phone; from 1100px the form sits beside what it is for (A-9), not
+   sticky, since it is taller than a laptop's window. Every list item has its icon and its words (A-5); targets are 44px
+   (A-6); sizes and spaces come from the tokens (A-4, A-8). */
+
+.gp-notice { margin-top: var(--s16); }
+.gp-notice p + p { margin-top: var(--s4); }
+.gp-jumpline { margin: var(--s16) 0 0; }
+.gp-q { margin: var(--s16) 0 0; color: var(--n700); }
+.gp-em { font-weight: 700; color: var(--n900); overflow-wrap: anywhere; }
+
+/* what partners get, who can join: an icon and one plain line each, in one white card. The icons are grey, not the blue
+   that marks what can be pressed (A-5; the critic, 22 Oct: blue icons in a white box read as rows to tap). */
+.gp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s12); }
+.gp-list li { display: flex; gap: var(--s12); align-items: flex-start; font-size: var(--t16); line-height: 1.45; color: var(--n900); }
+.gp-list .ic { flex: none; width: 22px; height: 22px; margin-top: 1px; color: var(--n700); }
+
+/* how it works: four numbered steps */
+.gp-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s16); }
+.gp-steps li { display: flex; gap: var(--s12); align-items: flex-start; }
+.gp-n { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--n100); color: var(--n700); font: 700 var(--t14)/1 var(--font); }
+.gp-n .ic { width: 16px; height: 16px; }
+.gp-steps li.done .gp-n { background: var(--ok-wash); color: var(--ok-text); }
+.gp-st { display: block; font: 600 var(--t16)/1.3 var(--font-h); color: var(--n900); }
+.gp-ss { display: block; margin-top: 2px; font-size: var(--t14); line-height: 1.45; color: var(--n700); }
+
+/* the form */
+.gp-side { margin-top: var(--s32); }
+.gp-form { scroll-margin-top: calc(var(--header, 64px) + var(--s16)); }
+.gp-form .rc-h2 { margin-bottom: var(--s16); }
+.gp-form .gp-field + .gp-field { margin-top: var(--s16); }
+.gp-form .field .help { color: var(--n700); }
+.gp-count { align-self: flex-end; font-size: var(--t13); color: var(--n700); font-variant-numeric: tabular-nums; }
+.gp-form textarea { min-height: 0; }
+.gp-okbox { margin-top: var(--s16); padding: var(--s4) var(--s12); border-radius: var(--r12); background: var(--n50); }
+.gp-check { font-size: var(--t16); line-height: 1.4; font-weight: 700; color: var(--n900); }
+.gp-check input[aria-invalid="true"] { outline: 2px solid var(--bad-text); outline-offset: 2px; }
+.gp-okbox .err { display: flex; align-items: center; gap: 6px; padding-bottom: var(--s8); font-size: var(--t14); font-weight: 700; color: var(--bad-text); }
+.gp-okbox .err .ic, .gp-form .field .err .ic { flex: none; width: 16px; height: 16px; }
+.gp-ferr:not(:empty) { margin-top: var(--s16); }
+.gp-send { margin-top: var(--s16); }
+.gp-send .btn { width: 100%; justify-content: center; }
+.gp-after { margin: var(--s8) 0 0; color: var(--n700); text-align: center; }
+.gp-spin { animation: spin 1s linear infinite; }
+
+/* the thank-you, in the form's place */
+.gp-done { text-align: center; padding: var(--s24) var(--s16); scroll-margin-top: calc(var(--header, 64px) + var(--s16)); }
+.gp-done-ic { display: inline-grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--ok-wash); color: var(--ok-text); }
+.gp-done-ic .ic { width: 28px; height: 28px; }
+.gp-done .rc-h2 { margin: var(--s12) 0 var(--s4); font-size: var(--t22); }
+.gp-done .rc-h2:focus { outline: none; }
+.gp-done p { margin: 0; font-size: var(--t16); line-height: 1.5; color: var(--n900); }
+.gp-done .gp-to { margin-top: var(--s4); font-size: var(--t14); color: var(--n700); }
+.gp-change { margin-top: var(--s8) !important; display: flex; justify-content: center; }
+.gp-acts { margin-top: var(--s16) !important; display: flex; justify-content: center; }
+
+/* Sign in to the tracker */
+.gp-link .gp-act { margin: var(--s16) 0 0; display: flex; flex-wrap: wrap; gap: var(--s8); }
+.gp-who { margin: var(--s16) 0 0; font-size: var(--t14); color: var(--n700); }
+.gp-lerr:not(:empty) { margin-top: var(--s16); }
+.gp-lerr:focus { outline: none; }
+.gp-lerr .notice + .gp-act { margin-top: var(--s16); }
+
+@media (prefers-reduced-motion: reduce) { .gp-spin { animation: none; } }
+
+/* phones: the button and the thank-you's way on fill the column */
+@media (max-width: 599px) {
+  .gp-link .gp-act .btn { flex: 1 1 100%; justify-content: center; }
+  .gp-acts .btn { width: 100%; justify-content: center; }
+}
+
+/* laptops: the reading beside the form (A-9, 1100px); the jump to the form is not needed when it is in view */
+@media (min-width: 1100px) {
+  body[data-screen="groups"] main { max-width: 1120px; }
+  body.rec .rc.gp-groups { max-width: 1040px; }
+  .gp-cols { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: var(--s48); align-items: start; }
+  .gp-side { margin-top: var(--s32); }
+  .gp-jumpline { display: none; }
+}
