@@ -63,6 +63,7 @@ import { billPane, bpHearing, bpFacts, bpOpen } from './billpane.js';   // R-277
 import { todayPrepNotice, prepTaskOf, dueEnd as prepDue, issueHref, prepListHref } from './prep.js';
 import { sessionGates, lastSlotBefore, noticeByFor, billByNum, plainDeadlines, plainGate, askWords, gateName, wantsHearing, companionsOf, sittingDraft, standingIn, approverWords } from './model.js';
 import { dailyWord } from './composer.js';
+import { TERMS_TAP, HOW_TO, termBtn } from './terms.js';   // R-316 W40, W37 (practice copy)
 import { movedTasks, seedMoved, moveMe, notGoing, keepAskUp } from './moved.js';   // R-316 W53 (practice copy)
 import { PUSH_BOARD, GIVE_ASK, chairGroups, chairGroupHTML, wirePush, resetPush, noticeWhen, askState, askChip, ASK_TODO as CHAIR_TODO, chairEmailHref, giveAsk, assignAsk, logAsk } from './push.js';   // R-316 W5, W14 (practice copy)   // which 4:30 pm email a Send joins
 import { testimonyOf, agendaOf, unfile } from './hearing.js';   // where a hearing's testimony stands, in the coalition page's words (v4, R-269)
@@ -695,7 +696,7 @@ function toolbar(route) {
   const seg = whoseSeg('tdscope', { mine: 'mine', team: 'team' }, scope === 'mine' ? 'mine' : 'team', { label: 'Whose tasks', cls: 'td-scope' });
   const whoBtn = scope === 'mine' ? '' : `<div class="td-whorow"><button type="button" class="sv-pick td-whobtn" data-whopick aria-haspopup="dialog" aria-label="${esc(who ? `Showing ${who.full_name}’s ${week ? 'week' : 'list'}. Choose someone else` : none ? 'Showing the bills nobody owns. Choose someone' : 'Showing everyone. Choose one teammate')}">${who ? avatar(who, 24) : none ? avatar(null, 24) : icon('users')}<span>${who ? esc(who.full_name) : none ? 'No owner' : 'Everyone'}</span>${icon('chevron-down', { cls: 'chev' })}</button></div>`;
   return `<div class="td-sub sv-phead"><div class="td-head"><h1 class="td-h1" tabindex="-1">${esc(heading())}</h1>
-      <p class="td-date"><span>${esc(a)}</span></p></div>
+      <p class="td-date"><span>${TERMS_TAP() && ld ? `${esc(day)} · ${termBtn(ld.text, 'word:Legislative day')}` : esc(a)}</span></p></div>
     <div class="td-tools">${viewSeg(viewOf(route))}${seg}</div>${whoBtn}</div>`;
 }
 // At most one notice, most important first: the sync is stale (admins), new bills to sort in the opening weeks, then the
@@ -2238,9 +2239,10 @@ function weekBelow(scope, who, r, top = false, emptyWeek = false) {
   // bills with no hearing yet), so a long week no longer pushes them screens down; a phone keeps them under its list.
   // W5: it also opens by itself when a notice in it is a week away or less, unless you closed it for this deadline.
   const soon = PUSH_BOARD() && gates.some(g => g.noHearing.some(x => { const a = askWords(x.st); return a && !a.a.passed && a.d <= 7; }));   // counted as the "7d to ask" chip counts
+  const how = HOW_TO() ? '<p class="small ah-how"><a href="#/help/hearing">How to ask for a hearing</a> · <a href="#/help/calendar">Session calendar</a></p>' : '';   // W37
   if (top) { const open = S.tdOpen?.dl ?? (PUSH_BOARD() && lead && dlShut(lead.date) ? false : emptyWeek || soon);   // an empty week opens it, until the person closes it
-    return { dl: `<details class="ah-sec ah-top" data-dlfold="${esc(lead?.date || '')}"${open ? ' open' : ''}><summary><h2 id="ah-dl">${esc(h2)}</h2>${icon('chevron-down', { cls: 'ah-chev' })}</summary>${gl}</details>`, sg: suggestHtml(sg.list, r) }; }
-  const dl = `<section class="ah-sec" aria-labelledby="ah-dl"><div class="ah-hd"><h2 id="ah-dl">${esc(h2)}</h2></div>${gl}</section>`;
+    return { dl: `<details class="ah-sec ah-top" data-dlfold="${esc(lead?.date || '')}"${open ? ' open' : ''}><summary><h2 id="ah-dl">${esc(h2)}</h2>${icon('chevron-down', { cls: 'ah-chev' })}</summary>${gl}${how}</details>`, sg: suggestHtml(sg.list, r) }; }
+  const dl = `<section class="ah-sec" aria-labelledby="ah-dl"><div class="ah-hd"><h2 id="ah-dl">${esc(h2)}</h2></div>${gl}${how}</section>`;
   return dl + suggestHtml(sg.list, r);
 }
 let WEEK_EMPTY = false;   // set by weekView: the week shown has nothing in it (R-316 W56)

@@ -235,6 +235,21 @@ const coalWord = me => { const c = me?.prefs?.coalitions;
   if (c === 'all') return 'your coalitions’';
   const ns = Array.isArray(c) ? c.map(id => (S.campaigns || []).find(x => x.id === id)?.name).filter(Boolean) : [];
   return ns.length === 1 ? `${ns[0]}’s` : ns.length ? 'your coalitions’' : ''; };
+// R-316 W39 (Show me, practice copy): one step teaches the person's real job, and it ticks when the job is done, not when
+// its link is clicked: approving for an approver (Kris), revising and pressing Resubmit for a coalition helper whose
+// coalition has a draft sent back (Patti), asking a chair for a helper (Julie). "Read Next up" opens a bill, not Bills.
+const TEACH_JOB = () => DEMO;
+const coalIds = me => { const c = me?.prefs?.coalitions; return c === 'all' ? null : new Set(Array.isArray(c) ? c : []); };
+function jobStep(me, ownsNone) {
+  const drafts = Object.values(S.drafts || {}).flat(), inCo = b => { const ids = coalIds(me); return !ids || (S.billCampaigns?.[b] || []).some(x => ids.has(x)); };
+  if (me.can_approve || (me.is_admin && ownsNone)) return { k: 'job', done: drafts.some(d => d.approved_by === me.id || d.second_approved_by === me.id), title: 'Approve a testimony draft', sub: 'Review opens each draft waiting for you: Approve, or Send back with a note', href: '#/review' };
+  if (!ownsNone) return null;
+  if (drafts.some(d => d.review_note && d.status === 'draft' && inCo(d.bill_id))) return { k: 'job', done: drafts.some(d => d.submitted_by === me.id), title: 'Revise a draft that was sent back, then press Resubmit', sub: 'Today shows your coalition’s drafts sent back, with the note and the Doc', href: '#/' };
+  const asked = [...(S.demoNotes || []), ...Object.values(S.legNotes || {}).flat()].some(n => n.advocate_id === me.id && /^Asked for a hearing/.test(n.body || ''));
+  return { k: 'job', done: asked, title: 'Ask a chair for a hearing', sub: 'Your coalition’s week lists its chair asks: I’ll ask, then the email', href: '#/' };
+}
+const firstBillHref = me => { const ids = coalIds(me), b = S.bills.find(x => (S.assignments[x.id] || []).includes(me.id)) || S.bills.find(x => x.position && x.position !== 'monitor' && (!ids || (S.billCampaigns?.[x.id] || []).some(c => ids.has(c))));
+  return b ? `#/bill/${encodeURIComponent(b.bill_number)}` : '#/bills'; };
 function newSteps() {
   const o = frGet(), me = S.me;
   const mine = me ? S.bills.filter(b => (S.assignments[b.id] || []).includes(me.id) || S.follows?.has(b.id)).length : 0;
@@ -246,7 +261,8 @@ function newSteps() {
     lost ? { k: 'coal', done: false, title: 'Pick the coalition you help on', sub: 'My issues lists each coalition with its I help on switch', href: '#/my-issues' }
     : co ? { k: 'week', done: !!o.week, title: `See ${co} testimony this week`, sub: 'This week shows each hearing, where its testimony stands and when it is due', href: '#/?view=week' }
       : { k: 'follow', done: mine >= 3, title: `Follow three bills you care about${mine && mine < 3 ? `, ${mine} of 3` : ''}`, sub: 'Open a bill, then Follow in its menu. Bills you own count.', href: '#/bills' },
-    { k: 'bill', done: !!o.bill, title: 'Open a bill and read its Next up card', sub: 'It says what the bill needs and by when', href: '#/bills' },
+    ...(TEACH_JOB() && me ? [jobStep(me, ownsNone)].filter(Boolean) : []),
+    { k: 'bill', done: !!o.bill, title: 'Open a bill and read its Next up card', sub: 'It says what the bill needs and by when', href: TEACH_JOB() && me ? firstBillHref(me) : '#/bills' },
     { k: 'today', done: !!o.today, title: 'Clear your Today list', sub: 'Each card has one button that does the step', href: '#/' },
   ];
 }

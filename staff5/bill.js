@@ -29,7 +29,8 @@ import { askConflict } from './conflict.js';
 import { untrackedHTML, wireUntracked, untrackedOf } from './untracked.js';
 import { issuesOfBill, issueLinkHref } from './issues.js';
 import { dayOf } from './standing.js';
-import { GIVE_ASK, askState, askChip, giveAsk } from './push.js';   // R-316 W14 (practice copy)
+import { GIVE_ASK, askState, askChip, giveAsk } from './push.js';
+import { HOW_TO } from './terms.js';   // R-316 W37 (practice copy)   // R-316 W14 (practice copy)
 
 // ---- small shared helpers (activity.js and public.js use these too) ----
 export const firstName = a => String(a?.full_name || '').split(' ')[0] || 'Someone';
@@ -555,6 +556,7 @@ function needsHearingCard(b) {
   return `<section class="card bw-next" aria-labelledby="bw-nx-0">
     <div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-nx-0">Next up</h2></div>
     <p class="bw-hear">Ask for a hearing in ${esc(cmteName(st.committee))}</p>
+    ${HOW_TO() ? '<p class="small bw-how"><a href="#/help/hearing">How to ask for a hearing</a></p>' : ''}
     ${sl ? `<p class="small ${now > sl.noticeBy ? 'bw-late' : 'muted'}">${now > sl.noticeBy ? `${icon('circle-alert')}The notice window for the last regular slot has closed. Call the chair.` : `Last regular slot ${esc(fmtDT(sl.at))}. The notice has to post by ${esc(fmtDT(sl.noticeBy))}.`}</p>` : ''}
     ${ask ? `<div class="bw-acts">${btn('Email the chair', { kind: risk ? 'primary' : 'secondary', icon: 'mail', href: ask })}${GIVE_ASK() ? (as => as.k === 'none' ? btn('Give to…', { kind: 'text', icon: 'user-round', attrs: { 'data-giveask': b.id, 'aria-haspopup': 'dialog', 'aria-label': 'Give this ask to a teammate' } }) : askChip(as))(askState(b, st.committee)) : ''}</div>` : ''}
   </section>`;
