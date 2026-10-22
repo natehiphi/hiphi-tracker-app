@@ -24,6 +24,8 @@ import { iconName } from './lists.js';   // R-277 fix 15: not from setup.js, whi
 import { issuesOfBill } from './issues.js';
 import { sittingOf, goersOf, goingWords, testimonyOf, dueOf, dueTone } from './hearing.js';
 import { billSub, wireLinks } from './pathway.js';
+import { wantsHearing } from './model.js';
+import { PUSH_BOARD, chairBoardHTML, wirePush } from './push.js';   // R-316 W5 (practice copy)
 import { rerender } from './bill.js';
 import { billRoute } from './model.js';
 import { isPos, byPri, dayOf, dueWhen, waitingOfBills } from './standing.js';
@@ -245,11 +247,22 @@ export function standWeekHTML(bills, { key, from = '', clear = [], after = '', c
   const quiet = calm && !w.risk.length && !pressing(week);
   const ok = [hears ? '' : 'no hearings in the next 7 days', ...(quiet ? ['nothing at risk', ...clear] : [])].filter(Boolean);
   const line = ok.length ? `<p class="co-empty co-clear${hears ? '' : ' co-first'}">${icon('check')}<span>${esc(andList(ok).replace(/^./, x => x.toUpperCase()))}.</span></p>` : '';
-  return `${hears ? hearingsSec(bills, { key, from }) : ''}${line}${w.risk.length ? riskSec(key, w.risk) : ''}${w.race.length ? raceSec(key, w) : ''}${after}`;
+  const asks = PUSH_BOARD() ? pushSecs(key, w) : '';
+  return `${hears ? hearingsSec(bills, { key, from }) : ''}${line}${asks || `${w.risk.length ? riskSec(key, w.risk) : ''}${w.race.length ? raceSec(key, w) : ''}`}${after}`;
+}
+// R-316 W5 (practice copy): the same rows as This week's push board. The bills at risk and those racing the next
+// deadline, under each deadline, grouped by the chair who must post the notice, one email per chair, and whether anyone
+// has asked. Bills HIPHI opposes are left out (W2): a hearing is what we do not want for them.
+function pushSecs(key, w) {
+  const all = [...w.risk, ...w.race.filter(x => !w.risk.some(y => y.b.id === x.b.id))].filter(x => wantsHearing(x.b) && x.st.deadline?.date);
+  if (!all.length) return '';
+  const by = new Map(); for (const x of all) { const d = x.st.deadline.date; if (!by.has(d)) by.set(d, []); by.get(d).push(x); }
+  return [...by].sort(([p], [q]) => p.localeCompare(q)).map(([d, rows], i) => sec(`co-s2${i ? '-' + i : ''}`, `Needs a hearing by ${esc(dayOf(d + 'T12:00:00-10:00'))}`, rows.length, chairBoardHTML(rows, { owners: true, key: `${key}|${d}` }))).join('');
 }
 // "Show all" in those sections, for a page that is not this one (the coalition page wires its own below).
 export function wireWeek(root, redraw = () => hooks.render()) {
   root.querySelectorAll('[data-comore]').forEach(el => el.onclick = () => { (S.coMore ??= new Set()).add(el.dataset.comore); redraw(); });
+  if (PUSH_BOARD()) wirePush(root, redraw);
 }
 // Live bills nobody owns, each with "Give to…" (one bill at a time here; many at once from Bills, open to everyone since
 // R-106). The heading says what is wrong in words: a bold "No owner" under "Owner: Lauren" read as an alarm.
@@ -373,6 +386,7 @@ export default {
     root.querySelectorAll('[data-coown]').forEach(el => el.onclick = () => { const b = S.bills.find(x => String(x.id) === el.dataset.coown); if (b) giveTo(b); });
     root.querySelectorAll('[data-cotake]').forEach(el => el.onclick = () => takeTodo(el.dataset.cotake));
     root.querySelectorAll('[data-comore]').forEach(el => el.onclick = () => { (S.coMore ??= new Set()).add(el.dataset.comore); rerender(); });
+    if (PUSH_BOARD()) wirePush(root, rerender);
     root.querySelector('.co-iss')?.addEventListener('toggle', e => { const s = (S.coIss ??= new Set()); if (e.currentTarget.open) s.add(c.id); else s.delete(c.id); });
   },
 };

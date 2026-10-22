@@ -686,6 +686,27 @@ body.sidenarrow .sv-sync span { display: none; }
 @media (prefers-reduced-motion: reduce) { .ah-chev { transition: none; } }
 @media (max-width: 30em) { .ah-row { flex-direction: column; align-items: stretch; } .ah-act .btn { width: 100%; } }
 
+/* R-316 W5 (push.js): a deadline's bills grouped by the chair who must post the notice. The chair's line carries the one
+   email for all of them; each bill says whether anyone has asked (A-12: words and an icon, never colour alone). */
+.pb-board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pb-chair { padding: var(--s12) 0; border-top: 1px solid var(--n100); }
+.pb-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s4) var(--s12); }
+.pb-who { margin: 0; flex: 1 1 260px; min-width: 0; font-size: var(--t14); color: var(--n700); }
+.pb-who b { color: var(--n900); font-size: var(--t16); }
+.pb-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4); }
+.pb-rows { list-style: none; margin: var(--s4) 0 0; padding: 0 0 0 var(--s12); border-left: 2px solid var(--n100); }
+.pb-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); min-height: 40px; padding: 2px 0; }
+.pb-bill { flex: 1 1 240px; min-width: 0; color: inherit; text-decoration: none; overflow-wrap: anywhere; }
+.pb-bill:hover .bn-nick, .pb-bill:hover .bn-num0 { text-decoration: underline; }
+.pb-end { display: flex; align-items: center; gap: var(--s8); margin-left: auto; }
+.pb-end .td-more { margin-right: -8px; }
+.pb-nomore { width: 28px; flex: none; }
+.pb-st { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t13); color: var(--n700); white-space: nowrap; }
+.pb-st .ic { width: 14px; height: 14px; }
+.pb-asked { color: var(--ok-text, var(--n700)); }
+.pb-by { font-size: var(--t13); white-space: nowrap; }
+@media (max-width: 30em) { .pb-acts .btn.secondary { flex: 1 1 100%; } .pb-rows { padding-left: var(--s8); } }
+
 /* A bill the team does not track (staff/untracked.js, R-058): read-only, one Track button. */
 .ut-note { align-items: center; margin-top: var(--s16); }
 .ut-note > div { flex: 1; min-width: 0; }

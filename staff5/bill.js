@@ -29,6 +29,7 @@ import { askConflict } from './conflict.js';
 import { untrackedHTML, wireUntracked, untrackedOf } from './untracked.js';
 import { issuesOfBill, issueLinkHref } from './issues.js';
 import { dayOf } from './standing.js';
+import { GIVE_ASK, askState, askChip, giveAsk } from './push.js';   // R-316 W14 (practice copy)
 
 // ---- small shared helpers (activity.js and public.js use these too) ----
 export const firstName = a => String(a?.full_name || '').split(' ')[0] || 'Someone';
@@ -548,7 +549,7 @@ function needsHearingCard(b) {
     <div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-nx-0">Next up</h2></div>
     <p class="bw-hear">Ask for a hearing in ${esc(cmteName(st.committee))}</p>
     ${sl ? `<p class="small ${now > sl.noticeBy ? 'bw-late' : 'muted'}">${now > sl.noticeBy ? `${icon('circle-alert')}The notice window for the last regular slot has closed. Call the chair.` : `Last regular slot ${esc(fmtDT(sl.at))}. The notice has to post by ${esc(fmtDT(sl.noticeBy))}.`}</p>` : ''}
-    ${ask ? `<div class="bw-acts">${btn('Email the chair', { kind: risk ? 'primary' : 'secondary', icon: 'mail', href: ask })}</div>` : ''}
+    ${ask ? `<div class="bw-acts">${btn('Email the chair', { kind: risk ? 'primary' : 'secondary', icon: 'mail', href: ask })}${GIVE_ASK() ? (as => as.k === 'none' ? btn('Give to…', { kind: 'text', icon: 'user-round', attrs: { 'data-giveask': b.id, 'aria-haspopup': 'dialog', 'aria-label': 'Give this ask to a teammate' } }) : askChip(as))(askState(b, st.committee)) : ''}</div>` : ''}
   </section>`;
 }
 // Next up is what is coming. A hearing that has happened, its result and its recording are in Overview's Committees,
@@ -1105,6 +1106,7 @@ export default {
     page.querySelectorAll('[data-attend]').forEach(el => el.onclick = () => toggleAttend(b, el.dataset.attend));
     page.querySelectorAll('[data-draftnow]').forEach(el => el.onclick = () => { const h = S.hearings.find(x => x.id === el.dataset.draftnow); if (h) makeDraftNow(h); });
     page.querySelectorAll('[data-hmenu]').forEach(el => el.onclick = () => { const h = S.hearings.find(x => x.id === el.dataset.hmenu); if (h) hearingMenu(b, h); });
+    page.querySelectorAll('[data-giveask]').forEach(el => el.onclick = () => { const st = stopOf(b); giveAsk([{ b, st }], st.committee, () => hooks.render()); });   // R-316 W14
     // "Borrow from earlier testimony" opens the fold at the end of Overview, the way a tab tap moves: this history entry is
     // replaced, so Back leaves the bill.
     page.querySelectorAll('[data-borrow]').forEach(a => a.addEventListener('click', e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); openEarlier(b); }));
