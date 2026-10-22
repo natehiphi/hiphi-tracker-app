@@ -7,8 +7,11 @@
 //   C1  which ask: a hearing ahead has three (testimony, the committee email, going in person), the one the person did
 //       first; with one ask there is no choice to make, and the sheet still says what the friend is asked to do.
 //   C3  what the friend sees: the share page's own title and picture, read from the page itself (tools/share_pages.mjs).
-//   S1  a phone: one button, then the phone's own share menu (Messages and Mail are at the front of it). A phone with one
-//       ask goes straight to that menu, which shows the link's card itself.
+//   S1  a phone: the message, which they can change and copy, then one button to the phone's own share menu (Messages and
+//       Mail are at the front of it). Since R-212 #33 (the Neighborhood Captain, who pastes into group chats and changes
+//       the opening) a phone with one ask opens the sheet too, rather than going straight to the menu with words unseen.
+//   Y1  "Send yours first" (R-212 #33): asking for testimony or the committee email before sending their own, a line offers
+//       to do theirs first, so the message they send a friend can start from what they did.
 //   S2  a laptop: the message, which they can change, then Email it (my mail app, Gmail, Outlook.com, the chair email's
 //       three, R-079), Copy message and Copy link, and the computer's own share menu where it has one. "Copied" stays on
 //       screen and is read out (WCAG 4.1.3); when copying is refused the message is selected to copy by hand.
@@ -16,7 +19,7 @@
 // A share is marked done once (an action, as every share has been since 9/18), and after it nothing asks again: Nate 10/7,
 // "Do not ask them to keep sharing after they've done it". The person's words never leave this browser except in the
 // message they send themselves.
-import { esc, icon, nick, spaced, didKind, markDone, dueWords, dayWord, dateLong, timeWord, roomLabel, issueShareUrl, HEARING_ASKS } from './core.js';   // dueWords: the email's subject, read later
+import { esc, icon, nick, spaced, didKind, markDone, dueWords, dayWord, dateLong, timeWord, roomLabel, issueShareUrl, HEARING_ASKS, app } from './core.js';   // dueWords: the email's subject, read later
 import { btn } from './ui.js';
 import { shareFor, shareIssueText } from './actions.js';
 import { abSeen } from './variant.js';
@@ -121,12 +124,6 @@ export function askFriend({ b = null, h = null, did = '', ask = '', acted = fals
     catch (e) { return e?.name === 'AbortError' ? false : null; }   // null: the menu could not open
   };
 
-  // A phone with one ask: straight to the phone's own menu (S1). Its card shows the link's picture and title.
-  if (phoneWay() && choices.length === 1) return (async () => {
-    const t = msgFor(pick), ok = await share(t);
-    if (ok !== null) return ok ? result : '';
-    return open();   // the menu was refused: the box instead
-  })();
   return open();
 
   function open() {
@@ -140,6 +137,10 @@ export function askFriend({ b = null, h = null, did = '', ask = '', acted = fals
         const out = way => (edited ?? shown).split(t.url).join(tagged(t.url, way)), subj = subjectFor(b, { ...pick, title: issue ? issue.name : '' });
         const L = mailLinks(subj, out('email'));
         const action = !issue && pick.ask !== 'follow';
+        // Y1: only where the walkthrough can take them straight there (a hearing ahead) and they have not acted yet.
+        const yours = !issue && !acted && b && pick.h && !pick.done && (pick.ask === 'testify' || pick.ask === 'email');
+        const yoursLine = `<p class="af-yours">Do yours first, and your message can say you did.
+            ${btn('Send yours first', { kind: 'text', sm: true, icon: 'arrow-right', attrs: { 'data-af': 'yours' } })}</p>`;
         dlg.innerHTML = `<div class="af-in">
           <div class="af-top"><h2 id="af-h" tabindex="-1">${action ? 'Ask a friend to speak up' : 'Share with a friend'}</h2>
             <button type="button" class="iconbtn af-x" data-af="close" aria-label="Close">${icon('x')}</button></div>
@@ -147,8 +148,15 @@ export function askFriend({ b = null, h = null, did = '', ask = '', acted = fals
             ${choices.map((c, i) => `<label class="af-ask${c.ask === pick.ask ? ' on' : ''}"><input type="radio" name="af-ask" value="${c.ask}"${c.ask === pick.ask ? ' checked' : ''} id="af-ask-${i}">
               <span class="af-asktx"><b>${esc(c.label)}</b><span>${esc(c.sub)}${c.done ? ` · <span class="af-did">${icon('check')}you did this</span>` : ''}</span></span></label>`).join('')}</fieldset>`
             : `<p class="af-one">You’re asking them to: <b>${esc(pick.label)}</b>${pick.sub && pick.ask !== 'follow' ? `<span> · ${esc(pick.sub)}</span>` : ''}</p>`}
-          <div class="af-sees" id="af-sees" aria-live="polite"><p class="af-k">${phone ? 'Your friend sees' : 'The link’s card, in a text or a post'}</p>
-            ${phone ? '' : '<!-- the message box below says the words -->'}<p class="af-first"${phone ? '' : ' hidden'}>“${esc(t.text.length > 110 ? t.text.slice(0, 108).replace(/\s+\S*$/, '') + '…' : t.text)}”</p><div class="af-card" data-af-card>${skeleton()}</div></div>
+          ${yours && !phone ? yoursLine : ''}
+          ${phone ? `<div class="field af-msgf"><label for="af-msg">Your message</label>
+            <textarea id="af-msg" rows="5" spellcheck="true" autocapitalize="sentences">${esc(shown)}</textarea>
+            <span class="help">Change anything you like. The link at the end opens the ${action ? 'steps' : 'page'} for them.</span></div>
+            <p class="af-status${status ? '' : ' empty'}" role="status">${status ? `${icon('circle-check')}<span>${esc(status)}</span>` : ''}</p>
+            <div class="af-send">${btn('Send to a friend', { kind: 'primary', icon: 'share-2', attrs: { 'data-af': 'sheet' } })}${btn('Copy message', { kind: 'secondary', icon: 'copy', attrs: { 'data-af': 'copy' } })}</div>
+            ${yours ? yoursLine : ''}` : ''}
+          <div class="af-sees" id="af-sees" aria-live="polite"><p class="af-k">${phone ? 'The link shows this' : 'The link’s card, in a text or a post'}</p>
+            <div class="af-card" data-af-card>${skeleton()}</div></div>
           ${phone ? '' : `<div class="af-mail"><p class="af-k">Email it</p><ul role="list">
               ${MAIL_ORDER().map((k, i) => { const [l, ic, sub] = MAIL[k];
                 return `<li><a class="btn ${i === 0 && !result ? 'primary' : 'secondary'} full" href="${esc(L[k])}" data-af-mail="${k}"${k === 'app' ? '' : ' target="_blank" rel="noopener"'}>${icon(ic)}<span>${l}</span>${k === 'app' ? '' : icon('external-link', { cls: 'af-ext' })}</a>${sub ? `<span class="af-sub">${sub}</span>` : ''}</li>`; }).join('')}</ul></div>
@@ -156,9 +164,8 @@ export function askFriend({ b = null, h = null, did = '', ask = '', acted = fals
             <textarea id="af-msg" rows="${matchMedia('(min-width: 720px)').matches ? 4 : 6}" spellcheck="true" autocapitalize="sentences">${esc(shown)}</textarea>
             <span class="help">Change anything you like; the email gets your words too. The link at the end opens the ${action ? 'steps' : 'page'} for them.</span></div>
             <div class="af-more">${btn('Copy message', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-af': 'copy' } })}${btn('Copy link', { kind: 'text', sm: true, icon: 'link', attrs: { 'data-af': 'link' } })}${navigator.share ? btn('Other ways to send', { kind: 'text', sm: true, icon: 'share-2', attrs: { 'data-af': 'sheet' } }) : ''}</div>`}
-          <p class="af-status${status ? '' : ' empty'}" role="status">${status ? `${icon('circle-check')}<span>${esc(status)}</span>` : ''}</p>
-          <div class="af-btns">${phone ? btn('Send to a friend', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-af': 'sheet' } }) : ''}
-            ${btn(result ? 'Done' : 'Close', { kind: result && !phone ? 'primary' : 'text', attrs: { 'data-af': 'close' } })}</div></div>`;
+          ${phone ? '' : `<p class="af-status${status ? '' : ' empty'}" role="status">${status ? `${icon('circle-check')}<span>${esc(status)}</span>` : ''}</p>`}
+          <div class="af-btns">${btn(result ? 'Done' : 'Close', { kind: result && !phone ? 'primary' : 'text', attrs: { 'data-af': 'close' } })}</div></div>`;
         const card = dlg.querySelector('[data-af-card]');
         cardOf(t.url).then(c => { if (!card.isConnected) return;
           card.innerHTML = c ? `${c.image ? `<img src="${esc(c.image)}" alt="" width="120" height="63" loading="lazy">` : ''}<p>${esc(c.title)}</p>`
@@ -173,17 +180,20 @@ export function askFriend({ b = null, h = null, did = '', ask = '', acted = fals
         }));
         dlg.querySelector('[data-af="copy"]')?.addEventListener('click', async () => {
           if (await copy(out('copy'))) { await mark('copy', t); status = 'Copied. Paste it into a text or an email to your friend.'; paint('af-status'); }
-          else { const ta = dlg.querySelector('#af-msg'); ta.focus(); ta.select(); status = 'Your message is selected. Copy it with Ctrl+C, or ⌘C on a Mac.'; const s = dlg.querySelector('.af-status'); s.classList.remove('empty'); s.innerHTML = `${icon('info')}<span>${esc(status)}</span>`; }
+          else { const ta = dlg.querySelector('#af-msg'); ta.focus(); ta.select(); status = phone ? 'Your message is selected. Tap it and choose Copy.' : 'Your message is selected. Copy it with Ctrl+C, or ⌘C on a Mac.'; const s = dlg.querySelector('.af-status'); s.classList.remove('empty'); s.innerHTML = `${icon('info')}<span>${esc(status)}</span>`; }
         });
         dlg.querySelector('[data-af="link"]')?.addEventListener('click', async () => {
           const u = tagged(t.url, 'copy');
           if (await copy(u)) { await mark('copy', t); status = 'Link copied.'; paint('af-status'); }
           else { status = `Copy this link: ${u}`; const s = dlg.querySelector('.af-status'); s.classList.remove('empty'); s.innerHTML = `${icon('info')}<span>${esc(status)}</span>`; }
         });
+        // Y1: the sheet closes, unshared, and their own testimony or email opens on this hearing.
+        dlg.querySelector('[data-af="yours"]')?.addEventListener('click', () => { const hid = pick.h.id, ask = pick.ask; dlg.close();
+          if (ask === 'testify') app.openHelper(b.id, hid); else app.openMail?.({ mode: 'email', bill: b.id, hearing: hid }); });
         dlg.querySelectorAll('[data-af="sheet"]').forEach(x => x.onclick = async () => {
           const ok = await share(edited != null ? { ...t, text: edited.split(t.url).join('').trim() } : t);
           if (ok) { if (phone) return dlg.close(); status = 'Sent. Mahalo for bringing a friend.'; paint('af-status'); }
-          else if (ok === null) { status = 'That didn’t open. Try Email it or Copy message.'; paint('af-status'); }
+          else if (ok === null) { status = phone ? 'That didn’t open. Try Copy message, then paste it into a text.' : 'That didn’t open. Try Email it or Copy message.'; paint('af-status'); }
         });
         if (focus) requestAnimationFrame(() => (focus === 'af-status' ? dlg.querySelector('[data-af="close"]') : dlg.querySelector('#' + focus))?.focus({ preventScroll: true }));
       };
