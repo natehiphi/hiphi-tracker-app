@@ -21,7 +21,7 @@ import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive
 import { burst, celebrate, petals, later, fxOn, rooster, cheer } from './fx.js';
 import { alertStatus, openAlertsSheet, profileAsk, profileLede, PROFILE_H } from './alerts.js';   // the one status rule for alerts (D1-4)
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
-import { actionCard, wireActions, nudgeCard, wireNudge, declineNudge, goingPlans, goingCard } from './actions.js';
+import { actionCard, wireActions, nudgeCard, wireNudge, declineNudge, goingPlans, goingCard, remindWhen, remindDone } from './actions.js';
 import { CAPITOL, islands, flower } from './art.js';
 import { lettersFor, letterButtons, wireKept, sessionWhere } from './myletters.js';
 // More's account cards (the follow-ups after a sign-in) load with More itself, on first use: only a signed-in person
@@ -416,6 +416,9 @@ function loopRow({ b, h, kind }) {
 const ASKF_NO = 'hiphi_askf_no';
 const askfNo = () => { try { return JSON.parse(localStorage.getItem(ASKF_NO) || '[]'); } catch { return []; } };
 function friendLine({ b, h, kind }) {
+  // Shared already, and testimony closes today or tomorrow: the one reminder for the friends they asked (R-212 #35).
+  const rw = remindWhen(b, h);
+  if (rw) return `<div class="hm-askf"><p>${esc(`Testimony closes ${rw} at ${timeWord(h.testimony_deadline)}. Send your friends a reminder?`)}</p><div class="btnrow">${btn('Remind your friends', { kind: 'text', sm: true, iconEnd: 'chevron-right', attrs: { 'data-hm-remind': `${b.id}|${h.id}` } })}${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-hm-remno': `${h.id}|${rw}` } })}</div></div>`;
   if (!b || !h || h.status === 'cancelled' || new Date(h.scheduled_at) <= Date.now() || didKind(b, h, 'share') || askfNo().includes(h.id)) return '';
   // "today at 3:00 PM" for the person reading it now (the review: a deadline hours away read as a calendar date). One icon,
   // on the button (A-14).
@@ -1085,6 +1088,12 @@ export function wireExtras(root) {
     try { localStorage.setItem(ASKF_NO, JSON.stringify([...askfNo(), el.dataset.hmAskno].slice(-50))); } catch { /* this visit only */ }
     app.render();
   });
+  // The reminder to friends they asked (R-212 #35): the sheet with the reminder's words; sent or "Not now", gone for good.
+  root.querySelectorAll('[data-hm-remind]').forEach(el => el.onclick = async () => {
+    const [bid, hid] = el.dataset.hmRemind.split('|'), b = anyBill(bid), h = anyHearing(hid); if (!b || !h) return;
+    const how = await (await import('./askfriend.js')).askFriend({ b, h, remind: true }); if (how) app.render();
+  });
+  root.querySelectorAll('[data-hm-remno]').forEach(el => el.onclick = () => { const [hid, w] = el.dataset.hmRemno.split('|'); remindDone(hid, w); app.render(); });
 }
 
 // wide.css keeps the side column in view under the header. When the column is taller than the window, a sticky top

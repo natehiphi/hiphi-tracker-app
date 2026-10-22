@@ -178,6 +178,9 @@ jobs:
       - name: "A friend's link: the ask and its deadline, and whether it is done or has passed (R-212 #34)"
         if: ${{ !cancelled() }}
         run: python3 tests/friend_link.py http://localhost:8832/ /tmp
+      - name: "Closes tomorrow: Home offers one reminder to the friends you asked (R-212 #35)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/remind_friends.py http://localhost:8832/ /tmp
       - name: "Staff v2, Session setup > Tests: the list, each test's versions as pictures side by side, the switches; the practice copy follows them (R-192, R-201)"
         if: ${{ !cancelled() }}
         run: python3 tests/versions.py

@@ -2,7 +2,7 @@
 // Home ("Do this now"), Find (suggestions) and the bill page, so it looks and behaves the same everywhere.
 // One primary button (write testimony, or email the chair once the written deadline has passed), one secondary
 // ("More ways to help") that opens inside the card, never a sheet. Every action counts (Nate, 9/18).
-import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, anyBill, anyHearing, settledOn, goingOn, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, followedIssues, CHAMBER_NAME, codesOf, suggestEvent } from './core.js';
+import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, anyBill, anyHearing, settledOn, goingOn, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, alive, hstDay, followedIssues, CHAMBER_NAME, codesOf, suggestEvent } from './core.js';
 import { testifyLabel, againLine, mailLabel, letterOn, HELP_WORDS } from './letters.js';
 import { logAct } from './visitlog.js';
 import { issueBand } from './art.js';
@@ -471,6 +471,29 @@ export function shareFor(b, h, { acted = false, law = false, differs = false, as
   // The share picture test (R-183): the address of the version this share shows, when the bill has one for this ask.
   const ps = picShare(billShareUrl(b, a), a, b.id), page = ps.url, url = tag ? withVia(page, tag) : page;
   return { title: name || sp, text, url, copy: `${text} ${url}`, ab: tag ? b.id : '', pic: ps.pic };
+}
+// A reminder to the friends they asked (R-212 #35, the Neighborhood Captain's Tuesday: "Closes tomorrow. Send a reminder?").
+// Once someone has shared a hearing (its share mark) and its testimony closes today or tomorrow, Home offers one reminder
+// for the friends they asked. Sent or "Not now", it is never offered again for that hearing (Nate 10/7: "Do not ask them
+// to keep sharing after they've done it"; one reminder is the one exception, at the moment it can still help). "Not now" on
+// the day before brings it back once on the closing day (the critic: "Not now" read as "later", not "never").
+// remindWhen: 'today' | 'tomorrow' | '' (none due). remindDone(hid): sent; remindDone(hid, w): "Not now" while it was w.
+const REMIND_KEY = 'hiphi_remind';
+const reminded = () => { try { return new Set(JSON.parse(localStorage.getItem(REMIND_KEY) || '[]')); } catch { return new Set(); } };
+export function remindDone(hid, w = '') { try { const s = reminded(); s.add(w ? `${hid}|${w}` : hid); localStorage.setItem(REMIND_KEY, JSON.stringify([...s].slice(-200))); } catch { /* private mode: offered again next visit */ } }
+export function remindWhen(b, h) {
+  if (!b || !h || h.status === 'cancelled' || !alive(b) || !didKind(b, h, 'share') || reminded().has(h.id)) return '';
+  const t = h.testimony_deadline ? Date.parse(h.testimony_deadline) : 0, now = Date.now();
+  if (!t || t <= now) return '';
+  const w = hstDay(t) === hstDay(now) ? 'today' : hstDay(t) === hstDay(now + 864e5) ? 'tomorrow' : '';
+  return w && !reminded().has(`${h.id}|${w}`) ? w : '';
+}
+// The reminder's words. The friend reads them later, so the deadline keeps its date (as shareFor's do); the link is the
+// testimony share page without the share test's tag, since a reminder is neither of the two tested messages (R-135).
+export function remindFor(b, h) {
+  const sp = spaced(b.bill_number), name = nick(b), named = name ? `${name} (${sp})` : sp, url = billShareUrl(b, 'testify');
+  const text = `A reminder: testimony on ${named} closes ${dueWords(h.testimony_deadline)}. If you haven’t sent yours yet, there’s still time, and the tracker walks you through it.`;
+  return { title: name || sp, text, url, copy: `${text} ${url}`, ab: '', pic: null };
 }
 // The first words of a friend's message, by what they are asked to do (R-212 #33). Testimony has none here: its words are
 // the share test's (R-135).
