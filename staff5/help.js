@@ -193,7 +193,7 @@ function calendarItems() {
   return [head, ...team.map(g => {
     const m = my.get(kOf(g)), w = gateGloss(g.label), ld = legislativeDay(new Date(g.date + 'T12:00:00-10:00').getTime());
     const what = w ? `${w[0].toUpperCase()}${w.slice(1)}.` : '';
-    const when = g.past ? 'Passed.' : `<b>${g.next ? `Next: ${inDays(g.days).toLowerCase()}` : inDays(g.days)}</b>${ld && ld.today ? ` · legislative day ${ld.day} of ${ld.of}` : ''}.`;
+    const when = g.past ? 'Over.' : `<b>${g.next ? `Next: ${inDays(g.days).toLowerCase()}` : inDays(g.days)}</b>${ld && ld.today ? ` · legislative day ${ld.day} of ${ld.of}` : ''}.`;   // "Over", not "Passed", which reads as a bill passing (ui-critic)
     const race = g.past ? (g.stopped ? ` ${g.stopped} of the team’s ${g.stopped === 1 ? 'bill' : 'bills'} did not advance at it.` : '')
       : ` ${m && m.racing.length ? `${nBills(m.racing.length)} of yours race it${m.noHearing.length ? `, ${m.noHearing.length} with no hearing yet` : ''}` : 'None of your bills race it'}; ${g.racing.length} on the team${g.noHearing.length ? ` (${g.noHearing.length} with no hearing yet)` : ''}.`;
     // The House and the Senate can each have their own day for one deadline (Triple filing 2/11 and 2/12): say whose.
