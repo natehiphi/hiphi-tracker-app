@@ -12,6 +12,7 @@ import { plain, codesOf, geoSuggest, geoDistricts, ISLANDS, cmteName, blurb, whe
 import { icon, btn, iconBtn, empty, toast, segmented, pickerSheet, menuSheet, keysOn, filterBtn } from './ui.js';
 import { afterBack } from './today.js';   // a sheet opened from a menu waits for the menu to close
 import { HOLDING, holdingHTML } from './holding.js';   // R-316 W41 (practice copy)
+import { TERMS_TAP, HOW_TO, termCodes } from './terms.js';   // R-316 W40, W37 (practice copy)
 import { photo, partyDist, legName, legHref, seatsOf, seatsText, roleWord, RANK, wireLinks, surname } from './pathway.js';
 
 const WEEK = 7 * 864e5;
@@ -267,7 +268,8 @@ function tableHTML(v, ls, week, mode) {
       <th scope="row" class="lg-c-name"><a class="lg-tn" href="${legHref(l)}">${photo(l, 32)}<span class="lg-tnb"><span class="lg-nm">${esc(l.name)}</span>${l.title ? `<span class="lg-tl" title="${esc(l.title)}">${esc(l.title)}</span>` : ''}</span></a></th>
       <td class="lg-c-district">${pdHTML(l)}${townsHTML(l)}</td>
       <td class="lg-c-island">${esc(islandFor(l)) || '<span class="lg-dash">Not known</span>'}</td>
-      <td class="lg-c-cmte"${names ? ` title="${esc(names)}"` : ''}><span class="lg-clamp">${esc(seats) || '<span class="lg-dash">No committee seats</span>'}</span></td>
+      ${TERMS_TAP() ? `<td class="lg-c-cmte"><span class="lg-clamp">${termCodes(esc(seats)) || '<span class="lg-dash">No committee seats</span>'}</span></td>`   /* W40 (B-9): each code taps open its name, which was on hover only */
+        : `<td class="lg-c-cmte"${names ? ` title="${esc(names)}"` : ''}><span class="lg-clamp">${esc(seats) || '<span class="lg-dash">No committee seats</span>'}</span></td>`}
       <td class="lg-c-bills lg-num">${wb.n || '<span class="lg-dash">0</span>'}</td>
       <td class="lg-c-hear"${wb.n > per ? ` title="${esc(wb.all)}"` : ''}>${wb.html}</td>
       ${showSt ? `<td class="lg-c-stance">${stanceSummary(l, weekMode && w ? w.bills : null)}</td>` : ''}
@@ -338,6 +340,7 @@ export default {
         : `<div class="lg-tools">${box}<div class="chips lg-chips" role="group" aria-label="Who to list" id="lg-chips">${chipsHTML(v)}</div></div>`}
       <p class="sr" role="status" id="lg-status"></p>
       <div id="lg-body">${desk ? deskBody(v) : bodyHTML(v)}</div>
+      ${HOW_TO() ? `<p class="small lg-how">${icon('circle-help')}<span><a href="#/help/talk">How to log a talk with a legislator</a> · <a href="#/help/hearing">How to ask a chair for a hearing</a></span></p>` : ''}
     </div>`;
   },
   wire(route, app) {
