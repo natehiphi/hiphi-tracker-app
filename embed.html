@@ -5,74 +5,100 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>HIPHI bill tracker</title>
 <!--
-  Embeddable public table: the bills HIPHI has a position on, our position,
-  and where each one stands. Reads the same public view as track.html
-  (public_bills) with the publishable key; nothing internal is reachable.
+  Embeddable public table: the bills HIPHI has a position on, HIPHI's position,
+  and where each one stands. Reads the same public views as track.html
+  (public_bills, public_coalitions, public_issues, public_categories) with the
+  publishable key; nothing internal is reachable. Anyone can make the code on
+  the public tracker's #/embed page (pub/embedcode.js, R-212 #38).
 
     embed.html                      every bill with a public position
-    embed.html?coalition=ctfh       one coalition (slug from Settings → Coalitions)
+    embed.html?coalition=ctfh       one coalition (its slug, public_coalitions)
+    embed.html?issue=<slug>         one issue (public_issues)
+    embed.html?category=food        one category of issues (public_categories)
+    embed.html?list=keiki-health    one curated list (slug from More → Lists)
     embed.html?limit=15             shorter list with a "see all" link
     embed.html?positions=all        include bills we only monitor
-    embed.html?list=keiki-health    one curated list (slug from More → Lists)
+    embed.html?position=hide        no position column: a partner whose own position differs (R-212 #38)
     embed.html?demo=1               sandbox data (March 16, 2026)
 
-  The page posts its height to the parent so the iframe can size itself.
+  The page posts its height to the parent so the iframe can size itself: the
+  content's height, so the frame shrinks after a search (pub/embedsnippet.js).
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--ink:#0C2233;--muted:#5B7180;--line:#DDE6EB;--teal:#0E7C86;--red:#BE4038;--gold:#9A6A0C;--bg:#fff}
+:root{--ink:#0C2233;--muted:#5B7180;--line:#DDE6EB;--teal:#0E7C86;--red:#BE4038;--gold:#7A5408;--bg:#fff}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg)}
 body{font:14px/1.45 'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--ink);padding:2px}
 .head{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;margin-bottom:10px}
+.head > div{min-width:0}
 .head h2{font-size:16px;margin:0;font-weight:700}
 .head .sub{font-size:12.5px;color:var(--muted)}
-.head input{flex:0 1 220px;min-width:140px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px}
+.head input{flex:0 1 220px;min-width:140px;min-height:36px;padding:7px 10px;border:1px solid #9DB0BA;border-radius:8px;font:inherit;font-size:14px}
+.note{margin:0 0 10px;padding:9px 12px;border-radius:10px;background:#F2F6F8;font-size:13px;color:var(--ink)}
 .wrap{border:1px solid var(--line);border-radius:12px;overflow:hidden}
 table{width:100%;border-collapse:collapse}
+.nopos th:first-child{width:62%}
 th{text-align:left;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:9px 12px;border-bottom:1px solid var(--line);background:#F7FAFB}
 td{padding:11px 12px;border-bottom:1px solid #EEF2F5;vertical-align:top}
 tr:last-child td{border-bottom:0}
 tr.row{cursor:pointer}
 tr.row:hover td{background:#F7FAFB}
 .num{font-weight:700;white-space:nowrap;color:var(--teal);text-decoration:none}
-.t{font-weight:500}
+.t{font-weight:500;overflow-wrap:anywhere}
 .s{font-size:12.5px;color:var(--muted);margin-top:2px}
-.chip{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.chip{display:inline-block;white-space:nowrap;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px}
 .chip.s1{background:#1E7A4C;color:#fff}.chip.s2{background:#DFF1E6;color:#1E6B43}
 .chip.o1{background:var(--red);color:#fff}.chip.o2{background:#FAE6E4;color:#9C2F28}
 .chip.n{background:#FBF0D9;color:var(--gold)}.chip.m{box-shadow:inset 0 0 0 1.5px #9DB0BA;color:var(--muted)}
-.st{font-size:13px;white-space:nowrap}
+.chip .p{display:none}
+.st{font-size:13px}
 .st.dead{color:var(--muted)}.st.law{color:#1E7A4C;font-weight:600}
-.act{display:inline-block;margin-top:5px;font-size:12px;font-weight:600;color:var(--red)}
-.foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:9px;font-size:12.5px;color:var(--muted)}
+.act{display:inline-block;margin-top:5px;font-size:12.5px;font-weight:600;color:var(--red)}
+.foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px 12px;margin-top:9px;font-size:12.5px;color:var(--muted)}
 .foot a{color:var(--teal);font-weight:600;text-decoration:none}
 .empty{padding:26px 14px;text-align:center;color:var(--muted)}
-@media (max-width:560px){
+.empty a{color:var(--teal);font-weight:600}
+/* A phone, or a narrow sidebar on a partner's site: one block a bill, the side and the stage under its name, wrapping
+   rather than squeezing at 320px (the walks' narrowest sidebar) or a 470px content column (the critic, 22 Oct). Without the column heads the chip says whose side it is. */
+@media (max-width:620px){
   thead{display:none}
-  tr.row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:11px 12px;border-bottom:1px solid #EEF2F5}
+  tr.row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:11px 12px;border-bottom:1px solid #EEF2F5}
   tr.row:last-child{border-bottom:0}
   td{padding:0;border:0}
-  td.c-bill{grid-column:1/-1}
-  td.c-st{justify-self:end}
+  td.c-bill{flex:1 1 100%}
+  .chip .w{display:none}.chip .p{display:inline}
+  .head input{flex:1 1 100%}
 }
 </style>
 </head>
 <body>
-<div class="head"><div><h2 id="title">Bills we are working on</h2><div class="sub" id="sub"></div></div><input type="search" id="q" placeholder="Search bills…" aria-label="Search bills" hidden></div>
-<div class="wrap"><table><thead><tr><th>Bill</th><th>Our position</th><th>Where it stands</th></tr></thead><tbody id="rows"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody></table></div>
-<div class="foot"><span id="count"></span><a id="all" target="_blank" rel="noopener">See every bill and take action ›</a></div>
+<div class="head"><div><h2 id="title">Health bills HIPHI is working on</h2><div class="sub" id="sub"></div></div><input type="search" id="q" placeholder="Search by number or word" aria-label="Search these bills" hidden></div>
+<p class="note" id="note" hidden></p>
+<div class="wrap"><table><thead><tr id="heads"><th>Bill</th><th class="h-pos">HIPHI’s position</th><th>Where it stands</th></tr></thead><tbody id="rows"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody></table></div>
+<div class="foot"><span id="count" aria-live="polite"></span><a id="all" target="_blank" rel="noopener">See every bill and take action ›</a></div>
 <script type="module">
 const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
 const P = new URLSearchParams(location.search);
-const DEMO = P.has('demo'), COAL = (P.get('coalition') || '').toLowerCase(), LIST = (P.get('list') || '').toLowerCase(), LIMIT = Math.max(1, Math.min(500, Number(P.get('limit')) || 50)), ALLPOS = P.get('positions') === 'all';
-const TRACK = new URL('track.html' + (DEMO ? '?demo=1' : ''), location.href).href;
+const slug = k => (P.get(k) || '').toLowerCase().trim();
+const DEMO = P.has('demo'), COAL = slug('coalition'), ISSUE = slug('issue'), CAT = slug('category'), LIST = slug('list');
+const LIMIT = Math.max(1, Math.min(500, Number(P.get('limit')) || 50)), ALLPOS = P.get('positions') === 'all';
+// A partner whose own position differs can show where the bills stand without HIPHI's side (the Partner Staffer's walk:
+// "Our position" on their own site read as their group's).
+const NOPOS = P.get('position') === 'hide';
+// Links into the tracker say they came from a website table (?via=embed, counted with the other ways in: pub/visitlog.js).
+const TRACK = new URL('track.html?via=embed' + (DEMO ? '&demo=1' : ''), location.href).href;
+const MAKER = new URL('track.html' + (DEMO ? '?demo=1' : '') + '#/embed', location.href).href;
+const billLink = n => `${TRACK}#/bill/${encodeURIComponent(n)}`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const POS = { strongly_support: ['Strongly support', 's1', 0], strongly_oppose: ['Strongly oppose', 'o1', 1], support: ['Support', 's2', 2], support_amend: ['Support with amendments', 's2', 2],
-  oppose: ['Oppose', 'o2', 3], neutral: ['Comments', 'n', 4], monitor: ['Monitoring', 'm', 5] };
+// HIPHI's side: the column head names whose it is; on a phone the heads are hidden, so the chip says it (the p words).
+const POS = { strongly_support: ['Strongly supports', 'HIPHI strongly supports', 's1', 0], strongly_oppose: ['Strongly opposes', 'HIPHI strongly opposes', 'o1', 1],
+  support: ['Supports', 'HIPHI supports', 's2', 2], support_amend: ['Supports with changes', 'HIPHI supports with changes', 's2', 2],
+  oppose: ['Opposes', 'HIPHI opposes', 'o2', 3], neutral: ['Neutral', 'HIPHI is neutral', 'n', 4], monitor: ['Watching', 'HIPHI is watching', 'm', 5] };
 const ORDER = ['introduced', 'first_triple', 'first_lateral', 'first_decking', 'first_floor', 'first_crossover', 'second_triple', 'second_lateral', 'second_decking', 'second_floor', 'second_crossover', 'conference', 'governor', 'ballot', 'enacted'];
+const spaced = n => String(n).replace(/^(\D+)/, '$1 ');
 // Plain words for where a bill stands; the chamber names come from the bill number.
 function where(b) {
   const first = /^H/.test(b.bill_number) ? 'House' : 'Senate', other = first === 'House' ? 'Senate' : 'House', s = b.stage;
@@ -90,69 +116,125 @@ function where(b) {
   if (s === 'introduced') return ['Introduced, waiting to be sent to a committee', ''];
   return [`In ${first} committees`, ''];
 }
+
+// What the table is of. SCOPE.name is null when the code names a group, issue or list that is not there (renamed,
+// unpublished or mistyped), so the table can say so rather than "no bills".
+const SCOPE = { kind: COAL ? 'group' : ISSUE ? 'issue' : CAT ? 'category' : LIST ? 'list' : '', name: '' };
 let LISTINFO = null;
-async function load() {
-  if (DEMO) {
-    const snap = await (await fetch('demo/snapshot.json', { cache: 'force-cache' })).json();
-    if (LIST) { const l = snap.lists.find(x => x.slug === LIST); if (!l) throw new Error('No such list.'); LISTINFO = l;
-      const rows = snap.listBills.filter(x => x.list_id === l.id).sort((a, b) => a.sort_order - b.sort_order);
-      return rows.map(r => ({ ...snap.bills.find(b => b.id === r.bill_id), list_note: r.note, list_order: r.sort_order })).filter(b => b.id); }
-    const camp = Object.fromEntries(snap.campaigns.map(c => [c.id, c])), of = {};
-    for (const r of snap.billCampaigns) { const c = camp[r.campaign_id]; if (c?.is_public) (of[r.bill_id] ??= []).push(c); }
-    return snap.bills.flatMap(b => (of[b.id] || [{}]).map(c => ({ ...b, campaign: c.public_name || c.name || null, campaign_slug: c.slug || null })));
+const H = { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, Range: '0-1999' };
+const get = async (view, q) => { const r = await fetch(`${SUPABASE_URL}/rest/v1/${view}?${new URLSearchParams(q)}`, { headers: H }); if (!r.ok) throw new Error('load'); return r.json(); };
+const COLS = 'bill_number,title,nickname,public_summary,stage,position,public_action,public_action_until,campaign_slug';
+
+async function loadDemo() {
+  const snap = await (await fetch('demo/snapshot.json', { cache: 'force-cache' })).json();
+  if (LIST) { const l = snap.lists.find(x => x.slug === LIST); if (!l) { SCOPE.name = null; return []; } LISTINFO = l; SCOPE.name = l.title;
+    const rows = snap.listBills.filter(x => x.list_id === l.id).sort((a, b) => a.sort_order - b.sort_order);
+    return rows.map(r => ({ ...snap.bills.find(b => b.id === r.bill_id), list_note: r.note, list_order: r.sort_order })).filter(b => b.id); }
+  if (COAL) { const c = snap.campaigns.find(x => x.slug === COAL && x.is_public); if (!c) { SCOPE.name = null; return []; } SCOPE.name = c.public_name || c.name;
+    const ids = new Set(snap.billCampaigns.filter(r => r.campaign_id === c.id).map(r => r.bill_id)); return snap.bills.filter(b => ids.has(b.id)); }
+  if (ISSUE || CAT) {
+    let issues;
+    if (ISSUE) { const i = snap.issues.find(x => x.slug === ISSUE); if (!i) { SCOPE.name = null; return []; } SCOPE.name = i.name; issues = [i]; }
+    else { const c = snap.categories.find(x => x.key === CAT); if (!c) { SCOPE.name = null; return []; } SCOPE.name = c.name;
+      const inCat = new Set(snap.issueCategories.filter(x => x.category === CAT).map(x => x.issue_id)); issues = snap.issues.filter(i => inCat.has(i.id) || i.category === CAT); }
+    const iid = new Set(issues.map(i => i.id)), ids = new Set(snap.billIssues.filter(x => iid.has(x.issue_id)).map(x => x.bill_id));
+    return snap.bills.filter(b => ids.has(b.id));
   }
-  const H = { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, Range: '0-1999' };
-  const q = new URLSearchParams({ select: 'bill_number,title,public_summary,stage,position,public_action,public_action_until,campaign,campaign_slug', order: 'bill_number' });
-  if (COAL) q.set('campaign_slug', 'eq.' + COAL);
-  if (LIST) {
-    const li = await (await fetch(`${SUPABASE_URL}/rest/v1/public_lists_v?slug=eq.${encodeURIComponent(LIST)}&select=*`, { headers: H })).json();
-    if (!li[0]) throw new Error('This list is not published.'); LISTINFO = li[0];
-    const lb = await (await fetch(`${SUPABASE_URL}/rest/v1/public_list_bills_v?slug=eq.${encodeURIComponent(LIST)}&select=bill_number,note,sort_order`, { headers: H })).json();
-    const nums = lb.map(x => x.bill_number); if (!nums.length) return [];
-    q.set('bill_number', `in.(${nums.map(n => '"' + n + '"').join(',')})`);
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/public_bills?${q}`, { headers: H }); if (!r.ok) throw new Error('Could not load the bills.');
-    return (await r.json()).map(b => { const x = lb.find(y => y.bill_number === b.bill_number); return { ...b, list_note: x?.note, list_order: x?.sort_order ?? 999 }; });
-  }
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/public_bills?${q}`, { headers: H });
-  if (!r.ok) throw new Error('Could not load the bills.');
-  return r.json();
+  return snap.bills;
 }
+
+async function loadLive() {
+  if (LIST) {
+    const li = await get('public_lists_v', { slug: 'eq.' + LIST, select: '*' });
+    if (!li[0]) { SCOPE.name = null; return []; } LISTINFO = li[0]; SCOPE.name = li[0].title;
+    const lb = await get('public_list_bills_v', { slug: 'eq.' + LIST, select: 'bill_number,note,sort_order' });
+    const nums = lb.map(x => x.bill_number); if (!nums.length) return [];
+    const rows = await get('public_bills', { select: COLS, bill_number: `in.(${nums.map(n => '"' + n + '"').join(',')})` });
+    return rows.map(b => { const x = lb.find(y => y.bill_number === b.bill_number); return { ...b, list_note: x?.note, list_order: x?.sort_order ?? 999 }; });
+  }
+  if (COAL) {
+    // The group's own public name ("Tobacco-Free Hawaiʻi"), not the staff's short one ("CTFH") that public_bills carries.
+    const [c, rows] = await Promise.all([get('public_coalitions', { slug: 'eq.' + COAL, select: 'public_name,name' }), get('public_bills', { select: COLS, campaign_slug: 'eq.' + COAL, order: 'bill_number' })]);
+    if (!c[0]) { SCOPE.name = null; return []; } SCOPE.name = c[0].public_name || c[0].name; return rows;
+  }
+  if (ISSUE || CAT) {
+    // public_bills has no bill id, so the issue's ids become numbers through public_all_bills (the bills with a side only).
+    const [issues, cats, idNum, rows] = await Promise.all([
+      get('public_issues', ISSUE ? { slug: 'eq.' + ISSUE, select: 'name,bill_ids' } : { categories: `cs.{${CAT}}`, select: 'name,bill_ids' }),
+      CAT ? get('public_categories', { key: 'eq.' + CAT, select: 'name' }) : null,
+      get('public_all_bills', { select: 'id,bill_number', hiphi_position: 'not.is.null' }),
+      get('public_bills', { select: COLS, order: 'bill_number' })]);
+    if (ISSUE ? !issues[0] : !cats?.[0]) { SCOPE.name = null; return []; }
+    SCOPE.name = ISSUE ? issues[0].name : cats[0].name;
+    const ids = new Set(issues.flatMap(i => i.bill_ids || [])), nums = new Set(idNum.filter(x => ids.has(x.id)).map(x => x.bill_number));
+    return rows.filter(b => nums.has(b.bill_number));
+  }
+  return get('public_bills', { select: COLS, order: 'bill_number' });
+}
+
 const nice = t => t === t.toUpperCase() ? t.charAt(0) + t.slice(1).toLowerCase().replace(/\bhawaii\b/g, 'Hawaii') : t;   // the Capitol's ALL-CAPS titles
+// Searching "HB 1573", "hb1573" or "1573" finds HB1573: the space people type is not in the stored number.
+const squash = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+const hay = b => squash(`${b.bill_number} ${spaced(b.bill_number)} ${b.nickname || ''} ${b.title || ''} ${b.public_summary || ''}`);
+const match = (b, q) => { const h = hay(b); return h.includes(q) || h.includes(q.replace(/^([a-z]+)\s+(\d+)$/, '$1$2')); };
 let ALL = [];
+const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+function rowHTML(b) {
+  const [wl, pl, pc] = POS[b.position] || POS.monitor, [wt, wc] = where(b);
+  const ask = b.public_action && (DEMO || (b.public_action_until && b.public_action_until >= today));
+  const name = b.nickname || b.public_summary || nice(b.title || '');
+  return `<tr class="row" data-num="${esc(b.bill_number)}"><td class="c-bill"><a class="num" href="${billLink(b.bill_number)}" target="_blank" rel="noopener">${esc(spaced(b.bill_number))}</a>
+    <div class="t">${esc(name.length > 170 ? name.slice(0, 168).replace(/\s+\S*$/, '') + '…' : name)}</div>${b.list_note ? `<div class="s"><i>${esc(b.list_note)}</i></div>` : ''}${ask ? `<span class="act">Take action ›</span>` : ''}</td>
+    ${NOPOS ? '' : `<td class="c-pos"><span class="chip ${pc}"><span class="w">${wl}</span><span class="p">${pl}</span></span></td>`}<td class="c-st"><span class="st ${wc}">${esc(wt)}</span></td></tr>`;
+}
+const emptyRow = html => `<tr><td colspan="${NOPOS ? 2 : 3}" class="empty">${html}</td></tr>`;
+function emptyWords() {
+  // Said to the site's visitors, who can't fix it: the way on for them, and a quiet word for the site's owner.
+  if (SCOPE.name === null) return `This table isn’t available right now. <a href="${TRACK}#/allbills" target="_blank" rel="noopener">See every bill HIPHI tracks</a>.<br><small>Your site? Its code may be old or mistyped: <a href="${MAKER}" target="_blank" rel="noopener">get new code</a>.</small>`;
+  if (SCOPE.kind === 'list') return 'This list has no bills yet.';
+  return `HIPHI hasn’t taken a position on any bills${SCOPE.name ? ` in ${esc(SCOPE.name)}` : ''} yet. New bills are filed each January.`;
+}
 function draw() {
-  const q = (document.getElementById('q').value || '').toLowerCase().trim();
-  const list = ALL.filter(b => !q || (b.bill_number + ' ' + (b.title || '') + ' ' + (b.public_summary || '')).toLowerCase().includes(q));
-  const shown = list.slice(0, LIMIT);
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
-  document.getElementById('rows').innerHTML = shown.length ? shown.map(b => { const [pl, pc] = POS[b.position] || POS.monitor, [wt, wc] = where(b);
-    const ask = b.public_action && (DEMO || (b.public_action_until && b.public_action_until >= today));
-    return `<tr class="row" data-num="${esc(b.bill_number)}"><td class="c-bill"><a class="num" href="${TRACK}#bill=${esc(b.bill_number)}" target="_blank" rel="noopener">${esc(b.bill_number.replace(/^(\D+)/, '$1 '))}</a>
-      <div class="t">${esc(nice(b.public_summary || b.title || '').slice(0, 170))}</div>${b.list_note ? `<div class="s"><i>${esc(b.list_note)}</i></div>` : ''}${ask ? `<span class="act">Take action ›</span>` : ''}</td>
-      <td class="c-pos"><span class="chip ${pc}">${pl}</span></td><td class="c-st"><span class="st ${wc}">${esc(wt)}</span></td></tr>`; }).join('')
-    : `<tr><td colspan="3" class="empty">${q ? 'No bills match that search.' : 'No bills to show yet. Check back when the session opens.'}</td></tr>`;
-  document.getElementById('count').textContent = list.length > shown.length ? `Showing ${shown.length} of ${list.length} bills` : `${list.length} bill${list.length === 1 ? '' : 's'}`;
-  document.querySelectorAll('tr.row').forEach(tr => tr.onclick = e => { if (e.target.closest('a')) return; window.open(`${TRACK}#bill=${tr.dataset.num}`, '_blank', 'noopener'); });
+  const q = squash(document.getElementById('q').value);
+  const list = ALL.filter(b => !q || match(b, q)), shown = list.slice(0, LIMIT);
+  document.getElementById('rows').innerHTML = shown.length ? shown.map(rowHTML).join('')
+    : emptyRow(q ? `No bills match “${esc(q)}”. Try a bill number, like HB 1573, or one word from its name.` : emptyWords());
+  document.getElementById('count').textContent = !list.length ? '' : list.length > shown.length ? `Showing ${shown.length} of ${list.length} bills` : `${list.length} bill${list.length === 1 ? '' : 's'}`;
+  document.querySelectorAll('tr.row').forEach(tr => tr.onclick = e => { if (e.target.closest('a')) return; window.open(billLink(tr.dataset.num), '_blank', 'noopener'); });
   tellHeight();
 }
-const tellHeight = () => parent !== window && parent.postMessage({ hiphiTrackerHeight: document.documentElement.scrollHeight }, '*');
+// The content's own height (body), never the document's: that is at least the frame's height, so a frame sized once could
+// never shrink back (the blank gap under a search with few results).
+let lastH = 0;
+const tellHeight = () => { if (parent === window) return; const h = Math.ceil(document.body.getBoundingClientRect().height) + 2; if (h === lastH) return; lastH = h; parent.postMessage({ hiphiTrackerHeight: h }, '*'); };
 addEventListener('resize', tellHeight);
+if ('ResizeObserver' in window) new ResizeObserver(tellHeight).observe(document.body);
+document.fonts?.ready.then(tellHeight);
 (async () => {
-  document.getElementById('all').href = TRACK;
+  const all = document.getElementById('all'); all.href = `${TRACK}#/allbills`;
+  if (NOPOS) { document.body.classList.add('nopos'); document.querySelector('.h-pos').remove(); document.querySelector('#rows td').colSpan = 2; }
   try {
-    let rows = await load();
-    if (COAL) rows = rows.filter(b => (b.campaign_slug || '').toLowerCase() === COAL);
-    if (!ALLPOS) rows = rows.filter(b => b.position && b.position !== 'monitor');
+    let rows = DEMO ? await loadDemo() : await loadLive();
+    if (!ALLPOS && !LIST) rows = rows.filter(b => b.position && b.position !== 'monitor');
     const seen = new Set(); rows = rows.filter(b => !seen.has(b.bill_number) && seen.add(b.bill_number));   // a bill in two coalitions shows once
-    const alive = b => !['dead', 'vetoed'].includes(b.stage);
+    const alive = b => !['dead', 'vetoed', 'enacted', 'ballot'].includes(b.stage);
     if (LIST) rows.sort((a, b) => a.list_order - b.list_order); else
-    rows.sort((a, b) => alive(b) - alive(a) || (POS[a.position] || POS.monitor)[2] - (POS[b.position] || POS.monitor)[2] || ORDER.indexOf(b.stage) - ORDER.indexOf(a.stage) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true }));
+    rows.sort((a, b) => alive(b) - alive(a) || (NOPOS ? 0 : (POS[a.position] || POS.monitor)[3] - (POS[b.position] || POS.monitor)[3]) || ORDER.indexOf(b.stage) - ORDER.indexOf(a.stage) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true }));
     ALL = rows;
-    const name = COAL && rows[0]?.campaign; if (name) document.getElementById('title').textContent = `${name}: bills we are working on`;
-    if (LISTINFO) { document.getElementById('title').textContent = LISTINFO.title; document.getElementById('all').href = TRACK + '#list=' + LIST; document.getElementById('all').textContent = 'Follow this list on the HIPHI tracker ›'; }
-    document.getElementById('sub').textContent = LISTINFO ? (LISTINFO.description || 'Curated by the Hawaiʻi Public Health Institute') : 'Hawaiʻi Public Health Institute · positions and status update through the day';
+    const title = document.getElementById('title'), sub = document.getElementById('sub');
+    // On a coalition's own site the title is the group's, not "HIPHI's list" (the critic); HIPHI is named in the line under it.
+    if (SCOPE.name && SCOPE.kind === 'group') title.textContent = `${SCOPE.name}: health bills`;
+    else if (SCOPE.name) title.textContent = SCOPE.name;
+    if (LISTINFO) { all.href = `${TRACK}#/list/${encodeURIComponent(LIST)}`; all.textContent = 'Follow this list on the HIPHI tracker ›'; }
+    else if (SCOPE.kind === 'issue' && SCOPE.name) { all.href = `${TRACK}#/issue/${encodeURIComponent(ISSUE)}`; all.textContent = 'Follow this issue on the HIPHI tracker ›'; }
+    sub.textContent = LISTINFO ? (LISTINFO.description || 'Curated by the Hawaiʻi Public Health Institute')
+      : NOPOS ? 'Where each bill stands, from the Hawaiʻi Public Health Institute’s bill tracker · updated through the day'
+      : 'Hawaiʻi Public Health Institute · positions and where each bill stands, updated through the day';
+    // Between sessions every bill has finished: say so, so a partner's visitors don't read last year's table as this year's.
+    if (rows.length && !rows.some(alive)) { const n = document.getElementById('note'); n.hidden = false; n.textContent = 'The Legislature is between sessions. These are the last session’s bills; new bills are filed each January.'; }
     const q = document.getElementById('q'); if (rows.length > 10) { q.hidden = false; q.oninput = draw; }
     draw();
-  } catch (e) { document.getElementById('rows').innerHTML = `<tr><td colspan="3" class="empty">${esc(e.message)}</td></tr>`; tellHeight(); }
+  } catch (e) { console.error(e); document.getElementById('rows').innerHTML = emptyRow('The bills didn’t load just now. Reload the page to try again.'); tellHeight(); }
 })();
 </script>
 </body>

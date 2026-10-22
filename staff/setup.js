@@ -17,6 +17,7 @@ import { qrMatrix, qrSvg, qrPng, printHtml } from './qr.js';
 import { copyLink, NAMES as FV_NAMES } from './firstvisit.js';
 import { afterClose } from './lists.js';
 import { ICONS } from '../icons.js';
+import { embedSnippet } from '../pub/embedsnippet.js';
 import { billRoute } from './model.js';
 
 // ---- coalition and list icons (copied from app.js: the public page shows Lucide icons, so staff pick a name from
@@ -1216,7 +1217,7 @@ const PAGES = {
     wire(root) { const code = () => { const base = new URL('embed.html', location.href); base.search = ''; base.hash = ''; const c = root.querySelector('#st-emb-coal').value, l = root.querySelector('#st-emb-limit').value;
         if (c) base.searchParams.set('coalition', c); if (l) base.searchParams.set('limit', l);
         root.querySelector('#st-emb-open').href = base.href + (DEMO ? (base.search ? '&' : '?') + 'demo=1' : '');
-        root.querySelector('#st-emb-code').value = `<iframe id="hiphi-tracker" src="${base.href}" title="HIPHI bill tracker" style="width:100%;border:0;min-height:420px" loading="lazy"></iframe>\n<script>addEventListener('message',function(e){if(e.data&&e.data.hiphiTrackerHeight)document.getElementById('hiphi-tracker').style.height=e.data.hiphiTrackerHeight+'px'})<\/script>`; };
+        root.querySelector('#st-emb-code').value = embedSnippet(base.href); };
       code(); root.querySelector('#st-emb-coal').onchange = code; root.querySelector('#st-emb-limit').onchange = code; },
     saveLabel: 'Copy the code', track: false,
     async save(root) { const t = root.querySelector('#st-emb-code');

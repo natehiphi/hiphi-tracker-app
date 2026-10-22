@@ -43,13 +43,14 @@ const bill = lazy('bill', () => oldA() ? import('./a/bill.js') : import('./bill.
 const mylists = lazy('mylists', () => import('./mylists.js'), { tab: 'bills', title: 'A list' });
 const committees = lazy('committees', () => import('./committees.js')), allbills = lazy('allbills', () => import('./allbills.js'));
 const week = lazy('week', () => import('./week.js'), { tab: 'find', title: 'This week’s asks' });   // R-212 #36, a row on Find
+const embed = lazy('embed', () => import('./embedcode.js'), { tab: 'find', title: 'Put bills on your website' });   // R-212 #38, a row on Find
 // The calm redesign's issue page (R-302's option A) and category page (R-303), behind ?rec=1: their own module, so today's
 // find.js draws them as before without it.
 const recIssue = lazy('issue', () => import('./rec/issue.js'), { tab: 'find', title: 'Issue' });
 // Each screen's stylesheet comes with it (R-122): track.html loads the base and the first screen's own, the rest come on
 // first use, and all of them a moment after the first screen so a later tap never waits. The order of the original list
 // is kept (a later file may override an earlier one; wide.css, the last, overrides them all).
-const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'week', 'wide', 'rec/rec', 'rec/issue', 'a/a'];
+const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'week', 'embedcode', 'wide', 'rec/rec', 'rec/issue', 'a/a'];
 // (SCREEN_CSS, not CSS: that name is the browser’s own object, CSS.escape.)
 // Find, an issue, a category and a list draw their bills with mybills.js's rows, so mybills.css comes with them (R-184: an
 // issue page opened from a shared link drew its rows unstyled for about two seconds, 409px wide on a 375px phone, so the
@@ -57,7 +58,7 @@ const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', '
 // My issues draws its issue rows with find.css's .fd-irow, and a list its rows and back link with mybills.css and find.css:
 // without them those pages drew unstyled for 1-3 seconds when opened directly (R-303, the walk of 10/17; R-184's kind).
 const SCREEN_CSS = { start: ['start'], learn: ['start'], next: ['start', 'next'], home: ['home'], recap: ['home'], bills: ['mybills', 'find'], find: ['mybills', 'find'], issue: ['mybills', 'find'], category: ['mybills', 'find'], list: ['mybills', 'find'],
-  bill: ['bill', 'mylists'], legislators: ['people'], legislator: ['people'], committees: ['committees'], committee: ['committees'], allbills: ['mybills', 'allbills'], week: ['mybills', 'find', 'week'],   // its rows are mybills.js's (R-303: drawn unstyled and too wide for 2.5 s without it)
+  bill: ['bill', 'mylists'], legislators: ['people'], legislator: ['people'], committees: ['committees'], committee: ['committees'], allbills: ['mybills', 'allbills'], week: ['mybills', 'find', 'week'], embed: ['embedcode'],   // its rows are mybills.js's (R-303: drawn unstyled and too wide for 2.5 s without it)
  
   more: ['more', 'talk', 'profile'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more', 'profile'], profile: ['more', 'profile'], privacy: ['more'], mylist: ['mybills', 'find', 'mylists'], shared: ['mybills', 'find', 'mylists'], quiz: ['quiz'] };
 // Version A's look (pub/a/a.css, scoped to body.va and its own classes) comes after wide.css, as track-a.html had it, on
@@ -96,7 +97,7 @@ try { if (sessionStorage.getItem('hiphi_helper_open')) helperLoad().then(() => r
 // name -> screen module. More covers help, sign in, alerts (R-146) and privacy; people covers legislators. The profile
 // (R-147) is its own module, and Settings' old address opens it.
 const SCREENS = { start, learn: start, home, recap: home, bills: mybills, find, issue: REC() ? recIssue : find, category: REC() ? recIssue : find, list: find, bill, legislators: people, legislator: people,
-  committees, committee: committees, allbills, more, help: more, signin: more, alerts: more, settings: profile, profile, privacy: more, mylist: mylists, shared: mylists, quiz, next: nextask, week };
+  committees, committee: committees, allbills, more, help: more, signin: more, alerts: more, settings: profile, profile, privacy: more, mylist: mylists, shared: mylists, quiz, next: nextask, week, embed };
 // "My issues" (Nate, 9/21, R-018 answer 4): the tab shows what a person follows, issue by issue. Its address stays #/bills.
 const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My issues'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
 // Version A's tabs (R-070 decision 6, tried there): "You" in More's place, for your legislators, your profile and help.
@@ -191,6 +192,7 @@ app.placeName = h => {
     case 'legislator': { const l = (S.legislators || []).find(x => x.id === r.id); return l ? `${l.chamber === 'S' ? 'Sen.' : 'Rep.'} ${l.name}` : 'Legislator'; }
     case 'committees': return 'Committees';
     case 'week': return 'This week’s asks';
+    case 'embed': return 'Put bills on your website';
     case 'committee': return S.committees?.[r.code]?.name || 'Committee';
     case 'more': return REC() ? 'You' : 'More';
     case 'help': return 'Help';
