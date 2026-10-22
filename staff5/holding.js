@@ -12,7 +12,7 @@ import { icon, btn } from './ui.js';
 import { chairIds, askState, askChip, chairEmailHref, wirePush } from './push.js';
 import { chairMail } from './model.js';
 
-export const HOLDING = () => DEMO;
+export const HOLDING = () => true;   // live 10/22 at Nate's go, after W3 (R-329)
 
 const HST = { timeZone: 'Pacific/Honolulu' };
 const dayAt = t => new Date(t).toLocaleDateString('en-US', { ...HST, weekday: 'short', month: 'numeric', day: 'numeric' }).replace(',', '');
