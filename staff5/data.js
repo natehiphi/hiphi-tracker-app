@@ -30,8 +30,13 @@ const DEMO_OPENING = DEMO && new URLSearchParams(location.search).get('season') 
 // 2027 issue prep's last week and the days after its due date (Fri 6 Nov) can be checked on the practice copy.
 const DEMO_OFFDAY = (d => DEMO_OFF && /^2026-(09|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(d || '') ? d : '')(new URLSearchParams(location.search).get('day'));
 export const DEMO_ASOF = DEMO_OFFDAY ? `${DEMO_OFFDAY}T09:00:00-10:00` : DEMO_OFF ? '2026-09-18T09:00:00-10:00' : DEMO_OPENING ? '2026-01-22T09:00:00-10:00' : '2026-03-16T09:00:00-10:00';
+// R-316 W38: the practice copy's changes (drafts, to-dos, who is going, notes, owners, follows) are kept in this tab when the
+// page reloads, as switching person does (&as=), until Start over in your menu. Only for the same practice day; the clock
+// carries on from where it was, so a draft sent at 9:20 is not "sent in the future" after the switch.
+const PRACTICE_KEY = 'hiphi5_practice', PRACTICE_V = 1;
+const PRACTICE = DEMO ? (() => { try { const p = JSON.parse(sessionStorage.getItem(PRACTICE_KEY) || 'null'); return p && p.v === PRACTICE_V && p.asof === DEMO_ASOF ? p : null; } catch { return null; } })() : null;
 if (DEMO) {
-  const RD = Date, off = RD.now() - new RD(DEMO_ASOF).getTime();
+  const RD = Date, off = RD.now() - (PRACTICE?.clock || new RD(DEMO_ASOF).getTime());
   window.Date = class extends RD { constructor(...a) { a.length ? super(...a) : super(RD.now() - off); } static now() { return RD.now() - off; } };
 }
 export const HASH_Q = new URLSearchParams(location.hash.slice(1));
@@ -1448,7 +1453,7 @@ export function snapshotScenario(snap) {
 }
 export let DEMO_TL = [];
 export async function demoInit() {
-  const snap = await (await fetch('demo/snapshot.json?v=20261005f', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20261021a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   // v4 (R-269): Patti (HEAL) and Julie (alcohol, under HIAPA) are not in the tracker yet, so the practice copy adds them, owning
@@ -1519,7 +1524,15 @@ export async function demoInit() {
   // notes, as real reviews would.
   const NOTES = ['Cite the 2024 BRFSS numbers in paragraph two.', 'Lead with the fiscal note; the chair asked for it.',
     'Name the two amendments we want in the first paragraph.', 'Shorten it to one page and list the coalition sign-ons.'];
-  let n = 2, approvedSeeded = false, noteN = 0;
+  // R-316 W38 (C-18): each draft's state comes from its hearing's id, so it holds when the practice clock moves (it used to
+  // cycle over the week's hearings in order, and moving the clock a day changed every bill's state). The approved one of
+  // Nate's is his first hearing after the practice day's 9:00 AM start, whatever the clock now says.
+  const hidSeed = id => [...String(id)].reduce((x, ch) => (x * 31 + ch.charCodeAt(0)) >>> 0, 7);
+  const BASE_ASOF = new Date('2026-03-16T09:00:00-10:00').getTime();
+  const natesFirst = sc.hearings.filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) > BASE_ASOF && (sc.assignments[h.bill_id] || []).includes(SEED)
+      && ACTIONABLE.includes(S.bills.find(b => b.id === h.bill_id)?.position) && !(S.drafts[h.bill_id] || []).some(d => d.committee === h.committee))
+    .sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
+  let n = 2;
   // R-316 W24 (G1-1): never for a cancelled sitting, as the live draft job (sync/testimony.js makes drafts for scheduled ones only).
   for (const h of sc.hearings.filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) > new Date()
       && new Date(h.scheduled_at) - Date.now() < 7 * 864e5)) {
@@ -1527,20 +1540,21 @@ export async function demoInit() {
     if (!hb || !ACTIONABLE.includes(hb.position)) continue;
     if ((S.drafts[h.bill_id] || []).some(d => d.committee === h.committee)) continue;
     const owner = (sc.assignments[h.bill_id] || [])[0] || null;
-    // Cycle through the workflow states so every button shows up somewhere.
-    let st = ['filed', 'second_review', 'draft', 'approved'][(n - 2) % 4];
-    // The Desk opens on "my bills", so make sure one of Nate's has the
-    // approved-not-filed state - that is the button training should practise.
-    if (!approvedSeeded && (sc.assignments[h.bill_id] || []).includes(SEED)) { st = 'approved'; approvedSeeded = true; }
+    // Spread over the workflow states so every button shows up somewhere.
+    const hs = hidSeed(h.id);
+    let st = ['filed', 'second_review', 'draft', 'approved'][hs % 4];
+    // The Desk opens on "my bills", so one of Nate's has the approved-not-filed state: the button training should practise.
+    if (h === natesFirst) st = 'approved';
     const ago = h => new Date(Date.now() - h * 36e5).toISOString();
     (S.drafts[h.bill_id] ??= []).push({ id: 'dd' + n++, bill_id: h.bill_id, committee: h.committee, hearing_id: h.id,   // as the live job links it
       status: st, doc_url: 'https://docs.google.com/document/d/demo' + n + '/edit',
-      created_at: ago(30), submitted_by: owner,   // W38: a sent-back draft was sent by someone (its owner here), as live submitted_at: st === 'draft' ? null : ago(20),
+      // W38: a sent-back draft was sent by someone (its owner here), as live
+      created_at: ago(30), submitted_by: owner, submitted_at: st === 'draft' ? null : ago(20),
       approved_by: ['approved', 'filed', 'second_review'].includes(st) ? byIni.NT : null, approved_at: ago(10),
       second_approved_by: st === 'filed' ? byIni.JS : null, second_approved_at: ago(6),
       filed_by: st === 'filed' ? owner : null, filed_at: st === 'filed' ? ago(2) : null,
       version: S.bills.find(b => b.id === h.bill_id)?.current_version || null,
-      review_note: st === 'draft' ? NOTES[noteN++ % NOTES.length] : null });
+      review_note: st === 'draft' ? NOTES[(hs >>> 2) % NOTES.length] : null });
   }
   // Drafts that already existed on the sandbox's day (R-027): filed, on the earlier hearings where HIPHI really filed
   // testimony in 2026 (tools/build_snapshot.js), so the Testimony tab has a history to show. A bill and committee that
@@ -1637,7 +1651,8 @@ export async function demoInit() {
   ]);
   // R-316 W38 (FD-16): at 9:00 on the practice day a committee's result from its 1:10 PM hearing is not known yet. The
   // snapshot stamps the Capitol's actions 8:00 AM, so such a result (and any outcome of a hearing still ahead) is left out
-  // here. The bill's stage itself still comes from the snapshot (a rebuild with tools/build_snapshot.js fixes that).
+  // here. Since 21 Oct the snapshot leaves such a result out of the bill's own stage too (backend tools/snapshot_rewind.js);
+  // this still matters when the walk tool moves the clock (&asof).
   const hday = t => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }), nowD = hday(Date.now());
   const ahead = S.hearings.filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now());
   for (const h of ahead) delete S.outcomes[h.id];
@@ -1645,7 +1660,17 @@ export async function demoInit() {
     && String(h.committee).split(/[\/,\s]+/).some(c => c && String(e.title).includes(c)));
   sc.tl = sc.tl.filter(e => !leak(e)); sc.since = sc.since.filter(e => !leak(e));
   S.compStage = sc.compStage; DEMO_TL = sc.tl;
-  S.feed = sc.tl.filter(t => t.source === 'team');
+  // R-316 W38: what was changed in this tab before a person switch (savePractice), back on top of the seeds.
+  if (PRACTICE) {
+    for (const k of ['drafts', 'todos', 'attend', 'messages', 'followersBy', 'assignments', 'billCampaigns', 'demoNotes']) if (PRACTICE[k]) S[k] = PRACTICE[k];
+    for (const b of S.bills) Object.assign(b, PRACTICE.bills?.[b.id] || {});
+    DEMO_TL = [...(PRACTICE.tl || []), ...DEMO_TL.filter(t => t.source === 'auto')].sort((x, y) => String(y.occurred_at).localeCompare(String(x.occurred_at)));
+    S.follows = new Set(Object.entries(S.followersBy).filter(([, ids]) => ids.includes(S.me.id)).map(([id]) => id));
+    S.legNotes = {}; S.convCache = {};
+    S.noDraftSeeded = true;   // the kept drafts already have the "Make the draft now" hearings without a draft (app.js sandboxExtras)
+  }
+  if (DEMO) addEventListener('pagehide', savePractice);
+  S.feed = DEMO_TL.filter(t => t.source === 'team');
   S.sinceVisit = Date.now() - 3*864e5;
   S.sinceEvents = sc.since;
   // Sandbox: the scripted "since" events double as the last-72-hours feed.
@@ -1656,6 +1681,36 @@ export async function demoInit() {
   if (DEMO_OFF) { S.messages = {}; S.todos = {}; S.followups = []; }
   S.inbox = S.buildDemoInbox();
 }
+
+// R-316 W38: keep this tab's practice changes for the next load (a person switch reloads the page with &as=). The team's
+// columns on each bill, not the Capitol's; follows are filed under whoever is practising, as each person's own.
+const TEAM_COLS = ['tracked', 'position', 'priority', 'stage_override', 'internal_notes', 'is_public', 'public_summary', 'public_action', 'public_action_until', 'nickname'];
+export function savePractice() {
+  if (!DEMO || S.practiceCleared || !S.bills || !S.me) return;
+  const fb = S.followersBy ??= {}, me = S.me.id;
+  for (const id of Object.keys(fb)) if (!S.follows?.has(id)) fb[id] = fb[id].filter(x => x !== me);
+  for (const id of S.follows || []) if (!(fb[id] ??= []).includes(me)) fb[id].push(me);
+  const p = { v: PRACTICE_V, asof: DEMO_ASOF, clock: Date.now(), drafts: S.drafts, todos: S.todos, attend: S.attend, messages: S.messages, followersBy: fb,
+    assignments: S.assignments, billCampaigns: S.billCampaigns, demoNotes: S.demoNotes || [], tl: DEMO_TL.filter(t => t.source !== 'auto'),
+    bills: Object.fromEntries(S.bills.map(b => [b.id, Object.fromEntries(TEAM_COLS.map(k => [k, b[k] ?? null]))])) };
+  try { sessionStorage.setItem(PRACTICE_KEY, JSON.stringify(p)); } catch { /* a full or blocked store: the next load starts fresh */ }
+}
+// Start over: the practice day as it began, in this tab. What was there is put aside first, so the toast after the reload
+// can offer Undo (a mis-tap on a phone must not wipe a morning's practice; ui-critic, B-5).
+export function clearPractice() {
+  savePractice(); S.practiceCleared = true;
+  try { const p = sessionStorage.getItem(PRACTICE_KEY); if (p) sessionStorage.setItem(PRACTICE_KEY + '_undo', p);
+    sessionStorage.removeItem(PRACTICE_KEY); sessionStorage.setItem(PRACTICE_KEY + '_restarted', '1'); } catch { /* nothing kept */ }
+}
+// Once, on the load after Start over: true, so the page can say so.
+export function practiceRestarted() {
+  try { const r = sessionStorage.getItem(PRACTICE_KEY + '_restarted'); sessionStorage.removeItem(PRACTICE_KEY + '_restarted'); return !!r; } catch { return false; }
+}
+export function undoStartOver() {
+  S.practiceCleared = true;   // the reload must not save the fresh day over what comes back
+  try { const p = sessionStorage.getItem(PRACTICE_KEY + '_undo'); if (p) sessionStorage.setItem(PRACTICE_KEY, p); } catch { /* nothing to put back */ }
+}
+export const practiceKept = () => !!PRACTICE;
 
 // ---------------- filtering ----------------
 // Facets: within a group any selected value matches (P1 or P2); across groups

@@ -11,7 +11,7 @@
 // own address (index.html and staff.html both load it); the old app lives on at classic.html for a week as the way
 // back, then retires. Screens are modules with
 // { render(route), wire(route, root), bar?(route), title(route), back?(route), tab, tabs?, wide?, narrow? }.
-import { S, DB, DEMO, DEMO_ASOF, SESSION_OVER, APP_URL, LINK_ERR, LINK_TOKEN, RECOVERY, setRecovery, hooks, esc, advocate } from './data.js';
+import { S, DB, DEMO, DEMO_ASOF, SESSION_OVER, APP_URL, LINK_ERR, LINK_TOKEN, RECOVERY, setRecovery, hooks, esc, advocate, clearPractice, practiceRestarted, undoStartOver } from './data.js';
 import { icon, btn, iconBtn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, closeSheet, takeSheetEntry, avatar, keysOn } from './ui.js';
 import { MARK } from '../pub/art.js';
 import { reportError } from './errlog.js';
@@ -297,8 +297,9 @@ export function render() {
   // The action bar lives inside <main>, as its last child: fixed to the bottom on phones, and on a wide screen it
   // sits right under the content it acts on (staff.css), never a screen-height away from it.
   // Sandbox: practise as anyone on the team from your menu (it used to take editing the address, &as=LR, which nobody
-  // would find). The band stays plain text: a control inside a 28px band cannot be a 44px target (A-6).
-  const band = DEMO ? `<div class="band">Staff v5 · Sandbox · ${new Date(DEMO_ASOF).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Pacific/Honolulu' })} · as ${esc((S.me?.full_name || '').split(' ')[0])} · nothing is saved<span class="band-hint"> · switch person in your menu</span></div>` : '';
+  // would find). The band stays plain text: a control inside a 28px band cannot be a 44px target (A-6). R-316 W38: practice
+  // changes now stay in this tab across a person switch, so the band no longer says "nothing is saved"; Start over is in the menu.
+  const band = DEMO ? `<div class="band"><span class="band-hint">Staff v5 · Sandbox · </span>${new Date(DEMO_ASOF).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Pacific/Honolulu' })} · as ${esc((S.me?.full_name || '').split(' ')[0])} · practice only<span class="band-hint"> · your changes stay in this tab · switch person or start over in your menu</span></div>` : '';
   app.innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${band}${sidebar(route, scr)}<div class="sv-page">${header(route, scr, /<h1[\s>]/i.test(main || ''))}<main id="main" tabindex="-1">${main}${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}</main></div>${tabs ? tabbar(scr) : ''}`;
   // One heading a screen reader can find, on every screen at every width. Phones hide a page's own h1 (the header
   // already shows the title), which left 12 of 22 screens with no heading at all: where the page's h1 is not drawn,
@@ -354,9 +355,12 @@ const sideShown = () => { try { return matchMedia('(min-width: 1100px)').matches
 function avatarMenu() {
   const side = sideShown();
   menuSheet({ title: S.me?.full_name || 'Your menu', items: [
-    DEMO ? { label: 'Practice as someone else', icon: 'users-round', sub: 'Sandbox: see the app as a teammate sees it', run: () => setTimeout(practiseAs, 50) } : null,
+    DEMO ? { label: 'Practice as someone else', icon: 'users-round', sub: 'Sandbox: see the app as a teammate sees it, with your changes', run: () => setTimeout(practiseAs, 50) } : null,
     { label: 'Inbox', icon: 'inbox', sub: 'Messages and updates sent to you, read or not', run: () => go('#/inbox') },
     { label: 'Refresh', icon: 'refresh-cw', sub: 'Read what your teammates changed since this page loaded', run: () => setTimeout(() => refreshData({ say: true }), 50) },
+    // R-316 W38: the changes made in this tab go with a person switch, so two people can be tried in turn; this puts the day
+    // back, with Undo in the toast after the reload.
+    DEMO ? { label: 'Start the practice over', icon: 'rotate-ccw', sub: 'Undoes every change kept in this tab, whoever you practised as', run: () => { clearPractice(); location.reload(); } } : null,
     side ? null : { label: 'My settings', icon: 'settings', run: () => go('#/me') },
     S.me?.is_admin && !side ? { label: 'Session setup', icon: 'sliders-horizontal', run: () => go('#/setup') } : null,
     side ? null : { label: 'Help', icon: 'circle-help', run: () => go('#/help') },
@@ -469,6 +473,7 @@ async function boot() {
     app.innerHTML = `<div class="sv-hdr"></div><main>${skeleton(5)}</main>`;
     await DB.loadAll();
     if (DEMO) sandboxExtras();
+    if (DEMO && practiceRestarted()) setTimeout(() => toast('Practice started over: the changes made in this tab are gone.', { undo: () => { undoStartOver(); location.reload(); } }), 800);
     if (!S.me) toast('Signed in, but no matching staff record. Ask your admin.', { err: true });
     // Slack and email links use #bill=HB123: they land on the bill page, and Back goes to Today.
     const r = parseRoute();

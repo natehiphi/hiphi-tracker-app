@@ -1439,7 +1439,7 @@ export function snapshotScenario(snap) {
 }
 export let DEMO_TL = [];
 export async function demoInit() {
-  const snap = await (await fetch('demo/snapshot.json?v=20261005f', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
+  const snap = await (await fetch('demo/snapshot.json?v=20261021a', { cache: 'force-cache' })).json();   // bump v when the snapshot is rebuilt, or browsers keep the old copy
   S.snapshot = snap;
   S.advocates = snap.advocates.map(a => ({ ...a, color: a.color || '#0E7C86' }));
   // v4 (R-269): Patti (HEAL) and Julie (alcohol, under HIAPA) are not in the tracker yet, so the practice copy adds them, owning

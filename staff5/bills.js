@@ -50,7 +50,10 @@ function testStep(b, h) {
   const d = draftFor(b.id, h.committee); if (d?.status === 'cancelled') return null;
   if (d?.status === 'filed') return { w: 'Filed', at: null };
   const due = h.testimony_deadline || new Date(new Date(h.scheduled_at) - 864e5).toISOString();
-  return { w: !d ? 'No draft yet' : d.status === 'draft' ? (d.review_note ? 'Revise' : 'Write') : STEP_WORD[d.status] || 'Draft', at: new Date(due) > Date.now() ? due : null };
+  // Past the deadline with the hearing still ahead, the Capitol still takes late testimony (W38: HB1562 lost its step word).
+  const open = new Date(due) > Date.now();
+  return { w: !d ? 'No draft yet' : d.status === 'draft' ? (d.review_note ? 'Revise' : 'Write') : STEP_WORD[d.status] || 'Draft', at: open ? due : null,
+    late: !open && new Date(h.scheduled_at) > Date.now() };
 }
 const nextKey = b => { const s = stOf(b), ts = s.hearingState === 'scheduled' ? testStep(b, s.hearing) : null; return ts?.at || s.hearing?.scheduled_at || (s.deadline && !s.deadline.missed ? s.deadline.date : '9'); };
 const SORTS = { num: null, stage: b => STAGE_ORDER[effStage(b)] ?? 99, next: nextKey, pos: b => POS_ORDER.indexOf(b.position || 'monitor'), pri: b => b.priority || 9,
@@ -147,6 +150,8 @@ function nextCell(b) {
   if (s.hearingState === 'scheduled') { const [day, ...time] = fmtDT(s.hearing.scheduled_at).split(', '), room = roomShort(s.hearing.room), ts = testStep(b, s.hearing);
     if (ts?.at) { const [dd, ...dt] = fmtDT(ts.at).split(', ');
       return [`${esc(ts.w)} · ${esc(dd)}`, `${esc(dt.join(', '))}${xw(` · hearing ${md(s.hearing.scheduled_at)}`)}`, `${ts.w}: testimony due ${fmtDT(ts.at)}. Hearing ${fmtDT(s.hearing.scheduled_at)}, ${s.hearing.committee}`]; }
+    if (ts?.late) { const w = ts.w === 'File' ? 'File late' : `${ts.w} · late`;
+      return [`${esc(w)} · ${esc(day)}`, `${xw('until ')}${esc(time.join(', '))}${xw(' hearing')}`, `${ts.w}: the deadline has passed; late testimony is taken until the hearing, ${fmtDT(s.hearing.scheduled_at)}, ${s.hearing.committee}`]; }
     if (ts?.w === 'Filed') return ['Filed', `${xw('hearing ')}${esc(day)}`, `Testimony filed. Hearing ${fmtDT(s.hearing.scheduled_at)}, ${s.hearing.committee}`];
     // compact rows drop what the group row already says ("Hearing scheduled") and the room, so the time is never cut
     return [`${xw('Hearing ')}${esc(day)}`, `${esc(time.join(', '))}${s.hearing.room ? xw(', ' + esc(room)) : ''}`, `Hearing ${fmtDT(s.hearing.scheduled_at)}, ${s.hearing.committee}${s.hearing.room ? ', ' + s.hearing.room : ''}`]; }

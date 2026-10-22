@@ -36,7 +36,7 @@ const frSet = p => {
 };
 // The practice copy as this person (R-316 W7, L-13): last March, nothing saved. Their initials pick who they are there.
 export const practiceHref = () => `staff5.html?demo=1${S.me?.initials ? `&as=${encodeURIComponent(S.me.initials)}` : ''}#/`;
-export const practiceLink = () => DEMO ? '' : `<a class="st-practice" href="${esc(practiceHref())}" target="_blank" rel="noopener">${icon('history')}<span>Practice on last March (nothing is saved)</span>${icon('external-link', { cls: 'ext' })}</a>`;
+export const practiceLink = () => DEMO ? '' : `<a class="st-practice" href="${esc(practiceHref())}" target="_blank" rel="noopener">${icon('history')}<span>Practice on last March (nothing reaches the team)</span>${icon('external-link', { cls: 'ext' })}</a>`;
 
 // ---- the Capitol's words, in plain language (the glossary) ----
 const WORDS = [

@@ -128,6 +128,25 @@ def main():
     pg = page('JMM'); go(pg); y = at(pg, 'No hearings this week')
     check('Julie: "No hearings this week" on her first screen', y is not None and y < 900, y)
     go(pg, '/?view=week', '2026-02-23T09:00:00-10:00'); check('Julie: This week shows HIAPA\'s SB2463 (Fri 27 Feb)', 'SB2463' in main_text(pg), '')
+
+    # Two people in one tab (R-316 W38): Kevin sends his draft for approval and adds a to-do, switches to Nate from his menu,
+    # and Nate finds both; Start over in the menu puts the practice day back.
+    pg = page('KV'); go(pg)
+    sent = pg.evaluate("""(async () => { const m = await import('./staff5/data.js'), S = m.S;
+      const d = Object.values(S.drafts).flat().find(d => d.status === 'draft' && (S.assignments[d.bill_id] || [])[0] === S.me.id);
+      if (!d) return null; await m.DB.transition(d.bill_id, d.id, 'submit'); await m.DB.addTodo(d.bill_id, 'Two-person check: call the chair');
+      return S.bills.find(b => b.id === d.bill_id).bill_number; })()""")
+    check('Kevin: has a draft of his own to send', sent, sent)
+    def menu(label):
+      pg.click('.sv-avbtn'); pg.wait_for_timeout(500); pg.get_by_text(label).first.click(); pg.wait_for_timeout(600)
+    menu('Practice as someone else'); pg.get_by_text('Nate').last.click(); pg.wait_for_timeout(3500)
+    check('Kevin -> Nate: the menu switched person', '&as=NT' in pg.url, pg.url)
+    go_nt = lambda r: (pg.goto(f'{HOST}/staff5.html?demo=1&as=NT#{r}'), pg.wait_for_timeout(3000))
+    go_nt('/inbox'); check('Nate: Kevin\'s draft waits for his approval after the switch', sent and re.search(rf'{sent}[\s\S]{{0,300}}approval|approval[\s\S]{{0,300}}{sent}', main_text(pg)), '')
+    go_nt(f'/bill/{sent}'); check('Nate: Kevin\'s to-do is on the bill', 'Two-person check' in main_text(pg), '')
+    menu('Start the practice over'); pg.wait_for_timeout(3000)
+    go_nt(f'/bill/{sent}'); check('Start over: the practice day is back as it began', 'Two-person check' not in main_text(pg), '')
+    check('Two people in one tab: no page errors', not pg.errs, pg.errs[:1])
     b.close()
   bad = [r for r in results if not r[1]]
   print(f'{len(results) - len(bad)} of {len(results)} targets met')
