@@ -686,6 +686,27 @@ body.sidenarrow .sv-sync span { display: none; }
 @media (prefers-reduced-motion: reduce) { .ah-chev { transition: none; } }
 @media (max-width: 30em) { .ah-row { flex-direction: column; align-items: stretch; } .ah-act .btn { width: 100%; } }
 
+/* R-316 W5 (push.js): a deadline's bills grouped by the chair who must post the notice. The chair's line carries the one
+   email for all of them; each bill says whether anyone has asked (A-12: words and an icon, never colour alone). */
+.pb-board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pb-chair { padding: var(--s12) 0; border-top: 1px solid var(--n100); }
+.pb-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s4) var(--s12); }
+.pb-who { margin: 0; flex: 1 1 260px; min-width: 0; font-size: var(--t14); color: var(--n700); }
+.pb-who b { color: var(--n900); font-size: var(--t16); }
+.pb-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4); }
+.pb-rows { list-style: none; margin: var(--s4) 0 0; padding: 0 0 0 var(--s12); border-left: 2px solid var(--n100); }
+.pb-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); min-height: 40px; padding: 2px 0; }
+.pb-bill { flex: 1 1 240px; min-width: 0; color: inherit; text-decoration: none; overflow-wrap: anywhere; }
+.pb-bill:hover .bn-nick, .pb-bill:hover .bn-num0 { text-decoration: underline; }
+.pb-end { display: flex; align-items: center; gap: var(--s8); margin-left: auto; }
+.pb-end .td-more { margin-right: -8px; }
+.pb-nomore { width: 28px; flex: none; }
+.pb-st { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t13); color: var(--n700); white-space: nowrap; }
+.pb-st .ic { width: 14px; height: 14px; }
+.pb-asked { color: var(--ok-text, var(--n700)); }
+.pb-by { font-size: var(--t13); white-space: nowrap; }
+@media (max-width: 30em) { .pb-acts .btn.secondary { flex: 1 1 100%; } .pb-rows { padding-left: var(--s8); } }
+
 /* A bill the team does not track (staff/untracked.js, R-058): read-only, one Track button. */
 .ut-note { align-items: center; margin-top: var(--s16); }
 .ut-note > div { flex: 1; min-width: 0; }
@@ -877,3 +898,49 @@ body.staff2 .bp-h3 { margin: 0 0 var(--s4); font: 700 var(--t13)/18px var(--font
 .st-readyf[open] > summary .chev { transform: rotate(180deg); }
 /* R-316 W54 (S-11): an email address breaks only at its "@" (look.js). */
 .nobr { white-space: nowrap; }
+
+/* R-316 W41 (holding.js): who introduced the bill (or its twin) in a committee's member list; Holding our bills. */
+.hb-intro { display: inline-flex; align-items: center; gap: 4px; margin-right: var(--s8); font-size: var(--t13); font-weight: 600; color: var(--p800); }
+.hb-intro .ic { width: 14px; height: 14px; }
+.bw-pwc-name .hb-intro { display: flex; margin-top: 2px; }
+.hb { display: flex; flex-direction: column; gap: var(--s12); max-width: 960px; }
+.hb-sum { margin: var(--s8) 0 0; color: var(--n700); }
+.hb-warn { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s8) 0 0; padding: var(--s12) var(--s16); border-radius: var(--r12); background: var(--warn-bg, #fff7e6); color: var(--warn-text); font-weight: 600; }
+.hb-warn .ic { flex: none; margin-top: 2px; }
+.hb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s12); }
+.hb-card { padding: var(--s12) var(--s16); background: var(--card, #fff); border: 1px solid var(--n200); border-radius: var(--r12); }
+.hb-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s12); }
+.hb-name { color: var(--n900); text-decoration: none; font-size: var(--t16); }
+.hb-name:hover { text-decoration: underline; }
+.hb-meta { flex: 1 1 320px; min-width: 0; font-size: var(--t14); color: var(--n700); }
+.hb-bills { list-style: none; margin: var(--s8) 0 0; padding: 0 0 0 var(--s12); border-left: 2px solid var(--n100); }
+.hb-bills li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); min-height: 40px; }
+.hb-bills a { flex: 1 1 240px; min-width: 0; color: inherit; text-decoration: none; overflow-wrap: anywhere; }
+.hb-bills a:hover .bn-nick { text-decoration: underline; }
+.hb-end { display: flex; align-items: center; gap: var(--s8); margin-left: auto; font-size: var(--t13); }
+@media (max-width: 30em) { .hb-top .btn { flex: 1 1 100%; } }
+
+/* R-316 W40 (practice copy): a Capitol word that opens its meaning (staff5/terms.js). It reads as the words around it,
+   with a dotted underline, so a row's rhythm does not change (B-9: the tap replaces the hover-only title). On a touch
+   screen its target grows to 44px without moving anything (A-6). */
+button.tm-term { display: inline; padding: 0; margin: 0; border: 0; background: none; font: inherit; color: inherit; line-height: inherit; text-align: inherit; cursor: pointer;
+  text-decoration: underline dotted; text-decoration-color: var(--n500); text-decoration-thickness: 1px; text-underline-offset: 3px; position: relative; border-radius: 2px; }
+button.tm-term:hover { color: var(--p700); text-decoration-color: currentColor; }
+button.tm-term:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; }
+button.tm-term[aria-expanded="true"] { color: var(--p700); text-decoration-style: solid; }
+@media (pointer: coarse), (max-width: 899px) { button.tm-term { display: inline-block; padding: 12px 0; margin: -12px 0; } }   /* as main's link buttons do (line 784) */
+dialog.sv-sheet.tm-pop .tm-def { margin: 0; font-size: var(--t14); line-height: 1.5; color: var(--n900); max-width: 34em; }
+dialog.sv-sheet.tm-pop .tm-more { margin: var(--s8) 0 0; font-size: var(--t13); }
+dialog.sv-sheet.tm-pop .tm-more a { display: inline-block; padding: 12px 0; margin: -12px 0; }
+@media (min-width: 900px) { dialog.sv-sheet.sv-pop.tm-pop .sv-sh-body { padding: var(--s4) var(--s16) var(--s12); } dialog.sv-sheet.sv-pop.tm-pop .sv-sh-head h2 { color: var(--n900); } }
+.bl-num .bl-ver { color: var(--n500); }
+.bp-cn { display: block; font-size: var(--t13); color: var(--n700); font-weight: 400; }
+.bw-joint { margin: 0 0 var(--s8); color: var(--n700); }
+/* R-316 W37 (practice copy): the how-to links beside the job, and Help's Ask in Slack when a search finds nothing */
+.bw-how, .lg-how { display: flex; align-items: center; gap: var(--s4); margin: 0 0 var(--s8); color: var(--n700); }
+.bw-how a, .lg-how a, .bl-how { display: inline-block; padding: 12px 0; margin: -12px 0; }
+.lg-how { margin-top: var(--s16); }
+.st-ask { margin-top: var(--s16); padding-top: var(--s12); border-top: 1px solid var(--n100); }
+.st-ask p { margin: 0 0 var(--s8); }
+.st-ask .st-askw { margin: var(--s8) 0 0; overflow-wrap: anywhere; }
+body.staff2 .st-duo .st-navh { margin: var(--s12) 0 2px; padding: 0 var(--s12); font-size: var(--t13); font-weight: 700; color: var(--n500); }

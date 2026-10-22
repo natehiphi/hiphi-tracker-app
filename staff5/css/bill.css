@@ -567,3 +567,11 @@
 /* R-316 W56 (C-16): who last changed the team note, and when. */
 .bw-noteby { margin-top: var(--s4); font-size: var(--t13); color: var(--n500); }
 .bw-noteby:empty { display: none; }
+/* R-316 W58: the to-do, For and Due on one line (wrapping on a phone: the to-do, then For and Due side by side, then Add). */
+.bw-addfor { flex-wrap: wrap; align-items: flex-end; }
+.bw-addfor > .input { flex: 1 1 200px; }
+.bw-tdf { display: flex; flex-direction: column; gap: 2px; flex: 0 1 140px; min-width: 0; font-size: var(--t13); color: var(--n700); }
+.bw-tdf .input { min-height: 48px; width: 100%; }
+@media (min-width: 900px) { .bw-tdf .input { min-height: 44px; } .bw-addfor { max-width: 720px; } }
+.bw-noown { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n700); }   /* R-316 W42 */
+.bw-noown .ic { width: 18px; height: 18px; flex: none; }

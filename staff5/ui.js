@@ -240,6 +240,8 @@ export const inlineErr = (id, text) => `<div class="inlinemsg" id="${esc(id)}" r
 // ---- toast: one at a time, in #toast; Undo keeps it 10 seconds ----
 export function toast(msg, opt = {}) {
   if (opt === true) opt = { err: true };
+  // R-316 W43: a step refused because a teammate already took it is news, not a failure ("Nate approved it at 9:42 AM.").
+  if (opt.err && msg?.raced) { opt = { ...opt, err: false }; msg = msg.message; }
   const box = document.getElementById('toast'); if (!box) return;
   // A toast raised while a sheet is open has to live inside that sheet. #toast sits in the ordinary page, and the
   // browser puts an open <dialog> in the top layer above everything there, so an Undo button left outside could be

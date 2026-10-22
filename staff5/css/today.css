@@ -462,7 +462,7 @@
 .td-root .td-ch { display: flex; align-items: center; gap: var(--s8); margin: var(--s8) 0 0; padding: var(--s4) var(--s16); font: 700 var(--t14)/20px var(--font); letter-spacing: 0; color: var(--n700); }
 .td-root .td-ch .ic { width: 16px; height: 16px; color: var(--n500); flex: none; }
 .td-root .td-crow { display: flex; align-items: flex-start; gap: var(--s12); min-height: 48px; padding: var(--s8) var(--s16); color: inherit; text-decoration: none; }
-.td-root a.td-crow:hover, .td-root .td-ctodo a.td-cbody:hover { background: var(--n50); }
+.td-root a.td-crow:hover, .td-root .td-ctodo a.td-cbody:hover, .td-root .td-cask a.td-cbody:hover { background: var(--n50); }
 .td-root .td-crow + .td-crow { border-top: 1px solid var(--n100); }
 .td-root .td-ctime { flex: none; width: 84px; display: flex; flex-direction: column; font-size: var(--t13); line-height: 18px; color: var(--n500); }
 @media (max-width: 359px) { .td-root .td-ctime { width: 68px; } .td-root .td-crow { gap: var(--s8); } }   /* the small-phone floor (A-9) */
@@ -476,8 +476,8 @@
 .td-root .td-cnone .ic { width: 14px; height: 14px; }
 .td-root .td-crace { align-items: center; }
 .td-root .td-cwho { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: var(--t13); color: var(--n500); }
-.td-root .td-ctodo { align-items: center; padding-top: 0; padding-bottom: 0; }
-.td-root .td-ctodo a.td-cbody { align-self: stretch; justify-content: center; min-height: 48px; margin-left: calc(-1 * var(--s16)); padding: var(--s8) 0 var(--s8) var(--s16); }
+.td-root .td-ctodo, .td-root .td-cask { align-items: center; padding-top: 0; padding-bottom: 0; }
+.td-root .td-ctodo a.td-cbody, .td-root .td-cask a.td-cbody { align-self: stretch; justify-content: center; min-height: 48px; margin-left: calc(-1 * var(--s16)); padding: var(--s8) 0 var(--s8) var(--s16); }
 .td-root .td-ctodo .btn { flex: none; }
 .td-root .td-rsum { padding: var(--s8) var(--s16) 0; font-size: var(--t14); line-height: 20px; color: var(--n700); }
 .td-root .td-rsum b { color: var(--n900); }
@@ -809,3 +809,8 @@
 .td-root .td-startf { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8); }
 /* R-316 W20 (C-11): a bill with nobody on its step says so in words on This week's cards. */
 .td-root .wk-noown { font-size: var(--t13); font-weight: 600; color: var(--n500); white-space: nowrap; }
+/* R-316 W14: a coalition chair ask a helper can take (I will ask, Remind Rick). */
+.td-root .td-caskb { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4); flex: none; }
+.td-root .td-cask .pb-st { flex: none; }
+@media (max-width: 899px) { .td-root .td-cask { flex-wrap: wrap; } .td-root .td-cask a.td-cbody { flex: 1 1 100%; } .td-root .td-caskb { padding: 0 0 var(--s8); } }   /* ui-critic M5: buttons under the words on a phone */
+.td-root .ah-how { margin: var(--s12) 0 0; } .td-root .ah-how a { display: inline-block; padding: 12px 0; margin: -12px 0; }   /* R-316 W37 */

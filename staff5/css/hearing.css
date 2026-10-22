@@ -130,3 +130,5 @@
 
 /* R-277 fix 12: "Undo filed" right under a row whose testimony is marked filed */
 .hr-unf { display: flex; align-items: center; justify-content: flex-end; gap: var(--s8); padding: 0 var(--s8) var(--s4); }
+.mv-ask { margin: var(--s8) 0 var(--s4); font-weight: 600; color: var(--warn-text); }   /* R-316 W53 */
+.mv-acts { display: flex; flex-wrap: wrap; gap: var(--s8); }

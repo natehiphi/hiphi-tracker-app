@@ -361,3 +361,5 @@
   .bl-memopage.ot-part { max-width: 720px; margin: 0; }
   .bl-memopage.ot-part .bl-mctl .field { flex-basis: 360px; }   /* "HEAL · Healthy Eating, Active Living" whole */
 }
+.sp-page .sp-tsum:has(+ .sp-score) { margin-bottom: 0; }
+.sp-page .sp-score { margin-top: var(--s4); color: var(--n700); }   /* R-316 W55: what Score counts */

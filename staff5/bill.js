@@ -29,6 +29,8 @@ import { askConflict } from './conflict.js';
 import { untrackedHTML, wireUntracked, untrackedOf } from './untracked.js';
 import { issuesOfBill, issueLinkHref } from './issues.js';
 import { dayOf } from './standing.js';
+import { GIVE_ASK, askState, askChip, giveAsk } from './push.js';
+import { HOW_TO } from './terms.js';   // R-316 W37 (practice copy)   // R-316 W14 (practice copy)
 
 // ---- small shared helpers (activity.js and public.js use these too) ----
 export const firstName = a => String(a?.full_name || '').split(' ')[0] || 'Someone';
@@ -296,7 +298,13 @@ const issueChips = b => issuesOfBill(b.id).map(i => `<a class="bw-ichip" href="$
 // R-316 W50: in session the goal set for the issue in the autumn prep is one staff-only line here, so it does not vanish
 // into the folded prep card (it is used nowhere else). Between sessions the issue's prep card shows it.
 const goalLine = b => { if (SESSION_OVER) return ''; const i = issuesOfBill(b.id).find(x => (x.goal || '').trim()); return i ? `<p class="bw-igoal small"><b>${esc(i.name)}: our ${esc(SESSION_YEAR)} goal</b> <span class="muted">(staff only)</span>: ${esc(i.goal)}</p>` : ''; };
-const teamChips = b => `<div class="bw-chips">${teamPicks(b).map(([, p]) => p).join('')}${followFlag(b)}${issueChips(b)}</div>${goalLine(b)}`;
+// R-316 W42 (Show me, practice copy): a live bill HIPHI has a position on but nobody owns says so, names who owns its issue,
+// and offers Take it (HB2208, which needs a hearing by 3/30, and HB1850 were left with no owner after their twins stopped).
+const NO_OWNER = () => DEMO;
+const noOwnerLine = b => { if (!NO_OWNER() || ownerOf(b) || !b.position || b.position === 'monitor' || diedish(b) || b.tracked === false || !S.me) return '';
+  const io = issuesOfBill(b.id).map(i => advocate(i.owner_id)).find(a => a && a.is_active !== false);
+  return `<p class="bw-noown">${icon('user-round')}<span>${esc(io ? `${io.id === S.me.id ? 'You own' : io.full_name.split(' ')[0] + ' owns'} its issue` : 'Nobody owns this bill yet')}</span>${btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-bwtake': b.id } })}</p>`; };
+const teamChips = b => `<div class="bw-chips">${teamPicks(b).map(([, p]) => p).join('')}${followFlag(b)}${issueChips(b)}</div>${noOwnerLine(b)}${goalLine(b)}`;
 // Desktop: the same three pickers as labelled lines in the side panel (they open as popovers beside the chip), and who
 // follows the bill.
 const teamCard = b => { const f = followText(b);
@@ -304,6 +312,7 @@ const teamCard = b => { const f = followText(b);
     <div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-teamc-h">Team</h2>${followFlag(b)}</div>
     ${teamPicks(b).map(([l, p]) => `<div class="bw-ctl"><span class="bw-ctll" aria-hidden="true">${l}</span>${p}</div>`).join('')}
     ${f ? `<div class="bw-ctl"><span class="bw-ctll">Following</span><span class="bw-ctlv">${esc(f)}</span></div>` : ''}
+    ${noOwnerLine(b)}
   </section>`; };
 // A position change says what it did (X10-6, R-180 wave 3): "Saved. The public page now says HIPHI opposes. 1 approved testimony says
 // support: open it." Testimony already approved or waiting for approval was written for the old position and is the one thing the
@@ -547,8 +556,9 @@ function needsHearingCard(b) {
   return `<section class="card bw-next" aria-labelledby="bw-nx-0">
     <div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-nx-0">Next up</h2></div>
     <p class="bw-hear">Ask for a hearing in ${esc(cmteName(st.committee))}</p>
+    ${HOW_TO() ? '<p class="small bw-how"><a href="#/help/hearing">How to ask for a hearing</a></p>' : ''}
     ${sl ? `<p class="small ${now > sl.noticeBy ? 'bw-late' : 'muted'}">${now > sl.noticeBy ? `${icon('circle-alert')}The notice window for the last regular slot has closed. Call the chair.` : `Last regular slot ${esc(fmtDT(sl.at))}. The notice has to post by ${esc(fmtDT(sl.noticeBy))}.`}</p>` : ''}
-    ${ask ? `<div class="bw-acts">${btn('Email the chair', { kind: risk ? 'primary' : 'secondary', icon: 'mail', href: ask })}</div>` : ''}
+    ${ask ? `<div class="bw-acts">${btn('Email the chair', { kind: risk ? 'primary' : 'secondary', icon: 'mail', href: ask })}${GIVE_ASK() ? (as => as.k === 'none' ? btn('Give to…', { kind: 'text', icon: 'user-round', attrs: { 'data-giveask': b.id, 'aria-haspopup': 'dialog', 'aria-label': 'Give this ask to a teammate' } }) : askChip(as))(askState(b, st.committee)) : ''}</div>` : ''}
   </section>`;
 }
 // Next up is what is coming. A hearing that has happened, its result and its recording are in Overview's Committees,
@@ -730,6 +740,13 @@ async function toggleAttend(b, hid) {
 // To do: until there is a task, one line, "Add a task", that opens the box (v3: an empty form is not worth a section).
 // The box stays open for the visit once opened, so a second task follows the first.
 S.bwTodoOpen ??= new Set();
+// R-316 W58 (Show me, practice copy): For and Due on the same line as the to-do, so giving Kris a dated to-do is one go
+// (it took 10 clicks across three sheets). For starts at Anyone.
+const TODO_FOR = () => DEMO;
+const todoForm = d => { const ppl = (S.advocates || []).filter(a => a.is_active !== false && a.id !== S.me?.id).sort((x, y) => x.full_name.localeCompare(y.full_name));
+  return `<form class="bw-addrow bw-addfor" data-todoadd novalidate><label class="sr" for="bw-tdnew">Add a to-do</label><input id="bw-tdnew" class="input" maxlength="200" placeholder="Add a to-do" autocomplete="off" value="${esc(d)}">
+    <label class="bw-tdf"><span>For</span><select id="bw-tdfor" class="input"><option value="">Anyone</option>${S.me ? `<option value="${esc(S.me.id)}">You</option>` : ''}${ppl.map(a => `<option value="${esc(a.id)}">${esc(a.full_name)}</option>`).join('')}</select></label>
+    <label class="bw-tdf"><span>Due</span><input id="bw-tddue" class="input" type="date" min="${esc(hiToday())}"></label>${btn('Add', { kind: 'secondary', icon: 'plus', attrs: { type: 'submit' } })}</form>`; };
 function todoSection(b) {
   const today = hiToday();
   const list = (S.todos[b.id] || []).slice().sort((x, y) => (x.done - y.done) || (x.sort_order - y.sort_order) || String(x.created_at).localeCompare(String(y.created_at)));
@@ -745,7 +762,7 @@ function todoSection(b) {
     </li>`;
   }).join('');
   const d = drafts.get(b.id + ':todo') || '';
-  const add = S.bwTodoOpen.has(b.id) || d
+  const add = (S.bwTodoOpen.has(b.id) || d) && TODO_FOR() ? todoForm(d) : S.bwTodoOpen.has(b.id) || d
     ? `<form class="bw-addrow" data-todoadd novalidate><label class="sr" for="bw-tdnew">Add a to-do</label><input id="bw-tdnew" class="input" maxlength="200" placeholder="Add a to-do" autocomplete="off" value="${esc(d)}">${btn('Add', { kind: 'secondary', icon: 'plus', attrs: { type: 'submit' } })}</form>`
     : btn('Add a to-do', {   /* R-277 W-2, C-15: to-do */ kind: 'text', icon: 'plus', cls: 'bw-todoadd', attrs: { 'data-todoopen': '1' } });
   if (!rows) return `<section class="bw-sec bw-todo0" aria-labelledby="bw-todo-h"><h2 id="bw-todo-h" class="sr">To-dos</h2>${add}</section>`;
@@ -1100,11 +1117,13 @@ export default {
     // header chips
     page.querySelector('[data-bwpick="pos"]').onclick = () => pickPosition(b);
     page.querySelector('[data-bwpick="own"]').onclick = () => pickOwner(b);
+    page.querySelectorAll('[data-bwtake]').forEach(el => el.onclick = async () => { try { await DB.setOwner(b.id, S.me.id); FACTS.clear(); rerender(); toast(`You own ${billSay(b)} now.`, { ok: true, undo: async () => { await DB.setOwner(b.id, null); FACTS.clear(); rerender(); } }); } catch (e) { toast(e, { err: true }); } });   // W42
     // Next up
     page.querySelectorAll('[data-dact]').forEach(el => el.onclick = () => { const d = draftById(b, el.dataset.draft); if (d) runDraft(b, d, el.dataset.dact, el); });
     page.querySelectorAll('[data-attend]').forEach(el => el.onclick = () => toggleAttend(b, el.dataset.attend));
     page.querySelectorAll('[data-draftnow]').forEach(el => el.onclick = () => { const h = S.hearings.find(x => x.id === el.dataset.draftnow); if (h) makeDraftNow(h); });
     page.querySelectorAll('[data-hmenu]').forEach(el => el.onclick = () => { const h = S.hearings.find(x => x.id === el.dataset.hmenu); if (h) hearingMenu(b, h); });
+    page.querySelectorAll('[data-giveask]').forEach(el => el.onclick = () => { const st = stopOf(b); giveAsk([{ b, st }], st.committee, () => hooks.render()); });   // R-316 W14
     // "Borrow from earlier testimony" opens the fold at the end of Overview, the way a tab tap moves: this history entry is
     // replaced, so Back leaves the bill.
     page.querySelectorAll('[data-borrow]').forEach(a => a.addEventListener('click', e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); openEarlier(b); }));
@@ -1153,7 +1172,12 @@ function wireOverview(pnl, b) {
       e.preventDefault();
       const title = inp.value.trim();
       if (!title) { toast('Type the to-do first.'); inp.focus(); return; }
-      try { await DB.addTodo(b.id, title); drafts.delete(b.id + ':todo'); rerender('#bw-tdnew'); toast('To-do added.'); }
+      const forId = pnl.querySelector('#bw-tdfor')?.value ?? null, due = pnl.querySelector('#bw-tddue')?.value || null;
+      try { await DB.addTodo(b.id, title);
+        if (TODO_FOR()) { const t = (S.todos[b.id] || []).at(-1); if (t) await DB.updateTodo(b.id, t.id, { assignee_id: forId || null, due_date: due }); }   // W58
+        drafts.delete(b.id + ':todo'); rerender('#bw-tdnew');
+        const whom = forId && forId !== S.me?.id ? (advocate(forId)?.full_name || '').split(' ')[0] : '';
+        toast(whom ? `${whom} has it now and gets a Slack message.${due ? ` Due ${dayOf(due)}.` : ''}` : `To-do added${forId ? ' for you' : ''}${due ? `, due ${dayOf(due)}` : ''}.`); }
       catch (x) { toast(x, { err: true }); }
     };
   }
