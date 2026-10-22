@@ -179,7 +179,9 @@ function reachCard(l) {
 
 export function recPerson(route) {
   const l = legById(route.id), from = billNum(route), b = fromBill(from);
-  const back = from ? backRow('#/bill/' + from, spaced(numOnly(from)), true) : backRow('#/legislators');
+  // Opened from a committee's "Email the chair" (R-212 #42), the email is about the bill (?from=) but back goes to the committee.
+  const viaCmt = /^#\/committee\//.test(history.state?.prev || '');
+  const back = from ? backRow('#/bill/' + from, spaced(numOnly(from)), !viaCmt) : backRow('#/legislators');
   if (!l) return `<div class="pp rc pp-rec">${back}${recHead({ title: 'We couldn’t find that lawmaker' })}${recEmpty('The link may be old. Every senator and representative is on Your lawmakers.', btn('Your lawmakers', { kind: 'secondary', href: '#/legislators' }))}</div>`;
   const sv = saved(), own = mine(l, sv), roles = rolesOf(l), k = 'a' + l.id;
   // The card: the bill they came from, else the most pressing followed bill in their committees, else the hello.

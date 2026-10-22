@@ -4,9 +4,9 @@
 // and chair, ONE card when a hearing is set (the day, time and room, the testimony deadline, "Help me write testimony" for
 // the soonest followed or HIPHI bill), HIPHI's bills here by what is due, and the members closed. Every meeting day is said
 // (committees.js slotLine; taking only the first was a live bug).
-import { S, esc, icon, nick, spaced, billPath, billRef, posInfo, alive, stopOf, legTitle, legsOf, legPhoto, codesOf, hearingWhen, roomLabel, CHAMBER_NAME } from '../core.js';
+import { S, app, esc, icon, nextSitting, nick, spaced, billPath, billRef, posInfo, alive, stopOf, legTitle, legsOf, legPhoto, codesOf, hearingWhen, roomLabel, CHAMBER_NAME, sessionInfo, HST } from '../core.js';
 import { btn } from '../ui.js';
-import { recHead, recSec, recRows, recMore, recFold, recFolds, recWay, recEmpty, wireKit, BOX } from './kit.js';
+import { recHead, recSec, recRows, recMore, recFold, recFolds, recEmpty, wireKit, BOX } from './kit.js';
 import { recAct, dueOf, byDue, billRow, billWords, pillFor, backRow, atWords } from './act.js';
 import { allCommittees, billsAt, slotsOf, slotLine } from '../committees.js';
 
@@ -16,7 +16,14 @@ const STANCE_IT = { strongly_support: 'HIPHI strongly supports it', support: 'HI
   strongly_oppose: 'HIPHI strongly opposes it', oppose: 'HIPHI opposes it', neutral: 'HIPHI has comments on it' };
 const surname = l => (l.sort_name || l.name).split(',')[0].trim();
 const roleWord = r => ({ chair: 'Chair', vice_chair: 'Vice chair', member: 'Member' })[r] || 'Member';
-const meets = code => slotsOf(code).length ? `Meets ${slotLine(slotsOf(code))}` : '';
+// "Usually": the weekly times are when it may sit; the next real hearing (below them) can differ (the fresh-eyes review).
+const meets = code => slotsOf(code).length ? `Usually meets ${slotLine(slotsOf(code))}` : '';
+// "Yours" (R-212 #42): the person's own senator or representative, from the districts the lawmaker finder saved on this
+// device (the two numbers, never the address), as the bill page says it.
+function myDistricts() { try { const d = JSON.parse(localStorage.getItem('hiphi_districts') || 'null'); return d && (d.senate || d.house) ? d : null; } catch { return null; } }
+const yoursWord = l => { const d = myDistricts(); return !l || !d ? '' : l.chamber === 'S' && +l.district === +d.senate ? 'Your senator'
+  : l.chamber === 'H' && +l.district === +d.house ? 'Your representative' : ''; };
+const yoursIn = code => legsOf(code).map(m => ({ m, w: yoursWord(m.l) })).find(x => x.w);
 // Every bill the page knows: the person's own, HIPHI's pool and the featured ones (core.js loadBills).
 function billMap() {
   const m = new Map();
@@ -58,7 +65,7 @@ export function recList() {
       href: `#/committee/${g.codes[0]}`,
       text: [S.watch?.has(g.bills[0].id) ? 'On your issues' : '', `${billWords(g.bills[0])}${n > 1 ? `, and ${n - 1} more` : ''}`, hearingWhen(g.h.scheduled_at), g.h.room ? roomLabel(g.h.room) : ''].filter(Boolean).join(' · ') }; };
   const fold = (ch, title) => { const list = cs.filter(c => c.chamber === ch); if (!list.length) return '';
-    return recFold('cmt-' + ch, title, `${list.slice(0, 2).map(c => c.name).join(', ')}, and more`, recRows(list.map(c => ({ name: c.name, text: meets(c.code), href: `#/committee/${c.code}` })))); };
+    return recFold('cmt-' + ch, title, `${list.slice(0, 2).map(c => c.name).join(', ')}, and more`, recRows(list.map(c => { const y = yoursIn(c.code); return { name: c.name, text: [y ? `${y.w} is a member` : '', meets(c.code)].filter(Boolean).join(' · '), href: `#/committee/${c.code}` }; }))); };
   return `<div class="cmt rc cmt-rec">${back}
     ${recHead({ title: 'Committees', lede: 'A bill needs a yes from each committee it is sent to before the full Senate or House votes on it.' })}
     ${recSec('cmt-wk', 'Hearing HIPHI’s bills this week', week.length ? recMore(week.map(weekRow), 6, 'cmt-wk', BOX)
@@ -81,25 +88,69 @@ export function recDetail(route) {
       warn: Date.parse(dl || h.scheduled_at) - Date.now() < 864e5, title: `Speak up for ${nick(b) || spaced(b.bill_number)}`,
       text: `${c.name} hears ${spaced(b.bill_number)} ${atWords(h.scheduled_at)}${where}${stance}.${dl ? '' : ' The written deadline has passed, but late testimony is still read.'}`,
       button: btn('Help me write testimony', { kind: 'primary', icon: 'notebook-pen', full: true, href: billPath(b) + '/testify' }),
-      more: 'About 15 minutes the first time, a few after that.',
-      // The chair is named in the head; this row opens her page with an email about the bill ready (A-12: says where it goes).
-      ways: chair?.l ? recWay('user', 'Write to the chair', `On ${legTitle(chair.l)} ${surname(chair.l)}’s page, an email about ${spaced(b.bill_number)} is ready`, { href: `#/legislator/${chair.l.id}?from=${encodeURIComponent(billRef(b))}` }) : '' });
+      // "Email the chair" is in the head, for every committee (R-212 #42), so the card no longer repeats it (A-14).
+      more: 'About 15 minutes the first time, a few after that.' });
   }
   // HIPHI's bills here, by what is due; the card's own bill says so rather than repeating it (A-14).
   const bills = billsAt(c.code).filter(ours).map(b => ({ b, due: dueOf(b, c.code) })).sort(byDue);
   const list = bills.length ? recMore(bills.map(x => billRow(x.b, x.due, { href: billPath(x.b), note: next && x.b.id === next.b.id ? (matchMedia('(min-width: 1100px)').matches ? 'In the card at the right' : 'In the card above') : '' })), 6, 'cmt-bills', BOX)
     : recEmpty('None of HIPHI’s bills are here now.', `<a class="rc-tlink cmt-all" href="#/allbills">Every bill HIPHI tracks</a>`);
   // The preview leaves out the chair, named in the head (A-14): "Sen. Kidani (vice chair) and 3 more".
-  const lead = members.filter(m => m.role === 'vice_chair').map(m => `${legTitle(m.l)} ${surname(m.l)} (vice chair)`);
-  const others = members.length - lead.length - (chair ? 1 : 0);
+  // Your own lawmaker leads it when they sit here (R-212 #42), unless they are the chair, who the head names.
+  const mine = members.filter(m => m.role !== 'chair' && yoursWord(m.l)).map(m => `${legTitle(m.l)} ${surname(m.l)} (${yoursWord(m.l).toLowerCase()})`);
+  const lead = [...mine, ...members.filter(m => m.role === 'vice_chair' && !yoursWord(m.l)).map(m => `${legTitle(m.l)} ${surname(m.l)} (vice chair)`)];
+  const others = members.length - lead.length;   // the chair counts in "more", so the preview adds up to the list (the critic)
   const prev = [...lead, others > 0 ? `${others} more` : ''].filter(Boolean);
   const mem = members.length ? recFold('cmt-members', 'Members', prev.length > 1 ? `${prev.slice(0, -1).join(', ')} and ${prev[prev.length - 1]}` : prev.join(''),
-    recRows(members.map(m => ({ name: `${legTitle(m.l)} ${m.l.name}`, text: roleWord(m.role), href: `#/legislator/${m.l.id}`, leadHtml: legPhoto(m.l, 'cm-photo') })))) : '';
-  const chairLink = chair?.l ? `<a class="rc-link" href="#/legislator/${chair.l.id}">${icon('user')}<span>Chair: ${esc(legTitle(chair.l))} ${esc(chair.l.name)}</span></a>` : '';
-  const head = recHead({ eye: `${CHAMBER_NAME[c.chamber] || ''} committee`.trim(), title: c.name, lede: meets(c.code), extra: chairLink }), rest = `${recSec('cmt-bills', 'HIPHI’s bills here', list)}${recFolds([mem])}`;
+    recRows(members.map(m => ({ name: `${legTitle(m.l)} ${m.l.name}`, text: [roleWord(m.role), yoursWord(m.l)].filter(Boolean).join(' · '), href: `#/legislator/${m.l.id}`, leadHtml: legPhoto(m.l, 'cm-photo') })))) : '';
+  // The chair, and "Email the chair" (R-212 #42): their page with an email ready about the bill here that is due soonest (the
+  // card's, else HIPHI's first here), or a short hello when none of HIPHI's bills are here. A-12: the link says where it goes.
+  const yc = chair?.l ? yoursWord(chair.l) : '', about = next?.b || bills[0]?.b;
+  const chairLink = chair?.l ? `<a class="rc-link" href="#/legislator/${chair.l.id}">${icon('user')}<span>Chair: ${esc(legTitle(chair.l))} ${esc(chair.l.name)}${yc ? ` (${esc(yc.toLowerCase())})` : ''}</span></a>`
+    + (chair.l.email ? `<a class="rc-link cmt-mail" href="#/legislator/${chair.l.id}${about ? `?from=${encodeURIComponent(billRef(about))}` : ''}" aria-label="Email the chair, on ${esc(legTitle(chair.l))} ${esc(surname(chair.l))}’s page${about ? `, about ${esc(spaced(about.bill_number))}` : ''}">${icon('mail')}<span>Email the chair</span></a>` : '') : '';
+  const head = recHead({ eye: `${CHAMBER_NAME[c.chamber] || ''} committee`.trim(), title: c.name, lede: meets(c.code), extra: nextLine(c.code, next?.h.scheduled_at) + chairLink });
+  const rest = `${recSec('cmt-bills', 'HIPHI’s bills here', list)}${recFolds([agendaFold(c.code), mem])}`;
   // With a card, a laptop puts it at the side, as the bill page and a lawmaker's page do (rc-cols).
   return card ? `<div class="cmt rc rc-wide cmt-rec">${back}<div class="rc-cols"><div class="cmt-rmain">${head}</div><aside class="rc-side" aria-label="Take part">${card}</aside><div class="cmt-rmain">${rest}</div></div></div>`
     : `<div class="cmt rc cmt-rec">${back}${head}${rest}</div>`;
+}
+
+// ---------------- the next hearing (R-212 #42) ----------------
+// The real next sitting, any bill (core.js nextSitting), under the weekly times: "Meets" is when it may sit, this is when it
+// does. Asked once a visit; the page is drawn again when it answers.
+function sitting(code) {
+  const n = S.cmteNext?.[code];
+  if (n === undefined) nextSitting(code).then(() => { if (location.hash.split('?')[0] === `#/committee/${code}`) app.render(); });
+  return n;
+}
+const nBills = n => `${n} bill${n === 1 ? '' : 's'}`;
+// Between sessions there is nothing to wait for until opening day; in session a hearing is posted a few days before it sits.
+function noneWords() {
+  const si = sessionInfo();
+  return si.phase === 'in' || !si.nextOpen ? 'No hearing is set yet. Committees post each hearing a few days before it.'
+    : `No hearings until the session opens on ${new Date(si.nextOpen + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'long', day: 'numeric', year: 'numeric' })}.`;
+}
+// When the card is that same sitting the card says it, and the head says nothing more (A-14); its agenda is the fold below.
+function nextLine(code, cardAt = '') {
+  const n = sitting(code);
+  if (n && typeof n === 'object' && n.at === cardAt) return '';
+  const text = n === undefined || n === 'loading' ? 'Looking up the next hearing…' : n === 'error' ? 'The next hearing could not load just now.'
+    : !n ? noneWords()
+    : `Next hearing ${hearingWhen(n.at)}${n.room ? ` · ${roomLabel(n.room)}` : ''}`;   // how many bills: the fold below (A-14)
+  return `<p class="cmt-next${n && typeof n === 'object' ? '' : ' muted'}">${icon('calendar')}<span>${esc(text)}</span></p>`;
+}
+// Every bill on that agenda, closed like the cards beside it (B-6): HIPHI's first, a bill the person follows says so.
+function agendaFold(code) {
+  const n = S.cmteNext?.[code];
+  if (!n || typeof n !== 'object' || !n.bills.length) return '';
+  const ours = n.bills.filter(b => posInfo(b)).length, joint = codesOf(n.committee).filter(k => k !== code && S.committees?.[k]).map(k => S.committees[k].name);
+  const dl = n.deadline && Date.parse(n.deadline) > Date.now() ? `Testimony is due ${hearingWhen(n.deadline)}.` : '';
+  const note = [joint.length ? `A joint hearing with ${joint.join(' and ')}.` : '', dl].filter(Boolean).join(' ');
+  return recFold('cmt-agenda', 'Bills at the next hearing', `${nBills(n.bills.length)}${ours === n.bills.length ? (ours === 1 ? ', HIPHI’s' : ', all HIPHI’s') : ours ? `, ${ours} of them HIPHI’s` : ''}`,
+    (note ? `<p class="rc-note cmt-anote">${esc(note)}</p>` : '')
+    // The row's own due line would only repeat the hearing above it (A-14): its number, HIPHI's side, and whether you follow it.
+    + recMore(n.bills.map(b => ({ ...billRow(b, dueOf(b, code), { href: billPath(b) }), warn: false,
+      text: [spaced(b.bill_number), posInfo(b)?.text || '', S.watch?.has(b.id) ? 'You follow it' : ''].filter(Boolean).join(' · ') })), 8, 'cmt-agenda'));
 }
 
 export function wireRec() { const root = document.querySelector('.cmt-rec'); if (root) wireKit(root); }

@@ -290,6 +290,36 @@ export async function filedBy(l) {
   } catch { S.filed[l.id] = 'error'; }
   return S.filed[l.id];
 }
+// A committee's next sitting, whatever bills it hears (R-212 #42, the walks: a committee page said only "Meets Mon, Wed and
+// Fri", never the real date, and named only HIPHI's bills). One question to the public view once a visit; a joint hearing is
+// one sitting for every committee in it. S.cmteNext[code]: undefined (not asked), 'loading', 'error', null (none set), or
+// { at, room, committee, deadline, bills }: every bill on that agenda, HIPHI's first.
+export async function nextSitting(code) {
+  S.cmteNext ??= {};
+  if (S.cmteNext[code] !== undefined) return S.cmteNext[code];
+  S.cmteNext[code] = 'loading';
+  try {
+    const now = new Date().toISOString(), here = h => h.status === 'scheduled' && h.scheduled_at > now && codesOf(h.committee).includes(code);
+    let hs, byId;
+    if (DEMO) { hs = D.hearings.filter(here); byId = new Map(D.bills.map(b => [b.id, b])); }
+    else {
+      const sb = await supa();
+      // "%ABC%" also matches "XABC/..."; codesOf keeps only this committee's own rows.
+      const r = await sb.from('public_all_hearings').select('*').ilike('committee', `%${code}%`).eq('status', 'scheduled').gt('scheduled_at', now).order('scheduled_at').limit(200);
+      if (r.error) throw r.error;
+      hs = (r.data || []).filter(here);
+      const first = hs.reduce((m, h) => !m || h.scheduled_at < m ? h.scheduled_at : m, '');
+      const ids = [...new Set(hs.filter(h => h.scheduled_at === first).map(h => h.bill_id))];
+      const bs = ids.length ? await sb.from('public_all_bills').select(FILED_COLS).in('id', ids) : { data: [] };
+      if (bs.error) throw bs.error;
+      byId = new Map((bs.data || []).map(b => [b.id, b]));
+    }
+    const first = hs.reduce((m, h) => !m || h.scheduled_at < m.scheduled_at ? h : m, null);
+    S.cmteNext[code] = first ? { at: first.scheduled_at, room: first.room, committee: first.committee, deadline: first.testimony_deadline,
+      bills: [...new Map(hs.filter(h => h.scheduled_at === first.scheduled_at).map(h => [h.bill_id, byId.get(h.bill_id)]).filter(([, b]) => b)).values()].sort(filedSort) } : null;
+  } catch { S.cmteNext[code] = 'error'; }
+  return S.cmteNext[code];
+}
 // what the box suggests
 export const looksLikeAddress = q => q.trim().length >= 3 && !/^(senate|house|sd|hd)?\s*(district)?\s*\d{1,2}$/i.test(q.trim());
 // Suggestions come from our own table of every Hawaiʻi street address (with districts), one fast query.
