@@ -720,13 +720,17 @@ function startedAt(me) {
   if (!S.startSaving) { S.startSaving = true; DB.patchPrefs({ started_at: new Date(at).toISOString() }).catch(() => { S.startSaving = false; }); }
   return at;
 }
-function startCard() {
+// R-316 W39 (Show me, practice copy): Getting started opens by itself on a day when Today has nothing that needs you (for
+// Kris, Patti and Julie it was a folded bar), and the new-bills notice is for admins and bill owners, who sort them (Patti's
+// and Julie's first January screen led with a 788-bill job that is not theirs).
+const TEACH = () => DEMO;
+function startCard(quiet = false) {
   const me = S.me; if (!me || load('newhere_done', '') || me.prefs?.firstrun?.hidden) return '';
   if (!(Date.now() - startedAt(me) < 45 * DAY)) return '';
   const steps = newSteps(), n = steps.filter(s => s.done).length; if (n === steps.length) return '';
   // On a phone the card waits for the laptop (R-269); one line says where it is (R-316 W7).
   if (PHONE()) return `<p class="td-startph">${icon('sparkles')}<span><b>Getting started</b> · ${n} of ${steps.length} done. It is on Today on a laptop, and in <a href="#/help/new">Help</a>.</span></p>`;
-  return `<details class="card td-start" data-tdstart${S.tdStartOpen ? ' open' : ''}><summary><span class="td-startt">${icon('sparkles')}<b>Getting started</b><span class="td-startn">${n} of ${steps.length} done</span></span><span class="st-meter" aria-hidden="true"><i style="width:${Math.round(n / steps.length * 100)}%"></i></span>${icon('chevron-down', { cls: 'td-startc' })}</summary>
+  return `<details class="card td-start" data-tdstart${S.tdStartOpen ?? (TEACH() && quiet) ? ' open' : ''}><summary><span class="td-startt">${icon('sparkles')}<b>Getting started</b><span class="td-startn">${n} of ${steps.length} done</span></span><span class="st-meter" aria-hidden="true"><i style="width:${Math.round(n / steps.length * 100)}%"></i></span>${icon('chevron-down', { cls: 'td-startc' })}</summary>
     <div class="rows">${steps.map(s => `<a class="row st-newrow${s.done ? ' done' : ''}" href="${s.href}" data-tdfr="${s.k}"><span class="st-ric">${icon(s.done ? 'circle-check' : 'circle-dashed')}<span class="sr">${s.done ? 'Done:' : 'To-do:'}</span></span><span class="body"><span class="title">${esc(s.title)}</span><span class="sub">${esc(s.sub)}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`).join('')}</div>
     <div class="td-startf">${practiceLink()}${btn('Hide this', { kind: 'text', sm: true, attrs: { 'data-newhere': '1' } })}</div></details>`;
 }
@@ -738,7 +742,8 @@ function oneNotice() {
     if (!SESSION_OVER && (failed || hrs == null || hrs > 36)) return notice('warn', 'triangle-alert', hrs == null ? 'The bill sync has not finished recently. Bills may be out of date.' : `The bill sync last finished ${hrs > 47 ? Math.round(hrs / 24) + ' days' : hrs + ' hours'} ago. Bills may be out of date.`, btn('Check', { kind: 'text', href: '#/setup/sync' }));
   }
   // Getting the issues ready for 2027 (R-088): an owner's issues left to do, or what is waiting for an admin to approve.
-  const n = S.tdTriage?.suggested || S.tdTriage?.undecided;
+  const sorts = !TEACH() || me.is_admin || S.bills.some(b => owns(me.id, b));   // W39
+  const n = sorts ? S.tdTriage?.suggested || S.tdTriage?.undecided : 0;
   const sort = n ? notice('info', 'sparkles', `<b>${plural(n, 'new bill')} to sort.</b>`, btn('Sort new bills', { kind: 'secondary', href: '#/bills/new' })) : '';
   // Session work first (R-118): in the opening weeks and in session, new bills to sort take the slot; the issue prep
   // notice waits for a quiet day.
@@ -1760,13 +1765,15 @@ function teamHtml(start, rows = false) {
 const slipper = () => !!(S.me?.is_admin || S.me?.is_reviewer);
 // The "Nobody going yet" hearing rows, off for now (Nate 13 Oct, R-276: "can be brought back later"); true brings them back.
 const SLIP_NOBODY = false;
+// R-316 W42, W53: questions for one person (no owner: take it?, still going?, keep the ask up?) are not late work.
+const QUESTION = new Set(['noowner', 'moved', 'askup']);
 let SLIP = null;   // worked out once per draw (render resets it), as MEMO is
 function slipping() {
   if (SLIP) return SLIP;
   const now = Date.now(), me = S.me.id, steps = new Map();
   for (const a of teammates()) {
     for (const t of (a.id === me ? items('mine') : items('person', a.id)).tasks) {
-      if (t.kind === 'wait' || t.kind === 'prep' || t.due == null) continue;
+      if (t.kind === 'wait' || t.kind === 'prep' || QUESTION.has(t.kind) || t.due == null) continue;
       const sd = t.kind === 'chair' && t.dl ? t.dl : t.due;   // R-316 W1: a chair ask counts to its deadline here, as before
       if (!(sd - now <= DAY || (t.kind === 'nodraft' && t.due - now <= 2 * DAY))) continue;
       let e = steps.get(t.key); if (!e) steps.set(t.key, e = { t, yours: [], any: [] });
@@ -1776,7 +1783,7 @@ function slipping() {
   }
   // R-316 W28 (G3-3): the steps on bills nobody (still turned on) owns, so a turned-off owner's late work stays here.
   for (const t of items('none').tasks) {
-    if (t.kind === 'wait' || t.kind === 'prep' || t.due == null || steps.has(t.key)) continue;
+    if (t.kind === 'wait' || t.kind === 'prep' || QUESTION.has(t.kind) || t.due == null || steps.has(t.key)) continue;
     const sd = t.kind === 'chair' && t.dl ? t.dl : t.due;
     if (sd - now <= DAY || (t.kind === 'nodraft' && t.due - now <= 2 * DAY)) steps.set(t.key, { t, yours: [], any: [] });
   }
@@ -2316,7 +2323,7 @@ function render(route) {
     // R-316 W4: with the 2027 prep in the list, "All clear" above it said there was nothing to do, and pushed it down.
     } else body = (clear && !cd.cards.length && !groups.some(g => g.cards.some(c => c.p?.kind === 'prep')) ? `<div class="td-clear">${scope === 'mine' ? yay() : ''}<div><p class="td-clear-t">${who ? `Nothing for ${esc(name)} today.` : scope === 'none' ? 'Nothing is due today on the bills nobody owns.' : askSoon ? 'Nothing due today.' : 'All clear for today.'}</p><p class="small muted">${nextHearingText(scope, who)}</p></div></div>` : '')
       + groups.map(groupHtml).join('') + coalDueHtml(cd, rows, false);
-    body += waitingGroup(scope, who) + coal + (scope === 'mine' ? startCard() : '');
+    body += waitingGroup(scope, who) + coal + (scope === 'mine' ? startCard(!r.dueNow && !cd.cards.length) : '');
   }
   // A teammate's list is for looking: say so once. It is the top of the list, so it takes the focus when this list is
   // chosen (A-16). How many cards it holds is Team load's to say (R-264).
