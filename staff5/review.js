@@ -6,7 +6,7 @@
 // Each card also shows the bill as it stands (R-022): its position, priority and owner, where it is, and a plain warning
 // when it is dead, only monitored or has no hearing, so nobody approves an email asking supporters to testify on a bill
 // that died. The draft itself stays in its Google Doc (Nate, 9/19: not shown inside Review).
-import { S, DB, esc, fmtDT, advocate, hooks, changedSince, startedFromLine } from './data.js';
+import { S, DB, esc, fmtDT, advocate, hooks, changedSince, startedFromLine, raceLine } from './data.js';
 import { agoWords, billNum, billSay, blurb, alertTarget, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn } from './model.js';
 import { icon, btn, chip, stepBar, empty, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, posIcons, POS_WORD, ownerOf, clockDay, lateLine } from './ui.js';
 import { docBtn, keysUsed } from './ui.js';   // R-277 fix 4 (U-4): "Open Doc" here too (it was "Open the Google Doc", a full-width outline)
@@ -212,8 +212,15 @@ export function holdBack({ key, target, patch, send, onFail }) {
 const flushHeld = () => { for (const h of [...held.values()]) h.go(); };
 addEventListener('pagehide', flushHeld);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushHeld(); });
+// R-316 W43: the screen still showed the buttons, but the draft had already moved on underneath (a teammate's step, read by
+// the 2-minute look while this page could not redraw). Say who acted and redraw, instead of a button that does nothing.
+function movedOn(it) {
+  if (!it || it.type !== 'draft' || actionable(it)) return false;
+  const line = raceLine(it.d); if (line) toast(line);
+  hooks.render(); return true;
+}
 async function approve(route, el) {
-  const { r, it } = current(route); if (!it || !actionable(it)) return;
+  const { r, it } = current(route); if (movedOn(it) || !it || !actionable(it)) return;
   if (!armed(it.key)) return;   // too soon after this item appeared: a leftover tap, not a decision
   if (it.type === 'email') {
     const n = S.tdAud?.[it.a.id];
@@ -241,7 +248,7 @@ async function approve(route, el) {
 // Request changes (or Send back, for an email): a note is required, so the writer knows what to fix.
 const DOC_NOTE = 'See my comments in the Doc';
 function changes(route) {
-  const { r, it } = current(route); if (!it || !actionable(it)) return;
+  const { r, it } = current(route); if (movedOn(it) || !it || !actionable(it)) return;
   const to = first(it.type === 'email' ? it.a.author_id : it.d.submitted_by || (S.assignments[it.b.id] || [])[0]);
   const name = to === 'Someone' ? 'the writer' : to;
   openSheet({ title: 'What should change?', size: 'auto',

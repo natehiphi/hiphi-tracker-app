@@ -11,7 +11,7 @@
 // own address (index.html and staff.html both load it); the old app lives on at classic.html for a week as the way
 // back, then retires. Screens are modules with
 // { render(route), wire(route, root), bar?(route), title(route), back?(route), tab, tabs?, wide?, narrow? }.
-import { S, DB, DEMO, DEMO_ASOF, SESSION_OVER, APP_URL, LINK_ERR, LINK_TOKEN, RECOVERY, setRecovery, hooks, esc, advocate, clearPractice, practiceRestarted, undoStartOver } from './data.js';
+import { S, DB, DEMO, DEMO_ASOF, LIVE_REFRESH, SESSION_OVER, APP_URL, LINK_ERR, LINK_TOKEN, RECOVERY, setRecovery, hooks, esc, advocate, clearPractice, practiceRestarted, undoStartOver } from './data.js';
 import { icon, btn, iconBtn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, closeSheet, takeSheetEntry, avatar, keysOn } from './ui.js';
 import { MARK } from '../pub/art.js';
 import { reportError } from './errlog.js';
@@ -265,9 +265,24 @@ export async function refreshData({ say = false } = {}) {
     return false;
   } finally { refreshing = false; }
 }
+// R-316 W43 (C-5): between those reloads, a light look about every 2 minutes while the page is in view, and at once when
+// it comes back into view: only the drafts and to-dos changed since the last look (DB.pollChanges, two small reads; most
+// come back empty), never the whole loadAll. A teammate's approval then shows within about 2 minutes instead of after a
+// Refresh. Redrawn only when something changed and nothing is being typed or open (as above). Gated: LIVE_REFRESH.
+const LOOK_MS = 2 * 60e3;
+let looking = false;
+async function lookAgain() {
+  if (!LIVE_REFRESH() || DEMO || !S.session || refreshing || looking || document.visibilityState !== 'visible') return;
+  looking = true;
+  try { if (await DB.pollChanges()) { FACTS.clear(); if (!busyTyping()) render(); } }
+  catch (e) { console.warn('look for changes:', e?.message || e); }   // a missed look is retried in 2 minutes; nothing to say
+  finally { looking = false; }
+}
+setInterval(lookAgain, LOOK_MS);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
   if (hiddenAt && Date.now() - hiddenAt >= STALE_MS && S.session) refreshData();
+  else if (hiddenAt) lookAgain();
   hiddenAt = 0;
 });
 let lastKey = '';
