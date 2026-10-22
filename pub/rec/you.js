@@ -20,6 +20,7 @@ import { codesOn } from '../phone.js';
 import { alertStatus } from '../alerts.js';
 import { myDistricts, seat, legName, meetEvent, HIPHI } from '../more.js';
 import { REC, recHead, recBack, recRow, recRows, recFold, recFolds, wireKit, BOX, keep } from './kit.js';
+import { youCard } from '../partners.js';   // "Your group" for a partner person (R-328): nothing for anyone else
 
 // ---------------- the stylesheet ----------------
 // pub/app.js brings rec/rec.css to every page under ?rec=1; this group's own rules come with the first of its pages. Until
@@ -107,7 +108,7 @@ export function youView() {
   const open = !!S.yuAbout;
   return `<div class="mr mr-more rc yu yu-you">
     ${recHead({ title: t('You') })}
-    ${meCard()}
+    ${meCard()}${youCard()}
     ${langPicker('mr-lang')}
     <nav class="yu-rows" aria-label="${esc(t('You'))}"><ul class="rc-rows ${BOX}" role="list">${rows.map(recRow).join('')}${eventRow()}</ul></nav>
     <nav class="yu-foot" aria-label="${esc(t('About this tracker'))}">

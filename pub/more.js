@@ -285,15 +285,12 @@ function meRow() {
   return `<a class="card mr-me" href="#/profile"><span class="pf-av" aria-hidden="true">${ini ? esc(ini) : icon('user')}</span>
     <span class="mr-me-t"><span class="mr-me-n">${name ? esc(name) : t('Your profile')}</span>${about ? `<span class="mr-me-s">${esc(about)}</span>` : ''}<span class="mr-me-l">${name ? t('Your profile') : t('Add your name and titles')}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`;
 }
-// You is drawn by pub/rec/you.js; the partner card goes in after the person's own card, before the rows (a hook from
-// here until rec/you.js draws it itself: if its markup changes, the card is simply left out).
-const withGroup = html => { const c = youCard(); return c && html.includes('<nav class="yu-rows"') ? html.replace('<nav class="yu-rows"', () => `${c}<nav class="yu-rows"`) : html; };
 // For advocacy groups (R-328 batch H, pub/groups.js): one quiet link in You's footer, after Privacy (the plan page: "linked
 // from You, Help and the footer"). Put in from here until rec/you.js draws it itself; if its footer's markup changes, the
 // link is simply left out.
 const withJoin = html => html.replace(/(<a class="yu-fl" href="#\/privacy">[^<]*<\/a>)/, (m) => `${m}<a class="yu-fl" href="#/groups">${t('For advocacy groups')}</a>`);
 function moreView() {
-  if (REC()) return withJoin(withGroup(youView()));
+  if (REC()) return withJoin(youView());   // You draws the partner's "Your group" card itself (rec/you.js, R-328)
   const d = myDistricts(), s = d && seat('S', d.senate), h = d && seat('H', d.house);
   const legSub = s && h ? t('{a} and {b}', { a: esc(legName(s)), b: esc(legName(h)) }) : t('Find your senator and representative');
   // The person comes first (R-147, Nate 10/4: "located where profiles usually sit"): their profile as the page's first row,

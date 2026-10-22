@@ -1873,7 +1873,7 @@ export const partnerSlug = s => String(s || '').toLowerCase().replace(/[āēīō
 // (SB 2345, warning labels on sugary drinks), new words on a bill HIPHI has no position on (SB 2073, water fluoridation,
 // untracked), an issue of its own, a request to join and a group waiting for approval (added by Jess, so Nate can
 // practise Approve; one he adds himself waits for Jess). Times are set from the practice clock when first asked for.
-const KS = 'keiki-smiles-alliance';
+const KS = 'keiki-smiles';   // the same slug as the public practice copy's sample group (pub/partners.js), so ?via= links match
 function demoPartners() {
   if (S.pDemo) return S.pDemo;
   const id = x => S.advocates.find(a => a.initials === x)?.id || null, nate = id('NT'), jess = id('JS');
