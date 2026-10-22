@@ -7,7 +7,11 @@
 // times and workflow switches wait behind one closed fold. "Coalitions I support" moved to each coalition's own page (the
 // same advocates.prefs.coalitions key, coalition.js), and the keyboard-shortcuts switch to Help > Keyboard shortcuts.
 import { S, DB, DEMO, APP_URL, esc, hooks } from './data.js';
-import { WORKFLOW_KINDS } from './model.js';
+import { WORKFLOW_KINDS, hearingAhead, diedish } from './model.js';
+// R-316 W32 (A-9): settings the database reads besides the seven kinds below, each on unless switched off: a to-do given to
+// you (065), "put you down for the hearing" (065), an issue made yours (091), a draft moved to you (088). "Only in the app"
+// turns these off too; approval stand-ins and copies of steps passed to you have no setting yet, so the page says they come.
+const MORE_KINDS = ['todo', 'hearing', 'issue', 'draft_moved'];
 import { icon, btn, switchRow, field, toast } from './ui.js';
 
 // Plain, verb-free labels for what each nudge is about (app.js WORKFLOW_KINDS keys, same order).
@@ -21,7 +25,13 @@ const hhmm = t => { const m = /^(\d{1,2}):(\d{2})/.exec(t || ''); if (!m) return
 // Which workflow switches apply to me: first approvals reach admins and approvers (can_approve, Kris; R-264 found the
 // approvers could not switch theirs off), second approvals only reviewers. Hidden ones keep
 // whatever value they had.
-const kindsFor = me => WORKFLOW_KINDS.map(([k]) => k).filter(k => (k !== 'review_requested' || me.is_admin || me.can_approve) && (k !== 'second_review_requested' || me.is_reviewer));
+// W32: a switch that can never fire for this person is not shown: someone who owns no bills gets no draft for one, and
+// "filed" goes to admins only (154).
+const ownsBills = me => (S.bills || []).some(b => (S.assignments[b.id] || []).includes(me.id));
+const kindsFor = me => WORKFLOW_KINDS.map(([k]) => k).filter(k => (k !== 'review_requested' || me.is_admin || me.can_approve) && (k !== 'second_review_requested' || me.is_reviewer)
+  && (k !== 'draft_created' || ownsBills(me)) && (k !== 'filed' || me.is_admin));
+// Bills this person owns that are still live with a hearing ahead: whose deadline alerts "Only in the app" silences.
+const liveOwned = me => (S.bills || []).filter(b => (S.assignments[b.id] || []).includes(me.id) && !diedish(b) && hearingAhead(b)).length;
 function current() {
   const me = S.me || {}, prefs = me.prefs || {}, rem = prefs.reminders || {}, wf = prefs.workflow || {}, dflt = (S.slackCfg || {}).reminder_defaults || {};
   const v = (x, d) => x == null ? d : x;
@@ -63,7 +73,7 @@ export default {
           <div class="card st-opts">
             ${opt('slack', 'Slack DM', esc(slackState) + (toEmail ? '. An admin has sent testimony steps to email for everyone.' : ''))}
             ${opt('email', 'Email', `To ${esc(me.email || 'your address')}. Testimony steps only; deadline alerts come only by Slack.${paused ? ' <b>Email is paused by an admin, so these are held.</b>' : ''}`)}
-            ${opt('app', 'Only in the app', 'No alerts. Today still lists everything.')}
+            ${opt('app', 'Only in the app', `No alerts, except when ${me.is_admin || me.can_approve || me.is_reviewer ? 'you stand in for an approver or ' : ''}a step is passed to you. Today still lists everything.${mode === 'app' && liveOwned(me) ? ` <b>Deadline alerts for your ${liveOwned(me)} live bill${liveOwned(me) === 1 ? '' : 's'} with a hearing ahead go to nobody.</b>` : ''}`)}
           </div></fieldset>
         <div class="btnrow st-acts">${btn('Send me a test DM', { kind: 'secondary', icon: 'send', attrs: { 'data-test': '1' } })}</div>
         ${fine}
@@ -99,10 +109,11 @@ export default {
         // Keep the choices for this visit, so switching back restores them instead of turning everything on.
         S.st2NudgeBackup = { rem: { ...rem }, wf: { ...wf } };
         const off = { ...rem, morning_on: false, before_on: false, after_on: false };
-        return save(me.slack_dm, { ...prefs, reminders: off, workflow: Object.fromEntries(Object.keys(wf).map(k => [k, false])) }, 'Saved. No alerts will come.');
+        return save(me.slack_dm, { ...prefs, reminders: off, workflow: Object.fromEntries([...Object.keys(wf), ...MORE_KINDS].map(k => [k, false])) }, `Saved. Only ${me.is_admin || me.can_approve || me.is_reviewer ? 'approval stand-ins and ' : ''}steps passed to you will reach you.`);
       }
       let r2 = rem, w2 = wf;
-      if (was === 'app') { const b = S.st2NudgeBackup; r2 = b ? b.rem : { ...rem, morning_on: true, before_on: true, after_on: true }; w2 = b ? b.wf : Object.fromEntries(Object.keys(wf).map(k => [k, true])); }
+      if (was === 'app') { const b = S.st2NudgeBackup; r2 = b ? b.rem : { ...rem, morning_on: true, before_on: true, after_on: true }; w2 = b ? b.wf : Object.fromEntries([...Object.keys(wf), ...MORE_KINDS].map(k => [k, true])); }
+      if (was === 'app') w2 = { ...Object.fromEntries(MORE_KINDS.map(k => [k, true])), ...w2 };   // W32: the four "Only in the app" turned off come back on
       save(to === 'slack', { ...prefs, reminders: r2, workflow: w2 }, to === 'slack' ? 'Saved. Alerts come by Slack DM.' : 'Saved. Alerts come by email.');
     });
     root.querySelectorAll('[data-rem], [data-wf], [data-remv]').forEach(i => i.onchange = () => {

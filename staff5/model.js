@@ -376,10 +376,13 @@ export function shareKit(b, h) {
   const when = h && h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? ` Testimony is due ${fmtDT(h.testimony_deadline)}.` : h && new Date(h.scheduled_at) > Date.now() ? ` The hearing is ${fmtDT(h.scheduled_at)}.` : '';
   return { link, message: `${ask}${when} It takes a few minutes: ${link}` };
 }
-export const inboxCount = () => (S.inbox || []).filter(i => i.direct && i.unread).length;
+// R-316 W32 (A-18): the tracker's own notes ("Hearing notice received ... no alerts sent", kind 'system') are updates, not
+// something to answer; its health alerts stay in To answer, since an admin has to act on them.
+const toAnswer = i => i.direct && !(i.kind === 'system' && !/^Bill Tracker health/i.test(i.title || ''));
+export const inboxCount = () => (S.inbox || []).filter(i => toAnswer(i) && i.unread).length;
 export function inboxRows() {
   const v = S.inboxView ??= { tab: 'needs', kind: '', unreadOnly: false, sort: 'new', q: '', group: true };
-  let rows = (S.inbox || []).filter(i => v.tab === 'all' || (v.tab === 'needs' ? i.direct : !i.direct));
+  let rows = (S.inbox || []).filter(i => v.tab === 'all' || (v.tab === 'needs' ? toAnswer(i) : !toAnswer(i)));
   if (v.kind) rows = rows.filter(i => i.kind === v.kind);
   if (v.unreadOnly) rows = rows.filter(i => i.unread);
   if (v.q.trim()) { const q = v.q.trim().toLowerCase(); rows = rows.filter(i => [i.bill_number, i.title, i.body].join(' ').toLowerCase().includes(q)); }
@@ -681,6 +684,20 @@ export const attendees = h => (S.attend?.[h.id] || []).map(advocate).filter(Bool
 export const OUTCOME_LABEL = { passed: 'Passed', passed_amended: 'Passed with amendments', deferred: 'Deferred', recommitted: 'Recommitted' };
 export const DRAFT_RANK = { approved: 5, second_review: 4, review: 3, draft: 2, filed: 1 };
 export const unreadCount = b => (S.messages?.[b.id] || []).filter(m => m.advocate_id !== S.me?.id && (!S.chatSeen?.[b.id] || m.created_at > S.chatSeen[b.id])).length;
+// R-316 W49: a decision-making sitting (the committee votes, often days after its hearing) is named so, and never borrows
+// the draft filed for the earlier hearing: the draft job makes one Doc per bill and committee, so that Doc is the
+// hearing's, and its Undo filed would undo the hearing's filing. A rescheduled hearing still keeps its draft.
+export const isDecision = h => /decision making/i.test(h?.description || '');
+export function sittingDraft(h, billId) {
+  const own = (S.drafts?.[billId] || []).find(d => d.hearing_id && d.hearing_id === h.id && d.status !== 'cancelled'); if (own) return own;
+  const d = draftFor(billId, h.committee);
+  return d && isDecision(h) && d.hearing_id && d.hearing_id !== h.id ? null : d || null;
+}
+// The draft filed for that earlier hearing, so the sitting can say "HIPHI filed for the 2/12 hearing".
+export function earlierFiled(h, billId) {
+  if (!isDecision(h)) return null; const d = draftFor(billId, h.committee);
+  return d && d.status === 'filed' && d.hearing_id && d.hearing_id !== h.id ? d : null;
+}
 export function draftFor(billId, committee) {
   return (S.drafts[billId] || []).find(d => d.committee === committee && d.status !== 'cancelled');
 }

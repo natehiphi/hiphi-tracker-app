@@ -16,7 +16,7 @@ import { icon, btn, iconBtn, chip, empty, notice, toast, pickerSheet, avatar, co
 import { goingBtn, showAllBtn, mayUnfile, undoFiledLink } from './ui.js';   // R-277 fix 4 (U-4, U-8): one look per action; the going toggle is no longer drawn as a chip
 import { photo, legName, partyDist, roleWord, legHref, wireLinks } from './pathway.js';
 import { rerender, viewIsNew } from './bill.js';
-import { billRoute, whenAt, spanOf, roomName, hearingWhen } from './model.js';
+import { billRoute, whenAt, spanOf, roomName, hearingWhen, isDecision, sittingDraft, earlierFiled, draftHearing } from './model.js';
 
 const HR = 36e5, FOLD = 10;
 const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
@@ -49,11 +49,14 @@ const chamberOf = code => { const c = codesOf(code).map(k => S.committees?.[k]).
 const roomOf = roomName;   // R-277 fix 3: model.js, "Room 430" on every screen
 // Written testimony is due at the notice's deadline, else 24 hours before the hearing (the Hawaiʻi rule; bill.js dueOf).
 export const dueOf = h => h.testimony_deadline || new Date(new Date(h.scheduled_at).getTime() - 864e5).toISOString();
-const draftOf = x => (S.drafts?.[x.b.id] || []).find(d => d.hearing_id && d.hearing_id === x.h.id && d.status !== 'cancelled') || draftFor(x.b.id, x.h.committee) || null;
+const draftOf = x => sittingDraft(x.h, x.b.id);   // R-316 W49: never the earlier hearing's draft on a decision-making sitting
 // Where a bill's testimony for one hearing stands, in words and an icon, never colour alone (A-5). The coalition page
 // uses the same words for a sitting's testimony that is not filed yet.
 export function testimonyOf(h, b) {
   const d = draftOf({ h, b });
+  // W49: filed for the hearing before this decision making; counted as filed, so nothing nags, with no Undo filed here.
+  const e = !d && earlierFiled(h, b.id), eh = e && draftHearing(e);
+  if (e) return { filed: true, earlier: true, word: 'filed for the hearing', label: `HIPHI filed for the ${eh ? new Date(eh.scheduled_at).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', month: 'numeric', day: 'numeric' }) + ' ' : 'earlier '}hearing`, icon: 'check' };
   if (!d) return { filed: false, word: 'not started', label: 'No testimony yet', icon: 'file-text' };
   if (d.status === 'filed') return { filed: true, word: 'filed', label: 'Testimony filed', icon: 'check' };
   const st = b.current_version && (d.version || null) !== b.current_version ? ['out of date', 'triangle-alert']
@@ -106,7 +109,7 @@ function headHTML(c) {
   return `<header class="hr-head">
     <span class="hr-hicon" aria-hidden="true">${icon('landmark')}</span>
     <div class="hr-hbody">
-      <p class="hr-kind">${esc(`${ch ? ch + ' ' : ''}${joint ? 'joint hearing' : 'hearing'}`)} · <span class="hr-code">${esc(h.committee)}</span></p>
+      <p class="hr-kind">${esc(isDecision(h) ? 'Decision making' : `${ch ? ch + ' ' : ''}${joint ? 'joint hearing' : 'hearing'}`)} · <span class="hr-code">${esc(h.committee)}</span></p>
       <h1>${esc(cmteName(h.committee))}</h1>
       <p class="hr-line">${icon('calendar-clock')}<span>${esc((over && !cancelled ? 'Held ' : '') + whenAt(h.scheduled_at)).replace(/^./, c => c.toUpperCase())} · ${room ? esc(room) : 'room not posted yet'}</span></p>
       ${due ? `<p class="hr-line hr-due">${icon('file-text')}<span>Testimony due ${esc(fmtDT(due))}</span>${countdown(due, { until: h.scheduled_at })}</p>` : ''}
@@ -330,7 +333,7 @@ export default {
   get tab() { return /[?&]from=(today|week)\b/.test(location.hash) || !/[?&]from=/.test(location.hash) ? 'today' : 'legislators'; },
   // The two columns need more than the 720px column the frame gives a plain page between 900 and 1099px.
   wide: () => DESK(),
-  title: route => { const h = hearingById(route.id); return h ? `${h.committee} hearing` : 'Hearing'; },
+  title: route => { const h = hearingById(route.id); return h ? `${h.committee} ${isDecision(h) ? 'decision making' : 'hearing'}` : 'Hearing'; },
   back: route => backOf(route),
   render(route) {
     const h = hearingById(route.id);

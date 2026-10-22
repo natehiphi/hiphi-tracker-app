@@ -61,7 +61,7 @@ import { draftAsking, makeDraftNow } from './testimony.js';
 import { openLook, lookFacts } from './look.js';
 import { billPane, bpHearing, bpFacts, bpOpen } from './billpane.js';   // R-277 fix 17: one open-bill panel for Today and Bills
 import { todayPrepNotice, prepTaskOf, dueEnd as prepDue, issueHref, prepListHref } from './prep.js';
-import { sessionGates, lastSlotBefore, noticeByFor, billByNum, plainDeadlines, plainGate, askWords, gateName, wantsHearing, companionsOf } from './model.js';
+import { sessionGates, lastSlotBefore, noticeByFor, billByNum, plainDeadlines, plainGate, askWords, gateName, wantsHearing, companionsOf, sittingDraft } from './model.js';
 import { dailyWord } from './composer.js';   // which 4:30 pm email a Send joins
 import { testimonyOf, agendaOf, unfile } from './hearing.js';   // where a hearing's testimony stands, in the coalition page's words (v4, R-269)
 
@@ -1136,7 +1136,7 @@ function hearingsIn(d0, d1, scope, who, pick = null) {
   }
   return out.sort((x, y) => x.t - y.t || String(x.h.committee).localeCompare(String(y.h.committee)) || (x.b.position === 'monitor') - (y.b.position === 'monitor') || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true }));
 }
-const draftOf = h => (S.drafts?.[h.bill_id] || []).find(d => d.hearing_id && d.hearing_id === h.id && d.status !== 'cancelled') || draftFor(h.bill_id, h.committee) || null;
+const draftOf = h => sittingDraft(h, h.bill_id);   // R-316 W49: a decision-making sitting never borrows the hearing's draft
 // "Lauren is going", "You and Lauren are going": who is going to a hearing, you first; empty when nobody is. A sitting
 // hears several bills and a person marks one of them, so the Week view passes everyone marked on any of its bills.
 function goingOf(people) {
