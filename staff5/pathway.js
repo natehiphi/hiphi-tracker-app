@@ -15,7 +15,8 @@ import { rerender } from './bill.js';   // used inside functions only (bill.js i
 // ---- small shared helpers (exported for legislators.js, legislator.js, search.js) ----
 export const STANCE_WORD = Object.fromEntries(STANCES.map(([v, l]) => [v, l]));
 import { billRoute, whenAt, hearingWhen, roomName, companionsOf } from './model.js';
-import { introChip, introSort } from './holding.js';   // R-316 W41 (practice copy): who introduced it, or its twin
+import { introChip, introSort } from './holding.js';
+import { TERMS_TAP, HOW_TO, termBtn } from './terms.js';   // R-316 W40, W37 (practice copy): a joint referral says what it is; how to ask   // R-316 W41 (practice copy): who introduced it, or its twin
 // Words carry the meaning; the icon only helps the eye. Leaning and firm share an icon, so the word always shows.
 export const STANCE_ICON = { yes: 'thumbs-up', leaning_yes: 'thumbs-up', unknown: 'circle-dashed', leaning_no: 'thumbs-down', no: 'thumbs-down' };
 export const legName = l => `${legTitle(l)} ${l.name}`;
@@ -178,6 +179,7 @@ const moreBtn = (key, members) => cap(key, members) < members.length ? showAllBt
 // within the hour on Next up is the biggest thing on the page. One click opens it, for the visit (S.cmMem).
 const memFolded = (key, t, members) => !!t && t.c.unknown === members.length && !S.cmMem?.has(key);
 const memFoldBtn = (key, members) => btn(`Committee members · ${members.length} · no stances recorded yet`, { kind: 'text', icon: 'users', iconEnd: 'chevron-down', cls: 'bw-cmall bw-cmfold', attrs: { 'data-cmmem': key, 'aria-expanded': 'false' } });
+const wantsAsk = b => !['monitor', 'oppose', 'strongly_oppose'].includes(b.position || 'monitor');   // model.js wantsHearing, W2
 export function renderCommittees(b) {
   if (!b) return '';
   const st = stopOf(b), all = hearingsOf(b), now = Date.now();
@@ -214,12 +216,15 @@ export function renderCommittees(b) {
     const t = members && members.length ? tally(b, members) : null;
     // Testimony for a hearing still ahead is on Next up, filed or not; here only what was filed for a hearing held.
     const tm = filed.filter(d => d.hearing_id ? held.some(h => h.id === d.hearing_id) : sameCmte(d.committee, s.committee) && !ahead);
-    const body = [
+    // W40 (L-6): "HHS/CPN" was explained nowhere; W37: the steps for the ask, beside the stop that needs it.
+    const pre = (TERMS_TAP() && joint ? `<p class="small bw-joint">${termBtn(`${s.committee}: a joint referral`, 'cmte:' + s.committee)}</p>` : '')
+      + (HOW_TO() && s.state === 'current' && !ahead && wantsAsk(b) ? `<p class="small bw-how">${icon('circle-help')}<a href="#/help/hearing">How to ask for a hearing</a></p>` : '');
+    const body = pre + ([
       ...held.map(h => hearingLine(b, h)),
       ...tm.map(testimonyLine),
       members ? (members.length ? memFolded(key, t, members) ? memFoldBtn(key, members) : `${t ? `<p class="bw-cmtally" title="${esc(t.full)}"><span class="sr">${esc(t.full)}</span><span aria-hidden="true">Where they stand: ${esc(t.text)}</span></p>` : ''}${desk ? memberTable(b, s, members, joint, i, cap(key, members)) : `<div class="bw-cmmem">${members.slice(0, cap(key, members)).map(m => memberRow(b, m, joint)).join('')}</div>`}${moreBtn(key, members)}`
         : '<p class="small muted bw-cmnone">No member list for this committee yet.</p>') : '',
-    ].join('') || `<p class="small muted bw-cmnone">${ahead ? 'Its hearing is on Next up.' : 'No hearing recorded.'}</p>`;
+    ].join('') || `<p class="small muted bw-cmnone">${ahead ? 'Its hearing is on Next up.' : 'No hearing recorded.'}</p>`);
     const head = !shownPred && s.state === 'predicted' ? (shownPred = true, `<li class="bw-cmpred">${predFrom}</li>`) : '';
     return `${head}<li class="bw-cmstop is-${s.state}">
       <h3 class="bw-cmh3"><button type="button" class="bw-cmrow" data-lgfold="${esc(key)}" aria-expanded="${open}" aria-controls="bw-cms-${i}">

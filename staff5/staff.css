@@ -919,3 +919,28 @@ body.staff2 .bp-h3 { margin: 0 0 var(--s4); font: 700 var(--t13)/18px var(--font
 .hb-bills a:hover .bn-nick { text-decoration: underline; }
 .hb-end { display: flex; align-items: center; gap: var(--s8); margin-left: auto; font-size: var(--t13); }
 @media (max-width: 30em) { .hb-top .btn { flex: 1 1 100%; } }
+
+/* R-316 W40 (practice copy): a Capitol word that opens its meaning (staff5/terms.js). It reads as the words around it,
+   with a dotted underline, so a row's rhythm does not change (B-9: the tap replaces the hover-only title). On a touch
+   screen its target grows to 44px without moving anything (A-6). */
+button.tm-term { display: inline; padding: 0; margin: 0; border: 0; background: none; font: inherit; color: inherit; line-height: inherit; text-align: inherit; cursor: pointer;
+  text-decoration: underline dotted; text-decoration-color: var(--n500); text-decoration-thickness: 1px; text-underline-offset: 3px; position: relative; border-radius: 2px; }
+button.tm-term:hover { color: var(--p700); text-decoration-color: currentColor; }
+button.tm-term:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; }
+button.tm-term[aria-expanded="true"] { color: var(--p700); text-decoration-style: solid; }
+@media (pointer: coarse), (max-width: 899px) { button.tm-term { display: inline-block; padding: 12px 0; margin: -12px 0; } }   /* as main's link buttons do (line 784) */
+dialog.sv-sheet.tm-pop .tm-def { margin: 0; font-size: var(--t14); line-height: 1.5; color: var(--n900); max-width: 34em; }
+dialog.sv-sheet.tm-pop .tm-more { margin: var(--s8) 0 0; font-size: var(--t13); }
+dialog.sv-sheet.tm-pop .tm-more a { display: inline-block; padding: 12px 0; margin: -12px 0; }
+@media (min-width: 900px) { dialog.sv-sheet.sv-pop.tm-pop .sv-sh-body { padding: var(--s4) var(--s16) var(--s12); } dialog.sv-sheet.sv-pop.tm-pop .sv-sh-head h2 { color: var(--n900); } }
+.bl-num .bl-ver { color: var(--n500); }
+.bp-cn { display: block; font-size: var(--t13); color: var(--n700); font-weight: 400; }
+.bw-joint { margin: 0 0 var(--s8); color: var(--n700); }
+/* R-316 W37 (practice copy): the how-to links beside the job, and Help's Ask in Slack when a search finds nothing */
+.bw-how, .lg-how { display: flex; align-items: center; gap: var(--s4); margin: 0 0 var(--s8); color: var(--n700); }
+.bw-how a, .lg-how a, .bl-how { display: inline-block; padding: 12px 0; margin: -12px 0; }
+.lg-how { margin-top: var(--s16); }
+.st-ask { margin-top: var(--s16); padding-top: var(--s12); border-top: 1px solid var(--n100); }
+.st-ask p { margin: 0 0 var(--s8); }
+.st-ask .st-askw { margin: var(--s8) 0 0; overflow-wrap: anywhere; }
+body.staff2 .st-duo .st-navh { margin: var(--s12) 0 2px; padding: 0 var(--s12); font-size: var(--t13); font-weight: 700; color: var(--n500); }

@@ -20,6 +20,7 @@ import { dockPane, wirePane } from './today.js';   // R-277 fix 17 (U-1): the do
 import { bulkBar, wireBulkBar, startSelect, stopSelect, dropSelect, selIds, FIELD } from './bulk.js';
 import { billRoute, billRef, whenAt, plainDeadlines, plainGate } from './model.js';
 import { GROUPS, groupKey } from './standing.js';
+import { TERMS_TAP, HOW_TO, termBtn, termCodes } from './terms.js';   // R-316 W40, W37 (practice copy): Capitol words tap open; How to ask for a hearing
 
 // ---- groups, in stage order: GROUPS and groupKey live in standing.js, shared with an issue's page (R-226) ----
 const FOLDED = new Set(['mon', 'dead']);
@@ -128,6 +129,8 @@ function whereCell(b) {
   if (s.phase === 'governor') return ['Governor', '', ''];
   if (s.phase === 'floor') return [`${chamberOf(s)} floor`, '', `Through its ${chamberOf(s)} committees, waiting for the full ${chamberOf(s)} to vote`];
   if (s.phase === 'conference') return ['Conference', '', 'House and Senate negotiators settling one version'];
+  // R-316 W40 (B-9): the committee's name was only on hover; with the gate on the code itself opens it (and the order).
+  if (s.committee && TERMS_TAP()) return [`In ${termBtn(s.committee, 'cmte:' + s.committee, { more: s.stops > 1 ? `Committee ${s.stop} of ${s.stops} in the ${chamberOf(s)}: it needs a yes from each, in order.` : '' })}`, s.stops > 1 ? `${ORD[s.stop] || s.stop} of ${s.stops}` : '', ''];
   if (s.committee) return [`In ${esc(s.committee)}`, s.stops > 1 ? `${ORD[s.stop] || s.stop} of ${s.stops}` : '', `${glossCommittee(s.committee)}${s.stops > 1 ? `. Committee ${s.stop} of ${s.stops} in the ${chamberOf(s)}: it needs a yes from each, in order` : ''}`];
   return [chamberOf(s), 'no referral yet', ''];
 }
@@ -211,13 +214,15 @@ function dueLink(x) {
 // Shortened after the fresh-eyes review (R-264): the line names only the first deadline that leaves work, as Today's
 // does ("Mon 3/30 deadline · 16 bills with no hearing yet"); a deadline whose racing bills all have a hearing asks
 // nothing, so it is not said (rule 4: numbers only where they ask for action). With nothing left to do, one quiet line.
+const howLink = () => HOW_TO() ? ` · <a class="bl-how" href="#/help/hearing">How to ask for a hearing</a>` : '';
 function deadlineLine(list) {
   const c = sessionClock(list); if (!c) return '';
   const x = c.noHearing.length ? c : c.then && c.then.noHearing.length ? c.then : null;
   if (!x) return `<p class="bl-dls">${icon('calendar-clock')}<span>Every bill racing the next deadline has a hearing.</span></p>`;
   const soon = x === c && c.days <= 1;   // amber only inside a day of the deadline (A-5), and the words say it too
-  if (plainDeadlines()) return `<p class="bl-dls${soon ? ' soon' : ''}">${icon('calendar-clock')}<span><b>${esc(plainGate(x.label, dueDay(x.date)))}</b>${x === c ? ` (${away(c)})` : ''}: ${dueLink(x)}</span></p>`;
-  return `<p class="bl-dls${soon ? ' soon' : ''}">${icon('calendar-clock')}<span><b>${esc(x.name)}</b>, <span class="bl-dlday">${esc(dueDay(x.date))}${x === c ? ` (${away(c)})` : ''}</span>: ${dueLink(x)}</span></p>`;
+  if (plainDeadlines()) return `<p class="bl-dls${soon ? ' soon' : ''}">${icon('calendar-clock')}<span><b>${esc(plainGate(x.label, dueDay(x.date)))}</b>${x === c ? ` (${away(c)})` : ''}: ${dueLink(x)}${howLink()}</span></p>`;
+  // W40: the deadline's name opens what it means; W37: the how-to sits beside the count it is about (S-5).
+  return `<p class="bl-dls${soon ? ' soon' : ''}">${icon('calendar-clock')}<span><b>${TERMS_TAP() ? termBtn(x.name, 'gate:' + x.name) : esc(x.name)}</b>, <span class="bl-dlday">${esc(dueDay(x.date))}${x === c ? ` (${away(c)})` : ''}</span>: ${dueLink(x)}${howLink()}</span></p>`;
 }
 // A search in Mine (or My coalitions) says when the team has more, and offers the switch (the current app's "show
 // everyone"). The rows are the answer, so the line no longer counts them; a screen reader still hears how many.
@@ -423,14 +428,16 @@ function table(groups) {
   const cell = (c, b) => {
     switch (c.k) {
       case 'sel': return `<td class="bl-ck"><label><input type="checkbox" data-sel="${b.id}" ${v.sel.has(b.id) ? 'checked' : ''} aria-label="Select ${esc(billSay(b))}"></label></td>`;
-      case 'bill': return `<td class="bl-num"><a href="${billRoute(b)}" data-bill="${b.id}"><span>${esc(b.bill_number)}</span>${b.current_version ? ` <span>${esc(b.current_version)}</span>` : ''}</a>${folMark(b)}</td>`;
+      // W40: the version (HD1, SD2) opens what it means; a button cannot sit inside the bill's link, so it follows it.
+      case 'bill': return TERMS_TAP() && b.current_version ? `<td class="bl-num"><a href="${billRoute(b)}" data-bill="${b.id}"><span>${esc(b.bill_number)}</span></a> ${termBtn(b.current_version, 'ver:' + b.current_version, { cls: 'bl-ver' })}${folMark(b)}</td>`
+        : `<td class="bl-num"><a href="${billRoute(b)}" data-bill="${b.id}"><span>${esc(b.bill_number)}</span>${b.current_version ? ` <span>${esc(b.current_version)}</span>` : ''}</a>${folMark(b)}</td>`;
       // Compact rows (v3's default) name the bill once: its nickname, or the summary when it has none. The summary
       // is in the docked bill and on hover (rule 2: summaries live in the open item).
       case 'title': return `<td class="bl-ti">${two(ci ? (b.nickname ? `<b>${esc(b.nickname)}</b>` : esc(summaryOf(b))) : `${b.nickname ? `<b>${esc(b.nickname)}</b> <br>` : ''}${esc(summaryOf(b))}`, fullTitle(b))}</td>`;
       case 'where': return `<td>${lines(whereCell(b))}</td>`;
       case 'next': { const c3 = nextCell(b), s = stOf(b), ts = s.hearingState === 'scheduled' ? testStep(b, s.hearing) : null;   // data-step/-due: the same facts as My issues (staff5_step_match.py)
         return `<td${ts ? ` data-step="${esc(ts.w)}" data-due="${esc(ts.at || '')}"` : ''}>${c3[0] ? lines(c3) : none}</td>`; }
-      case 'cmte': { const r = (b.referrals || []).join(', '); return `<td>${r ? two(esc(r), glossCommittee((b.referrals || []).join('/'))) : none}</td>`; }
+      case 'cmte': { const r = (b.referrals || []).join(', '); return `<td>${r ? TERMS_TAP() ? two(termCodes(esc(r))) : two(esc(r), glossCommittee((b.referrals || []).join('/'))) : none}</td>`; }
       case 'coal': { const n = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(x => x.id === id)?.name).filter(Boolean).join(', '); return `<td>${n ? two(esc(n), n) : none}</td>`; }
       case 'last': return `<td>${b.last_action ? two(`${b.last_action_date ? `<span class="bl-date">${md(b.last_action_date)}</span> ` : ''}${esc(b.last_action)}`, b.last_action) : none}</td>`;
       case 'pulse': return `<td>${pulseText(b)}</td>`;
