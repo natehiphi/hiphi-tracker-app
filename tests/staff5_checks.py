@@ -384,12 +384,12 @@ def batch_e_panel(b, page, go):
 URGENT = r"""() => { const e = [...document.querySelectorAll('.td-root .td-row, .td-root .td-card, .td-root .td-mine, .td-root [data-top]')].find(x => x.getClientRects().length);
   if (!e) return null; const q = e.getBoundingClientRect(); return { top: Math.round(q.top), bottom: Math.round(q.bottom), text: e.innerText.replace(/\s+/g, ' ').slice(0, 60) }; }"""
 LONG = r"""() => { const vis = e => e.getClientRects().length && !e.closest('details:not([open])'); const out = [];
-  for (const l of document.querySelectorAll('main ul, main ol, main .rows, main .td-rows, main .td-list, main .td-mrows, main .ib-list, main .wk-col')) {
+  for (const l of document.querySelectorAll('main ul, main ol, main .rows, main .td-rows, main .td-list, main .td-mrows, main .ib-list, main .ist-list, main .wk-col')) {
     const n = l.matches('.wk-col') ? [...l.querySelectorAll('.wk-bills > li, .wk-others > li, a.wk-timed, details.wk-blk')].filter(vis).length : [...l.children].filter(vis).length;
     if (n > 25) out.push(`${l.className || l.tagName}: ${n}`); }
   for (const t of document.querySelectorAll('main tbody.bl-tg')) { const n = [...t.querySelectorAll('tr[data-row]')].filter(vis).length; if (n > 25) out.push(`Bills group: ${n}`); }
   return out; }"""
-VOL_ROUTES = ['/', '/?scope=team', '/?view=week', '/bills', '/outreach', '/inbox', '/my-issues', '/coalition', '/review']
+VOL_ROUTES = ['/', '/?scope=team', '/?view=week', '/bills', '/outreach', '/outreach/issues', '/inbox', '/my-issues', '/coalition', '/review']   # /outreach/issues: R-316 W56 (FR-6)
 
 def batch_e_volume(b, times=2):
   first, long = [], []

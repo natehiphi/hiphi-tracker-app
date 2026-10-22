@@ -18,7 +18,7 @@
 // "Past a deadline" is read from the deadline each bill is racing (stops.js billStop): a later one means it already cleared
 // the earlier; one through the Legislature (Governor, law) is past every committee deadline.
 import { S, SESSION_YEAR, SESSION_OVER, esc, fmtDT } from './data.js';
-import { stopOf, riskOf, diedish, hearingAhead, billNum, plain, whenAt, deadlineName } from './model.js';
+import { stopOf, riskOf, diedish, hearingAhead, billNum, plain, whenAt, deadlineName, gateNeed } from './model.js';
 import { icon, iconBtn } from './ui.js';
 import { plural } from './lists.js';
 import { dayOf } from './standing.js';
@@ -69,7 +69,9 @@ export function standOf(i) {
 }
 
 // The mark on an issue's line, in words and an icon, never colour alone (A-5). The hearing, when one is set, leads.
-export function markHTML(x) {
+// `under`: the deadline date the group heading already names (R-316 W56, FR-6), so the row says "Needs a hearing" without
+// repeating the date and the warning icon 28 times; the heading carries both.
+export function markHTML(x, { under = null } = {}) {
   const { i, hear } = x, parts = [];
   if (hear) parts.push(`<span class="ist-m ist-hear">${icon('calendar-days')}<span>Hearing ${esc(whenAt(hear.h.scheduled_at))} · ${esc(shortName(hear.b, i))}</span></span>`);
   const dlw = d => `${deadlineName(d)} ${dayAt(d.date)}`;   // "Second lateral", never a bare "Lateral" (R-316 W1, C-15)
@@ -79,9 +81,10 @@ export function markHTML(x) {
     safe: () => `<span class="ist-m ist-safe">${icon('shield-check')}<span><b>Safe</b>${x.deadline ? ` · ${hear && x.carried.length === 1 && x.carried[0] === hear.b ? '' : esc(names(x.carried, i)) + ' '}past ${esc(x.deadline.label)}` : ' · through its committees'}</span></span>`,
     // No bill past the next deadline and some still unheard: the issue dies then unless one gets a hearing. Said in the at-risk
     // words with the warning icon, in plain dark text; red and "At risk" stay for the last week (A-5, the critic's high).
-    ahead: () => !x.deadline ? '' : x.facing?.length ? `<span class="ist-m ist-need">${icon('triangle-alert')}<span><b>Needs a hearing by ${esc(dlw(x.deadline))}</b> · ${esc(names(x.facing, i))}, no bill past it</span></span>`
-      : `<span class="ist-m ist-ahead">${icon('clock')}<span>${esc(dlw(x.deadline))}</span></span>`,
-    oppose: () => hear ? '' : `<span class="ist-m ist-ahead">${icon('circle-x')}<span>HIPHI opposes · no hearing set${x.next ? ` · ${esc(dlw(x.next))}` : ''}</span></span>`,
+    ahead: () => !x.deadline ? '' : x.facing?.length ? (under === x.deadline.date ? `<span class="ist-m ist-ahead">${icon('clock')}<span><b>Needs a hearing</b> · ${esc(names(x.facing, i))}, no bill past it</span></span>`
+        : `<span class="ist-m ist-need">${icon('triangle-alert')}<span><b>Needs a hearing by ${esc(dlw(x.deadline))}</b> · ${esc(names(x.facing, i))}, no bill past it</span></span>`)
+      : `<span class="ist-m ist-ahead">${icon('clock')}<span>${under === x.deadline.date ? 'No bill waiting for a hearing' : esc(dlw(x.deadline))}</span></span>`,
+    oppose: () => hear ? '' : `<span class="ist-m ist-ahead">${icon('circle-x')}<span>HIPHI opposes · no hearing set${x.next && under !== x.next.date ? ` · ${esc(dlw(x.next))}` : ''}</span></span>`,
     stopped: () => `<span class="ist-m ist-off">${icon('circle-minus')}<span>${i.stance === 'oppose' ? 'Its bills did not advance' : 'Nothing moving this session'}</span></span>`,
     none: () => `<span class="ist-m ist-off">${icon('circle-dashed')}<span>No ${esc(SESSION_YEAR)} bills on it yet</span></span>`,
     off: () => '',
@@ -180,14 +183,26 @@ export function searcher(q) {
 // One line per issue: its topic's icon, its name (with "You help" or "Draft" where it applies), the mark, and its bills by
 // short name. The whole line opens the issue's page, where its week and every bill are (R-226).
 const catOf = k => (S.categories || []).find(c => c.key === k) || null;
-export function lineHTML(x, { from = '', tags = [], why = null, noIcon = false } = {}) {
+export function lineHTML(x, { from = '', tags = [], why = null, noIcon = false, under = null } = {}) {
   const { i } = x, c = catOf(i.category), href = `#/issue/${encodeURIComponent(i.id)}${from ? `?from=${from}` : ''}`;
-  const mark = markHTML(x), bl = why ? `Found by its bill ${shortName(why, i)}` : billsLine(x);
+  const mark = markHTML(x, { under }), bl = why ? `Found by its bill ${shortName(why, i)}` : billsLine(x);
   return `<a class="ist-row" href="${href}">${noIcon ? '' : `<span class="ist-ic" aria-hidden="true">${icon(c?.icon || 'tag')}</span>`}
     <span class="ist-body"><span class="ist-name"><span class="ist-nm">${esc(i.name)}</span>${tags.map(t => `<span class="ist-tag">${esc(t)}</span>`).join('')}</span>
       ${mark ? `<span class="ist-marks">${mark}</span>` : ''}${bl ? `<span class="ist-bills">${esc(bl)}</span>` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</a>`;
 }
-const listHTML = (l, o) => `<div class="ist-list">${l.map(x => lineHTML(x, { ...o, tags: o.tagsOf ? o.tagsOf(x) : [] })).join('')}</div>`;
+// R-316 W56 (FR-6, R-277's 25-row rule): a long group shows its first 8 lines, then "Show the other N".
+const SHOW = 8;
+const listHTML = (l, o) => { const line = x => lineHTML(x, { ...o, tags: o.tagsOf ? o.tagsOf(x) : [] });
+  if (!o.cut || l.length <= SHOW + 2) return `<div class="ist-list">${l.map(line).join('')}</div>`;
+  return `<div class="ist-list">${l.slice(0, SHOW).map(line).join('')}</div><details class="ist-more"><summary>${icon('chevron-down', { cls: 'is-chev' })}<span>Show the other ${l.length - SHOW}</span></summary><div class="ist-list">${l.slice(SHOW).map(line).join('')}</div></details>`; };
+// Next deadlines, one group per deadline, its date said once in the heading: "Second lateral, Mon 3/30: bills must
+// reach their last committee · 28 issues".
+function byDeadline(l, o) {
+  const keyOf = x => (x.state === 'oppose' ? x.next : x.deadline) || null, groups = new Map();
+  for (const x of l) { const d = keyOf(x), k = d ? d.date : ''; if (!groups.has(k)) groups.set(k, { d, l: [] }); groups.get(k).l.push(x); }
+  return [...groups.values()].map(({ d, l }) => `<h3 class="ist-sub">${d ? `${esc(deadlineName(d))}, ${esc(dayAt(d.date))}: <span class="ist-subw">bills must ${esc(gateNeed(d.label, 2))}</span>` : 'No deadline set'} <span class="ist-subn">· ${plural(l.length, 'issue')}</span></h3>
+    ${listHTML(l, { ...o, under: d?.date || null, cut: true })}`).join('');
+}
 const fold = (id, title, l, o) => `<details class="ist-fold" data-fold="${id}"><summary>${icon('chevron-down', { cls: 'is-chev' })}<span>${esc(title)} (${l.length})</span></summary>${listHTML(l, o)}</details>`;
 
 export function deadlineHTML(list, o = {}) {
@@ -197,7 +212,7 @@ export function deadlineHTML(list, o = {}) {
     // R-277 fix 13 (A-24: numbers only where they ask for action): an open group's rows are in view, so its heading no
     // longer counts them ("This week 9"); a folded group keeps its count, the only sign of what is inside.
     return `<section class="ist-sec ist-sec-${k}" aria-labelledby="ist-h-${k}"><h2 class="ist-h" id="ist-h-${k}">${esc(title)}</h2>
-      ${l.length ? listHTML(l, o) : '<p class="ist-empty">Nothing at risk and no hearing this week.</p>'}</section>`;
+      ${!l.length ? '<p class="ist-empty">Nothing at risk and no hearing this week.</p>' : k === 'next' ? byDeadline(l, o) : listHTML(l, { ...o, cut: k !== 'week' || l.length > 25 })}</section>`;   // This week stays whole: it is what is due
   }).join('');
 }
 // By topic: the six topics in their order. `folded` (All issues, about 90 issues) keeps one topic open at a time with its

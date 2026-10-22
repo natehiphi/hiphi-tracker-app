@@ -127,3 +127,5 @@
   .co-shd a:hover, .co-url:hover { text-decoration: underline; }
   .co-arow .btn:hover { background: var(--p50); }
 }
+/* R-316 W56: "Nobody from the team is going to any of the N yet", said once above the week's hearings. */
+.co-nobody { margin: 0 0 8px; }

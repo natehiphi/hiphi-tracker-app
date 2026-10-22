@@ -15,7 +15,7 @@
 // other words people use (SYN), and has How to file at the Capitol (linked from the Mark filed sheet) and Which alerts you
 // get. "Where things live" is "Drive, Slack and the calendar", since it is about those, not the app (the app map is What
 // each place is for). Its words match the menus (fix 2: Send for approval, Send back, to-do, alerts, I help on).
-import { S, DEMO, APP_URL, STAGES, esc, fmtDate } from './data.js';
+import { S, DB, DEMO, APP_URL, STAGES, esc, fmtDate } from './data.js';
 import { glossStage, legislativeDay, PUBLIC_APP, plain } from './model.js';
 import { icon, btn, row, switchRow, toast, keysOn, setKeys } from './ui.js';
 
@@ -25,8 +25,18 @@ const names = pred => S.advocates.filter(a => pred(a) && a.is_active !== false).
 const orList = xs => xs.length <= 1 ? (xs[0] || '') : `${xs.slice(0, -1).join(', ')} or ${xs[xs.length - 1]}`;
 const emailOff = () => (S.emailCfg || {}).enabled === false;
 const FR_KEY = DEMO ? 'hiphi2_firstrun_demo' : 'hiphi2_firstrun';
-const frGet = () => { try { return JSON.parse(localStorage.getItem(FR_KEY) || '{}'); } catch { return {}; } };
-const frSet = p => { try { localStorage.setItem(FR_KEY, JSON.stringify({ ...frGet(), ...p })); } catch { /* private mode */ } };
+// R-316 W7 (L-1): the ticks follow the person (advocates.prefs.firstrun), so a step done on the laptop is done on the phone;
+// what this browser kept before still counts.
+const frLocal = () => { try { return JSON.parse(localStorage.getItem(FR_KEY) || '{}'); } catch { return {}; } };
+const frGet = () => ({ ...frLocal(), ...(S.me?.prefs?.firstrun || {}) });
+const frSet = p => {
+  try { localStorage.setItem(FR_KEY, JSON.stringify({ ...frLocal(), ...p })); } catch { /* private mode */ }
+  const was = S.me?.prefs?.firstrun || {};
+  if (S.me && Object.keys(p).some(k => !was[k])) DB.patchPrefs({ firstrun: { ...was, ...p } }).catch(() => { /* this browser still has it */ });
+};
+// The practice copy as this person (R-316 W7, L-13): last March, nothing saved. Their initials pick who they are there.
+export const practiceHref = () => `staff5.html?demo=1${S.me?.initials ? `&as=${encodeURIComponent(S.me.initials)}` : ''}#/`;
+export const practiceLink = () => DEMO ? '' : `<a class="st-practice" href="${esc(practiceHref())}" target="_blank" rel="noopener">${icon('history')}<span>Practice on last March (nothing is saved)</span>${icon('external-link', { cls: 'ext' })}</a>`;
 
 // ---- the Capitol's words, in plain language (the glossary) ----
 const WORDS = [
@@ -61,7 +71,7 @@ const TOPICS = [
       .map(c => [c.code, `${esc(c.name)}. ${c.chamber === 'S' ? 'Senate' : 'House'}.${c.chair ? ` Chair ${esc(c.chair)}` : ''}${c.vice_chair ? `, vice chair ${esc(c.vice_chair)}` : ''}${c.chair ? '.' : ''}`]) },
   { id: 'testimony', title: 'How testimony works', icon: 'file-text', sub: () => 'Write, approve, second approval, file',
     items: () => { const adm = orList(names(a => a.is_admin || a.can_approve)) || 'an admin', rev = orList(names(a => a.is_reviewer)) || 'a second approver';
-      return [['1. Write', 'A hearing notice arrives. About an hour later a draft Google Doc is made in Drive for the bill\'s owner (only for bills with a position other than Monitor). The owner writes it and presses <b>Send for approval</b>.'],
+      return [['1. Write', 'A hearing notice arrives. Within a few minutes of the notice a draft Google Doc is made in Drive for the bill\'s owner (only for bills with a position other than Monitor). The owner writes it and presses <b>Send for approval</b>.'],
         ['2. Approve', `An admin or an approver (${esc(adm)}) presses <b>Approve</b>, or <b>Send back</b> with a note. An approver never approves testimony they sent; an admin may. Sent back, it goes to the writer with the note on their Today list, and they press <b>Resubmit</b>. If nobody has approved it 6 hours before the testimony deadline, a second approver (${esc(rev)}) can stand in, and Slack tells them so.`],
         ['3. Second approval', `The first testimony on a bill also needs a second approver (${esc(rev)}), someone other than whoever gave the first approval. Later testimony on the same bill skips this step.`],
         ['4. File', 'Whoever sent it for approval files it on the Capitol site (the owner, if nobody sent it; the steps are in <a href="#/help/file">How to file at the Capitol</a>) and presses <b>Mark filed</b>, with the confirmation link if there is one. Written testimony is usually due 24 hours before the hearing, 48 for a few committees; the hearing’s own deadline is on its card.'],
@@ -70,7 +80,7 @@ const TOPICS = [
   { id: 'tabs', title: 'What each place is for', icon: 'list-todo', sub: () => 'Today, My issues, Bills, Legislators and Outreach',
     // Staff v3 (R-264): five places and nothing else in the sidebar; Review opens from Today's card, the Inbox is in your
     // menu, a bill has three tabs, This week is one view, and Outreach has two tabs.
-    items: () => [['Today', 'Everything that needs you, grouped by when it is due: testimony steps, testimony to approve, replies, emails to approve and to-dos, one line each. On a laptop the one you pick opens in full beside the list, with all its buttons. Clear it and you are done. Testimony waiting for your approval opens in Review from its card. <b>Mine</b> is yours, and Today always opens on it; <b>Team</b> is everyone else’s work due this week, by person (for admins and second approvers it starts with <b>Slipping</b>: every step on the team that is late or due within a day, and hearings today or tomorrow nobody is going to), and its picker narrows it to one teammate or to <b>No owner</b>. <b>This week</b> shows the week’s hearings and deadlines. Hearings on bills we only monitor are folded away: <b>+N on bills you monitor</b> shows them again. If you help on a coalition, Today also shows its week, never in the count. Between sessions, Today shows how the session ended and <b>Getting ready for January</b> (see <a href="#/help/session">Getting ready for a new session</a>).'],
+    items: () => [['Today', 'Everything that needs you, grouped by when it is due: testimony steps, testimony to approve, replies, emails to approve and to-dos, one line each. On a laptop the one you pick opens in full beside the list, with all its buttons. Clear it and you are done. Testimony waiting for your approval opens in Review from its card. <b>Mine</b> is yours, and Today always opens on it; <b>Team</b> is everyone else’s work due this week, by person (for admins and second approvers it starts with <b>Slipping</b>: every step on the team that is late or due within a day), and its picker narrows it to one teammate or to <b>No owner</b>. <b>This week</b> shows the week’s hearings and deadlines. Hearings on bills we only monitor are folded away: <b>+N on bills you monitor</b> shows them again. If you help on a coalition, Today also shows its week, never in the count. Between sessions, Today shows how the session ended and <b>Getting ready for January</b> (see <a href="#/help/session">Getting ready for a new session</a>).'],
       ['Suggestions', 'Under <b>This week</b>, <b>Also worth doing</b> suggests work drawn from where each bill stands, and says why each one came up. Each has one button that does the step, and a <b>…</b> menu with <b>Done</b>, <b>Not now</b> (it comes back in two weeks) and <b>Not this bill</b>, each with Undo. Suggestions are never counted in the Today number.'],
       ['Giving a to-do', '<b>Give to…</b> on a to-do hands it to one teammate, who gets a Slack message. Its first choice is <b>You · Take it over</b>. Change your mind within two minutes, with Undo or by giving it back, and nobody is told.'],
       ['My issues', 'The issues you own or help on, each with its bills, soonest work first. Its tabs are three ways to group bills: <b>My issues</b>, <b>All issues</b> (every issue by category: rename, merge, put bills on issues; the first visit’s numbers are in its ⋯ menu) and <b>Coalitions</b> (each coalition’s week, and the switch <b>I help on</b> it).'],
@@ -91,7 +101,7 @@ const TOPICS = [
     items: () => { const burst = (S.syncCfg || {}).burst_until, hourly = burst && burst >= new Date().toISOString().slice(0, 10);
       return [['Bills', `Synced from the Legislature ${hourly ? `4 more times a day until ${esc(fmtDate(burst))} (8 in all), then 4 times a day` : '4 times a day'}. Stage, committee, last action and versions are never typed by hand.`],
         ['Hearings', 'Read from the Capitol\'s hearings page every 15 minutes and from its notice emails the moment they arrive. The draft, the calendar event and the Slack alert follow within minutes.'],
-        ['Drafts', 'Made from the notice about an hour later, for bills with a position other than Monitor, in Drive under Testimony, the year, the coalition and the bill.'],
+        ['Drafts', 'Made within a few minutes of the notice, for bills with a position other than Monitor, in Drive under Testimony, the year, the coalition and the bill.'],
         ['Video', 'Each hearing links to the chamber\'s YouTube channel, then to the exact video once it is posted. Staff can fix the link on the bill page.'],
         ['Deadlines', 'A bill still in committee when its deadline passes moves to Did not advance, with the deadline it missed.'],
         ['Email', emailOff() ? '<b>Paused.</b> Nobody gets email from the tracker right now: no supporter emails, staff alerts, digests or public hearing emails. Slack DMs still work.' : '<b>On.</b> Supporter emails, hearing emails to supporters, and alerts for staff who chose email are sent.']]; } },
@@ -163,9 +173,12 @@ function newSteps() {
   const o = frGet(), me = S.me;
   const mine = me ? S.bills.filter(b => (S.assignments[b.id] || []).includes(me.id) || S.follows?.has(b.id)).length : 0;
   const ownsNone = !!me && !S.bills.some(b => (S.assignments[b.id] || []).includes(me.id)), co = ownsNone ? coalWord(me) : '';
+  // R-316 W7 (FR-3): someone who owns no bill, follows none and helps on no coalition starts by picking their coalition.
+  const lost = ownsNone && !co && !mine;
   return [
     { k: 'settings', done: !!o.settings, title: 'Choose how the tracker reaches you', sub: 'Slack DM, email, or only in the app', href: '#/me' },
-    co ? { k: 'week', done: !!o.week, title: `See ${co} testimony this week`, sub: 'This week shows each hearing, where its testimony stands and when it is due', href: '#/?view=week' }
+    lost ? { k: 'coal', done: false, title: 'Pick the coalition you help on', sub: 'My issues lists each coalition with its I help on switch', href: '#/my-issues' }
+    : co ? { k: 'week', done: !!o.week, title: `See ${co} testimony this week`, sub: 'This week shows each hearing, where its testimony stands and when it is due', href: '#/?view=week' }
       : { k: 'follow', done: mine >= 3, title: `Follow three bills you care about${mine && mine < 3 ? `, ${mine} of 3` : ''}`, sub: 'Open a bill, then Follow in its menu. Bills you own count.', href: '#/bills' },
     { k: 'bill', done: !!o.bill, title: 'Open a bill and read its Next up card', sub: 'It says what the bill needs and by when', href: '#/bills' },
     { k: 'today', done: !!o.today, title: 'Clear your Today list', sub: 'Each card has one button that does the step', href: '#/' },
@@ -174,7 +187,8 @@ function newSteps() {
 function newHTML() {
   const steps = newSteps(), n = steps.filter(s => s.done).length;
   return `<p class="st-sum"><span class="st-meter" aria-hidden="true"><i style="width:${Math.round(n / steps.length * 100)}%"></i></span><span>${n} of ${steps.length} done</span></p>
-    <div class="rows">${steps.map(s => `<a class="row st-newrow${s.done ? ' done' : ''}" href="${s.href}" data-fr="${s.k}"><span class="st-ric">${icon(s.done ? 'circle-check' : 'circle-dashed')}<span class="sr">${s.done ? 'Done:' : 'To-do:'}</span></span><span class="body"><span class="title">${esc(s.title)}</span><span class="sub">${esc(s.sub)}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`).join('')}</div>`;
+    <div class="rows">${steps.map(s => `<a class="row st-newrow${s.done ? ' done' : ''}" href="${s.href}" data-fr="${s.k}"><span class="st-ric">${icon(s.done ? 'circle-check' : 'circle-dashed')}<span class="sr">${s.done ? 'Done:' : 'To-do:'}</span></span><span class="body"><span class="title">${esc(s.title)}</span><span class="sub">${esc(s.sub)}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`).join('')}</div>
+    ${practiceLink()}`;
 }
 
 // ---- search: every entry of every guide, plus the guide titles ----
@@ -280,7 +294,7 @@ function renderDesk(route) {
       ${list.map(x => `<a class="st-navi" href="#/help/${x.id}"${x.id === t.id && !q.trim() ? ' aria-current="page"' : ''}>${icon(x.icon)}<span class="st-navl">${esc(x.title)}</span></a>`).join('')}
     </nav>
     <div class="st-pane st-read">
-      <div class="st-head"><h2 id="st-hh1" class="st-ptitle" data-title="${esc(t.title)}">${q.trim() ? 'Search results' : esc(t.title)}</h2><p class="st-lede" id="st-hsub" ${q.trim() ? 'hidden' : ''}>${esc(t.sub ? t.sub() : '')}</p></div>
+      <div class="st-head"><h2 id="st-hh1" class="st-ptitle" data-title="${esc(t.title)}">${q.trim() ? 'Search results' : esc(t.title)}</h2><p class="st-lede" id="st-hsub" ${q.trim() ? 'hidden' : ''}>${esc(t.sub && t.id !== 'new' ? t.sub() : '')}</p></div>
       <div id="st-hres" aria-live="polite">${results(q)}</div>
       <div id="st-hdefault" ${q.trim() ? 'hidden' : ''}>${kbd}${body}</div>
     </div>

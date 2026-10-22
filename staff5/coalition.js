@@ -171,6 +171,9 @@ function supportHTML(c) {
 export function hearingsSec(bills, { key, from = '' } = {}) {
   const week = weekOfBills(bills);
   if (!week.length) return sec('co-s1', 'Hearings this week', 0, none('No hearings on its bills in the next 7 days.'));
+  // Said once (R-316 W56, FR-8): when nobody is going to any of them, one line above the rows says so instead of
+  // "Nobody from the team yet" under each. Once anyone is going, each row says who, as before.
+  const nobody = week.length > 1 && week.every(s => !goersOf(sittingOf(s.rows[0])).length);
   const rowOf = s => {
     const h = s.rows[0], goers = goersOf(sittingOf(h));
     const items = s.rows.map(r => ({ h: r, b: S.bills.find(b => b.id === r.bill_id) })).filter(x => x.b).sort((x, y) => byPri(x.b, y.b));
@@ -193,10 +196,10 @@ export function hearingsSec(bills, { key, from = '' } = {}) {
     return `<a class="row co-hrow" href="#/hearing/${encodeURIComponent(h.id)}${from ? `?from=${encodeURIComponent(from)}` : ''}">
       <span class="co-date" aria-hidden="true"><b>${esc(wd)}</b><span>${esc(dn)}</span></span>
       <span class="body"><span class="title"><span class="sr">${esc(long)}, </span>${esc(time)} · ${esc(h.committee)} · ${esc(roomShort(h.room))}</span><span class="sub co-hbills">${names}</span>${test}
-        <span class="co-going">${icon(goers.length ? 'users' : 'user-plus')}<span>${esc(goingWords(goers) || 'Nobody from the team yet')}</span></span></span>
+        ${nobody ? '' : `<span class="co-going">${icon(goers.length ? 'users' : 'user-plus')}<span>${esc(goingWords(goers) || 'Nobody from the team yet')}</span></span>`}</span>
       ${icon('chevron-right', { cls: 'chev' })}</a>`;
   };
-  return sec('co-s1', 'Hearings this week', week.length, `<div class="rows co-rows">${folded(key + '|h', week.map(rowOf))}</div>`);
+  return sec('co-s1', 'Hearings this week', week.length, `${nobody ? `<p class="co-going co-nobody">${icon('user-plus')}<span>Nobody from the team is going to any of the ${week.length} yet.</span></p>` : ''}<div class="rows co-rows">${folded(key + '|h', week.map(rowOf))}</div>`);
 }
 
 // At risk: no hearing yet and the deadline a week away or less. The notice line is the real deadline: a committee has

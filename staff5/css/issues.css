@@ -462,3 +462,13 @@
 .pr-toplede { margin: var(--s12) 0 0; }
 .pr-team .pr-lcount { margin-top: 0; }
 @media (max-width: 899px) { .pr-topbtn { min-height: 44px; } }
+/* R-316 W56 (FR-6): Next deadlines, one small heading per deadline (its date said once), and a long group folds after 8. */
+.ist-page .ist-sub { margin: var(--s16) 0 var(--s8); font: 700 var(--t14)/1.35 var(--font); color: var(--n900); }
+.ist-page .ist-h + .ist-sub { margin-top: 0; }
+.ist-page .ist-subw { font-weight: 600; color: var(--n700); }
+.ist-page .ist-subn { font-weight: 600; color: var(--n500); }
+.ist-page .ist-more { margin-top: var(--s4); }
+.ist-page .ist-more > summary { list-style: none; display: inline-flex; align-items: center; gap: var(--s4); min-height: 44px; font-size: var(--t14); font-weight: 700; color: var(--p700); cursor: pointer; }
+.ist-page .ist-more > summary::-webkit-details-marker { display: none; }
+.ist-page .ist-more > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+.ist-page .ist-more[open] > summary .is-chev { transform: rotate(180deg); }

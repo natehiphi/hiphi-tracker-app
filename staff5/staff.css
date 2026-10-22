@@ -858,3 +858,10 @@ body.staff2 .bp-h3 { margin: 0 0 var(--s4); font: 700 var(--t13)/18px var(--font
 .sv-unfile { font-size: var(--t14); color: var(--n700); text-decoration: underline; text-decoration-color: var(--n300); text-underline-offset: 3px; }
 .sv-unfile:hover { color: var(--p800); text-decoration-color: currentColor; }
 .hr-unf { margin: 0; }
+/* R-316 W56 (B-16): Send back offers "See my comments in the Doc" under the note. */
+.rv-chips { margin: 8px 0 0; }
+/* R-316 W7 (L-13): "Practice on last March (nothing is saved)", in Help's New here?, Getting started and Getting ready for January. */
+.st-practice { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: var(--t14); font-weight: 700; color: var(--p700); text-decoration: none; }
+.st-practice:hover { text-decoration: underline; }
+.st-practice .ic { flex: none; width: 18px; height: 18px; }
+.st-practice .ext { width: 14px; height: 14px; color: var(--n500); }

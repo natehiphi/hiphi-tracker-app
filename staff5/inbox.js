@@ -58,9 +58,12 @@ function item(i, inBlock = false) {
     <span class="ib-body"><span class="ib-l1">${i.unread ? '<span class="sr">Unread: </span>' : ''}${b && !inBlock ? `${b.nickname ? `<b class="ib-num">${esc(b.nickname)}</b> <span class="bn-num">${esc(billNum(b))}</span>` : `<b class="ib-num">${esc(billNum(b))}</b>`}${i.priority === 1 ? '<span class="sv-p1">P1</span>' : ''} · ` : ''}<span class="ib-t">${esc(news ? news.t : unslack(i.title))}</span></span>
       ${news ? (news.sub ? `<span class="ib-sub">${esc(news.sub)}</span>` : '') : i.body ? `<span class="ib-sub">${esc(unslack(i.body).slice(0, 220))}</span>` : ''}<span class="ib-when m">${esc(ago(i.at))}</span></span>
     <span class="ib-when d" title="${esc(fmtDT(i.at))}">${esc(ago(i.at))}</span>`;
+  // R-316 W56 (FD-10): a row with its own button ("Open to approve") has no tick beside it, which read as Approve;
+  // pressing the button, or opening the row, marks it read.
+  const rev = reviewAct(i);
   return `<div class="ib-row${i.unread ? ' unread' : ''}" data-key="${esc(i.key)}">
     ${href ? `<a class="ib-main" href="${esc(href)}" data-ibopen="${esc(i.key)}">${inner}</a>` : `<div class="ib-main">${inner}</div>`}
-    <span class="ib-acts">${readBtn(i.key, i.unread)}</span>${reviewAct(i)}</div>`;
+    <span class="ib-acts">${rev && i.unread ? '' : readBtn(i.key, i.unread)}</span>${rev}</div>`;
 }
 // The same notice on three or more bills (a deadline reminder, a status sweep) is one row that opens into each.
 const dupKey = i => `${i.kind}|${unslack(i.title || '')}|${unslack(i.body || '')}`;

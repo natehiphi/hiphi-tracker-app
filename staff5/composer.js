@@ -412,7 +412,7 @@ function statusView(a) {
   if (two) return `<div class="le-cmp le-status le-two">${head}
     <div class="sv-cols le-panes">
       <div class="le-form">${state}
-        ${canApprove(a) ? `<p class="le-rule">${icon('user-check')}<span>Approving sends nothing. ${esc(who)} presses Send afterwards${paused() ? ', and while email is paused an approved email is held until an admin turns email on' : ''}.</span></p>` : ''}
+        ${canApprove(a) ? `<p class="le-rule">${icon('user-check')}<span>Approving sends nothing; ${esc(who)} sends it after.</span></p>` : ''}
         ${acts ? `<div class="le-formbar">${acts}</div>` : ''}
       </div>
       <aside class="sv-aside le-prevpane" aria-label="The email">${emailPreview(a)}</aside>

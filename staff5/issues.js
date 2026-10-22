@@ -414,7 +414,7 @@ function billsHTML(i, now, earlier) {
     </div>`;
   const fold = (cls, ic, label, list) => list.length ? `<details class="${cls}"${edit ? ' open' : ''}><summary>${icon(ic, { cls: 'is-chev' })}<span>${label}</span></summary><ol class="rows le-bills">${list.map(b => billLine(i, b, edit)).join('')}</ol></details>` : '';
   return `<section class="le-sec is-bills" aria-labelledby="is-bh">
-      <div class="le-sechead"><h2 id="is-bh">${above.size && moving.length ? 'Other bills' : 'Bills'}</h2></div>
+      <div class="le-sechead"><h2 id="is-bh">${above.size ? 'Other bills' : 'Bills'}</h2></div>
       ${moving.length ? `<ol class="rows le-bills">${moving.map(b => billLine(i, b, edit)).join('')}</ol>`
         : now.length ? '' : `<p class="le-none">No ${esc(SESSION_YEAR)} bills on it yet.</p>`}
       ${fold('is-gone', 'chevron-down', `${gone.length} did not advance`, gone)}

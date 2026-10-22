@@ -239,16 +239,20 @@ async function approve(route, el) {
   } catch (e) { toast(e, { err: true }); if (el && el.isConnected) { el.removeAttribute('aria-busy'); el.disabled = false; } }
 }
 // Request changes (or Send back, for an email): a note is required, so the writer knows what to fix.
+const DOC_NOTE = 'See my comments in the Doc';
 function changes(route) {
   const { r, it } = current(route); if (!it || !actionable(it)) return;
   const to = first(it.type === 'email' ? it.a.author_id : it.d.submitted_by || (S.assignments[it.b.id] || [])[0]);
   const name = to === 'Someone' ? 'the writer' : to;
   openSheet({ title: 'What should change?', size: 'auto',
-    body: `<div class="field"><textarea id="td-note" rows="4" aria-labelledby="sv-sh-t" aria-describedby="td-note-h" required autofocus>${esc(S.rvNotes?.[it.key] || '')}</textarea><span class="help" id="td-note-h">${esc(name === 'the writer' ? 'The writer' : name)} sees this note with the ${it.type === 'email' ? 'email' : 'draft'}.</span></div>`,
+    body: `<div class="field"><textarea id="td-note" rows="4" aria-labelledby="sv-sh-t" aria-describedby="td-note-h" required autofocus>${esc(S.rvNotes?.[it.key] || '')}</textarea><span class="help" id="td-note-h">${esc(name === 'the writer' ? 'The writer' : name)} sees this note with the ${it.type === 'email' ? 'email' : 'draft'}.</span></div>${it.type === 'email' ? '' : `<p class="rv-chips">${btn(DOC_NOTE, { kind: 'secondary', sm: true, icon: 'message-square', attrs: { 'data-docnote': '1' } })}</p>`}`,
     foot: btn(`Send back to ${esc(name)}`, { attrs: { 'data-send': '1' } }),
     wire: dlg => {
       const ta = dlg.querySelector('#td-note'), go = dlg.querySelector('[data-send]'); ta.focus();
       ta.oninput = () => { ta.removeAttribute('aria-invalid'); dlg.querySelector('#td-note-e')?.remove(); (S.rvNotes ??= {})[it.key] = ta.value; };   // kept if the sheet closes unsent (X10-6)
+      // R-316 W56 (B-16): comments already left in the Google Doc are one tap; the cursor waits after it for more words.
+      const dn = dlg.querySelector('[data-docnote]');
+      if (dn) dn.onclick = () => { if (!ta.value.includes(DOC_NOTE)) ta.value = (DOC_NOTE + '. ' + ta.value.trim()).trim() + (ta.value.trim() ? '' : ' '); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); ta.oninput(); };
       go.onclick = async () => {
         const note = ta.value.trim();
         if (!note) { ta.setAttribute('aria-invalid', 'true'); if (!dlg.querySelector('#td-note-e')) ta.insertAdjacentHTML('afterend', `<span class="err" id="td-note-e" role="alert">${icon('circle-alert')}Write what should change first.</span>`); ta.setAttribute('aria-describedby', 'td-note-e td-note-h'); ta.focus(); return; }

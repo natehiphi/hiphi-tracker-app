@@ -19,7 +19,7 @@ const WF_LABEL = { chat: ['Messages on bills I own, follow or joined', ''], draf
   review_requested: ['Testimony waiting for my approval', 'Admins and approvers give the first approval'], second_review_requested: ['A first testimony that needs my second approval', 'Second approvers give it'],
   approved: ['My testimony was approved', ''], changes_requested: ['An approver sent my testimony back', ''], filed: ['Someone filed testimony on my bill', ''] };
 const REM = [['morning', 'The morning testimony is due'], ['before', 'Shortly before it is due'], ['after', 'After the deadline, if it is not filed']];
-const FR_KEY = DEMO ? 'hiphi2_firstrun_demo' : 'hiphi2_firstrun';
+import { markNewStep } from './help.js';
 const hhmm = t => { const m = /^(\d{1,2}):(\d{2})/.exec(t || ''); if (!m) return t || ''; const h = +m[1]; return `${h % 12 || 12}:${m[2]} ${h < 12 ? 'AM' : 'PM'}`; };
 
 // Which workflow switches apply to me: first approvals reach admins and approvers (can_approve, Kris; R-264 found the
@@ -88,7 +88,7 @@ export default {
     </div>`;
   },
   wire(route, root) {
-    try { const o = JSON.parse(localStorage.getItem(FR_KEY) || '{}'); if (!o.settings) localStorage.setItem(FR_KEY, JSON.stringify({ ...o, settings: 1 })); } catch { /* private mode */ }
+    markNewStep({ settings: 1 });   // R-316 W7: kept in their settings, so it follows them to the phone
     // Read every visible control plus the hidden values, and save the whole prefs object (as app.js does).
     const collect = () => {
       const { me, prefs, r, w } = current();

@@ -434,7 +434,8 @@ function renderLink() {
       err(`This link has already been used or has run out. Ask Nate for a new one, or <a href="${esc(location.pathname + location.search)}">sign in</a> if you have a password.`); } };
 }
 function renderRecovery() {
-  document.getElementById('app').innerHTML = `<main id="main" class="sv-login">${loginTop('Choose a new password')}
+  // R-316 W7 (L-12): someone arriving by their invite link is choosing a password for the first time.
+  document.getElementById('app').innerHTML = `<main id="main" class="sv-login">${loginTop(S.linkUsed ? 'Choose your password' : 'Choose a new password')}
     <form id="rf" novalidate class="stack16 card sv-lcard">
       <div class="field"><label for="r-pass">New password</label><input id="r-pass" type="password" autocomplete="new-password"><span class="help">At least 8 characters.</span></div>
       <div class="field"><label for="r-pass2">Type it again</label><input id="r-pass2" type="password" autocomplete="new-password"></div>
@@ -444,7 +445,11 @@ function renderRecovery() {
     const a = document.getElementById('r-pass').value, b2 = document.getElementById('r-pass2').value;
     if (a.length < 8) return err('Use at least 8 characters.');
     if (a !== b2) return err('Those two passwords do not match.');
-    try { await DB.setPassword(a); setRecovery(false); history.replaceState(null, '', location.pathname + location.search); toast('Password updated', { ok: true }); boot(); }
+    try { await DB.setPassword(a); setRecovery(false); history.replaceState(null, '', location.pathname + location.search);
+      // R-316 W7 (L-12): a first sign-in opens on Today with Getting started open, and says hello by name.
+      const first = S.linkUsed; if (first) S.tdStartOpen = true;
+      await boot();
+      toast(first && S.me ? `Welcome, ${S.me.full_name.split(' ')[0]}. Start here: Getting started is on Today.` : 'Password updated', { ok: true }); }
     catch (x) { err(x.message || 'Could not save the password.'); } };
 }
 

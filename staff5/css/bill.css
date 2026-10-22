@@ -564,3 +564,6 @@
 .bw-from .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--p700); }
 /* R-271: a named bill's heading is its nickname (h1); the number line under it shows on a laptop, the phone's header has it */
 .bw-page h1.bw-h1 { margin: 0; }
+/* R-316 W56 (C-16): who last changed the team note, and when. */
+.bw-noteby { margin-top: var(--s4); font-size: var(--t13); color: var(--n500); }
+.bw-noteby:empty { display: none; }

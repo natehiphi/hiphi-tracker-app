@@ -234,7 +234,7 @@ function parts() {
   // nothing to show is left out rather than greyed (a number is drawn only where it asks for something); one that is on
   // always shows, so it can be taken off. Muted bills are a place, reached from "…".
   const quick = wide ? QUICK.map(([spec, label, test]) => { const on = isOn(spec), n = quickCount(spec, test);
-    return on || n ? `<button type="button" class="chip bl-q" data-ft="${spec}" aria-pressed="${on}">${on ? icon('check') : ''}<span>${label}</span><span class="bl-n">${n}</span></button>` : ''; }).join('') : '';
+    return on || n ? `<button type="button" class="chip bl-q" data-ft="${spec}" aria-pressed="${on}">${on ? icon('check') : ''}<span>${label}</span></button>` : ''; }).join('') : '';   // no number: the groups below count them (R-316 W56, FD-8)
   // Filters picked in the sheet show as chips that come off with one click (the quick chips show their own state).
   const onRow = sheetOn.length ? `<div class="bl-on" role="group" aria-label="Filters that are on">${wide ? '<span class="bl-onlab">Filters</span>' : ''}${sheetOn.map(([s, l]) => `<button type="button" class="chip bl-onchip" data-ft="${esc(s)}" aria-label="Remove the filter ${esc(l)}"><span>${esc(l)}</span>${icon('x')}</button>`).join('')}${clear}</div>` : '';
   const quickRow = quick || (!sheetOn.length && act.length) ? `<div class="bl-quick" role="group" aria-label="Quick filters">${quick}${!sheetOn.length && act.length ? clear : ''}</div>` : '';

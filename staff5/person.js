@@ -139,7 +139,7 @@ function follows(p) {
   // A bill with a nickname leads with it (billRow); its plain summary is the second line, so the bill is still
   // explained. Their own stance goes in front of it: on this page that is the thing a staffer came to read.
   const sum = b => { const k = ownStance(p, b); return `${k ? stanceChip(k) : ''}${b.nickname ? esc(blurb(b, 140)) : ''}`; };
-  return `<section class="sp-sec" aria-labelledby="sp-h-fol"><div class="sechead"><h2 id="sp-h-fol">Follows</h2><span class="meta">${head || 'Nothing yet'}</span></div>
+  return `<section class="sp-sec" aria-labelledby="sp-h-fol"><div class="sechead"><h2 id="sp-h-fol">Follows</h2>${head ? `<span class="meta">${head}</span>` : ''}</div>
     ${cats.length || iss.length ? `<div class="chips sp-lists sp-issues">${cats.map(c => `<a class="chip sp-listchip" href="#/outreach/issues">${icon(c.icon || 'tag')}All of ${esc(c.name)}</a>`).join('')}${iss.map(i => `<a class="chip sp-listchip" href="#/issue/${encodeURIComponent(i.id)}">${icon('tag')}${esc(i.name)}</a>`).join('')}</div>` : ''}
     ${lists.length ? `<div class="chips sp-lists">${lists.map(l => `<a class="chip sp-listchip" href="#/list/${encodeURIComponent(l.id)}">${icon('list')}${esc(l.title)}</a>`).join('')}</div>` : ''}
     ${bills.length ? `<div class="rows sp-fbills">${(showAll ? bills : bills.slice(0, firstN)).map(b => followRow(b, sum(b))).join('')}

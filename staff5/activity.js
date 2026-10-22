@@ -10,7 +10,7 @@
 // Above the stream, the conversations with legislators logged on this bill or under any of its issues (R-022 wave 2 #9,
 // conversation.js): a conversation is about an issue more than a bill, so one logged on the Senate twin shows here too.
 // The section shows only once there is one (v3).
-import { S, DB, LOG_TYPES, esc, fmtDate, advocate } from './data.js';
+import { S, DB, LOG_TYPES, esc, fmtDate, fmtDT, advocate } from './data.js';
 import { unreadCount, hstDayOf } from './model.js';
 import { icon, btn, iconBtn, avatar, toast, openSheet, closeSheet, menuSheet, confirmSheet, field } from './ui.js';
 import { chip } from './ui.js';   // R-277 fix 4 (U-8): "New" is a status chip like every other
@@ -34,8 +34,18 @@ export function loadTimeline(b, force = false) {
     .catch(e => { S.bwTL[b.id] = S.bwTL[b.id] || []; S.bwTLErr = { [b.id]: true }; console.warn('timeline:', e); })
     .finally(() => { S.bwTLBusy[b.id] = false; refreshStream(b); });
 }
+// Who last changed the team note, and when (R-316 W56, C-16): the database writes an "Internal notes edited" line with
+// its author every time the note changes (migration 144), so this reads the bill's own timeline; no new column. A note
+// older than the timeline's reach says "Written before" its oldest line. '' until the timeline has loaded.
+export function noteByText(b) {
+  const tl = S.bwTL?.[b.id]; if (!tl) return '';
+  const e = tl.find(t => t.title === 'Internal notes edited');
+  if (e) { const a = e.advocate_id && advocate(e.advocate_id); return `Last edited by ${a ? (a.id === S.me?.id ? 'you' : a.full_name.split(' ')[0]) : 'a teammate'} · ${fmtDT(e.occurred_at)}`; }
+  const old = tl[tl.length - 1]; return old ? `Written before ${fmtDate(old.occurred_at)}` : '';
+}
 // Swap only the stream (never the whole page), so a half-typed message keeps its focus while the history arrives.
 function refreshStream(b) {
+  const nb = document.getElementById('bw-noteby'); if (nb) nb.textContent = noteByText(b);
   const box = document.getElementById('bw-stream');
   if (!box || box.dataset.bill !== String(b.id)) return;
   // New activity lands at the top now, so it is the top that must be held, not the bottom.

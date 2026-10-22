@@ -56,7 +56,7 @@ import { sharePageUrl, liveAsk } from './model.js';   // this week's asks (R-132
 import { plainAction, OUT_PLAIN as OUT, draftFor, alertsToReview, approves, canFirstApprove, canSecondApprove, alertTarget, billNum, billTag, billSay, blurb, roomShort, chairMail, attendees, streamOf, hearingAhead, stopOf, diedish, legislativeDay, hstDayOf, gateNeed, deadlineName, unslack, billById, personName, OUTCOME_LABEL, sessionClock, suggestions, suggState, setSugg, SUGGEST_CAP, whyDead } from './model.js';
 import { icon, btn, iconBtn, chip, avatar, groupHead, segmented, empty, notice, toast, openSheet, closeSheet, pickerSheet, menuSheet, confirmSheet, field, keysOn, urgentMark, countdown, clockDay, lateLine } from './ui.js';
 import { goingBtn, docBtn, filedBtn, showAllBtn, ACT as LOOK, whoseSeg, mayUnfile } from './ui.js';   // R-277 fix 4 (U-4, U-8): one look per action
-import { newSteps, markNewStep } from './help.js';
+import { newSteps, markNewStep, practiceLink } from './help.js';
 import { draftAsking, makeDraftNow } from './testimony.js';
 import { openLook, lookFacts } from './look.js';
 import { billPane, bpHearing, bpFacts, bpOpen } from './billpane.js';   // R-277 fix 17: one open-bill panel for Today and Bills
@@ -667,14 +667,27 @@ function toolbar(route) {
 // never between Overdue and Needs you today or above the only thing on a helper's Today; and not on a phone, where on a hearing
 // day at the Capitol it is not the job (it waits for the laptop).
 const PHONE = () => !mq('(min-width: 600px)');
+// R-316 W7 (L-1): the 45 days count from the person's first sign-in, not from the day their record was made (Kris's had
+// run out before she ever signed in). The day is saved once in their own settings, so every device agrees. Someone who
+// has already used the app (anything saved in their settings) and whose login is older than 45 days is not new.
+function startedAt(me) {
+  const p = me.prefs?.started_at; if (p) return new Date(p).getTime();
+  if (DEMO) return Date.now();
+  const made = S.session?.user?.created_at ? new Date(S.session.user.created_at).getTime() : 0;
+  const used = Object.keys(me.prefs || {}).some(k => !['coalitions', 'firstrun', 'started_at'].includes(k));
+  const at = !used || Date.now() - made < 45 * DAY ? Date.now() : made;
+  if (!S.startSaving) { S.startSaving = true; DB.patchPrefs({ started_at: new Date(at).toISOString() }).catch(() => { S.startSaving = false; }); }
+  return at;
+}
 function startCard() {
-  const me = S.me; if (!me || PHONE() || load('newhere_done', '')) return '';
-  const age = me.created_at ? Date.now() - new Date(me.created_at).getTime() : Infinity;
-  if (!DEMO && !(age < 45 * DAY)) return '';
+  const me = S.me; if (!me || load('newhere_done', '') || me.prefs?.firstrun?.hidden) return '';
+  if (!(Date.now() - startedAt(me) < 45 * DAY)) return '';
   const steps = newSteps(), n = steps.filter(s => s.done).length; if (n === steps.length) return '';
+  // On a phone the card waits for the laptop (R-269); one line says where it is (R-316 W7).
+  if (PHONE()) return `<p class="td-startph">${icon('sparkles')}<span><b>Getting started</b> · ${n} of ${steps.length} done. It is on Today on a laptop, and in <a href="#/help/new">Help</a>.</span></p>`;
   return `<details class="card td-start" data-tdstart${S.tdStartOpen ? ' open' : ''}><summary><span class="td-startt">${icon('sparkles')}<b>Getting started</b><span class="td-startn">${n} of ${steps.length} done</span></span><span class="st-meter" aria-hidden="true"><i style="width:${Math.round(n / steps.length * 100)}%"></i></span>${icon('chevron-down', { cls: 'td-startc' })}</summary>
     <div class="rows">${steps.map(s => `<a class="row st-newrow${s.done ? ' done' : ''}" href="${s.href}" data-tdfr="${s.k}"><span class="st-ric">${icon(s.done ? 'circle-check' : 'circle-dashed')}<span class="sr">${s.done ? 'Done:' : 'To-do:'}</span></span><span class="body"><span class="title">${esc(s.title)}</span><span class="sub">${esc(s.sub)}</span></span>${icon('chevron-right', { cls: 'chev' })}</a>`).join('')}</div>
-    <div class="td-startf">${btn('Hide this', { kind: 'text', sm: true, attrs: { 'data-newhere': '1' } })}</div></details>`;
+    <div class="td-startf">${practiceLink()}${btn('Hide this', { kind: 'text', sm: true, attrs: { 'data-newhere': '1' } })}</div></details>`;
 }
 function oneNotice() {
   const me = S.me || {};
@@ -1511,9 +1524,16 @@ function weekView(route, scope, who, r) {
   // The page's h1 names the week ("This week", "Team: next week"; Nate, R-025 answer 3), so the grid's own heading is
   // its dates: the name said once (A-14). The line that counted the week's hearings and bills went: the grid shows
   // each one, and a count of them asked nothing of anyone (R-264). This week's asks moved to Outreach > Emails.
-  return `<div class="td-wnav"><h2 class="td-wtitle">${esc(range)}</h2>
+  // R-316 W56 (L-10): a week with nothing in it says so once ("No HIAPA hearings and nothing due this week") instead of
+  // "Nothing scheduled." in five boxes, and the deadline bar above it opens (weekPage), since that is the week's work.
+  WEEK_EMPTY = all.every(c => !c.dl.size && !c.hs.size && !c.other.length);
+  const nav = `<div class="td-wnav"><h2 class="td-wtitle">${esc(range)}</h2>
       <div class="td-wbtns">${iconBtn('chevron-left', 'Previous week', { 'data-week': off - 1 })}${off ? btn('This week', { kind: 'text', attrs: { 'data-week': 0 } }) : ''}${iconBtn('chevron-right', 'Next week', { 'data-week': off + 1 })}</div>
-      ${wk.mon ? monBtn(wk.mon, scope, who, 'td-wmon') : ''}</div>
+      ${wk.mon ? monBtn(wk.mon, scope, who, 'td-wmon') : ''}</div>`;
+  if (WEEK_EMPTY) { const co = scope === 'mine' ? coalPicked() : null, whose = co && !co.all && co.names.length ? co.names.join(' or ') + ' ' : '';
+    const when = off === 0 ? 'this week' : off === 1 ? 'next week' : 'that week';
+    return `${nav}<p class="td-wempty">${icon('calendar')}<span>No ${esc(whose)}hearings and nothing due ${esc(when)}.${wk.mon ? ` Hearings on bills we only monitor are under <b>+${wk.mon} on bills you monitor</b>.` : ''}</span></p>`; }
+  return `${nav}
     <div class="td-weekgrid${weN ? ' hasweekend' : ''}">${days.slice(0, 5).map(dayHtml).join('')}${weN ? weekend() : ''}</div>`;
 }
 
@@ -1730,7 +1750,12 @@ function slipHtml(rows) {
   const head = `<h2 class="td-h" data-top tabindex="-1">${groupHead(`${icon('clock', { cls: 'td-soon' })}Slipping`, sl.rows.length || '', { id: 'td-g-slip' })}</h2>`;
   if (!sl.rows.length) return `<section class="td-group td-slip" aria-labelledby="td-g-slip">${head}<p class="td-quiet">${icon('circle-check')}<span>Nothing is slipping on the team: nothing late or due within a day${SLIP_NOBODY ? ', and someone is going to every hearing today and tomorrow' : ''}.</span></p></section>`;
   const now = Date.now(), filled = r => !!r.p && !r.p.ro && r.p.due <= endOfToday();
-  const list = rows ? `<div class="td-rows">${sl.rows.map(r => row(r, filled(r), slipOpt(r))).join('')}</div>` : `<div class="td-mrows">${sl.rows.map(r => mrow(r, slipOpt(r))).join('')}</div>`;
+  // R-316 W56 (O-8): testimony past its written deadline but still taken until the hearing looked like any due-soon
+  // row. It comes first under Mine's words, "Late, still open", and the rest follow under "Due within a day".
+  const late = sl.rows.filter(r => r.p && lateNow(r.p)), rest = sl.rows.filter(r => !late.includes(r));
+  const draw = rs => rows ? `<div class="td-rows">${rs.map(r => row(r, filled(r), slipOpt(r))).join('')}</div>` : `<div class="td-mrows">${rs.map(r => mrow(r, slipOpt(r))).join('')}</div>`;
+  const sub = (t, n) => `<h3 class="td-slipsub">${esc(t)} <span class="td-slipn">${n}</span></h3>`;
+  const list = late.length ? `${sub('Deadline passed, still accepted until the hearing', late.length)}${draw(late)}${rest.length ? sub('Overdue or due within a day', rest.length) + draw(rest) : ''}` : draw(rest);
   return `<section class="td-group td-slip" aria-labelledby="td-g-slip">${head}${list}</section>`;
 }
 // Mine for Nate, Jess and Jaylen: one line in place of "Hearings today", opening Team (#/?scope=team).
@@ -1878,7 +1903,7 @@ function coalSection(r, skip = new Set(), quiet = new Set()) {
   // The heading's line: the hearings (or that there are none, said here and nowhere else), the bills with no hearing as a
   // link to them on Bills, and the to-dos.
   const bills = co.ids.size === 1 && !co.all ? `#/bills?coalition=${encodeURIComponent([...co.ids][0])}` : '#/bills';
-  const monLine = !all && mon.length ? `We monitor ${mon.slice(0, 2).map(x => `<a href="#/hearing/${esc(x.h.id)}?from=today">${esc(`${billNum(x.b)}, heard ${whenLine(x.h.scheduled_at)}`)}</a>`).join(' and ')}${mon.length > 2 ? esc(` and ${mon.length - 2} more`) : ''}` : '';
+  const monLine = !all && mon.length ? `We monitor ${mon.slice(0, 2).map(x => `<a href="#/hearing/${esc(x.h.id)}?from=today">${esc(`${billNum(x.b)}, ${new Date(x.h.scheduled_at) > Date.now() ? 'hearing' : 'heard'} ${whenLine(x.h.scheduled_at)}`)}</a>`).join(' and ')}${mon.length > 2 ? esc(` and ${mon.length - 2} more`) : ''}` : '';
   const count = [all ? esc(plural(all, 'hearing')) : mon.length ? 'No hearings this week on bills with a position' : 'No hearings this week', monLine,
     racing.length ? `<a href="${esc(bills)}">${esc(`${plural(racing.length, 'bill')} still ${racing.length === 1 ? 'needs' : 'need'} a hearing`)}</a>` : '',
     todos.length ? esc(plural(todos.length, 'open to-do')) : ''].filter(Boolean).join(' · ');
@@ -1921,7 +1946,8 @@ function janPanel() {
   const adm = admins(S.me.id);
   const body = `<div class="td-jan"><p>The ${y} session opens <b>${esc(dayFmt(open, { weekday: 'short', month: 'short', day: 'numeric' }))}</b>. <a href="#/help/session">What changes then</a></p>
     ${S.me.is_admin ? `<p class="td-janw">The readiness list says what the tracker still needs before then.</p>${btn('Check the session setup', { kind: 'secondary', href: '#/setup', icon: 'list-checks' })}`
-      : `<p class="td-janw">${esc(adm ? `${adm} get${adm.includes(' or ') ? '' : 's'} the tracker ready for it.` : 'An admin gets the tracker ready for it.')} Before then, check how the tracker reaches you.</p>${btn('Check My settings', { kind: 'secondary', href: '#/me', icon: 'settings' })}`}</div>`;
+      : `<p class="td-janw">${esc(adm ? `${adm} get${adm.includes(' or ') ? '' : 's'} the tracker ready for it.` : 'An admin gets the tracker ready for it.')} Before then, check how the tracker reaches you.</p>${btn('Check My settings', { kind: 'secondary', href: '#/me', icon: 'settings' })}`}
+    ${practiceLink()}</div>`;
   return panel('jan', 'calendar-check', 'Getting ready for January', '', body);
 }
 
@@ -2036,7 +2062,7 @@ function aheadGate(g, lead, owners, chair) {
   return `<details class="ah-gate ah-later"><summary><span class="ah-gh">${head}</span><span class="ah-gc muted">${esc(need.length ? `${plural(need.length, 'bill')} with no hearing yet` : 'all have a hearing')}</span>${icon('chevron-down', { cls: 'ah-chev' })}</summary><p class="ah-gs">${esc(sum)}</p>${list}</details>`;
 }
 // Under the grid (or the phone's list): the deadlines, then "Also worth doing".
-function weekBelow(scope, who, r, top = false) {
+function weekBelow(scope, who, r, top = false, emptyWeek = false) {
   if (SESSION_OVER) { LASTSG = new Map(); const over = `<section class="ah-sec"><p class="ah-none">The session is over, so there are no deadlines to race. The next one's calendar is loaded in December.</p></section>`; return top ? { dl: '', sg: over } : over; }
   const { list, coal } = aheadBills(scope, who), owners = scope !== 'mine';
   const gates = sessionGates(list).filter(g => !g.past && g.racing.length && g.days <= AH_DAYS);
@@ -2050,14 +2076,15 @@ function weekBelow(scope, who, r, top = false) {
   const gl = gates.length ? gates.map(g => aheadGate(g, g === lead, owners, sg.chair)).join('') : `<p class="ah-none">None of ${esc(whoseBills(scope, who))} races a deadline in the next three weeks.</p>`;
   // R-277 fix 18 (V-4): on a laptop the deadlines sit above the week's grid, folded to their one line (open it to see the
   // bills with no hearing yet), so a long week no longer pushes them screens down; a phone keeps them under its list.
-  if (top) { const open = !!S.tdOpen?.dl;
+  if (top) { const open = S.tdOpen?.dl ?? emptyWeek;   // an empty week opens it, until the person closes it
     return { dl: `<details class="ah-sec ah-top" data-dlfold${open ? ' open' : ''}><summary><h2 id="ah-dl">${esc(h2)}</h2>${icon('chevron-down', { cls: 'ah-chev' })}</summary>${gl}</details>`, sg: suggestHtml(sg.list, r) }; }
   const dl = `<section class="ah-sec" aria-labelledby="ah-dl"><div class="ah-hd"><h2 id="ah-dl">${esc(h2)}</h2></div>${gl}</section>`;
   return dl + suggestHtml(sg.list, r);
 }
+let WEEK_EMPTY = false;   // set by weekView: the week shown has nothing in it (R-316 W56)
 function weekPage(route, scope, who, r) {
-  if (WIDE()) { const { dl, sg } = weekBelow(scope, who, r, true);
-    return `<div class="td-root td-weekroot">${toolbar(route)}${oneNotice()}${dl}${weekView(route, scope, who, r)}<div class="tw-below ah">${sg}</div></div>`; }
+  if (WIDE()) { const grid = weekView(route, scope, who, r), { dl, sg } = weekBelow(scope, who, r, true, WEEK_EMPTY);
+    return `<div class="td-root td-weekroot">${toolbar(route)}${oneNotice()}${dl}${grid}<div class="tw-below ah">${sg}</div></div>`; }
   const top = aheadWeek(scope, who, aheadBills(scope, who).coal);
   // v4 (R-269): the foot's All tasks and Inbox went. Tasks retired (its rows are Today's and each bill's To do) and the
   // Inbox is in your menu: one way into each place (B-13).
@@ -2137,6 +2164,9 @@ function render(route) {
         // R-277 ui-critic: someone who owns nothing is told so first, plainly, whatever their coalition has on (Patti's
         // hearing-day Today opened on "HEAL this week" and never said nothing was hers).
         : coal ? `<p class="td-quiet" data-top tabindex="-1">${icon('circle-check')}<span>Nothing needs you today.</span></p>`
+        // R-316 W7 (G3-12, FR-3): someone who owns no bill, follows none and helps on no coalition was told "All clear… on
+        // your bills". Their first step is their coalition, whose switches are on My issues.
+        : scope === 'mine' && !who && !S.bills.some(isMine) && !coalPicked() ? `<div class="td-empty" data-top tabindex="-1">${empty({ title: 'Pick the coalition you help on', text: 'Its hearings and testimony show here once you switch on I help on it. My issues lists every coalition.', action: btn('Pick your coalition', { href: '#/my-issues' }) })}</div>`
         : `<div class="td-empty" data-top tabindex="-1">${empty({ art: scope === 'mine' ? yay() : '', title: who ? `Nothing is waiting on ${esc(name)}.` : scope === 'none' ? 'Nothing is open on the bills nobody owns.' : 'All clear for today.', text: nextHearingText(scope, who), action: scope !== 'mine' ? btn('Back to my list', { kind: 'secondary', attrs: { 'data-seg': 'tdscope', 'data-val': 'mine' } }) : btn('See your bills', { href: '#/bills' }) })}</div>`);
     // R-316 W4: with the 2027 prep in the list, "All clear" above it said there was nothing to do, and pushed it down.
     } else body = (clear && !cd.cards.length && !groups.some(g => g.cards.some(c => c.p?.kind === 'prep')) ? `<div class="td-clear">${scope === 'mine' ? yay() : ''}<div><p class="td-clear-t">${who ? `Nothing for ${esc(name)} today.` : scope === 'none' ? 'Nothing is due today on the bills nobody owns.' : askSoon ? 'Nothing due today.' : 'All clear for today.'}</p><p class="small muted">${nextHearingText(scope, who)}</p></div></div>` : '')
@@ -2406,7 +2436,7 @@ function wire(route, root) {
     main.querySelector('#td-digrows')?.addEventListener('click', e => { const a = e.target.closest('a[href^="#/"]'); if (!a || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); S.go(a.getAttribute('href')); });
   }
   if (main.querySelector('.td-yay')) save('allclear', hst(Date.now()));
-  main.querySelector('[data-newhere]')?.addEventListener('click', () => { save('newhere_done', '1'); hooks.render(); });
+  main.querySelector('[data-newhere]')?.addEventListener('click', () => { save('newhere_done', '1'); markNewStep({ hidden: 1 }); hooks.render(); });
   main.querySelector('[data-tdstart]')?.addEventListener('toggle', e => { S.tdStartOpen = e.target.open; });
   main.querySelectorAll('[data-tdfr]').forEach(a => a.addEventListener('click', () => markNewStep({ [a.dataset.tdfr]: 1 })));
   // Opening This week is the helper's Getting started step (help.js, v4): the step is seeing it, however you got there.

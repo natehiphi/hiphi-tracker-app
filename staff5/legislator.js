@@ -58,12 +58,12 @@ const billName = b => b.nickname
 // "Set stance" that opens the stance sheet, with the note in it (v3: not a bordered "Unknown" and a note button on each).
 function standRow(b, l, { from = false, desk = false } = {}) {
   const x = stanceOf(b.id, l.id), who = x.contact_id && advocate(x.contact_id), key = `${b.id}|${l.id}`, word = STANCE_WORD[x.stance] || 'Unknown';
-  const none = !x.stance || x.stance === 'unknown', set = `Set ${shortName(l)}’s stance on ${billSay(b)}`;
+  const none = !x.stance || x.stance === 'unknown', set = `Mark where they stand: ${shortName(l)} on ${billSay(b)}`;
   const sub = [billSub(b), who ? `${who.full_name.split(' ')[0]} knows them` : ''].filter(Boolean).join(' · ');
   const noteLabel = `${x.note || who ? 'Edit the note' : 'Add a note'} on ${shortName(l)} for ${billSay(b)}`;
   return `<div class="row lg-brow${from ? ' from' : ''}">
     <a class="lg-bbody" href="${billHref(b)}">${billName(b)}<span class="sub">${esc(sub)}</span>${x.note ? `<span class="lg-note">${esc(x.note)}</span>` : ''}</a>
-    ${none && !x.note && !who ? btn('Set stance', { kind: 'text', sm: true, cls: 'lg-setst', attrs: { 'data-lgst': key, 'aria-haspopup': 'dialog', 'aria-label': set } })
+    ${none && !x.note && !who ? btn('Mark where they stand', { kind: 'text', sm: true, cls: 'lg-setst', attrs: { 'data-lgst': key, 'aria-haspopup': 'dialog', 'aria-label': set } })
       : desk ? `${iconBtn('notebook-pen', noteLabel, { 'data-lgnote': key }, 'lg-noteb')}${pickerChip(word, { 'data-lgpick': key, 'aria-haspopup': 'dialog', 'aria-label': `${shortName(l)} on ${billSay(b)}: ${word}. Change` }, STANCE_ICON[x.stance] || 'circle-dashed')}`
       : stanceChip(b, l)}
   </div>`;
@@ -105,10 +105,12 @@ function parts(route, l, desk) {
   const inCm = inTheirCommittees(l).map(x => x.b).sort(byUrgency), intro = introducedBy(l).slice().sort((a, b) => diedish(a) - diedish(b) || byUrgency(a, b));
   const seats = seatsOf(l);
   return { from, stand, inCm, intro, seats,
-    standSec: empties => stand.length || empties ? section('lg-s1', 'Where they stand on our bills', null, stand.length ? `<div class="rows">${stand.join('')}</div>` : `<p class="lg-empty">No stances yet. Set one on any bill below.</p>`) : '',
+    standSec: empties => stand.length || empties ? section('lg-s1', 'Where they stand on our bills', null, stand.length ? `<div class="rows">${stand.join('')}</div>` : `<p class="lg-empty">No stances yet. Mark one on any bill below.</p>`) : '',
     cmSec: () => !seats.length ? `<div class="lg-sec">${noSeats(l)}</div>` : section('lg-s2', 'Our bills in their committees', inCm.length, inCm.length ? `<div class="rows">${folded(`${l.id}|cm`, inCm.map(b => standRow(b, l, { desk })))}</div>` : `<p class="lg-empty">None of our live bills is in their committees right now.</p>`),
     introSec: () => section('lg-s3', 'Bills they introduced', intro.length, intro.length ? `<div class="rows">${folded(`${l.id}|in`, intro.map(billLink))}</div>` : `<p class="lg-empty">None of the bills on the tracker.</p>`),
-    notesSec: () => section('lg-s4', 'Conversations', S.legNotes?.[l.id] ? convCount(convRows(l)) || null : null, notesHTML(l), btn(desk ? 'Log a conversation' : 'Add', { kind: 'text', icon: 'message-square-plus', sm: true, attrs: { 'data-lglog': '1', 'aria-label': 'Log a conversation' } })),
+    // One Log a conversation per page (R-316 W56, A-3): the filled one sits in the contact card (laptop) or the action
+    // row (phone), so the section heading carries none.
+    notesSec: () => section('lg-s4', 'Conversations', S.legNotes?.[l.id] ? convCount(convRows(l)) || null : null, notesHTML(l)),
   };
 }
 

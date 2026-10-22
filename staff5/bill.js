@@ -19,7 +19,7 @@ import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, POS_SUB, posIcons, ownerO
   pickerSheet, menuSheet, confirmSheet, field, keysOn } from './ui.js';
 import { goingBtn, docBtn, filedBtn, showAllBtn, mayUnfile, undoFiledLink } from './ui.js';   // R-277 fix 4: one look per action
 import { renderCommittees, wireCommittees } from './pathway.js';
-import { renderActivity, wireActivity, composerBar, loadTimeline, shortAction } from './activity.js';
+import { renderActivity, wireActivity, composerBar, loadTimeline, shortAction, noteByText } from './activity.js';
 import { renderPublic, wirePublic, wireDraftsFocus } from './public.js';
 import { renderEarlier, wireTestimony, earlierCount, testimonyHref, onNextUp, draftNowBtn, makeDraftNow } from './testimony.js';
 import { holdBack } from './review.js';
@@ -749,7 +749,7 @@ export function noteSection(b) {
   if (!unsaved && !S.bwNoteEdit.has(b.id)) {
     if (!saved.trim()) return `<section class="bw-sec bw-note0" aria-labelledby="bw-note-h"><h2 id="bw-note-h" class="sr">Team note</h2>${btn('Add a team note', { kind: 'text', icon: 'lock', attrs: { 'data-noteedit': '1' } })}</section>`;
     return `<section class="bw-sec bw-tnote" aria-labelledby="bw-note-h"><div class="bw-sech">${head}${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-noteedit': '1', 'aria-label': 'Edit the team note' } })}</div>
-      <p class="bw-notetx">${esc(saved)}</p></section>`;
+      <p class="bw-notetx">${esc(saved)}</p><p class="bw-noteby meta" id="bw-noteby">${esc(noteByText(b))}</p></section>`;
   }
   return `<section class="bw-sec bw-tnote editing" aria-labelledby="bw-note-h">${head}
     <div class="field"><label class="sr" for="bw-note">Team note</label><textarea id="bw-note" rows="3" placeholder="Context the team should keep: who we talked to, what the chair said, what to watch for.">${esc(d ?? saved)}</textarea></div>
@@ -1156,6 +1156,8 @@ export function wireNote(pnl, b) {
   pnl.querySelector('[data-savenote]').onclick = async e => {
     const v = note.value.trim(), base = noteBase.has(b.id) ? noteBase.get(b.id) : (b.internal_notes ?? null); const go = e.currentTarget; go.setAttribute('aria-busy', 'true');
     const finish = res => {
+      // The database writes the "Internal notes edited" line; this copy shows it until the timeline is read again.
+      if (res.changed.length) S.bwTL?.[b.id]?.unshift({ bill_id: b.id, advocate_id: S.me.id, type: 'field_change', title: 'Internal notes edited', occurred_at: new Date().toISOString(), source: 'team' });
       drafts.delete(b.id + ':note'); noteBase.delete(b.id); S.bwNoteEdit.delete(b.id); rerender('[data-noteedit]');
       if (!res.changed.length) { toast('Nothing to save: the note already says this.'); return; }
       // Saving replaces the note, so the note it replaced comes back with Undo (R-005; DESIGN B-5).

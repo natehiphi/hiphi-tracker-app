@@ -111,7 +111,7 @@ const GATE_WORDS = [
   [/decking/i, one => `clear ${one ? 'its' : 'their'} last committee`, 'bills clear their last committee'],
   [/cross ?back|second crossover/i, () => 'pass the second chamber', 'bills pass the second chamber'],
   [/crossover/i, one => `pass ${one ? 'its' : 'their'} first chamber`, 'bills pass their first chamber'],
-  [/fiscal/i, () => 'be settled in conference', 'the same, for bills that spend money'],
+  [/fiscal/i, () => 'be settled in conference, if they spend money', 'the same, for bills that spend money'],
   [/sine die/i, null, 'the session’s last day'],
   [/intro/i, null, 'the last day to introduce bills'],
 ];

@@ -683,8 +683,9 @@
   .td-root .td-ract .btn.primary:hover { background: var(--p50); }
   .td-root .td-ract .btn.primary:active { background: var(--p100); }
 }
-/* In a narrow list (a 1280 laptop) "+2 on this bill" says "+2"; the words stay for a screen reader. */
-@container tdrows (max-width: 640px) { .td-root .td-rplus .td-rmore { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }
+/* In a narrow list (a 1280 laptop) "+2 on this bill" wraps onto two short lines instead of hiding its words (R-316 W56,
+   L-7: a bare "+1" said more of what?). */
+@container tdrows (max-width: 640px) { .td-root .td-rplus { max-width: 7.5em; white-space: normal; text-align: right; line-height: 16px; } }
 
 /* v4 (R-269, T10): the new hearings with no draft, as one row; its list (open item, or the phone's card) gives each bill
    its hearing on a line of its own. */
@@ -795,3 +796,14 @@
    follows it is quieter, so the step is the first thing read without a box or icon adding weight (Nate: chips were too dense). */
 .td-root .td-step { font-weight: 600; color: var(--n900); }
 .td-root .td-stepdot, .td-root .td-rd { color: var(--n700); }
+/* R-316 W56 (O-8): Slipping's two small headings, "Late, still open" first. */
+.td-root .td-slipsub { margin: var(--s12) 0 6px; font-size: var(--t13); font-weight: 700; color: var(--n700); }
+.td-root .td-slipsub:first-of-type { margin-top: 0; }
+.td-root .td-slipn { color: var(--n500); font-weight: 600; }
+/* R-316 W56 (L-10): an empty week, said once instead of "Nothing scheduled." in five boxes. */
+.td-root .td-wempty { display: flex; align-items: flex-start; gap: var(--s8); margin: var(--s8) 0 var(--s16); padding: var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); font-size: var(--t14); color: var(--n700); }
+.td-root .td-wempty .ic { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--n500); }
+/* R-316 W7: Getting started on a phone is one line pointing to the laptop and Help; the practice link sits in its foot. */
+.td-root .td-startph { display: flex; align-items: flex-start; gap: var(--s8); margin-top: var(--s16); font-size: var(--t14); color: var(--n700); }
+.td-root .td-startph .ic { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--n500); }
+.td-root .td-startf { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8); }
