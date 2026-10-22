@@ -18,6 +18,7 @@ import { copyLink, NAMES as FV_NAMES } from './firstvisit.js';
 import { afterClose, iconName } from './lists.js';
 import { ICONS } from '../icons.js';
 import { billRoute } from './model.js';
+import { bl, save as saveBills } from './filters.js';
 
 // ---- coalition and list icons (copied from app.js: the public page shows Lucide icons, so staff pick a name from
 // this short list; old emoji values still display, mapped, until someone saves the coalition again) ----
@@ -326,6 +327,9 @@ const clearErrs = root => root.querySelectorAll('.st-form .err').forEach(e => { 
 // is deleted: turning someone off stops their sign-in and keeps their name on everything they did. ----
 const firstOf = a => (a.full_name || '').split(/\s+/)[0];
 const ownedBy = id => S.bills.filter(b => (S.assignments[b.id] || []).includes(id)).length;
+// R-316 W28 (G3-13): one honest count, live bills first ("28 live bills; 79 more have died").
+const liveOwned = id => S.bills.filter(b => b.tracked !== false && (S.assignments[b.id] || []).includes(id) && !diedish(b)).length;
+const ownedWords = id => { const n = liveOwned(id), dead = ownedBy(id) - n; return `${plural(n, 'live bill')}${dead ? `; ${dead} more ${dead === 1 ? 'has' : 'have'} died` : ''}`; };
 const initialsOf = name => { const w = name.trim().split(/\s+/).filter(Boolean); return (w.length > 1 ? w[0][0] + w[w.length - 1][0] : (w[0] || '').slice(0, 2)).toUpperCase().replace(/[^A-Z]/g, ''); };
 // Initials nobody else on the team has (R-267): "JM" is James's, so Julie Mejia is offered JMM, not a form that refuses JM.
 const takenBy = (ini, self) => S.advocates.find(x => x.id !== self && String(x.initials || '').toUpperCase() === ini);
@@ -364,7 +368,7 @@ function personSheet(a) {
   const email = `<input id="tm-email" type="email" value="${esc(a?.email || '')}" placeholder="name@hiphi.org" autocomplete="off" inputmode="email"${locked ? ' readonly aria-describedby="tm-email-help"' : ''}>`;
   const extra = a && !me ? `<div class="st-tmmore">
       ${!off && l?.last_sign_in_at ? `<div class="st-tmact"><div><p class="strong">Forgot their password?</p><p class="small muted">Make a new sign-in link and send it to them.</p></div>${btn('New sign-in link', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-tmlink2': a.id } })}</div>` : ''}
-      <div class="st-tmact"><div><p class="strong">${off ? 'Turned off' : 'Leaving the team?'}</p><p class="small muted">${off ? `${esc(firstOf(a))} cannot sign in. Turn them back on to let them in again.` : `Turning ${esc(firstOf(a))} off stops their sign-in. Their notes and approvals keep their name${n ? `, and their ${plural(n, 'bill')} keep them as owner until you give them to someone else` : ''}.`}</p></div>
+      <div class="st-tmact"><div><p class="strong">${off ? 'Turned off' : 'Leaving the team?'}</p><p class="small muted">${off ? `${esc(firstOf(a))} cannot sign in. Turn them back on to let them in again.${n ? ` They own ${esc(ownedWords(a.id))}; the app treats them as No owner until you give them to someone else.` : ''}` : `Turning ${esc(firstOf(a))} off stops their sign-in. Their notes and approvals keep their name${n ? `. They own ${esc(ownedWords(a.id))}: until you give them to someone else, the app treats them as No owner, so nothing late is hidden` : ''}.`}${n && liveOwned(a.id) ? ` ${btn('See their live bills', { kind: 'text', sm: true, attrs: { 'data-tmbills': a.id } })}` : ''}</p></div>
         ${btn(off ? 'Turn back on' : 'Turn off', { kind: off ? 'secondary' : 'text', sm: true, cls: off ? '' : 'st-danger', attrs: { 'data-tmoff': off ? '' : '1' } })}</div></div>` : '';
   openSheet({ title: a ? esc(a.full_name) : 'Add a person', size: 'auto',
     body: `<form class="st-form st-tmform" novalidate data-tmform>
@@ -405,6 +409,8 @@ function personSheet(a) {
       };
       d.querySelector('[data-tmsave]').onclick = save; f.onsubmit = e => { e.preventDefault(); save(); };
       const l2 = d.querySelector('[data-tmlink2]'); if (l2) l2.onclick = async () => { await closeSheet({ silent: true }); makeLink(a); };
+      const tb = d.querySelector('[data-tmbills]');   // W28: their bills, on Bills' Team view, filtered to them, ready for Set owner
+      if (tb) tb.onclick = async () => { await closeSheet({ silent: true }); const v = bl(); v.scope = 'all'; v.owners = new Set([a.id]); saveBills(); location.hash = '#/bills'; };
       const t = d.querySelector('[data-tmoff]');
       if (t) t.onclick = async () => { await closeSheet({ silent: true }); setActive(a, !!off); };
     } });

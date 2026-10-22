@@ -1520,7 +1520,8 @@ export async function demoInit() {
   const NOTES = ['Cite the 2024 BRFSS numbers in paragraph two.', 'Lead with the fiscal note; the chair asked for it.',
     'Name the two amendments we want in the first paragraph.', 'Shorten it to one page and list the coalition sign-ons.'];
   let n = 2, approvedSeeded = false, noteN = 0;
-  for (const h of sc.hearings.filter(h => new Date(h.scheduled_at) > new Date()
+  // R-316 W24 (G1-1): never for a cancelled sitting, as the live draft job (sync/testimony.js makes drafts for scheduled ones only).
+  for (const h of sc.hearings.filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) > new Date()
       && new Date(h.scheduled_at) - Date.now() < 7 * 864e5)) {
     const hb = S.bills.find(b => b.id === h.bill_id);
     if (!hb || !ACTIONABLE.includes(hb.position)) continue;
@@ -1880,7 +1881,9 @@ export function startedFromLine(b, d) {
   const src = Object.values(S.drafts || {}).flat().find(x => x.id === d.from_draft_id);
   const head = `Started from HIPHI’s ${src ? `${src.committee} ` : ''}testimony`;
   if (!src) return `${head}, with this hearing’s committee, names, date and room put in.`;
-  if ((src.version || null) === (d.version || null)) return `${head}, with this hearing’s details put in. The bill hasn’t changed since.`;
+  // R-316 W24 (G1-8): compared with the bill as it is now, not with the draft, so it never says "hasn't changed" right
+  // above "The bill is now SD1".
+  if ((src.version || null) === (b.current_version || d.version || null)) return `${head}, with this hearing’s details put in. The bill hasn’t changed since.`;
   const since = changedSince(b, src.version, d.version);
   return `${head}, written for ${dname(src.version)}. ${since ? `Since then: ${since}` : `No note yet on what changed since then.`}`;   // the bill's own version is said once, in the warning under it (X10-6)
 }
