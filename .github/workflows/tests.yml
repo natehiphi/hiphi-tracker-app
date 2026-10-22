@@ -73,6 +73,9 @@ jobs:
       - name: "Staff v5: turning someone off never hides their work (R-316 W28)"
         if: ${{ !cancelled() }}
         run: python3 tests/staff5_turnoff.py
+      - name: "Staff v5: Help answers everyday questions; search finds coalitions (R-316 W29)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/staff5_help_search.py
       - name: Year-proof bill links
         if: ${{ !cancelled() }}
         run: python3 tests/year_links.py

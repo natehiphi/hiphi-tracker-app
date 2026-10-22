@@ -1535,7 +1535,7 @@ export async function demoInit() {
     const ago = h => new Date(Date.now() - h * 36e5).toISOString();
     (S.drafts[h.bill_id] ??= []).push({ id: 'dd' + n++, bill_id: h.bill_id, committee: h.committee, hearing_id: h.id,   // as the live job links it
       status: st, doc_url: 'https://docs.google.com/document/d/demo' + n + '/edit',
-      created_at: ago(30), submitted_by: st === 'draft' ? null : owner, submitted_at: st === 'draft' ? null : ago(20),
+      created_at: ago(30), submitted_by: owner,   // W38: a sent-back draft was sent by someone (its owner here), as live submitted_at: st === 'draft' ? null : ago(20),
       approved_by: ['approved', 'filed', 'second_review'].includes(st) ? byIni.NT : null, approved_at: ago(10),
       second_approved_by: st === 'filed' ? byIni.JS : null, second_approved_at: ago(6),
       filed_by: st === 'filed' ? owner : null, filed_at: st === 'filed' ? ago(2) : null,
@@ -1583,7 +1583,14 @@ export async function demoInit() {
       && (mineIds.has(bid) || list.some(x => x.advocate_id === S.me.id) || named(m.body))) out.push({ key: 'm:' + m.id, kind: 'message', direct: true, priority: S.bills.find(b => b.id === bid)?.priority, bill_id: bid, bill_number: S.bills.find(b => b.id === bid)?.bill_number, title: (advocate(m.advocate_id)?.full_name || 'Someone') + ' wrote', body: m.body, at: m.created_at, tab: 'chat', unread: true });
     for (const d of Object.values(S.drafts).flat()) { const b = S.bills.find(x => x.id === d.bill_id); if (!b) continue;
       if (d.status === 'review' && (S.me?.is_admin || S.me?.can_approve) && d.submitted_by !== S.me.id) out.push({ key: 'n:' + d.id, kind: 'testimony', direct: true, priority: b.priority, bill_id: b.id, bill_number: b.bill_number, title: `${advocate(d.submitted_by)?.full_name || 'Someone'} submitted testimony for your approval`, body: `${d.committee} hearing`, at: d.submitted_at || d.created_at, tab: 'details', unread: true });
-      if (d.status === 'draft' && d.review_note && mineIds.has(b.id)) out.push({ key: 'n:r' + d.id, kind: 'testimony', direct: true, priority: b.priority, bill_id: b.id, bill_number: b.bill_number, title: 'Your testimony was sent back', body: d.review_note, at: d.approved_at || d.created_at, tab: 'details', unread: true }); }
+      // R-316 W38 (A-15): the deadline reminder the tracker really sends an owner (queue_deadline_reminders, its words),
+      // for their open testimony due within a day, so the practice Inbox shows the alerts staff will get.
+      const dh = (S.hearings || []).find(h => h.id === d.hearing_id), dueAt = dh && (dh.testimony_deadline ? new Date(dh.testimony_deadline).getTime() : new Date(dh.scheduled_at).getTime() - 864e5);
+      if (dh && dh.status !== 'cancelled' && !['filed', 'cancelled'].includes(d.status) && (S.assignments[b.id] || [])[0] === S.me.id && dueAt > Date.now() && dueAt - Date.now() < 864e5) {
+        const hrs = Math.max(1, Math.round((dueAt - Date.now()) / 36e5));
+        out.push({ key: 'n:dl' + d.id, kind: 'deadline', direct: true, priority: b.priority, bill_id: b.id, bill_number: b.bill_number, title: `Testimony due in ${hrs} hour${hrs === 1 ? '' : 's'} (${fmtDT(new Date(dueAt).toISOString())}) · ${d.committee}`, body: 'The reminder the tracker sends you in Slack before a testimony deadline.', at: new Date(Date.now() - 36e5).toISOString(), unread: true }); }
+      // R-316 W38 (C-18, A-15): as live (migration 154), "sent back" reaches only the person who sent the draft.
+      if (d.status === 'draft' && d.review_note && (d.submitted_by ? d.submitted_by === S.me.id : (S.assignments[b.id] || [])[0] === S.me.id)) out.push({ key: 'n:r' + d.id, kind: 'testimony', direct: true, priority: b.priority, bill_id: b.id, bill_number: b.bill_number, title: 'Your testimony was sent back', body: d.review_note, at: d.approved_at || d.created_at, tab: 'details', unread: true }); }
     for (const a of DEMO_TL) { const ab = S.bills.find(b => b.id === a.bill_id); if (!ab || (ab.position === 'monitor' && !S.follows.has(ab.id))) continue;
       if (mineIds.has(a.bill_id) && Date.now() - new Date(a.occurred_at) < 30 * 864e5 && a.source === 'auto') out.push({ key: 'a:' + a.bill_id + a.occurred_at + a.title.slice(0, 12), direct: false, priority: ab.priority, kind: /hearing|decision making|briefing/i.test(a.title) ? 'hearing' : 'status', bill_id: a.bill_id, bill_number: S.bills.find(b => b.id === a.bill_id)?.bill_number, title: a.title, body: a.details, at: a.occurred_at, tab: 'timeline', unread: Date.now() - new Date(a.occurred_at) < 7 * 864e5 }); }
     return out.sort((x, y) => String(y.at).localeCompare(String(x.at))).slice(0, 200); };
@@ -1628,6 +1635,15 @@ export async function demoInit() {
       done: true, due_date: null, assignee_id: S.advocates[2].id, sort_order: 2,
       created_at: new Date().toISOString() },
   ]);
+  // R-316 W38 (FD-16): at 9:00 on the practice day a committee's result from its 1:10 PM hearing is not known yet. The
+  // snapshot stamps the Capitol's actions 8:00 AM, so such a result (and any outcome of a hearing still ahead) is left out
+  // here. The bill's stage itself still comes from the snapshot (a rebuild with tools/build_snapshot.js fixes that).
+  const hday = t => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }), nowD = hday(Date.now());
+  const ahead = S.hearings.filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now());
+  for (const h of ahead) delete S.outcomes[h.id];
+  const leak = e => /recommend|deferred|passed/i.test(e.title || '') && ahead.some(h => h.bill_id === e.bill_id && hday(h.scheduled_at) === nowD && hday(e.occurred_at) === nowD
+    && String(h.committee).split(/[\/,\s]+/).some(c => c && String(e.title).includes(c)));
+  sc.tl = sc.tl.filter(e => !leak(e)); sc.since = sc.since.filter(e => !leak(e));
   S.compStage = sc.compStage; DEMO_TL = sc.tl;
   S.feed = sc.tl.filter(t => t.source === 'team');
   S.sinceVisit = Date.now() - 3*864e5;

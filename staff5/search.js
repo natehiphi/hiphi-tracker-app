@@ -16,7 +16,7 @@ import { billSub, wireLinks } from './pathway.js';
 import { matchLegs, legRow, weekIndex, districtQ } from './legislators.js';
 import { blRow } from './bills.js';
 import { billRoute } from './model.js';
-import { helpTopics } from './help.js';   // R-277 fix 19: Help's guides are places too
+import { helpTopics, synOf } from './help.js';   // R-277 fix 19: Help's guides are places too; R-316 W29: one list of everyday words
 
 const SHOW = { bills: 8, legs: 5, people: 5 };
 const st = () => (S.lgSearch ??= { q: '', more: new Set(), un: null });
@@ -62,6 +62,10 @@ const PLACES = () => [
   { title: 'This week’s asks', href: '#/outreach', icon: 'megaphone', sub: 'Outreach', also: 'asks ask newsletter post share kit public ask' },
   { title: 'Emails', href: '#/outreach/emails', icon: 'mail', sub: 'Outreach: supporter emails', also: 'email emails action alert supporter email' },
   { title: 'Supporters', href: '#/outreach/supporters', icon: 'users', sub: 'Outreach', also: 'supporters people contacts segments' },
+  // R-316 W29 (S-9): Review, Lists and each coalition (by its short name and its full one) are places too.
+  { title: 'Review', href: '#/review', icon: 'user-check', sub: 'Testimony and emails waiting for approval', also: 'approve approval approvals second approval sign off send back review queue' },
+  { title: 'Lists', href: '#/outreach/lists', icon: 'list', sub: 'Outreach: shared lists of bills', also: 'list lists collections' },
+  ...(S.campaigns || []).map(c => ({ title: c.name, href: `#/coalition/${encodeURIComponent(c.id)}`, icon: 'users', sub: `Coalition${c.public_name && c.public_name !== c.name ? ': ' + c.public_name : ''}`, also: `coalition ${c.public_name || ''}`, code: plain(c.name) })),
   ...helpTopics().map(t => ({ title: t.title, href: `#/help/${t.id}`, icon: t.icon || 'circle-help', sub: 'Help', also: `help ${t.also}`, help: true })),
 ];
 const PL_STOP = new Set(['a', 'an', 'the', 'my', 'to', 'of', 'for', 'how', 'do', 'i', 'is', 'where', 'what', 'page', 'open']);
@@ -71,9 +75,10 @@ export function placeHits(q) {
   const out = [];
   for (const p of PLACES()) {
     const t = plain(p.title.replace(/’/g, "'")), a = plain(p.also);
-    if (!ws.every(w => starts(t, w) || starts(a, w))) continue;
-    // the name itself first, then a name that starts with the words, then a match on its other words; a place before a Help guide
-    const score = (t === ws.join(' ') ? 8 : 0) + ws.filter(w => starts(t, w)).length * 2 + (starts(t, ws[0]) && t.startsWith(ws[0]) ? 1 : 0) - (p.help ? 1 : 0);
+    if (!ws.every(w => synOf(w).some(x => starts(t, x) || starts(a, x)))) continue;   // W29: "chair", "log a call" find their guides
+    // the name itself first, then a name that starts with the words, then a match on its other words; a place before a Help guide.
+    // A coalition's own short name typed exactly ("HEAL") comes first, before the 400 "health" bills.
+    const score = (p.code && p.code === ws.join(' ') ? 20 : 0) + (t === ws.join(' ') ? 8 : 0) + ws.filter(w => starts(t, w)).length * 2 + (starts(t, ws[0]) && t.startsWith(ws[0]) ? 1 : 0) - (p.help ? 1 : 0);
     out.push([score, p]);
   }
   return out.sort((x, y) => y[0] - x[0]).slice(0, 3).map(([, p]) => p);
