@@ -456,19 +456,33 @@ export function shareFor(b, h, { acted = false, law = false, differs = false, as
   const hwhen = h && new Date(h.scheduled_at) > Date.now() ? dayWord(h.scheduled_at) : '';
   const hline = a === 'email' ? `${hwhen ? `The committee hears it ${hwhen}. ` : ''}A short email to the committee before then takes about 2 minutes, and the tracker helps you write it.`
     : a === 'attend' ? `${hwhen ? `The committee hears it ${hwhen} at ${timeWord(h.scheduled_at)}, ${roomLabel(h.room)}, at the State Capitol. ` : ''}Anyone can come and listen, and the tracker says where to go.` : '';
-  const text = hline ? (acted ? `I just spoke up on a bill I care about: ${named}. ${hline} ${a === 'attend' ? 'Want to come?' : 'Will you add your voice too?'}`
-      : `Have you seen this? ${named}: ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')} ${hline}`)
+  // Each ask opens with its own question (R-212 #33, the Neighborhood Captain: a group chat got the same "Have you seen this?"
+  // whatever it was asked to do). Testimony keeps the share test's words (R-135, versions.py records them).
+  const opening = OPENING[a] ? OPENING[a](named) : '';
+  const text = hline ? (acted ? `I just spoke up on a bill I care about: ${named}. ${hline} ${a === 'attend' ? 'Want to come?' : 'Will you send one too?'}`
+      : `${opening} ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')} ${hline}`)
     : law ? `${differs ? '' : 'Good news: '}${named} ${isResolution(b) ? 'was adopted' : 'is now law in Hawaiʻi'}. ${blurb(b, 110)}`
     : lead && acted ? `${head} I just spoke up, and it took a few minutes. Will you add your voice too? Lawmakers really do notice when lots of us write in.`
     : lead ? `${head} ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')} It takes a few minutes to tell them what you think, and every voice helps.`
     : !when && askLine(b, a, chamber) ? (acted ? `I just spoke up on a bill I care about: ${named}. ${askLine(b, a, chamber)} Will you add your voice too?`
-      : `Have you seen this? ${named}: ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')} ${askLine(b, a, chamber)}`)
+      : `${opening || `Have you seen this? ${named}:`} ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')} ${askLine(b, a, chamber)}`)
     : acted ? `I just spoke up at the Legislature on a bill I care about: ${named}. It only took a few minutes!${when} Will you add your voice too? Lawmakers really do notice when lots of us write in.`
-    : `Have you seen this? ${named}: ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')}${when} It only takes a few minutes to speak up, and every voice helps.`;
+    : `Have you seen this? ${named}: ${blurb(b, 110).replace(/([^.!?…])$/, '$1.')}${when} The tracker walks you through it, and every voice helps.`;
   // The share picture test (R-183): the address of the version this share shows, when the bill has one for this ask.
   const ps = picShare(billShareUrl(b, a), a, b.id), page = ps.url, url = tag ? withVia(page, tag) : page;
   return { title: name || sp, text, url, copy: `${text} ${url}`, ab: tag ? b.id : '', pic: ps.pic };
 }
+// The first words of a friend's message, by what they are asked to do (R-212 #33). Testimony has none here: its words are
+// the share test's (R-135).
+const OPENING = {
+  email: n => `Will you email the committee about ${n}?`,
+  attend: n => `Want to come to a hearing at the Capitol? It’s on ${n}.`,
+  ask: n => `Will you email a committee chair about ${n}?`,
+  floor: n => `Will you email your legislator about ${n}?`,
+  conference: n => `Will you send lawmakers a short note about ${n}?`,
+  governor: n => `Will you send the Governor a short note about ${n}?`,
+  follow: n => `Want to keep an eye on ${n} with me?`,
+};
 // The message's ask when there is no hearing to name (R-169), the same ask as the card. '' keeps the general words.
 function askLine(b, a, chamber) {
   const no = /oppose/.test(b.hiphi_position || ''), house = CHAMBER_NAME[chamber] || '';
