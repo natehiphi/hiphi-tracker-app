@@ -203,3 +203,6 @@ body.hasbar[data-screen="profile"] #toast { bottom: calc(var(--tabbar) + var(--s
 @media (min-width: 900px) { body.hasbar[data-screen="profile"] #toast { bottom: 96px; } }
 /* What we keep (X4-5): the shared list, a little tighter than the profile's other lists, so it reads as one block. */
 .pf-keep { gap: var(--s4); }
+/* Where letters are kept (R-212 #31): this device, or the account. */
+.pf .myl-where { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s12) 0 0; }
+.pf .myl-where .ic { width: 16px; height: 16px; color: var(--p700); flex: none; margin-top: 2px; }

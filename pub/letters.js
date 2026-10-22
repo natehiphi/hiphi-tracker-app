@@ -107,16 +107,18 @@ async function toAccount(rec) {
   if (!(u.data || []).length) { const i = await sb.from('my_letters').insert({ bill_id: rec.bill, kind, ...row }); if (i.error) throw i.error; }
 }
 // At sign-in (kernel.js loadUser): the account's letters and emails come to this device and this device's join the
-// account; for a bill and kind both have, the newer one wins.
+// account; for a bill and kind both have, the newer one wins. Returns the ones that came here (R-212 #31: a second device
+// says so, and the screen is drawn again with them).
 export async function syncLetters() {
-  if (DEMO || !S.session || !S.user) return;
+  if (DEMO || !S.session || !S.user) return [];
   const sb = await supa(), r = await sb.from('my_letters').select('bill_id,kind,letter,sent_at');
-  if (r.error) return;
+  if (r.error) return [];
   const here = all(), there = Object.fromEntries((r.data || []).filter(x => ok(x.letter)).map(x => [slot(x.kind, x.bill_id), { ...x.letter, kind: x.kind }]));
-  const merged = { ...here };
-  for (const [k, L] of Object.entries(there)) if (!merged[k] || String(L.sent) > String(merged[k].sent)) merged[k] = L;
+  const merged = { ...here }, came = [];
+  for (const [k, L] of Object.entries(there)) if (!merged[k] || String(L.sent) > String(merged[k].sent)) { merged[k] = L; came.push(L); }
   writeLetters(merged);
   for (const [k, L] of Object.entries(here)) if (ok(L) && (!there[k] || String(L.sent) > String(there[k].sent))) await toAccount(L).catch(() => {});
+  return came;
 }
 
 // ---- what changed since the letter was written ----

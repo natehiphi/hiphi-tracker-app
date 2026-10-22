@@ -2,7 +2,8 @@
 // session page (#/recap, pub/home.js) puts each bill's under its row, and the profile lists them all. The Capitol Regular
 // walker could not find a sent letter again once its hearing was past. Each opens in the walkthrough's reader (helper.js
 // viewScreen, W1-1): read, copy, email to myself, download. Kept by letters.js, on the device and with the account.
-import { app, esc, icon, nick, spaced, dateLong, cmteLabel, anyBill, ensureBill, toast } from './core.js';
+import { S, app, esc, icon, nick, spaced, dateLong, cmteLabel, anyBill, ensureBill, toast } from './core.js';
+import { codesOn } from './phone.js';
 import { btn, row } from './ui.js';
 import { keptLetters, keepLetter, forgetLetter } from './letters.js';
 
@@ -78,4 +79,25 @@ export function wireKept(root = document) {
 }
 // The words for the profile's section, so the page and its test say the same.
 // Not "only you can see them": the Capitol posts testimony publicly (Your stories says so just above); only this list is theirs.
-export const LETTERS_LEDE = 'The last letter and email you sent on each bill, kept here for you. The Capitol posts testimony publicly; an email went only to the people you wrote to. Open one to read, copy or download it.';
+export const LETTERS_LEDE = 'The last letter and email you sent on each bill, kept for you. The Capitol posts testimony publicly; an email went only to the people you wrote to. Open one to read, copy or download it.';
+
+// Where they are kept (R-212 #31). The Capitol Regular's second device showed none of their letters and offered "Write my
+// testimony" again: signed out, letters stay on the phone or computer they were sent from, and only a sign-in on each
+// brings them together (letters.js syncLetters; the "I did it" marks come the same way, core.js loadActions).
+const signedIn = () => !!(S.session && S.user);
+export const signInHref = () => codesOn() ? '#/signin?by=number' : '#/signin';
+const signIn = (words = 'Sign in') => `<a href="${signInHref()}" class="myl-signin">${words}</a>`;
+// "the same number or email": the way they signed in on the other device is not known here.
+const same = () => codesOn() ? 'the same number or email' : 'the same email';
+export function lettersWhere(any = keptLetters().length > 0) {
+  // Signed in with none here: the other device may not have signed in yet (the critic, 21 Oct: the line must not go away
+  // once they have done half of what it said).
+  if (signedIn()) return `<p class="small muted myl-where">${icon(any ? 'user-check' : 'smartphone')}<span>${any ? 'Kept with your account, on any phone or computer you sign in on.'
+    : `Sent letters on another phone or computer? Sign in there with ${same()}, and they’ll show up here.`}</span></p>`;
+  return any ? `<p class="small myl-where">${icon('smartphone')}<span>Kept on this device only. ${signIn()} to have them on your other phone or computer too.</span></p>`
+    : `<p class="small myl-where">${icon('smartphone')}<span>Letters you send will be listed here, on the phone or computer you send them from. Sent some on another one? ${signIn()} on both with ${same()}, and they’ll show up here.</span></p>`;
+}
+// The session page's line: signed out, what it counts is this device's; signed in with nothing counted, the other device may
+// not have signed in yet.
+export const sessionWhere = (nothing = false) => signedIn() ? (nothing ? `<p class="small muted myl-where hm-rcpwhere">${icon('smartphone')}<span>Did something on another phone or computer? Sign in there with ${same()}, and it adds up here.</span></p>` : '')
+  : `<p class="small muted myl-where hm-rcpwhere">${icon('smartphone')}<span>Only what you did on this phone or computer shows here. Did more on another one? ${signIn()} on both with ${same()}, and it all adds up here.</span></p>`;

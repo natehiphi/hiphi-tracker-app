@@ -449,3 +449,6 @@ html[data-fxdir="back"]::view-transition-new(cm-art), html[data-fxdir="back"]::v
   .cm .cm-go .btn.full { width: auto; padding-inline: 30px; }
   .cm .cm-pager { justify-content: flex-start; }
 }
+/* The session page's line, signed out: what it counts is this device's (R-212 #31). */
+.hm-rcp .hm-rcpwhere { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s16) 0; }
+.hm-rcp .hm-rcpwhere .ic { width: 16px; height: 16px; color: var(--p700); flex: none; margin-top: 2px; }
