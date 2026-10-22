@@ -53,6 +53,8 @@ function peopleHits(q) {
 // bills are for admins only, as their doors are. The QR code stays where it is (D5, held): its place opens it there.
 const PLACES = () => [
   { title: 'Inbox', href: '#/inbox', icon: 'inbox', sub: 'Messages, mentions and updates', also: 'messages mentions replies unread' },
+  // R-328 B: the groups that write on the tracker, for the people who look after them (as its sidebar link).
+  ...(S.me?.is_active !== false && (S.me?.is_admin || S.me?.approves_partners) ? [{ title: 'Partners', href: '#/partners', icon: 'handshake', sub: 'Groups that write on the tracker', also: 'partner groups advocacy groups partner words approve join requests sign-in links invite' }] : []),
   { title: 'Partner update', href: '#/outreach/partners', icon: 'newspaper', sub: 'Outreach', also: 'partners memo weekly memo coalition update' },
   ...(S.me?.is_admin ? [{ title: 'Sort new bills', href: '#/bills/new', icon: 'sparkles', sub: 'Bills', also: 'triage new bills track pass' }] : []),
   { title: 'My settings', href: '#/me', icon: 'settings', sub: 'How the tracker reaches you', also: 'settings preferences account profile' },

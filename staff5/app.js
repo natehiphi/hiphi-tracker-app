@@ -35,6 +35,7 @@ import composer from './composer.js';
 import help from './help.js';
 import hearing from './hearing.js';
 import coalition from './coalition.js';
+import { admitsPartners } from './partnerq.js';   // R-328 B: who sees Partners in the sidebar and the menu
 
 keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen on a staff screen either (X9-1, X9-6)
 
@@ -63,9 +64,12 @@ const [list] = lazy(() => import('./list.js'), m => ({ list: m.default }), { tab
 const [emails] = lazy(() => import('./emails.js'), m => ({ emails: m.default }), { tab: 'outreach', title: () => 'Emails' });
 const [me] = lazy(() => import('./me.js'), m => ({ me: m.default }), { tab: '', narrow: true, title: () => 'My settings' });
 const [devui] = lazy(() => import('./devui.js'), m => ({ devui: m.default }), { tab: '', title: () => 'Parts' });
+// R-328 B: the groups that write on the public tracker (#/partners, where the database's Slack messages link). Its key is
+// pgroups: `partners` is Outreach's Partner update tab, whose address (#/outreach/partners) is older.
+const [pgroups] = lazy(() => import('./partnergroups.js'), m => ({ pgroups: m.default }), { tab: '', title: () => 'Partners' });
 
 // ---- routes ----
-const SCREENS = { today, myissues, review, inbox, bill, bills, triage, memo, partners, asks, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition };
+const SCREENS = { today, myissues, review, inbox, bill, bills, triage, memo, partners, asks, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition, pgroups };
 export function parseRoute(h = location.hash) {
   // A "%" that is not part of a code (a stray one in a pasted link) made decodeURIComponent throw, and the page never drew (R-152 D).
   let dh; try { dh = decodeURIComponent(h || ''); } catch { dh = String(h || '').replace(/%(?![0-9a-fA-F]{2})/g, '%25'); try { dh = decodeURIComponent(dh); } catch { dh = '#/'; } }
@@ -101,6 +105,7 @@ export function parseRoute(h = location.hash) {
     case 'setup': return { name: 'setup', section: seg[1] || '', q };
     case 'help': return { name: 'help', topic: seg[1] || '', q };
     case 'dev': return { name: 'devui', q };
+    case 'partners': return seg[1] === 'request' ? { name: 'pgroups', id: '', req: seg[2] || '', q } : { name: 'pgroups', id: seg[1] || '', req: '', q };   // R-328 B
     default: return { name: 'today', q };
   }
 }
@@ -213,7 +218,8 @@ function sidebar(route, scr) {
   const bd = badge(), sub = '';
   let rv = 0, ib = 0; try { rv = reviewQueue().length; ib = inboxCount(); } catch { rv = rv || 0; }
   const count = n => n ? `<span class="sv-sn">${n > 99 ? '99+' : n}</span>` : '';
-  const foot = [['help', '#/help', 'circle-help', 'Help'], ...(S.me?.is_admin ? [['setup', '#/setup', 'sliders-horizontal', 'Session setup']] : []), ['me', '#/me', 'settings', 'My settings']];
+  // R-328 B: Partners sits with Session setup, for the people who add and approve partner groups (admins, partner approvers).
+  const foot = [['help', '#/help', 'circle-help', 'Help'], ...(admitsPartners() ? [['pgroups', '#/partners', 'handshake', 'Partners']] : []), ...(S.me?.is_admin ? [['setup', '#/setup', 'sliders-horizontal', 'Session setup']] : []), ['me', '#/me', 'settings', 'My settings']];
   return `<aside class="sv-side" aria-label="Sections">
     <a class="sv-sbrand" href="#/" aria-label="Bill Tracker, Today">${MARK}<span>Bill Tracker<small>HIPHI staff · v5</small></span></a>
     <nav class="sv-snav" aria-label="Main">${SIDE.map(([t, href, ic, label, subs]) => `<div class="sv-sgrp">
@@ -379,6 +385,7 @@ function avatarMenu() {
     // back, with Undo in the toast after the reload.
     DEMO ? { label: 'Start the practice over', icon: 'rotate-ccw', sub: 'Undoes every change kept in this tab, whoever you practised as', run: () => { clearPractice(); location.reload(); } } : null,
     side ? null : { label: 'My settings', icon: 'settings', run: () => go('#/me') },
+    admitsPartners() && !side ? { label: 'Partners', icon: 'handshake', sub: 'Advocacy groups that write on the tracker', run: () => go('#/partners') } : null,   // R-328 B
     S.me?.is_admin && !side ? { label: 'Session setup', icon: 'sliders-horizontal', run: () => go('#/setup') } : null,
     side ? null : { label: 'Help', icon: 'circle-help', run: () => go('#/help') },
     // R-277 fix 6 (E-7): the other versions are for Nate's comparison, so only admins see them.
