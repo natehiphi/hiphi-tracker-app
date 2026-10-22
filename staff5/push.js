@@ -13,8 +13,8 @@ import { chairMail, codesOf, askWords, billTag, billSay, billRoute, blurb, ASK_L
 import { askLine, askedChip, answerSheet } from './chairask.js';   // R-316 W3
 import { icon, btn, iconBtn, avatar, toast, pickerSheet, menuSheet } from './ui.js';
 
-export const PUSH_BOARD = () => DEMO;
-export const GIVE_ASK = () => DEMO;
+export const PUSH_BOARD = () => true;   // live 10/22 at Nate's go, after W3 (R-329)
+export const GIVE_ASK = () => true;   // live 10/22 at Nate's go, after W3 (R-329)
 
 const HST = { timeZone: 'Pacific/Honolulu' };
 const dayAt = t => new Date(t).toLocaleDateString('en-US', { ...HST, weekday: 'short', month: 'numeric', day: 'numeric' }).replace(',', '');

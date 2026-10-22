@@ -21,7 +21,7 @@ export const DEMO = new URLSearchParams(location.search).has('demo');
 // button refused because someone else already acted says who and when. Show me lane: on the practice copy first; Nate's
 // yes flips this to `() => true` (as prep.js SELF_APPROVE). The practice copy has no server, so its poll reads nothing;
 // its refused-button path is the one to try (see raced below).
-export const LIVE_REFRESH = () => DEMO;
+export const LIVE_REFRESH = () => true;   // live 10/22 at Nate's yes (R-330)
 // Sandbox: the real 2026 session frozen at Monday March 16, 2026, 9:00 HST
 // (demo/snapshot.json, built by Bill-Tracker/tools/build_snapshot.js). The
 // clock starts there and runs forward for the length of the visit, so

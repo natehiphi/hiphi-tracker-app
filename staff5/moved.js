@@ -9,7 +9,7 @@
 import { S, DB, DEMO, esc } from './data.js';
 import { hstDayOf } from './model.js';
 
-export const MOVE_GOING = () => DEMO;
+export const MOVE_GOING = () => true;   // live 10/22 at Nate's yes (R-330)
 const DAY = 864e5;
 const dayAt = t => new Date(t).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'short', month: 'numeric', day: 'numeric' }).replace(',', '');
 const timeAt = t => new Date(t).toLocaleTimeString('en-US', { timeZone: 'Pacific/Honolulu', hour: 'numeric', minute: '2-digit' });

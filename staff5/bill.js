@@ -303,7 +303,7 @@ const issueChips = b => issuesOfBill(b.id).map(i => `<a class="bw-ichip" href="$
 const goalLine = b => { if (SESSION_OVER) return ''; const i = issuesOfBill(b.id).find(x => (x.goal || '').trim()); return i ? `<p class="bw-igoal small"><b>${esc(i.name)}: our ${esc(SESSION_YEAR)} goal</b> <span class="muted">(staff only)</span>: ${esc(i.goal)}</p>` : ''; };
 // R-316 W42 (Show me, practice copy): a live bill HIPHI has a position on but nobody owns says so, names who owns its issue,
 // and offers Take it (HB2208, which needs a hearing by 3/30, and HB1850 were left with no owner after their twins stopped).
-const NO_OWNER = () => DEMO;
+const NO_OWNER = () => true;   // live 10/22 at Nate's yes (R-330)
 const noOwnerLine = b => { if (!NO_OWNER() || ownerOf(b) || !b.position || b.position === 'monitor' || diedish(b) || b.tracked === false || !S.me) return '';
   const io = issuesOfBill(b.id).map(i => advocate(i.owner_id)).find(a => a && a.is_active !== false);
   return `<p class="bw-noown">${icon('user-round')}<span>${esc(io ? `${io.id === S.me.id ? 'You own' : io.full_name.split(' ')[0] + ' owns'} its issue` : 'Nobody owns this bill yet')}</span>${btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-bwtake': b.id } })}</p>`; };
