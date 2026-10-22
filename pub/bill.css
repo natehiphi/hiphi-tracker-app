@@ -528,3 +528,6 @@ body[data-screen="bill"].bl-rec:not(.bl-docked) .actionbar { transform: translat
 .bl-page .bl-friend { margin: var(--s12) 0; }
 .bl-page .bl-friend p { margin: 0; }
 .bl-side .bl-friend { margin-top: 0; }
+/* A partner's link (?via=, R-328 batch D): its welcome line once, above the bill's name (its look is rec.css .pw-welcome). */
+.bl-page > .pw-welcome { margin-top: var(--s16); }
+.bl-page .pw-welcome + .bl-head { margin-top: var(--s16); }
