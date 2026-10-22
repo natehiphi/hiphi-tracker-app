@@ -372,7 +372,9 @@ function inSession(si, { welcome, fin }) {
   const gn = P.goodNews();
   for (const e of deck) { const g = gn.find(x => x.b.id === e.b.id); if (g) { e.g = g; e.why = P.momentText(g); } }
   const law = gn.find(x => x.kind === 'law' && x !== entry?.g), soon = plans.filter(p => p.soon);
-  const card = entry ? (entry.kind === 'ask' ? { kind: 'ask', ask: entry.x, bill: entry.b } : { kind: entry.kind, items: [entry.x], bill: entry.b })
+  // On the day of a hearing they are going to or speaking at on Zoom (R-212 #32), that plan leads: the deck waits a day.
+  const today = soon.filter(p => p.today);
+  const card = today.length ? { kind: 'go', plans: today, bill: today[0].b } : entry ? (entry.kind === 'ask' ? { kind: 'ask', ask: entry.x, bill: entry.b } : { kind: entry.kind, items: [entry.x], bill: entry.b })
     : soon.length ? { kind: 'go', plans: soon, bill: soon[0].b } : { kind: '' };
   const c = { si, welcome, fin, due, late, asksAll, plans, card, deck, entry, at, moments: [entry?.g, law].filter(Boolean),
     open: openActions(S.bills, S.hearings).filter(x => !settledOn(x.b, x.h)), thanks: thanksNow() };

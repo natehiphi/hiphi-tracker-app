@@ -51,7 +51,7 @@ import { S, DEMO, app, esc, icon, toast, friendly, spaced, posInfo, cmteLabel, c
   hearingText, chairContacts, legById, legsOf, stopOf, askMark, saveDone, sessionInfo, CHAMBER_NAME, dayWord, textSaved, levelOf, setIssueLevel,
   openActions, actedOn, headline, wiz } from './core.js';
 import { btn, iconBtn, notice } from './ui.js';
-import { nudgeCard, wireNudge, declineNudge, goDirections, roomFloor, noteGoing, downloadIcs } from './actions.js';
+import { nudgeCard, wireNudge, declineNudge, goDirections, roomFloor, noteGoing, downloadIcs, speakHow, setSpeak, zoomChecklist } from './actions.js';
 import { flower } from './art.js';
 import { fxOn, rooster } from './fx.js';   // R-308: the rooster on trial, practice copy only
 import { profileAsk, alertButton, LEVEL_WORDS } from './alerts.js';   // the profile ask right under the Mahalo, its button in the bar (R-184); the levels (R-299)
@@ -1288,10 +1288,20 @@ function acctScreen() {
 // The Capitol form's first two steps are the same for everyone; the rest depends on whose words go in the box.
 const CAPITOL_LOGIN = '<p>Log in, or make a free account. They email you a link to confirm. Do that first, then come back to the bill.</p>';
 const pickHearing = h => `<p>Choose <b>Submit Testimony</b> and pick the hearing on <b class="hp-nw">${esc(dateLong(h.scheduled_at))}</b>.</p>`;
-// Someone who said "I'd testify in person" (their profile, R-156 C1) is told to pick In person; everyone else Written.
-const inPerson = () => myInterests().includes('testify');
-const formChoices = word => inPerson() ? `<p>Choose: <b>${word}</b> · <b>Individual</b> · <b>In person</b>, since you said you’d testify in person. Rather not this time? Pick <b>Written testimony only</b>.</p>`
-  : `<p>Choose: <b>${word}</b> · <b>Individual</b> · <b>Written testimony only</b>. Want to speak? Pick <b>In person</b> or <b>Zoom</b> instead.</p>`;
+// Are you speaking? (R-212 #32): written only, in person or on Zoom, asked on the send step and kept for this hearing
+// (actions.js speakHow), so the form's choice, the last page and Home follow it. The profile's "Testify at a hearing, in person
+// or on Zoom" (R-156 C1) used to be read as In person; now it only puts the question first, unanswered.
+const speakOf = x => x.speak || speakHow(x.h.id) || null;
+const speaker = () => myInterests().includes('testify');
+const SPEAK_OPTS = [['written', 'No, written only'], ['person', 'In person'], ['zoom', 'On Zoom']];
+const speakAsk = x => { const v = speakOf(x);
+  return `<div class="hp-speak" role="group" aria-labelledby="hp-spk-q"><p class="hp-q" id="hp-spk-q">Are you speaking at the hearing?</p>
+    <div class="chips">${SPEAK_OPTS.map(([k, t]) => `<button type="button" class="chip" id="hp-spk-${k}" data-hp="speak-${k}" aria-pressed="${v === k}">${v === k ? icon('check') : ''}${t}</button>`).join('')}</div></div>`; };
+const formChoices = (word, x) => { const v = speakOf(x), base = `Choose: <b>${word}</b> · <b>Individual</b> · `;
+  return v === 'person' ? `<p>${base}<b>In person</b>. At the room, put your name on the list to speak.</p>`
+    : v === 'zoom' ? `<p>${base}<b>Zoom</b>. On the day, the Capitol website has your Join button.</p>`
+    : v === 'written' ? `<p>${base}<b>Written testimony only</b>.</p>`
+    : `<p>${base}<b>Written testimony only</b>, unless you’re speaking.</p>`; };
 const stepList = steps => `<ol class="card hp-steps" role="list">${steps.map((s, i) => `<li><span class="hp-n">${i + 1}</span><div class="hp-stxt">${s}</div></li>`).join('')}</ol>`;
 const capitolNotes = saved => `<div class="hp-notes">
     <p class="note">${icon('clock')}<span>The Capitol site logs you out after 60 minutes.${saved ? ' Your letter stays saved here.' : ''}</span></p>
@@ -1337,7 +1347,7 @@ function sendScreen() {
   // Once the footer has turned into "I saw the green box", step 1 offers the way back for a tab closed by mistake.
   const steps = [
     `<p>Log in to the Capitol website${x.acctStep && x.acctNew ? ' with the account you just made' : ''}.</p>${x.back ? capitolLink(b, h, 'Open the Capitol page again', { kind: 'text', sm: true, cls: 'hp-inl' }) : ''}`,
-    pickHearing(h), formChoices(formWord(x.stance || hiphiStance(b))),
+    pickHearing(h), speakAsk(x) + formChoices(formWord(x.stance || hiphiStance(b)), x),
     `<p>Paste your letter${x.saved ? ' (or upload the file)' : ''} and submit. Look for the <b>green box</b>. That means it worked.</p>
       ${x.copied3 ? `<span class="chip ok" id="hp-copy3" tabindex="-1">${icon('check')}Copied</span>` : btn('Copy my letter again', { kind: 'text', sm: true, icon: 'copy', cls: 'hp-inl', attrs: { 'data-hp': 'copy', id: 'hp-copy3' } })}`,
   ];
@@ -1429,8 +1439,10 @@ function nextUp(x) {
 function goingLine(x) {
   const { b, h } = x;
   if (didKind(b, h, 'attend')) return `<p class="okmsg hp-going">${icon('circle-check')}<span>You plan to go. Mahalo!</span></p>${goDirections(b, h, { hp: true })}`;
+  // Speaking on Zoom (R-212 #32): the checklist in place of the directions.
+  if (speakOf(x) === 'zoom') return `<p class="okmsg hp-going">${icon('video')}<span>You’re speaking on Zoom. Here’s how to join.</span></p>${zoomChecklist(b, h, { hp: true })}`;
   const go = btn('I plan to go', { kind: 'secondary', sm: true, icon: 'map-pin', attrs: { 'data-hp': 'going' } });
-  return inPerson() ? `<p>${icon('map-pin')} To speak in person: Hawaiʻi State Capitol, ${esc(roomFloor(h))}. Tap <b>I plan to go</b>, and you get directions.</p><div class="btnrow">${go}</div>`
+  return speakOf(x) === 'person' || (!speakOf(x) && speaker()) ? `<p>${icon('map-pin')} To speak in person: Hawaiʻi State Capitol, ${esc(roomFloor(h))}. Tap <b>I plan to go</b>, and you get directions.</p><div class="btnrow">${go}</div>`
     : `<div class="hp-goask"><p>Going to the hearing in person?</p>${go}</div>`;
 }
 // After a letter is sent (R-156 B3): someone with a profile and no story for this topic is asked for one sentence, with
@@ -1857,6 +1869,7 @@ function onClick(e) {
     afterClose = () => { if (!app.onbActed?.(x)) app.newcomerNext?.(b); }; requestClose(); }
   else if (a === 'close') requestClose();
   else if (a === 'going') { const x = S.helper; noteGoing(x.h, true); markDone(x.b.id, x.h.id, 'attend', true, { quiet: true }).then(() => { if (S.helper === x) paint({ focus: 'gdt-' + x.h.id }); }); }
+  else if (/^speak-/.test(a)) { const x = S.helper, v = a.slice(6); x.speak = v; setSpeak(x.h.id, v); paint({ focus: 'hp-spk-' + v }); }
   else if (a === 'goics') { const x = S.helper; downloadIcs(x.b, x.h); paint(); }
   else if (a === 'copy') copyLetter();
   else if (a === 'addtitle') { S.helper.tp.adding = true; paintTitles({ step: true }); dlg.querySelector('#hp-tp .tp-chips [data-tp], #hp-tq')?.focus({ preventScroll: true }); }
