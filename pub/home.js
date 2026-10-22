@@ -23,7 +23,7 @@ import { alertStatus, openAlertsSheet, profileAsk, profileLede, PROFILE_H } from
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, declineNudge, goingPlans, goingCard } from './actions.js';
 import { CAPITOL, islands, flower } from './art.js';
-import { lettersFor, letterButtons, wireKept } from './myletters.js';
+import { lettersFor, letterButtons, wireKept, sessionWhere } from './myletters.js';
 // More's account cards (the follow-ups after a sign-in) load with More itself, on first use: only a signed-in person
 // sees them, and Home must not carry More, People and the address picker for everyone (R-122).
 let more = null; const moreLoad = () => import('./more.js').then(m => { more = m; app.render(); });
@@ -997,6 +997,7 @@ function recapView() {
     ${acted.length ? `<section class="card hm-sec" aria-labelledby="hm-rcp-imp"><h2 id="hm-rcp-imp">What happened after you acted</h2>${impList(acted, 6)}</section>` : ''}
     ${followed.length ? `<section class="card hm-sec" aria-labelledby="hm-rcp-fol"><h2 id="hm-rcp-fol">Bills you followed</h2><div class="hm-imps">${followed.map(impRow).join('')}</div></section>` : ''}
     ${mine.length ? `<section class="hm-sec" aria-labelledby="hm-rcp-iss"><h2 id="hm-rcp-iss">Your issues</h2><div class="rows">${mine.map(issueRow).join('')}</div></section>` : ''}`}
+    ${sessionWhere(nothing)}
     ${so ? '' : btn(`Read HIPHI’s ${yr} Legislative Recap`, { kind: 'text', iconEnd: 'external-link', href: 'https://www.hiphi.org/policy/legrecap', cls: 'hm-link', attrs: { target: '_blank', rel: 'noopener' } })}
   </div>`;
 }

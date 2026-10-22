@@ -533,8 +533,19 @@ export async function loadUser() {
   S.direct = server; recomputeWatch(); saveLocal();
   // The testimony letters sent (R-148) join the account and come to this device, in the background: a dynamic import, as
   // core.js above, because letters.js needs core.js and the kernel must not carry it.
-  import('./letters.js').then(m => m.syncLetters()).catch(() => { /* kept on each device until the next sign-in */ });
+  // On a device that did not have them (R-212 #31: the Capitol Regular's second device offered "Write my testimony" again),
+  // the screen is drawn again with them and says they came, with the way to the list.
+  import('./letters.js').then(m => m.syncLetters()).then(came => { if (came?.length) { app.render(); cameToast(came); } })
+    .catch(() => { /* kept on each device until the next sign-in */ });
   await linkText().catch(() => {});
+}
+// "Your 2 letters from another device are here." The profile lists them; on the profile itself, the redrawn list says it.
+export const cameWords = came => { const n = came.length, mails = came.filter(L => L.kind === 'email').length;
+  const what = !mails ? (n === 1 ? 'letter' : 'letters') : mails === n ? (n === 1 ? 'email' : 'emails') : 'letters and emails';
+  return `Your ${n === 1 ? '' : n + ' '}${what} from another device ${n === 1 ? 'is' : 'are'} here.`; };
+function cameToast(came) {
+  if (location.hash.startsWith('#/profile')) return;
+  toast(cameWords(came), { yay: true, also: { label: came.length === 1 ? 'See it' : 'See them', action: () => app.go('#/profile?to=letters') } });
 }
 // ---------------- curated lists ----------------
 // HIPHI staff curate lists of public bills. Following a list follows every

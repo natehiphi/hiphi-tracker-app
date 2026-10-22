@@ -19,7 +19,7 @@ import { pickerHTML, wirePicker } from './titlepick.js';
 import { codesOn, myEmail, myNumber } from './phone.js';   // sign-in by text code (R-155)
 import { titleLabel } from './titles.js';
 import { logAct } from './visitlog.js';
-import { lettersList, wireKept, wireDelete, LETTERS_LEDE } from './myletters.js';   // R-212 #27, #28
+import { lettersList, wireKept, wireDelete, LETTERS_LEDE, lettersWhere } from './myletters.js';   // R-212 #27, #28, #31
 import { stopText } from './alerts.js';
 // The calm redesign (R-303), only with ?rec=1: Profile keeps one page (R-165) but its alerts get their own page, "Your
 // alerts" (#/alerts, pub/rec/alerts.js), and its first row leads there; "Your issues" goes (My issues is a tab, and its count
@@ -47,7 +47,7 @@ function inviteView() {
       <p class="lede">${codeStep('pf-alf') ? 'Type the 6-digit code from the text to make your profile.' : 'Get a text or email when a bill on your issues has a hearing, in time to speak up. Your issues and letters stay saved. Free, and no password.'}</p></header>
     <form class="card mr-form mr-panel" id="pf-al" novalidate>${alertFields('pf-alf')}
       <div class="mr-send">${submitBtn(b.label, b.icon, 'pf-al-send')}</div></form>
-    <p class="small muted pf-back">${codesOn() ? 'Made one before? <a href="#/signin?by=number">Sign in</a>' : 'Added your email before? <a href="#/signin">Sign in on this device</a>'}</p>
+    <p class="small muted pf-back">${codesOn() ? 'Made one before? <a href="#/signin?by=number">Sign in</a>' : 'Added your email before? <a href="#/signin">Sign in on this device</a>'}, and everything comes with you.</p>
   </div>`;
 }
 function wireInvite() {
@@ -254,7 +254,7 @@ function issuesBody() {
   return `<p>${n || b ? `You follow ${n ? `${n} ${n === 1 ? 'issue' : 'issues'}` : ''}${n && b ? ' and ' : ''}${b ? `${b} ${b === 1 ? 'bill' : 'bills'}` : ''}.` : 'You don’t follow any issues yet.'} <a href="#/bills">${n || b ? 'See them in My issues' : 'Find issues to follow'}</a></p>`;
 }
 function dataBody() {
-  if (!signedIn()) return `<p>Your profile is saved on this device. ${codesOn() ? '<a href="#/signin?by=number">Sign in with your number</a> to keep it on any phone or computer.' : 'Adding your email (under Alerts) keeps it on any phone or computer.'} HIPHI staff never see your text-alert number. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>
+  if (!signedIn()) return `<p>Your profile and letters are saved on this device. ${codesOn() ? '<a href="#/signin?by=number">Sign in with your number</a> to keep them on any phone or computer.' : 'Adding your email (under Alerts) keeps them on any phone or computer.'} HIPHI staff never see your text-alert number. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>
     ${deviceDelete()}`;
   // What we keep and who sees it, as a short list (X4-5, R-180: it was one 90-word paragraph, well above grade 8). The same
   // facts as R-151's and R-153's wording (10/4, the privacy page made accurate; kept emails); the privacy page has the long
@@ -336,7 +336,7 @@ function profileView() {
     <p class="small muted pf-auto">${icon('pencil')}<span>Change anything below, then Save.</span></p>
     ${sec('about', 'About you', aboutBody())}
     ${sec('story', 'Your stories', storyBody())}
-    ${(l => l ? sec('letters', 'Your letters', `<p class="small muted">${esc(LETTERS_LEDE)}</p>${l}`) : '')(lettersList())}
+    ${sec('letters', 'Your letters', lettersBody(lettersList()))}
     ${sec('help', 'How you’ll help', helpBody())}
     ${rec ? '' : sec('email', 'Alerts', alertsBody())}
     ${rec ? '' : sec('issues', 'Your issues', issuesBody())}
@@ -371,10 +371,12 @@ function wireStories() {
   document.querySelectorAll('[data-pf-stdel]').forEach(b => b.onclick = () => deleteStory(b.dataset.pfStdel));
   document.querySelectorAll('[data-pf-stundo]').forEach(b => b.onclick = () => undoStory(b.dataset.pfStundo));
 }
+// The section shows even with none here, to say where letters are kept (R-212 #31: a second device).
+const lettersBody = l => `${l ? `<p class="small muted">${esc(LETTERS_LEDE)}</p>${l}` : ''}${lettersWhere(!!l)}`;
 // Your letters, drawn again after a Delete or an Undo (R-212 #28), without redrawing the page (a draft and the keyboard stay).
 function repaintLetters(focusSel, said) {
   const s = $('#pf-letters'); if (!s) return;
-  s.innerHTML = `<h2 id="pf-letters-t" tabindex="-1">Your letters</h2><p class="small muted">${esc(LETTERS_LEDE)}</p>${lettersList()}`;
+  s.innerHTML = `<h2 id="pf-letters-t" tabindex="-1">Your letters</h2>${lettersBody(lettersList())}`;
   wireKept(s); wireDelete(s, repaintLetters);
   const f = focusSel && s.querySelector(focusSel); (f || s.querySelector('h2'))?.focus?.({ preventScroll: true });
   if (said) announce(said);
@@ -384,6 +386,8 @@ function repaintLetters(focusSel, said) {
 let landed = false; addEventListener('hashchange', () => { landed = false; });
 function wireProfile() {
   if (!hasProfile()) { wireInvite(); return; }
+  // #/profile?to=letters, from "Your letters from another device are here" (R-212 #31, kernel.js).
+  if (!landed && /[?&]to=letters\b/.test(location.hash)) { landed = true; requestAnimationFrame(() => { const h = $('#pf-letters-t'); if (h) { h.setAttribute('tabindex', '-1'); h.scrollIntoView({ block: 'start' }); h.focus({ preventScroll: true }); } }); }
   if (!landed && /[?&]to=alerts\b/.test(location.hash)) { landed = true; requestAnimationFrame(() => { const l = $('.pf-lvls') || $('#pf-email'); if (l) { l.scrollIntoView({ block: 'start' }); l.querySelector('input')?.focus({ preventScroll: true }); } }); }
   const nm = $('#pf-name');
   if (nm) { nm.oninput = () => { P.draft.name = nm.value; paintBar(); }; nm.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); nm.blur(); } }; }
