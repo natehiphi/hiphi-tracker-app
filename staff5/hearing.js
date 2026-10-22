@@ -16,6 +16,7 @@ import { icon, btn, iconBtn, chip, empty, notice, toast, pickerSheet, avatar, co
 import { goingBtn, showAllBtn, mayUnfile, undoFiledLink } from './ui.js';   // R-277 fix 4 (U-4, U-8): one look per action; the going toggle is no longer drawn as a chip
 import { photo, legName, partyDist, roleWord, legHref, wireLinks } from './pathway.js';
 import { rerender, viewIsNew } from './bill.js';
+import { movedFrom } from './model.js';   // R-316 W24: "Moved from Mon 2/9"
 import { billRoute, whenAt, spanOf, roomName, hearingWhen, isDecision, sittingDraft, earlierFiled, draftHearing } from './model.js';
 
 const HR = 36e5, FOLD = 10;
@@ -111,7 +112,7 @@ function headHTML(c) {
     <div class="hr-hbody">
       <p class="hr-kind">${esc(isDecision(h) ? 'Decision making' : `${ch ? ch + ' ' : ''}${joint ? 'joint hearing' : 'hearing'}`)} · <span class="hr-code">${esc(h.committee)}</span></p>
       <h1>${esc(cmteName(h.committee))}</h1>
-      <p class="hr-line">${icon('calendar-clock')}<span>${esc((over && !cancelled ? 'Held ' : '') + whenAt(h.scheduled_at)).replace(/^./, c => c.toUpperCase())} · ${room ? esc(room) : 'room not posted yet'}</span></p>
+      <p class="hr-line">${icon('calendar-clock')}<span>${esc((over && !cancelled ? 'Held ' : '') + whenAt(h.scheduled_at)).replace(/^./, c => c.toUpperCase())} · ${room ? esc(room) : 'room not posted yet'}${(mv => mv ? ` · <b>Moved from ${esc(mv)}</b>` : '')(items.map(x => movedFrom(x.h)).find(Boolean))}</span></p>
       ${due ? `<p class="hr-line hr-due">${icon('file-text')}<span>Testimony due ${esc(fmtDT(due))}</span>${countdown(due, { until: h.scheduled_at })}</p>` : ''}
     </div>
   </header>`;

@@ -458,7 +458,7 @@ export function memoData() {
     : `${coal ? coalName + ': w' : 'W'}eek of ${monday}${g ? `, ${g.days <= 0 ? g.name + ' is today' : `${when(g)} to ${g.name.toLowerCase()}`}` : ''}`;
   const ld = legislativeDay(), p1 = bills.filter(b => b.priority === 1).length;
   // The next two deadlines, as Bills shows them (decision 3).
-  const race = (x, then) => `${x.racing}${then ? '' : ' must clear committee'} by ${x.name.toLowerCase()} on ${memoDay(x.date)}${x.noHearing.length ? ` (${x.noHearing.length} with no hearing yet)` : ''}`;
+  const race = (x, then) => `${x.racing}${then ? '' : ` must ${gateNeed(x.name, x.racing)}`} by   // R-316 W33: not "clear committee" for a floor or conference deadline ${x.name.toLowerCase()} on ${memoDay(x.date)}${x.noHearing.length ? ` (${x.noHearing.length} with no hearing yet)` : ''}`;
   const races = clock && clock.racing ? ` ${race(clock)}${clock.then ? `, and ${race(clock.then, true)}` : ''}.` : '';
   // Partners: "The next Capitol deadline is Thu 3/19: by then 1 of these bills must clear its first committee (it has a hearing)."
   const racePlain = x => `by ${memoDay(x.date)}, ${x.racing === 1 ? '1 of these bills' : `${x.racing} of these bills`} must ${gateNeed(x.name, x.racing)}${x.noHearing.length ? ` (${x.noHearing.length} with no hearing yet)` : ''}`;
@@ -653,9 +653,22 @@ export function draftWho(d) {
 }
 // The hearing a draft is for: its own row, else its committee's next sitting (the same choice as today.js hearingFor).
 // The stand-in rule reads its testimony deadline.
-export const draftHearing = d => (d.hearing_id && ((S.hearings || []).find(h => h.id === d.hearing_id) || S.draftHearings?.[d.hearing_id]))
-  || (S.hearings || []).filter(h => h.bill_id === d.bill_id && h.committee === d.committee && h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now())
+export const draftHearing = d => { const own = d.hearing_id && ((S.hearings || []).find(h => h.id === d.hearing_id) || S.draftHearings?.[d.hearing_id]);
+  const next = (S.hearings || []).filter(h => h.bill_id === d.bill_id && h.committee === d.committee && h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now())
     .sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at))[0] || null;
+  return own && own.status === 'cancelled' ? next || own : own || next; };   // R-316 W24: a cancelled sitting gives way to the next
+// R-316 W24 (G1-2): the sitting a hearing was moved from: the same bill and committee, cancelled, within two weeks of it.
+// Said for 3 days after the new notice posted ("Moved from Mon 2/9"); the app never guesses a date.
+export function movedFrom(h) {
+  if (!h || h.status === 'cancelled') return null;
+  const posted = h.notice_posted_at ? new Date(h.notice_posted_at).getTime() : null;
+  if (posted != null && Date.now() - posted > 3 * 864e5) return null;
+  const t = new Date(h.scheduled_at).getTime();
+  const old = (S.hearings || []).filter(x => x.bill_id === h.bill_id && x.committee === h.committee && x.status === 'cancelled' && x.id !== h.id && Math.abs(new Date(x.scheduled_at).getTime() - t) < 14 * 864e5)
+    .sort((a, b) => b.scheduled_at.localeCompare(a.scheduled_at))[0];
+  if (!old || (posted == null && Date.now() - new Date(old.scheduled_at).getTime() > 3 * 864e5)) return null;
+  return new Date(old.scheduled_at).toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' }).replace(',', '');
+}
 // Approve and Request changes go to the same people as on the Review screen (canFirstApprove, canSecondApprove). The
 // bill page is where the Slack review message sends them, and it offered Approve to admins only, so Kris (an approver)
 // and a reviewer standing in near the deadline found nothing to press there (X10-1, R-103).
@@ -698,7 +711,8 @@ export function chairMail(code) {
   if (!out.length) return null;
   return { ...out[0], n: out.length, email: out.map(x => x.email).join(','), who: out.map(x => `${x.title} ${x.last}`).join(' and ') };
 }
-export const attendees = h => (S.attend?.[h.id] || []).map(advocate).filter(Boolean);
+// R-316 W28 (G3-8): someone turned off is not going anywhere, so they leave the going lists and counts.
+export const attendees = h => (S.attend?.[h.id] || []).map(advocate).filter(a => a && a.is_active !== false);
 export const OUTCOME_LABEL = { passed: 'Passed', passed_amended: 'Passed with amendments', deferred: 'Deferred', recommitted: 'Recommitted' };
 export const DRAFT_RANK = { approved: 5, second_review: 4, review: 3, draft: 2, filed: 1 };
 export const unreadCount = b => (S.messages?.[b.id] || []).filter(m => m.advocate_id !== S.me?.id && (!S.chatSeen?.[b.id] || m.created_at > S.chatSeen[b.id])).length;
@@ -929,6 +943,16 @@ export function plainAction(t) {
     const wd = new Date(`20${m[5]}-${m[3]}-${m[4]}T12:00:00-10:00`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Pacific/Honolulu' });
     return [`Hearing set: ${cm(m[1] || m[2])} ${wd} ${+m[3]}/${+m[4]}, ${m[6].replace(/\s*([AP]M)/i, ' $1')}`, 2]; }
   if ((m = /on\s+([A-Z/, ]+?)\s+will hold a public decision making on\s*(\d\d)-(\d\d)/i.exec(s))) return [`Decision making set: ${cm(m[1])} ${+m[2]}/${+m[3]}`, 2];
+  // R-316 W24 (G1-2): the Capitol's words for a moved or dropped sitting (sync/lib.js reads the same ones), ranked above
+  // "Hearing set", so What changed leads with the move and never with the cancelled time.
+  const wdOf = (mm, dd, yy) => new Date(`20${String(yy).slice(-2)}-${mm}-${dd}T12:00:00-10:00`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Pacific/Honolulu' });
+  const tm = x => x.replace(/\s*([AP])M?$/i, ' $1M').toUpperCase();
+  if ((m = /committee(?:\(s\))? on\s+([A-Z/, ]+?)\s+has rescheduled its (?:public )?(hearing|decision making|briefing) to\s*(\d\d)-(\d\d)-(\d{2,4})\s+(\d{1,2}:\d\d\s?[AP]M?)/i.exec(s)))
+    return [`${/decision/i.test(m[2]) ? 'Decision making' : 'Hearing'} moved: ${cm(m[1])} to ${wdOf(m[3], m[4], m[5])} ${+m[3]}/${+m[4]}, ${tm(m[6])}`, 1];
+  if ((m = /committee(?:\(s\))? on\s+([A-Z/, ]+?)\s+(?:has )?deleted the measure from (?:the )?(?:public hearing|decision making|hearing) scheduled on\s*(\d\d)-(\d\d)-(\d{2,4})/i.exec(s)))
+    return [`Taken off ${cm(m[1])} ${wdOf(m[2], m[3], m[4])} ${+m[2]}/${+m[3]}`, 1];
+  if ((m = /deleted from the meeting scheduled on (?:[A-Za-z]+,? )?(\d\d)-(\d\d)-(\d{2,4})/i.exec(s))) return [`Taken off the hearing ${wdOf(m[1], m[2], m[3])} ${+m[1]}/${+m[2]}`, 1];
+  if ((m = /^Meeting scheduled on (?:[A-Za-z]+,? )?(\d\d)-(\d\d)-(\d{2,4}).*has been cancel+ed/i.exec(s))) return [`Hearing cancelled: ${wdOf(m[1], m[2], m[3])} ${+m[1]}/${+m[2]}`, 1];
   if (/transmitted to (the )?governor/i.test(s)) return ['Sent to the Governor', 1];
   if (/veto/i.test(s)) return ['Vetoed', 1];
   if ((m = /\bAct\s+(\d{2,3})\b/.exec(s))) return [`Became law: Act ${m[1]}`, 1];

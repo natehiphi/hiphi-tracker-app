@@ -199,7 +199,10 @@ export function renderCommittees(b) {
     const later = s.state === 'next' && (shownNext || (shownNext = true, false));
     const ahead = s.hs.filter(h => new Date(h.scheduled_at).getTime() > now).pop(), past = s.hs.find(h => new Date(h.scheduled_at).getTime() <= now);
     // A hearing still ahead outranks a recorded result: the stop says what is coming, never "Passed" before it is heard.
-    const [ic, word] = later ? ['circle', 'Later'] : s.state === 'passed' && ahead ? STATE.next : STATE[s.state] || STATE.next;
+    // R-316 W33 (C-13): a stopped bill's committees all read "ended"; one with a recorded result says it (Passed, Deferred).
+    const rec = s.state === 'ended' ? s.hs.map(h => S.outcomes?.[h.id]?.outcome).find(Boolean) : null;
+    const [ic, word] = later ? ['circle', 'Later'] : s.state === 'passed' && ahead ? STATE.next
+      : rec ? (/passed/.test(rec) ? STATE.passed : ['circle-minus', OUTCOME_LABEL[rec] || 'Decided']) : STATE[s.state] || STATE.next;
     // The one fact on the stop's line: its hearing coming, else when it was heard; nothing for a stop not reached yet.
     // A hearing still ahead is said here and on Next up only; the open stop lists the hearings held (A-14). "Heard Fri
     // 2/27" steps aside when the stop is open, where the hearing's own line says it in full (bill.css).

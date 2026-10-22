@@ -24,7 +24,7 @@ import { renderPublic, wirePublic, wireDraftsFocus } from './public.js';
 import { renderEarlier, wireTestimony, earlierCount, testimonyHref, onNextUp, draftNowBtn, makeDraftNow } from './testimony.js';
 import { holdBack } from './review.js';
 import { sittingOf, goersOf, agendaOf } from './hearing.js';
-import { billRoute, billByNum, MEMO_SAYS, whenAt, roomName, wantsHearing, plain, companionsOf, approverWords } from './model.js';
+import { billRoute, billByNum, MEMO_SAYS, whenAt, roomName, wantsHearing, plain, companionsOf, approverWords, movedFrom } from './model.js';
 import { askConflict } from './conflict.js';
 import { untrackedHTML, wireUntracked, untrackedOf } from './untracked.js';
 import { issuesOfBill, issueLinkHref } from './issues.js';
@@ -248,6 +248,8 @@ export function statusSentence(b, { hearing = true, chair = false } = {}) {
   if (st.phase === 'vetoed') return 'Vetoed by the Governor.';
   if (st.phase === 'governor') return 'Passed the House and Senate. It is on the Governor’s desk.';
   const dl = st.deadline && !st.deadline.missed ? st.deadline : null;
+  // R-316 W33 (M-16): back from the other chamber with changes is not conference yet: stops.js has the words.
+  if (st.phase === 'conference' && /^Passed the \w+ with changes/.test(st.says || '')) return esc(st.says);
   if (st.phase === 'conference') return `In conference: House and Senate negotiators are settling one version${dl ? ` before ${esc(dlText(dl))}` : ''}.`;
   if (st.phase === 'floor') return `Through its ${ch} committees. Next: a vote of the full ${ch}${dl ? ` before ${esc(dlText(dl))}` : ''}.`;
   const other = st.chamber === 'H' ? 'Senate' : 'House', passed = st.leg === 'second' ? `Passed the ${other}. ` : '';
@@ -459,7 +461,7 @@ function testimonyBlock(b, d, { primary = true, title = '' } = {}) {
     ${sentBack ? '' : `<p class="bw-who">${esc(whoLine(d))}${own && acts.includes('approve') ? ` ${chip('Your own draft')}` : ''}</p>`}
     ${sentBack ? `<blockquote class="bw-quote"><span class="meta">Sent back</span>${esc(d.review_note)}</blockquote><p class="bw-who">${esc(holder ? (holder === me.id ? 'Yours to revise' : `${nameOf(holder)}’s to revise`) : 'Anyone can revise it')}</p>` : ''}
     ${from ? `<p class="bw-from">${icon('copy')}<span>${esc(from)}</span></p>` : ''}
-    ${stale ? notice('warn', 'triangle-alert', `The bill is now ${esc(b.current_version)}. This draft was written for ${esc(d.version || 'the introduced bill')}; check it before it goes out.${changedSince(b, d.version) ? ` What changed: ${esc(changedSince(b, d.version))}` : ''}`) : ''}
+    ${stale ? notice('warn', 'triangle-alert', `The bill is now ${esc(b.current_version)}. This draft was written for ${esc(d.version || 'the introduced bill')}; check it before it goes out.${changedSince(b, d.version) ? ` What changed: ${esc(changedSince(b, d.version))}` : ''}`, btn('Committee report', { kind: 'text', sm: true, iconEnd: 'external-link', href: capitolUrl(b), target: '_blank' })) : ''}
     ${main || alt ? `<div class="bw-acts">${main}${alt}</div>` : ''}
     ${links ? `<div class="bw-links">${links}</div>` : ''}
   </div>`;
@@ -503,7 +505,7 @@ function hearingCard(b, h, i) {
   return `<section class="card bw-next" aria-labelledby="bw-nx-${i}">
     <div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-nx-${i}">${i === 0 ? 'Next up' : 'Also coming up'}</h2><span class="bw-nhacts">${btn('Hearing page', { kind: 'text', sm: true, iconEnd: 'chevron-right', href: `#/hearing/${encodeURIComponent(h.id)}?from=${encodeURIComponent(b.bill_number)}`, cls: 'bw-hpage', attrs: { 'aria-label': `The ${h.committee} hearing's page` } })}${iconBtn('ellipsis', 'More for this hearing', { 'data-hmenu': h.id })}</span></div>
     <p class="bw-hear">${esc(cmteFull(h.committee))} ${isJoint(h.committee) ? 'joint hearing' : 'hearing'}</p>
-    <p class="bw-meta">${meta}</p>
+    <p class="bw-meta">${meta}${(mv => mv ? ` · <b>Moved from ${esc(mv)}</b>` : '')(movedFrom(h))}</p>
     ${dueLine}
     ${d ? testimonyBlock(b, d, { primary: true }) : noDraft}
     <div class="bw-hfoot">${attendRow(h)}</div>
@@ -525,6 +527,14 @@ function chairAskHref(b, code, dl) {
   const m = chairMail(code); if (!m) return '';
   const body = `Aloha ${m.n > 1 ? m.who : 'Chair ' + m.last},\n\nOn behalf of the Hawaiʻi Public Health Institute, I respectfully ask that you schedule ${b.bill_number} (${plainTitle(b)}) for a hearing${dl ? ` before ${dlText(dl)}` : ''}.\n\nMahalo,\n${S.me?.full_name || ''}`;
   return `mailto:${m.email}?subject=${encodeURIComponent(`Hearing request: ${b.bill_number}`)}&body=${encodeURIComponent(body)}`;
+}
+function heardCard(b, st) {
+  const dl = st.deadline && !st.deadline.missed ? st.deadline : null, heard = st.hearing?.scheduled_at;
+  return `<section class="card bw-next" aria-labelledby="bw-nx-0">
+    <div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-nx-0">Next up</h2></div>
+    <p class="bw-hear">Heard${heard ? ` ${esc(fmtDate(heard, { weekday: 'short' }).replace(/^(\w{3}),/, '$1'))}` : ''}, no vote yet</p>
+    <p class="bw-meta">Ask the ${esc(st.committee || 'committee')} chair to schedule decision making${dl ? ` before ${esc(dlText(dl))}` : ''}.</p>
+  </section>`;
 }
 function needsHearingCard(b) {
   const st = stopOf(b), now = Date.now();
@@ -548,7 +558,9 @@ function nextCards(b) {
   const ups = S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) > now).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
   const seen = new Set(ups.map(h => draftFor(b.id, h.committee)?.id).filter(Boolean));
   const cards = ups.map((h, i) => hearingCard(b, h, i));
-  if (!ups.length && !dead && st.phase === 'committee') { const c = needsHearingCard(b); if (c) cards.push(c); }
+  // R-316 W33 (M-9): heard and not voted on is not "Ask for a hearing": it waits for the committee's decision making.
+  if (!ups.length && !dead && st.phase === 'committee' && st.hearingState === 'held') cards.push(heardCard(b, st));
+  else if (!ups.length && !dead && st.phase === 'committee') { const c = needsHearingCard(b); if (c) cards.push(c); }
   // Testimony not tied to a hearing still ahead (in review after the hearing moved, approved but not filed…)
   // Unfinished only: once its hearing has passed, a filed draft lives under its committee in Overview (R-027), so this
   // card does not grow all session and nothing is said twice (A-14).
