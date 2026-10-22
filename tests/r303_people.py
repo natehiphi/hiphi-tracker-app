@@ -3,7 +3,7 @@
 #   python3 tests/r303_people.py [base]     base: a server for the folder (http://localhost:8832), or wt.local (the default),
 #                                           which serves this worktree from disk with no server (Playwright routes).
 # Checks at phone (390) and laptop (1440) as kai, leilani and none (no follows):
-#   - the finder not known yet: "Who represents you?", one field "Your street address" with a working example, the
+#   - the finder not known yet: "Who represents you?", one field "Your street address, town, district or a lawmaker’s name" (R-212 #40) with a working example, the
 #     directory folded to one link that opens it in place; known: two quiet person rows, ONE card, one filled button, no lede;
 #     the card's email opens with the bill (kai: HB 1780 with Sen. Kim), and the mail app's button is then the one filled one;
 #   - a lawmaker (Sen. Kim, 189): the head, ONE card, On your issues, three closed cards; under 1,600px on a phone; ?from= a
@@ -78,7 +78,7 @@ with sync_playwright() as p:
             ctx, pg = page(br, w, h, who)
             go(pg, '#/legislators')
             s = pg.evaluate(SHAPE)
-            check(pg.inner_text('#main h1') == 'Who represents you?' and pg.inner_text('label[for=pp-q]') == 'Your street address', f'{tag}: not known yet, "Who represents you?" and one field')
+            check(pg.inner_text('#main h1') == 'Who represents you?' and pg.inner_text('label[for=pp-q]') == 'Your street address, town, district or a lawmaker’s name', f'{tag}: not known yet, "Who represents you?" and one field')
             check('415 S Beretania St' in (pg.get_attribute('#pp-q', 'placeholder') or ''), f'{tag}: the field\'s example is an address that resolves')
             check(pg.locator('.pp-isle').count() == 0 and pg.locator('[data-pp-dir]').count() == 1, f'{tag}: the island directory folds to one link')
             pg.click('[data-pp-dir]'); pg.wait_for_timeout(300)

@@ -87,15 +87,20 @@ export function score(b, P, k = 're') {   // null when nothing matches
 // were reached only through More). Every word must begin a word of the legislator's name or places, or of the
 // committee's name or code. A bill number is never a name. Committees first: there are 33, and a committee's name
 // ("Health") is the word a hearing notice uses. The rows link to pages that already exist.
+// A legislator's title before the name; the same words as people.js TITLE_WORD (kept here so Find need not load the finder).
+const TITLE_WORD = /^\s*(state\s+)?(senator|sen\.?|representative|rep\.?)(\s+|$)/i;
 const nameWords = q => plain(q).split(/[^a-z0-9]+/).filter(w => w.length > 1 && !STOP.has(w));
 const hasWord = (t, w) => t.split(/[^a-z0-9]+/).some(x => x.startsWith(w));
 export function peopleMatches(q, n = 6) {
+  // "Senator Chang", "Rep. Kila" (R-212 #40): the title says the chamber, and only the rest must be in the name.
+  const tw = TITLE_WORD.exec(q), ch = tw && (/^s/i.test(tw[2]) ? 'S' : 'H');
+  if (tw) q = q.slice(tw[0].length);
   const words = nameWords(q); if (!words.length || parse(q).num) return [];
   const cms = Object.values(S.committees || {}).filter(c => words.every(w => hasWord(plain(`${c.name} ${c.code}`), w)))
     .map(c => ({ href: `#/committee/${c.code}`, title: `${c.name} (${c.code})`, sub: `${CHAMBER_NAME[c.chamber] || ''} committee`.trim(), icon: 'landmark' }));
-  const legs = (S.legislators || []).filter(l => l.active !== false && words.every(w => hasWord(plain(`${l.name} ${l.places || ''}`), w)))
+  const legs = (S.legislators || []).filter(l => l.active !== false && (!ch || l.chamber === ch) && words.every(w => hasWord(plain(`${l.name} ${l.places || ''}`), w)))
     .map(l => ({ href: `#/legislator/${l.id}`, title: `${legTitle(l)} ${l.name}`, sub: [`${CHAMBER_NAME[l.chamber] || ''} District ${l.district}`.trim(), l.places].filter(Boolean).join(' · '), icon: 'user' }));
-  return [...cms, ...legs].slice(0, n);
+  return [...(tw ? [] : cms), ...legs].slice(0, n);
 }
 const PEOPLE_LABEL = 'People and committees';
 const peopleRow = p => row({ leadHtml: `<span class="lead">${icon(p.icon)}</span>`, title: esc(p.title), sub: esc(p.sub), href: p.href });

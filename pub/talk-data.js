@@ -434,6 +434,17 @@ export const TALKS = [
     ],
     related: ['what-follow-does', 'does-testimony-matter', 'what-is-testimony'] },
 
+  // R-212 #39 (the Teacher's walk, 10/8): the practice copy is ?demo=1, the 2026 session stopped on Monday 16 March
+  // (pub/kernel.js DEMO_ASOF), its follows and letters kept apart (LOCAL_KEY), "Next day" in its band to Wednesday (app.js).
+  { slug: 'practice', group: 'tracker', title: 'Can I practice first?',
+    turns: [
+      { q: 'Can I practice first?', a: 'Yes. The **practice copy** is this tracker with the 2026 session’s real bills, stopped on a busy day in March. You can follow issues, write testimony and walk every step. Nothing reaches lawmakers or the Capitol.' },
+      { q: 'Will it mix with my real tracker?', a: 'No. What you follow and write there stays in the practice copy, on this device. Your own issues are kept apart.' },
+      { q: 'Can I use it with a class or a group?', a: ['Yes. Everyone can open the same link at once, on any phone or computer. The band at the top says **Sandbox**: that is the practice copy, so no one mistakes it for the real thing.', 'After the first steps, a **Next day** link in that band shows what the committees decided the next day.'] },
+    ],
+    act: { label: 'Open the practice copy', href: 'track.html?demo=1', icon: 'school' },
+    related: ['what-is-testimony', 'good-testimony', 'green-box'] },
+
   // ---------------- About HIPHI and your data ----------------
   { slug: 'what-is-hiphi', group: 'hiphi', title: 'What is HIPHI?',
     turns: [

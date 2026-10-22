@@ -173,6 +173,8 @@ export const townOf = x => x ? x.town || (x.account || /\d/.test(x.label || '') 
 // ---------------- suggestions ----------------
 // Ranking (plan 7): with no digits, towns first, then people, then street addresses (a street called "Kailua Blvd"
 // on Hawaiʻi Island must never beat the town of Kailua); with digits, districts and addresses first; a ZIP offers its towns.
+// A legislator's title typed before the name, as people write it: "Senator", "Sen.", "Representative", "Rep.", "State Senator".
+export const TITLE_WORD = /^\s*(state\s+)?(senator|sen\.?|representative|rep\.?)(\s+|$)/i;
 function suggest(q) {
   const t = q.trim(), k = norm(t);
   if (k.length < 2 && !/^\d$/.test(k)) return [];
@@ -193,7 +195,9 @@ function suggest(q) {
     out.place = [...placeIndex().values()].filter(p => (' ' + p.key).includes(' ' + k))
       .sort((a, b) => rank(a) - rank(b) || b.ids.length - a.ids.length || a.label.localeCompare(b.label)).slice(0, 5)
       .map(p => ({ kind: 'place', label: p.label, sub: ISLAND_NAME[p.island], island: p.island, ids: placeIds(p) }));
-    out.person = seated().filter(l => (' ' + norm(l.name)).includes(' ' + k) || norm(l.sort_name).startsWith(k)).slice(0, 3)
+    // "Senator Chang", "Rep. Kila" (R-212 #40, the District Watcher): the title says the chamber, the rest is the name.
+    const tw = TITLE_WORD.exec(t), ch = tw && (/^s/i.test(tw[2]) ? 'S' : 'H'), n = tw ? norm(t.slice(tw[0].length)) : k;
+    out.person = !n ? [] : seated().filter(l => (!ch || l.chamber === ch) && ((' ' + norm(l.name)).includes(' ' + n) || norm(l.sort_name).startsWith(n))).slice(0, tw ? 6 : 3)
       .map(l => ({ kind: 'person', label: `${legTitle(l)} ${l.name}`, sub: `${CHAMBER_WORD[l.chamber]} District ${l.district} · ${ISLAND_NAME[islandOf(l)]}`, ids: [l.id] }));
   }
   // The address table calls "445 N Kainalu Dr" an exact match for "45 Kainalu Dr" (R-303, bug 4): a suggestion is exact

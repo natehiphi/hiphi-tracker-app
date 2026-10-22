@@ -100,7 +100,7 @@ export function recFinder(route) {
   const back = from ? backRow('#/bill/' + from, spaced(numOnly(from)), true) : backRow('#/more');
   const ask = recHead({ title: 'Who represents you?', lede: 'One senator and one representative speak for your home in the Legislature. Find yours.' });
   if (P.finding) return `<div class="pp rc pp-rec">${back}${ask}${findingHTML()}</div>`;
-  if (!pick) return `<div class="pp rc pp-rec">${back}${ask}${searchHTML(sv, { label: 'Your street address' })}${dirLink()}${dirHTML(from, null)}</div>`;
+  if (!pick) return `<div class="pp rc pp-rec">${back}${ask}${searchHTML(sv, { label: 'Your street address, town, district or a lawmaker’s name' })}${dirLink()}${dirHTML(from, null)}</div>`;
   const legs = pick.ids.map(legById).filter(l => l && seated().includes(l));
   const sen = legs.filter(l => l.chamber === 'S').sort(bySeat), rep = legs.filter(l => l.chamber === 'H').sort(bySeat);
   if (sen.length !== 1 || rep.length !== 1) return `<div class="pp rc pp-rec">${back}${ask}${splitHTML(pick, sen, rep, from)}${dirLink()}${dirHTML(from, pick)}</div>`;
