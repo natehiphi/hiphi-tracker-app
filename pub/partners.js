@@ -331,12 +331,13 @@ export function sideChip(r) {
   const f = familyOf(r.side), ic = f === 'support' ? 'thumbs-up' : f === 'oppose' ? 'thumbs-down' : 'message-square';
   return `<span class="chip pw-chip">${icon(ic)}${esc(`${r.partner_name} ${sideVerb(r.side, { strong: true })}`)}</span>`;
 }
-// On a bill HIPHI has taken no side on, the line under the partner's chip.
-export function noSideLine(rows) {
+// On a bill HIPHI has taken no side on, the line under the partner's chip. Where HIPHI is neutral its own "HIPHI has
+// comments" chip is on the page, so the line says HIPHI has taken no side rather than no position.
+export function noSideLine(rows, b = null) {
   const fams = new Set(rows.map(r => familyOf(r.side))), one = rows.length === 1, f = [...fams][0];
   const ask = fams.size > 1 ? 'HIPHI’s partners differ on it.' : f === 'neutral' ? `${one ? 'A partner has' : 'Partners have'} comments on it.`
     : `${one ? 'A partner asks' : 'Partners ask'} you to ${f} it.`;
-  return `HIPHI hasn’t taken a position on this bill. ${ask}`;
+  return `${b?.hiphi_position === 'neutral' ? 'HIPHI hasn’t taken a side on this bill.' : 'HIPHI hasn’t taken a position on this bill.'} ${ask}`;
 }
 // A partner's day as people say it: "Thu, Apr 2".
 export const dayWords = day => day ? new Date(`${String(day).slice(0, 10)}T12:00:00-10:00`).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'short', month: 'short', day: 'numeric' }) : '';
