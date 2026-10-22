@@ -51,9 +51,10 @@ with sync_playwright() as p:
     subs = pg.evaluate("() => [...document.querySelectorAll('dialog.af-sheet .af-asktx > span')].map(e => e.textContent.trim())")
     ok(subs and subs[0].startswith('About 15 minutes the first time') and 'due today at 3:00 PM' in subs[0] and subs[1].startswith('About 2 minutes'), f'C1: each ask says how long, what it is, and "today" for a deadline hours away ({subs[:2]})')
     card = pg.locator('dialog.af-sheet [data-af-card]').inner_text()
-    ok(card.startswith('Speak up by') and pg.locator('dialog.af-sheet [data-af-card] img').count() == 1, f'C3: "Your friend sees" is the share page\'s own card ({card[:60]!r})')
-    btns = pg.evaluate("() => [...document.querySelectorAll('dialog.af-sheet .af-btns button')].map(b => (b.classList.contains('primary') ? '*' : '') + b.textContent.trim())")
-    ok(btns == ['*Send to a friend', 'Close'] and pg.locator('dialog.af-sheet #af-msg').count() == 0, f'S1: on a phone, one main button to the phone\'s own menu ({btns})')
+    ok(card.lower().startswith('speak up by') and pg.locator('dialog.af-sheet [data-af-card] img').count() == 1, f'C3: "Your friend sees" is the share page\'s own card ({card[:60]!r})')
+    # Since R-212 #33 a phone shows the message in a box to change, with Send to a friend and Copy message at the sheet's foot.
+    btns = pg.evaluate("() => [...document.querySelectorAll('dialog.af-sheet .af-send button, dialog.af-sheet .af-btns button')].map(b => (b.classList.contains('primary') ? '*' : '') + b.textContent.trim())")
+    ok(btns == ['*Send to a friend', 'Copy message', 'Close'] and pg.locator('dialog.af-sheet #af-msg').count() == 1, f'S1: on a phone, the message in a box, Send to a friend leading ({btns})')
     pg.screenshot(path=os.path.join(OUT, 'askfriend_2_sheet_phone.png'))
     pg.check('dialog.af-sheet input[value="email"]'); pg.wait_for_timeout(600)
     pg.locator('dialog.af-sheet [data-af="sheet"]').click(); pg.wait_for_timeout(900)
@@ -64,11 +65,12 @@ with sync_playwright() as p:
     ok(pg.locator('dialog.af-sheet[open]').count() == 0, 'the sheet closes once the phone\'s menu is done')
     marked = pg.evaluate("async n => { const c = await import('./pub/core.js'); const b = [...c.S.bills, ...Object.values(c.S.extra || {})].find(x => x.bill_number.replace(/\\s/g, '') === n); const h = c.hearingsOf(b).find(x => new Date(x.scheduled_at) > Date.now()); return c.didKind(b, h, 'share'); }", NUM)
     ok(marked, 'the share is marked done, once')
-    # One ask: straight to the phone's menu, no sheet.
+    # One ask: the sheet opens too since R-212 #33 (the Captain sees and changes the message); Send passes the chair's ask.
     pg.goto(PUB + f'#/bill/{ASKNUM}'); ready(pg); pg.evaluate(STUB)
-    pg.locator('.bl-top [data-bl-share]').click(); pg.wait_for_timeout(900)
+    pg.locator('.bl-top [data-bl-share]').click(); pg.wait_for_selector('dialog.af-sheet[open]', timeout=5000); pg.wait_for_timeout(900)
+    pg.locator('dialog.af-sheet [data-af="sheet"]').click(); pg.wait_for_timeout(900)
     sh = pg.evaluate("() => window.__shared")
-    ok(pg.locator('dialog.af-sheet[open]').count() == 0 and len(sh) == 1 and f'{ASKNUM}-ask' in sh[0]['url'], f'C1: one ask (the chair\'s email) goes straight to the phone\'s menu ({sh[0]["url"] if sh else None})')
+    ok(len(sh) == 1 and f'{ASKNUM}-ask' in sh[0]['url'], f'C1: one ask (the chair\'s email) opens the sheet, and Send passes its page ({sh[0]["url"] if sh else None})')
     c.close()
     # ---- B1, S2: a laptop with no share menu ----
     c = laptop(); pg = c.new_page(); pg.on('pageerror', lambda e: errs.append(str(e)))

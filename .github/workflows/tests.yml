@@ -163,6 +163,21 @@ jobs:
       - name: "Next after a letter: the soonest other open testimony on what you follow, with Write on (R-212 #29)"
         if: ${{ !cancelled() }}
         run: python3 tests/next_up.py
+      - name: "Fewer repeats: About you's blue box in full once, then one line (R-212 #30)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/fewer_repeats.py http://localhost:8832/ /tmp
+      - name: "A second device: where the letters are kept, and sign-in brings them (R-212 #31)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/second_device.py http://localhost:8832/ /tmp
+      - name: "Speaking at a hearing, in person or on Zoom (R-212 #32)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/speaking.py http://localhost:8832/track.html?demo=1\&codes=0 /tmp
+      - name: "Ask a friend on a phone: the message to change, each ask its own opening, Send yours first (R-212 #33)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/ask_friend_phone.py http://localhost:8832/ /tmp
+      - name: "A friend's link: the ask and its deadline, and whether it is done or has passed (R-212 #34)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/friend_link.py http://localhost:8832/ /tmp
       - name: "Staff v2, Session setup > Tests: the list, each test's versions as pictures side by side, the switches; the practice copy follows them (R-192, R-201)"
         if: ${{ !cancelled() }}
         run: python3 tests/versions.py

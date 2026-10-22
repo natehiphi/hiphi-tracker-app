@@ -518,3 +518,7 @@
 body[data-screen="bill"].bl-rec .actionbar { transition: transform .2s var(--ease), opacity .2s var(--ease); }
 body[data-screen="bill"].bl-rec:not(.bl-docked) .actionbar { transform: translateY(16px); opacity: 0; pointer-events: none; visibility: hidden; }
 @media (prefers-reduced-motion: reduce) { body[data-screen="bill"].bl-rec .actionbar { transition: none; } }
+/* A friend's link (R-212 #34): the ask, its deadline, or that it is done or has passed, just above the action card. */
+.bl-page .bl-friend { margin: var(--s12) 0; }
+.bl-page .bl-friend p { margin: 0; }
+.bl-side .bl-friend { margin-top: 0; }
