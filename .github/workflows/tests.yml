@@ -203,6 +203,9 @@ jobs:
       - name: "Sponsors cleaned, up top and clickable, and Bills they filed on a lawmaker's page (R-212 #41)"
         if: ${{ !cancelled() }}
         run: python3 tests/sponsors.py http://localhost:8832/ /tmp
+      - name: "A committee's page: the next real hearing, yours, Email the chair, the next hearing's bills (R-212 #42)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/committee_page.py http://localhost:8832/ /tmp
       - name: "Staff v2, Session setup > Tests: the list, each test's versions as pictures side by side, the switches; the practice copy follows them (R-192, R-201)"
         if: ${{ !cancelled() }}
         run: python3 tests/versions.py

@@ -11,6 +11,11 @@
 body.rec .cmt-rec .cmt-none { margin: 0; }
 body.rec .cmt-rec .rc-empty { padding: var(--s8) 0; }
 body.rec .cmt-rec .rc-lead .cm-photo { width: 40px; height: 40px; border: 0; }
+/* the next real hearing (R-212 #42): its own line in the head's row, above the chair and "Email the chair" */
+body.rec .cmt-rec .cmt-next { flex: 1 0 100%; min-height: 44px; display: flex; align-items: center; gap: 8px; margin: 0; color: var(--n900); font-weight: 600; }
+body.rec .cmt-rec .cmt-next.muted { color: var(--n700); font-weight: 400; }
+body.rec .cmt-rec .cmt-next .ic { width: 18px; height: 18px; flex: none; color: var(--p700); }
+body.rec .cmt-rec .cmt-anote { margin: 0 0 var(--s8); }
 @media (min-width: 1100px) {
   /* the wide frame (wide.css gives it to screens with a side column), so the card can sit beside the page; .rc keeps a page
      without one at its reading width */

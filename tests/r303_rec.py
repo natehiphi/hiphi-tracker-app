@@ -203,7 +203,8 @@ async def main():
             pg, errs = await open_page(ctx, '#/issue/safety-for-immigrant-families', wait='.rc-iss[data-shape]')
             check(await pg.evaluate("(b => !!b && b.classList.contains('text') && !b.classList.contains('secondary'))(document.querySelector('.acard [data-moreways]'))"), f'{tag}: a hearing card\'s More ways to help is words, as on the bill page\'s other card and Home')
             await pg.goto(f'{BASE}/track.html?demo=1&rec=1#/committee/EDU'); await pg.wait_for_selector('.rc-act', timeout=60000); await pg.wait_for_timeout(500)
-            check(await pg.evaluate("(d => !!d && d.tagName === 'DETAILS' && !d.open && /More ways to help/.test(d.querySelector('summary').textContent))(document.querySelector('.rc-act .rc-aways'))"), f'{tag}: a committee\'s card keeps its other ways behind More ways to help')
+            # R-212 #42: "Email the chair" moved from the card's More ways to the page's head, for every committee; said once (A-14).
+            check(await pg.evaluate("document.querySelectorAll('.rc-act .rc-aways').length === 0 && document.querySelectorAll('.rc-head .cmt-mail').length === 1"), f'{tag}: a committee\'s card leaves Email the chair to the head, said once')
             if w >= 1100: check('In the card at the right' in await pg.inner_text('#main'), f'{tag}: the committee page says the card is at the right')
             await pg.goto(f'{BASE}/track.html?demo=1&rec=1#/find?q=e-cigarettes'); await pg.wait_for_selector('#fd-results .rc-irow', timeout=60000); await pg.wait_for_timeout(500)
             check(await pg.evaluate("[...document.querySelectorAll('#fd-results .rc-irow')].every(li => li.querySelector('button.rc-fpill[data-fdissue]'))"), f'{tag}: search draws Follow as the topic page\'s pill')
