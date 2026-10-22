@@ -4,6 +4,10 @@
 // routed through hooks. v2's own logic (Today, review queue) lives in the screen modules that use it.
 import { $, DB, DEADLINES, DEADLINE_ROWS, DEMO, S, SESSION_OVER, SESSION_YEAR, STAGE_LABEL, SUPABASE_KEY, SUPABASE_URL, advocate, billStop, effStage, esc, fmtDT, fmtDate, hearingStream, hooks, isMine } from './data.js';
 import { CHAMBER_NAME, HELD_RE, isResolution, stoppedAt } from '../stops.js';
+// R-316 W2: one rule on every staff screen. HIPHI never asks a chair to hear a bill it opposes (the public page already
+// says "Ask the chair to hold it"), so Oppose and Strongly oppose bills get no hearing ask, no thanks for moving it, and
+// are not counted "at risk" or "still need a hearing". Monitor bills never did; Comments bills are W59's question.
+export const wantsHearing = b => !!b && !['monitor', 'oppose', 'strongly_oppose'].includes(b.position);
 export const POS_GROUP = { strongly_support: 'support', support: 'support', support_amend: 'support', strongly_oppose: 'oppose', oppose: 'oppose', neutral: 'neutral' };
 export let FACTS = new Map();
 export function factsOf(b) {
@@ -12,7 +16,7 @@ export function factsOf(b) {
   f = { pri: b.priority || 0, pos: POS_GROUP[b.position] || 'monitor', posx: b.position || 'monitor', camps: S.billCampaigns[b.id] || [], triple: isTriple(b),
     lsts: (S.listBills || []).filter(x => x.bill_id === b.id).map(x => x.list_id),
     stand: dead ? 'dead' : st.column || (['governor', 'enacted', 'ballot'].includes(effStage(b)) ? 'done' : 'c'),
-    risk: !!st && !SESSION_OVER && b.position !== 'monitor' && st.column === 'a' && !!st.deadline && !st.deadline.missed && st.deadline.days <= RISK_DAYS,
+    risk: !!st && !SESSION_OVER && wantsHearing(b) && st.column === 'a' && !!st.deadline && !st.deadline.missed && st.deadline.days <= RISK_DAYS,
     hear: S.hearings.some(h => h.bill_id === b.id && h.status !== 'cancelled' && new Date(h.scheduled_at) > now && new Date(h.scheduled_at) - now < 7 * 864e5) };
   FACTS.set(b.id, f); return f;
 }
@@ -119,7 +123,7 @@ export const deadlineName = d => d ? gateName({ phase: d.key || '', label: d.lab
 export const gateName = g => /^(first|second)_/.test(g.phase) && /^(Lateral|Decking|Triple filing)$/.test(g.label) ? `${g.phase.startsWith('first') ? 'First' : 'Second'} ${g.label.toLowerCase()}` : g.label;
 export function sessionGates(list) {
   const now = Date.now(), endOf = d => new Date(d + 'T23:59:59-10:00').getTime();
-  const live = list.filter(b => b.position !== 'monitor' && !diedish(b)).map(b => ({ b, st: stopOf(b) }));
+  const live = list.filter(b => wantsHearing(b) && !diedish(b)).map(b => ({ b, st: stopOf(b) }));   // W2: not the bills HIPHI opposes
   const dead = list.filter(b => diedish(b) && b.position !== 'monitor');
   const tag = g => { const d = new Date(g.date + 'T12:00:00-10:00'); return `${g.label} ${d.getUTCMonth() + 1}/${d.getUTCDate()}/${String(d.getUTCFullYear()).slice(2)}`; };
   let nextSeen = false;
@@ -223,7 +227,7 @@ export function stopOf(b) {
 export const RISK_DAYS = 7;
 export const ATTEND_ASKS = false;   // "Someone needs to attend" rows in Action needed
 export function riskOf(b) {
-  if (SESSION_OVER || b.position === 'monitor' || diedish(b)) return null;
+  if (SESSION_OVER || !wantsHearing(b) || diedish(b)) return null;
   const st = stopOf(b);
   return st.column === 'a' && st.deadline && !st.deadline.missed && st.deadline.days <= RISK_DAYS ? st : null;
 }
@@ -789,7 +793,7 @@ export function suggestions(bills, { cap = SUGGEST_CAP, skip = () => false } = {
     const st = stopOf(b), ahead = hearingAhead(b), name = b.nickname || blurb(b, 60);
 
     // 1. Waiting in committee with a deadline in sight and nobody has asked for a hearing.
-    if (!ahead && st.column === 'a' && st.committee && st.deadline && !st.deadline.missed) {
+    if (!ahead && wantsHearing(b) && st.column === 'a' && st.committee && st.deadline && !st.deadline.missed) {
       const m = chairMail(st.committee), two = m && m.n > 1;
       add({ kind: 'chair', key: `sg:chair:${b.id}:${st.deadline.date}`, b,
         title: `Ask the chair${two ? 's' : ''} of ${st.committee} for a hearing`,
@@ -811,7 +815,7 @@ export function suggestions(bills, { cap = SUGGEST_CAP, skip = () => false } = {
     }
 
     // 3. A committee just sent it on. Thanking the chair is the cheapest relationship work there is.
-    if (b.last_action_date && now - new Date(b.last_action_date + 'T12:00:00-10:00') < wk && PASSED.test(b.last_action || '')) {
+    if (wantsHearing(b) && b.last_action_date && now - new Date(b.last_action_date + 'T12:00:00-10:00') < wk && PASSED.test(b.last_action || '')) {
       // Name the committee that actually moved it, from the Capitol's own sentence ("The committee(s) on HHS
       // recommend(s)…"). Without a code we cannot say whose chair to thank, so the suggestion is not made.
       const mv = /committee\(?s?\)? on ([A-Z][A-Z/]*)/.exec(b.last_action || '');

@@ -61,7 +61,7 @@ import { draftAsking, makeDraftNow } from './testimony.js';
 import { openLook, lookFacts } from './look.js';
 import { billPane, bpHearing, bpFacts, bpOpen } from './billpane.js';   // R-277 fix 17: one open-bill panel for Today and Bills
 import { todayPrepNotice, prepTaskOf, dueEnd as prepDue, issueHref, prepListHref } from './prep.js';
-import { sessionGates, lastSlotBefore, noticeByFor, billByNum, plainDeadlines, plainGate, askWords, gateName } from './model.js';
+import { sessionGates, lastSlotBefore, noticeByFor, billByNum, plainDeadlines, plainGate, askWords, gateName, wantsHearing } from './model.js';
 import { dailyWord } from './composer.js';   // which 4:30 pm email a Send joins
 import { testimonyOf, agendaOf, unfile } from './hearing.js';   // where a hearing's testimony stands, in the coalition page's words (v4, R-269)
 
@@ -418,7 +418,7 @@ export function todayItems(scope = 'mine', who = null, drop = null) {   // `drop
           note: gone ? `The last ask showed through ${esc(fmtDate(gone + 'T12:00:00-10:00', { weekday: 'short' }))}.` : '', btns: [{ label: 'Write it', href: `${billRoute(b, 'public')}?focus=ask` }] });
       }
     }
-    if (!ups.length && b.priority === 1) {
+    if (!ups.length && b.priority === 1 && wantsHearing(b)) {   // W2: no hearing ask on a bill HIPHI opposes
       const st = stopOf(b);
       if (st.column === 'a' && st.deadline && !st.deadline.missed && st.deadline.days <= 14 && st.committee) {
         // R-316 W1: due when the hearing notice must post (askWords), so "9d to ask" counts to the day that matters.

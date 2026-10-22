@@ -67,6 +67,9 @@ jobs:
       - name: "Staff v5: each person's three things (as v4's)"
         if: ${{ !cancelled() }}
         run: python3 tests/staff5_people.py
+      - name: "Staff v5: no hearing ask on a bill HIPHI opposes (R-316 W2)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/staff5_oppose.py
       - name: Year-proof bill links
         if: ${{ !cancelled() }}
         run: python3 tests/year_links.py
