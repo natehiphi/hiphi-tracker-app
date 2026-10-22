@@ -43,7 +43,7 @@ with sync_playwright() as p:
   pg.goto(HOST + '/staff5.html?demo=1&as=NT#/legislators'); pg.wait_for_timeout(3500)
   check('None logged' not in pg.locator('tr', has_text='Takayama').first.inner_text() if pg.locator('tr', has_text='Takayama').count() else False, "the chair's Last contact shows the ask")
   # W31: a 9:00 AM deadline's writer hands on at 4:00 PM the day before, not 9:00 PM; filing stays 2 hours before.
-  got = pg.evaluate("""async () => { const m = await import('/staff5/today.js');
+  got = pg.evaluate("""async () => { const m = await import(new URL('staff5/today.js', location.href).href);
     const hst = (d, t) => new Date(d + 'T' + t + ':00-10:00').getTime(), now = Date.now(), day = new Date(now + 36 * 36e5 - 10 * 36e5).toISOString().slice(0, 10);
     const t = (kind, due) => ({ kind, due, h: { committee: 'HLT', scheduled_at: new Date(due + 864e5).toISOString() } });
     return [m.handOn(t('write', hst(day, '09:00'))), m.handOn(t('file', hst(day, '09:00'))), m.handOn(t('write', hst(day, '23:00')))]; }""")
