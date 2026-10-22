@@ -527,11 +527,14 @@ export const DB = {
     if (DEMO) return;
     const { error } = await S.supa.from('bills').update({ tracked: false }).eq('id', billId); if (error) throw error;
   },
-  async companionInfo(nums) {
-    if (DEMO) return S.bills.filter(b => nums.includes(b.bill_number));
-    const { data, error } = await S.supa.from('bills')
+  // `year`: the bill's own session, so last session's twin of the same number is not taken for it (R-316 W34).
+  async companionInfo(nums, year = null) {
+    if (DEMO) return S.bills.filter(b => nums.includes(b.bill_number) && (!year || !b.session_year || +b.session_year === +year));
+    let q = S.supa.from('bills')
       .select('id,bill_number,stage,stage_override,tracked,session_year,state_url')
       .in('bill_number', nums);
+    if (year) q = q.eq('session_year', year);
+    const { data, error } = await q;
     if (error) throw error; return data;
   },
   // Every bill not tracked yet, by its number, or with every word somewhere in its title or official description (R-032,

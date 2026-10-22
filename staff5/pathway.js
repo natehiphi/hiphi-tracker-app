@@ -14,7 +14,7 @@ import { rerender } from './bill.js';   // used inside functions only (bill.js i
 
 // ---- small shared helpers (exported for legislators.js, legislator.js, search.js) ----
 export const STANCE_WORD = Object.fromEntries(STANCES.map(([v, l]) => [v, l]));
-import { billRoute, whenAt, hearingWhen, roomName } from './model.js';
+import { billRoute, whenAt, hearingWhen, roomName, companionsOf } from './model.js';
 // Words carry the meaning; the icon only helps the eye. Leaning and firm share an icon, so the word always shows.
 export const STANCE_ICON = { yes: 'thumbs-up', leaning_yes: 'thumbs-up', unknown: 'circle-dashed', leaning_no: 'thumbs-down', no: 'thumbs-down' };
 export const legName = l => `${legTitle(l)} ${l.name}`;
@@ -180,7 +180,7 @@ const memFoldBtn = (key, members) => btn(`Committee members · ${members.length}
 export function renderCommittees(b) {
   if (!b) return '';
   const st = stopOf(b), all = hearingsOf(b), now = Date.now();
-  const comp = (b.companions || []).map(n => billByNum(n, b.session_year)).find(Boolean);
+  const comp = companionsOf(b).map(n => billByNum(n, b.session_year)).find(Boolean);
   const compRefs = comp && comp.chamber !== b.chamber ? (comp.referrals || []).slice(0, comp.origin_stops || undefined) : null;
   const stops = pathwayStops(b, st, S.counterparts || [], compRefs).map(s => ({ ...s, hs: all.filter(h => sameCmte(h.committee, s.committee)) }));
   // A hearing for a committee that is not on the referral (a re-referral, a joint sitting) still gets its line, after the stops.

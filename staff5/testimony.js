@@ -13,7 +13,7 @@
 // A fresh-eyes review (9/21) shaped the rows: no "Filed" chip on filed rows (only the exceptions get one), the date in
 // its own column, a plain label rather than an arrow that looked like a link, and one card for the folded category.
 import { S, DB, DEMO, esc, fmtDate, advocate, capitolUrl, hooks } from './data.js';
-import { codesOf, billByNum, billSay } from './model.js';
+import { codesOf, billByNum, billSay, companionsOf } from './model.js';
 import { icon, btn, chip, toast } from './ui.js';
 import { docBtn } from './ui.js';
 import { cmteFull, billName, firstName } from './bill.js';
@@ -26,7 +26,7 @@ const worked = d => ['review', 'second_review', 'approved', 'filed'].includes(d.
 const allWorked = () => Object.values(S.drafts || {}).flat().filter(worked);
 const billById = id => S.bills.find(x => String(x.id) === String(id)) || S.draftBills?.[id] || null;
 // A companion is a bill number in the same session; prefer that session's bill when a number repeats across years.
-const compsOf = b => (b.companions || []).map(n => S.bills.find(x => x.bill_number === n && x.session_year === b.session_year)
+const compsOf = b => companionsOf(b).map(n => S.bills.find(x => x.bill_number === n && x.session_year === b.session_year)
   || billByNum(n)).filter(x => x && x.id !== b.id);
 const billsOfIssue = id => (S.billIssues || []).filter(x => x.issue_id === id).map(x => billById(x.bill_id)).filter(Boolean);
 

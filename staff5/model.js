@@ -7,6 +7,10 @@ import { CHAMBER_NAME, HELD_RE, isResolution, stoppedAt } from '../stops.js';
 // R-316 W2: one rule on every staff screen. HIPHI never asks a chair to hear a bill it opposes (the public page already
 // says "Ask the chair to hold it"), so Oppose and Strongly oppose bills get no hearing ask, no thanks for moving it, and
 // are not counted "at risk" or "still need a hearing". Monitor bills never did; Comments bills are W59's question.
+// R-316 W34: a bill's companions, one number each. The Capitol stores a few as one ("SB3044,SB3209"), which no reader
+// matched; the public app has split them since R-079 (pub/core.js companionsOf, the same code).
+export const companionsOf = b => (b?.companions || []).flatMap(c => String(c).split(/[,\s]+/))
+  .map(c => c.trim().toUpperCase()).filter(c => /^[A-Z]+\d+$/.test(c) && c !== b.bill_number);
 export const wantsHearing = b => !!b && !['monitor', 'oppose', 'strongly_oppose'].includes(b.position);
 export const POS_GROUP = { strongly_support: 'support', support: 'support', support_amend: 'support', strongly_oppose: 'oppose', oppose: 'oppose', neutral: 'neutral' };
 export let FACTS = new Map();

@@ -4,7 +4,7 @@
 // Capitol has: where it stands, its last action, its committees, who introduced it, its hearings, and the links. Nothing on it can be
 // edited; the one primary button, "Track this bill", makes it the team's (then the full page opens, to set a position and an owner).
 import { S, DB, DEMO, SESSION_YEAR, STAGE_LABEL, esc, fmtDate, fmtDT, capitolUrl, sponsorText, hooks } from './data.js';
-import { cmteName, billRoute, titleCaseTitle, hearingWhen } from './model.js';
+import { cmteName, billRoute, titleCaseTitle, hearingWhen, companionsOf } from './model.js';
 import { icon, btn, empty, toast, skeleton } from './ui.js';
 
 const keyOf = r => `${r.year || ''}/${String(r.num || '').replace(/\s/g, '').toUpperCase()}`;
@@ -44,7 +44,7 @@ export function untrackedHTML(route, notFound) {
     <header class="bw-head"><h1 class="bw-num">${num}${esc(old)}</h1><p class="bw-title bw-long">${esc(title)}</p></header>
     <div class="notice info sv-notice ut-note">${icon('eye')}<div><b>The team is not tracking this bill.</b> This is a read-only look at what the Capitol has. Track it to give it a position, an owner and a place on Today.</div>${btn('Track this bill', { icon: 'plus', attrs: { 'data-uttrack': '1' } })}</div>
     <section class="bw-sec" aria-labelledby="ut-h"><h2 id="ut-h">Where it stands</h2>
-      <dl class="bw-dl">${row('Stage', stage)}${row('Last action', last)}${row('Committees', refs)}${row('Introduced by', (b.sponsors || []).length ? sponsorText(b) : '')}${row('Companion', (b.companions || []).length ? esc(b.companions.join(', ')) : '')}
+      <dl class="bw-dl">${row('Stage', stage)}${row('Last action', last)}${row('Committees', refs)}${row('Introduced by', (b.sponsors || []).length ? sponsorText(b) : '')}${row('Companion', companionsOf(b).length ? esc(companionsOf(b).join(', ')) : '')}
       ${row('Links', `<span class="bw-linkrow"><a class="bw-inline" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">Capitol page${icon('external-link')}</a> <a class="bw-inline" href="${esc(PUBLIC_APP() + (DEMO ? '?demo=1' : '') + '#/bill/' + (old ? b.session_year + '/' : '') + b.bill_number)}" target="_blank" rel="noopener">Public page${icon('external-link')}</a></span>`)}</dl>
     </section>
     ${b.description ? `<section class="bw-sec" aria-labelledby="ut-d"><h2 id="ut-d">What the Capitol says it does</h2><p>${esc(b.description)}</p></section>` : ''}

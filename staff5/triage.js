@@ -23,7 +23,7 @@ import { chip, keysUsed } from './ui.js';   // R-277 fix 4 (U-8); fix 13: key hi
 import { iconName } from './lists.js';   // R-277 fix 15: not from setup.js, which loads only when opened
 import { deskBack } from './filters.js';
 import { suggestIssue } from './suggest_issue.js';
-import { billRoute } from './model.js';
+import { billRoute, companionsOf } from './model.js';
 
 const T = () => S.triage ??= { camp: null, matchedOnly: true, rows: null, counts: null, focus: 0, last: null };
 const V = () => { const t = T(); t.pick ??= {}; t.pos ??= {}; t.own ??= {}; t.iss ??= {}; t.done ??= 0; t.hist ??= []; return t; };
@@ -149,7 +149,7 @@ function card(t, r, desk) {
   // screen. Desktop: the whole text shows (the decision sits beside it, not under it).
   const title = titleCaseHI(r.title || ''), long = !desk && (r.description || '').length > 200;
   return `<article class="card st-tcard" aria-labelledby="st-tnum">
-    <div class="st-tl1"><h2 id="st-tnum" tabindex="-1">${esc(r.bill_number)}</h2>${(r.companions || []).length ? chip(`Companion ${r.companions.join(', ')}`) : ''}
+    <div class="st-tl1"><h2 id="st-tnum" tabindex="-1">${esc(r.bill_number)}</h2>${companionsOf(r).length ? chip(`Companion ${companionsOf(r).join(', ')}`) : ''}
       <a class="iconbtn st-cap" href="${esc(capitol(r))}" target="_blank" rel="noopener" aria-label="Read ${esc(r.bill_number)} at the Capitol (new tab)" title="Read it at the Capitol">${icon('external-link')}</a></div>
     ${title ? `<p class="st-ttitle">${mark(title, terms)}</p>` : ''}
     ${r.description ? `<p class="st-tdesc${long ? ' clamp' : ''}" id="st-tdesc">${mark(r.description, terms)}</p>${long ? btn('Read all', { kind: 'text', sm: true, iconEnd: 'chevron-down', attrs: { 'data-tmore': '1', 'aria-expanded': 'false', 'aria-controls': 'st-tdesc' } }) : ''}` : ''}

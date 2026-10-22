@@ -61,7 +61,7 @@ import { draftAsking, makeDraftNow } from './testimony.js';
 import { openLook, lookFacts } from './look.js';
 import { billPane, bpHearing, bpFacts, bpOpen } from './billpane.js';   // R-277 fix 17: one open-bill panel for Today and Bills
 import { todayPrepNotice, prepTaskOf, dueEnd as prepDue, issueHref, prepListHref } from './prep.js';
-import { sessionGates, lastSlotBefore, noticeByFor, billByNum, plainDeadlines, plainGate, askWords, gateName, wantsHearing } from './model.js';
+import { sessionGates, lastSlotBefore, noticeByFor, billByNum, plainDeadlines, plainGate, askWords, gateName, wantsHearing, companionsOf } from './model.js';
 import { dailyWord } from './composer.js';   // which 4:30 pm email a Send joins
 import { testimonyOf, agendaOf, unfile } from './hearing.js';   // where a hearing's testimony stands, in the coalition page's words (v4, R-269)
 
@@ -2006,9 +2006,9 @@ function aheadRow(x, owners, sg = null) {
   const dayAt = d => new Date(d).toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' }).replace(',', '');
   // The date that matters leads (when the chair must have posted a hearing), then who and where; and a bill whose companion is already
   // on a hearing says so, since the two usually share a nickname and one could be taken for the other (the fresh-eyes review, 10/6).
-  const comp = (b.companions || []).map(n => billByNum(n, b.session_year)).find(x => x && (S.hearings || []).some(h => h.bill_id === x.id && h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now())),
+  const comp = companionsOf(b).map(n => billByNum(n, b.session_year)).find(x => x && (S.hearings || []).some(h => h.bill_id === x.id && h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now())),
     ch = comp && S.hearings.filter(h => h.bill_id === comp.id && h.status !== 'cancelled' && new Date(h.scheduled_at) > Date.now()).sort((p, q) => p.scheduled_at.localeCompare(q.scheduled_at))[0];
-  const sub = [nb ? `a hearing must be posted by ${esc(dayAt(nb))}, ${esc(timeOf(nb.toISOString()))}` : '', st.committee ? esc(st.committee) : '', m ? esc(m.who) : '', ls ? `the committee’s last meeting is ${esc(dayAt(ls.at))}` : '', comp ? `its companion ${esc(billSay(comp))} is heard ${esc(dayAt(ch.scheduled_at))}` : ''].filter(Boolean).map(p => `<span class="td-part">${p}</span>`).join(' · ');
+  const sub = [nb ? `notice by ${esc(dayAt(nb))}, ${esc(timeOf(nb.toISOString()))}` : '', st.committee ? esc(st.committee) : '', m ? esc(m.who) : '', ls ? `the committee’s last meeting is ${esc(dayAt(ls.at))}` : '', comp ? `its companion ${esc(billSay(comp))} is heard ${esc(dayAt(ch.scheduled_at))}` : ''].filter(Boolean).map(p => `<span class="td-part">${p}</span>`).join(' · ');
   const body = `Aloha ${m ? m.who : 'Chair'},\n\nThe Hawaiʻi Public Health Institute asks you to schedule a hearing on ${b.bill_number}${blurb(b, 120) ? ` (${blurb(b, 120)})` : ''} before the ${st.deadline.label} deadline on ${fmtDate(st.deadline.date)}.\n\nMahalo,\n${((S.me || {}).full_name || '').split(' ')[0]}`;
   const own = owners ? avatar(advocate((S.assignments[b.id] || [])[0]), 20) : '';
   const more = sg ? iconBtn('ellipsis', `Done, not now or not this bill: ${billSay(b)}`, { 'data-sgmore': sg.key, 'aria-haspopup': 'dialog' }, 'td-more') : '';

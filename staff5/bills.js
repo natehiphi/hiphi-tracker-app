@@ -142,9 +142,9 @@ function nextCell(b) {
   const days = s.deadline.days, left = days <= 0 ? 'today' : `${days === 1 ? '1 day' : days + ' days'}${xw(' left')}`;
   // At risk needs no word here: those rows sit under the "At risk: no hearing yet" group row.
   const why = `${deadlineName(s.deadline)} ${md(s.deadline.date)}: it must ${gateNeed(s.deadline.label)}`;
-  // R-316 W1: a bill waiting for a hearing counts to when its notice must post, in Today's words ("Ask by Wed 3/25 · 9d to ask").
+  // R-316 W1: a bill waiting for a hearing counts to when its notice must post, in Today's words ("Notice by Wed 3/25 · 8 days to ask").
   if (s.phase === 'committee') { const aw = s.hearingState === 'scheduled' ? null : askWords(s);
-    if (aw && aw.a.notice) return [aw.a.passed ? 'Notice time passed' : `Ask by ${esc(aw.day)}`, aw.a.passed ? `${xw('hearing by ')}${md(s.deadline.date)}` : `${esc(aw.left)}${xw(' to ask')}`, `${why}${f.risk ? '. At risk: no hearing yet' : ''}. Ask the chair: ${aw.line}`];
+    if (aw && aw.a.notice) return [aw.a.passed ? 'Notice time passed' : `Notice by ${esc(aw.day)}`, aw.a.passed ? `${xw('hearing by ')}${md(s.deadline.date)}` : `${esc(aw.left)}${xw(' to ask')}`, `${why}${f.risk ? '. At risk: no hearing yet' : ''}. Ask the chair: ${aw.line}`];
     return [`Hearing by ${md(s.deadline.date)}`, left, `${why}${f.risk ? '. At risk: no hearing yet' : ''}. ${days <= 0 ? 'Today' : days === 1 ? '1 day left' : days + ' days left'}`]; }
   return [`${esc(deadlineName(s.deadline))} ${md(s.deadline.date)}`, left, why];
 }

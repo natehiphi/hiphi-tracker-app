@@ -24,7 +24,7 @@ import { renderPublic, wirePublic, wireDraftsFocus } from './public.js';
 import { renderEarlier, wireTestimony, earlierCount, testimonyHref, onNextUp, draftNowBtn, makeDraftNow } from './testimony.js';
 import { holdBack } from './review.js';
 import { sittingOf, goersOf, agendaOf } from './hearing.js';
-import { billRoute, billByNum, MEMO_SAYS, whenAt, roomName, wantsHearing } from './model.js';
+import { billRoute, billByNum, MEMO_SAYS, whenAt, roomName, wantsHearing, plain, companionsOf } from './model.js';
 import { askConflict } from './conflict.js';
 import { untrackedHTML, wireUntracked, untrackedOf } from './untracked.js';
 import { issuesOfBill, issueLinkHref } from './issues.js';
@@ -523,7 +523,8 @@ function needsHearingCard(b) {
   const sl = dl && st.committee ? lastSlotBefore(st.committee, dl.date, S.slots, st) : null;
   const risk = !!riskOf(b), ask = st.committee && b.position && wantsHearing(b) ? chairAskHref(b, st.committee, dl) : '';   // W2: never on a bill HIPHI opposes
   // Waiting for a referral has nothing to add to the heading's sentence, and neither does a stop with no slot and no ask.
-  if (!st.committee || (!sl && !ask)) return '';
+  // R-316 W2: nor a bill HIPHI opposes: "Ask for a hearing" would push it forward (what to say instead is W47).
+  if (!st.committee || (!sl && !ask) || !wantsHearing(b)) return '';
   return `<section class="card bw-next" aria-labelledby="bw-nx-0">
     <div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-nx-0">Next up</h2></div>
     <p class="bw-hear">Ask for a hearing in ${esc(cmteName(st.committee))}</p>
@@ -758,21 +759,36 @@ function sponsorList(b) {
   for (const s of b.sponsors || []) { const n = String(s.n || s.name || s).trim(); if (/^[A-Z]\.$/.test(n) && out.length) out[out.length - 1] += ', ' + n; else if (n) out.push(n); }
   return out.map(sponsorName);
 }
+// R-316 W18: each introducer links to their page, since they are the natural allies for leaning on a chair. The Capitol
+// names them by surname ("Kong", "Lee, M."); matched in the bill's own chamber, by first initial when two share a surname.
+const surnameKey = s => plain(s).replace(/[^a-z ]/g, '').trim();
+function sponsorLeg(b, name) {
+  const [last, ini = ''] = String(name).split(',').map(surnameKey), ch = /^H/i.test(b.bill_number) ? 'H' : 'S';
+  let l = (S.legislators || []).filter(x => x.chamber === ch && surnameKey((x.sort_name || '').split(',')[0]) === last);
+  if (l.length > 1 && ini) l = l.filter(x => surnameKey((x.sort_name || '').split(',')[1] || '').startsWith(ini[0]));
+  return l.length === 1 ? l[0] : null;
+}
+function sponsorHTML(b, name, onCmte) {
+  const l = sponsorLeg(b, name); if (!l) return esc(name);
+  return `<a class="bw-inline" href="#/legislator/${l.id}?from=${esc(billRef(b))}">${esc(name)}</a>${onCmte.has(l.id) ? ` <span class="muted">(on ${esc(onCmte.get(l.id))})</span>` : ''}`;
+}
 // Details (v3): only what is said nowhere else on the page. Gone, because the heading's sentence says them: the committee
 // and its chair, the issue (the chip beside the number), the next deadline, the "committee 2 of 2" line; the referrals,
 // because Committees above lists every stop in order; the links, which are in the page's ⋯ menu (A-14, A-20). The
 // coalitions and, on a phone, who follows (the desktop's Team card says it) joined it from the old Team section.
 function detailsSection(b, desk) {
-  const sp = sponsorList(b), all = !!S.bwSponsAll?.[b.id];
+  const sp = sponsorList(b), all = !!S.bwSponsAll?.[b.id], st0 = stopOf(b);
+  // Introducers on the committee holding the bill say so: the ones best placed to ask its chair (W18).
+  const onCmte = new Map(st0.committee && !diedish(b) ? legsOf(st0.committee).map(m => [m.l.id, codesOf(st0.committee)[0]]) : []);
   // Each coalition opens its own page (R-022 wave 3: this week's hearings, at-risk bills, the partner memo).
   const coal = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(c => c.id === id)).filter(Boolean);
   const f = desk ? '' : followText(b);
   // The official title names hundreds of bills the same way ("Relating to health"), so it is a detail, not the heading.
   return `<section class="bw-sec" aria-labelledby="bw-det-h"><h2 id="bw-det-h">Details</h2>
     <dl class="bw-dl">
-      ${sp.length ? `<div class="bw-dt"><dt>Sponsors</dt><dd><b>${esc(sp[0])}</b> <span class="muted">(lead)</span>${sp.length > 1 ? ', ' + esc(sp.slice(1, all ? sp.length : 5).join(', ')) : ''}${sp.length > 5 && !all ? ` ${showAllBtn(sp.length, { 'data-sponsall': '1' })}` : ''}</dd></div>` : ''}
+      ${sp.length ? `<div class="bw-dt"><dt>Sponsors</dt><dd><b>${sponsorHTML(b, sp[0], onCmte)}</b> <span class="muted">(lead)</span>${sp.length > 1 ? ', ' + sp.slice(1, all ? sp.length : 5).map(n => sponsorHTML(b, n, onCmte)).join(', ') : ''}${sp.length > 5 && !all ? ` ${showAllBtn(sp.length, { 'data-sponsall': '1' })}` : ''}</dd></div>` : ''}
       ${b.last_action ? `<div class="bw-dt"><dt>Last action</dt><dd>${b.last_action_date ? `<span class="muted">${esc(fmtDate(b.last_action_date, { year: '2-digit' }))}</span> ` : ''}<span title="${esc(b.last_action)}">${esc(shortAction(b.last_action))}</span></dd></div>` : ''}
-      ${(b.companions || []).length ? `<div class="bw-dt"><dt>Companion</dt><dd id="bw-comp">${compHTML(b)}</dd></div>` : ''}
+      ${companionsOf(b).length ? `<div class="bw-dt"><dt>Companion</dt><dd id="bw-comp">${compHTML(b)}</dd></div>` : ''}
       <div class="bw-dt bw-dtact"><dt>Coalitions</dt><dd><span>${coal.length ? coal.map(c => `<a class="bw-inline bw-coal" href="#/coalition/${esc(c.id)}">${esc(c.name)}</a>`).join(', ') : '<span class="muted">None</span>'}</span>${btn('Edit', { kind: 'text', sm: true, attrs: { 'data-coal': '1', 'aria-label': 'Edit coalitions' } })}</dd></div>
       ${f ? `<div class="bw-dt"><dt>Following</dt><dd>${esc(f)}</dd></div>` : ''}
       ${b.title ? `<div class="bw-dt"><dt>Official title</dt><dd>${esc(titleCaseTitle(b.title))}</dd></div>` : ''}
@@ -783,8 +799,8 @@ function detailsSection(b, desk) {
 // Companions: the other chamber's twin and where it stands. Tracked ones open here; the rest go to the Capitol.
 function compHTML(b) {
   const rows = S.bwComp?.[b.id];
-  if (!rows) return esc((b.companions || []).join(', '));
-  return (b.companions || []).map(num => {
+  if (!rows) return esc(companionsOf(b).join(', '));
+  return companionsOf(b).map(num => {
     const r = rows.find(x => x.bill_number === num);
     if (!r) return `<span class="bw-comp">${esc(num)}</span>`;
     const st = r.stage_override || r.stage || 'introduced', inApp = S.bills.some(x => x.id === r.id);
@@ -794,11 +810,11 @@ function compHTML(b) {
   }).join('');
 }
 function loadCompanions(b) {
-  if (!(b.companions || []).length) return;
+  if (!companionsOf(b).length) return;
   S.bwComp ??= {}; S.bwCompBusy ??= {};
   if (S.bwComp[b.id] || S.bwCompBusy[b.id]) return;
   S.bwCompBusy[b.id] = true;
-  DB.companionInfo(b.companions).then(rows => {
+  DB.companionInfo(companionsOf(b), b.session_year).then(rows => {
     S.bwComp[b.id] = rows || [];
     const el = document.getElementById('bw-comp'); if (el && billOf(S.route || {})?.id === b.id) el.innerHTML = compHTML(b);
   }).catch(() => { S.bwComp[b.id] = []; }).finally(() => { S.bwCompBusy[b.id] = false; });
