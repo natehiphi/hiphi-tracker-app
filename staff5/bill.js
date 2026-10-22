@@ -30,6 +30,9 @@ import { untrackedHTML, wireUntracked, untrackedOf } from './untracked.js';
 import { issuesOfBill, issueLinkHref } from './issues.js';
 import { dayOf } from './standing.js';
 import { GIVE_ASK, askState, askChip, giveAsk } from './push.js';
+import { ASK_LOG, chairAskOf, chairAskMail } from './model.js';
+import { askedChip } from './chairask.js';
+import { logConversation } from './conversation.js';   // R-316 W3 (practice copy)
 import { HOW_TO } from './terms.js';   // R-316 W37 (practice copy)   // R-316 W14 (practice copy)
 
 // ---- small shared helpers (activity.js and public.js use these too) ----
@@ -537,19 +540,27 @@ function chairAskHref(b, code, dl) {
   const body = `Aloha ${m.n > 1 ? m.who : 'Chair ' + m.last},\n\nOn behalf of the Hawaiʻi Public Health Institute, I respectfully ask that you schedule ${b.bill_number} (${plainTitle(b)}) for a hearing${dl ? ` before ${dlText(dl)}` : ''}.\n\nMahalo,\n${S.me?.full_name || ''}`;
   return `mailto:${m.email}?subject=${encodeURIComponent(`Hearing request: ${b.bill_number}`)}&body=${encodeURIComponent(body)}`;
 }
+// R-316 W3: a visible "Log a talk with a legislator" where the next step is a chair's (it was three clicks deep).
+const talkBtn = () => ASK_LOG() ? btn('Log a talk with a legislator', { kind: 'text', icon: 'message-square-plus', attrs: { 'data-logtalk': '1', 'aria-haspopup': 'dialog' } }) : '';
 function heardCard(b, st) {
   const dl = st.deadline && !st.deadline.missed ? st.deadline : null, heard = st.hearing?.scheduled_at;
+  // R-316 W3: the second email Nate approves, asking the chair to schedule decision making; asked shows who asked.
+  const asked = ASK_LOG() && st.committee && wantsHearing(b) ? chairAskOf(b, st.committee) : null;
+  const dm = ASK_LOG() && st.committee && b.position && wantsHearing(b) && !asked ? chairAskMail(st.committee, [b], { dl, heardAt: heard || new Date().toISOString() }) : null;
+  const acts = asked ? askedChip(b, st.committee, asked) : dm ? btn('Ask for decision making', { kind: 'secondary', icon: 'mail', href: dm.href }) : '';
   return `<section class="card bw-next" aria-labelledby="bw-nx-0">
     <div class="bw-nexthead"><h2 class="bw-eyebrow" id="bw-nx-0">Next up</h2></div>
     <p class="bw-hear">Heard${heard ? ` ${esc(fmtDate(heard, { weekday: 'short' }).replace(/^(\w{3}),/, '$1'))}` : ''}, no vote yet</p>
     <p class="bw-meta">Ask the ${esc(st.committee || 'committee')} chair to schedule decision making${dl ? ` before ${esc(dlText(dl))}` : ''}.</p>
+    ${acts || talkBtn() ? `<div class="bw-acts">${acts}${talkBtn()}</div>` : ''}
   </section>`;
 }
 function needsHearingCard(b) {
   const st = stopOf(b), now = Date.now();
   const dl = st.deadline && !st.deadline.missed ? st.deadline : null;
   const sl = dl && st.committee ? lastSlotBefore(st.committee, dl.date, S.slots, st) : null;
-  const risk = !!riskOf(b), ask = st.committee && b.position && wantsHearing(b) ? chairAskHref(b, st.committee, dl) : '';   // W2: never on a bill HIPHI opposes
+  const risk = !!riskOf(b), w3 = ASK_LOG() && st.committee && b.position && wantsHearing(b), asked = w3 ? chairAskOf(b, st.committee) : null;
+  const ask = st.committee && b.position && wantsHearing(b) ? (w3 ? chairAskMail(st.committee, [b], { dl })?.href || '' : chairAskHref(b, st.committee, dl)) : '';   // W2: never on a bill HIPHI opposes
   // Waiting for a referral has nothing to add to the heading's sentence, and neither does a stop with no slot and no ask.
   // R-316 W2: nor a bill HIPHI opposes: "Ask for a hearing" would push it forward (what to say instead is W47).
   if (!st.committee || (!sl && !ask) || !wantsHearing(b)) return '';
@@ -558,7 +569,7 @@ function needsHearingCard(b) {
     <p class="bw-hear">Ask for a hearing in ${esc(cmteName(st.committee))}</p>
     ${HOW_TO() ? '<p class="small bw-how"><a href="#/help/hearing">How to ask for a hearing</a></p>' : ''}
     ${sl ? `<p class="small ${now > sl.noticeBy ? 'bw-late' : 'muted'}">${now > sl.noticeBy ? `${icon('circle-alert')}The notice window for the last regular slot has closed. Call the chair.` : `Last regular slot ${esc(fmtDT(sl.at))}. The notice has to post by ${esc(fmtDT(sl.noticeBy))}.`}</p>` : ''}
-    ${ask ? `<div class="bw-acts">${btn('Email the chair', { kind: risk ? 'primary' : 'secondary', icon: 'mail', href: ask })}${GIVE_ASK() ? (as => as.k === 'none' ? btn('Give to…', { kind: 'text', icon: 'user-round', attrs: { 'data-giveask': b.id, 'aria-haspopup': 'dialog', 'aria-label': 'Give this ask to a teammate' } }) : askChip(as))(askState(b, st.committee)) : ''}</div>` : ''}
+    ${asked ? `<div class="bw-acts">${askedChip(b, st.committee, asked)}${talkBtn()}</div>` : ask ? `<div class="bw-acts">${btn('Email the chair', { kind: risk ? 'primary' : 'secondary', icon: 'mail', href: ask })}${talkBtn()}${GIVE_ASK() ? (as => as.k === 'none' ? btn('Give to…', { kind: 'text', icon: 'user-round', attrs: { 'data-giveask': b.id, 'aria-haspopup': 'dialog', 'aria-label': 'Give this ask to a teammate' } }) : askChip(as))(askState(b, st.committee)) : ''}</div>` : ''}
   </section>`;
 }
 // Next up is what is coming. A hearing that has happened, its result and its recording are in Overview's Committees,
@@ -1123,6 +1134,7 @@ export default {
     page.querySelectorAll('[data-attend]').forEach(el => el.onclick = () => toggleAttend(b, el.dataset.attend));
     page.querySelectorAll('[data-draftnow]').forEach(el => el.onclick = () => { const h = S.hearings.find(x => x.id === el.dataset.draftnow); if (h) makeDraftNow(h); });
     page.querySelectorAll('[data-hmenu]').forEach(el => el.onclick = () => { const h = S.hearings.find(x => x.id === el.dataset.hmenu); if (h) hearingMenu(b, h); });
+    page.querySelectorAll('[data-logtalk]').forEach(el => el.onclick = () => logConversation({ bill: b, onDone: () => hooks.render() }));   // R-316 W3
     page.querySelectorAll('[data-giveask]').forEach(el => el.onclick = () => { const st = stopOf(b); giveAsk([{ b, st }], st.committee, () => hooks.render()); });   // R-316 W14
     // "Borrow from earlier testimony" opens the fold at the end of Overview, the way a tab tap moves: this history entry is
     // replaced, so Back leaves the bill.

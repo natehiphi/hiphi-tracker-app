@@ -705,6 +705,16 @@ body.sidenarrow .sv-sync span { display: none; }
 .pb-st .ic { width: 14px; height: 14px; }
 .pb-asked { color: var(--ok-text, var(--n700)); }
 .pb-by { font-size: var(--t13); white-space: nowrap; }
+/* R-316 W3: "Asked by Kevin Mon 3/16 · no reply yet" in place of Email the chair. A quiet button (a tap records the chair's
+   answer), 44px tall to touch, with no border so it reads as a state, not a second call to action. */
+.ca-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--s8); margin-left: calc(-1 * var(--s8)); border: 0; border-radius: var(--r8, 8px); background: none; font: inherit; font-size: var(--t14, 14px); color: var(--p700); cursor: pointer; text-align: left; }
+.ca-chip .ca-chev { width: 14px; height: 14px; opacity: .7; }
+.ca-chip .ic { width: 16px; height: 16px; flex: none; }
+.ca-chip:hover { background: var(--n50, #F5F5F4); text-decoration: underline; }
+.ca-chip.ok { color: var(--ok-text, #1F7A4D); }
+.ca-chip.warn { color: var(--warn-text, #8A4B00); }
+.pb-end .ca-chip, .hb-end .ca-chip, .ah-act .ca-chip { min-height: 32px; font-size: var(--t13); }
+@media (pointer: coarse) { .pb-end .ca-chip, .hb-end .ca-chip, .ah-act .ca-chip { min-height: 44px; } }
 @media (max-width: 30em) { .pb-acts .btn.secondary { flex: 1 1 100%; } .pb-rows { padding-left: var(--s8); } }
 
 /* A bill the team does not track (staff/untracked.js, R-058): read-only, one Track button. */

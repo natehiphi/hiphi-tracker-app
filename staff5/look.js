@@ -13,7 +13,8 @@ import { openSheet, closeSheet, btn, iconBtn, stageRibbon, avatar, ownerOf, coun
 import { docBtn, keysUsed } from './ui.js';   // R-277 fix 4: one look for the Doc button; fix 13: key hints after a key
 import { stopOf, blurb, billNum, billSay, cmteName, chairMail, draftFor, hearingAhead, sponsorName, gateNeed, deadlineName, billByRef } from './model.js';
 import { CHAMBER_NAME } from '../stops.js';
-import { billRoute, whenAt, hearingWhen, roomName } from './model.js';
+import { billRoute, whenAt, hearingWhen, roomName, ASK_LOG, chairAskOf, chairAskMail } from './model.js';
+import { askedChip } from './chairask.js';   // R-316 W3 (practice copy)
 
 const dash = v => v || '—';
 
@@ -60,7 +61,8 @@ function hearingCard(b, h, d) {
         <p class="small muted">Testimony: ${esc(testimonyWord(d))}</p>
         ${fileOk || d?.doc_url ? `<div class="lk-acts">${fileOk ? btn('File at the Capitol', { kind: 'secondary', sm: true, href: capitolUrl(b), target: '_blank', iconEnd: 'external-link' }) : ''}${docBtn(d?.doc_url, { sm: true })}</div>` : ''}</div>`;
 }
-const chairBtn = (b, st) => st.committee && chairMail(st.committee) ? `<div class="lk-acts">${btn('Email the chair', { kind: 'secondary', sm: true, href: `mailto:${chairMail(st.committee).email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}`, target: '_blank', iconEnd: 'external-link' })}</div>` : '';
+const chairBtn = (b, st) => ASK_LOG() && st.committee && chairMail(st.committee) ? `<div class="lk-acts">${(a => a ? askedChip(b, st.committee, a) : btn('Email the chair', { kind: 'secondary', sm: true, icon: 'mail', href: chairAskMail(st.committee, [b], { dl: st.deadline && !st.deadline.missed ? st.deadline : null }).href }))(chairAskOf(b, st.committee))}</div>`
+  : st.committee && chairMail(st.committee) ? `<div class="lk-acts">${btn('Email the chair', { kind: 'secondary', sm: true, href: `mailto:${chairMail(st.committee).email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}`, target: '_blank', iconEnd: 'external-link' })}</div>` : '';
 
 function body(b, { list, index }) {
   const st = stopOf(b), h = hearingAhead(b), d = h ? draftFor(b.id, h.committee) : null;

@@ -65,6 +65,8 @@ import { sessionGates, lastSlotBefore, noticeByFor, billByNum, plainDeadlines, p
 import { dailyWord } from './composer.js';
 import { TERMS_TAP, HOW_TO, termBtn } from './terms.js';   // R-316 W40, W37 (practice copy)
 import { movedTasks, seedMoved, moveMe, notGoing, keepAskUp } from './moved.js';   // R-316 W53 (practice copy)
+import { ASK_LOG, chairAskOf, chairAskMail, legNotesAll } from './model.js';
+import { askedChip, askDone, afterMail } from './chairask.js';   // R-316 W3 (practice copy)
 import { PUSH_BOARD, GIVE_ASK, chairGroups, chairGroupHTML, wirePush, resetPush, noticeWhen, askState, askChip, ASK_TODO as CHAIR_TODO, chairEmailHref, giveAsk, assignAsk, logAsk } from './push.js';   // R-316 W5, W14 (practice copy)   // which 4:30 pm email a Send joins
 import { testimonyOf, agendaOf, unfile } from './hearing.js';   // where a hearing's testimony stands, in the coalition page's words (v4, R-269)
 
@@ -441,10 +443,13 @@ export function todayItems(scope = 'mine', who = null, drop = null) {   // `drop
         const body = `Aloha ${m ? m.who : 'Chair'},\n\nThe Hawaiʻi Public Health Institute asks you to schedule a hearing on ${b.bill_number}${blurb(b, 120) ? ` (${blurb(b, 120)})` : ''} before the ${st.deadline.label} deadline on ${fmtDate(st.deadline.date)}.\n\nMahalo,\n${(viewer.full_name || '').split(' ')[0]}`;
         // R-316 W14 (practice copy): once the ask is given to someone, the owner's row says who is asking, not the button.
         const as = GIVE_ASK() ? askState(b, st.committee) : null, giving = as?.k === 'giving' && as.t.assignee_id !== me.id;
-        push({ kind: 'chair', key: `s:${b.id}:chair`, b, st, due: aw.a.at, dl: aw.a.dl, passed: aw.a.passed, who,
+        // R-316 W3: once anyone has asked this chair, the card is done for everyone (the bill page and This week say who).
+        const w3 = ASK_LOG(), mailHref = w3 ? chairAskMail(st.committee, [b], { dl: st.deadline })?.href : null;
+        if (!(w3 && chairAskOf(b, st.committee))) push({ kind: 'chair', key: `s:${b.id}:chair`, b, st, due: aw.a.at, dl: aw.a.dl, passed: aw.a.passed, who,
           s: giving ? `${esc(first(as.t.assignee_id))} is asking ${esc(m ? m.who : 'the chair')} for a hearing: ${esc(aw.line)}` : as?.k === 'asked' ? `${esc(as.words)}: ${esc(m ? m.who : 'the chair')}, for a hearing · ${esc(aw.line)}` : `Ask the chair${two ? 's' : ''} for a hearing: ${esc(aw.line)}`,
           why: `${esc(deadlineName(st.deadline))} ${fmtDate(st.deadline.date + 'T12:00:00-10:00', { weekday: 'short' }).replace(',', '')}: it must ${esc(gateNeed(st.deadline.label))}${m ? ' · ' + esc(m.who) : ''}`,
-          btns: giving ? [msgBtn(b, [as.t.assignee_id])] : m ? [{ label: `Email the chair${two ? 's' : ''}`, href: `mailto:${m.email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}&body=${encodeURIComponent(body)}`, ext: true, mail: true },
+          btns: giving ? [msgBtn(b, [as.t.assignee_id])] : m ? [{ label: `Email the chair${two ? 's' : ''}`, href: mailHref || `mailto:${m.email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}&body=${encodeURIComponent(body)}`, ext: true, mail: true },
+              ...(w3 ? [{ label: 'Done', act: 'askdone', text: true }] : []),
               ...(GIVE_ASK() && self && as?.k === 'none' ? [{ label: 'Give to…', act: 'giveask', text: true }] : [])]
             : [{ label: 'Open bill', href: `${billRoute(b)}` }] });
       }
@@ -628,6 +633,9 @@ export function digest(scope = 'mine', since = 'day') {
   for (const [bid, msgs] of Object.entries(S.messages || {})) { const b = billById(bid), got = msgs.filter(m => m.advocate_id !== me.id && new Date(m.created_at).getTime() >= start && new Date(m.created_at).getTime() <= now);
     if (got.length && want(b)) { const r = row(b); r.msgs = got.length; r.at = Math.max(r.at, ...got.map(m => new Date(m.created_at).getTime()));
       for (const m of got) r.items.push({ msg: true, who: first(m.advocate_id), text: unslack(m.body), at: new Date(m.created_at).getTime() }); } }
+  // R-316 W3 (practice copy): a teammate's ask to a chair, or the chair's answer, on your bill.
+  if (ASK_LOG()) for (const n of legNotesAll()) { if (!n.answer || n.advocate_id === me.id) continue; const at = new Date(n.created_at).getTime(); if (at < start || at > now) continue;
+    add(billById(n.bill_id), `${first(n.advocate_id)}: ${n.body}`, 2, at); }
   const rows = [...by.values()].sort((x, y) => (x.best ? x.best[1] : 9) - (y.best ? y.best[1] : 9) || (x.b.priority || 9) - (y.b.priority || 9) || y.at - x.at);
   return { label, head, from, dayLabel, rows, keys: (S.inbox || []).filter(i => !i.direct && i.unread).map(i => i.key) };
 }
@@ -772,17 +780,25 @@ const dueIso = t => t.due == null ? null : new Date(t.due).toISOString();
 // use the Capitol's own time; no Friday cutoff is made up. Only these two steps get the words.
 const HAND_ON = () => DEMO;
 const HAND = { write: ['Send for approval', 12], submit: ['Send for approval', 12], revise: ['Send for approval', 12], nodraft: ['Send for approval', 12], file: ['File', 2] };
+// Nate 10/22: when the writer's 12 hours before falls overnight (after 4:00 PM or before 8:00 AM), the hand-on is 4:00 PM
+// the day before the deadline, so nobody is asked to send for approval at 9:00 PM or 3:00 AM. Filing stays 2 hours before.
+function handTime(t, w) {
+  const at = t.due - w[1] * HR; if (w[1] < 12) return at;
+  const hm = new Date(at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Pacific/Honolulu' }), [hh, mm] = hm.split(':').map(Number);
+  if (hh * 60 + mm <= 16 * 60 && hh >= 8) return at;
+  return new Date(hst(t.due - DAY) + 'T16:00:00-10:00').getTime();
+}
 // The moment to hand on, while it is still ahead: the row's chip counts to it, so "15h to revise" never sits beside
 // "Send for approval by today 9:30 PM" (ui-critic H1).
 export function handAt(t) {
   const w = HAND_ON() && HAND[t.kind]; if (!w || !tDue(t) || lateNow(t) || t.due <= Date.now() || t.due - Date.now() > 2 * DAY) return null;
-  const at = t.due - w[1] * HR; return at > Date.now() ? at : null;
+  const at = handTime(t, w); return at > Date.now() ? at : null;
 }
 export function handOn(t) {
   // Within two days of the deadline only: further off, the row's hearing and due day say more (a new hearing's "Send for
   // approval by Tue 2/24, 2:00 AM" a fortnight ahead read as a deadline of its own).
   const w = HAND_ON() && HAND[t.kind]; if (!w || !tDue(t) || lateNow(t) || t.due <= Date.now() || t.due - Date.now() > 2 * DAY) return '';
-  const at = t.due - w[1] * HR, word = t.kind === 'revise' ? 'Resubmit' : w[0];   // the button's own word after a send-back
+  const at = handTime(t, w), word = t.kind === 'revise' ? 'Resubmit' : w[0];   // the button's own word after a send-back
   return at > Date.now() ? `${word} by ${atLine(at)}` : `${word} now`;
 }
 function why(t, team, mark = false) {
@@ -1095,7 +1111,8 @@ function billOnly(b, from) {
     : live ? `<span class="sv-count${days <= 1 ? ' soon' : ''}">${icon('clock')}${esc(`Hearing needed by ${fmtDate(st.deadline.date, { weekday: 'short' }).replace(',', '')} · ${days <= 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`}`)}</span>` : '';
   const words = h ? (d?.status === 'filed' ? `Testimony filed for ${esc(h.committee)}` : d ? `Testimony ${esc(TWORD[d.status] || 'being written')}` : 'No testimony draft yet')
     : live ? `No hearing yet: by ${esc(deadlineName(st.deadline))} it must ${esc(gateNeed(st.deadline.label))}` : esc(st.says || '');
-  const chair = !h && live && chairMail(st.committee) ? btn('Email the chair', { kind: 'secondary', href: `mailto:${chairMail(st.committee).email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}`, target: '_blank', iconEnd: 'external-link' }) : '';
+  const asked = ASK_LOG() && !h && live && st.committee ? chairAskOf(b, st.committee) : null, w3m = ASK_LOG() && !h && live && st.committee && !asked ? chairAskMail(st.committee, [b], { dl: st.deadline }) : null;   // R-316 W3
+  const chair = asked ? askedChip(b, st.committee, asked) : w3m ? btn('Email the chair', { kind: 'secondary', href: w3m.href }) : !h && live && chairMail(st.committee) ? btn('Email the chair', { kind: 'secondary', href: `mailto:${chairMail(st.committee).email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}`, target: '_blank', iconEnd: 'external-link' }) : '';
   const doc = d?.doc_url ? docBtn(d.doc_url, { kind: 'text' }) : '';
   return { due, hear: h ? bpHearing(h, { from, going: goingOf(goersAt(h)), mine: goingFor(h).going }) : '',
     step: `<p class="bp-s">${words}</p>${chair || doc ? `<div class="bp-acts">${chair}${doc}</div>` : ''}` };
@@ -1410,7 +1427,8 @@ function sugMenu(key) {
   const s = LASTSG.get(key); if (!s) return;
   const num = billSay(s.b);
   menuSheet({ title: esc(clip(s.title, 60)), items: [
-    { label: 'Done', icon: 'check', sub: s.log ? `Adds it to ${num}’s timeline` : 'It will not come up again', run: () => suggDo(key, 'done') },
+    s.kind === 'chair' && ASK_LOG() ? { label: 'Done, I asked', icon: 'check', sub: 'The whole team sees it was asked', run: () => askDone(s.b, stopOf(s.b).committee) }   // R-316 W3: for everyone, not only you
+      : { label: 'Done', icon: 'check', sub: s.log ? `Adds it to ${num}’s timeline` : 'It will not come up again', run: () => suggDo(key, 'done') },
     { label: 'Not now', icon: 'clock', sub: 'It comes back in two weeks', run: () => suggDo(key, 'later') },
     { label: 'Not this bill', icon: 'circle-x', sub: `Never suggest this for ${num} again`, run: () => suggDo(key, 'never') }] });
 }
@@ -2178,7 +2196,7 @@ function aheadRow(x, owners, sg = null) {
   const own = owners ? avatar(advocate((S.assignments[b.id] || [])[0]), 20) : '';
   const more = sg ? iconBtn('ellipsis', `Done, not now or not this bill: ${billSay(b)}`, { 'data-sgmore': sg.key, 'aria-haspopup': 'dialog' }, 'td-more') : '';
   return `<li class="ah-row"><div class="ah-main"><a class="ah-bill" href="${billRoute(b)}">${b.nickname ? `<b class="td-nick ah-nm">${esc(b.nickname)}</b> <span class="bn-num">${esc(billNum(b))}</span>` : `<b class="td-num">${esc(billNum(b))}</b> <span class="ah-nm">${esc(blurb(b, 80))}</span>`}${b.priority === 1 ? P1 : ''}</a>${own}<p class="ah-sub">${sub}</p></div>
-    <div class="ah-act">${m ? btn(`Email the chair${two ? 's' : ''}`, { kind: 'secondary', sm: true, icon: 'mail', href: `mailto:${m.email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}&body=${encodeURIComponent(body)}` }) : ''}${more}</div></li>`;
+    <div class="ah-act">${(a => a ? askedChip(b, st.committee, a) : m ? btn(`Email the chair${two ? 's' : ''}`, { kind: 'secondary', sm: true, icon: 'mail', href: (ASK_LOG() && chairAskMail(st.committee, [b], { dl: st.deadline })?.href) || `mailto:${m.email}?subject=${encodeURIComponent('Request for a hearing on ' + b.bill_number)}&body=${encodeURIComponent(body)}` }) : '')(ASK_LOG() && st.committee ? chairAskOf(b, st.committee) : null)}${more}</div></li>`;   // R-316 W3: asked shows who
 }
 function aheadGate(g, lead, owners, chair) {
   const need = g.noHearing.slice().sort((x, y) => (y.b.priority === 1) - (x.b.priority === 1) || ((noticeByFor(x.st)?.getTime() ?? Infinity) - (noticeByFor(y.st)?.getTime() ?? Infinity)) || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true }));
@@ -2397,6 +2415,7 @@ async function run(t, act, el) {
       await DB.updateTodo(b.id, t.t.id, { done: true });
       const unlog = t.ask ? await logAsk(b, t.ask) : null;   // R-316 W14: the ask is made, so the team's rows say so
       toast(t.ask ? `Done: the ask is logged, so the team sees “Asked by ${(S.me.full_name || '').split(' ')[0]}” on ${billSay(b)}.` : `Done: ${clip(t.t.title, 60)}`, { ok: true, undo: async () => { await DB.updateTodo(b.id, t.t.id, { done: false }); if (unlog) await unlog(); redraw(); } }); redraw(); });
+    case 'askdone': return askDone(b, t.st.committee);   // R-316 W3
     case 'giveask': return giveAsk([{ b, st: t.st }], t.st.committee, redraw);   // R-316 W14
     case 'nudge': return busy(el, async () => {   // R-316 W42
       const ids = NUDGED.get(t.key) || [], due = t.due == null ? '' : lateNow(t) ? ' is past its deadline, still taken until the hearing' : t.due <= Date.now() ? ' is overdue' : ` is due ${atLine(t.due)}`;
@@ -2439,7 +2458,7 @@ function quickLook(el) {
 // step itself. Without this the row threw: the menu it called was never written (bug found 9/19).
 function alsoMenu(t) {
   const items = (t.btns || []).map(x => x.href
-    ? { label: x.label, icon: x.ext && !x.mail ? 'external-link' : 'arrow-right', run: later(() => { if (x.ext && !x.mail) window.open(x.href, '_blank', 'noopener'); else if (x.mail) location.href = x.href; else S.go(x.href); }) }
+    ? { label: x.label, icon: x.ext && !x.mail ? 'external-link' : 'arrow-right', run: later(() => { if (x.ext && !x.mail) window.open(x.href, '_blank', 'noopener'); else if (x.mail) { location.href = x.href; afterMail(x.href); } else S.go(x.href); }) }
     : { label: x.label, icon: 'check', run: later(() => run(t, x.act)) });
   if (items.length) menuSheet({ title: esc(clip(String(t.s).replace(/<[^>]+>/g, ''), 60)), items });
 }
