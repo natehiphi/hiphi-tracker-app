@@ -573,5 +573,5 @@
 .bw-tdf { display: flex; flex-direction: column; gap: 2px; flex: 0 1 140px; min-width: 0; font-size: var(--t13); color: var(--n700); }
 .bw-tdf .input { min-height: 48px; width: 100%; }
 @media (min-width: 900px) { .bw-tdf .input { min-height: 44px; } .bw-addfor { max-width: 720px; } }
-.bw-noown { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin: var(--s8) 0 0; font-size: var(--t14); color: var(--warn-text); font-weight: 600; }   /* R-316 W42 */
+.bw-noown { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n700); }   /* R-316 W42 */
 .bw-noown .ic { width: 18px; height: 18px; flex: none; }

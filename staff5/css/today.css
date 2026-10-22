@@ -812,3 +812,4 @@
 /* R-316 W14: a coalition chair ask a helper can take (I will ask, Remind Rick). */
 .td-root .td-caskb { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4); flex: none; }
 .td-root .td-cask .pb-st { flex: none; }
+@media (max-width: 899px) { .td-root .td-cask { flex-wrap: wrap; } .td-root .td-cask a.td-cbody { flex: 1 1 100%; } .td-root .td-caskb { padding: 0 0 var(--s8); } }   /* ui-critic M5: buttons under the words on a phone */

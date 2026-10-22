@@ -771,11 +771,18 @@ const dueIso = t => t.due == null ? null : new Date(t.due).toISOString();
 // use the Capitol's own time; no Friday cutoff is made up. Only these two steps get the words.
 const HAND_ON = () => DEMO;
 const HAND = { write: ['Send for approval', 12], submit: ['Send for approval', 12], revise: ['Send for approval', 12], nodraft: ['Send for approval', 12], file: ['File', 2] };
+// The moment to hand on, while it is still ahead: the row's chip counts to it, so "15h to revise" never sits beside
+// "Send for approval by today 9:30 PM" (ui-critic H1).
+export function handAt(t) {
+  const w = HAND_ON() && HAND[t.kind]; if (!w || !tDue(t) || lateNow(t) || t.due <= Date.now() || t.due - Date.now() > 2 * DAY) return null;
+  const at = t.due - w[1] * HR; return at > Date.now() ? at : null;
+}
 export function handOn(t) {
   // Within two days of the deadline only: further off, the row's hearing and due day say more (a new hearing's "Send for
   // approval by Tue 2/24, 2:00 AM" a fortnight ahead read as a deadline of its own).
   const w = HAND_ON() && HAND[t.kind]; if (!w || !tDue(t) || lateNow(t) || t.due <= Date.now() || t.due - Date.now() > 2 * DAY) return '';
-  const at = t.due - w[1] * HR; return at > Date.now() ? `${w[0]} by ${atLine(at)}` : `${w[0]} now`;
+  const at = t.due - w[1] * HR, word = t.kind === 'revise' ? 'Resubmit' : w[0];   // the button's own word after a send-back
+  return at > Date.now() ? `${word} by ${atLine(at)}` : `${word} now`;
 }
 function why(t, team, mark = false) {
   const who = t.kind === 'wait' ? '' : t.who === 'anyone' ? 'Open to anyone' : team && !['reply', 'notice', 'email', 'fix', 'send'].includes(t.kind) ? 'Yours' : '';
@@ -940,9 +947,9 @@ function row(c, filled, o = {}) {
     : `<span class="td-rb${b.priority === 1 ? ' td-rbp1' : ''}"><b class="td-num">${esc(billNum(b))}</b>${b.priority === 1 ? P1 : ''}<span class="td-rn">${esc(blurb(b, 80))}</span></span>`)
     : (([ic, w]) => `<span class="td-rb td-rkind">${icon(ic)}<span>${w}</span></span>`)(kindOf(p));
   // A teammate's step is theirs to take: its row has no button, and the open item offers "Message Kevin".
-  const x = p.ro ? (o.nudge ? { label: 'Nudge', act: 'nudge' } : null) : (p.btns || [])[0], fill = filled && p.kind !== 'reply' && !p.seen && x && !x.text;
+  const x = p.ro ? (o.nudge ? { label: alertWord(p), act: 'nudge' } : null) : (p.btns || [])[0], fill = filled && p.kind !== 'reply' && !p.seen && x && !x.text;
   const what = `<span class="td-rs">${stepTag(stepOf(p))}<span class="td-rd">${p.seen ? SEEN() + ' ' : ''}${o.note ? `${esc(o.note)} · ` : ''}${rowWords(p, x, stepOf(p))}</span></span>${n > 0 ? `<span class="td-rplus">+${n}<span class="td-rmore"> on this ${b ? 'bill' : 'item'}</span></span>` : ''}`;   // "+2 on this bill" (P-4: "+2 more" said more of what?)
-  return `<div data-k="${ek}" class="td-row${p.seen ? ' td-seen' : ''}"${fill ? ' data-fill="1"' : ''}${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${sel(`${newMark(p) || urgBlock(p.due, untilOf(p), approveAct(p))}${o.av ? `<span class="td-rav">${o.av}</span>` : ''}<span class="td-rmain">${name}${what}</span>`)}
+  return `<div data-k="${ek}" class="td-row${p.seen ? ' td-seen' : ''}"${fill ? ' data-fill="1"' : ''}${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${sel(`${newMark(p) || urgBlock(handAt(p) ?? p.due, untilOf(p), approveAct(p))}${o.av ? `<span class="td-rav">${o.av}</span>` : ''}<span class="td-rmain">${name}${what}</span>`)}
     <span class="td-ract">${x ? button(p, x, true, filled && p.kind !== 'reply') : ''}</span>${end}</div>`;
 }
 // A row says what its button does not (A-14): beside "File at the Capitol" or "Make the draft now" the step's own words
@@ -1067,7 +1074,7 @@ function billPaneOf(c, k, o, { close = '', headId, from = 'today', facts = false
   const p = c.p || {}, b = c.b, kd = b ? null : kindOf(p);
   const more = b || p.kind === 'followup' || p.a ? iconBtn('ellipsis', `More for ${b ? billSay(b) : 'this item'}`, { 'data-more': k, 'data-pane': '1' }, 'td-more bp-more') : '';
   if (!c.p) return billPane({ b, p1: b.priority === 1 ? P1 : '', headId, more, close, ...billOnly(b, from), rest: bpFacts(lookFacts(b, factsOpt), { open: true }), open: bpOpen(b) });
-  const acts = (o.nudge && b ? [{ label: 'Nudge', act: 'nudge' }, { ...msgBtn(b, o.msg), text: true }, ...(S.me.is_admin ? [{ label: 'Give to…', act: 'giveto', text: true }] : [])]
+  const acts = (o.nudge && b ? [{ label: alertWord(p), act: 'nudge' }, { ...msgBtn(b, o.msg), text: true }, ...(S.me.is_admin ? [{ label: 'Give to…', act: 'giveto', text: true }] : [])]
     : o.msg && b ? [msgBtn(b, o.msg)] : p.btns || []).map((x, j) => button(p, x, j === 0, !o.outline)).join('');
   const w = paneWhy(p, o.msg, o.label);
   const step = `<p class="bp-s"${b ? '' : ` id="${esc(headId)}"`}>${p.ps || p.s}</p>${w ? `<p class="bp-why">${w}</p>` : ''}
@@ -1819,10 +1826,12 @@ const slipWho = ids => ids.length ? ids.map(id => id === S.me.id ? 'You' : first
 const slipAv = ids => ids.length ? ids.slice(0, 2).map(id => avatar(advocate(id), 24)).join('') + (ids.length > 2 ? `<span class="td-ravn">+${ids.length - 2}</span>` : '') : avatar(null, 24);   // two faces at most (W54)
 // The row options: a teammate's step offers "Message Kevin" in the open item; your own (even shared) keeps its button.
 const wasOwner = b => { const id = b && (S.assignments[b.id] || []).find(x => !live(x)); return id ? ` (was ${advocate(id).full_name.split(' ')[0]}’s, turned off)` : ''; };
-// R-316 W42 (Show me, practice copy): a teammate's Slipping row gets Nudge, a one-line message on the bill with Undo (it was
+// R-316 W42 (Show me, practice copy): a teammate's Slipping row gets Alert Lauren, a one-line message on the bill with Undo (it was
 // 4 or 5 clicks through the panel), and for admins Give to… beside Message: the to-do if the row is one, else the bill.
 const NUDGE = () => DEMO;
-const NUDGED = new Map();   // the row's task key -> whom a Nudge goes to
+const NUDGED = new Map();   // the row's task key -> whom the alert goes to
+// "Alert Lauren" (C-15: staff's Slack messages are alerts, never nudges or reminders), saying whom it reaches.
+const alertWord = p => { const ids = NUDGED.get(p.key) || []; return ids.length === 1 ? `Alert ${first(ids[0])}` : 'Alert them'; };
 const slipOpt = r => ({ gk: 'sl', nudge: NUDGE() && r.p && r.p.ro && r.b && r.ids.some(id => id !== S.me.id) ? (NUDGED.set(r.p.key, r.ids.filter(id => id !== S.me.id)), true) : false, av: slipAv(r.ids), note: !r.ids.length && !r.hear && wasOwner(r.b) ? `No owner${wasOwner(r.b)}` : '', label: r.hear ? 'Nobody going yet' : slipWho(r.ids) + (r.ids.length ? '' : wasOwner(r.b)), msg: r.p && r.p.ro && r.b ? r.ids.filter(id => id !== S.me.id) : null });
 function slipHearRow(c, ek, sel, end, o) {
   const h = c.hear.h, soon = c.hear.t - Date.now() <= DAY;   // R-277 fix 3: hours from model.js spanOf, as every mark
@@ -1849,7 +1858,7 @@ function paneSlipHear(c) {
 // Team for Nate, Jess and Jaylen: Slipping first, then each person's list (folded). `rows`: the laptop's one-line rows.
 function slipHtml(rows) {
   const sl = slipping(); let i = 0;
-  for (const r of sl.rows) for (const t of r.tasks || []) if (!LAST.has(t.key)) LAST.set(t.key, t);   // a teammate's step's Nudge finds its record (W42)
+  for (const r of sl.rows) for (const t of r.tasks || []) if (!LAST.has(t.key)) LAST.set(t.key, t);   // a teammate's step's Alert button finds its record (W42)
   const head = `<h2 class="td-h" data-top tabindex="-1">${groupHead(`${icon('clock', { cls: 'td-soon' })}Slipping`, sl.rows.length || '', { id: 'td-g-slip' })}</h2>`;
   if (!sl.rows.length) return `<section class="td-group td-slip" aria-labelledby="td-g-slip">${head}<p class="td-quiet">${icon('circle-check')}<span>Nothing is slipping on the team: nothing late or due within a day${SLIP_NOBODY ? ', and someone is going to every hearing today and tomorrow' : ''}.</span></p></section>`;
   const now = Date.now(), filled = r => !!r.p && !r.p.ro && r.p.due <= endOfToday();
@@ -1974,7 +1983,7 @@ function coalSection(r, skip = new Set(), quiet = new Set()) {
   const todos = Object.entries(S.todos || {}).flatMap(([bid, arr]) => { const b = billById(bid); return b && inC(b) ? arr.filter(t => !t.done && !t.assignee_id).map(t => ({ b, t })) : []; })
     .sort((x, y) => String(x.t.due_date || '9').localeCompare(String(y.t.due_date || '9')));
   // R-316 W14 (practice copy): the coalition's chair asks a helper could take, the two weeks before each notice must post
-  // (as P1 owners get theirs): "Rick's step: ask the chair", with I'll ask and Remind Rick. Kept here, never in the badge or
+  // (as P1 owners get theirs): "Rick's step: ask the chair", with I'll ask and Message Rick. Kept here, never in the badge or
   // the day's count: they are the owner's step until someone takes them. HIAPA's two bills needing a hearing by 3/30 were
   // nowhere on Julie's Today, which said "Nothing needs you today".
   const asks = GIVE_ASK() ? S.bills.filter(b => inC(b) && wantsHearing(b) && !diedish(b) && !(S.assignments[b.id] || []).includes(S.me.id)).map(b => ({ b, st: stopOf(b) }))
@@ -2011,7 +2020,7 @@ function coalSection(r, skip = new Set(), quiet = new Set()) {
       ${kit ? `<a class="td-ckit" href="#/hearing/${esc(h.id)}?from=today&amp;kit=1">Share kit${icon('chevron-right')}</a>` : ''}${goersAt(h).length || new Date(h.scheduled_at) < Date.now() ? '' : goingBtn(false, { 'data-going': h.id, 'aria-label': `I’m going to the ${h.committee} hearing ${whenLine(h.scheduled_at)}` })}</div>`; };   // R-277 ui-critic: a hearing nobody is going to offers I'm going where it is listed
   const todoRow = ({ b, t }) => `<div class="td-crow td-ctodo"><a class="td-cbody" href="${billRoute(b)}"><span class="td-cbills">${lead(b)} · ${esc(t.title)}</span>${t.due_date ? `<span class="td-cmeta">${esc(`Due ${fmtDate(String(t.due_date).slice(0, 10), { weekday: 'short' }).replace(',', '')}`)}</span>` : ''}</a>${btn('Take it', { kind: 'secondary', attrs: { 'data-ctake': `${b.id}|${t.id}` } })}</div>`;
   const askRow = x => { const ow = (S.assignments[x.b.id] || [])[0] || null, m = chairMail(x.st.committee);
-    return `<div class="td-crow td-cask"><a class="td-cbody" href="${billRoute(x.b)}"><span class="td-cbills">${lead(x.b)}</span><span class="td-cmeta">${esc(`${x.as.k !== 'none' ? 'Ask the chair' : `${ow ? `${first(ow)}’s` : 'Nobody’s'} step: ask the chair`} · ${m ? `${m.who} · ` : ''}${x.st.committee} · ask by ${x.aw.day}`)}</span></a>${x.as.k === 'none' ? `<span class="td-caskb">${btn('I’ll ask', { kind: 'secondary', attrs: { 'data-ctakeask': x.b.id } })}${ow && ow !== S.me.id ? btn(`Remind ${first(ow)}`, { kind: 'text', href: mentionHref(x.b, [ow]) }) : ''}</span>` : askChip(x.as)}</div>`; };
+    return `<div class="td-crow td-cask"><a class="td-cbody" href="${billRoute(x.b)}"><span class="td-cbills">${lead(x.b)}</span><span class="td-cmeta">${esc(`${x.as.k !== 'none' ? 'Ask the chair' : `${ow ? `${first(ow)}’s` : 'Nobody’s'} step: ask the chair`} · ${m ? `${m.who} · ` : ''}${x.st.committee} · ask by ${x.aw.day}`)}</span></a>${x.as.k === 'none' ? `<span class="td-caskb">${btn('I’ll ask', { kind: 'secondary', attrs: { 'data-ctakeask': x.b.id } })}${ow && ow !== S.me.id ? btn(`Message ${first(ow)}`, { kind: 'text', href: mentionHref(x.b, [ow]) }) : ''}</span>` : askChip(x.as)}</div>`; };
   const nobody = [...sit.values()].filter(l => !goersAt(l[0].h).length).length, all = sit.size;
   const nobodyLine = !nobody ? '' : `<p class="td-cnote">${icon('user-round-plus')}<span>${esc(nobody === all ? (all === 1 ? 'Nobody going yet' : `Nobody going yet to any of the ${all}`) : `Nobody going yet to ${nobody} of the ${all}`)}</span></p>`;
   const body = [rows.length ? `<h3 class="td-ch">${icon('landmark')}Hearings</h3>${nobodyLine}<div class="td-crows">${rows.map(sitRow).join('')}</div>` : '',
@@ -2179,8 +2188,9 @@ function aheadGate(g, lead, owners, chair) {
   // v4 (R-269, T3): the Deadlines heading names this deadline and counts its bills with no hearing, so the box's line
   // says only what the bills must do by then, not the count again (A-14). Its head keeps the date: an earlier
   // deadline's folded line can sit between the two.
-  if (lead) { const lsum = `${plural(g.racing.length, 'bill')} must ${gateNeed(g.label, g.racing.length)} by then${g.p1 ? `; ${g.p1} of those with no hearing ${g.p1 === 1 ? 'is' : 'are'} P1` : ''}.`;
-    return `<section class="ah-gate ah-lead" aria-label="${esc(`${ckDay(g.date)}, ${g.name}`)}"><h3 class="ah-gh">${head}</h3><p class="ah-gs">${esc(lsum)}</p>${need.length ? list : ''}</section>`; }
+  // W5 (ui-critic M1): on the push board the heading already counts the bills with no hearing, so the line says only the P1s.
+  if (lead) { const lsum = PUSH_BOARD() ? (g.p1 ? `${g.p1} of them ${g.p1 === 1 ? 'is a' : 'are'} top-priority (P1) ${g.p1 === 1 ? 'bill' : 'bills'}.` : '') : `${plural(g.racing.length, 'bill')} must ${gateNeed(g.label, g.racing.length)} by then${g.p1 ? `; ${g.p1} of those with no hearing ${g.p1 === 1 ? 'is' : 'are'} P1` : ''}.`;
+    return `<section class="ah-gate ah-lead" aria-label="${esc(`${ckDay(g.date)}, ${g.name}`)}"><h3 class="ah-gh">${head}</h3>${lsum ? `<p class="ah-gs">${esc(lsum)}</p>` : ''}${need.length ? list : ''}</section>`; }
   return `<details class="ah-gate ah-later"><summary><span class="ah-gh">${head}</span><span class="ah-gc muted">${esc(need.length ? `${plural(need.length, 'bill')} with no hearing yet` : pastCommittees(g.label) ? plural(g.racing.length, 'bill') : 'all have a hearing')}</span>${icon('chevron-down', { cls: 'ah-chev' })}</summary><p class="ah-gs">${esc(sum)}</p>${list}</details>`;
 }
 // R-316 W5 (practice copy, push.js): a deadline's bills with no hearing, grouped by the chair who must post the notice,
@@ -2388,8 +2398,8 @@ async function run(t, act, el) {
     case 'giveask': return giveAsk([{ b, st: t.st }], t.st.committee, redraw);   // R-316 W14
     case 'nudge': return busy(el, async () => {   // R-316 W42
       const ids = NUDGED.get(t.key) || [], due = t.due == null ? '' : lateNow(t) ? ' is past its deadline, still taken until the hearing' : t.due <= Date.now() ? ' is overdue' : ` is due ${atLine(t.due)}`;
-      const m = await DB.sendMessage(b.id, `${ids.map(id => '@' + first(id)).join(' ')} A nudge from Slipping: ${String(t.ps || t.s || '').replace(/<[^>]+>/g, '').replace(/&[a-z#0-9]+;/g, ' ')}${due}. Can you get it in?`);
-      toast(`Nudged ${names(ids)} in the messages on ${billSay(b)}. Slack tells ${ids.length === 1 ? first(ids[0]) : 'them'}.`, { ok: true, undo: async () => { await DB.deleteMessage(m); redraw(); } }); redraw(); });
+      const m = await DB.sendMessage(b.id, `${ids.map(id => '@' + first(id)).join(' ')} From Slipping: ${String(t.ps || t.s || '').replace(/<[^>]+>/g, '').replace(/&[a-z#0-9]+;/g, ' ')}${due}. Can you get it in?`);
+      toast(`Alert sent to ${names(ids)} in Slack, from the messages on ${billSay(b)}.`, { ok: true, undo: async () => { await DB.deleteMessage(m); redraw(); } }); redraw(); });
     case 'giveto': return t.kind === 'todo' ? giveTodo(t) : giveBill(t);
     case 'moveme': return busy(el, () => moveMe(t, { toast, redraw }));   // R-316 W53
     case 'notgoing': return busy(el, () => notGoing(t, { toast, redraw }));

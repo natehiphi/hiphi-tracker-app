@@ -302,7 +302,7 @@ const goalLine = b => { if (SESSION_OVER) return ''; const i = issuesOfBill(b.id
 const NO_OWNER = () => DEMO;
 const noOwnerLine = b => { if (!NO_OWNER() || ownerOf(b) || !b.position || b.position === 'monitor' || diedish(b) || b.tracked === false || !S.me) return '';
   const io = issuesOfBill(b.id).map(i => advocate(i.owner_id)).find(a => a && a.is_active !== false);
-  return `<p class="bw-noown">${icon('user-round')}<span>${esc(['No owner', io ? `${io.id === S.me.id ? 'You own' : io.full_name.split(' ')[0] + ' owns'} its issue` : ''].filter(Boolean).join(' · '))}</span>${btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-bwtake': b.id } })}</p>`; };
+  return `<p class="bw-noown">${icon('user-round')}<span>${esc(io ? `${io.id === S.me.id ? 'You own' : io.full_name.split(' ')[0] + ' owns'} its issue` : 'Nobody owns this bill yet')}</span>${btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-bwtake': b.id } })}</p>`; };
 const teamChips = b => `<div class="bw-chips">${teamPicks(b).map(([, p]) => p).join('')}${followFlag(b)}${issueChips(b)}</div>${noOwnerLine(b)}${goalLine(b)}`;
 // Desktop: the same three pickers as labelled lines in the side panel (they open as popovers beside the chip), and who
 // follows the bill.

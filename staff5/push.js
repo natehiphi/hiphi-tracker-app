@@ -10,7 +10,7 @@
 // that bill, the record the Legislators page already keeps; "Mark asked" logs one. W3's "Did you send it?" replaces it.
 import { S, DB, DEMO, esc, advocate } from './data.js';
 import { chairMail, codesOf, askWords, billTag, billSay, billRoute, blurb } from './model.js';
-import { icon, btn, avatar, toast, pickerSheet } from './ui.js';
+import { icon, btn, iconBtn, avatar, toast, pickerSheet, menuSheet } from './ui.js';
 
 export const PUSH_BOARD = () => DEMO;
 export const GIVE_ASK = () => DEMO;
@@ -81,7 +81,7 @@ export function chairGroupHTML(g, { owners = false, more = () => '', key = '' } 
   const st = g.rows.map(x => askState(x.b, g.code)), open = st.filter(s => s.k === 'none').length;
   const by = g.aw ? (g.aw.a.passed ? 'notice time passed' : `ask by ${g.aw.day}`) : '';
   const head = [g.m ? `<b>${esc(g.m.who)}</b>` : '<b>No chair listed</b>', esc(g.code || 'no committee yet'), esc(plural(g.rows.length, 'bill')), esc(by)].filter(Boolean).join(' · ');
-  const acts = g.m ? `${btn(g.m.n > 1 ? "Email the chairs" : g.rows.length > 1 ? `Email ${g.m.who}` : "Email the chair", { kind: 'secondary', sm: true, icon: 'mail', href: chairEmailHref(g.m, g.rows, g.rows[0].st.deadline) })}${open ? btn('Mark asked', { kind: 'text', sm: true, icon: 'check', attrs: { 'data-pbasked': k } }) : ''}${GIVE_ASK() && open ? btn('Give to…', { kind: 'text', sm: true, icon: 'user-round', attrs: { 'data-pbgive': k, 'aria-haspopup': 'dialog', 'aria-label': `Give the ask to ${g.m.who} to a teammate` } }) : ''}` : '';
+  const acts = g.m ? `${btn(g.m.n > 1 ? "Email the chairs" : g.rows.length > 1 ? `Email ${g.m.who}` : "Email the chair", { kind: 'secondary', sm: true, icon: 'mail', href: chairEmailHref(g.m, g.rows, g.rows[0].st.deadline) })}${open ? btn('Mark asked', { kind: 'text', sm: true, icon: 'check', attrs: { 'data-pbasked': k } }) : ''}${GIVE_ASK() && open ? iconBtn('ellipsis', `More for the ask to ${g.m.who}`, { 'data-pbmore': k, 'aria-haspopup': 'dialog' }, 'td-more') : ''}` : '';
   const mores = g.rows.map(x => more(x)), gap = mores.some(Boolean) ? '<span class="pb-nomore" aria-hidden="true"></span>' : '';
   const rows = g.rows.map((x, i) => { const own = owners ? avatar(advocate((S.assignments[x.b.id] || [])[0]), 20) : '';
     const nb = askWords(x.st);
@@ -135,7 +135,9 @@ export async function logAsk(b, code) {
 }
 export function wirePush(root, after) {
   root.querySelectorAll('[data-pbasked]').forEach(el => el.onclick = () => markAsked(el.dataset.pbasked, el, after));
-  root.querySelectorAll('[data-pbgive]').forEach(el => el.onclick = () => { const g = GROUPS.get(el.dataset.pbgive); if (g) giveAsk(g.rows.filter(x => askState(x.b, g.code).k === 'none'), g.code, after); });
+  // Two actions on the chair's line (A-20): the email and Mark asked; handing the ask on is in its "…".
+  root.querySelectorAll('[data-pbmore]').forEach(el => el.onclick = () => { const g = GROUPS.get(el.dataset.pbmore); if (!g) return;
+    menuSheet({ title: esc(`The ask to ${g.m?.who || 'the chair'}`), items: [{ label: 'Give this ask to…', icon: 'user-round', sub: 'It lands on their Today with the email button', run: () => giveAsk(g.rows.filter(x => askState(x.b, g.code).k === 'none'), g.code, after) }] }); });
 }
 // A new draw: forget the last one's groups.
 export const resetPush = () => { GROUPS = new Map(); };
