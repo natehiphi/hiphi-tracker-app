@@ -5,7 +5,7 @@
 # As none (a first-time visitor), Kai and Leilani (the practice copy's sample people) and Kai with a text number (signed up),
 # at 390x844 and 1440x900:
 #   You (#/more): h1 "You"; the profile card, then the rows (Your lawmakers, Your alerts only when signed up, Your session,
-#     Help), then the quiet footer links (About HIPHI, Privacy and accessibility, My issues link); Every bill and Committees
+#     Help), then the quiet footer links (About HIPHI, Privacy and accessibility, the practice copy, Send my issues to a friend); Every bill and Committees
 #     are gone from it; the event staff posted is its own row (Nate 18 Oct, card 11), not inside About HIPHI; at most one
 #     filled button; under 1,050px tall on a phone (900 before the event row);
 #   - Help's seven groups each with its icon (card 15); the old #/alerts (?rec=0) says what really comes, in the Text terms page's
@@ -107,7 +107,7 @@ def main():
                 txt = TEXT(pg)
                 check('Every bill HIPHI tracks' not in txt and 'Committees' not in txt, f'{t}: Every bill and Committees have left You')
                 foot = pg.evaluate("[...document.querySelectorAll('#main .yu-foot .yu-fl')].map(e => e.innerText.trim())")
-                check(foot == ['About HIPHI', 'Privacy and accessibility'] + (['Copy My issues link'] if follows else []), f'{t}: the footer links ({foot})')
+                check(foot == ['About HIPHI', 'Privacy and accessibility', 'Leave the practice copy' if '?demo' in pg.url else 'Practice on the 2026 bills'] + (['Send my issues to a friend'] if follows else []), f'{t}: the footer links ({foot})')   # R-212 #37, #39
                 if signed:
                     check(pg.evaluate("document.querySelector('#main .yu-me').getAttribute('href')") == '#/profile' and 'Kai' in pg.inner_text('#main .yu-me'), f'{t}: the card is the person, to their profile')
                 else:

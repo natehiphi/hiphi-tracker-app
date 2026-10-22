@@ -33,7 +33,7 @@ with sync_playwright() as p:
     link = pg.evaluate("async () => (await import('./pub/core.js')).issuesLink()")
     ok(link.endswith(f'#/follow/cat:{cat1},{slug1}') or (f'cat:{cat1}' in link and slug1 in link and '#/follow/' in link), f'the issues link names the category and the issue: {link[-60:]}')
     pg.goto(BASE + '#/more'); ready(pg)
-    ok('My issues link' in pg.locator('main').inner_text(), 'More offers "My issues link"')
+    ok('Send my issues to a friend' in pg.locator('main').inner_text(), 'More offers "Send my issues to a friend"')   # R-212 #37
     ctx2 = br.new_context(viewport={'width': 390, 'height': 844}); pg2 = ctx2.new_page(); errs2 = []; pg2.on('pageerror', lambda e: errs2.append(str(e)))
     pg2.goto(link)
     # The toast says so for a few seconds: wait for it rather than a fixed time (10/2: a faster page let it expire first)

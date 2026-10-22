@@ -20,6 +20,7 @@
   "Add your name and titles",
   "Aloha!",
   "Back",
+  "Back to the real tracker",
   "Bill details come from the Hawaiʻi State Legislature and update several times a day. Positions marked HIPHI are HIPHI’s own.",
   "Built to work for everyone",
   "Committees",
@@ -38,6 +39,7 @@
   "In {yr}, {n} bills HIPHI backed became law.",
   "In {yr}, 1 bill HIPHI backed became law.",
   "Language",
+  "Leave the practice copy",
   "Legislative Recap",
   "Let’s begin",
   "Made one before? {a}Sign in with your email{b}",
@@ -57,7 +59,9 @@
   "Speak up for a healthier Hawaiʻi",
   "Stay connected",
   "Support HIPHI’s work",
+  "The 2026 session’s bills, for practice or a class. Nothing is sent.",
   "The Legislature opens {day}.",
+  "Try the practice copy",
   "We keep watch",
   "We tell you when it’s your moment",
   "What happens next",
@@ -78,7 +82,7 @@
  ],
  "files": {
   "pub/langpick.js": 1,
-  "pub/more.js": 41,
+  "pub/more.js": 45,
   "pub/start.js": 33
  }
 }

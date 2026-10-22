@@ -188,6 +188,18 @@ jobs:
       - name: "This week's asks: every ask due in 7 days, one message to copy, picked bill by bill (R-212 #36)"
         if: ${{ !cancelled() }}
         run: python3 tests/week_asks.py http://localhost:8832/ /tmp
+      - name: "Send my issues to a friend: You, an issue's menu, the first visit's end, and the friend's arrival (R-212 #37)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/send_issues_friend.py http://localhost:8832/ /tmp
+      - name: "Put bills on your website: the code maker, and the website table's fixes (R-212 #38)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/embed_page.py http://localhost:8832
+      - name: "The practice copy findable: Help's answer, You's link and the way back out (R-212 #39)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/practice_copy.py http://localhost:8832/ /tmp
+      - name: "Legislators by name and title: \"Senator Chang\" in the header search and the finder (R-212 #40)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/legislator_names.py http://localhost:8832/ /tmp
       - name: "Staff v2, Session setup > Tests: the list, each test's versions as pictures side by side, the switches; the practice copy follows them (R-192, R-201)"
         if: ${{ !cancelled() }}
         run: python3 tests/versions.py

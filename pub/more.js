@@ -323,6 +323,8 @@ function moreView() {
     <nav class="rows mr-grid grid3" aria-labelledby="mr-g-about">
       ${row({ lead: 'lock', title: t('Privacy'), sub: t('What we keep and who sees it'), href: '#/privacy' })}
       ${row({ lead: A11Y_ICON, title: t('Accessibility'), sub: t('Built to work for everyone'), href: '#/privacy?part=access' })}
+      ${DEMO ? row({ lead: 'school', title: t('Leave the practice copy'), sub: t('Back to the real tracker'), href: 'track.html' })
+        : row({ lead: 'school', title: t('Try the practice copy'), sub: t('The 2026 session’s bills, for practice or a class. Nothing is sent.'), href: 'track.html?demo=1' })}
     </nav>
     <p class="mr-foot">${t('Bill details come from the Hawaiʻi State Legislature and update several times a day. Positions marked HIPHI are HIPHI’s own.')}</p>
   </div>`;

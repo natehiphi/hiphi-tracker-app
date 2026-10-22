@@ -9,7 +9,7 @@
 // It also holds what the other pages under You share: the back row that names the page behind (B-4), the "Your alerts" row
 // Profile starts with, and this page group's stylesheet (pub/rec/you.css), which comes with the first page drawn under
 // ?rec=1 and holds a skeleton until it is in, so nothing draws unstyled.
-import { S, app, esc, icon, issuesLink } from '../core.js';
+import { S, DEMO, app, esc, icon, issuesLink } from '../core.js';
 import { skeleton } from '../ui.js';
 import { MARK } from '../art.js';
 import { t } from '../i18n.js';
@@ -92,6 +92,11 @@ function aboutHiphi() {
     ${ext('scroll-text', t('Legislative Recap'), t('What passed for health each year'), HIPHI.recap)}
     ${ext('hand-heart', t('Donate'), t('Support HIPHI’s work'), HIPHI.donate)}`;
 }
+// The practice copy (R-212 #39: the Teacher's walk found no way to it): the tracker on the 2026 session's bills, nothing sent
+// (Help's "Can I practice first?" says the rest). Inside it, the same place leads back out.
+export const practiceLink = () => DEMO
+  ? `<a class="yu-fl" href="track.html" data-yu-practice>${t('Leave the practice copy')}</a>`
+  : `<a class="yu-fl" href="track.html?demo=1" data-yu-practice>${t('Practice on the 2026 bills')}</a>`;
 export function youView() {
   const rows = [
     { name: t('Your lawmakers'), text: lawmakersLine(), href: '#/legislators', lead: 'users' },
@@ -108,6 +113,7 @@ export function youView() {
     <nav class="yu-foot" aria-label="${esc(t('About this tracker'))}">
       <button type="button" class="yu-fl" data-yu-about aria-expanded="${open}" aria-controls="yu-about"><span>${t('About HIPHI')}</span>${icon('chevron-down', { cls: 'yu-flc' })}</button>
       <a class="yu-fl" href="#/privacy">${t('Privacy and accessibility')}</a>
+      ${practiceLink()}
       ${issuesLink() ? `<button type="button" class="yu-fl" data-mr-keep aria-describedby="yu-keep-h">${icon('share-2', { cls: 'yu-flc' })}<span>${t('Send my issues to a friend')}</span></button><span class="sr" id="yu-keep-h">${t('A link that follows your issues on any phone. No account needed.')}</span>` : ''}
     </nav>
     <div class="rc-card yu-about" id="yu-about"${open ? '' : ' hidden'}>${aboutHiphi()}</div>
