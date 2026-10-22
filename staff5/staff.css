@@ -865,3 +865,13 @@ body.staff2 .bp-h3 { margin: 0 0 var(--s4); font: 700 var(--t13)/18px var(--font
 .st-practice:hover { text-decoration: underline; }
 .st-practice .ic { flex: none; width: 18px; height: 18px; }
 .st-practice .ext { width: 14px; height: 14px; color: var(--n500); }
+/* R-316 W57 (S-17, FR-9): each Session setup part's status under its name; error details folded; the January checklist
+   folded to one line from opening day. */
+.st-navi .st-navl { display: flex; flex-direction: column; min-width: 0; }
+.st-navs { font-size: var(--t13); font-weight: 400; color: var(--n500); line-height: 1.3; overflow-wrap: anywhere; }
+.st-errd { margin-top: 4px; font-size: var(--t13); color: var(--n500); }
+.st-errd > summary { cursor: pointer; min-height: 24px; }
+.st-errd code { display: block; margin-top: 4px; overflow-wrap: anywhere; font-size: var(--t13); }
+.st-readyf > summary { list-style: none; display: flex; align-items: center; gap: var(--s8); min-height: 44px; font-weight: 700; color: var(--n700); cursor: pointer; }
+.st-readyf > summary::-webkit-details-marker { display: none; }
+.st-readyf[open] > summary .chev { transform: rotate(180deg); }

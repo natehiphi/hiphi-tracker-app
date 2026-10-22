@@ -37,6 +37,7 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + 's'}`;
 // Server strings (readiness fixes) were written for the old screens and use arrows as path separators.
 const tidy = s => String(s || '').replace(/\s*[\u2192>]\s*/g, ', then ').replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]\uFE0F?/gu, '').trim();
 const sessionYear = () => SESSION_OVER ? SESSION_YEAR + 1 : SESSION_YEAR;
+const inSession = () => !SESSION_OVER && !!legislativeDay();   // R-316 W57: from opening day
 const POS_OPTS = [['strongly_support', 'Strongly support'], ['support', 'Support'], ['support_amend', 'Support with amendments'], ['strongly_oppose', 'Strongly oppose'], ['oppose', 'Oppose'], ['neutral', 'Comments'], ['monitor', 'Monitor']];
 const TEMPLATE_LABEL = { hearing_alert: 'Hearing alert, one per bill', hearing_rescheduled: 'Hearing moved', hearing_cancelled: 'Hearing cancelled', draft_thread: 'Draft ready, as a thread reply',
   reminder_morning: 'Alert the morning testimony is due', reminder_before: 'Alert hours before it is due', reminder_after: 'Alert after the deadline passed', daily_head: 'Daily list heading', daily_empty: 'Daily list when nothing is coming' };
@@ -67,6 +68,9 @@ function loadErrors(force) {
 // What the public page reported: the week's total and today's, then the five most frequent errors outside the sandbox.
 // Each row is a distinct error (message and screen); its file and line are for Claude, who fixes it.
 const hstToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+const errWords = m => /fetch|network|load failed|timed? ?out/i.test(m || '') ? 'The page could not reach the tracker’s data'
+  : /import|module|chunk|script/i.test(m || '') ? 'The page could not load one of its files'
+  : /TypeError|ReferenceError|undefined|null|is not a function/i.test(m || '') ? 'A part of the page stopped working' : 'Something went wrong';
 function errorsHTML() {
   const s = st(); loadErrors();
   if (!s.errs) return s.errsErr ? `<div class="card">${notice('bad', 'circle-alert', `Could not load the public page's error reports. ${esc(s.errsErr)}`)}</div>`
@@ -78,8 +82,10 @@ function errorsHTML() {
   const top = [...by.values()].sort((a, b) => b.reports - a.reports).slice(0, 5);
   const words = n ? `${plural(n, 'error report')} from visitors' browsers in the last 7 days, ${nToday} today${sb ? `, and ${sb} in the sandbox` : ''}.`
     : `No errors reported by visitors' browsers in the last 7 days${sb ? ` (${sb} in the sandbox)` : ''}.`;
+  // R-316 W57 (FR-9, B-8): what broke in plain words, on which screen; the browser's own message and file folded away.
   const rowH = e => `<div class="st-rrow ${e.day === today ? 'bad' : 'info'}"><span class="st-ric">${icon(e.day === today ? 'circle-x' : 'info')}</span>
-    <div class="st-rbody"><span class="st-rlab">${esc(e.message)}</span><span class="st-rdet">${esc([`${e.reports} ${e.reports === 1 ? 'report' : 'reports'}`, e.place ? `on ${e.place}` : '', e.source || '', `last ${fmtDate(e.last_at)}`].filter(Boolean).join(' · '))}</span></div></div>`;
+    <div class="st-rbody"><span class="st-rlab">${esc(errWords(e.message))}${e.place ? ` on ${esc(e.place)}` : ''}</span><span class="st-rdet">${esc([`${e.reports} ${e.reports === 1 ? 'report' : 'reports'}`, `last ${fmtDate(e.last_at)}`].join(' · '))}</span>
+      <details class="st-errd"><summary>Details for Claude</summary><code>${esc([e.message, e.source].filter(Boolean).join(' · '))}</code></details></div></div>`;
   return `<p class="st-sum">${n ? chip(nToday ? 'Errors today' : 'Errors this week', nToday ? 'danger' : 'info', 'circle-alert') : chip('No errors', 'ok', 'circle-check')}<span>${esc(words)}</span></p>
     ${top.length ? `<div class="rows st-ready">${top.map(rowH).join('')}</div>` : ''}
     <p class="st-rfix">A report says which screen broke, what the error said and the file it came from, never who the person is; nothing is sent with the privacy signal. The hourly health check tells admins by Slack when ten or more arrive in an hour. Ask Claude to fix what shows here.</p>`;
@@ -133,7 +139,7 @@ function reachHTML() {
   const missed = act.reduce((n, a) => n + (R[a.id]?.not_reached || 0), 0);
   return `<section class="card st-reach" aria-labelledby="st-reach-h"><h2 id="st-reach-h">Who the tracker can reach</h2>
     <p class="small">${act.length - out.length} of ${act.length} get the tracker's messages. ${out.length ? `${plural(out.length, 'person', 'people')} can't be reached yet, so their messages go to the next person who can be: an owner of the bill's coalition, then an admin.` : 'Everyone can be reached.'}${missed ? ` ${plural(missed, 'message')} did not reach someone in the last 30 days.` : ''}</p>
-    ${out.length ? `<ul class="st-reachlist">${out.map(a => { const x = R[a.id] || {}; return `<li><span class="strong">${esc(a.full_name)}</span><span class="muted">${esc(reachWord(x))}${x.not_reached ? ` · ${plural(x.not_reached, 'message')} did not reach them` : ''}</span></li>`; }).join('')}</ul>` : ''}
+    ${out.length && !out.every(a => (R[a.id] || {}).reach === 'unknown') ? `<ul class="st-reachlist">${out.map(a => { const x = R[a.id] || {}; return `<li><span class="strong">${esc(a.full_name)}</span><span class="muted">${esc(reachWord(x))}${x.not_reached ? ` · ${plural(x.not_reached, 'message')} did not reach them` : ''}</span></li>`; }).join('')}</ul>` : ''}
     <div class="st-reachact">${btn('Check who Slack can reach', { kind: 'secondary', sm: true, icon: 'search', attrs: { 'data-slackreach': '1', ...(s.slackBusy ? { 'aria-busy': 'true' } : {}) } })}<span class="small muted">Looks each person up in Slack by their email. Nobody is messaged.</span></div>
     ${s.teamEmail === null ? '' : switchRow('st-teamemail', 'Email to the team', !!s.teamEmail, 'On: someone Slack cannot find gets their messages by email, even while email to the public is paused. Off: their messages go to the next person who can be reached. Saves as soon as you flip it.')}
   </section>`;
@@ -217,7 +223,7 @@ function status(key) {
     case 'sync': { const ld = legislativeDay(), yr = sessionYear(), cal = (S.sessionCal || []).find(c => c.session_year === yr), b = (S.syncCfg || {}).burst_until;
       return `${ld ? ld.text : cal?.opening_day ? `${yr} session days entered` : `${yr} session days not entered`} · ${b && b >= new Date().toISOString().slice(0, 10) ? `4 more syncs a day until ${fmtDate(b)}` : 'syncs 4 times a day'}`; }
     case 'import': return 'Load the session, or replace the tracked list';
-    case 'connections': return sec ? `Slack ${sec.slack_bot_token ? 'connected' : 'not connected'} · Calendar ${sec.google_calendar_refresh_token ? 'connected' : 'not connected'} · YouTube ${sec.youtube_api_key ? 'key set' : 'feed only'}` : 'Slack, Google Calendar and YouTube';
+    case 'connections': return sec ? `Slack ${sec.slack_bot_token ? 'connected' : 'not connected'} · Calendar ${sec.google_calendar_refresh_token ? ((S.calCfg || {}).calendar_id ? 'connected' : 'not working yet') : 'not connected'} · YouTube ${sec.youtube_api_key ? 'key set' : 'feed only'}` : 'Slack, Google Calendar and YouTube';
     case 'embed': return 'A table of our public bills for hiphi.org';
     case 'tests': { const T = st().ab?.tests; return T ? `${T.filter(t => t.is_on).length} of ${plural(T.length, 'test')} on the public page` : 'The public page’s A/B tests'; }
     case 'templates': return `${TEMPLATE_KINDS.length} Slack messages`;
@@ -253,10 +259,23 @@ function renderIndex() {
         <div id="st-advlist" ${s.advOpen ? '' : 'hidden'}>${ADVANCED.map(secRow).join('')}</div>
       </div>
     </section>`;
-  // Desktop: the checklist is the page (its heading is the h1); the list of parts is also in the left column.
+  // Desktop: the checklist is the page (its heading is the h1); the parts, each with its status, are the left column only
+  // (R-316 W57, S-17: the Settings list and Advanced fold said them twice). From opening day the health checks lead
+  // ("Running well?") and the January checklist folds to one line.
+  const errs = `<section class="st-sec" aria-labelledby="st-eh"><div class="st-sechead"><h2 id="st-eh" class="st-h2">The public page's errors</h2></div>${errorsHTML()}</section>`;
+  if (inSession() && rows) {
+    const health = rows.filter(r => !r.waiting && r.level !== 'manual' && r.ok === false);
+    const body = `<section class="st-sec" aria-label="Health checks">${health.length ? `<div class="rows st-ready">${health.map(readyRowHTML).join('')}</div>` : `<p class="st-sum">${chip('Running well', 'ok', 'circle-check')}<span>Nothing needs you.</span></p>`}</section>
+      ${errs}
+      <details class="st-sec st-readyf"><summary>${icon('clipboard-check')}<span>Ready for session? The checklist from before opening day</span>${icon('chevron-down', { cls: 'chev' })}</summary>${ready}</details>`;
+    const lede = `For admins. The checks that matter while the session is on. <a href="#/help/session">What changes when a session starts</a>`;
+    if (DESK()) return shell('', `<div class="st-head st-headrow"><div><h2 class="st-ptitle">Running well?</h2><p class="st-lede">${lede}</p></div>${recheck}</div>${body}`);
+    // A phone has no left column, so its list of parts (with their status) stays at the end.
+    return `<div class="st-page st-setup"><div class="st-head"><h1 class="st-dup">Session setup</h1><p class="st-lede">${lede}</p></div>
+      <div class="st-sechead"><h2>Running well?</h2>${recheck}</div>${body}${parts}</div>`;
+  }
   if (DESK()) return shell('', `<div class="st-head st-headrow"><div><h2 class="st-ptitle">Ready for session?</h2><p class="st-lede">For admins. Everything the season needs, one part at a time. <a href="#/help/session">What changes when a session starts</a></p></div>${recheck}</div>
-    <section class="st-sec" aria-label="Readiness checklist">${ready}</section>
-    <section class="st-sec" aria-labelledby="st-eh"><div class="st-sechead"><h2 id="st-eh" class="st-h2">The public page's errors</h2></div>${errorsHTML()}</section>${parts}`);
+    <section class="st-sec" aria-label="Readiness checklist">${ready}</section>${errs}`);
   return `<div class="st-page st-setup">
     <div class="st-head"><h1 class="st-dup">Session setup</h1><p class="st-lede">For admins. Everything the season needs, one part at a time. <a href="#/help/session">What changes when a session starts</a></p></div>
     <section class="st-sec" aria-labelledby="st-rh">
@@ -275,14 +294,15 @@ const NAV_DOT = `<span class="st-navd" title="Not saved yet"><span class="sr">No
 function shell(cur, pane) {
   loadReady(); loadLogins();   // the count beside "Ready for session?" shows on every part, not only after a visit to the checklist
   const s = st(), rows = readyRows();
-  const open = rows ? rows.filter(r => !r.waiting && ((r.level === 'block' || r.level === 'warn') && r.ok === false || (r.level === 'manual' && !r.ok))).length : 0, bad = rows ? rows.some(r => r.level === 'block' && r.ok === false) : false;
+  const open = rows ? rows.filter(r => !r.waiting && ((r.level === 'block' || r.level === 'warn') && r.ok === false || (!inSession() && r.level === 'manual' && !r.ok))).length : 0,   /* W57: in session, the health checks only */ bad = rows ? rows.some(r => r.level === 'block' && r.ok === false) : false;
   const on = PAGES[cur]?.parent || cur;
-  const item = ([k, t, ic]) => `<a class="st-navi" href="#/setup/${k}"${on === k ? ' aria-current="page"' : ''}>${icon(ic)}<span class="st-navl">${esc(t)}</span>${s.draft[k] ? NAV_DOT : ''}</a>`;
+  // R-316 W57 (S-17): each part's status under its name, so the front page need not list the parts again.
+  const item = ([k, t, ic]) => `<a class="st-navi" href="#/setup/${k}"${on === k ? ' aria-current="page"' : ''}>${icon(ic)}<span class="st-navl">${esc(t)}<span class="st-navs">${esc(status(k))}</span></span>${s.draft[k] ? NAV_DOT : ''}</a>`;
   // R-277 fix 10 (U-5, U-12): "Session setup" is the page's heading row over both columns; each part's name is its h2.
   return `<div class="st-page st-setup st-duo"><div class="sv-phead"><h1 class="sv-h1">Session setup</h1></div><div class="st-cols2">
     <nav class="st-nav2" aria-label="Session setup">
 
-      <a class="st-navi" href="#/setup"${cur ? '' : ' aria-current="page"'}>${icon('clipboard-check')}<span class="st-navl">Ready for session?</span>${open ? `<span class="st-navn${bad ? ' bad' : ''}"><span aria-hidden="true">${open}</span><span class="sr">${open} to fix or tick off${bad ? ', some blocking' : ''}</span></span>` : ''}</a>
+      <a class="st-navi" href="#/setup"${cur ? '' : ' aria-current="page"'}>${icon('clipboard-check')}<span class="st-navl">${inSession() ? 'Running well?' : 'Ready for session?'}</span>${open ? `<span class="st-navn${bad ? ' bad' : ''}"><span aria-hidden="true">${open}</span><span class="sr">${open} to fix or tick off${bad ? ', some blocking' : ''}</span></span>` : ''}</a>
       <p class="st-navg">Settings</p>${SECTIONS.map(item).join('')}
       <p class="st-navg">Advanced</p>${ADVANCED.map(item).join('')}
     </nav>
@@ -349,10 +369,14 @@ function loginWord(a) {
 }
 function tmRow(a) {
   const me = a.id === S.me?.id, l = st().logins?.[a.id], role = a.is_admin ? 'Admin' : a.can_approve ? 'Approver' : a.is_reviewer ? 'Second approver' : '';
-  const sub = [esc(a.email || 'No email'), role, a.is_active === false ? 'Turned off' : loginWord(a)].filter(Boolean).join(' · ');   // who can't be reached is said once, on the card above (A-14)
+  // R-316 W57 (O-15): each person's Slack status on their own row, so the team list comes first and the card above is one line.
+  const rx = st().reach?.[a.id], slack = a.is_active !== false && rx && !reachOk(rx) ? reachWord(rx) : '';
+  const sub = [esc(a.email || 'No email'), role, a.is_active === false ? 'Turned off' : loginWord(a), esc(slack)].filter(Boolean).join(' · ');
   // A link is offered on the row only while someone still has to sign in for the first time; a forgotten password
   // is rarer, so that link is in the person's sheet.
-  const link = !me && a.is_active !== false && st().logins && !l?.last_sign_in_at
+  // R-316 W57 (O-9): no email, no link: the row says what to do first.
+  const link = !me && a.is_active !== false && st().logins && !l?.last_sign_in_at && !a.email ? `<span class="small muted">Add their email first</span>`
+    : !me && a.is_active !== false && st().logins && !l?.last_sign_in_at
     ? btn(l?.link_made_at ? 'New link' : 'Sign-in link', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-tmlink': a.id, 'aria-label': `Make a sign-in link for ${a.full_name}` } }) : '';
   return `<div class="st-tm">${row({ leadHtml: `<span class="lead st-tmav">${avatar(a, 32)}</span>`, title: `${esc(a.full_name)}${me ? ' <span class="muted">(you)</span>' : ''}`, sub, attrs: { 'data-tmedit': a.id, 'aria-label': `${a.full_name}${me ? ' (you)' : ''}: edit` } })}${link ? `<span class="st-tmlink">${link}</span>` : ''}</div>`;
 }
@@ -939,8 +963,8 @@ const PAGES = {
       return `<p class="small muted st-intro">Everyone who uses the staff app. Add someone, then make them a sign-in link and email it to them.</p>
       <div class="btnrow st-acts st-top">${btn('Add a person', { icon: 'user-plus', attrs: { 'data-tmadd': '1' } })}</div>
       ${s.loginsErr ? notice('warn', 'triangle-alert', `Could not check who has signed in. ${esc(s.loginsErr)}`) : ''}
-      ${reachHTML()}
       <div class="rows st-team">${act.map(tmRow).join('')}</div>
+      ${reachHTML()}
       ${off.length ? `<div class="rows st-team st-teamoff"><button type="button" class="st-fold" data-tmoffopen aria-expanded="${s.offOpen}">${icon('eye-off')}<span>${plural(off.length, 'person', 'people')} turned off</span>${icon(s.offOpen ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button>${s.offOpen ? off.map(tmRow).join('') : ''}</div>` : ''}`; },
     wire(root) { const s = st();
       root.querySelector('[data-tmadd]')?.addEventListener('click', () => personSheet(null));
@@ -1139,7 +1163,7 @@ const PAGES = {
       return `<div class="card st-conn"><div class="st-connhead"><h2 class="st-h3">Slack</h2>${state(sec?.slack_bot_token, 'Connected', 'Not connected')}</div>
           <p class="small st-note">${sec?.slack_bot_token ? `Alerts post to ${esc(cfg.main_channel || 'the main channel')}; DMs go to each person.` : 'No bot token saved, so nothing posts to Slack.'}</p>
           <div class="btnrow st-acts">${btn('Send me a test DM', { kind: 'secondary', sm: true, icon: 'send', attrs: { 'data-slacktest': '1' } })}${btn('Change the bot token', { kind: 'text', sm: true, href: '#/setup/keys' })}</div></div>
-        <div class="card st-conn st-form"><div class="st-connhead"><h2 class="st-h3">Google Calendar</h2>${state(sec?.google_calendar_refresh_token, 'Connected', 'Not connected')}</div>
+        <div class="card st-conn st-form"><div class="st-connhead"><h2 class="st-h3">Google Calendar</h2>${state(sec?.google_calendar_refresh_token && cal.calendar_id, 'Connected', sec?.google_calendar_refresh_token ? 'Not working yet' : 'Not connected')}</div>
           <p class="small st-note">${calLine}</p>
           ${switchRow('st-cal-on', 'Make calendar events for hearings', cal.enabled !== false, 'Saves as soon as you flip it.')}${switchRow('st-cal-test', 'Include [TEST] hearings', cal.include_test !== false)}
           <div class="btnrow st-acts">${btn(sec?.google_calendar_refresh_token ? 'Connect again' : 'Connect Google Calendar', { kind: 'secondary', sm: true, icon: 'calendar-plus', attrs: { 'data-connect': '1' } })}${btn('Enter the Google keys', { kind: 'text', sm: true, href: '#/setup/keys' })}</div></div>

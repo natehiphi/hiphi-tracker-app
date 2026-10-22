@@ -90,6 +90,14 @@ const TOPICS = [
       ['QR code', 'A printable QR code for a partner’s link to the first visit: My issues, then All issues, its <b>⋯</b> menu, <b>First visit: numbers and links</b>, then Make a link (<a href="#/outreach/issues?view=links">open Make a link</a>). There is no QR code for a single hearing yet; share a hearing with its link.'],
       ['A quick look', 'On Bills, clicking a row opens the bill beside the list; <b>J</b> and <b>K</b> (or the arrow keys) walk the list and the bill beside it follows, <b>Enter</b> or <b>Open the bill</b> opens the bill’s own page, <b>Esc</b> closes it. On Today, <b>o</b> opens the same quick look'],
       ['Your menu', 'Tap your initials, top right, for the Inbox (messages and updates sent to you), and on a phone My settings, Session setup (admins) and Help. On a wide screen the sidebar holds the five places, with Help, Session setup and My settings at its foot; <b>Collapse</b> narrows it to icons.']] },
+  // R-316 W29 (L-3): the everyday tasks staff asked Help about and found nothing, one line each, pointing at the button.
+  { id: 'howto', title: 'How do I…', icon: 'circle-help', sub: () => 'Everyday tasks, one line each',
+    items: () => [['Log a call or meeting with a legislator', 'Open the legislator’s page (Legislators, or a name on a bill’s Committees) and press <b>Log a conversation</b>. A bill’s Activity tab has it too.'],
+      ['Say I’m going to a hearing', 'Press <b>I’m going</b> on the hearing: on Today, This week, the bill’s Next up or the hearing’s page. It can be undone for 10 seconds.'],
+      ['Ask the chair for a hearing', 'A bill with no hearing yet shows <b>Email the chair</b> on Today, This week and its page, with the day the hearing notice must post by. The email is written for you and opens in your own mail.'],
+      ['Hand a draft or a to-do to someone', '<b>Give to…</b> on a to-do hands it to a teammate, who gets a Slack message. Testimony stays with whoever sent it for approval: use <b>Message</b> on the row to ask a teammate to take a step.'],
+      ['Send this week’s ask', 'Outreach, <b>This week’s asks</b>: each bill’s public ask and deadline, with <b>Copy for the newsletter</b> and <b>Copy for a post</b>.'],
+      ['See what I owe today', 'Today, <b>Mine</b>: everything due today is under <b>Needs you today</b>, and the number beside Today in the menu counts it.']] },
   { id: 'own', title: 'Owning and following', icon: 'user-check', sub: () => 'Who is asked to do what',
     items: () => [['Owner', 'Responsible for the bill. Drafts are made for the owner, and the testimony steps on Today are the owner\'s (or the writer\'s, or an approver\'s). One owner per bill.'],
       ['Following', 'Puts a bill in your Mine view and on your Today list, and gets you its chat messages. It never gives you a to-do. Anyone can follow anything.'],
@@ -195,9 +203,21 @@ function newHTML() {
 // R-277 fix 9 (F-9): word by word. It matched the whole phrase, so "file testimony" and "how do I file" found nothing.
 // Each word that carries meaning has to appear (or one of its other words, SYN) somewhere in the entry or its guide's
 // title; small words ("how", "do", "I") are dropped. The best entries come first: a word in the term beats one in the text.
-const STOP = new Set(['a', 'an', 'and', 'are', 'at', 'can', 'do', 'does', 'for', 'get', 'how', 'i', 'in', 'is', 'it', 'me', 'my', 'of', 'on', 'or', 'the', 'to', 'what', 'when', 'where', 'which', 'who', 'why', 'with', 'you', 'your']);
+const STOP = new Set(['a', 'an', 'and', 'are', 'at', 'can', 'do', 'does', 'for', 'get', 'how', 'i', 'in', 'is', 'it', 'me', 'my', 'of', 'on', 'or', 'the', 'to', 'what', 'when', 'where', 'which', 'who', 'why', 'with', 'you', 'your', 'turn', 'off', 'im', 'am', 'say', 'this', 'someone', 'one']);
 // Other words people use for the same thing. Each row is one meaning; a word in a row finds every word in it.
-const SYN = [
+// R-316 W29 (L-3, L-15): the everyday words of the twelve questions staff ask, shared with the top search box (search.js).
+export const SYN = [
+  ['going', 'go', 'attend', 'attending', 'goer'],
+  ['chair', 'chairs', 'hearing request', 'ask the chair', 'schedule', 'notice'],
+  ['log', 'call', 'conversation', 'conversations', 'meeting', 'talked'],
+  ['stance', 'stances', 'where they stand'],
+  ['owe', 'today', 'needs you', 'due today'],
+  ['hand', 'give', 'give to', 'take over', 'pass on', 'hand over'],
+  ['password', 'sign', 'login', 'log in', 'sign-in link', 'sign in'],
+  ['ask', 'asks', 'public ask', 'share kit', 'kit'],
+  ['monitor', 'monitoring', 'watch', 'watching'],
+  ['revise', 'resubmit', 'fix'],
+  ['sponsor', 'sponsors', 'introducer', 'introduced'],
   ['file', 'filing', 'filed', 'submit', 'send in', 'capitol website'],
   ['qr', 'qr code', 'poster', 'print'],
   ['ping', 'pings', 'alert', 'alerts', 'notification', 'notifications', 'reminder', 'reminders', 'nudge', 'dm', 'slack', 'mute', 'quiet'],
@@ -215,29 +235,39 @@ const SYN = [
   ['undo', 'unmark', 'mistake'],
   ['new', 'start', 'first day', 'getting started'],
 ];
-const synOf = w => { const row = SYN.find(r => r.includes(w) || r.some(x => w.length > 3 && x.startsWith(w))); return row ? [w, ...row] : [w]; };
-// A short word ("dm", "qr", "due") must stand alone ("dm" is not in "admins"); a longer one may start a word ("file" finds "filing").
-const whole = (hay, x) => new RegExp(`(^|[^a-z0-9])${x}($|[^a-z0-9])`).test(hay);
-const has = (hay, x) => x.length <= 3 ? whole(hay, x) : hay.includes(x);
+// A word finds its own row only ("sign" no longer reads as "sign off").
+export const synOf = w => { const row = SYN.find(r => r.includes(w)); return row ? [w, ...row] : [w]; };
+// A short word ("dm", "qr", "due") must stand alone ("dm" is not in "admins"); a longer one must start a word (R-316
+// W29: "ready" no longer matches "already"; "file" still finds "filing" through SYN).
+const rx = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const whole = (hay, x) => new RegExp(`(^|[^a-z0-9])${rx(x)}($|[^a-z0-9])`).test(hay);
+const has = (hay, x) => x.length <= 3 ? whole(hay, x) : new RegExp(`(^|[^a-z0-9])${rx(x)}`).test(hay);
+// Entries hold HTML (escaped once already); results show plain text, escaped once (L-14: "&amp;" on 34 rows).
+const unent = s => String(s).replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&#39;|&rsquo;/g, '’').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 const wordsOf = q => plain(q).replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(w => w && !STOP.has(w));
 function results(q) {
   const ws = wordsOf(q); if (!ws.length) return q.trim() ? `<p class="st-none" role="status">Type a word, such as “file” or “alerts”.</p>` : '';
-  const alts = ws.map(synOf), hits = [];
+  const alts = ws.map(synOf), hits = [], near = [], keyW = ws.reduce((k, w, i) => w.length > ws[k].length ? i : k, 0);
   for (const t of visible()) {
     // R-277 ui-critic: a guide whose own title (or other words) has every word comes first, above its own entries:
     // "how do I file" opens on How to file at the Capitol, not on step 3 of it.
     const th = plain(`${t.title} ${t.also || ''}`);
     if (t.items && alts.every(a => a.some(x => has(th, x)))) hits.push({ t, term: t.title, def: '', score: 100 + alts.reduce((n, a) => n + (whole(th, a[0]) ? 2 : 1), 0) });
     const entries = t.items ? t.items() : [[t.title, '']];
-    for (const [term, def] of entries) {
-      const txt = String(def).replace(/<[^>]+>/g, ''), hay = plain(`${t.title} ${t.also || ''} ${term} ${txt}`), head = plain(`${t.title} ${t.also || ''} ${term}`);
-      if (!alts.every(a => a.some(x => has(hay, x)))) continue;
+    for (const [term0, def] of entries) {
+      const term = unent(term0), txt = unent(def), hay = plain(`${t.title} ${t.also || ''} ${term} ${txt}`), head = plain(`${t.title} ${t.also || ''} ${term}`);
+      const got = alts.filter(a => a.some(x => has(hay, x))).length;
+      // A near answer must hold the query's longest word ("legislator" in "log a call with a legislator"), so "Log in" is not offered.
+      if (got < alts.length) { if (got && got >= alts.length / 2 && alts[keyW].some(x => has(hay, x))) near.push({ t, term, def: t.items ? txt : '', score: got * 10 + (alts.some(a => has(plain(`${t.title} ${term}`), a[0])) ? 1 : 0) }); continue; }
       // the typed word itself in the guide's title or the entry's name ranks first, one of its other words there next,
       // part of a word there after that, then the text; a guide whose own title has the word gets one more
       const tt = plain(`${t.title} ${t.also || ''}`), score = alts.reduce((n, a) => n + (whole(head, a[0]) ? 4 : a.some(x => whole(head, x)) ? 3 : a.some(x => has(head, x)) ? 2 : 1) + (whole(tt, a[0]) ? 1 : 0), 0);
       hits.push({ t, term, def: t.items ? txt : '', score });
     }
   }
+  // R-316 W29 (L-3): when nothing has every word, the entries with most of them, under a plain label.
+  if (!hits.length && near.length) { near.sort((x, y) => y.score - x.score);
+    return `<p class="st-none" role="status">Nothing in Help has every word of “${esc(q.trim())}”. Closest answers:</p><div class="rows">${near.slice(0, 6).map(h => row({ title: esc(h.term), sub: `${esc(h.def.length > 140 ? h.def.slice(0, 139).replace(/\s\S*$/, '') + '…' : h.def)}${h.def ? ' · ' : ''}${esc(h.t.title)}`, href: `#/help/${h.t.id}` })).join('')}</div>`; }
   if (!hits.length) return `<p class="st-none" role="status">Nothing in Help mentions "${esc(q.trim())}". Try another word.</p>`;
   hits.sort((x, y) => y.score - x.score);
   const shown = hits.slice(0, 40);
@@ -282,6 +312,8 @@ function renderTopic(t) {
 // Desktop: search and topics on the left (they stay in view), the topic on the right. One h1: the topic's title,
 // or "Search results" while the box has words in it.
 function renderDesk(route) {
+  // R-316 W29 (L-14): a link from elsewhere to a Help topic opens that topic, not an old search's results.
+  if (route.topic && S.st2HelpTopic !== route.topic) { S.st2HelpQ = ''; S.st2HelpTopic = route.topic; }
   const q = S.st2HelpQ || '', t = topic(route.topic) || homeTopic();
   const body = t.html ? t.html() : `<div class="card st-wcard">${dl(t.items())}</div>`;
   const kbd = keysNote(t);
