@@ -10,7 +10,7 @@
 import { S, DB, DEMO, hooks, esc, fmtDate, asDate, advocate, peopleMatch, segmentPeople, personById } from './data.js';
 import { ISLANDS, INTERESTS, personName, parsePeopleCSV, exportPeopleCSV, billById, billTag, billSay } from './model.js';
 import { icon, btn, iconBtn, chip, row, empty, skeleton, toast, openSheet, closeSheet, menuSheet, pickerSheet, confirmSheet, switchRow, keysOn, sheetOpen, sectionNav, filterBtn } from './ui.js';
-const SCORE_LINE = () => DEMO;   // R-316 W55 (Show me): Nate's yes makes it () => true
+const SCORE_LINE = () => true;   // R-316 W55: live at Nate's go 10/22 (R-332)
 import { TITLES, titleLabel } from '../pub/titles.js';   // "They are": the public profile's titles (R-147)
 
 // ---- the filter model (the same shape as people_match() in the database, so a saved segment counts the same here,

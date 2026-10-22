@@ -732,7 +732,7 @@ function startedAt(me) {
 // R-316 W39 (Show me, practice copy): Getting started opens by itself on a day when Today has nothing that needs you (for
 // Kris, Patti and Julie it was a folded bar), and the new-bills notice is for admins and bill owners, who sort them (Patti's
 // and Julie's first January screen led with a 788-bill job that is not theirs).
-const TEACH = () => DEMO;
+const TEACH = () => true;   // Nate's go 10/22 (R-331)
 function startCard(quiet = false) {
   const me = S.me; if (!me || load('newhere_done', '') || me.prefs?.firstrun?.hidden) return '';
   if (!(Date.now() - startedAt(me) < 45 * DAY)) return '';

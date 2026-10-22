@@ -13,8 +13,8 @@ import { S, DEMO, esc } from './data.js';
 import { openSheet, closeSheet } from './ui.js';
 import { gateGloss } from './model.js';
 
-export const TERMS_TAP = () => DEMO;   // W40: the words become tappable
-export const HOW_TO = () => DEMO;      // W37: Help's how-to guides and the session calendar (help.js)
+export const TERMS_TAP = () => true;   // W40: the words become tappable (live at Nate's go 10/22, R-331)
+export const HOW_TO = () => true;       // W37: Help's how-to guides and the session calendar (help.js)
 
 // ---- the Capitol's words, in plain language (Help's glossary; it lived in help.js) ----
 export const WORDS = [

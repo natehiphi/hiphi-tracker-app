@@ -238,7 +238,7 @@ const coalWord = me => { const c = me?.prefs?.coalitions;
 // R-316 W39 (Show me, practice copy): one step teaches the person's real job, and it ticks when the job is done, not when
 // its link is clicked: approving for an approver (Kris), revising and pressing Resubmit for a coalition helper whose
 // coalition has a draft sent back (Patti), asking a chair for a helper (Julie). "Read Next up" opens a bill, not Bills.
-const TEACH_JOB = () => DEMO;
+const TEACH_JOB = () => true;   // Nate's go 10/22 (R-331)
 const coalIds = me => { const c = me?.prefs?.coalitions; return c === 'all' ? null : new Set(Array.isArray(c) ? c : []); };
 function jobStep(me, ownsNone) {
   const drafts = Object.values(S.drafts || {}).flat(), inCo = b => { const ids = coalIds(me); return !ids || (S.billCampaigns?.[b] || []).some(x => ids.has(x)); };
