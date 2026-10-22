@@ -470,7 +470,7 @@ function openMail(o = {}) {
     why: mineWhy || saved?.text || '', topic: mode === 'intro' ? me.introIssue || '' : '', points: [], pointsText: '',
     tp: { chosen: myTitles(), q: '', more: false, active: -1 }, use: null, saveStory: keepFirst(saved),
     whyStory: !!saved, offer: !mineWhy && !saved && mode !== 'intro' ? otherStory(catsOf(b)) : null,
-    letter: '', subject: '', edited: false, built: null, errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement) };
+    letter: '', subject: '', edited: false, built: null, errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement), friend: !!o.friend };
   if (!S.session && validEmail(x.email) && linkAlready(x.email.trim())) { x.link = 'sent'; x.linkTo = x.email.trim(); }
   const d = (me.mail || {})[mailKey(x)];
   // Every email about a bill begins with where they stand (R-167), their answer on the bill page already chosen.
@@ -502,7 +502,7 @@ function openMail(o = {}) {
 app.openMail = openMail;
 
 // view: a letter already sent, kept by keepLetter (W1-1, R-239): opened to read, copy or send again, not to write.
-function open(billId, hearingId, { view = null } = {}) {
+function open(billId, hearingId, { view = null, friend = false } = {}) {
   if (S.helper) return;
   // A sent letter opened from the session page or the profile (R-212 #27) may be for a hearing the page no longer holds
   // (hearings are kept 30 days) or for none (an email to a chair or to their legislators): it carries its committee and
@@ -519,7 +519,7 @@ function open(billId, hearingId, { view = null } = {}) {
     why: d ? d.why || '' : me.whyBill === b.id ? me.why || '' : saved?.text || '',
     whyStory: !!saved, offer: fresh && !saved ? otherStory(catsOf(b)) : null, noLive: !!d?.noLive, noWhy: !!d?.noWhy, mild: !!d?.mild,
     tp: { chosen: myTitles(), q: '', more: false, active: -1 }, use: d?.use || null, saveStory: keepFirst(saved),
-    letter: '', edited: false, built: null, errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement) };
+    letter: '', edited: false, built: null, errs: {}, scrollTop: 0, focusId: '', link: '', opener: keyOf(document.activeElement), friend: !!friend };
   // A link already sent to this address during this visit (from an earlier letter, or before "I'll finish later"):
   // the confirmation says where to finish instead of asking again.
   if (!S.session && validEmail(x.email) && linkAlready(x.email.trim())) { x.link = 'sent'; x.linkTo = x.email.trim(); }
@@ -824,6 +824,15 @@ const stanceFrom = x => x.fromBill && x.stance === x.fromBill ? `You marked ${x.
   : x.fromRec && x.stance && x.stance === x.fromRec.stance ? `Your ${x.fromRec.kind === 'email' ? 'email' : 'letter'}${recDay(x.fromRec) ? ` of ${recDay(x.fromRec)}` : ''} ${SAID[x.stance]}. ` : '';
 // A letter goes by its hearing's day, an email by the day it was sent, as the bill page and "Your letter is ready" say them.
 const recDay = L => (L.kind === 'email' ? L.sent : L.at || L.sent) ? shortDay(L.kind === 'email' ? L.sent : L.at || L.sent) : '';
+// Opened from a link a friend sent (R-212 #34, bill.js openAsk): said once, on the first screen, with the deadline the
+// friend's message named, since the walkthrough covers the page that says it.
+function friendLine(x) {
+  if (!x.friend) return '';
+  const h = x.h, dl = h?.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? h.testimony_deadline : '';
+  const when = x.mode === 'testimony' ? (dl ? ` · Due ${dateLong(dl)} at ${timeWord(dl)}` : '')
+    : h && new Date(h.scheduled_at) > Date.now() ? ` · The committee hears it ${dateLong(h.scheduled_at)} at ${timeWord(h.scheduled_at)}` : '';
+  return `<p class="hp-due hp-friend">${icon('users')}<span>A friend asked you to send this${esc(when)}</span></p>`;
+}
 function standScreen() {
   const x = S.helper, { b } = x, n = spaced(b.bill_number), p = posInfo(b);
   const opt = (v, label, sub = '') => `<button type="button" class="hp-choice" data-hp="stance" data-v="${v}" aria-pressed="${x.stance === v}"><b>${label}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
@@ -841,7 +850,7 @@ function standScreen() {
   // whole bill on the Capitol website (pub/billtext.js); it stays open when an answer is picked. HIPHI's reasons only
   // where no "Get to know the bill" step follows, since that step lists them as points to add (A-14).
   const w = summaryOf(b), name = nick(b);
-  return `<div class="hp-top">${screenHead(1, `Where do you stand on ${esc(n)}?`)}</div>
+  return `<div class="hp-top">${screenHead(1, `Where do you stand on ${esc(n)}?`)}</div>${friendLine(x)}
     <div class="card hp-kn">${w || name ? `<div>${name ? `<p class="hp-knh">${esc(name)}</p>` : ''}${w ? `<p class="hp-knw">${esc(w)}</p>` : ''}</div>` : ''}
       <details class="hp-about" data-hp-about data-ab-more="${esc(b.id)}"${x.aboutOpen ? ' open' : ''}><summary>${icon('book-open')}<span>Read more about the bill</span>${icon('chevron-down', { cls: 'hp-chev' })}</summary>
         ${readMore(b, { shown: w, h: 'h4', pfx: 'hp-ab', quiet: true, reasons: !seqOf(x).includes('know') })}</details></div>

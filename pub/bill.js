@@ -588,26 +588,92 @@ function openAsk(b, want, tries = 0) {
   if (!refReady() && tries < 20) return setTimeout(() => openAsk(b, want, tries + 1), 400);
   const here = new RegExp(`^#/bill/(\\d{4}/)?${String(b.bill_number).replace(/\s/g, '')}(/|$)`, 'i');
   if (S.helper || !here.test(location.hash)) return;   // they moved on while it waited, or a walkthrough is open
-  const x = situation(b), h = x.act?.h || null;
+  const x = situation(b), h = x.act?.h || null, f = friendOf(b, x), fr = { friend: !!f };
+  // A friend's link (R-212 #34) to an ask they already did, or one that has closed or passed its deadline: the card on the
+  // page says so and stays, instead of a second letter or a toast that was gone in four seconds.
+  if (f && f.want === want && (f.done || f.closed || f.late)) return;
   const front = sel => { const el = [...document.querySelectorAll(sel)].find(e => e.offsetParent !== null); if (el) { el.scrollIntoView({ block: 'nearest' }); el.focus({ preventScroll: true }); } return !!el; };
-  if (want === 'testify' && h && !x.differs) return app.openHelper?.(b.id, h.id);
-  if (want === 'email' && h) return app.openMail?.({ mode: 'email', bill: b.id, hearing: h.id });
+  if (want === 'testify' && h && !x.differs) return app.openHelper?.(b.id, h.id, fr);
+  if (want === 'email' && h) return app.openMail?.({ mode: 'email', bill: b.id, hearing: h.id, ...fr });
   // Come to the hearing (R-205): its when and where open on the action card, with "I plan to go" in front of them.
   const ahead = (x.hs || []).filter(y => y.status !== 'cancelled' && new Date(y.scheduled_at) > Date.now()).sort((p, q) => String(p.scheduled_at).localeCompare(String(q.scheduled_at)))[0];
   if (want === 'attend' && ahead) { const k = `${b.id}|${ahead.id}`; S.moreOpen?.add(k); S.goOpen?.add(k); app.render();
     return requestAnimationFrame(() => front('.gopanel [data-attend], [data-go][aria-expanded="true"]')); }
-  if (want === 'ask' && ['ask', 'hold', 'remind'].includes(x.kind)) return app.openMail?.({ mode: 'email', bill: b.id, code: x.code, ...(x.kind === 'remind' ? { remind: true } : {}) });
+  if (want === 'ask' && ['ask', 'hold', 'remind'].includes(x.kind)) return app.openMail?.({ mode: 'email', bill: b.id, code: x.code, ...(x.kind === 'remind' ? { remind: true } : {}), ...fr });
   if (want === 'floor' && x.kind === 'floor') {
     const m = legMoments(b, { all: true }).find(y => y.kind === 'floor');
-    if (m) return app.openMail?.({ mode: 'legislators', bill: b.id, legs: m.legs.map(l => l.id), moment: { kind: 'floor', key: m.key, chamber: m.chamber } });
+    if (m) return app.openMail?.({ mode: 'legislators', bill: b.id, legs: m.legs.map(l => l.id), moment: { kind: 'floor', key: m.key, chamber: m.chamber }, ...fr });
     return app.go(`#/legislators?from=${encodeURIComponent(billRef(b))}`);
   }
   if ((want === 'conference' || want === 'governor') && x.kind === want && front(`[data-bl-main="${want}"], a[href^="#/legislators?from="]`)) return;
   // Done already in this browser (the chair asked, the step's email sent): the page's next ask is in front of them.
   if (want !== 'testify' && shareAsk(b, x) === want) return;
+  if (f) return;   // the friend's card says it has passed
   toast(want === 'testify' ? 'Testimony on this bill has closed. Here’s what you can do now.'
     : want === 'ask' ? 'This bill isn’t waiting for a hearing any more. Here’s what you can do now.'
     : 'That step has passed. Here’s what you can do now.');
+}
+
+// ---------------- a friend's link (R-212 #34) ----------------
+// Someone who opens a link a friend sent (?via=share: the bill's share page, b/HB1780-testify) is told so, with the ask
+// and when it is due, and the page knows what has happened since the message was sent: they may have done it already
+// (on this device, or their account), or its deadline or hearing may have passed. The walk found friends sent into a
+// second letter they did not need, or told "closed" by a toast gone in four seconds. Only on the bill the link opened,
+// for this page load; once they act on it here the card goes, and the Mahalo says the rest.
+const FRIEND = (() => { try {
+  if (visitVia() !== 'share') return null;
+  const m = /^#\/bill\/(?:\d{4}\/)?([a-z]+\d+)(?:\/([a-z]+))?/i.exec(location.hash);
+  return m ? { num: m[1].toUpperCase(), want: m[2] || '' } : null;
+} catch { return null; } })();
+S.friendWas ??= {};   // per bill: was the ask already done when the card first looked, once the page had its data
+function friendOf(b, x) {
+  if (!FRIEND || FRIEND.num !== String(b.bill_number).replace(/\s/g, '').toUpperCase()) return null;
+  const want = FRIEND.want, now = Date.now(), h = x.act?.h || null, no = /oppose/.test(b.hiphi_position || '');
+  const hs = (x.hs || []).filter(y => y.status !== 'cancelled').sort((p, q) => String(p.scheduled_at).localeCompare(String(q.scheduled_at)));
+  const ahead = hs.find(y => new Date(y.scheduled_at) > now) || null, past = hs.filter(y => new Date(y.scheduled_at) <= now).pop() || null;
+  const mark = (hh, k) => hh && didKind(b, hh, k) ? S.doneAt?.[doneKey(b.id, hh.id, k)] || '' : null;   // null: not done
+  let at = null, closed = false, late = false;
+  if (want === 'testify') { at = h ? mark(h, 'testimony') : mark(past, 'testimony'); closed = !h; late = !!x.act?.late; }
+  else if (want === 'email' || want === 'attend') { const k = want === 'attend' ? 'attend' : 'email'; at = ahead ? mark(ahead, k) : mark(past, k); closed = !ahead; }
+  else if (want === 'ask') { at = x.code && asked(b, x.code) ? '' : null; closed = at === null && !['ask', 'hold', 'remind'].includes(x.kind); }
+  else if (['floor', 'conference', 'governor'].includes(want)) { at = x.stepKey && S.done.has(askMark(b, x.stepKey)) ? '' : null; closed = at === null && x.kind !== want; }
+  else at = h ? mark(h, 'testimony') : null;   // a link with no ask: testimony is what a deadline asks for
+  const done = at !== null;
+  if (refReady() && !(b.id in S.friendWas)) S.friendWas[b.id] = done;
+  // Done during this visit (not done when the card first looked): the Mahalo has it. Not by the time it was marked: the
+  // practice copy's clock starts again at every load.
+  const here = done && S.friendWas[b.id] === false;
+  return { want, h, ahead, past, at, done: done && !here, here, closed: closed && !done, late: late && !done, no };
+}
+const FRIEND_ASK = { testify: 'send testimony', email: 'email the committee', attend: 'come to the hearing', floor: 'email your legislator',
+  conference: 'email lawmakers', governor: 'write to the Governor' };
+function friendCard(b, x) {
+  const f = friendOf(b, x); if (!f || f.here) return '';
+  // The action card below already says "You sent testimony. Mahalo!" for the hearing ahead, and leads with its deadline:
+  // the card says neither again (the review, A-14). What it adds there is that the walkthrough did not open.
+  const cardSays = f.h && (f.want === 'testify' || !FRIEND_ASK[f.want] && f.want !== 'ask');
+  if (f.done && cardSays) return '';
+  const ask = f.want === 'ask' ? (f.no ? 'ask the chair not to hear this bill' : 'ask the chair for a hearing') : FRIEND_ASK[f.want] || '';
+  const heard = hh => `${whenWord(hh.scheduled_at)} at ${timeWord(hh.scheduled_at)}`;
+  const dl = f.h?.testimony_deadline, more = mainButton(b, x) ? ' Here’s what you can do now.' : '';
+  const lead = ask ? `A friend asked you to ${ask}.` : 'A friend sent you this bill.';
+  let tone = 'info', ic = 'users', rest;
+  if (f.done) { tone = 'ok'; ic = 'circle-check';
+    const on = f.at ? (hstDay(f.at) === hstDay(Date.now()) ? ', today' : `, on ${dateLong(f.at)}`) : '';
+    rest = f.want === 'attend' ? 'You already plan to go. Mahalo!' : `You already did${on}. Mahalo!`; }
+  else if (f.late) { tone = 'warn'; ic = 'clock';
+    rest = `The deadline passed ${dateLong(dl)} at ${timeWord(dl)}. You can still send it, marked late, or email the committee before it hears the bill ${heard(f.h)}.`; }
+  else if (f.closed) {
+    // A bill that has moved on to another step asks for something else below (a hearing in the next committee): said, so
+    // "it had a hearing" and "ask for a hearing" do not read as a contradiction (the review).
+    const moved = more && ['ask', 'hold', 'remind', 'floor', 'conference', 'governor'].includes(x.kind) ? ' The bill has moved on, and here’s its next step.' : more;
+    rest = f.want === 'testify' ? `${f.past ? `The hearing was on ${dateLong(f.past.scheduled_at)}, so testimony` : 'Testimony'} has closed.${moved}`
+      : f.want === 'email' || f.want === 'attend' ? `${f.past ? `The committee heard it on ${dateLong(f.past.scheduled_at)}.` : 'That hearing has passed.'}${more}`
+      : f.want === 'ask' ? `It isn’t waiting for a hearing any more.${more}` : `That step has passed.${more}`; }
+  else rest = f.want === 'testify' || !ask ? ''   // the card's first line is the deadline
+    : (f.want === 'email' || f.want === 'attend') && f.ahead ? `The committee hears it ${heard(f.ahead)}.`
+    : f.want === 'ask' && x.st?.deadline && !x.st.deadline.missed ? `It needs a hearing by ${dayLongD(x.st.deadline.date)}.` : '';
+  return `<div class="notice ${tone} bl-friend">${icon(ic)}<p><b>${esc(lead)}</b>${rest ? ` ${esc(rest)}` : ''}</p></div>`;
 }
 
 // ---------------- a newcomer on a shared bill (R-023, decision 7): the easiest action first, following second ----------------
@@ -1002,7 +1068,7 @@ function page(num, b) {
   const x = situation(b);
   if (REC()) return recPage(num, b, x);
   const note = b.sandbox_untracked ? `<div class="notice info bl-note">${icon('info')}<div>This bill is not on HIPHI’s list, so the sandbox has only its number and title. The live tracker shows every bill in full.</div></div>` : '';
-  if (!wide()) return `<div class="bl-page">${topbar(num, b)}${head(b, x)}${newcomer(b, x)}${tourOffer()}
+  if (!wide()) return `<div class="bl-page">${topbar(num, b)}${head(b, x)}${friendCard(b, x)}${newcomer(b, x)}${tourOffer()}
     ${x.live ? `<section class="card bl-stance" aria-labelledby="bl-stance-h">${stanceInner(b, x)}</section>` : ''}${note}
     ${statusCard(b, x)}${actionSection(b, x)}${othersBlock(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}${draftsSection(b)}</div>`;
   // Reading and keyboard order (R-067: the main action was the 11th Tab stop on a laptop): the bill's name and what it
@@ -1012,7 +1078,7 @@ function page(num, b) {
     <div class="bl-main">${head(b, x)}${tourOffer()}</div>
     <aside class="side bl-side" aria-label="Take part">
       <p class="bl-sidenum">${esc(spaced(b.bill_number))}</p>
-      ${newcomer(b, x)}${actionSection(b, x) || doCard(b, x)}
+      ${friendCard(b, x)}${newcomer(b, x)}${actionSection(b, x) || doCard(b, x)}
       <section class="card bl-you" ${x.live ? 'aria-labelledby="bl-stance-h"' : 'aria-label="Follow and share"'}>${x.live ? stanceInner(b, x) : ''}${sideTools(b)}</section>
     </aside>
     <div class="bl-main bl-main2">${note}${statusCard(b, x)}${othersBlock(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}${draftsSection(b)}</div></div></div>`;
@@ -1209,10 +1275,10 @@ function recPage(num, b, x) {
   // phone under Where it is now, on a wide screen under the action card in the side panel. Only while the bill can move.
   const stance = x.live ? `<section class="card flat bl-stance bl-rstance" aria-labelledby="bl-stance-h">${stanceInner(b, x, { said: cardSays })}</section>` : '';
   const rest = `${note}${recWhere(b, x)}${wide() ? '' : stance}<div class="bl-rfolds">${folds}</div>`;
-  if (!wide()) return `<div class="bl-page bl-rec">${recTop(b)}${recHead(b, x)}${recAct(b, x)}${rest}</div>`;
+  if (!wide()) return `<div class="bl-page bl-rec">${recTop(b)}${recHead(b, x)}${friendCard(b, x)}${recAct(b, x)}${rest}</div>`;
   return `<div class="bl-page bl-wide bl-rec">${recTop(b)}<div class="cols bl-cols">
     <div class="bl-main">${recHead(b, x)}</div>
-    <aside class="side bl-side" aria-label="Take part">${recAct(b, x)}${stance}</aside>
+    <aside class="side bl-side" aria-label="Take part">${friendCard(b, x)}${recAct(b, x)}${stance}</aside>
     <div class="bl-main bl-main2">${rest}</div></div></div>`;
 }
 // Once the action card's button has scrolled up under the top bars, it docks above the tab bar (the mockup's check()).
