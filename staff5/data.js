@@ -17,6 +17,11 @@ export const emailCfgOf = r => !r || r.error ? { err: EMAIL_UNREAD, cfg: { enabl
 // Issue and list icons (9/19): the public page shows Lucide icons, not emoji, so staff pick from a short list of
 // names. Old emoji values still display (mapped) until they are re-saved.
 export const DEMO = new URLSearchParams(location.search).has('demo');
+// R-316 W43 (C-5): an open page looks for drafts and to-dos a teammate changed, about every 2 minutes (app.js), and a
+// button refused because someone else already acted says who and when. Show me lane: on the practice copy first; Nate's
+// yes flips this to `() => true` (as prep.js SELF_APPROVE). The practice copy has no server, so its poll reads nothing;
+// its refused-button path is the one to try (see raced below).
+export const LIVE_REFRESH = () => DEMO;
 // Sandbox: the real 2026 session frozen at Monday March 16, 2026, 9:00 HST
 // (demo/snapshot.json, built by Bill-Tracker/tools/build_snapshot.js). The
 // clock starts there and runs forward for the length of the visit, so
@@ -299,6 +304,9 @@ export const DB = {
     S.drafts = {};
     if (drafts.error) console.warn('testimony_drafts:', drafts.error.message);
     else drafts.data.forEach(d => (S.drafts[d.bill_id] ??= []).push(d));
+    // R-316 W43: where the 2-minute look starts. The newest updated_at the database gave (its clock, not this
+    // laptop's, which may be minutes off); with no rows at all, a minute before now.
+    lastLook = [...(todos.data || []), ...(drafts.data || [])].reduce((m, r) => r.updated_at > m ? r.updated_at : m, '') || new Date(Date.now() - 6e4).toISOString();
     // Committee names and chairs (migration 007). Optional: without the table
     // the Next block shows the code and everything else still works.
     S.committees = {};
@@ -499,10 +507,13 @@ export const DB = {
     if (i < 0) return;
     // A confirmation link is opened from the filing record, so it must be a web address, never a script or a file (R-152 D).
     if (url && !/^https:\/\/[^\s]+$/i.test(String(url).trim())) throw new Error('The confirmation link must start with https:// and have no spaces. Paste it again, or leave it empty.');
-    if (DEMO) { demoTransition(arr[i], action, note, url); return; }
+    const before = { ...arr[i] };
+    // The practice copy has no server to refuse a step that no longer fits (its demoTransition re-files a filed draft), so
+    // it asks the same question the database does first (R-316 W43).
+    if (DEMO) { try { if (!fits(arr[i], action)) throw new Error('Nothing to do on it now.'); demoTransition(arr[i], action, note, url); } catch (e) { throw await raced(billId, before, action, e); } return; }
     const { data, error } = await S.supa.rpc('testimony_transition',
       { p_draft: id, p_action: action, p_note: note || null, p_url: url || null });
-    if (error) throw error;
+    if (error) throw await raced(billId, before, action, error);
     arr[i] = data;
     // An approval can be undone for a few seconds (migration 058). Its messages wait out that window before the
     // outbox is nudged, so an Undo holds them before anyone is told; everything else goes at once.
@@ -728,6 +739,31 @@ export const DB = {
     if (!rec?.ok) throw new Error(rec?.why === 'not_ahead' ? 'That hearing has already happened, so there is no draft to make.' : 'That hearing is not on file any more.');
     try { return { ...(await this.dispatch('draft-now', { hearing_id: h.id })), recorded: true }; }
     catch (e) { return { ok: true, recorded: true, nudged: false, error: String(e.message || e) }; }
+  },
+  // R-316 W43 (C-5): the light look, about every 2 minutes while the page is in view (app.js). Only the drafts and to-dos
+  // changed since the last look (both tables carry updated_at, kept by their touch triggers, 004 and 005), so most looks
+  // come back empty: two small reads, never loadAll. Rows are merged into S.drafts / S.todos by id; true when anything
+  // differs from what the page holds (its own writes come back equal, so they do not count). A to-do deleted elsewhere
+  // is not seen here (a delete leaves no row to find); the 5-minute-away reload and Refresh still catch it.
+  async pollChanges() {
+    if (DEMO || !S.supa || !S.session || !lastLook) return false;
+    const since = lastLook;
+    const [dr, td] = await Promise.all([
+      S.supa.from('testimony_drafts').select('*').gt('updated_at', since).order('updated_at').limit(PAGE),
+      S.supa.from('bill_todos').select('*').gt('updated_at', since).order('updated_at').limit(PAGE)]);
+    if (dr.error) throw dr.error; if (td.error) throw td.error;
+    let changed = false;
+    const merge = (map, row) => {
+      const arr = map[row.bill_id] ??= [], i = arr.findIndex(x => x.id === row.id);
+      if (row.updated_at > lastLook) lastLook = row.updated_at;
+      if (i >= 0 && arr[i].updated_at === row.updated_at) return;
+      if (i >= 0) arr[i] = row; else arr.push(row);
+      changed = true;
+    };
+    (dr.data || []).forEach(r => merge(S.drafts, r));
+    (td.data || []).forEach(r => merge(S.todos, r));
+    if (changed) for (const arr of Object.values(S.todos)) arr.sort((x, y) => (x.sort_order ?? 0) - (y.sort_order ?? 0) || String(x.created_at).localeCompare(String(y.created_at)));
+    return changed;
   },
   // One bill's drafts again (after "Make the draft now", while the job works).
   async reloadDrafts(billId) {
@@ -1919,6 +1955,39 @@ export function demoTransition(d, action, note, url) {
     else bad('This approval can no longer be undone.');
   }
   else bad('Unknown action');
+}
+// R-316 W43: a button refused because someone else already acted. Kris pressed Approve after Nate had, and the server's
+// "Nothing to approve." left the Approve button showing; Mark filed and Send back failed the same way. On a refusal the
+// bill's drafts are read again; if the draft moved on (its status changed, or this step no longer fits it), the screen is
+// redrawn from the fresh row and the refusal becomes who acted and when: "Nate approved it at 9:42 AM." Any other
+// refusal (permissions, a bad link) comes back as it was. The error carries .raced, so the toast is plain, not red.
+let lastLook = '';
+const FITS = { approve: ['review', 'second_review'], request_changes: ['review', 'second_review'], file: ['approved'], unfile: ['filed'], submit: ['draft'], withdraw: ['review', 'second_review'] };
+const fits = (d, action) => (FITS[action] || [d.status]).includes(d.status) && !(d.status === 'second_review' && ['approve', 'request_changes'].includes(action) && (!S.me?.is_reviewer || (action === 'approve' && d.approved_by === S.me?.id)));
+const clockAt = t => new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' });
+const hstDay = t => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+// "at 9:42 AM" today (Hawaiʻi time), "yesterday at 2:00 PM", "on Fri 3/13, 2:00 PM" another day: the app's fmtDT, as whenAt (model.js) says it.
+const atWhen = t => !t ? '' : hstDay(t) === hstDay(Date.now()) ? ` at ${clockAt(t)}` : hstDay(t) === hstDay(Date.now() - 864e5) ? ` yesterday at ${clockAt(t)}` : ` on ${fmtDT(t)}`;
+const whoDid = id => id && id === S.me?.id ? 'You' : (advocate(id)?.full_name || '').split(' ')[0] || 'Someone';
+export function raceLine(d) {
+  if (d.status === 'filed') return `${whoDid(d.filed_by)} filed it${atWhen(d.filed_at)}.`;
+  if (d.status === 'approved') return d.second_approved_by ? `${whoDid(d.second_approved_by)} gave it the second approval${atWhen(d.second_approved_at)}.` : `${whoDid(d.approved_by)} approved it${atWhen(d.approved_at)}.`;
+  if (d.status === 'second_review') return `${whoDid(d.approved_by)} approved it${atWhen(d.approved_at)}.`;
+  if (d.status === 'review') return `${whoDid(d.submitted_by)} sent it for approval${atWhen(d.submitted_at)}.`;
+  // A send-back keeps no name on the draft (098 records the note only), so it says what happened and when.
+  if (d.status === 'draft') return `It was already sent back to its writer${d.review_note ? ' with a note' : ''}${atWhen(d.updated_at)}.`;
+  if (d.status === 'cancelled') return 'Its hearing was cancelled, so there is nothing to do on it.';
+  return '';
+}
+async function raced(billId, before, action, err) {
+  let fresh;
+  try { fresh = (await DB.reloadDrafts(billId)).find(x => x.id === before.id); } catch { return err; }
+  if (!fresh || (fresh.status === before.status && fits(fresh, action))) return err;
+  const line = raceLine(fresh); if (!line) return err;
+  hooks.afterLoad();                                   // the derived facts are rebuilt from the fresh row
+  // Redrawn now, so the refused button goes; not under an open sheet (Mark filed's link box), whose own page redraws on close.
+  if (!document.querySelector('dialog[open]')) hooks.render();
+  return Object.assign(new Error(line), { raced: true, draft: fresh });
 }
 // v2 only: the frame clears the recovery flag after a new password is saved (an imported `let` cannot be assigned).
 export const setRecovery = v => { RECOVERY = v; };
