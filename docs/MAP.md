@@ -313,6 +313,17 @@ per-person targets by `tests/staff5_people.py` (both in CI). **Staff v4 is left 
 **From 15 Oct every staff build goes into Staff v5 and Staff v2 only; v3 and v4 are frozen** (Nate, R-291), R-267's later
 pieces included, and the "made in both" rule above now means `staff/` and `staff5/`. Nate picks v2, v3, v4 or v5 on 26 Oct. D2-D5 of the review are held, not built.
 
+**Partners (R-328, 22 Oct 2026; Staff v5 only, Nate 10/22).** `staff5/partnergroups.js` is the Partners screen (`#/partners`:
+requests to join, groups that write, link-only partners; add a group and its people, Copy sign-in link through the
+`team-admin` function's `partner_link` action, Approve hidden from whoever added the group, Pause, Partner approvers);
+`staff5/partnerq.js` is "Partner words to approve" on Today, for partner approvers only (`advocates.approves_partners`), with
+Approve (10 s Undo) and Ask for a change; `staff5/css/partners.css`; the calls are in `staff5/data.js` (`partner_*` RPCs,
+migration 184). The public side: `pub/partner.js` (the partner corner, `#/partner`, `#/partner/bill/<id>`,
+`#/partner/issue/<id>`), `pub/partners.js` (data, sample group, the You card), `pub/groups.js` (`#/groups`, the For
+advocacy groups page and request form; `#/link/<token_hash>`, the sign-in link screen that spends the token only on
+Continue). Practice copy: `track.html?demo=1&partner=1#/partner` (also `partner=member|new|waiting|paused`),
+`staff5.html?demo=1#/partners`. Tests: `tests/partner_corner.py`, `tests/partner_join.py`.
+
 ## Staff v4 (`staff4.html` + `staff4/`), to compare (R-269, 12 Oct 2026)
 
 Nate: "Make all these changes in a staffv4 page." A copy of Staff v3 made 12 Oct with R-269's thirteen changes, built so
