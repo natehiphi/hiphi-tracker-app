@@ -110,6 +110,43 @@ const FACETS = [
   ['stand', 'Where it stands', () => [['', 'Anywhere'], ...GROUPS], (b, v) => standOf(b) === v],
 ];
 const activeN = () => FACETS.filter(([k]) => A[k]).length;
+
+// ---- the address keeps the search and the filters (R-212 #43) ----
+// #/allbills?topic=keiki&position=support&stands=hear&q=vape&session=2026: a filtered list can be bookmarked, reloaded,
+// shared and found again with Back, as Find keeps its words (find.js runQuery). The session is named once anything is
+// set, so a link sent in 2026 still opens the 2026 list in 2027, as bill links do (R-212 #18). Plain #/allbills (More's
+// row, Find's foot) is the whole list. The words are written as replaceState, so typing adds no history entries.
+const ADDR = [['q', 'q'], ['topic', 'topic'], ['pos', 'position'], ['stand', 'stands']];
+const POS_V = ['side', 'support', 'oppose', 'neutral', 'monitor'], STAND_V = GROUPS0.map(([k]) => k);
+let lastQs = null;
+function readAddr() {
+  const qs = String(location.hash || '').split('?').slice(1).join('?');
+  if (qs === lastQs) return;
+  lastQs = qs;
+  const p = new URLSearchParams(qs), v = k => (p.get(k) || '').trim();
+  A.q = v('q').slice(0, 80);
+  A.topic = /^[a-z0-9_-]{1,40}$/i.test(v('topic')) ? v('topic').toLowerCase() : '';
+  A.pos = POS_V.includes(v('position')) ? v('position') : '';
+  A.stand = STAND_V.includes(v('stands')) ? v('stands') : '';
+  const yr = +v('session');
+  A.addrYr = yr >= 2020 && yr <= followYear() ? yr : 0;
+  A.all = {}; A.fOpen = false;
+}
+function writeAddr() {
+  const p = new URLSearchParams();
+  for (const [k, name] of ADDR) { const x = String(A[k] || '').trim(); if (x) p.set(name, x); }
+  if ([...p.keys()].length) p.set('session', String(A.yr || followYear()));
+  const qs = p.toString().replace(/\+/g, '%20');
+  lastQs = qs;
+  if (!/^#\/allbills(\?|$)/.test(location.hash)) return;
+  try { history.replaceState(history.state, '', '#/allbills' + (qs ? '?' + qs : '')); } catch { /* ignore */ }
+}
+// A topic in an old link that this session has no more (or a typo) is dropped once the topics are known, so the list
+// never reads "No bill fits these filters" with a dropdown that shows nothing set.
+function dropUnknownTopic() {
+  if (!A.topic || !S.cats?.length || A.topic === 'other' || S.cats.some(c => c.key === A.topic)) return;
+  A.topic = ''; writeAddr();
+}
 // Under ?rec=1 (R-303) the box matches as Find does (find.js matchAll: whole words with their synonyms, then word starts, a
 // number as a number), so "vape" finds the e-cigarette bills here too (it found none) and "keiki" the children's bills.
 let qMemo = { q: null, rows: null, ids: null };
@@ -174,8 +211,10 @@ function backRow() {
   return recBack(name ? prev : '#/find', name || 'Find');
 }
 function render() {
-  const yr = followYear();
+  readAddr();
+  const yr = A.addrYr || followYear();
   load(yr);
+  if (A.rows && A.yr === yr) dropUnknownTopic();
   const head = `${backRow()}<header class="pagehead"><h1 class="hero">Every bill HIPHI tracks</h1>`;
   if (A.err && !A.rows) return `<div class="ab">${head}</header>${empty({ title: A.err, text: 'Check your connection and try again.', action: btn('Try again', { kind: 'primary', attrs: { 'data-ab-retry': '' } }) })}</div>`;
   if (!A.rows || A.yr !== yr) return `<div class="ab">${head}</header>${skeleton(6)}</div>`;
@@ -199,6 +238,7 @@ function render() {
 
 // A search or a filter redraws only the list and the filter counts, so the box or the dropdown keeps its focus.
 function redrawList() {
+  writeAddr();
   const box = document.getElementById('ab-list'); if (!box) return;
   box.innerHTML = groupsHTML(); wireList(box);
   const f = document.getElementById('ab-filters');
