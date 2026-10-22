@@ -11,6 +11,7 @@ import { S, DB, esc, DEMO, hooks, advocate, fmtDate, fmtDT, islandOf } from './d
 import { plain, codesOf, geoSuggest, geoDistricts, ISLANDS, cmteName, blurb, whenAt } from './model.js';
 import { icon, btn, iconBtn, empty, toast, segmented, pickerSheet, menuSheet, keysOn, filterBtn } from './ui.js';
 import { afterBack } from './today.js';   // a sheet opened from a menu waits for the menu to close
+import { HOLDING, holdingHTML } from './holding.js';   // R-316 W41 (practice copy)
 import { photo, partyDist, legName, legHref, seatsOf, seatsText, roleWord, RANK, wireLinks, surname } from './pathway.js';
 
 const WEEK = 7 * 864e5;
@@ -20,8 +21,8 @@ const ROOMY = () => { try { return matchMedia('(min-width: 1600px)').matches; } 
 // One state for both layouts. The phone chips are two of these at once: This week = scope week; House, Senate and
 // All = everyone, with or without a chamber. Island, committee and the sort only exist on the desktop toolbar.
 const view = () => (S.lgView ??= { scope: 'week', chamber: '', island: '', cmte: '', sort: null, q: '', pick: null, addr: null, focus: false, last: null });
-const chipOf = v => v.scope === 'week' && !v.chamber ? 'week' : v.scope === 'week' ? '' : v.chamber || 'all';
-const setChip = (v, k) => { v.scope = k === 'week' ? 'week' : 'all'; v.chamber = k === 'H' || k === 'S' ? k : ''; v.island = ''; v.cmte = ''; v.sort = null; };
+const chipOf = v => v.scope === 'hold' ? 'hold' : v.scope === 'week' && !v.chamber ? 'week' : v.scope === 'week' ? '' : v.chamber || 'all';
+const setChip = (v, k) => { v.scope = k === 'week' ? 'week' : k === 'hold' ? 'hold' : 'all'; v.chamber = k === 'H' || k === 'S' ? k : ''; v.island = ''; v.cmte = ''; v.sort = null; };
 
 // ---- data ----
 // Our bills = tracked, with a position (not Monitor), the same set the current app's profile counts.
@@ -156,8 +157,9 @@ const weekOrder = week => (a, b) => week.get(b.id).bills.size - week.get(a.id).b
   || Math.min(...Object.values(week.get(a.id).roles).map(r => RANK[r])) - Math.min(...Object.values(week.get(b.id).roles).map(r => RANK[r])) || a.sort_name.localeCompare(b.sort_name);
 
 // ---- the phone page ----
-const CHIPS = [['week', 'This week'], ['H', 'House'], ['S', 'Senate'], ['all', 'All']];
+const CHIPS = () => [['week', 'This week'], ['H', 'House'], ['S', 'Senate'], ['all', 'All'], ...(HOLDING() ? [['hold', 'Holding our bills']] : [])];   // W41
 function bodyHTML(v) {
+  if (v.scope === 'hold' && HOLDING() && !v.q.trim() && !v.pick) return holdingHTML();
   const legs = S.legislators || [], q = v.q.trim(), week = weekIndex(), chip = chipOf(v);
   if (v.focus && (q.length >= 2 || /\d/.test(q))) return suggestHTML(v);
   const list = rows => `<div class="rows lg-list">${rows.map(l => legRow(l, { week, weekMode: !q && !v.pick && chip === 'week' })).join('')}</div>`;
@@ -183,7 +185,7 @@ function bodyHTML(v) {
   const cap = chip === 'H' ? `${ls.length} representatives, by district.` : chip === 'S' ? `${ls.length} senators, by district.` : `All ${ls.length} legislators: House, then Senate, by district.`;
   return `<p class="lg-caption">${cap}</p>${list(ls)}`;
 }
-const chipsHTML = v => { const on = !v.q.trim() && !v.pick, cur = chipOf(v); return CHIPS.map(([k, l]) => `<button type="button" class="chip" data-lgchip="${k}" aria-pressed="${on && cur === k}">${l}</button>`).join(''); };
+const chipsHTML = v => { const on = !v.q.trim() && !v.pick, cur = chipOf(v); return CHIPS().map(([k, l]) => `<button type="button" class="chip" data-lgchip="${k}" aria-pressed="${on && cur === k}">${l}</button>`).join(''); };
 
 // ---- the desktop table (build 3) ----
 // Last contact = the newest logged conversation (a team note). One request brings the newest note for every
@@ -278,6 +280,7 @@ function tableHTML(v, ls, week, mode) {
 }
 const filtersOn = v => !!(v.chamber || v.island || v.cmte);
 function deskBody(v) {
+  if (v.scope === 'hold' && HOLDING() && !v.q.trim() && !v.pick) return holdingHTML();
   const week = weekIndex(), q = v.q.trim(), legs = S.legislators || [];
   const clear = (label = 'Clear') => `<button type="button" class="btn text sm lg-clear" data-lgclear>${icon('x')}<span>${label}</span></button>`;
   if (v.pick?.loading) return `<div class="lg-cap"><p>${icon('map-pin')}<span>Finding the districts for ${esc(v.pick.label)}</span></p></div>${`<div class="skel lg-skel"></div>`.repeat(2)}`;
@@ -312,7 +315,7 @@ function deskBody(v) {
 // names each with what it holds. The line over the table says which are on, with Clear filters.
 function filtersHTML(v) {
   const off = !!(v.q.trim() || v.pick);   // a search looks at everyone, so the filters wait
-  return segmented('lgscope', [['week', 'This week'], ['all', 'Everyone']], off ? '' : v.scope, 'Who to list');
+  return segmented('lgscope', [['week', 'This week'], ['all', 'Everyone'], ...(HOLDING() ? [['hold', 'Holding our bills']] : [])], off ? '' : v.scope, 'Who to list');
 }
 const filterN = v => v.q.trim() || v.pick ? 0 : [v.chamber, v.island, v.cmte].filter(Boolean).length;
 const FWORD = { chamber: v => v.chamber === 'H' ? 'House' : v.chamber === 'S' ? 'Senate' : 'Both chambers', island: v => v.island || 'Any island', cmte: v => v.cmte || 'Any committee' };
@@ -350,7 +353,7 @@ export default {
         const fb = root.querySelector('#lg-fbox'); if (fb) { const had = document.activeElement?.closest?.('#lg-fbox'); fb.innerHTML = filterBtn(filterN(v), { 'data-lgfilter': '1' }); if (had) fb.firstElementChild?.focus(); }
         if (keep) root.querySelector(`#lg-filters [data-lgf="${keep}"], #lg-filters [data-val="${keep}"]`)?.focus();
         body.innerHTML = deskBody(v); x.hidden = !inp.value;
-        const r = body.querySelectorAll('[data-lgrow]').length;
+        const r = body.querySelectorAll('[data-lgrow], .hb-card').length;   // W41: Holding our bills counts its chairs
         root.querySelector('#lg-status').textContent = `${r} legislator${r === 1 ? '' : 's'} listed`;
         contacts();
         return;

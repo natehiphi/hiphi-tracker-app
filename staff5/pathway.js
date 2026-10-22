@@ -15,6 +15,7 @@ import { rerender } from './bill.js';   // used inside functions only (bill.js i
 // ---- small shared helpers (exported for legislators.js, legislator.js, search.js) ----
 export const STANCE_WORD = Object.fromEntries(STANCES.map(([v, l]) => [v, l]));
 import { billRoute, whenAt, hearingWhen, roomName, companionsOf } from './model.js';
+import { introChip, introSort } from './holding.js';   // R-316 W41 (practice copy): who introduced it, or its twin
 // Words carry the meaning; the icon only helps the eye. Leaning and firm share an icon, so the word always shows.
 export const STANCE_ICON = { yes: 'thumbs-up', leaning_yes: 'thumbs-up', unknown: 'circle-dashed', leaning_no: 'thumbs-down', no: 'thumbs-down' };
 export const legName = l => `${legTitle(l)} ${l.name}`;
@@ -209,7 +210,7 @@ export function renderCommittees(b) {
     const fact = ahead ? `Hearing ${whenAt(ahead.scheduled_at)}` : past ? `Heard ${dayOf(past.scheduled_at)}` : s.state === 'current' ? 'No hearing yet' : '';
     const held = s.hs.filter(h => new Date(h.scheduled_at).getTime() <= now);
     const name = `${s.chamber && CHAMBER_NAME[s.chamber] ? CHAMBER_NAME[s.chamber] + ' ' : ''}${cmteName(s.committee)}`;
-    const members = ['passed', 'ended', 'other'].includes(s.state) ? null : legsOf(s.committee), joint = codesOf(s.committee).length > 1;
+    const members = ['passed', 'ended', 'other'].includes(s.state) ? null : introSort(b, legsOf(s.committee)), joint = codesOf(s.committee).length > 1;
     const t = members && members.length ? tally(b, members) : null;
     // Testimony for a hearing still ahead is on Next up, filed or not; here only what was filed for a hearing held.
     const tm = filed.filter(d => d.hearing_id ? held.some(h => h.id === d.hearing_id) : sameCmte(d.committee, s.committee) && !ahead);
@@ -241,7 +242,7 @@ function memberRow(b, m, joint) {
   const sub = [partyDist(l), only, who ? `${who.full_name.split(' ')[0]} knows them` : ''].filter(Boolean).join(' · ');
   // A stop sits in one chamber, so the name drops "Rep."/"Sen." here (the screen reader still hears it).
   return `<div class="lg-mem${m.role !== 'member' ? ' lead' : ''}">
-    <a class="lg-membody" href="${legHref(l, b)}"><span class="lg-nm"><span class="sr">${esc(legTitle(l))} </span>${esc(l.name)}</span><span class="lg-memsub">${roleChip}<span>${esc(sub)}</span></span>${x.note ? `<span class="lg-memnote">${esc(x.note)}</span>` : ''}</a>
+    <a class="lg-membody" href="${legHref(l, b)}"><span class="lg-nm"><span class="sr">${esc(legTitle(l))} </span>${esc(l.name)}</span><span class="lg-memsub">${roleChip}${introChip(b, l)}<span>${esc(sub)}</span></span>${x.note ? `<span class="lg-memnote">${esc(x.note)}</span>` : ''}</a>
     ${stanceChip(b, l)}
     ${l.email ? `<a class="iconbtn lg-mail" href="${esc(legMail(l, b))}" aria-label="Email ${esc(shortName(l))} about ${esc(billSay(b))}" title="Email ${esc(shortName(l))}">${icon('mail')}</a>` : '<span class="lg-mail" aria-hidden="true"></span>'}
   </div>`;
@@ -278,7 +279,7 @@ function memberTr(b, m, joint) {
   const noteLabel = `${x.note || who ? 'Edit the note' : 'Add a note'} on ${shortName(l)} for ${billSay(b)}`;
   return `<tr class="${m.role !== 'member' ? 'lead' : ''}">
     <th scope="row" class="bw-pwc-name"><a class="bw-pwnm" href="${legHref(l, b)}"><span class="sr">${esc(legTitle(l))} </span>${esc(l.name)}</a>
-      <span class="bw-pwsub">${m.role !== 'member' || (joint && lead.length) ? `<span class="bw-pwfold">${esc(role)} · </span>` : ''}${esc([partyDist(l), only].filter(Boolean).join(' · '))}</span>
+      <span class="bw-pwsub">${m.role !== 'member' || (joint && lead.length) ? `<span class="bw-pwfold">${esc(role)} · </span>` : ''}${esc([partyDist(l), only].filter(Boolean).join(' · '))}</span>${introChip(b, l)}
       ${x.note || meta ? `<span class="bw-pwfold bw-pwinl">${esc([x.note, meta].filter(Boolean).join(' · '))}</span>` : ''}</th>
     <td class="bw-pwc-role">${esc(role)}</td>
     <td class="bw-pwc-stance">${pickerChip(word, { 'data-pwst': key, 'aria-haspopup': 'dialog', 'aria-label': `${shortName(l)} on ${billSay(b)}: ${word}. Change` }, STANCE_ICON[x.stance] || 'circle-dashed')}</td>
