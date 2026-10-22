@@ -10,7 +10,7 @@
 // not by a sentence over the list, and the 4:30 pm email is explained where it matters, on the composer's Check it step.
 // v4 (R-269): the third of Outreach's four tabs. "This week's asks" left this page for a tab of its own (asks.js), which
 // Outreach opens on; it is said there once (A-14).
-import { S, esc, fmtDT, advocate } from './data.js';
+import { S, esc, fmtDT, fmtDate, advocate } from './data.js';
 import { alertsToReview } from './model.js';
 import { icon, btn, row, empty, sectionNav } from './ui.js';
 import { pageHead, isDesk, isSide, thSort, sortBy, wireTable, DASH, plural, shortDate } from './lists.js';
@@ -48,7 +48,8 @@ const COLS = [
 const STATUS_ORDER = { draft: 0, returned: 1, submitted: 2, approved: 3, sent: 4 };
 const stamp = a => a.status === 'sent' ? a.sent_at || when(a) : when(a);
 // "12 min ago", "3h ago", then the date; the full day and time is the cell's tooltip.
-const whenShort = iso => { if (!iso) return ''; const m = (Date.now() - new Date(iso)) / 6e4; return m < 24 * 60 ? ago(iso) : shortDate(iso); };
+// R-316 W54 (FR-10): one time format in the column ("Mon 3/16"); the full day and time is the cell's tooltip.
+const whenShort = iso => iso ? fmtDate(iso, { weekday: 'short' }).replace(/^(\w{3}),/, '$1') : '';
 const colValue = (a, k) => k === 'subject' ? (a.subject || '').toLowerCase() : k === 'to' ? (audienceOf(a).name || '').toLowerCase() : k === 'writer' ? first(a.author_id).toLowerCase()
   : k === 'status' ? STATUS_ORDER[a.status] ?? 0 : k === 'when' ? stamp(a) || null : a.status === 'sent' ? a[k] || 0 : null;
 // What happens next, in words; bold when the next step is the viewer's.

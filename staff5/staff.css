@@ -875,3 +875,5 @@ body.staff2 .bp-h3 { margin: 0 0 var(--s4); font: 700 var(--t13)/18px var(--font
 .st-readyf > summary { list-style: none; display: flex; align-items: center; gap: var(--s8); min-height: 44px; font-weight: 700; color: var(--n700); cursor: pointer; }
 .st-readyf > summary::-webkit-details-marker { display: none; }
 .st-readyf[open] > summary .chev { transform: rotate(180deg); }
+/* R-316 W54 (S-11): an email address breaks only at its "@" (look.js). */
+.nobr { white-space: nowrap; }

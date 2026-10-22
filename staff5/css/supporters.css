@@ -62,11 +62,11 @@
 .sp-page .sp-table thead th:last-child { border-top-right-radius: var(--r12); }
 .sp-page .sp-table th.c-cb { width: 44px; }
 .sp-page .sp-table th.c-where { width: 116px; }
-.sp-page .sp-table th.c-phone { width: 122px; }
+.sp-page .sp-table th.c-phone { width: 136px; }   /* R-316 W54: "808-555-0123" whole */
 .sp-page .sp-table th.c-tags { width: 16%; }
-.sp-page .sp-table th.c-follows { width: 84px; }
-.sp-page .sp-table th.c-actions { width: 84px; }
-.sp-page .sp-table th.c-score { width: 72px; }
+.sp-page .sp-table th.c-follows { width: 92px; }   /* R-316 W54: the headers and their sort arrows fit */
+.sp-page .sp-table th.c-actions { width: 92px; }
+.sp-page .sp-table th.c-score { width: 88px; }
 .sp-page .sp-table th.c-emails { width: 148px; }
 .sp-page .sp-table th.c-active { width: 108px; }
 .sp-page .sp-table th.c-joined { width: 84px; }
