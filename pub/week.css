@@ -1,0 +1,16 @@
+/* This week's asks (#/week, R-212 #36): the list is Find's boxed rows (find.css, rec/rec.css); this is only the message box
+   under it and its buttons. */
+.wk .wk-row .rc-rstat + .rc-rpart { margin-top: 2px; }
+.wk .wk-share { flex: 0 0 auto; }
+.wk .wk-text { width: 100%; min-height: 12rem; padding: var(--s12); font: inherit; font-size: var(--t16); line-height: 1.5; resize: vertical;
+  border: 1px solid var(--n400); border-radius: var(--r12); background: var(--n0); color: var(--n900); }
+.wk .wk-btns { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s16); margin-top: var(--s12); }
+.wk .wk-said { min-height: 1.5em; margin: var(--s8) 0 0; color: var(--ok-text); font-weight: 600; }
+.wk .wk-said:empty { min-height: 0; }
+.wk .wk-top { margin: calc(-1 * var(--s4)) 0 var(--s8); }
+.wk .wk-undo { min-height: 0; padding: 0 var(--s4); vertical-align: baseline; }
+@media (max-width: 599px) { .wk .wk-top > .btn.primary { width: 100%; justify-content: center; } }
+.wk .rc-fold { margin-bottom: var(--s12); }
+.wk .wk-pick { margin: 0; padding: 0; border: 0; }
+.wk .wk-pickrow { display: flex; gap: var(--s12); align-items: flex-start; min-height: 44px; padding: var(--s8) 0; line-height: 1.4; cursor: pointer; }
+.wk .wk-pickrow input { flex: 0 0 auto; width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--p700); }

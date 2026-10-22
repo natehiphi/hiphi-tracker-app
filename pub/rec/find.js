@@ -3,7 +3,8 @@
 // of it a second to-do list after Home's (a full action card and seven bill cards), with counts nobody could read ("10
 // moving") and four kinds of follow control. Here it is the search box, the six topics as quiet rows, at most three issues
 // that need voices this week (Home's rows and words, each to its issue page, which owns the action under option A), and at
-// the foot the power layer: every bill HIPHI tracks, and the committees (moved from More).
+// the foot the power layer: every bill HIPHI tracks, and the committees (moved from More). This week's asks to pass on (R-212
+// #36) is a link under "Needs voices this week", or a foot row in the session when that list is empty (one way in, not two).
 // Search results say each thing once (A-14): the issues, then people and committees (names without codes, C-15), then only
 // the bills on no issue shown above, then "Did not advance" folded; a few words ("testify", "my senator") also offer the page
 // they mean. A bill number lists the bill with the issue it is part of. No governor's messages on a word search (the
@@ -132,10 +133,11 @@ function browse() {
   const newcomer = app.calmPlace?.() === '#/find' ? `<a class="rc-newhere" href="#/start/0"><span>New here? Pick what you care about</span>${icon('chevron-right')}</a>` : '';
   return `${newcomer}${off ? `<p class="rc-note rc-off">The Legislature is on break until ${esc(openWords(si))}. You can still look up any ${si.recapYear} bill and see what happened to it.</p>` : ''}
     ${topics()}
-    ${vs.length ? recSec('fd-voices-h', 'Needs voices this week', moreList(vs.map(voiceRow), 3, 'voices', 'See more with a hearing this week')) : ''}
+    ${vs.length ? recSec('fd-voices-h', 'Needs voices this week', moreList(vs.map(voiceRow), 3, 'voices', 'See more with a hearing this week')
+      + `<p class="rc-every">${btn('Pass this week’s asks on to a group', { kind: 'text', iconEnd: 'chevron-right', href: '#/week' })}</p>`) : ''}
     ${listRows()}
     <nav class="rc-foot" aria-label="More to look up"><ul class="rc-rows ${BOX}" role="list">
-      ${recRow({ name: 'Every bill HIPHI tracks', href: '#/allbills', lead: 'list' })}${recRow({ name: 'Committees', href: '#/committees', lead: 'landmark' })}</ul></nav>`;
+      ${off || vs.length ? '' : recRow({ name: 'This week’s asks', text: 'To pass on in a group chat or newsletter', href: '#/week', lead: 'megaphone' })}${recRow({ name: 'Every bill HIPHI tracks', href: '#/allbills', lead: 'list' })}${recRow({ name: 'Committees', href: '#/committees', lead: 'landmark' })}</ul></nav>`;
 }
 
 // ---------------- search results ----------------
