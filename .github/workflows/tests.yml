@@ -25,8 +25,9 @@ concurrency:
 jobs:
   tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 40   # 20 stopped the run in its last step on 10/11 (R-240); a green run takes ~27 minutes, and since R-278 a red
-                          # one runs every step too, where a failing browser test waits out its timeouts (minutes are free here)
+    timeout-minutes: 50   # 20 stopped the run in its last step on 10/11 (R-240); a green run takes ~27 minutes, and since R-278 a red
+                          # one runs every step too, where a failing browser test waits out its timeouts (minutes are free here).
+                          # 40 stopped a run with every step passing on 10/22 (R-316: 33 minutes the run before, 40 that one).
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
