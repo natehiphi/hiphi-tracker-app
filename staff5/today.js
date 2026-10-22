@@ -63,6 +63,7 @@ import { billPane, bpHearing, bpFacts, bpOpen } from './billpane.js';   // R-277
 import { todayPrepNotice, prepTaskOf, dueEnd as prepDue, issueHref, prepListHref } from './prep.js';
 import { sessionGates, lastSlotBefore, noticeByFor, billByNum, plainDeadlines, plainGate, askWords, gateName, wantsHearing, companionsOf, sittingDraft, standingIn, approverWords } from './model.js';
 import { dailyWord } from './composer.js';
+import { movedTasks, seedMoved, moveMe, notGoing, keepAskUp } from './moved.js';   // R-316 W53 (practice copy)
 import { PUSH_BOARD, GIVE_ASK, chairGroups, chairGroupHTML, wirePush, resetPush, noticeWhen, askState, askChip, ASK_TODO as CHAIR_TODO, chairEmailHref, giveAsk, assignAsk, logAsk } from './push.js';   // R-316 W5, W14 (practice copy)   // which 4:30 pm email a Send joins
 import { testimonyOf, agendaOf, unfile } from './hearing.js';   // where a hearing's testimony stands, in the coalition page's words (v4, R-269)
 
@@ -188,7 +189,7 @@ const msgBtn = (b, ids) => ({ label: `Message ${msgWho(ids)}`, href: mentionHref
 // The letter-writer tasks (R-148) are off Today until Nate's February check (R-266); the drafts notes on each bill's
 // Public tab and the public warning work as before.
 const DNOTE_ON = false;
-const RANK = { prep: 14.5, noowner: 13.5, file: 1, review: 2, review2: 2, revise: 3, submit: 4, write: 5, send: 6, fix: 7, email: 8, stale: 9, dnote: 9.5, ask: 10, chair: 11, nodraft: 12, reply: 13, todo: 14, followup: 15, notice: 16, wait: 30 };
+const RANK = { prep: 14.5, noowner: 13.5, moved: 10.5, askup: 10.6, file: 1, review: 2, review2: 2, revise: 3, submit: 4, write: 5, send: 6, fix: 7, email: 8, stale: 9, dnote: 9.5, ask: 10, chair: 11, nodraft: 12, reply: 13, todo: 14, followup: 15, notice: 16, wait: 30 };
 const TESTIMONY = new Set(['file', 'review', 'review2', 'revise', 'submit', 'write', 'stale', 'nodraft', 'wait']);
 const byBill = () => { const m = new Map(); for (const h of S.hearings || []) { if (!m.has(h.bill_id)) m.set(h.bill_id, []); m.get(h.bill_id).push(h); } return m; };
 export function hearingFor(d, idx) {
@@ -488,6 +489,9 @@ export function todayItems(scope = 'mine', who = null, drop = null) {   // `drop
       btns: [{ label: 'Take it', act: 'takebill' }, { label: 'Give to…', act: 'giveto', text: true }] });
   }
 
+  // ---- R-316 W53 (practice copy): a hearing you were going to moved; the public ask would end before the new date ----
+  if (!team) for (const t of movedTasks(me, self, billById, owns)) push(t);
+
   // ---- my follow-ups with supporters ----
   for (const f of S.followups || []) {
     if (f.done_at || f.advocate_id !== me.id) continue;
@@ -763,7 +767,9 @@ const dueIso = t => t.due == null ? null : new Date(t.due).toISOString();
 const HAND_ON = () => DEMO;
 const HAND = { write: ['Send for approval', 12], submit: ['Send for approval', 12], revise: ['Send for approval', 12], nodraft: ['Send for approval', 12], file: ['File', 2] };
 export function handOn(t) {
-  const w = HAND_ON() && HAND[t.kind]; if (!w || !tDue(t) || lateNow(t) || t.due <= Date.now()) return '';
+  // Within two days of the deadline only: further off, the row's hearing and due day say more (a new hearing's "Send for
+  // approval by Tue 2/24, 2:00 AM" a fortnight ahead read as a deadline of its own).
+  const w = HAND_ON() && HAND[t.kind]; if (!w || !tDue(t) || lateNow(t) || t.due <= Date.now() || t.due - Date.now() > 2 * DAY) return '';
   const at = t.due - w[1] * HR; return at > Date.now() ? `${w[0]} by ${atLine(at)}` : `${w[0]} now`;
 }
 function why(t, team, mark = false) {
@@ -2232,7 +2238,7 @@ function weekPage(route, scope, who, r) {
 
 function render(route) {
   if (!S.me) return empty({ title: 'No staff record yet', text: 'You are signed in, but the tracker does not know who you are. Ask your admin to add you.' });
-  MEMO = new Map(); CARDS = new Map(); WAITS = new Map(); ROWS = []; ROWOPT = new Map(); SLIP = null;
+  MEMO = new Map(); CARDS = new Map(); WAITS = new Map(); ROWS = []; ROWOPT = new Map(); SLIP = null; seedMoved();
   const scope = scopeOf(), who = whoOf(), r = items(scope, who), name = who ? first(who) : '';
   LAST = new Map(r.tasks.map(t => [t.key, t]));
   // Async loads, each once: audience counts for the emails in the list, and the new-bill counts in the opening weeks.
@@ -2378,6 +2384,9 @@ async function run(t, act, el) {
       const m = await DB.sendMessage(b.id, `${ids.map(id => '@' + first(id)).join(' ')} A nudge from Slipping: ${String(t.ps || t.s || '').replace(/<[^>]+>/g, '').replace(/&[a-z#0-9]+;/g, ' ')}${due}. Can you get it in?`);
       toast(`Nudged ${names(ids)} in the messages on ${billSay(b)}. Slack tells ${ids.length === 1 ? first(ids[0]) : 'them'}.`, { ok: true, undo: async () => { await DB.deleteMessage(m); redraw(); } }); redraw(); });
     case 'giveto': return t.kind === 'todo' ? giveTodo(t) : giveBill(t);
+    case 'moveme': return busy(el, () => moveMe(t, { toast, redraw }));   // R-316 W53
+    case 'notgoing': return busy(el, () => notGoing(t, { toast, redraw }));
+    case 'askup': return busy(el, () => keepAskUp(t, { toast, redraw }));
     case 'takebill': return busy(el, async () => { await DB.setOwner(b.id, S.me.id); toast(`You own ${billSay(b)} now.`, { ok: true, undo: async () => { await DB.setOwner(b.id, null); redraw(); } }); redraw(); });
     case 'fu': return busy(el, async () => {
       const f = t.f; await DB.doneFollowup(f.id);

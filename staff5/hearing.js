@@ -17,6 +17,8 @@ import { goingBtn, showAllBtn, mayUnfile, undoFiledLink } from './ui.js';   // R
 import { photo, legName, partyDist, roleWord, legHref, wireLinks } from './pathway.js';
 import { rerender, viewIsNew } from './bill.js';
 import { movedFrom } from './model.js';   // R-316 W24: "Moved from Mon 2/9"
+import { hooks } from './data.js';
+import { movedGoingHTML, wireMoved } from './moved.js';   // R-316 W53 (practice copy): still going to the sitting it moved to?
 import { billRoute, whenAt, spanOf, roomName, hearingWhen, isDecision, sittingDraft, earlierFiled, draftHearing } from './model.js';
 
 const HR = 36e5, FOLD = 10;
@@ -213,7 +215,8 @@ function goingHTML(c) {
     : `<p class="hr-none">${icon(over ? 'user-round' : 'user-plus')}<span>${over ? 'Nobody from the team was going.' : cancelled ? 'Nobody needs to go.' : 'Nobody from the team yet.'}</span></p>`;
   // v4 (R-269): pressed, the toggle says what is true ("You’re going"), as the list above it does; it read "I’m going" either way.
   const acts = live && me ? `<div class="hr-gacts">${goingBtn(meIn, { 'data-hrgo': '' })}${admin ? btn('Send a teammate…', { kind: 'text', sm: true, icon: 'user-round-plus', attrs: { 'data-hrput': '1', 'aria-haspopup': 'dialog' } }) : ''}</div>` : '';
-  return { title: over && !cancelled ? 'Who was going' : 'Who’s going', body: list + acts };
+  const moved = cancelled && !over ? movedGoingHTML(rows[0], btn) : '';
+  return { title: over && !cancelled ? 'Who was going' : 'Who’s going', body: list + acts + moved };
 }
 
 // The members, chair first, each with where they stand on this sitting's bills with a position (only stances someone
@@ -345,7 +348,7 @@ export default {
   },
   wire(route, app) {
     const root = app.querySelector('.hr-page'), h = hearingById(route.id); if (!root || !h) return;
-    wireLinks(root); wireShareKit(root);
+    wireLinks(root); wireShareKit(root); wireMoved(root, { toast, redraw: () => hooks.render() });   // W53
     if (route.q?.kit && viewIsNew()) landOnKit();
     const c = context(h);
     root.querySelector('[data-hrgo]')?.addEventListener('click', () => toggleGoing(c));
