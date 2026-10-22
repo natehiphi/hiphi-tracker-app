@@ -10,6 +10,7 @@
 import { S, DB, DEMO, hooks, esc, fmtDate, asDate, advocate, peopleMatch, segmentPeople, personById } from './data.js';
 import { ISLANDS, INTERESTS, personName, parsePeopleCSV, exportPeopleCSV, billById, billTag, billSay } from './model.js';
 import { icon, btn, iconBtn, chip, row, empty, skeleton, toast, openSheet, closeSheet, menuSheet, pickerSheet, confirmSheet, switchRow, keysOn, sheetOpen, sectionNav, filterBtn } from './ui.js';
+const SCORE_LINE = () => DEMO;   // R-316 W55 (Show me): Nate's yes makes it () => true
 import { TITLES, titleLabel } from '../pub/titles.js';   // "They are": the public profile's titles (R-147)
 
 // ---- the filter model (the same shape as people_match() in the database, so a saved segment counts the same here,
@@ -187,7 +188,8 @@ function resultsHTML(v) {
   if (isDesk()) {
     const allOn = rows.every(p => v.sel.has(p.id)), some = !allOn && rows.some(p => v.sel.has(p.id));
     // The table's state in words, so the order is never a guess (the Score column is dropped on a narrow table).
-    const sum = `<p class="sp-tsum" aria-live="polite"><b>${rows.length === all.length ? plural(all.length, 'person', 'people') : `${rows.length.toLocaleString()} of ${plural(all.length, 'person', 'people')}`}</b> · ${esc(sortWords(v.sort))}</p>`;
+    // R-316 W55 (Show me, practice copy): Score says what it counts in one line, not only on hover.
+    const sum = `<p class="sp-tsum" aria-live="polite"><b>${rows.length === all.length ? plural(all.length, 'person', 'people') : `${rows.length.toLocaleString()} of ${plural(all.length, 'person', 'people')}`}</b> · ${esc(sortWords(v.sort))}</p>${SCORE_LINE() ? '<p class="sp-tsum sp-score">Score: 1 for each bill they follow, 5 for each action (testimony, an email to a chair, a hearing, a share), 2 for each click in our emails and a quarter for each email opened.</p>' : ''}`;
     return `${head}${sum}<div class="sp-twrap"><table class="sp-table"><caption class="sr">Supporters, ${esc(plural(rows.length, 'person', 'people'))}. Column headers sort. Select a name to open that person.</caption>
       <thead><tr><th class="c-cb" scope="col"><label class="sp-cbl" title="Select everyone shown"><input type="checkbox" data-selall data-k="c:all" ${allOn ? 'checked' : ''} ${some ? 'data-mixed' : ''} aria-label="Select all ${rows.length} shown"></label></th>
         ${COLS.map(c => headCell(c, v.sort)).join('')}</tr></thead>
