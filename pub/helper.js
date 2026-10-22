@@ -1071,8 +1071,7 @@ function aboutScreen() {
   // it, and a copy only they can see is kept once they say it went (R-153). "HIPHI never sees it" was untrue of that copy.
   return `<div class="hp-top">${screenHead(1, 'About you')}
       ${mine ? `<p class="hp-sub">${!asTapped ? 'Your points are' : picked === 1 ? 'The point you picked is' : `The ${picked} points you picked are`} in your ${isMail(x) ? 'email' : 'letter'}. Add your own reason if you can.</p>` : ''}</div>
-    ${isMail(x) ? notice('info', 'info', `Your email goes from your own email account straight to ${esc(andList(x.to.map(shortName)))}. HIPHI doesn’t send it. Once you say it’s sent, we keep a copy that only you can see, not HIPHI staff, so you can send it again. Share only what you’re comfortable with. You don’t have to share health details to be heard.`)
-      : notice('info', 'info', 'Testimony is a short letter to the committee deciding this bill. Anyone can send one. It’s public: your name and letter are posted on the Capitol website. Share only what you’re comfortable with. You don’t have to share health details to be heard.')}
+    ${aboutNote(x)}
     <form id="hp-form" class="hp-form" novalidate>
       ${field('name', 'Your name', 'name')}
       <div class="hp-tp" id="hp-tp-host">${titlesStep(x)}</div>
@@ -1090,6 +1089,17 @@ function aboutScreen() {
         <div class="hp-sugs" role="group" aria-label="Ideas for signing off">${CLOSINGS.map(c => `<button type="button" class="chip hp-sug" data-hp="closing" data-v="${esc(c)}" aria-pressed="${x.closing.trim() === c}">${esc(c)}</button>`).join('')}</div>
         <span class="help" id="hp-closing-help">${x.mode === 'intro' ? `Left empty, the letter says “${esc(thanksLine())}”` : 'Your name goes under it.'}</span></div>
     </form>`;
+}
+// The blue box on About you, in full only until they have sent one (R-212 #30: the Capitol Regular read the same paragraph
+// on every letter). After that it is one quiet line that keeps the fact that matters: testimony is public; an email goes
+// from their own account. Only this session's count: a once-a-year writer gets the whole box again (the critic's review).
+const sentBefore = x => { const yr = sessionInfo().yr;
+  return myActions().some(a => (a.year == null || a.year >= yr) && (isMail(x) ? a.kind === 'email' || a.kind === 'legislators' : a.kind === 'testimony')); };
+function aboutNote(x) {
+  if (sentBefore(x)) return `<p class="hp-quiet hp-aboutnote">${icon('info')}<span>${isMail(x) ? 'As before, your email goes from your own account. HIPHI doesn’t send it.'
+    : 'As before, your name and letter will be posted on the Capitol website, so share only what you’re comfortable with.'}</span></p>`;
+  return isMail(x) ? notice('info', 'info', `Your email goes from your own email account straight to ${esc(andList(x.to.map(shortName)))}. HIPHI doesn’t send it. Once you say it’s sent, we keep a copy that only you can see, not HIPHI staff, so you can send it again. Share only what you’re comfortable with. You don’t have to share health details to be heard.`)
+    : notice('info', 'info', 'Testimony is a short letter to the committee deciding this bill. Anyone can send one. It’s public: your name and letter are posted on the Capitol website. Share only what you’re comfortable with. You don’t have to share health details to be heard.');
 }
 // Under the "why" box: where its words came from (their saved story, R-147; by topic since R-156), else what it is for.
 function whyHelp(x) {
