@@ -135,7 +135,7 @@ function pageHTML(route, l, back) {
   const fromRest = from && !askIds.has(from.id) ? from : null;
   const stand = [...(fromRest ? [standRow(fromRest, l, { from: true })] : []), ...inCm.map(b => standRow(b, l))];
   const n = S.legNotes?.[l.id] ? convCount(convRows(l)) : 0;
-  const sub = [PARTY[l.party] || l.party, `${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}`, island].filter(Boolean).join(' · ');
+  const sub = [PARTY[l.party] || l.party, `${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}`, island === 'Hawaiʻi' ? 'Hawaiʻi Island' : island].filter(Boolean).join(' · ');
   const ours = intro.filter(b => ourBill(b)).length;
   const billsTitle = asks.length ? 'Our other bills in their committees' : 'Our bills in their committees';
   return `<div class="lg6-page">

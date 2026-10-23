@@ -137,6 +137,11 @@ export function chairLine(b, l) {
     const by = s.decide ? `for decision making${s.day ? ` by ${s.day}` : ''}` : `by ${s.day}`;
     const ids = (S.assignments?.[b.id] || []).filter(id => (S.advocates || []).some(a => a.id === id && a.is_active !== false));
     line = ids.length ? `${cap(orWords(ids))} ${ids.length > 1 ? 'ask' : 'asks'} the chair ${by}` : `No one holds it · ask the chair ${by}`;
+  } else if (s.key === 'giving' && s.who !== me) {
+    // A handed-over ask names whose bill it is, so it reads differently from the owner's own ("Rick asks the chair by
+    // Tue 3/24"): askWords' "Kris is asking · by Mon 3/23" with "for Rick" (asked of steps.js too, so Hearings says it).
+    const owners = (S.assignments?.[b.id] || []).filter(id => id !== s.who && (S.advocates || []).some(a => a.id === id && a.is_active !== false));
+    if (owners.length) line = `${cap(firstWords(s.who))} is asking for ${orWords(owners, undefined, { and: true })}${s.aw && !s.aw.a.passed ? ` · by ${s.aw.day}` : ''}`;
   }
   const own = ownAsk(b, s) && s.key !== 'passed';
   return { s, line, own, follow, waitingMine: s.key === 'waiting' && (s.asker === me || mine(b)), at: s.by ?? s.aw?.a?.at ?? Infinity };
@@ -244,9 +249,11 @@ function leftWords(rows) {
     part(rows.filter(x => x.s?.key === 'waiting' && !x.follow), 'waiting on a reply'), part(rows.filter(x => x.s?.key === 'said_no'), 'said no'),
     part(rows.filter(x => x.s?.key === 'passed'), 'out of time')].filter(Boolean).join(', ');
 }
-// One chair as a row: name, role on our bills, what is left, last contact; at most one button, the chair's email (D16).
+// One chair as a row: the name, their role on our bills ("Chair, Senate Commerce: HB 756 to follow up", one fact: the
+// committee and what is left in it) and the last contact; at most one button, the chair's email (D16, at most 4 facts).
 function holdRow(g) {
-  const l = g.l, line = [chairRole(l, g.rows.map(x => x.aw.code)), leftWords(g.rows), contactWords(l)].filter(Boolean).join(' · ');
+  const l = g.l, role = [chairRole(l, g.rows.map(x => x.aw.code)), leftWords(g.rows)].filter(Boolean).join(': ');
+  const line = [role, contactWords(l)].filter(Boolean).join(' · ');
   return itemRow({ key: `hold-${l.id}`, name: `${l.chamber === 'S' ? 'Sen.' : 'Rep.'} ${l.name}`, line: nw(esc(line)), href: `#/legislator/${l.id}?from=holding`, button: chairEmail(l, g.rows), cls: 'lg6-wrap' });
 }
 // holders(): kept for callers of the v5 shape ({ out, whose, own }); the rows are the board's (team-wide when you own none).
@@ -256,7 +263,9 @@ export function holders(scope = askDefault()) {
 }
 export function holdingHTML({ scope } = {}) {
   const sc = askScope(scope), gs = chairGroups(askItems(sc).items), whose = scopeWhose(sc);
-  const head = `<p class="lg6-sum">${esc(gs.length ? `${plural(gs.length, 'chair')} ${gs.length === 1 ? 'holds' : 'hold'} ${whose} with no hearing yet, the soonest ask first.` : `No chair holds ${whose} without a hearing.`)}</p>`;
+  // Says what the tab is for beside Who to ask (the same chairs, one line each), so a newcomer can tell the two apart;
+  // two lines at most on a 320 phone, so the first chair starts within 400px (A-1).
+  const head = `<p class="lg6-sum">${esc(gs.length ? `${plural(gs.length, 'chair')} from Who to ask, one line each, the soonest ask first.` : `No chair holds ${whose} without a hearing.`)}</p>`;
   return `<div class="lg6-hold">${introLine()}${head}${gs.length ? `<div class="v6-list lg6-list" role="list" aria-label="${esc(`Chairs holding ${whose}`)}">${gs.map(holdRow).join('')}</div>` : ''}</div>`;
 }
 // Kept for v5 callers: the push board's ask buttons. Holding's own rows need no wiring (links, and the email is a link).

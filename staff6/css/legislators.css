@@ -568,6 +568,12 @@ body.staff6 .hb-intro svg { width: 16px; height: 16px; flex: none; color: var(--
   body.staff6 .lg6-etools .lg6-preset { order: 2; }
   body.staff6 .lg6-etools .lg6-sortb { display: none; }
 }
+/* A narrow phone: a long email button ("Email about HB 1563 and HB 756") wraps between bills inside its row or chair
+   heading rather than running past the screen's edge (each "HB 1563" is kept whole by a no-break space). */
+@media (max-width: 420px) {
+  body.staff6 .lg6-wrap .v6-row-act, body.staff6 .lg6-gact { flex: 1 1 100%; min-width: 0; max-width: 100%; }
+  body.staff6 .lg6-wrap .v6-row-act .btn, body.staff6 .lg6-gact .btn { max-width: 100%; height: auto; white-space: normal; text-align: start; padding-top: 8px; padding-bottom: 8px; }
+}
 
 /* ---- Staff v6 · one legislator (V23): one column, the ask first; the reference after (A-1, A-13) ---- */
 body.staff6 .lg6-page { max-width: 760px; min-width: 0; }
@@ -658,3 +664,9 @@ body.staff6 .pf-secs > .pf-sec { border: 0; }
 body.staff6 :is(.lg6, .lg6-page) :is(.btn.text, .lg6-foot a, .lg6-note a, .lg6-facts a, .pf-auto a, .cv-meta a, .linkbtn) { color: var(--v6-action-press); }
 /* A photo's stand-in initial is decoration (aria-hidden), not a name: regular weight. */
 body.staff6 :is(.lg6-gph, .lg6-pph) .lg-ph.none { font-weight: 400; }
+/* The whose-bills switch on a 320 phone: three labels on one line each ("My coalitions" no longer breaks in two), with a
+   little less room either side of each; this screen only, the switch itself is the frame's. */
+@media (max-width: 360px) {
+  body.staff6 .lg6-tools .sv-seg { max-width: 100%; }
+  body.staff6 .lg6-tools .sv-seg button { padding: 0 10px; white-space: nowrap; }
+}

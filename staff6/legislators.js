@@ -229,7 +229,8 @@ function everyoneHTML(v) {
   const week = weekIndex(), ls = everyoneList(v, week), all = (S.legislators || []).length;
   const on = filtersN(v), who = v.chamber === 'H' ? 'representatives' : v.chamber === 'S' ? 'senators' : 'legislators';
   const bits = [v.island ? `from ${v.island === 'Hawaiʻi' ? 'Hawaiʻi Island' : v.island}` : '', v.cmte ? `on ${committeeName(v.cmte)}` : '', caresOn(v) ? `who care about ${caresName(v)}` : ''].filter(Boolean).join(' ');
-  const cap = v.week ? `${ls.length} ${ls.length === 1 ? who.replace(/s$/, '') : who}${bits ? ' ' + bits : ''} ${ls.length === 1 ? 'hears' : 'hear'} our bills in the next 7 days`
+  // The preset's caption stays on one line at 320 when nothing else narrows the list (A-1: the first row within 400px).
+  const cap = v.week ? `${ls.length}${on ? ` ${ls.length === 1 ? who.replace(/s$/, '') : who}${bits ? ' ' + bits : ''}` : ''} ${ls.length === 1 ? 'hears' : 'hear'} our bills in the next 7 days`
     : `${ls.length === all && !on ? `All ${all} legislators` : `${ls.length} ${ls.length === 1 ? who.replace(/s$/, '') : who}${bits ? ' ' + bits : ''}`}, by ${SORTS.find(x => x[0] === sortOf(v))[1].toLowerCase()}`;
   const clear = on ? btn('Clear filters', { kind: 'text', sm: true, icon: 'x', attrs: { 'data-lgclear': 'filters' } }) : '';
   if (!ls.length) {
