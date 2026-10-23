@@ -14,6 +14,7 @@ import { followToggle } from '../actions.js';
 import { nameOf, letGo } from '../mybills.js';
 import { ownLists, followedLists, localFollowed, myListsSection, wireMyLists, canMake } from '../mylists.js';
 import { EMPTY_ART } from '../art.js';
+import { rowLine } from '../partners.js';
 
 // What a row lets go of in Edit: the issue, the bill followed on its own, or (between sessions, when Home's rows name it) a
 // whole topic.
@@ -27,11 +28,13 @@ function targetOf(r) {
   return null;
 }
 // Home's row (calm/home.js rowHtml, in the shared rc- classes so it is styled on this page from its first draw): the name, a
-// small dot before it when something changed since the last visit, one status line, amber only inside a day (A-5).
+// small dot before it when something changed since the last visit, one status line, amber only inside a day (A-5). A bill
+// followed on its own that a HIPHI partner writes on has one more line naming the partner, as on Find (R-328 batch D,
+// partners.js rowLine: "Keiki Smiles Alliance supports it too", or "From a partner: ..." where HIPHI has no side).
 function rowHtml(r, edit) {
-  const t = edit ? targetOf(r) : null;
+  const t = edit ? targetOf(r) : null, pl = r.b ? rowLine(r.b) : '';
   const a = `<a class="rc-row" href="${esc(r.href)}"><span class="rc-rtext"><span class="rc-rname">${r.fresh ? '<span class="rc-new" title="New since your last visit"><span class="sr">New since your last visit: </span></span>' : ''}${esc(r.name)}</span>
-    ${r.text ? `<span class="rc-rstat${r.warn ? ' warn' : ''}">${esc(keep(r.text))}</span>` : ''}</span>${t ? '' : icon('chevron-right', { cls: 'rc-chev' })}</a>`;
+    ${r.text ? `<span class="rc-rstat${r.warn ? ' warn' : ''}">${esc(keep(r.text))}</span>` : ''}${pl ? `<span class="rc-rpart">${esc(pl)}</span>` : ''}</span>${t ? '' : icon('chevron-right', { cls: 'rc-chev' })}</a>`;
   return `<li${t ? ' class="rc-frow"' : ''}>${a}${t ? btn('Stop following', { kind: 'text', sm: true, cls: 'rc-stop', attrs: { 'data-rc-stop': `${t.kind}:${t.id}`, 'aria-label': `Stop following ${t.label}` } }) : ''}</li>`;
 }
 // The person's own lists, the lists shared with them and HIPHI's lists they follow, as quiet rows. myListsSection is called

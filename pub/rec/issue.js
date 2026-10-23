@@ -16,16 +16,18 @@
 // The category page: Back to Find, the name and one sentence, the issues as quiet rows with one status line in Home's words
 // and a Follow each, and "Follow all of it, and new ones" at the end. No counts (R-300). An old coalition address
 // (#/find/issue/ctfh) opens its category.
+// A bill a HIPHI partner writes on (R-328 batch D) says so in one more line on its row (bRow), as Find's rows do.
 import { S, D, DEMO, app, esc, icon, toast, nick, spaced, billPath, issueFollowed, issuePos, posInfo, setFollows, unfollowIssue, sessionInfo, findBill, supa,
   catOf, calendarUrl, dateLong, stopOf, plainStatus, hearingsOf, openActions, hearingWhen, hiT, fmtDate, issueShareUrl, stopFacts, issuesIn, HST } from '../core.js';
 import { btn, iconBtn, posChip, skeleton, inlineErr } from '../ui.js';
-import { recHead, recBack, recSec, recRows, recFold, recFolds, recEmpty, recFollow, wireKit, BOX } from './kit.js';
+import { recHead, recBack, recSec, recRow, recFold, recFolds, recEmpty, recFollow, wireKit, BOX, keep } from './kit.js';
 import { moving, becameLaw, stopped, numCmp, byUrgency, stoppedWhy, what, billsOfIssue, issueOrder } from '../mybills.js';
 import { ensureHearings } from '../find.js';
 import { followAsk, profileSaved, levelLine, levelBox, wireLevelLine, getsAlerts } from '../alerts.js';
 import { shareIssue } from '../actions.js';
 import { billParts, wireBillParts, recDock, situation, recLine } from '../bill.js';
 import { logAct } from '../visitlog.js';
+import { rowLine } from '../partners.js';
 
 const WIDE = window.matchMedia('(min-width: 1100px)');
 const wide = () => WIDE.matches;
@@ -40,6 +42,15 @@ const plainName = t => String(t || '').normalize('NFD').replace(/[̀-ͯʻ‘’'
 const numbers = bills => { const ns = bills.map(b => num(b) + (+b.session_year && +b.session_year !== yearNow() ? ` (${b.session_year})` : ''));
   const shown = ns.length > 4 ? [...ns.slice(0, 3), `${ns.length - 3} more`] : ns;
   return shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown[shown.length - 1]}` : shown[0] || ''; };
+
+// A bill's row, with a partner's line under its status when a HIPHI partner has approved words on the bill (Nate's plan of
+// 10/21: rows keep their shape, one more line naming the partner, "Keiki Smiles Alliance supports it too", or on a bill HIPHI
+// has no side on "From a partner: Keiki Smiles Alliance supports it", so it never reads as HIPHI's; partners.js rowLine).
+// The kit's own row (recRow) when no partner writes on it, so those rows are exactly as before. r.b is the row's bill.
+const bRow = r => { const pl = r.b ? rowLine(r.b) : ''; if (!pl) return recRow(r);
+  return `<li><a class="rc-row" href="${esc(r.href)}">${r.lead ? `<span class="rc-lead">${icon(r.lead)}</span>` : ''}
+  <span class="rc-rtext"><span class="rc-rname">${esc(r.name)}</span>${r.text ? `<span class="rc-rstat${r.warn ? ' warn' : ''}">${esc(keep(r.text))}</span>` : ''}<span class="rc-rpart">${esc(pl)}</span></span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`; };
+const bRows = (rows, cls = '') => rows.length ? `<ul class="rc-rows${cls ? ' ' + cls : ''}" role="list">${rows.map(bRow).join('')}</ul>` : '';   // kit.js recRows, with bRow
 
 // ---------------- the issue's bills ----------------
 // Loaded once per visit (most are already on the page; the rest come in one request), with their hearings, so each bill's
@@ -174,26 +185,26 @@ function whatCard(m) {
 // A bill whose name is the issue's is named by its number alone, so ten rows do not repeat the h1 (A-14).
 function folds(m, { goneOpen = false } = {}) {
   const row = (b, why) => { const said = why ? stoppedWhy(b) : plainStatus(b).short, same = !nick(b) ? false : plainName(nick(b)) === plainName(m.i.name);
-    return same ? { name: num(b), text: said, href: billPath(b) } : { name: nick(b) || what(b, 90), text: `${num(b)} · ${said}`, href: billPath(b) }; };
+    return same ? { b, name: num(b), text: said, href: billPath(b) } : { b, name: nick(b) || what(b, 90), text: `${num(b)} · ${said}`, href: billPath(b) }; };
   return recFolds([
-    m.gone.length ? recFold('issue-gone', 'Bills that did not advance', numbers(m.gone), recRows(m.gone.map(b => row(b, true))), { open: goneOpen }) : '',
-    m.law.length && m.shape !== 3 ? recFold('issue-law', 'Bills that became law', numbers(m.law), recRows(m.law.map(b => row(b, false)))) : '',
-    m.earlier.length ? recFold('issue-earlier', 'Earlier sessions', numbers(m.earlier), recRows(m.earlier.map(b => row(b, stopped(b))))) : '']);
+    m.gone.length ? recFold('issue-gone', 'Bills that did not advance', numbers(m.gone), bRows(m.gone.map(b => row(b, true))), { open: goneOpen }) : '',
+    m.law.length && m.shape !== 3 ? recFold('issue-law', 'Bills that became law', numbers(m.law), bRows(m.law.map(b => row(b, false)))) : '',
+    m.earlier.length ? recFold('issue-earlier', 'Earlier sessions', numbers(m.earlier), bRows(m.earlier.map(b => row(b, stopped(b))))) : '']);
 }
 // One quiet row to the bill's full record (option A, shape 1): who decides next, what it says, every draft and vote. Its own
 // name only when it differs from the issue's (said once, small, here).
 function recordRow(b, i) {
   const own = nick(b) && plainName(nick(b)) !== plainName(i.name) ? `${nick(b)} · w` : 'W';
-  return recRows([{ name: `${num(b)}’s full record`, text: `${own}ho decides next, what it says, every draft and vote`, href: billPath(b), lead: 'scroll-text' }], 'rc-record ' + BOX);
+  return bRows([{ b, name: `${num(b)}’s full record`, text: `${own}ho decides next, what it says, every draft and vote`, href: billPath(b), lead: 'scroll-text' }], 'rc-record ' + BOX);
 }
 // Shape 2's rows: each bill once, in the bill page's words; the one in the card says so (as Home's row says "On the slide
 // above"), so the card's bill is not described twice.
 function billRows(m) {
   const lead = m.lead?.b, here = wide() ? 'In the card at the right' : 'In the card above';
   const rows = m.mv.map(b => { const pre = m.named ? `${num(b)} · ` : '';
-    return { name: m.versions ? `${versionName(b)} · ${num(b)}` : m.named ? nick(b) || what(b, 90) : num(b), text: pre + (b === lead ? here : recLine(b)), href: billPath(b) }; });
+    return { b, name: m.versions ? `${versionName(b)} · ${num(b)}` : m.named ? nick(b) || what(b, 90) : num(b), text: pre + (b === lead ? here : recLine(b)), href: billPath(b) }; });
   const note = m.versions ? 'The House and the Senate each have a version. Either one can become law.' : '';
-  return recSec('rc-ibills-h', 'Bills on this issue', recRows(rows, BOX), { note });
+  return recSec('rc-ibills-h', 'Bills on this issue', bRows(rows, BOX), { note });
 }
 function issuePage(i) {
   const m = model(i), top = topRow(i);
