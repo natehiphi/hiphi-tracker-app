@@ -129,3 +129,54 @@
 }
 /* R-316 W56: "Nobody from the team is going to any of the N yet", said once above the week's hearings. */
 .co-nobody { margin: 0 0 8px; }
+
+/* ==== Staff v6 (R-336 spec 4 and 6): Coalitions (the tab) and one coalition, led by where it stands ====
+   Tokens only; rows are the shared .v6-row (steps.css), the section headings and lines are issues.css's .i6-* (one look
+   for My issues' three tabs). The rules above are v5's and no longer drawn. */
+body.staff6 .co6-back { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 var(--s12) 0 var(--s4); margin: 0 0 var(--s8) calc(-1 * var(--s4)); border-radius: var(--v6-pill);
+  font-weight: 700; color: var(--v6-action); text-decoration: none; }
+body.staff6 .co6-back:hover { background: var(--v6-action-wash); }
+body.staff6 .co6-back .ic { width: 20px; height: 20px; }
+@media (max-width: 767px) { body.staff6 .co6-back { display: none; } }   /* the phone's top bar has Back */
+body.staff6 .co6-cols { display: block; }
+@media (min-width: 1100px) {
+  body.staff6 .co6-cols { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--s48); align-items: start; max-width: 1280px; }
+  body.staff6 .co6-side > :first-child { margin-top: 0; }
+}
+body.staff6 .co6-head { display: flex; align-items: flex-start; gap: var(--s16); }
+body.staff6 .co6-icon { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; margin-top: 2px; border-radius: 50%; background: var(--v6-wash); color: var(--v6-body); flex: none; }
+body.staff6 .co6-icon .ic { width: 24px; height: 24px; }
+body.staff6 .co6-hbody { flex: 1 1 auto; min-width: 0; }
+body.staff6 main .co6-h1 { margin: 0; font: 700 var(--v6-t28)/var(--v6-lh28) Poppins, system-ui, sans-serif; letter-spacing: -.015em; color: var(--v6-ink); overflow-wrap: anywhere; }
+body.staff6 .co6-pub { margin: var(--s4) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .co6-meta { margin: var(--s8) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
+body.staff6 .co6-meta a { color: var(--v6-action); font-weight: 700; text-decoration: none; display: inline-block; padding: 10px 0; margin: -10px 0; }
+body.staff6 .co6-meta a:hover { text-decoration: underline; }
+body.staff6 .co6-acts { margin: var(--s16) 0 0; }
+body.staff6 .co6-sec:first-of-type { margin-top: var(--s32); }
+body.staff6 .co6-card { margin-top: var(--s24); padding: var(--s16) var(--s24); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .co6-side .co6-card:first-child { margin-top: 0; }
+body.staff6 .co6-page > .co6-card:first-of-type { margin-top: var(--v6-gap); }
+body.staff6 .co6-sup .sv-switchrow { min-height: 56px; }
+body.staff6 .co6-sh { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); padding: var(--s12) 0; }
+body.staff6 .co6-sh + .co6-sh::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
+body.staff6 .co6-shl { margin: 0; font-weight: 700; color: var(--v6-ink); }
+body.staff6 .co6-shd, body.staff6 .co6-note { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .co6-note { display: flex; gap: var(--s8); }
+body.staff6 .co6-note .ic { width: 20px; height: 20px; flex: none; margin-top: 2px; color: var(--v6-muted); }
+body.staff6 .co6-url { max-width: 100%; font-size: var(--v6-t16); color: var(--v6-action); overflow-wrap: anywhere; }
+body.staff6 .co6-iss { position: relative; padding-top: var(--s8); }
+body.staff6 .co6-iss::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
+body.staff6 .co6-iss > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: var(--s8); min-height: 44px; font-weight: 700; color: var(--v6-action); cursor: pointer; }
+body.staff6 .co6-iss > summary::-webkit-details-marker { display: none; }
+body.staff6 .co6-iss > summary:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: var(--v6-r12); }
+body.staff6 .co6-iss ul { list-style: none; margin: 0; padding: 0 0 var(--s8); }
+body.staff6 .co6-iss li a { display: flex; align-items: center; min-height: 44px; color: var(--v6-action); text-decoration: none; }
+body.staff6 .co6-iss li a:hover { text-decoration: underline; }
+/* I help, a toggle button on a coalition's row: pressed it shows a check on sand, and the row stays where it was until the
+   next visit (coalition.js), so the button under the pointer never changes (the critic; A-12, B-5) */
+/* (never filled: the screen's one filled button is not a switch's state, spec 7 rule 1) */
+body.staff6 .co6-row .v6-row-act .co6-help[aria-pressed="true"] { background: var(--v6-wash); color: var(--v6-ink); font-weight: 700; }
+body.staff6 .co6-help[aria-pressed="true"] .ic { color: var(--v6-leaf); }
+/* for someone who is not one of the coalition's own people, the I help switch takes the partner update's place under the lead */
+body.staff6 .co6-page .co6-card.co6-slot { margin-top: var(--s16); }
