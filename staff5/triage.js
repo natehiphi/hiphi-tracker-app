@@ -24,6 +24,7 @@ import { iconName } from './lists.js';   // R-277 fix 15: not from setup.js, whi
 import { deskBack } from './filters.js';
 import { suggestIssue } from './suggest_issue.js';
 import { billRoute, companionsOf } from './model.js';
+import { offTag, teamName, teamFirst, newOwnerTag } from './model.js';   // R-316 W28: turned-off owners
 
 const T = () => S.triage ??= { camp: null, matchedOnly: true, rows: null, counts: null, focus: 0, last: null };
 const V = () => { const t = T(); t.pick ??= {}; t.pos ??= {}; t.own ??= {}; t.iss ??= {}; t.done ??= 0; t.hist ??= []; return t; };
@@ -67,9 +68,14 @@ const campOf = (t, r) => S.campaigns.find(c => c.id === t.pick[r.id]) || suggest
 // picked on the card stays put when the coalition changes; one that was not picked follows the coalition.
 // R-316 W50: the issue's owner first, as the issue picker promises ("Its owner leads the bill"), then the coalition's;
 // an owner picked on the card is never overridden.
-const ownIdOf = (t, r) => { const o = t.own[r.id]; return o === undefined ? (issOf(t, r)?.owner_id || campOf(t, r)?.owner_id || null) : o === 'none' ? null : o; };
+// R-316 W28: someone turned off cannot sign in, so they are never handed a new bill: an issue or coalition owner who is
+// off is passed over (the next in line, else No owner), and the card says why ("Lauren (turned off) owns HEAL").
+const onId = id => id && !offTag(id) ? id : null;
+const ownIdOf = (t, r) => { const o = t.own[r.id]; return o === undefined ? (onId(issOf(t, r)?.owner_id) || onId(campOf(t, r)?.owner_id) || null) : o === 'none' ? null : o; };
 const ownWhy = (t, r) => { if (t.own[r.id] !== undefined) return ''; const i = issOf(t, r), c = campOf(t, r);
-  return i?.owner_id ? `Owns ${i.name}` : c?.owner_id ? `Owns ${c.name}` : ''; };
+  return onId(i?.owner_id) ? `Owns ${i.name}` : onId(c?.owner_id) ? `Owns ${c.name}` : offOwner(t, r); };
+const offOwner = (t, r) => { const i = issOf(t, r), c = campOf(t, r), x = offTag(i?.owner_id) ? i : offTag(c?.owner_id) ? c : null;
+  return x ? `${teamFirst(x.owner_id)} owns ${x.name}` : ''; };
 const posOf = (t, r) => t.pos[r.id] || 'monitor';
 // R-088 part 2: the issue the bill goes on with Track. The suggestion (the earlier look-alike's issue, else the words,
 // staff/suggest_issue.js) is preselected; staff pick another or "No issue". Worked out once per card.
@@ -141,7 +147,7 @@ function why(r) {
 const pickers = (t, r) => { const c = campOf(t, r), own = advocate(ownIdOf(t, r)), pos = posOf(t, r);
   return `<div class="st-tpick">
       <div class="st-pickrow"><span class="st-lab" id="st-clab">Coalition</span>${pickerChip(c?.name || 'Choose', { 'data-tcoal': '1', 'aria-describedby': 'st-clab' }, iconName(c?.icon))}</div>
-      <div class="st-pickrow"><span class="st-lab" id="st-olab">Owner</span>${pickerChip(own ? own.full_name : 'No owner', { 'data-town': '1', 'aria-describedby': 'st-olab' }, own ? 'user-round' : 'circle-dashed')}${own && ownWhy(t, r) ? `<span class="small muted st-owhy">${esc(ownWhy(t, r))}</span>` : ''}</div>
+      <div class="st-pickrow"><span class="st-lab" id="st-olab">Owner</span>${pickerChip(own ? own.full_name : 'No owner', { 'data-town': '1', 'aria-describedby': 'st-olab' }, own ? 'user-round' : 'circle-dashed')}${ownWhy(t, r) ? `<span class="small muted st-owhy">${esc(ownWhy(t, r))}</span>` : ''}</div>
       <div class="st-pickrow"><span class="st-lab" id="st-plab">Position</span>${pickerChip(POS_WORD[pos] || pos, { 'data-tposp': '1', 'aria-describedby': 'st-plab' }, POS_ICON[pos])}</div>
       <div class="st-pickrow"><span class="st-lab" id="st-ilab">Issue</span>${pickerChip(issOf(t, r)?.name || 'No issue', { 'data-tiss': '1', 'aria-describedby': 'st-ilab' }, issOf(t, r) ? 'tag' : 'circle-dashed')}</div>
     </div>`; };
@@ -214,7 +220,7 @@ export default {
     // user's focus stays on the control they used (the keys are off while it is on a control).
     const after = (e, sel) => e && e.detail > 0 ? '#st-tnum' : sel;
     $('[data-tcamp]') && ($('[data-tcamp]').onclick = () => pickerSheet({ title: 'Suggestions for', value: t.camp || '',
-      options: [['', 'All coalitions', 'users'], ...S.campaigns.filter(x => (x.keywords || []).length).map(x => [x.id, x.name, iconName(x.icon), advocate(x.owner_id) ? `${advocate(x.owner_id).full_name} owns it` : 'No owner'])],
+      options: [['', 'All coalitions', 'users'], ...S.campaigns.filter(x => (x.keywords || []).length).map(x => [x.id, x.name, iconName(x.icon), advocate(x.owner_id) ? `${teamName(x.owner_id)} owns it${newOwnerTag(x.owner_id)}` : 'No owner'])],
       onPick: v => { t.camp = v || null; t.rows = null; t.focus = 0; rerender('[data-tcamp]'); } }));
     $('[data-tmatch]') && ($('[data-tmatch]').onclick = () => pickerSheet({ title: 'Show', value: t.matchedOnly ? '1' : '0',
       options: [['1', 'Suggested bills', 'sparkles', 'A coalition keyword matches them'], ['0', 'Every undecided bill', 'list', 'Everything introduced that nobody has decided on']],
@@ -224,14 +230,14 @@ export default {
     root.querySelectorAll('[data-tundo]').forEach(b => b.onclick = () => undoEntry(t.hist.find(h => String(h.key) === b.dataset.tundo)));
     if (!r) return;
     $('[data-tcoal]').onclick = e => { const cur = campOf(t, r), real = realMatches(r).real, back = after(e, '[data-tcoal]');
-      pickerSheet({ title: `Track ${r.bill_number} for`, value: cur?.id, help: t.own[r.id] === undefined ? 'The coalition\'s owner gets the bill, unless you pick an owner.' : '',
+      pickerSheet({ title: `Track ${r.bill_number} for`, value: cur?.id, help: t.own[r.id] === undefined ? 'The coalition\'s owner gets the bill, unless you pick an owner or they are turned off.' : '',
         options: S.campaigns.map(c => { const m = real.find(x => x.campaign_id === c.id), o = advocate(c.owner_id);
-          return [c.id, c.name, iconName(c.icon), [m ? `Suggested: matches ${m.terms.join(', ')}` : '', o ? `${o.full_name} owns it` : 'No owner'].filter(Boolean).join(' · ')]; }),
+          return [c.id, c.name, iconName(c.icon), [m ? `Suggested: matches ${m.terms.join(', ')}` : '', o ? `${teamName(o)} owns it${newOwnerTag(o)}` : 'No owner'].filter(Boolean).join(' · ')]; }),
         onPick: v => { t.pick[r.id] = v; rerender(back); } }); };
     // Owner: you first, then everyone else; the coalition's owner says so. "No owner" is a choice too.
     $('[data-town]').onclick = e => { const back = after(e, '[data-town]'), c = campOf(t, r);
       const ads = S.advocates.filter(a => a.is_active !== false).sort((a, b) => (b.id === S.me?.id) - (a.id === S.me?.id) || a.full_name.localeCompare(b.full_name));
-      pickerSheet({ title: `Who owns ${r.bill_number}`, value: ownIdOf(t, r) || 'none',
+      pickerSheet({ title: `Who owns ${r.bill_number}`, value: ownIdOf(t, r) || 'none', help: !ownIdOf(t, r) && offOwner(t, r) ? esc(`${offOwner(t, r)}, so ${r.bill_number} has no owner unless you pick one.`) : '',   // pickerSheet's help is HTML
         options: [...ads.map(a => [a.id, a.id === S.me?.id ? `You (${a.full_name})` : a.full_name, 'user-round', c && a.id === c.owner_id ? `Owns ${c.name}` : '']), ['none', 'No owner', 'circle-dashed']],
         onPick: v => { t.own[r.id] = v; rerender(back); } }); };
     // Issue: the suggestion first, then the issues in its category, then the rest; "No issue" is a choice too.
@@ -274,9 +280,11 @@ async function decide(kind) {
       // follows the position (R-175: strongly support is P1), in the database and in DB.updateBill.
       if (b) {
         if (b.position !== pos || b.priority !== pri) await DB.updateBill(b.id, { position: pos });
-        await DB.setOwner(b.id, own);
         // The issue, and whether it was the suggestion (kept for February's "how often was it right", migration 119).
         if (iss) await DB.setBillIssue(b.id, iss.id, true, { via: !sg ? 'staff' : sg.id === iss.id ? 'suggested' : 'changed' });
+        // The owner last: putting a bill nobody leads on an issue hands it to the issue's owner (091), even one who is
+        // turned off or one the card set to No owner, so what the card says is written after it (R-316 W28, fresh-eyes).
+        await DB.setOwner(b.id, own);
       }
       const who = own ? (own === S.me?.id ? 'You' : advocate(own)?.full_name || 'Someone') : '';
       const h = { key: ++seq, kind, row: r, idx, camp: c?.name || '', pos, pri, own: who, issueId: iss?.id || null, issue: iss?.name || '' }; t.hist.unshift(h); t.last = { ...r, tracked: true };

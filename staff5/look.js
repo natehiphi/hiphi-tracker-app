@@ -14,6 +14,7 @@ import { docBtn, keysUsed } from './ui.js';   // R-277 fix 4: one look for the D
 import { stopOf, blurb, billNum, billSay, cmteName, chairMail, draftFor, hearingAhead, sponsorName, gateNeed, deadlineName, billByRef } from './model.js';
 import { CHAMBER_NAME } from '../stops.js';
 import { billRoute, whenAt, hearingWhen, roomName, ASK_LOG, chairAskOf, chairAskMail } from './model.js';
+import { ownerName } from './model.js';   // R-316 W28: "Lauren (turned off), needs a new owner"
 import { askedChip } from './chairask.js';   // R-316 W3 (practice copy)
 
 const dash = v => v || '—';
@@ -91,7 +92,7 @@ function body(b, { list, index }) {
         <div class="lk-card"><h3>Team</h3>
           <dl class="lk-kv">
             <dt>Position</dt><dd>${esc(pos)}</dd>
-            <dt>Owner</dt><dd>${own ? `${avatar(own, 20)} ${esc(own.id === S.me?.id ? 'You' : own.full_name)}` : 'Nobody yet'}</dd>
+            <dt>Owner</dt><dd>${own ? `${avatar(own, 20)} ${esc(own.id === S.me?.id ? 'You' : ownerName(own))}` : 'Nobody yet'}</dd>
           </dl>
         </div>
       </div>
@@ -108,7 +109,7 @@ function details(b, st, { deadline = true, pos = false, own: withOwn = false, la
   return `<dl class="lk-kv">
             ${iss.length ? `<dt>Your issue${iss.length > 1 ? 's' : ''}</dt><dd>${iss.map(i => esc(i.name)).join(', ')}</dd>` : ''}
             ${pos ? `<dt>Position</dt><dd>${esc(POS_WORD[b.position || ''] || b.position || 'No position')}</dd>` : ''}
-            ${withOwn ? `<dt>Owner</dt><dd>${own ? `${avatar(own, 20)} ${esc(own.id === S.me?.id ? 'You' : own.full_name)}` : 'Nobody yet'}</dd>` : ''}
+            ${withOwn ? `<dt>Owner</dt><dd>${own ? `${avatar(own, 20)} ${esc(own.id === S.me?.id ? 'You' : ownerName(own))}` : 'Nobody yet'}</dd>` : ''}
             <dt>Committee</dt><dd>${dash(esc(cmteName(st.committee) || st.committee || ''))}${st.stops ? ` <span class="muted">· ${st.stops > 1 ? `${st.stop} of ${st.stops}` : 'the only one'} in the ${esc(CHAMBER_NAME[st.chamber] || '')}${st.stops > 1 ? ', in order' : ''}</span>` : ''}</dd>
             ${st.committee && chairLine(st.committee) ? `<dt>Chair</dt><dd>${chairLine(st.committee)}</dd>` : ''}
             ${deadline ? `<dt>Deadline</dt><dd>${st.deadline ? `${esc(deadlineName(st.deadline))}, ${esc(fmtDate(st.deadline.date))}${st.deadline.missed ? ' <span class="muted">(missed)</span>' : ` <span class="muted">· ${st.deadline.days <= 0 ? 'today' : st.deadline.days + ' days'}</span>`}<span class="lk-gl">It must ${esc(gateNeed(st.deadline.label))}.</span>` : '—'}</dd>` : ''}

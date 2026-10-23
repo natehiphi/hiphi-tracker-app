@@ -124,6 +124,8 @@
 .st-pickrow .sv-pick { justify-self: start; max-width: 100%; min-width: 0; }
 .st-pickrow .sv-pick span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-pickrow .sv-seg { display: inline-flex; justify-self: start; }
+/* Why the owner is who it is ("Owns HEAL", "Lauren (turned off) owns HEAL") sits under the chip, not in the label's 80px. */
+.st-pickrow .st-owhy { grid-column: 2; margin-top: calc(-1 * var(--s4)); }
 .st-pickrow .sv-seg button { min-width: 64px; padding: 0 16px; }
 @media (min-width: 600px) {
   .st-tpick { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s12) var(--s24); align-items: center; }

@@ -471,3 +471,7 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
 .bl-sortlink { margin: var(--s4) 0 var(--s8); font-size: var(--t14); line-height: 20px; }
 .bl-sortlink a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--p700); }
 .bl-sortlink a .ic { width: 16px; height: 16px; }
+/* R-316 W28: an owner who is turned off keeps the bill until it is handed on: the circle is dashed and grey like No
+   owner's, the initials kept, and the word beside it (table) or the row's second line (list) says so. */
+.bl-offav { display: inline-flex; }
+.bl-offav .sv-av { background: none; border: 1.5px dashed var(--n400); color: var(--n500); }
