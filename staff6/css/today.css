@@ -834,8 +834,10 @@ body.staff6 .t6-date { display: flex; flex-wrap: wrap; align-items: center; gap:
 body.staff6 .t6-over { display: inline-flex; align-items: center; gap: 6px; color: var(--v6-bad); font-weight: 700; }
 body.staff6 .t6-over svg { width: 18px; height: 18px; flex: none; }
 
-/* the column and the item beside it (V17): from 1100px the column holds the work, the side the season and the doors
-   (or the picked item); below, one column and the in-column copies (.t6-colonly) */
+/* the column and the item beside it (V17): from 1100px the side column holds the next step on a busy day (.t6-sidenext),
+   the season card and the one-line doors, scrolling with the page, or the picked item, sticky; on a hearing day or a quiet
+   day the next step leads the work column. Below 1100px, one column: the next step first, the in-column copies of the
+   season card (.t6-colonly) and the doors after the lists (.t6-edges) */
 body.staff6 .t6-col { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-content: start; }
 body.staff6 .t6-col > * { margin: 0; }
 body.staff6 .t6-aside { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-content: start; }
@@ -843,9 +845,25 @@ body.staff6 .t6-aside > * { margin: 0; }
 @media (min-width: 1100px) {
   body.staff6 .t6-ld { grid-template-columns: minmax(0, 1fr) 360px; gap: 32px; }
   body.staff6 .t6-colonly { display: none !important; }
-  /* short enough that the page never runs past its list for the side column alone (the column scrolls on its own) */
-  body.staff6 .t6-ld .v6-ld-detail { top: 16px; padding: 0 4px 4px; max-height: calc(100vh - 96px); }
+  /* nothing picked: the side column scrolls with the page, so nothing in it ever sits below its own end out of sight (the
+     critic's 1: a Mac shows no scrollbar in an inner scroll area); a picked item stays in view beside the list, sticky,
+     scrolling on its own when it is taller than the window */
+  body.staff6 .t6-ld:not(.open) > .v6-ld-detail { position: static; max-height: none; overflow: visible; }
+  body.staff6 .t6-ld.open > .v6-ld-detail { top: 16px; padding: 0 4px 4px; max-height: calc(100vh - 32px); }
+  /* the doors live in the side column while nothing is picked, and close the work column while something is */
+  body.staff6 .t6-ld:not(.open) > .t6-col > .t6-edges { display: none; }
+  /* a busy day without a sitting: the next step and Getting started lead the side column, beside the list */
+  body.staff6 .t6-sidenext .t6-col > .t6-nextcol, body.staff6 .t6-sidenext .t6-col > .t6-startcol { display: none; }
+  body.staff6 .t6-aside .t6-next .v6-step { padding: 20px; }
+  body.staff6 .t6-aside .t6-start .t6-steps { grid-template-columns: minmax(0, 1fr); }
 }
+/* the next step in one line above a picked item (from 1100px; below it the item is its own page with Back) */
+body.staff6 .t6-nextstrip { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; margin: 0 0 16px; padding: 10px 16px; border: 0; border-radius: var(--v6-r12);
+  background: var(--v6-action-wash); color: var(--v6-ink); font: inherit; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); text-align: left; cursor: pointer; }
+body.staff6 .t6-nextstrip > svg { width: 18px; height: 18px; flex: none; color: var(--v6-action); }
+body.staff6 .t6-nextstrip b { font-weight: 700; color: var(--v6-action); }
+body.staff6 .t6-nextstrip:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+@media (max-width: 1099px) { body.staff6 .t6-nextstrip { display: none; } }
 @media (max-width: 1099px) {
   body.staff6 .t6-ld.open > .t6-col { display: none; }
 }
@@ -884,7 +902,17 @@ body.staff6 .t6-season.t6-hday { padding: 16px; gap: 8px; }
 body.staff6 .t6-season.t6-hday .t6-sh { padding: 4px 8px 0; }
 body.staff6 .t6-season.t6-hday .v6-hcard { box-shadow: none; padding: 8px; background: transparent; }
 body.staff6 .t6-season.t6-hday .v6-hcard + .v6-hcard { border-top: 1px solid var(--v6-hair); border-radius: 0; padding-top: 16px; }
-@media (min-width: 1100px) { body.staff6 .t6-aside .t6-season.t6-hday .v6-hcard { grid-template-columns: minmax(0, 1fr); gap: 8px; } }
+@media (min-width: 1100px) {
+  body.staff6 .t6-aside .t6-season.t6-hday .v6-hcard { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  /* the narrow side column draws the sitting as a phone does: "9:30 AM  Today · Room 430" on one line, Open the hearing
+     under the name, Going and I'm going on one line, so two sittings fit beside a laptop's list */
+  body.staff6 .t6-aside .t6-hday .v6-hcard-when { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+  body.staff6 .t6-aside .t6-hday .v6-hcard-room { display: inline; }
+  body.staff6 .t6-aside .t6-hday .v6-hcard-room::before { content: ' · '; }
+  body.staff6 .t6-aside .t6-hday .v6-hcard-cn { flex-basis: 100%; }
+  body.staff6 .t6-aside .t6-hday .v6-hcard-open { margin-left: 0; }
+  body.staff6 .t6-aside .t6-hday .v6-hcard-going > span { flex: 1 1 96px; }
+}
 
 /* the hint where the picked item opens */
 body.staff6 .t6-pick { display: flex; align-items: center; gap: 8px; margin: 0; padding: 0 8px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-muted); }
@@ -964,11 +992,27 @@ body.staff6 .t6-wacts { display: flex; flex-wrap: wrap; gap: 4px; }
    File track and "You file it once it is approved" are said in the open item and on the bill, so the card leaves them out
    here. (Workaround in Today's own file; the shared change asked for is a compact stepCard for Today.) */
 body.staff6 .t6-next .v6-track, body.staff6 .t6-next .v6-step-who, body.staff6 .t6-next .v6-step-go { display: none; }
+/* a hearing day: the step's sitting is its own card on the page, which names its time, room and committee once (A-14) */
+body.staff6 .t6-next.t6-nohear .v6-step-hear { display: none; }
 /* (who is going and I'm going are on the hearing's own card: Hearings, the sitting's page, the open item, and on a hearing
    day the season card; Today's step card keeps the hearing's line, the way to the sitting) */
 /* D3: due today is "a bold time and a clock icon", not a bold sentence (steps.css bolds the whole line; asked as a shared change) */
-body.staff6 .t6-root .v6-row-line.soon, body.staff6 .tm6-root .v6-row-line.soon { font-weight: 400; color: var(--v6-body); }
-body.staff6 .t6-root .v6-row-line.soon .v6-nw:last-child, body.staff6 .tm6-root .v6-row-line.soon .v6-nw:last-child { font-weight: 700; color: var(--v6-ink); }
+/* (a late or overdue line keeps its own colour and weight: the viewer's own late step is amber with its words, D3) */
+body.staff6 .t6-root .v6-row-line.soon:not(.t-late):not(.t-overdue), body.staff6 .tm6-root .v6-row-line.soon:not(.t-late):not(.t-overdue) { font-weight: 400; color: var(--v6-body); }
+body.staff6 .t6-root .v6-row-line.soon:not(.t-late):not(.t-overdue) .v6-nw:first-of-type, body.staff6 .tm6-root .v6-row-line.soon:not(.t-late):not(.t-overdue) .v6-nw:first-of-type { font-weight: 700; color: var(--v6-ink); }
+/* a row's line wraps to a second line rather than cutting its time, its person or the word that explains a colour, and a
+   name wraps rather than shortening (the critic: R-277 W-1, A-24, spec 7 rule 2: a name plus one short line) */
+body.staff6 .t6-root .v6-row-line, body.staff6 .tm6-root .v6-row-line { align-items: flex-start; }
+body.staff6 .t6-root .v6-row-line svg, body.staff6 .tm6-root .v6-row-line svg { margin-top: 3px; }
+body.staff6 .t6-root .v6-row-line > span, body.staff6 .tm6-root .v6-row-line > span { white-space: normal; overflow: visible; }
+/* from 768px at most two lines; a phone says the whole line, as everywhere in v6 */
+@media (min-width: 768px) { body.staff6 .t6-root .v6-row-line > span, body.staff6 .tm6-root .v6-row-line > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; } }
+body.staff6 .t6-root .v6-row-top, body.staff6 .tm6-root .v6-row-top { flex-wrap: wrap; column-gap: 8px; row-gap: 0; }
+body.staff6 .t6-root .v6-row-name, body.staff6 .tm6-root .v6-row-name { white-space: normal; overflow: visible; }
+/* a sitting's card says each bill's whole line: the words that explain its colour are never cut (the critic's low on D3) */
+body.staff6 .t6-root .v6-hcard .v6-row-line > span { display: block !important; -webkit-line-clamp: none !important; overflow: visible !important; }
+/* a phone's hearing day: the next step's row in its sitting's card, first, with the screen's one filled button (V14) */
+body.staff6 .t6-hc-lead .v6-row-act .btn.primary { min-height: 44px; }
 body.staff6 .t6-clgo { margin: 4px 0 0; }
 @media (min-width: 768px) { body.staff6 .t6-col { gap: 24px; } }
 
@@ -1000,8 +1044,6 @@ body.staff6 .tm6-note { display: flex; flex-wrap: wrap; align-items: center; gap
 body.staff6 .tm6-note > svg { width: 18px; height: 18px; flex: none; }
 body.staff6 .tm6-note > span { flex: 1 1 260px; }
 body.staff6 .tm6-ro { max-width: 760px; }
-/* from 1100px the side column leads with the next step, sticky beside the list (it scrolls on its own when tall) */
-@media (min-width: 1100px) { body.staff6 .t6-aside .t6-next .v6-step { padding: 20px; } body.staff6 .t6-aside .t6-nexth { margin-bottom: 8px; } }
 
 /* Partner words on Today (partnerq.js pqCard, pqItem; class .pq6): the Partners screen's parts in v6's type, 16px sentences
    and 14px only for labels (spec 4; Partners' own look is partners.css, unchanged) */
@@ -1015,18 +1057,14 @@ body.staff6 .pq6 .pq-more > summary { border-radius: var(--v6-r12); font-size: v
 body.staff6 .pq6 .pq-more > summary:hover { background: var(--v6-wash); }
 body.staff6 .pq6 .pq-acts { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 16px; }
 body.staff6 .pq6 .pq-sec + .pq-sec { border-top-color: var(--v6-hair); }
-/* nothing to list (a quiet day, between sessions): the next step leads the column, the side keeps the season and the
-   doors; with nothing for the side either, one reading column (the side column only when something is opened) */
+/* nothing to list and no season card: one reading column (the side column opens when a door or a row does) */
 @media (min-width: 1100px) {
-  body.staff6 .t6-solo .t6-ld:not(.open) .t6-nextcol { display: block !important; }
-  body.staff6 .t6-solo .t6-ld:not(.open) .t6-aside .t6-next, body.staff6 .t6-solo .t6-ld:not(.open) .t6-aside .t6-clear, body.staff6 .t6-solo .t6-ld:not(.open) .t6-pick { display: none; }
   body.staff6 .t6-alone .t6-ld:not(.open) { grid-template-columns: minmax(0, 720px); }
   body.staff6 .t6-alone .t6-ld:not(.open) > .t6-aside { display: none; }
-  body.staff6 .t6-alone .t6-ld:not(.open) .t6-colonly { display: block !important; }
-  body.staff6 .t6-alone .t6-ld:not(.open) .t6-edgerow { display: grid !important; }
 }
-/* below 1100px the doors and the season card close the column, side by side from 768px (one under the other on a phone) */
-body.staff6 .t6-edgerow { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
-body.staff6 .t6-edgerow > * { margin: 0; }
-@media (min-width: 768px) and (max-width: 1099px) { body.staff6 .t6-edgerow:has(> :nth-child(2)) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 1100px) { body.staff6 .t6-solo .t6-ld:not(.open) .t6-edgerow { display: none !important; } }
+/* the one-line doors close the lists at every width, before Done today; below 1100px the season card sits beside them from
+   768px (one under the other on a phone) */
+body.staff6 .t6-edges { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
+body.staff6 .t6-edges > * { margin: 0; }
+@media (min-width: 768px) and (max-width: 1099px) { body.staff6 .t6-edges:has(> :nth-child(2)) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+

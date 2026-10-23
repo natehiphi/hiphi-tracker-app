@@ -83,7 +83,7 @@ export function wantQueue({ force = false } = {}) {
   if (!admitsPartners() || S.pqLoading || (!force && S.pq !== undefined)) return;
   S.pqLoading = true; S.pqErr = false;
   DB.partnerQueue().then(q => { S.pq = q; }).catch(e => { console.warn('partner_queue:', e?.message || e); S.pq = null; S.pqErr = true; })
-    .finally(() => { S.pqLoading = false; if (['today', 'pgroups'].includes(S.route?.name)) hooks.render(); });
+    .finally(() => { S.pqLoading = false; if (['today', 'team', 'pgroups'].includes(S.route?.name)) hooks.render(); });   // Team's bars count them too
 }
 // What waits on this person: the words they may approve (never one they hold in their 10 seconds).
 export function pqItems() {
@@ -104,7 +104,7 @@ export function wantAsks({ force = false } = {}) {
   if (!force && S.pAsks !== undefined) return;
   S.pAsksLoading = true; S.pAsksErr = false; S.pAsksAgain = false;
   DB.partnerAsks().then(a => { S.pAsks = a || []; }).catch(e => { console.warn('partner_asks_list:', e?.message || e); S.pAsks = null; S.pAsksErr = true; })
-    .finally(() => { S.pAsksLoading = false; if (S.pAsksAgain) return wantAsks({ force: true }); if (['today', 'pgroups'].includes(S.route?.name)) hooks.render(); });
+    .finally(() => { S.pAsksLoading = false; if (S.pAsksAgain) return wantAsks({ force: true }); if (['today', 'team', 'pgroups'].includes(S.route?.name)) hooks.render(); });
 }
 export const asksChanged = () => { S.pAsks = undefined; };
 export const TEXT_MAX = 110, TEXT_MIN = 10;   // a text's room for the line (185: 10 to 110 characters, as HIPHI's big push)
@@ -173,7 +173,7 @@ const billOf = it => billById(it.bill_id) || { bill_number: it.bill_number, titl
 const billLink = it => billRoute(billOf(it));
 const groupHref = slug => `#/partners/${encodeURIComponent(slug)}`;
 const nameOf = it => it.kind === 'issue' ? (it.words?.name || 'An issue of its own') : (it.words?.nickname || billOf(it).nickname || clip(billOf(it).title, 70));
-const sentLine = it => [`Sent ${whenAt(it.words?.sent_at || it.words?.written_at)}${it.by ? ` by ${it.by}` : ''}`.replace(/\.?$/, '.'), it.live ? 'An edit: the live version stays up until you approve.' : ''].filter(Boolean).join(' ');
+const sentLine = it => [`Sent ${whenAt(it.words?.sent_at || it.words?.written_at)}${it.by ? ` by ${it.by}` : ''}`.replace(/\.?$/, '.'), it.live ? 'They changed their words: what is live now stays up until you approve.' : ''].filter(Boolean).join(' ');
 // HIPHI's issue by its id, else one of the group's own (the queue read brings their names: data.js partnerQueue).
 const issueName = id => S.issues?.find(i => i.id === id)?.name || (S.pq?.issueNames || {})[id] || null;
 // What changed against the live words (an edit): each field that differs, then the talking points kept, added and dropped.
@@ -219,21 +219,25 @@ const errLine = m => `<p class="inlinemsg">${icon('circle-alert')}<span>${esc(m)
 // The ask on its own, just above Approve (R-328 G): what it says and until when, what approving does with it, and Also by
 // text (off unless switched on for this one ask), with a line of its own when the ask is longer than a text. where: 'c'
 // (a phone's card) or 'p' (the laptop's open item), so the two never share an id.
-function askHTML(it, where) {
+// `fold` (Today's next-step card): what approving does, the text switch and its line wait under "How it goes out", so the
+// ask's words and Approve stay close (the critic's 12: four lines on email and texts above Approve). Open when the text is
+// switched on or its line has an error.
+function askHTML(it, where, { fold = false } = {}) {
   const w = it.words || {}; if (it.kind !== 'bill' || !w.ask) return '';
   const f = askFate(it), k = keyOf(it), ek = esc(k), id = `pq${where}-${esc(it.id)}`, t = txtOf(it), n = String(t.line || '').trim().length, now = askNow(it);
   const sw = f && (f.kind === 'new' || f.kind === 'same'), l = it.live;
   // An edit says what the ask was, here rather than in "What changed", so the ask is said once (A-14).
   const was = !l ? '' : !l.ask ? 'New in this edit: their live words have no ask.' : l.ask.trim() !== w.ask.trim() ? `Was: ${l.ask}`
     : l.ask_until !== w.ask_until ? `Was until ${dayWord(l.ask_until)}.` : '';
-  return `<div class="pq-ask" data-pqaskbox="${ek}"><h4 class="pq-h4">The ask <span class="pq-until">until ${esc(dayWord(w.ask_until))}</span></h4>
-    <p class="pq-asktext">${esc(w.ask)}</p>${was ? `<p class="pq-askwas">${esc(was)}</p>` : ''}
-    ${now ? `<p class="pq-askwhen">${icon(f.kind === 'over' ? 'circle-minus' : 'clock')}<span>${esc(now)}</span></p>` : ''}
+  const how = `${now ? `<p class="pq-askwhen">${icon(f.kind === 'over' ? 'circle-minus' : 'clock')}<span>${esc(now)}</span></p>` : ''}
     ${sw ? `${switchRow(id, 'Also by text', t.on, 'Texted only to people who chose “As they come”, on a day HIPHI isn’t texting them. Texts are off until they’re set up.', { 'data-pqtext': k })}
     ${needsLine(it) ? `<div class="field pq-tline"${t.on ? '' : ' hidden'}><label for="${id}-l">Line for the text</label>
       <input id="${id}-l" type="text" autocomplete="off" data-pqline="${ek}" value="${esc(t.line || '')}" aria-describedby="${id}-lh ${id}-lc"${t.err ? ' aria-invalid="true"' : ''}>
       <span class="help pq-thelp"><span id="${id}-lh">The ask is longer than a text. Write the line that comes after “From ${esc(it.partner_name)}, a HIPHI partner:”.</span><span class="pq-count${countOver(n) ? ' over' : ''}" id="${id}-lc">${esc(countWords(n))}</span></span></div>` : ''}
-    <div class="pq-terr" data-pqterr="${ek}" role="alert">${t.err ? errLine(t.err) : ''}</div>` : ''}</div>`;
+    <div class="pq-terr" data-pqterr="${ek}" role="alert">${t.err ? errLine(t.err) : ''}</div>` : ''}`;
+  return `<div class="pq-ask" data-pqaskbox="${ek}"><h4 class="pq-h4">The ask <span class="pq-until">until ${esc(dayWord(w.ask_until))}</span></h4>
+    <p class="pq-asktext">${esc(w.ask)}</p>${was ? `<p class="pq-askwas">${esc(was)}</p>` : ''}
+    ${fold && how.trim() ? `<details class="pq-more pq-how"${t.on || t.err ? ' open' : ''}><summary>${icon('chevron-down', { cls: 'chev' })}<span>How it goes out</span></summary>${how}</details>` : how}</div>`;
 }
 
 // A phone's card: enough to judge most items without opening the fold.
@@ -296,7 +300,8 @@ export function partnerToday({ rows = false, reg = () => {} } = {}) {
 const pqLine = it => {
   const b = it.kind === 'bill' ? billOf(it) : null;
   const what = it.kind === 'issue' ? `Approve their issue “${clip(it.words?.name || '', 40)}”` : `Approve their words on ${clip(nameOf(it), 44)}`;
-  return [what, it.live ? 'an edit' : '', it.kind === 'bill' && it.words?.ask ? 'with an ask' : it.kind === 'bill' && it.flag && it.flag !== 'none' ? 'worth a closer look' : ''].filter(Boolean).slice(0, 2).join(' · ');
+  // Plain words for what is new (the critic's 12: "an edit" and "with an ask" needed explaining).
+  return [what, it.live ? 'changed their words' : '', it.kind === 'bill' && it.words?.ask ? 'adds an ask' : it.kind === 'bill' && it.flag && it.flag !== 'none' ? 'worth a closer look' : ''].filter(Boolean).slice(0, 2).join(' · ');
 };
 const pqOpen = (k = 'text') => btn('Open Partners', { kind: k, icon: 'handshake', href: '#/partners' });
 // The words today.js needs for a row: { name, num, line, href, what, sub, buttons(kind) }.
@@ -314,7 +319,7 @@ export function pqCard(it, { id = 't6-next-h' } = {}) {
     <p class="v6-step-when">${esc(sentLine(it))}</p>
     ${it.kind === 'bill' ? flagLine(it.flag) : ''}
     <details class="pq-more"><summary>${icon('chevron-down', { cls: 'chev' })}<span>Read all the words${it.live ? ' and what changed' : ''}</span></summary>${changes(w, it.live)}<div class="pq-sec">${wordsHTML(it, { ask: false })}</div></details>
-    ${askHTML(it, 'c')}
+    ${askHTML(it, 'c', { fold: true })}
     <div class="v6-step-acts">${acts(it, true)}${pqOpen()}</div></section>`;
 }
 // The open item beside the list (or its own page below 1100px), with Approve tonal.
