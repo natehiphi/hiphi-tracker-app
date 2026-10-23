@@ -18,8 +18,11 @@ import { blRow } from './bills.js';
 import { billRoute } from './model.js';
 import { helpTopics, synOf } from './help.js';   // R-277 fix 19: Help's guides are places too; R-316 W29: one list of everyday words
 import { allWords } from './terms.js';   // R-316 W29 (L-15): Help's Capitol words, the one list Help and the tappable words use
+// R-335 (practice copy): what the team wrote in legislators' profiles (lines and tips) is found too, as a "Profiles" group;
+// a result names the legislator, the section and the words, and opens their page at that line.
+import { PROFILES, profileHits, quoteOf } from './profile.js';
 
-const SHOW = { bills: 8, legs: 5, convs: 5, people: 5 };
+const SHOW = { bills: 8, legs: 5, convs: 5, people: 5, profs: 5 };
 const st = () => (S.lgSearch ??= { q: '', more: new Set(), un: null });
 const qOf = route => String(route?.q?.q ?? '').trim();
 // Repaints only the results of the page on screen (set by wire), so data that arrives while someone types never
@@ -91,6 +94,7 @@ const convWho = g => (andList(g.legs.map(shortName)) || 'A legislator') + (g.ask
 const convSub = g => { const a = advocate(g.first.advocate_id), me = S.me && g.first.advocate_id === S.me.id;
   const who = me ? 'you' : String(a?.full_name || '').split(' ')[0] || 'someone', day = fmtDate(g.day, { weekday: 'short' }).replace(/^(\w{3}),/, '$1');
   const about = g.bill ? g.bill.nickname || g.bill.bill_number : g.issue?.name;
+  if (g.first.kind === 'note') return [day, `Note · ${me ? 'You' : who}`].join(' · ');   // R-335: a note about them (practice copy)
   return [...(g.ask ? [`Asked by ${who} ${day}`, askReply(g.last)] : [day, `${me ? 'You' : who} logged it`]), about].filter(Boolean).join(' · '); };
 // What was said, from the first word searched for when it is far in, so the reason the result is here shows.
 function convQuote(g, q, n = 110) {
@@ -207,6 +211,7 @@ export function headerHits(q) {
   const legs = matchLegs(q).map(l => ({ href: `#/legislator/${l.id}`, title: l.name, sub: `${l.chamber === 'S' ? 'Senate' : 'House'} district ${l.district || ''}`.trim(), icon: 'landmark' }));
   loadAllNotes();   // R-316 H-15
   const convs = convHits(q).map(g => ({ href: convHref(g), title: `${convWho(g)}: ${convQuote(g, q, 60)}`, sub: convSub(g), icon: 'message-square' }));
+  const profs = PROFILES() ? profileHits(q).map(h => ({ href: h.href, title: `${shortName(h.l)}: ${quoteOf(h.said, q, 60)}`, sub: `Profile · ${h.sec}`, icon: h.x.sec === 'tip' ? 'lightbulb' : 'notebook-pen' })) : [];   // R-335
   const people = () => peopleHits(q).map(p => ({ href: `#/person/${encodeURIComponent(p.id)}`, title: personName(p), sub: whereOf(p) || p.email || '', icon: 'user-round' }));
   // Bills not tracked: the same rule, their number or the words they show (the database also matches inside words).
   // Governor's messages (appointments) only by their number; a district ("sd 12") is not a bill search.
@@ -218,8 +223,8 @@ export function headerHits(q) {
   // R-316 W29 (L-15): a Capitol word's meaning above everything, at most two ("referral" and Joint referral); the line
   // under it is the meaning's first sentence, whole. The bills with the word follow.
   const words = wordHits(q).slice(0, 2).map(w => ({ href: w.href, title: w.term, sub: firstSentence(w.text), icon: 'book-open' }));
-  const groups = (ppl, un) => { const [b, u, i, l, c, p] = share([bills, un, issues, legs, convs, ppl], ROWS - places.length - words.length);
-    return [{ label: 'Capitol words', items: words }, { label: 'Places', items: places }, { label: 'Bills', items: b }, { label: 'Not tracked yet', items: u }, { label: 'Issues', items: i }, { label: 'Legislators', items: l }, { label: 'Conversations', items: c }, { label: 'Supporters', items: p }]; };
+  const groups = (ppl, un) => { const [b, u, i, l, f, c, p] = share([bills, un, issues, legs, profs, convs, ppl], ROWS - places.length - words.length);
+    return [{ label: 'Capitol words', items: words }, { label: 'Places', items: places }, { label: 'Bills', items: b }, { label: 'Not tracked yet', items: u }, { label: 'Issues', items: i }, { label: 'Legislators', items: l }, { label: 'Profiles', items: f }, { label: 'Conversations', items: c }, { label: 'Supporters', items: p }]; };
   const peopleReady = S.peopleLoaded || (S.people || []).length, lookUn = q.trim().length >= 3 && !(dist && dist[1]), key = plain(q).trim();
   if (peopleReady && (!lookUn || unCache.has(key))) return { groups: groups(people(), unRows(unCache.get(key))) };
   if (!peopleReady) peopleP ??= DB.loadPeople().catch(() => {}).finally(() => { peopleP = null; });
@@ -238,19 +243,21 @@ const personRow = p => {
   return `<a class="row lg-prow" href="#/person/${encodeURIComponent(p.id)}"><span class="lead">${icon('user-round')}</span><span class="body"><span class="title">${esc(personName(p))}</span><span class="sub">${esc([whereOf(p), act].filter(Boolean).join(' · ') || p.email || '')}</span></span><span class="end">${p.actions ? `${p.actions} action${p.actions === 1 ? '' : 's'}` : ''}${icon('chevron-right', { cls: 'chev' })}</span></a>`;
 };
 const convRow = (g, q) => `<a class="row lg-prow lg-cvrow" href="${esc(convHref(g))}"><span class="lead">${icon('message-square')}</span><span class="body"><span class="title">${esc(convWho(g))}</span><span class="sub">${esc(convSub(g))}</span><span class="lg-cvq">${esc(convQuote(g, q))}</span></span><span class="end">${icon('chevron-right', { cls: 'chev' })}</span></a>`;
+// R-335: a profile line found by search: the legislator, then the section, then the words around what was searched for.
+const profRow = (h, q) => `<a class="row lg-prow lg-cvrow lg-pfrow" href="${esc(h.href)}"><span class="lead">${icon(h.x.sec === 'tip' ? 'lightbulb' : 'notebook-pen')}</span><span class="body"><span class="title">${esc(shortName(h.l))}</span><span class="sub">${esc(`Profile · ${h.sec}`)}</span><span class="lg-cvq">${esc(quoteOf(h.said, q))}</span></span><span class="end">${icon('chevron-right', { cls: 'chev' })}</span></a>`;
 const more = (key, n, shown, label) => n > shown ? showAllBtn(n, { 'data-lgsmore': key }, { what: label, cls: 'lg-more' }) : '';
 const group = (id, title, n, inner) => `<section class="rows lg-grp" aria-labelledby="${id}"><h2 class="sv-group" id="${id}"><span>${title}</span><span class="n">${n}</span></h2>${inner}</section>`;
 
 const nOf = (n, one, many) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 function resultsHTML(q) {
   const s = st();
-  if (!q) return empty({ title: 'Search everything', text: 'Find bills by number or words, legislators by name, town or district, conversations with legislators by what was said, supporters by name or email, the app’s places, such as the Inbox or the partner update, and what a Capitol word such as “sine die” means.' });
+  if (!q) return empty({ title: 'Search everything', text: `Find bills by number or words, legislators by name, town or district, conversations with legislators by what was said,${PROFILES() ? ' what the team wrote in their profiles,' : ''} supporters by name or email, the app’s places, such as the Inbox or the partner update, and what a Capitol word such as “sine die” means.` });
   // untracked bills: only when the query is long enough to mean something (the current app's rule, 3 characters)
   const tracked = billHits(q), ids = new Set(S.bills.map(b => b.id)), nums = new Set(S.bills.map(b => b.bill_number));
   const un = s.un && s.un.q === q ? (s.un.rows || []).filter(r => !ids.has(r.id) && !nums.has(r.bill_number)) : null;
-  const legs = matchLegs(q), week = weekIndex(), convs = convHits(q);
+  const legs = matchLegs(q), week = weekIndex(), convs = convHits(q), profs = PROFILES() ? profileHits(q) : [];
   const peopleReady = S.peopleLoaded || (S.people || []).length, people = peopleReady ? peopleHits(q) : [];
-  const nb = s.more.has('b') ? tracked.length : SHOW.bills, nl = s.more.has('l') ? legs.length : SHOW.legs, np = s.more.has('p') ? people.length : SHOW.people, nc = s.more.has('c') ? convs.length : SHOW.convs;
+  const nf = s.more.has('f') ? profs.length : SHOW.profs, nb = s.more.has('b') ? tracked.length : SHOW.bills, nl = s.more.has('l') ? legs.length : SHOW.legs, np = s.more.has('p') ? people.length : SHOW.people, nc = s.more.has('c') ? convs.length : SHOW.convs;
   const unBlock = q.length < 3 ? '' : un === null ? `<div class="row lg-snote" role="status">${icon('loader-circle', { cls: 'lg-spin' })}<span>Looking through every bill of the session</span></div>`
     : un.length ? `<h3 class="lg-subh">Not tracked yet <span class="lg-n">${un.length}</span></h3>${un.map(untrackedRow).join('')}` : '';
   const main = [], side = [];
@@ -262,12 +269,13 @@ function resultsHTML(q) {
   if (tracked.length || (un && un.length) || un === null && q.length >= 3)
     main.push(group('lg-gb', 'Bills', nBills, tracked.slice(0, nb).map(b => blRow(b, { sub: esc(billSub(b)), href: `${billRoute(b)}` })).join('') + more('b', tracked.length, nb, 'tracked bills') + unBlock));
   if (legs.length) side.push(group('lg-gl', 'Legislators', legs.length, legs.slice(0, nl).map(l => legRow(l, { week })).join('') + more('l', legs.length, nl, 'legislators')));
+  if (profs.length) side.push(group('lg-gf', 'Profiles', profs.length, profs.slice(0, nf).map(h => profRow(h, q)).join('') + more('f', profs.length, nf, 'profile lines')));   // R-335
   if (convs.length) side.push(group('lg-gc', 'Conversations', convs.length, convs.slice(0, nc).map(g => convRow(g, q)).join('') + more('c', convs.length, nc, 'conversations')));
   if (!peopleReady) side.push(group('lg-gp', 'Supporters', '', `<div class="row lg-snote" role="status">${icon('loader-circle', { cls: 'lg-spin' })}<span>Loading supporters</span></div>`));
   else if (people.length) side.push(group('lg-gp', 'Supporters', people.length, people.slice(0, np).map(personRow).join('') + more('p', people.length, np, 'supporters')));
   if (!main.length && !side.length) return wdHTML + plHTML || empty({ title: `Nothing matches “${esc(q)}”`, text: 'Try a bill number such as HB1562, a word from its title, a last name or a town.' });
   // What was found, in words, above the groups (each group's header repeats its own count).
-  const parts = [nBills ? nOf(nBills, 'bill', 'bills') : '', legs.length ? nOf(legs.length, 'legislator', 'legislators') : '', convs.length ? nOf(convs.length, 'conversation', 'conversations') : '', people.length ? nOf(people.length, 'supporter', 'supporters') : ''].filter(Boolean);
+  const parts = [nBills ? nOf(nBills, 'bill', 'bills') : '', legs.length ? nOf(legs.length, 'legislator', 'legislators') : '', profs.length ? nOf(profs.length, 'profile line', 'profile lines') : '', convs.length ? nOf(convs.length, 'conversation', 'conversations') : '', people.length ? nOf(people.length, 'supporter', 'supporters') : ''].filter(Boolean);
   const sum = parts.length ? `<p class="st-ssum">${parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]} for “${esc(q)}”${keysUsed() ? '<span class="st-skeys"> · The arrow keys move through the results, Enter opens one</span>' : ''}</p>` : '';
   const two = main.length && side.length;
   return `${wdHTML}${plHTML}${sum}<div class="st-sgrid${two ? ' st-two' : ''}">${main.length ? `<div class="st-scol" data-scol="0">${main.join('')}</div>` : ''}${side.length ? `<div class="st-scol${two ? ' st-sside' : ''}" data-scol="1">${side.join('')}</div>` : ''}</div>`;
@@ -364,7 +372,7 @@ export default {
     requestAnimationFrame(() => { const f = boxes.find(b => b.offsetParent), at = document.activeElement;
       if (f && at !== f && (!s.q || fine && (!at || at === document.body || at.id === 'main'))) { f.focus({ preventScroll: true }); try { f.setSelectionRange(f.value.length, f.value.length); } catch { /* not a text box */ } } });
     root.addEventListener('click', async e => {
-      const m = e.target.closest('[data-lgsmore]'); if (m) { s.more.add({ b: 'b', l: 'l', c: 'c', p: 'p' }[m.dataset.lgsmore]); paint(); return; }
+      const m = e.target.closest('[data-lgsmore]'); if (m) { s.more.add({ b: 'b', l: 'l', c: 'c', p: 'p', f: 'f' }[m.dataset.lgsmore]); paint(); return; }
       const tr = e.target.closest('[data-lgtrack]'); if (!tr) return;
       const r = (s.un?.rows || []).find(x => String(x.id) === tr.dataset.lgtrack); if (!r) return;
       tr.setAttribute('aria-busy', 'true'); tr.disabled = true;

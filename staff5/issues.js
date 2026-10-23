@@ -30,6 +30,7 @@ import { testimonyOf, dueOf } from './hearing.js';
 import { isPos, dayOf, dueWhen, waitingOfBills } from './standing.js';
 import { weekOfBills, standWeekHTML, wireWeek } from './coalition.js';
 import { standOf, bodyHTML, toolsHTML, wireTools } from './issuestand.js';
+import { PROFILES, caresSecHTML } from './profile.js';   // R-335 (practice copy): "Legislators who care about this"
 
 // ---- the catalogue ----
 export const catByKey = k => (S.categories || []).find(c => c.key === k) || null;
@@ -460,14 +461,17 @@ function pageRender(route) {
   const prep = prepCardHTML(i, { outlook: SESSION_OVER ? '' : outlook }), prepFirst = SESSION_OVER && !isDraft(i) && !i.archived_at && stateOf(i) !== 'approved';
   const work = prepFirst ? `${prep}${weekHTML(i, now)}${billsHTML(i, now, earlier)}` : `${weekHTML(i, now)}${billsHTML(i, now, earlier)}${prep}`;
   const bk = backTo(route);
-  const aside = `${publicCard(i)}${i.archived_at ? '' : relatedHTML(i)}`;
+  // R-335 (practice copy): the legislators the team marked as caring about it, in the side panel on a laptop and after the
+  // work on a phone.
+  const cares = PROFILES() && !i.archived_at ? caresSecHTML(i) : '';
+  const aside = `${publicCard(i)}${side ? cares : ''}${i.archived_at ? '' : relatedHTML(i)}`;
   const back = `<a class="le-deskback" href="${from ? billRoute(from) : bk.href}" data-back${from ? ` aria-label="Back to ${esc(from.bill_number)}"` : ''}>${icon('chevron-left')}<span>${from ? `Back to ${esc(from.bill_number)}` : esc(bk.label)}</span></a>`;
   // A laptop: the issue and its week on the left; its public side and related issues in the one side panel (as a
   // coalition's page keeps sharing and support there). A phone reads it all in one column, the work first.
   if (side) return `<div class="le-page le-list is-page is-two">${back}<div class="sv-cols is-cols">
       <div class="is-main">${head}${work}${convSectionHTML(convOpts(i))}</div>
       <aside class="sv-aside is-side" aria-label="On the public page, and related issues">${aside}</aside></div></div>`;
-  return `<div class="le-page le-list is-page">${back}${head}${work}${aside}${convSectionHTML(convOpts(i))}</div>`;
+  return `<div class="le-page le-list is-page">${back}${head}${work}${cares}${aside}${convSectionHTML(convOpts(i))}</div>`;
 }
 // A link works both ways: unlinking here unlinks it on the other issue's page too. Each row is the other issue's name,
 // with its category when it is another one and "Linked by staff" for the links nobody's wording found. The × on each,
