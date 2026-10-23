@@ -9,8 +9,11 @@
 //   - Whoever added a group cannot approve it (the database checks it too), so a group waiting says who can.
 //   - Every write is one of 184's functions; a refusal is shown in its own plain words (B-8). Pause, Resume, Remove a person
 //     and Decline have Undo (B-5); Approve a group cannot be taken back, so Pause is the way back and the toast says so.
-//   - Who approves partners (admins tick them, Nate and Jess) and an invite link with a group's details filled in are in
-//     the page's "…" menu: both are rare (A-20, B-13).
+//   - v6 (R-336 F186, spec 6 "Partners", rule 3): no step lives only in a "…" menu. Invite a group and Make a link only are
+//     tonal buttons in the page head; Edit details and Pause are text buttons on the open group; a person's sign-in link is
+//     the one button on their row, and Take someone off is under the list. Who approves partners is the Partner approver
+//     role on each person's record in People (V28: all of a person's roles in one place); the head says who it is.
+//   - Rows are a name and one line (spec 7.2): the state is a word in the line, not a chip.
 //   - Any staff member may look (the tables are readable by all staff); only an admin or a partner approver sees the
 //     buttons, and the page says so.
 //   - Partner asks (R-328 batch G, backend 185): an ask Nate or Jess approved goes out in the 4:30 pm email, and it is
@@ -18,7 +21,8 @@
 //     Emails, with Take it back (Undo sends it again at the next 4:30 pm; nobody gets it twice, B-5). Taken back and ended
 //     asks wait in a fold. Only a partner approver sees the buttons (the database refuses anyone else).
 import { S, DB, esc, hooks, fmtDate, partnerSlug } from './data.js';
-import { icon, btn, iconBtn, chip, toast, openSheet, closeSheet, menuSheet, notice, skeleton, empty, friendly, switchRow, field } from './ui.js';
+import { icon, btn, toast, openSheet, closeSheet, pickerSheet, notice, skeleton, friendly, field } from './ui.js';
+import { itemRow, placeHead } from './steps.js';
 import { whenAt, billById, billNum, billSay, billRoute } from './model.js';
 import { admitsPartners, approvesPartners, firstName, otherApprovers, orList, wantQueue, queueChanged, wantAsks, emailWord } from './partnerq.js';
 import { dailyWord, paused } from './composer.js';
@@ -29,9 +33,6 @@ const inviteOf = (name, site) => `${PUB}#/groups?${new URLSearchParams({ name: n
 const dayWord = d => d ? fmtDate(d, { weekday: 'short' }).replace(',', '') : '';
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 const ORDER = { waiting: 0, active: 1, paused: 2, link: 3 };
-// No amber: amber is for what is due within a day (A-5); the word and the icon say the state.
-const STATUS = { waiting: ['Waiting for approval', 'hourglass', ''], active: ['Active', 'circle-check', 'ok'], paused: ['Paused', 'eye-off', ''], link: ['Link only', 'link', ''] };
-const statusChip = s => { const [w, ic, tone] = STATUS[s] || [s, 'circle-dashed', '']; return chip(w, tone, ic); };
 const wide = () => { try { return matchMedia('(min-width: 1100px)').matches; } catch { return false; } };
 const redraw = () => { if (S.route?.name === 'pgroups') hooks.render(); };
 
@@ -52,7 +53,7 @@ const canApprove = g => g.status === 'waiting' && approvesPartners() && g.added_
 // ---- the list ----
 function countsLine(g) {
   const c = S.pg?.counts?.[g.slug] || {}, v = S.pg?.visits?.[g.slug];
-  return [c.live ? `${plural(c.live, 'bill')} live` : '', c.waiting ? `${c.waiting} waiting for approval` : '', c.changes ? `${plural(c.changes, 'change')} asked` : '',
+  return [c.live ? `${plural(c.live, 'bill')} live` : '', c.waiting ? `${c.waiting} waiting to be approved` : '', c.changes ? `${plural(c.changes, 'change')} asked` : '',
     v ? `${v} first visit${v === 1 ? '' : 's'} by its link in 12 weeks${S.pg?.sample ? ' (sample)' : ''}` : ''].filter(Boolean);
 }
 function groupSub(g) {
@@ -62,7 +63,12 @@ function groupSub(g) {
   const c = S.pg?.counts?.[g.slug] || {}, n = peopleOf(g.slug).length;
   return [plural(n, 'person', 'people'), c.live ? `${c.live} bill${c.live === 1 ? '' : 's'} live` : 'no bills live yet', c.waiting ? `${c.waiting} waiting` : ''].filter(Boolean).join(' · ');
 }
-const rowA = (href, on, title, chipHtml, sub) => `<a class="pg-row${on ? ' on' : ''}" href="${esc(href)}"${on ? ' aria-current="true"' : ''}><span class="pg-rt"><b>${esc(title)}</b>${chipHtml}</span><span class="pg-rs">${esc(sub)}</span>${icon('chevron-right', { cls: 'chev' })}</a>`;
+// v6 rows (spec 5, 7.2): the name, then one line that starts with the state's word ("Active · 2 people · 3 bills live").
+// Active is the usual state and goes unsaid (status by exception, spec 7.7).
+const rowLine = g => g.status === 'active' ? groupSub(g) : g.status === 'waiting' ? `Waits for ${orList(approversFor(g))} to approve it`
+  : g.status === 'paused' ? 'Paused · its words are off the tracker' : `Link only · ?via=${g.slug}`;
+const rowA = (key, href, on, title, line) => itemRow({ key, name: title, line: esc(line), href, selected: on });
+const rowList = (label, rows) => `<div class="v6-list" role="list" aria-label="${esc(label)}">${rows.join('')}</div>`;
 // ---- partner asks going out (R-328 G) ----
 const ASK_ON = ['going_out', 'sending'], ASK_OFF = ['taken_back', 'ended'];
 const hstToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
@@ -77,47 +83,50 @@ function askLine(a) {
     : paused() && !a.sent ? `Approved${by} ${whenAt(a.approved_at)}`
     : a.state === 'going_out' ? `Goes out ${dailyWord(a.scheduled_for)} at 4:30 pm`
     : `Going out since ${dayWord(a.scheduled_for)}${a.sent ? `: ${plural(a.sent, 'person', 'people')} so far` : ''}`;
-  return [when, a.also_text ? 'Email, and text once texts are on' : 'Email only', a.state === 'ended' ? '' : `until ${dayWord(a.ask_until)}`.replace(/ /g, '\u00a0')].filter(Boolean).join(' · ');   // "until Wed 3/25" never splits
+  // "Email only" is the usual case and goes unsaid (spec 7.2: a row is at most four facts); a text as well is said.
+  return [when, a.also_text ? 'also by text once texts are on' : '', a.state === 'ended' ? '' : `until ${dayWord(a.ask_until)}`.replace(/ /g, '\u00a0')].filter(Boolean).join(' · ');   // "until Wed 3/25" never splits
 }
 function askRow(a) {
   const b = askBill(a), can = approvesPartners();
   const act = !can ? '' : ASK_ON.includes(a.state) ? btn('Take it back', { kind: 'secondary', sm: true, icon: 'undo-2', attrs: { 'data-pgtake': a.id } })
     : a.state === 'taken_back' && String(a.ask_until) >= hstToday() ? btn('Send again', { kind: 'text', sm: true, icon: 'send', attrs: { 'data-pgresend': a.id } }) : '';
-  return `<li class="pg-ask${act ? '' : ' noact'}"><span class="pg-ab"><span class="pg-at"><b>${esc(a.partner_name)}</b> on <a href="${esc(billRoute(b))}">${esc(billSay(b))}</a></span>
-    <span class="pg-aq">${esc(a.ask)}</span><span class="pg-rs">${esc(askLine(a))}</span></span>${act ? `<span class="pg-aa">${act}</span>` : ''}</li>`;
+  return `<div class="pg-ask" role="listitem"><span class="pg-ab"><span class="pg-at"><b>${esc(a.partner_name)}</b> on <a href="${esc(billRoute(b))}">${esc(billSay(b))}</a></span>
+    <span class="pg-aq">${esc(a.ask)}</span><span class="pg-rs">${esc(askLine(a))}</span></span>${act ? `<span class="pg-aa">${act}</span>` : ''}</div>`;
 }
 function asksHTML() {
   if (S.pAsksErr) return `<section class="pg-sec"><p class="pg-none pg-askerr">${icon('circle-alert')}<span>The partner asks did not load.</span>${btn('Try again', { kind: 'text', sm: true, attrs: { 'data-pgaskretry': '1' } })}</p></section>`;
   const all = S.pAsks || [], on = all.filter(a => ASK_ON.includes(a.state)), off = all.filter(a => ASK_OFF.includes(a.state));
   if (!on.length && !off.length) return '';
   return `<section class="pg-sec" aria-labelledby="${on.length ? 'pg-h-ask' : 'pg-h-askoff'}">
-    ${on.length ? `<h2 class="pg-h2" id="pg-h-ask">${paused() ? 'Held while email is paused' : 'Going out at 4:30 pm'}<span class="n">${on.length}</span></h2><ul class="pg-rows pg-asks">${on.map(askRow).join('')}</ul>` : ''}
-    ${off.length ? `<details class="pq-more pg-fold"${S.pgAskFold ? ' open' : ''}><summary id="pg-h-askoff">${icon('chevron-down', { cls: 'chev' })}<span>Asks taken back or ended</span><span class="n">${off.length}</span></summary><ul class="pg-rows pg-asks">${off.map(askRow).join('')}</ul></details>` : ''}</section>`;
+    ${on.length ? `<h2 class="pg-h2" id="pg-h-ask">${paused() ? 'Held while email is paused' : 'Going out at 4:30 pm'}<span class="n">${on.length}</span></h2>${rowList('Partner asks', on.map(askRow))}` : ''}
+    ${off.length ? `<details class="pg-fold"${S.pgAskFold ? ' open' : ''}><summary id="pg-h-askoff">${icon('chevron-down', { cls: 'chev' })}<span>Asks taken back or ended</span><span class="n">${off.length}</span></summary>${rowList('Asks taken back or ended', off.map(askRow))}</details>` : ''}</section>`;
 }
 
 function listHTML(sel) {
   const rq = requests(), gs = groups(), writing = gs.filter(g => g.status !== 'link'), links = gs.filter(g => g.status === 'link');
-  const sec = (id, title, n, rows, more = '') => rows.length || more ? `<section class="pg-sec" aria-labelledby="pg-h-${id}"><h2 class="pg-h2" id="pg-h-${id}">${title}${n ? `<span class="n">${n}</span>` : ''}</h2>${rows.length ? `<div class="pg-rows">${rows.join('')}</div>` : ''}${more}</section>` : '';
-  return asksHTML() + sec('rq', 'Asking to join', rq.length, rq.map(r => rowA(`#/partners/request/${r.id}`, sel === 'r:' + r.id, r.group_name, chip('Asks to join', '', 'inbox'), `From ${r.contact_name} · ${whenAt(r.created_at)}`)))
-    + sec('gr', 'Groups that write', writing.length, writing.map(g => rowA(`#/partners/${encodeURIComponent(g.slug)}`, sel === 'g:' + g.slug, g.name, statusChip(g.status), groupSub(g))),
+  const sec = (id, title, n, rows, more = '') => rows.length || more ? `<section class="pg-sec" aria-labelledby="pg-h-${id}"><h2 class="pg-h2" id="pg-h-${id}">${title}${n ? `<span class="n">${n}</span>` : ''}</h2>${rows.length ? rowList(title, rows) : ''}${more}</section>` : '';
+  const gHref = g => `#/partners/${encodeURIComponent(g.slug)}`;
+  return asksHTML() + sec('rq', 'Asking to join', rq.length, rq.map(r => rowA('r:' + r.id, `#/partners/request/${r.id}`, sel === 'r:' + r.id, r.group_name, `Asks to join · from ${r.contact_name} · ${whenAt(r.created_at)}`)))
+    + sec('gr', 'Groups that write', writing.length, writing.map(g => rowA('g:' + g.slug, gHref(g), sel === 'g:' + g.slug, g.name, rowLine(g))),
       writing.length ? '' : `<p class="pg-none">${admitsPartners() ? 'No groups yet. Add the first one, then its people.' : 'No groups yet.'}</p>`)
-    + sec('ln', 'Link only', links.length, links.map(g => rowA(`#/partners/${encodeURIComponent(g.slug)}`, sel === 'g:' + g.slug, g.name, '', groupSub(g))),
-      links.length ? `<p class="pg-foot"><a href="#/outreach/issues?view=links">${icon('qr-code')}<span>Make a link or a QR code for one</span></a></p>` : '');
+    + sec('ln', 'Link only', links.length, links.map(g => rowA('g:' + g.slug, gHref(g), sel === 'g:' + g.slug, g.name, rowLine(g))));
 }
 
 // ---- one group ----
 function peopleHTML(g) {
   const ps = peopleOf(g.slug), can = admitsPartners() && g.status !== 'link';
-  const row = p => `<li class="pg-person"><span class="pg-pt"><b>${esc(p.name || p.email)}</b>${p.role === 'lead' ? chip('Lead', '', 'star', { sm: true }) : ''}</span>
+  // One button a person (D16): their sign-in link. Taking someone off is under the list (rare, and never only in a menu).
+  const row = p => `<li class="pg-person"><span class="pg-pt"><b>${esc(p.name || p.email)}</b>${p.role === 'lead' ? '<span class="pg-lead">· leads the group</span>' : ''}</span>
       <span class="pg-ps">${esc(p.email)} · ${p.joined_at ? `Signed in ${esc(dayWord(p.joined_at))}` : 'Not signed in yet'}</span>
-      ${can ? `<span class="pg-pa">${btn('Copy sign-in link', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-pglink': p.id } })}${iconBtn('x', `Take ${p.name || p.email} off ${g.name}`, { 'data-pgrm': p.id })}</span>` : ''}</li>`;
+      ${can ? `<span class="pg-pa">${btn('Sign-in link', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-pglink': p.id, 'aria-label': `Copy ${p.name || p.email}’s sign-in link` } })}</span>` : ''}</li>`;
   return `<section class="pg-dsec" aria-labelledby="pg-ph"><h3 class="pg-h3" id="pg-ph">People${ps.length ? `<span class="n">${ps.length}</span>` : ''}</h3>
     ${ps.length ? `<ul class="pg-people">${ps.map(row).join('')}</ul>` : `<p class="pg-p">${can ? 'No one yet. The first person you add leads the group: they can invite their teammates.' : 'No one yet.'}</p>`}
-    ${can ? `<p class="pg-addp">${btn('Add a person', { kind: 'text', icon: 'user-plus', attrs: { 'data-pgaddp': g.slug, 'aria-haspopup': 'dialog' } })}</p>` : ''}</section>`;
+    ${can ? `<p class="pg-addp">${btn('Add a person', { kind: 'text', icon: 'user-plus', attrs: { 'data-pgaddp': g.slug, 'aria-haspopup': 'dialog' } })}${ps.length ? btn('Take someone off', { kind: 'text', icon: 'x', attrs: { 'data-pgrmpick': g.slug, 'aria-haspopup': 'dialog' } }) : ''}</p>` : ''}</section>`;
 }
 function groupHTML(g) {
   const adm = admitsPartners(), cl = countsLine(g);
-  const more = adm ? iconBtn('ellipsis', `More for ${g.name}`, { 'data-pgmore': g.slug }) : '';
+  // Every step on the group in sight (rule 3): Edit details, and Pause for a group that writes; Resume is on a paused one's notice.
+  const acts = adm ? `<p class="pg-gacts">${btn('Edit details', { kind: 'text', icon: 'pencil', attrs: { 'data-pgedit': g.slug, 'aria-haspopup': 'dialog' } })}${g.status === 'active' ? btn('Pause the group', { kind: 'text', icon: 'eye-off', attrs: { 'data-pgset': 'pause', 'data-slug': g.slug } }) : ''}</p>` : '';
   let state = '';
   if (g.status === 'waiting') {
     const by = g.added_by ? firstName(g.added_by) : '', who = approversFor(g);
@@ -129,20 +138,20 @@ function groupHTML(g) {
   else state = `<div class="pg-state"><p>Its link counts arrivals and shows its welcome line. It does not write on the tracker.</p>${adm ? btn('Let it write on the tracker', { kind: 'secondary', icon: 'square-pen', attrs: { 'data-pgwrite': g.slug } }) : ''}</div>`;
   const about = [g.about ? esc(g.about) : '', g.website ? `<a href="${esc(g.website)}" target="_blank" rel="noopener">${esc(g.website.replace(/^https?:\/\//, '').replace(/\/$/, ''))}${icon('external-link')}</a>` : ''].filter(Boolean).join(' · ');
   return `<article class="pg-detail" aria-labelledby="pg-dh">
-    <div class="pg-dtop"><h2 class="pg-dname" id="pg-dh">${esc(g.name)}</h2>${statusChip(g.status)}${more}</div>
+    <div class="pg-dtop"><h2 class="pg-dname" id="pg-dh">${esc(g.name)}</h2></div>
     ${about ? `<p class="pg-about">${about}</p>` : ''}
     ${state}
     <section class="pg-dsec" aria-labelledby="pg-lh"><h3 class="pg-h3" id="pg-lh">Its link</h3>
       <div class="pg-link"><code>${esc(linkOf(g.slug))}</code>${btn('Copy link', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-pgcopy': linkOf(g.slug) } })}</div>
       <p class="pg-p">${g.status === 'active' ? 'Opens the tracker with its bills first.' : 'Opens the tracker.'}${g.welcome ? ` People who arrive by it see its welcome line: “${esc(g.welcome)}”` : ''}</p>
       ${cl.length ? `<p class="pg-counts">${esc(cl.join(' · '))}</p>` : ''}</section>
-    ${g.status === 'link' ? '' : peopleHTML(g)}</article>`;
+    ${g.status === 'link' ? '' : peopleHTML(g)}${acts}</article>`;
 }
 function requestHTML(r) {
   const adm = admitsPartners();
   return `<article class="pg-detail" aria-labelledby="pg-dh">
-    <div class="pg-dtop"><h2 class="pg-dname" id="pg-dh">${esc(r.group_name)}</h2>${chip('Asks to join', '', 'inbox')}</div>
-    <p class="pg-about">${esc(`Sent ${whenAt(r.created_at)} by ${r.contact_name}`)} · <a href="mailto:${esc(r.contact_email)}">${esc(r.contact_email)}</a></p>
+    <div class="pg-dtop"><h2 class="pg-dname" id="pg-dh">${esc(r.group_name)}</h2></div>
+    <p class="pg-about">${esc(`Asks to join: sent ${whenAt(r.created_at)} by ${r.contact_name}`)} · <a href="mailto:${esc(r.contact_email)}">${esc(r.contact_email)}</a></p>
     <dl class="pg-dl">${r.about ? `<dt>About the group</dt><dd>${esc(r.about)}</dd>` : ''}${r.website ? `<dt>Website</dt><dd><a href="${esc(r.website)}" target="_blank" rel="noopener">${esc(r.website)}${icon('external-link')}</a></dd>` : ''}
       ${r.note ? `<dt>Their note</dt><dd>${esc(r.note)}</dd>` : ''}<dt>Not a campaign</dt><dd>They said the group is not a candidate, a campaign or a party.</dd></dl>
     ${adm ? `<div class="pg-acts">${btn('Add as a group', { icon: 'plus', attrs: { 'data-pgfromrq': r.id, 'aria-haspopup': 'dialog' } })}${btn('Decline', { kind: 'text', attrs: { 'data-pgdecline': r.id } })}</div>
@@ -160,8 +169,11 @@ function render(route) {
   const adm = admitsPartners();
   const lede = adm ? 'Advocacy groups that write on the public tracker. A group you add goes live when a second approver approves it, and every word its people write comes to Nate or Jess first.'
     : 'Advocacy groups that write on the public tracker. Only an admin or a partner approver adds and changes them.';
-  const head = (quiet = false) => `<div class="sv-phead pg-head"><div class="sv-pht"><h1 class="sv-h1">Partners</h1><p>${esc(lede)}</p></div>
-    ${adm ? `<span class="sv-phr">${btn('Add a group', { kind: quiet ? 'secondary' : 'primary', icon: 'plus', attrs: { 'data-pgadd': '1', 'aria-haspopup': 'dialog' } })}${iconBtn('ellipsis', 'More on Partners', { 'data-pgpage': '1' })}</span>` : ''}</div>`;
+  // F186: Invite a group and Make a link only in sight beside Add a group; who approves partners is said, and changed on
+  // each person's record in People.
+  const who = S.advocates.filter(a => approvesPartners(a)).map(a => a.full_name.split(' ')[0]);
+  const sub = `${esc(lede)}${S.me?.is_admin ? ` Partner approvers: ${esc(who.length ? who.join(' and ') : 'nobody yet')}. <span class="v6-nw"><a href="#/people">Change who in People</a>.</span>` : ''}`;
+  const head = (quiet = false) => placeHead('Partners', { sub, actions: adm ? `${btn('Add a group', { kind: quiet ? 'secondary' : 'primary', icon: 'plus', attrs: { 'data-pgadd': '1', 'aria-haspopup': 'dialog' } })}${btn('Invite a group', { kind: 'secondary', icon: 'mail-plus', attrs: { 'data-pginvite': '1', 'aria-haspopup': 'dialog' } })}${btn('Make a link only', { kind: 'secondary', icon: 'qr-code', href: '#/my-issues/all?view=links' })}` : '' });
   if (!S.pg) return `<div class="pg-page">${head()}${S.pgErr ? notice('bad', 'circle-alert', 'The partner groups did not load. Check your connection and try again.', btn('Try again', { kind: 'secondary', sm: true, attrs: { 'data-pgretry': '1' } })) : skeleton(3)}</div>`;
   const qerr = S.pqErr ? notice('warn', 'circle-alert', 'The requests to join did not load.', btn('Try again', { kind: 'text', sm: true, attrs: { 'data-pgretry': '1' } })) : '';
   // A laptop opens the first one (a request, else a group waiting, else the first group) so the panel is never empty; a
@@ -316,19 +328,6 @@ async function askStep(id, act, el) {
       await DB.partnerAskStep({ id: a.id, do: 'take_back' }); asksReload(); toast('Undone. It stays taken back.'); } });
   });
 }
-function approversSheet() {
-  const team = S.advocates.filter(a => a.is_active !== false).sort((a, b) => a.full_name.localeCompare(b.full_name));
-  openSheet({ title: 'Partner approvers', size: 'auto',
-    body: `<p class="pg-p">They approve new groups and every partner’s words, issues and asks. Nate’s call (22 Oct): Nate and Jess.</p>
-      <div class="pg-apl">${team.map(a => switchRow(`pa-${a.id}`, esc(a.full_name), !!a.approves_partners, a.is_admin ? 'Admin' : '', { 'data-pa': a.id })).join('')}</div>`,
-    wire: d => d.querySelectorAll('[data-pa]').forEach(x => x.addEventListener('change', async () => {
-      const a = S.advocates.find(y => y.id === x.dataset.pa), on = x.checked;
-      try { await DB.partnerSetApprover(a.id, on); } catch (e) { x.checked = !on; toast(e, { err: true }); return; }
-      queueChanged(); wantQueue({ force: true });
-      toast(on ? `${a.full_name} now approves partners.` : `${a.full_name} no longer approves partners.`, { ok: on, undo: async () => { await DB.partnerSetApprover(a.id, !on); const el = d.isConnected && d.querySelector(`[data-pa="${CSS.escape(a.id)}"]`); if (el) el.checked = !on; redraw(); } });
-      redraw();
-    })) });
-}
 function inviteSheet() {
   openSheet({ title: 'Invite a group', size: 'auto',
     body: `<p class="pg-p">A link to send a group you would like to have on the tracker. It opens the request form with their name and website filled in; their request then shows here.</p>
@@ -348,29 +347,20 @@ function inviteSheet() {
         copyText(url(), 'Invite link copied. Send it from your email.'); };
     } });
 }
-function pageMenu() {
-  menuSheet({ title: 'Partners', items: [
-    { label: 'Invite a group', icon: 'mail-plus', sub: 'A link with their name and website filled in', run: () => setTimeout(inviteSheet, 50) },
-    S.me?.is_admin ? { label: 'Partner approvers', icon: 'shield-check', sub: S.advocates.filter(a => approvesPartners(a)).map(a => a.full_name.split(' ')[0]).join(', ') || 'Nobody yet', run: () => setTimeout(approversSheet, 50) } : null,
-    { label: 'Make a link only', icon: 'qr-code', sub: 'For an event or a flyer: counts arrivals, writes nothing', run: () => S.go('#/outreach/issues?view=links') },
-  ] });
-}
-function groupMenu(slug) {
-  const g = (S.pg?.groups || []).find(x => x.slug === slug); if (!g) return;
-  menuSheet({ title: g.name, items: [
-    { label: 'Edit details', icon: 'pencil', sub: 'Name, website, the line about it, the welcome line', run: () => setTimeout(() => groupForm({ g }), 50) },
-    g.status === 'active' ? { label: 'Pause the group', icon: 'eye-off', sub: 'Takes all its words off the tracker at once', run: () => setGroup(slug, 'pause') } : null,
-    g.status === 'paused' ? { label: 'Resume the group', icon: 'play', sub: 'Its approved words show again', run: () => setGroup(slug, 'resume') } : null,
-    { label: 'Copy its link', icon: 'copy', run: () => copyText(linkOf(slug), 'Link copied.') },
-  ] });
+// Take someone off the group (rare): pick who, then it happens at once with Undo (B-5), as v5's x did.
+function removePick(slug) {
+  const g = (S.pg?.groups || []).find(x => x.slug === slug), ps = peopleOf(slug); if (!g || !ps.length) return;
+  pickerSheet({ title: `Take someone off ${esc(g.name)}`, value: '', help: 'They can no longer sign in to write for it. Undo puts them back.',
+    options: ps.map(p => [p.id, p.name || p.email, null, p.email]), onPick: id => { const p = ps.find(x => x.id === id); if (p) removePerson(p); } });
 }
 function wire(route, root) {
   const main = root.querySelector('.pg-page'); if (!main) return;
   const on = (sel, fn) => main.querySelectorAll(sel).forEach(el => el.onclick = e => fn(el, e));
   on('[data-pgretry]', () => { S.pgErr = ''; reload(); redraw(); });
   on('[data-pgadd]', () => groupForm());
-  on('[data-pgpage]', () => pageMenu());
-  on('[data-pgmore]', el => groupMenu(el.dataset.pgmore));
+  on('[data-pginvite]', () => inviteSheet());
+  on('[data-pgedit]', el => { const g = (S.pg?.groups || []).find(x => x.slug === el.dataset.pgedit); if (g) groupForm({ g }); });
+  on('[data-pgrmpick]', el => removePick(el.dataset.pgrmpick));
   on('[data-pgok]', el => setGroup(el.dataset.pgok, 'approve', el));
   on('[data-pgset]', el => setGroup(el.dataset.slug, el.dataset.pgset, el));
   on('[data-pgwrite]', el => letWrite(el.dataset.pgwrite, el));
