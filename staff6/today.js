@@ -80,11 +80,10 @@ function seasonOf(now = Date.now()) {
   const sine = (rows.find(r => r.key === 'sine_die')?.deadline_date) || cal?.sine_die || null;
   const intro = rows.find(r => r.key === 'intro_cutoff')?.deadline_date || null;
   const fdeck = rows.find(r => r.key === 'final_decking')?.deadline_date || null;
-  const day = hday(now), month = +day.slice(5, 7);
-  if (SESSION_OVER) {
-    if (sine && day > String(sine).slice(0, 10) && now < vetoDay(sine, 45)) return 'governor';
-    return month >= 10 || month <= 1 ? 'prep' : 'between';
-  }
+  const day = hday(now), month = +day.slice(5, 7), ended = !!sine && day > String(sine).slice(0, 10);
+  // After sine die the governor's clock runs (the practice copy's clock can pass sine die while its bills stay in March).
+  if (ended && now < vetoDay(sine, 45)) return 'governor';
+  if (SESSION_OVER || ended) return month >= 10 || month <= 1 ? 'prep' : 'between';
   if (intro) { const cut = ms(intro + 'T23:59:59-10:00'); if (now > cut - 18 * DAY && now < cut + 3 * DAY) return 'opening'; }
   if (fdeck && day > String(fdeck).slice(0, 10)) return 'conference';
   return 'hearings';
@@ -501,7 +500,7 @@ function seasonBody(season, v, w) {
     const mine = (S.bills || []).filter(b => (owns(v.id, b) || inCoal(v, b)) && stopOf(b).phase === 'conference' && !diedish(b));
     const fd = (DEADLINE_ROWS || []).find(r => r.key === 'final_decking')?.deadline_date;
     return { title: 'Bills in conference', html: p(mine.length ? `${plural(mine.length, 'of your bills is', 'of your bills are')} in conference${fd ? ` · the House and Senate must agree by ${esc(dayWords(fd))}` : ''}.` : 'The House and Senate are working out their differences in conference.', 'users')
-      + p('Who the conferees are is on each bill’s page, under About this bill.', 'info') };
+      + lineA('#/inbox?view=updates', 'users', '<b>Who the conferees are</b> · the Capitol’s notice is in Inbox › Updates') };
   }
   if (season === 'governor') {
     const sine = (DEADLINE_ROWS || []).find(r => r.key === 'sine_die')?.deadline_date;
@@ -644,7 +643,8 @@ function clearCard(v, w, ro, n = '') {
   // With nothing of their own, the one filled button is the most useful next place: the coalition's hearing asks for a
   // helper (D4), the next hearing, or Hearings.
   const go = ro ? '' : lost ? btn('Pick your coalition', { href: '#/my-issues/coalitions' }) : w.coal.size ? btn('Offer to help', { icon: 'hand-heart', href: '#/hearings/ask' })
-    : nh ? btn('Open the hearing', { icon: 'landmark', href: `#/hearing/${encodeURIComponent(nh.id)}?from=today` }) : SESSION_OVER ? '' : btn('Open Hearings', { icon: 'landmark', href: '#/hearings' });
+    : nh ? btn('Open the hearing', { icon: 'landmark', href: `#/hearing/${encodeURIComponent(nh.id)}?from=today` })
+    : ['conference', 'governor'].includes(seasonOf()) ? btn('Open your bills', { icon: 'file-text', href: '#/bills' }) : SESSION_OVER || seasonOf() === 'prep' || seasonOf() === 'between' ? '' : btn('Open Hearings', { icon: 'landmark', href: '#/hearings' });
   return `<section class="t6-clear" aria-labelledby="t6-clear-h${n}"><h2 class="t6-clh" id="t6-clear-h${n}">${ro ? `Nothing is waiting on ${esc(first(v.id))}.` : lost ? 'Pick the coalition you help on' : 'Nothing needs you today.'}</h2>
     ${lost ? '<p>Its hearings and testimony show here once you switch on I help on it.</p>' : text ? `<p>${nw(esc(text))}</p>` : ''}${go ? `<p class="t6-clgo">${go}</p>` : ''}</section>`;
 }

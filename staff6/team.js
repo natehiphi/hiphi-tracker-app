@@ -16,7 +16,7 @@
 import { S, DB, SESSION_OVER, esc, advocate, hooks } from './data.js';
 import { slipNow } from './today5.js';
 import { work, listHTML, t6Season, T6REG } from './today.js';
-import { billRoute, billById, whenAt, roomName, diedish, wantsHearing } from './model.js';
+import { billRoute, billById, whenAt, lateLine, roomName, diedish, wantsHearing } from './model.js';
 import { icon, btn, toast, pickerSheet, avatar } from './ui.js';
 import { billStep, billRow, itemRow, rowButton, rowButtonOK, nameWords, numWords, sayWords, firstWords, orWords, dayWords, timeWords,
   committeeName, goingWords, askWords, nw, wireSteps } from './steps.js';
@@ -30,6 +30,7 @@ const ms = t => t == null ? null : typeof t === 'number' ? t : new Date(t).getTi
 const hday = t => new Date(t).toLocaleDateString('en-CA', HST);
 const live = id => { const a = id && advocate(id); return !!a && a.is_active !== false; };
 const first = id => firstWords(id, { id: null });
+const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 const strip = s => String(s || '').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&[a-z#0-9]+;/g, ' ').replace(/\s+/g, ' ').trim();
 const teammates = () => (S.advocates || []).filter(a => a.is_active !== false);
@@ -57,7 +58,7 @@ function reachWords(ids, b) {
   const slack = ids.filter(id => reachOf(id) === 'slack'), mail = ids.filter(id => reachOf(id) === 'email'), app = ids.filter(id => !slack.includes(id) && !mail.includes(id));
   const parts = [slack.length ? `${orWords(slack, null, { and: true })} ${slack.length > 1 ? 'get' : 'gets'} it in Slack` : '', mail.length ? `${orWords(mail, null, { and: true })} ${mail.length > 1 ? 'get' : 'gets'} it by email` : '',
     app.length ? `${orWords(app, null, { and: true })} ${app.length > 1 ? 'see' : 'sees'} it in the app’s Inbox (Slack has not found ${app.length > 1 ? 'them' : first(app[0])} yet)` : ''].filter(Boolean);
-  return `Alert posted on ${sayWords(b)}’s Team talk. ${parts.join('; ')}.`;
+  return `Alert posted in the Team talk on ${numWords(b)}. ${cap(parts.join('; '))}.`;
 }
 // "Alert Kevin": a one-line message on the bill with @Kevin, with Undo (v5's W42 nudge, R-330), saying where it went.
 const ALERTS = new Map();
@@ -87,7 +88,7 @@ function slipping() {
     const mine = ids.includes(me), solo = ids.length === 1;
     const who = !ids.length ? 'No owner' : mine && solo ? 'You' : orWords(ids, S.me).replace(/^./, c => c.toUpperCase());
     const late = p.due != null && p.due <= now, until = !!(s && p.h && ms(p.h.scheduled_at) > now && VERB[s.kind]);
-    const when = p.due == null ? '' : late ? (until ? `late, still taken until ${timeWords(p.h.scheduled_at)}` : `was due ${whenAt(p.due)}`) : `due ${whenAt(p.due)}`;
+    const when = p.due == null ? '' : late ? (until ? lateLine(p.h.scheduled_at, { lower: true }) : `was due ${whenAt(p.due)}`) : `due ${whenAt(p.due)}`;
     const v = s && VERB[s.kind], what = v ? `${who} ${!ids.length || (mine && solo) || ids.length > 1 ? v[0] : v[1]}` : `${who}: ${strip(plainCodes(esc(strip(p.s))))}`;
     return { key: 'sl:' + (p.key || b.id), b, p, s, ids, mine, line: [what, when].filter(Boolean).join(' · '), what: strip(p.s), late };
   });
@@ -98,7 +99,7 @@ function slipRow(x) {
   if (x.mine && x.s && rowButtonOK(x.s)) button = rowButton(x.s);
   else if (!x.ids.length) button = giveBtn(x.b);
   else if (others.length) { ALERTS.set(x.key, { b: x.b, ids: others, what: x.what }); button = alertBtn(x.key, others); }
-  // Someone else's late step is said in words with its clock, never in colour (D3): "late, still taken until", "was due".
+  // Someone else's late step is said in words with its clock, never in colour (D3): "late, still accepted until", "was due".
   return itemRow({ key: x.key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(x.line)), icon: 'clock', href: billRoute(x.b), button });
 }
 
@@ -196,7 +197,7 @@ function seasonal({ side = true } = {}) {
 // ---- the pages ----
 const SLIP_SHOWN = 8;   // the whole of Slipping on Nate's first screen (staff6_people); the rest one labelled tap away
 function teamPage() {
-  ALERTS.clear();
+  ALERTS.clear(); reachOf(null);   // who Slack can reach, asked once (admins), so an Alert's words are right the first time
   const sl = slipping(), risk = atRisk(), sch = schedule(), all = !!S.tmSlipAll;
   const slip = block('slip', 'Slipping', sl.length ? `<div class="v6-list" role="list">${(all ? sl : sl.slice(0, SLIP_SHOWN)).map(slipRow).join('')}</div>${sl.length > SLIP_SHOWN ? `<p class="t6-more">${btn(all ? 'Show fewer' : `Show all ${sl.length}`, { kind: 'text', icon: all ? 'chevron-up' : 'chevron-down', attrs: { 'data-tmslipall': '1', 'aria-expanded': String(all) } })}</p>` : ''}`
     : quiet('circle-check', 'Nothing is slipping: nothing late or due within a day.'), { count: sl.length || '' });
