@@ -296,7 +296,7 @@ const list = (rows, label) => `<div class="v6-list sr-list" role="list" aria-lab
 const placeRowH = p => itemRow({ key: p.href + p.title, name: p.title, line: esc(withKey(p.sub, p.key)), icon: p.icon, href: p.href, cls: 'sr-row' });
 // A bill: where it stands, then what it does, since five bills can share one nickname ("Let counties regulate tobacco
 // sales") and the summary is what tells them apart (R-271).
-const billLine = b => { const sum = blurb(b, 110), nm = String(b.nickname || '').trim(); return esc([whereWords(b, { deadline: false }), sum && sum !== nm ? sum : ''].filter(Boolean).join(' · ')); };
+const billLine = b => { const sum = blurb(b, 110), nm = String(b.nickname || '').trim(); return esc([whereWords(b, { deadline: false }).replace(/ · /g, ', '), sum && sum !== nm ? sum : ''].filter(Boolean).join(' · ')); };
 const legLine = (l, week) => { const w = week.get(l.id), parts = [`${l.chamber === 'S' ? 'Senate' : 'House'} district ${l.district || ''}`.trim()];
   if (w) parts.push(`Hears ${plural(w.bills.size, 'of our bills', 'of our bills')} this week`);
   return parts.join(' · '); };
@@ -304,7 +304,7 @@ const legRowH = (l, week) => itemRow({ key: l.id, name: l.name, line: esc(legLin
 const untrackedRow = r => itemRow({ key: r.id, name: r.description || titleCaseSmart(r.title || ''), num: numWords(r), line: esc(r.last_action ? `${r.last_action}${r.last_action_date ? ' · ' + fmtDate(r.last_action_date) : ''}` : 'Not tracked yet'),
   href: billRoute(r), button: btn('Track', { kind: 'secondary', sm: true, icon: 'plus', attrs: { 'data-srtrack': r.id, 'aria-label': `Track ${r.bill_number}` } }), cls: 'sr-row' });
 const personRowH = p => itemRow({ key: p.id, name: personName(p), line: esc([supWhere(p), p.last_active ? `active ${fmtDate(p.last_active)}` : ''].filter(Boolean).join(' · ') || 'Supporter'), href: `#/person/${encodeURIComponent(p.id)}`, cls: 'sr-row' });
-const convRowH = (g, q) => itemRow({ key: g.key, name: convWho(g), num: convDay(g), line: `${esc(convSub(g))} · “${esc(convQuote(g, q, 90))}”`, href: convHref(g), cls: 'sr-row' });
+const convRowH = (g, q) => itemRow({ key: g.key, name: convWho(g), num: convDay(g), line: `${esc(convSub(g).replace(/ · /g, ', '))}: “${esc(convQuote(g, q, 90))}”`, href: convHref(g), cls: 'sr-row' });
 const profRowH = (h, q) => itemRow({ key: h.href, name: shortName(h.l), num: `Profile · ${h.sec}`, line: `“${esc(quoteOf(h.said, q, 100))}”`, href: h.href, cls: 'sr-row' });
 const teamRowH = a => itemRow({ key: a.id, name: a.full_name, line: esc(`${ROLE(a)} · see their list`), href: teamHref(a), cls: 'sr-row' });
 const issueRowH = i => { const c = (S.categories || []).find(x => x.key === i.category); return itemRow({ key: i.id, name: i.name, line: esc([c?.name || 'Issue', i.description ? String(i.description).replace(/\s+/g, ' ').slice(0, 120) : ''].filter(Boolean).join(' · ')), href: `#/issue/${encodeURIComponent(i.id)}`, cls: 'sr-row' }); };

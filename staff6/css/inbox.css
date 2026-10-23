@@ -33,6 +33,9 @@ body.staff6 .ib-page .ib-row .v6-row-line svg { color: var(--v6-muted); }
 /* read rows step back: their names in the reading face, unread ones keep the name's weight (an inbox's usual cue) */
 body.staff6 .ib-page .ib-msgrow:not(.ib-unread) .v6-row-name { font-family: Lato, system-ui, sans-serif; font-weight: 400; color: var(--v6-body); }
 body.staff6 .ib-page .ib-unread .v6-row-name { color: var(--v6-ink); }
+/* Updates is a digest to read, not a list of things to answer: each bill is its label, in the reading face, and what changed
+   is the line under it (bold stays for what is new in Messages, and a quarter of the text at most: spec 4) */
+body.staff6 .ib-page .ib-updrow .v6-row-name { font-family: Lato, system-ui, sans-serif; font-weight: 400; color: var(--v6-ink); }
 body.staff6 .ib-page .ib-unread .v6-row-top::before { content: ''; flex: none; align-self: center; width: 10px; height: 10px; border-radius: 50%; background: var(--v6-action); }
 body.staff6 .ib-page .ib-unread .v6-row-line { color: var(--v6-ink); }
 body.staff6 .ib-page .ib-read { width: 44px; height: 44px; min-width: 44px; border-radius: var(--v6-pill); color: var(--v6-muted); }

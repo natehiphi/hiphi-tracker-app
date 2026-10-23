@@ -137,7 +137,7 @@ function messagesHTML() {
       <label class="check ib-unr"><input type="checkbox" id="ib-unread" ${v.unreadOnly ? 'checked' : ''}><span>Unread only</span></label>
     </div>` : '';
   const none = filtered ? `<div class="ib-empty"><p>Nothing matches these filters.</p>${btn('Clear the filters', { kind: 'secondary', attrs: { 'data-ibclear': 1 } })}</div>`
-    : '<div class="ib-empty"><p class="ib-empty-h">Nothing here yet</p><p>Messages from teammates, @mentions and the tracker’s notes to you land here.</p></div>';
+    : '<div class="ib-empty"><p>Nothing here yet. Messages from teammates, @mentions and the tracker’s notes to you land here.</p></div>';
   const list = rows.length ? listDetail({ id: 'ib-msg', label: 'Messages', rows: groupedMessages(rows), detail: ldPicked('ib-msg') ? msgDetail(ldPicked('ib-msg')) : '', empty: 'Pick a message to read it whole', back: 'Back to Messages' }) : none;
   const keys = hover() && keysOn() && keysUsed() && rows.length ? `<p class="ib-keys">${icon('keyboard')}<span>Keys: <kbd>j</kbd> and <kbd>k</kbd> move, <kbd>Enter</kbd> opens, <kbd>e</kbd> marks read or unread, <kbd>Shift</kbd>+<kbd>M</kbd> marks them all read.</span></p>` : '';
   // V26: v5's Inbox carried deadline reminders; v6 keeps them on the step, and says so once, quietly, for anyone looking.
@@ -222,7 +222,7 @@ function updRow({ r, hit }) {
     const shown = [top || rest.shift(), rest.shift()].filter(Boolean), more = items.length - shown.length;
     line = shown.map(itemWords).join(' · ') + (more > 0 ? ` and ${more} more` : '');
   }
-  return itemRow({ key: r.b.id, name: nameWords(r.b), num: numWords(r.b), line, pick: r.b.id, selected: ldPicked('ib-upd') === r.b.id, cls: 'ib-row' });
+  return itemRow({ key: r.b.id, name: nameWords(r.b), num: numWords(r.b), line, pick: r.b.id, selected: ldPicked('ib-upd') === r.b.id, cls: 'ib-row ib-updrow' });
 }
 // The open bill: every update and message in the time picked, newest first, and the door to its Team talk.
 function updDetail(id) {
