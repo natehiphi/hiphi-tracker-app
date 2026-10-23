@@ -1008,7 +1008,7 @@ const TESTI = new Set(['nodraft', 'write', 'submit', 'revise', 'review', 'review
 // R-316 W56 (O-8): "until 1:10 PM today", "until 9:30 AM tomorrow", "until Fri 3/20, 9:30 AM": when late testimony stops
 // being taken, in the words of model.js lateLine (the open item's "Late, still accepted until 1:10 PM today").
 const untilWords = u => lateLine(u, { lower: true }).replace(/^late, still accepted /, '');
-// `o.late` (Slipping's "Late, still open" rows): late testimony says until when it is taken in place of the hearing's time,
+// `o.late` (Slipping's "Late testimony, still open" rows): late testimony says until when it is taken in place of the hearing's time,
 // which is the same moment, so the time is said once; the amber mark keeps the hours ("4h to file").
 function rowWords(p, x, st, o = {}) {
   if (st && p.h && TESTI.has(p.kind)) {
@@ -1540,10 +1540,11 @@ function weekOf(mon, scope, who, r) {
   wk.mon = monN;
   const card = (c, h) => { const k = slotKey(h); if (!c.dl.has(k)) c.dl.set(k, { h, due: testDue(h), rows: [], filed: 0 }); return c.dl.get(k); };
   for (const t of r.tasks) {
+    // R-316 W24 (fresh-eyes): a step whose sitting was cancelled, with no new date yet, has no day: in today's Other to-dos
+    // it read as today's work and pushed real work behind "+1 more". weekView names its bill once, under the grid.
+    if (t.off) continue;
     const c = wk.get(t.due == null || t.due < now ? today : hst(t.due)); if (!c) continue;
-    // R-316 W24: a step whose sitting was cancelled has no deadline to make a card of: it is one of today's Other to-dos,
-    // "HB1875 · HHS hearing cancelled, no new date yet".
-    if (t.off || !(TESTIMONY.has(t.kind) && t.h && t.b)) { c.other.push(t); continue; }
+    if (!(TESTIMONY.has(t.kind) && t.h && t.b)) { c.other.push(t); continue; }
     const g = card(c, t.h), st = wkState(t), ex = g.rows.find(x => x.b.id === t.b.id);
     if (!ex) g.rows.push({ b: t.b, st, t, h: t.h }); else if (st[2] < ex.st[2]) Object.assign(ex, { st, t, h: t.h });
   }
@@ -1630,10 +1631,7 @@ function wkAlso(all, now, wkend, max = Infinity) {
   const rows = [...per.values()].slice(0, max).map(g => {
     const t = g[0], more = g.length - 1, href = t.b ? `${billRoute(t.b)}` : t.href ? t.href : t.kind === 'followup' ? `#/person/${t.f.person_id}` : t.a ? `#/email/${t.a.id}` : '';
     const late = t.due != null && t.due < now, day = wkend && t.due != null ? `<b>${esc(dayFmt(hst(t.due), { weekday: 'short' }))}</b> · ` : '';
-    // R-316 W24: a step whose sitting was cancelled reads "HB1875 · HHS hearing cancelled, no new date yet", the number alone
-    // so the words that matter fit the column's two lines.
-    const what = t.off && t.h && t.b ? `<b class="td-num">${esc(billNum(t.b).split(' ')[0])}</b> · ${esc(hearAt(t.h))}` : `${t.b ? `${lead(t.b)} · ` : ''}${t.s}`;
-    const inner = `${icon(WK_ICON[t.kind] || 'list-todo')}<span class="wk-ot">${day}${what}${late ? (lateNow(t) ? ` <span class="sv-count soon">${esc(lateLine(untilOf(t), { lower: true }))}</span>` : ` <span class="sv-count late">overdue</span>`) : ''}${more ? ` <span class="wk-more">+${more} more</span>` : ''}</span>`;
+    const inner = `${icon(WK_ICON[t.kind] || 'list-todo')}<span class="wk-ot">${day}${t.b ? `${lead(t.b)} · ` : ''}${t.s}${late ? (lateNow(t) ? ` <span class="sv-count soon">${esc(lateLine(untilOf(t), { lower: true }))}</span>` : ` <span class="sv-count late">overdue</span>`) : ''}${more ? ` <span class="wk-more">+${more} more</span>` : ''}</span>`;
     return `<li>${href ? `<a class="wk-oth${t.kind === 'wait' ? ' wk-q' : ''}" href="${esc(href)}">${inner}</a>` : `<div class="wk-oth">${inner}</div>`}</li>`;
   }).join('') + (msgs.length && per.size < max ? `<li><a class="wk-oth" href="#/">${icon('message-circle')}<span class="wk-ot">${esc(plural(msgs.length, 'message'))} to answer, in the list</span></a></li>` : '');
   return `<section class="wk-blk wk-also" aria-label="Other to-dos"><p class="wk-bh">${icon('list-todo')}<b>Other to-dos</b></p><ul class="wk-others">${rows}</ul></section>`;
@@ -1647,7 +1645,7 @@ function weekView(route, scope, who, r) {
   // R-316 W20 (C-11): on Mine a deadline card's bill that is not yours (a coalition's, for Patti, Saya, Kris and Julie, who
   // own none; a bill you only follow) names whose step it is, as Team does (wkOn); your own bills stay as they were.
   const dlOwn = scope === 'team' ? () => true : scope === 'mine' ? b => !owns(S.me.id, b) : () => false;
-  const byDue = (x, y) => (x.kind === 'wait') - (y.kind === 'wait') || !!x.off - !!y.off || (x.due ?? Infinity) - (y.due ?? Infinity) || x.rank - y.rank;   // W24: a cancelled sitting's step last
+  const byDue = (x, y) => (x.kind === 'wait') - (y.kind === 'wait') || (x.due ?? Infinity) - (y.due ?? Infinity) || x.rank - y.rank;
   // A day's things with a time, in time order (at the same minute: the deadline, then the step, then the hearing),
   // then the steps with no time of their own. The weekend passes its two days together.
   // R-277 fix 18 (V-3): at a February peak a day's column grew without limit (35 -> 140 hearings in 7 days). Each day shows
@@ -1691,11 +1689,14 @@ function weekView(route, scope, who, r) {
   const nav = `<div class="td-wnav"><h2 class="td-wtitle">${esc(range)}</h2>
       <div class="td-wbtns">${iconBtn('chevron-left', 'Previous week', { 'data-week': off - 1 })}${off ? btn('This week', { kind: 'text', attrs: { 'data-week': 0 } }) : ''}${iconBtn('chevron-right', 'Next week', { 'data-week': off + 1 })}</div>
       ${wk.mon ? monBtn(wk.mon, scope, who, 'td-wmon') : ''}</div>`;
+  // R-316 W24 (fresh-eyes): testimony waiting for a new hearing date is in no day; its bills are named once, under the grid,
+  // on this week and the weeks ahead (a new notice may put them in any of them).
+  const wait = off >= 0 ? waitDateLine(r.tasks) : '';
   if (WEEK_EMPTY) { const co = scope === 'mine' ? coalPicked() : null, whose = co && !co.all && co.names.length ? co.names.join(' or ') + ' ' : '';
     const when = off === 0 ? 'this week' : off === 1 ? 'next week' : 'that week';
-    return `${nav}<p class="td-wempty">${icon('calendar')}<span>No ${esc(whose)}hearings and nothing due ${esc(when)}.${wk.mon ? ` Hearings on bills we only monitor are under <b>+${wk.mon} on bills you monitor</b>.` : ''}</span></p>`; }
+    return `${nav}<p class="td-wempty">${icon('calendar')}<span>No ${esc(whose)}hearings and nothing due ${esc(when)}.${wk.mon ? ` Hearings on bills we only monitor are under <b>+${wk.mon} on bills you monitor</b>.` : ''}</span></p>${wait}`; }
   return `${nav}
-    <div class="td-weekgrid${weN ? ' hasweekend' : ''}">${days.slice(0, 5).map(dayHtml).join('')}${weN ? weekend() : ''}</div>`;
+    <div class="td-weekgrid${weN ? ' hasweekend' : ''}">${days.slice(0, 5).map(dayHtml).join('')}${weN ? weekend() : ''}</div>${wait}`;
 }
 
 // ---- "This week's asks" (R-132, the assessment's W5): the week's testimony deadlines on HIPHI's position bills, as text
@@ -1925,25 +1926,28 @@ function slipHtml(rows) {
   const sl = slipping(); let i = 0;
   for (const r of sl.rows) for (const t of r.tasks || []) if (!LAST.has(t.key)) LAST.set(t.key, t);   // a teammate's step's Alert button finds its record (W42)
   const head = `<h2 class="td-h" data-top tabindex="-1">${groupHead(`${icon('clock', { cls: 'td-soon' })}Slipping`, sl.rows.length || '', { id: 'td-g-slip' })}</h2>`;
-  if (!sl.rows.length) return `<section class="td-group td-slip" aria-labelledby="td-g-slip">${head}<p class="td-quiet">${icon('circle-check')}<span>Nothing is slipping on the team: nothing late or due within a day${SLIP_NOBODY ? ', and someone is going to every hearing today and tomorrow' : ''}.</span></p>${slipOff()}</section>`;
+  if (!sl.rows.length) return `<section class="td-group td-slip" aria-labelledby="td-g-slip">${head}<p class="td-quiet">${icon('circle-check')}<span>Nothing is slipping on the team: nothing late or due within a day${SLIP_NOBODY ? ', and someone is going to every hearing today and tomorrow' : ''}.</span></p>${waitDateLine(items('team').tasks)}</section>`;
   const now = Date.now(), filled = r => !!r.p && !r.p.ro && r.p.due <= endOfToday();
   // R-316 W56 (O-8): testimony past its written deadline but still taken until the hearing looked like any due-soon
-  // row. It comes first under Mine's words, "Late, still open", each row saying until when ("Until 1:10 PM today"), and
-  // the rest follow under "Overdue or due within a day".
+  // row. It comes first under Mine's heading for it, "Late testimony, still open" (GROUPS: one name on both), each row
+  // saying until when ("Until 1:10 PM today"), and the rest follow under "Overdue or due within a day".
   const late = sl.rows.filter(r => r.p && lateNow(r.p)), rest = sl.rows.filter(r => !late.includes(r));
   const draw = (rs, x = {}) => rows ? `<div class="td-rows">${rs.map(r => row(r, filled(r), { ...slipOpt(r), ...x })).join('')}</div>` : `<div class="td-mrows">${rs.map(r => mrow(r, { ...slipOpt(r), ...x })).join('')}</div>`;
   const sub = (t, n) => `<h3 class="td-slipsub">${esc(t)} <span class="td-slipn">${n}</span></h3>`;
-  const list = late.length ? `${sub('Late, still open', late.length)}${draw(late, { late: true })}${rest.length ? sub('Overdue or due within a day', rest.length) + draw(rest) : ''}` : draw(rest);
-  return `<section class="td-group td-slip" aria-labelledby="td-g-slip">${head}${list}${slipOff()}</section>`;
+  const list = late.length ? `${sub(GROUPS.find(g => g[0] === 'lateopen')[1], late.length)}${draw(late, { late: true })}${rest.length ? sub('Overdue or due within a day', rest.length) + draw(rest) : ''}` : draw(rest);
+  return `<section class="td-group td-slip" aria-labelledby="td-g-slip">${head}${list}${waitDateLine(items('team').tasks)}</section>`;
 }
-// R-316 W24 (G1-1): the team's testimony waiting on a cancelled sitting is not slipping (no new date, so no deadline yet),
-// and one quiet line under the list says so, so a bill that left the list is not taken for lost.
-function slipOff() {
-  const bs = [...new Map(items('team').tasks.filter(t => t.off && t.b).map(t => [t.b.id, t.b])).values()];
+// R-316 W24 (G1-1): testimony whose sitting was cancelled, with no new one yet, has no date. It is not slipping and sits in
+// no day of This week, so one quiet line names its bills, each opening its page, under Slipping and under the week:
+// "Waiting for a new hearing date: SB3025 · HB2116" (fresh-eyes: one form on both; the first three, then "and 2 more").
+// Bill numbers, not nicknames: a name with a comma in it broke the list. '' when there are none.
+const WAIT_SHOWN = 3;
+function waitDateLine(tasks) {
+  const bs = [...new Map(tasks.filter(t => t.off && t.b).map(t => [t.b.id, t.b])).values()]
+    .sort((x, y) => (x.priority || 9) - (y.priority || 9) || x.bill_number.localeCompare(y.bill_number, 'en', { numeric: true }));
   if (!bs.length) return '';
-  const ns = shortNames(bs), shown = ns.slice(0, 3), more = ns.length - shown.length;
-  const list = more ? `${shown.join(', ')} and ${plural(more, 'more bill')}` : shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown[shown.length - 1]}` : shown[0];
-  return `<p class="td-quiet td-slipoff">${icon('calendar')}<span>Not slipping: ${esc(list)}, ${ns.length > 1 ? 'hearings' : 'hearing'} cancelled, no new date yet.</span></p>`;
+  const links = bs.slice(0, WAIT_SHOWN).map(b => `<a href="${esc(billRoute(b))}">${esc(billNum(b).split(' ')[0])}</a>`).join(' · ');
+  return `<p class="td-quiet td-waitdate">${icon('calendar')}<span>Waiting for a new hearing date: ${links}${bs.length > WAIT_SHOWN ? ` and ${bs.length - WAIT_SHOWN} more` : ''}</span></p>`;
 }
 // Mine for Nate, Jess and Jaylen: one line in place of "Hearings today", opening Team (#/?scope=team).
 function slipLine() {
@@ -2326,7 +2330,7 @@ function weekPage(route, scope, who, r) {
   const top = aheadWeek(scope, who, aheadBills(scope, who).coal);
   // v4 (R-269): the foot's All tasks and Inbox went. Tasks retired (its rows are Today's and each bill's To do) and the
   // Inbox is in your menu: one way into each place (B-13).
-  return `<div class="td-root td-weekroot">${toolbar(route)}${oneNotice()}${top}<div class="tw-below ah">${weekBelow(scope, who, r)}</div></div>`;
+  return `<div class="td-root td-weekroot">${toolbar(route)}${oneNotice()}${top}${waitDateLine(r.tasks)}<div class="tw-below ah">${weekBelow(scope, who, r)}</div></div>`;   // W24 (fresh-eyes)
 }
 
 function render(route) {

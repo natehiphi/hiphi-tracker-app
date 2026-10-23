@@ -2,9 +2,11 @@
 # Mar 2026, 9:00 am) as Nate, laptop 1440x900: the sitting of one of his late or due-today drafts is marked cancelled in the
 # page's own state (nothing is saved), with no later sitting of that committee for the bill, and the screens redrawn.
 # Today keeps the bill's row, saying "<committee> hearing cancelled, no new date yet", with no countdown and no File at the
-# Capitol, under Coming up (never Late, Overdue or Needs you today, never in the badge); This week shows it among today's
-# Other to-dos; Slipping does not count it and its quiet line names it; Review keeps an approval for such a sitting. A bill
-# that has died drops it. Then the sitting is put back and the row is as it was. Exits 1 when a check fails.
+# Capitol, under Coming up (never Late, Overdue or Needs you today, never in the badge); This week keeps it out of every
+# day (fresh-eyes: in today's Other to-dos it read as today's work) and names the bill once under the grid, "Waiting for
+# a new hearing date: SB3025", a link to its page; Slipping does not count it and says the same line; Review keeps an
+# approval for such a sitting. A bill that has died drops it. Then the sitting is put back and the row is as it was.
+# Exits 1 when a check fails.
 #   python3 tests/staff5_cancelled.py                  against http://localhost:8832 (CI serves the repo there)
 #   V4_ROOT=/path/to/worktree python3 tests/staff5_cancelled.py    serves that folder straight into the browser
 import os, re, sys
@@ -35,6 +37,10 @@ ROW = """(num) => { const later = document.querySelector('[data-fold="later"]');
     const g = r.closest('section.td-group'), h = g && g.querySelector('h2');
     res({ group: h ? h.innerText.split('\\n')[0].trim() : '', text: r.innerText.replace(/\\s+/g, ' '), mark: (r.querySelector('.td-urg') || {}).innerText || '',
       none: !!r.querySelector('.sv-urg.none'), btn: (r.querySelector('.td-ract') || {}).innerText || '' }); }, 400)); }"""
+
+# The "Waiting for a new hearing date" line under a selector: its words, and each bill number's link.
+WAIT = """(sel) => { const e = document.querySelector(sel); if (!e) return null;
+  return { text: e.innerText.replace(/\\s+/g, ' ').trim(), links: Object.fromEntries([...e.querySelectorAll('a')].map(a => [a.textContent.trim(), a.getAttribute('href')])) }; }"""
 
 with sync_playwright() as p:
   br = p.chromium.launch(); pg = br.new_page(viewport={'width': 1440, 'height': 900}); errs = []
@@ -70,16 +76,19 @@ with sync_playwright() as p:
     check('I’m going' not in pane and 'Nobody going yet' not in pane, 'Open item: no I\'m going for a cancelled sitting', '')
 
     pg.evaluate("location.hash = '#/?view=week'"); pg.wait_for_timeout(2000)
-    today_col = pg.evaluate("(document.querySelector('.td-day.today') || {}).innerText || ''").replace('\n', ' ')
-    check(f'{num} · {words}' in today_col, f'This week: today\'s Other to-dos say "{num} · {words}"', today_col[-200:])
+    days = pg.evaluate("[...document.querySelectorAll('.td-weekgrid .td-day')].map(d => d.innerText.replace(/\\s+/g, ' ')).join(' | ')")
+    check('no new date yet' not in days, 'This week: the cancelled sitting\'s step is in no day (not today\'s Other to-dos)', days[:200])
     dl = pg.evaluate("(num) => [...document.querySelectorAll('.wk-dl')].filter(e => e.innerText.includes(num)).length", num)
     check(dl == 0, 'This week: no testimony deadline card for the cancelled sitting', dl)
+    wait = pg.evaluate(WAIT, '.td-weekgrid + .td-waitdate')
+    check(wait and wait['text'].startswith('Waiting for a new hearing date: ') and num in wait['links'], f'This week: under the grid, "Waiting for a new hearing date: {num}"', wait)
+    check(wait and wait['links'].get(num, '').endswith('/' + num), f'This week: {num} there opens its bill page', wait and wait['links'])
 
     pg.evaluate("location.hash = '#/?scope=team'"); pg.wait_for_timeout(1500)
     slip1 = slip(); inslip = pg.locator(f'.td-slip [data-num="{num}"]').count()
-    quiet = pg.evaluate("(document.querySelector('.td-slipoff') || {}).innerText || ''")
+    quiet = pg.evaluate(WAIT, '.td-slip .td-waitdate')
     check(inslip == 0, f'Slipping: {num} is not counted', f'{slip0} -> {slip1}')
-    check('Not slipping' in quiet and 'cancelled, no new date yet' in quiet, 'Slipping: one quiet line says it is not slipping', quiet)
+    check(quiet and quiet['text'].startswith('Waiting for a new hearing date: ') and quiet['links'].get(num, '').endswith('/' + num), f'Slipping: one quiet line, "Waiting for a new hearing date: {num}", its number a link to the bill', quiet)
 
     # An old date says nothing for a cancelled sitting: five days back, it stays while the bill is alive; a dead bill drops it.
     pg.evaluate(SET, [bid, cmte, 'cancelled', 5]); pg.evaluate("location.hash = '#/'"); pg.wait_for_timeout(1500)
@@ -96,7 +105,7 @@ with sync_playwright() as p:
     check(row is not None and row['group'] == before['group'] and 'cancelled' not in row['text'] and row['mark'] == before['mark'], 'Put back: the row returns to its group, words and countdown',
           f"{before and before['group']} / {row and row['group']}: {row and row['text'][:80]}")
     pg.evaluate("location.hash = '#/?scope=team'"); pg.wait_for_timeout(1500)
-    check(slip() == slip0 and not pg.locator('.td-slipoff').count(), 'Put back: Slipping counts it again and the quiet line goes', f'{slip0} -> {slip()}')
+    check(slip() == slip0 and not pg.locator('.td-waitdate').count(), 'Put back: Slipping counts it again and the quiet line goes', f'{slip0} -> {slip()}')
 
   # Review keeps an approval for a cancelled sitting, saying so (it was dropped once the old date was two days past)
   pg.goto(HOST + '/staff5.html?demo=1&as=NT#/'); pg.wait_for_timeout(3500)
