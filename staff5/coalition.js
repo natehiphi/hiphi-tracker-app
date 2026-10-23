@@ -28,12 +28,14 @@ import { wantsHearing } from './model.js';
 import { PUSH_BOARD, chairBoardHTML, wirePush } from './push.js';   // R-316 W5 (practice copy)
 import { rerender } from './bill.js';
 import { billRoute } from './model.js';
+import { teamFirst, teamName } from './model.js';   // R-316 W28
 import { isPos, byPri, dayOf, dueWhen, waitingOfBills } from './standing.js';
 
 const WEEK = 7 * 864e5, FOLD = 6, HST = { timeZone: 'Pacific/Honolulu' };
 const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
 const coalById = id => (S.campaigns || []).find(c => String(c.id) === String(id)) || null;
-const first = a => String(a?.full_name || '').split(' ')[0] || 'Someone';
+// R-316 W28 (G3-8): an owner who is turned off says so, here and on the coalitions list (model.js teamFirst).
+const first = a => teamFirst(a);
 const andList = xs => xs.length < 2 ? xs.join('') : xs.length === 2 ? `${xs[0]} and ${xs[1]}` : `${xs.slice(0, -1).join(', ')}, and ${xs[xs.length - 1]}`;
 
 // ---- the numbers, the same on the index and on the page (A-14) ----
@@ -117,7 +119,7 @@ function indexHTML() {
   const tr = ({ c, f }) => { const href = `#/coalition/${encodeURIComponent(c.id)}`;
     return `<tr data-href="${esc(href)}">
       <td class="c-name"><span class="le-tdlead">${icon(iconName(c.icon))}</span><span class="le-tdbody"><a class="le-tdname" href="${esc(href)}">${esc(c.name)}</a>${c.public_name && c.public_name !== c.name ? `<span class="le-tdsub">${esc(c.public_name)}</span>` : ''}</span></td>
-      <td class="c-owner">${f.own ? esc(f.own.full_name) : '<span class="co-none">No owner</span>'}</td>
+      <td class="c-owner">${f.own ? esc(teamName(f.own)) : '<span class="co-none">No owner</span>'}</td>
       <td class="c-bills num">${f.live || DASH}</td><td class="c-hear num">${f.hear || DASH}</td>
       ${showYou() ? `<td class="c-you">${f.you ? youChip() : DASH}</td>` : ''}</tr>`; };
   return `<div class="le-page co-index le-desk${isSide() ? ' le-side' : ''}">${head}
@@ -148,7 +150,7 @@ function headHTML(c) {
       <div class="co-trow"><h1>${esc(c.name)}</h1>${desk ? act : ''}</div>
       ${c.public_name && c.public_name !== c.name ? `<p class="co-pubname">On the public tracker: ${esc(c.public_name)}</p>` : ''}
       ${c.description ? `<p class="co-desc">${esc(c.description)}</p>` : ''}
-      <p class="co-meta">${own ? `<span class="co-own"><span aria-hidden="true">${avatar(own, 20)}</span><span>Owner: ${esc(own.id === S.me?.id ? 'you' : own.full_name)}</span></span>`
+      <p class="co-meta">${own ? `<span class="co-own"><span aria-hidden="true">${avatar(own, 20)}</span><span>Owner: ${esc(own.id === S.me?.id ? 'you' : teamName(own))}</span></span>`
         : `<span>No owner${S.me?.is_admin ? ` · <a href="#/setup/coalitions">choose one in Session setup</a>` : ''}</span>`}<span aria-hidden="true">·</span>${live ? `<span>${esc(plural(live, 'live bill'))} with a position</span>` : '<span>No live bills with a position</span>'}<span aria-hidden="true">·</span><a href="${esc(billsHref(c))}">See all its bills</a></p>
     </div>
   </header>

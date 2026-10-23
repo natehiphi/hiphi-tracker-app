@@ -20,12 +20,14 @@ import { movedFrom } from './model.js';   // R-316 W24: "Moved from Mon 2/9"
 import { hooks } from './data.js';
 import { movedGoingHTML, wireMoved } from './moved.js';   // R-316 W53 (practice copy): still going to the sitting it moved to?
 import { billRoute, whenAt, spanOf, roomName, hearingWhen, isDecision, sittingDraft, earlierFiled, draftHearing } from './model.js';
+import { teamFirst, filerOf } from './model.js';   // R-316 W28, W20
 
 const HR = 36e5, FOLD = 10;
 const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
 const hearingById = id => (S.hearings || []).find(h => String(h.id) === String(id)) || null;
 const isPos = b => !!b.position && b.position !== 'monitor';
-const first = a => String(a?.full_name || '').split(' ')[0] || 'Someone';
+// R-316 W28 (G3-8): a bill's owner who is turned off says so on its row (goers are never turned off: model.js attendees).
+const first = a => teamFirst(a);
 
 // ---- the sitting, shared with the coalition page (and anyone else who draws a hearing) ----
 export const sittingOf = h => (S.hearings || []).filter(x => x.committee === h.committee && x.scheduled_at === h.scheduled_at);
@@ -153,7 +155,11 @@ function billRow(x, c) {
     // The most urgent fact reads in words, not only in the chip's colour (A-5): "Testimony sent back · due in 40 min".
     const t = testimonyOf(h, b), due = dueOf(h), tone = t.filed ? 'ok' : { soon: 'warn', late: 'danger' }[dueTone(due, h.scheduled_at)] || '';
     const words = t.filed ? '' : dueWords(due, h.scheduled_at);
-    end = chip(words ? `${t.label} · ${words}` : t.label, tone, tone === 'danger' ? 'circle-alert' : t.icon); }
+    // R-316 W20 (T-3): approved testimony names who files it, as the bill page and Today do (model.js filerOf: whoever
+    // sent it for approval, else the owner): "Testimony ready to file · Kevin files it".
+    const ready = t.word === 'ready to file' && draftOf(x), fid = ready && filerOf(ready);
+    const label = ready ? `${t.label} · ${fid ? (fid === S.me?.id ? 'you file it' : `${teamFirst(fid)} files it`) : 'anyone can file it'}` : t.label;
+    end = chip(words ? `${label} · ${words}` : label, tone, tone === 'danger' ? 'circle-alert' : t.icon); }
   // A grid, not the usual body/end pair: on a phone the name has the whole first line and the state sits at the end of
   // the facts; on a desktop the state moves up beside the name (hearing.css).
   // R-277 fix 12: "Undo filed" right under a row whose "Testimony filed" says it is marked filed, while the sitting is still
