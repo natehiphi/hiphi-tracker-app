@@ -9,14 +9,18 @@
 // Show me lane: on the practice copy until Nate's yes, which also needs a migration for the live app (a table of profile
 // lines with their earlier wording, and one of issue picks). The practice copy keeps it in S.legProfiles, saved with the
 // tab's other practice changes (data.js savePractice). When PROFILES() is false nothing here is drawn or called.
+// Staff v6 (R-336 V23): the sections someone has written in show; the empty ones fold into one "Add what we know" card
+// with a button each (R-335's "fold empty ones" option), so the page stays short and every section is still one tap away.
+// The tip shows near the top of the page, under Email · Call · Log a talk (profileTipHTML); adding one is in the card. The
+// practice copy seeds three sections and the tip with "Placeholder:" lines and leaves three empty, so the card can be seen.
 import { S, DEMO, SESSION_YEAR, esc, fmtDate, advocate, hooks } from './data.js';
 import { plain, whenAt, hstDayOf, billRoute } from './model.js';
-import { icon, btn, iconBtn, toast, openSheet, closeSheet, menuSheet, notice } from './ui.js';
+import { icon, btn, iconBtn, toast, openSheet, closeSheet, menuSheet } from './ui.js';
 import { showAllBtn } from './ui.js';   // U-4: one "Show all" on every screen
 import { photo, shortName, legName, partyDist, legHref } from './pathway.js';
 import { issueById, catByKey } from './issues.js';
-import { ourBill } from './legislators.js';
-import { afterBack } from './today.js';   // a sheet opened from a menu waits for the menu's Back to land
+// A sheet opened from a menu waits for the menu's Back to land (else that Back would close the new sheet).
+const afterBack = () => new Promise(res => { if (!history.state?.sheet) return res(); let done = false; const run = () => { if (done) return; done = true; removeEventListener('popstate', run); res(); }; addEventListener('popstate', run); setTimeout(run, 500); });
 
 export const PROFILES = () => DEMO;   // Show me lane: on the practice copy until Nate's yes, which also needs a migration for the live app
 
@@ -24,19 +28,19 @@ export const PROFILES = () => DEMO;   // Show me lane: on the practice copy unti
 // real, named legislators, so nothing seeded may read as a fact about one (each starts "Placeholder:"). `by` spreads the
 // seeded lines across teammates, so "only your own lines" can be seen when practising as someone else.
 export const SECS = [
-  { k: 'cares', name: 'What they care about', hint: 'The issues they champion, and why', by: 'LR', d: 5,
+  { k: 'cares', name: 'What they care about', hint: 'The issues they champion, and why', by: 'LR', d: 5, empty: true,
     ph: 'Placeholder: the issues they champion and why, in a sentence or two.' },
   { k: 'how', name: 'How to work with them', hint: 'How they like to be approached', by: 'KR', d: 6, edited: 4,
     ph: 'Placeholder: how they like to be approached, e.g. a short meeting, a one-page fact sheet, or their aide first.',
     was: 'Placeholder: how they like to be approached.' },
-  { k: 'office', name: 'Their office', hint: 'An aide’s name, role, and work email or phone', by: 'KV', d: 3,
+  { k: 'office', name: 'Their office', hint: 'An aide’s name, role, and work email or phone', by: 'KV', d: 3, empty: true,
     help: 'Work contacts only: never a personal phone, email or address.',
     ph: 'Placeholder: an aide’s name, role, and work email or phone. Work contacts only.' },
   { k: 'knows', name: 'Who on our team knows them', hint: 'How you know them, optional', by: 'KV', d: 7,
     ph: 'Placeholder: how you know them, e.g. worked together on a past bill.' },
   { k: 'history', name: 'History with HIPHI', hint: 'Past asks, wins and what they did for our bills', by: 'NT', d: 2,
     ph: 'Placeholder: past asks, wins and what they did for our bills.' },
-  { k: 'watch', name: 'Watch out for', hint: 'Positions or concerns to keep in mind', by: 'JS', d: 3,
+  { k: 'watch', name: 'Watch out for', hint: 'Positions or concerns to keep in mind', by: 'JS', d: 3, empty: true,
     help: 'Professional facts only: what they have said or done in public life.',
     ph: 'Placeholder: positions or concerns to keep in mind. Professional facts only.' },
 ];
@@ -53,10 +57,11 @@ function writer(ini, i) {
   const on = (S.advocates || []).filter(a => a.is_active !== false);
   return (on.find(a => a.initials === ini) || on[i % Math.max(1, on.length)] || S.me)?.id || null;
 }
-// The first time a legislator's profile is shown in this tab: one placeholder line per section, a placeholder tip, and no
-// issue picks (Nate adds those himself to try the filter). One line has an earlier version, so "edited" can be seen.
+// The first time a legislator's profile is shown in this tab: a placeholder line in three sections (the other three start
+// empty, so the "Add what we know" card shows, V23), a placeholder tip, and no issue picks (Nate adds those himself to try
+// the filter). One line has an earlier version, so "edited" can be seen.
 function seed(l) {
-  const lines = SECS.map((s, i) => {
+  const lines = SECS.filter(s => !s.empty).map((s, i) => {
     const x = { id: `pfs-${l.id}-${s.k}`, sec: s.k, body: s.ph, by: writer(s.by, i), at: daysAgo(s.d), history: [] };
     if (s.was) Object.assign(x, { history: [{ body: s.was, by: x.by, at: x.at }], edited_at: daysAgo(s.edited, '14:05'), edited_by: x.by });
     return x;
@@ -75,17 +80,9 @@ const whose = x => mine(x) ? 'your' : `${firstOf(x.by)}’s`;
 const knowsWho = x => mine(x) ? 'You know them' : `${firstOf(x.by)} knows them`;
 const newest = (a, b) => String(b.at).localeCompare(String(a.at));
 
-// Our position bills they introduced this session (decision 8), from the sponsor matching legislator.js already did.
-// "Among them" when there are more than four: the rest are in Bills they introduced, below, so no "and 38 more" leads nowhere.
-const ourIntro = intro => (intro || []).filter(b => ourBill(b) && (!b.session_year || +b.session_year === +SESSION_YEAR));
-function trackerLine(l, intro) {
-  const bs = ourIntro(intro), n = bs.length, shown = bs.slice(0, 4);
-  const link = b => `<a href="${esc(billRoute(b))}" title="${esc(b.nickname || b.bill_number)}">${esc(b.bill_number)}</a>`;
-  const and = xs => xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
-  const said = !n ? `${esc(shortName(l))} introduced none of the bills we have a position on this session.`
-    : `Introduced ${n === 1 ? 'one bill' : `${n} bills`} we have a position on this session${n > shown.length ? ', among them' : ':'} ${and(shown.map(link))}.`;
-  return `<li class="pf-line pf-auto"><p class="pf-text"><span class="pf-src">From the tracker:</span> ${said}</p></li>`;
-}
+// v5's "From the tracker: Introduced 37 bills we have a position on" line left History in v6 (R-336): it gave a second
+// count of the bills they introduced beside the page's own "Bills they introduced", which now says how many have our
+// position under its heading (legislator.js). History holds only what the team writes.
 
 // ---- drawing ----
 const landId = () => { try { return new URLSearchParams(location.hash.split('?')[1] || '').get('pf'); } catch { return null; } };
@@ -113,7 +110,7 @@ function secHTML(l, p, s, intro) {
   const iKnow = s.k === 'knows' && !rows.some(mine);
   const act = s.k === 'knows' ? (iKnow ? btn('I know them', { kind: 'text', sm: true, icon: 'user-plus', attrs: { 'data-pfknow': '1', 'aria-haspopup': 'dialog', 'aria-label': `I know ${shortName(l)}: add how you know them` } }) : '')
     : btn('Add', { kind: 'text', sm: true, icon: 'plus', attrs: { 'data-pfadd': s.k, 'aria-haspopup': 'dialog', 'aria-label': `Add to ${s.name}, ${shortName(l)}` } });
-  const list = (s.k === 'history' ? trackerLine(l, intro) : '') + shown.map(x => lineHTML(l, x)).join('');
+  const list = shown.map(x => lineHTML(l, x)).join('');
   return `<div class="pf-sec${list || s.k === 'cares' ? '' : ' pf-empty'}" data-pfsec="${s.k}">
       <div class="pf-sech"><h3 id="pf-h-${s.k}">${esc(s.name)}</h3>${act}</div>
       ${s.k === 'cares' ? issuesHTML(l, p) : ''}
@@ -122,19 +119,38 @@ function secHTML(l, p, s, intro) {
     </div>`;
 }
 function tipHTML(l, p) {
-  const t = p.lines.find(x => x.sec === 'tip');
-  if (!t) return `<div class="pf-tip pf-tipnone">${btn('Add a tip', { kind: 'text', sm: true, icon: 'lightbulb', attrs: { 'data-pftip': '1', 'aria-haspopup': 'dialog', 'aria-label': `Add a tip about ${shortName(l)}: the one thing to know before reaching out` } })}</div>`;
+  const t = p.lines.find(x => x.sec === 'tip'); if (!t) return '';
   const at = landId() === t.id;
   return `<div class="pf-tip${at ? ' pf-land' : ''}" data-pfline="${esc(t.id)}"${at ? ' tabindex="-1"' : ''}>${icon('lightbulb')}<p class="pf-tiptext"><span class="sr">Tip: </span>${esc(t.body)} ${byline(t)}</p>
     ${mayChange(t) ? iconBtn('ellipsis', `More for ${whose(t)} tip about ${shortName(l)}`, { 'data-pfmore': t.id, 'aria-haspopup': 'dialog' }, 'pf-more') : ''}</div>`;
 }
-// The Profile section of a legislator's page. intro: the bills they introduced (legislator.js introducedBy).
-export function profileHTML(l, { intro = [] } = {}) {
-  const p = profileOf(l);
-  return `<section class="lg-sec pf" aria-labelledby="pf-h" data-pfleg="${l.id}">
-    <div class="lg-sech"><h2 id="pf-h">Profile</h2></div>
-    ${DEMO ? `<div class="pf-note">${notice('info', 'info', '<b>Practice copy:</b> lines that start with Placeholder are sample text, not facts about this legislator.')}</div>` : ''}
-    <div class="pf-box">${tipHTML(l, p)}<div class="pf-secs">${SECS.map(s => secHTML(l, p, s, intro)).join('')}</div></div>
+// The tip, near the top of the legislator's page (the one thing to know before reaching out): '' when there is none.
+export const profileTipHTML = l => { const t = tipHTML(l, profileOf(l)); return t ? `<div class="pf pf-top" data-pfleg="${l.id}">${t}</div>` : ''; };
+// A section with nothing in it: no lines (and, for What they care about, no issue).
+const isEmpty = (p, s) => !p.lines.some(x => x.sec === s.k) && !(s.k === 'cares' && p.issues.length);
+// "Add what we know": one card with a button for each empty section (and the tip, when there is none). Each opens the same
+// sheet the section's own Add does; What they care about opens the issue picker, since its issues are what Legislators
+// filters by.
+function addCardHTML(l, p, empties) {
+  const noTip = !p.lines.some(x => x.sec === 'tip');
+  if (!empties.length && !noTip) return '';
+  const b = (label, attrs) => btn(label, { kind: 'secondary', sm: true, icon: 'plus', attrs: { 'aria-haspopup': 'dialog', ...attrs } });
+  const items = [...(noTip ? [b('A tip', { 'data-pftip': '1', 'aria-label': `Add a tip about ${shortName(l)}: the one thing to know before reaching out` })] : []),
+    ...empties.map(s => s.k === 'cares' ? b(s.name, { 'data-pfiadd': '1', 'aria-label': `Add an issue ${shortName(l)} cares about` })
+      : s.k === 'knows' ? b('I know them', { 'data-pfknow': '1', 'aria-label': `I know ${shortName(l)}: add how you know them` })
+      : b(s.name, { 'data-pfadd': s.k, 'aria-label': `Add to ${s.name}, ${shortName(l)}` }))];
+  return `<div class="pf-add" role="group" aria-labelledby="pf-addh"><h3 id="pf-addh">Add what we know</h3><p class="pf-addp">Nothing written here yet. Add what you know, and the team sees it on this page.</p><div class="pf-addb">${items.join('')}</div></div>`;
+}
+// The Profile section of a legislator's page. intro: the bills they introduced (legislator.js introducedBy). tip: false
+// leaves the tip out (the v6 page shows it near the top, profileTipHTML).
+export function profileHTML(l, { intro = [], tip = true } = {}) {
+  const p = profileOf(l), shown = SECS.filter(s => !isEmpty(p, s)), empties = SECS.filter(s => isEmpty(p, s));
+  return `<section class="lg6-sec pf" aria-labelledby="pf-h" data-pfleg="${l.id}">
+    <div class="lg6-sech"><h2 id="pf-h">Profile</h2></div>
+    ${DEMO ? `<p class="pf-note">${icon('info')}<span>Practice copy: lines that start with Placeholder are sample text, not facts about this legislator.</span></p>` : ''}
+    ${tip ? tipHTML(l, p) : ''}
+    ${shown.length ? `<div class="pf-box"><div class="pf-secs">${shown.map(s => secHTML(l, p, s, intro)).join('')}</div></div>` : ''}
+    ${addCardHTML(l, p, empties)}
   </section>`;
 }
 
@@ -308,7 +324,10 @@ export function quoteOf(text, q, n = 110) {
 let landed = '';
 addEventListener('hashchange', () => { if (!landId()) landed = ''; });
 export function wireProfile(root, l) {
-  const box = root?.querySelector('.pf'); if (!box) return;
+  // The tip near the top of the page and the Profile section are two boxes; both are wired.
+  root?.querySelectorAll('.pf').forEach(box => wireBox(box, l));
+}
+function wireBox(box, l) {
   const p = profileOf(l), find = id => p.lines.find(x => x.id === id);
   box.querySelectorAll('[data-pfadd]').forEach(el => el.onclick = () => lineSheet(l, el.dataset.pfadd));
   box.querySelectorAll('[data-pfknow]').forEach(el => el.onclick = () => lineSheet(l, 'knows'));
