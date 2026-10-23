@@ -172,7 +172,7 @@ function askRow(x, l) {
     if (s.key === 'waiting' && st.you) button = st.ask.followUp ? rowButton(st) : btn('They replied', { kind: 'secondary', sm: true, icon: 'message-square', attrs: { 'data-v6act': 'replied', 'data-v6b': b.id, 'data-v6code': s.code, 'aria-haspopup': 'dialog' } });
     else if (st.nobody && st.takeFor) button = btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-v6act': 'take', 'data-v6b': b.id } });
   }
-  return { html: billRow(b, { line: nw(esc(line)), button, step: chair ? st : undefined }), s };
+  return { html: billRow(b, { line: nw(esc(line)), button, step: chair ? st : undefined, cls: 'lg6-wrap' }), s };
 }
 function groupHTML(g) {
   const l = g.l, rows = g.rows.map(x => ({ ...x, ...askRow(x, l) }));

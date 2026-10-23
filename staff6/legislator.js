@@ -55,7 +55,7 @@ function standRow(b, l, { from = false } = {}) {
   const line = chairs ? ask.words : whereWords(b, { deadline: false });
   const button = btn(none ? 'Set stance' : word, { kind: 'text', sm: true, icon: STANCE_ICON[x.stance] || 'circle-dashed',
     attrs: { 'data-lgstance': `${b.id}|${l.id}`, 'aria-haspopup': 'dialog', 'aria-label': `${shortName(l)} on ${billSay(b)}: ${none ? 'no stance yet. Set it' : `${word}. Change it`}` } });
-  return billRow(b, { line: nw(esc(line)), button, cls: `lg6-stand${from ? ' lg6-from' : ''}` });
+  return billRow(b, { line: nw(esc(line)), button, cls: `lg6-stand lg6-wrap${from ? ' lg6-from' : ''}` });
 }
 const listOf = (rows, label) => `<div class="v6-list lg6-list" role="list" aria-label="${esc(label)}">${rows.join('')}</div>`;
 function folded(key, rows, label) {
@@ -117,7 +117,7 @@ function pageHTML(route, l, back) {
       : section('lg6-s-bills', 'Our bills in their committees', null, `<p class="lg6-none">${noSeats(l)}</p>${from ? listOf([standRow(from, l, { from: true })], 'The bill you came from') : ''}`)}
     ${known.length ? section('lg6-s-known', 'Other bills they have a stance on', known.length, folded(`${l.id}|kn`, known.map(b => standRow(b, l)), 'Other bills they have a stance on')) : ''}
     ${PROFILES() ? profileHTML(l, { intro, tip: false }) : ''}
-    ${section('lg6-s-intro', 'Bills they introduced', intro.length || null, intro.length ? folded(`${l.id}|in`, intro.map(b => billRow(b, { line: nw(esc(whereWords(b, { deadline: false }))), button: false })), `Bills ${shortName(l)} introduced`) : `<p class="lg6-none">None of the bills on the tracker.</p>`)}
+    ${section('lg6-s-intro', 'Bills they introduced', intro.length || null, intro.length ? folded(`${l.id}|in`, intro.map(b => billRow(b, { line: nw(esc(whereWords(b, { deadline: false }))), button: false, cls: 'lg6-wrap' })), `Bills ${shortName(l)} introduced`) : `<p class="lg6-none">None of the bills on the tracker.</p>`)}
     ${seats.length ? section('lg6-s-cm', 'Committees', null, `<ul class="lg6-facts">${seats.map(m => `<li><span>${esc(committeeName(m.committee))}</span>${m.role !== 'member' ? `<span class="lg6-role">${esc(roleWord(m.role))}</span>` : ''}</li>`).join('')}</ul>`) : ''}
     ${section('lg6-s-office', 'Contact', null, `<ul class="lg6-facts lg6-contact">
       ${l.room ? `<li><span>${icon('map-pin')}Room ${esc(l.room)}, State Capitol</span></li>` : ''}
