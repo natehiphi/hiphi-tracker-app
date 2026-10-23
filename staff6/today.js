@@ -317,7 +317,7 @@ function miniOf(it, v = S.me) {
       const title = it.share ? `Send the public ask for the ${sh ? dayWords(sh.scheduled_at) : m ? `${+m[2]}/${+m[3]}` : 'next'} hearing` : it.t.title;
       const doneBtn = (k = 'secondary') => btn(it.share ? 'Done' : 'Done', { kind: k, sm: k !== 'primary', icon: 'check', attrs: { 'data-t6act': 'todo', 'data-t6k': it.key } });
       return { name: nameWords(b), num: numWords(b), line: [when, clip(title, 64)].filter(Boolean).join(' · '), href: billRoute(b), what: title,
-        rowBtn: doneBtn(), buttons: k => [it.share ? btn('Open this week’s asks', { kind: k, icon: 'megaphone', href: '#/outreach' }) : doneBtn(k), it.share ? doneBtn('secondary') : '',
+        rowBtn: doneBtn(), buttons: k => [it.share ? btn('Open this week’s asks', { kind: k, icon: 'megaphone', href: askCardHref(b) || '#/outreach' }) : doneBtn(k), it.share ? doneBtn('secondary') : '',
           // Give to… lives in the open item; the next-step card keeps to the step itself (V01: the first screen stays small)
           k === 'primary' ? '' : btn('Give to…', { kind: 'text', icon: 'user-round', attrs: { 'data-t6act': 'give', 'data-t6k': it.key, 'aria-haspopup': 'dialog' } })] };
     }
