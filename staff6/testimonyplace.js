@@ -155,6 +155,8 @@ function detailOf(it, view) {
   }
   // Missed (addendum 4): the person's own still-open question gets the calm answers at one weight; the record gets none.
   if (s?.kind === 'missed' && d) card = card.replace(ACTS, it.own && it.asking !== false ? `<div class="tp-missed">${missedChoices(b, d)}</div>` : '');
+  // Answered, or past answering: the card no longer asks (steps.js's words for a missed step that is not yours).
+  if (s?.kind === 'missed' && it.asking === false) card = card.replace('The hearing has started. Did we file?', it.recorded ? 'Not filed before the hearing · noted on the bill' : 'Not filed before the hearing');
   const extra = [];
   // F63: someone else's step says who has it; one text button opens the bill's chat with them @-named (two taps to nudge).
   const open = s && !own && !s.nobody && (it.tab !== 'missed' ? it.tab !== 'filed' : it.asking);
@@ -246,32 +248,49 @@ function renderLibrary() {
 }
 
 // ---- the page ----
+// A tab that holds one of the person's own late steps says so beside its count, in the late colour with the clock (amber
+// "late, still accepted"; red only once it is overdue), so a late filing on another tab is never hidden behind a count that
+// looks like every other (D3; fresh-eyes review 23 Oct). The tab it opens on stays spec 3.3's.
+const lateTone = it => it.own && ['late', 'overdue'].includes(it.s?.status?.tone) ? it.s.status.tone : '';
 function head(cur, m) {
   const hide = !m || !m.tabs.missed.length ? ['missed'] : [];
   const counts = m ? Object.fromEntries(['write', 'approve', 'sent', 'file', 'missed'].map(t => [t, m.mine(t).length]).filter(([, n]) => n)) : {};
-  return `<h1 class="v6-ptitle sv-h1 tp-h1">Testimony</h1>${sectionNav('testimony', cur, { hide, counts })}`;
+  let nav = sectionNav('testimony', cur, { hide, counts });
+  if (m) for (const t of ['write', 'approve', 'sent', 'file']) {
+    const tones = m.tabs[t].map(lateTone).filter(Boolean); if (!tones.length || !counts[t]) continue;
+    const tone = tones.includes('overdue') ? 'overdue' : 'late', n = tones.length;
+    nav = nav.replace(new RegExp(`(view=${t}"[^>]*>[^<]*)<span class="sv-tn">(\\d+)</span>`), (_, a, c) => `${a}<span class="sv-tn">${c}</span><span class="tp-tlate tp-tlate-${tone}" title="${n === 1 ? 'One' : n} ${tone === 'overdue' ? 'overdue' : 'late'}">${icon('clock')}<span class="sr">, ${n === 1 ? 'one' : n} ${tone === 'overdue' ? 'overdue' : 'late'}</span></span>`);
+  }
+  return `<h1 class="v6-ptitle sv-h1 tp-h1">Testimony</h1>${nav}`;
 }
 // One calm line per tab under the tabs: what it holds. To approve also starts Review (F41, F42) and says how many
 // supporter emails wait in Outreach › Emails (F172).
 function intro(view, m) {
   const n = m.mine(view).length;
-  // An empty tab says it once, in its empty box (A-14); To approve keeps its emails line, Filed its library.
-  if (!m.tabs[view].length && !['approve', 'filed'].includes(view)) return '';
+  // An empty tab says it once, in its empty box (A-14); Filed keeps its library.
+  if (!m.tabs[view].length && view !== 'filed') return '';
   switch (view) {
     case 'write': return `<p class="tp-intro">${n ? 'Testimony to write, from the day its hearing notice lands. Send each for approval by the time on its row.' : 'Nothing for you to write right now. A draft shows here the day its hearing notice lands.'}</p>`;
     case 'approve': {
-      const q = queue().filter(x => x.type === 'draft').length, mails = approves(S.me) ? alertsToReview().length : 0;
-      const start = q ? `<div class="tp-start"><p class="tp-intro">${q === 1 ? '1 waits for you' : `${q} wait for you`}, the soonest first. Review shows one at a time, then moves on.</p>${btn('Start review', { kind: 'primary', icon: 'user-check', href: '#/review' })}</div>`
-        : `<p class="tp-intro">${approves(S.me) || S.me?.is_reviewer ? 'Nothing waits for your approval.' : 'Testimony with an approver, or waiting for its second look.'}</p>`;
-      const em = mails ? `<a class="tp-emails" href="#/outreach/emails">${icon('mail')}<span>${mails === 1 ? '1 supporter email to approve' : `${mails} supporter emails to approve`}</span><span class="tp-open">Open</span>${icon('chevron-right')}</a>` : '';
-      return !q && !m.tabs.approve.length ? em : start + em;
+      // Start review reviews the testimony only (#/review?only=testimony), so "1 waits" is "Review · 1 of 1"; the emails have
+      // their own one door, the line under the list (emailsLine). On a phone the sentence is left out: the tab's count and
+      // the button say it, and the first row comes up into the first screen (A-1).
+      const q = queue().filter(x => x.type === 'draft').length;
+      if (q) return `<div class="tp-start"><p class="tp-intro">${q === 1 ? '1 waits for you' : `${q} wait for you`}, the soonest first. Review shows one at a time, then moves on.</p>${btn('Start review', { kind: 'primary', icon: 'user-check', href: '#/review?only=testimony' })}</div>`;
+      return m.tabs.approve.length ? `<p class="tp-intro">${approves(S.me) || S.me?.is_reviewer ? 'Nothing waits for your approval.' : 'Testimony with an approver, or waiting for its second look.'}</p>` : '';
     }
     case 'sent': return `<p class="tp-intro">${n ? 'An approver asked for changes: read the note, revise it in the Doc, then resubmit.' : 'Nothing has come back to you for changes.'}</p>`;
     case 'file': return `<p class="tp-intro">${n ? 'Approved testimony. Each has its filing steps: the PDF, the Capitol page and the form’s answers.' : 'Nothing for you to file right now.'}</p>`;
-    case 'filed': return `<div class="tp-start"><p class="tp-intro">${m.fy === SESSION_YEAR && !SESSION_OVER ? 'Filed this session, newest first.' : `Filed in the ${m.fy} session, newest first.`}</p>${btn('Earlier testimony library', { kind: 'secondary', icon: 'book-open', href: '#/testimony?view=library' })}</div>`;
+    case 'filed': return `<div class="tp-start"><p class="tp-intro">${m.fy === SESSION_YEAR && !SESSION_OVER ? 'Filed this session, newest first.' : `Filed in the ${m.fy} session, newest first.`}</p>${btn('Testimony library', { kind: 'secondary', icon: 'book-open', href: '#/testimony?view=library' })}</div>`;
     case 'missed': return '<p class="tp-intro">Hearings that started with nothing filed, noted for the team with nobody blamed.</p>';
   }
   return '';
+}
+// F172: the supporter emails waiting for this approver, one quiet line to Outreach › Emails, the emails' one door here. It
+// sits under the list, in the list's column, so the head row has one right edge (fresh-eyes review 23 Oct).
+function emailsLine() {
+  const n = approves(S.me) ? alertsToReview().length : 0; if (!n) return '';
+  return `<a class="tp-emails" href="#/outreach/emails">${icon('mail')}<span>${n === 1 ? '1 supporter email to approve' : `${n} supporter emails to approve`}</span><span class="tp-open">Open</span>${icon('chevron-right')}</a>`;
 }
 const EMPTY = { write: 'Nothing to write right now. A draft shows here the day its hearing notice lands.', approve: 'Nothing is with an approver right now.', sent: 'Nothing has come back for changes.', file: 'Nothing is ready to file right now.', filed: 'Nothing filed yet this session.', missed: 'Nothing missed.' };
 function render(route) {
@@ -286,12 +305,28 @@ function render(route) {
   const narrow = !matchMedia('(min-width: 1100px)').matches, stale = narrow && pit0 && !history.state?.panel;
   const pit = stale ? null : pit0;
   if (picked != null && !pit) { S.v6ld[id].key = null; picked = null; }   // its step moved on (approved, filed), or a fresh arrival
+  const em = view === 'approve' ? emailsLine() : '';
   return `<div class="tp" data-tpview="${esc(view)}">${head(view, m)}${intro(view, m)}
-    ${items.length ? listDetail({ id, label: `Testimony: ${TAB_WORD[view]}`, rows: listRows(view, items, picked), picked, detail: pit ? detailOf(pit, view) : '' })
-      : `<div class="tp-empty"><p>${icon('circle-check')}<span>${esc(EMPTY[view])}</span></p></div>`}</div>`;
+    ${items.length ? listDetail({ id, label: `Testimony: ${TAB_WORD[view]}`, rows: listRows(view, items, picked) + (em ? `<div class="tp-mailrow" role="listitem">${em}</div>` : ''), picked, detail: pit ? detailOf(pit, view) : '' })
+      : `<div class="tp-empty"><p>${icon('circle-check')}<span>${esc(EMPTY[view])}</span></p></div>${em ? `<div class="tp-mailrow tp-mailalone">${em}</div>` : ''}`}</div>`;
+}
+// Beside the list (1100px and wider) the open item's panel is as tall as the window below it, not the window's full
+// height from wherever the list starts, so its foot (the filing card's Mark filed) is on screen from the first view and
+// the steps scroll inside it (spec 3.2). Shared change asked: steps.css / wireListDetail to fit the panel this way.
+function fitPanel(root) {
+  const aside = root.querySelector('.v6-ld-detail'); if (!aside) return;
+  let raf = 0;
+  const fit = () => {
+    if (!aside.isConnected) { removeEventListener('scroll', on); removeEventListener('resize', on); return; }
+    if (!matchMedia('(min-width: 1100px)').matches) { aside.style.maxHeight = ''; return; }
+    aside.style.maxHeight = `${Math.max(320, innerHeight - Math.max(24, aside.getBoundingClientRect().top) - 24)}px`;
+  };
+  const on = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; fit(); }); };
+  addEventListener('scroll', on, { passive: true }); addEventListener('resize', on); fit();
 }
 function wire(route, root) {
   const view = S.tpView, id = `tp-${view}`;
+  fitPanel(root);
   if (view === 'library') {
     const libs = library(), find = key => libs.find(x => String(x.b.id) === String(key));
     wireListDetail(root, { id, open: key => { const e = find(key); return e ? libDetail(e) : ''; },

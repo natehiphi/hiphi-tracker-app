@@ -55,10 +55,10 @@ export function formChoice(h) {
 function hearingPick(h) {
   if (!h) return 'its hearing';
   const code = codesOf(h.committee).join('/'), name = committeeName(h.committee);
-  return `the <span class="tf-code">${esc(code || h.committee)}</span> hearing${name && name !== code ? ` (${esc(name)})` : ''}, ${esc(dayWords(h.scheduled_at))}, ${esc(timeWords(h.scheduled_at))}`;
+  return `the <span class="v6-code tf-code">${esc(code || h.committee)}</span> hearing${name && name !== code ? ` (${esc(name)})` : ''}, ${esc(dayWords(h.scheduled_at))}, ${esc(timeWords(h.scheduled_at))}`;
 }
 const copyBtn = (text, what) => btn('Copy', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-fcopy': text, 'aria-label': `Copy ${what}: ${text}` } });
-const answer = (label, value, copy = '', cls = '') => `<div class="tf-ans${cls ? ' ' + cls : ''}"><dt>${esc(label)}</dt><dd><span class="tf-val">${value}</span>${copy}</dd></div>`;
+const answer = (label, value, copy = '', cls = '', tail = '') => `<div class="tf-ans${cls ? ' ' + cls : ''}"><dt>${esc(label)}</dt><dd><span class="tf-val">${value}</span>${copy}${tail}</dd></div>`;
 
 // Steps 1 to 4. `inline`: the open item's card, whose Mark filed is the card's own button in a bar that stays at the foot
 // of the screen while the steps scroll (filled where it is the screen's one filled button); a sheet puts Mark filed in its
@@ -78,7 +78,7 @@ export function filingSteps(b, d, { inline = false, primary = true, going = '' }
         ${answer('Position', pos ? esc(pos) : esc(POS_WORD[b.position] || 'Ask the bill’s owner'), pos ? copyBtn(pos, 'the position') : '')}
         ${answer('Organization', esc(HIPHI), copyBtn(HIPHI, 'the organization'))}
         ${answer('Signed with', `HIPHI${coals.length ? `<span class="tf-sub">Signing for a coalition? ${esc(signAsk(b, coals))}</span>` : ''}`, copyBtn('HIPHI', 'the name it is signed with'), 'tf-signed')}
-        ${answer('How we testify', `${esc(choice.words)}<span class="tf-sub">${choice.going ? 'Speaking by video instead? Choose Remote.' : 'Someone speaking? Choose In person, or Remote by video.'}</span>${going ? `<span class="tf-going">${going}</span>` : ''}`)}
+        ${answer('How we testify', `${esc(choice.words)}<span class="tf-sub">${choice.going ? 'Speaking by video instead? Choose Remote.' : 'Someone speaking? Choose In person, or Remote by video.'}</span>`, '', 'tf-how', going ? `<div class="tf-going">${going}</div>` : '')}
         ${stream ? answer('Watch', `<a href="${esc(stream.url)}" target="_blank" rel="noopener">${icon('video')}<span>${esc(stream.label)}</span></a>`) : ''}
       </dl>
       <p class="tf-help">Upload the PDF and submit. A green box means it went in.</p></div></li>`;
@@ -96,10 +96,10 @@ export function filingSteps(b, d, { inline = false, primary = true, going = '' }
 export function missedChoices(b, d) {
   const a = { 'data-v6b': b.id, 'data-v6d': d.id }, talk = `${billRoute(b, 'activity')}?reply=1`;
   if (d.status !== 'approved') return `<p class="tf-q">It was never approved, so it can’t be marked filed here. Did it go in anyway?</p>
-    <div class="tf-choices">${btn('No, it didn’t go in', { kind: 'secondary', attrs: { ...a, 'data-v6act': 'nofile' } })}
+    <div class="tf-choices">${btn('No, it didn’t go in', { kind: 'secondary', attrs: { ...a, 'data-fnofile': '1' } })}
     ${btn('Yes: say so on the bill', { kind: 'secondary', icon: 'message-square', href: talk })}</div>`;
   return `<div class="tf-choices">${btn('Yes, mark filed (late)', { kind: 'secondary', icon: 'clipboard-check', attrs: { ...a, 'data-v6act': 'filed', 'data-v6late': '1' } })}
-    ${btn('No, we didn’t file', { kind: 'secondary', attrs: { ...a, 'data-v6act': 'nofile' } })}
+    ${btn('No, we didn’t file', { kind: 'secondary', attrs: { ...a, 'data-fnofile': '1' } })}
     ${btn('How did it go?', { kind: 'text', icon: 'message-square', href: talk })}</div>`;
 }
 
@@ -152,6 +152,22 @@ function didWeFile(b, d, { after } = {}) {
   void after;
 }
 
+// "No, we didn't file": steps.js's nofile step (the same line on the bill's timeline, which steps.js notFiled reads, and the
+// same Undo), with the toast said for where it was answered: on Testimony the row stays, under The record, so "It leaves
+// your list" (steps.js, right for Today) would not be true there. Shared change asked: steps.js to take the toast's words.
+async function noFile(b, d, el) {
+  const h = draftHearing(d), title = `Testimony not filed for the ${committeeName(d.committee) || d.committee} hearing${h ? ' ' + dayWords(h.scheduled_at) : ''}`;
+  const redraw = HOOK_AFTER && S.route?.name === 'testimony' ? HOOK_AFTER : () => hooks.render();
+  el.setAttribute('aria-busy', 'true'); el.disabled = true;
+  try {
+    if (el.closest('dialog')) await closeSheet({ silent: true });
+    await DB.addActivity(b.id, 'testimony', title); (S.v6NoFile ??= new Set()).add(String(d.id));
+    if (el.isConnected) await finish(el);
+    redraw();
+    toast(`Noted on the bill: not filed. ${S.route?.name === 'testimony' ? 'It stays on Missed, as the record.' : 'It leaves your list.'}`, { undo: async () => { S.v6NoFile.delete(String(d.id)); redraw(); } });
+  } catch (err) { toast(err, { err: true }); if (el.isConnected) { el.removeAttribute('aria-busy'); el.disabled = false; } }
+}
+
 // One listener for the whole app, like steps.js: Copy writes the answer on the tap (that is what lets the browser write
 // the clipboard), else shows it to copy by hand; the inline card's Mark filed finds its bill and draft.
 if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('click', e => {
@@ -163,6 +179,8 @@ if (typeof document !== 'undefined' && document.addEventListener) document.addEv
     try { navigator.clipboard.writeText(text).then(done, hand); } catch { hand(); }
     return;
   }
+  const no = e.target?.closest?.('[data-fnofile]');
+  if (no) { e.preventDefault(); const b = (S.bills || []).find(x => String(x.id) === no.dataset.v6b), d = b && (S.drafts?.[b.id] || []).find(x => String(x.id) === no.dataset.v6d); if (b && d) noFile(b, d, no); return; }
   const go = e.target?.closest?.('[data-fgo]'); if (!go) return;
   e.preventDefault();
   const b = (S.bills || []).find(x => String(x.id) === go.dataset.v6b), d = b && (S.drafts?.[b.id] || []).find(x => String(x.id) === go.dataset.v6d);

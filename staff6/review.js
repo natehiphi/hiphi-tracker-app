@@ -12,11 +12,11 @@
 // email asking supporters to testify on a bill that died. The draft itself stays in its Google Doc (Nate, 9/19).
 // The queue is worked out here (it was today.js's reviewQueue), so Review and Testimony › To approve count the same items.
 import { S, DB, esc, hooks, startedFromLine, raceLine } from './data.js';
-import { agoWords, billSay, alertTarget, alertsToReview, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn, draftHearing } from './model.js';
+import { agoWords, alertTarget, alertsToReview, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn, draftHearing } from './model.js';
 import { teamFirst, newOwnerTag, staleLine, filerOf, roomName, whenAt } from './model.js';
 import { icon, btn, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, keysUsed, posIcons, POS_WORD, ownerOf, docBtn } from './ui.js';
 import { emailPreview } from './composer.js';
-import { billStep, shownStatus, statusTile, whereWords, committeeName, numWords, nameWords, whoseStep, nw } from './steps.js';
+import { billStep, shownStatus, statusTile, whereWords, committeeName, numWords, nameWords, whoseStep, nw, sayWords } from './steps.js';
 import { plainCodes } from './terms.js';
 
 const DAY = 864e5;
@@ -35,8 +35,10 @@ const testDue = h => h && h.status !== 'cancelled' ? new Date(h.testimony_deadli
 // A draft whose sitting ended more than two days ago is past helping; one whose sitting was cancelled stays while the bill
 // can still be heard (R-316 W24).
 const pastHelp = (h, b) => h?.status === 'cancelled' ? diedish(b) || !!stopOf(b).deadline?.missed : !!h && new Date(h.scheduled_at).getTime() < Date.now() - 2 * DAY;
-// queue(): every draft waiting for my approval (soonest due first), then supporter emails, never my own.
-export function queue() {
+// queue(): every draft waiting for my approval (soonest due first), then supporter emails, never my own. `only`
+// 'testimony' leaves the emails out: Testimony › To approve's Start review reviews what that tab counts, and the emails
+// keep their own door there, the line to Outreach › Emails (fresh-eyes review 23 Oct: "1 waits" became "1 of 2").
+export function queue({ only = '' } = {}) {
   const me = S.me || {}, out = [];
   for (const d of Object.values(S.drafts || {}).flat()) {
     if (!['review', 'second_review'].includes(d.status)) continue;
@@ -46,18 +48,19 @@ export function queue() {
     out.push({ type: 'draft', key: String(d.id), d, b, h, due: testDue(h) });
   }
   out.sort((x, y) => (x.due ?? Infinity) - (y.due ?? Infinity) || (x.b.priority || 9) - (y.b.priority || 9) || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true }));
-  for (const a of alertsToReview()) out.push({ type: 'email', key: 'email-' + a.id, a, b: a.bill_id ? billById(a.bill_id) : null, due: null });
+  if (only !== 'testimony') for (const a of alertsToReview()) out.push({ type: 'email', key: 'email-' + a.id, a, b: a.bill_id ? billById(a.bill_id) : null, due: null });
   return out;
 }
 
 // The session: the queue as it stood when review started, so "2 of 3" stays true while items leave the live queue.
 function session(route) {
-  let r = S.tdRev;
-  if (!r || (!route.id && r.done)) {
-    const q = queue().map(x => x.key);
+  let r = S.tdRev; const only = route.q?.only === 'testimony' ? 'testimony' : '';
+  // A fresh start (#/review, #/review?only=testimony) after the last session ended, or asking for a different queue.
+  if (!r || (!route.id && (r.done || (r.only || '') !== only))) {
+    const q = queue({ only }).map(x => x.key);
     // Opened on one item (a row's Review button): that item first, then the rest of the queue.
     if (route.id && route.id !== 'done' && q.includes(route.id)) q.unshift(...q.splice(q.indexOf(route.id), 1));
-    r = S.tdRev = { keys: q, i: 0, log: [], skipped: [], done: false };
+    r = S.tdRev = { keys: q, i: 0, log: [], skipped: [], done: false, only };
   }
   if (route.id && route.id !== 'done') {
     const at = r.keys.indexOf(route.id);
@@ -144,7 +147,7 @@ function emailBody(it) {
     <p class="rv6-eb">${icon('mail')}<span>Email to supporters</span></p>
     <h2 id="rv6-b" class="rv6-title rv6-subj">${esc(a.subject || '(no subject)')}</h2>
     ${it.b ? `<p class="rv6-bill">${head(it.b)}</p>${factsLine(it.b)}${billState(it.b, { email: true })}` : ''}
-    <p class="rv6-line">${icon('users')}<span>To ${n != null ? `${n} ${n === 1 ? 'person' : 'people'} who follow` : 'the people who follow'} ${esc(alertTarget(a))}</span></p>
+    <p class="rv6-line">${icon('users')}<span>To ${n != null ? `${n} ${n === 1 ? 'person' : 'people'} who follow` : 'the people who follow'} ${it.b ? esc(numWords(it.b)) : plainCodes(esc(alertTarget(a)))}</span></p>
     <p class="rv6-line">${icon('user-round')}<span>Sent by ${esc(first(a.author_id))} ${esc(ago(a.submitted_at || a.created_at))}</span></p>
     ${S.emailCfg?.enabled === false ? notice('info', 'mail', 'Email is paused. You can approve; an approved email is held until email is turned on.') : ''}
     <div class="rv6-mail">${emailPreview(a)}</div>
@@ -268,7 +271,7 @@ async function approve(route, el) {
   try {
     if (it.type === 'email') {
       await DB.alertStep(it.a.id, 'approve');
-      const msg = `Approved. ${first(it.a.author_id)} can send it now.`, entry = { num: it.b ? `Email on ${billSay(it.b)}` : 'Email', what: `Approved by you · ${first(it.a.author_id)} can send it now`, icon: 'check' };
+      const msg = `Approved. ${first(it.a.author_id)} can send it now.`, entry = { num: it.b ? `Email on ${sayWords(it.b)}` : 'Email', what: `Approved by you · ${first(it.a.author_id)} can send it now`, icon: 'check' };
       toast(msg, { ok: true, undo: () => unapprove(r, it, entry) }); advance(r, entry);
       return;
     }
@@ -276,7 +279,7 @@ async function approve(route, el) {
     // Written from the state the server returned: a first testimony goes on to its second look.
     const d = resolve(it.key)?.d || it.d, fid = filerOf(d), filer = fid && fid !== S.me.id ? first(fid) : null;   // W20 (T-3): model.js filerOf
     const next = d.status === 'second_review' ? `${cap(whoseStep(d, it.b).words) || 'A second approver'} gives the second look next` : filer && filer !== 'Someone' ? `${filer} files it next` : 'File it at the Capitol next';
-    const entry = { num: billSay(it.b), what: `Approved by you · ${next}`, icon: 'check' };
+    const entry = { num: sayWords(it.b), what: `Approved by you · ${next}`, icon: 'check' };
     toast(`Approved. ${next}.`, { ok: true, undo: () => unapprove(r, it, entry) }); advance(r, entry);
   } catch (e) { toast(e, { err: true }); if (el && el.isConnected) { el.removeAttribute('aria-busy'); el.disabled = false; } }
 }
@@ -299,7 +302,7 @@ function changes(route) {
         const note = ta.value.trim();
         if (!note) { ta.setAttribute('aria-invalid', 'true'); if (!dlg.querySelector('#td-note-e')) ta.insertAdjacentHTML('afterend', `<span class="err" id="td-note-e" role="alert">${icon('circle-alert')}Write what should change first.</span>`); ta.setAttribute('aria-describedby', 'td-note-e td-note-h'); ta.focus(); return; }
         go.setAttribute('aria-busy', 'true'); go.disabled = true;
-        const num = it.type === 'email' ? (it.b ? `Email on ${billSay(it.b)}` : 'Email') : billSay(it.b);
+        const num = it.type === 'email' ? (it.b ? `Email on ${sayWords(it.b)}` : 'Email') : sayWords(it.b);
         const entry = { num, what: `Back to ${name} with your note: “${note.length > 80 ? note.slice(0, 78) + '…' : note}”`, icon: 'undo-2' };
         // Held ten seconds (holdBack above): the Undo in the toast cancels it before the writer is told.
         const undo = holdBack({ key: it.key, target: it.type === 'email' ? it.a : it.d,
@@ -333,7 +336,7 @@ function wire(route, root) {
     setTimeout(() => { if (ap.isConnected) { ap.removeAttribute('aria-disabled'); ap.classList.remove('rv6-arming'); } }, Math.max(0, ARM_MS - (performance.now() - shown.at)) + 20); }
   ap?.addEventListener('click', e => approve(route, e.currentTarget));
   root.querySelector('[data-changes]')?.addEventListener('click', () => changes(route));
-  root.querySelector('[data-again]')?.addEventListener('click', () => { const keys = stillSkipped(S.tdRev); S.tdRev = { keys, i: 0, log: [], skipped: [], done: false }; S.go(`#/review/${encodeURIComponent(keys[0])}`, { replace: true }); });
+  root.querySelector('[data-again]')?.addEventListener('click', () => { const keys = stillSkipped(S.tdRev); S.tdRev = { keys, i: 0, log: [], skipped: [], done: false, only: S.tdRev?.only || '' }; S.go(`#/review/${encodeURIComponent(keys[0])}`, { replace: true }); });
   root.querySelector('[data-home]')?.addEventListener('click', () => { S.tdRev = null; });
 }
 

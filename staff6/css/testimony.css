@@ -10,11 +10,19 @@ body.staff6 .tp { min-width: 0; }
 body.staff6 .tp .tp-h1 { margin-bottom: 16px; }
 body.staff6 .tp-intro { margin: 0 0 16px; max-width: 720px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
 body.staff6 .tp-intro b { color: var(--v6-ink); }
+/* the head row spans the page, so its button's right edge is the open item's (one right edge, fresh-eyes review 23 Oct) */
 body.staff6 .tp-start { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin: 0 0 16px; }
 body.staff6 .tp-start .tp-intro { flex: 1 1 320px; margin: 0; }
-body.staff6 .tp-start .btn { flex: none; margin: 0; }
-/* F172: the supporter emails to approve, one quiet labelled line to Outreach › Emails */
-body.staff6 .tp-emails { display: flex; align-items: center; gap: 10px; min-height: 48px; margin: 0 0 16px; padding: 0 16px; max-width: 720px;
+body.staff6 .tp-start .btn { flex: none; margin: 0 0 0 auto; }
+/* a tab holding the person's own late step: the clock beside its count, amber while still accepted, red once overdue */
+body.staff6 .sv-secnav .tp-tlate { display: inline-flex; align-items: center; margin-left: 4px; vertical-align: -2px; }
+body.staff6 .sv-secnav .tp-tlate svg { width: 16px; height: 16px; flex: none; stroke-width: 2.5; }
+body.staff6 .sv-secnav .tp-tlate-late { color: var(--v6-late); }
+body.staff6 .sv-secnav .tp-tlate-overdue { color: var(--v6-bad); }
+/* F172: the supporter emails to approve, one quiet labelled line to Outreach › Emails, under the list in its column */
+body.staff6 .tp-mailrow { padding: 8px 0 0; }
+body.staff6 .tp-mailrow.tp-mailalone { padding: 16px 0 0; max-width: 720px; }
+body.staff6 .tp-emails { display: flex; align-items: center; gap: 10px; min-height: 48px; margin: 0; padding: 0 16px;
   border-radius: var(--v6-r12); background: var(--v6-wash); color: var(--v6-body); text-decoration: none; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); }
 body.staff6 .tp-emails > span:first-of-type { flex: 1; min-width: 0; }
 body.staff6 .tp-emails svg { width: 20px; height: 20px; flex: none; color: var(--v6-muted); }
@@ -43,6 +51,15 @@ body.staff6 .tp-empty svg { width: 22px; height: 22px; flex: none; color: var(--
 body.staff6 .tp-extra { display: flex; flex-wrap: wrap; gap: 4px 12px; }
 body.staff6 .tp-extra .btn { margin: 0; }
 body.staff6 .tp-filing { padding-top: 4px; }
+/* Below 1100px the open item is its own page: only the title and the tabs stay above Back to the list, not the tab's
+   sentence or its Start review (spec 5 listDetail). On a phone To approve's sentence is left out: the count and the button
+   say it, and the first row comes into the first screen (A-1). */
+@media (max-width: 1099.98px) { body.staff6 .tp:has(.v6-ld.open) > .tp-intro, body.staff6 .tp:has(.v6-ld.open) > .tp-start, body.staff6 .tp:has(.v6-ld.open) > .tp-sub { display: none; } }
+@media (max-width: 767.98px) {
+  body.staff6 .tp[data-tpview="approve"] .tp-start .tp-intro { display: none; }
+  body.staff6 .tp-start { margin-bottom: 12px; }
+  body.staff6 .tp-start .btn { flex: 1 1 100%; min-height: 48px; }
+}
 
 /* ---- the filing card (V25): four numbered steps, the form's answers with Copy ---- */
 .tf-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; counter-reset: none; }
@@ -70,6 +87,22 @@ body.staff6 .tp-filing { padding-top: 4px; }
 .tf-ans a { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; color: var(--v6-action, #0B6E73); font-weight: 700; }
 .tf-ans a svg { width: 18px; height: 18px; }
 .tf-body .field { margin: 0; }
+/* the hearing's code as the Capitol's picker lists it, small beside the words (spec 5) */
+.tf-help .tf-code { white-space: nowrap; }
+/* who is going and I'm going, under "How we testify", which they decide */
+.tf-going { flex: 1 1 100%; min-width: 0; padding-top: 4px; }
+.tf-going .v6-step-go { margin: 0; }
+/* the open item's Mark filed stays in reach while steps 1 to 3 scroll: above the tab bar on a phone, at the window's foot
+   on a tablet, at the panel's foot beside the list (spec 3.2; the sheet keeps it in its foot) */
+.tf-wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.tf-bar { position: sticky; bottom: 0; z-index: 5; display: flex; justify-content: flex-end; margin: 0 -16px -16px; padding: 12px 16px;
+  padding-top: 24px; background: linear-gradient(180deg, rgba(255, 254, 250, 0) 0, var(--v6-card, #FFFEFA) 20px); }
+.tf-bar .btn { margin: 0; min-height: 48px; min-width: 160px; }
+@media (max-width: 767.98px) {
+  body.staff6 .tf-bar { bottom: calc(var(--tabbar, 64px) + var(--safe-b, 0px)); margin: 0 -16px; padding: 12px 16px; background: var(--v6-card, #FFFEFA);
+    box-shadow: 0 -1px 2px rgba(74, 52, 30, .04), 0 -6px 18px rgba(74, 52, 30, .08); border-radius: var(--v6-r12, 12px) var(--v6-r12, 12px) 0 0; }
+  body.staff6 .tf-bar .btn { flex: 1 1 100%; }
+}
 .tf-sheet { display: grid; gap: 16px; }
 .tf-when { margin: 0; }
 .tf-q { margin: 0 0 16px; font-size: var(--v6-t16, 1rem); line-height: var(--v6-lh16, 24px); }
@@ -96,6 +129,14 @@ body.staff6 .tp-find:focus-within { box-shadow: inset 0 0 0 2px var(--v6-action)
 body.staff6 .tp-find svg { width: 20px; height: 20px; flex: none; color: var(--v6-muted); }
 body.staff6 .tp-find input { flex: 1; min-width: 0; min-height: 44px; border: 0; background: transparent; font: 400 var(--v6-t16)/1.4 Lato, system-ui, sans-serif; color: var(--v6-ink); padding: 0; }
 body.staff6 .tp-find input:focus { outline: none; }
+/* the library draws the bill's own filings itself (every one, the newest included), so testimony.js's own first part,
+   which leaves out a filing whose hearing is still ahead, is not shown twice */
+body.staff6 .tp-earlier .tm-part[aria-labelledby="tm-own-h"] { display: none; }
+body.staff6 .tp-earlier { margin-top: 0; }
+/* the filter box lines up with the list it filters (the list's column beside the open item) */
+@media (min-width: 1100px) { body.staff6 .tp-sub { max-width: none; } body.staff6 .tp-sub > .tp-intro { max-width: 720px; } body.staff6 .tp-sub .tp-find { margin-right: 404px; } }
+body.staff6 .tp-lmeta { margin: 2px 0 0; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
+body.staff6 .tp-lib-own .tm-part > h3 { font-size: var(--v6-t16); }
 body.staff6 .tp-earlier .bw-earlier > summary { display: none; }   /* the item's own name heads it: the fold's title would say it twice */
 body.staff6 .tp-earlier .bw-earlier > #tm-body { margin-top: 0; }
 
