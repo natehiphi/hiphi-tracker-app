@@ -1542,7 +1542,9 @@ function weekOf(mon, scope, who, r) {
 // files or revises it), not always the owner; nobody at all says "No owner" in words.
 function wkOn(b, h) {
   const d = h && draftOf(h); if (!d) return null;
-  const act = S.advocates.filter(a => a.is_active !== false);
+  // W20 (C-11 on Mine): you first when the step is yours too, as Slipping says "You or Jaylen", so Kris's own approval
+  // does not read as Jaylen's and Jess's with her among "+2".
+  const act = S.advocates.filter(a => a.is_active !== false).sort((x, y) => (y.id === S.me?.id) - (x.id === S.me?.id));
   if (d.status === 'review') return act.filter(a => canFirstApprove(a, d, h)).map(a => a.id);
   if (d.status === 'second_review') return act.filter(a => canSecondApprove(a, d)).map(a => a.id);
   if (d.status === 'approved' || d.status === 'draft') { const f = d.submitted_by || (S.assignments[b.id] || [])[0]; return f ? [f] : []; }
@@ -1555,6 +1557,7 @@ function wkBill(b, right, owners, on = null) {
 }
 // "1:00 PM", or "Sun 3:00 PM" in the weekend column, which holds two days.
 const wkWhen = (t, wkend) => (wkend ? dayFmt(hst(t), { weekday: 'short' }) + ' ' : '') + timeOf(new Date(t).toISOString());
+// `owners(b)`: whether a bill's row names whose it is (R-316 W20, C-11: on Mine, every bill that is not the viewer's own).
 function wkDeadline(g, owners, now, wkend, max = Infinity) {
   // Past the written deadline but before the hearing begins, late testimony is still taken: amber, and it says until
   // when, not red "overdue" (A-5 as amended by R-250; v3, R-264).
@@ -1562,7 +1565,7 @@ function wkDeadline(g, owners, now, wkend, max = Infinity) {
   const head = open ? lateLine(g.h.scheduled_at) : late ? 'Testimony\u00a0overdue' : `${wkWhen(g.due, wkend)} · Testimony\u00a0due`;
   const when = open ? '' : ms <= 0 ? `was due ${whenAt(g.due)}` : hst(g.due) === hst(now) ? `in ${spanOf(g.due)}` : '';   // R-277 fix 3; late and still accepted is said once, in the head
   const rows = g.rows.sort((x, y) => x.st[2] - y.st[2] || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true })).slice(0, max)
-    .map(x => wkBill(x.b, `<span class="sr">Testimony: </span>${chip(x.st[0], '', x.st[1], { sm: true })}`, owners, wkOn(x.b, x.t?.h || x.h))).join('');
+    .map(x => wkBill(x.b, `<span class="sr">Testimony: </span>${chip(x.st[0], '', x.st[1], { sm: true })}`, owners(x.b), wkOn(x.b, x.t?.h || x.h))).join('');
   return `<section class="wk-blk wk-dl${late ? ' late' : soon ? ' soon' : ''}" data-at="${g.due}" aria-label="${esc(`${head}${when ? ', ' + when : ''}, ${what}`)}">
     <p class="wk-bh">${icon(late ? 'circle-alert' : 'clock')}<b>${esc(head)}</b></p>
     <p class="wk-bs">${when ? `<span class="wk-when">${esc(when)}</span> · ` : ''}${esc(what)}</p>
@@ -1609,6 +1612,9 @@ const dlChip = d => Object.entries(DEADLINES || {}).flatMap(([k, l]) => (l || []
 function weekView(route, scope, who, r) {
   const now = Date.now(), today = hst(now), off = weekOff(route), mon = dayAdd(mondayOf(now), off * 7), wk = weekOf(mon, scope, who, r), days = [...wk.keys()];
   const owners = scope === 'team', all = [...wk.values()];
+  // R-316 W20 (C-11): on Mine a deadline card's bill that is not yours (a coalition's, for Patti, Saya, Kris and Julie, who
+  // own none; a bill you only follow) names whose step it is, as Team does (wkOn); your own bills stay as they were.
+  const dlOwn = scope === 'team' ? () => true : scope === 'mine' ? b => !owns(S.me.id, b) : () => false;
   const byDue = (x, y) => (x.kind === 'wait') - (y.kind === 'wait') || (x.due ?? Infinity) - (y.due ?? Infinity) || x.rank - y.rank;
   // A day's things with a time, in time order (at the same minute: the deadline, then the step, then the hearing),
   // then the steps with no time of their own. The weekend passes its two days together.
@@ -1617,7 +1623,7 @@ function weekView(route, scope, who, r) {
   // one folded row), then "+N more", which opens that day; a deadline or a hearing cut part way says the rest in that count.
   const body = (cs, wkend, key) => {
     const other = cs.flatMap(c => c.other), rest = other.filter(t => !wkTimed(t)).sort(byDue);
-    const ents = [...cs.flatMap(c => [...c.dl.values()]).map(g => [g.due, 0, g.rows.length, m => wkDeadline(g, owners, now, wkend, m)]),
+    const ents = [...cs.flatMap(c => [...c.dl.values()]).map(g => [g.due, 0, g.rows.length, m => wkDeadline(g, dlOwn, now, wkend, m)]),
       ...other.filter(wkTimed).map(t => [t.due, 1, 1, () => wkStep(t, wkend)]),
       ...cs.flatMap(c => [...c.hs.values()]).map(l => [l[0].t, 2, l[0].t < now - 2 * HR || l.every(x => isMon(x.b)) ? 1 : l.length, m => wkHearing(l, owners, now, wkend, m)])]
       .sort((x, y) => x[0] - y[0] || x[1] - y[1]);
