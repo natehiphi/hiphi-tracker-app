@@ -105,7 +105,7 @@ const TOPICS = [
     items: () => [['1. Open their page', 'Legislators, then <b>Everyone</b> (type a name, a town or a district), or a name on a bill’s Committees.'],
       ['2. Log a talk', 'Press <b>Log a talk</b> at the top of their page. A bill’s Team talk box logs one too, already filed under that bill.'],
       ['3. Fill it in', '<b>Filed under</b>: the issue, and the bill if it was about one. <b>When</b>: the day. <b>What was said</b>: what they said, what they asked for, what we promised. Met several legislators at once? Add each one: it is one record on each of their pages.'],
-      ['4. Where they stand', 'If they said how they will vote, set their stance beside their name on the bill’s Committees, or in the table of our bills on their page.'],
+      ['4. Where they stand', 'If they said how they will vote, set their stance beside their name on the bill’s Committees, or with Mark where they stand beside the bill on their page.'],
       ['Who sees it', 'The whole team: on the legislator’s page, on the issue’s page and on every bill of that issue. You can correct or delete your own entry for ten minutes.']] },
   { id: 'calendar', gate: HOW_TO, title: 'Session calendar', also: 'deadlines dates calendar days left lateral decking crossover legislative day', icon: 'calendar-clock', sub: () => { const g = sessionGates(S.bills).find(x => x.next); return g ? `Next: ${g.name}, ${mdDay(g.date)}` : 'Every deadline of the session'; },
     items: () => calendarItems() },
@@ -201,7 +201,7 @@ function coalitionItems() {
   const cs = (S.campaigns || []).slice().sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99) || a.name.localeCompare(b.name));
   return [['What a coalition is', 'A group of organizations HIPHI works with on one cause. Each tracked bill belongs to one or more coalitions; each coalition has an owner on the team, a Slack channel and its own page (My issues, then <b>Coalitions</b>), where you can switch on I help on.'],
     // The full name, unless the description already starts with it ("Community health workers: ...").
-    ...cs.map(c => [c.name, [c.public_name && c.public_name !== c.name && !plain(c.description || '').startsWith(plain(c.public_name)) ? esc(c.public_name) + '.' : '', c.description ? esc(String(c.description).replace(/\s+/g, ' ').slice(0, 220)) : '', c.owner_id && first(c.owner_id) ? `Owner: ${esc(first(c.owner_id))}.` : '',
+    ...cs.map(c => [c.name, [c.public_name && c.public_name !== c.name && !plain(c.description || '').startsWith(plain(c.public_name)) ? esc(c.public_name) + '.' : '', c.description ? esc(String(c.description).replace(/\s+/g, ' ')) : '', c.owner_id && first(c.owner_id) ? `Owner: ${esc(first(c.owner_id))}.` : '',
       c.slack_channel ? `Slack: ${esc(String(c.slack_channel).replace(/^#?/, '#'))}.` : '', `<a href="#/coalition/${encodeURIComponent(c.id)}">Its page</a>`].filter(Boolean).join(' ')])];
 }
 
@@ -302,7 +302,7 @@ const MOVED = () => [
     ['The phone’s House, Senate and All chips', `${go('Legislators', '#/legislators?view=everyone')}, under Everyone: Filter, then House or Senate.`],
     ['Holding our bills (it had no address)', `${go('Legislators', '#/legislators?view=holding')}, under Holding our bills, and in More tools.`],
     ['Log a conversation', 'A legislator’s page: <b>Log a talk</b>. A bill’s Team talk box logs one too. Tick “This was an ask for a hearing” when it was one.'],
-    ['Mark where they stand, on a legislator’s page', 'The same page, in its table of our bills in their committees: <b>Where they stand</b>. The bill’s Committees door has it too.']]],
+    ['Mark where they stand, on a legislator’s page', 'The same page, beside each of our bills in their committees: <b>Mark where they stand</b> (once set, the stance itself, such as Leaning yes). The bill’s Committees door has it too.']]],
   ['Outreach and My issues', [
     ['Outreach’s issues, first visit numbers and QR code', `${go('My issues', '#/my-issues/all')}, under All issues; ${go('More tools', '#/tools')} has First visit numbers and Make a link or QR code.`],
     ['Your issues for 2027 (the prep list)', `${go('My issues', '#/my-issues')} itself, between sessions.`],
@@ -314,8 +314,8 @@ const MOVED = () => [
     ['Session setup’s people (Team)', S.me?.is_admin ? `${go('People', '#/people')}, a lead tool: each person’s roles, sign-in, and hand over and turn off.` : 'People, a lead tool for admins.'],
     ['Partners’ menu: Invite a group, Make a link only', 'Buttons at the top of Partners.'],
     ['Partners’ menu: Partner approvers', S.me?.is_admin ? `${go('People', '#/people')}: each person’s record, under Roles.` : 'People (admins): each person’s record, under Roles.'],
-    ['Session setup: Email, Hearing alerts, Message wording', 'Session setup, its Alerts tab: every Slack and email setting on one page.'],
-    ['Session setup: Coalitions, Session days and sync, Import, Committee map', 'Session setup, its Each session tab.'],
+    ['Session setup: Email, Hearing alerts, Message wording', 'Session setup, its Email and Slack tab: every Slack and email setting on one page, with the switch for email to the public.'],
+    ['Session setup: Coalitions, Session days and sync, Import, Committee map', 'Session setup, its Before each session tab.'],
     ['Session setup: Connections, Keys', 'Session setup, its Connections tab (the keys under Technical details).'],
     ['Session setup: Website embed, Tests, Tester sheet', 'Session setup, its Public page tab.'],
     ['Session setup: People’s lists, Privacy and keeping', 'Session setup, its Privacy tab, with Forget a person.'],
@@ -441,7 +441,9 @@ const has = (hay, x) => x.length <= 3 ? whole(hay, x) : new RegExp(`(^|[^a-z0-9]
 const unent = s => String(s).replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&#39;|&rsquo;/g, '’').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 const wordsOf = q => plain(q).replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(w => w && !STOP.has(w));
 const entriesOf = t => t.items ? t.items() : t.id === 'moved' ? MOVED().flatMap(([, rows]) => rows) : [[t.title, '']];
-const hitRow = h => itemRow({ key: h.t.id + ':' + h.term, name: h.term, line: esc(`${h.def ? (h.def.length > 120 ? h.def.slice(0, 119).replace(/\s\S*$/, '') + '…' : h.def) + ' · ' : ''}${h.t.title}`), href: `#/help/${h.t.id}`, cls: 'hp-row' });
+// The meaning's first sentence, whole (A-1: never cut with a typed "…"), then the guide it is in.
+const firstSent = t => { t = String(t || ''); const m = /^.*?[.!?](?=\s|$)/.exec(t); return m && m[0].split(/\s+/).length >= 3 ? m[0] : t; };
+const hitRow = h => itemRow({ key: h.t.id + ':' + h.term, name: h.term, line: esc(`${h.def ? firstSent(h.def) + ' · ' : ''}${h.t.title}`), href: `#/help/${h.t.id}`, cls: 'hp-row' });
 function results(q) {
   const ws = wordsOf(q); if (!ws.length) return q.trim() ? '<p class="hp-none" role="status">Type a word, such as “file” or “alerts”.</p>' : '';
   const alts = ws.map(synOf), hits = [], near = [], keyW = ws.reduce((k, w, i) => w.length > ws[k].length ? i : k, 0);

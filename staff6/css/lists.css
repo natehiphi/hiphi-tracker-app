@@ -439,7 +439,7 @@
    names and headings. Scoped to this group's own classes (.le-temails, .ot-lists, .le-list, .le-cmp, .le-mail), so the
    pages of other places that borrow .le-page and .le-table keep their look until their builders change it. */
 body.staff6 .ot-lede { margin: 0 0 var(--s16); max-width: 68ch; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
-body.staff6 .ot-lists { max-width: 760px; }
+body.staff6 .ot-lists { max-width: 880px; }   /* Outreach's one column (supporters.css .sp-page) */
 
 /* Emails: groups on a phone, four columns on a laptop */
 body.staff6 .le-page .le-egroup { margin-top: var(--s24); }
@@ -546,3 +546,10 @@ body.staff6 .fv-page .fv-qrbox { border: 0; border-radius: var(--v6-r12); box-sh
 body.staff6 .fv-page .fv-qrerr { color: var(--v6-body); font-size: var(--v6-t16); }
 body.staff6 .fv-page .fv-qrbox .fv-qrerr svg { width: 20px; height: 20px; }
 body.staff6 .fv-page .fv-how, body.staff6 .fv-page .fv-from { font-size: var(--v6-t16); color: var(--v6-body); }
+/* A phone: the top bar names New email already, so the composer's h1 is read, not shown (A-14; it pushed the first field
+   to about 470px); its "…" stays at the right of the row. */
+@media (max-width: 767px) {
+  body.staff6 .le-cmp .le-chead h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; padding: 0; }
+  body.staff6 .le-cmp .le-chead { justify-content: flex-end; }
+  body.staff6 .le-cmp .le-chead:not(:has(.le-hmore)) { display: block; height: 0; }
+}

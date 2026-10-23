@@ -8,7 +8,7 @@
 //     issues; to-dos on others' bills; testimony they sent; hearings they are going to), a suggested cover for each part
 //     (the coalition's other people, else Nate) and one "Hand over and turn off" with Undo, which tells each new owner in
 //     a bill's messages. Turn off plus hand-over: 4 clicks from anywhere, on one screen (spec 8).
-//   - Away until (W30) needs a migration (D13), so the page says it comes later and hands over without a date.
+//   - Away until (W30) needs a migration (D13), so the page hands over without a date and says how to keep them signed in.
 //   - Every change here saves the moment it is made, with Undo (B-5); typed details save from their sheet.
 // The data calls are v5's (data.js team*, setOwner, saveCampaign, updateIssue, updateTodo, attend, sendMessage,
 // partnerSetApprover): nothing new is asked of the database.
@@ -96,7 +96,8 @@ function otherOwner(c, a) {
 function coalCover(c, a) {
   const own = advocate(c?.owner_id);
   if (own && own.id !== a.id && live(own)) return [own, `owns ${c.name}`];
-  return (c && otherOwner(c, a)) || [fallback(a), c ? `no one else owns ${c.name} bills` : 'no coalition'];
+  // The row's small part names the coalition already, so the reason is said short, once (the critic: two rows repeated it).
+  return (c && otherOwner(c, a)) || [fallback(a), c ? 'no other owner' : 'no coalition'];
 }
 const coalOf = b => (S.campaigns || []).find(c => (S.billCampaigns?.[b.id] || []).includes(c.id)) || null;
 // The parts of the hand-over, each with its suggested cover and the person picked (one part's own pick, or "everything to
@@ -232,9 +233,9 @@ function leavingPage(a, route) {
   // v5's "See their live bills" (R-316 W28): Bills, filtered to them, to give the bills out one by one with bulk change.
   const which = billParts.length ? `<details class="pe-which"><summary>${icon('chevron-down', { cls: 'chev' })}<span>Which bills</span></summary><ul class="pe-wlist">${billParts.flatMap(p => p.items).map(b => `<li><a href="${esc(billRoute(b))}">${esc(nameWords(b))}</a> <span class="pe-num">${esc(numWords(b))}</span></li>`).join('')}</ul>
     ${done ? '' : `<p class="pe-wopen">${btn('Give them out one by one in Bills', { kind: 'text', icon: 'list-checks', attrs: { 'data-pebills': a.id } })}</p>`}</details>` : '';
-  // Away for a while (W30 needs a migration): hand over and keep them signed in. Turning someone back on gives back their
-  // sign-in, not their work, so the note says so (P-3: nothing is a trap).
-  const away = done ? '' : notice('info', 'calendar-clock', `Away for a while? <b>Away until comes with a later update.</b> Until then, hand over and keep ${esc(first)} signed in. When ${esc(first)} is back, the work stays with its new owners: give it back from ${esc(first)}’s record before you close this tab, or bill by bill from Which bills.`);
+  // Away for a while (an "Away until" date needs a migration, W30): one quiet line under the buttons says what to use now,
+  // and how the bills come back (P-3: nothing is a trap; C-10: no talk of later updates).
+  const away = done || !parts.length ? '' : `<p class="pe-quiet pe-soon">Back soon? Use Hand over, keep ${esc(first)} signed in${billParts.length ? '; you can move bills back from Which bills' : ''}.</p>`;
   const top = done ? notice('ok', 'circle-check', `<b>${done.parts.length ? 'Handed over' : 'Turned off'} ${esc(whenAt(new Date(done.at).toISOString()))}.</b> ${esc(done.keep ? `${first} can still sign in.` : `${first} is turned off and cannot sign in.`)} ${esc(done.toldWords)}`, btn('Undo', { kind: 'secondary', icon: 'undo-2', attrs: { 'data-peundo': a.id } })) : '';
   const nothing = !parts.length && !h.drafts.length && !h.going.length;
   const all = done || !parts.length ? '' : `<div class="pe-all">${btn('Give it all to one person', { kind: 'text', icon: 'users', attrs: { 'data-pecover': 'all', 'aria-haspopup': 'dialog' } })}</div>`;
@@ -242,9 +243,9 @@ function leavingPage(a, route) {
   const go = done ? ''
     : `<div class="pe-go">${btn(nothing ? 'Turn off' : 'Hand over and turn off', { icon: 'handshake', attrs: { 'data-pego': a.id, ...(s.busy === a.id ? { 'aria-busy': 'true' } : {}) } })}${nothing ? '' : btn(`Hand over, keep ${first} signed in`, { kind: 'text', attrs: { 'data-pekeep': a.id } })}
       ${nothing ? `<span class="pe-note">${esc(first)} holds nothing that needs a new owner.</span>` : ''}</div>`;
-  return `<div class="pe-page pe-leaving">${head}${top}${away}
+  return `<div class="pe-page pe-leaving">${head}${top}
     ${rows ? `<div class="v6-list pe-parts" role="list" aria-label="What ${esc(first)} holds">${rows}</div>` : ''}
-    ${all}${which}${quiet ? `<p class="pe-quiet">${esc(quiet)}</p>` : ''}${go}</div>`;
+    ${all}${which}${quiet ? `<p class="pe-quiet">${esc(quiet)}</p>` : ''}${go}${away}</div>`;
 }
 
 // ---- actions ----

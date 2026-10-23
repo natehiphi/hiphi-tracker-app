@@ -312,12 +312,14 @@ export function profileHits(q) {
   }
   return out.sort((a, b) => String(b.x.edited_at || b.x.at).localeCompare(String(a.x.edited_at || a.x.at)));
 }
-// What was written, from the first word searched for when it is far in, so the reason the result is here shows.
-export function quoteOf(text, q, n = 110) {
+// What was written: the whole sentence with the first word searched for, so the reason the result is here shows and
+// nothing is cut (A-1; the critic: a typed "…" is still cut). `n` is kept for callers; a sentence is never shortened.
+export function quoteOf(text, q, n = 110) { void n; return sentenceWith(text, q); }
+export function sentenceWith(text, q) {
   const t = String(text || '').replace(/\s+/g, ' ').trim(), low = plain(t);
   const at = plain(q).split(/\s+/).filter(Boolean).map(w => low.indexOf(w)).filter(i => i >= 0).sort((a, b) => a - b)[0] ?? 0;
-  const from = at > n - 30 ? t.lastIndexOf(' ', at - 20) + 1 : 0, cut = t.slice(from, from + n);
-  return (from ? '…' : '') + cut + (from + n < t.length ? '…' : '');
+  for (const m of t.matchAll(/[^.!?]+(?:[.!?]+["”’)]*|$)\s*/g)) if (at < m.index + m[0].length) return m[0].trim();
+  return t;
 }
 
 // ---- wiring (legislator.js calls this after each paint) ----

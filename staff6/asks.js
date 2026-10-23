@@ -145,7 +145,7 @@ function partnersHTML() {
   // One time format on the page (whenAt: "today 4:30 PM"), as every card says its times.
   const when = a => a.state === 'going_out' ? `goes out ${whenAt(hst(new Date(a.scheduled_for).getTime()) + 'T16:30:00-10:00')}` : 'going out now';
   return `<section class="ot-pasks" aria-labelledby="ot-pasks-h"><h2 class="ot-h2" id="ot-pasks-h">Partners’ asks going out</h2>
-    <ul class="ot-plist">${on.slice(0, 5).map(a => { const b = billById(a.bill_id); return `<li><b>${esc(a.partner_name)}</b> on ${b ? `<a href="${esc(billRoute(b))}">${esc(nameWords(b, 48))}</a>` : esc(a.bill_number || 'a bill')}, ${esc(when(a))}</li>`; }).join('')}</ul>
+    <ul class="ot-plist">${on.slice(0, 5).map(a => { const b = billById(a.bill_id); return `<li><b>${esc(a.partner_name)}</b> on ${b ? `<a href="${esc(billRoute(b))}">${esc(nameWords(b, 1e4))}</a>` : esc(a.bill_number || 'a bill')}, ${esc(when(a))}</li>`; }).join('')}</ul>
     ${on.length > 5 ? `<p class="ot-note">and ${on.length - 5} more.</p>` : ''}</section>`;
 }
 
@@ -160,13 +160,12 @@ function askDue(x) {
   const b = x.b, due = askDueAt(x.h), r = rallierOf(b), me = S.me?.id;
   return { due, past: due <= Date.now(), today: hst(due) === hst(Date.now()), mine: !!me && (r.length ? r.includes(me) : (S.assignments?.[b.id] || []).includes(me)), who: r.length ? first(r[0]) : '' };
 }
-// The viewer's own ask, as a status tile (steps.js): red with its icon and word once it is overdue (D3, addendum 4: the
-// viewer's own step), the time bold when it is due today, otherwise the quiet sand tile.
+// The viewer's own ask: red as a status tile with its icon and word once it is overdue (D3, addendum 4: the viewer's own
+// step); otherwise plain words with a clock, the time bold when it is due today (D3). Not a pill: beside "Write the ask"
+// a pencil pill read as a second button (A-12, spec 4: status never looks like a button), so the pencil is the button's.
 function ownTile(d) {
   if (d.past) return statusTile({ tone: 'overdue', icon: 'circle-alert', words: `Ask overdue · was due ${whenAt(d.due)}` });
-  // Due today: the sand tile with its clock and the time in bold (D3: "a bold time, a clock icon"), the words around it not.
-  if (d.today) return `<span class="v6-status neutral">${icon('clock')}<span>Ask due <b class="v6-nw">${esc(whenAt(d.due))}</b></span></span>`;
-  return statusTile({ tone: 'neutral', icon: 'pencil', words: `Ask due ${whenAt(d.due)}` });
+  return `<span class="ot-nw">${icon('clock')}<span>Ask due ${d.today ? `<b class="v6-nw">${esc(whenAt(d.due))}</b>` : nw(esc(whenAt(d.due)))}</span></span>`;
 }
 // Someone else's ask, in plain words with the right tense ("writes it by" ahead, "it was Lauren's to write by" once past).
 function otherWords(d) {
@@ -204,10 +203,10 @@ function cardHTML(x, { hl = false, lead = false } = {}) {
   let body = '', left = '';
   if (open) body = writeBox(x, d, true);
   else if (a) { body = `<blockquote class="ot-words"><p>${esc(a)}</p>${may ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-askopen': b.id, 'aria-label': `Change the ask for ${nameWords(b, 60)}` } }) : ''}</blockquote>`; left = shareHTML(x); }
-  else if (may) left = `<div class="ot-noask">${d.mine ? ownTile(d) : `<span class="ot-nw">${icon('pencil')}<span>${nw(esc(otherWords(d)))}</span></span>`}${btn('Write the ask', { kind: lead ? 'primary' : 'secondary', sm: true, icon: 'pencil', attrs: { 'data-askopen': b.id, 'aria-label': `Write the ask for ${nameWords(b, 60)}` } })}</div>`;
-  else left = `<p class="ot-nw">${icon('pencil')}<span>${nw(esc(otherWords(d)))}</span></p>`;
+  else if (may) left = `<div class="ot-noask">${d.mine ? ownTile(d) : `<span class="ot-nw">${icon('clock')}<span>${nw(esc(otherWords(d)))}</span></span>`}${btn('Write the ask', { kind: lead ? 'primary' : 'secondary', sm: true, icon: 'pencil', attrs: { 'data-askopen': b.id, 'aria-label': `Write the ask for ${nameWords(b, 60)}` } })}</div>`;
+  else left = `<p class="ot-nw">${icon('clock')}<span>${nw(esc(otherWords(d)))}</span></p>`;
   return `<section class="ot-card${hl ? ' hl' : ''}" id="${id}" aria-labelledby="${id}-h" tabindex="-1">
-    <div class="ot-ctop"><h2 class="ot-name" id="${id}-h"><a href="${esc(billRoute(b, 'public'))}">${esc(nameWords(b, 80))}</a></h2><span class="ot-num">${esc(numWords(b))}</span></div>
+    <div class="ot-ctop"><h2 class="ot-name" id="${id}-h"><a href="${esc(billRoute(b, 'public'))}">${esc(nameWords(b, 1e4))}</a></h2><span class="ot-num">${esc(numWords(b))}</span></div>
     <p class="ot-when">${icon('clock')}<span>${closes} · ${esc(ASK_SAYS[b.position] || 'HIPHI has a position')} · ${esc(committeeName(h.committee))}</span></p>
     ${body}
     <div class="ot-foot">${left}<p class="ot-landl">${icon('users')}<span>${esc(landLine(b))}</span></p></div>

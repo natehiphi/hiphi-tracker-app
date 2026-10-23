@@ -12,7 +12,7 @@
 // migration 032) and its Undo. Keys (a keyboard and mouse; Help › Keyboard shortcuts switches them off): j and k move, Enter
 // opens, e marks read or unread, Shift+M marks the list read (not Shift+A, which approves in Review: R-277 E-11).
 import { S, DB, DEMO, esc, fmtDT, hooks, isMine } from './data.js';
-import { unslack, billById, plainAction, OUT_PLAIN as OUT, billRoute, agoWords, teamFirst, hstDayOf, legNotesAll, ASK_LOG, whenAt, blurb, inboxCount } from './model.js';
+import { unslack, billById, plainAction, OUT_PLAIN as OUT, billRoute, agoWords, teamFirst, hstDayOf, legNotesAll, ASK_LOG, whenAt, blurb } from './model.js';
 import { icon, btn, iconBtn, toast, keysOn, keysUsed, segmented, sectionNav } from './ui.js';
 import { itemRow, nameWords, numWords, nw, listDetail, wireListDetail, ldPicked } from './steps.js';
 import { plainCodes } from './terms.js';
@@ -36,9 +36,12 @@ function sandboxInbox() {
 
 // ---- Messages: what was sent to you ----
 // The same items the sidebar counts (model.js toAnswer: addressed to you, and a tracker note only when it is a health
-// alert an admin acts on), less the deadline reminders (V26). shared_changes asks model.js inboxCount to leave those out
-// too, so the count and this list agree; messagesCount() is that count, which this page shows meanwhile.
-const isMsg = i => !!i.direct && i.kind !== 'deadline' && !(i.kind === 'system' && !/^Bill Tracker health/i.test(i.title || ''));
+// alert an admin acts on), less the deadline reminders (V26) and the step notices below. messagesCount() is that count;
+// shared_changes asks the frame (app.js, more.js) to show it instead of model.js inboxCount, so the badge and list agree.
+// A step notice ("Testimony for your approval", a second look, "Sent back" with no note written) is not a message either:
+// the step itself is the viewer's Today row and waits in Review or Testimony, so counting it here too made one thing look
+// like two (A-14, spec 3.1's two counts). Testimony sent back with a written note stays, since the note is something said.
+const isMsg = i => !!i.direct && i.kind !== 'deadline' && !(i.kind === 'system' && !/^Bill Tracker health/i.test(i.title || '')) && !stepNotice(i);
 const fromTeam = i => i.kind === 'message';
 export const messagesCount = () => (S.inbox || []).filter(i => isMsg(i) && i.unread).length;
 const itemOf = key => (S.inbox || []).find(i => i.key === key);
@@ -69,6 +72,7 @@ const noteOf = i => i.kind === 'testimony' ? NOTE.find(([, rx]) => rx.test(unsla
 // A note about your own step to take (approve, a second look, revise): its row has no tick, since beside "Testimony for
 // your approval" a tick read as Approve (R-316 W56, FD-10, as in v5); opening the row reads it.
 const ownStep = i => ['approve', 'second', 'sentback'].includes(noteOf(i)?.[0]);
+function stepNotice(i) { const n = noteOf(i)?.[0]; return n === 'approve' || n === 'second' || (n === 'sentback' && !sentNote(i)); }
 // Who did it ("Kevin Lee submitted ...", "Nate approved ..."), and the approver's note on testimony sent back (live, after
 // "> " in the body; in the practice copy, the body itself).
 const actorOf = i => { const m = /(?:^|[\s:])([A-Z][^\s*:]*(?: [A-Z][^\s*:]*){0,3}) (?:submitted|approved|asked for changes|filed)\b/.exec(`${unslack(i.title || '')} ${unslack(i.body || '')}`); return m ? m[1] : ''; };
@@ -332,8 +336,9 @@ function readQuietly(key) {
   const cl = document.querySelector('.ib-page .ib-count'); if (cl) { cl.outerHTML = countLine(); wireCount(document.querySelector('.ib-page')); }
   frameCount();
 }
+// The same count as the list (messagesCount); shared_changes asks app.js and more.js to draw theirs from it too.
 function frameCount() {
-  let n = 0; try { n = inboxCount(); } catch { return; }
+  let n = 0; try { n = messagesCount(); } catch { return; }
   const sn = document.querySelector('.sv-side a.sv-sitem[href="#/inbox"] .sv-sn');
   if (sn) { if (n) { sn.textContent = n > 99 ? '99+' : String(n); sn.setAttribute('aria-label', `${n} unread`); } else sn.remove(); }
   const bell = document.querySelector('.sv-bell'); if (bell) { bell.setAttribute('aria-label', `Inbox${n ? `, ${n} unread` : ''}`); if (!n) bell.querySelector('.sv-dot')?.remove(); }

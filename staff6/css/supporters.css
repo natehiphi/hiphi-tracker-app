@@ -4,7 +4,8 @@
    the end. */
 
 /* ---- the list (R-336 V31): the find row, the groups, the results bar, four columns or a name and one line ---- */
-body.staff6 .sp-page { max-width: 1040px; }
+/* Outreach's five tabs share one column, 880px (A-8, A-13): each tab's one action sits in the same place as you switch tabs. */
+body.staff6 .sp-page, body.staff6 .ot-emails { max-width: 880px; }
 body.staff6 .sp-find { display: flex; align-items: center; gap: var(--s8); margin: 0 0 var(--s12); }
 body.staff6 .sp-search { position: relative; flex: 0 1 420px; min-width: 0; }
 body.staff6 .sp-search > .ic { position: absolute; left: 14px; top: 12px; width: 20px; height: 20px; color: var(--v6-muted); pointer-events: none; }
@@ -74,9 +75,8 @@ body.staff6 .sp-adminh { margin: 0 0 var(--s8); font: 400 var(--v6-t14)/var(--v6
 body.staff6 .sp-adminb { display: flex; flex-wrap: wrap; gap: var(--s8); }
 @media (max-width: 767px) {
   body.staff6 .sp-search { flex: 1 1 auto; }
-  body.staff6 .sp-groups { flex-wrap: nowrap; overflow-x: auto; margin-left: calc(-1 * var(--v6-gutter)); margin-right: calc(-1 * var(--v6-gutter)); padding: 4px var(--v6-gutter); scrollbar-width: none; }
-  body.staff6 .sp-groups::-webkit-scrollbar { display: none; }
-  body.staff6 .sp-groups .chip { flex: none; }
+  /* The groups wrap (spec 12.3); a long group name wraps inside its chip rather than running off the screen. */
+  body.staff6 .sp-groups .chip { max-width: 100%; white-space: normal; text-align: left; }
   body.staff6 .sp-rbar { padding: var(--s12); }
   body.staff6 .sp-racts .btn { flex: 1 1 auto; }
 }
@@ -435,7 +435,8 @@ body.staff6 .ot-part .bl-memo p:last-child { font-size: var(--v6-t16); color: va
 body.staff6 .ot-part .ot-mcopy { flex: 1 1 100%; display: flex; gap: var(--s8); }
 @media (min-width: 768px) { body.staff6 .ot-part .bl-memo { padding: var(--s32); } }
 @media (min-width: 900px) {
-  .bl-memopage.ot-part { max-width: 720px; margin: 0; }
+  .bl-memopage.ot-part { max-width: 880px; margin: 0; }
+  .bl-memopage.ot-part .bl-memo > * { max-width: 72ch; }   /* the memo keeps its reading width inside the shared column */
   .bl-memopage.ot-part .bl-mctl .field { flex-basis: 360px; }   /* "HEAL · Healthy Eating, Active Living" whole */
 }
 

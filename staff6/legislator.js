@@ -6,7 +6,7 @@
 // list). Then, for a chair, "Waiting on them for a hearing": our bills in their committee with no hearing yet, the viewer's
 // own first and never folded (spec 7.3; other people's asks past the fifth wait behind Show all), each in the same words
 // as Who to ask (holding.js chairLine). Then Our bills in their
-// committees, each with where it stands and "Where they stand" (pathway.js's stance sheet: stance, note, who on our team
+// committees, each with where it stands and "Mark where they stand" (pathway.js's stance sheet: stance, note, who on our team
 // knows them). Opened from a bill (?from=HB1562) that bill comes first, marked. Then, behind R-335's practice gate
 // (profile.js PROFILES), the Profile: the sections someone has written in, and one "Add what we know" card for the empty
 // ones. Then the reference: bills they introduced, their committees, and how to reach the office. One column at every
@@ -59,11 +59,13 @@ function waitingOn(l, from) {
   return pool.map(b => ({ b, ...chairLine(b, l) })).filter(x => x.s && x.s.key !== 'scheduled' && chairIdsOf(x.s.code).includes(l.id)).sort(byChairOrder);
 }
 
-// The stance button: "Where they stand" until someone sets it, then the stance itself ("Leaning yes"); it opens BILL's
+// The stance button: "Mark where they stand" until someone sets it, then the stance itself ("Leaning yes"); it opens BILL's
 // stance sheet (pathway.js openStance: stance, note, who on our team knows them).
 function stanceBtn(b, l) {
   const x = stanceOf(b.id, l.id), word = STANCE_WORD[x.stance] || 'Unknown', none = !x.stance || x.stance === 'unknown';
-  return btn(none ? 'Where they stand' : word, { kind: 'text', sm: true, icon: STANCE_ICON[x.stance] || 'circle-dashed',
+  // Unknown, it says what pressing does, with a pencil: the dashed circle is Who to ask's "Not asked yet" status, so it read
+  // as a status, not a button (A-12; Help calls it Mark where they stand).
+  return btn(none ? 'Mark where they stand' : word, { kind: 'text', sm: true, icon: none ? 'pencil' : STANCE_ICON[x.stance] || 'pencil',
     attrs: { 'data-lgstance': `${b.id}|${l.id}`, 'aria-haspopup': 'dialog', 'aria-label': `Where ${shortName(l)} stands on ${billSay(b)}: ${none ? 'not known yet. Set it' : `${word}. Change it`}` } });
 }
 // One of our bills with this legislator: the shared row (name, number, one line) and its one button. In "Waiting on them"

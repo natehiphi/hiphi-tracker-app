@@ -18,7 +18,7 @@ import { shortName } from './pathway.js';
 import { matchLegs, weekIndex, districtQ } from './legislators.js';
 import { helpTopics, synOf, practiceHref } from './help.js';   // Help's guides are places too; one list of everyday words
 import { allWords, plainCodes } from './terms.js';   // Help's Capitol words, the one list Help and the tappable words use
-import { PROFILES, profileHits, quoteOf } from './profile.js';   // R-335 (practice copy)
+import { PROFILES, profileHits, quoteOf, sentenceWith } from './profile.js';   // R-335 (practice copy)
 import { itemRow, billRow, nameWords, numWords, whereWords, committeeName, nw } from './steps.js';
 import { isLead } from './more.js';
 import { admitsPartners } from './partnerq.js';
@@ -54,13 +54,13 @@ const approver = () => !!(me().is_admin || me().can_approve || me().is_reviewer)
 const sentAny = () => !!S.me && Object.values(S.drafts || {}).flat().some(d => d.submitted_by === S.me.id);
 const writes = () => ownsBills() || !(me().can_approve || me().is_reviewer) || sentAny();
 const SETUP_PARTS = [
-  ['Coalitions and their owners', '#/setup/coalitions', 'Each session', 'coalitions owners keywords slack channel'],
-  ['Session days and bill sync', '#/setup/sync', 'Each session', 'opening day sine die recess sync'],
-  ['Load the session’s bills', '#/setup/import', 'Each session', 'open states import tracked list spreadsheet load bills'],
-  ['Committee map', '#/setup/committees', 'Each session', 'committees house senate pairs chairs'],
-  ['Email sender and pause', '#/setup/email', 'Alerts', 'email sender postal address pause'],
-  ['Where hearing alerts post', '#/setup/alerts?part=r-where', 'Alerts', 'slack channel positions daily list hearing alerts'],
-  ['Message wording', '#/setup/templates', 'Alerts', 'templates slack messages wording'],
+  ['Coalitions and their owners', '#/setup/coalitions', 'Before each session', 'coalitions owners keywords slack channel'],
+  ['Session days and bill sync', '#/setup/sync', 'Before each session', 'opening day sine die recess sync'],
+  ['Load the session’s bills', '#/setup/import', 'Before each session', 'open states import tracked list spreadsheet load bills'],
+  ['Committee map', '#/setup/committees', 'Before each session', 'committees house senate pairs chairs'],
+  ['Email on or paused, and its sender', '#/setup/email', 'Email and Slack', 'email sender postal address pause paused unpause turn on email on email off send email public'],
+  ['Where hearing alerts post', '#/setup/alerts?part=r-where', 'Email and Slack', 'slack channel positions daily list hearing alerts'],
+  ['Message wording', '#/setup/templates', 'Email and Slack', 'templates slack messages wording'],
   ['Connections and keys', '#/setup/keys', 'Connections', 'slack token google calendar youtube api key keys'],
   ['Website embed', '#/setup/embed', 'Public page', 'embed website widget'],
   ['A/B tests', '#/setup/tests', 'Public page', 'tests experiments'],
@@ -247,13 +247,9 @@ const convDay = g => fmtDate(g.day, { weekday: 'short' }).replace(/^(\w{3}),/, '
 const convSub = g => { const a = advocate(g.first.advocate_id), mine = S.me && g.first.advocate_id === S.me.id, who = mine ? 'you' : String(a?.full_name || '').split(' ')[0] || 'someone';
   if (g.first.kind === 'note') return `Note · ${mine ? 'You' : who}`;
   return g.ask ? [`Asked by ${who}`, askReply(g.last)].filter(Boolean).join(' · ') : `${mine ? 'You' : who} logged it`; };
-// What was said, from the first word searched for when it is far in, so the reason the result is here shows.
-function convQuote(g, q, n = 110) {
-  const text = String(g.last.body || g.first.body || '').replace(/\s+/g, ' ').trim(), low = plain(text);
-  const at = plain(q).split(/\s+/).filter(Boolean).map(t => low.indexOf(t)).filter(i => i >= 0).sort((a, b) => a - b)[0] ?? 0;
-  const from = at > n - 30 ? text.lastIndexOf(' ', at - 20) + 1 : 0, cut = text.slice(from, from + n);
-  return (from ? '…' : '') + cut + (from + n < text.length ? '…' : '');
-}
+// What was said: the whole sentence with the first word searched for (profile.js sentenceWith), so the reason the result is
+// here shows and nothing is cut (A-1).
+const convQuote = (g, q) => sentenceWith(g.last.body || g.first.body || '', q);
 
 // ---- Capitol words (R-316 W29, L-15): what a word means, from Help's glossary, first ----
 // Each word typed must be a word of the term, or start one from its fourth letter ("lateral" finds Lateral, "deck"
@@ -270,7 +266,6 @@ export function wordHits(q) {
     return { term, text, score: (tw.join(' ') === whole ? 10 : 0) + ws.filter(w => tw.includes(w)).length, href: `#/help/words?w=${encodeURIComponent(term)}` };
   }).filter(Boolean).sort((a, b) => b.score - a.score);
 }
-const gist = (s, n = 140) => s.length > n ? s.slice(0, n - 1).replace(/\s\S*$/, '') + '…' : s;
 // The header's row says the meaning to the end of its first sentence, whole (a sentence of two words takes the next).
 const firstSentence = s => { const t = String(s); let end = 0;
   for (const m of t.matchAll(/[.!?](?=\s|$)/g)) { end = m.index + 1; if (t.slice(0, end).split(/\s+/).length >= 3) break; }
@@ -302,7 +297,7 @@ export function headerHits(q) {
   const res = wordRxs(q);
   const qn = plain(q).replace(/\s/g, ''), lead = b => numOf(b) === qn ? 0 : numOf(b).startsWith(qn) ? 1 : 2, cm = cmteOf(q), co = coalOf(q);
   // A bill row is there for its number or the name it shows (a committee's code shows the bills in it).
-  const name = b => nameWords(b);
+  const name = b => nameWords(b, 1e4);   // whole (A-1): a bill named by its summary is never cut
   const shows = b => cm || co || numOf(b).includes(qn) || res.every(re => re.test(plain(`${name(b)} ${STAGE_LABEL[effStage(b)] || ''}`)));
   const byNum = (a, b) => a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true });
   const bills = billHits(q).filter(shows).map((b, k) => [b, k])
@@ -320,11 +315,20 @@ export function headerHits(q) {
   const dist = districtQ(plain(q).trim()), ids = new Set(S.bills.map(b => b.id));
   const unRows = rows => unShown(rows, q).filter(r => !ids.has(r.id) && (numOf(r).includes(qn) || res.every(re => re.test(plain(`${r.title || ''} ${r.description || ''}`)))))
     .map(r => ({ href: `#/search?q=${encodeURIComponent(r.bill_number)}`, title: r.description || titleCaseSmart(r.title || ''), icon: 'scroll-text', inline: true, sub: numWords(r) }));
-  // A step first (at most two), then the places (at most three), then what a Capitol word means (at most two).
-  const acts = actionHits(q, 2).map(asItem), places = placeHits(q, acts.length ? 2 : 3).filter(p => !acts.some(a => a.href === p.href && a.title === p.title)).map(asItem);
+  // A step first (at most two), then the places (at most three), then what a Capitol word means (at most two); but a place
+  // whose name is typed ("coalitions", "partner update") comes first of all, and a place matched on its name comes before
+  // steps matched only on their other words (V32, B-10: the critic's "coalitions" gave Email supporters first).
+  const norm = x => qWords(x).map(w => w.replace(/s$/, '')).join(' '), nq = norm(q);
+  const onTitle = p => { const t = plain(p.title.replace(/[’']/g, '')); return qWords(q).every(w => synOf(w).some(x => starts(t, x))); };
+  const rawActs = actionHits(q, 2), rawPlaces = placeHits(q, 3), exact = rawPlaces.filter(p => norm(p.title) === nq);
+  const placesFirst = !!exact.length || (!!rawPlaces.length && onTitle(rawPlaces[0]) && !rawActs.some(onTitle));
+  const acts = (exact.length ? rawActs.filter(a => !exact.some(p => p.href === a.href)) : rawActs).map(asItem);
+  const places = rawPlaces.slice(0, placesFirst || !acts.length ? 3 : 2).filter(p => !acts.some(a => a.href === p.href && a.title === p.title)).map(asItem);
   const words = wordHits(q).slice(0, 2).map(w => ({ href: w.href, title: w.term, sub: firstSentence(w.text), icon: 'book-open' }));
+  const head = placesFirst ? [{ label: 'Places', items: places }, { label: 'Capitol words', items: words }, { label: 'Things to do', items: acts }]
+    : [{ label: 'Capitol words', items: words }, { label: 'Things to do', items: acts }, { label: 'Places', items: places }];
   const groups = (ppl, un) => { const [b, u, i, l, t, f, c, p] = share([bills, un, issues, legs, team, profs, convs, ppl], ROWS - acts.length - places.length - words.length);
-    return [{ label: 'Capitol words', items: words }, { label: 'Things to do', items: acts }, { label: 'Places', items: places }, { label: 'Bills', items: b }, { label: 'Not tracked yet', items: u },
+    return [...head, { label: 'Bills', items: b }, { label: 'Not tracked yet', items: u },
       { label: 'Issues', items: i }, { label: 'Legislators', items: l }, { label: 'Teammates', items: t }, { label: 'Profiles', items: f }, { label: 'Conversations', items: c }, { label: 'Supporters', items: p }]; };
   const peopleReady = S.peopleLoaded || (S.people || []).length, lookUn = q.trim().length >= 3 && !(dist && dist[1]) && !cm, key = plain(q).trim();
   if (peopleReady && (!lookUn || unCache.has(key))) return { groups: groups(people(), unRows(unCache.get(key))) };
@@ -339,7 +343,7 @@ const list = (rows, label) => `<div class="v6-list sr-list" role="list" aria-lab
 const placeRowH = p => itemRow({ key: p.href + p.title, name: p.title, line: esc(withKey(p.sub, p.key)), icon: p.icon, href: p.href, cls: 'sr-row' });
 // A bill: where it stands, then what it does, since five bills can share one nickname ("Let counties regulate tobacco
 // sales") and the summary is what tells them apart (R-271).
-const billLine = b => { const sum = blurb(b, 110), nm = String(b.nickname || '').trim(); return esc([whereWords(b, { deadline: false }).replace(/ · /g, ', '), sum && sum !== nm ? sum : ''].filter(Boolean).join(' · ')); };
+const billLine = b => { const sum = blurb(b, 1e4), nm = String(b.nickname || '').trim(); return esc([whereWords(b, { deadline: false }).replace(/ · /g, ', '), sum && sum !== nm ? sum : ''].filter(Boolean).join(' · ')); };
 const legLine = (l, week) => { const w = week.get(l.id), parts = [`${l.chamber === 'S' ? 'Senate' : 'House'} district ${l.district || ''}`.trim()];
   if (w) parts.push(`Hears ${plural(w.bills.size, 'of our bills', 'of our bills')} this week`);
   return parts.join(' · '); };
@@ -355,7 +359,7 @@ const convRowH = (g, q) => itemRow({ key: g.key, name: convWho(g), num: convDay(
 const profRowH = (h, q) => itemRow({ key: h.href, name: shortName(h.l), num: `Profile · ${h.sec}`, line: `“${esc(quoteOf(h.said, q, 100))}”`, href: h.href, cls: 'sr-row' });
 const teamRowH = a => itemRow({ key: a.id, name: a.full_name, line: esc(`${ROLE(a)} · see their list`), href: teamHref(a), cls: 'sr-row' });
 const issueRowH = i => { const c = (S.categories || []).find(x => x.key === i.category); return itemRow({ key: i.id, name: i.name, line: esc([c?.name || 'Issue', i.description ? String(i.description).replace(/\s+/g, ' ').slice(0, 120) : ''].filter(Boolean).join(' · ')), href: `#/issue/${encodeURIComponent(i.id)}`, cls: 'sr-row' }); };
-const wordRowH = w => itemRow({ key: w.term, name: w.term, line: esc(gist(w.text)), href: w.href, cls: 'sr-row sr-word' });
+const wordRowH = w => itemRow({ key: w.term, name: w.term, line: esc(firstSentence(w.text)), href: w.href, cls: 'sr-row sr-word' });
 const more = (key, n, shown, label) => n > shown ? `<div class="sr-more">${showAllBtn(n, { 'data-srmore': key }, { what: label })}</div>` : '';
 const group = (id, title, n, inner) => `<section class="sr-grp" aria-labelledby="${id}"><h2 class="sr-h" id="${id}"><span>${esc(title)}</span>${n !== '' ? `<span class="sr-n">${n}</span>` : ''}</h2>${inner}</section>`;
 

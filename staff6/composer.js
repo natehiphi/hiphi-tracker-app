@@ -273,7 +273,7 @@ function whoResults(q) {
   const opt = (v, lead, title, sub) => `<button type="button" class="row le-opt" data-pick="${esc(v)}"><span class="lead">${icon(lead)}</span><span class="body"><span class="title">${title}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</button>`;
   const grp = (title, rows) => rows.length ? `<div class="le-rgroup"><h3 class="le-rh">${title}</h3><div class="rows">${rows.join('')}</div></div>` : '';
   // A bill leads with its nickname, the number small after it (R-271); the line under it says when it is heard, which is why it is here.
-  const bRows = bills.slice(0, t ? 8 : 6).map(b => { const h = hearingAhead(b); return opt('b:' + b.id, 'scroll-text', `${esc(nameWords(b, 70))} <span class="bn-num">${esc(numWords(b))}</span>`, h ? `Hearing ${esc(whenAt(h.scheduled_at))}, ${esc(committeeName(h.committee))}` : 'No hearing yet'); });
+  const bRows = bills.slice(0, t ? 8 : 6).map(b => { const h = hearingAhead(b); return opt('b:' + b.id, 'scroll-text', `${esc(nameWords(b, 1e4))} <span class="bn-num">${esc(numWords(b))}</span>`, h ? `Hearing ${esc(whenAt(h.scheduled_at))}, ${esc(committeeName(h.committee))}` : 'No hearing yet'); });
   const out = grp(t ? 'Bills' : 'Bills with a hearing coming up', bRows)
     + grp('Lists', lists.map(l => opt('l:' + l.id, listIcon(l.icon), esc(l.title), `${plural(listRows(l).length, 'bill')} · ${plural(S.listFollowers?.[l.id] || 0, 'follower')}`)))
     + grp('Saved groups', segs.map(s => opt('s:' + s.id, 'users', esc(s.name), segSub(s))));
@@ -284,7 +284,7 @@ function whoStep(c) {
   const u = audienceOf(c.a);
   if (u.kind) {
     const locked = !!c.a.id;
-    const title = u.b ? `${esc(nameWords(u.b, 90))} <span class="bn-num">${esc(numWords(u.b))}</span>` : esc(u.name);
+    const title = u.b ? `${esc(nameWords(u.b, 1e4))} <span class="bn-num">${esc(numWords(u.b))}</span>` : esc(u.name);
     const warn = u.l && !u.l.is_published ? notice('info', 'eye-off', 'This list is a draft. Publish it first; only a live list has followers.') : u.b && !u.b.is_public ? notice('info', 'eye-off', 'This bill is not public, so nobody can follow it yet.') : '';
     return `<h2 class="le-sh">Who gets it?</h2>
       <div class="card le-who">

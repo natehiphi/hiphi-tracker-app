@@ -258,7 +258,9 @@ export function deadlineHTML(list, o = {}) {
   return deadlineGroups(list).map(([k, title, l, folded]) => {
     if (folded) return l.length ? fold(k, title, l, o) : '';
     // An empty This week is one quiet line, not a heading over a sentence (the critic; A-14).
-    if (!l.length) return k === 'week' ? `<p class="i6-quiet i6-weekq">${icon('calendar-check')}<span>No issue here is at risk or has a hearing this week.</span></p>` : '';
+    // On My issues it says whose issues (the critic: under "Your coalition: HEAL · 3 hearings this week", "No issue here"
+    // read as a contradiction).
+    if (!l.length) return k === 'week' ? `<p class="i6-quiet i6-weekq">${icon('calendar-check')}<span>${o.from === 'mine' ? (list.length === 1 ? 'Your issue has no hearing this week and is not at risk.' : `None of your ${esc(plural(list.length, 'issue'))} has a hearing this week or is at risk.`) : 'No issue here is at risk or has a hearing this week.'}</span></p>` : '';
     // A group's rows are in view, so its heading does not count them (A-24); a folded group keeps its count.
     return `<section class="i6-sec" aria-labelledby="i6-h-${k}"><h2 class="i6-h" id="i6-h-${k}">${esc(title)}</h2>
       ${k === 'next' ? byDeadline(l, o) : listHTML(l, { ...o, cut: k !== 'week' || l.length > 25 })}</section>`;   // This week stays whole: it is what is due

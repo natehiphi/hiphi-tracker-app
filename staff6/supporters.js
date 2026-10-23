@@ -192,8 +192,14 @@ function groupChips(v) {
   const total = (S.people || []).length, noneOn = !v.seg && pfEmpty(v.f);
   const one = (id, label, n, on) => `<button type="button" class="chip" data-segpick="${esc(id)}" data-k="s:${esc(id)}" aria-pressed="${on}">${on ? icon('check') : ''}${esc(label)}<span class="sp-cn">${n.toLocaleString()}</span></button>`;
   if (groupsHidden(v)) return '';
+  // The chips wrap on a phone (spec 12.3: never a sideways row that hides some). With more than four saved groups a phone
+  // shows the first three (and the one picked) and an "All groups (N)" chip that opens the rest in place, so the row stays
+  // two lines and every group is one press away.
+  const segs = S.segments || [], fold = !isDesk() && segs.length > 4 && !v.allGroups;
+  const shownSegs = fold ? segs.filter((x, n) => n < 3 || v.seg === x.id) : segs;
+  const all = fold ? `<button type="button" class="chip sp-allg" data-sp="allgroups" aria-expanded="false">All groups (${segs.length})${icon('chevron-down')}</button>` : '';
   return `<div class="sp-groups" role="group" aria-labelledby="sp-gl"><span class="sp-gl" id="sp-gl">Groups</span>
-    ${one('', 'Everyone', total, noneOn)}${(S.segments || []).map(x => one(x.id, x.name, segmentPeople(x.id).length, v.seg === x.id)).join('')}</div>`;
+    ${one('', 'Everyone', total, noneOn)}${shownSegs.map(x => one(x.id, x.name, segmentPeople(x.id).length, v.seg === x.id)).join('')}${all}</div>`;
 }
 
 // ---- the screen ----
@@ -269,6 +275,7 @@ export default {
     on('[data-sp="select"]', () => { startSelect(); rerender('select'); });
     on('[data-sp="import"]', () => importSheet());
     on('[data-sp="export"]', () => { const rows = shown(v); if (!rows.length) return; exportPeopleCSV(rows); toast(`Downloading ${plural(rows.length, 'person', 'people')} as a CSV file.`); });
+    on('[data-sp="allgroups"]', () => { v.allGroups = true; rerender('s:' + ((S.segments || [])[3]?.id ?? '')); });
     on('[data-segpick]', el => {
       const id = el.dataset.segpick, sg = (S.segments || []).find(x => String(x.id) === id);
       if (!sg || v.seg === sg.id) { v.seg = null; v.f = { ...EMPTY_PF(), q: '' }; }
@@ -443,7 +450,7 @@ function filterSheet() {
     const qq = billQ.trim().toUpperCase().replace(/\s+/g, ''); if (!qq) return '';
     const words = /\d/.test(qq) ? null : billQ.trim().toLowerCase();
     const hits = S.bills.filter(b => b.is_public && !d.bills.includes(b.id) && (words ? words.length >= 3 && (b.public_summary || b.description || b.title || '').toLowerCase().includes(words) : b.bill_number.includes(qq))).slice(0, 6);
-    return hits.length ? hits.map(b => `<button type="button" class="sp-sug" data-addbill="${esc(b.id)}"><b>${esc(nameWords(b, 50))}</b> ${esc(numWords(b))}</button>`).join('')
+    return hits.length ? hits.map(b => `<button type="button" class="sp-sug" data-addbill="${esc(b.id)}"><b>${esc(nameWords(b, 1e4))}</b> ${esc(numWords(b))}</button>`).join('')
       : `<p class="meta sp-sugnone">No public bill matches “${esc(billQ.trim())}”. Supporters can follow only public bills.</p>`;
   };
   const moreN = () => d.senate.length + d.house.length + d.bills.length + (d.titles || []).length + d.interests.length + (d.account !== 'any') + !!d.active_days + !!d.acted;

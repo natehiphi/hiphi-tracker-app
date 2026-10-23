@@ -2,7 +2,7 @@
 // v5 had 15 parts in two lists (146 controls, about 16.5 screens of panels), Slack set in 6 of them, the team in one, two
 // save models mixed on one page and "Forget this person" in the Save bar (X24). v6:
 //   - The place opens on the season checklist ("Ready for session?", or "Running well?" from opening day), then five groups,
-//     one page each and none longer than 1.5 screens (spec 8): Before each session · Alerts and messages (every Slack and
+//     one page each and none longer than 1.5 screens (spec 8): Before each session · Email and Slack (every Slack and
 //     email setting on one page) · Connections (the keys under a closed "Technical details") · Public page (the embed, the
 //     A/B tests, the tester sheet) · Privacy and safety. The checklist and the five groups are the place's page tabs (D12).
 //   - The team moved to People (people.js): #/setup/people and #/setup/team open it.
@@ -44,8 +44,10 @@ const TEMPLATE_LABEL = { hearing_alert: 'Hearing alert, one per bill', hearing_r
 
 // ---- the five groups (V28), and where each v5 part lives now ----
 // The tabs' words are short so the six fit one row from 768px (the critic: "Privacy and safety" fell to a second line at
-// 1024, and a phone took five lines of loose words): Checklist · Each session · Alerts · Connections · Public page · Privacy.
-const GROUPS = [['session', 'Each session', 'calendar-days'], ['alerts', 'Alerts', 'bell'], ['connections', 'Connections', 'plug'],
+// 1024, and a phone took five lines of loose words). Tab rows wrap on a phone (spec 12.3), so the words can say what is
+// there: the switch for email to the public is under "Email and Slack", where someone looks for it (the critic: nobody
+// looked under "Alerts"): Checklist · Before each session · Email and Slack · Connections · Public page · Privacy.
+const GROUPS = [['session', 'Before each session', 'calendar-days'], ['alerts', 'Email and Slack', 'mail'], ['connections', 'Connections', 'plug'],
   ['public', 'Public page', 'globe'], ['privacy', 'Privacy', 'shield-check']];
 const GROUP = Object.fromEntries(GROUPS.map(([k, t, ic]) => [k, { t, ic }]));
 // v5's parts: [group, the element its address lands on]. "alerts", "connections" and "privacy" are both a v5 part and a v6
@@ -110,7 +112,7 @@ function loadLogins(force) {
 }
 
 // Who the tracker can reach (backend 154, M1-1, M1-3) and the team email switch. Loads with the logins.
-// Email to the team (backend 154): a setting on Alerts and messages, read once per visit.
+// Email to the team (backend 154): a setting on Email and Slack, read once per visit.
 function loadTeamEmail(force) {
   const s = st(); if (s.teamEmailBusy || (s.teamEmail !== null && !force)) return;
   s.teamEmailBusy = true;
@@ -951,7 +953,7 @@ function errorsHTML() {
   const words = n ? `${plural(n, 'error report')} from visitors’ browsers in the last 7 days, ${nToday} today${sb ? `, and ${sb} in the sandbox` : ''}.`
     : `None reported by visitors’ browsers in the last 7 days${sb ? ` (${sb} in the sandbox)` : ''}.`;
   const rowH = e => `<li class="ss-check info"><span class="ss-cic">${icon(e.day === today ? 'circle-alert' : 'info')}</span>
-    <div class="ss-cbody"><span class="ss-ct">${esc(errWords(e.message))}${e.place ? ` on ${esc(e.place)}` : ''}</span><span class="ss-cl">${esc([`${e.reports} ${e.reports === 1 ? 'report' : 'reports'}`, `last ${fmtDate(e.last_at)}`].join(' · '))}</span>
+    <div class="ss-cbody"><span class="ss-ct">${esc(errWords(e.message))}${e.place ? ` on ${esc(e.place)}` : ''}</span><span class="ss-cl">${esc([`${e.reports} ${e.reports === 1 ? 'report' : 'reports'}`, `the last ${fmtDate(e.last_at)}`].join(', '))}</span>
       <details class="ss-errd"><summary>Details for Claude</summary><code>${esc([e.message, e.source].filter(Boolean).join('\n'))}</code></details></div></li>`;
   return `<p class="ss-sum">${icon(n ? 'circle-alert' : 'circle-check')}<span><b>${n ? (nToday ? 'Errors today.' : 'Errors this week.') : 'No errors.'}</b> ${esc(words)}</span></p>
     ${top.length ? `<ul class="ss-checks" role="list" aria-label="The errors">${top.map(rowH).join('')}</ul>` : ''}
@@ -963,7 +965,9 @@ function renderIndex() {
   const s = st(); loadReady(); loadSecrets(); loadLogins();
   // The tab row sits at the same height on all six pages (the critic: the checklist's own subtitle moved it 36px), so the
   // guide's link is a note under the checks instead.
-  const rows = readyRows(), help = `<p class="ss-note ss-guide">${icon('book-open')}<a href="#/help/session">What changes when a session starts</a></p>`;
+  // Whether email to the public is on is said on the front page too (R-101: it goes on before launch), with the way to it.
+  const mail = S.emailCfg || S.emailCfgErr ? `<p class="ss-note ss-guide ss-mailln">${icon('mail')}<span>Email to the public: <b>${S.emailCfg?.enabled === false || S.emailCfgErr ? 'Paused' : 'On'}</b> · <a href="#/setup/alerts?part=email" aria-label="Change whether email to the public is on">Change</a></span></p>` : '';
+  const rows = readyRows(), help = `${mail}<p class="ss-note ss-guide">${icon('book-open')}<a href="#/help/session">What changes when a session starts</a></p>`;
   const recheck = rows || s.readyErr ? btn('Check again', { kind: 'text', icon: 'rotate-ccw', attrs: { 'data-recheck': '1', ...(s.readyBusy ? { 'aria-busy': 'true' } : {}) } }) : '';
   let ready;
   if (!rows) ready = s.readyErr ? notice('bad', 'circle-alert', `Could not run the checks. ${esc(s.readyErr)}`, btn('Try again', { kind: 'secondary', sm: true, attrs: { 'data-recheck': '1' } }))
@@ -1028,7 +1032,7 @@ function posWords(ps) {
     ps.includes('neutral') ? 'comment on' : '', ps.includes('monitor') ? 'monitor' : ''].filter(Boolean);
   return vs.length ? `for bills we ${or(vs)}` : 'for no bills yet: pick the positions';
 }
-// Alerts and messages: every email and Slack setting on one page (V28: Slack was set in 6 parts).
+// Email and Slack: every email and Slack setting on one page (V28: Slack was set in 6 parts).
 function groupAlerts() {
   const c = S.emailCfg || {}, cfg = S.slackCfg || {}, d = cfg.daily || {}, s = st(); loadTeamEmail();
   const tpl = cfg.templates || {}, changed = TEMPLATE_KINDS.filter(([k]) => String(tpl[k] || '').trim()).length, withCh = S.campaigns.filter(x => x.slack_channel).length;
@@ -1173,7 +1177,7 @@ const SHEETS = {
         return { text: 'Saved.', undo: () => DB.saveEmailSettings(before) }; } }); },
   where() { const c = S.slackCfg || {}, pos = new Set(c.positions || []);
     formSheet('where', { title: 'Where hearing alerts post',
-      body: `${txt('st-main', 'Main Slack channel', c.main_channel || '', { ph: '#hearing-alerts-2027', help: 'Every hearing alert posts here. Each bill also posts to its coalition’s channel, set on the coalition under Each session.' })}
+      body: `${txt('st-main', 'Main Slack channel', c.main_channel || '', { ph: '#hearing-alerts-2027', help: 'Every hearing alert posts here. Each bill also posts to its coalition’s channel, set on the coalition under Before each session.' })}
         <fieldset class="ss-fs"><legend>Post alerts for bills we</legend><div class="ss-checks2">${POS_OPTS.map(([v, l]) => `<label class="ss-check2"><input type="checkbox" id="ss-pos-${v}" value="${v}"${pos.has(v) ? ' checked' : ''}><span>${esc(l)}</span></label>`).join('')}</div></fieldset>`,
       save: async f => { const positions = POS_OPTS.map(([v]) => v).filter(v => f.querySelector('#ss-pos-' + v)?.checked);
         await DB.saveSlackSettings({ ...c, main_channel: val(f, 'st-main') || '#hearing-alerts-2027', positions }, []);
