@@ -331,6 +331,14 @@ walkthrough's points by side (`pointsFor`, `helper.js`), the `?via=` welcome (`v
 Find's groups (`fromGroups`). `pub/partnerpub.js` is the partner's page `#/from/<slug>` and its issues
 `#/from/<slug>/<issue slug>`; a partner's `?via=` link opens its page first for someone past the first visit (app.js boot).
 The practice copy shows the sample's public words only with `?partner` or `?via=keiki-smiles`. Test: `tests/partner_public.py`.
+**Partner asks in the 4:30 pm email (batch G, migration 185, 22 Oct 2026; email still paused):** You > Your alerts has
+"Asks from HIPHI's partners" (A few / As they come / None, `set_partner_asks`, `my_partner_asks`; stopped partners with
+Start again) in `pub/rec/alerts.js`; the email's stop link is `unsubscribe.html?partner=<slug>&pt=<token>` (anon
+`partner_asks_stop`, Undo); a partner issue page has Follow (`partner_issue_follows`, signed in); the corner shows "Your
+asks" with totals from 10 (`partner_ask_results`). Staff v5: the approval card shows the ask with "Also by text" and a
+"Line for the text" (`partner_review` also_text/text_line), and Partners has "Going out at 4:30 pm" with Take it back and
+Send again (`partner_asks_list`, `partner_ask_step`). Practice copy: `?demo=1&partner=1#/alerts` (also `partner=stopped`),
+`staff5.html?demo=1#/partners`. Tests: `tests/partner_asks.py`, `tests/staff5_partner_asks.py`.
 
 ## Staff v4 (`staff4.html` + `staff4/`), to compare (R-269, 12 Oct 2026)
 
