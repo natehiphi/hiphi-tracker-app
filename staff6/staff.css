@@ -50,7 +50,9 @@ body.staff6 main h1.v6-ptitle { margin: var(--s8) 0 var(--s24); }
 
 /* ---- phone frame (below 768px): the top bar and the 5-tab bar (spec 3.2, D2, V21) ---- */
 .sv-side { display: none; }
-.sv-page { min-width: 0; }
+/* A screen's own line that runs a few pixels too wide never widens a phone's page, which would push the tab bar off the
+   screen (WCAG 1.4.10): clip, not hidden, so the sticky header still sticks. Screens still fix their own widths. */
+.sv-page { min-width: 0; overflow-x: clip; }
 .sv-hdr { position: sticky; top: 0; z-index: 40; height: var(--header); display: flex; align-items: center; gap: var(--s4); padding: 0 var(--s4) 0 var(--s8);
   background: var(--v6-page); transition: box-shadow .15s ease-out; }
 /* No rule under the header (V16): once the page scrolls under it, a soft shadow says where the page goes (app.js .scrolled). */
