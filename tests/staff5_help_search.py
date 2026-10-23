@@ -62,6 +62,10 @@ with sync_playwright() as p:
     first_opt = pg.locator('.sg [role="option"]').first.inner_text() if pg.locator('.sg [role="option"]').count() else ''
     check(box.startswith('Capitol words') and first_opt.startswith(term), f'header suggestions for "{q}": {term} and its meaning first ({box.replace(chr(10), " | ")[:110]})')
     if q == 'deferred': check('Not tracked yet' in box or 'Bills' in box, 'header suggestions for "deferred": the bills follow')
+    # fresh-eyes: the meaning to the end of its first sentence, whole (one line cut it mid-thought, "...that almost always…")
+    sub = pg.evaluate("(() => { const e = document.querySelector('.sg [role=\"option\"] .sg-s'); return e ? { t: e.textContent, cut: e.scrollWidth > e.clientWidth + 1 } : null; })()")
+    want = {'deferred': 'The committee held the bill.', 'sine die': 'The last day of the session.'}[q]
+    check(sub and sub['t'] == want and not sub['cut'], f'header suggestions for "{q}": the meaning\'s first sentence, whole: "{want}" ({sub})')
   pg.locator('#hq').press('ArrowDown'); pg.locator('#hq').press('Enter'); pg.wait_for_timeout(1000)
   check(pg.evaluate('location.hash').startswith('#/help/words?w=Sine'), f'Enter on the header row opens Capitol words at Sine die ({pg.evaluate("location.hash")})')
   check(not errs, f'no page errors ({errs[:1]})')

@@ -164,6 +164,12 @@ export function wordHits(q) {
 }
 // The start of a meaning, cut at a word, for a row's second line.
 const gist = (s, n = 140) => s.length > n ? s.slice(0, n - 1).replace(/\s\S*$/, '') + '…' : s;
+// R-316 W29 (fresh-eyes): the header's row says the meaning to the end of its first sentence ("The committee held the
+// bill."), where one line cut it mid-thought ("...For the year, that almost always…"); staff.css lets it wrap. A first
+// sentence of a word or two ("Versions.") takes the next with it. The search page keeps its longer start (gist).
+const firstSentence = s => { const t = String(s); let end = 0;
+  for (const m of t.matchAll(/[.!?](?=\s|$)/g)) { end = m.index + 1; if (t.slice(0, end).split(/\s+/).length >= 3) break; }
+  return end ? t.slice(0, end) : t; };
 
 // ---- the header's suggestions as you type (R-032; pub/suggest.js draws them, the public header's too) ----
 // Seven rows at most under the header box on a desktop, shared out so every kind that matches shows: tracked bills
@@ -210,8 +216,8 @@ export function headerHits(q) {
       sub: [spacedNum(r.bill_number), STAGE_LABEL[r.stage]].filter(Boolean).join(' · ') }));
   const places = placeItems(q);   // R-277 fix 19: first, and they take their rows before the rest share the seven
   // R-316 W29 (L-15): a Capitol word's meaning above everything, at most two ("referral" and Joint referral); the line
-  // under it is the start of the meaning (the list cuts it to one line). The bills with the word follow.
-  const words = wordHits(q).slice(0, 2).map(w => ({ href: w.href, title: w.term, sub: w.text, icon: 'book-open' }));
+  // under it is the meaning's first sentence, whole. The bills with the word follow.
+  const words = wordHits(q).slice(0, 2).map(w => ({ href: w.href, title: w.term, sub: firstSentence(w.text), icon: 'book-open' }));
   const groups = (ppl, un) => { const [b, u, i, l, c, p] = share([bills, un, issues, legs, convs, ppl], ROWS - places.length - words.length);
     return [{ label: 'Capitol words', items: words }, { label: 'Places', items: places }, { label: 'Bills', items: b }, { label: 'Not tracked yet', items: u }, { label: 'Issues', items: i }, { label: 'Legislators', items: l }, { label: 'Conversations', items: c }, { label: 'Supporters', items: p }]; };
   const peopleReady = S.peopleLoaded || (S.people || []).length, lookUn = q.trim().length >= 3 && !(dist && dist[1]), key = plain(q).trim();
