@@ -9,7 +9,13 @@
 // back row and the same live promise.
 // A link sent and not yet opened says what comes, in the Text terms page's words, as today's page does (alerts.js GETS_*, Nate's
 // "match reality" of 18 Oct).
-import { S, DEMO, app, esc, icon, friendly, textSaved, followedIssues, followsAnything, levelOf } from '../core.js';
+// "Asks from HIPHI's partners" (R-328 batch G, migration 185, Nate's yes 22 Oct): for an account with an email, the three
+// choices of the plan (A few, As they come, None) in this page's own choice style, each saved the moment it is picked, and
+// the partners the person stopped from an email's link, each with Start again (B-5: Undo in its toast). Partner asks come
+// with HIPHI's own updates by email, so the choices wait while those are off (B-12). No consent words change here (C-4): the
+// setting only narrows what the person already said yes to. The practice copy has no sign-in: with the partner switch
+// (?demo=1&partner=1) this page draws as the sample person's account (pub/partners.js sandboxAccount), nothing sent or saved.
+import { S, DEMO, app, esc, icon, toast, friendly, textSaved, followedIssues, followsAnything, levelOf } from '../core.js';
 import { btn, inlineErr } from '../ui.js';
 import { CHOICES, check, submitBtn, stopNumberBox, nextStep, A } from '../more.js';
 import { alertFields, alertButton, codeStep, confirmWords, almostLine, alertStatus, LEVEL_WORDS, levelSwitch, wireLevels,
@@ -18,11 +24,15 @@ import { hasProfile, signedIn } from '../myprofile.js';
 import { myEmail } from '../phone.js';
 import { recHead, recSec } from './kit.js';
 import { backFrom } from './you.js';
+import { ASK_LEVELS, ASK_WORDS, askLevel, sandboxAccount, keepSandbox, setPartnerAsks, partnerAsksNow, stopPartnerAsks } from '../partners.js';
 
 const masked = d => `(${d.slice(0, 3)}) ••• ${d.slice(6)}`;
 const first = s => (/^(.+?[.!?])(\s|$)/.exec(s) || [, s])[1];   // "A few texts a month." from the consent's fine print
 const $ = s => document.querySelector(s);
-export const yoursNow = () => hasProfile() && !A.edit && !codeStep('mr-al');
+// The account this page's email choices belong to: the signed-in person's, or the practice copy's sample with its partner switch.
+const acct = () => signedIn() ? S.user : sandboxAccount();
+const mailOf = () => signedIn() ? myEmail() : sandboxAccount()?.email || '';
+export const yoursNow = () => (hasProfile() || !!sandboxAccount()) && !A.edit && !codeStep('mr-al');
 
 // One way it reaches the person: an icon, what and where, its state in one line, and the one thing to change it.
 const way = (ic, what, state, act) => `<div class="ya-way"><span class="rc-wic">${icon(ic)}</span><div class="ya-wt"><p class="ya-wn">${what}</p>${state ? `<p class="ya-ws">${state}</p>` : ''}</div>${act}</div>`;
@@ -37,9 +47,9 @@ function texts() {
 // Signed in with an email: the two email choices, each saved when it is ticked (consent, stamped as given, C-4), and which
 // hearings email brings, shown while hearing emails are on (B-12). Without one: the way to add it.
 function email() {
-  const mail = signedIn() ? myEmail() : '';
+  const mail = mailOf();
   if (!mail) return way('mail', 'Email: not added', 'Get alerts by email too, and keep your profile on any phone.', `<a class="btn text sm" href="#/signin">Add your email</a>`);
-  const p = S.user?.prefs || {}, on = p.hearing_alerts === true || p.action_alerts === true, iss = followedIssues().length;
+  const p = acct()?.prefs || {}, on = p.hearing_alerts === true || p.action_alerts === true, iss = followedIssues().length;
   return `${way('mail', `Email to <span class="mr-break">${esc(mail)}</span>`, on ? `On. ${esc(first(EMAIL_FINE))}` : 'Off', '')}
     <fieldset class="mr-set ya-em"><legend class="sr">Emails to ${esc(mail)}</legend>
       ${CHOICES.map(([k, key, t2, h]) => check(`ya-em-${k}`, key === 'hearing_alerts' && iss ? EMAIL_ALERTS : t2, h, p[key] === true, ` data-ya-em="${key}"`)).join('')}
@@ -57,6 +67,21 @@ function levels() {
       <p class="lvl-hint ya-lvx"></p><span class="sr" role="status"></span></li>`).join('')}</ul>`,
     { note: `${LEVEL_WORDS.every}: never more than one a day. ${LEVEL_WORDS.big}: usually a few a month. ${LEVEL_WORDS.app}: no texts or emails.` })
     .replace('<p class="rc-note">', '<p class="rc-note" id="ya-lv-h">');
+}
+// "Asks from HIPHI's partners" (R-328 batch G): only for an account with an email, as partner asks come only by email. The
+// choices are this page's radios (the hearing emails' style), each with its one line; the partners stopped from an email's
+// link follow, once my_partner_asks answers (a moment after the page). Left out of the moment right after a number is saved
+// (R-229: no extra boxes then), and for everyone without an account (B-12).
+function partnerAsks() {
+  const u = acct(); if (!u || !mailOf() || A.justOn) return '';
+  const p = u.prefs || {}, lvl = askLevel(p), on = p.action_alerts === true, stopped = partnerAsksNow()?.stopped || [];
+  const choices = `<fieldset class="mr-set ya-pa" id="ya-pa"${on ? '' : ' hidden'}><legend class="sr">How many asks from HIPHI’s partners</legend>
+      ${ASK_LEVELS.map(v => `<label class="check mr-check" for="ya-pa-${v}"><input type="radio" name="ya-pa" id="ya-pa-${v}" value="${v}"${lvl === v ? ' checked' : ''}><span class="mr-ctext"><span class="mr-ctitle">${esc(ASK_WORDS[v][0])}</span><span class="mr-chelp">${esc(ASK_WORDS[v][1])}</span></span></label>`).join('')}</fieldset>
+    <p class="ya-none ya-paoff" id="ya-paoff"${on ? ' hidden' : ''}>Partner asks come only with HIPHI’s updates by email, and those are off for you now.</p>
+    <p class="small ya-emst" id="ya-past" role="status"></p>`;
+  const stops = stopped.length ? `<div class="ya-pastop"><p>You stopped asks from:</p><ul class="ya-pastops" role="list">${stopped.map(s => `<li><span class="ya-paname">${esc(s.name)}</span>
+      ${btn('Start again', { kind: 'text', sm: true, attrs: { 'data-ya-pastart': s.slug, 'data-name': s.name, 'aria-label': `Start asks from ${s.name} again` } })}</li>`).join('')}</ul></div>` : '';
+  return recSec('ya-pa-t', 'Asks from HIPHI’s partners', choices + stops, { note: 'Groups HIPHI works with may ask you to speak up on bills you follow. HIPHI’s own asks come first.' });
 }
 // Stop texts to any number, from any browser (D1-3): the fold today's page has under a saved number, back at the foot of Your
 // alerts (R-303: it was drawn only without a profile, so a person with one could not stop another number). Closed and quiet; its
@@ -83,6 +108,7 @@ export function yoursView() {
     ${just}
     <section class="rc-card ya-ways" aria-label="Where alerts go">${texts()}${email()}</section>
     ${levels()}
+    ${partnerAsks()}
     ${t || !A.justOn ? `<div class="ya-end">
       ${t ? `<div class="ya-foot"><p class="small">Reply STOP to any text to end them.${DEMO ? ' This is the sandbox, so nothing is sent.' : ''}</p>${btn('Stop texts to this phone', { kind: 'text', sm: true, attrs: { 'data-mr-alstop': '' } })}</div>` : ''}
       ${A.justOn ? '' : stopNum()}</div>` : ''}
@@ -120,9 +146,11 @@ export const recAlertsView = () => yoursNow() ? yoursView() : signupView();
 // Each email choice saves when it changes: the two boxes are consent, stamped as given here (C-4), with Profile's source,
 // as they were given there before; which hearings email brings is a setting inside it (R-299).
 async function savePrefs(patch, consent) {
-  const prefs = { ...(S.user.prefs || {}), ...patch, ...(consent ? { consent_at: new Date().toISOString(), consent_source: 'profile', consent_version: null } : {}) };
-  if (!DEMO) { const { error } = await S.supa.from('public_users').update({ prefs }).eq('id', S.user.id); if (error) throw error; }
-  S.user.prefs = prefs; if (consent) S.consentCard = false;
+  const u = acct();
+  const prefs = { ...(u.prefs || {}), ...patch, ...(consent ? { consent_at: new Date().toISOString(), consent_source: 'profile', consent_version: null } : {}) };
+  if (!DEMO) { const { error } = await S.supa.from('public_users').update({ prefs }).eq('id', u.id); if (error) throw error; }
+  u.prefs = prefs; if (consent) S.consentCard = false;
+  if (u !== S.user) keepSandbox();   // the practice copy's sample account: kept in the sandbox, as the partner switch's corner is
 }
 export function wireRecAlerts() {
   const root = $('#main .ya'); if (!root) return;
@@ -145,10 +173,38 @@ export function wireRecAlerts() {
     catch (e) { c.checked = !on; said(e?.plain ? e.message : friendly(e), true); }
     c.disabled = false;
     if (key === 'hearing_alerts') { const f = $('#ya-elv'); if (f) f.hidden = !c.checked; }
+    // Partner asks come with HIPHI's updates (R-328 G): their choices show while those are on, as hearing emails' do (B-12).
+    if (key === 'action_alerts') { const f = $('#ya-pa'), off = $('#ya-paoff'), st = $('#ya-past'); if (f) f.hidden = !c.checked; if (off) off.hidden = c.checked; if (st) st.innerHTML = ''; }   // one "Saved." on the page, the box's (A-14)
   });
   root.querySelectorAll('input[name="ya-elv"]').forEach(r => r.onchange = async () => {
     if (!r.checked) return; const was = S.user?.prefs?.email_level === 'every' ? 'every' : 'same'; said('');
     try { await savePrefs({ email_level: r.value }, false); said('Saved.'); }
     catch (e) { const back = $(`#ya-elv-${was}`); if (back) back.checked = true; said(e?.plain ? e.message : friendly(e), true); }
+  });
+  wirePartnerAsks(root);
+}
+// "Asks from HIPHI's partners" (R-328 G): a choice saves the moment it is picked (set_partner_asks, the person's own account),
+// says "Saved." under the choices and goes back to what it was if the database refuses; Start again with Undo (B-5).
+function wirePartnerAsks(root) {
+  const said = (text, bad = false) => { const el = $('#ya-past'); if (el) el.innerHTML = bad ? inlineErr('ya-pa-err', text) : text ? `${icon('circle-check')}<span>${esc(text)}</span>` : ''; };
+  root.querySelectorAll('input[name="ya-pa"]').forEach(r => r.onchange = async () => {
+    if (!r.checked) return; const u = acct(); if (!u) return;
+    const was = askLevel(u.prefs); said('');
+    try {
+      const got = await setPartnerAsks(r.value);
+      if (got !== r.value) throw Object.assign(new Error('That didn’t save. Sign in again, then pick it once more.'), { plain: true });
+      u.prefs = { ...(u.prefs || {}), partner_asks: got }; if (u !== S.user) keepSandbox();
+      said('Saved.');
+    } catch (e) { const back = $(`#ya-pa-${was}`); if (back) back.checked = true; said(e?.plain ? e.message : friendly(e), true); }
+  });
+  root.querySelectorAll('[data-ya-pastart]').forEach(b => b.onclick = async () => {
+    if (b.getAttribute('aria-busy') === 'true') return;
+    const slug = b.dataset.yaPastart, name = b.dataset.name || 'this partner'; b.setAttribute('aria-busy', 'true'); said('');
+    try {
+      const r = await stopPartnerAsks(slug, false);
+      if (!r?.ok) throw Object.assign(new Error(r?.why === 'partner' ? `${name} isn’t on the tracker now, so its asks can’t come.` : 'That didn’t go through. Sign in again and try once more.'), { plain: true });
+      app.render(); const h = $('#ya-pa-t'); if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); }   // its button is gone: the section keeps the place
+      toast(`Asks from ${name} can come again.`, { yay: true, undo: async () => { await stopPartnerAsks(slug, true); } });
+    } catch (e) { b.removeAttribute('aria-busy'); said(e?.plain ? e.message : friendly(e), true); }
   });
 }

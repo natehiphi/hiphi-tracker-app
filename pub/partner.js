@@ -11,6 +11,8 @@
 //                         and issues; Save draft, Send to HIPHI; and the changes that go live at once (hide, remove, end or
 //                         move the ask)
 //   #/partner/issue/<id>  one of the group's own issues (or "new"): name, what it is about, its side
+// and, batch G (migration 185): "Your asks" on the corner, each ask HIPHI approved for its 4:30 pm email with where it stands
+// ("Going out at 4:30 pm today", HIPHI took it back, ended) and its counts as totals, each shown only from 10 people (rule 3).
 // A person who has not agreed to the partner terms sees them first, once. A group waiting for approval or paused sees why in
 // plain words and cannot write. The data and the practice copy's sample are pub/partners.js (?demo=1&partner=1).
 // DESIGN.md: A-3 (one primary per screen: Add a bill on the corner, Send to HIPHI in the editor), A-5 (each status has words
@@ -34,12 +36,25 @@ const $ = s => document.querySelector(s);
 // my_partner once per page load (and again after every change), then the tracker's rows for the group's bills.
 function load(fresh = false) {
   if (ST.loading && !fresh) return ST.loading;
+  if (fresh) ST.asks = null;   // a change (an ask ended or moved, words hidden) changes where its asks stand: asked again
   ST.loading = P.myPartner({ fresh }).then(async d => {
     ST.data = d; ST.err = '';
     if (fresh) for (const k of Object.keys(FORMS)) if (!FORMS[k].dirty) delete FORMS[k];   // untouched forms start again from what the database has now
     try { await P.billsInfo(d.groups.flatMap(g => g.bills.map(b => b.bill_id))); } catch (e) { console.error(e); }
   }).catch(e => { console.error(e); ST.err = P.plainErr(e); }).finally(() => { ST.loading = null; if (here()) app.render(); });
   return ST.loading;
+}
+// The group's asks and their counts (partner_ask_results), asked once per group and again after a change; the section appears
+// when they come, and a failed read leaves it out (the rest of the corner never waits on it).
+function asksOf(g) {
+  const a = ST.asks;
+  if (a && a.slug === g.slug) return a.data;
+  if (!a || a.slug !== g.slug) {
+    const mine = ST.asks = { slug: g.slug, data: null };
+    P.askResults(g.slug).then(d => { if (ST.asks !== mine) return; mine.data = d || { asks: [] }; if (here()) app.render(); })
+      .catch(e => { console.error(e); if (ST.asks === mine) mine.data = { asks: [], failed: true }; });
+  }
+  return null;
 }
 const groupOf = route => { const gs = ST.data.groups; const g = gs.find(x => x.slug === route.g) || gs.find(x => x.slug === ST.slug) || gs[0]; ST.slug = g.slug; return g; };
 const many = () => (ST.data?.groups || []).length > 1;
@@ -204,9 +219,32 @@ function cornerView(g) {
   return `<div class="rc pt pt-corner">${recBack('#/more', 'You')}
     ${head({ eye: 'Your group', title: g.name, lede: g.status === 'active' ? esc(P.teamLine(g)) : '' })}
     ${statusNotice(g)}${others}
-    <div class="pt-cols"><div class="pt-main">${billsSec}${issuesSec}</div>
+    <div class="pt-cols"><div class="pt-main">${billsSec}${asksSec(g)}${issuesSec}</div>
       <div class="pt-side">${teamSec(g)}${linkSec(g)}</div></div>
   </div>`;
+}
+// "Your asks" (batch G): one quiet row per ask, newest first: the bill's number, the ask, and one line on where it stands. An ask
+// newer words replaced is left out (the newer one is the row). Counts are the database's, null under 10 people (rule 3).
+const fmtN = x => Number(x).toLocaleString('en-US');
+function countsLine(x) {
+  if (x.sent == null) return 'Counts show once 10 people are counted.';
+  // a count never breaks from its word ("10 / acted" on a phone)
+  const parts = [`Sent to ${fmtN(x.sent)}\u00a0${x.sent === 1 ? 'person' : 'people'}`, x.opened != null && `${fmtN(x.opened)}\u00a0opened`, x.clicked != null && `${fmtN(x.clicked)}\u00a0clicked`, x.acted != null && `${fmtN(x.acted)}\u00a0acted`].filter(Boolean);
+  return parts.join(' · ') + (parts.length < 4 ? '. Other counts show once 10 people are counted.' : '');
+}
+function askLine(x) {
+  if (x.state === 'going_out') { const d = when(x.first_email, { time: false }); return `Going out at 4:30 pm ${/^(today|tomorrow)$/.test(d) ? d : 'on ' + d}`; }
+  if (x.state === 'taken_back') return 'HIPHI took this ask back.';
+  if (x.state === 'ended') return x.sent == null ? 'This ask has ended.' : `This ask has ended. ${countsLine(x)}`;
+  return countsLine(x);
+}
+function asksSec(g) {
+  const d = asksOf(g), rows = (d?.asks || []).filter(x => x.state !== 'replaced');
+  if (!rows.length) return '';
+  return sec('pt-asks-h', 'Your asks', `<ul class="rc-rows rc-box" role="list">${rows.map(x => `<li><a class="rc-row pt-row" href="${esc(href('#/partner/bill/' + x.bill_id, g))}">
+    <span class="rc-rtext"><span class="pt-num">${esc(spaced(x.bill_number))}</span><span class="rc-rname">${esc(cut(x.ask || '', 120))}</span>
+      <span class="rc-rstat">${esc(keepLine(askLine(x)))}</span></span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`).join('')}</ul>`,
+    'HIPHI emails each ask it approves at 4:30 pm to people who follow the bill or your issue.');
 }
 function teamSec(g) {
   const lead = g.me.role === 'lead', write = canWrite(g), people = g.people || [];

@@ -70,6 +70,11 @@ function sample() {
     ask: 'Send testimony to the Senate Health committee before its hearing.', ask_until: plusDays(day, 15), draft_version: 'HD2',
     draft_note: 'HD2 keeps a dentist in charge of the hygienist. We support it as it is.', issue_ids: [ISSUES.fillings, OWN_ISSUE],
     written_at: at(8, '10:20'), sent_at: at(8, '10:24'), reviewed_at: at(6, '14:05') });
+  const coverLive = words({ state: 'live', side: 'support', nickname: 'Health coverage for every keiki',
+    summary: 'Pays for Medicaid and CHIP coverage for pregnant people and children with low incomes, whatever their immigration status. Covered keiki get dental checkups too.',
+    points: ['A child with coverage sees a dentist before a cavity becomes an emergency.', 'Care in pregnancy means healthier babies and fewer costly hospital stays.', 'Families should not have to choose between rent and a checkup.'],
+    ask: 'Ask your representative to move this bill forward.', ask_until: plusDays(day, 20), issue_ids: [OWN_ISSUE],
+    written_at: at(12, '09:15'), sent_at: at(12, '09:20'), reviewed_at: at(11, '13:00') });
   return { groups: [{
     slug: 'keiki-smiles', name: 'Keiki Smiles Alliance', website: 'https://example.org', about: 'Healthy teeth for every child in Hawaiʻi.',
     welcome: 'Keiki Smiles Alliance asks you to speak up for healthy keiki teeth.',
@@ -100,24 +105,34 @@ function sample() {
           written_at: at(2, '15:10'), sent_at: at(2, '15:12'), reviewed_at: at(1, '10:30'), review_note: 'Please say where the 40% figure comes from.' }) },
       // HB 1349, a bill HIPHI only monitors (no side): live words, so the public screens show a bill only a partner works on.
       { id: 'pb-4', bill_id: BILLS.HB1349, bill_number: 'HB1349', session_year: 2026, hidden: false, removed: false, side_clash: false, hiphi_side: null,
-        live: words({ state: 'live', side: 'support', nickname: 'Health coverage for every keiki',
-          summary: 'Pays for Medicaid and CHIP coverage for pregnant people and children with low incomes, whatever their immigration status. Covered keiki get dental checkups too.',
-          points: ['A child with coverage sees a dentist before a cavity becomes an emergency.', 'Care in pregnancy means healthier babies and fewer costly hospital stays.', 'Families should not have to choose between rent and a checkup.'],
-          ask: 'Ask your representative to move this bill forward.', ask_until: plusDays(day, 20), issue_ids: [OWN_ISSUE],
-          written_at: at(12, '09:15'), sent_at: at(12, '09:20'), reviewed_at: at(11, '13:00') }),
+        live: coverLive,
         open: null }],
     issues: [{ id: OWN_ISSUE, slug: 'healthy-keiki-teeth', hidden: false, removed: false,
       live: { id: uid(), state: 'live', name: 'Healthy keiki teeth', description: 'Dental care every child in Hawaiʻi can reach: at school, at checkups and close to home.', stance: 'support',
         written_at: at(9, '17:00'), sent_at: at(9, '17:02'), reviewed_at: at(7, '11:40'), review_note: null }, open: null }],
-    visits: 140 }] };
+    // Its asks HIPHI approved for the 4:30 pm email (batch G, migration 185 partner_asks), with the counts the database keeps:
+    // HB 1671's went to enough people for every count to show, HB 1349's to fewer than 10, so the corner shows none of its.
+    asks: [
+      { id: 101, bill_id: BILLS.HB1671, bill_number: 'HB1671', session_year: 2026, ask: fillingsLive.ask, approved_at: at(6, '14:05'), first_email: at(6, '16:30'),
+        taken_back_at: null, replaced_at: null, counts: { sent: 52, opened: 31, clicked: 14, acted: 10 } },
+      { id: 102, bill_id: BILLS.HB1349, bill_number: 'HB1349', session_year: 2026, ask: coverLive.ask, approved_at: at(11, '13:00'), first_email: at(11, '16:30'),
+        taken_back_at: null, replaced_at: null, counts: { sent: 7, opened: 4, clicked: 1, acted: 0 } }],
+    visits: 140 }],
+    // The practice copy's account on Your alerts and a partner's issue page (it has no sign-in): the sample person's email, her
+    // alert choices (everyone starts at "A few" partner asks), the partners she stopped (?partner=stopped: Keiki Smiles
+    // Alliance, yesterday, from an email's link) and the partner issues she follows.
+    account: { id: 'sandbox-account', email: 'leilani@example.org',
+      prefs: { hearing_alerts: true, action_alerts: true, email_level: 'same', partner_asks: 'few', consent_at: at(9, '16:30'), consent_source: 'sandbox', consent_version: null },
+      stops: SANDBOX_MODE === 'stopped' ? [{ slug: 'keiki-smiles', at: at(1, '17:05') }] : [], follows: [] } };
 }
 let SB = null;
+const SB_V = 2;   // the kept copy's shape: 2 since batch G added asks and the account
 function sb() {
   if (SB) return SB;
-  try { const kept = JSON.parse(sessionStorage.getItem(KEY) || 'null'); if (kept && kept.mode === SANDBOX_MODE && kept.day === today()) SB = kept.data; } catch { /* storage blocked */ }
+  try { const kept = JSON.parse(sessionStorage.getItem(KEY) || 'null'); if (kept && kept.v === SB_V && kept.mode === SANDBOX_MODE && kept.day === today()) SB = kept.data; } catch { /* storage blocked */ }
   return (SB ??= sample());
 }
-const keepSB = () => { try { sessionStorage.setItem(KEY, JSON.stringify({ mode: SANDBOX_MODE, day: today(), data: SB })); } catch { /* storage blocked: kept for this page only */ } };
+const keepSB = () => { try { sessionStorage.setItem(KEY, JSON.stringify({ v: SB_V, mode: SANDBOX_MODE, day: today(), data: SB })); } catch { /* storage blocked: kept for this page only */ } };
 const clone = x => JSON.parse(JSON.stringify(x));
 
 // The practice copy's database: the same checks, in the same words, as migration 184's functions.
@@ -198,7 +213,40 @@ const SANDBOX_RPC = {
     if (r) { r.removed = false; r.name = (p.name || '').trim() || r.name; } else { r = { id: uid(), name: (p.name || '').trim() || null, role: 'member', joined: false, email: em }; g.people.push(r); }
     keepSB(); return clone({ id: r.id, email: r.email, name: r.name, role: r.role });
   },
+  // Batch G (migration 185): "Asks from HIPHI's partners" on Your alerts, Stop asks from this partner, and the corner's results.
+  set_partner_asks: ({ p_level }) => {
+    const a = sbAcct(); if (!a || !ASK_LEVELS.includes(p_level)) return null;
+    a.prefs = { ...a.prefs, partner_asks: p_level }; keepSB(); return p_level;
+  },
+  my_partner_asks: () => {
+    const a = sbAcct(); if (!a) return null;
+    const names = new Map(sb().groups.map(g => [g.slug, g.name]));
+    return clone({ level: ASK_LEVELS.includes(a.prefs?.partner_asks) ? a.prefs.partner_asks : 'few',
+      stopped: a.stops.filter(s => names.has(s.slug)).map(s => ({ slug: s.slug, name: names.get(s.slug), at: s.at })).sort((x, y) => x.name.localeCompare(y.name)) });
+  },
+  partner_asks_stop: ({ p_partner, p_stop = true }) => {
+    const a = sbAcct(); if (!a) return { ok: false, why: 'unknown' };
+    const g = sb().groups.find(x => x.slug === p_partner && x.status !== 'waiting'); if (!g) return { ok: false, why: 'partner' };
+    const stop = p_stop !== false;
+    a.stops = a.stops.filter(s => s.slug !== g.slug); if (stop) a.stops.push({ slug: g.slug, at: new Date().toISOString() });
+    keepSB(); return { ok: true, partner: g.slug, partner_name: g.name, stopped: stop };
+  },
+  partner_ask_results: ({ p_slug }) => {
+    const g = sbMe(p_slug, false), day = today(), now = Date.now(), from10 = n => (n >= 10 ? n : null);   // a partner sees a count only from 10 people
+    const asks = (g.asks || []).slice().sort((x, y) => String(y.approved_at).localeCompare(String(x.approved_at))).map(x => {
+      const pb = g.bills.find(b => b.bill_id === x.bill_id), w = pb?.live;
+      const on = !!w && w.ask === x.ask && !!w.ask_until && w.ask_until >= day && g.status === 'active' && !pb.hidden && !pb.removed && !pb.side_clash;
+      const state = x.replaced_at ? 'replaced' : x.taken_back_at ? 'taken_back' : !on ? 'ended' : new Date(x.first_email).getTime() > now ? 'going_out' : 'sending';
+      const c = state === 'going_out' ? { sent: 0, opened: 0, clicked: 0, acted: 0 } : x.counts;
+      return { id: x.id, bill_id: x.bill_id, bill_number: x.bill_number, session_year: x.session_year, ask: x.ask, ask_until: w?.ask_until || null, approved_at: x.approved_at,
+        first_email: x.first_email, state, sent: from10(c.sent), opened: from10(c.opened), clicked: from10(c.clicked), acted: from10(c.acted) };
+    });
+    return clone({ counted_from: 10, asks });
+  },
 };
+// The account the practice copy plays on Your alerts and a partner's issue page: with the partner switch, or a session a test
+// put in place; null otherwise, as the database answers nobody who is signed out.
+const sbAcct = () => (ON || (S.session && S.user)) ? sb().account : null;
 
 // ---------------- the calls ----------------
 async function rpc(name, args = {}) {
@@ -226,6 +274,77 @@ export const billChange = p => rpc('partner_bill_change', { p }).then(changed);
 export const saveIssue = p => rpc('partner_save_issue', { p }).then(changed);
 export const issueChange = p => rpc('partner_issue_change', { p }).then(changed);
 export const invite = p => rpc('partner_invite', { p }).then(changed);
+
+// ---------------- partner asks in the 4:30 pm email (batch G, migration 185; Nate's yes 22 Oct 2026) ----------------
+// "Asks from HIPHI's partners" on Your alerts: few (A few, where everyone starts and what a missing value means), come (As
+// they come), none (None). The words are the plan's ("Partner alerts, worked through"), shortened; the database keeps the
+// rules (daily_email_compose). Partner asks come with HIPHI's own updates by email (asks_ok: action_alerts), so the setting
+// waits while those are off (B-12).
+export const ASK_LEVELS = ['few', 'come', 'none'];
+export const ASK_WORDS = {
+  few: ['A few', 'At most 1 in an email, and only when HIPHI has little to ask you. At most 1 a week from each partner.'],
+  come: ['As they come', 'Up to 2 in an email, after HIPHI’s own. At most 3 a week from each partner.'],
+  none: ['None', 'No partner asks. Hearing alerts on bills you follow still come.'],
+};
+export const askLevel = prefs => ASK_LEVELS.includes(prefs?.partner_asks) ? prefs.partner_asks : 'few';
+// The practice copy has no sign-in. With its partner switch (?demo=1&partner=1, the corner's "signed in" switch) Your alerts
+// draws as for the sample person's account, every choice kept in the sandbox only; null on the live page.
+export const sandboxAccount = () => (DEMO && ON ? sb().account : null);
+export const keepSandbox = () => { if (DEMO && SB) keepSB(); };
+// The level, saved for the signed-in person's own account; the database answers the level, or null when it refuses.
+export const setPartnerAsks = level => rpc('set_partner_asks', { p_level: level });
+// The partners the person stopped (my_partner_asks), asked once per page load and per person; null while it comes (the screen
+// draws again when it does). A failed read shows no list, never a broken page.
+let MPA = null, MPAP = null, MPAU = '';
+const whoAsks = () => S.session && S.user ? S.user.id : sandboxAccount() ? 'sandbox' : '';
+export function partnerAsksNow() {
+  const who = whoAsks(); if (!who) return null;
+  if (MPAU !== who) { MPAU = who; MPA = null; MPAP = null; }
+  if (MPA) return MPA;
+  MPAP ??= rpc('my_partner_asks').then(d => { if (MPAU !== who) return; MPA = { level: d?.level || 'few', stopped: d?.stopped || [] }; app.render(); })
+    .catch(e => { console.error(e); if (MPAU === who) MPA = { level: null, stopped: [], failed: true }; });
+  return null;
+}
+// Stop asks from one partner (stop: true) or Start again (false), for the signed-in person's own account (no token); the
+// email's link does the same through unsubscribe.html with its token. {ok, partner, partner_name, stopped} or {ok:false, why}.
+export async function stopPartnerAsks(slug, stop = true) {
+  const r = await rpc('partner_asks_stop', { p_partner: slug, p_stop: stop });
+  if (r?.ok && MPA) {
+    MPA.stopped = MPA.stopped.filter(s => s.slug !== slug);
+    if (r.stopped) MPA.stopped = [...MPA.stopped, { slug, name: r.partner_name, at: new Date().toISOString() }].sort((x, y) => x.name.localeCompare(y.name));
+  }
+  return r;
+}
+// The corner's results: each ask's state and its counts, each count null under 10 people (rule 3).
+export const askResults = slug => rpc('partner_ask_results', { p_slug: slug });
+
+// A partner's own issue, followed (partner_issue_follows): following it brings that partner's asks on the bills under it. The
+// person's own rows only (RLS), signed in; in the practice copy, the sandbox's account with the partner switch.
+export const canFollowPartner = () => DEMO ? !!sbAcct() : !!(S.session && S.user);
+let PIF = null, PIFP = null, PIFU = '';
+export function partnerFollowsNow() {
+  const who = canFollowPartner() ? (DEMO ? 'sandbox' : S.user.id) : ''; if (!who) return null;
+  if (PIFU !== who) { PIFU = who; PIF = null; PIFP = null; }
+  if (PIF) return PIF;
+  PIFP ??= (async () => {
+    if (DEMO) return new Set(sb().account.follows);
+    const c = await supa(), { data, error } = await c.from('partner_issue_follows').select('partner_issue_id').eq('user_id', S.user.id);
+    if (error) throw error; return new Set((data || []).map(r => r.partner_issue_id));
+  })().then(s => { if (PIFU === who) { PIF = s; app.render(); } }).catch(e => { console.error(e); if (PIFU === who) PIF = new Set(); });
+  return null;
+}
+export async function followPartnerIssue(id, on) {
+  if (DEMO) {
+    await new Promise(r => setTimeout(r, 120));
+    const a = sbAcct(); if (!a) throw refuse('Sign in first');
+    a.follows = on ? [...new Set([...a.follows, id])] : a.follows.filter(x => x !== id); keepSB();
+  } else {
+    const c = await supa(), t = c.from('partner_issue_follows');
+    const { error } = await (on ? t.insert({ user_id: S.user.id, partner_issue_id: id }) : t.delete().eq('user_id', S.user.id).eq('partner_issue_id', id));
+    if (error && !(on && error.code === '23505')) throw error;   // already followed (another tab): it is followed
+  }
+  if (PIF) PIF[on ? 'add' : 'delete'](id);
+}
 
 // ---------------- what the public sees (approved words only) ----------------
 // For the next batches (the partner's name on bill rows, its points on the bill page and in the testimony walkthrough).

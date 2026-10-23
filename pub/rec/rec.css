@@ -196,3 +196,17 @@ body.rec .rc-tlink:hover { text-decoration-thickness: 2px; }
 .pw-noside { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); }
 .pw-noside p { margin: 0; color: var(--n700); max-width: 65ch; }
 .pp-whose { margin-top: var(--s16); }
+
+/* HIPHI's partners' asks (R-328 batch G). On Your alerts (pub/rec/alerts.js): the three choices in the hearing emails' radios,
+   each with its line, then the partners the person stopped, each with Start again (A-6: 44px rows). */
+body.rec .ya-pa { display: flex; flex-direction: column; }
+body.rec .ya-paoff { margin: 0; }
+body.rec #ya-past { margin: var(--s4) 0 0; }
+body.rec .ya-pastop { margin-top: var(--s16); padding-top: var(--s8); border-top: 1px solid var(--n100); }
+body.rec .ya-pastop > p { margin: 0; font-size: var(--t14); color: var(--n700); }
+body.rec .ya-pastops { list-style: none; margin: 0; padding: 0; }
+body.rec .ya-pastops li { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s4); min-height: 44px; max-width: none; }   /* Start again beside the name it starts */
+body.rec .ya-paname { font-weight: 700; color: var(--n900); }
+/* On a partner's issue page (pub/partnerpub.js): Follow beside its grey chip, and one quiet line on what following brings */
+.pp-fnote { margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n700); max-width: 65ch; }
+body.rec a.rc-fpill { text-decoration: none; }

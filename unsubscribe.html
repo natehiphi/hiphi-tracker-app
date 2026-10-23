@@ -10,7 +10,11 @@
      unsubscribe (or the mail app's own one-click button, which posts to the same function). A mail scanner that follows every
      link in a message therefore cannot unsubscribe anyone, and the page shows properly (Supabase serves a function's HTML as
      plain text, so the page lives here). The link is ?u=<token>&what=hearing|action|all, from the email. The function is
-     backend supabase/functions/unsubscribe. In the tracker's own colours and type, like text-terms.html. -->
+     backend supabase/functions/unsubscribe. In the tracker's own colours and type, like text-terms.html.
+     A partner ask's "Stop asks from this partner" link (R-328 batch G, backend migration 185 partner_stop_url) is
+     ?partner=<slug>&pt=<token>: its own question and one button, which calls partner_asks_stop with the public key, then Undo
+     (B-5). It never offers "Stop all email": HIPHI's own emails are not what the person asked to stop. Opening it changes
+     nothing either (it only reads the partner's public name). &demo=1 is the practice copy's: it answers here, sends nothing. -->
 <style>
   :root { --p700: #00698E; --p800: #024F69; --n0: #FFFFFF; --n50: #F4F7F9; --n200: #DBE3E7; --n500: #5F6F76; --n900: #142B35; --ok: #1B6B3A;
           --font-h: 'Poppins', 'Lato', system-ui, -apple-system, 'Segoe UI', sans-serif; --font: 'Lato', system-ui, -apple-system, 'Segoe UI', sans-serif; }
@@ -31,6 +35,8 @@
   .keep { display: inline-flex; align-items: center; min-height: 48px; padding: 0 8px; }
   .small { color: var(--n500); font-size: .875rem; margin-top: 16px; }
   .ok { color: var(--ok); font-weight: 700; }
+  button.quiet { background: var(--n0); color: var(--p700); box-shadow: inset 0 0 0 2px var(--p700); }
+  button.quiet:hover { background: var(--n50); }
   [hidden] { display: none !important; }
   :focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
 </style>
@@ -55,6 +61,7 @@
                all: ['Stop all email from the tracker?', 'You will no longer get any email from the HIPHI Bill Tracker.'] };
   var CONTACT = 'You can also email <a href="mailto:contact@hiphi.org">contact@hiphi.org</a> and we will do it for you.';
   function show(h, p, note, hideRow) { $('u-h').textContent = h; $('u-p').innerHTML = p; $('u-note').innerHTML = note || ''; if (hideRow) $('u-row').hidden = true; }
+  if (q.has('partner')) { partnerStop(); return; }
   if (!/^[0-9a-f-]{36}$/i.test(token)) { show('That link looks incomplete', 'Open the email again and press the link once more. ' + CONTACT, '', true); document.title = 'Unsubscribe · HIPHI Bill Tracker'; return; }
   show(WHAT[what][0], WHAT[what][1] + ' Nothing changes until you press the button.', 'Changed your mind? Not pressing it keeps everything as it is.');
   $('u-go').addEventListener('click', function () {
@@ -68,6 +75,68 @@
       })
       .catch(function () { b.removeAttribute('aria-busy'); b.textContent = 'Try again'; $('u-note').innerHTML = 'That did not go through. Check your connection and press the button again. ' + CONTACT; });
   });
+
+  // Stop asks from one HIPHI partner (R-328 batch G). The token is the person's email token (u= in HIPHI's own links), here
+  // under pt= so the page above never reads this link as one for all email.
+  function partnerStop() {
+    var slug = (q.get('partner') || '').toLowerCase(), pt = q.get('pt') || '', demo = q.get('demo') === '1', name = '';
+    var REST = 'https://eivzjbnygscguqqiiuvh.supabase.co/rest/v1/', KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
+    var esc = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+    var who = function () { return name || 'this HIPHI partner'; };
+    var DEMO_NOTE = demo ? ' This is the practice copy, so nothing changed.' : '';
+    if (!/^[a-z0-9-]{2,60}$/.test(slug) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pt)) {
+      show('That link looks incomplete', 'Open the email again and press the link once more. ' + CONTACT, '', true); return;
+    }
+    var go = $('u-go'), undoRow = null;
+    function ask(note) {
+      show('Stop asks from ' + who() + '?', 'You will no longer get its asks by email. HIPHI’s own emails still come. Nothing changes until you press the button.',
+        note || 'Changed your mind? Not pressing it keeps everything as it is.');
+      go.textContent = 'Stop asks from this partner'; go.removeAttribute('aria-busy'); $('u-row').hidden = false;
+      if (undoRow) undoRow.hidden = true;
+    }
+    function call(stop) {
+      if (demo) return new Promise(function (ok) { setTimeout(function () { ok(slug === 'keiki-smiles' ? { ok: true, partner: slug, partner_name: 'Keiki Smiles Alliance', stopped: stop } : { ok: false, why: 'partner' }); }, 300); });
+      return fetch(REST + 'rpc/partner_asks_stop', { method: 'POST', headers: { 'content-type': 'application/json', apikey: KEY, authorization: 'Bearer ' + KEY },
+        body: JSON.stringify({ p_partner: slug, p_stop: stop, p_token: pt }) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error('failed'); return j || {}; }); });
+    }
+    function refused(j) {
+      if (j.why === 'unknown') show('We could not find that account', 'It may have been deleted already. ' + CONTACT, '', true);
+      else show('That partner isn’t on the tracker now', 'So its asks can’t reach you. Your other emails are as they were. ' + CONTACT, '', true);
+      if (undoRow) undoRow.hidden = true;
+    }
+    function failed(b) { b.removeAttribute('aria-busy'); b.textContent = 'Try again'; $('u-note').innerHTML = 'That did not go through. Check your connection and press the button again. ' + CONTACT; }
+    function done() {
+      show('Done', '<span class="ok">You won’t get asks from ' + esc(who()) + '.</span> HIPHI’s own emails still come.',
+        'Choose how many partner asks you get in <a href="track.html#/alerts">Your alerts</a>.' + DEMO_NOTE, true);
+      if (!undoRow) {
+        undoRow = document.createElement('div'); undoRow.className = 'row'; undoRow.id = 'u-undorow';
+        undoRow.innerHTML = '<button type="button" class="quiet" id="u-undo">Undo</button>';
+        $('u-p').parentNode.insertBefore(undoRow, $('u-note'));
+        $('u-undo').addEventListener('click', function () {
+          var b = $('u-undo'); if (b.getAttribute('aria-busy')) return; b.setAttribute('aria-busy', 'true'); b.textContent = 'Undoing…';
+          call(false).then(function (j) {
+            if (!j.ok) { refused(j); return; }
+            b.removeAttribute('aria-busy'); b.textContent = 'Undo';
+            ask('Undone. Asks from ' + esc(who()) + ' can come again.' + DEMO_NOTE); document.title = 'Unsubscribe · HIPHI Bill Tracker'; go.focus();
+          }).catch(function () { failed(b); });
+        });
+      }
+      undoRow.hidden = false; $('u-undo').textContent = 'Undo';
+      document.title = 'Stopped · HIPHI Bill Tracker'; $('u-h').setAttribute('tabindex', '-1'); $('u-h').focus();
+    }
+    ask();
+    // The partner's public name, so the question can name it (a read only; until it answers, or if it cannot, "this HIPHI partner").
+    if (demo) { if (slug === 'keiki-smiles') { name = 'Keiki Smiles Alliance'; ask(); } }
+    else fetch(REST + 'public_partners?select=name&slug=eq.' + encodeURIComponent(slug) + '&apikey=' + KEY)
+      .then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) { if (!name && rows && rows[0] && rows[0].name && !go.getAttribute('aria-busy') && !$('u-row').hidden) { name = rows[0].name; $('u-h').textContent = 'Stop asks from ' + name + '?'; } })
+      .catch(function () { /* the question says "this HIPHI partner" */ });
+    go.addEventListener('click', function () {
+      if (go.getAttribute('aria-busy')) return; go.setAttribute('aria-busy', 'true'); go.textContent = 'Stopping…';
+      call(true).then(function (j) { if (j.ok) { if (j.partner_name) name = j.partner_name; done(); } else refused(j); })
+        .catch(function () { failed(go); });
+    });
+  }
 })();
 </script>
 </body></html>

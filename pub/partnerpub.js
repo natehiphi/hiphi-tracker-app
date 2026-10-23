@@ -7,11 +7,17 @@
 // plain grey chip, never HIPHI's blue one; each bill says where HIPHI stands in its own words ("HIPHI supports it too",
 // "HIPHI hasn't taken a position"); and the page says that HIPHI partners write these words and HIPHI looks them over first.
 // The data is pub/partners.js's one public copy (public_partners, public_partner_bills, public_partner_issues).
-import { S, app, esc, icon, nick, blurb, spaced, billPath, plainStatus } from './core.js';
+// Batch G (migration 185): a partner's issue has a Follow, as HIPHI's issues do (kit recFollow's pill), for a signed-in person
+// (partner_issue_follows, their own rows only): following it brings that partner's asks on its bills in the 4:30 pm email,
+// which one quiet line under it says. Signed out, the pill is "Sign in to follow", which keeps this page for the way back
+// (mylists.js rememberPlace, as a list started signed out does). The practice copy follows in its sandbox (?partner=1).
+import { S, app, esc, icon, toast, nick, blurb, spaced, billPath, plainStatus } from './core.js';
 import { btn, skeleton } from './ui.js';
 import { recHead, recSec, recEmpty, wireKit, keep, BOX } from './rec/kit.js';
 import { backRow } from './rec/act.js';
-import { pubNow, loadPublic, welcomeHtml, partnerOf, onBill, hiphiSide, sideVerb, issueChip, fromPath, pIssuePath, billsInfo, billInfoNow, viaPartner } from './partners.js';
+import { rememberPlace } from './mylists.js';
+import { pubNow, loadPublic, welcomeHtml, partnerOf, onBill, hiphiSide, sideVerb, issueChip, fromPath, pIssuePath, billsInfo, billInfoNow, viaPartner,
+  canFollowPartner, partnerFollowsNow, followPartnerIssue } from './partners.js';
 
 // The bills a page lists may be ones HIPHI does not track (a partner chooses freely there), so their rows come from the
 // public bill rows: asked once for what is missing, and the page draws again when they come.
@@ -56,12 +62,23 @@ function groupView(p) {
     ${whose(p.name)}</div>`;
 }
 
+// Follow: the kit's outlined pill, "✓ Following" once followed (R-061: followed looks followed), which stops following with
+// Undo (B-5). While the person's follows are read, the pill waits, pressed nothing. One line under it says what following does.
+function followCtl(p, i) {
+  if (!canFollowPartner()) return { pill: `<a class="rc-fpill" href="#/signin" data-pp-signin>${icon('log-in')}<span>Sign in to follow</span></a>`, on: false };
+  const set = partnerFollowsNow(), on = !!set?.has(i.id);
+  const attrs = `data-pp-follow="${esc(i.id)}" aria-pressed="${on}"${set ? '' : ' aria-busy="true" disabled'}`;
+  return { on, pill: on ? `<button type="button" class="rc-fpill on" ${attrs} aria-label="Following ${esc(i.name)}. Press to stop following." title="Following. Press to stop following.">${icon('check')}<span>Following</span></button>`
+    : `<button type="button" class="rc-fpill" ${attrs} aria-label="Follow ${esc(i.name)}">${icon('star')}<span>Follow</span></button>` };
+}
 function issueView(p, issueSlug) {
   const i = (pubNow().issues || []).find(x => x.partner_slug === p.slug && x.slug === issueSlug);
   if (!i) return `<div class="rc pp">${backRow(fromPath(p.slug), p.name)}${recHead({ eye: p.name, title: 'Issue' })}${recEmpty('This issue isn’t on the tracker right now.', btn(`More from ${p.name}`, { kind: 'secondary', href: fromPath(p.slug) }))}</div>`;
   const bills = billsOf(i.bill_ids || []).sort((x, y) => x.bill_number.localeCompare(y.bill_number, 'en', { numeric: true }));
+  const f = followCtl(p, i), line = f.on ? `You’ll get ${p.name}’s asks on these bills.` : `Follow it to get ${p.name}’s asks on these bills.`;
   return `<div class="rc pp">${backRow(fromPath(p.slug), p.name)}
-    ${recHead({ eye: 'A HIPHI partner’s issue', title: i.name, lede: i.description || '', extra: issueChip(i) })}
+    ${recHead({ eye: 'A HIPHI partner’s issue', title: i.name, lede: i.description || '', extra: issueChip(i) + f.pill })}
+    <p class="pp-fnote" id="pp-fnote">${esc(line)}</p>
     ${recSec('pp-ibills-h', 'Bills on this issue', bills.length ? billList(bills, p.slug) : (i.bill_ids || []).length ? skeleton(2) : recEmpty('No bills on this issue yet.'))}
     ${whose(p.name)}</div>`;
 }
@@ -74,7 +91,21 @@ function render(route) {
   if (!p || !p.writes) return gone();
   return route.issue ? issueView(p, route.issue) : groupView(p);
 }
-function wire() { const root = document.querySelector('.pp'); if (root) wireKit(root); }
+function wire(route) {
+  const root = document.querySelector('.pp'); if (!root) return;
+  wireKit(root);
+  root.querySelector('[data-pp-signin]')?.addEventListener('click', e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); rememberPlace(); app.go('#/signin'); });
+  root.querySelector('[data-pp-follow]')?.addEventListener('click', async e => {
+    const b = e.currentTarget, id = b.dataset.ppFollow, i = (pubNow()?.issues || []).find(x => x.id === id);
+    if (!i || b.getAttribute('aria-busy') === 'true') return;
+    const on = b.getAttribute('aria-pressed') !== 'true', again = () => document.querySelector('[data-pp-follow]')?.focus({ preventScroll: true });
+    b.setAttribute('aria-busy', 'true');
+    try {
+      await followPartnerIssue(id, on); app.render(); again();
+      toast(on ? `Following ${i.name}.` : `You no longer follow ${i.name}.`, { yay: on, undo: async () => { await followPartnerIssue(id, !on); setTimeout(again, 0); } });
+    } catch (err) { console.error(err); b.removeAttribute('aria-busy'); toast(err, true); }
+  });
+}
 
 // It belongs to Find, where its groups are listed (the calm pages light the tab they were reached from).
 export default { tab: 'find', title: route => partnerOf(route.slug)?.name || 'Partner', render, wire };
