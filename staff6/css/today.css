@@ -1023,4 +1023,10 @@ body.staff6 .pq6 .pq-sec + .pq-sec { border-top-color: var(--v6-hair); }
   body.staff6 .t6-alone .t6-ld:not(.open) { grid-template-columns: minmax(0, 720px); }
   body.staff6 .t6-alone .t6-ld:not(.open) > .t6-aside { display: none; }
   body.staff6 .t6-alone .t6-ld:not(.open) .t6-colonly { display: block !important; }
+  body.staff6 .t6-alone .t6-ld:not(.open) .t6-edgerow { display: grid !important; }
 }
+/* below 1100px the doors and the season card close the column, side by side from 768px (one under the other on a phone) */
+body.staff6 .t6-edgerow { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
+body.staff6 .t6-edgerow > * { margin: 0; }
+@media (min-width: 768px) and (max-width: 1099px) { body.staff6 .t6-edgerow:has(> :nth-child(2)) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1100px) { body.staff6 .t6-solo .t6-ld:not(.open) .t6-edgerow { display: none !important; } }

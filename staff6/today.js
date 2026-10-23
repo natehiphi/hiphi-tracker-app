@@ -680,9 +680,8 @@ function render(route) {
       <div class="t6-col">
         ${phoneDay ? hday1 : ''}${lead ? `<nav class="t6-doors t6-leadl" aria-label="The team">${lead}</nav>` : ''}${phone ? '' : start}${phoneDay ? '' : hday1}
         <div class="t6-colonly t6-nextcol">${L.nextH()}</div>${L.groups}${phone ? start : ''}
-        ${lines.length ? `<nav class="t6-doors t6-colonly" aria-label="More about your work">${lines.join('')}</nav>` : ''}
         ${done}
-        ${season ? `<div class="t6-colonly">${season}</div>` : ''}
+        ${lines.length || season ? `<div class="t6-colonly t6-edgerow">${lines.length ? `<nav class="t6-doors" aria-label="More about your work">${lines.join('')}</nav>` : ''}${season}</div>` : ''}
       </div>
       <aside class="v6-ld-detail t6-aside" aria-label="${item ? 'The item you picked' : 'Your season and more'}">${item ? `<button type="button" class="v6-ld-back" data-v6ldback>${icon('chevron-left')}<span>Back to the list</span></button>${item}` : edge}</aside>
     </div></div>`;
