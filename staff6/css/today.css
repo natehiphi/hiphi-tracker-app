@@ -834,10 +834,10 @@ body.staff6 .t6-date { display: flex; flex-wrap: wrap; align-items: center; gap:
 body.staff6 .t6-over { display: inline-flex; align-items: center; gap: 6px; color: var(--v6-bad); font-weight: 700; }
 body.staff6 .t6-over svg { width: 18px; height: 18px; flex: none; }
 
-/* the column and the item beside it (V17): from 1100px the side column holds the next step on a busy day (.t6-sidenext),
-   the season card and the one-line doors, scrolling with the page, or the picked item, sticky; on a hearing day or a quiet
-   day the next step leads the work column. Below 1100px, one column: the next step first, the in-column copies of the
-   season card (.t6-colonly) and the doors after the lists (.t6-edges) */
+/* the column and the item beside it (V17): the next step leads the work column at every width (A-13, P-2); from 1100px the
+   side column holds Getting started's list, the season card and the one-line doors, scrolling with the page, or the picked
+   item, sticky, and nothing above the rows moves when it opens (B-4). Below 1100px, one column: the next step first, the
+   in-column copies of the season card (.t6-colonly) and the doors after the lists (.t6-edges) */
 body.staff6 .t6-col { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-content: start; }
 body.staff6 .t6-col > * { margin: 0; }
 body.staff6 .t6-aside { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-content: start; }
@@ -850,29 +850,20 @@ body.staff6 .t6-aside > * { margin: 0; }
      scrolling on its own when it is taller than the window */
   body.staff6 .t6-ld:not(.open) > .v6-ld-detail { position: static; max-height: none; overflow: visible; }
   body.staff6 .t6-ld.open > .v6-ld-detail { top: 16px; padding: 0 4px 4px; max-height: calc(100vh - 32px); }
-  /* the doors live in the side column while nothing is picked, and close the work column while something is */
+  /* the doors live in the side column while nothing is picked, and close the work column, after the lists, while something
+     is (below every row, so the row just clicked never moves) */
   body.staff6 .t6-ld:not(.open) > .t6-col > .t6-edges { display: none; }
-  /* a busy day without a sitting: the next step and Getting started lead the side column, beside the list */
-  body.staff6 .t6-sidenext .t6-col > .t6-nextcol, body.staff6 .t6-sidenext .t6-col > .t6-startcol { display: none; }
-  body.staff6 .t6-aside .t6-next .v6-step { padding: 20px; }
-  body.staff6 .t6-aside .t6-start .t6-steps { grid-template-columns: minmax(0, 1fr); }
+  /* Getting started: its list leads the side column; the work column's one line is not drawn here */
+  body.staff6 .t6-col > .t6-startcol { display: none; }
 }
-/* the next step in one line above a picked item (from 1100px; below it the item is its own page with Back) */
-body.staff6 .t6-nextstrip { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; margin: 0 0 16px; padding: 10px 16px; border: 0; border-radius: var(--v6-r12);
-  background: var(--v6-action-wash); color: var(--v6-ink); font: inherit; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); text-align: left; cursor: pointer; }
-body.staff6 .t6-nextstrip > svg { width: 18px; height: 18px; flex: none; color: var(--v6-action); }
-body.staff6 .t6-nextstrip b { font-weight: 700; color: var(--v6-action); }
-body.staff6 .t6-nextstrip:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
-@media (max-width: 1099px) { body.staff6 .t6-nextstrip { display: none; } }
 @media (max-width: 1099px) {
   body.staff6 .t6-ld.open > .t6-col { display: none; }
 }
 
-/* group headings: 22 Poppins (spec 4), the next step's label quieter so the card leads */
+/* group headings: 22 Poppins (spec 4); "Your next step" is as strong as "Do today" under it, so the screen's one filled
+   button is read first (the critic: A-13, a muted 18px label was read after the list's heading) */
 body.staff6 .t6-nexth, body.staff6 .t6-gh { margin: 0 0 12px; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); color: var(--v6-ink); }
-body.staff6 .t6-nexth { font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); color: var(--v6-muted); font-weight: 600; }
 body.staff6 .t6-group { margin: 0; }
-body.staff6 .t6-more { margin: 8px 0 0; }
 
 /* the one-line doors: each one labelled control, 48px, in one soft card */
 body.staff6 .t6-doors { display: grid; grid-template-columns: minmax(0, 1fr); padding: 6px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
@@ -917,8 +908,6 @@ body.staff6 .t6-season.t6-hday .v6-hcard + .v6-hcard { border-top: 1px solid var
   body.staff6 .t6-aside .t6-hc-lead { flex-wrap: wrap; gap: 0 12px; }
   body.staff6 .t6-aside .t6-hc-lead .v6-hcard-bl { flex: 1 1 100%; }
   body.staff6 .t6-aside .t6-hc-lead .v6-row-act { padding: 0 0 12px; }
-  /* the slipping line is the side column's first door while nothing is picked (one copy in sight) */
-  body.staff6 .t6-ld:not(.open) > .t6-col > .t6-leadl { display: none; }
 }
 
 /* the hint where the picked item opens */
@@ -947,7 +936,7 @@ body.staff6 .t6-teamdue > summary > svg:first-child { width: 20px; height: 20px;
 body.staff6 details[open] > summary .t6-chev { transform: rotate(180deg); }
 body.staff6 summary .t6-chev { width: 18px; height: 18px; flex: none; color: var(--v6-muted); transition: transform .15s; }
 body.staff6 .t6-start > summary:focus-visible, body.staff6 .t6-done > summary:focus-visible, body.staff6 .t6-teamdue > summary:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
-body.staff6 .t6-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 0 8px; }
+body.staff6 .t6-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }   /* one step a line, still to do first */
 body.staff6 .t6-stp { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; border-radius: var(--v6-r12); color: var(--v6-action); text-decoration: none;
   font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); }
 body.staff6 .t6-stp svg { width: 20px; height: 20px; flex: none; }
@@ -1099,3 +1088,16 @@ body.staff6 .t6-edges > * { margin: 0; }
 
 /* the partner card's "How it goes out", under its buttons: one fold among the card's folds, no rule above it */
 body.staff6 .pq6 .pq-askhow { margin: 0; padding: 0; border: 0; box-shadow: none; background: none; }
+
+/* a sitting card's "Watch it live": room between the camera and its words at every width (the critic: they touched on a phone) */
+body.staff6 .t6-root .v6-hcard-watch a { display: inline-flex; gap: 8px; }   /* (staff.css makes a bare link in a <p> inline-block on a phone, which drops the gap) */
+/* a writing step two people hold: said once on its card, quietly (no colour: it is not a warning) */
+body.staff6 .t6-shared { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
+body.staff6 .t6-shared > svg { width: 18px; height: 18px; flex: none; margin-top: 3px; color: var(--v6-muted); }
+/* the open item's "Also on this bill" fold: its lines under the summary, inside the doors' card */
+body.staff6 .t6-item .t6-also .v6-also-list { padding: 0 12px 4px 44px; }
+/* what is due after the week ahead: one line under Coming up (its count and first day), opening the list beside */
+body.staff6 .t6-group > .t6-later { margin-top: 12px; }
+body.staff6 .t6-quiet.t6-later { margin-top: 12px; }
+/* the Waiting on others and Later lists: the bill number small and plain beside the name, as in every row (D15) */
+body.staff6 .t6-wname .v6-row-num { font-family: Lato, system-ui, sans-serif; font-weight: 400; font-size: var(--v6-t14); color: var(--v6-muted); }

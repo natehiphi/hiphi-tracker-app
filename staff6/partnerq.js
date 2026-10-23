@@ -307,15 +307,17 @@ const pqLine = it => {
 const pqOpen = (k = 'text') => btn('Open Partners', { kind: k, icon: 'handshake', href: '#/partners' });
 // A row under Today's "Partner words to approve": what and what is new, without the verb its heading already says
 // ("Warning labels on sugary drinks · changed their words"; fewer words per row, integrator 23 Oct).
-const pqShort = it => {
-  const what = it.kind === 'issue' ? `Their issue “${clip(it.words?.name || '', 40)}”` : clip(nameOf(it), 44);
-  return [what, it.live ? 'changed their words' : it.kind === 'bill' && it.words?.ask ? 'adds an ask' : it.kind === 'bill' && it.flag && it.flag !== 'none' ? 'worth a closer look' : ''].filter(Boolean).join(' · ');
-};
-// The words today.js needs for a row: { name, num, line, href, what, sub, buttons(kind) }. `short`: the row's line under
-// the group's heading.
+// A row under "Partner words to approve" is named by what it is about, the bill (nickname and number) or the new issue, and
+// its line says who and what changed: "Warning labels on sugary drinks SB 2345 / Keiki Smiles Alliance · changed their
+// words" (the critic: three rows all titled "Keiki Smiles Alliance", the issue's row with no verb; D15, P-4).
+const pqShort = it => [it.kind === 'issue' ? 'New issue' : '', it.partner_name,
+  it.kind === 'issue' ? '' : it.live ? 'changed their words' : it.words?.ask ? 'adds an ask' : it.flag && it.flag !== 'none' ? 'worth a closer look' : 'new words'].filter(Boolean).join(' · ');
+// The words today.js needs for a row: { name, num, line, href, what, sub, buttons(kind) }. `short`: the row under the
+// group's heading, named by its bill or issue.
 export function pqRow(it, { short = false } = {}) {
   const b = it.kind === 'bill' ? billOf(it) : null;
-  return { name: it.partner_name, num: b ? numWords(b) : '', line: short ? pqShort(it) : pqLine(it), href: groupHref(it.partner_slug), what: pqLine(it).split(' · ')[0],
+  const name = short ? (it.kind === 'issue' ? it.words?.name || 'A new issue' : nameOf(it)) : it.partner_name;
+  return { name, num: b ? numWords(b) : '', line: short ? pqShort(it) : pqLine(it), href: groupHref(it.partner_slug), what: pqLine(it).split(' · ')[0],
     sub: sentLine(it), buttons: k => [btn('Approve', { kind: k, icon: 'check', attrs: { 'data-pqok': keyOf(it) } }), btn('Ask for a change', { kind: 'text', icon: 'message-square', attrs: { 'data-pqask': keyOf(it), 'aria-haspopup': 'dialog' } }), pqOpen()] };
 }
 // The next-step card: the group, what to approve, the closer-look flag, the ask, then Approve; every word, and how the ask

@@ -54,7 +54,7 @@ export function testimonyOf(h, b) {
   const d = draftOf({ h, b });
   const e = !d && earlierFiled(h, b.id), eh = e && draftHearing(e);
   if (e) return { filed: true, earlier: true, word: 'filed for the hearing', label: `HIPHI filed for the ${eh ? new Date(eh.scheduled_at).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', month: 'numeric', day: 'numeric' }) + ' ' : 'earlier '}hearing`, icon: 'check' };
-  if (!d) return { filed: false, word: 'not started', label: 'No testimony yet', icon: 'file-text' };
+  if (!d) return { filed: false, word: 'not started', label: 'Writing · not started', icon: 'file-text' };   // spec 12.6: one wording
   if (d.status === 'filed') return { filed: true, word: 'filed', label: 'Testimony filed', icon: 'check' };
   const st = b.current_version && (d.version || null) !== b.current_version ? ['out of date', 'triangle-alert']
     : d.status === 'approved' ? ['ready to file', 'clipboard-check'] : d.status === 'second_review' ? ['waiting for second approval', 'hourglass']
@@ -101,6 +101,9 @@ function cardHTML(c) {
   let html = hearingCard(c.h, { big: true, id: 'hr-cardname' });
   html = html.replace(/<h3 class="v6-hcard-name">[\s\S]*?<\/h3>/, `<h3 class="v6-hcard-name hr-cn" id="hr-cardname">${esc(nameOf(c.h))}</h3>`)
     .replace(/<a class="v6-hcard-mon"[\s\S]*?<\/a>/, '');
+  // An admin's "Send a teammate…" sits on the card's going line beside I'm going (F131): who is going is read and changed
+  // in one place, not under a second "Who is going" heading lower down (the critic: A-14, A-20).
+  if (S.me?.is_admin && !c.over && !c.cancelled) html = html.replace(/(<p class="v6-hcard-going">[\s\S]*?)(<\/p>)/, `$1${sendBtn()}$2`);
   // A cancelled sitting that the Capitol moved: say where it went, not "no new date yet" (W53).
   if (c.cancelled) { const n = newSitting(c.rows[0]); if (n) html = html.replace('Cancelled, no new date yet', `Cancelled · moved to ${esc(`${dayWords(n.scheduled_at)}, ${timeWords(n.scheduled_at)}`)}`); }
   // On its own page, each bill also says where we stand and whose it is, and the public's numbers (v5's agenda did, F129;
@@ -170,18 +173,22 @@ function linksHTML(c) {
   const door = (href, ic, label, sub) => `<a class="hr-door" href="${esc(href)}" target="_blank" rel="noopener">${icon(ic)}<span class="hr-door-t"><span class="hr-door-l">${esc(label)}<span class="sr"> (opens in a new tab)</span></span>${sub ? `<span class="hr-door-s">${esc(sub)}</span>` : ''}</span>${icon('external-link', { cls: 'hr-ext' })}</a>`;
   if (h.notice_url) out.push(door(h.notice_url, 'newspaper', 'Hearing notice', 'The Capitol’s notice'));
   else if (lead) out.push(door(capitolUrl(lead), 'landmark', items.length > 1 ? 'Hearing notice' : 'Capitol page', items.length > 1 ? `On ${numWords(lead)}’s Capitol page` : numWords(lead)));
-  if (v) out.push(door(v.url, 'video', v.label, v.hint || ''));
-  if (!out.length) return '';
+  // On the sitting's day the card above has "Watch it live" (the same video): one link, the card's (A-14).
+  const cardHasIt = !!v && new Date(h.scheduled_at).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }) === new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+  if (v && !cardHasIt) out.push(door(v.url, 'video', v.label, v.hint || ''));
   const fix = cancelled ? '' : `<p class="hr-fix">${btn('Fix the video link', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-hrvideo': '1', 'aria-haspopup': 'dialog' } })}</p>`;
-  return section('hr-s-links', 'Notice and video', `<div class="hr-doors">${out.join('')}</div>${fix}`);
+  if (!out.length && !fix) return '';
+  return section('hr-s-links', out.length ? 'Notice and video' : 'Video', `${out.length ? `<div class="hr-doors">${out.join('')}</div>` : ''}${fix}`);
 }
-// Who is going, for admins (F131): the list, "Take X off this hearing", and "Send a teammate…" (064 lets an admin set
-// anyone's attendance, and the teammate gets a Slack message). Everyone else has the card's going line and I'm going.
+// Who is going, for admins (F131): "Send a teammate…" is on the card's going line (cardHTML; 064 lets an admin set anyone's
+// attendance, and the teammate gets a Slack message); this list appears only when a teammate is going, to take them off.
+// Everyone else has the card's going line and I'm going.
+const sendBtn = () => btn('Send a teammate…', { kind: 'text', sm: true, icon: 'user-round-plus', attrs: { 'data-hrput': '1', 'aria-haspopup': 'dialog' } });
 function goingHTML(c) {
   const me = S.me; if (!me?.is_admin || c.over || c.cancelled) return '';
-  const goers = goersOf(c.rows);
-  const list = goers.length ? `<ul class="hr-goers">${goers.map(a => `<li><span class="hr-gname">${esc(a.id === me.id ? 'You' : a.full_name)}</span>${a.id !== me.id ? btn(`Take ${esc(first(a))} off`, { kind: 'text', sm: true, attrs: { 'data-hroff': a.id, 'aria-label': `Take ${first(a)} off this hearing` } }) : ''}</li>`).join('')}</ul>` : '';
-  return section('hr-s-go', 'Who is going', `${list}<p class="hr-gacts">${btn('Send a teammate…', { kind: 'secondary', sm: true, icon: 'user-round-plus', attrs: { 'data-hrput': '1', 'aria-haspopup': 'dialog' } })}</p>`);
+  const goers = goersOf(c.rows).filter(a => a.id !== me.id); if (!goers.length) return '';
+  const list = `<ul class="hr-goers">${goers.map(a => `<li><span class="hr-gname">${esc(a.full_name)}</span>${btn(`Take ${esc(first(a))} off`, { kind: 'text', sm: true, attrs: { 'data-hroff': a.id, 'aria-label': `Take ${first(a)} off this hearing` } })}</li>`).join('')}</ul>`;
+  return section('hr-s-go', 'Teammates going', list);
 }
 // This week's asks (Outreach) is the one home of the public ask for this sitting's bills (spec 6 Outreach: the hearing's
 // share kit becomes a link to that card). Shown only while there is a public bill with a position still to be heard.
