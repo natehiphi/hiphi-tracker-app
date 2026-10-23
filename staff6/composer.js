@@ -16,7 +16,8 @@
 // type; (3) approving here asks first and has Undo, like review mode. Nothing here sends on its own: the only send is
 // the Send button on an approved email, behind a confirm, and the server holds everything while email is paused.
 import { S, DB, hooks, esc, fmtDT, advocate, segmentPeople } from './data.js';
-import { alertTarget, agoWords, cleanHTML, htmlToText, textToHtml, escT, billNum, billTag, blurb, roomShort, codesOf, diedish, hearingAhead, billById, PUBLIC_APP, plain, approves, liveAsk, billByRef, whenAt } from './model.js';
+import { alertTarget, agoWords, cleanHTML, htmlToText, textToHtml, escT, billNum, billTag, blurb, roomShort, codesOf, diedish, hearingAhead, billById, PUBLIC_APP, plain, approves, liveAsk, billByRef, whenAt, billRoute } from './model.js';
+import { nameWords, numWords, committeeName } from './steps.js';
 import { ICONS } from '../icons.js';
 import { icon, btn, iconBtn, chip, empty, notice, toast, openSheet, closeSheet, confirmSheet, menuSheet, sheetOpen, keysOn } from './ui.js';
 import { listById, listIcon, listRows, plural, afterClose, clip, isSide } from './lists.js';
@@ -44,11 +45,37 @@ const hstDay = t => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific
 const afterCut = () => { const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Pacific/Honolulu', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(new Date()).map(x => [x.type, x.value])); return +p.hour * 60 + +p.minute >= 16 * 60 + 30; };
 // "today" or "tomorrow": which 4:30 pm email a Send now joins, or which one a waiting email is in.
 export const dailyWord = (t = null) => t ? (hstDay(t) === hstDay(Date.now()) ? 'today' : hstDay(t) === hstDay(Date.now() + 864e5) ? 'tomorrow' : new Date(t).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'long' })) : afterCut() ? 'tomorrow' : 'today';
+// ---- one email permission rule at every door (R-336 V20; the server's can_alert, migration 049) ----
+// An admin may email anyone's followers; a bill's owner its followers; a list's curator its followers; anyone a saved
+// group. Every door to "Email followers" (an ask card, a bill, a list, Supporters' results, this composer) asks this, so
+// a door never invites someone the composer then refuses (X23). The practice copy has no server to ask, so this is the
+// rule there too (X29: canAlert said yes to everyone).
+const liveId = id => !!id && advocate(id)?.is_active !== false;
+export const billOwners = b => (S.assignments?.[b?.id] || []).filter(liveId);
+export function mayEmail({ bill, list, segment } = {}) {
+  const me = S.me; if (!me) return false;
+  if (me.is_admin || segment) return true;
+  if (bill) return billOwners(bill).includes(me.id);
+  if (list) return list.owner_id === me.id;
+  return false;
+}
+// Who to ask when it is not yours: the bill's owner, else the first admin (a list: its curator, else an admin).
+const askWho = ({ bill, list }) => (bill ? billOwners(bill)[0] : liveId(list?.owner_id) ? list.owner_id : null) || S.advocates.find(a => a.is_admin && a.is_active !== false)?.id || null;
+// The door itself: "Email followers" into this composer, or "Ask Kevin to send", which opens the bill's Team talk with
+// @Kevin typed in (the bill page reads ?mention=). A list has no talk of its own, so there it says whose it is.
+export function emailDoor(target, { kind = 'secondary', sm = false, label = 'Email followers' } = {}) {
+  const { bill, list, segment } = target;
+  if (mayEmail(target)) return btn(label, { kind, sm, icon: 'mail', href: '#/email/new?' + (bill ? `bill=${encodeURIComponent(bill.id)}` : list ? `list=${encodeURIComponent(list.id)}` : `segment=${encodeURIComponent(segment.id)}`) });
+  const who = askWho(target), name = who ? first(who) : 'an admin';
+  if (bill && who) return btn(`Ask ${name} to send`, { kind, sm, icon: 'message-square', href: `${billRoute(bill, 'activity')}?mention=${encodeURIComponent(advocate(who)?.initials || '')}` });
+  return `<span class="ot-whose">${icon('mail')}<span>${esc(name)} emails its followers</span></span>`;
+}
 const canTest = a => !!a.id && a.status !== 'sent' && (a.author_id === S.me?.id || !!S.me?.is_admin);
 const canDelete = a => !!a.id && ['draft', 'returned'].includes(a.status) && (a.author_id === S.me?.id || !!S.me?.is_admin);
 const approvers = authorId => S.advocates.filter(x => approves(x) && x.id !== authorId);
 export const approverNames = authorId => orJoin(approvers(authorId).map(x => first(x.id)));
-export const STATUS = { draft: ['Draft', 'square-pen'], returned: ['Sent back', 'undo-2'], submitted: ['Waiting for approval', 'hourglass'], approved: ['Approved', 'check'], sent: ['Sent', 'send'] };
+// v6 (spec 5): an email waiting for its approver says it the way testimony does, "With an approver".
+export const STATUS = { draft: ['Draft', 'square-pen'], returned: ['Sent back', 'undo-2'], submitted: ['With an approver', 'hourglass'], approved: ['Approved', 'check'], sent: ['Sent', 'send'] };
 export const statusChip = a => { if (heldNow(a)) return chip(HELD, 'warn le-held', 'hand');   // long: it may wrap (lists.css)
   if (canWait(a)) return chip(`Goes out ${dailyWord(a.scheduled_for)} at 4:30 pm`, 'info', 'clock');
   const [w, ic] = STATUS[a.status] || [a.status || 'Draft', 'mail']; return chip(w, '', ic); };
@@ -77,8 +104,8 @@ export const audCount = a => { const n = audN(a); return n == null || n < 0 ? nu
 const people = n => plural(n, 'person', 'people');
 const AUD = {
   goes: (n, u) => n == null ? 'Counting who it goes to…' : n < 0 ? 'Could not count who it goes to right now.'
-    : n === 0 ? (u.kind === 'segment' ? 'Goes to no one yet: nobody in this segment has said yes to supporter emails.' : 'Goes to no one yet: nobody who follows it has said yes to supporter emails.')
-    : u.kind === 'segment' ? `Goes to ${people(n)} in this segment who said yes to supporter emails.` : `Goes to ${people(n)} who said yes to supporter emails.`,
+    : n === 0 ? (u.kind === 'segment' ? 'Goes to no one yet: nobody in this group has said yes to supporter emails.' : 'Goes to no one yet: nobody who follows it has said yes to supporter emails.')
+    : u.kind === 'segment' ? `Goes to ${people(n)} in this group who said yes to supporter emails.` : `Goes to ${people(n)} who said yes to supporter emails.`,
   to: (n, u) => n == null || n < 0 ? (u.kind === 'segment' ? `People in ${u.name} who said yes to supporter emails` : `People who follow ${u.name} and said yes to supporter emails`)
     : u.kind === 'segment' ? `${people(n)} in ${u.name}` : `${people(n)} who follow ${u.name}`,
   send: n => n == null || n < 0 ? 'Send at 4:30 pm' : `Send at 4:30 pm to ${people(n)}`,
@@ -131,7 +158,7 @@ function draftText(u) {
   const who = (S.me?.full_name || 'HIPHI').split(' ')[0];
   const para = xs => textToHtml(xs.join('\n\n'));
   if (u.b) {
-    const b = u.b, num = spaced(billNum(b)), s = blurb(b, 160), sum = /[.!?…]$/.test(s) ? s : s + '.';
+    const b = u.b, num = numWords(b), s = blurb(b, 160), sum = /[.!?…]$/.test(s) ? s : s + '.';   // v6: no draft code in public words (C-15, D15)
     const h = S.hearings.filter(x => x.bill_id === b.id && x.status !== 'cancelled' && new Date(x.scheduled_at) > Date.now()).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
     const pub = liveAsk(b);   // an ask past its date is no ask (Z1-3)
     const ask = pub || (h?.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? `Send written testimony by ${fmtDT(h.testimony_deadline)}.` : h ? `Send written testimony before the hearing on ${fmtDT(h.scheduled_at)}.` : ASK_PH);
@@ -208,10 +235,11 @@ async function save(c) {
 
 // ---- the steps ----
 const STEPS = ['Who', 'Write', 'Preview', 'Submit'];
-const stepBar = step => `<ol class="sv-steps le-steps" aria-label="Steps">${STEPS.map((l, i) => `<li class="${i < step ? 'done' : i === step ? 'cur' : ''}"${i === step ? ' aria-current="step"' : ''}>${i < step ? icon('check') : ''}<span>${l}</span></li>`).join('')}</ol>`;
+// v6 (V35: the step bar looked like tabs): a quiet progress line, "Step 2 of 4", with each step's number in a dot.
+const stepBar = step => `<ol class="le-steps" aria-label="Step ${step + 1} of ${STEPS.length}">${STEPS.map((l, i) => `<li class="${i < step ? 'done' : i === step ? 'cur' : ''}"${i === step ? ' aria-current="step"' : ''}><span class="le-sdot" aria-hidden="true">${i < step ? icon('check') : i + 1}</span><span>${l}</span></li>`).join('')}</ol>`;
 
 // A segment's size, when Supporters has loaded (the exact audience is counted once it is picked).
-const segSub = s => { if (!S.peopleLoaded) return 'A saved segment of supporters'; try { return `${people(segmentPeople(s.id).length)} in this segment`; } catch { return 'A saved segment of supporters'; } };
+const segSub = s => { if (!S.peopleLoaded) return 'A saved group of supporters'; try { return `${people(segmentPeople(s.id).length)} in this group`; } catch { return 'A saved group of supporters'; } };
 function billOk(b) { return b.is_public && b.position !== 'monitor' && !diedish(b) && (S.me?.is_admin || (S.assignments[b.id] || []).includes(S.me?.id)); }
 function listOk(l) { return l.is_published && (S.me?.is_admin || l.owner_id === S.me?.id); }
 function whoResults(q) {
@@ -225,18 +253,18 @@ function whoResults(q) {
   const opt = (v, lead, title, sub) => `<button type="button" class="row le-opt" data-pick="${esc(v)}"><span class="lead">${icon(lead)}</span><span class="body"><span class="title">${title}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</button>`;
   const grp = (title, rows) => rows.length ? `<div class="le-rgroup"><h3 class="le-rh">${title}</h3><div class="rows">${rows.join('')}</div></div>` : '';
   // A bill leads with its nickname, the number small after it (R-271); the line under it says when it is heard, which is why it is here.
-  const bRows = bills.slice(0, t ? 8 : 6).map(b => { const h = hearingAhead(b); return opt('b:' + b.id, 'scroll-text', billTag(b, 70), h ? `Hearing ${esc(whenAt(h.scheduled_at))} · ${esc(h.committee)}` : 'No hearing yet'); });
+  const bRows = bills.slice(0, t ? 8 : 6).map(b => { const h = hearingAhead(b); return opt('b:' + b.id, 'scroll-text', `${esc(nameWords(b, 70))} <span class="bn-num">${esc(numWords(b))}</span>`, h ? `Hearing ${esc(whenAt(h.scheduled_at))}, ${esc(committeeName(h.committee))}` : 'No hearing yet'); });
   const out = grp(t ? 'Bills' : 'Bills with a hearing coming up', bRows)
     + grp('Lists', lists.map(l => opt('l:' + l.id, listIcon(l.icon), esc(l.title), `${plural(listRows(l).length, 'bill')} · ${plural(S.listFollowers?.[l.id] || 0, 'follower')}`)))
-    + grp('Saved segments', segs.map(s => opt('s:' + s.id, 'users', esc(s.name), segSub(s))));
+    + grp('Saved groups', segs.map(s => opt('s:' + s.id, 'users', esc(s.name), segSub(s))));
   if (out) return out;
-  return `<p class="le-none">${t ? `Nothing matches “${esc(q.trim())}”.` : 'Nothing to pick yet.'} ${S.me?.is_admin ? 'Bills need to be public, alive and have a position; lists need to be live.' : 'You can write to the followers of bills you own and lists you curate, and to any saved segment.'}</p>`;
+  return `<p class="le-none">${t ? `Nothing matches “${esc(q.trim())}”.` : 'Nothing to pick yet.'} ${S.me?.is_admin ? 'Bills need to be public, alive and have a position; lists need to be live.' : 'You can write to the followers of bills you own and lists you curate, and to any saved group.'}</p>`;
 }
 function whoStep(c) {
   const u = audienceOf(c.a);
   if (u.kind) {
     const locked = !!c.a.id;
-    const title = u.b ? (u.b.nickname ? `${billTag(u.b)}<span class="le-whosum">${esc(clip(u.b, 120))}</span>` : billTag(u.b, 90)) : esc(u.name);
+    const title = u.b ? `${esc(nameWords(u.b, 90))} <span class="bn-num">${esc(numWords(u.b))}</span>` : esc(u.name);
     const warn = u.l && !u.l.is_published ? notice('info', 'eye-off', 'This list is a draft. Publish it first; only a live list has followers.') : u.b && !u.b.is_public ? notice('info', 'eye-off', 'This bill is not public, so nobody can follow it yet.') : '';
     return `<h2 class="le-sh">Who gets it?</h2>
       <div class="card le-who">
@@ -246,9 +274,11 @@ function whoStep(c) {
       </div>${warn}
       ${locked ? '<p class="meta le-lockn">Who it goes to is set once the draft is saved. To write to someone else, start a new email.</p>' : ''}`;
   }
-  return `<h2 class="le-sh">Who gets it?</h2>
-    <p class="le-lede">Pick a bill, a list or a saved segment. Only people who said yes to supporter emails get it.</p>
-    <div class="le-search le-whosearch">${icon('search')}<label class="sr" for="le-whoq">Find a bill, list or segment</label><input id="le-whoq" type="search" placeholder="Find a bill, list or segment" value="${esc(c.q)}" autocomplete="off" enterkeyhint="search" aria-controls="le-whores" aria-describedby="le-who-err"></div>
+  // Arrived from a door this person may not use (a link, an old bookmark): say whose it is, with the one way on (V20).
+  const no = c.denied ? `${notice('info', 'mail', `Only ${esc(c.denied.who)} or an admin can email the followers of ${esc(c.denied.name)}.`)}<div class="le-denied">${emailDoor(c.denied.target)}</div>` : '';
+  return `<h2 class="le-sh">Who gets it?</h2>${no}
+    <p class="le-lede">Pick a bill, a list or a saved group of supporters. Only people who said yes to supporter emails get it.</p>
+    <div class="le-search le-whosearch">${icon('search')}<label class="sr" for="le-whoq">Find a bill, list or group</label><input id="le-whoq" type="search" placeholder="Find a bill, list or group" value="${esc(c.q)}" autocomplete="off" enterkeyhint="search" aria-controls="le-whores" aria-describedby="le-who-err"></div>
     <div id="le-who-err" role="alert"></div>
     <div id="le-whores">${whoResults(c.q)}</div>`;
 }
@@ -591,9 +621,11 @@ function wireRTE(root, c) {
 async function pick(root, c, v) {
   const [k, id] = [v.slice(0, 1), v.slice(2)];
   const next = { bill_id: k === 'b' ? id : null, list_id: k === 'l' ? id : null, segment_id: k === 's' ? id : null };
-  let ok = true; try { ok = await DB.canAlert(next.bill_id, next.list_id, next.segment_id); } catch { ok = true; }   // the server checks again on save
+  // The one rule (mayEmail), then the server's own answer when there is a server (it checks again on save).
+  let ok = mayEmail({ bill: next.bill_id && billById(next.bill_id), list: next.list_id && listById(next.list_id), segment: next.segment_id && segById(next.segment_id) });
+  if (ok) try { ok = await DB.canAlert(next.bill_id, next.list_id, next.segment_id); } catch { ok = true; }
   if (!ok) { root.querySelector('#le-who-err').innerHTML = `<p class="inlinemsg">${icon('circle-alert')}<span>Only an admin or its owner can email these followers.</span></p>`; return; }
-  Object.assign(c.a, next); fill(c); redraw();
+  Object.assign(c.a, next); c.denied = null; fill(c); redraw();
 }
 async function step(root, c, to) {
   if (to > c.step) {
@@ -718,7 +750,11 @@ function wire(route, root) {
   // A bill, list or segment handed over in the link: check once that this person may write to it.
   if (c.check) {
     c.check = false;
-    DB.canAlert(c.a.bill_id, c.a.list_id, c.a.segment_id).then(ok => { if (ok) return; Object.assign(c.a, { bill_id: null, list_id: null, segment_id: null }); c.step = 0; redraw(); toast('Only an admin or its owner can email those followers. Pick who it goes to.', { err: true }); }).catch(() => {});
+    const target = { bill: c.a.bill_id && billById(c.a.bill_id), list: c.a.list_id && listById(c.a.list_id), segment: c.a.segment_id && segById(c.a.segment_id) };
+    const deny = () => { const who = askWho(target); c.denied = { target, who: who ? `${first(who)}${target.bill ? ', its owner,' : ''}` : 'its owner', name: target.bill ? numWords(target.bill) : target.list ? target.list.title : 'these people' };
+      Object.assign(c.a, { bill_id: null, list_id: null, segment_id: null }); c.step = 0; c.edited = false; redraw(); };
+    if (!mayEmail(target)) deny();
+    else DB.canAlert(c.a.bill_id, c.a.list_id, c.a.segment_id).then(ok => { if (!ok) deny(); }).catch(() => {});
   }
   if (c.step === 0) {
     on('[data-le="whoclear"]', () => { Object.assign(c.a, { bill_id: null, list_id: null, segment_id: null }); redraw(); setTimeout(() => document.getElementById('le-whoq')?.focus(), 0); });

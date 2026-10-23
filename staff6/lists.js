@@ -4,10 +4,13 @@
 // DB.createList, a new list starts as a draft, and a list is not tied to a coalition. The list itself is list.js.
 // Desktop (900px and wider): the index is a table in the same look as Bills and Supporters (pinned header, columns
 // that sort, the whole row opens). The table parts below are shared with the Emails page.
+// v6 (R-336): Lists is Outreach's fifth tab (spec 3.3), its rows a name and one line; the table parts stay for Emails,
+// Coalitions and All issues, which import them.
 import { S, DB, hooks, esc, fmtDate, asDate, advocate } from './data.js';
 import { ICONS } from '../icons.js';
 import { billById, blurb, billNum } from './model.js';
-import { icon, btn, row, chip, empty, toast, openSheet, closeSheet } from './ui.js';
+import { icon, btn, row, chip, empty, toast, openSheet, closeSheet, sectionNav } from './ui.js';
+import { itemRow } from './steps.js';
 
 // Issue and list icons (9/19): the public page shows Lucide icons, so staff pick from this short set. The same 24
 // names and words as the current app (app.js ICON_CHOICES); a copy, so Lists does not depend on the setup screen.
@@ -122,55 +125,30 @@ export function openListForm(l = null) {
     } });
 }
 
-// ---- the index ----
-function listRow(l) {
+// ---- the index (v6, R-336 spec 3.3: Lists is Outreach's fifth tab, #/outreach/lists, at every width) ----
+// Each list is a name and one line (spec 6, D15): how many bills, how many follow it, and whether it is live. Who curates
+// it, when it changed and what it says are on its own page.
+function listLine(l) {
   const n = listRows(l).length, f = S.listFollowers?.[l.id] || 0;
-  return row({ leadHtml: `<span class="lead">${icon(listIcon(l.icon))}</span>`, title: esc(l.title),
-    sub: `<span class="le-cnt">${plural(n, 'bill')} · ${plural(f, 'follower')}</span>${l.description ? `<span class="le-desc">${esc(l.description)}</span>` : ''}`,
-    end: livePill(l), href: '#/list/' + encodeURIComponent(l.id), cls: 'le-lrow' });
+  return `${plural(n, 'bill')} · ${f ? plural(f, 'follower') : 'no followers yet'} · ${l.is_published ? 'Live' : 'Draft, only the team sees it'}`;
 }
-
-// Desktop: one row per list. The list's name and what it is for take the spare width; numbers sit right-aligned.
-const COLS = [
-  { k: 'title', label: 'List', sort: 1 }, { k: 'bills', label: 'Bills', sort: -1, num: true }, { k: 'followers', label: 'Followers', sort: -1, num: true },
-  { k: 'status', label: 'Status', sort: 1, tip: 'Live lists can be found and followed; drafts are for the team only' }, { k: 'owner', label: 'Curated by', sort: 1 }, { k: 'updated', label: 'Updated', sort: -1 },
-];
-const ownerName = l => (l.owner_id && advocate(l.owner_id)?.full_name) || 'HIPHI';
-const colValue = (l, k) => k === 'title' ? l.title.toLowerCase() : k === 'bills' ? listRows(l).length : k === 'followers' ? S.listFollowers?.[l.id] || 0
-  : k === 'status' ? (l.is_published ? 'a' : 'b') : k === 'owner' ? ownerName(l).toLowerCase() : l.updated_at || l.created_at || null;
-function listsTable(lists, v) {
-  const tr = l => { const n = listRows(l).length, f = S.listFollowers?.[l.id] || 0, href = '#/list/' + encodeURIComponent(l.id);
-    return `<tr data-href="${esc(href)}">
-      <td class="c-title"><span class="le-tdlead">${icon(listIcon(l.icon))}</span><span class="le-tdbody"><a class="le-tdname" href="${esc(href)}">${esc(l.title)}</a>${l.description ? `<span class="le-tdsub">${esc(l.description)}</span>` : ''}</span></td>
-      <td class="c-bills num">${n || DASH}</td><td class="c-followers num">${f || DASH}</td>
-      <td class="c-status">${livePill(l)}</td><td class="c-owner">${esc(ownerName(l))}</td><td class="c-updated">${esc(shortDate(l.updated_at || l.created_at)) || DASH}</td></tr>`; };
-  return `<div class="le-twrap"><table class="le-table le-tlists"><caption class="sr">Lists, ${plural(lists.length, 'list')}. Column headers sort. Select a name to open that list.</caption>
-    <thead><tr>${COLS.map(c => thSort(c, v.sort)).join('')}</tr></thead><tbody>${sortBy(lists, v.sort, colValue).map(tr).join('')}</tbody></table></div>`;
-}
-
-// v3 (R-264): no list is live, so Lists left the Outreach tabs; its pages open from Bills' "…" menu and go back there.
 export default {
-  tab: 'bills',
+  tab: 'outreach',
   title: () => 'Lists',
-  back: () => ({ href: '#/bills', label: 'Bills' }),
   wide: () => true,
   render() {
-    const v = S.leLists ??= { sort: null };
     const lists = (S.lists || []).slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || String(a.created_at || '').localeCompare(String(b.created_at || '')));
-    const newBtn = btn('New list', { icon: 'list-plus', attrs: { 'data-le': 'new', 'aria-haspopup': 'dialog' } });
-    const live = lists.filter(l => l.is_published).length, desk = isDesk();
-    return `<div class="le-page${desk ? ' le-desk' : ''}${isSide() ? ' le-side' : ''}">
-      <a class="le-deskback" href="#/bills" data-back>${icon('chevron-left')}<span>Bills</span></a>
-      ${pageHead('', 'Lists', `Sets of public bills that anyone can follow.${lists.length ? ` <span class="le-sum">${plural(lists.length, 'list')} · ${live} live</span>` : ''}`, lists.length ? newBtn : '')}
-      ${!lists.length ? `<div class="le-empty">${empty({ title: 'No lists yet', text: 'A list is a set of public bills that anyone can follow, like Keiki health or Tobacco-free Hawaiʻi.', action: newBtn })}</div>`
-        : desk ? `${listsTable(lists, v)}<p class="le-foot meta">${icon('users')}<span>To see who follows a list, open it and choose its followers.</span></p>`
-        : `<div class="rows le-lists">${lists.map(listRow).join('')}</div>
-        <p class="le-foot meta">${icon('users')}<span>To see who follows a list, open it and tap its followers.</span></p>`}
+    const newBtn = btn('New list', { kind: 'secondary', icon: 'list-plus', attrs: { 'data-le': 'new', 'aria-haspopup': 'dialog' } });
+    const row = l => itemRow({ key: 'l:' + l.id, name: l.title, line: esc(listLine(l)), href: '#/list/' + encodeURIComponent(l.id) });
+    return `<div class="le-page ot-lists">
+      ${pageHead(sectionNav('outreach', 'lists'), 'Outreach', '', newBtn)}
+      <p class="ot-lede">Sets of public bills that anyone can follow on the public page, like Keiki health. A list’s followers can get its emails.</p>
+      ${!lists.length ? `<div class="ot-empty">${empty({ title: 'No lists yet', text: 'A list is a set of public bills that anyone can follow, like Keiki health or Tobacco-free Hawaiʻi.' })}</div>`
+        : `<div class="v6-list" role="list" aria-label="Lists">${lists.map(row).join('')}</div>`}
     </div>`;
   },
   wire(route, root) {
     root.querySelectorAll('[data-le="new"]').forEach(el => el.onclick = () => openListForm());
-    wireTable(root, COLS, S.leLists ??= { sort: null });
   },
 };
 // Updated-on line, shared with the list page.

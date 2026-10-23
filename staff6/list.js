@@ -4,12 +4,18 @@
 // sort_order 100, 101, … and Archive asks first. Reorder: a 44px drag handle on desktop (arrow keys work on it too),
 // Move up / Move down in each row's ⋯ everywhere.
 // Desktop (1100px and wider) is two columns: the bills (the work) in the main column, and a side panel that stays in
-// view with publishing, followers, sharing and the list's details. Adding is a combobox: results drop down under the
+// view with publishing, followers, sharing and the list's details. v6: the drag handle is a handle for the mouse, not a
+// second button in the row (D16); the keyboard moves a bill with Move up / Move down in its "…".
+// Adding is a combobox: results drop down under the
 // search box (arrow keys, Enter, Esc); removing is in each row's menu, which opens by its button; both have Undo.
+// v6 (R-336): under Outreach (Lists is its fifth tab); each bill is a name, its number small, and one line (its public
+// note, else its plain summary), with no version codes (D15); Email followers follows the one email rule (V20).
 import { S, DB, hooks, esc, advocate } from './data.js';
 import { billSay, PUBLIC_APP, billById, plain } from './model.js';
 import { icon, btn, iconBtn, switchRow, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet } from './ui.js';
-import { listById, listRows, listIcon, plural, afterClose, openListForm, updatedLine, billName, isSide } from './lists.js';
+import { listById, listRows, listIcon, plural, afterClose, openListForm, updatedLine, isSide, clip } from './lists.js';
+import { nameWords, numWords } from './steps.js';
+import { emailDoor, mayEmail } from './composer.js';
 import * as SP from './supporters.js';
 import { billRoute } from './model.js';
 
@@ -19,7 +25,7 @@ function embedCode(l) {
   return `<iframe id="hiphi-tracker" src="${u.href}" title="HIPHI bill list" style="width:100%;border:0;min-height:420px" loading="lazy"></iframe>\n<script>addEventListener('message',function(e){if(e.data&&e.data.hiphiTrackerHeight)document.getElementById('hiphi-tracker').style.height=e.data.hiphiTrackerHeight+'px'})<\/script>`;
 }
 // Plain-text label for a bill: nickname first, number after (R-271).
-const numOf = b => billSay(b);
+const numOf = b => b.nickname ? `${b.nickname} (${numWords(b)})` : numWords(b);
 const V = () => S.leList ??= { q: {}, focus: '' };
 
 // Copy right away (the tap is what lets the browser write the clipboard); if the browser refuses, show the text in a
@@ -68,18 +74,14 @@ function hitsHTML(l, q) {
   const rows = hits(l, q);
   if (!rows.length) return `<p class="le-none">No public bill matches “${esc(q.trim())}”. Only public bills can go on a list; make a bill public on its Public tab first.</p>`;
   // Options of the search box's listbox: the box keeps the focus, arrow keys move the highlight (aria-activedescendant).
-  return `<div class="rows le-hits" role="listbox" id="le-hitlist" aria-label="Public bills that match">${rows.map((b, i) => `<div class="row le-hit" role="option" id="le-hit-${i}" aria-selected="false" data-add="${esc(b.id)}"><span class="le-plus">${icon('plus')}</span><span class="body">${billName(b, 90)}</span></div>`).join('')}</div>`;
+  return `<div class="rows le-hits" role="listbox" id="le-hitlist" aria-label="Public bills that match">${rows.map((b, i) => `<div class="row le-hit" role="option" id="le-hit-${i}" aria-selected="false" data-add="${esc(b.id)}"><span class="le-plus">${icon('plus')}</span><span class="body"><span class="title"><b>${esc(nameWords(b, 70))}</b> <span class="bn-num">${esc(numWords(b))}</span></span></span></div>`).join('')}</div>`;
 }
 
 function billRowHTML(l, x, b, i, n) {
-  const num = numOf(b);
+  const num = numOf(b), line = x.note ? `“${x.note}”` : b.is_public ? clip(b, 120) : 'Not public, so the public page leaves it out';
   return `<li class="le-brow" data-bid="${esc(b.id)}">
-    <button type="button" class="le-grip" data-grip="${esc(b.id)}" aria-label="Move ${esc(num)}, now ${i + 1} of ${n}. Drag it, or press the up and down arrow keys." title="Drag to reorder">${icon('grip-vertical')}</button>
-    <a class="le-bmain" href="${billRoute(b)}">
-      ${billName(b, 140)}
-      ${x.note ? `<span class="le-note">${icon('message-square')}<span>${esc(x.note)}</span></span>` : ''}
-      ${b.is_public ? '' : `<span class="le-warn">${icon('eye-off')}Not public, so the public page leaves it out</span>`}
-    </a>
+    <span class="le-grip" data-grip="${esc(b.id)}" aria-hidden="true" title="Drag to reorder">${icon('grip-vertical')}</span>
+    <a class="le-bmain" href="${billRoute(b)}"><span class="le-btop"><span class="le-bname">${esc(nameWords(b, 70))}</span><span class="le-bnum">${esc(numWords(b))}</span></span><span class="le-bline">${esc(line)}</span></a>
     ${iconBtn('ellipsis', `More for ${num}`, { 'data-bmore': b.id, 'aria-haspopup': 'dialog' }, 'le-bmore')}
   </li>`;
 }
@@ -128,7 +130,7 @@ function render(route) {
           <section class="card le-sc" aria-labelledby="le-h-pub"><h2 id="le-h-pub" class="sr">Publishing</h2>${publish}</section>
           <section class="card le-sc" aria-labelledby="le-h-fol"><h2 id="le-h-fol">Followers</h2>
             <div class="le-folrow">${followersHTML(l)}</div>
-            ${sbtn('Email followers', 'mailfol', 'mail', { disabled: !l.is_published })}
+            ${l.is_published ? emailDoor({ list: l }, { sm: true }) : '<p class="meta le-snote">It can be emailed once it is published.</p>'}
           </section>
           <section class="card le-sc" aria-labelledby="le-h-share"><h2 id="le-h-share">Share</h2>
             ${sbtn('Copy link', 'copylink', 'link')}${sbtn('Copy embed code', 'copyembed', 'copy')}${sbtn('Open the public page', 'openpub', 'external-link', { disabled: !l.is_published })}
@@ -195,7 +197,7 @@ function shareMenu(l) {
     { label: 'Copy link', icon: 'link', sub: l.is_published ? 'Anyone with the link can open the list' : 'It works once the list is published', run: () => copyText(publicLink(l), l.is_published ? 'Link copied.' : 'Link copied. It works once the list is published.', 'link') },
     { label: 'Copy embed code', icon: 'copy', sub: 'Puts this list on another web page', run: () => copyText(embedCode(l), 'Embed code copied.', 'embed code') },
     { label: 'Open the public page', icon: 'external-link', disabled: !l.is_published, reason: 'Publish the list first. The public page shows only live lists.', run: () => { window.open(publicLink(l), '_blank', 'noopener'); } },
-    { label: 'Email followers', icon: 'mail', disabled: !l.is_published, reason: 'Publish the list first. Only a live list has followers.', sub: plural(f, 'follower'),
+    { label: 'Email followers', icon: 'mail', disabled: !l.is_published || !mayEmail({ list: l }), reason: !l.is_published ? 'Publish the list first. Only a live list has followers.' : 'Only its curator or an admin emails a list’s followers.', sub: plural(f, 'follower'),
       run: async () => { await afterClose(); S.go('#/email/new?list=' + encodeURIComponent(l.id)); } },
   ] });
 }
@@ -326,7 +328,7 @@ function wire(route, root) {
 }
 
 export default {
-  tab: 'bills',   // v3: Lists open from Bills
+  tab: 'outreach',   // v6: Lists are Outreach's (spec 3.3)
   title: route => listById(route.id)?.title || 'List',
   back: () => ({ href: '#/outreach/lists', label: 'Lists' }),
   render, wire,
