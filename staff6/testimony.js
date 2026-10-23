@@ -101,7 +101,7 @@ function fullRow(d, b, start) {
   const other = String(d.bill_id) !== String(b.id) ? billById(d.bill_id) : null;
   return `<article class="tm-row">
     ${d === start ? `<p class="tm-mark">${markOf(d)}</p>` : ''}
-    <div class="tm-top"><p class="tm-where"><b>${esc(whereOf(d))}</b>${other ? ` <span class="tm-on">on ${esc(billSay(other))}</span>` : ''}</p>${statusChip(d)}</div>
+    <div class="tm-top"><p class="tm-where"><b>${esc(whereOf(d))}</b>${other ? ` <span class="tm-on">on ${esc(numWords(other))}</span>` : ''}</p>${statusChip(d)}</div>
     <p class="small muted tm-meta">${bits([esc(dayYear(whenOf(d))), d.version ? `on ${esc(versionWords(d.version))}` : '', byLine(d)])}</p>
     <div class="bw-links tm-links">${docLink(d)}${confLink(d)}</div>
   </article>`;
@@ -122,7 +122,7 @@ function byBill(rows, start, issueName = '') {
   const same = (x, y) => String(x).trim().toLowerCase() === String(y).trim().toLowerCase();
   return [...groups.entries()].map(([id, ds]) => {
     const x = billById(id), name = x && !x.nickname ? billName(x) : '';   // a nickname is in the link already
-    return `<div class="tm-group"><p class="tm-ghead"><a href="${x ? billRoute(x) : '#/'}">${x?.nickname ? `${esc(x.nickname)} <span class="bn-num">${esc(numWords(x))}</span>` : esc(x ? numWords(x) : 'A bill')}</a>${name && !same(name, issueName) ? `<span>${esc(name)}</span>` : ''}</p>${ds.map(d => compactRow(d, start)).join('')}</div>`;
+    return `<div class="tm-group"><p class="tm-ghead"><a href="${x ? billRoute(x) : '#/'}">${x?.nickname ? `${esc(x.nickname)}&nbsp;&nbsp;<span class="bn-num">${esc(numWords(x))}</span>` : esc(x ? numWords(x) : 'A bill')}</a>${name && !same(name, issueName) ? `<span>${esc(name)}</span>` : ''}</p>${ds.map(d => compactRow(d, start)).join('')}</div>`;
   }).join('');
 }
 
@@ -131,7 +131,7 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 function body(b) {
   const m = model(b);
   if (!m.all.length) return '<p class="small muted">No testimony in the tracker yet.</p>';
-  const twin = m.comps.length ? ` and its companion ${m.comps.map(x => esc(billSay(x))).join(', ')}` : '';
+  const twin = m.comps.length ? ` and its companion ${m.comps.map(x => esc(numWords(x))).join(', ')}` : '';
   let h = `<section class="tm-part" aria-labelledby="tm-own-h"><h3 id="tm-own-h">On ${esc(numWords(b))}${twin}</h3>
     ${m.own.length ? '' : `<p class="small muted">No earlier testimony yet.${m.start ? ' The newest in its issue is marked below.' : ''}</p>`}
     ${m.own.length ? `<div class="tm-rows">${m.own.map(d => fullRow(d, b, m.start)).join('')}</div>` : ''}</section>`;
@@ -164,7 +164,7 @@ function results(q, b) {
     return [x?.bill_number, x?.bill_number?.replace(/^([A-Z]+)/, '$1 '), x ? billName(x) : '', whereOf(d), d.committee, d.version, versionWords(d.version), stateWord(d) || 'filed',
       ...issuesOfBill(d.bill_id).map(i => i.name), advocate(d.submitted_by)?.full_name, advocate(d.filed_by)?.full_name].join(' ').toLowerCase(); };
   const hits = allWorked().filter(d => words.every(w => hay(d).includes(w))).sort(newest);
-  if (!hits.length) return `<p class="small muted tm-none">Nothing in the tracker's drafts matches "${esc(q)}". Testimony from before the tracker is on each bill's Capitol page${b ? `: <a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">${esc(b.bill_number)} at the Capitol</a>` : ''}.</p>`;
+  if (!hits.length) return `<p class="small muted tm-none">Nothing in the tracker's drafts matches "${esc(q)}". Testimony from before the tracker is on each bill's Capitol page${b ? `: <a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">${esc(numWords(b))} at the Capitol</a>` : ''}.</p>`;
   const shown = hits.slice(0, 40);
   return `<p class="small muted">${plural(hits.length, 'draft', 'drafts')} found${hits.length > shown.length ? `, the newest ${shown.length} shown` : ''}.</p><div class="tm-rows">${byBill(shown, null)}</div>`;
 }

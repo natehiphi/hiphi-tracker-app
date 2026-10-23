@@ -16,18 +16,34 @@
 .bw-page .bw-inline .ic { width: 16px; height: 16px; }
 .bw-chev { width: 20px; height: 20px; flex: none; color: var(--v6-muted); transition: transform 150ms ease; }
 
-/* ---- the header: back row, the name, the facts in words, where it stands, the issue ---- */
-.bw-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "top top" "title acts" "facts facts" "where where";
-  column-gap: var(--s12); row-gap: var(--s8); padding-top: var(--s4); }
+/* ---- the header: back row, the name, the facts in words (position and owner are quiet buttons), the issue, where it
+   stands. From 481px Follow and "…" sit beside the name; on a phone "…" stays beside the name and Follow rides on the
+   issue's line, so neither takes a row of its own (A-1, fresh-eyes review). ---- */
+.bw-head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "top top top" "title follow more" "fline fline fline" "where where where";
+  column-gap: var(--s8); row-gap: var(--s8); padding-top: var(--s4); }
 .bw-head > .bw-top { grid-area: top; }
-.bw-head > .bw-titlerow { grid-area: title; min-width: 0; }
-.bw-head > .bw-hacts { grid-area: acts; align-self: start; }
-.bw-head > .bw-facts { grid-area: facts; }
+.bw-head > .bw-titlerow { grid-area: title; min-width: 0; padding-right: var(--s4); }
+.bw-head > .bw-hfollow { grid-area: follow; align-self: start; }
+.bw-head > .bw-hmore { grid-area: more; align-self: start; }
+.bw-head > .bw-fline { grid-area: fline; display: flex; flex-wrap: wrap; align-items: center; min-width: 0; }
 .bw-head > .bw-where { grid-area: where; }
-/* a phone: the name has the whole width; Follow and "…" sit under where it stands, over the tabs */
+.bw-fline > .bw-fiss { display: inline-flex; flex-wrap: wrap; align-items: center; min-width: 0; }
+.bw-fline > .bw-fiss::before { content: '·'; margin: 0 8px; color: var(--v6-muted); }
 @media (max-width: 480px) {
-  .bw-head.bw-hasfollow { grid-template-areas: "top top" "title title" "facts facts" "where where" "acts acts"; }
-  .bw-head.bw-hasfollow > .bw-hacts { justify-self: start; margin: 0 0 -8px -4px; }
+  /* Follow spans the last two columns, so the narrow "…" column alone sets how much room the name gives up */
+  .bw-head { grid-template-areas: "title title more" "facts facts facts" "iss follow follow" "where where where"; row-gap: var(--s4); }
+  .bw-head:not(.bw-hasiss) { grid-template-areas: "title title more" "facts facts facts" "follow follow follow" "where where where"; }
+  /* the owner has no Follow: the issue stays on the facts' line when it fits. On a phone the facts are buttons with
+     chevrons, so space parts them instead of dots, and a wrapped line never starts with a lone dot. */
+  .bw-head:not(.bw-hasfollow) { grid-template-areas: "title title more" "fline fline fline" "where where where"; }
+  .bw-head .bw-fline, .bw-head .bw-facts { column-gap: var(--s16); }
+  .bw-head .bw-facts .bw-f::before, .bw-head .bw-fline > .bw-fiss::before { display: none; }
+  .bw-head.bw-hasfollow > .bw-fline { display: contents; }
+  .bw-hasfollow .bw-fline > .bw-facts { grid-area: facts; }
+  .bw-hasfollow .bw-fline > .bw-fiss { grid-area: iss; }
+  .bw-head > .bw-hfollow { align-self: center; justify-self: end; }
+  .bw-head:not(.bw-hasiss) > .bw-hfollow { justify-self: start; }
+  .bw-head > .bw-where { margin-top: var(--s4); }
 }
 /* The phone's top bar carries Back and the number; the page's own back row shows from 768px (spec 3.1: the laptop header
    holds only search). Previous / Next ride on it when the bill was opened from a list. */
@@ -45,10 +61,9 @@
   overflow-wrap: anywhere; outline: none; }
 /* a name that is a sentence (a bill with no nickname: its summary or the Capitol's words, R-271) is set a size down */
 .bw-h1.bw-long { font: 600 var(--v6-t22)/var(--v6-lh22) var(--font-h, Poppins, system-ui, sans-serif); letter-spacing: 0; }
-.bw-hacts { flex: none; display: flex; align-items: center; gap: var(--s8); }
-.bw-hacts .iconbtn { color: var(--v6-body); }
+.bw-hmore .iconbtn { color: var(--v6-body); }
 .bw-follow[aria-pressed="true"] { background: var(--v6-wash); color: var(--v6-ink); }
-/* the facts, in words: "HB 2121 · Strong support · Kevin owns it" (D15: the number small and plain) */
+/* the facts, in words: "HB 2121 · Strong support ⌄ · Kevin owns it ⌄" (D15: the number small and plain) */
 .bw-facts { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 2px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
 .bw-facts { column-gap: 0; }
 .bw-f { display: inline-flex; align-items: center; white-space: nowrap; }
@@ -57,10 +72,19 @@
 .bw-fiss > .bw-issue + .bw-issue { margin-left: var(--s16); }
 .bw-facts .bw-num { color: var(--v6-muted); font-size: var(--v6-t14); }
 .bw-dot { color: var(--v6-muted); }
-@media (max-width: 480px) { .bw-fiss { flex-basis: 100%; } .bw-fiss::before { display: none; } }
+/* the position and the owner: the words themselves, quiet, with a chevron that says a choice opens (A-12) */
+.bw-fbtn { display: inline-flex; align-items: center; gap: 2px; min-height: 32px; margin: 0 -6px; padding: 0 6px; border: 0; border-radius: var(--v6-r12);
+  background: none; font: inherit; color: var(--v6-body); cursor: pointer; white-space: nowrap; }
+.bw-fbtn .bw-fchev { width: 16px; height: 16px; flex: none; color: var(--v6-muted); }
+.bw-fbtn:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .bw-fbtn:hover { background: var(--v6-wash); color: var(--v6-ink); } .bw-fbtn:hover .bw-fchev { color: var(--v6-ink); } }
+@media (pointer: coarse), (max-width: 767.98px) { .bw-fbtn { min-height: 44px; } }
+/* a phone's top bar shows the number: the facts start with the position */
+@media (max-width: 767.98px) { .bw-facts .bw-num { display: none; } .bw-facts .bw-num + .bw-f::before { display: none; } }
 .bw-muted { display: inline-flex; align-items: center; gap: 4px; }
 .bw-muted .ic { width: 16px; height: 16px; color: var(--v6-muted); }
 .bw-where { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); max-width: 68ch; }
+.bw-nw { white-space: nowrap; }
 .bw-issue { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; max-width: 100%; color: var(--v6-action); font-weight: 400;
   font-size: var(--v6-t16); text-decoration: none; border-radius: var(--v6-r12); }
 @media (pointer: coarse), (max-width: 767.98px) { .bw-issue { min-height: 44px; } }
@@ -95,6 +119,21 @@
 .bw-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s16); }
 
 /* ---- what's next ---- */
+/* "Your step" leads the card's top line (bill.js yourStep); the chair's name in a chair ask's sentence is a link */
+.bw-yours { color: var(--v6-ink); font-weight: 700; }
+.bw-page .bw-chairl { color: var(--v6-action); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+.bw-page .bw-chairl:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }
+/* Team talk and Public: "Your step: File by Wed 3/18, 7:30 AM · Next step ›" (B-7), and a dot on the Next step tab */
+.bw-yourstep { margin-bottom: var(--s12) !important; }
+.bw-ysl { display: inline-flex; align-items: center; gap: var(--s8); min-height: 40px; margin-left: -8px; padding: 0 8px; border-radius: var(--v6-r12);
+  font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); text-decoration: none; }
+.bw-ysl > .ic:first-child { width: 18px; height: 18px; flex: none; color: var(--v6-action); }
+.bw-ysl b { color: var(--v6-ink); }
+.bw-ysl .bw-yschev { width: 18px; height: 18px; flex: none; color: var(--v6-action); }
+.bw-ysl:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+@media (pointer: coarse), (max-width: 767.98px) { .bw-ysl { min-height: 44px; } }
+@media (hover: hover) and (pointer: fine) { .bw-ysl:hover { background: var(--v6-action-wash); } }
+.bw-tdot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--v6-action); }
 /* under a writer's step: Borrow from earlier testimony, the committee report, the video on the day */
 .bw-stepx { display: flex; flex-wrap: wrap; gap: 0 var(--s8); margin: var(--s8) 0 0 -4px; }
 .bw-calm { display: flex; align-items: center; gap: var(--s12); padding: var(--s16) var(--s24); border-radius: var(--v6-r20); background: var(--v6-wash);
@@ -127,9 +166,10 @@
 .bw-todo0 .bw-todoadd { margin-top: 0; }
 .bw-todo0 + .bw-sec { margin-top: var(--s24); }
 .bw-addrow { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s8); margin-top: var(--s12); padding: var(--s16); border-radius: var(--v6-r20); background: var(--v6-wash); }
-.bw-addrow > .input { flex: 1 1 220px; min-width: 0; min-height: 44px; }
-.bw-tdf { display: flex; flex-direction: column; gap: 2px; flex: 1 1 140px; min-width: 0; font-size: var(--v6-t14); color: var(--v6-muted); }
-.bw-tdf .input { min-height: 44px; width: 100%; }
+/* To-do, For and Due: three labelled fields of one height, so their labels share a line (A-8) */
+.bw-tdf { display: flex; flex-direction: column; gap: 4px; flex: 1 1 140px; min-width: 0; }
+.bw-tdf.bw-tdw { flex: 2 1 220px; }
+.bw-tdf .input { box-sizing: border-box; height: 44px; min-height: 44px; width: 100%; }
 .bw-addrow .btn { flex: none; }
 
 /* ---- the doors: About this bill, Committees, Earlier testimony (V22: each a labelled 44px door) ---- */
@@ -140,7 +180,7 @@
   font-size: var(--v6-t16); line-height: var(--v6-lh16); cursor: pointer; list-style: none; }
 .bw-doorsum::-webkit-details-marker { display: none; }
 .bw-doorsum > .ic:first-child { width: 22px; height: 22px; flex: none; color: var(--v6-muted); }
-.bw-doorl { color: var(--v6-ink); }
+.bw-doorl { flex: none; color: var(--v6-ink); }
 .bw-doorh { flex: 1 1 auto; min-width: 0; font-size: var(--v6-t14); color: var(--v6-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bw-doorsum .bw-chev { margin-left: auto; }
 .bw-door[open] > .bw-doorsum .bw-chev { transform: rotate(180deg); }
@@ -240,11 +280,17 @@
   .bw-pwt .sv-pick .ic:not(.chev) { display: none; }
 }
 
-/* Earlier testimony in its door (testimony.js; its rows are testimony.css's): no second box inside the door's card */
+/* Earlier testimony in its door (testimony.js; its rows are testimony.css's): no second box inside the door's card, a
+   draft per row parted by a hairline, as the to-do list on the same page (spec 4, D15) */
 .bw-page .bw-door.tm .tm-part > h3 { font: 600 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-ink); }
-.bw-page .bw-door.tm .tm-row, .bw-page .bw-door.tm .tm-group, .bw-page .bw-door.tm .tm-cat { border: 0; background: var(--v6-wash); border-radius: var(--v6-r12); }
-.bw-page .bw-door.tm .tm-ghead { background: none; border: 0; }
-.bw-page .bw-door.tm .tm-crow { border-color: var(--v6-hair); }
+.bw-page .bw-door.tm .tm-rows { gap: 0; }
+.bw-page .bw-door.tm .tm-row, .bw-page .bw-door.tm .tm-group, .bw-page .bw-door.tm .tm-cat { border: 0; background: none; border-radius: 0; }
+.bw-page .bw-door.tm .tm-row, .bw-page .bw-door.tm .tm-group { position: relative; padding-left: 0; padding-right: 0; }
+.bw-page .bw-door.tm .tm-rows > * + *::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
+.bw-page .bw-door.tm .tm-ghead { background: none; border: 0; padding: 0; }
+.bw-page .bw-door.tm .tm-crow { padding-left: 0; border-color: var(--v6-hair); }
+.bw-page .bw-door.tm .tm-iss > summary { padding: 0; }
+.bw-page .bw-door.tm .tm-iss + .tm-iss { border-color: var(--v6-hair); }
 .bw-page .tm-st { display: inline-flex; padding: 2px 10px; border-radius: var(--v6-r12); background: var(--v6-card); font-size: var(--v6-t14); color: var(--v6-body); white-space: nowrap; }
 .bw-page .tm-search { border-radius: var(--v6-r12); }
 
@@ -392,7 +438,7 @@
 .bw-shhelp { margin-bottom: var(--s8); }
 
 /* ---- an untracked bill's page (untracked.js, BILLS) borrows the page's frame and a few of its parts ---- */
-.ut-page .bw-head { gap: var(--s4); }
+.ut-page .bw-head { grid-template-columns: minmax(0, 1fr); grid-template-areas: none; gap: var(--s4); }
 .ut-page h1.bw-num, .ut-page .bw-num { font: 700 var(--v6-t28)/var(--v6-lh28) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); }
 .ut-page .bw-title { font-size: var(--v6-t18); color: var(--v6-ink); }
 .ut-page .bw-sec > h2 { font: 600 var(--v6-t22)/var(--v6-lh22) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); margin-bottom: var(--s12); }
@@ -417,21 +463,29 @@
   .bw-page { padding-bottom: var(--s32); }
   .bw-h1 { font-size: var(--v6-t22); line-height: var(--v6-lh22); }   /* the top bar already carries the page's name in 18 */
   .bw-h1.bw-long { font-size: var(--v6-t18); line-height: var(--v6-lh18); }
-  .bw-tabs { margin-top: var(--s16); }
-  .bw-panel { padding-top: var(--s16); }
+  .bw-tabs, .bw-head + .bw-tabs { margin-top: var(--s12); }
+  .bw-panel { padding-top: var(--s12); }
   .bw-tnote, .bw-box, .bw-pubform, .bw-wbody { padding: var(--s16); }
   .bw-calm { padding: var(--s16); }
   .bw-addrow { padding: var(--s12); }
   .bw-doorbody { padding: var(--s8) 8px var(--s12); }
   .bw-cmlist { margin: 0 -8px !important; }
 }
+/* the third kind's short words on a phone ("Legislator talk"), so the switch stays one even row (C-15 review) */
+.bw-seg-s { display: none; }
 @media (max-width: 480px) {
   .bw-tdf { flex-basis: 100%; }
-  /* the three kinds side by side; "Talk with a legislator" takes two lines rather than a row of its own */
-  .bw-composer .sv-seg { display: grid; grid-template-columns: auto auto minmax(0, 1fr); justify-self: stretch; border-radius: var(--v6-r20); }
-  .bw-composer .sv-seg button { padding: 4px 12px; white-space: normal; line-height: 20px; border-radius: var(--v6-r12); }
+  .bw-seg-l { display: none; }
+  .bw-seg-s { display: inline; }
+  /* three even parts side by side; a long kind takes two lines in its own part rather than a row of its own */
+  .bw-composer .sv-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); justify-self: stretch; border-radius: var(--v6-r20); }
+  .bw-composer .sv-seg button { padding: 4px 8px; white-space: normal; line-height: 20px; text-align: center; justify-content: center; border-radius: var(--v6-r12); }
 }
+.bw-doorh.bw-ifnarrow { display: none; }
 @media (max-width: 360px) {
+  /* the narrowest phones: the stage line on Next step gives way to the step itself; the Committees door says it */
+  .bw-where.bw-short { display: none; }
+  .bw-doorh.bw-ifnarrow { display: block; }
   body.staff6 .bw-tabs { gap: 4px; }
   body.staff6 .bw-tabs a { padding: 0 10px; }
 }

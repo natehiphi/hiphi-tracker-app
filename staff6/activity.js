@@ -20,8 +20,9 @@ import { convSectionHTML, wireConvSection, logConversation, refreshConversations
 // v3's words: an "action alert" is a "supporter email" (R-264), on screen only; the stored type stays action_alert.
 const LOG_LABEL = { ...Object.fromEntries(LOG_TYPES), action_alert: 'Supporter email' };
 const LOG_ICON = { testimony: 'file-text', coalition: 'users', meeting: 'handshake', action_alert: 'megaphone', note: 'notebook-pen' };
-// The kinds of note the box can add to the record, in the words of what happened.
-const NOTE_WORD = { note: 'Note', testimony: 'Testimony filed', coalition: 'Coalition step', action_alert: 'Supporter email' };
+// What happened, as the box's list says it (C-15: "Note" was the switch, the list and the pinned note at once, so a
+// newcomer could not tell which to use). The plain record entry is "Something else"; the stored type stays 'note'.
+const NOTE_WORD = { note: 'Something else', testimony: 'Testimony filed', coalition: 'Coalition step', action_alert: 'Supporter email' };
 const LIMIT = 30;                                   // newest entries shown; "Show earlier" opens the rest
 
 // ---- the Capitol's history, loaded once per bill per visit ----
@@ -68,6 +69,8 @@ function shortCodes(t) {
     return `${m[1].trim()} ${said}${votes}`;
   }
   if ((m = /^Bill scheduled to be heard by\s+([A-Z][A-Z\/]*)\s+on\s+\w+,?\s+(\d{1,2})-(\d{1,2})-\d{2,4}\s+(\d{1,2}:\d{2}\s?[AP]M)/i.exec(s))) return `Hearing set: ${m[1]} ${+m[2]}/${+m[3]}, ${m[4]}`;
+  // The Senate's notice reads "The committee(s) on HHS/CPN has scheduled a public hearing on 03-20-26 9:30AM; Conference…"
+  if ((m = /^The committee\(s\) on\s+([A-Z][A-Z\/]*)\s+(?:has|have) scheduled a public hearing on\s+(\d{1,2})-(\d{1,2})-\d{2,4}\s+(\d{1,2}:\d{2})\s?([AP]M)/i.exec(s))) return `Hearing set: ${m[1]} ${+m[2]}/${+m[3]}, ${m[4]} ${m[5].toUpperCase()}`;
   if ((m = /^Bill scheduled for Conference Committee Meeting on\s+\w+,?\s+(\d{1,2})-(\d{1,2})-\d{2,4}\s+(\d{1,2}:\d{2}\s?[AP]M)?/i.exec(s))) return `Conference meeting set: ${+m[1]}/${+m[2]}${m[3] ? ', ' + m[3] : ''}`;
   const sent = /Transmitted to (House|Senate)/i.exec(s);
   s = s.replace(/\s*\((?:Stand\.|Hse\.|Sen\.|Conf\.|SSCR|HSCR|Gov\.)[^)]*\)/gi, '')
@@ -164,13 +167,15 @@ function convOpts(b) {
     none: `No conversations with legislators logged yet${n ? ` for this bill or ${n === 1 ? 'its issue' : 'its issues'}` : ''}.` };
 }
 
-// The one box: what it is (Message · Note · Talk with a legislator), the words, and Send. Remembered per bill for the
-// visit, with the words typed (B-6).
-const KINDS = [['msg', 'Message'], ['note', 'Note'], ['talk', 'Talk with a legislator']];
+// The one box: what it is (Message · Log what happened · Talk with a legislator, v5's own words), the words, and Send.
+// Remembered per bill for the visit, with the words typed (B-6).
+const KINDS = [['msg', 'Message'], ['note', 'Log what happened'], ['talk', 'Talk with a legislator']];
 const HINT = { msg: 'Message the team. Type @ to notify someone.', note: 'What happened? It goes in the bill’s record.', talk: 'What was said? Next you pick who it was with.' };
-const SEND = { msg: 'Send message', note: 'Add the note to the record', talk: 'Next: who was it with?' };
+const SEND = { msg: 'Send message', note: 'Add it to the bill’s record', talk: 'Next: who was it with?' };
+// Under 480px the third switch says "Legislator talk", so the three stay one even row (bill.css shows one of the two).
+const segWords = html => html.replace('>Talk with a legislator</button>', '><span class="bw-seg-l">Talk with a legislator</span><span class="bw-seg-s">Legislator talk</span></button>');
 const kindOf = b => (S.bwKind ??= {})[b.id] || 'msg';
-const NOTE_TYPES = ['note', 'testimony', 'coalition', 'action_alert'].map(v => [v, NOTE_WORD[v]]);   // a meeting with a legislator is a talk; with anyone else a note
+const NOTE_TYPES = ['note', 'testimony', 'coalition', 'action_alert'].map(v => [v, NOTE_WORD[v]]);   // a meeting with a legislator is a talk; with anyone else, something else
 export function renderActivity(b, { inline = true } = {}) {
   if (seenSnap.bill !== b.id || viewIsNew()) seenSnap = { bill: b.id, at: S.chatSeen?.[b.id] || '' };
   return `<section class="bw-sec bw-act" aria-labelledby="bw-act-h">
@@ -188,12 +193,12 @@ const enterSends = () => { try { return matchMedia('(hover: hover) and (pointer:
 export function composerBar(b) {
   const k = kindOf(b), d = drafts.get(b.id + ':chat') || '', nt = S.bwNoteType || 'note';
   return `<form class="bw-composer" data-bill="${esc(b.id)}" data-kind="${k}" novalidate>
-    ${segmented('bwkind', KINDS, k, 'What is it?')}
+    ${segWords(segmented('bwkind', KINDS, k, 'What is it?'))}
     <div class="bw-mention" role="group" aria-label="Notify a teammate" hidden></div>
     <div class="bw-crow"><label class="sr" for="bw-chat">${esc(KINDS.find(x => x[0] === k)[1])}</label>
       <textarea id="bw-chat" rows="${k === 'msg' ? 1 : 3}" maxlength="4000" placeholder="${esc(HINT[k])}">${esc(d)}</textarea>
       <button type="submit" class="bw-send" aria-label="${esc(SEND[k])}" title="${esc(SEND[k])}">${icon(k === 'talk' ? 'arrow-right' : 'send')}</button></div>
-    ${k === 'note' ? `<label class="bw-ntype"><span>Kind of note</span><select id="bw-ntype" class="input">${NOTE_TYPES.map(([v, l]) => `<option value="${v}"${v === nt ? ' selected' : ''}>${esc(NOTE_WORD[v] || LOG_LABEL[v] || l)}</option>`).join('')}</select></label>` : ''}
+    ${k === 'note' ? `<label class="bw-ntype"><span>What happened</span><select id="bw-ntype" class="input">${NOTE_TYPES.map(([v, l]) => `<option value="${v}"${v === nt ? ' selected' : ''}>${esc(NOTE_WORD[v] || LOG_LABEL[v] || l)}</option>`).join('')}</select></label>` : ''}
   </form>`;
 }
 const toTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -252,7 +257,7 @@ export function wireActivity(pnl, b, route, root) {
       const [first, ...rest] = body.split('\n'), title = first.trim().slice(0, 200), more = [first.trim().slice(200), ...rest].join('\n').trim();
       const type = form.querySelector('#bw-ntype')?.value || 'note';
       await DB.addActivity(b.id, type, title, more);
-      drafts.delete(key); rerender('#bw-chat'); toast(`Added to the bill’s record: ${(NOTE_WORD[type] || 'note').toLowerCase()}.`, { ok: true });
+      drafts.delete(key); rerender('#bw-chat'); toast(type === 'note' ? 'Added to the bill’s record.' : `Added to the bill’s record: ${(NOTE_WORD[type] || '').toLowerCase()}.`, { ok: true });
       loadTimeline(b, true);
     } catch (x) { send.removeAttribute('aria-busy'); ta.readOnly = false; toast(x, { err: true }); }
   };
