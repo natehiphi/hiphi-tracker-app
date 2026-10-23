@@ -1,0 +1,789 @@
+// Outreach > Supporters (plan 3.7): everyone HIPHI knows, what they follow and what they did. The same people, rules
+// and calls as the current app's People page (app.js renderPeople / wirePeople), laid out for a phone: one search box,
+// saved segments as a chip row, one Filter sheet in four groups, removable filter chips, and a select mode whose bar
+// sits where the tab bar was. Desktop (900px and wider) gets a real table in the Bills table's look: a pinned header
+// whose columns sort, tags and phone in the row, tick boxes, and the whole row opens the person.
+// Privacy: staff see a supporter's island and districts, never a street address. Nothing here reads p.address.
+// v3 (R-264): the first of Outreach's two tabs, Supporters · Emails (ui.js sectionNav), at every width. A supporter's
+// number is called its score everywhere (the table, the sort, the person's page).
+// v4 (R-269): the last of Outreach's four tabs, at #/outreach/supporters; Outreach opens on This week's asks (asks.js).
+import { S, DB, DEMO, hooks, esc, fmtDate, asDate, advocate, peopleMatch, segmentPeople, personById } from './data.js';
+import { ISLANDS, INTERESTS, personName, parsePeopleCSV, exportPeopleCSV, billById, billTag, billSay } from './model.js';
+import { icon, btn, iconBtn, chip, row, empty, skeleton, toast, openSheet, closeSheet, menuSheet, pickerSheet, confirmSheet, switchRow, keysOn, sheetOpen, sectionNav, filterBtn } from './ui.js';
+const SCORE_LINE = () => true;   // R-316 W55: live at Nate's go 10/22 (R-332)
+import { TITLES, titleLabel } from '../pub/titles.js';   // "They are": the public profile's titles (R-147)
+
+// ---- the filter model (the same shape as people_match() in the database, so a saved segment counts the same here,
+// on the Emails page and when the email is sent) ----
+export const EMPTY_PF = () => ({ q: '', tags: [], titles: [], interests: [], islands: [], house: [], senate: [], account: 'any', optin: false, bills: [], lists: [], campaigns: [], active_days: 0, acted: false });
+// data.js copied peopleMatch() from app.js but not the EMPTY_PF() it calls, so segmentPeople() throws
+// "EMPTY_PF is not defined". A name a module cannot resolve falls back to the global object, so this keeps segment
+// counts (here and in the composer's audience) working until data.js carries its own copy (requested in the report).
+if (typeof globalThis.EMPTY_PF !== 'function') globalThis.EMPTY_PF = EMPTY_PF;
+const pfClean = f => { const o = {}; for (const [k, v] of Object.entries(f)) if (Array.isArray(v) ? v.length : v && v !== 'any') o[k] = v; return o; };
+const pfEmpty = f => !Object.keys(pfClean(f)).length;
+const clone = f => ({ ...EMPTY_PF(), ...JSON.parse(JSON.stringify(f || {})) });
+// Order inside a group does not matter (tapping Maui off and on again is not a change to the segment).
+const norm = f => { const o = pfClean({ ...EMPTY_PF(), ...f }); for (const k in o) if (Array.isArray(o[k])) o[k] = o[k].map(String).sort(); return JSON.stringify(Object.keys(o).sort().map(k => [k, o[k]])); };
+const nFilters = f => f.islands.length + f.senate.length + f.house.length + f.bills.length + f.lists.length + f.campaigns.length + f.tags.length + (f.titles || []).length + f.interests.length + (f.account !== 'any') + !!f.optin + !!f.active_days + !!f.acted;
+
+// ui.js closes a sheet with history.back(), which lands a moment later. Opening the next sheet (or navigating) before
+// it lands lets that Back swallow the new history entry, and the next close then leaves the page. So anything that
+// follows a closing sheet waits for that Back first (or 400ms, if there was none).
+export function afterSheet(fn) {
+  let done = false;
+  const go = () => { if (done) return; done = true; window.removeEventListener('popstate', go); clearTimeout(t); fn(); };
+  window.addEventListener('popstate', go); const t = setTimeout(go, 400);
+}
+
+export const V = () => S.spView ??= { f: EMPTY_PF(), sort: ['active', -1], seg: null, sel: new Set(), selecting: false, limit: 200 };
+// One sort for both layouts: the phone's Sort picker and the desktop's column headers set the same v.sort = [key, dir].
+// Each key has the direction a first click gives it (names A to Z; numbers and dates biggest or newest first).
+const ISLAND_ORDER = Object.fromEntries(ISLANDS.map((x, i) => [x, i]));
+const SORT_KEYS = {
+  name: [1, p => personName(p).toLowerCase()],
+  where: [1, p => p.island || p.senate_district || p.house_district ? [ISLAND_ORDER[p.island] ?? 9, p.senate_district || 99, p.house_district || 99] : null],
+  follows: [-1, p => (p.bill_ids || []).length + (p.list_ids || []).length],
+  actions: [-1, p => p.actions || 0],
+  score: [-1, p => p.score || 0],
+  emails: [-1, p => p.emails_sent || 0],
+  active: [-1, p => p.last_active || null],
+  joined: [-1, p => p.created_at || null],
+};
+const SORTS = [['active', 'Last active'], ['score', 'Highest score'], ['joined', 'Newest first'], ['name', 'Name, A to Z']];
+const cmp = (a, b) => Array.isArray(a) ? a.reduce((r, x, i) => r || cmp(x, b[i]), 0) : typeof a === 'string' ? a.localeCompare(b) : a - b;
+function sortRows(rows, [k, d]) {
+  const get = (SORT_KEYS[k] || SORT_KEYS.active)[1];
+  // Someone with nothing to sort by (no district, never active) goes last whichever way the column runs.
+  return rows.map(p => [get(p), p]).sort(([a, pa], [b, pb]) => (a == null) - (b == null) || (a == null ? 0 : d * cmp(a, b)) || personName(pa).localeCompare(personName(pb))).map(x => x[1]);
+}
+const isDesk = () => matchMedia('(min-width: 900px)').matches;
+const isSide = () => matchMedia('(min-width: 1100px)').matches;   // the frame's sidebar shows from here
+const plural = (n, one, many = one + 's') => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+const shown = v => { if (!Array.isArray(v.sort)) v.sort = ['active', -1]; return sortRows((S.people || []).filter(p => peopleMatch(p, v.f)), v.sort); };
+const allTags = () => [...new Set((S.people || []).flatMap(p => p.tags || []))].sort((a, b) => a.localeCompare(b));
+const activeAdvs = () => S.advocates.filter(a => a.is_active !== false);
+const firstName = a => (a?.full_name || '').split(' ')[0] || 'someone';
+const segOf = v => v.seg && (S.segments || []).find(x => x.id === v.seg);
+const campName = id => (S.campaigns || []).find(c => c.id === id)?.name || 'a coalition';
+const listName = id => (S.lists || []).find(l => l.id === id)?.title || 'a list';
+const intLabel = k => INTERESTS.find(x => x[0] === k)?.[1] || k;
+
+// Every filter that is on, as a removable chip: [group, value, label]
+function activeChips(f) {
+  const out = [];
+  f.islands.forEach(x => out.push(['islands', x, x]));
+  f.senate.forEach(x => out.push(['senate', x, `SD ${x}`]));
+  f.house.forEach(x => out.push(['house', x, `HD ${x}`]));
+  f.bills.forEach(x => out.push(['bills', x, `Follows ${billById(x) ? billSay(billById(x)) : 'a bill'}`]));
+  f.lists.forEach(x => out.push(['lists', x, `Follows ${listName(x)}`]));
+  f.campaigns.forEach(x => out.push(['campaigns', x, `Coalition: ${campName(x)}`]));
+  f.tags.forEach(x => out.push(['tags', x, `Tag: ${x}`]));
+  (f.titles || []).forEach(x => out.push(['titles', x, `They are: ${titleLabel(x)}`]));
+  f.interests.forEach(x => out.push(['interests', x, intLabel(x)]));
+  if (f.account !== 'any') out.push(['account', f.account, f.account === 'yes' ? 'Has an account' : 'Contact only']);
+  if (f.optin) out.push(['optin', '1', 'Said yes to supporter emails']);
+  if (f.active_days) out.push(['active_days', f.active_days, `Active in the last ${f.active_days} days`]);
+  if (f.acted) out.push(['acted', '1', 'Took an action']);
+  return out;
+}
+function dropFilter(f, key, val) {
+  if (Array.isArray(f[key])) f[key] = f[key].filter(x => String(x) !== String(val));
+  else f[key] = EMPTY_PF()[key];
+}
+
+// ---- rows ----
+// "Oʻahu · SD 17 · active 3/16": where they are and when we last heard from them; problems with their email first.
+function subLine(p) {
+  const bits = [];
+  if (p.bounced_at) bits.push('Email bounced');
+  else if (p.unsubscribed_at) bits.push('Unsubscribed');
+  if (p.island) bits.push(p.island);
+  if (p.senate_district) bits.push(`SD ${p.senate_district}`);
+  if (p.last_active) bits.push(`active ${fmtDate(p.last_active)}`);
+  return bits.join(' · ') || 'No district or activity yet';
+}
+const actionsText = p => p.actions ? plural(p.actions, 'action') : '';
+function phoneRow(p, v) {
+  const title = esc(personName(p)), sub = esc(subLine(p)), end = actionsText(p) ? `<span class="sp-acts">${esc(actionsText(p))}</span>` : '';
+  if (!v.selecting) return row({ title, sub, end, href: `#/person/${encodeURIComponent(p.id)}`, attrs: { 'data-pid': p.id, 'data-k': 'p:' + p.id }, cls: 'sp-row' });
+  const on = v.sel.has(p.id);
+  return row({ leadHtml: `<span class="sp-check" aria-hidden="true">${icon(on ? 'square-check-big' : 'square')}</span>`, title, sub, end, chevron: false,
+    attrs: { 'data-pick': p.id, 'data-k': 'p:' + p.id, 'aria-pressed': on ? 'true' : 'false' }, cls: 'sp-row' + (on ? ' sel' : '') });
+}
+// ---- the desktop table (the Bills table's look: pinned header, sortable columns, 52px rows, the row opens) ----
+// Name takes the spare width and is never cut (it is what tells rows apart); Tags takes a share; the rest are as wide
+// as they need. supporters.css drops the least useful columns when the table is narrow (a container query), so the
+// page never scrolls sideways: Emails first, then Score and Joined, then Actions.
+const COLS = [
+  { k: 'name', label: 'Name', sort: 'name' },
+  { k: 'where', label: 'Where', sort: 'where', tip: 'Island, Senate district and House district' },
+  { k: 'phone', label: 'Phone' },
+  { k: 'tags', label: 'Tags' },
+  { k: 'follows', label: 'Follows', sort: 'follows', num: true, tip: 'Bills and lists they follow' },
+  { k: 'actions', label: 'Actions', sort: 'actions', num: true, tip: 'Testimony, emails to a chair, hearings and shares' },
+  { k: 'score', label: 'Score', sort: 'score', num: true, tip: '1 per bill followed, 5 per action, 2 per click, a quarter per open' },
+  { k: 'emails', label: 'Emails', sort: 'emails', tip: 'Emails we sent them, and how many they opened' },
+  { k: 'active', label: 'Last active', sort: 'active' },
+  { k: 'joined', label: 'Joined', sort: 'joined', tip: 'When they were added or signed up' },
+];
+const sortWords = ([k, d]) => ({
+  name: d > 0 ? 'sorted by name, A to Z' : 'sorted by name, Z to A',
+  where: d > 0 ? 'sorted by island, then district' : 'sorted by island, then district, in reverse',
+  follows: d < 0 ? 'sorted by what they follow, most first' : 'sorted by what they follow, fewest first',
+  actions: d < 0 ? 'sorted by actions, most first' : 'sorted by actions, fewest first',
+  score: d < 0 ? 'sorted by score, highest first' : 'sorted by score, lowest first',
+  emails: d < 0 ? 'sorted by emails sent, most first' : 'sorted by emails sent, fewest first',
+  active: d < 0 ? 'sorted by last active, newest first' : 'sorted by last active, longest ago first',
+  joined: d < 0 ? 'sorted by when they joined, newest first' : 'sorted by when they joined, oldest first',
+}[k] || '');
+const DASH = '<span class="sp-dash" aria-hidden="true">–</span><span class="sr">none</span>';
+// "3/16" this year, "11/2/25" for an older date (imports go back years).
+const shortDate = d => d ? fmtDate(d, asDate(d).getFullYear() === new Date().getFullYear() ? {} : { year: '2-digit' }) : '';
+function headCell(c, [sk, sd]) {
+  if (!c.sort) return `<th scope="col" class="c-${c.k}">${c.label}</th>`;
+  const on = sk === c.sort, arrow = icon(on ? (sd > 0 ? 'chevron-up' : 'chevron-down') : SORT_KEYS[c.sort][0] > 0 ? 'chevron-up' : 'chevron-down');
+  return `<th scope="col" class="c-${c.k}${c.num ? ' num' : ''}" aria-sort="${on ? (sd > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="sp-sort${on ? ' on' : ''}" data-sort="${c.sort}" data-k="h:${c.sort}"${c.tip ? ` title="${esc(c.tip)}"` : ''}>${c.num ? arrow : ''}<span>${c.label}</span>${c.num ? '' : arrow}</button></th>`;
+}
+function deskRow(p, v) {
+  const on = v.sel.has(p.id), name = personName(p), nb = (p.bill_ids || []).length, nl = (p.list_ids || []).length;
+  const flag = p.bounced_at ? `<span class="sp-flag">${icon('triangle-alert')}Email bounced</span>` : p.unsubscribed_at ? `<span class="sp-flag">${icon('bell-off')}Unsubscribed</span>` : '';
+  const districts = [p.senate_district ? `SD ${p.senate_district}` : '', p.house_district ? `HD ${p.house_district}` : ''].filter(Boolean).join(' · ');
+  const tags = p.tags || [], more = tags.length - 3;
+  const cell = {
+    name: () => `<td class="c-name"><a class="sp-nm" href="#/person/${encodeURIComponent(p.id)}" data-k="p:${esc(p.id)}">${esc(name)}</a><span class="sp-em" title="${esc(p.email)}">${flag}${esc(p.email)}</span></td>`,
+    where: () => `<td class="c-where">${p.island || districts ? `<span class="sp-l1">${esc(p.island || districts)}</span>${p.island && districts ? `<span class="sp-l2">${esc(districts)}</span>` : ''}` : DASH}</td>`,
+    phone: () => `<td class="c-phone">${p.phone ? esc(p.phone) : DASH}</td>`,
+    tags: () => `<td class="c-tags">${tags.length ? `<span class="sp-tags">${tags.slice(0, 3).map(t => chip(t)).join('')}${more > 0 ? `<span class="sp-tagmore" title="${esc(tags.slice(3).join(', '))}">+${more}<span class="sr"> more: ${esc(tags.slice(3).join(', '))}</span></span>` : ''}</span>` : DASH}</td>`,
+    follows: () => `<td class="c-follows num"${nb + nl ? ` title="${esc([nb && plural(nb, 'bill'), nl && plural(nl, 'list')].filter(Boolean).join(' and '))}"` : ''}>${nb + nl || DASH}</td>`,
+    actions: () => `<td class="c-actions num">${p.actions || DASH}</td>`,
+    score: () => `<td class="c-score num">${p.score ? Math.round(p.score) : DASH}</td>`,
+    emails: () => `<td class="c-emails">${p.emails_sent ? `${p.emails_sent} sent · ${p.emails_opened || 0} opened` : DASH}</td>`,
+    active: () => `<td class="c-active">${p.last_active ? esc(shortDate(p.last_active)) : DASH}</td>`,
+    joined: () => `<td class="c-joined">${p.created_at ? esc(shortDate(p.created_at)) : DASH}</td>`,
+  };
+  return `<tr data-row="${esc(p.id)}"${on ? ' class="sel"' : ''}>
+    <td class="c-cb"><label class="sp-cbl"><input type="checkbox" data-sel="${esc(p.id)}" data-k="c:${esc(p.id)}" ${on ? 'checked' : ''} aria-label="Select ${esc(name)}"></label></td>
+    ${COLS.map(c => cell[c.k]()).join('')}</tr>`;
+}
+
+// The part under the search box: filter chips, the select helpers and the people. Re-drawn on its own while typing so
+// the search box keeps focus.
+function resultsHTML(v) {
+  const all = S.people || [], rows = shown(v), seg = segOf(v), changed = seg && norm(v.f) !== norm(seg.filter);
+  const chips = activeChips(v.f);
+  const head = chips.length || v.f.q.trim() ? `<div class="sp-active">
+      ${isDesk() && rows.length ? '' : `<span class="sp-match" aria-live="polite">${esc(plural(rows.length, 'person', 'people'))} ${rows.length === 1 ? 'matches' : 'match'}</span>`}
+      ${chips.map(([k, val, l]) => `<button type="button" class="chip sp-fchip" data-drop="${esc(k)}" data-val="${esc(val)}" data-k="d:${esc(k)}:${esc(val)}" aria-label="Remove filter: ${esc(l)}">${esc(l)}${icon('x')}</button>`).join('')}
+      ${btn('Clear all', { kind: 'text', sm: true, attrs: { 'data-sp': 'clear' } })}
+      ${changed ? btn(`Save to “${esc(seg.name)}”`, { kind: 'text', sm: true, attrs: { 'data-sp': 'segupdate' } }) : ''}
+    </div>` : '';
+  const selHead = v.selecting && !isDesk() ? `<div class="sp-selhead">${rows.length && rows.every(p => v.sel.has(p.id))
+    ? btn('Clear the selection', { kind: 'text', sm: true, attrs: { 'data-sp': 'selnone' } })
+    : btn(`Select all ${rows.length.toLocaleString()}`, { kind: 'text', sm: true, attrs: { 'data-sp': 'selall', disabled: !rows.length } })}</div>` : '';
+  if (!all.length) return `${head}${empty({ title: 'No supporters yet', text: 'Add someone by hand, or import a list from a CSV file.', action: btn('Add a person', { icon: 'user-plus', attrs: { 'data-sp': 'add' } }) })}`;
+  if (!rows.length) return `${head}${empty({ title: 'Nobody matches', text: 'Try fewer filters or a shorter search.', action: btn(nFilters(v.f) ? 'Clear filters' : 'Clear the search', { kind: 'secondary', attrs: { 'data-sp': 'clear' } }) })}`;
+  const page = rows.slice(0, v.limit);
+  const more = rows.length > page.length ? `<div class="sp-more"><span class="meta">Showing ${page.length.toLocaleString()} of ${rows.length.toLocaleString()}</span>${btn(`Show ${Math.min(200, rows.length - page.length)} more`, { kind: 'secondary', sm: true, attrs: { 'data-sp': 'morerows' } })}</div>` : '';
+  if (isDesk()) {
+    const allOn = rows.every(p => v.sel.has(p.id)), some = !allOn && rows.some(p => v.sel.has(p.id));
+    // The table's state in words, so the order is never a guess (the Score column is dropped on a narrow table).
+    // R-316 W55 (Show me, practice copy): Score says what it counts in one line, not only on hover.
+    const sum = `<p class="sp-tsum" aria-live="polite"><b>${rows.length === all.length ? plural(all.length, 'person', 'people') : `${rows.length.toLocaleString()} of ${plural(all.length, 'person', 'people')}`}</b> · ${esc(sortWords(v.sort))}</p>${SCORE_LINE() && v.sort[0] === 'score' ? '<p class="sp-tsum sp-score">Score: 1 for each bill they follow, 5 for each action (testimony, an email to a chair, a hearing, a share), 2 for each click in our emails and a quarter for each email opened.</p>' : ''}`;
+    return `${head}${sum}<div class="sp-twrap"><table class="sp-table"><caption class="sr">Supporters, ${esc(plural(rows.length, 'person', 'people'))}. Column headers sort. Select a name to open that person.</caption>
+      <thead><tr><th class="c-cb" scope="col"><label class="sp-cbl" title="Select everyone shown"><input type="checkbox" data-selall data-k="c:all" ${allOn ? 'checked' : ''} ${some ? 'data-mixed' : ''} aria-label="Select all ${rows.length} shown"></label></th>
+        ${COLS.map(c => headCell(c, v.sort)).join('')}</tr></thead>
+      <tbody>${page.map(p => deskRow(p, v)).join('')}</tbody></table></div>${more}`;
+  }
+  return `${head}${selHead}<div class="rows sp-list">${page.map(p => phoneRow(p, v)).join('')}</div>${more}`;
+}
+
+// The chosen one carries a tick as well as the blue ring (the same as a chosen chip in the Filter sheet and in Bills).
+function segChips(v) {
+  const total = (S.people || []).length, noneOn = !v.seg && !nFilters(v.f);
+  const one = (id, label, n, on) => `<button type="button" class="chip" data-segpick="${esc(id)}" data-k="s:${esc(id)}" aria-pressed="${on}">${on ? icon('check') : ''}${esc(label)}<span class="sp-cn">${n.toLocaleString()}</span></button>`;
+  return `<div class="sp-segs" role="group" aria-label="Saved segments">
+    ${one('', 'Everyone', total, noneOn)}
+    ${(S.segments || []).map(x => one(x.id, x.name, segmentPeople(x.id).length, v.seg === x.id)).join('')}
+  </div>`;
+}
+
+// ---- the screen ----
+export default {
+  tab: 'outreach',
+  title: () => 'Supporters',
+  wide: () => true,
+  noTabs: () => !!S.spView?.selecting && !isDesk() && document.body.dataset.screen === 'supporters',
+  render(route) {
+    const v = V();
+    if (!S.peopleLoaded) {
+      if (!DEMO && !S.spLoadKick) {
+        S.spLoadKick = true;
+        DB.loadPeople().then(() => { S.spLoadErr = null; hooks.render(); }).catch(e => { S.spLoadErr = e; S.spLoadKick = false; hooks.render(); });
+      }
+      return `<div class="sp-page${isDesk() ? ' sp-desk' : ''}${isSide() ? ' sp-side' : ''}"><div class="sp-tools sv-phead"><h1 class="sp-h1">Supporters</h1><span class="sv-phr">${sectionNav('outreach', 'supporters')}</span></div>${S.spLoadErr
+        ? empty({ title: 'Supporters did not load', text: 'Check your connection and try again.', action: btn('Try again', { icon: 'rotate-ccw', attrs: { 'data-sp': 'retry' } }) })
+        : skeleton(6)}</div>`;
+    }
+    // #/outreach/supporters?segment=ID opens with that segment on (app.js still sends an older #/outreach?segment=ID here)
+    if (route.q?.segment && v.fromQ !== route.q.segment) { v.fromQ = route.q.segment; const sg = (S.segments || []).find(x => String(x.id) === route.q.segment); if (sg) { v.seg = sg.id; v.f = clone(sg.filter); } }
+    // Select mode is a mode: coming back from another page starts without it (the frame sets data-screen after render).
+    if (document.body.dataset.screen !== 'supporters') { v.selecting = false; v.sel.clear(); }
+    for (const id of [...v.sel]) if (!personById(id)) v.sel.delete(id);
+    const n = nFilters(v.f), desk = isDesk();
+    // R-277 fix 10 (U-5, U-12): the heading row of every page: the title, Outreach's tabs, Add a person, Filter and the
+    // page's "…" last; the search under it. Fix 20: Filter sits just before the "…", where every list has it.
+    return `<div class="sp-page${desk ? ' sp-desk' : ''}${isSide() ? ' sp-side' : ''}">
+      <div class="sp-tools sv-phead">
+        <h1 class="sp-h1">Supporters</h1>
+        <span class="sv-phr">${sectionNav('outreach', 'supporters')}
+        ${desk ? btn('Add a person', { kind: 'secondary', sm: true, icon: 'user-plus', attrs: { 'data-sp': 'add', 'data-k': 'add', 'aria-haspopup': 'dialog' } }) : ''}${filterBtn(n, { 'data-sp': 'filter', 'data-k': 'filter' })}
+        ${iconBtn('ellipsis', 'More actions', { 'data-sp': 'more', 'data-k': 'more', 'aria-haspopup': 'dialog' })}</span>
+      </div>
+      <div class="sp-tools sp-srow">
+        <div class="sp-search" role="search"><label class="sr" for="sp-q">Search supporters by name, email or phone</label>${icon('search')}
+          <input id="sp-q" type="search" placeholder="${desk ? 'Search by name, email or phone' : 'Search people'}" value="${esc(v.f.q)}" autocomplete="off" enterkeyhint="search">
+          ${iconBtn('x', 'Clear the search', { 'data-sp': 'qclear', hidden: !v.f.q })}</div>
+      </div>
+      ${rollHTML()}
+      ${segChips(v)}
+      <div id="sp-results">${resultsHTML(v)}</div>
+      <input type="file" id="sp-file" accept=".csv,text/csv" hidden>
+    </div>`;
+  },
+  // One select bar, the same on phones and desktop and the same as Bills: x on the left, the count, the actions on
+  // the right. On a narrow phone the word "selected" gives way before the number is ever cut (supporters.css).
+  bar() {
+    const v = S.spView;
+    if (!v || !(v.selecting || (isDesk() && v.sel.size))) return '';
+    const n = v.sel.size;
+    return `<div class="sp-bar${n > 9 ? ' sp-many' : ''}" role="toolbar" aria-label="Change the selected people">
+      ${iconBtn('x', isDesk() ? 'Clear the selection' : 'Stop selecting', { 'data-sp': 'selexit' })}
+      <span class="sp-selcount" aria-live="polite"><b>${n.toLocaleString()}</b><span class="sp-selw"> selected</span></span>
+      <span class="sp-baract">${btn('Tag', { kind: 'secondary', icon: 'tag', attrs: { 'data-sp': 'tag', disabled: !n } })}${btn('Follow up', { kind: 'secondary', icon: 'calendar-plus', attrs: { 'data-sp': 'fup', disabled: !n } })}</span>
+    </div>`;
+  },
+  wire(route, root) {
+    const v = V(), page = root.querySelector('.sp-page');
+    if (!page) return;
+    const on = (sel, fn) => root.querySelectorAll(sel).forEach(el => { el.onclick = e => fn(el, e); });
+    on('[data-sp="retry"]', () => { S.spLoadErr = null; hooks.render(); });
+    if (!S.peopleLoaded) return;
+    const roll = page.querySelector('.sp-roll'); if (roll) roll.ontoggle = () => { S.spRollOpen = roll.open; };
+    const q = page.querySelector('#sp-q'), qx = page.querySelector('[data-sp="qclear"]');
+    q.oninput = () => {
+      v.f.q = q.value; qx.hidden = !q.value;
+      clearTimeout(v.qT); v.qT = setTimeout(() => { v.limit = 200; drawResults(root); }, 150);
+    };
+    q.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); q.blur(); } };
+    qx.onclick = () => { v.f.q = ''; q.value = ''; qx.hidden = true; drawResults(root); q.focus(); };
+    on('[data-sp="filter"]', () => filterSheet());
+    on('[data-sp="more"]', () => moreMenu(root));
+    on('.sp-tools [data-sp="add"]', () => addPersonSheet());
+    on('[data-segpick]', el => {
+      const id = el.dataset.segpick, sg = (S.segments || []).find(x => String(x.id) === id);
+      if (!sg || v.seg === sg.id) { v.seg = null; v.f = { ...EMPTY_PF(), q: '' }; }
+      else { v.seg = sg.id; v.f = clone(sg.filter); }
+      v.limit = 200; rerender(el.dataset.k);
+    });
+    // select mode bar (outside main, so looked up on the whole frame)
+    on('[data-sp="selexit"]', () => stopSelect());
+    on('[data-sp="tag"]', () => tagSheet([...v.sel]));
+    on('[data-sp="fup"]', () => followupSheet([...v.sel], { onDone: () => stopSelect() }));
+    wireResults(root);
+    // Keep the chosen segment in view in its sideways strip (without moving the page).
+    const strip = page.querySelector('.sp-segs'), cur = strip?.querySelector('[aria-pressed="true"]');
+    if (strip && cur && strip.scrollWidth > strip.clientWidth && (cur.offsetLeft + cur.offsetWidth > strip.scrollLeft + strip.clientWidth || cur.offsetLeft < strip.scrollLeft)) strip.scrollLeft = cur.offsetLeft - 16;
+    const file = page.querySelector('#sp-file');
+    file.onchange = async () => {
+      const f = file.files[0]; file.value = ''; if (!f) return;
+      let text = ''; try { text = await f.text(); } catch { text = ''; }
+      if (!text.trim()) { toast(`${f.name} is empty, or this browser could not read it.`, { err: true }); return; }
+      reviewSheet(text, f.name);
+    };
+  },
+};
+
+// What supporters say about themselves (R-156 E1, E2), folded under the tools: how many gave titles, a story, and said
+// HIPHI may quote them; the list titles by use; and the titles people wrote themselves, so the common ones join the list
+// before each session (pub/titles.js). Counts and title words only, never a story's text.
+function rollHTML() {
+  const r = S.spRoll;
+  if (!r) { if (!S.spRollKick) { S.spRollKick = true; DB.profileRollup().then(x => { S.spRoll = x; hooks.render(); }).catch(() => { S.spRollKick = false; }); } return ''; }
+  if (!r.with_titles && !r.with_story) return '';
+  const li = (label, n) => `<li><span>${label}</span><b>${n.toLocaleString()}</b></li>`;
+  // Above the segment chips and named "All supporters": it counts everyone, whatever the chips pick (the review).
+  return `<details class="card sp-roll"${S.spRollOpen ? ' open' : ''}><summary>${icon('user-round')}<span>All supporters: <b>${r.with_titles.toLocaleString()}</b> gave a title · <b>${r.with_story.toLocaleString()}</b> shared a story · <b>${r.quote.toLocaleString()}</b> may be quoted</span>${icon('chevron-down', { cls: 'sp-roll-chev' })}</summary>
+    <div class="sp-roll-b">
+      ${(r.list || []).length ? `<div><h3>Titles from the list</h3><ol class="sp-roll-l">${r.list.slice(0, 12).map(x => li(esc(titleLabel(x.k) || x.k), x.n)).join('')}</ol></div>` : ''}
+      <div><h3>Titles people wrote themselves</h3>${(r.own || []).length ? `<ol class="sp-roll-l">${r.own.slice(0, 20).map(x => li(`“${esc(x.t)}”`, x.n)).join('')}</ol>` : '<p class="meta">None yet.</p>'}
+        <p class="meta">Before each session, a title 10 or more people wrote can join the list that everyone picks from. Tell Nate which.</p></div>
+    </div></details>`;
+}
+function drawResults(root) {
+  const box = root.querySelector('#sp-results'); if (!box) return;
+  box.innerHTML = resultsHTML(V()); wireResults(root);
+}
+// Re-draw the whole frame (the bar and the tab bar change with selection) and put focus back where it was.
+function rerender(key) {
+  const y = window.scrollY; hooks.render(); window.scrollTo(0, y);
+  if (key) document.querySelector(`#app [data-k="${CSS.escape(key)}"]`)?.focus({ preventScroll: true });
+}
+// Select mode on a phone is a place you can go Back from (assessment 9/19: Back left the page with the mode still on).
+// Starting it adds a history entry, the way a sheet does; the phone's Back, the x and Esc all end it the same way.
+let inSelEntry = false;
+function startSelect(id) {
+  const v = V(); v.selecting = true; if (id) v.sel.add(id);
+  if (!isDesk() && !history.state?.spSel) { history.pushState({ ...(history.state || {}), spSel: true }, ''); inSelEntry = true; }
+}
+function stopSelect() {
+  const v = V(); v.selecting = false; v.sel.clear(); lastBox = null;
+  if (inSelEntry && history.state?.spSel) history.back(); else { inSelEntry = false; hooks.render(); }   // the Back lands in the listener below
+}
+// This file loads before the frame, so this runs before the frame's own popstate handler: leaving the select entry
+// ends the mode and redraws here (the address has not changed), and the frame is not asked to scroll anywhere.
+window.addEventListener('popstate', e => {
+  if (!inSelEntry || e.state?.spSel || sheetOpen()) return;
+  inSelEntry = false; e.stopImmediatePropagation();
+  const v = S.spView; if (v) { v.selecting = false; v.sel.clear(); }
+  if (S.route?.name === 'supporters') hooks.render();
+});
+let suppressUntil = 0;   // a long press ends in a click on the row that just turned into a checkbox; ignore it
+let lastBox = null;      // the last tick box clicked in the desktop table, for Shift+click runs
+function wireResults(root) {
+  const v = V(), box = root.querySelector('#sp-results'); if (!box) return;
+  const on = (sel, fn) => box.querySelectorAll(sel).forEach(el => { el.onclick = e => fn(el, e); });
+  on('[data-sp="clear"]', () => { v.f = { ...EMPTY_PF() }; v.seg = null; v.limit = 200; rerender('filter'); });
+  on('[data-drop]', el => { dropFilter(v.f, el.dataset.drop, el.dataset.val); v.limit = 200; rerender('filter'); });
+  on('[data-sp="segupdate"]', () => saveSegmentChanges());
+  on('[data-sp="add"]', () => addPersonSheet());
+  on('[data-sp="morerows"]', () => { v.limit += 200; drawResults(root); });
+  on('[data-sp="selall"]', () => { for (const p of shown(v)) v.sel.add(p.id); rerender('p:' + ([...v.sel][0] || '')); });
+  on('[data-sp="selnone"]', () => { v.sel.clear(); hooks.render(); });
+  on('[data-pick]', el => {
+    if (Date.now() < suppressUntil) return;
+    const id = el.dataset.pick; v.sel.has(id) ? v.sel.delete(id) : v.sel.add(id); rerender(el.dataset.k);
+  });
+  // Rows drawn after the first paint (a search, a sort, "Show more") are not wired by the frame, so their links are
+  // routed here the same way: through S.go, so Back returns to this list where it was.
+  box.querySelectorAll('a[href^="#/"]').forEach(a => a.addEventListener('click', e => {
+    if (e.defaultPrevented || e.button > 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault(); S.go(a.getAttribute('href'));
+  }));
+  // Desktop table. A header sorts by its column (a second click turns it round); the whole row opens the person,
+  // unless the click was on a control or was the end of selecting some text (a phone number to copy); the tick box
+  // selects, and Shift+click ticks the run from the last box, as in Bills.
+  on('[data-sort]', el => {
+    const k = el.dataset.sort, [ck, cd] = v.sort;
+    v.sort = ck === k ? [k, -cd] : [k, SORT_KEYS[k][0]];
+    v.limit = 200; drawResults(root);
+    root.querySelector(`#sp-results [data-k="${CSS.escape(el.dataset.k)}"]`)?.focus({ preventScroll: true });
+  });
+  box.querySelectorAll('tr[data-row]').forEach(tr => tr.addEventListener('click', e => {
+    if (e.target.closest('a, input, label, button') || getSelection()?.toString()) return;
+    if (e.metaKey || e.ctrlKey) { window.open('#/person/' + encodeURIComponent(tr.dataset.row), '_blank', 'noopener'); return; }
+    S.go('#/person/' + encodeURIComponent(tr.dataset.row));
+  }));
+  const boxes = [...box.querySelectorAll('[data-sel]')];
+  boxes.forEach((cb, i) => cb.onclick = e => {
+    const to = cb.checked, a = e.shiftKey && lastBox != null && lastBox < boxes.length ? Math.min(lastBox, i) : i, z = e.shiftKey && lastBox != null && lastBox < boxes.length ? Math.max(lastBox, i) : i;
+    for (let j = a; j <= z; j++) to ? v.sel.add(boxes[j].dataset.sel) : v.sel.delete(boxes[j].dataset.sel);
+    lastBox = i; rerender(cb.dataset.k);
+  });
+  const all = box.querySelector('[data-selall]');
+  if (all) { all.indeterminate = all.hasAttribute('data-mixed'); all.onchange = () => { const rows = shown(v); if (all.checked) rows.forEach(p => v.sel.add(p.id)); else v.sel.clear(); lastBox = null; rerender('c:all'); }; }
+  // Long press on a phone row starts select mode with that person picked (the ⋯ menu has "Select people" too).
+  const list = box.querySelector('.sp-list');
+  if (list && !v.selecting) {
+    let t = 0, sx = 0, sy = 0;
+    const stop = () => clearTimeout(t);
+    list.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'mouse') return;
+      const r = e.target.closest('[data-pid]'); if (!r) return;
+      sx = e.clientX; sy = e.clientY; stop();
+      t = setTimeout(() => { suppressUntil = Date.now() + 800; startSelect(r.dataset.pid); try { navigator.vibrate?.(12); } catch { /* not supported */ } rerender('p:' + r.dataset.pid); }, 500);
+    });
+    list.addEventListener('pointermove', e => { if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) stop(); });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(k => list.addEventListener(k, stop));
+    list.addEventListener('click', e => { if (Date.now() < suppressUntil) { e.preventDefault(); e.stopPropagation(); } }, true);
+    list.addEventListener('contextmenu', e => { if (e.target.closest('[data-pid]')) e.preventDefault(); });
+  }
+}
+
+// ---- ⋯ menu ----
+function moreMenu(root) {
+  const v = V(), rows = shown(v), all = S.people || [], seg = segOf(v), changed = seg && norm(v.f) !== norm(seg.filter), admin = !!S.me?.is_admin;
+  // The four ready-made orders. On desktop the column headers sort too; this stays for "Highest score", whose Score
+  // column is dropped on a narrow table. A header sort that is none of the four shows as the column's name.
+  const preset = SORTS.find(([k]) => k === v.sort[0] && SORT_KEYS[k][0] === v.sort[1]);
+  const sortL = preset?.[1] || `${COLS.find(c => c.sort === v.sort[0])?.label || 'Last active'}${v.sort[1] > 0 ? ', up' : ', down'}`;
+  const desk = isDesk();
+  menuSheet({ title: 'Supporters', items: [
+    desk ? null : { label: 'Add a person', icon: 'user-plus', run: () => afterSheet(addPersonSheet) },
+    admin ? { label: 'Import CSV', icon: 'upload', sub: 'A file or pasted text. You see what it will do first.', run: () => afterSheet(importSheet) } : null,
+    admin ? { label: rows.length === all.length ? `Export all ${all.length.toLocaleString()} as CSV` : `Export these ${rows.length.toLocaleString()} as CSV`, icon: 'download', disabled: !rows.length, reason: 'Nobody matches, so there is nothing to export.', run: () => { exportPeopleCSV(rows); toast(`Downloading ${plural(rows.length, 'person', 'people')} as a CSV file.`); } } : null,
+    desk ? null : { label: 'Select people', icon: 'square-check-big', sub: 'Then tag them or add a to-do', disabled: !rows.length, reason: 'Nobody matches, so there is no one to select.', run: () => { startSelect(); rerender(); } },
+    desk ? { label: 'Sort by highest score', icon: 'trending-up', sub: v.sort[0] === 'score' ? 'This is the order now' : 'The column headers sort by everything else', disabled: v.sort[0] === 'score', reason: 'Already sorted by highest score.',
+        run: () => { v.sort = ['score', -1]; v.limit = 200; rerender('more'); toast('Sorted by highest score.'); } }
+      : { label: `Sort: ${sortL}`, icon: 'list', run: () => afterSheet(() => pickerSheet({ title: 'Sort supporters', value: preset?.[0] || '', options: SORTS.map(([k, l]) => [k, l]), onPick: val => { v.sort = [val, SORT_KEYS[val][0]]; v.limit = 200; hooks.render(); toast(`Sorted by ${SORTS.find(s => s[0] === val)[1].toLowerCase()}.`); } })) },
+    changed ? { label: `Save changes to “${seg.name}”`, icon: 'bookmark-check', run: () => saveSegmentChanges() } : null,
+    { label: seg && changed ? 'Save as a new segment' : 'Save as segment', icon: 'bookmark', sub: 'Keeps these filters one tap away, here and in Emails',
+      disabled: pfEmpty(v.f) || (seg && !changed), reason: pfEmpty(v.f) ? 'Add a filter or a search first.' : `These filters are already saved as “${seg?.name}”.`, run: () => afterSheet(saveSegmentSheet) },
+    seg ? { label: `Email “${seg.name}”`, icon: 'mail', sub: changed ? 'Goes to the saved segment, not your unsaved changes' : 'Starts a supporter email to this segment', run: () => afterSheet(() => S.go('#/email/new?segment=' + encodeURIComponent(seg.id))) }
+      : { label: 'Email this segment', icon: 'mail', disabled: true, reason: 'Pick a saved segment first. Emails go to segments, lists or a bill’s followers.' },
+    seg ? { label: `Delete “${seg.name}”`, icon: 'trash-2', danger: true, run: () => afterSheet(() => deleteSegment(seg)) } : null,
+  ] });
+}
+
+// ---- the Filter sheet: pick in one go, see the count, then Show N people ----
+function filterSheet() {
+  const v = V(), all = S.people || [];
+  let d = clone(v.f), billQ = '';
+  const tags = allTags();
+  const sds = [...new Set(all.map(p => p.senate_district).filter(Boolean))].sort((a, b) => a - b);
+  const hds = [...new Set(all.map(p => p.house_district).filter(Boolean))].sort((a, b) => a - b);
+  // Counts for one group: everyone who passes every other group, split by this group's options.
+  // Which groups each person fails, worked out once per redraw with peopleMatch() one group at a time (the rules are a
+  // plain AND of groups, so this is the same answer), so the counts stay quick with thousands of people.
+  let fails = [];
+  const recount = () => { const keys = Object.keys(pfClean(d)); fails = all.map(p => keys.filter(k => !peopleMatch(p, { [k]: d[k] }))); };
+  const base = key => all.filter((p, i) => fails[i].every(k => k === key));
+  const tally = (key, test) => { const b = base(key); return val => b.filter(p => test(p, val)).length; };
+  const multi = (key, opts, count) => opts.map(([val, label]) => {
+    const onNow = d[key].map(String).includes(String(val)), n = count(val);
+    return `<button type="button" class="chip" data-fk="${key}" data-fv="${esc(val)}" data-k="f:${key}:${esc(val)}" aria-pressed="${onNow}"${!onNow && !n ? ' disabled' : ''}>${onNow ? icon('check') : ''}${esc(label)}<span class="sp-cn">${n}</span></button>`;
+  }).join('');
+  const one = (key, opts, count) => opts.map(([val, label]) => {
+    const onNow = String(d[key]) === String(val), n = count ? count(val) : null;
+    return `<button type="button" class="chip" data-f1="${key}" data-fv="${esc(val)}" data-k="f:${key}:${esc(val)}" aria-pressed="${onNow}"${!onNow && n === 0 ? ' disabled' : ''}>${onNow ? icon('check') : ''}${esc(label)}${n === null ? '' : `<span class="sp-cn">${n}</span>`}</button>`;
+  }).join('');
+  const sel = (key, label, opts, prefix) => {
+    const cur = d[key].map(Number), c = tally(key, (p, val) => p[key === 'senate' ? 'senate_district' : 'house_district'] === val);
+    return `<div class="field"><label for="sp-f-${key}">${label}</label><select id="sp-f-${key}" data-fsel="${key}" data-k="f:${key}">
+      <option value="">Any</option>${cur.length > 1 ? `<option value="__keep" selected>${esc(cur.map(x => prefix + ' ' + x).join(', '))}</option>` : ''}
+      ${opts.map(x => `<option value="${x}"${cur.length === 1 && cur[0] === x ? ' selected' : ''}>${prefix} ${x} (${c(x)})</option>`).join('')}</select></div>`;
+  };
+  const billSug = () => {
+    const qq = billQ.trim().toUpperCase().replace(/\s+/g, ''); if (!qq) return '';
+    const words = /\d/.test(qq) ? null : billQ.trim().toLowerCase();
+    const hits = S.bills.filter(b => b.is_public && !d.bills.includes(b.id) && (words ? words.length >= 3 && (b.public_summary || b.description || b.title || '').toLowerCase().includes(words) : b.bill_number.includes(qq))).slice(0, 6);
+    return hits.length ? hits.map(b => `<button type="button" class="sp-sug" data-addbill="${esc(b.id)}">${billTag(b, 60)}</button>`).join('')
+      : `<p class="meta sp-sugnone">No public bill matches “${esc(billQ.trim())}”. Supporters can follow only public bills.</p>`;
+  };
+  const body = () => {
+    const isl = tally('islands', (p, x) => p.island === x), lst = tally('lists', (p, x) => (p.list_ids || []).includes(x)),
+      cmp = tally('campaigns', (p, x) => (p.bill_ids || []).some(id => (S.billCampaigns[id] || []).includes(x))),
+      tg = tally('tags', (p, x) => (p.tags || []).includes(x)), it = tally('interests', (p, x) => (p.interests || []).includes(x)),
+      ti = tally('titles', (p, x) => (p.titles || []).includes(x)), had = TITLES.filter(t => (S.people || []).some(p => (p.titles || []).includes(t.k))),
+      ac = tally('account', (p, x) => x === 'any' || (x === 'yes') === !!p.has_account),
+      act = tally('active_days', (p, x) => !+x || (p.last_active && Date.now() - new Date(p.last_active) < +x * 864e5));
+    return `<div class="sp-sheet sp-filter">
+      <section aria-labelledby="sp-g1"><h3 id="sp-g1">Where</h3>
+        <fieldset><legend>Island</legend><div class="chips">${multi('islands', ISLANDS.map(x => [x, x]), isl)}</div></fieldset>
+        <div class="sp-two">${sel('senate', 'Senate district', sds, 'SD')}${sel('house', 'House district', hds, 'HD')}</div>
+      </section>
+      <section aria-labelledby="sp-g2"><h3 id="sp-g2">Follows</h3>
+        <div class="field sp-billpick"><label for="sp-f-bill">A bill</label>
+          <div class="chips">${d.bills.map(id => `<button type="button" class="chip" aria-pressed="true" data-fk="bills" data-fv="${esc(id)}" data-k="f:bills:${esc(id)}" aria-label="Remove ${esc(billById(id) ? billSay(billById(id)) : 'bill')}">${esc(billById(id) ? billSay(billById(id)) : 'A bill')}${icon('x')}</button>`).join('')}</div>
+          <input id="sp-f-bill" type="search" placeholder="Type a number, like HB1563" value="${esc(billQ)}" autocomplete="off" data-k="f:billq">
+          <div class="sp-sugs" id="sp-f-sugs">${billSug()}</div></div>
+        ${(S.lists || []).length ? `<fieldset><legend>A list</legend><div class="chips">${multi('lists', S.lists.map(l => [l.id, l.title]), lst)}</div></fieldset>` : ''}
+        ${(S.campaigns || []).length ? `<fieldset><legend>A bill in this coalition</legend><div class="chips">${multi('campaigns', S.campaigns.map(c => [c.id, c.name]), cmp)}</div></fieldset>` : ''}
+      </section>
+      <section aria-labelledby="sp-g3"><h3 id="sp-g3">About them</h3>
+        ${tags.length ? `<fieldset><legend>Tags</legend><div class="chips">${multi('tags', tags.map(t => [t, t]), tg)}</div></fieldset>` : ''}
+        ${had.length ? `<fieldset><legend>They are</legend><div class="chips">${multi('titles', had.map(t => [t.k, t.label]), ti)}</div></fieldset>` : ''}
+        <fieldset><legend>Interests</legend><div class="chips">${multi('interests', INTERESTS, it)}</div></fieldset>
+        <fieldset><legend>Account</legend><div class="chips">${one('account', [['any', 'Anyone'], ['yes', 'Has an account'], ['no', 'Contact only']], ac)}</div></fieldset>
+        ${switchRow('sp-f-optin', 'Said yes to supporter emails', d.optin, 'Only people a supporter email can reach', { 'data-fsw': 'optin', 'data-k': 'f:optin' })}
+      </section>
+      <section aria-labelledby="sp-g4"><h3 id="sp-g4">Activity</h3>
+        <fieldset><legend>Last active</legend><div class="chips">${one('active_days', [[0, 'Any time'], [7, '7 days'], [30, '30 days'], [90, '90 days']], act)}</div></fieldset>
+        ${switchRow('sp-f-acted', 'Took an action', d.acted, 'Testified, emailed a chair, went to a hearing or shared', { 'data-fsw': 'acted', 'data-k': 'f:acted' })}
+      </section>
+    </div>`;
+  };
+  const count = () => fails.filter(f => !f.length).length;
+  const foot = () => { const n = count(); return `${nFilters(d) ? btn('Clear all', { kind: 'text', attrs: { 'data-fx': 'clear' } }) : ''}${btn(n ? `Show ${plural(n, 'person', 'people')}` : 'Nobody matches', { attrs: { 'data-fx': 'apply', disabled: !n } })}`; };
+  recount();
+  // Desktop with a mouse: a panel under the Filter button (ui.js anchors it), like the Bills filter, so the table
+  // stays in view beside it. Phones and touch tablets keep the full sheet.
+  openSheet({ title: 'Filter supporters', size: isDesk() ? 'auto sp-fpop' : 'full', pop: true, body: body(), foot: foot(), wire: dlg => {
+    const bodyEl = dlg.querySelector('.sv-sh-body'), footEl = dlg.querySelector('.sv-sh-foot');
+    const redraw = key => {
+      recount(); const y = bodyEl.scrollTop; bodyEl.innerHTML = body(); footEl.innerHTML = foot(); bodyEl.scrollTop = y;
+      if (key) dlg.querySelector(`[data-k="${CSS.escape(key)}"]`)?.focus({ preventScroll: true });
+    };
+    dlg.addEventListener('click', e => {
+      const t = e.target.closest('button'); if (!t || !dlg.contains(t)) return;
+      if (t.dataset.fk) { const k = t.dataset.fk, val = t.dataset.fv; const has = d[k].map(String).includes(String(val)); d[k] = has ? d[k].filter(x => String(x) !== String(val)) : [...d[k], val]; redraw(has && k === 'bills' ? 'f:billq' : t.dataset.k); }
+      else if (t.dataset.f1) { const k = t.dataset.f1; d[k] = k === 'active_days' ? +t.dataset.fv : t.dataset.fv; redraw(t.dataset.k); }
+      else if (t.dataset.addbill) { d.bills = [...d.bills, t.dataset.addbill]; billQ = ''; redraw('f:billq'); }
+      else if (t.dataset.fx === 'clear') { d = { ...EMPTY_PF(), q: d.q }; billQ = ''; redraw(); }
+      else if (t.dataset.fx === 'apply') { v.f = d; if (v.seg && !segOf(v)) v.seg = null; v.limit = 200; closeSheet({ silent: true }); rerender('filter'); }
+    });
+    dlg.addEventListener('change', e => {
+      const t = e.target;
+      if (t.dataset.fsel && t.value !== '__keep') { d[t.dataset.fsel] = t.value ? [Number(t.value)] : []; redraw(t.dataset.k); }
+      else if (t.dataset.fsw) { d[t.dataset.fsw] = t.checked; redraw(t.dataset.k); }
+    });
+    dlg.addEventListener('input', e => {
+      if (e.target.id !== 'sp-f-bill') return;
+      billQ = e.target.value; dlg.querySelector('#sp-f-sugs').innerHTML = billSug();
+    });
+    dlg.addEventListener('keydown', e => {
+      if (e.target.id === 'sp-f-bill' && e.key === 'Enter') { e.preventDefault(); const first = dlg.querySelector('[data-addbill]'); if (first) first.click(); }
+    });
+  } });
+}
+
+// ---- segments ----
+function saveSegmentSheet() {
+  const v = V();
+  openSheet({ title: 'Save as segment', size: 'auto',
+    body: `<div class="sp-sheet"><div class="field"><label for="sp-segname">Name</label><input id="sp-segname" maxlength="80" autocomplete="off" placeholder="e.g. Maui parents" autofocus><span class="help">Everyone on the team sees it here and in Emails.</span></div><div id="sp-segerr" role="alert"></div>
+      <p class="meta sp-segsum">${esc(plural(shown(v).length, 'person', 'people'))} match right now. The segment updates itself as people change.</p></div>`,
+    foot: btn('Save segment', { attrs: { 'data-go': '1' } }),
+    wire: dlg => {
+      const inp = dlg.querySelector('#sp-segname'), go = dlg.querySelector('[data-go]'); inp.focus();
+      const save = async () => {
+        const name = inp.value.trim();
+        if (name.length < 2) { dlg.querySelector('#sp-segerr').innerHTML = `<p class="inlinemsg">${icon('circle-alert')}Give it a name first.</p>`; inp.setAttribute('aria-invalid', 'true'); inp.focus(); return; }
+        go.setAttribute('aria-busy', 'true'); go.disabled = true;
+        try { const sg = await DB.saveSegment({ name, filter: pfClean(v.f) }); v.seg = sg.id; closeSheet({ silent: true }); rerender(); toast(`Saved “${name}”. It is in Emails too.`, { ok: true }); }
+        catch (e) { go.removeAttribute('aria-busy'); go.disabled = false; toast(e, { err: true }); }
+      };
+      go.onclick = save; inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); save(); } };
+    } });
+}
+async function saveSegmentChanges() {
+  const v = V(), sg = segOf(v); if (!sg) return;
+  const before = sg.filter;
+  try {
+    await DB.saveSegment({ id: sg.id, name: sg.name, filter: pfClean(v.f) }); rerender();
+    toast(`Saved the changes to “${sg.name}”.`, { ok: true, undo: async () => { await DB.saveSegment({ id: sg.id, name: sg.name, filter: before }); v.f = clone(before); hooks.render(); toast('The segment is back as it was.'); } });
+  } catch (e) { toast(e, { err: true }); }
+}
+async function deleteSegment(sg) {
+  const ok = await confirmSheet({ title: `Delete “${esc(sg.name)}”?`, text: 'The people stay. Only this saved filter goes, here and in Emails.', ok: 'Delete segment', danger: true });
+  if (!ok) return;
+  try { await DB.deleteSegment(sg.id); const v = V(); v.seg = null; v.f = EMPTY_PF(); rerender(); toast(`Deleted the segment “${sg.name}”.`); }
+  catch (e) { toast(e, { err: true }); }
+}
+
+// ---- add, import ----
+function addPersonSheet() {
+  openSheet({ title: 'Add a person', size: 'auto',
+    body: `<div class="sp-sheet"><div class="field"><label for="sp-ae">Email</label><input id="sp-ae" type="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="200" aria-describedby="sp-aerr"></div>
+      <div class="field"><label for="sp-an">Name (optional)</label><input id="sp-an" autocomplete="off" maxlength="120"></div>
+      <div id="sp-aerr" role="alert"></div><p class="meta sp-addnote">They are added as a contact. They get supporter emails only if they say yes.</p></div>`,
+    foot: btn('Add person', { icon: 'user-plus', attrs: { 'data-go': '1' } }),
+    wire: dlg => {
+      const em = dlg.querySelector('#sp-ae'), nm = dlg.querySelector('#sp-an'), go = dlg.querySelector('[data-go]'); em.focus();
+      const err = m => { dlg.querySelector('#sp-aerr').innerHTML = m ? `<p class="inlinemsg">${icon('circle-alert')}${esc(m)}</p>` : ''; em.toggleAttribute('aria-invalid', !!m); };
+      const save = async () => {
+        const e = em.value.trim().toLowerCase();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { err('Enter an email address, like name@example.com.'); em.focus(); return; }
+        const ex = (S.people || []).find(p => (p.email || '').toLowerCase() === e);
+        if (ex) { closeSheet({ silent: true }); afterSheet(() => { S.go('#/person/' + encodeURIComponent(ex.id)); toast(`${personName(ex)} is already in Supporters.`); }); return; }
+        go.setAttribute('aria-busy', 'true'); go.disabled = true;
+        try { const p = await DB.addPerson({ email: e, name: nm.value.trim() || null, tags: [], interests: [] }); closeSheet({ silent: true }); afterSheet(() => { S.go('#/person/' + encodeURIComponent(p.id)); toast(`Added ${personName(p)}.`, { ok: true }); }); }
+        catch (x) { go.removeAttribute('aria-busy'); go.disabled = false; toast(x, { err: true }); }
+      };
+      go.onclick = save; [em, nm].forEach(i => i.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); save(); } });
+    } });
+}
+// ---- import: a file or pasted text, a preview, then the numbers ----
+// The fields are read by parsePeopleCSV() in model.js, the one parser both staff apps share; nothing here picks a
+// column apart. To be able to say WHICH row was left out, the text is first cut into records the same way the parser
+// does (a newline inside quotes is not a row break) and each record is handed to that parser with the header in
+// front of it. Row numbers are the line numbers of the file, so they match what Nate sees in a spreadsheet.
+function csvRecords(text) {
+  const out = []; let cur = '', q = false, line = 1, start = 1;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') { q = !q; cur += c; continue; }
+    if (!q && (c === '\n' || c === '\r')) { if (c === '\r' && text[i + 1] === '\n') i++; out.push({ line: start, text: cur }); line++; start = line; cur = ''; continue; }
+    if (c === '\n') line++;                        // a wrapped line inside quotes still counts in the file
+    cur += c;
+  }
+  if (cur.trim()) out.push({ line: start, text: cur });
+  return out;
+}
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;     // the same test the import does before it writes a row
+// What the file will do, row by row. Nothing from a row is ever shown back except the name, the email and the tags:
+// a list can carry a street address, and staff never see one.
+function reviewCSV(text) {
+  const recs = csvRecords(text.replace(/^﻿/, ''));
+  const head = recs.shift() || { text: '', line: 1 };
+  const cols = parsePeopleCSV(head.text + '\n').cols;
+  const hasEmail = cols.some(h => h.includes('email') || h.includes('e-mail'));
+  const have = new Set((S.people || []).map(p => (p.email || '').toLowerCase()));
+  const rows = [], skipped = [], seen = new Map();
+  for (const rec of recs) {
+    if (!rec.text.trim()) continue;                // a blank line is not a problem, so it is not reported
+    const r = hasEmail ? parsePeopleCSV(head.text + '\n' + rec.text).rows[0] : null;
+    if (!r) { skipped.push({ line: rec.line, why: hasEmail ? 'No email address in this row' : 'The file has no email column' }); continue; }
+    const e = r.email.toLowerCase();
+    if (!EMAIL_RE.test(r.email)) { skipped.push({ line: rec.line, why: `“${r.email}” is not an email address`, who: r.name || '' }); continue; }
+    if (seen.has(e)) { skipped.push({ line: rec.line, why: `Already on line ${seen.get(e)} of this file`, who: r.email }); continue; }
+    seen.set(e, rec.line);
+    rows.push({ ...r, line: rec.line, known: have.has(e) });
+  }
+  const found = ['email', rows.some(r => r.name) && 'name', rows.some(r => r.phone) && 'phone', rows.some(r => r.tags.length) && 'tags',
+    rows.some(r => r.interests.length) && 'interests', rows.some(r => r.action_alerts !== null) && 'opt-in'].filter(Boolean);
+  return { rows, skipped, cols, hasEmail, found,
+    add: rows.filter(r => !r.known).length, upd: rows.filter(r => r.known).length,
+    opted: rows.filter(r => r.action_alerts).length, noName: rows.filter(r => !r.name).length };
+}
+const SKIP_SHOWN = 8;
+const skipList = skipped => `<div class="sp-imskip"><h3 class="sp-imskh">${icon('circle-alert')}<span>${plural(skipped.length, 'row')} will not be imported</span></h3>
+  <ul class="sp-imskl">${skipped.slice(0, SKIP_SHOWN).map(s => `<li><b>Line ${s.line}</b><span>${esc(s.why)}${s.who ? ` · ${esc(s.who)}` : ''}</span></li>`).join('')}</ul>
+  ${skipped.length > SKIP_SHOWN ? `<p class="meta">and ${(skipped.length - SKIP_SHOWN).toLocaleString()} more, all for the same kinds of reason.</p>` : ''}</div>`;
+const sandboxNote = what => DEMO ? `<p class="notice info sp-imdemo">${icon('info')}<span>Sandbox: ${what} only in this browser, until you reload. Nothing reaches the live list.</span></p>` : '';
+
+// Step 1: where the CSV comes from. A file on a laptop, a paste on a phone (where picking a file is the harder way).
+function importSheet() {
+  openSheet({ title: 'Import people', size: 'auto',
+    body: `<div class="sp-sheet sp-imstart">
+      <p class="meta">A CSV from a mailing list or a sign-up sheet. One column has to say <b>email</b>; name (or first and last), phone, tags, interests and an opt-in column are read when they are there.</p>
+      ${btn('Choose a CSV file', { kind: 'secondary', icon: 'upload', attrs: { 'data-imfile': '1' } })}
+      <p class="sp-imor"><span>or</span></p>
+      <div class="field"><label for="sp-imtx">Paste the text of a CSV</label>
+        <textarea id="sp-imtx" rows="5" spellcheck="false" autocapitalize="off" aria-describedby="sp-imerr" placeholder="name,email,tags&#10;Ana Sample,ana@example.com,volunteer"></textarea></div>
+      <div id="sp-imerr" role="alert"></div>
+      ${sandboxNote('an import changes the list')}</div>`,
+    foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-no': '1' } })}${btn('Check the text', { attrs: { 'data-go': '1' } })}`,
+    wire: dlg => {
+      dlg.querySelector('[data-no]').onclick = () => closeSheet();
+      dlg.querySelector('[data-imfile]').onclick = () => document.querySelector('#sp-file')?.click();
+      const tx = dlg.querySelector('#sp-imtx'), err = m => { dlg.querySelector('#sp-imerr').innerHTML = m ? `<p class="inlinemsg">${icon('circle-alert')}${esc(m)}</p>` : ''; tx.toggleAttribute('aria-invalid', !!m); };
+      dlg.querySelector('[data-go]').onclick = () => {
+        const text = tx.value.trim();
+        if (!text) { err('Paste the text first, or choose a file above.'); tx.focus(); return; }
+        if (!text.includes('\n')) { err('That is one line. A CSV needs a heading row and then a row for each person.'); tx.focus(); return; }
+        err(''); reviewSheet(text, 'the text you pasted');
+      };
+    } });
+}
+// Step 2: what will happen, before anything is written.
+function reviewSheet(text, source) {
+  const r = reviewCSV(text);
+  if (!r.rows.length) {
+    openSheet({ title: 'Nothing to import', size: 'auto',
+      body: `<div class="sp-sheet sp-import"><p>Nothing in ${esc(source)} can be imported.</p>
+        <p class="meta sp-cols">${!r.hasEmail ? (r.cols.length ? `The heading row reads: ${esc(r.cols.slice(0, 12).join(', '))}. One of these has to say “email”.` : 'The heading row is empty. The first line has to name the columns.')
+          : 'Every row was left out for the reason beside it.'}</p>
+        ${r.skipped.length ? skipList(r.skipped) : ''}</div>`,
+      foot: `${btn('Back', { kind: 'text', attrs: { 'data-back': '1' } })}${btn('Close', { attrs: { 'data-ok': '1' } })}`,
+      wire: d => { d.querySelector('[data-ok]').onclick = () => closeSheet(); d.querySelector('[data-back]').onclick = () => importSheet(); } });
+    return;
+  }
+  openSheet({ title: `Import ${plural(r.rows.length, 'person', 'people')}?`, size: 'auto',
+    body: `<div class="sp-sheet sp-import"><p class="meta">From ${esc(source)}</p>
+      <ul class="sp-sum">
+        <li>${icon('user-plus')}<span><b>${r.add.toLocaleString()}</b> new, added as contacts</span></li>
+        <li>${icon('user-check')}<span><b>${r.upd.toLocaleString()}</b> already here, updated. Nothing they have is blanked.</span></li>
+        <li>${icon('bell')}<span><b>${r.opted.toLocaleString()}</b> marked as saying yes to supporter emails</span></li>
+        ${r.skipped.length ? `<li class="sp-imbad">${icon('circle-alert')}<span><b>${r.skipped.length.toLocaleString()}</b> skipped, listed below</span></li>` : ''}
+      </ul>
+      <p class="meta">Read from the file: ${esc(r.found.join(', '))}. First rows:</p>
+      <ul class="sp-peek">${r.rows.slice(0, 3).map(x => `<li><b>${esc(x.name || 'No name')}</b><span>${esc(x.email)}${x.tags.length ? ' · ' + esc(x.tags.join(', ')) : ''}</span></li>`).join('')}</ul>
+      ${r.noName ? `<p class="meta">${plural(r.noName, 'row')} with no name: they show as their email address until someone adds one.</p>` : ''}
+      ${r.skipped.length ? skipList(r.skipped) : ''}
+      ${sandboxNote('this changes the list')}</div>`,
+    foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-no': '1' } })}${btn(`Import ${plural(r.rows.length, 'person', 'people')}`, { icon: 'upload', attrs: { 'data-go': '1' } })}`,
+    wire: dlg => {
+      dlg.querySelector('[data-no]').onclick = () => closeSheet();
+      const go = dlg.querySelector('[data-go]');
+      go.onclick = async () => {
+        go.setAttribute('aria-busy', 'true'); go.disabled = true;
+        // line and known are ours, for the preview; the import gets the same shape it has always been given.
+        const payload = r.rows.map(({ line, known, ...row }) => row);
+        try { const res = await DB.importPeople(payload, source); rerender(); doneSheet(res, r); }
+        catch (e) { go.removeAttribute('aria-busy'); go.disabled = false; toast(e, { err: true }); }
+      };
+    } });
+}
+// Step 3: what actually happened, in the same words, and it stays on screen until it is closed.
+function doneSheet(res, r) {
+  const late = Math.max(0, (res.skipped || 0));
+  openSheet({ title: 'Imported', size: 'auto',
+    body: `<div class="sp-sheet sp-import"><ul class="sp-sum">
+        <li>${icon('user-plus')}<span><b>${(res.added || 0).toLocaleString()}</b> added</span></li>
+        <li>${icon('user-check')}<span><b>${(res.updated || 0).toLocaleString()}</b> updated</span></li>
+        <li${r.skipped.length || late ? ' class="sp-imbad"' : ''}>${icon(r.skipped.length || late ? 'circle-alert' : 'check')}<span><b>${(r.skipped.length + late).toLocaleString()}</b> skipped</span></li>
+      </ul>
+      ${r.skipped.length ? skipList(r.skipped) : ''}
+      ${late ? `<p class="meta">${plural(late, 'row')} the list itself turned down, for an email address it would not take.</p>` : ''}
+      ${sandboxNote('this list changed')}</div>`,
+    foot: btn('Done', { attrs: { 'data-ok': '1' } }),
+    wire: d => { d.querySelector('[data-ok]').onclick = () => { closeSheet(); }; } });
+}
+
+// ---- bulk: tag and follow-up (the follow-up sheet is shared with the person page) ----
+function tagSheet(ids) {
+  if (!ids.length) return;
+  const tags = allTags();
+  openSheet({ title: `Tag ${plural(ids.length, 'person', 'people')}`, size: 'auto',
+    body: `<div class="sp-sheet"><div class="field"><label for="sp-tagin">Tag</label><input id="sp-tagin" autocomplete="off" maxlength="60" placeholder="e.g. volunteer" aria-describedby="sp-tagerr"></div>
+      ${tags.length ? `<div class="chips sp-tagpick" role="group" aria-label="Tags in use">${tags.slice(0, 24).map(t => `<button type="button" class="chip" data-tagfill="${esc(t)}" aria-pressed="false">${esc(t)}</button>`).join('')}</div>` : ''}
+      <div id="sp-tagerr" role="alert"></div></div>`,
+    foot: `${btn('Remove tag', { kind: 'secondary', attrs: { 'data-tag': 'rm' } })}${btn('Add tag', { icon: 'tag', attrs: { 'data-tag': 'add' } })}`,
+    wire: dlg => {
+      const inp = dlg.querySelector('#sp-tagin'); inp.focus();
+      dlg.querySelectorAll('[data-tagfill]').forEach(b => b.onclick = () => { inp.value = b.dataset.tagfill; dlg.querySelectorAll('[data-tagfill]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); inp.removeAttribute('aria-invalid'); dlg.querySelector('#sp-tagerr').innerHTML = ''; });
+      inp.oninput = () => dlg.querySelectorAll('[data-tagfill]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.tagfill === inp.value.trim())));
+      const run = async add => {
+        const tag = inp.value.trim();
+        if (!tag) { dlg.querySelector('#sp-tagerr').innerHTML = `<p class="inlinemsg">${icon('circle-alert')}Type a tag or pick one first.</p>`; inp.setAttribute('aria-invalid', 'true'); inp.focus(); return; }
+        // Undo touches only the people this changed, so a tag someone already had is never taken away.
+        const changed = ids.filter(id => { const has = (personById(id)?.tags || []).includes(tag); return add ? !has : has; });
+        dlg.querySelectorAll('[data-tag]').forEach(b => { b.disabled = true; });
+        try {
+          await DB.bulkTag(ids, tag, add); closeSheet({ silent: true }); hooks.render();
+          const msg = add ? `Tagged ${plural(changed.length, 'person', 'people')} “${tag}”.` : `Removed “${tag}” from ${plural(changed.length, 'person', 'people')}.`;
+          toast(msg, changed.length ? { ok: true, undo: async () => { await DB.bulkTag(changed, tag, !add); hooks.render(); toast('Undone.'); } } : { ok: true });
+        } catch (e) { dlg.querySelectorAll('[data-tag]').forEach(b => { b.disabled = false; }); toast(e, { err: true }); }
+      };
+      dlg.querySelector('[data-tag="add"]').onclick = () => run(true);
+      dlg.querySelector('[data-tag="rm"]').onclick = () => run(false);
+      inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); run(true); } };
+    } });
+}
+export function followupSheet(ids, { onDone } = {}) {
+  if (!ids.length) return;
+  const single = ids.length === 1 ? personById(ids[0]) : null;
+  const who = single ? personName(single) : plural(ids.length, 'person', 'people');
+  openSheet({ title: `Follow up with ${esc(who)}`, size: 'auto',
+    body: `<div class="sp-sheet"><div class="field"><label for="sp-fw">What to do</label><textarea id="sp-fw" rows="2" maxlength="300" placeholder="e.g. Call before the EDU hearing" aria-describedby="sp-fwerr"></textarea><div id="sp-fwerr" role="alert"></div></div>
+      <div class="sp-two"><div class="field"><label for="sp-fd">Due (optional)</label><input id="sp-fd" type="date"></div>
+      <div class="field"><label for="sp-fa">Who does it</label><select id="sp-fa">${activeAdvs().map(a => `<option value="${esc(a.id)}"${a.id === S.me?.id ? ' selected' : ''}>${esc(a.id === S.me?.id ? `${firstName(a)} (you)` : firstName(a))}</option>`).join('')}</select></div></div>
+      <p class="meta sp-fnote">It shows in Today for whoever does it.</p></div>`,
+    foot: btn(single ? 'Add a to-do' : `Add ${ids.length} to-dos`, { icon: 'calendar-plus', attrs: { 'data-go': '1' } }),
+    wire: dlg => {
+      const w = dlg.querySelector('#sp-fw'), go = dlg.querySelector('[data-go]'); w.focus();
+      go.onclick = async () => {
+        const what = w.value.trim();
+        if (!what) { dlg.querySelector('#sp-fwerr').innerHTML = `<p class="inlinemsg">${icon('circle-alert')}Say what to do first.</p>`; w.setAttribute('aria-invalid', 'true'); w.focus(); return; }
+        const advId = dlg.querySelector('#sp-fa').value, due = dlg.querySelector('#sp-fd').value || null, adv = advocate(advId);
+        go.setAttribute('aria-busy', 'true'); go.disabled = true;
+        try {
+          if (single) await DB.addFollowup(single.id, advId, what, due); else await DB.bulkFollowup(ids, advId, what, due);
+          closeSheet({ silent: true });
+          const whose = advId === S.me?.id ? 'your Today' : `${firstName(adv)}’s Today`;
+          toast(single ? `To-do added. It is in ${whose}.` : `Added ${ids.length} to-dos. They are in ${whose}.`, { ok: true });
+          onDone ? onDone() : hooks.render();
+        } catch (e) { go.removeAttribute('aria-busy'); go.disabled = false; toast(e, { err: true }); }
+      };
+    } });
+}
+
+// Esc leaves select mode (the x in the bar does the same). Like every shortcut in v2 it can be switched off in My
+// settings and it never fires while someone is typing. (The frame redraws the page when the window crosses 900px or
+// 1100px, which swaps the rows for the table and back.)
+const typing = t => t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || !keysOn() || S.route?.name !== 'supporters' || document.querySelector('dialog[open]') || (typing(e.target) && e.target.type !== 'checkbox')) return;
+  const v = S.spView; if (v && (v.selecting || v.sel.size)) { e.preventDefault(); stopSelect(); }
+});

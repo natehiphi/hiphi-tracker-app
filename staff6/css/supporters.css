@@ -1,0 +1,365 @@
+/* Outreach > Supporters and a person's page (plan 3.7). Every rule is scoped to .sp-page (the list), .sp-person (a
+   person), .sp-sheet (this module's sheet bodies) or .sp-bar (the select-mode bar). Sizes 13/14/16/18/22 only.
+   v4 (R-269): also Outreach's other two tabs of its own, This week's asks (.ot-asks) and Partner update (.ot-part), at
+   the end. */
+
+/* ---- the list: search row, segment chips (v3: Outreach's tab row is ui.js sectionNav, staff.css .sv-secnav) ---- */
+.sp-page .sp-h1 { display: none; }
+.sp-page .sp-tools { display: flex; align-items: center; gap: var(--s8); margin-top: var(--s8); }
+.sp-page .sp-search { position: relative; flex: 1 1 auto; min-width: 0; }
+.sp-page .sp-search > .ic-search { position: absolute; left: 12px; top: 12px; width: 20px; height: 20px; color: var(--n500); pointer-events: none; }
+.sp-page .sp-search input { width: 100%; min-height: 44px; padding: 8px 44px 8px 40px; border: 1px solid var(--n400); border-radius: var(--pill); background: var(--n0); color: var(--n900); font-size: var(--t16); -webkit-appearance: none; appearance: none; }
+.sp-page .sp-search input::-webkit-search-cancel-button, .sp-sheet input::-webkit-search-cancel-button { display: none; }
+.sp-page .sp-search input:placeholder-shown { padding-right: 12px; }
+.sp-page .sp-search input:focus { outline: none; border-color: var(--p700); box-shadow: 0 0 0 2px var(--p700); }
+.sp-page .sp-search .iconbtn { position: absolute; right: 0; top: 0; }
+.sp-page .sp-search .iconbtn .ic { width: 20px; height: 20px; }
+/* The Filter button is ui.js filterBtn, staff.css .sv-filter, the same as Bills' (R-277 fix 20). */
+.sp-page .sp-tools > .iconbtn, .sp-page .sp-tools .sv-phr > .iconbtn { border: 1px solid var(--n300); background: var(--n0); }
+/* Segments scroll sideways inside their own strip; the page itself never scrolls sideways. */
+.sp-page .sp-segs { position: relative; display: flex; gap: var(--s8); overflow-x: auto; margin: var(--s8) calc(-1 * var(--gutter)) 0; padding: 0 var(--gutter); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.sp-page .sp-segs::-webkit-scrollbar { display: none; }
+.sp-page .sp-segs .chip { flex: none; }
+.sp-page .chip .sp-cn, .sp-sheet .chip .sp-cn { font-size: var(--t13); font-weight: 400; color: var(--n500); margin-left: 2px; }
+.sp-page .chip[aria-pressed="true"] .sp-cn, .sp-sheet .chip[aria-pressed="true"] .sp-cn { color: var(--p800); }
+.sp-page .chip .ic, .sp-sheet .chip .ic { width: 16px; height: 16px; }
+
+/* ---- filters that are on ---- */
+.sp-page .sp-active { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin-top: var(--s12); }
+.sp-page .sp-match { font-size: var(--t14); font-weight: 700; color: var(--n900); margin-right: var(--s4); }
+.sp-page .sp-fchip { gap: 4px; padding-right: 10px; background: var(--p50); border-color: var(--p200); color: var(--p800); }
+.sp-page .sp-fchip:hover { border-color: var(--p700); }
+.sp-page .sp-fchip .ic { color: var(--p700); }
+.sp-page .sp-active .btn.text { padding: 0 8px; }
+.sp-page .sp-selhead { display: flex; justify-content: flex-end; margin-top: var(--s4); }
+
+/* ---- rows (phones and tablets) ---- */
+.sp-page .sp-list { margin-top: var(--s8); }
+.sp-page .sp-row { min-height: 64px; -webkit-touch-callout: none; }
+.sp-page .sp-row .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-page .sp-row .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-page .sp-row .end { gap: 4px; }
+.sp-page .sp-acts { font-size: var(--t14); color: var(--n700); white-space: nowrap; }
+.sp-page .sp-row.sel { background: var(--p50); }
+.sp-page .sp-row.sel:hover { background: var(--p50); }
+.sp-page .sp-check { display: inline-flex; color: var(--p700); flex: none; }
+.sp-page .sp-check .ic { width: 22px; height: 22px; }
+.sp-page .sp-more { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); flex-wrap: wrap; margin-top: var(--s12); }
+.sp-page .empty { margin-top: var(--s12); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); }
+.sp-page .empty h2 { font-size: var(--t18); }
+
+/* ---- desktop table: the Bills table's look (pinned 40px header whose columns sort, 52px rows, a hover wash, the
+   whole row opens). The first row's cells set the widths (fixed layout): Name takes what is left and is never cut,
+   Tags a share, the rest what they need. The wrapper is a size container, so columns leave by the room the TABLE
+   has (the sidebar takes 248px of the window at 1100px and wider), and the page never scrolls sideways. ---- */
+.sp-page .sp-tsum { margin: var(--s12) 0 var(--s8); font-size: var(--t14); color: var(--n500); }
+.sp-page .sp-tsum b { color: var(--n900); }
+.sp-page .sp-twrap { container: sptable / inline-size; }
+.sp-page .sp-table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); font-size: var(--t14); }
+.sp-page .sp-table thead th { position: sticky; top: var(--header); z-index: 6; height: 40px; padding: 0 12px; background: var(--n50); border-bottom: 1px solid var(--n200);
+  font-size: var(--t13); font-weight: 700; color: var(--n500); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-page .sp-table thead th:first-child { border-top-left-radius: var(--r12); }
+.sp-page .sp-table thead th:last-child { border-top-right-radius: var(--r12); }
+.sp-page .sp-table th.c-cb { width: 44px; }
+.sp-page .sp-table th.c-where { width: 116px; }
+.sp-page .sp-table th.c-phone { width: 136px; }   /* R-316 W54: "808-555-0123" whole */
+.sp-page .sp-table th.c-tags { width: 16%; }
+.sp-page .sp-table th.c-follows { width: 92px; }   /* R-316 W54: the headers and their sort arrows fit */
+.sp-page .sp-table th.c-actions { width: 92px; }
+.sp-page .sp-table th.c-score { width: 88px; }
+.sp-page .sp-table th.c-emails { width: 148px; }
+.sp-page .sp-table th.c-active { width: 108px; }
+.sp-page .sp-table th.c-joined { width: 84px; }
+.sp-page .sp-table .c-score, .sp-page .sp-table .c-joined, .sp-page .sp-table .c-emails { display: none; }
+@container sptable (min-width: 1080px) { .sp-page .sp-table .c-score, .sp-page .sp-table .c-joined { display: table-cell; } }
+@container sptable (min-width: 1400px) { .sp-page .sp-table .c-emails { display: table-cell; } }
+@container sptable (max-width: 879px) { .sp-page .sp-table .c-actions { display: none; } }
+.sp-page .sp-sort { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; max-width: 100%; margin: 0 -6px; padding: 0 6px; border-radius: var(--r8); font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.sp-page .sp-sort:hover { color: var(--n900); background: var(--n100); }
+.sp-page .sp-sort.on { color: var(--n900); }
+.sp-page .sp-sort .ic { width: 14px; height: 14px; flex: none; opacity: 0; }
+.sp-page .sp-sort:hover .ic, .sp-page .sp-sort:focus-visible .ic { opacity: .55; }
+.sp-page .sp-sort.on .ic { opacity: 1; }
+.sp-page .sp-table td { height: 52px; padding: 4px 12px; border-top: 1px solid var(--n100); color: var(--n700); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-page .sp-table tbody tr:first-child td { border-top: 0; }
+.sp-page .sp-table tbody tr { cursor: pointer; }
+.sp-page .sp-table tbody tr:hover td { background: var(--n50); }
+.sp-page .sp-table tbody tr.sel td { background: var(--p50); }
+.sp-page .sp-table tbody tr:last-child td:first-child { border-bottom-left-radius: var(--r12); }
+.sp-page .sp-table tbody tr:last-child td:last-child { border-bottom-right-radius: var(--r12); }
+.sp-page .sp-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.sp-page .sp-table th.c-cb, .sp-page .sp-table td.c-cb { padding: 0; text-align: center; }
+.sp-page .sp-cbl { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: 0 auto; cursor: pointer; }
+.sp-page .sp-cbl input { width: 20px; height: 20px; margin: 0; accent-color: var(--p700); cursor: pointer; }
+.sp-page .sp-table td.c-name { white-space: normal; }
+.sp-page .sp-nm { display: block; font-weight: 700; color: var(--n900); text-decoration: none; overflow-wrap: anywhere; }
+.sp-page .sp-table tr:hover .sp-nm, .sp-page .sp-nm:hover { color: var(--p700); text-decoration: underline; }
+.sp-page .sp-em { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t13); color: var(--n500); }
+.sp-page .sp-l1 { display: block; overflow: hidden; text-overflow: ellipsis; color: var(--n900); }
+.sp-page .sp-l2 { display: block; overflow: hidden; text-overflow: ellipsis; font-size: var(--t13); color: var(--n500); }
+.sp-page .sp-table td.c-phone { font-variant-numeric: tabular-nums; cursor: text; }
+.sp-page .sp-table td.c-tags { white-space: normal; }
+.sp-page .sp-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; max-height: 52px; overflow: hidden; }
+.sp-page .sp-tags .chip { max-width: 100%; min-height: 24px; padding: 2px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; line-height: 20px; }
+.sp-page .sp-tagmore { font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.sp-page .sp-dash { color: var(--n400); }
+.sp-page .sp-flag { display: inline-flex; align-items: center; gap: 4px; margin-right: var(--s8); font-weight: 700; color: var(--n900); vertical-align: bottom; }
+.sp-page .sp-flag .ic { width: 14px; height: 14px; }
+
+/* ---- the select bar (replaces the tab bar on phones; under the table on desktop). One layout everywhere, the same
+   as Bills: x on the left, the count, the actions on the right. It is a size container: when the bar is narrow the
+   word "selected" goes (the number stays whole), so the count is never cut to "1 selec…". ---- */
+.sp-bar { display: flex; align-items: center; gap: var(--s8); width: 100%; container: spbar / inline-size; }
+.sp-bar .sp-selcount { flex: 1 1 auto; min-width: 0; font-size: var(--t16); color: var(--n900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-bar .sp-selcount b { font-weight: 700; }
+.sp-bar .sp-baract { display: flex; align-items: center; gap: var(--s8); flex: none; }
+.sp-bar .btn { flex: 0 0 auto; padding: 0 16px; }
+.sp-bar .iconbtn { color: var(--n900); margin-left: -8px; }
+@container spbar (max-width: 345px) {
+  .sp-bar .sp-selw { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+@container spbar (max-width: 399px) {
+  .sp-bar.sp-many .sp-selw { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+
+/* ---- a person ---- */
+.sp-person .sp-deskback { display: none; }
+.sp-person .sp-phead { display: flex; flex-direction: column; gap: 2px; }
+.sp-person .sp-pname { display: flex; align-items: flex-start; gap: var(--s8); }
+.sp-person .sp-pname h1 { flex: 1 1 auto; min-width: 0; font-size: var(--t22); line-height: 1.2; padding-top: 9px; overflow-wrap: anywhere; }
+.sp-person .sp-pname .iconbtn { margin-right: -8px; }
+.sp-person .sp-reach { font-size: var(--t14); overflow-wrap: anywhere; }
+.sp-person .sp-acts4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s8); margin-top: var(--s12); }
+.sp-person .sp-act { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 60px; padding: 6px 4px; border-radius: var(--r12);
+  background: var(--n0); border: 1px solid var(--n300); color: var(--p700); font-size: var(--t14); font-weight: 700; text-decoration: none; text-align: center; }
+.sp-person .sp-act .ic { width: 22px; height: 22px; }
+.sp-person .sp-act:hover { background: var(--p50); border-color: var(--p700); color: var(--p800); }
+.sp-person .sp-act[aria-disabled="true"] { color: var(--n500); background: var(--n50); border-color: var(--n200); }
+.sp-person .sp-consent { margin-top: var(--s12); gap: 6px; }
+.sp-person .sp-consent .chip { font-size: var(--t13); }
+.sp-person .sp-sec .sechead { align-items: center; min-height: 44px; margin: var(--s16) 0 var(--s8); }
+.sp-person .sp-sec .sechead .btn.text { margin-right: -12px; }
+.sp-person .sp-none { font-size: var(--t14); }
+.sp-person .sp-fups { list-style: none; margin: 0; padding: 0; }
+.sp-person .sp-fup { display: flex; align-items: center; gap: var(--s12); min-height: 64px; padding: var(--s8) var(--s12) var(--s8) var(--s16); }
+.sp-person .sp-fup + .sp-fup { border-top: 1px solid var(--n100); }
+.sp-person .sp-fup .body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sp-person .sp-fup .title { font-weight: 700; color: var(--n900); }
+.sp-person .sp-fup .sub { font-size: var(--t14); color: var(--n500); }
+.sp-person .sp-fup .sv-count { font-size: var(--t14); }
+.sp-person .sp-fup .btn { flex: none; }
+.sp-person .sp-about { margin: 0; padding: var(--s4) var(--s16); }
+.sp-person .sp-kv { display: grid; grid-template-columns: 104px 1fr; gap: var(--s12); padding: var(--s12) 0; }
+.sp-person .sp-kv + .sp-kv { border-top: 1px solid var(--n100); }
+.sp-person .sp-kv dt { font-size: var(--t14); font-weight: 700; color: var(--n500); }
+.sp-person .sp-kv dd { margin: 0; min-width: 0; color: var(--n900); overflow-wrap: anywhere; }
+.sp-person .sp-kv dd .meta { display: block; margin-top: 2px; }
+.sp-person .sp-kv dd .chips { gap: 6px; }
+.sp-person .sp-kv .linkbtn { display: inline-flex; align-items: center; min-height: 44px; margin: -12px 0; font-weight: 700; }
+.sp-person .sp-lists { margin-bottom: var(--s8); }
+.sp-person a.sp-listchip { min-height: 44px; padding: 8px 14px; background: var(--n0); border: 1px solid var(--n300); color: var(--p700); font-size: var(--t14); text-decoration: none; }
+.sp-person a.sp-listchip:hover { background: var(--p50); border-color: var(--p700); }
+.sp-person .sp-nick .sv-t { display: none; }   /* a nickname names the bill; the plain summary is the line under it (billRow puts it in the title too: R-264 found it said twice) */
+/* where they said they stand on a bill they follow: an icon and the word, so it never rests on the colour */
+.sp-person .sp-feed { list-style: none; margin: 0; padding: var(--s4) var(--s16); }
+.sp-person .sp-fi { display: flex; align-items: flex-start; gap: var(--s12); padding: var(--s12) 0; }
+.sp-person .sp-fi + .sp-fi { border-top: 1px solid var(--n100); }
+.sp-person .sp-fic { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--n100); color: var(--n700); flex: none; }
+.sp-person .sp-fic .ic { width: 18px; height: 18px; }
+.sp-person .sp-fi.note .sp-fic { background: var(--p50); color: var(--p700); }
+.sp-person .sp-fb { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding-top: 4px; overflow-wrap: anywhere; }
+.sp-person .sp-fb p { font-size: var(--t16); color: var(--n900); }
+.sp-person .sp-fb p.meta { font-size: var(--t13); color: var(--n500); }
+.sp-person .sp-nbody { white-space: pre-wrap; }
+.sp-person .sp-fi .btn.text { flex: none; margin: -4px -12px 0 0; }
+.sp-person .sp-feed + .btn { margin-top: var(--s4); }
+.sp-person .sp-feedload { padding-top: 0; }
+
+/* ---- sheets ---- */
+.sp-sheet section + section { margin-top: var(--s24); padding-top: var(--s16); border-top: 1px solid var(--n100); }
+.sp-sheet h3 { margin-bottom: var(--s8); }
+.sp-sheet fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.sp-sheet fieldset + fieldset, .sp-sheet fieldset + .sp-two, .sp-sheet .sp-two + fieldset, .sp-sheet .field + fieldset, .sp-sheet fieldset + .field, .sp-sheet fieldset + .sv-switchrow, .sp-sheet .sp-billpick + fieldset { margin-top: var(--s16); }
+.sp-sheet legend { padding: 0; margin-bottom: var(--s8); font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.sp-sheet .chips { gap: var(--s8); }
+.sp-sheet .chip:disabled { color: var(--n400); border-color: var(--n200); cursor: default; }
+.sp-sheet .sp-two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s12); margin-top: var(--s16); }
+.sp-sheet .sp-two .field + .field { margin-top: 0; }
+.sp-sheet .field + .field, .sp-sheet .field + .chips, .sp-sheet .chips + div { margin-top: var(--s12); }
+.sp-sheet .sp-billpick .chips:not(:empty) { margin-bottom: var(--s8); }
+.sp-sheet .sp-sugs:not(:empty) { margin-top: var(--s8); border: 1px solid var(--n200); border-radius: var(--r12); overflow: hidden; }
+.sp-sheet .sp-sug { display: flex; align-items: center; gap: var(--s8); width: 100%; min-height: 48px; padding: 8px 12px; text-align: left; background: var(--n0); font-size: var(--t14); color: var(--n700); }
+.sp-sheet .sp-sug + .sp-sug { border-top: 1px solid var(--n100); }
+.sp-sheet .sp-sug:hover { background: var(--p50); }
+.sp-sheet .sp-sug b { color: var(--n900); flex: none; }
+.sp-sheet .sp-sug > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-sheet .sp-sug .ic { width: 18px; height: 18px; color: var(--n500); flex: none; }
+.sp-sheet .sp-sugnone { padding: var(--s12); }
+.sp-sheet .sv-switchrow { border-top: 1px solid var(--n100); margin-top: var(--s12); }
+.sp-sheet .sp-segsum, .sp-sheet .sp-addnote, .sp-sheet .sp-fnote { margin-top: var(--s12); }
+.sp-sheet .sp-tagpick { margin-top: var(--s12); }
+.sp-sheet .sp-sum { list-style: none; margin: var(--s12) 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); }
+.sp-sheet .sp-sum li { display: flex; gap: var(--s12); align-items: flex-start; color: var(--n900); }
+.sp-sheet .sp-sum .ic { width: 20px; height: 20px; color: var(--p700); margin-top: 2px; }
+.sp-sheet .sp-peek { list-style: none; margin: var(--s8) 0 0; padding: 0; border: 1px solid var(--n200); border-radius: var(--r12); }
+.sp-sheet .sp-peek li { display: flex; flex-direction: column; padding: var(--s8) var(--s12); font-size: var(--t14); overflow-wrap: anywhere; }
+.sp-sheet .sp-peek li + li { border-top: 1px solid var(--n100); }
+.sp-sheet .sp-peek b { color: var(--n900); }
+.sp-sheet .sp-peek span { color: var(--n500); }
+.sp-sheet .sp-cols { margin-top: var(--s8); overflow-wrap: anywhere; }
+/* import: choose a file or paste the text, then the preview. Amber is the within-24-hours colour and red is danger,
+   so a skipped row is neither: it is the ordinary text colour with an icon and the word "skipped" doing the work. */
+.sp-sheet.sp-imstart .btn { width: 100%; margin-top: var(--s16); }
+.sp-sheet .sp-imor { display: flex; align-items: center; gap: var(--s12); margin: var(--s16) 0; font-size: var(--t13); color: var(--n500); }
+.sp-sheet .sp-imor::before, .sp-sheet .sp-imor::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--n200); }
+.sp-sheet.sp-imstart textarea { font-size: var(--t14); }
+.sp-sheet .sp-sum li.sp-imbad .ic { color: var(--n500); }
+.sp-sheet .sp-imskip { margin-top: var(--s16); padding-top: var(--s16); border-top: 1px solid var(--n100); }
+.sp-sheet .sp-imskh { display: flex; align-items: center; gap: var(--s8); font-size: var(--t14); }
+.sp-sheet .sp-imskh .ic { width: 18px; height: 18px; color: var(--n500); flex: none; }
+.sp-sheet .sp-imskl { list-style: none; margin: 0; padding: 0; border: 1px solid var(--n200); border-radius: var(--r12); }
+.sp-sheet .sp-imskl li { display: flex; gap: var(--s12); align-items: baseline; padding: var(--s8) var(--s12); font-size: var(--t14); }
+.sp-sheet .sp-imskl li + li { border-top: 1px solid var(--n100); }
+.sp-sheet .sp-imskl b { flex: none; color: var(--n900); }
+.sp-sheet .sp-imskl span { min-width: 0; color: var(--n500); overflow-wrap: anywhere; }
+.sp-sheet .sp-imskip .meta { margin-top: var(--s8); }
+.sp-sheet .sp-imdemo { margin-top: var(--s16); }
+.sp-sheet .sp-private { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); color: var(--n700); margin-bottom: var(--s12); }
+.sp-sheet .sp-private .ic { width: 18px; height: 18px; color: var(--n500); margin-top: 2px; }
+.sp-sheet .sp-demo { margin-bottom: var(--s12); }
+.sp-sheet #sp-dfound:not(:empty) { margin-top: var(--s12); }
+.sp-sheet #sp-disl { margin-top: var(--s8); min-height: 1em; }
+.sp-sheet.sp-edit .check { font-size: var(--t16); color: var(--n900); }
+.sp-sheet.sp-edit fieldset .field { margin-top: var(--s12); }
+.sp-sheet.sp-edit > .meta, .sp-sheet.sp-edit > .sv-switchrow { margin-top: var(--s16); }
+.sp-sheet .sp-mhead { margin: var(--s16) 0 var(--s8); font-weight: 700; }
+.sp-sheet.sp-merge > p:first-child { margin-bottom: var(--s16); }
+.sp-sheet #sp-mres:not(:empty) { margin-top: var(--s8); }
+.sp-sheet .sp-mrow { border: 1px solid var(--n200); border-radius: var(--r12); min-height: 56px; }
+.sp-sheet .sp-mrow + .sp-mrow { margin-top: var(--s8); border-top: 1px solid var(--n200); }
+.sp-sheet .sp-mrow > span { display: flex; flex-direction: column; white-space: normal; }
+.sp-sheet .sp-mrow b { font-size: var(--t16); }
+
+@media (max-width: 360px) {
+  .sp-sheet .sp-two { grid-template-columns: 1fr; }
+  .sp-person .sp-kv { grid-template-columns: 1fr; gap: 2px; }
+  .sp-bar .btn { padding: 0 12px; }
+}
+@media (max-width: 340px) {
+  .sp-bar .btn .ic { display: none; }
+}
+
+/* ---- desktop ---- */
+@media (min-width: 900px) {
+  /* One tool row in the Bills page's order: the title, the search box, then Filter, Add a person and the menu on the
+     right, with the same button looks as Bills (a blue-ringed Filter, a plain three-dot button). */
+  /* v3: the title shows at every desktop width, under the tab row (the sidebar no longer names the sub-page) */
+  .sp-page .sp-h1 { display: block; margin: 0 var(--s8) 0 0; flex: none; font-size: var(--t22); }
+  .sp-page .sp-tools { gap: var(--s12); margin-top: 0; }
+  .sp-page .sp-search { flex: 0 1 360px; min-width: 180px; }
+  .sp-page .sp-sp { flex: 1 1 auto; }
+  .sp-page .sp-tools > .iconbtn, .sp-page .sp-tools .sv-phr > .iconbtn { border: 0; background: none; }
+  .sp-page .sp-tools > .iconbtn:hover, .sp-page .sp-tools .sv-phr > .iconbtn:hover { background: var(--n100); }
+  .sp-page .sp-segs { flex-wrap: wrap; overflow: visible; margin: var(--s12) 0 0; padding: 0; }
+  .sp-page .sp-segs .chip:hover { border-color: var(--p700); background: var(--p50); }
+  .sp-page .sp-active { margin-top: var(--s12); }
+  /* The Filter panel: a fixed size under its button, so it never grows off the window as choices change; its four
+     groups scroll inside it. (Only when ui.js anchored it; a touch tablet gets the centred sheet.) */
+  dialog.sv-sheet.sv-pop.sp-fpop { width: 440px; max-width: calc(100vw - 32px); height: min(600px, calc(100vh - 260px)); min-height: 320px; max-height: none; }
+  dialog.sv-sheet.sv-pop.sp-fpop .sv-sh-body { padding: var(--s8) var(--s16) var(--s16); }
+  dialog.sv-sheet.sv-pop.sp-fpop .sv-sh-foot .btn { min-height: 44px; }
+  /* The select bar sits under the table: the actions keep to the right, sized to their labels. */
+  .sp-bar .sp-selcount { flex: 0 0 auto; margin-right: auto; }
+  .sp-person .sp-deskback { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: 0 0 var(--s8) -8px; padding: 0 12px 0 4px; border-radius: var(--pill);
+    color: var(--p700); font-weight: 700; text-decoration: none; }
+  .sp-person .sp-deskback:hover { background: var(--p50); }
+  .sp-person .sp-deskback .ic { width: 20px; height: 20px; }
+  .sp-person .sp-acts4 { max-width: 520px; }
+  .sp-person .sp-kv { grid-template-columns: 140px 1fr; }
+  .sp-person .sp-num { color: var(--n900); font-variant-numeric: tabular-nums; }
+  .sp-person .sp-copy { font-weight: 700; }
+  .sp-person .sp-act:hover, .sp-person a.row:hover { background: var(--p50); }
+}
+
+/* ---- a person on a wide screen (1100px and wider): what they follow and the feed in the main column; a side panel
+   that stays in view with contact, districts, tags, consent and their numbers (.sv-cols + .sv-aside in staff.css) ---- */
+@media (min-width: 1100px) {
+  .sp-two .sp-phead { margin-bottom: var(--s16); }
+  .sp-two .sp-pname h1 { padding-top: 4px; }
+  .sp-two .sp-main { min-width: 0; }
+  .sp-two .sp-main > .sp-sec:first-child .sechead { margin-top: 0; }
+  .sp-two .sp-sec .sechead { margin-top: var(--s24); }
+  .sp-two .sp-fbills .sv-billrow { min-height: 56px; }
+  .sp-two .sp-fkinds { margin-bottom: var(--s8); gap: var(--s8); }
+  .sp-two .sp-fkinds .chip { min-height: 36px; padding: 4px 12px; }
+  .sp-two .sp-fkinds .chip[aria-pressed="true"] { padding: 3px 11px; }
+  .sp-two .sp-fkinds .chip:hover { border-color: var(--p700); background: var(--p50); }
+  .sp-two .sp-fkinds .chip .ic { width: 16px; height: 16px; }
+  .sp-two .sp-fkinds .sp-cn { font-size: var(--t13); font-weight: 400; color: var(--n500); margin-left: 2px; }
+  .sp-two .sp-fi { padding: var(--s8) 0; }
+  .sp-two .sp-aside { gap: var(--s12); }
+  .sp-two .sp-aside .card { padding: var(--s12) var(--s16); }
+  .sp-two .sp-aside .card + .card { margin-top: 0; }
+  .sp-two .sp-sc h2 { font-size: var(--t16); }
+  .sp-two .sp-sc > h2 { margin-bottom: var(--s8); }
+  .sp-two .sp-sch { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); min-height: 32px; margin: -6px 0 var(--s4); }
+  .sp-two .sp-sch .btn.text { margin-right: -12px; min-height: 40px; }
+  .sp-two .sp-sl { display: flex; align-items: center; gap: var(--s8); min-height: 40px; }
+  .sp-two .sp-sl > .ic { width: 18px; height: 18px; color: var(--n500); flex: none; }
+  .sp-two .sp-slb { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--s8); overflow-wrap: anywhere; font-size: var(--t14); }
+  .sp-two .sp-slb .btn.text { flex: none; min-height: 40px; margin-right: -12px; }
+  .sp-two .sp-slb .btn.text .ic { width: 16px; height: 16px; }
+  .sp-two .sp-slb .btn.text:hover, .sp-two .sp-sch .btn.text:hover { background: var(--p50); text-decoration: none; }
+  .sp-two .sp-sbtns { display: flex; flex-wrap: wrap; gap: var(--s8); margin-top: var(--s12); }
+  .sp-two .sp-sbtns .btn { flex: 1 1 auto; padding: 0 12px; }
+  .sp-two .sp-sdl { margin: 0; }
+  .sp-two .sp-skv { display: grid; grid-template-columns: 76px 1fr; gap: var(--s8); padding: 4px 0; font-size: var(--t14); }
+  .sp-two .sp-skv dt { font-size: var(--t14); font-weight: 700; color: var(--n500); }
+  .sp-two .sp-skv dd { margin: 0; min-width: 0; color: var(--n900); overflow-wrap: anywhere; }
+  .sp-two .sp-skv dd .meta { display: block; margin-top: 2px; }
+  .sp-two .sp-skv dd .chips { gap: 4px; }
+  .sp-two .sp-snone { font-size: var(--t14); }
+  .sp-two .sp-lock { display: flex; align-items: flex-start; gap: 6px; margin-top: var(--s8); }
+  .sp-two .sp-lock .ic { width: 14px; height: 14px; margin-top: 2px; flex: none; }
+  .sp-two .sp-can { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .sp-two .sp-can li { display: flex; align-items: flex-start; gap: var(--s8); color: var(--n900); font-size: var(--t14); }
+  .sp-two .sp-can .ic { width: 18px; height: 18px; margin-top: 1px; color: var(--n500); flex: none; }
+}
+
+/* Profiles, folded under the tools (R-156 E1, E2): counts and title words only. */
+.sp-page .sp-roll { margin-top: var(--s12); padding: 0; }
+.sp-page .sp-roll summary { display: flex; gap: var(--s8); align-items: center; padding: var(--s12) var(--s16); min-height: 48px; cursor: pointer; font-size: var(--t14); color: var(--n700); }
+.sp-page .sp-roll summary .ic { width: 18px; height: 18px; color: var(--p700); flex: none; }
+.sp-page .sp-roll summary:focus-visible { outline: 3px solid var(--p700); outline-offset: -3px; border-radius: inherit; }
+.sp-page .sp-roll-b { display: grid; gap: var(--s16); padding: 0 var(--s16) var(--s16); }
+.sp-page .sp-roll h3 { margin: 0 0 var(--s8); font-size: var(--t14); }
+.sp-page .sp-roll-l { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s4); font-size: var(--t14); }
+.sp-page .sp-roll-l li { display: flex; justify-content: space-between; gap: var(--s12); border-bottom: 1px solid var(--n100); padding: var(--s4) 0; }
+.sp-page .sp-roll .meta { margin: var(--s8) 0 0; }
+@media (min-width: 900px) { .sp-page .sp-roll-b { grid-template-columns: 1fr 1fr; } }
+.sp-page .sp-roll summary { list-style: none; }
+.sp-page .sp-roll summary::-webkit-details-marker { display: none; }
+.sp-page .sp-roll summary > span { flex: 1; }
+.sp-page .sp-roll .sp-roll-chev { color: var(--n500); transition: transform .2s var(--ease, ease); }
+.sp-page .sp-roll[open] .sp-roll-chev { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .sp-page .sp-roll .sp-roll-chev { transition: none; } }
+.sp-page .sp-roll + .sp-segs { margin-top: var(--s12); }
+
+/* ---- v4 (R-269): This week's asks, the tab Outreach opens on (asks.js), and Partner update (memo.js) ----
+   Both are "wide" screens like Emails and Supporters, so Outreach's tab row stays put from tab to tab; each keeps a
+   reading width inside, from the left edge rather than centred, for the same reason. */
+.ot-asks .ot-card .td-asks { margin: var(--s12) 0 0; }
+/* Outreach's tab row has four tabs since v4, one more than fits a phone on one line each (the page scrolled sideways,
+   463px on a 390px phone): below 900px a long name takes two lines, so all four stay in view. */
+@media (max-width: 899px) {
+  .sv-secnav[aria-label="Outreach"] { max-width: none; }
+  .sv-secnav[aria-label="Outreach"] a { flex: 1 1 auto; padding: 2px var(--s8); white-space: normal; text-align: center; line-height: 1.2; }
+}
+@media (max-width: 359px) { .sv-secnav[aria-label="Outreach"] a { padding: 2px var(--s4); } }
+@media (min-width: 900px) {
+  .ot-asks { max-width: 880px; }
+  .bl-memopage.ot-part { max-width: 720px; margin: 0; }
+  .bl-memopage.ot-part .bl-mctl .field { flex-basis: 360px; }   /* "HEAL · Healthy Eating, Active Living" whole */
+}
+.sp-page .sp-tsum:has(+ .sp-score) { margin-bottom: 0; }
+.sp-page .sp-score { margin-top: var(--s4); color: var(--n700); }   /* R-316 W55: what Score counts */

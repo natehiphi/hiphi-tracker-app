@@ -1,0 +1,180 @@
+/* Partners (R-328 batch B): Today's "Partner words to approve" (partnerq.js, .pq-*) and the Partners screen
+   (partnergroups.js, .pg-*). Sizes are the staff scale's (13, 14, 16, 18, 22: A-4); blue is selection and links only,
+   a side or a status always has its word beside any colour (A-5); every target is 44px on a phone (A-6). */
+
+/* ---- Today: the cards (phone and tablet), the rows' open item (laptop) ---- */
+.td-root .pq-group .td-h .sv-group .ic { width: 18px; height: 18px; margin-right: 6px; vertical-align: -3px; color: var(--n500); }
+.td-root .pq-list { display: flex; flex-direction: column; gap: var(--s12); }
+.td-root .pq-list .card + .card { margin-top: 0; }
+.pq-card { padding: var(--s12) var(--s16); }
+.pq-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); }
+.pq-name { margin: 0; flex: 1 1 auto; min-width: 0; font: 700 var(--t16)/24px var(--font); color: var(--n900); letter-spacing: 0; overflow-wrap: anywhere; }
+.pq-name a { color: inherit; text-decoration: none; display: inline-block; padding: 10px 0; margin: -10px 0; }
+.pq-name a:hover { color: var(--p700); text-decoration: underline; }
+.pq-name .pq-on { font-weight: 400; color: var(--n500); }
+.pq-top .sv-chip { flex: none; }
+.pq-t { margin: 2px 0 0; font-size: var(--t16); line-height: 22px; color: var(--n900); overflow-wrap: anywhere; }
+.pq-t .sv-chip { margin-left: var(--s4); vertical-align: 1px; }
+.pq-meta { margin: 2px 0 0; font-size: var(--t14); line-height: 20px; color: var(--n500); }
+.pq-flag { display: flex; align-items: flex-start; gap: 6px; margin: var(--s4) 0 0; font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.pq-flag .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--n500); }
+.pq-flag.ok .ic { color: var(--ok-text); }   /* the database checked the side: the same green tick as "Nothing needs you today" */
+.pq-flag.look { font-weight: 700; color: var(--n900); }   /* a closer look: said in words and weight, not a colour (A-5) */
+.pq-line { margin: var(--s4) 0 0; font-size: var(--t14); line-height: 20px; color: var(--n700); overflow-wrap: anywhere; }
+.pq-line b { color: var(--n900); }
+.pq-more { margin-top: var(--s4); }
+.pq-more > summary { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--s8); margin-left: calc(-1 * var(--s8)); border-radius: var(--r8);
+  list-style: none; cursor: pointer; font-size: var(--t14); font-weight: 700; color: var(--p700); }
+.pq-more > summary::-webkit-details-marker { display: none; }
+.pq-more > summary:hover { background: var(--p50); }
+.pq-more > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; }
+.pq-more > summary .chev { width: 16px; height: 16px; transition: transform .15s; }
+.pq-more[open] > summary .chev { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .pq-more > summary .chev { transition: none; } }
+.pq-sec { margin-top: var(--s12); }
+.pq-sec + .pq-sec { padding-top: var(--s12); border-top: 1px solid var(--n100); }
+.pq-h4 { margin: 0 0 var(--s4); font: 700 var(--t14)/20px var(--font); color: var(--n900); letter-spacing: 0; }
+.pq-p { margin: 0; font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.pq-diff { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s8); }
+.pq-diff li { display: flex; flex-direction: column; gap: 2px; font-size: var(--t14); line-height: 20px; }
+.pq-diff b { color: var(--n900); }
+.pq-diff .pq-was { color: var(--n500); overflow-wrap: anywhere; }
+.pq-diff .pq-now { color: var(--n900); overflow-wrap: anywhere; }
+.pq-dl { margin: 0; font-size: var(--t14); line-height: 20px; }
+.pq-dl dt { margin-top: var(--s8); font-weight: 700; color: var(--n900); }
+.pq-dl dt:first-child { margin-top: 0; }
+.pq-dl dd { margin: 2px 0 0; color: var(--n700); overflow-wrap: anywhere; }
+.pq-dl .pq-n { font-weight: 400; color: var(--n500); margin-left: var(--s4); }
+.pq-pts { margin: 0; padding-left: 20px; }
+.pq-pts li + li { margin-top: 2px; }
+.pq-grade { font-size: var(--t13); color: var(--n500); white-space: nowrap; }
+.pq-grade.hi { font-weight: 700; color: var(--n700); }
+.pq-until { color: var(--n500); white-space: nowrap; }
+.pq-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); margin-top: var(--s12); }
+.pq-acts .btn.text { padding: 0 var(--s8); }
+/* the one line that counts groups to approve and requests to join (the Partners screen holds them) */
+.td-root .pq-gline { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); margin: var(--s8) 0 0; padding: var(--s4) var(--s4); font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.td-root .pq-gline > .ic { width: 18px; height: 18px; flex: none; color: var(--n500); }
+.td-root .pq-gline b { color: var(--n900); }
+.td-root .pq-golink { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 var(--s8); margin-left: auto; border-radius: var(--r8); font-weight: 700; color: var(--p700); text-decoration: none; }
+.td-root .pq-golink:hover { background: var(--p50); }
+.td-root .pq-golink .ic { width: 16px; height: 16px; }
+.td-root .td-group > .pq-gline { margin-top: var(--s8); }
+/* the ask on its own, just above Approve (R-328 G): what it says, what approving does with it, Also by text and its line */
+.pq-ask { margin-top: var(--s12); padding-top: var(--s12); border-top: 1px solid var(--n100); }
+.pq-ask .pq-h4 .pq-until { font-weight: 400; margin-left: var(--s4); }
+.pq-asktext { margin: 0; font-size: var(--t16); line-height: 22px; color: var(--n900); overflow-wrap: anywhere; }
+.pq-askwas { margin: 2px 0 0; font-size: var(--t14); line-height: 20px; color: var(--n500); overflow-wrap: anywhere; }
+.pq-askwhen { display: flex; align-items: flex-start; gap: 6px; margin: var(--s4) 0 0; font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.pq-askwhen .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--n500); }
+.pq-ask .sv-switchrow { margin-top: var(--s4); min-height: 48px; padding: var(--s4) 0; }
+.pq-ask .sv-switchrow .title { font-size: var(--t14); }
+.pq-ask .sv-switchrow .sub { line-height: 20px; }
+.pq-tline { margin-top: var(--s4); }
+.pq-tline[hidden] { display: none; }   /* .field is a flex column: the attribute alone would not hide it */
+.pq-tline .help { line-height: 20px; }
+.pq-thelp { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 var(--s12); }
+.pq-count { white-space: nowrap; margin-left: auto; }
+.pq-count.over { font-weight: 700; color: var(--n900); }   /* too long or too short: said in words and weight, not a colour (A-5) */
+.pq-terr .inlinemsg { margin-top: var(--s4); }
+/* the laptop's open item */
+.td-root .pq-pane .pq-name { font: 700 var(--t18)/24px var(--font-h); letter-spacing: -.005em; }
+.td-root .pq-pane .pq-t { margin-top: var(--s4); }
+.td-root .pq-pane .pq-acts { margin-top: var(--s16); }
+@media (min-width: 1100px) {
+  .td-root .pq-acts .btn { min-height: 36px; font-size: var(--t14); }
+  .td-root .pq-golink { min-height: 36px; }
+  .pq-more > summary { min-height: 36px; }
+}
+
+/* ---- the Partners screen ---- */
+.pg-page { padding-bottom: var(--s32); }
+.pg-page .sv-phead { margin-bottom: var(--s16); }
+@media (max-width: 899px) { .pg-page .sv-phead .sv-pht > p { margin: 0 0 var(--s8); font-size: var(--t14); line-height: 20px; color: var(--n700); } .pg-page .sv-phead > .sv-phr .btn { flex: 1 1 auto; } }
+.pg-page > .sv-notice { margin-bottom: var(--s16); }
+.pg-cols { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: var(--s24); align-items: start; }
+.pg-sec + .pg-sec { margin-top: var(--s24); }
+.pg-h2 { display: flex; align-items: center; gap: var(--s8); margin: 0 0 var(--s8); font: 700 var(--t16)/24px var(--font-h); color: var(--n900); letter-spacing: 0; }
+.pg-h2 .n, .pg-h3 .n { font: 400 var(--t14)/20px var(--font); color: var(--n500); }
+.pg-rows { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); overflow: hidden; }
+.pg-row { position: relative; display: flex; flex-direction: column; gap: 2px; min-height: 56px; padding: 10px 44px 10px var(--s16); text-decoration: none; color: inherit; }
+.pg-row + .pg-row { border-top: 1px solid var(--n100); }
+.pg-row:hover { background: var(--n50); }
+.pg-row:focus-visible { outline: 2px solid var(--p700); outline-offset: -2px; }
+.pg-row.on { background: var(--p50); box-shadow: inset 3px 0 0 var(--p700); }
+.pg-rt { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); }
+.pg-rt b { font-size: var(--t16); line-height: 22px; color: var(--n900); overflow-wrap: anywhere; }
+.pg-rs { font-size: var(--t14); line-height: 20px; color: var(--n500); overflow-wrap: anywhere; }
+.pg-row .chev { position: absolute; right: var(--s12); top: 50%; width: 18px; height: 18px; margin-top: -9px; color: var(--n400); }
+.pg-none, .pg-foot { margin: var(--s8) 0 0; font-size: var(--t14); line-height: 20px; color: var(--n700); }
+/* partner asks going out (R-328 G): the group and the bill, the ask, where it stands; Take it back beside it */
+.pg-asks { margin: 0; padding: 0; list-style: none; }
+.pg-ask { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); padding: 10px var(--s16); }   /* the list column is narrow even on a laptop: the button goes under the ask */
+.pg-ask + .pg-ask { border-top: 1px solid var(--n100); }
+.pg-ab { display: flex; flex-direction: column; gap: 2px; min-width: 0; align-self: stretch; }
+.pg-at { font-size: var(--t14); line-height: 20px; color: var(--n700); overflow-wrap: anywhere; }
+.pg-at b { color: var(--n900); }
+.pg-at a { color: var(--p700); text-decoration: none; }
+.pg-at a:hover { text-decoration: underline; }
+.pg-aq { font-size: var(--t16); line-height: 22px; color: var(--n900); overflow-wrap: anywhere; }
+.pg-aa { display: flex; }
+.pg-fold { margin-top: var(--s4); }
+.pg-fold > summary .n { font-weight: 400; color: var(--n500); }
+.pg-fold > .pg-rows { margin-top: var(--s4); }
+.pg-askerr { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); }
+.pg-askerr > .ic { width: 18px; height: 18px; color: var(--n500); }
+.pg-foot a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-weight: 700; color: var(--p700); text-decoration: none; }
+.pg-foot a:hover { text-decoration: underline; }
+.pg-foot .ic { width: 18px; height: 18px; }
+.pg-detail { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: var(--s16); }
+.pg-one .pg-detail { border: 0; box-shadow: none; padding: 0; background: transparent; }
+.pg-dtop { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); }
+.pg-dname { margin: 0; flex: 0 1 auto; min-width: 0; font: 700 var(--t22)/28px var(--font-h); letter-spacing: -.01em; color: var(--n900); overflow-wrap: anywhere; }
+.pg-dtop > .iconbtn { margin: -6px -10px -6px auto; }
+.pg-about { margin: var(--s4) 0 0; font-size: var(--t14); line-height: 20px; color: var(--n700); overflow-wrap: anywhere; }
+.pg-about a, .pg-dl a { color: var(--p700); }
+.pg-about a .ic, .pg-dl a .ic { width: 14px; height: 14px; margin-left: 2px; vertical-align: -2px; }
+.pg-state { margin: var(--s12) 0 0; font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.pg-state > p { margin: 0 0 var(--s8); }
+.pg-state.pg-quiet { display: flex; align-items: flex-start; gap: var(--s8); }
+.pg-state.pg-quiet .ic { width: 18px; height: 18px; flex: none; margin-top: 1px; color: var(--n500); }
+.pg-dsec { margin-top: var(--s16); padding-top: var(--s16); border-top: 1px solid var(--n100); }
+.pg-h3 { display: flex; align-items: center; gap: var(--s8); margin: 0 0 var(--s8); font: 700 var(--t16)/24px var(--font); color: var(--n900); letter-spacing: 0; }
+.pg-link { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); }
+.pg-link code, .pg-slug code { font: 400 var(--t13)/20px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--n900); background: var(--n50); border: 1px solid var(--n100); border-radius: var(--r8); overflow-wrap: anywhere; }
+.pg-link code { flex: 1 1 240px; min-width: 0; padding: 6px var(--s8); }
+.pg-slug code { padding: 1px 4px; }
+.pg-p { margin: var(--s8) 0 0; font-size: var(--t14); line-height: 20px; color: var(--n700); overflow-wrap: anywhere; }
+.pg-counts { margin: var(--s4) 0 0; font-size: var(--t14); line-height: 20px; font-weight: 700; color: var(--n900); }
+.pg-people { margin: 0; padding: 0; list-style: none; }
+.pg-person { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "t a" "s a"; column-gap: var(--s12); align-items: center; padding: var(--s8) 0; }
+.pg-person + .pg-person { border-top: 1px solid var(--n100); }
+.pg-pt { grid-area: t; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); }
+.pg-pt b { font-size: var(--t16); line-height: 22px; color: var(--n900); overflow-wrap: anywhere; }
+.pg-ps { grid-area: s; font-size: var(--t14); line-height: 20px; color: var(--n500); overflow-wrap: anywhere; }
+.pg-pa { grid-area: a; display: flex; align-items: center; gap: var(--s4); }
+.pg-addp { margin: var(--s4) 0 0; }
+.pg-addp .btn.text { padding: 0 var(--s8); margin-left: calc(-1 * var(--s8)); }
+.pg-dl { margin: var(--s12) 0 0; font-size: var(--t14); line-height: 20px; }
+.pg-dl dt { margin-top: var(--s8); font-weight: 700; color: var(--n900); }
+.pg-dl dt:first-child { margin-top: 0; }
+.pg-dl dd { margin: 2px 0 0; color: var(--n700); overflow-wrap: anywhere; }
+.pg-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin-top: var(--s16); }
+.pg-slug { margin: 0 0 var(--s12); font-size: var(--t13); line-height: 20px; color: var(--n500); overflow-wrap: anywhere; }
+.pg-slug b { color: var(--bad-text); }
+.pg-check { display: flex; align-items: center; gap: var(--s8); min-height: 44px; font-size: var(--t14); color: var(--n900); }
+.pg-check input { width: 20px; height: 20px; flex: none; }
+.pg-copybox { width: 100%; box-sizing: border-box; }
+.pg-apl .sv-switchrow + .sv-switchrow { border-top: 1px solid var(--n100); }
+.field .opt { font-weight: 400; color: var(--n500); }
+/* a phone: a person's two buttons go under their name, at full touch size */
+@media (max-width: 599px) {
+  .pg-person { grid-template-columns: minmax(0, 1fr); grid-template-areas: "t" "s" "a"; row-gap: 2px; }
+  .pg-pa { margin-top: var(--s4); }
+  .pg-pa .btn { flex: 1 1 auto; }
+  .pg-acts .btn:not(.text) { flex: 1 1 auto; }
+}
+@media (min-width: 1100px) {
+  .pg-page .btn.sm { min-height: 36px; }
+  .pg-row { min-height: 52px; }
+}

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="only light"><!-- "only": phones that darken websites show the page as designed until dark mode is built (X9-1, DESIGN A-21) -->
+<meta name="theme-color" content="#FFFFFF">
+<meta name="robots" content="noindex">
+<title>Bill Tracker staff v6</title>
+<link rel="icon" href="pub/icon-192.png">
+<link rel="apple-touch-icon" href="pub/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<!-- R-277 fix 15 (E-8): the modules the first screen needs, asked for at once. Without these the browser finds them one import
+     level at a time (app.js, then today.js, then bill.js...), a round trip each on slow Capitol wifi. Screens not needed on
+     arrival (Session setup, Outreach's supporters and emails, Sort new bills, the partner update, My settings) load when
+     opened (app.js lazy). tests/staff5_checks.py checks this list against app.js's imports. -->
+<link rel="modulepreload" href="staff6/app.js">
+<link rel="modulepreload" href="staff6/data.js">
+<link rel="modulepreload" href="staff6/ui.js">
+<link rel="modulepreload" href="pub/art.js">
+<link rel="modulepreload" href="staff6/errlog.js">
+<link rel="modulepreload" href="staff6/model.js">
+<link rel="modulepreload" href="staff6/today.js">
+<link rel="modulepreload" href="staff6/review.js">
+<link rel="modulepreload" href="staff6/inbox.js">
+<link rel="modulepreload" href="staff6/bill.js">
+<link rel="modulepreload" href="staff6/bills.js">
+<link rel="modulepreload" href="staff6/asks.js">
+<link rel="modulepreload" href="staff6/legislators.js">
+<link rel="modulepreload" href="staff6/legislator.js">
+<link rel="modulepreload" href="staff6/search.js">
+<link rel="modulepreload" href="pub/suggest.js">
+<link rel="modulepreload" href="pub/ui.js">
+<link rel="modulepreload" href="staff6/lists.js">
+<link rel="modulepreload" href="staff6/issues.js">
+<link rel="modulepreload" href="staff6/myissues.js">
+<link rel="modulepreload" href="staff6/composer.js">
+<link rel="modulepreload" href="staff6/help.js">
+<link rel="modulepreload" href="staff6/hearing.js">
+<link rel="modulepreload" href="staff6/coalition.js">
+<link rel="modulepreload" href="stops.js">
+<link rel="modulepreload" href="icons.js">
+<link rel="modulepreload" href="staff6/testimony.js">
+<link rel="modulepreload" href="staff6/look.js">
+<link rel="modulepreload" href="staff6/billpane.js">
+<link rel="modulepreload" href="staff6/prep.js">
+<link rel="modulepreload" href="staff6/pathway.js">
+<link rel="modulepreload" href="staff6/activity.js">
+<link rel="modulepreload" href="staff6/public.js">
+<link rel="modulepreload" href="staff6/conflict.js">
+<link rel="modulepreload" href="staff6/untracked.js">
+<link rel="modulepreload" href="staff6/standing.js">
+<link rel="modulepreload" href="staff6/filters.js">
+<link rel="modulepreload" href="staff6/bulk.js">
+<link rel="modulepreload" href="staff6/conversation.js">
+<link rel="modulepreload" href="pub/kernel.js">
+<link rel="modulepreload" href="staff6/firstvisit.js">
+<link rel="modulepreload" href="staff6/issuestand.js">
+<link rel="modulepreload" href="staff6/partnerq.js">
+<link rel="modulepreload" href="share-icon.js">
+<link rel="modulepreload" href="pub/i18n.js">
+<link rel="modulepreload" href="staff6/qr.js">
+<link rel="modulepreload" href="staff6/push.js">
+<link rel="modulepreload" href="staff6/holding.js">
+<link rel="modulepreload" href="staff6/moved.js">
+<link rel="modulepreload" href="staff6/terms.js">
+<link rel="modulepreload" href="pub/words/live.js">
+<link rel="stylesheet" href="pub/base.css">
+<link rel="stylesheet" href="staff6/staff.css">
+<link rel="stylesheet" href="staff6/css/today.css">
+<link rel="stylesheet" href="staff6/css/bill.css">
+<link rel="stylesheet" href="staff6/css/testimony.css">
+<link rel="stylesheet" href="staff6/css/bills.css">
+<link rel="stylesheet" href="staff6/css/legislators.css">
+<link rel="stylesheet" href="staff6/css/triage.css">
+<link rel="stylesheet" href="staff6/css/supporters.css">
+<link rel="stylesheet" href="staff6/css/lists.css">
+<link rel="stylesheet" href="staff6/css/issues.css">
+<link rel="stylesheet" href="staff6/css/conversation.css">
+<link rel="stylesheet" href="staff6/css/hearing.css">
+<link rel="stylesheet" href="staff6/css/coalition.css">
+<link rel="stylesheet" href="staff6/css/inbox.css">
+<link rel="stylesheet" href="staff6/css/partners.css">
+</head>
+<body class="staff2 staff3 staff4 staff5 staff6">
+<!-- Drawn by the page itself, before any script arrives: on a slow Capitol connection the 30-odd module files take
+     seconds, and an empty page reads as broken. If the code never arrives, this becomes "Try again". -->
+<style>
+.boot0 { min-height: 100vh; display: flex; flex-direction: column; background: #F2F6F9; font-family: Lato, system-ui, sans-serif; color: #33464F; }
+.boot0 .bar { height: 56px; background: #fff; border-bottom: 1px solid #DDE5EA; display: flex; align-items: center; padding: 0 16px; font: 700 18px/1 Roboto, system-ui, sans-serif; color: #0F2A36; }
+.boot0 .msg { padding: 32px 16px; max-width: 720px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+.boot0 h1 { font: 700 22px/1.25 Roboto, system-ui, sans-serif; color: #0F2A36; margin: 0 0 8px; }
+.boot0 p { margin: 0 0 16px; font-size: 16px; }
+.boot0 button { min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: #00698E; color: #fff; font: 700 16px Lato, system-ui, sans-serif; cursor: pointer; }
+</style>
+<div id="app"><div class="boot0" role="status"><div class="bar">Bill Tracker</div><div class="msg"><p>Loading the tracker…</p></div></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+function bootFail() { var a = document.getElementById('app'); if (!a || !a.querySelector('.boot0 [role], .boot0')) return; if (a.querySelector('.boot0')) a.innerHTML = '<div class="boot0"><div class="bar">Bill Tracker</div><main class="msg"><h1>We could not load the tracker</h1><p>Check your connection and try again.</p><button type="button" onclick="location.reload()">Try again</button></main></div>'; }
+window.__bootT = setTimeout(bootFail, 20000);
+</script>
+<script type="module" src="staff6/app.js" onerror="bootFail()"></script>
+</body>
+</html>
