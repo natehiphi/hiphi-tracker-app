@@ -14,8 +14,8 @@
 // teammate to (migration 064); the row is a bill with a position, so the hearing reaches their calendar invite.
 import { S, DB, esc, fmtDT, advocate, capitolUrl, hooks } from './data.js';
 import { codesOf, draftFor, attendees, billById, billSay, legsOf, stanceOf, OUTCOME_LABEL, hearingAhead, shareKit, billByRef,
-  billRoute, whenAt, lateLine, isDecision, sittingDraft, earlierFiled, draftHearing, movedFrom, streamOf } from './model.js';
-import { icon, btn, iconBtn, empty, toast, pickerSheet, openSheet, closeSheet, field, showAllBtn } from './ui.js';
+  billRoute, whenAt, lateLine, isDecision, sittingDraft, earlierFiled, draftHearing, movedFrom, streamOf, publicResponse } from './model.js';
+import { icon, btn, iconBtn, empty, toast, pickerSheet, openSheet, closeSheet, field, showAllBtn, POS_WORD } from './ui.js';
 import { teamFirst, filerOf } from './model.js';
 import { legName, partyDist, legHref, wireLinks } from './pathway.js';
 import { rerender, viewIsNew } from './bill.js';
@@ -103,16 +103,36 @@ function cardHTML(c) {
     .replace(/<a class="v6-hcard-mon"[\s\S]*?<\/a>/, '');
   // A cancelled sitting that the Capitol moved: say where it went, not "no new date yet" (W53).
   if (c.cancelled) { const n = newSitting(c.rows[0]); if (n) html = html.replace('Cancelled, no new date yet', `Cancelled · moved to ${esc(`${dayWords(n.scheduled_at)}, ${timeWords(n.scheduled_at)}`)}`); }
+  // On its own page, each bill also says where we stand and whose it is, and the public's numbers (v5's agenda did, F129;
+  // whoever goes to the Capitol, a stand-in too, needs "Strong support · Kevin's" at hand). Hearings' week and Today keep
+  // the card's one line. (Shared change asked: a hearingCard option for this line, so it is not set into the HTML here.)
+  for (const x of c.items) { if (!isPos(x.b)) continue;
+    const at = `<a class="v6-hcard-bl" href="${esc(billRoute(x.b))}">`, i = html.indexOf(at); if (i < 0) continue;
+    const j = html.indexOf('</a>', i); if (j < 0) continue;
+    html = html.slice(0, j) + `<span class="hr-bfacts">${esc(factsOf(x.b))}</span>` + html.slice(j);
+  }
   return html;
+}
+// "Strong support · Kevin's bill · Public: 43 follow, 12 emailed": the position, whose bill, and the public's numbers,
+// each only from 10 people (the team's rule for group counts, spec 2), so no one person can be picked out.
+function factsOf(b) {
+  const own = (S.assignments?.[b.id] || [])[0], a = own && advocate(own);
+  const whose = !own ? 'No owner yet' : own === S.me?.id ? 'Your bill' : a ? `${first(a)}’s bill` : '';
+  const c = publicResponse(b) || {}, ten = n => (n || 0) >= 10;
+  const pub = [ten(c.followers) ? `${c.followers} follow` : '', ten(c.emails) ? `${c.emails} emailed` : '', ten(c.testimonies) ? `${c.testimonies} testified` : '', ten(c.attending) ? `${c.attending} plan to attend` : ''].filter(Boolean).join(', ');
+  return [POS_WORD[b.position] || '', whose, pub ? `Public: ${pub}` : ''].filter(Boolean).join(' · ');
 }
 // When written testimony is due for the bills still to file: "Written testimony due Tue 3/17, 1:00 PM". Past the deadline
 // and before the sitting starts, the Capitol still takes it: "Written testimony: late, still accepted until 9:30 AM" (said,
 // not coloured here: each bill's own line carries its colour for the person whose step it is, D3).
-function dueHTML(c) {
+// Said once (A-14): when the card's bill lines already give that time ("Resubmit · due today 9:30 AM"), this line goes.
+function dueHTML(c, card = '') {
   const { over, cancelled, started, items } = c; if (over || cancelled || started) return '';
   const open = items.filter(x => isPos(x.b) && x.h.status !== 'cancelled' && draftOf(x)?.status !== 'filed' && !earlierFiled(x.h, x.b.id));
   const due = open.map(x => dueOf(x.h)).sort()[0]; if (!due) return '';
   const past = new Date(due) <= Date.now();
+  const lines = (card.match(/<ul class="v6-hcard-bills">[\s\S]*?<\/ul>/)?.[0] || '').replace(/<[^>]+>/g, '');
+  if (lines.includes(timeWords(past ? c.h.scheduled_at : due))) return '';
   return `<p class="hr-due">${icon('clock')}<span>${nw(esc(past ? `Written testimony: ${lateLine(c.h.scheduled_at, { lower: true })}` : `Written testimony due ${whenAt(due)}`))}</span></p>`;
 }
 // A cancelled sitting points to where each bill is heard next, so the page is never a dead end (B-3), and asks whoever was
@@ -169,6 +189,10 @@ function shareHTML(c) {
   if (c.over || c.cancelled || !c.items.some(x => isPos(x.b) && x.b.is_public && x.h.status !== 'cancelled')) return '';
   return `<a class="hr-share" id="hr-kit" href="#/outreach">${icon('megaphone')}<span class="hr-door-t"><span class="hr-door-l">Rally the public for this hearing</span><span class="hr-door-s">The ask, its link and a ready message are on This week’s asks</span></span>${icon('chevron-right', { cls: 'v6-chev' })}</a>`;
 }
+// "Democrat, House district 44": the party and the seat in words, not "D-HD 44" (rule 7.12, C-10: no codes in rows).
+const PARTY = { D: 'Democrat', R: 'Republican', I: 'Independent', G: 'Green', L: 'Libertarian' };
+const seatWords = l => { const p = PARTY[String(l.party || '').trim().toUpperCase()] || l.party || '';
+  return [p, l.district != null && l.district !== '' ? `${l.chamber === 'S' ? 'Senate' : 'House'} district ${l.district}` : ''].filter(Boolean).join(', '); };
 // The members, chair first, each with where they stand on this sitting's bills with a position (only stances someone
 // recorded). Long lists show the first rows; "Show all" opens the rest in place (remembered for this visit).
 function membersHTML(c) {
@@ -183,7 +207,7 @@ function membersHTML(c) {
     // A joint referral names the committee in words, never its code (D15): "Chair of Commerce".
     const r = joint ? codes.filter(k => m.roles[k]).map(k => m.roles[k] === 'member' ? '' : `${role(m.roles[k])} of ${committeeName(k, { chamber: false })}`).filter(Boolean).join(', ') || 'Member' : role(m.role);
     const st = [yes ? `for ${yes}` : '', no ? `against ${no}` : ''].filter(Boolean).join(', ');
-    return itemRow({ key: String(m.l.id), name: legName(m.l), line: esc([r, partyDist(m.l), st ? `on these bills: ${st}` : ''].filter(Boolean).join(' · ')), href: legHref(m.l) });
+    return itemRow({ key: String(m.l.id), name: legName(m.l), line: esc([r, seatWords(m.l), st ? `on these bills: ${st}` : ''].filter(Boolean).join(' · ')), href: legHref(m.l), cls: 'hr-mrow' });
   });
   const lead = pos[0]?.b;
   // v3: the stance pickers are in Committees on the bill's page; the door lands there (a button, not a link inside a
@@ -211,11 +235,12 @@ function backOf(route) {
 
 function pageHTML(c, back) {
   const deskback = `<a class="hr-deskback" href="${esc(back.href)}" data-back>${icon('chevron-left')}<span>${esc(back.label)}</span></a>`;
+  const card = cardHTML(c);
   return `<div class="hr-page">
     ${deskback}
     <h1 class="v6-ptitle hr-h1">${esc(nameOf(c.h))}</h1>
-    ${cardHTML(c)}
-    ${dueHTML(c)}
+    ${card}
+    ${dueHTML(c, card)}
     ${cancelledHTML(c)}
     ${resultsHTML(c)}
     ${monitoredHTML(c)}

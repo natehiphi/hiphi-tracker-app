@@ -2,6 +2,14 @@
    it brings that one in (shared change asked: link staff6/css/hearings.css in staff6.html, then drop this line). */
 @import url('hearings.css');
 
+/* each bill's position, whose it is and the public's numbers, on the sitting's own card (F129) */
+body.staff6 .hr-page .hr-bfacts { display: block; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
+/* a committee member's row opens their page: a quiet chevron says so (critic A-12) */
+body.staff6 .hr-page .hr-mrow .v6-row-main { position: relative; padding-right: 36px; }
+body.staff6 .hr-page .hr-mrow .v6-row-main::after { content: ''; position: absolute; right: 8px; top: 50%; width: 20px; height: 20px; margin-top: -10px; background: var(--v6-muted);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") center / 20px 20px no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") center / 20px 20px no-repeat; }
+
 /* Staff v6 · one sitting, #/hearing/<id> (R-336 spec 4 and 6; F107, F129, F131, F133). Led by the big hearing card
    (steps.css .v6-hcard.big), then the deadline, the results, the monitored bills, the doors to the notice, the video and
    This week's asks, admins' who is going, and the members. One reading column, roomy and soft: tokens only

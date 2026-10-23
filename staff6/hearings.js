@@ -2,10 +2,11 @@
 // for two jobs, one page tab each (D12):
 //   This week (#/hearings/week): one hearing card per sitting, day by day (steps.js hearingCard: time and room large, who is
 //     going with I'm going on the card, each of our bills with where its testimony stands). A sitting that moved says so,
-//     and someone still down for the old date is asked "still going?" above the new one (W53). Above the days, one line
-//     says how many bills still need a hearing and opens Get hearings (it replaces v5's deadline box over the grid); below
-//     them, the fenced "Also worth doing" ideas (F80: at most 5, never counted, never due, each says why, each can be done,
-//     put off or refused, with Undo). Hearings on bills we only monitor wait behind "+N on bills you monitor" (F68).
+//     and someone still down for the old date is asked "still going?" above the new one (W53). The Capitol's deadlines
+//     sit on their day. Under the days, one line says how many bills still need a hearing and opens Get hearings (it
+//     replaces v5's deadline box over the grid; the Get hearings tab carries the count), then the fenced "Also worth
+//     doing" ideas (F80: at most 5, never counted, never due, each says why, each can be done, put off or refused, with
+//     Undo). Hearings on bills we only monitor wait behind "+N on bills you monitor" (F68).
 //   Get hearings (#/hearings/ask): the ONE open board (push.js askBoard), under each deadline in words, grouped by chair,
 //     soonest notice first: Ask · Ask for decision making · Waiting on a reply (They replied) · Scheduled (Say mahalo).
 // Both have the same visible scope switch: My bills · My coalitions · Team (?scope=, remembered per person).
@@ -15,10 +16,10 @@
 // deadlines are on each bill's line in the cards now, and to-dos are Today's), v5's deadline box with its push board, the
 // Team switch's week, and the two "who to ask" boards (this one and Holding's: Legislators > Who to ask draws askBoard).
 import { S, DB, esc, hooks, SESSION_OVER } from './data.js';
-import { billById, suggestions, SUGGEST_CAP, setSugg, suggState, billRoute, codesOf } from './model.js';
+import { billById, suggestions, SUGGEST_CAP, setSugg, suggState, billRoute, codesOf, deadlineCalendar, gateApplies, gateGloss } from './model.js';
 import { icon, btn, iconBtn, toast, segmented, menuSheet } from './ui.js';
 import { hearingCard, nameWords, numWords, sayWords, nw, dayWords, wireSteps } from './steps.js';
-import { askBoard, askSummary, scopesFor, defaultScope, scopeOk, whoseWords, coalOf, SCOPES } from './push.js';
+import { askBoard, askSummary, scopesFor, defaultScope, scopeOk, whoseWords, coalOf, SCOPES, freshScope } from './push.js';
 import { movedAskHTML, wireMoved, oldSitting, seedMoved } from './moved.js';
 
 const HR = 36e5, DAY = 864e5;
@@ -32,14 +33,19 @@ const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 const ms = t => new Date(t).getTime();
 
 // ---- whose hearings: the scope, from the address, else the person's last pick, else their usual (V13) ----
+// The pick is saved in the person's settings (as the monitored-bills switch is), so a phone and a laptop agree (critic
+// B-6); this browser's copy from the first build is still read, once, for anyone who picked before.
 const KEY = () => `hiphi6_hscope_${S.me?.id || ''}`;
 const remembered = () => { try { return localStorage.getItem(KEY()) || ''; } catch { return ''; } };
-const remember = v => { try { localStorage.setItem(KEY(), v); } catch { /* a private window: this visit only */ } };
+async function remember(v) {
+  try { localStorage.setItem(KEY(), v); } catch { /* a private window: this visit only */ }
+  try { await DB.patchPrefs({ hscope: v }); } catch { /* the address keeps it for this visit */ }
+}
 function scopeOf(route) {
-  const ok = scopesFor().map(x => x[0]), want = [route?.q?.scope, remembered()].find(x => x && ok.includes(x));
+  const ok = scopesFor().map(x => x[0]), want = [route?.q?.scope, S.me?.prefs?.hscope, remembered()].find(x => x && ok.includes(x));
   return want || defaultScope();
 }
-const switcher = scope => `<div class="hw-scope">${segmented('hscope', scopesFor(), scope, 'Whose hearings')}</div>`;
+const switcher = scope => segmented('hscope', scopesFor(), scope, 'Whose hearings');
 
 // ---- This week: the sittings, day by day ----
 // A sitting is every hearing row with one committee and start time (hearing.js sittingOf); it is in a view when one of
@@ -73,15 +79,34 @@ const hasWeek = scope => weekSittings(scope, mondayOf(Date.now())).some(x => !x.
 
 // The day's heading: "Today · Mon 3/16", "Tomorrow · Tue 3/17", "Wed 3/18".
 const dayHead = d => { const now = Date.now(); return d === hst(now) ? `Today · ${dayWords(d)}` : d === hst(now + DAY) ? `Tomorrow · ${dayWords(d)}` : dayWords(d); };
+// One sitting's card as This week shows it (critic A-24, A-14: the week at a glance). The day's heading already says the
+// day, so the card's own "Today" or "Tomorrow" goes, and "Watch it live" joins the going line instead of taking a line of
+// its own: about 50px less on today's cards, the day word less on all. (Shared change asked of steps.js: a hearingCard
+// option for this, so it is not done on the card's HTML here.)
+function weekCard(h) {
+  let html = hearingCard(h, { from: 'week' });
+  html = html.replace(/(<p class="v6-hcard-day">)[^<]*/, '$1');
+  const watch = html.match(/<p class="v6-hcard-watch">([\s\S]*?)<\/p>/);
+  if (watch && /<p class="v6-hcard-going">/.test(html)) html = html.replace(watch[0], '').replace(/(<p class="v6-hcard-going">[\s\S]*?<\/span>)/, `$1<span class="hw-watch">${watch[1]}</span>`);
+  return html;
+}
 // One sitting: the question about a moved sitting first (W53), then its card. A slot of its own around each card: the card
 // is a card, not a row of a list (D16 counts rows' buttons; the card carries I'm going and its bills' own buttons).
-const slot = x => `<div class="hw-slot">${movedAskHTML(x.h, btn)}${hearingCard(x.h, { from: 'week' })}</div>`;
+const slot = x => `<div class="hw-slot">${movedAskHTML(x.h, btn)}${weekCard(x.h)}</div>`;
+// The Capitol's deadlines that fall in the week, on their day, in a few plain words (v5's grid marked them; F77). Only the
+// ones that apply to this view's bills (a deadline that names its own bills, like the budget's, only for those).
+function capDays(scope, mon) {
+  const sun = addDays(mon, 6), list = (S.bills || []).filter(scopeOk(scope)), out = new Map();
+  for (const d of deadlineCalendar()) if (d.date >= mon && d.date <= sun && gateApplies(d, list)) { if (!out.has(d.date)) out.set(d.date, []); out.get(d.date).push(d); }
+  return out;
+}
+const capLine = ds => (ds || []).map(d => `<p class="hw-cap">${icon('landmark')}<span>${nw(esc(`Capitol deadline: ${d.label}`))}${gateGloss(d.label) ? `<span class="hw-cap-g"> · ${esc(gateGloss(d.label))}</span>` : ''}</span></p>`).join('');
 
-// The one line over the days (it replaces v5's deadline box): how many bills still need a hearing, and when the first
-// notice must post, opening Get hearings. Only this week, and only when there is something to ask.
-function askLine(scope) {
-  if (SESSION_OVER) return '';
-  const s = askSummary({ scope }); if (!s) return '';
+// The one line under the days (it replaces v5's deadline box over the grid): how many bills still need a hearing, and
+// the day to ask the first chair by, opening Get hearings. Under the days, not over them: who comes to see today's
+// hearing sees it first (critic A-1, P-1: the first card was at 460px on a phone); the tab carries the count too.
+function askLine(s, scope) {
+  if (SESSION_OVER || !s) return '';
   const href = `#/hearings/ask${scope !== defaultScope() ? `?scope=${scope}` : ''}`;
   return `<a class="hw-ask" href="${esc(href)}">${icon('flag')}<span class="hw-ask-t"><span class="hw-ask-n">${esc(s.words)}</span>${s.firstWords ? `<span class="hw-ask-s">${nw(esc(s.firstWords))}</span>` : ''}</span><span class="hw-ask-go">Get hearings${icon('chevron-right', { cls: 'v6-chev' })}</span></a>`;
 }
@@ -127,23 +152,34 @@ async function answerSugg(key, state) {
     { ok: state === 'done', undo: async () => { cancelLog(s.b, s.log); await DB.patchPrefs({ sugg: before }); hooks.render(); } });
 }
 
-function weekHTML(route, scope) {
-  const now = Date.now(), off = weekOff(route), mon = addDays(mondayOf(now), off * 7), sun = addDays(mon, 6), today = hst(now);
-  const all = weekSittings(scope, mon), monN = all.filter(x => x.mon).length, shown = all.filter(x => !x.mon || monOn());
+// The week's dates and Previous / Next, on the scope switch's line (critic A-1: one line, not two, over the first card).
+// This week's own dates say only "Mar 16 to 22" (the tab says "This week", A-14); on a phone they go, since each day's
+// heading has its date. Another week says which ("Next week · Mar 23 to 29") everywhere.
+function weekNav(route) {
+  const off = weekOff(route), mon = addDays(mondayOf(Date.now()), off * 7), sun = addDays(mon, 6);
   const range = `${fmt(mon, { month: 'short', day: 'numeric' })} to ${fmt(sun, fmt(mon, { month: 'short' }) === fmt(sun, { month: 'short' }) ? { day: 'numeric' } : { month: 'short', day: 'numeric' })}`;
-  const nav = `<div class="hw-nav"><p class="hw-range">${esc(off === 0 ? `This week · ${range}` : off === 1 ? `Next week · ${range}` : off === -1 ? `Last week · ${range}` : range)}</p>
+  const words = off === 0 ? range : off === 1 ? `Next week · ${range}` : off === -1 ? `Last week · ${range}` : range;
+  return `<div class="hw-nav${off === 0 ? ' now' : ''}"><p class="hw-range">${esc(words)}</p>
     <div class="hw-wbtns">${iconBtn('chevron-left', 'Previous week', { 'data-hweek': off - 1 })}${off ? btn('This week', { kind: 'text', sm: true, attrs: { 'data-hweek': 0 } }) : ''}${iconBtn('chevron-right', 'Next week', { 'data-hweek': off + 1 })}</div></div>`;
+}
+// On a phone, this week's Previous and Next sit under the days instead (the first hearing comes first, critic A-1; a
+// three-way switch and the arrows do not fit one phone line). Another week keeps them at the top, where its dates are.
+const footNav = route => weekOff(route) ? '' : `<p class="hw-footnav">${btn('Last week', { kind: 'text', sm: true, icon: 'chevron-left', attrs: { 'data-hweek': -1 } })}${btn('Next week', { kind: 'text', sm: true, iconEnd: 'chevron-right', attrs: { 'data-hweek': 1 } })}</p>`;
+function weekHTML(route, scope, sum) {
+  const now = Date.now(), off = weekOff(route), mon = addDays(mondayOf(now), off * 7), today = hst(now);
+  const all = weekSittings(scope, mon), monN = all.filter(x => x.mon).length, shown = all.filter(x => !x.mon || monOn()), caps = capDays(scope, mon);
   // Days already over this week fold into one line ("Earlier this week: 2 hearings held"): what is done may fold (7.3).
-  const days = [...new Set(shown.map(x => x.day))].sort();
+  const days = [...new Set([...shown.map(x => x.day), ...caps.keys()])].sort();
   const past = off === 0 ? days.filter(d => d < today) : [], ahead = days.filter(d => !past.includes(d));
-  const dayHTML = d => `<section class="hw-day${d === today ? ' today' : ''}" aria-labelledby="hw-d-${d}"><h2 class="hw-dh" id="hw-d-${d}">${esc(dayHead(d))}</h2>${shown.filter(x => x.day === d).map(slot).join('')}</section>`;
+  const dayHTML = d => `<section class="hw-day${d === today ? ' today' : ''}" aria-labelledby="hw-d-${d}"><h2 class="hw-dh" id="hw-d-${d}">${esc(dayHead(d))}</h2>${capLine(caps.get(d))}${shown.filter(x => x.day === d).map(slot).join('')}</section>`;
   const n = d => shown.filter(x => x.day === d).length, np = past.reduce((k, d) => k + n(d), 0);
-  const earlier = past.length ? `<details class="hw-earlier"${S.hwEarlier ? ' open' : ''}><summary>${icon('history')}<span>Earlier this week: ${esc(plural(np, 'hearing'))} held</span>${icon('chevron-down', { cls: 'hw-chev' })}</summary>${past.map(dayHTML).join('')}</details>` : '';
+  const earlier = past.length ? `<details class="hw-earlier"${S.hwEarlier ? ' open' : ''}><summary>${icon('history')}<span>${esc(np ? `Earlier this week: ${plural(np, 'hearing')} held` : 'Earlier this week')}</span>${icon('chevron-down', { cls: 'hw-chev' })}</summary>${past.map(dayHTML).join('')}</details>` : '';
   const whose = scope === 'team' ? 'the team’s bills' : whoseWords(scope);
   const when = off === 0 ? 'this week' : off === 1 ? 'next week' : off === -1 ? 'last week' : 'that week';
-  const none = !ahead.length ? `<p class="hw-none">${icon('calendar')}<span>${esc(past.length ? `No more hearings on ${whose} ${when}.` : `No hearings on ${whose} ${when}.`)}</span></p>` : '';
+  const anyAhead = ahead.some(d => n(d));
+  const none = !anyAhead ? `<p class="hw-none">${icon('calendar')}<span>${esc(np ? `No more hearings on ${whose} ${when}.` : `No hearings on ${whose} ${when}.`)}</span></p>` : '';
   const monBtn = monN ? `<p class="hw-mon">${btn(monOn() ? `Hide the ${plural(monN, 'hearing')} on bills ${scope === 'team' ? 'the team monitors' : 'you monitor'}` : `+${plural(monN, 'hearing')} on bills ${scope === 'team' ? 'the team monitors' : 'you monitor'}`, { kind: 'text', sm: true, icon: monOn() ? 'eye-off' : 'eye', attrs: { 'data-hwmon': '1', 'aria-pressed': String(monOn()) } })}</p>` : '';
-  return `${off === 0 ? askLine(scope) : ''}${nav}${earlier}${none}${ahead.map(dayHTML).join('')}${monBtn}${off === 0 ? suggHTML(suggList(scope)) : ''}`;
+  return `${earlier}${none}${ahead.map(dayHTML).join('')}${monBtn}${footNav(route)}${off === 0 ? askLine(sum, scope) : ''}${off === 0 ? suggHTML(suggList(scope)) : ''}`;
 }
 
 // ---- Get hearings ----
@@ -160,8 +196,12 @@ const viewOf = (route, scope) => route.view === 'week' || route.view === 'ask' ?
   : route.q?.w ? 'week'   // v5's #/?view=week&w=1 (another week) is always the week
   : boardHas(scope) && !hasWeek(scope) ? 'ask' : 'week';
 const boardHas = scope => !!askSummary({ scope });
-function tabs(view) {
-  return `<nav class="sv-tabrow sv-secnav" aria-label="Hearings"><a href="#/hearings/week"${view === 'week' ? ' aria-current="page"' : ''}>This week</a><a href="#/hearings/ask"${view === 'ask' ? ' aria-current="page"' : ''}>Get hearings</a></nav>`;
+// The page tabs (ui.js sectionNav's words and look; its This week address is #/hearings, which may open Get hearings by the
+// rule above, so the tabs name their views). Get hearings carries how many bills are still to ask (sectionNav's count), so
+// the number is in view without a card over the week (critic A-1).
+function tabs(view, sum) {
+  const n = sum?.toAsk || 0;
+  return `<nav class="sv-tabrow sv-secnav" aria-label="Hearings"><a href="#/hearings/week"${view === 'week' ? ' aria-current="page"' : ''}>This week</a><a href="#/hearings/ask"${view === 'ask' ? ' aria-current="page"' : ''}>Get hearings${n ? ` <span class="sv-tn" aria-hidden="true">${n}</span><span class="sr">, ${esc(plural(n, 'bill'))} to ask</span>` : ''}</a></nav>`;
 }
 
 export default {
@@ -170,12 +210,13 @@ export default {
   render(route) {
     if (!S.me) return `<h1 class="v6-ptitle sv-h1">Hearings</h1><p class="hw-none">${icon('info')}<span>You are signed in, but the tracker does not know who you are yet. Ask your admin to add you.</span></p>`;
     seedMoved();   // the practice copy's moved sittings have someone down for the old date (W53), as Today's
-    const scope = scopeOf(route), view = viewOf(route, scope);
+    freshScope();   // who has a step on which bill is worked out again for this draw (push.js scopeOk)
+    const scope = scopeOf(route), view = viewOf(route, scope), sum = SESSION_OVER ? null : askSummary({ scope });
     return `<div class="hw-page v-${view}">
       <h1 class="v6-ptitle sv-h1">Hearings</h1>
-      ${tabs(view)}
-      ${switcher(scope)}
-      ${view === 'ask' ? askHTML(scope, route.view !== 'ask') : weekHTML(route, scope)}
+      ${tabs(view, sum)}
+      <div class="hw-bar">${switcher(scope)}${view === 'week' ? weekNav(route) : ''}</div>
+      ${view === 'ask' ? askHTML(scope, route.view !== 'ask') : weekHTML(route, scope, sum)}
     </div>`;
   },
   wire(route, root) {
@@ -183,8 +224,8 @@ export default {
     wireSteps(page, { after: () => hooks.render() });
     wireMoved(page, { toast, redraw: () => hooks.render() });
     const here = () => { const v = route.view === 'ask' || route.view === 'week' ? route.view : page.classList.contains('v-ask') ? 'ask' : 'week'; return `#/hearings/${v}`; };
-    page.querySelectorAll('[data-seg="hscope"]').forEach(el => el.onclick = () => {
-      const v = el.dataset.val; remember(v); S.hwRefocus = `[data-seg="hscope"][data-val="${v}"]`;
+    page.querySelectorAll('[data-seg="hscope"]').forEach(el => el.onclick = async () => {
+      const v = el.dataset.val; await remember(v); S.hwRefocus = `[data-seg="hscope"][data-val="${v}"]`;
       const w = weekOff(route); S.go(`${here()}?scope=${v}${w ? `&w=${w}` : ''}`, { replace: true, keepScroll: true });
     });
     page.querySelectorAll('[data-hweek]').forEach(el => el.onclick = () => {

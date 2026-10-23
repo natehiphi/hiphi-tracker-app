@@ -82,13 +82,41 @@ export async function recordAsk(items, answer = 'asked', { decide = false, note 
   if (answer === 'said_no' && next) setTimeout(() => saidNoSheet(list.map(x => x.b), list[0].code), DEMO ? 250 : 400);
 }
 
-// After the mail program opens: "Did you send it?"
+// The bills of one ask, each with a tick, all ticked (critic: one call about SB 2470 must not tell the team that SB 2695
+// and SB 3029 were asked too). Only when there are two or more.
+const billTicks = (bills, legend) => bills.length < 2 ? '' : `<fieldset class="ca-fs"><legend>${esc(legend)}</legend>${bills.map(b => `<label class="ca-ck"><input type="checkbox" name="ca-bill" value="${esc(b.id)}" checked><span>${esc(sayWords(b))}</span></label>`).join('')}</fieldset>`;
+const ticked = (d, bills) => bills.length < 2 ? bills.map(b => b.id) : [...d.querySelectorAll('[name="ca-bill"]:checked')].map(x => x.value);
+
+// After the mail program opens: "Did you send it?" One bill: Yes or Not yet (two clicks from the email, spec 8). Two or
+// more: the same question with each bill ticked, so a mail cut down to one bill records only that one.
 export function sentSheet(e) {
   if (!e || sheetOpen?.()) return;
   const bills = e.items.map(x => billById(x.id)).filter(Boolean), what = bills.length === 1 ? sayWords(bills[0]) : plural(bills.length, 'bill');
-  menuSheet({ title: 'Did you send it?', items: [
-    { label: 'Yes, I sent it', icon: 'send', sub: `Saved for the team: you asked ${e.who} for ${e.decide ? 'decision making' : bills.length > 1 ? `hearings on ${what}` : 'a hearing'}`, run: () => recordAsk(e.items, 'asked', { decide: e.decide }) },
+  if (bills.length < 2) return menuSheet({ title: 'Did you send it?', items: [
+    { label: 'Yes, I sent it', icon: 'send', sub: `Saved for the team: you asked ${e.who} for ${e.decide ? 'decision making' : 'a hearing'}`, run: () => recordAsk(e.items, 'asked', { decide: e.decide }) },
     { label: 'Not yet', icon: 'clock', sub: 'Nothing is saved; the button stays', run: () => {} }] });
+  openSheet({ title: 'Did you send it?', size: 'auto',
+    body: `<div class="ca-sheet"><p class="ca-lead">${esc(`To ${e.who} · ${what}`)}</p>${billTicks(bills, 'Which bills did it ask about?')}<p class="err" id="ca-err" role="alert" hidden>${icon('circle-alert')}Tick the bills the email asked about.</p></div>`,
+    foot: `${btn('Not yet', { kind: 'text', attrs: { 'data-no': '1' } })}${btn('Yes, I sent it', { kind: 'primary', icon: 'send', attrs: { 'data-go': '1' } })}`,
+    wire: d => {
+      d.querySelector('[data-no]').onclick = () => closeSheet();
+      d.querySelector('[data-go]').onclick = async () => {
+        const ids = new Set(ticked(d, bills)); if (!ids.size) { d.querySelector('#ca-err').hidden = false; return; }
+        await closeSheet({ silent: true });
+        await recordAsk(e.items.filter(x => ids.has(x.id)), 'asked', { decide: e.decide });
+      };
+    } });
+}
+// The asker's Follow up (Get hearings, spec 6 and 8): the same mail again ("Following up: …"), or what the chair said,
+// in one sheet, so the reply is two clicks from the row (F136) and the follow-up mail is too.
+export function followSheet(b, code, { mail = null } = {}) {
+  if (!b || sheetOpen?.()) return;
+  const m = chairMail(code), two = (m?.n || 1) > 1, a = chairAskOf(b, code);
+  const subs = { will_schedule: 'Record their reply', said_no: 'Record it, then see what to do next', left_message: 'Record it; the follow-up clock starts again' };
+  menuSheet({ title: esc(`Follow up with ${m?.who || 'the chair'}`), items: [
+    mail ? { label: `Email ${two ? 'the chairs' : 'the chair'} again`, icon: 'mail', sub: `Your mail again, its subject starting “Following up”${a ? ` (you asked ${dayAt(a.at)})` : ''}`, run: () => { location.href = mail.href; afterMail(mail.href); } } : null,
+    ...ASK_ANSWERS.filter(([k]) => k !== 'asked').map(([k, label, ic]) => ({ label, icon: ic, sub: subs[k] || '', run: () => recordAsk([{ id: b.id, code }], k) })),
+  ] });
 }
 // "They replied": the one-tap answers (Get hearings' Waiting on a reply rows, the step card, the "Asked by …" chip).
 export function answerSheet(ids, code) {
@@ -137,11 +165,12 @@ export function askAnotherWay(bills, code, { decide = false } = {}) {
   const body = `<div class="ca-sheet">
     <p class="ca-lead">${esc(`${joint ? 'The chairs' : chairs[0]?.who || 'The chair'} · ${what}`)}</p>
     ${who}
+    ${billTicks(list, 'Which bills was it about?')}
     <fieldset class="ca-fs"><legend>How did you ask?</legend><div class="ca-how">${HOW.map(([k, l], i) => `<label class="ca-rd"><input type="radio" name="ca-how" value="${k}"${i === 0 ? ' checked' : ''}><span>${esc(l)}</span></label>`).join('')}</div></fieldset>
     <div class="field"><label for="ca-note">What was said <span class="ca-sub">(optional)</span></label><textarea id="ca-note" rows="3" maxlength="1000" placeholder="They will look at it next week"></textarea></div>
     <label class="ca-ck ca-was"><input type="checkbox" id="ca-was" checked><span>This was an ask for a ${decide ? 'decision-making date' : 'hearing'}</span></label>
     <p class="ca-hint" id="ca-hint" aria-live="polite">Saved as the ask: the team sees who asked and when.</p>
-    <p class="err" id="ca-err" role="alert" hidden>${icon('circle-alert')}Pick the chair you asked.</p>
+    <p class="err" id="ca-err" role="alert" hidden>${icon('circle-alert')}<span id="ca-err-t">Pick the chair you asked.</span></p>
   </div>`;
   openSheet({ title: 'Log how you asked', size: 'auto', body, foot: btn('Save', { kind: 'primary', icon: 'check', attrs: { 'data-go': '1' } }),
     wire: d => {
@@ -150,14 +179,16 @@ export function askAnotherWay(bills, code, { decide = false } = {}) {
       d.querySelector('[data-go]').onclick = async () => {
         const how = HOW.find(h => h[0] === (d.querySelector('[name="ca-how"]:checked')?.value || 'phone')), note = d.querySelector('#ca-note').value.trim();
         const legs = joint ? [...d.querySelectorAll('[name="ca-leg"]:checked')].map(x => +x.value) : chairs.map(c => c.id);
-        if (joint && !legs.length) { err.hidden = false; return; }
+        if (joint && !legs.length) { d.querySelector('#ca-err-t').textContent = 'Pick the chair you asked.'; err.hidden = false; return; }
+        const ids = new Set(ticked(d, list)), picked = list.filter(b => ids.has(b.id));
+        if (!picked.length) { d.querySelector('#ca-err-t').textContent = 'Tick the bills you asked about.'; err.hidden = false; return; }
         const words = [how[2], note].filter(Boolean).join(' ');
         if (!was.checked) {   // a talk, not an ask: the conversation sheet takes this one's place, filled in
           const { logConversation } = await import('./conversation.js');
-          return logConversation({ bill: list[0], legislatorIds: legs.length ? legs : chairs.map(c => c.id), text: words });
+          return logConversation({ bill: picked[0], legislatorIds: legs.length ? legs : chairs.map(c => c.id), text: words });
         }
         await closeSheet({ silent: true });
-        await recordAsk(list.map(b => ({ id: b.id, code, legs })), 'asked', { decide, note: words });
+        await recordAsk(picked.map(b => ({ id: b.id, code, legs })), 'asked', { decide, note: words });
       };
     } });
 }

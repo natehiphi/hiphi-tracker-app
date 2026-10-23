@@ -8,9 +8,20 @@
 body.staff6 .hw-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; max-width: 880px; min-width: 0; }
 body.staff6 .hw-page > * { margin: 0; min-width: 0; }
 body.staff6 .hw-page > .sv-secnav { margin: -16px -4px -8px; }
-/* the scope switch: its own line under the tabs (spec 6: visible), wrapping before it ever runs off a phone */
-body.staff6 .hw-scope .sv-seg { flex-wrap: wrap; max-width: 100%; }
-@media (max-width: 380px) { body.staff6 .hw-scope .sv-seg { border-radius: var(--v6-r20); } body.staff6 .hw-scope .sv-seg button { padding: 0 12px; } }
+/* one line under the tabs: the scope switch (spec 6: visible) and, on This week, the week's dates with Previous and Next
+   (critic A-1: one line over the first card, not two). It wraps before anything runs off a phone. */
+body.staff6 .hw-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-width: 0; }
+body.staff6 .hw-bar .sv-seg { flex-wrap: wrap; max-width: 100%; }
+body.staff6 .hw-bar .hw-nav { margin: 0 0 0 auto; }
+@media (max-width: 380px) { body.staff6 .hw-bar .sv-seg { border-radius: var(--v6-r20); } body.staff6 .hw-bar .sv-seg button { padding: 0 12px; } }
+/* this week on a phone: the arrows go under the days (.hw-footnav), so the switch has the line to itself and the first
+   hearing comes sooner; each day's heading has its date. From 600px the foot's copy is not drawn. */
+body.staff6 .hw-footnav { display: none; }
+@media (max-width: 599.98px) {
+  body.staff6 .hw-bar .hw-nav.now { display: none; }
+  body.staff6 .hw-footnav { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin: -8px 0 0; }
+  body.staff6 .hw-footnav .btn { min-height: 44px; margin: 0; }
+}
 
 /* ---- This week ---- */
 /* the one line over the days: how many bills still need a hearing, opening Get hearings */
@@ -25,7 +36,7 @@ body.staff6 .hw-ask-go .v6-chev { width: 20px; height: 20px; }
 @media (hover: hover) and (pointer: fine) { body.staff6 .hw-ask:hover { box-shadow: var(--v6-sh2); } }
 body.staff6 .hw-ask:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 /* the week: its dates, then Previous and Next */
-body.staff6 .hw-nav { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 0 0 -8px; }
+body.staff6 .hw-nav { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 16px; }
 body.staff6 .hw-range { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); font-weight: 400; color: var(--v6-ink); }
 body.staff6 .hw-wbtns { display: flex; align-items: center; gap: 4px; }
 body.staff6 .hw-wbtns .iconbtn { width: 44px; height: 44px; border-radius: 50%; background: var(--v6-action-wash); color: var(--v6-action); }
@@ -33,6 +44,20 @@ body.staff6 .hw-wbtns .iconbtn { width: 44px; height: 44px; border-radius: 50%; 
 body.staff6 .hw-day { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 body.staff6 .hw-dh { margin: 0; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); color: var(--v6-ink); }
 body.staff6 .hw-slot { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; min-width: 0; }
+/* the card as the week shows it (critic A-24: the week at a glance): a little tighter, its day word gone (the heading
+   says it), "Watch it live" on the going line. Only here: Today and the sitting page keep the card as steps.css draws it.
+   (Shared change asked of steps.js / steps.css; until then this is the week's own.) */
+body.staff6 .hw-slot .v6-hcard { padding: 16px 24px; row-gap: 4px; }
+body.staff6 .hw-slot .v6-hcard-body { gap: 4px; }
+body.staff6 .hw-slot .v6-hcard-bill { min-height: 56px; }
+body.staff6 .hw-slot .v6-hcard-bl { padding: 8px 0; }
+body.staff6 .hw-slot .v6-hcard-going > .hw-watch { flex: none; }
+body.staff6 .hw-watch a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--v6-action); font-size: var(--v6-t16); }
+body.staff6 .hw-watch svg { width: 18px; height: 18px; color: var(--v6-action); }
+/* a Capitol deadline on its day: one quiet line under the day's heading */
+body.staff6 .hw-cap { display: flex; align-items: flex-start; gap: 10px; margin: -8px 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
+body.staff6 .hw-cap svg { width: 20px; height: 20px; flex: none; margin-top: 2px; color: var(--v6-muted); }
+body.staff6 .hw-cap-g { color: var(--v6-muted); }
 
 /* "You were going on Mon 2/9. It moved here: still going?" sits on the card's top edge (W53) */
 body.staff6 .hw-slot .mv-strip { margin: 0 0 -12px; padding: 12px 20px 24px; border-radius: var(--v6-r20) var(--v6-r20) 0 0; background: var(--v6-wash); }
@@ -91,7 +116,15 @@ body.staff6 .hg-cacts .btn { margin: 0; }
 body.staff6 .hg-chair > .hg-list { padding: 0; border-radius: 0; background: none; box-shadow: none; }
 body.staff6 .hg-chair > .hg-list .v6-row:first-child::before { content: ''; position: absolute; left: 8px; right: 8px; top: 0; height: 1px; background: var(--v6-hair); }
 body.staff6 .hg-r.k-will .v6-row-line svg, body.staff6 .hg-r.k-waiting .v6-row-line svg, body.staff6 .hg-r.k-ask .v6-row-line svg, body.staff6 .hg-r.k-giving .v6-row-line svg,
-body.staff6 .hg-r.k-said_no .v6-row-line svg, body.staff6 .hg-r.k-passed .v6-row-line svg, body.staff6 .hg-r.k-decide .v6-row-line svg { color: var(--v6-muted); }
+body.staff6 .hg-r.k-said_no .v6-row-line svg, body.staff6 .hg-r.k-passed .v6-row-line svg, body.staff6 .hg-r.k-decide .v6-row-line svg, body.staff6 .hg-r.k-later .v6-row-line svg { color: var(--v6-muted); }
+/* a row's "…" (its owner's rare choices for this bill): a 44px circle, quiet until pressed */
+body.staff6 .hg-r .iconbtn.hg-more { width: 44px; height: 44px; border-radius: 50%; color: var(--v6-muted); background: transparent; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .hg-r .iconbtn.hg-more:hover { background: var(--v6-wash); color: var(--v6-ink); } }
+body.staff6 .hg-r .iconbtn.hg-more:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+/* the group's foot: "Asked by phone or in person? Log it", quiet (F138) */
+body.staff6 .hg-log { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; margin: 0; padding: 4px 8px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
+body.staff6 .hg-log::before { content: ''; position: absolute; left: 8px; right: 8px; top: 0; height: 1px; background: var(--v6-hair); }
+body.staff6 .hg-log .btn { margin: 0; }
 body.staff6 .hg-how { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
 body.staff6 .hg-how a { display: inline-block; min-height: 24px; color: var(--v6-action); }
 @media (max-width: 767.98px) {
