@@ -78,7 +78,7 @@ function hitsHTML(l, q) {
 }
 
 function billRowHTML(l, x, b, i, n) {
-  const num = numOf(b), line = x.note ? `“${x.note}”` : b.is_public ? clip(b, 120) : 'Not public, so the public page leaves it out';
+  const num = numOf(b), line = x.note ? `“${x.note}”` : b.is_public ? clip(b, 90) : 'Not public, so the public page leaves it out';
   return `<li class="le-brow" data-bid="${esc(b.id)}">
     <span class="le-grip" data-grip="${esc(b.id)}" aria-hidden="true" title="Drag to reorder">${icon('grip-vertical')}</span>
     <a class="le-bmain" href="${billRoute(b)}"><span class="le-btop"><span class="le-bname">${esc(nameWords(b, 70))}</span><span class="le-bnum">${esc(numWords(b))}</span></span><span class="le-bline">${esc(line)}</span></a>

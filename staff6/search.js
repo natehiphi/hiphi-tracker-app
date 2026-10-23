@@ -53,6 +53,21 @@ const ownsBills = () => !!S.me && S.bills.some(b => (S.assignments?.[b.id] || []
 const approver = () => !!(me().is_admin || me().can_approve || me().is_reviewer);
 const sentAny = () => !!S.me && Object.values(S.drafts || {}).flat().some(d => d.submitted_by === S.me.id);
 const writes = () => ownsBills() || !(me().can_approve || me().is_reviewer) || sentAny();
+const SETUP_PARTS = [
+  ['Coalitions and their owners', '#/setup/coalitions', 'Each session', 'coalitions owners keywords slack channel'],
+  ['Session days and bill sync', '#/setup/sync', 'Each session', 'opening day sine die recess sync'],
+  ['Load the session’s bills', '#/setup/import', 'Each session', 'open states import tracked list spreadsheet load bills'],
+  ['Committee map', '#/setup/committees', 'Each session', 'committees house senate pairs chairs'],
+  ['Email sender and pause', '#/setup/email', 'Alerts', 'email sender postal address pause'],
+  ['Where hearing alerts post', '#/setup/alerts?part=r-where', 'Alerts', 'slack channel positions daily list hearing alerts'],
+  ['Message wording', '#/setup/templates', 'Alerts', 'templates slack messages wording'],
+  ['Connections and keys', '#/setup/keys', 'Connections', 'slack token google calendar youtube api key keys'],
+  ['Website embed', '#/setup/embed', 'Public page', 'embed website widget'],
+  ['A/B tests', '#/setup/tests', 'Public page', 'tests experiments'],
+  ['Tester sheet', '#/setup/room', 'Public page', 'qr testers room'],
+  ['Forget a person', '#/setup/privacy?part=forget', 'Privacy', 'forget delete erase privacy request'],
+  ['People’s lists', '#/setup/lists', 'Privacy', 'turn off a list harm lists'],
+];
 const PLACES = () => [
   { title: 'Today', href: '#/', icon: 'list-todo', sub: 'Your next step and what is due', key: KEY.today, also: 'home start my list to-do todo tasks due mine' },
   { title: 'Hearings', href: '#/hearings', icon: 'calendar-days', sub: 'This week’s hearings', key: KEY.hearings, also: 'this week week sittings calendar going attend' },
@@ -85,8 +100,11 @@ const PLACES = () => [
   { title: 'What moved', href: '#/help/moved', icon: 'route', sub: 'Help › where each v5 place is now', also: 'v5 moved old where is changed new app' },
   { title: 'Keyboard shortcuts', href: '#/help/keys', icon: 'keyboard', sub: 'Help › every key', key: KEY.keys, also: 'keys keyboard shortcuts hotkeys' },
   ...(isLead() ? [{ title: 'Team', href: '#/team', icon: 'users', sub: 'What is slipping, and who is on what', also: 'slipping team load everyone' }] : []),
-  ...(me().is_admin ? [{ title: 'People', href: '#/people', icon: 'user-round', sub: 'Everyone’s records; hand over and turn off', also: 'staff roles sign-in links leaving away' },
-    { title: 'Session setup', href: '#/setup', icon: 'sliders-horizontal', sub: 'The season checklist, alerts and connections', also: 'setup admin calendar deadlines slack email keys embed' }] : []),
+  ...(me().is_admin ? [{ title: 'People', href: '#/people', icon: 'user-round', sub: 'Everyone’s records; hand over and turn off', also: 'team staff roles sign-in link links turn off hand over leaving away admin approver second approver partner approver add a person' },
+    { title: 'Session setup', href: '#/setup', icon: 'sliders-horizontal', sub: 'The season checklist, alerts and connections', also: 'setup admin calendar deadlines slack email keys embed' },
+    // v5 named all 14 parts on every setup page; v6 puts them one tab deep, so search names each one (V32, the LEAD critic).
+    // Each address scrolls to its part and focuses it (setup.js PART and ?part=).
+    ...SETUP_PARTS.map(([title, href, grp, also]) => ({ title, href, icon: 'sliders-horizontal', sub: `Session setup › ${grp}`, also }))] : []),
   ...(admitsPartners() ? [{ title: 'Partners', href: '#/partners', icon: 'handshake', sub: 'Groups that write on the public tracker', also: 'partner groups partner words approve join requests invite' }] : []),
   // the coalitions, by their short name and their full one
   ...(S.campaigns || []).map(c => ({ title: c.name, href: `#/coalition/${encodeURIComponent(c.id)}`, icon: 'users', sub: `Coalition${c.public_name && c.public_name !== c.name ? ': ' + c.public_name : ''}`, also: `coalition ${c.public_name || ''}`, code: plain(c.name) })),

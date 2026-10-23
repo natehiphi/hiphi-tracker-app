@@ -481,9 +481,11 @@ body.staff6 .le-list .le-brow + .le-brow::before { content: ''; position: absolu
 body.staff6 .le-list .le-bmain { gap: 2px; }
 /* A bill's name is never cut (A-19): it wraps, and on a narrow row its number moves under it. */
 body.staff6 .le-list .le-btop { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s8); min-width: 0; }
-body.staff6 .le-list .le-bname { min-width: 0; overflow-wrap: anywhere; font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+body.staff6 .le-list .le-bname { min-width: 0; overflow-wrap: anywhere; font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 body.staff6 .le-list .le-bnum { flex: none; font-size: var(--v6-t14); color: var(--v6-muted); white-space: nowrap; }
-body.staff6 .le-list .le-bline { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+/* The line is already shortened to a sentence's start (list.js clip, 90 characters), so it wraps rather than being cut mid-word
+   by the row's width (nothing cut, A-1). */
+body.staff6 .le-list .le-bline { overflow-wrap: anywhere; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
 body.staff6 .le-list .le-bmain:hover .le-bname { color: var(--v6-action); text-decoration: underline; }
 body.staff6 .le-list .le-dragging { background: var(--v6-action-wash); box-shadow: var(--v6-sh2); }
 body.staff6 .le-list .le-hit .title, body.staff6 .le-list .le-hit .title b { color: var(--v6-ink); }
@@ -536,7 +538,7 @@ body.staff6 .fv-page .fv-sname { font-size: var(--v6-t16); }
 body.staff6 .fv-page .fv-table { font-size: var(--v6-t16); }
 body.staff6 .fv-page .fv-table th, body.staff6 .fv-page .fv-table td { border-top: 0; background-image: linear-gradient(var(--v6-hair), var(--v6-hair)); background-size: 100% 1px; background-repeat: no-repeat; color: var(--v6-body); }
 body.staff6 .fv-page .fv-table thead th { background: none; font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-muted); }
-body.staff6 .fv-page .fv-table tbody th { color: var(--v6-ink); font-weight: 600; }
+body.staff6 .fv-page .fv-table tbody th { color: var(--v6-ink); font-weight: 500; }
 body.staff6 .fv-page .fv-shead { background: none; font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); }
 body.staff6 .fv-page .fv-url { border: 0; border-radius: var(--v6-r12); background: var(--v6-wash); font-size: var(--v6-t16); }
 body.staff6 .fv-page .fv-urlbox .label { font-size: var(--v6-t16); }

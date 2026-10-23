@@ -62,7 +62,7 @@ body.staff6 .sp-table th.c-cb, body.staff6 .sp-table td.c-cb { padding: 0; text-
 body.staff6 .sp-cbl { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: 0 auto; cursor: pointer; }
 body.staff6 .sp-cbl input { width: 20px; height: 20px; margin: 0; accent-color: var(--v6-action); cursor: pointer; }
 body.staff6 .sp-table td.c-name, body.staff6 .sp-table td.c-where { white-space: normal; }
-body.staff6 .sp-nm { display: block; font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.staff6 .sp-nm { display: block; font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 body.staff6 .sp-table tr:hover .sp-nm, body.staff6 .sp-nm:hover { color: var(--v6-action); text-decoration: underline; }
 body.staff6 .sp-flag { display: block; font-size: var(--v6-t16); color: var(--v6-ink); }
 body.staff6 .sp-tagt { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -352,7 +352,7 @@ body.staff6 .ot-card > .ot-when { margin-top: calc(-1 * var(--s4)); }
 body.staff6 .ot-card:focus { outline: none; }
 body.staff6 .ot-card.hl { box-shadow: 0 0 0 3px var(--v6-action), var(--v6-sh2); }
 body.staff6 .ot-ctop { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--s8); min-width: 0; }
-body.staff6 .ot-name { margin: 0; font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); min-width: 0; overflow-wrap: anywhere; }
+body.staff6 .ot-name { margin: 0; font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); min-width: 0; overflow-wrap: anywhere; }
 body.staff6 .ot-name a { color: inherit; text-decoration: none; }
 body.staff6 .ot-name a:hover { color: var(--v6-action); text-decoration: underline; }
 body.staff6 .ot-num { font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); white-space: nowrap; }
@@ -396,7 +396,7 @@ body.staff6 .ot-pasks, body.staff6 .ot-land { margin-top: var(--v6-gap); }
 body.staff6 .ot-plist { list-style: none; margin: 0; padding: var(--s8) var(--s24); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
 body.staff6 .ot-plist li { position: relative; padding: var(--s12) 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); overflow-wrap: anywhere; }
 body.staff6 .ot-plist li + li::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
-body.staff6 .ot-plist b { color: var(--v6-ink); font-weight: 600; }
+body.staff6 .ot-plist b { color: var(--v6-ink); font-weight: 500; }
 body.staff6 .ot-plist a { color: var(--v6-ink); text-underline-offset: 3px; }   /* a bill's name, as on the cards (one link colour less) */
 body.staff6 .ot-plist a:hover { color: var(--v6-action); }
 body.staff6 .ot-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s12); }
@@ -430,7 +430,7 @@ body.staff6 .ot-part .bl-memo { border: 0; border-radius: var(--v6-r20); backgro
 body.staff6 .ot-part .bl-memo h2 { font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 body.staff6 .ot-part .bl-memo h3 { margin: var(--s24) 0 var(--s8); font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 body.staff6 .ot-part .bl-memo li { margin: var(--s8) 0; line-height: var(--v6-lh16); }
-body.staff6 .ot-part .bl-memo li a b { font-weight: 600; }
+body.staff6 .ot-part .bl-memo li a b { font-weight: 500; }
 body.staff6 .ot-part .bl-memo p:last-child { font-size: var(--v6-t16); color: var(--v6-muted); }
 body.staff6 .ot-part .ot-mcopy { flex: 1 1 100%; display: flex; gap: var(--s8); }
 @media (min-width: 768px) { body.staff6 .ot-part .bl-memo { padding: var(--s32); } }

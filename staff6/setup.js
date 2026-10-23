@@ -1119,12 +1119,6 @@ function renderGroup(key, route) {
 const backOf = k => SUB[k] ? { href: k === 'test' ? '#/setup/tests' : '#/setup/public', label: k === 'test' ? 'Tests' : 'Public page' } : null;
 const backLink = b => { if (!b) return ''; let from = ''; try { from = history.state?.d > 0 ? history.state?.from || '' : ''; } catch { from = ''; }
   return `<a class="pe-back" href="${esc(b.href)}" data-back>${icon('chevron-left')}<span>${esc(from || b.label)}</span></a>`; };
-// Below 768px the six tabs are one row that scrolls sideways (partners.css), so the open one is scrolled into sight.
-function placeTabs(root) {
-  const nav = root.querySelector('.ss-page .v6-tabs'), cur = nav?.querySelector('[aria-current="page"]'); if (!cur || nav.scrollWidth <= nav.clientWidth + 1) return;
-  const n = nav.getBoundingClientRect(), c = cur.getBoundingClientRect();
-  if (c.right > n.right - 16) nav.scrollLeft += c.right - n.right + 48; else if (c.left < n.left + 16) nav.scrollLeft -= n.left - c.left + 48;
-}
 // The Public page's own pages (the tests, one test, the tester sheet) keep v5's content under the place's tabs.
 function renderSub(key) {
   const p = PAGES[key], [ic, line] = p.status(), title = p.title ? p.title() : SUB[key];
@@ -1395,7 +1389,7 @@ export default {
   },
   wire(route, root) {
     if (!isAdmin()) return;
-    const k = keyOf(route); placeTabs(root);
+    const k = keyOf(route);
     if (SUB[k]) { const p = PAGES[k], form = root.querySelector('[data-stform]'); if (form && p.wire) p.wire(form, { refresh: () => hooks.render() });
       root.querySelector('[data-ssprint]')?.addEventListener('click', async e => { const b = e.currentTarget; if (b.getAttribute('aria-busy')) return; b.setAttribute('aria-busy', 'true');
         try { toast(await PAGES.room.save(), { ok: true }); } catch (er) { toast(er.message || String(er), { err: true }); } finally { b.removeAttribute('aria-busy'); } });

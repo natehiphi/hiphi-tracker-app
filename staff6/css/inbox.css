@@ -219,7 +219,7 @@ body.staff6 .me-page .me-opt input:focus-visible + .me-dot { outline: 3px solid 
 body.staff6 .me-page .me-opt:has(input:checked) { background: var(--v6-action-wash); }
 @media (hover: hover) and (pointer: fine) { body.staff6 .me-page .me-opt:not(:has(input:checked)):hover { background: var(--v6-wash); } }
 body.staff6 .me-page .me-optx { display: grid; gap: 2px; min-width: 0; }
-body.staff6 .me-page .me-optt { font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t18); line-height: var(--v6-lh18); color: var(--v6-ink); }
+body.staff6 .me-page .me-optt { font-family: Poppins, system-ui, sans-serif; font-weight: 500; font-size: var(--v6-t18); line-height: var(--v6-lh18); color: var(--v6-ink); }
 body.staff6 .me-page .me-opts { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); overflow-wrap: anywhere; }
 body.staff6 .me-page .me-opts b { color: var(--v6-ink); }
 body.staff6 .me-page .me-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 16px; }
@@ -258,3 +258,6 @@ body.staff6 .me-page .me-times .field { margin: 0; }
 .td-dinbox { display: flex; align-items: center; gap: var(--s8); margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n500); }
 .td-dinbox .ic { flex: none; width: 16px; height: 16px; }
 .td-dinbox a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
+/* Updates: a bill's change wraps rather than being cut beside the open item at 1280 (nothing cut). Messages keep their one-line
+   preview, the mail convention, since opening a row shows it whole. */
+body.staff6 .ib-page .ib-updrow .v6-row-name, body.staff6 .ib-page .ib-updrow .v6-row-line > span { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
