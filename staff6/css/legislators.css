@@ -669,4 +669,5 @@ body.staff6 :is(.lg6-gph, .lg6-pph) .lg-ph.none { font-weight: 400; }
 @media (max-width: 360px) {
   body.staff6 .lg6-tools .sv-seg { max-width: 100%; }
   body.staff6 .lg6-tools .sv-seg button { padding: 0 10px; white-space: nowrap; }
+  body.staff6 .lg6-hold .lg6-sum { margin-bottom: 8px; }   /* the first chair within 400px with three switch choices (A-1) */
 }
