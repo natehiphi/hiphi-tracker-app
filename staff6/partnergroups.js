@@ -35,6 +35,10 @@ const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 const ORDER = { waiting: 0, active: 1, paused: 2, link: 3 };
 const wide = () => { try { return matchMedia('(min-width: 1100px)').matches; } catch { return false; } };
 const redraw = () => { if (S.route?.name === 'pgroups') hooks.render(); };
+// Back above a page's title from 768px, as People's and the bill page's (B-4; partners.css .pe-back): it says what the
+// frame's Back says, the page this one was opened from, else its parent.
+const backLink = b => { let from = ''; try { from = history.state?.d > 0 ? history.state?.from || '' : ''; } catch { from = ''; }
+  return `<a class="pe-back" href="${esc(b.href)}" data-back>${icon('chevron-left')}<span>${esc(from || b.label)}</span></a>`; };
 
 // ---- loading: the groups once a visit (again after a change, or Refresh), the queue for requests ----
 function want({ force = false } = {}) {
@@ -48,6 +52,8 @@ const peopleOf = slug => (S.pg?.people || []).filter(p => p.partner_slug === slu
 const requests = () => (S.pq?.requests || []).slice().sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
 // Who can turn a waiting group on: an approver who did not add it.
 const approversFor = g => S.advocates.filter(a => approvesPartners(a) && a.id !== g.added_by).map(a => a.full_name.split(' ')[0]);
+// partnerq.js orList says "a second approver" for nobody, which is testimony's role (C-15); here nobody is "a partner approver".
+const pOr = names => names.length ? orList(names) : 'a partner approver who did not add it';
 const canApprove = g => g.status === 'waiting' && approvesPartners() && g.added_by !== S.me?.id;
 
 // ---- the list ----
@@ -57,7 +63,7 @@ function countsLine(g) {
     v ? `${v} first visit${v === 1 ? '' : 's'} by its link in 12 weeks${S.pg?.sample ? ' (sample)' : ''}` : ''].filter(Boolean);
 }
 function groupSub(g) {
-  if (g.status === 'waiting') return `Waits for ${orList(approversFor(g))} to approve`;
+  if (g.status === 'waiting') return `Waits for ${pOr(approversFor(g))} to approve`;
   if (g.status === 'paused') return 'Its words are off the tracker';
   if (g.status === 'link') return `Arrival link only: ?via=${g.slug}`;
   const c = S.pg?.counts?.[g.slug] || {}, n = peopleOf(g.slug).length;
@@ -65,8 +71,15 @@ function groupSub(g) {
 }
 // v6 rows (spec 5, 7.2): the name, then one line that starts with the state's word ("Active · 2 people · 3 bills live").
 // Active is the usual state and goes unsaid (status by exception, spec 7.7).
-const rowLine = g => g.status === 'active' ? groupSub(g) : g.status === 'waiting' ? `Waits for ${orList(approversFor(g))} to approve it`
-  : g.status === 'paused' ? 'Paused · its words are off the tracker' : `Link only · ?via=${g.slug}`;
+// A group waiting on the person reading says so in the second person (C-15: "Yours to approve"); a link-only row says what
+// the link does, not its code (spec 7.12), under a heading that already says "Link only" (A-14).
+function waitLine(g) {
+  const others = approversFor(g).filter(n => n !== firstName(S.me?.id));
+  const added = g.added_by ? ` · ${g.added_by === S.me?.id ? 'you added it' : `added by ${firstName(g.added_by)}`} ${whenAt(g.created_at)}` : '';   // who and when, as its panel says
+  return (canApprove(g) ? (others.length ? `Yours or ${orList(others)}’s to approve` : 'Yours to approve') : `Waits for ${pOr(approversFor(g))} to approve it`) + added;
+}
+const rowLine = g => g.status === 'active' ? groupSub(g) : g.status === 'waiting' ? waitLine(g)
+  : g.status === 'paused' ? 'Paused · its words are off the tracker' : ['Counts arrivals, does not write', ...countsLine(g).filter(x => /first visit/.test(x))].join(' · ');
 const rowA = (key, href, on, title, line) => itemRow({ key, name: title, line: esc(line), href, selected: on });
 const rowList = (label, rows) => `<div class="v6-list" role="list" aria-label="${esc(label)}">${rows.join('')}</div>`;
 // ---- partner asks going out (R-328 G) ----
@@ -106,7 +119,7 @@ function listHTML(sel) {
   const rq = requests(), gs = groups(), writing = gs.filter(g => g.status !== 'link'), links = gs.filter(g => g.status === 'link');
   const sec = (id, title, n, rows, more = '') => rows.length || more ? `<section class="pg-sec" aria-labelledby="pg-h-${id}"><h2 class="pg-h2" id="pg-h-${id}">${title}${n ? `<span class="n">${n}</span>` : ''}</h2>${rows.length ? rowList(title, rows) : ''}${more}</section>` : '';
   const gHref = g => `#/partners/${encodeURIComponent(g.slug)}`;
-  return asksHTML() + sec('rq', 'Asking to join', rq.length, rq.map(r => rowA('r:' + r.id, `#/partners/request/${r.id}`, sel === 'r:' + r.id, r.group_name, `Asks to join · from ${r.contact_name} · ${whenAt(r.created_at)}`)))
+  return asksHTML() + sec('rq', 'Asking to join', rq.length, rq.map(r => rowA('r:' + r.id, `#/partners/request/${r.id}`, sel === 'r:' + r.id, r.group_name, `From ${r.contact_name} · ${whenAt(r.created_at)}`)))
     + sec('gr', 'Groups that write', writing.length, writing.map(g => rowA('g:' + g.slug, gHref(g), sel === 'g:' + g.slug, g.name, rowLine(g))),
       writing.length ? '' : `<p class="pg-none">${admitsPartners() ? 'No groups yet. Add the first one, then its people.' : 'No groups yet.'}</p>`)
     + sec('ln', 'Link only', links.length, links.map(g => rowA('g:' + g.slug, gHref(g), sel === 'g:' + g.slug, g.name, rowLine(g))));
@@ -131,10 +144,10 @@ function groupHTML(g) {
   if (g.status === 'waiting') {
     const by = g.added_by ? firstName(g.added_by) : '', who = approversFor(g);
     state = canApprove(g)
-      ? `<div class="pg-state"><p>${esc(`Added by ${by || 'a teammate'} ${whenAt(g.created_at)}. Approve it to let its people sign in and write; every word they write still comes to you${otherApprovers().length ? ' or ' + orList(otherApprovers()) : ''} first.`)}</p>${btn('Approve the group', { icon: 'check', attrs: { 'data-pgok': g.slug } })}</div>`
-      : `<p class="pg-state pg-quiet">${icon('hourglass')}<span>${esc(`${g.added_by === S.me?.id ? 'You added it' : `Added by ${by || 'a teammate'}`} ${whenAt(g.created_at)}. It waits for ${orList(who)} to approve: whoever adds a group cannot approve it.`)}</span></p>`;
+      ? `<div class="pg-state"><p>${esc(`Added by ${by || 'a teammate'} ${whenAt(g.created_at)}. Approve it to let its people sign in and write; every word they write still comes to you${otherApprovers().length ? ' or ' + pOr(otherApprovers()) : ''} first.`)}</p>${btn('Approve the group', { icon: 'check', attrs: { 'data-pgok': g.slug } })}</div>`
+      : `<p class="pg-state pg-quiet">${icon('hourglass')}<span>${esc(`${g.added_by === S.me?.id ? 'You added it' : `Added by ${by || 'a teammate'}`} ${whenAt(g.created_at)}. It waits for ${pOr(who)} to approve: whoever adds a group cannot approve it.`)}</span></p>`;
   } else if (g.status === 'paused') state = `<div class="pg-state">${notice('warn', 'eye-off', `<b>Paused ${esc(dayWord(g.paused_at))}.</b> Its words are off the tracker until it is resumed.`, adm ? btn('Resume', { kind: 'secondary', icon: 'play', attrs: { 'data-pgset': 'resume', 'data-slug': g.slug } }) : '')}</div>`;
-  else if (g.status === 'active') state = `<p class="pg-state pg-quiet">${icon('circle-check')}<span>${esc(`Approved${g.approved_by ? ` by ${firstName(g.approved_by)}` : ''} ${dayWord(g.approved_at)}. Its people can sign in and write; you or ${orList(otherApprovers())} approve every word.`)}</span></p>`;
+  else if (g.status === 'active') state = `<p class="pg-state pg-quiet">${icon('circle-check')}<span>${esc(`Approved${g.approved_by ? ` by ${firstName(g.approved_by)}` : ''} ${dayWord(g.approved_at)}. Its people can sign in and write; you or ${pOr(otherApprovers())} approve every word.`)}</span></p>`;
   else state = `<div class="pg-state"><p>Its link counts arrivals and shows its welcome line. It does not write on the tracker.</p>${adm ? btn('Let it write on the tracker', { kind: 'secondary', icon: 'square-pen', attrs: { 'data-pgwrite': g.slug } }) : ''}</div>`;
   const about = [g.about ? esc(g.about) : '', g.website ? `<a href="${esc(g.website)}" target="_blank" rel="noopener">${esc(g.website.replace(/^https?:\/\//, '').replace(/\/$/, ''))}${icon('external-link')}</a>` : ''].filter(Boolean).join(' · ');
   return `<article class="pg-detail" aria-labelledby="pg-dh">
@@ -151,14 +164,15 @@ function requestHTML(r) {
   const adm = admitsPartners();
   return `<article class="pg-detail" aria-labelledby="pg-dh">
     <div class="pg-dtop"><h2 class="pg-dname" id="pg-dh">${esc(r.group_name)}</h2></div>
-    <p class="pg-about">${esc(`Asks to join: sent ${whenAt(r.created_at)} by ${r.contact_name}`)} · <a href="mailto:${esc(r.contact_email)}">${esc(r.contact_email)}</a></p>
+    <p class="pg-about">${esc(`${wide() ? 'Sent' : 'Asks to join: sent'} ${whenAt(r.created_at)} by ${r.contact_name}`)} · <a href="mailto:${esc(r.contact_email)}">${esc(r.contact_email)}</a></p>
     <dl class="pg-dl">${r.about ? `<dt>About the group</dt><dd>${esc(r.about)}</dd>` : ''}${r.website ? `<dt>Website</dt><dd><a href="${esc(r.website)}" target="_blank" rel="noopener">${esc(r.website)}${icon('external-link')}</a></dd>` : ''}
       ${r.note ? `<dt>Their note</dt><dd>${esc(r.note)}</dd>` : ''}<dt>Not a campaign</dt><dd>They said the group is not a candidate, a campaign or a party.</dd></dl>
     ${adm ? `<div class="pg-acts">${btn('Add as a group', { icon: 'plus', attrs: { 'data-pgfromrq': r.id, 'aria-haspopup': 'dialog' } })}${btn('Decline', { kind: 'text', attrs: { 'data-pgdecline': r.id } })}</div>
-      <p class="pg-p">Talk with them first if you need to: their email is above. Adding them makes a group that waits for ${esc(orList(otherApprovers()))} to approve.</p>` : ''}</article>`;
+      <p class="pg-p">Talk with them first if you need to: their email is above. Adding them makes a group that waits for ${esc(pOr(otherApprovers()))} to approve.</p>` : ''}</article>`;
 }
 
 // ---- the page ----
+const titleOf = route => (route.req && requests().find(x => x.id === route.req)?.group_name) || (route.id && (S.pg?.groups || []).find(x => x.slug === route.id)?.name) || 'Partners';
 function selected(route) {
   if (route.req) { const r = requests().find(x => x.id === route.req); return r ? { k: 'r:' + r.id, html: requestHTML(r) } : null; }
   if (route.id) { const g = (S.pg?.groups || []).find(x => x.slug === route.id); return g ? { k: 'g:' + g.slug, html: groupHTML(g) } : null; }
@@ -167,12 +181,14 @@ function selected(route) {
 function render(route) {
   want(); wantQueue(); wantAsks();
   const adm = admitsPartners();
-  const lede = adm ? 'Advocacy groups that write on the public tracker. A group you add goes live when a second approver approves it, and every word its people write comes to Nate or Jess first.'
-    : 'Advocacy groups that write on the public tracker. Only an admin or a partner approver adds and changes them.';
-  // F186: Invite a group and Make a link only in sight beside Add a group; who approves partners is said, and changed on
-  // each person's record in People.
-  const who = S.advocates.filter(a => approvesPartners(a)).map(a => a.full_name.split(' ')[0]);
-  const sub = `${esc(lede)}${S.me?.is_admin ? ` Partner approvers: ${esc(who.length ? who.join(' and ') : 'nobody yet')}. <span class="v6-nw"><a href="#/people">Change who in People</a>.</span>` : ''}`;
+  // F186: Invite a group and Make a link only in sight beside Add a group. Who approves partners is said once, from the
+  // Partner approver role on each person's record (A-14: the names were typed into one sentence and worked out in the next,
+  // and disagreed once the role moved), and changed in People. "you" for the reader (C-15).
+  const ap = S.advocates.filter(a => approvesPartners(a)), names = [...ap.filter(a => a.id === S.me?.id).map(() => 'you'), ...ap.filter(a => a.id !== S.me?.id).map(a => a.full_name.split(' ')[0])];
+  const goLive = pOr(otherApprovers());
+  const lede = !adm ? 'Advocacy groups that write on the public tracker. Only an admin or a partner approver adds and changes them.'
+    : `Advocacy groups that write on the public tracker. A group you add goes live when ${goLive} approves it, and every word its people write comes to ${names.length ? orList(names) : 'a partner approver'} first.`;
+  const sub = `${esc(lede)}${S.me?.is_admin ? ` <span class="v6-nw"><a href="#/people">Change who in People</a>.</span>` : ''}`;
   const head = (quiet = false) => placeHead('Partners', { sub, actions: adm ? `${btn('Add a group', { kind: quiet ? 'secondary' : 'primary', icon: 'plus', attrs: { 'data-pgadd': '1', 'aria-haspopup': 'dialog' } })}${btn('Invite a group', { kind: 'secondary', icon: 'mail-plus', attrs: { 'data-pginvite': '1', 'aria-haspopup': 'dialog' } })}${btn('Make a link only', { kind: 'secondary', icon: 'qr-code', href: '#/my-issues/all?view=links' })}` : '' });
   if (!S.pg) return `<div class="pg-page">${head()}${S.pgErr ? notice('bad', 'circle-alert', 'The partner groups did not load. Check your connection and try again.', btn('Try again', { kind: 'secondary', sm: true, attrs: { 'data-pgretry': '1' } })) : skeleton(3)}</div>`;
   const qerr = S.pqErr ? notice('warn', 'circle-alert', 'The requests to join did not load.', btn('Try again', { kind: 'text', sm: true, attrs: { 'data-pgretry': '1' } })) : '';
@@ -181,7 +197,8 @@ function render(route) {
   let sel = selected(route);
   if (!sel && !route.id && !route.req && wide()) { const r0 = requests()[0], g0 = groups()[0]; sel = r0 ? selected({ req: r0.id }) : g0 ? selected({ id: g0.slug }) : null; }
   const gone = (route.id || route.req) && !sel ? notice('info', 'info', route.req ? 'That request has been handled.' : 'That group is not on the list.', btn('See all partners', { kind: 'text', sm: true, href: '#/partners' })) : '';
-  if (!wide() && sel && (route.id || route.req)) return `<div class="pg-page pg-one">${sel.html}</div>`;
+  // Its own page names the group in its h1, under Back (the card's own name shows only on a phone, where the h1 is the top bar).
+  if (!wide() && sel && (route.id || route.req)) return `<div class="pg-page pg-one">${backLink({ href: '#/partners', label: 'Partners' })}<h1 class="v6-ptitle sv-h1 pg-oneh">${esc(titleOf(route))}</h1>${sel.html}</div>`;
   const list = `<div class="pg-list">${listHTML(sel?.k)}</div>`;
   // One filled button in view (A-3): the open item's Approve or Add as a group, else Add a group.
   const quiet = !!sel && wide() && /data-pgok|data-pgfromrq/.test(sel.html);
@@ -237,7 +254,7 @@ function groupForm({ g = null, rq = null } = {}) {
         await closeSheet({ silent: true }); reload();
         if (g) { toast(`Saved ${out.name}.`, { ok: true }); return; }
         S.go(`#/partners/${encodeURIComponent(out.slug)}`, { replace: !!rq });
-        const who = orList(otherApprovers());
+        const who = pOr(otherApprovers());
         toast(`Added ${out.name}${lead ? ` with ${lead} as its lead` : ''}. It goes live when ${who} approves it.`, { ok: true, ...(lead ? {} : { action: { label: 'Add its lead', run: () => personForm(out.slug) } }) });
       });
     } });
@@ -307,7 +324,7 @@ async function setGroup(slug, act, el) {
 async function letWrite(slug, el) {
   const g = (S.pg?.groups || []).find(x => x.slug === slug); if (!g) return;
   await busy(el, async () => { await DB.partnerGroupSave({ slug, name: g.name, website: g.website, about: g.about, welcome: g.welcome, write: true }); reload();
-    toast(`${g.name} can write once ${orList(otherApprovers())} approves it. Add its people now.`, { ok: true }); });
+    toast(`${g.name} can write once ${pOr(otherApprovers())} approves it. Add its people now.`, { ok: true }); });
 }
 async function decline(id, el) {
   const r = requests().find(x => x.id === id); if (!r) return;
@@ -383,7 +400,7 @@ addEventListener('resize', () => { const w = wide(); if (wasWide !== null && w !
 export default {
   tab: '',
   // A group or a request open on its own (a phone) is named in the header, under Back to Partners.
-  title: route => (route.req && requests().find(x => x.id === route.req)?.group_name) || (route.id && (S.pg?.groups || []).find(x => x.slug === route.id)?.name) || 'Partners',
+  title: route => titleOf(route),
   back: route => route.id || route.req ? { href: '#/partners', label: 'Partners' } : null,
   render, wire,
 };

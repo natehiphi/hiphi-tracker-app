@@ -51,8 +51,10 @@ function signWords(a) {
   const s = P(), l = s.logins?.[a.id];
   if (!s.logins) return s.loginsErr ? 'Sign-in not checked' : 'Checking sign-in…';
   if (l?.last_sign_in_at) return `Signed in ${fmtDate(l.last_sign_in_at)}`;
-  if (l?.has_login && l.link_made_at) return 'Link made, not signed in yet';
-  return 'Not signed in yet';
+  // Three states the checklist's "Every team member can sign in" sends people here to tell apart: no login at all (make them
+  // a link), a link made and not used, and a login made some other way and never used.
+  if (!l?.has_login) return 'No sign-in yet';
+  return l.link_made_at ? 'Link made, not signed in yet' : 'Has a sign-in, not used yet';
 }
 const reachOk = x => x && (x.reach === 'slack' || x.reach === 'email');
 const reachWords = x => !x ? '' : x.reach === 'slack' ? 'Slack reaches them' : x.reach === 'email' ? 'They get the tracker’s messages by email'
@@ -136,13 +138,15 @@ function reachCard() {
   const act = S.advocates.filter(live), R = s.reach, out = act.filter(a => !reachOk(R[a.id]));
   const missed = act.reduce((n, a) => n + (R[a.id]?.not_reached || 0), 0);
   return `<section class="pe-reach" aria-labelledby="pe-reach-h"><h2 class="pe-h2" id="pe-reach-h">Who the tracker can reach</h2>
-    <p class="pe-p">${act.length - out.length} of ${act.length} get the tracker’s messages.${out.length ? ` The other ${out.length === 1 ? 'one’s go' : `${out.length}’s go`} to the next person who can be reached: an owner of the bill’s coalition, then an admin.` : ''}${missed ? ` ${plural(missed, 'message')} did not reach someone in the last 30 days.` : ''}
+    <p class="pe-p">${act.length - out.length} of ${act.length} get the tracker’s messages.${out.length ? ` Messages for the other ${out.length === 1 ? 'one' : out.length} go to the next person who can be reached: an owner of the bill’s coalition, then an admin.` : ''}${missed ? ` ${plural(missed, 'message')} did not reach someone in the last 30 days.` : ''}
       Email to the team is ${s.teamEmail ? 'on' : 'off'}: <a href="#/setup/alerts?part=email">change it in Session setup</a>.</p>
     <div class="pe-acts">${btn('Check who Slack can reach', { kind: 'secondary', icon: 'search', attrs: { 'data-pereach': '1', ...(s.slackBusy ? { 'aria-busy': 'true' } : {}) } })}<span class="pe-note">Looks each person up by their email. Nobody is messaged.</span></div>
   </section>`;
 }
 function listPage(route) {
-  const s = P(), sel = route.id || '', a = sel && advocate(sel), act = S.advocates.filter(live), off = S.advocates.filter(x => !live(x));
+  // By name, as the cover picker is: the sandbox's first load came in another order and re-sorted after a save (B-6).
+  const byName = (x, y) => x.full_name.localeCompare(y.full_name);
+  const s = P(), sel = route.id || '', a = sel && advocate(sel), act = S.advocates.filter(live).sort(byName), off = S.advocates.filter(x => !live(x)).sort(byName);
   const head = placeHead('People', { sub: 'Everyone who uses the staff app: their roles, sign-in and Slack, and handing over their work.',
     actions: btn('Add a person', { icon: 'user-plus', attrs: { 'data-peadd': '1', 'aria-haspopup': 'dialog' } }) });
   const offRows = off.length ? `<details class="pe-off"${s.offOpen || (a && !live(a)) ? ' open' : ''}><summary>${icon('chevron-down', { cls: 'chev' })}<span>${plural(off.length, 'person', 'people')} turned off</span></summary>
@@ -168,23 +172,40 @@ function roleSwitches(a) {
     ${switchRow('pe-r-part', 'Partner approver', !!a.approves_partners, 'Approves partner groups and every word they write.', { 'data-perole': 'approves_partners' })}</div>`;
 }
 function record(a, { head = true } = {}) {
-  const s = P(), me = isMe(a), l = s.logins?.[a.id], held = holdsWords(holdings(a)), rx = s.reach?.[a.id], signed = !!l?.last_sign_in_at;
-  const leave = me ? '' : live(a)
-    ? `<div class="pe-sec pe-leave"><p class="pe-p">${held ? `${esc(firstOf(a))} holds ${esc(held)}.` : `${esc(firstOf(a))} holds nothing that needs a new owner.`}</p>
+  const s = P(), me = isMe(a), l = s.logins?.[a.id], h = holdings(a), held = holdsWords(h), rx = s.reach?.[a.id], signed = !!l?.last_sign_in_at, first = firstOf(a);
+  const done = s.done[a.id], when = done ? whenAt(new Date(done.at).toISOString()) : '';
+  // The door to their name, email and initials sits with the email it changes (the critic: at the record's foot it was out of
+  // sight in the panel, while the record asked for an email).
+  const edit = btn('Change', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-peedit': a.id, 'aria-haspopup': 'dialog', 'aria-label': `Change ${first}’s name, email or initials` } });
+  const mail = `<span>${esc(a.email || 'No email yet')}</span>${edit}`;
+  // Last, as the rarest step (A-13): someone who holds nothing is turned off with a quiet Turn off; anyone else opens the page
+  // that hands their work over. A hand-over done in this visit can be given back from here (P-3: nothing is a trap).
+  const back = (label, kind) => btn(label, { kind, icon: 'undo-2', attrs: { 'data-peundo': a.id } });
+  const leave = me ? '' : !live(a)
+    ? `<div class="pe-sec pe-leave">${notice('warn', 'eye-off', done ? `<b>Turned off and handed over ${esc(when)}.</b> ${esc(first)} cannot sign in. Their work is with its new owners until it is given back.`
+        : `<b>Turned off.</b> ${esc(first)} cannot sign in. Their notes and approvals keep their name.`)}
+      <div class="pe-acts">${done ? back(`Turn ${first} back on and give it back`, 'secondary') : ''}${btn(done ? 'Turn back on only' : 'Turn back on', { kind: done ? 'text' : 'secondary', icon: 'rotate-ccw', attrs: { 'data-peon': a.id } })}</div></div>`
+    : done ? `<div class="pe-sec pe-leave"><h3 class="pe-h3">Their work</h3><p class="pe-p">Handed over ${esc(when)}. ${esc(first)} can still sign in; the work is with its new owners until it is given back.</p>${back('Give it back', 'secondary')}</div>`
+    : held || h.going.length ? `<div class="pe-sec pe-leave"><h3 class="pe-h3">Their work</h3><p class="pe-p">${held ? `${esc(first)} holds ${esc(held)}.` : `${esc(first)} is going to ${plural(h.going.length, 'hearing')}.`}</p>
       ${btn('Leaving or away?', { kind: 'secondary', icon: 'log-out', href: `#/people/${encodeURIComponent(a.id)}?view=leaving` })}</div>`
-    : `<div class="pe-sec pe-leave">${notice('warn', 'eye-off', `<b>Turned off.</b> ${esc(firstOf(a))} cannot sign in. Their notes and approvals keep their name.`)}${btn('Turn back on', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-peon': a.id } })}</div>`;
+    : `<div class="pe-sec pe-leave pe-quietoff"><p class="pe-p">${esc(first)} holds nothing that needs a new owner.</p>${btn('Turn off', { kind: 'text', icon: 'eye-off', attrs: { 'data-peoff': a.id } })}</div>`;
   const sign = !live(a) ? '' : `<div class="pe-sec"><h3 class="pe-h3">Sign-in</h3><p class="pe-p">${esc(signWords(a))}.${a.email ? '' : ' Add their email first: it is how they sign in, and how Slack finds them.'}</p>
-    ${me || !a.email || !s.logins ? '' : btn(signed ? 'New sign-in link' : l?.link_made_at ? 'Make a new link' : 'Make a sign-in link', { kind: signed ? 'text' : 'secondary', icon: 'link', attrs: { 'data-pelink': a.id } })}</div>`;
+    ${!a.email ? btn('Add their email', { kind: 'secondary', icon: 'mail-plus', attrs: { 'data-peedit': a.id, 'data-pefocus': 'pe-email', 'aria-haspopup': 'dialog' } })
+      : me || !s.logins ? '' : btn(signed ? 'New sign-in link' : l?.link_made_at ? 'Make a new link' : 'Make a sign-in link', { kind: signed ? 'text' : 'secondary', icon: 'link', attrs: { 'data-pelink': a.id } })}</div>`;
   const slack = !live(a) || !rx || rx.reach === 'off' ? '' : `<div class="pe-sec"><h3 class="pe-h3">Slack</h3><p class="pe-p">${esc(reachWords(rx))}.${reachOk(rx) ? '' : ' Their messages go to the next person who can be reached.'}${rx.not_reached ? ` ${plural(rx.not_reached, 'message')} did not reach them in 30 days.` : ''}</p></div>`;
   return `<article class="pe-rec" aria-labelledby="pe-rec-h">
-    ${head ? `<div class="pe-top">${avatar(a, 48)}<div class="pe-who"><h2 class="pe-name" id="pe-rec-h">${esc(a.full_name)}${me ? ' <span class="pe-you">(you)</span>' : ''}</h2><p class="pe-mail">${esc(a.email || 'No email yet')}</p></div></div>`
-      : `<div class="pe-top">${avatar(a, 48)}<p class="pe-mail" id="pe-rec-h">${esc(a.email || 'No email yet')}</p></div>`}
-    ${leave}${sign}${live(a) ? roleSwitches(a) : ''}${slack}
-    <p class="pe-edit">${btn('Change name, email or initials', { kind: 'text', icon: 'pencil', attrs: { 'data-peedit': a.id, 'aria-haspopup': 'dialog' } })}</p>
+    ${head ? `<div class="pe-top">${avatar(a, 48)}<div class="pe-who"><h2 class="pe-name" id="pe-rec-h">${esc(a.full_name)}${me ? ' <span class="pe-you">(you)</span>' : ''}</h2><p class="pe-mail">${mail}</p></div></div>`
+      : `<div class="pe-top">${avatar(a, 48)}<p class="pe-mail" id="pe-rec-h">${mail}</p></div>`}
+    ${sign}${live(a) ? roleSwitches(a) : ''}${slack}${leave}
   </article>`;
 }
-// Below 1100px the record is its own page, named in its h1 (the phone's top bar shows it), with the frame's Back to People.
-const recordPage = a => `<div class="pe-page pe-one"><h1 class="v6-ptitle sv-h1 pe-oneh">${esc(a.full_name)}${isMe(a) ? ' (you)' : ''}</h1>${record(a, { head: false })}</div>`;
+// A page under People names where Back goes, above its title, on a laptop too (B-4; the phone's top bar draws it there). It
+// says what the frame's Back says: the page this one was opened from, else its parent.
+const backLink = b => { if (!b) return ''; let from = ''; try { from = history.state?.d > 0 ? history.state?.from || '' : ''; } catch { from = ''; }
+  return `<a class="pe-back" href="${esc(b.href)}" data-back>${icon('chevron-left')}<span>${esc(from || b.label)}</span></a>`; };
+const backOf = route => { const a = route?.id && advocate(route.id); return !a ? null : route.q?.view === 'leaving' ? { href: `#/people/${encodeURIComponent(a.id)}`, label: firstOf(a) } : { href: '#/people', label: 'People' }; };
+// Below 1100px the record is its own page, named in its h1 (the phone's top bar shows it), with Back to People.
+const recordPage = (a, route) => `<div class="pe-page pe-one">${backLink(backOf(route))}<h1 class="v6-ptitle sv-h1 pe-oneh">${esc(a.full_name)}${isMe(a) ? ' (you)' : ''}</h1>${record(a, { head: false })}</div>`;
 
 // ---- Leaving or away? (V27): everything they hold, a cover for each part, one button ----
 function partRow(p, a, done) {
@@ -194,10 +215,10 @@ function partRow(p, a, done) {
     attrs: { 'data-pecover': p.key, 'aria-haspopup': 'dialog', 'aria-label': `Who covers ${p.name}${p.num ? ` (${p.num})` : ''}: ${p.to ? p.to.full_name : 'no one yet'}. Change` } });
   return itemRow({ key: p.key, name: p.name, num: p.num, line: esc(line), button });
 }
-function leavingPage(a) {
+function leavingPage(a, route) {
   const s = P(), first = firstOf(a), done = s.done[a.id];
   const { h, parts } = done || planOf(a);
-  const head = placeHead(`Hand over ${first}’s work`, { id: 'pe-leave-h',
+  const head = backLink(backOf(route)) + placeHead(`Hand over ${first}’s work`, { id: 'pe-leave-h',
     sub: done ? '' : `Everything ${esc(first)} holds, and who covers each part. One press moves it all, tells each new owner and turns ${esc(first)} off. Undo puts it all back.` });
   if (!done && !live(a)) return `<div class="pe-page pe-leaving">${head}${notice('warn', 'eye-off', `${esc(first)} is turned off already. Anything still in their name shows as No owner until someone takes it.`, btn('Open their record', { kind: 'text', href: `#/people/${encodeURIComponent(a.id)}` }))}</div>`;
   const ownerAfter = b => parts.find(p => p.kind === 'bills' && p.items.includes(b))?.to || advocate((S.assignments[b.id] || []).find(id => id !== a.id));
@@ -210,13 +231,17 @@ function leavingPage(a) {
   const billParts = parts.filter(p => p.kind === 'bills');
   // v5's "See their live bills" (R-316 W28): Bills, filtered to them, to give the bills out one by one with bulk change.
   const which = billParts.length ? `<details class="pe-which"><summary>${icon('chevron-down', { cls: 'chev' })}<span>Which bills</span></summary><ul class="pe-wlist">${billParts.flatMap(p => p.items).map(b => `<li><a href="${esc(billRoute(b))}">${esc(nameWords(b))}</a> <span class="pe-num">${esc(numWords(b))}</span></li>`).join('')}</ul>
-    ${done ? '' : `<p class="pe-wopen">${btn('Open them in Bills, to give them out one by one', { kind: 'text', icon: 'list-checks', attrs: { 'data-pebills': a.id } })}</p>`}</details>` : '';
-  const away = done ? '' : notice('info', 'calendar-clock', `Away for a while? <b>Away until comes with a later update.</b> For now, hand the work over without a date, and turn ${esc(first)} back on from their record when they are back.`);
-  const top = done ? notice('ok', 'circle-check', `<b>${done.parts.length ? 'Handed over' : 'Turned off'} ${esc(whenAt(new Date(done.at).toISOString()))}.</b> ${esc(first)} is turned off and cannot sign in. ${esc(done.toldWords)}`, btn('Undo', { kind: 'secondary', icon: 'undo-2', attrs: { 'data-peundo': a.id } })) : '';
+    ${done ? '' : `<p class="pe-wopen">${btn('Give them out one by one in Bills', { kind: 'text', icon: 'list-checks', attrs: { 'data-pebills': a.id } })}</p>`}</details>` : '';
+  // Away for a while (W30 needs a migration): hand over and keep them signed in. Turning someone back on gives back their
+  // sign-in, not their work, so the note says so (P-3: nothing is a trap).
+  const away = done ? '' : notice('info', 'calendar-clock', `Away for a while? <b>Away until comes with a later update.</b> Until then, hand over and keep ${esc(first)} signed in. When ${esc(first)} is back, the work stays with its new owners: give it back from ${esc(first)}’s record before you close this tab, or bill by bill from Which bills.`);
+  const top = done ? notice('ok', 'circle-check', `<b>${done.parts.length ? 'Handed over' : 'Turned off'} ${esc(whenAt(new Date(done.at).toISOString()))}.</b> ${esc(done.keep ? `${first} can still sign in.` : `${first} is turned off and cannot sign in.`)} ${esc(done.toldWords)}`, btn('Undo', { kind: 'secondary', icon: 'undo-2', attrs: { 'data-peundo': a.id } })) : '';
   const nothing = !parts.length && !h.drafts.length && !h.going.length;
   const all = done || !parts.length ? '' : `<div class="pe-all">${btn('Give it all to one person', { kind: 'text', icon: 'users', attrs: { 'data-pecover': 'all', 'aria-haspopup': 'dialog' } })}</div>`;
-  const go = done ? `<div class="pe-go">${btn(`Back to ${esc(first)}’s record`, { kind: 'text', icon: 'arrow-left', href: `#/people/${encodeURIComponent(a.id)}` })}</div>`
-    : `<div class="pe-go">${btn(nothing ? 'Turn off' : 'Hand over and turn off', { icon: 'handshake', attrs: { 'data-pego': a.id, ...(s.busy === a.id ? { 'aria-busy': 'true' } : {}) } })}<span class="pe-note">${nothing ? `${esc(first)} holds nothing that needs a new owner.` : 'Each new owner is told in a bill’s messages.'}</span></div>`;
+  // Done, the way out is Back above the title (the phone's top bar below 768px), not a second link to the same place (A-14).
+  const go = done ? ''
+    : `<div class="pe-go">${btn(nothing ? 'Turn off' : 'Hand over and turn off', { icon: 'handshake', attrs: { 'data-pego': a.id, ...(s.busy === a.id ? { 'aria-busy': 'true' } : {}) } })}${nothing ? '' : btn(`Hand over, keep ${first} signed in`, { kind: 'text', attrs: { 'data-pekeep': a.id } })}
+      ${nothing ? `<span class="pe-note">${esc(first)} holds nothing that needs a new owner.</span>` : ''}</div>`;
   return `<div class="pe-page pe-leaving">${head}${top}${away}
     ${rows ? `<div class="v6-list pe-parts" role="list" aria-label="What ${esc(first)} holds">${rows}</div>` : ''}
     ${all}${which}${quiet ? `<p class="pe-quiet">${esc(quiet)}</p>` : ''}${go}</div>`;
@@ -240,7 +265,7 @@ async function setActive(a, on) {
 }
 // The hand-over: every part moves, then the person is turned off, then each new owner is told. If anything fails part way,
 // what was done is put back, so nothing is left half handed over (B-5).
-async function handOver(a, el) {
+async function handOver(a, el, { keep = false } = {}) {
   const s = P(); if (s.busy) return;
   const { h, parts } = planOf(a), first = firstOf(a), undo = [], gave = new Map();   // cover id -> { who, bills, words }
   const give = (to, what, b) => { if (!to) return; const g = gave.get(to.id) || gave.set(to.id, { who: to, bills: [], words: [] }).get(to.id); if (b) g.bills.push(b); if (what) g.words.push(what); };
@@ -263,7 +288,7 @@ async function handOver(a, el) {
       }
     }
     for (const x of h.going) { await DB.attend(x.id, false, a.id); undo.push(() => DB.attend(x.id, true, a.id)); }
-    await saveP(a, { is_active: false }); undo.push(() => saveP(a, { is_active: true }));
+    if (!keep) { await saveP(a, { is_active: false }); undo.push(() => saveP(a, { is_active: true })); }
   } catch (e) {
     for (const u of undo.reverse()) { try { await u(); } catch { /* best effort; the toast says to try again */ } }
     s.busy = ''; redraw(); toast(`Nothing was handed over: ${friendly(e)}. Try again.`, { err: true }); return;
@@ -276,16 +301,16 @@ async function handOver(a, el) {
     const coal = parts.find(p => p.kind === 'coalition' && p.to?.id === g.who.id)?.items[0];
     const b = g.bills[0] || (coal && S.bills.find(x => x.tracked !== false && (S.billCampaigns?.[x.id] || []).includes(coal.id)));
     if (!b) { untold.push(firstOf(g.who)); continue; }
-    try { const m = await DB.sendMessage(b.id, `@${firstOf(g.who)} From People: ${first} is turned off, so you now hold ${andList(g.words)}. They are on your Today and in Bills.`);
+    try { const m = await DB.sendMessage(b.id, `@${firstOf(g.who)} From People: ${first} is ${keep ? 'away' : 'turned off'}, so you now hold ${andList(g.words)}. They are on your Today and in Bills.`);
       undo.push(() => DB.deleteMessage(m)); told.push([firstOf(g.who), b]); }
     catch { untold.push(firstOf(g.who)); }
   }
   const toldWords = !gave.size ? '' : [told.length ? `${andList(told.map(([n]) => n))} ${told.length === 1 ? 'was' : 'were'} told in the messages on ${andList([...new Set(told.map(([, b]) => numWords(b)))])}.` : '',
     untold.length ? `${andList(untold)} ${untold.length === 1 ? 'was' : 'were'} not told yet: tell them in Slack.` : ''].filter(Boolean).join(' ') || 'It all came to you, so nobody else needed telling.';
-  s.done[a.id] = { h, parts, at: Date.now(), undo, toldWords };
+  s.done[a.id] = { h, parts, at: Date.now(), undo, toldWords, keep };
   s.busy = ''; delete s.cover[a.id]; redraw();
   document.getElementById('pe-leave-h')?.focus({ preventScroll: true });
-  toast(gave.size ? `${first} is turned off and the work is handed over. ${toldWords}` : `${first} is turned off and can no longer sign in.`, { ok: true, undo: () => undoHandOver(a) });
+  toast(gave.size ? `${keep ? `The work is handed over and ${first} can still sign in.` : `${first} is turned off and the work is handed over.`} ${toldWords}` : `${first} is turned off and can no longer sign in.`, { ok: true, undo: () => undoHandOver(a) });
 }
 async function undoHandOver(a) {
   const s = P(), d = a && s.done[a.id]; if (!d) return;
@@ -293,7 +318,7 @@ async function undoHandOver(a) {
   for (const u of [...d.undo].reverse()) { try { await u(); } catch (e) { fails.push(e); } }
   delete s.done[a.id]; redraw();
   if (fails.length) toast(`Mostly undone, but ${plural(fails.length, 'part')} could not be put back: ${friendly(fails[0])}`, { err: true });
-  else toast(`Undone. ${firstOf(a)} is back on and holds the work again.`);
+  else toast(d.keep ? `Given back. ${firstOf(a)} holds the work again.` : `Undone. ${firstOf(a)} is back on and holds the work again.`);
 }
 function coverSheet(a, key) {
   const { parts } = planOf(a), p = key === 'all' ? null : parts.find(x => x.key === key); if (key !== 'all' && !p) return;
@@ -319,7 +344,7 @@ function freeInitials(name, self) {
   return tries.find(t => t.length >= 2 && t.length <= 3 && !takenBy(t, self)) || base;
 }
 const fieldErr = (root, id, msg) => { const el = root.querySelector('#' + id); if (!el) return toast(msg, { err: true }); el.setAttribute('aria-invalid', 'true'); el.closest('.field')?.querySelector('.err')?.remove(); el.insertAdjacentHTML('afterend', `<span class="err" id="${id}-err">${icon('circle-alert')}${esc(msg)}</span>`); el.setAttribute('aria-describedby', id + '-err'); el.focus(); };
-function personSheet(a) {
+function personSheet(a, { focus = '' } = {}) {
   const locked = !!(a && P().logins?.[a.id]?.has_login);
   openSheet({ title: a ? `${esc(a.full_name)}’s details` : 'Add a person', size: 'auto',
     body: `<form class="pe-form" novalidate data-peform>
@@ -331,6 +356,7 @@ function personSheet(a) {
     foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-pecancel': '1' } })}${btn(a ? 'Save' : 'Add', { attrs: { 'data-pesave': '1' } })}`,
     wire: d => {
       const v = id => d.querySelector('#' + id); let own = !!a;
+      if (focus && v(focus)) setTimeout(() => v(focus)?.focus(), 60);   // "Add their email" lands in the email box
       v('pe-ini').addEventListener('input', () => { own = true; });
       if (!a) v('pe-name').addEventListener('input', () => { if (!own) v('pe-ini').value = freeInitials(v('pe-name').value).slice(0, 3); });
       d.querySelector('[data-pecancel]').onclick = () => closeSheet();
@@ -381,31 +407,45 @@ async function makeLink(a) {
 
 // ---- the screen ----
 const admins = () => S.advocates.filter(a => a.is_admin && live(a)).map(a => a.full_name).join(' or ') || 'an admin';
+// listDetail's panel sticks beside the list and scrolls inside itself (steps.css). A record taller than the window then hid its
+// foot in an inner scroll with no scrollbar on a Mac (the critic: Patti's record asked for an email with the button out of
+// reach). Until listDetail lets a tall panel grow (asked of steps.css), a record taller than the window grows with the page
+// and sticks by its foot, so scrolling the page reaches every part of it; one that fits sticks by its top as before.
+function fitPanel() {
+  const d = document.querySelector('.pe-page .v6-ld-detail'); if (!d) return;
+  d.classList.remove('pe-tall'); d.style.top = '';
+  if (!wide()) return;
+  const h = d.scrollHeight;
+  if (h > innerHeight - 48 + 1) { d.classList.add('pe-tall'); d.style.top = `${Math.round(innerHeight - h - 24)}px`; }
+}
 let wasWide = null;   // crossing 1100px redraws: the list with the record beside it, or the record as its own page
-addEventListener('resize', () => { const w = wide(); if (wasWide !== null && w !== wasWide && S.route?.name === 'people') hooks.render(); wasWide = w; });
+addEventListener('resize', () => { const w = wide(); if (wasWide !== null && w !== wasWide && S.route?.name === 'people') hooks.render(); else if (S.route?.name === 'people') fitPanel(); wasWide = w; });
 export default {
   tab: 'people',
   title: route => { const a = route?.id && advocate(route.id); return !a ? 'People' : route.q?.view === 'leaving' ? `Hand over ${firstOf(a)}’s work` : a.full_name; },
-  back: route => { const a = route?.id && advocate(route.id); return !a ? null : route.q?.view === 'leaving' ? { href: `#/people/${encodeURIComponent(a.id)}`, label: firstOf(a) } : { href: '#/people', label: 'People' }; },
+  back: backOf,
   render(route) {
     if (!S.me?.is_admin) return `<div class="pe-page"><h1 class="v6-ptitle sv-h1">People</h1>${empty({ title: 'People is for admins', text: `Ask ${esc(admins())} to change someone’s record. Your own choices are in My settings.`, action: btn('Open My settings', { kind: 'secondary', href: '#/me' }) })}</div>`;
     loadLogins(); loadReach(); wasWide = wide();
     const a = route.id && advocate(route.id);
-    if (a && route.q?.view === 'leaving') return leavingPage(a);
-    if (a && !wide()) return recordPage(a);
+    if (a && route.q?.view === 'leaving') return leavingPage(a, route);
+    if (a && !wide()) return recordPage(a, route);
     return listPage(route);
   },
   wire(route, root) {
     const main = root.querySelector('.pe-page'); if (!main) return;
+    fitPanel(); requestAnimationFrame(fitPanel);
     const on = (sel, fn) => main.querySelectorAll(sel).forEach(el => el.onclick = e => fn(el, e));
     const who = id => advocate(id);
     on('[data-peadd]', () => personSheet(null));
-    on('[data-peedit]', el => personSheet(who(el.dataset.peedit)));
+    on('[data-peedit]', el => personSheet(who(el.dataset.peedit), { focus: el.dataset.pefocus }));
     on('[data-pelink]', el => makeLink(who(el.dataset.pelink)));
     on('[data-peon]', el => busy(el, () => setActive(who(el.dataset.peon), true)));
     main.querySelectorAll('[data-perole]').forEach(el => el.onchange = () => { const a = who(route.id); if (a) setRole(a, el.dataset.perole, el.checked, el); });
     on('[data-pecover]', el => { const a = who(route.id); if (a) coverSheet(a, el.dataset.pecover); });
     on('[data-pego]', el => { const a = who(el.dataset.pego); if (a) handOver(a, el); });
+    on('[data-pekeep]', el => { const a = who(el.dataset.pekeep); if (a) handOver(a, el, { keep: true }); });
+    on('[data-peoff]', el => busy(el, () => setActive(who(el.dataset.peoff), false)));
     on('[data-peundo]', el => busy(el, () => undoHandOver(who(el.dataset.peundo))));
     on('[data-pebills]', el => { try { const v = bl(); v.scope = 'all'; v.owners = new Set([el.dataset.pebills]); saveBills(); } catch { /* Bills opens unfiltered */ } S.go('#/bills'); });
     main.querySelector('.pe-off')?.addEventListener('toggle', e => { P().offOpen = e.target.open; });

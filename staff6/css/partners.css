@@ -110,7 +110,7 @@ body.staff6 .pg-aa { display: flex; }
 body.staff6 .pg-aa .btn { margin: 0; }
 body.staff6 .pg-fold { margin-top: var(--s8); }
 body.staff6 .pg-fold > summary { display: inline-flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 0 var(--s12); margin-left: calc(-1 * var(--s12)); border-radius: var(--v6-pill);
-  list-style: none; cursor: pointer; font-size: var(--v6-t16); font-weight: 700; color: var(--v6-action); }
+  list-style: none; cursor: pointer; font-size: var(--v6-t16); font-weight: 400; color: var(--v6-action); }
 body.staff6 .pg-fold > summary::-webkit-details-marker { display: none; }
 body.staff6 .pg-fold > summary .chev { width: 18px; height: 18px; transition: transform 150ms ease; }
 body.staff6 .pg-fold[open] > summary .chev { transform: rotate(180deg); }
@@ -183,13 +183,15 @@ body.staff6 .pe-top .sv-av { flex: none; }
 body.staff6 .pe-who { min-width: 0; }
 body.staff6 .pe-name { margin: 0; font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); overflow-wrap: anywhere; }
 body.staff6 .pe-you { font: 400 var(--v6-t16)/var(--v6-lh16) Lato, system-ui, sans-serif; color: var(--v6-muted); }
-body.staff6 .pe-mail { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); overflow-wrap: anywhere; }
+body.staff6 .pe-mail { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--s4); margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); overflow-wrap: anywhere; }
+body.staff6 .pe-mail > span { min-width: 0; }
+body.staff6 .pe-mail .btn { margin: -8px 0; }   /* the edit door beside the email it changes; its 44px target overlaps the line */
 body.staff6 .pe-sec { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); justify-items: start; gap: var(--s8); padding-top: var(--s16); min-width: 0; }
 body.staff6 .pe-sec::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
 body.staff6 .pe-sec > .sv-notice { justify-self: stretch; margin: 0; }
 body.staff6 .pe-sec .btn { margin: 0; }
-body.staff6 .pe-leave { padding-top: 0; }
-body.staff6 .pe-leave::before { display: none; }
+body.staff6 .pe-leave .pe-acts { gap: var(--s8); }
+body.staff6 .pe-quietoff .btn.text { margin-left: calc(-1 * var(--s12)); }
 body.staff6 .pe-roles { justify-items: stretch; gap: 0; }
 body.staff6 .pe-roles .pe-h3 { margin-bottom: var(--s4); }
 body.staff6 .pe-roles .sv-switchrow { min-height: 56px; }
@@ -200,15 +202,28 @@ body.staff6 .pe-h2 { margin: 0; font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, 
 body.staff6 .pe-h3 { margin: 0; font: 700 var(--v6-t16)/var(--v6-lh16) Lato, system-ui, sans-serif; color: var(--v6-ink); }
 body.staff6 .pe-p { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); overflow-wrap: anywhere; }
 body.staff6 .pe-p a, body.staff6 .pe-quiet a { color: var(--v6-action); }
-body.staff6 .pe-edit { margin: 0 0 0 -12px; }
+/* A page under People or Session setup says where Back goes above its title from 768px (B-4); the phone's top bar draws it
+   below that. The same look as the bill page's "‹ Today". */
+body.staff6 .pe-back { display: none; }
+@media (min-width: 768px) {
+  body.staff6 .pe-back { display: inline-flex; align-items: center; gap: var(--s4); min-height: 44px; margin: calc(-1 * var(--s8)) 0 var(--s8) calc(-1 * var(--s12)); padding: 0 var(--s12) 0 var(--s4);
+    border-radius: var(--v6-pill); color: var(--v6-action); font-weight: 700; font-size: var(--v6-t16); text-decoration: none; max-width: 100%; }
+  body.staff6 .pe-back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  body.staff6 .pe-back .ic { width: 20px; height: 20px; flex: none; }
+  body.staff6 .pe-back:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+}
+@media (min-width: 768px) and (hover: hover) and (pointer: fine) { body.staff6 .pe-back:hover { background: var(--v6-action-wash); } }
+/* A record taller than the window grows with the page and sticks by its foot (people.js fitPanel), until listDetail does it. */
+body.staff6 .pe-page .v6-ld-detail.pe-tall { max-height: none; overflow: visible; }
 body.staff6 .pe-note { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
 body.staff6 .pe-acts, body.staff6 .pe-go { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s16); }
 body.staff6 .pe-acts .btn, body.staff6 .pe-go .btn { margin: 0; }
 body.staff6 .pe-reach { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s12); max-width: 720px; margin-top: var(--v6-gap); }
-/* the people turned off: what is done, folded (spec 7.3) */
+/* the people turned off: what is done, folded (spec 7.3). A fold's summary is a control and reads as a text button: regular
+   weight, as every v6 button but the filled one (staff.css .btn), so bold stays for names and headings (A-4). */
 body.staff6 .pe-off { margin-top: var(--s24); }
 body.staff6 .pe-off > summary, body.staff6 .pe-which > summary { display: inline-flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 0 var(--s12); margin-left: calc(-1 * var(--s12));
-  border-radius: var(--v6-pill); list-style: none; cursor: pointer; font-size: var(--v6-t16); font-weight: 700; color: var(--v6-action); }
+  border-radius: var(--v6-pill); list-style: none; cursor: pointer; font-size: var(--v6-t16); font-weight: 400; color: var(--v6-action); }
 body.staff6 .pe-off > summary::-webkit-details-marker, body.staff6 .pe-which > summary::-webkit-details-marker { display: none; }
 body.staff6 .pe-off > summary .chev, body.staff6 .pe-which > summary .chev { width: 18px; height: 18px; transition: transform 150ms ease; }
 body.staff6 .pe-off[open] > summary .chev, body.staff6 .pe-which[open] > summary .chev { transform: rotate(180deg); }
@@ -304,7 +319,7 @@ body.staff6 .ss-errd code { display: block; margin-top: var(--s4); overflow-wrap
 /* folds: what passes, the checklist from before opening day, the keys (detail and reference only, spec 7.3) */
 body.staff6 .ss-fold, body.staff6 .ss-tech { margin-top: var(--s12); }
 body.staff6 .ss-fold > summary, body.staff6 .ss-tech > summary { display: inline-flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 0 var(--s12); margin-left: calc(-1 * var(--s12));
-  border-radius: var(--v6-pill); list-style: none; cursor: pointer; font-size: var(--v6-t16); font-weight: 700; color: var(--v6-action); }
+  border-radius: var(--v6-pill); list-style: none; cursor: pointer; font-size: var(--v6-t16); font-weight: 400; color: var(--v6-action); }
 body.staff6 .ss-fold > summary::-webkit-details-marker, body.staff6 .ss-tech > summary::-webkit-details-marker { display: none; }
 body.staff6 .ss-fold > summary .chev, body.staff6 .ss-tech > summary .chev { width: 18px; height: 18px; transition: transform 150ms ease; }
 body.staff6 .ss-fold[open] > summary .chev, body.staff6 .ss-tech[open] > summary .chev { transform: rotate(180deg); }
@@ -368,3 +383,17 @@ body.staff6 .ss-code { width: 100%; box-sizing: border-box; }
   body.staff6 .ss-check { flex-wrap: wrap; }
   body.staff6 .ss-check .ss-cact { flex-basis: 100%; padding-left: 32px; }
 }
+
+/* Session setup's page tabs below 768px: one row that scrolls sideways, the open one scrolled into sight (setup.js placeTabs).
+   Wrapped, the six took three lines at 390 and five at 320, pushing the first check past 400px (the critic; A-1). The row
+   runs to the screen's edges so the cut tab says there is more. Asked of placeHead for every place (shared_changes). */
+@media (max-width: 767.98px) {
+  body.staff6 .ss-page .v6-tabs { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+    margin: 0 calc(-1 * var(--v6-gutter)); padding: 2px var(--v6-gutter); }
+  body.staff6 .ss-page .v6-tabs::-webkit-scrollbar { display: none; }
+}
+/* the guide's link, under the checks (it moved out of the head so the tabs sit at one height on all six pages) */
+body.staff6 .ss-guide { display: flex; align-items: center; gap: var(--s8); margin-top: var(--s16); }
+body.staff6 .ss-guide .ic { width: 18px; height: 18px; flex: none; color: var(--v6-muted); }
+/* a group or request on its own page names itself in the h1 from 768px; the card's own name is for the phone */
+@media (min-width: 768px) { body.staff6 .pg-one .pg-dtop { display: none; } body.staff6 .pg-one .pg-oneh { margin: 0 0 var(--s16); } }
