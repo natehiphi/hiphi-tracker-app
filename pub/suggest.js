@@ -61,11 +61,15 @@ export function suggest(input, { source, open, seeAll = null, when = () => true,
     box.addEventListener('mousemove', e => { const a = e.target.closest('[role="option"]'); if (a && !waiting() && +a.dataset.i !== at) mark(+a.dataset.i, false); });
   }
   // Only as many rows as the window has room for: a list that scrolls inside itself can look finished when it is not.
+  // The longest group gives up its last row first (the later one on a tie), so every kind that matches keeps a row, as
+  // the source shared them out: two-line bill titles no longer push a staff conversation or a legislator off the end
+  // (R-316 H-15). A group goes only when it is the last one left with rows to give.
   function fit() {
     const rows = () => [...box.querySelectorAll('.sg-g [role="option"]')];
     for (let r = rows(); box.scrollHeight > box.clientHeight + 1 && r.length > 1; r = rows()) {
-      const last = r[r.length - 1], g = last.closest('.sg-g');
-      last.remove(); if (!g.querySelector('[role="option"]')) g.remove();
+      const gs = [...box.querySelectorAll('.sg-g')], n = g => g.querySelectorAll('[role="option"]').length;
+      const g = gs.reduce((a, x) => n(x) >= n(a) ? x : a, gs[0]), opts = g.querySelectorAll('[role="option"]');
+      opts[opts.length - 1].remove(); if (!g.querySelector('[role="option"]')) g.remove();
     }
   }
   function draw(q, groups, state) {

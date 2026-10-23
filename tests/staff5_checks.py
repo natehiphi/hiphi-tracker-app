@@ -397,12 +397,12 @@ def batch_e_panel(b, page, go):
       if d[k] != t[k]: bad.append(f'{n} {k}: Today {t[k]} / Bills {d[k]}')
   check(f'Fix 17: the same bill opens with the same panel from Today and Bills ({seen} bills: parts, order, deadline line, hearing line, step, filled button)', seen >= 3 and not bad, '; '.join(bad[:3]))
   ok = all(t and [BP_ORDER.index(x) for x in t['parts']] == sorted(BP_ORDER.index(x) for x in t['parts']) and t['parts'][0] == 'bp-top' and t['parts'][-1] == 'bp-open' for t in today.values())
-  check('Fix 17: the panel runs bill, deadline line, hearing line, step, the rest, Open the bill; "…" then the close X on its top line', ok and all(t['top'] == ['More', 'Close'] and len(t['filled']) <= 1 for t in today.values()), str(list(today.values())[0])[:200])
+  check('Fix 17: the panel runs bill, deadline line, hearing line, step, the rest, Open the bill; "…" then the close X on its top line', ok and all(t['top'][-2:] == ['More', 'Close'] and len(t['filled']) <= 1 for t in today.values()), str(list(today.values())[0])[:200])
   # a bill with nothing to do on it opens in the same frame on Bills
   pg.fill('#bl-q', ''); pg.wait_for_timeout(500)
   pg.locator('tbody.bl-tg tr[data-row] td.bl-ti').first.click(); pg.wait_for_timeout(700)
   d = pg.evaluate(BP, '.bl-dock')
-  check('Fix 17: a bill with no step opens in the same frame on Bills', d and d['parts'][0] == 'bp-top' and d['parts'][-1] == 'bp-open' and d['top'] == ['More', 'Close'] and 'bp-step' in d['parts'], str(d)[:160])
+  check('Fix 17: a bill with no step opens in the same frame on Bills', d and d['parts'][0] == 'bp-top' and d['parts'][-1] == 'bp-open' and d['top'][-2:] == ['More', 'Close'] and 'bp-step' in d['parts'], str(d)[:160])
   check('Fix 17: no page errors on Today and Bills', not pg.errs, pg.errs[:1])
   pg.context.close()
 

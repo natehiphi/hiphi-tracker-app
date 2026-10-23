@@ -11,6 +11,10 @@
 .cv-box { margin-top: var(--s4); }
 .cv-list { overflow: hidden; }
 .rows.cv-list > .row.cv-item { align-items: flex-start; gap: var(--s4); padding: var(--s12) var(--s4) var(--s12) var(--s16); min-height: 0; }
+/* R-316 H-15: the conversation a search result opened stays marked, calmly (no motion). */
+.rows.cv-list > .row.cv-item.cv-land { background: var(--p50); box-shadow: inset 3px 0 0 var(--p700); }
+.rows.cv-list > .row.cv-item.cv-land:focus { outline: none; }
+.rows.cv-list > .row.cv-item.cv-land:focus-visible { outline: 2px solid var(--p700); outline-offset: -2px; }
 .cv-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .cv-names { font-size: var(--t16); line-height: 1.35; color: var(--n900); overflow-wrap: anywhere; }
 .cv-names a { font-weight: 700; text-underline-offset: 3px; }

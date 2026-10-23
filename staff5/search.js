@@ -4,7 +4,7 @@
 // the session from DB.searchUntracked, each with a Track button (DB.track) that acts at once. On a phone the page has
 // its own box; on a desktop the header's box drives this page as you type ("/" focuses it, handled by the frame).
 import { S, DB, esc, hooks, fmtDate, owners, effStage, STAGE_LABEL, POSITIONS, capitolUrl, SESSION_YEAR, advocate } from './data.js';
-import { plain, diedish, personName, whereOf, titleCaseSmart, exactBill, legNotesAll, legById, billById, hstDayOf, ASK_ANSWERS } from './model.js';
+import { plain, diedish, personName, whereOf, titleCaseSmart, exactBill, legNotesAll, legById, billById, hstDayOf, ASK_ANSWERS, askReply } from './model.js';
 // Build 3, desktop: the groups sit side by side (bills on the left, legislators and supporters on the right), each
 // with its count; the arrow keys move through the results from the search box (Down enters the list, Up and Down
 // move, Left and Right change column, Home and End jump, Enter opens, Esc returns to the box). Bills are named the
@@ -67,7 +67,7 @@ function convGroups() {
   }
   return [...by.values()].map(g => {
     const rows = g.rows.sort((x, y) => String(x.created_at).localeCompare(String(y.created_at))), first = rows[0], last = rows.at(-1);
-    return { ...g, first, last, day: first.met_on || hstDayOf(first.created_at || Date.now()), legs: [...new Set(rows.map(r => r.legislator_id))].map(legById).filter(Boolean),
+    return { ...g, first, last, ask: rows.some(r => r.answer), day: first.met_on || hstDayOf(first.created_at || Date.now()), legs: [...new Set(rows.map(r => r.legislator_id))].map(legById).filter(Boolean),
       bill: first.bill_id ? billById(first.bill_id) : null, issue: first.issue_id ? (S.issues || []).find(i => i.id === first.issue_id) : null };
   });
 }
@@ -78,14 +78,19 @@ export function convHits(q) {
     g.bill ? `${g.bill.bill_number} ${g.bill.nickname || ''}` : '', g.issue?.name, ...g.rows.map(r => ANSWER[r.answer]), ...g.rows.map(r => r.committee)].filter(Boolean).join(' | '));
   return convGroups().filter(g => res.every(re => re.test(hay(g)))).sort((x, y) => String(y.last.met_on || y.last.created_at).localeCompare(String(x.last.met_on || x.last.created_at)));
 }
-// Where a result opens: the bill's Activity tab (its Conversations), else the issue's page, else the legislator's.
-const convHref = g => g.bill ? billRoute(g.bill, 'activity') : g.issue ? `#/issue/${encodeURIComponent(g.issue.id)}` : g.legs[0] ? legHref(g.legs[0]) : '#/legislators';
+// Where a result opens: the bill's Activity tab (its Conversations), else the issue's page, else the legislator's, with
+// ?cv= naming the conversation (conversation.js's key for it: the meeting, or the newest row of an ask) so it lands there.
+const convHref = g => { const k = g.last.conversation_id ? 'c:' + g.last.conversation_id : 'n:' + g.last.id;
+  return `${g.bill ? billRoute(g.bill, 'activity') : g.issue ? `#/issue/${encodeURIComponent(g.issue.id)}` : g.legs[0] ? legHref(g.legs[0]) : '#/legislators'}?cv=${encodeURIComponent(k)}`; };
 const andList = xs => xs.length <= 1 ? (xs[0] || '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
-const convWho = g => andList(g.legs.map(shortName)) || 'A legislator';
-// "Kris · Mon 3/16 · SB2470 · Will schedule": who logged it, the day, the bill, and a chair's newest answer.
+const convWho = g => (andList(g.legs.map(shortName)) || 'A legislator') + (g.ask ? ' (chair)' : '');
+// The short facts first, in the bill page's words, then the bill by its name (R-271), so a phone's one line keeps them:
+// a talk "Mon 3/16 · Kris logged it · Disposable e-cigarette ban"; an ask to a chair as its Next up says it, "Asked by
+// Kris Mon 3/16 · will schedule · ..." (C-15).
 const convSub = g => { const a = advocate(g.first.advocate_id), me = S.me && g.first.advocate_id === S.me.id;
-  return [me ? 'You' : String(a?.full_name || '').split(' ')[0], fmtDate(g.day, { weekday: 'short' }).replace(/^(\w{3}),/, '$1'), g.bill?.bill_number,
-    g.rows.length > 1 && g.last.answer ? ANSWER[g.last.answer] : ''].filter(Boolean).join(' · '); };
+  const who = me ? 'you' : String(a?.full_name || '').split(' ')[0] || 'someone', day = fmtDate(g.day, { weekday: 'short' }).replace(/^(\w{3}),/, '$1');
+  const about = g.bill ? g.bill.nickname || g.bill.bill_number : g.issue?.name;
+  return [...(g.ask ? [`Asked by ${who} ${day}`, askReply(g.last)] : [day, `${me ? 'You' : who} logged it`]), about].filter(Boolean).join(' · '); };
 // What was said, from the first word searched for when it is far in, so the reason the result is here shows.
 function convQuote(g, q, n = 110) {
   const text = String(g.last.body || g.first.body || '').replace(/\s+/g, ' ').trim(), low = plain(text);

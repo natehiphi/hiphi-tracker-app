@@ -88,6 +88,19 @@ export function fetchOthers(rows, then) {
   DB.conversationRows(ids).then(extra => { if ((extra || []).length) { S.cvExtra = [...(S.cvExtra || []), ...extra]; then(); } }).catch(() => {});
 }
 
+// ---- landing on one conversation (R-316 H-15) ----
+// A search result opens the place the conversation lives with ?cv=<its key>: that list shows whole, and the card comes
+// into view, takes the focus and stays marked, once per arrival (a repaint does not scroll the page back to it).
+const landKey = () => { try { return new URLSearchParams(location.hash.split('?')[1] || '').get('cv'); } catch { return null; } };
+let landed = '';
+addEventListener('hashchange', () => { if (!landKey()) landed = ''; });   // leaving it: the next arrival lands again
+function land(box) {
+  const k = landKey(); if (!k || landed === location.hash) return;
+  const el = [...box.querySelectorAll('[data-cvkey]')].find(x => x.dataset.cvkey === k); if (!el) return;
+  landed = location.hash;
+  setTimeout(() => { if (!el.isConnected) return; el.scrollIntoView({ block: 'center' }); el.focus({ preventScroll: true }); }, 60);
+}
+
 // ---- the list ----
 // here: the page's own context, so the page never repeats itself (A-14): a legislator's page does not name them on every
 // row, an issue's page does not put its own issue on every row, a bill's page names another bill only when it is another
@@ -102,7 +115,8 @@ function itemHTML(g, here) {
   const head = here.legId ? (names.length ? `Also with ${andList(names)}` : '') : (andList(names) || 'A legislator');
   const meta = [esc(dayOf(g.day)), mine(g) ? 'you logged it' : `${esc(firstName(who))} logged it`,
     bill ? `on <a href="${billRoute(bill)}">${bill.nickname ? `${esc(bill.nickname)} <span class="bn-num">${esc(bill.bill_number)}</span>` : esc(bill.bill_number)}</a>` : ''].filter(Boolean).join(' · ');
-  return `<article class="row cv-item" data-cvkey="${esc(g.key)}">
+  const at = landKey() === g.key;   // R-316 H-15: the one a search result opened
+  return `<article class="row cv-item${at ? ' cv-land' : ''}" data-cvkey="${esc(g.key)}"${at ? ' tabindex="-1"' : ''}>
     <div class="cv-main">
       ${head ? `<p class="cv-names">${head}</p>` : ''}
       <p class="cv-meta"><span>${meta}</span>${iss ? chip(iss.name, '', 'tag', { sm: true }) : ''}</p>
@@ -114,7 +128,7 @@ function itemHTML(g, here) {
 export function convListHTML(rows, here = {}, { limit = 3, key = 'cv', none = 'No conversations logged yet.' } = {}) {
   const gs = groupsOf(rows).filter(g => !hiddenNow().has(g.key));
   if (!gs.length) return `<p class="cv-none">${none}</p>`;
-  const all = !limit || (S.cvAll ??= new Set()).has(key) || gs.length <= limit + 1;
+  const lk = landKey(), all = !limit || (S.cvAll ??= new Set()).has(key) || gs.length <= limit + 1 || (lk && gs.some(g => g.key === lk));
   const shown = all ? gs : gs.slice(0, limit);
   return `<div class="rows cv-list">${shown.map(g => itemHTML(g, here)).join('')}</div>
     ${shown.length < gs.length ? showAllBtn(gs.length, { 'data-cvall': key }, { cls: 'cv-all' }) : ''}`;
@@ -122,6 +136,7 @@ export function convListHTML(rows, here = {}, { limit = 3, key = 'cv', none = 'N
 // rows(): the rows as they are now; redraw(): paint the list again (a whole page, or just this box).
 export function wireConvList(box, { rows, redraw }) {
   if (!box) return;
+  land(box);
   box.querySelectorAll('[data-cvall]').forEach(el => el.onclick = () => { (S.cvAll ??= new Set()).add(el.dataset.cvall); redraw(); });
   box.querySelectorAll('[data-cvmore]').forEach(el => el.onclick = () => { const g = groupsOf(rows()).find(x => x.key === el.dataset.cvmore); if (g) convMenu(g, redraw); });
 }
