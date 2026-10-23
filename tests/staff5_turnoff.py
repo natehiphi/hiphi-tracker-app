@@ -120,22 +120,32 @@ with sync_playwright() as p:
   # turned-off owner's cell keeps the dashed initials with "Turned off" beside them, and says the whole thing to a screen
   # reader; the Edit switch's dropdown keeps her picked ("Lauren (turned off)") rather than showing someone else; under
   # Mine, a bill you follow that Kevin owns says "Kevin (turned off) owns it, needs a new owner". Back on: no tag.
-  BILLS = """async ({ off, who, scope, edit }) => {
+  BILLS = """async ({ off, who, scope, edit, fill, q }) => {
     const { S, hooks } = await import('./staff5/data.js'), { bl } = await import('./staff5/filters.js'), wait = ms => new Promise(r => setTimeout(r, ms));
     const p = S.advocates.find(a => a.initials === who); p.is_active = !off;
     if (location.hash !== '#/bills') { location.hash = '#/bills'; await wait(900); }
-    bl().scope = scope; bl().edit = !!edit; hooks.render(); await wait(700);
+    // fill: every bill nobody owns is given to Nate for the moment, so no "No owner" row widens the Owner column.
+    const was = { ...S.assignments }; if (fill) S.bills.forEach(b => { if (!(S.assignments[b.id] || []).length) S.assignments[b.id] = [S.me.id]; });
+    bl().scope = scope; bl().edit = !!edit; bl().q = q || ''; hooks.render(); await wait(700);
     const mine = id => (S.assignments[id] || [])[0] === p.id, row = id => document.querySelector(`[data-edit="own"][data-id="${id}"], select[data-inl="own"][data-id="${id}"]`);
     const ids = S.bills.filter(b => mine(b.id)).map(b => b.id), cells = ids.map(row).filter(Boolean);
     const out = { n: cells.length,
       cell: cells.map(c => c.tagName === 'SELECT' ? c.options[c.selectedIndex]?.textContent : (c.textContent.trim() + ' / ' + c.getAttribute('aria-label'))).slice(0, 3),
-      fol: [...document.querySelectorAll('.bl-fol')].map(e => e.getAttribute('aria-label')).filter(t => t.includes(p.full_name)).slice(0, 2) };
-    bl().edit = false; p.is_active = true; hooks.render(); await wait(300); return out; }"""
+      fol: [...document.querySelectorAll('.bl-fol')].map(e => e.getAttribute('aria-label')).filter(t => t.includes(p.full_name)).slice(0, 2),
+      clipped: cells.filter(c => c.tagName !== 'SELECT' && c.scrollWidth > c.clientWidth + 1).length };
+    if (fill) S.assignments = was;
+    bl().edit = false; bl().q = ''; p.is_active = true; hooks.render(); await wait(300); return out; }"""
   on = pg.evaluate(BILLS, {'off': False, 'who': 'LR', 'scope': 'all'})
   off = pg.evaluate(BILLS, {'off': True, 'who': 'LR', 'scope': 'all'})
   check(off['n'] >= 2 and all('Turned off / ' in c and 'Lauren (turned off), needs a new owner' in c for c in off['cell']),
         f"Bills, Team: Lauren's owner cells say \"Turned off\" and, to a screen reader, \"Lauren (turned off), needs a new owner\" ({off['cell'][:1]})")
   check(on['n'] >= 2 and not any('urned off' in c or 'new owner' in c for c in on['cell']), f"Bills, Team: back on, her cells name her plainly ({on['cell'][:1]})")
+  # Fresh-eyes: with no "No owner" row in view the column was an avatar's width and cut "Turned off" short; and a list of
+  # her one bill dropped the Owner column (one owner, R-277 fix 11), so nothing said she was off.
+  fl = pg.evaluate(BILLS, {'off': True, 'who': 'LR', 'scope': 'all', 'fill': True})
+  check(fl['n'] >= 2 and fl['clipped'] == 0, f"Bills, Team, every bill owned: Lauren's \"Turned off\" cells are not cut short ({fl['clipped']} of {fl['n']} cut)")
+  one = pg.evaluate(BILLS, {'off': True, 'who': 'LR', 'scope': 'all', 'q': 'SB3234'})
+  check(one['n'] == 1 and 'Turned off / ' in one['cell'][0], f"Bills, a search for one of her bills keeps the Owner column, saying \"Turned off\" ({one['cell']})")
   ed = pg.evaluate(BILLS, {'off': True, 'who': 'LR', 'scope': 'all', 'edit': True})
   check(ed['n'] >= 2 and all(c == 'Lauren (turned off)' for c in ed['cell']), f"Bills, Edit: Lauren's Owner dropdowns keep her picked as \"Lauren (turned off)\" ({ed['cell'][:2]})")
   fo = pg.evaluate(BILLS, {'off': True, 'who': 'KV', 'scope': 'me'})
@@ -173,7 +183,7 @@ with sync_playwright() as p:
   # Sort new bills never hands a bill to someone who cannot sign in: with HEAL picked for the card and Lauren (HEAL's
   # owner) off, the Owner is "No owner" and says why; the coalition list says she is off; Track leaves the bill with no
   # owner. Back on, she is the owner again ("Owns HEAL").
-  SORT = """async ({ off, track }) => {
+  SORT = """async ({ off, track, issue }) => {
     const { S, hooks } = await import('./staff5/data.js'), wait = ms => new Promise(r => setTimeout(r, ms));
     const lr = S.advocates.find(a => a.initials === 'LR'), heal = S.campaigns.find(c => c.name === 'HEAL'); lr.is_active = !off;
     if (location.hash !== '#/bills/new') { location.hash = '#/bills/new'; await wait(1500); }
@@ -182,6 +192,7 @@ with sync_playwright() as p:
     document.querySelector('[data-tcoal]').click(); await wait(500);
     const sub = document.querySelector(`dialog[open] [data-pv="${heal.id}"] .sub`)?.textContent || '';
     document.querySelector(`dialog[open] [data-pv="${heal.id}"]`).click(); await wait(600);
+    if (issue) { document.querySelector('[data-tiss]').click(); await wait(500); document.querySelector(`dialog[open] [data-pv="${issue}"]`).click(); await wait(500); }
     const chip = document.querySelector('[data-town]')?.textContent.trim(), why = document.querySelector('.st-owhy')?.textContent || '';
     document.querySelector('[data-town]').click(); await wait(500);
     const help = document.querySelector('dialog[open] .sv-sh-help')?.textContent || '';
@@ -199,5 +210,8 @@ with sync_playwright() as p:
   check(on['chip'] == 'Lauren' and on['why'] == 'Owns HEAL' and 'turned off' not in on['sub'], f"Sort new bills: back on, Lauren owns it again ({on['chip']} / {on['why']} / {on['sub']})")
   tr = pg.evaluate(SORT, {'off': True, 'track': True})
   check(tr['owner'] == 0, f"Sort new bills: Track with Lauren off leaves {tr['num']} with no owner, not with her ({tr['owner']})")
+  # Fresh-eyes: on one of Lauren's issues too, since putting a bill nobody leads on an issue hands it to the issue's owner.
+  ti = pg.evaluate(SORT, {'off': True, 'track': True, 'issue': where['issue']})
+  check(ti['chip'] == 'No owner' and ti['owner'] == 0, f"Sort new bills: HEAL and Lauren's issue, Track with her off leaves {ti['num']} with no owner ({ti['chip']} / {ti['why']} / {ti['owner']})")
   br.close()
 print('\nall passed' if not fails else f'\n{len(fails)} failed'); sys.exit(1 if fails else 0)

@@ -301,7 +301,8 @@ export function blRow(b, { sub = '', href, selectable = false, selected = false,
   const offWho = o && offTag(o) ? esc(ownerFirst(o)) : '';
   // In Mine, a bill nobody holds that is yours through an issue (R-263) shows the issue's tag, not the no-owner circle.
   const iss = mine && (!o || o.id === S.me?.id) ? myIssuesOf(b) : [];
-  const who = o ? (mine && o.id === S.me?.id ? '' : ownAv(o)) : iss.length ? `<span class="bl-noown" title="On your issue ${esc(iss[0].name)}">${icon('tag')}<span class="sr">On your issue ${esc(iss[0].name)}</span></span>`
+  // The words on their own line say it, so a screen reader does not hear it twice from the circle too (fresh-eyes).
+  const who = o ? (mine && o.id === S.me?.id ? '' : offWho ? `<span aria-hidden="true">${ownAv(o)}</span>` : ownAv(o)) : iss.length ? `<span class="bl-noown" title="On your issue ${esc(iss[0].name)}">${icon('tag')}<span class="sr">On your issue ${esc(iss[0].name)}</span></span>`
     : `<span class="bl-noown" title="No owner">${icon('circle-dashed')}<span class="sr">No owner</span></span>`;   // in words in the table and the meta line: the dashed circle alone was read as a blank (R-267)
   const end = `<span class="sv-posic" role="img" title="${esc(pw)}" aria-label="${esc(pw)}">${posIcons(pos)}</span>${b.priority === 1 ? '<span class="sv-p1">P1</span>' : ''}${who}`;
   const box = selectable ? `<span class="sv-check" aria-hidden="true">${icon(selected ? 'square-check-big' : 'square')}</span>` : '';
@@ -390,12 +391,14 @@ function table(groups) {
   // R-277 fix 11: nor when every bill shown has the same owner (a list filtered to one person): the column said the same
   // initials on every row. Editing keeps it, since that is where an owner is changed.
   const owns = new Set(groups.filter(g => g.open).flatMap(g => g.shown).map(b => ownerOf(b)?.id || ''));
-  const oneOwner = !v.edit && owns.size === 1 && !owns.has('');
+  // R-316 W28 (fresh-eyes): kept when that one owner is turned off, the one place their table row says so.
+  const oneOwner = !v.edit && owns.size === 1 && !owns.has('') && !offTag([...owns][0]);
   let cols = COLS.filter(c => (c.k !== 'sel' || v.selecting) && (!c.opt || v.cols.has(c.k)) && (c.k !== 'own' || (v.scope !== 'me' && !oneOwner)))
     // While editing, a dropdown needs a name's room, not an avatar's, and "Support with changes" whole.
     .map(c => !v.edit ? c : c.k === 'own' ? { ...c, w: [140, 132] } : c.k === 'pos' ? { ...c, min: [212, 204], ideal: [224, 216] } : c)
     // R-277 fix 20: "No owner" was cut at 72px (the column is an avatar's width); with such a row shown it has the word's room.
-    .map(c => c.k === 'own' && !v.edit && owns.has('') ? { ...c, w: [112, 112] } : c);
+    // R-316 W28 (fresh-eyes): "Turned off" beside a turned-off owner's initials needs the same room.
+    .map(c => c.k === 'own' && !v.edit && (owns.has('') || [...owns].some(id => offTag(id))) ? { ...c, w: [112, 112] } : c);
   // A bill docked beside the table says everything about itself, so where the title would get under 300px (and the
   // position its one line) the table gives up, in turn, what the docked bill also shows: the added columns, the
   // position's word (its icon stays), "Where it stands", then the owner. A 1920 window keeps them all.

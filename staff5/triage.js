@@ -230,7 +230,7 @@ export default {
     root.querySelectorAll('[data-tundo]').forEach(b => b.onclick = () => undoEntry(t.hist.find(h => String(h.key) === b.dataset.tundo)));
     if (!r) return;
     $('[data-tcoal]').onclick = e => { const cur = campOf(t, r), real = realMatches(r).real, back = after(e, '[data-tcoal]');
-      pickerSheet({ title: `Track ${r.bill_number} for`, value: cur?.id, help: t.own[r.id] === undefined ? 'The coalition\'s owner gets the bill, unless you pick an owner.' : '',
+      pickerSheet({ title: `Track ${r.bill_number} for`, value: cur?.id, help: t.own[r.id] === undefined ? 'The coalition\'s owner gets the bill, unless you pick an owner or they are turned off.' : '',
         options: S.campaigns.map(c => { const m = real.find(x => x.campaign_id === c.id), o = advocate(c.owner_id);
           return [c.id, c.name, iconName(c.icon), [m ? `Suggested: matches ${m.terms.join(', ')}` : '', o ? `${teamName(o)} owns it${newOwnerTag(o)}` : 'No owner'].filter(Boolean).join(' · ')]; }),
         onPick: v => { t.pick[r.id] = v; rerender(back); } }); };
@@ -280,9 +280,11 @@ async function decide(kind) {
       // follows the position (R-175: strongly support is P1), in the database and in DB.updateBill.
       if (b) {
         if (b.position !== pos || b.priority !== pri) await DB.updateBill(b.id, { position: pos });
-        await DB.setOwner(b.id, own);
         // The issue, and whether it was the suggestion (kept for February's "how often was it right", migration 119).
         if (iss) await DB.setBillIssue(b.id, iss.id, true, { via: !sg ? 'staff' : sg.id === iss.id ? 'suggested' : 'changed' });
+        // The owner last: putting a bill nobody leads on an issue hands it to the issue's owner (091), even one who is
+        // turned off or one the card set to No owner, so what the card says is written after it (R-316 W28, fresh-eyes).
+        await DB.setOwner(b.id, own);
       }
       const who = own ? (own === S.me?.id ? 'You' : advocate(own)?.full_name || 'Someone') : '';
       const h = { key: ++seq, kind, row: r, idx, camp: c?.name || '', pos, pri, own: who, issueId: iss?.id || null, issue: iss?.name || '' }; t.hist.unshift(h); t.last = { ...r, tracked: true };
