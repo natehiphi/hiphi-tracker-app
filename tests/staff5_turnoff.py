@@ -2,7 +2,8 @@
 # Nate on Team: for every teammate who owns bills, turning them off must not lower Slipping's count, their name must
 # say "(turned off)" where it still shows (G3-8: six screens, Lauren off and back on) and, where it shows as the owner,
 # that it needs a new one (fresh-eyes), and they leave the going lists. The hearing page names who files approved
-# testimony when that is not the row's owner (W20, T-3). Exits 1 when a check fails.
+# testimony when that is not the row's owner (W20, T-3). Bills, the quick look and Sort new bills say it too, and Sort new
+# bills never hands a new bill to someone turned off (the R-316 leftovers, 22 Oct). Exits 1 when a check fails.
 #   python3 tests/staff5_turnoff.py                  against http://localhost:8832
 #   V4_ROOT=/path/to/worktree python3 tests/staff5_turnoff.py    serves that folder straight into the browser
 import os, sys
@@ -114,5 +115,103 @@ with sync_playwright() as p:
   check(nt and '· you file it' in nt['chip'], f"hearing page: owned by Kevin, sent by Nate: \"you file it\" ({nt and nt['chip']})")
   pg.evaluate(FILER, {'num': 'HB1562', 'owner': None, 'off': None, 'route': '#/'})
   pg.evaluate(FILER, {'num': 'HB2121', 'owner': None, 'off': None, 'route': '#/'})
+
+  # The rest of W28 (R-316 leftovers, 22 Oct): Bills, the quick look and Sort new bills. Bills under Team, laptop: a
+  # turned-off owner's cell keeps the dashed initials with "Turned off" beside them, and says the whole thing to a screen
+  # reader; the Edit switch's dropdown keeps her picked ("Lauren (turned off)") rather than showing someone else; under
+  # Mine, a bill you follow that Kevin owns says "Kevin (turned off) owns it, needs a new owner". Back on: no tag.
+  BILLS = """async ({ off, who, scope, edit, fill, q }) => {
+    const { S, hooks } = await import('./staff5/data.js'), { bl } = await import('./staff5/filters.js'), wait = ms => new Promise(r => setTimeout(r, ms));
+    const p = S.advocates.find(a => a.initials === who); p.is_active = !off;
+    if (location.hash !== '#/bills') { location.hash = '#/bills'; await wait(900); }
+    // fill: every bill nobody owns is given to Nate for the moment, so no "No owner" row widens the Owner column.
+    const was = { ...S.assignments }; if (fill) S.bills.forEach(b => { if (!(S.assignments[b.id] || []).length) S.assignments[b.id] = [S.me.id]; });
+    bl().scope = scope; bl().edit = !!edit; bl().q = q || ''; hooks.render(); await wait(700);
+    const mine = id => (S.assignments[id] || [])[0] === p.id, row = id => document.querySelector(`[data-edit="own"][data-id="${id}"], select[data-inl="own"][data-id="${id}"]`);
+    const ids = S.bills.filter(b => mine(b.id)).map(b => b.id), cells = ids.map(row).filter(Boolean);
+    const out = { n: cells.length,
+      cell: cells.map(c => c.tagName === 'SELECT' ? c.options[c.selectedIndex]?.textContent : (c.textContent.trim() + ' / ' + c.getAttribute('aria-label'))).slice(0, 3),
+      fol: [...document.querySelectorAll('.bl-fol')].map(e => e.getAttribute('aria-label')).filter(t => t.includes(p.full_name)).slice(0, 2),
+      clipped: cells.filter(c => c.tagName !== 'SELECT' && c.scrollWidth > c.clientWidth + 1).length };
+    if (fill) S.assignments = was;
+    bl().edit = false; bl().q = ''; p.is_active = true; hooks.render(); await wait(300); return out; }"""
+  on = pg.evaluate(BILLS, {'off': False, 'who': 'LR', 'scope': 'all'})
+  off = pg.evaluate(BILLS, {'off': True, 'who': 'LR', 'scope': 'all'})
+  check(off['n'] >= 2 and all('Turned off / ' in c and 'Lauren (turned off), needs a new owner' in c for c in off['cell']),
+        f"Bills, Team: Lauren's owner cells say \"Turned off\" and, to a screen reader, \"Lauren (turned off), needs a new owner\" ({off['cell'][:1]})")
+  check(on['n'] >= 2 and not any('urned off' in c or 'new owner' in c for c in on['cell']), f"Bills, Team: back on, her cells name her plainly ({on['cell'][:1]})")
+  # Fresh-eyes: with no "No owner" row in view the column was an avatar's width and cut "Turned off" short; and a list of
+  # her one bill dropped the Owner column (one owner, R-277 fix 11), so nothing said she was off.
+  fl = pg.evaluate(BILLS, {'off': True, 'who': 'LR', 'scope': 'all', 'fill': True})
+  check(fl['n'] >= 2 and fl['clipped'] == 0, f"Bills, Team, every bill owned: Lauren's \"Turned off\" cells are not cut short ({fl['clipped']} of {fl['n']} cut)")
+  one = pg.evaluate(BILLS, {'off': True, 'who': 'LR', 'scope': 'all', 'q': 'SB3234'})
+  check(one['n'] == 1 and 'Turned off / ' in one['cell'][0], f"Bills, a search for one of her bills keeps the Owner column, saying \"Turned off\" ({one['cell']})")
+  ed = pg.evaluate(BILLS, {'off': True, 'who': 'LR', 'scope': 'all', 'edit': True})
+  check(ed['n'] >= 2 and all(c == 'Lauren (turned off)' for c in ed['cell']), f"Bills, Edit: Lauren's Owner dropdowns keep her picked as \"Lauren (turned off)\" ({ed['cell'][:2]})")
+  fo = pg.evaluate(BILLS, {'off': True, 'who': 'KV', 'scope': 'me'})
+  check(fo['fol'] and all('Kevin (turned off) owns it, needs a new owner' in t for t in fo['fol']), f"Bills, Mine: a followed bill Kevin owns says \"Kevin (turned off) owns it, needs a new owner\" ({fo['fol'][:1]})")
+  fo = pg.evaluate(BILLS, {'off': False, 'who': 'KV', 'scope': 'me'})
+  check(fo['fol'] and not any('turned off' in t for t in fo['fol']), f"Bills, Mine: back on, \"Kevin owns it\" ({fo['fol'][:1]})")
+
+  # The quick look's Owner line (Today, Bills and the hearing page open it).
+  LOOK = """async ({ off }) => {
+    const { S } = await import('./staff5/data.js'), { openLook } = await import('./staff5/look.js'), wait = ms => new Promise(r => setTimeout(r, ms));
+    const lr = S.advocates.find(a => a.initials === 'LR'); lr.is_active = !off;
+    const b = S.bills.find(x => (S.assignments[x.id] || [])[0] === lr.id); openLook(b); await wait(600);
+    const dd = [...document.querySelectorAll('dialog[open] .lk-kv dt')].filter(x => x.textContent === 'Owner').map(x => x.nextElementSibling.textContent.trim());
+    document.querySelector('dialog[open]')?.close(); lr.is_active = true; await wait(200); return dd; }"""
+  lk = pg.evaluate(LOOK, {'off': True})
+  check(lk and all('Lauren (turned off), needs a new owner' in x for x in lk), f"quick look: Owner says \"Lauren (turned off), needs a new owner\" ({lk})")
+  lk = pg.evaluate(LOOK, {'off': False})
+  check(lk and all('Lauren' in x and 'turned off' not in x for x in lk), f"quick look: back on, Owner says Lauren ({lk})")
+
+  # Phone: the list row's second line says it, where a bill with nobody says No owner.
+  ph = br.new_page(viewport={'width': 390, 'height': 844})
+  if ROOT: ph.route(HOST + '/**', router)
+  ph.goto(HOST + '/staff5.html?demo=1&as=NT#/bills'); ph.wait_for_timeout(5000)
+  PHONE = """async ({ off }) => {
+    const { S, hooks } = await import('./staff5/data.js'), { bl } = await import('./staff5/filters.js'), wait = ms => new Promise(r => setTimeout(r, ms));
+    const lr = S.advocates.find(a => a.initials === 'LR'); lr.is_active = !off; bl().scope = 'all'; hooks.render(); await wait(700);
+    const subs = [...document.querySelectorAll('main .bl-row, main .sv-billrow')].filter(r => r.querySelector('.sv-av')?.textContent === 'LR').map(r => r.querySelector('.bl-offsub')?.textContent || r.querySelector('.sub')?.textContent || '');
+    lr.is_active = true; hooks.render(); await wait(300); return subs; }"""
+  sb = ph.evaluate(PHONE, {'off': True})
+  check(len(sb) >= 2 and all(x == 'Lauren (turned off), needs a new owner' for x in sb), f"Bills on a phone: Lauren's rows say \"Lauren (turned off), needs a new owner\" ({sb[:1]})")
+  sb = ph.evaluate(PHONE, {'off': False})
+  check(len(sb) >= 2 and not any('turned off' in x for x in sb), f"Bills on a phone: back on, no tag ({sb[:1]})")
+  ph.close()
+
+  # Sort new bills never hands a bill to someone who cannot sign in: with HEAL picked for the card and Lauren (HEAL's
+  # owner) off, the Owner is "No owner" and says why; the coalition list says she is off; Track leaves the bill with no
+  # owner. Back on, she is the owner again ("Owns HEAL").
+  SORT = """async ({ off, track, issue }) => {
+    const { S, hooks } = await import('./staff5/data.js'), wait = ms => new Promise(r => setTimeout(r, ms));
+    const lr = S.advocates.find(a => a.initials === 'LR'), heal = S.campaigns.find(c => c.name === 'HEAL'); lr.is_active = !off;
+    if (location.hash !== '#/bills/new') { location.hash = '#/bills/new'; await wait(1500); }
+    hooks.render(); await wait(500);
+    const num = document.querySelector('#st-tnum')?.textContent;
+    document.querySelector('[data-tcoal]').click(); await wait(500);
+    const sub = document.querySelector(`dialog[open] [data-pv="${heal.id}"] .sub`)?.textContent || '';
+    document.querySelector(`dialog[open] [data-pv="${heal.id}"]`).click(); await wait(600);
+    if (issue) { document.querySelector('[data-tiss]').click(); await wait(500); document.querySelector(`dialog[open] [data-pv="${issue}"]`).click(); await wait(500); }
+    const chip = document.querySelector('[data-town]')?.textContent.trim(), why = document.querySelector('.st-owhy')?.textContent || '';
+    document.querySelector('[data-town]').click(); await wait(500);
+    const help = document.querySelector('dialog[open] .sv-sh-help')?.textContent || '';
+    const opts = [...document.querySelectorAll('dialog[open] [data-pv]')].map(b => b.textContent);
+    document.querySelector('dialog[open]')?.close(); await wait(300);
+    let owner = 'not tracked';
+    if (track) { document.querySelector('[data-ttrack]').click(); await wait(1200);
+      const t = S.bills.find(x => x.bill_number === num); owner = t ? (S.assignments[t.id] || []).length : 'missing'; }
+    lr.is_active = true; return { num, sub, chip, why, help, opts: opts.filter(o => o.includes('Lauren')), owner }; }"""
+  so = pg.evaluate(SORT, {'off': True, 'track': False})
+  check('Lauren (turned off) owns it, needs a new owner' in so['sub'], f"Sort new bills: the coalition list says \"Lauren (turned off) owns it, needs a new owner\" under HEAL ({so['sub']})")
+  check(so['chip'] == 'No owner' and so['why'] == 'Lauren (turned off) owns HEAL', f"Sort new bills: HEAL's card is \"No owner\", saying \"Lauren (turned off) owns HEAL\" ({so['chip']} / {so['why']})")
+  check('has no owner unless you pick one' in so['help'] and not so['opts'], f"Sort new bills: the Owner list says why and does not offer Lauren ({so['help']} / {so['opts']})")
+  on = pg.evaluate(SORT, {'off': False, 'track': False})
+  check(on['chip'] == 'Lauren' and on['why'] == 'Owns HEAL' and 'turned off' not in on['sub'], f"Sort new bills: back on, Lauren owns it again ({on['chip']} / {on['why']} / {on['sub']})")
+  tr = pg.evaluate(SORT, {'off': True, 'track': True})
+  check(tr['owner'] == 0, f"Sort new bills: Track with Lauren off leaves {tr['num']} with no owner, not with her ({tr['owner']})")
+  # Fresh-eyes: on one of Lauren's issues too, since putting a bill nobody leads on an issue hands it to the issue's owner.
+  ti = pg.evaluate(SORT, {'off': True, 'track': True, 'issue': where['issue']})
+  check(ti['chip'] == 'No owner' and ti['owner'] == 0, f"Sort new bills: HEAL and Lauren's issue, Track with her off leaves {ti['num']} with no owner ({ti['chip']} / {ti['why']} / {ti['owner']})")
   br.close()
 print('\nall passed' if not fails else f'\n{len(fails)} failed'); sys.exit(1 if fails else 0)

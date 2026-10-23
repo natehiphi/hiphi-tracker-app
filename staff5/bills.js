@@ -19,6 +19,7 @@ import { openLook } from './look.js';
 import { dockPane, wirePane } from './today.js';   // R-277 fix 17 (U-1): the docked bill is Today's open item, one panel
 import { bulkBar, wireBulkBar, startSelect, stopSelect, dropSelect, selIds, FIELD } from './bulk.js';
 import { billRoute, billRef, whenAt, plainDeadlines, plainGate } from './model.js';
+import { offTag, teamName, teamFirst, ownerFirst, newOwnerTag } from './model.js';   // R-316 W28: a turned-off owner says so
 import { GROUPS, groupKey } from './standing.js';
 import { TERMS_TAP, HOW_TO, termBtn, termCodes } from './terms.js';   // R-316 W40, W37 (practice copy): Capitol words tap open; How to ask for a hearing
 
@@ -291,15 +292,21 @@ function emptyState(q, nf) {
 // summary over both lines). The status sentence keeps its own line under it.
 // `mine`: the row is in Mine, where your own initials on every row say nothing (A-14, R-022), so only an owner who is
 // not you (a bill you follow) or no owner at all is drawn.
+// R-316 W28: an owner who is turned off keeps the bill until someone hands it on, so their circle is dashed and grey
+// (ownAv), and the row says "Lauren (turned off), needs a new owner" on a line of its own (beside the status it was cut
+// short on a phone), as a bill with nobody says No owner.
+const ownAv = (o, size) => offTag(o) ? `<span class="bl-offav">${avatar({ ...o, full_name: `${teamName(o)}${newOwnerTag(o)}` }, size)}</span>` : avatar(o, size);
 export function blRow(b, { sub = '', href, selectable = false, selected = false, mine = false } = {}) {
   const pos = b.position || '', o = ownerOf(b), nick = b.nickname || '', sum = summaryOf(b), pw = pos ? POS_WORD[pos] || pos : posWord('');
+  const offWho = o && offTag(o) ? esc(ownerFirst(o)) : '';
   // In Mine, a bill nobody holds that is yours through an issue (R-263) shows the issue's tag, not the no-owner circle.
   const iss = mine && (!o || o.id === S.me?.id) ? myIssuesOf(b) : [];
-  const who = o ? (mine && o.id === S.me?.id ? '' : avatar(o)) : iss.length ? `<span class="bl-noown" title="On your issue ${esc(iss[0].name)}">${icon('tag')}<span class="sr">On your issue ${esc(iss[0].name)}</span></span>`
+  // The words on their own line say it, so a screen reader does not hear it twice from the circle too (fresh-eyes).
+  const who = o ? (mine && o.id === S.me?.id ? '' : offWho ? `<span aria-hidden="true">${ownAv(o)}</span>` : ownAv(o)) : iss.length ? `<span class="bl-noown" title="On your issue ${esc(iss[0].name)}">${icon('tag')}<span class="sr">On your issue ${esc(iss[0].name)}</span></span>`
     : `<span class="bl-noown" title="No owner">${icon('circle-dashed')}<span class="sr">No owner</span></span>`;   // in words in the table and the meta line: the dashed circle alone was read as a blank (R-267)
   const end = `<span class="sv-posic" role="img" title="${esc(pw)}" aria-label="${esc(pw)}">${posIcons(pos)}</span>${b.priority === 1 ? '<span class="sv-p1">P1</span>' : ''}${who}`;
   const box = selectable ? `<span class="sv-check" aria-hidden="true">${icon(selected ? 'square-check-big' : 'square')}</span>` : '';
-  const inner = `${box}<span class="body"><span class="title bl-rt">${nick ? `<b class="bl-nk">${esc(nick)}</b> <span class="bn-num">${esc(billNum(b))}</span>` : `<b class="bn-num0">${esc(billNum(b))}</b>`} <span class="sv-t">${esc(sum)}</span></span>${sub || (!o && !iss.length) ? `<span class="sub">${sub}${!o && !iss.length ? `${sub ? ' · ' : ''}No owner` : ''}</span>` : ''}</span><span class="end">${end}</span>`;
+  const inner = `${box}<span class="body"><span class="title bl-rt">${nick ? `<b class="bl-nk">${esc(nick)}</b> <span class="bn-num">${esc(billNum(b))}</span>` : `<b class="bn-num0">${esc(billNum(b))}</b>`} <span class="sv-t">${esc(sum)}</span></span>${sub || (!o && !iss.length) ? `<span class="sub">${sub}${!o && !iss.length ? `${sub ? ' · ' : ''}No owner` : ''}</span>` : ''}${offWho ? `<span class="sub bl-offsub">${offWho}</span>` : ''}</span><span class="end">${end}</span>`;
   return href && !selectable ? `<a class="row sv-billrow bl-row" href="${esc(href)}" data-bill="${esc(b.id)}">${inner}</a>`
     : `<button type="button" class="row sv-billrow bl-row${selected ? ' sel' : ''}" data-bill="${esc(b.id)}" aria-pressed="${selected ? 'true' : 'false'}">${inner}</button>`;
 }
@@ -384,12 +391,14 @@ function table(groups) {
   // R-277 fix 11: nor when every bill shown has the same owner (a list filtered to one person): the column said the same
   // initials on every row. Editing keeps it, since that is where an owner is changed.
   const owns = new Set(groups.filter(g => g.open).flatMap(g => g.shown).map(b => ownerOf(b)?.id || ''));
-  const oneOwner = !v.edit && owns.size === 1 && !owns.has('');
+  // R-316 W28 (fresh-eyes): kept when that one owner is turned off, the one place their table row says so.
+  const oneOwner = !v.edit && owns.size === 1 && !owns.has('') && !offTag([...owns][0]);
   let cols = COLS.filter(c => (c.k !== 'sel' || v.selecting) && (!c.opt || v.cols.has(c.k)) && (c.k !== 'own' || (v.scope !== 'me' && !oneOwner)))
     // While editing, a dropdown needs a name's room, not an avatar's, and "Support with changes" whole.
     .map(c => !v.edit ? c : c.k === 'own' ? { ...c, w: [140, 132] } : c.k === 'pos' ? { ...c, min: [212, 204], ideal: [224, 216] } : c)
     // R-277 fix 20: "No owner" was cut at 72px (the column is an avatar's width); with such a row shown it has the word's room.
-    .map(c => c.k === 'own' && !v.edit && owns.has('') ? { ...c, w: [112, 112] } : c);
+    // R-316 W28 (fresh-eyes): "Turned off" beside a turned-off owner's initials needs the same room.
+    .map(c => c.k === 'own' && !v.edit && (owns.has('') || [...owns].some(id => offTag(id))) ? { ...c, w: [112, 112] } : c);
   // A bill docked beside the table says everything about itself, so where the title would get under 300px (and the
   // position its one line) the table gives up, in turn, what the docked bill also shows: the added columns, the
   // position's word (its icon stays), "Where it stands", then the owner. A 1920 window keeps them all.
@@ -422,7 +431,7 @@ function table(groups) {
   // Under Mine a bill you follow but do not own is the one row that is not simply yours: a bell (the bill page's
   // "Following" mark) and whose it is, in words for a screen reader and on hover. A bill that is yours because it is on
   // an issue you own or help on (R-263) gets the issue's tag and the issue's name instead.
-  const folMark = b => { if (v.scope !== 'me' || isOwner(b)) return ''; const o = ownerOf(b), iss = myIssuesOf(b), who = o ? `${o.full_name} owns it` : 'It has no owner';
+  const folMark = b => { if (v.scope !== 'me' || isOwner(b)) return ''; const o = ownerOf(b), iss = myIssuesOf(b), who = o ? `${teamName(o)} owns it${newOwnerTag(o)}` : 'It has no owner';
     const t = iss.length ? `On your issue ${iss.map(i => i.name).join(' and ')}. ${who}.` : `You follow it. ${who}.`;
     return `<span class="bl-fol" role="img" aria-label="${esc(t)}" title="${esc(t)}">${icon(iss.length ? 'tag' : 'bell')}</span>`; };
   const cell = (c, b) => {
@@ -442,7 +451,7 @@ function table(groups) {
       case 'last': return `<td>${b.last_action ? two(`${b.last_action_date ? `<span class="bl-date">${md(b.last_action_date)}</span> ` : ''}${esc(b.last_action)}`, b.last_action) : none}</td>`;
       case 'pulse': return `<td>${pulseText(b)}</td>`;
       case 'pos': { if (v.edit) return `<td><span class="bl-selwrap">${posIcons(b.position || '')}${inlSel('pos', b)}</span></td>`; const p = b.position || '', w = p ? POS_WORD[p] || p : posWord(''); return `<td><button type="button" class="bl-cell" data-edit="pos" data-id="${b.id}" aria-label="Position for ${esc(billSay(b))}: ${esc(w)}. Change it"${c.icon ? ` title="${esc(w)}"` : ''}>${posIcons(p)}<span>${esc(c.icon ? POS_SHORT[p] ?? w : w)}</span></button></td>`; }   // R-277 ui-critic: a word always, short beside the docked bill
-      case 'own': { if (v.edit) return `<td>${inlSel('own', b)}</td>`; const o = ownerOf(b); return `<td><button type="button" class="bl-cell bl-own" data-edit="own" data-id="${b.id}" aria-label="Owner of ${esc(billSay(b))}: ${esc(o ? (o.id === S.me?.id ? 'you' : o.full_name) : 'nobody')}. Change it">${o ? avatar(o) : `<span class="bl-noown">${icon('circle-dashed')}<span class="bl-noword">No owner</span></span>`}</button></td>`; }
+      case 'own': { if (v.edit) return `<td>${inlSel('own', b)}</td>`; const o = ownerOf(b); return `<td><button type="button" class="bl-cell bl-own" data-edit="own" data-id="${b.id}" aria-label="Owner of ${esc(billSay(b))}: ${esc(o ? (o.id === S.me?.id ? 'you' : `${teamName(o)}${newOwnerTag(o)}`) : 'nobody')}. Change it">${o ? offTag(o) ? `<span class="bl-noown">${ownAv(o)}<span class="bl-noword">Turned off</span></span>` : avatar(o) : `<span class="bl-noown">${icon('circle-dashed')}<span class="bl-noword">No owner</span></span>`}</button></td>`; }
     }
     return '<td></td>';
   };
@@ -486,7 +495,7 @@ function exportCSV(list) {
   // The current app's columns and quoting, for the bills in this list in the order shown.
   const rows = [['Bill', 'Title', 'Coalitions', 'Owner', 'Stage', 'Position', 'Priority', 'Committee', 'Last action', 'Last action date']];
   list.forEach(b => rows.push([b.bill_number, b.title, (S.billCampaigns[b.id] || []).map(c => S.campaigns.find(x => x.id === c)?.name).join('; '),
-    owners(b).map(a => a.full_name).join('; '), STAGE_LABEL[effStage(b)], b.position || '', b.priority || '', b.committee || '', b.last_action || '', b.last_action_date || '']));
+    owners(b).map(a => teamName(a)).join('; '), STAGE_LABEL[effStage(b)], b.position || '', b.priority || '', b.committee || '', b.last_action || '', b.last_action_date || '']));
   const csv = rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
@@ -553,13 +562,16 @@ async function saveCell(field, id, val, cell) {
   } catch (e) { repaint(); toast(e, { err: true }); }
 }
 const wordOf = (field, v) => !v || v === 'none' ? (field === 'own' ? 'no owner' : 'none') : field === 'pos' ? POS_WORD[v] || v
-  : v === S.me?.id ? 'you' : firstNames().get(v) || 'someone';
+  : v === S.me?.id ? 'you' : firstNames().get(v) || (offTag(v) ? teamFirst(v) : 'someone');   // "Owner: Lauren (turned off) to Kevin"
 // The Edit switch's dropdowns. The owner's shows first names (the column has a name's room); "You" is first.
 const firstNames = () => { const act = S.advocates.filter(a => a.is_active !== false), fn = a => a.full_name.split(' ')[0];
   return new Map(act.map(a => [a.id, act.filter(x => fn(x) === fn(a)).length > 1 ? `${fn(a)} ${(a.full_name.split(' ')[1] || '')[0] || ''}.` : fn(a)])); };
 function inlSel(field, b) {
   const F = FIELD[field], cur = F.cur(b), names = field === 'own' ? firstNames() : null;
   const opts = field === 'own' ? F.opts().map(([v2, l, ic]) => [v2, v2 === 'none' ? 'No owner' : v2 === S.me?.id ? 'You' : names.get(v2) || l, ic]) : F.opts();
+  // R-316 W28: an owner who is turned off is not on the list, so the dropdown would show someone else's name; keep them
+  // on it, "Lauren (turned off)", as Session setup does, until someone picks a new owner.
+  if (field === 'own' && cur && cur !== 'none' && !opts.some(([v2]) => v2 === cur)) opts.unshift([cur, teamFirst(cur)]);
   const label = `${{ pos: 'Position', own: 'Owner' }[field]} for ${billSay(b)}`;
   return `<select class="bl-sel bl-sel-${field}" data-inl="${field}" data-id="${esc(b.id)}" data-v="${esc(cur)}" aria-label="${esc(label)}">${cur === '' ? '<option value="" selected disabled>None</option>' : ''}${opts.map(([v2, l]) => `<option value="${esc(v2)}"${v2 === cur ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
 }
