@@ -1,0 +1,68 @@
+/* Staff v6 (R-336, spec 6 "Search", V32): the Search page (#/search, .sr-page) and the header palette's rows (pub/suggest.js
+   draws the list; its own look is pub/base.css .sg, which this only warms for staff, under .sv-hdr). Tokens only (css/
+   tokens.css): cards with one warm shadow and the 20px radius, no borders, rows from steps.js (.v6-row). Loaded by search.js
+   until staff6.html links it (shared_changes). */
+
+body.staff6 .sr-page { padding-bottom: 24px; color: var(--v6-body); max-width: 1120px; }
+body.staff6 .sr-page .sr-h1 { margin-bottom: 16px; }
+/* the page's own box: a phone's (the laptop has the header's, which drives this page as you type) */
+body.staff6 .sr-page .sr-box { position: relative; display: flex; align-items: center; margin: 0 0 24px; }
+body.staff6 .sr-page .sr-box > svg { position: absolute; left: 16px; width: 20px; height: 20px; color: var(--v6-muted); pointer-events: none; }
+body.staff6 .sr-page .sr-box input { width: 100%; min-height: 48px; padding: 0 16px 0 46px; border: 1px solid var(--v6-field); border-radius: var(--v6-pill);
+  background: var(--v6-card); color: var(--v6-ink); font: inherit; font-size: var(--v6-t16); }
+body.staff6 .sr-page .sr-box input:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+@media (min-width: 768px) { body.staff6 .sr-page .sr-box { display: none; } }
+
+body.staff6 .sr-page .sr-lede { margin: 0 0 24px; max-width: 70ch; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .sr-page .sr-sum { margin: 0 0 16px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
+body.staff6 .sr-page .sr-skeys { color: var(--v6-muted); }
+/* the groups: a heading (22 Poppins) with its count, then one card of rows */
+body.staff6 .sr-page .sr-grp + .sr-grp { margin-top: 32px; }
+body.staff6 .sr-page .sr-h { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; font-family: Poppins, system-ui, sans-serif; font-weight: 600;
+  font-size: var(--v6-t22); line-height: var(--v6-lh22); color: var(--v6-ink); }
+body.staff6 .sr-page .sr-n { font-family: Lato, system-ui, sans-serif; font-weight: 400; font-size: var(--v6-t16); color: var(--v6-muted); }
+body.staff6 .sr-page .sr-subh { display: flex; align-items: baseline; gap: 8px; margin: 24px 0 12px; font-size: var(--v6-t18); line-height: var(--v6-lh18); font-weight: 700; color: var(--v6-ink); }
+body.staff6 .sr-page .sr-more { margin-top: 8px; }
+body.staff6 .sr-page .sr-more .btn { margin: 0; }
+body.staff6 .sr-page .sr-row .v6-row-line svg { color: var(--v6-muted); }
+body.staff6 .sr-page .sr-wait { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; min-height: 44px; font-size: var(--v6-t16); color: var(--v6-muted); }
+body.staff6 .sr-page .sr-spin { width: 18px; height: 18px; animation: sr-spin 1s linear infinite; }
+@keyframes sr-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { body.staff6 .sr-page .sr-spin { animation: none; } }
+body.staff6 .sr-page .sr-empty { display: grid; gap: 8px; padding: 24px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .sr-page .sr-empty p { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+body.staff6 .sr-page .sr-empty .sr-empty-h { font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t18); color: var(--v6-ink); }
+body.staff6 .sr-page .sr-empty a { color: var(--v6-action); font-weight: 700; }
+
+/* words, steps and places above; then bills on the left and everything else on the right (1100px and wider) */
+body.staff6 .sr-page .sr-top { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; margin-bottom: 32px; }
+body.staff6 .sr-page .sr-top .sr-grp + .sr-grp { margin-top: 0; }
+body.staff6 .sr-page .sr-cols, body.staff6 .sr-page .sr-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: start; }
+body.staff6 .sr-page .sr-col { min-width: 0; }
+@media (min-width: 1100px) {
+  body.staff6 .sr-page .sr-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  body.staff6 .sr-page .sr-grid.two { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+  body.staff6 .sr-page .sr-cols .sr-grp + .sr-grp { margin-top: 0; }
+}
+
+/* with nothing typed: the common tasks; the places only on a phone (a laptop's sidebar lists them beside this page) */
+@media (min-width: 768px) {
+  body.staff6 .sr-page .sr-startplaces { display: none; }
+  body.staff6 .sr-page .sr-cols { grid-template-columns: minmax(0, 1fr); max-width: 720px; }
+}
+/* the box's own clear button (×) in the action colour, not the browser's blue */
+body.staff6 .sr-page input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; margin-left: 8px; cursor: pointer; background: var(--v6-action);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E") center / 18px no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E") center / 18px no-repeat; }
+
+/* the header's palette (pub/suggest.js): rows at least 48px, the warm wash for the picked row, the line under it 14px */
+body.staff6 .sv-hdr .sg { border: 0; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh3); }
+body.staff6 .sv-hdr .sg .sg-h { color: var(--v6-muted); font-size: var(--v6-t14); }
+body.staff6 .sv-hdr .sg .sg-o { min-height: 48px; color: var(--v6-ink); border-radius: var(--v6-r12); }
+body.staff6 .sv-hdr .sg .sg-s { color: var(--v6-muted); }
+body.staff6 .sv-hdr .sg .sg-o[aria-selected="true"] { background: var(--v6-action-wash); box-shadow: inset 3px 0 0 var(--v6-action); }
+
+@media (max-width: 767.98px) {
+  body.staff6 .sr-page .sr-grp + .sr-grp { margin-top: 24px; }
+  body.staff6 .sr-page .sr-top { gap: 24px; margin-bottom: 24px; }
+}
