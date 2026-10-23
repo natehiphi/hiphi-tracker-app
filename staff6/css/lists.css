@@ -501,7 +501,7 @@ body.staff6 .le-cmp .le-steps li::after, body.staff6 .le-cmp .le-steps li::befor
 body.staff6 .le-cmp .le-steps li.cur { color: var(--v6-ink); font-weight: 700; }
 body.staff6 .le-cmp .le-steps li.done { color: var(--v6-body); }
 body.staff6 .le-cmp .le-sdot { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--v6-wash); font: 400 var(--v6-t14)/1 var(--font); color: var(--v6-body); }
-body.staff6 .le-cmp .le-steps li.cur .le-sdot { background: var(--v6-action); color: var(--v6-card); font-weight: 700; }
+body.staff6 .le-cmp .le-steps li.cur .le-sdot { background: var(--v6-action); color: #fff; font-weight: 700; }   /* the filled button's white, not a sixth near-white text colour */
 body.staff6 .le-cmp .le-steps li.done .le-sdot { background: var(--v6-leaf-wash); color: var(--v6-leaf); }
 /* A phone shows only the step you are on, "Step 2 of 4 · Write", so the bar never wraps; a laptop shows all four. */
 body.staff6 .le-cmp .le-steps .le-sof { display: none; }
