@@ -7,72 +7,73 @@
 // with an icon and a word, a line under the subject that says what happens next, and the numbers once it is sent.
 // Nothing on this page sends anything: a row only opens the email's own page.
 // v3 (R-264): the second of Outreach's two tabs, Supporters · Emails. How approval works is said by each email's status,
-// not by a sentence over the list, and the 4:30 pm email is explained where it matters, on the composer's Check it step.
+// not by a sentence over the list, and the 4:30 PM email is explained where it matters, on the composer's Check it step.
 // v4 (R-269): the third of Outreach's four tabs. "This week's asks" left this page for a tab of its own (asks.js), which
 // Outreach opens on; it is said there once (A-14).
+// v6 (R-336, spec 6): rows are a name and one line. A phone's groups use steps.js's row (the subject, then what happens
+// next); a laptop's table keeps four columns, one fact each: Subject, Goes to, Where it stands (in words, bold when it is
+// the viewer's step), Updated. The writer, the status chip and the numbers are on the email's own page.
 import { S, esc, fmtDT, fmtDate, advocate } from './data.js';
 import { alertsToReview } from './model.js';
-import { icon, btn, row, empty, sectionNav } from './ui.js';
+import { icon, btn, empty, sectionNav } from './ui.js';
+import { itemRow, nameWords, numWords } from './steps.js';
 import { pageHead, isDesk, isSide, thSort, sortBy, wireTable, DASH, plural, shortDate } from './lists.js';
 import { audienceOf, statusChip, approverNames, pausedNotice, ago, dailyWord, paused, heldNow, HELD } from './composer.js';
 
 const first = id => (advocate(id)?.full_name || 'Someone').split(' ')[0];
 const when = a => a.updated_at || a.submitted_at || a.created_at || '';
 const newest = (x, y) => String(when(y)).localeCompare(String(when(x)));
-const toWhom = a => { const u = audienceOf(a); return u.kind === 'segment' ? `To ${u.name}` : `To followers of ${u.name || 'a bill'}`; };
 
-function emailRow(a, kind) {
-  const u = audienceOf(a), mine = a.author_id === S.me?.id;
-  let sub, end = '';
-  switch (kind) {
-    case 'review': sub = `From ${esc(first(a.author_id))} · ${esc(toWhom(a))} · ${esc(ago(a.submitted_at || when(a)))}`; break;
-    // While email is paused an approved email's line leads with "Approved · held while email is paused" (Z1-3).
-    case 'send': sub = `${heldNow(a) ? HELD : `Approved${a.approved_by ? ' by ' + esc(first(a.approved_by)) : ''}`} · ${esc(toWhom(a))}`; break;
-    case 'going': sub = `${heldNow(a) ? HELD : `Goes out ${esc(dailyWord(a.scheduled_for))} at 4:30 pm`} · ${a.recipients || 0} ${a.recipients === 1 ? 'person' : 'people'} · ${esc(toWhom(a))}`; break;
-    case 'draft': sub = a.status === 'returned' && a.review_note ? `<span class="le-rnote">“${esc(a.review_note)}”</span>` : `${mine ? 'You' : esc(first(a.author_id))} · ${esc(toWhom(a))} · ${esc(ago(when(a)))}`; end = statusChip(a); break;
-    case 'wait': sub = a.status === 'approved' ? `${heldNow(a) ? HELD : 'Approved'}. Waiting for ${esc(first(a.author_id))} to send it.` : `Waiting for ${esc(approverNames(a.author_id) || 'someone who approves')} to approve ${mine ? 'it' : esc(first(a.author_id)) + '’s email'}.`; break;
-    case 'sent': sub = `<span class="le-sline">Sent to ${a.recipients || 0} · ${a.opens || 0} opened · ${a.clicks || 0} clicked · ${a.bounces || 0} bounced</span><span class="le-smeta">${esc(u.name || '')} · ${esc(first(a.author_id))} · ${esc(ago(a.sent_at))}</span>`; break;
-  }
-  return row({ leadHtml: `<span class="lead">${icon(u.icon)}</span>`, title: esc(a.subject || '(no subject)'), sub, end, href: '#/email/' + encodeURIComponent(a.id), cls: 'le-erow' });
+// "Followers of Let people cross during the countdown (HB 1523)", "Oʻahu testifiers": who it goes to, in one phrase.
+const toWords = a => { const u = audienceOf(a); return u.b ? `Followers of ${nameWords(u.b, 48)}${u.b.nickname ? ` (${numWords(u.b)})` : ''}` : u.l ? `Followers of the list ${u.l.title}` : u.sg ? `The group ${u.sg.name}` : 'Nobody yet'; };
+// A phone's row: the subject, then one line that says what happens next (marked when it is yours). Under a heading that
+// already says it ("Yours to approve", "Ready to send", "Going out at 4:30 PM"), the line says who sent it, when, and who
+// it goes to instead of the heading's words again (A-14).
+// Short, so the row keeps to its one line: "to HB 1523's followers", "to the list Keiki health", "to the group Oʻahu testifiers".
+const lowTo = a => { const u = audienceOf(a); return u.b ? `${u.name}’s followers` : u.l ? `the list ${u.l.title}` : u.sg ? `the group ${u.sg.name}` : 'nobody yet'; };
+function groupLine(a, gid, rv) {
+  if (gid === 'review') return { words: `${first(a.author_id)} sent it ${ago(a.submitted_at || when(a))} · to ${lowTo(a)}`, you: true };
+  if (gid === 'send') return { words: `Approved ${ago(a.approved_at || when(a))} · to ${lowTo(a)}`, you: true };
+  if (gid === 'going' && !heldNow(a)) return { words: `Goes out ${dailyWord(a.scheduled_for)} · to ${lowTo(a)}`, you: false };
+  return nextWords(a, rv);
 }
-const group = (id, title, rows, kind) => rows.length ? `<section class="le-egroup" aria-labelledby="le-g-${id}">
-  <h2 class="sv-group" id="le-g-${id}"><span>${title}</span><span class="n">${rows.length}</span></h2>
-  <div class="rows">${rows.map(a => emailRow(a, kind)).join('')}</div></section>` : '';
+function emailRow(a, rv, gid) {
+  const n = groupLine(a, gid, rv);
+  return itemRow({ key: 'e:' + a.id, name: a.subject || '(no subject)', line: `<span class="le-next${n.you ? ' you' : ''}">${esc(n.words)}</span>`, href: '#/email/' + encodeURIComponent(a.id) });
+}
+const group = (id, title, rows, rv) => rows.length ? `<section class="le-egroup" aria-labelledby="le-g-${id}">
+  <h2 class="le-gh" id="le-g-${id}">${title} <span class="le-gn">${rows.length}</span></h2>
+  <div class="v6-list" role="list" aria-label="${esc(title)}">${rows.map(a => emailRow(a, rv, id)).join('')}</div></section>` : '';
 
 // ---- desktop table ----
 const COLS = [
-  { k: 'subject', label: 'Subject', sort: 1 }, { k: 'to', label: 'Goes to', sort: 1 }, { k: 'writer', label: 'Writer', sort: 1 },
-  { k: 'status', label: 'Status', sort: 1, tip: 'Draft, sent back, waiting for approval, approved, then sent' }, { k: 'when', label: 'Updated', sort: -1, tip: 'When it last changed, or when it was sent' },
-  { k: 'opens', label: 'Opened', sort: -1, num: true, tip: 'How many of the people it was sent to opened it' }, { k: 'clicks', label: 'Clicked', sort: -1, num: true, tip: 'How many clicked a link in it' },
+  { k: 'subject', label: 'Subject', sort: 1 }, { k: 'to', label: 'Goes to', sort: 1 },
+  { k: 'status', label: 'Where it stands', sort: 1, tip: 'Draft, sent back, waiting for approval, approved, then sent' }, { k: 'when', label: 'Updated', sort: -1, tip: 'When it last changed, or when it was sent' },
 ];
 const STATUS_ORDER = { draft: 0, returned: 1, submitted: 2, approved: 3, sent: 4 };
 const stamp = a => a.status === 'sent' ? a.sent_at || when(a) : when(a);
-// "12 min ago", "3h ago", then the date; the full day and time is the cell's tooltip.
 // R-316 W54 (FR-10): one time format in the column ("Mon 3/16"); the full day and time is the cell's tooltip.
 const whenShort = iso => iso ? fmtDate(iso, { weekday: 'short' }).replace(/^(\w{3}),/, '$1') : '';
-const colValue = (a, k) => k === 'subject' ? (a.subject || '').toLowerCase() : k === 'to' ? (audienceOf(a).name || '').toLowerCase() : k === 'writer' ? first(a.author_id).toLowerCase()
-  : k === 'status' ? STATUS_ORDER[a.status] ?? 0 : k === 'when' ? stamp(a) || null : a.status === 'sent' ? a[k] || 0 : null;
-// What happens next, in words; bold when the next step is the viewer's.
-function nextLine(a, rv) {
-  const me = S.me?.id, mine = a.author_id === me, who = esc(first(a.author_id));
-  const you = (ic, t) => `<span class="le-next you">${icon(ic)}${t}</span>`, other = t => `<span class="le-next">${t}</span>`;
-  if (a.status === 'submitted') return rv.has(a.id) ? you('user-check', 'Yours to approve') : other(`Waiting for ${esc(approverNames(a.author_id) || 'someone who approves')} to approve ${mine ? 'it' : who + '’s email'}`);
-  if (a.status === 'approved' && a.scheduled_for) return other(heldNow(a) ? 'Goes out at 4:30 pm once email is turned on' : `Goes out ${esc(dailyWord(a.scheduled_for))} at 4:30 pm`);
-  if (a.status === 'approved') return mine ? you('send', 'Approved. Ready for you to send') : other(`Approved. Waiting for ${who} to send it`);
-  if (a.status === 'returned') return mine ? you('undo-2', `Sent back to you${a.review_note ? `: “${esc(a.review_note)}”` : ''}`) : other(`Sent back to ${who}${a.review_note ? `: “${esc(a.review_note)}”` : ''}`);
-  if (a.status === 'sent') return other(`Sent ${esc(ago(a.sent_at))}${a.bounces ? ` · ${a.bounces} bounced` : ''}`);
-  return mine ? you('square-pen', 'Your draft. Finish it and send it for approval') : other(`${who} is still writing it`);
+const colValue = (a, k) => k === 'subject' ? (a.subject || '').toLowerCase() : k === 'to' ? toWords(a).toLowerCase()
+  : k === 'status' ? STATUS_ORDER[a.status] ?? 0 : k === 'when' ? stamp(a) || null : null;
+// What happens next, in words, and whether it is the viewer's step (then it is said bold, first).
+function nextWords(a, rv) {
+  const me = S.me?.id, mine = a.author_id === me, who = first(a.author_id);
+  if (heldNow(a)) return { words: mine ? 'Approved: held while email is paused' : `Approved: held while email is paused (${who}’s)`, you: false };
+  if (a.status === 'submitted') return rv.has(a.id) ? { words: 'Yours to approve', you: true } : { words: `Waiting for ${approverNames(a.author_id) || 'someone who approves'} to approve ${mine ? 'it' : who + '’s email'}`, you: false };
+  if (a.status === 'approved' && a.scheduled_for) return { words: `Goes out ${dailyWord(a.scheduled_for)} at 4:30 PM`, you: false };
+  if (a.status === 'approved') return mine ? { words: 'Approved: ready for you to send', you: true } : { words: `Approved: waiting for ${who} to send it`, you: false };
+  if (a.status === 'returned') return mine ? { words: `Sent back to you${a.review_note ? `: “${a.review_note}”` : ''}`, you: true } : { words: `Sent back to ${who}`, you: false };
+  if (a.status === 'sent') return { words: `Sent ${ago(a.sent_at)}, ${a.opens || 0} of ${a.recipients || 0} opened`, you: false };
+  return mine ? { words: 'Your draft: finish it and send it for approval', you: true } : { words: `${who} is still writing it`, you: false };
 }
 function emailsTable(rows, v, rv) {
-  const tr = a => { const u = audienceOf(a), href = '#/email/' + encodeURIComponent(a.id), sent = a.status === 'sent', num = k => sent ? (a[k] || 0).toLocaleString() : DASH;
-    const kind = u.kind === 'bill' ? 'Bill followers' : u.kind === 'list' ? 'List followers' : u.kind === 'segment' ? 'Saved segment' : '';
+  const tr = a => { const href = '#/email/' + encodeURIComponent(a.id), n = nextWords(a, rv);
     return `<tr data-href="${esc(href)}">
-      <td class="c-subject"><span class="le-tdbody"><a class="le-tdname" href="${esc(href)}">${esc(a.subject || '(no subject)')}</a><span class="le-tdsub">${nextLine(a, rv)}</span></span></td>
-      <td class="c-to"><span class="le-tdlead sm">${icon(u.icon)}</span><span class="le-tdbody"><span class="le-l1">${u.b ? (u.b.nickname ? `<b class="bn-nick">${esc(u.b.nickname)}</b> <span class="bn-num">${esc(u.name)}</span>` : `<b>${esc(u.name)}</b>`) : esc(u.name || 'Nobody yet')}</span>${kind ? `<span class="le-l2">${kind}</span>` : ''}</span></td>
-      <td class="c-writer">${a.author_id === S.me?.id ? 'You' : esc(first(a.author_id))}</td>
-      <td class="c-status">${statusChip(a)}</td>
-      <td class="c-when"${stamp(a) ? ` title="${esc(fmtDT(stamp(a)))}"` : ''}>${esc(whenShort(stamp(a))) || DASH}</td>
-      <td class="c-opens num">${sent ? `${num('opens')} <span class="le-of">of ${num('recipients')}</span>` : DASH}</td><td class="c-clicks num">${num('clicks')}</td></tr>`; };
+      <td class="c-subject"><a class="le-tdname" href="${esc(href)}">${esc(a.subject || '(no subject)')}</a></td>
+      <td class="c-to">${esc(toWords(a))}</td>
+      <td class="c-status"><span class="le-next${n.you ? ' you' : ''}">${esc(n.words)}</span></td>
+      <td class="c-when"${stamp(a) ? ` title="${esc(fmtDT(stamp(a)))}"` : ''}>${esc(whenShort(stamp(a))) || DASH}</td></tr>`; };
   return `<div class="le-twrap"><table class="le-table le-temails"><caption class="sr">Emails to supporters, ${plural(rows.length, 'email')}. Column headers sort. Select a subject to open that email.</caption>
     <thead><tr>${COLS.map(c => thSort(c, v.sort)).join('')}</tr></thead><tbody>${sortBy(rows, v.sort, colValue).map(tr).join('')}</tbody></table></div>`;
 }
@@ -88,25 +89,27 @@ export default {
     // Ready to send: the writer's own approved emails. An admin can send someone else's too (from its page), but it
     // is the writer's to send, so those wait under "Waiting on someone else".
     const ready = all.filter(a => a.status === 'approved' && !a.scheduled_for && a.author_id === me);
-    // Sent, waiting for the 4:30 pm email (R-101): its own group, so nobody wonders whether it went.
+    // Sent, waiting for the 4:30 PM email (R-101): its own group, so nobody wonders whether it went.
     const going = all.filter(a => a.status === 'approved' && a.scheduled_for);
     const drafts = all.filter(a => ['draft', 'returned'].includes(a.status)).sort((x, y) => (y.author_id === me) - (x.author_id === me) || (y.status === 'returned') - (x.status === 'returned') || newest(x, y));
     const waiting = all.filter(a => (a.status === 'submitted' && !rv.has(a.id)) || (a.status === 'approved' && !a.scheduled_for && a.author_id !== me));
     const sent = all.filter(a => a.status === 'sent').sort((x, y) => String(y.sent_at || '').localeCompare(String(x.sent_at || '')));
-    const newBtn = btn('New email', { icon: 'mail-plus', href: '#/email/new' });
+    // The page's one filled button is for the step you take now (A-3): an email waiting for you to approve or send keeps
+    // "New email" tonal, so the eye goes to what is waiting.
+    const newBtn = btn('New email', { kind: review.length + ready.length ? 'secondary' : 'primary', icon: 'mail-plus', href: '#/email/new' });
     const desk = isDesk(), needs = review.length + ready.length + drafts.filter(a => a.author_id === me).length;
-    return `<div class="le-page${desk ? ' le-desk' : ''}${isSide() ? ' le-side' : ''}">
-      ${pageHead(sectionNav('outreach', 'emails'), 'Emails', '', all.length ? newBtn : '')}
+    return `<div class="le-page ot-emails${desk ? ' le-desk' : ''}${isSide() ? ' le-side' : ''}">
+      ${pageHead(sectionNav('outreach', 'emails'), 'Outreach', '', all.length ? newBtn : '')}
       ${pausedNotice()}
       ${!all.length ? `<div class="le-empty">${empty({ title: 'No emails yet', text: 'Write to the people who follow a bill or a list, or to a saved segment of supporters.', action: newBtn })}</div>`
         // The table opens in the groups' order (what needs you first, sent last); a header click re-sorts it.
-        : desk ? `<p class="le-tsum" aria-live="polite">${needs ? `<b>${needs} ${needs === 1 ? 'needs' : 'need'} you</b>` : 'None needs you'}${v.sort ? '' : ' · what needs you comes first'}</p>${emailsTable([...review, ...ready, ...going, ...drafts, ...waiting, ...sent], v, rv)}`
-        : group('review', 'Yours to approve', review, 'review')
-        + group('send', 'Ready to send', ready, 'send')
-        + group('going', paused() ? 'Held while email is paused' : 'Going out at 4:30 pm', going, 'going')
-        + group('drafts', 'Drafts and sent back', drafts, 'draft')
-        + group('wait', 'Waiting on someone else', waiting, 'wait')
-        + group('sent', 'Sent', sent, 'sent')}
+        : desk ? `<p class="le-tsum" aria-live="polite">${needs ? `<b>${needs} ${needs === 1 ? 'needs' : 'need'} you</b>${v.sort ? '' : ', listed first'}` : 'Nothing needs you right now'}</p>${emailsTable([...review, ...ready, ...going, ...drafts, ...waiting, ...sent], v, rv)}`
+        : group('review', 'Yours to approve', review, rv)
+        + group('send', 'Ready to send', ready, rv)
+        + group('going', paused() ? 'Held while email is paused' : 'Going out at 4:30 PM', going, rv)
+        + group('drafts', 'Drafts and sent back', drafts, rv)
+        + group('wait', 'Waiting on someone else', waiting, rv)
+        + group('sent', 'Sent', sent, rv)}
     </div>`;
   },
   wire(route, root) {

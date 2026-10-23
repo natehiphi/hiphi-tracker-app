@@ -4,8 +4,11 @@
 // the districts found from one are stored, and no address is ever shown (nothing here reads p.address).
 // Desktop (1100px and wider) is two columns: what they follow and everything that happened in the main column, and a
 // side panel that stays in view with how to reach them, where they live (districts only), tags and consent.
+// v6 (R-336, spec 6): the warm look; districts in words ("Senate 2"), never codes; what they follow is a name and one line
+// (no version codes, D15); the phone's contact buttons are tonal buttons, not outlined tiles (spec 4).
 import { S, DB, DEMO, hooks, esc, fmtDate, fmtDT, advocate, islandOf, personById } from './data.js';
 import { INTERESTS, personName, whereOf, billById, blurb, looksLikeAddress, geoSuggest, geoDistricts, hiToday } from './model.js';
+import { nameWords, numWords } from './steps.js';
 import { icon, btn, iconBtn, chip, empty, skeleton, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow } from './ui.js';
 import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { followupSheet, afterSheet } from './supporters.js';
@@ -23,6 +26,8 @@ function copyText(text, okMsg) {
   try { navigator.clipboard.writeText(text).then(() => toast(okMsg, { ok: true }), fail); } catch { fail(); }
 }
 const firstName = a => (a?.full_name || '').split(' ')[0] || 'Someone';
+// "Hawaiʻi, Senate 2, House 2": where they are, in words (districts only, never an address).
+const whereWords = p => [p.island, p.senate_district ? `Senate ${p.senate_district}` : '', p.house_district ? `House ${p.house_district}` : ''].filter(Boolean).join(', ');
 const plural = (n, one, many = one + 's') => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 const intLabel = k => INTERESTS.find(x => x[0] === k)?.[1] || k;
 // What the person says they are, from their public profile (R-147, backend 125), and their story; HIPHI quotes the story
@@ -69,21 +74,18 @@ function header(p) {
   </header>`;
 }
 function actions(p) {
-  const tile = (ic, label, a) => `<${a.href ? `a href="${esc(a.href)}"` : 'button type="button"'} class="sp-act"${Object.entries(a).filter(([k]) => k !== 'href').map(([k, v]) => ` ${k}="${esc(v)}"`).join('')}>${icon(ic)}<span>${label}</span></${a.href ? 'a' : 'button'}>`;
+  const b = (label, ic, attrs) => btn(label, { kind: 'secondary', icon: ic, ...attrs });
   return `<div class="sp-acts4" role="group" aria-label="Contact ${esc(personName(p))}">
-    ${p.email ? tile('mail', 'Email', { href: `mailto:${p.email}` }) : tile('mail', 'Email', { 'data-pp': 'noemail', 'aria-disabled': 'true' })}
-    ${!p.phone ? tile('phone', 'Call', { 'data-pp': 'nophone', 'aria-disabled': 'true' }) : hasMouse() ? tile('copy', 'Copy number', { 'data-pp': 'copyphone' }) : tile('phone', 'Call', { href: `tel:${tel(p)}` })}
-    ${tile('calendar-plus', 'Follow up', { 'data-pp': 'fup' })}
-    ${tile('notebook-pen', 'Note', { 'data-pp': 'note' })}
+    ${p.email ? b('Email', 'mail', { href: `mailto:${p.email}` }) : b('Email', 'mail', { attrs: { 'data-pp': 'noemail', 'aria-disabled': 'true' } })}
+    ${!p.phone ? b('Call', 'phone', { attrs: { 'data-pp': 'nophone', 'aria-disabled': 'true' } }) : hasMouse() ? b('Copy number', 'copy', { attrs: { 'data-pp': 'copyphone' } }) : b('Call', 'phone', { href: `tel:${tel(p)}` })}
+    ${b('Follow up', 'calendar-plus', { attrs: { 'data-pp': 'fup', 'aria-haspopup': 'dialog' } })}
+    ${b('Note', 'notebook-pen', { attrs: { 'data-pp': 'note', 'aria-haspopup': 'dialog' } })}
   </div>`;
 }
 // What they can be emailed, in words: "Supporter emails on · Hearing alerts off · Still subscribed"
 function consent(p) {
-  return `<div class="chips sp-consent" aria-label="Email permissions">
-    ${chip(p.action_optin ? 'Supporter emails on' : 'Supporter emails off', '', p.action_optin ? 'bell' : 'bell-off')}
-    ${chip(p.hearing_optin ? 'Hearing alerts on' : 'Hearing alerts off', '', p.hearing_optin ? 'bell' : 'bell-off')}
-    ${p.bounced_at ? chip(`Email bounced ${fmtDate(p.bounced_at)}`, '', 'triangle-alert') : p.unsubscribed_at ? chip(`Unsubscribed ${fmtDate(p.unsubscribed_at)}`, '', 'circle-x') : chip('Still subscribed', '', 'mail-check')}
-  </div>`;
+  const mail = p.bounced_at ? `Email bounced ${fmtDate(p.bounced_at)}` : p.unsubscribed_at ? `Unsubscribed ${fmtDate(p.unsubscribed_at)}` : 'Still subscribed';
+  return `<p class="sp-consent">${icon(p.action_optin ? 'bell' : 'bell-off')}<span>Supporter emails ${p.action_optin ? 'on' : 'off'} · Hearing alerts ${p.hearing_optin ? 'on' : 'off'} · ${esc(mail)}</span></p>`;
 }
 function followups(p) {
   const list = (S.followups || []).filter(f => f.person_id === p.id && !f.done_at).sort((a, b) => String(a.due || '9').localeCompare(String(b.due || '9')));
@@ -100,7 +102,7 @@ function about(p) {
   const none = t => `<span class="muted">${t}</span>`;
   return `<section class="sp-sec" aria-labelledby="sp-h-about"><div class="sechead"><h2 id="sp-h-about">About</h2>${btn('Edit', { kind: 'text', sm: true, icon: 'square-pen', attrs: { 'data-pp': 'edit' } })}</div>
     <dl class="card sp-about">
-      ${dd('Where', whereOf(p) ? esc(whereOf(p)) : `${none('No districts yet.')} <button type="button" class="linkbtn" data-pp="dist">Find them from an address</button>`)}
+      ${dd('Where', whereOf(p) ? esc(whereWords(p)) : `${none('No districts yet.')} <button type="button" class="linkbtn" data-pp="dist">Find them from an address</button>`)}
       ${dd('They are', titlesHTML(p) || none('Not said'))}
       ${storiesOf(p).length ? dd(storiesOf(p).length > 1 ? 'Their stories' : 'Their story', storyHTML(p)) : ''}
       ${p.help_note ? dd('Other ways they’d help', `<q class="sp-story">${esc(p.help_note)}</q>`) : ''}
@@ -125,8 +127,7 @@ const stanceChip = k => chip(STANCE[k][1], '', STANCE[k][0]);   // R-277 fix 4 (
 // the bill's page says them. The same look as ui.js billRow otherwise; a nickname names the bill, and its plain summary
 // is the line under it, so it is said once.
 function followRow(b, sub) {
-  const num = (b.bill_number || '') + (b.current_version ? ' ' + b.current_version : ''), title = b.public_summary || b.description || b.title || '';
-  return `<a class="row sv-billrow${b.nickname ? ' sp-nick' : ''}" href="${billRoute(b)}" data-bill="${esc(b.id)}"><span class="body"><span class="title">${b.nickname ? `<b class="sv-nk">${esc(b.nickname)}</b> <span class="bn-num">${esc(num)}</span>` : `<b>${esc(num)}</b> <span class="sv-t">${esc(title)}</span>`}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</span><span class="end">${icon('chevron-right', { cls: 'chev' })}</span></a>`;
+  return `<div class="v6-row" role="listitem" data-bill="${esc(b.id)}"><a class="v6-row-main" href="${esc(billRoute(b))}"><span class="v6-row-top"><span class="v6-row-name">${esc(nameWords(b, 70))}</span><span class="v6-row-num">${esc(numWords(b))}</span></span>${sub ? `<span class="v6-row-line"><span>${sub}</span></span>` : ''}</a></div>`;
 }
 function follows(p) {
   const st = P(), bills = (p.bill_ids || []).map(billById).filter(Boolean).sort((a, b) => (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number));
@@ -138,12 +139,13 @@ function follows(p) {
   const showAll = st.billsAll[p.id] || bills.length <= firstN + 1, head = [cats.length && plural(cats.length, 'whole category', 'whole categories'), iss.length && plural(iss.length, 'issue'), bills.length && plural(bills.length, 'bill'), lists.length && plural(lists.length, 'list')].filter(Boolean).join(' · ');
   // A bill with a nickname leads with it (billRow); its plain summary is the second line, so the bill is still
   // explained. Their own stance goes in front of it: on this page that is the thing a staffer came to read.
-  const sum = b => { const k = ownStance(p, b); return `${k ? stanceChip(k) : ''}${b.nickname ? esc(blurb(b, 140)) : ''}`; };
+  // One line: where they said they stand on it (an icon and the word), else that they follow it.
+  const sum = b => { const k = ownStance(p, b); return k ? `${icon(STANCE[k][0])} ${esc(STANCE[k][1])}` : 'Follows it; no stance given'; };
   return `<section class="sp-sec" aria-labelledby="sp-h-fol"><div class="sechead"><h2 id="sp-h-fol">Follows</h2>${head ? `<span class="meta">${head}</span>` : ''}</div>
-    ${cats.length || iss.length ? `<div class="chips sp-lists sp-issues">${cats.map(c => `<a class="chip sp-listchip" href="#/outreach/issues">${icon(c.icon || 'tag')}All of ${esc(c.name)}</a>`).join('')}${iss.map(i => `<a class="chip sp-listchip" href="#/issue/${encodeURIComponent(i.id)}">${icon('tag')}${esc(i.name)}</a>`).join('')}</div>` : ''}
+    ${cats.length || iss.length ? `<div class="chips sp-lists sp-issues">${cats.map(c => `<a class="chip sp-listchip" href="#/my-issues/all">${icon(c.icon || 'tag')}All of ${esc(c.name)}</a>`).join('')}${iss.map(i => `<a class="chip sp-listchip" href="#/issue/${encodeURIComponent(i.id)}">${icon('tag')}${esc(i.name)}</a>`).join('')}</div>` : ''}
     ${lists.length ? `<div class="chips sp-lists">${lists.map(l => `<a class="chip sp-listchip" href="#/list/${encodeURIComponent(l.id)}">${icon('list')}${esc(l.title)}</a>`).join('')}</div>` : ''}
-    ${bills.length ? `<div class="rows sp-fbills">${(showAll ? bills : bills.slice(0, firstN)).map(b => followRow(b, sum(b))).join('')}
-      ${showAll ? '' : showAllBtn(bills.length, { 'data-pp': 'billsall' }, { what: 'bills' })}</div>`
+    ${bills.length ? `<div class="v6-list sp-fbills" role="list" aria-label="Bills they follow">${(showAll ? bills : bills.slice(0, firstN)).map(b => followRow(b, sum(b))).join('')}</div>
+      ${showAll ? '' : showAllBtn(bills.length, { 'data-pp': 'billsall' }, { what: 'bills' })}`
       : `<p class="muted sp-none">${lists.length || iss.length || cats.length ? 'No bills followed on their own.' : 'Not following any issue, bill or list yet.'}</p>`}
   </section>`;
 }
@@ -188,9 +190,9 @@ function sidePanel(p) {
   const kv = (k, v) => `<div class="sp-skv"><dt>${k}</dt><dd>${v}</dd></div>`;
   return `<aside class="sv-aside sp-aside" aria-label="About ${esc(personName(p))}">
     <section class="card sp-sc" aria-labelledby="sp-h-contact"><h2 id="sp-h-contact">Contact</h2>
-      ${line('mail', `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>${copyBtn('copyemail', `Copy the email address ${p.email}`)}`)}
+      ${line('mail', `<a href="mailto:${esc(p.email)}">${esc(p.email).replace('@', '@<wbr>')}</a>${copyBtn('copyemail', `Copy the email address ${p.email}`)}`)}
       ${line('phone', phone)}
-      <div class="sp-sbtns">${btn('Add a note', { sm: true, icon: 'notebook-pen', attrs: { 'data-pp': 'note', 'aria-haspopup': 'dialog' } })}${btn('Follow up', { kind: 'secondary', sm: true, icon: 'calendar-plus', attrs: { 'data-pp': 'fup', 'aria-haspopup': 'dialog' } })}</div>
+      <div class="sp-sbtns">${btn('Add a note', { kind: 'secondary', sm: true, icon: 'notebook-pen', attrs: { 'data-pp': 'note', 'aria-haspopup': 'dialog' } })}${btn('Follow up', { kind: 'secondary', sm: true, icon: 'calendar-plus', attrs: { 'data-pp': 'fup', 'aria-haspopup': 'dialog' } })}</div>
     </section>
     <section class="card sp-sc" aria-labelledby="sp-h-where"><div class="sp-sch"><h2 id="sp-h-where">Where</h2>${btn(whereOf(p) ? 'Change' : 'Find districts', { kind: 'text', sm: true, icon: 'map-pin', attrs: { 'data-pp': 'dist', 'aria-haspopup': 'dialog' } })}</div>
       ${whereOf(p) ? `<dl class="sp-sdl">${kv('Island', p.island ? esc(p.island) : none('Not known'))}${kv('Senate', p.senate_district ? `District ${esc(p.senate_district)}` : none('Not known'))}${kv('House', p.house_district ? `District ${esc(p.house_district)}` : none('Not known'))}</dl>` : `<p class="muted sp-snone">No districts yet.</p>`}

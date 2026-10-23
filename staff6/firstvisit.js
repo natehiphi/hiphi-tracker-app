@@ -16,12 +16,16 @@ import { plural, afterClose } from './lists.js';
 import { qrMatrix, qrSvg, qrPng, printHtml } from './qr.js';
 import { billByNum, billYearPart } from './model.js';
 
-export const FV_HREF = '#/outreach/issues?view=first-visit';
-export const LINKS_HREF = '#/outreach/issues?view=links';
+// v6 (R-336, spec 3.5): both are More tools > Rally ("First visit numbers", "Make a link / QR code"), at My issues > All
+// issues' addresses; the v5 ones (#/outreach/issues?view=...) still open them (app.js redirects).
+export const FV_HREF = '#/my-issues/all?view=first-visit';
+export const LINKS_HREF = '#/my-issues/all?view=links';
+const TOOLS = { href: '#/tools', label: 'More tools' };
 // Which of the two an Issues route is: 'numbers', 'links', or null for the Issues index itself.
 export const fvView = route => ({ 'first-visit': 'numbers', links: 'links' })[route?.q?.view] || null;
-export const fvTitle = route => ({ numbers: 'First visit', links: 'Make a link' })[fvView(route)] || '';
-export const fvBack = route => fvView(route) === 'links' ? { href: FV_HREF, label: 'First visit' } : fvView(route) ? { href: '#/outreach/issues', label: 'Issues' } : null;
+export const fvTitle = route => ({ numbers: 'First visit numbers', links: 'Make a link' })[fvView(route)] || '';
+const OUTREACH = { href: '#/outreach', label: 'Outreach' };
+export const fvBack = route => fvView(route) ? (route.q?.from === 'outreach' ? OUTREACH : TOOLS) : null;
 const LINK_BASE = 'https://natehiphi.github.io/hiphi-tracker-app/track.html';
 
 // The screens of the first visit, in the order a person meets them (pub/start.js FLOW_IN, FLOW_OFF, FLOW_LINK). Someone
@@ -121,7 +125,15 @@ async function load(weeks, { force = false } = {}) {
   try { const [rows, srcs, back, from, sugg, text, asks] = await Promise.all([DB.firstVisitFunnel(+weeks), DB.firstVisitSources(+weeks), DB.visitCountsWeekly(+weeks).catch(() => null), DB.countsFrom().catch(() => v.from), DB.suggestSummary(+weeks).catch(() => null), DB.textSignupCounts(Math.max(30, +weeks * 7)).catch(() => null), DB.laterAsksWeekly(+weeks).catch(() => null)]); v.cache[weeks] = { rows: rows || [], srcs: srcs || [], back, sugg, text, asks, at: Date.now() }; v.from = from; }
   catch (e) { v.err = String(e?.message || e); }
   v.loading = '';
-  if (S.route?.name === 'issues' && fvView(S.route) === 'numbers') redraw();
+  if ((S.route?.name === 'issues' && fvView(S.route) === 'numbers') || S.route?.name === 'asks') redraw();
+}
+// This week's first visits for Outreach's "How it's landing" (R-336 V20, D4): visits that started, and how many came by
+// the newsletter's and posts' links (?via=newsletter, ?via=social, or a social site). null until the numbers are in.
+const SOCIAL = /^(social|facebook\.com|instagram\.com|x\.com|twitter\.com|threads\.net|tiktok\.com|linkedin\.com)$/;
+export function weekLanding() {
+  const v = V(); load('1'); const have = v.cache['1']; if (!have) return null;
+  const rows = have.rows || [], t = total(rows), ours = rows.filter(r => r.source === 'newsletter' || SOCIAL.test(String(r.source || ''))).reduce((n, r) => n + (r.visits || 0), 0);
+  return { visits: t.visits, email: t.email, ours };
 }
 // Partners: asked once per visit to the app; a failure says so on the Links page, with Try again (B-8).
 function wantPartners({ force = false } = {}) {
@@ -374,7 +386,10 @@ function linkHTML() {
   const v = V(), ps = (S.partners || []).slice().sort((a, b) => a.name.localeCompare(b.name));
   if (!S.partnersLoaded) return v.perr ? notice('bad', 'circle-alert', 'The partners did not load. Check your connection and try again.', btn('Try again', { kind: 'secondary', sm: true, attrs: { 'data-fv': 'pretry' } }))
     : `<div class="fv-loading" aria-busy="true" aria-label="Loading the partners">${skeleton(1)}</div>`;
-  const p = partnerBy(v.partner) || (ps.length === 1 ? ps[0] : null);
+  // A partner is picked from the start (the newest one), so its link and QR code are on screen two taps from anywhere
+  // (More tools, Make a link: R-336 target); the chip changes it.
+  const newest = ps.slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))[0];
+  const p = partnerBy(v.partner) || newest || null;
   if (p && v.partner !== p.slug) v.partner = p.slug;
   if (!ps.length) return `<section class="card fv-card fv-none" aria-label="Partners"><p>No partners yet. Add the first one, and its link and QR code appear here.</p>
     ${btn('New partner', { icon: 'plus', attrs: { 'data-fv': 'pnew', 'aria-haspopup': 'dialog' } })}</section>`;
@@ -530,21 +545,28 @@ function partnerForm(p = null) {
 // First visit: the numbers, with the way to Make a link under its top line. Make a link: a focused form (narrow on a
 // desktop), the link and its QR code side by side from 900px. Both remember the period, the partner and the campaign word
 // for the rest of the visit to the app (B-6).
+// Back names the page it returns to (B-4): opened inside the app, the page it came from (the frame keeps its title in
+// history.state.from, and the link uses real Back); arriving cold, More tools, where both live (Outreach when the link
+// came from there).
+const backOf = route => { const st = history.state || {}, home = fvBack(route) || TOOLS; return st.d > 0 && st.from ? { href: home.href, label: st.from } : home; };
 export function renderFirstVisit(route) {
-  const v = V();
+  const v = V(), bk = backOf(route);
+  // Both are More tools > Rally (spec 3.5): that place is lit, not My issues, whose All issues only lends the address.
+  // Opened from Outreach's "How it's landing" (&from=outreach), Outreach stays lit: three names for one home confused.
+  if (route) route.place = route.q?.from === 'outreach' ? 'outreach' : 'tools';
   wantPartners();   // the numbers name a partner's visits by its name, and the link needs them
   if (fvView(route) === 'links' && S.siteCard === undefined) { S.siteCard = null; DB.loadSiteCard().then(() => redraw()).catch(() => {}); }
   if (fvView(route) === 'links') return `<div class="le-page fv-page fv-links">
-    <a class="le-deskback" href="${FV_HREF}" data-back>${icon('chevron-left')}<span>First visit</span></a>
+    <a class="le-deskback" href="${bk.href}" data-back>${icon('chevron-left')}<span>${esc(bk.label)}</span></a>
     <header class="fv-head"><h1>Make a link</h1>
-      <p class="le-lede">For a partner, an event or a flyer. People who arrive by it see its welcome line first, and the first visit’s numbers count them under its name. Below it, the Meet HIPHI card for the public page.</p></header>
+      <p class="le-lede">For a partner, an event or a flyer. People who arrive by it see its welcome line first, and First visit numbers count them under its name.</p></header>
     ${linkHTML()}
     ${cardHTML()}
   </div>`;
   load(v.weeks);
   return `<div class="le-page fv-page">
-    <a class="le-deskback" href="#/outreach/issues" data-back>${icon('chevron-left')}<span>Issues</span></a>
-    <header class="fv-head fv-nhead"><div class="fv-hmain"><h1>First visit</h1>
+    <a class="le-deskback" href="${bk.href}" data-back>${icon('chevron-left')}<span>${esc(bk.label)}</span></a>
+    <header class="fv-head fv-nhead"><div class="fv-hmain"><h1>First visit numbers</h1>
       <p class="le-lede">How far newcomers get through their first visit on the public page, by where they came from.</p>
       <a class="fv-golink" href="${LINKS_HREF}">${icon('link')}<span>Make a link for a partner or an event</span></a></div>
       <div class="fv-controls">${segmented('fvw', PERIODS, v.weeks, 'How far back')}</div></header>

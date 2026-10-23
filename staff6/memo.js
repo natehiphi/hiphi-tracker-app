@@ -11,6 +11,8 @@
 // v4 (R-269): the memo for partners is "Partner update" (C-15), Outreach's second tab at #/outreach/partners: it opens on
 // Partners and the viewer's coalition, under Outreach's tabs, and is no longer in Bills' "…" menu (Lauren: 4 or 5 clicks
 // to it, now 2). #/bills/memo keeps working (the coalition page's "Write a partner update", the team's memo).
+// v6 (R-336): #/bills/memo redirects to #/outreach/partners (spec 3.4); the update is a document in the warm look
+// (supporters.css .ot-part), its bills named by number with no draft codes (D15); the team's memo is its Staff choice.
 import { S, DB, esc, isMine, hooks } from './data.js';
 import { memoData, memoHTML, memoText, billByRef, billNum } from './model.js';
 import { btn, segmented, field, toast, empty, keysOn, sectionNav, whoseSeg } from './ui.js';
@@ -80,10 +82,12 @@ function data() { try { return tidy(memoData()); } catch (e) { console.error(e);
 // (C-15): "did not advance", never "finished for the year"; testimony "ready to file", not "approved, not filed yet".
 const ASK = /^How you can help/, PRE = /^HIPHI [^.]*\. /, SUPPORTS = 'HIPHI supports. ';
 const words = t => t.replace(/approved, not filed yet/g, 'ready to file');
+// v6 (R-336, D15, C-15): a bill is its number, never its draft code ("SB 3234", not "SB 3234 SD2"), in both audiences.
+const noCode = n => String(n || '').replace(/\s+[HSC]D\d+\b/g, '');
 function tidy(m) {
   if (!m) return m;
   const num = i => typeof i === 'string' ? '' : i.num;
-  const sections = m.sections.map(([h, items]) => [h, items.map(i => typeof i === 'string' ? i : { ...i, text: words(i.text) })]);
+  const sections = m.sections.map(([h, items]) => [h, items.map(i => typeof i === 'string' ? i : { ...i, num: noCode(i.num), text: words(i.text) })]);
   const home = new Map();   // a bill's line in a section that asks for something
   sections.forEach(([h, items]) => { if (h !== 'Moving' && !ASK.test(h)) for (const i of items) if (num(i) && !home.has(num(i))) home.set(num(i), i); });
   const mv = sections.find(([h]) => h === 'Moving');
@@ -92,7 +96,7 @@ function tidy(m) {
   const seen = new Set();
   for (const sec of sections) if (!ASK.test(sec[0])) sec[1] = sec[1].filter(i => !num(i) || (seen.has(num(i)) ? false : (seen.add(num(i)), true)));
   const kept = sections.filter(([, items]) => items.some(i => typeof i !== 'string'));
-  const bill = new Map(S.bills.map(b => [billNum(b).replace(/^(\D+)/, '$1 '), b]));
+  const bill = new Map(S.bills.map(b => [noCode(billNum(b).replace(/^(\D+)/, '$1 ')), b]));
   let said = 0;
   for (const [h, items] of kept) if (!ASK.test(h)) for (const i of items) { if (typeof i === 'string') continue;
     if (i.text.startsWith(SUPPORTS)) { i.text = i.text.slice(SUPPORTS.length); said++; }
@@ -128,7 +132,7 @@ const memo = {
         <div class="bl-maud"><span class="bl-mlabel" id="bl-maud-l">For</span>${segmented('memoaud', auds, partners ? 'partners' : 'team', 'Who the memo is for')}</div>
         ${partners ? '' : `<div class="bl-mwho"><span class="bl-mlabel" id="bl-mwho-l">Whose bills</span>${whoseSeg('memowho', { mine: 'me', team: 'all' }, v.who === 'me' ? 'me' : 'all', { label: 'Whose bills' })}</div>`}
         ${field('bl-mcoal', 'Coalition', coal)}
-        ${tab && wide ? `<div class="bl-mcopy bl-mcopyrow" role="group" aria-label="Copy the memo">${copyBtns(true)}</div>` : ''}
+        ${tab && wide ? `<div class="bl-mcopy ot-mcopy" role="group" aria-label="Copy the memo">${copyBtns(true)}</div>` : ''}
       </div>
       <article class="card bl-memo${partners ? ' bl-mpart' : ''}" aria-label="Memo preview">${m ? memoHTML(m) + (m.empty ? '<p class="bl-quiet">A quiet week for these bills: no hearings, no floor votes and no deadline in sight.</p>' : '')
         : empty({ title: 'The memo could not be written', text: 'Something in the data stopped it. Try the other choices, or tell Nate.', h: 'h2' })}</article>
