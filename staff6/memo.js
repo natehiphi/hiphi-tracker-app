@@ -14,7 +14,7 @@
 // v6 (R-336): #/bills/memo redirects to #/outreach/partners (spec 3.4); the update is a document in the warm look
 // (supporters.css .ot-part), its bills named by number with no draft codes (D15); the team's memo is its Staff choice.
 import { S, DB, esc, isMine, hooks } from './data.js';
-import { memoData, memoHTML, memoText, billByRef, billNum } from './model.js';
+import { memoData, billByRef, billNum } from './model.js';
 import { btn, segmented, field, toast, empty, keysOn, sectionNav, whoseSeg } from './ui.js';
 import { deskBack, wideNow, typingIn, myCoalitions } from './filters.js';
 import { billRoute } from './model.js';
@@ -104,6 +104,17 @@ function tidy(m) {
   const intro = m.intro.replace(/finished for the year/g, 'did not advance') + (said ? ' HIPHI supports each bill below unless its line says otherwise.' : '');
   return { ...m, intro, sections: kept, empty: !kept.length };
 }
+
+// Each bill by its name first, its number after (R-271, D15), as Partners and every other v6 list says it: "Seizure of
+// untaxed tobacco products (SB 3076): Heard by ...". model.js's memoHTML/memoText put the number first; the memo's own
+// copies are drawn here so the preview and both copies read the same. In plain text a link goes on its own line under the
+// bill; for email the bill's name is the link. A line is an object; "…and 3 more" is a plain string.
+const billHead = i => i.name && i.name !== i.num ? [i.name, i.num] : [i.num, ''];
+const lineText = i => { if (typeof i === 'string') return '• ' + i; const [a, b] = billHead(i); return `• ${a}${b ? ` (${b})` : ''}: ${i.text}${i.href ? `\n  ${i.href}` : ''}`; };
+const lineHTML = i => { if (typeof i === 'string') return `<li>${esc(i)}</li>`; const [a, b] = billHead(i), nm = `<b>${esc(a)}</b>`;
+  return `<li>${i.href ? `<a href="${esc(i.href)}" target="_blank" rel="noopener">${nm}</a>` : nm}${b ? ` (${esc(b)})` : ''}: ${esc(i.text)}</li>`; };
+const memoText = m => [m.title.toUpperCase(), '', m.intro, ...m.sections.flatMap(([h, items]) => ['', h.toUpperCase(), ...items.map(lineText)]), '', `${m.foot.text} ${m.foot.href}`].join('\n');
+const memoHTML = m => `<h2>${esc(m.title)}</h2><p>${esc(m.intro)}</p>${m.sections.map(([h, items]) => `<h3>${esc(h)}</h3><ul>${items.map(lineHTML).join('')}</ul>`).join('')}<p>${esc(m.foot.text)} <a href="${esc(m.foot.href)}" target="_blank" rel="noopener">${esc(m.foot.href)}</a></p>`;
 
 const copyBtns = sm => `${btn('Copy as text', { kind: 'secondary', sm, icon: 'copy', attrs: { 'data-mcopy': 'text' } })}${btn('Copy for email', { sm, icon: 'mail', attrs: { 'data-mcopy': 'rich' } })}`;
 const LEDE = {

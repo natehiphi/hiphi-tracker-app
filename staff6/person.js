@@ -127,7 +127,7 @@ const stanceChip = k => chip(STANCE[k][1], '', STANCE[k][0]);   // R-277 fix 4 (
 // the bill's page says them. The same look as ui.js billRow otherwise; a nickname names the bill, and its plain summary
 // is the line under it, so it is said once.
 function followRow(b, sub) {
-  return `<div class="v6-row" role="listitem" data-bill="${esc(b.id)}"><a class="v6-row-main" href="${esc(billRoute(b))}"><span class="v6-row-top"><span class="v6-row-name">${esc(nameWords(b, 70))}</span><span class="v6-row-num">${esc(numWords(b))}</span></span>${sub ? `<span class="v6-row-line"><span>${sub}</span></span>` : ''}</a></div>`;
+  return `<div class="v6-row" role="listitem" data-bill="${esc(b.id)}"><a class="v6-row-main" href="${esc(billRoute(b))}"><span class="v6-row-top"><span class="v6-row-name">${esc(nameWords(b, 1e4))}</span><span class="v6-row-num">${esc(numWords(b))}</span></span>${sub ? `<span class="v6-row-line"><span>${sub}</span></span>` : ''}</a></div>`;
 }
 function follows(p) {
   const st = P(), bills = (p.bill_ids || []).map(billById).filter(Boolean).sort((a, b) => (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number));

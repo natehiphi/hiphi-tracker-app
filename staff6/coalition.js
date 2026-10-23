@@ -32,7 +32,7 @@ const andList = xs => xs.length < 2 ? xs.join('') : xs.length === 2 ? `${xs[0]} 
 const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
 // A bill in a sentence (a toast, a button's label): its name and its number as the rows say them, "Easier local food buying
 // for schools (SB 659)", never model.js billSay's "SB659 HD1" (D15; the critic).
-export const billWords = b => { const n = numWords(b), nm = nameWords(b, 60); return nm && nm !== n ? `${nm} (${n})` : n; };
+export const billWords = b => { const n = numWords(b), nm = nameWords(b, 1e4); return nm && nm !== n ? `${nm} (${n})` : n; };
 // "No one holds it" (steps.js) on a bill with no owner says the one wording this place uses for that fact (spec 7 rule 6).
 const noOwner = b => !(S.assignments[b.id] || []).length;
 const ownerWords = (b, t) => noOwner(b) ? String(t || '').replace(/^No one holds it\b/, 'No owner yet').replace(/\bno one holds it\b/g, 'no owner yet') : String(t || '');
@@ -260,7 +260,7 @@ function todosHTML(c, list) {
   const today = hiToday();
   const rows = list.map(({ t, b }) => {
     const due = !t.due_date ? '' : t.due_date < today ? `was due ${dayWords(t.due_date)}` : t.due_date === today ? 'due today' : `due ${dayWords(t.due_date)}`;
-    return itemRow({ key: `${b.id}|${t.id}`, name: t.title, line: [`${nameWords(b, 48)} (${numNb(b)})`, due].filter(Boolean).map(x => nw(esc(x))).join(' · '), href: billRoute(b), cls: 'i6-row',
+    return itemRow({ key: `${b.id}|${t.id}`, name: t.title, line: [`${nameWords(b, 1e4)} (${numNb(b)})`, due].filter(Boolean).map(x => nw(esc(x))).join(' · '), href: billRoute(b), cls: 'i6-row',
       button: btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-cotake': `${b.id}|${t.id}`, 'aria-label': `Take “${t.title}” on ${billWords(b)}` } }) });
   });
   return sec('co6-s4', 'To-dos anyone can take', folded(c.id + '|t', rows));

@@ -11,10 +11,10 @@
 // v6 (R-336): under Outreach (Lists is its fifth tab); each bill is a name, its number small, and one line (its public
 // note, else its plain summary), with no version codes (D15); Email followers follows the one email rule (V20).
 import { S, DB, hooks, esc, advocate } from './data.js';
-import { billSay, PUBLIC_APP, billById, plain } from './model.js';
+import { billSay, PUBLIC_APP, billById, plain, blurb } from './model.js';
 import { icon, btn, iconBtn, switchRow, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet } from './ui.js';
-import { listById, listRows, listIcon, plural, afterClose, openListForm, updatedLine, isSide, clip } from './lists.js';
-import { nameWords, numWords } from './steps.js';
+import { listById, listRows, listIcon, plural, afterClose, openListForm, updatedLine, isSide } from './lists.js';
+import { nameWords, numWords, whereWords } from './steps.js';
 import { emailDoor, mayEmail } from './composer.js';
 import * as SP from './supporters.js';
 import { billRoute } from './model.js';
@@ -74,14 +74,17 @@ function hitsHTML(l, q) {
   const rows = hits(l, q);
   if (!rows.length) return `<p class="le-none">No public bill matches “${esc(q.trim())}”. Only public bills can go on a list; make a bill public on its Public tab first.</p>`;
   // Options of the search box's listbox: the box keeps the focus, arrow keys move the highlight (aria-activedescendant).
-  return `<div class="rows le-hits" role="listbox" id="le-hitlist" aria-label="Public bills that match">${rows.map((b, i) => `<div class="row le-hit" role="option" id="le-hit-${i}" aria-selected="false" data-add="${esc(b.id)}"><span class="le-plus">${icon('plus')}</span><span class="body"><span class="title"><b>${esc(nameWords(b, 70))}</b> <span class="bn-num">${esc(numWords(b))}</span></span></span></div>`).join('')}</div>`;
+  return `<div class="rows le-hits" role="listbox" id="le-hitlist" aria-label="Public bills that match">${rows.map((b, i) => `<div class="row le-hit" role="option" id="le-hit-${i}" aria-selected="false" data-add="${esc(b.id)}"><span class="le-plus">${icon('plus')}</span><span class="body"><span class="title"><b>${esc(nameWords(b, 1e4))}</b> <span class="bn-num">${esc(numWords(b))}</span></span></span></div>`).join('')}</div>`;
 }
 
+// The row: the bill's name whole, then the list's note on it, else the summary the public reads, whole (A-1: never cut
+// with a typed "…"); a bill named by its summary already (no nickname) says where it stands instead of the summary again.
 function billRowHTML(l, x, b, i, n) {
-  const num = numOf(b), line = x.note ? `“${x.note}”` : b.is_public ? clip(b, 120) : 'Not public, so the public page leaves it out';
+  const num = numOf(b), line = x.note ? `“${x.note}”` : !b.is_public ? 'Not public, so the public page leaves it out'
+    : b.nickname ? blurb(b, 1e4) : whereWords(b, { deadline: false });
   return `<li class="le-brow" data-bid="${esc(b.id)}">
     <span class="le-grip" data-grip="${esc(b.id)}" aria-hidden="true" title="Drag to reorder">${icon('grip-vertical')}</span>
-    <a class="le-bmain" href="${billRoute(b)}"><span class="le-btop"><span class="le-bname">${esc(nameWords(b, 70))}</span><span class="le-bnum">${esc(numWords(b))}</span></span><span class="le-bline">${esc(line)}</span></a>
+    <a class="le-bmain" href="${billRoute(b)}"><span class="le-btop"><span class="le-bname">${esc(nameWords(b, 1e4))}</span><span class="le-bnum">${esc(numWords(b))}</span></span><span class="le-bline">${esc(line)}</span></a>
     ${iconBtn('ellipsis', `More for ${num}`, { 'data-bmore': b.id, 'aria-haspopup': 'dialog' }, 'le-bmore')}
   </li>`;
 }

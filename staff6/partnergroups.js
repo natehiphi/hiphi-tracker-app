@@ -22,8 +22,8 @@
 //     asks wait in a fold. Only a partner approver sees the buttons (the database refuses anyone else).
 import { S, DB, esc, hooks, fmtDate, partnerSlug } from './data.js';
 import { icon, btn, toast, openSheet, closeSheet, pickerSheet, notice, skeleton, friendly, field } from './ui.js';
-import { itemRow, placeHead } from './steps.js';
-import { whenAt, billById, billNum, billSay, billRoute } from './model.js';
+import { itemRow, placeHead, sayWords as billSay, numWords } from './steps.js';   // "Sugary drink fee (HB 2146)": the number spaced (D15)
+import { whenAt, billById, billRoute } from './model.js';
 import { admitsPartners, approvesPartners, firstName, otherApprovers, orList, wantQueue, queueChanged, wantAsks, emailWord } from './partnerq.js';
 import { dailyWord, paused } from './composer.js';
 
@@ -336,7 +336,7 @@ async function decline(id, el) {
 const asksReload = () => wantAsks({ force: true });   // the list stays drawn until the new one comes
 async function askStep(id, act, el) {
   const a = askOf(id); if (!a) return;
-  const who = `${a.partner_name}’s ask on ${billNum(askBill(a))}`;
+  const who = `${a.partner_name}’s ask on ${numWords(askBill(a))}`;
   await busy(el, async () => {
     const r = await DB.partnerAskStep({ id: a.id, do: act }); asksReload();
     if (act === 'take_back') toast(`Taken back: ${who} will not go out${a.sent ? ' to anyone else' : ''}.`, { undo: async () => {

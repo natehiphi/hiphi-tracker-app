@@ -66,3 +66,5 @@ body.staff6 .sv-hdr .sg .sg-o[aria-selected="true"] { background: var(--v6-actio
   body.staff6 .sr-page .sr-grp + .sr-grp { margin-top: 24px; }
   body.staff6 .sr-page .sr-top { gap: 24px; margin-bottom: 24px; }
 }
+/* Results wrap rather than cut a bill's line mid-word at 1024-1280 (nothing cut, A-1): a result is read to decide which to open. */
+body.staff6 .sr-page .v6-row .v6-row-name, body.staff6 .sr-page .v6-row .v6-row-line > span { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }

@@ -182,7 +182,7 @@ export function todayPrepNotice() {
   if (!backs.length && Date.now() > dueDay().getTime() + 864e5) return '';
   const tally = `${own.length - left.length} of ${own.length} ready, due ${esc(dueText())}.`;
   if (backs.length) { const b0 = backs[0];
-    return lineHTML('undo-2', `<b>${esc(first(advocate(b0.prep_by)))} asked for changes to ${esc(b0.name)}:</b> “${esc(clip(b0.prep_note, 80))}”${backs.length > 1 ? ` (and ${backs.length - 1} more)` : ''}. Your issues for 2027: ${tally}`, btn('Open it', { kind: 'secondary', sm: true, href: issueHref(b0, 'prep') })); }
+    return lineHTML('undo-2', `<b>${esc(first(advocate(b0.prep_by)))} asked for changes to ${esc(b0.name)}:</b> “${esc(String(b0.prep_note || '').replace(/\s+/g, ' ').trim())}”${backs.length > 1 ? ` (and ${backs.length - 1} more)` : ''}. Your issues for 2027: ${tally}`, btn('Open it', { kind: 'secondary', sm: true, href: issueHref(b0, 'prep') })); }
   return lineHTML('clipboard-list', `<b>Your issues for 2027:</b> ${tally}`, btn('Open the list', { kind: 'secondary', sm: true, href: prepListHref() }));
 }
 // The ways in, kept for callers: your list, and for admins the board (All issues now shows the board as a view, F165).
@@ -333,6 +333,13 @@ const OPEN1 = () => S.prOpen1 ??= {};
 const openKey = (i, steps) => { const k = OPEN1()[i.id]; return (k && steps.some(s => s.k === k) ? k : steps.find(s => !s.done(i))?.k) || null; };
 // The step after `k` still to do (wrapping), for "Next step"; null when none is left.
 const nextOpen = (i, steps, k) => { const at = steps.findIndex(s => s.k === k), l = [...steps.slice(at + 1), ...steps.slice(0, at)]; return l.find(s => !s.done(i))?.k || null; };
+// Under a typed step: "Next step" (or "Done"), but "Skip for now", in text style, while the goal is empty or the talking
+// points are short of three, so moving on is never mistaken for finishing the step (A-16, B-7; the critic: Next step
+// closed it as To do, silently). Moving on that way says what is still needed.
+const shortPoints = (k, v) => k === 'points' ? pointsIn(v).length < 3 : k === 'goal' ? !String(v || '').trim() : false;
+const stillNeeds = (k, v) => k === 'points' ? `Talking points still need ${3 - pointsIn(v).length} more.` : 'The goal is still empty.';
+const nextBtn = (k, v, more) => shortPoints(k, v) ? btn('Skip for now', { kind: 'text', sm: true, attrs: { 'data-prnext': k, 'data-more': more ? '1' : '0' } })
+  : btn(more ? 'Next step' : 'Done', { kind: 'secondary', sm: true, iconEnd: 'arrow-right', attrs: { 'data-prnext': k, 'data-more': more ? '1' : '0' } });
 // A step's own control, inline; [data-prfocus] takes the focus when it opens.
 function openHTML(i, s, { draftCard = false, peek = false } = {}) {
   const k = s.k, dv = DRAFT()[i.id]?.[k], f = peek ? {} : { 'data-prfocus': '1' };
@@ -346,7 +353,7 @@ function openHTML(i, s, { draftCard = false, peek = false } = {}) {
     const val = dv ?? (k === 'goal' ? i.goal || '' : pointsOf(i).join('\n')), id = `pr-in-${k}-${esc(i.id)}`;
     // Saving and Saved say that it saves as you type (B-7); "Next step" goes on (or "Done" when nothing is left).
     return `<textarea class="pr6-box" id="${id}" rows="${k === 'goal' ? 3 : 5}" maxlength="${k === 'goal' ? 600 : 1100}" data-prauto="${k}" ${peek ? '' : 'data-prfocus="1"'} aria-labelledby="pr6-l-${k}" aria-describedby="pr6-d-${k} ${id}-said"${k === 'points' ? ' placeholder="One plain sentence per line."' : ''}>${esc(val)}</textarea>
-      <div class="pr6-boxfoot"><p class="pr6-said" id="${id}-said" role="status">${k === 'points' ? esc(pointsCount(val)) : ''}</p>${btn(nextOpen(i, draftCard ? DRAFT_STEPS : STEPS, k) ? 'Next step' : 'Done', { kind: 'secondary', sm: true, iconEnd: 'arrow-right', attrs: { 'data-prnext': k } })}</div>`;
+      <div class="pr6-boxfoot"><p class="pr6-said" id="${id}-said" role="status">${k === 'points' ? esc(pointsCount(val)) : ''}</p>${nextBtn(k, val, !!nextOpen(i, draftCard ? DRAFT_STEPS : STEPS, k))}</div>`;
   }
   if (k === 'top') return `<p class="pr6-acts" role="group" aria-labelledby="pr6-l-top">${[['yes', 'Yes, a top issue', 'star'], ['no', 'No', 'minus']].map(([v, l, ic], n) => btn(l, { kind: 'secondary', sm: true, icon: ic, attrs: { 'data-prtopv': v, 'aria-pressed': String(i.top_pick === v), ...(n ? {} : f) } })).join('')}</p>`;
   if (k === 'plan') return `<p class="pr6-acts" role="group" aria-labelledby="pr6-l-plan">${btn('Keep it', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-prplan': 'keep', 'aria-pressed': String(i.proposal === 'keep'), ...f } })}${btn('Merge into…', { kind: 'secondary', sm: true, icon: 'arrow-right', attrs: { 'data-prplan': 'merge', 'aria-pressed': String(i.proposal === 'merge'), 'aria-haspopup': 'dialog' } })}${btn('Retire', { kind: 'secondary', sm: true, icon: 'archive', attrs: { 'data-prplan': 'retire', 'aria-pressed': String(i.proposal === 'retire') } })}</p>`;
@@ -479,6 +486,11 @@ function wireAuto(i, card) {
     ta.addEventListener('input', () => {
       (DRAFT()[i.id] ??= {})[k] = ta.value; ta.removeAttribute('aria-invalid'); if (enough(k, ta.value)) revealAfter(card, k);
       said.textContent = k === 'points' ? pointsCount(ta.value) : '';
+      // The button under the box turns from Skip for now to Next step as the goal or the third point is typed, and back.
+      const nb = ta.parentElement?.querySelector(`.pr6-boxfoot [data-prnext="${k}"]`);
+      if (nb) { const short = shortPoints(k, ta.value); if (short !== nb.classList.contains('text')) {
+        nb.classList.toggle('text', short); nb.classList.toggle('secondary', !short); nb.querySelector('span').textContent = short ? 'Skip for now' : nb.dataset.more === '0' ? 'Done' : 'Next step';
+        if (short) nb.querySelector('svg, .ic')?.remove(); else if (!nb.querySelector('svg, .ic')) nb.insertAdjacentHTML('beforeend', icon('arrow-right')); } }
       clearTimeout(t); t = setTimeout(save, 1000); PENDING.add(save);
     });
     ta.addEventListener('blur', () => { if (PENDING.has(save)) save(); });
@@ -525,8 +537,11 @@ export function wirePrepCard(i, root) {
     OPEN1()[i.id] = k; after(k); });
   // Open: a step still to do, out of order. Next step / Done: on to the next step still to do after this one.
   card.querySelectorAll('[data-propen]').forEach(el => el.onclick = async () => { await flush(); OPEN1()[i.id] = el.dataset.propen; after(el.dataset.propen); });
-  card.querySelectorAll('[data-prnext]').forEach(el => el.onclick = async () => { await flush(); const nx = nextOpen(i, steps, el.dataset.prnext);
-    if (nx) OPEN1()[i.id] = nx; else delete OPEN1()[i.id]; after(nx); });
+  card.querySelectorAll('[data-prnext]').forEach(el => el.onclick = async () => { const k = el.dataset.prnext, ta = card.querySelector(`[data-prauto="${k}"]`);
+    const short = ta && shortPoints(k, ta.value) ? stillNeeds(k, ta.value) : '';
+    await flush(); const nx = nextOpen(i, steps, k);
+    if (nx) OPEN1()[i.id] = nx; else delete OPEN1()[i.id]; after(nx);
+    if (short) toast(`${short} The step stays To do.`); });
   // "Looks right": the wording or the outlook checked as it is, one tap; the next step opens by itself.
   card.querySelectorAll('[data-prok]').forEach(el => el.onclick = async () => {
     await flush(); const k = el.dataset.prok, f = k === 'wording' ? 'wording_checked_at' : 'outlook_checked_at';
@@ -585,7 +600,7 @@ function prepLine(i, { helper = false } = {}) {
   if (k === 'draft') { const m = missing(i); return { ic: 'eye-off', t: m.length ? `Not public yet · needs ${listWords(m.map(x => x[1]))}` : 'Not public yet · ready to publish' }; }
   if (k === 'approved') return { ic: 'circle-check', tone: 'done', t: `Approved by ${by ? first(by) : 'an admin'}` };
   if (k === 'ready') return { ic: 'clock', t: `Marked ready · ${approves()} it next` };
-  if (k === 'sent_back') return { ic: 'undo-2', t: `${by ? first(by) : 'An admin'} asked for changes${i.prep_note ? `: “${clip(i.prep_note, 60)}”` : ''}` };
+  if (k === 'sent_back') return { ic: 'undo-2', t: `${by ? first(by) : 'An admin'} asked for changes${i.prep_note ? `: “${String(i.prep_note).replace(/\s+/g, ' ').trim()}”` : ''}` };
   if (helper) return partDone(i) ? { ic: 'circle-check', t: `Your part is done · ${o ? first(o) : 'the owner'} marks it ready` } : { ic: '', t: `${o ? `${first(o)}’s issue` : 'No owner'} · ${n} of ${STEPS.length} steps done` };
   return { ic: '', t: `${n} of ${STEPS.length} steps done${pastDue() ? ' · still to finish' : ''}` };
 }
@@ -609,7 +624,7 @@ function mineRender({ asMyIssues = false } = {}) {
     ${head}
     <section class="pr6-top" aria-labelledby="pr6-th"><h2 class="i6-h" id="pr6-th">Your issues for 2027</h2>
       <p class="pr6-lede">${esc(lede)}</p>
-      ${next ? `<p class="pr6-next">${btn(`${left.length === own.length && !ready && own.length ? 'Start' : 'Next'}: ${esc(next.name)}`, { iconEnd: 'arrow-right', href: issueHref(next, 'prep') })}</p>` : ''}
+      ${next ? `<p class="pr6-next">${btn(`${STEPS.some(x => x.done(next)) ? 'Continue' : left.length === own.length && !ready && own.length ? 'Start' : 'Next'}: ${esc(next.name)}`, { iconEnd: 'arrow-right', href: issueHref(next, 'prep') })}</p>` : ''}
       ${isAdmin() ? lineHTML('clipboard-check', esc(`Team: ${nApp} of ${ok.length} approved.`), `<a class="i6-inline" href="${BOARD_HREF}">Open the Prep board</a>`) : ''}
     </section>
     ${!own.length && !help.length && !drafts.length ? `<div class="le-empty">${empty({ title: 'No issues are yours yet', text: `${esc(Cap(adminWord()))} give${adminWord() === 'you' ? '' : 's'} out the issues. Any you own or help on show here.`, action: btn('See all issues', { kind: 'secondary', href: '#/my-issues/all' }) })}</div>` : ''}
@@ -654,8 +669,8 @@ function tellHTML() {
     <p>When the owners look right, tell them. Each gets one Slack message listing their issues and the due date. ${noLogin.length ? `<b>${esc(listWords(noLogin.map(first)))} cannot sign in yet</b>: make ${noLogin.length === 1 ? 'them a sign-in link' : 'each a sign-in link'} under <a href="#/people">People</a> first, or they cannot open the link.` : ''} Someone the tracker cannot reach is not sent one; Team shows who.</p>
     ${btn(`Tell ${plural(others.length, 'owner')}`, { kind: 'secondary', icon: 'send', attrs: { 'data-pr': 'tell' } })}</section>`;
 }
-// The view switch of All issues for admins: All issues · Prep board (F165). A visible switch, not a "…" menu (rule 3).
-export const boardSwitch = cur => isAdmin() ? `<div class="sv-seg i6-seg pr6-view" role="group" aria-label="All issues, or the Prep board">${[['', 'All issues', '#/my-issues/all'], ['prep', 'Prep board', BOARD_HREF]].map(([v, l, h]) => `<a href="${h}" role="button" aria-pressed="${cur === v}">${l}</a>`).join('')}</div>` : '';
+// The view switch of All issues for admins: List · Prep board (F165; "List", since the tab above is All issues, C-15). A visible switch, not a "…" menu (rule 3).
+export const boardSwitch = cur => isAdmin() ? `<div class="sv-seg i6-seg pr6-view" role="group" aria-label="All issues as a list, or the Prep board">${[['', 'List', '#/my-issues/all'], ['prep', 'Prep board', BOARD_HREF]].map(([v, l, h]) => `<a href="${h}" role="button" aria-pressed="${cur === v}">${l}</a>`).join('')}</div>` : '';
 function boardRender(route) {
   const st = B(); if (route.q?.f && FILTERS.some(x => x[0] === route.q.f)) st.f = route.q.f;
   // W4: Today's "Behind: Rick 0/7" opens the board on that owner (once per link, so the buttons still change it).

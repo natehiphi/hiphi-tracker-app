@@ -146,7 +146,7 @@ body.staff6 .pg-people { margin: 0; padding: 0; list-style: none; }
 body.staff6 .pg-person { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "t a" "s a"; column-gap: var(--s12); align-items: center; padding: var(--s8) 0; }
 body.staff6 .pg-person + .pg-person::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
 body.staff6 .pg-pt { grid-area: t; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s4) var(--s8); }
-body.staff6 .pg-pt b { font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); overflow-wrap: anywhere; }
+body.staff6 .pg-pt b { font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); overflow-wrap: anywhere; }
 body.staff6 .pg-lead { font-size: var(--v6-t16); color: var(--v6-muted); }
 body.staff6 .pg-ps { grid-area: s; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); overflow-wrap: anywhere; }
 body.staff6 .pg-pa { grid-area: a; display: flex; align-items: center; }
@@ -384,16 +384,14 @@ body.staff6 .ss-code { width: 100%; box-sizing: border-box; }
   body.staff6 .ss-check .ss-cact { flex-basis: 100%; padding-left: 32px; }
 }
 
-/* Session setup's page tabs below 768px: one row that scrolls sideways, the open one scrolled into sight (setup.js placeTabs).
-   Wrapped, the six took three lines at 390 and five at 320, pushing the first check past 400px (the critic; A-1). The row
-   runs to the screen's edges so the cut tab says there is more. Asked of placeHead for every place (shared_changes). */
-@media (max-width: 767.98px) {
-  body.staff6 .ss-page .v6-tabs { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
-    margin: 0 calc(-1 * var(--v6-gutter)); padding: 2px var(--v6-gutter); }
-  body.staff6 .ss-page .v6-tabs::-webkit-scrollbar { display: none; }
-}
+/* Session setup's page tabs wrap on phones like every place's (spec 12.3): the short labels take two lines at 390. */
 /* the guide's link, under the checks (it moved out of the head so the tabs sit at one height on all six pages) */
 body.staff6 .ss-guide { display: flex; align-items: center; gap: var(--s8); margin-top: var(--s16); }
 body.staff6 .ss-guide .ic { width: 18px; height: 18px; flex: none; color: var(--v6-muted); }
 /* a group or request on its own page names itself in the h1 from 768px; the card's own name is for the phone */
 @media (min-width: 768px) { body.staff6 .pg-one .pg-dtop { display: none; } body.staff6 .pg-one .pg-oneh { margin: 0 0 var(--s16); } }
+/* A phone: the top bar already names Session setup and People, so the page's h1 is read, not shown (A-14, A-1: it cost
+   about 60px at 320; the frame does the same with h1.v6-ptitle). Hand over keeps its h1: its top bar title is cut. */
+@media (max-width: 767px) {
+  body.staff6 .ss-page .v6-head-title, body.staff6 .pe-page:not(.pe-leaving) .v6-head-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
+}

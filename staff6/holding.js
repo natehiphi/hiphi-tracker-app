@@ -222,7 +222,8 @@ export function chairGroups(items) {
     const rows = xs.map(x => ({ ...x, ...chairLine(x.b, l) })).sort(byChairOrder);
     const open = rows.filter(x => ['ask', 'giving'].includes(x.s?.key) || x.follow);
     return { l, rows, open, at: open.length ? Math.min(...open.map(x => x.at)) : Infinity, any: Math.min(...rows.map(x => x.at)) }; })
-    .filter(Boolean).sort((p, q) => p.at - q.at || p.any - q.any || p.l.sort_name.localeCompare(q.l.sort_name));
+    // Chairs with the same day in the Hearings board's order (push.js askBoard: by committee code), then by name.
+    .filter(Boolean).sort((p, q) => p.at - q.at || p.any - q.any || String((p.open[0] || p.rows[0])?.aw?.code || '').localeCompare(String((q.open[0] || q.rows[0])?.aw?.code || '')) || p.l.sort_name.localeCompare(q.l.sort_name));
 }
 
 // Opening weeks (F141): your top issues with no bill yet, while introduction is still open. A fact, not an alarm (D3).
@@ -242,10 +243,18 @@ export function chairRole(l, codes) {
 }
 // What is left with one chair, in the board's words: "HB 1563 to ask by Fri 3/27, HB 756 to follow up", or counts once
 // there are more than two bills of a kind ("4 bills to ask by Tue 3/24"). One fact: the parts are joined by commas.
+// When the row has the viewer's email button, the count says only the bills that email covers, and a teammate's bill to ask
+// the same chair is named with its owner ("HB 2296 is Nate's"), so the line and the button agree (A-14; the critic: "3 bills
+// to ask" beside "Email about HB 424 and HB 2233").
 function leftWords(rows) {
   const part = (xs, what) => { if (!xs.length) return ''; const who = xs.length > 2 ? plural(xs.length, 'bill') : andList(xs.map(x => numWords(x.b))); return `${who} ${what}`; };
-  const toAsk = rows.filter(x => ['ask', 'giving'].includes(x.s?.key)), day = toAsk.find(x => x.s.day || x.s.aw?.day);
-  return [part(toAsk, `to ask${day ? ` by ${day.s.day || day.s.aw.day}` : ''}`), part(rows.filter(x => x.follow), 'to follow up'),
+  const all = rows.filter(x => ['ask', 'giving'].includes(x.s?.key)), mineToo = rows.some(x => x.own || x.follow);
+  const toAsk = mineToo ? all.filter(x => x.own) : all, day = toAsk.find(x => x.s.day || x.s.aw?.day);
+  const theirs = new Map();
+  if (mineToo) for (const x of all.filter(y => !y.own)) { const o = (S.assignments?.[x.b.id] || [])[0], k = o ? firstWords(o) : 'no one'; (theirs.get(k) || theirs.set(k, []).get(k)).push(x); }
+  const others = [...theirs].map(([who, xs]) => { const n = xs.length > 2 ? plural(xs.length, 'bill') : andList(xs.map(x => numWords(x.b)));
+    return who === 'no one' ? `${n} ${xs.length === 1 ? 'has' : 'have'} no owner` : `${n} ${xs.length === 1 ? 'is' : 'are'} ${who}’s`; });
+  return [part(toAsk, `to ask${day ? ` by ${day.s.day || day.s.aw.day}` : ''}`), ...others, part(rows.filter(x => x.follow), 'to follow up'),
     part(rows.filter(x => x.s?.key === 'waiting' && !x.follow), 'waiting on a reply'), part(rows.filter(x => x.s?.key === 'said_no'), 'said no'),
     part(rows.filter(x => x.s?.key === 'passed'), 'out of time')].filter(Boolean).join(', ');
 }
@@ -254,7 +263,8 @@ function leftWords(rows) {
 function holdRow(g) {
   const l = g.l, role = [chairRole(l, g.rows.map(x => x.aw.code)), leftWords(g.rows)].filter(Boolean).join(': ');
   const line = [role, contactWords(l)].filter(Boolean).join(' · ');
-  return itemRow({ key: `hold-${l.id}`, name: `${l.chamber === 'S' ? 'Sen.' : 'Rep.'} ${l.name}`, line: nw(esc(line)), href: `#/legislator/${l.id}?from=holding`, button: chairEmail(l, g.rows), cls: 'lg6-wrap' });
+  // Named as Who to ask names them ("Rep. Marten"), so the same chair reads the same on both tabs.
+  return itemRow({ key: `hold-${l.id}`, name: chairWho(l), line: nw(esc(line)), href: `#/legislator/${l.id}?from=holding`, button: chairEmail(l, g.rows), cls: 'lg6-wrap' });
 }
 // holders(): kept for callers of the v5 shape ({ out, whose, own }); the rows are the board's (team-wide when you own none).
 export function holders(scope = askDefault()) {
@@ -263,9 +273,9 @@ export function holders(scope = askDefault()) {
 }
 export function holdingHTML({ scope } = {}) {
   const sc = askScope(scope), gs = chairGroups(askItems(sc).items), whose = scopeWhose(sc);
-  // Says what the tab is for beside Who to ask (the same chairs, one line each), so a newcomer can tell the two apart;
-  // two lines at most on a 320 phone, so the first chair starts within 400px (A-1).
-  const head = `<p class="lg6-sum">${esc(gs.length ? `${plural(gs.length, 'chair')} from Who to ask, one line each, the soonest ask first.` : `No chair holds ${whose} without a hearing.`)}</p>`;
+  // The rows say it all (the critic: an intro that said "from Who to ask" admitted the tab repeats it); only an empty tab
+  // says why it is empty.
+  const head = gs.length ? '' : `<p class="lg6-sum">${esc(`No chair holds ${whose} without a hearing.`)}</p>`;
   return `<div class="lg6-hold">${introLine()}${head}${gs.length ? `<div class="v6-list lg6-list" role="list" aria-label="${esc(`Chairs holding ${whose}`)}">${gs.map(holdRow).join('')}</div>` : ''}</div>`;
 }
 // Kept for v5 callers: the push board's ask buttons. Holding's own rows need no wiring (links, and the email is a link).

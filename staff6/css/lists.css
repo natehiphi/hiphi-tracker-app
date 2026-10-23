@@ -439,7 +439,7 @@
    names and headings. Scoped to this group's own classes (.le-temails, .ot-lists, .le-list, .le-cmp, .le-mail), so the
    pages of other places that borrow .le-page and .le-table keep their look until their builders change it. */
 body.staff6 .ot-lede { margin: 0 0 var(--s16); max-width: 68ch; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
-body.staff6 .ot-lists { max-width: 760px; }
+body.staff6 .ot-lists { max-width: 880px; }   /* Outreach's one column (supporters.css .sp-page) */
 
 /* Emails: groups on a phone, four columns on a laptop */
 body.staff6 .le-page .le-egroup { margin-top: var(--s24); }
@@ -481,9 +481,11 @@ body.staff6 .le-list .le-brow + .le-brow::before { content: ''; position: absolu
 body.staff6 .le-list .le-bmain { gap: 2px; }
 /* A bill's name is never cut (A-19): it wraps, and on a narrow row its number moves under it. */
 body.staff6 .le-list .le-btop { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s8); min-width: 0; }
-body.staff6 .le-list .le-bname { min-width: 0; overflow-wrap: anywhere; font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+body.staff6 .le-list .le-bname { min-width: 0; overflow-wrap: anywhere; font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 body.staff6 .le-list .le-bnum { flex: none; font-size: var(--v6-t14); color: var(--v6-muted); white-space: nowrap; }
-body.staff6 .le-list .le-bline { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+/* The line is already shortened to a sentence's start (list.js clip, 90 characters), so it wraps rather than being cut mid-word
+   by the row's width (nothing cut, A-1). */
+body.staff6 .le-list .le-bline { overflow-wrap: anywhere; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
 body.staff6 .le-list .le-bmain:hover .le-bname { color: var(--v6-action); text-decoration: underline; }
 body.staff6 .le-list .le-dragging { background: var(--v6-action-wash); box-shadow: var(--v6-sh2); }
 body.staff6 .le-list .le-hit .title, body.staff6 .le-list .le-hit .title b { color: var(--v6-ink); }
@@ -499,7 +501,7 @@ body.staff6 .le-cmp .le-steps li::after, body.staff6 .le-cmp .le-steps li::befor
 body.staff6 .le-cmp .le-steps li.cur { color: var(--v6-ink); font-weight: 700; }
 body.staff6 .le-cmp .le-steps li.done { color: var(--v6-body); }
 body.staff6 .le-cmp .le-sdot { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--v6-wash); font: 400 var(--v6-t14)/1 var(--font); color: var(--v6-body); }
-body.staff6 .le-cmp .le-steps li.cur .le-sdot { background: var(--v6-action); color: var(--v6-card); font-weight: 700; }
+body.staff6 .le-cmp .le-steps li.cur .le-sdot { background: var(--v6-action); color: #fff; font-weight: 700; }   /* the filled button's white, not a sixth near-white text colour */
 body.staff6 .le-cmp .le-steps li.done .le-sdot { background: var(--v6-leaf-wash); color: var(--v6-leaf); }
 /* A phone shows only the step you are on, "Step 2 of 4 · Write", so the bar never wraps; a laptop shows all four. */
 body.staff6 .le-cmp .le-steps .le-sof { display: none; }
@@ -536,7 +538,7 @@ body.staff6 .fv-page .fv-sname { font-size: var(--v6-t16); }
 body.staff6 .fv-page .fv-table { font-size: var(--v6-t16); }
 body.staff6 .fv-page .fv-table th, body.staff6 .fv-page .fv-table td { border-top: 0; background-image: linear-gradient(var(--v6-hair), var(--v6-hair)); background-size: 100% 1px; background-repeat: no-repeat; color: var(--v6-body); }
 body.staff6 .fv-page .fv-table thead th { background: none; font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-muted); }
-body.staff6 .fv-page .fv-table tbody th { color: var(--v6-ink); font-weight: 600; }
+body.staff6 .fv-page .fv-table tbody th { color: var(--v6-ink); font-weight: 500; }
 body.staff6 .fv-page .fv-shead { background: none; font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); }
 body.staff6 .fv-page .fv-url { border: 0; border-radius: var(--v6-r12); background: var(--v6-wash); font-size: var(--v6-t16); }
 body.staff6 .fv-page .fv-urlbox .label { font-size: var(--v6-t16); }
@@ -544,3 +546,10 @@ body.staff6 .fv-page .fv-qrbox { border: 0; border-radius: var(--v6-r12); box-sh
 body.staff6 .fv-page .fv-qrerr { color: var(--v6-body); font-size: var(--v6-t16); }
 body.staff6 .fv-page .fv-qrbox .fv-qrerr svg { width: 20px; height: 20px; }
 body.staff6 .fv-page .fv-how, body.staff6 .fv-page .fv-from { font-size: var(--v6-t16); color: var(--v6-body); }
+/* A phone: the top bar names New email already, so the composer's h1 is read, not shown (A-14; it pushed the first field
+   to about 470px); its "…" stays at the right of the row. */
+@media (max-width: 767px) {
+  body.staff6 .le-cmp .le-chead h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; padding: 0; }
+  body.staff6 .le-cmp .le-chead { justify-content: flex-end; }
+  body.staff6 .le-cmp .le-chead:not(:has(.le-hmore)) { display: block; height: 0; }
+}

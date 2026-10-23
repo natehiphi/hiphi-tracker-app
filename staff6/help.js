@@ -86,7 +86,7 @@ const TOPICS = [
       ['Revise testimony that was sent back', 'Testimony, then <b>Sent back</b>: the note, the Doc, and <b>Resubmit</b> once it is fixed.'],
       ['Log a call or meeting with a legislator', 'Open the legislator’s page (Legislators, or a name on a bill’s Committees) and press <b>Log a talk</b>. A bill’s Team talk can log one too. Steps: <a href="#/help/talk">Logging a talk with a legislator</a>.'],
       ['Say I’m going to a hearing', 'Press <b>I’m going</b> on the hearing’s card: on Hearings, the hearing’s page or the bill’s page. It can be undone for 10 seconds.'],
-      ['Ask the chair for a hearing', 'Hearings, then <b>Get hearings</b>: each chair with the bills waiting for them, and Email the chair. The email is written for you and opens in your own mail; send it, then answer Did you send it? so the team sees who asked. Steps: <a href="#/help/hearing">Getting a bill a hearing</a>.'],
+      ['Ask the chair for a hearing', 'Hearings, then <b>Get hearings</b>: each chair with the bills waiting for them, and <b>Email the chair</b>. The email is written for you and opens in your own mail; send it, then answer <b>Did you send it?</b> so the team sees who asked. Steps: <a href="#/help/hearing">Getting a bill a hearing</a>.'],
       ['Hand a bill or a to-do to someone', 'Give to… beside a bill’s owner (on its page) or on a to-do hands it to a teammate, who gets a Slack message. A chair ask: Give this ask to… on Get hearings. Someone leaving or away: an admin hands over all they hold, from People.'],
       ['Send this week’s ask', 'Outreach, <b>This week’s asks</b>: each bill’s ask and its deadline, with Copy link, Copy message, Copy post and Email followers.'],
       ['See what I owe today', 'Today: your next step first, then what to do today. The number beside Today in the sidebar counts it.'],
@@ -96,16 +96,16 @@ const TOPICS = [
   { id: 'hearing', gate: HOW_TO, title: 'Getting a bill a hearing', also: 'ask the chair hearing request schedule notice push', icon: 'megaphone', sub: () => 'When to ask, whom, how, and how to record it',
     items: () => [['1. When', 'As soon as the bill is referred, and before its notice-by date. A committee must post a hearing 48 hours ahead (72 for a bill’s first Senate committee), so the chair has to say yes before then. <b>Get hearings</b> lists each bill still waiting with the day its notice must post by, soonest first; the bill’s page says it too.'],
       ['2. Whom', 'The chair of the committee the bill is in now: Get hearings groups the bills by that chair. A joint referral (two committees named together) has two chairs; ask both. The bill’s introducers can ask too: its Committees mark the members who introduced it or its companion. The money committees (Finance in the House, Ways and Means in the Senate) hear bills late, so ask their chairs early.'],
-      ['3. How', 'On Hearings, then <b>Get hearings</b>, press Email the chair: one email asks about all of that chair’s bills. It is written for you and opens in your own mail: read it, then send it. To hand the ask to a teammate, press Give this ask to…; it becomes a row on their Today.'],
-      ['4. Record it', 'Back in the tracker, answer Did you send it? The bill then says “Asked by Kevin Mon 3/16 · no reply yet” for the whole team, so nobody asks twice. Asked by phone or in person? Press I asked another way, or log the talk on the chair’s page (<a href="#/help/talk">Logging a talk with a legislator</a>).'],
-      ['5. The reply', 'When the chair answers, press They replied on the bill: Will schedule, Said no (which offers next steps) or Left a message. With no reply after 3 working days, your Today offers a follow-up. When the hearing posts, the bill says Scheduled: a good moment to say mahalo.'],
+      ['3. How', 'On Hearings, then <b>Get hearings</b>, press <b>Email the chair</b>: one email asks about all of that chair’s bills. It is written for you and opens in your own mail: read it, then send it. To hand the ask to a teammate, press <b>Give this ask to…</b>; it becomes a row on their Today.'],
+      ['4. Record it', 'Back in the tracker, answer <b>Did you send it?</b> The bill then says “Asked by Kevin Mon 3/16 · no reply yet” for the whole team, so nobody asks twice. Asked by phone or in person? Press <b>Log it</b> under that chair on Get hearings, or log the talk on the chair’s page with “This was an ask for a hearing” ticked (<a href="#/help/talk">Logging a talk with a legislator</a>).'],
+      ['5. The reply', 'When the chair answers, press <b>They replied</b> on Get hearings or on the bill: Will schedule, Said no (which offers next steps) or Left a message. With no reply after 3 working days, your Today offers a follow-up. When the hearing posts, the bill says Scheduled: a good moment to say mahalo.'],
       ['Too late?', 'Once the notice time for the last regular slot has passed, the bill says so. Call the chair’s office: only the chair can still help.'],
       ['Bills HIPHI opposes', 'They get no hearing ask anywhere in the tracker: HIPHI never asks a chair to hear a bill it opposes.']] },
   { id: 'talk', gate: HOW_TO, title: 'Logging a talk with a legislator', also: 'log call meeting conversation visit talked', icon: 'message-square-plus', sub: () => 'A call, a meeting or a visit, kept where the team finds it',
     items: () => [['1. Open their page', 'Legislators, then <b>Everyone</b> (type a name, a town or a district), or a name on a bill’s Committees.'],
       ['2. Log a talk', 'Press <b>Log a talk</b> at the top of their page. A bill’s Team talk box logs one too, already filed under that bill.'],
       ['3. Fill it in', '<b>Filed under</b>: the issue, and the bill if it was about one. <b>When</b>: the day. <b>What was said</b>: what they said, what they asked for, what we promised. Met several legislators at once? Add each one: it is one record on each of their pages.'],
-      ['4. Where they stand', 'If they said how they will vote, set their stance beside their name on the bill’s Committees, or in the table of our bills on their page.'],
+      ['4. Where they stand', 'If they said how they will vote, set their stance beside their name on the bill’s Committees, or with Mark where they stand beside the bill on their page.'],
       ['Who sees it', 'The whole team: on the legislator’s page, on the issue’s page and on every bill of that issue. You can correct or delete your own entry for ten minutes.']] },
   { id: 'calendar', gate: HOW_TO, title: 'Session calendar', also: 'deadlines dates calendar days left lateral decking crossover legislative day', icon: 'calendar-clock', sub: () => { const g = sessionGates(S.bills).find(x => x.next); return g ? `Next: ${g.name}, ${mdDay(g.date)}` : 'Every deadline of the session'; },
     items: () => calendarItems() },
@@ -155,7 +155,7 @@ const TOPICS = [
       ['Lists', 'A list is a set of public bills (Outreach, then <b>Lists</b>). Following a list follows every bill on it, including ones added later.'],
       ['Supporters', 'People who say yes at sign-up to hearing emails, and to HIPHI seeing what they follow, appear under Outreach, then <b>Supporters</b>. Everyone else’s follows are counts only, and only from 10 people.'],
       ['Links', `A staff link to a bill looks like ${esc(APP_URL)}#bill=HB1563 and opens in either app. A public link to a list looks like ${esc(PUBLIC_APP())}#list=keiki-health.`],
-      ['On hiphi.org', 'Session setup (admins), then its public page part, has the code to put the tracker on any web page.']] },
+      ['On hiphi.org', 'Session setup (admins), its Public page tab: <b>Website embed</b> has the code to put the tracker on any web page.']] },
   { id: 'where', title: 'Drive, Slack and the calendar', also: 'drive slack calendar youtube questions ask nate', icon: 'map-pin', sub: () => 'Where drafts, alerts, hearings and video are kept, outside the app',
     items: () => [['Drafts', 'Google Drive, in Testimony, then the year, the coalition and the bill.'], ['Alerts', `Slack ${esc((S.slackCfg || {}).main_channel || '#hearing-alerts')} and each coalition’s channel. Your own steps come as DMs or email (<a href="#/me">My settings</a>).`],
       ['Calendar', 'The HIPHI Hearings Google Calendar.'], ['Video', 'The Senate and House YouTube channels.'],
@@ -201,7 +201,7 @@ function coalitionItems() {
   const cs = (S.campaigns || []).slice().sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99) || a.name.localeCompare(b.name));
   return [['What a coalition is', 'A group of organizations HIPHI works with on one cause. Each tracked bill belongs to one or more coalitions; each coalition has an owner on the team, a Slack channel and its own page (My issues, then <b>Coalitions</b>), where you can switch on I help on.'],
     // The full name, unless the description already starts with it ("Community health workers: ...").
-    ...cs.map(c => [c.name, [c.public_name && c.public_name !== c.name && !plain(c.description || '').startsWith(plain(c.public_name)) ? esc(c.public_name) + '.' : '', c.description ? esc(String(c.description).replace(/\s+/g, ' ').slice(0, 220)) : '', c.owner_id && first(c.owner_id) ? `Owner: ${esc(first(c.owner_id))}.` : '',
+    ...cs.map(c => [c.name, [c.public_name && c.public_name !== c.name && !plain(c.description || '').startsWith(plain(c.public_name)) ? esc(c.public_name) + '.' : '', c.description ? esc(String(c.description).replace(/\s+/g, ' ')) : '', c.owner_id && first(c.owner_id) ? `Owner: ${esc(first(c.owner_id))}.` : '',
       c.slack_channel ? `Slack: ${esc(String(c.slack_channel).replace(/^#?/, '#'))}.` : '', `<a href="#/coalition/${encodeURIComponent(c.id)}">Its page</a>`].filter(Boolean).join(' ')])];
 }
 
@@ -254,42 +254,80 @@ const MOVED = () => [
   ['Today', [
     ['Today’s This week switch', `${go('Hearings', '#/hearings')}, under This week: every sitting, day by day, with I’m going on each card.`],
     ['The deadline box (bills that still need a hearing)', `${go('Get hearings', '#/hearings/ask')}, on Hearings: one board, grouped by chair, soonest notice first.`],
-    ['Mark asked', `${go('Get hearings', '#/hearings/ask')}: after you press <b>Email the chair</b>, it asks <b>Did you send it?</b> Asked by phone or in person? Press <b>I asked another way</b>, on the same board.`],
+    ['Mark asked', `${go('Get hearings', '#/hearings/ask')}: after you press <b>Email the chair</b>, it asks <b>Did you send it?</b> Asked by phone or in person? Press <b>Log it</b> beside “Asked by phone or in person?”, on the same board.`],
+    ['The asked chip, to record what the chair said', `${go('Get hearings', '#/hearings/ask')}: <b>They replied</b>, on the ask that waits for a reply. Legislators’ Who to ask shows the same board.`],
+    ['Give to… and I’ll ask, on a chair ask', `${go('Get hearings', '#/hearings/ask')}: <b>Give this ask to…</b> and <b>I’ll ask</b> beside each chair. Whoever takes it gets a row on Today.`],
     ['Also worth doing (suggestions)', `${go('Hearings', '#/hearings')}, at the foot of This week. Never counted, as before.`],
     ['The Mine and Team switch, and the person picker', `${isLeadish() ? `${go('Team', '#/team')} in the sidebar (leads), and ` : ''}${go('More tools', '#/tools')}, then See a teammate’s list, to read anyone’s list.`],
     ['Slipping', isLeadish() ? `${go('Team', '#/team')}, first on the page. Today keeps one line, “7 slipping · Open Team”.` : 'Team, a lead tool for admins and second approvers.'],
+    ['Your coalition’s week (for helpers): I’ll ask, Message Lauren', `One line on Today, “Lauren has 5 hearing asks this week · Offer to help”. It opens ${go('Get hearings', '#/hearings/ask?scope=coal')} for your coalitions.`],
+    ['A coalition’s late or due cards (for helpers)', `Your own rows on Today, and ${go('Testimony', '#/testimony?view=write')} under To write.`],
+    ['Messages from teammates, and the tracker’s notes', `${go('Inbox', '#/inbox')}, under Messages. A question to you that is not answered yet stays a row on Today.`],
+    ['Write the public ask', `${go('Outreach', '#/outreach')}, under This week’s asks: the bill’s card has the box. It is still a row on Today two days before it is due.`],
+    ['A bill with no owner on your issue: Take it', `${go('My issues', '#/my-issues')}: one line, “2 bills on your issue have no owner · Take one”. The bill’s header says “Nobody owns this bill yet · Take it”.`],
     ['What changed since yesterday', `${go('Inbox', '#/inbox?view=updates')}, under Updates: since yesterday, your last visit or the last 7 days.`],
-    ['A row’s menu (the three dots)', 'Each action is in its home: <b>I’m going</b> on the hearing’s card, <b>Undo filed</b> on the testimony under Filed, <b>Reply in Team talk</b> in the Inbox, <b>Give to…</b> on the bill.'],
+    ['A row’s menu (the three dots)', 'Each action is in its home: <b>I’m going</b> and <b>Watch</b> on the hearing’s card, <b>Undo filed</b> on the testimony under Filed, <b>Reply in Team talk</b> in the Inbox, <b>Give to…</b> on the bill, the bill’s owner in its header.'],
+    ['Give a to-do to someone else', 'The bill’s Next step tab, under To-dos on this bill: <b>Give to…</b> and <b>Take it yourself</b>. Waiting on others, on Today, has them too.'],
     ['The quick look at a bill (o)', 'The open item beside the list, on Today and on Bills (o or Space opens it, Esc closes it).'],
+    ['The legislative day, on Today’s date line', `${go('Session calendar', '#/help/calendar')}, in Help and in More tools.`],
     ['Getting started (New here?)', `The top of Today for someone new, and ${go('More tools', '#/tools')}, then Getting started.`]]],
   ['Testimony', [
     ['Review, from Today’s approval card', `${go('Testimony', '#/testimony?view=approve')}, under To approve, opens Review: one draft at a time, as before. A note in the Inbox opens it too.`],
     ['Drafts sent back, and Resubmit', `${go('Testimony', '#/testimony?view=sent')}, under Sent back, with the note, the Doc and <b>Resubmit</b>. The writer’s Today has the row too.`],
     ['The Mark filed sheet', `${go('Testimony', '#/testimony?view=file')}, under Ready to file: the filing card, with the PDF, the Capitol page and the form’s answers to copy.`],
-    ['Earlier testimony', `${go('Testimony', '#/testimony?view=filed')}, under Filed, and in More tools.`],
+    ['Withdraw from review, in the bill’s hearing menu', `${go('Testimony', '#/testimony?view=approve')}, under To approve: open your draft that is with an approver, then <b>Withdraw from review</b>. The Undo right after Send for approval does it too.`],
+    ['Earlier testimony', `${go('Testimony', '#/testimony?view=filed')}, under Filed, and in More tools. A bill’s Next step tab offers Borrow from earlier testimony.`],
+    ['Supporter emails to approve or send, on Today', `${go('Outreach', '#/outreach/emails')}, under Emails, and each email’s own page. Your own step on one stays a row on Today.`],
     ['Deadline reminders in the Inbox', 'They stay on the step itself (its time to act, on Today and in Testimony); the Inbox keeps only what happened.']]],
   ['Bills and a bill', [
     ['Bills’ menu: Sort new bills, Muted bills', `Tabs of ${go('Bills', '#/bills')} (Sort new bills in the opening weeks), and rows of ${go('More tools', '#/tools')}.`],
     ['Bills’ menu: Lists', `${go('Outreach', '#/outreach/lists')}, under Lists, and More tools.`],
-    ['Bills’ menu: Export, saved views, select many', `${go('More tools', '#/tools')}: Export, Saved views and Bulk change; Bills keeps them in its own toolbar too.`],
+    ['Bills’ quick filter chips', 'Presets at the top of Bills’ Filter sheet: At risk, Hearing this week, Monitoring.'],
+    ['Bills’ menu: Save this view, Saved views', 'Bills’ Filter sheet: <b>Save this view</b>, and your saved views as presets. More tools lists them too.'],
+    ['Bills’ menu: Columns and rows, Edit in the table, Export', 'Bills’ Table view, which anyone can pick: <b>Columns</b>, <b>Edit</b> and <b>Export</b> in its toolbar. More tools has Export too.'],
+    ['Bills’ menu: Select bills', 'A <b>Select</b> button in Bills’ toolbar (or press and hold a row on a phone), then Change… or Add to…. More tools has Bulk change.'],
     ['A bill’s Overview tab and its Next up card', 'The bill’s Next step tab: What’s next for you, with your step’s button or whose step it is.'],
-    ['A bill’s Activity tab', 'The bill’s Team talk tab: messages, notes and talks with legislators in one box.'],
-    ['Committees, sponsors and codes on Overview', 'About this bill and Committees, two labelled doors on the bill’s page.'],
+    ['To-dos, on a bill’s Overview', 'The bill’s Next step tab, under To-dos on this bill.'],
+    ['A bill’s Activity tab', 'The bill’s Team talk tab: messages, the team note, and talks with legislators in one box.'],
+    ['Committees, sponsors, coalitions and codes on Overview', 'About this bill and Committees, two labelled doors on the bill’s page.'],
+    ['Our 2026 goal, under a bill’s heading', 'About this bill, on the bill’s page.'],
     ['Follow, in the bill’s menu', 'A <b>Follow</b> button in the bill’s header.'],
+    ['Correct the stage, in the bill’s menu (admins)', 'About this bill, on the bill’s page: <b>Correct the stage</b>.'],
+    ['Mute, for a bill waiting for a hearing', 'Still in the bill’s menu (the three dots), where it reads <b>Not pushing this bill</b>. Unmute is on Bills’ Muted tab.'],
+    ['The bill’s hearing menu: Watch, I’m going, Send a teammate, Fix the video link', '<b>Watch</b> and <b>I’m going</b> are on the hearing’s card; <b>Send a teammate…</b> and <b>Fix the video link</b> are on the hearing’s own page.'],
+    ['The share kit, on a bill’s Public tab and on a hearing’s page', `${go('Outreach', '#/outreach')}, under This week’s asks: one card per bill with Copy link, Copy message, Copy post and Email followers. The bill and the hearing link to it.`],
     ['The weekly memo, in Bills’ menu', `${go('Outreach', '#/outreach/partners')}, under Partner update.`]]],
-  ['Outreach, Legislators and My issues', [
-    ['Outreach’s issues, first visit numbers and QR code', `${go('My issues', '#/my-issues/all')}, under All issues; ${go('More tools', '#/tools')} has First visit numbers and Make a link or QR code.`],
-    ['Legislators’ This week', `${go('Legislators', '#/legislators')}, under Who to ask, and Everyone’s filter for who hears our bills this week.`],
+  ['Legislators', [
+    ['Legislators’ This week', `${go('Legislators', '#/legislators?view=everyone')}, under Everyone: <b>Hearing our bills this week</b>.`],
+    ['The phone’s House, Senate and All chips', `${go('Legislators', '#/legislators?view=everyone')}, under Everyone: Filter, then House or Senate.`],
     ['Holding our bills (it had no address)', `${go('Legislators', '#/legislators?view=holding')}, under Holding our bills, and in More tools.`],
-    ['Coalitions (its own page)', `${go('My issues', '#/my-issues/coalitions')}, under Coalitions.`]]],
+    ['Log a conversation', 'A legislator’s page: <b>Log a talk</b>. A bill’s Team talk box logs one too. Tick “This was an ask for a hearing” when it was one.'],
+    ['Mark where they stand, on a legislator’s page', 'The same page, beside each of our bills in their committees: <b>Mark where they stand</b> (once set, the stance itself, such as Leaning yes). The bill’s Committees door has it too.']]],
+  ['Outreach and My issues', [
+    ['Outreach’s issues, first visit numbers and QR code', `${go('My issues', '#/my-issues/all')}, under All issues; ${go('More tools', '#/tools')} has First visit numbers and Make a link or QR code.`],
+    ['Your issues for 2027 (the prep list)', `${go('My issues', '#/my-issues')} itself, between sessions.`],
+    ['The Prep board, in All issues’ menu (admins)', `${go('All issues', '#/my-issues/all?view=prep')}, its own switch beside the list (between sessions, or while something waits for you).`],
+    ['Coalitions (its own page)', `${go('My issues', '#/my-issues/coalitions')}, under Coalitions.`],
+    ['Supporters’ menu: Save as segment, Email this segment', `${go('Outreach', '#/outreach/supporters')}, under Supporters: filter, then <b>Save as a group</b> or <b>Email these people</b> in the results bar. Segments are called groups now.`],
+    ['Supporters’ menu: Select people, Import CSV, Export', '<b>Select</b> beside Add a person; <b>Import CSV</b> and <b>Export</b> at the foot of Supporters (admins).']]],
+  ['Lead tools', [
+    ['Session setup’s people (Team)', S.me?.is_admin ? `${go('People', '#/people')}, a lead tool: each person’s roles, sign-in, and hand over and turn off.` : 'People, a lead tool for admins.'],
+    ['Partners’ menu: Invite a group, Make a link only', 'Buttons at the top of Partners.'],
+    ['Partners’ menu: Partner approvers', S.me?.is_admin ? `${go('People', '#/people')}: each person’s record, under Roles.` : 'People (admins): each person’s record, under Roles.'],
+    ['Session setup: Email, Hearing alerts, Message wording', 'Session setup, its Email and Slack tab: every Slack and email setting on one page, with the switch for email to the public.'],
+    ['Session setup: Coalitions, Session days and sync, Import, Committee map', 'Session setup, its Before each session tab.'],
+    ['Session setup: Connections, Keys', 'Session setup, its Connections tab (the keys under Technical details).'],
+    ['Session setup: Website embed, Tests, Tester sheet', 'Session setup, its Public page tab.'],
+    ['Session setup: People’s lists, Privacy and keeping', 'Session setup, its Privacy tab, with Forget a person.'],
+    ['Session setup’s Advanced', 'Gone: each of its parts is in one of the tabs above. Search finds each part by name.']]],
   ['Around the app', [
-    ['Your initials menu, top right', 'You, at the foot of the sidebar: My settings and Sign out. On a phone, the last rows of More.'],
+    ['Your initials menu, top right', 'You, at the foot of the sidebar: My settings, Refresh and Sign out. On a phone, the last rows of More.'],
+    ['Practice as someone else, Start the practice over', 'You, at the foot of the sidebar, on the practice copy.'],
     ['The Inbox, in that menu', `${go('Inbox', '#/inbox')}, in the sidebar with its count; on a phone, the bell at the top.`],
     ['Help, My settings and Session setup at the sidebar’s foot', 'Help in the sidebar; My settings under You; Session setup under Lead tools (admins).'],
     ['The phone’s bar: Today, My issues, Bills, Legislators, Outreach', 'Today, Hearings, Testimony, Bills and More, where every other place is listed.'],
-    ['Session setup’s people', S.me?.is_admin ? `${go('People', '#/people')}, a lead tool: each person’s roles, sign-in, and hand over and turn off.` : 'People, a lead tool for admins.'],
     ['Open the current app, and version links', 'More tools, under Compare versions (admins).'],
-    ['The search box', 'The same box, which now also finds places and things to do. Cmd or Ctrl and K puts the cursor in it.'],
+    ['The search box', 'The same box, which now also finds places, setup parts and things to do. Cmd or Ctrl and K puts the cursor in it.'],
     ['Keyboard shortcuts', `All of v5’s, plus g h for Hearings, g w for Testimony and Cmd or Ctrl and K for search: ${go('Keyboard shortcuts', '#/help/keys')}.`]]],
 ];
 const isLeadish = () => !!S.me && (S.me.is_admin || S.me.is_reviewer);
@@ -403,7 +441,9 @@ const has = (hay, x) => x.length <= 3 ? whole(hay, x) : new RegExp(`(^|[^a-z0-9]
 const unent = s => String(s).replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&#39;|&rsquo;/g, '’').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 const wordsOf = q => plain(q).replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(w => w && !STOP.has(w));
 const entriesOf = t => t.items ? t.items() : t.id === 'moved' ? MOVED().flatMap(([, rows]) => rows) : [[t.title, '']];
-const hitRow = h => itemRow({ key: h.t.id + ':' + h.term, name: h.term, line: esc(`${h.def ? (h.def.length > 120 ? h.def.slice(0, 119).replace(/\s\S*$/, '') + '…' : h.def) + ' · ' : ''}${h.t.title}`), href: `#/help/${h.t.id}`, cls: 'hp-row' });
+// The meaning's first sentence, whole (A-1: never cut with a typed "…"), then the guide it is in.
+const firstSent = t => { t = String(t || ''); const m = /^.*?[.!?](?=\s|$)/.exec(t); return m && m[0].split(/\s+/).length >= 3 ? m[0] : t; };
+const hitRow = h => itemRow({ key: h.t.id + ':' + h.term, name: h.term, line: esc(`${h.def ? firstSent(h.def) + ' · ' : ''}${h.t.title}`), href: `#/help/${h.t.id}`, cls: 'hp-row' });
 function results(q) {
   const ws = wordsOf(q); if (!ws.length) return q.trim() ? '<p class="hp-none" role="status">Type a word, such as “file” or “alerts”.</p>' : '';
   const alts = ws.map(synOf), hits = [], near = [], keyW = ws.reduce((k, w, i) => w.length > ws[k].length ? i : k, 0);

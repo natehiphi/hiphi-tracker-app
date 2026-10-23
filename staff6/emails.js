@@ -25,7 +25,7 @@ const when = a => a.updated_at || a.submitted_at || a.created_at || '';
 const newest = (x, y) => String(when(y)).localeCompare(String(when(x)));
 
 // "Followers of Let people cross during the countdown (HB 1523)", "Oʻahu testifiers": who it goes to, in one phrase.
-const toWords = a => { const u = audienceOf(a); return u.b ? `Followers of ${nameWords(u.b, 48)}${u.b.nickname ? ` (${numWords(u.b)})` : ''}` : u.l ? `Followers of the list ${u.l.title}` : u.sg ? `The group ${u.sg.name}` : 'Nobody yet'; };
+const toWords = a => { const u = audienceOf(a); return u.b ? `Followers of ${nameWords(u.b, 1e4)}${u.b.nickname ? ` (${numWords(u.b)})` : ''}` : u.l ? `Followers of the list ${u.l.title}` : u.sg ? `The group ${u.sg.name}` : 'Nobody yet'; };
 // A phone's row: the subject, then one line that says what happens next (marked when it is yours). Under a heading that
 // already says it ("Yours to approve", "Ready to send", "Going out at 4:30 PM"), the line says who sent it, when, and who
 // it goes to instead of the heading's words again (A-14).
@@ -103,7 +103,8 @@ export default {
       ${pausedNotice()}
       ${!all.length ? `<div class="le-empty">${empty({ title: 'No emails yet', text: 'Write to the people who follow a bill or a list, or to a saved segment of supporters.', action: newBtn })}</div>`
         // The table opens in the groups' order (what needs you first, sent last); a header click re-sorts it.
-        : desk ? `<p class="le-tsum" aria-live="polite">${needs ? `<b>${needs} ${needs === 1 ? 'needs' : 'need'} you</b>${v.sort ? '' : ', listed first'}` : 'Nothing needs you right now'}</p>${emailsTable([...review, ...ready, ...going, ...drafts, ...waiting, ...sent], v, rv)}`
+        // With nothing waiting on you, no sentence floats over the table (the critic: it read as an empty state).
+        : desk ? `${needs ? `<p class="le-tsum" aria-live="polite"><b>${needs} ${needs === 1 ? 'needs' : 'need'} you</b>${v.sort ? '' : ', listed first'}</p>` : ''}${emailsTable([...review, ...ready, ...going, ...drafts, ...waiting, ...sent], v, rv)}`
         : group('review', 'Yours to approve', review, rv)
         + group('send', 'Ready to send', ready, rv)
         + group('going', paused() ? 'Held while email is paused' : 'Going out at 4:30 PM', going, rv)

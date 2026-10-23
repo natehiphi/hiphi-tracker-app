@@ -1,8 +1,8 @@
 // Staff v6 · Legislators (#/legislators; R-336 spec 3.3 and 6, V23; F139-F144, F150). Three page tabs, each with its own
 // address, and one find box on every tab (F143):
 //   Who to ask (#/legislators, ?view=ask): the Get hearings board, the same component as Hearings > Get hearings (push.js
-//     askBoard, drawn here once it is there; until then the same board grouped by chair from holding.js's model, the one
-//     path every Legislators tab reads, X7). My bills · My coalitions · Team is a visible switch, the same as Hearings'.
+//     askBoard, drawn here since the integration: one board, so the two doors never disagree, X7; holding.js's own board
+//     below is kept only as the fallback should askBoard fail). My bills · My coalitions · Team is a visible switch, the same as Hearings'.
 //     Each chair carries ONE email button: the viewer's own asks with them, to them alone, named by bill (V24).
 //   Everyone (?view=everyone): the directory, a name and one line per legislator (district and island, their role on our
 //     bills, last contact), with the "Hearing our bills this week" preset (F142, v5's This week view), the Filter sheet
@@ -18,7 +18,7 @@ import { S, esc, DEMO, islandOf, SESSION_OVER } from './data.js';
 import { plain, codesOf, geoSuggest, geoDistricts, ISLANDS, chairIdsOf, stopOf, diedish, legById } from './model.js';
 import { icon, btn, iconBtn, empty, toast, segmented, pickerSheet, menuSheet, keysOn, filterBtn, sectionNav } from './ui.js';
 import { HOLDING, holdingHTML, contactWords, lastContact, ensureContacts, chairRole, chairEmail, replyBtn, chairGroups, askItems, askScopes, askScope, scopeWhose } from './holding.js';
-import * as PUSH from './push.js';   // Hearings > Get hearings' board (askBoard), drawn here once it is there (spec 6: one component)
+import * as PUSH from './push.js';   // Hearings > Get hearings' board (askBoard), drawn here (spec 6: one component)
 import { photo, legName, legHref, seatsOf, roleWord, RANK, wireLinks, surname } from './pathway.js';
 import { PROFILES, caresIds, caresCounts, issueSheet } from './profile.js';   // R-335 (practice copy)
 import { issueById } from './issues.js';

@@ -227,7 +227,9 @@
 .fv-card .is-opt { font-weight: 400; color: var(--n500); }
 .fv-prow { display: flex; align-items: center; gap: var(--s8); margin-top: var(--s4); }
 .fv-prow .sv-pick { flex: 1 1 auto; min-width: 0; justify-content: flex-start; }
-.fv-prow .sv-pick > span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+/* A long partner name wraps inside the picker rather than being cut at 320 (nothing cut). */
+.fv-prow .sv-pick { height: auto; min-height: 44px; padding-top: 6px; padding-bottom: 6px; }
+.fv-prow .sv-pick > span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; white-space: normal; text-align: left; }
 .fv-welcome { margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n700); }
 .fv-urlbox { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); margin-top: var(--s16); }
 .fv-urlbox .label { font-size: var(--t14); font-weight: 700; color: var(--n900); }
@@ -567,7 +569,7 @@ body.staff6 .i6-catf > summary::-webkit-details-marker { display: none; }
 @media (hover: hover) and (pointer: fine) { body.staff6 .i6-catf > summary:hover { background: var(--v6-wash); } }
 body.staff6 .i6-catf > summary:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 body.staff6 .i6-catb { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-body.staff6 .i6-catn { font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+body.staff6 .i6-catn { font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 body.staff6 .i6-catm { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
 body.staff6 .i6-catf > summary .i6-chev { color: var(--v6-muted); }
 body.staff6 .i6-catf > .i6-list, body.staff6 .i6-catf > .i6-more > .i6-list { padding: 0; box-shadow: none; background: none; }
@@ -672,7 +674,7 @@ body.staff6 .pr6-step > .pr6-closed { flex: none; }
 body.staff6 .pr6-step > .pr6-closed[hidden], body.staff6 .pr6-sb > .pr6-closed[hidden] { display: none; }
 body.staff6 .pr6-step.done .pr6-mark { color: var(--v6-leaf); }
 body.staff6 .pr6-sb { flex: 1 1 auto; min-width: 0; }
-body.staff6 .pr6-sl { margin: 0; font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+body.staff6 .pr6-sl { margin: 0; font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 body.staff6 .pr6-sd { margin: var(--s4) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); overflow-wrap: anywhere; }
 body.staff6 .pr6-step.done:not(.open) .pr6-sd { color: var(--v6-muted); }
 body.staff6 .pr6-step > .btn, body.staff6 .pr6-step > .pr6-closed > .btn { flex: none; margin-top: -6px; }
