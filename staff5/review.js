@@ -15,6 +15,7 @@ import { reviewQueue, hearingFor, testDue, cd, hearingLine, reviewerNames, needs
 import { statusSentence } from './bill.js';
 import { teamFirst } from './model.js';   // R-316 W28
 import { staleFromLine } from './model.js';   // R-316 W24
+import { filerOf } from './model.js';   // R-316 W20 (T-3)
 import { capitolUrl } from './data.js';
 
 // R-316 W28 (G3-8): "Lauren (turned off) owns it", "Sent by Kevin (turned off)": model.js teamFirst ("Someone" when nobody).
@@ -249,7 +250,7 @@ async function approve(route, el) {
     }
     await DB.transition(it.b.id, it.d.id, 'approve'); markNotices(it.b.id);
     // Written from the state the server returned: a first testimony goes on to second review.
-    const d = resolve(it.key)?.d || it.d, filer = d.submitted_by ? (d.submitted_by === S.me.id ? null : first(d.submitted_by)) : first((S.assignments[it.b.id] || [])[0]);
+    const d = resolve(it.key)?.d || it.d, fid = filerOf(d), filer = fid && fid !== S.me.id ? first(fid) : null;   // W20 (T-3): model.js filerOf
     const msg = d.status === 'second_review' ? `Approved. Second approval next, from ${reviewerNames()}.` : filer && filer !== 'Someone' ? `Approved. ${filer} files it next.` : 'Approved. File it at the Capitol next.';
     const entry = { num: billSay(it.b), what: msg, icon: 'check' };
     toast(msg, { ok: true, undo: () => unapprove(r, it, entry) }); advance(r, entry);

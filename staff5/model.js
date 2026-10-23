@@ -648,6 +648,10 @@ const advOf = x => x && typeof x === 'object' ? x : advocate(x);
 export const offTag = x => advOf(x)?.is_active === false ? ' (turned off)' : '';
 export const teamFirst = x => { const a = advOf(x); return a ? (String(a.full_name || '').split(' ')[0] || 'Someone') + offTag(a) : 'Someone'; };
 export const teamName = x => { const a = advOf(x); return a ? (a.full_name || 'Someone') + offTag(a) : 'Someone'; };
+// R-316 W20 (T-3): who files approved testimony, one rule on every screen (Today, the bill page, Review, the hearing page):
+// whoever sent it for approval while they are on the team, else the bill's owner (named "(turned off)" when they are off,
+// so someone hands it on), else nobody in particular. An id or null.
+export const filerOf = d => { const s = advocate(d?.submitted_by); return s && s.is_active !== false ? s.id : (S.assignments?.[d?.bill_id] || [])[0] || null; };
 // R-316 W24 (G1-8): a draft started from earlier testimony whose bill has moved on since says so in ONE line, the warning:
 // "Started from HIPHI’s JHA testimony, written for HD1; the bill is now SD1. What changed: ..." (Nate's review). It was
 // two lines in a row ("Started from ... Since then: ..." over "The bill is now SD1; this draft was written for HD1").

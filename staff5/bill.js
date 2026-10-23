@@ -36,6 +36,7 @@ import { logConversation } from './conversation.js';   // R-316 W3 (practice cop
 import { HOW_TO } from './terms.js';   // R-316 W37 (practice copy)   // R-316 W14 (practice copy)
 import { teamFirst, teamName } from './model.js';   // R-316 W28 (G3-8): "Lauren (turned off)"
 import { staleFromLine } from './model.js';   // R-316 W24 (G1-8)
+import { filerOf } from './model.js';   // R-316 W20 (T-3): who files, one rule on every screen
 
 // ---- small shared helpers (activity.js and public.js use these too) ----
 export const firstName = a => String(a?.full_name || '').split(' ')[0] || 'Someone';
@@ -441,7 +442,7 @@ function whoLine(d) {
 }
 // R-316 W20 (FD-3, C-7): who holds a draft: whoever sent it for approval, else the bill's owner (R-267 Fix it #8; the
 // writer replaces this when R-267 lands). Only that person gets the filled Resubmit or File; others get it outlined.
-const filerOf = d => d.submitted_by || (S.assignments[d.bill_id] || [])[0] || null;
+// model.js filerOf (T-3): a sender who is turned off no longer holds it, as on Today and the hearing page.
 function testimonyBlock(b, d, { primary = true, title = '' } = {}) {
   const me = S.me || {}, acts = d.status === 'cancelled' ? [] : draftActions(d).map(a => a[0]);
   const holder = filerOf(d), mineHeld = !holder || holder === me.id;
@@ -626,7 +627,7 @@ async function runDraft(b, d, act, el) {
       if (performance.now() - approvedAt < 1000) { if (el?.isConnected) el.removeAttribute('aria-busy'); return; }
       const nd = await transition(b, d, 'approve'); approvedAt = performance.now(); rerender();
       // One rule for who files, as on Review and Today: whoever sent it for review, else the owner (Nate 10/12, R-267: the writer files).
-      const filer = advocate(nd.submitted_by) || ownerOf(b);
+      const filer = advocate(filerOf(nd));   // W20 (T-3): model.js, the one rule
       toast(nd.status === 'second_review' ? `Approved. Now needs ${reviewerNames()}.`
         : filer && filer.id === S.me?.id ? 'Approved. File it at the Capitol next.' : `Approved. ${filer ? teamFirst(filer) : 'The owner'} files it next.`,
         { ok: true, undo: async () => { await transition(b, nd, 'unapprove'); rerender(); toast('Approval undone. It is waiting for you again.'); } });

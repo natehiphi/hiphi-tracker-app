@@ -1,6 +1,7 @@
 # Staff v5: turning someone off never hides their work (R-316 W28, G3-3). On the practice copy (Mon 16 Mar 2026), as
 # Nate on Team: for every teammate who owns bills, turning them off must not lower Slipping's count, their name must
-# say "(turned off)" where it still shows, and they leave the going lists. Exits 1 when a check fails.
+# say "(turned off)" where it still shows (G3-8: six screens, Lauren off and back on), and they leave the going lists. The
+# hearing page names who files approved testimony (W20, T-3). Exits 1 when a check fails.
 #   python3 tests/staff5_turnoff.py                  against http://localhost:8832
 #   V4_ROOT=/path/to/worktree python3 tests/staff5_turnoff.py    serves that folder straight into the browser
 import os, sys
@@ -80,5 +81,28 @@ with sync_playwright() as p:
   sel = pg.evaluate(f"document.querySelector('[data-coal=\"{where['coal']}\"] [data-cowner]')?.value")
   check(sel == where['lr'], f"Session setup: HEAL's Owner list still has Lauren picked while she is off ({sel})")
   pg.evaluate(OFF, {'off': False, 'route': '#/'})
+
+  # W20 (T-3): a hearing page's row with approved testimony names who files it: whoever sent it for approval ("you" for
+  # the viewer), and, when that person is turned off, the bill's owner, "(turned off)" if they are off too.
+  ready = pg.evaluate("""async () => {
+    const { S } = await import('./staff5/data.js'), ahead = h => h && h.status === 'scheduled' && new Date(h.scheduled_at) > Date.now();
+    const rows = Object.values(S.drafts).flat().filter(d => d.status === 'approved' && d.submitted_by)
+      .map(d => ({ d, h: S.hearings.find(h => h.id === d.hearing_id), own: (S.assignments[d.bill_id] || [])[0] })).filter(x => ahead(x.h) && x.d.version === S.bills.find(b => b.id === x.d.bill_id)?.current_version);
+    const other = rows.find(x => x.d.submitted_by !== S.me.id), mine = rows.find(x => x.d.submitted_by === S.me.id), who = other && S.advocates.find(a => a.id === other.d.submitted_by);
+    return { other: other?.h.id, who: who?.full_name.split(' ')[0], ini: who?.initials, same: other && other.own === other.d.submitted_by, mine: mine?.h.id }; }""")
+  check(ready['other'] and ready['mine'], f"the practice copy has approved testimony ahead, sent by Nate and by someone else ({ready})")
+  FILER = """async ({ ini, off, route }) => {
+    const { S, hooks } = await import('./staff5/data.js'), wait = ms => new Promise(r => setTimeout(r, ms));
+    S.advocates.find(a => a.initials === ini).is_active = !off;
+    location.hash = route; await wait(900); hooks.render(); await wait(600);
+    return [...document.querySelectorAll('main .hr-bill .chip')].map(c => c.textContent).filter(x => /ready to file/.test(x)); }"""
+  got = pg.evaluate(FILER, {'ini': ready['ini'], 'off': False, 'route': '#/hearing/' + str(ready['other'])})
+  check(any(f"Testimony ready to file · {ready['who']} files it" in x for x in got), f"hearing page: \"Testimony ready to file · {ready['who']} files it\" ({got[:2]})")
+  if ready['same']:
+    got = pg.evaluate(FILER, {'ini': ready['ini'], 'off': True, 'route': '#/hearing/' + str(ready['other'])})
+    check(any(f"{ready['who']} (turned off) files it" in x for x in got), f"hearing page: the sender and owner turned off reads \"{ready['who']} (turned off) files it\" ({got[:2]})")
+    pg.evaluate(FILER, {'ini': ready['ini'], 'off': False, 'route': '#/'})
+  got = pg.evaluate(FILER, {'ini': 'NT', 'off': False, 'route': '#/hearing/' + str(ready['mine'])})
+  check(any('· you file it' in x for x in got), f"hearing page: Nate's own approved testimony reads \"you file it\" ({got[:2]})")
   br.close()
 print('\nall passed' if not fails else f'\n{len(fails)} failed'); sys.exit(1 if fails else 0)
