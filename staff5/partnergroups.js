@@ -13,10 +13,15 @@
 //     the page's "…" menu: both are rare (A-20, B-13).
 //   - Any staff member may look (the tables are readable by all staff); only an admin or a partner approver sees the
 //     buttons, and the page says so.
+//   - Partner asks (R-328 batch G, backend 185): an ask Nate or Jess approved goes out in the 4:30 pm email, and it is
+//     listed first, under "Going out at 4:30 pm" (or "Held while email is paused"), as HIPHI's own sent emails are on
+//     Emails, with Take it back (Undo sends it again at the next 4:30 pm; nobody gets it twice, B-5). Taken back and ended
+//     asks wait in a fold. Only a partner approver sees the buttons (the database refuses anyone else).
 import { S, DB, esc, hooks, fmtDate, partnerSlug } from './data.js';
 import { icon, btn, iconBtn, chip, toast, openSheet, closeSheet, menuSheet, notice, skeleton, empty, friendly, switchRow, field } from './ui.js';
-import { whenAt } from './model.js';
-import { admitsPartners, approvesPartners, firstName, otherApprovers, orList, wantQueue, queueChanged } from './partnerq.js';
+import { whenAt, billById, billNum, billSay, billRoute } from './model.js';
+import { admitsPartners, approvesPartners, firstName, otherApprovers, orList, wantQueue, queueChanged, wantAsks, emailWord } from './partnerq.js';
+import { dailyWord, paused } from './composer.js';
 
 const PUB = 'https://natehiphi.github.io/hiphi-tracker-app/track.html';
 const linkOf = slug => `${PUB}?via=${encodeURIComponent(slug)}`;
@@ -36,7 +41,7 @@ function want({ force = false } = {}) {
   S.pgLoading = true; S.pgErr = '';
   DB.loadPartnerGroups().catch(e => { console.warn('partners:', e?.message || e); S.pgErr = friendly(e); }).finally(() => { S.pgLoading = false; redraw(); });
 }
-const reload = () => { queueChanged(); wantQueue({ force: true }); want({ force: true }); };
+const reload = () => { queueChanged(); wantQueue({ force: true }); want({ force: true }); wantAsks({ force: true }); };   // a paused group's asks end (R-328 G)
 const groups = () => (S.pg?.groups || []).slice().sort((a, b) => (ORDER[a.status] ?? 9) - (ORDER[b.status] ?? 9) || a.name.localeCompare(b.name));
 const peopleOf = slug => (S.pg?.people || []).filter(p => p.partner_slug === slug && !p.removed_at).sort((a, b) => (a.role === 'lead' ? 0 : 1) - (b.role === 'lead' ? 0 : 1) || String(a.invited_at).localeCompare(String(b.invited_at)));
 const requests = () => (S.pq?.requests || []).slice().sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
@@ -58,10 +63,42 @@ function groupSub(g) {
   return [plural(n, 'person', 'people'), c.live ? `${c.live} bill${c.live === 1 ? '' : 's'} live` : 'no bills live yet', c.waiting ? `${c.waiting} waiting` : ''].filter(Boolean).join(' · ');
 }
 const rowA = (href, on, title, chipHtml, sub) => `<a class="pg-row${on ? ' on' : ''}" href="${esc(href)}"${on ? ' aria-current="true"' : ''}><span class="pg-rt"><b>${esc(title)}</b>${chipHtml}</span><span class="pg-rs">${esc(sub)}</span>${icon('chevron-right', { cls: 'chev' })}</a>`;
+// ---- partner asks going out (R-328 G) ----
+const ASK_ON = ['going_out', 'sending'], ASK_OFF = ['taken_back', 'ended'];
+const hstToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+const askBill = a => billById(a.bill_id) || { bill_number: a.bill_number, session_year: a.session_year };
+const askOf = id => (S.pAsks || []).find(a => String(a.id) === String(id));
+// Where an ask stands, then how it goes and until when. While email is paused nothing goes, so the line says who approved
+// it instead of a time (the heading says it is held, A-14).
+function askLine(a) {
+  const by = a.approved_by ? ` by ${a.approved_by.split(' ')[0]}` : '';
+  const when = a.state === 'taken_back' ? `Taken back ${whenAt(a.taken_back_at)}`
+    : a.state === 'ended' ? (String(a.ask_until) < hstToday() ? `Ended ${dayWord(a.ask_until)}` : 'Ended: its words are off the tracker')
+    : paused() && !a.sent ? `Approved${by} ${whenAt(a.approved_at)}`
+    : a.state === 'going_out' ? `Goes out ${dailyWord(a.scheduled_for)} at 4:30 pm`
+    : `Going out since ${dayWord(a.scheduled_for)}${a.sent ? `: ${plural(a.sent, 'person', 'people')} so far` : ''}`;
+  return [when, a.also_text ? 'Email and text' : 'Email only', a.state === 'ended' ? '' : `until ${dayWord(a.ask_until)}`.replace(/ /g, '\u00a0')].filter(Boolean).join(' · ');   // "until Wed 3/25" never splits
+}
+function askRow(a) {
+  const b = askBill(a), can = approvesPartners();
+  const act = !can ? '' : ASK_ON.includes(a.state) ? btn('Take it back', { kind: 'secondary', sm: true, icon: 'undo-2', attrs: { 'data-pgtake': a.id } })
+    : a.state === 'taken_back' && String(a.ask_until) >= hstToday() ? btn('Send again', { kind: 'text', sm: true, icon: 'send', attrs: { 'data-pgresend': a.id } }) : '';
+  return `<li class="pg-ask${act ? '' : ' noact'}"><span class="pg-ab"><span class="pg-at"><b>${esc(a.partner_name)}</b> on <a href="${esc(billRoute(b))}">${esc(billSay(b))}</a></span>
+    <span class="pg-aq">${esc(a.ask)}</span><span class="pg-rs">${esc(askLine(a))}</span></span>${act ? `<span class="pg-aa">${act}</span>` : ''}</li>`;
+}
+function asksHTML() {
+  if (S.pAsksErr) return `<section class="pg-sec"><p class="pg-none pg-askerr">${icon('circle-alert')}<span>The partner asks did not load.</span>${btn('Try again', { kind: 'text', sm: true, attrs: { 'data-pgaskretry': '1' } })}</p></section>`;
+  const all = S.pAsks || [], on = all.filter(a => ASK_ON.includes(a.state)), off = all.filter(a => ASK_OFF.includes(a.state));
+  if (!on.length && !off.length) return '';
+  return `<section class="pg-sec" aria-labelledby="${on.length ? 'pg-h-ask' : 'pg-h-askoff'}">
+    ${on.length ? `<h2 class="pg-h2" id="pg-h-ask">${paused() ? 'Held while email is paused' : 'Going out at 4:30 pm'}<span class="n">${on.length}</span></h2><ul class="pg-rows pg-asks">${on.map(askRow).join('')}</ul>` : ''}
+    ${off.length ? `<details class="pq-more pg-fold"${S.pgAskFold ? ' open' : ''}><summary id="pg-h-askoff">${icon('chevron-down', { cls: 'chev' })}<span>Asks taken back or ended</span><span class="n">${off.length}</span></summary><ul class="pg-rows pg-asks">${off.map(askRow).join('')}</ul></details>` : ''}</section>`;
+}
+
 function listHTML(sel) {
   const rq = requests(), gs = groups(), writing = gs.filter(g => g.status !== 'link'), links = gs.filter(g => g.status === 'link');
   const sec = (id, title, n, rows, more = '') => rows.length || more ? `<section class="pg-sec" aria-labelledby="pg-h-${id}"><h2 class="pg-h2" id="pg-h-${id}">${title}${n ? `<span class="n">${n}</span>` : ''}</h2>${rows.length ? `<div class="pg-rows">${rows.join('')}</div>` : ''}${more}</section>` : '';
-  return sec('rq', 'Asking to join', rq.length, rq.map(r => rowA(`#/partners/request/${r.id}`, sel === 'r:' + r.id, r.group_name, chip('Asks to join', '', 'inbox'), `From ${r.contact_name} · ${whenAt(r.created_at)}`)))
+  return asksHTML() + sec('rq', 'Asking to join', rq.length, rq.map(r => rowA(`#/partners/request/${r.id}`, sel === 'r:' + r.id, r.group_name, chip('Asks to join', '', 'inbox'), `From ${r.contact_name} · ${whenAt(r.created_at)}`)))
     + sec('gr', 'Groups that write', writing.length, writing.map(g => rowA(`#/partners/${encodeURIComponent(g.slug)}`, sel === 'g:' + g.slug, g.name, statusChip(g.status), groupSub(g))),
       writing.length ? '' : `<p class="pg-none">${admitsPartners() ? 'No groups yet. Add the first one, then its people.' : 'No groups yet.'}</p>`)
     + sec('ln', 'Link only', links.length, links.map(g => rowA(`#/partners/${encodeURIComponent(g.slug)}`, sel === 'g:' + g.slug, g.name, '', groupSub(g))),
@@ -119,7 +156,7 @@ function selected(route) {
   return null;
 }
 function render(route) {
-  want(); wantQueue();
+  want(); wantQueue(); wantAsks();
   const adm = admitsPartners();
   const lede = adm ? 'Advocacy groups that write on the public tracker. A group you add goes live when a second approver approves it, and every word its people write comes to Nate or Jess first.'
     : 'Advocacy groups that write on the public tracker. Only an admin or a partner approver adds and changes them.';
@@ -265,6 +302,20 @@ async function decline(id, el) {
   await busy(el, async () => { await DB.partnerRequestHandle(id, 'declined'); reload(); S.go('#/partners', { replace: true });
     toast(`Declined ${r.group_name}. The tracker does not tell them: if you want to, email ${r.contact_name}.`, { undo: async () => { await DB.partnerRequestHandle(id, 'new'); reload(); toast('Undone. The request is back.'); } }); });
 }
+// Take it back, or Send again (a taken-back ask, at the next 4:30 pm): each with Undo (B-5), as HIPHI's own Send and
+// Take it back on an email. Who already got an ask never gets it twice.
+const asksReload = () => wantAsks({ force: true });   // the list stays drawn until the new one comes
+async function askStep(id, act, el) {
+  const a = askOf(id); if (!a) return;
+  const who = `${a.partner_name}’s ask on ${billNum(askBill(a))}`;
+  await busy(el, async () => {
+    const r = await DB.partnerAskStep({ id: a.id, do: act }); asksReload();
+    if (act === 'take_back') toast(`Taken back: ${who} will not go out${a.sent ? ' to anyone else' : ''}.`, { undo: async () => {
+      const r2 = await DB.partnerAskStep({ id: a.id, do: 'send' }); asksReload(); toast(`Undone. It goes out in ${emailWord(r2?.scheduled_for)}.`); } });
+    else toast(`${who} goes out in ${emailWord(r?.scheduled_for)}. Nobody who already got it gets it twice.`, { ok: true, undo: async () => {
+      await DB.partnerAskStep({ id: a.id, do: 'take_back' }); asksReload(); toast('Undone. It stays taken back.'); } });
+  });
+}
 function approversSheet() {
   const team = S.advocates.filter(a => a.is_active !== false).sort((a, b) => a.full_name.localeCompare(b.full_name));
   openSheet({ title: 'Partner approvers', size: 'auto',
@@ -329,6 +380,11 @@ function wire(route, root) {
   on('[data-pgcopy]', el => copyText(el.dataset.pgcopy, 'Link copied. Paste it into an email, a post or a newsletter.'));
   on('[data-pgfromrq]', el => { const r = requests().find(x => x.id === el.dataset.pgfromrq); if (r) groupForm({ rq: r }); });
   on('[data-pgdecline]', el => decline(el.dataset.pgdecline, el));
+  on('[data-pgtake]', el => askStep(el.dataset.pgtake, 'take_back', el));
+  on('[data-pgresend]', el => askStep(el.dataset.pgresend, 'send', el));
+  on('[data-pgaskretry]', () => { asksReload(); redraw(); });
+  // The fold of taken-back and ended asks stays as it was left when the page redraws (B-6).
+  main.querySelectorAll('.pg-fold').forEach(d => d.addEventListener('toggle', () => { S.pgAskFold = d.open; }));
 }
 // Redraw at the laptop width line: the list with its panel, or the list alone.
 let wasWide = null;

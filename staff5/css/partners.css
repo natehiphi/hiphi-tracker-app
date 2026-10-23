@@ -60,6 +60,23 @@
 .td-root .pq-golink:hover { background: var(--p50); }
 .td-root .pq-golink .ic { width: 16px; height: 16px; }
 .td-root .td-group > .pq-gline { margin-top: var(--s8); }
+/* the ask on its own, just above Approve (R-328 G): what it says, what approving does with it, Also by text and its line */
+.pq-ask { margin-top: var(--s12); padding-top: var(--s12); border-top: 1px solid var(--n100); }
+.pq-ask .pq-h4 .pq-until { font-weight: 400; margin-left: var(--s4); }
+.pq-asktext { margin: 0; font-size: var(--t16); line-height: 22px; color: var(--n900); overflow-wrap: anywhere; }
+.pq-askwas { margin: 2px 0 0; font-size: var(--t14); line-height: 20px; color: var(--n500); overflow-wrap: anywhere; }
+.pq-askwhen { display: flex; align-items: flex-start; gap: 6px; margin: var(--s4) 0 0; font-size: var(--t14); line-height: 20px; color: var(--n700); }
+.pq-askwhen .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--n500); }
+.pq-ask .sv-switchrow { margin-top: var(--s4); min-height: 48px; padding: var(--s4) 0; }
+.pq-ask .sv-switchrow .title { font-size: var(--t14); }
+.pq-ask .sv-switchrow .sub { line-height: 20px; }
+.pq-tline { margin-top: var(--s4); }
+.pq-tline[hidden] { display: none; }   /* .field is a flex column: the attribute alone would not hide it */
+.pq-tline .help { line-height: 20px; }
+.pq-thelp { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 var(--s12); }
+.pq-count { white-space: nowrap; margin-left: auto; }
+.pq-count.over { font-weight: 700; color: var(--n900); }   /* too long or too short: said in words and weight, not a colour (A-5) */
+.pq-terr .inlinemsg { margin-top: var(--s4); }
 /* the laptop's open item */
 .td-root .pq-pane .pq-name { font: 700 var(--t18)/24px var(--font-h); letter-spacing: -.005em; }
 .td-root .pq-pane .pq-t { margin-top: var(--s4); }
@@ -90,6 +107,22 @@
 .pg-rs { font-size: var(--t14); line-height: 20px; color: var(--n500); overflow-wrap: anywhere; }
 .pg-row .chev { position: absolute; right: var(--s12); top: 50%; width: 18px; height: 18px; margin-top: -9px; color: var(--n400); }
 .pg-none, .pg-foot { margin: var(--s8) 0 0; font-size: var(--t14); line-height: 20px; color: var(--n700); }
+/* partner asks going out (R-328 G): the group and the bill, the ask, where it stands; Take it back beside it */
+.pg-asks { margin: 0; padding: 0; list-style: none; }
+.pg-ask { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); padding: 10px var(--s16); }   /* the list column is narrow even on a laptop: the button goes under the ask */
+.pg-ask + .pg-ask { border-top: 1px solid var(--n100); }
+.pg-ab { display: flex; flex-direction: column; gap: 2px; min-width: 0; align-self: stretch; }
+.pg-at { font-size: var(--t14); line-height: 20px; color: var(--n700); overflow-wrap: anywhere; }
+.pg-at b { color: var(--n900); }
+.pg-at a { color: var(--p700); text-decoration: none; }
+.pg-at a:hover { text-decoration: underline; }
+.pg-aq { font-size: var(--t16); line-height: 22px; color: var(--n900); overflow-wrap: anywhere; }
+.pg-aa { display: flex; }
+.pg-fold { margin-top: var(--s4); }
+.pg-fold > summary .n { font-weight: 400; color: var(--n500); }
+.pg-fold > .pg-rows { margin-top: var(--s4); }
+.pg-askerr { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); }
+.pg-askerr > .ic { width: 18px; height: 18px; color: var(--n500); }
 .pg-foot a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-weight: 700; color: var(--p700); text-decoration: none; }
 .pg-foot a:hover { text-decoration: underline; }
 .pg-foot .ic { width: 18px; height: 18px; }

@@ -15,9 +15,14 @@
 //   - Approve is one tap (Nate). It takes 10 seconds to reach the database so Undo can stop it (B-5; the same delay
 //     Today's suggestion log uses): approved words cannot be put back to waiting once they are live.
 //   - The reading grade beside each talking point is the same arithmetic as tests/words_test.mjs (C-10 asks grade 8).
+//   - Words that carry an ask (R-328 batch G, backend 185): the card shows the ask on its own, says which 4:30 pm email
+//     it joins once approved, and has one switch, "Also by text" (off: partner asks are email only unless Nate or Jess
+//     switches it on for one ask). An ask longer than a text (110 characters) needs a line of its own for the text. The
+//     approved ask then shows on the Partners screen as "Going out at 4:30 pm" with Take it back, like HIPHI's own.
 import { S, DB, esc, fmtDate, hooks } from './data.js';
-import { icon, btn, chip, toast, openSheet, closeSheet, groupHead, friendly, POS_WORD, POS_ICON } from './ui.js';
+import { icon, btn, chip, toast, openSheet, closeSheet, groupHead, friendly, switchRow, POS_WORD, POS_ICON } from './ui.js';
 import { whenAt, billNum, billRoute, billById } from './model.js';
+import { dailyWord, paused } from './composer.js';   // which 4:30 pm email; while email is paused an approved ask is held, as HIPHI's own
 
 // ---- who ----
 // approves_partners comes with the advocates row (migration 184); a turned-off person approves nothing.
@@ -90,6 +95,78 @@ export function pqOthers() {
   return { groups: approvesPartners() ? (S.pq.groups || []).filter(g => g.added_by !== S.me?.id) : [], requests: S.pq.requests || [] };
 }
 
+// ---- the asks (R-328 G, backend 185) ----
+// partner_asks_list(): every current partner ask, for the Partners screen's "Going out at 4:30 pm" and for a card whose
+// words keep an ask already approved. Asked once a visit, like the queue; any staff member may read it.
+export function wantAsks({ force = false } = {}) {
+  if (S.pAsksLoading) { if (force) S.pAsksAgain = true; return; }   // a change while a read is on its way reads once more after it
+  if (!force && S.pAsks !== undefined) return;
+  S.pAsksLoading = true; S.pAsksErr = false; S.pAsksAgain = false;
+  DB.partnerAsks().then(a => { S.pAsks = a || []; }).catch(e => { console.warn('partner_asks_list:', e?.message || e); S.pAsks = null; S.pAsksErr = true; })
+    .finally(() => { S.pAsksLoading = false; if (S.pAsksAgain) return wantAsks({ force: true }); if (['today', 'pgroups'].includes(S.route?.name)) hooks.render(); });
+}
+export const asksChanged = () => { S.pAsks = undefined; };
+export const TEXT_MAX = 110, TEXT_MIN = 10;   // a text's room for the line (185: 10 to 110 characters, as HIPHI's big push)
+const hstToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+// Which email an ask joins, in words: "today’s 4:30 pm email" or "tomorrow’s…" (t: its scheduled_for; none: the next one).
+// While email is paused it is held, as HIPHI's own approved emails are (composer.js HELD).
+export const emailWord = (t = null) => paused() ? 'the first 4:30 pm email after email is turned on' : `${dailyWord(t)}’s 4:30 pm email`;
+const curAsk = it => (S.pAsks || []).find(a => a.partner_slug === it.partner_slug && a.bill_id === it.bill_id && a.state !== 'replaced');
+// What approving does to the ask (partner_ask_on_approve): 'new' (it goes out at the next 4:30 pm), 'same' (the live
+// words' ask, approved before: it keeps its place and nobody gets it twice; cur when the list has it), 'over' (its end date
+// has passed: it goes nowhere), 'ends' (these words drop an ask still going out), or null (no ask either way).
+function askFate(it) {
+  if (it.kind !== 'bill') return null;
+  const w = it.words || {}, cur = curAsk(it), listed = Array.isArray(S.pAsks);
+  if (!w.ask) return (cur ? ['going_out', 'sending'].includes(cur.state) : !listed && !!it.live?.ask) ? { kind: 'ends', cur } : null;
+  if (!w.ask_until || String(w.ask_until) < hstToday()) return { kind: 'over', cur };
+  if (cur ? cur.ask === w.ask : !listed && it.live?.ask === w.ask) return { kind: 'same', cur };
+  return { kind: 'new', cur: null };
+}
+// Also by text, per card, kept across redraws until the words are decided: { on, line, err }. Words that keep an ask
+// already approved start from that ask's own setting.
+const TXT = new Map();
+const txtOf = it => { if (TXT.has(keyOf(it))) return TXT.get(keyOf(it)); const f = askFate(it), c = f?.kind === 'same' ? f.cur : null; return { on: !!c?.also_text, line: c?.text_line || '', err: '' }; };
+const setTxt = (it, patch) => TXT.set(keyOf(it), { ...txtOf(it), ...patch });
+const needsLine = it => String(it.words?.ask || '').trim().length > TEXT_MAX;
+const countWords = n => n > TEXT_MAX ? `${n} of ${TEXT_MAX}: ${n - TEXT_MAX} too many` : n && n < TEXT_MIN ? `${n} of ${TEXT_MAX}: at least ${TEXT_MIN}` : `${n} of ${TEXT_MAX}`;
+const countOver = n => n > TEXT_MAX || (n > 0 && n < TEXT_MIN);
+// What Approve sends with the words: Also by text and its line, checked here first in the database's own words (a refusal
+// after the 10 seconds would leave the words waiting). Nothing for words without an ask, or for words that keep an ask
+// whose setting is not known here (the list did not load): the database then keeps the setting it has.
+function askOpts(it) {
+  const f = askFate(it); if (!f || f.kind === 'over' || f.kind === 'ends') return {};
+  if (f.kind === 'same' && !f.cur && !TXT.has(keyOf(it))) return {};
+  const t = txtOf(it), line = t.on && needsLine(it) ? String(t.line || '').trim() : '';
+  if (t.on && needsLine(it)) {
+    if (!line) return { err: 'A text has room for 110 characters: write a shorter line for the text.' };
+    if (line.length < TEXT_MIN || line.length > TEXT_MAX) return { err: 'The line for the text is 10 to 110 characters.' };
+  }
+  return { also_text: !!t.on, text_line: line || null };
+}
+// Under the ask on the card: what approving does with it.
+function askNow(it) {
+  const f = askFate(it), c = f?.cur;
+  if (!f || f.kind === 'ends') return '';
+  if (f.kind === 'over') return 'Its end date has passed, so it does not go out.';
+  if (f.kind === 'same') return !c ? 'The same ask as their live words: it keeps its place, and nobody gets it twice.'
+    : c.state === 'going_out' ? `The same ask as their live words: it still goes out in ${emailWord(c.scheduled_for)}.`
+    : c.state === 'sending' ? 'The same ask as their live words: it is already going out, and nobody gets it twice.'
+    : c.state === 'taken_back' ? 'The same ask as their live words, which was taken back: it stays taken back.' : 'The same ask as their live words.';
+  return paused() ? 'Email is paused: once you approve, it is held for the first 4:30 pm email after email is turned on. You can take it back on Partners.'
+    : `Once you approve, it goes out in ${emailWord()}. You can take it back on Partners until then.`;
+}
+// The Approve toast's second sentence, and the database's answer in the same words (only a new ask's email can differ: an
+// Approve at 4:29 pm joins tomorrow's).
+function askSaid(it) {
+  const f = askFate(it), c = f?.cur;
+  if (!f || f.kind === 'over') return '';
+  if (f.kind === 'ends') return 'Their earlier ask stops going out.';
+  if (f.kind === 'same') return c?.state === 'taken_back' ? 'The ask stays taken back.' : c?.state === 'going_out' ? `The ask still goes out in ${emailWord(c.scheduled_for)}.` : 'The ask goes on as before.';
+  return `The ask goes out in ${emailWord()}.`;
+}
+const askDone = pa => pa?.state === 'going_out' ? `The ask goes out in ${emailWord(pa.scheduled_for)}.` : '';
+
 // ---- drawing ----
 const billOf = it => billById(it.bill_id) || { bill_number: it.bill_number, title: it.title };
 const billLink = it => billRoute(billOf(it));
@@ -109,15 +186,17 @@ function changes(w, l) {
   const lp = (l.points || []).map(String), wp = (w.points || []).map(String);
   const add = wp.filter(p => !lp.includes(p)), drop = lp.filter(p => !wp.includes(p));
   if (add.length || drop.length) rows.push(`<li><b>Talking points</b>${add.map(p => `<span class="pq-now">Added: ${esc(p)}</span>`).join('')}${drop.map(p => `<span class="pq-was">Taken out: ${esc(p)}</span>`).join('')}</li>`);
+  // Words that carry an ask show it on its own below (askHTML), with what it was: here only an ask taken out (A-14).
   const askOf = x => x.ask ? `${String(x.ask).replace(/[.\s]+$/, '')} · until ${dayWord(x.ask_until)}` : '';
-  f('The ask', askOf(l), askOf(w));
+  if (!w.ask) f('The ask', askOf(l), askOf(w));
   f('Draft notes', l.draft_note ? `${l.draft_version ? l.draft_version + ': ' : ''}${l.draft_note}` : '', w.draft_note ? `${w.draft_version ? w.draft_version + ': ' : ''}${w.draft_note}` : '');
   const iss = x => (x.issue_ids || []).map(id => issueName(id) || 'one of the group’s own issues').join(', ');
   f('Under these issues', iss(l), iss(w));
   return `<div class="pq-sec"><h4 class="pq-h4">What changed</h4>${rows.length ? `<ul class="pq-diff">${rows.join('')}</ul>` : '<p class="pq-p">Nothing in the words: they sent the same version again.</p>'}</div>`;
 }
-// Every word they sent, in the order the public sees them on a bill.
-function wordsHTML(it) {
+// Every word they sent, in the order the public sees them on a bill. ask: false when the ask shows on its own (askHTML),
+// so it is said once (A-14).
+function wordsHTML(it, { ask = true } = {}) {
   const w = it.words || {};
   if (it.kind === 'issue') return `<dl class="pq-dl"><dt>Name</dt><dd>${esc(w.name || '')}</dd>${w.description ? `<dt>Description</dt><dd>${esc(w.description)} ${gradeTag(w.description)}</dd>` : ''}</dl>`;
   const pts = (w.points || []).filter(Boolean), iss = (w.issue_ids || []).map(id => issueName(id) || 'One of the group’s own issues');
@@ -125,7 +204,7 @@ function wordsHTML(it) {
     ${w.nickname ? `<dt>Nickname</dt><dd>${esc(w.nickname)}</dd>` : ''}
     <dt>In plain words</dt><dd>${esc(w.summary || '')} ${gradeTag(w.summary)}</dd>
     <dt>Talking points <span class="pq-n">${pts.length} of 5</span></dt><dd>${pts.length ? `<ol class="pq-pts">${pts.map(p => `<li>${esc(p)} ${gradeTag(p)}</li>`).join('')}</ol>` : 'None'}</dd>
-    ${w.ask ? `<dt>The ask</dt><dd>${esc(w.ask)} <span class="pq-until">until ${esc(dayWord(w.ask_until))}</span></dd>` : ''}
+    ${w.ask && ask ? `<dt>The ask</dt><dd>${esc(w.ask)} <span class="pq-until">until ${esc(dayWord(w.ask_until))}</span></dd>` : ''}
     ${w.draft_note ? `<dt>Draft notes${w.draft_version ? ` (${esc(w.draft_version)})` : ''}</dt><dd>${esc(w.draft_note)}</dd>` : ''}
     ${iss.length ? `<dt>Under these issues</dt><dd>${iss.map(esc).join(', ')}</dd>` : ''}</dl>`;
 }
@@ -135,26 +214,48 @@ const head = (it, h = 'h3', id = '') => {
 };
 const sideOf = it => it.kind === 'issue' ? stanceChip(it.words?.stance) : sideChip(it.words?.side);
 const acts = (it, primary) => `${btn('Approve', { kind: primary ? 'primary' : 'secondary', icon: 'check', attrs: { 'data-pqok': keyOf(it) } })}${btn('Ask for a change', { kind: 'text', icon: 'message-square', attrs: { 'data-pqask': keyOf(it), 'aria-haspopup': 'dialog' } })}`;
+const errLine = m => `<p class="inlinemsg">${icon('circle-alert')}<span>${esc(m)}</span></p>`;
+// The ask on its own, just above Approve (R-328 G): what it says and until when, what approving does with it, and Also by
+// text (off unless switched on for this one ask), with a line of its own when the ask is longer than a text. where: 'c'
+// (a phone's card) or 'p' (the laptop's open item), so the two never share an id.
+function askHTML(it, where) {
+  const w = it.words || {}; if (it.kind !== 'bill' || !w.ask) return '';
+  const f = askFate(it), k = keyOf(it), ek = esc(k), id = `pq${where}-${esc(it.id)}`, t = txtOf(it), n = String(t.line || '').trim().length, now = askNow(it);
+  const sw = f && (f.kind === 'new' || f.kind === 'same'), l = it.live;
+  // An edit says what the ask was, here rather than in "What changed", so the ask is said once (A-14).
+  const was = !l ? '' : !l.ask ? 'New in this edit: their live words have no ask.' : l.ask.trim() !== w.ask.trim() ? `Was: ${l.ask}`
+    : l.ask_until !== w.ask_until ? `Was until ${dayWord(l.ask_until)}.` : '';
+  return `<div class="pq-ask" data-pqaskbox="${ek}"><h4 class="pq-h4">The ask <span class="pq-until">until ${esc(dayWord(w.ask_until))}</span></h4>
+    <p class="pq-asktext">${esc(w.ask)}</p>${was ? `<p class="pq-askwas">${esc(was)}</p>` : ''}
+    ${now ? `<p class="pq-askwhen">${icon(f.kind === 'over' ? 'circle-minus' : 'clock')}<span>${esc(now)}</span></p>` : ''}
+    ${sw ? `${switchRow(id, 'Also by text', t.on, 'Texted only to people who chose “As they come”, on a day HIPHI isn’t texting them. Texts are off until they’re set up.', { 'data-pqtext': k })}
+    ${needsLine(it) ? `<div class="field pq-tline"${t.on ? '' : ' hidden'}><label for="${id}-l">Line for the text</label>
+      <input id="${id}-l" type="text" autocomplete="off" data-pqline="${ek}" value="${esc(t.line || '')}" aria-describedby="${id}-lh ${id}-lc"${t.err ? ' aria-invalid="true"' : ''}>
+      <span class="help pq-thelp"><span id="${id}-lh">The ask is longer than a text. Write the line that comes after “From ${esc(it.partner_name)}, a HIPHI partner:”.</span><span class="pq-count${countOver(n) ? ' over' : ''}" id="${id}-lc">${esc(countWords(n))}</span></span></div>` : ''}
+    <div class="pq-terr" data-pqterr="${ek}" role="alert">${t.err ? errLine(t.err) : ''}</div>` : ''}</div>`;
+}
 
 // A phone's card: enough to judge most items without opening the fold.
 function card(it) {
   const w = it.words || {}, k = keyOf(it);
   const brief = it.kind === 'issue' ? (w.description ? `<p class="pq-line">${esc(clip(w.description, 140))}</p>` : '')
-    : `<p class="pq-line"><b>In plain words:</b> ${esc(clip(w.summary, 140))}</p><p class="pq-line"><b>Points:</b> ${esc(pointsSum((w.points || []).filter(Boolean)))}${w.ask ? ` · <b>Ask</b> until ${esc(dayWord(w.ask_until))}` : ''}</p>`;
+    : `<p class="pq-line"><b>In plain words:</b> ${esc(clip(w.summary, 140))}</p><p class="pq-line"><b>Points:</b> ${esc(pointsSum((w.points || []).filter(Boolean)))}</p>`;
   return `<article class="card pq-card" data-pqcard="${esc(k)}" aria-labelledby="${esc(k)}-h">
     <div class="pq-top">${head(it, 'h3', esc(k) + '-h')}${sideOf(it)}</div>
     <p class="pq-t">${esc(nameOf(it))}</p>
     <p class="pq-meta">${esc(sentLine(it))}</p>
     ${it.kind === 'bill' ? flagLine(it.flag) : ''}
     ${brief}
-    <details class="pq-more"><summary>${icon('chevron-down', { cls: 'chev' })}<span>Read all the words${it.live ? ' and what changed' : ''}</span></summary>${changes(w, it.live)}<div class="pq-sec">${wordsHTML(it)}</div></details>
+    <details class="pq-more"><summary>${icon('chevron-down', { cls: 'chev' })}<span>Read all the words${it.live ? ' and what changed' : ''}</span></summary>${changes(w, it.live)}<div class="pq-sec">${wordsHTML(it, { ask: false })}</div></details>
+    ${askHTML(it, 'c')}
     <div class="pq-acts">${acts(it, false)}</div></article>`;
 }
 // A laptop's row: the step's name first, as every row on Today (R-279), and what tells one from the next.
 function row(it, reg) {
   const k = keyOf(it), ek = esc(k), b = it.kind === 'bill' ? billOf(it) : null;
   reg(k, { partner: it, key: k });
-  const what = [it.live ? 'An edit' : 'New', it.kind === 'issue' ? STANCE[it.words?.stance]?.[0] : sideWord(it.words?.side), it.kind === 'bill' && it.flag && it.flag !== 'none' ? 'worth a closer look' : ''].filter(Boolean).join(' · ');
+  const what = [it.live ? 'An edit' : 'New', it.kind === 'issue' ? STANCE[it.words?.stance]?.[0] : sideWord(it.words?.side), it.kind === 'bill' && it.flag && it.flag !== 'none' ? 'worth a closer look' : '',
+    it.kind === 'bill' && it.words?.ask ? 'with an ask' : ''].filter(Boolean).join(' · ');
   return `<div data-k="${ek}" class="td-row pq-row"><button type="button" class="td-rsel" data-sel="${ek}" aria-current="false"><span class="td-urg" aria-hidden="true"></span><span class="td-rmain">
       <span class="td-rb"><b class="td-num">${esc(it.partner_name)}</b><span class="td-rn">${esc(b ? billNum(b) + ' · ' + nameOf(it) : 'Its own issue · ' + nameOf(it))}</span></span>
       <span class="td-rs"><b class="td-step">${it.kind === 'issue' ? 'Approve partner issue' : 'Approve partner words'}</b><span class="td-stepdot" aria-hidden="true"> · </span><span class="td-rd">${esc(what)}</span></span></span></button>
@@ -168,8 +269,9 @@ export function partnerPane(c) {
     <p class="pq-t">${esc(nameOf(it))} ${sideOf(it)}</p>
     <p class="pq-meta">${esc(sentLine(it))}</p>
     ${it.kind === 'bill' ? flagLine(it.flag) : ''}
-    ${it.live ? `${changes(w, it.live)}<details class="pq-more"><summary>${icon('chevron-down', { cls: 'chev' })}<span>All the words, as they would go live</span></summary><div class="pq-sec">${wordsHTML(it)}</div></details>`
-      : `<div class="pq-sec">${wordsHTML(it)}</div>`}
+    ${it.live ? `${changes(w, it.live)}<details class="pq-more"><summary>${icon('chevron-down', { cls: 'chev' })}<span>All the words, as they would go live</span></summary><div class="pq-sec">${wordsHTML(it, { ask: false })}</div></details>`
+      : `<div class="pq-sec">${wordsHTML(it, { ask: false })}</div>`}
+    ${askHTML(it, 'p')}
     <div class="pq-acts bp-acts">${acts(it, true)}</div></div>`;
 }
 
@@ -177,6 +279,7 @@ export function partnerPane(c) {
 export function partnerToday({ rows = false, reg = () => {} } = {}) {
   wantQueue();
   const items = pqItems(), o = pqOthers(), n = o.groups.length + o.requests.length;
+  if (items.some(it => it.kind === 'bill' && it.live?.ask)) wantAsks();   // an edit may keep an ask already approved: say where it stands
   const parts = [o.groups.length ? plural(o.groups.length, 'group') + ' to approve' : '', o.requests.length ? `${plural(o.requests.length, 'group')} ${o.requests.length === 1 ? 'asks' : 'ask'} to join` : ''].filter(Boolean);
   const line = S.pqErr && admitsPartners() ? `<p class="pq-gline">${icon('circle-alert')}<span>The partners’ words did not load.</span>${btn('Try again', { kind: 'text', sm: true, attrs: { 'data-pqretry': '1' } })}</p>`
     : n ? `<p class="pq-gline">${icon('handshake')}<span><b>Partners:</b> ${esc(parts.join(' · '))}</span><a class="pq-golink" href="#/partners">Open Partners${icon('chevron-right')}</a></p>` : '';
@@ -191,19 +294,43 @@ const what = it => it.kind === 'issue' ? `${it.partner_name}’s issue “${it.w
 const drop = it => { if (!S.pq) return; S.pq.bills = (S.pq.bills || []).filter(x => x !== it); S.pq.issues = (S.pq.issues || []).filter(x => x !== it); };
 async function commit(k) {
   const h = HOLD.get(k); if (!h) return; HOLD.delete(k); clearTimeout(h.t);
-  try { await DB.partnerReview(h.it, true, null); drop(h.it); }
-  catch (e) { toast(`${what(h.it)} did not go live. ${friendly(e)}`, { err: true }); }
+  let r;
+  try { r = await DB.partnerReview(h.it, true, null, h.opt); drop(h.it); TXT.delete(k); if (h.it.kind === 'bill') { if (S.route?.name === 'pgroups') wantAsks({ force: true }); else asksChanged(); } }
+  catch (e) {
+    // A refusal about the text's line is shown under the line as well, where it can be fixed (B-8).
+    if (e?.hint === 'text_line' || /line for the text|room for 110/i.test(e?.message || '')) setTxt(h.it, { on: true, err: friendly(e) });
+    toast(`${what(h.it)} did not go live. ${friendly(e)}`, { err: true });
+  }
   if (S.route?.name === 'today') hooks.render();
+  // The toast said which email a new ask joins; the database's answer decides.
+  const now = askDone(r?.partner_ask);
+  if (h.fate === 'new' && now && now !== h.said) toast(now, { ok: true });
 }
 // The 10 seconds run on whatever page is open; leaving the app sends what is held (best effort: if it never arrives, the
 // words simply wait for approval again, which is the safe way to fail).
 addEventListener('pagehide', () => { for (const k of [...HOLD.keys()]) commit(k); });
+// A text line that will not do: said under the line, and the focus goes there (nothing is approved).
+function lineErr(k, m) {
+  for (const b of document.querySelectorAll('[data-pqaskbox]')) {
+    if (b.dataset.pqaskbox !== k) continue;
+    const e = b.querySelector('[data-pqterr]'), inp = b.querySelector('[data-pqline]');
+    if (e) e.innerHTML = errLine(m);
+    if (inp) { inp.setAttribute('aria-invalid', 'true'); inp.focus(); }
+  }
+}
 function approve(k) {
   const it = itemBy(k); if (!it || HOLD.has(k)) return;
+  const opt = askOpts(it);
+  if (opt.err) { setTxt(it, { err: opt.err }); lineErr(k, opt.err); return; }
+  const said = askSaid(it), fate = askFate(it)?.kind, asks = fate === 'new' || fate === 'same';
   const t = setTimeout(() => commit(k), 10000);
-  HOLD.set(k, { it, t });
+  HOLD.set(k, { it, t, opt, said, fate });
   S.tdRefocus = null; hooks.render();
-  toast(it.kind === 'issue' ? `Approved: ${what(it)} goes live.` : `Approved: ${what(it)} go live.`, { ok: true, undo: () => { const h = HOLD.get(k); if (h) { clearTimeout(h.t); HOLD.delete(k); } hooks.render(); toast('Undone. It waits for approval again.'); } });
+  toast(`${it.kind === 'issue' ? `Approved: ${what(it)} goes live.` : `Approved: ${what(it)} go live.`}${said ? ' ' + said : ''}`, { ok: true, undo: () => {
+    const h = HOLD.get(k);
+    // Past the 10 seconds the words are live and cannot wait again; an ask can still be taken back (B-5).
+    if (!h) { toast(`Too late to undo: ${it.kind === 'issue' ? 'it is' : 'they are'} already live.${asks ? ' To stop the ask, Take it back on Partners.' : ''}`, asks ? { action: { label: 'Open Partners', run: () => S.go('#/partners') } } : {}); return; }
+    clearTimeout(h.t); HOLD.delete(k); hooks.render(); toast('Undone. It waits for approval again.'); } });
 }
 function askChange(k) {
   const it = itemBy(k); if (!it) return;
@@ -219,7 +346,7 @@ function askChange(k) {
         const note = ta.value.trim(); if (!note) { err('Say what to change: the group needs to know.'); ta.focus(); return; }
         if (go.getAttribute('aria-busy')) return; go.setAttribute('aria-busy', 'true'); err('');
         try { await DB.partnerReview(it, false, note); } catch (e) { go.removeAttribute('aria-busy'); err(friendly(e)); return; }
-        drop(it); await closeSheet({ silent: true }); hooks.render();
+        drop(it); TXT.delete(keyOf(it)); await closeSheet({ silent: true }); hooks.render();
         toast(`Sent to ${it.partner_name}. They see your note and can send the words again.`, { ok: true });
       };
     } });
@@ -228,6 +355,18 @@ export function wirePartner(el) {
   el.querySelectorAll('[data-pqok]').forEach(b => b.onclick = e => { e.stopPropagation(); approve(b.dataset.pqok); });
   el.querySelectorAll('[data-pqask]').forEach(b => b.onclick = e => { e.stopPropagation(); askChange(b.dataset.pqask); });
   el.querySelectorAll('[data-pqretry]').forEach(b => b.onclick = () => wantQueue({ force: true }));
+  // Also by text and its line (R-328 G): kept per card without a redraw, so typing is never interrupted.
+  el.querySelectorAll('[data-pqtext]').forEach(x => x.addEventListener('change', () => {
+    const it = itemBy(x.dataset.pqtext); if (!it) return; setTxt(it, { on: x.checked, err: '' });
+    const box = x.closest('.pq-ask'), tl = box?.querySelector('.pq-tline'); tl?.toggleAttribute('hidden', !x.checked);
+    const e = box?.querySelector('[data-pqterr]'); if (e) e.innerHTML = '';
+    if (x.checked && tl && !tl.querySelector('input').value) tl.querySelector('input').focus();   // the line is what is needed next
+  }));
+  el.querySelectorAll('[data-pqline]').forEach(x => x.addEventListener('input', () => {
+    const it = itemBy(x.dataset.pqline); if (!it) return; const n = x.value.trim().length; setTxt(it, { line: x.value, err: '' });
+    const c = document.getElementById(x.id + 'c'); if (c) { c.textContent = countWords(n); c.classList.toggle('over', countOver(n)); }
+    x.removeAttribute('aria-invalid'); const e = x.closest('.pq-ask')?.querySelector('[data-pqterr]'); if (e) e.innerHTML = '';
+  }));
   // A card's fold stays as it was left when Today redraws (B-6).
   el.querySelectorAll('[data-pqcard] .pq-more').forEach(d => d.addEventListener('toggle', () => { (S.pqOpen ??= new Set())[d.open ? 'add' : 'delete'](d.closest('[data-pqcard]').dataset.pqcard); }));
   el.querySelectorAll('[data-pqcard]').forEach(c => { if (S.pqOpen?.has(c.dataset.pqcard)) c.querySelector('.pq-more')?.setAttribute('open', ''); });
