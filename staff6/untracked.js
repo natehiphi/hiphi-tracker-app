@@ -3,6 +3,8 @@
 // not on our list". Now the page reads that one bill (and its hearings: the sync records them for every bill, R-059) and shows what the
 // Capitol has: where it stands, its last action, its committees, who introduced it, its hearings, and the links. Nothing on it can be
 // edited; the one primary button, "Track this bill", makes it the team's (then the full page opens, to set a position and an owner).
+// Staff v6 (R-336 F6): the same page in the warm look (css/bills.css .ut-page): the number as staff say it ("HB 217", D15),
+// the Capitol's facts in one soft card, Track this bill the page's one filled button.
 import { S, DB, DEMO, SESSION_YEAR, STAGE_LABEL, esc, fmtDate, fmtDT, capitolUrl, sponsorText, hooks } from './data.js';
 import { cmteName, billRoute, titleCaseTitle, hearingWhen, companionsOf } from './model.js';
 import { icon, btn, empty, toast, skeleton } from './ui.js';
@@ -31,7 +33,7 @@ export function untrackedHTML(route, notFound) {
   if (got === 'loading') return `<div class="bw-page ut-page">${skeleton(3)}</div>`;
   if (got === 'none' || got === 'error') return notFound(route, got === 'error');
   const { b, hearings } = got, now = Date.now();
-  const num = esc(b.bill_number), title = titleCaseTitle(b.title || '');
+  const num = esc(String(b.bill_number || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2')), title = titleCaseTitle(b.title || '');
   const old = b.session_year && +b.session_year !== +SESSION_YEAR ? ` (${b.session_year} session)` : '';
   const upcoming = hearings.filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) > now).sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
   const past = hearings.filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) <= now).sort((x, y) => y.scheduled_at.localeCompare(x.scheduled_at)).slice(0, 5);
@@ -58,7 +60,7 @@ export function untrackedHTML(route, notFound) {
 
 export function wireUntracked(route, root) {
   const x = S.untr.get(keyOf(route)); if (!x || typeof x !== 'object') return;
-  const h1 = root.querySelector('.sv-hdr .sv-title'); if (h1) h1.textContent = x.b.bill_number;
+  const h1 = root.querySelector('.sv-hdr .sv-title'); if (h1) h1.textContent = String(x.b.bill_number || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2');
   const go = root.querySelector('[data-uttrack]'); if (!go) return;
   go.onclick = async () => {
     go.setAttribute('aria-busy', 'true'); go.disabled = true;
