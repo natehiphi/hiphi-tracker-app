@@ -190,7 +190,7 @@ function sidePanel(p) {
   const kv = (k, v) => `<div class="sp-skv"><dt>${k}</dt><dd>${v}</dd></div>`;
   return `<aside class="sv-aside sp-aside" aria-label="About ${esc(personName(p))}">
     <section class="card sp-sc" aria-labelledby="sp-h-contact"><h2 id="sp-h-contact">Contact</h2>
-      ${line('mail', `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>${copyBtn('copyemail', `Copy the email address ${p.email}`)}`)}
+      ${line('mail', `<a href="mailto:${esc(p.email)}">${esc(p.email).replace('@', '@<wbr>')}</a>${copyBtn('copyemail', `Copy the email address ${p.email}`)}`)}
       ${line('phone', phone)}
       <div class="sp-sbtns">${btn('Add a note', { kind: 'secondary', sm: true, icon: 'notebook-pen', attrs: { 'data-pp': 'note', 'aria-haspopup': 'dialog' } })}${btn('Follow up', { kind: 'secondary', sm: true, icon: 'calendar-plus', attrs: { 'data-pp': 'fup', 'aria-haspopup': 'dialog' } })}</div>
     </section>

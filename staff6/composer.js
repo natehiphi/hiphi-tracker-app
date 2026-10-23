@@ -16,7 +16,7 @@
 // type; (3) approving here asks first and has Undo, like review mode. Nothing here sends on its own: the only send is
 // the Send button on an approved email, behind a confirm, and the server holds everything while email is paused.
 import { S, DB, hooks, esc, fmtDT, advocate, segmentPeople } from './data.js';
-import { alertTarget, agoWords, cleanHTML, htmlToText, textToHtml, escT, billNum, billTag, blurb, roomShort, codesOf, diedish, hearingAhead, billById, PUBLIC_APP, plain, approves, liveAsk, billByRef, whenAt, billRoute } from './model.js';
+import { alertTarget, agoWords, cleanHTML, htmlToText, textToHtml, escT, billNum, billTag, blurb, roomShort, codesOf, diedish, hearingAhead, billById, PUBLIC_APP, plain, approves, liveAsk, billByRef, whenAt, billRoute, publicResponse } from './model.js';
 import { nameWords, numWords, committeeName } from './steps.js';
 import { ICONS } from '../icons.js';
 import { icon, btn, iconBtn, chip, empty, notice, toast, openSheet, closeSheet, confirmSheet, menuSheet, sheetOpen, keysOn } from './ui.js';
@@ -28,8 +28,8 @@ const orJoin = xs => xs.length <= 1 ? (xs[0] || '') : `${xs.slice(0, -1).join(',
 export const alertById = id => (S.alerts || []).find(a => String(a.id) === String(id));
 const segById = id => (S.segments || []).find(x => String(x.id) === String(id));
 export const paused = () => S.emailCfg?.enabled === false;
-// While email is paused an approved email is held, not on its way (Z1-3): the 4:30 pm job leaves it approved, and it goes
-// out in the first 4:30 pm email after email is turned on. Wherever an approved email's status shows, it says so.
+// While email is paused an approved email is held, not on its way (Z1-3): the 4:30 PM job leaves it approved, and it goes
+// out in the first 4:30 PM email after email is turned on. Wherever an approved email's status shows, it says so.
 export const HELD = 'Approved · held while email is paused';
 export const heldNow = a => a.status === 'approved' && paused();
 export const pausedNotice = () => paused() ? notice('info', 'mail', 'Email is paused. You can write and approve; an approved email is held until email is turned on.', S.me?.is_admin ? btn('Turn it on', { kind: 'text', sm: true, href: '#/setup/email' }) : '') : '';
@@ -38,12 +38,12 @@ export const ago = iso => agoWords(iso);   // R-277 fix 3: model.js, one way on 
 export const canEdit = a => !a.id || (['draft', 'returned'].includes(a.status) && a.author_id === S.me?.id);
 export const canApprove = a => a.status === 'submitted' && approves(S.me) && a.author_id !== S.me?.id;   // never your own; admins and approvers (098)
 export const canSend = a => a.status === 'approved' && !a.scheduled_for && (a.author_id === S.me?.id || !!S.me?.is_admin);
-// Since 10/1 (R-101 rule 2, migration 109) Send puts the email into each follower's one email of the day, at 4:30 pm,
+// Since 10/1 (R-101 rule 2, migration 109) Send puts the email into each follower's one email of the day, at 4:30 PM,
 // together with their hearing alerts; until then the writer or an admin can take it back (B-5).
 export const canUnsend = a => a.status === 'approved' && !!a.scheduled_for && (a.author_id === S.me?.id || !!S.me?.is_admin);
 const hstDay = t => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
 const afterCut = () => { const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Pacific/Honolulu', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(new Date()).map(x => [x.type, x.value])); return +p.hour * 60 + +p.minute >= 16 * 60 + 30; };
-// "today" or "tomorrow": which 4:30 pm email a Send now joins, or which one a waiting email is in.
+// "today" or "tomorrow": which 4:30 PM email a Send now joins, or which one a waiting email is in.
 export const dailyWord = (t = null) => t ? (hstDay(t) === hstDay(Date.now()) ? 'today' : hstDay(t) === hstDay(Date.now() + 864e5) ? 'tomorrow' : new Date(t).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'long' })) : afterCut() ? 'tomorrow' : 'today';
 // ---- one email permission rule at every door (R-336 V20; the server's can_alert, migration 049) ----
 // An admin may email anyone's followers; a bill's owner its followers; a list's curator its followers; anyone a saved
@@ -61,15 +61,27 @@ export function mayEmail({ bill, list, segment } = {}) {
 }
 // Who to ask when it is not yours: the bill's owner, else the first admin (a list: its curator, else an admin).
 const askWho = ({ bill, list }) => (bill ? billOwners(bill)[0] : liveId(list?.owner_id) ? list.owner_id : null) || S.advocates.find(a => a.is_admin && a.is_active !== false)?.id || null;
-// The door itself: "Email followers" into this composer, or "Ask Kevin to send", which opens the bill's Team talk with
-// @Kevin typed in (the bill page reads ?mention=). A list has no talk of its own, so there it says whose it is.
-export function emailDoor(target, { kind = 'secondary', sm = false, label = 'Email followers' } = {}) {
+// The door itself: "Email followers" into this composer, or "Ask Kevin to email followers", which opens the bill's Team
+// talk with "@Kevin" and a ready sentence typed in (`say`; the bill page reads ?mention=, and the sentence goes in as the
+// talk box's draft, bill.js drafts), so nobody has to work out what to write. A list has no talk of its own, so there it
+// says whose it is.
+export function emailDoor(target, { kind = 'secondary', sm = false, label = 'Email followers', say = '' } = {}) {
   const { bill, list, segment } = target;
   if (mayEmail(target)) return btn(label, { kind, sm, icon: 'mail', href: '#/email/new?' + (bill ? `bill=${encodeURIComponent(bill.id)}` : list ? `list=${encodeURIComponent(list.id)}` : `segment=${encodeURIComponent(segment.id)}`) });
   const who = askWho(target), name = who ? first(who) : 'an admin';
-  if (bill && who) return btn(`Ask ${name} to send`, { kind, sm, icon: 'message-square', href: `${billRoute(bill, 'activity')}?mention=${encodeURIComponent(advocate(who)?.initials || '')}` });
+  const words = say || (bill ? `could you email the followers of ${String(bill.bill_number || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2')}?` : '');
+  if (bill && who) return btn(`Ask ${name} to email followers`, { kind, sm, icon: 'mail', href: `${billRoute(bill, 'activity')}?mention=${encodeURIComponent(advocate(who)?.initials || '')}`,
+    attrs: { 'data-mailask': bill.id, 'data-say': words } });
   return `<span class="ot-whose">${icon('mail')}<span>${esc(name)} emails its followers</span></span>`;
 }
+// "Ask Kevin to email followers": the sentence goes into the bill's talk box as its draft before the page opens; the talk
+// puts "@Kevin " in front of it (activity.js). bill.js is loaded on demand: it imports this file through review.js.
+if (typeof document !== 'undefined') document.addEventListener('click', e => {
+  const a = e.target.closest?.('a[data-mailask]'); if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  e.preventDefault();
+  import('./bill.js').then(m => { const k = a.dataset.mailask + ':chat'; if (!(m.drafts.get(k) || '').trim()) m.drafts.set(k, a.dataset.say || ''); })
+    .catch(() => {}).finally(() => S.go(a.getAttribute('href')));
+}, true);
 const canTest = a => !!a.id && a.status !== 'sent' && (a.author_id === S.me?.id || !!S.me?.is_admin);
 const canDelete = a => !!a.id && ['draft', 'returned'].includes(a.status) && (a.author_id === S.me?.id || !!S.me?.is_admin);
 const approvers = authorId => S.advocates.filter(x => approves(x) && x.id !== authorId);
@@ -77,7 +89,7 @@ export const approverNames = authorId => orJoin(approvers(authorId).map(x => fir
 // v6 (spec 5): an email waiting for its approver says it the way testimony does, "With an approver".
 export const STATUS = { draft: ['Draft', 'square-pen'], returned: ['Sent back', 'undo-2'], submitted: ['With an approver', 'hourglass'], approved: ['Approved', 'check'], sent: ['Sent', 'send'] };
 export const statusChip = a => { if (heldNow(a)) return chip(HELD, 'warn le-held', 'hand');   // long: it may wrap (lists.css)
-  if (canWait(a)) return chip(`Goes out ${dailyWord(a.scheduled_for)} at 4:30 pm`, 'info', 'clock');
+  if (canWait(a)) return chip(`Goes out ${dailyWord(a.scheduled_for)} at 4:30 PM`, 'info', 'clock');
   const [w, ic] = STATUS[a.status] || [a.status || 'Draft', 'mail']; return chip(w, '', ic); };
 const canWait = a => a.status === 'approved' && !!a.scheduled_for;
 
@@ -85,7 +97,8 @@ const canWait = a => a.status === 'approved' && !!a.scheduled_for;
 export function audienceOf(a) {
   const b = a.bill_id ? billById(a.bill_id) : null, l = a.list_id ? listById(a.list_id) : null, sg = a.segment_id ? segById(a.segment_id) : null;
   const kind = a.bill_id ? 'bill' : a.list_id ? 'list' : a.segment_id ? 'segment' : '';
-  return { b, l, sg, kind, name: kind ? (b ? b.bill_number : l ? l.title : sg ? sg.name : alertTarget(a)) : '', icon: kind === 'bill' ? 'scroll-text' : kind === 'list' ? listIcon(l?.icon) : 'users' };
+  // A bill's number as people read it, with its space ("HB 2121", C-15), in the composer's lines and the email's kicker.
+  return { b, l, sg, kind, name: kind ? (b ? spaced(b.bill_number) : l ? l.title : sg ? sg.name : alertTarget(a)) : '', icon: kind === 'bill' ? 'scroll-text' : kind === 'list' ? listIcon(l?.icon) : 'users' };
 }
 const audKey = a => `${a.bill_id || ''}|${a.list_id || ''}|${a.segment_id || ''}`;
 // The live count (DB.alertAudience), fetched once per audience. It paints itself into [data-aud] spans instead of
@@ -102,13 +115,18 @@ function audN(a) {
 }
 export const audCount = a => { const n = audN(a); return n == null || n < 0 ? null : n; };
 const people = n => plural(n, 'person', 'people');
+// A bill's count of followers, as its ask card says it ("43 followers"), so the two numbers one click apart agree: the
+// email goes to those of them who said yes to supporter emails (A-14). Only for a bill, and only while it is unsent.
+const ofFollowers = (n, u, whose = 'its') => { const f = u.kind === 'bill' && u.b ? publicResponse(u.b)?.followers || 0 : 0; return f > n ? `${n.toLocaleString()} of ${whose} ${plural(f, 'follower')}` : ''; };
 const AUD = {
   goes: (n, u) => n == null ? 'Counting who it goes to…' : n < 0 ? 'Could not count who it goes to right now.'
     : n === 0 ? (u.kind === 'segment' ? 'Goes to no one yet: nobody in this group has said yes to supporter emails.' : 'Goes to no one yet: nobody who follows it has said yes to supporter emails.')
-    : u.kind === 'segment' ? `Goes to ${people(n)} in this group who said yes to supporter emails.` : `Goes to ${people(n)} who said yes to supporter emails.`,
-  to: (n, u) => n == null || n < 0 ? (u.kind === 'segment' ? `People in ${u.name} who said yes to supporter emails` : `People who follow ${u.name} and said yes to supporter emails`)
-    : u.kind === 'segment' ? `${people(n)} in ${u.name}` : `${people(n)} who follow ${u.name}`,
-  send: n => n == null || n < 0 ? 'Send at 4:30 pm' : `Send at 4:30 pm to ${people(n)}`,
+    : u.kind === 'segment' ? `Goes to ${people(n)} in this group who said yes to supporter emails.`
+    : ofFollowers(n, u) ? `Goes to ${ofFollowers(n, u)}: the ones who said yes to supporter emails.` : `Goes to ${people(n)} who said yes to supporter emails.`,
+  to: (n, u, sent = false) => n == null || n < 0 ? (u.kind === 'segment' ? `People in ${u.name} who said yes to supporter emails` : `People who follow ${u.name} and said yes to supporter emails`)
+    : u.kind === 'segment' ? `${people(n)} in ${u.name}`
+    : !sent && ofFollowers(n, u) ? `${ofFollowers(n, u, `${u.name}’s`)}: the ones who said yes to supporter emails` : `${people(n)} who follow ${u.name}`,
+  send: n => n == null || n < 0 ? 'Send at 4:30 PM' : `Send at 4:30 PM to ${people(n)}`,
 };
 export const audHTML = (a, fmt) => `<span data-aud="${esc(audKey(a))}" data-fmt="${fmt}">${esc(AUD[fmt](audN(a), audienceOf(a)))}</span>`;
 function paintAud(k) {
@@ -127,7 +145,7 @@ export function emailPreview(a) {
   // The bill's public address names its session (R-212 #18), as queue_public_digests writes it (migration 164).
   const app = PUBLIC_APP() + (u.b ? `#/bill/${u.b.session_year ? u.b.session_year + '/' : ''}${String(u.b.bill_number).replace(/\s/g, '')}` : u.l ? '#list=' + u.l.slug : '');
   // As queue_public_digests builds it since 10/1 (migration 109, R-101 rules 2 and 7): the ask goes out in each person's one
-  // email of the day at 4:30 pm, from "HIPHI Bill Tracker", replies to its writer; their hearing alerts follow it.
+  // email of the day at 4:30 PM, from "HIPHI Bill Tracker", replies to its writer; their hearing alerts follow it.
   const why = 'You get this because you asked the HIPHI Bill Tracker for HIPHI’s alerts on what you follow. One email a day at most.';
   const postal = String(S.emailCfg?.postal || '').trim() || '707 Richards Street, Suite 300, Honolulu, HI 96813';
   const fromAddr = String(S.emailCfg?.from_email || '').trim();
@@ -135,7 +153,7 @@ export function emailPreview(a) {
     <dl class="le-mhead">
       <div><dt>From</dt><dd>HIPHI Bill Tracker${fromAddr ? ` <span class="le-mute">&lt;${esc(fromAddr)}&gt;</span>` : ''}</dd></div>
       <div><dt>Replies</dt><dd>${esc(au.full_name || '')} <span class="le-mute">&lt;${esc(au.email || '')}&gt;</span></dd></div>
-      <div><dt>To</dt><dd>${!u.kind ? 'Nobody yet' : a.status === 'sent' && a.recipients != null ? esc(AUD.to(a.recipients, u)) : audHTML(a, 'to')}</dd></div>
+      <div><dt>To</dt><dd>${!u.kind ? 'Nobody yet' : a.status === 'sent' && a.recipients != null ? esc(AUD.to(a.recipients, u, true)) : audHTML(a, 'to')}</dd></div>
       <div><dt>Subject</dt><dd class="le-msubj">${esc(a.subject || '(no subject)')}</dd></div>
     </dl>
     <div class="le-mbody">
@@ -236,7 +254,9 @@ async function save(c) {
 // ---- the steps ----
 const STEPS = ['Who', 'Write', 'Preview', 'Submit'];
 // v6 (V35: the step bar looked like tabs): a quiet progress line, "Step 2 of 4", with each step's number in a dot.
-const stepBar = step => `<ol class="le-steps" aria-label="Step ${step + 1} of ${STEPS.length}">${STEPS.map((l, i) => `<li class="${i < step ? 'done' : i === step ? 'cur' : ''}"${i === step ? ' aria-current="step"' : ''}><span class="le-sdot" aria-hidden="true">${i < step ? icon('check') : i + 1}</span><span>${l}</span></li>`).join('')}</ol>`;
+// On a phone only the step you are on shows, "Step 2 of 4 · Write" (lists.css), so the bar never wraps a step onto a
+// second line.
+const stepBar = step => `<ol class="le-steps" aria-label="Step ${step + 1} of ${STEPS.length}">${STEPS.map((l, i) => `<li class="${i < step ? 'done' : i === step ? 'cur' : ''}"${i === step ? ' aria-current="step"' : ''}><span class="le-sdot" aria-hidden="true">${i < step ? icon('check') : i + 1}</span><span>${i === step ? `<span class="le-sof">Step ${i + 1} of ${STEPS.length} · </span>` : ''}${l}</span></li>`).join('')}</ol>`;
 
 // A segment's size, when Supporters has loaded (the exact audience is counted once it is picked).
 const segSub = s => { if (!S.peopleLoaded) return 'A saved group of supporters'; try { return `${people(segmentPeople(s.id).length)} in this group`; } catch { return 'A saved group of supporters'; } };
@@ -287,7 +307,7 @@ function whoStep(c) {
 // issues at "Big moments only" or "Every hearing" (the default level texts only these and key hearings). Only for an ask
 // about a bill. Suggested limit, at most one per issue a week, or the quiet default gets loud: the hint says it, and a
 // warning names the last big push on one of the bill's issues when it went out in the past 7 days (sent, or waiting for
-// its 4:30 pm email). The text line is the text's words; the bill's link goes after them.
+// its 4:30 PM email). The text line is the text's words; the bill's link goes after them.
 const TEXT_MIN = 10, TEXT_MAX = 110;
 const pushOn = c => !!(c.push && c.a.bill_id);
 function lastPush(c) {
@@ -299,7 +319,7 @@ function lastPush(c) {
 }
 const pushWarn = c => { const r = lastPush(c); if (!r) return '';
   const name = (S.issues || []).find(i => i.id === r.iss.issue_id)?.name || 'one of this bill’s issues';
-  const when = r.a.status === 'sent' ? `went out ${ago(r.a.sent_at)}` : `goes out ${dailyWord(r.a.scheduled_for)} at 4:30 pm`;
+  const when = r.a.status === 'sent' ? `went out ${ago(r.a.sent_at)}` : `goes out ${dailyWord(r.a.scheduled_for)} at 4:30 PM`;
   return notice('warn', 'triangle-alert', `A big push on ${esc(name)} ${esc(when)}: “${esc(r.a.subject || '')}”. Another this week may be one text too many.`); };
 // A text of 59 characters or fewer, with the link, goes as one part; 60 to 110 goes as two, which costs more to send.
 const ONE_PART = 59;
@@ -370,8 +390,8 @@ function lateNotice(c) {
   if (!h?.testimony_deadline || new Date(h.testimony_deadline) > Date.now()) return '';
   return notice('info', 'triangle-alert', `The deadline for written testimony on this hearing has passed (${esc(fmtDT(h.testimony_deadline))}). Check what the email asks people to do.`);
 }
-// The 4:30 pm rule (R-101), said where the writer checks the email (v3: it used to sit over the Emails list).
-const ONE_A_DAY = 'It goes out in their one email of the day, at 4:30 pm, with their hearing alerts.';
+// The 4:30 PM rule (R-101), said where the writer checks the email (v3: it used to sit over the Emails list).
+const ONE_A_DAY = 'It goes out in their one email of the day, at 4:30 PM, with their hearing alerts.';
 function previewStep(c, two) {
   const a = previewOf(c), test = canTest(c.a) ? btn('Send me a test', { kind: 'secondary', sm: true, icon: 'mail-check', attrs: { 'data-le': 'test' } }) : '';
   // Two panes: the email is already on the right, so this step is the short list of things to look at.
@@ -408,7 +428,7 @@ function submitStep(c) {
       <li><span class="le-fn">2</span><span>${others.length ? esc(names) : 'Someone else who approves'} reads it, then approves it or sends it back to you with a note.</span></li>
       <li><span class="le-fn">3</span><span>Once it is approved, you come back here and press Send. Only then does it go out.</span></li>
     </ol>
-    ${paused() ? notice('info', 'mail', '<b>Email is paused.</b> You can send this for approval and it can be approved, but an approved email is held: it goes out only once an admin turns email on, in the next 4:30 pm email.') : ''}
+    ${paused() ? notice('info', 'mail', '<b>Email is paused.</b> You can send this for approval and it can be approved, but an approved email is held: it goes out only once an admin turns email on, in the next 4:30 PM email.') : ''}
     ${others.length ? '' : notice('info', 'info', 'Nobody else on the team approves emails yet, so it cannot be approved. Every email needs someone other than its writer. An admin can make a teammate an approver under Session setup, Team.')}`;
 }
 
@@ -420,8 +440,8 @@ function statusView(a) {
     : own ? `Waiting for ${esc(appr)} to approve it.${approves(me) ? ' You cannot approve your own email.' : ''}` : `Waiting for ${esc(appr)} to approve ${esc(who)}’s email.`;
   else if (a.status === 'approved') line = `${a.approved_by ? `${a.approved_by === me.id ? 'You' : esc(first(a.approved_by))} approved it. ` : ''}${own ? 'Send it when you are ready.' : me.is_admin ? `It is ${esc(who)}’s to send; an admin can send it too.` : `Waiting for ${esc(who)} to send it.`}`;
   else if (a.status === 'sent') line = `Sent ${esc(fmtDT(a.sent_at))} to ${people(a.recipients || 0)}.`;
-  if (canWait(a)) line = heldNow(a) ? `It goes to ${people(a.recipients || 0)} in the first 4:30 pm email after an admin turns email on, in their one email of the day.${canUnsend(a) ? ' You can take it back until then.' : ''}`
-    : `It goes out ${esc(dailyWord(a.scheduled_for))} at 4:30 pm to ${people(a.recipients || 0)}, in their one email of the day.${canUnsend(a) ? ' You can take it back until then.' : ''}`;
+  if (canWait(a)) line = heldNow(a) ? `It goes to ${people(a.recipients || 0)} in the first 4:30 PM email after an admin turns email on, in their one email of the day.${canUnsend(a) ? ' You can take it back until then.' : ''}`
+    : `It goes out ${esc(dailyWord(a.scheduled_for))} at 4:30 PM to ${people(a.recipients || 0)}, in their one email of the day.${canUnsend(a) ? ' You can take it back until then.' : ''}`;
   else if (heldNow(a)) line += ' While email is paused, Send holds it until an admin turns email on.';
   else if (a.status === 'returned') line = `Sent back to ${esc(who)}. Only ${esc(who)} can change it.`;
   else if (!['submitted', 'approved', 'sent'].includes(a.status)) line = `${esc(who)} is still writing it. Only ${esc(who)} can change it.`;
@@ -672,13 +692,13 @@ function returnSheet(a) {
 }
 async function sendNow(el, a) {
   const n = audCount(a), au = advocate(a.author_id), day = dailyWord();
-  const ok = await confirmSheet({ title: n != null ? `Send at 4:30 pm to ${people(n)}?` : 'Send at 4:30 pm?', ok: 'Send at 4:30 pm',
-    text: `${esc(a.subject)}<br><span class="small muted">${paused() ? 'Email is paused, so it is held: it goes out in the first 4:30 pm email after an admin turns email on' : `It goes out ${day} at 4:30 pm`}, in each person’s one email of the day, with their hearing alerts. You can take it back until then. Followers who told us they are on the other side of this bill do not get it. Replies go to ${esc(au?.email || 'the writer')}.</span>` });
+  const ok = await confirmSheet({ title: n != null ? `Send at 4:30 PM to ${people(n)}?` : 'Send at 4:30 PM?', ok: 'Send at 4:30 PM',
+    text: `${esc(a.subject)}<br><span class="small muted">${paused() ? 'Email is paused, so it is held: it goes out in the first 4:30 PM email after an admin turns email on' : `It goes out ${day} at 4:30 PM`}, in each person’s one email of the day, with their hearing alerts. You can take it back until then. Followers who told us they are on the other side of this bill do not get it. Replies go to ${esc(au?.email || 'the writer')}.</span>` });
   if (!ok) return;
   await afterClose();
   busy(el, true);
   try { const r = await DB.alertStep(a.id, 'send'); hooks.render();
-    toast(paused() ? `Held while email is paused. It goes to ${people(r?.recipients ?? n ?? 0)} in the first 4:30 pm email after email is turned on.` : `In ${day}’s 4:30 pm email to ${people(r?.recipients ?? n ?? 0)}.`, { ok: true, undo: async () => { try { await DB.alertStep(a.id, 'unsend'); hooks.render(); toast('Taken back. It will not go out.'); } catch (e) { toast(e, { err: true }); } } }); }
+    toast(paused() ? `Held while email is paused. It goes to ${people(r?.recipients ?? n ?? 0)} in the first 4:30 PM email after email is turned on.` : `In ${day}’s 4:30 PM email to ${people(r?.recipients ?? n ?? 0)}.`, { ok: true, undo: async () => { try { await DB.alertStep(a.id, 'unsend'); hooks.render(); toast('Taken back. It will not go out.'); } catch (e) { toast(e, { err: true }); } } }); }
   catch (e) { busy(el, false); toast(e, { err: true }); }
 }
 async function unsendNow(el, a) {

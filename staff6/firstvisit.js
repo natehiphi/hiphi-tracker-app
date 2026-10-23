@@ -24,7 +24,8 @@ const TOOLS = { href: '#/tools', label: 'More tools' };
 // Which of the two an Issues route is: 'numbers', 'links', or null for the Issues index itself.
 export const fvView = route => ({ 'first-visit': 'numbers', links: 'links' })[route?.q?.view] || null;
 export const fvTitle = route => ({ numbers: 'First visit numbers', links: 'Make a link' })[fvView(route)] || '';
-export const fvBack = route => fvView(route) ? TOOLS : null;
+const OUTREACH = { href: '#/outreach', label: 'Outreach' };
+export const fvBack = route => fvView(route) ? (route.q?.from === 'outreach' ? OUTREACH : TOOLS) : null;
 const LINK_BASE = 'https://natehiphi.github.io/hiphi-tracker-app/track.html';
 
 // The screens of the first visit, in the order a person meets them (pub/start.js FLOW_IN, FLOW_OFF, FLOW_LINK). Someone
@@ -544,14 +545,19 @@ function partnerForm(p = null) {
 // First visit: the numbers, with the way to Make a link under its top line. Make a link: a focused form (narrow on a
 // desktop), the link and its QR code side by side from 900px. Both remember the period, the partner and the campaign word
 // for the rest of the visit to the app (B-6).
+// Back names the page it returns to (B-4): opened inside the app, the page it came from (the frame keeps its title in
+// history.state.from, and the link uses real Back); arriving cold, More tools, where both live (Outreach when the link
+// came from there).
+const backOf = route => { const st = history.state || {}, home = fvBack(route) || TOOLS; return st.d > 0 && st.from ? { href: home.href, label: st.from } : home; };
 export function renderFirstVisit(route) {
-  const v = V();
+  const v = V(), bk = backOf(route);
   // Both are More tools > Rally (spec 3.5): that place is lit, not My issues, whose All issues only lends the address.
-  if (route) route.place = 'tools';
+  // Opened from Outreach's "How it's landing" (&from=outreach), Outreach stays lit: three names for one home confused.
+  if (route) route.place = route.q?.from === 'outreach' ? 'outreach' : 'tools';
   wantPartners();   // the numbers name a partner's visits by its name, and the link needs them
   if (fvView(route) === 'links' && S.siteCard === undefined) { S.siteCard = null; DB.loadSiteCard().then(() => redraw()).catch(() => {}); }
   if (fvView(route) === 'links') return `<div class="le-page fv-page fv-links">
-    <a class="le-deskback" href="${TOOLS.href}" data-back>${icon('chevron-left')}<span>${TOOLS.label}</span></a>
+    <a class="le-deskback" href="${bk.href}" data-back>${icon('chevron-left')}<span>${esc(bk.label)}</span></a>
     <header class="fv-head"><h1>Make a link</h1>
       <p class="le-lede">For a partner, an event or a flyer. People who arrive by it see its welcome line first, and First visit numbers count them under its name.</p></header>
     ${linkHTML()}
@@ -559,7 +565,7 @@ export function renderFirstVisit(route) {
   </div>`;
   load(v.weeks);
   return `<div class="le-page fv-page">
-    <a class="le-deskback" href="${TOOLS.href}" data-back>${icon('chevron-left')}<span>${TOOLS.label}</span></a>
+    <a class="le-deskback" href="${bk.href}" data-back>${icon('chevron-left')}<span>${esc(bk.label)}</span></a>
     <header class="fv-head fv-nhead"><div class="fv-hmain"><h1>First visit numbers</h1>
       <p class="le-lede">How far newcomers get through their first visit on the public page, by where they came from.</p>
       <a class="fv-golink" href="${LINKS_HREF}">${icon('link')}<span>Make a link for a partner or an event</span></a></div>

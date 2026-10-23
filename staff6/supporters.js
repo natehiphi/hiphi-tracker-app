@@ -119,6 +119,8 @@ const SORT_KEYS = {
   joined: [-1, p => p.created_at || null],
 };
 const SORTS = [['active', 'Last active, newest first'], ['score', 'Highest score'], ['joined', 'Newest supporters first'], ['name', 'Name, A to Z'], ['where', 'Island, then district']];
+// A phone says the order in a few words, so the count, the order and Select fit one line.
+const sortShort = ([k]) => ({ name: 'name', where: 'island', score: 'score', active: 'last active', joined: 'newest' }[k] || 'last active');
 const sortWords = ([k]) => ({ name: 'name, A to Z', where: 'island, then district', score: 'highest score', active: 'last active, newest first', joined: 'newest supporters first' }[k] || 'last active, newest first');
 const DASH = '<span class="sp-dash" aria-hidden="true">–</span><span class="sr">none</span>';
 // "3/16" this year, "11/2/25" for an older date (imports go back years).
@@ -144,36 +146,52 @@ function barHTML(v, rows) {
     acts.push(btn(seg ? 'Save as a new group' : 'Save as a group', { kind: 'secondary', icon: 'bookmark', attrs: { 'data-sp': 'segsave', 'aria-haspopup': 'dialog', ...(n ? {} : { disabled: true }) } }),
       btn('Email these people', { kind: 'secondary', icon: 'mail', attrs: { 'data-sp': 'mailthese', 'aria-haspopup': 'dialog', ...(n ? {} : { disabled: true }) } }));
   }
+  // A phone (A-1, the list in the first 400px): the bar is the buttons alone; the count sits in the "Sorted by" line, Clear
+  // with the filter chips, and "Everyone" is the groups row's own first chip.
+  if (!isDesk()) return `<div class="sp-rbar sp-rbarp"><div class="sp-racts">${acts.join('')}</div></div>`;
   acts.push(btn(seg && !changed ? 'Everyone' : 'Clear', { kind: 'text', attrs: { 'data-sp': 'clear' } }));
-  const what = seg && !changed ? `${esc(seg.name)}: ${esc(plural(n, 'person', 'people'))}` : `${esc(plural(n, 'person', 'people'))} ${n === 1 ? 'matches' : 'match'}`;
-  return `<div class="sp-rbar"><p class="sp-rn" aria-live="polite"><b>${what}</b></p><div class="sp-racts">${acts.join('')}</div></div>`;
+  return `<div class="sp-rbar"><p class="sp-rn" aria-live="polite"><b>${barWhat(v, rows)}</b></p><div class="sp-racts">${acts.join('')}</div></div>`;
 }
+const barWhat = (v, rows) => { const seg = segOf(v), n = rows.length, pristine = !!seg && norm(v.f) === norm(seg.filter);
+  return pristine ? `${esc(seg.name)}: ${esc(plural(n, 'person', 'people'))}` : `${esc(plural(n, 'person', 'people'))} ${n === 1 ? 'matches' : 'match'}`; };
+// A phone shows the filter chips instead of the groups row while a filter is on (a saved group just as saved keeps the row,
+// with its chip pressed): one row, not two.
+const groupsHidden = v => { const seg = segOf(v); return !isDesk() && activeChips(v.f).length > 0 && !(seg && norm(v.f) === norm(seg.filter)); };
 
 // The part under the search box: filter chips, the results bar, the people. Re-drawn on its own while typing so the
 // search box keeps focus.
 function resultsHTML(v) {
-  const all = S.people || [], rows = shown(v), chips = activeChips(v.f), seg = segOf(v);
-  const on = chips.length ? `<div class="sp-active" aria-label="Filters on">${chips.map(([k, val, l]) => `<button type="button" class="chip sp-fchip" data-drop="${esc(k)}" data-val="${esc(val)}" data-k="d:${esc(k)}:${esc(val)}" aria-label="Remove filter: ${esc(l)}">${esc(l)}${icon('x')}</button>`).join('')}</div>` : '';
+  const all = S.people || [], rows = shown(v), seg = segOf(v), desk = isDesk();
+  const chips = desk || groupsHidden(v) ? activeChips(v.f) : [];
+  const clearAll = !desk && chips.length > 1 ? btn('Clear', { kind: 'text', sm: true, attrs: { 'data-sp': 'clear', 'data-k': 'clear' } }) : '';
+  const on = chips.length ? `<div class="sp-active" aria-label="Filters on">${chips.map(([k, val, l]) => `<button type="button" class="chip sp-fchip" data-drop="${esc(k)}" data-val="${esc(val)}" data-k="d:${esc(k)}:${esc(val)}" aria-label="Remove filter: ${esc(l)}">${esc(l)}${icon('x')}</button>`).join('')}${clearAll}</div>` : '';
   const bar = barHTML(v, rows);
   if (!all.length) return `${empty({ title: 'No supporters yet', text: 'Add someone by hand, or an admin imports a list from a CSV file.', action: btn('Add a person', { kind: 'secondary', icon: 'user-plus', attrs: { 'data-sp': 'add' } }) })}`;
   if (!rows.length) return `${on}${bar}${empty({ title: 'Nobody matches', text: 'Try fewer filters or a shorter search.' })}`;
   const page = rows.slice(0, v.limit);
   const more = rows.length > page.length ? `<p class="sp-more">${btn(page.length <= 10 && rows.length <= 500 ? `Show all ${rows.length.toLocaleString()}` : `Show ${Math.min(500, rows.length - page.length)} more`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-sp': 'morerows' } })}<span class="sp-shown">${page.length.toLocaleString()} of ${rows.length.toLocaleString()} shown</span></p>` : '';
   // The order in words, and the one control that changes it; the count when no bar says it (A-14: said once).
-  const sum = `<p class="sp-tsum">${bar ? '' : `<b>${esc(plural(all.length, 'person', 'people'))}</b> · `}<button type="button" class="linkbtn sp-sortbtn" data-sp="sort" data-k="sort" aria-haspopup="dialog">Sorted by ${esc(sortWords(v.sort))}</button></p>${SCORE_LINE() && v.sort[0] === 'score' ? '<p class="sp-score">Score: 1 for each bill they follow, 5 for each action (testimony, an email to a chair, a hearing, a share), 2 for each click in our emails and a quarter for each email opened.</p>' : ''}`;
+  const sortB = `<button type="button" class="linkbtn sp-sortbtn" data-sp="sort" data-k="sort" aria-haspopup="dialog">Sorted by ${esc(desk ? sortWords(v.sort) : sortShort(v.sort))}</button>`;
+  // A phone: the count, the order and Select on one line (Add a person waits at the foot of the list).
+  const selB = btn(v.selecting ? 'Done' : 'Select', { kind: 'text', sm: true, icon: v.selecting ? 'check' : 'square-check-big', attrs: { 'data-sp': v.selecting ? 'selexit' : 'select', 'data-k': 'select' } });
+  const sum = (desk ? `<p class="sp-tsum">${bar ? '' : `<b>${esc(plural(all.length, 'person', 'people'))}</b> · `}${sortB}</p>`
+    : `<div class="sp-tsum sp-tsump"><p><b aria-live="polite">${esc(plural(bar ? rows.length : all.length, 'person', 'people'))}</b> · ${sortB}</p>${selB}</div>`)
+    + `${SCORE_LINE() && v.sort[0] === 'score' ? '<p class="sp-score">Score: 1 for each bill they follow, 5 for each action (testimony, an email to a chair, a hearing, a share), 2 for each click in our emails and a quarter for each email opened.</p>' : ''}`;
   const selHead = v.selecting ? `<div class="sp-selhead">${rows.every(p => v.sel.has(p.id)) ? btn('Clear the selection', { kind: 'text', sm: true, attrs: { 'data-sp': 'selnone' } }) : btn(`Select all ${rows.length.toLocaleString()}`, { kind: 'text', sm: true, attrs: { 'data-sp': 'selall' } })}</div>` : '';
   if (isDesk()) {
     return `${on}${bar}${sum}${selHead}<div class="sp-twrap"><table class="sp-table${v.selecting ? ' selecting' : ''}"><caption class="sr">Supporters, ${esc(plural(rows.length, 'person', 'people'))}, ${esc(sortWords(v.sort))}. Select a name to open that person.</caption>
       <thead><tr>${v.selecting ? '<th class="c-cb" scope="col"><span class="sr">Selected</span></th>' : ''}${COLS.map(c => `<th scope="col" class="c-${c.k}">${c.label}</th>`).join('')}</tr></thead>
       <tbody>${page.map(p => deskRow(p, v)).join('')}</tbody></table></div>${more}`;
   }
-  return `${on}${bar}${sum}${selHead}<div class="v6-list sp-list" role="list" aria-label="Supporters">${page.map(p => phoneRow(p, v)).join('')}</div>${more}`;
+  const add = v.selecting ? '' : `<p class="sp-addp">${btn('Add a person', { kind: 'secondary', icon: 'user-plus', attrs: { 'data-sp': 'add', 'data-k': 'add', 'aria-haspopup': 'dialog' } })}</p>`;
+  return `${on}${bar}${sum}${selHead}<div class="v6-list sp-list" role="list" aria-label="Supporters">${page.map(p => phoneRow(p, v)).join('')}</div>${more}${add}`;
 }
 
 // The saved groups (v5 called them segments; one word per thing): Everyone first, each with its count.
 function groupChips(v) {
   const total = (S.people || []).length, noneOn = !v.seg && pfEmpty(v.f);
   const one = (id, label, n, on) => `<button type="button" class="chip" data-segpick="${esc(id)}" data-k="s:${esc(id)}" aria-pressed="${on}">${on ? icon('check') : ''}${esc(label)}<span class="sp-cn">${n.toLocaleString()}</span></button>`;
+  if (groupsHidden(v)) return '';
   return `<div class="sp-groups" role="group" aria-labelledby="sp-gl"><span class="sp-gl" id="sp-gl">Groups</span>
     ${one('', 'Everyone', total, noneOn)}${(S.segments || []).map(x => one(x.id, x.name, segmentPeople(x.id).length, v.seg === x.id)).join('')}</div>`;
 }
@@ -207,7 +225,7 @@ export default {
       ${btn('Import CSV', { kind: 'secondary', icon: 'upload', attrs: { 'data-sp': 'import', 'aria-haspopup': 'dialog' } })}
       ${btn(rows.length === all.length ? `Export all ${all.length.toLocaleString()} as CSV` : `Export these ${rows.length.toLocaleString()} as CSV`, { kind: 'secondary', icon: 'download', attrs: { 'data-sp': 'export', ...(rows.length ? {} : { disabled: true }) } })}</div></section>` : '';
     return `<div class="le-page sp-page${isDesk() ? ' sp-desk' : ''}">
-      ${pageHead(nav, 'Outreach', '', acts)}
+      ${pageHead(nav, 'Outreach', '', isDesk() ? acts : '')}
       <div class="sp-find">
         <div class="sp-search" role="search"><label class="sr" for="sp-q">Filter supporters by name, email or phone</label>${icon('search')}
           <input id="sp-q" type="search" placeholder="${isDesk() ? 'Filter by name, email or phone' : 'Filter by name or email'}" value="${esc(v.f.q)}" autocomplete="off" enterkeyhint="search">
@@ -330,6 +348,8 @@ function wireResults(root) {
   on('[data-sp="mailthese"]', () => emailThese());
   on('[data-sp="segdel"]', () => { const sg = segOf(v); if (sg) deleteSegment(sg); });
   on('[data-sp="add"]', () => addPersonSheet());
+  on('[data-sp="select"]', () => { startSelect(); rerender('select'); });   // a phone's Select sits in the results' count line
+  on('[data-sp="selexit"]', () => stopSelect());
   on('[data-sp="morerows"]', () => { v.limit = v.limit <= 10 ? 500 : v.limit + 500; drawResults(root); });
   on('[data-sp="sort"]', () => pickerSheet({ title: 'Sort supporters', value: v.sort[0], options: SORTS.map(([k, l]) => [k, l]), onPick: val => { v.sort = [val, SORT_KEYS[val][0]]; v.limit = 10; hooks.render(); toast(`Sorted by ${sortWords(v.sort)}.`); } }));
   on('[data-sp="selall"]', () => { for (const p of shown(v)) v.sel.add(p.id); rerender('p:' + ([...v.sel][0] || '')); });

@@ -479,8 +479,9 @@ body.staff6 .le-list .le-brow { position: relative; padding: 0 var(--s4) 0 var(-
 body.staff6 .le-list .le-brow + .le-brow { border-top: 0; }
 body.staff6 .le-list .le-brow + .le-brow::before { content: ''; position: absolute; left: 8px; right: 8px; top: 0; height: 1px; background: var(--v6-hair); }
 body.staff6 .le-list .le-bmain { gap: 2px; }
-body.staff6 .le-list .le-btop { display: flex; align-items: baseline; gap: var(--s8); min-width: 0; }
-body.staff6 .le-list .le-bname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+/* A bill's name is never cut (A-19): it wraps, and on a narrow row its number moves under it. */
+body.staff6 .le-list .le-btop { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s8); min-width: 0; }
+body.staff6 .le-list .le-bname { min-width: 0; overflow-wrap: anywhere; font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 body.staff6 .le-list .le-bnum { flex: none; font-size: var(--v6-t14); color: var(--v6-muted); white-space: nowrap; }
 body.staff6 .le-list .le-bline { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
 body.staff6 .le-list .le-bmain:hover .le-bname { color: var(--v6-action); text-decoration: underline; }
@@ -500,6 +501,13 @@ body.staff6 .le-cmp .le-steps li.done { color: var(--v6-body); }
 body.staff6 .le-cmp .le-sdot { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--v6-wash); font: 400 var(--v6-t14)/1 var(--font); color: var(--v6-body); }
 body.staff6 .le-cmp .le-steps li.cur .le-sdot { background: var(--v6-action); color: var(--v6-card); font-weight: 700; }
 body.staff6 .le-cmp .le-steps li.done .le-sdot { background: var(--v6-leaf-wash); color: var(--v6-leaf); }
+/* A phone shows only the step you are on, "Step 2 of 4 · Write", so the bar never wraps; a laptop shows all four. */
+body.staff6 .le-cmp .le-steps .le-sof { display: none; }
+@media (max-width: 599px) {
+  body.staff6 .le-cmp .le-steps li:not(.cur) { display: none; }
+  body.staff6 .le-cmp .le-steps li.cur .le-sdot { display: none; }
+  body.staff6 .le-cmp .le-steps .le-sof { display: inline; }
+}
 body.staff6 .le-cmp .le-sdot .ic { width: 16px; height: 16px; }
 body.staff6 .le-cmp .le-who { border: 0; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
 body.staff6 .le-cmp .le-denied { margin: var(--s8) 0 var(--s16); }
@@ -517,6 +525,7 @@ body.staff6 .fv-page .fv-head .le-lede { font-size: var(--v6-t16); line-height: 
 body.staff6 .fv-page .fv-card, body.staff6 .fv-page .fv-tile, body.staff6 .fv-page .fv-screens, body.staff6 .fv-page .fv-tablewrap {
   border: 0; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
 body.staff6 .fv-page .fv-card { padding: var(--s24); }
+body.staff6 .fv-page .fv-sitecard { margin-top: var(--s16); }   /* Make a link: the Meet HIPHI card never touches the link's card */
 body.staff6 .fv-page .fv-tile { border-radius: var(--v6-r12); padding: var(--s16); }
 body.staff6 .fv-page .fv-tile .fv-l { font-size: var(--v6-t16); font-weight: 400; color: var(--v6-ink); }
 body.staff6 .fv-page .fv-tile .fv-s { font-size: var(--v6-t14); color: var(--v6-muted); }
