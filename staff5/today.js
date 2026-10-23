@@ -972,7 +972,7 @@ function row(c, filled, o = {}) {
     : (([ic, w]) => `<span class="td-rb td-rkind">${icon(ic)}<span>${w}</span></span>`)(kindOf(p));
   // A teammate's step is theirs to take: its row has no button, and the open item offers "Message Kevin".
   const x = p.ro ? (o.nudge ? { label: alertWord(p), act: 'nudge' } : null) : (p.btns || [])[0], fill = filled && p.kind !== 'reply' && !p.seen && x && !x.text;
-  const what = `<span class="td-rs">${stepTag(stepOf(p))}<span class="td-rd">${p.seen ? SEEN() + ' ' : ''}${o.note ? `${esc(o.note)} · ` : ''}${rowWords(p, x, stepOf(p))}</span></span>${n > 0 ? `<span class="td-rplus">+${n}<span class="td-rmore"> on this ${b ? 'bill' : 'item'}</span></span>` : ''}`;   // "+2 on this bill" (P-4: "+2 more" said more of what?)
+  const what = `<span class="td-rs">${stepTag(stepOf(p))}<span class="td-rd">${p.seen ? SEEN() + ' ' : ''}${o.note ? `${esc(o.note)} · ` : ''}${rowWords(p, x, stepOf(p), o)}</span></span>${n > 0 ? `<span class="td-rplus">+${n}<span class="td-rmore"> on this ${b ? 'bill' : 'item'}</span></span>` : ''}`;   // "+2 on this bill" (P-4: "+2 more" said more of what?)
   return `<div data-k="${ek}" class="td-row${p.seen ? ' td-seen' : ''}"${fill ? ' data-fill="1"' : ''}${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${sel(`${newMark(p) || urgBlock(handAt(p) ?? p.due, untilOf(p), approveAct(p))}${o.av ? `<span class="td-rav">${o.av}</span>` : ''}<span class="td-rmain">${name}${what}</span>`)}
     <span class="td-ract">${x ? button(p, x, true, filled && p.kind !== 'reply') : ''}</span>${end}</div>`;
 }
@@ -986,16 +986,22 @@ const SKIP = new Set(['the', 'at', 'it', 'now', 'a', 'to', 'your', 'on']);
 // approval), and any other row drops the tag's own words from the front ("Ask the chair for a hearing: 9 days left"
 // reads "9 days left" after the tag), so the step is said once.
 const TESTI = new Set(['nodraft', 'write', 'submit', 'revise', 'review', 'review2', 'file', 'stale', 'ask']);
-function rowWords(p, x, st) {
+// R-316 W56 (O-8): "until 1:10 PM today", "until 9:30 AM tomorrow", "until Fri 3/20, 9:30 AM": when late testimony stops
+// being taken, in the words of model.js lateLine (the open item's "Late, still accepted until 1:10 PM today").
+const untilWords = u => lateLine(u, { lower: true }).replace(/^late, still accepted /, '');
+// `o.late` (Slipping's "Late, still open" rows): late testimony says until when it is taken in place of the hearing's time,
+// which is the same moment, so the time is said once; the amber mark keeps the hours ("4h to file").
+function rowWords(p, x, st, o = {}) {
   if (st && p.h && TESTI.has(p.kind)) {
     const by = /^review/.test(p.kind) && p.d?.submitted_by ? (p.d.submitted_by === S.me?.id ? 'Your own draft' : `From ${esc(first(p.d.submitted_by))}`) : p.kind === 'revise' && p.who !== 'coal' ? 'Sent back' : '';
     // R-316 W23 (T-16, FD-4): when testimony is due on an earlier day than the hearing, the row says when it is due ("Sent
     // back · due Wed 9:30 AM") and the hearing moves to the open item; words are swapped, not added.
     const early = p.due != null && p.due > Date.now() && hst(p.due) !== hst(p.h.scheduled_at);
-    const at = early ? `${p.kind === 'nodraft' && p.due - Date.now() > 2 * DAY ? 'New hearing · due' : 'due'} ${whenLine(new Date(p.due).toISOString())}` : `${esc(p.h.committee)} hearing ${whenLine(p.h.scheduled_at)}`;
+    const at = o.late && lateNow(p) ? `${esc(untilWords(untilOf(p)))} · ${esc(p.h.committee)} hearing`   // W56: "until 1:10 PM today · HHS hearing"
+      : early ? `${p.kind === 'nodraft' && p.due - Date.now() > 2 * DAY ? 'New hearing · due' : 'due'} ${whenLine(new Date(p.due).toISOString())}` : `${esc(p.h.committee)} hearing ${whenLine(p.h.scheduled_at)}`;
     // W31: the writer's and filer's row says when to hand it on in place of the hearing (the open item keeps the hearing).
     const hand = p.who !== 'coal' && handOn(p);
-    return [p.who === 'coal' ? esc(p.wn || '') : '', by, hand ? esc(hand) : early && !by && p.who !== 'coal' ? at.charAt(0).toUpperCase() + at.slice(1) : at].filter(Boolean).join(' · ');   // W20: whose it is, on a helper's row
+    return [p.who === 'coal' ? esc(p.wn || '') : '', by, hand ? esc(hand) : (early || (o.late && lateNow(p))) && !by && p.who !== 'coal' ? at.charAt(0).toUpperCase() + at.slice(1) : at].filter(Boolean).join(' · ');   // W20: whose it is, on a helper's row
   }
   if (p.kind === 'notice' && st === STEP.revise) return 'Sent back: fix it, then resubmit';
   if (st) { const t = String(p.s || '').replace(/^Ask the chairs\b/, 'Ask the chair'), lead = st[0].toLowerCase();   // "chairs" is the same step (W1)
@@ -1011,7 +1017,7 @@ function rowWords(p, x, st) {
 function mrow(c, o = {}) {
   const p = c.p || {}, b = c.b, href = b ? billRoute(b) : p.href ? p.href : p.kind === 'followup' ? `#/person/${p.f.person_id}` : p.a ? `#/email/${p.a.id}` : '#/';
   const name = b ? `${lead(b)}${b.priority === 1 ? ' ' + P1 : ''}` : `<b>${kindOf(p)[1]}</b>`;
-  return `<a class="td-mrow" href="${esc(href)}"${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${urgBlock(c.wait ? null : p.due, untilOf(p), approveAct(p))}<span class="td-mmain"><span class="td-mb">${name}</span><span class="td-ms">${c.hear ? '' : stepTag(stepOf(p))}<span class="td-rd">${o.label ? `<span class="td-mwho">${esc(o.label)}</span> · ` : ''}${rowWords(p, p.ro ? null : (p.btns || [])[0], c.hear ? null : stepOf(p))}</span></span></span>${icon('chevron-right', { cls: 'chev' })}</a>`;
+  return `<a class="td-mrow" href="${esc(href)}"${b ? ` data-bill="${esc(b.id)}" data-num="${esc(b.bill_number)}"` : ''}>${urgBlock(c.wait ? null : p.due, untilOf(p), approveAct(p))}<span class="td-mmain"><span class="td-mb">${name}</span><span class="td-ms">${c.hear ? '' : stepTag(stepOf(p))}<span class="td-rd">${o.label ? `<span class="td-mwho">${esc(o.label)}</span> · ` : ''}${rowWords(p, p.ro ? null : (p.btns || [])[0], c.hear ? null : stepOf(p), o)}</span></span></span>${icon('chevron-right', { cls: 'chev' })}</a>`;
 }
 // Which row is open: the one you chose, else the one now in its place; until you choose, the first (the list can
 // still be filling in as the page loads, and the most urgent item is the one to open on arrival).
@@ -1896,11 +1902,12 @@ function slipHtml(rows) {
   if (!sl.rows.length) return `<section class="td-group td-slip" aria-labelledby="td-g-slip">${head}<p class="td-quiet">${icon('circle-check')}<span>Nothing is slipping on the team: nothing late or due within a day${SLIP_NOBODY ? ', and someone is going to every hearing today and tomorrow' : ''}.</span></p></section>`;
   const now = Date.now(), filled = r => !!r.p && !r.p.ro && r.p.due <= endOfToday();
   // R-316 W56 (O-8): testimony past its written deadline but still taken until the hearing looked like any due-soon
-  // row. It comes first under Mine's words, "Late, still open", and the rest follow under "Due within a day".
+  // row. It comes first under Mine's words, "Late, still open", each row saying until when ("Until 1:10 PM today"), and
+  // the rest follow under "Overdue or due within a day".
   const late = sl.rows.filter(r => r.p && lateNow(r.p)), rest = sl.rows.filter(r => !late.includes(r));
-  const draw = rs => rows ? `<div class="td-rows">${rs.map(r => row(r, filled(r), slipOpt(r))).join('')}</div>` : `<div class="td-mrows">${rs.map(r => mrow(r, slipOpt(r))).join('')}</div>`;
+  const draw = (rs, x = {}) => rows ? `<div class="td-rows">${rs.map(r => row(r, filled(r), { ...slipOpt(r), ...x })).join('')}</div>` : `<div class="td-mrows">${rs.map(r => mrow(r, { ...slipOpt(r), ...x })).join('')}</div>`;
   const sub = (t, n) => `<h3 class="td-slipsub">${esc(t)} <span class="td-slipn">${n}</span></h3>`;
-  const list = late.length ? `${sub('Deadline passed, still accepted until the hearing', late.length)}${draw(late)}${rest.length ? sub('Overdue or due within a day', rest.length) + draw(rest) : ''}` : draw(rest);
+  const list = late.length ? `${sub('Late, still open', late.length)}${draw(late, { late: true })}${rest.length ? sub('Overdue or due within a day', rest.length) + draw(rest) : ''}` : draw(rest);
   return `<section class="td-group td-slip" aria-labelledby="td-g-slip">${head}${list}</section>`;
 }
 // Mine for Nate, Jess and Jaylen: one line in place of "Hearings today", opening Team (#/?scope=team).
