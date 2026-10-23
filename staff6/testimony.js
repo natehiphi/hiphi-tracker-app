@@ -1,6 +1,9 @@
-// HIPHI Staff v3 · Bill > Overview > Earlier testimony (R-027; v2's Testimony tab, folded into Overview by R-264). A person
-// comes here to see what HIPHI has already written on this bill and its issue, so the next testimony starts from the last
-// one (B-1). Folded until opened (Next up's "Borrow from earlier testimony" and old #/bill/X/testimony links open it).
+// HIPHI Staff v6 · the bill's "Earlier testimony" door (R-027; v2's Testimony tab, folded into Overview by R-264; a labelled
+// 44px door on Next step since R-336 V22). A person comes here to see what HIPHI has already written on this bill and its
+// issue, so the next testimony starts from the last one (B-1). Closed until opened ("Borrow from earlier testimony" under a
+// writer's step card, and old #/bill/X/testimony links, open it). The same library without a bill is libraryHTML() and
+// wireLibrary(): Testimony's Earlier testimony view (#/testimony?view=library, drawn by TESTIMONY; More tools links it,
+// F118). States are said in steps.js's one set of words (V19): Writing, With an approver, Second look, Ready to file.
 // Every testimony draft the tracker has made (sync/testimony.js: one Google Doc per bill and committee) that somebody
 // has worked on, newest first, in four parts: this bill and its companion; the other bills in its issue (R-018); a
 // search; the rest of its category, folded, the issues nearest this one first. "Newest filed" marks the Doc to open
@@ -17,6 +20,7 @@ import { codesOf, billByNum, billSay, companionsOf } from './model.js';
 import { icon, btn, chip, toast } from './ui.js';
 import { docBtn } from './ui.js';
 import { cmteFull, billName, firstName } from './bill.js';
+import { testimonyState, versionWords, numWords } from './steps.js';
 import { issuesOfBill, catByKey } from './issues.js';
 import { billRoute } from './model.js';
 
@@ -77,11 +81,12 @@ export const testimonyHref = b => `${billRoute(b, 'testimony')}`;
 export const onNextUp = d => d.status !== 'cancelled' && d.status !== 'filed';
 
 // ---- rows ----
-// A chip only for the exceptions: nearly everything here is filed, and a column of identical chips says nothing.
-const STATUS = { approved: ['Approved', 'info', 'badge-check'], review: ['Waiting for approval', '', 'hourglass'],
-  second_review: ['Waiting for second approval', '', 'hourglass'], draft: ['Back to draft', '', 'pencil'] };
-// v4 (R-269): a draft that came back with a reviewer's note is "Sent back", the one name for that state (C-15).
-const statusChip = d => d.status === 'draft' && d.review_note ? chip('Sent back', '', 'pencil') : STATUS[d.status] ? chip(...STATUS[d.status]) : '';
+// A tag only for the exceptions: nearly everything here is filed, and a column of identical tags says nothing. The words
+// are the one set every v6 screen uses (steps.js testimonyState, V19): "Ready to file", "With an approver", "Second
+// look", "Writing · sent back", "Missed".
+const STATUS = { approved: 'Ready to file', review: 'With an approver', second_review: 'Second look', draft: 'Writing' };
+const stateWord = d => { if (d.status === 'filed') return ''; const st = testimonyState(d, billById(d.bill_id), {}); return st ? st.label : STATUS[d.status] || ''; };
+const statusChip = d => { const w = stateWord(d); return w ? `<span class="tm-st">${esc(w)}</span>` : ''; };
 const whereOf = d => `${cmteFull(d.committee)}${codesOf(d.committee).length > 1 ? ' joint' : ''} hearing`;
 function byLine(d) {
   const a = advocate(d.status === 'filed' ? (d.filed_by || d.submitted_by) : d.submitted_by);
@@ -96,14 +101,14 @@ function fullRow(d, b, start) {
   const other = String(d.bill_id) !== String(b.id) ? billById(d.bill_id) : null;
   return `<article class="tm-row">
     ${d === start ? `<p class="tm-mark">${markOf(d)}</p>` : ''}
-    <div class="tm-top"><p class="tm-where"><b>${esc(whereOf(d))}</b>${other ? ` <span class="tm-on">on ${esc(billSay(other))}</span>` : ''}</p>${statusChip(d)}</div>
-    <p class="small muted tm-meta">${bits([esc(dayYear(whenOf(d))), d.version ? `on ${esc(d.version)}` : '', byLine(d)])}</p>
+    <div class="tm-top"><p class="tm-where"><b>${esc(whereOf(d))}</b>${other ? ` <span class="tm-on">on ${esc(numWords(other))}</span>` : ''}</p>${statusChip(d)}</div>
+    <p class="small muted tm-meta">${bits([esc(dayYear(whenOf(d))), d.version ? `on ${esc(versionWords(d.version))}` : '', byLine(d)])}</p>
     <div class="bw-links tm-links">${docLink(d)}${confLink(d)}</div>
   </article>`;
 }
 function compactRow(d, start) {
   // the separator travels with the first piece, so a wrapped line never ends in a lone "·"
-  const rest = bits([d.version ? `on ${esc(d.version)}` : '', byLine(d)]).replace('<span class="tm-i">', '<span class="tm-i"><span aria-hidden="true">· </span>');
+  const rest = bits([d.version ? `on ${esc(versionWords(d.version))}` : '', byLine(d)]).replace('<span class="tm-i">', '<span class="tm-i"><span aria-hidden="true">· </span>');
   return `<div class="tm-crow">
     <span class="tm-date">${esc(dayYear(whenOf(d)))}</span>
     <p class="tm-cw">${d === start ? `<span class="tm-mark">${markOf(d)}</span>` : ''}<b>${esc(whereOf(d))}</b>${rest ? ` <span class="muted">${rest}</span>` : ''}</p>
@@ -116,8 +121,8 @@ function byBill(rows, start, issueName = '') {
   for (const d of rows) { const k = String(d.bill_id); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(d); }
   const same = (x, y) => String(x).trim().toLowerCase() === String(y).trim().toLowerCase();
   return [...groups.entries()].map(([id, ds]) => {
-    const x = billById(id), name = x ? billName(x) : '';
-    return `<div class="tm-group"><p class="tm-ghead"><a href="${x ? billRoute(x) : '#/'}">${x?.nickname ? `${esc(x.nickname)} <span class="bn-num">${esc(x.bill_number)}</span>` : esc(x?.bill_number || 'A bill')}</a>${name && !same(name, issueName) ? `<span>${esc(name)}</span>` : ''}</p>${ds.map(d => compactRow(d, start)).join('')}</div>`;
+    const x = billById(id), name = x && !x.nickname ? billName(x) : '';   // a nickname is in the link already
+    return `<div class="tm-group"><p class="tm-ghead"><a href="${x ? billRoute(x) : '#/'}">${x?.nickname ? `${esc(x.nickname)}&nbsp;&nbsp;<span class="bn-num">${esc(numWords(x))}</span>` : esc(x ? numWords(x) : 'A bill')}</a>${name && !same(name, issueName) ? `<span>${esc(name)}</span>` : ''}</p>${ds.map(d => compactRow(d, start)).join('')}</div>`;
   }).join('');
 }
 
@@ -126,8 +131,8 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 function body(b) {
   const m = model(b);
   if (!m.all.length) return '<p class="small muted">No testimony in the tracker yet.</p>';
-  const twin = m.comps.length ? ` and its companion ${m.comps.map(x => esc(billSay(x))).join(', ')}` : '';
-  let h = `<section class="tm-part" aria-labelledby="tm-own-h"><h3 id="tm-own-h">On ${esc(b.bill_number)}${twin}</h3>
+  const twin = m.comps.length ? ` and its companion ${m.comps.map(x => esc(numWords(x))).join(', ')}` : '';
+  let h = `<section class="tm-part" aria-labelledby="tm-own-h"><h3 id="tm-own-h">On ${esc(numWords(b))}${twin}</h3>
     ${m.own.length ? '' : `<p class="small muted">No earlier testimony yet.${m.start ? ' The newest in its issue is marked below.' : ''}</p>`}
     ${m.own.length ? `<div class="tm-rows">${m.own.map(d => fullRow(d, b, m.start)).join('')}</div>` : ''}</section>`;
   // An issue with no other bill has nothing to show here, so the part is left out rather than saying so (v3).
@@ -156,10 +161,10 @@ function results(q, b) {
   q = String(q || '').trim().toLowerCase(); if (q.length < 2) return '';
   const words = q.split(/\s+/);
   const hay = d => { const x = billById(d.bill_id);
-    return [x?.bill_number, x?.bill_number?.replace(/^([A-Z]+)/, '$1 '), x ? billName(x) : '', whereOf(d), d.committee, d.version, STATUS[d.status]?.[0] || 'filed',
+    return [x?.bill_number, x?.bill_number?.replace(/^([A-Z]+)/, '$1 '), x ? billName(x) : '', whereOf(d), d.committee, d.version, versionWords(d.version), stateWord(d) || 'filed',
       ...issuesOfBill(d.bill_id).map(i => i.name), advocate(d.submitted_by)?.full_name, advocate(d.filed_by)?.full_name].join(' ').toLowerCase(); };
   const hits = allWorked().filter(d => words.every(w => hay(d).includes(w))).sort(newest);
-  if (!hits.length) return `<p class="small muted tm-none">Nothing in the tracker's drafts matches "${esc(q)}". Testimony from before the tracker is on each bill's Capitol page${b ? `: <a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">${esc(b.bill_number)} at the Capitol</a>` : ''}.</p>`;
+  if (!hits.length) return `<p class="small muted tm-none">Nothing in the tracker's drafts matches "${esc(q)}". Testimony from before the tracker is on each bill's Capitol page${b ? `: <a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener">${esc(numWords(b))} at the Capitol</a>` : ''}.</p>`;
   const shown = hits.slice(0, 40);
   return `<p class="small muted">${plural(hits.length, 'draft', 'drafts')} found${hits.length > shown.length ? `, the newest ${shown.length} shown` : ''}.</p><div class="tm-rows">${byBill(shown, null)}</div>`;
 }
@@ -180,13 +185,29 @@ function refresh() {
   if (had) { const q = document.getElementById('tm-q'); q?.focus(); q?.setSelectionRange(q.value.length, q.value.length); }
 }
 
-// Folded at the end of Overview. Its open state is kept for the visit, per bill (B-6), so a save that redraws the page
-// does not fold it shut under the person reading it.
+// The door at the end of Next step (V22: a labelled 44px door). Its open state is kept for the visit, per bill (B-6), so a
+// save that redraws the page does not fold it shut under the person reading it.
 export function renderEarlier(b, { open = false } = {}) {
   ensure();
-  return `<details class="bw-sec tm bw-earlier" id="bw-earlier"${open ? ' open' : ''}>
-    <summary><h2 id="tm-h">Earlier testimony</h2>${icon('chevron-down', { cls: 'chev' })}</summary>
-    <div id="tm-body" data-bill="${esc(b.id)}">${body(b)}</div></details>`;
+  return `<details class="bw-door tm bw-earlier" id="bw-earlier" data-bwdoor="earlier"${open ? ' open' : ''}>
+    <summary class="bw-doorsum">${icon('book-open')}<span class="bw-doorl" id="tm-h">Earlier testimony</span><span class="bw-doorh">to borrow from</span>${icon('chevron-down', { cls: 'bw-chev' })}</summary>
+    <div class="bw-doorbody" id="tm-body" data-bill="${esc(b.id)}">${body(b)}</div></details>`;
+}
+// F118: the library without a bill (Testimony's Earlier testimony view, TESTIMONY draws the page around it): the search
+// over every testimony the tracker has, and, until something is typed, the newest filed ones by bill.
+const newestHTML = () => { const rows = allWorked().filter(d => d.status === 'filed').sort(newest).slice(0, 24);
+  return rows.length ? `<p class="small muted">The newest filed testimony, by bill. Search to find any other.</p><div class="tm-rows">${byBill(rows, null)}</div>` : '<p class="small muted">No testimony in the tracker yet.</p>'; };
+export function libraryHTML() {
+  ensure();
+  const q = S.tmQuery || '';
+  return `<section class="tm tm-lib" role="search" aria-label="Earlier testimony">
+    <label class="tm-qlab" for="tm-q">Search all testimony in the tracker</label>
+    <div class="tm-search">${icon('search')}<input id="tm-q" type="search" autocomplete="off" placeholder="A bill, committee, issue or person" value="${esc(q)}"></div>
+    <div id="tm-res" aria-live="polite">${q.trim().length >= 2 ? results(q, null) : newestHTML()}</div></section>`;
+}
+export function wireLibrary(root) {
+  const q = root?.querySelector('#tm-q'), res = root?.querySelector('#tm-res'); if (!q || !res) return;
+  q.addEventListener('input', () => { S.tmQuery = q.value; res.innerHTML = q.value.trim().length >= 2 ? results(q.value, null) : newestHTML(); });
 }
 export function wireTestimony(pnl, b) {
   pnl.querySelector('#bw-earlier')?.addEventListener('toggle', e => { (S.bwEarlierOpen ??= {})[b.id] = e.currentTarget.open; });
