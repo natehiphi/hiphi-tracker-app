@@ -9,15 +9,20 @@
 // the bills on no issue shown above, then "Did not advance" folded; a few words ("testify", "my senator") also offer the page
 // they mean. A bill number lists the bill with the issue it is part of. No governor's messages on a word search (the
 // header's suggestions already leave them out), and no headings with counts (R-300).
+// HIPHI's partners (R-328 batch D, Nate's plan of 10/21): a bill a partner group writes on says so in one more line in the
+// "Part of" style, a "From our partners" group follows HIPHI's own on the landing (first, for a visit by a partner's link),
+// and a partner's own issue that matches a search comes after HIPHI's results, in its own group. Approved words only
+// (pub/partners.js), and every one names its group, so nothing of a partner's reads as HIPHI's.
 // The search itself is find.js's (its matching rules, its state S.fd, its live queries); this file draws what it finds and
 // puts its painter in findHooks. An issue's, a category's and a list's pages are still find.js's (another builder takes the
 // issue and category pages under rec).
 import { S, app, esc, icon, nick, plain, spaced, billPath, sessionInfo, issuesOf, issueFollowed, stopOf, alive, plainStatus, dateLong,
-  dismissed, suggestionList, recommendations, noteShown, reasonOf, issueIcon } from '../core.js';
+  dismissed, suggestionList, recommendations, noteShown, reasonOf, issueIcon, findBill } from '../core.js';
 import { btn, skeleton, inlineErr } from '../ui.js';
 import F0, { parse, startSearch, searchNote, capNote, issueMatches, peopleMatches, findHooks, wireSearch, wireIssues, offSeason, byDue,
-  hiphis, shows } from '../find.js';
-import { moving, becameLaw, stopped, billsOfIssue, what, stoppedWhy } from '../mybills.js';
+  hiphis, shows, ensureHearings } from '../find.js';
+import { moving, becameLaw, stopped, billsOfIssue, what, stoppedWhy, numCmp } from '../mybills.js';
+import { pubNow, rowLine, fromGroups, viaPartner, fromPath, pIssuePath, billsInfo } from '../partners.js';
 import { recSec, recRow, recFold, recEmpty, recFollow, wireKit, BOX, laterRow, showAll } from './kit.js';
 import { when, keep } from '../calm/home.js';
 export { headerSuggest } from '../find.js';   // the header's suggestions (app.js asks the find screen's module for them)
@@ -69,8 +74,14 @@ const billName = b => nick(b) || what(b, 90);
 const partOf = b => { const iss = issuesOf(b), name = plain(billName(b)), mine = iss.some(issueFollowed); if (!iss.length) return '';
   if (iss.length === 1 && plain(iss[0].name) === name) return mine ? 'You follow this issue' : '';
   return `Part of: ${iss.map(i => i.name).join(' and ')}${mine ? ', which you follow' : ''}`; };
-const billRow = b => { const l = billLine(b), part = partOf(b);
-  return `<li><a class="rc-row" href="${esc(billPath(b))}"><span class="rc-rtext"><span class="rc-rname">${esc(billName(b))}</span><span class="rc-rstat${l.warn ? ' warn' : ''}">${esc(keep(l.text))}</span>${part ? `<span class="rc-rpart">${esc(part)}</span>` : ''}</span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`; };
+// A partner's words on the bill add one line in the same style (R-328 batch D, Nate's plan of 10/21), after "Part of" when
+// there is one ("Part of: Oral health · Keiki Smiles Alliance supports it too"), else alone; on a bill HIPHI has no side on
+// it says "From a partner: Keiki Smiles Alliance supports it" (partners.js rowLine). The partner's words wrap as one piece
+// (find.css .rc-rpw), so a group's name is not split across two lines. A row no partner writes on is as before.
+const partHtml = b => { const part = partOf(b), pl = rowLine(b);
+  return pl ? `${part ? `${esc(part)} · ` : ''}<span class="rc-rpw">${esc(pl)}</span>` : esc(part); };
+const billRow = b => { const l = billLine(b), part = partHtml(b);
+  return `<li><a class="rc-row" href="${esc(billPath(b))}"><span class="rc-rtext"><span class="rc-rname">${esc(billName(b))}</span><span class="rc-rstat${l.warn ? ' warn' : ''}">${esc(keep(l.text))}</span>${part ? `<span class="rc-rpart">${part}</span>` : ''}</span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`; };
 // An issue in search: the category page's row, drawn the same (the wrap-up review of 10/18): the name and Home's line (the
 // link), then the one follow control, the outlined "☆ Follow" pill or the pale "✓ Following" (kit recFollow;
 // pressing Following lets it go, with Undo: find.js followIssueNow).
@@ -125,17 +136,69 @@ const listRows = () => { const ls = S.lists || []; if (!ls.length) return '';
     { note: offSeason() ? 'Follow a list now and its bills come to you as HIPHI adds them.' : 'Follow a list to follow its bills, plus any HIPHI adds later.' }); };
 const topicRows = () => `<ul class="rc-rows rc-topics ${BOX}" role="list">${(S.cats || []).map(c => recRow({ name: c.name, text: c.description || '', href: `#/find/category/${c.key}`, lead: c.icon })).join('')}</ul>`;
 const topics = () => recSec('fd-iss-h', 'Browse by topic', topicRows());
+// ---------------- from our partners (R-328 batch D) ----------------
+// A partner may write on a bill Find has not loaded (one HIPHI does not track): those are asked for once, with their
+// hearings so a row says where the bill stands in Find's words, and Find draws again when they come. True once every bill
+// asked for is here (a bill that did not come is left out of the rows).
+const PW = { asked: new Set(), busy: 0 };
+function pwHave(ids) {
+  const need = [...new Set(ids)].filter(id => id && !PW.asked.has(id));
+  if (need.length) {
+    need.forEach(id => PW.asked.add(id)); PW.busy++;
+    const known = need.map(findBill).filter(Boolean), missing = need.filter(id => !findBill(id));
+    (missing.length ? billsInfo(missing) : Promise.resolve(new Map()))
+      .then(m => { const got = [...m.values()].filter(Boolean); got.forEach(b => { if (!findBill(b.id)) S.extra[b.id] = b; }); return ensureHearings([...known, ...got]); })
+      .catch(e => console.error(e)).finally(() => { PW.busy--; paint(); });
+  }
+  return !PW.busy;
+}
+// A partner's own issue: its name, where its bills stand in the words of HIPHI's issue rows (issueLine, over the bills the
+// partner put on it), and whose issue it is with its side, in the bills' "From a partner" words. It opens the issue's page
+// under the partner's; there is no Follow (people follow HIPHI's issues, R-018).
+const STANCE_SAID = { support: 'supports it', oppose: 'opposes it', mixed: 'has mixed views on it' };
+const pIssueRow = i => { const l = issueLine({ ...i, bill_years: (i.bill_ids || []).map(id => findBill(id)?.session_year) });
+  return `<li><a class="rc-row" href="${esc(pIssuePath(i.partner_slug, i.slug))}"><span class="rc-rtext"><span class="rc-rname">${esc(i.name)}</span><span class="rc-rstat${l.warn ? ' warn' : ''}">${esc(keep(l.text))}</span><span class="rc-rpart">${esc(`From a partner: ${i.partner_name} ${STANCE_SAID[i.stance] || STANCE_SAID.mixed}`)}</span></span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`; };
+// One group: its name to its own page with its line about itself, then at most three of its rows in one white box (its bills
+// still moving first, as Find's rows, then its issues), and "More from" its page when it has more (Nate's "keep it compact").
+const PW_FIRST = 3;
+function pwGroup(g) {
+  const bills = g.bills.map(findBill).filter(Boolean).sort((x, y) => stopped(x) - stopped(y) || numCmp(x, y));
+  const rows = [...bills.map(billRow), ...g.issues.map(pIssueRow)]; if (!rows.length) return '';
+  const more = rows.length > PW_FIRST ? `<p class="pw-fmore">${btn(`More from ${g.name}`, { kind: 'text', iconEnd: 'chevron-right', href: fromPath(g.slug) })}</p>` : '';
+  return `<div class="pw-fg"><h3 class="pw-fgh"><a href="${esc(fromPath(g.slug))}"><span>${esc(g.name)}</span>${icon('chevron-right')}</a></h3>${g.about ? `<p class="pw-fga">${esc(g.about)}</p>` : ''}
+    <ul class="rc-rows ${BOX}" role="list">${rows.slice(0, PW_FIRST).join('')}</ul>${more}</div>`;
+}
+// The landing's groups: after HIPHI's own (foot), or, for a visit by a partner's link (?via=), that partner's group first on
+// the page (top) and the others, if any, at the foot. Nothing until the partners' words and their bills are here.
+const PW_NOTE = 'Bills and issues HIPHI’s partner groups work on, in their own words.';
+function partnersFind() {
+  const gs = fromGroups(), none = { top: '', foot: '' }; if (!gs.length) return none;
+  if (!pwHave(gs.flatMap(g => [...g.bills, ...g.issues.flatMap(i => i.bill_ids || [])]))) return none;
+  const via = viaPartner(), first = via ? gs.find(g => g.slug === via.slug) || null : null, rest = gs.filter(g => g !== first);
+  const sec = (id, title, list, note) => { const html = list.map(pwGroup).join(''); return html ? recSec(id, title, html, { note }) : ''; };
+  return { top: first ? sec('fd-pwv-h', 'From our partners', [first], PW_NOTE) : '',
+    foot: rest.length ? sec('fd-pw-h', first ? 'From our other partners' : 'From our partners', rest, first ? '' : PW_NOTE) : '' };
+}
+// A search: the partners' own issues whose name or description has every word (Find's word rule, as issueMatches), shown
+// after HIPHI's results in their own group, once their bills are here.
+function pIssueMatches(q) {
+  const d = pubNow(), P = parse(q); if (!d?.issues?.length || P.num) return [];
+  const ws = P.words.filter(w => w.w.length > 2); if (!ws.length) return [];
+  const hits = d.issues.filter(i => ws.every(w => w.pre.test(plain(`${i.name} ${i.description || ''}`)))).slice(0, 6);
+  return hits.length && pwHave(hits.flatMap(i => i.bill_ids || [])) ? hits : [];
+}
+
 const openWords = si => si.nextOpen ? new Date(si.nextOpen + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'long', month: 'long', day: 'numeric' }) : 'in January';
 function browse() {
-  const si = sessionInfo(), off = si.phase !== 'in', vs = voices();
+  const si = sessionInfo(), off = si.phase !== 'in', vs = voices(), pw = partnersFind();
   // Someone on their first visit who came by a shared link lands here (R-238); one quiet line offers the start, and only
   // to them (a guess: the first visit's own steps are unchanged).
   const newcomer = app.calmPlace?.() === '#/find' ? `<a class="rc-newhere" href="#/start/0"><span>New here? Pick what you care about</span>${icon('chevron-right')}</a>` : '';
-  return `${newcomer}${off ? `<p class="rc-note rc-off">The Legislature is on break until ${esc(openWords(si))}. You can still look up any ${si.recapYear} bill and see what happened to it.</p>` : ''}
+  return `${newcomer}${off ? `<p class="rc-note rc-off">The Legislature is on break until ${esc(openWords(si))}. You can still look up any ${si.recapYear} bill and see what happened to it.</p>` : ''}${pw.top}
     ${topics()}
     ${vs.length ? recSec('fd-voices-h', 'Needs voices this week', moreList(vs.map(voiceRow), 3, 'voices', 'See more with a hearing this week')
       + `<p class="rc-every">${btn('Pass this week’s asks on to a group', { kind: 'text', iconEnd: 'chevron-right', href: '#/week' })}</p>`) : ''}
-    ${listRows()}
+    ${listRows()}${pw.foot}
     <nav class="rc-foot" aria-label="More to look up"><ul class="rc-rows ${BOX}" role="list">
       ${off || vs.length ? '' : recRow({ name: 'This week’s asks', text: 'To pass on in a group chat or newsletter', href: '#/week', lead: 'megaphone' })}${recRow({ name: 'Every bill HIPHI tracks', href: '#/allbills', lead: 'list' })}${recRow({ name: 'Committees', href: '#/committees', lead: 'landmark' })}</ul></nav>`;
 }
@@ -166,12 +229,13 @@ function resultsBody(q, res) {
   for (const b of bills) if (!stopped(b) && hiphis(b) && shows(b, P)) for (const i of issuesOf(b)) if (!seen.has(i.id)) { seen.add(i.id); iss.push(i); }
   const onShown = b => issuesOf(b).some(i => seen.has(i.id));
   const other = bills.filter(b => !stopped(b) && !onShown(b)), gone = bills.filter(b => stopped(b) && !onShown(b));
-  const pl = places(q), who = whoRows(q);
+  const pl = places(q), who = whoRows(q), pw = pIssueMatches(q);
   // Words that name a page ("how to testify", "my senator") and that no bill has all of: the page is the answer, and bills
   // with one of the words ("how") would only be noise under it.
   if (pl.length && res.fewer) { other.length = 0; gone.length = 0; }
   const placesNav = pl.length ? `<nav class="rc-places" aria-label="Places"><ul class="rc-rows ${BOX}" role="list">${pl.map(recRow).join('')}</ul></nav>` : '';
-  if (!iss.length && !who.length && !other.length && !gone.length) return pl.length ? placesNav
+  const pwSec = pw.length ? recSec('fd-qpw-h', 'From our partners', `<ul class="rc-rows ${BOX}" role="list">${pw.map(pIssueRow).join('')}</ul>`) : '';
+  if (!iss.length && !who.length && !other.length && !gone.length) return pw.length ? placesNav + pwSec : pl.length ? placesNav
     : `${recEmpty(`Nothing matches “${q}”. Try one word, like e-cigarettes, a bill number like HB 1563, or a lawmaker’s name.`)}${topics()}`;
   const quiet = !iss.length && !other.length && gone.length ? `<p class="rc-note rc-none">${offSeason() ? `The ${sessionInfo().recapYear} session is over. Here’s where these bills ended up.` : `Nothing that matches “${esc(q)}” is moving right now.`}</p>` : '';
   return `${other.length || gone.length ? searchNote(res, P) : ''}
@@ -181,7 +245,7 @@ function resultsBody(q, res) {
     ${other.length ? recSec('fd-ob-h', iss.length ? 'Other bills' : 'Bills', moreList(other.map(billRow), 10, 'ob-' + P.key)) : quiet}
     ${gone.length ? `<div class="rc-folds">${recFold('find-gone', 'Bills that did not advance', numbers(gone), moreList(gone.map(billRow), 10, 'g-' + P.key, '', false),
       { open: !iss.length && !other.length && !who.length })}</div>` : ''}
-    ${capNote(res)}${everyLink()}`;
+    ${capNote(res)}${pwSec}${everyLink()}`;
 }
 function results(q) {
   const P = parse(q), ready = F.key === P.key && !F.busy;

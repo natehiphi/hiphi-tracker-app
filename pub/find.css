@@ -145,6 +145,18 @@ body.rec .rc-places { margin-top: var(--s16); }
 body.rec .rc-find .fd-note { margin: var(--s16) 0 0; }
 body.rec .rc-find .rc-none { margin-top: var(--s24); }
 body.rec .rc-rpart { font-size: var(--t13); color: var(--n700); }
+body.rec .rc-rpw { display: inline-block; }   /* a partner's line after "Part of": it wraps whole, never "· Keiki / Smiles Alliance" */
+/* From our partners on Find (R-328 batch D): each partner group's name, a link to its own page, its line about itself, then
+   its rows in the white box like every list here; "More from" it under them. The name is link blue (it is a link, A-12),
+   at the rows' name size, so it reads as a group's label over its rows, not as a second heading level competing with h2. */
+body.rec .pw-fg + .pw-fg { margin-top: var(--s16); }
+body.rec .pw-fgh { margin: 0; font: 600 var(--t16)/1.25 var(--font-h); letter-spacing: -.01em; }
+body.rec .pw-fgh a { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: var(--p700); text-decoration: none; }
+body.rec .pw-fgh a:hover span { text-decoration: underline; }
+body.rec .pw-fgh a:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; border-radius: var(--r8); }
+body.rec .pw-fgh .ic { flex: none; width: 18px; height: 18px; }
+body.rec .pw-fga { margin: calc(-1 * var(--s8)) 0 var(--s8); font-size: var(--t14); color: var(--n700); }
+body.rec .pw-fmore { margin: var(--s4) 0 0 calc(-1 * var(--s12)); }
 /* Find's best pick: its one reason under its status, small and quiet (R-303, Nate 19 Oct).
    The label above its name says why it leads a list otherwise soonest first (fresh-eyes review, 19 Oct: it read as mis-sorted);
    label and reason are grey, not link blue (blue reads as a link), with only the icon tinted. */
