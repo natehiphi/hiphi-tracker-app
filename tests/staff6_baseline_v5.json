@@ -2740,6 +2740,43 @@
   "Two people in one tab: no page errors": "ok"
  },
  "words": {
+  "act_names": {
+   "ask the chair for a hearing": {
+    "Email the chair": 76
+   },
+   "copy the public link": {
+    "Copy link": 16,
+    "Copy share link": 16
+   },
+   "file testimony": {
+    "File at the Capitol": 31
+   },
+   "follow up with the chair": {},
+   "log a talk with a legislator": {
+    "Log a conversation": 16,
+    "Log a talk with a legislator": 8
+   },
+   "mark filed": {
+    "Mark filed": 26
+   },
+   "open a draft to approve it": {
+    "Open to approve": 2,
+    "Review": 15
+   },
+   "record the chair's reply": {},
+   "resubmit a draft": {
+    "Resubmit": 6
+   },
+   "say I'm going": {
+    "I’m going": 55
+   },
+   "send a draft back": {
+    "Send back": 12
+   },
+   "write the public ask": {
+    "Write it": 1
+   }
+  },
   "copied": 5,
   "copied_bad": 0,
   "help_names_missing_from_nav": [
@@ -2769,7 +2806,7 @@
    },
    "sent back (a flag on Writing)": {
     "=[A-Z]\\w+’s to revise\\b": 1,
-    "\\bsent back\\b(?! by)": 28
+    "=\\bsent back\\b(?! by)": 28
    }
   },
   "vape": 0

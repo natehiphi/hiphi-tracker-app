@@ -219,13 +219,13 @@ MEASURE = r"""(arg) => {
   const labelled = ctrls.filter(e => btnLike(e) && /[A-Za-z]{2}/.test(label(e)) && !e.matches('.iconbtn'));
 
   // ---- text: words, sizes, weight, colours ----
-  let words = 0, chars = 0, small = 0, tiny = 0, bold = 0; const colors = new Set(); let text = '';
+  let words = 0, chars = 0, small = 0, tiny = 0, bold = 0; const colors = new Set(), colorEx = new Map(); let text = '';
   const tw = document.createTreeWalker(main, NodeFilter.SHOW_TEXT); let n;
   while ((n = tw.nextNode())) { const v = n.nodeValue.replace(/\s+/g, ' ').trim(); if (!v) continue; const el = n.parentElement; if (!el || !inView(el) || el.closest('svg')) continue;
     const r = document.createRange(); r.selectNodeContents(n); const rects = [...r.getClientRects()].filter(q => q.width > 2 && q.height > 2 && q.top < H && q.bottom > (arg.full ? -1e7 : 30));
     if (!rects.length) continue; const s = getComputedStyle(el), frac = rects.filter(q => q.bottom <= H).length / rects.length;
     words += Math.round(v.split(/\s+/).filter(Boolean).length * frac); const c = Math.round(v.length * frac);
-    chars += c; colors.add(s.color); text += ' ' + v;
+    chars += c; colors.add(s.color); if (!colorEx.has(s.color)) colorEx.set(s.color, v.slice(0, 24)); text += ' ' + v;
     const fs = parseFloat(s.fontSize); if (fs <= 14.5) small += c; if (fs < 13.9) tiny += c; if (+s.fontWeight >= 600) bold += c; }
 
   // ---- codes: version codes, committee codes and P1-P3 (bill numbers are allowed: D15) ----
@@ -239,9 +239,12 @@ MEASURE = r"""(arg) => {
   let rows = all.filter(e => e.matches(ROWSEL) && e.parentElement && [...e.parentElement.children].filter(c => c.tagName === e.tagName).length >= 2
     && e.getBoundingClientRect().height >= 24 && e.getBoundingClientRect().width >= 200 && !e.closest('nav, [role=tablist], [role=menu], dialog, .sv-secnav'));
   rows = rows.filter(e => !rows.some(o => o !== e && o.contains(e)));
+  // A row's own buttons are not its facts, whether or not the fold cuts them (a cut 'I help' is still a button's label).
+  const BTN = 'button, a.btn, [role=button], summary, input, select, textarea';
   const rowText = (row, btns) => { const own = new Map(); const t = document.createTreeWalker(row, NodeFilter.SHOW_TEXT); let x;
     while ((x = t.nextNode())) { const v = x.nodeValue.replace(/\s+/g, ' ').trim(); if (!v) continue; let el = x.parentElement;
       if (!el || !vis(el) || el.closest('.sr, svg') || btns.some(b => b.contains(el))) continue;
+      const ob = el.closest(BTN); if (ob && ob !== row && row.contains(ob)) continue;
       // an inline part of a sentence ("due <b>today 3:00 PM</b>") belongs to the sentence
       while (el !== row && el.parentElement && el.parentElement !== row.parentElement && getComputedStyle(el).display === 'inline' && [...el.parentElement.childNodes].some(c => c.nodeType === 3 && c.nodeValue.trim())) el = el.parentElement;
       own.set(el, (own.get(el) || '') + ' ' + v); }
@@ -254,25 +257,34 @@ MEASURE = r"""(arg) => {
 
   // ---- the whole window: bordered elements, corner radii, amber and red marks ----
   const bordered = body.filter(e => !e.closest('.band') && sides(getComputedStyle(e)) >= 1).length;
-  const radii = new Set();
+  const radii = new Set(), radEx = {};
   for (const e of body) { if (e.closest('.band') || e.matches('svg, svg *')) continue; const s = getComputedStyle(e), rad = parseFloat(s.borderTopLeftRadius) || 0; if (rad < 1) continue;
     const pb = e.parentElement ? getComputedStyle(e.parentElement).backgroundColor : '';
     const painted = sides(s) > 0 || (s.boxShadow && s.boxShadow !== 'none') || (!transparent(s.backgroundColor) && s.backgroundColor !== pb) || e.matches('img');
-    if (!painted) continue; const r = e.getBoundingClientRect(); radii.add(rad >= Math.min(r.width, r.height) / 2 - 0.5 || /%/.test(s.borderTopLeftRadius) ? 'pill' : String(Math.round(rad))); }
-  // Amber and red: the colours of every warn / bad / late / overdue token the page's stylesheets define, plus any other
-  // strongly red or amber colour (coral, the celebration colour, is not one).
+    if (!painted) continue; const r = e.getBoundingClientRect(); const k = rad >= Math.min(r.width, r.height) / 2 - 0.5 || /%/.test(s.borderTopLeftRadius) ? 'pill' : String(Math.round(rad)); radii.add(k);
+    radEx[k] ??= (e.tagName.toLowerCase() + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/).join('.') : '')).slice(0, 50); }
+  // Amber and red, by their real colours (spec 12.8), plus any other strongly red or amber colour (coral, the celebration
+  // colour, is not one). v6: the late and bad tokens' values only (--v6-late #955A00 and its wash, --v6-bad #AF3328 and its
+  // wash, the pressed red): the frame turned v5's --warn-* names neutral on purpose (ink, wash, field), so a name says
+  // nothing. v5 (the baseline): its warn / bad / late tokens, which there are amber and red.
   const probe = document.createElement('i'); document.body.appendChild(probe);
   const norm = v => { probe.style.color = ''; probe.style.color = v; return getComputedStyle(probe).color; };
-  const toks = new Set(); let coral = null;
-  for (const sh of document.styleSheets) { let rules; try { rules = sh.cssRules; } catch { continue; }
+  const bs = getComputedStyle(document.body), V6 = !!bs.getPropertyValue('--v6-late').trim();
+  const toks = new Set(), soft = new Set(); let coral = null;
+  if (V6) {
+    for (const p of ['--v6-late', '--v6-late-wash', '--v6-bad', '--v6-bad-wash', '--bad-press']) { const v = bs.getPropertyValue(p).trim(); if (v) toks.add(norm(v)); }
+    coral = norm(bs.getPropertyValue('--v6-coral').trim());
+    // the celebration family (coral and its tints) is never a warning, though its darkest tint sits near red's hue
+    for (const p of ['--o50', '--o200', '--o400', '--o600', '--o700']) { const v = bs.getPropertyValue(p).trim(); if (v) soft.add(norm(v)); }
+  } else for (const sh of document.styleSheets) { let rules; try { rules = sh.cssRules; } catch { continue; }
     const walk = rs => { for (const r of rs) { if (r.cssRules) walk(r.cssRules); if (!r.style) continue; for (const p of r.style) if (/^--/.test(p)) {
-      if (/(warn|bad|late|danger|overdue|alert|err)/i.test(p) && !/(ink|text-on|on-)/i.test(p)) { const v = getComputedStyle(document.body).getPropertyValue(p).trim(); if (v && !/var\(|^\d/.test(v)) toks.add(norm(v)); }
-      if (/coral/i.test(p)) coral = norm(getComputedStyle(document.body).getPropertyValue(p).trim()); } } };
+      if (/(warn|bad|late|danger|overdue|alert|err)/i.test(p) && !/(ink|text-on|on-)/i.test(p)) { const v = bs.getPropertyValue(p).trim(); if (v && !/var\(|^\d/.test(v)) toks.add(norm(v)); }
+      if (/coral/i.test(p)) coral = norm(bs.getPropertyValue(p).trim()); } } };
     walk(rules); }
   probe.remove();
   const hsl = c => { const m = rgb(c); if (!m || (m[3] ?? 1) < 0.3) return null; const [r, g, b] = m.map(x => x / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
     if (!d) return { h: 0, s: 0, l }; const s = d / (1 - Math.abs(2 * l - 1)); let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h = (h * 60 + 360) % 360; return { h, s, l }; };
-  const hot = c => { if (!c || transparent(c) || c === coral) return false; if (toks.has(c)) return true; const q = hsl(c); return !!q && q.s > 0.55 && q.l > 0.2 && q.l < 0.6 && (q.h < 18 || q.h > 345 || (q.h > 28 && q.h < 48)); };
+  const hot = c => { if (!c || transparent(c) || c === coral || soft.has(c)) return false; if (toks.has(c)) return true; const q = hsl(c); return !!q && q.s > 0.55 && q.l > 0.2 && q.l < 0.6 && (q.h < 18 || q.h > 345 || (q.h > 28 && q.h < 48)); };
   const marked = body.filter(e => { if (e.closest('.band, .mark, .sv-brand, .sv-sbrand, .sv-lbrand') || e.matches('svg *')) return false; const s = getComputedStyle(e);
     const own = [...e.childNodes].some(c => c.nodeType === 3 && c.nodeValue.trim()) || e.matches('svg');
     return (own && hot(s.color)) || hot(s.backgroundColor) || ['Top', 'Right', 'Bottom', 'Left'].some(k => parseFloat(s['border' + k + 'Width']) > 0 && hot(s['border' + k + 'Color'])); });
@@ -282,7 +294,10 @@ MEASURE = r"""(arg) => {
 
   // ---- the frame: sidebar rows, the phone's tab bar, sideways scroll ----
   const side = innerWidth < 768 ? null : [...document.querySelectorAll('aside, nav')].find(e => !main.contains(e) && vis(e) && e.getBoundingClientRect().height > 300 && e.getBoundingClientRect().left < 40 && e.getBoundingClientRect().width < 400 && !e.closest('dialog'));
-  const sideRows = side ? [...side.querySelectorAll('a[href], button')].filter(e => vis(e) && !/collapse|expand|skip to/i.test(e.innerText + ' ' + (e.getAttribute('aria-label') || '')) && !e.querySelector('.mark, svg.mark') && !e.matches('.sv-sbrand')).length : 0;
+  // Sidebar rows are the links to places (and You, the account door), not its furniture (spec 12.4): the Lead tools heading,
+  // the Collapse (Narrow / Widen) button, the "More below" cue (hidden from screen readers) and the brand are not rows.
+  const sideRows = side ? [...side.querySelectorAll('a[href], button')].filter(e => vis(e) && !/collapse|expand|narrow|widen|skip to|more (above|below)/i.test(e.innerText + ' ' + (e.getAttribute('aria-label') || '') + ' ' + (e.getAttribute('title') || ''))
+    && e.getAttribute('aria-hidden') !== 'true' && !e.querySelector('.mark, svg.mark') && !e.matches('.sv-sbrand')).length : 0;
   const tabbar = [...document.querySelectorAll('nav')].find(e => !main.contains(e) && vis(e) && getComputedStyle(e).position === 'fixed' && Math.abs(e.getBoundingClientRect().bottom - innerHeight) < 4);
   const tabs = tabbar ? [...tabbar.querySelectorAll('a[href], button')].filter(vis).map(a => label(a).replace(/\s*\d+$/, '')) : [];
   const h2s = [...main.querySelectorAll('h2')].filter(e => vis(e) && seen(e.getBoundingClientRect())).map(e => label(e));
@@ -290,11 +305,11 @@ MEASURE = r"""(arg) => {
   return {
     controls: ctrls.length, filled: filled.length, labelled_buttons: labelled.length, labelled_list: labelled.map(label).slice(0, 40),
     words, chars, small_pct: chars ? Math.round(100 * small / chars) : 0, px13_pct: chars ? Math.round(100 * tiny / chars) : 0, bold_pct: chars ? Math.round(100 * bold / chars) : 0,
-    colors: colors.size, codes: codes.total, codes_detail: codes, rows: rowInfo.length,
+    colors: colors.size, colors_list: [...colorEx].map(([c, t]) => `${c} ${t}`), codes: codes.total, codes_detail: codes, rows: rowInfo.length,
     facts_max: rowInfo.length ? Math.max(...rowInfo.map(r => r.facts)) : 0, facts_med: med(rowInfo.map(r => r.facts)), rows_over4: rowInfo.filter(r => r.facts > 4).length,
     row_buttons_max: rowInfo.length ? Math.max(...rowInfo.map(r => r.buttons)) : 0, rows_multi_button: rowInfo.filter(r => r.buttons > 1).length,
     row_codes: rowInfo.reduce((k, r) => k + r.codes, 0), worst_row: rowInfo.sort((a, b) => b.facts - a.facts)[0]?.text || '',
-    bordered, radii: radii.size, radii_list: [...radii].sort(), marks: marks.length, marks_unworded: unworded.length,
+    bordered, radii: radii.size, radii_list: [...radii].sort(), radii_where: radEx, marks: marks.length, marks_unworded: unworded.length,
     marks_list: marks.slice(0, 6).map(e => (e.innerText || e.getAttribute('aria-label') || e.tagName).replace(/\s+/g, ' ').trim().slice(0, 40)),
     groups: h2s.filter(t => !/your next step/i.test(t)).length, h2: h2s.slice(0, 12), h1: h1[0] || '',
     side_rows: sideRows, tabs, screens: Math.round(100 * document.documentElement.scrollHeight / innerHeight) / 100,

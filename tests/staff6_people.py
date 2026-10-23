@@ -16,6 +16,10 @@ import staff6_lib as L
 
 V5 = L.V5
 STATE = r'\b(Writing|With an approver|Second look|Ready to file|Filed|Missed)\b'
+# The viewer's own step says its verb instead of the state ("Approve by today 11:00 AM", "Resubmit · late, still accepted
+# until 9:30 AM today"): it tells where the testimony stands from where this person sits, so it counts as saying it.
+OWN_STEP = r'(?m)^\s*(Approve|Resubmit|File|Write|Revise|Review|Send (?:it )?for approval)\b.*\b(by|until|now|due)\b'
+said_state = lambda t: re.search(STATE, t) or re.search(OWN_STEP, t)
 STATE_V5 = r'Testimony|No draft|draft yet|Filed|Ready to file|Sent back|in review|approval'
 R = L.Results()
 def check(name, ok, detail='', v6_only=False, skip=None):
@@ -64,7 +68,7 @@ def main():
     check('Nate: "N slipping" on his Today\'s first screen', ok, y)
     if not V5:
       door = pg.page.evaluate("() => [...document.querySelectorAll('main a[href^=\"#/team\"]')].some(a => { const r = a.getBoundingClientRect(); return a.getClientRects().length && r.top < innerHeight && r.bottom > 0; })")
-      check('Nate: the slipping line opens Team in one click', door, 'no link to #/team on his first screen')
+      check('Nate: the slipping line opens Team in one click', door, '' if door else 'no link to #/team on his first screen')
     m = pg.measure()
     check('Nate: one filled button on Today\'s first screen, for his own next step', m['filled'] == 1 and (V5 or re.search(r'your next step', main_text(pg), re.I)),
           f"{m['filled']} filled" + ('' if V5 else '; "Your next step" ' + ('shown' if re.search(r'your next step', main_text(pg), re.I) else 'not shown')))
@@ -97,7 +101,7 @@ def main():
       rows = pg.page.evaluate("[...document.querySelectorAll('.td-coal a.td-crow[href*=\"/hearing/\"]')].map(a => a.innerText)")
       told = [r for r in rows if re.search(STATE_V5, r, re.I)]
     else:
-      nb = place(pg, '/hearings'); rows = hearing_cards(pg); told = [r for r in rows if re.search(STATE, r)]
+      nb = place(pg, '/hearings'); rows = hearing_cards(pg); told = [r for r in rows if said_state(r)]
     check('Kris: every hearing ' + ('row on Today' if V5 else 'card on Hearings') + ' says where its testimony stands', rows and len(told) == len(rows), f'{len(told)} of {len(rows)}', skip=None if V5 else nb)
     nobody = sum(len(re.findall(r'Nobody from the team yet|Nobody going yet', r)) for r in rows)
     check('Kris: no "Nobody going" nag on the hearings (R-276, D5)', nobody == 0, nobody, skip=None if V5 else nb)
@@ -108,7 +112,10 @@ def main():
       pg.open('/', L.KRIS_DAY); y = at(pg, r'9:30'); y2 = at(pg, r'\b229\b'); y_ok = y is not None and y2 is not None and max(y, y2) < 0.3 * 844
     check("Kris, phone, Friday: her hearing's time and room in the top third", y_ok, y)
     if not V5:
-      size = pg.page.evaluate("""() => { const e = [...document.querySelectorAll('main *')].filter(x => x.children.length < 3 && /9:30/.test(x.innerText || '') && x.getClientRects().length)[0]; return e ? parseFloat(getComputedStyle(e).fontSize) : 0; }""")
+      # the hearing card's time (.v6-hcard-time), else the smallest visible element that says 9:30 (never a wrapper around it)
+      size = pg.page.evaluate("""() => { const card = [...document.querySelectorAll('main .v6-hcard-time')].find(x => /9:30/.test(x.innerText || '') && x.getClientRects().length);
+        const e = card || [...document.querySelectorAll('main *')].filter(x => /9:30/.test(x.innerText || '') && x.getClientRects().length).sort((a, b) => (a.innerText || '').length - (b.innerText || '').length)[0];
+        return e ? parseFloat(getComputedStyle(e).fontSize) : 0; }""")
       check('Kris, phone, Friday: the time in large type (18px or more)', size >= 18, f'{size}px')
       going = L.find(pg.page, re.compile(r"^\s*I.m going", re.I), roles=('button', 'switch', 'checkbox'), in_view=True)
       check("Kris, phone, Friday: I'm going on the first screen (1 tap)", going is not None, '')
@@ -158,7 +165,7 @@ def main():
       pg.open('/', L.LAUREN_DAY); y = at(pg, r'9:30'); y_ok = y is not None and y < 0.3 * 844
       cards = hearing_cards(pg); card = cards[0] if cards else ''
     check('Lauren, phone, Tuesday: her hearing first', y_ok, y)
-    check('Lauren: the card says room 430 and the testimony', '430' in card and re.search(r'testimony' if V5 else STATE, card, re.I), card[:80].replace('\n', ' '))
+    check('Lauren: the card says room 430 and the testimony', '430' in card and (re.search(r'testimony', card, re.I) if V5 else said_state(card)), card[:80].replace('\n', ' '))
     pg.close()
     pg = b.page('LR'); pg.open('/'); clicks = 0
     o = L.find(pg.page, 'Outreach', roles=('link',))
@@ -203,8 +210,9 @@ def main():
     check("Kevin -> Nate: the account menu switched person", went and '&as=NT' in pg.page.url, pg.page.url[-60:])
     pg.who = 'NT'
     nb = place(pg, '/inbox' if V5 else '/testimony?view=approve', ''); t = main_text(pg)
+    num = re.sub(r'^([A-Z]+)\s?(\d+)$', r'\1\\s?\2', sent or '')   # v6 writes 'SB 3076' (D15), v5 'SB3076'
     check("Nate: Kevin's draft waits for his approval after the switch (" + ('Inbox' if V5 else 'Testimony, To approve') + ')',
-          sent and re.search(rf'{sent}[\s\S]{{0,300}}approv|approv[\s\S]{{0,300}}{sent}', t), '', skip=nb if went else None)
+          sent and re.search(rf'{num}[\s\S]{{0,300}}approv|approv[\s\S]{{0,300}}{num}', t), '', skip=nb if went else None)
     pg.open(f'/bill/{sent}'); check("Nate: Kevin's to-do is on the bill", 'Two-person check' in main_text(pg), '')
     so = menu(re.compile(r'start (the practice )?over', re.I)); pg.page.wait_for_timeout(3000)
     pg.open(f'/bill/{sent}'); check('Start over: the practice day is back as it began', so and 'Two-person check' not in main_text(pg), '')
