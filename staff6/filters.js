@@ -58,7 +58,9 @@ export const scopeOpts = () => [['me', WHOSE.mine], ...(myCoalitions().size ? [[
 // Somebody who owns no bill but supports a coalition starts on that coalition's bills: an empty "Mine" told Kris "You have
 // no bills yet" in the busiest week of the session. v6 (spec 3.3, F83): owners open on Mine, people who own none on My
 // coalitions, even when an issue they help on puts a bill or two in their Mine (Patti, Julie).
-export const defaultScope = () => !S.bills.some(isOwner) && myCoalitions().size ? 'coal' : 'me';
+// Someone with nothing in Mine and no coalition to help on (Jess, a second approver) opens on Team: an empty Mine with a
+// filter box, Filter and Select over nothing read as if the bills were missing (B-12).
+export const defaultScope = () => !S.bills.some(isOwner) && myCoalitions().size ? 'coal' : !myCoalitions().size && !S.bills.some(isMine) ? 'all' : 'me';
 const okScope = s => s === 'all' || s === 'me' || (s === 'coal' && myCoalitions().size > 0);
 
 // Everything the Bills screens remember. The shared facet sets (S.pris, S.poss…) live on S because model.js's facets
@@ -110,7 +112,7 @@ function load() {
   applyFilters(f);
   v.compact = loadRows();
   // A "Mine" with nothing in it is never where someone who supports a coalition should land (see defaultScope).
-  if (!f || (v.scope === 'me' && !S.bills.some(isMine) && myCoalitions().size)) v.scope = defaultScope();   // a remembered Mine with nothing in it
+  if (!f || (v.scope === 'me' && !S.bills.some(isMine))) v.scope = defaultScope();   // a remembered Mine with nothing in it
   if (!f) return;
   const ok = (arr, pool) => (arr || []).filter(x => pool.includes(x));
   v.cols = new Set(ok(f.cols, ['cmte', 'coal', 'last', 'pulse']));
@@ -143,8 +145,22 @@ export const sponsOf = b => { const out = [];
   for (const s of b.sponsors || []) { const n = String(s.n || s.name || s).replace(/\(.*?\)/g, '').trim(); if (/^[A-Z]\.$/.test(n) && out.length) out[out.length - 1] += ', ' + n; else if (n) out.push(n); }
   return [...new Set(out.map(n => n.toUpperCase()))]; };
 const issueName = id => (S.issues || []).find(i => String(i.id) === String(id))?.name || 'Issue';
+// The words people type for what a bill calls something else (pub/find.js SYN, kept in step by hand: that module brings the
+// whole public app with it). Someone who types "vape" finds the e-cigarette bills (C-10), "kids" the keiki ones.
+const SYN = [
+  ['vape', 'vaping', 'vapor', 'e-cig', 'ecig', 'e-cigarette', 'ecigarette', 'electronic smoking', 'electronic cigarette', 'flavored'],
+  ['keiki', 'kids', 'children', 'child', 'youth'], ['lunch', 'meal'],
+  ['soda', 'sugary drink', 'sugary beverage', 'sugar-sweetened', 'sweetened beverage'],
+];
+const synOf = w => SYN.find(g => g.some(t => t === w || t === w + 's' || w === t + 's' || (w.length >= 4 && t.startsWith(w)))) || [w];
+let TXT = new WeakMap();   // each bill's words, once a paint (every option in the sheet counts the list again)
+const textOf = b => { let t = TXT.get(b); if (t == null) TXT.set(b, t = [b.nickname, b.title, b.description, b.public_summary].map(x => plain(x)).join(' \n ')); return t; };
+// The whole phrase first; else every word, each by itself or one of its synonyms.
 const matchQ = (b, q) => { const n = q.replace(/\s/g, '').toLowerCase();
-  return b.bill_number.toLowerCase().includes(n) || [b.nickname, b.title, b.description, b.public_summary].some(t => plain(t).includes(q)); };
+  if (b.bill_number.toLowerCase().includes(n)) return true;
+  const t = textOf(b); if (t.includes(q)) return true;
+  const words = q.split(/\s+/).filter(Boolean);
+  return words.some(w => synOf(w).length > 1) && words.every(w => synOf(w).some(x => t.includes(x))); };
 // Whose bills: Mine = owned or followed and not muted (the current app's isMine); My coalitions = every bill in a
 // coalition you support, less the ones you muted (a mute is "off my lists"); Team = every tracked bill.
 // Monitor bills that died stay out (234 of Nate's 289 monitor bills are dead clerical noise); a search finds them.
@@ -209,16 +225,16 @@ const cnt = (list, skip, test) => {
   try { return list.filter(b => passAll(b, skip) && test(factsOf(b), b)).length; } finally { S.stageF = st; }
 };
 export const quickCount = (spec, test) => cnt(baseBills(), spec.split(':')[0], test);
-export const freshFacts = () => { FACTS.clear(); ISS = null; DUE = null; };   // positions, coalitions and lists change under the list; facts are cheap to rebuild
+export const freshFacts = () => { FACTS.clear(); ISS = null; DUE = null; TXT = new WeakMap(); };   // positions, coalitions and lists change under the list; facts are cheap to rebuild
 
 // ---- what is switched on ----
 // The quick chips are three of the same filters, one tap away. Muted is a place, not a filter, so it is a link.
 // "At risk" is atRisk() (model.js, RISK_DAYS: no hearing and the deadline 7 days away or less) here, in the strip and
 // in the weekly memo alike.
 export const QUICK = [['riskF', 'At risk', f => f.risk], ['hearF', 'Hearing this week', (f, b) => hearWeek(f, b)], ['poss:monitor', 'Monitoring', (f, b) => b.position === 'monitor']];
-// "Needs a hearing" is at risk and waiting together (the table's "Waiting for a hearing" group is only the ones not
-// at risk, so the sheet no longer borrows its name for a bigger number).
-const STAND_WORD = { a: 'Needs a hearing', b: 'Hearing scheduled', c: 'Through its committees', done: 'At the governor or law', dead: 'Did not advance' };
+// "No hearing yet" is at risk and the rest together: Bills' two groups are "At risk: no hearing yet" and "No hearing yet",
+// and the deadline line says "with no hearing yet" (one word per fact, A-14; v6 had three names for it).
+const STAND_WORD = { a: 'No hearing yet', b: 'Hearing scheduled', c: 'Through its committees', done: 'At the governor or law', dead: 'Did not advance' };
 const FLAG_WORD = { riskF: 'At risk', hearF: 'Hearing this week', tripleF: 'Three or more committees' };
 // The filters kept on the Bills screen's own state (the rest live on S, where model.js's facets read them).
 const MINE = new Set(['owners', 'cmtes', 'issues', 'spons']);
@@ -350,14 +366,14 @@ export function activeFilters() {
   for (const o of v.owners) out.push([`owners:${o}`, ownerWord(o)]);
   for (const p of S.poss) out.push([`poss:${p}`, posWord(p)]);
   for (const s of S.stands) out.push([`stands:${s}`, STAND_WORD[s] || s]);
-  if (S.stageF) out.push([`stageF:${S.stageF}`, `Stage: ${STAGES.find(([k]) => k === S.stageF)?.[1] || S.stageF}`]);
+  if (S.stageF) out.push([`stageF:${S.stageF}`, stageWords(S.stageF)]);
   for (const k of ['hearF', 'riskF', 'tripleF']) if (S[k]) out.push([k, FLAG_WORD[k]]);
   for (const c of S.camps) out.push([`camps:${c}`, S.campaigns.find(x => x.id === c)?.name || 'Coalition']);
   for (const l of S.lsts) out.push([`lsts:${l}`, (S.lists || []).find(x => x.id === l)?.title || 'List']);
   for (const c of v.cmtes) out.push([`cmtes:${c}`, committeeName(c) || c]);
   for (const i of v.issues) out.push([`issues:${i}`, issueName(i)]);
   for (const n of v.spons) out.push([`spons:${n}`, sponsorName(n)]);
-  if (v.due) out.push([`due:${v.due}`, `Needs a hearing by ${dueDay(v.due)}`]);
+  if (v.due) out.push([`due:${v.due}`, `No hearing yet · by ${dueDay(v.due)}`]);
   return out;
 }
 export const filterCount = () => activeFilters().length;
@@ -368,10 +384,24 @@ export const filterCount = () => activeFilters().length;
 // always shows, so it can be taken off), every option says how many bills it leaves, and the foot says how many show.
 // Codes still find what they mean: a committee is listed by its name with its code beside it, and the box above the
 // committees takes either ("TRN" or "Transportation"). A half sheet on phones (drag up for more), a popover on a laptop. ----
-const opt = (spec, label, n, { ic, title } = {}) => { const on = isOn(spec);
-  // An option that is on carries a tick (never colour alone).
-  return `<button type="button" class="chip bl-opt" data-ft="${esc(spec)}" aria-pressed="${on}"${title ? ` title="${esc(title)}"` : ''}>${on ? icon('check') : ic ? icon(ic) : ''}<span>${esc(label)}</span><span class="bl-n">${n}</span></button>`; };
+const opt = (spec, label, n, { ic, title, small } = {}) => { const on = isOn(spec);
+  // An option that is on carries a tick (never colour alone). `small`: the Capitol's own name, small after the words.
+  return `<button type="button" class="chip bl-opt" data-ft="${esc(spec)}" aria-pressed="${on}"${title ? ` title="${esc(title)}"` : ''}>${on ? icon('check') : ic ? icon(ic) : ''}<span>${esc(label)}${small ? ` <span class="v6-code">${esc(small)}</span>` : ''}</span><span class="bl-n">${n}</span></button>`; };
 const shown = (spec, n) => n > 0 || isOn(spec);   // no zero-count options (V32)
+// A group whose one choice holds every bill filters nothing (Patti's Owner "Lauren 89" and Coalition "HEAL 89"): it is
+// left out, unless that choice is on, so it can come off.
+const useful = (items, key, base) => items.length > 1 || items.some(([spec]) => isOn(spec)) || (items[0] && items[0][1] < cnt(base, key, () => true));
+// Exact stage in plain words (C-15, A-14): what the bill must do next, the Capitol's name for that deadline small after it;
+// "Did not advance", as everywhere in v6, never "Dead".
+const STAGE_PLAIN = {
+  introduced: ['Just introduced'], first_triple: ['First chamber: clear the first of 3 committees', 'First triple filing'],
+  first_lateral: ['First chamber: reach its last committee', 'First lateral'], first_decking: ['First chamber: clear its last committee', 'First decking'],
+  first_floor: ['First chamber: floor vote next', 'First floor vote'], first_crossover: ['Crossed to the second chamber', 'Crossover'],
+  second_triple: ['Second chamber: clear the first of 3 committees', 'Second triple filing'], second_lateral: ['Second chamber: reach its last committee', 'Second lateral'],
+  second_decking: ['Second chamber: clear its last committee', 'Second decking'], second_floor: ['Second chamber: floor vote next', 'Second floor vote'],
+  second_crossover: ['Passed both chambers', 'Cross back'], conference: ['In conference'], governor: ['With the governor'], enacted: ['Law'], vetoed: ['Vetoed'],
+  ballot: ['To the voters'], dead: ['Did not advance'] };
+export const stageWords = k => STAGE_PLAIN[k]?.[0] || STAGES.find(([x]) => x === k)?.[1] || k;
 const group = (title, inner, key) => inner ? `<section class="bl-fg" aria-labelledby="bl-fg-${key}"><h3 id="bl-fg-${key}">${title}</h3><div class="chips">${inner}</div></section>` : '';
 // The presets: one tap each, pressed while on. "Your usual list" resets everything (scope, filters, search), and shows only
 // when something differs from it.
@@ -390,18 +420,18 @@ function sheetBody() {
   const v = bl(), base = baseBills(), f = Object.fromEntries(facets().map(g => [g.key, g]));
   const ads = S.advocates.filter(a => a.is_active !== false).sort((a, b) => (b.id === S.me?.id) - (a.id === S.me?.id) || a.full_name.localeCompare(b.full_name));
   // Where it stands, position, owner, coalition: the four everyone uses (shown).
-  const stands = ['b', 'a', 'c', 'done', 'dead'].map(k => [k, cnt(base, 'stands', (x, b) => standIs(x, b, k))]).filter(([k, n]) => shown(`stands:${k}`, n))
-    .map(([k, n]) => opt(`stands:${k}`, STAND_WORD[k], n, k === 'a' ? { title: 'At risk or waiting: no hearing yet' } : {})).join('');
+  // Each as [spec, n, label, opts], then drawn only when it can narrow the list (useful).
+  const draw = (key, items) => { const on = items.filter(([sp, n]) => shown(sp, n)); return useful(on, key, base) ? on.map(([sp, n, l, o]) => opt(sp, l, n, o)).join('') : ''; };
+  const stands = draw('stands', ['b', 'a', 'c', 'done', 'dead'].map(k => [`stands:${k}`, cnt(base, 'stands', (x, b) => standIs(x, b, k)), STAND_WORD[k], k === 'a' ? { title: 'At risk or not: every bill with no hearing yet' } : {}]));
   const posKeys = [...f.poss.opts.map(([k]) => k), 'none'];
-  const poss = posKeys.map(k => [k, cnt(base, 'poss', (x, b) => posIs(b, k))]).filter(([k, n]) => shown(`poss:${k}`, n))
-    .map(([k, n]) => opt(`poss:${k}`, posWord(k), n, { ic: POS_ICON[k === 'none' ? '' : k] })).join('');
-  const owners = [...ads.map(a => ({ id: a.id, l: a.id === S.me?.id ? 'You' : a.full_name })), { id: 'none', l: 'No owner' }]
-    .map(o => ({ ...o, n: cnt(base, 'owners', (x, b) => ownerHas(b, o.id)) })).filter(o => shown(`owners:${o.id}`, o.n)).map(o => opt(`owners:${o.id}`, o.l, o.n)).join('');
-  const camps = S.campaigns.map(c => ({ id: c.id, l: c.name, n: cnt(base, 'camps', x => x.camps.includes(c.id)) })).filter(c => shown(`camps:${c.id}`, c.n)).map(c => opt(`camps:${c.id}`, c.l, c.n)).join('');
+  const poss = draw('poss', posKeys.map(k => [`poss:${k}`, cnt(base, 'poss', (x, b) => posIs(b, k)), posWord(k), { ic: POS_ICON[k === 'none' ? '' : k] }]));
+  const owners = draw('owners', [...ads.map(a => ({ id: a.id, l: a.id === S.me?.id ? 'You' : a.full_name })), { id: 'none', l: 'No owner' }]
+    .map(o => [`owners:${o.id}`, cnt(base, 'owners', (x, b) => ownerHas(b, o.id)), o.l]));
+  const camps = draw('camps', S.campaigns.map(c => [`camps:${c.id}`, cnt(base, 'camps', x => x.camps.includes(c.id)), c.name]));
   // More filters: the rest, each with only the options that leave something.
   const hear = [['hearF', 'This week', cnt(base, 'hearF', (x, b) => hearWeek(x, b)), 'A hearing in the next 7 days'], ['riskF', 'At risk: no hearing yet', cnt(base, 'riskF', x => x.risk), 'No hearing, and the deadline is a week away or less']]
     .filter(([s, , n]) => shown(s, n)).map(([s, l, n, t]) => opt(s, l, n, { title: t })).join('');
-  const stages = STAGES.map(([k, l]) => [k, l, cnt(base, 'stageF', (x, b) => effStage(b) === k)]).filter(([k, , n]) => shown(`stageF:${k}`, n)).map(([k, l, n]) => opt(`stageF:${k}`, l, n, { title: STAGE_GLOSS[k] || '' })).join('');
+  const stages = draw('stageF', STAGES.map(([k]) => [`stageF:${k}`, cnt(base, 'stageF', (x, b) => effStage(b) === k), stageWords(k), { title: STAGE_GLOSS[k] || '', small: STAGE_PLAIN[k]?.[1] }]));
   const lists = (S.lists || []).map(l => ({ id: l.id, l: l.title, n: cnt(base, 'lsts', x => x.lsts.includes(l.id)) })).filter(l => shown(`lsts:${l.id}`, l.n)).map(l => opt(`lsts:${l.id}`, l.l, l.n)).join('');
   // Long lists (a committee, an issue, a sponsor each): busiest first, twelve until you type, a box that narrows them.
   const pickRows = (kind, items, on, nameOf, what) => { const all = items.map(([id, n]) => [id, n, on.has(id)]).filter(([, n, o]) => n || o)

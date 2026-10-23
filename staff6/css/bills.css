@@ -7,24 +7,35 @@
 .bl-page, .bl-memopage { --bl-top0: var(--header); --bl-sh: 0px; }
 .bl-page { min-width: 0; }
 
-/* ---- the head: "Bills", its page tabs, the whose switch on a line of its own under them (staff.css .sv-phead) ---- */
+/* ---- the head: "Bills" with the whose switch at its right (as v5 had it beside the title), the page tabs on their own
+   row under them (staff.css .sv-phead). The switch used to take a 56px row of its own under the tabs, which put the first
+   bill 444px down Nate's laptop (A-1: 400); at the title's right it keeps its own track, apart from the tabs. ---- */
 @media (min-width: 768px) {
-  /* With no tabs (one page only), the whose switch still goes under the title, never beside it: the same place on every page. */
-  body.staff6 main .bl-head:not(:has(.sv-secnav)) .sv-phr { flex: 0 0 100%; justify-content: flex-start; }
+  body.staff6 main .bl-head.sv-phead:has(.sv-secnav) .sv-phr > .sv-seg.sv-whose { order: 1; }   /* outranks staff.css's order: 3 */
   body.staff6 main .bl-head { margin-bottom: var(--s16); }
 }
+/* A phone: the tabs, then the switch across the column; 12px between them, not 20 (the first bill 490px down, A-1). */
 @media (max-width: 767px) {
-  body.staff6 main .bl-head { display: flex; flex-wrap: wrap; gap: var(--s8) 0; margin: 0 0 var(--s12); }
+  body.staff6 main .bl-head { display: flex; flex-wrap: wrap; gap: var(--s12) 0; margin: 0 0 var(--s12); }
+  body.staff6 main .bl-head .sv-secnav { margin-bottom: 0; }
   body.staff6 main .bl-head .sv-seg { flex: 1 1 100%; display: flex; }
   body.staff6 main .bl-head .sv-seg button { flex: 1 1 auto; padding: 0 10px; white-space: nowrap; }
 }
 
-/* ---- the deadline line (F95): one sentence, 16px, its count a link to those bills, then Get hearings ---- */
+/* ---- the deadline line (F95): one sentence, 16px, its count a link to those bills, then Get hearings. A phone has the
+   short form, without the icon, so it takes one or two lines rather than four. ---- */
 .bl-dls { display: flex; align-items: flex-start; gap: var(--s8); margin: 0 0 var(--s16); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); max-width: 960px; }
 .bl-dls > .ic { flex: none; width: 20px; height: 20px; margin-top: 2px; color: var(--v6-muted); }
 .bl-dls b { color: var(--v6-ink); }
-.bl-dls .bl-dlk { font: inherit; font-weight: 700; color: var(--v6-action); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
-.bl-dls .bl-dlgo { font-weight: 700; color: var(--v6-action); white-space: nowrap; }
+/* the two links in the line: underlined, not bold (the share of bold text, spec 4) */
+.bl-dls .bl-dlk { font: inherit; font-weight: 400; color: var(--v6-action); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.bl-dls .bl-dlgo { font-weight: 400; color: var(--v6-action); white-space: nowrap; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.bl-dln { display: none; }
+@media (max-width: 767px) {
+  .bl-dls { margin-bottom: var(--s12); }
+  .bl-dls > .ic, .bl-dlw { display: none; }
+  .bl-dln { display: inline; }
+}
 .bl-sum { font-size: var(--v6-t16); color: var(--v6-muted); margin: 0 0 var(--s12); }
 .bl-sum:not(:has(button)) { margin: 0; }
 #bl-lead:empty { display: none; }
@@ -48,9 +59,23 @@
 @media (max-width: 899px) {
   .bl-search { flex: 1 1 200px; max-width: none; }
 }
-@media (max-width: 420px) {
-  .bl-search { flex: 1 1 100%; }
-  .bl-tools .bl-sp { display: none; }
+/* A phone: the box and Filter share one row; Select moves to the right of the first group's heading (bills.js). */
+.bl-ghsel { display: none; }
+@media (max-width: 767px) {
+  .bl-tools { flex-wrap: nowrap; gap: var(--s8); }
+  .bl-search { flex: 1 1 auto; }
+  .bl-tools .bl-sp, .bl-tsel { display: none; }
+  .bl-ghbar { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s4); }
+  .bl-ghbar .bl-gh { gap: 6px; }
+  .bl-ghbar > .bl-gh { flex: 1 1 auto; min-width: 0; }
+  .bl-ghsel { display: block; flex: none; padding-top: 4px; }
+  .bl-ghsel .btn { padding: 0 12px; }
+  .bl-ghsel .btn .ic { display: none; }   /* the word alone, so "Hearing scheduled 12" and Select share a 320px row */
+  .bl-tools { margin-bottom: var(--s8); }
+  .bl-search .input { box-sizing: border-box; height: 44px; }
+  .bl-search .input:placeholder-shown { padding-right: 12px; }   /* no clear button while empty: the words get its room */
+  /* the switch: 48px, not 52 (its buttons stay 44px targets) */
+  body.staff6 main .bl-head .sv-seg { padding: 2px; }
 }
 
 /* ---- filters that are on: chips that come off with a click, then Clear all ---- */
@@ -136,6 +161,9 @@ dialog.sv-sheet.bl-fsheet .sv-sh-head, dialog.sv-sheet.bl-fsheet .sv-sh-grab { u
 .bl-fs .chip[aria-pressed="true"] .bl-n { color: var(--v6-action-press); }
 @media (hover: hover) and (pointer: fine) { .bl-fs button.chip.bl-opt:not([aria-pressed="true"]):hover { background: var(--v6-action-wash); color: var(--v6-action); } }
 @media (max-width: 767px) { .bl-fs button.chip.bl-opt { min-height: 44px; } }
+/* a long choice (an exact stage in words) wraps inside the sheet rather than running out of it */
+.bl-fs button.chip.bl-opt { max-width: 100%; white-space: normal; text-align: left; }
+.bl-fs .chip .v6-code { font-size: var(--v6-t14); color: var(--v6-muted); font-weight: 400; }
 .bl-fpre { padding-bottom: var(--s16); box-shadow: inset 0 -1px 0 var(--v6-hair); }
 .bl-fs .bl-fpre + .bl-fg { margin-top: var(--s16); }
 .bl-facts { display: flex; flex-wrap: wrap; gap: var(--s4); margin: var(--s8) 0 0 -12px; }

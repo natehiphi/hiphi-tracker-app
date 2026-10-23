@@ -2,18 +2,20 @@
 // v5's Bills put 90 controls and 42 Capitol codes on Kris's first laptop screen (assessment X4, X28), a second search box
 // 70px under the header's (A-14), three quick pills, a "…" that mixed table tools with places (X6), and on Kris's phone 6.8
 // screens of rows. v6 keeps every job and shows less at once (Nate, 22 Oct: "too much per screen"):
-//   - the place head: "Bills", its page tabs (Bills · Sort new bills · Muted, billshead.js) and one whose switch, Mine | My
-//     coalitions | Team (owners open on Mine, people who own none on My coalitions);
-//   - one line about the next deadline ("16 of your bills have no hearing yet and must reach their last committee by Mon
-//     3/30 · Get hearings"), the count a link to exactly those bills (F95);
+//   - the place head: "Bills" with one whose switch at its right, Mine | My coalitions | Team (owners open on Mine, people
+//     who own none on My coalitions, people with nothing in Mine and no coalition on Team), and the page tabs under it
+//     (Bills · Sort new bills · Muted, billshead.js);
+//   - over the whole list only, one line about the next deadline ("By Mon 3/30, 16 of your bills with no hearing yet must
+//     reach their last committee · Get hearings"; a phone's is shorter), the count a link to exactly those bills (F95);
 //   - the list's toolbar: one box that filters this list ("Filter these bills", V32; the header's box searches everything),
 //     the one Filter sheet (filters.js: 4 groups, More filters, presets in place of the quick pills, saved views), a visible
-//     Select (bulk.js), and Rows | Table (D9: anyone may pick the table; it is remembered for the person). The table adds
-//     its own Columns, Edit and Export (F88, F89, F92);
-//   - the rows (default): roomy two-line rows (steps.js billRow: the name, the bill number small, one plain line, D15)
-//     grouped by where they stand, with Monitoring and Did not advance folded, and the picked bill open beside the list
-//     (steps.js listDetail + billpane.js openItem, V17): from 1100px the panel waits beside the list ("Pick a bill to see
-//     its next step"); below 1100px the bill is its own page with Back to the list.
+//     Select (bulk.js; on a phone at the right of the first group's heading), and Rows | Table (D9: anyone may pick the
+//     table; it is remembered for the person). The table adds its own Columns, Edit and Export (F88, F89, F92);
+//   - the rows (default): roomy two-line rows (steps.js billRow: the name, the bill number small, one plain line, D15; no
+//     step buttons, spec 11 settled 1) grouped by where they stand, with Monitoring and Did not advance folded and the
+//     viewer's own steps never behind "Show all", and the picked bill open beside the list (steps.js listDetail +
+//     billpane.js openItem, V17): from 1100px the panel waits beside the list ("Pick a bill to see its next step");
+//     below 1100px the bill is its own page with Back to the list.
 // The table is v5's (sorting, columns, edit in place with Undo, select with shift-click, the docked bill) with Capitol codes
 // turned into words where it can, the bill number kept (D15). Keys on a laptop (F96): j/k walk the rows, Space or o opens
 // the bill beside the list, Enter opens its page, x selects, Esc closes, "/" puts the cursor in the filter box (app.js).
@@ -33,14 +35,19 @@ import { billsHead, loadSortCount, refreshTabs } from './billshead.js';
 
 // ---- groups, in stage order: GROUPS and groupKey live in standing.js, shared with an issue's page (R-226) ----
 const FOLDED = new Set(['mon', 'dead']);
+// One word per fact (spec rule 6, A-14): the state is "No hearing yet" in the group, the Filter sheet, its chip and the
+// deadline line alike (standing.js still says "Waiting for a hearing" for an issue's page: a shared change asks BILL to match).
+const TITLE = { wait: 'No hearing yet' };
 // Rows an open group shows before "Show all N": a phone keeps each group to a glance (Kris's phone Bills was 6.8 screens
 // in v5), a laptop's roomy rows to eight (roomy must not mean longer, V16), the dense table to v5's 25 (R-277 fix 11).
 const foldAt = () => tableOn() ? 25 : wideNow() ? 8 : 5;
-const moreRows = g => g.open && g.all > foldAt() ? showAllBtn(g.all, { 'data-full': g.k }, { open: !!bl().full?.[g.k], what: 'bills' }) : '';
+const moreRows = g => g.open && g.hides > 0 ? showAllBtn(g.all, { 'data-full': g.k }, { open: !!bl().full?.[g.k], what: 'bills' }) : '';
 const ST = new Map();   // stopOf per render: it filters every hearing, so each bill is worked out once
 const stOf = b => { let s = ST.get(b.id); if (!s) ST.set(b.id, s = stopOf(b)); return s; };
 const STEP = new Map();   // billStep per render, for the same reason
 const stepOf = b => { let s = STEP.get(b.id); if (!s) STEP.set(b.id, s = billStep(b, { viewer: S.me })); return s; };
+// The viewer has something to do on it: their own step with a time to act (a chair ask still waiting on a reply is not).
+const ownStep = b => { const s = stepOf(b); return !!s?.you && s.kind !== 'filed' && s.act?.kind !== 'none'; };
 const byNum = (a, b) => a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true });
 const byPri = (a, b) => (a.priority || 9) - (b.priority || 9);
 const hearAt = b => stOf(b).hearing?.scheduled_at || '9';
@@ -77,7 +84,7 @@ function build() {
   if (fz) { const have = new Set(list.map(b => b.id)); for (const id of fz.order) if (!have.has(id)) { const b = S.bills.find(x => x.id === id); if (b) list.push(b); } }
   for (const b of list) by[fz?.group.get(b.id) || groupKey(b)].push(b);
   const srt = sorter(), at = b => fz.pos.get(b.id) ?? 1e9;
-  const groups = GROUPS.map(([k, title]) => ({ k, title, rows: by[k].sort(fz ? (a, b) => at(a) - at(b) : srt || NATURAL[k]) })).filter(g => g.rows.length);
+  const groups = GROUPS.map(([k, title]) => ({ k, title: TITLE[k] || title, rows: by[k].sort(fz ? (a, b) => at(a) - at(b) : srt || NATURAL[k]) })).filter(g => g.rows.length);
   if (v.edit && !fz) { const order = groups.flatMap(g => g.rows.map(b => b.id));
     v.frozen = { key: fk, order, group: new Map(groups.flatMap(g => g.rows.map(b => [b.id, g.k]))), pos: new Map(order.map((id, i) => [id, i])) }; }
   if (!v.edit) v.frozen = null;
@@ -86,7 +93,11 @@ function build() {
   const asked = !!v.q.trim() || activeFilters().length > 0, only = groups.length === 1;
   for (const g of groups) g.open = v.folds[g.k] ?? (asked || only || !FOLDED.has(g.k));
   const cap = foldAt();
-  for (const g of groups) { g.all = g.rows.length; g.shown = g.rows.length > cap && !(v.full ??= {})[g.k] ? g.rows.slice(0, cap) : g.rows; }
+  // Nothing a person must do waits behind "Show all" (spec 7 rule 3): the viewer's own steps always show, in their place,
+  // and only the other rows count toward the fold.
+  for (const g of groups) { g.all = g.rows.length; let k = 0;
+    const folded = g.rows.length > cap ? g.rows.filter(b => ownStep(b) || k++ < cap) : g.rows;
+    g.hides = g.rows.length - folded.length; g.shown = g.hides && !(v.full ??= {})[g.k] ? folded : g.rows; }
   NAV = groups.filter(g => g.open).flatMap(g => g.shown.map(b => b.id));
   return { list, groups };
 }
@@ -143,14 +154,23 @@ function scopeSwitch() {
 }
 // The one line about the next deadline (F95, V19: bills needing a hearing always name the deadline). It names the first
 // deadline that leaves work, the count a link to exactly those bills (filters.js due:), and the way to the job, Hearings ›
-// Get hearings. Nothing is amber: a deadline coming is not late (D3).
-function leadLine(list) {
+// Get hearings. Nothing is amber: a deadline coming is not late (D3). It leads with the day, so a count that differs from
+// a group's ("12" above "No hearing yet 16") reads as the bills racing that day. It is drawn only over the whole list
+// (the caller leaves it out under a search or a filter: a filtered list would make it say "every one of your bills has
+// a hearing" while the filter hid the ones that do not, P-5), and not when the group right under it is exactly those
+// bills (Kris's "At risk: no hearing yet 1" said the same thing back to back, A-14). A phone gets the short form, so the
+// first bill stays in view (A-1).
+function leadLine(list, groups) {
   const c = sessionClock(list); if (!c) return '';
   const x = c.noHearing.length ? c : c.then && c.then.noHearing.length ? c.then : null;
   if (!x) return `<p class="bl-dls">${icon('calendar-check')}<span>Every one of ${esc(whoseWords())} racing the next deadline has a hearing.</span></p>`;
-  const n = x.noHearing.length, words = `${n} of ${whoseWords()}`;
-  const count = isOn(`due:${x.date}`) ? `<b>${esc(words)}</b>` : `<button type="button" class="linkbtn bl-dlk" data-ft="due:${esc(x.date)}">${esc(words)}</button>`;
-  return `<p class="bl-dls">${icon('calendar-clock')}<span>${count} ${n === 1 ? 'has' : 'have'} no hearing yet and must ${esc(gateNeed(x.label, n === 1 ? 1 : 2))} by <span class="v6-nw">${esc(dayWords(x.date))}</span> · <a class="bl-dlgo" href="#/hearings/ask">Get hearings</a></span></p>`;
+  const first = groups.find(g => g.open), ids = new Set(x.noHearing.map(b => b.id));
+  if (first && first.all === ids.size && first.rows.every(b => ids.has(b.id))) return '';
+  const n = x.noHearing.length, day = `<span class="v6-nw">${esc(dayWords(x.date))}</span>`, on = isOn(`due:${x.date}`);
+  const link = words => on ? `<b>${esc(words)}</b>` : `<button type="button" class="linkbtn bl-dlk" data-ft="due:${esc(x.date)}">${esc(words)}</button>`;
+  const go = `<a class="bl-dlgo" href="#/hearings/ask">Get hearings</a>`;
+  return `<p class="bl-dls">${icon('calendar-clock')}<span class="bl-dlw">By ${day}, ${link(`${n} of ${whoseWords()}`)} with no hearing yet must ${esc(gateNeed(x.label, n === 1 ? 1 : 2))} · ${go}</span>`
+    + `<span class="bl-dln">${link(`${n} bill${n === 1 ? '' : 's'}`)} ${n === 1 ? 'has' : 'have'} no hearing yet · deadline ${day} · ${go}</span></p>`;
 }
 // A filter in Mine (or My coalitions) says when the team has more, and offers the switch (F83 "N more under Team").
 const moreLine = (n, more, q) => `<p class="bl-sum">${more ? `<button type="button" class="linkbtn" data-scopeall="1">${more} more under Team</button>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span></p>`;
@@ -158,11 +178,13 @@ const moreLine = (n, more, q) => `<p class="bl-sum">${more ? `<button type="butt
 function toolbar() {
   const v = bl(), n = activeFilters().length, wide = wideNow(), tbl = tableOn(), mode = viewMode();
   const box = `<div class="searchbox bl-search"><label class="sr" for="bl-q">Filter these bills by number or words</label>${icon('list-filter')}<input id="bl-q" class="input" type="search" placeholder="Filter these bills" value="${esc(v.q)}" autocomplete="off" enterkeyhint="search">${iconBtn('x', 'Clear the box', { 'data-qclear': '1', hidden: !v.q })}</div>`;
-  const sel = v.selecting ? '' : btn('Select', { kind: 'secondary', sm: true, icon: 'square-check-big', attrs: { 'data-blselect': '1', title: 'Pick bills to change several at once' } });
+  // Nothing to pick or lay out in an empty list: Select and Rows | Table wait for bills (Jess's empty Mine, A-24).
+  const has = shownBills().length > 0, sel = v.selecting || !has ? '' : `<span class="bl-tsel">${selectBtn()}</span>`;
   const tools = tbl ? `<span class="bl-ttools">${btn('Columns', { kind: 'text', sm: true, icon: 'columns-3', attrs: { 'data-cols': '1', 'aria-haspopup': 'dialog' } })}${btn(v.edit ? 'Done editing' : 'Edit', { kind: v.edit ? 'secondary' : 'text', sm: true, icon: v.edit ? 'check' : 'square-pen', attrs: { 'data-tedit': '1', 'aria-pressed': v.edit ? 'true' : 'false', title: v.edit ? 'Stop editing in the table' : 'Change positions and owners right in the table' } })}${btn('Export', { kind: 'text', sm: true, icon: 'download', attrs: { 'data-export': '1', title: 'These bills, with your filters, as a spreadsheet file' } })}</span>` : '';
-  const sw = wide ? `<div class="sv-seg bl-viewsw" role="group" aria-label="Show bills as">${[['rows', 'Rows', 'rows-3'], ['table', 'Table', 'table-2']].map(([k, l, ic]) => `<button type="button" data-blview="${k}" aria-pressed="${mode === k}">${icon(ic)}<span>${l}</span></button>`).join('')}</div>` : '';
+  const sw = wide && (has || tbl) ? `<div class="sv-seg bl-viewsw" role="group" aria-label="Show bills as">${[['rows', 'Rows', 'rows-3'], ['table', 'Table', 'table-2']].map(([k, l, ic]) => `<button type="button" data-blview="${k}" aria-pressed="${mode === k}">${icon(ic)}<span>${l}</span></button>`).join('')}</div>` : '';
   return `<div class="bl-tools" role="group" aria-label="This list">${box}${filterBtn(n, { 'data-filter': '' })}${sel}<span class="bl-sp"></span>${tools}${sw}</div>`;
 }
+const selectBtn = () => btn('Select', { kind: 'secondary', sm: true, icon: 'square-check-big', attrs: { 'data-blselect': '1', title: 'Pick bills to change several at once' } });
 // Filters that are on, each a chip that comes off in one click, and Clear all; a saved view says its name first.
 function onRow() {
   const act = activeFilters(), vw = curView(); if (!act.length && !vw) return '';
@@ -185,11 +207,11 @@ function emptyState(q, nf) {
 function parts() {
   const v = bl(), q = v.q.trim(), { list, groups } = build(), act = activeFilters();
   const more = q && v.scope !== 'all' && list.length ? (() => { const n = shownBills('all').length; return n > list.length ? n - list.length : 0; })() : 0;
-  // Filtering, the line under the head is about the filter; otherwise the deadline line, except while its own link's
-  // filter is on (the chip and the rows say it then).
-  const lead = !list.length ? '' : q ? moreLine(list.length, more, q) : v.due ? '' : leadLine(list);
+  // Searching, the line under the head is about the search; with any filter on (the deadline link's own included) there
+  // is none; over the whole list, the deadline line.
+  const lead = !list.length ? '' : q ? moreLine(list.length, more, q) : v.due || act.length ? '' : leadLine(list, groups);
   const selHead = v.selecting && list.length ? (() => { const all = NAV.length && NAV.every(id => v.sel.has(id)), ids = selIds(), vis = new Set(list.map(b => b.id)), hid = ids.filter(id => !vis.has(id)).length;
-    return `<div class="bl-selhead"><span>${hid ? `${hid} of the ${ids.length} you picked ${hid === 1 ? 'is' : 'are'} hidden by your filters.` : wideNow() ? 'Click bills to pick them.' : 'Tap bills to pick them.'}</span>${btn(all ? 'Pick none' : `Pick all ${NAV.length}`, { kind: 'text', sm: true, attrs: { 'data-selall': all ? 'none' : 'all' } })}</div>`; })() : '';
+    return `<div class="bl-selhead"><span>${hid ? `${hid} of the ${ids.length} you picked ${hid === 1 ? 'is' : 'are'} hidden by your filters.` : wideNow() ? 'Click bills to pick them.' : 'Tap bills to pick them.'}</span>${btn(all ? 'Pick none' : `Pick the ${NAV.length} shown`, { kind: 'text', sm: true, attrs: { 'data-selall': all ? 'none' : 'all' } })}</div>`; })() : '';
   const body = !list.length ? emptyState(q, act.length) : tableOn() ? tableView(groups) : rowsView(groups);
   return { lead, chips: onRow(), body: `${selHead}${body}` };
 }
@@ -208,8 +230,13 @@ const groupHead = g => FOLDED.has(g.k)
   : `<h2 class="bl-gh" id="bl-g-${g.k}"><span>${esc(g.title)}</span><span class="bl-gn">${g.all}</span></h2>`;
 function rowsView(groups) {
   const v = bl(), pick = !v.selecting;
-  const rowOf = b => v.selecting ? selRow(b) : billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), cls: v.cur === b.id ? 'bl-cur' : '' });
-  const html = groups.map(g => `<section class="bl-grp" aria-labelledby="bl-g-${g.k}">${groupHead(g)}${g.open ? `<div class="v6-list" role="list" aria-labelledby="bl-g-${g.k}">${g.shown.map(rowOf).join('')}</div>${moreRows(g) ? `<div class="bl-more">${moreRows(g)}</div>` : ''}` : ''}</section>`).join('');
+  // No step buttons in Bills' rows (spec 11, settled 1): a viewer's own step has its button in the open bill beside the list,
+  // on Today and on the bill's page; a row here says the step and opens the bill.
+  const rowOf = b => v.selecting ? selRow(b) : billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: v.cur === b.id ? 'bl-cur' : '' });
+  // A phone's toolbar holds the filter box and Filter only; Select (F91: a visible tonal button) sits at the right of the
+  // first group's heading, where a list's Select usually is on a phone (CSS shows it below 768px only).
+  const selBtn = pick ? `<span class="bl-ghsel">${selectBtn()}</span>` : '';
+  const html = groups.map((g, i) => `<section class="bl-grp" aria-labelledby="bl-g-${g.k}">${i === 0 && selBtn ? `<div class="bl-ghbar">${groupHead(g)}${selBtn}</div>` : groupHead(g)}${g.open ? `<div class="v6-list" role="list" aria-labelledby="bl-g-${g.k}">${g.shown.map(rowOf).join('')}</div>${moreRows(g) ? `<div class="bl-more">${moreRows(g)}</div>` : ''}` : ''}</section>`).join('');
   if (!pick) return `<div class="bl-groups bl-selecting">${html}</div>${keysHint()}`;
   const b = v.look ? S.bills.find(x => x.id === v.look) : null;
   // listDetail's one list becomes one card per group, so the list box itself carries no role (each group's card is the list).
@@ -276,16 +303,21 @@ function whereCell(b) {
   if (s.committee) return [esc(committeeName(s.committee)), s.stops > 1 ? `${ORD[s.stop] || s.stop} of ${s.stops}` : '', `${committeeName(s.committee)}${s.stops > 1 ? `: committee ${s.stop} of ${s.stops} in the ${ch}, which it must clear in order` : ''}`];
   return [ch, 'no committee yet', ''];
 }
-// "Next": the step in steps.js words (V19), the same line as the rows; with no step, the deadline the bill races.
+// "Next": the step in steps.js words (V19), the same line as the rows; with no step, the deadline the bill races. The
+// fourth part is the compact table's one line, the time first ("Wed 3/18, 9:30 AM · Kevin files it"): a narrow cell cuts
+// its end, and the when is what a weekly reader of the table looks for (B-9, A-24).
+const timeFirst = (what, when) => `${nw(esc(cap(when)))} · ${nw(esc(what))}`;
 function nextCell(b) {
   const s = rowStep(b), st = stOf(b);
-  if (s && s.kind !== 'none') { const [a, ...rest] = String(s.line || '').split(' · '); return [nw(esc(a)), nw(esc(rest.join(' · '))), s.line]; }
+  if (s && s.kind !== 'none') { const line = String(s.line || ''), [a, ...rest] = line.split(' · '), r = rest.join(' · ');
+    const m = r ? /^(?:due|by) (.+)$/.exec(r) : /^(.+?) by ((?:today|tomorrow|[A-Z][a-z]{2}\b).*)$/.exec(a);
+    return [nw(esc(a)), nw(esc(r)), line, m ? (r ? timeFirst(a, m[1]) : timeFirst(m[1], m[2])) : null]; }
   if (factsOf(b).stand === 'dead') { const [a, ...rest] = stoppedLine(b).split(' · '); return [esc(a), esc(rest.join(' · ')), stoppedLine(b)]; }
   if (st.hearingState === 'held') return ['Waiting for the committee’s vote', `heard ${esc(fmtDate(st.hearing.scheduled_at))}`, ''];
   if (st.phase === 'law') { const act = /\bAct \d+/i.exec(b.last_action || ''); return [act ? esc(act[0]) : '', '', ''] }
   if (!st.deadline || st.deadline.missed) return ['', '', ''];
   const w = deadlineWords(st.deadline.label, st.deadline.date), [what, day] = w.split(/ by (?=[A-Z][a-z]{2} \d)/);
-  return [nw(esc(cap(what))), day ? `by <span class="v6-nw">${esc(day)}</span>` : '', `${deadlineName(st.deadline)}: ${cap(w)}`];
+  return [nw(esc(cap(what))), day ? `by <span class="v6-nw">${esc(day)}</span>` : '', `${deadlineName(st.deadline)}: ${cap(w)}`, day ? timeFirst(cap(what), day) : null];
 }
 const pulseText = b => { const d = daysAgo(S.pulse[b.id]?.last_team_touch); return d == null ? 'Never' : d <= 0 ? 'Today' : d === 1 ? 'Yesterday' : `${d} days ago`; };
 const summaryOf = b => b.public_summary || b.description || b.title || '';
@@ -332,7 +364,7 @@ function tableView(groups) {
       case 'bill': return `<td class="bl-num"><a href="${billRoute(b)}" data-bill="${b.id}"><span>${esc(numWords(b))}</span></a>${folMark(b)}</td>`;
       case 'title': return `<td class="bl-ti">${two(ci ? (b.nickname ? `<b>${esc(b.nickname)}</b>` : esc(summaryOf(b))) : `${b.nickname ? `<b>${esc(b.nickname)}</b> <br>` : ''}${esc(summaryOf(b))}`, fullTitle(b))}</td>`;
       case 'where': return `<td>${lines(whereCell(b))}</td>`;
-      case 'next': { const c0 = nextCell(b), s = stepOf(b), c3 = ci && c0[1] ? [`${c0[0]} · ${c0[1]}`, '', c0[2]] : c0;   // a compact row: one line, both parts
+      case 'next': { const c0 = nextCell(b), s = stepOf(b), c3 = ci && c0[1] ? [c0[3] || `${c0[0]} · ${c0[1]}`, '', c0[2]] : ci && c0[3] ? [c0[3], '', c0[2]] : c0;   // a compact row: one line, the time first
         return `<td${s?.state ? ` data-step="${esc(s.state.word)}" data-due="${esc(s.due ? new Date(s.due).toISOString() : '')}"` : ''}>${c3[0] ? lines(c3) : none}</td>`; }
       case 'cmte': { const r = (b.referrals || []).map(x => committeeName(x)).join(', then '); return `<td>${r ? two(esc(r), r) : none}</td>`; }
       case 'coal': { const n = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(x => x.id === id)?.name).filter(Boolean).join(', '); return `<td>${n ? two(esc(n), n) : none}</td>`; }
@@ -549,6 +581,7 @@ function wireDyn(page) {
   page.querySelectorAll('[data-full]').forEach(el => el.onclick = () => { const k = el.dataset.full; (v.full ??= {})[k] = !v.full[k]; repaint(`[data-full="${k}"]`); });
   page.querySelectorAll('[data-selall]').forEach(el => el.onclick = () => { if (el.dataset.selall === 'all') NAV.forEach(id => v.sel.add(id)); else NAV.forEach(id => v.sel.delete(id)); repaint('[data-selall]'); });
   page.querySelectorAll('[data-blsel]').forEach(el => el.onclick = () => toggleSel(el.dataset.blsel));
+  page.querySelectorAll('[data-blselect]').forEach(el => el.onclick = () => { v.look = null; startSelect(); });
   routeLinks(page.querySelectorAll('#bl-dyn a[href^="#/"]:not([data-v6pick]), #bl-lead a[href^="#/"]'));
   const box = page.querySelector('[data-v6ld="bills"]');
   if (box) {
@@ -702,7 +735,6 @@ export default {
     qi.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); qi.blur(); } if (e.key === 'Escape' && qi.value) { e.stopPropagation(); qi.value = ''; qi.oninput(); } };
     qx.onclick = () => { qi.value = ''; qi.oninput(); qi.focus(); };
     page.querySelector('[data-filter]').onclick = e => openFilters(e.currentTarget);
-    const sel = page.querySelector('[data-blselect]'); if (sel) sel.onclick = () => { v.look = null; startSelect(); };
     const cols = page.querySelector('[data-cols]'); if (cols) cols.onclick = e => columnsSheet(e.currentTarget);
     const te = page.querySelector('[data-tedit]'); if (te) te.onclick = () => { v.edit = !v.edit; v.look = null; repaint('[data-tedit]'); };
     const ex = page.querySelector('[data-export]'); if (ex) ex.onclick = () => exportSheet();

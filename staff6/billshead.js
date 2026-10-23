@@ -66,7 +66,8 @@ export const showMutedTab = () => (S.mutes?.size || 0) > 0 || canSort();
 // ---- the head: h1 "Bills" and the page tabs; `right` is the page's own controls (the scope switch) ----
 export function billsHead(cur, { right = '', sub = '' } = {}) {
   const hide = [showSortTab() || cur === 'new' ? null : 'new', showMutedTab() || cur === 'muted' ? null : 'muted'].filter(Boolean);
-  const c = sortCount(), counts = { ...(c?.n ? { new: `${c.n.toLocaleString()}${c.capped ? '+' : ''}` } : {}), ...(S.mutes?.size ? { muted: S.mutes.size } : {}) };
+  // On Sort new bills itself the number is the page's headline, so the tab does not say it a second time (A-14).
+  const c = sortCount(), counts = { ...(c?.n && cur !== 'new' ? { new: `${c.n.toLocaleString()}${c.capped ? '+' : ''}` } : {}), ...(S.mutes?.size ? { muted: S.mutes.size } : {}) };
   const tabs = hide.length < 2 ? sectionNav('bills', cur, { hide, counts }) : '';
   return `<div class="sv-phead bl-head"><h1 class="sv-h1">Bills</h1>${sub ? `<div class="sv-pht"><p>${sub}</p></div>` : ''}<div class="sv-phr">${tabs}${right}</div></div>`;
 }

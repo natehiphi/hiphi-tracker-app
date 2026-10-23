@@ -102,9 +102,9 @@
 .st-tfilters { display: flex; flex-wrap: wrap; gap: var(--s8); margin: 0; min-width: 0; }
 .st-tfilters .sv-pick { max-width: 100%; }
 .st-tfilters .sv-pick span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.st-triage .st-how { margin: var(--s16) 0 0; }
-.st-how p { max-width: 65ch; margin: 0; }
-.st-how .btn { margin: var(--s4) 0 -8px -12px; }
+/* How this works: opened from its link, in the sand wash (not the teal of buttons and picked rows, which looked pressable) */
+.st-triage .st-how { margin: var(--s8) 0 0; padding: var(--s12) var(--s16); border-radius: var(--v6-r12); background: var(--v6-wash); }
+.st-how p { max-width: 65ch; margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
 .st-tcard { padding: var(--s16); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); min-width: 0; }
 .st-tl1 { display: flex; align-items: center; gap: var(--s8); flex-wrap: wrap; }
 .st-tl1 h2 { margin: 0; font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
@@ -123,6 +123,10 @@
 /* the decision: its four choices, a label on the left and its control beside it (R-022), one row each */
 .st-decide { padding: var(--s16); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); min-width: 0; }
 .st-decidep { margin-top: var(--s16); }
+/* a phone: the decision inside the card, under the title (no card in a card), parted from it by a hairline */
+.st-tcard .st-decidep { position: relative; margin: var(--s16) 0 0; padding: var(--s16) 0 0; border-radius: 0; background: none; box-shadow: none; }
+.st-tcard .st-decidep::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
+.st-tcard .st-decidep + .st-tdesc { margin-top: var(--s16); }
 .st-triage .st-rech { margin: 0 0 var(--s8); font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 .st-tpick { display: flex; flex-direction: column; gap: var(--s12); }
 .st-pickrow { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: var(--s4) var(--s8); }

@@ -21,7 +21,7 @@
 // opened on All coalitions with the team's 788 beside a 5,398 elsewhere. The issue picker narrows as you type (91 issues).
 // A bill with a choice takes at most 5 clicks: the position (2), the issue (2, typing is not a click), Track (1).
 import { S, DB, esc, advocate, SESSION_YEAR, hooks, fmtDate, priorityOf } from './data.js';
-import { loadTriage, triageSeen, titleCaseHI, FACTS, plain } from './model.js';
+import { loadTriage, titleCaseHI, FACTS, plain } from './model.js';
 import { icon, btn, pickerChip, toast, pickerSheet, openSheet, closeSheet, empty, skeleton, keysOn, POS_WORD, POS_ICON, POS_SUB } from './ui.js';
 import { chip, keysUsed } from './ui.js';   // R-277 fix 4 (U-8); fix 13: key hints after a key
 import { iconName } from './lists.js';   // R-277 fix 15: not from setup.js, which loads only when opened
@@ -173,6 +173,9 @@ const pickers = (t, r) => { const c = campOf(t, r), own = advocate(ownIdOf(t, r)
     </div>`; };
 const decideBtns = () => `${btn('Track', { kind: 'primary', icon: 'check', attrs: { 'data-ttrack': '1' } })}${btn('Not for us', { kind: 'secondary', attrs: { 'data-tskip': '1' } })}${btn('Later', { kind: 'text', attrs: { 'data-tlater': '1' } })}`;
 const keysLine = () => HOVER() && keysOn() && keysUsed() ? `<p class="st-keys small muted"><kbd>T</kbd> track · <kbd>N</kbd> not for us · <kbd>L</kbd> later · <kbd>U</kbd> undo · arrow keys move between bills</p>` : '';
+// A phone decides from the bar at the bottom, so its choices sit right under the bill's title (Kevin's 390 phone had
+// "Your decision" below the fold while Track waited in the bar, so a bill could be tracked as Monitor unseen).
+const decideP = (t, r) => `<section class="st-decide st-decidep" aria-labelledby="st-dech"><h3 class="st-rech" id="st-dech">Your decision</h3>${pickers(t, r)}</section>`;
 function card(t, r, desk) {
   const terms = realMatches(r).real.flatMap(m => m.terms);
   // Phones: long Capitol descriptions start folded at four lines, so the coalition and position stay on the first
@@ -182,9 +185,10 @@ function card(t, r, desk) {
     <div class="st-tl1"><h2 id="st-tnum" tabindex="-1">${esc(spaced(r.bill_number))}</h2>${companionsOf(r).length ? chip(`Companion ${companionsOf(r).join(', ')}`) : ''}
       <a class="iconbtn st-cap" href="${esc(capitol(r))}" target="_blank" rel="noopener" aria-label="Read ${esc(r.bill_number)} at the Capitol (new tab)" title="Read it at the Capitol">${icon('external-link')}</a></div>
     ${title ? `<p class="st-ttitle">${mark(title, terms)}</p>` : ''}
+    ${desk ? '' : decideP(t, r)}
     ${r.description ? `<p class="st-tdesc${long ? ' clamp' : ''}" id="st-tdesc">${mark(r.description, terms)}</p>${long ? btn('Read all', { kind: 'text', sm: true, iconEnd: 'chevron-down', attrs: { 'data-tmore': '1', 'aria-expanded': 'false', 'aria-controls': 'st-tdesc' } }) : ''}` : ''}
     <div class="st-whys">${why(r)}</div>
-  </article>${desk ? '' : `<section class="st-decide st-decidep" aria-labelledby="st-dech"><h2 class="st-rech" id="st-dech">Your decision</h2>${pickers(t, r)}</section>`}`;
+  </article>`;
 }
 
 function issueSheet(t, r, back, rerender) {
@@ -216,16 +220,16 @@ export default {
   title: () => 'Sort new bills',
   render() {
     const t = V(), desk = DESK();
-    // First visit: the explanation is open (same rule and key as app.js renderTriage), then it folds into a link.
-    if (S.triageFirstVisit === undefined) { S.triageFirstVisit = !triageSeen(); try { localStorage.setItem('hiphi_triage_seen', '1'); } catch { /* private mode */ } }
+    // "How this works" is a link that opens the explanation where it is (P-4: v6 had it open on every first visit, four
+    // lines in a teal panel that looked pressable, pushing the rest down and repeating what the three buttons say).
     if (t.rows === null) load();
     loadSortCount(() => { if (S.route?.name === 'triage') refreshTabs('new'); });
-    const how = S.triageFirstVisit || t.how;
+    const how = !!t.how;
     const head = billsHead('new');
     const campIc = t.camp && t.camp !== 'mine' ? iconName(S.campaigns.find(x => x.id === t.camp)?.icon) : t.camp === 'mine' ? 'users' : null;
     const filters = `<div class="st-tlead">${t.rows ? number(t) : '<p class="st-num">Reading the new bills…</p>'}<div class="st-tfilters">${pickerChip(campLabel(t), { 'data-tcamp': '1', 'aria-label': `Coalition: ${campLabel(t)}. Change` }, campIc)}${pickerChip(t.matchedOnly ? 'Suggested bills' : 'Every undecided bill', { 'data-tmatch': '1', 'aria-label': `Showing ${t.matchedOnly ? 'suggested bills' : 'every undecided bill'}. Change` })}</div></div>`;
-    const howBox = how ? `<div class="notice info st-how">${icon('info')}<div><p><b>Track</b> puts the bill on the tracker with the position, issue, coalition and owner you pick: unless you change them, Monitor, the suggested issue, and the coalition's owner. Strong support makes it the team’s top tier. <b>Not for us</b> takes it off this list for good. <b>Later</b> moves it to the back. You can undo each one.</p>${btn('Hide this', { kind: 'text', sm: true, attrs: { 'data-thow': '0' } })}</div></div>` : '';
-    const foot = `<div class="btnrow st-tfoot">${how ? '' : btn('How this works', { kind: 'text', sm: true, icon: 'circle-help', attrs: { 'data-thow': '1' } })}${btn('Search all introduced bills', { kind: 'text', sm: true, icon: 'search', href: '#/search' })}</div>`;
+    const howBox = how ? `<div class="st-how" id="st-how"><p><b>Track</b> puts the bill on the tracker with the position, issue, coalition and owner you pick: unless you change them, Monitor, the suggested issue, and the coalition's owner. Strong support makes it the team’s top tier. <b>Not for us</b> takes it off this list for good. <b>Later</b> moves it to the back. You can undo each one.</p></div>` : '';
+    const foot = `<div class="st-tfootw"><div class="btnrow st-tfoot">${btn('How this works', { kind: 'text', sm: true, icon: 'circle-help', iconEnd: how ? 'chevron-up' : 'chevron-down', attrs: { 'data-thow': how ? '0' : '1', 'aria-expanded': String(how), 'aria-controls': 'st-how' } })}${btn('Search all introduced bills', { kind: 'text', sm: true, icon: 'search', href: '#/search' })}</div>${howBox}</div>`;
     const cls = `st-page st-triage${desk ? ' st-tdesk' : ''}`;
     if (t.rows === null) return `<div class="${cls}">${head}${filters}${skeleton(2)}</div>`;
     if (!t.rows.length) {
@@ -239,12 +243,12 @@ export default {
     t.focus = Math.min(Math.max(0, t.focus), t.rows.length - 1);
     const r = t.rows[t.focus];
     if (desk) return `<div class="${cls}">${head}${filters}<div class="st-tcols">
-        <div class="st-tmain">${card(t, r, true)}${howBox}${followedPanel(t)}${foot}</div>
+        <div class="st-tmain">${card(t, r, true)}${followedPanel(t)}${foot}</div>
         <aside class="st-tside" aria-label="Decide on ${esc(r.bill_number)}">
           <section class="st-decide" aria-labelledby="st-dech"><h2 class="st-rech" id="st-dech">Your decision on ${esc(spaced(r.bill_number))}</h2>${pickers(t, r)}<div class="st-dbtns">${decideBtns()}</div>${keysLine()}</section>
           ${recent(t)}
         </aside></div></div>`;
-    return `<div class="${cls}">${head}${filters}${card(t, r, false)}${keysLine()}${howBox}${t.hist.length ? recent(t) : ''}${followedPanel(t)}${foot}</div>`;
+    return `<div class="${cls}">${head}${filters}${card(t, r, false)}${keysLine()}${t.hist.length ? recent(t) : ''}${followedPanel(t)}${foot}</div>`;
   },
   // Phones decide from a bar at the bottom; a desktop has the buttons in the side panel, next to what they decide.
   bar() {
@@ -267,7 +271,7 @@ export default {
       options: [['1', 'Suggested bills', 'sparkles', 'A coalition keyword matches them'], ['0', 'Every undecided bill', 'list', 'Everything introduced that nobody has decided on']],
       onPick: v => { t.matchedOnly = v === '1'; t.rows = null; t.focus = 0; rerender('[data-tmatch]'); } }));
     $('[data-tall]') && ($('[data-tall]').onclick = () => { t.matchedOnly = false; t.rows = null; t.focus = 0; rerender(); });
-    root.querySelectorAll('[data-thow]').forEach(b => b.onclick = () => { t.how = b.dataset.thow === '1'; if (!t.how) S.triageFirstVisit = false; rerender(t.how ? '.st-how' : '[data-thow]'); });
+    root.querySelectorAll('[data-thow]').forEach(b => b.onclick = () => { t.how = b.dataset.thow === '1'; rerender('[data-thow]'); });
     root.querySelectorAll('[data-tundo]').forEach(b => b.onclick = () => undoEntry(t.hist.find(h => String(h.key) === b.dataset.tundo)));
     if (!r) return;
     $('[data-tcoal]').onclick = e => { const cur = campOf(t, r), real = realMatches(r).real, back = after(e, '[data-tcoal]');
