@@ -17,7 +17,7 @@ import { icon, btn, toast, showAllBtn, keysUsed, keysOn } from './ui.js';
 import { shortName } from './pathway.js';
 import { matchLegs, weekIndex, districtQ } from './legislators.js';
 import { helpTopics, synOf, practiceHref } from './help.js';   // Help's guides are places too; one list of everyday words
-import { allWords } from './terms.js';   // Help's Capitol words, the one list Help and the tappable words use
+import { allWords, plainCodes } from './terms.js';   // Help's Capitol words, the one list Help and the tappable words use
 import { PROFILES, profileHits, quoteOf } from './profile.js';   // R-335 (practice copy)
 import { itemRow, billRow, nameWords, numWords, whereWords, committeeName, nw } from './steps.js';
 import { isLead } from './more.js';
@@ -29,7 +29,7 @@ if (typeof document !== 'undefined' && !document.querySelector('link[href$="staf
   const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'staff6/css/search.css'; document.head.appendChild(l);
 }
 
-const SHOW = { bills: 8, legs: 5, convs: 5, people: 5, profs: 5, team: 5, issues: 5 };
+const SHOW = { bills: 8, un: 5, legs: 5, convs: 5, people: 5, profs: 5, team: 5, issues: 5 };
 const st = () => (S.lgSearch ??= { q: '', more: new Set(), un: null });
 const qOf = route => String(route?.q?.q ?? '').trim();
 const plural = (n, one, many = one + 's') => `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -48,6 +48,11 @@ const withKey = (sub, k) => k && fine() && keysOn() ? `${sub} · Shortcut ${k}` 
 // `also` is what people call it ("pings" are My settings' alerts, "qr" the QR code); a word typed must start a word of the
 // name or of `also` (or one of Help's other words for it, synOf). Lead tools only for those who have them (D8).
 const me = () => S.me || {};
+// Who does which job, for the tasks offered with nothing typed (a task that is not yours is still found by its words).
+const ownsBills = () => !!S.me && S.bills.some(b => (S.assignments?.[b.id] || []).includes(S.me.id));
+const approver = () => !!(me().is_admin || me().can_approve || me().is_reviewer);
+const sentAny = () => !!S.me && Object.values(S.drafts || {}).flat().some(d => d.submitted_by === S.me.id);
+const writes = () => ownsBills() || !(me().can_approve || me().is_reviewer) || sentAny();
 const PLACES = () => [
   { title: 'Today', href: '#/', icon: 'list-todo', sub: 'Your next step and what is due', key: KEY.today, also: 'home start my list to-do todo tasks due mine' },
   { title: 'Hearings', href: '#/hearings', icon: 'calendar-days', sub: 'This week’s hearings', key: KEY.hearings, also: 'this week week sittings calendar going attend' },
@@ -90,16 +95,16 @@ const PLACES = () => [
 // ---- things to do (V32): the step's place, said as the step ----
 const ACTIONS = () => [
   { title: 'Approve testimony', href: '#/testimony?view=approve', icon: 'user-check', sub: 'Testimony › To approve, then Review', key: KEY.review, also: 'approve approval sign off review second look send back', who: () => me().is_admin || me().can_approve || me().is_reviewer },
-  { title: 'File testimony at the Capitol', href: '#/testimony?view=file', icon: 'clipboard-check', sub: 'Testimony › Ready to file', also: 'file filing mark filed submit capitol website' },
-  { title: 'Write testimony', href: '#/testimony?view=write', icon: 'square-pen', sub: 'Testimony › To write', key: KEY.testimony, also: 'write draft make the draft send for approval resubmit revise' },
-  { title: 'Ask a chair for a hearing', href: '#/hearings/ask', icon: 'mail', sub: 'Hearings › Get hearings', also: 'ask chair email the chair hearing request push schedule' },
+  { title: 'File testimony at the Capitol', href: '#/testimony?view=file', icon: 'clipboard-check', sub: 'Testimony › Ready to file', also: 'file filing mark filed submit capitol website', job: () => ownsBills() || me().is_admin },
+  { title: 'Write testimony', href: '#/testimony?view=write', icon: 'square-pen', sub: 'Testimony › To write', key: KEY.testimony, also: 'write draft make the draft send for approval resubmit revise', job: writes },
+  { title: 'Ask a chair for a hearing', href: '#/hearings/ask', icon: 'mail', sub: 'Hearings › Get hearings', also: 'ask chair email the chair hearing request push schedule', job: () => !(me().can_approve && !ownsBills()) },
   { title: 'Record a chair’s reply', href: '#/hearings/ask', icon: 'message-square', sub: 'Hearings › Get hearings › They replied', also: 'reply replied answer will schedule said no chair answer' },
   { title: 'Say I’m going to a hearing', href: '#/hearings', icon: 'calendar-check', sub: 'Hearings › This week, on the hearing', key: KEY.hearings, also: 'going attend attending im going i am going' },
   { title: 'Log a talk with a legislator', href: '#/legislators?view=everyone', icon: 'message-square-plus', sub: 'Their page › Log a talk', also: 'log call meeting conversation talk visit talked' },
-  { title: 'Write the public ask', href: '#/outreach', icon: 'megaphone', sub: 'Outreach › This week’s asks', key: KEY.outreach, also: 'public ask share kit copy post newsletter rally' },
+  { title: 'Write the public ask', href: '#/outreach', icon: 'megaphone', sub: 'Outreach › This week’s asks', key: KEY.outreach, also: 'public ask share kit copy post newsletter rally', job: () => ownsBills() || me().is_admin },
   { title: 'Email supporters', href: '#/outreach/emails', icon: 'mail-plus', sub: 'Outreach › Emails › New email', also: 'email supporters email blast new email action alert' },
   { title: 'Save a group of supporters', href: '#/outreach/supporters', icon: 'users-round', sub: 'Outreach › Supporters › Filter, then Save as a group', also: 'segment group save filter supporters' },
-  { title: 'Make a QR code', href: '#/my-issues/all?view=links', icon: 'qr-code', sub: 'More tools › Make a link or QR code', also: 'qr code poster print link partner link' },
+  { title: 'Make a QR code', href: '#/my-issues/all?view=links', icon: 'qr-code', sub: 'More tools › Make a link or QR code', also: 'qr code poster print link partner link', job: () => ownsBills() || me().is_admin },
   { title: 'Sort new bills', href: '#/bills/new', icon: 'sparkles', sub: 'Bills › Sort new bills', also: 'sort triage new bills track pass' },
   { title: 'Change many bills at once', href: '#/bills?select=1', icon: 'list-checks', sub: 'Bills › Select', also: 'bulk change select many set owner set position follow' },
   { title: 'Export bills as a spreadsheet', href: '#/bills?export=1', icon: 'download', sub: 'Bills › Export CSV', also: 'export csv spreadsheet download excel' },
@@ -108,19 +113,19 @@ const ACTIONS = () => [
     : [{ title: 'Hand a bill or to-do to a teammate', href: '#/help/howto', icon: 'user-round', sub: 'The bill’s owner, or the to-do: Give to…', also: 'hand over handover give give to pass on take over cover reassign' }]),
   { title: 'See a teammate’s list', href: '#/tools', icon: 'users-round', sub: 'More tools › See a teammate’s list', also: 'teammate cover covering their list someone else away' },
   { title: 'Change how alerts reach me', href: '#/me', icon: 'bell', sub: 'My settings', also: 'alerts pings notifications slack dm email quiet mute' },
-  { title: 'Ask Nate in Slack', href: '#/help/where', icon: 'message-circle', sub: 'Help › search, then Ask in Slack', also: 'question stuck ask help slack nate' },
-  ...(DEMO ? [] : [{ title: 'Practise on last March', href: practiceHref(), icon: 'history', sub: 'The practice copy: nothing reaches the team', also: 'practice practise sandbox demo try' }]),
+  ...(me().initials === 'NT' ? [] : [{ title: 'Ask Nate in Slack', href: '#/help/ask', icon: 'message-circle', sub: 'A direct message to Nate', also: 'question stuck ask help slack nate dm' }]),
+  ...(DEMO ? [] : [{ title: 'Practice on last March', href: practiceHref(), icon: 'history', sub: 'The practice copy: nothing reaches the team', also: 'practice practise sandbox demo try' }]),
 ].filter(a => !a.who || a.who());
 
 const PL_STOP = new Set(['a', 'an', 'the', 'my', 'to', 'of', 'for', 'how', 'do', 'i', 'is', 'where', 'what', 'page', 'open', 'go']);
 const qWords = q => plain(q).replace(/[’']/g, '').replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(w => w && !PL_STOP.has(w));
 const starts = (hay, w) => new RegExp(`(^|[^a-z0-9])${w.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&')}`).test(hay);
 function rank(list, q, n) {
-  const ws = qWords(q); if (!ws.length) return [];
+  const ws = qWords(q), co = coalOf(q); if (!ws.length) return [];
   const out = [];
   for (const p of list) {
     const t = plain(p.title.replace(/[’']/g, '')), a = plain(p.also || '');
-    if (!ws.every(w => synOf(w).some(x => starts(t, x) || starts(a, x)))) continue;
+    if (co ? !wholeRx(ws.join(' ')).test(`${t} ${a}`) : !ws.every(w => synOf(w).some(x => starts(t, x) || starts(a, x)))) continue;
     // the name itself first, then a name that starts with the words, then a match on its other words; a place before a
     // Help guide; a coalition's own short name typed exactly ("HEAL") before everything.
     const score = (p.code && p.code === ws.join(' ') ? 20 : 0) + (t === ws.join(' ') ? 8 : 0) + ws.filter(w => starts(t, w)).length * 2 + (t.startsWith(ws[0]) ? 1 : 0) - (p.help ? 1 : 0);
@@ -133,17 +138,30 @@ export const actionHits = (q, n = 3) => rank(ACTIONS(), q, n);
 const asItem = p => ({ href: p.href, title: p.title, sub: withKey(p.sub, p.key), icon: p.icon });
 // With nothing typed: the palette's start, every main place and the everyday steps, each with its shortcut.
 const START_PLACES = ['Today', 'Hearings', 'Testimony', 'Outreach', 'Bills', 'Legislators', 'My issues', 'Inbox', 'Help', 'More tools'];
-const START_ACTIONS = ['Approve testimony', 'File testimony at the Capitol', 'Ask a chair for a hearing', 'Say I’m going to a hearing', 'Write the public ask', 'Make a QR code'];
+const START_ACTIONS = ['Approve testimony', 'Write testimony', 'File testimony at the Capitol', 'Ask a chair for a hearing', 'Say I’m going to a hearing', 'Write the public ask', 'Make a QR code'];
 const startPlaces = () => START_PLACES.map(t => PLACES().find(p => p.title === t)).filter(Boolean);
-const startActions = () => START_ACTIONS.map(t => ACTIONS().find(p => p.title === t)).filter(Boolean);
+// Only the tasks that are this person's job (an approver is not offered Write the public ask; Patti is not offered filing).
+const startActions = () => START_ACTIONS.map(t => ACTIONS().find(p => p.title === t)).filter(a => a && (!a.job || a.job()));
 
 // ---- matching bills, people and conversations ----
 // A committee's code typed alone ("TRN", "hhs/cpn") is the bills in that committee now (V32: "by number, nickname or code").
 const cmteOf = q => { const k = String(q || '').trim().toUpperCase().replace(/\s+/g, ''); return k && k.split('/').every(c => S.committees?.[c]) ? k : ''; };
+// Each word typed must start a word; a coalition's short name must be the whole word (below).
+const wordRxs = q => coalOf(q) ? [wholeRx(plain(q).trim())] : plain(q).split(/\s+/).filter(Boolean).map(t => new RegExp(`(?:^|[^a-z0-9])${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+// Legislators (legislators.js matchLegs) and supporters, for a coalition's short name: only a whole-word match ("HEAL" is
+// not every member of a Health committee).
+const coalKeep = (q, list, text) => { const co = coalOf(q); if (!co) return list; const w = wholeRx(plain(co.name)); return list.filter(x => w.test(plain(text(x)))); };
+// A coalition's short name typed alone ("heal", "CTFH") means that coalition: its bills first, and the word is matched whole,
+// so "heal" is not every bill with "health" in it (400 of them).
+const coalOf = q => { const k = plain(q).trim(); return k ? (S.campaigns || []).find(c => plain(c.name) === k) || null : null; };
+const wholeRx = w => new RegExp(`(^|[^a-z0-9])${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^a-z0-9])`);
 function billHits(q) {
-  const ql = q.toLowerCase(), qn = ql.replace(/\s/g, ''), terms = ql.split(/\s+/).filter(Boolean), cm = cmteOf(q);
+  const ql = q.toLowerCase(), qn = ql.replace(/\s/g, ''), terms = ql.split(/\s+/).filter(Boolean), cm = cmteOf(q), co = coalOf(q);
   if (cm) return S.bills.filter(b => String(b.committee || '').replace(/\s+/g, '').toUpperCase().split(/[\/,]/).some(c => cm.split('/').includes(c)))
     .sort((a, b) => (diedish(a) - diedish(b)) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true }));
+  if (co) { const w = wholeRx(plain(co.name)), inCo = b => (S.billCampaigns?.[b.id] || []).includes(co.id);
+    return S.bills.filter(b => inCo(b) || w.test(plain(`${b.nickname || ''} ${b.title || ''} ${b.public_summary || ''} ${b.description || ''}`)))
+      .sort((a, b) => (inCo(b) - inCo(a)) || (diedish(a) - diedish(b)) || (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true })); }
   const hay = b => [b.bill_number, b.nickname, b.title, b.public_summary, b.description, b.committee, (b.referrals || []).join(' '),
     owners(b).map(a => a.full_name + ' ' + a.initials).join(' '), (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(c => c.id === id)?.name).join(' '),
     (b.sponsors || []).map(x => typeof x === 'string' ? x : x.n || x.name || '').join(' '), POSITIONS.find(p => p[0] === b.position)?.[1], STAGE_LABEL[effStage(b)]].join(' | ').toLowerCase();
@@ -155,6 +173,7 @@ function peopleHits(q) {
   const dm = districtQ(plain(q).trim());
   if (dm && dm[1]) { const n = +dm[2], sen = dm[1][0] === 's'; return (S.people || []).filter(p => +(sen ? p.senate_district : p.house_district) === n)
     .sort((a, b) => String(b.last_active || '').localeCompare(String(a.last_active || ''))); }
+  if (coalOf(q)) { const w = wholeRx(plain(q).trim()); return (S.people || []).filter(p => w.test(plain([p.name, p.island, (p.tags || []).join(' ')].join(' ')))); }
   const terms = plain(q).split(/\s+/).filter(Boolean);
   return (S.people || []).filter(p => { const h = plain([p.name, p.email, p.phone, p.island, (p.tags || []).join(' '), p.senate_district ? `sd ${p.senate_district}` : '', p.house_district ? `hd ${p.house_district}` : ''].join(' ')); return terms.every(t => h.includes(t)); })
     .sort((a, b) => String(b.last_active || '').localeCompare(String(a.last_active || '')));
@@ -168,7 +187,7 @@ function teamHits(q) {
   return (S.advocates || []).filter(a => a.is_active !== false && a.id !== S.me?.id && ws.every(w => plain(`${a.full_name} ${a.initials}`).split(/\s+/).some(x => x.startsWith(w))));
 }
 const teamHref = a => `#/team?who=${encodeURIComponent(a.id)}`;
-const issueHits = q => { const res = plain(q).split(/\s+/).filter(Boolean).map(t => new RegExp(`(?:^|[^a-z0-9])${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+const issueHits = q => { const co = coalOf(q), res = co ? [wholeRx(plain(co.name))] : plain(q).split(/\s+/).filter(Boolean).map(t => new RegExp(`(?:^|[^a-z0-9])${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
   return res.length ? (S.issues || []).filter(i => !i.archived_at && res.every(re => re.test(plain(`${i.name} ${i.description || ''}`)))) : []; };
 
 // ---- conversations with legislators (R-316 H-15) ----
@@ -194,7 +213,7 @@ function convGroups() {
   });
 }
 export function convHits(q) {
-  const res = plain(q).split(/\s+/).filter(Boolean).map(t => new RegExp(`(?:^|[^a-z0-9])${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+  const res = wordRxs(q);
   if (!res.length) return [];
   const hay = g => plain([...g.rows.map(r => r.body), ...g.legs.map(l => `${l.name || ''} ${shortName(l)}`), ...g.rows.map(r => advocate(r.advocate_id)?.full_name),
     g.bill ? `${g.bill.bill_number} ${g.bill.nickname || ''}` : '', g.issue?.name, ...g.rows.map(r => ANSWER[r.answer]), ...g.rows.map(r => r.committee)].filter(Boolean).join(' | '));
@@ -250,32 +269,38 @@ function share(lists, rows = ROWS) {
   while (left > 0 && more) { more = false; lists.forEach((l, k) => { if (left > 0 && n[k] < l.length) { n[k]++; left--; more = true; } }); }
   return lists.map((l, k) => l.slice(0, n[k]));
 }
+// Bills not tracked yet that are worth a row: their number typed, or their words; never the Governor's messages (GM, his
+// nominations) unless their number was typed, and a coalition's short name only as a whole word.
+function unShown(rows, q) {
+  const qn = plain(q).replace(/\s/g, ''), co = coalOf(q), w = co && wholeRx(plain(co.name));
+  return (rows || []).filter(r => numOf(r).includes(qn) || !/^gm/i.test(r.bill_number) && (!w || w.test(plain(`${r.title || ''} ${r.description || ''}`))));
+}
 let peopleP = null;
 const unCache = new Map();   // query -> bills not tracked, the last 20 asked
 export function headerHits(q) {
   q = String(q || '');
   // Nothing typed (the palette opened with Cmd/Ctrl-K): the places and the everyday steps, each with its shortcut.
-  if (!q.trim()) return { groups: [{ label: 'Things to do', items: startActions().slice(0, 3).map(asItem) }, { label: 'Places', items: startPlaces().slice(0, 6).map(asItem) }] };
-  const res = plain(q).split(/\s+/).filter(Boolean).map(t => new RegExp(`(?:^|[^a-z0-9])${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
-  const qn = plain(q).replace(/\s/g, ''), lead = b => numOf(b) === qn ? 0 : numOf(b).startsWith(qn) ? 1 : 2, cm = cmteOf(q);
+  if (!q.trim()) return { groups: [{ label: 'Common tasks', items: startActions().slice(0, 3).map(asItem) }, { label: 'Places', items: startPlaces().slice(0, 6).map(asItem) }] };
+  const res = wordRxs(q);
+  const qn = plain(q).replace(/\s/g, ''), lead = b => numOf(b) === qn ? 0 : numOf(b).startsWith(qn) ? 1 : 2, cm = cmteOf(q), co = coalOf(q);
   // A bill row is there for its number or the name it shows (a committee's code shows the bills in it).
   const name = b => nameWords(b);
-  const shows = b => cm || numOf(b).includes(qn) || res.every(re => re.test(plain(`${name(b)} ${STAGE_LABEL[effStage(b)] || ''}`)));
+  const shows = b => cm || co || numOf(b).includes(qn) || res.every(re => re.test(plain(`${name(b)} ${STAGE_LABEL[effStage(b)] || ''}`)));
   const byNum = (a, b) => a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true });
   const bills = billHits(q).filter(shows).map((b, k) => [b, k])
     .sort((x, y) => lead(x[0]) - lead(y[0]) || (lead(x[0]) === 1 ? diedish(x[0]) - diedish(y[0]) || byNum(x[0], y[0]) : x[1] - y[1])).map(([b]) => ({
       href: billRoute(b), title: name(b), icon: 'scroll-text', inline: true, sub: numWords(b) }));
   const cat = k => (S.categories || []).find(c => c.key === k);
   const issues = issueHits(q).map(i => ({ href: `#/issue/${encodeURIComponent(i.id)}`, title: i.name, sub: cat(i.category)?.name || 'Issue', icon: cat(i.category)?.icon || 'tag' }));
-  const legs = matchLegs(q).map(l => ({ href: `#/legislator/${l.id}`, title: l.name, sub: `${l.chamber === 'S' ? 'Senate' : 'House'} district ${l.district || ''}`.trim(), icon: 'landmark' }));
+  const legs = coalKeep(q, matchLegs(q), l => l.name).map(l => ({ href: `#/legislator/${l.id}`, title: l.name, sub: `${l.chamber === 'S' ? 'Senate' : 'House'} district ${l.district || ''}`.trim(), icon: 'landmark' }));
   const team = teamHits(q).map(a => ({ href: teamHref(a), title: a.full_name, sub: `${ROLE(a)} · their list`, icon: 'user-round' }));
   loadAllNotes();
-  const convs = convHits(q).map(g => ({ href: convHref(g), title: `${convWho(g)}: ${convQuote(g, q, 60)}`, sub: `${convDay(g)} · ${convSub(g)}`, icon: 'message-square' }));
+  const convs = convHits(q).map(g => ({ href: convHref(g), title: `${convWho(g)}: ${saidText(convQuote(g, q, 60))}`, sub: `${convDay(g)} · ${convSub(g)}`, icon: 'message-square' }));
   const profs = PROFILES() ? profileHits(q).map(h => ({ href: h.href, title: `${shortName(h.l)}: ${quoteOf(h.said, q, 60)}`, sub: `Profile · ${h.sec}`, icon: h.x.sec === 'tip' ? 'lightbulb' : 'notebook-pen' })) : [];
   const people = () => peopleHits(q).map(p => ({ href: `#/person/${encodeURIComponent(p.id)}`, title: personName(p), sub: supWhere(p) || 'Supporter', icon: 'user-round' }));
   // Bills not tracked: the same rule, their number or their words (a district, "sd 12", is not a bill search).
   const dist = districtQ(plain(q).trim()), ids = new Set(S.bills.map(b => b.id));
-  const unRows = rows => (rows || []).filter(r => !ids.has(r.id) && (numOf(r).includes(qn) || !/^gm/i.test(r.bill_number) && res.every(re => re.test(plain(`${r.title || ''} ${r.description || ''}`)))))
+  const unRows = rows => unShown(rows, q).filter(r => !ids.has(r.id) && (numOf(r).includes(qn) || res.every(re => re.test(plain(`${r.title || ''} ${r.description || ''}`)))))
     .map(r => ({ href: `#/search?q=${encodeURIComponent(r.bill_number)}`, title: r.description || titleCaseSmart(r.title || ''), icon: 'scroll-text', inline: true, sub: numWords(r) }));
   // A step first (at most two), then the places (at most three), then what a Capitol word means (at most two).
   const acts = actionHits(q, 2).map(asItem), places = placeHits(q, acts.length ? 2 : 3).filter(p => !acts.some(a => a.href === p.href && a.title === p.title)).map(asItem);
@@ -301,10 +326,14 @@ const legLine = (l, week) => { const w = week.get(l.id), parts = [`${l.chamber =
   if (w) parts.push(`Hears ${plural(w.bills.size, 'of our bills', 'of our bills')} this week`);
   return parts.join(' · '); };
 const legRowH = (l, week) => itemRow({ key: l.id, name: l.name, line: esc(legLine(l, week)), href: `#/legislator/${l.id}`, cls: 'sr-row' });
-const untrackedRow = r => itemRow({ key: r.id, name: r.description || titleCaseSmart(r.title || ''), num: numWords(r), line: esc(r.last_action ? `${r.last_action}${r.last_action_date ? ' · ' + fmtDate(r.last_action_date) : ''}` : 'Not tracked yet'),
+// Under its heading "Not tracked yet": the bill's last action, or nothing (never the heading's words again).
+const untrackedRow = r => itemRow({ key: r.id, name: r.description || titleCaseSmart(r.title || ''), num: numWords(r), line: r.last_action ? esc(`${r.last_action}${r.last_action_date ? ' · ' + fmtDate(r.last_action_date) : ''}`) : '',
   href: billRoute(r), button: btn('Track', { kind: 'secondary', sm: true, icon: 'plus', attrs: { 'data-srtrack': r.id, 'aria-label': `Track ${r.bill_number}` } }), cls: 'sr-row' });
 const personRowH = p => itemRow({ key: p.id, name: personName(p), line: esc([supWhere(p), p.last_active ? `active ${fmtDate(p.last_active)}` : ''].filter(Boolean).join(' · ') || 'Supporter'), href: `#/person/${encodeURIComponent(p.id)}`, cls: 'sr-row' });
-const convRowH = (g, q) => itemRow({ key: g.key, name: convWho(g), num: convDay(g), line: `${esc(convSub(g).replace(/ · /g, ', '))}: “${esc(convQuote(g, q, 90))}”`, href: convHref(g), cls: 'sr-row' });
+// What was said, with committee names for the codes a chair ask carries ("Asked for a hearing on HB756 (CPN/HHS)": D15).
+const saidPlain = t => plainCodes(esc(t));
+const saidText = t => saidPlain(t).replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+const convRowH = (g, q) => itemRow({ key: g.key, name: convWho(g), num: convDay(g), line: `${esc(convSub(g).replace(/ · /g, ', '))}: “${saidPlain(convQuote(g, q, 90))}”`, href: convHref(g), cls: 'sr-row' });
 const profRowH = (h, q) => itemRow({ key: h.href, name: shortName(h.l), num: `Profile · ${h.sec}`, line: `“${esc(quoteOf(h.said, q, 100))}”`, href: h.href, cls: 'sr-row' });
 const teamRowH = a => itemRow({ key: a.id, name: a.full_name, line: esc(`${ROLE(a)} · see their list`), href: teamHref(a), cls: 'sr-row' });
 const issueRowH = i => { const c = (S.categories || []).find(x => x.key === i.category); return itemRow({ key: i.id, name: i.name, line: esc([c?.name || 'Issue', i.description ? String(i.description).replace(/\s+/g, ' ').slice(0, 120) : ''].filter(Boolean).join(' · ')), href: `#/issue/${encodeURIComponent(i.id)}`, cls: 'sr-row' }); };
@@ -313,24 +342,25 @@ const more = (key, n, shown, label) => n > shown ? `<div class="sr-more">${showA
 const group = (id, title, n, inner) => `<section class="sr-grp" aria-labelledby="${id}"><h2 class="sr-h" id="${id}"><span>${esc(title)}</span>${n !== '' ? `<span class="sr-n">${n}</span>` : ''}</h2>${inner}</section>`;
 
 function startHTML() {
-  // The palette's start: the everyday steps and every place, each with its shortcut (V32), and a hint for the box.
-  return `<p class="sr-lede">Find a bill by its number or words, a legislator by name, town or district, a teammate, a supporter, a conversation by what was said, or what a Capitol word means.${fine() && keysOn() ? ' Press Cmd or Ctrl and K from any page to search.' : ''}</p>
+  // The palette's start: the common tasks that are this person's job, each with its shortcut (V32), and one line for the box.
+  // Places only on a phone, which has no sidebar; on a laptop the sidebar beside this page already lists them (css/search.css).
+  return `<p class="sr-lede">Type a bill number, a name or a task.${fine() && keysOn() ? ' Cmd or Ctrl and K searches from any page.' : ''}</p>
     <div class="sr-cols">
-      ${group('sr-ga', 'Things to do', '', list(startActions().map(placeRowH).join(''), 'Things to do'))}
-      ${group('sr-gp', 'Places', '', list(startPlaces().map(placeRowH).join(''), 'Places'))}
+      ${group('sr-ga', 'Common tasks', '', list(startActions().map(placeRowH).join(''), 'Common tasks'))}
+      <div class="sr-startplaces">${group('sr-gp', 'Places', '', list(startPlaces().map(placeRowH).join(''), 'Places'))}</div>
     </div>`;
 }
 function resultsHTML(q) {
   const s = st();
   if (!q) return startHTML();
   const tracked = billHits(q), ids = new Set(S.bills.map(b => b.id)), nums = new Set(S.bills.map(b => b.bill_number));
-  const un = s.un && s.un.q === q ? (s.un.rows || []).filter(r => !ids.has(r.id) && !nums.has(r.bill_number)) : null;
-  const legs = matchLegs(q), week = weekIndex(), convs = convHits(q), profs = PROFILES() ? profileHits(q) : [], team = teamHits(q), issues = issueHits(q);
+  const un = s.un && s.un.q === q ? unShown(s.un.rows, q).filter(r => !ids.has(r.id) && !nums.has(r.bill_number)) : null;
+  const legs = coalKeep(q, matchLegs(q), l => l.name), week = weekIndex(), convs = convHits(q), profs = PROFILES() ? profileHits(q) : [], team = teamHits(q), issues = issueHits(q);
   const peopleReady = S.peopleLoaded || (S.people || []).length, people = peopleReady ? peopleHits(q) : [];
-  const N = (k, all) => s.more.has(k) ? all.length : SHOW[{ b: 'bills', l: 'legs', c: 'convs', p: 'people', f: 'profs', t: 'team', i: 'issues' }[k]];
+  const N = (k, all) => s.more.has(k) ? all.length : SHOW[{ b: 'bills', u: 'un', l: 'legs', c: 'convs', p: 'people', f: 'profs', t: 'team', i: 'issues' }[k]];
   const lookUn = q.length >= 3 && !cmteOf(q);
   const unBlock = !lookUn ? '' : un === null ? `<p class="sr-wait" role="status">${icon('loader-circle', { cls: 'sr-spin' })}<span>Looking through every bill of the session</span></p>`
-    : un.length ? `<h3 class="sr-subh">Not tracked yet <span class="sr-n">${un.length}</span></h3>${list(un.map(untrackedRow).join(''), 'Bills not tracked yet')}` : '';
+    : un.length ? `<h3 class="sr-subh">Not tracked yet <span class="sr-n">${un.length}</span></h3>${list(un.slice(0, N('u', un)).map(untrackedRow).join(''), 'Bills not tracked yet')}${more('u', un.length, N('u', un), 'bills not tracked yet')}` : '';
   // What a Capitol word means, the steps and the places that match, above the groups.
   const wd = wordHits(q).slice(0, 4), acts = actionHits(q, 4), pl = placeHits(q, 4).filter(p => !acts.some(a => a.href === p.href && a.title === p.title));
   const top = [wd.length ? group('sr-gw', 'Capitol words', wd.length, list(wd.map(wordRowH).join(''), 'Capitol words')) : '',
@@ -338,7 +368,7 @@ function resultsHTML(q) {
     pl.length ? group('sr-gp', 'Places', pl.length, list(pl.map(placeRowH).join(''), 'Places')) : ''].filter(Boolean);
   const nBills = tracked.length + (un ? un.length : 0), main = [], side = [];
   if (tracked.length || (un && un.length) || un === null && lookUn)
-    main.push(group('sr-gb', cmteOf(q) ? `Bills in ${committeeName(cmteOf(q))}` : 'Bills', nBills, (tracked.length ? list(tracked.slice(0, N('b', tracked)).map(b => billRow(b, { line: billLine(b), button: false, cls: 'sr-row' })).join(''), 'Bills') : '') + more('b', tracked.length, N('b', tracked), 'tracked bills') + unBlock));
+    main.push(group('sr-gb', cmteOf(q) ? `Bills in ${committeeName(cmteOf(q))}` : coalOf(q) ? `${coalOf(q).name}’s bills` : 'Bills', nBills, (tracked.length ? list(tracked.slice(0, N('b', tracked)).map(b => billRow(b, { line: billLine(b), button: false, cls: 'sr-row' })).join(''), 'Bills') : '') + more('b', tracked.length, N('b', tracked), 'tracked bills') + unBlock));
   if (issues.length) side.push(group('sr-gi', 'Issues', issues.length, list(issues.slice(0, N('i', issues)).map(issueRowH).join(''), 'Issues') + more('i', issues.length, N('i', issues), 'issues')));
   if (legs.length) side.push(group('sr-gl', 'Legislators', legs.length, list(legs.slice(0, N('l', legs)).map(l => legRowH(l, week)).join(''), 'Legislators') + more('l', legs.length, N('l', legs), 'legislators')));
   if (team.length) side.push(group('sr-gt', 'Teammates', team.length, list(team.slice(0, N('t', team)).map(teamRowH).join(''), 'Teammates') + more('t', team.length, N('t', team), 'teammates')));
@@ -346,11 +376,9 @@ function resultsHTML(q) {
   if (convs.length) side.push(group('sr-gc', 'Conversations', convs.length, list(convs.slice(0, N('c', convs)).map(g => convRowH(g, q)).join(''), 'Conversations') + more('c', convs.length, N('c', convs), 'conversations')));
   if (!peopleReady) side.push(group('sr-gs', 'Supporters', '', `<p class="sr-wait" role="status">${icon('loader-circle', { cls: 'sr-spin' })}<span>Loading supporters</span></p>`));
   else if (people.length) side.push(group('sr-gs', 'Supporters', people.length, list(people.slice(0, N('p', people)).map(personRowH).join(''), 'Supporters') + more('p', people.length, N('p', people), 'supporters')));
-  if (!main.length && !side.length) return top.length ? `<div class="sr-top">${top.join('')}</div>` : `<div class="sr-empty"><p class="sr-empty-h">Nothing matches “${esc(q)}”</p><p>Try a bill number such as HB1562, a word from its title, a last name or a town. Or look in <a href="#/help">Help</a>.</p></div>`;
-  // What was found, in words, above the groups (each group's heading repeats its own count).
-  const parts = [nBills ? plural(nBills, 'bill') : '', issues.length ? plural(issues.length, 'issue') : '', legs.length ? plural(legs.length, 'legislator') : '', team.length ? plural(team.length, 'teammate') : '',
-    profs.length ? plural(profs.length, 'profile line') : '', convs.length ? plural(convs.length, 'conversation') : '', people.length ? plural(people.length, 'supporter') : ''].filter(Boolean);
-  const sum = parts.length ? `<p class="sr-sum">${parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]} for “${esc(q)}”${keysUsed() ? '<span class="sr-skeys"> · Up and Down move through them, Enter opens one</span>' : ''}</p>` : '';
+  if (!main.length && !side.length) return top.length ? `<div class="sr-top">${top.join('')}</div>` : `<div class="sr-empty"><p class="sr-empty-h">Nothing matches “${esc(q)}”</p><p>Try a bill number such as HB 1562, a word from its title, a last name or a town. Or look in <a href="#/help">Help</a>.</p></div>`;
+  // Each group's heading says its own count, so no sentence repeats them; only the keys, for someone who uses them.
+  const sum = keysUsed() && fine() ? `<p class="sr-sum">Up and Down move through the results, Enter opens one.</p>` : '';
   const two = main.length && side.length;
   return `${top.length ? `<div class="sr-top">${top.join('')}</div>` : ''}${sum}<div class="sr-grid${two ? ' two' : ''}">${main.length ? `<div class="sr-col" data-scol="0">${main.join('')}</div>` : ''}${side.length ? `<div class="sr-col" data-scol="${main.length ? 1 : 0}">${side.join('')}</div>` : ''}</div>`;
 }

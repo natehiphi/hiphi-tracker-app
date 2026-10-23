@@ -65,7 +65,7 @@ function routes() {
     ['user-plus', 'Something given to you', say(Object.values(more).some(Boolean), ': a to-do, a hearing, an issue or a draft')],
     ...(approver ? [['user-check', 'Standing in for an approver', mode === 'app' ? `Always comes, ${me.slack_dm !== false ? 'by Slack DM' : 'by email'}, even with Only in the app` : `Always comes, ${way.startsWith('Email') ? 'by email' : 'by Slack DM'}`]] : []),
     ['megaphone', 'New hearings', `Posted in ${ch} and your coalition’s channel, not to you alone`],
-    ['inbox', 'Everything sent to you', 'Kept in your Inbox, whatever you pick here'],
+    ['inbox', 'Messages and the tracker’s notes', 'Kept in your Inbox, whatever you pick here'],
   ];
 }
 
@@ -101,7 +101,7 @@ export default {
             ${opt('email', 'Email', `To ${esc(me.email || 'your address')}. Testimony steps and messages; deadline alerts come only by Slack.`)}
             ${opt('app', 'Only in the app', `No alerts, except when ${me.is_admin || me.can_approve || me.is_reviewer ? 'you stand in for an approver or ' : ''}a step is passed to you.${mode === 'app' && liveOwned(me) ? ` <b>Deadline alerts for your ${liveOwned(me)} bill${liveOwned(me) === 1 ? '' : 's'} with a hearing ahead won’t reach anyone.</b> Pick Slack DM to get them.` : ''}`)}
           </div></fieldset>
-        ${mode !== 'app' ? `<div class="me-acts">${btn('Send me a test DM', { kind: 'secondary', icon: 'send', attrs: { 'data-test': '1' } })}</div>` : ''}
+        ${mode === 'slack' ? `<div class="me-acts">${btn('Send me a test DM', { kind: 'secondary', icon: 'send', attrs: { 'data-test': '1' } })}</div>` : ''}
       </section>
       <section class="me-sec" aria-labelledby="me-where">
         <h2 class="me-h2" id="me-where">Where each alert goes</h2>

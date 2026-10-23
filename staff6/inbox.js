@@ -12,7 +12,7 @@
 // migration 032) and its Undo. Keys (a keyboard and mouse; Help › Keyboard shortcuts switches them off): j and k move, Enter
 // opens, e marks read or unread, Shift+M marks the list read (not Shift+A, which approves in Review: R-277 E-11).
 import { S, DB, DEMO, esc, fmtDT, hooks, isMine } from './data.js';
-import { unslack, billById, plainAction, OUT_PLAIN as OUT, billRoute, agoWords, teamFirst, hstDayOf, legNotesAll, ASK_LOG, whenAt, blurb } from './model.js';
+import { unslack, billById, plainAction, OUT_PLAIN as OUT, billRoute, agoWords, teamFirst, hstDayOf, legNotesAll, ASK_LOG, whenAt, blurb, inboxCount } from './model.js';
 import { icon, btn, iconBtn, toast, keysOn, keysUsed, segmented, sectionNav } from './ui.js';
 import { itemRow, nameWords, numWords, nw, listDetail, wireListDetail, ldPicked } from './steps.js';
 import { plainCodes } from './terms.js';
@@ -54,24 +54,45 @@ function messageRows() {
 }
 // Who wrote, by first name: "Nate wrote" is the database's title for a message (migration 032).
 const whoOf = i => String(unslack(i.title || '')).replace(/\s+(wrote|mentioned you|replied)$/i, '').trim();
+// The tracker's testimony notes, as they arrive live (migration 154's subjects: "Review requested: HB 1 - HLT", "Changes
+// requested: ...") and in the practice copy ("Kevin submitted testimony for your approval"), each said in v6's words. The
+// Slack body's own last line ("press Submit for review") is v5's wording, so the open note says where the step is instead.
+const NOTE = [
+  ['approve', /for your approval|^review requested/i, 'Testimony for your approval', d => d.status === 'review'],
+  ['second', /^second approval needed|second look/i, 'Testimony for your second look', d => d.status === 'second_review'],
+  ['sentback', /sent back|^changes requested/i, 'Sent back with a note', d => d.status === 'draft' && d.review_note],
+  ['approved', /^approved, ready to file|was approved/i, 'Approved, ready to file', d => d.status === 'approved'],
+  ['draft', /^testimony draft ready/i, 'A testimony draft is ready', d => d.status === 'draft'],
+  ['filed', /^filed:/i, 'Testimony filed', () => false],
+];
+const noteOf = i => i.kind === 'testimony' ? NOTE.find(([, rx]) => rx.test(unslack(i.title || ''))) || null : null;
+// A note about your own step to take (approve, a second look, revise): its row has no tick, since beside "Testimony for
+// your approval" a tick read as Approve (R-316 W56, FD-10, as in v5); opening the row reads it.
+const ownStep = i => ['approve', 'second', 'sentback'].includes(noteOf(i)?.[0]);
+// Who did it ("Kevin Lee submitted ...", "Nate approved ..."), and the approver's note on testimony sent back (live, after
+// "> " in the body; in the practice copy, the body itself).
+const actorOf = i => { const m = /(?:^|[\s:])([A-Z][^\s*:]*(?: [A-Z][^\s*:]*){0,3}) (?:submitted|approved|asked for changes|filed)\b/.exec(`${unslack(i.title || '')} ${unslack(i.body || '')}`); return m ? m[1] : ''; };
+const sentNote = i => { const m = /(?:^|\n)>\s?([^\n]+)/.exec(String(i.body || '')); return unslack(m ? m[1] : noteOf(i)?.[0] === 'sentback' && !/asked for changes/i.test(i.body || '') ? i.body : ''); };
 // The draft a tracker note is about, while it still waits on the same step, so the note opens where that step lives.
-const draftOf = i => { const ds = S.drafts?.[i.bill_id] || []; return /approval/i.test(i.title || '') ? ds.find(d => d.status === 'review' || d.status === 'second_review') : /sent back/i.test(i.title || '') ? ds.find(d => d.status === 'draft' && d.review_note) : null; };
+const draftOf = i => { const n = noteOf(i); return n ? (S.drafts?.[i.bill_id] || []).find(n[3]) || null : null; };
 // A row says who wrote (or what the tracker's note is) as its name, when as its small second part, and then the bill and
 // the words: the way every messages list reads (sender, time, subject, preview), so the eye finds who wrote first, and the
 // bill is named on the line (V19: one plain line; the open item names the bill in full, with its number).
 // A message's first clause or sentence is its preview; the open item has all of it.
 const firstPart = t => { t = String(t || '').replace(/\s+/g, ' ').trim(); const m = /^(.{24,}?)(?:\s[—–-]\s|[.!?](?=\s)|;\s)/.exec(t); return clip(m ? m[1] + (/[.!?]$/.test(m[1]) ? '' : '…') : t, 120); };
+// The tracker's own words without a Slack message's emoji and with committee names for codes (D15).
+const trackerText = t => shown(unslack(t).replace(/^[^\p{L}\p{N}“"]+/u, ''));
 function whatOf(i) {
   if (fromTeam(i)) return whoOf(i) || 'A teammate';
-  if (i.kind === 'testimony' && /sent back/i.test(i.title || '')) return 'Sent back with a note';
-  if (i.kind === 'testimony' && /approval/i.test(i.title || '')) return 'Testimony for your approval';
-  return clip(unslack(i.title || 'From the tracker'), 60);
+  const n = noteOf(i); if (n) return n[2];
+  return clip(trackerText(i.title || 'From the tracker'), 60);
 }
 function lineOf(i) {
-  const b = i.bill_id && billById(i.bill_id), bill = b ? esc(nameWords(b, 60)) : '', body = firstPart(unslack(i.body || ''));
-  const words = fromTeam(i) || /sent back/i.test(i.title || '') ? (body ? `“${esc(body)}”` : '')
-    : i.kind === 'testimony' && /approval/i.test(i.title || '') ? `from ${esc(String(i.title).split(' submitted')[0])}`
-      : b ? esc(clip(unslack(i.body || ''), 120)) : esc(clip(unslack(i.body || ''), 140));
+  const b = i.bill_id && billById(i.bill_id), bill = b ? esc(nameWords(b, 60)) : '', n = noteOf(i)?.[0], who = actorOf(i);
+  const words = fromTeam(i) ? (firstPart(unslack(i.body || '')) ? `“${esc(firstPart(unslack(i.body || '')))}”` : '')
+    : n === 'sentback' ? (sentNote(i) ? `“${esc(firstPart(sentNote(i)))}”` : '')
+      : n && who ? `from ${esc(who)}` : n ? ''
+        : esc(clip(trackerText(i.body || ''), b ? 120 : 140));
   return [bill, words].filter(Boolean).join(' · ');
 }
 const ICON = i => fromTeam(i) ? 'message-square' : i.kind === 'testimony' ? 'file-text' : i.kind === 'system' ? 'settings' : 'bell';
@@ -80,13 +101,13 @@ const readBtn = (key, unread, n = 1) => iconBtn(unread ? 'check' : 'circle-dot',
 function msgRow(i) {
   return itemRow({ key: i.key, name: whatOf(i), num: ago(i.at), icon: ICON(i),
     line: `${i.unread ? '<span class="sr">Unread. </span>' : ''}${lineOf(i)}`, pick: i.key, selected: ldPicked('ib-msg') === i.key,
-    button: readBtn(i.key, i.unread), cls: `ib-row ib-msgrow${i.unread ? ' ib-unread' : ''}` });
+    button: i.unread && ownStep(i) ? '' : readBtn(i.key, i.unread), cls: `ib-row ib-msgrow${i.unread ? ' ib-unread' : ''}` });
 }
 // The same note on three or more bills (a status sweep) is one row; opening it lists each.
 const dupKey = i => `${i.kind}|${unslack(i.title || '')}|${unslack(i.body || '')}`;
 function dupRow(k, list) {
   const un = list.filter(x => x.unread).length, i = list[0], key = 'dup:' + k;
-  return itemRow({ key, name: clip(unslack(i.title || ''), 60), num: ago(i.at), icon: ICON(i),
+  return itemRow({ key, name: whatOf(i), num: ago(i.at), icon: ICON(i),
     line: `${un ? '<span class="sr">Unread. </span>' : ''}${plural(list.length, 'bill')}: ${esc(clip(list.map(x => { const bb = x.bill_id && billById(x.bill_id); return bb ? nameWords(bb, 40) : x.bill_number || ''; }).filter(Boolean).join(', '), 160))}`,
     pick: key, selected: ldPicked('ib-msg') === key, button: readBtn(key, !!un, list.length), cls: `ib-row ib-msgrow${un ? ' ib-unread' : ''}` });
 }
@@ -103,13 +124,13 @@ const keysFor = key => String(key).startsWith('dup:') ? dupList(key.slice(4)).ma
 function msgDetail(key) {
   if (String(key).startsWith('dup:')) {
     const list = dupList(key.slice(4)); if (!list.length) return '';
-    return `<div class="ib-item"><h2 class="ib-item-h">${esc(unslack(list[0].title || ''))}</h2>${list[0].body ? `<p class="ib-item-p">${esc(unslack(list[0].body))}</p>` : ''}
+    return `<div class="ib-item"><h2 class="ib-item-h">${esc(whatOf(list[0]))}</h2>${list[0].body && !noteOf(list[0]) ? `<p class="ib-item-p">${esc(trackerText(list[0].body))}</p>` : ''}
       <div class="v6-list ib-sub" role="list" aria-label="The bills it is about">${list.map(i => { const b = i.bill_id && billById(i.bill_id);
         return b ? itemRow({ key: i.key, name: nameWords(b), num: numWords(b), line: nw(esc(ago(i.at))), href: billRoute(b, 'talk') }) : ''; }).join('')}</div></div>`;
   }
   const i = itemOf(key); if (!i) return '';
   const b = i.bill_id && billById(i.bill_id), when = fmtDT(i.at);
-  const head = b ? `<p class="ib-item-num">${esc(numWords(b))}</p><h2 class="ib-item-h">${esc(nameWords(b))}</h2>` : `<h2 class="ib-item-h">${esc(unslack(i.title || 'From the tracker'))}</h2>`;
+  const head = b ? `<p class="ib-item-num">${esc(numWords(b))}</p><h2 class="ib-item-h">${esc(nameWords(b))}</h2>` : `<h2 class="ib-item-h">${esc(whatOf(i))}</h2>`;
   if (fromTeam(i)) {
     // The talk on the bill, ending with this message and anything after it (at most three before it).
     const all = (S.messages?.[i.bill_id] || []).slice().sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)));
@@ -120,17 +141,34 @@ function msgDetail(key) {
     return `<div class="ib-item">${head}${thread}
       <div class="ib-item-acts">${b ? btn('Reply in Team talk', { icon: 'reply', href: billRoute(b, 'talk') }) : ''}${btn(i.unread ? 'Mark read' : 'Mark unread', { kind: 'text', attrs: { 'data-ibtoggle': i.key } })}</div></div>`;
   }
-  const d = draftOf(i), to = d ? (d.status === 'draft' ? '#/testimony?view=sent' : '#/testimony?view=approve') : b ? billRoute(b) : '';
-  const say = i.kind === 'testimony' && /sent back/i.test(i.title || '') ? 'Sent back with a note' : unslack(i.title || '');
-  return `<div class="ib-item">${head}<p class="ib-item-p"><b>${esc(say)}</b> · ${nw(esc(when))}</p>${i.body ? `<p class="ib-item-q">${esc(unslack(i.body))}</p>` : ''}
-    ${d ? `<p class="ib-item-p">${esc(d.status === 'draft' ? 'It waits in Testimony, under Sent back, with its Doc and Resubmit.' : 'It waits in Testimony, under To approve.')}</p>` : ''}
-    <div class="ib-item-acts">${to ? btn(d ? 'Open in Testimony' : 'Open the bill', { kind: 'secondary', iconEnd: 'arrow-right', href: to }) : ''}${btn(i.unread ? 'Mark read' : 'Mark unread', { kind: 'text', attrs: { 'data-ibtoggle': i.key } })}</div></div>`;
+  // A tracker note opens where its step lives (spec 11.1: a door, never the step's own button): a draft to approve opens in
+  // Review, as v5's "Open to approve" did (R-316 W56); one sent back in Testimony's Sent back; an approved one at its filing.
+  const n = noteOf(i), d = draftOf(i), who = actorOf(i);
+  const door = !d ? null : n[0] === 'approve' || n[0] === 'second' ? ['Open in Review', `#/review/${encodeURIComponent(d.id)}`, 'It waits for you in Review, one draft at a time.']
+    : n[0] === 'sentback' ? ['Open in Testimony', '#/testimony?view=sent', 'It waits in Testimony, under Sent back, with its Doc and Resubmit.']
+      : n[0] === 'approved' ? ['Open in Testimony', '#/testimony?view=file', 'It waits in Testimony, under Ready to file, with the filing card.']
+        : n[0] === 'draft' ? ['Open in Testimony', '#/testimony?view=write', 'It waits in Testimony, under To write.'] : null;
+  const to = door ? door[1] : b ? billRoute(b) : '';
+  // What it says: the approver's note for testimony sent back, who did it for the other steps, the tracker's words otherwise;
+  // always as a plain quote with committee names for codes (D15), never a box that looks like a field.
+  const quote = n ? (n[0] === 'sentback' ? sentNote(i) : '') : trackerText(i.body || '');
+  const by = n && who ? `${n[0] === 'sentback' ? 'From' : n[0] === 'approved' ? 'Approved by' : n[0] === 'filed' ? 'Filed by' : 'Sent by'} ${who}` : '';
+  return `<div class="ib-item">${head}<p class="ib-item-p"><b>${esc(whatOf(i))}</b> · ${nw(esc(when))}${by ? ` · ${esc(by)}` : ''}</p>${quote ? `<blockquote class="ib-item-q">${esc(quote)}</blockquote>` : ''}
+    ${door ? `<p class="ib-item-p">${esc(door[2])}</p>` : ''}
+    <div class="ib-item-acts">${to ? btn(door ? door[0] : 'Open the bill', { kind: 'secondary', iconEnd: 'arrow-right', href: to }) : ''}${btn(i.unread ? 'Mark read' : 'Mark unread', { kind: 'text', attrs: { 'data-ibtoggle': i.key } })}</div></div>`;
 }
 
+// The count over the list, and Mark all read while anything is unread. Opening a message redraws this line in place
+// (readQuietly), so it always agrees with the tab's number and the sidebar's.
+const isFiltered = () => { const v = st(); return !!(v.q.trim() || v.unreadOnly || v.from); };
+function countLine(rows = messageRows(), filtered = isFiltered()) {
+  const un = rows.filter(i => i.unread).length;
+  return `<p class="ib-count" aria-live="polite"><span>${plural(rows.length, 'message')}${un ? `, ${un} unread` : ', all read'}</span>${un ? '<button type="button" class="linkbtn" data-ibreadall>Mark all read</button>' : ''}${filtered ? '<button type="button" class="linkbtn" data-ibclear>Clear the filters</button>' : ''}</p>`;
+}
 function messagesHTML() {
   const v = st(), all = (S.inbox || []).filter(isMsg), rows = messageRows(), un = rows.filter(i => i.unread).length;
   const filtered = !!(v.q.trim() || v.unreadOnly || v.from), showF = v.showFilters || filtered;
-  const count = `<p class="ib-count" aria-live="polite"><span>${plural(rows.length, 'message')}${un ? `, ${un} unread` : ''}</span>${un ? '<button type="button" class="linkbtn" data-ibreadall>Mark all read</button>' : ''}${filtered ? '<button type="button" class="linkbtn" data-ibclear>Clear the filters</button>' : ''}</p>`;
+  const count = countLine(rows, filtered);
   const filters = showF ? `<div class="ib-filters" id="ib-filters">
       <label class="ib-q"><span class="sr">Filter by bill or words</span>${icon('search')}<input id="ib-q" type="search" placeholder="Filter by bill or words" value="${esc(v.q)}" autocomplete="off" enterkeyhint="search"></label>
       ${segmented('ibfrom', [['', 'Everyone'], ['team', 'Teammates'], ['tracker', 'The tracker']], v.from, 'From')}
@@ -207,11 +245,15 @@ function digestFind(rows, q) {
   }).filter(Boolean);
 }
 // Committee codes leave rows (D15): "Hearing set: TRN Mon 3/23" reads "Hearing set: House Transportation Mon 3/23".
-const said = t => plainCodes(esc(t));
+// A committee's name runs straight into the day after it ("Senate Health and Human Services, and Commerce Fri 3/20"), so
+// "on" joins them: "Hearing set: Senate Health and Human Services, and Commerce on Fri 3/20".
+const DAY_AFTER = /\b([A-Z]{2,4}(?:\/[A-Z]{2,4})*) (?=(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b|\d{1,2}\/\d{1,2}\b)/g;
+const dated = t => String(t).replace(DAY_AFTER, (m, c) => c.split('/').every(x => S.committees?.[x]) ? `${c} on ` : m);
+const said = t => plainCodes(esc(dated(t)));
 const shown = t => said(t).replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
 // The line: what matters most first (a result, a move, a hearing set), then the next newest change, then how many more;
 // a row found by the filter shows the line it was found in. A teammate's message says who wrote.
-const itemWords = x => x.msg ? `${esc(x.who)}: “${esc(clip(x.text, 80))}”` : said(clip(x.text, 110));
+const itemWords = x => x.msg ? `${esc(x.who)}: “${esc(clip(x.text, 80))}”` : nw(said(clip(x.text, 110)));
 // The same Capitol line can arrive twice (the sync and a notice email): each is said once.
 const uniq = items => { const seen = new Set(); return items.slice().sort((x, y) => y.at - x.at).filter(x => { const k = (x.msg ? 'm:' + x.who + ':' : 'c:') + x.text; if (seen.has(k)) return false; seen.add(k); return true; }); };
 function updRow({ r, hit }) {
@@ -237,14 +279,18 @@ function updDetail(id) {
 const trackerNotes = () => (S.inbox || []).filter(i => i.kind === 'system' && !isMsg(i)).sort((x, y) => String(y.at).localeCompare(String(x.at))).slice(0, 10);
 function updatesHTML() {
   const v = st(), since = sinceOf(), dg = digest(since), found = digestFind(dg.rows, v.uq || '');
-  const seg = segmented('ibsince', [['day', dg.dayLabel === 'yesterday' ? 'Since yesterday' : `Since ${dg.dayLabel}`], ['visit', 'Since your last visit'], ['week', 'Last 7 days']], since, 'How far back');
+  // How far back: the full words, and on a phone short ones that fit one line ("Since Fri", "Last visit", "7 days"); the
+  // button's name is always the full words (A-8).
+  const opts = [['day', dg.dayLabel === 'yesterday' ? 'Since yesterday' : `Since ${dg.dayLabel}`, dg.dayLabel === 'yesterday' ? 'Yesterday' : `Since ${dg.dayLabel.slice(0, 3)}`],
+    ['visit', 'Since your last visit', 'Last visit'], ['week', 'Last 7 days', '7 days']];
+  const seg = `<div class="sv-seg ib-since" role="group" aria-label="How far back">${opts.map(([k, l, sh]) => `<button type="button" data-seg="ibsince" data-val="${k}" aria-pressed="${k === since}" aria-label="${esc(l)}"><span class="ib-lg">${esc(l)}</span><span class="ib-sh">${esc(sh)}</span></button>`).join('')}</div>`;
   const notes = trackerNotes();
   const none = `<div class="ib-empty"><p>${esc(v.uq ? `Nothing ${dg.head} matches “${v.uq}”.` : `Nothing changed on ${dg.whose} ${dg.head}.`)}</p>${since !== 'week' && !v.uq ? btn('Show the last 7 days', { kind: 'secondary', attrs: { 'data-ibweek': 1 } }) : ''}</div>`;
   return `<div class="ib-ubar">${seg}<label class="ib-q"><span class="sr">Filter what changed</span>${icon('search')}<input id="ib-uq" type="search" value="${esc(v.uq || '')}" placeholder="Filter by bill, name or word" autocomplete="off" enterkeyhint="search"></label></div>
     ${found.length ? `<p class="ib-count" aria-live="polite">${esc(`${plural(found.length, 'bill')} changed ${dg.head}`)}</p>` : ''}
     <div class="ib-list">${found.length ? listDetail({ id: 'ib-upd', label: 'What changed', rows: found.slice(0, 60).map(updRow).join(''), detail: ldPicked('ib-upd') ? updDetail(ldPicked('ib-upd')) : '', empty: 'Pick a bill to see everything that changed', back: 'Back to Updates' }) : none}</div>
     ${found.length > 60 ? `<p class="ib-note">And ${found.length - 60} more bills. Each bill’s Team talk has the full record.</p>` : ''}
-    ${notes.length ? `<section class="ib-notes" aria-labelledby="ib-nh"><h2 class="ib-h2" id="ib-nh">From the tracker</h2><div class="v6-list" role="list">${notes.map(i => itemRow({ key: i.key, name: clip(unslack(i.title || ''), 70), line: `${esc(clip(unslack(i.body || ''), 120))}${i.body ? ' · ' : ''}${nw(esc(ago(i.at)))}`, cls: 'ib-row ib-plain' })).join('')}</div></section>` : ''}`;
+    ${notes.length ? `<section class="ib-notes" aria-labelledby="ib-nh"><h2 class="ib-h2" id="ib-nh">From the tracker</h2><div class="v6-list" role="list">${notes.map(i => itemRow({ key: i.key, name: clip(trackerText(i.title || ''), 70), line: `${esc(clip(trackerText(i.body || ''), 120))}${i.body ? ' · ' : ''}${nw(esc(ago(i.at)))}`, cls: 'ib-row ib-plain' })).join('')}</div></section>` : ''}`;
 }
 
 function render(route) {
@@ -281,6 +327,21 @@ function readQuietly(key) {
   const row = document.querySelector(`.ib-list [data-v6row="${CSS.escape(key)}"]`);
   if (row) { row.classList.remove('ib-unread'); row.querySelector('.v6-row-line .sr')?.remove(); const b = row.querySelector('.v6-row-act [data-ibtoggle]'); if (b) { b.outerHTML = readBtn(key, false, keysFor(key).length); wireToggle(row.querySelector('.v6-row-act [data-ibtoggle]')); } }
   const n = document.querySelector('.ib-page .sv-secnav [aria-current] .sv-tn'), c = messagesCount(); if (n) { if (c) n.textContent = c; else n.remove(); }
+  // The count line over the list, and the frame's own counts (the sidebar's number, the phone's bell), redrawn in place so
+  // the three agree as soon as a message is read (A-14); the frame's next draw says the same.
+  const cl = document.querySelector('.ib-page .ib-count'); if (cl) { cl.outerHTML = countLine(); wireCount(document.querySelector('.ib-page')); }
+  frameCount();
+}
+function frameCount() {
+  let n = 0; try { n = inboxCount(); } catch { return; }
+  const sn = document.querySelector('.sv-side a.sv-sitem[href="#/inbox"] .sv-sn');
+  if (sn) { if (n) { sn.textContent = n > 99 ? '99+' : String(n); sn.setAttribute('aria-label', `${n} unread`); } else sn.remove(); }
+  const bell = document.querySelector('.sv-bell'); if (bell) { bell.setAttribute('aria-label', `Inbox${n ? `, ${n} unread` : ''}`); if (!n) bell.querySelector('.sv-dot')?.remove(); }
+}
+function wireCount(root) {
+  if (!root) return; const v = st();
+  root.querySelectorAll('.ib-count [data-ibclear]').forEach(el => el.onclick = () => { v.q = ''; v.unreadOnly = false; v.from = ''; hooks.render(); });
+  const ra = root.querySelector('.ib-count [data-ibreadall]'); if (ra) ra.onclick = () => mark(messageRows().filter(i => i.unread).map(i => i.key), true);
 }
 function wireToggle(el) { if (el) el.onclick = async e => { e.preventDefault(); e.stopPropagation(); const k = el.dataset.ibtoggle; await toggle(k); focusRow(k); }; }
 
@@ -289,7 +350,7 @@ function wire(route, root) {
   root.querySelectorAll('[data-ibtoggle]').forEach(wireToggle);
   root.querySelectorAll('[data-ibclear]').forEach(el => el.onclick = () => { v.q = ''; v.unreadOnly = false; v.from = ''; hooks.render(); });
   root.querySelector('[data-ibfilters]')?.addEventListener('click', () => { v.showFilters = !root.querySelector('#ib-filters'); hooks.render(); (v.showFilters ? document.getElementById('ib-q') : document.querySelector('[data-ibfilters]'))?.focus(); });
-  root.querySelector('[data-ibreadall]')?.addEventListener('click', () => mark(messageRows().filter(i => i.unread).map(i => i.key), true));
+  wireCount(root);
   root.querySelectorAll('[data-seg="ibfrom"]').forEach(el => el.onclick = () => { v.from = el.dataset.val; hooks.render(); document.querySelector(`[data-seg="ibfrom"][data-val="${el.dataset.val}"]`)?.focus(); });
   const unr = root.querySelector('#ib-unread'); if (unr) unr.onchange = () => { v.unreadOnly = unr.checked; hooks.render(); document.getElementById('ib-unread')?.focus(); };
   const typed = (el, k) => { if (!el) return; let t; el.oninput = () => { v[k] = el.value; clearTimeout(t); t = setTimeout(() => { hooks.render(); const x = document.getElementById(el.id); if (x) { x.focus(); x.setSelectionRange(x.value.length, x.value.length); } }, 200); };

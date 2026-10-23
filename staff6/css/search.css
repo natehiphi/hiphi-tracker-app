@@ -45,6 +45,16 @@ body.staff6 .sr-page .sr-col { min-width: 0; }
   body.staff6 .sr-page .sr-cols .sr-grp + .sr-grp { margin-top: 0; }
 }
 
+/* with nothing typed: the common tasks; the places only on a phone (a laptop's sidebar lists them beside this page) */
+@media (min-width: 768px) {
+  body.staff6 .sr-page .sr-startplaces { display: none; }
+  body.staff6 .sr-page .sr-cols { grid-template-columns: minmax(0, 1fr); max-width: 720px; }
+}
+/* the box's own clear button (×) in the action colour, not the browser's blue */
+body.staff6 .sr-page input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; margin-left: 8px; cursor: pointer; background: var(--v6-action);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E") center / 18px no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E") center / 18px no-repeat; }
+
 /* the header's palette (pub/suggest.js): rows at least 48px, the warm wash for the picked row, the line under it 14px */
 body.staff6 .sv-hdr .sg { border: 0; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh3); }
 body.staff6 .sv-hdr .sg .sg-h { color: var(--v6-muted); font-size: var(--v6-t14); }
