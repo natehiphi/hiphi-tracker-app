@@ -183,7 +183,7 @@ export const DB = {
   logout() { DEMO ? location.reload() : S.supa.auth.signOut(); },
   async loadAll() {
     if (DEMO) return;
-    S.pq = undefined; S.pg = undefined;   // R-328 B: Today's partner words and the Partners screen read again too
+    S.pq = undefined; S.pg = undefined; S.pAsks = undefined;   // R-328 B, G: Today's partner words, the Partners screen and the partner asks read again too
     // link my login to my advocate row (no-op after first time)
     const { data: myId, error: claimErr } = await S.supa.rpc('claim_advocate');
     if (claimErr) console.warn('claim_advocate:', claimErr.message);
@@ -1208,17 +1208,45 @@ export const DB = {
       for (const w of r.data || []) if (!q.issueNames[w.partner_issue_id] || w.state === 'live') q.issueNames[w.partner_issue_id] = w.name; }
     return q;
   },
-  // Approve (approve: true) or Ask for a change (a note the group sees). it: a queue item ({ kind, id }).
-  async partnerReview(it, approve, note = null) {
+  // Approve (approve: true) or Ask for a change (a note the group sees). it: a queue item ({ kind, id }). ask: the approval
+  // card's { also_text, text_line } (185, R-328 G), each sent only when given; approved bill words come back with
+  // partner_ask, the ask they carry as it now goes out (null when they carry none).
+  async partnerReview(it, approve, note = null, ask = {}) {
+    const extra = { ...('also_text' in ask ? { also_text: !!ask.also_text } : {}), ...('text_line' in ask ? { text_line: ask.text_line || null } : {}) };
     if (DEMO) {
       if (!pApprover()) throw pErr('Only a partner approver decides on partner words');
       if (!approve && !String(note || '').trim()) throw pErr('Say what to change');
       const d = demoPartners(), x = d.queue.find(q => q.kind === it.kind && q.id === it.id); if (!x) throw pErr('Already decided, or taken back by the group');
+      const pa = approve && x.kind === 'bill' ? demoAskOnApprove(d, x, extra) : undefined;   // checks the text line first: a refusal changes nothing
       d.queue = d.queue.filter(q => q !== x);
       if (x.kind === 'bill') { const c = d.counts[x.partner_slug] ??= { live: 0, waiting: 0, changes: 0 }; c.waiting = Math.max(0, c.waiting - 1); if (!approve) c.changes++; else if (!x.live) c.live++; }
-      return;
+      return x.kind === 'bill' && approve ? { ...x.words, state: 'live', partner_ask: pa ? demoAskJson(d, pa) : null } : undefined;
     }
-    const { data, error } = await S.supa.rpc('partner_review', { p: { kind: it.kind, id: it.id, approve: !!approve, note: note || null } }); if (error) throw error; return data;
+    const { data, error } = await S.supa.rpc('partner_review', { p: { kind: it.kind, id: it.id, approve: !!approve, note: note || null, ...extra } }); if (error) throw error; return data;
+  },
+  // ---- partner asks in the 4:30 pm email (backend 185, R-328 batch G) ----
+  // Every current partner ask whose end date is less than two weeks past, newest first; state: going_out (before its first
+  // 4:30 pm), sending (it went in an email and still goes to those it waited for), taken_back, ended. Any staff member.
+  async partnerAsks() {
+    if (DEMO) { const d = demoPartners(); return demoAsks(d).filter(a => !a.replaced_at && a.ask_until >= hstToday(-14))
+      .sort((x, y) => String(y.scheduled_for).localeCompare(String(x.scheduled_for)) || y.id - x.id).map(a => demoAskJson(d, a)); }
+    const { data, error } = await S.supa.rpc('partner_asks_list'); if (error) throw error; return data || [];
+  },
+  // Take it back (do: 'take_back'), send it again at the next 4:30 pm ('send': its Undo; nobody who got it gets it twice),
+  // or Also by text ('text', with also_text and text_line). Partner approvers only; refusals in the database's words.
+  async partnerAskStep(p) {
+    if (DEMO) {
+      if (!pApprover()) throw pErr('Only a partner approver decides on partner asks');
+      const d = demoPartners(), a = demoAsks(d).find(x => x.id === +p.id); if (!a) throw pErr('No such partner ask');
+      if (a.replaced_at) throw pErr('Newer words from the group replaced this ask');
+      if (p.do === 'take_back') { if (a.taken_back_at) throw pErr('Already taken back'); a.taken_back_at = new Date().toISOString(); }
+      else if (p.do === 'send') { if (!a.taken_back_at) throw pErr('It is already going out'); if (a.ask_until < hstToday() || a.ended) throw pErr('This ask has ended');
+        Object.assign(a, { taken_back_at: null, scheduled_for: nextEmail() }); }
+      else if (p.do === 'text') Object.assign(a, demoTextCheck(a, { ...('also_text' in p ? { also_text: !!p.also_text } : {}), ...('text_line' in p ? { text_line: p.text_line } : {}) }));
+      else throw pErr('Unknown step');
+      return demoAskJson(d, a);
+    }
+    const { data, error } = await S.supa.rpc('partner_ask_step', { p }); if (error) throw error; return data;
   },
   // The Partners screen: every group (link-only ones too), its people (not removed), its bills' counts (live, waiting for
   // approval, changes asked) and its link's first visits in 12 weeks (first_visit_sources; null when that read fails).
@@ -1893,7 +1921,9 @@ function demoPartners() {
   const fresh = { id: 'aaaaaaaa-0000-4000-8000-0000000b0012', state: 'sent', side: 'support', nickname: 'Fluoride in public water',
     summary: 'Has the bigger public water systems add fluoride at the level health experts recommend, which helps keep teeth free of cavities.',
     points: ['Fluoride in water is one of the cheapest ways to prevent tooth decay.', 'Families on every island would get it without an extra trip to the dentist.'],
-    ask: null, ask_until: null, draft_version: null, draft_note: null, issue_ids: [own], written_at: ago(17 * 60 + 30), sent_at: ago(17 * 60 + 20), reviewed_at: null, review_note: null };
+    // R-328 G: an ask too long for a text (128 characters), so Also by text asks for a line of its own
+    ask: b2 ? `Ask the Senate Health and Human Services committee to pass ${b2.bill_number.replace(/^([A-Z]+)(\d)/, '$1 $2')}, so families on every island get fluoride in their tap water.` : null,
+    ask_until: b2 ? inDays(9) : null, draft_version: null, draft_note: null, issue_ids: [own], written_at: ago(17 * 60 + 30), sent_at: ago(17 * 60 + 20), reviewed_at: null, review_note: null };
   const base = { partner_slug: KS, partner_name: 'Keiki Smiles Alliance', by: 'Leilani K.' };
   S.pDemo = {
     approvers: [nate, jess].filter(Boolean),
@@ -1921,6 +1951,58 @@ function demoPartners() {
     visits: { [KS]: 140 },
   };
   return S.pDemo;
+}
+// ---- the sample partner's asks (R-328 G): the same rules as 185's partner_ask_on_approve, partner_ask_step and
+// partner_ask_json, kept with the sample group (so a person switch keeps them). The practice copy sends nothing.
+// Today's date in Honolulu, or `days` from it; the next 4:30 pm there (109's next_daily_email: today's, or tomorrow's once
+// it has passed; Hawaiʻi keeps no daylight saving, so -10:00 always).
+const hstToday = (days = 0) => new Date(Date.now() + days * 864e5).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+const nextEmail = (t = Date.now()) => { const at = new Date(`${new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' })}T16:30:00-10:00`).getTime(); return new Date(t < at ? at : at + 864e5).toISOString(); };
+// Two of Keiki Smiles Alliance's three live bills carry an ask: one Jess approved this morning, going out at 4:30 pm, and
+// one Nate took back yesterday before it went (Send again still works: its end date allows).
+function demoAsks(d) {
+  if (d.asks) return d.asks;
+  const id = x => S.advocates.find(a => a.initials === x)?.id || null, ago = m => new Date(Date.now() - m * 60e3).toISOString();
+  const row = (n, num, ask, until, extra) => { const b = S.bills.find(x => x.bill_number === num); return b ? [{ id: n, partner_slug: KS, bill_id: b.id, bill_number: b.bill_number,
+    words_id: `aaaaaaaa-0000-4000-8000-0000000b00${12 + n}`, ask, ask_until: hstToday(until), also_text: false, text_line: null, approved_by: id('JS'), approved_at: ago(95),
+    scheduled_for: nextEmail(), taken_back_at: null, replaced_at: null, sent: 0, ...extra }] : []; };
+  d.asks = [
+    ...row(1, 'HB2146', 'Ask your representative to vote yes on HB 2146.', 5, {}),
+    ...row(2, 'SB2458', 'Thank your senator for voting yes on SB 2458.', 2, { approved_by: id('NT'), approved_at: ago(26 * 60), scheduled_for: nextEmail(Date.now() - 26 * 36e5), taken_back_at: ago(25 * 60) }),
+  ];
+  return d.asks;
+}
+// One ask as the team sees it (partner_ask_json): the state in the database's order.
+function demoAskJson(d, a) {
+  const g = d.groups.find(x => x.slug === a.partner_slug), b = S.bills.find(x => x.id === a.bill_id) || (S.snapshot?.index || []).find(x => x.id === a.bill_id);
+  const state = a.replaced_at ? 'replaced' : a.taken_back_at ? 'taken_back' : a.ended || a.ask_until < hstToday() || g?.status !== 'active' ? 'ended'
+    : new Date(a.scheduled_for).getTime() > Date.now() ? 'going_out' : 'sending';
+  return { id: a.id, partner_slug: a.partner_slug, partner_name: g?.name || a.partner_slug, partner_bill_id: null, bill_id: a.bill_id, bill_number: b?.bill_number || a.bill_number,
+    session_year: b?.session_year ?? null, words_id: a.words_id, ask: a.ask, ask_until: a.ask_until, also_text: !!a.also_text, text_line: a.text_line,
+    approved_at: a.approved_at, approved_by: S.advocates.find(x => x.id === a.approved_by)?.full_name || null, scheduled_for: a.scheduled_for,
+    taken_back_at: a.taken_back_at, replaced_at: a.replaced_at, state, sent: a.sent || 0 };
+}
+// Also by text and its line, as 185 checks them: a line is 10 to 110 characters, and an ask longer than a text needs one.
+function demoTextCheck(a, p) {
+  const line = 'text_line' in p ? String(p.text_line ?? '').trim() || null : a.text_line;
+  if ('text_line' in p && line && (line.length < 10 || line.length > 110)) throw pErr('The line for the text is 10 to 110 characters');
+  const also = 'also_text' in p ? !!p.also_text : !!a.also_text;
+  if (also && !line && String(a.ask).trim().length > 110) throw Object.assign(pErr('A text has room for 110 characters: write a shorter line for the text'), { hint: 'text_line' });
+  return { also_text: also, text_line: line };
+}
+// Approving bill words x: an ask on them goes out at the next 4:30 pm; the same ask as the current one keeps its row (it
+// goes out once, and a taken-back ask stays taken back); another ask replaces it; no ask, or one already ended, ends it.
+function demoAskOnApprove(d, x, p) {
+  const w = x.words || {}, asks = demoAsks(d), now = new Date().toISOString();
+  const cur = asks.find(a => a.partner_slug === x.partner_slug && a.bill_id === x.bill_id && !a.replaced_at);
+  if ('text_line' in p) demoTextCheck({ ask: '' }, { text_line: p.text_line });
+  if (!w.ask || !w.ask_until || w.ask_until < hstToday()) { if (cur) cur.replaced_at = now; return null; }
+  if (cur && cur.ask === w.ask) return Object.assign(cur, demoTextCheck(cur, p), { words_id: w.id, ask_until: w.ask_until });
+  const row = { id: Math.max(0, ...asks.map(a => a.id)) + 1, partner_slug: x.partner_slug, bill_id: x.bill_id, bill_number: x.bill_number, words_id: w.id, ask: w.ask, ask_until: w.ask_until,
+    also_text: false, text_line: null, approved_by: S.me?.id || null, approved_at: now, scheduled_for: nextEmail(), taken_back_at: null, replaced_at: null, sent: 0 };
+  Object.assign(row, demoTextCheck(row, p));
+  if (cur) cur.replaced_at = now;
+  asks.push(row); return row;
 }
 
 // R-316 W38: keep this tab's practice changes for the next load (a person switch reloads the page with &as=). The team's
