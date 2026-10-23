@@ -1,25 +1,25 @@
-// HIPHI Staff v2: Session setup (#/setup, #/setup/:section; plan 3.11). Admins only. The current app puts every
-// admin setting in one 9,000px scroll with 15 Save buttons; here the page opens on "Ready for session?" (the readiness
-// checklist, each problem with a Fix link to the page that fixes it), then one short sub-page per part, each with a
-// status line and its own Save. Message wording, the committee map and keys sit under "Advanced", closed by default.
-// Every setting in app.js renderSettings/wireSettings is reachable here or in My settings (me.js); the DB calls and
-// their arguments are the same as app.js.
-// Build 3 (9/19): nothing is dropped without a word any more. Switches (and the position chips) save the moment they
-// are flipped, like My settings, with a "Saved." toast and the old value put back if the save fails; turning email
-// ON asks first, because that one starts mail to the public. Typed fields keep their Save button: the page says
-// "Not saved yet" beside it, keeps what was typed for the visit, and asks "Save changes?" before you leave. On a
-// desktop the page is two columns: the list of parts stays in view on the left, and the chosen part is a form
-// column on the right with its Save right under it.
+// Staff v6 (R-336 V28, spec section 6 "Session setup"; admins): Session setup (#/setup, #/setup/<group>, #/setup/<part>).
+// v5 had 15 parts in two lists (146 controls, about 16.5 screens of panels), Slack set in 6 of them, the team in one, two
+// save models mixed on one page and "Forget this person" in the Save bar (X24). v6:
+//   - The place opens on the season checklist ("Ready for session?", or "Running well?" from opening day), then five groups,
+//     one page each and none longer than 1.5 screens (spec 8): Before each session · Alerts and messages (every Slack and
+//     email setting on one page) · Connections (the keys under a closed "Technical details") · Public page (the embed, the
+//     A/B tests, the tester sheet) · Privacy and safety. The checklist and the five groups are the place's page tabs (D12).
+//   - The team moved to People (people.js): #/setup/people and #/setup/team open it.
+//   - One save model on every page: what is on the page acts the moment it is changed (a switch saves, with Undo); what is
+//     typed is changed in a sheet with its own Save (and Undo), and anything typed but not saved comes back next time.
+//   - Every setting is a row: its name and its value in one plain line ("Not set up yet: ask Claude to connect it"), with one
+//     control. "Forget this person" is a danger button in its own section; its sheet is the confirm.
+//   - v5's part addresses (#/setup/email, /alerts, /coalitions, /templates, /privacy, /keys...) open their group at that part,
+//     which keeps its v5 name, so links in Slack, Help and people's heads still land (V36, tests/staff6_links.py).
+// Every setting v5 had is here (fmap F194-F210); the data calls and their arguments are v5's.
 import { S, DB, DEMO, esc, fmtDate, advocate, SUPABASE_URL, SESSION_YEAR, SESSION_OVER, APP_URL, hooks } from './data.js';
-import { legislativeDay, diedish, TEMPLATE_KINDS, TOKENS, parseTrackerCsv, billNum } from './model.js';
-import { icon, btn, iconBtn, row, switchRow, field, notice, empty, toast, pickerSheet, menuSheet, openSheet, closeSheet, confirmSheet, chip, pickerChip, avatar, segmented } from './ui.js';
+import { legislativeDay, diedish, TEMPLATE_KINDS, TOKENS, parseTrackerCsv, billNum, billRoute, teamName } from './model.js';
+import { icon, btn, iconBtn, row, switchRow, field, notice, empty, toast, pickerSheet, menuSheet, openSheet, closeSheet, confirmSheet, chip, pickerChip, segmented, skeleton } from './ui.js';
+import { placeHead } from './steps.js';
 import { qrMatrix, qrSvg, qrPng, printHtml } from './qr.js';
 import { copyLink, NAMES as FV_NAMES } from './firstvisit.js';
 import { afterClose, iconName } from './lists.js';
-import { ICONS } from '../icons.js';
-import { billRoute } from './model.js';
-import { teamName, ownerName } from './model.js';   // R-316 W28
-import { bl, save as saveBills } from './filters.js';
 
 // ---- coalition and list icons (copied from app.js: the public page shows Lucide icons, so staff pick a name from
 // this short list; old emoji values still display, mapped, until someone saves the coalition again) ----
@@ -28,8 +28,6 @@ export const ICON_CHOICES = [['salad', 'Healthy food'], ['apple', 'Apple'], ['bi
   ['smile', 'Smile (oral health)'], ['sprout', 'Sprout (farm to school)'], ['school', 'School'], ['baby', 'Keiki'], ['syringe', 'Vaccines'], ['stethoscope', 'Health care'],
   ['heart-pulse', 'Public health'], ['heart-handshake', 'Community care'], ['handshake', 'Partnership'], ['users', 'People'], ['house', 'Housing'], ['megaphone', 'Advocacy']];
 export { iconName };   // R-277 fix 15: it lives in lists.js, so the pages that draw coalitions need not load this one
-const iconLabel = n => (ICON_CHOICES.find(c => c[0] === n) || [n, n])[1];
-const showIcon = (card, v) => { const b = card.querySelector('[data-ciconpick]'); if (b) b.innerHTML = `${icon(v)}<span>${esc(iconLabel(v))}</span>${icon('chevron-down', { cls: 'chev' })}`; const h = card.querySelector('.st-coalic'); if (h) h.innerHTML = icon(v); };
 
 // ---- small shared bits ----
 const admins = () => S.advocates.filter(a => a.is_admin && a.is_active !== false).map(a => a.full_name).join(' or ') || 'an admin';
@@ -43,16 +41,26 @@ const POS_OPTS = [['strongly_support', 'Strongly support'], ['support', 'Support
 const TEMPLATE_LABEL = { hearing_alert: 'Hearing alert, one per bill', hearing_rescheduled: 'Hearing moved', hearing_cancelled: 'Hearing cancelled', draft_thread: 'Draft ready, as a thread reply',
   reminder_morning: 'Alert the morning testimony is due', reminder_before: 'Alert hours before it is due', reminder_after: 'Alert after the deadline passed', daily_head: 'Daily list heading', daily_empty: 'Daily list when nothing is coming' };
 
-// The sub-pages, in the order the index lists them. Advanced ones are listed under "Advanced", closed by default.
-const SECTIONS = [['team', 'Team', 'users-round'], ['email', 'Email', 'mail'], ['alerts', 'Hearing alerts', 'bell'], ['coalitions', 'Coalitions', 'users'], ['sync', 'Session days and sync', 'calendar-days'],
-  ['import', 'Import', 'upload'], ['connections', 'Connections', 'plug'], ['embed', 'Website embed', 'globe'], ['tests', 'Tests', 'flask-conical']];
-const ADVANCED = [['templates', 'Message wording', 'square-pen'], ['committees', 'Committee map', 'route'], ['keys', 'Keys', 'key-round'], ['lists', 'People’s lists', 'list-checks'], ['privacy', 'Privacy and keeping', 'shield-check']];
-// The tester sheet (R-185) is a page of Tests: reached from it, and Tests stays marked in the list of parts.
-const ALL = Object.fromEntries([...SECTIONS, ...ADVANCED, ['room', 'Tester sheet', 'qr-code'], ['test', 'A test', 'flask-conical']].map(([k, t, ic]) => [k, { t, ic }]));
 
-// ---- async state: readiness and secret status load once per visit and on "Check again" ----
-const st = () => S.st2Setup ??= { ready: null, readyErr: '', readyBusy: false, errs: null, errsErr: '', errsBusy: false, secrets: null, secretsBusy: false, logins: null, loginsBusy: false, loginsErr: '', reach: null, reachBusy: false, reachErr: '', teamEmail: null, slackBusy: false, offOpen: false, advOpen: false, passOpen: false, coalOpen: new Set(), csv: null, draft: {}, focus: null, offLists: null, offListsBusy: false, offListsErr: '' };
-const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
+// ---- the five groups (V28), and where each v5 part lives now ----
+// The tabs' words are short so the six fit one row from 768px (the critic: "Privacy and safety" fell to a second line at
+// 1024, and a phone took five lines of loose words): Checklist · Each session · Alerts · Connections · Public page · Privacy.
+const GROUPS = [['session', 'Each session', 'calendar-days'], ['alerts', 'Alerts', 'bell'], ['connections', 'Connections', 'plug'],
+  ['public', 'Public page', 'globe'], ['privacy', 'Privacy', 'shield-check']];
+const GROUP = Object.fromEntries(GROUPS.map(([k, t, ic]) => [k, { t, ic }]));
+// v5's parts: [group, the element its address lands on]. "alerts", "connections" and "privacy" are both a v5 part and a v6
+// group, and the group holds the part under its v5 name ("Hearing alerts", "Privacy and keeping").
+const PART = { email: ['alerts', 'ss-email'], templates: ['alerts', 'ss-r-templates'], coalitions: ['session', 'ss-coalitions'], sync: ['session', 'ss-r-days'],
+  import: ['session', 'ss-r-load'], committees: ['session', 'ss-r-map'], keys: ['connections', 'ss-keys'], embed: ['public', 'ss-r-embed'], lists: ['privacy', 'ss-lists'] };
+// The Public page's own pages: the list of A/B tests, one test, the tester sheet (R-185).
+const SUB = { tests: 'Tests', test: 'A test', room: 'Tester sheet' };
+const groupOf = key => GROUP[key] ? key : PART[key]?.[0] || (SUB[key] ? 'public' : '');
+const TABS = () => [['', '#/setup', 'Checklist'], ...GROUPS.map(([k, t]) => [k, '#/setup/' + k, t])];
+const headOf = (view, sub = '') => placeHead('Session setup', { tabs: TABS(), view, sub, id: 'ss-h1' });
+
+// ---- the visit's state: readiness, the keys' status, the tests, what was typed in a sheet and not saved ----
+const st = () => S.st2Setup ??= { ready: null, readyErr: '', readyBusy: false, errs: null, errsErr: '', errsBusy: false, secrets: null, secretsBusy: false, logins: null, loginsBusy: false, loginsErr: '',
+  teamEmail: null, teamEmailBusy: false, passOpen: false, csv: null, draft: {}, offLists: null, offListsBusy: false, offListsErr: '', arrived: '' };
 function loadReady(force) {
   const s = st(); if (s.readyBusy || (s.ready && !force)) return;
   s.readyBusy = true; s.readyErr = '';
@@ -72,25 +80,6 @@ const hstToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Pacif
 const errWords = m => /fetch|network|load failed|timed? ?out/i.test(m || '') ? 'The page could not reach the tracker’s data'
   : /import|module|chunk|script/i.test(m || '') ? 'The page could not load one of its files'
   : /TypeError|ReferenceError|undefined|null|is not a function/i.test(m || '') ? 'A part of the page stopped working' : 'Something went wrong';
-function errorsHTML() {
-  const s = st(); loadErrors();
-  if (!s.errs) return s.errsErr ? `<div class="card">${notice('bad', 'circle-alert', `Could not load the public page's error reports. ${esc(s.errsErr)}`)}</div>`
-    : `<div class="rows st-ready" aria-busy="true"><div class="st-rrow"><div class="skel" style="height:40px;flex:1"></div></div></div>`;
-  const today = hstToday(), live = s.errs.filter(e => !e.sandbox), sum = l => l.reduce((a, e) => a + (e.reports || 0), 0);
-  const n = sum(live), nToday = sum(live.filter(e => e.day === today)), sb = sum(s.errs.filter(e => e.sandbox));
-  const by = new Map();
-  for (const e of live) { const k = `${e.message}|${e.place}`, g = by.get(k) || { ...e, reports: 0 }; g.reports += e.reports || 0; if (e.last_at > g.last_at) { g.last_at = e.last_at; g.day = e.day; g.source = e.source; } by.set(k, g); }
-  const top = [...by.values()].sort((a, b) => b.reports - a.reports).slice(0, 5);
-  const words = n ? `${plural(n, 'error report')} from visitors' browsers in the last 7 days, ${nToday} today${sb ? `, and ${sb} in the sandbox` : ''}.`
-    : `No errors reported by visitors' browsers in the last 7 days${sb ? ` (${sb} in the sandbox)` : ''}.`;
-  // R-316 W57 (FR-9, B-8): what broke in plain words, on which screen; the browser's own message and file folded away.
-  const rowH = e => `<div class="st-rrow ${e.day === today ? 'bad' : 'info'}"><span class="st-ric">${icon(e.day === today ? 'circle-x' : 'info')}</span>
-    <div class="st-rbody"><span class="st-rlab">${esc(errWords(e.message))}${e.place ? ` on ${esc(e.place)}` : ''}</span><span class="st-rdet">${esc([`${e.reports} ${e.reports === 1 ? 'report' : 'reports'}`, `last ${fmtDate(e.last_at)}`].join(' · '))}</span>
-      <details class="st-errd"><summary>Details for Claude</summary><code>${esc([e.message, e.source].filter(Boolean).join(' · '))}</code></details></div></div>`;
-  return `<p class="st-sum">${n ? chip(nToday ? 'Errors today' : 'Errors this week', nToday ? 'danger' : 'info', 'circle-alert') : chip('No errors', 'ok', 'circle-check')}<span>${esc(words)}</span></p>
-    ${top.length ? `<div class="rows st-ready">${top.map(rowH).join('')}</div>` : ''}
-    <p class="st-rfix">A report says which screen broke, what the error said and the file it came from, never who the person is; nothing is sent with the privacy signal. The hourly health check tells admins by Slack when ten or more arrive in an hour. Ask Claude to fix what shows here.</p>`;
-}
 // Privacy (backend 159): the keeping periods and the clean-up's switch, loaded once per visit and after a change.
 function loadRetention(force) {
   const s = st(); if (s.retBusy || (s.ret && !force)) return;
@@ -121,44 +110,29 @@ function loadLogins(force) {
 }
 
 // Who the tracker can reach (backend 154, M1-1, M1-3) and the team email switch. Loads with the logins.
-function loadReach(force) {
-  const s = st(); if (s.reachBusy || (s.reach && !force)) return;
-  s.reachBusy = true; s.reachErr = '';
-  Promise.all([DB.teamReach(), DB.teamEmail().catch(() => null)])
-    .then(([r, te]) => { s.reach = Object.fromEntries((r || []).map(x => [x.advocate_id, x])); s.teamEmail = te; })
-    .catch(e => { s.reachErr = e.message || 'Could not check.'; })
-    .finally(() => { s.reachBusy = false; if (S.route?.name === 'setup') hooks.render(); });
-}
-const reachOk = x => x && (x.reach === 'slack' || x.reach === 'email');
-const reachWord = x => !x ? '' : x.reach === 'slack' ? 'In Slack' : x.reach === 'email' ? 'Gets email' : x.reach === 'unknown' ? 'Not looked up in Slack yet'
-  : x.reach === 'off' ? '' : (x.why || 'Cannot be reached').replace(/^./, c => c.toUpperCase());
-function reachHTML() {
-  const s = st();
-  if (s.reachErr) return notice('info', 'info', 'Who the tracker can reach shows here once Claude finishes setting it up. Until then, Ready for session? lists who is matched in Slack.');   // the database part (backend 154) may not be applied yet; plain words (B-8)
-  if (!s.reach) return '';
-  const act = S.advocates.filter(a => a.is_active !== false), R = s.reach, out = act.filter(a => !reachOk(R[a.id]));
-  const missed = act.reduce((n, a) => n + (R[a.id]?.not_reached || 0), 0);
-  return `<section class="card st-reach" aria-labelledby="st-reach-h"><h2 id="st-reach-h">Who the tracker can reach</h2>
-    <p class="small">${act.length - out.length} of ${act.length} get the tracker's messages. ${out.length ? `${plural(out.length, 'person', 'people')} can't be reached yet, so their messages go to the next person who can be: an owner of the bill's coalition, then an admin.` : 'Everyone can be reached.'}${missed ? ` ${plural(missed, 'message')} did not reach someone in the last 30 days.` : ''}</p>
-    ${out.length && !out.every(a => (R[a.id] || {}).reach === 'unknown') ? `<ul class="st-reachlist">${out.map(a => { const x = R[a.id] || {}; return `<li><span class="strong">${esc(a.full_name)}</span><span class="muted">${esc(reachWord(x))}${x.not_reached ? ` · ${plural(x.not_reached, 'message')} did not reach them` : ''}</span></li>`; }).join('')}</ul>` : ''}
-    <div class="st-reachact">${btn('Check who Slack can reach', { kind: 'secondary', sm: true, icon: 'search', attrs: { 'data-slackreach': '1', ...(s.slackBusy ? { 'aria-busy': 'true' } : {}) } })}<span class="small muted">Looks each person up in Slack by their email. Nobody is messaged.</span></div>
-    ${s.teamEmail === null ? '' : switchRow('st-teamemail', 'Email to the team', !!s.teamEmail, 'On: someone Slack cannot find gets their messages by email, even while email to the public is paused. Off: their messages go to the next person who can be reached. Saves as soon as you flip it.')}
-  </section>`;
+// Email to the team (backend 154): a setting on Alerts and messages, read once per visit.
+function loadTeamEmail(force) {
+  const s = st(); if (s.teamEmailBusy || (s.teamEmail !== null && !force)) return;
+  s.teamEmailBusy = true;
+  DB.teamEmail().then(v => { s.teamEmail = !!v; }).catch(() => { s.teamEmail = null; }).finally(() => { s.teamEmailBusy = false; if (S.route?.name === 'setup') hooks.render(); });
 }
 
-// ---- readiness: every row the server checks, plus the one the current app computes here (public page copy) ----
-// Where each problem is fixed. Rows with no page in the app get a plain sentence instead (most are Claude's job).
-const FIX = { approvers_in: 'team', advocates_auth: 'team', team_reach: 'team', advocates_slack: 'team', coalition_owners: 'coalitions', coalition_channels: 'coalitions', keywords: 'coalitions', slack: 'connections', calendar: 'connections', email: 'email', bulk: 'import', session_days: 'sync', template: 'templates' };
+// ---- readiness: every row the server checks, plus the ones the app works out here ----
+// Where each problem is fixed: a group of Session setup (at the part), or People. Rows with no page in the app get a plain
+// sentence instead (most are Claude's job).
+const FIX = { approvers_in: '#/people', advocates_auth: '#/people', team_reach: '#/people', advocates_slack: '#/people', coalition_owners: '#/setup/session?part=coalitions',
+  coalition_channels: '#/setup/session?part=coalitions', keywords: '#/setup/session?part=coalitions', slack: '#/setup/connections', calendar: '#/setup/connections',
+  email: '#/setup/alerts?part=email', bulk: '#/setup/session?part=import', session_days: '#/setup/session?part=sync', template: '#/setup/alerts?part=templates' };
 const FIX_TEXT = {
   deadlines: 'Claude loads the session calendar each December. Ask Claude if this stays red.',
   slots: 'The sync loads committee meeting times. Ask Claude if this stays red.',
   committees: 'The sync loads committees and chairs. Ask Claude if this stays red.',
-  advocates_auth: 'Make each person a sign-in link under Team and send it to them.',
-  approvers_in: 'Send each approver their sign-in link under Team and ask them to sign in once: a testimony draft waits on them from the first hearing.',
+  advocates_auth: 'Make each person a sign-in link in People and send it to them.',
+  approvers_in: 'Send each approver their sign-in link from People and ask them to sign in once: a testimony draft waits on them from the first hearing.',
   committees_next: 'The sync loads the new session’s committees and chairs once the Legislature names them (December or January, after the 3 November election). Ask Claude to check after 1 December.',
-  advocates_slack: 'Press Check who Slack can reach under Team. Anyone still not found needs their Slack profile on their hiphi.org email.',
-  team_reach: 'Press Check who Slack can reach under Team. Anyone still not found needs their Slack profile on their hiphi.org email, or turn on Email to the team.',
-  breakglass: 'Make a second admin under Team, or keep a sealed admin login in HIPHI’s password manager and try it every 90 days. The steps are in the break-glass guide Claude wrote (docs/BREAK-GLASS.md).',
+  advocates_slack: 'Press Check who Slack can reach in People. Anyone still not found needs their Slack profile on their hiphi.org email.',
+  team_reach: 'Press Check who Slack can reach in People. Anyone still not found needs their Slack profile on their hiphi.org email, or turn on Email to the team.',
+  breakglass: 'Make a second admin in People, or keep a sealed admin login in HIPHI’s password manager and try it every 90 days. The steps are in the break-glass guide Claude wrote (docs/BREAK-GLASS.md).',
   coalition_owners: 'Give each coalition an owner.', coalition_channels: 'Give each coalition a Slack channel.', keywords: 'Add keywords so new bills get suggested.',
   slack: 'Save the Slack bot token.', calendar: 'Save the Google keys, then connect the calendar.',
   outbox: 'Messages are waiting to go out. Ask Claude to check the notify-send function.',
@@ -166,11 +140,23 @@ const FIX_TEXT = {
   bulk: 'Load the session from Open States.',
   watermark: 'Open States has not moved forward in 12 hours. Ask Claude to check the sync.',
   session_days: 'Enter opening day, sine die and each recess day.',
-  template: 'Open the testimony template Doc and check it uses every token listed under Message wording.',
+  template: 'Open the testimony template Doc and check it uses every token listed in Message wording.',
 };
+// The server's people checks list initials, which are codes ("12 without an account: JM, JN, JS..."). Said here with first
+// names and People's words, so the Fix lands on rows that say the same (V6-SPEC 7.12, C-15).
+const firstOfIni = ini => { const a = S.advocates.find(x => String(x.initials || '').toUpperCase() === ini.trim().toUpperCase()); return a ? String(a.full_name || '').split(/\s+/)[0] : ini.trim(); };
+function peopleWords(r) {
+  const m = /^(\d+) (?:without an account|not matched yet): (.+)$/.exec(r.detail || '');
+  if (r.key === 'advocates_auth') {
+    if (r.ok) return 'Everyone has a sign-in';
+    if (m) { const ns = m[2].split(/,\s*/).filter(Boolean).map(firstOfIni).sort((a, b) => a.localeCompare(b)); return `${ns.length === 1 ? '1 person has' : `${ns.length} people have`} no sign-in yet: ${andList(ns)}`; }
+  }
+  if (r.key === 'advocates_slack' && m) { const ns = m[2].split(/,\s*/).filter(Boolean).map(firstOfIni).sort((a, b) => a.localeCompare(b)); return `Slack has not found ${andList(ns)} yet`; }
+  return r.detail;
+}
 function readyRows() {
   const s = st(); if (!s.ready) return null;
-  const rows = s.ready.map(r => ({ ...r }));
+  const rows = s.ready.map(r => ({ ...r, detail: peopleWords(r) }));
   // The server and the settings describe the same switch; settings are what this page edits, so they win.
   const em = rows.find(r => r.key === 'email'); if (em) em.detail = (S.emailCfg || {}).enabled === false ? 'Paused. Nothing is sent.' : 'On.';
   const gaps = S.bills.filter(b => b.tracked !== false && ['strongly_support', 'strongly_oppose'].includes(b.position) && !diedish(b) && (!(b.public_summary || '').trim() || !(b.public_action || '').trim()));
@@ -197,17 +183,6 @@ function readyRows() {
   for (const r of rows) if (r.expected && r.ok !== true && hi < String(r.expected).slice(0, 10)) r.waiting = true;
   const rank = r => r.ok === true ? 6 : r.waiting ? 4 : r.level === 'block' ? 0 : r.level === 'warn' ? 1 : r.level === 'manual' ? 2 : 3;
   return rows.sort((a, b) => rank(a) - rank(b));
-}
-function readyRowHTML(r) {
-  const [ic, cls, word] = r.waiting ? ['calendar-clock', 'info', 'Expected'] : r.ok === true ? ['circle-check', 'ok', 'Done'] : r.level === 'manual' ? ['circle-dashed', 'todo', 'To-do'] : r.ok === null || r.level === 'info' ? ['info', 'info', 'For your information'] : r.level === 'block' ? ['circle-x', 'bad', 'Blocking'] : ['triangle-alert', 'warn', 'Check'];
-  const fixText = !r.waiting && (r.ok === false || (r.level === 'manual' && !r.ok)) ? (FIX_TEXT[r.key] || tidy(r.fix)) : '';
-  const to = r.ok !== true && !r.waiting && FIX[r.key];
-  const act = r.waiting ? '' : r.level === 'manual'
-    ? btn(r.ok ? 'Undo' : 'Mark done', { kind: r.ok ? 'text' : 'secondary', sm: true, attrs: { 'data-rman': r.key, 'data-on': r.ok ? '' : '1', 'aria-label': `${r.ok ? 'Mark not done' : 'Mark done'}: ${r.label}` } })
-    : r.key === 'public_copy' && !r.ok ? btn('See them', { kind: 'text', sm: true, iconEnd: 'chevron-right', attrs: { 'data-gaps': '1' } })
-    : to ? btn(r.ok === false ? 'Fix' : 'Open', { kind: 'text', sm: true, iconEnd: 'chevron-right', href: '#/setup/' + to, attrs: { 'aria-label': `${r.ok === false ? 'Fix' : 'Open'}: ${r.label}` } }) : '';
-  return `<div class="st-rrow ${cls}"><span class="st-ric">${icon(ic)}<span class="sr">${word}:</span></span>
-    <div class="st-rbody"><span class="st-rlab">${esc(r.label)}</span>${r.waiting ? `<span class="st-rdet">Expected from ${esc(new Date(String(r.expected).slice(0, 10) + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }))}. ${esc(tidy(r.detail || ''))}</span>` : r.detail ? `<span class="st-rdet">${esc(tidy(r.detail))}</span>` : ''}${fixText ? `<span class="st-rfix">${esc(fixText)}</span>` : ''}</div>${act ? `<span class="st-ract">${act}</span>` : ''}</div>`;
 }
 
 // ---- each part's one-line status, shown on the index and at the top of its page ----
@@ -238,101 +213,6 @@ function status(key) {
   }
 }
 
-// ---- the index: readiness first, then the parts ----
-function renderIndex() {
-  const s = st(); loadReady(); loadSecrets();
-  const rows = readyRows();
-  let ready;
-  if (!rows) ready = s.readyErr ? `<div class="card">${notice('bad', 'circle-alert', `Could not run the checks. ${esc(s.readyErr)}`)}${btn('Try again', { kind: 'secondary', sm: true, attrs: { 'data-recheck': '1' } })}</div>`
-    : `<div class="rows st-ready" aria-busy="true">${[0, 1, 2].map(() => '<div class="st-rrow"><div class="skel" style="height:40px;flex:1"></div></div>').join('')}</div>`;
-  else {
-    const live = rows.filter(r => !r.waiting), soon = rows.length - live.length;
-    const bad = live.filter(r => r.level === 'block' && r.ok === false).length, warn = live.filter(r => r.level === 'warn' && r.ok === false).length,
-      todo = live.filter(r => r.level === 'manual' && !r.ok).length, open = rows.filter(r => r.ok !== true), pass = rows.filter(r => r.ok === true);
-    const sum = [bad ? plural(bad, 'blocking issue') : 'Nothing is blocking', warn ? `${warn} to check` : '', todo ? `${todo} to tick off` : '', soon ? `${soon} not due yet` : ''].filter(Boolean).join(', ');
-    ready = `<p class="st-sum">${bad ? chip('Not ready', 'danger', 'circle-x') : chip('Ready', 'ok', 'circle-check')}<span>${sum}.</span></p>
-      <div class="rows st-ready">${open.map(readyRowHTML).join('')}
-        ${pass.length ? `<button type="button" class="st-fold" data-pass aria-expanded="${s.passOpen}">${icon('circle-check')}<span>${plural(pass.length, 'check passes', 'checks pass')}</span>${icon(s.passOpen ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button>${s.passOpen ? pass.map(readyRowHTML).join('') : ''}` : ''}</div>`;
-  }
-  const secRow = ([k, t, ic]) => row({ lead: ic, title: esc(t), sub: esc(status(k)), href: '#/setup/' + k, end: s.draft[k] ? chip('Not saved yet', 'info', 'circle-dot') : '' });
-  const recheck = rows || s.readyErr ? btn('Check again', { kind: 'text', sm: true, icon: 'rotate-ccw', attrs: { 'data-recheck': '1', 'aria-busy': s.readyBusy ? 'true' : null } }) : '';
-  const parts = `<section class="st-sec" aria-labelledby="st-ph">
-      <h2 id="st-ph" class="st-h2">Settings</h2>
-      <div class="rows">${SECTIONS.map(secRow).join('')}</div>
-      <div class="rows st-advbox">
-        <button type="button" class="row st-adv" data-adv aria-expanded="${s.advOpen}" aria-controls="st-advlist"><span class="lead">${icon('settings')}</span><span class="body"><span class="title">Advanced</span><span class="sub">Message wording, committee map, keys and people’s lists</span></span><span class="end">${icon(s.advOpen ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</span></button>
-        <div id="st-advlist" ${s.advOpen ? '' : 'hidden'}>${ADVANCED.map(secRow).join('')}</div>
-      </div>
-    </section>`;
-  // Desktop: the checklist is the page (its heading is the h1); the parts, each with its status, are the left column only
-  // (R-316 W57, S-17: the Settings list and Advanced fold said them twice). From opening day the health checks lead
-  // ("Running well?") and the January checklist folds to one line.
-  const errs = `<section class="st-sec" aria-labelledby="st-eh"><div class="st-sechead"><h2 id="st-eh" class="st-h2">The public page's errors</h2></div>${errorsHTML()}</section>`;
-  if (inSession() && rows) {
-    const health = rows.filter(r => !r.waiting && r.level !== 'manual' && r.ok === false);
-    const body = `<section class="st-sec" aria-label="Health checks">${health.length ? `<div class="rows st-ready">${health.map(readyRowHTML).join('')}</div>` : `<p class="st-sum">${chip('Running well', 'ok', 'circle-check')}<span>Nothing needs you.</span></p>`}</section>
-      ${errs}
-      <details class="st-sec st-readyf"><summary>${icon('clipboard-check')}<span>Ready for session? The checklist from before opening day</span>${icon('chevron-down', { cls: 'chev' })}</summary>${ready}</details>`;
-    const lede = `For admins. The checks that matter while the session is on. <a href="#/help/session">What changes when a session starts</a>`;
-    if (DESK()) return shell('', `<div class="st-head st-headrow"><div><h2 class="st-ptitle">Running well?</h2><p class="st-lede">${lede}</p></div>${recheck}</div>${body}`);
-    // A phone has no left column, so its list of parts (with their status) stays at the end.
-    return `<div class="st-page st-setup"><div class="st-head"><h1 class="st-dup">Session setup</h1><p class="st-lede">${lede}</p></div>
-      <div class="st-sechead"><h2>Running well?</h2>${recheck}</div>${body}${parts}</div>`;
-  }
-  if (DESK()) return shell('', `<div class="st-head st-headrow"><div><h2 class="st-ptitle">Ready for session?</h2><p class="st-lede">For admins. Everything the season needs, one part at a time. <a href="#/help/session">What changes when a session starts</a></p></div>${recheck}</div>
-    <section class="st-sec" aria-label="Readiness checklist">${ready}</section>${errs}`);
-  return `<div class="st-page st-setup">
-    <div class="st-head"><h1 class="st-dup">Session setup</h1><p class="st-lede">For admins. Everything the season needs, one part at a time. <a href="#/help/session">What changes when a session starts</a></p></div>
-    <section class="st-sec" aria-labelledby="st-rh">
-      <div class="st-sechead"><h2 id="st-rh">Ready for session?</h2>${recheck}</div>
-      ${ready}
-    </section>
-    <section class="st-sec" aria-labelledby="st-eh">
-      <div class="st-sechead"><h2 id="st-eh">The public page's errors</h2></div>
-      ${errorsHTML()}
-    </section>
-    ${parts}
-  </div>`;
-}
-// The desktop page: the list of parts on the left stays in view; the chosen part (or the checklist) is on the right.
-const NAV_DOT = `<span class="st-navd" title="Not saved yet"><span class="sr">Not saved yet</span></span>`;
-function shell(cur, pane) {
-  loadReady(); loadLogins();   // the count beside "Ready for session?" shows on every part, not only after a visit to the checklist
-  const s = st(), rows = readyRows();
-  const open = rows ? rows.filter(r => !r.waiting && ((r.level === 'block' || r.level === 'warn') && r.ok === false || (!inSession() && r.level === 'manual' && !r.ok))).length : 0,   /* W57: in session, the health checks only */ bad = rows ? rows.some(r => r.level === 'block' && r.ok === false) : false;
-  const on = PAGES[cur]?.parent || cur;
-  // R-316 W57 (S-17): each part's status under its name, so the front page need not list the parts again.
-  const item = ([k, t, ic]) => `<a class="st-navi" href="#/setup/${k}"${on === k ? ' aria-current="page"' : ''}>${icon(ic)}<span class="st-navl">${esc(t)}<span class="st-navs">${esc(status(k))}</span></span>${s.draft[k] ? NAV_DOT : ''}</a>`;
-  // R-277 fix 10 (U-5, U-12): "Session setup" is the page's heading row over both columns; each part's name is its h2.
-  return `<div class="st-page st-setup st-duo"><div class="sv-phead"><h1 class="sv-h1">Session setup</h1></div><div class="st-cols2">
-    <nav class="st-nav2" aria-label="Session setup">
-
-      <a class="st-navi" href="#/setup"${cur ? '' : ' aria-current="page"'}>${icon('clipboard-check')}<span class="st-navl">${inSession() ? 'Running well?' : 'Ready for session?'}</span>${open ? `<span class="st-navn${bad ? ' bad' : ''}"><span aria-hidden="true">${open}</span><span class="sr">${open} to fix or tick off${bad ? ', some blocking' : ''}</span></span>` : ''}</a>
-      <p class="st-navg">Settings</p>${SECTIONS.map(item).join('')}
-      <p class="st-navg">Advanced</p>${ADVANCED.map(item).join('')}
-    </nav>
-    <div class="st-pane">${pane}</div>
-  </div></div>`;
-}
-function wireIndex(root) {
-  const s = st();
-  root.querySelectorAll('[data-recheck]').forEach(b => b.onclick = () => { s.ready = null; loadReady(true); loadErrors(true); hooks.render(); });
-  const adv = root.querySelector('[data-adv]');
-  if (adv) adv.onclick = () => { s.advOpen = !s.advOpen; hooks.render(); root.querySelector('[data-adv]')?.focus(); };
-  const pass = root.querySelector('[data-pass]');
-  if (pass) pass.onclick = () => { s.passOpen = !s.passOpen; hooks.render(); document.querySelector('[data-pass]')?.focus(); };
-  root.querySelectorAll('[data-rman]').forEach(b => b.onclick = async () => {
-    const on = !!b.dataset.on, r = (s.ready || []).find(x => x.key === b.dataset.rman);
-    b.setAttribute('aria-busy', 'true');
-    try { await DB.saveReadinessManual(b.dataset.rman, on); if (r) r.ok = on; toast(on ? 'Marked done.' : 'Marked not done.', { ok: on }); hooks.render(); }
-    catch (e) { toast(e, { err: true }); b.removeAttribute('aria-busy'); }
-  });
-  const g = root.querySelector('[data-gaps]');
-  if (g) g.onclick = () => { const r = readyRows().find(x => x.key === 'public_copy');
-    openSheet({ title: 'Bills missing public copy', size: 'full', body: `<p class="small muted st-shp">Open each one and fill in the Public tab.</p><div class="rows">${r.gaps.map(b => row({ title: b.nickname ? `<b class="bn-nick">${esc(b.nickname)}</b> <span class="bn-num">${esc(billNum(b))}</span>` : `<b>${esc(billNum(b))}</b>`, sub: [!(b.public_summary || '').trim() ? 'No summary' : '', !(b.public_action || '').trim() ? 'No ask' : ''].filter(Boolean).join(' · '), href: `${billRoute(b, 'public')}` })).join('')}</div>`,
-      wire: d => d.querySelectorAll('a[href^="#/"]').forEach(a => a.onclick = e => { e.preventDefault(); goAfterSheet(a.getAttribute('href')); }) }); };
-}
-
 // Closing a sheet steps history back, and that Back lands after anything pushed in the same tick; so leave a sheet
 // first and navigate once its Back has happened (S.go straight from a sheet ends up back on this page).
 function goAfterSheet(href) {
@@ -346,132 +226,6 @@ const area = (id, label, value, { rows = 4, ph = '', help = '', attrs = '' } = {
 const val = (root, id) => (root.querySelector('#' + id)?.value || '').trim();
 const fieldErr = (root, id, msg) => { const el = root.querySelector('#' + id); if (!el) return toast(msg, { err: true }); el.setAttribute('aria-invalid', 'true'); el.closest('.field')?.querySelector('.err')?.remove(); el.insertAdjacentHTML('afterend', `<span class="err" id="${id}-err">${icon('circle-alert')}${esc(msg)}</span>`); el.setAttribute('aria-describedby', id + '-err'); el.focus(); };
 const clearErrs = root => root.querySelectorAll('.st-form .err').forEach(e => { const f = e.closest('.field'); f?.querySelector('[aria-invalid]')?.removeAttribute('aria-invalid'); e.remove(); });
-
-// ---- Team (R-092): the people who use this app. An admin adds someone, then makes them a one-time sign-in link and
-// sends it by Slack or email (nothing is emailed from here: Supabase's own mailer refuses outside addresses). Nobody
-// is deleted: turning someone off stops their sign-in and keeps their name on everything they did. ----
-const firstOf = a => (a.full_name || '').split(/\s+/)[0];
-const ownedBy = id => S.bills.filter(b => (S.assignments[b.id] || []).includes(id)).length;
-// R-316 W28 (G3-13): one honest count, live bills first ("28 live bills; 79 more have died").
-const liveOwned = id => S.bills.filter(b => b.tracked !== false && (S.assignments[b.id] || []).includes(id) && !diedish(b)).length;
-const ownedWords = id => { const n = liveOwned(id), dead = ownedBy(id) - n; return `${plural(n, 'live bill')}${dead ? `; ${dead} more ${dead === 1 ? 'has' : 'have'} died` : ''}`; };
-const initialsOf = name => { const w = name.trim().split(/\s+/).filter(Boolean); return (w.length > 1 ? w[0][0] + w[w.length - 1][0] : (w[0] || '').slice(0, 2)).toUpperCase().replace(/[^A-Z]/g, ''); };
-// Initials nobody else on the team has (R-267): "JM" is James's, so Julie Mejia is offered JMM, not a form that refuses JM.
-const takenBy = (ini, self) => S.advocates.find(x => x.id !== self && String(x.initials || '').toUpperCase() === ini);
-function freeInitials(name, self) {
-  const w = name.trim().toUpperCase().replace(/[^A-Z\s]/g, '').split(/\s+/).filter(Boolean), base = initialsOf(name);
-  if (!base || !takenBy(base, self)) return base;
-  const f = w[0] || '', l = w[w.length - 1] || '';
-  const tries = [base + l[0], f[0] + l.slice(0, 2), f.slice(0, 2) + (w.length > 1 ? l[0] : ''), ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(c => base.slice(0, 2) + c)];
-  return tries.find(t => t.length >= 2 && t.length <= 3 && !takenBy(t, self)) || base;
-}
-function loginWord(a) {
-  const s = st(), l = s.logins?.[a.id];
-  if (!s.logins) return s.loginsErr ? 'Sign-in not checked' : 'Checking sign-in…';
-  if (l?.last_sign_in_at) return `Last signed in ${fmtDate(l.last_sign_in_at)}`;
-  if (l?.has_login && l.link_made_at) return `Link made ${fmtDate(l.link_made_at)}, not signed in yet`;
-  return 'Cannot sign in yet';
-}
-function tmRow(a) {
-  const me = a.id === S.me?.id, l = st().logins?.[a.id], role = a.is_admin ? 'Admin' : a.can_approve ? 'Approver' : a.is_reviewer ? 'Second approver' : '';
-  // R-316 W57 (O-15): each person's Slack status on their own row, so the team list comes first and the card above is one line.
-  const rx = st().reach?.[a.id], slack = a.is_active !== false && rx && !reachOk(rx) ? reachWord(rx) : '';
-  const sub = [esc(a.email || 'No email'), role, a.is_active === false ? 'Turned off' : loginWord(a), esc(slack)].filter(Boolean).join(' · ');
-  // A link is offered on the row only while someone still has to sign in for the first time; a forgotten password
-  // is rarer, so that link is in the person's sheet.
-  // R-316 W57 (O-9): no email, no link: the row says what to do first.
-  const link = !me && a.is_active !== false && st().logins && !l?.last_sign_in_at && !a.email ? `<span class="small muted">Add their email first</span>`
-    : !me && a.is_active !== false && st().logins && !l?.last_sign_in_at
-    ? btn(l?.link_made_at ? 'New link' : 'Sign-in link', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-tmlink': a.id, 'aria-label': `Make a sign-in link for ${a.full_name}` } }) : '';
-  return `<div class="st-tm">${row({ leadHtml: `<span class="lead st-tmav">${avatar(a, 32)}</span>`, title: `${esc(a.full_name)}${me ? ' <span class="muted">(you)</span>' : ''}`, sub, attrs: { 'data-tmedit': a.id, 'aria-label': `${a.full_name}${me ? ' (you)' : ''}: edit` } })}${link ? `<span class="st-tmlink">${link}</span>` : ''}</div>`;
-}
-// "Ask another admin" named nobody when there was none (M1-4, B-3): name them, or say how to make one.
-function ownAdminWords() {
-  const others = S.advocates.filter(x => x.is_admin && x.is_active !== false && x.id !== S.me?.id);
-  return others.length ? `You cannot take away your own admin. Ask ${esc(listOf(others.map(firstOf)))}, the other admin${others.length > 1 ? 's' : ''}.`
-    : 'You cannot take away your own admin. You are the only admin: turn on Admin for someone you trust, so the team is not stuck if you are away.';
-}
-const listOf = xs => xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
-function personSheet(a) {
-  const me = a && a.id === S.me?.id, l = a && st().logins?.[a.id], locked = !!l?.has_login, off = a && a.is_active === false, n = a ? ownedBy(a.id) : 0;
-  const email = `<input id="tm-email" type="email" value="${esc(a?.email || '')}" placeholder="name@hiphi.org" autocomplete="off" inputmode="email"${locked ? ' readonly aria-describedby="tm-email-help"' : ''}>`;
-  const extra = a && !me ? `<div class="st-tmmore">
-      ${!off && l?.last_sign_in_at ? `<div class="st-tmact"><div><p class="strong">Forgot their password?</p><p class="small muted">Make a new sign-in link and send it to them.</p></div>${btn('New sign-in link', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-tmlink2': a.id } })}</div>` : ''}
-      <div class="st-tmact"><div><p class="strong">${off ? 'Turned off' : 'Leaving the team?'}</p><p class="small muted">${off ? `${esc(firstOf(a))} cannot sign in. Turn them back on to let them in again.${n ? ` They own ${esc(ownedWords(a.id))}; the app treats them as No owner until you give them to someone else.` : ''}` : `Turning ${esc(firstOf(a))} off stops their sign-in. Their notes and approvals keep their name${n ? `. They own ${esc(ownedWords(a.id))}: until you give them to someone else, the app treats them as No owner, so nothing late is hidden` : ''}.`}${n && liveOwned(a.id) ? ` ${btn('See their live bills', { kind: 'text', sm: true, attrs: { 'data-tmbills': a.id } })}` : ''}</p></div>
-        ${btn(off ? 'Turn back on' : 'Turn off', { kind: off ? 'secondary' : 'text', sm: true, cls: off ? '' : 'st-danger', attrs: { 'data-tmoff': off ? '' : '1' } })}</div></div>` : '';
-  openSheet({ title: a ? esc(a.full_name) : 'Add a person', size: 'auto',
-    body: `<form class="st-form st-tmform" novalidate data-tmform>
-      ${field('tm-name', 'Name', `<input id="tm-name" type="text" value="${esc(a?.full_name || '')}" autocomplete="off"${a ? '' : ' autofocus'}>`)}
-      ${field('tm-email', 'Email', email, locked ? 'They sign in with this email. Ask Claude to change it.' : 'Their hiphi.org address. It is how they sign in and how Slack finds them.')}
-      ${field('tm-ini', 'Initials', `<input id="tm-ini" type="text" value="${esc(a?.initials || '')}" maxlength="3" autocomplete="off" autocapitalize="characters" aria-describedby="tm-ini-help">`, 'Shown in the small circle beside their bills.')}
-      ${switchRow('tm-admin', 'Admin', !!a?.is_admin, me ? ownAdminWords() : 'Approves testimony and emails, and can open Session setup.', me ? { disabled: true } : {})}
-      ${switchRow('tm-appr', 'Approver', !!a?.can_approve, 'Approves testimony and supporter emails, without the rest of an admin’s powers.')}
-      ${switchRow('tm-rev', 'Second approver', !!a?.is_reviewer, 'Gives the second approval on a bill\u2019s first testimony, and can stand in for the first from 6 hours before the deadline.')}
-      <button type="submit" hidden tabindex="-1" aria-hidden="true"></button></form>${extra}`,
-    foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-tmcancel': '1' } })}${btn(a ? 'Save' : 'Add', { attrs: { 'data-tmsave': '1' } })}`,
-    wire: d => {
-      const f = d.querySelector('[data-tmform]'), v = id => d.querySelector('#' + id);
-      // On a new person the initials follow the name until someone types their own.
-      let own = !!a; v('tm-ini').addEventListener('input', () => { own = true; });
-      if (!a) v('tm-name').addEventListener('input', () => { if (!own) v('tm-ini').value = freeInitials(v('tm-name').value).slice(0, 3); });
-      d.querySelector('[data-tmcancel]').onclick = () => closeSheet();
-      const save = async () => {
-        const b = d.querySelector('[data-tmsave]'); if (b.getAttribute('aria-busy')) return;
-        d.querySelectorAll('.err').forEach(e => e.remove()); d.querySelectorAll('[aria-invalid]').forEach(e => e.removeAttribute('aria-invalid'));
-        const p = { full_name: v('tm-name').value, email: v('tm-email').value, initials: v('tm-ini').value, is_admin: v('tm-admin').checked, can_approve: v('tm-appr').checked, is_reviewer: v('tm-rev').checked, is_active: !off };
-        if (!p.full_name.trim()) return fieldErr(d, 'tm-name', 'Enter a name.');
-        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(p.email.trim())) return fieldErr(d, 'tm-email', 'Enter an email address, like name@hiphi.org.');
-        if (!/^[A-Za-z]{1,3}$/.test(p.initials.trim())) return fieldErr(d, 'tm-ini', 'Initials are one to three letters, like KV.');
-        { const t = takenBy(p.initials.trim().toUpperCase(), a?.id), alt = t && freeInitials(p.full_name, a?.id);
-          if (t) return fieldErr(d, 'tm-ini', `${p.initials.trim().toUpperCase()} is ${t.full_name.split(' ')[0]}’s.${alt && !takenBy(alt, a?.id) ? ` Try ${alt}.` : ''}`); }
-        b.setAttribute('aria-busy', 'true');
-        try {
-          const id = await DB.teamSave(a?.id || null, p);
-          await closeSheet({ silent: true }); loadLogins(true); hooks.render();
-          const who = advocate(id) || { id, full_name: p.full_name.trim() };
-          if (a) toast('Saved.', { ok: true });
-          else toast(`${who.full_name} added. Next, make their sign-in link.`, { ok: true, action: { label: 'Make the link', run: () => makeLink(who) } });
-        } catch (e) {
-          const m = e.message || '';
-          if (/email/i.test(m)) fieldErr(d, 'tm-email', m); else if (/initials/i.test(m)) fieldErr(d, 'tm-ini', m); else if (/name/i.test(m) && !/admin/i.test(m)) fieldErr(d, 'tm-name', m); else toast(e, { err: true });
-        } finally { d.querySelector('[data-tmsave]')?.removeAttribute('aria-busy'); }
-      };
-      d.querySelector('[data-tmsave]').onclick = save; f.onsubmit = e => { e.preventDefault(); save(); };
-      const l2 = d.querySelector('[data-tmlink2]'); if (l2) l2.onclick = async () => { await closeSheet({ silent: true }); makeLink(a); };
-      const tb = d.querySelector('[data-tmbills]');   // W28: their bills, on Bills' Team view, filtered to them, ready for Set owner
-      if (tb) tb.onclick = async () => { await closeSheet({ silent: true }); const v = bl(); v.scope = 'all'; v.owners = new Set([a.id]); saveBills(); location.hash = '#/bills'; };
-      const t = d.querySelector('[data-tmoff]');
-      if (t) t.onclick = async () => { await closeSheet({ silent: true }); setActive(a, !!off); };
-    } });
-}
-// Turning someone off (or back on) happens at once, with Undo (B-5), rather than behind an "Are you sure?".
-async function setActive(a, on) {
-  const save = v => DB.teamSave(a.id, { ...a, is_active: v });
-  try { await save(on); } catch (e) { toast(e, { err: true }); return; }
-  hooks.render();
-  toast(on ? `${a.full_name} is back on and can sign in.` : `${a.full_name} is turned off and can no longer sign in.`, { ok: on, undo: async () => { await save(!on); hooks.render(); toast('Undone.'); } });
-}
-async function makeLink(a) {
-  const b = document.querySelector(`[data-tmlink="${CSS.escape(a.id)}"]`); if (b?.getAttribute('aria-busy')) return;
-  b?.setAttribute('aria-busy', 'true');
-  let r; try { r = await DB.teamLink(a.id); } catch (e) { b?.removeAttribute('aria-busy'); toast(e.message || String(e), { err: true }); return; }
-  b?.removeAttribute('aria-busy'); loadLogins(true);
-  // M1-3: the newer team-admin hands back continue_link, which opens a Continue page first, so a link preview cannot use
-  // it up. Until that function is live the old one-time link comes back, and the words below say email only either way.
-  const first = firstOf(a), email = r.email || a.email, link = r.continue_link || r.link;
-  const msg = `Aloha ${first},\n\nHere is your link to the HIPHI Bill Tracker, the team's staff app:\n${link}\n\nOpen it${r.continue_link ? ', press Continue,' : ''} and choose a password, and you are in. The link works once, and only for about an hour. From then on, sign in at ${APP_URL} with ${email} and your password.\n\n${S.me ? firstOf(S.me) : ''}`.trim();
-  const mail = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent('Your sign-in for the HIPHI Bill Tracker')}&body=${encodeURIComponent(msg)}`;
-  openSheet({ title: `Sign-in link for ${esc(first)}`, size: 'auto',
-    body: `<p class="st-shp">${r.created ? `${esc(first)} now has a login. ` : ''}Email ${esc(first)} this message yourself, not by Slack: a Slack link preview can open the link and use it up. The link works once and only for about an hour, so send it when they are ready. If it runs out, make a new one here.</p>
-      ${field('tm-msg', 'The message', `<textarea id="tm-msg" rows="9" readonly>${esc(msg)}</textarea>`)}
-      ${notice('info', 'shield-check', `Anyone who opens this link is signed in as ${esc(first)}, so send it only to them.`)}`,
-    foot: `${btn('Copy link', { kind: 'text', icon: 'link', attrs: { 'data-cp': 'link' } })}${btn('Copy message', { kind: 'secondary', icon: 'copy', attrs: { 'data-cp': 'msg' } })}${btn('Email it', { icon: 'mail', href: mail })}`,
-    wire: d => d.querySelectorAll('[data-cp]').forEach(x => x.onclick = async () => {
-      const text = x.dataset.cp === 'link' ? link : msg;
-      try { await navigator.clipboard.writeText(text); toast(x.dataset.cp === 'link' ? 'Link copied. Send it by email.' : 'Message copied. Paste it into an email.', { ok: true }); }
-      catch { const t = d.querySelector('#tm-msg'); t.focus(); t.select(); toast('Select the message and copy it.'); }
-    }) });
-}
 
 // ---- Tests: the public page's A/B tests (migration 116, R-135; ../backend/docs/AB-TESTS-PLAN.md) ----
 // A person comes here to decide each A/B test of the public page: keep it running, stop it, or pick its winner (B-1).
@@ -961,316 +715,8 @@ async function roomPrint() {
     </body></html>`);
 }
 
+// The Public page's own pages (renderSub): the A/B tests, one test, the tester sheet; v5's, unchanged but for their head.
 const PAGES = {
-  team: {
-    status: () => ['users-round', status('team') + '.'],
-    body() { loadLogins(); loadReach(); const s = st(), act = S.advocates.filter(a => a.is_active !== false), off = S.advocates.filter(a => a.is_active === false);
-      return `<p class="small muted st-intro">Everyone who uses the staff app. Add someone, then make them a sign-in link and email it to them.</p>
-      <div class="btnrow st-acts st-top">${btn('Add a person', { icon: 'user-plus', attrs: { 'data-tmadd': '1' } })}</div>
-      ${s.loginsErr ? notice('warn', 'triangle-alert', `Could not check who has signed in. ${esc(s.loginsErr)}`) : ''}
-      <div class="rows st-team">${act.map(tmRow).join('')}</div>
-      ${reachHTML()}
-      ${off.length ? `<div class="rows st-team st-teamoff"><button type="button" class="st-fold" data-tmoffopen aria-expanded="${s.offOpen}">${icon('eye-off')}<span>${plural(off.length, 'person', 'people')} turned off</span>${icon(s.offOpen ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button>${s.offOpen ? off.map(tmRow).join('') : ''}</div>` : ''}`; },
-    wire(root) { const s = st();
-      root.querySelector('[data-tmadd]')?.addEventListener('click', () => personSheet(null));
-      root.querySelectorAll('[data-tmedit]').forEach(b => b.onclick = () => personSheet(advocate(b.dataset.tmedit)));
-      root.querySelectorAll('[data-tmlink]').forEach(b => b.onclick = () => makeLink(advocate(b.dataset.tmlink)));
-      const o = root.querySelector('[data-tmoffopen]'); if (o) o.onclick = () => { s.offOpen = !s.offOpen; hooks.render(); document.querySelector('[data-tmoffopen]')?.focus(); };
-      root.querySelector('[data-slackreach]')?.addEventListener('click', async () => { if (s.slackBusy) return;
-        s.slackBusy = true; hooks.render();
-        try { const p = await DB.slackReach(), found = p.filter(x => x.matched), lost = p.filter(x => !x.matched).map(x => advocate(x.advocate_id)).filter(Boolean);
-          toast(`Slack found ${found.length} of ${p.length}.${lost.length ? ` Not found: ${listOf(lost.map(firstOf))}. Their Slack profile needs their hiphi.org email.` : ''}`, { ok: !lost.length });
-          loadReach(true); }
-        catch (e) { toast(e.message || String(e), { err: true }); }
-        finally { s.slackBusy = false; hooks.render(); } });
-      const te = root.querySelector('#st-teamemail');
-      if (te) te.onchange = async () => { const on = te.checked;
-        try { await DB.setTeamEmail(on); s.teamEmail = on; loadReach(true);
-          toast(on ? 'Email to the team is on.' : 'Email to the team is off.', { ok: true, undo: async () => { await DB.setTeamEmail(!on); s.teamEmail = !on; loadReach(true); toast('Undone.'); } }); }
-        catch (e) { te.checked = !on; toast(e.message || String(e), { err: true }); } }; },
-  },
-  email: {
-    // A failed read counts as paused and every save here is refused until a reload reads it (Z1-5, data.js).
-    status: () => S.emailCfgErr ? ['circle-alert', `${esc(S.emailCfgErr)} Until then the app treats email as paused.`]
-      : (S.emailCfg || {}).enabled === false ? ['circle-alert', 'Email is paused. Staff alerts, and alerts and hearing emails to the public, are held and never sent; approved supporter emails wait and go out once it is back on. Slack still reaches the people it has matched (Team shows who).'] : ['circle-check', 'Email is on.'],
-    note() { const c = S.emailCfg || {}; return c.changed_at ? `${c.enabled === false ? 'Paused' : 'Last turned on'}${c.changed_by ? ` by ${esc(c.changed_by)}` : ''} on ${esc(fmtDate(c.changed_at, { year: 'numeric' }))}.` : ''; },
-    body() { const c = S.emailCfg || {};
-      return `<div class="card st-form">${switchRow('st-email-on', 'Send email', c.enabled !== false, 'Off holds every outgoing email. Alerts held while it is off are never sent; approved supporter emails wait for it. This switch saves as soon as you flip it.')}
-        <p class="small muted st-note" id="st-email-note">${this.note()}</p>
-        ${txt('st-email-postal', 'Postal address', c.postal || '', { ph: '707 Richards Street, Suite 300, Honolulu, HI 96813', help: 'Printed at the bottom of every email to the public. The law requires a real mailing address. Leave it blank to use the hiphi.org address.' })}
-        ${txt('st-email-from', 'Public email comes from', c.from_email || '', { type: 'email', ph: 'alerts@hiphi.org', help: 'Shown as “HIPHI Bill Tracker”. It must be an address Postmark is set up to send from (a hiphi.org sender).' })}
-        ${txt('st-email-reply', 'Replies go to', c.reply_to || '', { type: 'email', ph: 'info@hiphi.org', help: 'A mailbox a person reads. Replies to a supporter email sent by someone on the team go to its writer instead.' })}</div>`; },
-    // The switch saves itself: only itself and who flipped it, merged into what is stored (data.js saveEmailSettings).
-    // Pausing is the safe direction, so it just happens; turning email back ON starts mail to the public again, so it asks
-    // first (a stray tap must never do that), and says which held supporter emails go out with the next 4:30 pm email
-    // (while email is paused the 4:30 pm job leaves them approved, Z1-3). With the settings unread it asks nothing: the
-    // save is refused.
-    auto: { 'st-email-on': { cfg: 'emailCfg', save: c => DB.saveEmailSettings({ enabled: c.enabled, changed_at: c.changed_at, changed_by: c.changed_by }),
-      apply: (c, v) => ({ ...c, enabled: v, changed_at: new Date().toISOString(), changed_by: S.me?.initials || null }),
-      confirm: v => { if (!v || S.emailCfgErr) return null; const n = (S.alerts || []).filter(a => a.status === 'approved' && a.scheduled_for).length;
-        return { title: 'Turn email on?', text: `Staff alerts, and alerts and hearing emails to the public, start going out again. Alerts held while it was paused are not sent.${n ? ` ${n === 1 ? 'One approved supporter email has' : `${n} approved supporter emails have`} waited, and ${n === 1 ? 'goes' : 'go'} out in the next 4:30 pm email.` : ''}`, ok: 'Turn email on' }; },
-      msg: v => v ? 'Saved. Email is on.' : 'Saved. Email is paused: nothing will be sent.' } },
-    after(root) { const n = root.querySelector('#st-email-note'); if (n) n.innerHTML = this.note(); },
-    saveLabel: 'Save',
-    // Only the fields: the switch has already saved itself, and a Save here must never flip it. The sender and the reply
-    // address are R-101's rule 7 (Nate 10/1): from "HIPHI Bill Tracker", replies to a person.
-    async save(root) {
-      const okMail = v => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), from = val(root, 'st-email-from'), reply = val(root, 'st-email-reply');
-      if (!okMail(from)) { fieldErr(root, 'st-email-from', 'Enter an email address like alerts@hiphi.org, or leave it blank.'); return null; }
-      if (!okMail(reply)) { fieldErr(root, 'st-email-reply', 'Enter an email address like info@hiphi.org, or leave it blank.'); return null; }
-      // The sender fields only, never "enabled" (Z1-5): the save merges them into what is stored, and refuses when the
-      // settings could not be read.
-      await DB.saveEmailSettings({ postal: val(root, 'st-email-postal'), from_email: from, from_name: 'HIPHI Bill Tracker', reply_to: reply });
-      return 'Saved.'; },
-  },
-  alerts: {
-    status: () => ['bell', status('alerts') + '.'],
-    body() { const c = S.slackCfg || {}, d = c.daily || {}, pos = new Set(c.positions || []), withCh = S.campaigns.filter(x => x.slack_channel).length;
-      return `<div class="card st-form">
-        ${txt('st-main', 'Main Slack channel', c.main_channel || '', { ph: '#hearing-alerts-2027', help: 'Every hearing alert posts here.' })}
-        <fieldset class="st-fs"><legend>Post alerts for bills we</legend><div class="chips">${POS_OPTS.map(([v, l]) => `<button type="button" class="chip" data-pos="${v}" aria-pressed="${pos.has(v)}">${pos.has(v) ? icon('check') : ''}${esc(l)}</button>`).join('')}</div></fieldset>
-        <p class="small muted st-note">Each bill also posts to its coalition's channel. ${withCh} of ${S.campaigns.length} coalitions have one. <a href="#/setup/coalitions">Set coalition channels</a></p>
-      </div>
-      <h2 class="st-h2">Daily hearings list</h2>
-      <div class="card st-form">${switchRow('st-d-on', 'Post a daily list of hearings', d.enabled !== false)}
-        <div class="st-grid">${txt('st-d-time', 'Post at', d.time || '07:00', { type: 'time' })}${txt('st-d-days', 'Days ahead', d.days_ahead || 7, { type: 'number', attrs: 'min="1" max="30" inputmode="numeric"' })}</div>
-        ${txt('st-d-chan', 'Channel', d.channel || '', { ph: 'The main channel', help: 'Leave blank to use the main channel.' })}
-        ${switchRow('st-d-empty', 'Post even when no hearings are coming', !!d.post_when_empty)}</div>
-      <h2 class="st-h2">Direct messages</h2>
-      <div class="card st-form st-list">${switchRow('st-wfdm', 'Send testimony steps as Slack DMs', c.workflow_dm !== false, 'Off sends them to everyone by email.')}
-        ${switchRow('st-health', 'Tell admins when the pipeline has a problem', c.health_dm !== false, 'A DM to each admin.')}
-        ${switchRow('st-quiet', 'Tell admins when a notice alerts nobody', c.quiet_dm !== false, 'A hearing notice for bills we do not track, or have no position on.')}</div>`; },
-    // The position chips are switches too: a press saves, a failed save puts the chip back, and Undo takes that one
-    // position back out (or in) again for ten seconds (B-5, R-022).
-    wire(root, { refresh }) { const paint = (b, v) => { b.setAttribute('aria-pressed', v); b.innerHTML = (v ? icon('check') : '') + esc(POS_OPTS.find(p => p[0] === b.dataset.pos)[1]); };
-      const withPos = (pos, on) => { const set = new Set((S.slackCfg || {}).positions || []); if (on) set.add(pos); else set.delete(pos); return POS_OPTS.map(([k]) => k).filter(k => set.has(k)); };
-      root.querySelectorAll('[data-pos]').forEach(b => b.onclick = async () => { const pos = b.dataset.pos, now = b.getAttribute('aria-pressed') !== 'true', before = S.slackCfg; paint(b, now);
-        try { await DB.saveSlackSettings({ ...(before || {}), positions: withPos(pos, now) }, []); refresh(); }
-        catch (e) { S.slackCfg = before; paint(b, !now); toast(e, { err: true }); return; }
-        const word = POS_OPTS.find(p => p[0] === pos)[1];
-        toast(`Saved. ${now ? 'Alerts now post' : 'Alerts no longer post'} for “${word}”.`, { ok: true, undo: async () => {
-          await DB.saveSlackSettings({ ...(S.slackCfg || {}), positions: withPos(pos, !now) }, []);
-          const chip = document.querySelector(`[data-pos="${pos}"]`); if (chip) paint(chip, !now);
-          refresh(); toast('Undone.');
-        } }); }); },
-    auto: Object.fromEntries([['st-d-on', 'enabled', 1], ['st-d-empty', 'post_when_empty', 1], ['st-wfdm', 'workflow_dm'], ['st-health', 'health_dm'], ['st-quiet', 'quiet_dm']]
-      .map(([id, k, daily]) => [id, { cfg: 'slackCfg', save: c => DB.saveSlackSettings(c, []), apply: (c, v) => daily ? { ...c, daily: { ...(c.daily || {}), [k]: v } } : { ...c, [k]: v } }])),
-    saveLabel: 'Save channels and times',
-    // The typed fields only. Switches and chips have saved themselves, so their stored values are kept as they are.
-    async save(root) { const c = S.slackCfg || {};
-      const cfg = { ...c, main_channel: val(root, 'st-main') || '#hearing-alerts-2027',
-        daily: { ...(c.daily || {}), time: val(root, 'st-d-time') || '07:00', days_ahead: Number(val(root, 'st-d-days')) || 7, channel: val(root, 'st-d-chan') || null } };
-      await DB.saveSlackSettings(cfg, []);   // coalition channels are edited (and saved) under Coalitions
-      return 'Channels and times saved.'; },
-  },
-  coalitions: {
-    status: () => ['users', status('coalitions') + '.'],
-    body() { const s = st(), act = S.advocates.filter(a => a.is_active !== false);
-      return `<p class="small muted st-intro">The owner gets every bill tracked under the coalition. Keywords suggest new bills in Sort new bills: separate them with commas. A short fragment catches longer words, so fluorid finds fluoride and fluoridation.</p>
-      ${S.campaigns.map(c => { const open = s.coalOpen.has(c.id), ic = iconName(c.icon), own = advocate(c.owner_id);
-        // R-316 W28 (G3-8): a turned-off owner stays on the Owner list, marked, so the card says who still holds the coalition
-        // and saving a change to another card never quietly sets this one to No owner (the list had only people who are on).
-        const who = own && own.is_active === false ? [...act, own] : act;
-        const sub = [c.public_name && c.public_name !== c.name ? c.public_name : '', own ? ownerName(own) : 'No owner', plural((c.keywords || []).length, 'keyword'), c.slack_channel || 'no channel'].filter(Boolean).join(' · ');
-        return `<div class="card st-coal" data-coal="${esc(c.id)}">
-          <button type="button" class="st-coalhead" data-coalopen="${esc(c.id)}" aria-expanded="${open}" aria-controls="st-cb-${esc(c.id)}"><span class="st-coalic">${icon(ic)}</span><span class="body"><span class="title">${esc(c.name)}</span><span class="sub">${esc(sub)}</span></span>${icon(open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button>
-          <div class="st-coalbody st-form" id="st-cb-${esc(c.id)}" ${open ? '' : 'hidden'}>
-            ${field('co-own-' + c.id, 'Owner', `<select id="co-own-${esc(c.id)}" data-cowner><option value="">No owner</option>${who.map(a => `<option value="${esc(a.id)}" ${c.owner_id === a.id ? 'selected' : ''}>${esc(teamName(a))}</option>`).join('')}</select>`)}
-            ${txt('co-ch-' + c.id, 'Slack channel', c.slack_channel || '', { ph: '#channel-name', attrs: 'data-cchan' })}
-            ${area('co-kw-' + c.id, 'Keywords', (c.keywords || []).join(', '), { rows: 2, ph: 'tobacco, e-cigarette, nicotine', attrs: 'data-ckw' })}
-            ${txt('co-pub-' + c.id, 'Name on the public page', c.public_name || '', { ph: 'What visitors see', attrs: 'data-cpub' })}
-            <div class="field"><span class="label" id="co-icl-${esc(c.id)}">Icon on the public page</span>${pickerChip(iconLabel(ic), { 'data-ciconpick': c.id, 'aria-describedby': 'co-icl-' + c.id }, ic)}<input type="hidden" id="co-ic-${esc(c.id)}" data-cicon value=""></div>
-            ${txt('co-desc-' + c.id, 'One friendly sentence for its tile', c.description || '', { ph: 'What this coalition works on', attrs: 'data-cdesc' })}
-          </div></div>`; }).join('')}`; },
-    wire(root) { const s = st();
-      root.querySelectorAll('[data-coalopen]').forEach(b => b.onclick = () => { const id = b.dataset.coalopen, now = b.getAttribute('aria-expanded') !== 'true';
-        if (now) s.coalOpen.add(id); else s.coalOpen.delete(id);
-        b.setAttribute('aria-expanded', now); root.querySelector('#st-cb-' + CSS.escape(id)).hidden = !now; b.querySelector('.chev').outerHTML = icon(now ? 'chevron-up' : 'chevron-down', { cls: 'chev' }); });
-      root.querySelectorAll('[data-ciconpick]').forEach(b => b.onclick = () => { const card = b.closest('[data-coal]'), hid = card.querySelector('[data-cicon]'), c = S.campaigns.find(x => x.id === b.dataset.ciconpick);
-        const cur = hid.value || iconName(c?.icon);
-        pickerSheet({ title: `Icon for ${c?.name || 'this coalition'}`, value: cur, options: ICON_CHOICES.map(([n, l]) => [n, l, n]),
-          onPick: v => { hid.value = v; showIcon(card, v); hid.dispatchEvent(new Event('input', { bubbles: true })); b.focus(); } }); });
-    },
-    // An icon picked but not saved yet comes back with the rest of the typed changes.
-    // A coalition with changes waiting is opened, so "Not saved yet" is never about a card that looks closed and untouched.
-    afterDraft(root, base) { root.querySelectorAll('[data-coal]').forEach(card => { const v = card.querySelector('[data-cicon]').value; if (v) showIcon(card, v);
-      if (![...card.querySelectorAll('input, select, textarea')].some(el => el.id && el.value !== (base[el.id] ?? ''))) return;
-      const b = card.querySelector('[data-coalopen]'); if (b.getAttribute('aria-expanded') !== 'true') b.click(); }); },
-    saveLabel: 'Save coalitions',
-    async save(root) { let n = 0;
-      for (const card of root.querySelectorAll('[data-coal]')) {
-        const c = S.campaigns.find(x => x.id === card.dataset.coal); if (!c) continue;
-        const keywords = card.querySelector('[data-ckw]').value.split(',').map(x => x.trim()).filter(Boolean);
-        const patch = { owner_id: card.querySelector('[data-cowner]').value || null, slack_channel: card.querySelector('[data-cchan]').value.trim() || null, keywords,
-          icon: card.querySelector('[data-cicon]').value || iconName(c.icon), description: card.querySelector('[data-cdesc]').value.trim() || null, public_name: card.querySelector('[data-cpub]').value.trim() || null };
-        const same = (patch.owner_id || null) === (c.owner_id || null) && (patch.slack_channel || null) === (c.slack_channel || null) && keywords.join(',') === (c.keywords || []).join(',')
-          && !card.querySelector('[data-cicon]').value && (patch.description || null) === (c.description || null) && (patch.public_name || null) === (c.public_name || null);
-        if (same) continue;
-        await DB.saveCampaign(c.id, patch); n++;
-      }
-      if (S.triage) S.triage.rows = null;   // new keywords change the suggestions
-      return n ? `${plural(n, 'coalition')} saved.` : 'Nothing had changed.'; },
-  },
-  sync: {
-    status: () => ['calendar-days', status('sync').replace(/^./, c => c.toUpperCase()) + '.'],
-    body() { const yr = sessionYear(), c = (S.sessionCal || []).find(x => x.session_year === yr) || {};
-      return `<h2 class="st-h2">Session days, ${yr}</h2>
-      <div class="card st-form"><p class="small muted st-note st-top">These drive "Legislative day 27 of 58". Copy them from the Public Access Room's session calendar. Weekends are skipped on their own.</p>
-        <div class="st-grid">${txt('st-sd-open', 'Opening day', String(c.opening_day || '').slice(0, 10), { type: 'date' })}${txt('st-sd-end', 'Adjournment sine die', String(c.sine_die || '').slice(0, 10), { type: 'date' })}</div>
-        ${area('st-sd-off', 'Weekdays the chambers do not meet', (c.off_days || []).map(d => String(d).slice(0, 10)).join('\n'), { rows: 5, ph: '2027-02-15\n2027-02-25', help: 'Recess days, holidays and closures, one date per line, like 2027-02-15. Or send the calendar PDF to Claude.' })}</div>
-      <h2 class="st-h2">Bill sync</h2>
-      <div class="card st-form">${txt('st-burst', '4 more syncs a day until', (S.syncCfg || {}).burst_until || '', { type: 'date', help: 'For the opening weeks, when new bills arrive fast. Leave it blank to sync 4 times a day.' })}</div>`; },
-    saveLabel: 'Save session days and sync',
-    async save(root) { const yr = sessionYear(), c = (S.sessionCal || []).find(x => x.session_year === yr) || {};
-      const open = val(root, 'st-sd-open'), end = val(root, 'st-sd-end') || null, raw = val(root, 'st-sd-off').split(/[\s,;]+/).map(x => x.trim()).filter(Boolean);
-      const bad = raw.filter(x => !/^\d{4}-\d{2}-\d{2}$/.test(x)), off = [...new Set(raw)].sort();
-      const calChanged = open !== String(c.opening_day || '').slice(0, 10) || (end || '') !== String(c.sine_die || '').slice(0, 10) || off.join() !== (c.off_days || []).map(d => String(d).slice(0, 10)).sort().join();
-      if (calChanged && !open) { fieldErr(root, 'st-sd-open', 'Enter the opening day.'); return null; }
-      if (bad.length) { fieldErr(root, 'st-sd-off', `Not a date (use 2027-02-15): ${bad.slice(0, 3).join(', ')}`); return null; }
-      if (calChanged) await DB.saveSessionCalendar({ session_year: yr, opening_day: open, sine_die: end, off_days: off });
-      const until = val(root, 'st-burst') || null;
-      if (until !== ((S.syncCfg || {}).burst_until || null)) await DB.saveSyncSettings({ ...(S.syncCfg || {}), burst_until: until });
-      return calChanged || until !== null ? (until ? `Saved. 4 more syncs a day until ${fmtDate(until)}.` : 'Saved. The bills sync 4 times a day.') : 'Saved.'; },
-  },
-  import: {
-    status: () => ['upload', 'Load a new session, or make the team spreadsheet the tracked list.'],
-    body() { const s = st();
-      return `<h2 class="st-h2">Load the session's bills</h2>
-      <div class="card st-form"><p class="small st-note st-top">When Open States publishes a new session, paste its CSV export link. It loads every introduced bill with its full history and is safe to run again. <a href="https://open.pluralpolicy.com/data/session-csv" target="_blank" rel="noopener">Find the link on Plural ${icon('external-link')}</a></p>
-        <div class="st-grid st-grid-yr">${txt('st-bulk-year', 'Session year', sessionYear(), { type: 'number', attrs: 'inputmode="numeric"' })}${txt('st-bulk-url', 'CSV export link', '', { type: 'url', ph: `https://data.openstates.org/csv/latest/HI_${SESSION_YEAR + 1}_csv_….zip` })}</div>
-        <div class="btnrow st-acts">${btn('Start the import', { kind: 'primary', attrs: { 'data-bulk': '1' } })}</div><p class="small st-note" id="st-bulk-status" role="status"></p></div>
-      <h2 class="st-h2">Replace the tracked list</h2>
-      <div class="card st-form"><p class="small st-note st-top">Upload the All Tracked Bills export from the team spreadsheet, with the columns Bill Number, Coalition and Coalition Position. The bills in the file become the tracked list and every other bill is untracked. Strongly support becomes P1 and every other position P2, and each bill goes to its coalition's owner. You see what will change before anything does.</p>
-        <div class="btnrow st-acts"><label class="btn secondary" for="st-csv">${icon('upload')}<span>${s.csv ? 'Choose another file' : 'Choose the CSV file'}</span></label><input type="file" id="st-csv" class="sr" accept=".csv,text/csv"></div>
-        <div id="st-import-preview" aria-live="polite">${s.csv ? s.csv.html : ''}</div></div>`; },
-    wire(root) { const s = st();
-      const bulk = root.querySelector('[data-bulk]');
-      if (bulk) bulk.onclick = async () => { clearErrs(root); const url = val(root, 'st-bulk-url'), session = val(root, 'st-bulk-year'), out = root.querySelector('#st-bulk-status');
-        if (!/^https:\/\/data\.openstates\.org\/.+\.zip$/.test(url)) return fieldErr(root, 'st-bulk-url', 'That does not look like an Open States CSV export link (https://data.openstates.org/…zip).');
-        bulk.setAttribute('aria-busy', 'true'); bulk.disabled = true; out.textContent = 'Starting…';
-        try { await DB.dispatch('bulk-import', { url, session }); out.textContent = `Import started for ${session}. It takes 10 to 30 minutes. The readiness row "${session} bills imported" turns green when it lands.`; toast('Import started.', { ok: true }); }
-        catch (e) { out.textContent = e.message || 'Could not start the import.'; toast(e, { err: true }); bulk.disabled = false; }
-        finally { bulk.removeAttribute('aria-busy'); } };
-      const inp = root.querySelector('#st-csv');
-      if (inp) inp.onchange = async () => { const f = inp.files[0]; if (!f) return; const out = root.querySelector('#st-import-preview');
-        const rows = parseTrackerCsv(await f.text());
-        const show = html => { s.csv = { rows, html }; out.innerHTML = html; wireApply(root, rows); };
-        if (!rows.length) return show(notice('bad', 'circle-alert', 'No bill rows found. The header row needs Bill Number, Coalition and Coalition Position.'));
-        out.innerHTML = '<p class="small muted st-note">Checking the file…</p>';
-        try { const r = await DB.importTracker(rows, false); show(importSummary(f.name, r)); }
-        catch (e) { show(localSummary(f.name, rows) + notice(DEMO ? 'info' : 'bad', DEMO ? 'info' : 'circle-alert', esc(DEMO ? 'The sandbox does not import. Use the live app to apply the file.' : e.message || 'Could not check the file.'))); } };
-      wireApply(root, s.csv?.rows);
-    },
-  },
-  connections: {
-    status: () => ['plug', status('connections') + '.'],
-    body() { loadSecrets(); const sec = st().secrets, cal = S.calCfg || {}, cfg = S.slackCfg || {};
-      const state = (okv, yes, no) => sec ? (okv ? chip(yes, 'ok', 'circle-check') : chip(no, '', 'circle-dashed')) : chip('Checking…');
-      const calLine = !sec ? 'Checking…' : sec.google_calendar_refresh_token ? (cal.calendar_id ? `Hearings go to the "${esc(cal.name || 'HIPHI Hearings')}" calendar.` : 'Connected, but the calendar is not made yet. Press Connect again.')
-        : `Not connected. Client ID ${sec.google_oauth_client_id ? 'saved' : 'missing'}, client secret ${sec.google_oauth_client_secret ? 'saved' : 'missing'}. Save both under Keys, then connect.`;
-      return `<div class="card st-conn"><div class="st-connhead"><h2 class="st-h3">Slack</h2>${state(sec?.slack_bot_token, 'Connected', 'Not connected')}</div>
-          <p class="small st-note">${sec?.slack_bot_token ? `Alerts post to ${esc(cfg.main_channel || 'the main channel')}; DMs go to each person.` : 'No bot token saved, so nothing posts to Slack.'}</p>
-          <div class="btnrow st-acts">${btn('Send me a test DM', { kind: 'secondary', sm: true, icon: 'send', attrs: { 'data-slacktest': '1' } })}${btn('Change the bot token', { kind: 'text', sm: true, href: '#/setup/keys' })}</div></div>
-        <div class="card st-conn st-form"><div class="st-connhead"><h2 class="st-h3">Google Calendar</h2>${state(sec?.google_calendar_refresh_token && cal.calendar_id, 'Connected', sec?.google_calendar_refresh_token ? 'Not working yet' : 'Not connected')}</div>
-          <p class="small st-note">${calLine}</p>
-          ${switchRow('st-cal-on', 'Make calendar events for hearings', cal.enabled !== false, 'Saves as soon as you flip it.')}${switchRow('st-cal-test', 'Include [TEST] hearings', cal.include_test !== false)}
-          <div class="btnrow st-acts">${btn(sec?.google_calendar_refresh_token ? 'Connect again' : 'Connect Google Calendar', { kind: 'secondary', sm: true, icon: 'calendar-plus', attrs: { 'data-connect': '1' } })}${btn('Enter the Google keys', { kind: 'text', sm: true, href: '#/setup/keys' })}</div></div>
-        <div class="card st-conn"><div class="st-connhead"><h2 class="st-h3">YouTube</h2>${state(sec?.youtube_api_key, 'Key set', 'Feed only')}</div>
-          <p class="small st-note">${sec?.youtube_api_key ? 'The daily sync searches the last week of hearing videos.' : 'Hearing videos come from the chambers\' feeds, the newest 15 per chamber. A key lets the sync search the whole week.'}</p>
-          <div class="btnrow st-acts">${btn('Add or change the key', { kind: 'text', sm: true, href: '#/setup/keys' })}</div></div>`; },
-    wire(root) {
-      const t = root.querySelector('[data-slacktest]'); if (t) t.onclick = async () => { t.setAttribute('aria-busy', 'true'); try { await DB.slackTest(); toast(DEMO ? 'Sandbox: a test DM would be on its way.' : 'Test DM on its way.', { ok: true }); } catch (e) { toast(e, { err: true }); } finally { t.removeAttribute('aria-busy'); } };
-      const c = root.querySelector('[data-connect]'); if (c) c.onclick = async () => { try { await DB.connectCalendar(); } catch (e) { toast(e, { err: true }); } };
-    },
-    auto: Object.fromEntries([['st-cal-on', 'enabled'], ['st-cal-test', 'include_test']].map(([id, k]) => [id, { cfg: 'calCfg', save: c => DB.saveCalendarSettings(c), apply: (c, v) => ({ ...c, [k]: v }) }])),
-  },
-  // People's own lists (R-013, migration 103). Anyone signed in on the public page can make a list and share it by a
-  // link; staff cannot browse them. When someone reports a list that misuses HIPHI's page, an admin pastes its link here.
-  lists: {
-    status: () => ['list-checks', 'Turn off a list someone shared on the public page, if it is used to say something harmful.'],
-    body() { loadOffLists();
-      return `<div class="card st-form"><p class="small st-note st-top">Anyone who adds their email on the public page can make lists of bills and share one by a link. Lists are private: staff can’t browse them. If someone sends you a link to a list that misuses HIPHI’s page, paste it here. Its link stops working, the people who followed it stop seeing it, and its maker can’t share it again. Nothing is erased.</p>
-        ${txt('st-ul-link', 'The list’s link', '', { ph: 'https://…/track.html#/l/…' })}
-        ${area('st-ul-why', 'Why, for the record (optional)', '', { rows: 2, ph: 'For example: used to harass someone' })}</div>`; },
-    tail() { const s = st(), offs = s.offLists || [];
-      const offRow = l => `<div class="row st-ulrow"><span class="lead">${icon('eye-off')}</span><span class="body"><span class="title">${esc(l.title)}</span>
-          <span class="sub">Turned off ${esc(fmtDate(l.blocked_at))}${l.blocked_by ? ` by ${esc(l.blocked_by)}` : ''}${l.blocked_reason ? `: ${esc(l.blocked_reason)}` : ''}</span></span>
-          <span class="end">${btn('Turn back on', { kind: 'text', sm: true, attrs: { 'data-ulon': l.id, 'aria-label': `Turn ${l.title} back on` } })}</span></div>`;
-      return s.offListsErr ? notice('bad', 'circle-alert', `Could not load the lists turned off. ${esc(s.offListsErr)}`) : offs.length ? `<section class="st-sec st-ultail" aria-labelledby="st-ul-off"><h2 class="st-h2" id="st-ul-off">Turned off</h2><div class="rows">${offs.map(offRow).join('')}</div></section>` : ''; },
-    wireTail(root) {
-      root.querySelectorAll('[data-ulon]').forEach(b => b.onclick = async () => { const l = (st().offLists || []).find(x => String(x.id) === b.dataset.ulon); if (!l) return;
-        if (!await confirmSheet({ title: `Turn ${l.title} back on?`, text: 'Its maker can share it again, with a new link. The people who followed it see it again.', ok: 'Turn it back on' })) return;
-        b.setAttribute('aria-busy', 'true');
-        try { await DB.turnOnList(l.id); st().offLists = null; toast(`${l.title} is back on.`, { ok: true }); hooks.render(); }
-        catch (e) { toast(e, { err: true }); b.removeAttribute('aria-busy'); } });
-    },
-    saveLabel: 'Turn off this list', track: false,
-    async save(root) {
-      const link = val(root, 'st-ul-link');
-      if (!/[0-9a-f]{40}/.test(link)) { fieldErr(root, 'st-ul-link', 'Paste the whole link. It ends in #/l/ and 40 letters and numbers.'); return null; }
-      if (!await confirmSheet({ title: 'Turn off this list?', text: 'Its link stops working for everyone, the people who followed it stop seeing it, and its maker can’t share it again. You can turn it back on here.', ok: 'Turn it off', danger: true })) return null;
-      const title = await DB.turnOffList(link, val(root, 'st-ul-why'));
-      st().offLists = null;
-      return `Turned off ${title}.`;
-    },
-  },
-  privacy: {
-    status: () => ['shield-check', 'Forget a person who asks, and see how long each kind of record is kept.'],
-    body() { loadRetention();
-      return `<div class="card st-form"><h2 class="st-h2">Forget a person</h2>
-        <p class="small st-note st-top">For someone who writes to <a href="mailto:contact@hiphi.org">contact@hiphi.org</a> asking HIPHI to delete what it has. Give the email, the mobile number, or both. It stops their texts, deletes their tracker account and everything saved with it, erases the email we kept for them and which emails they opened, and empties their supporter record down to “do not contact”, so a list upload cannot add them back. It cannot be undone. It never touches a team member. The tracker promises an answer within 10 business days.</p>
-        ${txt('st-fg-email', 'Their email', '', { ph: 'name@example.com', type: 'email', attrs: 'inputmode="email" autocapitalize="off"' })}
-        ${txt('st-fg-phone', 'Their mobile number', '', { ph: '(808) 555-0123', type: 'tel', attrs: 'inputmode="tel"' })}
-        </div>`; },
-    tail() { const s = st(), r = s.ret;
-      if (s.retErr) return notice('bad', 'circle-alert', `Could not load the keeping periods. ${esc(s.retErr)}`);
-      if (!r) return `<section class="st-sec"><h2 class="st-h2">How long things are kept</h2><p class="small muted">Loading…</p></section>`;
-      const k = r.kinds || [], soon = k.filter(x => x.soon > 0 && !['error_reports', 'unconfirmed_numbers'].includes(x.kind));
-      const rows = k.map(x => `<tr><th scope="row">${esc(x.label)}</th><td>${esc(x.period)}</td><td class="num">${x.due}</td><td class="num">${x.soon}</td></tr>`).join('');
-      return `<section class="st-sec st-keeping" aria-labelledby="st-kp-h"><h2 class="st-h2" id="st-kp-h">How long things are kept</h2>
-        <p class="small st-note">The periods are Nate’s, set 5 October. A nightly job (3:15 am, in the database) counts what is past its period and what reaches it within 30 days. <b>${r.on ? 'The clean-up is on: it deletes what is past its period each night.' : 'The clean-up is off: it only counts, and deletes nothing.'}</b>${soon.length ? ` ${chip('Reaching its date soon', 'warn', 'clock')}` : ''}</p>
-        <div class="st-tablewrap"><table class="fv-table st-kptable"><thead><tr><th scope="col">Kind</th><th scope="col">Kept</th><th scope="col" class="num">Past it</th><th scope="col" class="num">Within 30 days</th></tr></thead><tbody>${rows}</tbody></table></div>
-        <p class="small muted">Numbers never confirmed are held until texts really go out: until then no number can be confirmed, so the 30-day rule would erase them all. Accounts unused for two years are counted; the warning email needs a sender that does not exist yet. First-visit counts are kept. Postmark keeps sent email for 45 days on its side, as the privacy page says.</p>
-        <div class="btnrow st-acts">${btn(r.on ? 'Turn the clean-up off' : 'Turn the clean-up on', { kind: r.on ? 'secondary' : 'primary', icon: r.on ? 'pause' : 'play', attrs: { 'data-kpset': r.on ? '0' : '1' } })}${btn('Count again', { kind: 'text', icon: 'refresh-cw', attrs: { 'data-kpcount': '1' } })}</div>
-        ${r.last_run ? `<p class="small muted">Last counted ${esc(fmtDate(r.last_run))}.</p>` : '<p class="small muted">Not counted yet; the first run is tonight.</p>'}</section>`; },
-    wireTail(root) {
-      root.querySelector('[data-kpcount]')?.addEventListener('click', async e => { const b = e.currentTarget; if (b.getAttribute('aria-busy')) return; b.setAttribute('aria-busy', 'true');
-        try { await DB.retentionCount(); st().ret = null; loadRetention(true); toast('Counted. Nothing was deleted.', { ok: true }); } catch (er) { toast(er, { err: true }); b.removeAttribute('aria-busy'); } });
-      root.querySelector('[data-kpset]')?.addEventListener('click', async e => { const b = e.currentTarget, on = b.dataset.kpset === '1'; if (b.getAttribute('aria-busy')) return;
-        if (on && !await confirmSheet({ title: 'Turn the clean-up on?', text: 'Each night the database will delete what is past its keeping period: email text and open and click history after 7 years, stopped numbers after 4, accounts unused for 3 years, and error reports after a year. Nothing in the database is that old yet. You can turn it off again here.', ok: 'Turn it on' })) return;
-        b.setAttribute('aria-busy', 'true');
-        try { await DB.retentionSet(on); st().ret = null; loadRetention(true); toast(on ? 'The nightly clean-up is on.' : 'The nightly clean-up is off.', { ok: true }); } catch (er) { toast(er, { err: true }); b.removeAttribute('aria-busy'); } });
-    },
-    saveLabel: 'Forget this person', track: false,
-    async save(root) {
-      const email = val(root, 'st-fg-email'), phone = val(root, 'st-fg-phone');
-      if (!email && !phone) { fieldErr(root, 'st-fg-email', 'Give an email, a mobile number, or both.'); return null; }
-      if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { fieldErr(root, 'st-fg-email', 'That does not look like an email address.'); return null; }
-      if (phone && !/^\+?1?[\s().-]*[2-9]\d{2}[\s().-]*[2-9]\d{2}[\s.-]*\d{4}$/.test(phone)) { fieldErr(root, 'st-fg-phone', 'Enter a 10-digit mobile number, like (808) 555-0123.'); return null; }
-      if (!await confirmSheet({ title: 'Forget this person?', text: `This deletes ${email ? 'the tracker account for ' + email : ''}${email && phone ? ' and ' : ''}${phone ? 'the texts for ' + phone : ''}, and everything saved with them. It cannot be undone.`, ok: 'Forget them', danger: true })) return null;
-      const r = await DB.forgetPerson(email, phone);
-      const why = { nothing: 'Give an email or a number.', phone: 'That number is not a mobile number we can use.', email: 'That does not look like an email address.', team: 'That is a team member. Remove them under Team instead.' };
-      if (!r.ok) { fieldErr(root, why[r.why] && r.why === 'phone' ? 'st-fg-phone' : 'st-fg-email', why[r.why] || 'It could not be done.'); return null; }
-      const t = r.trail || {}, bits = [r.accounts_deleted ? plural(r.accounts_deleted, 'account') + ' deleted' : '', r.numbers_stopped ? plural(r.numbers_stopped, 'number') + ' stopped' : '', t.emails_unsent || t.emails_sent_erased ? `${(t.emails_unsent || 0) + (t.emails_sent_erased || 0)} emails erased` : '', t.opens_clicks_erased ? `${t.opens_clicks_erased} open or click records erased` : '', r.supporter_records ? 'supporter record emptied' : ''].filter(Boolean);
-      return `Done${r.demo ? ' (the sandbox: nothing was changed)' : ''}: ${bits.join(', ') || 'nothing was on file'}. Reply to the person to say so.`;
-    },
-  },
-  embed: {
-    status: () => ['globe', 'Put a table of the bills we have a public position on into any web page.'],
-    body() { return `<div class="card st-form"><p class="small st-note st-top">It shows each bill, our position and where it stands. It reads the same public data as the public page, so notes, owners and drafts never appear. Paste the code into an HTML block on hiphi.org or a coalition site.</p>
-      <div class="st-grid">${field('st-emb-coal', 'Show', `<select id="st-emb-coal"><option value="">Every coalition</option>${S.campaigns.filter(c => c.is_public && c.slug).map(c => `<option value="${esc(c.slug)}">${esc(c.public_name || c.name)}</option>`).join('')}</select>`)}
-        ${field('st-emb-limit', 'How many bills', `<select id="st-emb-limit"><option value="">Up to 50</option><option value="10">10</option><option value="25">25</option><option value="200">All of them</option></select>`)}</div>
-      ${field('st-emb-code', 'The code', '<textarea id="st-emb-code" rows="5" readonly class="st-code"></textarea>')}
-      <div class="btnrow st-acts"><a class="btn text sm" id="st-emb-open" target="_blank" rel="noopener"><span>Preview</span>${icon('external-link')}</a></div></div>`; },
-    wire(root) { const code = () => { const base = new URL('embed.html', location.href); base.search = ''; base.hash = ''; const c = root.querySelector('#st-emb-coal').value, l = root.querySelector('#st-emb-limit').value;
-        if (c) base.searchParams.set('coalition', c); if (l) base.searchParams.set('limit', l);
-        root.querySelector('#st-emb-open').href = base.href + (DEMO ? (base.search ? '&' : '?') + 'demo=1' : '');
-        root.querySelector('#st-emb-code').value = `<iframe id="hiphi-tracker" src="${base.href}" title="HIPHI bill tracker" style="width:100%;border:0;min-height:420px" loading="lazy"></iframe>\n<script>addEventListener('message',function(e){if(e.data&&e.data.hiphiTrackerHeight)document.getElementById('hiphi-tracker').style.height=e.data.hiphiTrackerHeight+'px'})<\/script>`; };
-      code(); root.querySelector('#st-emb-coal').onchange = code; root.querySelector('#st-emb-limit').onchange = code; },
-    saveLabel: 'Copy the code', track: false,
-    async save(root) { const t = root.querySelector('#st-emb-code');
-      try { await navigator.clipboard.writeText(t.value); return 'Code copied.'; } catch { t.focus(); t.select(); return 'Selected. Copy it with Ctrl+C or Cmd+C.'; } },
-  },
   tests: {
     status: () => { const A = st().ab; if (!A) return ['flask-conical', 'The public page’s A/B tests.'];
       const bar = abBar(A.tests), ready = A.tests.filter(t => abState(t, A.res, bar).ready);
@@ -1450,45 +896,8 @@ const PAGES = {
         catch { if (box.isConnected) box.innerHTML = `<span class="small rm-qrerr">${icon('circle-alert')}The QR code could not be drawn. Copy the link instead, or reload the page to try again.</span>`; } });
     },
   },
-  templates: {
-    status: () => ['square-pen', 'The wording of each Slack message. Leave one blank to use the standard wording.'],
-    body() { const tpl = (S.slackCfg || {}).templates || {};
-      return `<div class="card st-form"><p class="small st-note st-top">Tokens you can use: ${esc(TOKENS)}. Slack formatting: *bold*, _italic_ and &lt;link|label&gt;. A link whose token is empty disappears on its own.</p>
-        ${TEMPLATE_KINDS.map(([k]) => area('st-tpl-' + k, TEMPLATE_LABEL[k] || k, tpl[k] || '', { rows: 3, ph: 'Blank uses the standard wording', attrs: `data-tpl="${k}"` })).join('')}</div>`; },
-    saveLabel: 'Save the wording',
-    async save(root) { const cfg = { ...(S.slackCfg || {}), templates: { ...((S.slackCfg || {}).templates || {}), ...Object.fromEntries([...root.querySelectorAll('[data-tpl]')].map(t => [t.dataset.tpl, t.value])) } };
-      await DB.saveSlackSettings(cfg, []); return 'Wording saved.'; },
-  },
-  committees: {
-    status: () => ['route', `${status('committees')}. Used to guess the other chamber's committees on a bill's Committees section before the referral is posted.`],
-    body() { const codes = ch => Object.values(S.committees || {}).filter(c => c.chamber === ch).map(c => c.code).sort().join(', ');
-      return `<div class="card st-form"><p class="small st-note st-top">One pair per line, House code first, like HLT = HHS. A House committee can pair with several Senate ones, and the other way round. A companion bill's real referral is always used first.</p>
-        ${area('st-cp', 'House = Senate pairs', (S.counterparts || []).map(p => `${p.house_code} = ${p.senate_code}`).join('\n'), { rows: 10 })}
-        <p class="small muted st-note">House: ${esc(codes('H'))}</p><p class="small muted st-note">Senate: ${esc(codes('S'))}</p></div>`; },
-    saveLabel: 'Save the map',
-    async save(root) { const codes = new Set(Object.keys(S.committees || {})), pairs = [], bad = [];
-      for (const line of val(root, 'st-cp').split('\n')) { const t = line.trim(); if (!t) continue; const m = /^([A-Z]{2,4})\s*[=→>-]+\s*([A-Z]{2,4})$/i.exec(t); if (!m) { bad.push(t); continue; }
-        const h = m[1].toUpperCase(), sn = m[2].toUpperCase(); if (!codes.has(h) || !codes.has(sn)) { bad.push(t); continue; } if (!pairs.some(p => p.house_code === h && p.senate_code === sn)) pairs.push({ house_code: h, senate_code: sn }); }
-      if (bad.length) { fieldErr(root, 'st-cp', `Not understood: ${bad.slice(0, 3).join(', ')}. Use two committee codes, like HLT = HHS.`); return null; }
-      await DB.saveCounterparts(pairs); return `${plural(pairs.length, 'pair')} saved.`; },
-  },
-  keys: {
-    status: () => ['key-round', `${status('keys')}. Keys are write-only: once saved they show as set and are never shown again.`],
-    body() { loadSecrets(); const sec = st().secrets;
-      const k = (id, key, label, ph, help = '') => { const set = sec?.[key]; return field(id, label + (sec ? ` · ${set ? 'set' : 'not set'}` : ''), `<input id="${id}" type="password" placeholder="${esc(set ? 'Saved. Type a new one to replace it' : ph)}" autocomplete="new-password" data-key="${key}"${help ? ` aria-describedby="${id}-help"` : ''}>`, help); };
-      return `<p class="small muted st-intro">Leave a field blank to keep what is there. Type clear to remove a key.</p>
-      <h2 class="st-h2">Slack</h2><div class="card st-form">${k('st-slacktok', 'slack_bot_token', 'Bot token', 'xoxb-…')}</div>
-      <h2 class="st-h2">Google Calendar</h2><div class="card st-form">${k('st-gid', 'google_oauth_client_id', 'Client ID', '….apps.googleusercontent.com')}${k('st-gsec', 'google_oauth_client_secret', 'Client secret', 'GOCSPX-…')}
-        <p class="small st-note">The OAuth client must be a Web application with this authorised redirect address:</p><p class="st-uri"><span id="st-redir">${esc(SUPABASE_URL)}/functions/v1/google-connect</span>${btn('Copy', { kind: 'text', sm: true, icon: 'copy', attrs: { 'data-copyredir': '1', 'aria-label': 'Copy the redirect address' } })}</p></div>
-      <h2 class="st-h2">YouTube</h2><div class="card st-form">${k('st-ytkey', 'youtube_api_key', 'API key', 'AIza…', 'In Google Cloud, open the HIPHI project, then APIs and Services. Enable YouTube Data API v3, then make an API key under Credentials.')}</div>`; },
-    wire(root) { const b = root.querySelector('[data-copyredir]'); if (b) b.onclick = async () => { try { await navigator.clipboard.writeText(root.querySelector('#st-redir').textContent); toast('Address copied.'); } catch { toast('Select the address and copy it.'); } }; },
-    saveLabel: 'Save keys',
-    async save(root) { let n = 0;
-      for (const el of root.querySelectorAll('[data-key]')) { const v = el.value.trim(); if (!v) continue; await DB.setSecret(el.dataset.key, v.toLowerCase() === 'clear' ? '' : v); el.value = ''; n++; }
-      if (!n) return 'Nothing to save. Type a key first.';
-      loadSecrets(true); return `${plural(n, 'key')} saved.`; },
-  },
 };
+
 function importSummary(name, r) {
   const li = (t, strong) => `<li>${strong ? `<b>${t}</b>` : t}</li>`;
   return `<div class="st-sumcard"><p class="strong">${esc(name)}</p><ul class="st-ul">
@@ -1514,174 +923,483 @@ function wireApply(root, rows) {
     catch (e) { toast(e, { err: true }); a.disabled = false; a.removeAttribute('aria-busy'); } };
 }
 
-// The Save bar of a part: what state the typed fields are in, then the button. On a phone it is the frame's bottom
-// bar; on a desktop it sits right under the form it saves.
-function saveBar(key, desk) {
-  const p = PAGES[key]; if (!p.save) return '';
-  const tracked = p.track !== false;
-  return `<div class="st-bar st-sbar${desk ? ' st-sbar2' : ''}">${tracked ? `<span class="st-savestate" data-ststate role="status"></span>${p.auto ? `<span class="st-savehint" data-sthint>Switches save on their own.</span>` : ''}` : ''}
-    ${btn(p.saveLabel, { kind: 'primary', icon: key === 'embed' ? 'copy' : key === 'room' ? 'printer' : null, attrs: { 'data-stsave': '1', 'aria-disabled': tracked ? 'true' : null } })}</div>`;
+// One checklist row: its state as an icon and a word (never colour alone; amber and red are kept for late and overdue
+// steps, D3, so a blocking check is said, not painted), what it checks, what it found, and its one way to fix it.
+function readyRowHTML(r) {
+  const [ic, cls, word] = r.waiting ? ['calendar-clock', 'info', 'Expected'] : r.ok === true ? ['circle-check', 'ok', 'Done'] : r.level === 'manual' ? ['circle-dashed', 'todo', 'To do']
+    : r.ok === null || r.level === 'info' ? ['info', 'info', 'For your information'] : r.level === 'block' ? ['circle-x', 'bad', 'Blocking'] : ['circle-alert', 'warn', 'Check'];
+  const fixText = !r.waiting && (r.ok === false || (r.level === 'manual' && !r.ok)) ? (FIX_TEXT[r.key] || tidy(r.fix)) : '';
+  const to = r.ok !== true && !r.waiting && FIX[r.key];
+  const act = r.waiting ? '' : r.level === 'manual'
+    ? btn(r.ok ? 'Undo' : 'Mark done', { kind: r.ok ? 'text' : 'secondary', sm: true, attrs: { 'data-rman': r.key, 'data-on': r.ok ? '' : '1', 'aria-label': `${r.ok ? 'Mark not done' : 'Mark done'}: ${r.label}` } })
+    : r.key === 'public_copy' && !r.ok ? btn('See them', { kind: 'text', sm: true, iconEnd: 'chevron-right', attrs: { 'data-gaps': '1', 'aria-haspopup': 'dialog' } })
+    : to ? btn(r.ok === false ? 'Fix' : 'Open', { kind: 'text', sm: true, iconEnd: 'chevron-right', href: to, attrs: { 'aria-label': `${r.ok === false ? 'Fix' : 'Open'}: ${r.label}` } }) : '';
+  const detail = r.waiting ? `Expected from ${new Date(String(r.expected).slice(0, 10) + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}. ${tidy(r.detail || '')}` : tidy(r.detail || '');
+  return `<li class="ss-check ${cls}"><span class="ss-cic">${icon(ic)}</span>
+    <div class="ss-cbody"><span class="ss-ct">${cls === 'bad' || cls === 'warn' ? `<span class="ss-cword">${word}:</span> ` : `<span class="sr">${word}: </span>`}${esc(r.label)}</span>${detail ? `<span class="ss-cl">${esc(detail)}</span>` : ''}${fixText ? `<span class="ss-cfix">${esc(fixText)}</span>` : ''}</div>${act ? `<span class="ss-cact">${act}</span>` : ''}</li>`;
 }
-const titleOf = key => PAGES[key]?.title?.() || ALL[key].t;
-const statusHTML = p => { const [ic, line] = p.status(); return `${icon(ic)}<span>${line}</span>`; };
-function renderSection(key) {
-  const p = PAGES[key], hx = DESK() ? 'h2 class="st-ptitle"' : 'h1', head = `<div class="st-head"><${hx}>${esc(titleOf(key))}</${hx.slice(0, 2)}><p class="st-status" data-ststatus>${statusHTML(p)}</p></div>`;
-  const form = `<form class="st-formwrap" novalidate data-stform>${p.body()}<button type="submit" hidden tabindex="-1" aria-hidden="true"></button></form>`;
-  // tail: what a part lists below its Save, so the button sits under the fields it acts on (People's lists, R-013).
-  const tail = p.tail ? p.tail() : '';
-  if (DESK()) return shell(key, `${head}${form}${saveBar(key, true)}${tail}`);
-  return `<div class="st-page st-setup st-subpage">
-    <a class="st-crumb" href="#/setup${p.parent ? '/' + p.parent : ''}" data-back>${icon('arrow-left')}<span>${p.parent ? esc(ALL[p.parent].t) : 'Session setup'}</span></a>
-    ${head}${form}${tail}
-  </div>`;
+// What the public page reported: the week's total and today's, then the five most frequent errors outside the sandbox. Each
+// row is a distinct error (message and screen) in plain words; the browser's own message and file are folded away for Claude.
+function errorsHTML() {
+  const s = st(); loadErrors();
+  if (!s.errs) return s.errsErr ? notice('bad', 'circle-alert', `Could not load the public page’s error reports. ${esc(s.errsErr)}`) : '<div class="skel" style="height:64px" aria-busy="true" aria-label="Loading"></div>';
+  const today = hstToday(), live = s.errs.filter(e => !e.sandbox), sum = l => l.reduce((a, e) => a + (e.reports || 0), 0);
+  const n = sum(live), nToday = sum(live.filter(e => e.day === today)), sb = sum(s.errs.filter(e => e.sandbox));
+  const by = new Map();
+  for (const e of live) { const k = `${e.message}|${e.place}`, g = by.get(k) || { ...e, reports: 0 }; g.reports += e.reports || 0; if (e.last_at > g.last_at) { g.last_at = e.last_at; g.day = e.day; g.source = e.source; } by.set(k, g); }
+  const top = [...by.values()].sort((a, b) => b.reports - a.reports).slice(0, 5);
+  const words = n ? `${plural(n, 'error report')} from visitors’ browsers in the last 7 days, ${nToday} today${sb ? `, and ${sb} in the sandbox` : ''}.`
+    : `None reported by visitors’ browsers in the last 7 days${sb ? ` (${sb} in the sandbox)` : ''}.`;
+  const rowH = e => `<li class="ss-check info"><span class="ss-cic">${icon(e.day === today ? 'circle-alert' : 'info')}</span>
+    <div class="ss-cbody"><span class="ss-ct">${esc(errWords(e.message))}${e.place ? ` on ${esc(e.place)}` : ''}</span><span class="ss-cl">${esc([`${e.reports} ${e.reports === 1 ? 'report' : 'reports'}`, `last ${fmtDate(e.last_at)}`].join(' · '))}</span>
+      <details class="ss-errd"><summary>Details for Claude</summary><code>${esc([e.message, e.source].filter(Boolean).join('\n'))}</code></details></div></li>`;
+  return `<p class="ss-sum">${icon(n ? 'circle-alert' : 'circle-check')}<span><b>${n ? (nToday ? 'Errors today.' : 'Errors this week.') : 'No errors.'}</b> ${esc(words)}</span></p>
+    ${top.length ? `<ul class="ss-checks" role="list" aria-label="The errors">${top.map(rowH).join('')}</ul>` : ''}
+    <p class="ss-note">A report names the screen that broke and the error, never the person; nothing is sent with the privacy signal. Admins get a Slack message when ten or more arrive in an hour. Ask Claude to fix what shows here.</p>`;
 }
-const section = route => PAGES[route.section] ? route.section : '';
+
+// ---- the front page: the season checklist ----
+function renderIndex() {
+  const s = st(); loadReady(); loadSecrets(); loadLogins();
+  // The tab row sits at the same height on all six pages (the critic: the checklist's own subtitle moved it 36px), so the
+  // guide's link is a note under the checks instead.
+  const rows = readyRows(), help = `<p class="ss-note ss-guide">${icon('book-open')}<a href="#/help/session">What changes when a session starts</a></p>`;
+  const recheck = rows || s.readyErr ? btn('Check again', { kind: 'text', icon: 'rotate-ccw', attrs: { 'data-recheck': '1', ...(s.readyBusy ? { 'aria-busy': 'true' } : {}) } }) : '';
+  let ready;
+  if (!rows) ready = s.readyErr ? notice('bad', 'circle-alert', `Could not run the checks. ${esc(s.readyErr)}`, btn('Try again', { kind: 'secondary', sm: true, attrs: { 'data-recheck': '1' } }))
+    : '<div class="skel" style="height:160px" aria-busy="true" aria-label="Checking"></div>';
+  else {
+    const live = rows.filter(r => !r.waiting), soon = rows.length - live.length;
+    const bad = live.filter(r => r.level === 'block' && r.ok === false).length, warn = live.filter(r => r.level === 'warn' && r.ok === false).length,
+      todo = live.filter(r => r.level === 'manual' && !r.ok).length, open = rows.filter(r => r.ok !== true), pass = rows.filter(r => r.ok === true);
+    const sum = [bad ? plural(bad, 'blocking problem') : 'Nothing is blocking', warn ? `${warn} to check` : '', todo ? `${todo} to tick off` : '', soon ? `${soon} not due yet` : ''].filter(Boolean).join(', ');
+    ready = `<p class="ss-sum">${icon(bad ? 'circle-x' : 'circle-check')}<span><b>${bad ? 'Not ready yet.' : 'Ready.'}</b> ${esc(sum)}.</span></p>
+      ${open.length ? `<ul class="ss-checks" role="list" aria-label="To fix or tick off">${open.map(readyRowHTML).join('')}</ul>` : ''}
+      ${pass.length ? `<details class="ss-fold" data-pass${s.passOpen ? ' open' : ''}><summary>${icon('chevron-down', { cls: 'chev' })}<span>${plural(pass.length, 'check passes', 'checks pass')}</span></summary><ul class="ss-checks" role="list" aria-label="Passing">${pass.map(readyRowHTML).join('')}</ul></details>` : ''}`;
+  }
+  const errs = `<section class="ss-sec" aria-labelledby="ss-h-errs"><h2 class="ss-h2" id="ss-h-errs">The public page’s errors</h2>${errorsHTML()}</section>`;
+  // From opening day the health checks lead ("Running well?") and the January checklist folds to one line (R-316 W57).
+  if (inSession() && rows) {
+    const health = rows.filter(r => !r.waiting && r.level !== 'manual' && r.ok === false);
+    return `<div class="ss-page">${headOf('')}
+      <section class="ss-sec" aria-labelledby="ss-h-run"><div class="ss-sechead"><h2 class="ss-h2" id="ss-h-run">Running well?</h2>${recheck}</div>
+        ${health.length ? `<ul class="ss-checks" role="list" aria-label="To fix">${health.map(readyRowHTML).join('')}</ul>` : `<p class="ss-sum">${icon('circle-check')}<span><b>Running well.</b> Nothing needs you.</span></p>`}
+        <details class="ss-fold"><summary>${icon('chevron-down', { cls: 'chev' })}<span>Ready for session? The checklist from before opening day</span></summary>${ready}</details>${help}</section>
+      ${errs}</div>`;
+  }
+  return `<div class="ss-page">${headOf('')}
+    <section class="ss-sec" aria-labelledby="ss-h-ready"><div class="ss-sechead"><h2 class="ss-h2" id="ss-h-ready">Ready for session?</h2>${recheck}</div>${ready}${help}</section>${errs}</div>`;
+}
+
+// ---- the rows of a group: each a setting's name and its value in one line, with one control (spec 7.2, D16) ----
+const ssList = (label, rows, cls = '') => `<ul class="ss-list${cls ? ' ' + cls : ''}" role="list" aria-label="${esc(label)}">${rows.filter(Boolean).join('')}</ul>`;
+const ssSec = (id, title, body, sub = '') => `<section class="ss-sec" id="ss-${id}" aria-labelledby="ss-h-${id}"><h2 class="ss-h2" id="ss-h-${id}" tabindex="-1">${esc(title)}</h2>${sub ? `<p class="ss-sub">${sub}</p>` : ''}${body}</section>`;
+const rowIn = (name, line) => `<span class="ss-rtext"><span class="ss-rt">${esc(name)}</span>${line ? `<span class="ss-rl">${line}</span>` : ''}</span>`;
+// The whole row opens the sheet where the setting is typed.
+const openRow = (key, name, line, id = key) => `<li class="ss-row" id="ss-r-${esc(id)}"><button type="button" class="ss-rmain" data-ssopen="${esc(key)}" aria-haspopup="dialog">${rowIn(name, line)}${icon('chevron-right', { cls: 'ss-chev' })}</button></li>`;
+const linkRow = (href, name, line, id) => `<li class="ss-row"${id ? ` id="ss-r-${esc(id)}"` : ''}><a class="ss-rmain" href="${esc(href)}">${rowIn(name, line)}${icon('chevron-right', { cls: 'ss-chev' })}</a></li>`;
+// A switch saves the moment it is flipped, with Undo.
+const swRow = (id, name, on, line, a = {}) => `<li class="ss-row ss-sw" id="ss-r-${esc(id)}">${switchRow(id, esc(name), on, line, { 'data-ssauto': id, ...a })}</li>`;
+// A row that does one thing on the spot (a test message, Connect).
+const actRow = (id, name, line, button) => `<li class="ss-row ss-act" id="ss-r-${esc(id)}">${rowIn(name, line)}${button ? `<span class="ss-ract">${button}</span>` : ''}</li>`;
+const hstDay = d => new Date(String(d).slice(0, 10) + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'short', month: 'numeric', day: 'numeric' }).replace(',', '');
+
+// Before each session: the coalitions, then the session's days, its bills and the committee map.
+function groupSession() {
+  const yr = sessionYear(), cal = (S.sessionCal || []).find(x => x.session_year === yr) || {}, off = cal.off_days || [], b = (S.syncCfg || {}).burst_until;
+  const coal = S.campaigns.map(c => { const own = advocate(c.owner_id), kw = (c.keywords || []).length;
+    return openRow('coal:' + c.id, c.name, esc([own ? `${own.full_name.split(' ')[0]}${own.is_active === false ? ' (turned off)' : ''}` : 'No owner', plural(kw, 'keyword'), c.slack_channel || 'no Slack channel'].join(' · ')), 'coal-' + c.id); });
+  const days = cal.opening_day ? `Opens ${hstDay(cal.opening_day)}${cal.sine_die ? ` · ends ${hstDay(cal.sine_die)}` : ''} · ${plural(off.length, 'day')} off` : 'Not entered yet';
+  const sync = b && b >= new Date().toISOString().slice(0, 10) ? `4 more syncs a day until ${fmtDate(b)}` : 'Syncs 4 times a day';
+  return ssSec('coalitions', 'Coalitions', ssList('Coalitions', coal, 'ss-two'), esc(status('coalitions')) + '. The owner gets every bill tracked under it; keywords suggest new bills.')
+    + ssSec('session', `The ${yr} session`, ssList('The session', [
+      openRow('days', 'Session days', esc(days)),
+      openRow('sync', 'Bill sync', esc(sync)),
+      openRow('load', 'Load the session’s bills', 'From Open States, once a session'),
+      openRow('tracked', 'Replace the tracked list', 'From the team spreadsheet’s export'),
+      openRow('map', 'Committee map', esc(plural((S.counterparts || []).length, 'House and Senate pair'))),
+    ], 'ss-two'));
+}
+// The positions alerts post for, said as what we do with a bill (the critic: "6 positions" did not say which).
+function posWords(ps) {
+  const has = ks => ks.filter(k => ps.includes(k)).length, or = xs => xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} or ${xs[xs.length - 1]}`;
+  const sup = has(['strongly_support', 'support', 'support_amend']), opp = has(['strongly_oppose', 'oppose']);
+  const vs = [sup ? (sup === 1 && ps.includes('strongly_support') ? 'strongly support' : 'support') : '', opp ? (opp === 1 && ps.includes('strongly_oppose') ? 'strongly oppose' : 'oppose') : '',
+    ps.includes('neutral') ? 'comment on' : '', ps.includes('monitor') ? 'monitor' : ''].filter(Boolean);
+  return vs.length ? `for bills we ${or(vs)}` : 'for no bills yet: pick the positions';
+}
+// Alerts and messages: every email and Slack setting on one page (V28: Slack was set in 6 parts).
+function groupAlerts() {
+  const c = S.emailCfg || {}, cfg = S.slackCfg || {}, d = cfg.daily || {}, s = st(); loadTeamEmail();
+  const tpl = cfg.templates || {}, changed = TEMPLATE_KINDS.filter(([k]) => String(tpl[k] || '').trim()).length, withCh = S.campaigns.filter(x => x.slack_channel).length;
+  const emailLine = S.emailCfgErr ? esc(`${S.emailCfgErr} Until then the app treats email as paused.`)
+    : c.enabled === false ? `Paused: nothing is sent${c.changed_at ? ` · since ${esc(fmtDate(c.changed_at))}` : ''}` : 'On: alerts and approved emails go out';
+  const sender = [`From ${c.from_email || 'alerts@hiphi.org'}`, `replies to ${c.reply_to || 'info@hiphi.org'}`, c.postal ? 'postal address set' : 'hiphi.org’s postal address'].join(' · ');
+  const dChan = d.channel || 'the main channel';
+  return ssSec('email', 'Email', ssList('Email', [
+      swRow('ss-email-on', 'Send email', c.enabled !== false, emailLine),
+      openRow('sender', 'Sender and postal address', esc(sender)),
+      s.teamEmail === null ? '' : swRow('ss-teamemail', 'Email to the team', !!s.teamEmail, s.teamEmail ? 'On: someone Slack cannot find gets their messages by email' : 'Off: their messages go to the next person Slack can reach'),
+    ]))
+    + ssSec('slack', 'Hearing alerts in Slack', ssList('Slack', [
+      openRow('where', 'Where hearing alerts post', esc(`${cfg.main_channel ? `${cfg.main_channel} ` : 'No main channel yet · alerts '}${posWords(cfg.positions || [])} · ${withCh} of ${plural(S.campaigns.length, 'coalition')} also post to their own channel`)),
+      // One row for the daily list (the critic: its time was said in two rows): whether it posts, when and where, in one sheet.
+      openRow('daily', 'Daily list of hearings', esc(d.enabled !== false ? `On: posts at ${hhmm(d.time || '07:00')} in ${dChan} · ${d.days_ahead || 7} days ahead${d.post_when_empty ? ' · even with none coming' : ''}` : 'Off')),
+      swRow('ss-wfdm', 'Testimony steps as Slack messages', cfg.workflow_dm !== false, cfg.workflow_dm !== false ? 'On: each step reaches its person in Slack' : 'Off: they go by email instead'),
+      swRow('ss-health', 'Tell admins about pipeline problems', cfg.health_dm !== false, 'A Slack message to each admin'),
+      swRow('ss-quiet', 'Tell admins when a notice alerts nobody', cfg.quiet_dm !== false, 'A hearing for bills we do not track, or have no position on'),
+      openRow('templates', 'Message wording', esc(`${plural(TEMPLATE_KINDS.length, 'Slack message')} · ${changed ? `${changed} changed from the standard` : 'all standard'}`)),
+    ]));
+}
+// Connections: plain status lines that name Claude's part, the keys under a closed "Technical details".
+function groupConnections(route) {
+  loadSecrets(); const sec = st().secrets, cal = S.calCfg || {}, cfg = S.slackCfg || {}, wait = 'Checking…';
+  const slack = !sec ? wait : sec.slack_bot_token ? `Connected: alerts post to ${esc(cfg.main_channel || 'the main channel')}` : 'Not set up yet: ask Claude to connect it';
+  const calLine = !sec ? wait : sec.google_calendar_refresh_token ? (cal.calendar_id ? `Connected: hearings go to the “${esc(cal.name || 'HIPHI Hearings')}” calendar` : 'Connected, but the calendar is not made yet: press Connect again')
+    : sec.google_oauth_client_id && sec.google_oauth_client_secret ? 'Not connected yet: press Connect' : 'Not set up yet: ask Claude to connect it';
+  const yt = !sec ? wait : sec.youtube_api_key ? 'Key set: the daily sync searches the week’s hearing videos' : 'Feed only: the newest 15 videos per chamber. Ask Claude for a key to search the whole week';
+  const k = (id, key, label, ph, help = '') => { const set = sec?.[key]; return field(id, label + (sec ? ` · ${set ? 'set' : 'not set'}` : ''), `<input id="${id}" type="password" placeholder="${esc(set ? 'Saved. Type a new one to replace it' : ph)}" autocomplete="new-password" data-key="${key}"${help ? ` aria-describedby="${id}-help"` : ''}>`, help); };
+  const open = route.section === 'keys' || route.q?.part === 'keys';
+  const keys = `<details class="ss-tech" id="ss-keys"${open ? ' open' : ''}><summary>${icon('chevron-down', { cls: 'chev' })}<span>Technical details: the keys</span></summary>
+    <div class="ss-techin st-form"><p class="ss-note">Keys are write-only: once saved they show as set and are never shown again. Leave a box blank to keep what is there; type clear to remove a key.</p>
+      ${k('st-slacktok', 'slack_bot_token', 'Slack bot token', 'xoxb-…')}
+      ${k('st-gid', 'google_oauth_client_id', 'Google client ID', '….apps.googleusercontent.com')}${k('st-gsec', 'google_oauth_client_secret', 'Google client secret', 'GOCSPX-…')}
+      <p class="ss-note">The Google client must be a Web application with this redirect address:</p><p class="ss-uri"><code id="st-redir">${esc(SUPABASE_URL)}/functions/v1/google-connect</code>${btn('Copy', { kind: 'text', sm: true, icon: 'copy', attrs: { 'data-copyredir': '1', 'aria-label': 'Copy the redirect address' } })}</p>
+      ${k('st-ytkey', 'youtube_api_key', 'YouTube API key', 'AIza…', 'In Google Cloud: the HIPHI project, APIs and Services, enable YouTube Data API v3, then make an API key under Credentials.')}
+      <div class="btnrow">${btn('Save keys', { kind: 'secondary', icon: 'key-round', attrs: { 'data-sskeys': '1' } })}</div></div></details>`;
+  return ssSec('conn', 'Slack, Google Calendar and YouTube', ssList('Connections', [
+      actRow('slack', 'Slack', slack, sec?.slack_bot_token ? btn('Send me a test message', { kind: 'secondary', sm: true, icon: 'send', attrs: { 'data-slacktest': '1' } }) : ''),
+      actRow('cal', 'Google Calendar', calLine, sec && (sec.google_calendar_refresh_token || (sec.google_oauth_client_id && sec.google_oauth_client_secret)) ? btn(sec.google_calendar_refresh_token ? 'Connect again' : 'Connect', { kind: 'secondary', sm: true, icon: 'calendar-plus', attrs: { 'data-connect': '1' } }) : ''),
+      swRow('ss-cal-on', 'Calendar events for hearings', cal.enabled !== false, cal.enabled !== false ? 'On: each hearing we follow goes on the calendar' : 'Off'),
+      swRow('ss-cal-test', 'Include [TEST] hearings', cal.include_test !== false, 'The practice hearings Claude uses to check the pipeline'),
+      actRow('yt', 'YouTube', yt, ''),
+    ]), 'What the tracker is connected to. Claude sets each one up; the keys are under Technical details.') + keys;
+}
+// Public page: the embed, the A/B tests (those ready to decide in sight) and the tester sheet.
+function groupPublic() {
+  loadAb(); const A = st().ab, bar = A && abBar(A.tests), ready = A ? A.tests.filter(t => abState(t, A.res, bar).ready) : [];
+  const tests = A ? `${A.tests.filter(t => t.is_on).length} of ${plural(A.tests.length, 'test')} running · ${ready.length ? `${ready.length} ready to decide` : 'none ready to decide'}` : 'The public page’s A/B tests';
+  return ssSec('pub', 'The public tracker', ssList('The public page', [
+    openRow('embed', 'Website embed', 'A table of the bills we take a public position on, for hiphi.org'),
+    linkRow('#/setup/tests', 'A/B tests', esc(tests), 'tests'),
+    ...ready.map(t => linkRow(`#/setup/test?t=${encodeURIComponent(t.key)}`, t.name, 'Ready to decide: its numbers say “Trust it”')),
+    linkRow('#/setup/room', 'Tester sheet', 'A link and a QR code for each group of testers', 'room'),
+  ]), 'What the public sees on hiphi.org and the tracker, and the tests that try new versions of it.');
+}
+// Privacy and safety: Forget a person in its own section, people's lists, how long things are kept.
+function groupPrivacy() {
+  loadRetention(); loadOffLists(); const s = st(), r = s.ret, offs = s.offLists || [];
+  const forget = ssSec('forget', 'Forget a person', `<div class="ss-box"><p class="ss-p">For someone who writes to <a href="mailto:contact@hiphi.org">contact@hiphi.org</a> asking HIPHI to delete what it has; the tracker promises an answer within 10 business days. It cannot be undone, and never touches a team member.</p>
+    ${btn('Forget a person…', { kind: 'secondary', icon: 'trash-2', attrs: { 'data-ssopen': 'forget', 'aria-haspopup': 'dialog' } })}</div>`);
+  const lists = ssSec('lists', 'People’s lists', ssList('People’s lists', [
+    actRow('turnoff', 'Turn off a shared list', 'When a list shared on the public page is used to harm; nothing is erased', btn('Turn off a list', { kind: 'secondary', sm: true, attrs: { 'data-ssopen': 'turnoff', 'aria-haspopup': 'dialog' } })),
+    ...offs.map(l => actRow('ul-' + l.id, l.title, esc(`Turned off ${fmtDate(l.blocked_at)}${l.blocked_by ? ` by ${l.blocked_by}` : ''}${l.blocked_reason ? `: ${l.blocked_reason}` : ''}`), btn('Turn back on', { kind: 'text', sm: true, attrs: { 'data-ulon': l.id, 'aria-label': `Turn ${l.title} back on` } }))),
+  ]), s.offListsErr ? esc(`Could not load the lists turned off. ${s.offListsErr}`) : '');
+  let keep;
+  if (s.retErr) keep = notice('bad', 'circle-alert', `Could not load the keeping periods. ${esc(s.retErr)}`);
+  else if (!r) keep = '<div class="skel" style="height:120px" aria-busy="true" aria-label="Loading"></div>';
+  else { const k = r.kinds || [], due = k.reduce((n, x) => n + (+x.due || 0), 0), soon = k.reduce((n, x) => n + (+x.soon || 0), 0);
+    const counts = due || soon ? `${plural(due, 'record')} past ${due === 1 ? 'its' : 'their'} period, ${soon} more within 30 days` : 'nothing past its period';
+    keep = `${ssList('The clean-up', [swRow('ss-ret', 'Nightly clean-up', !!r.on, esc(`${r.on ? 'On: it deletes what is past its period' : 'Off: it only counts'} · ${counts}`))])}
+      <p class="ss-note">${r.last_run ? `Last counted ${esc(fmtDate(r.last_run))}.` : 'The nightly clean-up has not run yet; these counts are from now.'} ${btn('Count again', { kind: 'text', sm: true, icon: 'refresh-cw', attrs: { 'data-kpcount': '1' } })}</p>
+      <details class="ss-fold"><summary>${icon('chevron-down', { cls: 'chev' })}<span>How long each kind of record is kept</span></summary>
+      <div class="ss-tablewrap"><table class="ss-table"><caption class="sr">How long each kind of record is kept</caption><thead><tr><th scope="col">Kind</th><th scope="col">Kept</th><th scope="col" class="num">Past it</th><th scope="col" class="num">Within 30 days</th></tr></thead>
+        <tbody>${k.map(x => `<tr><th scope="row">${esc(x.label)}</th><td>${esc(x.period)}</td><td class="num">${x.due}</td><td class="num">${x.soon}</td></tr>`).join('')}</tbody></table></div>
+      <p class="ss-note">The periods are Nate’s, set 5 October. Numbers never confirmed are held until texts really go out; accounts unused for two years are counted, and the warning email needs a sender that does not exist yet. Postmark keeps sent email for 45 days on its side, as the privacy page says.</p></details>`; }
+  return forget + lists + ssSec('keeping', 'Privacy and keeping', keep);
+}
+const GROUP_HTML = { session: groupSession, alerts: groupAlerts, connections: groupConnections, public: groupPublic, privacy: groupPrivacy };
+// The tabs name each group; a group's own words are its sections' (A-14: say it once).
+const GROUP_SUB = {};
+function renderGroup(key, route) {
+  return `<div class="ss-page ss-g-${key}">${headOf(key, GROUP_SUB[key] || '')}${GROUP_HTML[key](route)}</div>`;
+}
+// A page under the Public page says where Back goes above its title on a laptop too (B-4; the critic: only the phone's top bar
+// drew it). It says what the frame's Back says: the page it was opened from, else its parent. Styled in partners.css (.pe-back).
+const backOf = k => SUB[k] ? { href: k === 'test' ? '#/setup/tests' : '#/setup/public', label: k === 'test' ? 'Tests' : 'Public page' } : null;
+const backLink = b => { if (!b) return ''; let from = ''; try { from = history.state?.d > 0 ? history.state?.from || '' : ''; } catch { from = ''; }
+  return `<a class="pe-back" href="${esc(b.href)}" data-back>${icon('chevron-left')}<span>${esc(from || b.label)}</span></a>`; };
+// Below 768px the six tabs are one row that scrolls sideways (partners.css), so the open one is scrolled into sight.
+function placeTabs(root) {
+  const nav = root.querySelector('.ss-page .v6-tabs'), cur = nav?.querySelector('[aria-current="page"]'); if (!cur || nav.scrollWidth <= nav.clientWidth + 1) return;
+  const n = nav.getBoundingClientRect(), c = cur.getBoundingClientRect();
+  if (c.right > n.right - 16) nav.scrollLeft += c.right - n.right + 48; else if (c.left < n.left + 16) nav.scrollLeft -= n.left - c.left + 48;
+}
+// The Public page's own pages (the tests, one test, the tester sheet) keep v5's content under the place's tabs.
+function renderSub(key) {
+  const p = PAGES[key], [ic, line] = p.status(), title = p.title ? p.title() : SUB[key];
+  const act = key === 'room' ? btn('Print the sheet', { icon: 'printer', attrs: { 'data-ssprint': '1' } }) : '';
+  return `<div class="ss-page ss-subpage">${backLink(backOf(key))}${headOf('public')}
+    <div class="ss-subhead"><div><h2 class="ss-h2" id="ss-h-sub" tabindex="-1">${esc(title)}</h2><p class="ss-status">${icon(ic)}<span>${line}</span></p></div>${act}</div>
+    <div class="st-formwrap" data-stform>${p.body()}</div></div>`;
+}
+
+// ---- the sheets: one per typed setting, with its own Save (and Undo); anything typed and not saved comes back ----
+function formSheet(key, { title, body, save, saveLabel = 'Save', size = 'auto', wire, danger = false, intro = '' }) {
+  const s = st(), was = s.draft[key];
+  openSheet({ title, size,
+    body: `${intro}${was ? `<p class="ss-unsaved">${icon('circle-dot')}<span>Not saved yet: what you typed last time is back.</span></p>` : ''}<form class="st-form ss-form" novalidate data-ssform>${body}<button type="submit" hidden tabindex="-1" aria-hidden="true"></button></form>`,
+    foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-sscancel': '1' } })}${btn(saveLabel, { kind: danger ? 'danger' : 'primary', attrs: { 'data-sssave': '1' } })}`,
+    wire: d => {
+      const form = d.querySelector('[data-ssform]');
+      const fields = () => [...form.querySelectorAll('input, select, textarea')].filter(el => el.id && el.type !== 'file' && !el.readOnly);
+      if (was) for (const el of fields()) if (el.id in was) { if (el.type === 'checkbox' || el.type === 'radio') el.checked = !!was[el.id]; else el.value = was[el.id]; }
+      const keep = () => { s.draft[key] = Object.fromEntries(fields().map(el => [el.id, el.type === 'checkbox' || el.type === 'radio' ? el.checked : el.value])); };
+      form.addEventListener('input', keep); form.addEventListener('change', keep);
+      if (wire) wire(d, form);
+      d.querySelector('[data-sscancel]').onclick = () => { delete s.draft[key]; closeSheet(); };
+      const go = async () => {
+        const b = d.querySelector('[data-sssave]'); if (b.getAttribute('aria-busy')) return;
+        clearErrs(d); b.setAttribute('aria-busy', 'true');
+        try { const out = await save(form); if (!out) return;
+          delete s.draft[key]; if (d.isConnected) await closeSheet({ silent: true }); hooks.render();
+          const o = typeof out === 'string' ? { text: out } : out;
+          toast(o.text, { ok: !o.plain, ...(o.undo ? { undo: async () => { await o.undo(); hooks.render(); toast('Undone.'); } } : {}) });
+          document.querySelector(`[data-ssopen="${CSS.escape(key)}"]`)?.focus({ preventScroll: true });
+        } catch (e) { toast(e, { err: true }); }
+        finally { b.removeAttribute('aria-busy'); }
+      };
+      d.querySelector('[data-sssave]').onclick = go; form.onsubmit = e => { e.preventDefault(); go(); };
+    } });
+}
+const okMail = v => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+const SHEETS = {
+  sender() { const c = S.emailCfg || {};
+    formSheet('sender', { title: 'Sender and postal address',
+      body: `${txt('st-email-postal', 'Postal address', c.postal || '', { ph: '707 Richards Street, Suite 300, Honolulu, HI 96813', help: 'Printed at the foot of every email to the public: the law asks for a real mailing address. Blank uses the hiphi.org address.' })}
+        ${txt('st-email-from', 'Public email comes from', c.from_email || '', { type: 'email', ph: 'alerts@hiphi.org', help: 'Shown as “HIPHI Bill Tracker”. It must be a hiphi.org address Postmark sends from.' })}
+        ${txt('st-email-reply', 'Replies go to', c.reply_to || '', { type: 'email', ph: 'info@hiphi.org', help: 'A mailbox a person reads. Replies to a supporter email go to whoever wrote it.' })}`,
+      // The sender fields only, never "enabled" (Z1-5): the save merges them into what is stored, and refuses when the settings
+      // could not be read. From "HIPHI Bill Tracker", replies to a person (R-101 rule 7).
+      save: async f => { const from = val(f, 'st-email-from'), reply = val(f, 'st-email-reply');
+        if (!okMail(from)) { fieldErr(f, 'st-email-from', 'Enter an email address like alerts@hiphi.org, or leave it blank.'); return null; }
+        if (!okMail(reply)) { fieldErr(f, 'st-email-reply', 'Enter an email address like info@hiphi.org, or leave it blank.'); return null; }
+        const before = { postal: c.postal || '', from_email: c.from_email || '', reply_to: c.reply_to || '', from_name: 'HIPHI Bill Tracker' };
+        await DB.saveEmailSettings({ postal: val(f, 'st-email-postal'), from_email: from, from_name: 'HIPHI Bill Tracker', reply_to: reply });
+        return { text: 'Saved.', undo: () => DB.saveEmailSettings(before) }; } }); },
+  where() { const c = S.slackCfg || {}, pos = new Set(c.positions || []);
+    formSheet('where', { title: 'Where hearing alerts post',
+      body: `${txt('st-main', 'Main Slack channel', c.main_channel || '', { ph: '#hearing-alerts-2027', help: 'Every hearing alert posts here. Each bill also posts to its coalition’s channel, set on the coalition under Each session.' })}
+        <fieldset class="ss-fs"><legend>Post alerts for bills we</legend><div class="ss-checks2">${POS_OPTS.map(([v, l]) => `<label class="ss-check2"><input type="checkbox" id="ss-pos-${v}" value="${v}"${pos.has(v) ? ' checked' : ''}><span>${esc(l)}</span></label>`).join('')}</div></fieldset>`,
+      save: async f => { const positions = POS_OPTS.map(([v]) => v).filter(v => f.querySelector('#ss-pos-' + v)?.checked);
+        await DB.saveSlackSettings({ ...c, main_channel: val(f, 'st-main') || '#hearing-alerts-2027', positions }, []);
+        return { text: 'Saved. Alerts post where you said.', undo: () => DB.saveSlackSettings(c, []) }; } }); },
+  daily() { const c = S.slackCfg || {}, d = c.daily || {};
+    formSheet('daily', { title: 'Daily list of hearings',
+      body: `<label class="ss-check2"><input type="checkbox" id="st-d-on"${d.enabled !== false ? ' checked' : ''}><span>Post a daily list of the coming hearings in Slack</span></label>
+        <div class="ss-grid">${txt('st-d-time', 'Post at', d.time || '07:00', { type: 'time' })}${txt('st-d-days', 'Days ahead', d.days_ahead || 7, { type: 'number', attrs: 'min="1" max="30" inputmode="numeric"' })}</div>
+        ${txt('st-d-chan', 'Channel', d.channel || '', { ph: 'The main channel', help: 'Leave it blank to use the main channel.' })}
+        <label class="ss-check2"><input type="checkbox" id="st-d-empty"${d.post_when_empty ? ' checked' : ''}><span>Post even when no hearings are coming</span></label>`,
+      save: async f => { const n = Number(val(f, 'st-d-days')) || 7;
+        if (n < 1 || n > 30) { fieldErr(f, 'st-d-days', 'Between 1 and 30 days.'); return null; }
+        await DB.saveSlackSettings({ ...c, daily: { ...d, enabled: !!f.querySelector('#st-d-on')?.checked, time: val(f, 'st-d-time') || '07:00', days_ahead: n, channel: val(f, 'st-d-chan') || null, post_when_empty: !!f.querySelector('#st-d-empty')?.checked } }, []);
+        return { text: f.querySelector('#st-d-on')?.checked ? 'Saved. The daily list posts as you said.' : 'Saved. The daily list is off.', undo: () => DB.saveSlackSettings(c, []) }; } }); },
+  templates() { const c = S.slackCfg || {}, tpl = c.templates || {};
+    formSheet('templates', { title: 'Message wording', size: 'full',
+      intro: `<p class="ss-note">Leave a message blank to use the standard wording. Tokens you can use: ${esc(TOKENS)}. Slack formatting: *bold*, _italic_ and &lt;link|label&gt;; a link whose token is empty disappears on its own.</p>`,
+      body: TEMPLATE_KINDS.map(([k]) => area('st-tpl-' + k, TEMPLATE_LABEL[k] || k, tpl[k] || '', { rows: 3, ph: 'Blank uses the standard wording', attrs: `data-tpl="${k}"` })).join(''),
+      save: async f => { await DB.saveSlackSettings({ ...c, templates: { ...tpl, ...Object.fromEntries([...f.querySelectorAll('[data-tpl]')].map(t => [t.dataset.tpl, t.value])) } }, []);
+        return { text: 'Wording saved.', undo: () => DB.saveSlackSettings(c, []) }; } }); },
+  days() { const yr = sessionYear(), c = (S.sessionCal || []).find(x => x.session_year === yr) || {};
+    formSheet('days', { title: `Session days, ${yr}`,
+      intro: '<p class="ss-note">These drive “Legislative day 27 of 58”. Copy them from the Public Access Room’s session calendar; weekends are skipped on their own.</p>',
+      body: `<div class="ss-grid">${txt('st-sd-open', 'Opening day', String(c.opening_day || '').slice(0, 10), { type: 'date' })}${txt('st-sd-end', 'Adjournment sine die', String(c.sine_die || '').slice(0, 10), { type: 'date' })}</div>
+        ${area('st-sd-off', 'Weekdays the chambers do not meet', (c.off_days || []).map(d => String(d).slice(0, 10)).join('\n'), { rows: 5, ph: '2027-02-15\n2027-02-25', help: 'Recess days, holidays and closures, one date per line, like 2027-02-15. Or send the calendar PDF to Claude.' })}`,
+      save: async f => { const open = val(f, 'st-sd-open'), end = val(f, 'st-sd-end') || null, raw = val(f, 'st-sd-off').split(/[\s,;]+/).map(x => x.trim()).filter(Boolean);
+        const bad = raw.filter(x => !/^\d{4}-\d{2}-\d{2}$/.test(x)), off = [...new Set(raw)].sort();
+        if (!open) { fieldErr(f, 'st-sd-open', 'Enter the opening day.'); return null; }
+        if (bad.length) { fieldErr(f, 'st-sd-off', `Not a date (use 2027-02-15): ${bad.slice(0, 3).join(', ')}`); return null; }
+        const before = { session_year: yr, opening_day: c.opening_day || null, sine_die: c.sine_die || null, off_days: c.off_days || [] };
+        await DB.saveSessionCalendar({ session_year: yr, opening_day: open, sine_die: end, off_days: off });
+        return { text: `Saved the ${yr} session days.`, undo: before.opening_day ? () => DB.saveSessionCalendar(before) : null }; } }); },
+  sync() { const cfg = S.syncCfg || {};
+    formSheet('sync', { title: 'Bill sync',
+      body: txt('st-burst', '4 more syncs a day until', cfg.burst_until || '', { type: 'date', help: 'For the opening weeks, when new bills arrive fast. Leave it blank to sync 4 times a day.' }),
+      save: async f => { const until = val(f, 'st-burst') || null;
+        await DB.saveSyncSettings({ ...cfg, burst_until: until });
+        return { text: until ? `Saved. 4 more syncs a day until ${fmtDate(until)}.` : 'Saved. The bills sync 4 times a day.', undo: () => DB.saveSyncSettings(cfg) }; } }); },
+  load() {
+    formSheet('load', { title: 'Load the session’s bills', saveLabel: 'Start the import',
+      intro: `<p class="ss-note">When Open States publishes a new session, paste its CSV export link. It loads every introduced bill with its full history and is safe to run again; it takes 10 to 30 minutes. <a href="https://open.pluralpolicy.com/data/session-csv" target="_blank" rel="noopener">Find the link on Plural ${icon('external-link')}</a></p>`,
+      body: `<div class="ss-grid ss-grid-yr">${txt('st-bulk-year', 'Session year', sessionYear(), { type: 'number', attrs: 'inputmode="numeric"' })}${txt('st-bulk-url', 'CSV export link', '', { type: 'url', ph: `https://data.openstates.org/csv/latest/HI_${SESSION_YEAR + 1}_csv_….zip` })}</div>`,
+      save: async f => { const url = val(f, 'st-bulk-url'), session = val(f, 'st-bulk-year');
+        if (!/^https:\/\/data\.openstates\.org\/.+\.zip$/.test(url)) { fieldErr(f, 'st-bulk-url', 'That does not look like an Open States CSV export link (https://data.openstates.org/…zip).'); return null; }
+        await DB.dispatch('bulk-import', { url, session });
+        return { text: `Import started for ${session}. The checklist’s “${session} bills imported” turns to Done when it lands.`, plain: true }; } }); },
+  // The team spreadsheet's export: what will change shows first; Apply makes the change (and reloads the app).
+  tracked() { const s = st();
+    openSheet({ title: 'Replace the tracked list', size: 'auto',
+      body: `<p class="ss-p">Upload the All Tracked Bills export from the team spreadsheet, with the columns Bill Number, Coalition and Coalition Position. The bills in the file become the tracked list and every other bill is untracked; Strongly support becomes P1, every other position P2, and each bill goes to its coalition’s owner. You see what will change before anything does.</p>
+        <div class="btnrow"><label class="btn secondary" for="st-csv">${icon('upload')}<span>${s.csv ? 'Choose another file' : 'Choose the CSV file'}</span></label><input type="file" id="st-csv" class="sr" accept=".csv,text/csv"></div>
+        <div id="st-import-preview" aria-live="polite">${s.csv ? s.csv.html : ''}</div>`,
+      wire: d => { const inp = d.querySelector('#st-csv');
+        inp.onchange = async () => { const file = inp.files[0]; if (!file) return; const out = d.querySelector('#st-import-preview');
+          const rows = parseTrackerCsv(await file.text());
+          const show = html => { s.csv = { rows, html }; out.innerHTML = html; wireApply(d, rows); };
+          if (!rows.length) return show(notice('bad', 'circle-alert', 'No bill rows found. The header row needs Bill Number, Coalition and Coalition Position.'));
+          out.innerHTML = '<p class="ss-note">Checking the file…</p>';
+          try { const r = await DB.importTracker(rows, false); show(importSummary(file.name, r)); }
+          catch (e) { show(localSummary(file.name, rows) + notice('info', 'info', esc(DEMO ? 'The practice copy does not import. Use the live app to apply the file.' : e.message || 'Could not check the file.'))); } };
+        wireApply(d, s.csv?.rows); } }); },
+  map() {
+    const codes = ch => Object.values(S.committees || {}).filter(c => c.chamber === ch).map(c => c.code).sort().join(', ');
+    formSheet('map', { title: 'Committee map',
+      intro: '<p class="ss-note">One pair per line, House code first, like HLT = HHS. A House committee can pair with several Senate ones, and the other way round. Used to guess the other chamber’s committees before a referral is posted; a companion bill’s real referral always comes first.</p>',
+      body: `${area('st-cp', 'House = Senate pairs', (S.counterparts || []).map(p => `${p.house_code} = ${p.senate_code}`).join('\n'), { rows: 10 })}
+        <p class="ss-note">House: ${esc(codes('H'))}</p><p class="ss-note">Senate: ${esc(codes('S'))}</p>`,
+      save: async f => { const codes = new Set(Object.keys(S.committees || {})), pairs = [], bad = [], before = (S.counterparts || []).map(p => ({ house_code: p.house_code, senate_code: p.senate_code }));
+        for (const line of val(f, 'st-cp').split('\n')) { const t = line.trim(); if (!t) continue; const m = /^([A-Z]{2,4})\s*[=→>-]+\s*([A-Z]{2,4})$/i.exec(t); if (!m) { bad.push(t); continue; }
+          const h = m[1].toUpperCase(), sn = m[2].toUpperCase(); if (!codes.has(h) || !codes.has(sn)) { bad.push(t); continue; } if (!pairs.some(p => p.house_code === h && p.senate_code === sn)) pairs.push({ house_code: h, senate_code: sn }); }
+        if (bad.length) { fieldErr(f, 'st-cp', `Not understood: ${bad.slice(0, 3).join(', ')}. Use two committee codes, like HLT = HHS.`); return null; }
+        await DB.saveCounterparts(pairs); return { text: `${plural(pairs.length, 'pair')} saved.`, undo: () => DB.saveCounterparts(before) }; } }); },
+  embed() {
+    openSheet({ title: 'Website embed', size: 'auto',
+      body: `<p class="ss-p">A table of each bill we take a public position on, its position and where it stands. It reads the public page’s own data, so notes, owners and drafts never show. Paste the code into an HTML block on hiphi.org or a coalition site.</p>
+        <div class="st-form"><div class="ss-grid">${field('st-emb-coal', 'Show', `<select id="st-emb-coal"><option value="">Every coalition</option>${S.campaigns.filter(c => c.is_public && c.slug).map(c => `<option value="${esc(c.slug)}">${esc(c.public_name || c.name)}</option>`).join('')}</select>`)}
+          ${field('st-emb-limit', 'How many bills', '<select id="st-emb-limit"><option value="">Up to 50</option><option value="10">10</option><option value="25">25</option><option value="200">All of them</option></select>')}</div>
+        ${field('st-emb-code', 'The code', '<textarea id="st-emb-code" rows="5" readonly class="ss-code"></textarea>')}</div>`,
+      foot: `<a class="btn text" id="st-emb-open" target="_blank" rel="noopener"><span>Preview</span>${icon('external-link')}</a>${btn('Copy the code', { icon: 'copy', attrs: { 'data-embcopy': '1' } })}`,
+      wire: d => { const code = () => { const base = new URL('embed.html', location.href); base.search = ''; base.hash = ''; const c = d.querySelector('#st-emb-coal').value, l = d.querySelector('#st-emb-limit').value;
+          if (c) base.searchParams.set('coalition', c); if (l) base.searchParams.set('limit', l);
+          d.querySelector('#st-emb-open').href = base.href + (DEMO ? (base.search ? '&' : '?') + 'demo=1' : '');
+          d.querySelector('#st-emb-code').value = `<iframe id="hiphi-tracker" src="${base.href}" title="HIPHI bill tracker" style="width:100%;border:0;min-height:420px" loading="lazy"></iframe>\n<script>addEventListener('message',function(e){if(e.data&&e.data.hiphiTrackerHeight)document.getElementById('hiphi-tracker').style.height=e.data.hiphiTrackerHeight+'px'})<\/script>`; };
+        code(); d.querySelector('#st-emb-coal').onchange = code; d.querySelector('#st-emb-limit').onchange = code;
+        d.querySelector('[data-embcopy]').onclick = async () => { const t = d.querySelector('#st-emb-code');
+          try { await navigator.clipboard.writeText(t.value); toast('Code copied.', { ok: true }); } catch { t.focus(); t.select(); toast('Selected. Copy it with Ctrl+C or Cmd+C.'); } }; } }); },
+  // Forget a person: the sheet is the confirm (its button is the danger one), so nothing asks twice (B-5: it cannot be undone).
+  forget() {
+    formSheet('forget', { title: 'Forget a person', saveLabel: 'Forget them', danger: true,
+      intro: '<p class="ss-p">Give the email, the mobile number, or both. It stops their texts, deletes their tracker account and everything saved with it, erases the emails we kept for them and which ones they opened, and empties their supporter record down to “do not contact”, so a list upload cannot add them back. <b>It cannot be undone.</b></p>',
+      body: `${txt('st-fg-email', 'Their email', '', { ph: 'name@example.com', type: 'email', attrs: 'inputmode="email" autocapitalize="off"' })}${txt('st-fg-phone', 'Their mobile number', '', { ph: '(808) 555-0123', type: 'tel', attrs: 'inputmode="tel"' })}`,
+      save: async f => { const email = val(f, 'st-fg-email'), phone = val(f, 'st-fg-phone');
+        if (!email && !phone) { fieldErr(f, 'st-fg-email', 'Give an email, a mobile number, or both.'); return null; }
+        if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { fieldErr(f, 'st-fg-email', 'That does not look like an email address.'); return null; }
+        if (phone && !/^\+?1?[\s().-]*[2-9]\d{2}[\s().-]*[2-9]\d{2}[\s.-]*\d{4}$/.test(phone)) { fieldErr(f, 'st-fg-phone', 'Enter a 10-digit mobile number, like (808) 555-0123.'); return null; }
+        const r = await DB.forgetPerson(email, phone);
+        const why = { nothing: 'Give an email or a number.', phone: 'That number is not a mobile number we can use.', email: 'That does not look like an email address.', team: 'That is a team member. Turn them off in People instead.' };
+        if (!r.ok) { fieldErr(f, r.why === 'phone' ? 'st-fg-phone' : 'st-fg-email', why[r.why] || 'It could not be done.'); return null; }
+        const t = r.trail || {}, bits = [r.accounts_deleted ? plural(r.accounts_deleted, 'account') + ' deleted' : '', r.numbers_stopped ? plural(r.numbers_stopped, 'number') + ' stopped' : '', t.emails_unsent || t.emails_sent_erased ? `${(t.emails_unsent || 0) + (t.emails_sent_erased || 0)} emails erased` : '', t.opens_clicks_erased ? `${t.opens_clicks_erased} open or click records erased` : '', r.supporter_records ? 'supporter record emptied' : ''].filter(Boolean);
+        return `Done${r.demo ? ' (the practice copy: nothing was changed)' : ''}: ${bits.join(', ') || 'nothing was on file'}. Reply to the person to say so.`; } }); },
+  turnoff() {
+    formSheet('turnoff', { title: 'Turn off a shared list', saveLabel: 'Turn off this list', danger: true,
+      intro: '<p class="ss-p">Anyone who adds their email on the public page can make lists of bills and share one by a link. If someone sends you a link to a list that misuses HIPHI’s page, paste it here: its link stops working, the people who followed it stop seeing it, and its maker cannot share it again. Nothing is erased, and you can turn it back on.</p>',
+      body: `${txt('st-ul-link', 'The list’s link', '', { ph: 'https://…/track.html#/l/…' })}${area('st-ul-why', 'Why, for the record (optional)', '', { rows: 2, ph: 'For example: used to harass someone' })}`,
+      save: async f => { const link = val(f, 'st-ul-link');
+        if (!/[0-9a-f]{40}/.test(link)) { fieldErr(f, 'st-ul-link', 'Paste the whole link. It ends in #/l/ and 40 letters and numbers.'); return null; }
+        const title = await DB.turnOffList(link, val(f, 'st-ul-why')); st().offLists = null; return `Turned off ${title}.`; } }); },
+};
+// A coalition's sheet: owner, Slack channel, keywords, the public name, icon and line (v5's Coalitions part, one at a time).
+function coalSheet(id) {
+  const c = S.campaigns.find(x => x.id === id); if (!c) return;
+  const act = S.advocates.filter(a => a.is_active !== false), own = advocate(c.owner_id), who = own && own.is_active === false ? [...act, own] : act, ic = iconName(c.icon);
+  formSheet('coal:' + id, { title: esc(c.name), size: 'auto',
+    body: `${field('co-own', 'Owner', `<select id="co-own"><option value="">No owner</option>${who.map(a => `<option value="${esc(a.id)}"${c.owner_id === a.id ? ' selected' : ''}>${esc(teamName(a))}</option>`).join('')}</select>`, 'Gets every bill tracked under the coalition.')}
+      ${txt('co-ch', 'Slack channel', c.slack_channel || '', { ph: '#channel-name', help: 'Its bills’ hearing alerts post here too.' })}
+      ${area('co-kw', 'Keywords', (c.keywords || []).join(', '), { rows: 2, ph: 'tobacco, e-cigarette, nicotine', help: 'Separate them with commas. A short fragment catches longer words: fluorid finds fluoride and fluoridation.' })}
+      ${txt('co-pub', 'Name on the public page', c.public_name || '', { ph: 'What visitors see' })}
+      ${txt('co-desc', 'One friendly sentence for its tile', c.description || '', { ph: 'What this coalition works on' })}
+      <fieldset class="ss-fs"><legend>Icon on the public page</legend><div class="ss-icons">${ICON_CHOICES.map(([n, l]) => `<label class="ss-ic" title="${esc(l)}"><input type="radio" name="co-ic" id="co-ic-${n}" value="${n}"${ic === n ? ' checked' : ''}><span class="ss-icb">${icon(n)}</span><span class="sr">${esc(l)}</span></label>`).join('')}</div></fieldset>`,
+    save: async f => {
+      const keywords = val(f, 'co-kw').split(',').map(x => x.trim()).filter(Boolean);
+      const patch = { owner_id: f.querySelector('#co-own').value || null, slack_channel: val(f, 'co-ch') || null, keywords, icon: f.querySelector('[name="co-ic"]:checked')?.value || ic,
+        description: val(f, 'co-desc') || null, public_name: val(f, 'co-pub') || null };
+      const before = Object.fromEntries(Object.keys(patch).map(k => [k, c[k] ?? null]));
+      await DB.saveCampaign(c.id, patch); if (S.triage) S.triage.rows = null;   // new keywords change Sort new bills' suggestions
+      return { text: `${c.name} saved.`, undo: () => DB.saveCampaign(c.id, before) }; } });
+}
+
+// ---- the switches: each saves the moment it is flipped, with Undo for ten seconds (B-5); one that would turn email ON asks
+// first, because that starts mail to the public, and a failed save puts the switch back ----
+const slackAuto = (k, daily) => ({ cfg: 'slackCfg', save: c => DB.saveSlackSettings(c, []), apply: (c, v) => daily ? { ...c, daily: { ...(c.daily || {}), [k]: v } } : { ...c, [k]: v } });
+const AUTO = {
+  'ss-email-on': { cfg: 'emailCfg', save: c => DB.saveEmailSettings({ enabled: c.enabled, changed_at: c.changed_at, changed_by: c.changed_by }),
+    apply: (c, v) => ({ ...c, enabled: v, changed_at: new Date().toISOString(), changed_by: S.me?.initials || null }),
+    confirm: v => { if (!v || S.emailCfgErr) return null; const n = (S.alerts || []).filter(a => a.status === 'approved' && a.scheduled_for).length;
+      return { title: 'Turn email on?', text: `Staff alerts, and alerts and hearing emails to the public, start going out again. Alerts held while it was paused are not sent.${n ? ` ${n === 1 ? 'One approved supporter email has' : `${n} approved supporter emails have`} waited, and ${n === 1 ? 'goes' : 'go'} out in the next 4:30 pm email.` : ''}`, ok: 'Turn email on' }; },
+    msg: v => v ? 'Saved. Email is on.' : 'Saved. Email is paused: nothing will be sent.' },
+  'ss-wfdm': slackAuto('workflow_dm'), 'ss-health': slackAuto('health_dm'), 'ss-quiet': slackAuto('quiet_dm'),
+  'ss-cal-on': { cfg: 'calCfg', save: c => DB.saveCalendarSettings(c), apply: (c, v) => ({ ...c, enabled: v }) },
+  'ss-cal-test': { cfg: 'calCfg', save: c => DB.saveCalendarSettings(c), apply: (c, v) => ({ ...c, include_test: v }) },
+};
+// Two switches keep their own value: Email to the team (app_settings) and the nightly clean-up (backend 159).
+const OWN = {
+  'ss-teamemail': { set: async v => { await DB.setTeamEmail(v); st().teamEmail = v; }, msg: v => v ? 'Email to the team is on.' : 'Email to the team is off.' },
+  'ss-ret': { set: async v => { await DB.retentionSet(v); st().ret = null; loadRetention(true); }, msg: v => v ? 'The nightly clean-up is on.' : 'The nightly clean-up is off.',
+    confirm: v => v ? { title: 'Turn the clean-up on?', text: 'Each night the database will delete what is past its keeping period: email text and open and click history after 7 years, stopped numbers after 4, accounts unused for 3 years, and error reports after a year. Nothing in the database is that old yet. You can turn it off again here.', ok: 'Turn it on' } : null },
+};
+async function flip(id, v) {
+  const a = AUTO[id], o = OWN[id], ask = (a || o)?.confirm?.(v);
+  if (ask && !(await confirmSheet(ask))) return false;
+  if (o) { try { await o.set(v); } catch (e) { toast(e, { err: true }); return false; } hooks.render(); return true; }
+  const before = S[a.cfg];
+  try { await a.save(a.apply({ ...(before || {}) }, v)); } catch (e) { S[a.cfg] = before; toast(e, { err: true }); return false; }
+  hooks.render(); return true;
+}
+const sayFlip = (id, v) => (AUTO[id]?.msg || OWN[id]?.msg || (() => 'Saved.'))(v);
+
+// ---- wiring ----
+function wirePage(route, root) {
+  const s = st(), main = root.querySelector('.ss-page'); if (!main) return;
+  main.querySelectorAll('[data-recheck]').forEach(b => b.onclick = () => { s.ready = null; loadReady(true); loadErrors(true); hooks.render(); });
+  main.querySelector('[data-pass]')?.addEventListener('toggle', e => { s.passOpen = e.target.open; });
+  main.querySelectorAll('[data-rman]').forEach(b => b.onclick = async () => {
+    const on = !!b.dataset.on, r = (s.ready || []).find(x => x.key === b.dataset.rman); b.setAttribute('aria-busy', 'true');
+    try { await DB.saveReadinessManual(b.dataset.rman, on); if (r) r.ok = on; hooks.render(); toast(on ? 'Marked done.' : 'Marked not done.', { ok: on, undo: async () => { await DB.saveReadinessManual(b.dataset.rman, !on); if (r) r.ok = !on; hooks.render(); } }); }
+    catch (e) { toast(e, { err: true }); b.removeAttribute('aria-busy'); } });
+  const g = main.querySelector('[data-gaps]');
+  if (g) g.onclick = () => { const r = readyRows().find(x => x.key === 'public_copy');
+    openSheet({ title: 'Bills missing public copy', size: 'full', body: `<p class="ss-p">Open each one and fill in its Public tab.</p><div class="rows">${r.gaps.map(b => row({ title: b.nickname ? `<b class="bn-nick">${esc(b.nickname)}</b> <span class="bn-num">${esc(billNum(b))}</span>` : `<b>${esc(billNum(b))}</b>`, sub: [!(b.public_summary || '').trim() ? 'No summary' : '', !(b.public_action || '').trim() ? 'No ask' : ''].filter(Boolean).join(' · '), href: billRoute(b, 'public') })).join('')}</div>`,
+      wire: d => d.querySelectorAll('a[href^="#/"]').forEach(a => a.onclick = e => { e.preventDefault(); goAfterSheet(a.getAttribute('href')); }) }); };
+  main.querySelectorAll('[data-ssopen]').forEach(b => b.onclick = () => { const k = b.dataset.ssopen; if (k.startsWith('coal:')) coalSheet(k.slice(5)); else SHEETS[k]?.(); });
+  main.querySelectorAll('[data-ssauto]').forEach(el => el.onchange = async () => {
+    const id = el.dataset.ssauto, v = el.checked;
+    if (!(await flip(id, v))) { const x = document.getElementById(id); if (x) { x.checked = !v; x.focus(); } return; }
+    document.getElementById(id)?.focus({ preventScroll: true });
+    toast(sayFlip(id, v), { ok: true, undo: async () => { if (await flip(id, !v)) toast(`Undone. ${sayFlip(id, !v).replace(/^Saved\.\s*/, '')}`); } });
+  });
+  const t = main.querySelector('[data-slacktest]'); if (t) t.onclick = async () => { t.setAttribute('aria-busy', 'true'); try { await DB.slackTest(); toast(DEMO ? 'Practice copy: a test message would be on its way to you in Slack.' : 'A test message is on its way to you in Slack.', { ok: true }); } catch (e) { toast(e, { err: true }); } finally { t.removeAttribute('aria-busy'); } };
+  const cn = main.querySelector('[data-connect]'); if (cn) cn.onclick = async () => { try { await DB.connectCalendar(); } catch (e) { toast(e, { err: true }); } };
+  const cr = main.querySelector('[data-copyredir]'); if (cr) cr.onclick = async () => { try { await navigator.clipboard.writeText(main.querySelector('#st-redir').textContent); toast('Address copied.'); } catch { toast('Select the address and copy it.'); } };
+  const sk = main.querySelector('[data-sskeys]');
+  if (sk) sk.onclick = async () => { if (sk.getAttribute('aria-busy')) return; sk.setAttribute('aria-busy', 'true'); let n = 0;
+    try { for (const el of main.querySelectorAll('[data-key]')) { const v = el.value.trim(); if (!v) continue; await DB.setSecret(el.dataset.key, v.toLowerCase() === 'clear' ? '' : v); el.value = ''; n++; }
+      if (!n) toast('Nothing to save. Type a key first.'); else { loadSecrets(true); toast(`${plural(n, 'key')} saved.`, { ok: true }); } }
+    catch (e) { toast(e, { err: true }); } finally { sk.removeAttribute('aria-busy'); } };
+  main.querySelectorAll('[data-ulon]').forEach(b => b.onclick = async () => { const l = (s.offLists || []).find(x => String(x.id) === b.dataset.ulon); if (!l) return;
+    if (!await confirmSheet({ title: `Turn ${esc(l.title)} back on?`, text: 'Its maker can share it again, with a new link. The people who followed it see it again.', ok: 'Turn it back on' })) return;
+    b.setAttribute('aria-busy', 'true');
+    try { await DB.turnOnList(l.id); s.offLists = null; toast(`${l.title} is back on.`, { ok: true }); hooks.render(); } catch (e) { toast(e, { err: true }); b.removeAttribute('aria-busy'); } });
+  main.querySelector('[data-kpcount]')?.addEventListener('click', async e => { const b = e.currentTarget; if (b.getAttribute('aria-busy')) return; b.setAttribute('aria-busy', 'true');
+    try { await DB.retentionCount(); s.ret = null; loadRetention(true); toast('Counted. Nothing was deleted.', { ok: true }); } catch (er) { toast(er, { err: true }); b.removeAttribute('aria-busy'); } });
+  // Arriving at a part (v5's address, or ?part= from the checklist's Fix): its section or row comes into view, with focus.
+  const part = PART[route.section]?.[1] || (route.q?.part && (PART[route.q.part]?.[1] || `ss-${route.q.part}`));
+  if (part && s.arrived !== location.hash) { s.arrived = location.hash;
+    requestAnimationFrame(() => { const el = document.getElementById(part); if (!el) return; el.scrollIntoView({ block: 'start' });
+      (el.querySelector('summary, .ss-rmain, h2') || el).focus({ preventScroll: true }); }); }
+}
+
 const isAdmin = () => !!S.me?.is_admin;
-
-// ---- unsaved changes ----
-// What counts: every field you type in or choose from (not the switches, which save themselves; not file pickers or
-// read-only boxes). What was typed is kept for the visit (st().draft), so a redraw of the page (the window crossing
-// a layout width, a status arriving) or a trip to another page never loses it.
-const fields = form => [...form.querySelectorAll('input, select, textarea')].filter(el => el.id && el.type !== 'checkbox' && el.type !== 'file' && !el.readOnly);
-const snap = form => Object.fromEntries(fields(form).map(el => [el.id, el.value]));
-let guard = null;   // { key, hash, state, title, dirty(), save(), drop() } while a part with typed fields is on screen
-const guardOn = () => { try { return !!guard && S.route?.name === 'setup' && S.route.section === guard.key && guard.dirty(); } catch { return false; } };
-// "Save changes?": Cancel, Don't save, or Save, the same three answers (and words) the email composer gives. Esc,
-// Back, the x and a click outside all mean Cancel. Never window.confirm.
-const leaveSheet = title => new Promise(res => { let done = false;
-  openSheet({ title: 'Save changes?', size: 'auto', body: `<p>Your changes to ${esc(title)} are not saved yet.</p>`,
-    foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-lv': 'stay' } })}${btn('Don’t save', { kind: 'text', attrs: { 'data-lv': 'drop' } })}${btn('Save', { attrs: { 'data-lv': 'save' } })}`,
-    onClose: () => { if (!done) res('stay'); },
-    wire: d => d.querySelectorAll('[data-lv]').forEach(b => b.onclick = async () => { done = true; await closeSheet({ silent: true }); res(b.dataset.lv); }) }); });
-// True when it is fine to go: saved, or thrown away on purpose. A Save that fails (a field error, no connection)
-// stays on the page with the error showing.
-async function askLeave() {
-  const g = guard; if (!g) return true;
-  const r = await leaveSheet(g.title);
-  if (r === 'save') { const ok = await g.save(); if (ok) guard = null; return ok; }
-  if (r === 'drop') { g.drop(); guard = null; return true; }
-  return false;
-}
-// The frame's own jumps (your menu, the header search, a g shortcut, any S.go) ask through the frame's hook: true
-// means "I am asking", and proceed() is only called when the answer lets them go.
-(S.leaveGuards ??= []).push(proceed => { if (!guardOn()) return false; askLeave().then(ok => { if (ok) proceed(); }); return true; });
-// Leaving by a link (the back link, the list of parts, the sidebar, the tabs): ask first, then go where it pointed.
-document.addEventListener('click', e => {
-  if (e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || !guardOn()) return;
-  const a = e.target.closest?.('a[href]'); if (!a || a.target === '_blank' || a.closest('dialog')) return;
-  const href = a.getAttribute('href'); if (href === guard.hash) return;
-  e.preventDefault(); e.stopImmediatePropagation();
-  askLeave().then(ok => { if (!ok) return;
-    if (!href.startsWith('#')) { location.href = a.href; return; }
-    if (a.hasAttribute('data-back') && (history.state?.d || 0) > 0) history.back(); else S.go(href); });
-}, true);
-// Leaving by Back (the browser's, or a phone's): the address has already moved, so put this page's entry back (the
-// form on screen is untouched), ask, and only then really go back. This listener is registered before the frame's
-// (the frame imports this file first), so the frame never draws the other page underneath the question.
-addEventListener('popstate', e => {
-  if (!guardOn() || location.hash === guard.hash) return;   // the same address means Back only closed a sheet
-  e.stopImmediatePropagation();
-  history.pushState(guard.state, '', guard.hash);
-  askLeave().then(ok => { if (ok) history.back(); });
-});
-// Closing the tab or reloading: the browser's own question (the only one a page is allowed there).
-addEventListener('beforeunload', e => { if (guardOn()) { e.preventDefault(); e.returnValue = ''; } });
-// A safety net for any way out that is not a link, Back or the frame's go(): nothing is lost there either. What was
-// typed is kept for the visit, and a toast says so, with the way back.
-let shown = null;
-try { new MutationObserver(() => {
-  const now = S.route?.name === 'setup' && PAGES[S.route.section] ? S.route.section : null;
-  if (shown && shown !== now && st().draft[shown]) { const k = shown; toast(`Your changes to ${ALL[k].t} are not saved yet.`, { action: { label: 'Go back', run: () => S.go('#/setup/' + k) } }); }
-  shown = now;
-}).observe(document.body, { attributes: true, attributeFilter: ['data-screen'] }); } catch { /* no observer: the index still marks the part */ }
-
+// The page an address opens: the checklist (''), a group, one of the Public page's own pages, or People's redirect.
+const keyOf = route => route.section === 'team' ? 'team' : SUB[route.section] ? route.section : groupOf(route.section);
 export default {
   tab: '',
-  // The two columns need more than the 720px the frame gives a plain page between 900 and 1099px.
-  wide: () => DESK() && isAdmin(),
-  title: route => section(route) ? titleOf(section(route)) : 'Session setup',
-  back: route => { const k = section(route), up = PAGES[k]?.parent; return k ? { href: '#/setup' + (up ? '/' + up : ''), label: up ? ALL[up].t : 'Session setup' } : null; },
-  noTabs: route => !!section(route) && isAdmin(),
+  title: route => { const k = keyOf(route); return k === 'test' ? (abTestOf()?.name || 'A test') : SUB[k] || 'Session setup'; },
+  back: route => backOf(keyOf(route)),
   render(route) {
-    if (!isAdmin()) return `<div class="st-page st-setup"><div class="st-head sv-phead"><h1 class="st-dup">Session setup</h1></div>${empty({ title: 'Session setup is for admins', text: `Ask ${esc(admins())} to change a setting. Your own choices are in My settings.`, action: btn('Open My settings', { href: '#/me' }) })}</div>`;
-    return section(route) ? renderSection(section(route)) : renderIndex();
-  },
-  bar(route) {
-    const key = section(route); if (!key || !isAdmin() || DESK()) return '';
-    return saveBar(key, false);
+    if (!isAdmin()) return `<div class="ss-page"><h1 class="v6-ptitle sv-h1">Session setup</h1>${empty({ title: 'Session setup is for admins', text: `Ask ${esc(admins())} to change a setting. Your own choices are in My settings.`, action: btn('Open My settings', { kind: 'secondary', href: '#/me' }) })}</div>`;
+    const k = keyOf(route);
+    // The team is People now (V28): v5's #/setup/team lands there (app.js sends #/setup/people there too).
+    if (k === 'team') { setTimeout(() => S.go('#/people', { replace: true })); return skeleton(3); }
+    if (SUB[k]) return renderSub(k);
+    return k ? renderGroup(k, route) : renderIndex();
   },
   wire(route, root) {
-    guard = null;
     if (!isAdmin()) return;
-    const key = section(route);
-    if (!key) return wireIndex(root);
-    const p = PAGES[key], form = root.querySelector('[data-stform]'), s = st();
-    const refresh = () => { const el = root.querySelector('[data-ststatus]'); if (el) el.innerHTML = statusHTML(p); p.after && p.after(form); };
-    p.wire && p.wire(form, { refresh });
-    p.wireTail && p.wireTail(root);
-    // Switches: flip, save, say so, with Undo for ten seconds (B-5, R-022: they saved on the spot and could only be
-    // flipped back by hand). A failed save puts the switch and the setting back. Undo is the same flip the other way:
-    // one that would turn email ON asks first, exactly as the switch does - a stray tap must never start mail.
-    const flip = async (id, a, v) => {
-      const ask = a.confirm && a.confirm(v);
-      if (ask && !(await confirmSheet(ask))) return false;
-      const before = S[a.cfg];
-      try { await a.save(a.apply({ ...(before || {}) }, v)); }
-      catch (e) { S[a.cfg] = before; toast(e, { err: true }); return false; }
-      const el = document.getElementById(id); if (el) el.checked = v;
-      refresh(); return true;
-    };
-    for (const [id, a] of Object.entries(p.auto || {})) {
-      const el = form.querySelector('#' + id); if (!el) continue;
-      el.onchange = async () => {
-        const v = el.checked;
-        if (!(await flip(id, a, v))) { el.checked = !v; el.focus(); return; }
-        toast(a.msg ? a.msg(v) : 'Saved.', { ok: true, undo: async () => { if (await flip(id, a, !v)) toast(a.msg ? `Undone. ${a.msg(!v).replace(/^Saved\.\s*/, '')}` : 'Undone.'); } });
-      };
-    }
-    if (!p.save) return;
-    const tracked = p.track !== false;
-    let base = {};
-    const dirty = () => tracked && form.isConnected && fields(form).some(el => el.value !== (base[el.id] ?? ''));
-    const mark = () => {
-      if (!tracked) return;
-      const on = dirty(); if (on) s.draft[key] = snap(form); else delete s.draft[key];
-      const stEl = root.querySelector('[data-ststate]'), hint = root.querySelector('[data-sthint]'), b = root.querySelector('[data-stsave]');
-      if (stEl) { const html = on ? `${icon('circle-dot')}<span>Not saved yet</span>` : ''; if (stEl.innerHTML !== html) stEl.innerHTML = html; }
-      if (hint) hint.hidden = on;
-      if (b) { if (on) b.removeAttribute('aria-disabled'); else b.setAttribute('aria-disabled', 'true'); }
-      // the list of parts (desktop) marks this one while its changes wait
-      const nav = root.querySelector(`.st-nav2 a[href="#/setup/${key}"]`), dot = nav?.querySelector('.st-navd');
-      if (nav && on && !dot) nav.insertAdjacentHTML('beforeend', NAV_DOT); else if (dot && !on) dot.remove();
-    };
-    const save = async () => {
-      const b = root.querySelector('[data-stsave]'); if (!b || b.getAttribute('aria-busy')) return false;
-      if (b.getAttribute('aria-disabled') === 'true') { toast(p.auto ? 'Nothing to save. Switches save on their own.' : 'Nothing to save yet.'); return false; }
-      clearErrs(form); b.setAttribute('aria-busy', 'true');
-      try {
-        const msg = await p.save(form); if (!msg) return false;   // a field error is showing
-        if (tracked) delete s.draft[key];
-        toast(msg, { ok: !/^Nothing|^Selected/.test(msg) });
-        if (key !== 'embed' && key !== 'keys') hooks.render(); else { base = snap(form); mark(); }
-        return true;
-      } catch (e) { toast(e, { err: true }); return false; }
-      finally { root.querySelector('[data-stsave]')?.removeAttribute('aria-busy'); }
-    };
-    root.querySelector('[data-stsave]')?.addEventListener('click', save);
-    form.onsubmit = e => { e.preventDefault(); save(); };
-    if (!tracked) return;
-    // What is stored is the baseline; then what was typed earlier this visit goes back into its fields.
-    base = snap(form);
-    const d = s.draft[key];
-    if (d) { for (const el of fields(form)) if (el.id in d && d[el.id] !== el.value) el.value = d[el.id]; p.afterDraft && p.afterDraft(form, base); }
-    form.addEventListener('input', mark); form.addEventListener('change', mark);
-    mark();
-    // A redraw while you type (a status arriving, the window changing layout) gives the field its cursor back.
-    form.addEventListener('focusin', e => { if (e.target.id) s.focus = { hash: location.hash, id: e.target.id, at: performance.now() }; });
-    form.addEventListener('input', e => { if (e.target.id) s.focus = { hash: location.hash, id: e.target.id, at: performance.now() }; });
-    if (s.focus && s.focus.hash === location.hash && performance.now() - s.focus.at < 4000 && (!document.activeElement || document.activeElement === document.body)) {
-      const el = form.querySelector('#' + CSS.escape(s.focus.id)); if (el) { el.focus({ preventScroll: true }); try { const n = el.value.length; el.setSelectionRange(n, n); } catch { /* not a text field */ } }
-    }
-    guard = { key, hash: location.hash, state: history.state, title: ALL[key].t, dirty, save, drop: () => { delete s.draft[key]; } };
+    const k = keyOf(route); placeTabs(root);
+    if (SUB[k]) { const p = PAGES[k], form = root.querySelector('[data-stform]'); if (form && p.wire) p.wire(form, { refresh: () => hooks.render() });
+      root.querySelector('[data-ssprint]')?.addEventListener('click', async e => { const b = e.currentTarget; if (b.getAttribute('aria-busy')) return; b.setAttribute('aria-busy', 'true');
+        try { toast(await PAGES.room.save(), { ok: true }); } catch (er) { toast(er.message || String(er), { err: true }); } finally { b.removeAttribute('aria-busy'); } });
+      return; }
+    wirePage(route, root);
   },
 };
