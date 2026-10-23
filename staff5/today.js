@@ -721,12 +721,18 @@ const PHONE = () => !mq('(min-width: 600px)');
 // R-316 W7 (L-1): the 45 days count from the person's first sign-in, not from the day their record was made (Kris's had
 // run out before she ever signed in). The day is saved once in their own settings, so every device agrees. Someone who
 // has already used the app (anything saved in their settings) and whose login is older than 45 days is not new.
+// The rule apart from the save (R-316 W7, L-1's 200-day check): the practice copy always starts today (DEMO below), so
+// tests/staff5_checks.py tries a login made 200 days ago through this. `made` is when the login was created.
+export function startDay(prefs, made, now = Date.now()) {
+  if (prefs?.started_at) return new Date(prefs.started_at).getTime();
+  const used = Object.keys(prefs || {}).some(k => !['coalitions', 'firstrun', 'started_at'].includes(k));
+  return !used || now - made < 45 * DAY ? now : made;
+}
 function startedAt(me) {
   const p = me.prefs?.started_at; if (p) return new Date(p).getTime();
   if (DEMO) return Date.now();
   const made = S.session?.user?.created_at ? new Date(S.session.user.created_at).getTime() : 0;
-  const used = Object.keys(me.prefs || {}).some(k => !['coalitions', 'firstrun', 'started_at'].includes(k));
-  const at = !used || Date.now() - made < 45 * DAY ? Date.now() : made;
+  const at = startDay(me.prefs, made);
   if (!S.startSaving) { S.startSaving = true; DB.patchPrefs({ started_at: new Date(at).toISOString() }).catch(() => { S.startSaving = false; }); }
   return at;
 }
