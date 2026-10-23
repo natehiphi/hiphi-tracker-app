@@ -1,10 +1,10 @@
-// Staff v2 · Search (#/search?q=, plan 3.12). One box for everything, results grouped Bills · Legislators ·
-// Supporters. Bills come first: the tracked ones (matched the way the current app's search does: number, title,
+// Staff v2 · Search (#/search?q=, plan 3.12). A person comes here to find anything the tracker holds by a word they
+// remember (B-1): one box, results grouped Bills · Legislators · Conversations (R-316 H-15) · Supporters. Bills come first: the tracked ones (matched the way the current app's search does: number, title,
 // summary, description, committee, referrals, owner, coalition, sponsor, position, stage), then every other bill of
 // the session from DB.searchUntracked, each with a Track button (DB.track) that acts at once. On a phone the page has
 // its own box; on a desktop the header's box drives this page as you type ("/" focuses it, handled by the frame).
-import { S, DB, esc, hooks, fmtDate, owners, effStage, STAGE_LABEL, POSITIONS, capitolUrl, SESSION_YEAR } from './data.js';
-import { plain, diedish, personName, whereOf, titleCaseSmart, exactBill } from './model.js';
+import { S, DB, esc, hooks, fmtDate, owners, effStage, STAGE_LABEL, POSITIONS, capitolUrl, SESSION_YEAR, advocate } from './data.js';
+import { plain, diedish, personName, whereOf, titleCaseSmart, exactBill, legNotesAll, legById, billById, hstDayOf, ASK_ANSWERS, askReply } from './model.js';
 // Build 3, desktop: the groups sit side by side (bills on the left, legislators and supporters on the right), each
 // with its count; the arrow keys move through the results from the search box (Down enters the list, Up and Down
 // move, Left and Right change column, Home and End jump, Enter opens, Esc returns to the box). Bills are named the
@@ -12,13 +12,13 @@ import { plain, diedish, personName, whereOf, titleCaseSmart, exactBill } from '
 // "Let counties regulate tobacco sales", and the summary and status are what tell them apart).
 import { icon, btn, empty, toast } from './ui.js';
 import { showAllBtn, keysUsed } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
-import { billSub, wireLinks } from './pathway.js';
+import { billSub, wireLinks, shortName, legHref } from './pathway.js';
 import { matchLegs, legRow, weekIndex, districtQ } from './legislators.js';
 import { blRow } from './bills.js';
 import { billRoute } from './model.js';
 import { helpTopics, synOf } from './help.js';   // R-277 fix 19: Help's guides are places too; R-316 W29: one list of everyday words
 
-const SHOW = { bills: 8, legs: 5, people: 5 };
+const SHOW = { bills: 8, legs: 5, convs: 5, people: 5 };
 const st = () => (S.lgSearch ??= { q: '', more: new Set(), un: null });
 const qOf = route => String(route?.q?.q ?? '').trim();
 // Repaints only the results of the page on screen (set by wire), so data that arrives while someone types never
@@ -43,6 +43,60 @@ function peopleHits(q) {
   const terms = plain(q).split(/\s+/).filter(Boolean);
   return (S.people || []).filter(p => { const h = plain([p.name, p.email, p.phone, p.island, (p.tags || []).join(' '), p.senate_district ? `sd ${p.senate_district}` : '', p.house_district ? `hd ${p.house_district}` : ''].join(' ')); return terms.every(t => h.includes(t)); })
     .sort((a, b) => String(b.last_active || '').localeCompare(String(a.last_active || '')));
+}
+
+// ---- conversations with legislators (R-316 H-15) ----
+// A logged conversation, and every ask to a chair W3 records, is found by what was said, who it was with, who logged it
+// and the bill it was about: "kila crosswalk" finds Kris's talk with Rep. Kila about the crosswalk bill, "will schedule"
+// the chairs who said so. One meeting with several legislators is one result (its rows share conversation_id); a chair
+// ask and its replies are one result too (the same bill and chair), worded by the newest reply. The app holds every
+// chair ask from sign-in and each legislator page's conversations once opened (legNotesAll); the rest come from the data
+// layer when it offers the whole list (DB.allLegNotes), loaded on the first search, so a search never waits on it.
+const ANSWER = Object.fromEntries(ASK_ANSWERS.map(([k, label]) => [k, label]));
+let allNotesP = null;
+function loadAllNotes() {
+  if (S.legNotesLoaded || allNotesP || typeof DB.allLegNotes !== 'function') return;
+  allNotesP = DB.allLegNotes().then(() => { S.legNotesLoaded = true; refresh(); }).catch(() => { S.legNotesLoaded = true; }).finally(() => { allNotesP = null; });
+}
+function convGroups() {
+  const by = new Map();
+  for (const r of [...legNotesAll(), ...(S.legAll || [])]) {
+    const k = r.conversation_id ? 'c:' + r.conversation_id : r.answer && r.bill_id ? `a:${r.bill_id}:${r.legislator_id}:${r.committee || ''}` : 'n:' + r.id;
+    const g = by.get(k) || by.set(k, { key: k, rows: [] }).get(k);
+    if (!g.rows.some(x => String(x.id) === String(r.id))) g.rows.push(r);
+  }
+  return [...by.values()].map(g => {
+    const rows = g.rows.sort((x, y) => String(x.created_at).localeCompare(String(y.created_at))), first = rows[0], last = rows.at(-1);
+    return { ...g, first, last, ask: rows.some(r => r.answer), day: first.met_on || hstDayOf(first.created_at || Date.now()), legs: [...new Set(rows.map(r => r.legislator_id))].map(legById).filter(Boolean),
+      bill: first.bill_id ? billById(first.bill_id) : null, issue: first.issue_id ? (S.issues || []).find(i => i.id === first.issue_id) : null };
+  });
+}
+export function convHits(q) {
+  const res = plain(q).split(/\s+/).filter(Boolean).map(t => new RegExp(`(?:^|[^a-z0-9])${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+  if (!res.length) return [];
+  const hay = g => plain([...g.rows.map(r => r.body), ...g.legs.map(l => `${l.name || ''} ${shortName(l)}`), ...g.rows.map(r => advocate(r.advocate_id)?.full_name),
+    g.bill ? `${g.bill.bill_number} ${g.bill.nickname || ''}` : '', g.issue?.name, ...g.rows.map(r => ANSWER[r.answer]), ...g.rows.map(r => r.committee)].filter(Boolean).join(' | '));
+  return convGroups().filter(g => res.every(re => re.test(hay(g)))).sort((x, y) => String(y.last.met_on || y.last.created_at).localeCompare(String(x.last.met_on || x.last.created_at)));
+}
+// Where a result opens: the bill's Activity tab (its Conversations), else the issue's page, else the legislator's, with
+// ?cv= naming the conversation (conversation.js's key for it: the meeting, or the newest row of an ask) so it lands there.
+const convHref = g => { const k = g.last.conversation_id ? 'c:' + g.last.conversation_id : 'n:' + g.last.id;
+  return `${g.bill ? billRoute(g.bill, 'activity') : g.issue ? `#/issue/${encodeURIComponent(g.issue.id)}` : g.legs[0] ? legHref(g.legs[0]) : '#/legislators'}?cv=${encodeURIComponent(k)}`; };
+const andList = xs => xs.length <= 1 ? (xs[0] || '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
+const convWho = g => (andList(g.legs.map(shortName)) || 'A legislator') + (g.ask ? ' (chair)' : '');
+// The short facts first, in the bill page's words, then the bill by its name (R-271), so a phone's one line keeps them:
+// a talk "Mon 3/16 · Kris logged it · Disposable e-cigarette ban"; an ask to a chair as its Next up says it, "Asked by
+// Kris Mon 3/16 · will schedule · ..." (C-15).
+const convSub = g => { const a = advocate(g.first.advocate_id), me = S.me && g.first.advocate_id === S.me.id;
+  const who = me ? 'you' : String(a?.full_name || '').split(' ')[0] || 'someone', day = fmtDate(g.day, { weekday: 'short' }).replace(/^(\w{3}),/, '$1');
+  const about = g.bill ? g.bill.nickname || g.bill.bill_number : g.issue?.name;
+  return [...(g.ask ? [`Asked by ${who} ${day}`, askReply(g.last)] : [day, `${me ? 'You' : who} logged it`]), about].filter(Boolean).join(' · '); };
+// What was said, from the first word searched for when it is far in, so the reason the result is here shows.
+function convQuote(g, q, n = 110) {
+  const text = String(g.last.body || g.first.body || '').replace(/\s+/g, ' ').trim(), low = plain(text);
+  const at = plain(q).split(/\s+/).filter(Boolean).map(t => low.indexOf(t)).filter(i => i >= 0).sort((a, b) => a - b)[0] ?? 0;
+  const from = at > n - 30 ? text.lastIndexOf(' ', at - 20) + 1 : 0, cut = text.slice(from, from + n);
+  return (from ? '…' : '') + cut + (from + n < text.length ? '…' : '');
 }
 
 // ---- places (R-277 fix 19, F-1) ----
@@ -121,6 +175,8 @@ export function headerHits(q) {
   const issues = (S.issues || []).filter(i => !i.archived_at && res.every(re => re.test(plain(`${i.name} ${i.description || ''}`))))
     .map(i => ({ href: `#/issue/${encodeURIComponent(i.id)}`, title: i.name, sub: cat(i.category)?.name || '', icon: cat(i.category)?.icon || 'tag' }));
   const legs = matchLegs(q).map(l => ({ href: `#/legislator/${l.id}`, title: l.name, sub: `${l.chamber === 'S' ? 'Senate' : 'House'} district ${l.district || ''}`.trim(), icon: 'landmark' }));
+  loadAllNotes();   // R-316 H-15
+  const convs = convHits(q).map(g => ({ href: convHref(g), title: `${convWho(g)}: ${convQuote(g, q, 60)}`, sub: convSub(g), icon: 'message-square' }));
   const people = () => peopleHits(q).map(p => ({ href: `#/person/${encodeURIComponent(p.id)}`, title: personName(p), sub: whereOf(p) || p.email || '', icon: 'user-round' }));
   // Bills not tracked: the same rule, their number or the words they show (the database also matches inside words).
   // Governor's messages (appointments) only by their number; a district ("sd 12") is not a bill search.
@@ -129,8 +185,8 @@ export function headerHits(q) {
     .map(r => ({ href: `#/search?q=${encodeURIComponent(r.bill_number)}`, title: r.description || titleCaseSmart(r.title || ''), icon: 'scroll-text', inline: true,
       sub: [spacedNum(r.bill_number), STAGE_LABEL[r.stage]].filter(Boolean).join(' · ') }));
   const places = placeItems(q);   // R-277 fix 19: first, and they take their rows before the rest share the seven
-  const groups = (ppl, un) => { const [b, u, i, l, p] = share([bills, un, issues, legs, ppl], ROWS - places.length);
-    return [{ label: 'Places', items: places }, { label: 'Bills', items: b }, { label: 'Not tracked yet', items: u }, { label: 'Issues', items: i }, { label: 'Legislators', items: l }, { label: 'Supporters', items: p }]; };
+  const groups = (ppl, un) => { const [b, u, i, l, c, p] = share([bills, un, issues, legs, convs, ppl], ROWS - places.length);
+    return [{ label: 'Places', items: places }, { label: 'Bills', items: b }, { label: 'Not tracked yet', items: u }, { label: 'Issues', items: i }, { label: 'Legislators', items: l }, { label: 'Conversations', items: c }, { label: 'Supporters', items: p }]; };
   const peopleReady = S.peopleLoaded || (S.people || []).length, lookUn = q.trim().length >= 3 && !(dist && dist[1]), key = plain(q).trim();
   if (peopleReady && (!lookUn || unCache.has(key))) return { groups: groups(people(), unRows(unCache.get(key))) };
   if (!peopleReady) peopleP ??= DB.loadPeople().catch(() => {}).finally(() => { peopleP = null; });
@@ -148,19 +204,20 @@ const personRow = p => {
   const act = p.last_active ? `active ${fmtDate(p.last_active)}` : '';
   return `<a class="row lg-prow" href="#/person/${encodeURIComponent(p.id)}"><span class="lead">${icon('user-round')}</span><span class="body"><span class="title">${esc(personName(p))}</span><span class="sub">${esc([whereOf(p), act].filter(Boolean).join(' · ') || p.email || '')}</span></span><span class="end">${p.actions ? `${p.actions} action${p.actions === 1 ? '' : 's'}` : ''}${icon('chevron-right', { cls: 'chev' })}</span></a>`;
 };
+const convRow = (g, q) => `<a class="row lg-prow lg-cvrow" href="${esc(convHref(g))}"><span class="lead">${icon('message-square')}</span><span class="body"><span class="title">${esc(convWho(g))}</span><span class="sub">${esc(convSub(g))}</span><span class="lg-cvq">${esc(convQuote(g, q))}</span></span><span class="end">${icon('chevron-right', { cls: 'chev' })}</span></a>`;
 const more = (key, n, shown, label) => n > shown ? showAllBtn(n, { 'data-lgsmore': key }, { what: label, cls: 'lg-more' }) : '';
 const group = (id, title, n, inner) => `<section class="rows lg-grp" aria-labelledby="${id}"><h2 class="sv-group" id="${id}"><span>${title}</span><span class="n">${n}</span></h2>${inner}</section>`;
 
 const nOf = (n, one, many) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 function resultsHTML(q) {
   const s = st();
-  if (!q) return empty({ title: 'Search everything', text: 'Find bills by number or words, legislators by name, town or district, supporters by name or email, and the app’s places, such as the Inbox or the partner update.' });
+  if (!q) return empty({ title: 'Search everything', text: 'Find bills by number or words, legislators by name, town or district, conversations with legislators by what was said, supporters by name or email, and the app’s places, such as the Inbox or the partner update.' });
   // untracked bills: only when the query is long enough to mean something (the current app's rule, 3 characters)
   const tracked = billHits(q), ids = new Set(S.bills.map(b => b.id)), nums = new Set(S.bills.map(b => b.bill_number));
   const un = s.un && s.un.q === q ? (s.un.rows || []).filter(r => !ids.has(r.id) && !nums.has(r.bill_number)) : null;
-  const legs = matchLegs(q), week = weekIndex();
+  const legs = matchLegs(q), week = weekIndex(), convs = convHits(q);
   const peopleReady = S.peopleLoaded || (S.people || []).length, people = peopleReady ? peopleHits(q) : [];
-  const nb = s.more.has('b') ? tracked.length : SHOW.bills, nl = s.more.has('l') ? legs.length : SHOW.legs, np = s.more.has('p') ? people.length : SHOW.people;
+  const nb = s.more.has('b') ? tracked.length : SHOW.bills, nl = s.more.has('l') ? legs.length : SHOW.legs, np = s.more.has('p') ? people.length : SHOW.people, nc = s.more.has('c') ? convs.length : SHOW.convs;
   const unBlock = q.length < 3 ? '' : un === null ? `<div class="row lg-snote" role="status">${icon('loader-circle', { cls: 'lg-spin' })}<span>Looking through every bill of the session</span></div>`
     : un.length ? `<h3 class="lg-subh">Not tracked yet <span class="lg-n">${un.length}</span></h3>${un.map(untrackedRow).join('')}` : '';
   const main = [], side = [];
@@ -170,11 +227,12 @@ function resultsHTML(q) {
   if (tracked.length || (un && un.length) || un === null && q.length >= 3)
     main.push(group('lg-gb', 'Bills', nBills, tracked.slice(0, nb).map(b => blRow(b, { sub: esc(billSub(b)), href: `${billRoute(b)}` })).join('') + more('b', tracked.length, nb, 'tracked bills') + unBlock));
   if (legs.length) side.push(group('lg-gl', 'Legislators', legs.length, legs.slice(0, nl).map(l => legRow(l, { week })).join('') + more('l', legs.length, nl, 'legislators')));
+  if (convs.length) side.push(group('lg-gc', 'Conversations', convs.length, convs.slice(0, nc).map(g => convRow(g, q)).join('') + more('c', convs.length, nc, 'conversations')));
   if (!peopleReady) side.push(group('lg-gp', 'Supporters', '', `<div class="row lg-snote" role="status">${icon('loader-circle', { cls: 'lg-spin' })}<span>Loading supporters</span></div>`));
   else if (people.length) side.push(group('lg-gp', 'Supporters', people.length, people.slice(0, np).map(personRow).join('') + more('p', people.length, np, 'supporters')));
   if (!main.length && !side.length) return plHTML || empty({ title: `Nothing matches “${esc(q)}”`, text: 'Try a bill number such as HB1562, a word from its title, a last name or a town.' });
   // What was found, in words, above the groups (each group's header repeats its own count).
-  const parts = [nBills ? nOf(nBills, 'bill', 'bills') : '', legs.length ? nOf(legs.length, 'legislator', 'legislators') : '', people.length ? nOf(people.length, 'supporter', 'supporters') : ''].filter(Boolean);
+  const parts = [nBills ? nOf(nBills, 'bill', 'bills') : '', legs.length ? nOf(legs.length, 'legislator', 'legislators') : '', convs.length ? nOf(convs.length, 'conversation', 'conversations') : '', people.length ? nOf(people.length, 'supporter', 'supporters') : ''].filter(Boolean);
   const sum = parts.length ? `<p class="st-ssum">${parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]} for “${esc(q)}”${keysUsed() ? '<span class="st-skeys"> · The arrow keys move through the results, Enter opens one</span>' : ''}</p>` : '';
   const two = main.length && side.length;
   return `${plHTML}${sum}<div class="st-sgrid${two ? ' st-two' : ''}">${main.length ? `<div class="st-scol" data-scol="0">${main.join('')}</div>` : ''}${side.length ? `<div class="st-scol${two ? ' st-sside' : ''}" data-scol="1">${side.join('')}</div>` : ''}</div>`;
@@ -209,11 +267,12 @@ export default {
     const q = qOf(route), s = st();
     if (s.q !== q) { s.q = q; s.more = new Set(); }
     // Supporters load on first use on the live tracker (the sandbox has them already).
+    loadAllNotes();   // R-316 H-15: every conversation, once, when the data layer offers the list
     if (!S.peopleLoaded && !S.peopleLoading && !S.lgPeopleTried) { S.lgPeopleTried = true; DB.loadPeople().then(refresh).catch(() => { S.peopleLoaded = true; S.people ??= []; refresh(); }); }
     return `<div class="lg-search st-srch">
       <h1 class="lg-dtitle">Search</h1>
       <form class="searchbox lg-sbox lg-sphone" role="search" data-lgsform novalidate>
-        <label class="sr" for="lg-sq">Search bills, legislators and supporters</label>
+        <label class="sr" for="lg-sq">Search bills, legislators, conversations and supporters</label>
         ${icon('search')}
         <input id="lg-sq" class="input" type="search" enterkeyhint="search" autocomplete="off" spellcheck="false" placeholder="Bills, legislators, supporters" value="${esc(q)}">
       </form>
@@ -270,7 +329,7 @@ export default {
     requestAnimationFrame(() => { const f = boxes.find(b => b.offsetParent), at = document.activeElement;
       if (f && at !== f && (!s.q || fine && (!at || at === document.body || at.id === 'main'))) { f.focus({ preventScroll: true }); try { f.setSelectionRange(f.value.length, f.value.length); } catch { /* not a text box */ } } });
     root.addEventListener('click', async e => {
-      const m = e.target.closest('[data-lgsmore]'); if (m) { s.more.add({ b: 'b', l: 'l', p: 'p' }[m.dataset.lgsmore]); paint(); return; }
+      const m = e.target.closest('[data-lgsmore]'); if (m) { s.more.add({ b: 'b', l: 'l', c: 'c', p: 'p' }[m.dataset.lgsmore]); paint(); return; }
       const tr = e.target.closest('[data-lgtrack]'); if (!tr) return;
       const r = (s.un?.rows || []).find(x => String(x.id) === tr.dataset.lgtrack); if (!r) return;
       tr.setAttribute('aria-busy', 'true'); tr.disabled = true;

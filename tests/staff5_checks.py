@@ -274,23 +274,51 @@ def batch_d(b, page, go):
   check('Bills (Mine): no Owner column when every row is the same person\'s', 'Owner' not in owners, owners)
 
   # 12. Undo filed beside Filed, on the bill page, the hearing page and Today's row menu (fix 12)
-  go(pg, '/bill/HB2116', 2500)
+  # The bill comes from the practice data: testimony marked filed for a sitting still ahead, the only filed row at that
+  # sitting. A fixed bill went stale when W38 seeded each draft's state from its hearing (HB2116's sitting now holds a
+  # sent-back draft), so the check names what it needs instead of a number.
+  num, hid = pg.evaluate("""import('/staff5/data.js').then(m => { const S = m.S, now = Date.now();
+    const pos = b => !!b.position && b.position !== 'monitor', sit = h => h.committee + '|' + h.scheduled_at;
+    const filed = S.hearings.filter(h => h.status === 'scheduled' && new Date(h.scheduled_at) > now).flatMap(h => {
+      const b = S.bills.find(x => x.id === h.bill_id);
+      return b && pos(b) && (S.drafts[b.id] || []).some(d => d.hearing_id === h.id && d.status === 'filed') ? [[b.bill_number, h.id, sit(h)]] : []; });
+    const one = filed.find(f => filed.filter(g => g[2] === f[2]).length === 1);
+    return one ? one.slice(0, 2) : [null, null]; })""")
+  # Who may undo a filing still ahead (Today's rule: filed for a sitting from 4 hours ago on), and on which bill: whoever
+  # filed it and the bill's owners, by the initials the practice copy's ?as= takes. Read before any Undo below.
+  may = pg.evaluate("""import('/staff5/data.js').then(m => { const S = m.S, now = Date.now(), ini = id => S.advocates.find(a => a.id === id)?.initials;
+    return S.bills.flatMap(b => (S.drafts[b.id] || []).filter(d => d.status === 'filed' && S.hearings.some(x => x.bill_id === b.id
+      && x.committee === d.committee && x.status !== 'cancelled' && new Date(x.scheduled_at) > now - 4 * 36e5))
+      .flatMap(d => [d.filed_by, ...(S.assignments[b.id] || [])].map(ini).filter(Boolean).map(w => [w, b.bill_number]))); })""")
+  check('Practice data: testimony marked filed for a sitting still ahead', num, f'{num} {hid}')
+  go(pg, f'/bill/{num}', 2500)
   tb = pg.evaluate("[...document.querySelectorAll('.bw-tb .bw-acts')].map(e => e.innerText.replace(/\\s+/g, ' ')).join(' | ')")
-  check('Bill page: "Undo filed" beside "Filed"', re.search(r'Filed\s*Undo filed', tb), tb)
-  go(pg, '/hearing/5a71d2f7-2d0a-4f68-80b4-f2863edde848', 2500)
+  check('Bill page: "Undo filed" beside "Filed"', re.search(r'Filed\s*Undo filed', tb), f'{num}: {tb}')
+  go(pg, f'/hearing/{hid}', 2500)
   check('Hearing page: "Undo filed" under the filed row', pg.locator('.hr-unf', has_text='Undo filed').count() == 1, '')
   pg.locator('.hr-unf button').click(); pg.wait_for_timeout(600)
   check('Hearing page: Undo filed undoes it', 'Testimony filed' not in pg.inner_text('main') and 'approved and ready to file again' in pg.inner_text('#toast'), '')
-  go(pg, '/', 3000); found = ''
-  # each row whose bill has testimony marked filed: open it and its "…" (beside the open item on a laptop)
-  for num in pg.evaluate("[...document.querySelectorAll('.td-row[data-num]')].map(r => r.dataset.num)"):
-    pg.locator(f'.td-row[data-num="{num}"] .td-rsel').first.click(); pg.wait_for_timeout(400)
-    if not pg.locator('#td-pane [data-more]').count(): continue
-    pg.locator('#td-pane [data-more]').first.click(); pg.wait_for_timeout(400)
-    t = pg.inner_text('dialog[open]') if pg.locator('dialog[open]').count() else ''
-    pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
-    if 'Undo filed' in t: found = num; break
-  check("Today: a row's “…” offers Undo filed", found, found)
+  # Today lists what needs doing, so a bill with testimony filed shows as a row only while something else brings it there
+  # (SB2969's sitting this afternoon is on the team's Today for James, who filed it). Each person who may undo one, on a
+  # fresh page (the Undo above stays in that tab's practice changes): their Today, then the team's; each row of such a
+  # bill: open it and its "…" (beside the open item on a laptop).
+  found = ''
+  for who in dict.fromkeys(w for w, _ in may):
+    nums, tp = {n for w, n in may if w == who}, page(who)
+    for scope in ('/', '/?scope=team'):
+      go(tp, scope, 3000)
+      for num in tp.evaluate("[...document.querySelectorAll('.td-row[data-num]')].map(r => r.dataset.num)"):
+        if num not in nums: continue
+        tp.locator(f'.td-row[data-num="{num}"] .td-rsel').first.click(); tp.wait_for_timeout(400)
+        if not tp.locator('#td-pane [data-more]').count(): continue
+        tp.locator('#td-pane [data-more]').first.click(); tp.wait_for_timeout(400)
+        t = tp.inner_text('dialog[open]') if tp.locator('dialog[open]').count() else ''
+        tp.keyboard.press('Escape'); tp.wait_for_timeout(400)
+        if 'Undo filed' in t: found = f'{who} {scope} {num}'; break
+      if found: break
+    tp.context.close()
+    if found: break
+  check("Today: a row's “…” offers Undo filed", found, found or f'none among {may}')
 
   # 8. Nothing typed is lost: the meeting note survives Esc and a reload; an error stays; offline is said (fix 8, E-5, E-9)
   go(pg, '/', 2500)
@@ -369,12 +397,12 @@ def batch_e_panel(b, page, go):
       if d[k] != t[k]: bad.append(f'{n} {k}: Today {t[k]} / Bills {d[k]}')
   check(f'Fix 17: the same bill opens with the same panel from Today and Bills ({seen} bills: parts, order, deadline line, hearing line, step, filled button)', seen >= 3 and not bad, '; '.join(bad[:3]))
   ok = all(t and [BP_ORDER.index(x) for x in t['parts']] == sorted(BP_ORDER.index(x) for x in t['parts']) and t['parts'][0] == 'bp-top' and t['parts'][-1] == 'bp-open' for t in today.values())
-  check('Fix 17: the panel runs bill, deadline line, hearing line, step, the rest, Open the bill; "…" then the close X on its top line', ok and all(t['top'] == ['More', 'Close'] and len(t['filled']) <= 1 for t in today.values()), str(list(today.values())[0])[:200])
+  check('Fix 17: the panel runs bill, deadline line, hearing line, step, the rest, Open the bill; "…" then the close X on its top line', ok and all(t['top'][-2:] == ['More', 'Close'] and len(t['filled']) <= 1 for t in today.values()), str(list(today.values())[0])[:200])
   # a bill with nothing to do on it opens in the same frame on Bills
   pg.fill('#bl-q', ''); pg.wait_for_timeout(500)
   pg.locator('tbody.bl-tg tr[data-row] td.bl-ti').first.click(); pg.wait_for_timeout(700)
   d = pg.evaluate(BP, '.bl-dock')
-  check('Fix 17: a bill with no step opens in the same frame on Bills', d and d['parts'][0] == 'bp-top' and d['parts'][-1] == 'bp-open' and d['top'] == ['More', 'Close'] and 'bp-step' in d['parts'], str(d)[:160])
+  check('Fix 17: a bill with no step opens in the same frame on Bills', d and d['parts'][0] == 'bp-top' and d['parts'][-1] == 'bp-open' and d['top'][-2:] == ['More', 'Close'] and 'bp-step' in d['parts'], str(d)[:160])
   check('Fix 17: no page errors on Today and Bills', not pg.errs, pg.errs[:1])
   pg.context.close()
 

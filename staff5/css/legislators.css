@@ -158,6 +158,8 @@ div.lg-brow:hover { background: var(--n0); }
 .lg-prow .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lg-prow .lead { width: 36px; height: 36px; background: var(--n100); color: var(--n700); }
 .lg-prow .lead .ic { width: 20px; height: 20px; }
+/* R-316 H-15: a conversation found by search shows what was said, two lines at most (the bill's Activity has it whole). */
+.lg-cvrow .lg-cvq { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; font-size: var(--t14); line-height: 1.4; color: var(--n700); }
 
 /* ---- phones: stance chips drop their icon in member rows (the word stays) so names keep room ---- */
 @media (max-width: 599px) {
