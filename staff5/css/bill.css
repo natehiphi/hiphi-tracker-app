@@ -399,6 +399,10 @@
   .bw-ctl .sv-pick { min-height: 36px; max-width: 232px; border-color: transparent; padding: 0 8px 0 10px; margin-right: -8px; }
   .bw-ctl .sv-pick:hover, .bw-ctl .sv-pick:focus-visible { border-color: var(--p700); }
   .bw-ctl .sv-pick > span:not(.sv-av) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* R-316 W28 (fresh-eyes): "Lauren (turned off), needs a new owner" is longer than the 232px picker: it wraps to a second line
+     (the picker has no border here) rather than losing the words that say what to do. */
+  .bw-ctl .sv-pick.bw-newown { padding-top: 4px; padding-bottom: 4px; }
+  .bw-ctl .sv-pick.bw-newown > span:not(.sv-av) { white-space: normal; text-align: right; line-height: 18px; }
   .bw-ctl .sv-av { font-size: var(--t13); }
   /* who follows the bill: a fact, not a control, so plain text where the pickers sit (R-022 wave 3) */
   .bw-ctlv { min-width: 0; font-size: var(--t14); color: var(--n900); text-align: right; overflow-wrap: anywhere; }

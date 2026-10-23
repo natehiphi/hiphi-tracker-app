@@ -9,13 +9,15 @@
 // on a draft lists what it still needs instead (the database refuses to publish one that lacks any: issue_missing()).
 import { S, DB, DEMO, SESSION_OVER, hooks, esc, advocate } from './data.js';
 import { plain, legislativeDay } from './model.js';
+import { teamName, ownerName } from './model.js';   // R-316 W28
 import { icon, btn, iconBtn, chip, empty, toast, openSheet, closeSheet, notice, avatar, pickerSheet, menuSheet, confirmSheet, segmented, filterBtn, sectionNav } from './ui.js';
 import { plural, afterClose, pageHead } from './lists.js';
 
 const live = () => (S.issues || []).filter(i => !i.archived_at);
 const byName = (a, b) => a.name.localeCompare(b.name);
 // Staff names are first names already ("May Rose" is one), so they are used whole.
-const first = a => a?.full_name || 'Someone';
+// R-316 W28 (G3-8): an owner or helper who is turned off says so: "Lauren (turned off)" (model.js teamName).
+const first = a => teamName(a);
 const isAdmin = () => !!S.me?.is_admin;
 const now = () => new Date().toISOString();
 export const isDraft = i => !!i && !i.published_at && !i.archived_at;
@@ -276,7 +278,7 @@ function addHelper(i) {
 }
 function helperMenu(i, a) {
   const self = a.id === S.me?.id;
-  menuSheet({ title: esc(a.full_name), items: [
+  menuSheet({ title: esc(first(a)), items: [
     { label: self ? 'Stop helping' : 'Remove as helper', icon: 'user-minus', danger: true, disabled: !(self || mayManage(i)), reason: 'Only the owner or an admin can.',
       run: async () => { try { await DB.removeIssueHelper(i.id, a.id); hooks.render(); toast(self ? 'You are no longer helping.' : `${first(a)} is no longer helping.`, { undo: async () => { await DB.addIssueHelper(i.id, a.id); hooks.render(); } }); } catch (e) { toast(e, { err: true }); } } },
   ] });
@@ -286,7 +288,7 @@ function helperMenu(i, a) {
 function peopleHTML(i) {
   const o = ownerOfIssue(i), hs = helpersOf(i);
   return `<div class="pr-people">
-    <div class="pr-who"><span class="pr-wl">Owner</span>${o ? `${avatar(o, 24)}<span>${esc(o.id === S.me?.id ? 'You' : o.full_name)}</span>` : '<span class="muted">Nobody yet</span>'}
+    <div class="pr-who"><span class="pr-wl">Owner</span>${o ? `${avatar(o, 24)}<span>${esc(o.id === S.me?.id ? 'You' : ownerName(o))}</span>` : '<span class="muted">Nobody yet</span>'}
       ${mayManage(i) ? btn(o ? 'Change' : 'Choose', { kind: 'text', sm: true, attrs: { 'data-pr': 'owner', 'aria-label': 'Change the owner' } }) : ''}</div>
     <div class="pr-who"><span class="pr-wl">Helpers</span>${hs.map(a => `<button type="button" class="pr-helper" data-prh="${esc(a.id)}" aria-haspopup="dialog">${avatar(a, 24)}<span>${esc(a.id === S.me?.id ? 'You' : first(a))}</span></button>`).join('') || (mayManage(i) ? '' : '<span class="muted">None</span>')}
       ${mayManage(i) ? btn('Add', { kind: 'text', sm: true, icon: 'plus', attrs: { 'data-pr': 'helper', 'aria-label': 'Add a helper' } }) : ''}</div>
@@ -457,7 +459,7 @@ const topBtn = i => `<button type="button" class="pr-topbtn" data-prtop="${esc(i
 function boardRow(i, top = false) {
   const o = ownerOfIssue(i);
   return `<li class="pr-row pr-brow"><a class="pr-main" href="${issueHref(i, 'board')}"><span class="title">${esc(i.name)}</span><span class="sub">${isDraft(i) ? '' : progress(i)}${top ? `<span class="pr-owner">${esc(topSays(i))}</span>` : ''}</span></a>
-    <button type="button" class="pr-ownbtn" data-prown="${esc(i.id)}" aria-haspopup="dialog" aria-label="Owner of ${esc(i.name)}: ${esc(o?.full_name || 'nobody')}. Change">${avatar(o, 24)}<span>${esc(o ? first(o) : 'Nobody')}</span>${icon('chevron-down', { cls: 'chev' })}</button>
+    <button type="button" class="pr-ownbtn" data-prown="${esc(i.id)}" aria-haspopup="dialog" aria-label="Owner of ${esc(i.name)}: ${esc(o ? ownerName(o) : 'nobody')}. Change">${avatar(o, 24)}<span>${esc(o ? ownerName(o) : 'Nobody')}</span>${icon('chevron-down', { cls: 'chev' })}</button>
     ${top ? topBtn(i) : ''}<span class="pr-end">${rowState(i)}</span></li>`;
 }
 function boardBody(f, who) {

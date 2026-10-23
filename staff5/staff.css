@@ -387,6 +387,9 @@ dialog.sv-sheet .toastmsg.insheet { position: sticky; bottom: var(--s8); z-index
 .band .band-as { display: inline-flex; align-items: center; gap: 2px; font: inherit; color: inherit; background: rgba(255,255,255,.14);
   border: 1px solid rgba(255,255,255,.35); border-radius: var(--pill); padding: 0 6px 0 8px; min-height: 22px; cursor: pointer; }
 .band .band-as:hover, .band .band-as:focus-visible { background: rgba(255,255,255,.26); }
+/* R-316 W29 (fresh-eyes): a Capitol word's row in the header's suggestions says its meaning's first sentence whole (search.js
+   firstSentence), on two lines if it needs them, where the list's one line cut it mid-thought. */
+.sv-hdr .sg a.sg-o[href^="#/help/words"] .sg-s { white-space: normal; }
 .sv-sync { display: flex; align-items: center; gap: 6px; margin: 4px 12px 6px; font-size: 13px; color: var(--n500); }
 .sv-sync .ic { flex: none; }
 .sv-sync.late { color: var(--bad-text); }

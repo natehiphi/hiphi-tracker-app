@@ -16,6 +16,7 @@
 // its bills' week the way a coalition's page does, and keeps its editing tools behind "Edit bills" and Related's "Edit".
 import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, fmtDT, effStage, STAGE_LABEL } from './data.js';
 import { billById, billSay, billTag, plain, PUBLIC_APP, billRef, billByRef, billRoute, stopOf, riskOf, diedish, hearingAhead, whenAt } from './model.js';
+import { ownerFirst } from './model.js';   // R-316 W28
 import { icon, btn, iconBtn, row, chip, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow, notice, posChip, pickerSheet, pickerChip, ownerOf, sectionNav } from './ui.js';
 import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { plural, pageHead, afterClose, billName, isSide } from './lists.js';
@@ -345,8 +346,9 @@ export function standLine(b, { owner = 'all' } = {}) {
   } else if (st.deadline) parts.push(`${st.deadline.label} ${dayAt(st.deadline.date)}, ${leftWord(st.deadline)}`);
   else if (st.committee) parts.push(`In ${st.committee}`);
   const who = ownerOf(b);
-  if (owner === 'others') { if (who && who.id !== S.me?.id) parts.push(`Owner: ${String(who.full_name || '').split(' ')[0]}`); }
-  else parts.push(who ? `Owner: ${who.id === S.me?.id ? 'You' : String(who.full_name || '').split(' ')[0]}` : 'No owner');
+  // R-316 W28 (G3-8): an owner who is turned off says so, and that the bill needs a new owner (model.js ownerFirst).
+  if (owner === 'others') { if (who && who.id !== S.me?.id) parts.push(`Owner: ${ownerFirst(who)}`); }
+  else parts.push(who ? `Owner: ${who.id === S.me?.id ? 'You' : ownerFirst(who)}` : 'No owner');
   return parts.filter(Boolean).join(' · ');
 }
 // A bill's row on the issue's page (v3, one line): its number and name, then its stage and HIPHI's position. Where it
@@ -372,7 +374,7 @@ export function nextPhrase(b) {
     else say = st.committee ? `In ${st.committee}` : STAGE_LABEL[effStage(b)] || '';
   }
   const who = ownerOf(b);
-  return who && who.id !== S.me?.id ? `${say} · Owner: ${String(who.full_name || '').split(' ')[0]}` : say;
+  return who && who.id !== S.me?.id ? `${say} · Owner: ${ownerFirst(who)}` : say;
 }
 function billLine(i, b, edit) {
   const why = whyNot(b), stage = diedish(b) ? 'Did not advance' : thisSession(b) ? STAGE_LABEL[effStage(b)] || '' : String(b.session_year || '');

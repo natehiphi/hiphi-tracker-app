@@ -3,6 +3,7 @@
 // memo, people search and CSV, inbox rows, alert helpers), with `export` added and the two UI calls in loadTriage
 // routed through hooks. v2's own logic (Today, review queue) lives in the screen modules that use it.
 import { $, DB, DEADLINES, DEADLINE_ROWS, DEMO, S, SESSION_OVER, SESSION_YEAR, STAGE_LABEL, SUPABASE_KEY, SUPABASE_URL, advocate, billStop, effStage, esc, fmtDT, fmtDate, hearingStream, hooks, isMine } from './data.js';
+import { changedSince } from './data.js';   // R-316 W24: staleFromLine
 import { CHAMBER_NAME, HELD_RE, isResolution, stoppedAt } from '../stops.js';
 // R-316 W2: one rule on every staff screen. HIPHI never asks a chair to hear a bill it opposes (the public page already
 // says "Ask the chair to hold it"), so Oppose and Strongly oppose bills get no hearing ask, no thanks for moving it, and
@@ -639,6 +640,48 @@ export const DRAFT_LABEL = { draft: 'Draft', review: 'Waiting for approval', sec
 export const DRAFT_TAG = { draft: 'a', review: 'w', second_review: 'w', approved: 'g', filed: 't', cancelled: 'a' };
 export const dWhen = iso => iso ? whenAt(iso) : '';   // R-277 fix 3: the one way to say a moment
 export const nameOf = id => advocate(id)?.full_name || 'someone';
+// R-316 W28 (G3-8): someone turned off keeps the bills, coalitions and issues they held until an admin hands them on, so
+// wherever their name still shows as an owner, a helper or the next to act it says so: "Lauren (turned off)". Names that
+// record who did something (a chat's author, who approved or filed) stay plain. Each takes a person or their id;
+// teamFirst is today.js's `first` ("Someone" when nobody is found), teamName keeps the whole name ("May Rose").
+const advOf = x => x && typeof x === 'object' ? x : advocate(x);
+export const offTag = x => advOf(x)?.is_active === false ? ' (turned off)' : '';
+export const teamFirst = x => { const a = advOf(x); return a ? (String(a.full_name || '').split(' ')[0] || 'Someone') + offTag(a) : 'Someone'; };
+export const teamName = x => { const a = advOf(x); return a ? (a.full_name || 'Someone') + offTag(a) : 'Someone'; };
+// R-316 W28 (fresh-eyes): where a turned-off person still shows as the OWNER (of a bill, a coalition or an issue), the name
+// also says it needs handing on, so those screens agree with Slipping's "No owner (was Lauren’s, turned off)": "Lauren
+// (turned off), needs a new owner". The phrase is said here only; ownerFirst and ownerName are teamFirst and teamName with it.
+export const newOwnerTag = x => offTag(x) ? ', needs a new owner' : '';
+export const ownerFirst = x => teamFirst(x) + newOwnerTag(x);
+export const ownerName = x => teamName(x) + newOwnerTag(x);
+// R-316 W20 (T-3): who files approved testimony, one rule on every screen (Today, the bill page, Review, the hearing page):
+// whoever sent it for approval while they are on the team, else the bill's owner (named "(turned off)" when they are off,
+// so someone hands it on), else nobody in particular. An id or null.
+export const filerOf = d => { const s = advocate(d?.submitted_by); return s && s.is_active !== false ? s.id : (S.assignments?.[d?.bill_id] || [])[0] || null; };
+// R-316 W24 (G1-8): an out-of-date draft says so in ONE line, the warning, on Review and the bill page alike (Nate's
+// review: it was two lines in a row, "Started from ... Since then: ..." over "The bill is now SD1; this draft was written
+// for HD1"). Fresh-eyes: the version is THIS draft's (one already brought up to SD1 from HD1 testimony is written for SD1,
+// and what changed counts from there), where it came from is said in passing, and the bill page's "check it before it
+// goes out" is said on both: "This draft was written for HD1 (from HIPHI’s JHA testimony); the bill is now HD2. Check it
+// before it goes out. What changed: ...". '' when the draft is written for the bill as it is now.
+export function staleLine(b, d) {
+  const cur = b?.current_version || null;
+  if (!cur || (d.version || null) === cur) return '';
+  const src = d.from_draft_id ? Object.values(S.drafts || {}).flat().find(x => x.id === d.from_draft_id) : null;
+  const from = d.from_draft_id ? ` (from HIPHI’s ${src?.committee || 'earlier'} testimony)` : '';
+  const notes = changeNotes(b, d.version || null);
+  return `This draft was written for ${d.version || 'the bill as introduced'}${from}; the bill is now ${cur}. Check it before it goes out.${notes ? ' ' + notes : ''}`;
+}
+// data.js changedSince names each draft in full ("House draft 2 (HD2): Took out the money."). Right after "the bill is now
+// HD2" that said HD2 twice around two colons ("What changed: House draft 2 (HD2): ..."). A note on the draft just named is
+// "What changed: Took out the money."; notes on other or several drafts each lead with the short name ("In HD2: ... In SD1: ...").
+const DRAFT_HEAD = /(?:House|Senate|Conference committee|Floor) draft \d+ \(((?:HD|SD|CD|FD)\d+)\): /g;
+function changeNotes(b, from) {
+  const all = changedSince(b, from); if (!all) return '';
+  const vs = [...all.matchAll(DRAFT_HEAD)].map(m => m[1]);
+  if (vs.length > 1 || (vs.length === 1 && vs[0] !== b.current_version)) return all.replace(DRAFT_HEAD, 'In $1: ');
+  return `What changed: ${all.replace(DRAFT_HEAD, '')}`;
+}
 export const listNames = (pred, sep) => S.advocates.filter(a => pred(a) && a.is_active !== false)
   .map(a => a.full_name).join(sep) || 'an admin';
 export function draftWho(d) {

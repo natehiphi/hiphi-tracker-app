@@ -74,6 +74,9 @@ jobs:
       - name: "Staff v5: turning someone off never hides their work (R-316 W28)"
         if: ${{ !cancelled() }}
         run: python3 tests/staff5_turnoff.py
+      - name: "Staff v5: a hearing cancelled with no new date yet keeps its testimony row, with no countdown (R-316 W24)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/staff5_cancelled.py
       - name: "Staff v5: Help answers everyday questions; search finds coalitions (R-316 W29)"
         if: ${{ !cancelled() }}
         run: python3 tests/staff5_help_search.py

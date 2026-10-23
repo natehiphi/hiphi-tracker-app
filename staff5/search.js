@@ -17,6 +17,7 @@ import { matchLegs, legRow, weekIndex, districtQ } from './legislators.js';
 import { blRow } from './bills.js';
 import { billRoute } from './model.js';
 import { helpTopics, synOf } from './help.js';   // R-277 fix 19: Help's guides are places too; R-316 W29: one list of everyday words
+import { allWords } from './terms.js';   // R-316 W29 (L-15): Help's Capitol words, the one list Help and the tappable words use
 
 const SHOW = { bills: 8, legs: 5, convs: 5, people: 5 };
 const st = () => (S.lgSearch ??= { q: '', more: new Set(), un: null });
@@ -141,6 +142,35 @@ export function placeHits(q) {
 }
 const placeItems = q => placeHits(q).map(p => ({ href: p.href, title: p.title, sub: p.sub, icon: p.icon }));
 
+// ---- Capitol words (R-316 W29, L-15) ----
+// "sine die", "deferred", "joint referral" or "HD1" in either search box found bills with the word in their title, or
+// nothing, never what the word means. Now Help's own glossary (terms.js allWords, no second copy to drift) is searched
+// too, first: each word typed must be a word of the term, or start one from its fourth letter, so "lateral" finds
+// Lateral and "deck" Decking, but "ate" finds nothing and "hea" on the way to "health" does not offer Hearing. "first lateral" or "second
+// decking" is that deadline's word, and any version ("HD2", "SD1") the versions. A row opens Capitol words in Help at
+// that word (help.js marks it).
+const termWords = s => plain(s).replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+export function wordHits(q) {
+  let ws = termWords(q);
+  if (ws.length > 1 && /^(first|second)$/.test(ws[0])) ws = ws.slice(1);
+  if (!ws.length) return [];
+  const ver = ws.length === 1 && /^[hsc]d\d{1,2}$/.test(ws[0]), whole = ws.join(' ');
+  return allWords().map(([term, text]) => {
+    const tw = termWords(term);
+    if (!(ver ? tw.some(t => /^[hsc]d\d+$/.test(t)) : ws.every(w => tw.some(t => t === w || w.length >= 4 && t.startsWith(w))))) return null;
+    // the whole term typed first ("referral" before Joint referral), then the most words typed in full
+    return { term, text, score: (tw.join(' ') === whole ? 10 : 0) + ws.filter(w => tw.includes(w)).length, href: `#/help/words?w=${encodeURIComponent(term)}` };
+  }).filter(Boolean).sort((a, b) => b.score - a.score);
+}
+// The start of a meaning, cut at a word, for a row's second line.
+const gist = (s, n = 140) => s.length > n ? s.slice(0, n - 1).replace(/\s\S*$/, '') + '…' : s;
+// R-316 W29 (fresh-eyes): the header's row says the meaning to the end of its first sentence ("The committee held the
+// bill."), where one line cut it mid-thought ("...For the year, that almost always…"); staff.css lets it wrap. A first
+// sentence of a word or two ("Versions.") takes the next with it. The search page keeps its longer start (gist).
+const firstSentence = s => { const t = String(s); let end = 0;
+  for (const m of t.matchAll(/[.!?](?=\s|$)/g)) { end = m.index + 1; if (t.slice(0, end).split(/\s+/).length >= 3) break; }
+  return end ? t.slice(0, end) : t; };
+
 // ---- the header's suggestions as you type (R-032; pub/suggest.js draws them, the public header's too) ----
 // Seven rows at most under the header box on a desktop, shared out so every kind that matches shows: tracked bills
 // (this page's matches in this page's order, an exact or leading number first), bills not tracked yet (Nate, 9/26:
@@ -185,8 +215,11 @@ export function headerHits(q) {
     .map(r => ({ href: `#/search?q=${encodeURIComponent(r.bill_number)}`, title: r.description || titleCaseSmart(r.title || ''), icon: 'scroll-text', inline: true,
       sub: [spacedNum(r.bill_number), STAGE_LABEL[r.stage]].filter(Boolean).join(' · ') }));
   const places = placeItems(q);   // R-277 fix 19: first, and they take their rows before the rest share the seven
-  const groups = (ppl, un) => { const [b, u, i, l, c, p] = share([bills, un, issues, legs, convs, ppl], ROWS - places.length);
-    return [{ label: 'Places', items: places }, { label: 'Bills', items: b }, { label: 'Not tracked yet', items: u }, { label: 'Issues', items: i }, { label: 'Legislators', items: l }, { label: 'Conversations', items: c }, { label: 'Supporters', items: p }]; };
+  // R-316 W29 (L-15): a Capitol word's meaning above everything, at most two ("referral" and Joint referral); the line
+  // under it is the meaning's first sentence, whole. The bills with the word follow.
+  const words = wordHits(q).slice(0, 2).map(w => ({ href: w.href, title: w.term, sub: firstSentence(w.text), icon: 'book-open' }));
+  const groups = (ppl, un) => { const [b, u, i, l, c, p] = share([bills, un, issues, legs, convs, ppl], ROWS - places.length - words.length);
+    return [{ label: 'Capitol words', items: words }, { label: 'Places', items: places }, { label: 'Bills', items: b }, { label: 'Not tracked yet', items: u }, { label: 'Issues', items: i }, { label: 'Legislators', items: l }, { label: 'Conversations', items: c }, { label: 'Supporters', items: p }]; };
   const peopleReady = S.peopleLoaded || (S.people || []).length, lookUn = q.trim().length >= 3 && !(dist && dist[1]), key = plain(q).trim();
   if (peopleReady && (!lookUn || unCache.has(key))) return { groups: groups(people(), unRows(unCache.get(key))) };
   if (!peopleReady) peopleP ??= DB.loadPeople().catch(() => {}).finally(() => { peopleP = null; });
@@ -211,7 +244,7 @@ const group = (id, title, n, inner) => `<section class="rows lg-grp" aria-labell
 const nOf = (n, one, many) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 function resultsHTML(q) {
   const s = st();
-  if (!q) return empty({ title: 'Search everything', text: 'Find bills by number or words, legislators by name, town or district, conversations with legislators by what was said, supporters by name or email, and the app’s places, such as the Inbox or the partner update.' });
+  if (!q) return empty({ title: 'Search everything', text: 'Find bills by number or words, legislators by name, town or district, conversations with legislators by what was said, supporters by name or email, the app’s places, such as the Inbox or the partner update, and what a Capitol word such as “sine die” means.' });
   // untracked bills: only when the query is long enough to mean something (the current app's rule, 3 characters)
   const tracked = billHits(q), ids = new Set(S.bills.map(b => b.id)), nums = new Set(S.bills.map(b => b.bill_number));
   const un = s.un && s.un.q === q ? (s.un.rows || []).filter(r => !ids.has(r.id) && !nums.has(r.bill_number)) : null;
@@ -222,7 +255,9 @@ function resultsHTML(q) {
     : un.length ? `<h3 class="lg-subh">Not tracked yet <span class="lg-n">${un.length}</span></h3>${un.map(untrackedRow).join('')}` : '';
   const main = [], side = [];
   // R-277 fix 19: the places that match, at most 3, above the groups.
-  const pl = placeHits(q), plHTML = pl.length ? `<section class="rows lg-grp lg-places" aria-labelledby="lg-gpl"><h2 class="sv-group" id="lg-gpl"><span>Places</span><span class="n">${pl.length}</span></h2>${pl.map(p => `<a class="row lg-plrow" href="${esc(p.href)}"><span class="lead">${icon(p.icon)}</span><span class="body"><span class="title">${esc(p.title)}</span><span class="sub">${esc(p.sub || '')}</span></span><span class="end">${icon('chevron-right', { cls: 'chev' })}</span></a>`).join('')}</section>` : '';
+  // R-316 W29 (L-15): what a Capitol word means, first, from Help's glossary; each opens Capitol words at that word.
+  const wd = wordHits(q), wdHTML = wd.length ? `<section class="rows lg-grp lg-words" aria-labelledby="lg-gw"><h2 class="sv-group" id="lg-gw"><span>Capitol words</span><span class="n">${wd.length}</span></h2>${wd.map(w => `<a class="row lg-wdrow" href="${esc(w.href)}"><span class="lead">${icon('book-open')}</span><span class="body"><span class="title">${esc(w.term)}</span><span class="sub">${esc(gist(w.text))}</span></span><span class="end">${icon('chevron-right', { cls: 'chev' })}</span></a>`).join('')}</section>` : '';
+  const pl = placeHits(q), plHTML = pl.length ?`<section class="rows lg-grp lg-places" aria-labelledby="lg-gpl"><h2 class="sv-group" id="lg-gpl"><span>Places</span><span class="n">${pl.length}</span></h2>${pl.map(p => `<a class="row lg-plrow" href="${esc(p.href)}"><span class="lead">${icon(p.icon)}</span><span class="body"><span class="title">${esc(p.title)}</span><span class="sub">${esc(p.sub || '')}</span></span><span class="end">${icon('chevron-right', { cls: 'chev' })}</span></a>`).join('')}</section>` : '';
   const nBills = tracked.length + (un ? un.length : 0);
   if (tracked.length || (un && un.length) || un === null && q.length >= 3)
     main.push(group('lg-gb', 'Bills', nBills, tracked.slice(0, nb).map(b => blRow(b, { sub: esc(billSub(b)), href: `${billRoute(b)}` })).join('') + more('b', tracked.length, nb, 'tracked bills') + unBlock));
@@ -230,12 +265,12 @@ function resultsHTML(q) {
   if (convs.length) side.push(group('lg-gc', 'Conversations', convs.length, convs.slice(0, nc).map(g => convRow(g, q)).join('') + more('c', convs.length, nc, 'conversations')));
   if (!peopleReady) side.push(group('lg-gp', 'Supporters', '', `<div class="row lg-snote" role="status">${icon('loader-circle', { cls: 'lg-spin' })}<span>Loading supporters</span></div>`));
   else if (people.length) side.push(group('lg-gp', 'Supporters', people.length, people.slice(0, np).map(personRow).join('') + more('p', people.length, np, 'supporters')));
-  if (!main.length && !side.length) return plHTML || empty({ title: `Nothing matches “${esc(q)}”`, text: 'Try a bill number such as HB1562, a word from its title, a last name or a town.' });
+  if (!main.length && !side.length) return wdHTML + plHTML || empty({ title: `Nothing matches “${esc(q)}”`, text: 'Try a bill number such as HB1562, a word from its title, a last name or a town.' });
   // What was found, in words, above the groups (each group's header repeats its own count).
   const parts = [nBills ? nOf(nBills, 'bill', 'bills') : '', legs.length ? nOf(legs.length, 'legislator', 'legislators') : '', convs.length ? nOf(convs.length, 'conversation', 'conversations') : '', people.length ? nOf(people.length, 'supporter', 'supporters') : ''].filter(Boolean);
   const sum = parts.length ? `<p class="st-ssum">${parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]} for “${esc(q)}”${keysUsed() ? '<span class="st-skeys"> · The arrow keys move through the results, Enter opens one</span>' : ''}</p>` : '';
   const two = main.length && side.length;
-  return `${plHTML}${sum}<div class="st-sgrid${two ? ' st-two' : ''}">${main.length ? `<div class="st-scol" data-scol="0">${main.join('')}</div>` : ''}${side.length ? `<div class="st-scol${two ? ' st-sside' : ''}" data-scol="1">${side.join('')}</div>` : ''}</div>`;
+  return `${wdHTML}${plHTML}${sum}<div class="st-sgrid${two ? ' st-two' : ''}">${main.length ? `<div class="st-scol" data-scol="0">${main.join('')}</div>` : ''}${side.length ? `<div class="st-scol${two ? ' st-sside' : ''}" data-scol="1">${side.join('')}</div>` : ''}</div>`;
 }
 
 // ---- arrow keys through the results (they are the list's own keys, like a menu's, not shortcuts: they only act

@@ -14,7 +14,7 @@
 import { S, DB, DEMO, APP_URL, STAGES, STAGE_LABEL, hooks, esc, fmtDT, fmtDate, advocate, capitolUrl, isOwner, isMuted } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
 import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteName, streamOf, draftFor, draftWho, draftActions, chairMail, billNum, billSay, blurb, titleCaseTitle, sponsorName, legsOf, legTitle, legById, lastSlotBefore, unreadCount, listNames, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, nameOf, dWhen, standingIn, draftHearing, liveAsk, billRef } from './model.js';
-import { personById, changedSince, startedFromLine, SESSION_OVER, SESSION_YEAR } from './data.js';
+import { personById, startedFromLine, SESSION_OVER, SESSION_YEAR } from './data.js';
 import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, POS_SUB, posIcons, ownerOf, countdown, stepBar, stageRibbon, empty, notice, toast, openSheet, closeSheet,
   pickerSheet, menuSheet, confirmSheet, field, keysOn } from './ui.js';
 import { goingBtn, docBtn, filedBtn, showAllBtn, mayUnfile, undoFiledLink } from './ui.js';   // R-277 fix 4: one look per action
@@ -34,10 +34,16 @@ import { ASK_LOG, chairAskOf, chairAskMail } from './model.js';
 import { askedChip } from './chairask.js';
 import { logConversation } from './conversation.js';   // R-316 W3 (practice copy)
 import { HOW_TO } from './terms.js';   // R-316 W37 (practice copy)   // R-316 W14 (practice copy)
+import { teamFirst, teamName, newOwnerTag, ownerName } from './model.js';   // R-316 W28 (G3-8): "Lauren (turned off)"
+import { staleLine } from './model.js';   // R-316 W24 (G1-8)
+import { filerOf } from './model.js';   // R-316 W20 (T-3): who files, one rule on every screen
 
 // ---- small shared helpers (activity.js and public.js use these too) ----
 export const firstName = a => String(a?.full_name || '').split(' ')[0] || 'Someone';
-export const nameOrYou = a => a ? (a.id === S.me?.id ? 'You' : firstName(a)) : 'No one';
+// R-316 W28 (G3-8): an owner or a to-do's person who is turned off says so; firstName stays plain for chat bylines.
+export const nameOrYou = a => a ? (a.id === S.me?.id ? 'You' : teamFirst(a)) : 'No one';
+// The one who sent a draft, holds it or files it next, "(turned off)" when they are.
+const whoName = id => advocate(id) ? teamName(id) : 'someone';
 export const andList = arr => arr.length <= 1 ? (arr[0] || '') : `${arr.slice(0, -1).join(', ')} and ${arr[arr.length - 1]}`;
 // "Wed 3/18" (standing.js, shared with the issue and coalition pages): re-exported for public.js.
 export { dayOf };
@@ -272,11 +278,12 @@ export function statusSentence(b, { hearing = true, chair = false } = {}) {
 const POS_ORDER = ['strongly_support', 'support', 'support_amend', 'neutral', 'oppose', 'strongly_oppose', 'monitor', ''];
 // Initials on the owner chip (ui.avatar says "You" at this size, and the chip's label already does).
 const initials = a => `<span class="sv-av${a.id === S.me?.id ? ' me' : ''}" style="--av:24px" aria-hidden="true">${esc(a.initials || firstName(a)[0] || '?')}</span>`;
-const pick = (key, label, lead, aria) => `<button type="button" class="sv-pick" data-bwpick="${key}" aria-haspopup="dialog" aria-label="${esc(aria)}">${lead}<span>${esc(label)}</span>${icon('chevron-down', { cls: 'chev' })}</button>`;
+const pick = (key, label, lead, aria, cls = '') => `<button type="button" class="sv-pick${cls ? ' ' + cls : ''}" data-bwpick="${key}" aria-haspopup="dialog" aria-label="${esc(aria)}">${lead}<span>${esc(label)}</span>${icon('chevron-down', { cls: 'chev' })}</button>`;
 const teamPicks = b => {
   const pos = b.position || '', own = ownerOf(b);
   return [['Position', pick('pos', POS_WORD[pos] || pos, posIcons(pos), `Position: ${POS_WORD[pos] || pos}. Change`)],
-    ['Owner', pick('own', own ? nameOrYou(own) : 'No owner', own ? initials(own) : icon('user-round'), `Owner: ${own ? own.full_name : 'none'}. Change`)]];
+    // R-316 W28 (fresh-eyes): an owner who is turned off "needs a new owner", as Slipping says (model.js newOwnerTag).
+    ['Owner', pick('own', own ? nameOrYou(own) + newOwnerTag(own) : 'No owner', own ? initials(own) : icon('user-round'), `Owner: ${own ? ownerName(own) : 'none'}. Change`, own && newOwnerTag(own) ? 'bw-newown' : '')]];
 };
 // Who follows the bill (R-022 wave 3), you first. data.js keeps your own follow in S.follows, the team's in S.followersBy.
 const followers = b => {
@@ -284,7 +291,7 @@ const followers = b => {
   if (S.me) { if (S.follows?.has(b.id)) ids.add(S.me.id); else ids.delete(S.me.id); }
   return [...ids].map(advocate).filter(Boolean).sort((x, y) => (y.id === S.me?.id) - (x.id === S.me?.id) || x.full_name.localeCompare(y.full_name));
 };
-const followText = b => andList(followers(b).map(a => a.id === S.me?.id ? 'You' : firstName(a)));
+const followText = b => andList(followers(b).map(a => a.id === S.me?.id ? 'You' : teamFirst(a)));
 // Muted is the one flag left beside the pickers: "Following" is said by the Following line, with everyone else (A-14).
 const followFlag = b => isMuted(b) ? chip('Muted', '', 'bell-off') : '';
 // The issues a bill is on (R-226, Nate 10/10): a quiet chip each, to the issue's page. The link says which bill it came
@@ -350,7 +357,7 @@ function pickOwner(b) {
   const cur = (S.assignments[b.id] || [])[0] || '';
   const people = S.advocates.filter(a => a.is_active !== false || a.id === cur).slice().sort((x, y) => (y.id === S.me?.id) - (x.id === S.me?.id) || x.full_name.localeCompare(y.full_name));
   pickerSheet({ title: `Who owns ${billSay(b)}?`, value: cur, help: 'The owner gets its drafts and alerts. Whoever sends the testimony for approval files it.',
-    options: [...people.map(a => [a.id, a.id === S.me?.id ? `${a.full_name} (you)` : a.full_name, 'user-round']), ['', 'No owner', 'circle-dashed']],
+    options: [...people.map(a => [a.id, a.id === S.me?.id ? `${a.full_name} (you)` : teamName(a), 'user-round']), ['', 'No owner', 'circle-dashed']],   // W28: the current owner, if turned off, says so
     onPick: async v => {
       if (v === cur) return;
       try {
@@ -429,14 +436,14 @@ function whoLine(d) {
   // A reviewer standing in near the deadline (R-103) is not in the usual list, so the line says why Approve is theirs too.
   // The person who sent it is not among those it waits for, unless an admin (who may approve their own, Nate 10/5): Kris read
   // "waiting for you or Nate" on the draft she had just sent (R-267).
-  if (d.status === 'review') return `Sent by ${nameOf(d.submitted_by)} ${dWhen(d.submitted_at)} · waiting for ${approverWords(d, draftHearing(d))}`;   // R-316 W20: one list, stand-ins named
-  if (d.status === 'approved') { const f = filerOf(d); return `Ready to file · ${f ? (f === S.me?.id ? 'you file it' : `${nameOf(f)} files it`) : 'anyone can file it'}`; }   // W20 (C-7)
+  if (d.status === 'review') return `Sent by ${whoName(d.submitted_by)} ${dWhen(d.submitted_at)} · waiting for ${approverWords(d, draftHearing(d))}`;   // R-316 W20: one list, stand-ins named
+  if (d.status === 'approved') { const f = filerOf(d); return `Ready to file · ${f ? (f === S.me?.id ? 'you file it' : `${whoName(f)} files it`) : 'anyone can file it'}`; }   // W20 (C-7)
   if (d.status === 'second_review') return `Approved by ${nameOf(d.approved_by)} ${dWhen(d.approved_at)} · waiting for ${waitingFor(a => a.is_reviewer)}`;
   return draftWho(d).replace(/ \u00b7 file it at the Capitol, then mark it filed$/, '');
 }
 // R-316 W20 (FD-3, C-7): who holds a draft: whoever sent it for approval, else the bill's owner (R-267 Fix it #8; the
 // writer replaces this when R-267 lands). Only that person gets the filled Resubmit or File; others get it outlined.
-const filerOf = d => d.submitted_by || (S.assignments[d.bill_id] || [])[0] || null;
+// model.js filerOf (T-3): a sender who is turned off no longer holds it, as on Today and the hearing page.
 function testimonyBlock(b, d, { primary = true, title = '' } = {}) {
   const me = S.me || {}, acts = d.status === 'cancelled' ? [] : draftActions(d).map(a => a[0]);
   const holder = filerOf(d), mineHeld = !holder || holder === me.id;
@@ -466,14 +473,18 @@ function testimonyBlock(b, d, { primary = true, title = '' } = {}) {
     borrow ? btn('Borrow from earlier testimony', { kind: 'text', icon: 'book-open', href: testimonyHref(b), attrs: { 'data-borrow': '1' } }) : '',
   ].join('');
   // Where the draft started from matters while it is written and checked; once it is approved it is history (v3).
-  const from = ['draft', 'review', 'second_review'].includes(d.status) ? startedFromLine(b, d) : '';
+  // R-316 W24 (G1-8): an out-of-date draft says so in one line, the warning, in Review's words (model.js staleLine); one
+  // started from earlier testimony says so there, in passing, in place of the "Started from" line. Its Committee report
+  // link sits under the words: beside them it squeezed a phone's line to two words.
+  const late = stale ? staleLine(b, d) : '';
+  const from = !(late && d.from_draft_id) && ['draft', 'review', 'second_review'].includes(d.status) ? startedFromLine(b, d) : '';
   return `<div class="bw-tb" data-tb="${esc(d.id)}">
     ${title ? `<p class="bw-tbt">${title}</p>` : ''}
     ${['cancelled', 'filed'].includes(d.status) ? '' : stepBar(d.status, { second })}
     ${sentBack ? '' : `<p class="bw-who">${esc(whoLine(d))}${own && acts.includes('approve') ? ` ${chip('Your own draft')}` : ''}</p>`}
-    ${sentBack ? `<blockquote class="bw-quote"><span class="meta">Sent back</span>${esc(d.review_note)}</blockquote><p class="bw-who">${esc(holder ? (holder === me.id ? 'Yours to revise' : `${nameOf(holder)}’s to revise`) : 'Anyone can revise it')}</p>` : ''}
+    ${sentBack ? `<blockquote class="bw-quote"><span class="meta">Sent back</span>${esc(d.review_note)}</blockquote><p class="bw-who">${esc(holder ? (holder === me.id ? 'Yours to revise' : advocate(holder)?.is_active === false ? `With ${whoName(holder)} to revise` : `${whoName(holder)}’s to revise`) : 'Anyone can revise it')}</p>` : ''}
     ${from ? `<p class="bw-from">${icon('copy')}<span>${esc(from)}</span></p>` : ''}
-    ${stale ? notice('warn', 'triangle-alert', `The bill is now ${esc(b.current_version)}. This draft was written for ${esc(d.version || 'the introduced bill')}; check it before it goes out.${changedSince(b, d.version) ? ` What changed: ${esc(changedSince(b, d.version))}` : ''}`, btn('Committee report', { kind: 'text', sm: true, iconEnd: 'external-link', href: capitolUrl(b), target: '_blank' })) : ''}
+    ${late ? notice('warn', 'triangle-alert', `${esc(late)}<br>${btn('Committee report', { kind: 'text', sm: true, iconEnd: 'external-link', href: capitolUrl(b), target: '_blank' })}`) : ''}
     ${main || alt ? `<div class="bw-acts">${main}${alt}</div>` : ''}
     ${links ? `<div class="bw-links">${links}</div>` : ''}
   </div>`;
@@ -618,9 +629,9 @@ async function runDraft(b, d, act, el) {
       if (performance.now() - approvedAt < 1000) { if (el?.isConnected) el.removeAttribute('aria-busy'); return; }
       const nd = await transition(b, d, 'approve'); approvedAt = performance.now(); rerender();
       // One rule for who files, as on Review and Today: whoever sent it for review, else the owner (Nate 10/12, R-267: the writer files).
-      const filer = advocate(nd.submitted_by) || ownerOf(b);
+      const filer = advocate(filerOf(nd));   // W20 (T-3): model.js, the one rule
       toast(nd.status === 'second_review' ? `Approved. Now needs ${reviewerNames()}.`
-        : filer && filer.id === S.me?.id ? 'Approved. File it at the Capitol next.' : `Approved. ${filer ? firstName(filer) : 'The owner'} files it next.`,
+        : filer && filer.id === S.me?.id ? 'Approved. File it at the Capitol next.' : `Approved. ${filer ? teamFirst(filer) : 'The owner'} files it next.`,
         { ok: true, undo: async () => { await transition(b, nd, 'unapprove'); rerender(); toast('Approval undone. It is waiting for you again.'); } });
     } else if (act === 'withdraw') {
       await transition(b, d, 'withdraw'); rerender(); toast('Withdrawn. It is a draft again.');
@@ -634,7 +645,7 @@ async function runDraft(b, d, act, el) {
 // draft until it is sent, the way the public walkthrough keeps its words.
 const HELD = new Map();
 function requestChanges(b, d) {
-  const who = advocate(d.submitted_by), to = who && who.id !== S.me?.id ? firstName(who) : '';
+  const who = advocate(d.submitted_by), to = who && who.id !== S.me?.id ? teamFirst(who) : '';
   openSheet({ title: 'What should change?', size: 'auto',
     body: `<div class="field"><label for="bw-rc">${to ? `Your note for ${esc(to)}` : 'Your note'}</label><textarea id="bw-rc" rows="4" required aria-describedby="bw-rc-e" placeholder="Say what to fix, so the next version is the last one."></textarea><span class="err" id="bw-rc-e" hidden>${icon('circle-alert')}Write what should change first.</span></div>`,
     foot: btn(to ? `Send back to ${esc(to)}` : 'Send it back', { kind: 'primary', icon: 'undo-2', attrs: { 'data-go': '1' } }),
@@ -899,8 +910,8 @@ function overview(b) {
 function todoMenu(b, t) {
   const mineNow = t.assignee_id === S.me?.id, who = t.assignee_id && !mineNow ? advocate(t.assignee_id) : null;
   menuSheet({ title: t.title, items: [
-    t.done ? null : { label: 'Ask someone to take this', icon: 'user-round-plus', sub: who ? `${firstName(who)} has it now` : 'One teammate, who gets a Slack message', run: () => afterBack(() => todoAsk(b, t)) },
-    t.done || mineNow ? null : { label: 'Take it yourself', icon: 'user-check', sub: who ? `Instead of ${firstName(who)}` : '', run: () => setTodoPerson(b, t, S.me?.id || null) },
+    t.done ? null : { label: 'Ask someone to take this', icon: 'user-round-plus', sub: who ? `${teamFirst(who)} has it now` : 'One teammate, who gets a Slack message', run: () => afterBack(() => todoAsk(b, t)) },
+    t.done || mineNow ? null : { label: 'Take it yourself', icon: 'user-check', sub: who ? `Instead of ${teamFirst(who)}` : '', run: () => setTodoPerson(b, t, S.me?.id || null) },
     { label: t.due_date ? 'Change the due date' : 'Add a due date', icon: 'calendar-days', sub: t.due_date ? `Due ${dayOf(t.due_date)}` : '', run: () => afterBack(() => todoDue(b, t)) },
     { label: 'Delete to-do', icon: 'trash-2', danger: true, run: () => todoDelete(b, t) },
   ] });
@@ -935,7 +946,7 @@ async function setTodoPerson(b, t, v) {
     const a = advocate(v), was = advocate(before);
     toast(v === S.me?.id ? 'It is yours now.' : told(a, 'todo', 'has it now'), { undo: async () => {
       await DB.updateTodo(b.id, t.id, { assignee_id: before }); rerender(sel);
-      toast(!before ? 'Put back as it was.' : before === S.me?.id ? 'It is yours again.' : `Back with ${firstName(was)}.`);
+      toast(!before ? 'Put back as it was.' : before === S.me?.id ? 'It is yours again.' : `Back with ${teamFirst(was)}.`);
     } });
   } catch (e) { toast(e, { err: true }); }
 }

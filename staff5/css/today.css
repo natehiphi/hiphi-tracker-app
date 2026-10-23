@@ -796,10 +796,14 @@
    follows it is quieter, so the step is the first thing read without a box or icon adding weight (Nate: chips were too dense). */
 .td-root .td-step { font-weight: 600; color: var(--n900); }
 .td-root .td-stepdot, .td-root .td-rd { color: var(--n700); }
-/* R-316 W56 (O-8): Slipping's two small headings, "Late, still open" first. */
+/* R-316 W56 (O-8): Slipping's two small headings, "Late testimony, still open" first. */
 .td-root .td-slipsub { margin: var(--s12) 0 6px; font-size: var(--t13); font-weight: 700; color: var(--n700); }
 .td-root .td-slipsub:first-of-type { margin-top: 0; }
 .td-root .td-slipn { color: var(--n500); font-weight: 600; }
+/* R-316 W24 (G1-1): "Waiting for a new hearing date: SB3025 · HB2116" under Slipping and under This week: its icon grey, not
+   the all-clear green; under the week grid it keeps the grid's gap. */
+.td-root .td-waitdate .ic { color: var(--n500); }
+.td-root .td-weekgrid + .td-waitdate, .td-root .td-wempty + .td-waitdate { margin-top: var(--s4); }
 /* R-316 W56 (L-10): an empty week, said once instead of "Nothing scheduled." in five boxes. */
 .td-root .td-wempty { display: flex; align-items: flex-start; gap: var(--s8); margin: var(--s8) 0 var(--s16); padding: var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); font-size: var(--t14); color: var(--n700); }
 .td-root .td-wempty .ic { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--n500); }

@@ -364,7 +364,12 @@ const askSlack = q => { const words = `${q.trim()} (from Help)`, n = nateSlack()
     <p class="small muted st-askw">“${esc(words)}”</p></div>`; };
 const missHTML = q => `<p class="st-none" role="status">Nothing in Help mentions “${esc(q.trim())}”. Try another word, or one of these guides:</p>
   <div class="rows">${GUIDES.map(topic).filter(Boolean).map(t => row({ lead: t.icon, title: esc(t.title), sub: esc(t.sub()), href: '#/help/' + t.id })).join('')}</div>${askSlack(q)}`;
-const dl = items => `<dl class="st-dl">${items.map(([t, d]) => `<div class="st-dli"><dt>${esc(t)}</dt><dd>${d}</dd></div>`).join('')}</dl>`;
+const dl = (items, mark = '') => `<dl class="st-dl">${items.map(([t, d]) => { const on = mark && t.toLowerCase() === mark.toLowerCase();
+  return `<div class="st-dli"${on ? ' id="st-wmark" tabindex="-1"' : ''}><dt>${on ? `<mark>${esc(t)}</mark>` : esc(t)}</dt><dd>${d}</dd></div>`; }).join('')}</dl>`;
+// R-316 W29 (L-15): the top search opens a Capitol word here (#/help/words?w=Sine die). The word is marked and scrolled
+// to once per visit (a flag on that history entry), so a redraw while reading does not jump back to it.
+const markOf = route => route.topic === 'words' && route.q?.w ? String(route.q.w) : '';
+const freshMark = route => !!markOf(route) && !history.state?.wmark;
 
 function renderIndex() {
   const q = S.st2HelpQ || '';
@@ -395,8 +400,8 @@ function renderIndex() {
 // Keyboard shortcuts carries its own on-off switch (v3; it was in My settings), kept on this device (ui.js setKeys).
 const keysNote = t => t.id !== 'keys' ? '' : `${HOVER() ? '' : `<p class="small muted st-note">${icon('info')} These need a keyboard. They are off on touch screens.</p>`}
   <div class="card st-list st-keyson">${switchRow('st-keyson', 'Use keyboard shortcuts', keysOn(), 'Off means a stray letter never does anything. Approving always takes Shift+A. Kept on this device.', { 'data-keys': '1' })}</div>`;
-function renderTopic(t) {
-  const body = t.html ? t.html() : `<div class="card st-wcard">${dl(t.items())}</div>`;
+function renderTopic(t, route) {
+  const body = t.html ? t.html() : `<div class="card st-wcard">${dl(t.items(), markOf(route))}</div>`;
   const kbd = keysNote(t);
   return `<div class="st-page st-help st-subpage">
     <a class="st-crumb" href="#/help" data-back>${icon('arrow-left')}<span>Help</span></a>
@@ -415,9 +420,9 @@ function navList(list, t, q) {
 // or "Search results" while the box has words in it.
 function renderDesk(route) {
   // R-316 W29 (L-14): a link from elsewhere to a Help topic opens that topic, not an old search's results.
-  if (route.topic && S.st2HelpTopic !== route.topic) { S.st2HelpQ = ''; S.st2HelpTopic = route.topic; }
+  if (route.topic && S.st2HelpTopic !== route.topic || freshMark(route)) { S.st2HelpQ = ''; S.st2HelpTopic = route.topic; }
   const q = S.st2HelpQ || '', t = topic(route.topic) || homeTopic();
-  const body = t.html ? t.html() : `<div class="card st-wcard">${dl(t.items())}</div>`;
+  const body = t.html ? t.html() : `<div class="card st-wcard">${dl(t.items(), markOf(route))}</div>`;
   const kbd = keysNote(t);
   const list = visible(); if (!list.includes(t)) list.push(t);   // a direct link to a topic this device does not list still shows where you are
   // R-277 fix 10 (U-5, U-12): "Help" is the page's heading row, over both columns, where every page has it; the topic is
@@ -445,8 +450,11 @@ export default {
   wide: () => DESK(),
   title: route => topic(route.topic)?.title || 'Help',
   back: route => topic(route.topic) ? { href: '#/help', label: 'Help' } : null,
-  render(route) { if (DESK()) return renderDesk(route); const t = topic(route.topic); return t ? renderTopic(t) : renderIndex(); },
+  render(route) { if (DESK()) return renderDesk(route); const t = topic(route.topic); return t ? renderTopic(t, route) : renderIndex(); },
   wire(route, root) {
+    const wm = root.querySelector('#st-wmark');   // W29: a Capitol word opened from the top search
+    if (wm && freshMark(route)) { try { history.replaceState({ ...(history.state || {}), wmark: 1 }, ''); } catch { /* it lands again on a redraw */ }
+      requestAnimationFrame(() => { if (!wm.isConnected) return; wm.scrollIntoView({ block: 'center' }); wm.focus({ preventScroll: true }); }); }
     root.querySelectorAll('[data-fr]').forEach(a => a.addEventListener('click', () => frSet({ [a.dataset.fr]: 1 })));
     const ks = root.querySelector('[data-keys]');
     if (ks) ks.onchange = () => { setKeys(ks.checked); toast(ks.checked ? 'Keyboard shortcuts are on.' : 'Keyboard shortcuts are off.', { ok: true }); };

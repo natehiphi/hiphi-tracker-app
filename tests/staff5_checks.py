@@ -366,6 +366,58 @@ def batch_d(b, page, go):
   pg.evaluate("location.hash = '#/setup'"); pg.wait_for_timeout(2000)
   check('Session setup still opens (loaded on the way)', 'Session setup' in pg.inner_text('main') or 'Ready for session' in pg.inner_text('main'), pg.inner_text('main')[:60])
   ctx.close()
+  batch_d_start(b, page, go)
+
+# R-316 W7 (L-1): Getting started is for a person's first 45 days from their first sign-in. The practice copy always counts
+# from today, so the saved start day (prefs.started_at, which the live app writes on the first load) is set in the page,
+# and the rule for someone with none saved is tried through today.js startDay with a login made 200 days ago.
+START = """async (days) => { const { S, hooks } = await import('./staff5/data.js'), T = await import('./staff5/today.js');
+  const DAY = 864e5, now = Date.now(), wait = ms => new Promise(r => setTimeout(r, ms)), card = () => document.querySelectorAll('.td-start, .td-startph').length;
+  const keep = S.me.prefs, shown = {}; S.me.prefs = { ...(keep || {}) };
+  for (const d of days) { S.me.prefs.started_at = new Date(now - d * DAY).toISOString(); hooks.render(); await wait(400); shown[d] = card(); }
+  S.me.prefs = keep; hooks.render(); await wait(300);
+  const made = now - 200 * DAY, age = p => Math.round((now - T.startDay(p, made, now)) / DAY);
+  return { shown, back: card(), never: age({}), coal: age({ coalitions: 'all' }), used: age({ showMonitor: true }), saved: age({ started_at: new Date(now - 200 * DAY).toISOString(), showMonitor: true }) }; }"""
+
+def batch_d_start(b, page, go):
+  pg = page('NT'); go(pg, '/', 3000)
+  r = pg.evaluate(START, [200, 10])
+  check('Getting started: gone for someone whose first sign-in was 200 days ago', r['shown']['200'] == 0, r['shown'])
+  check('Getting started: shown for someone whose first sign-in was 10 days ago', r['shown']['10'] == 1, r['shown'])
+  check('Getting started: back once the saved start day is taken away (the practice copy counts from today)', r['back'] == 1, r['back'])
+  check('Getting started rule: a login made 200 days ago, never signed in, starts today (the card shows)', r['never'] == 0 and r['coal'] == 0, f"{r['never']} {r['coal']} days")
+  check('Getting started rule: a login made 200 days ago that has used the app is 200 days in (no card)', r['used'] == 200 and r['saved'] == 200, f"{r['used']} {r['saved']} days")
+  check('No page errors on the Getting started check', not pg.errs, pg.errs[:1])
+  pg.context.close()
+  batch_d_stale(b, page, go)
+
+# R-316 W24 (G1-8, fresh-eyes): an out-of-date draft says so in one line, the same on Review and the bill page: the draft's
+# own version, where it started from in passing, "Check it before it goes out.", then what changed with each draft named
+# once (data.js changedSince said "What changed: House draft 2 (HD2): ..."). In the page's state only: HB1523, whose review
+# draft dd1 was written for HD1 from earlier testimony, is moved to HD2, then SD1, with a practice note for each draft.
+STALE = """async ({ cur, ver, route }) => { const { S, hooks } = await import('./staff5/data.js'), wait = ms => new Promise(r => setTimeout(r, ms));
+  const b = S.bills.find(x => x.bill_number === 'HB1523'), d = Object.values(S.drafts).flat().find(x => x.id === 'dd1');
+  b._v ??= b.current_version; d._v ??= d.version; b.current_version = cur || b._v; d.version = ver || d._v;
+  S.allDrafts ??= {}; S.allDrafts[b.id] = [{ bill_id: b.id, version: 'HD2', summary: 'Starts it as a pilot.', changes_letters: false }, { bill_id: b.id, version: 'SD1', summary: 'Adds a sunset date.', changes_letters: false }];
+  location.hash = route; await wait(900); hooks.render(); await wait(700);
+  const w = [...document.querySelectorAll('main .notice')].map(e => e.textContent.replace(/\\s+/g, ' ').trim()).find(t => t.includes('This draft was written for'));
+  return { w: w || '', started: (document.querySelector('main')?.textContent || '').includes('Started from') }; }"""
+
+def batch_d_stale(b, page, go):
+  pg = page('NT'); go(pg, '/', 3000)
+  for where, route in [('Review', '#/review/dd1'), ('the bill page', '#/bill/HB1523')]:
+    r = pg.evaluate(STALE, {'cur': 'HD2', 'ver': None, 'route': route})
+    want = 'This draft was written for HD1 (from HIPHI’s '
+    check(f'Out-of-date draft on {where}: one line, "{want}... testimony); the bill is now HD2. Check it before it goes out."',
+          r['w'].startswith(want) and 'testimony); the bill is now HD2. Check it before it goes out.' in r['w'] and not r['started'], r)
+    check(f'Out-of-date draft on {where}: "What changed: Starts it as a pilot.", HD2 not named twice', 'Check it before it goes out. What changed: Starts it as a pilot.' in r['w'] and 'House draft' not in r['w'] and '): ' not in r['w'], r['w'])
+    r = pg.evaluate(STALE, {'cur': 'SD1', 'ver': None, 'route': route})
+    check(f'Out-of-date draft on {where}: two drafts since, each named once ("In HD2: ... In SD1: ...")', 'the bill is now SD1. Check it before it goes out. In HD2: Starts it as a pilot. In SD1: Adds a sunset date.' in r['w'], r['w'])
+    r = pg.evaluate(STALE, {'cur': 'SD1', 'ver': 'HD2', 'route': route})
+    check(f'Out-of-date draft on {where}: a draft already brought up to HD2 says HD2 and only what SD1 changed', r['w'].startswith('This draft was written for HD2 (from HIPHI’s ') and 'the bill is now SD1. Check it before it goes out. What changed: Adds a sunset date.' in r['w'] and 'pilot' not in r['w'], r['w'])
+  pg.evaluate(STALE, {'cur': None, 'ver': None, 'route': '#/'})
+  check('No page errors on the out-of-date draft check', not pg.errs, pg.errs[:1])
+  pg.context.close()
 
 # ---- batch e (fixes 17, 18, 19, 20): the Show me pieces ----
 # 17. One open-bill panel (U-1): the same bill opens with the same parts, in the same order, with the same deadline line,
