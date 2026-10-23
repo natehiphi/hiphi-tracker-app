@@ -23,6 +23,7 @@ import { S, DB, esc, fmtDate, hooks } from './data.js';
 import { icon, btn, chip, toast, openSheet, closeSheet, groupHead, friendly, switchRow, POS_WORD, POS_ICON } from './ui.js';
 import { whenAt, billNum, billRoute, billById } from './model.js';
 import { dailyWord, paused } from './composer.js';   // which 4:30 pm email; while email is paused an approved ask is held, as HIPHI's own
+import { numWords } from './steps.js';   // Staff v6: the bill number as every row says it (D15)
 
 // ---- who ----
 // approves_partners comes with the advocates row (migration 184); a turned-off person approves nothing.
@@ -286,6 +287,49 @@ export function partnerToday({ rows = false, reg = () => {} } = {}) {
   if (!items.length) return { n: 0, html: line };
   const list = rows ? `<div class="td-rows">${items.map(it => row(it, reg)).join('')}</div>` : `<div class="pq-list">${items.map(card).join('')}</div>`;
   return { n: items.length, html: `<section class="td-group pq-group" aria-labelledby="td-g-pq"><h2 class="td-h">${groupHead('Partner words to approve', items.length, { id: 'td-g-pq' })}</h2>${list}${line}</section>` };
+}
+
+// ---- Staff v6 (R-336, spec 6 and F55): partner words as Today's rows, its next-step card and its open item ----
+// A row is the group's name, the bill number small and one line (D15); every word they sent waits in the open item (V01:
+// the full text never sits in the list). Approve is tonal in the open item and filled only on the "Your next step" card,
+// the screen's one filled button (spec 4). Open Partners is always beside them.
+const pqLine = it => {
+  const b = it.kind === 'bill' ? billOf(it) : null;
+  const what = it.kind === 'issue' ? `Approve their issue “${clip(it.words?.name || '', 40)}”` : `Approve their words on ${clip(nameOf(it), 44)}`;
+  return [what, it.live ? 'an edit' : '', it.kind === 'bill' && it.words?.ask ? 'with an ask' : it.kind === 'bill' && it.flag && it.flag !== 'none' ? 'worth a closer look' : ''].filter(Boolean).slice(0, 2).join(' · ');
+};
+const pqOpen = (k = 'text') => btn('Open Partners', { kind: k, icon: 'handshake', href: '#/partners' });
+// The words today.js needs for a row: { name, num, line, href, what, sub, buttons(kind) }.
+export function pqRow(it) {
+  const b = it.kind === 'bill' ? billOf(it) : null;
+  return { name: it.partner_name, num: b ? numWords(b) : '', line: pqLine(it), href: groupHref(it.partner_slug), what: pqLine(it).split(' · ')[0],
+    sub: sentLine(it), buttons: k => [btn('Approve', { kind: k, icon: 'check', attrs: { 'data-pqok': keyOf(it) } }), btn('Ask for a change', { kind: 'text', icon: 'message-square', attrs: { 'data-pqask': keyOf(it), 'aria-haspopup': 'dialog' } }), pqOpen()] };
+}
+// The next-step card: the group, what to approve, the closer-look flag, every word one fold away, the ask, then Approve.
+export function pqCard(it, { id = 't6-next-h' } = {}) {
+  const r = pqRow(it), w = it.words || {};
+  return `<section class="v6-step own named w-today t6-mini pq6" aria-labelledby="${id}" data-pqcard="${esc(keyOf(it))}">
+    <p class="v6-step-bill"><span class="v6-step-bn">${esc(r.name)}</span>${r.num ? ` <span class="v6-row-num">${esc(r.num)}</span>` : ''}</p>
+    <h3 class="v6-step-what" id="${id}">${esc(r.what)}</h3>
+    <p class="v6-step-when">${esc(sentLine(it))}</p>
+    ${it.kind === 'bill' ? flagLine(it.flag) : ''}
+    <details class="pq-more"><summary>${icon('chevron-down', { cls: 'chev' })}<span>Read all the words${it.live ? ' and what changed' : ''}</span></summary>${changes(w, it.live)}<div class="pq-sec">${wordsHTML(it, { ask: false })}</div></details>
+    ${askHTML(it, 'c')}
+    <div class="v6-step-acts">${acts(it, true)}${pqOpen()}</div></section>`;
+}
+// The open item beside the list (or its own page below 1100px), with Approve tonal.
+export function pqItem(it, { close = '' } = {}) {
+  const w = it.words || {}, b = it.kind === 'bill' ? billOf(it) : null;
+  return `<div class="v6-item t6-item pq6" data-v6item="${esc(keyOf(it))}">
+    <div class="v6-item-top"><p class="v6-item-num">${esc(it.kind === 'issue' ? 'Partner issue' : 'Partner words')}</p><a class="v6-item-open" href="${esc(groupHref(it.partner_slug))}"><span>Open their group</span>${icon('arrow-right')}</a>${close}</div>
+    <h2 class="v6-item-name" id="v6-item-h" tabindex="-1">${esc(it.partner_name)}${b ? ` <span class="pq-on">on</span> ${esc(numWords(b))}` : ''}</h2>
+    <p class="pq-t">${esc(nameOf(it))} ${sideOf(it)}</p>
+    <p class="pq-meta">${esc(sentLine(it))}</p>
+    ${it.kind === 'bill' ? flagLine(it.flag) : ''}
+    ${it.live ? `${changes(w, it.live)}<details class="pq-more"><summary>${icon('chevron-down', { cls: 'chev' })}<span>All the words, as they would go live</span></summary><div class="pq-sec">${wordsHTML(it, { ask: false })}</div></details>`
+      : `<div class="pq-sec">${wordsHTML(it, { ask: false })}</div>`}
+    ${askHTML(it, 'p')}
+    <div class="pq-acts v6-step-acts">${acts(it, false)}${pqOpen()}</div></div>`;
 }
 
 // ---- doing ----
