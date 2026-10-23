@@ -9,9 +9,14 @@
 // screen only has to draw termBtn(); nothing to wire.
 // Show me lane: on the practice copy until Nate's yes makes the gates `() => true`. With them off nothing here is drawn
 // and Help keeps its words as they are.
+// Staff v6 (R-336, V05, D15): rows and sentences carry plain words, not codes: committeeName ("House Transportation"),
+// versionWords ("House draft 1") and deadlineWords (steps.js, the one source). plainCodes() turns the codes in a line of
+// text into those words; a code still shown (About this bill, the filing card) sits small beside its words and taps open
+// what it means, on phones too, and inside a sheet it opens in place under the word (a second sheet would close the first).
 import { S, DEMO, esc } from './data.js';
 import { openSheet, closeSheet } from './ui.js';
 import { gateGloss } from './model.js';
+import { committeeName, versionWords, COMMITTEES } from './steps.js';
 
 export const TERMS_TAP = () => true;   // W40: the words become tappable (live at Nate's go 10/22, R-331)
 export const HOW_TO = () => true;       // W37: Help's how-to guides and the session calendar (help.js)
@@ -57,15 +62,16 @@ export function meaning(key, more = '') {
   const i = key.indexOf(':'), kind = key.slice(0, i), v = key.slice(i + 1);
   let out = null;
   if (kind === 'cmte') {
-    const cs = v.split('/').map(c => c.trim()).filter(Boolean);
+    // v6: the title is the committee in words with its code ("Senate Health and Human Services, and Commerce (HHS/CPN)").
+    const cs = v.split('/').map(c => c.trim()).filter(Boolean), title = `${committeeName(v)} (${v})`;
     if (cs.length > 1) { const ks = cs.map(cmteOf), ch = [...new Set(ks.filter(Boolean).map(k => CHAMBER[k.chamber]))];
       const num = ['', 'one', 'two', 'three', 'four'][cs.length] || cs.length;
-      out = { title: v, text: `A joint referral: ${num} ${ch.length === 1 ? ch[0] + ' ' : ''}committees, ${listWords(cs.map((c, i) => ks[i] ? `${ks[i].name} (${c})` : c))}, hear the bill together, at one hearing, and vote on it together.`, href: '#/help/committees', link: 'Committee codes in Help' }; }
+      out = { title, text: `A joint referral: ${num} ${ch.length === 1 ? ch[0] + ' ' : ''}committees, ${listWords(cs.map((c, i) => ks[i] ? `${ks[i].name} (${c})` : c))}, hear the bill together, at one hearing, and vote on it together.`, href: '#/help/committees', link: 'Committee codes in Help' }; }
     else { const k = cmteOf(cs[0]);
-      out = { title: v, text: k ? `${cmteWords(cs[0]).replace(/^the/, 'The')}.${k.chair ? ` Chair ${k.chair}${k.vice_chair ? `, vice chair ${k.vice_chair}` : ''}.` : ''}` : `A committee code. This one is not in the tracker’s committee list yet.`, href: '#/help/committees', link: 'Committee codes in Help' }; }
+      out = { title: k || COMMITTEES[cs[0]] ? title : v, text: k ? `${cmteWords(cs[0]).replace(/^the/, 'The')}.${k.chair ? ` Chair ${k.chair}${k.vice_chair ? `, vice chair ${k.vice_chair}` : ''}.` : ''}` : COMMITTEES[cs[0]] ? `The ${committeeName(cs[0])} committee.` : `A committee code. This one is not in the tracker’s committee list yet.`, href: '#/help/committees', link: 'Committee codes in Help' }; }
   } else if (kind === 'ver') {
     const m = /^([HSC])D(\d+)$/i.exec(v), n = m ? +m[2] : 0, who = m ? { H: 'House', S: 'Senate', C: 'conference' }[m[1].toUpperCase()] : '';
-    out = { title: v, text: m ? `The ${ORD[n] || n + 'th'} ${who} draft${m[1].toUpperCase() === 'C' ? ': the version House and Senate negotiators agreed on' : `: the ${who} has changed the bill ${TIMES[n] || n + ' times'}`}. Testimony written for an older version needs a second look.` : word('HD1, SD1, CD1'), href: '#/help/words', link: 'Capitol words in Help' };
+    out = { title: m ? `${versionWords(v)} (${v})` : v, text: m ? `The ${ORD[n] || n + 'th'} ${who} draft${m[1].toUpperCase() === 'C' ? ': the version House and Senate negotiators agreed on' : `: the ${who} has changed the bill ${TIMES[n] || n + ' times'}`}. Testimony written for an older version needs a second look.` : word('HD1, SD1, CD1'), href: '#/help/words', link: 'Capitol words in Help' };
   } else if (kind === 'gate') {
     const m = /^(First|Second)\s+(.+)$/i.exec(v), base = m ? m[2] : v, where = m ? (/^first/i.test(m[1]) ? ' This one is in the chamber where the bill started.' : ' This one is in the second chamber, after crossover.') : '';
     const w = word(base[0].toUpperCase() + base.slice(1)) || (gateGloss(v) ? gateGloss(v)[0].toUpperCase() + gateGloss(v).slice(1) + '.' : '');
@@ -90,6 +96,29 @@ export function termCodes(html) {
   return String(html).replace(/\b[A-Z]{2,4}(?:\/[A-Z]{2,4})*\b/g, m => m.split('/').every(c => cmteOf(c)) ? termBtn(m, 'cmte:' + m) : m);
 }
 
+// v6: a line of escaped text with its Capitol codes said in words, for rows and sentences (D15: no codes in rows). A known
+// committee code, a joint pair as the Capitol writes it, becomes committeeName ("in HHS/CPN" -> "in Senate Health and
+// Human Services, and Commerce"); a draft code ("HD1", "SD2", "CD1") becomes versionWords. Anything else stays as it was.
+const isCmte = c => !!(cmteOf(c) || COMMITTEES[c]);
+export function plainCodes(html) {
+  return String(html ?? '')
+    .replace(/\b([HSCF]D\d{1,2})\b/g, m => versionWords(m))
+    .replace(/\b[A-Z]{2,4}(?:\/[A-Z]{2,4})*\b/g, m => m.split('/').every(isCmte) ? esc(committeeName(m)) : m);
+}
+// A code that stays in view (About this bill, the filing card), small beside its words and tap-to-explain:
+// "House Health (HLT)", "House draft 1 (HD1)".
+export const cmteTerm = code => `${esc(committeeName(code))} <span class="v6-code">(${term(code, 'cmte:' + code)})</span>`;
+export const verTerm = v => v ? `${esc(versionWords(v))} <span class="v6-code">(${term(v, 'ver:' + v)})</span>` : esc(versionWords(v));
+
+// Inside a sheet the meaning opens in place, under the word: another sheet would replace the one it is in (ui.js keeps one
+// sheet at a time), so a code in the quick look or a filing sheet explained nothing.
+function inlineTerm(b) {
+  const next = b.nextElementSibling;
+  if (next?.classList.contains('tm-inline')) { next.remove(); b.setAttribute('aria-expanded', 'false'); return; }
+  const m = meaning(b.dataset.term || '', b.dataset.tmore || '');
+  b.insertAdjacentHTML('afterend', `<span class="tm-inline" role="note"><b>${esc(m.title)}</b> ${esc(m.text)}</span>`);
+  b.setAttribute('aria-expanded', 'true');
+}
 function openTerm(b) {
   const m = meaning(b.dataset.term || '', b.dataset.tmore || '');
   b.setAttribute('aria-expanded', 'true');
@@ -99,9 +128,10 @@ function openTerm(b) {
     wire: d => { const a = d.querySelector('[data-tmgo]'); if (a) a.onclick = async e => { e.preventDefault(); b.setAttribute('aria-expanded', 'false'); await closeSheet({ silent: true }); S.go?.(a.getAttribute('href')); }; } });
 }
 // Capture: before a row's own click handler (a Bills or Legislators row opens its bill or legislator).
-document.addEventListener('click', e => {
-  const b = e.target?.closest?.('button[data-term]'); if (!b || b.closest('dialog')) return;
-  e.preventDefault(); e.stopPropagation(); openTerm(b);
+if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('click', e => {
+  const b = e.target?.closest?.('button[data-term]'); if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  if (b.closest('dialog')) inlineTerm(b); else openTerm(b);
 }, true);
 // A list's own keys (Enter opens the bill, x ticks the row) must not fire while a term has focus.
-document.addEventListener('keydown', e => { if (e.target?.matches?.('button[data-term]') && (e.key === 'Enter' || e.key === ' ' || e.key.length === 1)) e.stopPropagation(); }, true);
+if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('keydown', e => { if (e.target?.matches?.('button[data-term]') && (e.key === 'Enter' || e.key === ' ' || e.key.length === 1)) e.stopPropagation(); }, true);
