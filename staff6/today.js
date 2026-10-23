@@ -42,6 +42,8 @@ import { newSteps, markNewStep } from './help.js';
 import { moveMe, notGoing, keepAskUp, seedMoved } from './moved.js';
 import { pqItems, pqOthers, wantQueue, wantAsks, admitsPartners, approvesPartners, pqRow, pqItem, pqCard, wirePartner } from './partnerq.js';
 import { dailyWord } from './composer.js';
+// OUTREACH's one rallier rule and due time, and the ask's one home (This week's asks), so Today and Outreach never disagree (V20).
+import { rallierOf, askDueAt, askCardHref } from './asks.js';
 
 // Every name other screens import from './today.js' (v5's today), unchanged.
 export * from './today5.js';
@@ -66,10 +68,11 @@ const typing = t => t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t
 const owns = (id, b) => (S.assignments?.[b?.id] || []).includes(id);
 const ownerOf = b => (S.assignments?.[b?.id] || []).find(live) || null;
 const isPos = b => !!b && !!b.position && b.position !== 'monitor' && b.tracked !== false;
-// Coming up shows every row up to eight; only a longer list folds, behind "Show all 12 coming up", and never to hide one
-// or two rows (rule 3: nothing a person must do behind "Show more"; the fresh-eyes critic: Nate's laptop hid two of his own
-// steps and Kevin's 320px fold took the room of the row it hid). Rows due today are never folded.
-const SOON_SHOWN = 8;
+// Coming up shows the next three; a longer list folds the rest behind "Show 2 more coming up" (integrator, 23 Oct: Nate's
+// Today was 2 screens on a laptop and 3.4 on a phone against 1.2 and 2). It never folds a single row (the fold line takes
+// the room of the row it hides: the critic's 8), and nothing due today is ever in Coming up, so what must be done today is
+// never behind it (rule 3). Each folded row is the person's own and one tap away, still its own row (R-274).
+const SOON_SHOWN = 3;
 // Chair asks: a row when the notice must post within a week (a strong-support bill: two weeks, as v5's P1 rule), at most
 // three; the rest are D1's one line, "11 more of your bills need a hearing · ask the first chair by Mon 3/23 · Hearings".
 const ASK_ROWS = 3;
@@ -123,20 +126,9 @@ function orderOf(it) { return it.tone === 'overdue' ? ORDER.overdue : it.tone ==
 const byOrder = (x, y) => orderOf(x) - orderOf(y) || (x.at ?? Infinity) - (y.at ?? Infinity) || (RANK[x.kind] || 20) - (RANK[y.kind] || 20)
   || String(x.b?.bill_number || x.key).localeCompare(String(y.b?.bill_number || y.key), 'en', { numeric: true });
 
-// The rallier, without a migration (spec 6 W22, addendum 6): Saya on CTFH, else the coalition's owner, else the bill's.
-function rallierOf(b) {
-  const cs = (S.billCampaigns?.[b.id] || []).map(id => (S.campaigns || []).find(c => c.id === id)).filter(Boolean);
-  if (cs.some(c => c.name === 'CTFH')) { const sy = (S.advocates || []).find(a => a.initials === 'SY' && a.is_active !== false); if (sy) return sy.id; }
-  const co = cs.find(c => live(c.owner_id)); return co ? co.owner_id : ownerOf(b);
-}
-// The public ask is due 4:00 PM two days before the hearing, never later than the last 4:00 PM at least 12 h before written
-// testimony closes (settled, spec 2; R-025, R-116).
-function askDue(h) {
-  const d2 = hday(ms(h.scheduled_at) - 2 * DAY), two = ms(d2 + 'T16:00:00-10:00');
-  if (!h.testimony_deadline) return two;
-  const cut = ms(h.testimony_deadline) - 12 * HR, four = ms(hday(cut) + 'T16:00:00-10:00');
-  return Math.min(two, four <= cut ? four : four - DAY);
-}
+// The rallier and the ask's due time are asks.js's (OUTREACH): Saya on CTFH, else the coalition's owner, else the bill's
+// (spec 6 W22, addendum 6); 4:00 PM two days before the hearing, never later than the last 4:00 PM at least 12 h before
+// written testimony closes (settled, spec 2; R-025, R-116).
 const coalIds = a => { const c = a?.prefs?.coalitions; return Array.isArray(c) ? c : []; };
 const inCoal = (a, b) => { const ids = coalIds(a); return ids.length > 0 && (S.billCampaigns?.[b.id] || []).some(c => ids.includes(c)); };
 const ASK_RX = /^Send the ask\b/i;
@@ -194,14 +186,17 @@ function build(v) {
     if (near && out.own.filter(i => i.kind === 'chair').length < ASK_ROWS) add({ key: `ca:${r.b.id}`, kind: 'chair', b: r.b, s: r.s, at: r.by, tone: shownStatus(r.s)?.tone || 'neutral' });
     else out.asks.push(r);
   }
-  // ---- the public ask, the rallier's step two days before it is due (W22's fallback) ----
+  // ---- the public ask, the rallier's step two days before it is due (W22's fallback): a strong position's bill on the
+  // public page. Every bill with a position (OUTREACH's ask, V20) put 7 rows on Nate's practice Today, most already late,
+  // against spec 8's 1.2 screens; the others are on This week's asks (the rallier's door below), and widening it is Nate's
+  // call (the integrator's report) ----
   for (const h of S.hearings || []) {
     const t = ms(h.scheduled_at); if (h.status === 'cancelled' || t <= now || t - now > 7 * DAY) continue;
-    const b = billById(h.bill_id); if (!b || !['strongly_support', 'strongly_oppose'].includes(b.position) || diedish(b) || b.tracked === false) continue;
-    if (rallierOf(b) !== v.id) continue;
+    const b = billById(h.bill_id); if (!b || !['strongly_support', 'strongly_oppose'].includes(b.position) || !b.is_public || diedish(b) || b.tracked === false) continue;
+    if (!rallierOf(b).includes(v.id)) continue;
     out.rally.push({ b, h });
     if (liveAsk(b) || out.own.some(i => i.kind === 'rally' && i.b.id === b.id)) continue;
-    const due = askDue(h); if (now < due - 2 * DAY) continue;
+    const due = askDueAt(h); if (now < due - 2 * DAY) continue;
     add({ key: `ra:${b.id}`, kind: 'rally', b, h, at: due, tone: due <= now ? 'overdue' : 'neutral', due });
   }
   // ---- v5's own items: to-dos, follow-ups, emails, questions, the moved hearings (the same data, v6 rows) ----
@@ -270,7 +265,14 @@ function badgeOf() {
 // ---- rows ----
 const REG = new Map();   // the items drawn this draw, by key (a button or a picked row finds its record here)
 // A row for one item: the name, the bill number small, one line (D15). `ro`: a teammate's list, read-only and never in colour.
-function rowOf(it, { ro = false, v = S.me } = {}) {
+// A short button ("File", "Review", "Done") sits beside the row's words on a phone (.t6-sbtn, today.css); a long one
+// ("They replied", "Email the chairs") keeps its line under them, so the words never squeeze into a narrow column.
+function rowOf(it, opts = {}) {
+  const html = rowOf0(it, opts), m = /<span class="v6-row-act">([\s\S]*)<\/span><\/div>\s*$/.exec(html);
+  const t = m ? m[1].replace(/<[^>]+>/g, '').trim() : '';
+  return t && t.length <= 8 ? html.replace('<div class="v6-row', '<div class="t6-sbtn v6-row') : html;
+}
+function rowOf0(it, { ro = false, v = S.me } = {}) {
   REG.set(it.key, it);
   const pick = it.key, b = it.b;
   if (it.s && b && ['chair', 'followask', 'stale'].indexOf(it.kind) < 0) {
@@ -289,7 +291,8 @@ function rowOf(it, { ro = false, v = S.me } = {}) {
     return billRow(b, { viewer: v, step: it.s, pick, button: ro ? false : btn('They replied', { kind: 'secondary', sm: true, icon: 'message-square', attrs: { 'data-v6act': 'replied', 'data-v6b': b.id, 'data-v6code': a.code, 'aria-haspopup': 'dialog' } }) });
   }
   if (it.kind === 'stale') return billRow(b, { viewer: v, step: it.s, pick, button: false, line: nw(esc(`Check your testimony: the bill is now ${versionWords(b.current_version)}`)) });
-  const r = miniOf(it, v), due = dueTone(it, ro);
+  // Partner words say only what and what is new: the group's heading says "to approve" (fewer words per row).
+  const r = it.kind === 'partner' ? pqRow(it.p, { short: true }) : miniOf(it, v), due = dueTone(it, ro);
   return itemRow({ key: it.key, name: r.name, num: r.num, line: nw(plainCodes(esc(r.line))), tone: due.tone, icon: due.icon, bold: due.bold, href: r.href, pick: r.pick === false ? undefined : pick,
     button: ro ? '' : r.rowBtn && (it.tone === 'overdue' || it.at == null || it.at <= endOfDay()) ? r.rowBtn : '', cls: `t6-k-${it.kind}` });
 }
@@ -313,7 +316,7 @@ function miniOf(it, v = S.me) {
       const m = /\bfor the (\S+) hearing (\d{1,2})\/(\d{1,2})\s*$/.exec(it.t.title || ''), sh = it.share && m ? (S.hearings || []).find(h => h.bill_id === b.id && h.status !== 'cancelled' && new Date(h.scheduled_at).toLocaleDateString('en-US', { ...HST, month: 'numeric', day: 'numeric' }) === `${+m[2]}/${+m[3]}`) : null;
       const title = it.share ? `Send the public ask for the ${sh ? dayWords(sh.scheduled_at) : m ? `${+m[2]}/${+m[3]}` : 'next'} hearing` : it.t.title;
       const doneBtn = (k = 'secondary') => btn(it.share ? 'Done' : 'Done', { kind: k, sm: k !== 'primary', icon: 'check', attrs: { 'data-t6act': 'todo', 'data-t6k': it.key } });
-      return { name: nameWords(b), num: numWords(b), line: [when, clip(title, 96)].filter(Boolean).join(' · '), href: billRoute(b), what: title,
+      return { name: nameWords(b), num: numWords(b), line: [when, clip(title, 64)].filter(Boolean).join(' · '), href: billRoute(b), what: title,
         rowBtn: doneBtn(), buttons: k => [it.share ? btn('Open this week’s asks', { kind: k, icon: 'megaphone', href: '#/outreach' }) : doneBtn(k), it.share ? doneBtn('secondary') : '',
           // Give to… lives in the open item; the next-step card keeps to the step itself (V01: the first screen stays small)
           k === 'primary' ? '' : btn('Give to…', { kind: 'text', icon: 'user-round', attrs: { 'data-t6act': 'give', 'data-t6k': it.key, 'aria-haspopup': 'dialog' } })] };
@@ -321,7 +324,10 @@ function miniOf(it, v = S.me) {
     case 'followup': {
       const p = it.p || {}, name = p.name || p.email || 'A supporter', reach = p.phone ? btn('Call', { kind: 'text', icon: 'phone', href: `tel:${p.phone}` }) : p.email ? btn('Email', { kind: 'text', icon: 'mail', href: `mailto:${p.email}` }) : '';
       const doneBtn = (k = 'secondary') => btn('Done', { kind: k, sm: k !== 'primary', icon: 'check', attrs: { 'data-t6act': 'fu', 'data-t6k': it.key } });
-      return { name, num: '', line: [when, it.f.what ? `Follow up: ${clip(it.f.what, 88)}` : 'Follow up'].filter(Boolean).join(' · '), href: `#/person/${encodeURIComponent(it.f.person_id)}`, what: `Follow up with ${name}`,
+      // The row says the verb and the day, and the first few words of what about; the rest is in the open item (fewer
+      // words per row: Nate's Today was 335 words against 250).
+      const fu = it.at != null ? actBy({ kind: 'due', due: it.at, verb: 'Follow up' }).words : 'Follow up';
+      return { name, num: '', line: [fu, it.f.what ? clip(it.f.what, 34) : ''].filter(Boolean).join(' · '), href: `#/person/${encodeURIComponent(it.f.person_id)}`, what: `Follow up with ${name}`,
         sub: it.f.what || '', rowBtn: doneBtn(), buttons: k => [doneBtn(k), reach, btn('Open their page', { kind: 'text', href: `#/person/${encodeURIComponent(it.f.person_id)}` })] };
     }
     // A supporter email is named by its bill, nickname first and the number after (R-271, D15), as everywhere else on the
@@ -344,9 +350,11 @@ function miniOf(it, v = S.me) {
         buttons: k => [btn('Reply', { kind: k, icon: 'message-square', href })] };
     }
     case 'rally': {
-      const write = `${billRoute(b, 'public')}?focus=ask`, by = actBy({ kind: 'due', due: it.due, verb: 'Write the public ask' }).words;
+      // The ask is written on its card in This week's asks (OUTREACH, V20), which also copies it out; the bill's Public tab
+      // only when the bill has no card this week.
+      const write = askCardHref(b) || `${billRoute(b, 'public')}?focus=ask`, by = actBy({ kind: 'due', due: it.due, verb: 'Write the public ask' }).words;
       return { name: nameWords(b), num: numWords(b), line: by, href: write, what: 'Write the public ask', sub: `For the ${committeeName(it.h.committee) || it.h.committee} hearing ${whenAt(it.h.scheduled_at)}.`,
-        rowBtn: btn('Write it', { kind: 'secondary', sm: true, href: write }), buttons: k => [btn('Write it', { kind: k, icon: 'pencil', href: write }), btn('Open this week’s asks', { kind: 'text', href: '#/outreach' })] };
+        rowBtn: btn('Write it', { kind: 'secondary', sm: true, href: write }), buttons: k => [btn('Write it', { kind: k, icon: 'pencil', href: write })] };
     }
     case 'moved': return { name: nameWords(b), num: numWords(b), line: `Your ${committeeName(it.h.committee) || it.h.committee} hearing moved to ${whenAt(it.h.scheduled_at)} · still going?`, href: billRoute(b), what: 'Your hearing moved: still going?',
       rowBtn: btn('Yes, move me', { kind: 'secondary', sm: true, attrs: { 'data-t6act': 'moveme', 'data-t6k': it.key } }),
@@ -436,10 +444,12 @@ function leadLine() {
   const n = sl.rows.length; if (!n) return '';
   const now = Date.now(), over = sl.rows.filter(r => r.p && r.p.due != null && r.p.due <= now && !(r.p.h && ms(r.p.h.scheduled_at) > now && /file|review|revise|submit|write/.test(r.p.kind))).length;
   // Someone else's late step is said in words, never in colour (D3): the lead's own late work is on their own rows.
-  return lineA('#/team', 'users', `<b>${n} slipping</b> on the team${over ? `, ${over} overdue` : ''} · Open Team`, { cls: 't6-lead' });
+  return lineA('#/team', 'users', `<b>${n} slipping</b> on the team${over ? ` · ${over} overdue` : ''}`, { cls: 't6-lead' });
 }
-function doorLines(w, v = S.me, { coal = true } = {}) {
-  const out = [];
+// Each door is one short line (integrator 23 Oct: "doors as short lines"): the subject and at most one more fact. A lead's
+// slipping line is the first door (from 1100px it sits in the side column with the others; below, it also leads the list).
+function doorLines(w, v = S.me, { coal = true, lead = '' } = {}) {
+  const out = lead ? [lead] : [];
   // An admin's one line when the bill sync has not finished in a day and a half (F65; live only, in plain words, D3).
   if (v.is_admin && v.id === S.me?.id && !DEMO && !SESSION_OVER) {
     const lastOk = (S.syncRuns || []).find(r => r.ok)?.finished_at, failed = (S.syncRuns || [])[0]?.ok === false, hrs = lastOk ? Math.round((Date.now() - ms(lastOk)) / HR) : null;
@@ -447,20 +457,21 @@ function doorLines(w, v = S.me, { coal = true } = {}) {
   }
   if (w.waiting.length) out.push(lineA('#/', 'hourglass', `<b>Waiting on others</b> · ${w.waiting.length}`, { attrs: ' data-v6pick="waiting" data-t6wait' }));
   // D1: the ask-by day in the row's own words ("Ask the chair by Mon 3/23"), not "first notice", which did not say what notice.
-  if (w.asks.length) { const f = w.asks[0]; out.push(lineA('#/hearings/ask', 'landmark', `<b>${w.asks.length} ${w.own.some(i => i.kind === 'chair') ? 'more ' : ''}of your bills need a hearing</b> · ask the first chair by ${esc(dayWords(f.by))} · Hearings`)); }
+  if (w.asks.length) { const f = w.asks[0]; out.push(lineA('#/hearings/ask', 'landmark', `<b>${w.asks.length} ${w.own.some(i => i.kind === 'chair') ? 'more ' : ''}${w.asks.length === 1 ? 'bill needs' : 'bills need'} a hearing</b> · first ask by ${esc(dayWords(f.by))}`)); }
   if (w.coal.size && coal) {
     const owners = [...w.coal.entries()].sort((x, y) => y[1].n - x[1].n), n = owners.reduce((s, [, e]) => s + e.n, 0), by = Math.min(...owners.map(([, e]) => e.by));
     const who = orWords(owners.map(([id]) => id), v, { and: true });
-    out.push(lineA('#/hearings/ask', 'hand-heart', `<b>${esc(who)} ${owners.length > 1 ? 'have' : 'has'} ${n === 1 ? 'a hearing ask' : plural(n, 'hearing ask')} to make</b>, ${n === 1 ? 'by' : 'the first by'} ${esc(dayWords(by))} · Offer to help`));
+    // HEARINGS: the coalition's board, My coalitions (D4), where "I'll ask" takes one on.
+    out.push(lineA('#/hearings/ask?scope=coal', 'hand-heart', `<b>${esc(who)} ${owners.length > 1 ? 'have' : 'has'} ${n === 1 ? 'a hearing ask' : plural(n, 'hearing ask')}</b> · Offer to help`));
   }
   const rally = w.rally.filter((x, i, a) => a.findIndex(y => y.b.id === x.b.id) === i);
-  if (rally.length) out.push(lineA('#/outreach', 'megaphone', `<b>${plural(rally.length, 'public ask')} this week</b> · This week’s asks`));
+  if (rally.length) out.push(lineA('#/outreach', 'megaphone', `<b>${plural(rally.length, 'public ask')}</b> · This week’s asks`));
   // Whoever may hand them (an admin, an issue's owner): the same count and word as Team's block and bar (noOwnerBills).
   const no = noOwnerBills(v);
-  if (no.length) out.push(lineA(isLead(v) ? '#/team' : '#/my-issues', 'user-round', `<b>${plural(no.length, 'bill')} with no owner</b> · ${isLead(v) ? 'Team' : 'My issues'}`));
+  if (no.length) out.push(lineA(isLead(v) ? '#/team?who=none' : '#/my-issues', 'user-round', `<b>${plural(no.length, 'bill')} with no owner</b>`));
   if (admitsPartners(v)) {
-    const o = pqOthers(), parts = [o.groups.length ? `${plural(o.groups.length, 'group')} to approve` : '', o.requests.length ? `${plural(o.requests.length, 'group')} ${o.requests.length === 1 ? 'asks' : 'ask'} to join` : ''].filter(Boolean);
-    if (parts.length) out.push(lineA('#/partners', 'handshake', `<b>Partners</b> · ${esc(parts.join(' · '))}`));
+    const o = pqOthers(), parts = [o.groups.length ? `${plural(o.groups.length, 'group')} to approve` : '', o.requests.length ? `${o.requests.length} to join` : ''].filter(Boolean);
+    if (parts.length) out.push(lineA('#/partners', 'handshake', `<b>Partners</b> · ${esc(parts.join(', '))}`));
     if (S.pqErr) out.push(`<p class="t6-quiet">${icon('circle-alert')}<span>The partners’ words did not load.</span>${btn('Try again', { kind: 'text', sm: true, attrs: { 'data-t6act': 'pqretry' } })}</p>`);
   }
   return out;
@@ -505,27 +516,37 @@ function seasonCard(v = S.me, w = work(v), { where = 'col', hearings = null, dro
 }
 const sitKey = h => `${h.committee}|${h.scheduled_at}`;
 // A sitting's card with each of the viewer's own steps said once (A-14; the critic's 3 and 4). `drop`: bill ids whose step
-// is drawn elsewhere on the page; `lead`: the next step on a phone's hearing day, whose row moves first and carries the
-// screen's one filled button, in its own colour when it is late (V14: the big card is that step's home that day; D3).
-// Done on hearingCard's HTML here until steps.js takes { omit, lead } (asked as a shared change).
+// is drawn elsewhere on the page; `lead`: the next step when it is on this sitting, whose row moves first and carries the
+// screen's one filled button, in its own colour when it is late (V14: on a hearing day the card is that step's home, at
+// every width: the critic's 4 and 11, one next-step rule for laptop and phone; D3). `own`: bill ids whose step is the
+// viewer's, kept in sight; on a phone's big card (`big`) everyone else's rows fold into one "Team testimony · 3" line
+// (spec 6, Today on a phone on a hearing day: "others' revisions folded"), so Kris's Friday is one screen and a half.
+// Done on hearingCard's HTML here until steps.js takes { omit, lead, fold } (asked as a shared change).
 const LI = /<li class="v6-hcard-bill"><a class="v6-hcard-bl" href="([^"]*)"[\s\S]*?<\/li>/g;
-function sittingCard(h, { v = S.me, big = false, id = '', drop = null, lead = null } = {}) {
+function sittingCard(h, { v = S.me, big = false, id = '', drop = null, lead = null, own = null } = {}) {
   let html = hearingCard(h, { viewer: v, big, from: 'today', id });
-  const hrefOf = b => esc(billRoute(b)), gone = new Set([...(drop || [])].map(id => billById(id)).filter(Boolean).map(hrefOf));
+  const hrefOf = b => esc(billRoute(b)), ids = x => new Set([...(x || [])].map(i => billById(i)).filter(Boolean).map(hrefOf));
+  const gone = ids(drop), mine = ids(own);
   const leadHref = lead?.b ? hrefOf(lead.b) : null, tone = lead?.s?.status?.tone;
   let leadLi = '';
+  const team = [];
   html = html.replace(LI, (li, href) => {
     if (href === leadHref && !leadLi) {
       leadLi = li.replace('class="v6-hcard-bill"', 'class="v6-hcard-bill t6-hc-lead"').replace(/class="btn secondary sm"/, 'class="btn primary"')
         .replace(/class="v6-row-line(?: t-\w+)?/, `class="v6-row-line${tone === 'late' || tone === 'overdue' ? ' t-' + tone : ''}`);
       return '';
     }
-    return gone.has(href) ? '' : li;
+    if (gone.has(href)) return '';
+    if (big && own && !mine.has(href)) { team.push(li); return ''; }
+    return li;
   });
   if (leadLi) html = html.replace('<ul class="v6-hcard-bills">', `<ul class="v6-hcard-bills">${leadLi}`);
+  // The team's rows, folded under one line that still says how many (nothing of the viewer's own is in it: rule 3).
+  const fold = team.length ? `<details class="t6-hcteam"><summary>${icon('users')}<span><b>Team testimony</b> · ${team.length}</span>${icon('chevron-down', { cls: 't6-chev' })}</summary><ul class="v6-hcard-bills">${team.join('')}</ul></details>` : '';
   // With no bill left to list, the card is the sitting itself: its time, room, who is going and the stream.
-  if (/<ul class="v6-hcard-bills">\s*<\/ul>/.test(html)) html = html.replace(/<ul class="v6-hcard-bills">\s*<\/ul>/, '').replace('<span>Also heard: ', '<span>');
-  return html;
+  if (/<ul class="v6-hcard-bills">\s*<\/ul>/.test(html)) html = html.replace(/<ul class="v6-hcard-bills">\s*<\/ul>/, fold ? '<!--t6fold-->' : '').replace('<span>Also heard: ', '<span>');
+  else if (fold) html = html.replace(/(<ul class="v6-hcard-bills">[\s\S]*?<\/ul>)/, '$1<!--t6fold-->');
+  return fold ? html.replace('<!--t6fold-->', fold) : html;
 }
 function seasonBody(season, v, w, { skipH = null } = {}) {
   const now = Date.now(), p = (txt, ic = '') => `<p class="t6-sl">${ic ? icon(ic) : ''}<span>${txt}</span></p>`;
@@ -665,12 +686,12 @@ export function listHTML(v = S.me, { ro = false, skip = null, soonN = SOON_SHOWN
   const w = work(v), g0 = groupsOf(w), more = !!S.t6More, nx = g0.next;
   const keep = i => i !== nx && (!skip || !skip(i));
   const today = g0.today.filter(keep), soon = g0.soon.filter(keep), partner = g0.partner.filter(keep);
-  // Fold only a long Coming up, and never to hide one or two rows (rule 3).
-  const fold = !more && soon.length > soonN + 2, shown = fold ? soon.slice(0, soonN) : soon, rest = soon.length - shown.length;
+  // Fold Coming up after the next three, never to hide a single row.
+  const fold = !more && soon.length > soonN + 1, shown = fold ? soon.slice(0, soonN) : soon, rest = soon.length - shown.length;
   // `hideHear`: the next step's sitting is a card on the same page (a hearing day), so its card leaves out the hearing line.
   const nextH = (n = '') => nx ? `<section class="t6-next${hideHear ? ' t6-nohear' : ''}" aria-labelledby="t6-next-t${n}"><h2 class="t6-nexth" id="t6-next-t${n}">${ro ? `${esc(first(v.id))}’s next step` : 'Your next step'}</h2>${ro ? roCard(nx, v) : nextCard(nx, v, 't6-next-h' + n)}</section>`
     : clearCard(v, w, ro, n);
-  const showMore = rest > 0 || (more && soon.length > soonN + 2) ? `<p class="t6-more">${btn(more ? 'Show fewer' : `Show all ${soon.length} coming up`, { kind: 'text', icon: more ? 'chevron-up' : 'chevron-down', attrs: { 'data-t6act': 'more', 'aria-expanded': String(more) } })}</p>` : '';
+  const showMore = rest > 0 || (more && soon.length > soonN + 1) ? `<p class="t6-more">${btn(more ? 'Show fewer' : `Show ${rest} more coming up`, { kind: 'text', icon: more ? 'chevron-up' : 'chevron-down', attrs: { 'data-t6act': 'more', 'aria-expanded': String(more) } })}</p>` : '';
   const groups = `${groupHTML('today', 'Do today', today.map(i => rowOf(i, { ro, v })).join(''))}${groupHTML('soon', 'Coming up', shown.map(i => rowOf(i, { ro, v })).join(''), showMore)}${groupHTML('pq', 'Partner words to approve', partner.map(i => rowOf(i, { ro, v })).join(''))}`;
   return { w, g: { today, soon, partner, next: nx }, nextH, groups, html: nextH() + groups, rows: today.length + shown.length + partner.length + (rest > 0 ? 1 : 0) };
 }
@@ -695,30 +716,41 @@ function clearCard(v, w, ro, n = '') {
     : nh && !onPage ? `Next hearing: ${whenAt(nh.scheduled_at)}, ${committeeName(nh.committee) || nh.committee}.` : SESSION_OVER ? 'Hearings return when the next session opens.' : '';
   // With nothing of their own, the one filled button is the most useful next place: the coalition's hearing asks for a
   // helper (D4), the next hearing, or Hearings.
-  const go = ro ? '' : lost ? btn('Pick your coalition', { href: '#/my-issues/coalitions' }) : w.coal.size ? btn('Offer to help', { icon: 'hand-heart', href: '#/hearings/ask' })
+  const go = ro ? '' : lost ? btn('Pick your coalition', { href: '#/my-issues/coalitions' }) : w.coal.size ? btn('Offer to help', { icon: 'hand-heart', href: '#/hearings/ask?scope=coal' })
     : nh ? btn('Open the hearing', { icon: 'landmark', href: `#/hearing/${encodeURIComponent(nh.id)}?from=today` })
     : ['conference', 'governor'].includes(seasonOf()) ? btn('Open your bills', { icon: 'file-text', href: '#/bills' }) : SESSION_OVER || seasonOf() === 'prep' || seasonOf() === 'between' ? '' : btn('Open Hearings', { icon: 'landmark', href: '#/hearings' });
   return `<section class="t6-clear" aria-labelledby="t6-clear-h${n}"><h2 class="t6-clh" id="t6-clear-h${n}">${ro ? `Nothing is waiting on ${esc(first(v.id))}.` : lost ? 'Pick the coalition you help on' : 'Nothing needs you today.'}</h2>
     ${lost ? '<p>Its hearings and testimony show here once you switch on I help on it.</p>' : text ? `<p>${nw(esc(text))}</p>` : ''}${go ? `<p class="t6-clgo">${go}</p>` : ''}</section>`;
 }
 // What a draw of Today is made of, worked out once (render, and the side column when a picked item closes).
-// Each own step on today's sittings is said once (A-14; the critic's 3 and 4): on a phone's hearing day inside its big card
-// (the next step's row first, with the screen's one filled button: V14); at other widths in the list and the next-step
-// card, the sitting's card (the season card's slot, addendum 3) keeping the others' steps.
+// Each own step on today's sittings is said once (A-14; the critic's 3 and 4). When the next step is on one of today's
+// sittings, that sitting's card is the next step, at every width (the critic's 4 and 11: one next-step rule for laptop and
+// phone): its row first with the screen's one filled button, the card's time, room and I'm going around it, under "Your
+// next step" (a phone's big card has no heading: its time leads the screen). The person's other own steps on a sitting
+// are their rows in the list (a phone keeps them inside the big card, where the team's rows fold).
 function plan(v = S.me) {
   const w = work(v), g = groupsOf(w), next = g.next, sits = sittingsToday(v, w), phone = PHONE();
   const onSit = new Set(sits.map(sitKey)), onCard = i => !!(i && i.b && i.h && isPos(i.b) && onSit.has(sitKey(i.h)));
-  const phoneDay = phone && sits.length > 0, nextOnCard = phoneDay && onCard(next);
+  const phoneDay = phone && sits.length > 0;
+  // Only when the card can carry the step's own button (D16), so the filled button is never lost.
+  const nextSit = onCard(next) && next.s && rowButtonOK(next.s) ? sits.find(h => sitKey(h) === sitKey(next.h)) || null : null;
   const drop = h => new Set(w.own.filter(i => onCard(i) && sitKey(i.h) === sitKey(h)).map(i => i.b.id));
   // The sitting the next step (or, with nothing to do, the quiet card) already names, so the season card does not.
   const nh = next ? null : nextHearing(v, w), skipH = next?.h ? sitKey(next.h) : nh ? sitKey(nh) : null;
   const rows = [...g.today, ...g.soon, ...g.partner].filter(i => i !== next && !(phoneDay && onCard(i))).length;
-  // From 1100px on a day with rows and no sitting, the next step (and Getting started under it) leads the side column beside
-  // the list, so the lists start at the top of the first screen (spec 8: Kevin's chair ask, Email the chair, on his first
-  // screen; the page near 1.2 screens). On a hearing day the side column is the person's sittings and the next step leads
-  // the work column; on a quiet day (nothing to list) it leads the work column too.
-  const sideNext = !!next && rows > 0 && !sits.length;
-  return { w, g, next, sits, phone, phoneDay, onCard, nextOnCard, drop, skipH, rows, sideNext, hideHear: !!(next && onCard(next)) };
+  // From 1100px on a day with rows, the next step (and Getting started under it) leads the side column beside the list, so
+  // the lists start at the top of the first screen (spec 8: Kevin's chair ask, Email the chair, on his first screen; the
+  // page near 1.2 screens); on a hearing day the person's other sittings follow it there. On a quiet day (nothing to list),
+  // or a hearing day with a short list and another sitting (Lauren's Tuesday: one row beside two hearing cards), it leads
+  // the work column, so neither column runs on alone.
+  const others = nextSit ? sits.filter(h => h !== nextSit) : sits;
+  const sideNext = !!next && rows > 0 && (rows >= 3 || !others.length);
+  return { w, g, next, sits, others, phone, phoneDay, onCard, nextSit, nextOnCard: !!nextSit, drop, skipH, rows, sideNext, hideHear: !!(next && onCard(next)) };
+}
+// "Your next step": the step card, or on a hearing day the sitting's card with the step's row leading it.
+function nextSec(P, L, n = '', v = S.me) {
+  if (!P.nextSit) return L.nextH(n);
+  return `<section class="t6-next t6-nextsit" aria-labelledby="t6-next-t${n}"><h2 class="t6-nexth" id="t6-next-t${n}">Your next step</h2>${sittingCard(P.nextSit, { v, id: `t6-hcn${n}`, lead: P.next, drop: P.drop(P.nextSit) })}</section>`;
 }
 function render(route) {
   // v5's This week, under the Hearings stub, until HEARINGS replaces hearings.js (FRAME's stub hands it here).
@@ -729,48 +761,52 @@ function render(route) {
   loads();
   const bd = badgeOf(), P = plan(v), { w, sits, phone, phoneDay } = P;
   const L = listHTML(v, { skip: phoneDay ? P.onCard : null, hideHear: P.hideHear });
-  const lines = doorLines(w, v, { coal: !!P.next || !w.coal.size }), lead = leadLine(), done = doneBand(v);
+  const coal = !!P.next || !w.coal.size, lead = leadLine(), done = doneBand(v);
   // Getting started sits right under the next step (the critic's 11), as one line on a phone (R-316 W7); at the Capitol on
   // a phone's hearing day it is not the job, so it waits for the laptop.
   const start = phoneDay ? '' : startCard(v, { line: phone });
   const picked = S.v6ld?.today?.key ?? null, item = picked === 'waiting' ? waitingItem(v) : picked != null && REG.has(picked) ? itemFor(picked, v) : '';
   if (picked != null && !item) S.v6ld.today.key = null;
   // A phone's hearing day (V14): one big card per sitting first (time and room at a glance), the person's own step inside
-  // it with the filled button; the next-step card only when the next step is not on a sitting.
-  const big = phoneDay ? `<section class="t6-hday-ph" aria-label="Your hearings today">${sits.map((h, i) => sittingCard(h, { v, big: true, id: `t6-hcb-${i}`, lead: P.nextOnCard && sitKey(P.next.h) === sitKey(h) ? P.next : null })).join('')}</section>` : '';
-  // Below 1100px (not a phone) a hearing day's sittings come right under the next step; from 1100px they are the side
-  // column's season card. Any other season card closes the column below 1100px, beside the doors from 768px.
-  const seasonCol = phone && sits.length ? '' : seasonCard(v, w, { where: 'col', hearings: sits, drop: P.drop, skipH: P.skipH });
-  const seasonSide = seasonCard(v, w, { where: 'side', hearings: sits, drop: P.drop, skipH: P.skipH });
-  const hday = !!sits.length && !phone, doors = doorsNav(lines);
+  // it with the filled button, the team's rows folded; the next-step card only when the next step is not on a sitting.
+  const big = phoneDay ? `<section class="t6-hday-ph" aria-label="Your hearings today">${sits.map((h, i) => sittingCard(h, { v, big: true, id: `t6-hcb-${i}`, lead: P.nextSit === h ? P.next : null, own: P.drop(h) })).join('')}</section>` : '';
+  // Below 1100px (not a phone) the day's other sittings come right under the next step; from 1100px they are in the side
+  // column. Any other season card closes the column below 1100px, beside the doors from 768px.
+  const seasonCol = phone && sits.length ? '' : seasonCard(v, w, { where: 'col', hearings: P.others, drop: P.drop, skipH: P.skipH });
+  const hday = P.others.length > 0 && !phone, doors = doorsNav(doorLines(w, v, { coal }));
   const edge = doors || (!hday && seasonCol) ? `<div class="t6-edges">${doors}${!hday && seasonCol ? `<div class="t6-colonly">${seasonCol}</div>` : ''}</div>` : '';
   // Nothing for the side column and nothing to list: one calm reading column (the side opens when a door does).
-  const alone = !P.rows && !seasonSide && !doors, sideNext = P.sideNext;
+  const side = sideHTML(v, P, L), alone = !P.rows && !/t6-season|t6-doors/.test(side), sideNext = P.sideNext;
   return `<div class="t6-root${phone ? ' ph' : ''}${!P.rows ? ' t6-solo' : ''}${alone ? ' t6-alone' : ''}${sideNext ? ' t6-sidenext' : ''}">
     <header class="t6-head"><h1 class="v6-ptitle sv-h1 t6-h1" id="t6-h1" tabindex="-1">Today</h1>${dateLine(bd)}</header>
     <div class="v6-ld t6-ld${item ? ' open' : ''}" data-v6ld="today">
       <div class="t6-col">
-        ${big}${P.nextOnCard ? '' : `<div class="t6-nextcol">${L.nextH()}</div>`}${start ? `<div class="t6-startcol">${start}</div>` : ''}${lead ? `<nav class="t6-doors t6-leadl" aria-label="The team">${lead}</nav>` : ''}
+        ${big}${phoneDay && P.nextSit ? '' : `<div class="t6-nextcol">${nextSec(P, L, '', v)}</div>`}${start ? `<div class="t6-startcol">${start}</div>` : ''}${lead ? `<nav class="t6-doors t6-leadl" aria-label="The team">${lead}</nav>` : ''}
         ${hday && seasonCol ? `<div class="t6-colonly">${seasonCol}</div>` : ''}${L.groups}${edge}${done}
       </div>
       <aside class="v6-ld-detail t6-aside" aria-label="${item ? 'The item you picked' : sideNext ? 'Your next step and season' : 'Your season'}">${item ? `<button type="button" class="v6-ld-back" data-v6ldback>${icon('chevron-left')}<span>Back to the list</span></button>${sideNext ? nextStrip(v) : ''}${item}`
-        : sideOf({ next: sideNext ? L.nextH('-s') : '', start: sideNext && !phone ? startCard(v, { n: '-s' }) : '', season: seasonSide, doors, rows: P.rows })}</aside>
+        : side}</aside>
     </div></div>`;
 }
 // The side column from 1100px while no row is picked: on a busy day the next step (the screen's one filled button) with
-// Getting started directly under it (the critic's 11), then the season card (on a hearing day, the person's sittings), the
-// one-line doors and where a picked row opens. It scrolls with the page, so nothing in it is ever out of sight below its
-// own end (the critic's 1: no inner scroll area, which a Mac draws with no scrollbar). A picked row takes the side
-// column's place, sticky beside the list, under one line that keeps the next step in sight and brings it back (the
-// critic's 2: the one urgent thing never leaves the screen); while it is open the doors close the work column instead
-// (.t6-edges), so none of them is out of reach either. On a hearing day or a quiet day the next step leads the work
-// column. Below 1100px the work column holds it all, the next step first, the doors after the lists, before Done today.
+// Getting started directly under it (the critic's 11), then the season card (on a hearing day, the person's other
+// sittings), the one-line doors (a lead's slipping line first) and where a picked row opens. It scrolls with the page, so
+// nothing in it is ever out of sight below its own end (the critic's 1: no inner scroll area, which a Mac draws with no
+// scrollbar). A picked row takes the side column's place, sticky beside the list, under one line that keeps the next step
+// in sight and brings it back (the critic's 2: the one urgent thing never leaves the screen); while it is open the doors
+// close the work column instead (.t6-edges) and the slipping line leads it, so none of them is out of reach either. On a
+// quiet day the next step leads the work column. Below 1100px the work column holds it all, the next step first, the
+// slipping line under it, the doors after the lists, before Done today.
 const doorsNav = lines => lines.length ? `<nav class="t6-doors" aria-label="More about your work">${lines.join('')}</nav>` : '';
 const sideOf = ({ next = '', start = '', season = '', doors = '', rows = 0 }) => `${next}${start}${season}${doors}${rows ? `<p class="t6-pick">${icon('arrow-left')}<span>Pick a row to see its steps</span></p>` : ''}`;
+function sideHTML(v, P, L) {
+  return sideOf({ next: P.sideNext ? nextSec(P, L, '-s', v) : '', start: P.sideNext && !P.phone ? startCard(v, { n: '-s' }) : '',
+    season: seasonCard(v, P.w, { where: 'side', hearings: P.others, drop: P.drop, skipH: P.skipH }),
+    doors: doorsNav(doorLines(P.w, v, { coal: !!P.next || !P.w.coal.size, lead: leadLine() })), rows: P.rows });
+}
 function edgeHTML(v = S.me) {
   const P = plan(v), L = P.sideNext ? listHTML(v, { hideHear: P.hideHear }) : null;
-  return sideOf({ next: L ? L.nextH('-s') : '', start: L && !P.phone ? startCard(v, { n: '-s' }) : '', season: seasonCard(v, P.w, { where: 'side', hearings: P.sits, drop: P.drop, skipH: P.skipH }),
-    doors: doorsNav(doorLines(P.w, v, { coal: !!P.next || !P.w.coal.size })), rows: P.rows });
+  return sideHTML(v, P, L);
 }
 // While a picked row fills the side column on a busy day: the next step said in one line above it; a click closes the item
 // and the full card is back (wireListDetail closes on [data-v6ldclose]).

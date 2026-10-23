@@ -187,7 +187,8 @@ function goingHTML(c) {
 // share kit becomes a link to that card). Shown only while there is a public bill with a position still to be heard.
 function shareHTML(c) {
   if (c.over || c.cancelled || !c.items.some(x => isPos(x.b) && x.b.is_public && x.h.status !== 'cancelled')) return '';
-  return `<a class="hr-share" id="hr-kit" href="#/outreach">${icon('megaphone')}<span class="hr-door-t"><span class="hr-door-l">Rally the public for this hearing</span><span class="hr-door-s">The ask, its link and a ready message are on This week’s asks</span></span>${icon('chevron-right', { cls: 'v6-chev' })}</a>`;
+  // OUTREACH (F132, V20): one link, to this sitting's cards (#/outreach?hearing=<id> picks them out).
+  return `<a class="hr-share" id="hr-kit" href="#/outreach?hearing=${encodeURIComponent(c.h.id)}">${icon('megaphone')}<span class="hr-door-t"><span class="hr-door-l">Share these bills</span><span class="hr-door-s">The ask, its link and a ready message are on This week’s asks</span></span>${icon('chevron-right', { cls: 'v6-chev' })}</a>`;
 }
 // "Democrat, House district 44": the party and the seat in words, not "D-HD 44" (rule 7.12, C-10: no codes in rows).
 const PARTY = { D: 'Democrat', R: 'Republican', I: 'Independent', G: 'Green', L: 'Libertarian' };
@@ -251,17 +252,6 @@ function pageHTML(c, back) {
   </div>`;
 }
 
-// v4 (R-269): ?kit=1 (Today's "Send the ask") lands on the door to This week's asks, focused, once per arrival.
-function landOnKit() {
-  const land = () => {
-    const kit = document.getElementById('hr-kit'); if (!kit) return;
-    const hb = Math.max(0, document.querySelector('.sv-hdr')?.getBoundingClientRect().bottom || 0) + 12;
-    window.scrollTo(0, Math.max(0, Math.round(kit.getBoundingClientRect().top + window.scrollY - hb)));
-    if (document.activeElement !== kit) kit.focus({ preventScroll: true });
-  };
-  S.scrollClaimed = true;   // app.js's Back restore would otherwise put the page back at the top
-  requestAnimationFrame(land); setTimeout(land, 200);
-}
 
 // ---- actions ----
 // An admin sends a teammate. The people who own these bills come first; the database tells the person by Slack (064),
@@ -333,7 +323,8 @@ export default {
     const root = app.querySelector('.hr-page'), h = hearingById(route.id); if (!root || !h) return;
     wireSteps(root, { after: () => rerender() });
     wireLinks(root); wireMoved(root, { toast, redraw: () => hooks.render() });   // W53
-    if (route.q?.kit && viewIsNew()) landOnKit();
+    // An old ?kit=1 link (v4's "Send the ask") goes on to the share tools' one home, this sitting's cards (OUTREACH, F132).
+    if (route.q?.kit && viewIsNew()) { S.go(`#/outreach?hearing=${encodeURIComponent(h.id)}`, { replace: true }); return; }
     const c = context(h);
     root.querySelector('[data-hrput]')?.addEventListener('click', () => putDown(c));
     root.querySelector('[data-hrvideo]')?.addEventListener('click', () => fixVideo(c));

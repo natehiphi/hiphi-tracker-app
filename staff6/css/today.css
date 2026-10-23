@@ -903,15 +903,22 @@ body.staff6 .t6-season.t6-hday .t6-sh { padding: 4px 8px 0; }
 body.staff6 .t6-season.t6-hday .v6-hcard { box-shadow: none; padding: 8px; background: transparent; }
 body.staff6 .t6-season.t6-hday .v6-hcard + .v6-hcard { border-top: 1px solid var(--v6-hair); border-radius: 0; padding-top: 16px; }
 @media (min-width: 1100px) {
-  body.staff6 .t6-aside .t6-season.t6-hday .v6-hcard { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  body.staff6 .t6-aside .t6-season.t6-hday .v6-hcard, body.staff6 .t6-aside .t6-nextsit .v6-hcard { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   /* the narrow side column draws the sitting as a phone does: "9:30 AM  Today · Room 430" on one line, Open the hearing
      under the name, Going and I'm going on one line, so two sittings fit beside a laptop's list */
-  body.staff6 .t6-aside .t6-hday .v6-hcard-when { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
-  body.staff6 .t6-aside .t6-hday .v6-hcard-room { display: inline; }
-  body.staff6 .t6-aside .t6-hday .v6-hcard-room::before { content: ' · '; }
-  body.staff6 .t6-aside .t6-hday .v6-hcard-cn { flex-basis: 100%; }
-  body.staff6 .t6-aside .t6-hday .v6-hcard-open { margin-left: 0; }
-  body.staff6 .t6-aside .t6-hday .v6-hcard-going > span { flex: 1 1 96px; }
+  body.staff6 .t6-aside :is(.t6-hday, .t6-nextsit) .v6-hcard-when { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+  body.staff6 .t6-aside :is(.t6-hday, .t6-nextsit) .v6-hcard-room { display: inline; }
+  body.staff6 .t6-aside :is(.t6-hday, .t6-nextsit) .v6-hcard-room::before { content: ' · '; }
+  body.staff6 .t6-aside :is(.t6-hday, .t6-nextsit) .v6-hcard-cn { flex-basis: 100%; }
+  body.staff6 .t6-aside :is(.t6-hday, .t6-nextsit) .v6-hcard-open { margin-left: 0; }
+  body.staff6 .t6-aside :is(.t6-hday, .t6-nextsit) .v6-hcard-going > span { flex: 1 1 96px; }
+  body.staff6 .t6-aside .t6-nextsit .v6-hcard { padding: 20px; }
+  /* the next step's row in a narrow card: its words over the filled button, which keeps its full size */
+  body.staff6 .t6-aside .t6-hc-lead { flex-wrap: wrap; gap: 0 12px; }
+  body.staff6 .t6-aside .t6-hc-lead .v6-hcard-bl { flex: 1 1 100%; }
+  body.staff6 .t6-aside .t6-hc-lead .v6-row-act { padding: 0 0 12px; }
+  /* the slipping line is the side column's first door while nothing is picked (one copy in sight) */
+  body.staff6 .t6-ld:not(.open) > .t6-col > .t6-leadl { display: none; }
 }
 
 /* the hint where the picked item opens */
@@ -1011,8 +1018,30 @@ body.staff6 .t6-root .v6-row-top, body.staff6 .tm6-root .v6-row-top { flex-wrap:
 body.staff6 .t6-root .v6-row-name, body.staff6 .tm6-root .v6-row-name { white-space: normal; overflow: visible; }
 /* a sitting's card says each bill's whole line: the words that explain its colour are never cut (the critic's low on D3) */
 body.staff6 .t6-root .v6-hcard .v6-row-line > span { display: block !important; -webkit-line-clamp: none !important; overflow: visible !important; }
-/* a phone's hearing day: the next step's row in its sitting's card, first, with the screen's one filled button (V14) */
+/* a hearing day: the next step's row in its sitting's card, first, with the screen's one filled button (V14) */
 body.staff6 .t6-hc-lead .v6-row-act .btn.primary { min-height: 44px; }
+/* a phone's big card: the team's rows folded under one line that says how many (spec 6: others' revisions folded) */
+body.staff6 .t6-hcteam { margin: 4px 0 0; border-top: 1px solid var(--v6-hair); }
+body.staff6 .t6-hcteam > summary { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 0; list-style: none; cursor: pointer; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
+body.staff6 .t6-hcteam > summary::-webkit-details-marker { display: none; }
+body.staff6 .t6-hcteam > summary > span { flex: 1; }
+body.staff6 .t6-hcteam > summary b { font-weight: 400; color: var(--v6-ink); }
+body.staff6 .t6-hcteam > summary > svg:first-child { width: 20px; height: 20px; flex: none; color: var(--v6-muted); }
+body.staff6 .t6-hcteam > summary:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: var(--v6-r12); }
+/* a phone: a long name wraps and the bill number runs on after it on the same line, rather than taking a line of its own */
+@media (max-width: 767px) {
+  body.staff6 .t6-root .t6-list .v6-row-top { display: block; }
+  body.staff6 .t6-root .t6-list .v6-row-name { display: inline; }
+  body.staff6 .t6-root .t6-list .v6-row-name::after { content: ' '; }   /* a breakable space: a number that wraps starts its line flush */
+  body.staff6 .t6-root .t6-list .v6-row-num { display: inline; white-space: nowrap; margin-left: 2px; }
+}
+/* a phone from 360px: a row's short button (File, Review, Done) sits beside its words, not on a line of its own (Nate's
+   phone Today was 3.35 screens against 2); a long one, and every one below 360px, goes under them (steps.css) */
+@media (min-width: 360px) and (max-width: 420px) {
+  body.staff6 .t6-root .t6-list .v6-row.t6-sbtn { flex-wrap: nowrap; gap: 8px; }
+  body.staff6 .t6-root .t6-list .t6-sbtn .v6-row-main { flex: 1 1 auto; }
+  body.staff6 .t6-root .t6-list .t6-sbtn .v6-row-act { padding: 0; }
+}
 body.staff6 .t6-clgo { margin: 4px 0 0; }
 @media (min-width: 768px) { body.staff6 .t6-col { gap: 24px; } }
 
@@ -1068,3 +1097,5 @@ body.staff6 .t6-edges { display: grid; grid-template-columns: minmax(0, 1fr); ga
 body.staff6 .t6-edges > * { margin: 0; }
 @media (min-width: 768px) and (max-width: 1099px) { body.staff6 .t6-edges:has(> :nth-child(2)) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
+/* the partner card's "How it goes out", under its buttons: one fold among the card's folds, no rule above it */
+body.staff6 .pq6 .pq-askhow { margin: 0; padding: 0; border: 0; box-shadow: none; background: none; }

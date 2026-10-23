@@ -33,7 +33,8 @@ export const admitsPartners = (a = S.me) => !!a && a.is_active !== false && (!!a
 export const firstName = id => (S.advocates.find(a => a.id === id)?.full_name || '').split(' ')[0];
 // The other approvers, by first name ("Jess"), for "Waits for Jess to approve".
 export const otherApprovers = (except = S.me?.id) => S.advocates.filter(a => approvesPartners(a) && a.id !== except).map(a => a.full_name.split(' ')[0]);
-export const orList = names => names.length <= 1 ? names[0] || 'a second approver' : `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`;
+// No names: "a partner approver", the role's own name (C-15: "a second approver" is testimony's role, LEAD's ask).
+export const orList = names => names.length <= 1 ? names[0] || 'a partner approver' : `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`;
 
 // ---- words ----
 export const sideWord = s => POS_WORD[s] || s;
@@ -304,23 +305,34 @@ const pqLine = it => {
   return [what, it.live ? 'changed their words' : '', it.kind === 'bill' && it.words?.ask ? 'adds an ask' : it.kind === 'bill' && it.flag && it.flag !== 'none' ? 'worth a closer look' : ''].filter(Boolean).slice(0, 2).join(' · ');
 };
 const pqOpen = (k = 'text') => btn('Open Partners', { kind: k, icon: 'handshake', href: '#/partners' });
-// The words today.js needs for a row: { name, num, line, href, what, sub, buttons(kind) }.
-export function pqRow(it) {
+// A row under Today's "Partner words to approve": what and what is new, without the verb its heading already says
+// ("Warning labels on sugary drinks · changed their words"; fewer words per row, integrator 23 Oct).
+const pqShort = it => {
+  const what = it.kind === 'issue' ? `Their issue “${clip(it.words?.name || '', 40)}”` : clip(nameOf(it), 44);
+  return [what, it.live ? 'changed their words' : it.kind === 'bill' && it.words?.ask ? 'adds an ask' : it.kind === 'bill' && it.flag && it.flag !== 'none' ? 'worth a closer look' : ''].filter(Boolean).join(' · ');
+};
+// The words today.js needs for a row: { name, num, line, href, what, sub, buttons(kind) }. `short`: the row's line under
+// the group's heading.
+export function pqRow(it, { short = false } = {}) {
   const b = it.kind === 'bill' ? billOf(it) : null;
-  return { name: it.partner_name, num: b ? numWords(b) : '', line: pqLine(it), href: groupHref(it.partner_slug), what: pqLine(it).split(' · ')[0],
+  return { name: it.partner_name, num: b ? numWords(b) : '', line: short ? pqShort(it) : pqLine(it), href: groupHref(it.partner_slug), what: pqLine(it).split(' · ')[0],
     sub: sentLine(it), buttons: k => [btn('Approve', { kind: k, icon: 'check', attrs: { 'data-pqok': keyOf(it) } }), btn('Ask for a change', { kind: 'text', icon: 'message-square', attrs: { 'data-pqask': keyOf(it), 'aria-haspopup': 'dialog' } }), pqOpen()] };
 }
-// The next-step card: the group, what to approve, the closer-look flag, every word one fold away, the ask, then Approve.
+// The next-step card: the group, what to approve, the closer-look flag, the ask, then Approve; every word, and how the ask
+// goes out, one fold away under the buttons (Nate's November card put Approve below a 320 phone's first screen; the doors'
+// Partners line is the way to the Partners screen, so the card leaves out Open Partners).
 export function pqCard(it, { id = 't6-next-h' } = {}) {
   const r = pqRow(it), w = it.words || {};
+  const ask = askHTML(it, 'c', { fold: true }), how = ask.match(/<details class="pq-more pq-how"[\s\S]*?<\/details>/)?.[0] || '';
   return `<section class="v6-step own named w-today t6-mini pq6" aria-labelledby="${id}" data-pqcard="${esc(keyOf(it))}">
     <p class="v6-step-bill"><span class="v6-step-bn">${esc(r.name)}</span>${r.num ? ` <span class="v6-row-num">${esc(r.num)}</span>` : ''}</p>
     <h3 class="v6-step-what" id="${id}">${esc(r.what)}</h3>
     <p class="v6-step-when">${esc(sentLine(it))}</p>
     ${it.kind === 'bill' ? flagLine(it.flag) : ''}
+    ${how ? ask.replace(how, '') : ask}
+    <div class="v6-step-acts">${acts(it, true)}</div>
     <details class="pq-more"><summary>${icon('chevron-down', { cls: 'chev' })}<span>Read all the words${it.live ? ' and what changed' : ''}</span></summary>${changes(w, it.live)}<div class="pq-sec">${wordsHTML(it, { ask: false })}</div></details>
-    ${askHTML(it, 'c', { fold: true })}
-    <div class="v6-step-acts">${acts(it, true)}${pqOpen()}</div></section>`;
+    ${how ? `<div class="pq-ask pq-askhow" data-pqaskbox="${esc(keyOf(it))}">${how}</div>` : ''}</section>`;
 }
 // The open item beside the list (or its own page below 1100px), with Approve tonal.
 export function pqItem(it, { close = '' } = {}) {
@@ -364,6 +376,7 @@ function lineErr(k, m) {
     if (b.dataset.pqaskbox !== k) continue;
     const e = b.querySelector('[data-pqterr]'), inp = b.querySelector('[data-pqline]');
     if (e) e.innerHTML = errLine(m);
+    e?.closest('details')?.setAttribute('open', '');   // a folded "How it goes out" opens to show it
     if (inp) { inp.setAttribute('aria-invalid', 'true'); inp.focus(); }
   }
 }

@@ -22,7 +22,7 @@ import { billStep, billRow, itemRow, rowButton, rowButtonOK, nameWords, numWords
   committeeName, goingWords, askWords, nw, wireSteps } from './steps.js';
 import { plainCodes } from './terms.js';
 import { isLead } from './more.js';
-import { ownerProgress } from './prep.js';
+import { ownerProgress, BOARD_HREF } from './prep.js';
 import { pqItems, pqOthers, admitsPartners, wantQueue } from './partnerq.js';
 
 const HR = 36e5, DAY = 864e5, HST = { timeZone: 'Pacific/Honolulu' };
@@ -189,8 +189,8 @@ function seasonal({ side = true } = {}) {
     const pr = ownerProgress(); if (pr.length) {
       const done = pr.reduce((s, o) => s + o.done, 0), all = pr.reduce((s, o) => s + o.total, 0), behind = pr.filter(o => o.done < o.total);
       out.push(block('prep', 'Issues for 2027', `<p class="tm6-sub">${done} of ${plural(all, 'issue')} ready across the team. Admins see this.</p>
-        ${behind.length ? `<div class="v6-list" role="list">${behind.slice(0, 5).map(o => itemRow({ key: 'pr:' + o.id, name: advocate(o.id)?.full_name || 'Someone', num: '', line: esc(`${o.done} of ${plural(o.total, 'issue')} ready`), href: `#/my-issues/all?view=prep&who=${encodeURIComponent(o.id)}` })).join('')}</div>` : ''}
-        ${door('#/my-issues/all?view=prep', 'clipboard-list', '<b>Open the prep board</b>')}`));
+        ${behind.length ? `<div class="v6-list" role="list">${behind.slice(0, 5).map(o => itemRow({ key: 'pr:' + o.id, name: advocate(o.id)?.full_name || 'Someone', num: '', line: esc(`${o.done} of ${plural(o.total, 'issue')} ready`), href: `${BOARD_HREF}&who=${encodeURIComponent(o.id)}` })).join('')}</div>` : ''}
+        ${door(BOARD_HREF, 'clipboard-list', '<b>Open the prep board</b>')}`));
     }
   }
   if (admitsPartners(v)) {
@@ -239,7 +239,7 @@ function pickerPage() {
   const rows = teammates().filter(a => a.id !== S.me?.id).sort((x, y) => x.full_name.localeCompare(y.full_name))
     .map(a => { const n = today(a); return itemRow({ key: a.id, name: a.full_name, num: '', line: esc(n ? `${plural(n, 'thing')} to do today` : 'Nothing to do today'), href: `#/team?who=${encodeURIComponent(a.id)}` }); }).join('');
   return `<div class="tm6-root"><header class="t6-head"><h1 class="v6-ptitle sv-h1" id="tm6-h1" tabindex="-1">A teammate’s list</h1></header>
-    <p class="tm6-note">${icon('info')}<span>Read anyone’s Today while you cover for them. Team, with what is slipping, is for admins and second approvers.</span></p>
+    <p class="tm6-note">${icon('info')}<span>Read anyone’s Today while you cover for them. Their messages are only theirs, so these counts leave them out. Team, with what is slipping, is for admins and second approvers.</span></p>
     <div class="v6-list" role="list">${rows}${itemRow({ key: 'none', name: 'No owner', num: '', line: esc(`${plural(noOwnerBills().length, 'bill')} with a position and no owner`), href: '#/team?who=none' })}</div></div>`;
 }
 

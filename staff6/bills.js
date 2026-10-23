@@ -36,7 +36,7 @@ import { billsHead, loadSortCount, refreshTabs } from './billshead.js';
 // ---- groups, in stage order: GROUPS and groupKey live in standing.js, shared with an issue's page (R-226) ----
 const FOLDED = new Set(['mon', 'dead']);
 // One word per fact (spec rule 6, A-14): the state is "No hearing yet" in the group, the Filter sheet, its chip and the
-// deadline line alike (standing.js still says "Waiting for a hearing" for an issue's page: a shared change asks BILL to match).
+// deadline line alike; standing.js GROUPS says it too, so an issue's page matches (kept here as the one override point).
 const TITLE = { wait: 'No hearing yet' };
 // Rows an open group shows before "Show all N": a phone keeps each group to a glance (Kris's phone Bills was 6.8 screens
 // in v5), a laptop's roomy rows to eight (roomy must not mean longer, V16), the dense table to v5's 25 (R-277 fix 11).
