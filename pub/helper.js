@@ -65,6 +65,7 @@ import { pickTitle, asWords, aWords, needsSelf, setSelfPref, cleanTitles, titleL
 import { pickerHTML, wirePicker, pendingTitle } from './titlepick.js';
 import { aboutBill as readMore, billTextUrl } from './billtext.js';   // "Read more about the bill" where people pick a side (R-178)
 import { sentence, closingOf, andList, districtWords, helloSubject, helloFacts, helloLetter, thanksLine, vary, townWord, whoLine, standLine, ownLine } from './hello.js';   // the hello letter, shared with people.js (R-172)
+import { pubNow, loadPublic, pointsFor, onBill, hiphiSide, noSideLine } from './partners.js';   // partners' points under their name (R-328 batch D)
 
 const ME_KEY = 'hiphi_me', OPEN_KEY = 'hiphi_helper_open';
 // The Legislature's Public Access Room: free help from a real person, by phone or at the Capitol.
@@ -317,8 +318,9 @@ const partsOf = x => !boxed(x) ? { all: letterOf(x) } : x.mode === 'testimony' ?
 // rewrote is never overwritten; x.stale says so, and "Use my new details" writes the letter again.
 function syncLetter(x) {
   if (x.b && !x.edited) {   // the points the box was written with are the ones this stance can still make
-    const ok = pointsOf(x);
-    if (x.points.some(p => !ok.includes(p))) { x.points = x.points.filter(p => ok.includes(p)); x.pointsText = pointsLine(x.points); }
+    // A partner's point waits while the partners' words are on their way (partnersIn writes the letter again with them).
+    const ok = pointsOf(x), wait = !pubNow(), own = x.b.hiphi_points || [], keep = p => ok.includes(p) || (wait && !own.includes(p));
+    if (x.points.some(p => !keep(p))) { x.points = x.points.filter(keep); x.pointsText = pointsLine(x.points); }
   }
   const now = partsOf(x);
   if (!x.edited) { x.letter = joinParts(now); x.built = now; x.stale = false; return; }
@@ -336,8 +338,9 @@ function syncLetter(x) {
     else if (at >= text.length) { text = `${text.replace(/\s+$/, '')}\n\n${b}`; built[k] = b; }
     else { text = `${text.slice(0, at)}${b}\n\n${text.slice(at)}`; built[k] = b; }
   }
-  // HIPHI's points argue the other side for someone who has taken it: HIPHI's own sentences go, words they wrote stay.
-  if (x.b && !pointsOf(x).length && !x.keepPts) for (const s of (x.b.hiphi_points || []).filter(Boolean)) if (text.includes(sentence(s))) text = cutPoint(text, sentence(s));
+  // HIPHI's points argue the other side for someone who has taken it, and so do a partner's (R-328 batch D): the points'
+  // own sentences this stance cannot make go, words they wrote stay.
+  if (x.b && !x.keepPts) { const ok = new Set(pointsOf(x)); for (const s of everyPoint(x.b)) if (!ok.has(s) && text.includes(sentence(s))) text = cutPoint(text, sentence(s)); }
   x.letter = text; x.built = { ...built, pts: now.pts || '' }; x.stale = bad;
   if (x.b) { x.points = pickedIn(x, text); x.pointsText = spansOf(x, text); }
 }
@@ -498,6 +501,7 @@ function openMail(o = {}) {
     if (!history.state?.hp) history.pushState({ ...(history.state || {}), hp: 1 }, '');
   } catch { /* ignore */ }
   app.render();
+  partnersIn(x);
 }
 app.openMail = openMail;
 
@@ -557,8 +561,25 @@ function open(billId, hearingId, { view = null, friend = false } = {}) {
     if (!history.state?.hp) history.pushState({ ...(history.state || {}), hp: 1 }, '');
   } catch { /* ignore */ }
   app.render();
+  partnersIn(x);
 }
 app.openHelper = open;
+
+// The partners' words on the bill (R-328 batch D) come from three small reads, asked as the walkthrough opens so their
+// points are in by "Get to know the bill". When they come after the letter was written (a draft picked up where it was
+// left, or a slow connection), the letter is written again with them, or, once the person has typed in it, the Add and
+// Added on each point are read again from their words. A bill no partner writes on is never redrawn.
+function partnersIn(x) {
+  if (!x.b || x.view || pubNow()) return;   // already in: every step was written with them
+  loadPublic().catch(() => null).then(() => {
+    if (S.helper !== x) return;
+    const all = pointsOf(x);
+    if (!onBill(x.b).length && x.points.every(p => all.includes(p))) return;
+    if (x.edited) { x.points = pickedIn(x, x.letter); x.pointsText = spansOf(x, x.letter); }
+    else if (x.letter) syncLetter(x);
+    if (!['stand', 'again', 'done'].includes(x.screen)) paint();
+  });
+}
 
 // ---------------- a letter sent again (R-148) ----------------
 // The kept letter's answers become this walkthrough's: where they stand (their stance on the bill page wins if they
@@ -633,11 +654,15 @@ const mailRecOf = x => { const stance = x.stance || hiphiStance(x.b);
     sent: new Date().toISOString(), draft: x.b.current_version || '', stance, ours: sameAsHiphi(x.b, stance), pos: x.b.hiphi_position || '',
     name: String(x.name || '').trim(), why: x.why || '', points: x.points || [], pointsText: x.pointsText || '', closing: x.closing || '',
     letter: x.letter || '', edited: !!x.edited, subject: x.subject || '', parts: mailParts(x) }; };
-// What changed since: the bill's draft notes, asked for once (letters.js). A failed read still compares the drafts.
+// letters.js checks the points a kept letter used against HIPHI's list; a partner's point still on the bill (R-328 batch D)
+// is unchanged too, so a letter that used one is not marked as needing a check.
+const checkBill = b => { const more = onBill(b).flatMap(r => r.points || []).filter(Boolean); return more.length ? { ...b, hiphi_points: [...(b.hiphi_points || []), ...more] } : b; };
+// What changed since: the bill's draft notes, asked for once (letters.js). A failed read still compares the drafts. The
+// partners' words are waited for too (a failed read of them is no partner words).
 function loadCheck(x) {
-  draftNotes(x.b).catch(() => []).then(rows => {
+  Promise.all([draftNotes(x.b).catch(() => []), loadPublic().catch(() => null)]).then(([rows]) => {
     if (!x.again) return;
-    x.notes = rows; x.check = letterCheck(x.b, x.again.rec, rows, x.stance);
+    x.notes = rows; x.check = letterCheck(checkBill(x.b), x.again.rec, rows, x.stance);
     if (x.check.level === 'big' && !x.warned) { x.warned = true; app.onAct?.('again_warned'); }
     if (S.helper === x) paint();
   });
@@ -647,7 +672,7 @@ function loadCheck(x) {
 // it during this walkthrough (B-4: Back never loses their words).
 function restance(x) {
   x.keepPts = x.again.rec.stance === x.stance;
-  if (x.notes) x.check = letterCheck(x.b, x.again.rec, x.notes, x.stance);
+  if (x.notes) x.check = letterCheck(checkBill(x.b), x.again.rec, x.notes, x.stance);
   if (!x.typed) x.letterReady = false;
 }
 // The letter for this hearing. One they never changed by hand is written again from their answers, so the committee,
@@ -855,7 +880,7 @@ function standScreen() {
       <details class="hp-about" data-hp-about data-ab-more="${esc(b.id)}"${x.aboutOpen ? ' open' : ''}><summary>${icon('book-open')}<span>Read more about the bill</span>${icon('chevron-down', { cls: 'hp-chev' })}</summary>
         ${readMore(b, { shown: w, h: 'h4', pfx: 'hp-ab', quiet: true, reasons: !seqOf(x).includes('know') })}</details></div>
     ${forgotNote(x)}
-    <p class="hp-sub hp-standsub">${stanceFrom(x)}Your ${isMail(x) ? 'email' : 'testimony'} is yours: say what you think.${p ? ` ${esc(p.text)} it.` : ''}</p>
+    <p class="hp-sub hp-standsub">${stanceFrom(x)}Your ${isMail(x) ? 'email' : 'testimony'} is yours: say what you think.${p ? ` ${esc(p.text)}${b.hiphi_position === 'neutral' ? ' on' : ''} it.` : ''}</p>
     <div class="hp-choices" role="group" aria-labelledby="hp-sh">${opt('support', 'I support it', strong === 'support' ? strongSub : '')}${strong === 'support' ? plain : ''}${opt('oppose', 'I oppose it', strong === 'oppose' ? strongSub : '')}${strong === 'oppose' ? plain : ''}${opt('comments', 'I have comments', 'Not for or against, or for it with changes')}</div>`;
 }
 
@@ -870,7 +895,7 @@ function bigWords(c, b, { adviceOnly = false } = {}) {
   return c.big.map(r => r.kind === 'tick' ? (adviceOnly && r.note ? `<li><b>HIPHI’s advice:</b> ${esc(sentence(r.note))}</li>`
       : `<li><b>${esc(draftLabel(r))}:</b> ${esc(sentence(r.summary))}${r.note ? `<span class="hp-advice"><b>HIPHI’s advice:</b> ${esc(sentence(r.note))}</span>` : ''}</li>`)
     : r.kind === 'position' ? `<li>HIPHI’s position changed. It ${esc(HIPHI_PAST[r.from] || 'took no side on')} the bill when you wrote, and ${esc(r.to ? (posInfo(b)?.text || 'HIPHI').replace(/^HIPHI\s*/, '') : 'takes no side on')} it now. Your letter used HIPHI’s earlier words.</li>`
-    : r.kind === 'points' ? '<li>HIPHI changed or took out a talking point you used.</li>'
+    : r.kind === 'points' ? (onBill(b).length ? '<li>A talking point you used was changed or taken out.</li>' : '<li>HIPHI changed or took out a talking point you used.</li>')   // a partner's may be the one (R-328)
     : `<li>You now ${r.to === 'oppose' ? 'oppose' : r.to === 'support' ? 'support' : 'have comments on'} this bill. Your letter ${r.from === 'oppose' ? 'opposes' : r.from === 'support' ? 'supports' : 'comments on'} it.</li>`).join('');
 }
 const shortDay = iso => new Date(iso).toLocaleDateString('en-US', { timeZone: HST, month: 'short', day: 'numeric' });   // "Feb 18": no second weekday beside the deadline's
@@ -954,7 +979,22 @@ function whyNow(x) {
   }
   return `<p class="hp-due hp-why">${icon(ic)}<span>${esc(text)}</span></p>`;
 }
-const pointsOf = x => { const pts = (x.b.hiphi_points || []).filter(Boolean); return (x.stance || hiphiStance(x.b)) === hiphiStance(x.b) ? pts : []; };
+// The points this person can make, in the order they are listed: HIPHI's, offered only to someone on HIPHI's side, then each
+// partner's on this bill (R-328 batch D, Nate's plan of 10/21: "The partner's points join 'Points you can make' under the
+// partner's name, with the same Add button as HIPHI's"), offered only to someone on that partner's side, as HIPHI's are. A
+// point that says word for word what one above it says is listed once. The partners' are [] until their words are in.
+function pointGroups(x) {
+  const stance = x.stance || hiphiStance(x.b), hiphi = stance === hiphiStance(x.b) ? (x.b.hiphi_points || []).filter(Boolean) : [];
+  const seen = new Set(hiphi), partners = [];
+  for (const g of pointsFor(x.b, stance)) {
+    const pts = []; for (const p of g.points) if (!seen.has(p)) { seen.add(p); pts.push(p); }
+    if (pts.length) partners.push({ ...g, points: pts });
+  }
+  return { hiphi, partners };
+}
+const pointsOf = x => { const g = pointGroups(x); return [...g.hiphi, ...g.partners.flatMap(p => p.points)]; };
+// Every point offered on the bill, on either side: the ones this stance cannot make are cut from a letter they rewrote.
+const everyPoint = b => [...(b.hiphi_points || []), ...onBill(b).flatMap(r => r.points || [])].filter(Boolean);
 // The points' box (R-141). Until the person changes it, it holds the picked points in the order the bill lists them; once
 // they have written in it, it is theirs, and a tap only adds a point's words at the end or takes them out. A point counts
 // as picked while its opening words are in the box (its first five, or as many as tell it from the others), whatever the
@@ -992,15 +1032,32 @@ function cutPoint(text, s) {
 // A letter sent again keeps the person's own words for the points (x.keepPts) even if HIPHI has since changed the list,
 // unless they changed sides (then HIPHI's points would argue against them).
 const ownPoints = x => x.b && (pointsOf(x).length || x.keepPts) ? String(x.pointsText || '').trim() : '';
+// Where HIPHI stands, on "Get to know the bill". On a bill HIPHI has taken no side on (Monitor, Neutral, not tracked) that a
+// partner writes on, it says so and what the partners ask, as the bill page does (partners.js noSideLine), so nothing of a
+// partner's reads as HIPHI's side (R-328 batch D). A bill no partner writes on reads as before.
+function hiphiStands(b) {
+  const p = posInfo(b), act = sentence(b.hiphi_action), rows = hiphiSide(b) ? [] : onBill(b);
+  const own = p ? `${p.text}${b.hiphi_position === 'neutral' ? ' on' : ''} it.${act ? ' ' + act : ''}` : '';   // "HIPHI has comments on it."
+  const text = [own, rows.length ? noSideLine(rows, b) : ''].filter(Boolean).join(' ');
+  return text ? `<div><p class="hp-knh">Where HIPHI stands</p><p>${esc(text)}</p></div>` : '';
+}
 // This step's job (B-1, R-141 rework): "A person comes here to choose the points they will make in their email or letter."
 // Its box is the whole text they will send, so the points, the greeting and the ask are all visible before they go on.
 function knowScreen() {
-  const x = S.helper, { b, h } = x, n = spaced(b.bill_number), p = posInfo(b), due = isMail(x) ? null : dueInfo(h), name = nick(b), w = summaryOf(b), pts = pointsOf(x);
-  const act = sentence(b.hiphi_action), word = isMail(x) ? 'email' : 'letter';
+  const x = S.helper, { b, h } = x, n = spaced(b.bill_number), due = isMail(x) ? null : dueInfo(h), name = nick(b), w = summaryOf(b), g = pointGroups(x);
+  const word = isMail(x) ? 'email' : 'letter', pts = [...g.hiphi, ...g.partners.flatMap(q => q.points)];
   // One row per point: its words, and a plus button, "Add this point", that says whether the point is in the box (R-141).
-  const pt = (s, i) => { const on = x.points.includes(s);
+  // A partner's point says whose it is to a screen reader too (from: its group's heading).
+  const pt = (s, i, from = '') => { const on = x.points.includes(s);
     return `<li class="hp-ptrow${on ? ' on' : ''}"><p class="hp-ptt" id="hp-pt-${i}">${esc(s)}</p>
-      <button type="button" class="hp-pt" data-hp="point" data-i="${i}" aria-pressed="${on}" aria-label="Add this point" aria-describedby="hp-pt-${i}">${icon(on ? 'check' : 'plus')}<span>${on ? 'Added' : 'Add'}</span></button></li>`; };
+      <button type="button" class="hp-pt" data-hp="point" data-i="${i}" aria-pressed="${on}" aria-label="Add this point" aria-describedby="hp-pt-${i}${from ? ' ' + from : ''}">${icon(on ? 'check' : 'plus')}<span>${on ? 'Added' : 'Add'}</span></button></li>`; };
+  // HIPHI's points first, then each partner's under its name (the plan of 10/21), numbered on from HIPHI's so every Add
+  // finds its point in pointsOf. A partner's never sit in HIPHI's list or under HIPHI's words.
+  let at = g.hiphi.length;
+  const lists = (g.hiphi.length ? `<ul class="hp-pts" role="list" aria-describedby="hp-pthelp">${g.hiphi.map((s, i) => pt(s, i)).join('')}</ul>` : '')
+    + g.partners.map((q, k) => { const i0 = at; at += q.points.length;
+      return `<div class="hp-pfrom"><h5 class="hp-knh hp-pfh" id="hp-pf-${k}">${icon('handshake')}<span>From ${esc(q.name)}</span></h5>
+        <ul class="hp-pts" role="list" aria-labelledby="hp-pf-${k}">${q.points.map((s, j) => pt(s, i0 + j, `hp-pf-${k}`)).join('')}</ul></div>`; }).join('');
   return `<div class="hp-top">${screenHead(0, x.again ? 'Update your letter' : 'Get to know the bill')}
       <p class="hp-sub">${x.again ? 'What changed, the bill as it is now, and your points. Your letter keeps your words until you change them.' : `What the bill does, and points you can add to your ${isMail(x) ? 'email' : 'letter'} below.`}</p></div>
     ${due?.late ? lateBanner(h) : ''}
@@ -1010,13 +1067,13 @@ function knowScreen() {
       <div><p class="hp-knh">${esc(n)}${name ? ` · ${esc(name)}` : ''}</p>
         <p class="hp-knw">${esc(w || cleanDesc(b.title) || '')}</p>
         ${readBill(b, 'Read the whole bill')}</div>
-      ${p ? `<div><p class="hp-knh">Where HIPHI stands</p><p>${esc(p.text)} it.${act ? ' ' + esc(act) : ''}</p></div>` : ''}
+      ${hiphiStands(b)}
       ${due && !due.late ? `<p class="hp-due ${due.tone}">${icon('clock')}<span>${due.html}</span></p>` : ''}
       ${isMail(x) ? whyNow(x) : ''}
     </div>
     ${pts.length ? `<section class="hp-ptsec" aria-labelledby="hp-pth"><h4 class="hp-knh" id="hp-pth">Points you can make</h4>
         <p class="help" id="hp-pthelp">Tap Add to put a point in your ${word}, or skip them.</p>
-        <ul class="hp-pts" role="list" aria-describedby="hp-pthelp">${pts.map(pt).join('')}</ul>
+        ${lists}
         <div class="field hp-ptbox"><label for="hp-letter">In your ${word}</label>
           <textarea id="hp-letter" class="hp-letter hp-ptsta" rows="6" aria-describedby="hp-pts-help" spellcheck="true" autocapitalize="sentences">${esc(x.letter)}</textarea>
           <span class="help" id="hp-pts-help">Change any words you like. Next, you’ll check your name and why it matters to you.</span></div></section>`
