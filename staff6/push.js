@@ -325,7 +325,9 @@ const mineGiven = (x, v) => x.k === 'giving' && x.a.todo?.assignee_id === v?.id;
 //   mail  - the bills they email the chair about: their own (owner or admin) still to ask, and any ask handed to them;
 //   give  - their own bills still to ask, which they may hand on ("Give this ask to…");
 //   claim - someone else's bills still to ask, which a helper takes first ("I'll ask"), so two people never ask one chair;
-//   log   - every ask they could make, for "Asked by phone or in person? Log it" at the group's foot (F138).
+//   log   - every ask that is theirs to make (their own bills, or one handed to them), for "Asked by phone or in person?
+//           Log it" at the group's foot (F138). A helper sees it once "I'll ask" has made the ask hers (critic P-4: one
+//           action on a teammate's group), so Kris's 25 groups are not 25 feet.
 // A bill put off ("Not now") is in none of them: it is out of the email until it comes back.
 function groupRoles(g, v, scope) {
   const can = x => actsOn(x.b, x, v, scope);
@@ -333,7 +335,7 @@ function groupRoles(g, v, scope) {
     mail: g.rows.filter(x => (x.k === 'ask' && ownsBill(x.b, v) && can(x)) || mineGiven(x, v)),
     give: g.rows.filter(x => x.k === 'ask' && ownsBill(x.b, v) && can(x)),
     claim: g.rows.filter(x => x.k === 'ask' && !ownsBill(x.b, v) && can(x)),
-    log: g.rows.filter(x => (['ask', 'decide'].includes(x.k) || mineGiven(x, v)) && can(x)),
+    log: g.rows.filter(x => ((['ask', 'decide'].includes(x.k) && ownsBill(x.b, v)) || mineGiven(x, v)) && can(x)),
   };
 }
 // One chair's group: the chair (or both chairs of a joint referral) and the committee in words, the day to ask by, its
@@ -394,7 +396,7 @@ export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, 
   const all = secs.flatMap(s => s.groups);
   const pkey = !primary ? null : (all.find(g => g.rows.some(x => mineGiven(x, v))) || all.find(g => groupRoles(g, v, scope).mail.length))?.key || null;
   const out = secs.map(({ d, hid, groups }) => {
-    const c = k => d.items.filter(x => k.includes(x.k)).length, toAsk = c(['ask', 'decide']), being = c(['giving']), wait = c(['waiting', 'follow', 'will']), later = c(['later']), no = c(['said_no', 'passed']), sch = c(['scheduled']);
+    const c = k => d.items.filter(x => k.includes(x.k)).length, toAsk = c(['ask', 'decide']), being = c(['giving']), wait = c(['waiting', 'follow']), yes = c(['will']), later = c(['later']), no = c(['said_no', 'passed']), sch = c(['scheduled']);
     const total = d.items.length, nw0 = d.items.filter(x => !['scheduled', 'later'].includes(x.k)).length;
     // Every bill here one teammate's: said once on this line ("16 of Lauren's bills"), not on every row (A-14).
     const owners = new Set(d.items.map(x => (S.assignments?.[x.b.id] || [])[0] || '')), only = owners.size === 1 ? [...owners][0] : '';
@@ -402,7 +404,8 @@ export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, 
     const whose = shared ? `${nw0} of ${advocate(only).full_name.split(' ')[0]}’s bills` : countWords(nw0, scope, v);
     const head = cap(deadlineWords(d.dl.label, d.dl.date, { n: total }));
     const sub = [nw0 ? `${whose} ${nw0 === 1 ? 'needs' : 'need'} a hearing` : '',
-      toAsk ? `${toAsk} to ask` : '', being ? `${being} being asked` : '', wait ? `${wait} waiting on a reply` : '', later ? `${later} put off` : '', no ? `${no} said no or out of time` : '', sch ? `${sch} scheduled` : ''].filter(Boolean).join(' · ');
+      // "will schedule": the chair replied (so not "waiting on a reply", B-7), in the rows' own words (spec 5)
+      toAsk ? `${toAsk} to ask` : '', being ? `${being} being asked` : '', wait ? `${wait} waiting on a reply` : '', yes ? `${yes} will schedule` : '', later ? `${later} put off` : '', no ? `${no} said no or out of time` : '', sch ? `${sch} scheduled` : ''].filter(Boolean).join(' · ');
     const body = groups.map(g => groupHTML(g, v, scope, { primary: g.key === pkey, shared })).join('');
     return `<section class="hg-dl" aria-labelledby="${hid}"><div class="hg-dlh"><h2 id="${hid}">${esc(head)}</h2>${sub ? `<p class="hg-dls">${nw(esc(sub))}</p>` : ''}</div>${body}</section>`;
   }).join('');

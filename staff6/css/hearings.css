@@ -51,9 +51,24 @@ body.staff6 .hw-slot .v6-hcard { padding: 16px 24px; row-gap: 4px; }
 body.staff6 .hw-slot .v6-hcard-body { gap: 4px; }
 body.staff6 .hw-slot .v6-hcard-bill { min-height: 56px; }
 body.staff6 .hw-slot .v6-hcard-bl { padding: 8px 0; }
-body.staff6 .hw-slot .v6-hcard-going > .hw-watch { flex: none; }
-body.staff6 .hw-watch a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--v6-action); font-size: var(--v6-t16); }
+/* "Going: Jaylen · Watch it live": the link inside the going words, plain like the card's other doors (no underline) */
+body.staff6 .hw-watch { white-space: nowrap; }
+body.staff6 .hw-watch a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-left: 4px; vertical-align: middle; color: var(--v6-action); font-size: var(--v6-t16); text-decoration: none; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .hw-watch a:hover { text-decoration: underline; } }
 body.staff6 .hw-watch svg { width: 18px; height: 18px; color: var(--v6-action); }
+/* From 600px, I'm going sits on the committee's line, at its right, and the going words take a short line under it
+   (critic A-24: about 25px less a card; Kris's week at 1280 is 11 cards). The going line's parts join the card body's
+   grid (display: contents), so nothing in steps.js changes. Phones keep the card as steps.css draws it. */
+@media (min-width: 600px) {
+  body.staff6 .hw-slot .v6-hcard-body { grid-template-columns: 20px minmax(0, 1fr) auto; column-gap: 10px; }
+  body.staff6 .hw-slot .v6-hcard-body > * { grid-column: 1 / -1; }
+  body.staff6 .hw-slot .v6-hcard-body > .v6-hcard-name { grid-column: 1 / 3; grid-row: 1; }
+  body.staff6 .hw-slot .v6-hcard-going { display: contents; }
+  body.staff6 .hw-slot .v6-hcard-going > svg { grid-column: 1; align-self: center; }
+  body.staff6 .hw-slot .v6-hcard-going > span { grid-column: 2 / -1; }
+  body.staff6 .hw-slot .v6-hcard-going > .btn { grid-column: 3; grid-row: 1; align-self: center; margin: 0 0 0 6px; }
+}
+@media (min-width: 600px) and (pointer: fine) { body.staff6 .hw-slot .hw-watch a { min-height: 24px; vertical-align: top; } }
 /* a Capitol deadline on its day: one quiet line under the day's heading */
 body.staff6 .hw-cap { display: flex; align-items: flex-start; gap: 10px; margin: -8px 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
 body.staff6 .hw-cap svg { width: 20px; height: 20px; flex: none; margin-top: 2px; color: var(--v6-muted); }
@@ -121,6 +136,12 @@ body.staff6 .hg-r.k-said_no .v6-row-line svg, body.staff6 .hg-r.k-passed .v6-row
 body.staff6 .hg-r .iconbtn.hg-more { width: 44px; height: 44px; border-radius: 50%; color: var(--v6-muted); background: transparent; }
 @media (hover: hover) and (pointer: fine) { body.staff6 .hg-r .iconbtn.hg-more:hover { background: var(--v6-wash); color: var(--v6-ink); } }
 body.staff6 .hg-r .iconbtn.hg-more:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+/* on a small phone the row's button wraps under its words (steps.css); the "…" is small, so it stays at the row's right */
+@media (max-width: 420px) {
+  body.staff6 .hg-r:has(.hg-more) { flex-wrap: nowrap; }
+  body.staff6 .hg-r:has(.hg-more) .v6-row-main { flex: 1 1 0; }
+  body.staff6 .hg-r .v6-row-act:has(.hg-more) { padding: 0; align-self: center; }
+}
 /* the group's foot: "Asked by phone or in person? Log it", quiet (F138) */
 body.staff6 .hg-log { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; margin: 0; padding: 4px 8px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
 body.staff6 .hg-log::before { content: ''; position: absolute; left: 8px; right: 8px; top: 0; height: 1px; background: var(--v6-hair); }

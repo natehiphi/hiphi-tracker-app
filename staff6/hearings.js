@@ -81,13 +81,15 @@ const hasWeek = scope => weekSittings(scope, mondayOf(Date.now())).some(x => !x.
 const dayHead = d => { const now = Date.now(); return d === hst(now) ? `Today · ${dayWords(d)}` : d === hst(now + DAY) ? `Tomorrow · ${dayWords(d)}` : dayWords(d); };
 // One sitting's card as This week shows it (critic A-24, A-14: the week at a glance). The day's heading already says the
 // day, so the card's own "Today" or "Tomorrow" goes, and "Watch it live" joins the going line instead of taking a line of
-// its own: about 50px less on today's cards, the day word less on all. (Shared change asked of steps.js: a hearingCard
-// option for this, so it is not done on the card's HTML here.)
+// its own; from 600px I'm going sits on the committee's line (hearings.css), so the going words need no row of their own
+// height. About 75px less on today's cards, 25px on the rest. (Shared change asked of steps.js: a hearingCard option for
+// this, so it is not done on the card's HTML here.)
 function weekCard(h) {
   let html = hearingCard(h, { from: 'week' });
   html = html.replace(/(<p class="v6-hcard-day">)[^<]*/, '$1');
+  // "Going: Jaylen · Watch it live": the link goes inside the going words, so it never takes a line of its own
   const watch = html.match(/<p class="v6-hcard-watch">([\s\S]*?)<\/p>/);
-  if (watch && /<p class="v6-hcard-going">/.test(html)) html = html.replace(watch[0], '').replace(/(<p class="v6-hcard-going">[\s\S]*?<\/span>)/, `$1<span class="hw-watch">${watch[1]}</span>`);
+  if (watch && /<p class="v6-hcard-going">/.test(html)) html = html.replace(watch[0], '').replace(/(<p class="v6-hcard-going">[\s\S]*?)(<\/span>)/, `$1<span class="hw-watch"> · ${watch[1]}</span>$2`);
   return html;
 }
 // One sitting: the question about a moved sitting first (W53), then its card. A slot of its own around each card: the card
