@@ -37,6 +37,8 @@ body.staff6 .v6-step-bn { font-family: Poppins, system-ui, sans-serif; font-weig
 body.staff6 .v6-step-bill + .v6-step-eyebrow { margin-top: -8px; }
 body.staff6 .v6-step-what { margin: 0; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t18);
   line-height: var(--v6-lh18, 24px); color: var(--v6-ink); letter-spacing: -.005em; }
+/* the bill named for screen readers inside the heading has no visual weight (it is not seen) */
+body.staff6 .v6-step-what .sr { font-weight: 400; }
 body.staff6 .v6-step.big .v6-step-what, body.staff6 .v6-step.w-today .v6-step-what { font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); }
 /* under the bill's name, the step is the sentence (16 bold), so the card has one name and one heading size */
 body.staff6 .v6-step.named:not(.w-today):not(.big) .v6-step-what { font-family: inherit; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); font-weight: 700; letter-spacing: 0; }
@@ -92,7 +94,8 @@ body.staff6 .v6-track .cur .v6-track-dot { background: var(--v6-action); box-sha
 body.staff6 .v6-hcard { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 8px 24px; padding: 20px 24px;
   border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); color: var(--v6-body); min-width: 0; }
 body.staff6 .v6-hcard p, body.staff6 .v6-hcard h3, body.staff6 .v6-hcard ul { margin: 0; }
-body.staff6 .v6-hcard-time { font-family: Poppins, system-ui, sans-serif; font-weight: 700; font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); color: var(--v6-ink); }
+/* the time large rather than heavy: 600+ is for names, headings, the page title and the filled button (spec 4) */
+body.staff6 .v6-hcard-time { font-family: Poppins, system-ui, sans-serif; font-weight: 500; font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); color: var(--v6-ink); }
 body.staff6 .v6-hcard-day { font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
 body.staff6 .v6-hcard-room { display: block; }
 /* " · " between the day and the room is real text (screen readers and copied text read "Today · Room 430"); beside the
@@ -105,7 +108,7 @@ body.staff6 .v6-hcard-door { display: flex; flex-wrap: wrap; align-items: center
   border-radius: var(--v6-r12); color: var(--v6-ink); text-decoration: none; }
 body.staff6 .v6-hcard-cn { flex: 1 1 180px; min-width: 0; }
 body.staff6 .v6-hcard-open { flex: none; margin-left: auto; display: inline-flex; align-items: center; gap: 2px; font-family: Lato, system-ui, sans-serif;
-  font-weight: 700; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-action); }
+  font-weight: 400; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-action); }
 body.staff6 .v6-hcard .v6-chev { width: 20px; height: 20px; flex: none; }
 @media (hover: hover) and (pointer: fine) { body.staff6 .v6-hcard-door:hover, body.staff6 .v6-hcard-mon:hover { background: var(--v6-wash); } }
 body.staff6 .v6-hcard-going, body.staff6 .v6-hcard-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); }
