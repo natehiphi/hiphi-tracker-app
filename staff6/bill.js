@@ -241,7 +241,8 @@ function whereLine(b, { hearing, says }) {
   const passed = second ? `Passed the ${st.chamber === 'H' ? 'Senate' : 'House'}` : '';
   const now = sittingNow(b), ch = CHAMBER_NAME[st.chamber] || '';
   if (says && st.phase === 'committee' && st.committee) {
-    const at = now ? `its hearing started ${timeWords(now.scheduled_at)}` : st.hearingState === 'held' && !says.heard ? 'heard, waiting for its vote' : '';
+    // The missed card ("The hearing started today 1:10 PM") says when it started; the line does not say it again (A-14).
+    const at = now ? (says.started ? '' : `its hearing started ${timeWords(now.scheduled_at)}`) : st.hearingState === 'held' && !says.heard ? 'heard, waiting for its vote' : '';
     const of = st.stops > 1 ? `${ch} committee ${st.stop} of ${st.stops}`.trim() : ch ? `in its only ${ch} committee` : '';
     const dl = !says.deadline && st.deadline && !st.deadline.missed ? deadlineOf(b) : '';
     const parts = [passed, at, of, dl].filter(Boolean);
@@ -580,7 +581,7 @@ function cardSays(b, s) {
   if (s.kind === 'chair') return s.ask?.code ? { heard: !!s.ask.decide, deadline: ['ask', 'giving', 'passed'].includes(s.ask.key) } : null;
   // A testimony step's hearing line names the committee; with the hearing set, the race to the deadline is the hearing's
   // (About this bill keeps the deadline).
-  return s.h && s.h.committee === st.committee ? { heard: false, deadline: true } : null;
+  return s.h && s.h.committee === st.committee ? { heard: false, deadline: true, started: new Date(s.h.scheduled_at).getTime() <= Date.now() } : null;
 }
 // What else is coming on this bill: another sitting ahead (a hearing card each, as on Hearings), and testimony not tied to
 // a sitting ahead that is still unfinished (moved or cancelled; its own step card, never the screen's filled button).

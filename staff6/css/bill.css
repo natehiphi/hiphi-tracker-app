@@ -488,6 +488,8 @@
   .bw-doorh.bw-ifnarrow { display: block; }
   body.staff6 .bw-tabs { gap: 4px; }
   body.staff6 .bw-tabs a { padding: 0 10px; }
+  /* Team talk's switch: each kind in at most two lines ("Log what / happened" took three at 320) */
+  .bw-composer .sv-seg button { padding: 4px 6px; font-size: var(--v6-t14); }
 }
 @media (prefers-reduced-motion: reduce) {
   .bw-panel.bw-in { animation: none; }
@@ -502,3 +504,10 @@
 .td-rv .td-rvdot { color: var(--v6-muted); }
 /* a character count under a box (public.js; prep.js borrows it) */
 .bw-count { font-size: var(--v6-t14); color: var(--v6-muted); }
+
+/* Earlier testimony at 320: a row's state and its Open Doc share the words' column (156px), so they wrap instead of
+   running past the window's edge (fresh-eyes walk, 320x640). */
+.bw-page .bw-door.tm .tm-acts { flex-wrap: wrap; row-gap: var(--s4); }
+/* A name that holds "e-cigarette" keeps it on one line in a span (the frame's wrapper); testimony.css greys every span in
+   an issue's summary and a bill's heading, which greyed that one word inside the bold name. */
+.tm-iss > summary b .nobr, .tm-ghead a .nobr { color: inherit; white-space: nowrap; }
