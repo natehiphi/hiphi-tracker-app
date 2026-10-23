@@ -1,134 +1,83 @@
-/* The hearing page, #/hearing/:id (R-022 wave 3 #16; Staff v3): one committee sitting, its agenda, who is going and the members.
-   Tokens only; the five staff type sizes (A-4); 44px targets (A-6); the look of a legislator's page, which it sits
-   beside in the Legislators tab. Phone first; the desktop's two columns are at the end. */
+/* Hearings > Get hearings, This week and the chair-ask sheets live in hearings.css. staff6.html links this file only, so
+   it brings that one in (shared change asked: link staff6/css/hearings.css in staff6.html, then drop this line). */
+@import url('hearings.css');
 
-/* ---- the sitting ---- */
-.hr-page .hr-deskback { display: none; }
-.hr-head { display: flex; gap: var(--s12); align-items: flex-start; padding: var(--s4) 0 var(--s8); }
-/* the landmark is identity on a desktop; on a phone its 60px of width would push the name onto a third line (A-1) */
-.hr-hicon { display: none; align-items: center; justify-content: center; width: 48px; height: 48px; margin-top: 2px; border-radius: 50%; background: var(--n100); color: var(--n700); flex: none; }
-.hr-hicon .ic { width: 24px; height: 24px; }
-.hr-hbody { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.hr-kind { font-size: var(--t13); font-weight: 700; color: var(--n500); }
-.hr-kind .hr-code { color: var(--n700); }
-/* 18px on a phone: a joint committee's full name runs to three lines at 22px. Two classes, to outrank body.staff2 h1. */
-.hr-page .hr-head h1 { font-size: var(--t18); line-height: 1.2; overflow-wrap: anywhere; margin-bottom: var(--s4); }
-/* text that flows (the icon hangs in the margin), so a long date wraps under itself and the countdown wraps whole */
-.hr-line { position: relative; padding-left: 24px; font-size: var(--t14); line-height: 20px; color: var(--n700); }
-.hr-line > .ic { position: absolute; left: 0; top: 2px; width: 16px; height: 16px; color: var(--n500); }
-.hr-line .sv-count { margin-left: var(--s8); vertical-align: top; line-height: 20px; }
-.hr-due { font-weight: 700; color: var(--n900); }
-/* the notice and the video, as links under the heading on a phone (the side panel has them on a desktop) */
-.hr-links { display: flex; flex-wrap: wrap; gap: 0 var(--s4); margin: 0 0 0 -12px; }
-.hr-links .btn.text { padding: 0 12px; }
-.hr-note { margin-top: var(--s12); }
-.hr-note .notice b { color: inherit; }
-.hr-next { margin: var(--s8) 0 0; padding-left: var(--s16); }
-.hr-next li + li { margin-top: var(--s4); }
-
-/* ---- sections ---- */
-.hr-sec { margin-top: var(--s24); }
-.hr-sech { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); min-height: 32px; margin-bottom: var(--s8); }
-.hr-sech h2 { font-size: var(--t18); }
-.hr-n { margin-left: 4px; font: 700 var(--t14)/1 var(--font); color: var(--n500); }
-.hr-empty { padding: var(--s4) 0; font-size: var(--t14); color: var(--n500); }
-.hr-hint { margin-bottom: var(--s8); font-size: var(--t14); color: var(--n700); }
-
-/* a bill on the agenda. Phone: the name across the whole first line (two lines at most), then position, P1 and owner
-   with the state chip at the end; the chevron down the right. Desktop: the chip moves up beside the name. */
-.hr-bill { display: grid; grid-template-columns: minmax(0, 1fr) auto 20px; grid-template-areas: "t t c" "f s c"; align-items: center; gap: 4px var(--s8);
-  min-height: 64px; padding: var(--s8) var(--s12) var(--s8) var(--s16); }
-.hr-bt { grid-area: t; min-width: 0; color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.hr-bt b { color: var(--n900); font-weight: 700; }
-.hr-kitrow { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s16); }   /* R-271: the bill's name is longer now, so it takes its own line */
-.hr-kitrow .hr-num { flex: 1 1 100%; }
-.hr-bs { grid-area: s; justify-self: end; display: flex; }
-.hr-bs .sv-chip { flex: none; }
-.hr-bf { grid-area: f; display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s12); font-size: var(--t14); color: var(--n500); }
-.hr-bill > .chev { grid-area: c; }
-.hr-fact { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
-.hr-fact .ic { width: 16px; height: 16px; }
-.hr-bf .sv-p1 { height: 20px; }
-/* On a phone the state takes its own line under the name (v3): it now says the urgent fact in words ("Testimony sent back ·
-   due in 29 min"), which beside the facts squeezed them into a column of broken words. It may wrap, as words do. */
-@media (max-width: 899px) {
-  .hr-bill { grid-template-columns: minmax(0, 1fr) 20px; grid-template-areas: "t c" "s c" "f c"; }
-  .hr-bs { justify-self: start; max-width: 100%; }
-  .hr-bs .sv-chip { flex: 0 1 auto; white-space: normal; text-align: left; }
-  .hr-bs:empty { display: none; }
+/* Staff v6 · one sitting, #/hearing/<id> (R-336 spec 4 and 6; F107, F129, F131, F133). Led by the big hearing card
+   (steps.css .v6-hcard.big), then the deadline, the results, the monitored bills, the doors to the notice, the video and
+   This week's asks, admins' who is going, and the members. One reading column, roomy and soft: tokens only
+   (staff6/css/tokens.css), no borders on cards (one warm shadow), rows parted by an inset hairline (steps.css .v6-list),
+   type 14 labels / 16 sentences / 18 names / 22 section headings / 28 the title, 44px targets on phones (A-6). */
+body.staff6 .hr-page { max-width: 880px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; min-width: 0; }
+body.staff6 .hr-page > * { margin: 0; min-width: 0; }
+/* the laptop's way back (a phone's is in the top bar) */
+body.staff6 .hr-deskback { display: none; align-items: center; gap: 4px; justify-self: start; min-height: 44px; margin: 0 0 -16px -8px; padding: 0 16px 0 6px;
+  border-radius: var(--v6-pill); color: var(--v6-action); font-size: var(--v6-t16); font-weight: 700; text-decoration: none; }
+body.staff6 .hr-deskback svg { width: 20px; height: 20px; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .hr-deskback:hover { background: var(--v6-action-wash); } }
+body.staff6 main .hr-page h1.hr-h1 { margin: 0; }
+/* the card's own name: a phone shows it (its top bar may cut a long name); a laptop says it once, in the h1 */
+@media (min-width: 768px) {
+  body.staff6 .hr-deskback { display: inline-flex; }
+  body.staff6 .hr-page .hr-cn { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 }
-/* bills we only monitor, folded away (R-022 decision 4) */
-.hr-fold { margin-top: var(--s8); }
-.hr-fold > summary { display: flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 0 var(--s8); margin-left: calc(-1 * var(--s8)); width: fit-content; border-radius: var(--r8);
-  color: var(--p700); font-size: var(--t14); font-weight: 700; cursor: pointer; list-style: none; }
-.hr-fold > summary::-webkit-details-marker { display: none; }
-.hr-fold > summary .ic { width: 18px; height: 18px; flex: none; }
-.hr-fold > summary:hover { background: var(--p50); }
-.hr-fold[open] > summary .chev { transform: rotate(180deg); }
-.hr-fold > .rows { margin-top: var(--s4); }
+body.staff6 .hr-page .hr-cn { font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); color: var(--v6-ink); overflow-wrap: anywhere; }
 
-/* who is going */
-.hr-gcard { padding: var(--s8) var(--s16) var(--s12); }
-.hr-goers { list-style: none; margin: 0; padding: 0; }
-.hr-goers li { display: flex; align-items: center; gap: var(--s12); min-height: 44px; }
-.hr-goers li + li { border-top: 1px solid var(--n100); }
-.hr-gname { flex: 1 1 auto; min-width: 0; font-weight: 700; color: var(--n900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hr-goers .iconbtn { margin-right: -10px; color: var(--n500); }
-.hr-goers .iconbtn .ic { width: 20px; height: 20px; }
-.hr-goers .iconbtn:hover { color: var(--n900); }
-.hr-none { display: flex; align-items: center; gap: var(--s8); min-height: 44px; font-size: var(--t14); color: var(--n700); }
-.hr-none .ic { width: 18px; height: 18px; color: var(--n500); flex: none; }
-.hr-gacts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin-top: var(--s8); }
-.hr-gacts .btn.text { padding: 0 12px; }
+/* the deadline line under the card */
+body.staff6 .hr-due { display: flex; align-items: flex-start; gap: 10px; padding: 0 4px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-ink); }
+body.staff6 .hr-due svg { width: 20px; height: 20px; flex: none; margin-top: 2px; color: var(--v6-muted); }
 
-/* the members, chair first, with where they stand on these bills */
-.hr-mem { min-height: 64px; padding: var(--s8) var(--s12) var(--s8) var(--s16); }
-.hr-mem .title, .hr-mem .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hr-st { display: inline-flex; align-items: center; gap: var(--s8); font-size: var(--t14); font-weight: 700; color: var(--n700); }
-.hr-st > span { display: inline-flex; align-items: center; gap: 2px; }
-.hr-st .ic { width: 16px; height: 16px; }
+/* sections: a 22px heading, then a list card or doors */
+body.staff6 .hr-sec { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+body.staff6 .hr-sech { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+body.staff6 .hr-sech h2 { margin: 0; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); color: var(--v6-ink); }
+body.staff6 .hr-p { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
+body.staff6 .hr-p a { color: var(--v6-action); }
+body.staff6 .hr-more, body.staff6 .hr-fix, body.staff6 .hr-gacts { margin: 0; }
 
-/* ---- desktop (900px and wider): the agenda and the members on the left, going and the links in a panel that stays
-   in view (.sv-cols, .sv-aside and .sv-stick in staff.css) ---- */
-@media (min-width: 900px) {
-  .hr-page.hr-desk { max-width: 1056px; margin: 0 auto; }
-  .hr-page .hr-deskback { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: 0 0 var(--s4) -8px; padding: 0 12px 0 4px; border-radius: var(--pill); color: var(--p700); font-weight: 700; text-decoration: none; }
-  .hr-page .hr-deskback:hover { background: var(--p50); }
-  .hr-page .hr-deskback .ic { width: 20px; height: 20px; }
-  .hr-head { padding: 0 0 var(--s4); }
-  .hr-page .hr-head h1 { font-size: var(--t22); }
-  .hr-desk .hr-head + .hr-sec, .hr-desk .hr-note + .hr-sec { margin-top: var(--s16); }
-  .hr-desk .hr-bill, .hr-desk .hr-mem { min-height: 56px; padding: 6px var(--s12) 6px var(--s16); }
-  .hr-desk .hr-bill { grid-template-areas: "t s c" "f f c"; }
-  .hr-desk .hr-bt { -webkit-line-clamp: 1; }
-  /* R-271: one line on a desktop, so the nickname gives way and the small number after it always shows */
-  .hr-desk .hr-bt { display: flex; align-items: baseline; gap: 0 .35em; }
-  .hr-desk .hr-bt .bn-nick, .hr-desk .hr-bt .bn-sum { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .hr-desk .hr-bt .bn-num, .hr-desk .hr-bt .bn-num0 { flex: none; }
-  /* the bill's name keeps about 20 letters before it is cut (it is the name staff know now); the chip beside it gives way */
-  .hr-desk .hr-bill { grid-template-columns: minmax(min(17em, 50%), 1fr) minmax(0, auto) 20px; }
-  .hr-desk .hr-bs { min-width: 0; max-width: 100%; }
-  .hr-desk .hr-bs .sv-chip { flex: 0 1 auto; min-width: 0; white-space: normal; text-align: left; }   /* R-277 ui-critic: wraps, never cut ("late testimony until 3:") */
-  .hr-bill:hover .hr-bt b, .hr-mem:hover .title { text-decoration: underline; text-underline-offset: 3px; }
-  .hr-hicon { display: flex; }
-  .hr-cols > .hr-side { padding-bottom: 2px; }   /* room for the cards' shadow */
-  .hr-card { padding: var(--s16); }
-  .hr-side .hr-card h2 { margin-bottom: var(--s4); font-size: var(--t16); }   /* two classes, to outrank body.staff2 h2 */
-  /* the panel is 340px: "I'm going" and "Put someone down…" stack, left edges in line, rather than wrap unevenly */
-  .hr-card .hr-gacts { flex-direction: column; align-items: flex-start; gap: var(--s4); margin-top: var(--s12); }
-  .hr-card .hr-gacts .btn.text { margin-left: -12px; }
-  .hr-card .hr-gacts .btn.text:hover { background: var(--p50); text-decoration: none; }
-  .hr-link { display: flex; align-items: center; gap: var(--s12); min-height: 52px; padding: 6px 0; border-top: 1px solid var(--n100); color: var(--n900); text-decoration: none; }
-  .hr-card h2 + .hr-link { border-top: 0; }
-  .hr-link > .ic { width: 20px; height: 20px; color: var(--n500); flex: none; }
-  .hr-lb { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
-  .hr-lt { font-size: var(--t14); font-weight: 700; color: var(--p700); }
-  .hr-ls { font-size: var(--t13); color: var(--n500); }
-  .hr-link:hover .hr-lt { text-decoration: underline; }
-  .hr-link .hr-ext { width: 16px; height: 16px; color: var(--n500); flex: none; }
+/* the monitored bills: one quiet line that opens to their rows */
+body.staff6 .hr-fold > summary { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; margin: 0 -12px; width: fit-content; max-width: 100%;
+  border-radius: var(--v6-pill); color: var(--v6-action); font-size: var(--v6-t16); font-weight: 700; cursor: pointer; list-style: none; }
+body.staff6 .hr-fold > summary::-webkit-details-marker { display: none; }
+body.staff6 .hr-fold > summary svg { width: 20px; height: 20px; flex: none; }
+body.staff6 .hr-fold > summary .hr-chev { transition: transform 150ms ease; }
+body.staff6 .hr-fold[open] > summary .hr-chev { transform: rotate(180deg); }
+body.staff6 .hr-fold > .v6-list { margin-top: 8px; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .hr-fold > summary:hover { background: var(--v6-action-wash); } }
+
+/* doors: the notice, the video, This week's asks (labelled, the whole width, 56px: B-9, A-6) */
+body.staff6 .hr-doors { display: grid; grid-template-columns: minmax(0, 1fr); padding: 8px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .hr-door, body.staff6 .hr-share { position: relative; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 12px; border-radius: var(--v6-r12);
+  color: var(--v6-ink); text-decoration: none; }
+body.staff6 .hr-door + .hr-door::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: var(--v6-hair); }
+body.staff6 .hr-share { background: var(--v6-card); box-shadow: var(--v6-sh1); border-radius: var(--v6-r20); padding: 12px 20px; }
+body.staff6 .hr-door > svg:first-child, body.staff6 .hr-share > svg:first-child { width: 22px; height: 22px; flex: none; color: var(--v6-muted); }
+body.staff6 .hr-door-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+body.staff6 .hr-door-l { font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-action); }
+body.staff6 .hr-door-s { font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
+body.staff6 .hr-ext, body.staff6 .hr-share .v6-chev { width: 18px; height: 18px; flex: none; color: var(--v6-muted); }
+body.staff6 .hr-door:focus-visible, body.staff6 .hr-share:focus-visible, body.staff6 .hr-deskback:focus-visible, body.staff6 .hr-fold > summary:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  body.staff6 .hr-door:hover { background: var(--v6-wash); }
+  body.staff6 .hr-door:hover::before, body.staff6 .hr-door:hover + .hr-door::before { background: transparent; }
+  body.staff6 .hr-share { transition: box-shadow 150ms ease; }
+  body.staff6 .hr-share:hover { box-shadow: var(--v6-sh2); }
 }
 
-/* R-277 fix 12: "Undo filed" right under a row whose testimony is marked filed */
-.hr-unf { display: flex; align-items: center; justify-content: flex-end; gap: var(--s8); padding: 0 var(--s8) var(--s4); }
-.mv-ask { margin: var(--s8) 0 var(--s4); font-weight: 600; color: var(--warn-text); }   /* R-316 W53 */
+/* who is going (admins) */
+body.staff6 .hr-goers { list-style: none; margin: 0; padding: 4px 20px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .hr-goers li { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; }
+body.staff6 .hr-goers li + li::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
+body.staff6 .hr-gname { min-width: 0; font-size: var(--v6-t16); color: var(--v6-ink); overflow-wrap: anywhere; }
+
+/* a cancelled sitting that moved: still going? (W53) */
+body.staff6 .hr-moved { padding: 16px 20px; border-radius: var(--v6-r20); background: var(--v6-wash); }
+body.staff6 .mv-ask { margin: 0 0 8px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-ink); }
+body.staff6 .mv-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mv-ask { margin: var(--s8) 0 var(--s4); font-weight: 600; }   /* R-316 W53, outside v6 */
 .mv-acts { display: flex; flex-wrap: wrap; gap: var(--s8); }
+
+@media (max-width: 767.98px) {
+  body.staff6 .hr-page { gap: 20px; }
+  body.staff6 .hr-share { padding: 12px 16px; }
+}
+@media (prefers-reduced-motion: reduce) { body.staff6 .hr-fold > summary .hr-chev, body.staff6 .hr-share { transition: none; } }
