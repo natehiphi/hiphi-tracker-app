@@ -14,7 +14,7 @@ import { TERMS_TAP, termBtn } from './terms.js';   // R-316 W40: the codes still
 import { stepCard, billStep, whereWords, committeeName, versionWords, deadlineWords, numWords, nameWords } from './steps.js';
 
 // ---- v6: the open item ----
-// openItem(b, { viewer, where, close, headId, about, primary, from, also }) -> HTML.
+// openItem(b, { viewer, where, close, headId, about, primary, from, also, d, h }) -> HTML.
 //   close:   the close X (closeBtn(attrs)), or '' where Back closes it (the item's own page).
 //   about:   the facts HTML for About this bill (look.js lookFacts on Bills), else aboutBill(b).
 //   primary: false when another filled button owns the screen (spec section 4). Today passes false: its "Your next step"
@@ -23,12 +23,15 @@ import { stepCard, billStep, whereWords, committeeName, versionWords, deadlineWo
 //   also:    the other open items on this bill ("Kevin asked: Who is attending?" with Reply): an HTML string, or
 //            [{ text (HTML), button (HTML) }], drawn under "Also on this bill" between the step and About (spec 5: the
 //            "+N on this bill" a row no longer says lives here).
+//   d, h:    the draft and sitting this item is about, when its row is about one of several (a second committee's
+//            testimony is its own row, R-274): the open item is that row's step, not the bill's first.
 // The top row carries the number, Open the bill and the X, so the way to the bill is on the first screen of a laptop
 // panel whatever the step card's height (fresh-eyes review at 1280x800).
-export function openItem(b, { viewer, where = 'pane', close = '', headId = 'v6-item-h', about = null, primary = true, from, also = null } = {}) {
+export function openItem(b, { viewer, where = 'pane', close = '', headId = 'v6-item-h', about = null, primary = true, from, also = null, d, h: hr } = {}) {
   if (!b) return '';
   const sum = b.nickname ? blurb(b, 240) : '';
-  const s = billStep(b, { viewer }), h = hearingAhead(b);
+  const pick = { ...(d !== undefined ? { d } : {}), ...(hr !== undefined ? { h: hr } : {}) };
+  const s = billStep(b, { viewer, ...pick }), h = hearingAhead(b);
   // The step card's hearing line already says the hearing ahead: About does not say it again (A-14).
   const shown = !!(s?.h && h && s.kind !== 'chair' && where !== 'hearing' && s.h.committee === h.committee && s.h.scheduled_at === h.scheduled_at);
   const facts = about ?? aboutBill(b, { hearing: !shown });
@@ -38,7 +41,7 @@ export function openItem(b, { viewer, where = 'pane', close = '', headId = 'v6-i
     <div class="v6-item-top"><p class="v6-item-num">${esc(numWords(b))}</p><a class="v6-item-open" href="${esc(billRoute(b))}" data-bill="${esc(b.id)}"><span>Open the bill</span>${icon('arrow-right')}</a>${close}</div>
     <h2 class="v6-item-name" id="${esc(headId)}" tabindex="-1">${esc(nameWords(b, 160))}</h2>
     ${sum ? `<p class="v6-item-sum">${esc(sum)}</p>` : ''}
-    ${stepCard(b, { viewer, where, primary, named: false, ...(from !== undefined ? { from } : {}) })}
+    ${stepCard(b, { viewer, where, primary, named: false, ...pick, ...(from !== undefined ? { from } : {}) })}
     ${alsoHTML ? `<section class="v6-also" aria-labelledby="${esc(headId)}-also"><h3 class="v6-also-h" id="${esc(headId)}-also">Also on this bill</h3>${alsoHTML}</section>` : ''}
     ${facts ? `<div class="v6-item-doors"><details class="v6-item-det"${S.v6About?.[b.id] ? ' open' : ''} data-v6about="${esc(b.id)}"><summary class="v6-item-door">${icon('info')}<span>About this bill</span>${icon('chevron-down')}</summary><div class="v6-item-about">${facts}</div></details></div>` : ''}
   </div>`;
