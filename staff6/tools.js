@@ -6,9 +6,26 @@ import { S, DB, DEMO, esc, hooks } from './data.js';
 import { icon, menuSheet } from './ui.js';
 import { placeRow, placeList, leadKeys, isLead } from './more.js';
 import { admitsPartners } from './partnerq.js';
+import { HOLDING } from './holding.js';
+import { startSelect } from './bulk.js';
+import { views, openEditViews } from './filters.js';
 
-// A row: [name, address, icon, one plain line] (ext: a new tab). Admin-only rows are filtered out by role below.
-const row = ([name, href, ic, line, ext]) => placeRow('tools', { label: name, href, ic, line, ext });
+// A row: [name, address, icon, one plain line, ext (a new tab), act (a step taken on arrival, TOOL_ACT)].
+const row = ([name, href, ic, line, ext, act]) => placeRow('tools', { label: name, href, ic, line, ext, act });
+// Bills keeps three of its tools in its own state or its "…" menu, not in its address (bills.js reads no ?select= or
+// ?export=). So these rows open Bills and then take that step there, and each keeps its promise (C-6, B-3): Bulk change
+// opens Bills with its tick boxes, Saved views opens the saved views (or, with none yet, Bills' menu at Save this view),
+// Export opens Bills' menu with Export CSV ready. BILLS can make them addresses (#/bills?select=1, ?views=1, ?export=1).
+function billsMenu(at) {
+  const more = document.querySelector('main [data-more]'); if (!more) return;
+  more.click();
+  setTimeout(() => [...document.querySelectorAll('dialog[open] .sv-menu button')].find(b => at.test(b.textContent))?.focus(), 30);
+}
+const TOOL_ACT = {
+  select: () => { S.go('#/bills'); startSelect(); },
+  views: () => { S.go('#/bills'); if (views().length) openEditViews(() => hooks.render?.()); else billsMenu(/Save this view/); },
+  export: () => { S.go('#/bills'); billsMenu(/Export/); },
+};
 // Sort new bills says its one number: how many new bills a coalition's words match (the list Sort new bills opens on).
 function sortLine() {
   const c = S.triageCounts;
@@ -17,12 +34,12 @@ function sortLine() {
   return n ? `${n.toLocaleString()} new bill${n === 1 ? '' : 's'} match a coalition` : 'No new bills waiting';
 }
 function groups() {
-  const admin = !!S.me?.is_admin;
+  const nv = views().length;
   return [
     ['Getting hearings', [
-      ['Holding our bills', '#/legislators?view=holding', 'landmark', 'Which chairs hold our bills, and who to ask'],
+      HOLDING() ? ['Holding our bills', '#/legislators?view=holding', 'landmark', 'Which chairs hold our bills, and who to ask'] : null,
       ['Session calendar', '#/help/calendar', 'calendar', 'The session’s deadlines, day by day'],
-      DEMO ? ['Legislators’ profiles', '#/legislators?view=everyone', 'user-round', 'What each legislator cares about (practice copy)'] : null,
+      DEMO ? ['Legislators’ profiles', '#/legislators?view=everyone', 'user-round', 'Everyone at the Capitol, and what each cares about (practice copy)'] : null,
     ]],
     ['Testimony', [
       ['Earlier testimony library', '#/testimony?view=filed', 'book-open', 'Every filed testimony, to borrow from'],
@@ -34,12 +51,13 @@ function groups() {
       ['First visit numbers', '#/my-issues/all?view=first-visit', 'chart-column', 'How newcomers find and use the public tracker'],
       ['Supporters’ groups', '#/outreach/supporters', 'users-round', 'Saved groups of supporters, to email'],
     ]],
+    // Sort new bills is open to everyone (triage.js has no role gate; Bills' "…" offers it to all), so it is listed for all.
     ['Bills', [
-      admin ? ['Sort new bills', '#/bills/new', 'sparkles', sortLine()] : null,
+      ['Sort new bills', '#/bills/new', 'sparkles', sortLine()],
       ['Muted bills', '#/bills/muted', 'bell-off', 'Bills set aside, out of your lists'],
-      ['Saved views', '#/bills?views=1', 'bookmark', 'Your saved filters on Bills'],
-      ['Bulk change', '#/bills?select=1', 'list-checks', 'Pick many bills and change them at once'],
-      ['Export', '#/bills?export=1', 'download', 'Bills as a spreadsheet (CSV)'],
+      ['Saved views', '#/bills', 'bookmark', nv ? `Your ${nv} saved view${nv === 1 ? '' : 's'} of Bills` : 'Save Bills’ filters to come back to them', false, 'views'],
+      ['Bulk change', '#/bills', 'list-checks', 'Opens Bills with tick boxes, to change many bills at once', false, 'select'],
+      ['Export', '#/bills', 'download', 'Opens Bills’ menu at Export CSV: the list as a spreadsheet', false, 'export'],
     ]],
     ['Learning', [
       ['Getting started', '#/help/new', 'compass', 'The first things to do, for someone new'],
@@ -52,7 +70,7 @@ function groups() {
 // D8: the tools this person's role leaves out, named once so nobody wonders whether they exist.
 function footLine() {
   const a = S.me; if (!a || a.is_admin) return '';
-  const miss = [isLead(a) ? null : 'Team', 'People', admitsPartners(a) ? null : 'Partners', 'Session setup', 'Sort new bills'].filter(Boolean);
+  const miss = [isLead(a) ? null : 'Team', 'People', admitsPartners(a) ? null : 'Partners', 'Session setup'].filter(Boolean);
   const list = miss.length > 1 ? `${miss.slice(0, -1).join(', ')} and ${miss[miss.length - 1]}` : miss[0];
   return `Admins also have ${list}. Ask Nate.`;
 }
@@ -63,7 +81,7 @@ export default {
   title: () => 'More tools',
   render() {
     const admin = !!S.me?.is_admin, leads = leadKeys(), back = location.search + '#/';
-    if (admin && !S.triageCounts && !S.triageCountsLoading) {   // the one number on Sort new bills, read once
+    if (!S.triageCounts && !S.triageCountsLoading) {   // the one number on Sort new bills, read once
       S.triageCountsLoading = true;
       DB.triageCounts().then(c => { S.triageCounts = c; if (S.route?.name === 'tools') hooks.render?.(); }).catch(() => {}).finally(() => { S.triageCountsLoading = false; });
     }
@@ -82,6 +100,12 @@ export default {
     </div>`;
   },
   wire(route, root) {
+    // The rows that take a step on arrival (TOOL_ACT). Registered before the frame's own link handler, which then leaves
+    // the click alone; Cmd/Ctrl-click still opens plain Bills in a new tab.
+    root.querySelectorAll('[data-act]').forEach(a => a.addEventListener('click', e => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+      e.preventDefault(); TOOL_ACT[a.dataset.act]?.();
+    }));
     // A teammate's Today, read-only (spec 3.5): everyone may look; the Team page around it is for leads (team.js reads ?who=).
     root.querySelector('[data-tlwho]')?.addEventListener('click', () => menuSheet({ title: 'See a teammate’s list', items: teammates().map(a => ({
       label: a.full_name, icon: 'user-round', sub: a.is_admin ? 'Admin' : a.can_approve ? 'Approver' : a.is_reviewer ? 'Second approver' : '',

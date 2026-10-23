@@ -99,18 +99,24 @@
 <style>
 /* v6 (R-336): the first thing anyone sees is in the warm look too (spec 4): sand ground, ink words, the teal button. */
 .boot0 { min-height: 100vh; display: flex; flex-direction: column; align-items: center; background: #F7F3EA; font-family: Lato, system-ui, sans-serif; color: #433B33; }
-.boot0 .bar { width: 100%; max-width: 440px; box-sizing: border-box; padding: 10vh 16px 0; font: 600 18px/1.25 Poppins, system-ui, sans-serif; color: #25221E; }
+.boot0 .bar { width: 100%; max-width: 440px; box-sizing: border-box; padding: 10vh 16px 0; display: flex; align-items: center; gap: 12px; margin: 0; }
+.boot0 .bar .mk { width: 48px; height: 48px; flex: none; }
+.boot0 .bar > span { display: flex; flex-direction: column; }
+.boot0 .bar b { font: 600 18px/1.25 Poppins, system-ui, sans-serif; color: #25221E; }
+.boot0 .bar .for { font-size: 14px; line-height: 20px; color: #685D52; }
 .boot0 .msg { padding: 16px 16px 32px; max-width: 440px; width: 100%; box-sizing: border-box; }
+body .boot0 main.msg { margin: 0 auto; }   /* the failure's <main>: centred like the brand line, whatever staff.css says of main */
 .boot0 h1 { font: 700 28px/34px Poppins, system-ui, sans-serif; color: #25221E; margin: 0 0 8px; }
 .boot0 p { margin: 0 0 16px; font-size: 16px; line-height: 24px; }
 .boot0 button { min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: #0B6E73; color: #fff; font: 700 16px Lato, system-ui, sans-serif; cursor: pointer; }
 .boot0 button:hover { background: #095A5E; }
 .boot0 button:focus-visible { outline: 3px solid #0B6E73; outline-offset: 2px; }
 </style>
-<div id="app"><div class="boot0" role="status"><div class="bar">Bill Tracker</div><div class="msg"><p>Getting your day ready…</p></div></div></div>
+<!-- The same brand line as the signed-in failure screen (app.js markBrand): the mark, "HIPHI Bill Tracker", "for the HIPHI team". -->
+<div id="app"><div class="boot0" role="status"><p class="bar"><svg class="mk" viewBox="-32 49 330 330" aria-hidden="true" focusable="false"><path fill="#D67234" fill-rule="evenodd" d="M135.9,315.2c-36,13.8-76.3-4.2-90.1-40.2c-5.8-15-6-30.8-1.6-45.1c-13.5,24.8-16.5,55.1-5.6,83.5 c5,13,12.3,24.3,21.4,33.7c22.7,13.4,51,16.7,77.6,6.5c46.2-17.7,69.4-69.5,51.7-115.7c-7.8-20.5-22.4-36.4-40.2-46.3 c11.9,7.8,21.6,19.2,27,33.5C189.9,261.1,171.9,301.4,135.9,315.2z"/><path fill="#F18336" fill-rule="evenodd" d="M189.2,237.9c17.7,46.2-5.4,98-51.7,115.7c-26.5,10.1-54.9,6.9-77.6-6.5c27,27.9,69,38.6,107.5,23.8 c51.5-19.7,77.3-77.5,57.6-129c-6.9-17.9-18.3-32.8-32.6-43.6c-22.8-16.1-51.4-23-79.9-18.1c13,0.3,25.7,4.3,36.4,11.3 C166.9,201.5,181.4,217.4,189.2,237.9z"/><path fill="#3F9EB9" fill-rule="evenodd" d="M129.7,113.4c36-13.8,76.3,4.2,90.1,40.2c5.7,15,5.9,30.8,1.6,45.1c13.5-24.8,16.5-55.1,5.6-83.5 c-5-13-12.4-24.3-21.4-33.7c-22.7-13.4-51.1-16.7-77.6-6.5c-46.2,17.7-69.3,69.5-51.7,115.7c7.8,20.5,22.4,36.4,40.2,46.3 c-11.9-7.8-21.6-19.2-27.1-33.5C75.7,167.5,93.7,127.1,129.7,113.4z"/><path fill="#4DBCEA" fill-rule="evenodd" d="M76.3,190.7c-17.7-46.2,5.5-98,51.7-115.7c26.5-10.1,54.9-6.9,77.6,6.5c-27-27.9-69-38.6-107.5-23.8 c-51.5,19.7-77.3,77.5-57.6,129c6.9,17.9,18.4,32.8,32.6,43.6c22.8,16.1,51.4,23,79.9,18.1c-13-0.3-25.7-4.3-36.4-11.3 C98.7,227.1,84.2,211.2,76.3,190.7z"/></svg><span><b>HIPHI Bill Tracker</b><span class="for">for the HIPHI team</span></span></p><div class="msg"><p>Getting your day ready…</p></div></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script>
-function bootFail() { var a = document.getElementById('app'); if (!a || !a.querySelector('.boot0 [role], .boot0')) return; if (a.querySelector('.boot0')) a.innerHTML = '<div class="boot0"><div class="bar">Bill Tracker</div><main class="msg"><h1>We could not load the tracker</h1><p>Check your connection and try again.</p><button type="button" onclick="location.reload()">Try again</button></main></div>'; }
+function bootFail() { var a = document.getElementById('app'); if (!a || !a.querySelector('.boot0 [role], .boot0')) return; if (a.querySelector('.boot0')) a.innerHTML = '<div class="boot0">' + a.querySelector('.boot0 .bar').outerHTML + '<main class="msg"><h1>We could not load the tracker</h1><p>Check your connection and try again.</p><button type="button" onclick="location.reload()">Try again</button></main></div>'; }
 window.__bootT = setTimeout(bootFail, 20000);
 </script>
 <script type="module" src="staff6/app.js" onerror="bootFail()"></script>

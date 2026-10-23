@@ -40,13 +40,13 @@ export const youName = (a = S.me) => { const p = String(a?.full_name || '').trim
 
 // One labelled row: icon, name, one plain line; a count when the place has one (the Inbox's unread). `you` is a button that
 // opens the account menu (app.js wires [data-you] on every page; the sidebar's You uses it).
-export function placeRow(k, { line, count = 0, href, label, ic, you = false, ext = false } = {}) {
+export function placeRow(k, { line, count = 0, href, label, ic, you = false, ext = false, act = '' } = {}) {
   const [h, i, name, , l] = PLACES[k] || ['#/', 'circle', k, k, ''];
   const lead = you ? `<span class="v6-more-ic">${avatar(S.me, 40)}</span>` : `<span class="v6-more-ic">${icon(ic || i)}</span>`;
   const n = count ? `<span class="v6-more-n" aria-label="${count} unread">${count > 99 ? '99+' : count}</span>` : '';
   const inner = `${lead}<span class="v6-more-tx"><span class="v6-more-nm">${esc(label || (you ? `You · ${youName()}` : name))}</span><span class="v6-more-ln">${esc(line ?? l)}</span></span>${n}${icon(ext ? 'external-link' : 'chevron-right', { cls: 'chev' })}`;
   return you ? `<button type="button" class="v6-more-row" data-you aria-haspopup="menu">${inner}</button>`
-    : `<a class="v6-more-row" href="${esc(href || h)}"${ext ? ' target="_blank" rel="noopener"' : ''}>${inner}</a>`;
+    : `<a class="v6-more-row" href="${esc(href || h)}"${ext ? ' target="_blank" rel="noopener"' : ''}${act ? ` data-act="${esc(act)}"` : ''}>${inner}</a>`;
 }
 export const placeList = rows => `<ul class="v6-more-list">${rows.filter(Boolean).map(r => `<li>${r}</li>`).join('')}</ul>`;
 
@@ -72,7 +72,7 @@ export default {
       <section class="v6-more-sec" aria-label="Places">${placeList([placeRow('outreach'), placeRow('legislators'), placeRow('myissues'), placeRow('inbox', { count: unread }), placeRow('help')])}</section>
       ${leads.length ? `<section class="v6-more-sec" aria-labelledby="mo-lead"><h2 class="v6-more-h" id="mo-lead">Lead tools</h2>${placeList(leads.map(k => placeRow(k)))}</section>` : ''}
       <section class="v6-more-sec" aria-label="More tools">${placeList([placeRow('tools')])}</section>
-      <section class="v6-more-sec" aria-labelledby="mo-you"><h2 class="v6-more-h mo-you" id="mo-you">${avatar(S.me, 28)}<span>You · ${esc(youName())}</span></h2>${placeList(acct().map((it, i) => `<button type="button" class="v6-more-row" data-acct="${i}"><span class="v6-more-ic">${icon(it.icon)}</span><span class="v6-more-tx"><span class="v6-more-nm">${esc(it.label)}</span>${it.sub ? `<span class="v6-more-ln">${esc(it.sub)}</span>` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</button>`))}</section>
+      <section class="v6-more-sec" aria-labelledby="mo-you"><h2 class="v6-more-h mo-you" id="mo-you">${avatar(S.me, 28)}<span>You · ${esc(youName())}</span></h2>${placeList(acct().map((it, i) => `<button type="button" class="v6-more-row" data-acct="${i}"><span class="v6-more-ic">${icon(it.icon)}</span><span class="v6-more-tx"><span class="v6-more-nm">${esc(it.label)}</span>${it.sub ? `<span class="v6-more-ln">${esc(it.sub)}</span>` : ''}</span>${it.nav ? icon('chevron-right', { cls: 'chev' }) : ''}</button>`))}</section>
       ${sync ? `<p class="v6-more-sync">${icon('refresh-cw')}<span>${esc(sync)}</span></p>` : ''}
     </div>`;
   },

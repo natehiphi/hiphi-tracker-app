@@ -332,6 +332,11 @@ export function openSheet({ title, body, foot = '', size = 'half', onClose, wire
   d.addEventListener('cancel', e => { e.preventDefault(); closeSheet(); });
   d.addEventListener('click', e => { if (e.target === d) closeSheet(); });
   d.querySelector('[data-shclose]').onclick = () => closeSheet();
+  // Opening a sheet never moves the page under it (B-4, B-6): an anchored popover is fixed, and with no top or left yet its
+  // place would be the page's foot, which showModal's focus scrolled the page to (the You menu moved Today down 376px).
+  // It is put at the corner first, then by its button; any scroll the browser makes anyway is put back.
+  const y0 = window.scrollY;
+  if (anchor) { d.style.left = '0px'; d.style.top = '0px'; }
   d.showModal();
   if (anchor) place(d, anchor);
   // Focus: a field marked autofocus; else, with a keyboard and mouse, the thing Enter should do (the chosen option,
@@ -339,7 +344,8 @@ export function openSheet({ title, body, foot = '', size = 'half', onClose, wire
   // (one selector per try: a comma list answers with whichever comes first in the page, not the first in the list)
   const pick = (...sels) => { for (const q of sels) { const el = d.querySelector(q); if (el) return el; } return null; };
   const first = d.querySelector('[autofocus]') || (DESK() ? pick('[role="radio"][aria-checked="true"]', '.sv-menu button:not([aria-disabled="true"])', '.sv-pickl button', '.sv-sh-foot .btn.primary', '.sv-sh-foot .btn.danger') : null) || d.querySelector('#sv-sh-t');
-  first?.focus?.();
+  first?.focus?.({ preventScroll: true });
+  if (window.scrollY !== y0) window.scrollTo(0, y0);
   // Arrow keys move through a menu or a picker; Home and End jump.
   d.addEventListener('keydown', e => {
     const list = e.target?.closest?.('.sv-menu, .sv-pickl'); if (!list || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;

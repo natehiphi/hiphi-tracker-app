@@ -9,7 +9,7 @@ const WHAT = {
   approve: ['To approve', 'Drafts waiting for you, one decision a screen in Review, with Approve and Send back.'],
   sent: ['Sent back', 'Drafts an approver sent back, with their note and who files once it is fixed.'],
   file: ['Ready to file', 'Approved testimony with its filing card: the PDF, the Capitol page for the hearing, the form’s answers to copy, then Mark filed.'],
-  filed: ['Filed', 'Every testimony filed, newest first: the library to borrow from.'],
+  filed: ['Filed', 'Every testimony filed, newest first: the library to borrow from. Until this tab is built, each bill’s earlier testimony is at the end of its page, under Earlier testimony.'],
   missed: ['Missed', 'Hearings that passed with nothing filed, recorded without blame.'],
 };
 const approves = () => !!(S.me?.is_admin || S.me?.can_approve || S.me?.is_reviewer);

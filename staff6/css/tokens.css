@@ -88,9 +88,11 @@ body.staff6 {
   --o700: #8C3C19;
   --ok-wash: var(--v6-leaf-wash);
   --ok-text: var(--v6-leaf);
-  --warn-wash: var(--v6-late-wash);
-  --warn-fill: #DFA03A;
-  --warn-text: var(--v6-late);
+  /* D3: v5's "warn" meant due soon, sent back or paused, and none of those is late, so in v6 it is neutral: ink on sand.
+     Amber is only "Late, still accepted until ..." (--v6-late, .chip.late, .notice.late); a day with nothing late shows none. */
+  --warn-wash: var(--v6-wash);
+  --warn-fill: var(--v6-field);
+  --warn-text: var(--v6-ink);
   --bad-wash: var(--v6-bad-wash);
   --bad-text: var(--v6-bad);
   --bad-press: #8E281F;
@@ -114,7 +116,7 @@ body.staff6 {
   --card: var(--v6-card);
   --line: var(--v6-hair);
   --ink-2: var(--v6-muted);
-  --warn-bg: var(--v6-late-wash);
+  --warn-bg: var(--v6-wash);
 }
 @media (min-width: 768px) {
   body.staff6 { --v6-gutter: 24px; --v6-gap: 48px; --v6-row: 64px; --header: 64px; }

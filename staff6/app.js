@@ -97,9 +97,10 @@ export function parseRoute(h = location.hash) {
   const to = (path, drop = []) => { const u = new URLSearchParams(qs || ''); drop.forEach(k => u.delete(k)); const s = u.toString(); return path + (s ? '?' + s : ''); };
   switch (seg[0]) {
     case undefined:
-      // v5's Today | This week and Mine | Team switches: This week is Hearings, Team is Team (spec 6, Today; 3.4).
-      if (q.view === 'week') return { name: 'hearings', view: '', q: {}, redirect: '#/hearings' };
-      if (q.scope === 'team') return { name: 'team', who: '', q: {}, redirect: '#/team', leads: true };
+      // v5's Today | This week and Mine | Team switches: This week is Hearings, Team is Team (spec 6, Today; 3.4). The week
+      // paged to (w=) and Team (scope=team) go along, so v5's week grid keeps its place inside Hearings until HEARINGS lands.
+      if (q.view === 'week' || q.view === 'ahead') return { name: 'hearings', view: '', q: {}, redirect: to('#/hearings', ['view']) };
+      if (q.scope === 'team') return { name: 'team', who: '', q: {}, redirect: to('#/team', ['scope']), leads: true };
       return { name: 'today', q };
     case 'tasks': return { name: 'today', q: {}, redirect: '#/' };   // v4 (R-269): retired; an old link opens Today
     case 'hearings': return { name: 'hearings', view: seg[1] === 'ask' ? 'ask' : seg[1] === 'week' ? 'week' : (q.view || ''), q };
@@ -151,7 +152,10 @@ const PLACE_OF = { today: 'today', hearings: 'hearings', hearing: 'hearings', te
   emails: 'outreach', composer: 'outreach', supporters: 'outreach', person: 'outreach', lists: 'outreach', list: 'outreach', bills: 'bills', triage: 'bills', bill: 'bills',
   legislators: 'legislators', legislator: 'legislators', myissues: 'myissues', issues: 'myissues', issue: 'myissues', coalition: 'myissues', inbox: 'inbox', help: 'help',
   team: 'team', people: 'people', pgroups: 'partners', setup: 'setup', tools: 'tools', devui: 'tools', more: 'more', me: 'you', search: '' };
-const placeOf = route => !route ? '' : route.name === 'bill' && S.billFrom ? S.billFrom : PLACE_OF[route.name] ?? '';
+// A stub showing a v5 view keeps its own place lit (route.place, hearings.js and team.js). Team is a lead tool: anyone else
+// reaches #/team?who= ("See a teammate's list") from More tools, so More tools is lit for them (B-13, A-12).
+const placeOf = route => !route ? '' : route.name === 'bill' && S.billFrom ? S.billFrom : route.place ? route.place
+  : route.name === 'team' && !isLead() ? 'tools' : PLACE_OF[route.name] ?? '';
 // The phone bar lights More for every place that is not one of its five.
 const barOf = k => BAR.includes(k) ? k : k ? 'more' : '';
 
@@ -162,9 +166,13 @@ export function go(path, { replace = false, keepScroll = false, force = false } 
   // shortcut): it registers (S.leaveGuards ??= []).push(proceed => boolean). True means "I am asking; I will call
   // proceed() if they choose to leave". A guard must answer false at once when it has nothing unsaved.
   if (!force) for (const g of S.leaveGuards || []) { let held = false; try { held = g(() => go(path, { replace, keepScroll, force: true })) === true; } catch (e) { console.error(e); } if (held) return; }
-  if (takeSheetEntry()) replace = true;   // the sheet's history entry becomes this page, so no late Back undoes it
+  const viaSheet = takeSheetEntry(); if (viaSheet) replace = true;   // the sheet's history entry becomes this page, so no late Back undoes it
   try { history.replaceState({ ...(history.state || {}), y: window.scrollY }, ''); } catch { /* ignore */ }
-  if (replace) history.replaceState({ y: 0, d: depth }, '', path); else history.pushState({ y: 0, d: ++depth }, '', path);
+  // `from`: the title of the page this one was opened from, so a phone's Back names the page it returns to (B-4). A page
+  // that took a sheet's entry is one step deeper than the page under the sheet, and that page is where Back goes.
+  const from = S.shownTitle || '';
+  if (replace) history.replaceState({ y: 0, d: viaSheet ? ++depth : depth, from: viaSheet ? from : history.state?.from || '' }, '', path);
+  else history.pushState({ y: 0, d: ++depth, from }, '', path);
   panelAt = null;
   render(); S.scrollClaimed = false;   // go() puts the page at the top itself; a page's own later scroll still runs
   if (!keepScroll) window.scrollTo(0, 0);
@@ -226,14 +234,29 @@ function lateCount(bd) {
   if (Number.isFinite(bd.lateN)) return bd.lateN;   // today.js may hand it over itself
   try { return todayItems('mine').late || 1; } catch { return 1; }
 }
-const countWords = (bd, lateN) => `${bd.n} need${bd.n === 1 ? 's' : ''} you today${lateN ? `, ${lateN} overdue` : ''}`;
+const countWords = (bd, lateN) => `${bd.n} need${bd.n === 1 ? 's' : ''} you today${lateN ? `, ${lateN} of them overdue` : ''}`;
+// Today's count, the same on the sidebar, the rail and the phone's tab (D3, A-14): ONE number, "needs you today", on a
+// neutral sand badge. When some of it is overdue the badge carries the alert icon (never colour alone, A-5) and its name
+// says how many are overdue; Today itself says it in words at the top.
+function todayBadge(bd, lateN, cls) {
+  if (!bd.n) return '';
+  const words = countWords(bd, lateN);
+  return `<span class="${cls}${lateN ? ' late' : ''}" role="img" aria-label="${esc(words)}" title="${esc(words)}">${lateN ? icon('circle-alert') : ''}<span>${bd.n > 99 ? '99+' : bd.n}</span></span>`;
+}
 // The header. A phone: Back (deeper than a place) or the mark, the page's title, Search and the Inbox bell with a dot. A laptop
 // or tablet (768px and wider): only the search box, which Cmd/Ctrl-K or "/" focuses (V32); the sidebar holds the rest.
-function header(route, scr) {
-  const b = scr.back ? scr.back(route) : null, title = scr.title ? scr.title(route) : '';
+// Pages one level under More or More tools whose screens name no parent: a phone still shows Back to where they came from.
+const UNDER = { me: { href: '#/more', label: 'More' }, devui: { href: '#/tools', label: 'More tools' } };
+function header(route, scr, title) {
+  let b = scr.back ? scr.back(route) : UNDER[route.name] || null;
+  // Back goes where the person came from when this page was opened inside the app (wireFrame: history.back()), so it says
+  // that page's name ("< Bills" for the Inbox opened from Bills), not the screen's usual parent (B-4). The screen's own
+  // label is for a cold arrival (a link from Slack), where Back goes to that parent.
+  const from = depth > 0 ? history.state?.from : '';
+  if (b && from) b = { ...b, label: from, full: false };
   let unread = 0; try { unread = inboxCount(); } catch { unread = 0; }
   // A long label shortens to "Back" on a phone, unless the screen marks it full (the issue page's "Back to SB2175" fits).
-  const short = !!b && b.label.length > 12 && !b.full;
+  const short = !!b && b.label.length > 14 && !b.full;
   const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
   return `<header class="sv-hdr">
     ${b ? `<a class="sv-back phone" href="${esc(b.href)}" data-back${short ? ` aria-label="${esc(/^Back\b/.test(b.label) ? b.label : 'Back to ' + b.label)}"` : ''}>${icon('chevron-left')}<span>${esc(short ? 'Back' : b.label)}</span></a>`
@@ -248,22 +271,27 @@ function header(route, scr) {
 // counts, Today's and the Inbox's. Lead tools appear, under their heading, only for people who have one. More tools and You
 // stay at the foot, in view on a short laptop screen (the places scroll above them if they must); You opens the account
 // menu (the header's initials menu is gone). Collapse is opt-in and keeps short labels.
+// The full label is always the link's name: in the collapsed rail it is read, not shown (the short one is shown), so every
+// row keeps its name for a screen reader (WCAG 4.1.2, 2.4.4).
 function sideItem(k, now, extra = '') {
   const [href, ic, label, shortL] = PLACES[k];
   return `<a class="sv-sitem" href="${href}"${now === k ? ' aria-current="page"' : ''}>${icon(ic)}<span class="lbl">${label}</span><span class="lbs" aria-hidden="true">${shortL}</span>${extra}</a>`;
 }
+// A short window cannot always show every row. The cut edge then says so in words, "More below" (or "More above" once
+// scrolled), and a click scrolls there: a hidden row always has a visible sign (Nate's worst case: hidden or hard to find).
+// The rows themselves are all in the page for a keyboard or a screen reader, so the cue is for the eye and the mouse only.
+const sideCue = dir => `<button type="button" class="sv-smore ${dir}" data-smore="${dir}" tabindex="-1" aria-hidden="true">${icon(dir === 'up' ? 'chevron-up' : 'chevron-down')}<span class="lbl">${dir === 'up' ? 'More above' : 'More below'}</span><span class="lbs">More</span></button>`;
 function sidebar(route) {
   const now = placeOf(route), bd = badge(), lateN = lateCount(bd), leads = leadKeys(), narrow = sideNarrow();
   let unread = 0; try { unread = inboxCount(); } catch { unread = 0; }
-  const todayN = bd.n ? (lateN ? `<span class="sv-sn bad" aria-label="${esc(countWords(bd, lateN))}">${icon('circle-alert')}<span class="sn-n">${lateN}</span><span class="sn-w"> overdue</span></span>`
-    : `<span class="sv-sn" aria-label="${esc(countWords(bd, 0))}">${bd.n > 99 ? '99+' : bd.n}</span>`) : '';
-  const inboxN = unread ? `<span class="sv-sn" aria-label="${unread} unread">${unread > 99 ? '99+' : unread}</span>` : '';
-  return `<aside class="sv-side" aria-label="Places">
+  const inboxN = unread ? `<span class="sv-sn" role="img" aria-label="${unread} unread">${unread > 99 ? '99+' : unread}</span>` : '';
+  return `<aside class="sv-side" aria-label="Sidebar">
     <a class="sv-sbrand" href="#/" aria-label="Bill Tracker, Today">${MARK}<span>Bill Tracker<small>HIPHI staff</small></span></a>
-    <nav class="sv-snav" aria-label="Places">
-      <div class="sv-sgrp">${MAIN.map(k => sideItem(k, now, k === 'today' ? todayN : '')).join('')}</div>
+    <nav class="sv-snav" aria-label="Places">${sideCue('up')}
+      <div class="sv-sgrp">${MAIN.map(k => sideItem(k, now, k === 'today' ? todayBadge(bd, lateN, 'sv-sn') : '')).join('')}</div>
       <div class="sv-sgrp">${sideItem('inbox', now, inboxN)}${sideItem('help', now)}</div>
       ${leads.length ? `<div class="sv-sgrp" role="group" aria-labelledby="sv-leadh"><p class="sv-shd" id="sv-leadh">Lead tools</p>${leads.map(k => sideItem(k, now)).join('')}</div>` : ''}
+      ${sideCue('down')}
     </nav>
     <div class="sv-sfoot">${sideItem('tools', now)}${syncLine()}
       <div class="sv-you"><button type="button" class="sv-sitem sv-youbtn" data-you aria-haspopup="menu"${now === 'you' ? ' aria-current="page"' : ''}>${avatar(S.me, 28)}<span class="lbl">You · ${esc(youName())}</span><span class="lbs" aria-hidden="true">You</span></button>
@@ -287,7 +315,7 @@ function syncLine() {
 function tabbar(route) {
   const now = barOf(placeOf(route)), bd = badge(), lateN = lateCount(bd);
   return `<nav class="sv-tabs" aria-label="Places">${BAR.map(k => { const [href, ic, label] = PLACES[k];
-    const n = k === 'today' && bd.n ? `<span class="sv-badge${lateN ? ' bad' : ''}" aria-label="${esc(countWords(bd, lateN))}">${bd.n > 99 ? '99+' : bd.n}</span>` : '';
+    const n = k === 'today' ? todayBadge(bd, lateN, 'sv-badge') : '';
     return `<a href="${href}"${now === k ? ' aria-current="page"' : ''}><span class="pill">${icon(ic, { size: 24 })}</span>${label}${n}</a>`; }).join('')}</nav>`;
 }
 // A read that failed is said at the top of every screen, with a Reload (R-152 B). Before, eight of about fifty sign-in reads
@@ -357,6 +385,7 @@ export function render() {
   // R-277 ui-critic: a bill opened from Today (or My issues, Outreach...) keeps that place lit in the tab bar and sidebar,
   // so a phone does not jump to Bills under you; a bill opened from nowhere (a link) lights Bills.
   if (route.name === 'bill' && S.route?.name !== 'bill') { const pt = placeOf(S.route); S.billFrom = pt && pt !== 'more' ? pt : null; }
+  if (location.hash !== lastKey) arrive(route);
   S.route = route;
   const scr = SCREENS[route.name] || today;
   let main, bar = '';
@@ -379,22 +408,53 @@ export function render() {
   // control inside a 28px band).
   const band = DEMO ? `<div class="band"><span class="band-hint"><b>Staff v6</b> · Practice copy · </span>${new Date(DEMO_ASOF).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Pacific/Honolulu' })} · as ${esc((S.me?.full_name || '').split(' ')[0])} · practice only<span class="band-hint"> · your changes stay in this tab · switch person or start over under You</span></div>` : '';
   const navTop = document.querySelector('.sv-snav')?.scrollTop || 0;   // a redraw keeps the sidebar where it was scrolled
-  app.innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${band}${sidebar(route)}<div class="sv-page">${header(route, scr)}<main id="main" tabindex="-1">${main}${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}</main></div>${tabbar(route)}`;
+  const shownT = placeTitle(main, title) || title;
+  app.innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${band}${sidebar(route)}<div class="sv-page">${header(route, scr, shownT)}<main id="main" tabindex="-1">${main}${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}</main></div>${tabbar(route)}`;
+  retitle(app, shownT);
+  S.shownTitle = shownT;
   // One heading a screen reader can find, on every screen at every width. Phones hide a page's own h1 (the top bar shows
   // the title): where the page's h1 is not drawn, the top bar's title is the heading.
   // From 768px there is no top bar: a screen that hides its own h1 below 900px (its phone layout, made when the header carried
   // the title) gets the frame's title in its place, so the page still names itself.
   const ft = app.querySelector('.sv-hdr .sv-title'), mainEl = app.querySelector('main');
   let shown = [...app.querySelectorAll('main h1')].find(h => h.getClientRects().length > 0);   // drawn (a hidden parent hides it too)
-  if (!shown && title && mainEl && matchMedia('(min-width: 768px)').matches) { mainEl.insertAdjacentHTML('afterbegin', `<h1 class="v6-ptitle">${esc(title)}</h1>`); shown = mainEl.firstElementChild; }
+  if (!shown && shownT && mainEl && matchMedia('(min-width: 768px)').matches) { mainEl.insertAdjacentHTML('afterbegin', `<h1 class="v6-ptitle">${esc(shownT)}</h1>`); shown = mainEl.firstElementChild; }
   if (ft && !shown) { ft.removeAttribute('aria-hidden'); ft.setAttribute('role', 'heading'); ft.setAttribute('aria-level', '1'); }
   try { clearTimeout(window.__bootT); } catch { /* ignore */ }
-  document.title = (title ? title + ' · ' : '') + 'Bill Tracker staff';
+  document.title = (title ? title + ' · ' : '') + (shownT && shownT !== title ? shownT + ' · ' : '') + 'Bill Tracker staff';
   try { scr.wire && scr.wire(route, app); } catch (e) { console.error(e); reportError('error', e); }
   wireFrame(app);
   const nav = app.querySelector('.sv-snav'); if (nav && navTop) nav.scrollTop = navTop;
   hdrShadow(); tabRows(app);
   if (location.hash !== lastKey) { lastKey = location.hash; if (!app.contains(document.activeElement) || document.activeElement === document.body) app.querySelector('main')?.focus({ preventScroll: true }); }
+}
+// A place with page tabs is titled by the place (spec 3.1, 5 placeHead): "Outreach", its open tab "This week's asks" under it,
+// never the tab's words twice and the place's name nowhere (A-14). Until each screen draws placeHead, the frame retitles a
+// page whose h1 only repeats its open tab; a page with its own name (a bill, an issue) is left as it is.
+const TAB_NAV = /<nav class="sv-tabrow sv-secnav" aria-label="([^"]*)">([\s\S]*?)<\/nav>/;
+const plain = s => { const t = document.createElement('textarea'); t.innerHTML = s; return t.value.trim(); };
+function placeTitle(main, title) {
+  const m = TAB_NAV.exec(main || ''); if (!m) return '';
+  const cur = /aria-current="page">([^<]*)/.exec(m[2]); if (!cur) return '';
+  const place = plain(m[1]), tab = plain(cur[1]);
+  const h1 = /<h1\b[^>]*>([^<]*)<\/h1>/.exec(main);
+  return place && (tab === title || (h1 && plain(h1[1]) === tab)) ? place : '';
+}
+function retitle(app, shownT) {
+  const nav = app.querySelector('main .sv-secnav'); if (!nav || !shownT) return;
+  const tab = nav.querySelector('[aria-current="page"]')?.firstChild?.textContent?.trim();
+  app.querySelectorAll('main h1').forEach(h => { if (tab && h.textContent.trim() === tab) h.textContent = shownT; });
+}
+// Arriving at an address whose screen keeps its view in its own state rather than reading the address: the address wins on
+// arrival (a redraw later never overrides what the person picked since). #/legislators?view=everyone|holding|ask opens that
+// view (spec 3.3, 3.4 "keeps working"; More tools links there). LEGISLATORS can drop this once legislators.js reads route.q.view.
+function arrive(route) {
+  if (route.name === 'legislators' && route.q?.view) {
+    const scope = { everyone: 'all', all: 'all', holding: 'hold', hold: 'hold', ask: 'week', week: 'week' }[route.q.view]; if (!scope) return;
+    // legislators.js's own starting state (its view()), when the page has not been opened yet in this visit
+    const v = S.lgView ??= { scope: 'week', chamber: '', island: '', cmte: '', sort: null, q: '', pick: null, addr: null, focus: false, last: null, cares: '' };
+    Object.assign(v, { scope, chamber: '', island: '', cmte: '', sort: null, cares: '', q: '', pick: null });
+  }
 }
 hooks.render = () => render();
 hooks.afterLoad = () => { FACTS.clear(); loadAsks(); };   // the derived facts are rebuilt from the new rows (R-152 B); R-316 W3's chair asks
@@ -413,6 +473,8 @@ function wireFrame(app) {
   // You (the sidebar's foot, the More page's last row): the account menu.
   app.querySelectorAll('[data-you]').forEach(el => el.addEventListener('click', accountMenu));
   app.querySelector('[data-reload]')?.addEventListener('click', () => refreshData({ say: true }));
+  // The sidebar's "More below" / "More above": scroll the places to that end.
+  app.querySelectorAll('[data-smore]').forEach(b => b.addEventListener('click', () => { const nav = b.closest('.sv-snav'); nav?.scrollTo({ top: b.dataset.smore === 'up' ? 0 : nav.scrollHeight, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }));
   // Collapse: redrawn in place, so the page under it keeps its scroll position and nothing else moves.
   app.querySelector('[data-sidecol]')?.addEventListener('click', () => { setSideNarrow(!sideNarrow()); render(); document.querySelector('[data-sidecol]')?.focus(); });
   // "Skip to content" moves focus into the page. As a #main link the router read it as a page name and went to Today.
@@ -427,19 +489,24 @@ function wireFrame(app) {
       busy: 'Looking through every bill', empty: q => `No place, bill, issue, legislator or supporter matches “${q}”.`,
       seeAll: (q, hits) => ({ href: '#/search?q=' + encodeURIComponent(q), label: hits ? `See all results for “${q}”` : `Look for “${q}” in sponsors, owners and committees` }) }); }
 }
-// A place's page tabs that run past a phone's width scroll sideways: the open tab is brought into view, and the row fades at
-// the edge that has more (B-9: a hidden scrollbar is the only other cue).
+// v6: a place's page tabs wrap onto a second line rather than run off the side (staff.css .sv-tabrow), so every tab is in
+// sight. A row that still scrolls (a screen's own) fades at the edge that has more (B-9), and the open tab is scrolled into
+// view only when it is itself out of view: the row is never moved so that its first tab is cut at the left.
 function tabRows(app) {
   app.querySelectorAll('.sv-tabrow').forEach(r => {
     const over = r.scrollWidth > r.clientWidth + 1; r.classList.toggle('ovf', over); if (!over) return;
     const c = r.querySelector('[aria-current="page"], [aria-pressed="true"]');
-    if (c && !r.dataset.placed) { r.scrollLeft = Math.max(0, c.offsetLeft - (r.clientWidth - c.offsetWidth) / 2); r.dataset.placed = '1'; }
+    if (c && !r.dataset.placed) { const rr = r.getBoundingClientRect(), cr = c.getBoundingClientRect();
+      if (cr.right > rr.right) r.scrollLeft += cr.right - rr.right + 24; else if (cr.left < rr.left) r.scrollLeft -= rr.left - cr.left + 24;
+      r.dataset.placed = '1'; }
     const ends = () => { r.classList.toggle('atstart', r.scrollLeft <= 2); r.classList.toggle('atend', r.scrollLeft + r.clientWidth >= r.scrollWidth - 2); };
     ends(); if (!r.dataset.w) { r.dataset.w = '1'; r.addEventListener('scroll', ends, { passive: true }); }
   });
-  // The sidebar's places, when a short window makes them scroll above the foot: the cut edge fades, so more is seen to be there.
+  // The sidebar's places, when a short window makes them scroll above the foot: "More below" / "More above" show at the cut
+  // edges (sideCue), so a row out of sight always has a visible sign.
   const nav = app.querySelector('.sv-snav');
-  if (nav) { const ends = () => { const over = nav.scrollHeight > nav.clientHeight + 1; nav.classList.toggle('ovf', over); nav.classList.toggle('atend', !over || nav.scrollTop + nav.clientHeight >= nav.scrollHeight - 2); };
+  if (nav) { const ends = () => { const over = nav.scrollHeight > nav.clientHeight + 1; nav.classList.toggle('ovf', over);
+      nav.classList.toggle('atstart', !over || nav.scrollTop <= 2); nav.classList.toggle('atend', !over || nav.scrollTop + nav.clientHeight >= nav.scrollHeight - 2); };
     ends(); if (!nav.dataset.w) { nav.dataset.w = '1'; nav.addEventListener('scroll', ends, { passive: true }); } }
 }
 addEventListener('resize', () => { const app = document.getElementById('app'); if (app && S.route) tabRows(app); }, { passive: true });
@@ -458,7 +525,7 @@ const billsOwned = id => S.bills.filter(b => (S.assignments[b.id] || []).include
 // My settings is two labelled taps there too.
 function accountItems() {
   return [
-    { label: 'My settings', icon: 'settings', sub: 'How the tracker reaches you', run: () => go('#/me') },
+    { label: 'My settings', icon: 'settings', sub: 'How the tracker reaches you', nav: true, run: () => go('#/me') },
     DEMO ? { label: 'Practice as someone else', icon: 'users-round', sub: 'See the app as a teammate sees it, with your changes', run: () => setTimeout(practiseAs, 50) } : null,
     { label: 'Refresh', icon: 'refresh-cw', sub: 'Read what your teammates changed since this page loaded', run: () => setTimeout(() => refreshData({ say: true }), 50) },
     // R-316 W38: the changes made in this tab go with a person switch, so two people can be tried in turn; this puts the day
@@ -507,11 +574,13 @@ function renderLogin() {
       ${btn('Forgot your password?', { kind: 'text', attrs: { id: 'l-forgot', 'aria-expanded': 'false', 'aria-controls': 'l-help' } })}
       <div id="l-help" hidden></div>
     </form>${loginFoot}</main>`;
-  const err = m => { document.getElementById('l-err').innerHTML = m ? `<p class="inlinemsg">${icon('circle-alert')}${esc(m)}</p>` : ''; };
+  // A failed sign-in marks both fields too (A-15: an error is a red edge and a message), and they are named by the message.
+  const err = (m, fields = false) => { document.getElementById('l-err').innerHTML = m ? `<p class="inlinemsg" id="l-errm">${icon('circle-alert')}${esc(m)}</p>` : '';
+    for (const id of ['l-email', 'l-pass']) { const el = document.getElementById(id); if (m && fields) { el.setAttribute('aria-invalid', 'true'); el.setAttribute('aria-describedby', 'l-errm'); } else { el.removeAttribute('aria-invalid'); el.removeAttribute('aria-describedby'); } } };
   document.getElementById('lf').onsubmit = async e => { e.preventDefault(); err('');
     const b = document.getElementById('l-go'); b.setAttribute('aria-busy', 'true');
     try { await DB.login(document.getElementById('l-email').value.trim(), document.getElementById('l-pass').value); }
-    catch (x) { err(x.message || 'Sign-in failed'); } finally { b.removeAttribute('aria-busy'); } };
+    catch (x) { err(x.message || 'Sign-in failed', true); } finally { b.removeAttribute('aria-busy'); } };
   // Forgot your password? (M1-6, R-199). Supabase can only email a reset to its own account's team until its sign-in email
   // goes through HIPHI's email service (Nate's step, R-101 and R-002), so today the button asks the admin, in Slack, to
   // send a new sign-in link, and says so. SELF_RESET turns the email reset back on once that step is done.
