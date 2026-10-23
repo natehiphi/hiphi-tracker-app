@@ -23,7 +23,7 @@ export const PLACES = {
   team: ['#/team', 'users', 'Team', 'Team', 'What is slipping, and who is on what'],
   people: ['#/people', 'user-round', 'People', 'People', 'Everyone’s records; hand over and turn off'],
   partners: ['#/partners', 'handshake', 'Partners', 'Partners', 'Groups that write on the public tracker'],
-  setup: ['#/setup', 'sliders-horizontal', 'Session setup', 'Setup', 'The season checklist, alerts and connections'],
+  setup: ['#/setup', 'sliders-horizontal', 'Session setup', 'Setup', 'The season checklist and five groups of settings'],
   tools: ['#/tools', 'list', 'More tools', 'Tools', 'Every other tool, grouped by job'],
   more: ['#/more', 'ellipsis', 'More', 'More', 'Every other place'],
   you: ['#/me', 'circle-user', 'You', 'You', 'My settings and sign out'],
@@ -50,8 +50,9 @@ export function placeRow(k, { line, count = 0, href, label, ic, you = false, ext
 }
 export const placeList = rows => `<ul class="v6-more-list">${rows.filter(Boolean).map(r => `<li>${r}</li>`).join('')}</ul>`;
 
-// How fresh the Capitol data is (F9): always said here, quietly; the sidebar says it only when it is stale.
-function syncWords() {
+// How fresh the Capitol data is (F9): the line under You's Refresh now (app.js accountItems, so here in You's rows too, said
+// once: A-14) and the foot of More tools (tools.js). Never in the sidebar, never in a warning colour (D3).
+export function syncWords() {
   if (DEMO) return `Practice data, as of ${new Date(DEMO_ASOF).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Pacific/Honolulu' })}`;
   const last = (S.syncRuns || []).find(r => r.ok)?.finished_at; if (!last) return '';
   const h = Math.floor((Date.now() - new Date(last).getTime()) / 36e5);
@@ -66,14 +67,13 @@ export default {
   title: () => 'More',
   render() {
     let unread = 0; try { unread = inboxCount(); } catch { unread = 0; }
-    const leads = leadKeys(), sync = syncWords();
+    const leads = leadKeys();
     return `<div class="v6-more">
       <h1 class="v6-ptitle sv-h1">More</h1>
       <section class="v6-more-sec" aria-label="Places">${placeList([placeRow('outreach'), placeRow('legislators'), placeRow('myissues'), placeRow('inbox', { count: unread }), placeRow('help')])}</section>
       ${leads.length ? `<section class="v6-more-sec" aria-labelledby="mo-lead"><h2 class="v6-more-h" id="mo-lead">Lead tools</h2>${placeList(leads.map(k => placeRow(k)))}</section>` : ''}
       <section class="v6-more-sec" aria-label="More tools">${placeList([placeRow('tools')])}</section>
       <section class="v6-more-sec" aria-labelledby="mo-you"><h2 class="v6-more-h mo-you" id="mo-you">${avatar(S.me, 28)}<span>You · ${esc(youName())}</span></h2>${placeList(acct().map((it, i) => `<button type="button" class="v6-more-row" data-acct="${i}"><span class="v6-more-ic">${icon(it.icon)}</span><span class="v6-more-tx"><span class="v6-more-nm">${esc(it.label)}</span>${it.sub ? `<span class="v6-more-ln">${esc(it.sub)}</span>` : ''}</span>${it.nav ? icon('chevron-right', { cls: 'chev' }) : ''}</button>`))}</section>
-      ${sync ? `<p class="v6-more-sync">${icon('refresh-cw')}<span>${esc(sync)}</span></p>` : ''}
     </div>`;
   },
   wire(route, root) { const items = acct(); root.querySelectorAll('[data-acct]').forEach(el => { el.onclick = () => items[+el.dataset.acct]?.run(); }); },

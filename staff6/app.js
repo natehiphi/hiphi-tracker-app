@@ -45,7 +45,7 @@ import testimonyplace from './testimonyplace.js';
 import team from './team.js';
 import people from './people.js';
 import tools from './tools.js';
-import more, { PLACES, MAIN, BAR, leadKeys, isLead, youName } from './more.js';
+import more, { PLACES, MAIN, BAR, leadKeys, isLead, youName, syncWords } from './more.js';
 
 keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen on a staff screen either (X9-1, X9-6)
 
@@ -66,11 +66,11 @@ function lazy(load, pick, base) {
 }
 const [setup] = lazy(() => import('./setup.js'), m => ({ setup: m.default }), { tab: '', title: () => 'Session setup' });
 const [triage] = lazy(() => import('./triage.js'), m => ({ triage: m.default }), { tab: 'bills', tabs: false, title: () => 'Sort new bills' });
-const [memo, memoGet] = lazy(() => import('./memo.js'), m => ({ memo: m.default, partners: m.partners }), { tab: 'bills', tabs: false, title: () => 'Partner update' });
+const [memo, memoGet] = lazy(() => import('./memo.js'), m => ({ memo: m.default, partners: m.partners }), { tab: 'outreach', tabs: false, title: () => 'Partner update' });
 const partners = { ...memo, tab: 'outreach', tabs: true, render() { memoGet(); return skeleton(5); } };
 const [supporters] = lazy(() => import('./supporters.js'), m => ({ supporters: m.default }), { tab: 'outreach', title: () => 'Supporters' });
 const [person] = lazy(() => import('./person.js'), m => ({ person: m.default }), { tab: 'outreach', title: () => 'Supporter' });
-const [list] = lazy(() => import('./list.js'), m => ({ list: m.default }), { tab: 'bills', title: () => 'List' });
+const [list] = lazy(() => import('./list.js'), m => ({ list: m.default }), { tab: 'outreach', title: () => 'List' });
 const [emails] = lazy(() => import('./emails.js'), m => ({ emails: m.default }), { tab: 'outreach', title: () => 'Emails' });
 const [me] = lazy(() => import('./me.js'), m => ({ me: m.default }), { tab: '', narrow: true, title: () => 'My settings' });
 const [devui] = lazy(() => import('./devui.js'), m => ({ devui: m.default }), { tab: '', title: () => 'Parts' });
@@ -137,7 +137,8 @@ export function parseRoute(h = location.hash) {
     case 'me': return { name: 'me', q };
     case 'team': return { name: 'team', who: q.who || '', q };
     case 'people': return { name: 'people', id: seg[1] || '', q };
-    case 'setup': return seg[1] === 'people' ? { name: 'people', id: '', q, redirect: '#/people' } : { name: 'setup', section: seg[1] || '', q };
+    // v5's Session setup > People and > Team parts are the People place now (spec 3.4, V28).
+    case 'setup': return seg[1] === 'people' || seg[1] === 'team' ? { name: 'people', id: '', q, redirect: '#/people' } : { name: 'setup', section: seg[1] || '', q };
     case 'help': return { name: 'help', topic: seg[1] || '', q };
     case 'tools': return { name: 'tools', q };
     case 'more': return { name: 'more', q };
@@ -273,6 +274,8 @@ function header(route, scr, title) {
 // menu (the header's initials menu is gone). Collapse is opt-in and keeps short labels.
 // The full label is always the link's name: in the collapsed rail it is read, not shown (the short one is shown), so every
 // row keeps its name for a screen reader (WCAG 4.1.2, 2.4.4).
+// You is the place's name first ("You", then "· Nate T."), the avatar drawn before it but hidden from reading: its
+// initials read first made the row "NT" to a screen reader and to the links test (#/me lit "NT", not You).
 function sideItem(k, now, extra = '') {
   const [href, ic, label, shortL] = PLACES[k];
   return `<a class="sv-sitem" href="${href}"${now === k ? ' aria-current="page"' : ''}>${icon(ic)}<span class="lbl">${label}</span><span class="lbs" aria-hidden="true">${shortL}</span>${extra}</a>`;
@@ -293,9 +296,9 @@ function sidebar(route) {
       ${leads.length ? `<div class="sv-sgrp" role="group" aria-labelledby="sv-leadh"><p class="sv-shd" id="sv-leadh">Lead tools</p>${leads.map(k => sideItem(k, now)).join('')}</div>` : ''}
       ${sideCue('down')}
     </nav>
-    <div class="sv-sfoot">${sideItem('tools', now)}${syncLine()}
-      <div class="sv-you"><button type="button" class="sv-sitem sv-youbtn" data-you aria-haspopup="menu"${now === 'you' ? ' aria-current="page"' : ''}>${avatar(S.me, 28)}<span class="lbl">You · ${esc(youName())}</span><span class="lbs" aria-hidden="true">You</span></button>
-        <button type="button" class="sv-scollapse" data-sidecol aria-pressed="${narrow}" aria-label="${narrow ? 'Widen the sidebar' : 'Narrow the sidebar'}" title="${narrow ? 'Widen the sidebar' : 'Narrow the sidebar'}">${icon(narrow ? 'panel-left-open' : 'panel-left-close')}</button></div>
+    <div class="sv-sfoot">${sideItem('tools', now)}
+      <div class="sv-you"><button type="button" class="sv-sitem sv-youbtn" data-you aria-haspopup="menu"${now === 'you' ? ' aria-current="page"' : ''}><span class="lbl"><span>You</span><span class="sv-youn">· ${esc(youName())}</span></span><span class="lbs" aria-hidden="true">You</span><span class="sv-youav" aria-hidden="true">${avatar(S.me, 28)}</span></button>
+        <button type="button" class="sv-scollapse" data-sidecol aria-pressed="${narrow}" aria-label="${narrow ? 'Expand the sidebar' : 'Collapse the sidebar'}" title="${narrow ? 'Expand the sidebar' : 'Collapse the sidebar'}">${icon(narrow ? 'panel-left-open' : 'panel-left-close')}</button></div>
     </div>
   </aside>`;
 }
@@ -303,14 +306,6 @@ function sidebar(route) {
 // following them to their phone (where there is no sidebar at all).
 export const sideNarrow = () => { try { return localStorage.getItem('sv_side') === 'narrow'; } catch { return false; } };
 const setSideNarrow = on => { try { on ? localStorage.setItem('sv_side', 'narrow') : localStorage.removeItem('sv_side'); } catch { /* private window: this visit only */ } };
-// How fresh the Capitol data is (F9). v6 says it in the sidebar only when it is 12 hours old or more (status by exception,
-// D3); the More page always says it, and the practice band carries the practice date.
-function syncLine() {
-  if (DEMO) return '';
-  const last = (S.syncRuns || []).find(r => r.ok)?.finished_at; if (!last) return '';
-  const h = Math.floor((Date.now() - new Date(last).getTime()) / 36e5); if (h < 12) return '';
-  return `<p class="sv-sync" role="status">${icon('circle-alert')}<span>Capitol data synced ${h < 48 ? `${h} hours ago` : `${Math.floor(h / 24)} days ago`}</span></p>`;
-}
 // The phone bar (below 768px): Today · Hearings · Testimony · Bills · More, on every route (D2, V21). One word each.
 function tabbar(route) {
   const now = barOf(placeOf(route)), bd = badge(), lateN = lateCount(bd);
@@ -385,7 +380,6 @@ export function render() {
   // R-277 ui-critic: a bill opened from Today (or My issues, Outreach...) keeps that place lit in the tab bar and sidebar,
   // so a phone does not jump to Bills under you; a bill opened from nowhere (a link) lights Bills.
   if (route.name === 'bill' && S.route?.name !== 'bill') { const pt = placeOf(S.route); S.billFrom = pt && pt !== 'more' ? pt : null; }
-  if (location.hash !== lastKey) arrive(route);
   S.route = route;
   const scr = SCREENS[route.name] || today;
   let main, bar = '';
@@ -408,6 +402,9 @@ export function render() {
   // control inside a 28px band).
   const band = DEMO ? `<div class="band"><span class="band-hint"><b>Staff v6</b> · Practice copy · </span>${new Date(DEMO_ASOF).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Pacific/Honolulu' })} · as ${esc((S.me?.full_name || '').split(' ')[0])} · practice only<span class="band-hint"> · your changes stay in this tab · switch person or start over under You</span></div>` : '';
   const navTop = document.querySelector('.sv-snav')?.scrollTop || 0;   // a redraw keeps the sidebar where it was scrolled
+  // A redraw of the same page (data arriving, a 2-minute look) while someone is in the header's search box keeps them there:
+  // the box is redrawn too, and an empty palette (Cmd/Ctrl-K's start list) lost its focus, so the keys typed next went nowhere.
+  const inSearch = document.activeElement?.id === 'hq' && location.hash === lastKey;
   const shownT = placeTitle(main, title) || title;
   app.innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${band}${sidebar(route)}<div class="sv-page">${header(route, scr, shownT)}<main id="main" tabindex="-1">${main}${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}</main></div>${tabbar(route)}`;
   retitle(app, shownT);
@@ -426,6 +423,7 @@ export function render() {
   wireFrame(app);
   const nav = app.querySelector('.sv-snav'); if (nav && navTop) nav.scrollTop = navTop;
   hdrShadow(); tabRows(app);
+  if (inSearch && document.activeElement?.id !== 'hq') document.getElementById('hq')?.focus({ preventScroll: true });
   if (location.hash !== lastKey) { lastKey = location.hash; if (!app.contains(document.activeElement) || document.activeElement === document.body) app.querySelector('main')?.focus({ preventScroll: true }); }
 }
 // A place with page tabs is titled by the place (spec 3.1, 5 placeHead): "Outreach", its open tab "This week's asks" under it,
@@ -435,7 +433,7 @@ const TAB_NAV = /<nav class="sv-tabrow sv-secnav" aria-label="([^"]*)">([\s\S]*?
 const plain = s => { const t = document.createElement('textarea'); t.innerHTML = s; return t.value.trim(); };
 function placeTitle(main, title) {
   const m = TAB_NAV.exec(main || ''); if (!m) return '';
-  const cur = /aria-current="page">([^<]*)/.exec(m[2]); if (!cur) return '';
+  const cur = /aria-current="page">(?:<span class="sv-tl"[^>]*>)?([^<]*)/.exec(m[2]); if (!cur) return '';   // sectionNav wraps each label (.sv-tl)
   const place = plain(m[1]), tab = plain(cur[1]);
   const h1 = /<h1\b[^>]*>([^<]*)<\/h1>/.exec(main);
   return place && (tab === title || (h1 && plain(h1[1]) === tab)) ? place : '';
@@ -445,31 +443,31 @@ function retitle(app, shownT) {
   const tab = nav.querySelector('[aria-current="page"]')?.firstChild?.textContent?.trim();
   app.querySelectorAll('main h1').forEach(h => { if (tab && h.textContent.trim() === tab) h.textContent = shownT; });
 }
-// Arriving at an address whose screen keeps its view in its own state rather than reading the address: the address wins on
-// arrival (a redraw later never overrides what the person picked since). #/legislators?view=everyone|holding|ask opens that
-// view (spec 3.3, 3.4 "keeps working"; More tools links there). LEGISLATORS can drop this once legislators.js reads route.q.view.
-function arrive(route) {
-  if (route.name === 'legislators' && route.q?.view) {
-    const scope = { everyone: 'all', all: 'all', holding: 'hold', hold: 'hold', ask: 'week', week: 'week' }[route.q.view]; if (!scope) return;
-    // legislators.js's own starting state (its view()), when the page has not been opened yet in this visit
-    const v = S.lgView ??= { scope: 'week', chamber: '', island: '', cmte: '', sort: null, q: '', pick: null, addr: null, focus: false, last: null, cares: '' };
-    Object.assign(v, { scope, chamber: '', island: '', cmte: '', sort: null, cares: '', q: '', pick: null });
-  }
-}
 hooks.render = () => render();
 hooks.afterLoad = () => { FACTS.clear(); loadAsks(); };   // the derived facts are rebuilt from the new rows (R-152 B); R-316 W3's chair asks
 installAskWatch();
 hooks.toast = (m, err) => toast(m, err ? { err: true } : {});
 hooks.onAuth = () => boot();
 hooks.onRecovery = () => renderRecovery();
+// Links inside the page go through go(), so history keeps where the page was and Back says where it goes (B-4). Each link
+// drawn with the page gets its own click, as before, so it still runs ahead of any list's handler round it; links drawn later
+// (the item opened beside a list, V17) are caught once by #app's listener. A row that opens beside its list (steps.js
+// listDetail, [data-v6pick]) is left to the list: the frame's own click ran first and opened the bill's page instead
+// (TODAY, TESTIMONY and BILLS found it). A link a screen's own handler has taken (defaultPrevented) is left alone.
+const linked = new WeakSet();
+function follow(a, e) {
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button > 0 || e.defaultPrevented || a.target === '_blank') return;
+  e.preventDefault();
+  // A back link uses real Back when this page was opened from inside the app, so the list comes back where it was.
+  if (a.hasAttribute('data-back') && depth > 0) { history.back(); return; }
+  go(a.getAttribute('href'));
+}
+let delegated = false;
 function wireFrame(app) {
-  app.querySelectorAll('a[href^="#/"]').forEach(a => a.addEventListener('click', e => {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.defaultPrevented) return;
-    e.preventDefault();
-    // A back link uses real Back when this page was opened from inside the app, so the list comes back where it was.
-    if (a.hasAttribute('data-back') && depth > 0) { history.back(); return; }
-    go(a.getAttribute('href'));
-  }));
+  app.querySelectorAll('a[href^="#/"]:not([data-v6pick])').forEach(a => { linked.add(a); a.addEventListener('click', e => follow(a, e)); });
+  if (!delegated) { delegated = true;
+    app.addEventListener('click', e => { const a = e.target?.closest?.('a[href^="#/"]');
+      if (a && app.contains(a) && !linked.has(a) && !a.hasAttribute('data-v6pick')) follow(a, e); }); }
   // You (the sidebar's foot, the More page's last row): the account menu.
   app.querySelectorAll('[data-you]').forEach(el => el.addEventListener('click', accountMenu));
   app.querySelector('[data-reload]')?.addEventListener('click', () => refreshData({ say: true }));
@@ -484,10 +482,11 @@ function wireFrame(app) {
   if (f) { f.onsubmit = e => { e.preventDefault(); const q = f.querySelector('input').value.trim(); const b = exactBill(q); go(b ? billRoute(b) : '#/search' + (q ? '?q=' + encodeURIComponent(q) : '')); };
     // Bills (tracked and not), issues, legislators and supporters listed as you type (R-032, the same list as the public
     // header's). On the Search page the results under the box are the list. With nothing named that way, Search still
-    // looks through sponsors, owners and committees, so the last row says so.
-    suggest(f.querySelector('input'), { source: headerHits, open: go, when: () => S.route?.name !== 'search', label: 'Suggested places, bills, issues, legislators and supporters',   // R-277 fix 19: places first
+    // looks through sponsors, owners and committees, so the last row says so. With nothing typed yet (Cmd/Ctrl-K, a click
+    // in the box) it is the palette's start: the common steps and the places, each with its shortcut (V32).
+    suggest(f.querySelector('input'), { source: headerHits, open: href => /^https?:/i.test(href) ? window.open(href, '_blank', 'noopener') : go(href), when: () => S.route?.name !== 'search', min: 0, label: 'Places, things to do, bills and people',   // R-277 fix 19: places first; v6 V32: the start list from no letters
       busy: 'Looking through every bill', empty: q => `No place, bill, issue, legislator or supporter matches “${q}”.`,
-      seeAll: (q, hits) => ({ href: '#/search?q=' + encodeURIComponent(q), label: hits ? `See all results for “${q}”` : `Look for “${q}” in sponsors, owners and committees` }) }); }
+      seeAll: (q, hits) => q.trim() ? { href: '#/search?q=' + encodeURIComponent(q), label: hits ? `See all results for “${q}”` : `Look for “${q}” in sponsors, owners and committees` } : null }); }
 }
 // v6: a place's page tabs wrap onto a second line rather than run off the side (staff.css .sv-tabrow), so every tab is in
 // sight. A row that still scrolls (a screen's own) fades at the edge that has more (B-9), and the open tab is scrolled into
@@ -519,7 +518,7 @@ function practiseAs() {
     run: () => { const u = new URL(location.href); u.searchParams.set('as', a.initials); location.href = u.toString(); } })) });
 }
 const billsOwned = id => S.bills.filter(b => (S.assignments[b.id] || []).includes(id)).length;
-// You: the account menu (spec 3.1, V03). It holds only the person's own things: My settings, Refresh, Sign out, and in the
+// You: the account menu (spec 3.1, V03). It holds only the person's own things: My settings, Refresh now, Sign out, and in the
 // practice copy who to practise as and Start over. Inbox and Help have their own doors in the sidebar and on More; the
 // version-compare links moved to More tools (admins). The phone's More page lists the same items as rows (more.js), so
 // My settings is two labelled taps there too.
@@ -527,7 +526,9 @@ function accountItems() {
   return [
     { label: 'My settings', icon: 'settings', sub: 'How the tracker reaches you', nav: true, run: () => go('#/me') },
     DEMO ? { label: 'Practice as someone else', icon: 'users-round', sub: 'See the app as a teammate sees it, with your changes', run: () => setTimeout(practiseAs, 50) } : null,
-    { label: 'Refresh', icon: 'refresh-cw', sub: 'Read what your teammates changed since this page loaded', run: () => setTimeout(() => refreshData({ say: true }), 50) },
+    // F8 and F9: Refresh now, under it how fresh the Capitol data is, in plain neutral words (status by exception, D3: it
+    // no longer takes a sidebar row when stale).
+    { label: 'Refresh now', icon: 'refresh-cw', sub: syncWords() || 'Read what your teammates changed since this page loaded', run: () => setTimeout(() => refreshData({ say: true }), 50) },
     // R-316 W38: the changes made in this tab go with a person switch, so two people can be tried in turn; this puts the day
     // back, with Undo in the toast after the reload.
     DEMO ? { label: 'Start the practice over', icon: 'rotate-ccw', sub: 'Undoes every change kept in this tab, whoever you practised as', run: () => { clearPractice(); location.reload(); } } : null,
@@ -672,9 +673,15 @@ function sandboxExtras() {
       // Follows are per person: the seeded one is Nate's, so a teammate starts from their own, as live (R-022).
       S.follows = new Set(Object.entries(S.followersBy || {}).filter(([, ids]) => ids.includes(a.id)).map(([id]) => id));
       if (S.buildDemoInbox) S.inbox = S.buildDemoInbox();
-      // Between sessions, someone who owns no issue (Patti, Julie) helps on two, so a helper's prep on Today can be seen (R-316 W4).
-      if (SESSION_OVER && !S.issues.some(i => i.owner_id === a.id)) S.issueHelpers = S.issues.filter(i => i.owner_id && !i.archived_at).sort((x, y) => x.name.localeCompare(y.name)).slice(0, 2)
-        .map(i => ({ issue_id: i.id, advocate_id: a.id, added_by: i.owner_id, added_at: '2026-10-01T00:00:00Z' })); } }
+      // Between sessions, someone who owns no issue (Patti, Julie) helps on two, so a helper's prep on Today can be seen (R-316 W4):
+      // two of the issues of whoever owns the coalition they follow (Patti: HEAL's Lauren; Julie: HIAPA's Rick), as the
+      // in-session seeds do (data.js seedV6). They were the first two A to Z, so Patti helped on Nate's rent-cap issue.
+      if (SESSION_OVER && !S.issues.some(i => i.owner_id === a.id)) {
+        const follows = Array.isArray(a.prefs?.coalitions) ? a.prefs.coalitions : [];
+        const owners = new Set((S.campaigns || []).filter(c => follows.includes(c.id) && c.owner_id && c.owner_id !== a.id).map(c => c.owner_id));
+        const live = S.issues.filter(i => i.owner_id && !i.archived_at).sort((x, y) => x.name.localeCompare(y.name)), theirs = live.filter(i => owners.has(i.owner_id));
+        S.issueHelpers = (theirs.length ? theirs : live).slice(0, 2).map(i => ({ issue_id: i.id, advocate_id: a.id, added_by: i.owner_id, added_at: '2026-10-01T00:00:00Z' }));
+      } } }
   // One hearing this week with no testimony draft, so the card people will meet in January ("No testimony draft yet ... Make the
   // draft now") can be practised: the sandbox gave every hearing its draft (R-152 D). The last such hearing in the next week.
   if (!S.noDraftSeeded && !SESSION_OVER) {

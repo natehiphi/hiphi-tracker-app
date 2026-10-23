@@ -200,8 +200,8 @@ function anchorRibbons() {
 // away with it, so going back from far down meant scrolling up first (R-005; plan wave 6a: the person, legislator,
 // composer, list, Bills filter and Help pages, then the hearing and coalition pages). Once it has gone under the
 // header, the same link comes back pinned just below the header; pressing it presses the page's own link, so real
-// Back, the leave guards and the label all stay the page's. (The bill page pins its own top bar, R-042.)
-const DESKBACK = '.co-deskback, .hr-deskback, .bl-deskback, .lg-deskback, .le-deskback, .sp-deskback, .st-crumb';
+// Back, the leave guards and the label all stay the page's. (v6: the bill page's Back too; it no longer pins a bar.)
+const DESKBACK = '.co-deskback, .hr-deskback, .bl-deskback, .lg-deskback, .le-deskback, .sp-deskback, .st-crumb, .bw-back';   // v6: the bill page no longer pins its own bar (BILL)
 function floatBack() {
   let fb = document.getElementById('sv-floatback');
   const main = document.getElementById('main');
@@ -402,14 +402,17 @@ export function confirmSheet({ title, text = '', ok = 'OK', danger = false }) {
 // placeHead (steps.js) and the screens draw the same tabs. Each tab: [key, address, label]. Addresses are the v6 ones; the
 // old ones (#/outreach/issues, #/coalition) still open the same pages (app.js parseRoute redirects them).
 const SECTIONS = {
-  hearings: ['Hearings', [['week', '#/hearings', 'This week'], ['ask', '#/hearings/ask', 'Get hearings']]],
+  // This week names its view (#/hearings/week): the bare #/hearings applies the opening rule (Get hearings when bills wait and
+  // no hearing is this week, spec 3.3), so a tab to it could not always reach This week.
+  hearings: ['Hearings', [['week', '#/hearings/week', 'This week'], ['ask', '#/hearings/ask', 'Get hearings']]],
   testimony: ['Testimony', [['write', '#/testimony?view=write', 'To write'], ['approve', '#/testimony?view=approve', 'To approve'], ['sent', '#/testimony?view=sent', 'Sent back'],
     ['file', '#/testimony?view=file', 'Ready to file'], ['filed', '#/testimony?view=filed', 'Filed'], ['missed', '#/testimony?view=missed', 'Missed']]],
   // v4 (R-269): Outreach is for rallying, so it opens on this week's asks; v6 adds Lists as its last tab (spec 3.3).
   outreach: ['Outreach', [['asks', '#/outreach', 'This week\u2019s asks'], ['partners', '#/outreach/partners', 'Partner update'], ['emails', '#/outreach/emails', 'Emails'],
     ['supporters', '#/outreach/supporters', 'Supporters'], ['lists', '#/outreach/lists', 'Lists']]],
   bills: ['Bills', [['bills', '#/bills', 'Bills'], ['new', '#/bills/new', 'Sort new bills'], ['muted', '#/bills/muted', 'Muted']]],
-  legislators: ['Legislators', [['ask', '#/legislators', 'Who to ask'], ['everyone', '#/legislators?view=everyone', 'Everyone'], ['holding', '#/legislators?view=holding', 'Holding our bills']]],
+  // Who to ask names its view too: between sessions the bare #/legislators opens Everyone (spec 3.3).
+  legislators: ['Legislators', [['ask', '#/legislators?view=ask', 'Who to ask'], ['everyone', '#/legislators?view=everyone', 'Everyone'], ['holding', '#/legislators?view=holding', 'Holding our bills']]],
   // My issues (R-263): the person's own first, then the coalitions, then every issue (spec 3.3's order).
   issues: ['My issues', [['mine', '#/my-issues', 'My issues'], ['coalitions', '#/my-issues/coalitions', 'Coalitions'], ['all', '#/my-issues/all', 'All issues']]],
   inbox: ['Inbox', [['messages', '#/inbox', 'Messages'], ['updates', '#/inbox?view=updates', 'Updates']]],
@@ -421,7 +424,9 @@ export const SECTION_TABS = kind => (SECTIONS[kind] || ['', []])[1].map(([k, hre
 export function sectionNav(kind, cur, { only = null, hide = [], counts = {} } = {}) {
   const [label, items] = SECTIONS[kind] || ['', []];
   const shown = items.filter(([k]) => (!only || only.includes(k)) && !hide.includes(k));
-  return `<nav class="sv-tabrow sv-secnav" aria-label="${esc(label)}">${shown.map(([k, href, l]) => `<a href="${href}"${k === cur ? ' aria-current="page"' : ''}>${l}${counts[k] ? ` <span class="sv-tn">${esc(counts[k])}</span>` : ''}</a>`).join('')}</nav>`;
+  // Each label keeps room for its bold self (staff.css .sv-tl), so picking a tab never widens it and the row never reflows:
+  // the next tab stays where the thumb left it on a phone (OUTREACH's critic finding).
+  return `<nav class="sv-tabrow sv-secnav" aria-label="${esc(label)}">${shown.map(([k, href, l]) => `<a href="${href}"${k === cur ? ' aria-current="page"' : ''}><span class="sv-tl" data-label="${esc(l)}">${l}</span>${counts[k] ? ` <span class="sv-tn">${esc(counts[k])}</span>` : ''}</a>`).join('')}</nav>`;
 }
 // R-277 fix 20 (U-3): one switch did six jobs. Now a section's own pages are a row of tabs (sectionNav above, underlined, as
 // the bill page's); a pill switch (segmented, whoseSeg) only shows the same list another way (Today | This week, Mine | Team);

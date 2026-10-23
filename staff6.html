@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="pub/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <!-- R-277 fix 15 (E-8): the modules the first screen needs, asked for at once. Without these the browser finds them one import
      level at a time (app.js, then today.js, then bill.js...), a round trip each on slow Capitol wifi. Screens not needed on
      arrival (Session setup, Outreach's supporters and emails, Sort new bills, the partner update, My settings) load when
@@ -23,6 +23,7 @@
 <link rel="modulepreload" href="staff6/errlog.js">
 <link rel="modulepreload" href="staff6/model.js">
 <link rel="modulepreload" href="staff6/today.js">
+<link rel="modulepreload" href="staff6/today5.js">
 <link rel="modulepreload" href="staff6/review.js">
 <link rel="modulepreload" href="staff6/inbox.js">
 <link rel="modulepreload" href="staff6/bill.js">
@@ -89,9 +90,11 @@
 <link rel="stylesheet" href="staff6/css/lists.css">
 <link rel="stylesheet" href="staff6/css/issues.css">
 <link rel="stylesheet" href="staff6/css/conversation.css">
+<link rel="stylesheet" href="staff6/css/hearings.css">
 <link rel="stylesheet" href="staff6/css/hearing.css">
 <link rel="stylesheet" href="staff6/css/coalition.css">
 <link rel="stylesheet" href="staff6/css/inbox.css">
+<link rel="stylesheet" href="staff6/css/search.css">
 <link rel="stylesheet" href="staff6/css/partners.css">
 </head>
 <body class="staff2 staff3 staff4 staff5 staff6">

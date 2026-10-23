@@ -87,7 +87,7 @@ body.staff6 main h1.v6-ptitle { margin: var(--s8) 0 var(--s24); }
   border-radius: var(--v6-r12); color: var(--v6-muted); font: 400 var(--v6-t14)/18px var(--font); text-decoration: none; white-space: nowrap; -webkit-tap-highlight-color: transparent; }
 .sv-tabs a .pill { display: flex; align-items: center; justify-content: center; width: 100%; min-width: 40px; max-width: 56px; height: 30px; border-radius: var(--v6-pill); transition: background .15s; }
 .sv-tabs a .ic { width: 24px; height: 24px; }
-.sv-tabs a[aria-current="page"] { color: var(--v6-action-press); font-weight: 700; }
+.sv-tabs a[aria-current="page"] { color: var(--v6-action); font-weight: 700; }
 .sv-tabs a[aria-current="page"] .pill { background: var(--v6-action-wash); }
 .sv-tabs a:focus-visible { outline-offset: -3px; }
 /* Today's count on the tab: the same sand badge as the sidebar's, one number ("needs you today"); with the alert icon when
@@ -148,7 +148,7 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
   .sv-sitem .lbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sv-sitem .lbs { display: none; }
   .sv-sitem:hover { background: var(--v6-wash); color: var(--v6-ink); }
-  .sv-sitem[aria-current="page"] { background: var(--v6-action-wash); color: var(--v6-action-press); font-weight: 700; }
+  .sv-sitem[aria-current="page"] { background: var(--v6-action-wash); color: var(--v6-action); font-weight: 700; }
   .sv-sitem[aria-current="page"] .ic { color: var(--v6-action); }
   .sv-sitem:focus-visible { outline-offset: 2px; }
   /* Exactly two counts in the sidebar, Today's and the Inbox's (spec 3.1): neutral sand, one number each; Today's carries
@@ -163,6 +163,11 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
   .sv-you { display: flex; align-items: center; gap: var(--s4); }
   .sv-you .sv-youbtn { flex: 1 1 auto; min-width: 0; }
   .sv-you .sv-youbtn .sv-av { flex: none; }
+  /* You: "You" then "· Nate T." in the page's order, the avatar shown first but last to be read (app.js sidebar) */
+  .sv-youbtn .sv-youav { order: -1; display: inline-flex; flex: none; }
+  .sv-youbtn .lbl { display: inline-flex; gap: .3em; min-width: 0; }
+  .sv-youbtn .lbl > span { flex: none; }
+  .sv-youbtn .lbl > .sv-youn { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sv-scollapse { flex: none; width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--v6-pill); color: var(--v6-muted); }
   .sv-scollapse:hover { background: var(--v6-wash); color: var(--v6-ink); }
   .sv-scollapse .ic { width: 20px; height: 20px; }
@@ -178,7 +183,7 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
     background: center / 18px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23685D52' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6 6 18'/%3E%3Cpath d='m6 6 12 12'/%3E%3C/svg%3E"); }
   .sv-hdr .sv-search input:focus { outline: 3px solid var(--v6-action); outline-offset: 2px; }
   .sv-hdr .sv-search > .ic { position: absolute; left: 14px; top: 12px; width: 20px; height: 20px; color: var(--v6-muted); pointer-events: none; }
-  .sv-hdr .sv-kbd { position: absolute; right: 10px; top: 10px; display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 8px;
+  .sv-hdr .sv-kbd { position: absolute; right: 10px; top: 10px; display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: var(--v6-r12);
     background: var(--v6-wash); color: var(--v6-muted); font: 400 var(--v6-t14)/24px var(--font); pointer-events: none; }
   .sv-hdr .sv-search:focus-within .sv-kbd { display: none; }
   .sv-tabs { display: none; }
@@ -235,9 +240,11 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
 :where(body.staff6) .btn.primary { background: var(--v6-action); color: #fff; font-weight: 700; }
 :where(body.staff6) .btn.primary:hover { background: var(--v6-action-press); color: #fff; }
 :where(body.staff6) .btn.primary:active { background: var(--v6-action-press); transform: scale(.98); }
-:where(body.staff6) .btn.secondary { background: var(--v6-action-wash); color: var(--v6-action-press); box-shadow: none; }
-:where(body.staff6) .btn.secondary:hover { background: #D3E7E5; color: var(--v6-action-press); }
-:where(body.staff6) .btn.secondary:active { background: #C6E0DE; transform: scale(.98); }
+/* Tonal: action text on action wash (5.1:1), the same teal as links and text buttons, so a screen with all three shows one
+   teal, not two (spec 4, <=5 text colours). Hover and press keep 4.5:1 or more (4.7 on #D3E7E5); press also shrinks a little. */
+:where(body.staff6) .btn.secondary { background: var(--v6-action-wash); color: var(--v6-action); box-shadow: none; }
+:where(body.staff6) .btn.secondary:hover { background: #D3E7E5; color: var(--v6-action); }
+:where(body.staff6) .btn.secondary:active { background: #D3E7E5; transform: scale(.98); }
 :where(body.staff6) .btn.text { min-height: 44px; padding: 0 12px; background: none; color: var(--v6-action); }
 :where(body.staff6) .btn.text:hover { background: var(--v6-action-wash); text-decoration: none; }
 :where(body.staff6) .btn.text:active { background: #D3E7E5; }
@@ -257,7 +264,7 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
 /* ---- status chips: tags, never buttons (A-12): small, a sand tile, no border, no hover, no pointer ---- */
 :where(body.staff6) .chip { min-height: 28px; padding: 4px 10px; gap: 6px; border-radius: var(--v6-pill); background: var(--v6-wash); color: var(--v6-body); font: 400 var(--v6-t14)/20px var(--font); }
 :where(body.staff6) .chip .ic { width: 16px; height: 16px; }
-:where(body.staff6) .chip.info { background: var(--v6-action-wash); color: var(--v6-action-press); }
+:where(body.staff6) .chip.info { background: var(--v6-action-wash); color: var(--v6-action); }
 /* D3: "warn" (v5's due soon, sent back, paused) is neutral now; amber is only .late, "Late, still accepted until ...". */
 :where(body.staff6) .chip.warn { background: var(--v6-wash); color: var(--v6-ink); }
 :where(body.staff6) .chip.late { background: var(--v6-late-wash); color: var(--v6-late); }
@@ -270,7 +277,7 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
 /* A chip that IS a button (a filter toggle) looks like a button: a 40px pill, no outline; pressed is the selection teal. */
 :where(body.staff6) button.chip { min-height: 40px; padding: 8px 16px; border: 0; background: var(--v6-wash); color: var(--v6-ink); font-size: var(--v6-t16); cursor: pointer; }
 :where(body.staff6) button.chip:hover { background: #E6DDCD; }
-:where(body.staff6) button.chip[aria-pressed="true"] { padding: 8px 16px; border: 0; background: var(--v6-action-wash); color: var(--v6-action-press); font-weight: 700; }
+:where(body.staff6) button.chip[aria-pressed="true"] { padding: 8px 16px; border: 0; background: var(--v6-action-wash); color: var(--v6-action); font-weight: 700; }
 @media (pointer: coarse), (max-width: 767px) { :where(body.staff6) button.chip { min-height: 44px; } }
 
 /* ---- cards and lists: no borders; a list is one card with rows parted by space or an inset hairline (V16, A-17) ---- */
@@ -286,7 +293,7 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
 :where(body.staff6) .rows > .row + .row::before, :where(body.staff6) .rows > * + .row::before { content: ''; position: absolute; left: var(--s16); right: var(--s16); top: 0; height: 1px; background: var(--v6-hair); }
 :where(body.staff6) button.row:hover, :where(body.staff6) a.row:hover { background: #FBF8F1; }
 :where(body.staff6) .row .lead { width: 40px; height: 40px; background: var(--v6-action-wash); color: var(--v6-action); }
-:where(body.staff6) .row .title { font: 600 var(--v6-t18)/var(--v6-lh18) var(--font-h); color: var(--v6-ink); letter-spacing: -.005em; }
+:where(body.staff6) .row .title { font: 500 var(--v6-t18)/var(--v6-lh18) var(--font-h); color: var(--v6-ink); letter-spacing: -.005em; }   /* an item's name: 500 (spec 12.1) */
 :where(body.staff6) .row .sub { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
 :where(body.staff6) .row .end { font-size: var(--v6-t14); color: var(--v6-muted); }
 :where(body.staff6) .row .chev { color: var(--v6-field); }
@@ -306,19 +313,19 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
 
 /* ---- notices, toasts, empty and loading ---- */
 :where(body.staff6) .notice { border-radius: var(--v6-r12); padding: var(--s12) var(--s16); font-size: var(--v6-t16); line-height: var(--v6-lh16); background: var(--v6-wash); color: var(--v6-ink); }
-:where(body.staff6) .notice .ic { color: var(--v6-body); margin-top: 2px; }
+:where(body.staff6) .notice > .ic { color: var(--v6-body); margin-top: 2px; }   /* the notice's own icon, never one inside its button */
 :where(body.staff6) .notice.info { background: var(--v6-action-wash); color: var(--v6-ink); }
-:where(body.staff6) .notice.info .ic { color: var(--v6-action); }
+:where(body.staff6) .notice.info > .ic { color: var(--v6-action); }
 :where(body.staff6) .notice.warn { background: var(--v6-wash); color: var(--v6-ink); }
-:where(body.staff6) .notice.warn .ic { color: var(--v6-ink); }
+:where(body.staff6) .notice.warn > .ic { color: var(--v6-ink); }
 :where(body.staff6) .notice.late { background: var(--v6-late-wash); color: var(--v6-ink); }
-:where(body.staff6) .notice.late .ic { color: var(--v6-late); }
+:where(body.staff6) .notice.late > .ic { color: var(--v6-late); }
 /* Today's own "Late testimony, still open" group (v5's today.css read the warn colour): the one amber heading D3 keeps. */
 body.staff6 .td-root .td-h .sv-group .td-lateopen, body.staff6 .td-root .td-h .sv-group .td-lateopen .ic { color: var(--v6-late); }
 :where(body.staff6) .notice.ok { background: var(--v6-leaf-wash); color: var(--v6-ink); }
-:where(body.staff6) .notice.ok .ic { color: var(--v6-leaf); }
+:where(body.staff6) .notice.ok > .ic { color: var(--v6-leaf); }
 :where(body.staff6) .notice.bad { background: var(--v6-bad-wash); color: var(--v6-ink); }
-:where(body.staff6) .notice.bad .ic { color: var(--v6-bad); }
+:where(body.staff6) .notice.bad > .ic { color: var(--v6-bad); }
 .sv-notice { margin-bottom: var(--s16); align-items: center; }
 .sv-notice .btn { margin-left: auto; flex: none; }
 :where(body.staff6) .okmsg { color: var(--v6-leaf); }
@@ -350,14 +357,14 @@ body.staff6 .td-root .td-h .sv-group .td-lateopen, body.staff6 .td-root .td-h .s
   font: 700 var(--v6-t14)/1 var(--font); flex: none; letter-spacing: 0; }
 .sv-av.ini3 { font-size: 11px; letter-spacing: -0.02em; }   /* three-letter initials (JMM) stay inside a 24px circle (R-267); not reading text */
 .sv-av.none { background: none; border: 1.5px dashed var(--v6-field); }
-.sv-av.me { background: var(--v6-action-wash); color: var(--v6-action-press); }
+.sv-av.me { background: var(--v6-action-wash); color: var(--v6-action); }
 /* A picker ("Strong support ▾") is a select in disguise, so it wears a field's edge, not a button's (A-12). */
 .sv-pick { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px 0 14px; border-radius: var(--v6-r12); background: var(--v6-card); border: 1px solid var(--v6-field);
   color: var(--v6-ink); font: 400 var(--v6-t16)/1.2 var(--font); }
 .sv-pick:hover { border-color: var(--v6-action); background: var(--v6-card); }
 .sv-pick .ic { width: 18px; height: 18px; }
 .sv-pick .chev { width: 16px; height: 16px; color: var(--v6-muted); }
-.sv-pick.sv-toggle.on { border-color: var(--v6-action); background: var(--v6-action-wash); color: var(--v6-action-press); }
+.sv-pick.sv-toggle.on { border-color: var(--v6-action); background: var(--v6-action-wash); color: var(--v6-action); }
 .sv-pick.sv-toggle.on .ic { color: var(--v6-action); }
 /* a countdown: neutral and bold when due soon; amber only while late testimony is still accepted; red only overdue (D3) */
 .sv-count { display: inline-flex; align-items: center; gap: 4px; font-size: var(--v6-t14); font-weight: 400; color: var(--v6-body); white-space: nowrap; }
@@ -405,7 +412,7 @@ button.sv-group:hover { background: #FBF8F1; }
   background: none; color: var(--v6-muted); font-size: var(--v6-t14); font-weight: 400; text-align: center; }
 .sv-steps li .ic { width: 14px; height: 14px; }
 .sv-steps li.done { color: var(--v6-body); border-bottom-color: var(--v6-field); }
-.sv-steps li.cur { color: var(--v6-action-press); font-weight: 700; border-bottom-color: var(--v6-action); }
+.sv-steps li.cur { color: var(--v6-action); font-weight: 700; border-bottom-color: var(--v6-action); }
 
 /* ---- page tabs (ui.js sectionNav, D12): one row of pill tabs at the top of a place, the same at every width, no underline.
    The open tab sits on the sand wash; a segmented switch (.sv-seg) has its own track, so the two never look alike (A-12). ---- */
@@ -419,6 +426,10 @@ button.sv-group:hover { background: #FBF8F1; }
 .sv-tabrow > [aria-current="page"], .sv-tabrow > [aria-pressed="true"] { background: var(--v6-wash); color: var(--v6-ink); font-weight: 700; box-shadow: none; }
 .sv-tabrow > [aria-current="page"]::after, .sv-tabrow > [aria-pressed="true"]::after { content: none; }
 .sv-tabrow .sv-tn { font-weight: 400; color: var(--v6-muted); }
+/* Each tab's label keeps the width of its bold self (ui.js sectionNav), so the open tab never widens and the row never reflows:
+   the next tab stays where the thumb left it (12.3: tab rows wrap; nothing jumps between rows when one is picked). */
+.sv-tabrow .sv-tl { display: inline-grid; }
+.sv-tabrow .sv-tl::after { content: attr(data-label); grid-area: 1 / 1; height: 0; overflow: hidden; visibility: hidden; font-weight: 700; pointer-events: none; user-select: none; }
 @media (pointer: coarse), (max-width: 767px) { .sv-tabrow > a, .sv-tabrow > button { min-height: 44px; } }
 /* A tab's words never break inside it (css/supporters.css let Outreach's wrap into three-line pills); on a phone the tabs
    are a little narrower, so two lines hold every place's row at 320px. */
@@ -432,7 +443,9 @@ body.staff6 .sv-tabrow.sv-secnav > a { flex: 0 0 auto; white-space: nowrap; line
 /* the one Filter button (ui.js filterBtn), with how many filters are on */
 .sv-filter { position: relative; flex: none; }
 .sv-filter .ic { width: 18px; height: 18px; }
-.sv-fn { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--v6-action); color: #fff;
+/* the count is a quiet card-coloured pill in the button's own teal (6.0:1), not a filled badge: a filled teal with white words
+   read as a second filled button and added white to the screen's text colours (spec 4, A-3) */
+.sv-fn { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--v6-pill); background: var(--v6-card); color: var(--v6-action);
   font-size: var(--v6-t14); font-weight: 700; line-height: 1; }
 
 /* ---- sheets: r20, sh3, a bottom sheet on a phone and a 560px dialog from 768 ---- */
@@ -452,12 +465,12 @@ dialog.sv-sheet::backdrop { background: rgba(37, 34, 30, .38); }
 .sv-pickl, .sv-menu { display: flex; flex-direction: column; }
 .sv-pickl button, .sv-menu button { display: flex; align-items: center; gap: var(--s12); min-height: 52px; padding: var(--s8) var(--s12); border-radius: var(--v6-r12); text-align: left; width: 100%; }
 .sv-pickl button:hover, .sv-menu button:hover { background: var(--v6-page); }
-.sv-pickl button[aria-checked="true"] { background: var(--v6-action-wash); color: var(--v6-action-press); }
+.sv-pickl button[aria-checked="true"] { background: var(--v6-action-wash); color: var(--v6-action); }
 .sv-pickl .ic, .sv-menu .ic { width: 20px; height: 20px; color: var(--v6-muted); flex: none; }
 .sv-pickl .ic.on { color: var(--v6-action); margin-left: auto; }
 .sv-pickl .body, .sv-menu .body { display: flex; flex-direction: column; flex: 1 1 auto; }
 .sv-pickl .title, .sv-menu .title { font-weight: 400; color: var(--v6-ink); }
-.sv-pickl button[aria-checked="true"] .title { font-weight: 700; color: var(--v6-action-press); }
+.sv-pickl button[aria-checked="true"] .title { font-weight: 700; color: var(--v6-action); }
 .sv-pickl .sub, .sv-menu .sub { font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
 .sv-menu button.danger .title, .sv-menu button.danger .ic { color: var(--v6-bad); }
 .sv-menu button[aria-disabled="true"] .title { color: var(--v6-muted); }
@@ -534,7 +547,7 @@ body.staff6 main.sv-login, body.staff6 main.sv-load { width: 100%; max-width: 44
 .sv-rib.stopped i.done { background: var(--n300); }
 .sv-rib.stopped i.now { background: var(--v6-muted); }
 .sv-riblab { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s8); margin: 0 0 var(--s16); font-size: var(--v6-t14); color: var(--v6-muted); }
-.sv-riblab b { color: var(--v6-action-press); font-weight: 700; text-align: center; }
+.sv-riblab b { color: var(--v6-action); font-weight: 700; text-align: center; }
 .sv-riblab b .set { color: var(--v6-muted); font-weight: 400; }
 .sv-rib.stopped + .sv-riblab b { color: var(--v6-body); }
 .sv-rib.done + .sv-riblab b { color: var(--o700); }
@@ -592,7 +605,7 @@ dialog.sv-sheet.look .sv-sh-head h2 { position: absolute; width: 1px; height: 1p
 .lk-nav { display: flex; align-items: center; gap: var(--s8); font-size: var(--v6-t14); color: var(--v6-muted); }
 .lk-nav .pos { margin-right: auto; }
 .lk-keys { margin: var(--s12) 0 0; font-size: var(--v6-t14); color: var(--v6-muted); }
-.lk-keys kbd { display: inline-block; min-width: 18px; padding: 1px 5px; border: 0; border-radius: 6px; font: 700 var(--v6-t14)/18px var(--font); color: var(--v6-body); background: var(--v6-wash); text-align: center; }
+.lk-keys kbd { display: inline-block; min-width: 18px; padding: 1px 5px; border: 0; border-radius: var(--v6-r12); font: 700 var(--v6-t14)/18px var(--font); color: var(--v6-body); background: var(--v6-wash); text-align: center; }
 @media (min-width: 900px) {
   dialog.sv-sheet.look { width: min(900px, calc(100vw - 64px)); max-height: calc(100vh - 80px); }
   .lk-cols { grid-template-columns: minmax(0, 1fr) 300px; align-items: start; }
@@ -615,7 +628,7 @@ dialog.sv-sheet.look .sv-sh-head h2 { position: absolute; width: 1px; height: 1p
 .v6-more-ic .ic { width: 20px; height: 20px; }
 .v6-more-ic .sv-av { --av: 40px !important; }
 .v6-more-tx { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
-.v6-more-nm { font: 600 var(--v6-t18)/var(--v6-lh18) var(--font-h); color: var(--v6-ink); }
+.v6-more-nm { font: 500 var(--v6-t18)/var(--v6-lh18) var(--font-h); color: var(--v6-ink); }   /* a place's name in a row: 500 (spec 12.1) */
 .v6-more-ln { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
 .v6-more-row > .chev { flex: none; width: 20px; height: 20px; color: var(--v6-field); }
 .v6-more-n { flex: none; min-width: 24px; height: 24px; padding: 0 8px; border-radius: var(--v6-pill); background: var(--v6-wash); color: var(--v6-ink); font: 700 var(--v6-t14)/24px var(--font); text-align: center; }
@@ -640,7 +653,7 @@ dialog.sv-sheet.look .sv-sh-head h2 { position: absolute; width: 1px; height: 1p
 .dv-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s12); }
 .dv-sw { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s12); }
 .dv-swatch { display: flex; flex-direction: column; gap: 2px; padding: var(--s12); border-radius: var(--v6-r12); background: var(--v6-card); box-shadow: var(--v6-sh1); font-size: var(--v6-t14); line-height: var(--v6-lh14); }
-.dv-swatch i { display: block; height: 40px; border-radius: 8px; margin-bottom: var(--s8); }
+.dv-swatch i { display: block; height: 40px; border-radius: var(--v6-r12); margin-bottom: var(--s8); }
 .dv-swatch code { color: var(--v6-muted); }
 .dv-type > * { margin: 0 0 var(--s8); }
 .dv-frame { display: flex; flex-wrap: wrap; gap: var(--s24); align-items: flex-start; }
@@ -675,11 +688,8 @@ dialog.sv-sheet .toastmsg.insheet { position: sticky; bottom: var(--s8); z-index
 /* R-316 W29 (fresh-eyes): a Capitol word's row in the header's suggestions says its meaning's first sentence whole (search.js
    firstSentence), on two lines if it needs them, where the list's one line cut it mid-thought. */
 .sv-hdr .sg a.sg-o[href^="#/help/words"] .sg-s { white-space: normal; }
-/* How fresh the Capitol data is (F9): in the sidebar only when it is 12 hours old or more (status by exception, D3); the
-   More page always says it. Words and an icon, no warning colour (amber and red are for testimony only). */
-.sv-sync { display: flex; align-items: flex-start; gap: var(--s8); margin: 0; padding: var(--s8) var(--s12); border-radius: var(--v6-r12); background: var(--v6-wash); color: var(--v6-ink); font-size: var(--v6-t14); line-height: var(--v6-lh14); }
-.sv-sync .ic { flex: none; width: 16px; height: 16px; margin-top: 2px; }
-body.sidenarrow .sv-sync span { display: none; }
+/* How fresh the Capitol data is (F9) is never a sidebar row: it is the line under the You menu's Refresh now, and the foot of
+   the More page and More tools (.v6-more-sync), in neutral words (D3). */
 /* The band stays one line on a phone (a second line pushed Bills past the 400px arrival limit, A-1). */
 @media (max-width: 599px) { .band .band-hint { display: none; } }
 
@@ -713,7 +723,7 @@ body.sidenarrow .sv-sync span { display: none; }
 .ab-t { font-size: 18px; line-height: 1.3; margin: 0; }
 .ab-q, .ab-foot, .ab-verdict { margin: 0; }
 .ab-q { color: var(--n700); }
-.ab-v { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--p50); color: var(--p700); font-weight: 700; font-size: var(--v6-t14); margin-right: 8px; vertical-align: middle; }
+.ab-v { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: var(--v6-r12); background: var(--p50); color: var(--p700); font-weight: 700; font-size: var(--v6-t14); margin-right: 8px; vertical-align: middle; }
 .ab-verdict { display: flex; gap: 8px; align-items: flex-start; }
 .ab-verdict .ic { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--p700); }
 .ab-hint, .ab-more { margin: 0; }
@@ -794,7 +804,7 @@ body.sidenarrow .sv-sync span { display: none; }
 /* R-201: the Tests list (one line per test, grouped by where it shows) and a test's page (its versions side by side). */
 .ab-filter { margin: 0 0 var(--s16); }
 .ab-filter .sv-seg { flex-wrap: wrap; max-width: 100%; border-radius: var(--r12); }
-.ab-filter .sv-seg button { padding: 0 12px; border-radius: 10px; }
+.ab-filter .sv-seg button { padding: 0 12px; border-radius: var(--v6-pill); }
 .ab-list { gap: var(--s24); }
 .ab-group { display: flex; flex-direction: column; gap: var(--s8); }
 .ab-gt { font-size: var(--t14); font-weight: 700; color: var(--n700); margin: 0; }
@@ -1042,6 +1052,8 @@ body.sidenarrow .sv-sync span { display: none; }
   body.staff2 main .sv-phead { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s8) var(--s12); margin: 0 0 var(--s16); padding: 0; min-height: 44px; }
   body.staff2 main .sv-phead h1 { display: block; flex: none; margin: 0; font: 700 var(--v6-t28)/44px var(--font-h); letter-spacing: -.015em; color: var(--v6-ink); }
   body.staff2 main .sv-phead .sv-pht { flex: 0 1 auto; min-width: 0; max-width: 70ch; }
+  /* 70ch is for a lede; a title alone lets the page's own buttons reach the content's right edge (A-8, OUTREACH) */
+  body.staff2 main .sv-phead .sv-pht:not(:has(> p, > .le-lede)) { max-width: none; }
   body.staff2 main .sv-phead .sv-pht > p { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
   body.staff2 main .sv-phead .sv-phr { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--s8) var(--s12); min-height: 44px; }
   body.staff2 main .sv-phead .sv-tabrow { margin: 0; width: auto; flex: 0 1 auto; }   /* R-277 fix 20: tabs take their words' width in the heading row */
@@ -1063,6 +1075,8 @@ body.sidenarrow .sv-sync span { display: none; }
   body.staff2 main .sv-phead .sv-secnav { order: -1; flex: 0 0 calc(100% + 2 * var(--s4)); max-width: none; margin: 0 calc(-1 * var(--s4)) var(--s8); }   /* the tabs' 4px of ring room outside the column, as everywhere */
   body.staff2 main .sv-phead { flex-wrap: wrap; }
   body.staff2 main .sv-phead h1.sv-h1 { display: none; }   /* a phone's top bar carries the title (spec 3.2) */
+  /* ...so a title box holding only that h1 is empty: it goes too, or the page's first button sits a gap off the left edge */
+  body.staff2 main .sv-phead .sv-pht:not(:has(> :not(h1.sv-h1))) { display: none; }
 }
 
 /* R-277 fix 13: a link inside a line of text ("See them", "12 bills still need a hearing", a chair's name, "16 with no hearing
