@@ -6,8 +6,8 @@
 #   2. unsubscribe.html?partner=<slug>&pt=<token>: opening it changes nothing, it names the partner (or "this HIPHI partner"),
 #      one button calls partner_asks_stop with the token, Done and Undo, the refusals and a failure in plain words, never
 #      "Stop all email"; a link with a bad token is incomplete; the old ?u= link is as it was; &demo=1 answers with no network.
-#   3. Follow on a partner's issue page (#/from/<slug>/<issue>): Follow, Following, its line, kept, Stop with Undo; signed out
-#      "Sign in to follow", which keeps the page for the way back.
+#   3. Get its asks on a partner's issue page (#/from/<slug>/<issue>): Get its asks, Getting its asks, its line, kept, Stop with
+#      Undo; signed out "Sign in to get its asks", which keeps the page for the way back.
 #   4. The partner corner's "Your asks": counts from 10 people (rule 3), "Counts show once 10 people are counted.", "Going out at
 #      4:30 pm today", "HIPHI took this ask back.", an ended ask, some counts under 10, a member's view.
 # Every page at 390x844 and 1280x800: no sideways scroll, one h1, 44px targets on a phone, no console errors.
@@ -60,9 +60,9 @@ async def alerts(b):
         ctx, pg = await page(b, '#/alerts', w=w, h=h, wait='#main #ya-pa-t')
         txt = await text(pg)
         for s in ['Your alerts', 'Email to leilani@example.org', 'Asks from HIPHI’s partners', 'Groups HIPHI works with may ask you to speak up on bills you follow. HIPHI’s own asks come first.',
-                  'A few', 'At most 1 in an email, and only when HIPHI has little to ask you. At most 1 a week from each partner.',
-                  'As they come', 'Up to 2 in an email, after HIPHI’s own. At most 3 a week from each partner.',
-                  'None', 'No partner asks. Hearing alerts on bills you follow still come.']:
+                  'A few', 'Now and then, when HIPHI has little to ask you. At most 1 a week from any one group.',
+                  'As they come', 'After HIPHI’s own, up to 3 a week from any one group. If you get HIPHI’s texts, now and then one may come by text, never more than one text a day.',
+                  'None', 'No partner asks. HIPHI’s own asks and hearing alerts still come.']:
             check(s in txt, f'{t}: says {s!r}')
         checked = await pg.evaluate("[...document.querySelectorAll('input[name=ya-pa]')].filter(r => r.checked).map(r => r.value)")
         check(checked == ['few'], f'{t}: everyone starts at A few ({checked})')
@@ -81,7 +81,7 @@ async def alerts(b):
             # HIPHI's updates off: the choices wait, one line says why (B-12); on again, they are back
             await pg.uncheck('#ya-em-action'); await pg.wait_for_timeout(600)
             check(await pg.locator('#ya-pa').is_hidden() and await pg.locator('#ya-paoff').is_visible(), f'{t}: updates off, the choices wait')
-            check('Partner asks come only with HIPHI’s updates by email, and those are off for you now.' in await text(pg), f'{t}: and the line says why')
+            check('Partner asks come with HIPHI’s updates by email, and those are off for you now.' in await text(pg), f'{t}: and the line says why')
             check(await text(pg, '#ya-past') == '', f'{t}: the earlier "Saved." goes, so the page says it once (A-14)')
             await pg.evaluate("document.querySelector('#ya-pa-t').scrollIntoView({ block: 'start' }); scrollBy(0, -80)"); await pg.wait_for_timeout(200)
             await shot(pg, 'alerts-updates-off-390', False)
@@ -231,14 +231,14 @@ async def follow(b):
         t = f'follow {w}'
         ctx, pg = await page(b, '#/from/keiki-smiles/healthy-keiki-teeth', w=w, h=h, wait='#main [data-pp-follow]:not([disabled])')
         btn = pg.locator('#main [data-pp-follow]')
-        check(await btn.get_attribute('aria-pressed') == 'false' and (await btn.inner_text()).strip() == 'Follow', f'{t}: Follow, not pressed')
-        check(await text(pg, '#pp-fnote') == 'Follow it to get Keiki Smiles Alliance’s asks on these bills.', f'{t}: the line says what following brings')
+        check(await btn.get_attribute('aria-pressed') == 'false' and (await btn.inner_text()).strip() == 'Get its asks', f'{t}: Get its asks, not pressed')
+        check(await text(pg, '#pp-fnote') == 'Get Keiki Smiles Alliance’s asks on these bills in your 4:30 pm email.', f'{t}: the line says what following brings')
         await common(pg, t, w); await shot(pg, f'follow-{w}')
         await btn.click(); await pg.wait_for_timeout(600)
         btn = pg.locator('#main [data-pp-follow]')
-        check(await btn.get_attribute('aria-pressed') == 'true' and 'Following' in await btn.inner_text(), f'{t}: Following, pressed')
-        check(await text(pg, '#pp-fnote') == 'You’ll get Keiki Smiles Alliance’s asks on these bills.', f'{t}: the line, followed')
-        check('Following Healthy keiki teeth.' in await toast(pg), f'{t}: the toast')
+        check(await btn.get_attribute('aria-pressed') == 'true' and 'Getting its asks' in await btn.inner_text(), f'{t}: Following, pressed')
+        check(await text(pg, '#pp-fnote') == 'Keiki Smiles Alliance’s asks on these bills come in your 4:30 pm email, as often as Your alerts allows.', f'{t}: the line, followed')
+        check('You’ll get Keiki Smiles Alliance’s asks on Healthy keiki teeth.' in await toast(pg), f'{t}: the toast')
         check(await pg.evaluate("document.activeElement?.matches('[data-pp-follow]')"), f'{t}: focus stays on the pill')
         await shot(pg, f'following-{w}', False)
         if w == 390:
@@ -246,7 +246,7 @@ async def follow(b):
             check(await pg.get_attribute('#main [data-pp-follow]', 'aria-pressed') == 'true', f'{t}: kept after a reload (the sandbox)')
             await pg.click('#main [data-pp-follow]'); await pg.wait_for_timeout(600)
             tt = await toast(pg)
-            check(await pg.get_attribute('#main [data-pp-follow]', 'aria-pressed') == 'false' and 'You no longer follow Healthy keiki teeth.' in tt and 'Undo' in tt, f'{t}: Stop following, with Undo ({tt!r})')
+            check(await pg.get_attribute('#main [data-pp-follow]', 'aria-pressed') == 'false' and 'You won’t get Keiki Smiles Alliance’s asks on Healthy keiki teeth.' in tt and 'Undo' in tt, f'{t}: Stop following, with Undo ({tt!r})')
             await pg.click('#toast .toastundo'); await pg.wait_for_timeout(700)
             check(await pg.get_attribute('#main [data-pp-follow]', 'aria-pressed') == 'true', f'{t}: Undo follows again')
         check(not pg.errs, f'{t}: no console errors {pg.errs[:2]}')
@@ -255,7 +255,7 @@ async def follow(b):
     for w, h in ((390, 844), (1280, 800)):
         t = f'follow signed out {w}'
         ctx, pg = await page(b, '#/from/keiki-smiles/healthy-keiki-teeth', q='via=keiki-smiles', w=w, h=h, wait='#main [data-pp-signin]')
-        check((await text(pg, '#main [data-pp-signin]')).strip() == 'Sign in to follow' and await pg.locator('#main [data-pp-follow]').count() == 0, f'{t}: "Sign in to follow"')
+        check((await text(pg, '#main [data-pp-signin]')).strip() == 'Sign in to get its asks' and await pg.locator('#main [data-pp-follow]').count() == 0, f'{t}: "Sign in to follow"')
         await common(pg, t, w); await shot(pg, f'follow-signedout-{w}')
         if w == 390:
             await pg.click('#main [data-pp-signin]'); await pg.wait_for_timeout(800)

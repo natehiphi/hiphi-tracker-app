@@ -77,7 +77,7 @@ function askLine(a) {
     : paused() && !a.sent ? `Approved${by} ${whenAt(a.approved_at)}`
     : a.state === 'going_out' ? `Goes out ${dailyWord(a.scheduled_for)} at 4:30 pm`
     : `Going out since ${dayWord(a.scheduled_for)}${a.sent ? `: ${plural(a.sent, 'person', 'people')} so far` : ''}`;
-  return [when, a.also_text ? 'Email and text' : 'Email only', a.state === 'ended' ? '' : `until ${dayWord(a.ask_until)}`.replace(/ /g, '\u00a0')].filter(Boolean).join(' · ');   // "until Wed 3/25" never splits
+  return [when, a.also_text ? 'Email, and text once texts are on' : 'Email only', a.state === 'ended' ? '' : `until ${dayWord(a.ask_until)}`.replace(/ /g, '\u00a0')].filter(Boolean).join(' · ');   // "until Wed 3/25" never splits
 }
 function askRow(a) {
   const b = askBill(a), can = approvesPartners();

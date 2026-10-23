@@ -89,7 +89,7 @@
     }
     var go = $('u-go'), undoRow = null;
     function ask(note) {
-      show('Stop asks from ' + who() + '?', 'You will no longer get its asks by email. HIPHI’s own emails still come. Nothing changes until you press the button.',
+      show('Stop asks from ' + who() + '?', 'You will no longer get its asks by email or text. HIPHI’s own emails still come. Nothing changes until you press the button.',
         note || 'Changed your mind? Not pressing it keeps everything as it is.');
       go.textContent = 'Stop asks from this partner'; go.removeAttribute('aria-busy'); $('u-row').hidden = false;
       if (undoRow) undoRow.hidden = true;

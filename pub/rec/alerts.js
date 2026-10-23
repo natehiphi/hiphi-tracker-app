@@ -77,7 +77,7 @@ function partnerAsks() {
   const p = u.prefs || {}, lvl = askLevel(p), on = p.action_alerts === true, stopped = partnerAsksNow()?.stopped || [];
   const choices = `<fieldset class="mr-set ya-pa" id="ya-pa"${on ? '' : ' hidden'}><legend class="sr">How many asks from HIPHI’s partners</legend>
       ${ASK_LEVELS.map(v => `<label class="check mr-check" for="ya-pa-${v}"><input type="radio" name="ya-pa" id="ya-pa-${v}" value="${v}"${lvl === v ? ' checked' : ''}><span class="mr-ctext"><span class="mr-ctitle">${esc(ASK_WORDS[v][0])}</span><span class="mr-chelp">${esc(ASK_WORDS[v][1])}</span></span></label>`).join('')}</fieldset>
-    <p class="ya-none ya-paoff" id="ya-paoff"${on ? ' hidden' : ''}>Partner asks come only with HIPHI’s updates by email, and those are off for you now.</p>
+    <p class="ya-none ya-paoff" id="ya-paoff"${on ? ' hidden' : ''}>Partner asks come with HIPHI’s updates by email, and those are off for you now.</p>
     <p class="small ya-emst" id="ya-past" role="status"></p>`;
   const stops = stopped.length ? `<div class="ya-pastop"><p>You stopped asks from:</p><ul class="ya-pastops" role="list">${stopped.map(s => `<li><span class="ya-paname">${esc(s.name)}</span>
       ${btn('Start again', { kind: 'text', sm: true, attrs: { 'data-ya-pastart': s.slug, 'data-name': s.name, 'aria-label': `Start asks from ${s.name} again` } })}</li>`).join('')}</ul></div>` : '';

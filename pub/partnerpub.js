@@ -16,7 +16,7 @@ import { btn, skeleton } from './ui.js';
 import { recHead, recSec, recEmpty, wireKit, keep, BOX } from './rec/kit.js';
 import { backRow } from './rec/act.js';
 import { rememberPlace } from './mylists.js';
-import { pubNow, loadPublic, welcomeHtml, partnerOf, onBill, hiphiSide, sideVerb, issueChip, fromPath, pIssuePath, billsInfo, billInfoNow, viaPartner,
+import { pubNow, loadPublic, welcomeHtml, partnerAsksNow, partnerOf, onBill, hiphiSide, sideVerb, issueChip, fromPath, pIssuePath, billsInfo, billInfoNow, viaPartner,
   canFollowPartner, partnerFollowsNow, followPartnerIssue } from './partners.js';
 
 // The bills a page lists may be ones HIPHI does not track (a partner chooses freely there), so their rows come from the
@@ -62,23 +62,28 @@ function groupView(p) {
     ${whose(p.name)}</div>`;
 }
 
-// Follow: the kit's outlined pill, "✓ Following" once followed (R-061: followed looks followed), which stops following with
-// Undo (B-5). While the person's follows are read, the pill waits, pressed nothing. One line under it says what following does.
+// "Get its asks": the kit's outlined pill, "✓ Getting its asks" once on (R-061: on looks on), which stops with Undo (B-5).
+// Not HIPHI's Follow (the fresh-eyes review of 10/22): a partner issue shows nowhere else, so the control is named for what it
+// does, people get the partner's asks on these bills in their 4:30 pm email, and the line under it says when they won't
+// (None in Your alerts, or this partner stopped), with the way to change it. While the follows are read, the pill waits.
 function followCtl(p, i) {
-  if (!canFollowPartner()) return { pill: `<a class="rc-fpill" href="#/signin" data-pp-signin>${icon('log-in')}<span>Sign in to follow</span></a>`, on: false };
+  if (!canFollowPartner()) return { pill: `<a class="rc-fpill" href="#/signin" data-pp-signin>${icon('log-in')}<span>Sign in to get its asks</span></a>`, on: false };
   const set = partnerFollowsNow(), on = !!set?.has(i.id);
   const attrs = `data-pp-follow="${esc(i.id)}" aria-pressed="${on}"${set ? '' : ' aria-busy="true" disabled'}`;
-  return { on, pill: on ? `<button type="button" class="rc-fpill on" ${attrs} aria-label="Following ${esc(i.name)}. Press to stop following." title="Following. Press to stop following.">${icon('check')}<span>Following</span></button>`
-    : `<button type="button" class="rc-fpill" ${attrs} aria-label="Follow ${esc(i.name)}">${icon('star')}<span>Follow</span></button>` };
+  return { on, pill: on ? `<button type="button" class="rc-fpill on" ${attrs} aria-label="Getting ${esc(p.name)}’s asks on ${esc(i.name)}. Press to stop." title="Press to stop getting its asks.">${icon('check')}<span>Getting its asks</span></button>`
+    : `<button type="button" class="rc-fpill" ${attrs} aria-label="Get ${esc(p.name)}’s asks on ${esc(i.name)}">${icon('mail')}<span>Get its asks</span></button>` };
 }
 function issueView(p, issueSlug) {
   const i = (pubNow().issues || []).find(x => x.partner_slug === p.slug && x.slug === issueSlug);
   if (!i) return `<div class="rc pp">${backRow(fromPath(p.slug), p.name)}${recHead({ eye: p.name, title: 'Issue' })}${recEmpty('This issue isn’t on the tracker right now.', btn(`More from ${p.name}`, { kind: 'secondary', href: fromPath(p.slug) }))}</div>`;
   const bills = billsOf(i.bill_ids || []).sort((x, y) => x.bill_number.localeCompare(y.bill_number, 'en', { numeric: true }));
-  const f = followCtl(p, i), line = f.on ? `You’ll get ${p.name}’s asks on these bills.` : `Follow it to get ${p.name}’s asks on these bills.`;
+  const f = followCtl(p, i), mine = canFollowPartner() ? partnerAsksNow() : null;
+  const off = mine?.level === 'none' ? 'You chose no partner asks in Your alerts.' : (mine?.stopped || []).some(s => s.slug === p.slug) ? `You stopped asks from ${p.name}.` : '';
+  const line = off && f.on ? off : f.on ? `${p.name}’s asks on these bills come in your 4:30 pm email, as often as Your alerts allows.` : `Get ${p.name}’s asks on these bills in your 4:30 pm email.`;
+  const change = off && f.on ? ` <a href="#/alerts">Change it</a>` : '';
   return `<div class="rc pp">${backRow(fromPath(p.slug), p.name)}
     ${recHead({ eye: 'A HIPHI partner’s issue', title: i.name, lede: i.description || '', extra: issueChip(i) + f.pill })}
-    <p class="pp-fnote" id="pp-fnote">${esc(line)}</p>
+    <p class="pp-fnote" id="pp-fnote">${esc(line)}${change}</p>
     ${recSec('pp-ibills-h', 'Bills on this issue', bills.length ? billList(bills, p.slug) : (i.bill_ids || []).length ? skeleton(2) : recEmpty('No bills on this issue yet.'))}
     ${whose(p.name)}</div>`;
 }
@@ -102,7 +107,7 @@ function wire(route) {
     b.setAttribute('aria-busy', 'true');
     try {
       await followPartnerIssue(id, on); app.render(); again();
-      toast(on ? `Following ${i.name}.` : `You no longer follow ${i.name}.`, { yay: on, undo: async () => { await followPartnerIssue(id, !on); setTimeout(again, 0); } });
+      toast(on ? `You’ll get ${i.partner_name}’s asks on ${i.name}.` : `You won’t get ${i.partner_name}’s asks on ${i.name}.`, { yay: on, undo: async () => { await followPartnerIssue(id, !on); setTimeout(again, 0); } });
     } catch (err) { console.error(err); b.removeAttribute('aria-busy'); toast(err, true); }
   });
 }

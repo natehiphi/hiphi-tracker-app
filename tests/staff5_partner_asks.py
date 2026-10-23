@@ -118,7 +118,7 @@ def main():
     check('Partners: "Going out at 4:30 pm" with email on', head.startswith('Going out at 4:30 pm'), head)
     going = pg.locator('.pg-sec').first.locator('ul.pg-asks').first
     gtxt = going.inner_text()
-    check('Partners: the approved ask is going out, by email and text, today at 4:30 pm', 'fluoride in their tap water' in gtxt and 'Email and text' in gtxt and 'Goes out today at 4:30 pm' in gtxt, gtxt[:160].replace('\n', ' '))
+    check('Partners: the approved ask is going out, by email and text, today at 4:30 pm', 'fluoride in their tap water' in gtxt and 'Email, and text once texts are on' in gtxt and 'Goes out today at 4:30 pm' in gtxt, gtxt[:160].replace('\n', ' '))
     check('Partners: the sample ask Jess approved is going out too', 'vote yes on HB 2146' in gtxt)
     n_on = going.locator('li').count()
     check('Partners: each going-out ask has Take it back', going.locator('[data-pgtake]').count() == n_on and n_on == 2, n_on)

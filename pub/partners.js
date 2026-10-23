@@ -282,9 +282,9 @@ export const invite = p => rpc('partner_invite', { p }).then(changed);
 // waits while those are off (B-12).
 export const ASK_LEVELS = ['few', 'come', 'none'];
 export const ASK_WORDS = {
-  few: ['A few', 'At most 1 in an email, and only when HIPHI has little to ask you. At most 1 a week from each partner.'],
-  come: ['As they come', 'Up to 2 in an email, after HIPHI’s own. At most 3 a week from each partner.'],
-  none: ['None', 'No partner asks. Hearing alerts on bills you follow still come.'],
+  few: ['A few', 'Now and then, when HIPHI has little to ask you. At most 1 a week from any one group.'],
+  come: ['As they come', 'After HIPHI’s own, up to 3 a week from any one group. If you get HIPHI’s texts, now and then one may come by text, never more than one text a day.'],
+  none: ['None', 'No partner asks. HIPHI’s own asks and hearing alerts still come.'],
 };
 export const askLevel = prefs => ASK_LEVELS.includes(prefs?.partner_asks) ? prefs.partner_asks : 'few';
 // The practice copy has no sign-in. With its partner switch (?demo=1&partner=1, the corner's "signed in" switch) Your alerts
