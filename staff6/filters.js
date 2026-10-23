@@ -4,9 +4,10 @@
 // three of them on the bill itself (see "what a filter means" below); this file adds the two groups the current app
 // handled elsewhere (owner, which was the teammate scope, and committee) so every count in the sheet comes from one
 // function, passAll().
-import { S, DB, DEMO, esc, advocate, effStage, STAGES, isMine, isMuted, hooks } from './data.js';
-import { factsOf, facets, FLAGS, FACTS, diedish, codesOf, plain, STAGE_GLOSS, sponsorName, stopOf } from './model.js';
+import { S, DB, DEMO, esc, advocate, effStage, STAGES, isMine, isOwner, isMuted, hooks } from './data.js';
+import { factsOf, facets, FLAGS, FACTS, diedish, codesOf, plain, STAGE_GLOSS, sponsorName, stopOf } from './model.js';   // FLAGS: passFacets
 import { icon, btn, field, inlineErr, toast, openSheet, closeSheet, iconBtn, POS_ICON, POS_WORD, WHOSE } from './ui.js';
+import { committeeName } from './steps.js';   // v6: a committee by its name, its code beside it (V05)
 
 const KEY = 'hiphi2_bills' + (DEMO ? '_demo' : '');
 // v3 (R-264): the row height is v3's own. Staff v2 shares KEY (one origin), so v3 never writes its row height there:
@@ -54,9 +55,12 @@ export const myCoalitions = () => {
   return MC.set;
 };
 export const scopeOpts = () => [['me', WHOSE.mine], ...(myCoalitions().size ? [['coal', WHOSE.coal]] : []), ['all', WHOSE.team]];   // R-277 fix 14: ui.js WHOSE
-// Somebody who owns and follows nothing but supports a coalition starts on that coalition's bills: an empty "Mine"
-// told Kris "You have no bills yet" in the busiest week of the session.
-export const defaultScope = () => !S.bills.some(isMine) && myCoalitions().size ? 'coal' : 'me';
+// Somebody who owns no bill but supports a coalition starts on that coalition's bills: an empty "Mine" told Kris "You have
+// no bills yet" in the busiest week of the session. v6 (spec 3.3, F83): owners open on Mine, people who own none on My
+// coalitions, even when an issue they help on puts a bill or two in their Mine (Patti, Julie).
+// Someone with nothing in Mine and no coalition to help on (Jess, a second approver) opens on Team: an empty Mine with a
+// filter box, Filter and Select over nothing read as if the bills were missing (B-12).
+export const defaultScope = () => !S.bills.some(isOwner) && myCoalitions().size ? 'coal' : !myCoalitions().size && !S.bills.some(isMine) ? 'all' : 'me';
 const okScope = s => s === 'all' || s === 'me' || (s === 'coal' && myCoalitions().size > 0);
 
 // Everything the Bills screens remember. The shared facet sets (S.pris, S.poss…) live on S because model.js's facets
@@ -108,7 +112,7 @@ function load() {
   applyFilters(f);
   v.compact = loadRows();
   // A "Mine" with nothing in it is never where someone who supports a coalition should land (see defaultScope).
-  if (!f || (v.scope === 'me' && defaultScope() === 'coal')) v.scope = defaultScope();
+  if (!f || (v.scope === 'me' && !S.bills.some(isMine))) v.scope = defaultScope();   // a remembered Mine with nothing in it
   if (!f) return;
   const ok = (arr, pool) => (arr || []).filter(x => pool.includes(x));
   v.cols = new Set(ok(f.cols, ['cmte', 'coal', 'last', 'pulse']));
@@ -141,8 +145,22 @@ export const sponsOf = b => { const out = [];
   for (const s of b.sponsors || []) { const n = String(s.n || s.name || s).replace(/\(.*?\)/g, '').trim(); if (/^[A-Z]\.$/.test(n) && out.length) out[out.length - 1] += ', ' + n; else if (n) out.push(n); }
   return [...new Set(out.map(n => n.toUpperCase()))]; };
 const issueName = id => (S.issues || []).find(i => String(i.id) === String(id))?.name || 'Issue';
+// The words people type for what a bill calls something else (pub/find.js SYN, kept in step by hand: that module brings the
+// whole public app with it). Someone who types "vape" finds the e-cigarette bills (C-10), "kids" the keiki ones.
+const SYN = [
+  ['vape', 'vaping', 'vapor', 'e-cig', 'ecig', 'e-cigarette', 'ecigarette', 'electronic smoking', 'electronic cigarette', 'flavored'],
+  ['keiki', 'kids', 'children', 'child', 'youth'], ['lunch', 'meal'],
+  ['soda', 'sugary drink', 'sugary beverage', 'sugar-sweetened', 'sweetened beverage'],
+];
+const synOf = w => SYN.find(g => g.some(t => t === w || t === w + 's' || w === t + 's' || (w.length >= 4 && t.startsWith(w)))) || [w];
+let TXT = new WeakMap();   // each bill's words, once a paint (every option in the sheet counts the list again)
+const textOf = b => { let t = TXT.get(b); if (t == null) TXT.set(b, t = [b.nickname, b.title, b.description, b.public_summary].map(x => plain(x)).join(' \n ')); return t; };
+// The whole phrase first; else every word, each by itself or one of its synonyms.
 const matchQ = (b, q) => { const n = q.replace(/\s/g, '').toLowerCase();
-  return b.bill_number.toLowerCase().includes(n) || [b.nickname, b.title, b.description, b.public_summary].some(t => plain(t).includes(q)); };
+  if (b.bill_number.toLowerCase().includes(n)) return true;
+  const t = textOf(b); if (t.includes(q)) return true;
+  const words = q.split(/\s+/).filter(Boolean);
+  return words.some(w => synOf(w).length > 1) && words.every(w => synOf(w).some(x => t.includes(x))); };
 // Whose bills: Mine = owned or followed and not muted (the current app's isMine); My coalitions = every bill in a
 // coalition you support, less the ones you muted (a mute is "off my lists"); Team = every tracked bill.
 // Monitor bills that died stay out (234 of Nate's 289 monitor bills are dead clerical noise); a search finds them.
@@ -207,16 +225,16 @@ const cnt = (list, skip, test) => {
   try { return list.filter(b => passAll(b, skip) && test(factsOf(b), b)).length; } finally { S.stageF = st; }
 };
 export const quickCount = (spec, test) => cnt(baseBills(), spec.split(':')[0], test);
-export const freshFacts = () => { FACTS.clear(); ISS = null; DUE = null; };   // positions, coalitions and lists change under the list; facts are cheap to rebuild
+export const freshFacts = () => { FACTS.clear(); ISS = null; DUE = null; TXT = new WeakMap(); };   // positions, coalitions and lists change under the list; facts are cheap to rebuild
 
 // ---- what is switched on ----
 // The quick chips are three of the same filters, one tap away. Muted is a place, not a filter, so it is a link.
 // "At risk" is atRisk() (model.js, RISK_DAYS: no hearing and the deadline 7 days away or less) here, in the strip and
 // in the weekly memo alike.
 export const QUICK = [['riskF', 'At risk', f => f.risk], ['hearF', 'Hearing this week', (f, b) => hearWeek(f, b)], ['poss:monitor', 'Monitoring', (f, b) => b.position === 'monitor']];
-// "Needs a hearing" is at risk and waiting together (the table's "Waiting for a hearing" group is only the ones not
-// at risk, so the sheet no longer borrows its name for a bigger number).
-const STAND_WORD = { a: 'Needs a hearing', b: 'Hearing scheduled', c: 'Through its committees', done: 'At the governor or law', dead: 'Did not advance' };
+// "No hearing yet" is at risk and the rest together: Bills' two groups are "At risk: no hearing yet" and "No hearing yet",
+// and the deadline line says "with no hearing yet" (one word per fact, A-14; v6 had three names for it).
+const STAND_WORD = { a: 'No hearing yet', b: 'Hearing scheduled', c: 'Through its committees', done: 'At the governor or law', dead: 'Did not advance' };
 const FLAG_WORD = { riskF: 'At risk', hearF: 'Hearing this week', tripleF: 'Three or more committees' };
 // The filters kept on the Bills screen's own state (the rest live on S, where model.js's facets read them).
 const MINE = new Set(['owners', 'cmtes', 'issues', 'spons']);
@@ -342,98 +360,130 @@ export function openEditViews(after) {
     } });
 }
 const ownerWord = id => id === 'none' ? 'No owner' : id === S.me?.id ? 'You' : (advocate(id)?.full_name || 'Someone');
-const cmteName = c => S.committees?.[c]?.name || '';
 // [spec, label] for every filter that is on, in the sheet's order
 export function activeFilters() {
   const v = bl(), out = [];
   for (const o of v.owners) out.push([`owners:${o}`, ownerWord(o)]);
   for (const p of S.poss) out.push([`poss:${p}`, posWord(p)]);
   for (const s of S.stands) out.push([`stands:${s}`, STAND_WORD[s] || s]);
-  if (S.stageF) out.push([`stageF:${S.stageF}`, `Stage: ${STAGES.find(([k]) => k === S.stageF)?.[1] || S.stageF}`]);
+  if (S.stageF) out.push([`stageF:${S.stageF}`, stageWords(S.stageF)]);
   for (const k of ['hearF', 'riskF', 'tripleF']) if (S[k]) out.push([k, FLAG_WORD[k]]);
   for (const c of S.camps) out.push([`camps:${c}`, S.campaigns.find(x => x.id === c)?.name || 'Coalition']);
   for (const l of S.lsts) out.push([`lsts:${l}`, (S.lists || []).find(x => x.id === l)?.title || 'List']);
-  for (const c of v.cmtes) out.push([`cmtes:${c}`, c]);
+  for (const c of v.cmtes) out.push([`cmtes:${c}`, committeeName(c) || c]);
   for (const i of v.issues) out.push([`issues:${i}`, issueName(i)]);
   for (const n of v.spons) out.push([`spons:${n}`, sponsorName(n)]);
-  if (v.due) out.push([`due:${v.due}`, `Needs a hearing by ${dueDay(v.due)}`]);
+  if (v.due) out.push([`due:${v.due}`, `No hearing yet · by ${dueDay(v.due)}`]);
   return out;
 }
 export const filterCount = () => activeFilters().length;
 
-// ---- the Filter sheet: half height on phones (drag up for more), a 400px popover under the button on desktop ----
-const opt = (spec, label, n, { ic, title } = {}) => { const on = isOn(spec);
-  // A chip that is on carries a tick (never colour alone), the same as the quick chips and the Supporters filter.
-  return `<button type="button" class="chip bl-opt" data-ft="${esc(spec)}" aria-pressed="${on}" ${!on && !n ? 'disabled' : ''}${title ? ` title="${esc(title)}"` : ''}>${on ? icon('check') : ic ? icon(ic) : ''}<span>${esc(label)}</span><span class="bl-n">${n}</span></button>`; };
-const group = (title, inner, key) => `<section class="bl-fg" aria-labelledby="bl-fg-${key}"><h3 id="bl-fg-${key}">${title}</h3><div class="chips">${inner}</div></section>`;
+// ---- the Filter sheet (V32, F85-F87): one pattern for every list. At the top, the presets (the quick pills v5 had on the
+// page, the person's usual list and their saved views), then four groups shown (where it stands, position, owner,
+// coalition), and every other filter under "More filters". No option that would show nothing is offered (one that is on
+// always shows, so it can be taken off), every option says how many bills it leaves, and the foot says how many show.
+// Codes still find what they mean: a committee is listed by its name with its code beside it, and the box above the
+// committees takes either ("TRN" or "Transportation"). A half sheet on phones (drag up for more), a popover on a laptop. ----
+const opt = (spec, label, n, { ic, title, small } = {}) => { const on = isOn(spec);
+  // An option that is on carries a tick (never colour alone). `small`: the Capitol's own name, small after the words.
+  return `<button type="button" class="chip bl-opt" data-ft="${esc(spec)}" aria-pressed="${on}"${title ? ` title="${esc(title)}"` : ''}>${on ? icon('check') : ic ? icon(ic) : ''}<span>${esc(label)}${small ? ` <span class="v6-code">${esc(small)}</span>` : ''}</span><span class="bl-n">${n}</span></button>`; };
+const shown = (spec, n) => n > 0 || isOn(spec);   // no zero-count options (V32)
+// A group whose one choice holds every bill filters nothing (Patti's Owner "Lauren 89" and Coalition "HEAL 89"): it is
+// left out, unless that choice is on, so it can come off.
+const useful = (items, key, base) => items.length > 1 || items.some(([spec]) => isOn(spec)) || (items[0] && items[0][1] < cnt(base, key, () => true));
+// Exact stage in plain words (C-15, A-14): what the bill must do next, the Capitol's name for that deadline small after it;
+// "Did not advance", as everywhere in v6, never "Dead".
+const STAGE_PLAIN = {
+  introduced: ['Just introduced'], first_triple: ['First chamber: clear the first of 3 committees', 'First triple filing'],
+  first_lateral: ['First chamber: reach its last committee', 'First lateral'], first_decking: ['First chamber: clear its last committee', 'First decking'],
+  first_floor: ['First chamber: floor vote next', 'First floor vote'], first_crossover: ['Crossed to the second chamber', 'Crossover'],
+  second_triple: ['Second chamber: clear the first of 3 committees', 'Second triple filing'], second_lateral: ['Second chamber: reach its last committee', 'Second lateral'],
+  second_decking: ['Second chamber: clear its last committee', 'Second decking'], second_floor: ['Second chamber: floor vote next', 'Second floor vote'],
+  second_crossover: ['Passed both chambers', 'Cross back'], conference: ['In conference'], governor: ['With the governor'], enacted: ['Law'], vetoed: ['Vetoed'],
+  ballot: ['To the voters'], dead: ['Did not advance'] };
+export const stageWords = k => STAGE_PLAIN[k]?.[0] || STAGES.find(([x]) => x === k)?.[1] || k;
+const group = (title, inner, key) => inner ? `<section class="bl-fg" aria-labelledby="bl-fg-${key}"><h3 id="bl-fg-${key}">${title}</h3><div class="chips">${inner}</div></section>` : '';
+// The presets: one tap each, pressed while on. "Your usual list" resets everything (scope, filters, search), and shows only
+// when something differs from it.
+export const PRESETS = [['riskF', 'At risk', 'No hearing yet, and the deadline is a week away or less'], ['hearF', 'Hearing this week', 'A hearing in the next 7 days'], ['poss:monitor', 'Monitoring', 'The bills the team only watches']];
+const cmteWords = c => committeeName(c) || S.committees?.[c]?.name || '';
+function presetsHTML(base) {
+  const list = views(), cur = curView();
+  const tests = { riskF: x => x.risk, hearF: (x, b) => hearWeek(x, b), 'poss:monitor': (x, b) => b.position === 'monitor' };
+  const chips = PRESETS.map(([spec, label, help]) => { const n = cnt(base, spec.split(':')[0], tests[spec]); return shown(spec, n) ? opt(spec, label, n, { title: help }) : ''; }).join('');
+  const usual = isDefault() ? '' : `<button type="button" class="chip bl-opt bl-usual" data-fusual="1">${icon('rotate-ccw')}<span>Your usual list</span></button>`;
+  const saved = list.map(w => `<button type="button" class="chip bl-opt bl-saved" data-fview="${esc(w.id)}" aria-pressed="${cur === w.id}">${icon(cur === w.id ? 'bookmark-check' : 'bookmark')}<span>${esc(w.name)}</span></button>`).join('');
+  const acts = `<div class="bl-facts">${btn('Save this view', { kind: 'text', sm: true, icon: 'bookmark', attrs: { 'data-fsave': '1' } })}${list.length ? btn(`Saved views (${list.length})`, { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-fedit': '1' } }) : ''}</div>`;
+  return `<section class="bl-fg bl-fpre" aria-labelledby="bl-fg-pre"><h3 id="bl-fg-pre">Quick views</h3><div class="chips">${usual}${chips}${saved}</div>${acts}</section>`;
+}
 function sheetBody() {
   const v = bl(), base = baseBills(), f = Object.fromEntries(facets().map(g => [g.key, g]));
   const ads = S.advocates.filter(a => a.is_active !== false).sort((a, b) => (b.id === S.me?.id) - (a.id === S.me?.id) || a.full_name.localeCompare(b.full_name));
-  // Owners, coalitions and lists show only when they have a bill in this scope (or are switched on): under Mine,
-  // ten teammates at zero would push every useful group below the fold.
-  const inBase = test => v => v.on || base.some(b => test(b, v.id));
-  const owners = [...ads.map(a => ({ id: a.id, l: a.id === S.me?.id ? 'You' : a.full_name })), { id: 'none', l: 'No owner' }].map(o => ({ ...o, on: v.owners.has(o.id) }))
-    .filter(inBase(ownerHas)).map(({ id, l }) => opt(`owners:${id}`, l, cnt(base, 'owners', (x, b) => ownerHas(b, id)))).join('');
-  // The team's seven positions, strongest first, then "No position yet" only while some bill here really has none.
-  const posKeys = [...f.poss.opts.map(([k]) => k), ...(S.poss.has('none') || base.some(b => !b.position) ? ['none'] : [])];
-  const poss = posKeys.map(k => opt(`poss:${k}`, posWord(k), cnt(base, 'poss', (x, b) => posIs(b, k)), { ic: POS_ICON[k === 'none' ? '' : k] })).join('');
-  const stands = ['b', 'a', 'c', 'done', 'dead'].map(k => opt(`stands:${k}`, STAND_WORD[k], cnt(base, 'stands', (x, b) => standIs(x, b, k)), k === 'a' ? { title: 'At risk or waiting: no hearing yet' } : {})).join('');
-  const stages = STAGES.map(([k, l]) => [k, l, cnt(base, 'stageF', (x, b) => effStage(b) === k)]).filter(([k, , n]) => n || S.stageF === k).map(([k, l, n]) => opt(`stageF:${k}`, l, n, { title: STAGE_GLOSS[k] || '' })).join('');
-  const hear = opt('hearF', 'This week', cnt(base, 'hearF', (x, b) => hearWeek(x, b)), { title: 'A hearing in the next 7 days' }) + opt('riskF', 'At risk: no hearing yet', cnt(base, 'riskF', x => x.risk), { title: 'No hearing, and the deadline is a week away or less' });
-  const camps = S.campaigns.map(c => ({ id: c.id, l: c.name, on: S.camps.has(c.id) })).filter(inBase((b, id) => factsOf(b).camps.includes(id)))
-    .map(({ id, l }) => opt(`camps:${id}`, l, cnt(base, 'camps', x => x.camps.includes(id)))).join('');
-  const lists = (S.lists || []).map(l => ({ id: l.id, l: l.title, on: S.lsts.has(l.id) })).filter(inBase((b, id) => factsOf(b).lsts.includes(id)))
-    .map(({ id, l }) => opt(`lsts:${id}`, l, cnt(base, 'lsts', x => x.lsts.includes(id)))).join('');
-  // Committees: every one these bills are referred to, busiest first, with its name beside the code.
-  const seen = new Map(); for (const b of base) for (const c of cmtesOf(b)) seen.set(c, 0);
-  for (const c of v.cmtes) seen.set(c, 0);
-  const cms = [...seen.keys()].map(c => [c, cnt(base, 'cmtes', (x, b) => cmtesOf(b).includes(c))]).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  const cmRows = cms.map(([c, n]) => { const on = v.cmtes.has(c);
-    return `<button type="button" class="bl-crow" data-ft="cmtes:${esc(c)}" aria-pressed="${on}" ${!on && !n ? 'disabled' : ''}>${icon(on ? 'square-check-big' : 'square')}<b>${esc(c)}</b><span class="bl-cname">${esc(cmteName(c))}</span><span class="bl-n">${n}</span></button>`; }).join('');
-  // Issues and sponsors: long lists (an issue per topic, a sponsor per legislator), so each is a fold with a box that
-  // narrows it as you type, busiest first, and shows twelve until you type or one is on (R-210).
-  const pickRows = (kind, items, on, nameOf) => { const all = items.map(([id, n]) => [id, n, on.has(id)]).filter(([, n, o]) => n || o)
-      .sort((a, b) => b[2] - a[2] || b[1] - a[1] || nameOf(a[0]).localeCompare(nameOf(b[0]))), shown = all.filter(([, , o], i) => o || i < 12).length;
-    return `<label class="sr" for="bl-pq-${kind}">Narrow the list</label><input id="bl-pq-${kind}" class="input bl-pq" type="search" data-pq="${kind}" placeholder="Type to narrow ${all.length} ${kind === 'issues' ? 'issues' : 'sponsors'}" autocomplete="off">
-      <div class="bl-crows" data-pcrows="${kind}">${all.map(([id, n, o], i) => `<button type="button" class="bl-crow" data-ft="${kind}:${esc(id)}" data-pname="${esc(nameOf(id).toLowerCase())}" aria-pressed="${o}" ${!o && !n ? 'disabled' : ''}${o || i < 12 ? '' : ' hidden'}>${icon(o ? 'square-check-big' : 'square')}<span class="bl-pn">${esc(nameOf(id))}</span><span class="bl-n">${n}</span></button>`).join('')}</div>
-      ${all.length > shown ? `<p class="small muted bl-pmore" data-pmore="${kind}">${shown} of ${all.length} shown. Type to find the rest.</p>` : ''}`; };
+  // Where it stands, position, owner, coalition: the four everyone uses (shown).
+  // Each as [spec, n, label, opts], then drawn only when it can narrow the list (useful).
+  const draw = (key, items) => { const on = items.filter(([sp, n]) => shown(sp, n)); return useful(on, key, base) ? on.map(([sp, n, l, o]) => opt(sp, l, n, o)).join('') : ''; };
+  const stands = draw('stands', ['b', 'a', 'c', 'done', 'dead'].map(k => [`stands:${k}`, cnt(base, 'stands', (x, b) => standIs(x, b, k)), STAND_WORD[k], k === 'a' ? { title: 'At risk or not: every bill with no hearing yet' } : {}]));
+  const posKeys = [...f.poss.opts.map(([k]) => k), 'none'];
+  const poss = draw('poss', posKeys.map(k => [`poss:${k}`, cnt(base, 'poss', (x, b) => posIs(b, k)), posWord(k), { ic: POS_ICON[k === 'none' ? '' : k] }]));
+  const owners = draw('owners', [...ads.map(a => ({ id: a.id, l: a.id === S.me?.id ? 'You' : a.full_name })), { id: 'none', l: 'No owner' }]
+    .map(o => [`owners:${o.id}`, cnt(base, 'owners', (x, b) => ownerHas(b, o.id)), o.l]));
+  const camps = draw('camps', S.campaigns.map(c => [`camps:${c.id}`, cnt(base, 'camps', x => x.camps.includes(c.id)), c.name]));
+  // More filters: the rest, each with only the options that leave something.
+  const hear = [['hearF', 'This week', cnt(base, 'hearF', (x, b) => hearWeek(x, b)), 'A hearing in the next 7 days'], ['riskF', 'At risk: no hearing yet', cnt(base, 'riskF', x => x.risk), 'No hearing, and the deadline is a week away or less']]
+    .filter(([s, , n]) => shown(s, n)).map(([s, l, n, t]) => opt(s, l, n, { title: t })).join('');
+  const stages = draw('stageF', STAGES.map(([k]) => [`stageF:${k}`, cnt(base, 'stageF', (x, b) => effStage(b) === k), stageWords(k), { title: STAGE_GLOSS[k] || '', small: STAGE_PLAIN[k]?.[1] }]));
+  const lists = (S.lists || []).map(l => ({ id: l.id, l: l.title, n: cnt(base, 'lsts', x => x.lsts.includes(l.id)) })).filter(l => shown(`lsts:${l.id}`, l.n)).map(l => opt(`lsts:${l.id}`, l.l, l.n)).join('');
+  // Long lists (a committee, an issue, a sponsor each): busiest first, twelve until you type, a box that narrows them.
+  const pickRows = (kind, items, on, nameOf, what) => { const all = items.map(([id, n]) => [id, n, on.has(id)]).filter(([, n, o]) => n || o)
+      .sort((a, b) => b[2] - a[2] || b[1] - a[1] || nameOf(a[0]).localeCompare(nameOf(b[0]))), many = all.filter(([, , o], i) => o || i < 12).length;
+    if (!all.length) return '';
+    return `<label class="sr" for="bl-pq-${kind}">Narrow the ${what}</label><input id="bl-pq-${kind}" class="input bl-pq" type="search" data-pq="${kind}" placeholder="Type to narrow ${all.length} ${what}" autocomplete="off">
+      <div class="bl-crows" data-pcrows="${kind}">${all.map(([id, n, o], i) => `<button type="button" class="bl-crow" data-ft="${kind}:${esc(id)}" data-pname="${esc(nameOf(id).toLowerCase())} ${esc(String(id).toLowerCase())}" aria-pressed="${o}"${o || i < 12 ? '' : ' hidden'}>${icon(o ? 'square-check-big' : 'square')}<span class="bl-pn">${esc(nameOf(id))}${kind === 'cmtes' ? ` <span class="v6-code">${esc(id)}</span>` : ''}</span><span class="bl-n">${n}</span></button>`).join('')}</div>
+      ${all.length > many ? `<p class="small muted bl-pmore" data-pmore="${kind}">${many} of ${all.length} shown. Type to find the rest.</p>` : ''}`; };
   const issIds = new Set(); for (const b of base) for (const i of issuesOf(b)) issIds.add(i); for (const i of v.issues) issIds.add(i);
-  const issRows = pickRows('issues', [...issIds].map(i => [i, cnt(base, 'issues', (x, b) => issuesOf(b).includes(i))]), v.issues, issueName);
+  const issRows = pickRows('issues', [...issIds].map(i => [i, cnt(base, 'issues', (x, b) => issuesOf(b).includes(i))]), v.issues, issueName, 'issues');
   const spIds = new Set(); for (const b of base) for (const n of sponsOf(b)) spIds.add(n); for (const n of v.spons) spIds.add(n);
-  const spRows = pickRows('spons', [...spIds].map(n => [n, cnt(base, 'spons', (x, b) => sponsOf(b).includes(n))]), v.spons, sponsorName);
-  const fold = (key, title, sub, inner) => { const open = v.fopen.has(key);
-    return `<details class="bl-fold" data-fkey="${key}" ${open ? 'open' : ''}><summary><h3>${title}</h3>${sub ? `<span class="bl-fsub">${esc(sub)}</span>` : ''}${icon('chevron-down', { cls: 'chev' })}</summary><div class="bl-fin">${inner}</div></details>`; };
-  const cmOn = [...v.cmtes], stOn = S.stageF ? STAGES.find(([k]) => k === S.stageF)?.[1] : '';
+  const spRows = pickRows('spons', [...spIds].map(n => [n, cnt(base, 'spons', (x, b) => sponsOf(b).includes(n))]), v.spons, sponsorName, 'sponsors');
+  const seen = new Set(); for (const b of base) for (const c of cmtesOf(b)) seen.add(c); for (const c of v.cmtes) seen.add(c);
+  const cmRows = pickRows('cmtes', [...seen].map(c => [c, cnt(base, 'cmtes', (x, b) => cmtesOf(b).includes(c))]), v.cmtes, c => cmteWords(c) || c, 'committees');
+  const trip = shown('tripleF', cnt(base, 'tripleF', x => x.triple)) ? `<div class="chips bl-trip">${opt('tripleF', 'Three or more committees', cnt(base, 'tripleF', x => x.triple), { title: 'Sent to three committees in one chamber: it must clear its first by the triple filing deadline' })}</div>` : '';
+  const moreOn = ['hearF', 'riskF', 'tripleF'].filter(k => S[k] && !PRESETS.some(([p]) => p === k)).length + (S.stageF ? 1 : 0) + S.lsts.size + v.issues.size + v.spons.size + v.cmtes.size;
+  const open = v.fopen.has('more') || moreOn > 0;
+  const more = [group('Hearing', hear, 'hear'), stages ? group('Exact stage', stages, 'stage') : '', lists ? group('List on the public page', lists, 'list') : '',
+    issRows ? `<section class="bl-fg" aria-labelledby="bl-fg-iss"><h3 id="bl-fg-iss">Issue</h3>${issRows}</section>` : '',
+    trip || cmRows ? `<section class="bl-fg" aria-labelledby="bl-fg-cm"><h3 id="bl-fg-cm">Committee</h3>${trip}${cmRows}</section>` : '',
+    spRows ? `<section class="bl-fg" aria-labelledby="bl-fg-sp"><h3 id="bl-fg-sp">Sponsor</h3>${spRows}</section>` : ''].join('');
   return `<div class="bl-fs">
-    ${group('Owner', owners, 'own')}
-    ${group('Position', poss, 'pos')}
+    ${presetsHTML(base)}
     ${group('Where it stands', stands, 'st')}
-    ${fold('stage', 'Exact stage', stOn || '', `<div class="chips">${stages}</div>`)}
-    ${group('Hearing', hear, 'hear')}
-    ${camps ? group('Coalition', camps, 'camp') : ''}
-    ${lists ? group('List', lists, 'list') : ''}
-    ${issIds.size ? fold('issue', 'Issue', v.issues.size ? [...v.issues].map(issueName).join(', ') : 'Any', issRows) : ''}
-    ${spIds.size ? fold('spons', 'Sponsor', v.spons.size ? [...v.spons].map(sponsorName).join(', ') : 'Sponsor or co-sponsor', spRows) : ''}
-    ${fold('cmte', 'Committee', cmOn.length ? cmOn.join(', ') : S.tripleF ? 'Three or more' : 'Referred to', `<div class="chips bl-trip">${opt('tripleF', 'Three or more committees', cnt(base, 'tripleF', x => x.triple), { title: 'Triple-referred in one chamber: it must clear its first committee by the triple filing deadline' })}</div><div class="bl-crows">${cmRows}</div>`)}
+    ${group('Position', poss, 'pos')}
+    ${group('Owner', owners, 'own')}
+    ${group('Coalition', camps, 'camp')}
+    ${more ? `<details class="bl-fold bl-fmore" data-fkey="more"${open ? ' open' : ''}><summary><h3>More filters</h3><span class="bl-fsub">${moreOn ? `${moreOn} on` : 'Hearing, stage, list, issue, committee, sponsor'}</span>${icon('chevron-down', { cls: 'chev' })}</summary><div class="bl-fin">${more}</div></details>` : ''}
     <p class="bl-fhow">Inside a group, a bill needs any one choice. Across groups, it needs all of them.</p>
   </div>`;
 }
 const footHTML = () => { const n = shownBills().length, any = filterCount();
   return `${btn('Clear all', { kind: 'text', cls: 'bl-fclear', attrs: { 'data-fclear': '1', disabled: !any } })}${btn(`Show ${n} bill${n === 1 ? '' : 's'}`, { attrs: { 'data-fdone': '1' } })}`; };
 
-export function openFilters(anchor) {
+// openFilters(anchor, { focus }): `focus: 'save'` lands on Save this view (More tools › Saved views, with none saved yet).
+export function openFilters(anchor, { focus = '' } = {}) {
   const wide = wideNow();
   let d = null;
-  const paint = keepSpec => {
+  const paint = keepSel => {
     freshFacts();
     const body = d.querySelector('.sv-sh-body'), y = body.scrollTop;
     body.innerHTML = sheetBody(); body.scrollTop = y;
     d.querySelector('.sv-sh-foot').innerHTML = footHTML();
     wireSheet();
-    if (keepSpec) d.querySelector(`[data-ft="${CSS.escape(keepSpec)}"]`)?.focus({ preventScroll: true });
+    if (keepSel) d.querySelector(keepSel)?.focus({ preventScroll: true });
   };
   const wireSheet = () => {
-    d.querySelectorAll('[data-ft]').forEach(el => el.onclick = () => { toggle(el.dataset.ft); hooks.render(); paint(el.dataset.ft); });
+    d.querySelectorAll('[data-ft]').forEach(el => el.onclick = () => { toggle(el.dataset.ft); hooks.render(); paint(`[data-ft="${CSS.escape(el.dataset.ft)}"]`); });
+    d.querySelector('[data-fusual]')?.addEventListener('click', () => { resetView(); hooks.render(); paint('[data-fdone]'); });
+    d.querySelectorAll('[data-fview]').forEach(el => el.onclick = () => { const id = el.dataset.fview; if (curView() === id) { resetView(); } else applyView(id); hooks.render(); paint(`[data-fview="${CSS.escape(id)}"]`); });
+    d.querySelector('[data-fsave]')?.addEventListener('click', async () => { await closeSheet({ silent: true }); openSaveView(() => hooks.render()); });
+    d.querySelector('[data-fedit]')?.addEventListener('click', async () => { await closeSheet({ silent: true }); openEditViews(() => hooks.render()); });
     // The narrowing boxes work on the rows already drawn (no repaint, so the keyboard stays where it is).
     d.querySelectorAll('[data-pq]').forEach(inp => inp.oninput = () => { const q = plain(inp.value.trim()), rows = [...d.querySelectorAll(`[data-pcrows="${inp.dataset.pq}"] .bl-crow`)];
       let k = 0; rows.forEach(r => { const hit = q ? plain(r.dataset.pname).includes(q) : (r.getAttribute('aria-pressed') === 'true' || k < 12); if (hit) k++; r.hidden = !hit; });
@@ -444,7 +494,8 @@ export function openFilters(anchor) {
   };
   freshFacts();
   d = openSheet({ title: 'Filter bills', size: wide ? 'auto bl-pop' : 'half bl-fsheet', body: sheetBody(), foot: footHTML(),
-    wire: dlg => { d = dlg; wireSheet(); if (wide) placePop(dlg, anchor); else dragToGrow(dlg); } });
+    wire: dlg => { d = dlg; wireSheet(); if (wide) placePop(dlg, anchor); else dragToGrow(dlg);
+      if (focus === 'save') setTimeout(() => dlg.querySelector('[data-fsave]')?.focus(), 30); } });
   return d;
 }
 // Desktop: the sheet sits under the button that opened it, like a popover, and keeps the page visible beside it.

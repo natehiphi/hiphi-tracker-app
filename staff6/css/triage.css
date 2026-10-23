@@ -10,7 +10,7 @@
 .st-status .ic { width: 18px; height: 18px; margin-top: 1px; color: var(--p700); }
 .st-crumb { display: none; }
 /* On phones the header already shows the title of a top-level page, so the page's own h1 would repeat it. */
-@media (max-width: 899px) { .st-page .st-dup { display: none; } .st-page .st-head:has(> .st-dup:only-child) { display: none; } }
+@media (max-width: 767px) { .st-page .st-dup { display: none; } .st-page .st-head:has(> .st-dup:only-child) { display: none; } }   /* v6: the phone top bar is below 768px (foundation request) */
 @media (min-width: 900px) {
   .st-page { padding-top: var(--s12); }
   .st-crumb { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin: 0 0 var(--s4) -8px; padding: 0 8px; border-radius: var(--pill); color: var(--p700); font-weight: 700; font-size: var(--t14); text-decoration: none; }
@@ -91,93 +91,86 @@
 .st-always .ic { width: 18px; height: 18px; margin-top: 1px; color: var(--p700); }
 .st-acct { margin-top: var(--s16); }
 
-/* ---- Sort new bills ---- */
-.st-thead { margin-bottom: var(--s12); }
-.st-prog { margin-top: var(--s8); }
-.st-progt { font-size: var(--t14); color: var(--n700); margin-top: 6px; }
-.st-progt b { color: var(--n900); }
-.st-tfilters { display: flex; flex-wrap: wrap; gap: var(--s8); margin-bottom: var(--s12); }
+/* ---- Sort new bills (R-336 V30, F97-F99): a page tab of Bills. The one number with its meaning and the two choices of list,
+   then one bill at a time in a roomy card (the description, the look-alike and the suggested issue), and the decision
+   beside it on a laptop (position, issue, coalition, owner; Track, Not for us, Later) or under it on a phone with the
+   buttons in the bottom bar. Cards carry the warm shadow and no border (spec 4); nothing is amber or red. ---- */
+.st-triage { min-width: 0; }
+.st-tlead { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s16); margin: 0 0 var(--s16); }
+.st-num { flex: 1 1 260px; min-width: 0; margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+.st-num b { font: 700 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); margin-right: 4px; }
+.st-tfilters { display: flex; flex-wrap: wrap; gap: var(--s8); margin: 0; min-width: 0; }
 .st-tfilters .sv-pick { max-width: 100%; }
 .st-tfilters .sv-pick span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.st-how p { max-width: 65ch; }
-.st-how .btn { margin: var(--s4) 0 -8px -12px; }
-.st-tcard { padding: var(--s16); }
+/* How this works: opened from its link, in the sand wash (not the teal of buttons and picked rows, which looked pressable) */
+.st-triage .st-how { margin: var(--s8) 0 0; padding: var(--s12) var(--s16); border-radius: var(--v6-r12); background: var(--v6-wash); }
+.st-how p { max-width: 65ch; margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+.st-tcard { padding: var(--s16); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); min-width: 0; }
 .st-tl1 { display: flex; align-items: center; gap: var(--s8); flex-wrap: wrap; }
-.st-tl1 h2 { font-size: var(--t22); }
+.st-tl1 h2 { margin: 0; font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 .st-tl1 h2:focus { outline: none; }
-.st-tl1 .st-cap { margin-left: auto; margin-right: -10px; color: var(--p700); }
-.st-ttitle { font-weight: 700; color: var(--n900); margin-top: var(--s4); }
-.st-tdesc { color: var(--n700); margin-top: var(--s8); max-width: 65ch; overflow-wrap: anywhere; }
+.st-tl1 .st-cap { margin-left: auto; margin-right: -10px; color: var(--v6-action); }
+.st-ttitle { margin: var(--s8) 0 0; font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+.st-tdesc { margin: var(--s8) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); max-width: 70ch; overflow-wrap: anywhere; }
 .st-tdesc.clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .st-tcard [data-tmore] { margin: 0 0 -8px -12px; }
-.st-triage .st-how { margin: var(--s12) 0 0; }
-.st-whys { margin-top: var(--s12); display: flex; flex-direction: column; gap: 6px; }
-.st-why { display: flex; gap: var(--s8); align-items: flex-start; font-size: var(--t14); color: var(--n700); }
-.st-why .ic { width: 18px; height: 18px; margin-top: 1px; color: var(--p700); }
-.st-why.muted .ic { color: var(--n400); }
-.st-why b { color: var(--n900); }
-.st-tpick { margin-top: var(--s16); padding-top: var(--s16); border-top: 1px solid var(--n100); display: flex; flex-direction: column; gap: var(--s12); }
-/* The four choices (R-022): a label on the left, its control beside it, one row each, so the card grows by rows of
-   44px rather than a label line plus a control line each. A long choice ("Support with changes") is cut, never wrapped. */
-.st-pickrow { display: grid; grid-template-columns: 80px minmax(0, 1fr); align-items: center; gap: var(--s8); }
-.st-pickrow .st-lab { font-size: var(--t14); font-weight: 700; color: var(--n900); }
-.st-pickrow .sv-pick { justify-self: start; max-width: 100%; min-width: 0; }
+.st-triage mark { background: var(--v6-action-wash); color: var(--v6-ink); border-radius: 0; padding: 0 2px; }
+.st-whys { position: relative; margin-top: var(--s16); padding-top: var(--s16); display: flex; flex-direction: column; gap: var(--s8); }
+.st-whys::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
+.st-why { display: flex; gap: var(--s8); align-items: flex-start; margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+.st-why .ic { flex: none; width: 20px; height: 20px; margin-top: 2px; color: var(--v6-muted); }
+.st-why b { color: var(--v6-ink); }
+/* the decision: its four choices, a label on the left and its control beside it (R-022), one row each */
+.st-decide { padding: var(--s16); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); min-width: 0; }
+.st-decidep { margin-top: var(--s16); }
+/* a phone: the decision inside the card, under the title (no card in a card), parted from it by a hairline */
+.st-tcard .st-decidep { position: relative; margin: var(--s16) 0 0; padding: var(--s16) 0 0; border-radius: 0; background: none; box-shadow: none; }
+.st-tcard .st-decidep::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
+.st-tcard .st-decidep + .st-tdesc { margin-top: var(--s16); }
+.st-triage .st-rech { margin: 0 0 var(--s8); font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+.st-tpick { display: flex; flex-direction: column; gap: var(--s12); }
+.st-pickrow { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: var(--s4) var(--s8); }
+.st-pickrow .st-lab { font-size: var(--v6-t16); color: var(--v6-muted); }
+.st-pickrow .sv-pick { justify-self: start; max-width: 100%; min-width: 0; min-height: 44px; }
 .st-pickrow .sv-pick span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.st-pickrow .sv-seg { display: inline-flex; justify-self: start; }
-/* Why the owner is who it is ("Owns HEAL", "Lauren (turned off) owns HEAL") sits under the chip, not in the label's 80px. */
-.st-pickrow .st-owhy { grid-column: 2; margin-top: calc(-1 * var(--s4)); }
-.st-pickrow .sv-seg button { min-width: 64px; padding: 0 16px; }
-@media (min-width: 600px) {
-  .st-tpick { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s12) var(--s24); align-items: center; }
-}
+.st-pickrow .st-owhy { grid-column: 2; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+.st-dbtns { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin-top: var(--s16); padding-top: var(--s16); }
+.st-dbtns::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
+.st-dbtns .btn { flex: none; }
+.st-dbtns .btn.text { margin-left: auto; }
+.st-dbtns .btn[aria-disabled="true"], .st-bar .btn[aria-disabled="true"] { opacity: .55; pointer-events: none; }
 .st-keys { margin-top: var(--s12); }
-.st-keys kbd, .st-page kbd { font: 700 var(--t13)/1 var(--font); color: var(--n900); background: var(--n0); border: 1px solid var(--n300); border-bottom-width: 2px; border-radius: 4px; padding: 2px 6px; }
-.st-tfoot { margin-top: var(--s8); margin-left: -12px; }
-.st-done { padding: var(--s8) var(--s16) var(--s16); }
+.st-keys kbd, .st-page kbd { font: 700 var(--v6-t14)/1 Lato, system-ui, sans-serif; color: var(--v6-ink); background: var(--v6-card); box-shadow: 0 0 0 1px var(--v6-hair), inset 0 -1px 0 var(--v6-hair); border-radius: var(--v6-r12); padding: 3px 8px; }
+.st-triage .st-keys { font-size: var(--v6-t14); line-height: 1.9; color: var(--v6-muted); }
+.st-tfoot { margin-top: var(--s12); margin-left: -12px; }
+.st-done { padding: var(--s24); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
 .st-done .btncol { width: 100%; max-width: 320px; }
-.st-yay { width: 56px; height: 56px; border-radius: 50%; background: var(--o50); color: var(--o700); display: flex; align-items: center; justify-content: center; }
-.st-yay .ic { width: 28px; height: 28px; }
-
-/* recent decisions: the last ten, each with its own Undo (under the card on phones, in the side panel on desktop) */
-.st-recent { margin-top: var(--s16); }
-.st-triage .st-rech { font-size: var(--t16); margin: 0 0 var(--s4); }
-.st-reclist { list-style: none; margin: 0; padding: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); }
-.st-reclist li { display: flex; align-items: center; gap: var(--s8); min-height: 52px; padding: var(--s4) var(--s4) var(--s4) var(--s12); }
-.st-reclist li + li { border-top: 1px solid var(--n100); }
-.st-recb { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; font-size: var(--t14); color: var(--n700); line-height: 1.3; }
-.st-recb b { color: var(--n900); }
-.st-recb .st-rect { color: var(--n900); }
-.st-recb .st-rect + span { color: var(--n500); }
+/* recent decisions and the bills the public follows: one list card each, rows parted by an inset hairline */
+.st-recent { margin-top: var(--s24); }
+.st-reclist { list-style: none; margin: 0; padding: 4px 0; background: var(--v6-card); border-radius: var(--v6-r20); box-shadow: var(--v6-sh1); }
+.st-reclist li { position: relative; display: flex; align-items: center; gap: var(--s8); min-height: 56px; padding: var(--s4) var(--s8) var(--s4) var(--s16); }
+.st-reclist li + li::before { content: ''; position: absolute; left: var(--s16); right: var(--s16); top: 0; height: 1px; background: var(--v6-hair); }
+.st-recb { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; font-size: var(--v6-t16); color: var(--v6-body); line-height: var(--v6-lh16); }
+.st-recb b { color: var(--v6-ink); }
+.st-recb .st-rect { color: var(--v6-ink); }
+.st-recb .st-rect + span { color: var(--v6-muted); font-size: var(--v6-t14); line-height: var(--v6-lh14); }
 .st-recb span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.st-reclist .btn { flex: none; padding: 0 12px; }
-.st-recmore, .st-recnone { font-size: var(--t14); color: var(--n500); margin-top: var(--s8); }
-
-/* desktop: the bill on the left with its whole text, and a panel that stays in view on the right (what you decide,
-   how far along you are, what you just decided), with buttons the size of their labels instead of a bottom bar */
+.st-reclist .btn { flex: none; }
+.st-recmore, .st-recnone { font-size: var(--v6-t16); color: var(--v6-muted); margin: var(--s8) 0 0; }
+.st-iqbox { margin: 0 0 var(--s8); }
+.st-iqbox .input { width: 100%; }
+.st-ipick [hidden] { display: none; }
+/* a laptop: the bill on the left with its whole text, the decision on the right, held in view while the text scrolls */
 @media (min-width: 900px) {
-  .st-triage.st-tdesk { max-width: 1056px; margin-left: auto; margin-right: auto; }   /* the frame's usual page, at any window width */
-  .st-tdesk .st-thead { margin-bottom: var(--s8); }
-  .st-tdesk .st-tfilters { margin-bottom: var(--s16); }
-  .st-tdesk .st-tcard { padding: var(--s24); }
-  .st-tdesk .st-ttitle { font-size: var(--t18); margin-top: var(--s8); }
-  .st-tdesk .st-tdesc { margin-top: var(--s12); max-width: 70ch; }
-  .st-tdesk .st-whys { margin-top: var(--s16); padding-top: var(--s16); border-top: 1px solid var(--n100); }
-  .st-tdesk .st-tfoot { margin-top: var(--s12); }
-  .st-tside { gap: var(--s16); }
-  .st-tside .st-decide { padding: var(--s16); }
-  .st-tside .st-tpick { display: flex; flex-direction: column; align-items: stretch; gap: var(--s12); margin: var(--s8) 0 0; padding: 0; border: 0; }
-  .st-dbtns { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin-top: var(--s16); padding-top: var(--s16); border-top: 1px solid var(--n100); }
-  .st-dbtns .btn { flex: none; }
-  .st-dbtns .btn.text { margin-left: auto; }
-  .st-dbtns .btn[aria-disabled="true"] { opacity: .55; pointer-events: none; }
-  .st-tside .st-keys { margin-top: var(--s12); line-height: 1.9; }
-  .st-tside .st-prog { margin: 0; }
-  .st-tside .st-recent { margin-top: 0; }
-  .st-tside .st-reclist li { min-height: 48px; }
-  .st-reclist li:hover { background: var(--n50); }
-  .st-reclist li:first-child:hover { border-radius: var(--r12) var(--r12) 0 0; }
-  .st-reclist li:last-child:hover { border-radius: 0 0 var(--r12) var(--r12); }
+  .st-tcols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 380px); gap: var(--s24); align-items: start; }
+  .st-tmain { min-width: 0; }
+  .st-tside { position: sticky; top: calc(var(--header) + var(--s16)); display: flex; flex-direction: column; gap: 0; min-width: 0; }
+  body.staff2:has(.band) .st-tside { top: calc(var(--header) + 28px + var(--s16)); }
+  .st-tside .st-recent { margin-top: var(--s24); }
+  .st-tdesk .st-tcard, .st-tdesk .st-decide { padding: var(--s24); }
+  @media (hover: hover) and (pointer: fine) { .st-reclist li:hover { background: var(--v6-page); } }
 }
+@media (min-width: 1600px) { .st-triage.st-tdesk { max-width: 1320px; } }
 
 /* bottom bars (triage decisions, a setup page's Save) */
 .st-bar { display: flex; align-items: center; gap: var(--s8); width: 100%; }

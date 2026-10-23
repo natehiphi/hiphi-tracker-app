@@ -1,192 +1,373 @@
-/* Staff v2 · Bills, filters, select mode, muted bills and the weekly memo (plan 3.4, 3.10). Every selector starts
-   from a .bl- class. Five type sizes only (13/14/16/18/22); 44px targets on phones; blue only for actions and
-   selection; status carries a word or an icon, never colour alone.
-   Staff v3 (R-264): one deadline sentence in place of the count line and the "Where every bill stands" box, compact
-   one-line rows by default, and from 1100px the bill you click docked beside the table (.bl-split, .bl-dock). */
+/* Staff v6 · Bills, Muted bills, the Filter sheet, select mode, the table (R-336 spec 4, 6; V04, V05, V16, V17, V32, D9).
+   Every selector starts from a .bl- class (or a shared part's class inside .bl-page). Tokens only (staff6/css/tokens.css):
+   no borders on cards (one warm shadow and the 20px radius), rows separated by space or an inset hairline, three radii
+   (12, 20, pill), type 14/16/18/22/28, 44px targets on phones and 40px or more on a laptop. Nothing is amber or red here:
+   a deadline coming is not late (D3). The weekly memo's rules (memo.js, now Outreach › Partner update) stay at the end. */
 
-/* ---- page frame: phones and tablets keep a 720px column, desktop gets the 1200px table ----
-   --bl-top0 is where this page's own sticky things start: under the app header, and 28px lower when the sandbox
-   band shows (staff.css offsets .sv-hdr the same way, from 1100px where the band itself is sticky).
-   --bl-sh is the sticky toolbar's height, measured by bills.js because the chips wrap and the saved-views row
-   comes and goes; the table's header and group rows hold just under it. */
 .bl-page, .bl-memopage { --bl-top0: var(--header); --bl-sh: 0px; }
-.bl-page { margin: 0 auto; }
-.bl-phone { max-width: 720px; }
-.bl-h1 { display: none; }
-.bl-top { display: flex; align-items: center; gap: var(--s8); margin-bottom: var(--s8); }
-.bl-sp { flex: 1 1 auto; }
-.bl-top .sv-seg { flex: none; }
-.bl-top .iconbtn { flex: none; }
-/* The Filter button is ui.js filterBtn, staff.css .sv-filter (R-277 fix 20). */
-.bl-search { margin-bottom: var(--s8); }
-.bl-search .input { min-height: 48px; padding: 12px 44px; border: 1px solid var(--n400); border-radius: var(--pill); background: var(--n0); width: 100%; font-size: var(--t16); }
-.bl-search .input:focus { outline: none; border-color: var(--p700); box-shadow: 0 0 0 2px var(--p700); }
-.bl-search .input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
-.bl-search .iconbtn { position: absolute; right: 2px; top: 2px; }
-.bl-search .iconbtn .ic { width: 20px; height: 20px; }
+.bl-page { min-width: 0; }
 
-/* ---- chips: filters that are on, then the quick ones (one sideways-scrolling row on phones) ---- */
-.bl-on { display: flex; flex-wrap: wrap; gap: var(--s8); align-items: center; margin-bottom: var(--s8); }
-.bl-page button.chip.bl-onchip { background: var(--p50); border: 2px solid var(--p700); color: var(--p800); padding: 7px 10px 7px 14px; }
-.bl-onchip .ic { width: 16px; height: 16px; }
-.bl-quick { display: flex; gap: var(--s8); align-items: center; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--gutter)) var(--s4); padding: 0 var(--gutter) var(--s4); scroll-padding: 0 var(--gutter); }
-.bl-quick::-webkit-scrollbar { display: none; }
-.bl-quick > * { flex: none; }
-.bl-page button.chip.bl-q:not(:disabled):hover { border-color: var(--p700); }
-.bl-page .chip .bl-n, .bl-fs .chip .bl-n { color: var(--n500); font-weight: 700; margin-left: 2px; }
-.bl-page .chip[aria-pressed="true"] .bl-n, .bl-fs .chip[aria-pressed="true"] .bl-n { color: var(--p800); }
-.bl-page button.chip:disabled, .bl-fs button.chip:disabled { color: var(--n500); border-color: var(--n200); background: var(--n50); cursor: default; }
-.bl-page button.chip:disabled .bl-n, .bl-fs button.chip:disabled .bl-n { color: var(--n500); font-weight: 400; }
-.bl-q .ic { width: 16px; height: 16px; }
-.bl-sum { font-size: var(--t14); color: var(--n500); margin: 0 0 var(--s8); }
+/* ---- the head: "Bills" with the whose switch at its right (as v5 had it beside the title), the page tabs on their own
+   row under them (staff.css .sv-phead). The switch used to take a 56px row of its own under the tabs, which put the first
+   bill 444px down Nate's laptop (A-1: 400); at the title's right it keeps its own track, apart from the tabs. ---- */
+@media (min-width: 768px) {
+  body.staff6 main .bl-head.sv-phead:has(.sv-secnav) .sv-phr > .sv-seg.sv-whose { order: 1; }   /* outranks staff.css's order: 3 */
+  body.staff6 main .bl-head { margin-bottom: var(--s16); }
+}
+/* A phone: the tabs, then the switch across the column; 12px between them, not 20 (the first bill 490px down, A-1). */
+@media (max-width: 767px) {
+  body.staff6 main .bl-head { display: flex; flex-wrap: wrap; gap: var(--s12) 0; margin: 0 0 var(--s12); }
+  body.staff6 main .bl-head .sv-secnav { margin-bottom: 0; }
+  body.staff6 main .bl-head .sv-seg { flex: 1 1 100%; display: flex; }
+  body.staff6 main .bl-head .sv-seg button { flex: 1 1 auto; padding: 0 10px; white-space: nowrap; }
+}
+
+/* ---- the deadline line (F95): one sentence, 16px, its count a link to those bills, then Get hearings. A phone has the
+   short form, without the icon, so it takes one or two lines rather than four. ---- */
+.bl-dls { display: flex; align-items: flex-start; gap: var(--s8); margin: 0 0 var(--s16); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); max-width: 960px; }
+.bl-dls > .ic { flex: none; width: 20px; height: 20px; margin-top: 2px; color: var(--v6-muted); }
+.bl-dls b { color: var(--v6-ink); }
+/* the two links in the line: underlined, not bold (the share of bold text, spec 4) */
+.bl-dls .bl-dlk { font: inherit; font-weight: 400; color: var(--v6-action); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.bl-dls .bl-dlgo { font-weight: 400; color: var(--v6-action); white-space: nowrap; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.bl-dln { display: none; }
+@media (max-width: 767px) {
+  .bl-dls { margin-bottom: var(--s8); }
+  .bl-dls > .ic, .bl-dlw { display: none; }
+  .bl-dln { display: inline; }
+}
+.bl-sum { font-size: var(--v6-t16); color: var(--v6-muted); margin: 0 0 var(--s12); }
 .bl-sum:not(:has(button)) { margin: 0; }
-/* ---- the deadline sentence (v3): the next two deadlines and the work each leaves, in one or two lines of 14px. The
-   deadline's name is bold; "N with no hearing yet" is a link to exactly those bills. Amber only inside a day of the
-   deadline (A-5), with the words "today" or "tomorrow" saying it too. ---- */
-.bl-dls { display: flex; align-items: flex-start; gap: var(--s8); margin: 0 0 var(--s12); font-size: var(--t14); line-height: 1.4; color: var(--n700); }
-.bl-dls > .ic { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--n500); }
-.bl-dls b { color: var(--n900); }
-.bl-dls .bl-dlk { font: inherit; font-weight: 700; }
-.bl-dls.soon > .ic, .bl-dls.soon .bl-dlday { color: var(--warn-text); }
-#bl-banner:empty { display: none; }
-#bl-banner .sv-notice { margin: var(--s8) 0 var(--s12); }
-.bl-selhead { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); font-size: var(--t14); color: var(--n700); margin: 0 0 var(--s8); }
+#bl-lead:empty { display: none; }
 
-/* ---- saved views: a row of chips beside Mine/Team. The one you are in carries a tick-style icon and
-   aria-pressed, never colour alone. ---- */
-.bl-views { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin: 0 0 var(--s8); }
-.bl-vlab { font-size: var(--t13); font-weight: 700; color: var(--n500); }
-.bl-page button.chip.bl-v { min-height: 44px; padding: 8px 14px; border: 1px solid var(--n400); background: var(--n0); color: var(--n700); font-size: var(--t14); }
-.bl-page button.chip.bl-v:hover { border-color: var(--p700); }
-.bl-page button.chip.bl-v[aria-pressed="true"] { background: var(--p50); border: 2px solid var(--p700); color: var(--p800); padding: 7px 13px; }
-.bl-v .ic, .bl-vedit .ic { width: 16px; height: 16px; }
-.bl-page button.chip.bl-vedit { min-height: 44px; padding: 8px 12px; border: 1px dashed var(--n400); background: none; color: var(--n700); font-size: var(--t13); }
-.bl-page button.chip.bl-vedit:hover { border-style: solid; border-color: var(--p700); color: var(--p800); }
-/* the two sheets */
-.bl-vlist { list-style: none; margin: 0; padding: 0; }
-.bl-vrow { display: flex; align-items: center; gap: var(--s4); min-height: 56px; border-bottom: 1px solid var(--n100); }
-.bl-vrow:last-child { border-bottom: 0; }
-.bl-vnm { flex: 1 1 auto; min-width: 0; font-weight: 700; color: var(--n900); overflow-wrap: anywhere; }
-.bl-vdel:hover { color: var(--bad-text); background: var(--bad-wash); }
-.bl-vhelp { margin: 0 0 var(--s12); }
-.bl-verr:empty { display: none; }
-.bl-vinput { width: 100%; }
+/* ---- the list's toolbar: the filter box, Filter, Select, and (on a laptop) Rows | Table ---- */
+.bl-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin: 0 0 var(--s12); }
+.bl-sp { flex: 1 1 auto; }
+.bl-tools .btn.sm { min-height: 44px; }
+.bl-search { position: relative; flex: 1 1 280px; max-width: 420px; min-width: 0; margin: 0; }
+.bl-search > .ic { position: absolute; left: 14px; top: 50%; width: 20px; height: 20px; margin-top: -10px; color: var(--v6-muted); pointer-events: none; }
+.bl-search .input { width: 100%; min-height: 44px; padding: 10px 44px; border: 1px solid var(--v6-field); border-radius: var(--v6-pill); background: var(--v6-card); font-size: var(--v6-t16); color: var(--v6-ink); }
+.bl-search .input::placeholder { color: var(--v6-muted); }
+.bl-search .input:focus { outline: none; border-color: var(--v6-action); box-shadow: 0 0 0 2px var(--v6-action); }
+.bl-search .input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.bl-search .iconbtn { position: absolute; right: 0; top: 0; }
+.bl-search .iconbtn .ic { width: 20px; height: 20px; }
+.bl-viewsw { flex: none; }
+.bl-viewsw button { display: inline-flex; align-items: center; gap: 6px; }
+.bl-viewsw .ic { width: 18px; height: 18px; }
+.bl-ttools { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--s4); }
+@media (max-width: 899px) {
+  .bl-search { flex: 1 1 200px; max-width: none; }
+}
+/* A phone: the box and Filter share one row; Select moves to the right of the first group's heading (bills.js). */
+.bl-ghsel { display: none; }
+@media (max-width: 767px) {
+  .bl-tools { flex-wrap: nowrap; gap: var(--s8); }
+  .bl-search { flex: 1 1 auto; }
+  .bl-tools .bl-sp, .bl-tsel { display: none; }
+  .bl-ghbar { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s4); }
+  .bl-ghbar .bl-gh { gap: 6px; }
+  .bl-ghbar > .bl-gh { flex: 1 1 auto; min-width: 0; }
+  .bl-ghsel { display: block; flex: none; padding-top: 0; }
+  /* tighter bands above the first bill (8px under the deadline line, 4px over and under the first heading), so it starts about 390px
+     down Nate's phone (A-1: 400) */
+  .bl-ghbar > .bl-gh { padding-top: 4px; margin-bottom: var(--s4); }
+  .bl-ghsel .btn { padding: 0 12px; }
+  .bl-ghsel .btn .ic { display: none; }   /* the word alone, so "Hearing scheduled 12" and Select share a 320px row */
+  .bl-tools { margin-bottom: var(--s8); }
+  .bl-search .input { box-sizing: border-box; height: 44px; }
+  .bl-search .input:placeholder-shown { padding-right: 12px; }   /* no clear button while empty: the words get its room */
+  /* the switch: 48px, not 52 (its buttons stay 44px targets) */
+  body.staff6 main .bl-head .sv-seg { padding: 2px; }
+}
 
-/* ---- phone list: one card, sticky group headers (no overflow:hidden, which would stop them sticking) ---- */
-.bl-list { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); }
-.bl-list > :first-child, .bl-list > .bl-grp:first-child > .sv-group { border-top-left-radius: var(--r16); border-top-right-radius: var(--r16); }
-.bl-list > :last-child, .bl-list > .bl-grp:last-child > :last-child { border-bottom-left-radius: var(--r16); border-bottom-right-radius: var(--r16); }
-.bl-list > .bl-grp:last-child > .sv-group[aria-expanded="false"] { border-bottom: 0; }
-.bl-grp > .sv-group { position: sticky; top: calc(var(--bl-top0) + var(--bl-sh)); z-index: 5; }
-.bl-grp + .bl-grp > .sv-group { border-top: 1px solid var(--n200); }
-.bl-grp > .row + .row { border-top: 1px solid var(--n100); }
-.bl-list .bl-noown { display: inline-flex; align-items: center; gap: 4px; color: var(--n500); }
-.bl-noown .bl-noword { font-size: var(--t13); line-height: 1.2; white-space: nowrap; }   /* 13px, the floor (R-277 fix 20) */
-.bl-list .bl-noown .ic { width: 24px; height: 24px; }
-.bl-list .sv-billrow { -webkit-touch-callout: none; padding-top: 10px; padding-bottom: 10px; }
-/* The title takes two lines before it is cut: the number and the nickname in bold, then the plain summary (with no
-   nickname, the summary over both lines). The status sentence keeps its own line underneath. */
-.sv-billrow.bl-row .bl-rt { -webkit-line-clamp: 2; line-height: 1.35; overflow-wrap: anywhere; }   /* wherever a Bills row is drawn (the list, muted bills, search) */
-.sv-billrow.bl-row .bl-rt .sv-t { color: var(--n700); }
-.sv-billrow.bl-row .sub { margin-top: 2px; -webkit-line-clamp: 2; }   /* the status wraps before its committee is cut ("... 9:30 AM · HHS/CPN") */
-.sv-billrow.bl-row .bl-noown { display: inline-flex; color: var(--n500); }
-.sv-billrow.bl-row .bl-noown .ic { width: 24px; height: 24px; }
-.bl-list .sv-billrow .sub b { color: var(--n900); }
-.bl-selecting .sv-billrow { user-select: none; -webkit-user-select: none; }
-.bl-selecting .sv-billrow[aria-pressed="true"] { background: var(--p50); }
+/* ---- filters that are on: chips that come off with a click, then Clear all ---- */
+.bl-on { display: flex; flex-wrap: wrap; gap: var(--s8); align-items: center; margin: 0 0 var(--s16); }
+.bl-page button.chip.bl-onchip { min-height: 40px; padding: 4px 10px 4px 14px; border: 0; background: var(--v6-action-wash); color: var(--v6-action-press); font-weight: 700; }
+.bl-page button.chip.bl-onchip .ic { width: 16px; height: 16px; }
+.bl-onview { display: inline-flex; align-items: center; gap: 6px; font-size: var(--v6-t16); font-weight: 700; color: var(--v6-ink); }
+.bl-onview .ic { width: 18px; height: 18px; color: var(--v6-action); }
+@media (max-width: 767px) { .bl-page button.chip.bl-onchip { min-height: 44px; } }
+#bl-chips:empty { display: none; }
+.bl-selhead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8); font-size: var(--v6-t16); color: var(--v6-body); margin: 0 0 var(--s12); }
+
+/* ---- rows (the default): one card per group, its heading above it; the picked bill beside the list from 1100px ---- */
+.bl-groups { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s24); min-width: 0; }
+/* listDetail's list box is a card; with groups, each group's list is the card instead */
+body.staff6 .bl-page .v6-ld-list.bl-groups { padding: 0; background: none; box-shadow: none; border-radius: 0; }
+.bl-grp { min-width: 0; }
+.bl-gh { display: flex; align-items: baseline; gap: var(--s8); min-height: 44px; margin: 0 0 var(--s8); padding-top: 8px; font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); letter-spacing: -.005em; }
+.bl-gn { font: 400 var(--v6-t16)/1 Lato, system-ui, sans-serif; color: var(--v6-muted); }
+.bl-ghb { display: inline-flex; align-items: baseline; gap: var(--s8); min-height: 44px; margin: 0 -12px; padding: 0 12px; border: 0; border-radius: var(--v6-pill); background: none; font: inherit; color: inherit; cursor: pointer; }
+.bl-ghb .chev { width: 20px; height: 20px; color: var(--v6-muted); }
+@media (hover: hover) and (pointer: fine) { .bl-ghb:hover { background: var(--v6-wash); } }
+.bl-ghb:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+.bl-more { padding: var(--s4) 0 0; }
+.bl-more .btn { margin-left: -12px; }
+/* D3's "a bold time": the viewer's own step due soon keeps its ink colour and clock, but only its time is bold ("File now ·
+   due today **10:00 AM**"), not the whole line (bold text was 49% of Nate's first screen, spec 4: 25%). A shared change asks
+   steps.css to do the same in every list. */
+body.staff6 .bl-page .v6-row-line.soon { font-weight: 400; }
+body.staff6 .bl-page .v6-row-line.soon .v6-nw { font-weight: 700; }
+/* the row the keys are on: a bar at its left (never colour alone: the focus is on it too) */
+body.staff6 .bl-page .v6-row.bl-cur { box-shadow: inset 3px 0 0 var(--v6-action); }
+/* phones: the rows are a press-and-hold away from picking, so a long press does not open the browser's menu */
+.bl-page .v6-ld-list .v6-row-main { -webkit-touch-callout: none; }
+/* the open bill: the panel beside the list (steps.css .v6-ld); below 1100px it is its own page, so the list's head steps
+   aside with the list and Back to the bills is the first thing */
+.bl-page .v6-ld-detail { padding: 0; }
+@media (min-width: 1100px) {
+  body.staff6 .bl-page .v6-ld-detail { top: calc(var(--header) + var(--s16)); max-height: calc(100vh - var(--header) - var(--s32)); padding: 4px; }
+  body.staff2:has(.band) .bl-page .v6-ld-detail { top: calc(var(--header) + 28px + var(--s16)); max-height: calc(100vh - var(--header) - 28px - var(--s32)); }
+}
+@media (max-width: 1099.98px) {
+  .bl-page.bl-itemopen .bl-head, .bl-page.bl-itemopen #bl-lead, .bl-page.bl-itemopen .bl-stick, .bl-page.bl-itemopen .bl-keys { display: none; }
+}
+/* select mode: each row a toggle with its tick box (bulk.js's bar acts on them) */
+.bl-selecting .v6-row-main { user-select: none; -webkit-user-select: none; }
+body.staff6 .bl-page .bl-selmain { flex-direction: row; align-items: center; gap: var(--s12); }
+.bl-check { flex: none; display: inline-flex; color: var(--v6-field); }
+.bl-check .ic { width: 24px; height: 24px; }
+.bl-selrow.sel .bl-check { color: var(--v6-action); }
+.bl-seltx { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+
+/* ---- the keys' hint, after a key was used (laptops) ---- */
+.bl-keys { display: none; }
+@media (min-width: 900px) {
+  .bl-keys { display: block; margin: var(--s16) 0 0; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+  .bl-keys kbd { font: 700 var(--v6-t14)/1 Lato, system-ui, sans-serif; color: var(--v6-ink); background: var(--v6-card); box-shadow: inset 0 -1px 0 var(--v6-hair), 0 0 0 1px var(--v6-hair); border-radius: var(--v6-r12); padding: 3px 8px; }
+}
 
 /* ---- muted bills ---- */
 .bl-muted { max-width: 720px; }
-.bl-deskback { display: none; }   /* phones have the frame's back arrow */
-.bl-ptitle { font-size: var(--t22); margin: var(--s8) 0 var(--s8); }
-.bl-lede { font-size: var(--t16); color: var(--n700); margin-bottom: var(--s16); max-width: 60ch; }
-/* ---- a phone row and its quick-look chevron, side by side. The row is an <a>, so the button cannot sit inside
-   it; this is the same shape the muted list uses. The chevron matches Today's, which is where staff have already
-   learnt it. ---- */
-.bl-prow { display: flex; align-items: center; background: var(--n0); }
-/* The row's own right padding is dead space once the chevron is beside it, so the title gets it back. */
-.bl-prow .row { flex: 1 1 auto; min-width: 0; padding-right: var(--s4); background: transparent; }
-.bl-plk { flex: none; margin-right: var(--s8); color: var(--n500); }
-.bl-grp > .bl-prow + .bl-prow, .bl-grp > .row + .bl-prow, .bl-grp > .bl-prow + .row { border-top: 1px solid var(--n100); }
-.bl-prow:hover { background: var(--n50); }
-.bl-prow .row:hover { background: transparent; }
-.bl-plk:hover { color: var(--p700); background: var(--p50); }
+.bl-lede { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); margin: 0 0 var(--s16); max-width: 60ch; }
 
-.bl-mrow { display: flex; align-items: center; gap: var(--s8); padding-right: var(--s12); background: var(--n0); }
-.bl-list > .bl-mrow + .bl-mrow { border-top: 1px solid var(--n100); }
-.bl-mrow .row { flex: 1 1 auto; min-width: 0; background: transparent; }
-.bl-mrow > .btn { flex: none; }
-
-/* ---- select bar (in the frame's action bar): x on the left, the count, the actions on the right. The same order
-   as the Supporters bar. The count is a one-line box that wraps: when the bar is too narrow, "selected" (and the
-   note about hidden bills) drop to a second line that is not shown, so "3 selected" shortens to "3" before any
-   button is squeezed or any text is cut. ---- */
+/* ---- the select bar (in the frame's action bar): x, the count, then the actions (the Supporters bar's order) ---- */
 .bl-bar { display: flex; align-items: center; gap: var(--s8); width: 100%; }
-.bl-bar > .iconbtn { flex: none; margin-left: -8px; color: var(--n900); }
-.bl-bar-n { flex: 1 1 0; min-width: 1.5em; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 5px; height: 24px; line-height: 24px; overflow: hidden; font-size: var(--t16); color: var(--n900); }
+.bl-bar > .iconbtn { flex: none; margin-left: -8px; color: var(--v6-ink); }
+.bl-bar-n { flex: 1 1 0; min-width: 1.5em; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 5px; height: 24px; line-height: 24px; overflow: hidden; font-size: var(--v6-t16); color: var(--v6-ink); }
 .bl-bar-n b { flex: none; font-weight: 700; }
 .bl-bar-w { flex: none; font-weight: 700; }
-.bl-bar-h { flex: none; font-size: var(--t14); color: var(--n700); }
+.bl-bar-h { flex: none; font-size: var(--v6-t14); color: var(--v6-body); }
 .bl-bar-h::before { content: '· '; }
 .bl-bar > .btn { flex: 0 0 auto; padding: 0 16px; }
-.bl-bar > .btn:disabled { box-shadow: none; }
-/* Follow and Unfollow change only your own list; the rest change the bills for everyone. A rule keeps the two apart. */
-.bl-barsep { flex: none; align-self: stretch; width: 1px; margin: 6px 2px; background: var(--n200); }
-.bl-bar > .btn[aria-disabled="true"] { color: var(--n500); border-color: var(--n200); background: var(--n50); box-shadow: none; }
+.bl-barsep { flex: none; align-self: stretch; width: 1px; margin: 6px 2px; background: var(--v6-hair); }
+.bl-bar > .btn[aria-disabled="true"] { color: var(--v6-muted); background: var(--v6-wash); box-shadow: none; }
+@media (max-width: 380px) { .bl-bar > .btn { padding: 0 12px; } .bl-bar { gap: var(--s4); } }
 
-/* ---- sheets: the filter sheet, the bulk pickers, the columns popover ---- */
+/* ---- the sheets: the Filter sheet, the bulk pickers, Columns, Saved views ---- */
 dialog.sv-sheet.bl-fsheet { height: 72vh; transition: height .2s var(--ease); }
 dialog.sv-sheet.bl-fsheet.bl-tall { height: 92vh; }
-.bl-fs .bl-fg + .bl-fg, .bl-fs .bl-fg + .bl-fold, .bl-fs .bl-fold + .bl-fg, .bl-fs .bl-fold + .bl-fold { margin-top: var(--s16); }
-.bl-fs h3 { font-size: var(--t16); margin-bottom: var(--s8); }
-.bl-fs .chip .ic { width: 16px; height: 16px; }
-.bl-fs .bl-fold { border-top: 1px solid var(--n100); }
-.bl-fs .bl-fold + .bl-fg { margin-top: 0; border-top: 1px solid var(--n100); padding-top: var(--s16); }
 dialog.sv-sheet.bl-fsheet .sv-sh-head, dialog.sv-sheet.bl-fsheet .sv-sh-grab { user-select: none; -webkit-user-select: none; cursor: grab; }
+.bl-fs .bl-fg + .bl-fg, .bl-fs .bl-fg + .bl-fold, .bl-fs .bl-fold + .bl-fg { margin-top: var(--s16); }
+.bl-fs h3 { font: 700 var(--v6-t16)/var(--v6-lh16) Lato, system-ui, sans-serif; color: var(--v6-ink); margin: 0 0 var(--s8); }
+.bl-fs .chips { display: flex; flex-wrap: wrap; gap: var(--s8); }
+.bl-fs button.chip.bl-opt { min-height: 40px; padding: 4px 14px; border: 0; background: var(--v6-wash); color: var(--v6-body); font-size: var(--v6-t16); }
+.bl-fs button.chip.bl-opt[aria-pressed="true"] { background: var(--v6-action-wash); color: var(--v6-action-press); font-weight: 700; }
+.bl-fs .chip .ic { width: 16px; height: 16px; }
+.bl-fs .chip .bl-n { color: var(--v6-muted); font-weight: 400; margin-left: 2px; font-size: var(--v6-t14); }
+.bl-fs .chip[aria-pressed="true"] .bl-n { color: var(--v6-action-press); }
+@media (hover: hover) and (pointer: fine) { .bl-fs button.chip.bl-opt:not([aria-pressed="true"]):hover { background: var(--v6-action-wash); color: var(--v6-action); } }
+@media (max-width: 767px) { .bl-fs button.chip.bl-opt { min-height: 44px; } }
+/* a long choice (an exact stage in words) wraps inside the sheet rather than running out of it */
+.bl-fs button.chip.bl-opt { max-width: 100%; white-space: normal; text-align: left; }
+.bl-fs .chip .v6-code { font-size: var(--v6-t14); color: var(--v6-muted); font-weight: 400; }
+.bl-fpre { padding-bottom: var(--s16); box-shadow: inset 0 -1px 0 var(--v6-hair); }
+.bl-fs .bl-fpre + .bl-fg { margin-top: var(--s16); }
+.bl-facts { display: flex; flex-wrap: wrap; gap: var(--s4); margin: var(--s8) 0 0 -12px; }
+.bl-fs .bl-fold { margin-top: var(--s16); box-shadow: inset 0 1px 0 var(--v6-hair); }
 .bl-fs .bl-fold summary { display: flex; align-items: center; gap: var(--s8); min-height: 48px; cursor: pointer; list-style: none; }
 .bl-fs .bl-fold summary::-webkit-details-marker { display: none; }
-.bl-fs .bl-fold summary h3 { margin: 0; }
-.bl-fs .bl-fold .bl-fsub { flex: 1 1 auto; min-width: 0; font-size: var(--t14); color: var(--n500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
-.bl-fs .bl-fold .chev { width: 18px; height: 18px; color: var(--n500); transition: transform .15s; }
+.bl-fs .bl-fold summary h3 { flex: none; margin: 0; color: var(--v6-action); white-space: nowrap; }
+.bl-fs .bl-fold .bl-fsub { flex: 1 1 auto; min-width: 0; font-size: var(--v6-t14); color: var(--v6-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+.bl-fs .bl-fold .chev { width: 20px; height: 20px; color: var(--v6-muted); transition: transform .15s; }
 .bl-fs .bl-fold[open] .chev { transform: rotate(180deg); }
 .bl-fs .bl-fin { padding-bottom: var(--s8); }
+.bl-fs .bl-fin > .bl-fg:first-child { margin-top: var(--s8); }
 .bl-fs .bl-trip { margin-bottom: var(--s8); }
 .bl-fs .bl-crows { display: grid; grid-template-columns: 1fr; gap: 2px; }
-.bl-fs .bl-crow { display: flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 0 var(--s8); border-radius: var(--r8); text-align: left; width: 100%; font-size: var(--t14); color: var(--n700); }
-.bl-fs .bl-crow:hover:not(:disabled) { background: var(--n50); }
-.bl-fs .bl-crow .ic { width: 20px; height: 20px; color: var(--n500); flex: none; }
-.bl-fs .bl-crow[aria-pressed="true"] { background: var(--p50); color: var(--p800); }
-.bl-fs .bl-crow[aria-pressed="true"] .ic { color: var(--p700); }
-.bl-fs .bl-crow b { flex: none; min-width: 64px; color: var(--n900); }
-.bl-fs .bl-crow .bl-cname { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bl-fs .bl-crow .bl-n { flex: none; font-weight: 700; color: var(--n500); }
-.bl-fs .bl-crow:disabled { cursor: default; color: var(--n500); }
+.bl-fs .bl-crow { display: flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 0 var(--s8); border: 0; border-radius: var(--v6-r12); background: none; text-align: left; width: 100%; font: inherit; font-size: var(--v6-t16); color: var(--v6-body); cursor: pointer; }
+@media (hover: hover) and (pointer: fine) { .bl-fs .bl-crow:hover { background: var(--v6-wash); } }
+.bl-fs .bl-crow .ic { width: 20px; height: 20px; color: var(--v6-field); flex: none; }
+.bl-fs .bl-crow[aria-pressed="true"] { background: var(--v6-action-wash); color: var(--v6-action-press); }
+.bl-fs .bl-crow[aria-pressed="true"] .ic { color: var(--v6-action); }
+.bl-fs .bl-crow .bl-n { flex: none; color: var(--v6-muted); font-size: var(--v6-t14); }
 .bl-fs .bl-crow[hidden] { display: none; }
 .bl-fs .bl-crow .bl-pn { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bl-fs .bl-pq { width: 100%; margin-bottom: var(--s8); }
 .bl-fs .bl-pmore { margin: var(--s8) var(--s8) 0; }
-.bl-fs .bl-crow:disabled b { color: var(--n500); }
-.bl-fs .bl-fhow { margin-top: var(--s16); font-size: var(--t14); color: var(--n500); }
-dialog.sv-sheet .bl-fclear:disabled { background: none; color: var(--n500); }
+.bl-fs .bl-fhow { margin: var(--s16) 0 0; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+dialog.sv-sheet .bl-fclear:disabled { background: none; color: var(--v6-muted); }
 dialog.sv-sheet .bl-hid { margin-bottom: var(--s12); }
 dialog.sv-sheet .bl-hid .btn { margin-left: auto; }
-dialog.sv-sheet .bl-sh3 { font-size: var(--t16); margin: var(--s16) 0 var(--s4); }
+dialog.sv-sheet .bl-sh3 { font-size: var(--v6-t16); margin: var(--s16) 0 var(--s4); }
 dialog.sv-sheet .bl-sh3:first-child { margin-top: 0; }
 dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
+/* saved views: name a view, rename, delete */
+.bl-vlist { list-style: none; margin: 0; padding: 0; }
+.bl-vrow { position: relative; display: flex; align-items: center; gap: var(--s4); min-height: 56px; }
+.bl-vrow + .bl-vrow::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
+.bl-vnm { flex: 1 1 auto; min-width: 0; font-weight: 700; color: var(--v6-ink); overflow-wrap: anywhere; }
+.bl-vdel:hover { color: var(--v6-bad); background: var(--v6-bad-wash); }
+.bl-vhelp { margin: 0 0 var(--s12); }
+.bl-verr:empty { display: none; }
+.bl-vinput { width: 100%; }
+@media (min-width: 900px) {
+  dialog.sv-sheet.bl-pop { position: fixed; margin: 0; right: auto; bottom: auto; min-height: 0; height: auto; border-radius: var(--v6-r20); box-shadow: var(--v6-sh3); }
+  dialog.sv-sheet.bl-pop::backdrop { background: rgba(59, 51, 43, .12); }
+  dialog.sv-sheet .bl-colsep { height: 1px; background: var(--v6-hair); margin: var(--s4) 0; }
+}
 
-/* ---- weekly memo ---- */
+/* ---- the table (D9: Rows | Table, anyone, on a laptop). Roomy rows give every text cell two lines; compact rows one. The
+   toolbar stays under the header while the table scrolls; the table's header and group rows hold under it (--bl-sh). ---- */
+@media (min-width: 900px) {
+  .bl-tablev .bl-stick { position: sticky; top: var(--bl-top0); z-index: 8; background: var(--v6-page); margin: 0 calc(-1 * var(--s8)); padding: var(--s8) var(--s8) var(--s4); }
+  .bl-tablev .bl-stick > :last-child, .bl-tablev .bl-stick #bl-chips > :last-child { margin-bottom: var(--s8); }
+  .bl-table { --bl-th: 44px; width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; background: var(--v6-card); border-radius: var(--v6-r20); box-shadow: var(--v6-sh1); font-size: var(--v6-t14); line-height: 1.4; }
+  .bl-table.bl-compact { --bl-th: 40px; }
+  .bl-table thead th { position: sticky; top: calc(var(--bl-top0) + var(--bl-sh)); z-index: 6; height: var(--bl-th); padding: 0 12px; background: var(--v6-card); box-shadow: inset 0 -1px 0 var(--v6-hair); font-size: var(--v6-t14); font-weight: 700; line-height: 1.15; color: var(--v6-muted); text-align: left; }
+  .bl-table thead th:first-child { border-top-left-radius: var(--v6-r20); }
+  .bl-table thead th:last-child { border-top-right-radius: var(--v6-r20); }
+  .bl-table thead th.bl-h-own, .bl-table thead th.bl-h-pulse { padding: 0 8px; }
+  .bl-table .bl-sort { position: relative; display: inline-flex; align-items: center; min-height: 32px; margin: 0 -6px; padding: 2px 6px; border: 0; border-radius: var(--v6-r12); background: none; font: inherit; font-weight: 700; color: var(--v6-muted); max-width: calc(100% + 12px); white-space: normal; line-height: 1.15; text-align: left; cursor: pointer; }
+  .bl-table .bl-sort:hover { background: var(--v6-wash); color: var(--v6-ink); }
+  .bl-table .bl-sort.on { color: var(--v6-ink); padding-right: 20px; }
+  .bl-table .bl-sort .ic { position: absolute; right: 4px; top: 50%; width: 14px; height: 14px; margin-top: -7px; opacity: 0; }
+  .bl-table .bl-sort.on .ic { opacity: 1; color: var(--v6-action); }
+  .bl-table .bl-sort:not(.on):hover, .bl-table .bl-sort:not(.on):focus-visible { padding-right: 20px; margin-right: -20px; }
+  .bl-table .bl-sort:not(.on):hover .ic, .bl-table .bl-sort:not(.on):focus-visible .ic { opacity: .5; }
+  .bl-table .bl-lns { display: block; min-width: 0; }
+  .bl-table .bl-ln { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bl-table .bl-l2 { color: var(--v6-muted); }
+  .bl-table td { height: 56px; padding: 8px 12px; box-shadow: inset 0 1px 0 var(--v6-hair); color: var(--v6-body); vertical-align: middle; overflow: hidden; }
+  .bl-table .bl-c2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+  .bl-table .bl-ti b { color: var(--v6-ink); font-weight: 700; }
+  .bl-table tbody tr[data-row] { cursor: pointer; scroll-margin: calc(var(--bl-top0) + var(--bl-sh) + var(--bl-th) + 48px) 0 96px; }
+  .bl-table tbody tr[data-row]:hover td { background: var(--v6-page); }
+  .bl-table tbody tr.sel td { background: var(--v6-action-wash); }
+  .bl-table tbody tr.bl-cur td:first-child { box-shadow: inset 3px 0 0 var(--v6-action), inset 0 1px 0 var(--v6-hair); }
+  .bl-table tbody tr.bl-look td, .bl-table tbody tr.bl-look:hover td { background: var(--v6-action-wash); }
+  .bl-table tbody tr.bl-look td:first-child { box-shadow: inset 4px 0 0 var(--v6-action); }
+  .bl-table tbody tr.bl-look .bl-num a { color: var(--v6-action-press); }
+  .bl-table .bl-gr th { position: sticky; top: calc(var(--bl-top0) + var(--bl-sh) + var(--bl-th)); z-index: 5; padding: 0; background: var(--v6-page); text-align: left; font-weight: 400; }
+  .bl-table .bl-gr + tr td { box-shadow: none; }
+  .bl-table .bl-gr .sv-group { display: flex; align-items: center; gap: var(--s8); width: 100%; border: 0; border-bottom: 0; padding: 0 12px; min-height: 44px; background: none; font: 700 var(--v6-t16)/1.2 Lato, system-ui, sans-serif; color: var(--v6-ink); cursor: pointer; }
+  .bl-table .bl-gr .sv-group .n { margin-left: 0; color: var(--v6-muted); font-weight: 400; font-size: var(--v6-t16); }
+  .bl-table .bl-gr .sv-group .chev { margin-left: auto; width: 20px; height: 20px; color: var(--v6-muted); }
+  .bl-table .bl-ck, .bl-table thead th.bl-ck { padding: 0; text-align: center; }
+  .bl-table .bl-ck label { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: 0 auto; cursor: pointer; border-radius: var(--v6-r12); }
+  .bl-table .bl-ck label:hover { background: var(--v6-wash); }
+  .bl-table .bl-ck input { width: 18px; height: 18px; margin: 0; accent-color: var(--v6-action); cursor: pointer; }
+  .bl-table .bl-num a { font-weight: 700; color: var(--v6-ink); text-decoration: none; }
+  .bl-table .bl-num a span { white-space: nowrap; }
+  .bl-table .bl-num a:hover { color: var(--v6-action); text-decoration: underline; }
+  .bl-table .bl-cell { display: inline-flex; align-items: center; gap: 6px; max-width: calc(100% + 12px); min-height: 40px; padding: 2px 6px; margin: 0 -6px; border: 0; border-radius: var(--v6-r12); background: none; font: inherit; color: var(--v6-body); font-size: var(--v6-t14); line-height: 1.2; text-align: left; cursor: pointer; }
+  .bl-table .bl-cell > span:not(.sv-av):not(.bl-noown) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .bl-table .bl-cell .ic { width: 18px; height: 18px; color: var(--v6-muted); flex: none; }
+  .bl-table .bl-cell:hover { background: var(--v6-wash); color: var(--v6-ink); }
+  .bl-table .bl-noown { display: inline-flex; align-items: center; gap: 4px; color: var(--v6-muted); }
+  .bl-table .bl-noown .ic { width: 20px; height: 20px; }
+  .bl-noown .bl-noword { font-size: var(--v6-t14); line-height: 1.2; white-space: nowrap; }
+  .bl-table .bl-fol { display: inline-flex; vertical-align: -3px; margin-left: 6px; color: var(--v6-muted); }
+  .bl-table .bl-fol .ic { width: 16px; height: 16px; }
+  .bl-table .bl-date { color: var(--v6-muted); white-space: nowrap; }
+  .bl-table .bl-dash { color: var(--v6-muted); }
+  .bl-table tr.bl-morer td { padding: var(--s4) var(--s8); }
+  .bl-table.bl-tight thead th, .bl-table.bl-tight td { padding-left: 8px; padding-right: 8px; }
+  .bl-table.bl-tight .bl-ck, .bl-table.bl-tight thead th.bl-ck { padding: 0; }
+  .bl-table.bl-tight:not(.bl-compact) .bl-ti .bl-c2 { -webkit-line-clamp: 3; }
+  .bl-table.bl-compact td { height: 44px; padding: 0 8px; white-space: nowrap; text-overflow: ellipsis; }
+  .bl-table.bl-compact thead th { padding: 0 8px; }
+  .bl-table.bl-compact .bl-c2 { display: block; white-space: nowrap; text-overflow: ellipsis; }
+  .bl-table.bl-compact .bl-c2 br { display: none; }
+  .bl-table.bl-compact .bl-lns { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bl-table.bl-compact .bl-ln { display: inline; overflow: visible; }
+  .bl-table.bl-compact .bl-l2 { display: none; }
+  .bl-table.bl-compact .bl-gr .sv-group { min-height: 40px; padding: 0 8px; }
+  .bl-table.bl-compact .bl-ck label { width: 40px; height: 40px; }
+  .bl-table.bl-compact .bl-cell > span:not(.sv-av):not(.bl-noown) { display: block; white-space: nowrap; text-overflow: ellipsis; }
+  /* the edit in place (R-106): native dropdowns */
+  .bl-table .bl-sel { width: 100%; min-width: 0; min-height: 40px; padding: 4px 28px 4px 10px; border: 1px solid var(--v6-field); border-radius: var(--v6-r12); background: var(--v6-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23685D52' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;
+    appearance: none; -webkit-appearance: none; font-size: var(--v6-t14); color: var(--v6-ink); text-overflow: ellipsis; cursor: pointer; }
+  .bl-table .bl-sel:hover { border-color: var(--v6-action); }
+  .bl-table .bl-sel:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+  .bl-table .bl-selwrap { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .bl-table .bl-selwrap > .ic { flex: none; color: var(--v6-muted); width: 18px; height: 18px; }
+  .bl-table .bl-selwrap .bl-sel { flex: 1 1 auto; }
+  /* optional columns in a window too small for them: only this box scrolls sideways, the tick box and the number pinned */
+  .bl-tnote { display: flex; align-items: center; gap: 6px; margin: 0 0 var(--s8); font-size: var(--v6-t14); color: var(--v6-muted); }
+  .bl-tnote .ic { width: 16px; height: 16px; flex: none; }
+  .bl-twrap { position: relative; }
+  .bl-twrap::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 28px; border-radius: 0 var(--v6-r20) var(--v6-r20) 0; background: linear-gradient(90deg, rgba(74, 52, 30, 0), rgba(74, 52, 30, .08)); pointer-events: none; transition: opacity .15s; }
+  .bl-twrap.bl-end::after { opacity: 0; }
+  .bl-tscroll { overflow-x: auto; overflow-y: hidden; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+  .bl-tscroll .bl-table { border-radius: 0; box-shadow: none; }
+  .bl-tscroll .bl-table thead th { position: relative; top: auto; transform: translateY(var(--bl-hy, 0px)); }
+  .bl-tscroll .bl-table .bl-gr th { position: static; }
+  .bl-tscroll .bl-table td.bl-ck, .bl-tscroll .bl-table td.bl-num { position: sticky; z-index: 2; background: var(--v6-card); }
+  .bl-tscroll .bl-table thead th.bl-ck, .bl-tscroll .bl-table thead th.bl-h-bill { position: sticky; z-index: 7; }
+  .bl-tscroll .bl-table .bl-ck { left: 0; }
+  .bl-tscroll .bl-table td.bl-num, .bl-tscroll .bl-table thead th.bl-h-bill { left: var(--bl-pin, 44px); }
+  .bl-tscroll .bl-table .bl-gr .sv-group { position: sticky; left: 0; z-index: 4; will-change: transform; }
+  /* the select bar on a laptop: x and the count at the left, the actions after them */
+  body.staff2 main > .actionbar .inner:has(> .bl-barw) { justify-content: flex-start; }
+  .bl-barw { flex-wrap: wrap; gap: var(--s8); padding: var(--s8) var(--s12) var(--s8) var(--s16); background: var(--v6-card); border-radius: var(--v6-r20); box-shadow: var(--v6-sh2); }
+  .bl-barw .bl-bar-n { flex: 1 1 8em; }
+  body.staff2 main > .actionbar .bl-barw > .btn { flex: none; min-width: 0; min-height: 40px; }
+  .bl-barw > .iconbtn:hover { background: var(--v6-wash); }
+}
+/* the bill opened beside the table (from 1100px): the open item, held under the toolbar while the table scrolls */
+@media (min-width: 1100px) {
+  .bl-split { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: start; }
+  .bl-main { min-width: 0; }
+  .bl-dock { position: sticky; top: calc(var(--bl-top0) + var(--bl-sh) + var(--s8)); max-height: calc(100vh - var(--bl-top0) - var(--bl-sh) - var(--s24)); overflow-y: auto; overscroll-behavior: contain; padding: 4px; }
+  body.staff2:has(.band) .bl-page, body.staff2:has(.band) .bl-memopage { --bl-top0: calc(var(--header) + 28px); }
+}
+@media (min-width: 1600px) { .bl-tablev:not(:has(.bl-split)) { max-width: 1320px; } }
+/* R-316 W28: an owner who is turned off keeps the bill until it is handed on: the circle dashed, the word beside it */
+.bl-offav { display: inline-flex; }
+.bl-offav .sv-av { background: none; border: 1.5px dashed var(--v6-field); color: var(--v6-muted); }
+
+/* ---- a bill the team does not track (untracked.js, #/bill/<number>): the warm look on bill.css's parts ---- */
+body.staff6 .ut-page .bw-head { margin: 0 0 var(--s16); }
+body.staff6 .ut-page .bw-num { font: 700 var(--v6-t28)/var(--v6-lh28) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+body.staff6 .ut-page .bw-title { font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+body.staff6 .ut-page .ut-note { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s12) var(--s16); padding: var(--s16) var(--s24); border: 0; border-radius: var(--v6-r20); background: var(--v6-action-wash); }
+body.staff6 .ut-page .ut-note > div { flex: 1 1 320px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .ut-page .ut-note .btn.primary .ic { color: currentColor; }   /* the notice's teal icon colour is not the button's */
+body.staff6 .ut-page .bw-sec { margin-top: var(--s32); }
+body.staff6 .ut-page .bw-sec > h2 { font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); margin: 0 0 var(--s12); }
+body.staff6 .ut-page .bw-dl { border: 0; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); padding: var(--s8) var(--s24); }
+body.staff6 .ut-page .bw-dl dt { font-size: var(--v6-t14); color: var(--v6-muted); }
+body.staff6 .ut-page .bw-sec > p { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); max-width: 72ch; }
+
+/* ---- the quick look (look.js): the open item in a sheet ---- */
+.lk-v6 { padding: 0 0 var(--s8); }
+.lk-nav { display: flex; align-items: center; gap: var(--s8); width: 100%; }
+.lk-nav .pos { font-size: var(--v6-t14); color: var(--v6-muted); }
+.lk-nav .lk-keys { margin-left: auto; font-size: var(--v6-t14); color: var(--v6-muted); }
+
+/* ---- v5's Bills row, as search.js still draws it (its "Bills" results) ---- */
+.sv-billrow.bl-row .bl-rt { -webkit-line-clamp: 2; line-height: 1.35; overflow-wrap: anywhere; }
+.sv-billrow.bl-row .bl-rt .sv-t { color: var(--v6-body); }
+.sv-billrow.bl-row .sub { margin-top: 2px; -webkit-line-clamp: 2; }
+
+/* ---- the weekly memo (memo.js: Outreach › Partner update) and its back link (filters.js deskBack): kept as they were ---- */
+.bl-deskback { display: none; }
+.bl-ptitle { font-size: var(--t22); margin: var(--s8) 0 var(--s8); }
 .bl-memopage { max-width: 720px; margin: 0 auto; }
+.bl-memopage .bl-lede { margin: var(--s4) 0 var(--s16); }
 .bl-mctl { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s12) var(--s16); margin-bottom: var(--s16); }
 .bl-mctl .field { flex: 1 1 200px; margin: 0; }
 .bl-mlabel { display: block; font-size: var(--t14); font-weight: 700; color: var(--n900); margin-bottom: 6px; }
 .bl-mwho .sv-seg button, .bl-maud .sv-seg button { white-space: nowrap; }
-/* On a phone the two choices keep their label beside them, not above: the memo starts 52px higher (R-022 added "For"). */
 @media (max-width: 899px) {
   .bl-mctl { gap: var(--s12); }
   .bl-mctl .bl-maud, .bl-mctl .bl-mwho { flex: 1 1 100%; display: flex; align-items: center; gap: var(--s12); }
   .bl-mctl .bl-maud .bl-mlabel, .bl-mctl .bl-mwho .bl-mlabel { flex: 0 0 88px; margin: 0; }
+  .bl-mwho .sv-seg button, .bl-maud .sv-seg button { min-height: 44px; }
 }
-@media (max-width: 359px) {   /* no room beside it: the label goes back above its control */
+@media (max-width: 359px) {
   .bl-mctl .bl-maud, .bl-mctl .bl-mwho { flex-wrap: wrap; gap: 6px; }
   .bl-mctl .bl-maud .bl-mlabel, .bl-mctl .bl-mwho .bl-mlabel { flex-basis: 100%; }
 }
@@ -197,281 +378,30 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
 .bl-memo ul { margin: 0; padding-left: 20px; }
 .bl-memo li { margin: var(--s4) 0; }
 .bl-memo li b { color: var(--n900); }
-/* a partner memo's bill numbers link the public page (they open in a new tab, never over the app) */
 .bl-memo li a { color: var(--p700); text-underline-offset: 2px; }
 .bl-memo li a b { color: inherit; }
 .bl-memo p:last-child { font-size: var(--t14); color: var(--n500); overflow-wrap: anywhere; }
 .bl-memo .bl-quiet { font-size: var(--t16); color: var(--n700); }
-/* the phone's bottom bar: the two buttons share the width and shrink with it (the bar needed 383px before, so
-   "Copy for email" ran off 320 to 375px screens); under 400px the icons go, and a label may take two lines */
 .bl-mbar { display: flex; gap: var(--s8); width: 100%; }
 .actionbar .bl-mbar .btn { flex: 1 1 0; min-width: 0; padding: 0 12px; white-space: normal; line-height: 1.15; text-align: center; }
 @media (max-width: 399px) { .bl-mbar .btn .ic { display: none; } }
-
-/* ---- desktop ---- */
-.bl-keys, .bl-onlab { display: none; }
 @media (min-width: 900px) {
-  .bl-h1 { display: block; font-size: var(--t22); margin-right: var(--s8); }
-  .bl-top { gap: var(--s12); margin-bottom: var(--s12); }
-  /* The toolbar stays: on a 113-row table every control used to be gone after a dozen rows. It sits under the app
-     header and over the table's own sticky header, which holds under it (bills.js measures --bl-sh).
-     The padding is main's own top gutter, pulled back up so nothing shows through the block when it is stuck. */
-  .bl-wide .bl-stick { position: sticky; top: var(--bl-top0); z-index: 8; background: var(--n50); margin-top: calc(-1 * var(--s12)); padding: var(--s12) 0 var(--s8); }
-  .bl-wide .bl-stick > :last-child, .bl-wide .bl-stick #bl-head > :last-child { margin-bottom: 0; }
-  .bl-wide .bl-stick #bl-head:empty { display: none; }
-  .bl-wide .bl-search { flex: 0 1 360px; margin: 0; }
-  .bl-wide .bl-search .input { min-height: 44px; padding-top: 10px; padding-bottom: 10px; }
-  .bl-wide .bl-search .ic-search { top: 12px; }
-  .bl-wide .bl-search .iconbtn { top: 0; }
-  .bl-top .btn.secondary:hover, .bl-top .iconbtn:hover { background: var(--p50); }
-  /* one line above the table (v3): the deadline sentence on the left, the quick chips on the right under Filter. When
-     the sentence needs two lines the chips sit beside it; in a narrow window they go under it. */
-  .bl-frow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s24); margin-bottom: var(--s12); }
-  .bl-frow > .bl-dls, .bl-frow > .bl-sum { flex: 1 1 420px; min-width: 0; margin: 0; }
-  .bl-frow .bl-quick { flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-end; overflow: visible; margin: 0 0 0 auto; padding: 0; }
-  /* this row wraps and never scrolls, so the fade staff.css gives a sideways-scrolling chip row would only cut the
-     right edge of the last chip, which sits flush with the table here */
-  .bl-frow .bl-quick { -webkit-mask-image: none; mask-image: none; }
-  .bl-wide button.chip.bl-q, .bl-wide button.chip.bl-onchip { min-height: 36px; padding-top: 4px; padding-bottom: 4px; }
-  .bl-wide button.chip.bl-q[aria-pressed="true"] { padding-top: 3px; padding-bottom: 3px; }
-  .bl-wide button.chip.bl-q:not(:disabled):hover { background: var(--p50); }
-  .bl-wide button.chip.bl-onchip:hover { background: var(--p100); }
-  .bl-wide .bl-on { margin: 0 0 var(--s8); }
-  .bl-wide .bl-on .btn.sm { min-height: 36px; }
-  .bl-onlab { display: inline; font-size: var(--t13); font-weight: 700; color: var(--n500); margin-right: var(--s4); }
-  .bl-keys { display: block; margin-top: var(--s12); font-size: var(--t13); color: var(--n500); }
-  .bl-keys kbd { font: 700 var(--t13)/1 var(--font); color: var(--n900); background: var(--n0); border: 1px solid var(--n300); border-bottom-width: 2px; border-radius: 4px; padding: 2px 6px; }
-
-  /* the link back to Bills on Sort new bills, the weekly memo and muted bills (the frame's arrow is for phones) */
   .bl-deskback { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: 0 0 var(--s4) -8px; padding: 0 12px 0 4px; border-radius: var(--pill); color: var(--p700); font-weight: 700; text-decoration: none; }
   .bl-deskback:hover { background: var(--p50); color: var(--p800); }
   .bl-deskback .ic { width: 20px; height: 20px; }
-  .bl-muted .bl-mrow:hover { background: var(--n50); }
-  .bl-muted .bl-mrow .row:hover { background: transparent; }
-
-  /* the weekly memo as a document: a reading column (about 72 characters a line), the copy buttons beside the
-     title in a row that stays under the header while the memo scrolls, and the memo on a page of its own */
   .bl-memopage { max-width: none; }
   .bl-mhead { position: sticky; top: var(--bl-top0); z-index: 5; display: flex; align-items: center; gap: var(--s16); margin: 0 calc(-1 * var(--s8)); padding: var(--s4) var(--s8); background: var(--n50); }
   .bl-mhead .bl-ptitle { flex: 1 1 auto; margin: 0; }
   .bl-mcopy { flex: none; display: flex; gap: var(--s8); }
   .bl-mcopy .btn { flex: none; }
-  .bl-memopage .bl-lede { margin: var(--s4) 0 var(--s16); }
   .bl-mctl { align-items: flex-end; }
   .bl-mctl .bl-mwho, .bl-mctl .bl-maud { flex: none; }
   .bl-mctl .field { flex: 0 1 280px; }
   .bl-mctl .input { min-height: 48px; }
-  .bl-mctl .bl-mcopyrow { margin-left: auto; }   /* R-277 fix 10: the copy buttons end the row of choices (the heading row holds the tabs) */
+  .bl-mctl .bl-mcopyrow { margin-left: auto; }
   .bl-memo { padding: 40px 72px 48px; }
   .bl-memo h2 { font-size: var(--t22); margin-bottom: var(--s12); }
   .bl-memo h3 { font-size: var(--t18); margin: var(--s24) 0 var(--s8); }
   .bl-memo li { margin: 6px 0; }
-
-  /* Bills' "…" menu holds up to eleven items since v3 (A-20): let it be as tall as the window allows, not 480px with Export
-     CSV out of sight below a scroll nobody sees */
-  body[data-screen="bills"] dialog.sv-sheet.sv-pop { max-height: min(680px, calc(100vh - 32px)); }
-  dialog.sv-sheet.bl-pop { position: fixed; margin: 0; right: auto; bottom: auto; min-height: 0; height: auto; border-radius: var(--r12); box-shadow: var(--sh3); }
-  dialog.sv-sheet.bl-pop::backdrop { background: rgba(9, 53, 70, .12); }
-  dialog.sv-sheet .bl-colsep { height: 1px; background: var(--n100); margin: var(--s4) 0; }
-  .bl-fs .bl-crows { grid-template-columns: 1fr; }
-
-  /* the select bar on a wide screen: the frame right-aligns a page's buttons; here the x and the count stay left */
-  body.staff2 main > .actionbar .inner:has(> .bl-barw) { justify-content: flex-start; }
-  .bl-barw { flex-wrap: wrap; gap: var(--s8); padding: var(--s8) var(--s12) var(--s8) var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh2); }
-  .bl-barw .bl-bar-n { flex: 1 1 8em; }
-  body.staff2 main > .actionbar .bl-barw > .btn { flex: none; min-width: 0; min-height: 40px; }
-  .bl-barw > .iconbtn:hover { background: var(--n100); }
-
-  /* ---- the table. Roomy rows (52px) give every text cell two lines before it is cut; compact rows (40px) are one
-     line each. Sticky header and group rows, a wash on the row under the pointer, a bar on the row the keys are on. */
-  .bl-table { --bl-th: 40px; width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); font-size: var(--t14); line-height: 1.35; }
-  .bl-table.bl-compact { --bl-th: 36px; }
-  .bl-table thead th { position: sticky; top: calc(var(--bl-top0) + var(--bl-sh)); z-index: 6; height: var(--bl-th); padding: 0 12px; background: var(--n50); border-bottom: 1px solid var(--n200); font-size: var(--t13); font-weight: 700; line-height: 1.15; color: var(--n500); text-align: left; }
-  .bl-table thead th:first-child { border-top-left-radius: var(--r12); }
-  .bl-table thead th:last-child { border-top-right-radius: var(--r12); }
-  .bl-table thead th.bl-h-pri, .bl-table thead th.bl-h-own, .bl-table thead th.bl-h-pulse { padding: 0 8px; }
-  /* a header is a button when its column sorts: a wash on hover, and an arrow that is faint until the column is
-     sorted (it sits outside the label's box, so a narrow column's label is never cut to make room for it) */
-  .bl-table .bl-sort { position: relative; display: inline-flex; align-items: center; min-height: 28px; margin: 0 -6px; padding: 2px 6px; border-radius: 6px; font-weight: 700; color: var(--n500); max-width: calc(100% + 12px); white-space: normal; line-height: 1.15; text-align: left; }
-  .bl-table .bl-sort:hover { background: var(--n100); color: var(--n900); }
-  .bl-table .bl-sort.on { color: var(--n900); padding-right: 20px; }
-  .bl-table .bl-sort .ic { position: absolute; right: 4px; top: 50%; width: 14px; height: 14px; margin-top: -7px; opacity: 0; }
-  .bl-table .bl-sort.on .ic { opacity: 1; color: var(--p700); }
-  .bl-table .bl-sort:not(.on):hover, .bl-table .bl-sort:not(.on):focus-visible { padding-right: 20px; margin-right: -20px; }
-  .bl-table .bl-sort:not(.on):hover .ic, .bl-table .bl-sort:not(.on):focus-visible .ic { opacity: .5; }
-  /* where it stands, and what is next: two short lines, each kept whole (the second one quieter) */
-  .bl-table .bl-lns { display: block; min-width: 0; }
-  .bl-table .bl-ln { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .bl-table .bl-l2 { color: var(--n500); }
-
-  .bl-table td { height: 52px; padding: 7px 12px; border-top: 1px solid var(--n100); color: var(--n700); vertical-align: middle; overflow: hidden; }
-  .bl-table .bl-c2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
-  .bl-table .bl-ti b { color: var(--n900); font-weight: 700; }
-  .bl-table tbody tr[data-row] { cursor: pointer; scroll-margin: calc(var(--bl-top0) + var(--bl-sh) + var(--bl-th) + 48px) 0 96px; }
-  .bl-table tbody tr[data-row]:hover td { background: var(--n50); }
-  .bl-table tbody tr.sel td { background: var(--p50); }
-  .bl-table tbody tr.sel:hover td { background: var(--p100); }
-  .bl-table tbody tr.bl-cur td:first-child { box-shadow: inset 3px 0 0 var(--p700); }
-  /* the row whose bill is docked beside the table: a wash and a 4px bar, and aria-current for a screen reader (never
-     colour alone) */
-  .bl-table tbody tr.bl-look td, .bl-table tbody tr.bl-look:hover td { background: var(--p50); }
-  .bl-table tbody tr.bl-look td:first-child { box-shadow: inset 4px 0 0 var(--p700); }
-  .bl-table tbody tr.bl-look .bl-num a { color: var(--p800); }
-  .bl-table .bl-gr th { position: sticky; top: calc(var(--bl-top0) + var(--bl-sh) + var(--bl-th)); z-index: 5; padding: 0; background: var(--n50); border-top: 1px solid var(--n200); border-bottom: 1px solid var(--n200); text-align: left; font-weight: 400; }
-  .bl-table .bl-tg:first-of-type .bl-gr th { border-top: 0; }
-  .bl-table .bl-gr + tr td { border-top: 0; }
-  .bl-table .bl-gr .sv-group { border-bottom: 0; padding: 0 12px; min-height: 40px; }
-  .bl-table .bl-gr .sv-group .n { margin-left: var(--s8); }
-  .bl-table .bl-gr .sv-group .chev { margin-left: auto; }
-  .bl-table .bl-ck, .bl-table thead th.bl-ck, .bl-table.bl-compact thead th.bl-ck { padding: 0; text-align: center; }
-  .bl-table .bl-ck label { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: 0 auto; cursor: pointer; border-radius: var(--r8); }
-  .bl-table .bl-ck label:hover { background: var(--n100); }
-  .bl-table .bl-ck input { width: 18px; height: 18px; margin: 0; accent-color: var(--p700); cursor: pointer; }
-  .bl-table .bl-num a { font-weight: 700; color: var(--n900); text-decoration: none; border-radius: 4px; }
-  .bl-table .bl-num a span { white-space: nowrap; }
-  .bl-table .bl-num a:hover { color: var(--p700); text-decoration: underline; }
-  .bl-table .bl-cell { display: inline-flex; align-items: center; gap: 6px; max-width: calc(100% + 12px); min-height: 36px; padding: 2px 6px; margin: 0 -6px; border-radius: var(--r8); color: var(--n700); font-size: var(--t14); line-height: 1.2; text-align: left; }
-  .bl-table .bl-cell > span:not(.sv-p1):not(.sv-av):not(.bl-noown) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-  .bl-table .bl-cell .ic { width: 18px; height: 18px; color: var(--n500); flex: none; }
-  .bl-table .bl-cell:hover { background: var(--n100); color: var(--n900); }
-  .bl-table tr.sel .bl-cell:hover { background: var(--n0); }
-  .bl-table .bl-own { min-width: 36px; justify-content: center; }
-  .bl-table .bl-noown { display: inline-flex; align-items: center; gap: 4px; color: var(--n500); }
-  .bl-table .bl-noown .ic { width: 24px; height: 24px; }
-  /* a bill you follow but do not own, under Mine (there is no Owner column there) */
-  .bl-table .bl-fol { display: inline-flex; vertical-align: -3px; margin-left: 6px; color: var(--n500); }
-  .bl-table .bl-fol .ic { width: 16px; height: 16px; }
-  .bl-table .bl-days, .bl-table .bl-date { color: var(--n500); white-space: nowrap; }
-  .bl-table .bl-dash { color: var(--n500); }
-
-  /* a page a little too narrow for the table (1100 to 1165px, beside the sidebar): 8px gutters before anything else gives */
-  .bl-table.bl-tight thead th, .bl-table.bl-tight td { padding-left: 8px; padding-right: 8px; }
-  .bl-table.bl-tight .bl-ck, .bl-table.bl-tight thead th.bl-ck { padding: 0; }
-  .bl-table.bl-tight:not(.bl-compact) .bl-ti .bl-c2 { -webkit-line-clamp: 3; }   /* a 40-character nickname still shows whole */
-
-  /* compact rows: one line a cell, tighter gutters */
-  .bl-table.bl-compact { line-height: 1.3; }
-  .bl-table.bl-compact thead th { padding: 0 8px; }
-  .bl-table.bl-compact td { height: 40px; padding: 0 8px; white-space: nowrap; text-overflow: ellipsis; }
-  .bl-table.bl-compact .bl-c2 { display: block; white-space: nowrap; text-overflow: ellipsis; }
-  .bl-table.bl-compact .bl-c2 br { display: none; }
-  .bl-table.bl-compact .bl-lns { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .bl-table.bl-compact .bl-ln { display: inline; overflow: visible; }
-  /* v3: a compact row says the first line of each cell ("In HSH/HLT", "Tue 3/17"); the rest (which committee of how
-     many, the time and room) is in the docked bill and on hover (rule 2) */
-  .bl-table.bl-compact .bl-l2 { display: none; }
-  .bl-table.bl-compact .bl-xw { display: none; }
-  .bl-table.bl-compact .bl-gr .sv-group { min-height: 32px; padding: 0 8px; font-size: var(--t14); }
-  .bl-table.bl-compact .bl-ck label { width: 40px; height: 38px; }
-  .bl-table.bl-compact .bl-cell { min-height: 32px; }
-  .bl-table.bl-compact .bl-cell > span:not(.sv-p1):not(.sv-av):not(.bl-noown) { display: block; white-space: nowrap; text-overflow: ellipsis; }
-  .bl-table.bl-compact tbody tr[data-row] { scroll-margin-top: calc(var(--bl-top0) + var(--bl-sh) + var(--bl-th) + 40px); }
-
-  /* optional columns in a window too small for them: only this box scrolls sideways, the tick box and the bill
-     number stay pinned on the left, and the header row is held under the app's header by bills.js (--bl-hy). */
-  .bl-tnote { display: flex; align-items: center; gap: 6px; margin: 0 0 var(--s8); font-size: var(--t13); color: var(--n500); }
-  .bl-tnote .ic { width: 16px; height: 16px; flex: none; }
-  .bl-twrap { position: relative; }
-  .bl-twrap::after { content: ''; position: absolute; top: 1px; right: 1px; bottom: 1px; width: 28px; border-radius: 0 var(--r12) var(--r12) 0; background: linear-gradient(90deg, rgba(20, 43, 53, 0), rgba(20, 43, 53, .10)); pointer-events: none; opacity: 1; transition: opacity .15s; }
-  .bl-twrap.bl-end::after { opacity: 0; }
-  .bl-tscroll { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--n200); border-radius: var(--r12); background: var(--n0); box-shadow: var(--sh1); }
-  .bl-tscroll .bl-table { border: 0; border-radius: 0; box-shadow: none; }
-  .bl-tscroll:focus-visible { outline-offset: 0; }
-  .bl-tscroll .bl-table thead th { position: relative; top: auto; transform: translateY(var(--bl-hy, 0px)); }
-  .bl-tscroll .bl-table .bl-gr th { position: static; }
-  .bl-tscroll .bl-table td.bl-ck, .bl-tscroll .bl-table td.bl-num { position: sticky; z-index: 2; background: var(--n0); }
-  .bl-tscroll .bl-table thead th.bl-ck, .bl-tscroll .bl-table thead th.bl-h-bill { position: sticky; z-index: 7; }
-  .bl-tscroll .bl-table .bl-ck { left: 0; }
-  .bl-tscroll .bl-table td.bl-num, .bl-tscroll .bl-table thead th.bl-h-bill { left: var(--bl-pin, 44px); box-shadow: 1px 0 0 var(--n200); }
-  .bl-tscroll .bl-table tbody tr[data-row]:hover td { background: var(--n50); }
-  .bl-tscroll .bl-table tbody tr.sel td { background: var(--p50); }
-  .bl-tscroll .bl-table tbody tr.bl-cur td:first-child { box-shadow: inset 3px 0 0 var(--p700); }
-  /* Sideways-scrolling table: the group row keeps its place in both directions. Left, because its width is the
-     box's (set inline by bills.js); down, because bills.js holds it under the column headers while its own rows
-     are on screen — position: sticky cannot, as this box is the scroll container, not the window. */
-  .bl-tscroll .bl-table .bl-gr .sv-group { position: sticky; left: 0; z-index: 4; will-change: transform; }
-  .bl-tscroll .bl-table .bl-gr .sv-group.bl-held { box-shadow: 0 1px 0 var(--n200); }
 }
-
-/* ---- phones: 44px segmented buttons; very narrow screens (320px, or 200% zoom) stack the top row ---- */
-@media (max-width: 899px) {
-  .bl-top .sv-seg button, .bl-mwho .sv-seg button, .bl-maud .sv-seg button { min-height: 44px; }
-  /* Three scopes (Mine | My coalitions | Everyone, R-022 decision 7) do not fit beside Filter on a phone: they take the
-     first row, and the search shares the second with Filter and "…" - two rows, as with two scopes, so the first
-     bill starts no lower. */
-  .bl-top.bl-three { flex-wrap: wrap; }
-  .bl-three .sv-seg { flex: 1 1 100%; }
-  .bl-three .sv-seg button { flex: 1 1 0; padding: 0 8px; }
-  .bl-three .bl-search { flex: 1 1 0; min-width: 0; margin: 0; }
-}
-@media (max-width: 359px) {
-  .bl-top { flex-wrap: wrap; }
-  .bl-top .sv-seg { flex: 1 1 100%; }
-  .bl-top .sv-seg button { flex: 1 1 0; padding: 0 8px; }
-  .bl-top .bl-sp { display: none; }
-  .bl-top > .iconbtn { margin-left: auto; }
-  .bl-three .bl-search { flex: 1 1 100%; order: 3; }   /* too narrow to share: the same three rows as with two scopes */
-}
-@media (max-width: 380px) {
-  .bl-bar > .btn { padding: 0 12px; }
-  .bl-bar { gap: var(--s4); }
-}
-
-/* ---- one search per screen ---- Nate, 9/19. The header's magnifier searches everything (bills, legislators,
-   people); a screen that carries its own search box searches that list. Two magnifiers in one view and you cannot
-   tell which you are about to get - the thing both Material and Apple's guidelines warn against. The labelled box
-   on the page wins, because on a list screen it is what you want; everything else is one tab away. The rule keys
-   off the box itself, so a screen that has no search box keeps the header's. ---- */
-.sv-page:has(.bl-search) .sv-hdr .sv-srchbtn { display: none; }
-
-/* ---- the docked bill (v3, R-264): from 1100px the bill you click sits in a column beside the table and is held under
-   the toolbar while the list scrolls (one side panel at most, at any width: rule 3). Its width is --bl-dw (bills.js
-   dockW says the same). It scrolls inside itself only when it is taller than the window, and then its foot (Open the bill)
-   carries a shadow until the end is reached (.more), so nothing hides behind a scrollbar nobody sees. ---- */
-@media (min-width: 1100px) {
-  .bl-page { --bl-dw: 360px; }
-  .bl-split { display: grid; grid-template-columns: minmax(0, 1fr) var(--bl-dw); gap: var(--s16); align-items: start; }
-  .bl-main { min-width: 0; }
-  .bl-dock { position: sticky; top: calc(var(--bl-top0) + var(--bl-sh) + var(--s8)); max-height: calc(100vh - var(--bl-top0) - var(--bl-sh) - var(--s24));
-    overflow-y: auto; overscroll-behavior: contain; padding: var(--s12) var(--s16) 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); }
-  /* R-277 fix 17: the panel is Today's open item (staff.css .bp-*); its foot, "Open the bill", carries a shadow while more
-     of it is below (.more), as Today's does, in place of the fade. */
-}
-@media (min-width: 1366px) { .bl-page { --bl-dw: 400px; } }
-@media (min-width: 1680px) { .bl-page { --bl-dw: 440px; } }
-
-/* ---- the sandbox band (1100px and wider, where staff.css makes it sticky and pushes the header down 28px) ---- */
-@media (min-width: 1100px) {
-  body.staff2:has(.band) .bl-page, body.staff2:has(.band) .bl-memopage { --bl-top0: calc(var(--header) + 28px); }
-}
-
-/* ---- the Edit switch (R-106): position, priority and owner as dropdowns on every row, the old app's editable table.
-   A native select, so the keyboard works as everywhere else: Tab to the next one, a letter or the arrows to choose. ---- */
-@media (min-width: 900px) {
-  .bl-table .bl-sel { width: 100%; min-width: 0; min-height: 36px; padding: 4px 26px 4px 8px; border: 1px solid var(--n300); border-radius: var(--r8);
-    background: var(--n0) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237D8C93' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 8px center;
-    appearance: none; -webkit-appearance: none; font-size: var(--t14); color: var(--n900); text-overflow: ellipsis; cursor: pointer; }
-  .bl-table .bl-sel:hover { border-color: var(--p700); }
-  .bl-table .bl-sel:focus-visible { outline: 2px solid var(--p700); outline-offset: 1px; }
-  .bl-table.bl-compact .bl-sel { min-height: 30px; padding-top: 2px; padding-bottom: 2px; }
-  /* what the buttons showed stays visible while editing (A-13): the position's icons beside its dropdown, P1 in bold */
-  .bl-table .bl-selwrap { display: flex; align-items: center; gap: 6px; min-width: 0; }
-  .bl-table .bl-selwrap > .ic, .bl-table .bl-selwrap > span:not(.sr) { flex: none; color: var(--n500); }
-  .bl-table .bl-selwrap .ic { width: 18px; height: 18px; }
-  .bl-table .bl-selwrap .bl-sel { flex: 1 1 auto; }
-}
-
-/* Spare width on a big monitor is margin, not a wider table (A-24; fresh-eyes review: at 1920 the titles ended halfway
-   across and "Where it stands" sat 700px away). With a bill docked, the dock takes the width instead. */
-@media (min-width: 1600px) { .bl-page:not(:has(.bl-split)) { max-width: 1320px; } }
-
-/* R-277 fix 11: "Show all N bills" under a group folded at 25 rows, and the quiet "Sort new bills (N)" link */
-.bl-more { padding: var(--s4) var(--s8); }
-.bl-table tr.bl-morer td { padding: var(--s4) var(--s8); border-bottom: 0; }
-.bl-sortlink { margin: var(--s4) 0 var(--s8); font-size: var(--t14); line-height: 20px; }
-.bl-sortlink a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--p700); }
-.bl-sortlink a .ic { width: 16px; height: 16px; }
-/* R-316 W28: an owner who is turned off keeps the bill until it is handed on: the circle is dashed and grey like No
-   owner's, the initials kept, and the word beside it (table) or the row's second line (list) says so. */
-.bl-offav { display: inline-flex; }
-.bl-offav .sv-av { background: none; border: 1.5px dashed var(--n400); color: var(--n500); }
+@media (prefers-reduced-motion: reduce) { dialog.sv-sheet.bl-fsheet, .bl-fs .bl-fold .chev, .bl-twrap::after { transition: none; } }
