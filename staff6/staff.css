@@ -136,7 +136,6 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
     border: 0; border-radius: var(--v6-pill); background: var(--v6-wash); color: var(--v6-ink); font: 700 var(--v6-t14)/20px var(--font); cursor: pointer;
     box-shadow: 0 0 0 6px var(--v6-page); }
   .sv-smore .ic { width: 16px; height: 16px; flex: none; }
-  .sv-smore .lbs { display: none; }
   .sv-smore:hover { background: #E6DDCD; }
   .sv-smore.down { bottom: 0; order: 99; }
   .sv-smore.up { top: 0; order: -1; }
@@ -202,17 +201,23 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
   body.staff6.sidenarrow .sv-sbrand { justify-content: center; padding: 0; }
   body.staff6.sidenarrow .sv-sbrand span { display: none; }
   body.staff6.sidenarrow .sv-shd { padding: 0 0 var(--s4); text-align: center; }
-  body.staff6.sidenarrow .sv-sitem { flex-direction: column; justify-content: center; gap: 2px; min-height: 48px; padding: 4px 2px; font-size: var(--v6-t14); line-height: 18px; text-align: center; }
+  body.staff6.sidenarrow .sv-sitem { flex-direction: column; justify-content: center; gap: 2px; min-height: 44px; padding: 2px; font-size: var(--v6-t14); line-height: 18px; text-align: center; }
   /* the full name is still each row's name for a screen reader; the short one is what shows (WCAG 4.1.2) */
   body.staff6.sidenarrow .sv-sitem .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   body.staff6.sidenarrow .sv-smore .lbl { display: none; }
-  body.staff6.sidenarrow .sv-smore .lbs { display: inline; }
+  body.staff6.sidenarrow .sv-smore .ic { width: 20px; height: 20px; }
   body.staff6.sidenarrow .sv-sitem .lbs { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   body.staff6.sidenarrow .sv-sn { position: absolute; top: 0; right: 4px; min-width: 20px; height: 20px; padding: 0 5px; line-height: 20px; }
   body.staff6.sidenarrow .sv-sn.late { padding-left: 2px; }
   body.staff6.sidenarrow .sv-sn .ic { width: 14px; height: 14px; }
-  body.staff6.sidenarrow .sv-you { flex-direction: column; align-items: stretch; }
-  body.staff6.sidenarrow .sv-scollapse { align-self: center; }
+  /* Collapsed rows keep 4px between them, so each icon has air under the short label above it (A-8). You and the collapse
+     button share one row, as when expanded: the foot is no taller collapsed, so collapsing never hides a row the wide
+     sidebar shows (B-13). */
+  body.staff6.sidenarrow .sv-sgrp, body.staff6.sidenarrow .sv-sfoot { gap: 4px; }
+  body.staff6.sidenarrow .sv-sitem { min-height: 44px; }
+  body.staff6.sidenarrow .sv-you { flex-direction: row; align-items: center; gap: 0; }
+  body.staff6.sidenarrow .sv-you .sv-youbtn { flex: 1 1 auto; min-width: 0; padding: 2px 0; }
+  body.staff6.sidenarrow .sv-scollapse { width: 32px; height: 44px; margin-right: -4px; }
 }
 @media (min-width: 1100px) {
   .sv-side { padding-left: var(--s16); padding-right: var(--s16); }
@@ -227,7 +232,12 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
   .sv-snav { gap: var(--s8); }
   .sv-sgrp, .sv-sfoot { gap: 0; }
   .sv-shd { padding-top: var(--s4); padding-bottom: 2px; }
-  body.staff6.sidenarrow .sv-sitem { min-height: 40px; padding: 0 2px; gap: 0; }
+  /* a lead's 15 collapsed rows fit a 1024x768 window under the practice band: the icon and short label (20 + 18) fill a
+     38px row, and the 4px between rows is the air */
+  body.staff6.sidenarrow .sv-sitem { min-height: 38px; padding: 0 2px; gap: 0; }
+  body.staff6.sidenarrow .sv-sgrp, body.staff6.sidenarrow .sv-sfoot { gap: 4px; }
+  body.staff6.sidenarrow .sv-sbrand { min-height: 32px; }
+  body.staff6.sidenarrow .sv-scollapse { height: 38px; }
 }
 @media (min-width: 768px) and (max-height: 720px) {
   .sv-sitem { min-height: 36px; }
@@ -414,17 +424,26 @@ button.sv-group:hover { background: #FBF8F1; }
 .sv-steps li.done { color: var(--v6-body); border-bottom-color: var(--v6-field); }
 .sv-steps li.cur { color: var(--v6-action); font-weight: 700; border-bottom-color: var(--v6-action); }
 
-/* ---- page tabs (ui.js sectionNav, D12): one row of pill tabs at the top of a place, the same at every width, no underline.
-   The open tab sits on the sand wash; a segmented switch (.sv-seg) has its own track, so the two never look alike (A-12). ---- */
+/* ---- page tabs (ui.js sectionNav, D12): one row of tabs at the top of a place, the same at every width.
+   v6 (A-12): the open tab is said in bold ink with a 3px action bar under its words, and no ground, so a tab
+   row never looks like a switch: a segmented switch (.sv-seg: Mine | Team, Rows | Table) keeps the sand track with its
+   picked side raised on white, and the two used to look alike when the open tab sat on the same sand. No line runs under
+   the whole row (spec 4: no lines under tabs). The words stay ink, not teal: teal words would be a sixth text colour on a
+   first screen with no other link in view (Outreach at 320px; spec 8: at most 5). ---- */
 /* v6: the row wraps onto a second line when the tabs do not fit (a phone, Testimony's six), so every tab stays in sight; no
-   tab is hidden behind a sideways swipe nobody is shown (rule 7.3, D12). */
-.sv-tabrow { display: flex; flex-wrap: wrap; gap: var(--s4); width: auto; margin: calc(-1 * var(--s4)) calc(-1 * var(--s4)) var(--s16); padding: var(--s4); border: 0; overflow-x: visible; scrollbar-width: none; }
+   tab is hidden behind a sideways swipe nobody is shown (rule 7.3, D12, 12.3). */
+/* --tp is a tab's side padding. With no ground on the open tab the words are the tab's edge, so the row sits --tp to the left
+   (position, not margin: each screen sets the row's margins): the first tab's words line up with the title and the cards
+   under it, and a hover's ground reaches into the gutter (A-8). */
+.sv-tabrow { --tp: var(--s16); position: relative; left: calc(-1 * var(--tp)); display: flex; flex-wrap: wrap; gap: var(--s4); width: auto; margin: calc(-1 * var(--s4)) calc(-1 * var(--s4)) var(--s16); padding: var(--s4); border: 0; overflow-x: visible; scrollbar-width: none; }
 .sv-tabrow::-webkit-scrollbar { display: none; }
-.sv-tabrow > a, .sv-tabrow > button { position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 var(--s16);
+.sv-tabrow > a, .sv-tabrow > button { position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 var(--tp);
   border-radius: var(--v6-pill); background: none; box-shadow: none; color: var(--v6-body); font: 400 var(--v6-t16)/1.2 var(--font); text-decoration: none; white-space: nowrap; }
 .sv-tabrow > a:hover, .sv-tabrow > button:hover { background: #F1EBDF; color: var(--v6-ink); }
-.sv-tabrow > [aria-current="page"], .sv-tabrow > [aria-pressed="true"] { background: var(--v6-wash); color: var(--v6-ink); font-weight: 700; box-shadow: none; }
-.sv-tabrow > [aria-current="page"]::after, .sv-tabrow > [aria-pressed="true"]::after { content: none; }
+.sv-tabrow > [aria-current="page"], .sv-tabrow > [aria-pressed="true"] { background: none; color: var(--v6-ink); font-weight: 700; box-shadow: none; }
+.sv-tabrow > [aria-current="page"]:hover, .sv-tabrow > [aria-pressed="true"]:hover { background: none; color: var(--v6-ink); }
+.sv-tabrow > [aria-current="page"]::after, .sv-tabrow > [aria-pressed="true"]::after { content: ''; position: absolute; left: var(--tp); right: var(--tp); bottom: 3px; height: 3px;
+  border-radius: var(--v6-pill); background: var(--v6-action); pointer-events: none; }
 .sv-tabrow .sv-tn { font-weight: 400; color: var(--v6-muted); }
 /* Each tab's label keeps the width of its bold self (ui.js sectionNav), so the open tab never widens and the row never reflows:
    the next tab stays where the thumb left it (12.3: tab rows wrap; nothing jumps between rows when one is picked). */
@@ -434,8 +453,10 @@ button.sv-group:hover { background: #FBF8F1; }
 /* A tab's words never break inside it (css/supporters.css let Outreach's wrap into three-line pills); on a phone the tabs
    are a little narrower, so two lines hold every place's row at 320px. */
 body.staff6 .sv-tabrow.sv-secnav > a { flex: 0 0 auto; white-space: nowrap; line-height: 1.2; text-align: center; }
-@media (max-width: 767px) { body.staff6 .sv-tabrow.sv-secnav > a, body.staff6 .sv-tabrow > a, body.staff6 .sv-tabrow > button { padding: 0 var(--s12); } }
-@media (max-width: 359px) { body.staff6 .sv-tabrow.sv-secnav > a, body.staff6 .sv-tabrow > a, body.staff6 .sv-tabrow > button { padding: 0 10px; } }
+/* A phone: 8px each side, so a place with three tabs (Legislators, My issues, Bills) keeps them on one line at 390px; the
+   44px height stays (A-6). */
+@media (max-width: 767px) { body.staff6 .sv-tabrow { --tp: var(--s8); } }
+@media (max-width: 359px) { body.staff6 .sv-tabrow { --tp: 7px; column-gap: 0; } }
 .sv-tabrow.ovf { -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
 .sv-tabrow.ovf.atstart { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); }
 .sv-tabrow.ovf.atend { -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px); mask-image: linear-gradient(90deg, transparent, #000 24px); }
@@ -551,13 +572,16 @@ body.staff6 main.sv-login, body.staff6 main.sv-load { width: 100%; max-width: 44
 .sv-riblab b .set { color: var(--v6-muted); font-weight: 400; }
 .sv-rib.stopped + .sv-riblab b { color: var(--v6-body); }
 .sv-rib.done + .sv-riblab b { color: var(--o700); }
-/* A page's own back link, pinned under the header once it has scrolled away (ui.js floatBack; desktop only). */
-.sv-floatback { position: fixed; z-index: 40; display: inline-flex; align-items: center; gap: 4px; min-height: 40px; padding: 0 14px 0 6px;
-  border: 0; border-radius: var(--v6-pill); background: var(--v6-card); box-shadow: var(--v6-sh2); color: var(--v6-action); font: 400 var(--v6-t16)/1 var(--font); cursor: pointer; }
-.sv-floatback[hidden] { display: none; }
-.sv-floatback:hover { background: var(--v6-action-wash); }
-.sv-floatback .ic { width: 18px; height: 18px; }
-@media (max-width: 899px) { .sv-floatback { display: none; } }
+/* A page's own back link, once it has scrolled away under the header: in the header's row, at its left, the search box
+   moving over for it (ui.js floatBack; 900px and wider). A text link in the action colour: no ground, no shadow, and over
+   nothing on the page (A-8, A-17). */
+.sv-hdr .sv-hback { display: inline-flex; align-items: center; gap: 2px; flex: none; min-height: 44px; max-width: 240px; padding: 0 var(--s12) 0 var(--s4); margin-left: calc(-1 * var(--s4));
+  border: 0; border-radius: var(--v6-pill); background: none; color: var(--v6-action); font: 400 var(--v6-t16)/20px var(--font); cursor: pointer; }
+.sv-hdr .sv-hback > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-hdr .sv-hback[hidden] { display: none; }
+.sv-hdr .sv-hback:hover { background: var(--v6-action-wash); }
+.sv-hdr .sv-hback .ic { width: 20px; height: 20px; flex: none; }
+@media (max-width: 899px) { .sv-hdr .sv-hback { display: none; } }
 /* Placed (ui.js anchorRibbons): the caption sits centred under the current bar, the ends at the edges. */
 .sv-riblab.anch { position: relative; display: block; height: 1.45em; }
 .sv-riblab.anch > span { position: absolute; top: 0; }
@@ -614,7 +638,7 @@ dialog.sv-sheet.look .sv-sh-head h2 { position: absolute; width: 1px; height: 1p
 /* ---- the phone's More page and More tools (more.js, tools.js; spec 3.2, 3.5, D2, D8) ---- */
 .v6-more { max-width: 720px; }
 .v6-more-sec + .v6-more-sec { margin-top: var(--s24); }
-.v6-more-h { margin: 0 0 var(--s12); padding: 0 var(--s4); font: 600 var(--v6-t22)/var(--v6-lh22) var(--font-h); color: var(--v6-ink); }
+.v6-more-h { margin: 0 0 var(--s12); padding: 0; font: 600 var(--v6-t22)/var(--v6-lh22) var(--font-h); color: var(--v6-ink); }
 .v6-more-h.mo-you { display: flex; align-items: center; gap: var(--s8); }
 /* No clipping on the list, so a row's focus ring (3px, 2px outside, as on every control) is whole; the rows round their own
    corners inside the card instead. */
@@ -632,8 +656,8 @@ dialog.sv-sheet.look .sv-sh-head h2 { position: absolute; width: 1px; height: 1p
 .v6-more-ln { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
 .v6-more-row > .chev { flex: none; width: 20px; height: 20px; color: var(--v6-field); }
 .v6-more-n { flex: none; min-width: 24px; height: 24px; padding: 0 8px; border-radius: var(--v6-pill); background: var(--v6-wash); color: var(--v6-ink); font: 700 var(--v6-t14)/24px var(--font); text-align: center; }
-.v6-more-foot { margin: var(--s24) var(--s4) 0; color: var(--v6-muted); }
-.v6-more-sync { display: flex; align-items: center; gap: var(--s8); margin: var(--s24) var(--s4) 0; color: var(--v6-muted); font-size: var(--v6-t14); line-height: var(--v6-lh14); }
+.v6-more-foot { margin: var(--s24) 0 0; color: var(--v6-muted); }   /* the column's edge, as the title and cards (A-8) */
+.v6-more-sync { display: flex; align-items: center; gap: var(--s8); margin: var(--s24) 0 0; color: var(--v6-muted); font-size: var(--v6-t14); line-height: var(--v6-lh14); }
 .v6-more-sync .ic { width: 16px; height: 16px; flex: none; }
 
 /* ---- a place that is still being built (the stubs: hearings.js, testimonyplace.js, team.js, people.js) ---- */
@@ -688,8 +712,28 @@ dialog.sv-sheet .toastmsg.insheet { position: sticky; bottom: var(--s8); z-index
 /* R-316 W29 (fresh-eyes): a Capitol word's row in the header's suggestions says its meaning's first sentence whole (search.js
    firstSentence), on two lines if it needs them, where the list's one line cut it mid-thought. */
 .sv-hdr .sg a.sg-o[href^="#/help/words"] .sg-s { white-space: normal; }
-/* How fresh the Capitol data is (F9) is never a sidebar row: it is the line under the You menu's Refresh now, and the foot of
-   the More page and More tools (.v6-more-sync), in neutral words (D3). */
+/* How fresh the Capitol data is (F9): the line under the You menu's Refresh now and the foot of More tools (.v6-more-sync),
+   in neutral words (D3). From 12 hours old it is also said in plain sight (B-7), one line, not a row (12.4): at the sidebar's
+   foot above More tools, and at the top of More on a phone (more.js syncNote). Body colour and a clock, never amber. */
+.sv-sync { display: flex; align-items: flex-start; gap: var(--s8); margin: 0 0 var(--s4); padding: var(--s4) var(--s12); color: var(--v6-body);
+  font-size: var(--v6-t14); line-height: var(--v6-lh14); }
+.sv-sync > .ic { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--v6-muted); }
+.sv-sync .sv-synct { flex: 1 1 auto; min-width: 0; }
+/* Refresh now reads as a link in the sentence (A-12: it acts, so it is in the action colour and underlined) */
+.sv-sync .sv-syncgo { display: inline; padding: 0; border: 0; background: none; color: var(--v6-action); font: 700 var(--v6-t14)/var(--v6-lh14) var(--font); cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px; position: relative; }
+.sv-sync .sv-syncgo::after { content: ''; position: absolute; inset: -6px -4px; }   /* a 32px target that never reaches the row below */
+.sv-sync .sv-syncgo:hover { color: var(--v6-action-press); }
+.v6-more .sv-sync.v6-more-syncn { margin: 0 0 var(--s16); padding: var(--s8) 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+.v6-more .sv-sync.v6-more-syncn > .ic { margin-top: 4px; }
+.v6-more .sv-sync.v6-more-syncn .sv-syncgo { font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+@media (min-width: 768px) {
+  .v6-more .sv-sync.v6-more-syncn { display: none; }   /* the sidebar says it there */
+  /* collapsed: the clock alone, its words read and shown on hover; Refresh now is in the You menu */
+  body.staff6.sidenarrow .sv-sync { justify-content: center; padding: var(--s4) 0; }
+  body.staff6.sidenarrow .sv-sync .sv-synct { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  body.staff6.sidenarrow .sv-sync .sv-syncgo { display: none; }
+}
 /* The band stays one line on a phone (a second line pushed Bills past the 400px arrival limit, A-1). */
 @media (max-width: 599px) { .band .band-hint { display: none; } }
 

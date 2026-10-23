@@ -21,10 +21,12 @@ import { icon, btn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, take
 import { MARK } from '../pub/art.js';
 import { reportError } from './errlog.js';
 import { installAskWatch, loadAsks } from './chairask.js';   // R-316 W3
-import { exactBill, inboxCount, billRoute, FACTS, draftFor, diedish } from './model.js';
+import { exactBill, billRoute, FACTS, draftFor, diedish } from './model.js';
 import today, { todayItems } from './today.js';
 import review from './review.js';
-import inbox from './inbox.js';
+// The frame counts what the Inbox lists (messagesCount: messages to you, never the deadline reminders that live on each
+// step, V26), so the sidebar's number, More's and the phone's bell match the page they open (A-14, B-7).
+import inbox, { messagesCount } from './inbox.js';
 import bill from './bill.js';
 import bills from './bills.js';
 import asks from './asks.js';
@@ -45,7 +47,7 @@ import testimonyplace from './testimonyplace.js';
 import team from './team.js';
 import people from './people.js';
 import tools from './tools.js';
-import more, { PLACES, MAIN, BAR, leadKeys, isLead, youName, syncWords } from './more.js';
+import more, { PLACES, MAIN, BAR, leadKeys, isLead, youName, syncWords, syncNote } from './more.js';
 
 keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen on a staff screen either (X9-1, X9-6)
 
@@ -247,7 +249,7 @@ function todayBadge(bd, lateN, cls) {
 // The header. A phone: Back (deeper than a place) or the mark, the page's title, Search and the Inbox bell with a dot. A laptop
 // or tablet (768px and wider): only the search box, which Cmd/Ctrl-K or "/" focuses (V32); the sidebar holds the rest.
 // Pages one level under More or More tools whose screens name no parent: a phone still shows Back to where they came from.
-const UNDER = { me: { href: '#/more', label: 'More' }, devui: { href: '#/tools', label: 'More tools' } };
+const UNDER = { me: { href: '#/more', label: 'More' }, tools: { href: '#/more', label: 'More' }, devui: { href: '#/tools', label: 'More tools' } };   // tools: a phone only (spec 3.2); a laptop's sidebar has More tools as a place, and draws no Back
 function header(route, scr, title) {
   let b = scr.back ? scr.back(route) : UNDER[route.name] || null;
   // Back goes where the person came from when this page was opened inside the app (wireFrame: history.back()), so it says
@@ -255,7 +257,7 @@ function header(route, scr, title) {
   // label is for a cold arrival (a link from Slack), where Back goes to that parent.
   const from = depth > 0 ? history.state?.from : '';
   if (b && from) b = { ...b, label: from, full: false };
-  let unread = 0; try { unread = inboxCount(); } catch { unread = 0; }
+  let unread = 0; try { unread = messagesCount(); } catch { unread = 0; }
   // A long label shortens to "Back" on a phone, unless the screen marks it full (the issue page's "Back to SB2175" fits).
   const short = !!b && b.label.length > 14 && !b.full;
   const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
@@ -283,10 +285,11 @@ function sideItem(k, now, extra = '') {
 // A short window cannot always show every row. The cut edge then says so in words, "More below" (or "More above" once
 // scrolled), and a click scrolls there: a hidden row always has a visible sign (Nate's worst case: hidden or hard to find).
 // The rows themselves are all in the page for a keyboard or a screen reader, so the cue is for the eye and the mouse only.
-const sideCue = dir => `<button type="button" class="sv-smore ${dir}" data-smore="${dir}" tabindex="-1" aria-hidden="true">${icon(dir === 'up' ? 'chevron-up' : 'chevron-down')}<span class="lbl">${dir === 'up' ? 'More above' : 'More below'}</span><span class="lbs">More</span></button>`;
+// Collapsed, the cue is the chevron alone (its words on hover): a "More" there read as the phone's More place (B-13).
+const sideCue = dir => `<button type="button" class="sv-smore ${dir}" data-smore="${dir}" tabindex="-1" aria-hidden="true" title="${dir === 'up' ? 'More above' : 'More below'}">${icon(dir === 'up' ? 'chevron-up' : 'chevron-down')}<span class="lbl">${dir === 'up' ? 'More above' : 'More below'}</span></button>`;
 function sidebar(route) {
   const now = placeOf(route), bd = badge(), lateN = lateCount(bd), leads = leadKeys(), narrow = sideNarrow();
-  let unread = 0; try { unread = inboxCount(); } catch { unread = 0; }
+  let unread = 0; try { unread = messagesCount(); } catch { unread = 0; }
   const inboxN = unread ? `<span class="sv-sn" role="img" aria-label="${unread} unread">${unread > 99 ? '99+' : unread}</span>` : '';
   return `<aside class="sv-side" aria-label="Sidebar">
     <a class="sv-sbrand" href="#/" aria-label="Bill Tracker, Today">${MARK}<span>Bill Tracker<small>HIPHI staff</small></span></a>
@@ -296,7 +299,7 @@ function sidebar(route) {
       ${leads.length ? `<div class="sv-sgrp" role="group" aria-labelledby="sv-leadh"><p class="sv-shd" id="sv-leadh">Lead tools</p>${leads.map(k => sideItem(k, now)).join('')}</div>` : ''}
       ${sideCue('down')}
     </nav>
-    <div class="sv-sfoot">${sideItem('tools', now)}
+    <div class="sv-sfoot">${syncNote()}${sideItem('tools', now)}
       <div class="sv-you"><button type="button" class="sv-sitem sv-youbtn" data-you aria-haspopup="menu"${now === 'you' ? ' aria-current="page"' : ''}><span class="lbl"><span>You</span><span class="sv-youn">· ${esc(youName())}</span></span><span class="lbs" aria-hidden="true">You</span><span class="sv-youav" aria-hidden="true">${avatar(S.me, 28)}</span></button>
         <button type="button" class="sv-scollapse" data-sidecol aria-pressed="${narrow}" aria-label="${narrow ? 'Expand the sidebar' : 'Collapse the sidebar'}" title="${narrow ? 'Expand the sidebar' : 'Collapse the sidebar'}">${icon(narrow ? 'panel-left-open' : 'panel-left-close')}</button></div>
     </div>
@@ -421,10 +424,25 @@ export function render() {
   document.title = (title ? title + ' · ' : '') + (shownT && shownT !== title ? shownT + ' · ' : '') + 'Bill Tracker staff';
   try { scr.wire && scr.wire(route, app); } catch (e) { console.error(e); reportError('error', e); }
   wireFrame(app);
+  ioFoot(route);
   const nav = app.querySelector('.sv-snav'); if (nav && navTop) nav.scrollTop = navTop;
   hdrShadow(); tabRows(app);
   if (inSearch && document.activeElement?.id !== 'hq') document.getElementById('hq')?.focus({ preventScroll: true });
   if (location.hash !== lastKey) { lastKey = location.hash; if (!app.contains(document.activeElement) || document.activeElement === document.body) app.querySelector('main')?.focus({ preventScroll: true }); }
+}
+// More tools' "Supporters’ groups, import and export" opens #/outreach/supporters?io=1: Supporters at its admin foot (Import
+// CSV, Export), scrolled to and the first button focused, once per arrival (a later redraw leaves the page where it is), so
+// the row keeps its promise without a scroll and a search (C-6). Until OUTREACH reads ?io=1 in supporters.js itself.
+// Supporters loads its code and its people after the first draw, so the foot is looked for until it is there (4 s at most).
+let ioAt = '';
+function ioFoot(route) {
+  if (route.name !== 'supporters' || !route.q?.io) { ioAt = ''; return; }
+  if (ioAt === location.hash) return;
+  const at = ioAt = location.hash; let tries = 0;
+  const look = () => { if (location.hash !== at) return;
+    const sec = document.querySelector('main .sp-admin'); if (!sec) { if (++tries < 40) setTimeout(look, 100); return; }
+    sec.scrollIntoView({ block: 'center' }); sec.querySelector('button:not([disabled])')?.focus({ preventScroll: true }); };
+  requestAnimationFrame(look);
 }
 // A place with page tabs is titled by the place (spec 3.1, 5 placeHead): "Outreach", its open tab "This week's asks" under it,
 // never the tab's words twice and the place's name nowhere (A-14). Until each screen draws placeHead, the frame retitles a
@@ -452,8 +470,10 @@ hooks.onRecovery = () => renderRecovery();
 // Links inside the page go through go(), so history keeps where the page was and Back says where it goes (B-4). Each link
 // drawn with the page gets its own click, as before, so it still runs ahead of any list's handler round it; links drawn later
 // (the item opened beside a list, V17) are caught once by #app's listener. A row that opens beside its list (steps.js
-// listDetail, [data-v6pick]) is left to the list: the frame's own click ran first and opened the bill's page instead
-// (TODAY, TESTIMONY and BILLS found it). A link a screen's own handler has taken (defaultPrevented) is left alone.
+// listDetail, [data-v6pick]) gets no click of its own: that one ran before the list's and opened the bill's page instead
+// (TODAY, TESTIMONY and BILLS found it). #app's listener runs after the list's, so it opens the page only when the list let
+// the click through (a keyboard Enter on a Bills row, F96): through go(), so Back brings Bills back where it was (spec 7.10).
+// A link a screen's own handler has taken (defaultPrevented) is left alone.
 const linked = new WeakSet();
 function follow(a, e) {
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button > 0 || e.defaultPrevented || a.target === '_blank') return;
@@ -467,10 +487,10 @@ function wireFrame(app) {
   app.querySelectorAll('a[href^="#/"]:not([data-v6pick])').forEach(a => { linked.add(a); a.addEventListener('click', e => follow(a, e)); });
   if (!delegated) { delegated = true;
     app.addEventListener('click', e => { const a = e.target?.closest?.('a[href^="#/"]');
-      if (a && app.contains(a) && !linked.has(a) && !a.hasAttribute('data-v6pick')) follow(a, e); }); }
+      if (a && app.contains(a) && !linked.has(a)) follow(a, e); }); }
   // You (the sidebar's foot, the More page's last row): the account menu.
   app.querySelectorAll('[data-you]').forEach(el => el.addEventListener('click', accountMenu));
-  app.querySelector('[data-reload]')?.addEventListener('click', () => refreshData({ say: true }));
+  app.querySelectorAll('[data-reload]').forEach(el => el.addEventListener('click', () => refreshData({ say: true })));
   // The sidebar's "More below" / "More above": scroll the places to that end.
   app.querySelectorAll('[data-smore]').forEach(b => b.addEventListener('click', () => { const nav = b.closest('.sv-snav'); nav?.scrollTo({ top: b.dataset.smore === 'up' ? 0 : nav.scrollHeight, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }));
   // Collapse: redrawn in place, so the page under it keeps its scroll position and nothing else moves.
@@ -522,16 +542,18 @@ const billsOwned = id => S.bills.filter(b => (S.assignments[b.id] || []).include
 // practice copy who to practise as and Start over. Inbox and Help have their own doors in the sidebar and on More; the
 // version-compare links moved to More tools (admins). The phone's More page lists the same items as rows (more.js), so
 // My settings is two labelled taps there too.
+const REFRESH_SUB = 'Read what your teammates changed since this page loaded';
 function accountItems() {
   return [
     { label: 'My settings', icon: 'settings', sub: 'How the tracker reaches you', nav: true, run: () => go('#/me') },
     DEMO ? { label: 'Practice as someone else', icon: 'users-round', sub: 'See the app as a teammate sees it, with your changes', run: () => setTimeout(practiseAs, 50) } : null,
-    // F8 and F9: Refresh now, under it how fresh the Capitol data is, in plain neutral words (status by exception, D3: it
-    // no longer takes a sidebar row when stale).
-    { label: 'Refresh now', icon: 'refresh-cw', sub: syncWords() || 'Read what your teammates changed since this page loaded', run: () => setTimeout(() => refreshData({ say: true }), 50) },
+    // F8 and F9: Refresh now, under it how fresh the Capitol data is, in plain neutral words (D3). From 12 hours old the
+    // sidebar's foot says it too, as a line, not a row (more.js syncNote, B-7, 12.4).
+    // plainSub: the More page says a stale age once, at its top (more.js syncNote), so its Refresh now row reads this instead.
+    { label: 'Refresh now', icon: 'refresh-cw', sub: syncWords() || REFRESH_SUB, plainSub: REFRESH_SUB, run: () => setTimeout(() => refreshData({ say: true }), 50) },
     // R-316 W38: the changes made in this tab go with a person switch, so two people can be tried in turn; this puts the day
     // back, with Undo in the toast after the reload.
-    DEMO ? { label: 'Start the practice over', icon: 'rotate-ccw', sub: 'Undoes every change kept in this tab, whoever you practised as', run: () => { clearPractice(); location.reload(); } } : null,
+    DEMO ? { label: 'Start the practice over', icon: 'rotate-ccw', sub: 'Undoes every change kept in this tab, whoever you practiced as', run: () => { clearPractice(); location.reload(); } } : null,
     DEMO ? null : { label: 'Sign out', icon: 'log-out', run: async () => { await DB.logout(); } },
   ].filter(Boolean);
 }

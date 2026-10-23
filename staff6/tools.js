@@ -38,9 +38,10 @@ function groups() {
       ['Lists', '#/outreach/lists', 'list', 'Shared lists of bills for the public page'],
       ['Make a link or QR code', '#/my-issues/all?view=links', 'qr-code', 'A link for a partner or an event, with its QR code'],
       ['First visit numbers', '#/my-issues/all?view=first-visit', 'chart-column', 'How newcomers find and use the public tracker'],
-      ['Supporters’ groups', '#/outreach/supporters', 'users-round', 'Saved groups of supporters, to email'],
-      // F177: Import CSV and Export sit in plain sight at the foot of Supporters (admins).
-      admin ? ['Import or export supporters', '#/outreach/supporters', 'upload', 'A spreadsheet in or out, at the foot of Supporters'] : null,
+      // F177: an admin's Import CSV and Export sit at the foot of Supporters: one row says both, and ?io=1 opens Supporters at
+      // that foot (A-14: one row per place; it used to be two rows to the same top of the page, the second a scroll away).
+      admin ? ['Supporters’ groups, import and export', '#/outreach/supporters?io=1', 'users-round', 'Saved groups to email; a spreadsheet in or out at the foot']
+        : ['Supporters’ groups', '#/outreach/supporters', 'users-round', 'Saved groups of supporters, to email'],
     ]],
     // Sort new bills and Muted are for whoever sorts and mutes (admins and owners, F94, F97), as Bills' own tabs are; the
     // foot line names them for everyone else (D8).
@@ -54,16 +55,21 @@ function groups() {
     ['Learning', [
       ['Getting started', '#/help/new', 'compass', 'The first things to do, for someone new'],
       // The practice copy: from the live app it opens in a new tab; inside it, the row says so and opens You, where the
-      // practice's own steps are (practise as a teammate, start over).
-      DEMO ? rowBtn('data-you aria-haspopup="menu"', 'play', 'Practice copy', 'You’re in it now. Practise as a teammate or start it over')
-        : ['Practice copy', 'staff6.html?demo=1', 'play', 'Last March, to practise on; nothing reaches the team', true],
+      // practice's own steps are (practice as a teammate, start over). One spelling, the word list's: Practice (C-15).
+      DEMO ? rowBtn('data-you aria-haspopup="menu"', 'play', 'Practice copy', 'You’re in it now. Practice as a teammate or start it over')
+        : ['Practice copy', 'staff6.html?demo=1', 'play', 'Last March, to practice on; nothing reaches the team', true],
       ['What moved', '#/help/moved', 'route', 'Where each v5 place and button is now'],
       ['Keyboard shortcuts', '#/help/keys', 'keyboard', 'Every key, and how to turn them off'],
-      // F190: the way back while v6 settles in, for everyone (it goes 3 weeks after the switch).
-      ['Back to Staff v5', `staff5.html${location.search}#/`, 'undo-2', 'The version before this one, at Today'],
     ]],
   ].map(([h, rows]) => [h, rows.filter(Boolean)]);
 }
+// One place about versions, last on the page (A-14): F190's way back to v5 for everyone while v6 settles in (it goes 3 weeks
+// after the switch), and for admins the two older apps to compare with.
+const versions = admin => [
+  ['Back to Staff v5', `staff5.html${location.search}#/`, 'undo-2', 'The version before this one, at Today'],
+  admin ? ['Compare with Staff v2', `staff.html${location.search}#/`, 'columns-3', 'The team’s app today, at Today'] : null,
+  admin ? ['The old app', `classic.html${DEMO ? '?demo=1' : ''}`, 'external-link', 'The old staff app, to look at only'] : null,
+].filter(Boolean).map(row);
 // D8: the tools this person's role leaves out, named once so nobody wonders whether they exist.
 function footLine() {
   const a = S.me; if (!a) return '';
@@ -82,7 +88,7 @@ export default {
   tab: 'tools',
   title: () => 'More tools',
   render() {
-    const admin = !!S.me?.is_admin, leads = leadKeys(), back = location.search + '#/', sync = syncWords(), foot = footLine();
+    const admin = !!S.me?.is_admin, leads = leadKeys(), sync = syncWords(), foot = footLine();
     loadSortCount(() => { if (S.route?.name === 'tools') hooks.render?.(); });   // the one number on Sort new bills, read once
     const sec = (h, rows, id) => `<section class="v6-more-sec" aria-labelledby="tl-${id}"><h2 class="v6-more-h" id="tl-${id}">${esc(h)}</h2>${placeList(rows)}</section>`;
     const asRow = r => typeof r === 'string' ? r : row(r);
@@ -93,10 +99,7 @@ export default {
       ${leads.length ? sec('Lead tools', [...leads.map(k => placeRow(k)),
         // F165: the admins' Prep board, a view on All issues (issues.js, prep.js)
         admin ? row(['Prep board', BOARD_HREF, 'clipboard-check', 'Every issue’s 2027 prep, to review and approve']) : null], 'lead') : ''}
-      ${admin ? sec('Compare versions', [
-        row(['Compare with Staff v2', `staff.html${back}`, 'columns-3', 'The team’s app today, at Today']),
-        row(['The old app', `classic.html${DEMO ? '?demo=1' : ''}`, 'external-link', 'The old staff app, to look at only']),
-      ], 'cmp') : ''}
+      ${sec('Other versions', versions(admin), 'ver')}
       ${foot || sync ? `<div class="v6-more-foot">${foot ? `<p>${esc(foot)}</p>` : ''}${sync ? `<p class="v6-more-sync">${icon('refresh-cw')}<span>${esc(sync)}</span></p>` : ''}</div>` : ''}
     </div>`;
   },

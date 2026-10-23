@@ -199,20 +199,24 @@ function anchorRibbons() {
 // Desktop: a page's own back link ("Bills", "Legislators", "Emails", "Help"...) sits at the top of the page and scrolled
 // away with it, so going back from far down meant scrolling up first (R-005; plan wave 6a: the person, legislator,
 // composer, list, Bills filter and Help pages, then the hearing and coalition pages). Once it has gone under the
-// header, the same link comes back pinned just below the header; pressing it presses the page's own link, so real
-// Back, the leave guards and the label all stay the page's. (v6: the bill page's Back too; it no longer pins a bar.)
+// header, the same link comes back in the header's own row, at its left before the search box; pressing it presses the
+// page's own link, so real Back, the leave guards and the label all stay the page's. (v6: the bill page's Back too.)
+// v6: it sat on the page, fixed under the header with a shadow, and covered the left edge of whatever scrolled under it
+// (the bill's File at the Capitol button, its Message tab): a sticker over the work, and a click aimed there went Back
+// (A-8, A-13, A-17). In the header it covers nothing and has no shadow of its own.
 const DESKBACK = '.co-deskback, .hr-deskback, .bl-deskback, .lg-deskback, .le-deskback, .sp-deskback, .st-crumb, .bw-back';   // v6: the bill page no longer pins its own bar (BILL)
 function floatBack() {
-  let fb = document.getElementById('sv-floatback');
-  const main = document.getElementById('main');
-  const src = main && matchMedia('(min-width: 900px)').matches ? [...main.querySelectorAll(DESKBACK)].find(a => a.offsetParent) : null;
-  const hdr = document.querySelector('.sv-hdr')?.getBoundingClientRect().bottom || 56;
-  if (!src || src.getBoundingClientRect().bottom > hdr || document.querySelector('dialog[open]')) { if (fb) fb.hidden = true; return; }
-  if (!fb) { fb = document.createElement('button'); fb.type = 'button'; fb.id = 'sv-floatback'; fb.className = 'sv-floatback'; document.body.appendChild(fb);
+  const head = document.querySelector('.sv-hdr'), main = document.getElementById('main');
+  let fb = head?.querySelector('.sv-hback');
+  const src = head && main && matchMedia('(min-width: 900px)').matches ? [...main.querySelectorAll(DESKBACK)].find(a => a.offsetParent) : null;
+  const hdr = head?.getBoundingClientRect().bottom || 56;
+  if (!src || src.getBoundingClientRect().bottom > hdr || document.querySelector('dialog[open]')) { if (fb && !fb.hidden) fb.hidden = true; return; }
+  if (!fb) { fb = document.createElement('button'); fb.type = 'button'; fb.className = 'sv-hback'; fb.hidden = true;
+    const box = head.querySelector('.sv-search'); box ? box.before(fb) : head.prepend(fb);
     fb.onclick = () => fb.src?.isConnected && fb.src.click(); }
   const label = src.textContent.trim();
   if (fb.src !== src) { fb.src = src; fb.innerHTML = `${icon('chevron-left')}<span>${esc(label)}</span>`; fb.setAttribute('aria-label', src.getAttribute('aria-label') || `Back to ${label}`); }
-  fb.style.top = Math.round(hdr + 8) + 'px'; fb.style.left = Math.round(src.getBoundingClientRect().left) + 'px'; fb.hidden = false;
+  if (fb.hidden) fb.hidden = false;
 }
 let ribRaf = 0;
 const ribSoon = () => { if (!ribRaf) ribRaf = requestAnimationFrame(() => { ribRaf = 0; anchorRibbons(); floatBack(); }); };

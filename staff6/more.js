@@ -6,7 +6,7 @@
 // one icon and one line everywhere (V19).
 import { S, DEMO, DEMO_ASOF, esc } from './data.js';
 import { icon, avatar } from './ui.js';
-import { inboxCount } from './model.js';
+import { messagesCount } from './inbox.js';   // the Inbox page's own count, so More's number matches it (A-14)
 import { admitsPartners } from './partnerq.js';
 
 // key -> [address, icon, name, short name (the collapsed sidebar), one plain line (More, More tools)]
@@ -50,14 +50,21 @@ export function placeRow(k, { line, count = 0, href, label, ic, you = false, ext
 }
 export const placeList = rows => `<ul class="v6-more-list">${rows.filter(Boolean).map(r => `<li>${r}</li>`).join('')}</ul>`;
 
-// How fresh the Capitol data is (F9): the line under You's Refresh now (app.js accountItems, so here in You's rows too, said
-// once: A-14) and the foot of More tools (tools.js). Never in the sidebar, never in a warning colour (D3).
+// How fresh the Capitol data is (F9): the line under You's Refresh now (app.js accountItems, so here in You's rows too) and
+// the foot of More tools (tools.js). Never in a warning colour (D3).
 export function syncWords() {
   if (DEMO) return `Practice data, as of ${new Date(DEMO_ASOF).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Pacific/Honolulu' })}`;
-  const last = (S.syncRuns || []).find(r => r.ok)?.finished_at; if (!last) return '';
-  const h = Math.floor((Date.now() - new Date(last).getTime()) / 36e5);
+  const h = syncHours(); if (h == null) return '';
   return `Capitol data synced ${h < 1 ? 'less than an hour ago' : h < 48 ? `${h} hour${h === 1 ? '' : 's'} ago` : `${Math.floor(h / 24)} days ago`}`;
 }
+// Hours since the last good Capitol sync (live only; null when unknown or in the practice copy).
+const syncHours = () => { if (DEMO) return null; const last = (S.syncRuns || []).find(r => r.ok)?.finished_at; return last ? Math.floor((Date.now() - new Date(last).getTime()) / 36e5) : null; };
+// B-7: once the Capitol data is 12 hours old or more, everyone sees it without opening a menu: one neutral line at the
+// sidebar's foot (app.js) and at the top of More on a phone, with Refresh now beside it. It is a line, not a row (12.4), and
+// in body colour with a clock, not amber (D3): stale is a fact to know, not an alarm. Ten of the eleven are not admins, and
+// only admins see Today's own line (after 36 hours).
+export const syncStale = () => { const h = syncHours(); return h != null && h >= 12; };
+export const syncNote = (cls = '') => syncStale() ? `<p class="sv-sync${cls ? ' ' + cls : ''}" title="${esc(syncWords())}">${icon('clock')}<span class="sv-synct">${esc(syncWords())}<span aria-hidden="true"> · </span><button type="button" class="sv-syncgo" data-reload>Refresh now</button></span></p>` : '';
 
 // You (spec 3.2): the account menu's items as rows (app.js accountItems), so My settings is two labelled taps on a phone.
 const acct = () => { try { return S.accountItems?.() || []; } catch { return []; } };
@@ -66,14 +73,15 @@ export default {
   tab: 'more',
   title: () => 'More',
   render() {
-    let unread = 0; try { unread = inboxCount(); } catch { unread = 0; }
-    const leads = leadKeys();
+    let unread = 0; try { unread = messagesCount(); } catch { unread = 0; }
+    const leads = leadKeys(), stale = syncStale();
     return `<div class="v6-more">
       <h1 class="v6-ptitle sv-h1">More</h1>
+      ${stale ? syncNote('v6-more-syncn') : ''}
       <section class="v6-more-sec" aria-label="Places">${placeList([placeRow('outreach'), placeRow('legislators'), placeRow('myissues'), placeRow('inbox', { count: unread }), placeRow('help')])}</section>
       ${leads.length ? `<section class="v6-more-sec" aria-labelledby="mo-lead"><h2 class="v6-more-h" id="mo-lead">Lead tools</h2>${placeList(leads.map(k => placeRow(k)))}</section>` : ''}
       <section class="v6-more-sec" aria-label="More tools">${placeList([placeRow('tools')])}</section>
-      <section class="v6-more-sec" aria-labelledby="mo-you"><h2 class="v6-more-h mo-you" id="mo-you">${avatar(S.me, 28)}<span>You · ${esc(youName())}</span></h2>${placeList(acct().map((it, i) => `<button type="button" class="v6-more-row" data-acct="${i}"><span class="v6-more-ic">${icon(it.icon)}</span><span class="v6-more-tx"><span class="v6-more-nm">${esc(it.label)}</span>${it.sub ? `<span class="v6-more-ln">${esc(it.sub)}</span>` : ''}</span>${it.nav ? icon('chevron-right', { cls: 'chev' }) : ''}</button>`))}</section>
+      <section class="v6-more-sec" aria-labelledby="mo-you"><h2 class="v6-more-h mo-you" id="mo-you">${avatar(S.me, 28)}<span>You · ${esc(youName())}</span></h2>${placeList(acct().map((it, i) => `<button type="button" class="v6-more-row" data-acct="${i}"><span class="v6-more-ic">${icon(it.icon)}</span><span class="v6-more-tx"><span class="v6-more-nm">${esc(it.label)}</span>${(stale && it.plainSub) || it.sub ? `<span class="v6-more-ln">${esc((stale && it.plainSub) || it.sub)}</span>` : ''}</span>${it.nav ? icon('chevron-right', { cls: 'chev' }) : ''}</button>`))}</section>
     </div>`;
   },
   wire(route, root) { const items = acct(); root.querySelectorAll('[data-acct]').forEach(el => { el.onclick = () => items[+el.dataset.acct]?.run(); }); },
