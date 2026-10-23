@@ -307,11 +307,19 @@ function whereCell(b) {
 // fourth part is the compact table's one line, the time first ("Wed 3/18, 9:30 AM · Kevin files it"): a narrow cell cuts
 // its end, and the when is what a weekly reader of the table looks for (B-9, A-24).
 const timeFirst = (what, when) => `${nw(esc(cap(when)))} · ${nw(esc(what))}`;
+// The when at the end of a step line ("… due today 2:00 PM", "… send for approval by Sat 3/21, 4:00 PM", "… until 1:10 PM
+// today"); "Filed by James" and "Asked by Kevin" have none. Late testimony says so first: "Late, until 1:10 PM today · File".
+const WHEN_AT = /(?:^|\s)(?:due|by|until) ((?:today|tomorrow|(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b|\d{1,2}:\d\d).*)$/;
+function compactLine(line) {
+  const m = WHEN_AT.exec(line); if (!m) return null;
+  let what = line.slice(0, m.index).replace(/\s*·\s*$/, '').trim(), when = m[1];
+  if (/late, still accepted$/.test(what)) { what = what.replace(/\s*·?\s*late, still accepted$/, ''); when = `late, until ${when}`; }
+  return what ? timeFirst(what, when) : null;
+}
 function nextCell(b) {
   const s = rowStep(b), st = stOf(b);
   if (s && s.kind !== 'none') { const line = String(s.line || ''), [a, ...rest] = line.split(' · '), r = rest.join(' · ');
-    const m = r ? /^(?:due|by) (.+)$/.exec(r) : /^(.+?) by ((?:today|tomorrow|[A-Z][a-z]{2}\b).*)$/.exec(a);
-    return [nw(esc(a)), nw(esc(r)), line, m ? (r ? timeFirst(a, m[1]) : timeFirst(m[1], m[2])) : null]; }
+    return [nw(esc(a)), nw(esc(r)), line, compactLine(line)]; }
   if (factsOf(b).stand === 'dead') { const [a, ...rest] = stoppedLine(b).split(' · '); return [esc(a), esc(rest.join(' · ')), stoppedLine(b)]; }
   if (st.hearingState === 'held') return ['Waiting for the committee’s vote', `heard ${esc(fmtDate(st.hearing.scheduled_at))}`, ''];
   if (st.phase === 'law') { const act = /\bAct \d+/i.exec(b.last_action || ''); return [act ? esc(act[0]) : '', '', ''] }

@@ -32,7 +32,7 @@
 .bl-dls .bl-dlgo { font-weight: 400; color: var(--v6-action); white-space: nowrap; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .bl-dln { display: none; }
 @media (max-width: 767px) {
-  .bl-dls { margin-bottom: var(--s12); }
+  .bl-dls { margin-bottom: var(--s8); }
   .bl-dls > .ic, .bl-dlw { display: none; }
   .bl-dln { display: inline; }
 }
@@ -68,7 +68,10 @@
   .bl-ghbar { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s4); }
   .bl-ghbar .bl-gh { gap: 6px; }
   .bl-ghbar > .bl-gh { flex: 1 1 auto; min-width: 0; }
-  .bl-ghsel { display: block; flex: none; padding-top: 4px; }
+  .bl-ghsel { display: block; flex: none; padding-top: 0; }
+  /* tighter bands above the first bill (8px under the deadline line, 4px over and under the first heading), so it starts about 390px
+     down Nate's phone (A-1: 400) */
+  .bl-ghbar > .bl-gh { padding-top: 4px; margin-bottom: var(--s4); }
   .bl-ghsel .btn { padding: 0 12px; }
   .bl-ghsel .btn .ic { display: none; }   /* the word alone, so "Hearing scheduled 12" and Select share a 320px row */
   .bl-tools { margin-bottom: var(--s8); }
@@ -101,6 +104,11 @@ body.staff6 .bl-page .v6-ld-list.bl-groups { padding: 0; background: none; box-s
 .bl-ghb:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 .bl-more { padding: var(--s4) 0 0; }
 .bl-more .btn { margin-left: -12px; }
+/* D3's "a bold time": the viewer's own step due soon keeps its ink colour and clock, but only its time is bold ("File now ·
+   due today **10:00 AM**"), not the whole line (bold text was 49% of Nate's first screen, spec 4: 25%). A shared change asks
+   steps.css to do the same in every list. */
+body.staff6 .bl-page .v6-row-line.soon { font-weight: 400; }
+body.staff6 .bl-page .v6-row-line.soon .v6-nw { font-weight: 700; }
 /* the row the keys are on: a bar at its left (never colour alone: the focus is on it too) */
 body.staff6 .bl-page .v6-row.bl-cur { box-shadow: inset 3px 0 0 var(--v6-action); }
 /* phones: the rows are a press-and-hold away from picking, so a long press does not open the browser's menu */
