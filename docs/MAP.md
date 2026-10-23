@@ -323,6 +323,14 @@ migration 184). The public side: `pub/partner.js` (the partner corner, `#/partne
 advocacy groups page and request form; `#/link/<token_hash>`, the sign-in link screen that spends the token only on
 Continue). Practice copy: `track.html?demo=1&partner=1#/partner` (also `partner=member|new|waiting|paused`),
 `staff5.html?demo=1#/partners`. Tests: `tests/partner_corner.py`, `tests/partner_join.py`.
+**What the public sees (batch D, 22 Oct 2026):** `pub/partners.js` loads approved partner words once per page load
+(`public_partner_bills`, `public_partner_issues`, `public_partners`; `pubNow()` redraws when they come) and draws every
+piece: the row line (`rowLine`), the plain grey side chip (`sideChip`, never `posChip`), "HIPHI hasn't taken a position"
+(`noSideLine`), the partner's block in "About the bill" (`aboutHtml`, passed to `billtext.js aboutBill`'s `partners`), the
+walkthrough's points by side (`pointsFor`, `helper.js`), the `?via=` welcome (`viaWelcome`, grey, naming the partner) and
+Find's groups (`fromGroups`). `pub/partnerpub.js` is the partner's page `#/from/<slug>` and its issues
+`#/from/<slug>/<issue slug>`; a partner's `?via=` link opens its page first for someone past the first visit (app.js boot).
+The practice copy shows the sample's public words only with `?partner` or `?via=keiki-smiles`. Test: `tests/partner_public.py`.
 
 ## Staff v4 (`staff4.html` + `staff4/`), to compare (R-269, 12 Oct 2026)
 

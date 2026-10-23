@@ -1,3 +1,4 @@
+// A person comes here to see what one HIPHI partner group works on, in that group's own words (B-1).
 // A HIPHI partner's own public page (R-328 batch D, Nate's plan of 10/21): #/from/<slug> shows the group's bills and issues
 // in its own words, under its own name, and #/from/<slug>/<issue slug> one of its issues with its bills. Reached from Find's
 // "From our partners", the "More from ..." line under a partner's words on a bill page, and the partner's own link: ?via=<slug>
@@ -10,7 +11,7 @@ import { S, app, esc, icon, nick, blurb, spaced, billPath, plainStatus } from '.
 import { btn, skeleton } from './ui.js';
 import { recHead, recSec, recEmpty, wireKit, keep, BOX } from './rec/kit.js';
 import { backRow } from './rec/act.js';
-import { pubNow, loadPublic, partnerOf, onBill, hiphiSide, sideVerb, issueChip, fromPath, pIssuePath, billsInfo, billInfoNow, viaPartner } from './partners.js';
+import { pubNow, loadPublic, welcomeHtml, partnerOf, onBill, hiphiSide, sideVerb, issueChip, fromPath, pIssuePath, billsInfo, billInfoNow, viaPartner } from './partners.js';
 
 // The bills a page lists may be ones HIPHI does not track (a partner chooses freely there), so their rows come from the
 // public bill rows: asked once for what is missing, and the page draws again when they come.
@@ -23,11 +24,12 @@ function billsOf(ids) {
 // "HIPHI supports it too" / "HIPHI hasn't taken a position": HIPHI's own side said in its own words, beside the group's.
 const hiphiWords = b => { const s = hiphiSide(b); return s === 'support' ? 'HIPHI supports it too' : s === 'oppose' ? 'HIPHI opposes it too' : 'HIPHI hasn’t taken a position'; };
 const THEY = { supports: 'They support it', 'strongly supports': 'They strongly support it', opposes: 'They oppose it', 'strongly opposes': 'They strongly oppose it', 'has comments on': 'They have comments on it' };
-// One bill: the group's own name for it first (its nickname; the page is the group's), the number always, where it stands,
-// and the two sides in plain words ("They support it · HIPHI supports it too").
+// One bill: the tracker's own name for it (the name its bill page and Find use, so a tap never lands on a differently named
+// page: the fresh-eyes review of 10/22), the number always, where it stands, and the two sides in plain words ("They support
+// it · HIPHI supports it too").
 function billRow(b, slug) {
   const r = onBill(b).find(x => x.partner_slug === slug);
-  const name = r?.nickname || nick(b) || blurb(b, 90);
+  const name = nick(b) || blurb(b, 90);
   const they = r ? THEY[sideVerb(r.side, { strong: true })] || '' : '';
   return `<li><a class="rc-row" href="${esc(billPath(b))}"><span class="rc-rtext"><span class="rc-rname">${esc(name)}</span>
     <span class="rc-rstat">${esc(keep(`${spaced(b.bill_number)} · ${plainStatus(b).short}`))}</span>${they ? `<span class="rc-rpart">${esc(`${they} · ${hiphiWords(b)}`)}</span>` : ''}</span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`;
@@ -36,7 +38,7 @@ const billList = (bills, slug) => bills.length ? `<ul class="rc-rows ${BOX}" rol
 // Whose words these are, at the end of each page (the plan: "A HIPHI partner. These are its own words.").
 const whose = name => `<p class="pw-whose pp-whose">${icon('handshake')}<span>${esc(name)} is a HIPHI partner. It writes these words itself, and HIPHI looks over each one before it shows here. <a href="#/groups">For advocacy groups</a></span></p>`;
 const site = p => /^https?:\/\//i.test(p.website || '') ? btn('Their website', { kind: 'text', sm: true, icon: 'globe', iconEnd: 'external-link', href: p.website, attrs: { target: '_blank', rel: 'noopener' } }) : '';
-const welcome = p => viaPartner()?.slug === p.slug && p.welcome ? `<p class="pw-welcome">${icon('sparkles')}<span>${esc(p.welcome)}</span></p>` : '';
+const welcome = p => viaPartner()?.slug === p.slug && p.welcome ? welcomeHtml(p) : '';
 const gone = () => `<div class="rc pp">${backRow('#/find', 'Find')}${recHead({ title: 'Partner' })}${recEmpty('This group isn’t on the tracker right now.', btn('Find bills and issues', { kind: 'secondary', icon: 'search', href: '#/find' }))}</div>`;
 
 function groupView(p) {
@@ -59,7 +61,7 @@ function issueView(p, issueSlug) {
   if (!i) return `<div class="rc pp">${backRow(fromPath(p.slug), p.name)}${recHead({ eye: p.name, title: 'Issue' })}${recEmpty('This issue isn’t on the tracker right now.', btn(`More from ${p.name}`, { kind: 'secondary', href: fromPath(p.slug) }))}</div>`;
   const bills = billsOf(i.bill_ids || []).sort((x, y) => x.bill_number.localeCompare(y.bill_number, 'en', { numeric: true }));
   return `<div class="rc pp">${backRow(fromPath(p.slug), p.name)}
-    ${recHead({ eye: `${p.name}’s issue`, title: i.name, lede: i.description || '', extra: issueChip(i) })}
+    ${recHead({ eye: 'A HIPHI partner’s issue', title: i.name, lede: i.description || '', extra: issueChip(i) })}
     ${recSec('pp-ibills-h', 'Bills on this issue', bills.length ? billList(bills, p.slug) : (i.bill_ids || []).length ? skeleton(2) : recEmpty('No bills on this issue yet.'))}
     ${whose(p.name)}</div>`;
 }

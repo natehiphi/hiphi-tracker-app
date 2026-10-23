@@ -56,7 +56,7 @@ async def main():
             # its issue page
             await pg.click('a[href="#/from/keiki-smiles/healthy-keiki-teeth"]'); await pg.wait_for_selector('#main .pp .pw-chip', timeout=8000); await pg.wait_for_timeout(500)
             txt = await pg.inner_text('#main')
-            for s in ['Keiki Smiles Alliance’s issue', 'Healthy keiki teeth', 'Dental care every child in Hawaiʻi can reach', 'Keiki Smiles Alliance supports', 'Bills on this issue', 'HB 1671', 'HB 1349']:
+            for s in ['A HIPHI partner’s issue', 'Healthy keiki teeth', 'Dental care every child in Hawaiʻi can reach', 'Keiki Smiles Alliance supports', 'Bills on this issue', 'HB 1671', 'HB 1349']:
                 check(s.lower() in txt.lower(), f'{t} partner issue says {s!r}')
             chip = await pg.evaluate("(() => { const c = document.querySelector('#main .pw-chip'); return c ? getComputedStyle(c).backgroundColor : '' })()")
             info = await pg.evaluate("(() => { const c = document.createElement('span'); c.className = 'chip info'; document.body.append(c); const v = getComputedStyle(c).backgroundColor; c.remove(); return v; })()")
@@ -91,19 +91,22 @@ async def main():
             ctx, pg = await page(b, '#/bill/HB1671', w=w, h=h, wait='#main [data-bl-rfold="about"]')
             await pg.evaluate("document.querySelector('[data-bl-rfold=\"about\"]').open = true"); await pg.wait_for_timeout(300)
             ab = await pg.inner_text('[data-bl-rfold="about"]')
-            for s in ['Why HIPHI strongly supports it', 'Why Keiki Smiles Alliance strongly supports it', 'Their ask:', 'On HD2:', 'A HIPHI partner. These are its own words.', 'More from Keiki Smiles Alliance']:
+            for s in ['Why HIPHI strongly supports it', 'Why Keiki Smiles Alliance strongly supports it', 'They call it “Hygienists can fill keiki cavities”.', 'Keiki Smiles Alliance asks:', 'Keiki Smiles Alliance on House draft 2:', 'A HIPHI partner. These are its own words.', 'More from Keiki Smiles Alliance']:
                 check(s in ab, f'{t} bill HB1671 about says {s!r}')
             check(ab.find('Why HIPHI strongly supports it') < ab.find('Why Keiki Smiles Alliance'), f'{t} bill HB1671: HIPHI’s reasons first')
+            check('Until ' not in ab and 'On HD2' not in ab, f'{t} bill HB1671: no end date that reads as a deadline, no bare draft label')
             check(await pg.locator('#main .pw-noside').count() == 0, f'{t} bill HB1671: HIPHI has a side, so no partner chip in the head')
             await common(pg, f'{t} bill HB1671', w); await shot(pg, f'bill-HB1671-{t}')
             await ctx.close()
             ctx, pg = await page(b, '#/bill/HB1349', w=w, h=h, wait='#main .pw-noside')
             ns = await pg.inner_text('#main .pw-noside')
-            check('Keiki Smiles Alliance supports' in ns and 'HIPHI hasn’t taken a position on this bill. A partner asks you to support it.' in ns, f'{t} bill HB1349: the grey chip and the no-position line ({ns!r})')
+            check('Keiki Smiles Alliance supports' in ns and 'HIPHI hasn’t taken a position on this bill. Keiki Smiles Alliance, a group HIPHI works with, asks you to support it.' in ns, f'{t} bill HB1349: the grey chip and the no-position line ({ns!r})')
             await common(pg, f'{t} bill HB1349', w); await shot(pg, f'bill-HB1349-{t}', False)
             await ctx.close()
         ctx, pg = await page(b, '#/bill/HB1671', q='via=keiki-smiles', wait='#main .pw-welcome')
         check(await pg.locator('#main .pw-welcome').count() == 1, 'via bill: the welcome line once on the partner’s bill')
+        wbg = await pg.evaluate("getComputedStyle(document.querySelector('#main .pw-welcome')).backgroundColor")
+        check(wbg not in ('rgb(230, 243, 248)',) and 'Keiki Smiles Alliance' in await pg.inner_text('#main .pw-welcome'), f'via bill: the welcome names the partner, in grey ({wbg})')
         await ctx.close()
         ctx, pg = await page(b, '#/bill/HB1671', q='', wait='#main [data-bl-rfold="about"]')
         await pg.evaluate("document.querySelector('[data-bl-rfold=\"about\"]').open = true"); await pg.wait_for_timeout(300)

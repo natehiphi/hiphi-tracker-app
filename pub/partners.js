@@ -12,6 +12,7 @@
 //     and paused show the other states.
 // Rule 1: partner words live in their own tables and never touch HIPHI's columns on bills; nothing here writes a bill.
 import { S, D, DEMO, app, esc, icon, supa, friendly, hstDay } from './core.js';
+import { draftName } from './letters.js';
 
 // ---------------- words shared by the screens ----------------
 export const SITE = 'https://natehiphi.github.io/hiphi-tracker-app/track.html';
@@ -336,8 +337,10 @@ export function sideChip(r) {
 // comments" chip is on the page, so the line says HIPHI has taken no side rather than no position.
 export function noSideLine(rows, b = null) {
   const fams = new Set(rows.map(r => familyOf(r.side))), one = rows.length === 1, f = [...fams][0];
-  const ask = fams.size > 1 ? 'HIPHI’s partners differ on it.' : f === 'neutral' ? `${one ? 'A partner has' : 'Partners have'} comments on it.`
-    : `${one ? 'A partner asks' : 'Partners ask'} you to ${f} it.`;
+  // One partner is named, as "a group HIPHI works with", so a newcomer knows who asks (the fresh-eyes review of 10/22).
+  const who = one ? `${rows[0].partner_name}, a group HIPHI works with,` : 'Groups HIPHI works with';
+  const ask = fams.size > 1 ? 'HIPHI’s partners differ on it.' : f === 'neutral' ? `${who} ${one ? 'has' : 'have'} comments on it.`
+    : `${who} ${one ? 'asks' : 'ask'} you to ${f} it.`;
   return `${b?.hiphi_position === 'neutral' ? 'HIPHI hasn’t taken a side on this bill.' : 'HIPHI hasn’t taken a position on this bill.'} ${ask}`;
 }
 // A partner's day as people say it: "Thu, Apr 2".
@@ -346,15 +349,17 @@ export const dayWords = day => day ? new Date(`${String(day).slice(0, 10)}T12:00
 export const fromPath = slug => `#/from/${encodeURIComponent(slug)}`;
 export const pIssuePath = (slug, issueSlug) => `#/from/${encodeURIComponent(slug)}/${encodeURIComponent(issueSlug)}`;
 // The partners' words under "About the bill", after HIPHI's own (unchanged): the reasons under the partner's name, its
-// plain summary, its ask while it lasts, its note on a draft, and whose words these are; one .ab-part each, for
+// plain summary, its ask while it lasts (no end date shown: beside the bill's own deadlines it read as one, the fresh-eyes
+// review of 10/22), its note on a draft under its own name (a partner's "we" never follows a label HIPHI writes), and
+// whose words these are; one .ab-part each, for
 // billtext.js aboutBill's partners option. h is the heading tag the section's own parts use.
 export function aboutHtml(b, { h = 'h3' } = {}) {
   return onBill(b).map(r => {
     const pts = (r.points || []).filter(Boolean), verb = sideVerb(r.side, { strong: true }) === 'has comments on' ? 'comments on' : sideVerb(r.side, { strong: true });   // "strongly supports", as its chip and HIPHI's own heading say
     return `<div class="ab-part pw-about"><${h} class="ab-h">Why ${esc(r.partner_name)} ${verb} it</${h}>
-      ${r.summary ? `<p class="pw-sum">${esc(r.summary)}</p>` : ''}${pts.length ? `<ul class="ab-pts" role="list">${pts.map(p => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
-      ${r.ask ? `<p class="pw-ask">${icon('megaphone')}<span><b>Their ask:</b> ${esc(r.ask)}${r.ask_until ? ` Until ${esc(dayWords(r.ask_until))}.` : ''}</span></p>` : ''}
-      ${r.draft_note ? `<p class="pw-draft"><b>${r.draft_version ? `On ${esc(r.draft_version)}:` : 'On the latest draft:'}</b> ${esc(r.draft_note)}</p>` : ''}
+      ${r.nickname ? `<p class="pw-nick">They call it “${esc(r.nickname)}”.</p>` : ''}${r.summary ? `<p class="pw-sum">${esc(r.summary)}</p>` : ''}${pts.length ? `<ul class="ab-pts" role="list">${pts.map(p => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
+      ${r.ask ? `<p class="pw-ask">${icon('megaphone')}<span><b>${esc(r.partner_name)} asks:</b> ${esc(r.ask)}</span></p>` : ''}
+      ${r.draft_note ? `<p class="pw-ask pw-draft">${icon('file-text')}<span><b>${esc(r.partner_name)} on ${r.draft_version ? esc(draftName(r.draft_version)) : 'the latest draft'}:</b> ${esc(r.draft_note)}</span></p>` : ''}
       <p class="pw-whose">${icon('handshake')}<span>A HIPHI partner. These are its own words. <a href="${fromPath(r.partner_slug)}">More from ${esc(r.partner_name)}</a></span></p></div>`;
   }).join('');
 }
@@ -370,8 +375,11 @@ export function pointsFor(b, stance) {
 export function viaWelcome(b = null) {
   const p = viaPartner(); if (!p || !p.welcome) return '';
   if (b && !onBill(b).some(r => r.partner_slug === p.slug)) return '';
-  return `<p class="pw-welcome">${icon('sparkles')}<span>${esc(p.welcome)}</span></p>`;
+  return welcomeHtml(p);
 }
+// The welcome in the partner's own grey, with its name first unless the words already say it, so a partner's "us" never
+// reads as HIPHI's (the fresh-eyes review of 10/22).
+export const welcomeHtml = p => `<p class="pw-welcome">${icon('handshake')}<span>${p.welcome.includes(p.name) ? '' : `<b>${esc(p.name)}:</b> `}${esc(p.welcome)}</span></p>`;
 // Find's "From our partners": each group that writes and has approved bills or issues, this visit's partner first.
 export function fromGroups() {
   const d = pubNow(); if (!d) return [];
