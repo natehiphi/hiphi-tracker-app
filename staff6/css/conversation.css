@@ -137,3 +137,22 @@ body.staff6 .cv-ask { display: flex; align-items: center; gap: 12px; min-height:
 body.staff6 .cv-ask input { flex: none; width: 22px; height: 22px; margin: 0; accent-color: var(--v6-action); }
 body.staff6 .cv-askf .help { display: block; margin-left: 34px; }
 body.staff6 .cv-askf .err { margin-left: 34px; }
+/* From a chair's page, the bills to tick as the ask: name, number, and the line Who to ask says for this chair (V24). */
+body.staff6 .cv-askb { display: grid; gap: 4px; margin: 8px 0 0 34px; padding: 0; border: 0; min-width: 0; }
+body.staff6 .cv-askbill { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; padding: 10px 12px; border-radius: var(--v6-r12); background: var(--v6-wash); cursor: pointer; }
+body.staff6 .cv-askbill input { flex: none; width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--v6-action); }
+body.staff6 .cv-askbill:has(input:checked) { background: var(--v6-action-wash); }
+body.staff6 .cv-askbill:has(input:focus-visible) { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .cv-abt { min-width: 0; font: 400 var(--v6-t16)/var(--v6-lh16) Lato, system-ui, sans-serif; color: var(--v6-ink); overflow-wrap: anywhere; }
+body.staff6 .cv-abname { font-weight: 700; }
+body.staff6 .cv-abn { font-size: var(--v6-t14); color: var(--v6-muted); white-space: nowrap; }
+body.staff6 .cv-abl { display: block; color: var(--v6-body); }
+/* A lone "Filed under" choice is said, not offered as a radio that does nothing. */
+body.staff6 .cv-lone { margin: 0; padding: 10px 0; font: 400 var(--v6-t16)/var(--v6-lh16) Lato, system-ui, sans-serif; color: var(--v6-ink); }
+/* "Not a talk? Add a note instead" (R-335, practice copy): one quiet line at the top of the sheet. */
+body.staff6 .cv-alt { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 16px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .cv-alt > svg { width: 20px; height: 20px; flex: none; margin-top: 2px; color: var(--v6-muted); }
+body.staff6 .cv-alt .linkbtn { font-weight: 700; text-decoration: underline; text-underline-offset: 3px; min-height: 0; padding: 0; }
+/* A stance's note in Asks and talks: the same card row, with Change beside it. */
+body.staff6 .rows.cv-list > .row.cv-item.cv-stance { align-items: flex-start; }
+body.staff6 .cv-stance > .btn { flex: none; align-self: center; }

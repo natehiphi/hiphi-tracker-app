@@ -19,7 +19,6 @@ import { icon, btn, iconBtn, toast, openSheet, closeSheet, menuSheet } from './u
 import { showAllBtn } from './ui.js';   // U-4: one "Show all" on every screen
 import { photo, shortName, legName, partyDist, legHref } from './pathway.js';
 import { issueById, catByKey } from './issues.js';
-import { ourBill } from './legislators.js';
 // A sheet opened from a menu waits for the menu's Back to land (else that Back would close the new sheet).
 const afterBack = () => new Promise(res => { if (!history.state?.sheet) return res(); let done = false; const run = () => { if (done) return; done = true; removeEventListener('popstate', run); res(); }; addEventListener('popstate', run); setTimeout(run, 500); });
 
@@ -81,17 +80,9 @@ const whose = x => mine(x) ? 'your' : `${firstOf(x.by)}’s`;
 const knowsWho = x => mine(x) ? 'You know them' : `${firstOf(x.by)} knows them`;
 const newest = (a, b) => String(b.at).localeCompare(String(a.at));
 
-// Our position bills they introduced this session (decision 8), from the sponsor matching legislator.js already did.
-// "Among them" when there are more than four: the rest are in Bills they introduced, below, so no "and 38 more" leads nowhere.
-const ourIntro = intro => (intro || []).filter(b => ourBill(b) && (!b.session_year || +b.session_year === +SESSION_YEAR));
-function trackerLine(l, intro) {
-  const bs = ourIntro(intro), n = bs.length, shown = bs.slice(0, 4);
-  const link = b => `<a href="${esc(billRoute(b))}" title="${esc(b.nickname || b.bill_number)}">${esc(b.bill_number)}</a>`;
-  const and = xs => xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
-  const said = !n ? `${esc(shortName(l))} introduced none of the bills we have a position on this session.`
-    : `Introduced ${n === 1 ? 'one bill' : `${n} bills`} we have a position on this session${n > shown.length ? ', among them' : ':'} ${and(shown.map(link))}.`;
-  return `<li class="pf-line pf-auto"><p class="pf-text"><span class="pf-src">From the tracker:</span> ${said}</p></li>`;
-}
+// v5's "From the tracker: Introduced 37 bills we have a position on" line left History in v6 (R-336): it gave a second
+// count of the bills they introduced beside the page's own "Bills they introduced", which now says how many have our
+// position under its heading (legislator.js). History holds only what the team writes.
 
 // ---- drawing ----
 const landId = () => { try { return new URLSearchParams(location.hash.split('?')[1] || '').get('pf'); } catch { return null; } };
@@ -119,7 +110,7 @@ function secHTML(l, p, s, intro) {
   const iKnow = s.k === 'knows' && !rows.some(mine);
   const act = s.k === 'knows' ? (iKnow ? btn('I know them', { kind: 'text', sm: true, icon: 'user-plus', attrs: { 'data-pfknow': '1', 'aria-haspopup': 'dialog', 'aria-label': `I know ${shortName(l)}: add how you know them` } }) : '')
     : btn('Add', { kind: 'text', sm: true, icon: 'plus', attrs: { 'data-pfadd': s.k, 'aria-haspopup': 'dialog', 'aria-label': `Add to ${s.name}, ${shortName(l)}` } });
-  const list = (s.k === 'history' ? trackerLine(l, intro) : '') + shown.map(x => lineHTML(l, x)).join('');
+  const list = shown.map(x => lineHTML(l, x)).join('');
   return `<div class="pf-sec${list || s.k === 'cares' ? '' : ' pf-empty'}" data-pfsec="${s.k}">
       <div class="pf-sech"><h3 id="pf-h-${s.k}">${esc(s.name)}</h3>${act}</div>
       ${s.k === 'cares' ? issuesHTML(l, p) : ''}
@@ -135,9 +126,8 @@ function tipHTML(l, p) {
 }
 // The tip, near the top of the legislator's page (the one thing to know before reaching out): '' when there is none.
 export const profileTipHTML = l => { const t = tipHTML(l, profileOf(l)); return t ? `<div class="pf pf-top" data-pfleg="${l.id}">${t}</div>` : ''; };
-// A section with nothing in it: no lines (and, for What they care about, no issue). History with HIPHI always has the
-// tracker's own line, so it always shows.
-const isEmpty = (p, s) => s.k !== 'history' && !p.lines.some(x => x.sec === s.k) && !(s.k === 'cares' && p.issues.length);
+// A section with nothing in it: no lines (and, for What they care about, no issue).
+const isEmpty = (p, s) => !p.lines.some(x => x.sec === s.k) && !(s.k === 'cares' && p.issues.length);
 // "Add what we know": one card with a button for each empty section (and the tip, when there is none). Each opens the same
 // sheet the section's own Add does; What they care about opens the issue picker, since its issues are what Legislators
 // filters by.

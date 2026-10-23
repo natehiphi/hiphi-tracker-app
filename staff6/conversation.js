@@ -14,15 +14,21 @@
 // other issue by a search, their committees' issues first: 2 choices and a search instead of a list of 92 (V23). From a
 // bill waiting for a hearing, "This was an ask for a hearing" saves the talk with the chair as the ask, with its answer and
 // committee (migration 183), the same record as "Did you send it?"; a talk without the tick is never an ask (V24).
-// logConversation({ ask: true }) opens with the tick on (HEARINGS' "I asked another way", F138).
+// logConversation({ ask: true }) opens with the tick on (HEARINGS' "I asked another way", F138). From a chair's own page
+// (no bill), the tick lists the bills waiting on them for a hearing to tick, the viewer's own first, and saves the ask for
+// that chair on each bill ticked, as the bill's own Log a talk does (V24, F146). On the practice copy the sheet also offers
+// "Add a note instead" for something that was not a talk (R-335), so a legislator's page has one door for what happened.
+// A note left on a stance shows in a legislator's Asks and talks too (legislator.js), read-only here, changed in its sheet.
 import { S, DB, DEMO, esc, fmtDate, advocate, hooks } from './data.js';
-import { legById, billById, stopOf, legsOf, cmteName, hiToday, hstDayOf, diedish, chairIdsOf, plain } from './model.js';
-import { askWords, committeeName, sayWords as billSay } from './steps.js';
-import { plainCodes } from './terms.js';   // an ask's app-written words name the committee, not its code (D15)   // a bill named without its draft code (D15)
+import { legById, billById, stopOf, legsOf, cmteName, hiToday, hstDayOf, diedish, chairIdsOf, plain, codesOf } from './model.js';
+import { askWords, committeeName, sayWords as billSay, numWords, nameWords } from './steps.js';   // a bill named without its draft code (D15)
+import { plainCodes } from './terms.js';   // an ask's app-written words name the committee, not its code (D15)
+import { chairLine, chairWho, byChairOrder } from './holding.js';   // a chair's bills, in Who to ask's words (V24)
+import { askTodoOf } from './push.js';   // an ask handed to someone (W14): made now, so its to-do is done
 import { icon, btn, iconBtn, chip, toast, openSheet, closeSheet, menuSheet } from './ui.js';
 import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { issuesOfBill, issueById } from './issues.js';
-import { photo, shortName, partyDist, legHref, roleWord, seatsText } from './pathway.js';
+import { photo, shortName, partyDist, legHref, roleWord, seatsText, STANCE_WORD } from './pathway.js';
 import { matchLegs } from './legislators.js';
 import { billRoute } from './model.js';
 import { drafts } from './bill.js';   // R-277 fix 8: the same held words the bill chat and the to-do box keep
@@ -122,7 +128,10 @@ function land(box) {
 // here: the page's own context, so the page never repeats itself (A-14): a legislator's page does not name them on every
 // row, an issue's page does not put its own issue on every row, a bill's page names another bill only when it is another
 // and its issue only when the bill has more than one (here.issueIds), which is when the chip tells the rows apart.
+// The app's own words for an ask ("Asked for a hearing on HB756 (HLT).") name the bill as staff say it, "HB 756" (D15).
+const spaceNums = s => String(s || '').replace(/\b(HB|SB|HR|SR|HCR|SCR|GM)(\d)/g, '$1 $2');
 function itemHTML(g, here) {
+  if (g.kind === 'stance') return stanceHTML(g);
   const legs = g.legs.map(legById).filter(Boolean);
   const names = legs.filter(l => l.id !== here.legId).map(l => `<a href="${esc(legHref(l))}">${esc(shortName(l))}</a>`);
   const who = advocate(g.advocate_id);
@@ -133,15 +142,26 @@ function itemHTML(g, here) {
   // R-335: a note says it is one ("Note · Kris"), and a corrected entry says "edited", which opens its earlier wording.
   const ed = PROFILES() && g.edited_at ? `<button type="button" class="linkbtn cv-ed" data-cved="${esc(g.key)}" aria-label="Edited. See the earlier wording">edited</button>` : '';
   const meta = [esc(dayOf(g.day)), isNote(g) ? `Note · ${mine(g) ? 'You' : esc(firstName(who))}` : mine(g) ? 'you logged it' : `${esc(firstName(who))} logged it`,
-    bill ? `on <a href="${billRoute(bill)}">${bill.nickname ? `${esc(bill.nickname)} <span class="bn-num">${esc(bill.bill_number)}</span>` : esc(bill.bill_number)}</a>` : '', ed].filter(Boolean).join(' · ');
+    bill ? `on <a href="${billRoute(bill)}">${bill.nickname ? `${esc(bill.nickname)} <span class="bn-num">${esc(numWords(bill))}</span>` : esc(numWords(bill))}</a>` : '', ed].filter(Boolean).join(' · ');
   const at = landKey() === g.key;   // R-316 H-15: the one a search result opened
   return `<article class="row cv-item${at ? ' cv-land' : ''}" data-cvkey="${esc(g.key)}"${at ? ' tabindex="-1"' : ''}>
     <div class="cv-main">
       ${head ? `<p class="cv-names">${head}</p>` : ''}
       <p class="cv-meta"><span>${meta}</span>${iss ? chip(iss.name, '', 'tag', { sm: true }) : ''}</p>
-      <p class="cv-text">${g.answer ? plainCodes(esc(g.body)) : esc(g.body)}</p>
+      <p class="cv-text">${g.answer ? plainCodes(esc(spaceNums(g.body))) : esc(g.body)}</p>
     </div>
     ${canTouch(g) ? iconBtn('ellipsis', isNote(g) ? 'More for this note' : 'More for this talk', { 'data-cvmore': g.key }, 'cv-more') : ''}
+  </article>`;
+}
+// A note left on a stance (legislator.js passes these in): the day, the bill and the stance, who wrote it, the note, and
+// Change, which opens the stance sheet (pathway.js openStance, wired by the page).
+function stanceHTML(g) {
+  const r = g.rows[0], b = billById(g.bill_id), who = advocate(g.advocate_id);
+  const meta = [esc(dayOf(g.day)), `Where they stand${b ? ` on <a href="${billRoute(b)}">${esc(numWords(b))}</a>` : ''}: ${esc(STANCE_WORD[r.stance] || 'Not known yet')}`,
+    who ? (mine(g) ? 'You' : esc(firstName(who))) : ''].filter(Boolean).join(' · ');
+  return `<article class="row cv-item cv-stance" data-cvkey="${esc(g.key)}">
+    <div class="cv-main"><p class="cv-meta"><span>${meta}</span></p><p class="cv-text">${esc(g.body)}</p></div>
+    ${b ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-lgstance': `${b.id}|${r.legislator_id}`, 'aria-haspopup': 'dialog', 'aria-label': `Change where they stand on ${numWords(b)}` } }) : ''}
   </article>`;
 }
 export function convListHTML(rows, here = {}, { limit = 3, key = 'cv', none = 'No talks logged yet.' } = {}) {
@@ -263,16 +283,17 @@ const pickedHTML = ids => ids.map(id => { const l = legById(id); return l ? `<bu
 // ---- Filed under: an issue, or one bill ----
 // Two choices and a search (V23; v5 listed all 92 issues): the bill's own issue (the default; a bill on two issues shows
 // both) and "Only HB 1562" (Nate: "allow just this bill when it has none"); from a legislator's page, "Only Rep. Kila's
-// page"; from an issue's page, that issue. Any other issue is found by its name, the issues of the bills in the
-// legislators' committees first.
-// Each issue says it is one and names its bills, "Issue: Youth mental health app pilot (HB1562, SB2679)": 55 of the 91
+// page" (with the issues of the bills ticked as the ask, once some are); from an issue's page, that issue. Any other issue
+// is found by its name, the issues of the bills in the legislators' committees first. A lone choice is said, not offered
+// as a radio button that does nothing.
+// Each issue says it is one and names its bills, "Issue: Youth mental health app pilot (HB 1562, SB 2679)": 55 of the 91
 // issues share a bill's nickname, so a bare name read as the bill (R-022 review, 9/21).
 function nearIssues(legIds) {
   const seats = new Set((S.committeeMembers || []).filter(m => legIds.includes(m.legislator_id)).map(m => m.committee)), out = new Map();
   if (!seats.size) return [];
   for (const b of S.bills) {
     if (b.tracked === false || !b.position || b.position === 'monitor' || diedish(b)) continue;
-    const c = stopOf(b).committee; if (!c || !String(c).split('/').some(x => seats.has(x.trim()))) continue;
+    const c = stopOf(b).committee; if (!c || !codesOf(c).some(x => seats.has(x))) continue;
     for (const i of issuesOfBill(b.id)) out.set(i.id, i);
   }
   return [...out.values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -281,27 +302,31 @@ function nearIssues(legIds) {
 const numsOf = (issueId, ctx) => {
   const bs = (S.billIssues || []).filter(x => x.issue_id === issueId).map(x => billById(x.bill_id)).filter(Boolean);
   if (ctx && !bs.some(x => x.id === ctx.id)) bs.push(ctx);   // filed from a bill that is not on it: it shows there too
-  return [...new Set(bs.sort((a, b) => (b.id === ctx?.id) - (a.id === ctx?.id) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true })).map(x => x.bill_number))];
+  return [...new Set(bs.sort((a, b) => (b.id === ctx?.id) - (a.id === ctx?.id) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true })).map(numWords))];
 };
 const issueNums = (i, ctx) => { const n = numsOf(i.id, ctx); return n.length ? `${n.slice(0, 3).join(', ')}${n.length > 3 ? `, +${n.length - 3}` : ''}` : ''; };
 const issueLabel = (i, ctx) => { const n = issueNums(i, ctx); return `Issue: ${i.name}${n ? ` (${n})` : ''}`; };
-// The two default choices, as [value, label]: the bill's issues and "Only this bill", or the page's own issue and "Only
-// the legislator's page".
-function aboutDefaults(ctx, issueId, picked) {
-  const own = ctx ? issuesOfBill(ctx.id) : issueId ? [issueById(issueId)].filter(Boolean) : [];
-  const only = ctx ? `Only ${billSay(ctx)}` : picked.length === 1 && legById(picked[0]) ? `Only ${shortName(legById(picked[0]))}’s page` : picked.length > 1 ? 'Only the legislators’ pages' : 'Only the legislator’s page';
+// The default choices, as [value, label]: the bill's issues and "Only this bill", or the page's own issue, or (from a
+// legislator's page) the issues of the bills ticked as the ask and "Only the legislator's page".
+function aboutDefaults(ctx, issueId, picked, askBills = []) {
+  const own = ctx ? issuesOfBill(ctx.id) : issueId ? [issueById(issueId)].filter(Boolean) : [...new Map(askBills.flatMap(b => issuesOfBill(b.id)).map(i => [i.id, i])).values()];
+  const page = picked.length === 1 && legById(picked[0]) ? `${shortName(legById(picked[0]))}’s page` : picked.length > 1 ? 'the legislators’ pages' : 'the legislator’s page';
+  const only = ctx ? `Only ${billSay(ctx)}` : askBills.length ? `No issue: ${page}, ${andList(askBills.map(numWords))}` : `Only ${page}`;
   return [...own.map(i => ['i:' + i.id, issueLabel(i, ctx)]), ['', only]];
 }
-const radioHTML = (opts, v) => opts.map(([val, label]) => `<label class="cv-opt"><input type="radio" name="cv-about" value="${esc(val)}"${val === v ? ' checked' : ''}><span>${esc(label)}</span></label>`).join('');
+const radioHTML = (opts, v) => opts.length === 1
+  ? `<p class="cv-lone"><input type="radio" name="cv-about" value="${esc(opts[0][0])}" checked hidden><span>${esc(opts[0][1])}</span></p>`
+  : opts.map(([val, label]) => `<label class="cv-opt"><input type="radio" name="cv-about" value="${esc(val)}"${val === v ? ' checked' : ''}><span>${esc(label)}</span></label>`).join('');
 // The issues that match what is typed (or, before anything is typed, the legislators' committees' issues), up to 6.
 function issueHits(q, ctx, picked, shown) {
   const t = plain(q.trim()), near = nearIssues(picked), nearIds = new Set(near.map(i => i.id));
   const pool = t ? liveIssues().filter(i => plain(i.name).includes(t)) : near;
   return pool.filter(i => !shown.has('i:' + i.id)).sort((a, b) => nearIds.has(b.id) - nearIds.has(a.id) || a.name.localeCompare(b.name)).slice(0, 6);
 }
-// Where it will show, in bill numbers: "Team only. Shows on each legislator's page and on HB1562 and SB2679."
-function reachLine(ctx, v) {
-  const nums = v.startsWith('i:') ? numsOf(v.slice(2), ctx) : ctx ? [ctx.bill_number] : [];
+// Where it will show, in bill numbers: "Team only. Shows on each legislator's page and on HB 1562 and SB 2679." A talk
+// ticked as the ask on a bill shows on that bill too.
+function reachLine(ctx, v, askBills = []) {
+  const nums = [...new Set([...(v.startsWith('i:') ? numsOf(v.slice(2), ctx) : ctx ? [numWords(ctx)] : []), ...askBills.map(numWords)])];
   const bills = nums.length > 4 ? `${nums.slice(0, 3).join(', ')} and ${nums.length - 3} more bills` : andList(nums);
   return `Team only. Shows on each legislator’s page${bills ? ` and on ${bills}` : ''}.`;
 }
@@ -310,6 +335,26 @@ function askOf(ctx) {
   const a = ctx ? askWords(ctx) : null; if (!a || a.key === 'scheduled') return null;
   const ids = chairIdsOf(a.code); return ids.length ? { code: a.code, ids, decide: !!a.decide } : null;
 }
+// From a legislator's page (no bill): the bills the people picked chair that wait for a hearing, to tick as the ask (V24):
+// [{ b, code, ids (the picked chairs of its committee), line (Who to ask's words for that chair), own, follow }], the
+// viewer's own first (holding.js byChairOrder).
+function askChoices(picked) {
+  const out = new Map();
+  for (const id of picked) {
+    const l = legById(id); if (!l) continue;
+    const seats = (S.committeeMembers || []).filter(m => m.legislator_id === id && m.role === 'chair').map(m => m.committee); if (!seats.length) continue;
+    for (const b of S.bills) {
+      if (b.tracked === false || diedish(b)) continue;
+      const c = stopOf(b).committee; if (!c || !codesOf(c).some(x => seats.includes(x))) continue;
+      const x = chairLine(b, l); if (!x.s || x.s.key === 'scheduled' || !chairIdsOf(x.s.code).includes(id)) continue;
+      const have = out.get(b.id); if (have) { have.ids.push(id); continue; }
+      out.set(b.id, { ...x, b, code: x.s.code, ids: [id] });
+    }
+  }
+  return [...out.values()].sort(byChairOrder);
+}
+const chairNames = ids => andList(ids.map(legById).filter(Boolean).map(chairWho));
+const chairOr = ids => { const n = ids.map(legById).filter(Boolean).map(chairWho); return n.length < 2 ? n.join('') : `${n.slice(0, -1).join(', ')} or ${n.at(-1)}`; };
 
 // ---- the dialog: log one, or correct your own ----
 // edit: a talk from groupsOf(). text: words already typed elsewhere (Log activity > Meeting hands them over). ask: the
@@ -325,13 +370,20 @@ export function logConversation({ bill = null, issueId = null, legislatorIds = [
   if (held?.picked?.length) picked = [...new Set([...picked, ...held.picked.map(Number)])].filter(id => legById(id));
   const desk = hover(), v0 = first ? 'i:' + first : '';
   const asking = g ? null : askOf(ctx);
-  // The choices: the two defaults, plus an issue an edit was filed under (an archived one too, so an edit does not lose it).
+  // From a legislator's page: the ask's tick, and the bills ticked under it (the viewer's own open asks start ticked).
+  const fromLeg = !g && !ctx && !issueId;
+  let askOn = !!ask, askPick = null, askAll = false;
+  const choices = () => fromLeg ? askChoices(picked) : [];
+  const askBills = () => { if (!fromLeg || !askOn) return []; const cs = choices(); return cs.filter(x => askPick?.has(x.b.id)).map(x => x.b); };
+  // The choices: the defaults, plus an issue an edit was filed under (an archived one too, so an edit does not lose it).
   let extra = null;
-  const defaults = () => aboutDefaults(ctx, issueId, picked);
+  const defaults = () => aboutDefaults(ctx, issueId, picked, askBills());
   if (v0 && !defaults().some(([v]) => v === v0)) { const k = issueById(first); extra = ['i:' + first, k ? `${issueLabel(k, ctx)}${k.archived_at ? ', archived' : ''}` : 'An archived issue']; }
   const opts = () => [...defaults(), ...(extra ? [extra] : [])];
-  const chairNames = asking ? andList(asking.ids.map(legById).filter(Boolean).map(shortName)) : '';
+  // "Add a note instead" (R-335, practice copy): from one legislator's page, for something that was not a talk.
+  const noteAlt = fromLeg && PROFILES() && picked.length === 1;
   const body = `<div class="cv-sheet">
+    ${noteAlt ? `<p class="cv-alt">${icon('square-pen')}<span>Not a talk, call or meeting? <button type="button" class="linkbtn" data-cvnote>Add a note instead</button></span></p>` : ''}
     <div class="field cv-whof" role="group" aria-labelledby="cv-who-l">
       <span class="label" id="cv-who-l">With whom</span>
       <div class="chips cv-picked" data-cvpicked>${pickedHTML(picked)}</div>
@@ -342,9 +394,7 @@ export function logConversation({ bill = null, issueId = null, legislatorIds = [
     <div class="field"><label for="cv-text">What was said</label><textarea id="cv-text" rows="5" maxlength="4000" autocapitalize="sentences" spellcheck="true" placeholder="What they said, what they asked for, what we promised" aria-describedby="cv-text-e"${desk && picked.length ? ' autofocus' : ''}>${esc(g ? g.body : held ? held.text : text)}</textarea>
       <span class="err" id="cv-text-e" hidden>${icon('circle-alert')}Write what was said first.</span>
       ${held ? `<span class="help cv-held">${icon('history')}Your note from before, kept until you save it.</span>` : ''}</div>
-    ${asking ? `<div class="field cv-askf"><label class="cv-ask"><input type="checkbox" id="cv-ask"${ask ? ' checked' : ''} aria-describedby="cv-ask-h cv-ask-e"><span>This was an ask for a hearing</span></label>
-      <span class="help" id="cv-ask-h">${esc(`Counts as the ask to ${chairNames} on ${billSay(ctx)}, as an email to the chair does.`)}</span>
-      <span class="err" id="cv-ask-e" hidden>${icon('circle-alert')}${esc(`Add ${chairNames} under With whom to count it as the ask.`)}</span></div>` : ''}
+    <div data-cvaskw></div>
     <fieldset class="field cv-aboutf"><legend>Filed under</legend>
       <div class="cv-opts" data-cvopts>${radioHTML(opts(), v0 && opts().some(([v]) => v === v0) ? v0 : opts()[0][0])}</div>
       <div class="cv-find cv-ifind">${icon('search')}<input id="cv-iq" type="search" autocomplete="off" placeholder="Find another issue" aria-label="Find another issue to file it under" aria-controls="cv-ilist"></div>
@@ -357,11 +407,40 @@ export function logConversation({ bill = null, issueId = null, legislatorIds = [
     foot: btn(g ? 'Save changes' : 'Save', { icon: 'check', attrs: { 'data-cvsave': '1' } }),
     wire: d => {
       const qi = d.querySelector('#cv-q'), sg = d.querySelector('[data-cvsg]'), pk = d.querySelector('[data-cvpicked]'), optsEl = d.querySelector('[data-cvopts]');
-      const iq = d.querySelector('#cv-iq'), il = d.querySelector('[data-cvil]'), askBox = d.querySelector('#cv-ask'), askErr = d.querySelector('#cv-ask-e');
+      const iq = d.querySelector('#cv-iq'), il = d.querySelector('[data-cvil]'), askW = d.querySelector('[data-cvaskw]');
       const ta = d.querySelector('#cv-text'), whoErr = d.querySelector('#cv-who-e'), txtErr = d.querySelector('#cv-text-e'), reach = d.querySelector('.cv-reach');
       const about = () => d.querySelector('input[name="cv-about"]:checked')?.value ?? '';
-      const drawOpts = (v = about()) => { optsEl.innerHTML = radioHTML(opts(), opts().some(([x]) => x === v) ? v : opts()[0][0]); reach.textContent = reachLine(ctx, about()); };
-      optsEl.addEventListener('change', () => { reach.textContent = reachLine(ctx, about()); });
+      const drawOpts = (v = about()) => { optsEl.innerHTML = radioHTML(opts(), opts().some(([x]) => x === v) ? v : opts()[0][0]); reach.textContent = reachLine(ctx, about(), askBills()); };
+      optsEl.addEventListener('change', () => { reach.textContent = reachLine(ctx, about(), askBills()); });
+      // "This was an ask for a hearing" (V24). From a bill: one tick; its help names the chairs picked under With whom
+      // (only they are saved as asked). From a chair's page: the tick, then their bills waiting for a hearing to tick.
+      const chairsIn = () => asking ? asking.ids.filter(id => picked.includes(id)) : [];
+      const askHelp = () => {
+        if (asking) { const c = chairsIn(); return c.length ? `Counts as the ask to ${chairNames(c)} on ${billSay(ctx)}, as an email to the chair does.` : `Add ${chairOr(asking.ids)} under With whom to count it as the ask.`; }
+        const bs = askBills(), cs = choices();
+        if (!askOn) return `For ${cs.length === 1 ? numWords(cs[0].b) : `their ${cs.length} bills waiting for a hearing`}: counts as the ask, as an email to the chair does.`;
+        return bs.length ? `Counts as the ask to ${chairNames([...new Set(cs.filter(x => askPick.has(x.b.id)).flatMap(x => x.ids))])} on ${andList(bs.map(numWords))}.` : 'Tick the bills you asked about.';
+      };
+      const drawAsk = (focus = null) => {
+        const cs = choices();
+        if (!asking && !cs.length) { askW.innerHTML = ''; return; }
+        if (!asking && askOn && !askPick) { const own = cs.filter(x => x.own || x.follow); askPick = new Set((own.length ? own : cs.length === 1 ? cs : []).map(x => x.b.id)); }
+        // The viewer's own asks with them first; other people's bills (they may have asked about those too) after, past
+        // three of them behind one button, so the sheet stays short.
+        const ownN = cs.filter(x => x.own || x.follow || x.waitingMine).length, cut = ownN && !askAll && cs.length - ownN > 3 ? ownN : cs.length;
+        const shown = cs.filter((x, i) => i < cut || askPick?.has(x.b.id));
+        const list = !asking && askOn ? `<fieldset class="cv-askb"><legend class="sr">The bills you asked about</legend>${shown.map(x => `<label class="cv-askbill"><input type="checkbox" value="${esc(x.b.id)}"${askPick?.has(x.b.id) ? ' checked' : ''}><span class="cv-abt"><span class="cv-abname">${esc(nameWords(x.b, 60))}</span> <span class="cv-abn">${esc(numWords(x.b))}</span><span class="cv-abl">${esc(x.line)}</span></span></label>`).join('')}
+          ${shown.length < cs.length ? btn(`Their other ${cs.length - shown.length} bills waiting for a hearing`, { kind: 'text', sm: true, icon: 'chevron-down', cls: 'cv-askmore', attrs: { 'data-cvaskall': '1' } }) : ''}</fieldset>` : '';
+        askW.innerHTML = `<div class="field cv-askf"><label class="cv-ask"><input type="checkbox" id="cv-ask"${askOn ? ' checked' : ''} aria-describedby="cv-ask-h cv-ask-e"><span>This was an ask for ${asking?.decide ? 'decision making' : 'a hearing'}</span></label>
+          <span class="help" id="cv-ask-h">${esc(askHelp())}</span>${list}
+          <span class="err" id="cv-ask-e" hidden>${icon('circle-alert')}<span data-cvaskerr></span></span></div>`;
+        const box = askW.querySelector('#cv-ask');
+        box.onchange = () => { askOn = box.checked; drawAsk('#cv-ask'); drawOpts(); };
+        askW.querySelector('[data-cvaskall]')?.addEventListener('click', () => { askAll = true; drawAsk(`.cv-askb input:not(:checked)`); });
+        askW.querySelectorAll('.cv-askb input').forEach(el => el.onchange = () => { (askPick ??= new Set())[el.checked ? 'add' : 'delete'](el.value); askW.querySelector('#cv-ask-h').textContent = askHelp(); askW.querySelector('#cv-ask-e').hidden = true; drawOpts(); });
+        if (focus) askW.querySelector(focus)?.focus();
+      };
+      const askErr = msg => { const e = askW.querySelector('#cv-ask-e'); if (!e) return; e.querySelector('[data-cvaskerr]').textContent = msg; e.hidden = false; };
       // Another issue: what is typed finds it (the committees' issues first); a pick joins the choices, chosen.
       const hits = () => {
         const shown = new Set(opts().map(([v]) => v)), list = issueHits(iq.value, ctx, picked, shown), t = iq.value.trim();
@@ -375,12 +454,12 @@ export function logConversation({ bill = null, issueId = null, legislatorIds = [
       const paint = () => {
         pk.innerHTML = pickedHTML(picked); sg.innerHTML = sgHTML(picked, q, sugg);
         if (!ctx && !issueId) drawOpts();   // "Only Rep. Kila's page" names who it is with
+        drawAsk();                           // who is picked decides whose ask it can be
         pk.querySelectorAll('[data-cvrm]').forEach(el => el.onclick = () => {
           const id = +el.dataset.cvrm, at = picked.indexOf(id); picked = picked.filter(x => x !== id); paint();
           (pk.querySelectorAll('[data-cvrm]')[Math.min(at, picked.length - 1)] || qi).focus();
         });
         sg.querySelectorAll('[data-cvadd]').forEach(el => el.onclick = () => add(+el.dataset.cvadd));
-        if (askErr && asking.ids.some(id => picked.includes(id))) askErr.hidden = true;
         if (ta.value.trim()) keep();   // who it was with is kept with the words
       };
       const add = id => {
@@ -395,47 +474,65 @@ export function logConversation({ bill = null, issueId = null, legislatorIds = [
         else if (e.key === 'Escape' && qi.value) { e.preventDefault(); e.stopPropagation(); qi.value = ''; qi.oninput(); }
         else if (e.key === 'Backspace' && !qi.value && picked.length) { picked.pop(); paint(); }
       };
-      if (askBox) askBox.onchange = () => { askErr.hidden = true; };
       const keep = () => { if (nk) holdNote(nk, { text: ta.value, picked }); };
       ta.oninput = () => { txtErr.hidden = true; ta.removeAttribute('aria-invalid'); keep(); };
+      // A note, not a talk: the words typed so far go with it.
+      d.querySelector('[data-cvnote]')?.addEventListener('click', async () => {
+        const words = ta.value, lid = picked[0] || legislatorIds[0];
+        if (nk) holdNote(nk, null);
+        await closeSheet({ silent: true }); addNote({ legId: lid, text: words, onDone });
+      });
       paint();
       d.querySelector('[data-cvsave]').onclick = async e => {
-        const words = ta.value.trim(), asked = !!askBox?.checked, chairsIn = asked ? asking.ids.filter(id => picked.includes(id)) : [];
-        if (!picked.length) { whoErr.hidden = false; qi.setAttribute('aria-invalid', 'true'); }
-        if (!words) { txtErr.hidden = false; ta.setAttribute('aria-invalid', 'true'); }
-        if (asked && picked.length && !chairsIn.length) askErr.hidden = false;
-        if (!picked.length || !words || (asked && !chairsIn.length)) { (!picked.length || (asked && !chairsIn.length) ? qi : ta).focus(); return; }
+        const words = ta.value.trim(), box = askW.querySelector('#cv-ask'), asked = !!box?.checked;
+        const ids = chairsIn(), bills = askBills();
+        let bad = null;
+        if (!picked.length) { whoErr.hidden = false; qi.setAttribute('aria-invalid', 'true'); bad = bad || qi; }
+        if (!words) { txtErr.hidden = false; ta.setAttribute('aria-invalid', 'true'); bad = bad || ta; }
+        if (asked && asking && picked.length && !ids.length) { askErr(`Add ${chairOr(asking.ids)} under With whom to count it as the ask.`); bad = bad || qi; }
+        if (asked && !asking && !bills.length) { askErr('Tick the bills you asked about.'); bad = bad || askW.querySelector('.cv-askb input') || box; }
+        if (bad) { bad.focus(); return; }
         if (!S.me) { toast('Your login is not linked to a staff record yet. Ask your admin.', { err: true }); return; }
         const v = about(), issue = v.startsWith('i:') ? v.slice(2) : null, day = d.querySelector('#cv-day').value || hiToday();
         const go = e.currentTarget; go.setAttribute('aria-busy', 'true'); go.disabled = true;
         const names = andList(picked.map(legById).filter(Boolean).map(shortName));
+        // The asks to save: the bill's (its chairs picked here), or each bill ticked (the picked chairs of its committee).
+        const asks = !asked ? [] : asking ? [{ billId: ctx.id, code: asking.code, ids }]
+          : choices().filter(x => askPick?.has(x.b.id)).map(x => ({ billId: x.b.id, code: x.code, ids: x.ids.filter(id => picked.includes(id)) })).filter(x => x.ids.length);
+        const askedOn = asks.map(x => billById(x.billId)).filter(Boolean);
+        const decide = asking ? asking.decide : false;
         try {
           if (g) {
             const undo = await correct(g, { picked, words, issue, day });
             await closeSheet({ silent: true }); onDone();
             toast('Saved.', { ok: true, undo: async () => { await undo(); onDone(); toast('Put back as it was.'); } });
           } else {
-            const made = await logNew({ ctx, picked, words, issue, day, ask: asked ? { code: asking.code, ids: chairsIn } : null });
+            const made = await logNew({ ctx, picked, words, issue, day, asks });
+            // The ask is made, so a to-do that handed it to someone is done (as "Did you send it?" does); Undo opens it again.
+            const closed = [];
+            for (const b of askedOn) { const t = askTodoOf(b); if (t) { try { await DB.updateTodo(b.id, t.id, { done: true }); closed.push([b.id, t.id]); } catch { /* the talk is saved; the to-do stays */ } } }
             if (nk) holdNote(nk, null);   // saved: the held words have done their job
             await closeSheet({ silent: true }); onDone();
-            toast(`Logged your talk with ${names}.${asked ? ` It counts as the ask for ${asking.decide ? 'decision making' : 'a hearing'} on ${billSay(ctx)}.` : ''}`, { ok: true, undo: async () => {
-              for (const r of made) await DB.delLegNote(r.id, r.legislator_id); onDone(); toast('Removed.'); } });
+            toast(`Logged your talk with ${names}.${askedOn.length ? ` It counts as the ask for ${decide ? 'decision making' : 'a hearing'} on ${andList(askedOn.map(billSay))}.` : ''}`, { ok: true, undo: async () => {
+              for (const r of made) await DB.delLegNote(r.id, r.legislator_id);
+              for (const [bid, tid] of closed) await DB.updateTodo(bid, tid, { done: false }).catch(() => {});
+              onDone(); toast('Removed.'); } });
           }
         } catch (x) { if (go.isConnected) { go.removeAttribute('aria-busy'); go.disabled = false; } toast(x, { err: true }); }
       };
     } });
 }
 // ---- R-335 (practice copy): Add a note ----
-// A dated note about one legislator, beside Log a conversation: something that happened that was not a meeting or a call
-// ("spoke at the HLT hearing", "back from leave on the 20th"). What holds from week to week belongs in their Profile
-// (profile.js). It goes in the same log as a conversation, marked as a note, with no issue, bill or other legislators, so it
-// shows only on their page. The words are held while typed (C-9), as a conversation's are.
-export function addNote({ legId = null, edit = null, onDone = () => hooks.render() } = {}) {
+// A dated note about one legislator, beside Log a talk: something that happened that was not a meeting or a call ("spoke
+// at the HLT hearing", "back from leave on the 20th"). What holds from week to week belongs in their Profile (profile.js).
+// It goes in the same log as a talk, marked as a note, with no issue, bill or other legislators, so it shows only on their
+// page. The words are held while typed (C-9), as a talk's are. text: words already typed in Log a talk.
+export function addNote({ legId = null, edit = null, text = '', onDone = () => hooks.render() } = {}) {
   const g = edit, lid = g ? g.legs[0] : legId, l = legById(lid); if (!l) return;
-  const nk = g ? null : `nt:${lid}`, held = nk ? heldNote(nk) : null;
+  const nk = g ? null : `nt:${lid}`, held = nk && !text ? heldNote(nk) : null;
   const body = `<div class="cv-sheet">
     <p class="cv-nfor">${esc(shortName(l))}</p>
-    <div class="field"><label for="cv-ntext">Note</label><textarea id="cv-ntext" rows="4" maxlength="4000" autocapitalize="sentences" spellcheck="true" placeholder="What happened, for example: spoke at the HLT hearing, or back from leave on the 20th" aria-describedby="cv-ntext-e">${esc(g ? g.body : held?.text || '')}</textarea>
+    <div class="field"><label for="cv-ntext">Note</label><textarea id="cv-ntext" rows="4" maxlength="4000" autocapitalize="sentences" spellcheck="true" placeholder="What happened, for example: spoke at the Health hearing, or back from leave on the 20th" aria-describedby="cv-ntext-e">${esc(g ? g.body : held?.text || text || '')}</textarea>
       <span class="err" id="cv-ntext-e" hidden>${icon('circle-alert')}Write the note first.</span>
       ${held ? `<span class="help cv-held">${icon('history')}Your note from before, kept until you save it.</span>` : ''}</div>
     <div class="field cv-dayf"><label for="cv-nday">Date</label><input id="cv-nday" type="date" value="${esc(g ? g.day : hiToday())}" max="${esc(hiToday())}"></div>
@@ -446,6 +543,7 @@ export function addNote({ legId = null, edit = null, onDone = () => hooks.render
     wire: d => {
       const ta = d.querySelector('#cv-ntext'), err = d.querySelector('#cv-ntext-e');
       ta.focus();
+      if (text && nk) holdNote(nk, { text });
       ta.oninput = () => { err.hidden = true; ta.removeAttribute('aria-invalid'); if (nk) holdNote(nk, { text: ta.value }); };
       d.querySelector('[data-cvnsave]').onclick = async e => {
         const words = ta.value.trim(), day = d.querySelector('#cv-nday').value || hiToday();
@@ -468,12 +566,18 @@ export function addNote({ legId = null, edit = null, onDone = () => hooks.render
     } });
 }
 
-// One row per legislator, one conversation id. If a row is refused half way, the rows already written are taken back.
-// With the ask ticked (V24), each chair's row carries the answer "asked" and the committee: the record every board reads.
-async function logNew({ ctx, picked, words, issue, day, ask = null }) {
+// One row per legislator, one conversation id; a chair asked about several bills gets one row per bill, each carrying the
+// answer "asked" and its committee (V24: the record every board reads), so the talk shows on each of those bills too. If a
+// row is refused half way, the rows already written are taken back.
+async function logNew({ ctx, picked, words, issue, day, asks = [] }) {
   const conversationId = uuid(), made = [];
-  try { for (const id of picked) made.push(await DB.addLegNote(id, ctx?.id || null, words, { issueId: issue, metOn: day, conversationId, ...(ask && ask.ids.includes(id) ? { answer: 'asked', committee: ask.code } : {}) })); }
-  catch (e) { for (const r of made) await DB.delLegNote(r.id, r.legislator_id).catch(() => {}); throw e; }
+  try {
+    for (const id of picked) {
+      const mine = asks.filter(a => a.ids.includes(id));
+      if (!mine.length) made.push(await DB.addLegNote(id, ctx?.id || null, words, { issueId: issue, metOn: day, conversationId }));
+      else for (const a of mine) made.push(await DB.addLegNote(id, a.billId, words, { issueId: issue, metOn: day, conversationId, answer: 'asked', committee: a.code }));
+    }
+  } catch (e) { for (const r of made) await DB.delLegNote(r.id, r.legislator_id).catch(() => {}); throw e; }
   return made;
 }
 // A correction: the words, the issue and the day on each row that stays, a row for anyone added, none for anyone taken
