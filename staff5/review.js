@@ -14,6 +14,8 @@ import { emailPreview } from './composer.js';
 import { reviewQueue, hearingFor, testDue, cd, hearingLine, reviewerNames, needsSecond, HOVER, afterBack } from './today.js';
 import { statusSentence } from './bill.js';
 import { teamFirst } from './model.js';   // R-316 W28
+import { staleFromLine } from './model.js';   // R-316 W24
+import { capitolUrl } from './data.js';
 
 // R-316 W28 (G3-8): "Lauren (turned off) owns it", "Sent by Kevin (turned off)": model.js teamFirst ("Someone" when nobody).
 const first = id => teamFirst(id);
@@ -97,6 +99,11 @@ function draftBody(it) {
   const who = two ? `Approved by ${esc(first(d.approved_by))} ${esc(ago(d.approved_at))}. It is this bill’s first testimony, so it needs a second approval.`
     : d.submitted_by ? `Sent by ${own ? 'you' : esc(first(d.submitted_by))} ${esc(ago(d.submitted_at))}` : 'Not sent by anyone yet';
   const stale = b.current_version && d.version !== b.current_version;
+  // R-316 W24 (G1-8): a draft started from earlier testimony on a bill that has moved on since says so in one line, the
+  // warning ("Started from HIPHI’s JHA testimony, written for HD1; the bill is now SD1."), not two lines in a row; any
+  // out-of-date draft gets the bill page's Committee report link, under the words so a phone keeps the line's width.
+  const late = stale ? staleFromLine(b, d) : '', from = late ? '' : startedFromLine(b, d);
+  const report = `<br>${btn('Committee report', { kind: 'text', sm: true, iconEnd: 'external-link', href: capitolUrl(b), target: '_blank' })}`;
   return `<section class="card td-rvcard" aria-labelledby="td-rvb">
     <p class="td-rveb">${icon('file-text')}${two ? 'Second approval' : 'Testimony'}${own ? chip('Your own draft', 'info', 'user-round') : ''}</p>
     <h3 id="td-rvb" class="td-rvtitle">${b.nickname ? `<span class="td-num">${esc(b.nickname)}</span> <span class="bn-num">${esc(billNum(b))}</span>` : `<span class="td-num">${esc(billNum(b))}</span>`} <span class="td-rvt">${esc(blurb(b, 160))}</span></h3>
@@ -105,8 +112,9 @@ function draftBody(it) {
     ${h ? `<p class="td-rvline">${icon('landmark')}<span>${hearingLine(h)}</span></p>` : ''}
     ${due != null ? `<p class="td-rvline">${dueLine(due, h)}</p>` : ''}
     <p class="td-rvline">${icon('user-round')}<span>${who}</span></p>
-    ${startedFromLine(b, d) ? `<p class="td-rvline">${icon('copy')}<span>${esc(startedFromLine(b, d))}</span></p>` : ''}
-    ${stale ? notice('warn', 'triangle-alert', `The bill is now ${esc(b.current_version)}; this draft was written for ${esc(d.version || 'the introduced bill')}.${changedSince(b, d.version) ? ` What changed: ${esc(changedSince(b, d.version))}` : ''}`) : ''}
+    ${from ? `<p class="td-rvline">${icon('copy')}<span>${esc(from)}</span></p>` : ''}
+    ${late ? notice('warn', 'triangle-alert', esc(late) + report)
+      : stale ? notice('warn', 'triangle-alert', `The bill is now ${esc(b.current_version)}; this draft was written for ${esc(d.version || 'the introduced bill')}.${changedSince(b, d.version) ? ` What changed: ${esc(changedSince(b, d.version))}` : ''}${report}`) : ''}
     ${d.review_note ? `<blockquote class="td-q">${esc(d.review_note)}</blockquote>` : ''}
     ${stepBar(d.status, { second: needsSecond(d) })}
     ${d.doc_url ? docBtn(d.doc_url, { attrs: { 'data-doc': '1' } }) : `<p class="small muted">The Google Doc link is missing. Open the bill to find the draft.</p>`}

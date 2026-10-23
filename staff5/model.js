@@ -3,6 +3,7 @@
 // memo, people search and CSV, inbox rows, alert helpers), with `export` added and the two UI calls in loadTriage
 // routed through hooks. v2's own logic (Today, review queue) lives in the screen modules that use it.
 import { $, DB, DEADLINES, DEADLINE_ROWS, DEMO, S, SESSION_OVER, SESSION_YEAR, STAGE_LABEL, SUPABASE_KEY, SUPABASE_URL, advocate, billStop, effStage, esc, fmtDT, fmtDate, hearingStream, hooks, isMine } from './data.js';
+import { changedSince } from './data.js';   // R-316 W24: staleFromLine
 import { CHAMBER_NAME, HELD_RE, isResolution, stoppedAt } from '../stops.js';
 // R-316 W2: one rule on every staff screen. HIPHI never asks a chair to hear a bill it opposes (the public page already
 // says "Ask the chair to hold it"), so Oppose and Strongly oppose bills get no hearing ask, no thanks for moving it, and
@@ -647,6 +648,20 @@ const advOf = x => x && typeof x === 'object' ? x : advocate(x);
 export const offTag = x => advOf(x)?.is_active === false ? ' (turned off)' : '';
 export const teamFirst = x => { const a = advOf(x); return a ? (String(a.full_name || '').split(' ')[0] || 'Someone') + offTag(a) : 'Someone'; };
 export const teamName = x => { const a = advOf(x); return a ? (a.full_name || 'Someone') + offTag(a) : 'Someone'; };
+// R-316 W24 (G1-8): a draft started from earlier testimony whose bill has moved on since says so in ONE line, the warning:
+// "Started from HIPHI’s JHA testimony, written for HD1; the bill is now SD1. What changed: ..." (Nate's review). It was
+// two lines in a row ("Started from ... Since then: ..." over "The bill is now SD1; this draft was written for HD1").
+// What changed counts from the version the words were written for, so nothing either line said is lost. '' when the
+// draft is current, did not start from earlier testimony, or that testimony was written for the bill as it is now: the
+// screen then keeps startedFromLine and its own warning.
+export function staleFromLine(b, d) {
+  const cur = b?.current_version || null;
+  if (!cur || (d.version || null) === cur || !d.from_draft_id) return '';
+  const src = Object.values(S.drafts || {}).flat().find(x => x.id === d.from_draft_id);
+  if (!src || (src.version || null) === cur) return '';
+  const changed = changedSince(b, src.version || null);
+  return `Started from HIPHI’s ${src.committee ? src.committee + ' ' : ''}testimony, written for ${src.version || 'the bill as introduced'}; the bill is now ${cur}.${changed ? ` What changed: ${changed}` : ''}`;
+}
 export const listNames = (pred, sep) => S.advocates.filter(a => pred(a) && a.is_active !== false)
   .map(a => a.full_name).join(sep) || 'an admin';
 export function draftWho(d) {
