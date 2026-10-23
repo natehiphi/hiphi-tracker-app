@@ -1,4 +1,9 @@
-// HIPHI Staff v5 (R-277, Nate 13 Oct: "make a staffv5 and implement the 1-21 fixes"): a copy of Staff v4 at staff5.html
+// HIPHI Staff v6 (R-336, Nate 22-23 Oct: "too much per screen", rebuilt around the jobs; docs/requests/R-336/V6-SPEC.md):
+// a copy of Staff v5 at staff6.html. The frame: a labelled sidebar from 768px wide (places, Inbox with its count, Help, Lead
+// tools by role, More tools, You at the foot), a laptop header that is only the search box, and on a phone a top bar (Back
+// or the mark, the title, Search, the Inbox bell) with the 5-tab bar Today · Hearings · Testimony · Bills · More on every
+// route (spec 3.1, 3.2, D2, D11, D12, V02, V03, V21). Every v5 address still opens (spec 3.4, V36).
+// Before it, HIPHI Staff v5 (R-277, Nate 13 Oct: "make a staffv5 and implement the 1-21 fixes"): a copy of Staff v4 at staff5.html
 // for the ease-of-use review's fixes; v4 stays as it was, to compare. Before that, Staff v3 (R-264, Nate 12 Oct: "make all these changes, but make them on a staff v3 so I can explore and compare"):
 // the laptop-first, calmer copy of Staff v2 at staff3.html. The frame differs from v2 in three ways: the sidebar is the five
 // main places and nothing else (no sub-items, so it never shifts and carries one count, Today's: B-13, A-14); sections with
@@ -12,12 +17,12 @@
 // back, then retires. Screens are modules with
 // { render(route), wire(route, root), bar?(route), title(route), back?(route), tab, tabs?, wide?, narrow? }.
 import { S, DB, DEMO, DEMO_ASOF, LIVE_REFRESH, SESSION_OVER, APP_URL, LINK_ERR, LINK_TOKEN, RECOVERY, setRecovery, hooks, esc, advocate, clearPractice, practiceRestarted, undoStartOver } from './data.js';
-import { icon, btn, iconBtn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, closeSheet, takeSheetEntry, avatar, keysOn } from './ui.js';
+import { icon, btn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, takeSheetEntry, avatar, keysOn } from './ui.js';
 import { MARK } from '../pub/art.js';
 import { reportError } from './errlog.js';
 import { installAskWatch, loadAsks } from './chairask.js';   // R-316 W3
 import { exactBill, inboxCount, billRoute, FACTS, draftFor, diedish } from './model.js';
-import today, { reviewQueue } from './today.js';
+import today, { todayItems } from './today.js';
 import review from './review.js';
 import inbox from './inbox.js';
 import bill from './bill.js';
@@ -35,7 +40,12 @@ import composer from './composer.js';
 import help from './help.js';
 import hearing from './hearing.js';
 import coalition from './coalition.js';
-import { admitsPartners } from './partnerq.js';   // R-328 B: who sees Partners in the sidebar and the menu
+import hearings from './hearings.js';            // v6 places (R-336, spec 3.3); stubs until each place is built
+import testimonyplace from './testimonyplace.js';
+import team from './team.js';
+import people from './people.js';
+import tools from './tools.js';
+import more, { PLACES, MAIN, BAR, leadKeys, isLead, youName } from './more.js';
 
 keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen on a staff screen either (X9-1, X9-6)
 
@@ -69,7 +79,11 @@ const [devui] = lazy(() => import('./devui.js'), m => ({ devui: m.default }), { 
 const [pgroups] = lazy(() => import('./partnergroups.js'), m => ({ pgroups: m.default }), { tab: '', title: () => 'Partners' });
 
 // ---- routes ----
-const SCREENS = { today, myissues, review, inbox, bill, bills, triage, memo, partners, asks, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition, pgroups };
+// v6 (R-336, spec 3.3, 3.4): the places Hearings, Testimony, Team, People, More tools and More join the v5 screens. Every v5
+// address still opens the same thing (V36): an old one is redirected (replaced, never pushed) to its v6 address, keeping its
+// query (#/outreach/issues?view=links opens #/my-issues/all?view=links). tests/staff6_links.py proves it.
+const SCREENS = { today, myissues, review, inbox, bill, bills, triage, memo, partners, asks, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition, pgroups,
+  hearings, testimony: testimonyplace, team, people, tools, more };
 export function parseRoute(h = location.hash) {
   // A "%" that is not part of a code (a stray one in a pasted link) made decodeURIComponent throw, and the page never drew (R-152 D).
   let dh; try { dh = decodeURIComponent(h || ''); } catch { dh = String(h || '').replace(/%(?![0-9a-fA-F]{2})/g, '%25'); try { dh = decodeURIComponent(dh); } catch { dh = '#/'; } }
@@ -79,38 +93,67 @@ export function parseRoute(h = location.hash) {
   if (/^#emails\b/.test(dh)) return { name: 'review', id: '', q: {}, legacyTo: '#/review' };
   if ((m = /^#calendar=(.*)$/.exec(dh))) return { name: 'me', q: {}, legacyTo: '#/me', note: m[1] };
   const [p, qs] = dh.replace(/^#/, '').split('?'), q = Object.fromEntries(new URLSearchParams(qs || '')), seg = p.split('/').filter(Boolean);
+  // An old address's new home, with the same query (less what the move itself answered).
+  const to = (path, drop = []) => { const u = new URLSearchParams(qs || ''); drop.forEach(k => u.delete(k)); const s = u.toString(); return path + (s ? '?' + s : ''); };
   switch (seg[0]) {
-    case undefined: return { name: 'today', q };
-    case 'review': return { name: 'review', id: seg[1] || '', q };
-    case 'inbox': return { name: 'inbox', q };
-    case 'my-issues': return { name: 'myissues', q };
+    case undefined:
+      // v5's Today | This week and Mine | Team switches: This week is Hearings, Team is Team (spec 6, Today; 3.4).
+      if (q.view === 'week') return { name: 'hearings', view: '', q: {}, redirect: '#/hearings' };
+      if (q.scope === 'team') return { name: 'team', who: '', q: {}, redirect: '#/team', leads: true };
+      return { name: 'today', q };
     case 'tasks': return { name: 'today', q: {}, redirect: '#/' };   // v4 (R-269): retired; an old link opens Today
-    case 'bills': return seg[1] === 'new' ? { name: 'triage', q } : seg[1] === 'memo' ? { name: 'memo', q } : { name: 'bills', muted: seg[1] === 'muted', q };
-    // #/bill/HB2121 is the current session's bill; an earlier session's is #/bill/2026/HB2121 (R-152 B, as the public page since R-110).
-    case 'bill': { const yr = /^\d{4}$/.test(seg[1] || ''); return { name: 'bill', year: yr ? seg[1] : '', num: String(seg[yr ? 2 : 1] || '').toUpperCase(), tab: seg[yr ? 3 : 2] || 'overview', q }; }
-    case 'legislators': return { name: 'legislators', q };
-    case 'legislator': return { name: 'legislator', id: +seg[1] || 0, from: q.from || '', q };
+    case 'hearings': return { name: 'hearings', view: seg[1] === 'ask' ? 'ask' : seg[1] === 'week' ? 'week' : (q.view || ''), q };
     case 'hearing': return { name: 'hearing', id: seg[1] || '', q };
-    case 'coalition': return { name: 'coalition', id: seg[1] || '', q };
-    // v4 (R-269): #/outreach is This week's asks; Supporters is #/outreach/supporters (an older #/outreach?segment= link
-    // still opens Supporters on that segment).
-    case 'outreach': return seg[1] === 'lists' ? { name: 'lists', q } : seg[1] === 'emails' ? { name: 'emails', q } : seg[1] === 'issues' ? { name: 'issues', q }
-      : seg[1] === 'supporters' || (!seg[1] && q.segment) ? { name: 'supporters', q } : seg[1] === 'partners' ? { name: 'partners', q } : { name: 'asks', q };
+    case 'testimony': return { name: 'testimony', view: q.view || '', q };
+    case 'review': return { name: 'review', id: seg[1] || '', q };
+    case 'inbox': return { name: 'inbox', view: q.view || '', q };
+    // My issues (R-263) with its tabs Coalitions and All issues (spec 3.3): v5's #/coalition and #/outreach/issues move here.
+    case 'my-issues': return seg[1] === 'coalitions' ? { name: 'coalition', id: '', q } : seg[1] === 'all' ? { name: 'issues', q } : { name: 'myissues', q };
+    case 'coalition': return seg[1] ? { name: 'coalition', id: seg[1], q } : { name: 'coalition', id: '', q, redirect: to('#/my-issues/coalitions') };
     case 'issue': return { name: 'issue', id: seg[1] || '', q };
+    case 'bills': return seg[1] === 'new' ? { name: 'triage', q } : seg[1] === 'memo' ? { name: 'partners', q, redirect: to('#/outreach/partners') } : { name: 'bills', muted: seg[1] === 'muted', q };
+    // #/bill/HB2121 is the current session's bill; an earlier session's is #/bill/2026/HB2121 (R-152 B, as the public page since R-110).
+    // v6 tabs: Next step (the bare address) · Team talk (/talk) · Public. v5's /overview and /activity redirect; /talk reaches
+    // bill.js as tab 'activity', the name its code knows, until the BILL builder renames it (route.view says 'talk').
+    case 'bill': {
+      const yr = /^\d{4}$/.test(seg[1] || ''), num = String(seg[yr ? 2 : 1] || '').toUpperCase(), t = seg[yr ? 3 : 2] || '', base = `#/bill/${yr ? seg[1] + '/' : ''}${num}`;
+      if (t === 'overview') return { name: 'bill', year: yr ? seg[1] : '', num, tab: 'overview', q, redirect: to(base) };
+      if (t === 'activity') return { name: 'bill', year: yr ? seg[1] : '', num, tab: 'activity', q, redirect: to(base + '/talk') };
+      return { name: 'bill', year: yr ? seg[1] : '', num, tab: t === 'talk' ? 'activity' : (t || 'overview'), view: t, q };
+    }
+    case 'legislators': return { name: 'legislators', view: q.view || '', q };
+    case 'legislator': return { name: 'legislator', id: +seg[1] || 0, from: q.from || '', q };
+    // v4 (R-269): #/outreach is This week's asks; Supporters is #/outreach/supporters (an older #/outreach?segment= link opens
+    // Supporters on that segment, now at its own address).
+    case 'outreach':
+      if (seg[1] === 'issues') return { name: 'issues', q, redirect: to('#/my-issues/all') };
+      if (!seg[1] && q.segment) return { name: 'supporters', q, redirect: to('#/outreach/supporters') };
+      return seg[1] === 'lists' ? { name: 'lists', q } : seg[1] === 'emails' ? { name: 'emails', q } : seg[1] === 'supporters' ? { name: 'supporters', q } : seg[1] === 'partners' ? { name: 'partners', q } : { name: 'asks', q };
     case 'person': return { name: 'person', id: seg[1] || '', q };
     case 'list': return { name: 'list', id: seg[1] || '', q };
     case 'email': return seg[1] === 'new' ? { name: 'composer', id: '', q } : { name: 'composer', id: seg[1] || '', q };
     case 'search': return { name: 'search', q };
     case 'me': return { name: 'me', q };
-    case 'setup': return { name: 'setup', section: seg[1] || '', q };
+    case 'team': return { name: 'team', who: q.who || '', q };
+    case 'people': return { name: 'people', id: seg[1] || '', q };
+    case 'setup': return seg[1] === 'people' ? { name: 'people', id: '', q, redirect: '#/people' } : { name: 'setup', section: seg[1] || '', q };
     case 'help': return { name: 'help', topic: seg[1] || '', q };
+    case 'tools': return { name: 'tools', q };
+    case 'more': return { name: 'more', q };
     case 'dev': return { name: 'devui', q };
     case 'partners': return seg[1] === 'request' ? { name: 'pgroups', id: '', req: seg[2] || '', q } : { name: 'pgroups', id: seg[1] || '', req: '', q };   // R-328 B
     default: return { name: 'today', q };
   }
 }
-// My issues (R-263, Nate 10/12) sits beside Today: the issues a person owns or helps on are where their work is (B-13).
-const TABS = [['today', '#/', 'list-todo', 'Today'], ['myissues', '#/my-issues', 'tag', 'My issues'], ['bills', '#/bills', 'scroll-text', 'Bills'], ['legislators', '#/legislators', 'landmark', 'Legislators'], ['outreach', '#/outreach', 'megaphone', 'Outreach']];
+// Which place a screen belongs to (spec 3.3): it lights that place in the sidebar and the phone bar, whatever the screen's
+// own v5 `tab` says (Review is Testimony's now, a sitting Hearings', Lists Outreach's).
+const PLACE_OF = { today: 'today', hearings: 'hearings', hearing: 'hearings', testimony: 'testimony', review: 'testimony', outreach: 'outreach', asks: 'outreach', partners: 'outreach', memo: 'outreach',
+  emails: 'outreach', composer: 'outreach', supporters: 'outreach', person: 'outreach', lists: 'outreach', list: 'outreach', bills: 'bills', triage: 'bills', bill: 'bills',
+  legislators: 'legislators', legislator: 'legislators', myissues: 'myissues', issues: 'myissues', issue: 'myissues', coalition: 'myissues', inbox: 'inbox', help: 'help',
+  team: 'team', people: 'people', pgroups: 'partners', setup: 'setup', tools: 'tools', devui: 'tools', more: 'more', me: 'you', search: '' };
+const placeOf = route => !route ? '' : route.name === 'bill' && S.billFrom ? S.billFrom : PLACE_OF[route.name] ?? '';
+// The phone bar lights More for every place that is not one of its five.
+const barOf = k => BAR.includes(k) ? k : k ? 'more' : '';
 
 // go('#/bills') pushes history (Back works); { replace: true } swaps the current entry.
 let depth = 0;   // in-app steps behind this page (history.state.d), so a back link knows whether real Back stays in the app
@@ -173,74 +216,79 @@ function offlineLine() {
 addEventListener('offline', offlineLine); addEventListener('online', offlineLine); offlineLine();
 // Crossing a layout width (a rotated tablet, a resized window) redraws the page, so screens that draw differently for
 // desktop are never left in the wrong shape.
-for (const q of ['(min-width: 900px)', '(min-width: 1100px)']) { try { matchMedia(q).addEventListener('change', () => { if (S.route && !document.querySelector('dialog[open]')) render(); }); } catch { /* old browsers */ } }
+for (const q of ['(min-width: 768px)', '(min-width: 900px)', '(min-width: 1100px)']) { try { matchMedia(q).addEventListener('change', () => { if (S.route && !document.querySelector('dialog[open]')) render(); }); } catch { /* old browsers */ } }
 
-// ---- the frame ----
+// ---- the frame (spec 3.1, 3.2) ----
+// Today's count is "needs you today" only (today.js badge); when something is overdue it says so in words (D3).
 export function badge() { try { return (today.badge && today.badge()) || { n: 0, late: false }; } catch { return { n: 0, late: false }; } }
-function header(route, scr, pageH1 = false) {
+function lateCount(bd) {
+  if (!bd.late) return 0;
+  if (Number.isFinite(bd.lateN)) return bd.lateN;   // today.js may hand it over itself
+  try { return todayItems('mine').late || 1; } catch { return 1; }
+}
+const countWords = (bd, lateN) => `${bd.n} need${bd.n === 1 ? 's' : ''} you today${lateN ? `, ${lateN} overdue` : ''}`;
+// The header. A phone: Back (deeper than a place) or the mark, the page's title, Search and the Inbox bell with a dot. A laptop
+// or tablet (768px and wider): only the search box, which Cmd/Ctrl-K or "/" focuses (V32); the sidebar holds the rest.
+function header(route, scr) {
   const b = scr.back ? scr.back(route) : null, title = scr.title ? scr.title(route) : '';
-  const bd = badge();
-  const pill = bd.n ? `<span class="sv-badge${bd.late ? ' late' : ''}" aria-label="${bd.n} due${bd.late ? ', some overdue' : ''}">${bd.n > 99 ? '99+' : bd.n}</span>` : '';
+  let unread = 0; try { unread = inboxCount(); } catch { unread = 0; }
   // A long label shortens to "Back" on a phone, unless the screen marks it full (the issue page's "Back to SB2175" fits).
   const short = !!b && b.label.length > 12 && !b.full;
+  const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
   return `<header class="sv-hdr">
-    ${b ? `<a class="sv-back phone" href="${esc(b.href)}" data-back${short ? ` aria-label="${esc(/^Back\b/.test(b.label) ? b.label : 'Back to ' + b.label)}"` : ''}>${icon('chevron-left')}<span>${esc(short ? 'Back' : b.label)}</span></a>` : ''}
-    <a class="sv-brand" href="#/" aria-label="Today">${MARK}<span>Bill Tracker</span></a>
-    ${pageH1 ? `<span class="sv-title" aria-hidden="true">${esc(b ? '' : title)}</span>` : `<h1 class="sv-title">${esc(title)}</h1>`}
-    <nav class="sv-nav" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${tabNow(scr) === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}${t === 'today' ? pill : ''}</a>`).join('')}</nav>
-    <form class="sv-search" role="search" data-hsearch><label class="sr" for="hq">Search bills, legislators, people</label>${icon('search')}<input id="hq" type="search" placeholder="Search bills, legislators, people" autocomplete="off"></form>
+    ${b ? `<a class="sv-back phone" href="${esc(b.href)}" data-back${short ? ` aria-label="${esc(/^Back\b/.test(b.label) ? b.label : 'Back to ' + b.label)}"` : ''}>${icon('chevron-left')}<span>${esc(short ? 'Back' : b.label)}</span></a>`
+      : `<a class="sv-brand" href="#/" aria-label="Bill Tracker, Today">${MARK}</a>`}
+    <span class="sv-title" aria-hidden="true">${esc(title)}</span>
+    <form class="sv-search" role="search" data-hsearch><label class="sr" for="hq">Search bills, legislators, people and places</label>${icon('search')}<input id="hq" type="search" placeholder="Search bills, legislators, people" autocomplete="off" aria-keyshortcuts="${mac ? 'Meta+K' : 'Control+K'} /"><span class="sv-kbd" aria-hidden="true">${mac ? '⌘K' : 'Ctrl K'}</span></form>
     <a class="iconbtn sv-srchbtn" href="#/search" aria-label="Search">${icon('search')}</a>
-    <button type="button" class="sv-avbtn" data-avatar aria-label="Your menu" aria-haspopup="menu">${avatar(S.me, 32)}${icon('chevron-down', { cls: 'sv-avchev' })}</button>
+    <a class="iconbtn sv-bell" href="#/inbox" aria-label="Inbox${unread ? `, ${unread} unread` : ''}">${icon('bell')}${unread ? '<span class="sv-dot" aria-hidden="true"></span>' : ''}</a>
   </header>`;
 }
-// The desktop sidebar (1100px and wider; staff.css hides it below that, where the header carries the four tabs).
-// A wide screen has room to show where everything is, so the pages that sit behind a menu on a phone are one click
-// away here: Review, the Inbox, Sort new bills, the weekly memo, Lists, Emails, setup and help.
-// v3: no sub-items. Review opens from Today's card, Inbox is in your menu, Tasks are Today's cards and each bill's To do,
-// Sort new bills is in Bills' "…" menu, and My issues, Outreach show their own tabs on the page.
-// v4 (R-269): the Tasks page is gone, and the partner update is Outreach's second tab (This week's asks, Partner update,
-// Emails, Supporters: ui.js sectionNav), so the sidebar lights Outreach on all four.
-const SIDE_V2 = [
-  ['today', '#/', 'list-todo', 'Today', [['review', '#/review', 'Review'], ['inbox', '#/inbox', 'Inbox']]],
-  ['myissues', '#/my-issues', 'tag', 'My issues', []],
-  ['bills', '#/bills', 'scroll-text', 'Bills', [['triage', '#/bills/new', 'Sort new bills']]],
-  ['legislators', '#/legislators', 'landmark', 'Legislators', []],
-  ['outreach', '#/outreach', 'megaphone', 'Outreach', [['asks', '#/outreach', 'This week\u2019s asks'], ['partners', '#/outreach/partners', 'Partner update'], ['emails', '#/outreach/emails', 'Emails'], ['supporters', '#/outreach/supporters', 'Supporters']]],
-];
-const SIDE = SIDE_V2.map(([t, href, ic, label]) => [t, href, ic, label, []]);
-const SUB_OF = { review: 'review', inbox: 'inbox', triage: 'triage', memo: 'memo', asks: 'asks', partners: 'partners', supporters: 'supporters', person: 'supporters', issues: 'issues', issue: 'issues', coalition: 'coalitions', lists: 'lists', list: 'lists', emails: 'emails', composer: 'emails' };
+// The sidebar (768px and wider): every place, labelled, in the same order for everyone (V02, V18, D11, D12). Exactly two
+// counts, Today's and the Inbox's. Lead tools appear, under their heading, only for people who have one. More tools and You
+// stay at the foot, in view on a short laptop screen (the places scroll above them if they must); You opens the account
+// menu (the header's initials menu is gone). Collapse is opt-in and keeps short labels.
+function sideItem(k, now, extra = '') {
+  const [href, ic, label, shortL] = PLACES[k];
+  return `<a class="sv-sitem" href="${href}"${now === k ? ' aria-current="page"' : ''}>${icon(ic)}<span class="lbl">${label}</span><span class="lbs" aria-hidden="true">${shortL}</span>${extra}</a>`;
+}
+function sidebar(route) {
+  const now = placeOf(route), bd = badge(), lateN = lateCount(bd), leads = leadKeys(), narrow = sideNarrow();
+  let unread = 0; try { unread = inboxCount(); } catch { unread = 0; }
+  const todayN = bd.n ? (lateN ? `<span class="sv-sn bad" aria-label="${esc(countWords(bd, lateN))}">${icon('circle-alert')}<span class="sn-n">${lateN}</span><span class="sn-w"> overdue</span></span>`
+    : `<span class="sv-sn" aria-label="${esc(countWords(bd, 0))}">${bd.n > 99 ? '99+' : bd.n}</span>`) : '';
+  const inboxN = unread ? `<span class="sv-sn" aria-label="${unread} unread">${unread > 99 ? '99+' : unread}</span>` : '';
+  return `<aside class="sv-side" aria-label="Places">
+    <a class="sv-sbrand" href="#/" aria-label="Bill Tracker, Today">${MARK}<span>Bill Tracker<small>HIPHI staff</small></span></a>
+    <nav class="sv-snav" aria-label="Places">
+      <div class="sv-sgrp">${MAIN.map(k => sideItem(k, now, k === 'today' ? todayN : '')).join('')}</div>
+      <div class="sv-sgrp">${sideItem('inbox', now, inboxN)}${sideItem('help', now)}</div>
+      ${leads.length ? `<div class="sv-sgrp" role="group" aria-labelledby="sv-leadh"><p class="sv-shd" id="sv-leadh">Lead tools</p>${leads.map(k => sideItem(k, now)).join('')}</div>` : ''}
+    </nav>
+    <div class="sv-sfoot">${sideItem('tools', now)}${syncLine()}
+      <div class="sv-you"><button type="button" class="sv-sitem sv-youbtn" data-you aria-haspopup="menu"${now === 'you' ? ' aria-current="page"' : ''}>${avatar(S.me, 28)}<span class="lbl">You · ${esc(youName())}</span><span class="lbs" aria-hidden="true">You</span></button>
+        <button type="button" class="sv-scollapse" data-sidecol aria-pressed="${narrow}" aria-label="${narrow ? 'Widen the sidebar' : 'Narrow the sidebar'}" title="${narrow ? 'Widen the sidebar' : 'Narrow the sidebar'}">${icon(narrow ? 'panel-left-open' : 'panel-left-close')}</button></div>
+    </div>
+  </aside>`;
+}
 // Collapsing the sidebar is about this screen, not about the person, so it stays in this browser rather than
 // following them to their phone (where there is no sidebar at all).
 export const sideNarrow = () => { try { return localStorage.getItem('sv_side') === 'narrow'; } catch { return false; } };
 const setSideNarrow = on => { try { on ? localStorage.setItem('sv_side', 'narrow') : localStorage.removeItem('sv_side'); } catch { /* private window: this visit only */ } };
-const tabNow = scr => S.route?.name === 'bill' && S.billFrom ? S.billFrom : scr.tab;
-function sidebar(route, scr) {
-  const bd = badge(), sub = '';
-  let rv = 0, ib = 0; try { rv = reviewQueue().length; ib = inboxCount(); } catch { rv = rv || 0; }
-  const count = n => n ? `<span class="sv-sn">${n > 99 ? '99+' : n}</span>` : '';
-  // R-328 B: Partners sits with Session setup, for the people who add and approve partner groups (admins, partner approvers).
-  const foot = [['help', '#/help', 'circle-help', 'Help'], ...(admitsPartners() ? [['pgroups', '#/partners', 'handshake', 'Partners']] : []), ...(S.me?.is_admin ? [['setup', '#/setup', 'sliders-horizontal', 'Session setup']] : []), ['me', '#/me', 'settings', 'My settings']];
-  return `<aside class="sv-side" aria-label="Sections">
-    <a class="sv-sbrand" href="#/" aria-label="Bill Tracker, Today">${MARK}<span>Bill Tracker<small>HIPHI staff · v6</small></span></a>
-    <nav class="sv-snav" aria-label="Main">${SIDE.map(([t, href, ic, label, subs]) => `<div class="sv-sgrp">
-      <a class="sv-sitem" href="${href}" title="${label}" ${tabNow(scr) === t && !sub ? 'aria-current="page"' : ''}${tabNow(scr) === t ? ' data-open' : ''}>${icon(ic)}<span class="lbl">${label}</span>${t === 'today' && bd.n ? `<span class="sv-sn${bd.late ? ' late' : ''}" aria-label="${bd.n} due${bd.late ? ', some overdue' : ''}">${bd.n > 99 ? '99+' : bd.n}</span>` : ''}</a>
-      ${subs.length ? `<div class="sv-ssub">${subs.map(([k, h, l]) => `<a class="sv-sitem sub" href="${h}" ${sub === k ? 'aria-current="page"' : ''}><span class="lbl">${l}</span>${k === 'review' ? count(rv) : k === 'inbox' ? count(ib) : ''}</a>`).join('')}</div>` : ''}</div>`).join('')}</nav>
-    <nav class="sv-sfoot" aria-label="Help and settings">${foot.map(([k, h, ic, l]) => `<a class="sv-sitem" href="${h}" title="${l}" ${route.name === k ? 'aria-current="page"' : ''}>${icon(ic)}<span class="lbl">${l}</span></a>`).join('')}
-      ${syncLine()}
-      <button type="button" class="sv-scollapse" data-sidecol aria-pressed="${sideNarrow()}">${icon(sideNarrow() ? 'panel-left-open' : 'panel-left-close')}<span>Collapse</span></button></nav>
-  </aside>`;
-}
-// How fresh the Capitol data is, for everyone (the old app showed it to all; v2 had it for admins only; B-7).
+// How fresh the Capitol data is (F9). v6 says it in the sidebar only when it is 12 hours old or more (status by exception,
+// D3); the More page always says it, and the practice band carries the practice date.
 function syncLine() {
-  if (DEMO) return `<p class="sv-sync">${icon('refresh-cw', { size: 14 })}<span>Sandbox data, as of ${new Date(DEMO_ASOF).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Pacific/Honolulu' })}</span></p>`;
+  if (DEMO) return '';
   const last = (S.syncRuns || []).find(r => r.ok)?.finished_at; if (!last) return '';
-  const h = Math.floor((Date.now() - new Date(last).getTime()) / 36e5), stale = h >= 12;
-  const ago = h < 1 ? 'less than an hour ago' : h < 48 ? `${h} hour${h === 1 ? '' : 's'} ago` : `${Math.floor(h / 24)} days ago`;
-  return `<p class="sv-sync${stale ? ' late' : ''}">${icon(stale ? 'circle-alert' : 'refresh-cw', { size: 14 })}<span>Capitol data synced ${ago}</span></p>`;
+  const h = Math.floor((Date.now() - new Date(last).getTime()) / 36e5); if (h < 12) return '';
+  return `<p class="sv-sync" role="status">${icon('circle-alert')}<span>Capitol data synced ${h < 48 ? `${h} hours ago` : `${Math.floor(h / 24)} days ago`}</span></p>`;
 }
-function tabbar(scr) {
-  const bd = badge();
-  return `<nav class="sv-tabs" aria-label="Main">${TABS.map(([t, href, ic, label]) => `<a href="${href}" ${tabNow(scr) === t ? 'aria-current="page"' : ''}><span class="pill">${icon(ic, { size: 24 })}</span>${label}${t === 'today' && bd.n ? `<span class="sv-badge${bd.late ? ' late' : ''}">${bd.n > 99 ? '99+' : bd.n}</span>` : ''}</a>`).join('')}</nav>`;
+// The phone bar (below 768px): Today · Hearings · Testimony · Bills · More, on every route (D2, V21). One word each.
+function tabbar(route) {
+  const now = barOf(placeOf(route)), bd = badge(), lateN = lateCount(bd);
+  return `<nav class="sv-tabs" aria-label="Places">${BAR.map(k => { const [href, ic, label] = PLACES[k];
+    const n = k === 'today' && bd.n ? `<span class="sv-badge${lateN ? ' bad' : ''}" aria-label="${esc(countWords(bd, lateN))}">${bd.n > 99 ? '99+' : bd.n}</span>` : '';
+    return `<a href="${href}"${now === k ? ' aria-current="page"' : ''}><span class="pill">${icon(ic, { size: 24 })}</span>${label}${n}</a>`; }).join('')}</nav>`;
 }
 // A read that failed is said at the top of every screen, with a Reload (R-152 B). Before, eight of about fifty sign-in reads
 // stopped the app and the rest quietly became empty lists. S.loadFailed names them (data.js loadAll).
@@ -298,40 +346,54 @@ export function render() {
   if (!S.session && !DEMO) return renderLogin();
   if (RECOVERY && !DEMO) return renderRecovery();
   const route = parseRoute();
+  // v5's #/?scope=team is Team for leads and Today for everyone else (spec 3.4).
+  if (route.leads && !isLead()) route.redirect = '#/';
+  // The old app's forms (#bill=, #emails, #calendar=) met after the first load (a link opened in the same tab): the same
+  // place as boot() gives them.
+  if (route.legacy) route.redirect = `#/bill/${route.num}`;
+  else if (route.legacyTo) { route.redirect = route.legacyTo; if (route.note) setTimeout(() => toast(route.note), 300); }
   // A retired address (v4: #/tasks) is replaced, not pushed, so Back never lands on it again.
   if (route.redirect) { try { history.replaceState(history.state, '', route.redirect); } catch { /* ignore */ } return render(); }
   // R-277 ui-critic: a bill opened from Today (or My issues, Outreach...) keeps that place lit in the tab bar and sidebar,
   // so a phone does not jump to Bills under you; a bill opened from nowhere (a link) lights Bills.
-  if (route.name === 'bill' && S.route?.name !== 'bill') { const pt = S.route && SCREENS[S.route.name]?.tab; S.billFrom = typeof pt === 'string' && pt ? pt : null; }
+  if (route.name === 'bill' && S.route?.name !== 'bill') { const pt = placeOf(S.route); S.billFrom = pt && pt !== 'more' ? pt : null; }
   S.route = route;
   const scr = SCREENS[route.name] || today;
-  const tabs = scr.tabs !== false && !(scr.noTabs && scr.noTabs(route));
   let main, bar = '';
   try { main = loadNotice() + scr.render(route); bar = scr.bar ? scr.bar(route) : ''; } catch (e) { console.error(e); reportError('render', e); main = empty({ title: 'Something went wrong on this page', text: 'Try again, or go back to Today.', action: btn('Back to Today', { href: '#/' }) }); }
+  // Every page names itself (spec 3.1): a screen without its own h1 gets the frame's, at the top of the work column.
+  const title = scr.title ? scr.title(route) : '';
+  if (!/<h1[\s>]/i.test(main || '') && title) main = `<h1 class="v6-ptitle">${esc(title)}</h1>` + main;
   const cls = document.body.classList;
-  cls.add('staff2', 'staff6'); cls.toggle('sidenarrow', sideNarrow()); cls.toggle('notabs', !tabs); cls.toggle('withtabs', tabs); cls.toggle('hasbar', !!bar); cls.toggle('wide', !!(scr.wide && scr.wide(route)));
+  // v6: the phone bar shows on every route (V21), so `withtabs` always; a screen's v5 `tabs: false` no longer hides it.
+  cls.add('staff2', 'staff6'); cls.toggle('sidenarrow', sideNarrow()); cls.remove('notabs'); cls.add('withtabs'); cls.toggle('hasbar', !!bar); cls.toggle('wide', !!(scr.wide && scr.wide(route)));
   document.body.dataset.screen = route.name;
+  document.body.dataset.place = placeOf(route) || 'none';
   // Desktop widths: a screen is 1120px by default; `wide` (tables) uses the whole window; `narrow` (one focused task
   // or a form: review, settings) stays a 760px reading column.
   document.body.toggleAttribute('data-narrow', !!(typeof scr.narrow === 'function' ? scr.narrow(route) : scr.narrow));
   const app = document.getElementById('app');
-  // One h1 per page: the page's own when it has one, else the frame's title (hidden visually on desktop).
-  // The action bar lives inside <main>, as its last child: fixed to the bottom on phones, and on a wide screen it
-  // sits right under the content it acts on (staff.css), never a screen-height away from it.
-  // Sandbox: practise as anyone on the team from your menu (it used to take editing the address, &as=LR, which nobody
-  // would find). The band stays plain text: a control inside a 28px band cannot be a 44px target (A-6). R-316 W38: practice
-  // changes now stay in this tab across a person switch, so the band no longer says "nothing is saved"; Start over is in the menu.
-  const band = DEMO ? `<div class="band"><span class="band-hint">Staff v6 · Sandbox · </span>${new Date(DEMO_ASOF).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Pacific/Honolulu' })} · as ${esc((S.me?.full_name || '').split(' ')[0])} · practice only<span class="band-hint"> · your changes stay in this tab · switch person or start over in your menu</span></div>` : '';
-  app.innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${band}${sidebar(route, scr)}<div class="sv-page">${header(route, scr, /<h1[\s>]/i.test(main || ''))}<main id="main" tabindex="-1">${main}${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}</main></div>${tabs ? tabbar(scr) : ''}`;
-  // One heading a screen reader can find, on every screen at every width. Phones hide a page's own h1 (the header
-  // already shows the title), which left 12 of 22 screens with no heading at all: where the page's h1 is not drawn,
-  // the header's title is the heading.
-  const ownH1 = app.querySelector('main h1'), ft = app.querySelector('.sv-hdr .sv-title');
-  if (ft && ft.tagName !== 'H1' && (!ownH1 || getComputedStyle(ownH1).display === 'none')) { ft.removeAttribute('aria-hidden'); ft.setAttribute('role', 'heading'); ft.setAttribute('aria-level', '1'); }
+  // The action bar lives inside <main>, as its last child: fixed above the phone bar, and on a wide screen it sits right
+  // under the content it acts on (staff.css), never a screen-height away from it.
+  // The practice copy's band (warm dark, V33): the date and who you practise as; the switch is in the You menu (A-6: no
+  // control inside a 28px band).
+  const band = DEMO ? `<div class="band"><span class="band-hint"><b>Staff v6</b> · Practice copy · </span>${new Date(DEMO_ASOF).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Pacific/Honolulu' })} · as ${esc((S.me?.full_name || '').split(' ')[0])} · practice only<span class="band-hint"> · your changes stay in this tab · switch person or start over under You</span></div>` : '';
+  const navTop = document.querySelector('.sv-snav')?.scrollTop || 0;   // a redraw keeps the sidebar where it was scrolled
+  app.innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${band}${sidebar(route)}<div class="sv-page">${header(route, scr)}<main id="main" tabindex="-1">${main}${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}</main></div>${tabbar(route)}`;
+  // One heading a screen reader can find, on every screen at every width. Phones hide a page's own h1 (the top bar shows
+  // the title): where the page's h1 is not drawn, the top bar's title is the heading.
+  // From 768px there is no top bar: a screen that hides its own h1 below 900px (its phone layout, made when the header carried
+  // the title) gets the frame's title in its place, so the page still names itself.
+  const ft = app.querySelector('.sv-hdr .sv-title'), mainEl = app.querySelector('main');
+  let shown = [...app.querySelectorAll('main h1')].find(h => h.getClientRects().length > 0);   // drawn (a hidden parent hides it too)
+  if (!shown && title && mainEl && matchMedia('(min-width: 768px)').matches) { mainEl.insertAdjacentHTML('afterbegin', `<h1 class="v6-ptitle">${esc(title)}</h1>`); shown = mainEl.firstElementChild; }
+  if (ft && !shown) { ft.removeAttribute('aria-hidden'); ft.setAttribute('role', 'heading'); ft.setAttribute('aria-level', '1'); }
   try { clearTimeout(window.__bootT); } catch { /* ignore */ }
-  document.title = (scr.title ? scr.title(route) + ' · ' : '') + 'Bill Tracker staff';
+  document.title = (title ? title + ' · ' : '') + 'Bill Tracker staff';
   try { scr.wire && scr.wire(route, app); } catch (e) { console.error(e); reportError('error', e); }
   wireFrame(app);
+  const nav = app.querySelector('.sv-snav'); if (nav && navTop) nav.scrollTop = navTop;
+  hdrShadow(); tabRows(app);
   if (location.hash !== lastKey) { lastKey = location.hash; if (!app.contains(document.activeElement) || document.activeElement === document.body) app.querySelector('main')?.focus({ preventScroll: true }); }
 }
 hooks.render = () => render();
@@ -348,7 +410,8 @@ function wireFrame(app) {
     if (a.hasAttribute('data-back') && depth > 0) { history.back(); return; }
     go(a.getAttribute('href'));
   }));
-  app.querySelector('[data-avatar]')?.addEventListener('click', avatarMenu);
+  // You (the sidebar's foot, the More page's last row): the account menu.
+  app.querySelectorAll('[data-you]').forEach(el => el.addEventListener('click', accountMenu));
   app.querySelector('[data-reload]')?.addEventListener('click', () => refreshData({ say: true }));
   // Collapse: redrawn in place, so the page under it keeps its scroll position and nothing else moves.
   app.querySelector('[data-sidecol]')?.addEventListener('click', () => { setSideNarrow(!sideNarrow()); render(); document.querySelector('[data-sidecol]')?.focus(); });
@@ -363,48 +426,67 @@ function wireFrame(app) {
     suggest(f.querySelector('input'), { source: headerHits, open: go, when: () => S.route?.name !== 'search', label: 'Suggested places, bills, issues, legislators and supporters',   // R-277 fix 19: places first
       busy: 'Looking through every bill', empty: q => `No place, bill, issue, legislator or supporter matches “${q}”.`,
       seeAll: (q, hits) => ({ href: '#/search?q=' + encodeURIComponent(q), label: hits ? `See all results for “${q}”` : `Look for “${q}” in sponsors, owners and committees` }) }); }
-  app.querySelector('[data-asbtn]')?.addEventListener('click', practiseAs);
 }
+// A place's page tabs that run past a phone's width scroll sideways: the open tab is brought into view, and the row fades at
+// the edge that has more (B-9: a hidden scrollbar is the only other cue).
+function tabRows(app) {
+  app.querySelectorAll('.sv-tabrow').forEach(r => {
+    const over = r.scrollWidth > r.clientWidth + 1; r.classList.toggle('ovf', over); if (!over) return;
+    const c = r.querySelector('[aria-current="page"], [aria-pressed="true"]');
+    if (c && !r.dataset.placed) { r.scrollLeft = Math.max(0, c.offsetLeft - (r.clientWidth - c.offsetWidth) / 2); r.dataset.placed = '1'; }
+    const ends = () => { r.classList.toggle('atstart', r.scrollLeft <= 2); r.classList.toggle('atend', r.scrollLeft + r.clientWidth >= r.scrollWidth - 2); };
+    ends(); if (!r.dataset.w) { r.dataset.w = '1'; r.addEventListener('scroll', ends, { passive: true }); }
+  });
+  // The sidebar's places, when a short window makes them scroll above the foot: the cut edge fades, so more is seen to be there.
+  const nav = app.querySelector('.sv-snav');
+  if (nav) { const ends = () => { const over = nav.scrollHeight > nav.clientHeight + 1; nav.classList.toggle('ovf', over); nav.classList.toggle('atend', !over || nav.scrollTop + nav.clientHeight >= nav.scrollHeight - 2); };
+    ends(); if (!nav.dataset.w) { nav.dataset.w = '1'; nav.addEventListener('scroll', ends, { passive: true }); } }
+}
+addEventListener('resize', () => { const app = document.getElementById('app'); if (app && S.route) tabRows(app); }, { passive: true });
+// No rule under the header (V16): a soft shadow shows only once the page has scrolled under it.
+function hdrShadow() { const h = document.querySelector('.sv-hdr'); if (h) h.classList.toggle('scrolled', window.scrollY > 4); }
+addEventListener('scroll', () => { if (!hdrShadow.raf) hdrShadow.raf = requestAnimationFrame(() => { hdrShadow.raf = 0; hdrShadow(); }); }, { passive: true });
 function practiseAs() {
   menuSheet({ title: 'Practice as', items: S.advocates.filter(a => a.is_active !== false).map(a => ({
     label: a.full_name + (a.id === S.me?.id ? ' (now)' : ''), icon: 'user-round', sub: a.is_admin ? 'Admin: approves, sets up the session' : a.can_approve ? 'Approver: testimony and supporter emails' : a.is_reviewer ? 'Second approver' : (billsOwned(a.id) ? `${billsOwned(a.id)} bills` : 'No bills of their own'),
     run: () => { const u = new URL(location.href); u.searchParams.set('as', a.initials); location.href = u.toString(); } })) });
 }
 const billsOwned = id => S.bills.filter(b => (S.assignments[b.id] || []).includes(id)).length;
-// v4 (R-269, B-13): one way into each place. With the sidebar on screen (1100px and wider), Help, My settings and Session
-// setup are its foot, so your menu leaves them out (Nate's menu 9 -> 6 items, Kevin's 7 -> 5); a phone or a narrow
-// window, with no sidebar, keeps them here.
-const sideShown = () => { try { return matchMedia('(min-width: 1100px)').matches; } catch { return false; } };
-function avatarMenu() {
-  const side = sideShown();
-  menuSheet({ title: S.me?.full_name || 'Your menu', items: [
-    DEMO ? { label: 'Practice as someone else', icon: 'users-round', sub: 'Sandbox: see the app as a teammate sees it, with your changes', run: () => setTimeout(practiseAs, 50) } : null,
-    { label: 'Inbox', icon: 'inbox', sub: 'Messages and updates sent to you, read or not', run: () => go('#/inbox') },
+// You: the account menu (spec 3.1, V03). It holds only the person's own things: My settings, Refresh, Sign out, and in the
+// practice copy who to practise as and Start over. Inbox and Help have their own doors in the sidebar and on More; the
+// version-compare links moved to More tools (admins). The phone's More page lists the same items as rows (more.js), so
+// My settings is two labelled taps there too.
+function accountItems() {
+  return [
+    { label: 'My settings', icon: 'settings', sub: 'How the tracker reaches you', run: () => go('#/me') },
+    DEMO ? { label: 'Practice as someone else', icon: 'users-round', sub: 'See the app as a teammate sees it, with your changes', run: () => setTimeout(practiseAs, 50) } : null,
     { label: 'Refresh', icon: 'refresh-cw', sub: 'Read what your teammates changed since this page loaded', run: () => setTimeout(() => refreshData({ say: true }), 50) },
     // R-316 W38: the changes made in this tab go with a person switch, so two people can be tried in turn; this puts the day
     // back, with Undo in the toast after the reload.
     DEMO ? { label: 'Start the practice over', icon: 'rotate-ccw', sub: 'Undoes every change kept in this tab, whoever you practised as', run: () => { clearPractice(); location.reload(); } } : null,
-    side ? null : { label: 'My settings', icon: 'settings', run: () => go('#/me') },
-    admitsPartners() && !side ? { label: 'Partners', icon: 'handshake', sub: 'Advocacy groups that write on the tracker', run: () => go('#/partners') } : null,   // R-328 B
-    S.me?.is_admin && !side ? { label: 'Session setup', icon: 'sliders-horizontal', run: () => go('#/setup') } : null,
-    side ? null : { label: 'Help', icon: 'circle-help', run: () => go('#/help') },
-    // R-277 fix 6 (E-7): the other versions are for Nate's comparison, so only admins see them.
-    S.me?.is_admin ? { label: 'Open this page in Staff v5', icon: 'columns-3', sub: 'The version before the R-336 rebuild, to compare', run: () => { location.href = 'staff5.html' + location.search + location.hash; } } : null,
-    S.me?.is_admin ? { label: 'Open this page in Staff v2', icon: 'columns-3', sub: 'The team\u2019s app today, to compare', run: () => { location.href = 'staff.html' + location.search + location.hash; } } : null,
-    S.me?.is_admin ? { label: 'Open the old app', icon: 'external-link', sub: 'The old staff app, look-only', run: () => { location.href = APP_URL + 'classic.html' + (DEMO ? '?demo=1' : ''); } } : null,
     DEMO ? null : { label: 'Sign out', icon: 'log-out', run: async () => { await DB.logout(); } },
-  ] });
+  ].filter(Boolean);
 }
+function accountMenu() { menuSheet({ title: S.me?.full_name || 'You', items: accountItems() }); }
+S.accountMenu = accountMenu; S.accountItems = accountItems;   // more.js lists the same items as rows
 
 // ---- keyboard: desktop only (Help lists these; never shown on touch screens) ----
+// v6 (V32): Cmd/Ctrl-K, from anywhere, puts the cursor in the header's search box (on a phone, the Search page); "/" does the
+// same outside a text box (a page's own find box first, while one is on screen). g then a letter goes to a place: t Today,
+// h Hearings, w Testimony (write), b Bills, l Legislators, o Outreach, m My issues, r Review, i Inbox.
 let gPending = 0;
+const focusSearch = () => { const q = document.getElementById('hq'); if (q && q.offsetParent && getComputedStyle(q).visibility !== 'hidden') { q.focus(); q.select?.(); } else go('#/search'); };
 document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === 'k' || e.key === 'K')) {
+    if (document.querySelector('dialog[open]') || !S.route) return;
+    e.preventDefault(); focusSearch(); return;
+  }
   const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
   if (typing || e.metaKey || e.ctrlKey || e.altKey || document.querySelector('dialog[open]') || !keysOn()) return;
   if (e.key === '?') { e.preventDefault(); go('#/help/keys'); return; }
-  if (e.key === '/') { e.preventDefault(); const own = document.querySelector('main .bl-search input'), q = document.getElementById('hq'); if (own && own.offsetParent) own.focus(); else if (q && q.offsetParent && getComputedStyle(q).visibility !== 'hidden') q.focus(); else go('#/search'); return; }
+  if (e.key === '/') { e.preventDefault(); const own = document.querySelector('main .bl-search input'); if (own && own.offsetParent) own.focus(); else focusSearch(); return; }
   if (e.key === 'g') { gPending = Date.now(); return; }
-  if (gPending && Date.now() - gPending < 1200) { gPending = 0; const to = { t: '#/', m: '#/my-issues', b: '#/bills', l: '#/legislators', o: '#/outreach', r: '#/review', i: '#/inbox' }[e.key]; if (to) { e.preventDefault(); go(to); } }
+  if (gPending && Date.now() - gPending < 1200) { gPending = 0; const to = { t: '#/', h: '#/hearings', w: '#/testimony', m: '#/my-issues', b: '#/bills', l: '#/legislators', o: '#/outreach', r: '#/review', i: '#/inbox' }[e.key]; if (to) { e.preventDefault(); go(to); } }
 });
 
 // ---- sign in and a new password (same calls as the current app) ----
@@ -481,6 +563,10 @@ function renderRecovery() {
 }
 
 // ---- first load ----
+// Loading and a failed load are first impressions too (spec 4): the warm page, the mark, one calm line, no frame yet.
+const markBrand = () => `<p class="sv-lbrand">${MARK.replace('class="mark"', 'class="mark mk"')}<span><b>HIPHI Bill Tracker</b><span class="sv-lfor">for the HIPHI team</span></span></p>`;
+const loadingScreen = () => { document.body.classList.add('staff2', 'staff6', 'notabs'); return `<main id="main" class="sv-load" aria-busy="true">${markBrand()}<p class="sv-lsay" role="status">Getting your day ready…</p>${skeleton(3)}</main>`; };
+const failScreen = () => { document.body.classList.add('staff2', 'staff6', 'notabs'); return `<main id="main" class="sv-load sv-fail">${markBrand()}${empty({ title: 'We could not load the tracker', h: 'h1', text: 'Check your connection and try again.', action: btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { onclick: 'location.reload()' } }) })}</main>`; };
 async function boot() {
   const app = document.getElementById('app');
   try {
@@ -493,7 +579,7 @@ async function boot() {
       else if (nowT - last > 30 * 60e3) { localStorage.setItem('prevVisit', String(last)); localStorage.setItem('lastVisit', String(nowT)); S.sinceVisit = last; }
       else S.sinceVisit = +localStorage.getItem('prevVisit') || last;
     }
-    app.innerHTML = `<div class="sv-hdr"></div><main>${skeleton(5)}</main>`;
+    app.innerHTML = loadingScreen();
     await DB.loadAll();
     if (DEMO) sandboxExtras();
     if (DEMO && practiceRestarted()) setTimeout(() => toast('Practice started over: the changes made in this tab are gone.', { undo: () => { undoStartOver(); location.reload(); } }), 800);
@@ -505,7 +591,7 @@ async function boot() {
     render();
   } catch (e) {
     console.error(e); reportError('boot', e);
-    app.innerHTML = `<main id="main">${empty({ title: 'We could not load the tracker', text: 'Check your connection and try again.', action: btn('Try again', { icon: 'rotate-ccw', attrs: { onclick: 'location.reload()' } }) })}</main>`;
+    app.innerHTML = failScreen();
   }
 }
 // Sandbox only: sign in as a teammate (&as=KV) to see the non-admin and reviewer rules, and two sample action alerts
@@ -555,4 +641,4 @@ function sandboxExtras() {
       ...(S.alerts || [])];
   }
 }
-DB.init().then(boot).catch(e => { console.error(e); reportError('boot', e); document.getElementById('app').innerHTML = `<main id="main">${empty({ title: 'We could not load the tracker', text: 'Check your connection and try again.' })}</main>`; });
+DB.init().then(boot).catch(e => { console.error(e); reportError('boot', e); document.getElementById('app').innerHTML = failScreen(); });

@@ -1,5 +1,9 @@
 // HIPHI Staff v2: shared building blocks. Every screen builds from these so a row, a chip, a sheet or a countdown
 // looks and behaves the same everywhere (plan section 4). Styles in staff/staff.css, on top of pub/base.css.
+// Staff v6 (R-336): the same functions and signatures; staff6/staff.css restyles them on staff6/css/tokens.css. btn() kinds:
+// 'primary' is the FILLED button (one per screen or region, V11), 'secondary' the TONAL one (action wash, no outline), 'text'
+// a text button, 'danger' only inside a confirm. Countdowns and urgency tiles follow D3 (amber only while late testimony is
+// still accepted, red only overdue, due-soon neutral and bold). sectionNav() knows every v6 place's page tabs (spec 3.3, D12).
 import { S, STAGES, effStage, esc, advocate } from './data.js';
 import { stopOf, STAGE_GLOSS, clockDay, spanOf, timeLeft, lateLine } from './model.js';
 export { clockDay, lateLine };   // R-277 fix 3: it lives with the other time words in model.js; callers still import it from here
@@ -73,7 +77,7 @@ const lateUntil = (iso, until) => { const now = Date.now(); return !!until && ne
 // whenever the hearing is not today ("until tomorrow 9:30 AM", "until Fri 3/20, 9:30 AM"): clockDay, model.js.
 export function countdown(iso, { prefix = '', until = null } = {}) {
   if (!iso) return '';
-  if (lateUntil(iso, until)) return `<span class="sv-count soon">${icon('clock')}${esc(prefix ? `${prefix}${lateLine(until, { lower: true })}` : lateLine(until))}</span>`;
+  if (lateUntil(iso, until)) return `<span class="sv-count lateok">${icon('clock')}${esc(prefix ? `${prefix}${lateLine(until, { lower: true })}` : lateLine(until))}</span>`;
   const ms = new Date(iso) - Date.now(), h = ms / 36e5;
   // Never round a deadline up: 2 days 6 hours is "2 days", not 3 (R-022). R-277 fix 3 (W-6): the words come from model.js
   // timeLeft, the same on every screen: "in 28 min", "in 4 hours", "4 hours overdue" (no more "under an hour", "7h left").
@@ -88,14 +92,16 @@ export function row({ lead, leadHtml, title, sub, end = '', chevron = true, href
   const inner = `${leadHtml || (lead ? `<span class="lead">${icon(lead)}</span>` : '')}<span class="body"><span class="title">${title}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</span><span class="end">${end}${chevron ? icon('chevron-right', { cls: 'chev' }) : ''}</span>`;
   return href ? `<a class="row${cls ? ' ' + cls : ''}" href="${esc(href)}"${attrs(a)}>${inner}</a>` : `<button type="button" class="row${cls ? ' ' + cls : ''}"${attrs(a)}>${inner}</button>`;
 }
-// A bill row (64px on phones): number + plain title, a status sentence, and position / P1 / owner at the right.
+// A bill row: the name (the nickname, else the plain summary) with the bill number small after it, one line under it, and
+// the position and owner at the right. v6 (D15, R-271): no version code (HD1) and no P1 in a row; they live in the bill.
+// steps.js billRow() is v6's own row for rebuilt screens; this one keeps the screens not yet rebuilt in the same words.
 export function billRow(b, { sub = '', href, attrs: a, selectable = false, selected = false, cls = '' } = {}) {
-  const num = (b.bill_number || '').replace(/^([A-Z]+)(\d)/, '$1$2') + (b.current_version ? ' ' + b.current_version : '');
-  const nick = b.nickname || '', title = b.public_summary || b.description || b.title || '';   // the nickname names the bill when it has one; the summary follows
+  const num = (b.bill_number || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2');
+  const name = b.nickname || b.public_summary || b.description || b.title || num;
   const pos = b.position || '';
-  const end = `<span class="sv-posic" title="${esc(POS_WORD[pos] || pos)}" aria-label="${esc(POS_WORD[pos] || pos)}">${icon(POS_ICON[pos] || 'circle-dashed')}</span>${b.priority === 1 ? '<span class="sv-p1">P1</span>' : ''}${avatar(ownerOf(b))}`;
+  const end = `<span class="sv-posic" title="${esc(POS_WORD[pos] || pos)}" aria-label="${esc(POS_WORD[pos] || pos)}">${icon(POS_ICON[pos] || 'circle-dashed')}</span>${avatar(ownerOf(b))}`;
   const box = selectable ? `<span class="sv-check" aria-hidden="true">${icon(selected ? 'square-check-big' : 'square')}</span>` : '';
-  const inner = `${box}<span class="body"><span class="title"><b>${esc(num)}</b> ${nick ? `<b class="sv-nk">${esc(nick)}</b> ` : ''}<span class="sv-t">${esc(title)}</span></span>${sub ? `<span class="sub">${sub}</span>` : ''}</span><span class="end">${end}</span>`;
+  const inner = `${box}<span class="body"><span class="title"><span class="sv-nk">${esc(name)}</span>${name !== num ? ` <span class="bn-num">${esc(num)}</span>` : ''}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</span><span class="end">${end}</span>`;
   const extra = { 'data-bill': b.id, ...(selectable ? { 'aria-pressed': selected ? 'true' : 'false' } : {}), ...(a || {}) };
   return href && !selectable ? `<a class="row sv-billrow${cls ? ' ' + cls : ''}" href="${esc(href)}"${attrs(extra)}>${inner}</a>`
     : `<button type="button" class="row sv-billrow${selected ? ' sel' : ''}${cls ? ' ' + cls : ''}"${attrs(extra)}>${inner}</button>`;
@@ -224,7 +230,7 @@ addEventListener('scroll', () => { if (!fbRaf) fbRaf = requestAnimationFrame(() 
 export function urgentMark(iso, { done = false, until = null, act = null } = {}) {
   if (done) return `<span class="sv-urg done" role="img" aria-label="Done">${icon('check')}</span>`;
   if (!iso) return '<span class="sv-urg none" aria-hidden="true"></span>';
-  if (lateUntil(iso, until)) { return `<span class="sv-urg soon" role="img" aria-label="${esc(lateLine(until))}"><b>${esc(spanOf(until, { short: true }))}</b><span>${esc(act || 'to file')}</span></span>`; }   // the hours left to file late ("late" read as "4 hours late")
+  if (lateUntil(iso, until)) { return `<span class="sv-urg lateok" role="img" aria-label="${esc(lateLine(until))}"><b>${esc(spanOf(until, { short: true }))}</b><span>${esc(act || 'to file')}</span></span>`; }   // the hours left to file late ("late" read as "4 hours late")
   const ms = new Date(iso) - Date.now(), h = ms / 36e5;
   const big = spanOf(iso, { short: true });   // "28m", "4h", "3d", rounded down (R-022); R-277 fix 3: one rounding with the words
   const word = ms <= 0 ? 'overdue' : act || 'left';   // one word for time still to run, hours or days (R-152 C: it said "to go" past 48 hours)
@@ -386,17 +392,30 @@ export function confirmSheet({ title, text = '', ok = 'OK', danger = false }) {
 }
 
 // v3 (R-264): one row of tabs at the top of a section with sub-pages, the same at every width (B-13: the sidebar holds the
-// five main places only). 'issues': My issues, every issue, coalitions (three ways to group bills, under My issues);
-// 'outreach': rallying people. Lists left the row (none live); its pages still open from Bills' "…" menu.
+// places only). v6 (R-336, spec 3.3, D12): every place with sub-pages has its row here, in the spec's order and words, so
+// placeHead (steps.js) and the screens draw the same tabs. Each tab: [key, address, label]. Addresses are the v6 ones; the
+// old ones (#/outreach/issues, #/coalition) still open the same pages (app.js parseRoute redirects them).
 const SECTIONS = {
-  issues: ['Groups of bills', [['mine', '#/my-issues', 'My issues'], ['all', '#/outreach/issues', 'All issues'], ['coalitions', '#/coalition', 'Coalitions']]],
-  // v4 (R-269): Outreach is for rallying, so it opens on this week's asks (narrowed to your coalitions); the partner
-  // update moved here from Bills' "…" menu; the supporters table is the last tab, not the first screen.
-  outreach: ['Outreach', [['asks', '#/outreach', 'This week\u2019s asks'], ['partners', '#/outreach/partners', 'Partner update'], ['emails', '#/outreach/emails', 'Emails'], ['supporters', '#/outreach/supporters', 'Supporters']]],
+  hearings: ['Hearings', [['week', '#/hearings', 'This week'], ['ask', '#/hearings/ask', 'Get hearings']]],
+  testimony: ['Testimony', [['write', '#/testimony?view=write', 'To write'], ['approve', '#/testimony?view=approve', 'To approve'], ['sent', '#/testimony?view=sent', 'Sent back'],
+    ['file', '#/testimony?view=file', 'Ready to file'], ['filed', '#/testimony?view=filed', 'Filed'], ['missed', '#/testimony?view=missed', 'Missed']]],
+  // v4 (R-269): Outreach is for rallying, so it opens on this week's asks; v6 adds Lists as its last tab (spec 3.3).
+  outreach: ['Outreach', [['asks', '#/outreach', 'This week\u2019s asks'], ['partners', '#/outreach/partners', 'Partner update'], ['emails', '#/outreach/emails', 'Emails'],
+    ['supporters', '#/outreach/supporters', 'Supporters'], ['lists', '#/outreach/lists', 'Lists']]],
+  bills: ['Bills', [['bills', '#/bills', 'Bills'], ['new', '#/bills/new', 'Sort new bills'], ['muted', '#/bills/muted', 'Muted']]],
+  legislators: ['Legislators', [['ask', '#/legislators', 'Who to ask'], ['everyone', '#/legislators?view=everyone', 'Everyone'], ['holding', '#/legislators?view=holding', 'Holding our bills']]],
+  // My issues (R-263): the person's own first, then the coalitions, then every issue (spec 3.3's order).
+  issues: ['My issues', [['mine', '#/my-issues', 'My issues'], ['coalitions', '#/my-issues/coalitions', 'Coalitions'], ['all', '#/my-issues/all', 'All issues']]],
+  inbox: ['Inbox', [['messages', '#/inbox', 'Messages'], ['updates', '#/inbox?view=updates', 'Updates']]],
 };
-export function sectionNav(kind, cur) {
+export const SECTION_TABS = kind => (SECTIONS[kind] || ['', []])[1].map(([k, href, label]) => ({ key: k, href, label }));
+// sectionNav(kind, cur, { only, hide, counts }): `only` / `hide` list tab keys to show or leave out (Testimony's Missed only
+// when any; Bills' Sort new bills only in the opening weeks or when there are new bills); `counts` puts a quiet number after
+// a tab's word ({ approve: 3 }); a count is a fact, not an alarm, so it is never coloured (D3).
+export function sectionNav(kind, cur, { only = null, hide = [], counts = {} } = {}) {
   const [label, items] = SECTIONS[kind] || ['', []];
-  return `<nav class="sv-tabrow sv-secnav" aria-label="${esc(label)}">${items.map(([k, href, l]) => `<a href="${href}"${k === cur ? ' aria-current="page"' : ''}>${l}</a>`).join('')}</nav>`;
+  const shown = items.filter(([k]) => (!only || only.includes(k)) && !hide.includes(k));
+  return `<nav class="sv-tabrow sv-secnav" aria-label="${esc(label)}">${shown.map(([k, href, l]) => `<a href="${href}"${k === cur ? ' aria-current="page"' : ''}>${l}${counts[k] ? ` <span class="sv-tn">${esc(counts[k])}</span>` : ''}</a>`).join('')}</nav>`;
 }
 // R-277 fix 20 (U-3): one switch did six jobs. Now a section's own pages are a row of tabs (sectionNav above, underlined, as
 // the bill page's); a pill switch (segmented, whoseSeg) only shows the same list another way (Today | This week, Mine | Team);

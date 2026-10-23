@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="only light"><!-- "only": phones that darken websites show the page as designed until dark mode is built (X9-1, DESIGN A-21) -->
-<meta name="theme-color" content="#FFFFFF">
+<meta name="theme-color" content="#F7F3EA"><!-- v6: the warm page ground (Palette B, staff6/css/tokens.css) -->
 <meta name="robots" content="noindex">
 <title>Bill Tracker staff v6</title>
 <link rel="icon" href="pub/icon-192.png">
@@ -67,8 +67,17 @@
 <link rel="modulepreload" href="staff6/moved.js">
 <link rel="modulepreload" href="staff6/terms.js">
 <link rel="modulepreload" href="pub/words/live.js">
+<link rel="modulepreload" href="staff6/more.js">
+<link rel="modulepreload" href="staff6/tools.js">
+<link rel="modulepreload" href="staff6/hearings.js">
+<link rel="modulepreload" href="staff6/testimonyplace.js">
+<link rel="modulepreload" href="staff6/team.js">
+<link rel="modulepreload" href="staff6/people.js">
 <link rel="stylesheet" href="pub/base.css">
+<!-- v6 (R-336): the look's tokens first, scoped to body.staff6, so everything after reads the warm palette -->
+<link rel="stylesheet" href="staff6/css/tokens.css">
 <link rel="stylesheet" href="staff6/staff.css">
+<link rel="stylesheet" href="staff6/css/steps.css">
 <link rel="stylesheet" href="staff6/css/today.css">
 <link rel="stylesheet" href="staff6/css/bill.css">
 <link rel="stylesheet" href="staff6/css/testimony.css">
@@ -88,14 +97,17 @@
 <!-- Drawn by the page itself, before any script arrives: on a slow Capitol connection the 30-odd module files take
      seconds, and an empty page reads as broken. If the code never arrives, this becomes "Try again". -->
 <style>
-.boot0 { min-height: 100vh; display: flex; flex-direction: column; background: #F2F6F9; font-family: Lato, system-ui, sans-serif; color: #33464F; }
-.boot0 .bar { height: 56px; background: #fff; border-bottom: 1px solid #DDE5EA; display: flex; align-items: center; padding: 0 16px; font: 700 18px/1 Roboto, system-ui, sans-serif; color: #0F2A36; }
-.boot0 .msg { padding: 32px 16px; max-width: 720px; margin: 0 auto; width: 100%; box-sizing: border-box; }
-.boot0 h1 { font: 700 22px/1.25 Roboto, system-ui, sans-serif; color: #0F2A36; margin: 0 0 8px; }
-.boot0 p { margin: 0 0 16px; font-size: 16px; }
-.boot0 button { min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: #00698E; color: #fff; font: 700 16px Lato, system-ui, sans-serif; cursor: pointer; }
+/* v6 (R-336): the first thing anyone sees is in the warm look too (spec 4): sand ground, ink words, the teal button. */
+.boot0 { min-height: 100vh; display: flex; flex-direction: column; align-items: center; background: #F7F3EA; font-family: Lato, system-ui, sans-serif; color: #433B33; }
+.boot0 .bar { width: 100%; max-width: 440px; box-sizing: border-box; padding: 10vh 16px 0; font: 600 18px/1.25 Poppins, system-ui, sans-serif; color: #25221E; }
+.boot0 .msg { padding: 16px 16px 32px; max-width: 440px; width: 100%; box-sizing: border-box; }
+.boot0 h1 { font: 700 28px/34px Poppins, system-ui, sans-serif; color: #25221E; margin: 0 0 8px; }
+.boot0 p { margin: 0 0 16px; font-size: 16px; line-height: 24px; }
+.boot0 button { min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: #0B6E73; color: #fff; font: 700 16px Lato, system-ui, sans-serif; cursor: pointer; }
+.boot0 button:hover { background: #095A5E; }
+.boot0 button:focus-visible { outline: 3px solid #0B6E73; outline-offset: 2px; }
 </style>
-<div id="app"><div class="boot0" role="status"><div class="bar">Bill Tracker</div><div class="msg"><p>Loading the tracker…</p></div></div></div>
+<div id="app"><div class="boot0" role="status"><div class="bar">Bill Tracker</div><div class="msg"><p>Getting your day ready…</p></div></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script>
 function bootFail() { var a = document.getElementById('app'); if (!a || !a.querySelector('.boot0 [role], .boot0')) return; if (a.querySelector('.boot0')) a.innerHTML = '<div class="boot0"><div class="bar">Bill Tracker</div><main class="msg"><h1>We could not load the tracker</h1><p>Check your connection and try again.</p><button type="button" onclick="location.reload()">Try again</button></main></div>'; }
