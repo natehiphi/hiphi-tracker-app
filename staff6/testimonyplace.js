@@ -11,14 +11,17 @@
 // (listDetail, V17) as the step card (steps.js stepCard, V07): its buttons for the person's own step, a status line for
 // anyone else's. A step that is Ready to file is the filing card (filing.js, V25), 0 clicks to find from Today and at most
 // 3 steps. Writer, no migration (spec 6 fallback for W6): whoever sent the draft, else the coalition's helpers and the
-// owner, from the day the notice lands (steps.js writersOf). Review mode (#/review) is opened from To approve.
+// owner, from the day the notice lands (steps.js writersOf). Review mode (#/review?only=testimony) is opened from To
+// approve and reviews the testimony only: the supporter emails have their own one line to Outreach › Emails (F172), under
+// the list. Someone else's step in the open item says who has it and offers "Message Kris" (F63, the bill's chat with @Kris
+// typed in), so a teammate who sees something slipping nudges in two taps.
 // Route: { name: 'testimony', view } (app.js parseRoute); ?view=write|approve|sent|file|filed|missed|library.
-import { S, DB, esc, hooks, SESSION_YEAR, SESSION_OVER } from './data.js';
-import { draftHearing, billById, alertsToReview, approves, standingIn, whenAt, lateLine, billRoute, isDecision } from './model.js';
-import { icon, btn, sectionNav, toast } from './ui.js';
-import { billStep, billRow, listDetail, wireListDetail, ldPicked, stepCard, committeeName, numWords, nameWords, sayWords, notFiled, dayWords, testimonyState, nw, firstWords } from './steps.js';
+import { S, DB, esc, hooks, SESSION_YEAR, SESSION_OVER, advocate } from './data.js';
+import { draftHearing, billById, alertsToReview, approves, standingIn, whenAt, lateLine, billRoute, isDecision, companionsOf } from './model.js';
+import { icon, btn, sectionNav, toast, docBtn } from './ui.js';
+import { billStep, billRow, listDetail, wireListDetail, ldPicked, stepCard, committeeName, numWords, nameWords, sayWords, notFiled, dayWords, testimonyState, nw, firstWords, orWords, versionWords } from './steps.js';
 import { closeBtn, aboutBill } from './billpane.js';
-import { filingSteps } from './filing.js';
+import { filingSteps, missedChoices } from './filing.js';
 import { renderEarlier, wireTestimony } from './testimony.js';
 import { queue } from './review.js';
 
@@ -57,7 +60,7 @@ function collect() {
 }
 // Filed: this session's filings (the year the hearing sat, else the year it was filed), newest first. Between sessions the
 // last session's, said so. Everything older is the library's.
-const filedWhen = it => ms(it.h?.scheduled_at) ?? ms(it.d?.filed_at) ?? 0;
+const filedWhen = it => ms(it.d?.filed_at) ?? ms(it.h?.scheduled_at) ?? 0;   // the date its row says
 function filedYear(all) {
   const years = all.filter(it => it.tab === 'filed').map(it => yearOf(it.h?.scheduled_at || it.d?.filed_at)).filter(Boolean);
   return years.includes(SESSION_YEAR) ? SESSION_YEAR : years.length ? Math.max(...years) : SESSION_YEAR;
@@ -75,9 +78,10 @@ function model() {
   for (const t of ['write', 'approve', 'sent', 'file']) tabs[t].sort(soon);
   tabs.filed.sort((x, y) => filedWhen(y) - filedWhen(x));
   // Missed: the ones still asking "Did we file?" (the two days after the sitting) first, then the record, newest first.
+  // Answered ("No, we didn't file") or past answering, it is the record: nobody's step, no button.
   const asking = it => !it.recorded && ms(it.h.scheduled_at) >= Date.now() - 2 * DAY;
-  tabs.missed.sort((x, y) => (asking(y) ? 1 : 0) - (asking(x) ? 1 : 0) || ms(y.h.scheduled_at) - ms(x.h.scheduled_at));
-  for (const it of tabs.missed) if (!asking(it)) it.own = false;   // past answering: the record, nobody's step
+  for (const it of tabs.missed) { it.asking = asking(it); if (!it.asking) it.own = false; }
+  tabs.missed.sort((x, y) => (y.asking ? 1 : 0) - (x.asking ? 1 : 0) || ms(y.h.scheduled_at) - ms(x.h.scheduled_at));
   const mine = t => tabs[t].filter(it => it.own);
   return { tabs, mine, fy };
 }
@@ -112,7 +116,7 @@ function lineOf(it) {
     if (st.stale && st.key === 'write') return `The bill changed: check your testimony · ${act}`;
     return s.line;
   }
-  if (s.nobody) return ['No one holds it', when].filter(Boolean).join(' · ');
+  if (s.nobody) return ['No owner', when].filter(Boolean).join(' · ');   // the word Bills and the bill page use (C-15)
   const who = cap(s.whose.words);
   const what = { nodraft: `${who} makes the draft`, write: `${who} writes it`, submit: `${who} writes it`, revise: `${who} revises it`,
     approve: `${who} approves`, second: `Second look from ${who}`, file: `${who} files it` }[s.kind] || st.word;
@@ -121,24 +125,41 @@ function lineOf(it) {
 // Filed and Missed rows are said plainly: the tab already says so, and a column of green ticks or grey crosses is a wall of
 // one colour (status by exception, D3).
 // Rows here wrap a long name or line rather than cut it (cls tp-r, testimony.css): a joint committee's name is long.
-const rowOf = (it, picked) => billRow(it.b, { ...(['filed', 'missed'].includes(it.tab) && !it.own ? { step: it.s, line: nw(esc(lineOf(it))) } : { step: { ...it.s, line: lineOf(it) } }), pick: it.key, selected: it.key === picked, cls: 'tp-r' });
+// No button on a row of the record (filed, answered or past answering), and none on To approve, where Start review is the
+// one way into the queue and a row opens its item beside the list with Approve and Send back.
+const rowOf = (it, picked, view) => billRow(it.b, { ...(['filed', 'missed'].includes(it.tab) && !it.own ? { step: it.s, line: nw(esc(lineOf(it))) } : { step: { ...it.s, line: lineOf(it) } }),
+  ...(view === 'approve' || it.tab === 'filed' || (it.tab === 'missed' && !it.asking) ? { button: false } : {}), pick: it.key, selected: it.key === picked, cls: 'tp-r' });
 const gh = (text, id) => `<div class="tp-gh" role="listitem"><h2 class="tp-ghh" id="${esc(id)}">${esc(text)}</h2></div>`;
 const moreBtn = (view, n) => `<div class="tp-more" role="listitem">${btn(`Show all ${n}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-tpall': view } })}</div>`;
 function listRows(view, items, picked) {
-  const all = (S.tpAll ??= {})[view];
-  if (view === 'filed') return (all ? items : items.slice(0, FILED_LIMIT)).map(it => rowOf(it, picked)).join('') + (items.length > FILED_LIMIT && !all ? moreBtn(view, items.length) : '');
-  const own = items.filter(it => it.own), team = items.filter(it => !it.own), shown = all ? team : team.slice(0, LIMIT);
-  return `${own.length ? gh('For you', `tp-g-${view}-you`) + own.map(it => rowOf(it, picked)).join('') : ''}${team.length ? gh(view === 'missed' ? 'The record' : 'The team’s', `tp-g-${view}-team`) + shown.map(it => rowOf(it, picked)).join('') : ''}${team.length > shown.length ? moreBtn(view, team.length) : ''}`;
+  const all = (S.tpAll ??= {})[view], row = it => rowOf(it, picked, view);
+  if (view === 'filed') return (all ? items : items.slice(0, FILED_LIMIT)).map(row).join('') + (items.length > FILED_LIMIT && !all ? moreBtn(view, items.length) : '');
+  // Missed: the person's own still to answer, the team's still to answer, then the record (answered, or past answering).
+  const rec = view === 'missed' ? items.filter(it => !it.asking) : [];
+  const own = items.filter(it => it.own), team = items.filter(it => !it.own && !rec.includes(it)), shown = all ? team : team.slice(0, LIMIT);
+  return `${own.length ? gh('For you', `tp-g-${view}-you`) + own.map(row).join('') : ''}${team.length ? gh('The team’s', `tp-g-${view}-team`) + shown.map(row).join('') : ''}${team.length > shown.length ? moreBtn(view, team.length) : ''}${rec.length ? gh('The record', `tp-g-${view}-rec`) + rec.map(row).join('') : ''}`;
 }
 
 // ---- the open item: the step card, and the filing card for a step that is Ready to file ----
 function detailOf(it, view) {
   const { b, d, h } = it, s = billStep(b, { d, h }), own = !!s?.you, primary = view !== 'approve';
   let card = stepCard(b, { where: 'testimony', d, h, named: false, primary, from: 'testimony', id: `tp-s-${esc(it.key)}` });
+  const ACTS = /<div class="v6-step-acts">[\s\S]*?<\/div>/;
   // V25: the viewer's own filing is the filing card's four steps in place of the card's buttons (a stepCard option for
-  // this is asked of the integrator; until then the buttons' box is swapped for the steps).
-  if (s?.kind === 'file' && own && d) card = card.replace(/<div class="v6-step-acts">[\s\S]*?<\/div>/, `<div class="tp-filing">${filingSteps(b, d, { inline: true, primary })}</div>`);
+  // this is asked of the integrator; until then the buttons' box is swapped for the steps). Who is going and I'm going
+  // move from the hearing line into step 3, beside "How we testify", which they decide.
+  if (s?.kind === 'file' && own && d) {
+    const going = (card.match(/<p class="v6-step-go">[\s\S]*?<\/p>/) || [''])[0];
+    if (going) card = card.replace(going, '');
+    card = card.replace(ACTS, `<div class="tp-filing">${filingSteps(b, d, { inline: true, primary, going })}</div>`);
+  }
+  // Missed (addendum 4): the person's own still-open question gets the calm answers at one weight; the record gets none.
+  if (s?.kind === 'missed' && d) card = card.replace(ACTS, it.own && it.asking !== false ? `<div class="tp-missed">${missedChoices(b, d)}</div>` : '');
   const extra = [];
+  // F63: someone else's step says who has it; one text button opens the bill's chat with them @-named (two taps to nudge).
+  const open = s && !own && !s.nobody && (it.tab !== 'missed' ? it.tab !== 'filed' : it.asking);
+  const to = open ? (s.whose?.ids || []).filter(id => id && id !== S.me?.id && advocate(id)) : [];
+  if (to.length) extra.push(btn(`Message ${orWords(to, S.me, { and: true })}`, { kind: 'text', icon: 'message-square', href: `${billRoute(b, 'activity')}?mention=${to.map(id => advocate(id)?.initials).filter(Boolean).join(',')}` }));
   // F46: the writer can take it back from review until it is approved (as the bill page's Withdraw).
   if (d && ['review', 'second_review'].includes(d.status) && d.submitted_by === S.me?.id && !own)
     extra.push(btn('Withdraw from review', { kind: 'text', icon: 'undo-2', attrs: { 'data-tpwd': d.id, 'data-v6b': b.id } }));
@@ -160,25 +181,50 @@ function detailOf(it, view) {
   </div>`;
 }
 
-// ---- the earlier testimony library (F118, #/testimony?view=library): every bill with filed testimony, newest first;
-// the picked bill opens beside the list as testimony.js draws it (its own parts and the search across all testimony) ----
+// ---- the testimony library (F118, #/testimony?view=library): every bill with filed testimony, the latest filing first
+// (this session's too: the newest wording is the one people come to borrow). The picked bill opens beside the list with
+// every testimony filed on it and its companion, newest first by the day it was filed, then testimony.js's other parts
+// (the other bills in its issue, the search across all testimony, the rest of its category). testimony.js's own first
+// part leaves out a filing whose hearing is still ahead, so the library draws that part itself (fresh-eyes review 23 Oct:
+// "Filed once" opened to "No earlier testimony yet") ----
+const filedAt = d => ms(d.filed_at) ?? ms(draftHearing(d)?.scheduled_at) ?? 0;
 function library() {
   const by = new Map();
   for (const d of Object.values(S.drafts || {}).flat()) {
     if (d.status !== 'filed') continue;
     const b = billById(d.bill_id); if (!b) continue;
-    const at = ms(draftHearing(d)?.scheduled_at) ?? ms(d.filed_at) ?? 0, e = by.get(b.id) || { b, n: 0, at: -1, d: null };
+    const at = filedAt(d), e = by.get(b.id) || { b, n: 0, at: -1, d: null };
     e.n++; if (at >= e.at) { e.at = at; e.d = d; } by.set(b.id, e);
   }
   return [...by.values()].sort((x, y) => y.at - x.at);
 }
-const libDay = at => yearOf(at) !== SESSION_YEAR ? new Date(at).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'Pacific/Honolulu' }) : dayWords(at);
-const libLine = e => `Filed ${e.n === 1 ? 'once' : `${e.n} times`}${e.at > 0 ? ` · ${e.n === 1 ? '' : 'newest '}${libDay(e.at)}` : ''}`;
+// "Mon 3/16" this session; "Tue 2/10/26" before it (the list reaches back across sessions).
+const libDay = at => yearOf(at) !== SESSION_YEAR ? new Date(at).toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', year: '2-digit', timeZone: 'Pacific/Honolulu' }).replace(',', '') : dayWords(at);
+const libLine = e => e.n === 1 ? `Filed ${libDay(e.at)}` : `Filed ${e.n} times · last ${libDay(e.at)}`;
+// This bill's and its companion's filed testimony, newest filed first.
+function filedOn(b) {
+  const twins = companionsOf(b).map(n => (S.bills || []).find(x => x.bill_number === n && x.session_year === b.session_year)).filter(x => x && x.id !== b.id);
+  const ids = new Set([b, ...twins].map(x => String(x.id)));
+  const ds = Object.values(S.drafts || {}).flat().filter(d => d.status === 'filed' && ids.has(String(d.bill_id))).sort((x, y) => filedAt(y) - filedAt(x));
+  return { twins, ds };
+}
+function filedPart(b) {
+  const { twins, ds } = filedOn(b);
+  const row = (d, i) => { const other = String(d.bill_id) !== String(b.id) ? billById(d.bill_id) : null, by = d.filed_by || d.submitted_by;
+    const meta = [`Filed ${libDay(filedAt(d))}`, d.version ? `on ${versionWords(d.version)}` : '', by && advocate(by) ? `by ${by === S.me?.id ? 'you' : firstWords(by)}` : ''].filter(Boolean);
+    return `<article class="tm-row tp-lrow">${i === 0 ? '<p class="tm-mark">Newest</p>' : ''}
+      <div class="tm-top"><p class="tm-where"><b>${esc(committeeName(d.committee) || d.committee)} hearing</b>${other ? ` <span class="tm-on">on ${esc(numWords(other))}</span>` : ''}</p></div>
+      <p class="tp-lmeta">${meta.map(x => `<span class="v6-nw">${esc(x)}</span>`).join('<span aria-hidden="true"> · </span>')}</p>
+      <div class="tm-links">${docBtn(d.doc_url)}${d.filed_url ? btn('Capitol confirmation', { kind: 'text', iconEnd: 'external-link', href: d.filed_url, target: '_blank' }) : ''}</div></article>`; };
+  return `<section class="tm-part tp-lown" aria-labelledby="tp-lown-h"><h3 id="tp-lown-h">Filed on ${esc(numWords(b))}${twins.length ? ` and its companion ${esc(twins.map(numWords).join(', '))}` : ''}</h3>
+    <div class="tm-rows">${ds.map(row).join('')}</div></section>`;
+}
 function libDetail(e) {
   const b = e.b;
   return `<div class="v6-item tp-item tp-libitem" data-v6item="${esc(b.id)}">
     <div class="v6-item-top"><p class="v6-item-num">${esc(numWords(b))}</p><a class="v6-item-open" href="${esc(billRoute(b))}" data-bill="${esc(b.id)}"><span>Open the bill</span>${icon('arrow-right')}</a>${closeBtn()}</div>
     <h2 class="v6-item-name" id="tp-item-h" tabindex="-1">${esc(nameWords(b, 160))}</h2>
+    <div class="tm tp-lib-own">${filedPart(b)}</div>
     <div class="tp-earlier">${renderEarlier(b, { open: true })}</div>
   </div>`;
 }
@@ -187,14 +233,15 @@ function renderLibrary() {
   const hit = e => !q || [e.b.bill_number, numWords(e.b), nameWords(e.b, 200), e.d ? committeeName(e.d.committee) : ''].join(' ').toLowerCase().includes(q);
   const shown = libs.filter(hit), all = (S.tpAll ??= {}).library || q, list = all ? shown : shown.slice(0, LIB_LIMIT);
   const pe = picked != null ? libs.find(e => String(e.b.id) === String(picked)) : null;
+  // the library's rows are said by the day each was filed (the Filed tab's date for the same filing)
   const rows = list.map(e => billRow(e.b, { line: nw(esc(libLine(e))), button: false, pick: String(e.b.id), selected: !!pe && e === pe, cls: 'tp-r' })).join('')
     + (shown.length > list.length ? moreBtn('library', shown.length) : '');
   return `${head('filed')}
     <div class="tp-sub"><a class="tp-backlink" href="#/testimony?view=filed">${icon('chevron-left')}<span>Filed</span></a>
-      <h2 class="tp-h2">Earlier testimony library</h2>
-      <p class="tp-intro">Every testimony the tracker has filed, newest first. Pick a bill to read what HIPHI wrote and borrow from it.</p>
+      <h2 class="tp-h2">Testimony library</h2>
+      <p class="tp-intro">Every testimony the tracker has filed, the latest first. Pick a bill to read what HIPHI wrote and borrow from it.</p>
       <div class="tp-find">${icon('search')}<label class="sr" for="tp-libq">Filter the library</label><input id="tp-libq" type="search" autocomplete="off" placeholder="Filter by bill or committee" value="${esc(S.tpLibQ || '')}"></div></div>
-    ${shown.length ? listDetail({ id, label: 'Bills with earlier testimony', rows, picked: pe ? String(pe.b.id) : null, detail: pe ? libDetail(pe) : '', empty: 'Pick a bill to see its earlier testimony' })
+    ${shown.length ? listDetail({ id, label: 'Bills with filed testimony', rows, picked: pe ? String(pe.b.id) : null, detail: pe ? libDetail(pe) : '', empty: 'Pick a bill to see its earlier testimony' })
       : `<p class="tp-none">${q ? `No filed testimony matches “${esc(S.tpLibQ)}”.` : 'No filed testimony yet.'}</p>`}`;
 }
 
