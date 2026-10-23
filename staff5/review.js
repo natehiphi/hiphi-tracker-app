@@ -13,8 +13,10 @@ import { docBtn, keysUsed } from './ui.js';   // R-277 fix 4 (U-4): "Open Doc" h
 import { emailPreview } from './composer.js';
 import { reviewQueue, hearingFor, testDue, cd, hearingLine, reviewerNames, needsSecond, HOVER, afterBack } from './today.js';
 import { statusSentence } from './bill.js';
+import { teamFirst } from './model.js';   // R-316 W28
 
-const first = id => (advocate(id)?.full_name || 'Someone').split(' ')[0];
+// R-316 W28 (G3-8): "Lauren (turned off) owns it", "Sent by Kevin (turned off)": model.js teamFirst ("Someone" when nobody).
+const first = id => teamFirst(id);
 const ago = iso => agoWords(iso);   // R-277 fix 3: model.js, one way on every screen
 const typing = t => t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
 

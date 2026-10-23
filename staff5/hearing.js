@@ -20,12 +20,14 @@ import { movedFrom } from './model.js';   // R-316 W24: "Moved from Mon 2/9"
 import { hooks } from './data.js';
 import { movedGoingHTML, wireMoved } from './moved.js';   // R-316 W53 (practice copy): still going to the sitting it moved to?
 import { billRoute, whenAt, spanOf, roomName, hearingWhen, isDecision, sittingDraft, earlierFiled, draftHearing } from './model.js';
+import { teamFirst } from './model.js';   // R-316 W28
 
 const HR = 36e5, FOLD = 10;
 const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
 const hearingById = id => (S.hearings || []).find(h => String(h.id) === String(id)) || null;
 const isPos = b => !!b.position && b.position !== 'monitor';
-const first = a => String(a?.full_name || '').split(' ')[0] || 'Someone';
+// R-316 W28 (G3-8): a bill's owner who is turned off says so on its row (goers are never turned off: model.js attendees).
+const first = a => teamFirst(a);
 
 // ---- the sitting, shared with the coalition page (and anyone else who draws a hearing) ----
 export const sittingOf = h => (S.hearings || []).filter(x => x.committee === h.committee && x.scheduled_at === h.scheduled_at);

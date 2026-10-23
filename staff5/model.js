@@ -639,6 +639,14 @@ export const DRAFT_LABEL = { draft: 'Draft', review: 'Waiting for approval', sec
 export const DRAFT_TAG = { draft: 'a', review: 'w', second_review: 'w', approved: 'g', filed: 't', cancelled: 'a' };
 export const dWhen = iso => iso ? whenAt(iso) : '';   // R-277 fix 3: the one way to say a moment
 export const nameOf = id => advocate(id)?.full_name || 'someone';
+// R-316 W28 (G3-8): someone turned off keeps the bills, coalitions and issues they held until an admin hands them on, so
+// wherever their name still shows as an owner, a helper or the next to act it says so: "Lauren (turned off)". Names that
+// record who did something (a chat's author, who approved or filed) stay plain. Each takes a person or their id;
+// teamFirst is today.js's `first` ("Someone" when nobody is found), teamName keeps the whole name ("May Rose").
+const advOf = x => x && typeof x === 'object' ? x : advocate(x);
+export const offTag = x => advOf(x)?.is_active === false ? ' (turned off)' : '';
+export const teamFirst = x => { const a = advOf(x); return a ? (String(a.full_name || '').split(' ')[0] || 'Someone') + offTag(a) : 'Someone'; };
+export const teamName = x => { const a = advOf(x); return a ? (a.full_name || 'Someone') + offTag(a) : 'Someone'; };
 export const listNames = (pred, sep) => S.advocates.filter(a => pred(a) && a.is_active !== false)
   .map(a => a.full_name).join(sep) || 'an admin';
 export function draftWho(d) {

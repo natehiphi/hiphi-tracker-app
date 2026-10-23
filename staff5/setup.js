@@ -18,6 +18,7 @@ import { copyLink, NAMES as FV_NAMES } from './firstvisit.js';
 import { afterClose, iconName } from './lists.js';
 import { ICONS } from '../icons.js';
 import { billRoute } from './model.js';
+import { teamName } from './model.js';   // R-316 W28
 import { bl, save as saveBills } from './filters.js';
 
 // ---- coalition and list icons (copied from app.js: the public page shows Lucide icons, so staff pick a name from
@@ -1063,11 +1064,14 @@ const PAGES = {
     body() { const s = st(), act = S.advocates.filter(a => a.is_active !== false);
       return `<p class="small muted st-intro">The owner gets every bill tracked under the coalition. Keywords suggest new bills in Sort new bills: separate them with commas. A short fragment catches longer words, so fluorid finds fluoride and fluoridation.</p>
       ${S.campaigns.map(c => { const open = s.coalOpen.has(c.id), ic = iconName(c.icon), own = advocate(c.owner_id);
-        const sub = [c.public_name && c.public_name !== c.name ? c.public_name : '', own ? own.full_name : 'No owner', plural((c.keywords || []).length, 'keyword'), c.slack_channel || 'no channel'].filter(Boolean).join(' · ');
+        // R-316 W28 (G3-8): a turned-off owner stays on the Owner list, marked, so the card says who still holds the coalition
+        // and saving a change to another card never quietly sets this one to No owner (the list had only people who are on).
+        const who = own && own.is_active === false ? [...act, own] : act;
+        const sub = [c.public_name && c.public_name !== c.name ? c.public_name : '', own ? teamName(own) : 'No owner', plural((c.keywords || []).length, 'keyword'), c.slack_channel || 'no channel'].filter(Boolean).join(' · ');
         return `<div class="card st-coal" data-coal="${esc(c.id)}">
           <button type="button" class="st-coalhead" data-coalopen="${esc(c.id)}" aria-expanded="${open}" aria-controls="st-cb-${esc(c.id)}"><span class="st-coalic">${icon(ic)}</span><span class="body"><span class="title">${esc(c.name)}</span><span class="sub">${esc(sub)}</span></span>${icon(open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button>
           <div class="st-coalbody st-form" id="st-cb-${esc(c.id)}" ${open ? '' : 'hidden'}>
-            ${field('co-own-' + c.id, 'Owner', `<select id="co-own-${esc(c.id)}" data-cowner><option value="">No owner</option>${act.map(a => `<option value="${esc(a.id)}" ${c.owner_id === a.id ? 'selected' : ''}>${esc(a.full_name)}</option>`).join('')}</select>`)}
+            ${field('co-own-' + c.id, 'Owner', `<select id="co-own-${esc(c.id)}" data-cowner><option value="">No owner</option>${who.map(a => `<option value="${esc(a.id)}" ${c.owner_id === a.id ? 'selected' : ''}>${esc(teamName(a))}</option>`).join('')}</select>`)}
             ${txt('co-ch-' + c.id, 'Slack channel', c.slack_channel || '', { ph: '#channel-name', attrs: 'data-cchan' })}
             ${area('co-kw-' + c.id, 'Keywords', (c.keywords || []).join(', '), { rows: 2, ph: 'tobacco, e-cigarette, nicotine', attrs: 'data-ckw' })}
             ${txt('co-pub-' + c.id, 'Name on the public page', c.public_name || '', { ph: 'What visitors see', attrs: 'data-cpub' })}
