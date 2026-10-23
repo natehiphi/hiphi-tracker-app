@@ -1,581 +1,450 @@
-/* HIPHI Staff v3 · Bill workspace (bill.js, activity.js, public.js, and pathway.js's Committees). Every selector starts
-   with .bw-. Phone first at 390px. From 900px the page is two columns: on the left the heading and the three tabs,
-   pinned together under the app header, with the tab's content under them; on the right a side panel of Next up and
-   Team whose first card stays in view. Sizes 13/14/16/18/22 only. v3 (R-264): one line per item, one thing open. */
+/* HIPHI Staff v6 · the bill page (bill.js, activity.js, public.js, pathway.js's Committees, testimony.js's door). R-336
+   V22, spec sections 4 and 6. One column, roomy and soft, from the tokens only (css/tokens.css): no borders on cards (one
+   warm shadow and the 20px radius), rows parted by space or an inset hairline, three radii (12, 20, pill), type at
+   14 (labels, times, numbers) / 16 (sentences) / 18 Poppins (names) / 22 Poppins (section headings) / 28 Poppins (the
+   bill's name), never 13. The step card, hearing card, rows and tabs are steps.css's; this file places them.
+   Phone first; from 768px the page's own Back row shows (the phone's top bar has Back); the column is at most 800px
+   (extra width is margin, A-24). Every selector starts .bw- (the v3 page's prefix, kept so untracked.js, conversation.js
+   and today.js, which borrow a few, still look right). */
 
-/* The frame gives this page its whole width (wide: true in bill.js); the page caps itself. Phones and small tablets
-   keep the 720px column they had (688px inside the gutters). */
-.bw-page { max-width: 688px; margin-left: auto; margin-right: auto; }
-/* The team note is the last thing on the page: room under it, so "Save note" can scroll clear of the "Note saved"
-   message and its Undo, which sits over the page's foot for ten seconds (bottom left on a laptop, above the tabs on a
-   phone). */
-.bw-page { padding-bottom: 72px; }
+/* ---- the page ---- */
+.bw-page { max-width: 800px; padding-bottom: var(--s48); color: var(--v6-body); }
+.bw-page p, .bw-page h1, .bw-page h2, .bw-page h3, .bw-page ul, .bw-page dl { margin: 0; }
+.bw-quiet { color: var(--v6-muted); font-size: var(--v6-t14); line-height: var(--v6-lh14); }
+.bw-page .bw-inline { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: var(--v6-action); font-weight: 700; text-decoration: none; }
+.bw-page .bw-inline:hover { text-decoration: underline; text-underline-offset: 3px; }
+.bw-page .bw-inline .ic { width: 16px; height: 16px; }
+.bw-chev { width: 20px; height: 20px; flex: none; color: var(--v6-muted); transition: transform 150ms ease; }
 
-/* ---- phones: the frame's header is the top bar; the number is its h1 and ⋯ sits beside search ---- */
-.bw-ver { color: var(--n500); }
-.bw-hdrmore { flex: none; }
-.bw-top, .bw-num { display: none; }
+/* ---- the header: back row, the name, the facts in words, where it stands, the issue ---- */
+.bw-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "top top" "title acts" "facts facts" "where where";
+  column-gap: var(--s12); row-gap: var(--s8); padding-top: var(--s4); }
+.bw-head > .bw-top { grid-area: top; }
+.bw-head > .bw-titlerow { grid-area: title; min-width: 0; }
+.bw-head > .bw-hacts { grid-area: acts; align-self: start; }
+.bw-head > .bw-facts { grid-area: facts; }
+.bw-head > .bw-where { grid-area: where; }
+/* a phone: the name has the whole width; Follow and "…" sit under where it stands, over the tabs */
+@media (max-width: 480px) {
+  .bw-head.bw-hasfollow { grid-template-areas: "top top" "title title" "facts facts" "where where" "acts acts"; }
+  .bw-head.bw-hasfollow > .bw-hacts { justify-self: start; margin: 0 0 -8px -4px; }
+}
+/* The phone's top bar carries Back and the number; the page's own back row shows from 768px (spec 3.1: the laptop header
+   holds only search). Previous / Next ride on it when the bill was opened from a list. */
+.bw-top { display: none; }
+.bw-back { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; margin-left: -8px; padding: 0 16px 0 4px; border-radius: var(--v6-pill);
+  color: var(--v6-action); font-size: var(--v6-t16); font-weight: 400; text-decoration: none; max-width: 60%; }
+.bw-back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bw-back .ic { width: 22px; height: 22px; flex: none; }
+.bw-nav { display: flex; align-items: center; gap: var(--s4); margin-left: auto; }
+.bw-pn { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; padding: 0 12px; border-radius: var(--v6-pill); color: var(--v6-action);
+  font-size: var(--v6-t16); text-decoration: none; }
+.bw-pn .ic { width: 18px; height: 18px; }
+.bw-pos { font-size: var(--v6-t14); color: var(--v6-muted); white-space: nowrap; }
+.bw-h1 { font: 700 var(--v6-t28)/var(--v6-lh28) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); letter-spacing: -.01em;
+  overflow-wrap: anywhere; outline: none; }
+/* a name that is a sentence (a bill with no nickname: its summary or the Capitol's words, R-271) is set a size down */
+.bw-h1.bw-long { font: 600 var(--v6-t22)/var(--v6-lh22) var(--font-h, Poppins, system-ui, sans-serif); letter-spacing: 0; }
+.bw-hacts { flex: none; display: flex; align-items: center; gap: var(--s8); }
+.bw-hacts .iconbtn { color: var(--v6-body); }
+.bw-follow[aria-pressed="true"] { background: var(--v6-wash); color: var(--v6-ink); }
+/* the facts, in words: "HB 2121 · Strong support · Kevin owns it" (D15: the number small and plain) */
+.bw-facts { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 2px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+.bw-facts { column-gap: 0; }
+.bw-f { display: inline-flex; align-items: center; white-space: nowrap; }
+.bw-f + .bw-f::before { content: '·'; margin: 0 8px; color: var(--v6-muted); font-weight: 400; }
+.bw-fiss { white-space: normal; flex-wrap: wrap; }
+.bw-fiss > .bw-issue + .bw-issue { margin-left: var(--s16); }
+.bw-facts .bw-num { color: var(--v6-muted); font-size: var(--v6-t14); }
+.bw-dot { color: var(--v6-muted); }
+@media (max-width: 480px) { .bw-fiss { flex-basis: 100%; } .bw-fiss::before { display: none; } }
+.bw-muted { display: inline-flex; align-items: center; gap: 4px; }
+.bw-muted .ic { width: 16px; height: 16px; color: var(--v6-muted); }
+.bw-where { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); max-width: 68ch; }
+.bw-issue { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; max-width: 100%; color: var(--v6-action); font-weight: 400;
+  font-size: var(--v6-t16); text-decoration: none; border-radius: var(--v6-r12); }
+@media (pointer: coarse), (max-width: 767.98px) { .bw-issue { min-height: 44px; } }
+@media (hover: hover) and (pointer: fine) { .bw-issue:hover { text-decoration: underline; text-underline-offset: 3px; } .bw-back:hover, .bw-pn:hover { background: var(--v6-action-wash); } }
+.bw-issue > span { overflow-wrap: anywhere; }
+.bw-issue > .ic:first-child { width: 16px; height: 16px; flex: none; }
+.bw-issue .bw-chev { color: var(--v6-action); width: 16px; height: 16px; }
+/* the nickname, edited in the header (V22) */
+.bw-nickform { display: grid; gap: var(--s8); }
+.bw-nicklab { font-size: var(--v6-t14); font-weight: 700; color: var(--v6-muted); }
+.bw-nickform .input { font: 600 var(--v6-t22)/var(--v6-lh22) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); min-height: 52px; }
+.bw-nickform .help { font-size: var(--v6-t14); color: var(--v6-muted); }
+.bw-nickform .err { display: flex; align-items: center; gap: 6px; color: var(--v6-bad); font-size: var(--v6-t14); }
+.bw-nickform .err[hidden] { display: none; }
+.bw-nickacts { display: flex; flex-wrap: wrap; gap: var(--s8); }
 
-/* ---- header ---- */
-.bw-head { padding-top: var(--s4); }
-/* The name: a nickname ("Disposable e-cigarette ban") or the subject is short and reads as a title; a plain summary is a
-   sentence, so it is set a size smaller. Under a nickname the summary follows as the second line. */
-.bw-title { font: 700 var(--t18)/1.3 var(--font); color: var(--n900); max-width: 40em; overflow-wrap: anywhere; }
-.bw-title.bw-long { font-size: var(--t16); line-height: 1.4; }
-.bw-lede { margin-top: 2px; font-size: var(--t14); line-height: 1.45; color: var(--n700); max-width: 70ch; }
-/* The stage ribbon (ui.js stageRibbon) sits between the name and the status sentence: twelve steps, the current one
-   marked, and a caption that names it. It is the same on all four tabs, so Pathway holds the detail, not the fact. */
-.bw-ribwrap { margin-top: var(--s12); max-width: 46em; }
-.bw-ribwrap .sv-riblab { margin-bottom: 0; }
-/* A stage set by hand (R-022, A-14): the line under the ribbon says so, with what the Capitol says and Change for admins,
-   so the ribbon's own "set by the team" gives way to it. */
-.bw-ribset .sv-riblab .set { display: none; }
-.bw-stset { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; margin-top: 2px; font-size: var(--t13); color: var(--n700); }
-.bw-stset > .ic { width: 14px; height: 14px; color: var(--n500); }
-.bw-stset .btn.text { margin-left: -6px; }
-.bw-status { display: flex; gap: 6px; margin-top: var(--s8); font-size: var(--t14); line-height: 1.45; color: var(--n700); max-width: 70ch; }
-.bw-status > .ic { width: 16px; height: 16px; margin-top: 2px; color: var(--n500); }
-.bw-chips { display: flex; flex-wrap: wrap; gap: var(--s8); align-items: center; margin-top: var(--s12); }
-.bw-chips .sv-pick { max-width: 100%; }
-.bw-chips .sv-pick > span:not(.sv-av) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bw-chips .sv-pick .sv-av { margin-left: -6px; }
-/* Initials in the five type sizes (the shared avatar scales its letters with the circle). */
-.bw-chips .sv-av, .bw-msg .sv-av, .bw-mention .sv-av { font-size: var(--t13); }
-/* An issue the bill is on (R-226): a link, so it is drawn as one (A-12): outlined in the link blue, not the grey of the
-   referral chips beside it, which cannot be pressed. A touch target (A-6), and it may wrap a long name. */
-.bw-chips a.bw-ichip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-height: 44px; padding: 0; font-size: var(--t14); font-weight: 700; color: var(--p700); text-decoration: underline; text-decoration-color: var(--p200, var(--n300)); text-underline-offset: 3px; white-space: normal; text-align: left; }
-.bw-chips a.bw-ichip:hover { color: var(--p800); text-decoration-color: currentColor; }
-.bw-chips a.bw-ichip .ic { flex: none; width: 16px; height: 16px; }
-@media (min-width: 900px) { .bw-chips a.bw-ichip { min-height: 32px; } }   /* R-277 fix 20: a link, not a chip */
-.bw-numrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s4) var(--s12); }
-.bw-numrow .bw-ichips { margin-top: 0; justify-content: flex-end; flex: 1 1 auto; }
-
-/* ---- Next up ---- */
-.bw-page .bw-next { margin-top: var(--s16); }
-.bw-nexthead { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); min-height: 28px; margin: -6px -8px var(--s4) 0; }
-.bw-page h2.bw-eyebrow, .bw-page p.bw-eyebrow { font: 700 var(--t14)/1.3 var(--font); color: var(--n500); letter-spacing: 0; }
-.bw-hear { font: 700 var(--t16)/1.35 var(--font); color: var(--n900); }
-.bw-meta { margin-top: 2px; font-size: var(--t14); color: var(--n700); }
-.bw-meta a { font-weight: 700; }
-.bw-due { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--s8); row-gap: 2px; margin-top: var(--s8); font-size: var(--t14); color: var(--n700); }
-.bw-nodraft { margin-top: var(--s12); }
-.bw-nodraft .btn { margin-top: var(--s8); }   /* Make the draft now (R-102) */
-.bw-late { display: inline-flex; align-items: center; gap: 4px; color: var(--bad-text); font-weight: 700; }
-.bw-soon { display: inline-flex; align-items: center; gap: 4px; color: var(--warn-text); font-weight: 700; }
-.bw-late .ic, .bw-soon .ic { width: 16px; height: 16px; }
-.bw-page p.bw-late { display: flex; margin-top: var(--s8); }
-.bw-tb { margin-top: var(--s12); }
-.bw-tb + .bw-tb { margin-top: var(--s16); padding-top: var(--s16); border-top: 1px solid var(--n100); }
-.bw-tbt { font-weight: 700; color: var(--n900); margin-bottom: var(--s8); }
-.bw-who { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin-top: var(--s8); font-size: var(--t14); color: var(--n500); }
-.bw-quote { margin: var(--s8) 0 0; padding: var(--s8) var(--s12); border-left: 3px solid var(--n300); background: var(--n50); border-radius: 0 var(--r8) var(--r8) 0; font-size: var(--t14); color: var(--n900); }
-.bw-quote .meta { display: block; font-weight: 700; }
-.bw-tb .sv-notice { margin: var(--s8) 0 0; }
-/* The step labels size to their words, so "2nd approval" stays on one line at 390px. */
-.bw-tb .sv-steps li { flex: 1 1 auto; padding: 0 8px; white-space: nowrap; }
-.bw-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin-top: var(--s12); }
-.bw-next .bw-acts .btn { flex: 1 1 auto; }
-.bw-links { display: flex; flex-wrap: wrap; margin: var(--s4) 0 0 -12px; }
-.bw-hfoot { display: flex; flex-direction: column; align-items: stretch; gap: var(--s8); margin-top: var(--s12); padding-top: var(--s12); border-top: 1px solid var(--n100); }
-/* Who from the team is going (R-022 wave 3 #16), in one line (v3): "Going: nobody yet · I'm going". The toggle is a
-   link-style button, 44px tall on a phone; "Send a teammate…" and the video are in the card's ⋯ menu. */
-.bw-going1 { display: flex; align-items: flex-start; gap: 6px; font-size: var(--t14); line-height: 1.45; color: var(--n900); }
-.bw-going1.none .bw-gwho { color: var(--n500); }
-.bw-going1 > .ic { width: 16px; height: 16px; margin-top: 2px; color: var(--n500); flex: none; }
-.bw-gobtn { font-weight: 700; min-height: 44px; margin: -12px 0; }
-.bw-gobtn[aria-pressed="true"] { color: var(--n700); }
-/* The hearing's own page (R-022 wave 3), from the card's head beside its ⋯ */
-.bw-nhacts { display: flex; align-items: center; gap: 2px; }
-.bw-nexthead .bw-hpage { padding: 0 8px 0 12px; gap: 2px; }
-.bw-hpage .ic { width: 18px; height: 18px; }
-.bw-inline { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; font-weight: 700; }
-.bw-inline .ic { width: 16px; height: 16px; }
-
-/* ---- sticky tabs: pinned under the 56px header ---- */
-.bw-tabsent { height: 0; }
-.bw-tabs { position: sticky; top: var(--header); z-index: 30; display: grid; grid-template-columns: repeat(3, 1fr); margin: var(--s16) calc(-1 * var(--gutter)) 0; padding: 0 var(--s8);
-  background: var(--n0); border-top: 1px solid var(--n200); border-bottom: 1px solid var(--n200); }
-.bw-tabs a { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; padding: 0 2px; color: var(--n500); font-weight: 700; font-size: var(--t16); text-decoration: none; white-space: nowrap; }
-/* Three tabs in v3 (R-264), sharing the row equally on a phone. */
-.bw-tabs a:hover { color: var(--n900); }
-.bw-tabs a[aria-current="page"] { color: var(--p700); }
-.bw-tabs a[aria-current="page"]::after { content: ''; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--p700); }
-.bw-tabs a:focus-visible { outline-offset: -3px; }
-.bw-badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--p700); color: var(--n0); font: 700 var(--t13)/20px var(--font); text-align: center; }
-.bw-panel { padding-top: var(--s16); }
-/* A tab that was just opened arrives with a short fade, so a tap or a key press is seen to do something. */
-@keyframes bw-in { from { opacity: 0; transform: translateY(6px); } }
-.bw-panel.bw-in { animation: bw-in .2s var(--ease, ease-out); }
-/* Phones: a tap on a tab brings the strip to the top of the screen (bill.js). A short tab still needs the page to be
-   tall enough for that: the screen, less the header (56), the strip (49) and the space main keeps for the tab bar (96). */
-@media (max-width: 899px) { .bw-panel { min-height: calc(100vh - 201px); } }
+/* ---- the tabs (steps.css .v6-tabs): Next step · Team talk · Public ---- */
+.bw-tabs { margin: var(--s16) 0 0 -2px; }
+.bw-head + .bw-tabs { margin-top: var(--s20, 20px); }
+.bw-panel { padding-top: var(--s24); }
+@keyframes bw-in { from { opacity: 0; transform: translateY(4px); } }
+.bw-panel.bw-in { animation: bw-in 200ms ease-out; }
 
 /* ---- sections ---- */
-.bw-sec + .bw-sec { margin-top: var(--s32); }
-.bw-page .bw-sec > h2, .bw-sech h2 { display: flex; align-items: center; gap: var(--s8); margin-bottom: var(--s8); font-size: var(--t16); }
+.bw-sec + .bw-sec { margin-top: var(--v6-gap); }
+.bw-h2 { font: 600 var(--v6-t22)/var(--v6-lh22) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); margin-bottom: var(--s12) !important; }
+.bw-h3 { display: flex; align-items: center; gap: var(--s8); font: 600 var(--v6-t18)/var(--v6-lh18) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); }
+.bw-h3 .ic { width: 18px; height: 18px; color: var(--v6-muted); }
+.bw-sub { font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-muted); }
 .bw-sech { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); }
-.bw-sech h2 { margin-bottom: 0; }
-.bw-sech .btn.text { margin-right: -12px; flex: none; }
-.bw-act .bw-logrow { justify-content: flex-end; margin-bottom: var(--s4); }
-.bw-n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--n100); color: var(--n700); font: 700 var(--t13)/22px var(--font); text-align: center; letter-spacing: 0; }
-.bw-sub { display: inline-flex; align-items: center; gap: 4px; font: 700 var(--t13)/1 var(--font); color: var(--n500); letter-spacing: 0; }
-.bw-sub .ic { width: 14px; height: 14px; }
-.bw-sum p { color: var(--n900); max-width: 65ch; }
-.bw-sum .meta { margin-top: var(--s4); }
+.bw-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin-top: var(--s12); }
+.bw-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s16); }
 
-/* to do */
-.bw-page ul.bw-todos { list-style: none; margin: 0; padding: 0; }
-.bw-todo { display: flex; align-items: center; gap: var(--s4); min-height: 56px; padding: var(--s4) 0 var(--s4) var(--s4); }
-.bw-todos > .bw-todo + .bw-todo { border-top: 1px solid var(--n100); }
-.bw-tick { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; flex: none; color: var(--p700); border-radius: var(--r8); }
+/* ---- what's next ---- */
+/* under a writer's step: Borrow from earlier testimony, the committee report, the video on the day */
+.bw-stepx { display: flex; flex-wrap: wrap; gap: 0 var(--s8); margin: var(--s8) 0 0 -4px; }
+.bw-calm { display: flex; align-items: center; gap: var(--s12); padding: var(--s16) var(--s24); border-radius: var(--v6-r20); background: var(--v6-wash);
+  color: var(--v6-body); font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+.bw-calm .ic { width: 22px; height: 22px; flex: none; color: var(--v6-muted); }
+.bw-noown { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin-top: var(--s12); font-size: var(--v6-t16); }
+.bw-noown > .ic { width: 20px; height: 20px; color: var(--v6-muted); }
+
+/* ---- to-dos on this bill (F115): one list card, a row each ---- */
+.bw-todos { list-style: none; padding: 8px !important; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+.bw-todo { position: relative; display: flex; align-items: center; gap: var(--s4); min-height: var(--v6-row); padding: 4px 4px 4px 0; }
+.bw-todo + .bw-todo::before { content: ''; position: absolute; left: 8px; right: 8px; top: 0; height: 1px; background: var(--v6-hair); }
+.bw-tick { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: var(--v6-r12); color: var(--v6-action); }
 .bw-tick .ic { width: 22px; height: 22px; }
-.bw-tick:hover { background: var(--p50); }
-.bw-tbody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.bw-ttl { color: var(--n900); overflow-wrap: anywhere; }
-.bw-tmeta { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; font-size: var(--t14); color: var(--n500); }
-.bw-todo.done .bw-ttl { color: var(--n500); text-decoration: line-through; }
-.bw-addrow { display: flex; gap: var(--s8); margin-top: var(--s8); }
-/* No tasks: one line, "Add a task", lined up with the text around it (v3) */
-.bw-todoadd { margin-left: -12px; }
-.bw-todo0 + .bw-sec { margin-top: var(--s16); }
-.bw-addrow .input { flex: 1 1 auto; min-width: 0; }
-.bw-addrow .btn { flex: none; min-height: 48px; }
-.bw-page .bw-sec textarea#bw-note { min-height: 88px; }
-/* An untracked bill's page (untracked.js) keeps v2's hearings list and links row: committee and when on the left, what
-   happened on the right; the links spaced in a row. */
-.bw-page ul.bw-allh { list-style: none; margin: 0; padding: 0; }
-.bw-page .bw-ah { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s4) var(--s12); padding: var(--s8) 0; border-bottom: 1px solid var(--n200); }
-.bw-page .bw-ah p { margin: 0; }
-.bw-linkrow { display: flex; flex-wrap: wrap; column-gap: var(--s24); }
-/* The team note, pinned at the top of Activity (v3): saved, a quiet card that reads like a pinned message, with Edit;
-   empty, one line, "Add a team note". */
-.bw-tnote { padding: var(--s12) var(--s16) var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); }
-.bw-tnote .bw-sech { margin: -4px -4px 0 0; }
-.bw-tnote h2 { margin-bottom: 0; }
-.bw-tnote.editing h2 { margin-bottom: var(--s8); }
-.bw-notetx { margin-top: var(--s4); color: var(--n900); white-space: pre-wrap; overflow-wrap: anywhere; max-width: 70ch; }
-.bw-note0 .btn.text { margin-left: -12px; }
-.bw-tnote + .bw-act, .bw-note0 + .bw-act { margin-top: var(--s16); }
+.bw-tbody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px 0; }
+.bw-ttl { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); overflow-wrap: anywhere; }
+.bw-tmeta { display: flex; align-items: flex-start; gap: 6px; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+.bw-tmeta .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.bw-tmeta.soon { color: var(--v6-ink); font-weight: 700; }
+.bw-tmeta.t-overdue { color: var(--v6-bad); font-weight: 700; }
+.bw-todo.done .bw-ttl { color: var(--v6-muted); text-decoration: line-through; }
+.bw-todo .iconbtn { flex: none; color: var(--v6-body); }
+.bw-done { margin-top: var(--s12); }
+.bw-done > summary { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px 0 8px; border-radius: var(--v6-pill); color: var(--v6-body);
+  font-size: var(--v6-t16); cursor: pointer; list-style: none; }
+.bw-done > summary::-webkit-details-marker { display: none; }
+.bw-done[open] > summary .bw-chev { transform: rotate(180deg); }
+.bw-done .bw-todos { margin-top: var(--s8); box-shadow: none; background: var(--v6-wash); }
+.bw-todoadd { margin: var(--s8) 0 0 -4px; }
+.bw-todo0 .bw-todoadd { margin-top: 0; }
+.bw-todo0 + .bw-sec { margin-top: var(--s24); }
+.bw-addrow { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s8); margin-top: var(--s12); padding: var(--s16); border-radius: var(--v6-r20); background: var(--v6-wash); }
+.bw-addrow > .input { flex: 1 1 220px; min-width: 0; min-height: 44px; }
+.bw-tdf { display: flex; flex-direction: column; gap: 2px; flex: 1 1 140px; min-width: 0; font-size: var(--v6-t14); color: var(--v6-muted); }
+.bw-tdf .input { min-height: 44px; width: 100%; }
+.bw-addrow .btn { flex: none; }
 
-/* details */
-.bw-dl { margin: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); padding: 0 var(--s16); }
-.bw-dt { padding: var(--s12) 0; font-size: var(--t14); }
-.bw-dt + .bw-dt { border-top: 1px solid var(--n100); }
-.bw-dt dt { font-size: var(--t13); font-weight: 700; color: var(--n500); margin-bottom: 2px; }
-.bw-dt dd { margin: 0; color: var(--n900); overflow-wrap: anywhere; }
-.bw-chair { display: inline-block; }   /* "Chair Sen. San Buenaventura" wraps as one phrase, never after the word */
-/* the chair named in the heading's sentence is a link (v3) */
-.bw-status a { font-weight: 700; }
-/* a detail with its own Edit (the coalitions): the button at the line's end */
-.bw-dtact dd { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); }
-.bw-dtact dd .btn.text { flex: none; margin: -8px -12px -8px 0; }
-.bw-comp { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-right: var(--s16); }
-.bw-comp a { font-weight: 700; }
-.bw-fold { margin-top: var(--s8); }
-.bw-fold summary { display: flex; align-items: center; gap: var(--s8); min-height: 44px; color: var(--p700); font-weight: 700; font-size: var(--t14); cursor: pointer; list-style: none; }
-.bw-fold summary::-webkit-details-marker { display: none; }
-.bw-fold .chev { width: 18px; height: 18px; transition: transform .15s; }
-.bw-fold[open] .chev { transform: rotate(180deg); }
-.bw-fold p { max-width: 65ch; color: var(--n700); }
-.bw-fold p + p { margin-top: var(--s8); }
+/* ---- the doors: About this bill, Committees, Earlier testimony (V22: each a labelled 44px door) ---- */
+.bw-doors { display: grid; grid-template-columns: minmax(0, 1fr); padding: 8px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+.bw-door { position: relative; min-width: 0; }
+.bw-door + .bw-door::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: var(--v6-hair); }
+.bw-doorsum { display: flex; align-items: center; gap: var(--s12); min-height: 56px; padding: 0 12px; border-radius: var(--v6-r12); color: var(--v6-ink);
+  font-size: var(--v6-t16); line-height: var(--v6-lh16); cursor: pointer; list-style: none; }
+.bw-doorsum::-webkit-details-marker { display: none; }
+.bw-doorsum > .ic:first-child { width: 22px; height: 22px; flex: none; color: var(--v6-muted); }
+.bw-doorl { color: var(--v6-ink); }
+.bw-doorh { flex: 1 1 auto; min-width: 0; font-size: var(--v6-t14); color: var(--v6-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bw-doorsum .bw-chev { margin-left: auto; }
+.bw-door[open] > .bw-doorsum .bw-chev { transform: rotate(180deg); }
+.bw-doorsum:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+.bw-doorbody { padding: var(--s8) 12px var(--s16); min-width: 0; }
+@media (hover: hover) and (pointer: fine) { .bw-doorsum:hover { background: var(--v6-wash); } }
 
-/* ---- Committees (pathway.js, v3; v2's Pathway tab): one box, one line per stop, the current one open ----
-   A stop's line is its state in words, the committee and one fact (its hearing, or when it was heard). Open, it lists
-   the hearing, the result and the recording, our filed testimony, and for a stop still ahead its members. */
-.bw-page ul.bw-cmlist { list-style: none; margin: 0; padding: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); overflow: clip; }
-.bw-cmlist > li + li { border-top: 1px solid var(--n100); }
-.bw-cmstop.is-current { box-shadow: inset 3px 0 0 var(--p700); }
-.bw-page .bw-cmh3 { margin: 0; font-size: var(--t16); }
-.bw-cmrow { display: flex; align-items: center; gap: var(--s8); width: 100%; min-height: 52px; padding: var(--s8) var(--s12) var(--s8) var(--s16); text-align: left; }
-.bw-cmrow:focus-visible { outline-offset: -2px; }
-.bw-cmst { flex: none; display: inline-flex; align-items: center; gap: 4px; min-width: 72px; font: 700 var(--t13)/1.2 var(--font); color: var(--n500); }
+/* About this bill: the stage, the facts in words with their codes small (billpane.js aboutBill), then the rest */
+.bw-rib { display: grid; gap: var(--s4); margin-bottom: var(--s16); }
+.bw-rib .btn { justify-self: start; margin-left: -12px; }
+.bw-stset { display: flex; align-items: center; gap: 6px; font-size: var(--v6-t14); color: var(--v6-muted); }
+.bw-stset .ic { width: 16px; height: 16px; flex: none; }
+.bw-doorbody .v6-facts + .v6-facts { margin-top: var(--s12); }
+.bw-ddrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--s8); }
+.bw-ddrow .btn { flex: none; }
+.bw-comp { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0 6px; margin-right: var(--s16); }
+.bw-links { display: flex; flex-wrap: wrap; gap: 0 var(--s8); margin: var(--s12) 0 0 -12px; }
+.bw-page .v6-facts dd a.bw-inline { min-height: 32px; }
+
+/* Committees (pathway.js, in its door): a line per stop, the current one open; an open stop lists its hearings, results,
+   recordings and our filed testimony, and for a stop still ahead its members and where each stands. */
+.bw-cmlist { list-style: none; padding: 0 !important; margin: 0 -12px !important; }
+.bw-cmlist > li { position: relative; }
+.bw-cmlist > li + li::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: var(--v6-hair); }
+.bw-cmh3 { margin: 0; font-size: var(--v6-t16); }
+.bw-cmrow { display: flex; align-items: center; gap: var(--s8); width: 100%; min-height: 56px; padding: var(--s8) 12px; border-radius: var(--v6-r12); text-align: left;
+  background: none; border: 0; font: inherit; color: inherit; cursor: pointer; }
+.bw-cmst { flex: none; display: inline-flex; align-items: center; gap: 4px; min-width: 72px; font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-muted); }
 .bw-cmst .ic { width: 16px; height: 16px; }
-.is-current .bw-cmst { color: var(--p800); }
-.bw-cmname { flex: 1 1 auto; min-width: 0; font: 700 var(--t16)/1.3 var(--font); color: var(--n900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* the stops behind it and the likely ones ahead step back, so the current stop is what the eye lands on (A-13) */
-.is-passed .bw-cmname, .is-ended .bw-cmname, .is-other .bw-cmname, .is-predicted .bw-cmname { font-weight: 400; color: var(--n700); }
-.bw-cmfact { flex: none; font: 400 var(--t13)/1.3 var(--font); color: var(--n500); white-space: nowrap; }
-/* the committee's code after its name, quiet: the code is what Next up, Last action and the Capitol's record use */
-.bw-cmcode { font: 400 var(--t13)/1 var(--font); color: var(--n500); }
-.bw-cmrow .lg-chev { flex: none; width: 20px; height: 20px; color: var(--n500); }
-/* an open stop lists its hearings in full, so the line's "Heard Fri 2/27" steps aside (A-14) */
+.is-current .bw-cmst { color: var(--v6-action); font-weight: 700; }
+.bw-cmname { flex: 1 1 auto; min-width: 0; font: 600 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-ink); }
+.is-passed .bw-cmname, .is-ended .bw-cmname, .is-other .bw-cmname, .is-predicted .bw-cmname { font-weight: 400; color: var(--v6-body); }
+.bw-cmcode { font: 400 var(--v6-t14)/1 var(--font); color: var(--v6-muted); }
+.bw-cmfact { flex: none; font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-muted); white-space: nowrap; }
+.bw-cmrow .lg-chev { flex: none; width: 20px; height: 20px; color: var(--v6-muted); }
 .bw-cmrow[aria-expanded="true"] .bw-cmfact.held { visibility: hidden; }
-.bw-cmbody { padding: 0 var(--s12) var(--s12) var(--s16); }
-.bw-cmh { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--s12); row-gap: 2px; min-height: 40px; font-size: var(--t14); }
-.bw-cmwhen { display: inline-flex; align-items: center; gap: 6px; color: var(--n700); }
-.bw-cmwhen > .ic { width: 16px; height: 16px; color: var(--n500); flex: none; }
-.bw-cmtally { margin: var(--s8) 0 var(--s4); font-size: var(--t13); font-weight: 700; color: var(--n700); }
-.bw-cmpred { padding: var(--s8) var(--s16); font: 700 var(--t13)/1.3 var(--font); color: var(--n500); background: var(--n50); }
+.bw-cmbody { padding: 0 12px var(--s12) 92px; min-width: 0; }
+.bw-cmh { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--s12); row-gap: 2px; min-height: 40px; font-size: var(--v6-t14); }
+.bw-cmwhen { display: inline-flex; align-items: center; gap: 6px; color: var(--v6-body); }
+.bw-cmwhen > .ic { width: 16px; height: 16px; color: var(--v6-muted); flex: none; }
+.bw-cmtally { margin: var(--s8) 0 var(--s4) !important; font-size: var(--v6-t14); color: var(--v6-body); }
+.bw-cmpred { padding: var(--s8) 12px; font: 700 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-muted); }
 .bw-cmnone { padding: var(--s8) 0; }
 .bw-cmall { margin: var(--s4) 0 0 -12px; }
-/* R-277 fix 13: "Committee members · 13 · no stances recorded yet" ran past a phone's edge on one line; it wraps, its words left */
-.bw-cmfold { white-space: normal; text-align: left; justify-content: flex-start; max-width: calc(100% + 12px); height: auto; padding-top: 6px; padding-bottom: 6px; }
+.bw-cmfold { white-space: normal; text-align: left; justify-content: flex-start; height: auto; padding-top: 6px; padding-bottom: 6px; }
 .bw-cmfold .ic { flex: none; }
-/* a phone's member rows and a laptop's member table run edge to edge of the box, as the stop's line does */
-.bw-cmmem { margin: 0 calc(-1 * var(--s12)) calc(-1 * var(--s12)) calc(-1 * var(--s16)); border-top: 1px solid var(--n100); }
-@media (max-width: 899px) {
-  /* a phone has no room for the fact beside the name: it goes under it, lined up with the name, and the name may take
-     two lines */
+.bw-cmmem { margin: 0 -12px; }
+.bw-joint, .bw-how { display: flex; align-items: center; gap: var(--s4); margin: 0 0 var(--s8) !important; color: var(--v6-body); }
+@media (max-width: 767.98px) {
   .bw-cmrow { display: grid; grid-template-columns: 72px minmax(0, 1fr) 20px; grid-template-areas: "st nm ch" ". ft ch"; column-gap: var(--s8); row-gap: 0; }
   .bw-cmst { grid-area: st; }
-  .bw-cmname { grid-area: nm; white-space: normal; }
+  .bw-cmname { grid-area: nm; }
   .bw-cmfact { grid-area: ft; white-space: normal; }
   .bw-cmrow .lg-chev { grid-area: ch; }
+  .bw-cmbody { padding-left: 12px; }
+}
+@media (hover: hover) and (pointer: fine) { .bw-cmrow:hover { background: var(--v6-wash); } }
+/* a stop's members as a table (pathway.js draws it from 900px) */
+.bw-pwfold, .bw-prev { display: none; }
+.bw-pwt { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--v6-t14); }
+.bw-pwt thead th { height: 40px; padding: 0 8px; font-size: var(--v6-t14); font-weight: 700; color: var(--v6-muted); text-align: left; white-space: nowrap; }
+.bw-sortb { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; margin: 0 -6px; padding: 0 6px; border-radius: var(--v6-r12); font: inherit; font-weight: 700; color: var(--v6-muted); background: none; border: 0; cursor: pointer; }
+.bw-sortb:hover { background: var(--v6-wash); color: var(--v6-ink); }
+.bw-pwt th[aria-sort="ascending"] .bw-sortb, .bw-pwt th[aria-sort="descending"] .bw-sortb { color: var(--v6-ink); }
+.bw-sortb .ic { width: 14px; height: 14px; }
+.bw-pwt tbody th, .bw-pwt td { height: 52px; padding: 4px 8px; border-top: 1px solid var(--v6-hair); vertical-align: middle; text-align: left; font-weight: 400; color: var(--v6-body); }
+.bw-pwt tbody th { position: relative; }
+.bw-pwnm { font-weight: 700; color: var(--v6-ink); text-decoration: none; overflow-wrap: anywhere; }
+.bw-pwnm::after { content: ''; position: absolute; inset: 0; }
+.bw-pwnm:hover { color: var(--v6-action); text-decoration: underline; text-underline-offset: 3px; }
+.bw-pwt tr.lead .bw-pwc-role { font-weight: 700; color: var(--v6-ink); }
+.bw-pwsub { display: block; font-size: var(--v6-t14); color: var(--v6-muted); }
+.bw-pwc-name { width: 30%; }
+.bw-pwc-role { width: 92px; }
+.bw-pwc-stance { width: 164px; }
+.bw-pwc-act { width: 92px; }
+.bw-pwt td.bw-pwc-act { padding: 0 4px 0 0; text-align: right; white-space: nowrap; }
+.bw-pwt td.bw-pwc-act .iconbtn { width: 40px; height: 40px; color: var(--v6-body); }
+.bw-pwt .sv-pick { width: 100%; min-height: 40px; padding: 0 8px 0 10px; justify-content: space-between; }
+.bw-pwt .sv-pick > span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.bw-pwnote { display: flex; flex-direction: column; justify-content: center; gap: 1px; width: calc(100% + 16px); min-height: 40px; margin: 0 -8px; padding: 2px 8px;
+  border-radius: var(--v6-r12); text-align: left; background: none; border: 0; font: inherit; color: inherit; cursor: pointer; }
+.bw-pwnote:hover { background: var(--v6-action-wash); }
+.bw-pwnote.none { flex-direction: row; justify-content: flex-start; align-items: center; gap: 4px; font-size: var(--v6-t14); color: var(--v6-action); }
+.bw-pwnote.none .ic { width: 16px; height: 16px; }
+.bw-pwntx { color: var(--v6-ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.bw-pwmeta { font-size: var(--v6-t14); color: var(--v6-muted); }
+/* the door's body is narrower than the window: Role and Note fold into the name cell under 640px of it */
+.bw-doorbody { container: bwd / inline-size; }
+@container bwd (max-width: 639px) {
+  .bw-pwt .bw-pwc-role, .bw-pwt .bw-pwc-note { display: none; }
+  .bw-pwt span.bw-pwfold { display: inline; }
+  .bw-pwt span.bw-pwinl { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; font-size: var(--v6-t14); color: var(--v6-body); overflow-wrap: anywhere; }
+  .bw-pwt .iconbtn.bw-pwfold { display: inline-flex; }
+  .bw-pwc-name { width: auto; }
+  .bw-pwc-stance { width: 148px; }
+  .bw-pwt .sv-pick .ic:not(.chev) { display: none; }
 }
 
-/* ---- Activity ---- */
+/* Earlier testimony in its door (testimony.js; its rows are testimony.css's): no second box inside the door's card */
+.bw-page .bw-door.tm .tm-part > h3 { font: 600 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-ink); }
+.bw-page .bw-door.tm .tm-row, .bw-page .bw-door.tm .tm-group, .bw-page .bw-door.tm .tm-cat { border: 0; background: var(--v6-wash); border-radius: var(--v6-r12); }
+.bw-page .bw-door.tm .tm-ghead { background: none; border: 0; }
+.bw-page .bw-door.tm .tm-crow { border-color: var(--v6-hair); }
+.bw-page .tm-st { display: inline-flex; padding: 2px 10px; border-radius: var(--v6-r12); background: var(--v6-card); font-size: var(--v6-t14); color: var(--v6-body); white-space: nowrap; }
+.bw-page .tm-search { border-radius: var(--v6-r12); }
+
+/* ---- Team talk (activity.js) ---- */
+/* the team note, pinned: a quiet card that reads like a pinned message */
+.bw-tnote { padding: var(--s16) var(--s24); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+.bw-tnote .bw-sech { margin-bottom: var(--s8); }
+.bw-notetx { color: var(--v6-ink); font-size: var(--v6-t16); line-height: var(--v6-lh16); white-space: pre-wrap; overflow-wrap: anywhere; max-width: 68ch; }
+.bw-noteby { margin-top: var(--s8) !important; font-size: var(--v6-t14); color: var(--v6-muted); }
+.bw-noteby:empty { display: none; }
+.bw-tnote textarea#bw-note { min-height: 96px; }
+.bw-note0 .btn { margin-left: -4px; }
+.bw-tnote + .bw-act, .bw-note0 + .bw-act { margin-top: var(--s24); }
+/* the one box: what it is, the words, Send */
+.bw-box { padding: var(--s16); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); margin-bottom: var(--s24); }
+.bw-composer { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s12); min-width: 0; }
+.bw-composer .sv-seg { justify-self: start; flex-wrap: wrap; max-width: 100%; }
+.bw-crow { display: flex; align-items: flex-end; gap: var(--s8); }
+.bw-crow textarea { flex: 1 1 auto; min-width: 0; min-height: 48px; max-height: 200px; padding: 12px 16px; border: 1px solid var(--v6-field); border-radius: var(--v6-r12);
+  background: var(--v6-card); font: 400 var(--v6-t16)/24px var(--font); color: var(--v6-ink); resize: none; overflow-y: auto; }
+.bw-crow textarea::placeholder { color: var(--v6-muted); opacity: 1; }
+.bw-crow textarea:focus { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+.bw-send { width: 48px; height: 48px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: var(--v6-pill);
+  background: var(--v6-action-wash); color: var(--v6-action); cursor: pointer; }
+.bw-send:hover { background: var(--v6-action); color: var(--v6-card); }
+.bw-send .ic { width: 22px; height: 22px; }
+.bw-send[aria-busy="true"] { opacity: .6; }
+.bw-ntype { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); font-size: var(--v6-t14); color: var(--v6-muted); }
+.bw-ntype .input { width: auto; min-height: 44px; }
+.bw-mention { display: flex; flex-wrap: wrap; gap: var(--s8); }
+.bw-mention[hidden] { display: none; }
+.bw-at-pick { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px 0 6px; border: 0; border-radius: var(--v6-pill);
+  background: var(--v6-action-wash); color: var(--v6-action); font: 700 var(--v6-t16)/1 var(--font); cursor: pointer; }
+.bw-at-pick .sv-av { font-size: var(--v6-t14); }
+/* the stream, newest first */
 .bw-stream { display: flex; flex-direction: column; }
-.bw-page h3.bw-day { margin: var(--s16) 0 var(--s4); font: 700 var(--t13)/1.2 var(--font); color: var(--n500); letter-spacing: 0; display: flex; align-items: center; gap: var(--s8); }
-.bw-page h3.bw-day::after { content: ''; flex: 1 1 auto; height: 1px; background: var(--n200); }
+.bw-page h3.bw-day { display: flex; align-items: center; gap: var(--s12); margin: var(--s24) 0 var(--s8); font: 700 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-muted); }
+.bw-page h3.bw-day::after { content: ''; flex: 1 1 auto; height: 1px; background: var(--v6-hair); }
+.bw-stream > h3.bw-day:first-child { margin-top: 0; }
 .bw-msg, .bw-log { display: flex; align-items: flex-start; gap: var(--s12); padding: var(--s8) 0; }
 .bw-msgb { flex: 1 1 auto; min-width: 0; }
-.bw-msgh { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--s8); font-size: var(--t14); }
-.bw-msgh b { color: var(--n900); }
-.bw-msgt { margin-top: 2px; color: var(--n900); line-height: 1.45; overflow-wrap: anywhere; }
-.bw-msgt a { font-weight: 700; }
-.bw-at { background: var(--n100); border-radius: 4px; padding: 0 3px; }
-.bw-msgmore { margin: -10px -10px 0 0; color: var(--n500); }
-.bw-msgmore .ic { width: 18px; height: 18px; }
-.bw-msg .sv-av { margin-top: 2px; }
-.bw-logic { width: 32px; height: 32px; border-radius: 50%; background: var(--n100); color: var(--n700); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.bw-msgh { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--s8); font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+.bw-msgh b { color: var(--v6-ink); }
+.bw-msgt { margin-top: 2px !important; color: var(--v6-ink); font-size: var(--v6-t16); line-height: var(--v6-lh16); overflow-wrap: anywhere; max-width: 68ch; }
+.bw-msgt a { font-weight: 700; color: var(--v6-action); }
+.bw-msgd { margin-top: 2px !important; color: var(--v6-body); font-size: var(--v6-t16); line-height: var(--v6-lh16); max-width: 68ch; overflow-wrap: anywhere; }
+.bw-at { background: var(--v6-action-wash); border-radius: var(--v6-pill); padding: 0 6px; color: var(--v6-action); }
+.bw-new { display: inline-flex; padding: 0 8px; border-radius: var(--v6-pill); background: var(--v6-action-wash); color: var(--v6-action); font-size: var(--v6-t14); font-weight: 700; }
+.bw-msgacts { margin: 2px 0 0 -12px !important; }
+.bw-msgmore { flex: none; color: var(--v6-muted); }
+.bw-msg .sv-av { margin-top: 2px; font-size: var(--v6-t14); }
+.bw-logic { width: 32px; height: 32px; border-radius: 50%; background: var(--v6-wash); color: var(--v6-body); display: inline-flex; align-items: center; justify-content: center; flex: none; }
 .bw-logic .ic { width: 18px; height: 18px; }
-.bw-off summary { display: flex; align-items: center; gap: var(--s12); min-height: 48px; padding: var(--s4) 0; cursor: pointer; list-style: none; }
+.bw-off summary { display: flex; align-items: center; gap: var(--s12); min-height: 48px; padding: var(--s4) 0; cursor: pointer; list-style: none; border-radius: var(--v6-r12); }
 .bw-off summary::-webkit-details-marker { display: none; }
-.bw-offt { flex: 1 1 auto; min-width: 0; font-size: var(--t14); color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.bw-offt b { color: var(--n900); margin-right: 2px; }
-.bw-off .chev { width: 18px; height: 18px; color: var(--n400); transition: transform .15s; }
+.bw-offt { flex: 1 1 auto; min-width: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); overflow-wrap: anywhere; }
+.bw-offt b { color: var(--v6-ink); margin-right: 2px; }
+.bw-off .chev { width: 18px; height: 18px; flex: none; color: var(--v6-muted); transition: transform 150ms ease; }
 .bw-off[open] .chev { transform: rotate(180deg); }
-.bw-off[open] .bw-offt { -webkit-line-clamp: unset; display: block; }
 .bw-off ul { list-style: none; margin: 0 0 var(--s8) 44px; padding: 0; }
-.bw-off li { padding: var(--s8) 0; font-size: var(--t14); color: var(--n700); border-top: 1px solid var(--n100); overflow-wrap: anywhere; }
-.bw-earlier { align-self: center; }
+.bw-off li { padding: var(--s8) 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); border-top: 1px solid var(--v6-hair); overflow-wrap: anywhere; }
+.bw-more-act { align-self: flex-start; margin-top: var(--s12); }
 .bw-loading { display: flex; align-items: center; gap: 6px; padding: var(--s8) 0; }
 .bw-loading .ic { width: 16px; height: 16px; animation: spin 1s linear infinite; }
-.bw-none { padding: var(--s16) 0; font-size: var(--t14); color: var(--n500); }
+.bw-none { padding: var(--s16) 0; font-size: var(--v6-t16); color: var(--v6-muted); }
+@media (hover: hover) and (pointer: fine) { .bw-off summary:hover { background: var(--v6-wash); } }
 
-/* the message box: the page's bottom bar on Activity */
-.bw-composer { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--s8); }
-.bw-crow { display: flex; align-items: flex-end; gap: var(--s8); }
-.bw-crow textarea { flex: 1 1 auto; min-width: 0; min-height: 44px; max-height: 132px; padding: 10px 16px; border: 1px solid var(--n400); border-radius: 22px; background: var(--n0);
-  font: 400 var(--t16)/22px var(--font); color: var(--n900); resize: none; overflow-y: auto; }
-.bw-crow textarea:focus { outline: none; border-color: var(--p700); box-shadow: 0 0 0 2px var(--p700); }
-.bw-send { width: 44px; height: 44px; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--pill); background: var(--p700); color: var(--n0); }
-.bw-send:hover { background: var(--p800); }
-.bw-send .ic { width: 20px; height: 20px; }
-/* Outlined while the box is empty, filled once there is something to send: the page's one filled button stays the
-   testimony step's (A-3, v3). */
-.bw-crow:has(textarea:placeholder-shown) .bw-send { background: var(--n0); color: var(--p700); box-shadow: inset 0 0 0 1.5px var(--p700); }
-.bw-send[aria-busy="true"] { opacity: .6; }
-.bw-mention { display: flex; gap: var(--s8); overflow-x: auto; scrollbar-width: none; }
-.bw-mention .chip { flex: none; padding-left: 8px; }
-
-/* ---- Public ---- */
-.bw-pubform { margin-top: var(--s12); }
-.bw-pubform .sv-switchrow { border-bottom: 1px solid var(--n200); margin-bottom: var(--s16); }
-/* Three labelled blocks (v3): each block's heading is the tab's section heading, set a size above the fields. */
-.bw-page .bw-pblk > h2, .bw-where > summary h2 { font-size: var(--t18); }
-.bw-pblk + .bw-pblk { margin-top: var(--s32); padding-top: var(--s24); border-top: 1px solid var(--n200); }
-/* what the public page shows now: a status line, not a box */
-.bw-pubnow { display: flex; gap: 6px; align-items: flex-start; font-size: var(--t14); color: var(--n700); }
-.bw-pubnow > .ic { width: 16px; height: 16px; margin-top: 3px; flex: none; color: var(--n500); }
-.bw-pubnow.warn { color: var(--warn-text); }
-.bw-pubnow.warn > .ic { color: var(--warn-text); }
-.bw-pubnow .bw-inline { min-height: 0; }
-.bw-drpart { margin-top: var(--s24); }
-.bw-drpart > h3 { font-size: var(--t16); margin-bottom: var(--s8); }
-.bw-resp { display: flex; gap: 6px; align-items: flex-start; color: var(--n900); }
-.bw-resp > .ic { width: 16px; height: 16px; margin-top: 3px; flex: none; color: var(--n500); }
-.bw-spreadacts { margin: var(--s4) 0 0 -12px; column-gap: 0; }
+/* ---- Public (public.js) ---- */
+.bw-kit .bw-acts { margin-top: var(--s8); }
+.bw-resp { display: flex; gap: 8px; align-items: flex-start; color: var(--v6-ink); font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+.bw-resp > .ic { width: 20px; height: 20px; margin-top: 2px; flex: none; color: var(--v6-muted); }
 .bw-spreadacts + p:empty { display: none; }
-.bw-spreadacts .btn.text[aria-disabled="true"] { color: var(--n500); }
-/* "Where it shows", folded: the summary is the block's heading, with where it shows now beside it */
-.bw-where > summary { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--s12); row-gap: 2px; min-height: 44px; cursor: pointer; list-style: none; }
+.bw-spreadacts .btn[aria-disabled="true"] { background: var(--v6-wash); color: var(--v6-muted); }
+.bw-spreadacts + .bw-quiet { margin-top: var(--s8); }
+.bw-pubnow { display: flex; gap: 8px; align-items: flex-start; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+.bw-pubnow > .ic { width: 20px; height: 20px; margin-top: 2px; flex: none; color: var(--v6-muted); }
+.bw-pubnow .bw-inline { min-height: 0; }
+.bw-pubform { display: grid; gap: var(--s16); margin-top: var(--s16); padding: var(--s24); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); min-width: 0; }
+.bw-pubform .field { margin: 0; }
+/* a field's name is a label, not a heading: 16 regular in ink, so the bold on the page is the headings and Save (spec 4) */
+.bw-pubform .field > label, .bw-pubform .sv-switchrow .title, .bw-nickform .bw-nicklab, .bw-tdf > span { font-weight: 400; color: var(--v6-ink); font-size: var(--v6-t16); }
+.bw-pubform .sv-switchrow { border-bottom: 0; margin: 0; }
+.bw-pubform .help, .bw-pubform .bw-count { font-size: var(--v6-t14); color: var(--v6-muted); }
+.bw-pubsave { margin-top: 0; }
+.bw-untilwarn:empty { display: none; }
+.bw-untilwarn { color: var(--v6-ink); }
+.bw-reach { margin: 0; padding: var(--s12) var(--s16); border-radius: var(--v6-r12); background: var(--v6-wash); }
+.bw-reach p { font-size: var(--v6-t14); line-height: var(--v6-lh14); }
+.bw-drpart { margin-top: var(--s32); }
+.bw-drpart > h3 { font: 600 var(--v6-t18)/var(--v6-lh18) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); margin-bottom: var(--s12) !important; }
+.bw-drlist { list-style: none; padding: 8px 16px !important; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); display: grid; gap: 0 !important; }
+.bw-drrow { position: relative; display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--s8) var(--s12); padding: var(--s12) 0; }
+.bw-drrow + .bw-drrow::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
+.bw-drbody { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+.bw-drbody b { color: var(--v6-ink); }
+.bw-drbig, .bw-drsug { display: flex; gap: 6px; align-items: flex-start; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-body); }
+.bw-drbig .ic, .bw-drsug .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.bw-dracts { display: flex; flex-wrap: wrap; gap: 0 4px; }
+.bw-pblk + .bw-pblk { margin-top: var(--v6-gap); }
+.bw-where { margin-top: var(--v6-gap); }
+.bw-where > summary { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--s12); row-gap: 2px; min-height: 48px; cursor: pointer; list-style: none; border-radius: var(--v6-r12); }
 .bw-where > summary::-webkit-details-marker { display: none; }
-.bw-where > summary h2 { margin: 0; }
-.bw-wsum { flex: 1 1 12em; min-width: 0; font-size: var(--t14); color: var(--n500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bw-where > summary .chev { width: 20px; height: 20px; color: var(--n500); transition: transform .15s; }
-.bw-where[open] > summary .chev { transform: rotate(180deg); }
-.bw-wpart { margin-top: var(--s16); }
-.bw-wpart > h3 { font-size: var(--t16); margin-bottom: var(--s4); }
-.bw-wpart .bw-soon { display: flex; align-items: flex-start; font-weight: 400; }
+.bw-where > summary .bw-h2 { margin: 0 !important; }
+.bw-wsum { flex: 1 1 12em; min-width: 0; font-size: var(--v6-t14); color: var(--v6-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bw-where[open] > summary .bw-chev { transform: rotate(180deg); }
+.bw-wbody { display: grid; gap: var(--s24); margin-top: var(--s12); padding: var(--s24); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+.bw-wpart > h3 { font: 600 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-ink); margin-bottom: var(--s8) !important; }
+.bw-whynot { display: flex; gap: 6px; align-items: flex-start; font-size: var(--v6-t14); color: var(--v6-body); margin-bottom: var(--s8) !important; }
+.bw-whynot .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--v6-muted); }
+.bw-isslist { list-style: none; padding: 0 !important; }
+.bw-issrow { display: flex; align-items: center; gap: var(--s8); min-height: 52px; }
 .bw-issb { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.bw-issb .bw-issname { flex: none; margin-right: 0; }
-.bw-isst { font-size: var(--t13); color: var(--n500); }
-.bw-pubsave .btn.primary { flex: 0 1 auto; }
-.bw-lists { margin-top: var(--s8); }
-.bw-lists .chip .ic { width: 16px; height: 16px; }
-.bw-lists .chip[aria-disabled="true"] { background: var(--n100); color: var(--n500); border-color: var(--n200); cursor: default; }
-.bw-draft { margin-left: 2px; font-weight: 400; color: var(--n500); }
+.bw-issname { font-weight: 700; color: var(--v6-action); text-decoration: none; }
+.bw-isst { font-size: var(--v6-t14); color: var(--v6-muted); }
+.bw-ispick { margin-top: var(--s8); }
+.bw-lists { display: flex; flex-wrap: wrap; gap: var(--s8); margin-top: var(--s8); }
+/* a list the bill is on or off: a toggle (pressed says it is on), never a status tag (A-12) */
+.bw-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 16px 0 12px; border: 0; border-radius: var(--v6-pill);
+  background: var(--v6-wash); color: var(--v6-body); font: 400 var(--v6-t16)/1.2 var(--font); cursor: pointer; }
+.bw-toggle .ic { width: 16px; height: 16px; flex: none; }
+.bw-toggle[aria-pressed="true"] { background: var(--v6-action-wash); color: var(--v6-action); font-weight: 700; }
+.bw-toggle[aria-disabled="true"] { color: var(--v6-muted); cursor: default; }
+.bw-draft { font-weight: 400; color: var(--v6-muted); }
+.bw-prevh { font-size: var(--v6-t14); font-weight: 700; color: var(--v6-muted); }
+.bw-prevcard { margin-top: var(--s8); padding: var(--s16); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+.bw-prevcard.off { box-shadow: none; background: var(--v6-wash); }
+.bw-pnum { font-size: var(--v6-t14); color: var(--v6-muted); }
+.bw-pname { margin-top: var(--s4) !important; font: 600 var(--v6-t18)/var(--v6-lh18) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); overflow-wrap: anywhere; }
+.bw-pname.bw-long { font: 400 var(--v6-t16)/var(--v6-lh16) var(--font); }
+.bw-plede { margin-top: var(--s4) !important; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); overflow-wrap: anywhere; }
+.bw-pask { display: flex; gap: var(--s8); margin-top: var(--s12) !important; padding: var(--s8) var(--s12); border-radius: var(--v6-r12); background: var(--v6-action-wash); color: var(--v6-ink);
+  font-size: var(--v6-t16); line-height: var(--v6-lh16); overflow-wrap: anywhere; }
+.bw-pask.off { background: var(--v6-wash); color: var(--v6-muted); }
+.bw-pask .ic { width: 18px; height: 18px; margin-top: 3px; flex: none; }
+.bw-pnote { display: flex; gap: 6px; margin-top: var(--s8) !important; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+.bw-pnote .ic { width: 16px; height: 16px; margin-top: 2px; flex: none; }
+.bw-panel { container: bwp / inline-size; }
+@container bwp (min-width: 640px) {
+  .bw-pubcols { display: grid; grid-template-columns: minmax(0, 1fr) 232px; gap: var(--s24); align-items: start; }
+  .bw-prev { display: block; position: sticky; top: calc(var(--header) + 44px); margin-top: var(--s16); }
+}
 
 /* ---- sheets opened from this page ---- */
 .bw-shlink { margin: var(--s8) 0 0 -12px; }
 .bw-shhelp { margin-bottom: var(--s8); }
-.bw-types { border: 0; margin: 0 0 var(--s16); padding: 0; min-width: 0; }
-.bw-types legend { padding: 0; margin-bottom: var(--s8); font-size: var(--t14); font-weight: 700; color: var(--n900); }
-.bw-types .chip .ic { width: 16px; height: 16px; }
 
-/* ---- very narrow phones and 200% zoom: let long words wrap instead of pushing the page sideways ---- */
-@media (max-width: 359px) {
-  .bw-hv { display: none; }   /* the version in the phone header gives way to the number */
-  .bw-tabs a { font-size: var(--t14); }
-  .bw-next .bw-acts .btn { flex-basis: 100%; }
-}
+/* ---- an untracked bill's page (untracked.js, BILLS) borrows the page's frame and a few of its parts ---- */
+.ut-page .bw-head { gap: var(--s4); }
+.ut-page h1.bw-num, .ut-page .bw-num { font: 700 var(--v6-t28)/var(--v6-lh28) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); }
+.ut-page .bw-title { font-size: var(--v6-t18); color: var(--v6-ink); }
+.ut-page .bw-sec > h2 { font: 600 var(--v6-t22)/var(--v6-lh22) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); margin-bottom: var(--s12); }
+.bw-dl { margin: 0; padding: 4px var(--s16); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+.bw-dt { padding: var(--s12) 0; font-size: var(--v6-t16); }
+.bw-dt + .bw-dt { border-top: 1px solid var(--v6-hair); }
+.bw-dt dt { font-size: var(--v6-t14); font-weight: 700; color: var(--v6-muted); margin-bottom: 2px; }
+.bw-dt dd { margin: 0; color: var(--v6-ink); overflow-wrap: anywhere; }
+.bw-n { min-width: 22px; padding: 0 6px; border-radius: var(--v6-pill); background: var(--v6-wash); color: var(--v6-body); font: 700 var(--v6-t14)/22px var(--font); text-align: center; }
+.bw-page ul.bw-allh { list-style: none; margin: 0; padding: 0; }
+.bw-page .bw-ah { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s4) var(--s12); padding: var(--s8) 0; border-bottom: 1px solid var(--v6-hair); }
+.bw-linkrow { display: flex; flex-wrap: wrap; column-gap: var(--s24); }
 
-/* ---- the Public tab's preview and the desktop pieces that have no phone form: hidden until there is room ---- */
-.bw-prev, .bw-pwfold { display: none; }
-
-/* ======================================================================================================
-   Desktop (900px and wider): two columns, a side panel that stays in view, label-sized tabs and buttons,
-   hover washes, and a table for the Pathway. Rows are tighter than on a phone (a mouse needs 36 to 40px).
-   ====================================================================================================== */
-@media (min-width: 900px) {
-  .bw-page { max-width: 1056px; }          /* the frame's standard page (1120px less its gutters) */
-  .bw-hdrmore { display: none; }
-  /* the page's own top bar: back, Previous / Next, ⋯ */
-  .bw-top { display: flex; align-items: center; gap: var(--s8); min-height: 44px; margin: 0 -12px var(--s4) -8px; }
-  .bw-back { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; margin-right: auto; padding: 0 12px 0 4px; border-radius: var(--pill); color: var(--p700); font-weight: 700; text-decoration: none; max-width: 40%; }
-  .bw-back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .bw-back:hover { background: var(--p50); }
-  .bw-nav { display: flex; align-items: center; gap: var(--s4); }
-  .bw-pn .ic { width: 18px; height: 18px; }
-  .bw-pn[aria-disabled="true"] { color: var(--n400); text-decoration: none; cursor: default; }
-  .bw-pn[aria-disabled="true"]:hover { background: none; }
-
-  /* the main column: number, name, the ribbon, where it stands, then the tabs with the tab's content under them */
-  .bw-cols { margin-top: var(--s4); }
-  .bw-main { min-width: 0; }
-  .bw-num { display: block; }
-  .bw-page h1.bw-num { font-size: var(--t22); }
-  .bw-page h1.bw-h1 { font: 700 var(--t22)/1.25 var(--font-h); margin-top: 0; }   /* R-271: the nickname is the heading */
-  .bw-page .bw-numsm { font: 400 var(--t14)/20px var(--font); color: var(--n500); margin-top: 2px; }
+/* ---- 768px and wider: the page's own back row ---- */
+@media (min-width: 768px) {
+  .bw-top { display: flex; align-items: center; gap: var(--s8); min-height: 44px; }
   .bw-head { padding-top: 0; }
-  .bw-title { margin-top: var(--s4); }
-  .bw-lede { font-size: var(--t16); }
-  /* What stays pinned under the app header is the page's slim top bar (Back, Previous / Next, and the bill's number
-     once its heading has scrolled away) and the tab strip, about 90px. The heading, the ribbon and the status sentence
-     scroll away (R-042, Nate 9/22: pinned together they took 250px of an 800px screen and left the tabs' content
-     little room). bill.js measures the strip and publishes --bw-under, the line the tab's own sticky pieces (the
-     Pathway table's header row, the Public tab's preview) hold themselves to. */
-  .bw-top { position: sticky; top: var(--header); z-index: 21; background: var(--n50); }
-  .bw-stick { display: contents; }
-  .bw-stick .bw-tabs { position: sticky; top: calc(var(--header) + var(--bw-toph)); z-index: 20; }
-  .bw-desk { --bw-toph: 44px; }
-  .bw-topnum { min-width: 0; margin-right: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t14); color: var(--n700); opacity: 0; visibility: hidden; }
-  .bw-topnum b { color: var(--n900); }
-  .bw-scrolled .bw-topnum { opacity: 1; visibility: visible; }
-  .bw-scrolled .bw-back { margin-right: 0; }
-  @media (prefers-reduced-motion: no-preference) { .bw-topnum { transition: opacity .15s ease, visibility .15s; } }
-  /* one line, 45px: where the column is too narrow for the key hint it wraps to a second line, which is cut off */
-  .bw-tabs { display: flex; flex-wrap: wrap; align-items: stretch; column-gap: var(--s4); row-gap: var(--s8); max-height: 45px; overflow: hidden; margin: var(--s16) 0 0; padding: 0; border-top: 0; background: var(--n50); }
-  .bw-tabs a { min-height: 44px; padding: 0 var(--s16); border-radius: var(--r8) var(--r8) 0 0; }
-  .bw-tabs a:hover { background: var(--n100); }
-  .bw-tabs a[aria-current="page"]:hover { background: var(--p50); }
-  .bw-tabs a[aria-current="page"]::after { left: 0; right: 0; bottom: 0; }
-  .bw-panel { padding-top: var(--s24); container: bwp / inline-size; }
-
-  /* The side panel is Next up and Team only — the key facts moved into Details, so nothing hides behind an invisible
-     inner scrollbar. It scrolls with the page (staff.css); its first card stays in view (.sv-stick).
-     2px of room for the cards' shadows, which a sticky card would otherwise clip. */
-  /* Stretched to the row, not sized to its own cards: the panel is shorter than the main column, and without this
-     its sticky first card would scroll away with the panel a screen into a long Activity stream. */
-  .bw-cols > .bw-aside { padding: 2px; margin: -2px; align-self: stretch; }
-  /* Next up docks just under the pinned top bar, with no gap: the Team card behind it then passes under the
-     app header instead of showing a stray card edge in the space between. (The shared .sv-stick keeps 16px there,
-     and adds the band's 28px from 900px although the band is only sticky from 1100px.) */
-  .bw-cols > .bw-aside > .sv-stick, body.staff2:has(.band) .bw-cols > .bw-aside > .sv-stick { top: calc(var(--header) + var(--bw-toph)); }
-  .bw-page .bw-aside .card { margin-top: 0; }
-  .bw-next .bw-acts .btn { flex: 0 1 auto; }
-  /* tighter than the phone card, so Next up and Team both show on a 1280x800 screen */
-  .bw-page .bw-aside .btn { min-height: 40px; }
-  .bw-page .bw-aside .btn.text { min-height: 36px; }
-  .bw-page .bw-aside button.chip { min-height: 36px; padding: 4px 12px; }
-  .bw-page .bw-aside button.chip[aria-pressed="true"] { padding: 3px 11px; }
-  .bw-aside .bw-tb, .bw-aside .bw-acts, .bw-aside .bw-due { margin-top: var(--s8); }
-  .bw-aside .bw-hfoot { margin-top: var(--s8); padding-top: var(--s8); row-gap: var(--s4); }
-  .bw-side > .bw-nexthead { margin-bottom: var(--s4); min-height: 24px; margin-top: 0; margin-right: 0; }
-  .bw-ctl { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); min-height: 44px; }
-  .bw-ctl + .bw-ctl { border-top: 1px solid var(--n100); }
-  .bw-ctll { font-size: var(--t13); font-weight: 700; color: var(--n500); }
-  .bw-ctl .sv-pick { min-height: 36px; max-width: 232px; border-color: transparent; padding: 0 8px 0 10px; margin-right: -8px; }
-  .bw-ctl .sv-pick:hover, .bw-ctl .sv-pick:focus-visible { border-color: var(--p700); }
-  .bw-ctl .sv-pick > span:not(.sv-av) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  /* R-316 W28 (fresh-eyes): "Lauren (turned off), needs a new owner" is longer than the 232px picker: it wraps to a second line
-     (the picker has no border here) rather than losing the words that say what to do. */
-  .bw-ctl .sv-pick.bw-newown { padding-top: 4px; padding-bottom: 4px; }
-  .bw-ctl .sv-pick.bw-newown > span:not(.sv-av) { white-space: normal; text-align: right; line-height: 18px; }
-  .bw-ctl .sv-av { font-size: var(--t13); }
-  /* who follows the bill: a fact, not a control, so plain text where the pickers sit (R-022 wave 3) */
-  .bw-ctlv { min-width: 0; font-size: var(--t14); color: var(--n900); text-align: right; overflow-wrap: anywhere; }
-
-  /* Overview: a readable column; the details line up as label and value */
-  .bw-dl .bw-dt { display: grid; grid-template-columns: 132px 1fr; gap: var(--s16); }
-  .bw-dl .bw-dt dt { margin: 1px 0 0; }
-  .bw-todo { min-height: 48px; }
-  .bw-page .bw-inline, .bw-comp, .bw-page .bw-dt dd a[href^="#/legislator/"] { min-height: 32px; }
-  /* the going toggle and the chair named in the heading are mouse targets here */
-  .bw-gobtn { min-height: 32px; margin: -6px 0; }
-  .bw-addrow { max-width: 560px; }
-  .bw-addrow .btn { min-height: 44px; }
-  .bw-page .bw-sec textarea#bw-note { max-width: 70ch; }
-
-  /* Activity: the message box ends the stream, inside the column; lines stay near 70 characters */
-  .bw-msgt, .bw-log .small, .bw-off li, .bw-offt, .bw-none { max-width: 32em; }     /* about 70 characters */
-  .bw-act { padding-bottom: var(--s32); }                         /* the toast sits below the box, not on it */
-  .bw-desk .bw-act .bw-sech .meta { padding-top: 0; }             /* "Log activity" is under the message box here */
-  /* The box sits ABOVE the stream now (newest first), so its rule belongs underneath it. */
-  .bw-inbox { margin-bottom: var(--s16); padding-bottom: var(--s16); border-bottom: 1px solid var(--n200); }
-  .bw-inbox .bw-crow textarea { border-radius: var(--r12); }
-  .bw-inbox .bw-send { border-radius: var(--r12); }
-  .bw-cfoot { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); margin: 2px -12px 0 2px; }
-  .bw-off summary { margin: 0 -8px; padding: var(--s4) 8px; border-radius: var(--r8); min-height: 44px; }
-  .bw-off summary:hover { background: var(--n100); }
-  .bw-off summary .chev { margin-left: auto; }                     /* the text stops at about 70 characters; the arrow stays at the edge */
-  .bw-msg, .bw-log { margin: 0 -8px; padding: var(--s8); border-radius: var(--r8); }
-  .bw-msg:hover { background: var(--n100); }
-  .bw-msgmore { margin: -6px -4px 0 0; }
-
-  /* Public: a readable form, and beside it (where the column has room) how the public page will name the bill */
-  .bw-pubform { max-width: 520px; }
-  .bw-prevcard { margin-top: var(--s8); padding: var(--s16); }
-  .bw-prevcard.off { border-style: dashed; box-shadow: none; background: var(--n50); }
-  .bw-pnum { font: 700 var(--t13)/1.2 var(--font); color: var(--n500); }
-  .bw-pname { margin-top: var(--s4); font: 700 var(--t18)/1.25 var(--font); color: var(--n900); overflow-wrap: anywhere; }
-  .bw-pname.bw-long { font-size: var(--t16); line-height: 1.35; }
-  .bw-plede { margin-top: var(--s4); font-size: var(--t14); line-height: 1.45; color: var(--n700); overflow-wrap: anywhere; }
-  .bw-pask { display: flex; gap: var(--s8); margin-top: var(--s12); padding: var(--s8) var(--s12); border-radius: var(--r8); background: var(--p50); color: var(--p900); font-size: var(--t14); line-height: 1.4; overflow-wrap: anywhere; }
-  .bw-pask.off { background: var(--n100); color: var(--n500); }
-  .bw-pask .ic { width: 18px; height: 18px; margin-top: 1px; }
-  .bw-pnote { display: flex; gap: 6px; margin-top: var(--s8); font-size: var(--t13); line-height: 1.4; color: var(--n500); }
-  .bw-pnote .ic { width: 16px; height: 16px; margin-top: 1px; }
-  @container bwp (min-width: 560px) {
-    .bw-pubcols { display: grid; grid-template-columns: minmax(0, 1fr) 248px; gap: var(--s24); align-items: start; }
-    .bw-pubcols .bw-pubform { max-width: none; }
-    .bw-prev { display: block; position: sticky; top: calc(var(--bw-under, calc(var(--header) + 45px)) + var(--s16)); margin-top: var(--s12); }
-  }
-
-  /* Committees (v3): the open stop's member table runs edge to edge of the box; a stop's line washes on hover */
-  .bw-cmbody > .bw-pwt { width: calc(100% + var(--s12) + var(--s16)); margin: var(--s4) calc(-1 * var(--s12)) calc(-1 * var(--s12)) calc(-1 * var(--s16)); }
-  .bw-cmbody > .bw-pwt thead th { border-top: 1px solid var(--n100); }
-  .bw-cmrow { min-height: 48px; }
-  .bw-cmrow:hover { background: var(--n50); }
-  /* An empty note cell says "Add a note" when its row is pointed at or reached by the keyboard, not on all thirteen rows
-     at once; the row's notebook button (narrow columns) and the column's heading still say it is there. */
-  @media (hover: hover) and (pointer: fine) {
-    .bw-cmbody .bw-pwnote.none { opacity: 0; }
-    .bw-cmbody tr:hover .bw-pwnote.none, .bw-cmbody .bw-pwnote.none:focus-visible { opacity: 1; }
-  }
-  .bw-page .bw-cmh .bw-inline { min-height: 32px; }
-  /* Committees: the current stop's members as a table (pathway.js draws it on desktop only) */
-  .bw-pwt { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--t14); }
-  .bw-pwt thead th { position: sticky; top: var(--bw-under, calc(var(--header) + 45px)); z-index: 5; height: 40px; padding: 0 8px; background: var(--n50); border-bottom: 1px solid var(--n200); font-size: var(--t13); font-weight: 700; color: var(--n500); text-align: left; white-space: nowrap; }
-  .bw-pwt thead th:first-child { padding-left: var(--s16); }
-  .bw-sortb { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; margin: 0 -6px; padding: 0 6px; border-radius: var(--r8); font-weight: 700; color: var(--n500); }
-  .bw-sortb:hover { background: var(--n100); color: var(--n900); }
-  .bw-pwt th[aria-sort="ascending"] .bw-sortb, .bw-pwt th[aria-sort="descending"] .bw-sortb { color: var(--n900); }
-  .bw-sortb .ic { width: 14px; height: 14px; }
-  .bw-pwt tbody th, .bw-pwt td { height: 48px; padding: 4px 8px; border-top: 1px solid var(--n100); vertical-align: middle; text-align: left; font-weight: 400; color: var(--n700); }
-  .bw-pwt tbody tr:first-child th, .bw-pwt tbody tr:first-child td { border-top: 0; }
-  .bw-pwt tbody th { padding-left: var(--s16); }
-  .bw-pwt tbody tr:hover { background: var(--n50); }
-  /* the note gets the spare width; the other columns are as wide as their longest value ("Vice chair", "Leaning yes") */
-  .bw-pwc-name { width: 27%; }
-  .bw-pwc-role { width: 84px; }
-  .bw-pwc-stance { width: 164px; }
-  .bw-pwc-act { width: 48px; }
-  .bw-pwt td.bw-pwc-act { padding: 0 4px 0 0; text-align: right; white-space: nowrap; }
-  .bw-pwt td.bw-pwc-act .iconbtn { width: 40px; height: 40px; color: var(--n700); }
-  .bw-pwt td.bw-pwc-act .iconbtn .ic { width: 20px; height: 20px; }
-  /* the name is the link; its whole cell is the target (48px), as the first cell of a table row should be */
-  .bw-pwt tbody th { position: relative; }
-  .bw-pwnm::after { content: ''; position: absolute; inset: 0; }
-  .bw-pwnm { font-weight: 700; color: var(--n900); text-decoration: underline; text-decoration-color: var(--n300); text-underline-offset: 3px; overflow-wrap: anywhere; }
-  .bw-pwnm:hover { color: var(--p800); text-decoration-color: currentColor; }
-  .bw-pwt tr.lead .bw-pwc-role { font-weight: 700; color: var(--n900); }
-  .bw-pwsub { display: block; font-size: var(--t13); color: var(--n500); }
-  .bw-pwt .sv-pick { width: 100%; min-height: 36px; padding: 0 8px 0 10px; justify-content: space-between; }
-  .bw-pwt .sv-pick > span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
-  .bw-pwnote { display: flex; flex-direction: column; justify-content: center; gap: 1px; width: calc(100% + 16px); min-height: 40px; margin: 0 -8px; padding: 2px 8px; border-radius: var(--r8); text-align: left; }
-  .bw-pwnote:hover { background: var(--p50); }
-  .bw-pwnote.none { flex-direction: row; justify-content: flex-start; align-items: center; gap: 4px; font-size: var(--t13); color: var(--n500); }
-  .bw-pwnote.none:hover { color: var(--p800); }
-  .bw-pwnote.none .ic { width: 14px; height: 14px; }
-  .bw-pwntx { color: var(--n900); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
-  .bw-pwmeta { font-size: var(--t13); color: var(--n500); }
-  /* under 640px of column the stance chips drop their icon (the word stays), as they do on a phone, so the note keeps room */
-  @container bwp (max-width: 639px) {
-    .bw-pwc-stance { width: 136px; }
-    .bw-pwt .sv-pick .ic:not(.chev) { display: none; }
-  }
-  /* a narrow column (a small window beside the sidebar): Role and Note fold into the name cell */
-  @container bwp (max-width: 559px) {
-    .bw-pwt .bw-pwc-role, .bw-pwt .bw-pwc-note { display: none; }
-    .bw-pwt span.bw-pwfold { display: inline; }
-    .bw-pwt span.bw-pwinl { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; font-size: var(--t13); color: var(--n700); overflow-wrap: anywhere; }
-    .bw-pwt .iconbtn.bw-pwfold { display: inline-flex; }
-    .bw-pwc-name { width: auto; }
-    .bw-pwc-act { width: 92px; }
-  }
+  .bw-back { min-height: 40px; }
 }
-/* From 1100px the sandbox band is sticky and the app header sits 28px under it (staff.css's body.staff2:has(.band)
-   rules). The pinned top bar and strip follow the header down, or they would cover the header's lower half. Below
-   1100px the band scrolls away and the header holds the top, so the plain tops above are right there. */
-@media (min-width: 1100px) {
-  body.staff2:has(.band) .bw-top { top: calc(var(--header) + 28px); }
-  body.staff2:has(.band) .bw-stick .bw-tabs,
-  body.staff2:has(.band) .bw-cols > .bw-aside > .sv-stick { top: calc(var(--header) + 28px + var(--bw-toph)); }
+/* ---- phones ---- */
+@media (max-width: 767.98px) {
+  .bw-page { padding-bottom: var(--s32); }
+  .bw-h1 { font-size: var(--v6-t22); line-height: var(--v6-lh22); }   /* the top bar already carries the page's name in 18 */
+  .bw-h1.bw-long { font-size: var(--v6-t18); line-height: var(--v6-lh18); }
+  .bw-tabs { margin-top: var(--s16); }
+  .bw-panel { padding-top: var(--s16); }
+  .bw-tnote, .bw-box, .bw-pubform, .bw-wbody { padding: var(--s16); }
+  .bw-calm { padding: var(--s16); }
+  .bw-addrow { padding: var(--s12); }
+  .bw-doorbody { padding: var(--s8) 8px var(--s12); }
+  .bw-cmlist { margin: 0 -8px !important; }
+}
+@media (max-width: 480px) {
+  .bw-tdf { flex-basis: 100%; }
+  /* the three kinds side by side; "Talk with a legislator" takes two lines rather than a row of its own */
+  .bw-composer .sv-seg { display: grid; grid-template-columns: auto auto minmax(0, 1fr); justify-self: stretch; border-radius: var(--v6-r20); }
+  .bw-composer .sv-seg button { padding: 4px 12px; white-space: normal; line-height: 20px; border-radius: var(--v6-r12); }
+}
+@media (max-width: 360px) {
+  body.staff6 .bw-tabs { gap: 4px; }
+  body.staff6 .bw-tabs a { padding: 0 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bw-panel.bw-in { animation: none; }
+  .bw-chev, .bw-off .chev { transition: none; }
 }
 
-/* Pointers that hover get a wash under everything clickable, not only a colour change. */
-@media (hover: hover) and (pointer: fine) {
-  .bw-page .btn.text:hover { background: var(--p50); text-decoration: none; }
-  .bw-page .bw-inline { border-radius: 6px; }
-  .bw-page .bw-inline:hover { background: var(--p50); box-shadow: 0 0 0 4px var(--p50); }
-  .bw-page button.chip:hover:not([aria-disabled="true"]) { background: var(--p50); border-color: var(--p700); }
-  .bw-fold summary { border-radius: var(--r8); }
-  .bw-fold summary:hover { background: var(--p50); box-shadow: 0 0 0 4px var(--p50); }
-  .bw-meta a:hover, .bw-dt dd a[href^="#/legislator/"]:hover { background: var(--p50); box-shadow: 0 0 0 3px var(--p50); border-radius: 4px; }
-}
-@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
-  /* a message's ⋯ shows when the pointer or the keyboard reaches it */
-  .bw-msgmore { opacity: 0; }
-  .bw-msg:hover .bw-msgmore, .bw-msgmore:focus-visible { opacity: 1; }
-}
-/* a legislator named inside a detail line (the chair) is still a full-size target on phones */
-.bw-dt dd a[href^="#/legislator/"] { display: inline-flex; align-items: center; min-height: 44px; }
-
-/* ---- Review cards (review.js, R-022): the bill's facts on one line that wraps. Here because review.js has no stylesheet
-   of its own; its other rules are in today.css (.td-rv*). ---- */
+/* ---- Review cards (review.js, R-022): the bill's facts on one line that wraps. Here because review.js had no stylesheet
+   of its own (TESTIMONY may move these to testimony.css). ---- */
 .td-rv .td-rvfacts { flex-wrap: wrap; row-gap: 2px; }
 .td-rv .td-rvfacts > span { display: inline-flex; align-items: center; gap: 4px; }
-.td-rv .td-rvfacts .ic { width: 16px; height: 16px; color: var(--n500); }
-.td-rv .td-rvdot { color: var(--n500); }
-
-/* ---- five tabs (R-027): the strip fits its labels to the room it has, measured on itself, so the fifth tab never
-   wraps out of sight (the desktop strip hides a second line). A container, as .bw-panel is, not a new breakpoint:
-   the room depends on the sidebar and side panel, not on the window. Measured 9/21: the five labels take 311px at
-   16px, 271 at 14px and 252 at 13px, and an unread badge adds 26. */
-.bw-tabs { container: bwtabs / inline-size; }
-@media (max-width: 899px) {
-  @container bwtabs (max-width: 356px) { .bw-tabs a { font-size: var(--t14); } }
-  @container bwtabs (max-width: 316px) { .bw-tabs a { font-size: var(--t13); min-width: 44px; } }
-}
-@media (min-width: 900px) {
-  @container bwtabs (max-width: 512px) { .bw-tabs a { padding: 0 var(--s8); } }
-  @container bwtabs (max-width: 432px) { .bw-tabs a { font-size: var(--t14); } }
-}
-/* A draft the job started from HIPHI's earlier testimony on the bill (R-148) */
-.bw-from { display: flex; gap: 6px; align-items: flex-start; margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n700); }
-.bw-from .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--p700); }
-/* R-271: a named bill's heading is its nickname (h1); the number line under it shows on a laptop, the phone's header has it */
-.bw-page h1.bw-h1 { margin: 0; }
-/* R-316 W56 (C-16): who last changed the team note, and when. */
-.bw-noteby { margin-top: var(--s4); font-size: var(--t13); color: var(--n500); }
-.bw-noteby:empty { display: none; }
-/* R-316 W58: the to-do, For and Due on one line (wrapping on a phone: the to-do, then For and Due side by side, then Add). */
-.bw-addfor { flex-wrap: wrap; align-items: flex-end; }
-.bw-addfor > .input { flex: 1 1 200px; }
-.bw-tdf { display: flex; flex-direction: column; gap: 2px; flex: 0 1 140px; min-width: 0; font-size: var(--t13); color: var(--n700); }
-.bw-tdf .input { min-height: 48px; width: 100%; }
-@media (min-width: 900px) { .bw-tdf .input { min-height: 44px; } .bw-addfor { max-width: 720px; } }
-.bw-noown { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n700); }   /* R-316 W42 */
-.bw-noown .ic { width: 18px; height: 18px; flex: none; }
+.td-rv .td-rvfacts .ic { width: 16px; height: 16px; color: var(--v6-muted); }
+.td-rv .td-rvdot { color: var(--v6-muted); }
+/* a character count under a box (public.js; prep.js borrows it) */
+.bw-count { font-size: var(--v6-t14); color: var(--v6-muted); }

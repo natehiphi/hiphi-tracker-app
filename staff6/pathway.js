@@ -1,6 +1,9 @@
-// Staff v3 · Committees (R-264; v2's Pathway, plan 3.6), plus the legislator helpers the Legislators, Legislator and
-// Search screens share. The bill page calls renderCommittees(bill) inside its Overview and wireCommittees(root, bill) after
-// it renders. Behaviour kept from v2's Pathway: every committee stop in order (passed, now, next, likely), chairs and vice
+// Staff v6 · Committees (R-264; v2's Pathway, plan 3.6), plus the legislator helpers the Legislators, Legislator and
+// Search screens share, and the stance sheet the legislator page opens too (openStance: LEGISLATORS calls it, keep its
+// signature). v6 (R-336 V22, V05): the bill page draws renderCommittees(bill, { bare: true }) inside its labelled
+// "Committees" door and calls wireCommittees(root, bill) after it renders; each committee is named in words (steps.js
+// committeeName, "Senate Health and Human Services, and Commerce") with its code small beside it, the one place a bill's
+// committee codes show besides About this bill. Behaviour kept from v2's Pathway: every committee stop in order (passed, now, next, likely), chairs and vice
 // chairs first, a stance per member with a tally per stop, joint committees listed once with a role per committee, a note
 // and a staff contact per member per bill, the Email link prefilled with the public ask, and likely next stops from the
 // companion bill (else the House/Senate counterpart map). New in v3: each stop's hearings, results, recordings and our
@@ -16,7 +19,8 @@ import { rerender } from './bill.js';   // used inside functions only (bill.js i
 export const STANCE_WORD = Object.fromEntries(STANCES.map(([v, l]) => [v, l]));
 import { billRoute, whenAt, hearingWhen, roomName, companionsOf } from './model.js';
 import { introChip, introSort } from './holding.js';
-import { TERMS_TAP, HOW_TO, termBtn } from './terms.js';   // R-316 W40, W37 (practice copy): a joint referral says what it is; how to ask   // R-316 W41 (practice copy): who introduced it, or its twin
+import { TERMS_TAP, HOW_TO, termBtn } from './terms.js';
+import { committeeName } from './steps.js';   // R-316 W40, W37 (practice copy): a joint referral says what it is; how to ask   // R-316 W41 (practice copy): who introduced it, or its twin
 // Words carry the meaning; the icon only helps the eye. Leaning and firm share an icon, so the word always shows.
 export const STANCE_ICON = { yes: 'thumbs-up', leaning_yes: 'thumbs-up', unknown: 'circle-dashed', leaning_no: 'thumbs-down', no: 'thumbs-down' };
 export const legName = l => `${legTitle(l)} ${l.name}`;
@@ -44,17 +48,19 @@ export function legMail(l, b) {
   return `mailto:${l.email || ''}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;
 }
 
-// One short status line for a bill row: the hearing when there is one, else where it waits.
+// One short status line for a bill row (the legislator page, search, the coalition page): the hearing when there is one,
+// else where it waits. v6 (V05): committees in words ("Waiting for a hearing in Senate Commerce"), never their codes.
+const cw = code => committeeName(code) || code;
 export function billSub(b) {
-  if (diedish(b)) { const m = /^(.*?)\s+(\d+\/\d+)\/\d+$/.exec(b.died_deadline || ''); return m ? `Did not advance: missed ${m[1]} ${m[2]}` : `Did not advance: ${whyDead(b).replace(/<[^>]+>/g, '').replace(/\.$/, '').replace(/^./, c => c.toLowerCase())}`; }
+  if (diedish(b)) { const m = /^(.*?)\s+(\d+\/\d+)\/\d+$/.exec(b.died_deadline || ''); return m ? `Did not advance: missed ${m[1]} ${m[2]}` : `Did not advance: ${whyDead(b).replace(/<[^>]+>/g, '').replace(/\.$/, '').replace(/^./, c => c.toLowerCase()).replace(/while waiting in ([A-Z]{2,4}(?:\/[A-Z]{2,4})*)/, (x, c) => `while waiting in ${cw(c)}`)}`; }
   const h = hearingAhead(b);
-  if (h) return `Hearing ${whenAt(h.scheduled_at)} · ${h.committee}`;
+  if (h) return `Hearing ${whenAt(h.scheduled_at)} · ${cw(h.committee)}`;
   const st = stopOf(b);
   if (st.phase === 'committee') {
-    if (st.hearingState === 'held') return `Heard in ${st.committee}, waiting for its report`;
+    if (st.hearingState === 'held') return `Heard in ${cw(st.committee)}, waiting for its vote`;
     const r = riskOf(b);
-    if (r) return `At risk: needs a hearing in ${st.committee || 'committee'} by ${fmtDate(r.deadline.date)}`;
-    return st.committee ? `Waiting for a hearing in ${st.committee}` : `Waiting for a ${CHAMBER_NAME[st.chamber] || ''} committee referral`;
+    if (r) return `At risk: needs a hearing in ${st.committee ? cw(st.committee) : 'committee'} by ${fmtDate(r.deadline.date)}`;
+    return st.committee ? `Waiting for a hearing in ${cw(st.committee)}` : `Waiting for a ${CHAMBER_NAME[st.chamber] || ''} committee referral`;
   }
   if (st.phase === 'floor') return `Through ${CHAMBER_NAME[st.chamber]} committees, waiting for a floor vote`;
   if (st.phase === 'conference') return 'In conference';
@@ -180,7 +186,7 @@ const moreBtn = (key, members) => cap(key, members) < members.length ? showAllBt
 const memFolded = (key, t, members) => !!t && t.c.unknown === members.length && !S.cmMem?.has(key);
 const memFoldBtn = (key, members) => btn(`Committee members · ${members.length} · no stances recorded yet`, { kind: 'text', icon: 'users', iconEnd: 'chevron-down', cls: 'bw-cmall bw-cmfold', attrs: { 'data-cmmem': key, 'aria-expanded': 'false' } });
 const wantsAsk = b => !['monitor', 'oppose', 'strongly_oppose'].includes(b.position || 'monitor');   // model.js wantsHearing, W2
-export function renderCommittees(b) {
+export function renderCommittees(b, { bare = false } = {}) {
   if (!b) return '';
   const st = stopOf(b), all = hearingsOf(b), now = Date.now();
   const comp = companionsOf(b).map(n => billByNum(n, b.session_year)).find(Boolean);
@@ -192,7 +198,7 @@ export function renderCommittees(b) {
   for (const [code, hs] of byCode) stops.push({ chamber: S.committees?.[codesOf(code)[0]]?.chamber || '', committee: code, state: 'other', stop: 0, of: 0, hs });
   const filed = (S.drafts?.[b.id] || []).filter(d => d.status === 'filed');
   const desk = DESK();
-  if (!stops.length) return `<section class="bw-sec bw-cm" id="bw-cmt" aria-labelledby="bw-cmt-h"><h2 id="bw-cmt-h">Committees</h2><p class="small muted">No committee referral yet.</p></section>`;
+  if (!stops.length) return bare ? '<p class="bw-quiet">No committee referral yet.</p>' : `<section class="bw-sec bw-cm" id="bw-cmt" aria-labelledby="bw-cmt-h"><h2 id="bw-cmt-h">Committees</h2><p class="small muted">No committee referral yet.</p></section>`;
   const firstOpen = stops.findIndex(s => s.state === 'current') >= 0 ? stops.findIndex(s => s.state === 'current') : stops.findIndex(s => s.state === 'next');
   const predFrom = comp && stops.some(s => s.state === 'predicted' && s.from === 'companion') ? `Likely next (from ${esc(billSay(comp))})` : 'Likely next (the usual path)';
   let shownPred = false, shownNext = false;
@@ -211,7 +217,7 @@ export function renderCommittees(b) {
     // 2/27" steps aside when the stop is open, where the hearing's own line says it in full (bill.css).
     const fact = ahead ? `Hearing ${whenAt(ahead.scheduled_at)}` : past ? `Heard ${dayOf(past.scheduled_at)}` : s.state === 'current' ? 'No hearing yet' : '';
     const held = s.hs.filter(h => new Date(h.scheduled_at).getTime() <= now);
-    const name = `${s.chamber && CHAMBER_NAME[s.chamber] ? CHAMBER_NAME[s.chamber] + ' ' : ''}${cmteName(s.committee)}`;
+    const name = committeeName(s.committee) || `${s.chamber && CHAMBER_NAME[s.chamber] ? CHAMBER_NAME[s.chamber] + ' ' : ''}${cmteName(s.committee)}`;
     const members = ['passed', 'ended', 'other'].includes(s.state) ? null : introSort(b, legsOf(s.committee)), joint = codesOf(s.committee).length > 1;
     const t = members && members.length ? tally(b, members) : null;
     // Testimony for a hearing still ahead is on Next up, filed or not; here only what was filed for a hearing held.
@@ -224,7 +230,7 @@ export function renderCommittees(b) {
       ...tm.map(testimonyLine),
       members ? (members.length ? memFolded(key, t, members) ? memFoldBtn(key, members) : `${t ? `<p class="bw-cmtally" title="${esc(t.full)}"><span class="sr">${esc(t.full)}</span><span aria-hidden="true">Where they stand: ${esc(t.text)}</span></p>` : ''}${desk ? memberTable(b, s, members, joint, i, cap(key, members)) : `<div class="bw-cmmem">${members.slice(0, cap(key, members)).map(m => memberRow(b, m, joint)).join('')}</div>`}${moreBtn(key, members)}`
         : '<p class="small muted bw-cmnone">No member list for this committee yet.</p>') : '',
-    ].join('') || `<p class="small muted bw-cmnone">${ahead ? 'Its hearing is on Next up.' : 'No hearing recorded.'}</p>`);
+    ].join('') || `<p class="small muted bw-cmnone">${ahead ? 'Its hearing is under What’s next.' : 'No hearing recorded.'}</p>`);
     const head = !shownPred && s.state === 'predicted' ? (shownPred = true, `<li class="bw-cmpred">${predFrom}</li>`) : '';
     return `${head}<li class="bw-cmstop is-${s.state}">
       <h3 class="bw-cmh3"><button type="button" class="bw-cmrow" data-lgfold="${esc(key)}" aria-expanded="${open}" aria-controls="bw-cms-${i}">
@@ -233,6 +239,7 @@ export function renderCommittees(b) {
       <div class="bw-cmbody" id="bw-cms-${i}"${open ? '' : ' hidden'}>${body}</div>
     </li>`;
   }).join('');
+  if (bare) return `<ul class="bw-cmlist" role="list">${rows}</ul>`;
   return `<section class="bw-sec bw-cm" id="bw-cmt" aria-labelledby="bw-cmt-h"><h2 id="bw-cmt-h">Committees</h2>
     <ul class="bw-cmlist" role="list">${rows}</ul></section>`;
 }
@@ -269,7 +276,7 @@ function memberTable(b, stop, members, joint, i, limit = members.length) {
   const s = S.pwSort || { key: 'role', dir: 1 };
   const th = ([key, label]) => { const on = s.key === key;
     return `<th scope="col" class="bw-pwc-${key}" aria-sort="${on ? (s.dir > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="bw-sortb" data-pwsort="${key}" data-pwtab="${i}">${label}${on ? icon(s.dir > 0 ? 'chevron-up' : 'chevron-down') : ''}</button></th>`; };
-  return `<table class="bw-pwt"><caption class="sr">${esc(cmteName(stop.committee))}: members and where they stand on ${esc(billSay(b))}</caption>
+  return `<table class="bw-pwt"><caption class="sr">${esc(committeeName(stop.committee) || cmteName(stop.committee))}: members and where they stand on ${esc(billSay(b))}</caption>
     <thead><tr>${PW_COLS.map(th).join('')}<th scope="col" class="bw-pwc-note">Note and contact</th><th scope="col" class="bw-pwc-act"><span class="sr">Note and email</span></th></tr></thead>
     <tbody>${sortedMembers(b, members).slice(0, limit).map(m => memberTr(b, m, joint)).join('')}</tbody></table>`;
 }

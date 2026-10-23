@@ -1,29 +1,27 @@
-// HIPHI Staff v3 · Bill > Activity (plan 3.3, R-264). The team's chat, the team's log and the Capitol's record in ONE stream,
-// NEWEST AT THE TOP, with the message box above it (Nate, 9/20). It was built the other way round, like a
-// messaging app, and it auto-scrolled to the bottom on open so you always landed on the newest entry. He reads
-// it as a record rather than a conversation, and a record puts the latest thing where the eye starts. The Capitol's actions are
-// clerical and many (a day can bring five), so each day is condensed to one line that opens to the full text.
-// Phones: the message box takes the tab bar's place at the bottom. Desktop (build 3): it sits above the stream, inside
-// the column. Typing @ offers teammates to notify. v3: the team note is pinned above it all (bill.js noteSection); one
-// "Log" button asks what happened (a talk with a legislator, or anything else); the box's long help line is its
-// placeholder now.
+// HIPHI Staff v6 · Bill › Team talk (R-336 V22; v3's Activity, plan 3.3, R-264). #/bill/X/talk (the old /activity
+// redirects). The team's chat, the team's log and the Capitol's record in ONE stream, NEWEST AT THE TOP (Nate, 9/20: he
+// reads it as a record, and a record puts the latest thing where the eye starts). The Capitol's actions are clerical and
+// many, so each day is condensed to one line that opens to the full text.
+// v6: ONE box at the top for anything the team wants on the bill (spec section 6): a message to the team (Type @ to notify
+// someone), a note for the bill's record (a note, testimony filed, a coalition step, a supporter email), or a talk with a
+// legislator (it opens Log a conversation with the words already in it, so it shows on their page too). v3 had a message
+// box, a "Log what happened" button and a "Log a talk" button, three ways in. The box sits at the top on a phone too:
+// the newest entry is there, and a fixed box over the tab bar took a fifth of a small screen.
 // Above the stream, the conversations with legislators logged on this bill or under any of its issues (R-022 wave 2 #9,
-// conversation.js): a conversation is about an issue more than a bill, so one logged on the Senate twin shows here too.
-// The section shows only once there is one (v3).
+// conversation.js), shown once there is one. A message shows Reply; Copy text and Delete are in its "…" (F121).
 import { S, DB, LOG_TYPES, esc, fmtDate, fmtDT, advocate } from './data.js';
 import { unreadCount, hstDayOf } from './model.js';
-import { icon, btn, iconBtn, avatar, toast, openSheet, closeSheet, menuSheet, confirmSheet, field } from './ui.js';
-import { chip } from './ui.js';   // R-277 fix 4 (U-8): "New" is a status chip like every other
+import { committeeName, versionWords, COMMITTEES } from './steps.js';
+import { icon, btn, iconBtn, avatar, toast, menuSheet, confirmSheet, segmented } from './ui.js';
 import { rerender, drafts, firstName, dayOf, viewIsNew, afterBack } from './bill.js';
 import { issuesOfBill } from './issues.js';
 import { convSectionHTML, wireConvSection, logConversation, refreshConversations } from './conversation.js';
-import { ASK_LOG } from './model.js';   // R-316 W3 (practice copy)
 
 // v3's words: an "action alert" is a "supporter email" (R-264), on screen only; the stored type stays action_alert.
 const LOG_LABEL = { ...Object.fromEntries(LOG_TYPES), action_alert: 'Supporter email' };
 const LOG_ICON = { testimony: 'file-text', coalition: 'users', meeting: 'handshake', action_alert: 'megaphone', note: 'notebook-pen' };
-const LOG_HINT = { testimony: 'Testimony filed: support, in person', coalition: 'Coalition agreed to sign on',
-  meeting: 'Met with Chair Takayama’s office', action_alert: 'Email sent to 31 supporters', note: 'What happened?' };
+// The kinds of note the box can add to the record, in the words of what happened.
+const NOTE_WORD = { note: 'Note', testimony: 'Testimony filed', coalition: 'Coalition step', action_alert: 'Supporter email' };
 const LIMIT = 30;                                   // newest entries shown; "Show earlier" opens the rest
 
 // ---- the Capitol's history, loaded once per bill per visit ----
@@ -60,7 +58,7 @@ function refreshStream(b) {
 // The Capitol gives a date, not a time (every action arrives stamped 8:00 AM), and names the chamber in details.
 const chamberOf = ev => (/^Official action\s*-\s*(House|Senate)$/i.exec(ev.details || '') || [])[1] || '';
 // One official action in a few words: "HLT passed with amendments (8 yes, 1 no)", "Hearing set: FIN 2/27, 10:00AM".
-export function shortAction(t) {
+function shortCodes(t) {
   let s = String(t || '').replace(/\s+/g, ' ').trim(), m;
   const ay = /(\d+)\s+Ayes?\b/i.exec(s), no = /(\d+)\s+No(?:es|e)?s?\b/i.exec(s);
   const votes = ay ? ` (${ay[1]} yes${no ? `, ${no[1]} no` : ''})` : '';
@@ -78,6 +76,15 @@ export function shortAction(t) {
     .replace(/;\s*none voting.*$/i, '').replace(/,?\s*referral sheet \d+/i, '').replace(/\.\s*Transmitted to (House|Senate)\.?/i, '').replace(/\.$/, '').trim();
   if (sent && !/transmitted/i.test(s)) s += `; sent to the ${sent[1]}`;
   return s.length > 96 ? s.slice(0, 94).replace(/\s\S*$/, '') + '…' : s;
+}
+// The line a closed day shows says committees and drafts in words (V05: "House Judiciary passed with amendments (8 yes)",
+// "Referred to Senate Transportation, Senate Judiciary", "as amended in House draft 1"); the Capitol's own words, codes
+// and all, are what the day opens to.
+const isCmte = k => !!(COMMITTEES[k] || S.committees?.[k]);
+export function shortAction(t) {
+  return shortCodes(t)
+    .replace(/\b[A-Z]{3}(?:\/[A-Z]{3})*\b/g, c => c.split('/').every(isCmte) ? (committeeName(c) || c) : c)
+    .replace(/\b(HD|SD|CD|FD) ?(\d)\b/g, (m, k, n) => versionWords(k + n));
 }
 function items(b) {
   const out = [], official = new Map();
@@ -114,27 +121,28 @@ function itemHTML(b, it) {
   if (it.kind === 'msg') {
     const m = it.m, a = advocate(m.advocate_id), mine = m.advocate_id === S.me?.id;
     const fresh = !mine && seenSnap.bill === b.id && (!seenSnap.at || m.created_at > seenSnap.at);
-    return `<div class="bw-msg${mine ? ' mine' : ''}" data-msg="${esc(m.id)}">${avatar(a, 32)}
-      <div class="bw-msgb"><p class="bw-msgh"><b>${esc(mine ? 'You' : a?.full_name || 'Someone')}</b><span class="meta">${esc(timeOf(m.created_at))}</span>${fresh ? ' ' + chip('New', 'info') : ''}</p>
-        <div class="bw-msgt">${msgHTML(m.body)}</div></div>
-      ${iconBtn('ellipsis', 'More for this message', { 'data-msgmore': m.id }, 'bw-msgmore')}</div>`;
+    return `<div class="bw-msg${mine ? ' mine' : ''}${fresh ? ' fresh' : ''}" data-msg="${esc(m.id)}">${avatar(a, 32)}
+      <div class="bw-msgb"><p class="bw-msgh"><b>${esc(mine ? 'You' : a?.full_name || 'Someone')}</b><span class="bw-quiet">${esc(timeOf(m.created_at))}</span>${fresh ? '<span class="bw-new">New</span>' : ''}</p>
+        <div class="bw-msgt">${msgHTML(m.body)}</div>
+        ${mine ? '' : `<p class="bw-msgacts">${btn('Reply', { kind: 'text', sm: true, icon: 'reply', attrs: { 'data-reply': m.id, 'aria-label': `Reply to ${firstName(a)}` } })}</p>`}</div>
+      ${iconBtn('ellipsis', 'More for this message', { 'data-msgmore': m.id, 'aria-haspopup': 'dialog' }, 'bw-msgmore')}</div>`;
   }
   if (it.kind === 'log') {
     const ev = it.ev, a = advocate(ev.advocate_id);
     return `<div class="bw-log"><span class="bw-logic">${icon(LOG_ICON[ev.type] || 'notebook-pen')}</span><div class="bw-msgb">
-      <p class="bw-msgh"><b>${esc(a ? (a.id === S.me?.id ? 'You' : a.full_name) : 'The team')}</b><span class="meta">logged ${esc((LOG_LABEL[ev.type] || 'a note').toLowerCase())} · ${esc(timeOf(ev.occurred_at))}</span></p>
-      <p class="bw-msgt">${esc(ev.title)}</p>${ev.details ? `<p class="small muted">${esc(ev.details)}</p>` : ''}</div></div>`;
+      <p class="bw-msgh"><b>${esc(a ? (a.id === S.me?.id ? 'You' : a.full_name) : 'The team')}</b><span class="bw-quiet">added ${esc((LOG_LABEL[ev.type] || 'a note').toLowerCase())} · ${esc(timeOf(ev.occurred_at))}</span></p>
+      <p class="bw-msgt">${esc(ev.title)}</p>${ev.details ? `<p class="bw-msgd">${esc(ev.details)}</p>` : ''}</div></div>`;
   }
   const line = it.evs.map(ev => shortAction(ev.title)).join(' · ');
   return `<details class="bw-off"><summary><span class="bw-logic">${icon('landmark')}</span><span class="bw-offt"><b>Capitol</b> ${esc(line)}</span>${icon('chevron-down', { cls: 'chev' })}</summary>
-    <ul>${it.evs.map(ev => `<li>${chamberOf(ev) ? `<span class="meta">${esc(chamberOf(ev))}</span> ` : ''}${esc(ev.title)}${ev.details && !chamberOf(ev) ? ` <span class="meta">${esc(ev.details)}</span>` : ''}</li>`).join('')}</ul></details>`;
+    <ul>${it.evs.map(ev => `<li>${chamberOf(ev) ? `<span class="bw-quiet">${esc(chamberOf(ev))}</span> ` : ''}${esc(ev.title)}${ev.details && !chamberOf(ev) ? ` <span class="bw-quiet">${esc(ev.details)}</span>` : ''}</li>`).join('')}</ul></details>`;
 }
 function streamInner(b) {
   const all = items(b), loading = !(S.bwTL && b.id in S.bwTL);
   const showAll = !!S.bwActAll?.[b.id], shown = showAll ? all : all.slice(0, LIMIT);
   let html = '';
-  if (loading) html += `<p class="meta bw-loading">${icon('loader-circle')}Loading the Capitol’s record…</p>`;
-  if (S.bwTLErr?.[b.id]) html += `<p class="meta">The Capitol’s record did not load. Messages still work.</p>`;
+  if (loading) html += `<p class="bw-quiet bw-loading">${icon('loader-circle')}Loading the Capitol’s record…</p>`;
+  if (S.bwTLErr?.[b.id]) html += `<p class="bw-quiet">The Capitol’s record did not load. Messages still work.</p>`;
   if (!all.length && !loading) return html + `<p class="bw-none">Nothing here yet.</p>`;
   let last = '';
   for (const it of shown) {
@@ -143,7 +151,7 @@ function streamInner(b) {
     html += itemHTML(b, it);
   }
   // Older entries are older, so the way to them is downwards now, not upwards.
-  if (all.length > shown.length) html += btn(`Show earlier activity (${all.length - shown.length})`, { kind: 'text', icon: 'history', attrs: { 'data-earlier': '1' }, cls: 'bw-earlier' });
+  if (all.length > shown.length) html += btn(`Show ${all.length - shown.length} earlier`, { kind: 'text', icon: 'history', attrs: { 'data-earlier': '1' }, cls: 'bw-more-act' });
   return html;
 }
 // ---- conversations with legislators: this bill's, and its issues' ----
@@ -156,71 +164,63 @@ function convOpts(b) {
     none: `No conversations with legislators logged yet${n ? ` for this bill or ${n === 1 ? 'its issue' : 'its issues'}` : ''}.` };
 }
 
-// inline: on desktop the message box is drawn here, ABOVE the stream, not as the page's bottom bar.
-export function renderActivity(b, { inline = false } = {}) {
+// The one box: what it is (Message · Note · Talk with a legislator), the words, and Send. Remembered per bill for the
+// visit, with the words typed (B-6).
+const KINDS = [['msg', 'Message'], ['note', 'Note'], ['talk', 'Talk with a legislator']];
+const HINT = { msg: 'Message the team. Type @ to notify someone.', note: 'What happened? It goes in the bill’s record.', talk: 'What was said? Next you pick who it was with.' };
+const SEND = { msg: 'Send message', note: 'Add the note to the record', talk: 'Next: who was it with?' };
+const kindOf = b => (S.bwKind ??= {})[b.id] || 'msg';
+const NOTE_TYPES = ['note', 'testimony', 'coalition', 'action_alert'].map(v => [v, NOTE_WORD[v]]);   // a meeting with a legislator is a talk; with anyone else a note
+export function renderActivity(b, { inline = true } = {}) {
   if (seenSnap.bill !== b.id || viewIsNew()) seenSnap = { bill: b.id, at: S.chatSeen?.[b.id] || '' };
   return `<section class="bw-sec bw-act" aria-labelledby="bw-act-h">
-    <h2 id="bw-act-h" class="sr">Activity</h2>
-    ${inline ? `<div class="bw-inbox bw-inbox-top">${composerBar(b, { hint: true })}</div>` : `<div class="bw-sech bw-logrow">${logBtn}</div>`}
-    ${convSectionHTML({ ...convOpts(b), title: 'Conversations', kind: 'bw' })}
+    <h2 id="bw-act-h" class="sr">Team talk</h2>
+    ${inline ? `<div class="bw-box">${composerBar(b)}</div>` : ''}
+    ${convSectionHTML({ ...convOpts(b), title: 'Talks with legislators', kind: 'bw' })}
     <div class="bw-stream" id="bw-stream" data-bill="${esc(b.id)}">${streamInner(b)}</div>
   </section>`;
 }
 
-// ---- the message box (phones: the page's bottom bar on this tab; desktop: the end of the stream) ----
-// Enter sends where there is a real keyboard; on a touch screen Return makes a new line and the Send button sends.
+// ---- the box ----
+// Enter sends a message where there is a real keyboard; on a touch screen Return makes a new line and the button sends.
+// A note or a talk is longer, so Enter is a new line there and the button sends.
 const enterSends = () => { try { return matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return false; } };
-// The stream opens at its newest entry, so on desktop "Log" sits there too, under the message box; on a phone the box
-// is the page's bottom bar and has no room for it, so it stays at the top of the stream. One button for anything that
-// happened: it asks whether it was a talk with a legislator (the conversation dialog) or anything else (v3).
-const logBtn0 = btn('Log what happened', { kind: 'text', icon: 'notebook-pen', attrs: { 'data-log': '1', 'aria-haspopup': 'dialog' } });
-// R-316 W3 (S-10): a talk with a legislator was three clicks deep (Activity, Log what happened, Talked with a legislator).
-const talkBtn = () => btn('Log a talk with a legislator', { kind: 'text', icon: 'message-square-plus', attrs: { 'data-logtalk': '1', 'aria-haspopup': 'dialog' } });
-const logBtn = { toString: () => ASK_LOG() ? talkBtn() + logBtn0 : logBtn0 };
-export function composerBar(b, { hint: inline = false } = {}) {
-  const d = drafts.get(b.id + ':chat') || '';
-  // v3: no help line under the box. The placeholder says what it does, and Enter sends as it does in Slack.
-  return `<form class="bw-composer" data-bill="${esc(b.id)}" novalidate>
+export function composerBar(b) {
+  const k = kindOf(b), d = drafts.get(b.id + ':chat') || '', nt = S.bwNoteType || 'note';
+  return `<form class="bw-composer" data-bill="${esc(b.id)}" data-kind="${k}" novalidate>
+    ${segmented('bwkind', KINDS, k, 'What is it?')}
     <div class="bw-mention" role="group" aria-label="Notify a teammate" hidden></div>
-    <div class="bw-crow"><label class="sr" for="bw-chat">Message the team</label>
-      <textarea id="bw-chat" rows="1" maxlength="4000" placeholder="Message the team. Type @ to notify someone.">${esc(d)}</textarea>
-      <button type="submit" class="bw-send" aria-label="Send message" title="Send message">${icon('send')}</button></div>
-    ${inline ? `<div class="bw-cfoot"><span></span>${logBtn}</div>` : ''}
+    <div class="bw-crow"><label class="sr" for="bw-chat">${esc(KINDS.find(x => x[0] === k)[1])}</label>
+      <textarea id="bw-chat" rows="${k === 'msg' ? 1 : 3}" maxlength="4000" placeholder="${esc(HINT[k])}">${esc(d)}</textarea>
+      <button type="submit" class="bw-send" aria-label="${esc(SEND[k])}" title="${esc(SEND[k])}">${icon(k === 'talk' ? 'arrow-right' : 'send')}</button></div>
+    ${k === 'note' ? `<label class="bw-ntype"><span>Kind of note</span><select id="bw-ntype" class="input">${NOTE_TYPES.map(([v, l]) => `<option value="${v}"${v === nt ? ' selected' : ''}>${esc(NOTE_WORD[v] || LOG_LABEL[v] || l)}</option>`).join('')}</select></label>` : ''}
   </form>`;
-}
-// iOS keeps fixed bars behind the keyboard; lift the message box by the keyboard's height (Android resizes on its own).
-let vvOn = false;
-function keepAboveKeyboard() {
-  if (vvOn || !window.visualViewport) return; vvOn = true;
-  const vv = window.visualViewport;
-  const fit = () => { const bar = document.querySelector('.bw-composer')?.closest('.actionbar'); if (!bar) return;
-    const off = Math.round(window.innerHeight - vv.height - vv.offsetTop); bar.style.transform = off > 40 ? `translateY(${-off}px)` : ''; };
-  vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit);
 }
 const toTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
 export function wireActivity(pnl, b, route, root) {
   const entry = viewIsNew();
-  // Nothing to scroll to on open any more: the newest entry is the first one.
+  // Nothing to scroll to on open: the newest entry is the first one.
   if (unreadCount(b)) DB.markChatSeen(b.id).catch(() => {});
-  pnl.querySelector('[data-log]').onclick = () => logChooser(b);
-  pnl.querySelectorAll('[data-logtalk]').forEach(el => el.onclick = () => logConversation({ bill: b, onDone: refreshConversations }));
   wireConvSection(pnl, convOpts(b));
   wireStream(pnl.querySelector('#bw-stream'), b);
   const form = root.querySelector('.bw-composer'); if (!form) return;
-  keepAboveKeyboard();
-  const ta = form.querySelector('#bw-chat'), box = form.querySelector('.bw-mention'), key = b.id + ':chat';
-  const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 132) + 'px'; };
-  // The full hint where it fits on one line; shorter ones on a narrow phone, so the empty box stays one line tall.
-  for (const ph of ['Message the team. Type @ to notify someone.', 'Message the team (@ to notify)', 'Message the team']) { ta.placeholder = ph; if (ta.value || ta.scrollHeight <= ta.clientHeight + 2) break; }
+  const k = kindOf(b), ta = form.querySelector('#bw-chat'), box = form.querySelector('.bw-mention'), key = b.id + ':chat';
+  // The kind switch keeps the words typed and the cursor in the box.
+  form.querySelectorAll('[data-seg="bwkind"]').forEach(el => el.onclick = () => { S.bwKind[b.id] = el.dataset.val; rerender('#bw-chat'); });
+  form.querySelector('#bw-ntype')?.addEventListener('change', e => { S.bwNoteType = e.target.value; });
+  const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 200) + 'px'; };
+  // A message's hint where it fits on one line; shorter ones on a narrow phone, so the empty box stays one line tall.
+  if (k === 'msg') for (const ph of [HINT.msg, 'Message the team (@ to notify)', 'Message the team']) { ta.placeholder = ph; if (ta.value || ta.scrollHeight <= ta.clientHeight + 2) break; }
   grow();
   // @ offers teammates whose name starts with what follows it; picking one writes "@Kevin ".
   const people = S.advocates.filter(a => a.is_active !== false && a.id !== S.me?.id);
   const mention = () => {
+    if (k !== 'msg') { box.hidden = true; return; }
     const upto = ta.value.slice(0, ta.selectionStart), m = /(^|\s)@([A-Za-zʻ'-]*)$/.exec(upto);
     const hits = m ? people.filter(a => firstName(a).toLowerCase().startsWith(m[2].toLowerCase())).slice(0, 6) : [];
     box.hidden = !hits.length;
-    box.innerHTML = hits.map(a => `<button type="button" class="chip" data-at="${esc(firstName(a))}">${avatar(a, 24)}@${esc(firstName(a))}</button>`).join('');
+    box.innerHTML = hits.map(a => `<button type="button" class="bw-at-pick" data-at="${esc(firstName(a))}">${avatar(a, 24)}<span>@${esc(firstName(a))}</span></button>`).join('');
     box.querySelectorAll('[data-at]').forEach(el => el.onmousedown = e => e.preventDefault());   // keep the keyboard up
     box.querySelectorAll('[data-at]').forEach(el => el.onclick = () => pickAt(el.dataset.at));
   };
@@ -233,33 +233,40 @@ export function wireActivity(pnl, b, route, root) {
   ta.onclick = mention;
   ta.onkeydown = e => {
     // Tab or Enter picks a name only when one name matches: "@Pat" then Enter sent Lauren's note to Patrick, not Patti (R-267).
-    // With several, the key does nothing, so the message is not sent half-addressed; type on or tap a name.
     if (!box.hidden && (e.key === 'Tab' || e.key === 'Enter') && !e.shiftKey) { const f = box.querySelectorAll('[data-at]'); if (f.length) { e.preventDefault(); if (f.length === 1) pickAt(f[0].dataset.at); return; } }
     if (e.key === 'Escape' && !box.hidden) { e.preventDefault(); box.hidden = true; return; }
-    // Enter sends on a keyboard (Shift+Enter is a new line); on a phone the Return key makes a new line.
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && enterSends()) { e.preventDefault(); form.requestSubmit(); }
+    if (k === 'msg' && e.key === 'Enter' && !e.shiftKey && !e.isComposing && enterSends()) { e.preventDefault(); form.requestSubmit(); }
   };
   form.onsubmit = async e => {
     e.preventDefault();
-    const body = ta.value.trim(); if (!body) { ta.focus(); return; }
+    const body = ta.value.trim();
+    if (!body && k !== 'talk') { ta.focus(); return; }
     if (!S.me) { toast('Your login is not linked to a staff record yet. Ask your admin.', { err: true }); return; }
+    // A talk: the conversation sheet takes it from here (who, when, what was said, already filled in); the box empties
+    // once it is saved, and keeps the words if the sheet is closed.
+    if (k === 'talk') { logConversation({ bill: b, text: body, onDone: () => { drafts.delete(key); refreshConversations(); rerender('#bw-chat'); } }); return; }
     const send = form.querySelector('.bw-send'); send.setAttribute('aria-busy', 'true'); ta.readOnly = true;
     try {
-      await DB.sendMessage(b.id, body); drafts.delete(key);
-      rerender('#bw-chat'); requestAnimationFrame(toTop);
+      if (k === 'msg') { await DB.sendMessage(b.id, body); drafts.delete(key); rerender('#bw-chat'); requestAnimationFrame(toTop); return; }
+      // A note: its first line is what happened (the record's line, up to 200 characters), the rest its details.
+      const [first, ...rest] = body.split('\n'), title = first.trim().slice(0, 200), more = [first.trim().slice(200), ...rest].join('\n').trim();
+      const type = form.querySelector('#bw-ntype')?.value || 'note';
+      await DB.addActivity(b.id, type, title, more);
+      drafts.delete(key); rerender('#bw-chat'); toast(`Added to the bill’s record: ${(NOTE_WORD[type] || 'note').toLowerCase()}.`, { ok: true });
+      loadTimeline(b, true);
     } catch (x) { send.removeAttribute('aria-busy'); ta.readOnly = false; toast(x, { err: true }); }
   };
-  // "Message James" elsewhere (Today) opens this tab with ?mention=JM (initials; a first name works too): the box starts
-  // "@James " with the cursor after it, so the message reaches him (R-022 wave 3). "Message both" (a second approval
-  // either reviewer can give) sends a comma list, ?mention=JS,JN -> "@Jess @Jaylen ". Unknown initials are skipped, and
-  // whatever was typed before stays after the names.
+  // "Message James" elsewhere (Today, Team) opens this tab with ?mention=JM (initials; a first name works too): the box is a
+  // message starting "@James " with the cursor after it (R-022 wave 3). ?mention=JS,JN -> "@Jess @Jaylen ". Unknown
+  // initials are skipped, and whatever was typed before stays after the names.
   const asked = entry && route.q?.mention ? String(route.q.mention).split(',').map(x => x.trim()).filter(Boolean) : [];
+  if (asked.length && k !== 'msg') { S.bwKind[b.id] = 'msg'; rerender(); return; }
   const mentioned = [...new Set(asked.map(w => S.advocates.find(a => a.id !== S.me?.id
     && ((a.initials || '').toUpperCase() === w.toUpperCase() || firstName(a).toLowerCase() === w.toLowerCase()))).filter(Boolean))];
   const missing = mentioned.filter(a => !new RegExp(`(^|\\s)@${firstName(a).replace(/[^\wʻ'-]/g, '')}\\b`, 'i').test(ta.value));
   if (missing.length) { ta.value = `${missing.map(a => '@' + firstName(a)).join(' ')} ${ta.value.trim() ? ta.value : ''}`; drafts.set(key, ta.value); grow(); }
-  // A Reply button elsewhere (Today) opens this tab with ?reply=1: the cursor goes straight into the box.
-  if (entry && (route.q?.reply || route.q?.compose || mentioned.length)) { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  // A Reply button elsewhere (Today, How did it go?) opens this tab with ?reply=1: the cursor goes straight into the box.
+  if (entry && (route.q?.reply || route.q?.compose || mentioned.length)) { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length); ta.scrollIntoView({ block: 'center' }); }
 }
 function wireStream(box, b) {
   if (!box) return;
@@ -267,56 +274,26 @@ function wireStream(box, b) {
   // Links in a message go through the router (the frame only wires links that exist when the page renders).
   box.querySelectorAll('a[href^="#/"]').forEach(a => a.onclick = e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); e.stopImmediatePropagation(); S.go(a.getAttribute('href')); });
   box.querySelectorAll('[data-msgmore]').forEach(el => el.onclick = () => { const m = (S.messages?.[b.id] || []).find(x => String(x.id) === el.dataset.msgmore); if (m) msgMenu(b, m); });
+  box.querySelectorAll('[data-reply]').forEach(el => el.onclick = () => { const m = (S.messages?.[b.id] || []).find(x => String(x.id) === el.dataset.reply); if (m) replyTo(b, m); });
+}
+// Reply (visible on someone else's message, F121): the box becomes a message starting "@Kevin ", the cursor after it.
+function replyTo(b, m) {
+  const n = firstName(advocate(m.advocate_id)), key = b.id + ':chat';
+  if ((S.bwKind ??= {})[b.id] && S.bwKind[b.id] !== 'msg') { S.bwKind[b.id] = 'msg'; }
+  const cur = drafts.get(key) || '';
+  if (!cur.includes('@' + n)) drafts.set(key, `@${n} ${cur}`);
+  rerender('#bw-chat');
+  const ta = document.getElementById('bw-chat'); if (!ta) return;
+  ta.setSelectionRange(ta.value.length, ta.value.length); ta.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 }
 function msgMenu(b, m) {
   const mine = m.advocate_id === S.me?.id;
   menuSheet({ title: 'Message', items: [
     { label: 'Copy text', icon: 'copy', run: async () => { try { await navigator.clipboard.writeText(m.body); toast('Copied'); } catch { toast('Copying is blocked in this browser. Select the text instead.'); } } },
-    { label: 'Reply', icon: 'reply', sub: `Mention ${mine ? 'someone' : firstName(advocate(m.advocate_id))}`, run: () => { const ta = document.getElementById('bw-chat'); if (!ta) return; if (!mine) { const n = firstName(advocate(m.advocate_id)); if (!ta.value.includes('@' + n)) ta.value = `@${n} ` + ta.value; drafts.set(b.id + ':chat', ta.value); } ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } },
     mine || S.me?.is_admin ? { label: 'Delete message', icon: 'trash-2', danger: true, run: () => afterBack(() => delMsg(b, m)) } : null,
   ] });
 }
 async function delMsg(b, m) {
   if (!(await confirmSheet({ title: 'Delete this message?', text: 'It disappears for everyone on the team.', ok: 'Delete', danger: true }))) return;
   try { await DB.deleteMessage(m); rerender(); toast('Message deleted.'); } catch (e) { toast(e, { err: true }); }
-}
-
-// ---- Log: what happened? A talk with a legislator is a conversation (it shows on their page and the issue's too);
-// anything else is an entry in this bill's activity (v3: one button, where v2 had two side by side). ----
-function logChooser(b) {
-  menuSheet({ title: 'What happened?', items: [
-    { label: 'Talked with a legislator', icon: 'message-square-plus', sub: 'A meeting, a call or a chat. It shows on their page too.', run: () => afterBack(() => logConversation({ bill: b, onDone: refreshConversations })) },
-    { label: 'Something else', icon: 'notebook-pen', sub: 'Testimony filed, a coalition step, a supporter email, a note', run: () => afterBack(() => logSheet(b)) },
-  ] });
-}
-// ---- Log activity: something the team did that the Capitol's record will not show ----
-// No "Meeting" type here any more (R-022 review, 9/21): a meeting logged as an activity stayed on this one bill and never
-// reached the legislator's page, right under "No conversations with legislators logged yet". A meeting with a legislator
-// is a conversation, which the Log button's first choice opens (v3; the sheet's own line that handed over is gone); a
-// meeting with anyone else is Coalition or Note. Old meeting rows (the type still exists) keep showing in the stream.
-const TYPES = LOG_TYPES.filter(([v]) => v !== 'meeting');
-const deskKeys = () => { try { return matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return false; } };
-function logSheet(b) {
-  let type = TYPES.some(([v]) => v === S.logType) ? S.logType : 'testimony';
-  openSheet({ title: 'Log activity', size: 'auto',
-    body: `<fieldset class="bw-types"><legend>Type</legend><div class="chips">${TYPES.map(([v, l]) => `<button type="button" class="chip" data-lt="${v}" aria-pressed="${v === type}">${icon(LOG_ICON[v])}${esc(l)}</button>`).join('')}</div></fieldset>
-      <div class="field"><label for="bw-lt">What happened</label><input id="bw-lt" maxlength="200" autocomplete="off" aria-describedby="bw-lt-e" placeholder="${esc(LOG_HINT[type])}"${deskKeys() ? ' autofocus' : ''}><span class="err" id="bw-lt-e" hidden>${icon('circle-alert')}Write what happened first.</span></div>
-      ${field('bw-ld', 'Details (optional)', '<textarea id="bw-ld" rows="3" placeholder="Who, what was said, what comes next."></textarea>')}`,
-    foot: btn('Add to activity', { kind: 'primary', attrs: { 'data-go': '1' } }),
-    wire: d => {
-      const t = d.querySelector('#bw-lt'), er = d.querySelector('#bw-lt-e');
-      d.querySelectorAll('[data-lt]').forEach(el => el.onclick = () => { type = el.dataset.lt; S.logType = type; d.querySelectorAll('[data-lt]').forEach(x => x.setAttribute('aria-pressed', String(x === el))); t.placeholder = LOG_HINT[type]; });
-      t.oninput = () => { er.hidden = true; t.removeAttribute('aria-invalid'); };
-      d.querySelector('[data-go]').onclick = async e => {
-        const title = t.value.trim();
-        if (!title) { er.hidden = false; t.setAttribute('aria-invalid', 'true'); t.focus(); return; }
-        if (!S.me) { toast('Your login is not linked to a staff record yet. Ask your admin.', { err: true }); return; }
-        const go = e.currentTarget; go.setAttribute('aria-busy', 'true');
-        try {
-          await DB.addActivity(b.id, type, title, d.querySelector('#bw-ld').value.trim());
-          closeSheet({ silent: true }); toast('Logged.');
-          loadTimeline(b, true);
-        } catch (x) { go.removeAttribute('aria-busy'); toast(x, { err: true }); }
-      };
-    } });
 }

@@ -1,4 +1,8 @@
-// HIPHI Staff v3 · Bill > Public (plan 3.3, R-264). A person comes here to decide what the public page says about this bill
+// HIPHI Staff v6 · Bill › Public (#/bill/X/public; R-336 V22, plan 3.3, R-264). v6: the same three blocks in the warm
+// look, the version notes named in words ("House draft 1", V05), the share kit's buttons tonal, so the page's one filled
+// button is "Save public page" (spec 4, rule 1). F125: "Copy share link" stays here for every public bill, including those
+// with no ask card on Outreach.
+// v3's notes follow. A person comes here to decide what the public page says about this bill
 // and to get it in front of people (B-1). v3 gives the tab three labelled blocks:
 // "On the public page": whether the bill is on it, the nickname, the plain summary, the ask and the date it stops
 // showing, the talking points, with ONE Save for those fields (the same fields the current app saves), the preview
@@ -22,6 +26,7 @@ import { S, DB, DEMO, esc } from './data.js';
 import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, publicResponse, shareKit, hearingAhead, askReach } from './model.js';
 import { icon, btn, iconBtn, toast, switchRow, openSheet, closeSheet } from './ui.js';
 import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
+import { versionWords, numWords } from './steps.js';
 import { issuesOfBill, openIssuePicker, whyNot, issueLinkHref } from './issues.js';
 // The public page's address names the session even for this session's bills (R-212 #18), so a link copied from here
 // still opens this bill after 20 Jan 2027, when numbers start again.
@@ -82,7 +87,7 @@ function previewInner(b, v) {
     : until < hiToday() ? ['triangle-alert', 'That date has passed, so the ask does not show.']
     : ['calendar-days', `The ask shows through ${dayOf(until)}.`];
   return `<div class="card bw-prevcard${v.is_public ? '' : ' off'}">
-      <p class="bw-pnum">${esc(spaced(b.bill_number))}</p>
+      <p class="bw-pnum">${esc(numWords(b))}</p>
       <p class="bw-pname${nick ? '' : ' bw-long'}">${esc(name)}</p>
       ${nick && sum ? `<p class="bw-plede">${esc(sum)}</p>` : ''}
       ${ask ? `<p class="bw-pask${askOn ? '' : ' off'}">${icon('megaphone')}<span><b>HIPHI asks:</b> ${esc(ask)}</span></p>` : ''}
@@ -102,17 +107,17 @@ function whereBlock(b, listed) {
   // The fold's line says where it shows already, so a closed fold still answers the question.
   const sum = iss.length ? iss.slice(0, 2).map(i => i.name).join(', ') + (iss.length > 2 ? ` and ${iss.length - 2} more` : '') : 'No issue yet';
   const issues = !(S.categories || []).length ? '' : `<div class="bw-wpart"><h3>Issues</h3>
-    ${why && iss.length ? `<p class="small bw-soon">${icon('triangle-alert')}${esc(why.replace('its followers do not', 'the people following these issues do not'))}.</p>` : ''}
+    ${why && iss.length ? `<p class="bw-whynot">${icon('info')}<span>${esc(why.replace('its followers do not', 'the people following these issues do not'))}.</span></p>` : ''}
     ${iss.length ? `<ul class="bw-isslist">${iss.map(i => `<li class="bw-issrow"><span class="bw-issb"><a class="bw-issname" href="${esc(issueLinkHref(i, b))}">${esc(i.name)}</a><span class="bw-isst">${esc(ISSUE_SAYS[i.stance] || 'No stance on this issue yet')}</span></span>
       ${iconBtn('x', `Take it off ${i.name}`, { 'data-issoff': i.id })}</li>`).join('')}</ul>` : ''}
-    <div class="chips bw-issues">${btn(iss.length ? 'Change issues' : 'Choose issues', { kind: 'secondary', sm: true, icon: iss.length ? 'pencil' : 'plus', attrs: { 'data-ispick': '1', 'aria-haspopup': 'dialog' } })}</div></div>`;
+    <div class="bw-ispick">${btn(iss.length ? 'Change issues' : 'Choose issues', { kind: 'secondary', sm: true, icon: iss.length ? 'pencil' : 'plus', attrs: { 'data-ispick': '1', 'aria-haspopup': 'dialog' } })}</div></div>`;
   const listsPart = `<div class="bw-wpart"><h3>Lists</h3>
-    ${!lists.length ? '<p class="small muted">No lists yet.</p>'
+    ${!lists.length ? '<p class="bw-quiet">No lists yet.</p>'
       : `${listed ? '' : '<p class="small muted">Make it public first to add it to a list.</p>'}
-      <div class="chips bw-lists">${lists.map(l => { const on = (S.listBills || []).some(x => x.list_id === l.id && x.bill_id === b.id), off = !on && !listed;
-        return `<button type="button" class="chip" data-list="${esc(l.id)}" aria-pressed="${on}"${off ? ' aria-disabled="true"' : ''}>${icon(on ? 'check' : 'plus')}${esc(l.title)}${l.is_published ? '' : '<span class="bw-draft">draft</span>'}</button>`; }).join('')}</div>`}</div>`;
+      <div class="bw-lists">${lists.map(l => { const on = (S.listBills || []).some(x => x.list_id === l.id && x.bill_id === b.id), off = !on && !listed;
+        return `<button type="button" class="bw-toggle" data-list="${esc(l.id)}" aria-pressed="${on}"${off ? ' aria-disabled="true"' : ''}>${icon(on ? 'check' : 'plus')}<span>${esc(l.title)}${l.is_published ? '' : ' <span class="bw-draft">(draft)</span>'}</span></button>`; }).join('')}</div>`}</div>`;
   return `<details class="bw-sec bw-pblk bw-where" id="bw-where"${open ? ' open' : ''}>
-    <summary><h2 id="bw-where-h">Where it shows</h2><span class="bw-wsum">${esc(sum)}</span>${icon('chevron-down', { cls: 'chev' })}</summary>
+    <summary><h2 class="bw-h2" id="bw-where-h">Where it shows</h2><span class="bw-wsum">${esc(sum)}</span>${icon('chevron-down', { cls: 'bw-chev' })}</summary>
     <div class="bw-wbody">${issues}${listsPart}
       <div class="bw-wpart">${switchRow('bw-prec', 'Pre-tick for new visitors', !!b.recommended, 'New visitors find it already ticked. Nothing on the public page says so.')}</div></div>
   </details>`;
@@ -124,8 +129,8 @@ function whereBlock(b, listed) {
 // R-148 (migration 124): staff tick a draft that changes what people should say. People who testified on an earlier draft
 // then get an amber "Read this before you send" when they send their letter again, with the line written here for them.
 // Claude may suggest the tick when it drafts the note; only staff's tick reaches the public.
-const DRAFT_WORD = { HD: 'House draft', SD: 'Senate draft', CD: 'Conference committee draft', FD: 'Floor draft' };
-const draftName = v => { const m = /^(HD|SD|CD|FD)(\d+)$/.exec(v || ''); return m ? `${DRAFT_WORD[m[1]]} ${m[2]} (${v})` : v; };
+// "House draft 1": the version in words (steps.js versionWords, V05); the code stays searchable on Today's notes.
+const draftName = v => versionWords(v);
 const draftRank = (b, v) => { const m = /^(HD|SD|CD|FD)(\d+)$/.exec(v || '') || []; const own = (b.bill_number || '')[0] === 'S' ? ['SD', 'HD'] : ['HD', 'SD'];
   return ({ [own[0]]: 0, [own[1]]: 1, FD: 2, CD: 3 }[m[1]] ?? 4) * 100 + (+m[2] || 0); };
 function loadDrafts(b) {
@@ -144,10 +149,10 @@ function draftsSection(b) {
   return `<div class="bw-drpart" aria-labelledby="bw-dr-h">
     <h3 id="bw-dr-h">How it has changed</h3>
     ${rows.length ? `<ul class="bw-drlist" role="list">${rows.map(d => `<li class="bw-drrow"><div class="bw-drbody"><b>${esc(draftName(d.version))}</b>
-      <span>${esc(d.summary)}</span>${d.written_by === 'staff' ? '' : '<span class="small muted">Drafted by Claude from the committee report: please check it.</span>'}
+      <span>${esc(d.summary)}</span>${d.written_by === 'staff' ? '' : '<span class="bw-quiet">Drafted by Claude from the committee report: please check it.</span>'}
       ${d.changes_letters ? `<span class="bw-drbig">${icon('triangle-alert')}<span><b>People who wrote on an earlier draft are warned</b>${d.letter_note ? `, with HIPHI’s advice: “${esc(d.letter_note)}”` : '.'}</span></span>`
         : d.changes_suggested ? `<span class="bw-drsug">${icon('sparkles')}<span>Claude suggests warning people who wrote on an earlier draft${d.letter_note ? `: “${esc(d.letter_note)}”` : '.'}</span></span>` : ''}
-      ${d.source_url ? `<a class="small bw-inline" href="${esc(d.source_url)}" target="_blank" rel="noopener">Committee report${icon('external-link')}</a>` : ''}</div>
+      ${d.source_url ? `<a class="bw-inline" href="${esc(d.source_url)}" target="_blank" rel="noopener">Committee report${icon('external-link')}</a>` : ''}</div>
       <div class="bw-dracts">${d.changes_suggested && !d.changes_letters ? btn('Warn letter writers', { kind: 'text', sm: true, icon: 'triangle-alert', attrs: { 'data-drtick': d.version, 'aria-label': `Warn people who wrote on a draft before ${draftName(d.version)}` } }) : ''}
       ${d.written_by === 'staff' ? '' : btn('Note is right', { kind: 'text', sm: true, icon: 'check', attrs: { 'data-drok': d.version, 'aria-label': `The note on ${draftName(d.version)} is right` } })}
       ${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-dredit': d.version, 'aria-label': `Edit the note on ${draftName(d.version)}`, 'aria-haspopup': 'dialog' } })}</div></li>`).join('')}</ul>` : ''}
@@ -201,13 +206,13 @@ export function renderPublic(b) {
   // day's job is to share, not to edit (R-152 C). v4 (R-269): on a laptop too (Saya: Copy share link was 2.3 screens down,
   // under the editor); "Write it" on Today still lands on the ask below it (?focus=ask, wirePublic).
   const spread = `<section class="bw-sec bw-pblk bw-kit" aria-labelledby="bw-spread-h">
-    <h2 id="bw-spread-h">Share kit</h2>
-    <p class="small bw-resp">${publicWords(b) ? `${icon('users')}<span>${esc(publicWords(b))}.${DEMO ? ' <span class="muted">(sample numbers)</span>' : ''}</span>` : '<span class="muted">No public counts yet: actions are counted from 10 people.</span>'}${publicWords(b) && !((publicResponse(b) || {}).people >= 10) ? ' <span class="muted">Actions show from 10 people.</span>' : ''}</p>
-    <div class="bw-acts bw-spreadacts">${listed ? `${btn('Copy share link', { kind: 'text', icon: 'link', attrs: { 'data-kit': 'link' } })}${btn('Copy a ready message', { kind: 'text', icon: 'message-square', attrs: { 'data-kit': 'msg' } })}` : ''}${btn('Email supporters', { kind: 'text', icon: 'mail', attrs: { 'data-email': '1', ...(emailOk ? {} : { 'aria-disabled': 'true' }) } })}</div>
-    <p class="small muted">${[listed ? '' : 'Make it public to get its share link.', emailOk ? 'Someone who approves emails checks it before it sends.' : b.position === 'monitor' ? 'Monitor bills get no supporter emails. Take a position first.' : ''].filter(Boolean).join(' ')}</p>
+    <h2 class="bw-h2" id="bw-spread-h">Share kit</h2>
+    <p class="bw-resp">${publicWords(b) ? `${icon('users')}<span>${esc(publicWords(b))}.${DEMO ? ' <span class="bw-quiet">(sample numbers)</span>' : ''}${!((publicResponse(b) || {}).people >= 10) ? ' <span class="bw-quiet">Actions show from 10 people.</span>' : ''}</span>` : `${icon('users')}<span class="bw-quiet">No public counts yet: actions are counted from 10 people.</span>`}</p>
+    <div class="bw-acts bw-spreadacts">${listed ? `${btn('Copy share link', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-kit': 'link' } })}${btn('Copy a ready message', { kind: 'secondary', sm: true, icon: 'message-square', attrs: { 'data-kit': 'msg' } })}` : ''}${btn('Email supporters', { kind: 'secondary', sm: true, icon: 'mail', attrs: { 'data-email': '1', ...(emailOk ? {} : { 'aria-disabled': 'true' }) } })}</div>
+    <p class="bw-quiet">${[listed ? '' : 'Make it public to get its share link.', emailOk ? 'Someone who approves emails checks it before it sends.' : b.position === 'monitor' ? 'Monitor bills get no supporter emails. Take a position first.' : ''].filter(Boolean).join(' ')}</p>
   </section>`;
   return `${spread}<section class="bw-sec bw-pub bw-pblk" aria-labelledby="bw-pub-h">
-    <h2 id="bw-pub-h">On the public page</h2>
+    <h2 class="bw-h2" id="bw-pub-h">On the public page</h2>
     <p class="bw-pubnow${warn ? ' warn' : ''}">${icon(live ? 'globe' : warn ? 'triangle-alert' : 'eye-off')}<span><b>Now:</b> ${esc(pubStateText(b))}${pubLink}</span></p>
     <div class="bw-pubcols">
     <form class="bw-pubform" data-pubform novalidate>
@@ -230,7 +235,7 @@ export function renderPublic(b) {
       <div class="bw-acts bw-pubsave">${btn('Save public page', { kind: 'primary', icon: 'check', attrs: { type: 'submit' } })}${dirty(b) ? '<span class="small muted">Not saved yet</span>' : ''}</div>
     </form>
     <div class="bw-prev" role="group" aria-labelledby="bw-prev-h">
-      <p class="bw-eyebrow" id="bw-prev-h">Preview</p>
+      <p class="bw-prevh" id="bw-prev-h">How the public page shows it</p>
       <div data-prev>${previewInner(b, valuesOf(b))}</div>
     </div>
     </div>
