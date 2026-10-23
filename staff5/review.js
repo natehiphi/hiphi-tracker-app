@@ -6,15 +6,15 @@
 // Each card also shows the bill as it stands (R-022): its position, priority and owner, where it is, and a plain warning
 // when it is dead, only monitored or has no hearing, so nobody approves an email asking supporters to testify on a bill
 // that died. The draft itself stays in its Google Doc (Nate, 9/19: not shown inside Review).
-import { S, DB, esc, fmtDT, advocate, hooks, changedSince, startedFromLine, raceLine } from './data.js';
+import { S, DB, esc, fmtDT, advocate, hooks, startedFromLine, raceLine } from './data.js';
 import { agoWords, billNum, billSay, blurb, alertTarget, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn } from './model.js';
 import { icon, btn, chip, stepBar, empty, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, posIcons, POS_WORD, ownerOf, clockDay, lateLine } from './ui.js';
 import { docBtn, keysUsed } from './ui.js';   // R-277 fix 4 (U-4): "Open Doc" here too (it was "Open the Google Doc", a full-width outline)
 import { emailPreview } from './composer.js';
 import { reviewQueue, hearingFor, testDue, cd, hearingLine, reviewerNames, needsSecond, HOVER, afterBack } from './today.js';
 import { statusSentence } from './bill.js';
-import { teamFirst } from './model.js';   // R-316 W28
-import { staleFromLine } from './model.js';   // R-316 W24
+import { teamFirst, newOwnerTag } from './model.js';   // R-316 W28
+import { staleLine } from './model.js';   // R-316 W24
 import { filerOf } from './model.js';   // R-316 W20 (T-3)
 import { capitolUrl } from './data.js';
 
@@ -59,7 +59,8 @@ function billLine(b, { named = false, pos = true } = {}) {
   const bits = [named ? (b.nickname ? `<b class="bn-nick">${esc(b.nickname)}</b> <span class="bn-num">${esc(billNum(b))}</span>` : `<b>${esc(billNum(b))}</b>`) : '',
     // P1 only where the position is not shown: it follows the position (R-175), so beside it, it says it twice (A-14).
     pos ? `${posIcons(p)} ${esc(POS_WORD[p] || p || 'No position')}` : b.priority === 1 ? 'P1' : '',
-    own ? esc(own.id === S.me?.id ? 'You own it' : `${first(own.id)} owns it`) : 'No owner'].filter(Boolean);
+    // W28 (fresh-eyes): "Lauren (turned off) owns it, needs a new owner", as the bill page says (model.js newOwnerTag).
+    own ? esc(own.id === S.me?.id ? 'You own it' : `${first(own.id)} owns it${newOwnerTag(own)}`) : 'No owner'].filter(Boolean);
   return `<p class="td-rvline td-rvfacts">${bits.map(x => `<span>${x}</span>`).join('<span class="td-rvdot" aria-hidden="true">·</span>')}</p>`;
 }
 function billState(b, { email = false, d = null, h = null } = {}) {
@@ -99,11 +100,11 @@ function draftBody(it) {
   const two = d.status === 'second_review';
   const who = two ? `Approved by ${esc(first(d.approved_by))} ${esc(ago(d.approved_at))}. It is this bill’s first testimony, so it needs a second approval.`
     : d.submitted_by ? `Sent by ${own ? 'you' : esc(first(d.submitted_by))} ${esc(ago(d.submitted_at))}` : 'Not sent by anyone yet';
-  const stale = b.current_version && d.version !== b.current_version;
-  // R-316 W24 (G1-8): a draft started from earlier testimony on a bill that has moved on since says so in one line, the
-  // warning ("Started from HIPHI’s JHA testimony, written for HD1; the bill is now SD1."), not two lines in a row; any
-  // out-of-date draft gets the bill page's Committee report link, under the words so a phone keeps the line's width.
-  const late = stale ? staleFromLine(b, d) : '', from = late ? '' : startedFromLine(b, d);
+  // R-316 W24 (G1-8): an out-of-date draft says so in one line, the warning, in the bill page's words (model.js staleLine:
+  // "This draft was written for HD1 (from HIPHI’s JHA testimony); the bill is now HD2. Check it before it goes out."); one
+  // started from earlier testimony says so there, not in a "Started from" line above it. The bill page's Committee report
+  // link sits under the words, so a phone keeps the line's width.
+  const late = staleLine(b, d), from = late && d.from_draft_id ? '' : startedFromLine(b, d);
   const report = `<br>${btn('Committee report', { kind: 'text', sm: true, iconEnd: 'external-link', href: capitolUrl(b), target: '_blank' })}`;
   return `<section class="card td-rvcard" aria-labelledby="td-rvb">
     <p class="td-rveb">${icon('file-text')}${two ? 'Second approval' : 'Testimony'}${own ? chip('Your own draft', 'info', 'user-round') : ''}</p>
@@ -114,8 +115,7 @@ function draftBody(it) {
     ${due != null ? `<p class="td-rvline">${dueLine(due, h)}</p>` : ''}
     <p class="td-rvline">${icon('user-round')}<span>${who}</span></p>
     ${from ? `<p class="td-rvline">${icon('copy')}<span>${esc(from)}</span></p>` : ''}
-    ${late ? notice('warn', 'triangle-alert', esc(late) + report)
-      : stale ? notice('warn', 'triangle-alert', `The bill is now ${esc(b.current_version)}; this draft was written for ${esc(d.version || 'the introduced bill')}.${changedSince(b, d.version) ? ` What changed: ${esc(changedSince(b, d.version))}` : ''}${report}`) : ''}
+    ${late ? notice('warn', 'triangle-alert', esc(late) + report) : ''}
     ${d.review_note ? `<blockquote class="td-q">${esc(d.review_note)}</blockquote>` : ''}
     ${stepBar(d.status, { second: needsSecond(d) })}
     ${d.doc_url ? docBtn(d.doc_url, { attrs: { 'data-doc': '1' } }) : `<p class="small muted">The Google Doc link is missing. Open the bill to find the draft.</p>`}

@@ -28,7 +28,7 @@ import { wantsHearing } from './model.js';
 import { PUSH_BOARD, chairBoardHTML, wirePush } from './push.js';   // R-316 W5 (practice copy)
 import { rerender } from './bill.js';
 import { billRoute } from './model.js';
-import { teamFirst, teamName } from './model.js';   // R-316 W28
+import { teamFirst, ownerFirst, ownerName } from './model.js';   // R-316 W28
 import { isPos, byPri, dayOf, dueWhen, waitingOfBills } from './standing.js';
 
 const WEEK = 7 * 864e5, FOLD = 6, HST = { timeZone: 'Pacific/Honolulu' };
@@ -101,7 +101,8 @@ const facts = c => ({ own: advocate(c.owner_id), live: liveOf(c).length, hear: w
 const hearWords = n => n ? plural(n, 'hearing') + ' this week' : 'no hearings this week';
 // "Lauren · 22 live bills · 3 hearings this week": a coalition in one line, on the index (phone) and on My issues for
 // someone who owns no issue (v4, R-269 P7), in the same words.
-export const coalFactsLine = c => { const f = facts(c); return [f.own ? first(f.own) : 'No owner', f.live ? plural(f.live, 'live bill') : 'no live bills', hearWords(f.hear)].join(' · '); };
+// W28 (fresh-eyes): an owner who is turned off "needs a new owner" (model.js ownerFirst), as on the coalition's page.
+export const coalFactsLine = c => { const f = facts(c); return [f.own ? ownerFirst(f.own) : 'No owner', f.live ? plural(f.live, 'live bill') : 'no live bills', hearWords(f.hear)].join(' · '); };
 const colValue = (x, k) => k === 'name' ? x.c.name.toLowerCase() : k === 'owner' ? (x.f.own ? x.f.own.full_name.toLowerCase() : null) : k === 'bills' ? x.f.live : k === 'hear' ? x.f.hear : x.f.you ? 1 : 0;
 const youChip = () => chip('You help on it', '', 'badge-check');   // R-277 fix 21 (W-8): "support" read as a position
 function indexHTML() {
@@ -119,7 +120,7 @@ function indexHTML() {
   const tr = ({ c, f }) => { const href = `#/coalition/${encodeURIComponent(c.id)}`;
     return `<tr data-href="${esc(href)}">
       <td class="c-name"><span class="le-tdlead">${icon(iconName(c.icon))}</span><span class="le-tdbody"><a class="le-tdname" href="${esc(href)}">${esc(c.name)}</a>${c.public_name && c.public_name !== c.name ? `<span class="le-tdsub">${esc(c.public_name)}</span>` : ''}</span></td>
-      <td class="c-owner">${f.own ? esc(teamName(f.own)) : '<span class="co-none">No owner</span>'}</td>
+      <td class="c-owner">${f.own ? esc(ownerName(f.own)) : '<span class="co-none">No owner</span>'}</td>
       <td class="c-bills num">${f.live || DASH}</td><td class="c-hear num">${f.hear || DASH}</td>
       ${showYou() ? `<td class="c-you">${f.you ? youChip() : DASH}</td>` : ''}</tr>`; };
   return `<div class="le-page co-index le-desk${isSide() ? ' le-side' : ''}">${head}
@@ -137,7 +138,7 @@ function folded(key, rows) {
 }
 // A bill's name the Outreach way (R-271): the nickname, then the number small (a bill with no nickname: number, then its plain summary).
 const name = b => billTag(b, 90);
-const ownerBit = b => { const a = advocate((S.assignments[b.id] || [])[0]); return `<span class="co-own"><span aria-hidden="true">${avatar(a, 20)}</span><span>${a ? esc(a.id === S.me?.id ? 'You' : first(a)) : 'No owner'}</span></span>`; };
+const ownerBit = b => { const a = advocate((S.assignments[b.id] || [])[0]); return `<span class="co-own"><span aria-hidden="true">${avatar(a, 20)}</span><span>${a ? esc(a.id === S.me?.id ? 'You' : ownerFirst(a)) : 'No owner'}</span></span>`; };   // W28
 
 function headHTML(c) {
   const own = advocate(c.owner_id), live = liveOf(c).length, desk = DESK();
@@ -150,7 +151,7 @@ function headHTML(c) {
       <div class="co-trow"><h1>${esc(c.name)}</h1>${desk ? act : ''}</div>
       ${c.public_name && c.public_name !== c.name ? `<p class="co-pubname">On the public tracker: ${esc(c.public_name)}</p>` : ''}
       ${c.description ? `<p class="co-desc">${esc(c.description)}</p>` : ''}
-      <p class="co-meta">${own ? `<span class="co-own"><span aria-hidden="true">${avatar(own, 20)}</span><span>Owner: ${esc(own.id === S.me?.id ? 'you' : teamName(own))}</span></span>`
+      <p class="co-meta">${own ? `<span class="co-own"><span aria-hidden="true">${avatar(own, 20)}</span><span>Owner: ${esc(own.id === S.me?.id ? 'you' : ownerName(own))}</span></span>`
         : `<span>No owner${S.me?.is_admin ? ` · <a href="#/setup/coalitions">choose one in Session setup</a>` : ''}</span>`}<span aria-hidden="true">·</span>${live ? `<span>${esc(plural(live, 'live bill'))} with a position</span>` : '<span>No live bills with a position</span>'}<span aria-hidden="true">·</span><a href="${esc(billsHref(c))}">See all its bills</a></p>
     </div>
   </header>

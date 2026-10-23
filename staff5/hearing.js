@@ -20,7 +20,7 @@ import { movedFrom } from './model.js';   // R-316 W24: "Moved from Mon 2/9"
 import { hooks } from './data.js';
 import { movedGoingHTML, wireMoved } from './moved.js';   // R-316 W53 (practice copy): still going to the sitting it moved to?
 import { billRoute, whenAt, spanOf, roomName, hearingWhen, isDecision, sittingDraft, earlierFiled, draftHearing } from './model.js';
-import { teamFirst, filerOf } from './model.js';   // R-316 W28, W20
+import { teamFirst, ownerFirst, filerOf } from './model.js';   // R-316 W28, W20
 
 const HR = 36e5, FOLD = 10;
 const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
@@ -145,7 +145,7 @@ function billRow(x, c) {
   const { h, b } = x, own = advocate((S.assignments[b.id] || [])[0]);
   // R-271: the nickname first, the number small after it (a bill with no nickname keeps number then summary).
   const name = billTag(b, 110);
-  const facts = `<span class="hr-fact">${posIcons(b.position || '')}<span>${esc(POS_WORD[b.position || ''] || 'No position')}</span></span><span class="hr-fact"><span aria-hidden="true">${avatar(own, 20)}</span><span>${own ? esc(own.id === S.me?.id ? 'You' : first(own)) : 'No owner'}</span></span>`;
+  const facts = `<span class="hr-fact">${posIcons(b.position || '')}<span>${esc(POS_WORD[b.position || ''] || 'No position')}</span></span><span class="hr-fact"><span aria-hidden="true">${avatar(own, 20)}</span><span>${own ? esc(own.id === S.me?.id ? 'You' : ownerFirst(own)) : 'No owner'}</span></span>`;   // W28: "Lauren (turned off), needs a new owner"
   const pub = publicWords(b);   // the public's response (R-117)
   let end = '';
   if (c.cancelled) end = '';   // the notice above says it once for the whole sitting (A-14)
@@ -156,9 +156,10 @@ function billRow(x, c) {
     const t = testimonyOf(h, b), due = dueOf(h), tone = t.filed ? 'ok' : { soon: 'warn', late: 'danger' }[dueTone(due, h.scheduled_at)] || '';
     const words = t.filed ? '' : dueWords(due, h.scheduled_at);
     // R-316 W20 (T-3): approved testimony names who files it, as the bill page and Today do (model.js filerOf: whoever
-    // sent it for approval, else the owner): "Testimony ready to file · Kevin files it".
+    // sent it for approval, else the owner): "Testimony ready to file · Kevin files it". Fresh-eyes: only when that is not
+    // the row's owner, named just beside it ("Kevin files it" next to "KV Kevin" said it twice).
     const ready = t.word === 'ready to file' && draftOf(x), fid = ready && filerOf(ready);
-    const label = ready ? `${t.label} · ${fid ? (fid === S.me?.id ? 'you file it' : `${teamFirst(fid)} files it`) : 'anyone can file it'}` : t.label;
+    const label = !ready || (fid && fid === own?.id) ? t.label : `${t.label} · ${fid ? (fid === S.me?.id ? 'you file it' : `${teamFirst(fid)} files it`) : 'anyone can file it'}`;
     end = chip(words ? `${label} · ${words}` : label, tone, tone === 'danger' ? 'circle-alert' : t.icon); }
   // A grid, not the usual body/end pair: on a phone the name has the whole first line and the state sits at the end of
   // the facts; on a desktop the state moves up beside the name (hearing.css).

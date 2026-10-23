@@ -14,7 +14,7 @@
 import { S, DB, DEMO, APP_URL, STAGES, STAGE_LABEL, hooks, esc, fmtDT, fmtDate, advocate, capitolUrl, isOwner, isMuted } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
 import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteName, streamOf, draftFor, draftWho, draftActions, chairMail, billNum, billSay, blurb, titleCaseTitle, sponsorName, legsOf, legTitle, legById, lastSlotBefore, unreadCount, listNames, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, nameOf, dWhen, standingIn, draftHearing, liveAsk, billRef } from './model.js';
-import { personById, changedSince, startedFromLine, SESSION_OVER, SESSION_YEAR } from './data.js';
+import { personById, startedFromLine, SESSION_OVER, SESSION_YEAR } from './data.js';
 import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, POS_SUB, posIcons, ownerOf, countdown, stepBar, stageRibbon, empty, notice, toast, openSheet, closeSheet,
   pickerSheet, menuSheet, confirmSheet, field, keysOn } from './ui.js';
 import { goingBtn, docBtn, filedBtn, showAllBtn, mayUnfile, undoFiledLink } from './ui.js';   // R-277 fix 4: one look per action
@@ -34,8 +34,8 @@ import { ASK_LOG, chairAskOf, chairAskMail } from './model.js';
 import { askedChip } from './chairask.js';
 import { logConversation } from './conversation.js';   // R-316 W3 (practice copy)
 import { HOW_TO } from './terms.js';   // R-316 W37 (practice copy)   // R-316 W14 (practice copy)
-import { teamFirst, teamName } from './model.js';   // R-316 W28 (G3-8): "Lauren (turned off)"
-import { staleFromLine } from './model.js';   // R-316 W24 (G1-8)
+import { teamFirst, teamName, newOwnerTag, ownerName } from './model.js';   // R-316 W28 (G3-8): "Lauren (turned off)"
+import { staleLine } from './model.js';   // R-316 W24 (G1-8)
 import { filerOf } from './model.js';   // R-316 W20 (T-3): who files, one rule on every screen
 
 // ---- small shared helpers (activity.js and public.js use these too) ----
@@ -278,11 +278,12 @@ export function statusSentence(b, { hearing = true, chair = false } = {}) {
 const POS_ORDER = ['strongly_support', 'support', 'support_amend', 'neutral', 'oppose', 'strongly_oppose', 'monitor', ''];
 // Initials on the owner chip (ui.avatar says "You" at this size, and the chip's label already does).
 const initials = a => `<span class="sv-av${a.id === S.me?.id ? ' me' : ''}" style="--av:24px" aria-hidden="true">${esc(a.initials || firstName(a)[0] || '?')}</span>`;
-const pick = (key, label, lead, aria) => `<button type="button" class="sv-pick" data-bwpick="${key}" aria-haspopup="dialog" aria-label="${esc(aria)}">${lead}<span>${esc(label)}</span>${icon('chevron-down', { cls: 'chev' })}</button>`;
+const pick = (key, label, lead, aria, cls = '') => `<button type="button" class="sv-pick${cls ? ' ' + cls : ''}" data-bwpick="${key}" aria-haspopup="dialog" aria-label="${esc(aria)}">${lead}<span>${esc(label)}</span>${icon('chevron-down', { cls: 'chev' })}</button>`;
 const teamPicks = b => {
   const pos = b.position || '', own = ownerOf(b);
   return [['Position', pick('pos', POS_WORD[pos] || pos, posIcons(pos), `Position: ${POS_WORD[pos] || pos}. Change`)],
-    ['Owner', pick('own', own ? nameOrYou(own) : 'No owner', own ? initials(own) : icon('user-round'), `Owner: ${own ? teamName(own) : 'none'}. Change`)]];
+    // R-316 W28 (fresh-eyes): an owner who is turned off "needs a new owner", as Slipping says (model.js newOwnerTag).
+    ['Owner', pick('own', own ? nameOrYou(own) + newOwnerTag(own) : 'No owner', own ? initials(own) : icon('user-round'), `Owner: ${own ? ownerName(own) : 'none'}. Change`, own && newOwnerTag(own) ? 'bw-newown' : '')]];
 };
 // Who follows the bill (R-022 wave 3), you first. data.js keeps your own follow in S.follows, the team's in S.followersBy.
 const followers = b => {
@@ -472,17 +473,18 @@ function testimonyBlock(b, d, { primary = true, title = '' } = {}) {
     borrow ? btn('Borrow from earlier testimony', { kind: 'text', icon: 'book-open', href: testimonyHref(b), attrs: { 'data-borrow': '1' } }) : '',
   ].join('');
   // Where the draft started from matters while it is written and checked; once it is approved it is history (v3).
-  // R-316 W24 (G1-8): started from earlier testimony on a bill that has moved on since: one line, the warning (as Review).
-  // Its Committee report link sits under the words: beside them it squeezed a phone's line to two words.
-  const late = stale ? staleFromLine(b, d) : '';
-  const from = !late && ['draft', 'review', 'second_review'].includes(d.status) ? startedFromLine(b, d) : '';
+  // R-316 W24 (G1-8): an out-of-date draft says so in one line, the warning, in Review's words (model.js staleLine); one
+  // started from earlier testimony says so there, in passing, in place of the "Started from" line. Its Committee report
+  // link sits under the words: beside them it squeezed a phone's line to two words.
+  const late = stale ? staleLine(b, d) : '';
+  const from = !(late && d.from_draft_id) && ['draft', 'review', 'second_review'].includes(d.status) ? startedFromLine(b, d) : '';
   return `<div class="bw-tb" data-tb="${esc(d.id)}">
     ${title ? `<p class="bw-tbt">${title}</p>` : ''}
     ${['cancelled', 'filed'].includes(d.status) ? '' : stepBar(d.status, { second })}
     ${sentBack ? '' : `<p class="bw-who">${esc(whoLine(d))}${own && acts.includes('approve') ? ` ${chip('Your own draft')}` : ''}</p>`}
     ${sentBack ? `<blockquote class="bw-quote"><span class="meta">Sent back</span>${esc(d.review_note)}</blockquote><p class="bw-who">${esc(holder ? (holder === me.id ? 'Yours to revise' : advocate(holder)?.is_active === false ? `With ${whoName(holder)} to revise` : `${whoName(holder)}’s to revise`) : 'Anyone can revise it')}</p>` : ''}
     ${from ? `<p class="bw-from">${icon('copy')}<span>${esc(from)}</span></p>` : ''}
-    ${stale ? notice('warn', 'triangle-alert', `${late ? esc(late) : `The bill is now ${esc(b.current_version)}. This draft was written for ${esc(d.version || 'the introduced bill')}; check it before it goes out.${changedSince(b, d.version) ? ` What changed: ${esc(changedSince(b, d.version))}` : ''}`}<br>${btn('Committee report', { kind: 'text', sm: true, iconEnd: 'external-link', href: capitolUrl(b), target: '_blank' })}`) : ''}
+    ${late ? notice('warn', 'triangle-alert', `${esc(late)}<br>${btn('Committee report', { kind: 'text', sm: true, iconEnd: 'external-link', href: capitolUrl(b), target: '_blank' })}`) : ''}
     ${main || alt ? `<div class="bw-acts">${main}${alt}</div>` : ''}
     ${links ? `<div class="bw-links">${links}</div>` : ''}
   </div>`;

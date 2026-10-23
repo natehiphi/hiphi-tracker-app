@@ -18,7 +18,7 @@ import { copyLink, NAMES as FV_NAMES } from './firstvisit.js';
 import { afterClose, iconName } from './lists.js';
 import { ICONS } from '../icons.js';
 import { billRoute } from './model.js';
-import { teamName } from './model.js';   // R-316 W28
+import { teamName, ownerName } from './model.js';   // R-316 W28
 import { bl, save as saveBills } from './filters.js';
 
 // ---- coalition and list icons (copied from app.js: the public page shows Lucide icons, so staff pick a name from
@@ -220,7 +220,11 @@ function status(key) {
     case 'email': return (S.emailCfg || {}).enabled === false ? 'Paused. Nothing is sent.' : 'On';
     case 'alerts': { const d = cfg.daily || {}; return cfg.main_channel ? `Posts to ${cfg.main_channel} for ${plural((cfg.positions || []).length, 'position')}${d.enabled !== false ? ` · daily list at ${hhmm(d.time || '07:00')}` : ''}` : 'No main channel yet'; }
     case 'coalitions': { const n = S.campaigns.length, own = S.campaigns.filter(c => !c.owner_id).length, kw = S.campaigns.filter(c => !(c.keywords || []).length).length;
-      return [plural(n, 'coalition'), own ? `${own} without an owner` : '', kw ? `${kw} without keywords` : ''].filter(Boolean).join(' · '); }
+      // R-316 W28 (fresh-eyes): a coalition whose owner is turned off needs a new one too, so it is counted, apart from those
+      // with none: "2 without an owner, 1 owner turned off" (Slipping and the coalition's page say the same).
+      const off = S.campaigns.filter(c => c.owner_id && advocate(c.owner_id)?.is_active === false).length;
+      const owners = [own ? `${own} without an owner` : '', off ? `${off} ${off === 1 ? 'owner' : 'owners'} turned off` : ''].filter(Boolean).join(', ');
+      return [plural(n, 'coalition'), owners, kw ? `${kw} without keywords` : ''].filter(Boolean).join(' · '); }
     case 'sync': { const ld = legislativeDay(), yr = sessionYear(), cal = (S.sessionCal || []).find(c => c.session_year === yr), b = (S.syncCfg || {}).burst_until;
       return `${ld ? ld.text : cal?.opening_day ? `${yr} session days entered` : `${yr} session days not entered`} · ${b && b >= new Date().toISOString().slice(0, 10) ? `4 more syncs a day until ${fmtDate(b)}` : 'syncs 4 times a day'}`; }
     case 'import': return 'Load the session, or replace the tracked list';
@@ -1067,7 +1071,7 @@ const PAGES = {
         // R-316 W28 (G3-8): a turned-off owner stays on the Owner list, marked, so the card says who still holds the coalition
         // and saving a change to another card never quietly sets this one to No owner (the list had only people who are on).
         const who = own && own.is_active === false ? [...act, own] : act;
-        const sub = [c.public_name && c.public_name !== c.name ? c.public_name : '', own ? teamName(own) : 'No owner', plural((c.keywords || []).length, 'keyword'), c.slack_channel || 'no channel'].filter(Boolean).join(' · ');
+        const sub = [c.public_name && c.public_name !== c.name ? c.public_name : '', own ? ownerName(own) : 'No owner', plural((c.keywords || []).length, 'keyword'), c.slack_channel || 'no channel'].filter(Boolean).join(' · ');
         return `<div class="card st-coal" data-coal="${esc(c.id)}">
           <button type="button" class="st-coalhead" data-coalopen="${esc(c.id)}" aria-expanded="${open}" aria-controls="st-cb-${esc(c.id)}"><span class="st-coalic">${icon(ic)}</span><span class="body"><span class="title">${esc(c.name)}</span><span class="sub">${esc(sub)}</span></span>${icon(open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button>
           <div class="st-coalbody st-form" id="st-cb-${esc(c.id)}" ${open ? '' : 'hidden'}>

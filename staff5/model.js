@@ -648,23 +648,39 @@ const advOf = x => x && typeof x === 'object' ? x : advocate(x);
 export const offTag = x => advOf(x)?.is_active === false ? ' (turned off)' : '';
 export const teamFirst = x => { const a = advOf(x); return a ? (String(a.full_name || '').split(' ')[0] || 'Someone') + offTag(a) : 'Someone'; };
 export const teamName = x => { const a = advOf(x); return a ? (a.full_name || 'Someone') + offTag(a) : 'Someone'; };
+// R-316 W28 (fresh-eyes): where a turned-off person still shows as the OWNER (of a bill, a coalition or an issue), the name
+// also says it needs handing on, so those screens agree with Slipping's "No owner (was Lauren’s, turned off)": "Lauren
+// (turned off), needs a new owner". The phrase is said here only; ownerFirst and ownerName are teamFirst and teamName with it.
+export const newOwnerTag = x => offTag(x) ? ', needs a new owner' : '';
+export const ownerFirst = x => teamFirst(x) + newOwnerTag(x);
+export const ownerName = x => teamName(x) + newOwnerTag(x);
 // R-316 W20 (T-3): who files approved testimony, one rule on every screen (Today, the bill page, Review, the hearing page):
 // whoever sent it for approval while they are on the team, else the bill's owner (named "(turned off)" when they are off,
 // so someone hands it on), else nobody in particular. An id or null.
 export const filerOf = d => { const s = advocate(d?.submitted_by); return s && s.is_active !== false ? s.id : (S.assignments?.[d?.bill_id] || [])[0] || null; };
-// R-316 W24 (G1-8): a draft started from earlier testimony whose bill has moved on since says so in ONE line, the warning:
-// "Started from HIPHI’s JHA testimony, written for HD1; the bill is now SD1. What changed: ..." (Nate's review). It was
-// two lines in a row ("Started from ... Since then: ..." over "The bill is now SD1; this draft was written for HD1").
-// What changed counts from the version the words were written for, so nothing either line said is lost. '' when the
-// draft is current, did not start from earlier testimony, or that testimony was written for the bill as it is now: the
-// screen then keeps startedFromLine and its own warning.
-export function staleFromLine(b, d) {
+// R-316 W24 (G1-8): an out-of-date draft says so in ONE line, the warning, on Review and the bill page alike (Nate's
+// review: it was two lines in a row, "Started from ... Since then: ..." over "The bill is now SD1; this draft was written
+// for HD1"). Fresh-eyes: the version is THIS draft's (one already brought up to SD1 from HD1 testimony is written for SD1,
+// and what changed counts from there), where it came from is said in passing, and the bill page's "check it before it
+// goes out" is said on both: "This draft was written for HD1 (from HIPHI’s JHA testimony); the bill is now HD2. Check it
+// before it goes out. What changed: ...". '' when the draft is written for the bill as it is now.
+export function staleLine(b, d) {
   const cur = b?.current_version || null;
-  if (!cur || (d.version || null) === cur || !d.from_draft_id) return '';
-  const src = Object.values(S.drafts || {}).flat().find(x => x.id === d.from_draft_id);
-  if (!src || (src.version || null) === cur) return '';
-  const changed = changedSince(b, src.version || null);
-  return `Started from HIPHI’s ${src.committee ? src.committee + ' ' : ''}testimony, written for ${src.version || 'the bill as introduced'}; the bill is now ${cur}.${changed ? ` What changed: ${changed}` : ''}`;
+  if (!cur || (d.version || null) === cur) return '';
+  const src = d.from_draft_id ? Object.values(S.drafts || {}).flat().find(x => x.id === d.from_draft_id) : null;
+  const from = d.from_draft_id ? ` (from HIPHI’s ${src?.committee || 'earlier'} testimony)` : '';
+  const notes = changeNotes(b, d.version || null);
+  return `This draft was written for ${d.version || 'the bill as introduced'}${from}; the bill is now ${cur}. Check it before it goes out.${notes ? ' ' + notes : ''}`;
+}
+// data.js changedSince names each draft in full ("House draft 2 (HD2): Took out the money."). Right after "the bill is now
+// HD2" that said HD2 twice around two colons ("What changed: House draft 2 (HD2): ..."). A note on the draft just named is
+// "What changed: Took out the money."; notes on other or several drafts each lead with the short name ("In HD2: ... In SD1: ...").
+const DRAFT_HEAD = /(?:House|Senate|Conference committee|Floor) draft \d+ \(((?:HD|SD|CD|FD)\d+)\): /g;
+function changeNotes(b, from) {
+  const all = changedSince(b, from); if (!all) return '';
+  const vs = [...all.matchAll(DRAFT_HEAD)].map(m => m[1]);
+  if (vs.length > 1 || (vs.length === 1 && vs[0] !== b.current_version)) return all.replace(DRAFT_HEAD, 'In $1: ');
+  return `What changed: ${all.replace(DRAFT_HEAD, '')}`;
 }
 export const listNames = (pred, sep) => S.advocates.filter(a => pred(a) && a.is_active !== false)
   .map(a => a.full_name).join(sep) || 'an admin';
