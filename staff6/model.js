@@ -790,7 +790,9 @@ export const askReply = a => ASK_REPLY[a?.answer] || ASK_REPLY.asked;
 export const ASK_MAILS = new Map();
 const longDay = d => new Date(String(d).length === 10 ? d + 'T12:00:00-10:00' : d).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'long', month: 'long', day: 'numeric' });
 // `to`: one chair of a joint committee ({ who, email, legId }, Holding our bills); `codes`: each bill's own committee.
-export function chairAskMail(code, bills, { dl = null, heardAt = null, to = null, codes = null } = {}) {
+// `followUp` (Staff v6, spec 6: no reply after 3 working days): the same approved email again, its subject starting
+// "Following up: " so the office sees it is not a new request; the words Nate approved are otherwise unchanged.
+export function chairAskMail(code, bills, { dl = null, heardAt = null, to = null, codes = null, followUp = false } = {}) {
   const m = to ? { ...chairMail(code), ...to } : chairMail(code); if (!m || !m.email || !bills.length) return null;
   const me = S.me?.full_name || '', one = bills.length === 1;
   const line = b => `${b.bill_number}${blurb(b, 100) ? ` (${blurb(b, 100)})` : ''}`;
@@ -807,6 +809,7 @@ export function chairAskMail(code, bills, { dl = null, heardAt = null, to = null
     subject = `Request for hearings on ${bills.map(b => b.bill_number).join(', ')}`;
     body = `Aloha ${m.who},\n\nOn behalf of the Hawaiʻi Public Health Institute, I respectfully ask you to schedule hearings on these bills${by}:\n\n${bills.map(b => '- ' + line(b)).join('\n')}${sign}`;
   }
+  if (followUp) subject = `Following up: ${subject}`;
   const href = `mailto:${m.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   ASK_MAILS.set(href, { items: bills.map((b, i) => ({ id: b.id, code: codes?.[i] || code, legs: to?.legId ? [to.legId] : null })), who: m.who, decide: !!heardAt });
   return { href, m };

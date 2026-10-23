@@ -1,8 +1,9 @@
 // R-277 fix 17 (U-1): one open-bill panel for Today and Bills. Staff v6 (R-336, V07, V17, V22): rebuilt on the one step card.
 // openItem(b, ...) is the open item beside Today's list and Bills (and the item's own page below 1100px): the bill's number
 // small, its name as the heading and its plain summary, then steps.js stepCard (the step in plain words, its buttons when
-// it is the viewer's, the Write -> Approve -> File track, the hearing with who is going and I'm going), then two labelled
-// doors: About this bill (the facts, codes small beside their words, each tap-to-explain) and Open the bill. v5's panel
+// it is the viewer's, the Write -> Approve -> File track, the hearing with who is going and I'm going), the other items on
+// the bill, then About this bill (the facts, codes small beside their words, each tap-to-explain); Open the bill sits in
+// its top row beside the number and the X. v5's panel
 // repeated the row it came from (assessment X16: 10 repeated texts between row and panel); this one adds only what the row
 // did not say. Its buttons need no wiring (steps.js delegates them), so the same item works wherever it is drawn.
 // The v5 parts below (billPane, bpHearing, bpFacts, bpOpen) stay for today.js and bills.js until those screens switch.
@@ -10,26 +11,36 @@ import { S, esc } from './data.js';
 import { icon, iconBtn, goingBtn } from './ui.js';
 import { billNum, blurb, hearingWhen, billRoute, stopOf, hearingAhead, diedish, deadlineName, legislativeDay } from './model.js';
 import { TERMS_TAP, termBtn } from './terms.js';   // R-316 W40: the codes still shown tap open what they mean
-import { stepCard, committeeName, versionWords, deadlineWords, numWords, nameWords } from './steps.js';
+import { stepCard, billStep, whereWords, committeeName, versionWords, deadlineWords, numWords, nameWords } from './steps.js';
 
 // ---- v6: the open item ----
-// openItem(b, { viewer, where, close, headId, about, primary, from }) -> HTML.
-//   close: the close X (closeBtn(attrs)), or '' where Back closes it (the item's own page).
-//   about: the facts HTML for About this bill (look.js lookFacts on Bills), else aboutBill(b).
-//   primary: false when another filled button owns the screen (spec section 4).
-export function openItem(b, { viewer, where = 'pane', close = '', headId = 'v6-item-h', about = null, primary = true } = {}) {
+// openItem(b, { viewer, where, close, headId, about, primary, from, also }) -> HTML.
+//   close:   the close X (closeBtn(attrs)), or '' where Back closes it (the item's own page).
+//   about:   the facts HTML for About this bill (look.js lookFacts on Bills), else aboutBill(b).
+//   primary: false when another filled button owns the screen (spec section 4). Today passes false: its "Your next step"
+//            card holds the filled button. Bills keeps the default (the open item is the only one).
+//   from:    where the hearing page's Back returns ('bills' from Bills; the step card's default is 'today').
+//   also:    the other open items on this bill ("Kevin asked: Who is attending?" with Reply): an HTML string, or
+//            [{ text (HTML), button (HTML) }], drawn under "Also on this bill" between the step and About (spec 5: the
+//            "+N on this bill" a row no longer says lives here).
+// The top row carries the number, Open the bill and the X, so the way to the bill is on the first screen of a laptop
+// panel whatever the step card's height (fresh-eyes review at 1280x800).
+export function openItem(b, { viewer, where = 'pane', close = '', headId = 'v6-item-h', about = null, primary = true, from, also = null } = {}) {
   if (!b) return '';
-  const sum = b.nickname ? blurb(b, 400) : '';
-  const facts = about ?? aboutBill(b);
+  const sum = b.nickname ? blurb(b, 240) : '';
+  const s = billStep(b, { viewer }), h = hearingAhead(b);
+  // The step card's hearing line already says the hearing ahead: About does not say it again (A-14).
+  const shown = !!(s?.h && h && s.kind !== 'chair' && where !== 'hearing' && s.h.committee === h.committee && s.h.scheduled_at === h.scheduled_at);
+  const facts = about ?? aboutBill(b, { hearing: !shown });
+  const alsoList = Array.isArray(also) ? also.filter(Boolean).map(x => `<li class="v6-also-item"><span class="v6-also-t">${x.text || ''}</span>${x.button || ''}</li>`).join('') : '';
+  const alsoHTML = alsoList ? `<ul class="v6-also-list">${alsoList}</ul>` : typeof also === 'string' ? also : '';
   return `<div class="v6-item" data-v6item="${esc(b.id)}">
-    <div class="v6-item-top"><p class="v6-item-num">${esc(numWords(b))}</p>${close}</div>
+    <div class="v6-item-top"><p class="v6-item-num">${esc(numWords(b))}</p><a class="v6-item-open" href="${esc(billRoute(b))}" data-bill="${esc(b.id)}"><span>Open the bill</span>${icon('arrow-right')}</a>${close}</div>
     <h2 class="v6-item-name" id="${esc(headId)}" tabindex="-1">${esc(nameWords(b, 160))}</h2>
     ${sum ? `<p class="v6-item-sum">${esc(sum)}</p>` : ''}
-    ${stepCard(b, { viewer, where, primary })}
-    <div class="v6-item-doors">
-      ${facts ? `<details class="v6-item-det"${S.v6About?.[b.id] ? ' open' : ''} data-v6about="${esc(b.id)}"><summary class="v6-item-door">${icon('info')}<span>About this bill</span>${icon('chevron-down')}</summary><div class="v6-item-about">${facts}</div></details>` : ''}
-      <a class="v6-item-door" href="${esc(billRoute(b))}" data-bill="${esc(b.id)}">${icon('scroll-text')}<span>Open the bill</span>${icon('arrow-right')}</a>
-    </div>
+    ${stepCard(b, { viewer, where, primary, named: false, ...(from !== undefined ? { from } : {}) })}
+    ${alsoHTML ? `<section class="v6-also" aria-labelledby="${esc(headId)}-also"><h3 class="v6-also-h" id="${esc(headId)}-also">Also on this bill</h3>${alsoHTML}</section>` : ''}
+    ${facts ? `<div class="v6-item-doors"><details class="v6-item-det"${S.v6About?.[b.id] ? ' open' : ''} data-v6about="${esc(b.id)}"><summary class="v6-item-door">${icon('info')}<span>About this bill</span>${icon('chevron-down')}</summary><div class="v6-item-about">${facts}</div></details></div>` : ''}
   </div>`;
 }
 export const closeBtn = (attrs = {}) => iconBtn('x', 'Close', attrs, 'v6-item-close');
@@ -39,19 +50,21 @@ if (typeof document !== 'undefined' && document.addEventListener) document.addEv
 }, true);
 
 // The facts in plain words, each Capitol code small beside the words it stands for and tap-to-explain (spec section 5:
-// codes appear only where the Capitol itself uses them, About and the filing card): where it stands, its committees in
-// order, its version, the deadline it is racing, the hearing ahead.
-export function aboutBill(b) {
+// codes appear only where the Capitol itself uses them, About and the filing card): where it stands (in words, with which
+// committee of how many: V05, D15), its committees in order, its version, the deadline it is racing, and the hearing ahead
+// unless the step card above already says it (`hearing: false`).
+export function aboutBill(b, { hearing = true } = {}) {
   if (!b) return '';
   const st = stopOf(b), h = hearingAhead(b), rows = [];
   const code = (text, key) => TERMS_TAP() ? ` <span class="v6-code">(${termBtn(text, key)})</span>` : ` <span class="v6-code">(${esc(text)})</span>`;
-  if (st.says) rows.push(['Where it stands', esc(String(st.says).replace(/\.$/, ''))]);
+  const where = whereWords(b, { hearing: false, pos: true, deadline: false });
+  if (where) rows.push(['Where it stands', esc(where)]);
   const refs = (b.referrals || []).map(r => String(r)).filter(Boolean);
   if (refs.length) rows.push(['Committees', refs.map(r => `${esc(committeeName(r))}${code(r, 'cmte:' + r)}`).join(', then ')]);
   rows.push(['Version', `${esc(versionWords(b.current_version))}${b.current_version ? code(b.current_version, 'ver:' + b.current_version) : ''}`]);
   if (!diedish(b) && st.deadline && !st.deadline.missed) { const nm = deadlineName(st.deadline);
     rows.push(['Deadline', `${esc(deadlineWords(st.deadline.label, st.deadline.date).replace(/^must/, 'It must'))}${nm ? code(nm, 'gate:' + nm) : ''}`]); }
-  if (h) rows.push(['Hearing', `${esc(committeeName(h.committee))} · ${esc(hearingWhen(h))}`]);
+  if (h && hearing) rows.push(['Hearing', `${esc(committeeName(h.committee))} · ${esc(hearingWhen(h))}`]);
   const ld = legislativeDay(); if (ld) rows.push(['Session', TERMS_TAP() ? termBtn(ld.text, 'word:Legislative day') : esc(ld.text)]);
   return `<dl class="v6-facts">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
 }

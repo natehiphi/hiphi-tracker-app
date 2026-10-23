@@ -130,13 +130,24 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   const f = X.actBy({ kind: 'file', due: due('2026-03-16T13:10:00-10:00'), h: h('2026-03-17T13:10:00-10:00') });
   ok(f.kind === 'hand' && f.at === due('2026-03-16T11:10:00-10:00') && f.words === 'File by today 11:10 AM', `File by is 2 hours before: "${f.words}"`);
   const now = X.actBy({ kind: 'file', due: due('2026-03-16T10:00:00-10:00'), h: h('2026-03-17T10:00:00-10:00') });
-  ok(now.kind === 'now' && now.words === 'File now', 'the hand-on time gone and the deadline ahead: "File now"');
+  ok(now.kind === 'now' && now.words === 'File now · due today 10:00 AM', `the hand-on time gone and the deadline ahead, the row's and the card's one wording: "${now.words}"`);
   const late = X.actBy({ kind: 'file', due: due('2026-03-15T13:10:00-10:00'), h: h('2026-03-16T13:10:00-10:00') });
   ok(late.kind === 'late' && late.at === due('2026-03-16T13:10:00-10:00') && late.words === 'Late, still accepted until 1:10 PM today', `late: the time is the hearing's start, "until 1:10 PM": "${late.words}"`);
   const lt = X.actBy({ kind: 'file', due: due('2026-03-16T08:00:00-10:00'), h: h('2026-03-17T09:30:00-10:00') });
   ok(lt.words === 'Late, still accepted until 9:30 AM tomorrow', `late, a hearing tomorrow: "${lt.words}"`);
-  const ap = X.actBy({ kind: 'review', due: due('2026-03-16T15:00:00-10:00'), h: h('2026-03-17T15:00:00-10:00') });
-  ok(ap.kind === 'due' && ap.words === 'Approve by today 3:00 PM', `an approval keeps the testimony deadline (W31 named only the writer and filer): "${ap.words}"`);
+  // Approvals sit between the writer's time and the filer's, so an approver on time never makes the filing late.
+  const ap = X.actBy({ kind: 'approve', due: due('2026-03-16T15:00:00-10:00'), h: h('2026-03-17T15:00:00-10:00') });
+  const fb = X.actBy({ kind: 'file', due: due('2026-03-16T15:00:00-10:00'), h: h('2026-03-17T15:00:00-10:00') });
+  ok(ap.kind === 'hand' && ap.words === 'Approve by today 11:00 AM' && ap.at < fb.at, `the first approval is 4 hours before the deadline, before File by (${fb.time}): "${ap.words}"`);
+  const sl = X.actBy({ kind: 'second', due: due('2026-03-16T15:00:00-10:00') });
+  ok(sl.at === due('2026-03-16T12:00:00-10:00') && sl.at > ap.at && sl.at < fb.at, `the second look is 3 hours before: "${sl.words}"`);
+  ok(X.actBy({ kind: 'review', due: due('2026-03-16T15:00:00-10:00') }).at === ap.at, 'v5 Today\'s review task has the same time');
+  const am = X.actBy({ kind: 'approve', due: due('2026-03-17T09:30:00-10:00') }), am2 = X.actBy({ kind: 'second', due: due('2026-03-17T09:30:00-10:00') }), amw = X.actBy({ kind: 'write', due: due('2026-03-17T09:30:00-10:00') });
+  ok(am.at === due('2026-03-16T18:00:00-10:00') && am2.at === due('2026-03-16T19:00:00-10:00') && am.at > amw.at, `a 9:30 AM deadline: 4 hours before is 5:30 AM, so the evening before, after the writer's 4:00 PM: "${am.words}", second look "${am2.words}"`);
+  let order = true; for (let m = 0; m < 24 * 60; m += 30) { const d0 = due('2026-03-17T00:00:00-10:00') + m * 6e4;
+    const t = k => X.handTime(d0, { write: 12, approve: 4, second: 3, file: 2 }[k]);
+    if (!(t('write') <= t('approve') && t('approve') < t('second') && t('second') < t('file'))) { order = false; console.log('  out of order at', new RealDate(d0).toISOString()); } }
+  ok(order, 'for a deadline at any half hour of the day, the writer hands on, then the approver, the second look, and the filer, in that order');
   const od = X.actBy({ kind: 'todo', due: due('2026-03-14T17:00:00-10:00') });
   ok(od.kind === 'overdue', 'a to-do past its date is overdue');
   ok(X.handTime(due('2026-03-17T13:00:00-10:00'), 12) === due('2026-03-16T16:00:00-10:00'), 'due 1:00 PM: 1:00 AM is overnight, so 4:00 PM the day before');
@@ -213,9 +224,46 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   let errs = 0; for (const who of [NT, KV, KR, PH, JMM]) for (const b of S.bills) { try { X.stepCard(b, { viewer: who }); X.billRow(b, { viewer: who }); } catch (e) { errs++; if (errs < 3) console.log(e); } }
   ok(!errs, 'stepCard and billRow draw for every bill as five people');
   const own = X.stepCard(M.billByNum('HB1523'), { viewer: NT }), other = X.stepCard(M.billByNum('HB1523'), { viewer: KV });
-  ok(/data-v6act="approve"/.test(own) && !/data-v6act="approve"/.test(other) && /approves it/.test(other), 'own step: its button; someone else’s: a status line and no button');
+  ok(/Review and approve/.test(own) && /#\/review\//.test(own) && !/Review and approve|data-v6act="approve"/.test(other) && /approves the testimony/.test(other), 'own step: its button (Review mode first, P1); someone else’s: a status line and no button');
   ok((own.match(/btn primary/g) || []).length === 1, 'one filled button on a card');
   ok(!/btn primary/.test(X.stepCard(M.billByNum('HB1523'), { viewer: NT, primary: false })), 'primary: false leaves no filled button (the screen has its own)');
+}
+
+// ---- 9b. fresh-eyes fixes: nobody's step, the bill named, Follow up, filing order, amber only for one's own ----
+{
+  const strip = h => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  // A draft nobody holds is nobody's own step: no filled button, "No one holds it yet", Take it.
+  const nob = S.bills.map(b => ({ b, s: X.billStep(b, { viewer: JMM }) })).filter(x => x.s.nobody);
+  ok(nob.length > 0 && nob.every(x => !x.s.you), `${nob.length} step(s) nobody holds are nobody's own step (Julie: ${nob.map(x => x.b.bill_number).join(', ')})`);
+  const nb = nob.find(x => x.s.kind === 'file') || nob[0];
+  if (nb) {
+    const card = X.stepCard(nb.b, { viewer: JMM, where: 'today' }), t = strip(card);
+    ok(!/btn primary/.test(card) && /No one holds it yet/.test(t) && /data-v6act="take"/.test(card) && !/Open to anyone|No owner yet/.test(t), `the card says it once, "No one holds it yet", with Take it and no filled button: ${nb.b.bill_number}`);
+    ok(/no one holds it/.test(nb.s.line), `the row says so: "${nb.s.line}"`);
+    ok(X.billStep(nb.b, { viewer: NT }).takeFor && !X.billStep(nb.b, { viewer: JMM }).takeFor, 'it reaches whoever may hand it (an admin, the issue’s owner), not everyone');
+  }
+  // The card names its bill where nothing else does, and not in the open item (its h2 does).
+  const b1 = M.billByNum('HB1523'), today = X.stepCard(b1, { viewer: KR, where: 'today' }), pane = X.stepCard(b1, { viewer: KR, where: 'pane' });
+  ok(/class="v6-step-bn">Let people cross/.test(today) && /<span class="sr">, Let people cross/.test(today) && !/v6-step-bn/.test(pane), 'Today’s card names the bill (and its heading says it to screen readers); the open item’s does not repeat its h2');
+  // Follow up: the asker's own row and filled button after 3 working days with no reply.
+  const fu = S.bills.map(b => ({ b, s: X.billStep(b, { viewer: KV }) })).find(x => x.s.kind === 'chair' && x.s.ask.followUp && x.s.you);
+  ok(!!fu && /^Follow up with /.test(fu.s.line) && /no reply$/.test(fu.s.line), `the asker's row says to follow up: "${fu && fu.s.line}"`);
+  if (fu) { const c = X.stepCard(fu.b, { viewer: KV, where: 'today' });
+    ok(/btn primary[^"]*"[^>]*href="mailto:[^"]*Following%20up/.test(c) && /They replied/.test(c), 'its filled button emails the chair again (the subject says it follows up), They replied tonal');
+    ok(X.rowButtonOK(fu.s) && /again/.test(X.billRow(fu.b, { viewer: KV })), 'the row carries the same Email the chair again'); }
+  // Filing: File at the Capitol first and filled, Mark filed after it.
+  const fl = S.bills.map(b => ({ b, s: X.billStep(b, { viewer: NT }) })).find(x => x.s.kind === 'file' && x.s.you);
+  if (fl) { const c = X.stepCard(fl.b, { viewer: NT }), i = c.indexOf('File at the Capitol'), j = c.indexOf('Mark filed');
+    ok(i > 0 && j > i && /btn primary[^>]*href="[^"]*capitol/i.test(c), `filing: File at the Capitol (filled) before Mark filed (${fl.b.bill_number})`); }
+  // Amber and red only on one's own step or bill; anyone else reads the same words, neutral, with the clock.
+  at('2026-03-17T08:00:00-10:00');
+  let loud = 0, hushed = 0;
+  for (const b of S.bills) { const s = X.billStep(b, { viewer: LR }); if (!['late', 'overdue'].includes(s.status.tone)) continue;
+    const r = X.billRow(b, { viewer: LR }); if (s.mine) { if (/t-(late|overdue)/.test(r)) loud++; } else { if (/t-(late|overdue)/.test(r)) loud += 100; else hushed++; } }
+  ok(loud < 100, `late rows coloured only for Lauren’s own steps or bills (${loud} coloured, ${hushed} neutral with a clock)`);
+  at(MON9);
+  // A time never parts from its AM/PM, a room from its number.
+  ok(X.nw('due today 2:00 PM · Room 329') === 'due today <span class="v6-nw">2:00 PM</span> · <span class="v6-nw">Room 329</span>', 'times and rooms are kept on one line');
 }
 
 // ---- 10. V35: the weekly memo carries no programmer's note ----

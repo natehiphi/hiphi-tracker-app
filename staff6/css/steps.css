@@ -13,15 +13,25 @@ body.staff6 .v6-status.late { background: var(--v6-late-wash); color: var(--v6-l
 body.staff6 .v6-status.overdue { background: var(--v6-bad-wash); color: var(--v6-bad); font-weight: 700; }
 body.staff6 .v6-status.done { background: var(--v6-leaf-wash); color: var(--v6-leaf); font-weight: 700; }
 
+/* a time and its AM/PM, a room and its number, a day and its date never part at a line's end */
+body.staff6 .v6-nw { white-space: nowrap; }
+
 /* ---- the step card ---- */
 body.staff6 .v6-step { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 24px; border-radius: var(--v6-r20); background: var(--v6-card);
   box-shadow: var(--v6-sh1); color: var(--v6-body); min-width: 0; }
 body.staff6 .v6-step > * { margin: 0; min-width: 0; }
 body.staff6 .v6-step-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 body.staff6 .v6-step-eyebrow { margin: 0; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
+/* the bill's name where nothing else on the screen names it (Today, Testimony, Team, a hearing): Poppins 18, number small */
+body.staff6 .v6-step-bill { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; }
+body.staff6 .v6-step-bn { font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); color: var(--v6-ink); }
+body.staff6 .v6-step-bill + .v6-step-eyebrow { margin-top: -8px; }
 body.staff6 .v6-step-what { margin: 0; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t18);
   line-height: var(--v6-lh18, 24px); color: var(--v6-ink); letter-spacing: -.005em; }
 body.staff6 .v6-step.big .v6-step-what, body.staff6 .v6-step.w-today .v6-step-what { font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); }
+/* under the bill's name, the step is the sentence (16 bold), so the card has one name and one heading size */
+body.staff6 .v6-step.named:not(.w-today):not(.big) .v6-step-what { font-family: inherit; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); font-weight: 700; letter-spacing: 0; }
+body.staff6 .v6-step.named .v6-step-bill + .v6-step-what { margin-top: -6px; }
 body.staff6 .v6-step-when, body.staff6 .v6-step-who { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); }
 body.staff6 .v6-step-who { color: var(--v6-muted); }
 body.staff6 .v6-step-note { margin: 0; padding: 12px 16px; border-radius: var(--v6-r12); background: var(--v6-wash);
@@ -31,8 +41,8 @@ body.staff6 .v6-step-warn { display: flex; gap: 8px; align-items: flex-start; fo
 body.staff6 .v6-step-warn svg { width: 20px; height: 20px; flex: none; margin-top: 2px; color: var(--v6-muted); }
 body.staff6 .v6-step-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-top: 4px; }
 body.staff6 .v6-step-acts .btn { margin: 0; }
-body.staff6 .v6-unfile { background: none; border: 0; padding: 8px 4px; min-height: 40px; font: inherit; font-size: var(--v6-t16);
-  color: var(--v6-action); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+/* the finish (spec 4 Motion): the button's check fills before its row closes */
+body.staff6 .btn.v6-fin { background: var(--v6-leaf); color: var(--v6-card); transition: background-color 150ms ease, color 150ms ease; }
 /* the lines under the step: an inset hairline, never a box edge */
 body.staff6 .v6-step-noown, body.staff6 .v6-step-hear { position: relative; padding-top: 12px; }
 body.staff6 .v6-step-noown::before, body.staff6 .v6-step-hear::before { content: ''; position: absolute; left: 0; right: 0; top: 0;
@@ -53,7 +63,8 @@ body.staff6 .v6-step-go > span { flex: 1 1 160px; }
 body.staff6 .v6-step-go .btn { margin-left: auto; }
 /* the hearing has started (V25): the card turns soft sand, no shadow, no red */
 body.staff6 .v6-step.closing { background: var(--v6-wash); box-shadow: none; }
-body.staff6 .v6-step.closing .v6-status, body.staff6 .v6-step.closing .btn.secondary { background: var(--v6-card); }
+body.staff6 .v6-step.closing .btn.secondary { background: var(--v6-card); }
+body.staff6 .v6-step.closing .v6-status { background: none; padding-left: 0; padding-right: 0; font-weight: 700; color: var(--v6-ink); }
 /* inside a hearing page or Team: quieter */
 body.staff6 .v6-step.w-hearing, body.staff6 .v6-step.w-team { padding: 16px 20px; }
 
@@ -76,8 +87,14 @@ body.staff6 .v6-hcard-day { font-size: var(--v6-t16); line-height: var(--v6-lh16
 body.staff6 .v6-hcard-room { display: block; }
 body.staff6 .v6-hcard-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; }
 body.staff6 .v6-hcard-name { font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); }
-body.staff6 .v6-hcard-name a { color: var(--v6-ink); text-decoration: none; }
-body.staff6 .v6-hcard-name a:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* the door to the sitting's page: the whole line, 44px, its name, "Open the hearing" and a chevron (B-9, A-6) */
+body.staff6 .v6-hcard-door { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; min-height: 44px; margin: 0 -8px; padding: 4px 8px;
+  border-radius: var(--v6-r12); color: var(--v6-ink); text-decoration: none; }
+body.staff6 .v6-hcard-cn { flex: 1 1 180px; min-width: 0; }
+body.staff6 .v6-hcard-open { flex: none; margin-left: auto; display: inline-flex; align-items: center; gap: 2px; font-family: Lato, system-ui, sans-serif;
+  font-weight: 700; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-action); }
+body.staff6 .v6-hcard .v6-chev { width: 20px; height: 20px; flex: none; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .v6-hcard-door:hover, body.staff6 .v6-hcard-mon:hover { background: var(--v6-wash); } }
 body.staff6 .v6-hcard-going, body.staff6 .v6-hcard-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); }
 body.staff6 .v6-hcard-going > span, body.staff6 .v6-hcard-note > span { flex: 1 1 140px; }
 body.staff6 .v6-hcard-going svg, body.staff6 .v6-hcard-note svg { width: 20px; height: 20px; flex: none; color: var(--v6-muted); }
@@ -86,8 +103,13 @@ body.staff6 .v6-hcard-bills { list-style: none; padding: 0; display: grid; grid-
 body.staff6 .v6-hcard-bill { position: relative; display: flex; align-items: center; gap: 12px; min-height: 64px; min-width: 0; }
 body.staff6 .v6-hcard-bill::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
 body.staff6 .v6-hcard-bl { flex: 1; min-width: 0; max-width: 100%; display: flex; flex-direction: column; gap: 2px; padding: 10px 0; color: inherit; text-decoration: none; }
-body.staff6 .v6-hcard-mon, body.staff6 .v6-hcard-watch { font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
-body.staff6 .v6-hcard-watch a { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; color: var(--v6-action); font-size: var(--v6-t16); }
+body.staff6 .v6-hcard-watch { font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
+/* the monitored bills: one quiet line that opens the sitting, as the door does */
+body.staff6 .v6-hcard-mon { display: flex; align-items: center; gap: 8px; min-height: 44px; margin: 0 -8px; padding: 0 8px; border-radius: var(--v6-r12);
+  font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); text-decoration: none; }
+body.staff6 .v6-hcard-mon > span { flex: 1; min-width: 0; }
+body.staff6 .v6-hcard-mon .v6-chev { color: var(--v6-muted); }
+body.staff6 .v6-hcard-watch a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--v6-action); font-size: var(--v6-t16); }
 body.staff6 .v6-hcard-watch svg { width: 18px; height: 18px; }
 body.staff6 .v6-hcard.cancelled { background: var(--v6-wash); box-shadow: none; }
 body.staff6 .v6-hcard.past .v6-hcard-time { color: var(--v6-muted); }
@@ -97,13 +119,13 @@ body.staff6 .v6-hcard.big .v6-hcard-day { font-size: var(--v6-t18); line-height:
 body.staff6 .v6-hcard.big .v6-hcard-bill { min-height: 56px; }
 
 /* ---- rows: a name, the bill number small, one line (V04, D15, D16) ---- */
-body.staff6 .v6-list, body.staff6 .v6-ld-list { display: grid; grid-template-columns: minmax(0, 1fr); padding: 8px 0; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); min-width: 0; }
-body.staff6 .v6-row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 0 16px;
+body.staff6 .v6-list, body.staff6 .v6-ld-list { display: grid; grid-template-columns: minmax(0, 1fr); padding: 8px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); min-width: 0; }
+body.staff6 .v6-row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 0 8px;
   border-radius: var(--v6-r12); transition: background-color 150ms ease; min-width: 0; }
-body.staff6 .v6-row + .v6-row::before { content: ''; position: absolute; left: 16px; right: 16px; top: 0; height: 1px; background: var(--v6-hair); }
+body.staff6 .v6-row + .v6-row::before { content: ''; position: absolute; left: 8px; right: 8px; top: 0; height: 1px; background: var(--v6-hair); }
 body.staff6 .v6-row.sel::before, body.staff6 .v6-row.sel + .v6-row::before { background: transparent; }
 @media (min-width: 1100px) { body.staff6 .v6-ld .v6-row.hint + .v6-row::before { background: transparent; } }
-body.staff6 .v6-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 10px 0; margin: 0; border: 0;
+body.staff6 .v6-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 10px 8px; margin: 0 -8px; border: 0; border-radius: var(--v6-r12);
   background: none; color: inherit; font: inherit; text-align: left; text-decoration: none; cursor: pointer; }
 body.staff6 .v6-row-top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 body.staff6 .v6-row-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: Poppins, system-ui, sans-serif;
@@ -120,9 +142,9 @@ body.staff6 .v6-row-act { flex: none; display: flex; align-items: center; }
 body.staff6 .v6-row-act .btn { margin: 0; }
 body.staff6 .v6-row.sel { background: var(--v6-action-wash); }
 /* the first row hints where to start only where the panel waits beside the list (1100px and wider) */
-@media (min-width: 1100px) { body.staff6 .v6-ld .v6-row.hint { background: var(--v6-wash); } }
+@media (min-width: 1100px) { body.staff6 .v6-ld .v6-row.hint { background: var(--v6-wash); } body.staff6 .v6-ld .v6-row.hint::before { background: transparent; } }
 body.staff6 .v6-row-main:focus-visible, body.staff6 .v6-step-hl:focus-visible, body.staff6 .v6-hcard a:focus-visible,
-body.staff6 .v6-tabs a:focus-visible, body.staff6 .v6-ld-back:focus-visible, body.staff6 .v6-unfile:focus-visible {
+body.staff6 .v6-tabs a:focus-visible, body.staff6 .v6-ld-back:focus-visible, body.staff6 .v6-item-open:focus-visible {
   outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: var(--v6-r12); }
 @media (hover: hover) and (pointer: fine) {
   body.staff6 .v6-row:hover:not(.sel) { background: var(--v6-wash); }
@@ -150,8 +172,8 @@ body.staff6 .v6-ld-back svg { width: 20px; height: 20px; }
   body.staff6 .v6-ld.open .v6-ld-list { display: none; }
   body.staff6 .v6-ld .v6-item-close { display: none; }   /* its own page: Back to the list is the one way out */
 }
-/* the open row keeps its button a button on the selected ground */
-body.staff6 .v6-row.sel .btn.secondary { background: var(--v6-card); }
+/* the picked row's step lives in the open item beside it: one home for one step (rule 5) */
+body.staff6 .v6-ld.open .v6-row.sel .v6-row-act { display: none; }
 
 /* ---- the place head (D12): the title, then the place's one row of page tabs or one view switch ---- */
 body.staff6 .v6-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0 0 24px; min-width: 0; }
@@ -160,8 +182,7 @@ body.staff6 .v6-head-title { margin: 0; font-family: Poppins, system-ui, sans-se
   color: var(--v6-ink); letter-spacing: -.01em; outline: none; }
 body.staff6 .v6-head-sub { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-muted); }
 body.staff6 .v6-head-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-body.staff6 .v6-tabs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0; padding: 2px; min-width: 0; }
-body.staff6 .v6-tabs::-webkit-scrollbar { display: none; }
+body.staff6 .v6-tabs { display: flex; flex-wrap: wrap; gap: 4px 8px; margin: 0; padding: 2px; min-width: 0; }
 body.staff6 .v6-tabs a { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px; border-radius: var(--v6-pill);
   color: var(--v6-body); text-decoration: none; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); white-space: nowrap; }
 body.staff6 .v6-tabs a[aria-current="page"] { background: var(--v6-wash); color: var(--v6-ink); font-weight: 700; }
@@ -169,8 +190,19 @@ body.staff6 .v6-tab-n { font-size: var(--v6-t14); color: var(--v6-muted); font-w
 @media (hover: hover) and (pointer: fine) { body.staff6 .v6-tabs a:not([aria-current]):hover { background: var(--v6-action-wash); color: var(--v6-action); } }
 
 /* ---- the open item beside Today and Bills (billpane.js openItem) ---- */
-body.staff6 .v6-item { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
-body.staff6 .v6-item-top { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+body.staff6 .v6-item { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
+body.staff6 .v6-item-top { display: flex; align-items: center; gap: 4px 8px; min-height: 44px; }
+body.staff6 .v6-item-open { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border-radius: var(--v6-pill);
+  color: var(--v6-action); font-size: var(--v6-t16); font-weight: 700; text-decoration: none; white-space: nowrap; }
+body.staff6 .v6-item-open svg { width: 18px; height: 18px; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .v6-item-open:hover { background: var(--v6-action-wash); } }
+body.staff6 .v6-item .v6-step { padding: 20px; }
+body.staff6 .v6-also { display: grid; gap: 4px; padding: 16px 20px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .v6-also-h { margin: 0; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); font-weight: 700; color: var(--v6-muted); }
+body.staff6 .v6-also-list { list-style: none; margin: 0; padding: 0; display: grid; }
+body.staff6 .v6-also-item { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-height: 44px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); }
+body.staff6 .v6-also-item + .v6-also-item { border-top: 1px solid var(--v6-hair); }
+body.staff6 .v6-also-t { flex: 1 1 200px; min-width: 0; }
 body.staff6 .v6-item-num { flex: 1; margin: 0; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
 body.staff6 .v6-item-name { margin: 0; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); color: var(--v6-ink); }
 body.staff6 .v6-item-sum { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
@@ -186,11 +218,15 @@ body.staff6 .v6-item-det > summary { list-style: none; }
 body.staff6 .v6-item-det > summary::-webkit-details-marker { display: none; }
 body.staff6 .v6-item-det > summary > svg:last-child { transition: transform 150ms ease; }
 body.staff6 .v6-item-det[open] > summary > svg:last-child { transform: rotate(180deg); }
-body.staff6 .v6-item-close { margin-left: auto; }
+body.staff6 .v6-item-close { margin-left: 0; }
 body.staff6 .v6-facts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0; }
 body.staff6 .v6-facts > div { display: grid; gap: 2px; }
 body.staff6 .v6-facts dt { font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
 body.staff6 .v6-facts dd { margin: 0; color: var(--v6-body); overflow-wrap: anywhere; }
+
+/* ---- the filing sheet (steps.js ACTS.filed): File at the Capitol, then Mark filed ---- */
+.v6-fsheet-step { margin: 0 0 8px; font-size: var(--v6-t16, 1rem); line-height: 24px; }
+.v6-fsheet-go { margin: 0 0 20px; }
 
 /* ---- Capitol words that tap open what they mean (terms.js), on phones too (V05) ---- */
 body.staff6 .tm-term { display: inline; padding: 0; margin: 0; border: 0; background: none; font: inherit; color: inherit; cursor: help;
@@ -207,6 +243,9 @@ body.staff6 .tm-inline { display: block; margin: 4px 0 8px; padding: 8px 12px; b
   body.staff6 .v6-hcard-when { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
   body.staff6 .v6-hcard-room { display: inline; }
   body.staff6 .v6-hcard-room::before { content: ' · '; }
+  /* the door's label goes under the name, where the eye reads on, rather than alone at the right */
+  body.staff6 .v6-hcard-cn { flex-basis: 100%; }
+  body.staff6 .v6-hcard-open { margin-left: 0; }
   body.staff6 .v6-row { min-height: 72px; }
   /* a phone wraps a long name or line rather than cutting it: the time at its end is the part that matters */
   body.staff6 .v6-row-top { flex-wrap: wrap; column-gap: 8px; row-gap: 0; }
@@ -215,16 +254,19 @@ body.staff6 .tm-inline { display: block; margin: 4px 0 8px; padding: 8px 12px; b
   body.staff6 .v6-row-line svg { margin-top: 3px; }
   body.staff6 .v6-row-line > span { white-space: normal; overflow: visible; }
   body.staff6 .v6-row-act .btn { min-height: 44px; }
-  body.staff6 .v6-step-acts .btn, body.staff6 .v6-step-go .btn, body.staff6 .v6-hcard-going .btn, body.staff6 .v6-item-door { min-height: 44px; }
+  body.staff6 .v6-step-acts .btn, body.staff6 .v6-step-go .btn, body.staff6 .v6-hcard-going .btn, body.staff6 .v6-item-door, body.staff6 .v6-hcard-watch a { min-height: 44px; }
+  body.staff6 .v6-item .v6-step { padding: 16px; }
   body.staff6 .v6-head-title { font-size: var(--v6-t28); }
 }
 @media (max-width: 420px) {
-  body.staff6 .v6-track li + li::before { width: 10px; margin: 0 6px; }
+  body.staff6 .v6-track { gap: 4px 16px; }
+  body.staff6 .v6-track li + li::before { display: none; }
   body.staff6 .v6-row, body.staff6 .v6-hcard-bill { flex-wrap: wrap; gap: 0 12px; }
+  body.staff6 .v6-row-main, body.staff6 .v6-hcard-bl { flex: 1 1 100%; }
   body.staff6 .v6-row-act { padding: 0 0 12px; }
   body.staff6 .v6-step-acts { gap: 8px; }
-  body.staff6 .v6-step-acts .btn { flex: 1 1 auto; justify-content: center; }
+  body.staff6 .v6-step-acts .btn:not(.text) { flex: 1 1 auto; justify-content: center; }
 }
 @media (prefers-reduced-motion: reduce) {
-  body.staff6 .v6-row, body.staff6 .v6-item-door, body.staff6 .v6-tabs a, body.staff6 .v6-item-det > summary > svg:last-child { transition: none; }
+  body.staff6 .v6-row, body.staff6 .v6-item-door, body.staff6 .v6-tabs a, body.staff6 .v6-item-det > summary > svg:last-child, body.staff6 .btn.v6-fin { transition: none; }
 }

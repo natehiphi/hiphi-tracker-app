@@ -12,9 +12,13 @@
 //   versionWords(v)      "House draft 1";  deadlineWords(name, date) "must reach its last committee by Mon 3/30"
 // and the shared parts, each a pure HTML string builder (events are delegated once, below, like terms.js):
 //   stepCard(b, {viewer, where})   the ONE card for a bill's current step (own step: its button; someone else's: a status
-//                                  line, no button); hearingCard(sitting, {viewer, big}); billRow / itemRow (a name, the
-//                                  bill number small, one 16px line, at most one tonal button, D16); listDetail (the list
-//                                  with the picked item beside it, V17); placeHead (the page title and its one row of tabs).
+//                                  line, no button; nobody's: "No one holds it yet" with Take it); hearingCard(sitting,
+//                                  {viewer, big}); billRow / itemRow (a name, the bill number small, one 16px line, at
+//                                  most one tonal button, D16); listDetail (the list with the picked item beside it, V17);
+//                                  placeHead (the page title and its one row of tabs).
+//   billStep(b, {viewer})          the step behind them: kind, whose, act (actBy), status, `mine` (the viewer's step or
+//                                  bill: only then late shows amber, shownStatus), `nobody`, `takeFor`, and the row's line.
+//   finish(el)                     the calm finish motion every step's button runs before the redraw and its Undo toast.
 // Every fact comes from model.js (drafts and their steps, deadlines and risk, who approves and files) and every action
 // calls the same data functions v5's Today, bill page and Review call, with the same Undo and who's-next toast (P2, P3).
 // The old word lists in model.js, today.js and hearing.js stay until each screen switches to these (spec section 5).
@@ -116,11 +120,15 @@ export function deadlineWords(name, date, { n = 1 } = {}) {
 // Where a bill stands, in one plain line for a row or a card with no step (stops.js says it with codes: "Needs a hearing in
 // CPN/HHS · committee 1 of 2 in the Senate · Lateral 3/30 (14d)"): "Waiting in Senate Commerce, and Health and Human
 // Services · must reach its last committee by Mon 3/30", "Hearing tomorrow 9:30 AM · House Transportation".
-export function whereWords(b) {
+// `hearing: false` leaves the hearing ahead out (the step card's hearing line beside it says it, A-14); `pos: true` adds
+// which committee of how many ("committee 1 of 2 in the Senate"), for About this bill; `deadline: false` leaves out the
+// deadline it races (About has its own Deadline row).
+export function whereWords(b, { hearing = true, pos = false, deadline = true } = {}) {
   if (!b) return '';
-  const st = stopOf(b), h = hearingAhead(b), dl = st.deadline && !st.deadline.missed ? st.deadline : null;
-  const race = dl ? ` · ${deadlineWords(dl.label, dl.date)}` : '';
-  if (h) return `Hearing ${whenAt(h.scheduled_at)} · ${committeeName(h.committee) || h.committee}`;
+  const st = stopOf(b), h = hearingAhead(b), dl = deadline && st.deadline && !st.deadline.missed ? st.deadline : null;
+  const race = `${pos && st.stops && st.phase === 'committee' ? ` · committee ${st.stop} of ${st.stops} in the ${CHAMBER[st.chamber] || 'chamber'}` : ''}${dl ? ` · ${deadlineWords(dl.label, dl.date)}` : ''}`;
+  if (h && hearing) return `Hearing ${whenAt(h.scheduled_at)} · ${committeeName(h.committee) || h.committee}`;
+  if (h) return `In ${committeeName(st.committee || h.committee) || h.committee}, its hearing set${race}`;
   if (diedish(b)) return st.phase === 'law' || st.phase === 'governor' || st.phase === 'ballot' ? String(st.says).replace(/\.$/, '') : 'Did not advance';
   if (['law', 'vetoed', 'ballot', 'governor'].includes(st.phase)) return String(st.says).replace(/\.$/, '');
   if (st.phase === 'conference') return `In conference${dl ? ` · House and Senate must agree by ${dayWords(dl.date)}` : ''}`;
@@ -134,15 +142,29 @@ export function whereWords(b) {
 // The writer hands on 12 hours before the testimony deadline, or at 4:00 PM the day before when those 12 hours land
 // overnight (after 4:00 PM or before 8:00 AM), and the filer files 2 hours before (Nate, 12 and 22 Oct; R-267, R-330).
 // Past the deadline and before the hearing starts, the Capitol still takes late testimony: the time is the hearing's
-// start ("until 9:30 AM"). Approvals keep the testimony deadline as v5 does (W31 named only the writer and the filer).
+// start ("until 9:30 AM").
+// Approvals sit between the two, so an approver who keeps to the time shown never makes the filing late (fresh-eyes
+// review: "Approve by 3:00 PM" beside "File by 1:00 PM" did): the first approval 4 hours before the deadline, the second
+// look 3 hours before. When that lands before 8:00 AM it is the evening before instead, 6:00 PM (the second look 7:00 PM),
+// after the writer's 4:00 PM, so nobody is asked to approve at 5:30 AM; and never later in an evening than those. A
+// builder's choice inside W31's spirit (Nate set only the writer's and the filer's times); the test walks every half hour
+// of a day to keep writer, approver, second look and filer in that order.
 const TESTI = new Set(['write', 'submit', 'revise', 'nodraft', 'review', 'review2', 'approve', 'second', 'file', 'stale']);
-const HAND = { write: 12, submit: 12, revise: 12, nodraft: 12, file: 2 };
+const HAND = { write: 12, submit: 12, revise: 12, nodraft: 12, approve: 4, review: 4, second: 3, review2: 3, file: 2 };
 const VERB = { write: 'Send for approval', submit: 'Send for approval', nodraft: 'Send for approval', revise: 'Resubmit',
   review: 'Approve', review2: 'Approve', approve: 'Approve', second: 'Approve', file: 'File', stale: 'Check it',
   chair: 'Ask the chair', ask: 'Write the public ask', send: 'Send', email: 'Approve', fix: 'Fix the email' };
+const hourOf = t => new Date(t).toLocaleTimeString('en-GB', { ...HST, hour: '2-digit', minute: '2-digit', hour12: false }).split(':').map(Number);
 export function handTime(due, hours) {
-  const at = due - hours * HR; if (hours < 12) return at;
-  const [hh, mm] = new Date(at).toLocaleTimeString('en-GB', { ...HST, hour: '2-digit', minute: '2-digit', hour12: false }).split(':').map(Number);
+  const at = due - hours * HR;
+  if (hours === 3 || hours === 4) {   // an approval: inside 8:00 AM to 6:00 PM (the second look 7:00 PM)
+    const [hh, mm] = hourOf(at), last = hours === 4 ? 18 : 19;
+    if (hh < 8) return new Date(hday(at - DAY) + `T${last}:00:00-10:00`).getTime();
+    if (hh * 60 + mm > last * 60) return new Date(hday(at) + `T${last}:00:00-10:00`).getTime();
+    return at;
+  }
+  if (hours < 12) return at;
+  const [hh, mm] = hourOf(at);
   if (hh * 60 + mm <= 16 * 60 && hh >= 8) return at;
   return new Date(hday(due - DAY) + 'T16:00:00-10:00').getTime();
 }
@@ -162,7 +184,9 @@ export function actBy(step) {
   if (hours) {
     const at = handTime(due, hours);
     if (at > now) return { kind: 'hand', at, due, until, verb, time: whenAt(at), words: `${verb} by ${whenAt(at)}` };
-    return { kind: 'now', at: due, due, until, verb, time: whenAt(due), words: `${verb} now` };
+    // The hand-on time is gone and the deadline is still ahead: "File now · due today 10:00 AM", the same words on the row
+    // and the card (V19).
+    return { kind: 'now', at: due, due, until, verb, time: whenAt(due), words: `${verb} now · due ${whenAt(due)}` };
   }
   return { kind: 'due', at: due, due, until, verb, time: whenAt(due), words: verb === 'Due' ? `Due ${whenAt(due)}` : `${verb} by ${whenAt(due)}` };
 }
@@ -192,7 +216,17 @@ export function status(x) {
   return { tone: 'neutral', icon: soon ? 'clock' : '', words: `Due ${whenAt(due)}`, time: whenAt(due), soon };
 }
 // A status as a tile: the neutral sand tile, or late / overdue / done with its icon AND its word, never colour alone.
-export const statusTile = (st, { cls = '' } = {}) => st && st.words ? `<span class="v6-status ${esc(st.tone)}${cls ? ' ' + cls : ''}">${st.icon ? icon(st.icon) : ''}<span>${esc(st.words)}</span></span>` : '';
+export const statusTile = (st, { cls = '' } = {}) => st && st.words ? `<span class="v6-status ${esc(st.tone)}${cls ? ' ' + cls : ''}">${st.icon ? icon(st.icon) : ''}<span>${nw(esc(st.words))}</span></span>` : '';
+// Someone else's late or overdue step is said in neutral words with its clock, never amber or red: a wall of alarm about
+// work the viewer cannot act on is not calm (D3, rule 7 status by exception, A-5). The step's own person, and the bill's
+// owner, see the colour. Done stays leaf for everyone.
+export const shownStatus = s => !s?.status || s.mine || !['late', 'overdue'].includes(s.status.tone) ? s?.status
+  : { ...s.status, tone: 'neutral', icon: 'clock', soon: false };
+// A time and its AM/PM, a room and its number, and a day and its date never part at a line's end ("2:00 / PM",
+// "Room / 329"): wrapped in a no-wrap span, so the text itself (and what tests read) keeps its plain spaces. `s` is
+// already escaped.
+const NW = /(\b\d{1,2}:\d{2}[\s  ]?[AP]M\b|\bRoom [\w-]+|\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2}\/\d{1,2}(?:, \d{1,2}:\d{2}[\s  ]?[AP]M\b)?)/g;
+export const nw = s => String(s ?? '').replace(NW, '<span class="v6-nw">$1</span>');
 
 // ---- testimony: one state, five words and Missed (V12, V19) ----
 export const STATE_WORDS = { write: 'Writing', approve: 'With an approver', second: 'Second look', file: 'Ready to file', filed: 'Filed', missed: 'Missed' };
@@ -241,10 +275,15 @@ export function whoseStep(d, b, { viewer, h } = {}) {
   // The hearing started with nothing filed (V25): the person who was to file it answers "Did we file?".
   else if (st?.key === 'missed' && d) { const f = filerOf(d); ids = f && live(f) ? [f] : ownersOf(b); role = 'close'; }
   ids = uniq(ids);
-  // A draft nobody holds (no owner, nobody sent it) is open to anyone, as on v5's Today ("Open to anyone").
-  const anyone = !ids.length && (role === 'write' || role === 'file');
-  return { key: st?.key || null, ids, words: anyone ? 'anyone' : orWords(ids, v), you: (!!v && ids.includes(v.id)) || (anyone && !!v), anyone, role, state: st };
+  // A draft nobody holds (no owner, no helper, nobody sent it) is nobody's step: never every viewer's own row with a
+  // filled button (v5's "Open to anyone" put HB2300's Mark filed on Julie's Today). The card says "No one holds it yet"
+  // with Take it; it reaches Today only for the issue's owner and admins (R-330's no-owner line, `takeFor`).
+  const nobody = !ids.length && (role === 'write' || role === 'file');
+  return { key: st?.key || null, ids, words: nobody ? 'no one yet' : orWords(ids, v), you: !!v && ids.includes(v.id), nobody, anyone: nobody, role, state: st };
 }
+// Who may hand a bill nobody holds (R-330 W42): an admin, or the owner of the bill's issue. They see it on Today.
+const issueOwnerOf = b => (S.billIssues || []).filter(x => x.bill_id === b?.id).map(x => (S.issues || []).find(i => i.id === x.issue_id)).find(i => i && live(i.owner_id))?.owner_id || null;
+export const takeFor = (b, viewer) => { const v = meOf(viewer); return !!v && (!!v.is_admin || issueOwnerOf(b) === v.id); };
 // "Patti files it once it is approved": the filer named before Resubmit (spec section 6). Whoever sends it for approval
 // files it (model.js filerOf), so on the writer's own card that is the viewer.
 function filerWords(d, b, v, own) {
@@ -296,15 +335,19 @@ export function askWords(b, { viewer } = {}) {
   if (a) {
     const key = a.answer === 'said_no' ? 'said_no' : 'waiting', w = askLine(a);
     const quiet = ['asked', 'left_message'].includes(a.answer);
-    const followUp = quiet && (workingDays(a.at, Date.now()) >= 3 || (!!aw && !aw.a.passed && workingDays(Date.now(), aw.a.at) <= 2));
-    return { ...words(w), key, words: w, code, asker: a.by, at: a.at, answer: a.answer, followUp, decide, st, m, aw };
+    // The clock runs from the newest word with the chair, so a follow-up email logged with "Did you send it?" starts it
+    // again (the row still says who asked first, and when).
+    const lastAt = ms(a.last?.created_at) ?? a.at;
+    const followUp = quiet && (workingDays(lastAt, Date.now()) >= 3 || (!!aw && !aw.a.passed && workingDays(Date.now(), aw.a.at) <= 2));
+    return { ...words(w), key, words: w, code, asker: a.by, at: a.at, lastAt, answer: a.answer, followUp, decide, st, m, aw };
   }
   const t = askTodoOf(b);
   if (t && live(t.assignee_id)) { const w = `${cap(firstWords(t.assignee_id, viewer))} ${t.assignee_id === meOf(viewer)?.id ? 'are' : 'is'} asking${aw && !aw.a.passed ? ` · by ${aw.day}` : ''}`;
     return { ...words(w), key: 'giving', words: w, code, who: t.assignee_id, todo: t, decide, st, m, aw, by: aw?.a.at ?? null }; }
   if (aw?.a.passed) { const w = 'Notice time passed · only the chair can help now'; return { ...words(w), key: 'passed', words: w, code, decide, st, m, aw, by: aw.a.at }; }
-  const w = decide ? `Ask the chair for decision making${aw ? ` by ${aw.day}` : ''}` : `Ask the chair by ${aw ? aw.day : dayWords(st.deadline.date)}`;
-  return { ...words(w), key: 'ask', words: w, code, decide, st, m, aw, by: aw?.a.at ?? null };
+  const day = aw ? aw.day : decide ? '' : dayWords(st.deadline.date);
+  const w = decide ? `Ask the chair for decision making${day ? ` by ${day}` : ''}` : `Ask the chair by ${day}`;
+  return { ...words(w), key: 'ask', words: w, day, code, decide, st, m, aw, by: aw?.a.at ?? null };
 }
 
 // ---- a bill's current step (the model behind stepCard and billRow) ----
@@ -343,59 +386,87 @@ export function billStep(b, { viewer, d, h } = {}) {
     if (st) {
       const whose = whoseStep(pick.d, b, { viewer: v, h: pick.h }), kind = KIND_OF[st.key](pick.d);
       const off = pick.h?.status === 'cancelled', due = off ? null : testDue(pick.h);
-      const step = { kind, b, d: pick.d, h: pick.h, state: st, whose, you: whose.you, due, until: off ? null : ms(pick.h?.scheduled_at), off };
-      step.act = actBy(step); step.status = status(step);
-      if (st.key === 'filed') step.doneWords = `Filed${pick.d.filed_by ? ` by ${firstWords(pick.d.filed_by, v)}` : ''}${pick.d.filed_at ? ` ${whenAt(pick.d.filed_at)}` : ''}`;
-      step.line = rowLine(step, v);
-      return step;
+      const step = { kind, b, d: pick.d, h: pick.h, state: st, whose, you: whose.you, nobody: whose.nobody, due, until: off ? null : ms(pick.h?.scheduled_at), off };
+      return finishStep(step, v);
     }
   }
   const ask = askWords(b, { viewer: v });
   if (ask && ask.key !== 'scheduled') {
     const owners = ownersOf(b);
     const ids = ask.key === 'giving' ? [ask.who] : ask.key === 'waiting' || ask.key === 'said_no' ? uniq([live(ask.asker) ? ask.asker : null, ...owners]) : owners;
-    const whose = { key: 'chair', ids, words: orWords(ids, v), you: !!v && ids.includes(v.id), role: 'ask' };
-    const step = { kind: 'chair', b, d: null, h: null, state: null, ask, whose, you: whose.you, due: ask.key === 'ask' || ask.key === 'giving' ? ask.by : null, until: null };
+    const nobody = !ids.length && ask.key === 'ask';
+    const whose = { key: 'chair', ids, words: nobody ? 'no one yet' : orWords(ids, v), you: !!v && ids.includes(v.id), nobody, anyone: nobody, role: 'ask' };
+    const step = { kind: 'chair', b, d: null, h: null, state: null, ask, whose, you: whose.you, nobody, due: ask.key === 'ask' || ask.key === 'giving' ? ask.by : null, until: null };
     step.act = ask.key === 'ask' || ask.key === 'giving' ? { kind: 'due', at: ask.by, due: ask.by, verb: 'Ask the chair', time: ask.aw?.day || '', words: ask.words } : { kind: 'none', at: null, words: ask.words };
-    step.status = ask.key === 'passed' ? { tone: 'neutral', icon: 'circle-alert', words: ask.words, time: '', soon: false } : status({ due: step.due });
-    step.line = rowLine(step, v);
-    return step;
+    return finishStep(step, v);
   }
   const says = whereWords(b);
   const step = { kind: 'none', b, d: null, h: ask?.h || null, state: null, whose: { ids: [], words: '', you: false }, you: false, due: null, until: null, says };
-  step.act = actBy({}); step.status = status({}); step.line = says;
+  step.act = actBy({}); step.status = status({}); step.line = says; step.mine = false;
   return step;
 }
-// The row's one line: verb and when for the viewer's own step ("Send for approval by today 4:00 PM"); the state, whose
-// and when for someone else's ("With an approver · Kris or Nate · due today 3:00 PM", "Ready to file · Nate files it").
+// The rest of a step, worked out once: its time to act, its status, whether its colour shows (`mine`: the step's own
+// person, or the bill's owner), whether whoever may hand it sees it (`takeFor`), and the row's line.
+function finishStep(step, v) {
+  const b = step.b, now = Date.now();
+  if (step.kind !== 'chair') step.act = actBy(step);
+  step.status = step.kind === 'chair' && step.ask.key === 'passed' ? { tone: 'neutral', icon: 'circle-alert', words: step.ask.words, time: '', soon: false } : status(step);
+  // The viewer's own hand-on time today is today's work, though the Capitol's deadline is tomorrow morning: a clock and
+  // a bold line, as for anything due today (D3).
+  if (step.you && step.status.tone === 'neutral' && step.act?.at != null && step.act.at > now && (step.act.at - now <= 2 * HR || hday(step.act.at) === hday(now)))
+    step.status = { ...step.status, icon: 'clock', soon: true };
+  if (step.state?.key === 'filed') step.doneWords = `Filed${step.d.filed_by ? ` by ${firstWords(step.d.filed_by, v)}` : ''}${step.d.filed_at ? ` ${whenAt(step.d.filed_at)}` : ''}`;
+  step.mine = step.you || (!!v && ownersOf(b).includes(v.id));
+  step.takeFor = step.nobody && takeFor(b, v);
+  step.line = rowLine(step, v);
+  return step;
+}
+// The row's one line: verb and when for the viewer's own step ("Send for approval by today 4:00 PM"), the same words as
+// the card's tile (V19); whose first, then the state and when, for someone else's ("With an approver · Kris or Nate · due
+// today 3:00 PM", "Kevin asks the chair by Fri 3/27"); and a step nobody holds says so ("Ready to file · no one holds it").
 function rowLine(s, v) {
-  if (s.kind === 'chair') return s.you || !s.whose.ids.length || s.ask.key === 'waiting' || s.ask.key === 'said_no' || s.ask.key === 'giving' || s.ask.key === 'passed' ? s.ask.words : `${s.ask.words} · ${cap(s.whose.words)} asks`;
+  if (s.kind === 'chair') return chairLine(s, v);
   const st = s.state, late = s.status.tone === 'late';
   if (st.key === 'filed') return s.doneWords;
   if (st.key === 'missed') return `Missed · the hearing started ${whenAt(s.h.scheduled_at)}`;
   if (s.off) return `${st.label} · hearing cancelled, no new date yet`;
   if (s.you) {
     if (late) return `${s.act.verb} · ${lateLine(s.until, { lower: true })}`;
-    if (s.kind === 'nodraft') return `Make the draft · testimony due ${whenAt(s.due)}`;
-    if (st.sentBack) return `Revise and resubmit · by ${s.act.time || whenAt(s.due)}`;
+    // One verb per step (V19): "Make the draft", then the time to send it for approval.
+    if (s.kind === 'nodraft') return `Make the draft · ${s.act.words ? s.act.words[0].toLowerCase() + s.act.words.slice(1) : `testimony due ${whenAt(s.due)}`}`;
     return s.act.words;
   }
-  const who = s.whose.ids.length ? s.whose.words : 'no one yet', when = late ? lateLine(s.until, { lower: true }) : s.due != null ? `due ${whenAt(s.due)}` : '';
-  const what = st.key === 'file' ? `Ready to file · ${cap(who)} files it` : st.key === 'write' ? `${st.label} · ${cap(who)}` : `${st.word} · ${cap(who)}`;
+  const when = late ? lateLine(s.until, { lower: true }) : s.due != null ? `due ${whenAt(s.due)}` : '';
+  if (s.nobody) return [`${st.label} · no one holds it`, when].filter(Boolean).join(' · ');
+  const who = cap(s.whose.words);
+  const what = st.key === 'file' ? `Ready to file · ${who} files it` : st.key === 'write' ? `${st.label} · ${who}` : `${st.word} · ${who}`;
   return st.key === 'file' ? `${what}${late ? ' · ' + when : ''}` : [what, when].filter(Boolean).join(' · ');
+}
+// A chair ask's line: the asker's own Follow up after 3 working days with no reply (spec 6), whose first for someone
+// else's ask ("Kevin asks the chair by Fri 3/27"), and the record once asked ("Asked by Kevin Tue 3/10 · no reply yet").
+function chairLine(s, v) {
+  const a = s.ask, chair = a.m ? a.m.who : 'the chair';
+  if ((a.key === 'waiting') && a.followUp && s.you) return `Follow up with ${chair} · asked ${dayWords(a.at)}, ${a.answer === 'left_message' ? 'left a message' : 'no reply'}`;
+  if (a.key !== 'ask' || s.you) return a.words;
+  const by = a.decide ? `for decision making${a.day ? ` by ${a.day}` : ''}` : `by ${a.day}`;
+  if (s.nobody) return `No one holds it · ask the chair ${by}`;
+  return `${cap(s.whose.words)} ${s.whose.ids.length > 1 ? 'ask' : 'asks'} the chair ${by}`;
 }
 
 // ---- the one step card (V07, V11, V22) ----
+// One verb per step across the card's sentence, its tile, the row and the button (V19, rule 6): "Make the draft", "Send
+// for approval", "Resubmit", "Approve", "File".
 const SENT = { // the card's sentence, the viewer's own step
-  nodraft: () => 'Make the testimony draft', write: () => 'Write the testimony, then send it for approval', submit: () => 'Send the testimony for approval',
-  revise: () => 'Revise the testimony and resubmit it',
+  nodraft: () => 'Make the draft', write: () => 'Write the testimony, then send it for approval', submit: () => 'Send the testimony for approval',
+  revise: () => 'Revise and resubmit the testimony',
   approve: (s, v) => `Approve ${s.d?.submitted_by ? (s.d.submitted_by === v?.id ? 'your own' : `${cap(firstWords(s.d.submitted_by, v))}’s`) : 'the'} testimony`,
   second: (s, v) => `Give the second look to ${s.d?.submitted_by && s.d.submitted_by !== v?.id ? `${cap(firstWords(s.d.submitted_by, v))}’s` : 'the'} testimony`,
   file: s => `File the ${s.status.tone === 'late' ? 'late ' : ''}testimony at the Capitol`,
 };
 const OTHERS = { // someone else's step: who, then what
-  nodraft: w => `${w} makes the draft`, write: w => `${w} writes it`, submit: w => `${w} sends it for approval`,
-  revise: w => `${w} revises it`, approve: w => `${w} approves it`, second: w => `${w} gives the second look`, file: w => `${w} files it at the Capitol`,
+  nodraft: w => `${w} makes the draft`, write: w => `${w} writes the testimony`, submit: w => `${w} sends the testimony for approval`,
+  revise: w => `${w} revises the testimony`, approve: w => `${w} approves the testimony`, second: w => `${w} gives the testimony its second look`,
+  file: w => `${w} files the testimony at the Capitol`,
 };
 const TRACK = [['write', 'Write'], ['approve', 'Approve'], ['second', 'Second look'], ['file', 'File']];
 // The Write -> Approve -> File track: done steps ticked, the current one named for screen readers (aria-current="step").
@@ -408,118 +479,160 @@ function trackHTML(s) {
   return `<ol class="v6-track" aria-label="Testimony steps">${steps.map(([k, l], i) => `<li class="${i < cur ? 'done' : i === cur ? 'cur' : ''}"${i === cur ? ' aria-current="step"' : ''}>${i < cur ? icon('check') : `<span class="v6-track-dot" aria-hidden="true"></span>`}<span>${esc(l)}</span></li>`).join('')}</ol>`;
 }
 const A = (act, s, extra = {}) => ({ 'data-v6act': act, 'data-v6b': s.b.id, ...(s.d ? { 'data-v6d': s.d.id } : {}), ...(s.h ? { 'data-v6h': s.h.id } : {}), ...extra });
+// P1 (review mode reads the draft first): until its Doc has been opened here, an approval's filled button opens Review
+// mode ("Review and approve"); once read, Approve approves in place. One route, so the row's Review and the card's button
+// never do different things to one step.
+const DOC_OPENED = new Set();
+// The chair ask's email, with the hearing it follows for decision making (W33).
+const askMailOf = (s, o = {}) => { const a = s.ask; if (!a.m) return null;
+  return chairAskMail(a.code, [s.b], { dl: a.st.deadline, ...(a.decide ? { heardAt: a.st.hearing?.scheduled_at || new Date().toISOString() } : {}), ...o }); };
+const telOf = ph => `tel:${String(ph).replace(/[^\d+]/g, '')}`;
 // The buttons of the viewer's own step: the first is the filled one where the card holds the screen's one filled button
 // (`primary`), else tonal; the rest tonal or text (spec section 4: at most 4 looks).
 function stepButtons(s, v, primary) {
   const k = primary ? 'primary' : 'secondary', out = [], d = s.d;
-  const doc = d?.doc_url ? docBtn(d.doc_url, { kind: 'secondary' }) : '';
+  const doc = (kind = 'secondary') => d?.doc_url ? docBtn(d.doc_url, { kind, attrs: { 'data-v6doc': d.id } }) : '';
   switch (s.kind) {
-    case 'nodraft': out.push(btn(S.draftAsked?.[s.h.id] ? 'Making the draft…' : 'Make the draft now', { kind: k, icon: 'file-text', attrs: A('draftnow', s) })); break;
-    case 'write': case 'submit': out.push(btn('Send for approval', { kind: k, icon: 'send', attrs: A('submit', s) }), doc); break;
-    case 'revise': out.push(btn('Resubmit', { kind: k, icon: 'send', attrs: A('submit', s) }), doc); break;
-    case 'approve': case 'second': out.push(btn('Approve', { kind: k, icon: 'check', attrs: A('approve', s) }), btn('Send back', { kind: 'secondary', icon: 'undo-2', attrs: A('sendback', s) }), d?.doc_url ? docBtn(d.doc_url, { kind: 'text' }) : ''); break;
-    case 'file': out.push(btn('Mark filed', { kind: k, icon: 'clipboard-check', attrs: A('filed', s) }), btn('File at the Capitol', { kind: 'secondary', iconEnd: 'external-link', href: capitolUrl(s.b), target: '_blank' }), d?.doc_url ? docBtn(d.doc_url, { kind: 'text' }) : ''); break;
-    case 'missed': out.push(btn('Yes, mark filed (late)', { kind: 'secondary', icon: 'clipboard-check', attrs: A('filed', s, { 'data-v6late': '1' }) }), btn('No, we didn’t file', { kind: 'text', attrs: A('nofile', s) }), btn('How did it go?', { kind: 'text', icon: 'message-square', href: `${billRoute(s.b, 'activity')}?reply=1` })); break;
-    case 'chair': {
-      const a = s.ask, m = a.m, mail = m && (a.key === 'ask' || a.key === 'giving') ? chairAskMail(a.code, [s.b], a.decide ? { dl: a.st.deadline, heardAt: new Date().toISOString() } : { dl: a.st.deadline }) : null;
-      const to = m ? (m.n > 1 ? 'Email the chairs' : 'Email the chair') : '';
-      if (a.key === 'ask' && mail) out.push(btn(to, { kind: k, icon: 'mail', href: mail.href }), btn('Give to…', { kind: 'text', icon: 'user-round', attrs: A('giveask', s, { 'data-v6code': a.code, 'aria-haspopup': 'dialog' }) }));
-      else if (a.key === 'giving' && mail) out.push(btn(to, { kind: k, icon: 'mail', href: mail.href }), btn('Done, I asked', { kind: 'secondary', icon: 'check', attrs: A('askdone', s, { 'data-v6code': a.code }) }));
-      else if (a.key === 'waiting' || a.key === 'said_no') out.push(btn('They replied', { kind: a.followUp ? k : 'secondary', icon: 'message-square', attrs: A('replied', s, { 'data-v6code': a.code, 'aria-haspopup': 'dialog' }) }));
+    case 'nodraft': out.push(btn(S.draftAsked?.[s.h.id] ? 'Making the draft…' : 'Make the draft', { kind: k, icon: 'file-text', attrs: A('draftnow', s) })); break;
+    case 'write': case 'submit': out.push(btn('Send for approval', { kind: k, icon: 'send', attrs: A('submit', s) }), doc()); break;
+    case 'revise': out.push(btn('Resubmit', { kind: k, icon: 'send', attrs: A('submit', s) }), doc()); break;
+    case 'approve': case 'second': {
+      const read = !d?.doc_url || DOC_OPENED.has(String(d.id));
+      out.push(read ? btn('Approve', { kind: k, icon: 'check', attrs: A('approve', s) }) : btn('Review and approve', { kind: k, icon: 'check', href: `#/review/${encodeURIComponent(d.id)}` }),
+        btn('Send back', { kind: 'secondary', icon: 'undo-2', attrs: A('sendback', s) }), doc('text'));
       break;
     }
-    case 'filed': if (mayUnfile(d, s.b)) out.push(`<button type="button" class="linkbtn v6-unfile" ${Object.entries(A('unfile', s)).map(([x, y]) => `${x}="${esc(y)}"`).join(' ')}>Undo filed</button>`); break;
+    // File at the Capitol first, Mark filed after it (v5's order and the filing card's, V25): a newcomer files before
+    // marking it filed.
+    case 'file': out.push(btn('File at the Capitol', { kind: k, iconEnd: 'external-link', href: capitolUrl(s.b), target: '_blank' }),
+      btn('Mark filed', { kind: 'secondary', icon: 'clipboard-check', attrs: A('filed', s) }), doc('text')); break;
+    case 'missed': out.push(btn('Yes, mark filed (late)', { kind: 'secondary', icon: 'clipboard-check', attrs: A('filed', s, { 'data-v6late': '1' }) }), btn('No, we didn’t file', { kind: 'text', attrs: A('nofile', s) }), btn('How did it go?', { kind: 'text', icon: 'message-square', href: `${billRoute(s.b, 'activity')}?reply=1` })); break;
+    case 'chair': {
+      const a = s.ask, m = a.m, to = m ? (m.n > 1 ? 'Email the chairs' : 'Email the chair') : '';
+      const replied = kind => btn('They replied', { kind, icon: 'message-square', attrs: A('replied', s, { 'data-v6code': a.code, 'aria-haspopup': 'dialog' }) });
+      if (a.key === 'ask') { const ml = askMailOf(s); if (ml) out.push(btn(to, { kind: k, icon: 'mail', href: ml.href }), btn('Give to…', { kind: 'text', icon: 'user-round', attrs: A('giveask', s, { 'data-v6code': a.code, 'aria-haspopup': 'dialog' }) })); }
+      else if (a.key === 'giving') { const ml = askMailOf(s); if (ml) out.push(btn(to, { kind: k, icon: 'mail', href: ml.href }), btn('Done, I asked', { kind: 'secondary', icon: 'check', attrs: A('askdone', s, { 'data-v6code': a.code }) })); }
+      // Spec 6: after 3 working days with no reply (or 2 before the notice) the asker follows up: the same approved email
+      // again (its subject says it follows up), or a call to the office when the Capitol lists its number.
+      else if (a.key === 'waiting' && a.followUp) {
+        const ml = askMailOf(s, { followUp: true }), ph = phoneOf(a.code);
+        if (ml) out.push(btn(`${to} again`, { kind: k, icon: 'mail', href: ml.href }));
+        if (ph) out.push(btn('Call the office', { kind: ml ? 'secondary' : k, icon: 'phone', href: telOf(ph) }));
+        out.push(replied('secondary'));
+      } else if (a.key === 'waiting' || a.key === 'said_no') out.push(replied('secondary'));
+      break;
+    }
+    case 'filed': if (mayUnfile(d, s.b)) out.push(btn('Undo filed', { kind: 'text', icon: 'undo-2', attrs: A('unfile', s) })); break;
   }
   return out.filter(Boolean).join('');
 }
+// A step nobody holds: Take it (tonal, never the screen's filled button), and Give to… for whoever may hand it (R-330).
+const nobodyButtons = s => btn('Take it', { kind: 'secondary', icon: 'user-round', attrs: { 'data-v6act': 'take', 'data-v6b': s.b.id } })
+  + (s.takeFor ? btn('Give to…', { kind: 'text', attrs: { 'data-v6act': 'giveto', 'data-v6b': s.b.id, 'aria-haspopup': 'dialog' } }) : '');
 // The hearing line under a testimony step: committee in words, day, time and room, who is going, and the I'm going
 // toggle, opening the sitting's page. "Moved from Mon 3/9" for 3 days after a sitting moved (W24); a cancelled sitting
-// with no new date says only that.
+// with no new date says only that. `from` is where the hearing page's Back returns to.
 function hearingLineHTML(h, v, from) {
   if (!h) return '';
   const name = committeeName(h.committee) || h.committee, href = `#/hearing/${encodeURIComponent(h.id)}${from ? `?from=${encodeURIComponent(from)}` : ''}`;
   if (h.status === 'cancelled') return `<div class="v6-step-hear"><a class="v6-step-hl" href="${esc(href)}">${icon('landmark')}<span><b>${esc(name)}</b> · hearing cancelled, no new date yet</span>${icon('chevron-right', { cls: 'v6-chev' })}</a></div>`;
   const past = ms(h.scheduled_at) <= Date.now(), moved = movedFrom(h), lead = leadRow(h), on = goingOn(h, v);
-  return `<div class="v6-step-hear"><a class="v6-step-hl" href="${esc(href)}">${icon('landmark')}<span><b>${esc(name)}</b> · ${esc(whenAt(h.scheduled_at))}${h.room ? ` · ${esc(roomName(h.room))}` : ''}${moved ? ` · moved from ${esc(moved)}` : ''}</span>${icon('chevron-right', { cls: 'v6-chev' })}</a>
+  return `<div class="v6-step-hear"><a class="v6-step-hl" href="${esc(href)}">${icon('landmark')}<span><b>${esc(name)}</b> · ${nw(esc(whenAt(h.scheduled_at)))}${h.room ? ` · ${nw(esc(roomName(h.room)))}` : ''}${moved ? ` · moved from ${nw(esc(moved))}` : ''}</span>${icon('chevron-right', { cls: 'v6-chev' })}</a>
     <p class="v6-step-go">${icon('users')}<span>${esc(goingWords(h, { viewer: v }))}</span>${past ? '' : goingBtn(on, { 'data-v6act': 'going', 'data-v6h': lead.id }, { kind: 'secondary', sm: true })}</p></div>`;
 }
-// stepCard(b, { viewer, where, d, h, primary, big, id }) -> the card for a bill's current step.
+// stepCard(b, { viewer, where, d, h, primary, big, id, from, named }) -> the card for a bill's current step.
 //   where: 'today' (the next-step card), 'pane' (the open item), 'bill', 'hearing' (no hearing line: the page is it),
 //          'testimony', 'team' (read-only: no buttons for anyone).
 //   primary: false when another filled button owns the screen (spec section 4: one filled per screen or region).
-// The viewer's own step gets its buttons; someone else's gets its status line and no button ("Ready to file · Nate files
-// it"). Same words, same order everywhere (V07). The tile at the top carries the one time to act (or, for someone else's
-// step, where it stands); the lines under the sentence never say it again (A-14).
-export function stepCard(b, { viewer, where = 'pane', d, h, primary = true, big = false, id = '' } = {}) {
+//   from: the hearing page's Back ('today', 'bills', 'week', a bill number; default by `where`: a bill page passes its
+//         number, the open item 'today').
+//   named: the bill's name on the card (default: on Today, Testimony, Team and a hearing, where nothing else names it;
+//          openItem's h2 names it in the pane, the bill page's title on the bill).
+// The viewer's own step gets its buttons; someone else's gets its status line and no button ("Nate files the testimony
+// at the Capitol"); a step nobody holds says so, with Take it. Same words, same order everywhere (V07). The tile at the
+// top carries the one time to act (or, for someone else's step, where it stands); the lines under the sentence never say
+// it again (A-14).
+export function stepCard(b, { viewer, where = 'pane', d, h, primary = true, big = false, id = '', from, named } = {}) {
   const v = meOf(viewer), s = billStep(b, { viewer: v, ...(d !== undefined ? { d } : {}), ...(h !== undefined ? { h } : {}) }); if (!s) return '';
   const ro = where === 'team', own = s.you && !ro, hid = id || `v6s-${esc(b.id)}${s.d ? '-' + esc(s.d.id) : ''}`;
+  const showName = named ?? ['today', 'testimony', 'team', 'hearing'].includes(where);
   const c = s.kind === 'chair' ? chairCard(s, v, own) : s.kind === 'none' ? { what: s.says || 'Nothing to do on it now' } : testimonyCard(s, v, own);
-  const eyebrow = s.kind === 'chair' ? `Getting a hearing${s.ask.code ? ' · ' + committeeName(s.ask.code) : ''}` : s.h ? `Testimony · ${committeeName(s.h.committee) || s.h.committee}` : 'Where it stands';
-  const acts = own || (s.kind === 'filed' && !ro) ? stepButtons(s, v, primary) : '';
-  const hear = where === 'hearing' || s.kind === 'chair' ? '' : hearingLineHTML(s.h, v, where === 'pane' ? 'today' : where);
-  return `<section class="v6-step ${own ? 'own' : 'others'} k-${esc(s.kind)}${big ? ' big' : ''}${s.kind === 'missed' ? ' closing' : ''} w-${esc(where)}" data-v6step="${esc(b.id)}" aria-labelledby="${hid}">
-    <p class="v6-step-eyebrow">${esc(eyebrow)}</p>
-    <h3 class="v6-step-what" id="${hid}">${esc(c.what)}</h3>
-    ${c.tile?.words || c.when ? `<div class="v6-step-meta">${statusTile(c.tile)}${c.when ? `<span class="v6-step-when">${esc(c.when)}</span>` : ''}</div>` : ''}
+  // The committee is named once: by the hearing line under a testimony step, by this small line on a chair ask.
+  const eyebrow = s.kind === 'chair' ? `${s.ask.decide ? 'Decision making' : 'Getting a hearing'}${s.ask.code ? ' · ' + committeeName(s.ask.code) : ''}` : s.kind === 'none' ? 'Where it stands' : '';
+  const acts = own || (s.kind === 'filed' && !ro) ? stepButtons(s, v, primary) : s.nobody && !ro ? nobodyButtons(s) : '';
+  const back = from ?? (where === 'bill' ? b.bill_number : where === 'pane' ? 'today' : where);
+  const hear = where === 'hearing' || s.kind === 'chair' ? '' : hearingLineHTML(s.h, v, back);
+  return `<section class="v6-step ${own ? 'own' : 'others'} k-${esc(s.kind)}${big ? ' big' : ''}${s.kind === 'missed' ? ' closing' : ''}${showName ? ' named' : ''} w-${esc(where)}" data-v6step="${esc(b.id)}" aria-labelledby="${hid}">
+    ${showName ? `<p class="v6-step-bill"><span class="v6-step-bn">${esc(nameWords(b))}</span> <span class="v6-row-num">${esc(numWords(b))}</span></p>` : ''}
+    ${eyebrow ? `<p class="v6-step-eyebrow">${esc(eyebrow)}</p>` : ''}
+    <h3 class="v6-step-what" id="${hid}">${nw(esc(c.what))}${showName ? `<span class="sr">, ${esc(sayWords(b))}</span>` : ''}</h3>
+    ${c.tile?.words || c.when ? `<div class="v6-step-meta">${statusTile(c.tile)}${c.when ? `<span class="v6-step-when">${nw(esc(c.when))}</span>` : ''}</div>` : ''}
     ${s.kind === 'chair' || s.kind === 'none' ? '' : trackHTML(s)}${c.note || ''}
-    ${c.who ? `<p class="v6-step-who">${esc(c.who)}</p>` : ''}
+    ${c.who ? `<p class="v6-step-who">${nw(esc(c.who))}</p>` : ''}
     ${acts ? `<div class="v6-step-acts">${acts}</div>` : ''}
-    ${noOwnerHTML(b, v, ro)}${hear}
+    ${s.nobody ? '' : noOwnerHTML(b, v, ro)}${hear}
   </section>`;
 }
 // A testimony step's words. Own: the tile is the time to act ("Send for approval by today 4:00 PM"), with the Capitol's
 // deadline under the sentence when the hand-on time is earlier. Someone else's: the tile is the state ("With an
-// approver"), the sentence who does it, the line when testimony is due. Late is amber, overdue red, on either.
+// approver"), the sentence who does it, the line when testimony is due. Late is amber and overdue red only for the
+// step's own person and the bill's owner (shownStatus); anyone else reads the same words, neutral, with the clock.
 function testimonyCard(s, v, own) {
-  const st = s.state, tone = s.status.tone;
-  if (st.key === 'filed') return { tile: s.status, what: s.doneWords };
-  if (st.key === 'missed') return { tile: s.status, what: own || !s.whose.ids.length ? 'The hearing has started. Did we file?' : 'Not filed before the hearing',
+  const st = s.state, shown = shownStatus(s);
+  // Said once (A-14): the sentence says what happened, the leaf tile who filed it and when.
+  if (st.key === 'filed') return { tile: { ...s.status, words: s.doneWords }, what: 'The testimony is filed' };
+  if (st.key === 'missed') return { tile: s.status, what: own ? 'The hearing has started. Did we file?' : 'Not filed before the hearing',
     when: `The hearing started ${whenAt(s.h.scheduled_at)}.` };
-  const tile = tone === 'late' || tone === 'overdue' ? s.status
+  const tile = ['late', 'overdue'].includes(s.status.tone) ? shown
     : own ? (s.act.words ? { tone: 'neutral', icon: s.status.soon ? 'clock' : 'calendar', words: s.act.words } : null)
     : { tone: 'neutral', icon: '', words: st.label };
-  const what = own ? SENT[s.kind](s, v) : OTHERS[s.kind](cap(s.whose.words || 'No one yet'));
+  const what = own ? SENT[s.kind](s, v) : s.nobody ? 'No one holds it yet' : OTHERS[s.kind](cap(s.whose.words));
   let when = '';
   if (s.off) when = 'The hearing was cancelled; no new date yet.';
-  else if (s.due != null && (own ? ['hand', 'now'].includes(s.act.kind) : tone !== 'late')) when = `Testimony is due ${whenAt(s.due)}.`;
+  else if (s.due != null && (own ? s.act.kind === 'hand' : s.status.tone !== 'late')) when = `Testimony is due ${whenAt(s.due)}.`;
   let note = '';
   if (st.sentBack) note = `<blockquote class="v6-step-note"><span class="v6-step-nl">Sent back</span>${esc(s.d.review_note)}</blockquote>`;
   if (st.stale && st.key === 'write') note += `<p class="v6-step-warn">${icon('triangle-alert')}<span>The bill is now ${esc(versionWords(s.b.current_version))}: check the testimony before it goes out.</span></p>`;
-  return { tile, what, when, note, who: s.whose.anyone ? 'Open to anyone: nobody holds it yet.' : filerWords(s.d, s.b, v, own) };
+  return { tile, what, when, note, who: filerWords(s.d, s.b, v, own) };
 }
 // A chair ask's words: "Ask Rep. Takayama for a hearing" with the notice day as the tile; once asked, "Kevin asked Rep.
-// Takayama for a hearing" with the reply as the tile, and after 3 working days with no reply (or 2 before the notice)
-// the line says to follow up, with the office phone (V13).
+// Takayama for a hearing" with the reply as the tile; and the asker's own Follow up after 3 working days with no reply
+// (or 2 before the notice), with the office's phone when the Capitol lists it (V13, spec 6).
 function chairCard(s, v, own) {
   const a = s.ask, chair = a.m ? a.m.who : 'the chair', what0 = a.decide ? 'to schedule decision making' : 'for a hearing';
   if (a.key === 'waiting' || a.key === 'said_no') {
-    const reply = askReply(a), ph = phoneOf(a.code);
-    return { tile: { tone: 'neutral', icon: a.answer === 'said_no' ? 'circle-x' : a.answer === 'will_schedule' ? 'calendar' : 'hourglass', words: cap(reply) },
-      what: `${cap(firstWords(a.asker, v))} asked ${chair} ${what0}`,
-      when: a.followUp && own ? `Asked ${dayWords(a.at)}. No reply yet: follow up${ph ? ` at ${ph}` : ''}.` : `Asked ${dayWords(a.at)}.` };
+    const reply = askReply(a), ph = phoneOf(a.code), asker = cap(firstWords(a.asker, v));
+    const tile = { tone: 'neutral', icon: a.answer === 'said_no' ? 'circle-x' : a.answer === 'will_schedule' ? 'calendar' : 'hourglass', words: cap(reply) };
+    if (a.followUp && own) return { tile, what: `Follow up with ${chair}`,
+      when: `${asker} asked ${dayWords(a.at)}${a.lastAt && hday(a.lastAt) !== hday(a.at) ? `, then again ${dayWords(a.lastAt)}` : ''}.${ph ? ` Their office: ${ph}.` : ''}` };
+    return { tile, what: `${asker} asked ${chair} ${what0}`, when: `On ${dayWords(a.at)}.` };
   }
   if (a.key === 'passed') return { tile: { tone: 'neutral', icon: 'circle-alert', words: 'Notice time passed' }, what: `Only ${chair} can help now`,
     when: cap(deadlineWords(a.st.deadline.label, a.st.deadline.date)) + '.' };
-  const due = status({ due: a.by }), tile = { ...due, icon: due.tone === 'neutral' ? (due.soon ? 'clock' : 'calendar') : due.icon, words: due.tone === 'neutral' ? `Ask by ${a.aw?.day || dayWords(a.st.deadline.date)}` : due.words };
-  const who = s.whose.ids.length ? cap(s.whose.words) : '';
-  const what = own ? `Ask ${chair} ${what0}` : a.key === 'giving' ? `${who} ${s.whose.ids.length > 1 ? 'are' : 'is'} asking ${chair} ${what0}` : who ? `${who} ${s.whose.ids.length > 1 ? 'ask' : 'asks'} ${chair} ${what0}` : `Ask ${chair} ${what0}`;
+  const due = shownStatus({ status: status({ due: a.by }), mine: s.mine });
+  const tile = { ...due, icon: due.tone === 'neutral' ? (due.soon ? 'clock' : 'calendar') : due.icon, words: due.tone === 'neutral' ? `Ask by ${a.aw?.day || dayWords(a.st.deadline.date)}` : due.words };
+  const who = cap(s.whose.words), n = s.whose.ids.length;
+  const what = own ? `Ask ${chair} ${what0}` : s.nobody ? `No one is asking ${chair} ${what0} yet` : a.key === 'giving' ? `${who} ${n > 1 ? 'are' : 'is'} asking ${chair} ${what0}` : `${who} ${n > 1 ? 'ask' : 'asks'} ${chair} ${what0}`;
   const when = a.aw?.a.notice ? `The notice has to post by ${dayWords(a.aw.a.notice)} for it to ${gateNeed(a.st.deadline.label, 1)} by ${dayWords(a.st.deadline.date)}.` : cap(deadlineWords(a.st.deadline.label, a.st.deadline.date)) + '.';
-  return { tile, what, when, who: !own && !s.whose.ids.length ? 'No owner yet' : '' };
+  return { tile, what, when };
 }
 const phoneOf = code => { const id = chairIdsOf(code)[0], l = id && legById(id); return l?.phone || ''; };
-// A live bill with a position and no owner says so, with Take it (R-330, W42); Give to… for admins and its issue's owner.
+// A live bill with a position and no owner, whose current step someone does hold (Patti writes it), says so with Take it
+// (R-330, W42); Give to… for admins and its issue's owner. A step nobody holds says it once, on the card itself.
 function noOwnerHTML(b, v, ro) {
   if (ro || !v || ownersOf(b).length || !b.position || b.position === 'monitor' || b.tracked === false || diedish(b)) return '';
-  const io = (S.billIssues || []).filter(x => x.bill_id === b.id).map(x => (S.issues || []).find(i => i.id === x.issue_id)).find(i => i && live(i.owner_id));
-  const give = v.is_admin || io?.owner_id === v.id;
-  return `<p class="v6-step-noown">${icon('user-round')}<span>${esc(io ? `No owner yet · ${io.owner_id === v.id ? 'you own' : cap(firstWords(io.owner_id, v)) + ' owns'} its issue` : 'No owner yet')}</span>${btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-v6act': 'take', 'data-v6b': b.id } })}${give ? btn('Give to…', { kind: 'text', sm: true, attrs: { 'data-v6act': 'giveto', 'data-v6b': b.id, 'aria-haspopup': 'dialog' } }) : ''}</p>`;
+  const io = issueOwnerOf(b), give = v.is_admin || io === v.id;
+  return `<p class="v6-step-noown">${icon('user-round')}<span>${esc(io ? `No owner yet · ${io === v.id ? 'you own' : cap(firstWords(io, v)) + ' owns'} its issue` : 'No owner yet')}</span>${btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-v6act': 'take', 'data-v6b': b.id } })}${give ? btn('Give to…', { kind: 'text', sm: true, attrs: { 'data-v6act': 'giveto', 'data-v6b': b.id, 'aria-haspopup': 'dialog' } }) : ''}</p>`;
 }
 
 // ---- the hearing card (V13, V14) ----
 // hearingCard(sitting, { viewer, big, from, id }): time and room large, who is going with the I'm going toggle on the
 // card, and each of our bills on it with its testimony state. `sitting`: a hearing row (its sitting is every row with
-// the same committee and start), or { h }. `big`: the phone's hearing-day card (time 28px, 56px rows).
-// Monitor bills are one quiet line at the end, so the card is about the bills we work on (R-022 decision 4).
+// the same committee and start), or { h }. `big`: the phone's hearing-day card (time 28px, 56px rows). `from`: where the
+// hearing page's Back returns to.
+// The way into the sitting's page is a labelled door, as on the step card's hearing line: the committee's name, "Open the
+// hearing" and a chevron, the full width and 44px tall (B-9, A-6). Monitor bills are one quiet line at the end that opens
+// the same page, so the card is about the bills we work on (R-022 decision 4) and the others are still a tap away.
 export function hearingCard(sitting, { viewer, big = false, from = '', id = '' } = {}) {
   const h = sitting?.h || sitting; if (!h) return '';
   const v = meOf(viewer), rows = sittingRows(h), now = Date.now(), at = ms(h.scheduled_at), cancelled = rows.every(r => r.status === 'cancelled');
@@ -528,19 +641,20 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '' }
   const pos = items.filter(x => x.b.position && x.b.position !== 'monitor'), mon = items.filter(x => !x.b.position || x.b.position === 'monitor');
   const today = hday(at) === hday(now), past = at <= now, moved = movedFrom(h);
   const day = today ? 'Today' : hday(at) === hday(now + DAY) ? 'Tomorrow' : dayWords(at);
-  const bill = x => { const d = sittingDraft(x.h, x.b.id), s = billStep(x.b, { viewer: v, d: d || null, h: x.h }), own = s.you && rowButtonOK(s);
+  const bill = x => { const d = sittingDraft(x.h, x.b.id), s = billStep(x.b, { viewer: v, d: d || null, h: x.h }), btnHtml = rowButtonFor(s), t = lineTone(s);
     return `<li class="v6-hcard-bill"><a class="v6-hcard-bl" href="${esc(billRoute(x.b))}"><span class="v6-row-top"><span class="v6-row-name">${esc(nameWords(x.b))}</span><span class="v6-row-num">${esc(numWords(x.b))}</span></span>
-      <span class="v6-row-line${s.status.tone !== 'neutral' ? ' t-' + esc(s.status.tone) : s.status.soon && s.you ? ' soon' : ''}">${s.status.tone !== 'neutral' && s.status.icon ? icon(s.status.icon) : s.status.soon && s.you ? icon('clock') : ''}<span>${esc(s.line)}</span></span></a>${own ? `<span class="v6-row-act">${rowButton(s)}</span>` : ''}</li>`; };
+      <span class="v6-row-line${t.tone !== 'neutral' ? ' t-' + esc(t.tone) : ''}${t.bold ? ' soon' : ''}">${t.icon ? icon(t.icon) : ''}<span>${nw(esc(s.line))}</span></span></a>${btnHtml ? `<span class="v6-row-act">${btnHtml}</span>` : ''}</li>`; };
   const going = past || cancelled ? '' : goingBtn(goingOn(h, v), { 'data-v6act': 'going', 'data-v6h': leadRow(h).id }, { kind: 'secondary', sm: !big });
   const stream = !cancelled && today ? streamOf(h) : null;
+  const name = `${committeeName(h.committee) || h.committee}${isDecision(h) ? ' · decision making' : ''}`;
   return `<article class="v6-hcard${big ? ' big' : ''}${cancelled ? ' cancelled' : ''}${past ? ' past' : ''}" aria-labelledby="${hid}">
-    <div class="v6-hcard-when"><p class="v6-hcard-time">${esc(timeWords(at))}</p><p class="v6-hcard-day">${esc(day)}${h.room && !cancelled ? `<span class="v6-hcard-room">${esc(roomName(h.room))}</span>` : ''}</p></div>
+    <div class="v6-hcard-when"><p class="v6-hcard-time">${nw(esc(timeWords(at)))}</p><p class="v6-hcard-day">${esc(day)}${h.room && !cancelled ? `<span class="v6-hcard-room">${nw(esc(roomName(h.room)))}</span>` : ''}</p></div>
     <div class="v6-hcard-body">
-      <h3 class="v6-hcard-name" id="${hid}"><a href="${esc(href)}">${esc(committeeName(h.committee) || h.committee)}${isDecision(h) ? ' · decision making' : ''}</a></h3>
-      ${cancelled ? '<p class="v6-hcard-note">Cancelled, no new date yet</p>' : moved ? `<p class="v6-hcard-note">${icon('calendar')}<span>Moved from ${esc(moved)}${goingOn(h, v) ? ' · still going?' : ''}</span></p>` : ''}
+      <h3 class="v6-hcard-name"><a class="v6-hcard-door" href="${esc(href)}"><span class="v6-hcard-cn" id="${hid}">${esc(name)}</span><span class="v6-hcard-open">Open the hearing${icon('chevron-right', { cls: 'v6-chev' })}</span></a></h3>
+      ${cancelled ? '<p class="v6-hcard-note">Cancelled, no new date yet</p>' : moved ? `<p class="v6-hcard-note">${icon('calendar')}<span>Moved from ${nw(esc(moved))}${goingOn(h, v) ? ' · still going?' : ''}</span></p>` : ''}
       ${cancelled ? '' : `<p class="v6-hcard-going">${icon('users')}<span>${esc(goingWords(h, { viewer: v }))}</span>${going}</p>`}
       ${pos.length ? `<ul class="v6-hcard-bills">${pos.map(bill).join('')}</ul>` : ''}
-      ${mon.length ? `<p class="v6-hcard-mon">${pos.length ? 'Also heard: ' : ''}${mon.length === 1 ? `1 bill we monitor` : `${mon.length} bills we monitor`}</p>` : ''}
+      ${mon.length ? `<a class="v6-hcard-mon" href="${esc(href)}"><span>${pos.length ? 'Also heard: ' : ''}${mon.length === 1 ? '1 bill we monitor' : `${mon.length} bills we monitor`}</span>${icon('chevron-right', { cls: 'v6-chev' })}</a>` : ''}
       ${stream ? `<p class="v6-hcard-watch"><a href="${esc(stream.url)}" target="_blank" rel="noopener">${icon('video')}<span>Watch it live</span></a></p>` : ''}
     </div>
   </article>`;
@@ -548,7 +662,8 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '' }
 
 // ---- rows (V04, D15, D16) ----
 // D16: a row carries its one tonal button only when the step is the viewer's own and is due today, late, or a chair ask
-// inside its notice window (a week or less to the day the notice must post). Other rows open on click.
+// inside its notice window (a week or less to the day the notice must post), or the asker's Follow up. Other rows open
+// on click.
 export function rowButtonOK(s) {
   if (!s || !s.you) return false;
   if (s.kind === 'chair') return s.ask.key === 'waiting' ? !!s.ask.followUp : (s.ask.key === 'ask' || s.ask.key === 'giving') && s.ask.by != null && s.ask.by - Date.now() <= 7 * DAY;
@@ -557,41 +672,55 @@ export function rowButtonOK(s) {
   const t = s.status.tone; if (t === 'late' || t === 'overdue') return true;
   const at = s.act?.at ?? s.due; return at != null && hday(at) <= hday(Date.now());
 }
-// The row's button: the step's own verb, tonal. An approval goes to Review mode, which reads the draft first (P1).
+// The row's button: the step's own verb, tonal. An approval goes to Review mode, which reads the draft first (P1); filing
+// opens the filing sheet, File at the Capitol first and Mark filed after it.
 export function rowButton(s, { kind = 'secondary' } = {}) {
   const a = (act, x = {}) => A(act, s, x);
   switch (s.kind) {
-    case 'nodraft': return btn('Make the draft now', { kind, sm: true, attrs: a('draftnow') });
+    case 'nodraft': return btn('Make the draft', { kind, sm: true, attrs: a('draftnow') });
     case 'write': case 'submit': return btn('Send for approval', { kind, sm: true, attrs: a('submit') });
     case 'revise': return btn('Resubmit', { kind, sm: true, attrs: a('submit') });
     case 'approve': case 'second': return btn('Review', { kind, sm: true, href: `#/review/${encodeURIComponent(s.d.id)}` });
-    case 'file': return btn('Mark filed', { kind, sm: true, attrs: a('filed') });
-    case 'missed': return btn('Did we file?', { kind, sm: true, attrs: a('filed', { 'data-v6late': '1' }) });
-    case 'chair': { const x = s.ask;
-      if (x.key === 'waiting') return btn('They replied', { kind, sm: true, attrs: a('replied', { 'data-v6code': x.code, 'aria-haspopup': 'dialog' }) });
-      const mail = x.m ? chairAskMail(x.code, [s.b], { dl: x.st.deadline }) : null;
-      return mail ? btn(x.m.n > 1 ? 'Email the chairs' : 'Email the chair', { kind, sm: true, href: mail.href }) : ''; }
+    case 'file': return btn('File', { kind, sm: true, attrs: a('filed', { 'aria-haspopup': 'dialog' }) });
+    case 'missed': return btn('Did we file?', { kind, sm: true, attrs: a('filed', { 'data-v6late': '1', 'aria-haspopup': 'dialog' }) });
+    case 'chair': { const x = s.ask, to = x.m ? (x.m.n > 1 ? 'Email the chairs' : 'Email the chair') : '';
+      if (x.key === 'waiting') {
+        const ml = x.followUp ? askMailOf(s, { followUp: true }) : null, ph = x.followUp && !ml ? phoneOf(x.code) : '';
+        if (ml) return btn(`${to} again`, { kind, sm: true, href: ml.href });
+        if (ph) return btn('Call the office', { kind, sm: true, href: telOf(ph) });
+        return btn('They replied', { kind, sm: true, attrs: a('replied', { 'data-v6code': x.code, 'aria-haspopup': 'dialog' }) });
+      }
+      const ml = askMailOf(s);
+      return ml ? btn(to, { kind, sm: true, href: ml.href }) : ''; }
   }
   return '';
+}
+// The one button a row shows, if any: the viewer's own step (D16), or Take it on a step nobody holds for whoever may hand
+// it (an admin, or the issue's owner: R-330); everyone else takes it from the open item.
+const rowButtonFor = s => rowButtonOK(s) ? rowButton(s) : s.nobody && s.takeFor ? btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-v6act': 'take', 'data-v6b': s.b.id } }) : '';
+// The line's look: late or overdue in its colour, with its icon, only for the viewer's own step or bill (shownStatus);
+// due today bold with a clock for the viewer's own step; done leaf for everyone.
+function lineTone(s) {
+  const st = shownStatus(s), tone = st.tone, hushed = st !== s.status;
+  return { tone, icon: tone !== 'neutral' ? st.icon : (st.soon && s.you) || hushed ? 'clock' : '', bold: st.soon && s.you };
 }
 // billRow(b, { viewer, line, button, href, pick, selected, hint, step, cls }) -> one bill: its name (Poppins 18), its
 // number small, and one 16px line; the whole row opens it (a link, or `pick` for a list with the item beside it). No
 // tiles, no "+N on this bill", no room, codes or history (those live in the open item). `line` and `button` override
-// what the step says; `button: false` draws none.
+// what the step says; `button: false` draws none. Rows sit in a role="list" box (.v6-list, or listDetail's).
 export function billRow(b, { viewer, line, button, href, pick, selected = false, hint = false, step, cls = '' } = {}) {
   if (!b) return '';
-  const v = meOf(viewer), s = step || billStep(b, { viewer: v });
-  const tone = line == null ? s.status.tone : '', ic = line != null ? '' : tone !== 'neutral' ? s.status.icon : s.status.soon && s.you ? 'clock' : '';
-  const text = line != null ? line : esc(s.line);
-  const btnHtml = button === false ? '' : button ? button : rowButtonOK(s) ? rowButton(s) : '';
-  return rowHTML({ key: b.id, name: nameWords(b), num: numWords(b), line: text, tone, icon: ic, bold: line == null && s.status.soon && s.you, href: href || billRoute(b), pick, selected, hint, button: btnHtml, cls, bill: b.id });
+  const v = meOf(viewer), s = step || billStep(b, { viewer: v }), t = line == null ? lineTone(s) : { tone: '', icon: '', bold: false };
+  const text = line != null ? line : nw(esc(s.line));
+  const btnHtml = button === false ? '' : button ? button : rowButtonFor(s);
+  return rowHTML({ key: b.id, name: nameWords(b), num: numWords(b), line: text, tone: t.tone, icon: t.icon, bold: t.bold, href: href || billRoute(b), pick, selected, hint, button: btnHtml, cls, bill: b.id });
 }
 // itemRow({ key, name, num, line, tone, icon, href, pick, button, selected, hint, cls }) -> any other item (a to-do, an
 // email, a person) in the same shape. `line` is HTML (escape it); `name` and `num` are text.
 export const itemRow = o => rowHTML(o);
 function rowHTML({ key = '', name = '', num = '', line = '', tone = '', icon: ic = '', bold = false, href = '', pick, selected = false, hint = false, button = '', cls = '', bill = '' }) {
   const tag = href ? 'a' : 'button', attr = `${href ? `href="${esc(href)}"` : 'type="button"'}${pick != null ? ` data-v6pick="${esc(pick)}"` : ''}${selected ? ' aria-current="true"' : ''}${bill ? ` data-bill="${esc(bill)}"` : ''}`;
-  return `<div class="v6-row${selected ? ' sel' : ''}${hint ? ' hint' : ''}${cls ? ' ' + cls : ''}"${key ? ` data-v6row="${esc(key)}"` : ''}>
+  return `<div class="v6-row${selected ? ' sel' : ''}${hint ? ' hint' : ''}${cls ? ' ' + cls : ''}" role="listitem"${key ? ` data-v6row="${esc(key)}"` : ''}>
     <${tag} class="v6-row-main" ${attr}><span class="v6-row-top"><span class="v6-row-name">${esc(name)}</span>${num ? `<span class="v6-row-num">${esc(num)}</span>` : ''}</span>${line ? `<span class="v6-row-line${tone && tone !== 'neutral' ? ' t-' + esc(tone) : ''}${bold ? ' soon' : ''}">${ic ? icon(ic) : ''}<span>${line}</span></span>` : ''}</${tag}>${button ? `<span class="v6-row-act">${button}</span>` : ''}</div>`;
 }
 
@@ -672,13 +801,34 @@ async function busy(el, fn) {
   if (el) { el.setAttribute('aria-busy', 'true'); el.disabled = true; }
   try { await fn(); } catch (e) { toast(e, { err: true }); if (el?.isConnected) { el.removeAttribute('aria-busy'); el.disabled = false; } }
 }
+// The calm finish every step shares (spec section 4 Motion, A-10, pub/fx.js style): the button's check fills (150ms),
+// then its row fades and closes (250ms, ease-out) or its card fades (200ms), then the page redraws and the Undo toast
+// says who is next. Nothing moves under Reduce Motion; a screen's count crossfade is the screen's own.
+const reduced = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return true; } };
+const pause = t => new Promise(r => setTimeout(r, t));
+export async function finish(el) {
+  if (!el?.isConnected || typeof el.animate !== 'function' || reduced()) return;
+  try {
+    const b = el.closest('.btn') || el, ic = b.querySelector('svg');
+    b.classList.add('v6-fin'); b.removeAttribute('aria-busy');
+    if (ic) ic.outerHTML = icon('check'); else b.insertAdjacentHTML('afterbegin', icon('check'));
+    await pause(150);
+    const row = el.closest('.v6-row, .v6-hcard-bill'), card = !row && el.closest('.v6-step');
+    if (row) { const hgt = row.offsetHeight;
+      await row.animate([{ opacity: 1, height: `${hgt}px`, minHeight: `${hgt}px` }, { opacity: 0, height: '0px', minHeight: '0px', paddingTop: '0px', paddingBottom: '0px' }], { duration: 250, easing: 'ease-out', fill: 'forwards' }).finished; }
+    else if (card) await card.animate([{ opacity: 1 }, { opacity: 0.35 }], { duration: 200, easing: 'ease-out', fill: 'forwards' }).finished;
+  } catch { /* a step is never held up by its motion */ }
+}
+// A button inside a sheet (a card drawn in a quick look) closes the sheet first, unless its own step opens a sheet,
+// which takes the sheet's place (ui.js openSheet), so no button is ever dead (B-3).
+const OPENS_SHEET = new Set(['sendback', 'filed', 'replied', 'giveask', 'giveto']);
 let approvedAt = -1e4;
 const ACTS = {
   async submit(el, b, d) { await busy(el, async () => {
     await DB.transition(b.id, d.id, 'submit');
     const who = whoseStep(draftById(b.id, d.id) || d, b).words;
-    toast(who ? `Sent to ${who} for approval. You file it once it is approved.` : 'Sent for approval.', { ok: true, undo: async () => { await DB.transition(b.id, d.id, 'withdraw'); toast('Pulled back to draft.'); redraw(); } });
-    redraw(); }); },
+    await finish(el); redraw();
+    toast(who ? `Sent to ${who} for approval. You file it once it is approved.` : 'Sent for approval.', { ok: true, undo: async () => { await DB.transition(b.id, d.id, 'withdraw'); toast('Pulled back to draft.'); redraw(); } }); }); },
   async approve(el, b, d) {
     // A leftover second tap never approves the next step that lands in the same spot (review mode's guard, build 3).
     if (performance.now() - approvedAt < 1000) return;
@@ -687,8 +837,8 @@ const ACTS = {
       const nd = draftById(b.id, d.id) || d, f = filerOf(nd);
       const next = nd.status === 'second_review' ? `Approved. ${cap(whoseStep(nd, b).words) || 'A second approver'} gives the second look next.`
         : f === S.me?.id ? 'Approved. File it at the Capitol next.' : `Approved. ${f ? cap(firstWords(f)) : 'The owner'} files it next.`;
-      toast(next, { ok: true, undo: async () => { await DB.transition(b.id, nd.id, 'unapprove'); toast('Approval undone. It is waiting for you again.'); redraw(); } });
-      redraw(); }); },
+      await finish(el); redraw();
+      toast(next, { ok: true, undo: async () => { await DB.transition(b.id, nd.id, 'unapprove'); toast('Approval undone. It is waiting for you again.'); redraw(); } }); }); },
   sendback(el, b, d) {
     const to = d.submitted_by && d.submitted_by !== S.me?.id ? cap(firstWords(d.submitted_by)) : '';
     openSheet({ title: 'What should change?', size: 'auto',
@@ -703,17 +853,21 @@ const ACTS = {
           const { holdBack } = await import('./review.js');
           const undo = holdBack({ key: d.id, target: d, patch: { status: 'draft', review_note: note }, send: () => DB.transition(b.id, d.id, 'request_changes', note),
             onFail: () => { redraw(); toast(`${sayWords(b)} was not sent back. It is still waiting for you; try again.`, { err: true }); } });
-          delete S.v6Held['sb:' + d.id]; closeSheet({ silent: true }); redraw();
+          delete S.v6Held['sb:' + d.id]; closeSheet({ silent: true }); await finish(el); redraw();
           toast(to ? `Sent back to ${to} with your note. ${to} revises and resubmits it.` : 'Sent back with your note.', { undo: async () => { if (await undo()) { redraw(); toast('Not sent back. It is waiting for you again.'); } } });
         };
       } });
   },
+  // The filing sheet (the card's Mark filed, the row's File): File at the Capitol first, then the confirmation link and
+  // Mark filed (V25's order). After the hearing started ("Yes, mark filed (late)") only the second half is asked. The
+  // Testimony screen's filing card replaces it with setStepHook('file', ...).
   filed(el, b, d) {
-    if (HOOKS.file) return HOOKS.file(b, d, { late: el?.dataset.v6late === '1', after: redraw });
     const late = el?.dataset.v6late === '1';
-    openSheet({ title: `Filed the ${esc(sayWords(b))} testimony${late ? ' (late)' : ''}?`, size: 'auto',
-      body: `${field('v6-furl', 'Capitol confirmation link (optional)', '<input id="v6-furl" type="url" inputmode="url" autocomplete="off" placeholder="https://">', 'Paste the link from the Capitol’s confirmation, if you have it.')}<p class="err" id="v6-furl-e" role="alert" hidden>That does not look like a web address. It starts with https://</p>`,
-      foot: `${btn('File at the Capitol', { kind: 'text', href: capitolUrl(b), target: '_blank', iconEnd: 'external-link' })}${btn('Mark filed', { kind: 'primary', icon: 'clipboard-check', attrs: { 'data-go': '1' } })}`,
+    if (HOOKS.file) return HOOKS.file(b, d, { late, after: redraw, el });
+    const first = late ? '' : `<p class="v6-fsheet-step">Step 1: file it on the Capitol’s page for ${esc(sayWords(b))}.</p><p class="v6-fsheet-go">${btn('File at the Capitol', { kind: 'secondary', href: capitolUrl(b), target: '_blank', iconEnd: 'external-link' })}</p><p class="v6-fsheet-step">Step 2: mark it filed here.</p>`;
+    openSheet({ title: late ? `Filed the ${esc(sayWords(b))} testimony (late)?` : `File the ${esc(sayWords(b))} testimony`, size: 'auto',
+      body: `${first}${field('v6-furl', 'Capitol confirmation link (optional)', '<input id="v6-furl" type="url" inputmode="url" autocomplete="off" placeholder="https://">', 'Paste the link from the Capitol’s confirmation, if you have it.')}<p class="err" id="v6-furl-e" role="alert" hidden>That does not look like a web address. It starts with https://</p>`,
+      foot: btn('Mark filed', { kind: 'primary', icon: 'clipboard-check', attrs: { 'data-go': '1' } }),
       wire: dlg => {
         const go = dlg.querySelector('[data-go]'), inp = dlg.querySelector('#v6-furl'), er = dlg.querySelector('#v6-furl-e');
         inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); go.click(); } });
@@ -721,52 +875,61 @@ const ACTS = {
           if (url && !/^https?:\/\/[^\s/$.?#][^\s]*\.[^\s]{2,}$/i.test(url)) { er.hidden = false; inp.setAttribute('aria-invalid', 'true'); inp.focus(); return; }
           busy(go, async () => {
             await DB.transition(b.id, d.id, 'file', null, url); closeSheet({ silent: true });
-            toast(`Filed. ${sayWords(b)} is done for ${committeeName(d.committee) || d.committee}.`, { ok: true, undo: async () => { await DB.transition(b.id, d.id, 'unfile'); toast('Filing undone. It is approved and ready to file again.'); redraw(); } });
-            redraw(); }); };
+            await finish(el); redraw();
+            toast(`Filed. ${sayWords(b)} is done for ${committeeName(d.committee) || d.committee}.`, { ok: true, undo: async () => { await DB.transition(b.id, d.id, 'unfile'); toast('Filing undone. It is approved and ready to file again.'); redraw(); } }); }); };
       } });
   },
   async unfile(el, b, d) { const url = d.filed_url || null; await busy(el, async () => {
-    await DB.transition(b.id, d.id, 'unfile');
-    toast('Filing undone. It is approved and ready to file again.', { undo: async () => { await DB.transition(b.id, d.id, 'file', null, url); redraw(); } }); redraw(); }); },
+    await DB.transition(b.id, d.id, 'unfile'); redraw();
+    toast('Filing undone. It is approved and ready to file again.', { undo: async () => { await DB.transition(b.id, d.id, 'file', null, url); redraw(); } }); }); },
   // V25: "No, we didn't file" is recorded on the bill's timeline (no red, no migration) and leaves Today with Undo.
   async nofile(el, b, d) { await busy(el, async () => {
     const h = draftHearing(d), title = `Testimony not filed for the ${committeeName(d.committee) || d.committee} hearing${h ? ' ' + dayWords(h.scheduled_at) : ''}`;
     await DB.addActivity(b.id, 'testimony', title); (S.v6NoFile ??= new Set()).add(String(d.id));
-    toast('Noted on the bill: not filed. It leaves your list.', { undo: async () => { S.v6NoFile.delete(String(d.id)); redraw(); } }); redraw(); }); },
+    await finish(el); redraw();
+    toast('Noted on the bill: not filed. It leaves your list.', { undo: async () => { S.v6NoFile.delete(String(d.id)); redraw(); } }); }); },
   async draftnow(el, b, d, h) { const { makeDraftNow } = await import('./testimony.js'); return makeDraftNow(h); },
   async going(el, b, d, h) {
     const rows = sittingRows(h), mine = rows.filter(r => (S.attend?.[r.id] || []).includes(S.me?.id)), on = mine.length > 0, name = committeeName(h.committee) || h.committee;
     await busy(el, async () => {
       if (!on) await DB.attend(h.id, true); else for (const r of mine) await DB.attend(r.id, false);
+      redraw();
       toast(on ? `Taken off the list for the ${name} hearing.` : `You’re going to the ${name} hearing ${whenAt(h.scheduled_at)}.`, { ok: !on,
-        undo: async () => { if (on) { for (const r of mine) await DB.attend(r.id, true); } else await DB.attend(h.id, false); redraw(); } });
-      redraw(); });
+        undo: async () => { if (on) { for (const r of mine) await DB.attend(r.id, true); } else await DB.attend(h.id, false); redraw(); } }); });
   },
   replied(el, b, d, h, code) { return answerSheet([b.id], code); },
   giveask(el, b, d, h, code) { return giveAsk([{ b, st: stopOf(b) }], code, redraw); },
   async askdone(el, b, d, h, code) { const t = askTodoOf(b); await busy(el, async () => {
     if (t) await DB.updateTodo(b.id, t.id, { done: true });
     const unlog = await logAsk(b, code);
-    toast(`Done: the ask is logged, so the team sees “Asked by ${firstWords(S.me?.id, { id: null })}” on ${sayWords(b)}.`, { ok: true, undo: async () => { if (t) await DB.updateTodo(b.id, t.id, { done: false }); await unlog(); redraw(); } });
-    redraw(); }); },
-  async take(el, b) { await busy(el, async () => { await DB.setOwner(b.id, S.me.id);
-    toast(`You own ${sayWords(b)} now.`, { ok: true, undo: async () => { await DB.setOwner(b.id, null); redraw(); } }); redraw(); }); },
+    await finish(el); redraw();
+    toast(`Done: the ask is logged, so the team sees “Asked by ${firstWords(S.me?.id, { id: null })}” on ${sayWords(b)}.`, { ok: true, undo: async () => { if (t) await DB.updateTodo(b.id, t.id, { done: false }); await unlog(); redraw(); } }); }); },
+  async take(el, b) { await busy(el, async () => { await DB.setOwner(b.id, S.me.id); redraw();
+    toast(`You own ${sayWords(b)} now.`, { ok: true, undo: async () => { await DB.setOwner(b.id, null); redraw(); } }); }); },
+  // As v5's Give to… on Today: the toast names who owns it now and promises no message (migration 064 messages a
+  // to-do or a hearing given to someone, not an owner change), and the draft stays with whoever sent it.
   giveto(el, b) {
-    const owner = ownersOf(b)[0] || '';
-    pickerSheet({ title: `Who owns ${esc(sayWords(b))}?`, value: owner, options: (S.advocates || []).filter(a => a.is_active !== false).map(a => [a.id, a.id === S.me?.id ? `${a.full_name} (you)` : a.full_name, 'user-round']),
-      onPick: async id => { if (id === owner) return; try { await DB.setOwner(b.id, id); toast(id === S.me?.id ? `${sayWords(b)} is yours now.` : `${sayWords(b)} is ${cap(firstWords(id))}’s now. They get a Slack message.`, { ok: true, undo: async () => { await DB.setOwner(b.id, owner || null); redraw(); } }); redraw(); } catch (e) { toast(e, { err: true }); } } });
+    const owner = ownersOf(b)[0] || '', s = billStep(b), by = s?.d?.submitted_by && live(s.d.submitted_by) ? s.d.submitted_by : null;
+    pickerSheet({ title: `Who owns ${esc(sayWords(b))}?`, value: owner, help: by ? esc(`The draft stays with ${cap(firstWords(by))}, who sent it.`) : '',
+      options: (S.advocates || []).filter(a => a.is_active !== false).map(a => [a.id, a.id === S.me?.id ? `${a.full_name} (you)` : a.full_name, 'user-round', a.id === owner ? 'Owns it now' : '']),
+      onPick: async id => { if (id === owner) return; try { await DB.setOwner(b.id, id); redraw(); toast(id === S.me?.id ? `You own ${sayWords(b)} now.` : `${cap(firstWords(id))} owns ${sayWords(b)} now.`, { ok: true, undo: async () => { await DB.setOwner(b.id, owner || null); redraw(); } }); } catch (e) { toast(e, { err: true }); } } });
   },
 };
 // Delegated once (capture is not needed: nothing here sits inside another clickable row's handler, and a row's button
 // sits beside its link, never inside it).
 if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('click', e => {
-  const el = e.target?.closest?.('[data-v6act]'); if (!el || el.closest('dialog') || el.tagName === 'A') return;
-  const fn = ACTS[el.dataset.v6act]; if (!fn) return;
+  // P1: an approver who opened the Doc from a card has read it, so its filled button turns from "Review and approve"
+  // into Approve (after the new tab opens).
+  const doc = e.target?.closest?.('[data-v6doc]');
+  if (doc) { DOC_OPENED.add(String(doc.dataset.v6doc)); setTimeout(redraw, 400); return; }
+  const el = e.target?.closest?.('[data-v6act]'); if (!el || el.tagName === 'A') return;
+  const act = el.dataset.v6act, fn = ACTS[act]; if (!fn) return;
   e.preventDefault(); e.stopPropagation();
   const b = billById(el.dataset.v6b), d = b && el.dataset.v6d ? draftById(b.id, el.dataset.v6d) : null;
   const h = el.dataset.v6h ? (S.hearings || []).find(x => String(x.id) === el.dataset.v6h) || null : null;
-  if (!b && el.dataset.v6act !== 'going') return;
-  if (['submit', 'approve', 'sendback', 'filed', 'unfile', 'nofile'].includes(el.dataset.v6act) && !d) return;
+  if (!b && act !== 'going') return;
+  if (['submit', 'approve', 'sendback', 'filed', 'unfile', 'nofile'].includes(act) && !d) return;
+  if (el.closest('dialog') && !OPENS_SHEET.has(act)) closeSheet({ silent: true });
   fn(el, b, d, h, el.dataset.v6code || '');
 });
 // "No, we didn't file" (V25): recorded this visit, or on the bill's timeline ("Testimony not filed for the Senate Health
