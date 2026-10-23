@@ -19,8 +19,8 @@ B = 'HB1562'
 # old address, who opens it, the v6 address it must end on (a regex on location.hash), the v6 place lit in the sidebar,
 # and words the page must show (a regex), or None
 MOVED = [
-  (f'#bill={B}', 'NT', rf'^#/bill/{B}$', 'Bills', B),
-  (f'#bill=HB 1562', 'NT', rf'^#/bill/{B}$', 'Bills', B),
+  (f'#bill={B}', 'NT', rf'^#/bill/{B}$', 'Bills', r'HB ?1562'),        # v6 writes 'HB 1562' (D15), v5 'HB1562'
+  (f'#bill=HB 1562', 'NT', rf'^#/bill/{B}$', 'Bills', r'HB ?1562'),
   ('#emails', 'NT', r'^#/review', 'Testimony', r'Review'),
   ('#calendar=Calendar%20connected', 'NT', r'^#/me', 'You', None),
   ('#/tasks', 'KV', r'^#/$', 'Today', None),
@@ -55,7 +55,9 @@ V5_ADDRESSES = [
 ]
 
 LOOK = r"""() => { const main = document.querySelector('main'); const t = main ? main.innerText : '';
-  const side = [...document.querySelectorAll('aside [aria-current=page], aside [aria-current=true]')].filter(e => e.getClientRects().length).map(e => e.innerText.split('\n')[0].replace(/\s*\d+\+?$/, '').trim());
+  // the lit place's own label (.lbl), not its first line: You's first line is the avatar's initials ('KV'); 'You · Kevin' is You
+  const side = [...document.querySelectorAll('aside [aria-current=page], aside [aria-current=true]')].filter(e => e.getClientRects().length)
+    .map(e => ((e.querySelector('.lbl') || e).innerText || e.getAttribute('aria-label') || '').split('\n')[0].split(' · ')[0].replace(/\s*\d+\+?$/, '').trim());
   const tab = [...document.querySelectorAll('main [aria-current=page], main [aria-selected=true], main [aria-pressed=true]')].filter(e => e.getClientRects().length).map(e => e.innerText.trim()).slice(0, 4);
   const h1 = [...document.querySelectorAll('h1, [role=heading][aria-level="1"]')].filter(e => e.getClientRects().length).map(e => e.innerText.trim())[0] || '';
   const h2 = [...document.querySelectorAll('main h2')].filter(e => e.getClientRects().length).map(e => e.innerText.trim().replace(/\s*\d+$/, ''))[0] || '';

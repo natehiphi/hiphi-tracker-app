@@ -103,6 +103,12 @@ def _init():
   global _B, _PW
   from playwright.sync_api import sync_playwright
   _PW = sync_playwright().start(); _B = L.Browser(_PW)
+def _restart():
+  """A fresh browser for this worker, after its browser died (a busy machine can lose one mid-run)."""
+  global _B
+  try: _B.close()
+  except Exception: pass
+  _B = L.Browser(_PW)
 
 def special(pg, key, m):
   """Two counts that need a press: the supporters filter's choices (V31), and Session setup's parts and their length (V28)."""
@@ -123,6 +129,17 @@ def special(pg, key, m):
     m['setup_part_screens'] = round(worst, 2); pg.nav('/setup')
 
 def run_job(job):
+  """One tab's routes; tried twice (a browser lost mid-run is restarted), then reported as not measured."""
+  for attempt in (1, 2):
+    try: return _run_job(job)
+    except Exception as e:
+      err = f'{type(e).__name__}: {str(e).splitlines()[0][:120]}'
+      try: _restart()
+      except Exception: pass
+  p, w, h, clock, keys = job
+  return [{'who': p, 'w': w, 'h': h, 'clock': clock, 'route': '-', 'failed': err, 'keys': keys}], 0
+
+def _run_job(job):
   p, w, h, clock, keys = job
   out = []; t0 = time.time()
   pg = _B.page(p, w, h)
@@ -138,6 +155,7 @@ def run_job(job):
       row.update(controls_page=mf['controls'], words_page=mf['words'], groups=mf['groups'], codes_page=mf['codes'])
       special(pg, key, row)
       row.update(h1=m['h1'], tabs=m['tabs'], worst_row=m['worst_row'], marks_list=m['marks_list'], labelled_list=m['labelled_list'][:12],
+                 colors_list=m.get('colors_list'), radii_where=m.get('radii_where'),
                  errors=pg.errors[errs0:][:2], hash=pg.hash())
       if SHOTS: pg.shot(os.path.join(SHOTS, f'{L.APP}-{p}-{w}x{h}-{clock}-{key}.png'))
       out.append({'who': p, 'w': w, 'h': h, 'clock': clock, 'route': key, 'm': row})
@@ -213,11 +231,11 @@ def fmt(v):
   return str(v)
 
 def main():
-  a = args_of(sys.argv[1:]); jobs = plan(a); rows = []; t0 = time.time()
+  a = args_of(sys.argv[1:]); jobs = plan(a); rows = []; failed = []; t0 = time.time()
   print(f'{L.APP}: {len(jobs)} tabs, {sum(len(j[4]) for j in jobs)} screens, {a["workers"]} at once ({"served from " + L.ROOT if L.ROOT else L.HOST})', flush=True)
   with ProcessPoolExecutor(max_workers=a['workers'], initializer=_init) as ex:
     for i, (out, secs) in enumerate(ex.map(run_job, jobs), 1):
-      rows += out
+      failed += [r for r in out if r.get('failed')]; rows += [r for r in out if not r.get('failed')]
       if i % 10 == 0 or i == len(jobs): print(f'  {i}/{len(jobs)} tabs done ({round(time.time() - t0)} s)', flush=True)
   rows.sort(key=lambda r: ([x[0] for x in ROUTES].index(r['route']), r['w'], r['clock'], r['who']))
   if a['json']: json.dump(rows, open(a['json'], 'w'), indent=0)
@@ -285,8 +303,9 @@ def main():
     print(f'  {name} (limit {fmt(hits[0][2])}): {len(hits)} screens, e.g. {ex}')
   stats = [(r, x) for r in rows for x in [r['m'].get('errors')] if x]
   for r, x in stats[:8]: print(f"  page error on {r['route']} as {r['who']} {r['w']}x{r['h']}: {x[0][:140]}")
-  print(f'\n{len(rows)} screens measured in {round(time.time() - t0)} s')
-  sys.exit(1 if missed else 0)
+  for f in failed: print(f"  NOT MEASURED: {f['who']} {f['w']}x{f['h']} {f['clock']} ({', '.join(f['keys'][:6])}{' …' if len(f['keys']) > 6 else ''}): {f['failed']}")
+  print(f'\n{len(rows)} screens measured in {round(time.time() - t0)} s' + (f'; {len(failed)} tabs could not be measured' if failed else ''))
+  sys.exit(1 if missed or failed else 0)
 
 if __name__ == '__main__':
   main()

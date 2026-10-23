@@ -6,10 +6,13 @@
 #   2. never a programmer's note: an item number ("R-316") or "//" outside a web address; the same for what the Copy
 #      buttons put on the clipboard (the weekly memo once carried a code comment, model.js:462);
 #   3. one wording per testimony state (spec 5: Writing · With an approver · Second look · Ready to file · Filed, and
-#      Missed; "sent back" is a flag on Writing: "Writing · sent back by Kris"). Counted on items, not on page tabs, menus or
+#      Missed; "sent back" is a flag on Writing, in lower case and naming nobody: "Writing · sent back" (11.5, 12.6); no
+#      draft yet is "Writing · not started" (12.6); "Second look" in any case). Counted on items, not on page tabs, menus or
 #      buttons ("To approve" and "Sent back" are Testimony's tabs). v5 had 10+ wordings of "sent back" alone (X8);
 #   4. every place Help names (on Today, in My settings, under Outreach, a bold place name) exists in the app's navigation:
-#      the sidebar, the phone's tab bar and More page, the account menu, each place's page tabs and More tools.
+#      the sidebar, the phone's tab bar and More page, the account menu, each place's page tabs and More tools;
+#   5. one name per act (spec 8, C-15): the buttons for the same act say the same words on every screen (v5's chair ask had
+#      9 button names). Each act lists the names a button for it might carry; two or more seen is a miss, with where.
 #
 #   APP=staff6 python3 tests/staff6_words.py      exits 1 when a rule is broken
 #   APP=staff5 python3 tests/staff6_words.py      the same reading of v5 (the baseline); prints only
@@ -24,8 +27,10 @@ from staff6_budget import ROUTES
 # ---- 3: the wordings of each testimony state; the first is v6's one wording (spec 5 testimonyState) ----
 STATES = [   # a leading "=" keeps the case (a capitalised label); the rest ignore case. Verbs (Approve, Revise and resubmit)
              # are steps, not states, and are not counted.
-  ('Writing', [r'=\bWriting\b', r'\bbeing written\b', r'\bdraft in progress\b', r'\bnot started\b', r'\bno (?:testimony )?draft(?: yet)?\b', r'=\bDraft\b(?! [a-z])']),
-  ('sent back (a flag on Writing)', [r'=\b[Ss]ent back by [A-Z]', r'\bsent back\b(?! by)', r'\bneeds? changes\b', r'\bchanges (?:asked|requested)\b',
+  # "Writing · not started" is the Writing state's one wording for no draft yet (12.6); "not started" alone is another.
+  ('Writing', [r'=\bWriting\b', r'\bbeing written\b', r'\bdraft in progress\b', r'(?<!Writing\s*[·•]?\s*)\bnot started\b', r'\bno (?:testimony )?draft(?: yet)?\b', r'=\bDraft\b(?! [a-z])']),
+  # the flag: lower case, naming nobody (11.5, 12.6); a capitalised "Sent back" on an item reads as a sixth state
+  ('sent back (a flag on Writing)', [r'=\bsent back\b(?! by)', r'=\b[Ss]ent back by [A-Z]', r'=\bSent back\b(?! by)', r'\bneeds? changes\b', r'\bchanges (?:asked|requested)\b',
      r'\breturned to\b', r'=[A-Z]\w+’s to revise\b']),
   ('With an approver', [r'\bwith an approver\b', r'\bwaiting for (?:approval|an approver)\b', r'=\bwaiting for [A-Z]\w+’s approval\b', r'\bin review\b',
      r'\bawaiting approval\b', r'\bsubmitted for approval\b']),
@@ -41,6 +46,32 @@ PLACES = ['Today', 'This week', 'Hearings', 'Get hearings', 'Testimony', 'To wri
   'Legislators', 'Who to ask', 'Everyone', 'Holding our bills', 'My issues', 'Coalitions', 'All issues', 'Inbox', 'Messages', 'Updates',
   'Help', 'What moved', 'Team', 'People', 'Partners', 'Session setup', 'More tools', 'My settings', 'Weekly memo', 'Your menu', 'Tasks',
   'Team view', 'Mine', 'Each person’s list', 'Prep board', 'Next up', 'Next step', 'Team talk', 'Activity', 'deadline box', 'More']
+# ---- 5: one name per act. Each act: the names its buttons might carry (one regex is one name, its optional words the same
+# name; matched on the normalised label: lower case, no trailing "…", bill numbers taken out, "chairs" read as "chair"),
+# and the screens it applies on (None: every screen). The
+# acts are the ones the spec names more than one door for (V07: one home, plus its Today row and the bill). ----
+ACTS = [
+  ('open a draft to approve it', [r'^review$', r'^review and approve$', r'^start review$', r'^open to approve$', r'^approve testimony$'], None),
+  ('file testimony', [r'^file$', r'^file it$', r'^file at the capitol$', r'^file testimony$', r'^file now$'], None),
+  ('ask the chair for a hearing', [r'^email the chair$', r'^ask the chair$', r'^email about$', r'^ask for a hearing$', r'^email chair$'], None),
+  ('follow up with the chair', [r'^follow up$', r'^email (?:the chair )?again(?: about)?$', r'^send a follow.?up$'],
+   {'today', 'hearings', 'get-hearings', 'legislators', 'holding', 'everyone', 'a-legislator', 'a-bill', 'a-hearing'}),
+  ("record the chair's reply", [r'^they replied$', r'^record the reply$', r'^got a reply$', r'^log the reply$'], None),
+  ('log a talk with a legislator', [r'^log a talk(?: with a legislator)?$', r'^talk with a legislator$', r'^log one$', r'^log it$', r'^log a conversation$', r'^add a talk$'], None),
+  ('copy the public link', [r'^copy link$', r'^copy share link$', r'^copy the link$', r'^copy public link$'], None),
+  ('write the public ask', [r'^write the ask$', r'^write it$', r'^write the public ask$'], {'today', 'outreach', 'bill-public', 'a-bill', 'hearings', 'a-hearing'}),
+  ('mark filed', [r'^mark filed$', r'^mark as filed$', r'^i filed it$', r'^filed it$'], None),
+  ('send a draft back', [r'^send back$', r'^return$', r'^request changes$', r'^ask for changes$'], None),
+  ('resubmit a draft', [r'^resubmit$', r'^send again$', r'^submit again$', r'^re-?send for approval$'], None),
+  ("say I'm going", [r'^i.m going$', r'^i.ll go$', r'^going$', r'^attend$', r'^count me in$'], None),
+]
+def act_name(label):
+  """A button's label as one name: lower case, no count or "…", bill numbers out, "the chairs" as "the chair"."""
+  t = re.sub(r'[…]|\.\.\.$', '', (label or '').split('\n')[0]).strip().lower()
+  t = re.sub(r'\b(?:hb|sb|hcr|scr|hr|sr|gm) ?\d+\b(?:,? (?:and )?(?:hb|sb) ?\d+\b)*', '', t)
+  t = re.sub(r'\bchairs\b', 'chair', t); t = re.sub(r'\s+\d+$', '', t)
+  return re.sub(r'\s+', ' ', t).strip()
+
 # Screens whose words are not testimony states: Help explains them; lists, emails, supporters and partner groups have
 # states of their own ("Draft" list, an email "waiting for approval", a group "to approve").
 NOT_STATES = {'help', 'help-topic', 'what-moved', 'lists', 'a-list', 'emails', 'composer', 'a-supporter', 'partners', 'supporters'}
@@ -48,15 +79,19 @@ CONTEXT = r'(?:on|in|from|under|open|opens|go to|tap|press|choose|see|use)\s+(?:
 
 SCAN = r"""(arg) => {
   const vis = e => { const s = getComputedStyle(e); return s.visibility !== 'hidden' && s.display !== 'none' && e.getClientRects().length; };
-  const official = arg.official, out = { vape: [], notes: [], states: {} };
+  const official = arg.official, out = { vape: [], notes: [], states: {}, buttons: [] };
   const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let n;
   const norm = s => s.replace(/\s+/g, ' ').replace(/[…]+$/, '').trim().toLowerCase();
   while ((n = tw.nextNode())) { const v = n.nodeValue; if (!v.trim() || !n.parentElement || !vis(n.parentElement) || n.parentElement.closest('script, style, .sr')) continue;
     if (/\bvap(e|es|ing|er|ers)\b/i.test(v) && !official.some(o => o.includes(norm(v)) || norm(v).includes(o))) out.vape.push(v.trim().slice(0, 100));
     if (/\bR-\d{3}\b/.test(v) || /(^|[^:\w])\/\/(?!\/)/.test(v)) out.notes.push(v.trim().slice(0, 100)); }
+  // the buttons in the work column and any open sheet (5: one name per act); page tabs, menus and the frame are not acts
+  const main = document.querySelector('main');
+  out.buttons = [...document.querySelectorAll('main button, main a.btn, main [role=button], main a[class*=btn], dialog[open] button, dialog[open] a.btn')]
+    .filter(e => vis(e) && !e.closest('nav, [role=tablist], [role=menu], .sv-secnav')).map(e => (e.innerText || e.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim()).filter(Boolean);
   // the testimony states: the words on items (rows, cards, status tags) about testimony, not page tabs, menus, buttons,
   // the sidebar or a guide's prose (Help is skipped: it explains the words)
-  const main = document.querySelector('main'); if (!main || arg.prose) return out;
+  if (!main || arg.prose) return out;
   const ITEM = 'li, tr, article, .card, [class*=card], [class*=row], .chip, .sv-chip, .v6-status, .v6-step, .v6-hcard, [role=listitem], [role=row]';
   const ABOUT = /testimon|draft|approv|revis|resubmit|second look|ready to file|\bfiled\b|writing/i;
   let items = [...main.querySelectorAll(ITEM)].filter(e => vis(e) && !e.closest('nav, [role=tablist], [role=menu], dialog, details:not([open]) > :not(summary)'));
@@ -85,11 +120,24 @@ def official_texts():
 
 _B = None
 def _init():
-  global _B
+  global _B, _PW
   from playwright.sync_api import sync_playwright
-  _B = L.Browser(sync_playwright().start())
+  _PW = sync_playwright().start(); _B = L.Browser(_PW)
 
 def read_job(job):
+  """One tab's routes; tried twice (a browser lost on a busy machine is restarted), then reported as not read."""
+  global _B
+  for attempt in (1, 2):
+    try: return _read_job(job)
+    except Exception as e:
+      err = f'{type(e).__name__}: {str(e).splitlines()[0][:120]}'
+      try: _B.close()
+      except Exception: pass
+      try: _B = L.Browser(_PW)
+      except Exception: pass
+  return [{'who': job[0], 'size': f'{job[1]}x{job[2]}', 'clock': job[3], 'route': '-', 'failed': err, 'vape': [], 'notes': [], 'states': {}, 'buttons': [], 'errors': []}]
+
+def _read_job(job):
   who, w, h, extra, keys = job; pg = _B.page(who, w, h); out = []
   try:
     first = True
@@ -197,6 +245,22 @@ def main():
     others = [s for s in seen if s != rxs[0]]
     if not L.V5: R.check(f'one wording for "{state}": /{rxs[0].lstrip("=")}/', not others, f"also: {', '.join('/' + s.lstrip('=') + '/ (' + str(seen[s]['n']) + ')' for s in others[:4])}" if others else '')
 
+  # 5: one name per act
+  print('\nbutton names per act (count, screens):')
+  per_act = {}; v5_acts = {} if L.V5 else L.load_baseline().get('words', {}).get('act_names', {})
+  for act, rxs, where in ACTS:
+    seen = {}
+    for r in reads:
+      if where and r['route'] not in where: continue
+      for lab in r.get('buttons', []):
+        nm = act_name(lab); hit = next((x for x in rxs if re.search(x, nm)), None)   # one regex is one name
+        if hit:
+          e = seen.setdefault(hit, {'n': 0, 'where': set(), 'ex': lab}); e['n'] += 1; e['where'].add(r['route'])
+    per_act[act] = {v['ex']: v['n'] for k, v in seen.items()}
+    print(f'  {act}: {len(seen)} name(s)' + (f" (v5: {len(v5_acts[act])}: {', '.join(v5_acts[act])})" if act in v5_acts else '') + ''.join(f"\n    {e['n']:>5}  \"{e['ex'][:40]}\"  on {', '.join(sorted(e['where'])[:6])}{' …' if len(e['where']) > 6 else ''}" for nm, e in sorted(seen.items(), key=lambda x: -x[1]['n'])))
+    if not L.V5 and seen:
+      R.check(f'one name for "{act}"', len(seen) <= 1, '; '.join(f"\"{e['ex'][:30]}\" on {', '.join(sorted(e['where'])[:4])}" for nm, e in sorted(seen.items(), key=lambda x: -x[1]['n'])) if len(seen) > 1 else next(iter(seen.values()))['ex'])
+
   # 4: every place Help names exists in the navigation
   with L.browser() as b:
     nav = nav_labels(b); named = help_names(b)
@@ -222,11 +286,13 @@ def main():
       pg.close()
   bad = [(w, r, l, c) for w, r, l, c in copied if re.search(r'\bR-\d{3}\b|(^|[^:\w])//(?!/)', c) or re.search(r'\bvap(e|es|ing)\b', c, re.I)]
   R.check(f'copied text has no programmer notes or "vape" ({len(copied)} copies read)', not bad, '; '.join(f'{r} "{l}": "{re.search(r".{0,30}(R-[0-9]{3}|//|vap).{0,30}", c, re.I).group(0)}"' for w, r, l, c in bad[:3]))
+  lost = [r for r in reads if r.get('failed')]
+  R.check('every screen read', not lost, '; '.join(f"{r['who']} {r['size']}: {r['failed'][:80]}" for r in lost[:3]))
   errs = [r for r in reads if r['errors']]
   R.check('no page errors while reading', not errs, '; '.join(f"{r['route']} as {r['who']}: {r['errors'][0][:80]}" for r in errs[:3]))
   print(f'\n{len(reads)} screens read in {round(time.time() - t0)} s')
   if L.V5:
-    L.save_baseline('words', {'vape': len(vape), 'notes': len(notes), 'state_wordings': per_state, 'help_names_missing_from_nav': sorted(missing), 'copied': len(copied), 'copied_bad': len(bad)})
+    L.save_baseline('words', {'vape': len(vape), 'notes': len(notes), 'state_wordings': per_state, 'act_names': per_act, 'help_names_missing_from_nav': sorted(missing), 'copied': len(copied), 'copied_bad': len(bad)})
     print(f'v5 baseline saved to {os.path.relpath(L.BASELINE)}')
   R.done(enforce=not L.V5)
 
