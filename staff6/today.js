@@ -762,9 +762,10 @@ function render(route) {
   const bd = badgeOf(), P = plan(v), { w, sits, phone, phoneDay } = P;
   const L = listHTML(v, { skip: phoneDay ? P.onCard : null, hideHear: P.hideHear });
   const coal = !!P.next || !w.coal.size, lead = leadLine(), done = doneBand(v);
-  // Getting started sits right under the next step (the critic's 11), as one line on a phone (R-316 W7); at the Capitol on
-  // a phone's hearing day it is not the job, so it waits for the laptop.
-  const start = phoneDay ? '' : startCard(v, { line: phone });
+  // Getting started sits right under the next step (the critic's 11), as one line on a phone (R-316 W7) and in the one
+  // column below 1100px (its list pushed a 1024 laptop's lists a sixth of a screen down; the line opens it in Help); the
+  // short list is in the side column from 1100px. At the Capitol on a phone's hearing day it is not the job: it waits.
+  const start = phoneDay ? '' : startCard(v, { line: phone || !WIDE() });
   const picked = S.v6ld?.today?.key ?? null, item = picked === 'waiting' ? waitingItem(v) : picked != null && REG.has(picked) ? itemFor(picked, v) : '';
   if (picked != null && !item) S.v6ld.today.key = null;
   // A phone's hearing day (V14): one big card per sitting first (time and room at a glance), the person's own step inside
@@ -925,6 +926,20 @@ if (typeof document !== 'undefined') document.addEventListener('keydown', e => {
   else if (e.key === 'Escape' && document.querySelector('.t6-ld.open')) { e.preventDefault(); history.back(); }
 });
 
+// From 1100px, while nothing is picked: when the side column would run on alone below the lists, its season card (never a
+// hearing day's sittings) moves under the lists, so the page is only as long as it needs to be (spec 8: 1.2 screens;
+// Kris's and Kevin's laptops were a third of a screen of side column below a short list). Measured after drawing, since
+// the two columns' heights depend on the words; drawn again whenever the side column is.
+function balance(main) {
+  main.querySelectorAll('.t6-col > .t6-moved').forEach(x => x.remove());
+  if (!WIDE() || main.querySelector('.t6-ld.open')) return;
+  const col = main.querySelector('.t6-col'), side = main.querySelector('.t6-aside'), card = side?.querySelector(':scope > .t6-season:not(.t6-hday)');
+  if (!col || !card) return;
+  const c = col.getBoundingClientRect().height, s = side.getBoundingClientRect().height, h = card.getBoundingClientRect().height + 24;
+  if (c + h >= s) return;   // moving it would not shorten the page
+  card.classList.add('t6-moved');
+  col.insertBefore(card, col.querySelector(':scope > .t6-done'));
+}
 // Getting started's steps that tick when visited (both copies: the work column's and the side column's).
 const wireStart = el => el.querySelectorAll('[data-t6fr]').forEach(a => a.addEventListener('click', () => { const k = a.dataset.t6fr; if (k === 'week' || k === 'moved' || k === 'bills') markNewStep({ [k === 'bills' ? 'bill' : k]: 1 }); }));
 function wire(route, root) {
@@ -941,9 +956,10 @@ function wire(route, root) {
   const edge = () => edgeHTML();
   wireListDetail(main, { id: 'today', open: key => { const html = openItemHTML(key); return html && main.classList.contains('t6-sidenext') ? nextStrip() + html : html; },
     // Closing the item puts the season card and the doors back in that column (wireListDetail draws its own hint there).
-    onChange: key => { if (key == null && aside) { aside.innerHTML = edge(); aside.setAttribute('aria-label', main.classList.contains('t6-sidenext') ? 'Your next step and season' : 'Your season'); wirePartner(aside); wireStart(aside); } else if (aside) { aside.setAttribute('aria-label', 'The item you picked'); wirePartner(aside); } } });
+    onChange: key => { if (key == null && aside) { aside.innerHTML = edge(); aside.setAttribute('aria-label', main.classList.contains('t6-sidenext') ? 'Your next step and season' : 'Your season'); wirePartner(aside); wireStart(aside); balance(main); } else if (aside) { aside.setAttribute('aria-label', 'The item you picked'); wirePartner(aside); } } });
   main.querySelector('[data-t6doneband]')?.addEventListener('toggle', e => { S.t6DoneOpen = e.target.open; });
   wireStart(main);
+  balance(main);
   if (S.t6Refocus) { const el = main.querySelector(S.t6Refocus); S.t6Refocus = null; el?.focus({ preventScroll: true }); }
 }
 
