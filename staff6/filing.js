@@ -1,0 +1,140 @@
+// Staff v6 (R-336 V25, spec section 6): the filing card. In v5 filing was "File at the Capitol" (a bare link to the
+// bill) and a Mark filed sheet; the Capitol form's answers lived only in Help, and Kevin's ready-to-file draft was folded
+// under "+2 on this bill" (assessment X22, journey "file": 4 clicks and a trip to Help). Here every filing step is on one
+// card, in the order a newcomer files:
+//   1. the PDF (the approved Doc, exported as a PDF),
+//   2. the Capitol page for this hearing (the bill's page, where Submit Testimony picks the hearing),
+//   3. the form's answers, each with Copy: position, organization, the name it is signed with, and the form's choice of
+//      how HIPHI testifies, filled from who is going ("In person: Kris is going", else "Written testimony only"; Remote is
+//      named for whoever speaks by video, since nothing records that), and the watch link when the hearing has one,
+//   4. Mark filed, with the Capitol's confirmation link if there is one.
+// The same steps are a sheet (the row's File and the card's Mark filed anywhere in the app: setStepHook('file')) and the
+// open item on Testimony › Ready to file (filingSteps, inline). From Today it is 2 taps: File, then Mark filed (P3 kept;
+// target: 0 clicks to find, at most 3 steps in the app).
+// After the sitting has started an unfiled draft is Missed (said in neutral, never red, addendum 4): the row's "Did we
+// file?" offers "Yes, mark filed (late)", "No, we didn't file" (recorded on the bill, steps.js nofile) and "How did it go?";
+// the card's own "Yes, mark filed (late)" asks only for the link. Undo on every step (P2).
+import { S, DB, esc, capitolUrl, hooks } from './data.js';
+import { draftHearing, streamOf, attendees, billRoute, whenAt } from './model.js';
+import { icon, btn, toast, openSheet, closeSheet, field, POS_WORD } from './ui.js';
+import { setStepHook, finish, sayWords, committeeName, orWords, dayWords, timeWords, billStep, statusTile, shownStatus } from './steps.js';
+
+const HIPHI = 'Hawaiʻi Public Health Institute';
+// The Capitol form's three positions (Help, How to file: "Support, Oppose or Comments").
+const FORM_POS = { strongly_support: 'Support', support: 'Support', support_amend: 'Support', strongly_oppose: 'Oppose', oppose: 'Oppose', neutral: 'Comments' };
+// A Google Doc's own PDF: the export address of the same Doc (Help's step 1, "File, Download, PDF", in one tap).
+export const pdfUrl = url => { const m = /docs\.google\.com\/document\/d\/([^/?#]+)/.exec(String(url || '')); return m ? `https://docs.google.com/document/d/${m[1]}/export?format=pdf` : ''; };
+const coalitionsOf = b => (S.billCampaigns?.[b.id] || []).map(id => (S.campaigns || []).find(c => c.id === id)).filter(Boolean);
+const sittingRows = h => (S.hearings || []).filter(x => x.committee === h.committee && x.scheduled_at === h.scheduled_at);
+const goers = h => { const seen = new Set(); return h ? sittingRows(h).flatMap(r => attendees(r)).filter(a => !seen.has(a.id) && seen.add(a.id)).map(a => a.id) : []; };
+// The form's choice, from who is going (V25 weak point: "written only" would steer Kris and Lauren wrong).
+export function formChoice(h) {
+  const ids = goers(h); if (!ids.length) return { words: 'Written testimony only', going: false };
+  const who = orWords(ids, S.me, { and: true });
+  return { words: `In person: ${who} ${ids.length > 1 || ids.includes(S.me?.id) ? 'are' : 'is'} going`, going: true };
+}
+// "the House Health hearing Tue 3/17, 9:30 AM"
+const hearingWords = h => h ? `the ${committeeName(h.committee) || h.committee} hearing ${dayWords(h.scheduled_at)}, ${timeWords(h.scheduled_at)}` : 'its hearing';
+const copyBtn = (text, what) => btn('Copy', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-fcopy': text, 'aria-label': `Copy ${what}: ${text}` } });
+const answer = (label, value, copy = '', cls = '') => `<div class="tf-ans${cls ? ' ' + cls : ''}"><dt>${esc(label)}</dt><dd><span class="tf-val">${value}</span>${copy}</dd></div>`;
+
+// Steps 1 to 3 (and, inline, 4). `inline`: the open item's card, whose Mark filed is the card's own filled button; a sheet
+// puts Mark filed in its foot.
+export function filingSteps(b, d, { inline = false, primary = true } = {}) {
+  const h = draftHearing(d), pdf = pdfUrl(d.doc_url), stream = h ? streamOf(h) : null, choice = formChoice(h);
+  const pos = FORM_POS[b.position] || '', coals = coalitionsOf(b), id = `tf-${esc(d.id)}${inline ? '-i' : ''}`;
+  const one = `<li class="tf-step"><span class="tf-n" aria-hidden="true">1</span><div class="tf-body"><p class="tf-h">Save the approved testimony as a PDF</p>
+      <div class="tf-acts">${pdf ? btn('Download the PDF', { kind: 'secondary', icon: 'download', href: pdf, target: '_blank' }) : ''}${d.doc_url ? btn('Open Doc', { kind: 'text', sm: true, icon: 'file-text', iconEnd: 'external-link', href: d.doc_url, target: '_blank' }) : ''}</div>
+      ${d.doc_url ? (pdf ? '' : '<p class="tf-help">In the Doc: File, Download, PDF.</p>') : `<p class="tf-help">The Doc’s link is missing. <a href="${esc(billRoute(b))}">Open the bill</a> to find the draft.</p>`}</div></li>`;
+  const two = `<li class="tf-step"><span class="tf-n" aria-hidden="true">2</span><div class="tf-body"><p class="tf-h">Open the bill on the Capitol website</p>
+      <div class="tf-acts">${btn('Open the Capitol page', { kind: 'secondary', iconEnd: 'external-link', href: capitolUrl(b), target: '_blank' })}</div>
+      <p class="tf-help">Log in, press Submit Testimony and pick ${esc(hearingWords(h))}.</p></div></li>`;
+  const sign = [`<span class="tf-or"><span>HIPHI</span>${copyBtn('HIPHI', 'the name it is signed with')}</span>`, ...coals.slice(0, 2).map(c => { const n = c.public_name || c.name; return `<span class="tf-or"><span>or ${esc(n)}</span>${copyBtn(n, 'the coalition’s name')}</span>`; })].join('');
+  const three = `<li class="tf-step"><span class="tf-n" aria-hidden="true">3</span><div class="tf-body"><p class="tf-h">Fill in the form</p>
+      <dl class="tf-answers">
+        ${answer('Position', pos ? esc(pos) : esc(POS_WORD[b.position] || 'Ask the bill’s owner'), pos ? copyBtn(pos, 'the position') : '')}
+        ${answer('Organization', esc(HIPHI), copyBtn(HIPHI, 'the organization'))}
+        ${answer('Signed with', `<span class="tf-ors">${sign}</span>`, '', 'tf-signed')}
+        ${answer('How we testify', `${esc(choice.words)}<span class="tf-sub">${choice.going ? 'Speaking by video instead? Choose Remote.' : 'Someone speaking? Choose In person, or Remote by video.'}</span>`)}
+        ${stream ? answer('Watch', `<a href="${esc(stream.url)}" target="_blank" rel="noopener">${icon('video')}<span>${esc(stream.label)}</span></a>`) : ''}
+      </dl>
+      <p class="tf-help">${coals.length ? 'Use the coalition’s name when the letter speaks for the coalition. ' : ''}Upload the PDF and submit. A green box means it went in.</p></div></li>`;
+  const four = `<li class="tf-step"><span class="tf-n" aria-hidden="true">4</span><div class="tf-body"><p class="tf-h">Mark it filed here</p>
+      ${field(`${id}-url`, 'Capitol confirmation link (optional)', `<input id="${id}-url" type="url" inputmode="url" autocomplete="off" placeholder="https://" data-furl>`)}
+      <p class="err" id="${id}-e" role="alert" hidden>That does not look like a web address. It starts with https://</p>
+      ${inline ? `<div class="tf-acts">${btn('Mark filed', { kind: primary ? 'primary' : 'secondary', icon: 'clipboard-check', attrs: { 'data-fgo': '1', 'data-v6b': b.id, 'data-v6d': d.id } })}</div>` : ''}</div></li>`;
+  return `<ol class="tf-steps" aria-label="Filing steps">${one}${two}${three}${four}</ol>`;
+}
+
+// Mark filed, from the sheet or the inline card: the link is checked as v5's sheet did, then the same DB step, the calm
+// finish and the Undo toast that says it is done (P2).
+async function markFiled(b, d, root, el, after) {
+  const inp = root.querySelector('[data-furl]'), er = root.querySelector('.err[role="alert"]'), url = (inp?.value || '').trim();
+  if (url && !/^https?:\/\/[^\s/$.?#][^\s]*\.[^\s]{2,}$/i.test(url)) { if (er) er.hidden = false; inp.setAttribute('aria-invalid', 'true'); inp.focus(); return; }
+  if (el) { el.setAttribute('aria-busy', 'true'); el.disabled = true; }
+  try {
+    await DB.transition(b.id, d.id, 'file', null, url || null);
+    const redraw = after || (() => hooks.render());
+    if (el?.closest('dialog')) await closeSheet({ silent: true });
+    else await finish(el);
+    redraw();
+    toast(`Filed. ${sayWords(b)} is done for ${committeeName(d.committee) || d.committee}.`, { ok: true,
+      undo: async () => { await DB.transition(b.id, d.id, 'unfile'); toast('Filing undone. It is approved and ready to file again.'); redraw(); } });
+  } catch (e) { toast(e, { err: true }); if (el?.isConnected) { el.removeAttribute('aria-busy'); el.disabled = false; } }
+}
+
+// The sheet: the row's File, the card's Mark filed. Its foot holds the one filled button, Mark filed.
+export function openFiling(b, d, { late = false, after, el } = {}) {
+  if (late) return el?.textContent?.includes('Did we file') ? didWeFile(b, d, { after }) : lateSheet(b, d, { after });
+  const s = billStep(b, { d }), st = s ? shownStatus(s) : null, tile = st && ['late', 'overdue'].includes(st.tone) ? st : s?.act?.words ? { tone: 'neutral', icon: 'clock', words: s.act.words } : null;
+  openSheet({ title: `File the ${esc(sayWords(b))} testimony`, size: 'auto',
+    body: `<div class="tf-sheet">${tile ? `<p class="tf-when">${statusTile(tile)}</p>` : ''}${filingSteps(b, d)}</div>`,
+    foot: btn('Mark filed', { kind: 'primary', icon: 'clipboard-check', attrs: { 'data-fsheet': '1' } }),
+    wire: dlg => {
+      const go = dlg.querySelector('[data-fsheet]'), inp = dlg.querySelector('[data-furl]');
+      inp?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); go.click(); } });
+      inp?.addEventListener('input', () => { inp.removeAttribute('aria-invalid'); const er = dlg.querySelector('.err[role="alert"]'); if (er) er.hidden = true; });
+      go.onclick = () => markFiled(b, d, dlg, go, after);
+    } });
+}
+// "Yes, mark filed (late)" on the closing card: the person already said yes, so only the link and Mark filed.
+function lateSheet(b, d, { after } = {}) {
+  const id = `tf-${esc(d.id)}-late`;
+  openSheet({ title: `Filed the ${esc(sayWords(b))} testimony (late)?`, size: 'auto',
+    body: `${field(`${id}-url`, 'Capitol confirmation link (optional)', `<input id="${id}-url" type="url" inputmode="url" autocomplete="off" placeholder="https://" data-furl>`, 'Paste the link from the Capitol’s confirmation, if you have it.')}<p class="err" id="${id}-e" role="alert" hidden>That does not look like a web address. It starts with https://</p>`,
+    foot: btn('Mark filed', { kind: 'primary', icon: 'clipboard-check', attrs: { 'data-fsheet': '1' } }),
+    wire: dlg => { const go = dlg.querySelector('[data-fsheet]'); go.onclick = () => markFiled(b, d, dlg, go, after); } });
+}
+// The row's "Did we file?" after the sitting started: three calm answers, none of them red (V25, addendum 4).
+function didWeFile(b, d, { after } = {}) {
+  const h = draftHearing(d), a = { 'data-v6b': b.id, 'data-v6d': d.id };
+  openSheet({ title: `Did we file the ${esc(sayWords(b))} testimony?`, size: 'auto',
+    body: `<p class="tf-q">${esc(h ? `The ${committeeName(h.committee) || h.committee} hearing started ${whenAt(h.scheduled_at)}.` : 'Its hearing has started.')} Either answer is fine: it is noted for the team, with nobody blamed.</p>
+      <div class="tf-choices">${btn('Yes, mark filed (late)', { kind: 'secondary', icon: 'clipboard-check', attrs: { ...a, 'data-v6act': 'filed', 'data-v6late': '1' } })}
+      ${btn('No, we didn’t file', { kind: 'secondary', attrs: { ...a, 'data-v6act': 'nofile' } })}
+      ${btn('How did it go?', { kind: 'text', icon: 'message-square', href: `${billRoute(b, 'activity')}?reply=1` })}</div>`,
+    wire: dlg => { dlg.querySelector('a[href^="#/"]')?.addEventListener('click', () => closeSheet({ silent: true })); } });
+  void after;
+}
+
+// One listener for the whole app, like steps.js: Copy writes the answer on the tap (that is what lets the browser write
+// the clipboard), else shows it to copy by hand; the inline card's Mark filed finds its bill and draft.
+if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('click', e => {
+  const c = e.target?.closest?.('[data-fcopy]');
+  if (c) {
+    e.preventDefault(); const text = c.dataset.fcopy;
+    const done = () => { toast(`Copied: ${text}`, { ok: true }); const sp = c.querySelector('span'); if (sp) { sp.textContent = 'Copied'; setTimeout(() => { if (c.isConnected) sp.textContent = 'Copy'; }, 1600); } };
+    const hand = () => toast(`Copying is blocked in this browser. Select it instead: ${text}`);
+    try { navigator.clipboard.writeText(text).then(done, hand); } catch { hand(); }
+    return;
+  }
+  const go = e.target?.closest?.('[data-fgo]'); if (!go) return;
+  e.preventDefault();
+  const b = (S.bills || []).find(x => String(x.id) === go.dataset.v6b), d = b && (S.drafts?.[b.id] || []).find(x => String(x.id) === go.dataset.v6d);
+  if (b && d) markFiled(b, d, go.closest('.tf-steps') || document, go, HOOK_AFTER);
+});
+let HOOK_AFTER = null;
+// The redraw after an inline Mark filed (the Testimony screen's); a sheet uses the one steps.js hands it.
+export const setFilingAfter = fn => { HOOK_AFTER = fn; };
+// Every File and Mark filed in the app opens this card (steps.js ACTS.filed).
+setStepHook('file', (b, d, o = {}) => openFiling(b, d, o));
