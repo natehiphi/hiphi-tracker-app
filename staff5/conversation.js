@@ -6,6 +6,9 @@
 // Activity tab): one record found in three places, where notes used to live in three places that never met.
 // The same dialog and the same list serve all three pages. Your own entry can be corrected or deleted for ten minutes
 // (the database enforces the ten minutes for a correction); after that it is the record, and only an admin can delete it.
+// R-335 (practice copy, profile.js PROFILES): "Add a note" saves a dated note about one legislator in the same log (no issue,
+// bill or other legislators), and your own entries can be corrected at any time, each correction keeping the wording
+// before it ("edited", Earlier wording). Delete keeps its ten minutes. With PROFILES off all of this is as it was.
 import { S, DB, DEMO, esc, fmtDate, advocate, hooks } from './data.js';
 import { legById, billById, stopOf, legsOf, cmteName, hiToday, hstDayOf, diedish, billSay } from './model.js';
 import { icon, btn, iconBtn, chip, toast, openSheet, closeSheet, menuSheet } from './ui.js';
@@ -15,6 +18,7 @@ import { photo, shortName, partyDist, legHref, roleWord, seatsText } from './pat
 import { matchLegs } from './legislators.js';
 import { billRoute } from './model.js';
 import { drafts } from './bill.js';   // R-277 fix 8: the same held words the bill chat and the to-do box keep
+import { PROFILES, earlierSheet } from './profile.js';   // R-335 (practice copy)
 
 // R-277 fix 8 (E-5): words typed about a meeting are never lost. Esc, a tap outside the sheet or a phone's back swipe
 // closed it and the note was gone. Like the bill chat's draft (activity.js, bill.js drafts), what is typed is held as it
@@ -57,14 +61,18 @@ export function groupsOf(rows) {
   return [...by].map(([key, rs]) => {
     const r = rs[0], at = rs.map(x => String(x.created_at || '')).sort()[0];
     return { key, rows: rs, id: r.conversation_id || null, body: r.body || '', issue_id: r.issue_id || null, bill_id: r.bill_id || null,
-      day: r.met_on || hstDayOf(at || Date.now()), created_at: at, advocate_id: r.advocate_id, legs: [...new Set(rs.map(x => x.legislator_id))] };
+      day: r.met_on || hstDayOf(at || Date.now()), created_at: at, advocate_id: r.advocate_id, legs: [...new Set(rs.map(x => x.legislator_id))],
+      kind: r.kind || null, history: r.history || [], edited_at: r.edited_at || null, edited_by: r.edited_by || null };   // R-335: a note, and earlier wording
   }).sort((a, b) => b.day.localeCompare(a.day) || String(b.created_at).localeCompare(String(a.created_at)));
 }
 const hiddenNow = () => (S.cvHidden ??= new Set());
 export const convCount = rows => groupsOf(rows).filter(g => !hiddenNow().has(g.key)).length;
 const fresh = g => Date.now() - new Date(g.created_at).getTime() < WINDOW;
 const mine = g => !!S.me && g.advocate_id === S.me.id;
-const canTouch = g => (mine(g) && fresh(g)) || !!S.me?.is_admin;
+// R-335 (practice copy): your own entry can be corrected at any time, so its "…" stays; with PROFILES off, ten minutes.
+const mayFix = g => mine(g) && (PROFILES() || fresh(g));
+const canTouch = g => mayFix(g) || !!S.me?.is_admin;
+const isNote = g => g.kind === 'note';
 
 // A legislator's page holds only that legislator's rows; the others in the same conversation are named from the rows
 // the app already has (the sandbox has them all) and, live, from DB.conversationRows when the data layer offers it.
@@ -113,8 +121,10 @@ function itemHTML(g, here) {
   const iss = g.issue_id && !quiet ? issueById(g.issue_id) : null;
   const bill = g.bill_id && g.bill_id !== here.billId ? billById(g.bill_id) : null;
   const head = here.legId ? (names.length ? `Also with ${andList(names)}` : '') : (andList(names) || 'A legislator');
-  const meta = [esc(dayOf(g.day)), mine(g) ? 'you logged it' : `${esc(firstName(who))} logged it`,
-    bill ? `on <a href="${billRoute(bill)}">${bill.nickname ? `${esc(bill.nickname)} <span class="bn-num">${esc(bill.bill_number)}</span>` : esc(bill.bill_number)}</a>` : ''].filter(Boolean).join(' · ');
+  // R-335: a note says it is one ("Note · Kris"), and a corrected entry says "edited", which opens its earlier wording.
+  const ed = PROFILES() && g.edited_at ? `<button type="button" class="linkbtn cv-ed" data-cved="${esc(g.key)}" aria-label="Edited. See the earlier wording">edited</button>` : '';
+  const meta = [esc(dayOf(g.day)), isNote(g) ? `Note · ${mine(g) ? 'You' : esc(firstName(who))}` : mine(g) ? 'you logged it' : `${esc(firstName(who))} logged it`,
+    bill ? `on <a href="${billRoute(bill)}">${bill.nickname ? `${esc(bill.nickname)} <span class="bn-num">${esc(bill.bill_number)}</span>` : esc(bill.bill_number)}</a>` : '', ed].filter(Boolean).join(' · ');
   const at = landKey() === g.key;   // R-316 H-15: the one a search result opened
   return `<article class="row cv-item${at ? ' cv-land' : ''}" data-cvkey="${esc(g.key)}"${at ? ' tabindex="-1"' : ''}>
     <div class="cv-main">
@@ -122,7 +132,7 @@ function itemHTML(g, here) {
       <p class="cv-meta"><span>${meta}</span>${iss ? chip(iss.name, '', 'tag', { sm: true }) : ''}</p>
       <p class="cv-text">${esc(g.body)}</p>
     </div>
-    ${canTouch(g) ? iconBtn('ellipsis', 'More for this conversation', { 'data-cvmore': g.key }, 'cv-more') : ''}
+    ${canTouch(g) ? iconBtn('ellipsis', isNote(g) ? 'More for this note' : 'More for this conversation', { 'data-cvmore': g.key }, 'cv-more') : ''}
   </article>`;
 }
 export function convListHTML(rows, here = {}, { limit = 3, key = 'cv', none = 'No conversations logged yet.' } = {}) {
@@ -139,14 +149,22 @@ export function wireConvList(box, { rows, redraw }) {
   land(box);
   box.querySelectorAll('[data-cvall]').forEach(el => el.onclick = () => { (S.cvAll ??= new Set()).add(el.dataset.cvall); redraw(); });
   box.querySelectorAll('[data-cvmore]').forEach(el => el.onclick = () => { const g = groupsOf(rows()).find(x => x.key === el.dataset.cvmore); if (g) convMenu(g, redraw); });
+  box.querySelectorAll('[data-cved]').forEach(el => el.onclick = () => { const g = groupsOf(rows()).find(x => x.key === el.dataset.cved); if (g) earlierOf(g); });
 }
 function convMenu(g, redraw) {
-  const ok = fresh(g), admin = !!S.me?.is_admin;
+  const ok = fresh(g), admin = !!S.me?.is_admin, any = PROFILES();
   const late = 'Notes can be corrected for ten minutes after they are saved. After that they are the record.';
-  menuSheet({ title: 'Conversation', items: [
-    mine(g) ? { label: 'Edit', icon: 'pencil', sub: 'For ten minutes after it is saved', disabled: !ok, reason: late, run: () => afterBack(() => logConversation({ edit: g, onDone: redraw })) } : null,
-    mine(g) || admin ? { label: 'Delete', icon: 'trash-2', danger: true, disabled: !ok && !admin, reason: late, run: () => removeConv(g, redraw) } : null,
+  const edit = () => afterBack(() => isNote(g) ? addNote({ edit: g, onDone: redraw }) : logConversation({ edit: g, onDone: redraw }));
+  menuSheet({ title: isNote(g) ? 'Note' : 'Conversation', items: [
+    mine(g) ? { label: 'Edit', icon: 'pencil', sub: any ? 'Any time. The earlier wording is kept' : 'For ten minutes after it is saved', disabled: !ok && !any, reason: late, run: edit } : null,
+    any && g.history.length ? { label: 'Earlier wording', icon: 'history', run: () => afterBack(() => earlierOf(g)) } : null,
+    mine(g) || admin ? { label: 'Delete', icon: 'trash-2', danger: true, disabled: !ok && !admin, reason: any ? 'Your own can be deleted for ten minutes after it is saved. After that only an admin can.' : late, run: () => removeConv(g, redraw) } : null,
   ] });
+}
+// R-335: the words now, then each version before, with who wrote it and when (profile.js draws it, as for a profile line).
+function earlierOf(g) {
+  earlierSheet({ now: { body: g.body, by: g.edited_by || g.advocate_id, at: g.edited_at || g.created_at }, versions: g.history,
+    about: `${isNote(g) ? 'Note' : 'Conversation'} · ${dayOf(g.day)}` });
 }
 // Delete acts at once and offers Undo; the rows go for good only once the Undo has gone (B-5), as the legislator page did.
 function removeConv(g, redraw) {
@@ -156,7 +174,7 @@ function removeConv(g, redraw) {
     catch { toast('Could not delete the conversation. It is back.', { err: true }); }
     hiddenNow().delete(g.key); redraw();
   }, 10000);
-  toast('Conversation deleted.', { undo: () => { clearTimeout(t); hiddenNow().delete(g.key); redraw(); } });
+  toast(isNote(g) ? 'Note deleted.' : 'Conversation deleted.', { undo: () => { clearTimeout(t); hiddenNow().delete(g.key); redraw(); } });
 }
 
 // ---- a Conversations section that loads its own rows (a bill's Activity tab, an issue's page) ----
@@ -366,6 +384,49 @@ export function logConversation({ bill = null, issueId = null, legislatorIds = [
       };
     } });
 }
+// ---- R-335 (practice copy): Add a note ----
+// A dated note about one legislator, beside Log a conversation: something that happened that was not a meeting or a call
+// ("spoke at the HLT hearing", "back from leave on the 20th"). What holds from week to week belongs in their Profile
+// (profile.js). It goes in the same log as a conversation, marked as a note, with no issue, bill or other legislators, so it
+// shows only on their page. The words are held while typed (C-9), as a conversation's are.
+export function addNote({ legId = null, edit = null, onDone = () => hooks.render() } = {}) {
+  const g = edit, lid = g ? g.legs[0] : legId, l = legById(lid); if (!l) return;
+  const nk = g ? null : `nt:${lid}`, held = nk ? heldNote(nk) : null;
+  const body = `<div class="cv-sheet">
+    <p class="small muted cv-nfor">${esc(shortName(l))}</p>
+    <div class="field"><label for="cv-ntext">Note</label><textarea id="cv-ntext" rows="4" maxlength="4000" autocapitalize="sentences" spellcheck="true" placeholder="What happened, for example: spoke at the HLT hearing, or back from leave on the 20th" aria-describedby="cv-ntext-e">${esc(g ? g.body : held?.text || '')}</textarea>
+      <span class="err" id="cv-ntext-e" hidden>${icon('circle-alert')}Write the note first.</span>
+      ${held ? `<span class="help cv-held">${icon('history')}Your note from before, kept until you save it.</span>` : ''}</div>
+    <div class="field cv-dayf"><label for="cv-nday">Date</label><input id="cv-nday" type="date" value="${esc(g ? g.day : hiToday())}" max="${esc(hiToday())}"></div>
+    <p class="small muted cv-reach">Team only. Shows in ${esc(shortName(l))}’s Conversations and notes.</p>
+  </div>`;
+  openSheet({ title: g ? 'Edit this note' : 'Add a note', size: 'auto', body,
+    foot: btn(g ? 'Save changes' : 'Save note', { icon: 'check', attrs: { 'data-cvnsave': '1' } }),
+    wire: d => {
+      const ta = d.querySelector('#cv-ntext'), err = d.querySelector('#cv-ntext-e');
+      ta.focus();
+      ta.oninput = () => { err.hidden = true; ta.removeAttribute('aria-invalid'); if (nk) holdNote(nk, { text: ta.value }); };
+      d.querySelector('[data-cvnsave]').onclick = async e => {
+        const words = ta.value.trim(), day = d.querySelector('#cv-nday').value || hiToday();
+        if (!words) { err.hidden = false; ta.setAttribute('aria-invalid', 'true'); ta.focus(); return; }
+        if (!S.me) { toast('Your login is not linked to a staff record yet. Ask your admin.', { err: true }); return; }
+        const go = e.currentTarget; go.setAttribute('aria-busy', 'true'); go.disabled = true;
+        try {
+          if (g) {
+            const undo = await correct(g, { picked: g.legs, words, issue: null, day });
+            await closeSheet({ silent: true }); onDone();
+            toast('Saved. The earlier wording is kept.', { ok: true, undo: async () => { await undo(); onDone(); toast('Put back as it was.'); } });
+          } else {
+            const r = await DB.addLegNote(lid, null, words, { metOn: day, conversationId: uuid(), kind: 'note' });
+            if (nk) holdNote(nk, null);
+            await closeSheet({ silent: true }); onDone();
+            toast(`Note added to ${shortName(l)}’s page.`, { ok: true, undo: async () => { await DB.delLegNote(r.id, r.legislator_id); onDone(); toast('Removed.'); } });
+          }
+        } catch (x) { if (go.isConnected) { go.removeAttribute('aria-busy'); go.disabled = false; } toast(x, { err: true }); }
+      };
+    } });
+}
+
 // One row per legislator, one conversation id. If a row is refused half way, the rows already written are taken back.
 async function logNew({ ctx, picked, words, issue, day }) {
   const conversationId = uuid(), made = [];
@@ -377,18 +438,23 @@ async function logNew({ ctx, picked, words, issue, day }) {
 // off. The rows that stay are written first: after ten minutes the database refuses, and nothing else has changed yet.
 // Returns the Undo.
 async function correct(g, { picked, words, issue, day }) {
-  if (!fresh(g)) throw new Error(LATE);
+  const any = PROFILES();   // R-335 (practice copy): any time, and a change of words keeps the words before it
+  if (!fresh(g) && !any) throw new Error(LATE);
   const cid = g.id || uuid();
   const keep = g.rows.filter(r => picked.includes(r.legislator_id)), gone = g.rows.filter(r => !picked.includes(r.legislator_id));
   const add = picked.filter(id => !g.rows.some(r => r.legislator_id === id));
-  const before = keep.map(r => ({ id: r.id, body: r.body, issue_id: r.issue_id ?? null, met_on: r.met_on ?? null, conversation_id: r.conversation_id ?? null }));
+  const before = keep.map(r => ({ id: r.id, body: r.body, issue_id: r.issue_id ?? null, met_on: r.met_on ?? null, conversation_id: r.conversation_id ?? null,
+    ...(any ? { history: r.history || [], edited_at: r.edited_at || null, edited_by: r.edited_by || null } : {}) }));
   const patch = { body: words, issue_id: issue, met_on: day, ...(g.id ? {} : { conversation_id: cid }) };
+  const now = new Date().toISOString();
+  const kept = r => !any || r.body === words ? {} : { history: [{ body: r.body, by: r.edited_by || r.advocate_id, at: r.edited_at || r.created_at }, ...(r.history || [])], edited_at: now, edited_by: S.me?.id };
   const made = [];
-  for (const r of keep) await DB.updateLegNote(r.id, patch);   // refused after ten minutes, and the data layer puts it back
+  for (const r of keep) await DB.updateLegNote(r.id, { ...patch, ...kept(r) });   // refused after ten minutes, and the data layer puts it back
   for (const id of add) made.push(await DB.addLegNote(id, g.bill_id, words, { issueId: issue, metOn: day, conversationId: cid }));
   for (const r of gone) await DB.delLegNote(r.id, r.legislator_id);
   return async () => {
-    for (const p of before) await DB.updateLegNote(p.id, { body: p.body, issue_id: p.issue_id, met_on: p.met_on, ...(g.id ? {} : { conversation_id: p.conversation_id }) });
+    for (const p of before) await DB.updateLegNote(p.id, { body: p.body, issue_id: p.issue_id, met_on: p.met_on, ...(g.id ? {} : { conversation_id: p.conversation_id }),
+      ...(any ? { history: p.history, edited_at: p.edited_at, edited_by: p.edited_by } : {}) });
     for (const r of made) await DB.delLegNote(r.id, r.legislator_id);
     for (const r of gone) await DB.addLegNote(r.legislator_id, r.bill_id, r.body, { issueId: r.issue_id, metOn: r.met_on, conversationId: r.conversation_id || cid });
   };

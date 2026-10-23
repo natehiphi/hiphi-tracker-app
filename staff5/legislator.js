@@ -13,13 +13,18 @@
 // v3 (R-264): each fact once. The name and district are the page's heading (the side card keeps the photo, the title and
 // the towns); the committees are their own section (not also a line under the phone's heading); and a bill with no
 // stance yet shows a quiet "Set stance" instead of a bordered "Unknown" picker on every row.
+// R-335 (practice copy until Nate's yes, profile.js PROFILES): a Profile under the heading (laptop) or the action row (phone),
+// before the bills: a tip and six sections the team keeps about them. Opened from a bill (?from=), that bill's stance row
+// still comes first, then the Profile. "Add a note" sits beside Log a conversation (on a phone the filled Log a conversation
+// takes the second line whole, A-3), and the log is "Conversations and notes". With PROFILES off the page is as it was.
 import { S, DB, esc, hooks, advocate } from './data.js';
 import { stopOf, stanceOf, legById, legsForSponsors, codesOf, diedish, hearingAhead, billNum, billSay, blurb, cmteName, STANCES, billByRef } from './model.js';
 import { icon, btn, iconBtn, chip, pickerChip, pickerSheet, empty, notice, toast } from './ui.js';
 import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { photo, legName, shortName, seatsOf, roleWord, legMail, billSub, billHref, stanceChip, openStance, wireStances, wireLinks, STANCE_WORD, STANCE_ICON } from './pathway.js';
 import { ourBill, islandFor } from './legislators.js';
-import { logConversation, convListHTML, wireConvList, withOthers, fetchOthers, convCount } from './conversation.js';
+import { logConversation, convListHTML, wireConvList, withOthers, fetchOthers, convCount, addNote } from './conversation.js';
+import { PROFILES, profileHTML, wireProfile } from './profile.js';   // R-335 (practice copy)
 import { billRoute } from './model.js';
 
 const PARTY = { D: 'Democrat', R: 'Republican', I: 'Independent' };
@@ -81,7 +86,8 @@ const section = (id, title, n, inner, extra = '') => `<section class="lg-sec" ar
 const convRows = l => withOthers(S.legNotes?.[l.id] || []);
 function notesHTML(l) {
   if (!S.legNotes?.[l.id]) return `<div class="skel lg-skel"></div>`;
-  return `<div class="cv-box" id="lg-cvbox">${convListHTML(convRows(l), { legId: l.id }, { limit: FOLD, key: 'lg' + l.id, none: 'None logged yet. After a meeting or a call, use Log a conversation.' })}</div>`;
+  const none = PROFILES() ? 'None yet. Log a conversation after a meeting or a call, or add a note about something that happened.' : 'None logged yet. After a meeting or a call, use Log a conversation.';
+  return `<div class="cv-box" id="lg-cvbox">${convListHTML(convRows(l), { legId: l.id }, { limit: FOLD, key: 'lg' + l.id, none })}</div>`;
 }
 // Hawaiʻi-specific: the Speaker and the Senate President hold no committee seats. They preside over their chamber
 // and refer each bill to its committees, so "no bills in their committees" is how the job works, not a gap in our
@@ -93,6 +99,9 @@ function noSeats(l) {
     : `${esc(shortName(l))} has no committee seats this session, so none of our bills waits on their committee vote. Floor votes still count.`;
   return notice('info', 'info', `<b>No committee seats.</b> ${why} You can still set a stance from a bill's Committees, and log every conversation here.`);
 }
+// R-335: a dated note about them, in the same log (conversation.js addNote). Secondary: Log a conversation stays the one
+// filled button (A-3).
+const noteBtn = (l, { sm = false } = {}) => btn('Add a note', { kind: 'secondary', sm, icon: 'square-pen', attrs: { 'data-lgaddnote': '1', 'aria-haspopup': 'dialog', 'aria-label': `Add a note about ${shortName(l)}` } });
 // The phone number, by pointer: text and Copy with a mouse, a Call button on a touch screen. Nothing at all when the
 // directory has no number (no senator has one), so there is never an empty row or a button that cannot work.
 const copyBtn = (what, value) => btn('Copy', { kind: 'text', sm: true, icon: 'copy', attrs: { 'data-lgcopy': value, 'data-lgwhat': what, 'aria-label': `Copy the ${what}` } });
@@ -110,7 +119,8 @@ function parts(route, l, desk) {
     introSec: () => section('lg-s3', 'Bills they introduced', intro.length, intro.length ? `<div class="rows">${folded(`${l.id}|in`, intro.map(billLink))}</div>` : `<p class="lg-empty">None of the bills on the tracker.</p>`),
     // One Log a conversation per page (R-316 W56, A-3): the filled one sits in the contact card (laptop) or the action
     // row (phone), so the section heading carries none.
-    notesSec: () => section('lg-s4', 'Conversations', S.legNotes?.[l.id] ? convCount(convRows(l)) || null : null, notesHTML(l)),
+    notesSec: () => section('lg-s4', PROFILES() ? 'Conversations and notes' : 'Conversations', S.legNotes?.[l.id] ? convCount(convRows(l)) || null : null, notesHTML(l)),
+    profSec: () => PROFILES() ? profileHTML(l, { intro }) : '',
   };
 }
 
@@ -126,12 +136,13 @@ function phoneHTML(route, l, back) {
           <p class="lg-hsub">${esc([PARTY[l.party] || l.party, `${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}`, l.title, l.places].filter(Boolean).join(' · '))}</p>
         </div>
       </header>
-      <div class="lg-acts">
+      <div class="lg-acts${PROFILES() ? ' lg-acts4' : ''}">
         ${hasMail ? btn('Email', { kind: 'secondary', icon: 'mail', href: legMail(l, from), sm: true }) : ''}
         ${!hasCall ? '' : hover ? `<span class="lg-tel">${icon('phone')}<span>${esc(l.phone)}</span>${copyBtn('phone number', l.phone)}</span>` : btn('Call', { kind: 'secondary', icon: 'phone', href: `tel:${l.phone}`, sm: true })}
+        ${PROFILES() ? noteBtn(l, { sm: true }) : ''}
         ${btn('Log a conversation', { sm: true, attrs: { 'data-lglog': '1' } })}
       </div>
-      ${p.standSec(seats.length > 0)}${p.cmSec()}${p.introSec()}${p.notesSec()}
+      ${from ? p.standSec(seats.length > 0) + p.profSec() : p.profSec() + p.standSec(seats.length > 0)}${p.cmSec()}${p.introSec()}${p.notesSec()}
       ${seats.length ? section('lg-s5', 'Committees', seats.length, `<div class="rows">${seats.map(m => `<div class="row lg-crow"><span class="body"><span class="title">${esc(cmteName(m.committee))}</span><span class="sub">${esc(m.committee)} · ${S.committees?.[m.committee]?.chamber === 'S' ? 'Senate' : 'House'}</span></span>${m.role !== 'member' ? chip(roleWord(m.role)) : ''}</div>`).join('')}</div>`) : ''}
       ${section('lg-s6', 'Contact', null, `<div class="rows">
         ${hasMail ? `<a class="row" href="mailto:${esc(l.email)}"><span class="lead">${icon('mail')}</span><span class="body"><span class="title">${esc(l.email)}</span><span class="sub">Email</span></span></a>` : ''}
@@ -155,7 +166,7 @@ function deskHTML(route, l, back) {
           <h1>${esc(legName(l))}</h1>
           <p class="lg-hsub">${esc([PARTY[l.party] || l.party, `${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}`, island].filter(Boolean).join(' · '))}</p>
         </div></header>
-        ${p.standSec(false)}${p.cmSec()}${p.notesSec()}${p.introSec()}
+        ${from ? p.standSec(false) + p.profSec() : p.profSec() + p.standSec(false)}${p.cmSec()}${p.notesSec()}${p.introSec()}
       </div>
       <aside class="sv-aside lg-side" aria-label="${esc(shortName(l))}: contact details and committees">
         <div class="card lg-card">
@@ -166,7 +177,7 @@ function deskHTML(route, l, back) {
             ${l.room ? line('map-pin', 'Office', `Room ${esc(l.room)}, State Capitol`) : ''}
             ${l.capitol_url ? line('landmark', 'Capitol page', `<a href="${esc(l.capitol_url)}" target="_blank" rel="noopener">capitol.hawaii.gov${icon('external-link')}<span class="sr"> (opens in a new tab)</span></a>`) : ''}
           </div>
-          <div class="lg-cacts">${btn('Log a conversation', { icon: 'notebook-pen', attrs: { 'data-lglog': '1' } })}${hasMail ? btn(from ? `Email about ${esc(from.bill_number)}` : 'Email', { kind: 'secondary', icon: 'mail', href: legMail(l, from) }) : ''}</div>
+          <div class="lg-cacts${PROFILES() ? ' lg-cacts3' : ''}">${btn('Log a conversation', { icon: 'notebook-pen', attrs: { 'data-lglog': '1' } })}${PROFILES() ? noteBtn(l) : ''}${hasMail ? btn(from ? `Email about ${esc(from.bill_number)}` : 'Email', { kind: 'secondary', icon: 'mail', href: legMail(l, from) }) : ''}</div>
         </div>
         <div class="card lg-card"><h2 class="lg-cardh" id="lg-s5">Committees${seats.length ? ` <span class="lg-n">${seats.length}</span>` : ''}</h2>
           ${seats.length ? `<ul class="lg-seats" aria-labelledby="lg-s5">${seats.map(m => `<li><span class="lg-seatn"><b>${esc(m.committee)}</b> ${esc(cmteName(m.committee))}</span>${m.role !== 'member' ? chip(roleWord(m.role)) : ''}</li>`).join('')}</ul>` : `<p class="lg-empty">No committee seats this session.</p>`}</div>
@@ -206,6 +217,8 @@ export default {
     });
     // Opened from a bill's Pathway (?from=HB1562), the conversation starts on that bill and its issue.
     root.querySelectorAll('[data-lglog]').forEach(el => el.onclick = () => logConversation({ bill: fromBill(route), legislatorIds: [l.id], onDone: () => hooks.render() }));
+    root.querySelectorAll('[data-lgaddnote]').forEach(el => el.onclick = () => addNote({ legId: l.id, onDone: () => { hooks.render(); document.querySelector('[data-lgaddnote]')?.focus({ preventScroll: true }); } }));
+    if (PROFILES()) wireProfile(root, l);
     root.querySelectorAll('[data-lgmore]').forEach(el => el.onclick = () => { (S.lgMore ??= new Set()).add(el.dataset.lgmore); hooks.render(); });
     // Correct or delete (your own, for ten minutes; an admin may delete any): conversation.js, which offers Undo.
     wireConvList(root.querySelector('#lg-cvbox'), { rows: () => convRows(l), redraw: () => hooks.render() });

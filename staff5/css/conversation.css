@@ -88,3 +88,9 @@
 /* R-277 fix 8: "Your note from before, kept until you save it." */
 .cv-held { display: flex; align-items: center; gap: 6px; }
 .cv-held .ic { flex: none; width: 16px; height: 16px; }
+
+/* R-335 (practice copy): a corrected entry's "edited" opens its earlier wording; the Add a note sheet names whom it is about. */
+.cv-meta .cv-ed { color: var(--n500); font-weight: 400; }
+.cv-meta .cv-ed:hover { color: var(--n900); }
+.cv-nfor { margin-bottom: var(--s12); }
+.cv-sheet .cv-nfor + .field + .cv-dayf { margin-top: var(--s16); }

@@ -394,3 +394,96 @@ body.staff2 .st-help .st-keyson { margin-bottom: var(--s16); }
 @media (min-width: 1600px) {
   .lg-tbl th.lg-c-district { width: 196px; }
 }
+
+/* ==== R-335: a legislator's profile (practice copy until Nate's yes; staff5/profile.js) =====================================
+   One white box under the page's heading (A-8: a list of lines gets a box): the tip first, then the six sections, each a
+   small heading with its quiet Add, its lines one under another (the writer and day at the end of the words, 13px), folded
+   to 2 with one "Show all N" (U-4). A laptop sets the sections in two columns, so the bills still start on the first screen.
+   Tokens only; sizes 13/14/16; 44px targets on touch widths (A-6). */
+.pf-note { margin-bottom: var(--s8); }
+.pf-box { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); overflow: hidden; }
+.pf-tip { display: flex; align-items: flex-start; gap: var(--s8); padding: var(--s8) var(--s4) var(--s8) var(--s16); border-bottom: 1px solid var(--n200); }
+.pf-tip > .ic { flex: none; width: 20px; height: 20px; margin-top: 12px; color: var(--n700); }
+.pf-tiptext { flex: 1 1 auto; min-width: 0; padding: 10px 0; font: 700 var(--t16)/1.4 var(--font); color: var(--n900); overflow-wrap: anywhere; white-space: pre-wrap; }
+.pf-tiptext .pf-by { font-weight: 400; }
+.pf-tip.pf-tipnone { padding: var(--s4) var(--s4) var(--s4) var(--s4); }
+.pf-sec { padding: var(--s4) var(--s4) var(--s4) var(--s16); min-width: 0; }
+.pf-sec + .pf-sec { border-top: 1px solid var(--n100); }
+.pf-sec.pf-empty { padding-top: 0; padding-bottom: 0; }   /* nothing written yet: one row, its name and its Add, so the bills stay near */
+.pf-sech { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); min-height: 44px; }
+.pf-sech h3 { font: 700 var(--t16)/1.2 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+.pf-sech .btn.text { flex: none; }
+.pf-lines { list-style: none; margin: 0; padding: 0; }
+.pf-line { display: flex; align-items: flex-start; gap: var(--s4); min-height: 44px; }
+.pf-text { flex: 1 1 auto; min-width: 0; padding: 10px 0; font-size: var(--t14); line-height: 1.45; color: var(--n900); overflow-wrap: anywhere; white-space: pre-wrap; }
+.pf-by { font-size: var(--t13); color: var(--n500); white-space: nowrap; }
+.pf-by .linkbtn { color: var(--n500); }
+.pf-by .linkbtn:hover { color: var(--n900); }
+.pf-src { font-weight: 700; color: var(--n700); }
+.pf-auto .pf-text { color: var(--n700); }
+.pf-auto a { white-space: nowrap; }   /* plain links: the tracker's line is not the heaviest thing in the box */
+.pf-more { color: var(--n500); }
+.pf-more .ic { width: 20px; height: 20px; }
+.pf-all { margin-left: -12px; }
+/* a search result opened the page at this line (?pf=): marked calmly, no motion, as a conversation's landing */
+.pf-land { background: var(--p50); box-shadow: inset 3px 0 0 var(--p700); }
+.pf-land:focus { outline: none; }
+.pf-land:focus-visible { outline: 2px solid var(--p700); outline-offset: -2px; }
+/* What they care about: HIPHI issues, each a link to the issue with its own remove */
+.pf-iss { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); margin: 0 0 var(--s4); }
+.pf-ichips { display: flex; flex-wrap: wrap; gap: var(--s8); list-style: none; margin: 0; padding: 0; }
+.pf-ichip { display: inline-flex; align-items: center; max-width: 100%; border-radius: var(--pill); background: var(--p50); color: var(--p800); font: 700 var(--t14)/1.25 var(--font); }
+.pf-ichip a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; min-width: 0; padding: 4px 6px 4px 12px; color: inherit; text-decoration: none; border-radius: var(--pill); }
+.pf-ichip a:only-child { padding-right: 14px; }
+.pf-ichip a .ic { flex: none; width: 16px; height: 16px; }
+.pf-ichip a:hover span { text-decoration: underline; text-underline-offset: 3px; }
+.pf-irm { flex: none; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; margin-left: -8px; border-radius: var(--pill); color: var(--p800); }
+.pf-irm .ic { width: 16px; height: 16px; }
+.pf-irm:hover { background: var(--p100, var(--n100)); color: var(--bad-text); }
+/* "Add an issue": an empty chip, dashed, the shape of what it makes */
+.pf-iadd { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 4px 14px 4px 10px; border: 1px dashed var(--n400); border-radius: var(--pill); background: var(--n0); color: var(--p700); font: 700 var(--t14)/1.25 var(--font); }
+.pf-iadd .ic { width: 16px; height: 16px; }
+.pf-iadd:hover { background: var(--p50); border-color: var(--p700); }
+.pf-ichips:empty { display: none; }
+/* the sheets: add or edit a line, pick an issue, the earlier wording */
+.pf-for { margin-bottom: var(--s12); }
+.pf-sheet .field textarea, .pf-sheet .field input[type="text"] { width: 100%; }
+.pf-ifind { margin-bottom: var(--s8); }
+.pf-ipick { max-height: min(60vh, 520px); overflow-y: auto; }
+.pf-none { padding: var(--s8); font-size: var(--t14); color: var(--n500); }
+.pf-vers { list-style: none; margin: 0; padding: 0; }
+.pf-ver { padding: var(--s12) 0; }
+.pf-ver + .pf-ver { border-top: 1px solid var(--n100); }
+.pf-ver:first-child { padding-top: 0; }
+.pf-vmeta { font-size: var(--t13); color: var(--n500); }
+.pf-vmeta b { color: var(--n900); }
+.pf-vtext { margin-top: var(--s4); font-size: var(--t16); line-height: 1.45; color: var(--n900); white-space: pre-wrap; overflow-wrap: anywhere; }
+/* an issue's page: "Legislators who care about this" (in the side panel on a laptop) */
+.pf-clist { list-style: none; margin: 0; padding: 0; }
+.pf-crow { min-height: 56px; gap: var(--s12); }
+.pf-crow .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the phone's action row with Add a note: Email · Call · Add a note, then the filled Log a conversation on the second line,
+   whole, so the one filled button is also the widest (A-3, A-13) */
+.lg-acts.lg-acts4 .btn.primary[data-lglog] { flex: 1 1 100%; }
+
+@media (min-width: 900px) {
+  .pf-secs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pf-sec + .pf-sec { border-top: 0; }
+  .pf-sec:nth-child(n + 3) { border-top: 1px solid var(--n100); }
+  .pf-sec:nth-child(even) { border-left: 1px solid var(--n100); }
+  /* the card's three buttons: Log a conversation (the filled one) on its own line, Add a note and Email under it */
+  .lg-cacts.lg-cacts3 > .btn.primary { flex: 1 1 100%; }
+}
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  /* a mouse: the lines and their "…" may be 36px (A-6 lets pointer widths go to 32) */
+  .pf-line { min-height: 36px; }
+  .pf-text { padding: 6px 0; }
+  .pf-tiptext { padding: 6px 0; }
+  .pf-tip > .ic { margin-top: 8px; }
+  .pf-more { width: 36px; height: 36px; }
+  .pf-sech { min-height: 36px; }
+  .pf-sech .btn.text, .pf-all, .pf-tipnone .btn.text { min-height: 36px; }
+  .pf-iadd { min-height: 32px; }
+  .pf-ichip a { min-height: 32px; }
+  .pf-irm { width: 32px; height: 32px; margin-left: -4px; }
+}

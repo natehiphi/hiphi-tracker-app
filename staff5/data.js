@@ -1432,7 +1432,8 @@ export const DB = {
   async legLatestNotes() {
     if (S.legLast) return S.legLast;
     // The practice copy's own conversations (a chair ask made there is the chair's Last contact too, R-316 W3).
-    if (DEMO) { const out = {}; for (const r of [...(S.demoNotes || [])].sort((x, y) => String(y.created_at).localeCompare(String(x.created_at)))) if (!out[r.legislator_id]) out[r.legislator_id] = r; return (S.legLast = out); }
+    // R-335: a note (Add a note, practice copy) is not a contact, so it never counts as the last one.
+    if (DEMO) { const out = {}; for (const r of [...(S.demoNotes || [])].filter(r => r.kind !== 'note').sort((x, y) => String(y.created_at).localeCompare(String(x.created_at)))) if (!out[r.legislator_id]) out[r.legislator_id] = r; return (S.legLast = out); }
     const { data, error } = await allRows(o => S.supa.from('legislator_notes').select('id,legislator_id,advocate_id,body,created_at', o).order('created_at', { ascending: false }).order('id')); if (error) throw error;
     const out = {}; for (const r of data || []) if (!out[r.legislator_id]) out[r.legislator_id] = r;
     return (S.legLast = out);
@@ -1460,7 +1461,7 @@ export const DB = {
     if (opts.answer) Object.assign(fields, { answer: opts.answer, committee: opts.committee || null });
     const row = { ...fields, created_at: new Date().toISOString(), id: 'tmp' + Date.now() + Math.random().toString(36).slice(2, 6) };
     if (!DEMO) { const { data, error } = await S.supa.from('legislator_notes').insert(fields).select('*').single(); if (error) throw error; Object.assign(row, data); }
-    else (S.demoNotes ??= []).unshift(row);
+    else { if (opts.kind) row.kind = opts.kind; (S.demoNotes ??= []).unshift(row); }   // R-335: a note (kind 'note') is a practice row only, until its migration
     // Only a legislator whose notes are already loaded gets the row added; creating the cache here would make their
     // page show this one note and skip loading the rest.
     if (S.legNotes[legId]) S.legNotes[legId].unshift(row);
@@ -1867,7 +1868,7 @@ export async function demoInit() {
   S.compStage = sc.compStage; DEMO_TL = sc.tl;
   // R-316 W38: what was changed in this tab before a person switch (savePractice), back on top of the seeds.
   if (PRACTICE) {
-    for (const k of ['drafts', 'todos', 'attend', 'messages', 'followersBy', 'assignments', 'billCampaigns', 'demoNotes']) if (PRACTICE[k]) S[k] = PRACTICE[k];
+    for (const k of ['drafts', 'todos', 'attend', 'messages', 'followersBy', 'assignments', 'billCampaigns', 'demoNotes', 'legProfiles']) if (PRACTICE[k]) S[k] = PRACTICE[k];   // R-335: legislators' profiles (a store from before has none)
     for (const b of S.bills) Object.assign(b, PRACTICE.bills?.[b.id] || {});
     DEMO_TL = [...(PRACTICE.tl || []), ...DEMO_TL.filter(t => t.source === 'auto')].sort((x, y) => String(y.occurred_at).localeCompare(String(x.occurred_at)));
     S.follows = new Set(Object.entries(S.followersBy).filter(([, ids]) => ids.includes(S.me.id)).map(([id]) => id));
@@ -2014,7 +2015,7 @@ export function savePractice() {
   for (const id of Object.keys(fb)) if (!S.follows?.has(id)) fb[id] = fb[id].filter(x => x !== me);
   for (const id of S.follows || []) if (!(fb[id] ??= []).includes(me)) fb[id].push(me);
   const p = { v: PRACTICE_V, asof: DEMO_ASOF, clock: Date.now(), drafts: S.drafts, todos: S.todos, attend: S.attend, messages: S.messages, followersBy: fb,
-    assignments: S.assignments, billCampaigns: S.billCampaigns, demoNotes: S.demoNotes || [], tl: DEMO_TL.filter(t => t.source !== 'auto'), partners: S.pDemo || null,
+    assignments: S.assignments, billCampaigns: S.billCampaigns, demoNotes: S.demoNotes || [], tl: DEMO_TL.filter(t => t.source !== 'auto'), partners: S.pDemo || null, legProfiles: S.legProfiles || null,
     bills: Object.fromEntries(S.bills.map(b => [b.id, Object.fromEntries(TEAM_COLS.map(k => [k, b[k] ?? null]))])) };
   try { sessionStorage.setItem(PRACTICE_KEY, JSON.stringify(p)); } catch { /* a full or blocked store: the next load starts fresh */ }
 }
