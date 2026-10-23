@@ -94,3 +94,46 @@
 .cv-meta .cv-ed:hover { color: var(--n900); }
 .cv-nfor { margin-bottom: var(--s12); }
 .cv-sheet .cv-nfor + .field + .cv-dayf { margin-top: var(--s16); }
+
+/* ---- Staff v6 (R-336): the talks list and the Log a talk sheet in the warm look; 14px only for labels (no 13px) ---- */
+body.staff6 .cv-n { min-width: 24px; height: 24px; border-radius: 12px; background: var(--v6-wash); color: var(--v6-body); font: 700 var(--v6-t14)/24px Lato, system-ui, sans-serif; }
+body.staff6 .rows.cv-list > .row.cv-item { padding: 14px 8px 14px 20px; gap: 4px; }
+body.staff6 .rows.cv-list > .row.cv-item + .row.cv-item::before { left: 20px; right: 20px; }
+body.staff6 .rows.cv-list > .row.cv-item.cv-land { background: var(--v6-action-wash); box-shadow: none; }
+body.staff6 .cv-names { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); }
+body.staff6 .cv-names a { color: var(--v6-ink); }
+body.staff6 .cv-meta { font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+body.staff6 .cv-meta a { color: var(--v6-action); }
+body.staff6 .cv-meta .cv-ed { color: var(--v6-muted); }
+body.staff6 .cv-text { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); margin-top: 4px; }
+body.staff6 .cv-more { color: var(--v6-muted); }
+body.staff6 .cv-none { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .cv-all { margin: 8px 0 0; }
+body.staff6 .cv-sgh { margin: 4px 0 0 8px; font: 700 var(--v6-t14)/var(--v6-lh14) Lato, system-ui, sans-serif; color: var(--v6-muted); }
+body.staff6 .cv-sgl .sub, body.staff6 .cv-ipick .sub { font-size: var(--v6-t14); }
+body.staff6 .cv-role { color: var(--v6-muted); }
+body.staff6 .cv-sgnone { font-size: var(--v6-t16); color: var(--v6-body); }
+body.staff6 .cv-find input[type="search"], body.staff6 .field .cv-find input[type="search"] { border-color: var(--v6-field); background: var(--v6-card); color: var(--v6-ink); }
+body.staff6 .cv-find input:focus { outline: 3px solid var(--v6-action); outline-offset: 2px; border-color: var(--v6-field); box-shadow: none; }
+body.staff6 .cv-find > svg { position: absolute; left: 12px; top: 12px; width: 20px; height: 20px; color: var(--v6-muted); pointer-events: none; }
+body.staff6 .cv-reach { margin: 12px 0 0; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+body.staff6 .cv-nfor { margin: 0 0 12px; font-size: var(--v6-t14); color: var(--v6-muted); }
+body.staff6 .cv-sheet > .field + .field, body.staff6 .cv-sheet > .field + fieldset, body.staff6 .cv-sheet > fieldset + .field { margin-top: 20px; }
+/* "Filed under": two choices as radios, then a search for any other issue (V23). */
+body.staff6 .cv-aboutf { margin: 20px 0 0; padding: 0; border: 0; min-width: 0; }
+body.staff6 .cv-aboutf legend { padding: 0; margin: 0 0 8px; font: 700 var(--v6-t14)/var(--v6-lh14) Lato, system-ui, sans-serif; color: var(--v6-ink); }
+body.staff6 .cv-opts { display: grid; gap: 4px; margin: 0 0 8px; }
+body.staff6 .cv-opt { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; padding: 10px 12px; border-radius: var(--v6-r12); background: var(--v6-wash);
+  font: 400 var(--v6-t16)/var(--v6-lh16) Lato, system-ui, sans-serif; color: var(--v6-ink); cursor: pointer; }
+body.staff6 .cv-opt input { flex: none; width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--v6-action); }
+body.staff6 .cv-opt:has(input:checked) { background: var(--v6-action-wash); font-weight: 700; }
+body.staff6 .cv-opt:has(input:focus-visible) { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .cv-ilist:empty { display: none; }
+body.staff6 .cv-ilist { margin-top: 4px; }
+body.staff6 .cv-ipick button { min-height: 48px; }
+body.staff6 .cv-ipick .cv-plus { margin-left: auto; color: var(--v6-action); }
+/* "This was an ask for a hearing" (V24). */
+body.staff6 .cv-ask { display: flex; align-items: center; gap: 12px; min-height: 44px; font: 700 var(--v6-t16)/var(--v6-lh16) Lato, system-ui, sans-serif; color: var(--v6-ink); cursor: pointer; }
+body.staff6 .cv-ask input { flex: none; width: 22px; height: 22px; margin: 0; accent-color: var(--v6-action); }
+body.staff6 .cv-askf .help { display: block; margin-left: 34px; }
+body.staff6 .cv-askf .err { margin-left: 34px; }

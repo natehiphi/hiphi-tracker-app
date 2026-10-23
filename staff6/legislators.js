@@ -1,45 +1,39 @@
-// Staff v2 · Legislators directory (#/legislators, plan 3.6). It answers "who do I work this week?" first: the This
-// week view (the default) lists the members of committees hearing our bills in the next 7 days, most of our bills
-// first. On a phone the chips This week, House, Senate and All pick the list, and the search box suggests people,
-// towns, committees and (on the live tracker) street addresses while you type, ignoring ʻokina and macrons. On a
-// desktop (900px and wider, build 3) the same people are a sortable table that uses the width: one toolbar (search
-// that filters as you type, This week or Everyone, chamber, island, committee), and a row per legislator with the
-// committees that matter, the bills of ours they hear this week and the last logged contact; the whole row opens
-// the legislator. Kept from the current app's renderLegislators: the chamber choice, the committee filter, the
-// address lookup (geoSuggest -> geoDistricts) and the text match over name, towns and district.
-// R-335 (practice copy, profile.js PROFILES): "Cares about" finds the legislators who care about a HIPHI issue, from the
-// issues the team adds under What they care about on a legislator's page: the Filter sheet's fourth item on a laptop, a
-// chip on a phone. Like a search it looks at everyone, whatever This week says.
-import { S, DB, esc, DEMO, hooks, advocate, fmtDate, fmtDT, islandOf } from './data.js';
-import { plain, codesOf, geoSuggest, geoDistricts, ISLANDS, cmteName, blurb, whenAt } from './model.js';
-import { icon, btn, iconBtn, empty, toast, segmented, pickerSheet, menuSheet, keysOn, filterBtn } from './ui.js';
-import { afterBack } from './today.js';   // a sheet opened from a menu waits for the menu to close
-import { HOLDING, holdingHTML } from './holding.js';   // R-316 W41 (practice copy)
-import { TERMS_TAP, HOW_TO, termCodes } from './terms.js';   // R-316 W40, W37 (practice copy)
-import { photo, partyDist, legName, legHref, seatsOf, seatsText, roleWord, RANK, wireLinks, surname } from './pathway.js';
+// Staff v6 · Legislators (#/legislators; R-336 spec 3.3 and 6, V23; F139-F144, F150). Three page tabs, each with its own
+// address, and one find box on every tab (F143):
+//   Who to ask (#/legislators, ?view=ask): the Get hearings board grouped by chair (V13), the soonest notice first. Each
+//     chair is a heading (name, role on our bills, last contact, and "Email the chair" when the asks are the viewer's own),
+//     with our bills under it, each in the shared row with the one wording every screen uses (steps.js billStep, askWords).
+//     Mine · My coalitions · Team is a visible switch (helpers see their coalitions' first). HEARINGS draws the same board
+//     in hearings.js; at integration this tab takes that exported board, so the two can never disagree (X7).
+//   Everyone (?view=everyone): the directory, a name and one line per legislator (district, their role on our bills, last
+//     contact), with the "Hearing our bills this week" preset (F142, v5's This week view), the Filter sheet (chamber,
+//     island, committee, and Cares about on the practice copy, R-335), and a Sort (district, name, island, chairs first,
+//     our bills this week, last contact). j and k walk the rows. Between sessions #/legislators opens here (P10).
+//   Holding our bills (?view=holding): the chairs holding our bills with no hearing yet (holding.js, F139, F141).
+// The find box looks at everyone, whatever the tab: a name, a town, a district ("HD 20", "sd5"), a committee ("HLT"), with
+// or without the ʻokina and macrons; a street address looks up its districts on the live app (rule 3: the address is never
+// kept, only the districts it finds). The tab comes from the address (route.view): v5's ?view=all|hold|week still open
+// Everyone, Holding and Everyone's this-week preset.
+import { S, esc, DEMO, islandOf, SESSION_OVER } from './data.js';
+import { plain, codesOf, geoSuggest, geoDistricts, ISLANDS, chairIdsOf, stopOf, diedish, legById } from './model.js';
+import { icon, btn, iconBtn, empty, toast, segmented, pickerSheet, menuSheet, keysOn, filterBtn, sectionNav } from './ui.js';
+import { HOLDING, holdingHTML, contactWords, lastContact, ensureContacts, chairAsk, chairMailFor, chairRole, ownAsk } from './holding.js';
+import { photo, legName, legHref, seatsOf, roleWord, RANK, wireLinks, surname } from './pathway.js';
 import { PROFILES, caresIds, caresCounts, issueSheet } from './profile.js';   // R-335 (practice copy)
 import { issueById } from './issues.js';
+import { billStep, billRow, rowButton, askWords, committeeName, nw } from './steps.js';
 
 const WEEK = 7 * 864e5;
 const PARTY = { D: 'Democrat', R: 'Republican', I: 'Independent' };
-const DESK = () => { try { return matchMedia('(min-width: 900px)').matches; } catch { return false; } };
-const ROOMY = () => { try { return matchMedia('(min-width: 1600px)').matches; } catch { return false; } };   // a big monitor shows four bills a row, in two columns
-// One state for both layouts. The phone chips are two of these at once: This week = scope week; House, Senate and
-// All = everyone, with or without a chamber. Island, committee and the sort only exist on the desktop toolbar.
-const view = () => (S.lgView ??= { scope: 'week', chamber: '', island: '', cmte: '', sort: null, q: '', pick: null, addr: null, focus: false, last: null, cares: '' });
-// R-335: the issue "Cares about" is set to, while no search or address pick is on (those look at everyone by name).
-const caresOn = v => PROFILES() && !!v.cares && !v.q.trim() && !v.pick;
-const caresName = v => issueById(v.cares)?.name || 'that issue';
-// "2 of 76 legislators care about …": out of everyone, whatever This week says (the fresh-eyes review, A-12).
-const caresWord = n => `${n} of ${(S.legislators || []).length} legislators ${n === 1 ? 'cares' : 'care'} about`;
-const chipOf = v => v.scope === 'hold' ? 'hold' : v.scope === 'week' && !v.chamber ? 'week' : v.scope === 'week' ? '' : v.chamber || 'all';
-const setChip = (v, k) => { v.scope = k === 'week' ? 'week' : k === 'hold' ? 'hold' : 'all'; v.chamber = k === 'H' || k === 'S' ? k : ''; v.island = ''; v.cmte = ''; v.sort = null; v.cares = ''; };
+const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
+// A menu closes itself with history.back(); a sheet opened before that Back lands would have its entry undone by it.
+const afterBack = () => new Promise(res => { if (!history.state?.sheet) return res(); let done = false; const run = () => { if (done) return; done = true; removeEventListener('popstate', run); res(); }; addEventListener('popstate', run); setTimeout(run, 500); });
 
-// ---- data ----
+// ---- data (exports kept: search.js, conversation.js, profile.js and legislator.js import them) ----
 // Our bills = tracked, with a position (not Monitor), the same set the current app's profile counts.
 export const ourBill = b => b.tracked !== false && !!b.position && b.position !== 'monitor';
-// Who hears our bills in the next 7 days: legislator id -> { bills: Set(bill id), roles: { code: role }, when: Map(bill id -> first
-// hearing), hid: Map(bill id -> that hearing's id) } (hid: each line of "Hearing this week" opens its hearing, R-022 #16)
+// Who hears our bills in the next 7 days: legislator id -> { bills: Set(bill id), roles: { code: role }, when: Map(bill id
+// -> first hearing), hid: Map(bill id -> that hearing's id) }.
 export function weekIndex() {
   const now = Date.now(), ours = new Set(S.bills.filter(ourBill).map(b => b.id)), out = new Map();
   for (const h of S.hearings) {
@@ -64,10 +58,10 @@ export const islandFor = l => (l.chamber === 'S' ? islandOf(l.district) : houseI
 const byDistrict = (a, b) => a.chamber.localeCompare(b.chamber) || a.district - b.district;
 export const districtQ = k => /^(s|sd|sen|senate|h|hd|rep|house)?\s*(?:district)?\s*(\d{1,2})$/.exec(k);
 const committeeOf = q => { const c = S.committees?.[String(q || '').trim().toUpperCase()]; return c || null; };
-// Everything a legislator can be found by, plain (no ʻokina, no macrons, lower case).
+// Everything a legislator can be found by, plain (no ʻokina, no macrons, lower case): committee names in v6's words too.
 const hayCache = new Map();
 const hay = l => { let h = hayCache.get(l.id); if (h) return h;
-  h = plain(`${l.name} ${l.sort_name} ${l.places || ''} ${l.chamber === 'S' ? 'senate senator sen' : 'house representative rep'} district ${l.district} ${islandFor(l)} ${l.party ? PARTY[l.party] || l.party : ''} ${l.title || ''} ${seatsOf(l).map(m => `${m.committee} ${S.committees?.[m.committee]?.name || ''}`).join(' ')}`);
+  h = plain(`${l.name} ${l.sort_name} ${l.places || ''} ${l.chamber === 'S' ? 'senate senator sen' : 'house representative rep'} district ${l.district} ${islandFor(l)} ${l.party ? PARTY[l.party] || l.party : ''} ${l.title || ''} ${seatsOf(l).map(m => `${m.committee} ${S.committees?.[m.committee]?.name || ''} ${committeeName(m.committee)}`).join(' ')}`);
   hayCache.set(l.id, h); return h; };
 // The text search: a district ("HD 20", "sd5", "20"), a committee code (members, chair first), or words in any order.
 export function matchLegs(q) {
@@ -85,69 +79,25 @@ const placesOf = l => (l.places || '').split(/,\s*/).map(x => x.replace(/^(and\s
 const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // Street addresses look like "75-5722 Kuakini Hwy": a number and a word, and not a district.
 const addressish = q => { const t = q.trim(); return t.length >= 5 && /\d/.test(t) && /[a-z]/i.test(t) && !districtQ(plain(t)); };
-
-// What the box suggests while you type (phones): people (by name or district) open their page; a town, a committee
-// or a street address shows who represents it; the last row shows every text match.
-function suggestions(v) {
-  const q = v.q.trim(), k = plain(q), legs = S.legislators || [], out = [];
-  const dm = districtQ(k);
-  const people = dm ? matchLegs(q) : legs.filter(l => plain(l.name).includes(k) || plain(l.sort_name).includes(k))
-    .sort((a, b) => (plain(surname(a)).startsWith(k) ? 0 : 1) - (plain(surname(b)).startsWith(k) ? 0 : 1) || byDistrict(a, b));
-  for (const l of people.slice(0, 6)) out.push({ kind: 'person', l });
-  if (!dm) {
-    for (const c of Object.values(S.committees || {}).filter(c => plain(c.code) === k || (k.length >= 3 && plain(c.name).includes(k))).slice(0, 4))
-      out.push({ kind: 'committee', c, ids: committeeLegs(c.code).map(l => l.id) });
-    const places = new Map();
-    for (const l of legs) for (const pl of placesOf(l)) {
-      const p = plain(pl);
-      // "kih" finds Kīhei; an address that names its town ("… Kailua-Kona") finds it too.
-      // A hyphen joins a name ("Kailua-Kona" is not "Kailua").
-      if ((k.length >= 2 && p.includes(k)) || (p.length >= 4 && k.length > p.length + 3 && new RegExp(`(^|[^a-z-])${escRe(p)}([^a-z-]|$)`).test(k))) {
-        const x = places.get(p) || { kind: 'place', label: pl, ids: [] }; if (!x.ids.includes(l.id)) x.ids.push(l.id); places.set(p, x);
-      }
-    }
-    out.push(...[...places.values()].sort((a, b) => a.label.localeCompare(b.label)).slice(0, 6));
+// The towns an address names ("… Kailua-Kona" finds Kailua-Kona; a hyphen joins a name, so it is not Kailua).
+function townsIn(q) {
+  const k = plain(q), out = new Map();
+  for (const l of S.legislators || []) for (const pl of placesOf(l)) {
+    const p = plain(pl);
+    if (p.length >= 4 && k.length > p.length + 3 && new RegExp(`(^|[^a-z-])${escRe(p)}([^a-z-]|$)`).test(k)) { const x = out.get(p) || { label: pl, ids: [] }; if (!x.ids.includes(l.id)) x.ids.push(l.id); out.set(p, x); }
   }
-  if (addressish(q)) {
-    if (DEMO) { if (!out.some(x => x.kind === 'place')) out.push({ kind: 'note', text: 'The sandbox finds towns in an address, not street numbers. The live tracker looks up the exact address.' }); }
-    else if (v.addr && v.addr.q === q) for (const x of v.addr.results.slice(0, 5)) out.push({ kind: 'address', x });
-    else out.push({ kind: 'loading' });
-  }
-  const all = matchLegs(q);
-  if (all.length > out.filter(x => x.kind === 'person').length) out.push({ kind: 'all', n: all.length });
-  if (!out.length) out.push({ kind: 'note', text: 'No match yet. Try a last name, a town, a district number or a committee code.' });
-  return out;
-}
-function suggestHTML(v) {
-  const list = v.sug = suggestions(v), q = v.q.trim();
-  const who = ids => { const ls = ids.map(id => (S.legislators || []).find(l => l.id === id)).filter(Boolean); return `${ls.length} ${ls.length === 1 ? 'legislator' : 'legislators'} · ${ls.map(partyDist).join(', ')}`; };
-  const rows = list.map((s, i) => {
-    if (s.kind === 'person') return `<a class="row lg-sg" href="${legHref(s.l)}" data-lgsg>${photo(s.l, 32)}<span class="body"><span class="title">${esc(legName(s.l))}</span><span class="sub">${esc([partyDist(s.l), s.l.places].filter(Boolean).join(' · '))}</span></span></a>`;
-    if (s.kind === 'committee') return `<button type="button" class="row lg-sg" data-lgsg="${i}"><span class="lead">${icon('users')}</span><span class="body"><span class="title">${esc(s.c.name)} (${esc(s.c.code)})</span><span class="sub">${s.c.chamber === 'S' ? 'Senate' : 'House'} committee · ${s.ids.length} members</span></span></button>`;
-    if (s.kind === 'place') return `<button type="button" class="row lg-sg" data-lgsg="${i}"><span class="lead">${icon('map-pin')}</span><span class="body"><span class="title">${esc(s.label)}</span><span class="sub">${esc(who(s.ids))}</span></span></button>`;
-    if (s.kind === 'address') return `<button type="button" class="row lg-sg" data-lgsg="${i}"><span class="lead">${icon('house')}</span><span class="body"><span class="title">${esc(s.x.label)}</span><span class="sub">${s.x.exact ? 'Street address' : 'Area'} · find its legislators</span></span></button>`;
-    if (s.kind === 'loading') return `<div class="row lg-sgnote" role="status">${icon('loader-circle', { cls: 'lg-spin' })}<span>Looking up the address</span></div>`;
-    if (s.kind === 'all') return `<button type="button" class="row lg-sg lg-sgall" data-lgsg="${i}"><span class="lead">${icon('search')}</span><span class="body"><span class="title">Show all ${s.n} matching “${esc(q)}”</span></span></button>`;
-    return `<div class="row lg-sgnote">${icon('info')}<span>${esc(s.text)}</span></div>`;
-  }).join('');
-  return `<div class="rows lg-sug" id="lg-sug" aria-label="Suggestions">${rows}</div>`;
+  return [...out.values()].sort((a, b) => a.label.localeCompare(b.label));
 }
 
-// ---- rows ----
-const pdHTML = l => `<span class="lg-pd"><span aria-hidden="true">${esc(partyDist(l))}</span><span class="sr">${esc(`${PARTY[l.party] || ''} ${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}`.trim())}</span></span>`;
-// The towns a district covers, under the district code. A supporter says "I live in Kaūmana" far more often than
-// "I am in Senate District 1", so the names have to be on the row, not only on the legislator's page. One line that
-// cuts with an ellipsis keeps the row rhythm; the whole list is on hover (title) and read out in full (.sr).
-// The search already matches these words: hay() above feeds l.places into the haystack.
+// ---- v5's rows, kept for search.js (HELP) until it draws the v6 row ----
+const PD = l => `${l.party ? l.party + '-' : ''}${l.chamber === 'S' ? 'SD' : 'HD'} ${l.district}`;
+const pdHTML = l => `<span class="lg-pd"><span aria-hidden="true">${esc(PD(l))}</span><span class="sr">${esc(`${PARTY[l.party] || ''} ${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}`.trim())}</span></span>`;
 const townsHTML = l => { const t = String(l.places || '').trim(); if (!t) return '';
   return `<span class="lg-twn" title="${esc(t)}"><span aria-hidden="true">${esc(t)}</span><span class="sr">Covers ${esc(t)}</span></span>`; };
-// "Chair, HHS · Member, CPN"; plain seats are grouped ("Member, HHS and CPN")
 const andList = xs => xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
-// Leadership seats are named; plain seats only when there is no leadership seat ("Member, HHS and LBT").
 const rolesText = roles => { const by = r => Object.entries(roles).filter(([, x]) => x === r).map(([c]) => c);
   const lead = ['chair', 'vice_chair'].filter(r => by(r).length).map(r => `${roleWord(r)}, ${andList(by(r))}`);
   return lead.length ? lead.join(' · ') : by('member').length ? `Member, ${andList(by('member'))}` : ''; };
-// For and against on our bills (only stances someone recorded), as icons with numbers; the words are for screen readers.
 export function stanceSummary(l, only) {
   let yes = 0, no = 0;
   for (const x of S.stances || []) { if (x.legislator_id !== l.id || (only && !only.has(x.bill_id))) continue; if (x.stance === 'yes' || x.stance === 'leaning_yes') yes++; else if (x.stance === 'no' || x.stance === 'leaning_no') no++; }
@@ -155,268 +105,258 @@ export function stanceSummary(l, only) {
   const words = [yes ? `For ${yes} of our bills` : '', no ? `${yes ? 'against' : 'Against'} ${no}` : ''].filter(Boolean).join(', ');
   return `<span class="lg-ss" title="${words}"><span class="sr">${words}</span>${yes ? `<span aria-hidden="true">${icon('thumbs-up')}${yes}</span>` : ''}${no ? `<span aria-hidden="true">${icon('thumbs-down')}${no}</span>` : ''}</span>`;
 }
-// A 64px row: 40px photo, name and party-district, a second line, the stance summary at the right.
 export function legRow(l, { week, weekMode = false } = {}) {
   const w = week && week.get(l.id), n = w ? w.bills.size : 0;
-  // The count comes first so a narrow screen cuts the committee list, not the number that matters this week.
   const sub = weekMode && w ? [`${n} of our bills`, rolesText(w.roles)]
     : [n ? `${n} of our bills this week` : '', l.title, seatsOf(l).map(m => m.role === 'member' ? m.committee : `${roleWord(m.role)}, ${m.committee}`).join(' · ')];
-  // The towns get their own line rather than the tail of the committees, so they are never the first thing cut.
   return `<a class="row lg-row" href="${legHref(l)}">${photo(l, 40)}<span class="body"><span class="title"><span class="lg-nm">${esc(l.name)}</span>${pdHTML(l)}</span>${sub.filter(Boolean).length ? `<span class="sub">${esc(sub.filter(Boolean).join(' · '))}</span>` : ''}${townsHTML(l)}</span><span class="end">${stanceSummary(l, weekMode && w ? w.bills : null)}${icon('chevron-right', { cls: 'chev' })}</span></a>`;
 }
-const weekOrder = week => (a, b) => week.get(b.id).bills.size - week.get(a.id).bills.size
-  || Math.min(...Object.values(week.get(a.id).roles).map(r => RANK[r])) - Math.min(...Object.values(week.get(b.id).roles).map(r => RANK[r])) || a.sort_name.localeCompare(b.sort_name);
 
-// ---- the phone page ----
-const CHIPS = () => [['week', 'This week'], ['H', 'House'], ['S', 'Senate'], ['all', 'All'], ...(HOLDING() ? [['hold', 'Holding our bills']] : [])];   // W41
-function bodyHTML(v) {
-  if (v.scope === 'hold' && HOLDING() && !v.q.trim() && !v.pick && !caresOn(v)) return holdingHTML();
-  const legs = S.legislators || [], q = v.q.trim(), week = weekIndex(), chip = chipOf(v);
-  if (v.focus && (q.length >= 2 || /\d/.test(q))) return suggestHTML(v);
-  const list = rows => `<div class="rows lg-list">${rows.map(l => legRow(l, { week, weekMode: !q && !v.pick && chip === 'week' })).join('')}</div>`;
-  const clear = `<button type="button" class="btn text sm lg-clear" data-lgclear>${icon('x')}<span>Clear</span></button>`;
-  if (v.pick) {
-    if (v.pick.loading) return `<div class="lg-cap"><p>${icon('map-pin')}<span>Finding the districts for ${esc(v.pick.label)}</span></p></div>${`<div class="skel lg-skel"></div>`.repeat(2)}`;
-    const ls = v.pick.ids.map(id => legs.find(l => l.id === id)).filter(Boolean);
-    const cap = `<div class="lg-cap"><p>${icon(v.pick.kind === 'committee' ? 'users' : 'map-pin')}<span><b>${esc(v.pick.label)}</b> · ${v.pick.note ? esc(v.pick.note) : `${ls.length} ${ls.length === 1 ? 'legislator' : 'legislators'}`}</span></p>${clear}</div>`;
-    return cap + (ls.length ? list(ls) : empty({ title: 'No legislator found for that address', text: 'Check the street number and town, or try the town name alone.' }));
-  }
-  if (q) {
-    const ls = matchLegs(q);
-    if (!ls.length) return empty({ title: `No one matches “${esc(q)}”`, text: 'Try a last name, a town, a district number or a committee code such as HLT.', action: btn('Clear the search', { kind: 'secondary', attrs: { 'data-lgclear': '1' } }) });
-    const c = committeeOf(q);
-    return `<div class="lg-cap"><p>${icon(c ? 'users' : 'search')}<span>${c ? `<b>${esc(c.name)} (${esc(c.code)})</b> · ${ls.length} members, chair first` : `${ls.length} ${ls.length === 1 ? 'legislator matches' : 'legislators match'} “${esc(q)}”`}</span></p>${clear}</div>${list(ls)}`;
-  }
-  if (caresOn(v)) {   // R-335
-    const ids = caresIds(v.cares), ls = legs.filter(l => ids.has(l.id)).sort(byDistrict);
-    const cap = `<div class="lg-cap"><p>${icon('tag')}<span>${caresWord(ls.length)} <b>${esc(caresName(v))}</b></span></p>${clear}</div>`;
-    return cap + (ls.length ? list(ls) : caresEmpty(v));
-  }
-  if (chip === 'week') {
-    const ls = legs.filter(l => week.has(l.id)).sort(weekOrder(week));
-    if (!ls.length) return empty({ title: 'No hearings on our bills this week', text: 'Nothing is scheduled in the next 7 days. Everyone is under All.', action: btn('See everyone', { kind: 'secondary', attrs: { 'data-lgchip': 'all' } }) });
-    return `<p class="lg-caption">${ls.length} legislators hear our bills in the next 7 days.</p>${list(ls)}`;
-  }
-  const ls = legs.filter(l => chip === 'all' || l.chamber === chip).sort(byDistrict);
-  const cap = chip === 'H' ? `${ls.length} representatives, by district.` : chip === 'S' ? `${ls.length} senators, by district.` : `All ${ls.length} legislators: House, then Senate, by district.`;
-  return `<p class="lg-caption">${cap}</p>${list(ls)}`;
+// ---- state ----
+// One state for every tab, kept for the visit (Back from a legislator finds the list as it was).
+const view = () => (S.lg6 ??= { ask: '', week: false, chamber: '', island: '', cmte: '', cares: '', sort: '', q: '', pick: null, addr: null, last: null });
+// The tab from the address. #/legislators is Who to ask in session and Everyone between sessions (P10).
+function tabOf(route) {
+  const w = String(route?.view || route?.q?.view || '').toLowerCase();
+  if (w === 'everyone' || w === 'all') return 'everyone';
+  if (w === 'week') return 'everyone';           // v5's This week: Everyone with its preset
+  if ((w === 'holding' || w === 'hold') && HOLDING()) return 'holding';
+  if (w === 'ask') return 'ask';
+  return SESSION_OVER ? 'everyone' : 'ask';
 }
-const chipsHTML = v => { const on = !v.q.trim() && !v.pick && !caresOn(v), cur = chipOf(v); return CHIPS().map(([k, l]) => `<button type="button" class="chip" data-lgchip="${k}" aria-pressed="${on && cur === k}">${l}</button>`).join('')
-  + caresChip(v); };
-// R-335: the phone's way to "Cares about": a chip that opens the issue picker, pressed and naming the issue once one is picked.
-const caresChip = v => PROFILES() ? `<button type="button" class="chip lg-cchip" data-lgcares="1" aria-haspopup="dialog" aria-pressed="${caresOn(v)}">${icon('tag')}<span>${esc(caresOn(v) ? `Cares about: ${caresName(v)}` : 'Cares about')}</span>${icon('chevron-down', { cls: 'chev' })}</button>` : '';
-// R-335: nobody cares about it yet, so the list says how to change that (B-3).
-const caresEmpty = v => empty({ title: `No legislator cares about ${esc(caresName(v))} yet`, text: 'To add one, open a legislator’s page and add the issue under What they care about.', action: btn('Pick another issue', { kind: 'secondary', attrs: { 'data-lgcares': '1', 'aria-haspopup': 'dialog' } }) });
+// Arriving at an address applies what it asks for once (a later redraw never undoes what the person picked since).
+let arrived = '';
+function arrive(route, v) {
+  if (location.hash === arrived) return; arrived = location.hash;
+  // A new arrival (a tab, a link) starts without the last search; Back finds the list as it was left.
+  if (performance.now() - poppedAt > 1000) { v.q = ''; v.pick = null; }
+  const w = String(route?.view || '').toLowerCase();
+  if (w === 'week') v.week = true;
+  if (w === 'everyone' || w === 'all') v.week = false;
+}
+const caresOn = v => PROFILES() && !!v.cares;
+const caresName = v => issueById(v.cares)?.name || 'that issue';
+const searching = v => !!(v.q.trim() || v.pick);
 
-// ---- the desktop table (build 3) ----
-// Last contact = the newest logged conversation (a team note). One request brings the newest note for every
-// legislator (DB.legLatestNotes, kept for the visit); a legislator page opened this visit has fresher notes
-// (S.legNotes), which win. The sandbox has none until someone logs one. The cell shows a placeholder until the
-// answer is in.
-const noteQ = { asked: false, failed: false };
-function lastContact(l) {
-  const notes = S.legNotes?.[l.id];
-  if (notes) { let best = null; for (const n of notes) { if (S.lgHidden?.has(n.id) || n.kind === 'note') continue; /* R-335: a note is not a contact */ const t = new Date(n.created_at).getTime(); if (!best || t > best.t) best = { t, n }; } return { loaded: true, best }; }
-  if (!S.legLast) return { loaded: noteQ.failed, best: null };
-  const n = S.legLast[l.id]; return { loaded: true, best: n && !S.lgHidden?.has(n.id) ? { t: new Date(n.created_at).getTime(), n } : null };
+// ---- Who to ask: the board grouped by chair (V13, V23) ----
+const mineB = b => (S.assignments?.[b.id] || []).includes(S.me?.id);
+const coals = () => new Set(S.me?.prefs?.coalitions || []);
+const inCoal = (b, cs) => (S.billCampaigns?.[b.id] || []).some(c => cs.has(c));
+// Our bills waiting for a hearing (the ask record's states: ask, giving, waiting, said no, notice passed), by scope.
+function asksBy() {
+  const all = S.bills.filter(b => b.tracked !== false).map(b => ({ b, aw: askWords(b) })).filter(x => x.aw);
+  const waiting = all.filter(x => x.aw.key !== 'scheduled'), cs = coals();
+  const sc = { mine: waiting.filter(x => mineB(x.b)), coal: waiting.filter(x => inCoal(x.b, cs)), team: waiting };
+  const set = { mine: all.filter(x => x.aw.key === 'scheduled' && mineB(x.b)), coal: all.filter(x => x.aw.key === 'scheduled' && inCoal(x.b, cs)), team: all.filter(x => x.aw.key === 'scheduled') };
+  return { sc, set };
 }
-function contactCell(l) {
-  const { loaded, best } = lastContact(l);
-  if (!loaded) return `<span class="lg-wait" aria-hidden="true"></span><span class="sr">Loading</span>`;
-  if (!best) return `<span class="lg-dash">${noteQ.failed ? 'Could not load' : 'None logged'}</span>`;
-  const a = advocate(best.n.advocate_id), who = a ? (a.id === S.me?.id ? 'You' : a.full_name.split(' ')[0]) : '';
-  return `<span class="lg-when" title="${esc(String(best.n.body || '').slice(0, 200))}">${esc(fmtDate(best.n.created_at, { month: 'short' }))}${who ? `<span class="lg-who"> · ${esc(who)}</span>` : ''}</span>`;
+const SCOPE_WORD = { mine: 'Mine', coal: 'My coalitions', team: 'Team' };
+const scopeOf = (v, sc) => v.ask && sc[v.ask] ? v.ask : sc.mine.length ? 'mine' : sc.coal.length ? 'coal' : 'team';
+const byOf = x => x.aw.by ?? x.aw.aw?.a?.at ?? Infinity;
+// Each chair of each bill's committee, their bills the soonest notice first; the chairs by their soonest bill.
+function chairGroups(list) {
+  const by = new Map();
+  for (const x of list) for (const id of chairIdsOf(x.aw.code)) { if (!by.has(id)) by.set(id, []); by.get(id).push(x); }
+  return [...by].map(([id, rows]) => ({ l: legById(id), rows: rows.sort((p, q) => byOf(p) - byOf(q) || p.b.bill_number.localeCompare(q.b.bill_number, 'en', { numeric: true })) }))
+    .filter(g => g.l).map(g => ({ ...g, at: byOf(g.rows[0]) })).sort((p, q) => p.at - q.at || p.l.sort_name.localeCompare(q.l.sort_name));
 }
-function loadContacts(ids, onEach) {
-  if (S.legLast || noteQ.asked) return;
-  noteQ.asked = true;
-  // every row now on screen gets its answer (the list may have been filtered or repainted while the request was out)
-  DB.legLatestNotes().catch(() => { noteQ.failed = true; }).finally(() => { const all = (S.legislators || []).map(l => l.id); all.forEach((id, i) => onEach(id, i === all.length - 1)); });
+// A bill under its chair: the shared row (the same line as Today and Hearings), with this chair's own state on a joint
+// committee (holding.js chairAsk, V24). Its one button: the viewer's own Follow up or "They replied"; Take it on an ask
+// nobody holds (for whoever may hand it). The chair's heading carries the email, so the rows do not repeat it.
+function askRow(x, l) {
+  const b = x.b, s = chairAsk(b, l.id), st = billStep(b);
+  const chair = st?.kind === 'chair';
+  const line = s?.other || !chair ? s?.words || '' : st.line;
+  let button = false;
+  if (chair && !s?.other) {
+    if (s.key === 'waiting' && st.you) button = st.ask.followUp ? rowButton(st) : btn('They replied', { kind: 'secondary', sm: true, icon: 'message-square', attrs: { 'data-v6act': 'replied', 'data-v6b': b.id, 'data-v6code': s.code, 'aria-haspopup': 'dialog' } });
+    else if (st.nobody && st.takeFor) button = btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-v6act': 'take', 'data-v6b': b.id } });
+  }
+  return { html: billRow(b, { line: nw(esc(line)), button, step: chair ? st : undefined }), s };
 }
-// Who is listed, in the order nobody chose: a pick (an address), a search (everyone; the filters wait), or the filters.
-function deskList(v, week) {
-  const legs = S.legislators || [], q = v.q.trim();
-  if (v.pick && !v.pick.loading) return { mode: 'pick', ls: v.pick.ids.map(id => legs.find(l => l.id === id)).filter(Boolean) };
-  if (q) return { mode: 'q', ls: matchLegs(q) };
-  const keep = l => (!v.chamber || l.chamber === v.chamber) && (!v.island || islandFor(l) === v.island) && (!v.cmte || seatsOf(l).some(m => m.committee === v.cmte));
-  if (caresOn(v)) { const ids = caresIds(v.cares); return { mode: 'cares', ls: legs.filter(l => ids.has(l.id) && keep(l)).sort(byDistrict) }; }   // R-335: everyone who cares
-  const ls = legs.filter(l => (v.scope !== 'week' || week.has(l.id)) && (!v.chamber || l.chamber === v.chamber) && (!v.island || islandFor(l) === v.island) && (!v.cmte || seatsOf(l).some(m => m.committee === v.cmte)));
-  return { mode: 'filter', ls: v.scope === 'week' ? ls.sort(weekOrder(week)) : ls.sort(byDistrict) };
+function groupHTML(g) {
+  const l = g.l, rows = g.rows.map(x => ({ ...x, ...askRow(x, l) }));
+  const own = rows.filter(x => ownAsk(x.b, x.s) && x.s.key !== 'passed');
+  const m = own.length ? chairMailFor(l, own.map(x => x.b)) : null;
+  const act = m ? btn(own.length > 1 ? `Email about ${own.length === 2 ? 'both' : `all ${own.length}`}` : 'Email the chair', { kind: 'secondary', sm: true, icon: 'mail', href: m.href }) : '';
+  const line = [chairRole(l, rows.map(x => x.aw.code)), contactWords(l)].filter(Boolean).join(' · ');
+  const hid = `lg6-g${l.id}`;
+  return `<section class="lg6-grp" aria-labelledby="${hid}">
+    <div class="lg6-gh"><a class="lg6-gn" href="#/legislator/${l.id}?from=ask"><span class="lg6-gph" aria-hidden="true">${photo(l, 40)}</span><span class="lg6-gt"><span class="lg6-gname" id="${hid}">${esc(legName(l))}</span><span class="lg6-gline">${nw(esc(line))}</span></span></a>${act ? `<span class="lg6-gact">${act}</span>` : ''}</div>
+    <div class="lg6-rows" role="list" aria-label="${esc(`Our bills with ${legName(l)}`)}">${rows.map(x => x.html).join('')}</div>
+  </section>`;
 }
-// A header click sorts by that column; ties keep the order above. The second click turns it round.
-const SORT_DIR = { name: 1, district: 1, island: 1, cmte: 1, bills: -1, contact: -1 };
-function sortVal(key, l, week, weekMode) {
-  if (key === 'name') return l.sort_name || l.name;
+function askHTML(v) {
+  if (SESSION_OVER) return empty({ title: 'No asks between sessions', text: 'Asking chairs for hearings starts when the session opens in January.', action: btn('See everyone', { kind: 'secondary', href: '#/legislators?view=everyone' }) });
+  const { sc, set } = asksBy(), scope = scopeOf(v, sc), list = sc[scope];
+  const whose = scope === 'mine' ? 'your bills' : scope === 'coal' ? 'your coalitions’ bills' : 'the team’s bills';
+  const n = set[scope].length;
+  const heard = n ? `<p class="lg6-foot">${icon('calendar-check')}<span>${esc(`${n} of ${whose} ${n === 1 ? 'has' : 'have'} a hearing set.`)} <a href="#/hearings">See Hearings</a></span></p>` : '';
+  if (!list.length) return empty({ title: `None of ${whose} is waiting for a hearing`, text: 'When one is referred to a committee, its chair shows here with the day to ask by.', action: btn('See everyone', { kind: 'secondary', href: '#/legislators?view=everyone' }) }) + heard;
+  const gs = chairGroups(list), bills = new Set(list.map(x => x.b.id)).size;
+  return `<p class="lg6-sum">${esc(`${plural(gs.length, 'chair')} to ask about ${plural(bills, 'bill')}, the soonest notice first.`)}</p>
+    <div class="lg6-board">${gs.map(groupHTML).join('')}</div>${heard}`;
+}
+
+// ---- Everyone: the directory (F142, F144) ----
+// A legislator's role on our bills, in one fact: this week's hearings first, then the bills they hold, then the bills in
+// their committees, else their leadership title or the towns they represent (a supporter says "I live in Kaūmana").
+function roleWords(l, week) {
+  const w = week.get(l.id);
+  if (w) { const lead = Object.values(w.roles).some(r => r === 'chair') ? 'Chairs a committee hearing' : 'Hears';
+    return `${lead} ${w.bills.size} of our bills this week`; }
+  const seats = seatsOf(l).map(m => m.committee), chairs = seatsOf(l).filter(m => m.role === 'chair').map(m => m.committee);
+  let hold = 0, inCm = 0;
+  for (const b of S.bills) { if (!ourBill(b) || diedish(b)) continue; const st = stopOf(b); if (st.phase !== 'committee' || !st.committee) continue;
+    const cs = codesOf(st.committee); if (cs.some(c => seats.includes(c))) { inCm++; if (st.column === 'a' && cs.some(c => chairs.includes(c))) hold++; } }
+  if (hold) return `Chair holding ${hold === 1 ? 'one' : hold} of our bills with no hearing yet`;
+  if (inCm) return `${inCm === 1 ? 'One' : inCm} of our bills in their committees`;
+  if (l.title) return l.title;
+  return placesOf(l).slice(0, 3).join(', ');
+}
+const districtWords = l => `District ${l.district}${l.party ? `, ${PARTY[l.party] || l.party}` : ''}`;
+function personRow(l, week, { from = '' } = {}) {
+  const line = [roleWords(l, week), contactWords(l)].filter(Boolean).join(' · ');
+  return `<div class="v6-row lg6-wrap" role="listitem" data-v6row="lg${l.id}" data-lgrow="${l.id}"><a class="v6-row-main" href="${legHref(l)}${from ? `?from=${from}` : ''}" data-lglink="${l.id}"><span class="v6-row-top"><span class="v6-row-name">${esc(legName(l))}</span><span class="v6-row-num">${esc(districtWords(l))}</span></span>${line ? `<span class="v6-row-line"><span>${nw(esc(line))}</span></span>` : ''}</a></div>`;
+}
+const SORTS = [['district', 'District'], ['name', 'Name'], ['island', 'Island'], ['chairs', 'Chairs first'], ['week', 'Our bills this week'], ['contact', 'Last contact']];
+const sortOf = v => v.sort || (v.week ? 'week' : 'district');
+function sortVal(key, l, week) {
+  if (key === 'name') return plain(surname(l));
   if (key === 'district') return (l.chamber === 'S' ? 100 : 0) + l.district;
   if (key === 'island') return islandFor(l) || 'zz';
-  if (key === 'cmte') { const w = weekMode && week.get(l.id), rs = w ? Object.values(w.roles) : seatsOf(l).map(m => m.role); return rs.length ? Math.min(...rs.map(r => RANK[r])) : 9; }
-  if (key === 'bills') return week.get(l.id)?.bills.size || 0;
-  if (key === 'contact') return lastContact(l).best?.t || 0;
+  if (key === 'chairs') { const w = week.get(l.id), rs = w ? Object.values(w.roles) : seatsOf(l).map(m => m.role); return rs.length ? Math.min(...rs.map(r => RANK[r])) : 9; }
+  if (key === 'week') return -(week.get(l.id)?.bills.size || 0);
+  if (key === 'contact') return -(lastContact(l).best?.t || 0);
   return 0;
 }
-const effSort = (v, mode) => v.sort || (mode === 'filter' ? (v.scope === 'week' ? ['bills', -1] : ['district', 1]) : null);
-function sorted(v, ls, week, mode) {
-  if (!v.sort) return ls;
-  const [key, dir] = v.sort, weekMode = mode === 'filter' && v.scope === 'week';
-  return ls.map((l, i) => [l, i, sortVal(key, l, week, weekMode)]).sort(([, i, a], [, j, b]) => (typeof a === 'string' ? a.localeCompare(b) : a - b) * dir || i - j).map(([l]) => l);
+function sorted(ls, key, week) {
+  return ls.map((l, i) => [l, i, sortVal(key, l, week), (l.chamber === 'S' ? 100 : 0) + l.district]).sort(([, i, a, da], [, j, b, db]) => (typeof a === 'string' ? a.localeCompare(b) : a - b) || da - db || i - j).map(([l]) => l);
 }
-// Empty cells stay empty: in Everyone most rows hear none of our bills this week, and the 0 beside them says so; a
-// wall of "None this week" and "None set" would only bury the rows that have something. Last contact keeps its
-// words ("None logged"), because no contact is something to act on.
-// The bills of ours they hear this week, soonest first, one to a line: the nickname names the bill and is what gives
-// way when the column is narrow; the number always shows. The count has its own column, so "and 5 more" is a cue, not
-// the only place the total lives.
-function weekBills(w, per) {
-  if (!w) return { n: 0, html: '', all: '' };
-  const bs = [...w.bills].map(id => S.bills.find(b => b.id === id)).filter(Boolean).sort((a, b) => (w.when.get(a.id) || 0) - (w.when.get(b.id) || 0) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true }));
-  const shown = bs.slice(0, per), more = bs.length - shown.length;
-  // Each line opens the hearing the legislator hears it at (#/hearing/:id); the row around it still opens the legislator.
-  const one = (b, i) => { const hid = w.hid?.get(b.id), h = hid && S.hearings.find(x => x.id === hid);
-    const inner = `<span class="lg-blt">${b.nickname ? `<b>${esc(b.nickname)}</b>` : esc(blurb(b, 60))}</span><span class="lg-bln bn-num">${esc(b.bill_number)}</span>`;
-    const say = h ? `${b.nickname ? b.nickname + ' ' : ''}${b.bill_number}: the ${h.committee} hearing, ${whenAt(h.scheduled_at)}` : '';
-    return `<span class="lg-bl">${h ? `<a class="lg-hl" href="#/hearing/${encodeURIComponent(h.id)}" title="${esc(`Open the ${h.committee} hearing, ${whenAt(h.scheduled_at)}`)}" aria-label="${esc(say)}">${inner}</a>` : inner}${more > 0 && i === shown.length - 1 ? `<span class="lg-morebills">and ${more} more</span>` : ''}</span>`; };
-  return { n: bs.length, html: `<span class="lg-bls${per > 2 && shown.length > 1 ? ' two' : ''}">${shown.map(one).join('')}</span>`, all: bs.map(b => `${b.nickname ? b.nickname + ' ' : ''}${b.bill_number}`).join('\n') };
+const filtersN = v => [v.chamber, v.island, v.cmte, caresOn(v)].filter(Boolean).length;
+function everyoneList(v, week) {
+  const keep = l => (!v.chamber || l.chamber === v.chamber) && (!v.island || islandFor(l) === v.island) && (!v.cmte || seatsOf(l).some(m => m.committee === v.cmte));
+  let ls = (S.legislators || []).filter(keep);
+  if (caresOn(v)) { const ids = caresIds(v.cares); ls = ls.filter(l => ids.has(l.id)); }
+  if (v.week) ls = ls.filter(l => week.has(l.id));
+  return sorted(ls, sortOf(v), week);
 }
-function tableHTML(v, ls, week, mode) {
-  const weekMode = mode === 'filter' && v.scope === 'week', es = effSort(v, mode) || [];
-  const showSt = (S.stances || []).some(x => x.stance && x.stance !== 'unknown');
-  const th = (key, label, cls = '') => { const on = es[0] === key;
-    return `<th scope="col" class="lg-c-${key}${cls ? ' ' + cls : ''}" aria-sort="${on ? (es[1] > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="lg-sort" data-lgsort="${key}">${label}${on ? icon(es[1] > 0 ? 'chevron-up' : 'chevron-down') : ''}</button></th>`; };
-  const per = ROOMY() ? 4 : 2;
-  const tr = l => {
-    const w = week.get(l.id), wb = weekBills(w, per), seats = weekMode && w ? rolesText(w.roles) : seatsText(l);
-    const names = (weekMode && w ? Object.keys(w.roles) : seatsOf(l).map(m => m.committee)).map(c => `${c}: ${cmteName(c)}`).join('\n');
-    return `<tr data-lgrow="${l.id}" data-href="${legHref(l)}">
-      <th scope="row" class="lg-c-name"><a class="lg-tn" href="${legHref(l)}">${photo(l, 32)}<span class="lg-tnb"><span class="lg-nm">${esc(l.name)}</span>${l.title ? `<span class="lg-tl" title="${esc(l.title)}">${esc(l.title)}</span>` : ''}</span></a></th>
-      <td class="lg-c-district">${pdHTML(l)}${townsHTML(l)}</td>
-      <td class="lg-c-island">${esc(islandFor(l)) || '<span class="lg-dash">Not known</span>'}</td>
-      ${TERMS_TAP() ? `<td class="lg-c-cmte"><span class="lg-clamp">${termCodes(esc(seats)) || '<span class="lg-dash">No committee seats</span>'}</span></td>`   /* W40 (B-9): each code taps open its name, which was on hover only */
-        : `<td class="lg-c-cmte"${names ? ` title="${esc(names)}"` : ''}><span class="lg-clamp">${esc(seats) || '<span class="lg-dash">No committee seats</span>'}</span></td>`}
-      <td class="lg-c-bills lg-num">${wb.n || '<span class="lg-dash">0</span>'}</td>
-      <td class="lg-c-hear"${wb.n > per ? ` title="${esc(wb.all)}"` : ''}>${wb.html}</td>
-      ${showSt ? `<td class="lg-c-stance">${stanceSummary(l, weekMode && w ? w.bills : null)}</td>` : ''}
-      <td class="lg-c-contact">${contactCell(l)}</td>
-    </tr>`; };
-  return `<table class="lg-tbl"><caption class="sr">${weekMode ? 'Legislators hearing our bills in the next 7 days' : 'Legislators'}. Column headers sort. A row opens the legislator.</caption>
-    <thead><tr>${th('name', 'Legislator')}${th('district', 'District')}${th('island', 'Island')}${th('cmte', weekMode ? 'Hears our bills in' : 'Committees')}${th('bills', 'Our bills', 'lg-num')}
-      <th scope="col" class="lg-c-hear">Hearing this week</th>${showSt ? '<th scope="col" class="lg-c-stance" title="For and against our bills, from the stances the team has set">Stances</th>' : ''}${th('contact', 'Last contact')}</tr></thead>
-    <tbody>${ls.map(tr).join('')}</tbody></table>`;
-}
-const filtersOn = v => !!(v.chamber || v.island || v.cmte || caresOn(v));
-function deskBody(v) {
-  if (v.scope === 'hold' && HOLDING() && !v.q.trim() && !v.pick && !caresOn(v)) return holdingHTML();
-  const week = weekIndex(), q = v.q.trim(), legs = S.legislators || [];
-  const clear = (label = 'Clear') => `<button type="button" class="btn text sm lg-clear" data-lgclear>${icon('x')}<span>${label}</span></button>`;
-  if (v.pick?.loading) return `<div class="lg-cap"><p>${icon('map-pin')}<span>Finding the districts for ${esc(v.pick.label)}</span></p></div>${`<div class="skel lg-skel"></div>`.repeat(2)}`;
-  const { mode, ls: natural } = deskList(v, week), ls = sorted(v, natural, week, mode);
-  // A street address needs the lookup; everything else (names, towns, districts, committees) filters the table as you type.
-  let addr = '';
-  if (mode === 'q' && addressish(q)) {
-    const towns = DEMO ? (v.sug = suggestions(v)).map((x, i) => [x, i]).filter(([x]) => x.kind === 'place') : [];
-    addr = DEMO ? (ls.length ? '' : `<p class="lg-snote">${icon('info')}<span>The sandbox finds towns in an address, not street numbers. The live tracker looks up the exact address.</span></p>${towns.length ? `<div class="lg-addr" role="group" aria-label="Towns in that address">${towns.map(([x, i]) => `<button type="button" class="chip" data-lgplace="${i}">${icon('map-pin')}${esc(x.label)}</button>`).join('')}</div>` : ''}`)
-      : v.addr && v.addr.q === q ? (v.addr.results.length ? `<div class="lg-addr" role="group" aria-label="Addresses">${v.addr.results.slice(0, 5).map((x, i) => `<button type="button" class="chip" data-lgaddr="${i}">${icon('house')}${esc(x.label)}</button>`).join('')}</div>` : '')
-      : `<p class="lg-snote" role="status">${icon('loader-circle', { cls: 'lg-spin' })}<span>Looking up the address</span></p>`;
-  }
-  let cap;
-  if (mode === 'pick') cap = `<div class="lg-cap"><p>${icon('map-pin')}<span><b>${esc(v.pick.label)}</b> · ${v.pick.note ? esc(v.pick.note) : `${ls.length} ${ls.length === 1 ? 'legislator' : 'legislators'}`}</span></p>${clear()}</div>`;
-  else if (mode === 'q') { const c = committeeOf(q);
-    cap = ls.length ? `<div class="lg-cap"><p>${icon(c ? 'users' : 'search')}<span>${c ? `<b>${esc(c.name)} (${esc(c.code)})</b> · ${ls.length} members, chair first` : `${ls.length} of ${legs.length} ${ls.length === 1 ? 'matches' : 'match'} “${esc(q)}”`}. The search looks at everyone.</span></p>${clear('Clear the search')}</div>` : ''; }
-  else if (mode === 'cares') {   // R-335: "2 legislators care about Disposable e-cigarette ban · Clear"
-    const extra = [v.chamber === 'H' ? 'in the House' : v.chamber === 'S' ? 'in the Senate' : '', v.island ? `from ${v.island === 'Hawaiʻi' ? 'Hawaiʻi Island' : v.island}` : '', v.cmte ? `on ${v.cmte}` : ''].filter(Boolean).join(' ');
-    cap = `<div class="lg-cap"><p>${icon('tag')}<span><b>${ls.length}</b> ${esc(caresWord(ls.length).replace(/^\d+ /, ''))} <b>${esc(caresName(v))}</b>${extra ? ' ' + esc(extra) : ''}.</span></p>${clear(v.chamber || v.island || v.cmte ? 'Clear filters' : 'Clear')}</div>`; }
-  else { const n = ls.length, who = v.chamber === 'H' ? (n === 1 ? 'representative' : 'representatives') : v.chamber === 'S' ? (n === 1 ? 'senator' : 'senators') : n === 1 ? 'legislator' : 'legislators';
-    // "Hawaiʻi" alone could be the state, so the island says it is one.
-    const extra = [v.island ? `from ${v.island === 'Hawaiʻi' ? 'Hawaiʻi Island' : v.island}` : '', v.cmte ? `on ${v.cmte}` : ''].filter(Boolean).join(' ');
-    cap = `<div class="lg-cap"><p><span><b>${n}</b> ${who}${extra ? ' ' + esc(extra) : ''}${v.scope === 'week' ? ` ${n === 1 ? 'hears' : 'hear'} our bills in the next 7 days` : ''}.</span></p>${filtersOn(v) ? clear('Clear filters') : ''}</div>`; }
+function everyoneHTML(v) {
+  const week = weekIndex(), ls = everyoneList(v, week), all = (S.legislators || []).length;
+  const on = filtersN(v), who = v.chamber === 'H' ? 'representatives' : v.chamber === 'S' ? 'senators' : 'legislators';
+  const bits = [v.island ? `from ${v.island === 'Hawaiʻi' ? 'Hawaiʻi Island' : v.island}` : '', v.cmte ? `on ${committeeName(v.cmte)}` : '', caresOn(v) ? `who care about ${caresName(v)}` : ''].filter(Boolean).join(' ');
+  const cap = v.week ? `${ls.length} ${ls.length === 1 ? who.replace(/s$/, '') : who}${bits ? ' ' + bits : ''} ${ls.length === 1 ? 'hears' : 'hear'} our bills in the next 7 days`
+    : `${ls.length === all && !on ? `All ${all} legislators` : `${ls.length} ${ls.length === 1 ? who.replace(/s$/, '') : who}${bits ? ' ' + bits : ''}`}, by ${SORTS.find(x => x[0] === sortOf(v))[1].toLowerCase()}`;
+  const clear = on ? btn('Clear filters', { kind: 'text', sm: true, icon: 'x', attrs: { 'data-lgclear': 'filters' } }) : '';
   if (!ls.length) {
-    if (mode === 'q' && /data-lg(place|addr)=/.test(addr)) return addr;   // an address: its town or its matches are the answer
-    if (mode === 'q') return addr + empty({ title: `No one matches “${esc(q)}”`, text: 'Try a last name, a town, a district number or a committee code such as HLT.', action: btn('Clear the search', { kind: 'secondary', attrs: { 'data-lgclear': '1' } }) });
-    if (mode === 'pick') return cap + empty({ title: 'No legislator found for that address', text: 'Check the street number and town, or try the town name alone.' });
-    if (mode === 'cares' && !(v.chamber || v.island || v.cmte)) return cap + caresEmpty(v);
-    if (v.scope === 'week' && !filtersOn(v)) return empty({ title: 'No hearings on our bills this week', text: 'Nothing is scheduled in the next 7 days. Everyone is one click away.', action: btn('See everyone', { kind: 'secondary', attrs: { 'data-lgscope': 'all' } }) });
-    return cap + empty({ title: 'No one fits these filters', text: v.scope === 'week' ? 'Nobody with these filters hears our bills in the next 7 days.' : 'Try one filter fewer.', action: btn('Clear filters', { kind: 'secondary', attrs: { 'data-lgclear': '1' } }) });
+    if (v.week && !on) return empty({ title: 'No hearings on our bills this week', text: 'Nothing is scheduled in the next 7 days.', action: btn('See everyone', { kind: 'secondary', attrs: { 'data-lgweek': '0' } }) });
+    if (caresOn(v) && on === 1) return empty({ title: `No legislator cares about ${esc(caresName(v))} yet`, text: 'To add one, open a legislator’s page and add the issue under What they care about.', action: btn('Pick another issue', { kind: 'secondary', attrs: { 'data-lgcares': '1', 'aria-haspopup': 'dialog' } }) });
+    return empty({ title: 'No one fits these filters', text: v.week ? 'Nobody with these filters hears our bills in the next 7 days.' : 'Try one filter fewer.', action: btn('Clear filters', { kind: 'secondary', attrs: { 'data-lgclear': 'filters' } }) });
   }
-  return addr + cap + tableHTML(v, ls, week, mode);
+  return `<div class="lg6-cap"><p>${esc(cap)}.</p>${clear}</div><div class="v6-list lg6-list" role="list" aria-label="Legislators">${ls.map(l => personRow(l, week)).join('')}</div>`;
 }
-// This week | Everyone shows the list another way (a pill switch). R-277 fix 20 (U-3): the chamber, island and committee
-// were three picker chips beside it; they are one Filter button at the end of the heading row, as on Bills, whose sheet
-// names each with what it holds. The line over the table says which are on, with Clear filters.
-function filtersHTML(v) {
-  const off = !!(v.q.trim() || v.pick || caresOn(v));   // a search looks at everyone, so the filters wait; so does Cares about (R-335)
-  return segmented('lgscope', [['week', 'This week'], ['all', 'Everyone'], ...(HOLDING() ? [['hold', 'Holding our bills']] : [])], off ? '' : v.scope, 'Who to list');
+// Who to ask's switch: Mine · My coalitions · Team, the scopes that have bills (and the one that is on), beside the box.
+function askTools(v) {
+  if (SESSION_OVER) return '';
+  const { sc } = asksBy(), scope = scopeOf(v, sc);
+  const opts = ['mine', 'coal', 'team'].filter(k => k === scope || sc[k].length || (k === 'mine' && (S.bills || []).some(mineB)));
+  return opts.length > 1 ? `<div class="lg6-tools">${segmented('lgask', opts.map(k => [k, SCOPE_WORD[k]]), scope, 'Whose bills')}</div>` : '';
 }
-const filterN = v => v.q.trim() || v.pick ? 0 : [v.chamber, v.island, v.cmte, caresOn(v)].filter(Boolean).length;
-const FWORD = { chamber: v => v.chamber === 'H' ? 'House' : v.chamber === 'S' ? 'Senate' : 'Both chambers', island: v => v.island || 'Any island', cmte: v => v.cmte || 'Any committee',
-  cares: v => caresOn(v) ? caresName(v) : 'Any issue' };
+const toolsHTML = (tab, v) => searching(v) ? '' : tab === 'everyone' ? everyoneTools(v) : tab === 'ask' ? askTools(v) : '';
+// The directory's tools: the preset, Filter and Sort, in one row beside the find box.
+function everyoneTools(v) {
+  const sort = SORTS.find(x => x[0] === sortOf(v))[1];
+  return `<div class="lg6-tools" role="group" aria-label="Show">
+    <button type="button" class="lg6-preset" data-lgweek="${v.week ? '0' : '1'}" aria-pressed="${v.week}">${icon(v.week ? 'check' : 'calendar')}<span>Hearing our bills this week</span></button>
+    ${filterBtn(filtersN(v), { 'data-lgfilter': '1' })}
+    ${btn(`Sort: ${sort}`, { kind: 'secondary', sm: true, iconEnd: 'chevron-down', attrs: { 'data-lgsort': '1', 'aria-haspopup': 'dialog' } })}
+  </div>`;
+}
+
+// ---- the find box (every tab, F143) ----
+function searchHTML(v) {
+  const q = v.q.trim(), week = weekIndex();
+  const clear = btn('Clear', { kind: 'text', sm: true, icon: 'x', attrs: { 'data-lgclear': 'q' } });
+  if (v.pick?.loading) return `<div class="lg6-cap"><p>${icon('map-pin')}<span>Finding the districts for ${esc(v.pick.label)}</span></p></div><div class="skel lg-skel"></div>`;
+  if (v.pick) {
+    const ls = v.pick.ids.map(id => legById(id)).filter(Boolean);
+    const cap = `<div class="lg6-cap"><p>${icon(v.pick.kind === 'committee' ? 'users' : 'map-pin')}<span><b>${esc(v.pick.label)}</b> · ${esc(v.pick.note || plural(ls.length, 'legislator'))}</span></p>${clear}</div>`;
+    return cap + (ls.length ? `<div class="v6-list lg6-list" role="list" aria-label="Legislators">${ls.map(l => personRow(l, week)).join('')}</div>` : empty({ title: 'No legislator found for that address', text: 'Check the street number and town, or try the town name alone.' }));
+  }
+  const ls = matchLegs(q), c = committeeOf(q);
+  // A street address: the live app looks it up (address_suggest), the practice copy offers the towns it names.
+  let addr = '';
+  if (addressish(q)) {
+    if (DEMO) { const towns = townsIn(q); v.towns = towns;
+      addr = ls.length ? '' : `<p class="lg6-snote">${icon('info')}<span>The practice copy finds the town in an address, not the street number. The live app looks up the exact address.</span></p>${towns.length ? `<div class="lg6-chips" role="group" aria-label="Towns in that address">${towns.map((x, i) => `<button type="button" class="lg6-preset" data-lgplace="${i}">${icon('map-pin')}<span>${esc(x.label)}</span></button>`).join('')}</div>` : ''}`; }
+    else if (v.addr && v.addr.q === q) addr = v.addr.results.length ? `<div class="lg6-chips" role="group" aria-label="Addresses">${v.addr.results.slice(0, 5).map((x, i) => `<button type="button" class="lg6-preset" data-lgaddr="${i}">${icon('house')}<span>${esc(x.label)}</span></button>`).join('')}</div>` : '';
+    else addr = `<p class="lg6-snote" role="status">${icon('loader-circle', { cls: 'lg-spin' })}<span>Looking up the address</span></p>`;
+  }
+  if (!ls.length) return addr + (/data-lg(place|addr)=/.test(addr) ? '' : empty({ title: `No one matches “${esc(q)}”`, text: 'Try a last name, a town, a district number or a committee such as Health.', action: btn('Clear the search', { kind: 'secondary', attrs: { 'data-lgclear': 'q' } }) }));
+  const cap = c ? `<b>${esc(committeeName(c.code))}</b> · ${plural(ls.length, 'member')}, the chair first` : `${ls.length} of ${(S.legislators || []).length} ${ls.length === 1 ? 'matches' : 'match'} “${esc(q)}”`;
+  return `${addr}<div class="lg6-cap"><p>${icon(c ? 'users' : 'search')}<span>${cap}</span></p>${clear}</div><div class="v6-list lg6-list" role="list" aria-label="Legislators found">${ls.map(l => personRow(l, week)).join('')}</div>`;
+}
+
+function bodyHTML(tab, v) {
+  if (searching(v)) return searchHTML(v);
+  if (tab === 'holding') return holdingHTML();
+  if (tab === 'everyone') return everyoneHTML(v);
+  return askHTML(v);
+}
+// The page tabs: sectionNav's row (ui.js). Who to ask carries ?view=ask, so it opens between sessions too, when the bare
+// address opens Everyone (shared change asked of ui.js; until then it is put right here).
+const navHTML = tab => sectionNav('legislators', tab, { hide: HOLDING() ? [] : ['holding'] }).replace('href="#/legislators"', 'href="#/legislators?view=ask"');
 
 export default {
-  tab: 'legislators', title: () => 'Legislators', wide: () => true,
-  render() {
-    const v = view(), desk = DESK(); v.focus = false;
-    // The phone has no island or committee filter, and its This week chip means both chambers.
-    if (!desk) { v.island = ''; v.cmte = ''; v.sort = null; if (v.scope === 'week') v.chamber = ''; }
-    const box = `<form class="searchbox lg-sbox" role="search" data-lgform novalidate>
-          <label class="sr" for="lg-q">${desk ? 'Filter by name, district, town, committee or street address' : 'Find a legislator by name, district, town or street address'}</label>
-          ${icon('search')}
-          <input id="lg-q" class="input" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${desk ? 'Filter by name, town or district' : 'Name, district, town or street address'}" value="${esc(v.q)}" aria-controls="lg-body">
-          ${iconBtn('x', 'Clear the search', { 'data-lgclear': '1', hidden: !v.q }, 'clear')}
-        </form>`;
-    return `<div class="lg-dir${desk ? ' lg-desk' : ''}">
-      <div class="sv-phead lg-dhead"><h1 class="lg-dtitle">Legislators</h1>${desk ? `<span class="sv-phr" id="lg-fbox">${filterBtn(filterN(v), { 'data-lgfilter': '1' })}</span>` : ''}</div>
-      ${desk ? `<div class="lg-bar">${box}<div class="lg-filters" id="lg-filters" role="group" aria-label="Filters">${filtersHTML(v)}</div></div>`
-        : `<div class="lg-tools">${box}<div class="chips lg-chips" role="group" aria-label="Who to list" id="lg-chips">${chipsHTML(v)}</div></div>`}
+  tab: 'legislators', title: () => 'Legislators', wide: () => false,
+  render(route) {
+    const v = view(), tab = tabOf(route); arrive(route, v);
+    const box = `<form class="lg6-find" role="search" data-lgform novalidate>
+        <label class="sr" for="lg-q">Find a legislator by name, town, district, committee or street address</label>
+        ${icon('search')}
+        <input id="lg-q" class="input" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Find a legislator" value="${esc(v.q)}" aria-controls="lg-body">
+        ${iconBtn('x', 'Clear the search', { 'data-lgclear': 'q', hidden: !v.q }, 'lg6-x')}
+      </form>`;
+    return `<div class="lg6" data-lgtab="${tab}">
+      <div class="sv-phead lg6-head"><h1 class="sv-h1">Legislators</h1><span class="sv-phr">${navHTML(tab)}</span></div>
+      <div class="lg6-bar">${box}${toolsHTML(tab, v)}</div>
       <p class="sr" role="status" id="lg-status"></p>
-      <div id="lg-body">${desk ? deskBody(v) : bodyHTML(v)}</div>
-      ${HOW_TO() ? `<p class="small lg-how">${icon('circle-help')}<span><a href="#/help/talk">How to log a talk with a legislator</a> · <a href="#/help/hearing">How to ask a chair for a hearing</a></span></p>` : ''}
+      <div id="lg-body">${bodyHTML(tab, v)}</div>
     </div>`;
   },
   wire(route, app) {
-    const root = app.querySelector('.lg-dir'); if (!root) return;
-    const v = view(), desk = root.classList.contains('lg-desk'), inp = root.querySelector('#lg-q'), form = root.querySelector('[data-lgform]'), body = root.querySelector('#lg-body');
+    const root = app.querySelector('.lg6'); if (!root) return;
+    const v = view(), tab = root.dataset.lgtab, inp = root.querySelector('#lg-q'), form = root.querySelector('[data-lgform]'), body = root.querySelector('#lg-body');
     const x = form.querySelector('[data-lgclear]');
-    // Repaint the list only: the box keeps its focus and caret, and the chips keep their elements (a tap that blurs
-    // the box and repaints must still land on the chip it started on).
+    // Repaint the list and the tools only: the box keeps its focus and caret.
     const paint = () => {
-      if (desk) {
-        const keep = document.activeElement?.closest?.('#lg-filters') ? document.activeElement.dataset.lgf || document.activeElement.dataset.val : null;
-        root.querySelector('#lg-filters').innerHTML = filtersHTML(v);
-        const fb = root.querySelector('#lg-fbox'); if (fb) { const had = document.activeElement?.closest?.('#lg-fbox'); fb.innerHTML = filterBtn(filterN(v), { 'data-lgfilter': '1' }); if (had) fb.firstElementChild?.focus(); }
-        if (keep) root.querySelector(`#lg-filters [data-lgf="${keep}"], #lg-filters [data-val="${keep}"]`)?.focus();
-        body.innerHTML = deskBody(v); x.hidden = !inp.value;
-        const r = body.querySelectorAll('[data-lgrow], .hb-card').length;   // W41: Holding our bills counts its chairs
-        root.querySelector('#lg-status').textContent = `${r} legislator${r === 1 ? '' : 's'} listed`;
-        contacts();
-        return;
-      }
-      const on = !v.q.trim() && !v.pick && !caresOn(v), cur = chipOf(v);
-      root.querySelectorAll('[data-lgchip]').forEach(c => c.closest('#lg-chips') && c.setAttribute('aria-pressed', String(on && cur === c.dataset.lgchip)));
-      const cc = root.querySelector('#lg-chips .lg-cchip'); if (cc) { const had = document.activeElement === cc; cc.outerHTML = caresChip(v); if (had) root.querySelector('#lg-chips .lg-cchip')?.focus(); }
-      body.innerHTML = bodyHTML(v); x.hidden = !inp.value;
-      const n = body.querySelectorAll('.lg-sg').length, r = body.querySelectorAll('.lg-row').length;
-      root.querySelector('#lg-status').textContent = body.querySelector('#lg-sug') ? `${n} suggestion${n === 1 ? '' : 's'}` : `${r} legislator${r === 1 ? '' : 's'}`;
-    };
-    // Last contact fills in cell by cell; when the table is sorted by it, the order is settled once all are in.
-    const contacts = () => loadContacts([...body.querySelectorAll('[data-lgrow]')].map(tr => +tr.dataset.lgrow), (id, done) => {
       if (!root.isConnected) return;
-      const l = (S.legislators || []).find(y => y.id === id), cell = l && body.querySelector(`[data-lgrow="${id}"] .lg-c-contact`);
-      if (cell) cell.innerHTML = contactCell(l);
-      if (done && v.sort?.[0] === 'contact') paint();
-    });
+      const bar = root.querySelector('.lg6-bar'), tools = bar.querySelector('.lg6-tools'), el = document.activeElement;
+      const keep = el?.closest?.('.lg6-tools') ? (el.dataset.seg ? `[data-seg="${el.dataset.seg}"][data-val="${el.dataset.val}"]` : `[${[...el.attributes].find(a => /^data-lg/.test(a.name))?.name}]`) : null;
+      if (tools) tools.remove();
+      bar.insertAdjacentHTML('beforeend', toolsHTML(tab, v));
+      if (keep) bar.querySelector(`.lg6-tools ${keep}`)?.focus();
+      body.innerHTML = bodyHTML(tab, v); x.hidden = !inp.value;
+      const n = body.querySelectorAll('[data-lgrow], .lg6-grp, [data-v6row^="hold-"]').length;
+      root.querySelector('#lg-status').textContent = searching(v) || tab === 'everyone' ? `${n} ${n === 1 ? 'legislator' : 'legislators'} listed` : '';
+    };
     wireLinks(root);
-    if (desk) contacts();
-    // Address suggestions come from the live tracker's table of every Hawaiʻi street address. The sandbox never
-    // makes that request (nothing may reach Supabase there), so it matches the town named in the address instead.
+    ensureContacts(() => { if (root.isConnected && !document.querySelector('dialog[open]')) paint(); });
+    // Back from a legislator: the row you opened has the focus again, so j and k carry on from there.
+    if (v.last && performance.now() - poppedAt < 1000) body.querySelector(`[data-lglink="${v.last}"]`)?.focus({ preventScroll: true });
+    v.last = null;
+    // Address suggestions come from the live tracker's table of Hawaiʻi street addresses. The practice copy never makes
+    // that request (nothing may reach Supabase there), so it offers the towns the address names instead.
     const lookup = () => {
       clearTimeout(v.t); const q = v.q.trim();
       if (DEMO || !addressish(q) || (v.addr && v.addr.q === q)) return;
       v.t = setTimeout(async () => {
         let results = []; try { results = await geoSuggest(q); } catch { /* shown as no address rows */ }
-        if (v.q.trim() === q) { v.addr = { q, results }; if (v.focus || desk) paint(); }
+        if (v.q.trim() === q) { v.addr = { q, results }; paint(); }
       }, 250);
     };
     const pickAddress = async a => {
-      v.pick = { kind: 'address', label: a.label, loading: true };
-      v.q = ''; inp.value = ''; paint();
+      v.pick = { kind: 'address', label: a.label, loading: true }; v.q = ''; inp.value = ''; paint();
       try {
         const d = await geoDistricts(a);
         const ids = d.found ? (S.legislators || []).filter(l => (l.chamber === 'S' && l.district === d.senate) || (l.chamber === 'H' && l.district === d.house)).map(l => l.id) : [];
@@ -424,95 +364,57 @@ export default {
       } catch { v.pick = null; toast('Could not look up that address. Try again.', { err: true }); }
       paint();
     };
-    inp.addEventListener('input', () => { v.q = inp.value; v.pick = null; v.focus = !desk; paint(); lookup(); });
-    if (!desk) inp.addEventListener('focus', () => { if (v.focus) return; v.focus = true; if (v.q.trim()) paint(); });
+    inp.addEventListener('input', () => { v.q = inp.value; v.pick = null; paint(); lookup(); });
     inp.addEventListener('keydown', e => {
-      if (e.key === 'ArrowDown') { const f = body.querySelector(desk ? 'a.lg-tn' : '.lg-sg'); if (f) { e.preventDefault(); f.focus(); } }
+      if (e.key === 'ArrowDown') { const f = body.querySelector('.v6-row-main'); if (f) { e.preventDefault(); f.focus(); } }
       if (e.key === 'Escape' && inp.value) { e.preventDefault(); inp.value = ''; v.q = ''; paint(); }
     });
-    body.addEventListener('keydown', e => {
-      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-      const all = [...body.querySelectorAll(desk ? 'a.lg-tn' : '.lg-sg')], i = all.indexOf(document.activeElement); if (i < 0) return;
-      e.preventDefault(); if (e.key === 'ArrowUp' && i === 0) inp.focus(); else all[Math.max(0, Math.min(all.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))]?.focus();
-    });
-    if (!desk) {
-      // Leaving the box (and its suggestions) shows the list for what was typed.
-      root.addEventListener('focusout', e => {
-        const to = e.relatedTarget; if (!v.focus || (to && (form.contains(to) || body.querySelector('#lg-sug')?.contains(to)))) return;
-        v.focus = false; paint();
-      });
-      // Keep the typing focus in the box while a suggestion is pressed, so the tap lands on it.
-      body.addEventListener('mousedown', e => { if (e.target.closest('.lg-sg')) e.preventDefault(); });
-    }
-    form.onsubmit = e => { e.preventDefault(); if (desk) { body.querySelector('a.lg-tn')?.focus(); return; } inp.blur(); if (v.focus) { v.focus = false; paint(); } };
-    // Back from a legislator: the row you opened has the focus again, so j and k carry on from there.
-    if (desk && v.last && performance.now() - poppedAt < 1000) body.querySelector(`[data-lgrow="${v.last}"] a.lg-tn`)?.focus({ preventScroll: true });
-    v.last = null;
-    // This week, the committee list is the handful that hear our bills (every other choice would be an empty table).
-    const committeeOptions = () => { const hearing = new Set([...weekIndex().values()].flatMap(w => Object.keys(w.roles)));
-      return [['', 'Any committee'], ...Object.values(S.committees || {}).filter(c => (!v.chamber || c.chamber === v.chamber) && (v.scope !== 'week' || hearing.has(c.code) || c.code === v.cmte))
-        .sort((a, b) => (a.chamber || '').localeCompare(b.chamber || '') || a.code.localeCompare(b.code)).map(c => [c.code, c.code, null, `${c.name} · ${c.chamber === 'S' ? 'Senate' : 'House'}`])]; };
-    // R-335: one issue picker for the Filter sheet's "Cares about" and the phone's chip; the issues someone cares about first.
+    form.onsubmit = e => { e.preventDefault(); body.querySelector('.v6-row-main')?.focus(); };
+    // R-335: one issue picker for the Filter sheet's "Cares about".
     const pickCares = () => issueSheet({ title: 'Cares about', value: caresOn(v) ? v.cares : '', any: caresOn(v), counts: caresCounts(),
       help: 'Legislators the team marked as caring about a HIPHI issue, under What they care about on their page.',
-      onPick: id => { v.cares = id; v.q = ''; v.pick = null; inp.value = ''; paint(); root.querySelector(desk ? '[data-lgfilter]' : '[data-lgcares]')?.focus(); } });
+      onPick: id => { v.cares = id; paint(); root.querySelector('[data-lgfilter]')?.focus(); } });
+    const pick = key => {
+      const count = ch => (S.legislators || []).filter(l => l.chamber === ch).length, week = weekIndex(), hearing = new Set([...week.values()].flatMap(w => Object.keys(w.roles)));
+      const cmtes = Object.values(S.committees || {}).filter(c => (!v.chamber || c.chamber === v.chamber) && (!v.week || hearing.has(c.code) || c.code === v.cmte))
+        .sort((a, b) => (a.chamber || '').localeCompare(b.chamber || '') || committeeName(a.code).localeCompare(committeeName(b.code)));
+      const options = key === 'chamber' ? [['', 'Both chambers'], ['H', 'House', null, `${count('H')} representatives`], ['S', 'Senate', null, `${count('S')} senators`]]
+        : key === 'island' ? [['', 'Any island'], ...ISLANDS.map(i => [i, i === 'Hawaiʻi' ? 'Hawaiʻi Island' : i])]
+        : [['', 'Any committee'], ...cmtes.map(c => [c.code, committeeName(c.code)])];
+      pickerSheet({ title: key === 'chamber' ? 'Chamber' : key === 'island' ? 'Island' : v.week ? 'Committees hearing our bills this week' : 'Committee', value: v[key], options,
+        onPick: val => { v[key] = val; if (key === 'chamber' && v.cmte && val && S.committees?.[v.cmte]?.chamber !== val) v.cmte = ''; paint(); root.querySelector('[data-lgfilter]')?.focus(); } });
+    };
+    const FWORD = { chamber: () => v.chamber === 'H' ? 'House' : v.chamber === 'S' ? 'Senate' : 'Both chambers', island: () => v.island || 'Any island',
+      cmte: () => v.cmte ? committeeName(v.cmte) : 'Any committee', cares: () => caresOn(v) ? caresName(v) : 'Any issue' };
     root.addEventListener('click', async e => {
-      if (desk) {
-        const seg = e.target.closest('[data-seg="lgscope"]');
-        if (seg) { v.scope = seg.dataset.val; v.sort = null; v.q = ''; v.pick = null; v.cares = ''; inp.value = ''; paint(); root.querySelector(`[data-seg="lgscope"][data-val="${v.scope}"]`)?.focus(); return; }
-        if (e.target.closest('[data-lgscope]')) { v.scope = 'all'; v.sort = null; paint(); return; }
-        if (e.target.closest('[data-lgfilter]')) { menuSheet({ title: 'Filter', items: ['chamber', 'island', 'cmte', ...(PROFILES() ? ['cares'] : [])].map(k => ({ label: { chamber: 'Chamber', island: 'Island', cmte: 'Committee', cares: 'Cares about' }[k], sub: FWORD[k](v), icon: { chamber: 'landmark', island: 'map-pin', cmte: 'users', cares: 'tag' }[k], run: async () => { await afterBack(); if (k === 'cares') pickCares(); else pick(k); } })) }); return; }
-        if (e.target.closest('[data-lgcares]')) { pickCares(); return; }
-        const f = e.target.closest('[data-lgf]');
-        if (f) { pick(f.dataset.lgf); return; }
-        function pick(key) {
-          const count = ch => (S.legislators || []).filter(l => l.chamber === ch).length;
-          const options = key === 'chamber' ? [['', 'Both chambers'], ['H', 'House', null, `${count('H')} representatives`], ['S', 'Senate', null, `${count('S')} senators`]] : key === 'island' ? [['', 'Any island'], ...ISLANDS.map(i => [i, i])] : committeeOptions();
-          pickerSheet({ title: key === 'chamber' ? 'Chamber' : key === 'island' ? 'Island' : v.scope === 'week' ? 'Committees hearing our bills this week' : 'Committee', value: v[key], options,
-            onPick: val => { v[key] = val; if (key === 'chamber' && v.cmte && val && S.committees?.[v.cmte]?.chamber !== val) v.cmte = ''; v.q = ''; v.pick = null; inp.value = ''; paint(); root.querySelector('[data-lgfilter]')?.focus(); } });
-        }
-        const so = e.target.closest('[data-lgsort]');
-        if (so) { const key = so.dataset.lgsort, week = weekIndex(), cur = effSort(v, deskList(v, week).mode) || [];
-          v.sort = [key, cur[0] === key ? -cur[1] : SORT_DIR[key]]; paint(); body.querySelector(`[data-lgsort="${key}"]`)?.focus(); return; }
-        const ad = e.target.closest('[data-lgaddr]');
-        if (ad) { const a = v.addr?.results?.[+ad.dataset.lgaddr]; if (a) pickAddress(a); return; }
-        const pl = e.target.closest('[data-lgplace]');
-        if (pl) { const x = (v.sug || [])[+pl.dataset.lgplace]; if (x) { v.pick = { kind: 'place', label: x.label, ids: x.ids }; v.q = ''; inp.value = ''; paint(); } return; }
-        if (e.target.closest('[data-lgclear]')) { const wasSearch = !!(v.q.trim() || v.pick); v.q = ''; v.pick = null; inp.value = ''; if (!wasSearch) { v.chamber = ''; v.island = ''; v.cmte = ''; v.cares = ''; } paint(); if (e.target.closest('form')) inp.focus(); return; }
-        // The whole row opens the legislator (the name is the real link, for the keyboard and for a new tab).
-        const row = e.target.closest('tr[data-href]');
-        if (row && !e.target.closest('a, button') && !e.defaultPrevented && !String(getSelection?.() || '').trim()) {
-          v.last = +row.dataset.lgrow;
-          if (e.metaKey || e.ctrlKey) window.open(location.pathname + location.search + row.dataset.href, '_blank', 'noopener'); else S.go(row.dataset.href);
-        }
-        const link = e.target.closest('a.lg-tn'); if (link) v.last = +link.closest('tr').dataset.lgrow;
-        return;
-      }
-      const chipEl = e.target.closest('[data-lgchip]');
-      if (chipEl) { setChip(v, chipEl.dataset.lgchip); v.q = ''; v.pick = null; inp.value = ''; paint(); return; }
-      if (e.target.closest('[data-lgcares]')) { pickCares(); return; }   // R-335
-      if (e.target.closest('[data-lgclear]')) { if (!v.q.trim() && !v.pick) v.cares = ''; v.q = ''; v.pick = null; inp.value = ''; paint(); if (e.target.closest('form')) inp.focus(); else root.querySelector('[data-lgcares]')?.focus(); return; }
-      const sg = e.target.closest('button[data-lgsg]'); if (!sg) return;
-      const s = (v.sug || [])[+sg.dataset.lgsg]; if (!s) return;
-      if (s.kind === 'all') { v.focus = false; inp.blur(); paint(); return; }
-      v.focus = false; inp.blur();
-      if (s.kind === 'place') v.pick = { kind: 'place', label: s.label, ids: s.ids };
-      else if (s.kind === 'committee') v.pick = { kind: 'committee', label: `${s.c.name} (${s.c.code})`, ids: s.ids, note: `${s.ids.length} members, chair first` };
-      else if (s.kind === 'address') return pickAddress(s.x);
-      v.q = ''; inp.value = ''; paint();
+      const t = e.target;
+      const seg = t.closest('[data-seg="lgask"]');
+      if (seg) { v.ask = seg.dataset.val; paint(); return; }
+      const wk = t.closest('[data-lgweek]');
+      if (wk) { v.week = wk.dataset.lgweek === '1'; if (!v.week && v.sort === 'week') v.sort = ''; paint(); return; }
+      if (t.closest('[data-lgfilter]')) { menuSheet({ title: 'Filter', items: ['chamber', 'island', 'cmte', ...(PROFILES() ? ['cares'] : [])].map(k => ({ label: { chamber: 'Chamber', island: 'Island', cmte: 'Committee', cares: 'Cares about' }[k], sub: FWORD[k](), icon: { chamber: 'landmark', island: 'map-pin', cmte: 'users', cares: 'tag' }[k], run: async () => { await afterBack(); if (k === 'cares') pickCares(); else pick(k); } })) }); return; }
+      if (t.closest('[data-lgcares]')) { pickCares(); return; }
+      if (t.closest('[data-lgsort]')) { pickerSheet({ title: 'Sort by', value: sortOf(v), options: SORTS.map(([k, l]) => [k, l]), onPick: val => { v.sort = val; paint(); root.querySelector('[data-lgsort]')?.focus(); } }); return; }
+      const ad = t.closest('[data-lgaddr]');
+      if (ad) { const a = v.addr?.results?.[+ad.dataset.lgaddr]; if (a) pickAddress(a); return; }
+      const pl = t.closest('[data-lgplace]');
+      if (pl) { const xx = (v.towns || [])[+pl.dataset.lgplace]; if (xx) { v.pick = { kind: 'place', label: xx.label, ids: xx.ids }; v.q = ''; inp.value = ''; paint(); } return; }
+      const cl = t.closest('[data-lgclear]');
+      if (cl) { if (cl.dataset.lgclear === 'filters') { v.chamber = ''; v.island = ''; v.cmte = ''; v.cares = ''; } else { v.q = ''; v.pick = null; inp.value = ''; }
+        paint(); (cl.closest('form') || cl.dataset.lgclear === 'q' ? inp : root.querySelector('[data-lgfilter]'))?.focus(); return; }
+      const link = t.closest('[data-lglink]'); if (link) v.last = +link.dataset.lglink;
     });
   },
 };
 
-// j and k walk the table's rows (Enter opens the one in focus, because the name is a link). Like every shortcut:
-// off while typing, off when shortcuts are switched off in My settings, and it changes nothing.
-try { matchMedia('(min-width: 1600px)').addEventListener('change', () => { if (S.route?.name === 'legislators' && !document.querySelector('dialog[open]')) hooks.render(); }); } catch { /* old browsers */ }
+// j and k walk the rows (Enter opens the one in focus). Like every shortcut: off while typing, off when shortcuts are
+// switched off in My settings, and it changes nothing.
 let poppedAt = -1e9;
 addEventListener('popstate', () => { poppedAt = performance.now(); });
 document.addEventListener('keydown', e => {
   if ((e.key !== 'j' && e.key !== 'k') || S.route?.name !== 'legislators' || !keysOn() || e.metaKey || e.ctrlKey || e.altKey || document.querySelector('dialog[open]')) return;
   const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
-  const rows = [...document.querySelectorAll('.lg-tbl tbody a.lg-tn')]; if (!rows.length) return;
+  const rows = [...document.querySelectorAll('.lg6 .v6-row-main, .lg6 .lg6-gn')]; if (!rows.length) return;
   const i = rows.indexOf(document.activeElement); e.preventDefault();
   rows[i < 0 ? 0 : Math.max(0, Math.min(rows.length - 1, i + (e.key === 'j' ? 1 : -1)))].focus();
 });

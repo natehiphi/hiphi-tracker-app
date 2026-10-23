@@ -487,3 +487,160 @@ body.staff2 .st-help .st-keyson { margin-bottom: var(--s16); }
   .pf-ichip a { min-height: 32px; }
   .pf-irm { width: 32px; height: 32px; margin-left: -4px; }
 }
+
+/* ==== Staff v6 · Legislators (R-336 spec 4 and 6, V23): the three tabs, the board and the directory. Warm tokens only
+   (tokens.css), radii 12 / 20 / pill, no borders on cards (a card is a ground and a soft shadow), 14px only for labels
+   and numbers, 16px sentences, 18px names (DESIGN A-8, A-13, C-15). ==== */
+body.staff6 .lg6 { min-width: 0; max-width: 920px; }
+body.staff6 .lg6-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin: 0 0 24px; }
+body.staff6 .lg6-find { position: relative; flex: 1 1 320px; max-width: 520px; min-width: 0; margin: 0; }
+body.staff6 .lg6-find > svg { position: absolute; left: 16px; top: 50%; width: 20px; height: 20px; margin-top: -10px; color: var(--v6-muted); pointer-events: none; }
+body.staff6 .lg6-find input[type="search"] { width: 100%; min-height: 48px; padding: 0 48px 0 46px; border: 1px solid var(--v6-field); border-radius: var(--v6-pill);
+  background: var(--v6-card); color: var(--v6-ink); font: 400 var(--v6-t16)/var(--v6-lh16) Lato, system-ui, sans-serif; -webkit-appearance: none; appearance: none; }
+body.staff6 .lg6-find input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+body.staff6 .lg6-find input::placeholder { color: var(--v6-muted); }
+body.staff6 .lg6-find input:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .lg6-find .lg6-x { position: absolute; right: 2px; top: 50%; margin-top: -22px; }
+body.staff6 .lg6-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+/* A preset is a quick choice of the list, pressed or not: a pill on the wash, never an outline (spec 4). */
+body.staff6 .lg6-preset { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px; border: 0; border-radius: var(--v6-pill);
+  background: var(--v6-wash); color: var(--v6-body); font: 400 var(--v6-t16)/1.2 Lato, system-ui, sans-serif; cursor: pointer; }
+body.staff6 .lg6-preset svg { width: 18px; height: 18px; flex: none; color: var(--v6-muted); }
+body.staff6 .lg6-preset:hover { color: var(--v6-ink); background: #E8DFD0; }
+body.staff6 .lg6-preset[aria-pressed="true"] { background: var(--v6-action-wash); color: var(--v6-action-press); font-weight: 700; }
+body.staff6 .lg6-preset[aria-pressed="true"] svg { color: var(--v6-action); }
+body.staff6 .lg6-preset:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .lg6-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+body.staff6 .lg6-sum, body.staff6 .lg6-cap p { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .lg6-sum { margin: 0 0 16px; }
+body.staff6 .lg6-cap { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 16px; }
+body.staff6 .lg6-cap p { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
+body.staff6 .lg6-cap p svg, body.staff6 .lg6-snote svg, body.staff6 .lg6-foot svg, body.staff6 .lg6-note svg { width: 20px; height: 20px; flex: none; color: var(--v6-muted); }
+body.staff6 .lg6-cap b { color: var(--v6-ink); }
+body.staff6 .lg6-snote, body.staff6 .lg6-foot { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 16px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .lg6-foot { margin: 24px 0 0; }
+body.staff6 .lg6-foot svg, body.staff6 .lg6-note svg { margin-top: 2px; }
+body.staff6 .lg6-foot a, body.staff6 .lg6-note a { color: var(--v6-action); font-weight: 700; text-underline-offset: 3px; }
+/* F141: a calm fact on the wash (D3: never amber, nothing is late). */
+body.staff6 .lg6-note { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 16px; padding: 12px 16px; border-radius: var(--v6-r12); background: var(--v6-wash);
+  color: var(--v6-body); font-size: var(--v6-t16); line-height: var(--v6-lh16); font-weight: 400; }
+body.staff6 .lg6-scope { margin: 0 0 16px; }
+/* Rows whose line may run long (a chair's committee and last contact) wrap on narrow screens instead of cutting off. */
+body.staff6 .lg6-wrap .v6-row-line > span { white-space: normal; overflow: visible; text-overflow: clip; }
+body.staff6 .lg6-wrap .v6-row-name { white-space: normal; }
+body.staff6 .lg6-wrap .v6-row-top { flex-wrap: wrap; column-gap: 8px; }
+/* The board: one card per chair, the chair's heading, then our bills under it, separated by an inset hairline. */
+body.staff6 .lg6-board { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+body.staff6 .lg6-grp { min-width: 0; padding: 8px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .lg6-gh { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 8px 8px 8px; }
+body.staff6 .lg6-gn { flex: 1 1 260px; min-width: 0; display: flex; align-items: center; gap: 12px; min-height: 48px; margin: -4px; padding: 4px; border-radius: var(--v6-r12); color: inherit; text-decoration: none; }
+body.staff6 .lg6-gn:hover .lg6-gname { text-decoration: underline; text-underline-offset: 3px; }
+body.staff6 .lg6-gn:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .lg6-gph { flex: none; display: inline-flex; }
+body.staff6 .lg6-gph .lg-ph { width: 40px; height: 40px; background: var(--v6-wash); color: var(--v6-body); }
+body.staff6 .lg6-gt { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+body.staff6 .lg6-gname { font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+body.staff6 .lg6-gline { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .lg6-gact { flex: none; margin-left: auto; }
+body.staff6 .lg6-gact .btn { margin: 0; }
+body.staff6 .lg6-rows { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); margin-top: 4px; }
+body.staff6 .lg6-rows::before { content: ''; position: absolute; left: 8px; right: 8px; top: 0; height: 1px; background: var(--v6-hair); }
+/* The F140 mark on a bill's committee members and a hearing's (introChip): 14px, the label size, in the body colour. */
+body.staff6 .hb-intro { display: inline-flex; align-items: center; gap: 6px; margin-right: 8px; font-size: var(--v6-t14); line-height: var(--v6-lh14); font-weight: 700; color: var(--v6-body); }
+body.staff6 .hb-intro svg { width: 16px; height: 16px; flex: none; color: var(--v6-muted); }
+@media (max-width: 767px) {
+  body.staff6 .lg6-bar { margin-bottom: 16px; }
+  body.staff6 .lg6-find { flex-basis: 100%; max-width: none; }
+  body.staff6 .lg6-preset { min-height: 44px; }
+  body.staff6 .lg6-grp { padding: 4px; }
+  body.staff6 .lg6-gact { flex: 0 1 auto; margin-left: 52px; max-width: calc(100% - 52px); }
+}
+
+/* ---- Staff v6 · one legislator (V23): one column, the ask first; the reference after (A-1, A-13) ---- */
+body.staff6 .lg6-page { max-width: 760px; min-width: 0; }
+body.staff6 .lg6-back { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: 0 0 8px -8px; padding: 0 12px 0 4px; border-radius: var(--v6-pill);
+  color: var(--v6-action-press); text-decoration: none; }
+body.staff6 .lg6-back svg { width: 20px; height: 20px; }
+body.staff6 .lg6-back:hover { background: var(--v6-action-wash); }
+body.staff6 .lg6-back:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .lg6-phead { display: flex; align-items: center; gap: 16px; margin: 0 0 20px; min-width: 0; }
+body.staff6 .lg6-pph { flex: none; display: inline-flex; }
+body.staff6 .lg6-pph .lg-ph { width: 64px; height: 64px; background: var(--v6-wash); color: var(--v6-body); font: 600 var(--v6-t22)/1 Poppins, system-ui, sans-serif; }
+body.staff6 .lg6-pt { min-width: 0; }
+body.staff6 .lg6-pt h1 { margin: 0; font: 700 var(--v6-t28)/var(--v6-lh28) Poppins, system-ui, sans-serif; letter-spacing: -.015em; color: var(--v6-ink); overflow-wrap: anywhere; }
+body.staff6 .lg6-psub { margin: 2px 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .lg6-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 24px; }
+body.staff6 .lg6-acts .btn { margin: 0; }
+body.staff6 .lg6-tel { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 4px 0 16px; border-radius: var(--v6-pill); background: var(--v6-wash);
+  color: var(--v6-ink); }
+body.staff6 .lg6-tel > svg { width: 18px; height: 18px; color: var(--v6-muted); }
+body.staff6 .lg6-tel .btn { min-height: 40px; }
+body.staff6 .lg6-sec { margin: 0 0 40px; min-width: 0; }
+body.staff6 .lg6-sech { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; min-height: 44px; margin: 0 0 12px; }
+body.staff6 .lg6-sech h2 { margin: 0; font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+body.staff6 .lg6-n { font: 400 var(--v6-t16)/1 Lato, system-ui, sans-serif; color: var(--v6-muted); margin-left: 4px; }
+body.staff6 .lg6-none { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); max-width: 70ch; }
+body.staff6 .lg6-none + .lg6-list { margin-top: 12px; }
+body.staff6 .lg6-more { margin: 8px 0 0; }
+/* The bill this page was opened from: the selection ground, so it reads as "the one you came about". */
+body.staff6 .lg6-from { background: var(--v6-action-wash); border-radius: var(--v6-r12); }
+body.staff6 .lg6-from::before, body.staff6 .lg6-from + .v6-row::before { background: transparent; }
+body.staff6 .lg6-stand .v6-row-act .btn { white-space: nowrap; }
+/* Committees and the office: plain facts in one card, an inset hairline between them. */
+body.staff6 .lg6-facts { list-style: none; margin: 0; padding: 4px 16px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .lg6-facts li { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; min-height: 52px; padding: 6px 0;
+  font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); }
+body.staff6 .lg6-facts li + li::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
+body.staff6 .lg6-facts li > span:first-child { display: flex; align-items: flex-start; gap: 10px; min-width: 0; overflow-wrap: anywhere; }
+body.staff6 .lg6-facts li > span:first-child > svg { width: 20px; height: 20px; flex: none; margin-top: 2px; color: var(--v6-muted); }
+body.staff6 .lg6-facts a { color: var(--v6-action); text-underline-offset: 3px; }
+body.staff6 .lg6-facts a svg { width: 16px; height: 16px; margin-left: 4px; vertical-align: -2px; }
+body.staff6 .lg6-role { flex: none; padding: 2px 12px; border-radius: var(--v6-pill); background: var(--v6-wash); font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-body); }
+body.staff6 .lg6-facts .btn { flex: none; }
+@media (max-width: 767px) {
+  body.staff6 .lg6-back { display: none; }   /* the phone's top bar carries Back (spec 3.2) */
+  body.staff6 .lg6-phead { margin-top: 8px; }
+  body.staff6 .lg6-pph .lg-ph { width: 56px; height: 56px; }
+  body.staff6 .lg6-pt h1 { font-size: var(--v6-t22); line-height: var(--v6-lh22); }
+  body.staff6 .lg6-acts .btn { flex: 1 1 auto; justify-content: center; }
+  body.staff6 .lg6-acts .btn.primary { flex-basis: 100%; }
+  body.staff6 .lg6-tel { flex: 1 1 100%; justify-content: space-between; }
+  body.staff6 .lg6-sec { margin-bottom: 32px; }
+  body.staff6 .lg6-sech h2 { font-size: var(--v6-t18); line-height: var(--v6-lh18); }
+}
+
+/* ---- the Profile (R-335, practice copy) in v6: sentences at 16px, labels at 14px, one card for the sections ---- */
+body.staff6 .pf-note { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 12px; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+body.staff6 .pf-note svg { width: 18px; height: 18px; flex: none; }
+body.staff6 .pf-box { background: var(--v6-card); border: 0; border-radius: var(--v6-r20); box-shadow: var(--v6-sh1); overflow: hidden; }
+body.staff6 .pf-sec { position: relative; padding: 8px 8px 8px 20px; }
+body.staff6 .pf-sec + .pf-sec { border-top: 0; }
+body.staff6 .pf-sec + .pf-sec::before { content: ''; position: absolute; left: 20px; right: 20px; top: 0; height: 1px; background: var(--v6-hair); }
+body.staff6 .pf-sech h3 { margin: 0; font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; letter-spacing: 0; color: var(--v6-ink); }
+body.staff6 .pf-text { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .pf-by, body.staff6 .pf-by .linkbtn { font-size: var(--v6-t14); color: var(--v6-muted); }
+body.staff6 .pf-src { color: var(--v6-ink); }
+body.staff6 .pf-auto .pf-text { color: var(--v6-body); }
+body.staff6 .pf-auto a { color: var(--v6-action); }
+body.staff6 .pf-tip { display: flex; align-items: flex-start; gap: 10px; padding: 8px 4px 8px 16px; border: 0; border-radius: var(--v6-r12); background: var(--v6-wash); }
+body.staff6 .pf-tip > svg { width: 20px; height: 20px; flex: none; margin-top: 12px; color: var(--v6-body); }
+body.staff6 .pf-tiptext { font: 400 var(--v6-t16)/var(--v6-lh16) Lato, system-ui, sans-serif; color: var(--v6-ink); }
+body.staff6 .pf-top { margin: 0 0 32px; }
+body.staff6 .pf .pf-tip { margin: 0 0 12px; }
+body.staff6 .pf-iadd { min-height: 40px; border-radius: var(--v6-pill); }
+/* "Add what we know": the empty sections, one button each, on the wash (an offer, not a list of blanks). */
+body.staff6 .pf-add { margin-top: 12px; padding: 16px 20px 20px; border-radius: var(--v6-r20); background: var(--v6-wash); }
+body.staff6 .pf-box + .pf-add { margin-top: 16px; }
+body.staff6 .pf-add h3 { margin: 0; font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+body.staff6 .pf-addp { margin: 4px 0 12px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .pf-addb { display: flex; flex-wrap: wrap; gap: 8px; }
+body.staff6 .pf-add .btn.secondary { background: var(--v6-card); }
+body.staff6 .pf-add .btn.secondary:hover { background: var(--v6-action-wash); }
+/* v6: the written sections in one column (a two-column grid left holes when a few are written). */
+body.staff6 .pf-secs { display: block; }
+body.staff6 .pf-secs > .pf-sec { border: 0; }
+/* One teal for every action on these pages: text buttons and links take the tonal buttons' teal (action-press, 8.0:1 on
+   white, darker than action), so a page with both shows one action colour, not two (spec 8: five text colours at most). */
+body.staff6 :is(.lg6, .lg6-page) :is(.btn.text, .lg6-foot a, .lg6-note a, .lg6-facts a, .pf-auto a, .cv-meta a, .linkbtn) { color: var(--v6-action-press); }
+/* A photo's stand-in initial is decoration (aria-hidden), not a name: regular weight. */
+body.staff6 :is(.lg6-gph, .lg6-pph) .lg-ph.none { font-weight: 400; }
