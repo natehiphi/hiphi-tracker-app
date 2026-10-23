@@ -52,7 +52,7 @@
 //     asks moved to Outreach > Emails (emails.js imports weekAsksHTML and wireWeekAsks from here); since v4 (R-269) they
 //     are Outreach's first tab, This week's asks (asks.js), narrowed to your coalitions.
 import { S, DB, DEMO, SESSION_OVER, SESSION_YEAR, DEADLINES, esc, fmtDT, fmtDate, advocate, isMine, isMuted, capitolUrl, effStage, hooks, DEMO_ASOF, draftNotesOf } from './data.js';
-import { sharePageUrl, liveAsk } from './model.js';   // this week's asks (R-132); the ask still showing (Z1-3)
+import { sharePageUrl, liveAsk, teamFirst } from './model.js';   // this week's asks (R-132); the ask still showing (Z1-3)
 import { plainAction, OUT_PLAIN as OUT, draftFor, alertsToReview, approves, canFirstApprove, canSecondApprove, alertTarget, billNum, billTag, billSay, blurb, roomShort, chairMail, attendees, streamOf, hearingAhead, stopOf, diedish, legislativeDay, hstDayOf, gateNeed, deadlineName, unslack, billById, personName, OUTCOME_LABEL, sessionClock, suggestions, suggState, setSugg, SUGGEST_CAP, whyDead } from './model.js';
 import { icon, btn, iconBtn, chip, avatar, groupHead, segmented, empty, notice, toast, openSheet, closeSheet, pickerSheet, menuSheet, confirmSheet, field, keysOn, urgentMark, countdown, clockDay, lateLine } from './ui.js';
 import { goingBtn, docBtn, filedBtn, showAllBtn, ACT as LOOK, whoseSeg, mayUnfile } from './ui.js';   // R-277 fix 4 (U-4, U-8): one look per action
@@ -76,8 +76,8 @@ import { billRoute, whenAt, spanOf, dueLine, roomName, hearingWhen } from './mod
 // The Hawaiʻi calendar day of a moment. Hawaiʻi keeps UTC-10 all year (no daylight saving), so this is hstDayOf() by
 // arithmetic: the Intl version costs about 30 times more, and the week panels ask for hundreds of days per draw.
 const hst = t => { const x = new Date(t).getTime(); return Number.isNaN(x) ? hstDayOf(t) : new Date(x - 10 * HR).toISOString().slice(0, 10); };
-// R-316 W28 (G3-8): a turned-off teammate's name says so wherever Today still shows it.
-const first = id => { const a = advocate(id); return a ? a.full_name.split(' ')[0] + (a.is_active === false ? ' (turned off)' : '') : 'Someone'; };
+// R-316 W28 (G3-8): a turned-off teammate's name says so wherever Today still shows it: model.js's one helper, as every screen.
+const first = teamFirst;
 // R-316 W28 (G3-3): an owner who is turned off owns nothing here, so their late work is No owner and stays in Slipping.
 const live = id => !!id && advocate(id)?.is_active !== false;
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
