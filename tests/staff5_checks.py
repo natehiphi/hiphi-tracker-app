@@ -366,6 +366,29 @@ def batch_d(b, page, go):
   pg.evaluate("location.hash = '#/setup'"); pg.wait_for_timeout(2000)
   check('Session setup still opens (loaded on the way)', 'Session setup' in pg.inner_text('main') or 'Ready for session' in pg.inner_text('main'), pg.inner_text('main')[:60])
   ctx.close()
+  batch_d_start(b, page, go)
+
+# R-316 W7 (L-1): Getting started is for a person's first 45 days from their first sign-in. The practice copy always counts
+# from today, so the saved start day (prefs.started_at, which the live app writes on the first load) is set in the page,
+# and the rule for someone with none saved is tried through today.js startDay with a login made 200 days ago.
+START = """async (days) => { const { S, hooks } = await import('./staff5/data.js'), T = await import('./staff5/today.js');
+  const DAY = 864e5, now = Date.now(), wait = ms => new Promise(r => setTimeout(r, ms)), card = () => document.querySelectorAll('.td-start, .td-startph').length;
+  const keep = S.me.prefs, shown = {}; S.me.prefs = { ...(keep || {}) };
+  for (const d of days) { S.me.prefs.started_at = new Date(now - d * DAY).toISOString(); hooks.render(); await wait(400); shown[d] = card(); }
+  S.me.prefs = keep; hooks.render(); await wait(300);
+  const made = now - 200 * DAY, age = p => Math.round((now - T.startDay(p, made, now)) / DAY);
+  return { shown, back: card(), never: age({}), coal: age({ coalitions: 'all' }), used: age({ showMonitor: true }), saved: age({ started_at: new Date(now - 200 * DAY).toISOString(), showMonitor: true }) }; }"""
+
+def batch_d_start(b, page, go):
+  pg = page('NT'); go(pg, '/', 3000)
+  r = pg.evaluate(START, [200, 10])
+  check('Getting started: gone for someone whose first sign-in was 200 days ago', r['shown']['200'] == 0, r['shown'])
+  check('Getting started: shown for someone whose first sign-in was 10 days ago', r['shown']['10'] == 1, r['shown'])
+  check('Getting started: back once the saved start day is taken away (the practice copy counts from today)', r['back'] == 1, r['back'])
+  check('Getting started rule: a login made 200 days ago, never signed in, starts today (the card shows)', r['never'] == 0 and r['coal'] == 0, f"{r['never']} {r['coal']} days")
+  check('Getting started rule: a login made 200 days ago that has used the app is 200 days in (no card)', r['used'] == 200 and r['saved'] == 200, f"{r['used']} {r['saved']} days")
+  check('No page errors on the Getting started check', not pg.errs, pg.errs[:1])
+  pg.context.close()
 
 # ---- batch e (fixes 17, 18, 19, 20): the Show me pieces ----
 # 17. One open-bill panel (U-1): the same bill opens with the same parts, in the same order, with the same deadline line,

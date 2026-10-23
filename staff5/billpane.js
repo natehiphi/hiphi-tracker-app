@@ -30,6 +30,9 @@ export function billPane({ b = null, kind = '', p1 = '', headId, more = '', clos
 // `from` is the screen the hearing page's Back returns to.
 export function bpHearing(h, { from = '', going = '', mine = false, isNew = false } = {}) {
   if (!h) return '';
+  // R-316 W24 (G1-1): a sitting cancelled with no new one yet says so, with no day, time, room or I'm going: there is
+  // nothing to go to until a new notice lists the bill. It still opens the hearing's page.
+  if (h.status === 'cancelled') return `<div class="bp-hear"><a class="bp-hl" href="#/hearing/${esc(h.id)}${from ? `?from=${esc(from)}` : ''}">${icon('landmark')}<span><b>${esc(h.committee)} hearing cancelled</b>, no new date yet${TERMS_TAP() && cmteWords(h.committee) ? `<span class="bp-cn">${esc(cmteWords(h.committee))}</span>` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</a></div>`;
   return `<div class="bp-hear"><a class="bp-hl" href="#/hearing/${esc(h.id)}${from ? `?from=${esc(from)}` : ''}">${icon('landmark')}<span><b>${esc(h.committee)} ${isNew ? 'new hearing' : 'hearing'}</b> ${esc(hearingWhen(h))}${TERMS_TAP() && cmteWords(h.committee) ? `<span class="bp-cn">${esc(cmteWords(h.committee))}</span>` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</a>
     <p class="bp-go">${icon('users')}<span>${esc(going || 'Nobody going yet')}</span>${goingBtn(mine, { 'data-going': h.id })}</p></div>`;
 }
