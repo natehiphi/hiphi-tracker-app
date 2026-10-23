@@ -20,9 +20,10 @@
 import { S, DB, DEMO, SESSION_OVER, hooks, esc, advocate } from './data.js';
 import { plain, legislativeDay } from './model.js';
 import { teamName, ownerName } from './model.js';   // R-316 W28
-import { icon, btn, empty, toast, openSheet, closeSheet, avatar, pickerSheet, menuSheet, confirmSheet, filterBtn, sectionNav, friendly } from './ui.js';
-import { plural, afterClose, pageHead } from './lists.js';
-import { itemRow, statusTile, nw } from './steps.js';
+import { icon, btn, empty, toast, openSheet, closeSheet, avatar, pickerSheet, menuSheet, confirmSheet, filterBtn, friendly } from './ui.js';
+import { plural, afterClose } from './lists.js';
+import { itemRow, statusTile, nw, dayWords } from './steps.js';
+import { headHTML } from './issuestand.js';
 
 const live = () => (S.issues || []).filter(i => !i.archived_at);
 const byName = (a, b) => a.name.localeCompare(b.name);
@@ -45,17 +46,17 @@ const adminWord = () => { const a = admins(); return a.length !== 1 ? 'an admin'
 const Cap = w => w.charAt(0).toUpperCase() + w.slice(1);
 const approves = () => `${Cap(adminWord())} approve${adminWord() === 'you' ? '' : 's'}`;
 
-// "Fri 6 Nov", from app_settings 'issue_prep' (the day, in Hawaiʻi).
+// "Fri 11/6", from app_settings 'issue_prep' (the day, in Hawaiʻi), in the app's one date format (steps.js dayWords; the
+// critic: "Due Fri 6 Nov" was the only date written another way).
 const dueDay = () => new Date(`${S.issuePrep?.due || '2026-11-06'}T12:00:00-10:00`);
-export const dueText = () => { const d = dueDay(), o = { timeZone: 'Pacific/Honolulu' };
-  return `${d.toLocaleDateString('en-US', { ...o, weekday: 'short' })} ${d.toLocaleDateString('en-US', { ...o, day: 'numeric' })} ${d.toLocaleDateString('en-US', { ...o, month: 'short' })}`; };
+export const dueText = () => dayWords(dueDay());
 const pastDue = () => Date.now() > dueDay().getTime() + 12 * 3600e3;
 // The last second of the due day, in Hawaiʻi: when Today's prep task turns "Still to finish" (R-316 W4; steps.js status).
 export const dueEnd = () => dueDay().getTime() + 12 * 3600e3 - 1000;
-// "today", "tomorrow", "Fri" within the week, else "Fri 6 Nov".
+// "today", "tomorrow", "Fri" within the week, else "Fri 11/6".
 const dueWord = () => { const h = d => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }), day = h(dueDay()), t = Date.now();
   return day === h(t) ? 'today' : day === h(t + 864e5) ? 'tomorrow' : dueEnd() > t && dueEnd() - t < 6 * 864e5 ? dueDay().toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'short' }) : dueText(); };
-// The due date in words that never alarm (spec 6): "due Fri 6 Nov", or once past it "still to finish (it was due Fri 6 Nov)".
+// The due date in words that never alarm (spec 6): "Due Fri 11/6", or once past it "Still to finish · it was due Fri 11/6".
 const dueSay = () => pastDue() ? `Still to finish · it was due ${dueText()}` : `Due ${dueWord() === dueText() ? dueText() : `${dueWord()}, ${dueText()}`}`;
 const clip = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).replace(/\s\S*$/, '') + '…' : s; };
 
@@ -67,14 +68,16 @@ const SELF_APPROVE = () => DEMO;
 
 // ---- the six steps of a prepared issue (R-288 added "Top issue for 2027?") ----
 const pointsOf = i => i.talking_points || [];
+// Each step's one instruction (the critic: five lines of small print on one card; one a step, and Saving/Saved says the rest).
 export const STEPS = [
   { k: 'wording', label: 'Name and description', todo: 'Do the name and the description above still say it right?', done: i => !!i.wording_checked_at, did: () => 'Checked' },
-  { k: 'outlook', label: 'Between sessions', todo: 'Check what the public reads until January', done: i => !!i.outlook_checked_at, did: i => i.outlook ? `Checked: ${i.outlook}` : 'Checked' },
-  { k: 'goal', label: 'HIPHI’s goal for 2027', todo: 'One or two sentences. Staff only', done: i => !!(i.goal || '').trim(), did: i => i.goal },
-  { k: 'points', label: 'Talking points', todo: 'Three to five, for people’s letters', done: i => pointsOf(i).length >= 3, did: i => plural(pointsOf(i).length, 'point') },
-  { k: 'top', label: 'Top issue for 2027?', todo: 'Should HIPHI lead with it this session?', done: i => !!i.top_pick, did: i => i.top_pick === 'no' ? 'No' : i.recommended ? 'Yes, confirmed' : `Yes, waiting for ${adminWord()} to confirm` },
-  { k: 'plan', label: 'Keep, merge or retire', todo: 'What happens to it in 2027', done: i => !!i.proposal, did: i => i.proposal === 'merge' ? `Merge into ${S.issues.find(x => x.id === i.proposal_into)?.name || 'another issue'}` : i.proposal === 'retire' ? 'Retire it' : 'Keep it' },
+  { k: 'outlook', label: 'Between sessions', todo: 'What the public reads until January: does it still hold?', done: i => !!i.outlook_checked_at, did: i => i.outlook ? `Checked: ${i.outlook}` : 'Checked' },
+  { k: 'goal', label: 'HIPHI’s goal for 2027', todo: 'One or two sentences. Staff only.', done: i => !!(i.goal || '').trim(), did: i => i.goal },
+  { k: 'points', label: 'Talking points', todo: 'Three to five, one a line. People put them in letters sent in their own name, so keep them true.', done: i => pointsOf(i).length >= 3, did: i => plural(pointsOf(i).length, 'point') },
+  { k: 'top', label: 'Top issue for 2027?', todo: () => `Should HIPHI lead with it? ${Cap(adminWord())} confirm${adminWord() === 'you' ? '' : 's'} it, and newcomers find it already ticked.`, done: i => !!i.top_pick, did: i => i.top_pick === 'no' ? 'No' : i.recommended ? 'Yes, confirmed' : `Yes, waiting for ${adminWord()} to confirm` },
+  { k: 'plan', label: 'Keep, merge or retire', todo: () => `What happens to it in 2027. Nothing changes until ${adminWord()} approve${adminWord() === 'you' ? '' : 's'} it.`, done: i => !!i.proposal, did: i => i.proposal === 'merge' ? `Merge into ${S.issues.find(x => x.id === i.proposal_into)?.name || 'another issue'}` : i.proposal === 'retire' ? 'Retire it' : 'Keep it' },
 ];
+const todoOf = s => typeof s.todo === 'function' ? s.todo() : s.todo;
 const doneN = i => STEPS.filter(s => s.done(i)).length;
 // A helper's part: the six steps done (only the owner marks the issue ready).
 const partDone = i => doneN(i) === STEPS.length;
@@ -109,6 +112,9 @@ const helping = () => { const ids = new Set((S.issueHelpers || []).filter(h => h
 const myDrafts = () => live().filter(i => isDraft(i) && (i.owner_id === S.me?.id || i.created_by === S.me?.id));
 // W17: an admin's own issues are approved straight from their card, so they are not "waiting for you".
 const waitingForAdmin = () => live().filter(i => stateOf(i) === 'ready' && !(SELF_APPROVE() && i.owner_id === S.me?.id));
+// What waits for an admin on the Prep board: issues marked ready, and new issues waiting to go public. All issues shows its
+// All issues · Prep board switch in session only while something waits (issues.js).
+export const boardWaits = () => isAdmin() ? waitingForAdmin().length + live().filter(isDraft).length : 0;
 const isDone = i => ['ready', 'approved'].includes(stateOf(i));
 const ORDER = { sent_back: 0, started: 1, todo: 2, ready: 3, approved: 4, draft: 5 };
 const ordered = l => l.slice().sort((a, b) => ORDER[stateOf(a)] - ORDER[stateOf(b)] || byName(a, b));
@@ -308,6 +314,8 @@ function helperMenu(i, a) {
 }
 
 // ---- the card on an issue's page ----
+// A new issue's card ("Before it goes public"): its description, goal and points.
+const DRAFT_STEPS = [{ ...STEPS[0], label: 'Description', todo: 'One sentence the public sees', done: x => !!(x.description || '').trim(), did: x => x.description }, STEPS[2], STEPS[3]];
 function peopleHTML(i) {
   const o = ownerOfIssue(i), hs = helpersOf(i);
   return `<div class="pr6-people">
@@ -319,41 +327,51 @@ function peopleHTML(i) {
 }
 // What is typed in a box and not saved yet (a sixth point, a point too long) survives a redraw (B-6, C-9).
 const DRAFT = () => S.prDraft ??= {};
-const OPEN = () => S.prOpen ??= {};
-const isOpen = (i, k) => !!OPEN()[i.id]?.has(k);
-// One step still to do: its own control, inline. `first` marks the step that takes the focus after a redraw.
-function openHTML(i, s, { draftCard = false } = {}) {
-  const k = s.k, dv = DRAFT()[i.id]?.[k];
+// The one open step (the critic: six steps open at once made a card taller than a laptop screen): the one the person chose
+// (Open, Change), else the first still to do. Each step done opens the next by itself, so the clicks stay at most 8.
+const OPEN1 = () => S.prOpen1 ??= {};
+const openKey = (i, steps) => { const k = OPEN1()[i.id]; return (k && steps.some(s => s.k === k) ? k : steps.find(s => !s.done(i))?.k) || null; };
+// The step after `k` still to do (wrapping), for "Next step"; null when none is left.
+const nextOpen = (i, steps, k) => { const at = steps.findIndex(s => s.k === k), l = [...steps.slice(at + 1), ...steps.slice(0, at)]; return l.find(s => !s.done(i))?.k || null; };
+// A step's own control, inline; [data-prfocus] takes the focus when it opens.
+function openHTML(i, s, { draftCard = false, peek = false } = {}) {
+  const k = s.k, dv = DRAFT()[i.id]?.[k], f = peek ? {} : { 'data-prfocus': '1' };
   const say = (txt, empty = 'Nothing written yet') => `<p class="pr6-quote">${txt ? esc(txt) : `<span class="pr6-none">${empty}</span>`}</p>`;
   // The name and description are the page's own heading, right above the card: the step points at them (A-14: said once).
   if (k === 'wording') return draftCard
-    ? `<p class="pr6-acts">${btn(i.description ? 'Edit' : 'Write it', { kind: 'secondary', sm: true, icon: 'pencil', attrs: { 'data-prstep': 'wording', 'data-prfocus': '1', 'aria-haspopup': 'dialog' } })}</p>`
-    : `<p class="pr6-acts">${btn('Looks right', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-prok': 'wording', 'data-prfocus': '1' } })}${btn('Edit', { kind: 'text', sm: true, attrs: { 'data-prstep': 'wording', 'aria-haspopup': 'dialog', 'aria-label': 'Edit the name and description' } })}</p>`;
-  if (k === 'outlook') return `${say(i.outlook)}<p class="pr6-acts">${btn('Looks right', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-prok': 'outlook', 'data-prfocus': '1' } })}${btn('Edit', { kind: 'text', sm: true, attrs: { 'data-prstep': 'outlook', 'aria-haspopup': 'dialog', 'aria-label': 'Edit what the public reads between sessions' } })}</p>`;
+    ? `<p class="pr6-acts">${btn(i.description ? 'Edit' : 'Write it', { kind: 'secondary', sm: true, icon: 'pencil', attrs: { 'data-prstep': 'wording', ...f, 'aria-haspopup': 'dialog' } })}</p>`
+    : `<p class="pr6-acts">${btn('Looks right', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-prok': 'wording', ...f } })}${btn('Edit', { kind: 'text', sm: true, attrs: { 'data-prstep': 'wording', 'aria-haspopup': 'dialog', 'aria-label': 'Edit the name and description' } })}</p>`;
+  if (k === 'outlook') return `${say(i.outlook)}<p class="pr6-acts">${btn('Looks right', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-prok': 'outlook', ...f } })}${btn('Edit', { kind: 'text', sm: true, attrs: { 'data-prstep': 'outlook', 'aria-haspopup': 'dialog', 'aria-label': 'Edit what the public reads between sessions' } })}</p>`;
   if (k === 'goal' || k === 'points') {
     const val = dv ?? (k === 'goal' ? i.goal || '' : pointsOf(i).join('\n')), id = `pr-in-${k}-${esc(i.id)}`;
-    const hint = k === 'goal' ? 'It saves as you type.' : 'One per line. People put these in letters sent in their own name, so keep them true. It saves as you type.';
-    return `<textarea class="pr6-box" id="${id}" rows="${k === 'goal' ? 3 : 5}" maxlength="${k === 'goal' ? 600 : 1100}" data-prauto="${k}" data-prfocus="1" aria-labelledby="pr6-l-${k}" aria-describedby="${id}-h ${id}-said"${k === 'points' ? ' placeholder="One plain sentence per line."' : ''}>${esc(val)}</textarea>
-      <p class="pr6-hint" id="${id}-h">${hint}</p><p class="pr6-said" id="${id}-said" role="status">${k === 'points' ? esc(pointsCount(val)) : ''}</p>
-      ${isOpen(i, k) && s.done(i) ? `<p class="pr6-acts">${btn('Done', { kind: 'text', sm: true, icon: 'check', attrs: { 'data-prclose': k } })}</p>` : ''}`;
+    // Saving and Saved say that it saves as you type (B-7); "Next step" goes on (or "Done" when nothing is left).
+    return `<textarea class="pr6-box" id="${id}" rows="${k === 'goal' ? 3 : 5}" maxlength="${k === 'goal' ? 600 : 1100}" data-prauto="${k}" ${peek ? '' : 'data-prfocus="1"'} aria-labelledby="pr6-l-${k}" aria-describedby="pr6-d-${k} ${id}-said"${k === 'points' ? ' placeholder="One plain sentence per line."' : ''}>${esc(val)}</textarea>
+      <div class="pr6-boxfoot"><p class="pr6-said" id="${id}-said" role="status">${k === 'points' ? esc(pointsCount(val)) : ''}</p>${btn(nextOpen(i, draftCard ? DRAFT_STEPS : STEPS, k) ? 'Next step' : 'Done', { kind: 'secondary', sm: true, iconEnd: 'arrow-right', attrs: { 'data-prnext': k } })}</div>`;
   }
-  if (k === 'top') return `<p class="pr6-hint">${topHelp()}</p><p class="pr6-acts" role="group" aria-labelledby="pr6-l-top">${[['yes', 'Yes, a top issue', 'star'], ['no', 'No', 'minus']].map(([v, l, ic], n) => btn(l, { kind: 'secondary', sm: true, icon: ic, attrs: { 'data-prtopv': v, 'aria-pressed': String(i.top_pick === v), ...(n ? {} : { 'data-prfocus': '1' }) } })).join('')}</p>`;
-  if (k === 'plan') return `<p class="pr6-acts" role="group" aria-labelledby="pr6-l-plan">${btn('Keep it', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-prplan': 'keep', 'aria-pressed': String(i.proposal === 'keep'), 'data-prfocus': '1' } })}${btn('Merge into…', { kind: 'secondary', sm: true, icon: 'arrow-right', attrs: { 'data-prplan': 'merge', 'aria-pressed': String(i.proposal === 'merge'), 'aria-haspopup': 'dialog' } })}${btn('Retire', { kind: 'secondary', sm: true, icon: 'archive', attrs: { 'data-prplan': 'retire', 'aria-pressed': String(i.proposal === 'retire') } })}</p>
-    <p class="pr6-hint">Nothing changes until ${esc(adminWord())} approve${adminWord() === 'you' ? '' : 's'} it.</p>`;
+  if (k === 'top') return `<p class="pr6-acts" role="group" aria-labelledby="pr6-l-top">${[['yes', 'Yes, a top issue', 'star'], ['no', 'No', 'minus']].map(([v, l, ic], n) => btn(l, { kind: 'secondary', sm: true, icon: ic, attrs: { 'data-prtopv': v, 'aria-pressed': String(i.top_pick === v), ...(n ? {} : f) } })).join('')}</p>`;
+  if (k === 'plan') return `<p class="pr6-acts" role="group" aria-labelledby="pr6-l-plan">${btn('Keep it', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-prplan': 'keep', 'aria-pressed': String(i.proposal === 'keep'), ...f } })}${btn('Merge into…', { kind: 'secondary', sm: true, icon: 'arrow-right', attrs: { 'data-prplan': 'merge', 'aria-pressed': String(i.proposal === 'merge'), 'aria-haspopup': 'dialog' } })}${btn('Retire', { kind: 'secondary', sm: true, icon: 'archive', attrs: { 'data-prplan': 'retire', 'aria-pressed': String(i.proposal === 'retire') } })}</p>`;
   return '';
 }
-// The steps: done ones one line each with Change; the ones still to do open, each with its control, for whoever works
-// the card (owner, helper, admin); everyone else reads each step's line.
+// The steps: a number in a sand tile (a check once done; never an empty circle that looks like a box to tick, the critic),
+// the name, and one line. One step is open with its control; a step typed in (goal, points) has the next one waiting under
+// it, shown the moment the typing is saved, so its first button is the next click. Done ones say what was done, with
+// Change; the ones still to do say "To do", with Open. Anyone who does not work the card reads each step's line.
+const TYPED = new Set(['goal', 'points']);
 function stepsHTML(i, steps, { work = false, draftCard = false } = {}) {
-  return `<ol class="pr6-steps">${steps.map(s => { const d = s.done(i), open = work && (!d || isOpen(i, s.k));
+  const cur = work ? openKey(i, steps) : null, peeks = new Map();   // a waiting step -> the typed step that shows it
+  for (let t = cur; t && TYPED.has(t) && !steps.find(s => s.k === t).done(i);) { const nx = nextOpen(i, steps, t); if (!nx || nx === cur || peeks.has(nx)) break; peeks.set(nx, t); t = nx; }
+  return `<ol class="pr6-steps">${steps.map((s, n) => { const d = s.done(i), open = s.k === cur, peek = peeks.has(s.k);
     // An admin confirms a top issue right on its step (R-316 W16), as on the board's Top issues view.
     const conf = s.k === 'top' && isAdmin() && i.top_pick === 'yes' && !isDraft(i) ? topBtn(i) : '';
-    const said = d ? (s.k === 'points' ? plural(pointsOf(i).length, 'point') : clip(s.did(i), 90)) : s.todo;
-    return `<li class="pr6-step${d ? ' done' : ''}${open ? ' open' : ''}" data-prk="${s.k}">
-      <span class="pr6-mark" aria-hidden="true">${icon(d ? 'circle-check' : 'circle')}</span>
+    const said = d ? (s.k === 'points' ? plural(pointsOf(i).length, 'point') : clip(s.did(i), 90)) : work ? 'To do' : todoOf(s);
+    const closedBtn = !work ? '' : d ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-prchange': s.k, 'aria-label': `Change: ${s.label}`, ...(['wording', 'outlook'].includes(s.k) ? { 'aria-haspopup': 'dialog' } : {}) } })
+      : btn('Open', { kind: 'text', sm: true, attrs: { 'data-propen': s.k, 'aria-label': `Open: ${s.label}` } });
+    const closed = `<p class="pr6-sd">${esc(said)}</p>${conf}`, body = `<p class="pr6-sd" id="pr6-d-${s.k}">${esc(todoOf(s))}</p>${openHTML(i, s, { draftCard, peek })}${conf}`;
+    return `<li class="pr6-step${d ? ' done' : ''}${open ? ' open' : ''}" data-prk="${s.k}" data-prn="${n + 1}"${peek ? ` data-prpeek="${peeks.get(s.k)}"` : ''}>
+      <span class="pr6-mark" aria-hidden="true">${d ? icon('circle-check') : `<span class="pr6-n">${n + 1}</span>`}</span>
       <div class="pr6-sb"><p class="pr6-sl" id="pr6-l-${s.k}">${esc(s.label)}<span class="sr">${d ? ': done' : ': to do'}</span></p>
-        ${open ? (d ? '' : `<p class="pr6-sd">${esc(s.todo)}</p>`) + openHTML(i, s, { draftCard }) : `<p class="pr6-sd">${esc(said)}</p>`}${conf}</div>
-      ${!open && work && d ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-prchange': s.k, 'aria-label': `Change: ${s.label}`, ...(['wording', 'outlook'].includes(s.k) ? { 'aria-haspopup': 'dialog' } : {}) } }) : ''}</li>`; }).join('')}</ol>`;
+        ${open ? body : peek ? `<div class="pr6-closed">${closed}</div><div class="pr6-peekb" hidden>${body}</div>` : closed}</div>
+      ${open ? '' : peek ? `<span class="pr6-closed">${closedBtn}</span>` : closedBtn}</li>`; }).join('')}</ol>`;
 }
 const listWords = l => l.length < 2 ? l.join('') : `${l.slice(0, -1).join(', ')} and ${l[l.length - 1]}`;
 const leftWords = n => `${n} step${n === 1 ? '' : 's'} left`;
@@ -386,7 +404,7 @@ export function prepCardHTML(i, { outlook = '' } = {}) {
   if (!i || i.archived_at) return '';
   if (isDraft(i)) {
     const m = missing(i), who = adminWord();
-    const steps = [{ ...STEPS[0], label: 'Description', todo: 'One sentence the public sees', done: x => !!(x.description || '').trim(), did: x => x.description }, STEPS[2], STEPS[3]];
+    const steps = DRAFT_STEPS;
     return `<section class="pr6-card pr6-draft" aria-labelledby="pr-h">
       <div class="pr6-head"><h2 id="pr-h">Before it goes public</h2><p class="pr6-sub">${statusTile({ tone: 'neutral', icon: 'eye-off', words: 'Not public yet' })}</p></div>
       <p class="pr6-lede">${m.length ? `It still needs ${esc(listWords(m.map(x => x[1])))}.` : `It has everything. ${isAdmin() ? 'Publish it when you are happy with it.' : `${esc(Cap(who))} publish${who === 'you' ? '' : 'es'} it.`}`}</p>
@@ -427,10 +445,19 @@ function after(focusK = null) {
 // Paint the progress in place (a step's tick, the foot's count and button) without a redraw, so typing is never interrupted.
 function paintProgress(i, card) {
   card.querySelectorAll('.pr6-step').forEach(li => { const s = STEPS.find(x => x.k === li.dataset.prk); if (!s) return; const d = s.done(i);
-    li.classList.toggle('done', d); const m = li.querySelector('.pr6-mark'); if (m) m.innerHTML = icon(d ? 'circle-check' : 'circle'); const sr = li.querySelector('.pr6-sl .sr'); if (sr) sr.textContent = d ? ': done' : ': to do'; });
+    li.classList.toggle('done', d); const m = li.querySelector('.pr6-mark'); if (m) m.innerHTML = d ? icon('circle-check') : `<span class="pr6-n">${esc(li.dataset.prn || '')}</span>`;
+    const sr = li.querySelector('.pr6-sl .sr'); if (sr) sr.textContent = d ? ': done' : ': to do'; });
+  STEPS.filter(s => s.done(i)).forEach(s => revealAfter(card, s.k));
   const f = footHTML(i), foot = card.querySelector('.pr6-foot');
   if (foot && f) { const focused = foot.contains(document.activeElement); foot.innerHTML = f.html; foot.classList.toggle('sticky', !!f.sticky); wireFoot(i, card); if (focused) foot.querySelector('.btn')?.focus({ preventScroll: true }); }
 }
+// The step waiting under a typed one shows as soon as what is typed would do the step (and again once it is saved): its
+// first button is the next click, with no "Next step" in between.
+function revealAfter(card, k) {
+  card.querySelectorAll(`[data-prpeek="${k}"]`).forEach(li => { if (li.classList.contains('open')) return;
+    li.querySelectorAll('.pr6-closed').forEach(e => { e.hidden = true; }); const b = li.querySelector('.pr6-peekb'); if (b) b.hidden = false; li.classList.add('open'); });
+}
+const enough = (k, v) => k === 'goal' ? !!v.trim() : pointsIn(v).length >= 3 && !pointsErr(v);
 function wireAuto(i, card) {
   PENDING.clear();
   card.querySelectorAll('[data-prauto]').forEach(ta => {
@@ -450,7 +477,7 @@ function wireAuto(i, card) {
       } catch (e) { if (ta.isConnected) said.textContent = `Not saved: ${friendly(e)}`; }
     };
     ta.addEventListener('input', () => {
-      (DRAFT()[i.id] ??= {})[k] = ta.value; ta.removeAttribute('aria-invalid');
+      (DRAFT()[i.id] ??= {})[k] = ta.value; ta.removeAttribute('aria-invalid'); if (enough(k, ta.value)) revealAfter(card, k);
       said.textContent = k === 'points' ? pointsCount(ta.value) : '';
       clearTimeout(t); t = setTimeout(save, 1000); PENDING.add(save);
     });
@@ -460,8 +487,9 @@ function wireAuto(i, card) {
 function wireFoot(i, card) {
   const foot = card.querySelector('.pr6-foot'); if (!foot) return;
   const on = (k, fn) => foot.querySelector(`[data-pr="${k}"]`)?.addEventListener('click', fn);
+  // Mark ready with steps left: it says which, and opens the first of them.
   const stillToDo = () => { const left = STEPS.filter(s => !s.done(i)); toast(`Still to do: ${left.map(s => s.label.toLowerCase()).join(', ')}.`);
-    const el = card.querySelector(`[data-prk="${left[0]?.k}"] [data-prfocus]`); if (el) { el.focus(); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } else if (left[0]) openStep(i, left[0].k); };
+    if (!left[0]) return; OPEN1()[i.id] = left[0].k; after(left[0].k); document.querySelector(`.pr6-card [data-prk="${left[0].k}"]`)?.scrollIntoView({ block: 'center' }); };
   on('ready', async e => {
     await flush();
     if (doneN(i) < STEPS.length) return stillToDo();
@@ -477,7 +505,7 @@ function wireFoot(i, card) {
   on('publish', async () => {
     await flush();
     const m = missing(i);
-    if (m.length) { toast(`It needs ${listWords(m.map(x => x[1]))} first.`); const k = m[0][0]; if (k === 'owner') changeOwner(i); else if (k === 'bill') document.getElementById('is-bq')?.focus(); else { const el = card.querySelector(`[data-prk="${k}"] [data-prfocus]`); if (el) el.focus(); else openStep(i, k); } return; }
+    if (m.length) { toast(`It needs ${listWords(m.map(x => x[1]))} first.`); const k = m[0][0]; if (k === 'owner') changeOwner(i); else if (k === 'bill') document.getElementById('is-bq')?.focus(); else { OPEN1()[i.id] = k; after(k); } return; }
     const ok = await confirmSheet({ title: `Publish ${esc(i.name)}?`, ok: 'Publish', text: 'The public can find and follow it from now on. People who follow its whole category get it too.' });
     if (!ok) return;
     // Publishing is the admin's approval of the whole issue, so its prep steps count as done too.
@@ -488,21 +516,26 @@ function wireFoot(i, card) {
 }
 export function wirePrepCard(i, root) {
   const card = root.querySelector('.pr6-card'); if (!card || !i) return;
+  const steps = isDraft(i) ? DRAFT_STEPS : STEPS;
   wireAuto(i, card);
   // Edit (a sheet) and Change: the public wording and the between-sessions text open their sheet; the rest open in place.
   card.querySelectorAll('[data-prstep]').forEach(el => el.onclick = async () => { await flush(); openStep(i, el.dataset.prstep); });
   card.querySelectorAll('[data-prchange]').forEach(el => el.onclick = async () => { await flush(); const k = el.dataset.prchange;
     if (['wording', 'outlook'].includes(k)) return openStep(i, k);
-    (OPEN()[i.id] ??= new Set()).add(k); after(k); });
-  card.querySelectorAll('[data-prclose]').forEach(el => el.onclick = async () => { await flush(); OPEN()[i.id]?.delete(el.dataset.prclose); after(el.dataset.prclose); });
-  // "Looks right": the wording or the outlook checked as it is, one tap.
+    OPEN1()[i.id] = k; after(k); });
+  // Open: a step still to do, out of order. Next step / Done: on to the next step still to do after this one.
+  card.querySelectorAll('[data-propen]').forEach(el => el.onclick = async () => { await flush(); OPEN1()[i.id] = el.dataset.propen; after(el.dataset.propen); });
+  card.querySelectorAll('[data-prnext]').forEach(el => el.onclick = async () => { await flush(); const nx = nextOpen(i, steps, el.dataset.prnext);
+    if (nx) OPEN1()[i.id] = nx; else delete OPEN1()[i.id]; after(nx); });
+  // "Looks right": the wording or the outlook checked as it is, one tap; the next step opens by itself.
   card.querySelectorAll('[data-prok]').forEach(el => el.onclick = async () => {
     await flush(); const k = el.dataset.prok, f = k === 'wording' ? 'wording_checked_at' : 'outlook_checked_at';
+    if (OPEN1()[i.id] === k) delete OPEN1()[i.id];
     try { await DB.updateIssue(i.id, { [f]: now() }); after(); toast('Marked as checked.', { ok: true, undo: async () => { await DB.updateIssue(i.id, { [f]: null }); hooks.render(); } }); }
     catch (e) { toast(e, { err: true }); }
   });
-  card.querySelectorAll('[data-prtopv]').forEach(el => el.onclick = async () => { await flush(); OPEN()[i.id]?.delete('top'); setTop(i, el.dataset.prtopv, () => after()); });
-  card.querySelectorAll('[data-prplan]').forEach(el => el.onclick = async () => { await flush(); OPEN()[i.id]?.delete('plan');
+  card.querySelectorAll('[data-prtopv]').forEach(el => el.onclick = async () => { await flush(); if (OPEN1()[i.id] === 'top') delete OPEN1()[i.id]; setTop(i, el.dataset.prtopv, () => after()); });
+  card.querySelectorAll('[data-prplan]').forEach(el => el.onclick = async () => { await flush(); if (OPEN1()[i.id] === 'plan') delete OPEN1()[i.id];
     const v = el.dataset.prplan; if (v === 'merge') return mergePick(i); setPlan(i, v, () => after()); });
   card.querySelectorAll('[data-prh]').forEach(el => el.onclick = () => { const a = advocate(el.dataset.prh); if (a) helperMenu(i, a); });
   card.querySelector('[data-pr="owner"]')?.addEventListener('click', () => changeOwner(i));
@@ -570,11 +603,11 @@ function mineRender({ asMyIssues = false } = {}) {
   // One sentence of where you are, said once (A-14), in words that never alarm after the date (spec 6).
   const lede = own.length ? (left.length ? `${ready} of ${own.length} ready. ${pastDue() ? `Still to finish: ${left.length} (they were due ${dueText()})` : `Due ${dueText()}`}.` : `All ${own.length} ready or approved.`)
     : help.length ? `You help on ${plural(help.length, 'issue')}. Each owner marks theirs ready.` : 'Getting the issues ready for 2027.';
-  const head = asMyIssues ? pageHead(sectionNav('issues', 'mine'), 'My issues', '', '') : pageHead(sectionNav('issues', 'all'), 'Your issues for 2027', '', '');
+  const head = headHTML(asMyIssues ? 'mine' : 'all');
   const ok = live().filter(i => !isDraft(i)), nApp = ok.filter(i => stateOf(i) === 'approved').length;
   return `<div class="le-page i6-page pr6-page">
     ${head}
-    <section class="pr6-top"${asMyIssues ? ' aria-labelledby="pr6-th"' : ''}>${asMyIssues ? '<h2 class="i6-h" id="pr6-th">Your issues for 2027</h2>' : ''}
+    <section class="pr6-top" aria-labelledby="pr6-th"><h2 class="i6-h" id="pr6-th">Your issues for 2027</h2>
       <p class="pr6-lede">${esc(lede)}</p>
       ${next ? `<p class="pr6-next">${btn(`${left.length === own.length && !ready && own.length ? 'Start' : 'Next'}: ${esc(next.name)}`, { iconEnd: 'arrow-right', href: issueHref(next, 'prep') })}</p>` : ''}
       ${isAdmin() ? lineHTML('clipboard-check', esc(`Team: ${nApp} of ${ok.length} approved.`), `<a class="i6-inline" href="${BOARD_HREF}">Open the Prep board</a>`) : ''}
@@ -632,9 +665,9 @@ function boardRender(route) {
   const f = st.f || (counts('wait') ? 'wait' : 'all');
   // W4: each owner's progress, least done first ("Kevin 4/10"), so who is behind shows without scanning.
   const perLine = ownerProgress().map(o => `<button type="button" class="pr6-whob" data-prwho="${esc(o.id)}" aria-pressed="${st.who === o.id}" aria-label="${esc(`${first(advocate(o.id))}: ${o.done} of ${o.total} ready or approved`)}">${esc(first(advocate(o.id)))} ${o.done}/${o.total}</button>`).join('');
-  if (!isAdmin()) return `<div class="le-page i6-page">${pageHead(sectionNav('issues', 'all'), 'All issues', '', '')}<p class="i6-quiet">The Prep board is for admins. Your own issues for 2027 are under <a href="${prepListHref()}">My issues</a>.</p></div>`;
+  if (!isAdmin()) return `<div class="le-page i6-page">${headHTML('all')}<p class="i6-quiet">The Prep board is for admins. Your own issues for 2027 are under <a href="${prepListHref()}">My issues</a>.</p></div>`;
   return `<div class="le-page i6-page pr6-board">
-    ${pageHead(sectionNav('issues', 'all'), 'All issues', '', '')}
+    ${headHTML('all')}
     ${boardSwitch('prep')}
     <p class="pr6-lede">${esc(`${n} of ${ok.length} approved, ${pastDue() ? `still to finish (they were due ${dueText()})` : `due ${dueText()}`}. Owners work through their issues and mark them ready; you approve them or ask for changes.`)}</p>
     ${tellHTML()}

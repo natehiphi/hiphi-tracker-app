@@ -25,8 +25,8 @@
 // no draft codes (D15). Nothing on a row is amber or red: "At risk" is a word and an icon (D3: amber is only late testimony
 // still accepted, red only a step of yours overdue); a late step of the viewer's own keeps its colour (steps.js shownStatus).
 import { S, SESSION_YEAR, SESSION_OVER, esc } from './data.js';
-import { stopOf, riskOf, diedish, hearingAhead, plain, whenAt, deadlineName, gateNeed, testStep, stepKey, sittingDraft, lateLine } from './model.js';
-import { icon, iconBtn } from './ui.js';
+import { stopOf, riskOf, diedish, hearingAhead, plain, whenAt, deadlineName, gateNeed, testStep, stepKey, sittingDraft, lateLine, plainDeadlines, plainGate } from './model.js';
+import { icon, iconBtn, sectionNav } from './ui.js';
 import { ICONS } from '../icons.js';
 import { plural } from './lists.js';
 import { itemRow, billStep, shownStatus, numWords, dayWords, nw } from './steps.js';
@@ -37,8 +37,10 @@ const byNum = (a, b) => a.bill_number.localeCompare(b.bill_number, 'en', { numer
 const dayAt = d => dayWords(d);
 const WEEK = 7 * 864e5;
 const billsOf = i => (S.billIssues || []).filter(x => x.issue_id === i.id).map(x => (S.bills || []).find(b => b.id === x.bill_id)).filter(Boolean);
-// A bill in a line is its number (D15: no draft codes), never "HB1562 / HD1" across two lines on a phone.
-const num = b => numWords(b);
+// A bill in a line is its number (D15: no draft codes), its letters and digits kept together by a no-break space, so a phone
+// never breaks "HB" from "2121" (the critic, C-15: keep a number whole).
+const num = b => numWords(b).replace(' ', '\u00a0');
+export const numNb = num;
 // Kept for callers that name a bill by its nickname (the issue page's own lines).
 export const shortName = (b, i) => b.nickname && plain(b.nickname) !== plain(i?.name) ? b.nickname : num(b);
 // "HB 756", "HB 756 and SB 2175", "3 bills".
@@ -85,15 +87,20 @@ export function standOf(i) {
 // `under`: the deadline date the group heading already names (R-316 W56, FR-6), so the row does not repeat it.
 // The three marks of R-272 by name: "At risk", "Safe, but a bill on it is dying", "Safe".
 const dlw = d => `${deadlineName(d).toLowerCase()} ${dayAt(d.date)}`;   // "second lateral Mon 3/30" (R-316 W1, C-15)
+// C-15 (R-277 ui-critic): someone who owns no bills and is not an admin (Patti, Julie) reads what a deadline asks, never its
+// Capitol name: "Bills must reach their last committee by Mon 3/30"; "Safe: SB 659 reached its last committee".
+const PLAIN = () => plainDeadlines();
+const pastNeed = (label, n) => gateNeed(label, n).replace(/^(clear|reach|pass)\b/, '$1ed').replace(/^be settled/, n === 1 ? 'was settled' : 'were settled');
 export function markOf(x, { under = null } = {}) {
   const { i } = x, by = d => under === d.date ? '' : ` by ${dayAt(d.date)}`;
   switch (x.state) {
     case 'risk': return { ic: 'triangle-alert', word: 'At risk', text: `At risk: ${names(x.facing)} ${needs(x.facing)} a hearing${by(x.deadline)}` };
     case 'dying': return { ic: 'circle-alert', word: 'Safe, but a bill on it is dying', text: `Safe, but a bill on it is dying: ${names(x.facing)} ${needs(x.facing)} a hearing${by(x.deadline)}` };
-    case 'safe': return { ic: 'shield-check', word: 'Safe', text: x.deadline ? `Safe: ${names(x.carried)} past ${x.deadline.label.toLowerCase()}` : 'Safe: through its committees' };
+    case 'safe': return { ic: 'shield-check', word: 'Safe', text: !x.deadline ? 'Safe: through its committees'
+      : PLAIN() ? `Safe: ${names(x.carried)} ${pastNeed(x.deadline.label, x.carried.length)}` : `Safe: ${names(x.carried)} past ${deadlineName(x.deadline).toLowerCase()}` };
     case 'ahead': return !x.deadline ? null : x.facing?.length ? { ic: 'clock', word: 'Needs a hearing', text: `${names(x.facing)} ${needs(x.facing)} a hearing${by(x.deadline)}` }
-      : { ic: 'clock', word: '', text: under === x.deadline.date ? 'No bill waiting for a hearing' : `Next deadline: ${dlw(x.deadline)}` };
-    case 'oppose': return x.hear ? null : { ic: 'circle-x', word: 'HIPHI opposes', text: `HIPHI opposes it: no hearing set${x.next && under !== x.next.date ? `, next deadline ${dlw(x.next)}` : ''}` };
+      : { ic: 'clock', word: '', text: under === x.deadline.date ? 'No bill waiting for a hearing' : PLAIN() ? plainGate(x.deadline.label, dayAt(x.deadline.date)) : `Next deadline: ${dlw(x.deadline)}` };
+    case 'oppose': return x.hear ? null : { ic: 'circle-x', word: 'HIPHI opposes', text: `HIPHI opposes it: no hearing set${x.next && under !== x.next.date ? `, next deadline ${PLAIN() ? dayAt(x.next.date) : dlw(x.next)}` : ''}` };
     case 'stopped': return { ic: 'circle-minus', word: '', text: i.stance === 'oppose' ? 'Its bills did not advance' : 'Nothing moving this session' };
     case 'none': return { ic: 'circle-dashed', word: '', text: `No ${SESSION_YEAR} bills on it yet` };
     case 'off': return x.bills.length ? { ic: '', word: '', text: `${plural(x.bills.length, 'bill')} in ${SESSION_YEAR}` } : { ic: 'circle-dashed', word: '', text: `No ${SESSION_YEAR} bills on it` };
@@ -102,29 +109,38 @@ export function markOf(x, { under = null } = {}) {
 }
 // The testimony on the issue's leading hearing, in V19's state words: "SB 3076 testimony: Writing, sent back, due today
 // 2:00 PM"; filed: "HB 1573 testimony: Filed, hearing Wed 3/18, 9:30 AM". The step itself (steps.js billStep) decides the
-// words and, for the viewer's own step only, the colour (shownStatus: late amber, overdue red; due today bold).
+// words and, for the viewer's own step only, the colour (shownStatus: late amber, overdue red). Due today, or within two
+// hours, is neutral as D3 says: a clock and the time in bold, whoever's step it is; the row's quiet tag "Your step" says
+// when it is the viewer's (the critic: bold alone said "yours" and nothing on the screen said so).
 export function hearPart(x) {
   const hr = x.hear; if (!hr) return null;
   const { b, h } = hr, d = sittingDraft(h, b.id) || null, s = billStep(b, { d, h });
-  if (!s?.state) return { ic: 'calendar-days', text: `${num(b)} hearing ${whenAt(h.scheduled_at)}`, s: null };
+  if (!s?.state) { const t = `${num(b)} hearing ${whenAt(h.scheduled_at)}`; return { ic: 'calendar-days', text: t, html: nw(esc(t)), s: null }; }
   const st = s.state, sh = shownStatus(s) || {}, late = s.status?.tone === 'late';
-  const when = st.key === 'filed' ? `hearing ${whenAt(h.scheduled_at)}` : st.key === 'missed' ? '' : late ? lateLine(s.until, { lower: true }) : s.due != null ? `due ${whenAt(s.due)}` : '';
-  const word = `${st.word}${st.sentBack ? ', sent back' : ''}`;
   const tone = sh.tone && sh.tone !== 'neutral' ? sh.tone : '';
-  return { ic: tone ? sh.icon : st.key === 'filed' ? 'circle-check' : 'calendar-days', text: `${num(b)} testimony: ${word}${when ? `, ${when}` : ''}`, tone, bold: !!(sh.soon && s.you), s };
+  const soon = !tone && !late && !!(sh.soon || s.status?.soon) && !['filed', 'missed'].includes(st.key) && s.due != null;
+  const lead = `${num(b)} testimony: ${st.word}${st.sentBack ? ', sent back' : ''}`;
+  const when = st.key === 'filed' ? `hearing ${whenAt(h.scheduled_at)}` : st.key === 'missed' ? '' : late ? lateLine(s.until, { lower: true }) : s.due != null ? `due ${whenAt(s.due)}` : '';
+  const text = `${lead}${when ? `, ${when}` : ''}`;
+  const html = soon ? `${nw(esc(lead))}, due <b class="i6-time">${nw(esc(whenAt(s.due)))}</b>` : nw(esc(text));
+  return { ic: tone ? sh.icon : soon || late ? 'clock' : st.key === 'filed' ? 'circle-check' : 'calendar-days', text, html, tone, soon, late, you: !!s.you, s };
 }
 // The row's one line: risk and a dying bill lead (Nate: "see what issues are at risk of dying"); otherwise the hearing's
 // testimony leads, then the mark when it adds something. At most two parts, each one fact (spec 8: four facts a row).
+// Only the first part carries a colour (the critic: a green "Filed" spilt onto "HB 2340 needs a hearing", which then read
+// as done; A-5); the second stays the body colour. `you`: the testimony step is the viewer's and due soon or late.
 export function lineOf(x, { under = null, why = null } = {}) {
   const m = markOf(x, { under }), hp = hearPart(x);
   const urgent = ['risk', 'dying'].includes(x.state);
   // A mark that only repeats the group (an issue ahead of its deadline under "This week" because of its hearing) is left out.
   const markUseful = m && (urgent || ['safe', 'stopped', 'none', 'off', 'oppose'].includes(x.state) || (x.state === 'ahead' && x.facing?.length));
   let parts = urgent ? [m, hp] : [hp, markUseful || !hp ? m : null];
-  if (why) parts = [{ ic: 'search', text: `Found by its bill ${num(why)}` }, urgent ? m : hp || m];
+  // Found by a bill: the line says which, unless the line already names that bill ("HB 2121 testimony: ...").
+  if (why) { const lead = urgent ? m : hp || m; parts = lead?.text?.includes(num(why)) ? [lead] : [{ ic: 'search', text: `Found by its bill ${num(why)}` }, lead]; }
   parts = parts.filter(p => p && p.text);
   const first = parts[0] || null;
-  return { parts, ic: first?.ic || '', tone: first?.tone || '', bold: !!first?.bold, html: parts.map(p => nw(esc(p.text))).join(' · ') };
+  const ph = (p, k) => { const h = p.html || nw(esc(p.text)); return k === 0 && p.tone ? `<span class="i6-p1 t-${p.tone}">${h}</span>` : h; };
+  return { parts, ic: first?.ic || '', tone: first?.tone || '', bold: false, you: !!(hp?.you && (hp.soon || hp.late || hp.tone)), html: parts.map(ph).join(' · ') };
 }
 
 // ---- the deadline sort (the default in session) ----
@@ -149,7 +165,7 @@ export const byUrgency = (a, b) => (thisWeek(a) ? 0 : 1) - (thisWeek(b) ? 0 : 1)
 // A topic's own count: "1 at risk, 2 with a bill dying, 3 hearings this week" (one fact: commas, not dots).
 export function topicCount(l) {
   const r = l.filter(x => x.state === 'risk').length, d = l.filter(x => x.state === 'dying').length, h = l.filter(x => x.hear && new Date(x.hear.h.scheduled_at) - Date.now() <= WEEK).length;
-  return [r ? `${r} at risk` : '', d ? `${d} with a bill dying` : '', h ? plural(h, 'hearing') + ' this week' : ''].filter(Boolean);
+  return [r ? `${r} at risk` : '', d ? `${d} with a bill dying` : '', h ? `${h} with a hearing this week` : ''].filter(Boolean);
 }
 
 // ---- By deadline · By topic (the switch) ----
@@ -183,8 +199,11 @@ function expand(t) {
 }
 // Each match carries a score, so the best one leads: the word itself in the issue's name, then a word for the same thing in
 // its name, then its description, goal, points or topic, then one of its bills (and that bill is named on the line).
+// "HB 2121" as the app now prints it (D15, with its space) is one word to match, as are "hb 2121" and "HB2121" (the critic:
+// a number copied off the screen found nothing).
+export const joinNums = q => String(q || '').replace(/\b(hb|sb|hr|sr|hcr|scr|gm)\s+(\d)/gi, '$1$2');
 export function searcher(q) {
-  const ts = words(q); if (!ts.length) return null;
+  const ts = words(joinNums(q)); if (!ts.length) return null;
   const cat = k => (S.categories || []).find(c => c.key === k)?.name || '';
   const has = (ws, text, alts) => ws.some(w => alts.some(a => !a.includes(' ') && w.startsWith(a))) || alts.some(a => a.includes(' ') && norm(text).includes(a));
   return x => {
@@ -196,8 +215,8 @@ export function searcher(q) {
       if (has(words(nameT), nameT, [t])) continue;
       if (has(words(nameT), nameT, alts)) { score += 1; continue; }
       if (has(words(ownT), ownT, alts)) { score += 2; continue; }
-      const n = t.replace(/^(hb|sb|hr|sr|hcr|scr)/, ''), bt = b => `${b.nickname || ''} ${b.title || ''} ${b.public_summary || ''}`;
-      const b = all.find(b => /\d/.test(t) && (plain(b.bill_number).includes(t) || plain(b.bill_number).replace(/^[a-z]+/, '').startsWith(n)))
+      const n = t.replace(/^(hb|sb|hr|sr|hcr|scr|gm)/, ''), bt = b => `${b.nickname || ''} ${b.title || ''} ${b.public_summary || ''}`, bn = b => plain(b.bill_number).replace(/\s+/g, '');
+      const b = all.find(b => /\d/.test(t) && (bn(b).includes(t) || bn(b).replace(/^[a-z]+/, '').startsWith(n)))
         || all.find(b => has(words(bt(b)), bt(b), [t])) || all.find(b => has(words(bt(b)), bt(b), alts));
       if (!b) return null;
       score += 3; why ??= b;
@@ -212,7 +231,8 @@ export function searcher(q) {
 // (X33: My issues carried 127 icons); the topic's icon heads its group in the topic view.
 export function rowOf(x, { from = '', tags = [], why = null, under = null } = {}) {
   const { i } = x, href = `#/issue/${encodeURIComponent(i.id)}${from ? `?from=${from}` : ''}`, l = lineOf(x, { under, why });
-  return itemRow({ key: i.id, name: i.name, num: tags.join(', '), line: l.html, icon: l.ic, tone: l.tone, bold: l.bold, href, cls: 'i6-row' });
+  // The tone is on the line's first part only (lineOf); the row's class colours its icon to match.
+  return itemRow({ key: i.id, name: i.name, num: [...tags, l.you ? 'Your step' : ''].filter(Boolean).join(', '), line: l.html, icon: l.ic, href, cls: `i6-row${l.tone ? ' i6-ic-' + l.tone : ''}` });
 }
 export const lineHTML = rowOf;   // v5's name for the row
 // R-316 W56 (FR-6, R-277's 25-row rule): a long group shows its first 8 rows, then "Show the other N" in place.
@@ -228,7 +248,8 @@ function listHTML(l, o) {
 function byDeadline(l, o) {
   const keyOf = x => (x.state === 'oppose' ? x.next : x.deadline) || null, groups = new Map();
   for (const x of l) { const d = keyOf(x), k = d ? d.date : ''; if (!groups.has(k)) groups.set(k, { d, l: [] }); groups.get(k).l.push(x); }
-  return [...groups.values()].map(({ d, l }) => `<h3 class="i6-sub">${d ? `${esc(deadlineName(d))}, ${esc(dayAt(d.date))}: <span class="i6-subw">bills must ${esc(gateNeed(d.label, 2))}</span>` : 'No deadline set'}</h3>
+  return [...groups.values()].map(({ d, l }) => `<h3 class="i6-sub">${!d ? 'No deadline set' : PLAIN() ? esc(plainGate(d.label, dayAt(d.date)))
+      : `${esc(deadlineName(d))}, ${esc(dayAt(d.date))}: <span class="i6-subw">bills must ${esc(gateNeed(d.label, 2))}</span>`}</h3>
     ${listHTML(l, { ...o, under: d?.date || null, cut: true })}`).join('');
 }
 const fold = (id, title, l, o) => `<details class="i6-fold" data-fold="${id}"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${esc(title)} (${l.length})</span></summary>${listHTML(l, o)}</details>`;
@@ -236,10 +257,11 @@ const fold = (id, title, l, o) => `<details class="i6-fold" data-fold="${id}"><s
 export function deadlineHTML(list, o = {}) {
   return deadlineGroups(list).map(([k, title, l, folded]) => {
     if (folded) return l.length ? fold(k, title, l, o) : '';
-    if (!l.length && k !== 'week') return '';
+    // An empty This week is one quiet line, not a heading over a sentence (the critic; A-14).
+    if (!l.length) return k === 'week' ? `<p class="i6-quiet i6-weekq">${icon('calendar-check')}<span>No issue here is at risk or has a hearing this week.</span></p>` : '';
     // A group's rows are in view, so its heading does not count them (A-24); a folded group keeps its count.
     return `<section class="i6-sec" aria-labelledby="i6-h-${k}"><h2 class="i6-h" id="i6-h-${k}">${esc(title)}</h2>
-      ${!l.length ? '<p class="i6-quiet">Nothing at risk and no hearing this week.</p>' : k === 'next' ? byDeadline(l, o) : listHTML(l, { ...o, cut: k !== 'week' || l.length > 25 })}</section>`;   // This week stays whole: it is what is due
+      ${k === 'next' ? byDeadline(l, o) : listHTML(l, { ...o, cut: k !== 'week' || l.length > 25 })}</section>`;   // This week stays whole: it is what is due
   }).join('');
 }
 // By topic: the six topics in their order, each with its icon and its count. `folded` (All issues, about 90 issues) keeps
@@ -270,20 +292,51 @@ export function bodyHTML(list, { q = '', ...o } = {}) {
   if (SESSION_OVER) return `<p class="i6-quiet">Between sessions there are no hearings or deadlines to sort by, so the issues are by topic until the next session opens.</p>${topicHTML(list, o)}`;
   return deadlineHTML(list, o);
 }
-// The filter box and the switch, side by side on a laptop, stacked on a phone. The header's search finds anything; this
-// box only narrows this list, so it says Filter (the frame's rule).
+// The filter box and the switch, side by side on a laptop. On a phone they share one line: a 44px Filter button that opens
+// the box, beside the switch (the critic: three rows of look-alike pills pushed the first issue below the fold). The
+// header's search finds anything; this box only narrows this list, so it says Filter (the frame's rule). A short list (under
+// 6 issues) has neither: two rows need no filter and no sort (spec 0, less per screen). `extra`: the page's own phone button
+// (All issues' New issue), which sits at the end of this line on a phone.
 // The filter's icon: Lucide's list-filter once icons.js has it (FRAME adds it for Bills), the sliders until then.
 const FILTER_IC = ICONS['list-filter'] ? 'list-filter' : 'sliders-horizontal';
-export const toolsHTML = (q, id, { label = 'Filter these issues' } = {}) => `<div class="i6-tools">
-    <div class="i6-find">${icon(FILTER_IC)}<input id="${id}" type="search" placeholder="${esc(label)}" value="${esc(q)}" autocomplete="off" aria-label="${esc(label)}: a word, a bill number or a bill’s nickname" aria-controls="${id}-body">${iconBtn('x', 'Clear the filter', { 'data-istq': 'clear', hidden: !q })}</div>
+export const FEW = 6;
+export const toolsHTML = (q, id, { label = 'Filter these issues', count = 99, extra = '' } = {}) => count < FEW && !q ? (extra ? `<div class="i6-tools i6-tools-x">${extra}</div>` : '') : `<div class="i6-tools${q ? ' open' : ''}" data-istools="${id}">
+    ${iconBtn(FILTER_IC, label, { 'data-istq': 'open', 'aria-expanded': String(!!q), 'aria-controls': `${id}-find` }, 'i6-findbtn')}
+    <div class="i6-find" id="${id}-find">${icon(FILTER_IC)}<input id="${id}" type="search" placeholder="${esc(label)}" value="${esc(q)}" autocomplete="off" aria-label="${esc(label)}: a word, a bill number or a bill’s nickname" aria-controls="${id}-body">${iconBtn('x', 'Clear the filter', { 'data-istq': 'clear', hidden: !q })}</div>
     <div class="sv-seg i6-seg" role="group" aria-label="Sort the issues">${[['deadline', 'By deadline'], ['topic', 'By topic']].map(([v, l]) => `<button type="button" data-isview="${v}" aria-pressed="${currentView() === v}">${l}</button>`).join('')}</div>
+    ${extra}
   </div>`;
 // Wires the box and the switch; `paint()` redraws only the body, so typing keeps the focus in the box.
 export function wireTools(root, id, { get, set, paint }) {
-  const q = root.querySelector('#' + id), x = root.querySelector('[data-istq="clear"]');
+  const q = root.querySelector('#' + id), x = root.querySelector('[data-istq="clear"]'), bar = root.querySelector(`[data-istools="${id}"]`), opener = bar?.querySelector('[data-istq="open"]');
+  const setOpen = on => { if (!bar) return; bar.classList.toggle('open', on); opener?.setAttribute('aria-expanded', String(on)); };
+  if (opener) opener.onclick = () => { setOpen(true); q?.focus(); };
+  // Once opened it stays open for this visit: closing it on blur moved the list under a tap on its first row.
   if (q) q.oninput = () => { set(q.value); x.hidden = !q.value; paint(); };
   if (x) x.onclick = () => { set(''); q.value = ''; x.hidden = true; paint(); q.focus(); };
   root.querySelectorAll('[data-isview]').forEach(b => b.onclick = () => {
     setView(b.dataset.isview); root.querySelectorAll('[data-isview]').forEach(o => o.setAttribute('aria-pressed', String(o === b))); paint(); });
   void get;
+}
+
+// ---- the place's head, the same on its three tabs (spec 5 placeHead, A-8, A-12) ----
+// The title and the page's one button on one row, the tabs straight under it at the same height on every tab, and what is
+// said about the list (a lede, the one-line notes) under the tabs, never between the title and the tabs (the critic: the
+// tab row sat at three heights). A phone's top bar carries the title, so the tabs come first there.
+export const headHTML = (cur, { action = '' } = {}) => `<header class="i6-head"><div class="i6-htop"><h1 class="i6-h1">My issues</h1>${action ? `<div class="i6-hacts">${action}</div>` : ''}</div>${sectionNav('issues', cur)}</header>`;
+
+// ---- rule 10: Back from an issue or a coalition puts the focus on the row it was opened from ----
+// The page that was open says which row (rememberRow); the list, drawn again by Back, focuses that row once and scrolls it
+// into view if the window does not show it. Only after Back (a popstate): arriving another way starts at the top as usual.
+let popAt = 0;
+try { addEventListener('popstate', () => { popAt = Date.now(); }); } catch { /* not a browser */ }
+export const rememberRow = id => { S.i6Back = String(id); };
+export function restoreRow(root) {
+  const id = S.i6Back; if (!id) return; S.i6Back = null;
+  setTimeout(() => {
+    if (Date.now() - popAt > 2500) return;
+    const a = root.querySelector(`[data-v6row="${CSS.escape(id)}"] .v6-row-main`); if (!a) return;
+    a.focus({ preventScroll: true });
+    const r = a.getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight) a.scrollIntoView({ block: 'center' });
+  }, 30);
 }

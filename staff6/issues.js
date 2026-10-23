@@ -17,18 +17,18 @@
 // rows, and the 2027 prep card (inline steps, prep.js). Its public side is guarded: only the owner or an admin flips
 // "Show in the first visit" (X27, V18).
 import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, effStage, STAGE_LABEL } from './data.js';
-import { billById, billSay, plain, PUBLIC_APP, billRef, billByRef, billRoute, stopOf, riskOf, diedish, hearingAhead, whenAt, wantsHearing } from './model.js';
+import { billById, plain, PUBLIC_APP, billRef, billByRef, billRoute, stopOf, riskOf, diedish, hearingAhead, whenAt, wantsHearing } from './model.js';
 import { ownerFirst } from './model.js';   // R-316 W28
-import { icon, btn, iconBtn, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow, pickerSheet, pickerChip, ownerOf, sectionNav } from './ui.js';
-import { plural, pageHead, afterClose, billName } from './lists.js';
-import { convSectionHTML, wireConvSection } from './conversation.js';
+import { icon, btn, iconBtn, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow, pickerSheet, pickerChip, ownerOf } from './ui.js';
+import { plural, afterClose, billName } from './lists.js';
+import { convSectionHTML, wireConvSection, logConversation, refreshConversations } from './conversation.js';
 import { FV_HREF, fvView, fvTitle, fvBack, renderFirstVisit, wireFirstVisit } from './firstvisit.js';
-import { prepView, prepTitle, renderPrep, wirePrep, prepCardHTML, wirePrepCard, isDraft, stateOf, prepListHref, boardSwitch, BOARD_HREF, prepHoldsOutlook } from './prep.js';
+import { prepView, prepTitle, renderPrep, wirePrep, prepCardHTML, wirePrepCard, isDraft, stateOf, prepListHref, boardSwitch, BOARD_HREF, prepHoldsOutlook, boardWaits } from './prep.js';
 import { testimonyOf, dueOf } from './hearing.js';
 import { isPos, dueWhen, waitingOfBills } from './standing.js';
-import { weekOfBills, standWeekHTML, wireWeek, billLineRow } from './coalition.js';
-import { standOf, markOf, bodyHTML, toolsHTML, wireTools, listBox } from './issuestand.js';
-import { PROFILES, caresSecHTML } from './profile.js';   // R-335 (practice copy): "Legislators who care about this"
+import { weekOfBills, standWeekHTML, wireWeek, billLineRow, billWords } from './coalition.js';
+import { standOf, markOf, bodyHTML, toolsHTML, wireTools, listBox, headHTML, rememberRow, restoreRow } from './issuestand.js';
+import { PROFILES, caresSecHTML, caresLegs } from './profile.js';   // R-335 (practice copy): "Legislators who care about this"
 import { itemRow, nw, dayWords } from './steps.js';
 
 // Where an issue's Back goes (R-316 W16): to the prep list or the Prep board it was opened from, to My issues, else All issues.
@@ -98,7 +98,7 @@ export const againstStance = (i, bills) => i?.stance === 'support' ? bills.filte
 function stanceNote(i, now) {
   const odd = againstStance(i, now); if (!odd.length || i.archived_at) return '';
   const word = i.stance === 'support' ? 'supports' : 'opposes', say = b => FOR.has(b.position) ? 'supports' : 'opposes';
-  const list = odd.slice(0, 3).map(b => `<a href="${billRoute(b)}">${esc(billSay(b))}</a> (HIPHI ${say(b)} it)`).join(', ') + (odd.length > 3 ? ` and ${odd.length - 3} more` : '');
+  const list = odd.slice(0, 3).map(b => `<a href="${billRoute(b)}">${esc(billWords(b))}</a> (HIPHI ${say(b)} it)`).join(', ') + (odd.length > 3 ? ` and ${odd.length - 3} more` : '');
   return `<p class="i6-line is6-stnote" role="note">${icon('info')}<span>${odd.length === 1 ? 'One bill on this issue goes' : `${odd.length} bills on this issue go`} against its stance, which says HIPHI ${word} it: ${list}. Each bill keeps its own position. If this is no longer the whole story, set the stance to Mixed.</span></p>`;
 }
 // The picker chip that shows the stance and changes it; `a` carries its data attribute.
@@ -108,7 +108,7 @@ export const stanceChip = (i, a = {}) => { const s = stanceOf(i);
 // issue's stance and not that bill's position.
 export function pickStance(i, { after = () => hooks.render(), bill = null } = {}) {
   const n = billsOn(i).filter(thisSession).length;
-  const help = bill ? `For the whole issue${n > 1 ? `, all ${n} of its bills` : ''}, not only ${esc(billSay(bill))}. It does not change ${esc(billSay(bill))}’s own position. The public page says it on the issue.`
+  const help = bill ? `For the whole issue${n > 1 ? `, all ${n} of its bills` : ''}, not only ${esc(billWords(bill))}. It does not change ${esc(billWords(bill))}’s own position. The public page says it on the issue.`
     : 'The public page says it on the issue.';
   pickerSheet({ title: `HIPHI’s stance on ${esc(i.name)}`, value: i.stance || '', help,
     options: [...STANCES, ['', 'Not set', 'circle-dashed', 'The public page works it out from the bills']],
@@ -126,7 +126,7 @@ export function pickStance(i, { after = () => hooks.render(), bill = null } = {}
 export function openIssueForm(i = null, { bill = null } = {}) {
   const cats = S.categories || [], also = new Set(i ? alsoIn(i) : []), cur = i?.category || cats[0]?.key;
   const body = `<div class="le-sheet is-form">
-    ${bill ? `<p class="small muted is-for">For ${esc(billSay(bill))}. It goes on the new issue.</p>` : ''}
+    ${bill ? `<p class="small muted is-for">For ${esc(billWords(bill))}. It goes on the new issue.</p>` : ''}
     <div class="field"><label for="is-name">Name</label><input id="is-name" maxlength="60" autocomplete="off" value="${esc(i?.name || '')}" placeholder="Free school meals for every student" aria-describedby="is-name-h is-name-err">
       <span class="help" id="is-name-h">A policy people recognize, in everyday words. The public follows it by this name.</span><div id="is-name-err" role="alert"></div></div>
     <div class="field"><label for="is-desc">Description</label><textarea id="is-desc" rows="3" maxlength="240" aria-describedby="is-desc-h">${esc(i?.description || '')}</textarea>
@@ -179,7 +179,7 @@ export function openIssueForm(i = null, { bill = null } = {}) {
             closeSheet({ silent: true }); await afterClose();
             // Straight to the new issue either way: its card says what it still needs before an admin can publish it.
             S.go('#/issue/' + encodeURIComponent(ni.id));
-            toast(bill ? `Saved ${ni.name}, not public yet, with ${billSay(bill)} on it. The public sees it once it is published.` : 'Saved, not public yet. Put its bills on it below.', { ok: true });
+            toast(bill ? `Saved ${ni.name}, not public yet, with ${billWords(bill)} on it. The public sees it once it is published.` : 'Saved, not public yet. Put its bills on it below.', { ok: true });
           }
         } catch (e) { toast(e, { err: true }); go.removeAttribute('aria-busy'); go.disabled = false; }
       };
@@ -202,7 +202,7 @@ export function openIssuePicker(b, { onClose = () => hooks.render() } = {}) {
       ${groups.map(([c, l]) => `<h3 class="is-gh">${icon(c.icon || 'tag')}${esc(c.name)}</h3><div class="sv-pickl">${l.map(item).join('')}</div>`).join('')}`;
   };
   const reach = whyNot(b);
-  openSheet({ title: `Issues for ${esc(billSay(b))}`,
+  openSheet({ title: `Issues for ${esc(billWords(b))}`,
     body: `<div class="is-picker"><p class="small muted is-for">Everyone who follows a ticked issue gets this bill${reach ? ` once it has a position and is public (${esc(reach.split(',')[0].toLowerCase())} now)` : ''}. Each tap saves.</p>
       <div class="le-search is-psearch">${icon('search')}<input id="is-pq" type="search" placeholder="Find an issue" autocomplete="off" aria-label="Find an issue" aria-controls="is-plist"></div>
       <div id="is-plist" class="is-plist">${list()}</div></div>`,
@@ -233,7 +233,7 @@ function needsLine() {
 function needsSheet() {
   const need = needsIssue();
   openSheet({ title: 'Position bills with no issue', size: 'auto',
-    body: `<div class="i6-sheet"><p class="i6-quiet">Put each on an issue, so the people who follow it hear about the bill.</p>${listBox(need.map(b => billLineRow(b, { line: whyNot(b) || 'No issue yet', button: btn('Choose', { kind: 'secondary', sm: true, attrs: { 'data-ispick': b.id, 'aria-haspopup': 'dialog', 'aria-label': `Choose issues for ${billSay(b)}` } }) })).join(''))}</div>`,
+    body: `<div class="i6-sheet"><p class="i6-quiet">Put each on an issue, so the people who follow it hear about the bill.</p>${listBox(need.map(b => billLineRow(b, { line: whyNot(b) || 'No issue yet', button: btn('Choose', { kind: 'secondary', sm: true, attrs: { 'data-ispick': b.id, 'aria-haspopup': 'dialog', 'aria-label': `Choose issues for ${billWords(b)}` } }) })).join(''))}</div>`,
     wire: d => d.querySelectorAll('[data-ispick]').forEach(el => el.onclick = async () => { const b = billById(el.dataset.ispick); if (!b) return; await closeSheet({ silent: true }); await afterClose(); openIssuePicker(b); }) });
 }
 // R-272: the same body as My issues (issuestand.js): By deadline by default, By topic with the switch (the topics folded,
@@ -253,14 +253,20 @@ const index = {
     if (prepView(route)) return renderPrep(route);
     if (fvView(route)) return renderFirstVisit(route);
     wantPeople();
-    const v = V(), nav = sectionNav('issues', 'all');
+    const v = V();
+    // New issue on the title's row (a phone: an icon button at the end of the filter line, where the title is the top bar's).
     const acts = btn('New issue', { kind: 'secondary', icon: 'plus', attrs: { 'data-is': 'new', 'aria-haspopup': 'dialog' } });
-    if (!(S.categories || []).length) return `<div class="le-page i6-page">${pageHead(nav, 'All issues', '', '')}<div class="le-empty">${empty({ title: 'Issues are not set up yet', text: 'They arrive with migration 063. Ask Claude to load the list.' })}</div></div>`;
+    const phoneNew = iconBtn('plus', 'New issue', { 'data-is': 'new', 'aria-haspopup': 'dialog' }, 'i6-newic');
+    if (!(S.categories || []).length) return `<div class="le-page i6-page">${headHTML('all')}<div class="le-empty">${empty({ title: 'Issues are not set up yet', text: 'They arrive with migration 063. Ask Claude to load the list.' })}</div></div>`;
+    // The admins' All issues · Prep board switch (F165) shows between sessions, when the prep is the work, or while an issue
+    // waits for an admin; in session a November job never sits over the list (the critic). Today's line and Team link the
+    // board whenever something waits.
+    const sw = SESSION_OVER || boardWaits() ? boardSwitch('') : '';
     return `<div class="le-page i6-page is6-index">
-      ${pageHead(nav, 'All issues', '', acts)}
-      ${boardSwitch('')}
+      ${headHTML('all', { action: acts })}
+      ${sw}
       ${needsLine()}
-      ${toolsHTML(v.q, 'is-q', { label: 'Filter all issues' })}
+      ${toolsHTML(v.q, 'is-q', { label: 'Filter all issues', extra: phoneNew })}
       <div id="is-q-body">${indexBody(v)}</div>
     </div>`;
   },
@@ -279,6 +285,7 @@ const index = {
     const paint = () => { body.innerHTML = indexBody(v); wireCats(); };
     wireCats();
     wireTools(root, 'is-q', { get: () => v.q, set: x => { v.q = x; }, paint });
+    restoreRow(root);
   },
 };
 export default index;
@@ -332,7 +339,7 @@ export function nextPhrase(b) {
 function billRowOf(i, b, edit) {
   const why = whyNot(b);
   const line = !thisSession(b) ? `${b.session_year} session${diedish(b) ? ', did not advance' : ''}` : diedish(b) ? 'Did not advance' : null;
-  return billLineRow(b, { line: line ?? (why && !hearingAhead(b) ? why : undefined), button: edit ? iconBtn('x', `Take ${billSay(b)} off ${i.name}`, { 'data-isrm': b.id }) : '' });
+  return billLineRow(b, { line: line ?? (why && !hearingAhead(b) ? why : undefined), button: edit ? iconBtn('x', `Take ${billWords(b)} off ${i.name}`, { 'data-isrm': b.id }) : '' });
 }
 // A bill the week above already lists (its hearing this week, or needing a hearing) is not listed again under Bills (A-14);
 // "Edit bills" shows them all.
@@ -352,9 +359,13 @@ function billsHTML(i, now, earlier) {
       <p class="sr" id="is-hitn" role="status"></p>
     </div>`;
   const fold = (id, label, list) => list.length ? `<details class="i6-fold" data-fold="${id}"${edit ? ' open' : ''}><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${label}</span></summary>${listBox(list.map(b => billRowOf(i, b, edit)).join(''))}</details>` : '';
+  const editBtn = now.length + earlier.length ? btn(edit ? 'Done' : 'Edit bills', { kind: 'text', sm: true, icon: edit ? 'check' : 'pencil', attrs: { 'data-is': 'editbills', 'aria-expanded': String(edit) } }) : '';
+  // Every bill already has its row above (its hearing this week, or needing one): no heading over nothing, only Edit bills
+  // (the critic: "Its other bills · All 2 of its bills are listed above" was a heading for nothing; A-14).
+  if (!edit && now.length && !moving.length && !gone.length && !earlier.length) return `<p class="i6-acts is6-editb">${editBtn}</p>`;
   return `<section class="i6-sec is6-bills" aria-labelledby="is-bh">
-      <div class="i6-hrow"><h2 class="i6-h" id="is-bh">${above.size ? 'Its other bills' : 'Its bills'}</h2>${now.length + earlier.length ? btn(edit ? 'Done' : 'Edit bills', { kind: 'text', sm: true, icon: edit ? 'check' : 'pencil', attrs: { 'data-is': 'editbills', 'aria-expanded': String(edit) } }) : ''}</div>
-      ${moving.length ? listBox(moving.map(b => billRowOf(i, b, edit)).join('')) : now.length ? (gone.length ? '' : `<p class="i6-quiet">${now.length === 1 ? 'Its bill is' : `All ${now.length} of its bills are`} listed above.</p>`) : `<p class="i6-quiet">No ${esc(SESSION_YEAR)} bills on it yet.</p>`}
+      <div class="i6-hrow"><h2 class="i6-h" id="is-bh">${above.size ? 'Its other bills' : 'Its bills'}</h2>${editBtn}</div>
+      ${moving.length ? listBox(moving.map(b => billRowOf(i, b, edit)).join('')) : now.length ? '' : `<p class="i6-quiet">No ${esc(SESSION_YEAR)} bills on it yet.</p>`}
       ${fold('gone', `Did not advance (${gone.length})`, gone)}
       ${fold('earlier', `Earlier sessions (${earlier.length})`, earlier)}
       ${edit ? add : ''}
@@ -376,6 +387,9 @@ function leadHTML(i) {
   if (i.archived_at) return '';
   if (SESSION_OVER) return '';
   const x = standOf(i), m = markOf(x);
+  // "SB 2175 needs a hearing by Mon 3/30" over the heading "Needs a hearing by Mon 3/30" and that same bill says it twice
+  // (the critic, A-14): the section says it.
+  if (x.state === 'ahead' && x.facing?.length) return '';
   return m ? `<p class="i6-lead">${m.ic ? icon(m.ic) : ''}<span>${nw(esc(m.text))}</span></p>` : '';
 }
 function pageRender(route) {
@@ -399,32 +413,36 @@ function pageRender(route) {
     ${i.archived_at ? `<p class="i6-line">${icon('archive')}<span><b>Archived.</b> The public does not see it, and its followers do not get its bills.</span>${btn('Restore', { kind: 'secondary', sm: true, attrs: { 'data-is': 'restore' } })}</p>` : ''}`;
   // R-316 W16: between sessions the 2027 prep is the work, so its card comes first; once approved it folds and goes under the bills.
   const prep = prepCardHTML(i, { outlook: SESSION_OVER ? '' : outlook }), prepFirst = SESSION_OVER && !isDraft(i) && !i.archived_at && stateOf(i) !== 'approved';
-  const week = i.archived_at || SESSION_OVER ? '' : standWeekHTML(now.filter(b => b.tracked !== false), { key: 'is' + i.id });
+  const week = i.archived_at || SESSION_OVER ? '' : standWeekHTML(now.filter(b => b.tracked !== false), { key: 'is' + i.id, byBill: true });
   const work = prepFirst || isDraft(i) ? `${prep}${week}${billsHTML(i, now, earlier)}` : `${leadHTML(i)}${week}${billsHTML(i, now, earlier)}${prep}`;
-  const cares = PROFILES() && !i.archived_at ? caresSecHTML(i) : '';
+  // Legislators who care (R-335, practice copy): its list when there is one, else one quiet line, no instructions (the critic).
+  const cares = !PROFILES() || i.archived_at ? '' : caresLegs(i.id).length ? caresSecHTML(i) : `<p class="i6-line is6-none">${icon('landmark')}<span>Legislators who care about this: none yet</span></p>`;
   const aside = `${publicCard(i)}${i.archived_at ? '' : relatedHTML(i)}${cares}`;
   const back = `<a class="co6-back" href="${from ? billRoute(from) : bk.href}" data-back${from ? ` aria-label="Back to ${esc(from.bill_number)}"` : ''}>${icon('chevron-left')}<span>${from ? `Back to ${esc(from.bill_number)}` : esc(bk.label)}</span></a>`;
   // A laptop: the issue and its week on the left; its public side and related issues in the one side panel (as a
   // coalition's page keeps sharing there). A phone reads it all in one column, the work first.
+  const conv = `${convSectionHTML(convOpts(i))}${convLine}`;
   if (wide) return `<div class="le-page is6-page">${back}<div class="is6-cols">
-      <div class="is6-main">${head}${work}${convSectionHTML(convOpts(i))}</div>
+      <div class="is6-main">${head}${work}${conv}</div>
       <aside class="is6-side" aria-label="On the public page, and related issues">${aside}</aside></div></div>`;
-  return `<div class="le-page is6-page">${back}${head}${work}${aside}${convSectionHTML(convOpts(i))}</div>`;
+  return `<div class="le-page is6-page">${back}${head}${work}${aside}${conv}</div>`;
 }
 // A link works both ways: unlinking here unlinks it on the other issue's page too. Each row is the other issue's name and
 // one line (its category when it is another one, "Linked by staff" for links nobody's wording found).
 function relatedHTML(i) {
   const { on, off } = relatedOf(i), edit = !!P().rel[i.id];
-  const about = (o, staff) => [o.category === i.category ? 'Same topic' : catByKey(o.category)?.name || o.category, staff ? 'linked by staff' : ''].filter(Boolean).join(', ');
+  // A row's line only when it says something (the critic: every row said "Same topic"): another topic, or linked by staff.
+  const cap1 = t => t ? t[0].toUpperCase() + t.slice(1) : t;
+  const about = (o, staff) => cap1([o.category === i.category ? '' : catByKey(o.category)?.name || o.category, staff ? 'linked by staff' : ''].filter(Boolean).join(', '));
   const who = c => { const a = c.set_by && advocate(c.set_by); return `unlinked${a ? ` by ${a.full_name.split(' ')[0]}` : ''}${c.set_at ? ` ${fmtDate(c.set_at)}` : ''}`; };
-  const row = (o, line, button = '') => itemRow({ key: o.id, name: o.name, line: esc(line), href: `#/issue/${encodeURIComponent(o.id)}`, button, cls: 'i6-row' });
+  const row = (o, line, button = '') => itemRow({ key: o.id, name: o.name, line: line ? esc(line) : '', href: `#/issue/${encodeURIComponent(o.id)}`, button, cls: 'i6-row' });
   return `<section class="i6-sec is6-rel" aria-labelledby="is-rh">
     <div class="i6-hrow"><h2 class="i6-h" id="is-rh">Related issues</h2>${btn(edit ? 'Done' : 'Edit', { kind: 'text', sm: true, attrs: { 'data-is': 'reledit', 'aria-expanded': String(edit), 'aria-label': edit ? 'Done editing related issues' : 'Edit related issues' } })}</div>
     <p class="i6-quiet">Followers of either one see the other’s bills first.</p>
     ${on.length ? listBox(on.map(({ o, staff }) => row(o, about(o, staff), edit ? iconBtn('x', `Unlink ${o.name} from ${i.name}`, { 'data-isunlink': o.id }) : '')).join('')) : '<p class="i6-quiet">None yet.</p>'}
     ${edit ? `<p class="i6-acts">${btn('Link another issue', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-is': 'link', 'aria-haspopup': 'dialog' } })}</p>
     ${off.length ? `<details class="i6-fold" data-fold="unlinked"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>Unlinked by staff (${off.length})</span></summary>
-      ${listBox(off.map(({ o, c }) => row(o, `${about(o)}, ${who(c)}`, btn('Link again', { kind: 'text', sm: true, attrs: { 'data-isrelink': o.id } }))).join(''))}</details>` : ''}` : ''}
+      ${listBox(off.map(({ o, c }) => row(o, cap1([about(o), who(c)].filter(Boolean).join(', ')), btn('Link again', { kind: 'text', sm: true, attrs: { 'data-isrelink': o.id } }))).join(''))}</details>` : ''}` : ''}
   </section>`;
 }
 async function setLink(i, o, on) {
@@ -455,12 +473,14 @@ function linkSheet(i) {
 }
 // Conversations with legislators filed under this issue, from any of its bills or a legislator's page (R-022 wave 2 #9,
 // conversation.js): an issue carries across sessions where a bill does not.
-const convOpts = i => ({ id: 'is-cv', q: { issueIds: [i.id] }, here: { issueId: i.id }, kind: 'le', limit: 5, log: { issueId: i.id },
-  none: 'None logged yet. A conversation logged under this issue, from any of its bills or a legislator’s page, shows here.' });
+// With none yet, the section is one quiet line with Log one (the critic: an empty section explained itself in two sentences);
+// the section itself shows once there is one (hideEmpty), and the line hides then.
+const convOpts = i => ({ id: 'is-cv', q: { issueIds: [i.id] }, here: { issueId: i.id }, kind: 'le', limit: 5, log: { issueId: i.id }, hideEmpty: true, none: 'None yet.' });
+const convLine = `<p class="i6-line is6-none" data-is="cvline">${icon('message-square')}<span>No conversations yet</span>${btn('Log one', { kind: 'text', sm: true, attrs: { 'data-is': 'cvlog', 'aria-haspopup': 'dialog', 'aria-label': 'Log a conversation about this issue' } })}</p>`;
 async function takeOff(i, b) {
   try {
     await DB.setBillIssue(b.id, i.id, false); hooks.render();
-    toast(`Took ${billSay(b)} off ${i.name}.`, { undo: async () => { await DB.setBillIssue(b.id, i.id, true); hooks.render(); } });
+    toast(`Took ${billWords(b)} off ${i.name}.`, { undo: async () => { await DB.setBillIssue(b.id, i.id, true); hooks.render(); } });
   } catch (e) { toast(e, { err: true }); }
 }
 async function putOn(i, b) {
@@ -468,7 +488,7 @@ async function putOn(i, b) {
     await DB.setBillIssue(b.id, i.id, true); P().q[i.id] = ''; hooks.render();
     document.getElementById('is-bq')?.focus();
     const why = whyNot(b);
-    toast(`Put ${billSay(b)} on ${i.name}.${why ? ` ${why.split(',')[0]}, so followers get it once that changes.` : ''}`, { ok: !why, undo: async () => { await DB.setBillIssue(b.id, i.id, false); hooks.render(); } });
+    toast(`Put ${billWords(b)} on ${i.name}.${why ? ` ${why.split(',')[0]}, so followers get it once that changes.` : ''}`, { ok: !why, undo: async () => { await DB.setBillIssue(b.id, i.id, false); hooks.render(); } });
   } catch (e) { toast(e, { err: true }); }
 }
 function mergeSheet(i) {
@@ -525,7 +545,12 @@ export const issuePage = {
   render: pageRender,
   wire(route, root) {
     const i = issueById(route.id); if (!i) return;
+    rememberRow(i.id);
     wireConvSection(root, convOpts(i));
+    // The one-line "No conversations yet" shows while the section is hidden (empty), and hides once it shows.
+    const cvSec = root.querySelector('[data-cvsec="is-cv"]'), cvLine = root.querySelector('[data-is="cvline"]');
+    if (cvSec && cvLine) { const sync = () => { cvLine.hidden = !cvSec.hidden; }; sync(); new MutationObserver(sync).observe(cvSec, { attributes: true, attributeFilter: ['hidden'] }); }
+    root.querySelector('[data-is="cvlog"]')?.addEventListener('click', () => logConversation({ issueId: i.id, onDone: () => { refreshConversations(); hooks.render(); } }));
     wirePrepCard(i, root);
     const st = P();
     // The "…" holds the rare actions (F155); Edit is also a visible text button beside it.

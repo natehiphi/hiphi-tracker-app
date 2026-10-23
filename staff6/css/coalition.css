@@ -173,5 +173,10 @@ body.staff6 .co6-iss > summary:focus-visible { outline: 3px solid var(--v6-actio
 body.staff6 .co6-iss ul { list-style: none; margin: 0; padding: 0 0 var(--s8); }
 body.staff6 .co6-iss li a { display: flex; align-items: center; min-height: 44px; color: var(--v6-action); text-decoration: none; }
 body.staff6 .co6-iss li a:hover { text-decoration: underline; }
-/* the index's I help button: pressed is the action ground (it is a switch, aria-pressed) */
-body.staff6 .co6-row .v6-row-act .btn[aria-pressed="true"] { background: var(--v6-action); color: #fff; }
+/* I help, a toggle button on a coalition's row: pressed it shows a check on sand, and the row stays where it was until the
+   next visit (coalition.js), so the button under the pointer never changes (the critic; A-12, B-5) */
+/* (never filled: the screen's one filled button is not a switch's state, spec 7 rule 1) */
+body.staff6 .co6-row .v6-row-act .co6-help[aria-pressed="true"] { background: var(--v6-wash); color: var(--v6-ink); font-weight: 700; }
+body.staff6 .co6-help[aria-pressed="true"] .ic { color: var(--v6-leaf); }
+/* for someone who is not one of the coalition's own people, the I help switch takes the partner update's place under the lead */
+body.staff6 .co6-page .co6-card.co6-slot { margin-top: var(--s16); }

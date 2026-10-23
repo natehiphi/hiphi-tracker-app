@@ -15,13 +15,12 @@
 // Someone who owns and helps on no issue (Patti, Julie, Saya, Kris, Jess) sees their coalitions instead (v4, R-269 P7):
 // the ones they help on as rows, then the others, each with an I help switch (coalition.js).
 import { S, DB, DEADLINES, SESSION_OVER, hooks, esc, myIssueIds } from './data.js';
-import { diedish, billSay } from './model.js';
+import { diedish } from './model.js';
 import { icon, btn, empty, toast, openSheet, closeSheet } from './ui.js';
-import { sectionNav } from './ui.js';
-import { plural, pageHead } from './lists.js';
+import { plural } from './lists.js';
 import { isDraft, myIssuesPrep, renderMinePrep, wireMinePrep } from './prep.js';
-import { coalSectionsHTML, wireHelpBtns, billLineRow } from './coalition.js';
-import { standOf, bodyHTML, toolsHTML, wireTools } from './issuestand.js';
+import { coalSectionsHTML, wireHelpBtns, billLineRow, helpLineHTML, billWords } from './coalition.js';
+import { standOf, bodyHTML, toolsHTML, wireTools, headHTML, restoreRow } from './issuestand.js';
 import { isPos } from './standing.js';
 import { dayWords, itemRow } from './steps.js';
 
@@ -31,7 +30,7 @@ function myIssues() {
   return (S.issues || []).filter(i => ids.has(String(i.id)) && !i.archived_at).map(i => ({ ...standOf(i), own: i.owner_id === S.me?.id }));
 }
 const Q = () => S.miSearch ??= { q: '' };
-const opts = () => ({ q: Q().q, from: 'mine', tagsOf: x => [x.own ? '' : 'You help', isDraft(x.i) ? 'Draft' : ''].filter(Boolean) });
+const opts = () => ({ q: Q().q, from: 'mine', tagsOf: x => [x.own ? '' : 'You help', isDraft(x.i) ? 'Not public yet' : ''].filter(Boolean) });
 
 // ---- F52: live bills with a position on an issue you own, that nobody owns ----
 const onIssue = i => new Set((S.billIssues || []).filter(x => x.issue_id === i.id).map(x => x.bill_id));
@@ -51,19 +50,20 @@ export function topsWithNoBill() {
   const list = (S.issues || []).filter(i => i.owner_id === S.me.id && !i.archived_at && (i.recommended || i.top_pick === 'yes') && !onIssue(i).size);
   return { list, cut };
 }
-// The two lines: a sentence, an icon, and one text button that opens what it names (never a box: X33, A-14).
+// The two lines: a sentence, an icon, and one text button that opens what it names (never a box: X33, A-14). "No owner yet"
+// is the one wording of that fact on every screen of this place (spec 7 rule 6; the critic found three).
 function linesHTML() {
   const u = unownedOnMine(), t = topsWithNoBill(), out = [];
-  if (u.bills.length) out.push(`<p class="i6-line">${icon('user-round')}<span>${esc(`${plural(u.bills.length, 'bill')} on your ${u.issues === 1 ? 'issue' : 'issues'} ${u.bills.length === 1 ? 'has' : 'have'} no owner`)}</span>${btn(u.bills.length === 1 ? 'Take it' : 'Take one', { kind: 'text', sm: true, attrs: { 'data-mi': 'unowned', 'aria-haspopup': 'dialog' } })}</p>`);
+  if (u.bills.length) out.push(`<p class="i6-line">${icon('user-round')}<span>${esc(`${plural(u.bills.length, 'bill')} on your ${u.issues === 1 ? 'issue' : 'issues'} ${u.bills.length === 1 ? 'has' : 'have'} no owner yet`)}</span>${btn(u.bills.length === 1 ? 'Take it' : 'Take one', { kind: 'text', sm: true, attrs: { 'data-mi': 'unowned', 'aria-haspopup': 'dialog' } })}</p>`);
   if (t.list.length) out.push(`<p class="i6-line">${icon('flag')}<span>${esc(`${t.list.length === 1 ? 'One of your top issues has' : `${t.list.length} of your top issues have`} no bill yet · introduction closes ${dayWords(t.cut)}`)}</span>${btn(t.list.length === 1 ? 'Open it' : 'See them', { kind: 'text', sm: true, attrs: { 'data-mi': 'tops', ...(t.list.length === 1 ? {} : { 'aria-haspopup': 'dialog' }) } })}</p>`);
-  return out.length ? `<div class="i6-lines">${out.join('')}</div>` : '';
+  return out.join('');
 }
 // "Take one": the bills in a sheet, each with Take it (you become its owner, with Undo); the sheet stays open for the next.
 function unownedSheet() {
   const body = () => { const { bills } = unownedOnMine();
-    return bills.length ? `<div class="v6-list i6-list" role="list">${bills.map(b => billLineRow(b, { button: btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-mitake': b.id, 'aria-label': `Take ${billSay(b)}: you become its owner` } }) })).join('')}</div>`
+    return bills.length ? `<div class="v6-list i6-list" role="list">${bills.map(b => billLineRow(b, { button: btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-mitake': b.id, 'aria-label': `Take ${billWords(b)}: you become its owner` } }) })).join('')}</div>`
       : `<p class="i6-quiet">Every bill on your issues has an owner now.</p>`; };
-  openSheet({ title: 'Bills on your issues with no owner', size: 'auto', body: `<div class="i6-sheet"><p class="i6-quiet">Take one and it is yours: it shows on your Today and in Bills under Mine.</p><div id="mi-un">${body()}</div></div>`,
+  openSheet({ title: 'Bills on your issues with no owner yet', size: 'auto', body: `<div class="i6-sheet"><p class="i6-quiet">Take one and it is yours: it shows on your Today and in Bills under Mine.</p><div id="mi-un">${body()}</div></div>`,
     onClose: () => hooks.render(),
     wire: d => {
       const wireRows = () => d.querySelectorAll('[data-mitake]').forEach(el => el.onclick = async () => {
@@ -71,7 +71,7 @@ function unownedSheet() {
         el.setAttribute('aria-busy', 'true'); el.disabled = true;
         try { await DB.setOwner(b.id, S.me.id); } catch (e) { el.removeAttribute('aria-busy'); el.disabled = false; toast(e, { err: true }); return; }
         d.querySelector('#mi-un').innerHTML = body(); wireRows(); d.querySelector('[data-mitake]')?.focus();
-        toast(`You own ${billSay(b)} now.`, { ok: true, undo: async () => { await DB.setOwner(b.id, null); const box = d.querySelector('#mi-un'); if (box) { box.innerHTML = body(); wireRows(); } else hooks.render(); } });
+        toast(`You own ${billWords(b)} now.`, { ok: true, undo: async () => { await DB.setOwner(b.id, null); const box = d.querySelector('#mi-un'); if (box) { box.innerHTML = body(); wireRows(); } else hooks.render(); } });
       });
       wireRows();
     } });
@@ -90,17 +90,22 @@ export default {
   render() {
     // R-316 W16: between sessions, My issues opens as the 2027 prep list, as Nate chose for Staff v2 on 10/16 (R-263).
     if (myIssuesPrep()) return renderMinePrep();
-    const list = myIssues(), nav = sectionNav('issues', 'mine');
+    const list = myIssues(), head = headHTML('mine');
     const owned = list.filter(x => x.own).length, helped = list.length - owned;
-    const who = [owned ? `You own ${plural(owned, 'issue')}` : '', helped ? `${owned ? 'help' : 'You help'} on ${helped}` : ''].filter(Boolean).join(' and ');
     // Someone with no issue: their coalitions, where their week is (Patti: HEAL in one click).
-    if (!list.length && (S.campaigns || []).length) return `<div class="le-page i6-page mi6-page">${pageHead(nav, 'My issues', '', '')}${coalSectionsHTML()}</div>`;
-    if (!list.length) return `<div class="le-page i6-page mi6-page">${pageHead(nav, 'My issues', '', '')}
+    if (!list.length && (S.campaigns || []).length) return `<div class="le-page i6-page mi6-page">${head}${coalSectionsHTML()}</div>`;
+    if (!list.length) return `<div class="le-page i6-page mi6-page">${head}
       <div class="le-empty">${empty({ title: 'No issues are yours yet', text: 'When you own or help on an issue, it shows here with where it stands.', action: btn('See all issues', { kind: 'secondary', href: '#/my-issues/all' }) })}</div></div>`;
+    // Under the tabs, one line only when it says something the list does not (the critic: "You own 10 issues" counted the
+    // rows below it, and "You help on 2." named no noun): for someone who helps on a coalition, that coalition and its week
+    // (Patti: "Your coalition: HEAL · 3 hearings this week"), which replaces the lede (A-25); for a helper on issues only,
+    // how many they help on.
+    const coal = helpLineHTML(), lede = coal || (!owned && helped ? `<p class="i6-lede">You help on ${esc(plural(helped, 'issue'))}. Each owner leads theirs.</p>` : '');
+    const lines = linesHTML();
     return `<div class="le-page i6-page mi6-page">
-      ${pageHead(nav, 'My issues', `${esc(who)}.`, '')}
-      ${linesHTML()}
-      ${toolsHTML(Q().q, 'mi-q', { label: 'Filter your issues' })}
+      ${head}
+      ${lede || lines ? `<div class="i6-lines">${lede}${lines}</div>` : ''}
+      ${toolsHTML(Q().q, 'mi-q', { label: 'Filter your issues', count: list.length })}
       <div id="mi-q-body">${bodyHTML(list, opts())}</div>
     </div>`;
   },
@@ -110,5 +115,6 @@ export default {
     wireTools(app, 'mi-q', { get: () => Q().q, set: v => { Q().q = v; }, paint: () => { const b = app.querySelector('#mi-q-body'); if (b) b.innerHTML = bodyHTML(myIssues(), opts()); } });
     app.querySelector('[data-mi="unowned"]')?.addEventListener('click', unownedSheet);
     app.querySelector('[data-mi="tops"]')?.addEventListener('click', topsSheet);
+    restoreRow(app);
   },
 };

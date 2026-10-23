@@ -15,13 +15,13 @@
 // this page's own: Take it (a bill nobody owns, a to-do anyone can take), the I help switch and the two Copy buttons.
 // Coalitions index: rows, the coalitions you help on first (F157), the others each with an "I help" switch (F159).
 import { S, DB, DEMO, SESSION_OVER, hooks, esc, advocate } from './data.js';
-import { billSay, diedish, riskOf, PUBLIC_APP, hiToday, billById, wantsHearing, billRoute, sittingDraft, whenAt } from './model.js';
+import { diedish, riskOf, PUBLIC_APP, hiToday, billById, wantsHearing, billRoute, sittingDraft, whenAt } from './model.js';
 import { ownerFirst, ownerName } from './model.js';   // R-316 W28: "Lauren (turned off)"
 import { icon, btn, empty, toast, switchRow, openSheet } from './ui.js';
 import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
-import { plural, pageHead, afterClose, iconName } from './lists.js';
-import { sectionNav } from './ui.js';
+import { plural, afterClose, iconName } from './lists.js';
 import { issuesOfBill } from './issues.js';
+import { headHTML as tabsHead, rememberRow, restoreRow, numNb } from './issuestand.js';
 import { isPos, byPri, waitingOfBills } from './standing.js';
 import { itemRow, billStep, shownStatus, testimonyState, goingWords, committeeName, numWords, nameWords, dayWords, nw } from './steps.js';
 
@@ -30,6 +30,12 @@ const DESK = () => { try { return matchMedia('(min-width: 1100px)').matches; } c
 const coalById = id => (S.campaigns || []).find(c => String(c.id) === String(id)) || null;
 const andList = xs => xs.length < 2 ? xs.join('') : xs.length === 2 ? `${xs[0]} and ${xs[1]}` : `${xs.slice(0, -1).join(', ')}, and ${xs[xs.length - 1]}`;
 const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
+// A bill in a sentence (a toast, a button's label): its name and its number as the rows say them, "Easier local food buying
+// for schools (SB 659)", never model.js billSay's "SB659 HD1" (D15; the critic).
+export const billWords = b => { const n = numWords(b), nm = nameWords(b, 60); return nm && nm !== n ? `${nm} (${n})` : n; };
+// "No one holds it" (steps.js) on a bill with no owner says the one wording this place uses for that fact (spec 7 rule 6).
+const noOwner = b => !(S.assignments[b.id] || []).length;
+const ownerWords = (b, t) => noOwner(b) ? String(t || '').replace(/^No one holds it\b/, 'No owner yet').replace(/\bno one holds it\b/g, 'no owner yet') : String(t || '');
 // A redraw that keeps the page where it was and the focus on the control that acted (B-4).
 function redrawKeep(focusSel) {
   const y = window.scrollY; hooks.render();
@@ -60,6 +66,11 @@ export const weekOf = c => weekOfBills(billsOf(c));
 const pref = () => S.me?.prefs?.coalitions;
 export const supports = c => { const v = pref(); return v === 'all' || (Array.isArray(v) && v.includes(c.id)); };
 const ownsCoal = c => !!S.me && c.owner_id === S.me.id;
+// Who rallies the public for a coalition (the addendum's rule 6, no setting exists yet): Saya on CTFH, else its owner.
+const rallierOf = c => (/^ctfh$/i.test(c.slug || c.name) && S.advocates.find(a => a.initials === 'SY' && a.is_active !== false)) || advocate(c.owner_id);
+// The partner update is the work of the coalition's own people: its owner, its helpers, its rallier, and admins (the critic:
+// a stranger to the coalition saw it as the page's one thing to do; spec D16, A-13).
+const mayUpdate = c => !!S.me && (!!S.me.is_admin || ownsCoal(c) || supports(c) || rallierOf(c)?.id === S.me.id);
 // R-316 W45: the link on the coalition's card says where it came from, so partners' visits are counted apart.
 const publicLink = c => `${PUBLIC_APP()}?utm_source=coalition-card&utm_campaign=${String(c.slug || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40)}#/issue/${encodeURIComponent(c.slug)}`;
 const embedUrl = (c, { preview = false } = {}) => { const u = new URL('embed.html', location.href); u.search = ''; u.hash = ''; if (preview && DEMO) u.searchParams.set('demo', '1'); u.searchParams.set('coalition', c.slug); return u.href; };
@@ -95,31 +106,49 @@ const hearWords = n => n ? plural(n, 'hearing') + ' this week' : 'no hearings th
 export const coalFactsLine = c => { const f = facts(c); return [f.own ? (f.own.id === S.me?.id ? 'You own it' : ownerFirst(f.own)) : 'No owner', `${f.live ? plural(f.live, 'live bill') : 'no live bills'}, ${hearWords(f.hear)}`].join(' · '); };
 const byOrder = (a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99) || a.name.localeCompare(b.name);
 // One coalition as a row: its short name, its public name small beside it (X25: "HEAL" alone said nothing to Patti), and
-// one line. `button`: the I help switch, on the coalitions someone does not help on yet.
+// one line. `button`: the I help switch.
 export function coalRow(c, { button = '' } = {}) {
   return itemRow({ key: c.id, name: c.name, num: c.public_name && c.public_name !== c.name ? c.public_name : '', line: nw(esc(coalFactsLine(c))), href: coalHref(c), button, cls: 'i6-row co6-row' });
 }
-// The switch is a toggle button (aria-pressed), the one control a row may carry (D16); turning it on moves the coalition
-// up to yours, with Undo (setSupport).
-export const helpBtn = c => btn('I help', { kind: 'secondary', sm: true, icon: 'user-plus', attrs: { 'data-misup': c.id, 'aria-pressed': 'false', 'aria-label': `I help on ${c.name}` } });
+// The I help switch: a toggle button (aria-pressed), the one control a row may carry (D16), on every coalition its owner is
+// not (the owner has its work on Today already). Its name stays "I help" either way (WCAG 2.5.3); pressed, it shows a check.
+export const helpBtn = (c, on = supports(c)) => btn('I help', { kind: 'secondary', sm: true, icon: on ? 'check' : 'user-plus', cls: 'co6-help',
+  attrs: { 'data-misup': c.id, 'aria-pressed': String(on), 'aria-label': `I help on ${c.name}` } });
+// This visit's switches: a coalition switched here stays in the section it was in until the next visit, showing its new
+// state, so the row under the pointer never changes (the critic: pressing I help moved the row up and slid the next one's
+// I help under the pointer). A visit is this history entry; a redraw keeps it, arriving again starts afresh.
+const visitKey = () => `${location.hash}|${history.state?.d ?? ''}|${history.length}`;
+const stays = () => { if (S.coStay?.key !== visitKey()) S.coStay = { key: visitKey(), at: new Map() }; return S.coStay.at; };
 export function coalSectionsHTML({ yoursTitle = '', othersTitle = '' } = {}) {
-  const all = (S.campaigns || []).slice().sort(byOrder), mine = all.filter(c => supports(c) || ownsCoal(c)), rest = all.filter(c => !mine.includes(c));
+  const all = (S.campaigns || []).slice().sort(byOrder), st = stays();
+  const isMine = c => st.has(c.id) ? st.get(c.id) : supports(c) || ownsCoal(c);
+  const mine = all.filter(isMine), rest = all.filter(c => !isMine(c));
   const box = rows => `<div class="v6-list i6-list" role="list">${rows}</div>`;
-  return `${mine.length ? `<section class="i6-sec" aria-labelledby="co6-yh"><h2 class="i6-h" id="co6-yh">${esc(yoursTitle || (mine.length === 1 ? 'Your coalition' : 'Your coalitions'))}</h2>${box(mine.map(c => coalRow(c)).join(''))}</section>` : ''}
-    ${rest.length ? `<section class="i6-sec" aria-labelledby="co6-oh"><h2 class="i6-h" id="co6-oh">${esc(othersTitle || (mine.length ? 'Other coalitions' : 'Coalitions'))}</h2>${box(rest.map(c => coalRow(c, { button: helpBtn(c) })).join(''))}</section>` : ''}`;
+  const row = c => coalRow(c, { button: ownsCoal(c) ? '' : helpBtn(c) });
+  return `${mine.length ? `<section class="i6-sec" aria-labelledby="co6-yh"><h2 class="i6-h" id="co6-yh">${esc(yoursTitle || (mine.length === 1 ? 'Your coalition' : 'Your coalitions'))}</h2>${box(mine.map(row).join(''))}</section>` : ''}
+    ${rest.length ? `<section class="i6-sec" aria-labelledby="co6-oh"><h2 class="i6-h" id="co6-oh">${esc(othersTitle || (mine.length ? 'Other coalitions' : 'Coalitions'))}</h2>${box(rest.map(row).join(''))}</section>` : ''}`;
 }
 export function wireHelpBtns(root) {
   root.querySelectorAll('[data-misup]').forEach(el => el.onclick = () => {
     const c = coalById(el.dataset.misup); if (!c) return;
-    setSupport(c, true, `.co6-row[data-v6row="${CSS.escape(String(c.id))}"] .v6-row-main`);
+    const st = stays(); if (!st.has(c.id)) st.set(c.id, supports(c) || ownsCoal(c));
+    setSupport(c, el.getAttribute('aria-pressed') !== 'true', `[data-misup="${CSS.escape(String(c.id))}"]`);
   });
 }
+// One line on My issues for someone who helps on a coalition (the critic: Patti's My issues never named HEAL, where her week
+// is): "Your coalition: HEAL · 3 hearings this week", its name a link. It replaces the lede (A-25). Kris helps on every one,
+// so the Coalitions tab is her list and she gets no line.
+export function helpLineHTML() {
+  if (!S.me || pref() === 'all') return '';
+  const l = (S.campaigns || []).filter(c => supports(c) && !ownsCoal(c)).sort(byOrder); if (!l.length) return '';
+  if (l.length > 2) return `<p class="i6-line">${icon('users')}<span>You help on ${l.length} coalitions</span><a class="i6-inline" href="#/my-issues/coalitions">See them</a></p>`;
+  const one = c => `<a href="${esc(coalHref(c))}">${esc(c.name)}</a>${nw(esc(` · ${hearWords(weekOf(c).length)}`))}`;
+  return `<p class="i6-line">${icon('users')}<span>${l.length === 1 ? 'Your coalition' : 'Your coalitions'}: ${l.map(one).join('; ')}</span></p>`;
+}
 function indexHTML() {
-  const v = pref(), list = (S.campaigns || []).slice().sort(byOrder);
-  const yours = v === 'all' ? 'You help on every coalition.' : '';
-  const head = pageHead(sectionNav('issues', 'coalitions'), 'Coalitions', yours ? esc(yours) : '', '');
+  const v = pref(), list = (S.campaigns || []).slice().sort(byOrder), head = tabsHead('coalitions');
   if (!list.length) return `<div class="le-page co6-index">${head}<div class="le-empty">${empty({ title: 'No coalitions yet', text: 'An admin adds them in Session setup.', action: S.me?.is_admin ? btn('Open Session setup', { href: '#/setup/coalitions' }) : '' })}</div></div>`;
-  return `<div class="le-page co6-index">${head}${coalSectionsHTML({ yoursTitle: v === 'all' ? 'Every coalition' : '' })}</div>`;
+  return `<div class="le-page co6-index">${head}${coalSectionsHTML({ yoursTitle: v === 'all' ? 'You help on every coalition' : '' })}</div>`;
 }
 
 // ============================================================================================ one coalition
@@ -136,7 +165,7 @@ const two = s => { const p = String(s || '').split(' · '); return p.length > 2 
 // neutral words, D3), and no button (V07: the step's button lives at its home).
 export function billLineRow(b, { line, button = '', cls = '' } = {}) {
   const s = billStep(b), st = shownStatus(s) || {}, own = !!s?.you;
-  const text = line != null ? line : two(s?.line || '');
+  const text = line != null ? line : ownerWords(b, two(s?.line || ''));
   const tone = line == null && st.tone && st.tone !== 'neutral' ? st.tone : '';
   const ic = line != null ? '' : tone ? st.icon : (st.soon && own) ? 'clock' : '';
   return itemRow({ key: b.id, name: nameWords(b), num: numWords(b), line: nw(esc(text)), tone, icon: ic, bold: !!(st.soon && own && line == null), href: billRoute(b), button, cls: `i6-row${cls ? ' ' + cls : ''}`, bill: b.id });
@@ -148,26 +177,54 @@ export function billLineRow(b, { line, button = '', cls = '' } = {}) {
 function sittingRow(s, from) {
   const h = s.rows[0], items = s.rows.map(r => ({ h: r, b: billById(r.bill_id) })).filter(x => x.b).sort((x, y) => byPri(x.b, y.b));
   const states = items.map(x => testimonyState(sittingDraft(x.h, x.b.id) || null, x.b, { h: x.h })).filter(Boolean);
-  const said = items.length === 1 && states[0] ? `${numWords(items[0].b)}: ${states[0].word}${states[0].sentBack ? ', sent back' : ''}`
+  const said = items.length === 1 && states[0] ? `${numNb(items[0].b)}: ${states[0].word}${states[0].sentBack ? ', sent back' : ''}`
     : `${plural(items.length, 'bill')}${states.length ? `: ${[...new Set(states.map(x => x.word))].join(', ')}` : ''}`;
   const href = `#/hearing/${encodeURIComponent(h.id)}${from ? `?from=${encodeURIComponent(from)}` : ''}`;
   return itemRow({ key: h.id, name: committeeName(h.committee) || h.committee, line: [cap(whenAt(h.scheduled_at)), goingWords(h), said].map(t => nw(esc(t))).join(' · '), icon: 'calendar-days', href, cls: 'i6-row' });
 }
-export function hearingsSec(bills, { key = '', from = '' } = {}) {
+// An issue's page names its own bills (the critic: a bill heard this week had no row of its own there, so its page was two
+// clicks away): one row per bill, its name and number, then when and where, and its testimony's state. The row opens the
+// bill, whose page holds the hearing.
+function billHearRow(h, b) {
+  const st = testimonyState(sittingDraft(h, b.id) || null, b, { h });
+  const where = nw(esc(`Hearing ${whenAt(h.scheduled_at)} in ${committeeName(h.committee) || h.committee}`)), state = st ? `<span class="v6-nw">${esc(`${st.word}${st.sentBack ? ', sent back' : ''}`)}</span>` : '';
+  return itemRow({ key: `${h.id}|${b.id}`, name: nameWords(b), num: numWords(b), line: [where, state].filter(Boolean).join(' · '), icon: 'calendar-days', href: billRoute(b), cls: 'i6-row', bill: b.id });
+}
+export function hearingsSec(bills, { key = '', from = '', byBill = false } = {}) {
   const week = weekOfBills(bills); if (!week.length) return '';
-  return sec(`co6-h-${esc(key)}`, 'Hearings this week', folded(key + '|h', week.map(s => sittingRow(s, from))),
+  const rows = byBill ? week.flatMap(s => s.rows.map(h => [h, billById(h.bill_id)]).filter(([, b]) => b).sort((x, y) => byPri(x[1], y[1])).map(([h, b]) => billHearRow(h, b)))
+    : week.map(s => sittingRow(s, from));
+  return sec(`co6-h-${esc(key)}`, 'Hearings this week', folded(key + '|h', rows),
     { more: `<p class="i6-more-link"><a href="#/hearings">See them on Hearings${icon('chevron-right')}</a></p>` });
 }
 // The bills that still need a hearing, grouped by the deadline they race, at risk first (no hearing, deadline a week away
 // or less, model.js riskOf). Bills HIPHI opposes are left out (W2: a hearing is what we do not want for them). Each row is
 // the bill's step in the shared words ("Ask the chair by Wed 3/25", "Asked by Kevin Mon 3/16 · no reply yet", "Kris asks
 // the chair by Fri 3/27"); asking is done on Get hearings, so the section links there (V07).
-function needsSecs(key, w) {
-  const all = [...w.risk, ...w.race.filter(x => !w.risk.some(y => y.b.id === x.b.id))].filter(x => wantsHearing(x.b) && x.st.deadline?.date);
+// The bills that need a hearing, as one list (the coalition page leaves these out of its no-owner list: a bill shows once).
+const needsOf = w => [...w.risk, ...w.race.filter(x => !w.risk.some(y => y.b.id === x.b.id))].filter(x => wantsHearing(x.b) && x.st.deadline?.date);
+// Inside a deadline, rows that would say the same line ("Nate asks the chair by Fri 3/27", four times) say it once, as a
+// sub-heading ("Nate asks the chairs by Fri 3/27"), and the rows under it are just the bills; a row whose line is its own
+// keeps it (the critic, A-14). `take`: a bill with no owner carries Take it here (the coalition page; F158).
+function needsSecs(key, w, { take = false } = {}) {
+  const all = needsOf(w);
   if (!all.length) return '';
   const by = new Map(); for (const x of all) { const d = x.st.deadline.date; if (!by.has(d)) by.set(d, { risk: false, rows: [] }); const g = by.get(d); g.rows.push(x); if (riskOf(x.b)) g.risk = true; }
+  const btnOf = b => take && noOwner(b) ? takeBtn(b) : '';
+  // A long deadline shows its first rows across its sub-groups, then one "Show all" for the rest (remembered for this visit).
+  const group = (d, rows) => {
+    const lines = rows.map(x => ({ b: x.b, t: ownerWords(x.b, two(billStep(x.b)?.line || '')) })), n = new Map();
+    for (const l of lines) n.set(l.t, (n.get(l.t) || 0) + 1);
+    const own = lines.filter(l => !l.t || n.get(l.t) < 2), shared = [...n].filter(([t, k]) => t && k >= 2).map(([t]) => t);
+    const parts = [['', own.map(l => billLineRow(l.b, { button: btnOf(l.b) }))], ...shared.map(t => [t, lines.filter(l => l.t === t).map(l => billLineRow(l.b, { line: '', button: btnOf(l.b) }))])].filter(([, r]) => r.length);
+    const mk = `${key}|${d}`, all = lines.length <= FOLD + 2 || S.coMore?.has(mk);
+    let left = all ? Infinity : FOLD, out = '';
+    for (const [t, r] of parts) { if (left <= 0) break; const shown = r.slice(0, left); left -= shown.length;
+      out += `${t ? `<h3 class="i6-sub">${nw(esc(cap(t.replace(/\bthe chair\b/, 'the chairs'))))}</h3>` : ''}${box(shown.join(''))}`; }
+    return out + (all ? '' : showAllBtn(lines.length, { 'data-comore': mk }));
+  };
   return [...by].sort(([p], [q]) => p.localeCompare(q)).map(([d, g], i) => sec(`co6-n-${esc(key)}-${i}`, `${g.risk ? 'At risk: needs' : 'Needs'} a hearing by ${esc(dayWords(d))}`,
-    folded(`${key}|${d}`, g.rows.map(x => billLineRow(x.b))), { more: i === by.size - 1 ? `<p class="i6-more-link"><a href="#/hearings/ask">Ask on Get hearings${icon('chevron-right')}</a></p>` : '' })).join('');
+    group(d, g.rows), { more: i === by.size - 1 ? `<p class="i6-more-link"><a href="#/hearings/ask">Ask on Get hearings${icon('chevron-right')}</a></p>` : '' })).join('');
 }
 // The lead line: where it stands, said once (status by exception, D3; words and an icon, never colour alone, A-5).
 export function standLeadHTML(bills, { clear = [] } = {}) {
@@ -181,18 +238,20 @@ export function standLeadHTML(bills, { clear = [] } = {}) {
 }
 // Where a set of bills stands this week: the hearings, then the bills that need a hearing. An issue's page uses it too.
 // (`clear`, `calm` and `after` are kept from v5's signature; `after` is the caller's own sections.)
-export function standWeekHTML(bills, { key = '', from = '', after = '' } = {}) {
+export function standWeekHTML(bills, { key = '', from = '', after = '', byBill = false, take = false } = {}) {
   if (SESSION_OVER) return after;
-  return `${hearingsSec(bills, { key, from })}${needsSecs(key, waitingOfBills(bills))}${after}`;
+  return `${hearingsSec(bills, { key, from, byBill })}${needsSecs(key, waitingOfBills(bills), { take })}${after}`;
 }
 // "Show all" in those sections, for a page that is not this one (the coalition page wires its own below).
 export function wireWeek(root, redraw = () => hooks.render()) {
   root.querySelectorAll('[data-comore]').forEach(el => el.onclick = () => { (S.coMore ??= new Set()).add(el.dataset.comore); redraw(); });
 }
-// Live bills nobody owns, each with Take it (F158). Giving one to someone else is on the bill (its owner picker).
+// Live bills with no owner yet, each with Take it (F158); those that need a hearing are already in that list, with their
+// Take it there (a bill shows once on a page, the critic). Giving one to someone else is on the bill (its owner picker).
+const takeBtn = b => btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-cotakebill': b.id, 'aria-label': `Take ${billWords(b)}: you become its owner` } });
 function unownedHTML(c, list) {
-  const rows = list.map(b => billLineRow(b, { line: two(billStep(b)?.line || ''), button: btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-cotakebill': b.id, 'aria-label': `Take ${billSay(b)}: you become its owner` } }) }));
-  return sec('co6-s3', 'Bills nobody owns', folded(c.id + '|o', rows));
+  const rows = list.map(b => billLineRow(b, { button: takeBtn(b) }));
+  return sec('co6-s3', 'Bills with no owner yet', folded(c.id + '|o', rows));
 }
 // To-dos on its bills with nobody on them ("Anyone" on the bill page). Taking one is yours to do, so nobody is messaged
 // (064 only tells a person when someone ELSE gives them a to-do). Past its date is said in words, not red (D3: red is only
@@ -201,8 +260,8 @@ function todosHTML(c, list) {
   const today = hiToday();
   const rows = list.map(({ t, b }) => {
     const due = !t.due_date ? '' : t.due_date < today ? `was due ${dayWords(t.due_date)}` : t.due_date === today ? 'due today' : `due ${dayWords(t.due_date)}`;
-    return itemRow({ key: `${b.id}|${t.id}`, name: t.title, line: [`${nameWords(b, 48)} (${numWords(b)})`, due].filter(Boolean).map(x => nw(esc(x))).join(' · '), href: billRoute(b), cls: 'i6-row',
-      button: btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-cotake': `${b.id}|${t.id}`, 'aria-label': `Take “${t.title}” on ${billSay(b)}` } }) });
+    return itemRow({ key: `${b.id}|${t.id}`, name: t.title, line: [`${nameWords(b, 48)} (${numNb(b)})`, due].filter(Boolean).map(x => nw(esc(x))).join(' · '), href: billRoute(b), cls: 'i6-row',
+      button: btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-cotake': `${b.id}|${t.id}`, 'aria-label': `Take “${t.title}” on ${billWords(b)}` } }) });
   });
   return sec('co6-s4', 'To-dos anyone can take', folded(c.id + '|t', rows));
 }
@@ -220,13 +279,13 @@ function headHTML(c) {
 }
 
 // Your help ("support" is Nate's word, decision 7). The owner has the coalition's bills on Today already, so no switch.
-function supportHTML(c) {
+function supportHTML(c, { slot = false } = {}) {
   if (!S.me || c.owner_id === S.me.id) return '';
   const v = pref(), on = supports(c);
   // R-277 fix 21 (W-8): "I support CTFH" read as a position on tobacco. The switch says what it is (you help on it) and
   // what it does (its work shows on your Today); "Monitor" stays a position only.
   const help = `Its hearings and deadlines show on your Today, never in its count.${v === 'all' ? ' You help on every coalition.' : ''}`;
-  return `<section class="co6-card co6-sup" aria-label="Your help">${switchRow('co-sup', `I help on ${esc(c.name)}`, on, esc(help))}</section>`;
+  return `<section class="co6-card co6-sup${slot ? ' co6-slot' : ''}" aria-label="Your help">${switchRow('co-sup', `I help on ${esc(c.name)}`, on, esc(help))}</section>`;
 }
 
 // Share with partners (F160): the two things to copy (A-20: two actions on the card), with the link itself and a preview
@@ -254,15 +313,17 @@ function shareHTML(c) {
 
 function pageHTML(c) {
   const back = `<a class="co6-back" href="#/my-issues/coalitions" data-back>${icon('chevron-left')}<span>Coalitions</span></a>`;
-  const unowned = unownedOf(c), todos = openTodosOf(c), bills = billsOf(c);
+  const todos = openTodosOf(c), bills = billsOf(c), allUnowned = unownedOf(c);
+  const needing = SESSION_OVER ? new Set() : new Set(needsOf(waitingOfBills(bills)).map(x => x.b.id)), unowned = allUnowned.filter(b => !needing.has(b.id));
   const anyTodo = bills.some(b => (S.todos[b.id] || []).some(t => !t.done));
-  const clear = !unowned.length && !anyTodo ? [liveOf(c).length ? 'every live bill has an owner' : '', 'no open to-dos'].filter(Boolean) : [];
+  const clear = !allUnowned.length && !anyTodo ? [liveOf(c).length ? 'every live bill has an owner' : '', 'no open to-dos'].filter(Boolean) : [];
   const lead = standLeadHTML(bills, { clear });
-  const week = standWeekHTML(bills, { key: c.id, from: c.id, after: `${unowned.length ? unownedHTML(c, unowned) : ''}${todos.length ? todosHTML(c, todos) : ''}` });
-  // The partner update is the coalition's weekly job for its owner and helpers: one tonal button under the lead (one door,
-  // Outreach › Partner update, B-13).
-  const act = `<p class="co6-acts">${btn('Write a partner update', { kind: 'secondary', icon: 'mail', href: memoHref(c) })}</p>`;
-  const side = `${supportHTML(c)}${shareHTML(c)}`;
+  const week = standWeekHTML(bills, { key: c.id, from: c.id, take: true, after: `${unowned.length ? unownedHTML(c, unowned) : ''}${todos.length ? todosHTML(c, todos) : ''}` });
+  // The partner update is the weekly job of the coalition's own people: one tonal button under the lead (one door,
+  // Outreach › Partner update, B-13). Anyone else gets the I help switch in that place, the page's one useful act for them.
+  const mine = mayUpdate(c);
+  const act = mine ? `<p class="co6-acts">${btn('Write a partner update', { kind: 'secondary', icon: 'mail', href: memoHref(c) })}</p>` : supportHTML(c, { slot: true });
+  const side = `${mine ? supportHTML(c) : ''}${shareHTML(c)}`;
   if (!DESK()) return `<div class="co6-page">${back}${headHTML(c)}${lead}${act}${week}${side}</div>`;
   return `<div class="co6-page co6-desk">${back}<div class="co6-cols">
     <div class="co6-main">${headHTML(c)}${lead}${act}${week}</div>
@@ -287,7 +348,7 @@ async function takeBill(b) {
   const was = S.assignments[b.id] || [];
   try { await DB.setOwner(b.id, S.me.id); } catch (e) { toast(e, { err: true }); return; }
   redrawKeep();
-  toast(`You own ${billSay(b)} now.`, { ok: true, undo: async () => { await DB.setOwner(b.id, was[0] || null); redrawKeep(); } });
+  toast(`You own ${billWords(b)} now.`, { ok: true, undo: async () => { await DB.setOwner(b.id, was[0] || null); redrawKeep(); } });
 }
 export { takeBill };
 async function takeTodo(key) {
@@ -295,7 +356,7 @@ async function takeTodo(key) {
   if (!b || !t || !S.me) return;
   try { await DB.updateTodo(b.id, t.id, { assignee_id: S.me.id }); } catch (e) { toast(e, { err: true }); return; }
   redrawKeep();
-  toast(`It’s yours: “${t.title}” on ${billSay(b)}.`, { ok: true, undo: async () => { await DB.updateTodo(b.id, t.id, { assignee_id: null }); redrawKeep(); } });
+  toast(`It’s yours: “${t.title}” on ${billWords(b)}.`, { ok: true, undo: async () => { await DB.updateTodo(b.id, t.id, { assignee_id: null }); redrawKeep(); } });
 }
 
 export default {
@@ -312,8 +373,9 @@ export default {
     return pageHTML(c);
   },
   wire(route, app) {
-    if (!route.id) { wireHelpBtns(app); return; }
+    if (!route.id) { wireHelpBtns(app); restoreRow(app); return; }
     const c = coalById(route.id), root = app.querySelector('.co6-page'); if (!c || !root) return;
+    rememberRow(c.id);
     const sw = root.querySelector('#co-sup'); if (sw) sw.onchange = () => setSupport(c, sw.checked);
     root.querySelectorAll('[data-cocopy]').forEach(el => el.onclick = () => el.dataset.cocopy === 'link'
       ? copyText(publicLink(c), 'Link copied.', 'link') : copyText(embedCode(c), 'Website box code copied.', 'website box code'));

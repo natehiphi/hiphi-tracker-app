@@ -482,6 +482,27 @@
    alone (A-5, D3). The rules above this section are v5's; the sheets (.is-form, .is-picker, .is-psearch), the first
    visit (.fv-*, Outreach's) and the bill page's issues (.bw-iss*) still use them. */
 body.staff6 .i6-page .le-lede { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+/* the place's head, the same on My issues, Coalitions and All issues (spec 5 placeHead, A-8): the title and the page's one
+   button on one row, the tabs straight under it; a phone's top bar carries the title, so the tabs come first there */
+body.staff6 .i6-head { margin: 0 0 var(--s16); }
+body.staff6 .i6-htop { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8) var(--s16); min-height: 44px; margin: 0 0 var(--s12); }
+body.staff6 main .i6-h1 { margin: 0; font: 700 var(--v6-t28)/var(--v6-lh28) Poppins, system-ui, sans-serif; letter-spacing: -.015em; color: var(--v6-ink); }
+body.staff6 .i6-hacts { display: flex; flex-wrap: wrap; gap: var(--s8); align-items: center; }
+body.staff6 .i6-head > .sv-secnav { margin-bottom: 0; }
+body.staff6 .i6-newic { display: none; }
+@media (max-width: 767px) {
+  body.staff6 .i6-htop { display: none; }
+  body.staff6 .i6-newic { display: inline-flex; flex: none; }
+}
+body.staff6 .i6-lede { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+/* where an issue's line names a time due today, the time is bold (D3); the line's first part alone carries a state colour */
+body.staff6 .i6-time { font-weight: 700; color: var(--v6-ink); }
+body.staff6 .i6-p1.t-late { color: var(--v6-late); font-weight: 700; }
+body.staff6 .i6-p1.t-overdue { color: var(--v6-bad); font-weight: 700; }
+body.staff6 .i6-p1.t-done { color: inherit; }   /* done says so with its green check alone: one colour fewer in view (spec 8) */
+body.staff6 .i6-row.i6-ic-late .v6-row-line > svg { color: var(--v6-late); }
+body.staff6 .i6-row.i6-ic-overdue .v6-row-line > svg { color: var(--v6-bad); }
+body.staff6 .i6-row.i6-ic-done .v6-row-line > svg { color: var(--v6-leaf); }
 body.staff6 .i6-sec { margin-top: var(--v6-gap); }
 body.staff6 .i6-sec:first-child { margin-top: 0; }
 body.staff6 .i6-h { margin: 0 0 var(--s12); font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; letter-spacing: -.01em; color: var(--v6-ink); }
@@ -500,11 +521,14 @@ body.staff6 .i6-row .v6-row-name, body.staff6 .i6-row .v6-row-line > span { whit
 body.staff6 .i6-row .v6-row-num { white-space: normal; }
 body.staff6 .i6-row .v6-row-line { align-items: flex-start; }
 body.staff6 .i6-row .v6-row-line > svg { margin-top: 3px; }
-body.staff6 .i6-row .v6-row-line > svg:not(.ic-circle-check) { color: var(--v6-muted); }
+body.staff6 .i6-row .v6-row-line > svg { color: var(--v6-muted); }
 body.staff6 .i6-row .v6-row-line.t-late > svg, body.staff6 .i6-row .v6-row-line.t-overdue > svg, body.staff6 .i6-row .v6-row-line.t-done > svg { color: currentColor; }
 body.staff6 .i6-list + .i6-list { margin-top: var(--s12); }
-/* the filter box and the switch: side by side from 600px, stacked on a phone */
-body.staff6 .i6-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s12) var(--s16); margin: var(--s24) 0 var(--s32); }
+/* the filter box and the switch: side by side from 600px; on a phone one line, a Filter button that opens the box beside the
+   switch (and All issues' New issue at its end) */
+body.staff6 .i6-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s12) var(--s16); margin: var(--s12) 0 var(--s16); }
+body.staff6 .i6-tools-x { justify-content: flex-end; }
+body.staff6 .i6-findbtn { display: none; }
 body.staff6 .i6-find { position: relative; flex: 1 1 280px; max-width: 440px; min-width: 0; }
 body.staff6 .i6-find > .ic { position: absolute; left: 16px; top: 12px; width: 20px; height: 20px; color: var(--v6-muted); pointer-events: none; }
 body.staff6 .i6-find input { width: 100%; min-height: 44px; padding: 8px 44px; border: 0; border-radius: var(--v6-pill); background: var(--v6-wash); font: 400 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-ink); box-shadow: inset 0 0 0 1px var(--v6-field); }
@@ -513,7 +537,17 @@ body.staff6 .i6-find input::-webkit-search-cancel-button { display: none; }
 body.staff6 .i6-find input:focus { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 body.staff6 .i6-find .iconbtn { position: absolute; right: 0; top: 0; }
 body.staff6 .i6-seg { flex: none; }
-@media (max-width: 599px) { body.staff6 .i6-find { flex-basis: 100%; max-width: none; } body.staff6 .i6-seg { display: flex; width: 100%; } body.staff6 .i6-seg > * { flex: 1 1 0; } }
+@media (max-width: 599px) {
+  body.staff6 .i6-tools { gap: var(--s8); flex-wrap: nowrap; }
+  body.staff6 .i6-tools.open { flex-wrap: wrap; }
+  body.staff6 .i6-findbtn { display: inline-flex; flex: none; }
+  body.staff6 .i6-tools.open .i6-findbtn, body.staff6 .i6-tools:not(.open) .i6-find { display: none; }
+  body.staff6 .i6-find { flex-basis: 100%; max-width: none; }
+  body.staff6 .i6-seg { display: flex; flex: 1 1 auto; min-width: 0; }
+  body.staff6 .i6-seg > * { flex: 1 1 0; min-width: 0; padding-left: var(--s8); padding-right: var(--s8); }
+}
+/* a 320 phone: "By deadline" stays on one line beside the two 44px buttons (14px is a label size, spec 4) */
+@media (max-width: 359px) { body.staff6 .i6-seg > * { padding-left: var(--s4); padding-right: var(--s4); font-size: var(--v6-t14); white-space: nowrap; } }
 /* folds: what is done, what is not moving, the rest of a long group (rule 3: never something to do) */
 body.staff6 .i6-fold, body.staff6 .i6-more { margin-top: var(--s16); }
 body.staff6 .i6-fold > summary, body.staff6 .i6-more > summary { list-style: none; display: inline-flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 0 var(--s12) 0 var(--s8);
@@ -540,10 +574,20 @@ body.staff6 .i6-catf > .i6-list, body.staff6 .i6-catf > .i6-more > .i6-list { pa
 body.staff6 .i6-catf > .i6-quiet { padding: 0 var(--s8) var(--s8); }
 /* one-line notes with an icon and at most one button: no box, no colour (X33, D3) */
 body.staff6 .i6-lines { display: grid; gap: var(--s4); margin: var(--s16) 0 0; }
-body.staff6 .i6-line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s12); min-height: 44px; margin: var(--s8) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+/* the icon, the sentence and its one button stay on one line: the sentence wraps inside, the button stays beside it (the
+   critic: the icon and "Take one" fell onto lines of their own on a phone) */
+body.staff6 .i6-line { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--s4) var(--s12); min-height: 44px; margin: var(--s8) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
 body.staff6 .i6-lines .i6-line { margin: 0; }
 body.staff6 .i6-line > .ic { width: 20px; height: 20px; flex: none; color: var(--v6-muted); }
-body.staff6 .i6-line > span { flex: 1 1 220px; min-width: 0; }
+body.staff6 .i6-line > span { flex: 0 1 auto; min-width: 0; }
+body.staff6 .i6-line a:not(.btn):not(.i6-inline) { color: var(--v6-action); font-weight: 700; text-decoration: none; }
+body.staff6 .i6-line a:not(.btn):not(.i6-inline):hover { text-decoration: underline; }
+body.staff6 .i6-weekq { display: flex; align-items: center; gap: var(--s12); }
+body.staff6 .i6-weekq > .ic { width: 20px; height: 20px; flex: none; color: var(--v6-muted); }
+body.staff6 .i6-weekq + .i6-sec, body.staff6 .i6-weekq + .i6-fold { margin-top: var(--s24); }
+body.staff6 .pr6-page > .i6-line, body.staff6 .pr6-board > .i6-line { margin-top: var(--s24); }
+body.staff6 .is6-none { margin-top: var(--s24); }
+body.staff6 .is6-editb { margin-top: var(--s16); }
 body.staff6 .i6-line > .btn, body.staff6 .i6-line > .i6-inline { flex: none; }
 body.staff6 .i6-inline { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; color: var(--v6-action); text-decoration: none; }
 body.staff6 .i6-inline:hover { text-decoration: underline; }
@@ -617,19 +661,27 @@ body.staff6 .pr6-helper:focus-visible { outline: 3px solid var(--v6-action); out
 body.staff6 .pr6-steps { list-style: none; margin: var(--s12) 0 0; padding: 0; }
 body.staff6 .pr6-step { position: relative; display: flex; align-items: flex-start; gap: var(--s12); padding: var(--s16) 0; }
 body.staff6 .pr6-step + .pr6-step::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
-body.staff6 .pr6-mark { display: inline-flex; flex: none; padding-top: 2px; color: var(--v6-field); }
-body.staff6 .pr6-mark .ic { width: 24px; height: 24px; }
+body.staff6 .pr6-mark { display: inline-flex; flex: none; padding-top: 0; color: var(--v6-body); }
+body.staff6 .pr6-mark .ic { width: 28px; height: 28px; }
+/* a step's number in a sand tile: says its place, never looks like a box to tick (the critic) */
+body.staff6 .pr6-n { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--v6-wash); font: 700 var(--v6-t14)/1 var(--font); color: var(--v6-body); }
+body.staff6 .pr6-step.open .pr6-n { background: var(--v6-action-wash); color: var(--v6-action-press); }
+body.staff6 .pr6-boxfoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8) var(--s16); margin: var(--s8) 0 0; }
+body.staff6 .pr6-boxfoot .pr6-said { margin: 0; flex: 1 1 160px; }
+body.staff6 .pr6-step > .pr6-closed { flex: none; }
+body.staff6 .pr6-step > .pr6-closed[hidden], body.staff6 .pr6-sb > .pr6-closed[hidden] { display: none; }
 body.staff6 .pr6-step.done .pr6-mark { color: var(--v6-leaf); }
 body.staff6 .pr6-sb { flex: 1 1 auto; min-width: 0; }
 body.staff6 .pr6-sl { margin: 0; font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 body.staff6 .pr6-sd { margin: var(--s4) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); overflow-wrap: anywhere; }
 body.staff6 .pr6-step.done:not(.open) .pr6-sd { color: var(--v6-muted); }
-body.staff6 .pr6-step > .btn { flex: none; margin-top: -6px; }
+body.staff6 .pr6-step > .btn, body.staff6 .pr6-step > .pr6-closed > .btn { flex: none; margin-top: -6px; }
 body.staff6 .pr6-quote { display: flex; flex-direction: column; gap: var(--s4); margin: var(--s12) 0 0; padding: var(--s12) var(--s16); border-radius: var(--v6-r12); background: var(--v6-wash); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); overflow-wrap: anywhere; }
 body.staff6 .pr6-quote b { color: var(--v6-ink); }
 body.staff6 .pr6-none { color: var(--v6-muted); }
 body.staff6 .pr6-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin: var(--s12) 0 0; }
-body.staff6 .pr6-acts .btn[aria-pressed="true"] { background: var(--v6-action); color: #fff; }
+/* the answer already given, when a step is changed: a check on sand, never a second filled button (spec 7 rule 1) */
+body.staff6 .pr6-acts .btn[aria-pressed="true"] { background: var(--v6-wash); color: var(--v6-ink); font-weight: 700; }
 body.staff6 .pr6-hint { margin: var(--s8) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
 body.staff6 .pr6-said { min-height: var(--v6-lh16); margin: var(--s4) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
 body.staff6 .pr6-box { display: block; width: 100%; margin: var(--s12) 0 0; padding: var(--s12) var(--s16); border: 0; border-radius: var(--v6-r12); background: var(--v6-card); box-shadow: inset 0 0 0 1px var(--v6-field);
@@ -678,6 +730,4 @@ body.staff6:has(#toast .toastmsg) .pr6-foot.sticky { bottom: calc(var(--tabbar) 
 /* a phone: the title keeps the width; Edit the issue is the first item of its "…" there (F155) */
 @media (max-width: 599px) { body.staff6 .is6-edit { display: none; } }
 body.staff6 .is6-page > .pf-cares { margin-top: var(--s32); }
-body.staff6 .i6-line > span { flex: 0 1 auto; }
-/* All issues has no line under its title: its empty title block would leave a gap before New issue on a phone */
-body.staff6 .is6-index .sv-phead > .sv-pht:not(:has(.le-lede)) { display: none; }
+
