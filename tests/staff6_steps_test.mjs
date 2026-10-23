@@ -212,7 +212,10 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   const kStep = give && X.billStep(give.b, { viewer: KR });
   ok(!!kStep && kStep.kind === 'chair' && kStep.you, 'the handed ask is Kris’s own step');
   const ask = asks.find(x => x.a.key === 'ask');
-  ok(!!ask && /^Ask the chair by \w{3} \d+\/\d+$/.test(ask.a.words), `the ask's one wording: "${ask && ask.a.words}"`);
+  ok(!!ask && new RegExp(`^Ask the chair${ask.a.m?.n > 1 ? 's' : ''} by \\w{3} \\d+/\\d+$`).test(ask.a.words), `the ask's one wording: "${ask && ask.a.words}"`);
+  // A joint committee's ask goes to its chairs, beside "Email the chairs" (the critic's HB 1563); one chair's, to the chair.
+  const jt = asks.filter(x => x.a.key === 'ask' && !x.a.partial), badJ = jt.filter(x => (x.a.m?.n > 1) !== /^Ask the chairs /.test(x.a.words));
+  ok(jt.some(x => x.a.m?.n > 1) && jt.some(x => x.a.m?.n === 1) && !badJ.length, `"Ask the chairs" exactly where the email goes to more than one chair${badJ.length ? '; not: ' + badJ.slice(0, 3).map(x => x.b.bill_number + ' ' + x.a.words).join(' | ') : ''}`);
 }
 
 // ---- 9. rows say no codes (D15) and the card draws for everyone ----
@@ -232,14 +235,16 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
 // ---- 9b. fresh-eyes fixes: nobody's step, the bill named, Follow up, filing order, amber only for one's own ----
 {
   const strip = h => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  // A draft nobody holds is nobody's own step: no filled button, "No owner" (C-15, one word for the fact), Take it.
+  // A draft nobody holds is nobody's own step: no filled button, "No owner yet" (C-15, the bill header's words), Take it.
   const nob = S.bills.map(b => ({ b, s: X.billStep(b, { viewer: JMM }) })).filter(x => x.s.nobody);
   ok(nob.length > 0 && nob.every(x => !x.s.you), `${nob.length} step(s) nobody holds are nobody's own step (Julie: ${nob.map(x => x.b.bill_number).join(', ')})`);
   const nb = nob.find(x => x.s.kind === 'file') || nob[0];
   if (nb) {
     const card = X.stepCard(nb.b, { viewer: JMM, where: 'today' }), t = strip(card);
-    ok(!/btn primary/.test(card) && (t.match(/No owner/g) || []).length === 1 && /data-v6act="take"/.test(card) && !/Open to anyone|no one holds it|No owner yet/i.test(t), `the card says it once, "No owner", with Take it and no filled button: ${nb.b.bill_number}`);
-    ok(/^No owner · /.test(nb.s.line), `the row says so: "${nb.s.line}"`);
+    ok(!/btn primary/.test(card) && (t.match(/No owner/g) || []).length === 1 && /No owner yet/.test(t) && /data-v6act="take"/.test(card) && !/Open to anyone|no one holds it/i.test(t), `the card says it once, "No owner yet", with Take it and no filled button: ${nb.b.bill_number}`);
+    // The card is titled with the step, not the owner situation; "No owner yet" sits beside Take it (the critic's HB 2300).
+    ok(/<h3 class="v6-step-what"[^>]*>File the testimony at the Capitol/.test(card) && /class="v6-step-noown"[^>]*>[\s\S]*No owner yet[\s\S]*data-v6act="take"/.test(card), 'the card is titled "File the testimony at the Capitol", with "No owner yet" beside Take it');
+    ok(/^No owner yet · /.test(nb.s.line), `the row says so: "${nb.s.line}"`);
     ok(X.billStep(nb.b, { viewer: NT }).takeFor && !X.billStep(nb.b, { viewer: JMM }).takeFor, 'it reaches whoever may hand it (an admin, the issue’s owner), not everyone');
   }
   // The card names its bill where nothing else does, and not in the open item (its h2 does).
@@ -263,7 +268,12 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   ok(loud < 100, `late rows coloured only for Lauren’s own steps or bills (${loud} coloured, ${hushed} neutral with a clock)`);
   at(MON9);
   // A time never parts from its AM/PM, a room from its number.
-  ok(X.nw('due today 2:00 PM · Room 329') === 'due today <span class="v6-nw">2:00 PM</span> · <span class="v6-nw">Room 329</span>', 'times and rooms are kept on one line');
+  ok(X.nw('due today 2:00 PM · Room 329') === 'due today <span class="v6-nw v6-tm">2:00 PM</span> · <span class="v6-nw">Room 329</span>', 'times and rooms are kept on one line; only the time is marked as the time');
+  // Only the time is bold in a due-today line: a day or a room beside it is no-wrap only (A-13, the critic's Kevin row).
+  const kw = X.nw('Send the public ask for the Fri 3/20 hearing · due today 5:00 PM');
+  ok((kw.match(/v6-tm/g) || []).length === 1 && /<span class="v6-nw">Fri 3\/20<\/span>/.test(kw), `a date in the line is not marked as the due time: ${kw}`);
+  const css = readFileSync(new URL('../staff6/css/steps.css', import.meta.url), 'utf8');
+  ok(/\.v6-row-line\.soon \.v6-tm \{[^}]*font-weight: 700/.test(css) && !/\.v6-row-line\.soon \.v6-nw \{/.test(css) && /\.t-late \.v6-nw, [^{]*\.t-overdue \.v6-nw \{ color: inherit; \}/.test(css), 'steps.css bolds only the time in a due-today line, and late lines keep their colour through the time');
 }
 
 // ---- 11. the integrator's requests (R-336 spec 12; the screens' shared_changes) ----
@@ -290,7 +300,23 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   ok(!noState.length, `every bill on every hearing card says where its testimony stands (the people test: Kris 10 of 11)${noState.length ? '; not: ' + noState.slice(0, 3).join(' | ') : ''}`);
   ok(!tooLong.length, `a hearing card's bill line has two parts at most (hearings rows measured 6 facts)${tooLong.length ? '; e.g. ' + tooLong.slice(0, 3).join(' | ') : ''}`);
   const ownLine = S.bills.map(b => X.billStep(b, { viewer: KR })).find(s => s && s.you && s.kind === 'approve' && s.act?.kind === 'hand');
-  ok(!ownLine || /^With an approver · you approve it by /.test(X.hearingLine(ownLine)), `the viewer's own step on a card leads with its state: "${ownLine && X.hearingLine(ownLine)}"`);
+  ok(!ownLine || /^With an approver · approve by /.test(X.hearingLine(ownLine)), `the viewer's own step on a card leads with its state: "${ownLine && X.hearingLine(ownLine)}"`);
+  // Same words, same order (spec 5, V19): the viewer's own step on a card is its state and the row's own words; someone
+  // else's is one phrase on every screen ("Second look from Jaylen or Jess"), never "Second look · Jaylen or Jess".
+  for (const when of [MON9, '2026-03-17T08:00:00-10:00']) { at(when);
+    const off = [], two = [];
+    for (const who of people) for (const b of S.bills) { const s = X.billStep(b, { viewer: who }); if (!s?.state || ['filed', 'missed'].includes(s.state.key) || s.off) continue;
+      const hl = X.hearingLine(s);
+      if (s.you && hl !== `${s.state.word} · ${s.line[0].toLowerCase()}${s.line.slice(1).replace(/ · late, /, ' late, ').replace(/ · /g, ', ')}`) off.push(`${who.initials} ${b.bill_number}: "${s.line}" / "${hl}"`);
+      if (!s.you && s.kind === 'second' && !/^Second look from /.test(s.line)) two.push(`${who.initials} ${b.bill_number}: ${s.line}`);
+      if (/\byou (resubmit|approve|file|send|give) it\b|not started, send it/.test(hl)) off.push(`${who.initials} ${b.bill_number}: ${hl}`); }
+    ok(!off.length, `${when.slice(0, 10)}: every own step on a hearing card says the row's words after its state${off.length ? '; not: ' + off.slice(0, 3).join(' | ') : ''}`);
+    ok(!two.length, `${when.slice(0, 10)}: someone else's second look reads "Second look from …" in rows too${two.length ? '; not: ' + two.slice(0, 3).join(' | ') : ''}`); }
+  at(MON9);
+  const nd = S.bills.map(b => X.billStep(b, { viewer: NT })).find(s => s?.you && s.kind === 'nodraft' && s.act?.kind === 'hand');
+  ok(!nd || /^Writing · make the draft, send for approval by /.test(X.hearingLine(nd)), `no draft yet, one's own: "Writing · make the draft, send for approval by …" (${nd && X.hearingLine(nd)})`);
+  const sec = S.bills.map(b => X.billStep(b, { viewer: NT })).find(s => s && !s.you && s.kind === 'second');
+  ok(!sec || X.hearingLine(sec) === `Second look from ${sec.whose.words}`, `someone else's second look on a card: "${sec && X.hearingLine(sec)}"`);
   // The card's parts are joined by spaces and " · " for screen readers and copied text.
   const hr = sittings.find(h => h.room && new Date(h.scheduled_at) > Date.now());
   const card = X.hearingCard(hr, { viewer: KR }), t = strip(card);
@@ -317,6 +343,28 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   if (lrS) { const c = X.hearingCard(lrS.s.h, { viewer: LR, big: true, lead: lrS.b.id });
     ok((c.match(/btn primary/g) || []).length === 1, `Lauren's hearing day: her own step leads the card with the one filled button (${lrS.b.bill_number})`);
     ok(STATE.test(strip(c)) && /430/.test(strip(c)), `her card says the room and where the testimony stands: "${strip(c).slice(0, 90)}"`); }
+  // Her sent-back testimony on that card (the critic's high): the approver's note, Open Doc beside Resubmit, and "sent
+  // back" said, whether Today passes `lead` or draws the big card and moves the row itself.
+  const sb = S.bills.map(b => ({ b, s: X.billStep(b, { viewer: LR }) })).find(x => x.s.you && x.s.kind === 'revise' && x.s.h && x.s.d?.review_note);
+  ok(!!sb, 'Lauren has sent-back testimony on her hearing day');
+  if (sb) for (const o of [{ big: true, lead: sb.b.id }, { big: true }]) {
+    const c = X.hearingCard(sb.s.h, { viewer: LR, ...o }), li = (c.match(/<li class="v6-hcard-bill[^"]*">[\s\S]*?<\/li>/g) || []).find(x => x.includes(`>${X.numWords(sb.b)}<`)) || '', t = strip(li);
+    ok(t.includes(`Sent back: ${sb.s.d.review_note}`) && /sent back/i.test(t) && /Open Doc/.test(t) && t.indexOf('Resubmit') > 0 && t.indexOf('Resubmit') < t.indexOf('Open Doc'), `${o.lead ? 'lead' : 'big'}: her row says the note, then Resubmit and Open Doc: "${t.slice(0, 160)}"`);
+    ok(/^<li class="v6-hcard-bill(?: lead)?"><a class="v6-hcard-bl" href=/.test(li), `${o.lead ? 'lead' : 'big'}: the row keeps the shape Today's own lead step reads`); }
+  // Wherever a Resubmit is offered, the approver's note is beside it or comes first: on the week card the note sits on the
+  // row (its Resubmit sends at once); a row with no room for it (Today's list, Bills) asks with the note and the Doc first.
+  if (sb) { const wk = X.hearingCard(sb.s.h, { viewer: LR, week: true }), okBtn = X.rowButtonOK(sb.s);
+    ok(!okBtn || (/v6-hcard-sb/.test(wk) && !/data-v6confirm/.test(wk)), `the week card's Resubmit sits beside the note (${okBtn ? 'offered' : 'not offered'})`);
+    const row = X.billRow(sb.b, { viewer: LR });
+    ok(!okBtn || /data-v6act="submit"[^>]*data-v6confirm="1"/.test(row), 'a list row’s Resubmit shows the note and the Doc first');
+    ok(!/data-v6confirm/.test(X.stepCard(sb.b, { viewer: LR })), 'the step card’s Resubmit, under the note, sends at once'); }
+  // Watch it live: its own class (staff.css's bare-link rule took the icon's gap below 900px), and not on the sitting's
+  // own page, whose Notice and video has the link (A-14).
+  const live = sittings.find(h => M.streamOf?.(h) && new Date(h.scheduled_at).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }) === new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }));
+  if (live) { const c = X.hearingCard(live, { viewer: LR }), sf = X.hearingCard(live, { viewer: LR, self: true });
+    ok(/<a class="v6-watch" href=/.test(c) && /Watch it live/.test(c), 'Watch it live has its own class');
+    ok(!/Watch it live|v6-watch/.test(sf), 'self: no Watch it live on the sitting’s own page'); }
+  else ok(false, 'a sitting with a stream today on the hearing day');
   at(MON9);
 
   // The step card's options: compact, acts, title, lead.
@@ -327,14 +375,17 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   ok(/>Not filed before the hearing</.test(X.stepCard(own, { viewer: NT, title: 'Not filed before the hearing' })), 'title: the sentence in other words');
   ok(/<span class="v6-step-lead">Your step<\/span>/.test(X.stepCard(own, { viewer: NT, where: 'bill', lead: 'Your step' })), 'lead: "Your step" leads the top line');
 
-  // F49 (V26): a deadline reminder shows on the step as a dot and two words until it is read or the step is done.
+  // F49 (V26): a deadline alert shows on the step as a quiet dot and who alerted whom, where and when, until it is read or
+  // the step is done (C-15: "alert", never "reminder"; A-5: the dot is muted, not the action colour).
   const ns = X.billStep(own, { viewer: NT }), saved = S.inbox;
   S.inbox = [...(saved || []), { key: 'n:dl' + ns.d.id, kind: 'deadline', direct: true, unread: true, bill_id: own.id, title: 'Testimony due in 6 hours · ' + ns.d.committee, at: new Date().toISOString() }];
-  ok(/Reminder sent/.test(X.stepCard(own, { viewer: NT })) && !/Reminder sent/.test(X.stepCard(own, { viewer: KV })), 'a deadline reminder shows on the viewer’s own step ("Reminder sent"), not on someone else’s');
+  const alerted = X.stepCard(own, { viewer: NT });
+  ok(/We alerted you in Slack at \d{1,2}:\d{2}/.test(alerted.replace(/<[^>]+>/g, '')) && !/We alerted you/.test(X.stepCard(own, { viewer: KV })) && !/Reminder/.test(alerted), `a deadline alert shows on the viewer’s own step ("${X.alertWords(own, ns.d)}"), not on someone else’s`);
+  ok(/\.v6-dot \{[^}]*background: var\(--v6-muted\)/.test(readFileSync(new URL('../staff6/css/steps.css', import.meta.url), 'utf8')), 'the alert’s dot is muted, not the action colour');
   const before = M.inboxCount(); S.inbox.at(-1).kind = 'message'; const asMsg = M.inboxCount(); S.inbox.at(-1).kind = 'deadline';
   ok(asMsg === before + 1, 'deadline reminders are not counted in the sidebar and bell (V26: the count equals Messages)');
   S.inbox.at(-1).unread = false;
-  ok(!/Reminder sent/.test(X.stepCard(own, { viewer: NT })), 'read, it is gone');
+  ok(!/We alerted you/.test(X.stepCard(own, { viewer: NT })), 'read, it is gone');
   S.inbox = saved;
 
   // Filing: with the filing card in place, one File button opens it; Undo filed only while the hearing is ahead.
@@ -351,8 +402,11 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   // committee asked leaves the other to ask; a sitting still going waits.
   const give = S.bills.map(b => ({ b, a: X.askWords(b, { viewer: NT }) })).find(x => x.a?.key === 'giving');
   if (give) { const owner = (S.assignments[give.b.id] || [])[0], ow = S.advocates.find(a => a.id === owner);
-    ok(new RegExp(`^Kris is asking for ${ow.full_name.split(' ')[0]} · by \\w{3} \\d+/\\d+$`).test(give.a.words), `a handed ask: "${give.a.words}"`);
-    ok(/^Kris is asking for you · by /.test(X.askWords(give.b, { viewer: ow }).words) && /^You are asking for /.test(X.askWords(give.b, { viewer: KR }).words), 'it says "for you" to the owner, "You are asking" to Kris');
+    // It leads with the verb, as the ask itself does (C-10, V19), and a joint committee says "the chairs".
+    const ch = give.a.m?.n > 1 ? 'the chairs' : 'the chair';
+    ok(new RegExp(`^Kris asks ${ch} for ${ow.full_name.split(' ')[0]} · by \\w{3} \\d+/\\d+$`).test(give.a.words), `a handed ask: "${give.a.words}"`);
+    ok(new RegExp(`^Kris asks ${ch} for you · by `).test(X.askWords(give.b, { viewer: ow }).words) && new RegExp(`^Ask ${ch} for `).test(X.askWords(give.b, { viewer: KR }).words), `it says "for you" to the owner, "${X.askWords(give.b, { viewer: KR }).words}" to Kris`);
+    ok(!/is asking|are asking/.test(X.billStep(give.b, { viewer: KR }).line + X.billStep(give.b, { viewer: NT }).line), 'no "is asking" / "are asking" on its rows');
     const t = M.askTodoOf ? null : null; }
   const wait = S.bills.map(b => ({ b, a: X.askWords(b, { viewer: NT }) })).find(x => x.a?.key === 'ask' && M.chairIdsOf(x.a.code).length >= 1);
   if (wait) { const chair = M.chairIdsOf(wait.a.code)[0], talk = { id: 'tst-talk', legislator_id: chair, bill_id: wait.b.id, advocate_id: NT.id, body: 'Talked about the budget at the reception.', created_at: new Date().toISOString() };

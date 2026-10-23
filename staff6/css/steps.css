@@ -28,9 +28,10 @@ body.staff6 .v6-step-meta { display: flex; flex-wrap: wrap; align-items: center;
 body.staff6 .v6-step-eyebrow { margin: 0; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
 /* "Your step" leading the top line (the bill page: its tab says Next step) */
 body.staff6 .v6-step-lead { color: var(--v6-ink); font-weight: 700; }
-/* F49 (V26): the deadline reminder the tracker sent, on the step until it is done: a small dot and two words */
+/* F49 (V26): the deadline alert the tracker sent, on the step until it is done: a small quiet dot and who alerted whom,
+   where and when. The dot is muted, never the action colour: nothing on it can be pressed (A-5, A-14) */
 body.staff6 .v6-step-rem { display: inline-flex; align-items: center; gap: 6px; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
-body.staff6 .v6-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--v6-action); }
+body.staff6 .v6-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--v6-muted); }
 /* the bill's name where nothing else on the screen names it (Today, Testimony, Team, a hearing): Poppins 18, number small */
 body.staff6 .v6-step-bill { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; }
 body.staff6 .v6-step-bn { font-family: Poppins, system-ui, sans-serif; font-weight: 500; font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); color: var(--v6-ink); }
@@ -123,6 +124,14 @@ body.staff6 .v6-hcard-bl { flex: 1; min-width: 0; max-width: 100%; display: flex
 body.staff6 .v6-hcard-facts { font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
 /* Today's hearing day: the viewer's own step first, its button the screen's one filled button (V14) */
 body.staff6 .v6-hcard-bill.lead .v6-row-act .btn { min-height: 44px; }
+/* the approver's note on the row where the writer resubmits that day (the lead, the phone's big card): one quiet line
+   under the state, then Resubmit and Open Doc (P-3, B-11) */
+body.staff6 .v6-hcard-bill:has(> .v6-hcard-sb) { flex-wrap: wrap; row-gap: 0; }
+body.staff6 .v6-hcard-bill:has(> .v6-hcard-sb) > .v6-hcard-bl { flex: 1 1 100%; padding-bottom: 4px; }
+body.staff6 .v6-hcard-sb { flex: 1 1 100%; margin: 0 0 8px; padding: 8px 12px; border-radius: var(--v6-r12); background: var(--v6-wash);
+  font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); overflow-wrap: anywhere; }
+body.staff6 .v6-hcard-sbl { font-weight: 700; color: var(--v6-muted); }
+body.staff6 .v6-hcard-bill:has(> .v6-hcard-sb) > .v6-row-act { padding-bottom: 12px; }
 body.staff6 .v6-hcard-watch { font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
 /* the monitored bills: one quiet line that opens the sitting, as the door does */
 body.staff6 .v6-hcard-mon { display: flex; align-items: center; gap: 8px; min-height: 44px; margin: 0 -8px; padding: 0 8px; border-radius: var(--v6-r12);
@@ -131,6 +140,11 @@ body.staff6 .v6-hcard-mon > span { flex: 1; min-width: 0; }
 body.staff6 .v6-hcard-mon .v6-chev { color: var(--v6-muted); }
 body.staff6 .v6-hcard-watch a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--v6-action); font-size: var(--v6-t16); }
 body.staff6 .v6-hcard-watch svg { width: 18px; height: 18px; }
+/* the link's icon in the link's own colour, its gap kept at every width (staff.css's bare-link rule cannot match a link
+   with a class: A-18) */
+body.staff6 a.v6-watch { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+body.staff6 a.v6-watch svg { flex: none; color: currentColor; }
+@media (hover: hover) and (pointer: fine) { body.staff6 a.v6-watch:hover span { text-decoration: underline; } }
 body.staff6 .v6-hcard.cancelled { background: var(--v6-wash); box-shadow: none; }
 body.staff6 .v6-hcard.past .v6-hcard-time { color: var(--v6-muted); }
 /* the card as Hearings › This week draws it (week: true; A-24, the week at a glance): a little tighter, no day word (the
@@ -154,8 +168,22 @@ body.staff6 .v6-hcard-watchin svg { width: 18px; height: 18px; }
   body.staff6 .v6-hcard.week .v6-hcard-going > .btn { grid-column: 3; grid-row: 1; align-self: center; margin: 0 0 0 6px; }
 }
 @media (min-width: 600px) and (pointer: fine) { body.staff6 .v6-hcard-watchin a { min-height: 24px; vertical-align: top; } }
-/* a phone gives Watch it live its own line under the going words, with no dot to start it */
-@media (max-width: 599.98px) { body.staff6 .v6-hcard-watchin { display: block; } body.staff6 .v6-hcard-watchin a { margin-left: 0; } body.staff6 .v6-hcard-wdot { display: none; } }
+/* a phone draws the week's card as Today's (A-8, one card one layout): I'm going beside the going words, and Watch it live
+   its own line at the card's foot, with no dot to start it. The going line and its words lend their parts to the body's
+   grid (display: contents), so the link moves to the foot without being drawn twice */
+@media (max-width: 599.98px) {
+  body.staff6 .v6-hcard.week .v6-hcard-body { grid-template-columns: 20px minmax(0, 1fr) auto; column-gap: 10px; align-items: center; }
+  body.staff6 .v6-hcard.week .v6-hcard-body > * { grid-column: 1 / -1; }
+  body.staff6 .v6-hcard.week .v6-hcard-going, body.staff6 .v6-hcard.week .v6-hcard-going > span { display: contents; }
+  body.staff6 .v6-hcard.week .v6-hcard-going > svg { grid-column: 1; align-self: center; }
+  body.staff6 .v6-hcard.week .v6-hcard-going > .btn { grid-column: 3; align-self: center; margin: 0; }
+  body.staff6 .v6-hcard.week .v6-hcard-watchin { grid-column: 1 / -1; order: 9; display: block; white-space: normal; }
+  body.staff6 .v6-hcard-watchin a { margin-left: 0; }
+  body.staff6 .v6-hcard-wdot { display: none; }
+}
+/* the narrowest phones: I'm going under the going words, at the right, as Today's card wraps it ("Going: no one yet" in
+   three short lines beside the button at 320px) */
+@media (max-width: 379.98px) { body.staff6 .v6-hcard.week .v6-hcard-going > .btn { grid-column: 1 / -1; justify-self: end; } }
 /* the phone's hearing-day card: time and room large, 56px+ rows (V14) */
 body.staff6 .v6-hcard.big .v6-hcard-time { font-size: var(--v6-t28); line-height: var(--v6-lh28, 34px); }
 body.staff6 .v6-hcard.big .v6-hcard-day { font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); color: var(--v6-ink); }
@@ -179,13 +207,16 @@ body.staff6 .v6-row-line { display: flex; align-items: flex-start; gap: 6px; min
    lines at most, so a row stays a row */
 body.staff6 .v6-row-line > span { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 body.staff6 .v6-row-line svg { width: 18px; height: 18px; flex: none; margin-top: 3px; }
-/* due today: a bold time and a clock (D3), not a bold line (spec 4: at most a quarter bold) */
-body.staff6 .v6-row-line.soon .v6-nw { color: var(--v6-ink); font-weight: 700; }
+/* due today: a bold time and a clock (D3), not a bold line (spec 4: at most a quarter bold). Only the time (.v6-tm, from
+   steps.js nw): a day ("Fri 3/20") or a room in the same line is no-wrap only, so it never reads as a second deadline
+   (A-13). Late and overdue keep their colour all the way through, the time bold in it (A-5) */
+body.staff6 .v6-row-line.soon .v6-tm { color: var(--v6-ink); font-weight: 700; }
 body.staff6 .v6-row-line.t-late { color: var(--v6-late); }
 body.staff6 .v6-row-line.t-overdue { color: var(--v6-bad); }
-body.staff6 .v6-row-line.t-late .v6-nw, body.staff6 .v6-row-line.t-overdue .v6-nw { font-weight: 700; }
+body.staff6 .v6-row-line.t-late .v6-nw, body.staff6 .v6-row-line.t-overdue .v6-nw { color: inherit; }
+body.staff6 .v6-row-line.t-late .v6-tm, body.staff6 .v6-row-line.t-overdue .v6-tm { font-weight: 700; color: inherit; }
 body.staff6 .v6-row-line.t-done svg { color: var(--v6-leaf); }
-body.staff6 .v6-row-act { flex: none; display: flex; align-items: center; }
+body.staff6 .v6-row-act { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 body.staff6 .v6-row-act .btn { margin: 0; }
 body.staff6 .v6-row.sel { background: var(--v6-action-wash); }
 /* the first row hints where to start only where the panel waits beside the list (1100px and wider) */
@@ -211,10 +242,17 @@ body.staff6 .v6-ld-back { display: inline-flex; align-items: center; gap: 6px; m
 body.staff6 .v6-ld-back svg { width: 20px; height: 20px; }
 @media (min-width: 1100px) {
   body.staff6 .v6-ld { grid-template-columns: minmax(0, 1fr) 380px; }
-  /* the panel ends at the window's foot from the first view, wherever the list starts (its height is set by
-     wireListDetail from the panel's top, on scroll and resize), so a long item's last step (Mark filed, Add an email) is
-     on screen; and when it scrolls inside, its scrollbar shows (a Mac hides one until scrolled: LEAD, Nate's worst case) */
+  /* the panel sticks beside the list and ends at the window's foot, wherever the list starts (its height is set by
+     wireListDetail from the panel's top, on scroll and resize); when it scrolls inside, its scrollbar shows (a Mac hides
+     one until scrolled: LEAD, Nate's worst case) */
   body.staff6 .v6-ld-detail { position: sticky; top: 24px; max-height: var(--v6-ld-max, calc(100vh - 48px)); overflow: auto; overscroll-behavior: contain; border-radius: var(--v6-r20); }
+  /* an item under about 1.3 windows tall grows with the page instead and sticks by its foot (wireListDetail sets the
+     top), so scrolling the page reaches all of it (LEAD's People record) */
+  body.staff6 .v6-ld-detail.v6-ld-grow { max-height: none !important; overflow: visible !important; }   /* over a screen's own fit */
+  /* a taller one scrolls inside, and its foot fades over 24px, so the cut falls in a soft edge, never through a line of
+     text at the panel's rounded corner (A-8) */
+  body.staff6 .v6-ld-detail.v6-ld-more::after { content: ''; position: sticky; bottom: 0; display: block; height: 24px;
+    background: linear-gradient(to bottom, transparent, var(--v6-page)); pointer-events: none; }
   body.staff6 .v6-ld-detail::-webkit-scrollbar { width: 10px; }
   body.staff6 .v6-ld-detail::-webkit-scrollbar-track { background: transparent; }
   body.staff6 .v6-ld-detail::-webkit-scrollbar-thumb { background: var(--v6-field); border-radius: 5px; border: 3px solid var(--v6-page); }
@@ -280,6 +318,8 @@ body.staff6 .v6-facts dd { margin: 0; color: var(--v6-body); overflow-wrap: anyw
 /* ---- the filing sheet (steps.js ACTS.filed): File at the Capitol, then Mark filed ---- */
 .v6-fsheet-step { margin: 0 0 8px; font-size: var(--v6-t16, 1rem); line-height: 24px; }
 .v6-fsheet-go { margin: 0 0 20px; }
+/* a row's Resubmit on a sent-back draft (steps.js confirmResubmit): the note, then Open Doc under it */
+.v6-rs-doc { margin: 12px 0 4px; }
 
 /* ---- Capitol words that tap open what they mean (terms.js), on phones too (V05) ---- */
 body.staff6 .tm-term { display: inline; padding: 0; margin: 0; border: 0; background: none; font: inherit; color: inherit; cursor: help;
