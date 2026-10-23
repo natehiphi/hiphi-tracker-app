@@ -1762,6 +1762,25 @@ export async function demoInit() {
       version: S.bills.find(b => b.id === h.bill_id)?.current_version || null,
       review_note: st === 'draft' ? NOTES[(hs >>> 2) % NOTES.length] : null });
   }
+  // Staff v6 (R-336, BILL's 1:12 PM finding): with the clock moved past the practice day's start (&asof), the sittings
+  // between that start and the clock had no draft at all, so a hearing that had just begun lost its testimony and the
+  // "Did we file?" card (V25) could never show in practice. They get theirs here, as the live job would have made them:
+  // a sitting under three hours old keeps its seeded state (an unfiled one asks "Did we file?"), an older one was filed
+  // on time. Their ids ('dp') are their own, so the week's seeded ids above never move.
+  { let k = 1; const nowT = Date.now();
+    if (nowT > BASE_ASOF) for (const h of sc.hearings.filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at) > BASE_ASOF && new Date(h.scheduled_at) <= nowT)) {
+      const hb = S.bills.find(b => b.id === h.bill_id);
+      if (!hb || !ACTIONABLE.includes(hb.position) || (S.drafts[h.bill_id] || []).some(d => d.committee === h.committee)) continue;
+      const owner = (sc.assignments[h.bill_id] || [])[0] || null, at = new Date(h.scheduled_at).getTime(), ago = x => new Date(Math.min(nowT, at) - x * 36e5).toISOString();
+      // the same state the week's loop gives it at the practice day's start (Nate's first stays approved, W38 C-18)
+      const st = nowT - at < 3 * 36e5 ? (h === natesFirst ? 'approved' : ['filed', 'second_review', 'draft', 'approved'][hidSeed(h.id) % 4]) : 'filed';
+      (S.drafts[h.bill_id] ??= []).push({ id: 'dp' + k++, bill_id: h.bill_id, committee: h.committee, hearing_id: h.id, status: st,
+        doc_url: 'https://docs.google.com/document/d/demo-p' + k + '/edit', created_at: ago(40), submitted_by: owner, submitted_at: st === 'draft' ? null : ago(30),
+        approved_by: ['approved', 'filed', 'second_review'].includes(st) ? byIni.NT : null, approved_at: ago(20),
+        second_approved_by: st === 'filed' ? byIni.JS : null, second_approved_at: ago(18),
+        filed_by: st === 'filed' ? owner : null, filed_at: st === 'filed' ? ago(16) : null,
+        version: hb.current_version || null, review_note: st === 'draft' ? NOTES[(hidSeed(h.id) >>> 2) % NOTES.length] : null });
+    } }
   // Drafts that already existed on the sandbox's day (R-027): filed, on the earlier hearings where HIPHI really filed
   // testimony in 2026 (tools/build_snapshot.js), so the Testimony tab has a history to show. A bill and committee that
   // already has a seeded draft keeps it: one Doc per bill and committee, as live.

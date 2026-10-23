@@ -379,7 +379,9 @@ export function shareKit(b, h) {
 }
 // R-316 W32 (A-18): the tracker's own notes ("Hearing notice received ... no alerts sent", kind 'system') are updates, not
 // something to answer; its health alerts stay in To answer, since an admin has to act on them.
-const toAnswer = i => i.direct && !(i.kind === 'system' && !/^Bill Tracker health/i.test(i.title || ''));
+// V26: the deadline reminders are no longer listed in the Inbox (they live on the step, steps.js "Reminder sent"), so they
+// are not counted in the sidebar's number or the phone's bell either: the count equals Messages' (inbox.js messagesCount).
+const toAnswer = i => i.direct && i.kind !== 'deadline' && !(i.kind === 'system' && !/^Bill Tracker health/i.test(i.title || ''));
 export const inboxCount = () => (S.inbox || []).filter(i => toAnswer(i) && i.unread).length;
 export function inboxRows() {
   const v = S.inboxView ??= { tab: 'needs', kind: '', unreadOnly: false, sort: 'new', q: '', group: true };
@@ -745,7 +747,11 @@ export const billNum = b => b.bill_number + (b.current_version ? ' ' + b.current
 // its number and its plain summary, as before. \`billSay\` is the same in plain words, for labels, titles and toasts.
 export const billTag = (b, n = 80) => b.nickname ? `<b class="bn-nick">${esc(b.nickname)}</b> <span class="bn-num">${esc(billNum(b))}</span>`
   : `<b class="bn-num0">${esc(billNum(b))}</b> <span class="bn-sum">${esc(blurb(b, n))}</span>`;
-export const billSay = b => b.nickname ? `${b.nickname} (${billNum(b)})` : billNum(b);
+// Staff v6 (D15): toasts, sheet titles and labels name a bill the way staff and chairs say it, its nickname and its number
+// with its space and no draft code: "Easier local food buying for schools (SB 659)", not "(SB659 HD1)". The same words as
+// steps.js sayWords; the code stays in About this bill and the filing card.
+const spacedNum = b => `${String(b.bill_number || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2')}${billYearPart(b) ? ` (${b.session_year})` : ''}`;
+export const billSay = b => b ? (b.nickname ? `${b.nickname} (${spacedNum(b)})` : spacedNum(b)) : '';
 export const roomShort = r => r ? roomName(r) : 'room TBD';   // R-277 fix 3: "Room 430" everywhere, not "Rm 430" here and "Room 430" there
 export function chairMail(code) {
   // The committee roster knows who chairs it; the last word of the name broke on two-word surnames
@@ -773,15 +779,22 @@ export function legNotesAll() {
   for (const n of [...(S.demoNotes || []), ...Object.values(S.legNotes || {}).flat(), ...(S.chairAsks || [])]) if (n && !seen.has(String(n.id))) { seen.add(String(n.id)); out.push(n); }
   return out;
 }
-// The ask to this committee's chair on this bill: who asked first and when, and the newest answer. Before W3 any
-// conversation with the chair about the bill counted; a row that names another committee is a different ask.
-export function chairAskOf(b, code) {
-  const ids = new Set(chairIdsOf(code)); if (!ids.size || !b) return null;
-  const rows = legNotesAll().filter(n => n.bill_id === b.id && ids.has(n.legislator_id) && (!n.committee || !code || n.committee === code))
+// A conversation counts as an ask only when it was saved as one (V24): with its answer (recordAsk, logAsk, "This was an
+// ask for a hearing" ticked on Log a talk), or, from before migration 183, in the words the old Mark asked wrote ("Asked
+// for a hearing on HB 756 (HLT)."). A talk with the chair that is not an ask is the team's history, not an ask.
+const ASK_BODY = /^\s*(Asked for (a hearing|hearings|decision making) on|Left a message for)\b/i;
+export const isAskNote = n => !!n && (!!n.answer || ASK_BODY.test(String(n.body || '')));
+// The ask to this committee's chair on this bill: who asked first and when, and the newest answer. A row that names
+// another committee is a different ask. A joint committee (HHS/CPN) is asked when each chair is: with only some asked,
+// it says which are still to ask (`partial`, `missing`: their legislator ids), so asking Sen. San Buenaventura never marks
+// Sen. Keohokalole asked (V24). `chairId`: one chair's own ask (Holding our bills, Get hearings' per-chair lines).
+export function chairAskOf(b, code, { chairId = null } = {}) {
+  const all = chairIdsOf(code), ids = new Set(chairId ? all.filter(id => id === chairId) : all); if (!ids.size || !b) return null;
+  const rows = legNotesAll().filter(n => n.bill_id === b.id && ids.has(n.legislator_id) && (!n.committee || !code || n.committee === code) && isAskNote(n))
     .sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)));
   if (!rows.length) return null;
-  const first = rows[0], last = rows.at(-1);
-  return { by: first.advocate_id, at: new Date(first.created_at).getTime(), answer: last.answer || 'asked', last, n: first, rows };
+  const first = rows[0], last = rows.at(-1), asked = new Set(rows.map(n => n.legislator_id)), missing = [...ids].filter(id => !asked.has(id));
+  return { by: first.advocate_id, at: new Date(first.created_at).getTime(), answer: last.answer || 'asked', last, n: first, rows, ...(missing.length ? { partial: true, missing } : {}) };
 }
 export const askReply = a => ASK_REPLY[a?.answer] || ASK_REPLY.asked;
 // The two emails Nate approves (W3), used everywhere a chair is asked: the hearing request (one bill, or one email listing
