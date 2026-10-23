@@ -459,7 +459,9 @@ export function memoData() {
     : `${coal ? coalName + ': w' : 'W'}eek of ${monday}${g ? `, ${g.days <= 0 ? g.name + ' is today' : `${when(g)} to ${g.name.toLowerCase()}`}` : ''}`;
   const ld = legislativeDay(), p1 = bills.filter(b => b.priority === 1).length;
   // The next two deadlines, as Bills shows them (decision 3).
-  const race = (x, then) => `${x.racing}${then ? '' : ` must ${gateNeed(x.name, x.racing)}`} by   // R-316 W33: not "clear committee" for a floor or conference deadline ${x.name.toLowerCase()} on ${memoDay(x.date)}${x.noHearing.length ? ` (${x.noHearing.length} with no hearing yet)` : ''}`;
+  // R-316 W33: not "clear committee" for a floor or conference deadline. R-336 V35: this note sat inside the template
+  // string, so "// R-316 W33: ..." was pasted into every copied memo; it lives out here now.
+  const race = (x, then) => `${x.racing}${then ? '' : ` must ${gateNeed(x.name, x.racing)}`} by ${x.name.toLowerCase()} on ${memoDay(x.date)}${x.noHearing.length ? ` (${x.noHearing.length} with no hearing yet)` : ''}`;
   const races = clock && clock.racing ? ` ${race(clock)}${clock.then ? `, and ${race(clock.then, true)}` : ''}.` : '';
   // Partners: "The next Capitol deadline is Thu 3/19: by then 1 of these bills must clear its first committee (it has a hearing)."
   const racePlain = x => `by ${memoDay(x.date)}, ${x.racing === 1 ? '1 of these bills' : `${x.racing} of these bills`} must ${gateNeed(x.name, x.racing)}${x.noHearing.length ? ` (${x.noHearing.length} with no hearing yet)` : ''}`;
@@ -635,6 +637,9 @@ export function pubStateText(b) {
   return 'Summary live. No action ask set.';
 }
 
+// Staff v6 (R-336, V19): steps.js testimonyState is the one source of a testimony's state (Writing · With an approver ·
+// Second look · Ready to file · Filed, and Missed); the word lists here and in today.js/hearing.js stay until each screen
+// switches to it.
 export const DRAFT_LABEL = { draft: 'Draft', review: 'Waiting for approval', second_review: 'Waiting for second approval',   // R-277 W-2, C-15
   approved: 'Approved', filed: 'Filed', cancelled: 'Hearing cancelled' };
 export const DRAFT_TAG = { draft: 'a', review: 'w', second_review: 'w', approved: 'g', filed: 't', cancelled: 'a' };
@@ -785,7 +790,9 @@ export const askReply = a => ASK_REPLY[a?.answer] || ASK_REPLY.asked;
 export const ASK_MAILS = new Map();
 const longDay = d => new Date(String(d).length === 10 ? d + 'T12:00:00-10:00' : d).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'long', month: 'long', day: 'numeric' });
 // `to`: one chair of a joint committee ({ who, email, legId }, Holding our bills); `codes`: each bill's own committee.
-export function chairAskMail(code, bills, { dl = null, heardAt = null, to = null, codes = null } = {}) {
+// `followUp` (Staff v6, spec 6: no reply after 3 working days): the same approved email again, its subject starting
+// "Following up: " so the office sees it is not a new request; the words Nate approved are otherwise unchanged.
+export function chairAskMail(code, bills, { dl = null, heardAt = null, to = null, codes = null, followUp = false } = {}) {
   const m = to ? { ...chairMail(code), ...to } : chairMail(code); if (!m || !m.email || !bills.length) return null;
   const me = S.me?.full_name || '', one = bills.length === 1;
   const line = b => `${b.bill_number}${blurb(b, 100) ? ` (${blurb(b, 100)})` : ''}`;
@@ -802,6 +809,7 @@ export function chairAskMail(code, bills, { dl = null, heardAt = null, to = null
     subject = `Request for hearings on ${bills.map(b => b.bill_number).join(', ')}`;
     body = `Aloha ${m.who},\n\nOn behalf of the Hawaiʻi Public Health Institute, I respectfully ask you to schedule hearings on these bills${by}:\n\n${bills.map(b => '- ' + line(b)).join('\n')}${sign}`;
   }
+  if (followUp) subject = `Following up: ${subject}`;
   const href = `mailto:${m.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   ASK_MAILS.set(href, { items: bills.map((b, i) => ({ id: b.id, code: codes?.[i] || code, legs: to?.legId ? [to.legId] : null })), who: m.who, decide: !!heardAt });
   return { href, m };

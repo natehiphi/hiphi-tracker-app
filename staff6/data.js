@@ -1866,6 +1866,7 @@ export async function demoInit() {
     && String(h.committee).split(/[\/,\s]+/).some(c => c && String(e.title).includes(c)));
   sc.tl = sc.tl.filter(e => !leak(e)); sc.since = sc.since.filter(e => !leak(e));
   S.compStage = sc.compStage; DEMO_TL = sc.tl;
+  await seedV6(byIni);   // R-336 V33: Patti, Julie and the chair asks (Staff v6's practice copy only)
   // R-316 W38: what was changed in this tab before a person switch (savePractice), back on top of the seeds.
   if (PRACTICE) {
     for (const k of ['drafts', 'todos', 'attend', 'messages', 'followersBy', 'assignments', 'billCampaigns', 'demoNotes', 'legProfiles']) if (PRACTICE[k]) S[k] = PRACTICE[k];   // R-335: legislators' profiles (a store from before has none)
@@ -1887,6 +1888,56 @@ export async function demoInit() {
   // Between sessions the seeds above would be March's work, 184 days overdue: no chat, to-dos or follow-ups.
   if (DEMO_OFF) { S.messages = {}; S.todos = {}; S.followups = []; }
   S.inbox = S.buildDemoInbox();
+}
+
+// ---- Staff v6 (R-336, V33, spec section 6): a practice copy fair to a cold test with Kris, Patti and Julie ----
+// Practice only: demoInit runs only with ?demo=1, so none of this reaches live mode, and demo/snapshot.json (which the
+// other apps read) is not touched. Patti (PH) and Julie (JMM) are added above, once (the walk tool may have added them
+// to the snapshot already; the initials check finds them and adds nothing). Here:
+//   - Patti writes on Lauren's HEAL bills: this week's testimony on them that was sent for approval was sent by her, so
+//     she revises what comes back and files what is approved (model.js filerOf); a draft not sent yet is hers and
+//     Lauren's (steps.js writersOf: a coalition's helpers write its drafts with the owner, W6 without a migration).
+//   - Julie helps Rick on HIAPA, and Patti Lauren: each a helper on two of the owner's issues.
+//   - A non-admin partner approver: Jess, already (R-328: "only Nate and Jess" approve partner words, Nate 10/22).
+//   - Three chair asks, so each state of Hearings > Get hearings can be practised: one "will schedule" (Lauren's), one
+//     asked 4 working days ago with no reply (Kevin's, so he is due a Follow up), one handed to Kris (Rick's).
+// Between sessions and on the opening day nothing waits for a hearing, so none are seeded there.
+async function seedV6(byIni) {
+  if (DEMO_OFF || DEMO_OPENING) return;
+  const M = await import('./model.js');   // model.js imports this file, so it is read when the seeds run, not at load
+  const { PH: ph, JMM: jmm, LR: lr, RK: rk, KV: kv, KR: kr } = byIni;
+  const coal = n => S.campaigns.find(c => c.name === n)?.id, heal = coal('HEAL');
+  const ownerOf = b => (S.assignments[b.id] || [])[0] || null;
+  if (ph && lr && heal) for (const d of Object.values(S.drafts).flat()) {
+    const b = S.bills.find(x => x.id === d.bill_id);
+    if (!b || ownerOf(b) !== lr || !(S.billCampaigns[b.id] || []).includes(heal) || !/^dd\d+$/.test(String(d.id))) continue;   // this week's seeds, not 2026's real filings
+    if (d.submitted_by) d.submitted_by = ph;
+    if (d.status === 'filed' && d.filed_by) d.filed_by = ph;
+  }
+  const helps = (who, owner) => !who || !owner ? [] : S.issues.filter(i => i.owner_id === owner && !i.archived_at).sort((x, y) => x.name.localeCompare(y.name)).slice(0, 2)
+    .map(i => ({ issue_id: i.id, advocate_id: who, added_by: owner, added_at: '2026-10-01T00:00:00Z' }));
+  S.issueHelpers = [...(S.issueHelpers || []), ...helps(jmm, rk), ...helps(ph, lr)];
+  // Bills waiting for a hearing whose chair is known, top priority first, then the soonest deadline.
+  const waiting = S.bills.filter(b => M.wantsHearing(b) && !M.diedish(b) && !M.hearingAhead(b) && ownerOf(b)).map(b => ({ b, st: M.stopOf(b) }))
+    .filter(x => x.st.phase === 'committee' && x.st.column === 'a' && x.st.committee && x.st.deadline && !x.st.deadline.missed && M.chairIdsOf(x.st.committee).length)
+    .sort((x, y) => (x.b.priority || 9) - (y.b.priority || 9) || x.st.deadline.date.localeCompare(y.st.deadline.date) || x.b.bill_number.localeCompare(y.b.bill_number, 'en', { numeric: true }));
+  const used = new Set(), pick = who => { const x = waiting.find(y => !used.has(y.b.id) && ownerOf(y.b) === who) || waiting.find(y => !used.has(y.b.id)); if (x) used.add(x.b.id); return x; };
+  const hday = t => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+  const ago = days => new Date(Date.now() - days * 864e5).toISOString();
+  // N working days back (weekends skipped), at the same time of day.
+  const workAgo = n => { let t = Date.now(), k = 0; while (k < n) { t -= 864e5; const dow = new Date(hday(t) + 'T12:00:00-10:00').getUTCDay(); if (dow !== 0 && dow !== 6) k++; } return new Date(t).toISOString(); };
+  // One row per chair, as recordAsk saves it (chairask.js), with the words its sentence() writes.
+  const ask = (x, by, answer, at, words) => M.chairIdsOf(x.st.committee).map(id => ({ id: `v6ask-${x.b.id}-${id}-${answer}`, legislator_id: id, bill_id: x.b.id, advocate_id: by,
+    body: words, answer, committee: x.st.committee, issue_id: null, met_on: null, conversation_id: null, created_at: at }));
+  const notes = [], said = x => `${x.b.bill_number} (${x.st.committee})`;
+  const w = pick(lr); if (w) notes.push(...ask(w, ownerOf(w.b), 'asked', workAgo(3), `Asked for a hearing on ${said(w)}.`),
+    ...ask(w, ownerOf(w.b), 'will_schedule', workAgo(2), `${M.chairMail(w.st.committee)?.who || 'The chair'} will schedule a hearing on ${said(w)}.`));
+  const q = pick(kv); if (q) notes.push(...ask(q, ownerOf(q.b), 'asked', workAgo(4), `Asked for a hearing on ${said(q)}.`));
+  S.demoNotes = [...notes, ...(S.demoNotes || [])];
+  const g = pick(rk);
+  if (g && kr) { const m = M.chairMail(g.st.committee), aw = M.askWords(g.st);   // the to-do push.js assignAsk makes (W14)
+    (S.todos[g.b.id] ??= []).push({ id: 'v6give-' + g.b.id, bill_id: g.b.id, title: `Ask ${m ? m.who : 'the chair'} for a hearing on ${said(g)}`, done: false,
+      due_date: aw && !aw.a.passed ? hday(aw.a.at) : null, assignee_id: kr, sort_order: 0, created_at: ago(1) }); }
 }
 
 // ---- partners (R-328 batch B): who may, the link name, and the sandbox's sample group ----
