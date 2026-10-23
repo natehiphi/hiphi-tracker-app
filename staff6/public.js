@@ -32,6 +32,9 @@ import { issuesOfBill, openIssuePicker, whyNot, issueLinkHref } from './issues.j
 // still opens this bill after 20 Jan 2027, when numbers start again.
 const pubRoute = b => `#/bill/${b.session_year ? b.session_year + '/' : ''}${String(b.bill_number).replace(/\s/g, '')}`;
 import { askConflict } from './conflict.js';
+// OUTREACH (V20, X23): a bill with a card on This week's asks links to it in place of its own kit; the one email rule.
+import { askCardHref } from './asks.js';
+import { emailDoor } from './composer.js';
 
 const FIELDS = ['is_public', 'nickname', 'public_summary', 'public_action', 'public_action_until', 'talking_points'];
 const BOOL = new Set(['is_public']);
@@ -202,13 +205,19 @@ export function renderPublic(b) {
   const listed = b.is_public && b.tracked !== false, sum = valOf(b, 'public_summary'), ask = valOf(b, 'public_action'), nickname = valOf(b, 'nickname');
   const pubLink = live ? ` <a class="bw-inline" href="${esc(PUBLIC_APP() + (DEMO ? '?demo=1' : '') + pubRoute(b))}" target="_blank" rel="noopener">See it${icon('external-link')}</a>` : '';
   const emailOk = b.is_public && b.position !== 'monitor';
+  // With a card on This week's asks (a hearing in the next 7 days), the ask, its link and its message are copied there, the
+  // share tools' one home (V20, F132); otherwise this tab keeps Copy share link (F125). Email: the composer's one door, so
+  // someone who may not send sees "Ask Kevin to email followers" rather than a door that refuses them (X23).
+  const card = askCardHref(b);
   // The public's response and the share kit come first: on a phone they were 4,277px down a 4,718px page, and a hearing
   // day's job is to share, not to edit (R-152 C). v4 (R-269): on a laptop too (Saya: Copy share link was 2.3 screens down,
   // under the editor); "Write it" on Today still lands on the ask below it (?focus=ask, wirePublic).
   const spread = `<section class="bw-sec bw-pblk bw-kit" aria-labelledby="bw-spread-h">
     <h2 class="bw-h2" id="bw-spread-h">Share kit</h2>
     <p class="bw-resp">${publicWords(b) ? `${icon('users')}<span>${esc(publicWords(b))}.${DEMO ? ' <span class="bw-quiet">(sample numbers)</span>' : ''}${!((publicResponse(b) || {}).people >= 10) ? ' <span class="bw-quiet">Actions show from 10 people.</span>' : ''}</span>` : `${icon('users')}<span class="bw-quiet">No public counts yet: actions are counted from 10 people.</span>`}</p>
-    <div class="bw-acts bw-spreadacts">${listed ? `${btn('Copy share link', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-kit': 'link' } })}${btn('Copy a ready message', { kind: 'secondary', sm: true, icon: 'message-square', attrs: { 'data-kit': 'msg' } })}` : ''}${btn('Email supporters', { kind: 'secondary', sm: true, icon: 'mail', attrs: { 'data-email': '1', ...(emailOk ? {} : { 'aria-disabled': 'true' }) } })}</div>
+    <div class="bw-acts bw-spreadacts">${card ? btn('This week’s ask card', { kind: 'secondary', sm: true, icon: 'megaphone', href: card })
+      : listed ? `${btn('Copy share link', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-kit': 'link' } })}${btn('Copy a ready message', { kind: 'secondary', sm: true, icon: 'message-square', attrs: { 'data-kit': 'msg' } })}` : ''}${emailOk ? emailDoor({ bill: b }, { kind: 'secondary', sm: true })
+      : btn('Email followers', { kind: 'secondary', sm: true, icon: 'mail', attrs: { 'data-email': '1', 'aria-disabled': 'true' } })}</div>
     <p class="bw-quiet">${[listed ? '' : 'Make it public to get its share link.', emailOk ? 'Someone who approves emails checks it before it sends.' : b.position === 'monitor' ? 'Monitor bills get no supporter emails. Take a position first.' : ''].filter(Boolean).join(' ')}</p>
   </section>`;
   return `${spread}<section class="bw-sec bw-pub bw-pblk" aria-labelledby="bw-pub-h">
@@ -367,7 +376,7 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
       toast(`Took it off ${i.name}.`, { undo: async () => { await DB.setBillIssue(b.id, id, true); rerender('[data-ispick]'); } });
     } catch (x) { el.disabled = false; toast(x, { err: true }); }
   });
-  pnl.querySelector('[data-email]').onclick = e => {
+  const em = pnl.querySelector('[data-email]'); if (em) em.onclick = e => {
     if (e.currentTarget.getAttribute('aria-disabled') === 'true') { toast(b.position === 'monitor' ? 'Monitor bills get no supporter emails. Take a position first.' : 'Make it public first, then save. Only people following a public bill can get its email.'); return; }
     S.go(`#/email/new?bill=${encodeURIComponent(b.id)}`);
   };

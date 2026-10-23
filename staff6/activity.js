@@ -265,13 +265,17 @@ export function wireActivity(pnl, b, route, root) {
   // message starting "@James " with the cursor after it (R-022 wave 3). ?mention=JS,JN -> "@Jess @Jaylen ". Unknown
   // initials are skipped, and whatever was typed before stays after the names.
   const asked = entry && route.q?.mention ? String(route.q.mention).split(',').map(x => x.trim()).filter(Boolean) : [];
-  if (asked.length && k !== 'msg') { S.bwKind[b.id] = 'msg'; rerender(); return; }
+  // ?say= (OUTREACH): any screen can start a message here with its own words ("Can you send the email to followers?"),
+  // put after the @names, without reaching into this file's drafts. Only into an empty box: nothing typed is lost.
+  const say = entry && route.q?.say ? String(route.q.say).slice(0, 1000) : '';
+  if ((asked.length || say) && k !== 'msg') { S.bwKind[b.id] = 'msg'; rerender(); return; }
+  if (say && !ta.value.trim()) { ta.value = say; drafts.set(key, ta.value); grow(); }
   const mentioned = [...new Set(asked.map(w => S.advocates.find(a => a.id !== S.me?.id
     && ((a.initials || '').toUpperCase() === w.toUpperCase() || firstName(a).toLowerCase() === w.toLowerCase()))).filter(Boolean))];
   const missing = mentioned.filter(a => !new RegExp(`(^|\\s)@${firstName(a).replace(/[^\wʻ'-]/g, '')}\\b`, 'i').test(ta.value));
   if (missing.length) { ta.value = `${missing.map(a => '@' + firstName(a)).join(' ')} ${ta.value.trim() ? ta.value : ''}`; drafts.set(key, ta.value); grow(); }
   // A Reply button elsewhere (Today, How did it go?) opens this tab with ?reply=1: the cursor goes straight into the box.
-  if (entry && (route.q?.reply || route.q?.compose || mentioned.length)) { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length); ta.scrollIntoView({ block: 'center' }); }
+  if (entry && (route.q?.reply || route.q?.compose || say || mentioned.length)) { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length); ta.scrollIntoView({ block: 'center' }); }
 }
 function wireStream(box, b) {
   if (!box) return;

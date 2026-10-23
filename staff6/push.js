@@ -49,7 +49,7 @@ export function askState(b, code) {
   const a = askedOf(b, code);
   if (a) return { k: 'asked', words: ASK_LOG() ? askLine(a) : `Asked by ${isMeId(a.by) ? 'you' : firstOf(a.by)} ${whenWord(a.at)}`, a, b, code };
   const t = askTodoOf(b);
-  if (t && t.assignee_id) return { k: 'giving', words: isMeId(t.assignee_id) ? 'You are asking' : `${firstOf(t.assignee_id)} is asking`, t };
+  if (t && t.assignee_id) return { k: 'giving', words: isMeId(t.assignee_id) ? 'You ask the chair' : `${firstOf(t.assignee_id)} is asking`, t };
   return { k: 'none', words: 'Not asked yet' };
 }
 export const askChip = s => s.k === 'asked' && ASK_LOG() && s.b ? askedChip(s.b, s.code, s.a) : `<span class="pb-st pb-${s.k}">${icon(s.k === 'asked' ? 'check' : s.k === 'giving' ? 'user-round' : 'circle-dashed')}<span>${esc(s.words)}</span></span>`;
@@ -255,8 +255,9 @@ export function boardItems({ scope = defaultScope(), bills = null, viewer = S.me
   const ok = scopeOk(scope, viewer);
   return (bills || (S.bills || []).filter(ok)).map(b => boardItem(b, viewer)).filter(Boolean);
 }
-// "3 of your bills need a hearing · ask the first chair by Wed 3/25": the one-line summary This week and Today's D1 row say
-// (TODAY may call it). Counts the bills still to ask or waiting (not the scheduled ones, nor the ones put off for now).
+// "46 of your coalitions' bills to ask · ask the first chair by Tue 3/17": the one-line summary under This week. Its number is
+// the Get hearings tab's, the bills still to ask (the critic: the tab said 46 and this line "49 need a hearing", two numbers
+// for one pile, A-14); with none left to ask, how many wait on a reply. `n` still counts every open one (to ask or waiting).
 // The ask-by day is the board's own word for it ("ask by Tue 3/24"), not the Capitol's "first notice" (C-10, one name per fact).
 export function askSummary({ scope = defaultScope(), viewer = S.me } = {}) {
   const open = boardItems({ scope, viewer }).filter(x => x.k !== 'scheduled' && x.k !== 'later');
@@ -265,7 +266,7 @@ export function askSummary({ scope = defaultScope(), viewer = S.me } = {}) {
   const first = fx ? fx.a.aw.a.notice || fx.a.aw.a.at : null;
   const dl = open.map(x => x.dl).sort((p, q) => p.date.localeCompare(q.date))[0];
   const n = open.length, toAsk = open.filter(x => ['ask', 'decide'].includes(x.k)).length;
-  return { n, toAsk, first, dl, words: `${countWords(n, scope, viewer)} ${n === 1 ? 'needs' : 'need'} a hearing`, firstWords: fx ? `ask the first chair by ${fx.a.aw.day}` : '' };
+  return { n, toAsk, first, dl, words: toAsk ? `${countWords(toAsk, scope, viewer)} to ask` : `${countWords(n, scope, viewer)} asked, waiting for a hearing`, firstWords: fx ? `ask the first chair by ${fx.a.aw.day}` : '' };
 }
 
 // Each row's one line (V19: the same words as the step card and Today) and its icon.
@@ -282,8 +283,10 @@ function rowLine(it, v, scope, { shared = false, hdrMine = false } = {}) {
     // The handed-off ask's own day (2 working days before the notice, V24), said as the asker's ("Kris asks by Fri 3/20"),
     // so it never reads as a second deadline beside the chair's "ask by Tue 3/24" (A-14, one word per fact).
     case 'giving': { const due = a.todo?.due_date, me = a.todo?.assignee_id === v?.id, who = me ? 'You' : advocate(a.todo?.assignee_id)?.full_name.split(' ')[0] || 'Someone';
-      if (me && hdrMine) return ['You are asking', 'user-round'];
-      return [due ? `${who} ${me ? 'ask' : 'asks'} by ${askDay(due + 'T12:00:00-10:00')}` : a.words, 'user-round']; }
+      // The viewer's own: "Ask the chair by Fri 3/20", the words every chair-ask row uses (C-15: one name per act; the critic:
+      // "You are asking" here beside "Ask the chair by" on Today). That it was given to them is said in its open item.
+      if (me) return [hdrMine || !due ? 'Ask the chair' : `Ask the chair by ${askDay(due + 'T12:00:00-10:00')}`, 'user-round'];
+      return [due ? `${who} asks by ${askDay(due + 'T12:00:00-10:00')}` : a.words, 'user-round']; }
     case 'follow': return [`${a.words} · time to follow up`, 'clock'];
     case 'waiting': return [a.words, 'hourglass'];
     case 'will': return [a.words, 'calendar-check'];

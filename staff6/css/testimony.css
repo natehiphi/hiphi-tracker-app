@@ -225,13 +225,14 @@ body.staff6 .btn.rv6-arming, body.staff6 .btn.primary[aria-disabled="true"].rv6-
 .tm-group { background: var(--v6-card, var(--n0)); border: 0; border-radius: var(--v6-r12, 12px); box-shadow: inset 0 0 0 1px var(--v6-hair, var(--n200)); overflow: hidden; }
 .tm-ghead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; margin: 0; padding: 0 16px; background: var(--v6-wash, var(--n50)); border: 0; font-size: var(--v6-t16, 1rem); }
 .tm-ghead a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-weight: 700; }
-.tm-ghead span { color: var(--v6-muted, var(--n500)); }
+/* the head's own note only: a name's .nobr span (the frame's, keeping a number whole) keeps the link's colour (A-8, BILL) */
+.tm-ghead > span { color: var(--v6-muted, var(--n500)); }
 .tm-crow { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr) auto; column-gap: 12px; align-items: center; padding: 4px 8px 4px 16px; box-shadow: inset 0 1px 0 var(--v6-hair, var(--n100)); }
 .tm-crow:first-of-type { box-shadow: none; }
 .tm-date { font-size: var(--v6-t14, .875rem); color: var(--v6-muted, var(--n700)); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tm-cw { min-width: 0; margin: 0; font-size: var(--v6-t16, 1rem); color: var(--v6-ink, var(--n900)); padding: 8px 0; line-height: var(--v6-lh16, 24px); }
 .tm-cw .tm-mark { display: block; margin-bottom: 0; }
-.tm-acts { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+.tm-acts { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px; }   /* wraps: Open Doc ran 15px past a 320 window (spec 7.10) */
 /* the rest of the category: one card, an issue per line, folded */
 .tm-cat { background: var(--v6-card, var(--n0)); border: 0; border-radius: var(--v6-r12, 12px); box-shadow: inset 0 0 0 1px var(--v6-hair, var(--n200)); overflow: hidden; margin-top: 12px; }
 .tm-iss + .tm-iss { box-shadow: inset 0 1px 0 var(--v6-hair, var(--n100)); }
@@ -239,7 +240,7 @@ body.staff6 .btn.rv6-arming, body.staff6 .btn.primary[aria-disabled="true"].rv6-
 .tm-iss > summary::-webkit-details-marker { display: none; }
 .tm-iss > summary:hover { background: var(--v6-wash, var(--n50)); }
 .tm-iss > summary b { color: var(--v6-ink, var(--n900)); flex: 1 1 auto; }
-.tm-iss > summary span { color: var(--v6-muted, var(--n500)); white-space: nowrap; font-size: var(--v6-t14, .875rem); }
+.tm-iss > summary > span { color: var(--v6-muted, var(--n500)); white-space: nowrap; font-size: var(--v6-t14, .875rem); }
 .tm-iss > summary .ic { width: 16px; height: 16px; color: var(--v6-muted, var(--n400)); transition: transform .15s ease; flex: none; }
 .tm-iss[open] > summary .ic { transform: rotate(90deg); }
 .tm-iss > .tm-rows { margin: 0; gap: 0; box-shadow: inset 0 1px 0 var(--v6-hair, var(--n100)); }

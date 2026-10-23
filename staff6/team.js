@@ -14,15 +14,14 @@
 // worked out by today.js exactly as their own Today is. #/team?who=none lists the steps nobody holds yet ("Anyone can take
 // these steps"). Someone who is not a lead and opens #/team gets the picker, never an error.
 import { S, DB, SESSION_OVER, esc, advocate, hooks } from './data.js';
-import { slipNow } from './today5.js';
-import { work, listHTML, t6Season, t6Groups, t6Fresh, T6REG, noOwnerBills } from './today.js';
+import { work, listHTML, t6Season, t6Groups, t6Fresh, T6REG, noOwnerBills, slipList, shareAsk } from './today.js';
 import { billRoute, billById, whenAt, lateLine, roomName, diedish, wantsHearing } from './model.js';
 import { icon, btn, toast, pickerSheet, avatar } from './ui.js';
-import { billStep, billRow, itemRow, rowButton, rowButtonOK, nameWords, numWords, sayWords, firstWords, orWords, dayWords, timeWords,
+import { billStep, billRow, itemRow, rowButton, rowButtonOK, shownStatus, nameWords, numWords, sayWords, firstWords, orWords, dayWords, timeWords,
   committeeName, goingWords, askWords, nw, wireSteps } from './steps.js';
 import { plainCodes } from './terms.js';
 import { isLead } from './more.js';
-import { ownerProgress } from './prep.js';
+import { ownerProgress, BOARD_HREF } from './prep.js';
 import { pqItems, pqOthers, admitsPartners, wantQueue } from './partnerq.js';
 
 const HR = 36e5, DAY = 864e5, HST = { timeZone: 'Pacific/Honolulu' };
@@ -83,10 +82,12 @@ const takeBtn = b => btn('Take it', { kind: 'secondary', sm: true, icon: 'user-r
 const VERB = { approve: ['approve', 'approves'], second: ['approve', 'approves'], file: ['file', 'files'], nodraft: ['make the draft', 'makes the draft'],
   revise: ['resubmit', 'resubmits'], submit: ['send it for approval', 'sends it for approval'], write: ['send it for approval', 'sends it for approval'] };
 function slipping() {
-  let sl; try { sl = slipNow(); } catch (e) { console.error(e); return []; }
+  let sl; try { sl = slipList(); } catch (e) { console.error(e); return []; }
   const me = S.me?.id, now = Date.now();
   return sl.rows.filter(r => r.p && r.b).map(r => {
-    const p = r.p, b = r.b, ids = r.ids || [];
+    // A share to-do is the rallier's public ask, by OUTREACH's time (today.js shareAsk; spec 11.6): said and alerted as
+    // theirs, with the one verb Today and Outreach use (the critic: "Kevin: Send the ask to HIPHI's list…" here).
+    const sh = shareAsk(r.p), p = sh ? { ...r.p, due: sh.due ?? r.p.due } : r.p, b = r.b, ids = sh?.rl.length ? sh.rl : r.ids || [];
     // A testimony step reads as steps.js says it; anything else keeps v5's own words, with codes made plain.
     const s = (p.d || p.h) && ['file', 'review', 'review2', 'revise', 'submit', 'write', 'nodraft', 'stale'].includes(p.kind) ? billStep(b, { viewer: S.me, d: p.d || null, h: p.h || null }) : null;
     const mine = ids.includes(me), solo = ids.length === 1;
@@ -96,11 +97,12 @@ function slipping() {
     // says so first, in words, with its date: "Overdue since Sat 3/14 · James: Ask the chair's office…" (the critic's 7).
     const over = late && !until;
     const when = p.due == null || over ? '' : late ? lateLine(p.h.scheduled_at, { lower: true }) : `due ${whenAt(p.due)}`;
-    const v = s && VERB[s.kind], what = v ? `${who} ${!ids.length || (mine && solo) || ids.length > 1 ? v[0] : v[1]}` : `${who}: ${strip(plainCodes(esc(strip(p.s))))}`;
+    const v = s && VERB[s.kind], what = v ? `${who} ${!ids.length || (mine && solo) || ids.length > 1 ? v[0] : v[1]}`
+      : sh ? `${who}: write the public ask${sh.h ? ` for the ${dayWords(sh.h.scheduled_at)} hearing` : ''}` : `${who}: ${strip(plainCodes(esc(strip(p.s))))}`;
     // A step's line is short ("Kevin resubmits · due today 2:00 PM"); a to-do's is free text, so its time comes first and
     // is never the part a two-line row cuts (the critic's 6).
     const line = v ? [over ? `Overdue since ${whenAt(p.due)}` : '', what, when] : [over ? `Overdue since ${whenAt(p.due)}` : cap(when), what];
-    return { key: 'sl:' + (p.key || b.id), b, p, s, ids, mine, line: line.filter(Boolean).join(' · '), what: strip(p.s), late, over };
+    return { key: 'sl:' + (p.key || b.id), b, p, s, ids, mine, line: line.filter(Boolean).join(' · '), what: sh ? `write the public ask for ${numWords(b)}` : strip(p.s), late, over };
   }).sort((x, y) => y.over - x.over);
 }
 function slipRow(x) {
@@ -109,9 +111,12 @@ function slipRow(x) {
   if (x.mine && x.s && rowButtonOK(x.s)) button = rowButton(x.s);
   else if (!x.ids.length) button = giveBtn(x.b);
   else if (others.length) { ALERTS.set(x.key, { b: x.b, ids: others, what: x.what }); button = alertBtn(x.key, others); }
-  // Someone else's late step is said in words with its clock, never in colour (D3): "late, still accepted until". The one
-  // exception is the overdue step, red with its word and date, which is what a lead opens Team to find (addendum 4).
-  return itemRow({ key: x.key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(x.line)), icon: x.over ? 'circle-alert' : 'clock', tone: x.over ? 'overdue' : '', href: billRoute(x.b), button });
+  // Someone else's late step is said in words with its clock, never in colour (D3): "late, still accepted until". The
+  // viewer's own late step (or one on their own bill) keeps its amber, by steps.js's one rule (shownStatus), as on Today,
+  // Bills and Hearings (the critic: HB 1562's "late, still accepted" was amber there and grey here, A-5). The overdue step
+  // is red with its word and date, which is what a lead opens Team to find (addendum 4).
+  const late = !x.over && x.late && x.s && shownStatus(x.s)?.tone === 'late';
+  return itemRow({ key: x.key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(x.line)), icon: x.over ? 'circle-alert' : 'clock', tone: x.over ? 'overdue' : late ? 'late' : '', href: billRoute(x.b), button });
 }
 
 // ---- Hearings at risk (D2): a working day or less from the notice, nobody has asked; no owner first ----
@@ -144,8 +149,10 @@ function schedule() {
   const list = [...seen.values()].sort((x, y) => ms(x.scheduled_at) - ms(y.scheduled_at));
   return days.map((d, i) => ({ label: i ? 'Tomorrow' : 'Today', rows: list.filter(h => hday(ms(h.scheduled_at)) === d) }));
 }
-const sitRow = h => itemRow({ key: 'h:' + h.id, name: committeeName(h.committee) || h.committee, num: timeWords(h.scheduled_at),
-  line: nw(esc([h.room ? roomName(h.room) : '', goingWords(h, { viewer: S.me })].filter(Boolean).join(' · '))), href: `#/hearing/${encodeURIComponent(h.id)}?from=team` });
+// The time, room and who is going always on the second line, so the schedule reads down one edge (the critic: the time sat
+// beside some committee names and under others, as each name's length wrapped it).
+const sitRow = h => itemRow({ key: 'h:' + h.id, name: committeeName(h.committee) || h.committee, num: '',
+  line: nw(esc([timeWords(h.scheduled_at), h.room ? roomName(h.room) : '', goingWords(h, { viewer: S.me })].filter(Boolean).join(' · '))), href: `#/hearing/${encodeURIComponent(h.id)}?from=team` });
 
 // ---- bills with no owner (who=none, the No owner bar, the block, Today's line: one count, one word) ----
 // today.js noOwnerBills: a position, alive, nobody owns it. Each with its current step, soonest first.
@@ -189,8 +196,8 @@ function seasonal({ side = true } = {}) {
     const pr = ownerProgress(); if (pr.length) {
       const done = pr.reduce((s, o) => s + o.done, 0), all = pr.reduce((s, o) => s + o.total, 0), behind = pr.filter(o => o.done < o.total);
       out.push(block('prep', 'Issues for 2027', `<p class="tm6-sub">${done} of ${plural(all, 'issue')} ready across the team. Admins see this.</p>
-        ${behind.length ? `<div class="v6-list" role="list">${behind.slice(0, 5).map(o => itemRow({ key: 'pr:' + o.id, name: advocate(o.id)?.full_name || 'Someone', num: '', line: esc(`${o.done} of ${plural(o.total, 'issue')} ready`), href: `#/my-issues/all?view=prep&who=${encodeURIComponent(o.id)}` })).join('')}</div>` : ''}
-        ${door('#/my-issues/all?view=prep', 'clipboard-list', '<b>Open the prep board</b>')}`));
+        ${behind.length ? `<div class="v6-list" role="list">${behind.slice(0, 5).map(o => itemRow({ key: 'pr:' + o.id, name: advocate(o.id)?.full_name || 'Someone', num: '', line: esc(`${o.done} of ${plural(o.total, 'issue')} ready`), href: `${BOARD_HREF}&who=${encodeURIComponent(o.id)}` })).join('')}</div>` : ''}
+        ${door(BOARD_HREF, 'clipboard-list', '<b>Open the prep board</b>')}`));
     }
   }
   if (admitsPartners(v)) {
@@ -239,7 +246,7 @@ function pickerPage() {
   const rows = teammates().filter(a => a.id !== S.me?.id).sort((x, y) => x.full_name.localeCompare(y.full_name))
     .map(a => { const n = today(a); return itemRow({ key: a.id, name: a.full_name, num: '', line: esc(n ? `${plural(n, 'thing')} to do today` : 'Nothing to do today'), href: `#/team?who=${encodeURIComponent(a.id)}` }); }).join('');
   return `<div class="tm6-root"><header class="t6-head"><h1 class="v6-ptitle sv-h1" id="tm6-h1" tabindex="-1">A teammate’s list</h1></header>
-    <p class="tm6-note">${icon('info')}<span>Read anyone’s Today while you cover for them. Team, with what is slipping, is for admins and second approvers.</span></p>
+    <p class="tm6-note">${icon('info')}<span>Read anyone’s Today while you cover for them. Their messages are only theirs, so these counts leave them out. Team, with what is slipping, is for admins and second approvers.</span></p>
     <div class="v6-list" role="list">${rows}${itemRow({ key: 'none', name: 'No owner', num: '', line: esc(`${plural(noOwnerBills().length, 'bill')} with a position and no owner`), href: '#/team?who=none' })}</div></div>`;
 }
 

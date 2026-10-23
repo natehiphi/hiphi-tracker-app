@@ -29,8 +29,10 @@ export function waitingOfBills(bills) {
 // ---- the stage groups (the Bills page's groups; Bills and an issue's count use these) ----
 // R-277 fix 11 (V-2): At risk comes first. In stage order it sat under "Hearing scheduled", which at session volume ran
 // to 40 rows and more, so the bills that need someone to act today were a long scroll down. Stage order after it.
-export const GROUPS = [['risk', 'At risk: no hearing yet'], ['hear', 'Hearing scheduled'], ['wait', 'Waiting for a hearing'], ['thru', 'Through its committees'],
+export const GROUPS = [['risk', 'At risk: no hearing yet'], ['hear', 'Hearing scheduled'], ['wait', 'No hearing yet'], ['thru', 'Through its committees'],
   ['done', 'At the governor or law'], ['mon', 'Monitoring'], ['dead', 'Did not advance']];
+// 'No hearing yet' (BILLS, 23 Oct): the Bills group, its Filter chip and its deadline line say it, so an issue's page does too
+// (one word per fact, rule 6).
 // The stand comes from factsOf, the same fact the filter counts use, so a group and its filter always agree.
 export const groupKey = b => { const f = factsOf(b);
   if (f.stand === 'dead') return 'dead';

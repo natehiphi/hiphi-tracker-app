@@ -89,3 +89,7 @@ body.staff6 .mv-acts { display: flex; flex-wrap: wrap; align-items: center; gap:
   body.staff6 .hr-share { padding: 12px 16px; }
 }
 @media (prefers-reduced-motion: reduce) { body.staff6 .hr-fold > summary .hr-chev, body.staff6 .hr-share { transition: none; } }
+/* the card's going line: Going, I'm going and an admin's Send a teammate… wrap as one line of controls (F131, A-14) */
+body.staff6 .hr-page .v6-hcard-going { flex-wrap: wrap; row-gap: 4px; }
+/* room between the camera and "Watch it live" at every width (the critic: they touched on a phone) */
+body.staff6 .hr-page .v6-hcard-watch a { display: inline-flex; gap: 8px; }

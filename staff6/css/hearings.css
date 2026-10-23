@@ -179,3 +179,5 @@ body.staff6 .hg-how a { display: inline-block; min-height: 24px; color: var(--v6
 .ca-sheet .err { display: flex; gap: 6px; align-items: center; color: var(--v6-bad, #AF3328); font-size: var(--v6-t14, 14px); }
 
 @media (prefers-reduced-motion: reduce) { body.staff6 .hw-ask, body.staff6 .hw-earlier .hw-chev { transition: none; } }
+/* room between the camera and "Watch it live" at every width (the critic: they touched on a phone) */
+body.staff6 .hw-page .v6-hcard-watch a { display: inline-flex; gap: 8px; }
