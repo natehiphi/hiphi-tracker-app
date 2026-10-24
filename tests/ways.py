@@ -29,7 +29,11 @@ def ctx(b, w=390, h=844):
     return c, p
 
 def walk(p, ab, extra='', topic='Tobacco', every=True, addr=False, end='today'):
-    p.goto(f'{BASE}/track.html?demo=1&restart&ab={ab},end.{end},onb.today{extra}'); p.wait_for_selector('.st-tile', timeout=30000); p.wait_for_timeout(800)
+    p.goto(f'{BASE}/track.html?demo=1&restart&ab={ab},end.{end},onb.today{extra}')
+    # R-297: a first visit opens on the welcome (#/start/0); Let's begin goes on to the topics.
+    p.wait_for_selector('.st-hellopage, .st-tile', timeout=30000)
+    if p.locator('.st-hellopage').count(): p.click('.actionbar [data-stnext]')
+    p.wait_for_selector('.st-tile', timeout=30000); p.wait_for_timeout(800)
     if addr:   # districts kept from an earlier visit's Legislators page (the first visit no longer asks, R-232)
         p.evaluate("for (const k of ['hiphi_districts', 'hiphi_districts_demo']) localStorage.setItem(k, JSON.stringify({ senate: 13, house: 26 }))")
     p.locator('.st-tile', has_text=topic).first.click(); p.wait_for_timeout(300)
@@ -46,6 +50,9 @@ def walk(p, ab, extra='', topic='Tobacco', every=True, addr=False, end='today'):
         if p.locator('.st-thanks').count(): p.locator('.actionbar [data-stnext]').click(); p.wait_for_timeout(1200); continue
         if p.locator('#st-addr').count(): ok(False, 'the first visit never asks for an address (R-232)')
         if p.locator('.actionbar [data-stnext]', has_text='Next: ').count(): S['go'] = p.locator('.actionbar [data-stnext]').inner_text().strip()
+        # the story's Next sleeps until one of its choices is made (R-255): make the first
+        if p.locator('.lx-ch').count() and p.locator('.lx-ch').first.is_visible() and not p.locator('.lx-ch[aria-pressed=true]').count():
+            p.locator('.lx-ch').first.click(); p.wait_for_timeout(1300); continue
         loc = p.locator('[data-stnext]') if p.locator('[data-stnext]').count() else p.locator('[data-stskip]')
         if loc.count(): loc.first.click()
         p.wait_for_timeout(1300)
@@ -76,7 +83,7 @@ with sync_playwright() as pw:
         bills = [x[1].split(':')[0].split(' needs a hearing')[0] for x in cs]
         ok(len(set(bills)) == 3, f'{tag}: three different bills ({bills})')
         ok(p.locator('.st-way .btn.primary').count() == 0 and p.locator('.st-bar [data-stnext]').count() == 1, f'{tag}: the cards are equal, and the bar still goes on (A-3, P-5)')
-        ok(p.locator('.st-bar .btn.primary').count() == 0 and p.inner_text('.st-bar [data-stnext]').strip() == 'Skip', f'{tag}: before any is done the bar is a quiet Skip, so the cards lead (R-235, A-13)')
+        ok(p.locator('.st-bar .btn.primary').count() == 0 and p.inner_text('.st-bar [data-stnext]').strip() == 'Skip this part', f'{tag}: before any is done the bar is a quiet "Skip this part", so the cards lead (R-235, A-13, R-212 #46)')
         ok(p.locator('.st-way-when').count() >= 2 and not p.locator('.st-way-act .nobr').evaluate_all("els => els.some(e => e.getBoundingClientRect().left < e.parentElement.getBoundingClientRect().left + 30)"),
            f'{tag}: each card says its date on a line of its own, and the time never sits alone at the start of a line (R-235)')
         ok(p.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), f'{tag}: no sideways scroll')
@@ -138,7 +145,7 @@ with sync_playwright() as pw:
            f'{tag}: without an address, two ways and no hello or "Find your legislators" ({p.inner_text("#st-h")}: {titles})')
         ok(S.get('go') == 'Next: Ways to Help', f'{tag}: the story\'s last button names the page that follows ({S.get("go")})')
         p.screenshot(path=os.path.join(OUT, f'{tag}_off_noaddr.png'))
-        ok('walk you through it' in p.inner_text('.st-wayspage .lede') and p.inner_text('.st-bar [data-stnext]').strip() == 'Skip', f'{tag}: between sessions too, it says what a tap does, and Skip says none is needed (P-5)')
+        ok('walk you through it' in p.inner_text('.st-wayspage .lede') and p.inner_text('.st-bar [data-stnext]').strip() == 'Skip this part', f'{tag}: between sessions too, it says what a tap does, and Skip says none is needed (P-5)')
         if w < 600:
             # A sentence typed and not kept is kept on Next (C-9).
             p.locator('[data-stway="1"]').click(); p.wait_for_timeout(500); p.fill('#st-story', 'Our keiki deserve clean air.')

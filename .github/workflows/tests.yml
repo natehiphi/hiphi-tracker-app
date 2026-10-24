@@ -59,6 +59,9 @@ jobs:
       - name: "The step line in plain words: each committee named once, one way, and no committee code on the bill page (R-212 #45)"
         if: ${{ !cancelled() }}
         run: python3 tests/step_line.py
+      - name: "The first visit's doors: Skip this part, Leave, go to Home on every step, and the welcome's Just look around (R-212 #46)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/first_visit_doors.py http://localhost:8832 /tmp
       - name: "Staff v3 on a laptop (R-264, DESIGN A-24): one side panel, at most 5 things, 7 colours, 1 filled button in view"
         if: ${{ !cancelled() }}
         run: python3 tests/staff3_budget.py

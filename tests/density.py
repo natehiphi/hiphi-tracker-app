@@ -41,7 +41,7 @@ SEED = ("try { localStorage.setItem('hiphi_watch_ids_demo', %s);"
 # screen, route, what the person came for, selector for it. Since a2244cd6 (19 Oct, R-303) the calm redesign is everyone's
 # page, so these name the redesign's elements (?rec=0, the old pages, is not measured).
 PUB = [
-  ('start',       '/start/1',      'the first question',   '.st-rrow, .st1 button, .st1 .row'),
+  ('start',       '/start/1',      'the first question',   '.st-rrow, .st1 button:not(.st-leave), .st1 .row'),   # "Leave, go to Home" above it is a way out, not the question (R-212 #46)
   ('home',        '/',             'what needs you',       '.cm-slide, .cm-card, .cm-issues'),
   ('mybills',     '/bills',        'an issue you follow',  '.rc-mrows .rc-row'),
   ('find',        '/find',         'a way in',             '.fd-search .searchbox, .rc-topics .rc-row'),   # the search box, then the topics

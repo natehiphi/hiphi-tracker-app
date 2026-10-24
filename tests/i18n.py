@@ -17,7 +17,7 @@ def tiles(p):
     if p.locator('.st-hellopage').count(): p.click('[data-stnext]')
     p.wait_for_selector('.st-tile', timeout=30000)
 WORDS = """({ xx: null, ilo: {
-  'Speak up for a healthier Hawaiʻi': 'ILO Agsao para iti nasalun-at nga Hawaiʻi', 'We keep watch': 'ILO Bantayanmi', 'Back': 'ILO Agsubli', 'Skip': 'ILO Lampasan', 'Next': 'ILO Sumaruno',
+  'Speak up for a healthier Hawaiʻi': 'ILO Agsao para iti nasalun-at nga Hawaiʻi', 'We keep watch': 'ILO Bantayanmi', 'Back': 'ILO Agsubli', 'Skip this part': 'ILO Lampasan', 'Next': 'ILO Sumaruno',
   'About 4 minutes. Free.': 'ILO Mga 4 a minuto. Libre.', '{n} issues': 'ILO {n} a banag', '{n} issue': 'ILO {n} a banag', '{what} moving': 'ILO {what} a mapan',
   'Your first visit': 'ILO Umuna a pagsarungkarmo', 'More': 'ILO Dadduma pay', 'Help': 'ILO Tulong', 'Privacy': 'ILO Privacy', 'From HIPHI': 'ILO Manipud HIPHI', 'Language': 'ILO Pagsasao', 'You': 'ILO Sika' } })"""
 with sync_playwright() as pw:
