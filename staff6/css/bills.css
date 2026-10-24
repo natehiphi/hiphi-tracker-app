@@ -28,7 +28,7 @@
 .bl-dls > .ic { flex: none; width: 20px; height: 20px; margin-top: 2px; color: var(--v6-muted); }
 .bl-dls b { color: var(--v6-ink); }
 /* the two links in the line: underlined, not bold (the share of bold text, spec 4) */
-.bl-dls .bl-dlk { font: inherit; font-weight: 400; color: var(--v6-action); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.bl-dls .bl-dlk { font: inherit; font-weight: 400; text-align: left; color: var(--v6-action); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .bl-dls .bl-dlgo { font-weight: 400; color: var(--v6-action); white-space: nowrap; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 /* (one line at every width now, in Get hearings' words: "20 to ask; 16 face the Mon 3/30 deadline · Get hearings") */
 @media (max-width: 767px) {
