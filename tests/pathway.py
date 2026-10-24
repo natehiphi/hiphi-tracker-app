@@ -1,5 +1,5 @@
 # R-081: a bill's pathway names each committee (Nate 9/29). Sandbox bills, phone to laptop.
-# python3 tests/pathway.py [base_url]
+# python3 tests/pathway.py [base_url]   (the page before layout 3, ?rec=0: its rail is the session lesson's picture)
 # Checks: one dot per committee (two or three heard together are one), full committee names (never "undefined", never
 # cut short), the words under the dots, the committee links in "See all steps", no dot names overlapping each other or
 # leaving the card (HB1782's did on laptops, 9/29), and no sideways scroll on a 320px phone with eleven dots.
@@ -13,12 +13,16 @@ for b in snap['bills']:
     if b['bill_number'] == 'HB1518': b['referrals'] = ['HSH', 'PBS', 'FIN', 'PSM/HHS', 'JDC', 'WAM']; b['second_stops'] = 3
 BODY = json.dumps(snap)
 # bill, dots, the words under the dots (phone), committee links in See all steps
+# R-212 #45: a step is named "Senate Judiciary Committee", and committees heard together in C-15's sentence form, each name
+# ending with "Committee" (HB2049's step is three committees, which "Water, Land, Culture and the Arts with Housing and
+# Hawaiian Affairs" hid); See all steps stacks them, one per line, each linked. A committee is counted among its chamber's
+# committees, not its steps ("3rd of 4", where it used to say "2nd of 3" with two of the four heard together in one step).
 CASES = [
-    ('HB1518', 11, 'Now: Senate Judiciary, 2nd of 3 Senate committees', 7),
-    ('HB2049', 10, 'Now: Senate Water, Land, Culture and the Arts with Housing and Hawaiian Affairs, 1st of 2 Senate committees', 8),
-    ('HB1926', 10, 'Now: Senate Ways and Means with Judiciary, 2nd of 2 Senate committees', 7),
-    ('HB2148', 7, 'Now: Senate Ways and Means, its only Senate committee', 2),
-    ('HB1314', 9, 'Got as far as House Health', 3),
+    ('HB1518', 11, 'Now: Senate Judiciary Committee, 3rd of 4 Senate committees', 7),
+    ('HB2049', 10, 'Now: Senate Water, Land, Culture and the Arts Committee, the Housing Committee and the Hawaiian Affairs Committee, together', 8),
+    ('HB1926', 10, 'Now: Senate Water, Land, Culture and the Arts Committee and the Public Safety and Military Affairs Committee, together', 7),
+    ('HB2148', 7, 'Now: Senate Ways and Means Committee, its only Senate committee', 2),
+    ('HB1314', 9, 'Got as far as the House Health Committee', 3),
 ]
 OVERLAP = """() => { const box = e => { const r = document.createRange(); r.selectNodeContents(e); const b = r.getBoundingClientRect(); return { t: e.textContent, l: b.left, r: b.right, top: b.top, bot: b.bottom }; };
   const ls = [...document.querySelectorAll('.bl-dlbl')].filter(e => e.offsetParent).map(box), bad = [];
@@ -38,7 +42,7 @@ with sync_playwright() as pw:
         c.route('**/demo/snapshot.json*', lambda r: r.fulfill(status=200, content_type='application/json', body=BODY))
         p = c.new_page(); errs = []; p.on('pageerror', lambda e: errs.append(str(e)))
         for num, n, now, links in CASES:
-            p.goto(BASE + '?demo=1#/bill/' + num); p.wait_for_timeout(2200)
+            p.goto(BASE + '?demo=1&rec=0#/bill/' + num); p.wait_for_timeout(2200)   # the earlier page's rail (?rec=0), the session lesson's picture
             got = p.evaluate("""() => ({ n: document.querySelectorAll('.bl-dots li').length, now: document.querySelector('.bl-nowlbl')?.textContent || '',
               names: [...document.querySelectorAll('.bl-dlbl')].map(e => e.textContent),
               links: document.querySelectorAll('.bl-steplist a[href^="#/committee/"]').length,

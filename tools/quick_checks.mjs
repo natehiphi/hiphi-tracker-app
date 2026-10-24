@@ -31,6 +31,7 @@ const CHECKS = [
   ['What kind of advocate are you? Its words and its scoring (R-217, a draft)', 'tests/quiz_test.mjs'],
   ['The words list for the checker panel is current (R-166 step 3)', 'tools/words_extract.mjs', '--check'],
   ['Where a bill stands: six words, written once (R-212 #44)', 'tests/stands_test.mjs'],
+  ["The Capitol's action lines in plain words, never a committee code (R-212 #45)", 'tests/capitol_words_test.mjs'],
 ];
 
 const failed = [];

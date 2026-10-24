@@ -86,8 +86,9 @@ with sync_playwright() as p:
         st = status(pg, num, {'bill_number': 'HB1278', 'chamber': 'H', 'stage': 'dead', 'died_at_stage': 'second_lateral', 'died_deadline': 'Lateral 3/30/26',
                               'referrals': ['WAL', 'FIN', 'WLA', 'WAM'], 'origin_stops': 2, 'committee': 'WAM', 'last_action': 'Re-Referred to WLA, WAM.', 'status_text': '2nd Lateral'})
         check('did not get a hearing in the' in st['text'] and 'Ways and Means' not in st['text'], f'{w} HB1278: names the committee it stopped in, not WAM ("{st["text"][:110]}")')
-        # R-085: under the step bar, the committee, what happened, the rule it missed with its date, no Capitol shorthand
-        check('Water, Land, Culture and the Arts Committee never scheduled a hearing' in st['detail'] and 'In the Senate, bills had to be through all but their last committee by Mar 30' in st['detail'] and 'Lateral' not in st['detail'], f'{w} HB1278: the step bar note says why and when ("{st["detail"][:120]}")')
+        # R-085: under the step bar, the committee, what happened, the rule it missed with its date, no Capitol shorthand;
+        # the rule in C-15's own words for Lateral (R-212 #45)
+        check('Water, Land, Culture and the Arts Committee never scheduled a hearing' in st['detail'] and 'In the Senate, a bill had to reach its last committee by Mar 30, so it can’t pass this year.' in st['detail'] and 'Lateral' not in st['detail'], f'{w} HB1278: the step bar note says why and when ("{st["detail"][:120]}")')
         check(not errs, f'{w}: no page errors {errs[:2]}')
         ctx.close()
     br.close()

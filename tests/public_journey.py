@@ -473,7 +473,8 @@ with sync_playwright() as pw:
                 if W == 390 and who == 'HB 2121' and k == 3: shot(p, 'p_learn_session3')
                 if W == 1440 and who == 'SB 464' and k == 4: p.wait_for_timeout(2500); shot(p, 'd_learn_session_sb464')   # the other bills settled
             ok(not bad, f'#/learn/session ({who}) at {W}x{H}: the label under the bill stays inside the drawing and covers no word, every month {bad or said}')
-            if who == 'HB 2121': ok(said[2] == 'HB 2121 In the 1st of 2 Senate committees', f'#/learn/session at {W}x{H}: in March the label names the chamber, not the committee ({said[2]!r})')
+            # R-212 #45: committees are counted, not steps; HB 2121's first Senate step is two of its three Senate committees heard together.
+            if who == 'HB 2121': ok(said[2] == 'HB 2121 In the first 2 of 3 Senate committees', f'#/learn/session at {W}x{H}: in March the label names the chamber, not the committee ({said[2]!r})')
             if who == 'SB 464': ok(said[1:] == ['SB 464 Got as far as Senate committees'] * 3, f'#/learn/session (SB 464) at {W}x{H}: a stopped bill says where, by chamber ({said})')
         c.close()
 
