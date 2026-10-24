@@ -86,7 +86,9 @@ READ = """async () => {
     oneLine: items.every((r, i) => !i || r.top >= items[i - 1].bottom - 1), stacks, card: w.textContent, found,
     last: kv ? txt(kv.querySelector('dd').childNodes[0]) : '', acts, foldSays: txt(more?.querySelector('.bl-rfp')),
     orig: orig ? orig.getAttribute('href') : '', menu: menu ? menu.getAttribute('href') : '-', origText: txt(orig?.closest('p')).replace(' .', '.'),
-    origH: orig ? orig.getBoundingClientRect().height : 0,
+    // Each line of the link, not its whole box: a link that wraps onto a second line is still in the running text, and
+    // with a wider font than the Mac's (the Tests machine runs Linux) "Capitol bill page" wraps on a phone (a 38px box).
+    origH: orig ? Math.max(0, ...[...orig.getClientRects()].map(q => q.height)) : 0,
     sideways: document.documentElement.scrollWidth > innerWidth + 1, nCodes: codes.size }; }"""
 
 async def main():
@@ -143,7 +145,7 @@ async def main():
                           f'{t}: one day\'s actions in the order they happened, newest first ({acts[max(i, 0):i + 3]})')
                 # the same address as the menu's "Capitol bill page" (the Capitol's, or Open States' copy of it where the sync has that), a link in its sentence
                 check(r['orig'] and r['orig'] == r['menu'], f'{t}: a quiet line points to the Capitol\'s own wording ({r["orig"]})')
-                check(0 < r['origH'] < 32, f'{t}: its link stays in the running text, not a 44px block ({r["origH"]:.0f}px)')
+                check(0 < r['origH'] < 32, f'{t}: its link stays in the running text, not a 44px block (tallest line {r["origH"]:.0f}px)')
                 check(not r['sideways'], f'{t}: no sideways scroll')
             check(not errs, f'{tag}: no page errors {errs[:3]}')
             await ctx.close()
