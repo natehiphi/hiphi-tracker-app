@@ -7,7 +7,7 @@ import { rankAll, shortList, markShown, actedKind } from './rank.js';
 import { abEvent, abStep } from './variant.js';
 import { logSuggest } from './visitlog.js';
 // A committee step's name and the Capitol's action lines in plain words (R-212 #45, C-15): written once, in capitol.js.
-import { cmteName as stepName, theCmteName, cmteInfo, capitolWords } from './capitol.js';
+import { cmteName as stepName, theCmteName, cmteStack as stackOf, cmteInfo, capitolWords } from './capitol.js';
 // Filled in by app.js: the screens call app.render() / app.go() without importing app.js (no import cycle).
 // The kernel (R-122): what the first screen needs lives in kernel.js and is re-exported here, so every screen keeps
 // importing from this module; the modules on the first load import from kernel.js and never from here.
@@ -773,11 +773,13 @@ export function cmteLabel(code, { short = false } = {}) {
   if (names.length > 1) return short ? names.join(' / ') : `${ch} ${names.map(n => n + ' Committee').join(' and ')}`.trim();
   return short ? names[0] : `${ch} ${names[0]} Committee`.trim();
 }
-// One committee step, named on its own, the same everywhere (C-15, R-212 #45): "Senate Judiciary Committee"; two or more
-// heard together, "two Senate committees: Health and Human Services, and Commerce and Consumer Protection". theCmteWords
-// adds "the" where one committee is named. Options as capitol.js cmteName (mid: in brackets, link: each name linked).
+// A committee step in words, the same everywhere (C-15, R-212 #45), from capitol.js: theCmteWords inside a sentence, "the
+// Senate Judiciary Committee", "the House Health Committee and the Human Services & Homelessness Committee, together"
+// (together: false for a subject); cmteWords the same without "the"; cmteStack, for committees heard together where a step
+// is named on its own, { head: "two House committees, together", names: [{ code, name }] }, one name per line (null for one).
 export const cmteWords = (code, o) => stepName(code, S.committees, o);
 export const theCmteWords = (code, o) => theCmteName(code, S.committees, o);
+export const cmteStack = code => stackOf(code, S.committees);
 // The Capitol's own action line in plain words, committees named (C-15, C-10): capitol.js. chamber: 'H'/'S' when known.
 export const actionWords = (text, chamber = '') => capitolWords(text, S.committees, { chamber });
 export const roomLabel = r => { const x = clean(r); return /^Rm /.test(x) ? 'Room ' + x.slice(3) : x === 'room TBD' ? 'room to be announced' : x; };
@@ -865,12 +867,16 @@ const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 // notes need to be in the steps section"; the sentence at the top went back to whyStopped); whyStoppedShort is the
 // lists' few words.
 // The rule each committee deadline sets, from the Legislature's deadline guide (the same rules stops.js follows, R-072).
-const RULE_OF = { triple: 'bills sent to three or more committees had to be through all but their last two', lateral: 'bills had to be through all but their last committee', decking: 'bills had to be through all their committees' };
+// In C-15's own words for Lateral and Decking, so the stopped card and Help define them one way (the critic on R-212 #45):
+// "In the Senate, a bill had to reach its last committee by Mar 30, so it can’t pass this year."
+const RULE_OF = { triple: 'a bill sent to three or more committees had to reach its last two', lateral: 'a bill had to reach its last committee', decking: 'a bill had to get through all its committees' };
 const theCmte = code => { const l = cmteLabel(code); return /^(the|a) /.test(l) ? l : `the ${l}`; };
-// A list's few words: "Senate Health"; two heard together are "two Senate committees" (their names joined by "/" read as
-// "either", the critic on R-212 #3; the bill page names them, C-15). A retired 2025 code is named too (capitol.js RETIRED).
+// A list's few words: "Senate Health"; two heard together, each name ending with "Committee" as in a sentence (C-15): "the
+// House Health Committee and the Human Services & Homelessness Committee" (joined by "/" they read as "either", the critic on
+// R-212 #3; "Health, and Human Services & Homelessness" as the Senate's Health and Human Services, R-212 #45). A retired
+// 2025 code is named too (capitol.js RETIRED).
 const shortCmte = code => { const ks = codesOf(code), c = cmteInfo(ks[0], S.committees);
-  if (ks.length > 1) return `${['', 'one', 'two', 'three', 'four'][ks.length] || ks.length} ${c ? (CHAMBER_NAME[c.chamber] || '') + ' ' : ''}committees`;
+  if (ks.length > 1) return theCmteName(code, S.committees, { together: false });
   return c ? `${CHAMBER_NAME[c.chamber] || ''} ${cmteLabel(code, { short: true })}`.trim() : `the ${code} committee`; };
 const sameCmte = (h, code) => codesOf(h.committee).some(k => codesOf(code).includes(k));
 export function stopFacts(b) {
@@ -927,8 +933,8 @@ export function stopDetail(b) {
       : /^second/.test(f.d) ? `It did not pass the vote of the full ${CHAMBER_NAME[o === 'H' ? 'S' : 'H']}, so it can’t pass this year.`
       : /^first/.test(f.d) ? `It did not pass the vote of the full ${CHAMBER_NAME[o]}, so it can’t pass this year.` : 'Did not pass a vote.';
   }
-  // The rule it missed, as its own sentence: "In the Senate, bills had to be through all but their last committee by Mar 30,
-  // so it can’t pass this year." Resolutions and bills that stopped when the session ended have no other deadline.
+  // The rule it missed, as its own sentence: "In the Senate, a bill had to reach its last committee by Mar 30, so it can’t
+  // pass this year." Resolutions and bills that stopped when the session ended have no other deadline.
   const ended = f.res || /sine die/i.test(f.label);
   const rule = ended ? (f.when ? ` The session ended on ${f.when}, ${end}` : ` The session ended, ${end}`)
     : f.kind === 'floor' ? ` Bills had to pass the full ${f.ch} by ${f.when}, ${end}`

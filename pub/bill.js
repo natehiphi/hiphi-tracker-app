@@ -9,7 +9,8 @@ import { errArt, S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, blu
   pickBill, billRef, billPath, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
   issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber, billTourHeld, billTourSeen, sameIdeaLaw, sameIdeaWords, sponsorsOf,
-  codesOf, cmteWords, theCmteWords, actionWords } from './core.js';
+  codesOf, cmteWords, theCmteWords, cmteStack, actionWords } from './core.js';
+import { actionRank } from './capitol.js';   // a same-day action's place in the day (R-212 #45)
 import { draftName, draftRank, draftLabel, draftNotes, testifyLabel, mailLabel, letterOn } from './letters.js';
 // "Send my email to the Senate chairs" (R-153): who it goes to now, so "again" never reads as "my email failed".
 const sendTo = x => { const ch = CHAMBER_NAME[S.committees[(x.code || '').split('/')[0]]?.chamber] || ''; return `Send my email to the ${ch ? ch + ' ' : ''}${x.chairs.length > 1 ? 'chairs' : 'chair'}`; };
@@ -212,7 +213,10 @@ const GOV_URL = 'https://governor.hawaii.gov/comments-on-legislation/';
 const plainName = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f\u02bb\u2018\u2019']/g, '').toLowerCase().trim();
 const surname = l => String(l.sort_name || l.name || '').split(',')[0].trim();
 const myLeg = ch => { const d = myDistricts(), n = d && (ch === 'S' ? d.senate : d.house); return n ? (S.legislators || []).find(l => l.chamber === ch && +l.district === +n) || null : null; };
-const billActs = b => [...(S.activity || []), ...((S.xa || {})[b.id] || [])].filter(a => a.bill_id === b.id).sort((x, y) => String(y.occurred_at).localeCompare(String(x.occurred_at)));
+// Newest first. The Capitol dates each action without a time, so a day's actions tie; they go by their place in the day,
+// latest step first (capitol.js actionRank: "Referred to ..." above "Passed First Reading" above "Received from House").
+const billActs = b => [...(S.activity || []), ...((S.xa || {})[b.id] || [])].filter(a => a.bill_id === b.id)
+  .sort((x, y) => String(y.occurred_at).localeCompare(String(x.occurred_at)) || actionRank(y.title) - actionRank(x.title));
 // "House Conferees Appointed: Belatti, Garrett, Morikawa Co-Chairs; Iwamoto, Souza." and "Senate Conferees Appointed:
 // Fukunaga Chair; Kim, Lee, C. Co-Chairs." -> each chamber's latest list, matched to legislators by surname (and the
 // first initial where the Capitol gives one, as for the two Lees). Chairs first.
@@ -399,15 +403,25 @@ function mainButton(b, x) {
 // then goes to the Governor. No Triple, Lateral or Decking. Each committee is its own step, named (R-081, Nate 9/29: "see
 // real progress" and "understand the process"); two committees that hear it together are one step, since it is one
 // hearing and one vote. A chamber that has not picked its committees yet is one step, "Senate committees", until it does.
-// A committee step's name, the same on the step line, in See all steps, on the dots and in the session lesson (C-15, R-212
-// #45): "Senate Judiciary Committee", and two or more that hear it together "Two Senate committees: Water, Land, Culture
-// and the Arts; and Public Safety and Military Affairs" (core.js cmteWords, written once in capitol.js). The page used
-// to say "Senate Water, Land, Culture and the Arts with Public Safety and Military Affairs" over a sentence naming the
-// same two as "the Senate Water, Land, Culture and the Arts Committee and Public Safety and Military Affairs Committee".
-// A 2025 committee the list no longer has (WTL, HRE, TCA) is named too (capitol.js RETIRED).
+// A committee step's name, the same on the step line, in See all steps and in a hearing's title (C-15, R-212 #45): "Senate
+// Judiciary Committee"; two or more that hear it together are stacked, "Two House committees, together:" and then each
+// committee's own name on a line of its own. In a line of plain text (the dots, a screen reader's step list) each name ends
+// with "Committee": "House Health Committee and the Human Services & Homelessness Committee, together". The page used to
+// say "Senate Water, Land, Culture and the Arts with Public Safety and Military Affairs" over a sentence naming the same
+// two another way, and then "Two House committees: Health, and Human Services & Homelessness", a comma away from the
+// Senate's Health and Human Services (the critic). Written once in capitol.js (core.js cmteWords, cmteStack). A 2025
+// committee the list no longer has (WTL, HRE, TCA) is named too (capitol.js RETIRED).
 const cap1 = t => t.charAt(0).toUpperCase() + t.slice(1);
-// In the old rail's See all steps each committee links to its page (members, chair, what it has now).
-const cmteLink = code => cap1(cmteWords(code, { link: (k, t) => S.committees[k] ? `<a href="#/committee/${esc(k)}">${esc(t)}</a>` : esc(t) }));
+// The name as markup. lead: "In", "Got as far as" (the step line); tag: the step's Now / Got this far tag, on the first
+// line; link: each committee to its page (members, chair, what it has now), as the earlier page's See all steps has it.
+// The stacked names are a list, so they wrap cleanly at 320px and a screen reader counts them.
+function stepNameHtml(code, { lead = '', tag = '', link = false } = {}) {
+  const st = cmteStack(code), a = (k, t) => link && S.committees[k] ? `<a href="#/committee/${esc(k)}">${esc(t)}</a>` : esc(t);
+  if (!st) return `${lead ? esc(`${lead} ${theCmteWords(code)}`) : a(codesOf(code)[0], cap1(cmteWords(code)))}${tag}`;
+  return `<span class="bl-cmh">${esc(lead ? `${lead} ${st.head}:` : `${cap1(st.head)}:`)}${tag}</span><span class="bl-cms" role="list">${st.names.map(n => `<span class="bl-cm" role="listitem">${a(n.code, n.name)}</span>`).join('')}</span>`;
+}
+// The same in plain words, for a check of what the line says ("In two Senate committees, together: ...").
+const stepNameText = (code, lead = '') => { const st = cmteStack(code); return st ? `${lead ? `${lead} ${st.head}` : cap1(st.head)}: ${st.names.map(n => n.name).join('; ')}` : lead ? `${lead} ${theCmteWords(code)}` : cap1(cmteWords(code)); };
 // Where a committee step stands among its chamber's committees, counting committees, not steps: a step where two hear it
 // together is "the first 2 of 3", never "the 1st of 2 Senate committees" (it is two of them, R-212 #45).
 const ordN = n => n + ((n % 100 > 10 && n % 100 < 14) ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
@@ -474,7 +488,7 @@ function railInfo(b, x) {
       list.forEach((c, j) => {
         const sp = cmteSpan(list, j), two = sp.m > 1;
         const where = sp.at === 'only' ? `The only ${C} committee on its path. ` : sp.at === 'both' || /^all /.test(sp.at) ? `${cap1(sp.at)} of its ${C} committees, at once. ` : `The ${sp.at} ${C} committees. `;
-        steps.push({ kind: 'cmte', ch, code: c, j, of: list.length, sp, lab: cmteWords(c), the: theCmteWords(c), name: cap1(cmteWords(c)), html: cmteLink(c),
+        steps.push({ kind: 'cmte', ch, code: c, j, of: list.length, sp, lab: cmteWords(c), the: theCmteWords(c), name: cap1(cmteWords(c)), html: stepNameHtml(c, { link: true }),
           desc: `${where}${two ? `The ${NUMW[sp.m] || sp.m} hold one hearing and vote together.` : 'It holds a hearing and votes.'} The ${word} needs a yes here to go on${j === 0 && ch === o ? '; the chair decides if it gets a hearing' : ''}.` });
       });
       return;
@@ -513,7 +527,7 @@ function railInfo(b, x) {
   else if (!res && ci === 5) rest = 'On the Governor’s desk';
   else if (st.phase === 'floor') rest = `Waiting for the ${C} vote`;
   else if (s.kind === 'cmte') {
-    // Committees heard together are named with how many there are ("two Senate committees: ..."), so their line needs no count.
+    // Committees heard together are named together ("... Committee and the ... Committee, together"), so their line needs no count.
     const sp = s.sp;
     rest = sp.m > 1 ? s.lab : sp.at === 'only' ? `${s.lab}, its only ${C} committee` : `${s.lab}, ${sp.at} ${C} committees`;
     pic = sp.at === 'only' ? `In its only ${C} committee` : sp.at === 'both' || /^all /.test(sp.at) ? `In ${sp.at} of its ${C} committees` : `In the ${sp.at} ${C} committees`;
@@ -543,7 +557,8 @@ export function railHTML(b, x) {
   // Where there is room (a tablet, a laptop) every dot carries its name; on a phone only the current one does.
   const dots = dotItems(r, x, at);
   const steps = r.names.map((nm, i) => { const s = at(i), tag = { done: 'Done', now: 'Now', stop: 'Got this far', next: '' }[s];
-    return `<li class="bl-s-${s}"><span class="bl-sdot">${s === 'done' ? icon('check') : s === 'stop' ? icon('x') : ''}</span><div><p class="bl-sname">${r.html[i]}${tag ? ` <span class="bl-stag">${tag}</span>` : ''}</p><p class="bl-sdesc">${esc(r.desc[i])}</p></div></li>`; }).join('');
+    const t = tag ? ` <span class="bl-stag">${tag}</span>` : '', label = r.steps[i].kind === 'cmte' ? stepNameHtml(r.steps[i].code, { link: true, tag: t }) : r.html[i] + t;
+    return `<li class="bl-s-${s}"><span class="bl-sdot">${s === 'done' ? icon('check') : s === 'stop' ? icon('x') : ''}</span><div><p class="bl-sname">${label}</p><p class="bl-sdesc">${esc(r.desc[i])}</p></div></li>`; }).join('');
   return `<div class="bl-rail${x.stopped ? ' bl-railstop' : x.law ? ' bl-raillaw' : ''}${n > 8 ? ' bl-many' : ''}${n >= 7 ? ' bl-alt' : ''}" style="--n:${n}">
       <ol class="bl-dots bl-n${n}" aria-label="The ${n} steps ${isResolution(b) ? 'to adoption' : 'from bill to law'}">${dots}</ol>
       <p class="bl-nowlbl bl-${align}" style="grid-column:${from} / span ${span}" aria-hidden="true">${r.lead ? `<b>${esc(r.lead)}</b>` : ''}${esc(r.rest)}</p>
@@ -1036,7 +1051,7 @@ function hearingRow(b, h, now) {
     v ? btn(v.state === 'live' ? 'Watch live' : past ? (!v.exact ? 'Find the recording on YouTube' : /[?&]t=\d/.test(v.url) ? 'Watch this bill’s part' : 'Watch the recording') : v.label, { kind: 'text', sm: true, icon: 'play', href: v.url, attrs: { target: '_blank', rel: 'noopener' } }) : '',
   ].filter(Boolean).join('');
   return `<li class="bl-hr${past ? ' bl-past' : ''}"><span class="bl-hico">${icon(past ? 'calendar-days' : 'calendar')}</span><div class="bl-hbody">
-    <p class="bl-htitle">${esc(cap1(cmteWords(h.committee)))}</p>
+    <p class="bl-htitle">${stepNameHtml(h.committee)}</p>
     <p class="bl-hwhen">${esc(dateLong(h.scheduled_at))} at ${esc(timeWord(h.scheduled_at))} · ${esc(roomLabel(h.room))}</p>
     ${due ? `<p class="bl-hdue ${due.tone}">${icon('clock')}<span>${due.html}</span></p>` : ''}
     ${tag || mine ? `<div class="chips">${tag}${mine}</div>` : ''}${acts ? `<div class="btnrow bl-hacts">${acts}</div>` : ''}</div></li>`;
@@ -1063,7 +1078,7 @@ const actChamber = a => /Senate/.test(a?.details || '') ? 'S' : /House/.test(a?.
 const actLine = a => actionWords(a.title || '', actChamber(a));
 // The last action is the newest official action; its row says where it was recorded, else it was where the bill is now.
 const lastWords = b => { const a = billActs(b).find(y => y.title === b.last_action); return actionWords(b.last_action, a ? actChamber(a) : stopOf(b).chamber || ''); };
-function details(b, x) {
+function details(b, x, { last = true } = {}) {
   const comp = companionsOf(b);
   const spons = sponsorText(b);
   const rows = [
@@ -1072,7 +1087,7 @@ function details(b, x) {
     // The committees, in order, are the pathway's own steps since R-081 (See all steps), so they are not repeated here.
     spons ? ['Introduced by', spons] : null,
     // In plain words, committees named (C-15, R-212 #45: "Referred to HHS/EIG, CPN/JDC."); More details links the Capitol's wording.
-    b.last_action ? ['Last official action', `${esc(lastWords(b))}${b.last_action_date ? `<span class="bl-date">${esc(fmtDate(b.last_action_date, { month: 'short', day: 'numeric', year: 'numeric' }))}</span>` : ''}`] : null,
+    b.last_action && last ? ['Last official action', `${esc(lastWords(b))}${b.last_action_date ? `<span class="bl-date">${esc(fmtDate(b.last_action_date, { month: 'short', day: 'numeric', year: 'numeric' }))}</span>` : ''}`] : null,
     comp.length ? [`Companion bill${comp.length > 1 ? 's' : ''}`, `${comp.map(c => `<a href="#/bill/${esc(sameYear(b) + c)}">${esc(spaced(c))}</a>`).join(', ')}<span class="bl-date">The same idea, filed in the ${N[/^S/.test(comp[0]) ? 'S' : 'H']} too. Either one can become law.</span>`] : null,
     // The draft ("House draft 3") is named once, under "Read more about the bill" (R-178, A-14).
   ].filter(Boolean);
@@ -1166,7 +1181,8 @@ function recSteps(b, x, r) {
   const at = stepAt(r, x), rec = recRecord(b, x, r);
   const rows = r.names.map((nm, i) => { const s = at(i), tag = { now: 'Now', stop: 'Got this far' }[s], d = rec[i];
     const say = d.line ? `<span class="bl-rsd${d.warn ? ' bl-w' : ''}">${esc(d.line)}</span>` : s === 'next' && r.steps[i].kind !== 'cmte' ? `<span class="bl-rsd">${esc(r.desc[i])}</span>` : '';
-    const name = `<span class="bl-rsn">${esc(nm)}${tag ? ` <span class="bl-stag">${tag}</span>` : ''}</span>${say}`;
+    const t = tag ? ` <span class="bl-stag">${tag}</span>` : '';
+    const name = `<span class="bl-rsn">${r.steps[i].kind === 'cmte' ? stepNameHtml(r.steps[i].code, { tag: t }) : esc(nm) + t}</span>${say}`;
     const body = d.more ? `<details class="bl-rstep" ${fold(b, 'rstep' + i)}><summary><span>${name}</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary><div class="bl-rx">${d.more}</div></details>` : `<div class="bl-rrow1">${name}</div>`;
     return `<li class="bl-s-${s}"><span class="bl-sdot">${s === 'done' ? icon('check') : s === 'stop' ? icon('x') : ''}</span><div>${body}</div></li>`; }).join('');
   return { html: `<ol class="bl-steplist bl-rsteps">${rows}</ol>`, rec };
@@ -1180,15 +1196,15 @@ const recSay = (b, x, code) => { const t = sayOnce(plainStatus(b).text, code, b)
 // "The Senate Judiciary Committee hears it Tue, Mar 17" is "The committee hears it Tue, Mar 17"; two heard together are
 // "The two committees hear it together Mon, Mar 16". Only this card: plainStatus and stopDetail say the name on every other
 // screen, where nothing above them has named it. Another pair heard together that the sentence names ("The House Energy &
-// Environmental Protection Committee and Agriculture & Food Systems Committee passed it") is said as See all steps says it,
-// "the two House committees (Energy & Environmental Protection, and Agriculture & Food Systems)", so the card names each
-// pair one way (C-15). cmteLabel keeps its sentence form elsewhere: a testimony letter's heading is written with it.
+// Environmental Protection Committee and Agriculture & Food Systems Committee passed it") is said in C-15's sentence form,
+// "the House Energy & Environmental Protection Committee and the Agriculture & Food Systems Committee", as the Capitol's
+// lines under More details say it. cmteLabel keeps its own form elsewhere: a testimony letter's heading is written with it.
 const reEsc = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const theRe = code => new RegExp(`\\b([Tt])he ${reEsc(cmteLabel(code).replace(/^the /, ''))}`, 'g');
 function sayOnce(t, code, b) {
   if (!t) return t;
   for (const c of new Set((b?.referrals || []).filter(c => c !== code && codesOf(c).length > 1)))
-    t = t.replace(theRe(c), (m, T) => `${T}he ${theCmteWords(c, { mid: true })}`);
+    t = t.replace(theRe(c), (m, T) => `${T}he ${theCmteWords(c, { together: false }).replace(/^the /, '')}`);
   if (!code) return t;
   const k = codesOf(code).length, short = k > 1 ? `the ${NUMW[k] || k} committees` : 'the committee', re = theRe(code);
   if (!re.test(t)) return t;
@@ -1201,15 +1217,16 @@ function sayOnce(t, code, b) {
 function recWhere(b, x, { title = 'Where it is now' } = {}) {
   const r = railInfo(b, x), n = r.names.length, s = r.steps[r.idx], C = N[s.ch] || (s.kind === 'gov' || s.kind === 'law' ? '' : N[r.ci <= 2 ? r.o : r.t]);
   // The step line says where it is in plain words, the committee named once, as its steps name it (C-15, A-14, R-212 #45):
-  // "Step 6 of 10" over "In two Senate committees: Water, Land, Culture and the Arts; and Public Safety and Military
-  // Affairs". The chamber is said only when the line under it does not say it already.
-  const cm = s.kind === 'cmte' && !x.law ? s.code : '';
-  const name = x.law ? '' : x.stopped ? r.rest : s.kind === 'cmte' ? `In ${s.the}` : r.rest;
+  // "Step 6 of 10" over "In the Senate Judiciary Committee", or "In two Senate committees, together:" with each committee's
+  // name on its own line. The chamber is said only when the line under it does not say it already.
+  const cm = s.kind === 'cmte' && !x.law ? s.code : '', lead = x.stopped ? 'Got as far as' : 'In';
+  const name = x.law ? '' : cm && (!x.stopped || /^Got as far as /.test(r.rest)) ? stepNameText(cm, lead) : r.rest;
+  const nameHtml = x.law ? '' : cm && (!x.stopped || /^Got as far as /.test(r.rest)) ? stepNameHtml(cm, { lead }) : esc(name);
   const small = x.law ? (isResolution(b) ? 'Adopted' : 'Became law') : x.stopped ? 'Did not advance' : `Step ${r.idx + 1} of ${n}${C && !name.includes(C) ? ` · In the ${C}` : ''}`;
   const steps = recSteps(b, x, r);
   return `<section class="bl-sec bl-rwhere" aria-labelledby="bl-rw-h"><h2 class="bl-rh" id="bl-rw-h">${esc(title)}</h2><div class="card">
     <div class="bl-rail${x.stopped ? ' bl-railstop' : x.law ? ' bl-raillaw' : ''}${n > 8 ? ' bl-many' : ''}" style="--n:${n}"><ol class="bl-dots bl-n${n}" aria-label="The ${n} steps ${isResolution(b) ? 'to adoption' : 'from bill to law'}">${dotItems(r, x)}</ol></div>
-    <p class="bl-rnow"><small>${esc(small)}</small>${name ? esc(name) : ''}</p>
+    <p class="bl-rnow"><small>${esc(small)}</small>${nameHtml}</p>
     ${x.stopped ? `<p class="bl-rsay">${esc(sayOnce(stopDetail(b), cm, b))}</p>${sameLine(b)}` : `<p class="bl-rsay">${x.law ? flower(22) : ''}${esc(recSay(b, x, cm))}</p>`}${stoppedNext(b, x)}
     <details class="bl-steps bl-rall" ${fold(b, 'steps')}><summary><span>See all ${n} steps</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary>${steps.html}
       <p class="bl-learn"><a href="#/learn/session/${esc(b.id)}">${icon('play')}<span>Watch this bill’s trip through the Capitol, about a minute</span></a></p></details></div></section>`;
@@ -1313,11 +1330,13 @@ function recDetails(b, x) {
   const r = railInfo(b, x), versions = ['', ...recRecord(b, x, r).map(d => d.v).filter(Boolean)], acts = billActs(b);
   const grp = (name, title, items) => items.length ? `<details class="bl-rgrp" ${fold(b, 'rd-' + name)}><summary><span>${title}<span class="bl-rct">${items.length}</span></span>${icon('chevron-down', { cls: 'bl-chev' })}</summary><ul class="bl-rlist" role="list">${items.join('')}</ul></details>` : '';
   const item = (t, s, href) => `<li>${href ? `<a href="${esc(href)}" target="_blank" rel="noopener"><span class="bl-rlt">${esc(t)}${icon('external-link', { cls: 'bl-ext' })}</span>` : `<span class="bl-rlt">${esc(t)}</span>`}${s ? `<span class="bl-rls">${esc(s)}</span>` : ''}${href ? '</a>' : ''}</li>`;
-  const facts = details(b, x).replace(/^<details[^>]*><summary>[\s\S]*?<\/summary>/, '').replace(/<\/details>\s*$/, '').replace(/<div class="bl-kv"><dt>Introduced by<\/dt>[\s\S]*?<\/div>/, '');
+  // The last official action is the list's first row, so it has a row of its own only when the list is not drawn (A-14):
+  // the actions load for a followed bill and for one with the conference or the Governor, not for every visitor.
+  const facts = details(b, x, { last: !acts.length }).replace(/^<details[^>]*><summary>[\s\S]*?<\/summary>/, '').replace(/<\/details>\s*$/, '').replace(/<div class="bl-kv"><dt>Introduced by<\/dt>[\s\S]*?<\/div>/, '');
   return facts + `<div class="bl-rgrps">
     ${grp('drafts', 'Drafts of the bill', versions.slice().reverse().map(v => item(v ? draftName(v) : 'As introduced', v === (b.current_version || '') || (!v && !b.current_version) ? 'The current draft, on the Capitol website' : 'On the Capitol website', billTextUrl({ ...b, current_version: v }))))}
     ${grp('actions', 'Every official action', acts.map(a => item(actLine(a), dayShort(a.occurred_at))))}</div>
-    <p class="bl-rorig">The Capitol’s own wording for each action is on the <a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" data-ab-go="capitol">Capitol bill page${icon('external-link', { cls: 'bl-ext' })}</a>.</p>`;
+    <p class="bl-rorig">${acts.length ? 'The Capitol’s own wording for each action is on the' : 'Every official action is on the'} <a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" data-ab-go="capitol">Capitol bill page${icon('external-link', { cls: 'bl-ext' })}</a>.</p>`;
 }
 function recPage(num, b, x) {
   // A newcomer from a link is counted as before (R-023 decision 8); the action card's own words now do the "New here?" card's job.
@@ -1333,7 +1352,8 @@ function recPage(num, b, x) {
   const others = othersBlock(b, { bare: true, noEmails: doCard && RMAIL.includes(x.kind) });
   const folds = recFold('who', 'Who decides next', recWhoPrev(x), recWho(b, x))
     + recFold('about', 'About the bill', `In the Legislature’s words, ${why}${theirs}what each draft changed`, aboutBill(b, { reasons: true, pfx: 'bl-rab', partners: aboutHtml(b) }) + draftsSection(b).replace(/^<details[^>]*><summary>[\s\S]*?<\/summary>/, '<div class="bl-rdrafts"><h3 class="ab-h">What each draft changed</h3>').replace(/<\/details>$/, '</div>'))
-    + recFold('more', 'More details', `Official title, ${companionsOf(b).length ? `companion ${spaced(companionsOf(b)[0])}, ` : ''}every draft and official action`, recDetails(b, x))
+    // "every ... official action" only when the list is there to open (most visitors' pages have only the Capitol's link).
+    + recFold('more', 'More details', `Official title, ${companionsOf(b).length ? `companion ${spaced(companionsOf(b)[0])}, ` : ''}every draft${billActs(b).length ? ' and official action' : ''}`, recDetails(b, x))
     + (others ? recFold('others', 'Others following this bill', 'How people lean and what they have done', others) : '');
   // Where do you stand? (R-303, Nate 19 Oct: back on the calm page) A quiet card after the action, never above it: on a
   // phone under Where it is now, on a wide screen under the action card in the side panel. Only while the bill can move.

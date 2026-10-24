@@ -13,14 +13,14 @@ for b in snap['bills']:
     if b['bill_number'] == 'HB1518': b['referrals'] = ['HSH', 'PBS', 'FIN', 'PSM/HHS', 'JDC', 'WAM']; b['second_stops'] = 3
 BODY = json.dumps(snap)
 # bill, dots, the words under the dots (phone), committee links in See all steps
-# R-212 #45: a step is named as the step line names it, "Senate Judiciary Committee", and committees heard together in C-15's
-# joint form, with how many (HB2049's step is three committees, which "Water, Land, Culture and the Arts with Housing and
-# Hawaiian Affairs" hid); a committee is counted among its chamber's committees, not its steps ("3rd of 4", where it used to
-# say "2nd of 3" with two of the four heard together in one step).
+# R-212 #45: a step is named "Senate Judiciary Committee", and committees heard together in C-15's sentence form, each name
+# ending with "Committee" (HB2049's step is three committees, which "Water, Land, Culture and the Arts with Housing and
+# Hawaiian Affairs" hid); See all steps stacks them, one per line, each linked. A committee is counted among its chamber's
+# committees, not its steps ("3rd of 4", where it used to say "2nd of 3" with two of the four heard together in one step).
 CASES = [
     ('HB1518', 11, 'Now: Senate Judiciary Committee, 3rd of 4 Senate committees', 7),
-    ('HB2049', 10, 'Now: three Senate committees: Water, Land, Culture and the Arts; Housing; and Hawaiian Affairs', 8),
-    ('HB1926', 10, 'Now: two Senate committees: Water, Land, Culture and the Arts; and Public Safety and Military Affairs', 7),
+    ('HB2049', 10, 'Now: Senate Water, Land, Culture and the Arts Committee, the Housing Committee and the Hawaiian Affairs Committee, together', 8),
+    ('HB1926', 10, 'Now: Senate Water, Land, Culture and the Arts Committee and the Public Safety and Military Affairs Committee, together', 7),
     ('HB2148', 7, 'Now: Senate Ways and Means Committee, its only Senate committee', 2),
     ('HB1314', 9, 'Got as far as the House Health Committee', 3),
 ]

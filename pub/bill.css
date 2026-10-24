@@ -518,8 +518,10 @@
 /* Every official action is said in plain words (pub/capitol.js, R-212 #45): sentences, so not bold like a draft's name; the
    Capitol's own wording is one quiet line under them, its link a full 44px target. */
 .bl-rec [data-bl-fold="rd-actions"] .bl-rlt { font-weight: 400; }
-.bl-rec .bl-rorig { margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n700); }
-.bl-rec .bl-rorig a { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: var(--p700); font-weight: 700; }
+.bl-rec .bl-rorig { margin: var(--s12) 0 var(--s4); font-size: var(--t14); color: var(--n700); }
+/* a link in running text (A-6 exempts it from the 44px target), so it stays on the sentence's own line on a phone */
+.bl-rec .bl-rorig a { color: var(--p700); font-weight: 700; }
+.bl-rec .bl-rorig .bl-ext { margin-left: 2px; vertical-align: -2px; }
 /* Where do you stand? (quiet, flat, after the action: under Where it is now on a phone, under the action card on a wide
    screen) and Others following this bill, a fourth closed card (R-303). One filled button per screen stays the action's (A-3). */
 .bl-rec .bl-rstance { padding: var(--s16); }
@@ -536,3 +538,9 @@ body[data-screen="bill"].bl-rec:not(.bl-docked) .actionbar { transform: translat
 /* A partner's link (?via=, R-328 batch D): its welcome line once, above the bill's name (its look is rec.css .pw-welcome). */
 .bl-page > .pw-welcome { margin-top: var(--s16); }
 .bl-page .pw-welcome + .bl-head { margin-top: var(--s16); }
+/* Committees that hear a bill together, stacked (R-212 #45, C-15): "Two House committees, together:" with the step's tag,
+   then each committee's own name on a line of its own, a small dot at its start so a name that wraps (Water, Land, Culture
+   and the Arts at 320px) still reads as one. The step line, See all steps on both pages, a hearing's title. */
+.bl-cmh, .bl-cms, .bl-cm { display: block; }
+.bl-cm { position: relative; padding-left: 14px; margin-top: 2px; }
+.bl-cm::before { content: ''; position: absolute; left: 3px; top: .6em; width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: .6; }

@@ -1,16 +1,19 @@
 // The Capitol's own lines in plain words (R-212 #45; DESIGN C-15, C-10). The bill page's More details showed the Capitol's
 // record word for word: "Referred to HHS/EIG, CPN/JDC.", "The committee on JDC deferred the measure.", a whole roll call.
 // Committee codes are for staff screens and the Capitol's own page (C-15), and "deferred" and "measure" are its jargon
-// (C-10), so the public page says each line through capitolWords(): "Sent to two Senate committees together (Health and
-// Human Services, and Energy and Intergovernmental Affairs), then two more together (Commerce and Consumer Protection, and
-// Judiciary).", "The Senate Judiciary Committee put it on hold." The Capitol's wording stays one tap away, on its bill page.
+// (C-10), so the public page says each line through capitolWords(): "Sent to the Senate Health and Human Services Committee
+// and the Energy and Intergovernmental Affairs Committee, together, then ...", "The Senate Judiciary Committee put it on
+// hold." The Capitol's wording stays one tap away, on its bill page.
 //
 // No imports: the committee list is passed in ({ CODE: { name, chamber } }, the shape of S.committees), so
 // tests/capitol_words_test.mjs runs every real line in the practice data through it in Node.
 //
-// cmteName() is the one way a committee step is named on its own (the step line, a step's name, a hearing's title): one
-// committee is "Senate Judiciary Committee"; two or more heard together are C-15's joint form, "two Senate committees: Health
-// and Human Services, and Commerce and Consumer Protection". core.js cmteWords() is the same with S.committees.
+// Committees are named two ways, and only two (C-15). Inside a sentence each name ends with "Committee", so a name with its
+// own "and" never runs into the next: "the House Health Committee and the Human Services & Homelessness Committee, together"
+// (theCmteName). Where a step is named on its own (the step line, See all steps), committees heard together are stacked,
+// one per line, under "two House committees, together" (cmteStack). The critic's case: HB1853's steps said "Two House
+// committees: Health, and Human Services & Homelessness" a few rows above "Senate Health and Human Services Committee", a
+// comma apart; 94 of the practice data's 97 pairs have an "and" or "&" inside a name.
 
 const CH = { H: 'House', S: 'Senate' };
 const NUM = ['no', 'one', 'two', 'three', 'four', 'five', 'six'];
@@ -20,15 +23,6 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 export const codesOf = code => String(code || '').split('/').map(c => c.trim()).filter(Boolean);
 
-// Names in a list, kept apart when a name has its own "and", "&" or commas: "Health, and Finance" would not need it, so
-// two plain names are "Health and Finance"; "Health and Human Services, and Commerce and Consumer Protection"; with a name
-// like "Water, Land, Culture and the Arts" the names are kept apart with semicolons.
-export function nameList(ns) {
-  if (ns.length < 2) return ns[0] || '';
-  const comma = ns.some(n => /,/.test(n)), and = ns.some(n => /\s(?:and|&)\s/.test(n));
-  const last = comma ? '; and ' : ns.length > 2 || and ? ', and ' : ' and ';
-  return ns.slice(0, -1).join(comma ? '; ' : ', ') + last + ns[ns.length - 1];
-}
 // Three 2025 Senate committees that the 2026 list no longer has (the Senate reorganized: Transportation and Culture and the
 // Arts became Transportation, and Water, Land, Culture and the Arts; Higher Education joined Education). Bills from 2025 and
 // their Capitol lines still name them, so they are named here rather than shown as codes (R-212 #45, C-15).
@@ -37,22 +31,30 @@ export const RETIRED = { TCA: { code: 'TCA', chamber: 'S', name: 'Transportation
 // A committee from the list, else a retired one; any other code is "the XYZ committee" (as cmteLabel says it).
 export const cmteInfo = (k, cm) => (cm && cm[k] && cm[k].name ? cm[k] : null) || RETIRED[k] || null;
 const known = cmteInfo;
-const oneName = (k, cm) => { const c = known(k, cm); return c ? `${CH[c.chamber] ? CH[c.chamber] + ' ' : ''}${c.name} Committee` : `the ${k} committee`; };
 const chamberOf = (ks, cm) => CH[(ks.map(k => known(k, cm)).find(Boolean) || {}).chamber] || '';
+// One committee in a sentence: "the Senate Judiciary Committee"; without its chamber, "the Judiciary Committee".
+const oneThe = (k, cm, chamber = true) => { const c = known(k, cm); return c ? `the ${chamber && CH[c.chamber] ? CH[c.chamber] + ' ' : ''}${c.name} Committee` : `the ${k} committee`; };
 
-// One committee step, named on its own (C-15). end: the joint form with its colon ("two Senate committees: A, and B"),
-// for a name that ends its line; mid: in brackets ("two Senate committees (A, and B)"), for one inside a sentence. link(code,
-// text) wraps each committee's own name (the bill page links each to its committee page; it escapes the text itself).
-export function cmteName(code, cm, { mid = false, link = null, together = false } = {}) {
-  const ks = codesOf(code), w = (k, t) => link ? link(k, t) : t;
-  if (!ks.length) return 'a committee';
-  if (ks.length === 1) return w(ks[0], oneName(ks[0], cm));
-  const ch = chamberOf(ks, cm), names = nameList(ks.map(k => w(k, known(k, cm) ? known(k, cm).name : `the ${k} committee`)));
-  const head = `${NUM[ks.length] || ks.length} ${ch ? ch + ' ' : ''}committees${together ? ' together' : ''}`;
-  return mid ? `${head} (${names})` : `${head}: ${names}`;
+// A committee step inside a sentence: "the Senate Judiciary Committee"; heard together, "the House Health Committee and the
+// Human Services & Homelessness Committee, together" (the chamber said once when they share one; together: false for a
+// subject, "... Committee put it on hold"). chamber: false leaves the chamber out ("then the Finance Committee").
+export function theCmteName(code, cm, { together = true, chamber = true } = {}) {
+  const ks = codesOf(code); if (!ks.length) return 'a committee';
+  const one = new Set(ks.map(k => (known(k, cm) || {}).chamber).filter(Boolean)).size <= 1;
+  const each = ks.map((k, i) => oneThe(k, cm, chamber && (i === 0 || !one)));
+  if (each.length === 1) return each[0];
+  return `${each.slice(0, -1).join(', ')} and ${each[each.length - 1]}${together ? ', together' : ''}`;
 }
-// The same with "the" where one committee is named: "the Senate Judiciary Committee", "two Senate committees: ...".
-export const theCmteName = (code, cm, o) => { const s = cmteName(code, cm, o); return /^(the|a|two|three|four|five|six|\d+) /i.test(s) || codesOf(code).length > 1 ? s : `the ${s}`; };
+// The same standing alone, without the "the": "Senate Judiciary Committee" (a step's name for a screen reader, the dots).
+export const cmteName = (code, cm, o) => { const s = theCmteName(code, cm, o); return known(codesOf(code)[0], cm) ? s.replace(/^the /, '') : s; };
+// Committees heard together, stacked where a step is named on its own: the head, "two Senate committees, together", then
+// each committee's own name on a line of its own. null for one committee.
+export function cmteStack(code, cm) {
+  const ks = codesOf(code); if (ks.length < 2) return null;
+  const ch = chamberOf(ks, cm);
+  return { head: `${NUM[ks.length] || ks.length} ${ch ? ch + ' ' : ''}committees, together`,
+    names: ks.map(k => ({ code: k, name: known(k, cm) ? known(k, cm).name : `the ${k} committee`, known: !!known(k, cm) })) };
+}
 
 // ---------- pieces of a Capitol line ----------
 const CODE = '[A-Z]{2,4}', STOP = `${CODE}(?:\\s*/\\s*${CODE})*`, STOPS = `${STOP}(?:\\s*,\\s*${STOP})*`;
@@ -72,6 +74,8 @@ function roomOf(s) {
 // A draft the line names: "(SD 1)", "as amended in HD 2" -> "House draft 2"
 const draftOf = s => { const m = /\b(HD|SD|CD|FD)\s*(\d+)\b/.exec(s); return m ? `${DRAFT[m[1]]} ${m[2]}` : ''; };
 const changes = s => /amended|amendments/i.test(s) ? (draftOf(s) ? ` with changes (${draftOf(s)})` : ' with changes') : '';
+// The draft a full chamber's vote moved on, in brackets: " (House draft 1)"; ", with changes" when the line names none.
+const asDraft = s => /amended|amendments/i.test(s) ? (draftOf(s) ? ` (${draftOf(s)})` : ', with changes') : '';
 // Which chamber acted, from the line itself: who voted, where it was sent, the draft it made; else the caller's hint
 // (an activity row's "Official action - Senate").
 function actedIn(s, cm, hint) {
@@ -100,35 +104,42 @@ function cmteVotes(s) {
   const n = /(\d+)\s+No(?:es|\(es\))\s*:/i.exec(s), none = /No(?:es|\(es\))\s*:\s*none/i.test(s);
   return ` (${y[1]} yes${n ? `, ${n[1]} no` : none ? ', 0 no' : ''})`;
 }
-// "The Senate Judiciary Committee put it on hold." and, for committees heard together, "Two Senate committees (Health and
-// Human Services, and Commerce and Consumer Protection) put it on hold." The verb may use {its}, said "their" for two.
+// "The Senate Judiciary Committee put it on hold."; heard together, "The Senate Health and Human Services Committee and the
+// Commerce and Consumer Protection Committee put it on hold." The verb may use {its}, said "their" for two.
 function says(code, cm, verb) {
   const two = codesOf(code).length > 1, v = verb.replace(/\{its\}/g, two ? 'their' : 'its');
-  return `${cap(theCmteName(code, cm, { mid: true }))} ${v}.`;
+  return `${cap(theCmteName(code, cm, { together: false }))} ${v}.`;
 }
-// Where it was sent, stop by stop ("Referred to HHS/EIG, CPN/JDC"): committees one after another, or heard together.
+// Where it was sent, stop by stop ("Referred to HHS/EIG, CPN/JDC"), each name ending with "Committee" and the chamber said
+// once: "Sent to the House Health Committee, then the Consumer Protection & Commerce Committee, then the Finance Committee."
 function sentTo(lead, stops, cm) {
   const list = stops.split(',').map(x => x.trim()).filter(Boolean);
   if (!list.length) return '';
-  const joint = list.some(x => codesOf(x).length > 1), ch = chamberOf(list.flatMap(codesOf), cm);
-  // one after another, none heard together: "Sent to three House committees, one after another: Health, Consumer
-  // Protection & Commerce, and Finance."
-  if (!joint) {
-    if (list.length === 1) return `${lead} ${theCmteName(list[0], cm)}.`;
-    if (list.every(k => known(k, cm))) return `${lead} ${NUM[list.length] || list.length} ${ch ? ch + ' ' : ''}committees, one after another: ${nameList(list.map(k => known(k, cm).name))}.`;
-    return `${lead} ${list.map(k => theCmteName(k, cm)).join(', then ')}.`;
-  }
-  if (list.length === 1) return `${lead} ${cmteName(list[0], cm, { together: true })}.`;
-  // two or more stops, at least one heard together: "Sent to two Senate committees together (A, and B), then two more
-  // together (C, and D)." Later stops leave out the chamber the first one named.
-  const later = x => { const ks = codesOf(x);
-    if (ks.length === 1) return known(ks[0], cm) ? `the ${known(ks[0], cm).name} Committee` : `the ${ks[0]} committee`;
-    return `${NUM[ks.length] || ks.length} more together (${nameList(ks.map(k => known(k, cm) ? known(k, cm).name : `the ${k} committee`))})`; };
-  return `${lead} ${theCmteName(list[0], cm, { mid: true, together: true })}${list.slice(1).map(x => `, then ${later(x)}`).join('')}.`;
+  return `${lead} ${list.map((x, i) => theCmteName(x, cm, { chamber: i === 0 })).join(', then ')}.`;
 }
+// Where it goes next, at the end of a sentence: "the Senate Ways and Means Committee", "the Senate Commerce and Consumer
+// Protection Committee and the Ways and Means Committee, together".
+const next = (stop, cm) => theCmteName(stop, cm);
 
-// Where it goes next, at the end of a sentence: "the Senate Ways and Means Committee", "two Senate committees together: A, and B".
-const next = (stop, cm) => theCmteName(stop, cm, { together: codesOf(stop).length > 1 });
+// Where a line falls in its day. The Capitol stamps each action with its date only, so the same day's "Received from House",
+// "Passed First Reading" and "Referred to ..." came out in any order (the critic on R-212 #45). In a bill's day they go:
+// arrived, first reading, sent to its committees, a hearing set, the committee's vote, its report, the full chamber's vote,
+// sent on to the other chamber, the Governor, the law. The bill page breaks same-day ties with it, newest first.
+export function actionRank(t) {
+  const s = String(t || '');
+  if (/^act \d|became law|^vetoed|intent to veto|veto overridden/i.test(s)) return 9;
+  if (/^(enrolled|transmitted|presented) to (the )?governor/i.test(s)) return 8;
+  if (/conferee|disagrees|agrees with|conference committee|final reading/i.test(s)) return 6;
+  if (/^(pending introduction|pre-?filed|carried over|received from (house|senate)|returned from|introduced\.?$)/i.test(s)) return 0;
+  if (/first reading/i.test(s)) return 1;
+  if (/^(re-?referred|referred|recommitted) to/i.test(s)) return 2;
+  if (/scheduled|notice|decision making|deleted the measure|added the measure|rescheduled|reconsider|cancell?ed|waived/i.test(s)) return 3;
+  if (/^reported from|^report filed|separated committee report/i.test(s)) return 5;
+  if (/recommend|deferred the measure/i.test(s)) return 4;
+  if (/transmitted to (house|senate)/i.test(s)) return 7;
+  if (/reading|report adopted|report and resolution|floor amendment|recommendation was not adopted|adopted/i.test(s)) return 6;
+  return 4;
+}
 
 // ---------- the lines ----------
 // Each is [pattern, (match, line, committees, chamber hint) => plain words]. The first that matches says the line.
@@ -170,32 +181,32 @@ const RULES = [
   [new RegExp(`^(Re-?referred|Referred|Recommitted) to\\s+(${STOPS})(?:\\s*,\\s*referral sheet \\d+)?\\b`, 'i'), (m, s, cm) =>
     sentTo(/^re-?ref/i.test(m[1]) ? 'Sent instead to' : /^recom/i.test(m[1]) ? 'Sent back to' : 'Sent to', m[2], cm)],
   // A committee's written report to the full chamber ("Reported from LAB (Stand. Com. Rep. No. 10) as amended in HD 1,
-  // recommending passage on Second Reading and referral to CPC."): it passed the committee, and where it goes next.
-  [new RegExp(`^Reported from\\s+(${STOP})\\s*(.*)$`, 'i'), (m, s, cm) => {
-    const rest = m[2], ref = new RegExp(`referral to\\s+(${STOP})`, 'i').exec(rest), c = known(codesOf(m[1])[0], cm);
-    if (ref) return `${says(m[1], cm, `passed it${changes(rest)}`)} Then it goes to ${next(ref[1], cm)}.`;
-    return says(m[1], cm, `passed it${changes(rest)} and sent {its} report to ${full(c && c.chamber)}${/Third Reading/i.test(rest) ? ' for its final vote' : ''}`);
-  }],
-  // The full chamber's votes. Second reading is a vote of the full chamber; third reading is the vote that passes it.
+  // recommending passage on Second Reading and referral to CPC."). Where it goes next is said once, by the full chamber's
+  // vote that follows it the same day (the critic: each step was said twice).
+  [new RegExp(`^Reported from\\s+(${STOP})\\s*(.*)$`, 'i'), (m, s, cm) => says(m[1], cm, `filed {its} report: pass it${changes(m[2])}`)],
+  // The full chamber's votes. Second reading moves a bill on ("agreed to move it on"); only third reading passes it ("Passed
+  // the House."): "Passed a vote of the full House" was read as "Passed the House" (the critic, R-212 #45).
   // "Report adopted;" before one of them says nothing more than the vote does.
-  [/^Report (?:and Resolution )?Adopted\.?$/i, (m, s, cm, hint) => `${cap(full(hint))} accepted the committee’s report.`],
+  [/^Report (and Resolution )?Adopted\.?$/i, (m, s, cm, hint) => `${cap(full(hint))} agreed with the committee${m[1] ? ' and adopted it' : ''}.`],
   [/^Report adopted\s*[;,]\s*(Passed (?:Second|Third) Reading.*)$/i, (m, s, cm, hint) => plainLine(m[1], cm, actedIn(s, cm, hint))],
   [/^Report adopted\s*[;,]\s*(.*)$/i, (m, s, cm, hint) => {
     const rest = m[1], ch = actedIn(s, cm, hint), ref = new RegExp(`(?:referred|recommitted) to\\s+(?:the committee\\(s\\) on\\s+)?(${STOP})`, 'i').exec(rest);
     const back = /recommitted/i.test(rest);
-    return `${cap(full(ch))} voted to accept the committee’s report${changes(rest)}.${floorVotes(s)}${ref ? ` ${back ? 'It goes back' : 'Then it goes'} to ${next(ref[1], cm)}.` : ''}`;
+    return `${cap(full(ch))} agreed with the committee${asDraft(rest)}.${floorVotes(s)}${ref ? (back ? ` It goes back to ${next(ref[1], cm)}.` : ` Next: ${next(ref[1], cm)}.`) : ''}`;
   }],
   [/^Passed Second Reading(.*)$/i, (m, s, cm, hint) => {
     const ref = new RegExp(`referred to\\s+(?:the committee\\(s\\) on\\s+)?(${STOP})`, 'i').exec(m[1]);
-    return `Passed a vote of ${full(actedIn(s, cm, hint))}${changes(m[1])}.${floorVotes(s)}`
-      + (ref ? ` Then it goes to ${next(ref[1], cm)}.` : /calendar for Third Reading/i.test(m[1]) ? ' Its final vote comes next.' : '');
+    return `${cap(full(actedIn(s, cm, hint)))} agreed to move it on${asDraft(m[1])}.${floorVotes(s)}`
+      + (ref ? ` Next: ${next(ref[1], cm)}.` : /calendar for Third Reading/i.test(m[1]) ? ' Next: its final vote.' : '');
   }],
   [/^Passed Third Reading(.*)$/i, (m, s, cm, hint) => { const ch = actedIn(s, cm, hint), to = /Transmitted to (House|Senate)/i.exec(s);
     return `Passed the ${CH[ch] || 'House or Senate'}${changes(m[1])}.${floorVotes(s)}${to ? ` Sent to the ${cap(to[1].toLowerCase())}.` : ''}`; }],
   [/^Failed to pass Third Reading(.*)$/i, (m, s, cm, hint) => `Did not pass ${full(actedIn(s, cm, hint))}.${floorVotes(s)}`],
   [/^Passed Final Reading(.*)$/i, (m, s, cm, hint) => `${cap(full(actedIn(s, cm, hint)))} passed the final version${changes(m[1]).replace(' with changes', '')}.${floorVotes(s)}`],
   [/^Received notice of passage on Final Reading in (House|Senate)/i, m => `The ${cap(m[1].toLowerCase())} passed the final version.`],
-  [/^(?:Introduced and )?Pass(?:ed)? First Reading\.?$/i, (m, s) => /^Introduced/i.test(s) ? 'Introduced and read for the first time.' : 'Read for the first time.'],
+  // First reading is a formality: the chamber takes the bill up.
+  [/^(?:Introduced and )?Pass(?:ed)? First Reading\.?$/i, (m, s, cm, hint) => /^Introduced/i.test(s) ? 'Introduced and formally taken up (its first reading).'
+    : CH[hint] ? `The ${CH[hint]} formally took it up (its first reading).` : 'Formally taken up (its first reading).'],
   [/^Introduced\.?$/i, () => 'Introduced.'],
   [/^Pending introduction\.?$/i, () => 'Waiting to be introduced.'],
   [/^Pre-?filed\.?$/i, () => 'Filed before the session began.'],
@@ -248,8 +259,8 @@ const RULES = [
 function fallback(s, cm) {
   let t = s.replace(/\s*\((?:Stand\. Com\. Rep\.|Hse\. Com\.|Sen\. Com\.|Gov\. Msg\.|Conf\. Com\. Rep\.)[^)]*\)/gi, '')
     .replace(/,?\s*referral sheet \d+/gi, '')
-    .replace(new RegExp(`\\bthe committee(?:\\(s\\))? on\\s+(${STOP})`, 'gi'), (x, c) => codesOf(c).every(k => known(k, cm)) ? theCmteName(c, cm, { mid: true }) : x)
-    .replace(new RegExp(`\\b(${STOP})\\b`, 'g'), (x, c) => codesOf(c).every(k => known(k, cm)) ? theCmteName(c, cm, { mid: true }) : x)
+    .replace(new RegExp(`\\bthe committee(?:\\(s\\))? on\\s+(${STOP})`, 'gi'), (x, c) => codesOf(c).every(k => known(k, cm)) ? theCmteName(c, cm, { together: false }) : x)
+    .replace(new RegExp(`\\b(${STOP})\\b`, 'g'), (x, c) => codesOf(c).every(k => known(k, cm)) ? theCmteName(c, cm, { together: false }) : x)
     .replace(/\b(HD|SD|CD|FD)\s*(\d+)\b/g, (x, d, n) => `${DRAFT[d]} ${n}`)
     .replace(/\b[A-Z]{2,}(?:[ ,]+[A-Z]{2,})*\b/g, w => /^(HD|SD|CD|FD)$/.test(w) || codesOf(w).every(k => known(k, cm)) && !/\s/.test(w) ? w : w.toLowerCase())
     .replace(/\bthe measure\b/gi, 'the bill').replace(/\bmeasure\b/gi, 'bill').replace(/\bdeferred\b/gi, 'put on hold')

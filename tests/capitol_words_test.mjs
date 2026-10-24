@@ -3,12 +3,14 @@
 // and never the Capitol's jargon ("deferred", "measure", "recommend(s)"). This runs every real line in the practice data
 // (demo/snapshot.json: each bill's actions and last action, about 2,500 different lines) and the live tracker's lines the
 // practice data has no copy of (the Governor's, a veto, a hold, conference notices) through it, and checks about twenty
-// typical ones word for word, with the step names (cmteName) the step line uses.
+// typical ones word for word, with the two ways a committee step is named (C-15): inside a sentence each name ends with
+// "Committee" (theCmteName), and on its own committees heard together are stacked one per line (cmteStack). Also the day
+// order of actions the Capitol dates without a time (actionRank).
 // Run: node tests/capitol_words_test.mjs  (also one of tools/quick_checks.mjs)
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { capitolWords, cmteName, theCmteName, RETIRED } from '../pub/capitol.js';
+import { capitolWords, cmteName, theCmteName, cmteStack, actionRank, RETIRED } from '../pub/capitol.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const snap = JSON.parse(fs.readFileSync(path.join(ROOT, 'demo', 'snapshot.json'), 'utf8'));
@@ -67,24 +69,28 @@ checked += lines.length - 1;
 
 // 2. Typical lines, word for word.
 const SAME = [
-  ['Referred to HHS/EIG, CPN/JDC.', 'Sent to two Senate committees together (Health and Human Services, and Energy and Intergovernmental Affairs), then two more together (Commerce and Consumer Protection, and Judiciary).'],
+  // R-212 #45, the critic: each name ends with "Committee", so "Health and Human Services" never runs into the next name.
+  ['Referred to HHS/EIG, CPN/JDC.', 'Sent to the Senate Health and Human Services Committee and the Energy and Intergovernmental Affairs Committee, together, then the Commerce and Consumer Protection Committee and the Judiciary Committee, together.'],
   ['The committee on JDC deferred the measure.', 'The Senate Judiciary Committee put it on hold.'],
-  ['Referred to ECD, CPC, FIN, referral sheet 2', 'Sent to three House committees, one after another: Economic Development & Technology, Consumer Protection & Commerce, and Finance.'],
+  ['Referred to ECD, CPC, FIN, referral sheet 2', 'Sent to the House Economic Development & Technology Committee, then the Consumer Protection & Commerce Committee, then the Finance Committee.'],
   ['Referred to CPN.', 'Sent to the Senate Commerce and Consumer Protection Committee.'],
-  ['Re-Referred to EIG, CPN/WAM.', 'Sent instead to the Senate Energy and Intergovernmental Affairs Committee, then two more together (Commerce and Consumer Protection, and Ways and Means).'],
-  ['Recommitted to JHA/AGR with Representative(s) Amato, Belatti, Cochran, Iwamoto, Perruso, Souza voting no and Representative(s) Ward excused.', 'Sent back to two House committees together: Judiciary & Hawaiian Affairs, and Agriculture & Food Systems.'],
-  ['The committee(s) on WLA/PSM has scheduled a public hearing on 03-16-26 3:01PM; Conference Room 016 & Videoconference.', 'Two Senate committees (Water, Land, Culture and the Arts; and Public Safety and Military Affairs) set a hearing for Mon, Mar 16 at 3:01 PM in Room 016 and online.'],
+  ['Re-Referred to EIG, CPN/WAM.', 'Sent instead to the Senate Energy and Intergovernmental Affairs Committee, then the Commerce and Consumer Protection Committee and the Ways and Means Committee, together.'],
+  ['Recommitted to JHA/AGR with Representative(s) Amato, Belatti, Cochran, Iwamoto, Perruso, Souza voting no and Representative(s) Ward excused.', 'Sent back to the House Judiciary & Hawaiian Affairs Committee and the Agriculture & Food Systems Committee, together.'],
+  ['The committee(s) on WLA/PSM has scheduled a public hearing on 03-16-26 3:01PM; Conference Room 016 & Videoconference.', 'The Senate Water, Land, Culture and the Arts Committee and the Public Safety and Military Affairs Committee set a hearing for Mon, Mar 16 at 3:01 PM in Room 016 and online.'],
   ['Bill scheduled to be heard by HLT on Wednesday, 01-29-25 10:00AM in House conference room 329 VIA VIDEOCONFERENCE.', 'The House Health Committee set a hearing for Wed, Jan 29 at 10:00 AM in Room 329 and online.'],
   ['The committee(s) on WAM will hold a public decision making on 02-12-25 10:01AM; Conference Room 211 & Videoconference.', 'The Senate Ways and Means Committee set a vote on it for Wed, Feb 12 at 10:01 AM in Room 211 and online.'],
   ['The committee on EDN recommend that the measure be PASSED, WITH AMENDMENTS. The votes were as follows: 11 Ayes: Representative(s) Woodson, La Chica, Amato, Evslin, Garrett, Kapela, Kila, Olds, Sayama, Muraoka, Souza; Ayes with reservations: none;  Noes: none; and  Excused: none.', 'The House Education Committee voted to pass it with changes (11 yes, 0 no).'],
   [LIVE[7], 'The Senate Public Safety and Military Affairs Committee voted to put it on hold (3 yes, 0 no).'],
   ['The committee(s) on HHS deferred the measure until 01-29-25 1:00PM; Conference Room 225 & Videoconference.', 'The Senate Health and Human Services Committee put it on hold until Wed, Jan 29 at 1:00 PM.'],
-  ['Reported from LAB (Stand. Com. Rep. No. 10) as amended in HD 1, recommending passage on Second Reading and referral to CPC.', 'The House Labor Committee passed it with changes (House draft 1). Then it goes to the House Consumer Protection & Commerce Committee.'],
-  ['Passed Second Reading as amended in HD 1 and referred to the committee(s) on CPC with none voting aye with reservations; Representative(s) Pierick voting no (1) and Representative(s) Cochran, Ward excused (2).', 'Passed a vote of the full House with changes (House draft 1). One member voted no. Then it goes to the House Consumer Protection & Commerce Committee.'],
-  ['Report adopted; Passed Second Reading, as amended (SD 1) and referred to WAM.', 'Passed a vote of the full Senate with changes (Senate draft 1). Then it goes to the Senate Ways and Means Committee.'],
+  // The report says only what the committee asks; where it goes next is said once, by the full chamber's vote after it.
+  ['Reported from LAB (Stand. Com. Rep. No. 10) as amended in HD 1, recommending passage on Second Reading and referral to CPC.', 'The House Labor Committee filed its report: pass it with changes (House draft 1).'],
+  // Second reading moves it on; only third reading "passed the House" (the critic: "Passed a vote of the full House" read as passed).
+  ['Passed Second Reading as amended in HD 1 and referred to the committee(s) on CPC with none voting aye with reservations; Representative(s) Pierick voting no (1) and Representative(s) Cochran, Ward excused (2).', 'The full House agreed to move it on (House draft 1). One member voted no. Next: the House Consumer Protection & Commerce Committee.'],
+  ['Report adopted; Passed Second Reading, as amended (SD 1) and referred to WAM.', 'The full Senate agreed to move it on (Senate draft 1). Next: the Senate Ways and Means Committee.'],
+  ['Report adopted; referred to the committee(s) on FIN with none voting aye with reservations; none voting no (0) and Representative(s) Cochran, Ward excused (2).', 'The full House agreed with the committee. No one voted no. Next: the House Finance Committee.'],
   ['Report Adopted; Passed Third Reading, as amended (SD 1).  Ayes, 22; Aye(s) with reservations: none.  Noes, 0 (none).  Excused, 3 (Senator(s) Gabbard, Kouchi, Richards).  Transmitted to House.', 'Passed the Senate with changes (Senate draft 1). The vote: 22 yes, 0 no. Sent to the House.'],
   ['Received from House (Hse. Com. No. 136).', 'Arrived in the Senate from the House.'],
-  ['Introduced and Pass First Reading.', 'Introduced and read for the first time.'],
+  ['Introduced and Pass First Reading.', 'Introduced and formally taken up (its first reading).'],
   ['Carried over to 2026 Regular Session.', 'Carried over to the 2026 session.'],
   ['Enrolled to Governor.', 'Sent to the Governor.'],
   ['Act 189, on 07/07/2026 (Gov. Msg. No. 1291).', 'Became law as Act 189 on Jul 7, 2026.'],
@@ -98,30 +104,59 @@ for (const [t, want] of SAME) {
   const got = capitolWords(t, CM);
   ok(got === want, `${JSON.stringify(t.slice(0, 90))}\n     want ${JSON.stringify(want)}\n     got  ${JSON.stringify(got)}`);
 }
-// "Passed Third Reading." alone does not say where: the activity row's chamber does ("Official action - Senate").
-ok(capitolWords('Report adopted; Passed Second Reading.', CM, { chamber: 'H' }) === 'Passed a vote of the full House.', 'a line that does not say its chamber takes the row\'s');
+// A line that does not say where it happened takes the activity row's chamber ("Official action - Senate").
+ok(capitolWords('Report adopted; Passed Second Reading.', CM, { chamber: 'H' }) === 'The full House agreed to move it on.', 'a line that does not say its chamber takes the row\'s');
+ok(capitolWords('Passed First Reading.', CM, { chamber: 'S' }) === 'The Senate formally took it up (its first reading).', `a bare first reading: ${capitolWords('Passed First Reading.', CM, { chamber: 'S' })}`);
+// "Passed" is said only for the vote that passes a chamber (third reading), never for second reading or a report.
+const passedWrong = lines.filter(t => /^(Report adopted[;,] )?(Passed Second Reading|referred)/i.test(t)).map(t => capitolWords(t, CM)).filter(o => /^Passed|passed a vote/i.test(o));
+ok(!passedWrong.length, `second reading never says "Passed": ${passedWrong.slice(0, 3).join(' | ')}`);
+// A committee's report never says where it goes next (the vote after it does).
+const reportNext = lines.filter(t => /^Reported from/i.test(t)).map(t => capitolWords(t, CM)).filter(o => /Next:|Then it goes/.test(o));
+ok(!reportNext.length, `a report does not say where it goes next: ${reportNext.slice(0, 2).join(' | ')}`);
 // A line no rule knows keeps its own words, with its committee named and its capitals in normal case (not a real line: no
 // real line is left to the fallback today).
-ok(capitolWords('The committee(s) on HHS/CPN ADVANCED the measure TODAY.', CM) === 'Two Senate committees (Health and Human Services, and Commerce and Consumer Protection) advanced the bill today.',
+ok(capitolWords('The committee(s) on HHS/CPN ADVANCED the measure TODAY.', CM) === 'The Senate Health and Human Services Committee and the Commerce and Consumer Protection Committee advanced the bill today.',
   `the fallback: ${capitolWords('The committee(s) on HHS/CPN ADVANCED the measure TODAY.', CM)}`);
 
-// 3. A committee step's name, as the step line and See all steps say it (C-15's joint form).
+// 3. A committee step's name (C-15). In a sentence each name ends with "Committee" and the chamber is said once; on its own,
+// committees heard together are a head and one name per line. "Health, and Human Services & Homelessness" (the old joint
+// form) was a comma away from the Senate's Health and Human Services Committee.
 const NAMES = [
-  ['JDC', 'Senate Judiciary Committee'],
-  ['HLT', 'House Health Committee'],
-  ['HHS/CPN', 'two Senate committees: Health and Human Services, and Commerce and Consumer Protection'],   // C-15's own example
-  ['WLA/PSM', 'two Senate committees: Water, Land, Culture and the Arts; and Public Safety and Military Affairs'],
-  ['HLT/HSH', 'two House committees: Health, and Human Services & Homelessness'],
-  ['JHA/LAB', 'two House committees: Judiciary & Hawaiian Affairs, and Labor'],
-  ['AEN/HHS/EDT', 'three Senate committees: Agriculture and Environment, Health and Human Services, and Economic Development and Tourism'],
-  ['WTL', 'Senate Water and Land Committee'],
+  ['JDC', 'the Senate Judiciary Committee'],
+  ['HLT', 'the House Health Committee'],
+  ['HHS/CPN', 'the Senate Health and Human Services Committee and the Commerce and Consumer Protection Committee, together'],   // C-15's own example
+  ['HLT/HSH', 'the House Health Committee and the Human Services & Homelessness Committee, together'],
+  ['WLA/PSM', 'the Senate Water, Land, Culture and the Arts Committee and the Public Safety and Military Affairs Committee, together'],
+  ['AEN/HHS/EDT', 'the Senate Agriculture and Environment Committee, the Health and Human Services Committee and the Economic Development and Tourism Committee, together'],
+  ['WTL', 'the Senate Water and Land Committee'],
   ['ZZZ', 'the ZZZ committee'],
 ];
-for (const [code, want] of NAMES) ok(cmteName(code, CM) === want, `cmteName(${code}): want ${JSON.stringify(want)}, got ${JSON.stringify(cmteName(code, CM))}`);
-ok(theCmteName('JDC', CM) === 'the Senate Judiciary Committee' && theCmteName('HHS/CPN', CM).startsWith('two Senate committees: '), 'theCmteName adds "the" to one committee only');
-ok(cmteName('HHS/CPN', CM, { mid: true }) === 'two Senate committees (Health and Human Services, and Commerce and Consumer Protection)', 'inside a sentence, the names go in brackets');
-ok(cmteName('HHS/CPN', CM, { link: (k, t) => `<a href="#/committee/${k}">${t}</a>` }) === 'two Senate committees: <a href="#/committee/HHS">Health and Human Services</a>, and <a href="#/committee/CPN">Commerce and Consumer Protection</a>', 'each committee can be linked to its page');
+for (const [code, want] of NAMES) ok(theCmteName(code, CM) === want, `theCmteName(${code}): want ${JSON.stringify(want)}, got ${JSON.stringify(theCmteName(code, CM))}`);
+ok(cmteName('JDC', CM) === 'Senate Judiciary Committee' && theCmteName('HLT/HSH', CM, { together: false }) === 'the House Health Committee and the Human Services & Homelessness Committee',
+  'standing alone it drops "the"; as a subject it drops ", together"');
+ok(theCmteName('CPN/WAM', CM, { chamber: false }) === 'the Commerce and Consumer Protection Committee and the Ways and Means Committee, together', 'a later stop leaves its chamber out');
+const st = cmteStack('HLT/HSH', CM);
+ok(st && st.head === 'two House committees, together' && st.names.map(n => n.name).join('|') === 'Health|Human Services & Homelessness' && st.names.every(n => n.code && n.known),
+  `stacked: a head and one name per line (${JSON.stringify(st)})`);
+ok(cmteStack('JDC', CM) === null && cmteStack('AEN/HHS/EDT', CM).head === 'three Senate committees, together', 'one committee is not stacked; three are');
+// Every joint referral in the practice data reads apart in both forms: no name runs into the next.
+const joints = [...new Set(snap.bills.flatMap(b => b.referrals || []).filter(r => r.includes('/')))];
+const runOn = joints.filter(c => !new RegExp(`^the (House|Senate) .+ Committee( and the .+ Committee|, the .+ Committee)+, together$`).test(theCmteName(c, CM)) || cmteStack(c, CM).names.length !== c.split('/').length);
+ok(joints.length > 50 && !runOn.length, `all ${joints.length} joint referrals are said apart (${runOn.slice(0, 3)})`);
+
+// 4. A day's actions in the order they happen (the Capitol dates them without a time): arrived, first reading, sent to
+// committees, hearing set, the committee's vote, its report, the full chamber's vote, sent on, the Governor.
+const DAY = ['Received from House (Hse. Com. No. 168).', 'Passed First Reading.', 'Referred to WLA/PSM, WAM/JDC.',
+  'The committee(s) on WLA/PSM has scheduled a public hearing on 03-16-26 3:01PM; Conference Room 016 & Videoconference.',
+  'The committee on FIN recommend that the measure be PASSED, UNAMENDED. The votes were as follows: 16 Ayes: Representative(s) Todd; Noes: none.',
+  'Reported from FIN (Stand. Com. Rep. No. 971-26), recommending passage on Third Reading.',
+  'Report adopted; referred to the committee(s) on FIN with none voting aye with reservations; none voting no (0) and none excused (0).',
+  'Passed Third Reading with none voting aye with reservations; none voting no (0) and none excused (0).  Transmitted to Senate.', 'Enrolled to Governor.', 'Act 189, on 07/07/2026 (Gov. Msg. No. 1291).'];
+const ranks = DAY.map(actionRank);
+ok(ranks.every((r, i) => !i || r > ranks[i - 1]), `actionRank puts a day in order (${ranks})`);
+ok(actionRank('Introduced and Pass First Reading.') === actionRank('Passed First Reading.') && actionRank('Report adopted; Passed Second Reading, as amended (SD 1) and referred to WAM.') > actionRank('Reported from WAM (Stand. Com. Rep. No. 1).'),
+  'the full chamber\'s vote comes after the report it votes on');
 ok(!/^\s*import\b/m.test(fs.readFileSync(path.join(ROOT, 'pub', 'capitol.js'), 'utf8')), 'capitol.js imports nothing (this test loads it outside the page)');
 
 if (fails.length) { console.log(fails.map(f => 'FAIL ' + f).join('\n')); console.log(`\n${fails.length} failed, ${checked - fails.length} passed`); process.exit(1); }
-console.log(`capitol words: all ${checked} checks passed (${lines.length} real lines, ${SAME.length} word for word, ${NAMES.length} step names)`);
+console.log(`capitol words: all ${checked} checks passed (${lines.length} real lines, ${SAME.length} word for word, ${NAMES.length} committee names, ${joints.length} joint referrals, a day's order)`);
