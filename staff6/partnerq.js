@@ -86,7 +86,8 @@ export function wantQueue({ force = false } = {}) {
   if (!admitsPartners() || S.pqLoading || (!force && S.pq !== undefined)) return;
   S.pqLoading = true; S.pqErr = false;
   DB.partnerQueue().then(q => { S.pq = q; }).catch(e => { console.warn('partner_queue:', e?.message || e); S.pq = null; S.pqErr = true; })
-    .finally(() => { S.pqLoading = false; if (['today', 'team', 'pgroups'].includes(S.route?.name)) hooks.render(); });   // Team's bars count them too
+    // Today, Team's bars and Partners draw them; every other page redraws only Today's count (sidebar, phone bar), in place.
+    .finally(() => { S.pqLoading = false; if (['today', 'team', 'pgroups'].includes(S.route?.name)) hooks.render(); else hooks.counts?.(); });
 }
 // What waits on this person: the words they may approve (never one they hold in their 10 seconds).
 export function pqItems() {

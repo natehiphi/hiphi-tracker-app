@@ -23,6 +23,7 @@ import { reportError } from './errlog.js';
 import { installAskWatch, loadAsks } from './chairask.js';   // R-316 W3
 import { exactBill, billRoute, FACTS, draftFor, diedish } from './model.js';
 import today, { todayItems } from './today.js';
+import { wantQueue } from './partnerq.js';   // Today's count needs the partners' words from the first frame
 import review from './review.js';
 // The frame counts what the Inbox lists (messagesCount: messages to you, never the deadline reminders that live on each
 // step, V26), so the sidebar's number, More's and the phone's bell match the page they open (A-14, B-7).
@@ -271,6 +272,18 @@ function todayBadge(bd, lateN, cls) {
   const words = countWords(bd, lateN);
   return `<span class="${cls}" role="img" aria-label="${esc(words)}" title="${esc(words)}"><span>${bd.n > 99 ? '99+' : bd.n}</span></span>`;
 }
+// Today's count redrawn in place, on the sidebar and the phone bar, when something it counts lands after the page was drawn:
+// a partner approver's words to approve are read once, from the first frame, whatever page opens first (partnerq.js
+// wantQueue). Only Today, Team and Partners redraw for them; every other page kept 6 for Nate where Today said 9.
+export function refreshCounts() {
+  const app = document.getElementById('app'); if (!app || !S.route) return;
+  const bd = badge(), lateN = lateCount(bd), href = PLACES.today[0];
+  app.querySelectorAll(`.sv-side a.sv-sitem[href="${href}"], .sv-tabs a[href="${href}"]`).forEach(a => {
+    const cls = a.closest('.sv-tabs') ? 'sv-badge' : 'sv-sn';
+    a.querySelector('.' + cls)?.remove();
+    a.insertAdjacentHTML('beforeend', todayBadge(bd, lateN, cls));
+  });
+}
 // The header. A phone: Back (deeper than a place) or the mark, the page's title, Search, Help and the Inbox bell with a dot. A laptop
 // or tablet (768px and wider): only the search box, which Cmd/Ctrl-K or "/" focuses (V32); the sidebar holds the rest.
 // Pages one level under More or More tools whose screens name no parent: a phone still shows Back to where they came from.
@@ -483,6 +496,7 @@ function retitle(app, shownT) {
   app.querySelectorAll('main h1').forEach(h => { if (tab && h.textContent.trim() === tab) h.textContent = shownT; });
 }
 hooks.render = () => render();
+hooks.counts = () => refreshCounts();
 hooks.afterLoad = () => { FACTS.clear(); loadAsks(); };   // the derived facts are rebuilt from the new rows (R-152 B); R-316 W3's chair asks
 installAskWatch();
 hooks.toast = (m, err) => toast(m, err ? { err: true } : {});
@@ -714,6 +728,7 @@ async function boot() {
     const r = parseRoute();
     if (r.legacy) { history.replaceState({ y: 0 }, '', '#/'); history.pushState({ y: 0 }, '', `#/bill/${r.num}`); }
     else if (r.legacyTo) { history.replaceState({ y: 0 }, '', r.legacyTo); if (r.note) setTimeout(() => toast(decodeURIComponent(r.note)), 300); }
+    wantQueue();   // a partner approver's words to approve count in Today's number on every page, so they are asked for at sign-in
     render();
   } catch (e) {
     console.error(e); reportError('boot', e);

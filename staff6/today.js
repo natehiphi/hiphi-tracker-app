@@ -111,8 +111,11 @@ function vetoDay(sine, n) {
 // An item: { key, kind, b?, d?, h?, s? (steps.js billStep), at (the time to act, or null), tone, rank, line, ... }.
 // The testimony and chair-ask steps come from steps.js (whose step it is: W6's writer, the shared approval, the filer);
 // to-dos, follow-ups, emails, questions and the moved-hearing questions come from v5's todayItems, the same data calls.
-const MEMO = new Map(); let memoT = 0;
+// The partners' queue lands as a promise settles, before the timer below clears the draw's list: a list worked out without
+// it is dropped when it comes (or changes), or the redraw it starts counted 6 for Nate where 9 waited (Today's count).
+const MEMO = new Map(); let memoT = 0, memoPq;
 function memo(key, fn) {
+  if (memoPq !== S.pq) { MEMO.clear(); memoPq = S.pq; }
   if (!memoT) memoT = setTimeout(() => { MEMO.clear(); memoT = 0; }, 0);
   if (!MEMO.has(key)) MEMO.set(key, fn());
   return MEMO.get(key);
