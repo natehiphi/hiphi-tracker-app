@@ -136,7 +136,7 @@ function draftBody(it) {
     ${tile ? `<p class="rv6-when">${statusTile(tile)}</p>` : ''}
     ${hear ? `<p class="rv6-line">${icon('landmark')}<span>${nw(esc(hear))}</span></p>` : ''}
     ${factsLine(b)}
-    ${billState(b, { h }) || `<p class="rv6-line">${icon('route')}<span>${nw(esc(whereWords(b)))}</span></p>`}
+    ${billState(b, { h }) || (hear ? '' : `<p class="rv6-line">${icon('route')}<span>${nw(esc(whereWords(b)))}</span></p>`)}
     <p class="rv6-line">${icon('user-round')}<span>${esc(who)}</span></p>
     ${from ? `<p class="rv6-line">${icon('copy')}<span>${plainCodes(esc(from))}</span></p>` : ''}
     ${late ? notice('info', 'triangle-alert', plainCodes(esc(late))) : ''}

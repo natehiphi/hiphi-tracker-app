@@ -132,6 +132,7 @@ function setMode(m) {
 export function lineFor(s) {
   return s ? s.line : '';
 }
+const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
 // A bill that stopped: the reason in plain words, with its day as every row says a day ("Missed the deadline to reach its
 // last committee, Fri 2/20"; Nate's walk: "Missed the lateral deadline 2/20/26" was jargon in another date format), and
 // the session's end said so ("Did not pass before the session ended", never "the Sine die deadline."). No full stop: a

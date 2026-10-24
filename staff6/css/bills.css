@@ -55,6 +55,11 @@
 .bl-viewsw button { display: inline-flex; align-items: center; gap: 6px; }
 .bl-viewsw .ic { width: 18px; height: 18px; }
 .bl-ttools { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--s4); }
+/* a narrow window with the table: the filter box keeps its line, the table's tools take one of their own under it */
+@media (max-width: 899px) {
+  .bl-tablev .bl-search { flex: 1 1 100%; max-width: none; }
+  .bl-tablev .bl-ttools { order: 5; flex: 1 1 100%; }
+}
 @media (max-width: 899px) {
   .bl-search { flex: 1 1 200px; max-width: none; }
 }
