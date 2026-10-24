@@ -16,8 +16,16 @@
 // (pub/alerts.js) is one opt-in covering hearing alerts and HIPHI's own advocacy alerts (HANDOFF 3.5), by text (a mobile
 // number, the box shown first) or by email (a link under it). Every step is its
 // own route (#/start/1..N) and pushes history, so Back walks the steps. The step and the picks live in hiphi_wiz
-// (wiz()/wizSet()), so a reload resumes where the person left off. Every step can be skipped, "Skip" always means "go
-// to the next page" (3.5), and a primary button is never disabled. Celebrations are in proportion (DESIGN C-7 as
+// (wiz()/wizSet()), so a reload resumes where the person left off. A primary button is never disabled, and there are three
+// doors besides it (R-212 #46: in the walk, someone who is not a newcomer, on a new phone, a partner, staff, needed about 5
+// taps to reach Home, since "Skip" only ever meant "the next page"):
+//   "Skip this part"      goes on to the next screen of the visit, as Skip always did (3.5); it names what it does (C-6).
+//   "Leave, go to Home"   (Nate's words) at the top of every step after the welcome but the finale, and on the topics, which
+//                         have no Back, in Skip's place in the bar: one tap to Home, the first visit marked left (wiz skipped,
+//                         so Home stops sending them back), nothing followed undone; the phone's Back returns to the step.
+//   "Just look around"    the welcome's quiet second choice under Let's begin, the same door (C-2: a skip that costs
+//                         nothing and is not styled as failure). Both are counted as 'leave' on their step.
+// The plans (pub/onb*.js, practice only) keep their own words and have no Leave. Celebrations are in proportion (DESIGN C-7 as
 // rewritten 9/21): a small burst for a small win and for each part finished, a moment that waits for Continue for the
 // first follow only (one after the lessons read as the end, R-140), and the peak at the end. Motion follows A-10
 // (pub/fx.js) and stops under Reduce Motion.
@@ -173,7 +181,19 @@ export function finish() {
   welcome();
   app.go('#/', { replace: true });
 }
-const skipAll = () => { wizSet({ skipped: true }); app.go('#/'); };
+// Leaving the first visit (R-212 #46): "Leave, go to Home" on a step, or "Just look around" on the welcome ('arrive').
+// Counted as 'leave' on that step, as closing the tab is. Nothing is undone: what was followed or saved stays. The visit is
+// marked left, not done (wiz skipped: firstVisit() is false, so Home and a reload stay on Home; finishing it later from
+// Home's "Pick the issues I care about" still marks it done). The key is cleared so coming back to this step counts it again.
+// Home is a new page in the history, not in place of the step (finish() replaces, since that visit is over): the phone's
+// Back after a mistaken tap returns to the step that was left, Leave still on it (B-4, B-5).
+function leaveVisit(name) {
+  track(name, 'leave');
+  viewKey = ''; S.stBand = false;
+  LZ?.lessonStop();
+  wizSet({ skipped: true });
+  app.go('#/');
+}
 
 // ---------- the three named parts at the top: a signpost, not controls (A-12) ----------
 // Done is a green tick and the name, now is the name in bold after a solid dot, still to come is a small grey dot and
@@ -220,7 +240,18 @@ function tickChapter(name, back) {
 
 // ---------- the page frame of a step: the story (left on wide screens) and the choices (right) ----------
 const backBtn = step => btn(t('Back'), { kind: 'text', icon: 'arrow-left', cls: 'st-back', attrs: { 'data-stback': String(step) } });
-export const topRow = (name, step) => `${chaptersRow(name)}${step > 1 ? `<div class="steps st-steps">${backBtn(step)}</div>` : step === 1 && name === 'topics' ? langPicker('st-lang') : ''}`;
+// "Leave, go to Home" (R-212 #46, Nate's words and casing): at the right of the row under the strip, opposite Back (or the
+// language picker), so it is in the same place on every step and adds no height where Back already is. A quiet text
+// button (A-3: never a second primary), outside the strip, which is a signpost (A-12). Not on the finale, which ends on
+// Home, nor in the plans (practice only, their own screens).
+const leaveBtn = () => btn(t('Leave, go to Home'), { kind: 'text', icon: 'house', cls: 'st-leave', attrs: { 'data-stleave': '1' } });
+export const topRow = (name, step) => {
+  const lead = step > 1 ? backBtn(step) : step === 1 && name === 'topics' ? langPicker('st-lang') : '';
+  // The topics have no Back, so a Leave there would be a row of its own, pushing the topic cards 36px down (on a 320px phone
+  // the second row no longer peeked, the critic's high, A-1): there it takes Skip's quiet place in the bar instead (topicsBar).
+  if (planOn() || name === 'done' || name === 'topics') return `${chaptersRow(name)}${step > 1 ? `<div class="steps st-steps">${lead}</div>` : lead}`;
+  return `${chaptersRow(name)}<div class="steps st-steps st-toprow">${lead}${leaveBtn()}</div>`;
+};
 export const shell = (cls, intro, main, busy = false) => `<div class="st ${cls}"${busy ? ' aria-busy="true"' : ''}><div class="st-intro">${intro}</div><div class="st-main">${main}</div></div>`;
 // The drawing of each step (wide screens show one on every step; phones only where there is room, see start.css).
 export const artFor = name => `<div class="st-art">${name === 'you' ? islands(myIsland()) : name === 'followask' ? VOICES : CAPITOL}</div>`;
@@ -231,7 +262,14 @@ export const sayRow = (ic, sure) => `<div class="st-say"><p class="st-sure">${ic
 export const sureWide = (ic, sure) => `<p class="st-sure st-surewide">${icon(ic)}<span>${sure}</span></p>`;
 
 // ---------- the bar: one Skip, one primary ----------
-export const bar2 = (label, opt = {}, attrs = { 'data-stnext': '1' }, skip = T('Skip')) => `<div class="st-bar"><div class="st-btns">
+// "Skip this part" (R-212 #46): it goes on to the next screen, and says so, beside "Leave, go to Home" at the top. One label
+// for one thing on every screen of today's visit (C-15); the plans keep their "Skip".
+export const skipWord = () => planOn() ? T('Skip') : T('Skip this part');
+// The first question's bar (R-212 #46): "Leave, go to Home" in the quiet place, and Next. Skipping "Your issues" from here
+// led to the story of a bill nobody picked; Home is the more useful way out, and it is one exit fewer on the first screen.
+const topicsBar = () => planOn() ? bar2(T('Next'), { iconEnd: 'arrow-right' }) : `<div class="st-bar"><div class="st-btns">
+  ${btn(t('Leave, go to Home'), { kind: 'text', icon: 'house', cls: 'st-leave', attrs: { 'data-stleave': '1' } })}${btn(t('Next'), { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stnext': '1' } })}</div></div>`;
+export const bar2 = (label, opt = {}, attrs = { 'data-stnext': '1' }, skip = skipWord()) => `<div class="st-bar"><div class="st-btns">
   ${btn(t(skip), { kind: 'text', attrs: { 'data-stskip': '1' } })}${btn(t(label), { kind: 'primary', ...opt, attrs })}</div></div>`;
 // While the issues load the primary says so, and when they could not be loaded it is the way to try again, so the
 // one button on the screen is never a dead one.
@@ -239,7 +277,7 @@ export const barBusy = () => bar2('Finding issues…', { icon: 'loader-circle' }
 export const barRetry = () => bar2('Try again', { icon: 'rotate-ccw' }, { 'data-stretry': '1' });
 export const bar1 = (label, ic = 'arrow-right', attrs = { 'data-stnext': '1' }) => `<div class="st-bar st-one">${btn(label, { kind: 'primary', iconEnd: ic, attrs })}</div>`;
 // Only Skip, as a quiet full-width button: an optional screen before anything is done on it (A-3: no primary yet).
-export const barSkip = () => `<div class="st-bar st-one">${btn('Skip', { kind: 'secondary', attrs: { 'data-stskip': '1' } })}</div>`;
+export const barSkip = () => `<div class="st-bar st-one">${btn(t(skipWord()), { kind: 'secondary', attrs: { 'data-stskip': '1' } })}</div>`;
 const supports = b => /support/.test(b.hiphi_position || b.position || '');
 // A bill the page already has (core.js's anyBill without core.js: the topics screen must not wait for it).
 const billById = id => S.bills.find(b => b.id === id) || (S.extra || {})[id] || (DEMO ? D.bills.find(b => b.id === id) : null) || null;
@@ -366,6 +404,8 @@ function wireHello() {
   if (key !== viewKey) { viewKey = key; viewAt = Date.now(); track('arrive', 'view'); }
   const nb = document.querySelector('[data-stnext]');
   if (nb) nb.onclick = () => { track('arrive', 'next'); goStep(0, 1); };
+  const lb = document.querySelector('[data-stleave]');
+  if (lb) lb.onclick = () => leaveVisit('arrive');   // "Just look around" (R-212 #46)
   wireLangPicker(document);
   fitScreen();
 }
@@ -480,15 +520,13 @@ function wire(route) {
   }
   const next = () => { track(name, 'next'); goStep(step, step + 1); };
 
-  // Skip always means "go to the next page" (HANDOFF 3.5).
+  // "Leave, go to Home" (R-212 #46): one tap out of the visit, from any step.
+  $$('[data-stleave]').forEach(el => el.onclick = () => leaveVisit(name));
+  // "Skip this part" means "go to the next page" (HANDOFF 3.5).
   $$('[data-stskip]').forEach(el => el.onclick = () => {
     track(name, 'skip');
     if (name === 'bill' || name === 'voice') (S.stSkipped ??= new Set()).add('lesson');   // the strip shows the story as skipped, not done (R-249)
-    // Nothing picked on the first screen: the issues screen needs a pick, so Skip goes on to the story, which uses one
-    // of HIPHI's bills (R-019: Skip must never lead back to where it started).
-    // (It named the lesson's step, which the short version does not have, so there Skip went to #/start/0, the first
-    // screen again; now it is simply the screen after the issues: the story, or the short version's one page.)
-    if (name === 'topics' && !pickedIssues().length && !planOn()) { LZ?.lessonStop(); swap(() => app.go('#/start/' + (stepOf('issues', off) + 1)), 'fwd'); return; }
+    // The first question has no Skip (R-212 #46): "Leave, go to Home" stands in its place (topicsBar). In the plans it goes on.
     // Skip on "Your issues" follows nothing (the approved prototype; C-4: nothing is followed without a yes). It used to
     // follow whatever was ticked, which with HIPHI's picks ticked for them followed several issues nobody chose (the
     // review, 9/21). Home asks again later, once.
@@ -520,7 +558,7 @@ function wire(route) {
     });
     const nb = $('[data-stnext]');
     if (nb) nb.onclick = () => {
-      if (!pickedIssues().length) { flash('Pick at least one, or select Skip.'); return; }
+      if (!pickedIssues().length) { flash(planOn() ? 'Pick at least one, or select Skip.' : 'Pick at least one, or select “Leave, go to Home”.'); return; }
       track(name, 'next', { counts: { cats: pickedIssues().length } });
       // Plan 1 follows nothing here (R-164, Nate 10/10: one topic tick followed the whole topic, 17 issues and about 60 bills,
       // "that can't be right"; C-4: nothing beyond what the ask named). In session a topic only narrows the bills offered on
@@ -614,11 +652,12 @@ export default {
     // A lesson on its own: Next, and on the story's last stage Done (wireLearn changes the words), which goes back where
     // it was opened.
     if (route.name === 'learn') return bar1('Next', 'arrow-right', { 'data-stlearnnext': '1' });
-    if (route.step === 0) return helloOn() ? bar1(t('Let’s begin')) : '';
+    // The welcome's two doors (R-212 #46): Let's begin, and under it the quiet "Just look around", straight to Home (C-2).
+    if (route.step === 0) return helloOn() ? `<div class="st-bar st-one st-hellobar">${btn(t('Let’s begin'), { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stnext': '1' } })}${btn(t('Just look around'), { kind: 'text', attrs: { 'data-stleave': '1' } })}</div>` : '';
     const step = route.step || 1, off = isOff();
     if (redirectFor(step, off)) return '';
     const name = nameAt(step, off);
-    if (name === 'topics') return bar2(T('Next'), { iconEnd: 'arrow-right' });
+    if (name === 'topics') return topicsBar();
     if (planOn() && PLAN_STEPS.includes(name)) return ONB ? ONB.barStep(name, step, off) : '';
     return REST ? REST.barStep(name, step, off) : '';
   },

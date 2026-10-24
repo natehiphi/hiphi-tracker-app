@@ -51,6 +51,13 @@ body[data-screen="start"] .field .help { color: var(--n700); }   /* the privacy 
 /* Back, on steps that have one */
 .st-steps { min-height: 24px; }
 .st-steps .btn.st-back { margin: -10px 0 -10px -12px; padding: 0 12px 0 8px; gap: 4px; }
+/* "Leave, go to Home" (R-212 #46) at the right of the same row: the same negative margins as Back, so its 44px target adds
+   no height where Back is; a quiet text button (A-3), its house the size of the words (A-18). Beside the language picker
+   (step 1, when a language is live) it lines up with the picker's top. */
+.st-steps.st-toprow { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s8); }
+.st-steps .btn.st-leave { margin: -10px -12px -10px auto; padding: 0 12px; gap: 6px; font-weight: 400; }   /* quieter than Back: on the topics it is the first thing on the page (the critic) */
+.st-steps .btn.st-leave .ic { width: 18px; height: 18px; }
+.st-toprow > .lang-pick + .st-leave { margin-top: 0; }
 
 /* one line above the choices: a reassurance; "pick at least one" takes its place, so nothing below it moves */
 .st-say { display: flex; align-items: flex-start; min-height: 22px; }
@@ -319,8 +326,17 @@ button.st-way:active { transform: scale(.99); }
    across lines anyhow). The same lines on Home keep their dot. */
 .st-share .btn, .st-keep .btn { display: flex; width: fit-content; padding-inline: 0; white-space: normal; max-width: 100%; text-align: left; }
 .st-keep .kp-dot, .st-keep br { display: none; }
-.st-btns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: var(--s16); align-items: center; }
+/* "Skip this part" (R-212 #46) is longer than "Skip" was: it takes the room its words need, the primary the rest and never
+   less than its own label; on the narrowest phones Skip's words go to two lines rather than under the primary (A-6: 44px). */
+.st-btns { display: grid; grid-template-columns: minmax(min-content, max-content) minmax(max-content, 1fr); gap: var(--s16); align-items: center; }
 .st-btns .btn { width: 100%; padding: 0 12px; }
+.st-btns .btn.text { white-space: normal; text-align: center; line-height: 1.15; }
+/* Below 360px the primary's leading picture gives way (the star, the message), so "Skip this part" keeps one line beside it
+   instead of breaking under its neighbour's (the critic, A-13); the words carry the meaning. */
+@media (max-width: 359px) { .st-bar .st-btns { gap: var(--s8); } .st-bar .st-btns .btn.text { white-space: nowrap; padding-inline: 8px; }
+  .st-bar .st-btns .btn.primary > .ic:first-child, .st-bar .st-btns .btn.st-leave > .ic { display: none; } }
+/* The topics' Leave carries the same house as at the top of later steps, so it reads as the same button (the critic). */
+.st-bar .btn.st-leave { gap: 6px; } .st-bar .btn.st-leave .ic { width: 18px; height: 18px; }
 /* The story's last stage in the ending on Home hides its Skip (R-293): the one button then takes the whole bar, like .st-one. */
 .st-btns.st-solo { grid-template-columns: minmax(0, 1fr); }
 .st-one { display: flex; }
@@ -605,6 +621,15 @@ button.st-way:active { transform: scale(.99); }
 .st-hellopage .lede { margin: 0; max-width: 24em; }
 /* a short phone or laptop window: the card shrinks so the words and the button still fit without scrolling */
 @media (max-width: 22.4375em), (max-width: 899px) and (max-height: 700px) { .st1.st-hellopage { --hw: 300px; } }
+/* Its two doors (R-212 #46): Let's begin, and under it the quiet "Just look around" (C-2: a skip that costs nothing and is not
+   styled as failure; A-3: one primary). The phone's bar is a line taller, so the page leaves room for it. */
+.st-one.st-hellobar { flex-direction: column; align-items: stretch; gap: 2px; }
+.st-one.st-hellobar .btn.text { width: auto; min-width: 0; align-self: center; }
+@media (max-width: 899px) {
+  .st-hellopage { min-height: calc(100svh - 256px); }
+  body.st-hello[data-screen="start"].hasbar:not(:has(.st:is(.st-topics, .st2))) main { padding-bottom: calc(var(--safe-b) + 124px); }   /* over the 78px rule below */
+}
+@media (min-width: 720px) { .st-one.st-hellobar { align-items: center; } }
 @media (min-width: 900px) {
   body.st-hello[data-screen="start"] main { grid-template-columns: minmax(0, 1fr); justify-items: center; padding-top: 56px; }
   body.st-hello[data-screen="start"] .st-intro { position: static; grid-row: 1; max-width: 640px; gap: var(--s16); }

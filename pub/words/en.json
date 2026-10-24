@@ -40,8 +40,10 @@
   "HIPHI, the Hawaiʻi Public Health Institute, is a nonprofit that follows the health bills. Pick what you care about.",
   "In {yr}, {n} bills HIPHI backed became law.",
   "In {yr}, 1 bill HIPHI backed became law.",
+  "Just look around",
   "Language",
   "Leave the practice copy",
+  "Leave, go to Home",
   "Legislative Recap",
   "Let’s begin",
   "Made one before? {a}Sign in with your email{b}",
@@ -58,6 +60,7 @@
   "Send my issues to a friend",
   "Signed up with your number? Add your email on your phone, then sign in here with it.",
   "Skip",
+  "Skip this part",
   "Speak up for a healthier Hawaiʻi",
   "Stay connected",
   "Support HIPHI’s work",
@@ -85,6 +88,6 @@
  "files": {
   "pub/langpick.js": 1,
   "pub/more.js": 48,
-  "pub/start.js": 33
+  "pub/start.js": 38
  }
 }

@@ -2,13 +2,14 @@
 // why your voice counts, your legislators, the email ask, the finale, and the lessons' own pages. start.js draws the
 // frame and the topics screen with the kernel alone and loads this module right after that first paint; every helper
 // shared with it is imported from start.js (a read-only view of its state: the lessons through lessons()).
-import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, lessons, stepOf, coverOn } from './start.js';
+import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, skipWord, lessons, stepOf, coverOn } from './start.js';
 import { situation } from './bill.js';   // the bill page's own reading of where a bill is (R-255: the story leans to one still waiting for a hearing)
 import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind, textSaved,
   openActions, waitingBills, chairContacts, askedChair, agrees, dateLong } from './core.js';
 import { myLegs, introState } from './speakup.js';   // the hello to their legislators (R-150)
 import { myStories, saveProfile, storyAsk } from './myprofile.js';   // one sentence on why an issue matters, kept for January (R-150)
 import { btn, chip, posChip } from './ui.js';
+import { t } from './i18n.js';   // the bar's "Skip this part" is said in the person's language, as bar2's (start.js)
 import { HELP_WORDS } from './letters.js';   // the testimony button's words (R-296)
 import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
@@ -938,7 +939,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
     if (nb) nb.onclick = async () => {
       const m = model2();
       if (m.loading || m.err || m.none) { flash(m.err ? 'The issues did not load. Try again.' : 'Still finding issues — one moment.'); return; }
-      if (!m.count && !m.catOn.size) { flash('Tick at least one issue, or select Skip.'); return; }
+      if (!m.count && !m.catOn.size) { flash(`Tick at least one issue, or select ${skipWord()}.`); return; }
       if (nb.getAttribute('aria-busy') === 'true') return;
       busy(nb, 'Following…');
       const ids = m.all.filter(m.ticked).map(x => x.i.id);
@@ -1111,7 +1112,7 @@ export function barStep(name, step, off) {
     // A-13: a filled Next drew the eye away from them, "unclear what to do"); it is Next once one is done. data-stnext either
     // way, so a typed name or sentence is kept on the way out (C-9).
     case 'soon': return endHome() ? bar1(GO_HELP) : waysWaiting()
-      ? `<div class="st-bar st-one">${btn('Skip', { kind: 'secondary', attrs: { 'data-stnext': '1' } })}</div>` : bar1('Next');
+      ? `<div class="st-bar st-one">${btn(t(skipWord()), { kind: 'secondary', attrs: { 'data-stnext': '1' } })}</div>` : bar1('Next');
     // The alerts screen: its button sends the box showing (Text me, or Email me), Skip goes on; once given, Next.
     case 'alerts': { if (!S.alertEdit && (S.stThanks || textSaved() || mailSent())) return bar1(thanksWords(thanksGiven()).go);
       const b = alertButton('st-a'); return bar2(b.label, { icon: b.icon }, { type: 'submit', form: 'st-aform', id: 'st-send' }); }
