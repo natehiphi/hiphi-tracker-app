@@ -1202,7 +1202,9 @@ export default {
   title: () => 'Today',
   // The Hearings stub draws v5's This week through here (wide, as before); Today itself is the frame's default width.
   wide: () => S.route?.place === 'hearings' ? !!v5.wide?.() : false,
-  badge() { try { return badgeOf(); } catch (e) { console.error(e); return { n: 0, late: false, lateN: 0 }; } },
+  // The partners' words to approve count in Today's number, so their queue is asked for from the first page drawn, not only
+  // when Today is opened (the sidebar said 6 on Partners and 9 on Today for the same morning).
+  badge() { try { wantQueue(); return badgeOf(); } catch (e) { console.error(e); return { n: 0, late: false, lateN: 0 }; } },
   render, wire,
 };
 // For Team (team.js): the same model and rows, so "See as teammate" is the teammate's own Today, read-only.
