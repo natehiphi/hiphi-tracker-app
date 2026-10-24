@@ -13,6 +13,34 @@
 #   V4_ROOT=/path/to/worktree ...                  serves that folder straight into the browser (otherwise HOST, :8832)
 #   --quick (1440 and 390, the busy day, NT KV PH)   --who NT,KV  --sizes 1440x900,390x844  --clocks busy,off  --routes today,bills
 #   --workers 6   --table (every row)   --json out.json (every row's numbers)   --shots DIR (a first-screen picture per row)
+#
+# READING THE TABLE IN THE LOG. One line per screen and window size; each number is the most that any person or practice
+# day reached there ("-": not measured on that screen). "First screen" is what shows before any scrolling.
+#   screen  the place (the spec's map, 3.3): today, bills, a-bill (one bill's page), t-approve (Testimony › To approve)...
+#   size    the window, wide x tall, in CSS pixels (1440x900 a laptop, 390x844 a phone)
+#   n       how many people and days were measured for this line
+#   ctl     things to press or type in (links, buttons, boxes, tabs) in the work column on the first screen, each one counted
+#   page    the same over the whole page, scrolled to the end
+#   fill    filled (solid teal) buttons on the first screen: at most one, for the step the person takes now
+#   btns    buttons with words on them in view (icon-only buttons are not counted)
+#   words   words in the work column on the first screen;  wpage: on the whole page
+#   codes   Capitol codes in view (HD1, SD2, committee codes such as HHS, P1);  rowc: those inside list rows (always 0)
+#   facts   the most facts on any one row (the pieces between dots or on their own lines): 4 at most
+#   r/btn   the most buttons on any one row: 1 at most (D16)
+#   col     text colours in view, status colours apart: 5 at most;  stat: the status colours shown (done, late, missed)
+#   bord    things with a drawn border line in the window: 8 at most;  rad: different corner roundings: 3 at most
+#   <=14    the share of the text, in %, at 14px or smaller: 30 at most
+#   bold    the share of the text, in %, in bold, leaving out the page title, section headings, the filled button and the
+#           open page tab: 25 at most
+#   marks   amber or red marks in the window (none on a day when nothing is late);  bare: those with no word such as
+#           "late" or "missed" beside them (always 0: never colour alone)
+#   scr     the page's height in screens (1 = it fits the window)
+#   net     Today only: its height in screens without the person's own rows (spec 13): 1.2 on a laptop, 2 on a phone
+#   ctl-n   Today only: first-screen controls without the person's own rows: 12 at most
+#   grp     section headings on the page ("Your next step" aside): Today 4 at most
+#   side    rows in the sidebar, shown from 768px wide: 11 at most for staff, 15 for leads
+# Below the table: the headline numbers, Staff v5's beside them (v5 -> v6), then each spec 8 target missed with its worst
+# screens. The run fails (exit 1) when any target is missed or a screen could not be measured.
 import json, os, re, sys, time
 from concurrent.futures import ProcessPoolExecutor
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -74,7 +102,7 @@ BY = {r[0]: r for r in ROUTES}
 METRICS = ['controls', 'controls_page', 'filled', 'labelled_buttons', 'words', 'words_page', 'codes', 'row_codes', 'facts_max',
            'rows_over4', 'row_buttons_max', 'colors', 'bordered', 'radii', 'small_pct', 'px13_pct', 'bold_pct', 'marks',
            'marks_unworded', 'screens', 'groups', 'side_rows', 'hscroll', 'filter_controls', 'setup_parts', 'setup_part_screens',
-           'colors_status', 'colors_all', 'bold_all_pct', 'controls_net', 'screens_net']
+           'colors_status', 'colors_all', 'bold_all_pct', 'controls_net', 'screens_net', 'own_step']
 
 # Today's own rows (spec 13, R-274): every row of the person's own work is shown, even past the length target, so Today's
 # screens and first-screen controls are held to the targets net of them: the Do today, Coming up and Partner words groups
@@ -88,6 +116,11 @@ NET_SCREENS = r"""(sel) => { const main = document.querySelector('main'); if (!m
   const v = Math.round(100 * document.documentElement.scrollHeight / innerHeight) / 100;
   els.forEach((e, i) => { e.style.display = was[i]; });
   return v; }"""
+
+# Does this person have a step of their own on Today? Read as a person reads it: the "Your next step" heading is shown.
+# A helper's all-clear Today ("Nothing needs you today", Julie) has none, and the helper's door ("Rick has 3 hearing asks ·
+# Offer to help") is never filled (spec 13), so that Today may have no filled button at all.
+OWN_STEP = r"""() => [...document.querySelectorAll('main h2, main [role=heading]')].some(h => h.getClientRects().length && /^\s*Your next step\b/i.test(h.innerText || ''))"""
 
 def plan(args):
   """The jobs: one tab per (person, size, clock), each walking its routes in turn."""
@@ -168,7 +201,8 @@ def _run_job(job):
       row = {k: m.get(k) for k in METRICS if k in m}
       row.update(controls_page=mf['controls'], words_page=mf['words'], groups=mf['groups'], codes_page=mf['codes'])
       if key == 'today' and not L.V5:
-        row.update(controls_net=m['controls'] - m['controls_own'], screens_net=pg.page.evaluate(NET_SCREENS, OWN_ROWS))
+        row.update(controls_net=m['controls'] - m['controls_own'], screens_net=pg.page.evaluate(NET_SCREENS, OWN_ROWS),
+                   own_step=pg.page.evaluate(OWN_STEP))
       special(pg, key, row)
       row.update(h1=m['h1'], tabs=m['tabs'], worst_row=m['worst_row'], marks_list=m['marks_list'], labelled_list=m['labelled_list'][:12],
                  colors_list=m.get('colors_list'), colors_status_list=m.get('colors_status_list'), radii_where=m.get('radii_where'),
@@ -201,7 +235,9 @@ def targets(r):
       T('Today laptop: screens, net of the person\'s own rows (spec 13)', m.get('screens_net', m['screens']), 1.2)
       T('Today laptop: controls in the work column\'s first screen, net of own rows (spec 13)', m.get('controls_net', m['controls']), 12)
     T('Today laptop: groups', m['groups'], 4)
-    if r['clock'] == 'busy': T('Today laptop: exactly 1 filled button', m['filled'], 1, m['filled'] == 1)
+    # spec 8's "1 filled button": at most one, and exactly one, the next step's, when the person has a step of their own
+    own = m.get('own_step')
+    if own is not None: T('Today laptop: at most 1 filled button, exactly 1 when the person has a step of their own', m['filled'], 1, m['filled'] == 1 if own else m['filled'] <= 1)
   if key == 'today' and not LAPTOP(r) and r['w'] < 768:
     if not own_today: T('Today phone: screens, net of the person\'s own rows (spec 13)', m.get('screens_net', m['screens']), 2)
     T('Today phone: controls on the whole page', m['controls_page'], 30)

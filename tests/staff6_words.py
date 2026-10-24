@@ -6,7 +6,8 @@
 #   2. never a programmer's note: an item number ("R-316") or "//" outside a web address; the same for what the Copy
 #      buttons put on the clipboard (the weekly memo once carried a code comment, model.js:462);
 #   3. one wording per testimony state (spec 5: Writing · With an approver · Second look · Ready to file · Filed, and
-#      Missed; "sent back" is a flag on Writing, in lower case and naming nobody: "Writing · sent back" (11.5, 12.6); no
+#      Missed; "sent back" is a flag on Writing, naming nobody: "Writing · sent back" (11.5, 12.6), and "Sent back" at the
+#      start of a label or a sentence is the same flag (12.6 means one wording, any case); no
 #      draft yet is "Writing · not started" (12.6); "Second look" in any case). Counted on items, not on page tabs, menus or
 #      buttons ("To approve" and "Sent back" are Testimony's tabs). v5 had 10+ wordings of "sent back" alone (X8);
 #   4. every place Help names (on Today, in My settings, under Outreach, a bold place name) exists in the app's navigation:
@@ -29,8 +30,10 @@ STATES = [   # a leading "=" keeps the case (a capitalised label); the rest igno
              # are steps, not states, and are not counted.
   # "Writing · not started" is the Writing state's one wording for no draft yet (12.6); "not started" alone is another.
   ('Writing', [r'=\bWriting\b', r'\bbeing written\b', r'\bdraft in progress\b', r'(?<!Writing\s*[·•]?\s*)\bnot started\b', r'\bno (?:testimony )?draft(?: yet)?\b', r'=\bDraft\b(?! [a-z])']),
-  # the flag: lower case, naming nobody (11.5, 12.6); a capitalised "Sent back" on an item reads as a sixth state
-  ('sent back (a flag on Writing)', [r'=\bsent back\b(?! by)', r'=\b[Ss]ent back by [A-Z]', r'=\bSent back\b(?! by)', r'\bneeds? changes\b', r'\bchanges (?:asked|requested)\b',
+  # the flag, naming nobody (11.5, 12.6): "sent back", or "Sent back" where a label or a sentence starts (12.6: one
+  # wording, any case). A capital in the middle of a sentence ("was Sent back", after a lower-case word or a comma) is
+  # another wording, and so is naming who sent it.
+  ('sent back (a flag on Writing)', [r'=(?:\bsent back|(?<![a-z,;]\s)\bSent back)\b(?! by)', r'=\b[Ss]ent back by [A-Z]', r'=(?<=[a-z,;]\s)Sent back\b(?! by)', r'\bneeds? changes\b', r'\bchanges (?:asked|requested)\b',
      r'\breturned to\b', r'=[A-Z]\w+’s to revise\b']),
   ('With an approver', [r'\bwith an approver\b', r'\bwaiting for (?:approval|an approver)\b', r'=\bwaiting for [A-Z]\w+’s approval\b', r'\bin review\b',
      r'\bawaiting approval\b', r'\bsubmitted for approval\b']),
