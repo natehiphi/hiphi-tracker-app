@@ -100,8 +100,12 @@ export function termCodes(html) {
 // committee code, a joint pair as the Capitol writes it, becomes committeeName ("in HHS/CPN" -> "in Senate Health and
 // Human Services, and Commerce"); a draft code ("HD1", "SD2", "CD1") becomes versionWords. Anything else stays as it was.
 const isCmte = c => !!(cmteOf(c) || COMMITTEES[c]);
+// A code in brackets right after its own words ("House draft 2 (HD2)", as data.js names a draft in What changed and Started
+// from) is dropped rather than said twice ("House draft 2 (House draft 2)", Kris's #/review/dd1).
+const SAID = /\b((?:House|Senate|Conference(?: committee)?|Floor) draft (\d{1,2})) \(([HSCF])D\2\)/g;
 export function plainCodes(html) {
   return String(html ?? '')
+    .replace(SAID, (m, words, n, c) => (words[0] === c || (c === 'C' && /^Conference/.test(words)) ? words : m))
     .replace(/\b([HSCF]D\d{1,2})\b/g, m => versionWords(m))
     .replace(/\b[A-Z]{2,4}(?:\/[A-Z]{2,4})*\b/g, m => m.split('/').every(isCmte) ? esc(committeeName(m)) : m);
 }

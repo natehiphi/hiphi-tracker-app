@@ -1709,6 +1709,13 @@ export async function demoInit() {
   // v4 (R-269, R-267 #13): seeded around Nate, not around whoever is practising, so every teammate sees the same drafts
   // (one bill read "sent back" to Patti and "Make the draft now" to Lauren, and people practising together disagreed).
   const SEED = byIni.NT || S.me.id;
+  // R-336 V33 (fair to a cold test): the seeded drafts' sent, approved and filed times are set on the practice week, from
+  // the practice day's 9:00 AM start (Mon 16 Mar 2026), not from the clock: "Filed by Patti today 7:00 AM" on Monday read
+  // "today 6:00 AM" with the clock moved to Tuesday, while Testimony › Filed said Mon 3/16. With a clock set early, a time
+  // stays in the past (never later than five minutes ago); outside the practice weeks (the prep day, the opening weeks)
+  // they count back from the clock as before.
+  const T0 = new Date('2026-03-16T09:00:00-10:00').getTime(), inWeek = Math.abs(Date.now() - T0) < 21 * 864e5;
+  const seedAt = x => new Date(inWeek ? Math.min(T0 - x * 36e5, Date.now() - 5 * 6e4) : Date.now() - x * 36e5).toISOString();
   const anchor = positioned.find(b => b.priority === 1 && (sc.assignments[b.id] || []).includes(SEED) && heardSoon(b))
     || positioned.find(heardSoon) || positioned[0] || S.bills[0];
   if (anchor && !DEMO_OFF) {   // between sessions nothing is in review
@@ -1718,7 +1725,7 @@ export async function demoInit() {
       .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))[0];
     // In review, from Kevin: the admin (you, in demo) gets Approve / Request changes.
     S.drafts[b0.id] = [{ id: 'dd1', bill_id: b0.id, committee: h0 ? h0.committee : (b0.committee || 'FIN'), hearing_id: h0?.id || null,
-      status: 'review', submitted_by: byIni.KV, submitted_at: new Date(Date.now() - 3 * 36e5).toISOString(),
+      status: 'review', submitted_by: byIni.KV, submitted_at: seedAt(3),
       doc_url: 'https://docs.google.com/document/d/demo/edit', created_at: new Date().toISOString(),
       // written for the bill as it stands, as the live job stamps it (without it the card said both "written for the
       // introduced bill" and "the bill is now the bill as introduced" beside the HD1 it started from)
@@ -1751,7 +1758,7 @@ export async function demoInit() {
     let st = ['filed', 'second_review', 'draft', 'approved'][hs % 4];
     // The Desk opens on "my bills", so one of Nate's has the approved-not-filed state: the button training should practise.
     if (h === natesFirst) st = 'approved';
-    const ago = h => new Date(Date.now() - h * 36e5).toISOString();
+    const ago = seedAt;
     (S.drafts[h.bill_id] ??= []).push({ id: 'dd' + n++, bill_id: h.bill_id, committee: h.committee, hearing_id: h.id,   // as the live job links it
       status: st, doc_url: 'https://docs.google.com/document/d/demo' + n + '/edit',
       // W38: a sent-back draft was sent by someone (its owner here), as live
@@ -1841,7 +1848,10 @@ export async function demoInit() {
       { id: 'dm3', bill_id: anchor.id, advocate_id: kv, body: 'Done. Also SB2201 has the same section, worth a look.', created_at: ago(2) } ]; }
   const nowMs = Date.now();
   const upcoming = S.hearings.filter(h => new Date(h.scheduled_at) > nowMs && h.status !== 'cancelled').sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at));
-  if (upcoming[0] && S.advocates[1]) S.attend[upcoming[0].id] = [S.advocates[1].id];
+  // R-336 V33: the one person going is on the practice week's first sitting from the practice day's 9:00 AM start, wherever
+  // the clock is (the same sitting read "Going: Jaylen" at 8:00 and "Going: no one yet" at 9:45).
+  { const first = inWeek ? S.hearings.filter(h => new Date(h.scheduled_at).getTime() >= T0 && h.status !== 'cancelled').sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0] : upcoming[0];
+    if (first && S.advocates[1]) S.attend[first.id] = [S.advocates[1].id]; }
   // ...and a short thread on this week's first hearing, so the unread chip shows on the home page.
   const vis = upcoming.find(h => { const b = S.bills.find(x => x.id === h.bill_id); return b && b.position && b.position !== 'monitor'; });
   if (vis && !S.messages[vis.bill_id]) { const kv = byIni.KV || S.advocates[1]?.id;
