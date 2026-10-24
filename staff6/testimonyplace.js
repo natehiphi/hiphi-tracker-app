@@ -19,7 +19,7 @@
 import { S, DB, esc, hooks, SESSION_YEAR, SESSION_OVER, advocate } from './data.js';
 import { draftHearing, billById, alertsToReview, approves, standingIn, whenAt, lateLine, billRoute, isDecision, companionsOf } from './model.js';
 import { icon, btn, sectionNav, toast, docBtn } from './ui.js';
-import { billStep, billRow, listDetail, wireListDetail, ldPicked, stepCard, committeeName, numWords, nameWords, sayWords, notFiled, dayWords, testimonyState, nw, firstWords, orWords, versionWords } from './steps.js';
+import { billStep, billRow, itemRow, listDetail, wireListDetail, ldPicked, stepCard, committeeName, numWords, nameWords, sayWords, notFiled, dayWords, testimonyState, nw, firstWords, orWords, versionWords, othersWords, NO_OWNER, wireSteps, writersOf } from './steps.js';
 import { closeBtn, aboutBill } from './billpane.js';
 import { filingSteps, missedChoices } from './filing.js';
 import { renderEarlier, wireTestimony } from './testimony.js';
@@ -85,12 +85,20 @@ function model() {
   const mine = t => tabs[t].filter(it => it.own);
   return { tabs, mine, fy };
 }
-// The tab it opens on (spec 3.3).
+// The tab it opens on (spec 13, Changed): the one that holds the viewer's most urgent own step, late first (amber "late,
+// still accepted" and red overdue), then the soonest time to act (Nate's walk: he opened on To approve, HB 1523 by
+// 11:00 AM, while his late HB 1562 filing and SB 3025's 10:00 AM sat on Ready to file). With none of their own: To approve
+// for an approver with items, else To write, else the first tab with anything.
+const urgent = it => ['late', 'overdue'].includes(it.s?.status?.tone) ? 0 : 1;
+const actAt = it => it.s?.act?.at ?? it.s?.due ?? Infinity;
 function openOn(m) {
-  if ((approves(S.me) || S.me?.is_reviewer) && m.mine('approve').length) return 'approve';
-  if (m.mine('write').length) return 'write';
+  const own = ['write', 'approve', 'sent', 'file', 'missed'].flatMap(t => m.mine(t).filter(it => t !== 'missed' || it.asking).map(it => ({ it, t })));
+  own.sort((x, y) => urgent(x.it) - urgent(y.it) || actAt(x.it) - actAt(y.it));
+  if (own.length) return own[0].t;
+  if ((approves(S.me) || S.me?.is_reviewer) && m.tabs.approve.length) return 'approve';
+  if (m.tabs.write.length) return 'write';
   // Between sessions nothing is in hand: the session's record (Filed, with the library) is where it opens.
-  return TABS.find(k => k !== 'filed' && m.mine(k).length) || TABS.find(k => m.tabs[k].length) || 'write';
+  return TABS.find(k => k !== 'filed' && m.tabs[k].length) || TABS.find(k => m.tabs[k].length) || 'write';
 }
 
 // ---- rows ----
@@ -116,19 +124,29 @@ function lineOf(it) {
     if (st.stale && st.key === 'write') return `The bill changed: check your testimony · ${act}`;
     return s.line;
   }
-  if (s.nobody) return ['No owner', when].filter(Boolean).join(' · ');   // the word Bills and the bill page use (C-15)
-  const who = cap(s.whose.words);
-  const what = { nodraft: `${who} makes the draft`, write: `${who} writes it`, submit: `${who} writes it`, revise: `${who} revises it`,
-    approve: `${who} approves`, second: `Second look from ${who}`, file: `${who} files it` }[s.kind] || st.word;
-  return [what, when].filter(Boolean).join(' · ');
+  // Someone else's step in steps.js's one phrase ("Patti or Lauren revises it", "Second look from Jaylen or Jess", "No owner
+  // yet"), the same on Today, Team, Bills and the hearing cards (rule 6, spec 5).
+  return [othersWords(s) || st.word, when].filter(Boolean).join(' · ');
 }
 // Filed and Missed rows are said plainly: the tab already says so, and a column of green ticks or grey crosses is a wall of
 // one colour (status by exception, D3).
 // Rows here wrap a long name or line rather than cut it (cls tp-r, testimony.css): a joint committee's name is long.
-// No button on a row of the record (filed, answered or past answering), and none on To approve, where Start review is the
+// No button on a row of the record (filed, answered or past answering), and none on To approve, where Review is the
 // one way into the queue and a row opens its item beside the list with Approve and Send back.
-const rowOf = (it, picked, view) => billRow(it.b, { ...(['filed', 'missed'].includes(it.tab) && !it.own ? { step: it.s, line: nw(esc(lineOf(it))) } : { step: { ...it.s, line: lineOf(it) } }),
-  ...(view === 'approve' || it.tab === 'filed' || (it.tab === 'missed' && !it.asking) ? { button: false } : {}), pick: it.key, selected: it.key === picked, cls: 'tp-r' });
+// A row due within two hours shows status()'s clock and its time in bold whoever's it is (D3; Nate's walk: Lauren's SB 3234
+// on Sent back, 29 minutes left, had neither as a team row); the viewer's own row has them from steps.js already.
+const HR2 = 2 * 36e5;
+let TP_HI = null;   // the row a writer's step just moved here (render takes S.tpHi once, so the next draw drops it)
+const soonRow = it => { if (it.own || !it.s || it.s.off || ['filed', 'missed'].includes(it.tab)) return false;
+  const t = it.s.status?.tone === 'late' ? it.s.until : it.s.due, now = Date.now(); return t != null && t > now && t - now <= HR2; };
+const rowOf = (it, picked, view) => soonRow(it)
+  ? itemRow({ key: it.b.id, bill: it.b.id, name: nameWords(it.b), num: numWords(it.b), line: nw(esc(lineOf(it))), icon: 'clock', bold: true, href: billRoute(it.b), pick: it.key, selected: it.key === picked || it.key === TP_HI, cls: 'tp-r' })
+  : billRow(it.b, { ...(['filed', 'missed'].includes(it.tab) && !it.own ? { step: it.s, line: nw(esc(lineOf(it))) } : { step: { ...it.s, line: lineOf(it) } }),
+  ...(view === 'approve' || it.tab === 'filed' || (it.tab === 'missed' && !it.asking) ? { button: false } : {}), pick: it.key, selected: it.key === picked || it.key === TP_HI, cls: 'tp-r' });
+// The viewer's bills whose step is someone else's (they own it, or wrote the draft): a group of their own, "Your bills",
+// between "For you" and "The team's", each row naming who acts next (Nate's walk: Lauren's HB 1523, Patti's draft, sat
+// under "The team's" on To approve, where she would not look; spec 5 whoseStep).
+const yoursToo = it => !it.own && !!S.me && ((S.assignments?.[it.b.id] || []).includes(S.me.id) || it.d?.submitted_by === S.me.id || (!!it.d && writersOf(it.d, it.b).includes(S.me.id) && (S.assignments?.[it.b.id] || []).includes(S.me.id)));
 const gh = (text, id) => `<div class="tp-gh" role="listitem"><h2 class="tp-ghh" id="${esc(id)}">${esc(text)}</h2></div>`;
 const moreBtn = (view, n) => `<div class="tp-more" role="listitem">${btn(`Show all ${n}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-tpall': view } })}</div>`;
 function listRows(view, items, picked) {
@@ -136,8 +154,13 @@ function listRows(view, items, picked) {
   if (view === 'filed') return (all ? items : items.slice(0, FILED_LIMIT)).map(row).join('') + (items.length > FILED_LIMIT && !all ? moreBtn(view, items.length) : '');
   // Missed: the person's own still to answer, the team's still to answer, then the record (answered, or past answering).
   const rec = view === 'missed' ? items.filter(it => !it.asking) : [];
-  const own = items.filter(it => it.own), team = items.filter(it => !it.own && !rec.includes(it)), shown = all ? team : team.slice(0, LIMIT);
-  return `${own.length ? gh('For you', `tp-g-${view}-you`) + own.map(row).join('') : ''}${team.length ? gh('The team’s', `tp-g-${view}-team`) + shown.map(row).join('') : ''}${team.length > shown.length ? moreBtn(view, team.length) : ''}${rec.length ? gh('The record', `tp-g-${view}-rec`) + rec.map(row).join('') : ''}`;
+  const own = items.filter(it => it.own), mineB = items.filter(it => !it.own && !rec.includes(it) && yoursToo(it)), team = items.filter(it => !it.own && !rec.includes(it) && !mineB.includes(it)), shown = all ? team : team.slice(0, LIMIT);
+  // Someone with nothing of their own to write sees the team's drafts as one line until they ask (Nate's walk: Julie got
+  // four drafts on other coalitions' bills; spec 0, less on every screen). A picked one stays in sight.
+  const folded = view === 'write' && !own.length && !mineB.length && team.length && !all && !team.some(it => it.key === String(picked));
+  const teamPart = !team.length ? '' : folded ? `<div class="tp-fold" role="listitem"><button type="button" class="t6-line tp-foldbtn" data-tpall="${esc(view)}">${icon('users')}<span class="t6-lt"><b>The team has ${team.length === 1 ? '1 draft' : `${team.length} drafts`} to write</b> · See them</span>${icon('chevron-down', { cls: 't6-chev' })}</button></div>`
+    : gh('The team’s', `tp-g-${view}-team`) + shown.map(row).join('') + (team.length > shown.length ? moreBtn(view, team.length) : '');
+  return `${own.length ? gh('For you', `tp-g-${view}-you`) + own.map(row).join('') : ''}${mineB.length ? gh('Your bills', `tp-g-${view}-yours`) + mineB.map(row).join('') : ''}${teamPart}${rec.length ? gh('The record', `tp-g-${view}-rec`) + rec.map(row).join('') : ''}`;
 }
 
 // ---- the open item: the step card, and the filing card for a step that is Ready to file ----
@@ -272,11 +295,11 @@ function intro(view, m) {
   switch (view) {
     case 'write': return `<p class="tp-intro">${n ? 'Testimony to write, from the day its hearing notice lands. Send each for approval by the time on its row.' : 'Nothing for you to write right now. A draft shows here the day its hearing notice lands.'}</p>`;
     case 'approve': {
-      // Start review reviews the testimony only (#/review?only=testimony), so "1 waits" is "Review · 1 of 1"; the emails have
+      // Review reviews the testimony only (#/review?only=testimony), so "1 waits" is "Review · 1 of 1"; the emails have
       // their own one door, the line under the list (emailsLine). On a phone the sentence is left out: the tab's count and
       // the button say it, and the first row comes up into the first screen (A-1).
       const q = queue().filter(x => x.type === 'draft').length;
-      if (q) return `<div class="tp-start"><p class="tp-intro">${q === 1 ? '1 waits for you' : `${q} wait for you`}, the soonest first. Review shows one at a time, then moves on.</p>${btn('Start review', { kind: 'primary', icon: 'user-check', href: '#/review?only=testimony' })}</div>`;
+      if (q) return `<div class="tp-start"><p class="tp-intro">${q === 1 ? '1 waits for you' : `${q} wait for you`}, the soonest first. Review shows one at a time, then moves on.</p>${btn('Review', { kind: 'primary', icon: 'user-check', href: '#/review?only=testimony' })}</div>`;
       return m.tabs.approve.length ? `<p class="tp-intro">${approves(S.me) || S.me?.is_reviewer ? 'Nothing waits for your approval.' : 'Testimony with an approver, or waiting for its second look.'}</p>` : '';
     }
     case 'sent': return `<p class="tp-intro">${n ? 'An approver asked for changes: read the note, revise it in the Doc, then resubmit.' : 'Nothing has come back to you for changes.'}</p>`;
@@ -296,6 +319,7 @@ const EMPTY = { write: 'Nothing to write right now. A draft shows here the day i
 function render(route) {
   if (!S.me) return '<p>No staff record yet. Ask your admin to add you.</p>';
   if (route.view === 'library') { S.tpView = 'library'; return `<div class="tp">${renderLibrary()}</div>`; }
+  TP_HI = S.tpHi || null; S.tpHi = null;
   const m = model(), view = TABS.includes(route.view) && (route.view !== 'missed' || m.tabs.missed.length) ? route.view : openOn(m);
   S.tpView = view;
   const items = m.tabs[view], id = `tp-${view}`;
@@ -310,23 +334,18 @@ function render(route) {
     ${items.length ? listDetail({ id, label: `Testimony: ${TAB_WORD[view]}`, rows: listRows(view, items, picked) + (em ? `<div class="tp-mailrow" role="listitem">${em}</div>` : ''), picked, detail: pit ? detailOf(pit, view) : '' })
       : `<div class="tp-empty"><p>${icon('circle-check')}<span>${esc(EMPTY[view])}</span></p></div>${em ? `<div class="tp-mailrow tp-mailalone">${em}</div>` : ''}`}</div>`;
 }
-// Beside the list (1100px and wider) the open item's panel is as tall as the window below it, not the window's full
-// height from wherever the list starts, so its foot (the filing card's Mark filed) is on screen from the first view and
-// the steps scroll inside it (spec 3.2). Shared change asked: steps.css / wireListDetail to fit the panel this way.
-function fitPanel(root) {
-  const aside = root.querySelector('.v6-ld-detail'); if (!aside) return;
-  let raf = 0;
-  const fit = () => {
-    if (!aside.isConnected) { removeEventListener('scroll', on); removeEventListener('resize', on); return; }
-    if (!matchMedia('(min-width: 1100px)').matches) { aside.style.maxHeight = ''; return; }
-    aside.style.maxHeight = `${Math.max(320, innerHeight - Math.max(24, aside.getBoundingClientRect().top) - 24)}px`;
-  };
-  const on = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; fit(); }); };
-  addEventListener('scroll', on, { passive: true }); addEventListener('resize', on); fit();
-}
 function wire(route, root) {
   const view = S.tpView, id = `tp-${view}`;
-  fitPanel(root);
+  // (the open item's panel is sized by steps.js wireListDetail alone: the local fitter fought it on every scroll)
+  // After a step taken in the open item, the page follows the draft to its new tab with its row highlighted (Nate's walk:
+  // after Resubmit it jumped to To write, "Nothing for you to write right now", not to where the draft went).
+  const pickedKey = ldPicked(id);
+  wireSteps(root, { after: () => {
+    const key = ldPicked(id) ?? pickedKey;
+    const it = key != null ? collect().find(x => x.key === String(key)) : null;
+    if (it && (view === 'sent' || view === 'write') && it.tab !== view && TABS.includes(it.tab)) { S.tpHi = it.key; (S.v6ld ??= {})[`tp-${it.tab}`] = { key: matchMedia('(min-width: 1100px)').matches ? it.key : null }; S.go(`#/testimony?view=${it.tab}`, { replace: true }); return; }
+    hooks.render();
+  } });
   if (view === 'library') {
     const libs = library(), find = key => libs.find(x => String(x.b.id) === String(key));
     wireListDetail(root, { id, open: key => { const e = find(key); return e ? libDetail(e) : ''; },

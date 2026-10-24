@@ -36,6 +36,8 @@ import { logConversation } from './conversation.js';
 import { askTodoOf } from './push.js';
 import { stepCard, billStep, whereWords, numWords, sayWords, committeeName, hearingCard, nw, timeWords } from './steps.js';
 import { aboutBill } from './billpane.js';
+// A share to-do read as Today and Team read it (the rallier's public ask, by its own time), worked out once in today.js.
+import { shareTodoWords } from './today.js';
 
 // ---- small shared helpers (activity.js, public.js, testimony.js, hearing.js, coalition.js, review.js use these) ----
 export const firstName = a => String(a?.full_name || '').split(' ')[0] || 'Someone';
@@ -469,7 +471,7 @@ function headHTML(b, route, { hearing, says }) {
     ${follow ? `<div class="bw-hfollow">${follow}</div>` : ''}
     <div class="bw-hmore">${more}</div>
     <div class="bw-fline"><p class="bw-facts">${facts}</p>${iss ? `<p class="bw-fiss">${iss}</p>` : ''}</div>
-    <p class="bw-where${says ? ' bw-short' : ''}">${whereLine(b, { hearing, says })}</p>
+    <p class="bw-where${says ? ' bw-short' : ''}${tab === 'overview' ? ' bw-onstep' : ''}">${whereLine(b, { hearing, says })}</p>
   </header>`;
 }
 
@@ -617,12 +619,24 @@ const todoForm = d => { const ppl = (S.advocates || []).filter(a => a.is_active 
   return `<form class="bw-addrow bw-addfor" data-todoadd novalidate><label class="bw-tdf bw-tdw"><span>To-do</span><input id="bw-tdnew" class="input" maxlength="200" placeholder="What needs doing?" autocomplete="off" value="${esc(d)}"></label>
     <label class="bw-tdf"><span>For</span><select id="bw-tdfor" class="input"><option value="">Anyone</option>${S.me ? `<option value="${esc(S.me.id)}">You</option>` : ''}${ppl.map(a => `<option value="${esc(a.id)}">${esc(a.full_name)}</option>`).join('')}</select></label>
     <label class="bw-tdf"><span>Due</span><input id="bw-tddue" class="input" type="date" min="${esc(hiToday())}"></label>${btn('Add', { kind: 'secondary', icon: 'plus', attrs: { type: 'submit' } })}</form>`; };
+// The database's share to-do ("Send the ask to HIPHI's list and partners…", migration 112) is the rallier's public ask when
+// the rallier has that row (today.js shareAsk): it reads as Today and Team say it, one person and one time for one job,
+// "Saya writes the public ask · by tomorrow 4:00 PM (Kevin's to-do)", and keeps its Mark done (the tick). Otherwise it is
+// its owner's own to-do, as written (R-274, A-14).
+function shareTone(sw, t) {
+  if (t.done || sw.due == null) return null;
+  const now = Date.now(), mine = sw.mine || t.assignee_id === S.me?.id;
+  if (sw.due <= now) return mine ? { tone: 'overdue', icon: 'circle-alert', words: `Overdue · was ${sw.when.replace(/^by /, 'due ')}` } : { tone: 'neutral', icon: 'clock', words: cap1(sw.when) };
+  return { tone: 'neutral', icon: sw.due - now <= 864e5 ? 'clock' : '', words: cap1(sw.when), soon: mine && sw.due - now <= 864e5 };
+}
+const cap1 = s => s ? s[0].toUpperCase() + s.slice(1) : s;
 function todoRow(b, t) {
-  const st = todoTone(b, t), who = t.assignee_id ? nameOrYou(advocate(t.assignee_id)) : 'Anyone';
+  const sw = shareTodoWords(b, t);
+  const st = sw ? shareTone(sw, t) : todoTone(b, t), who = sw ? (sw.by ? `(${sw.by})` : '') : t.assignee_id ? nameOrYou(advocate(t.assignee_id)) : 'Anyone';
   const tone = st && st.tone !== 'neutral' && !t.done ? ' t-' + st.tone : st?.soon ? ' soon' : '';
   return `<li class="bw-todo${t.done ? ' done' : ''}" data-todo="${esc(t.id)}">
-    <button type="button" class="bw-tick" data-tick="${esc(t.id)}" role="checkbox" aria-checked="${!!t.done}" aria-label="${esc(t.title)}">${icon(t.done ? 'square-check-big' : 'square')}</button>
-    <span class="bw-tbody"><span class="bw-ttl">${esc(t.title)}</span><span class="bw-tmeta${tone}">${st && !t.done && st.icon ? icon(st.icon) : ''}<span>${nw(esc([st && !t.done ? st.words : '', who].filter(Boolean).join(' · ')))}</span></span></span>
+    <button type="button" class="bw-tick" data-tick="${esc(t.id)}" role="checkbox" aria-checked="${!!t.done}" aria-label="${esc(sw ? `Mark done: ${sw.title}` : t.title)}">${icon(t.done ? 'square-check-big' : 'square')}</button>
+    <span class="bw-tbody"><span class="bw-ttl">${esc(sw ? sw.title : t.title)}</span><span class="bw-tmeta${tone}">${st && !t.done && st.icon ? icon(st.icon) : ''}<span>${nw(esc([st && !t.done ? st.words : '', who].filter(Boolean).join(sw ? ' ' : ' · ')))}</span></span></span>
     ${iconBtn('ellipsis', `More for “${t.title}”`, { 'data-tmore': t.id, 'aria-haspopup': 'dialog' })}
   </li>`;
 }
@@ -937,11 +951,12 @@ export default {
   render(route) {
     const b = billOf(route); if (!b) return route.num ? untrackedHTML(route, notFound) : notFound(route);
     const tab = tabOf(route), s = pageStep(b), next = tab === 'overview';
-    // The header names the hearing only when no step card does (A-14): on Next step the card's hearing line says it, and
-    // the header keeps only the stage when the card names the committee (cardSays).
-    const hearing = !(next && s && s.h && s.kind !== 'chair');
+    // One status line for the bill on every tab, the Next step one (A-14; Nate's walk: "House committee 1 of 2" on Next
+    // step, "Waiting in House Health · must reach its last committee by Mon 3/30" on Team talk). The header names the
+    // hearing only when the step card does not, and keeps only the stage when the card names the committee (cardSays).
+    const hearing = !(s && s.h && s.kind !== 'chair');
     return `<div class="bw-page" data-bw="${esc(b.id)}">
-      ${headHTML(b, route, { hearing, says: next ? cardSays(b, s) : null })}
+      ${headHTML(b, route, { hearing, says: cardSays(b, s) })}
       ${tabsNav(b, tab, s)}
       <div class="bw-panel${fresh ? ' bw-in' : ''}" id="bw-panel" data-panel="${tab}">${next ? '' : yourStepLine(b, s)}${panel(b, tab)}</div>
     </div>`;

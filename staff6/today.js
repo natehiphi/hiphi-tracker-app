@@ -31,7 +31,7 @@
 import { S, DB, DEMO, SESSION_OVER, DEADLINE_ROWS, esc, advocate, isMine, hooks } from './data.js';
 import v5, { todayItems, slipNow, slipWho } from './today5.js';
 import { draftHearing, hearingAhead, diedish, stopOf, wantsHearing, whenAt, billRoute, billById, liveAsk, attendees, chairMail,
-  legislativeDay, deadlineName, blurb, approves, canFirstApprove, filerOf, offTag, gateNeed, gateGloss } from './model.js';
+  legislativeDay, deadlineName, blurb, approves, canFirstApprove, filerOf, offTag, gateNeed, gateGloss, sessionClock } from './model.js';
 import { icon, btn, toast, openSheet, closeSheet, pickerSheet, confirmSheet, docBtn, keysOn } from './ui.js';
 import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButtonOK, statusTile, status, shownStatus, nw,
   numWords, nameWords, sayWords, firstWords, orWords, dayWords, timeWords, committeeName, versionWords, deadlineWords,
@@ -39,7 +39,7 @@ import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButton
 import { aboutBill, closeBtn } from './billpane.js';
 import { plainCodes } from './terms.js';   // codes in a to-do's or a note's own words become plain words (D15, V05)
 import { prepTaskOf, dueEnd as prepDue, issueHref, prepListHref } from './prep.js';
-import { askTodoOf, askSummary } from './push.js';
+import { askTodoOf, askSummary, toAskWords } from './push.js';
 import { isLead } from './more.js';
 import { newSteps, markNewStep } from './help.js';
 import { moveMe, notGoing, keepAskUp, seedMoved } from './moved.js';
@@ -121,10 +121,13 @@ export const work = (v = S.me) => memo('w:' + (v?.id || ''), () => build(v));
 // The order inside a group: overdue first, then by the time to act, then "Did we file?", then what has no time. A late step
 // (its on-time window passed, still accepted) sorts by the time its late window closes, so an on-time deadline that comes
 // first is done first (the critic: SB 3025's file by 10:00 AM sat under HB 1562's late window to 1:10 PM).
-const ORDER = { overdue: 0, dated: 1, missed: 2, undated: 3 };
+// Late testimony the Capitol still takes comes straight after the overdue, before anything due on time (v5's "Late
+// testimony, still open" group led Mine; Nate's walk: "Approve by today 11:00 AM" sat above the late "File · late, still
+// accepted until 1:10 PM"), and inside it by the time its window closes.
+const ORDER = { overdue: 0, late: 1, dated: 2, missed: 3, undated: 4 };
 const RANK = { file: 1, approve: 2, second: 2, revise: 3, submit: 4, write: 5, nodraft: 6, stale: 7, chair: 8, followask: 8, rally: 9,
   reply: 10, email: 11, fix: 11, send: 11, partner: 12, todo: 13, followup: 14, moved: 15, askup: 15 };
-function orderOf(it) { return it.tone === 'overdue' ? ORDER.overdue : it.kind === 'missed' ? ORDER.missed : it.at != null ? ORDER.dated : ORDER.undated; }
+function orderOf(it) { return it.tone === 'overdue' ? ORDER.overdue : it.tone === 'late' ? ORDER.late : it.kind === 'missed' ? ORDER.missed : it.at != null ? ORDER.dated : ORDER.undated; }
 const byOrder = (x, y) => orderOf(x) - orderOf(y) || (x.at ?? Infinity) - (y.at ?? Infinity) || (RANK[x.kind] || 20) - (RANK[y.kind] || 20)
   || String(x.b?.bill_number || x.key).localeCompare(String(y.b?.bill_number || y.key), 'en', { numeric: true });
 
@@ -181,7 +184,8 @@ function build(v) {
       else if (a.key === 'waiting' && a.followUp) add({ key: `fu:${b.id}`, kind: 'followask', b, s: c, at: null, tone: 'neutral' });
       else if (a.key === 'waiting' && a.answer !== 'will_schedule') out.waiting.push({ key: `cw:${b.id}`, b, line: `${a.m ? a.m.who : 'The chair'}: no reply yet · asked ${dayWords(a.lastAt || a.at)}`, on: [] });
     } else if (c.nobody && c.takeFor) out.nobody.set(b.id, b);
-    else if (owns(v.id, b) && a.key === 'giving') out.waiting.push({ key: `cg:${b.id}`, b, line: `${cap(firstWords(a.who, v))} is asking ${a.m ? a.m.who : 'the chair'}`, on: [a.who] });
+    // A handed ask in askWords' own words ("Kris asks the chairs for you · by Mon 3/23"), as every screen says it (rule 6).
+    else if (owns(v.id, b) && a.key === 'giving') out.waiting.push({ key: `cg:${b.id}`, b, line: a.words, on: [a.who] });
     // D4: a coalition helper's one line counts the owner's bills still to ask, never the helper's own rows: every one, as
     // the Get hearings tab counts them (the critic: the door's 11 in two weeks beside the tab's 15).
     else if (a.key === 'ask' && !owns(v.id, b) && inCoal(v, b)) {
@@ -190,7 +194,9 @@ function build(v) {
   // Chair-ask rows: those due within a week (two for a strong-support bill), soonest first, at most three; the rest are D1's line.
   askRows.sort((x, y) => x.by - y.by);
   for (const r of askRows) {
-    const left = r.by - now, near = left <= 7 * DAY || (r.b.priority === 1 && left <= 14 * DAY) || r.s.ask.key === 'giving';
+    // By calendar day, all day, so the window does not slide by the hour (Nate's walk: at 9:45 three "Email the chair"
+    // rows for Tue 3/24 appeared that were not there at 8:00): on or before the same weekday next week.
+    const near = r.by <= endOfDay(now + 7 * DAY) || (r.b.priority === 1 && r.by <= endOfDay(now + 14 * DAY)) || r.s.ask.key === 'giving';
     if (near && out.own.filter(i => i.kind === 'chair').length < ASK_ROWS) add({ key: `ca:${r.b.id}`, kind: 'chair', b: r.b, s: r.s, at: r.by, tone: shownStatus(r.s)?.tone || 'neutral' });
     else out.asks.push(r);
   }
@@ -221,14 +227,21 @@ function build(v) {
         // the public ask · due today 5:00 PM" beside Saya's "Write the public ask · due tomorrow 4:00 PM"). Someone else
         // rallies: the owner reads it in Waiting on others, as hers, by OUTREACH's time. The viewer rallies: the to-do is
         // the rally row itself (its open item keeps Mark done), never a second row.
-        const sh = shareHearing(t.b, t.t), rl = rallierOf(t.b).filter(live), due = sh ? askDueAt(sh) : t.due ?? null;
-        if (rl.length && !rl.includes(v.id)) {
-          out.waiting.push({ key: t.key, b: t.b, t: t.t, line: `${orWords(rl, v)} ${rl.length > 1 ? 'write' : 'writes'} the public ask${due != null ? ` · by ${whenAt(due)}` : ''}`, on: rl });
+        // Folded only when the rallier has (or will have, two days before it is due) that rally row: a strong position on
+        // a public bill with the sitting ahead (shareAsk). Otherwise the to-do stays its owner's own row at its own time,
+        // in their Do today and in Slipping (R-274): on any other bill the rallier's Today never shows it.
+        const sa = shareAsk(t);
+        if (sa && !sa.rl.includes(v.id)) {
+          out.waiting.push({ key: t.key, b: t.b, t: t.t, h: sa.h, line: `${shareWords(sa, v)}${sa.due != null ? ` · by ${whenAt(sa.due)}` : ''}`, on: sa.rl });
           continue;
         }
-        const ra = out.own.find(i => i.kind === 'rally' && i.b.id === t.b.id);
-        if (ra) { ra.t = t.t; continue; }
-        add({ key: t.key, kind: 'todo', b: t.b, t: t.t, h: sh, at: due, tone: due != null && due <= now ? 'overdue' : 'neutral', share: true });
+        if (sa) {
+          const ra = out.own.find(i => i.kind === 'rally' && i.b.id === t.b.id);
+          if (ra) { ra.t = t.t; continue; }
+          add({ key: t.key, kind: 'todo', b: t.b, t: t.t, h: sa.h, at: sa.due, tone: sa.due != null && sa.due <= now ? 'overdue' : 'neutral', share: true });
+          continue;
+        }
+        add({ key: t.key, kind: 'todo', b: t.b, t: t.t, h: shareHearing(t.b, t.t), at: t.due ?? null, tone, share: true });
         continue;
       }
       add({ key: t.key, kind: 'todo', b: t.b, t: t.t, at: t.due ?? null, tone, share: false });
@@ -252,8 +265,24 @@ function build(v) {
   const pt = SESSION_OVER ? prepTaskOf(v.id) : null;
   if (pt) out.prep = { key: `prep:${v.id}`, kind: 'prep', pt, at: prepDue(), tone: 'neutral' };
   out.own.sort(byOrder);
+  // A bill with more than one sitting among the rows and lines says which on each, "for the Fri 3/20 hearing" (Nate's walk:
+  // HB 2121's "Saya writes the public ask · by Sun 3/1" and "· by Tue 3/17" read as a contradiction; spec 7.2, A-14).
+  const sits = new Map(), note = (b, h) => { if (b && h) { if (!sits.has(b.id)) sits.set(b.id, new Set()); sits.get(b.id).add(sitKey(h)); } };
+  for (const it of out.own) note(it.b, it.h);
+  for (const x of out.waiting) note(x.b, x.h);
+  out.multi = new Set([...sits].filter(([, ks]) => ks.size > 1).map(([id]) => id));
+  for (const x of out.waiting) if (x.b && x.h && out.multi.has(x.b.id)) x.line += `, ${forSit(x.h)}`;
   return out;
 }
+// Said as part of the line's last part (", for the Fri 3/20 hearing"), so a row still holds four facts (spec 8).
+const forSit = h => `for the ${dayWords(h.scheduled_at)} hearing`;
+const sitSuffix = (it, v) => it.b && it.h && work(v).multi?.has(it.b.id) ? `, ${forSit(it.h)}` : '';
+// A hearing notice that posted in the last two days, for a draft not yet made: shown in Coming up whatever its due date,
+// "New hearing Tue 3/17: make the draft · send by Sun 3/15" (Nate's walk: Kevin's three new notices sat behind "3 more
+// later"; a writer starts the day the notice lands, spec 6 Testimony). The 7-day fold stays for everything else.
+// (A notice dated after the clock has not landed: only the practice copy's clock, moved back with &asof, stands before
+// notices its sittings already carry, and counting those put 34 drafts on Nate's opening-season Today.)
+const newNotice = it => { const t = it.kind === 'nodraft' ? ms(it.h?.notice_posted_at) : null, now = Date.now(); return t != null && t <= now && now - t <= 2 * DAY; };
 // A testimony step: the viewer's own (a row), nobody's (one line for whoever may hand it), or someone else's on the
 // viewer's bill (Waiting on others). A draft written for an older version is the writer's row once it has left them.
 function testimony(out, b, d, h, s, v, mine) {
@@ -268,7 +297,7 @@ function testimony(out, b, d, h, s, v, mine) {
     out.own.push({ key: `st:${d.id}`, kind: 'stale', b, d, h, s, at: s.due, tone: 'neutral' });
   }
   if (mine && s.kind !== 'missed' && !out.waiting.some(w => w.key === `w:${b.id}:${d?.id}`))
-    out.waiting.push({ key: `w:${b.id}:${d?.id}`, b, d, line: s.line, on: s.whose?.ids || [] });
+    out.waiting.push({ key: `w:${b.id}:${d?.id}`, b, d, h, line: s.line, on: s.whose?.ids || [] });
 }
 const whoseStepWriter = (d, b, v) => d.submitted_by === v.id || (!d.submitted_by && owns(v.id, b));
 
@@ -284,13 +313,15 @@ function groupsOf(w) {
   const eod = endOfDay(), horizon = endOfDay(Date.now() + LATER_DAYS * DAY), today = [], soon = [], later = [], partner = [];
   // Partner words to approve have no deadline: their own small group after Coming up (R-328), never "Do today" or the badge.
   for (const it of w.own) (it.kind === 'partner' ? partner : (it.tone === 'overdue' || it.tone === 'late' || it.kind === 'missed' || it.at == null || it.at <= eod) ? today
-    : it.at > horizon && !['moved', 'askup', 'chair', 'followask'].includes(it.kind) ? later : soon).push(it);
+    : it.at > horizon && !['moved', 'askup', 'chair', 'followask'].includes(it.kind) && !newNotice(it) ? later : soon).push(it);
   return { today, soon, later, horizon, partner, next: today[0] || soon[0] || partner[0] || later[0] || w.prep || null };
 }
 // The Today badge: what needs the viewer today (D3); `lateN` names the overdue count (the frame's words, A-5).
 function badgeOf() {
   const w = work(), g = groupsOf(w);
-  const counted = g.today;   // partner words have no deadline and sit in their own group (v5 left them out of the badge too)
+  // Partner words to approve are the person's own rows, so they count in "needs you today" too (Nate's walk: November's
+  // sidebar showed no count with 3 waiting); they keep their own group, since they have no deadline. Suggestions never count.
+  const counted = [...g.today, ...g.partner];
   const lateN = counted.filter(i => i.tone === 'overdue').length;
   return { n: counted.length, late: lateN > 0, lateN };
 }
@@ -307,13 +338,14 @@ function rowOf(it, opts = {}) {
 }
 function rowOf0(it, { ro = false, v = S.me } = {}) {
   REG.set(it.key, it);
-  const pick = it.key, b = it.b;
+  const pick = it.key, b = it.b, sx = sitSuffix(it, v);
   if (it.s && b && ['chair', 'followask', 'stale'].indexOf(it.kind) < 0) {
-    const s = ro ? { ...it.s, mine: false } : it.s;
+    const s0 = ro ? { ...it.s, mine: false } : it.s;
+    const s = newNotice(it) ? { ...s0, line: `New hearing ${dayWords(it.h.scheduled_at)}: make the draft · send by ${dayWords(s0.act?.at ?? s0.due)}` } : sx ? { ...s0, line: s0.line + sx } : s0;
     // The second look says its state word on the row (spec 5's five words): "Second look · approve by tomorrow 10:00 AM".
     if (s.state?.key === 'second' && s.you && !ro && s.act?.words) {
       const st = shownStatus(s), hushed = st !== s.status, tone = st.tone;
-      return itemRow({ key: b.id, name: nameWords(b), num: numWords(b), line: nw(esc(`Second look · ${lower(s.act.words)}`)), tone, icon: tone !== 'neutral' ? st.icon : st.soon || hushed ? 'clock' : '',
+      return itemRow({ key: b.id, name: nameWords(b), num: numWords(b), line: nw(esc(`Second look · ${lower(s.act.words)}${sx}`)), tone, icon: tone !== 'neutral' ? st.icon : st.soon || hushed ? 'clock' : '',
         bold: !!st.soon, href: billRoute(b), pick, button: rowButtonOK(s) ? rowButton(s) : '' });
     }
     return billRow(b, { viewer: v, step: s, pick, button: ro ? false : undefined });
@@ -330,7 +362,7 @@ function rowOf0(it, { ro = false, v = S.me } = {}) {
   if (it.kind === 'stale') return billRow(b, { viewer: v, step: it.s, pick, button: false, line: nw(esc(`Check your testimony: the bill is now ${versionWords(b.current_version)}`)) });
   // Partner words say only what and what is new: the group's heading says "to approve" (fewer words per row).
   const r = it.kind === 'partner' ? pqRow(it.p, { short: true }) : miniOf(it, v), due = dueTone(it, ro);
-  return itemRow({ key: it.key, name: r.name, num: r.num, line: nw(plainCodes(esc(r.line))), tone: due.tone, icon: due.icon, bold: due.bold, href: r.href, pick: r.pick === false ? undefined : pick,
+  return itemRow({ key: it.key, name: r.name, num: r.num, line: nw(plainCodes(esc(r.line + sx))), tone: due.tone, icon: due.icon, bold: due.bold, href: r.href, pick: r.pick === false ? undefined : pick,
     button: ro ? '' : r.rowBtn && (it.tone === 'overdue' || it.at == null || it.at <= endOfDay()) ? r.rowBtn : '', cls: `t6-k-${it.kind}` });
 }
 // A to-do's or a follow-up's line colour: red only once its date has passed, for the viewer's own (D3).
@@ -355,7 +387,7 @@ function miniOf(it, v = S.me) {
       // ordinary to-do's button says what it does, "Mark done", with no check mark (a check means done, D3).
       const title = it.share ? `Write the public ask for the ${it.h ? dayWords(it.h.scheduled_at) : 'next'} hearing` : it.t.title;
       const doneBtn = (k = 'secondary') => btn('Mark done', { kind: k, sm: k !== 'primary', attrs: { 'data-t6act': 'todo', 'data-t6k': it.key } });
-      const card = askCardHref(b), askBtn = (k = 'secondary') => btn(card ? 'Open the ask card' : 'Write it', { kind: k, sm: k !== 'primary', icon: k === 'primary' ? 'megaphone' : '', href: card || `${billRoute(b, 'public')}?focus=ask` });
+      const card = askCardHref(b), askBtn = (k = 'secondary') => btn(card ? 'Open the ask card' : 'Write the public ask', { kind: k, sm: k !== 'primary', icon: k === 'primary' ? 'megaphone' : '', href: card || `${billRoute(b, 'public')}?focus=ask` });
       return { name: nameWords(b), num: numWords(b), line: [when, clip(title, 64)].filter(Boolean).join(' · '), href: billRoute(b), what: title,
         rowBtn: it.share ? askBtn() : doneBtn(), buttons: k => [it.share ? askBtn(k) : doneBtn(k), it.share ? doneBtn(k === 'primary' ? 'secondary' : 'text') : '',
           // Give to… lives in the open item; the next-step card keeps to the step itself (V01: the first screen stays small)
@@ -382,8 +414,8 @@ function miniOf(it, v = S.me) {
     case 'fix': return { name: b ? nameWords(b) : clip(spaced(it.a.subject), 60) || 'Your email', num: b ? numWords(b) : '', line: 'Your email was sent back · fix it and send it again', href: `#/email/${it.a.id}`, pick: false, what: 'Fix your email',
       sub: b && it.a.subject ? `“${clip(spaced(it.a.subject), 120)}”` : '',
       rowBtn: btn('Edit', { kind: 'secondary', sm: true, href: `#/email/${it.a.id}` }), buttons: k => [btn('Edit the email', { kind: k, icon: 'pencil', href: `#/email/${it.a.id}` })] };
-    case 'send': return { name: b ? nameWords(b) : clip(spaced(it.a.subject), 60) || 'Your email', num: b ? numWords(b) : '', line: 'Your email is approved · send it at 4:30 pm', href: `#/email/${it.a.id}`, what: 'Send your approved email',
-      rowBtn: btn('Send', { kind: 'secondary', sm: true, icon: 'send', attrs: { 'data-t6act': 'send', 'data-t6k': it.key } }), buttons: k => [btn('Send at 4:30 pm', { kind: k, icon: 'send', attrs: { 'data-t6act': 'send', 'data-t6k': it.key } }), btn('Open the email', { kind: 'text', href: `#/email/${it.a.id}` })] };
+    case 'send': return { name: b ? nameWords(b) : clip(spaced(it.a.subject), 60) || 'Your email', num: b ? numWords(b) : '', line: 'Your email is approved · send it at 4:30 PM', href: `#/email/${it.a.id}`, what: 'Send your approved email',
+      rowBtn: btn('Send', { kind: 'secondary', sm: true, icon: 'send', attrs: { 'data-t6act': 'send', 'data-t6k': it.key } }), buttons: k => [btn('Send at 4:30 PM', { kind: k, icon: 'send', attrs: { 'data-t6act': 'send', 'data-t6k': it.key } }), btn('Open the email', { kind: 'text', href: `#/email/${it.a.id}` })] };
     case 'reply': {
       const href = `${billRoute(b, 'talk')}?reply=1`;
       return { name: nameWords(b), num: numWords(b), line: `Reply to ${it.from} · ${clip(it.q, 70)}`, href, pick: false, what: `Reply to ${it.from}`, sub: `“${clip(it.q, 160)}”`,
@@ -392,7 +424,7 @@ function miniOf(it, v = S.me) {
     case 'rally': {
       // The ask is written on its card in This week's asks (OUTREACH, V20), which also copies it out; the bill's Public tab
       // only when the bill has no card this week.
-      const card = askCardHref(b), write = card || `${billRoute(b, 'public')}?focus=ask`, by = actBy({ kind: 'due', due: it.due, verb: 'Write the public ask' }).words, label = card ? 'Open the ask card' : 'Write it';
+      const card = askCardHref(b), write = card || `${billRoute(b, 'public')}?focus=ask`, by = actBy({ kind: 'due', due: it.due, verb: 'Write the public ask' }).words, label = card ? 'Open the ask card' : 'Write the public ask';
       // The database's share to-do on the same bill is this act (build): its Mark done sits in the open item.
       const done = it.t ? k => btn('Mark done', { kind: k, sm: true, attrs: { 'data-t6act': 'todo', 'data-t6k': it.key } }) : null;
       return { name: nameWords(b), num: numWords(b), line: by, href: write, what: 'Write the public ask', sub: `For the ${committeeName(it.h.committee) || it.h.committee} hearing ${whenAt(it.h.scheduled_at)}.`,
@@ -410,12 +442,16 @@ function miniOf(it, v = S.me) {
       // A prep date that has passed is "Still to finish", never red (spec 6, My issues; V30).
       const when = prepDue() < Date.now() ? 'still to finish' : `due ${dayWords(prepDue())}`;
       return { name: pt.own ? 'Your issues for 2027' : `Helping ${pt.owners.map(a => first(a.id)).join(' and ')}`, num: '', line: `${pt.ready} of ${plural(pt.total, 'issue')} ready · ${when}`, href, pick: false,
-        what: pt.own ? 'Get your issues ready for 2027' : `Help ${pt.owners.map(a => first(a.id)).join(' and ')} get their issues ready`, sub: `${pt.ready} of ${plural(pt.total, 'issue')} ready.${pt.back.length ? ` ${first(pt.back[0].prep_by)} sent back ${pt.back[0].name}.` : pt.next ? ` Next: ${pt.next.name}.` : ''}`,
+        what: pt.own ? 'Get your issues ready for 2027' : `${helpWords(pt)} ready`, sub: `${pt.ready} of ${plural(pt.total, 'issue')} ready.${pt.back.length ? ` ${first(pt.back[0].prep_by)} sent back ${pt.back[0].name}.` : pt.next ? ` Next: ${pt.next.name}.` : ''}`,
         buttons: k => [btn(label, { kind: k, icon: 'arrow-right', href }), btn('See the list', { kind: 'text', href: list })] };
     }
   }
   return { name: it.key, num: '', line: '', href: '#/', buttons: () => [] };
 }
+
+// A helper's part of the 2027 prep, about the issues, not the person: "Help Rick get 2 issues ready" (Nate's walk: "Help
+// Rick get their issues ready" read oddly about one named person). The issues still to finish that they help on.
+const helpWords = pt => `Help ${pt.owners.map(a => first(a.id)).join(' and ')} get ${plural(Math.max(1, pt.total - pt.ready), 'issue')}`;
 
 // ---- the card and the open item ----
 // "Your next step": the step card with the screen's one filled button (V11). Testimony and chair asks are steps.js's card;
@@ -423,7 +459,8 @@ function miniOf(it, v = S.me) {
 function nextCard(it, v = S.me, id = 't6-next-h') {
   if (!it) return '';
   REG.set(it.key, it);
-  if (it.s && it.b && it.kind !== 'stale') return shared(stepCard(it.b, { viewer: v, where: 'today', d: it.kind === 'chair' || it.kind === 'followask' ? null : it.d ?? null, h: it.kind === 'chair' || it.kind === 'followask' ? null : it.h ?? null, primary: true, id, from: 'today' }), it, v);
+  // compact: the Write, Approve, File track, who files it and who is going are said in the open item and on the bill (V01).
+  if (it.s && it.b && it.kind !== 'stale') return shared(stepCard(it.b, { viewer: v, where: 'today', d: it.kind === 'chair' || it.kind === 'followask' ? null : it.d ?? null, h: it.kind === 'chair' || it.kind === 'followask' ? null : it.h ?? null, primary: true, id, from: 'today', compact: true }), it, v);
   if (it.kind === 'partner') return pqCard(it.p, { id });
   return miniCard(it, { primary: true, v, id });
 }
@@ -489,7 +526,7 @@ function itemFor(key, v = S.me) {
     ${also || facts ? `<div class="v6-item-doors">${also ? `<details class="v6-item-det t6-also"><summary class="v6-item-door">${icon('list')}<span>Also on this bill · ${alsoL.length}</span>${icon('chevron-down')}</summary><ul class="v6-also-list">${also}</ul></details>` : ''}${facts ? `<details class="v6-item-det"${S.v6About?.[b.id] ? ' open' : ''} data-v6about="${esc(b.id)}"><summary class="v6-item-door">${icon('info')}<span>About this bill</span>${icon('chevron-down')}</summary><div class="v6-item-about">${facts}</div></details>` : ''}</div>` : ''}
   </div>`;
 }
-const lineOf = (it, v) => it.s && !['followask', 'stale'].includes(it.kind) ? it.s.line : it.kind === 'followask' ? it.s.line : it.kind === 'stale' ? `Check your testimony: the bill is now ${versionWords(it.b.current_version)}` : miniOf(it, v).line;
+const lineOf = (it, v) => (it.s && !['followask', 'stale'].includes(it.kind) ? it.s.line : it.kind === 'followask' ? it.s.line : it.kind === 'stale' ? `Check your testimony: the bill is now ${versionWords(it.b.current_version)}` : miniOf(it, v).line) + sitSuffix(it, v);
 
 // ---- the one-line doors (each one labelled control, never a list of other people's steps: D4, V15) ----
 const lineA = (href, ic, html, { cls = '', attrs = '' } = {}) => `<a class="t6-line${cls ? ' ' + cls : ''}" href="${esc(href)}"${attrs}>${icon(ic)}<span class="t6-lt">${html}</span>${icon('chevron-right', { cls: 't6-chev' })}</a>`;
@@ -497,19 +534,43 @@ const lineB = (data, ic, html) => `<button type="button" class="t6-line" ${data}
 // A share to-do (migration 112, the bill owner's) is the rallier's public ask (11.6): { h, rl (the ralliers), due (OUTREACH's
 // time) }, or null for any other task. Team and the slipping count say it as the rallier's, by that time (one owner and one
 // time for one act, as on Today: the critic's Kevin and Saya).
+// It is folded into the rallier's row only when the rallier has that row (build: a strong position on a public bill, the
+// sitting ahead); on any other bill it is null, the owner's own to-do at its own time (R-274), so Today, Team, Slipping and
+// the bill page never hand it to someone whose Today will not show it.
+const rallies = (b, h) => !!b && !!h && ['strongly_support', 'strongly_oppose'].includes(b.position) && !!b.is_public && !diedish(b)
+  && b.tracked !== false && h.status !== 'cancelled' && ms(h.scheduled_at) > Date.now();
 export function shareAsk(t) {
   if (!t || t.kind !== 'todo' || !t.b || !ASK_RX.test(t.t?.title || '')) return null;
-  const h = shareHearing(t.b, t.t);
-  return { h, rl: rallierOf(t.b).filter(live), due: h ? askDueAt(h) : t.due ?? null };
+  const h = shareHearing(t.b, t.t), rl = rallierOf(t.b).filter(live);
+  if (!rl.length || !rallies(t.b, h)) return null;
+  return { h, rl, due: askDueAt(h) };
+}
+// "Saya writes the public ask" (the rally row's one verb, C-15), from the reader's side ("You write the public ask").
+export const shareWords = (sa, v = S.me) => `${cap(orWords(sa.rl, v))} ${sa.rl.length > 1 || sa.rl.includes(v?.id) ? 'write' : 'writes'} the public ask`;
+// The bill page's line for a share to-do (F115): said as Today and Team say it, with whose to-do it is ("Saya writes the
+// public ask · by tomorrow 4:00 PM (Kevin's to-do)"), or null when the to-do is its owner's own (not folded).
+export function shareTodoWords(b, t, v = S.me) {
+  const sa = shareAsk({ kind: 'todo', b, t, due: null }); if (!sa) return null;
+  const by = t.assignee_id && !sa.rl.includes(t.assignee_id) ? (t.assignee_id === v?.id ? 'your to-do' : `${first(t.assignee_id)}’s to-do`) : '';
+  return { title: shareWords(sa, v), when: sa.due != null ? `by ${whenAt(sa.due)}` : '', by, due: sa.due, mine: sa.rl.includes(v?.id) };
 }
 // v5's Slipping (today5.js), with a public ask counted only once its own time is a day or less away (v5's slipping window),
-// so Today's line and Team's block count the same rows.
+// so Today's line and Team's block count the same rows. Plus the testimony nobody holds whose time to act is today or
+// tomorrow (Nate's walk: HB 2300's approved testimony, to file by tomorrow 11:00 AM, was on no one's Today and not here):
+// a row with no one on it (`nob`, its billStep), "No owner yet · file by tomorrow 11:00 AM", Give to… or Take it.
 export function slipList() {
   const sl = slipNow(), now = Date.now();
   const rows = sl.rows.map(r => {
     const tasks = (r.tasks || [r.p]).filter(t => { const a = shareAsk(t); return !a || a.due == null || a.due - now <= DAY; });
     return tasks.length ? (tasks[0] === r.p ? r : { ...r, tasks, p: tasks[0], due: tasks[0].due }) : null;
   }).filter(Boolean);
+  const held = new Set(rows.filter(r => r.b && !(r.ids || []).length).map(r => r.b.id)), eot = endOfDay(now + DAY);
+  for (const b of noOwnerBills()) {
+    if (held.has(b.id)) continue;
+    const s = billStep(b, { viewer: S.me });
+    if (!s?.state || !s.nobody || s.act?.at == null || s.act.at > eot) continue;
+    rows.push({ key: 'sl:no:' + b.id, b, ids: [], tasks: [], p: null, nob: s, due: s.due, at: s.act.at });
+  }
   return { ...sl, rows };
 }
 // Leads (admins and second approvers): v5's Slipping, as one line that opens Team. Red only when something on it is overdue.
@@ -517,7 +578,7 @@ function leadLine() {
   if (!isLead()) return '';
   let sl; try { sl = slipList(); } catch (e) { console.error(e); return ''; }
   const n = sl.rows.length; if (!n) return '';
-  const now = Date.now(), over = sl.rows.filter(r => r.p && r.p.due != null && r.p.due <= now && !(r.p.h && ms(r.p.h.scheduled_at) > now && /file|review|revise|submit|write/.test(r.p.kind))).length;
+  const now = Date.now(), over = sl.rows.filter(r => r.nob ? r.nob.act?.kind === 'overdue' : r.p && r.p.due != null && r.p.due <= now && !(r.p.h && ms(r.p.h.scheduled_at) > now && /file|review|revise|submit|write/.test(r.p.kind))).length;
   // Someone else's late step is said in words, never in colour (D3): the lead's own late work is on their own rows.
   return lineA('#/team', 'users', `<b>${n} slipping</b> on the team${over ? ` · ${over} overdue` : ''}`, { cls: 't6-lead' });
 }
@@ -535,32 +596,53 @@ function doorLines(w, v = S.me, { coal = true, lead = '' } = {}) {
   // D1: the bills still to ask that are not rows here, counted and said as Get hearings counts them for My bills ("17 of
   // your bills to ask": the tab, the line under This week and this door give one number for one pile, A-14; the critic:
   // "bills need a hearing", "hearing asks" and "to ask" were three numbers). The rows plus this door make the tab's count.
-  const sm = v.id === S.me?.id ? memo('asks:' + v.id, () => { try { return askSummary({ scope: 'mine', viewer: v }); } catch (e) { console.error(e); return null; } }) : null;
-  // Only for someone with chair asks of their own beyond the rows (a helper who owns none has the coalition's line below).
-  const askRowsN = w.own.filter(i => i.kind === 'chair' && i.s.ask.key === 'ask').length, askN = Math.max(w.asks.length, sm ? sm.toAsk - askRowsN : 0);
-  if (w.asks.length) { const by = w.asks[0]?.by; out.push(lineA('#/hearings/ask?scope=mine', 'landmark', `<b>${askN} ${askRowsN ? 'more ' : ''}of your bills to ask</b>${by != null ? ` · first by ${esc(dayWords(by))}` : ''}`)); }
+  // One count for the pile, Get hearings' own (push.js toAskWords: "20 to ask · first by Mon 3/23"), the same on Bills and
+  // Hearings; said once on the page: the season card's deadline line says it when it is drawn (w.askSaid).
+  const sm = (S.bills || []).some(b => owns(v.id, b)) ? mineAsks(v) : null;
+  if (w.asks.length && !w.askSaid && sm?.toAsk) out.push(lineA('#/hearings/ask?scope=mine', 'landmark', boldLead(toAskWords(sm))));
   if (w.coal.size && coal) {
     const owners = [...w.coal.entries()].sort((x, y) => y[1].n - x[1].n), n = owners.reduce((s, [, e]) => s + e.n, 0);
     const who = orWords(owners.map(([id]) => id), v, { and: true });
-    // HEARINGS: the coalition's board, My coalitions (D4), where "I'll ask" takes one on. The door names the place, not an
-    // act (one name per act: the board's button is "I'll ask"), and counts what its tab counts, the bills still to ask.
-    out.push(lineA('#/hearings/ask?scope=coal', 'hand-heart', `<b>${esc(who)}’s bills: ${n} to ask</b> · Get hearings`));
+    // D4's own words: "Lauren has 15 hearing asks · Offer to help", opening the coalition's Get hearings board (My
+    // coalitions), where "I'll ask" takes one on. The count is every bill still to ask, so no "this week" (Nate's walk:
+    // "Lauren's bills: 15 to ask" read as Patti's own backlog). A door, never the screen's filled button.
+    out.push(lineA('#/hearings/ask?scope=coal', 'hand-heart', `<b>${esc(cap(who))} ${owners.length > 1 ? 'have' : 'has'} ${plural(n, 'hearing ask')}</b> · Offer to help`, { attrs: ` aria-label="${esc(`Offer to help ${who}: ${plural(n, 'hearing ask')}`)}"` }));
   }
-  // This week's asks the viewer rallies that are not already a row here (the critic: Saya's door counted the ask that was
-  // her next step); none left, no line.
-  const rally = w.rally.filter((x, i, a) => a.findIndex(y => y.b.id === x.b.id) === i && !w.own.some(o => o.b?.id === x.b.id && (o.kind === 'rally' || o.share)));
-  if (rally.length) out.push(lineA('#/outreach', 'megaphone', `<b>${plural(rally.length, 'public ask')}</b> · This week’s asks`));
+  // This week's asks the viewer rallies that are still to write and not already a row here (Nate's walk: after Saya wrote
+  // HB 2121's ask, "1 public ask" counted it, which read as one more to do); none left, no line.
+  const rally = w.rally.filter((x, i, a) => a.findIndex(y => y.b.id === x.b.id) === i && !liveAsk(x.b) && !w.own.some(o => o.b?.id === x.b.id && (o.kind === 'rally' || o.share)))
+    .sort((x, y) => askDueAt(x.h) - askDueAt(y.h));
+  if (rally.length) out.push(lineA('#/outreach', 'megaphone', `<b>${plural(rally.length, 'public ask')} to write</b> · ${rally.length > 1 ? 'first ' : ''}by ${nw(esc(whenAt(askDueAt(rally[0].h))))}`));
   // Whoever may hand them (an admin, an issue's owner): the same count and word as Team's block and bar (noOwnerBills).
   const no = noOwnerBills(v);
   if (no.length) out.push(lineA(isLead(v) ? '#/team?who=none' : '#/my-issues', 'user-round', `<b>${plural(no.length, 'bill')} with no owner</b>`));
   if (admitsPartners(v)) {
-    const o = pqOthers(), parts = [o.groups.length ? `${plural(o.groups.length, 'group')} to approve` : '', o.requests.length ? `${o.requests.length} to join` : ''].filter(Boolean);
-    if (parts.length) out.push(lineA('#/partners', 'handshake', `<b>Partners</b> · ${esc(parts.join(', '))}`));
+    // The words to approve are this person's own rows here (Partner words to approve), so the line leaves them out.
+    const pl = partnersLine(v, { words: false }); if (pl) out.push(pl);
     if (S.pqErr) out.push(`<p class="t6-quiet">${icon('circle-alert')}<span>The partners’ words did not load.</span>${btn('Try again', { kind: 'text', sm: true, attrs: { 'data-t6act': 'pqretry' } })}</p>`);
   }
   return out;
 }
+// The partners' one line on Today and on Team, built once so both say the same parts in the same words (rule 6; the critic:
+// "1 group to approve, 1 to join" here beside Team's "1 group to approve · 1 group asks to join"). `words: false` leaves out
+// the partners' words to approve where they are the person's own rows (Today).
+export function partnersLine(v = S.me, { words = true } = {}) {
+  if (!admitsPartners(v)) return '';
+  const n = words && approvesPartners(v) ? pqItems().length : 0, o = pqOthers();
+  const parts = [n ? `${plural(n, 'set')} of words to approve` : '', o.groups.length ? `${plural(o.groups.length, 'group')} to approve` : '',
+    o.requests.length ? `${plural(o.requests.length, 'group')} ${o.requests.length === 1 ? 'asks' : 'ask'} to join` : ''].filter(Boolean);
+  return parts.length ? lineA('#/partners', 'handshake', `<b>Partners</b> · ${esc(parts.join(' · '))}`) : '';
+}
 
+// The next deadline that bills with no hearing yet are racing, from the viewer's own bills (Bills' Mine): sessionClock's.
+function noHearingClock(v) {
+  let c; try { c = sessionClock((S.bills || []).filter(b => b.tracked !== false && (v.id === S.me?.id ? isMine(b) : owns(v.id, b)))); } catch { return null; }
+  return !c ? null : c.noHearing.length ? c : c.then && c.then.noHearing.length ? c.then : null;
+}
+// The viewer's own bills still to ask, worked out once a draw (Get hearings' My bills count).
+const mineAsks = v => v.id === S.me?.id ? memo('asks:' + v.id, () => { try { return askSummary({ scope: 'mine', viewer: v }); } catch (e) { console.error(e); return null; } }) : null;
+// "20 to ask · first by Mon 3/23" with its count part in ink ("<b>20 to ask</b> · …").
+const boldLead = t => { const m = /^([^·;]+)([·;][\s\S]*)?$/.exec(t || ''); return m ? `<b>${esc(m[1].trim())}</b>${m[2] ? esc(m[2].startsWith(';') ? m[2] : ' ' + m[2]) : ''}` : esc(t); };
 // Bills with a position and no owner: one count and one word, "no owner", on Today's line, Team's block, its bar and its
 // list (the critic: Today's "9 bills no one holds" against Team's "10 bills have no owner" and a bar of 9). `v` narrows it
 // to the bills that person may hand (an admin: all of them; an issue's owner: their issue's bills).
@@ -607,10 +689,23 @@ const sitKey = h => `${h.committee}|${h.scheduled_at}`;
 // (spec 6, Today on a phone on a hearing day: "others' revisions folded"), so Kris's Friday is one screen and a half.
 // Done on hearingCard's HTML here until steps.js takes { omit, lead, fold } (asked as a shared change).
 const LI = /<li class="v6-hcard-bill"><a class="v6-hcard-bl" href="([^"]*)"[\s\S]*?<\/li>/g;
+// The bills on a sitting that are the viewer's in any way: owned, written (sent for approval), filed, approved, or whose
+// step is theirs now. On a phone's big card these are never folded (Nate's walk: Lauren's own HB 1523, which Patti files,
+// sat under "Team testimony" with its "late, still accepted" hidden on the day it mattered; rule 7.3).
+function theirsOn(h, v) {
+  const out = new Set();
+  for (const r of S.hearings || []) {
+    if (r.committee !== h.committee || r.scheduled_at !== h.scheduled_at) continue;
+    const b = billById(r.bill_id); if (!b) continue;
+    const ds = (S.drafts?.[b.id] || []).filter(d => d.committee === h.committee && d.status !== 'cancelled');
+    if (owns(v.id, b) || ds.some(d => d.submitted_by === v.id || filerOf(d) === v.id || d.approved_by === v.id || d.second_approved_by === v.id || whoseStep(d, b, { viewer: v, h: r }).you)) out.add(b.id);
+  }
+  return out;
+}
 function sittingCard(h, { v = S.me, big = false, id = '', drop = null, lead = null, own = null } = {}) {
   let html = hearingCard(h, { viewer: v, big, from: 'today', id });
   const hrefOf = b => esc(billRoute(b)), ids = x => new Set([...(x || [])].map(i => billById(i)).filter(Boolean).map(hrefOf));
-  const gone = ids(drop), mine = ids(own);
+  const gone = ids(drop), mine = ids(own ? [...own, ...theirsOn(h, v)] : null);
   const leadHref = lead?.b ? hrefOf(lead.b) : null, tone = lead?.s?.status?.tone;
   let leadLi = '';
   const team = [];
@@ -628,7 +723,7 @@ function sittingCard(h, { v = S.me, big = false, id = '', drop = null, lead = nu
   });
   if (leadLi) html = html.replace('<ul class="v6-hcard-bills">', `<ul class="v6-hcard-bills">${leadLi}`);
   // The team's rows, folded under one line that still says how many (nothing of the viewer's own is in it: rule 3).
-  const fold = team.length ? `<details class="t6-hcteam"><summary>${icon('users')}<span><b>Team testimony</b> · ${team.length}</span>${icon('chevron-down', { cls: 't6-chev' })}</summary><ul class="v6-hcard-bills">${team.join('')}</ul></details>` : '';
+  const fold = team.length ? `<details class="t6-hcteam"><summary>${icon('users')}<span><b>Other team testimony</b> · ${team.length}</span>${icon('chevron-down', { cls: 't6-chev' })}</summary><ul class="v6-hcard-bills">${team.join('')}</ul></details>` : '';
   // With no bill left to list, the card is the sitting itself: its time, room, who is going and the stream.
   if (/<ul class="v6-hcard-bills">\s*<\/ul>/.test(html)) html = html.replace(/<ul class="v6-hcard-bills">\s*<\/ul>/, fold ? '<!--t6fold-->' : '').replace('<span>Also heard: ', '<span>');
   else if (fold) html = html.replace(/(<ul class="v6-hcard-bills">[\s\S]*?<\/ul>)/, '$1<!--t6fold-->');
@@ -640,12 +735,13 @@ function seasonBody(season, v, w, { skipH = null } = {}) {
     const pt = prepTaskOf(v.id), ended = endedLine();
     if (season === 'prep' && pt && !(w.prepIsNext)) {
       const left = pt.total - pt.ready, href = pt.back.length ? issueHref(pt.back[0], 'prep') : issueHref(pt.next, 'prep');
-      const line = pt.own ? `${pt.ready} of ${plural(pt.total, 'issue')} ready${prepDue() < now ? ' · still to finish' : ` · due ${esc(dayWords(prepDue()))}`}` : `Help ${esc(pt.owners.map(a => first(a.id)).join(' and '))}: ${pt.ready} of ${pt.total} ready`;
-      return { title: 'Getting ready for 2027', html: p(line, 'clipboard-list') + `<div class="t6-sacts">${btn(pt.back.length ? 'Open what came back' : left ? 'Open the next one' : 'See the list', { kind: 'secondary', href })}</div>${ended}` };
+      const line = pt.own ? `${pt.ready} of ${plural(pt.total, 'issue')} ready${prepDue() < now ? ' · still to finish' : ` · due ${esc(dayWords(prepDue()))}`}` : `${esc(helpWords(pt))} ready${prepDue() < now ? ' · still to finish' : ` · due ${esc(dayWords(prepDue()))}`}`;
+      return { title: 'Getting ready for 2027', html: p(line, 'clipboard-list') + `<div class="t6-sacts">${btn(pt.back.length ? 'Open what came back' : left ? 'Open the next one' : 'See the list', { kind: 'secondary', href })}</div>${setupLine(v)}${ended}` };
     }
     if (season === 'prep' && !pt && (S.issues || []).some(i => i.owner_id === v.id || (S.issueHelpers || []).some(h => h.issue_id === i.id && h.advocate_id === v.id)))
-      return { title: 'Getting ready for 2027', html: p('Your part is done. Mahalo.', 'circle-check') + ended };
-    return ended ? { title: 'Between sessions', html: ended } : null;
+      return { title: 'Getting ready for 2027', html: p('Your part is done. Mahalo.', 'circle-check') + setupLine(v) + ended };
+    const su = season === 'prep' ? setupLine(v) : '';
+    return ended || su ? { title: season === 'prep' ? 'Getting ready for 2027' : 'Between sessions', html: su + ended } : null;
   }
   if (season === 'opening') {
     const sorts = v.is_admin || (S.bills || []).some(b => owns(v.id, b));
@@ -667,10 +763,51 @@ function seasonBody(season, v, w, { skipH = null } = {}) {
   }
   // Hearings, February to April: the person's next hearing and the next deadline, in words (V05).
   const nh = nextHearing(v, w), dl = nextDeadline(v), said = !!nh && skipH === sitKey(nh);
-  const parts = [said ? '' : nh ? p(`Your next hearing: ${nw(esc(whenAt(nh.scheduled_at)))} · ${esc(committeeName(nh.committee) || nh.committee)}`, 'landmark') : p('No hearings on your bills this week.', 'landmark'),
-    dl ? p(`Next deadline ${nw(esc(dayWords(dl.date)))}: ${esc(dl.words)}`, 'calendar') : ''];
+  // The deadline line leads with the number that needs action, the bills still to ask, in Get hearings' words, and opens
+  // Get hearings (B-3; Nate's walk: Kevin's "6 of your bills must reach their last committee" beside Bills' 3 and Get
+  // hearings' 3, with no link). With nothing to ask it is the deadline itself, in words.
+  // (for someone who owns bills; a helper's are D4's line) The deadline's count is Bills' own: the bills with no hearing yet
+  // racing the next deadline that leaves any (model.js sessionClock, Bills' banner), so the two screens say one thing.
+  const ownsAny = (S.bills || []).some(b => owns(v.id, b)), sm = ownsAny ? mineAsks(v) : null, ck = sm?.toAsk ? noHearingClock(v) : null;
+  const askT = !sm?.toAsk ? '' : ck ? toAskWords(sm, { dlN: ck.noHearing.length, dlDay: dayWords(ck.date) }) : toAskWords(sm);
+  if (askT) w.askSaid = true;
+  const parts = [said ? '' : nh ? p(`Your next hearing: ${nw(esc(whenAt(nh.scheduled_at)))} · ${esc(committeeName(nh.committee) || nh.committee)}`, 'landmark') : noHearingLine(v, w, p),
+    askT ? lineA('#/hearings/ask?scope=mine', 'calendar', nw(boldLead(askT))) : dl ? p(`Next deadline ${nw(esc(dayWords(dl.date)))}: ${esc(dl.words)}`, 'calendar') : ''];
   if (!parts.join('')) return null;
   return { title: 'This week', html: parts.join('') };   // Hearings is a place in the sidebar and the phone bar, always in sight
+}
+// A week with no hearing on the person's own bills, said truthfully (Nate's worst case is the hidden one): a helper's
+// coalition hearings counted as theirs ("3 hearings on your coalitions' bills this week · Hearings"; Kris owns none but
+// approves for several), and a sitting on a bill only monitored named by its day and time ("No hearings on HIAPA bills we
+// support or oppose · 1 on a bill we monitor: Wed 3/18, 2:00 PM"; Julie's said "No hearings" while SB 3142 was heard).
+function noHearingLine(v, w, p) {
+  const now = Date.now(), wk = now + 7 * DAY, ownsAny = (S.bills || []).some(b => owns(v.id, b)), all = v.prefs?.coalitions === 'all';
+  const names = (S.campaigns || []).filter(c => coalIds(v).includes(c.id)).map(c => c.name);
+  const onCo = b => all ? (S.billCampaigns?.[b.id] || []).length > 0 : inCoal(v, b);
+  const whose = b => owns(v.id, b) || (!ownsAny && onCo(b));
+  const pos = new Map(), mon = new Map();
+  for (const h of S.hearings || []) {
+    const t = ms(h.scheduled_at), b = billById(h.bill_id);
+    if (h.status === 'cancelled' || t <= now || t >= wk || !b || b.tracked === false || diedish(b) || !whose(b)) continue;
+    (isPos(b) ? pos : mon).set(sitKey(h), { h, b });
+  }
+  for (const k of pos.keys()) mon.delete(k);
+  if (!ownsAny && pos.size) return lineA('#/hearings/week?scope=coal', 'landmark', `<b>${plural(pos.size, 'hearing')} on your coalitions’ bills this week</b> · Hearings`);
+  const label = ownsAny ? 'your bills' : names.length ? `${names.join(' and ')} bills` : 'your coalitions’ bills';
+  const m = [...mon.values()].sort((x, y) => ms(x.h.scheduled_at) - ms(y.h.scheduled_at));
+  if (!m.length) return !ownsAny && !names.length && !all ? '' : p(`No hearings on ${esc(label)} this week.`, 'landmark');
+  const at = ms(m[0].h.scheduled_at), when = `${dayWords(at)}, ${timeWords(at)}`;
+  return lineA(`#/hearing/${encodeURIComponent(m[0].h.id)}?from=today`, 'landmark', `<b>No hearings on ${esc(label)} we support or oppose</b> · ${esc(m.length === 1 ? '1 on a bill we monitor' : `${m.length} on bills we monitor, the first`)}: ${nw(esc(when))}`);
+}
+// Between sessions, an admin's one line for Session setup's checklist (Nate's walk: November's Today said nothing while
+// it read "Not ready yet · 1 blocking problem"), in its own words, opening it. Read once a visit.
+function setupLine(v) {
+  if (!v?.is_admin || v.id !== S.me?.id) return '';
+  if (S.t6Ready === undefined) { S.t6Ready = null; DB.readiness().then(r => { S.t6Ready = r || []; if (S.route?.name === 'today') hooks.render(); }).catch(() => { S.t6Ready = []; }); return ''; }
+  const rows = (S.t6Ready || []).filter(r => !r.waiting);
+  const bad = rows.filter(r => r.level === 'block' && r.ok === false).length, todo = rows.filter(r => r.level === 'manual' && !r.ok).length;
+  if (!bad && !todo) return '';
+  return lineA('#/setup', 'settings', `<b>Session setup:</b> ${esc([bad ? `${bad} blocking` : '', todo ? `${todo} to tick off` : ''].filter(Boolean).join(', '))} · Open`);
 }
 function nextHearing(v, w) {
   const now = Date.now(), wk = now + 7 * DAY;
@@ -761,6 +898,9 @@ function doneToday(v = S.me) {
       out.push({ at: ms(d.submitted_at), words: `Sent for approval: ${sayWords(b)}`, act: 'withdraw', b, d });
   }
   for (const x of DONE) if (hday(x.at) === day) out.push(x);
+  // Approvals made on Today's partner words and in Review's supporter emails (partnerq.js, review.js keep S.v6Done), each
+  // with its own Undo, so the Undo outlives the toast (Nate's walk: "Done today · 1" listed only the testimony; B-5).
+  for (const x of S.v6Done || []) if (x.by === v.id && hday(x.at) === day) out.push(x);
   return out.sort((x, y) => y.at - x.at);
 }
 function doneBand(v = S.me) {
@@ -808,16 +948,16 @@ function roCard(it, v) {
 function clearCard(v, w, ro, n = '') {
   const nh = nextHearing(v, w);
   const lost = !ro && !(S.bills || []).some(b => isMine(b)) && !coalIds(v).length && v.prefs?.coalitions !== 'all';
-  // A coalition helper's quiet day says whose asks they could help with (D4), as the line it stands in for.
-  const co = [...w.coal.entries()], coN = co.reduce((s, [, e]) => s + e.n, 0), coBy = co.length ? Math.min(...co.map(([, e]) => e.by)) : null;
   // (a sitting already drawn as its card on this page is not said again here: A-14)
   const onPage = !!nh && sittingsToday(v, w).some(h => sitKey(h) === sitKey(nh));
-  const text = !ro && co.length ? `${orWords(co.map(([id]) => id), v, { and: true })}’s bills: ${coN} to ask${Number.isFinite(coBy) ? `, ${coN === 1 ? 'by' : 'the first by'} ${dayWords(coBy)}` : ''}. You can take one on with I’ll ask.`
-    : nh && !onPage ? `Next hearing: ${whenAt(nh.scheduled_at)}, ${committeeName(nh.committee) || nh.committee}.` : SESSION_OVER ? 'Hearings return when the next session opens.' : '';
-  // With nothing of their own, the one filled button is the most useful next place: the coalition's hearing asks for a
-  // helper (D4), the next hearing, or Hearings.
-  const go = ro ? '' : lost ? btn('Pick your coalition', { href: '#/my-issues/coalitions' }) : w.coal.size ? btn('Open Get hearings', { icon: 'hand-heart', href: '#/hearings/ask?scope=coal' })
-    : nh ? btn('Open the hearing', { icon: 'landmark', href: `#/hearing/${encodeURIComponent(nh.id)}?from=today` })
+  // The next hearing for everyone, a helper too (Nate's walk: Saya's quiet day dropped "Your next hearing" from the season
+  // card, guessing this card said it, while it said "Kevin's bills: 2 to ask"). A helper's D4 line is a door under the
+  // lists ("Kevin has 2 hearing asks · Offer to help"), never this card's filled button (D4).
+  const text = nh && !onPage ? `Next hearing: ${whenAt(nh.scheduled_at)}, ${committeeName(nh.committee) || nh.committee}.` : SESSION_OVER ? 'Hearings return when the next session opens.' : '';
+  // With nothing of their own, the one filled button is the next hearing, or Hearings; a helper with the coalition's asks
+  // to help with has none (the door is the way, and "Open Get hearings" named a place, not a step).
+  const go = ro ? '' : lost ? btn('Pick your coalition', { href: '#/my-issues/coalitions' })
+    : nh && !onPage ? btn('Open the hearing', { icon: 'landmark', href: `#/hearing/${encodeURIComponent(nh.id)}?from=today` }) : w.coal.size ? ''
     : ['conference', 'governor'].includes(seasonOf()) ? btn('Open your bills', { icon: 'file-text', href: '#/bills' }) : SESSION_OVER || seasonOf() === 'prep' || seasonOf() === 'between' ? '' : btn('Open Hearings', { icon: 'landmark', href: '#/hearings' });
   return `<section class="t6-clear" aria-labelledby="t6-clear-h${n}"><h2 class="t6-clh" id="t6-clear-h${n}">${ro ? `Nothing is waiting on ${esc(first(v.id))}.` : lost ? 'Pick the coalition you help on' : 'Nothing needs you today.'}</h2>
     ${lost ? '<p>Its hearings and testimony show here once you switch on I help on it.</p>' : text ? `<p>${nw(esc(text))}</p>` : ''}${go ? `<p class="t6-clgo">${go}</p>` : ''}</section>`;
@@ -858,7 +998,7 @@ function render(route) {
   loads();
   const bd = badgeOf(), P = plan(v), { w, sits, phone, phoneDay } = P;
   const L = listHTML(v, { skip: phoneDay ? P.onCard : null, hideHear: P.hideHear });
-  const coal = !!P.next || !w.coal.size, lead = leadLine(), done = doneBand(v);
+  const coal = true, lead = leadLine(), done = doneBand(v);
   // Getting started sits right under the next step (the critic's 11) as one line below 1100px (R-316 W7: its list pushed a
   // 1024 laptop's lists a sixth of a screen down; the line opens it in Help); from 1100px its short list leads the side
   // column (sideHTML) and the line is not drawn, so the rows start where they always do. At the Capitol on a phone's
@@ -872,7 +1012,10 @@ function render(route) {
   // Below 1100px (not a phone) the day's other sittings come right under the next step; from 1100px they are in the side
   // column. Any other season card closes the column below 1100px, beside the doors from 768px.
   const seasonCol = phone && sits.length ? '' : seasonCard(v, w, { where: 'col', hearings: P.others, drop: P.drop, skipH: P.skipH });
-  const hday = P.others.length > 0 && !phone, doors = doorsNav(doorLines(w, v, { coal, lead }));
+  // On a phone a lead's slipping line comes right under the next step, on the first screen (v5 had it there; Nate's walk:
+  // it was the last thing on a 3.3-screen Today), not among the doors after the lists.
+  const leadPh = phone && lead ? `<nav class="t6-doors t6-leadph" aria-label="The team">${lead}</nav>` : '';
+  const hday = P.others.length > 0 && !phone, doors = doorsNav(doorLines(w, v, { coal, lead: phone ? '' : lead }));
   const edge = doors || (!hday && seasonCol) ? `<div class="t6-edges">${doors}${!hday && seasonCol ? `<div class="t6-colonly">${seasonCol}</div>` : ''}</div>` : '';
   // Nothing for the side column and nothing to list: one calm reading column (the side opens when a door does).
   const side = sideHTML(v, P), alone = !P.rows && !/t6-season|t6-doors|t6-start/.test(side);
@@ -880,8 +1023,8 @@ function render(route) {
     <header class="t6-head"><h1 class="v6-ptitle sv-h1 t6-h1" id="t6-h1" tabindex="-1">Today</h1>${dateLine(bd)}</header>
     <div class="v6-ld t6-ld${item ? ' open' : ''}" data-v6ld="today">
       <div class="t6-col">
-        ${big}${phoneDay && P.nextSit ? '' : `<div class="t6-nextcol">${nextSec(P, L, '', v)}</div>`}${start ? `<div class="t6-startcol">${start}</div>` : ''}
-        ${hday && seasonCol ? `<div class="t6-colonly">${seasonCol}</div>` : ''}${L.groups}${edge}${done}
+        ${big}${phoneDay && P.nextSit ? '' : `<div class="t6-nextcol">${nextSec(P, L, '', v)}</div>`}${leadPh}${start ? `<div class="t6-startcol">${start}</div>` : ''}
+        ${L.groups}${hday && seasonCol ? `<div class="t6-colonly">${seasonCol}</div>` : ''}${edge}${done}
       </div>
       <aside class="v6-ld-detail t6-aside" aria-label="${item ? 'The item you picked' : 'Your season'}">${item ? `<button type="button" class="v6-ld-back" data-v6ldback>${icon('chevron-left')}<span>Back to the list</span></button>${item}`
         : side}</aside>
@@ -896,11 +1039,13 @@ function render(route) {
 // slipping line had jumped in above the list and slid the clicked row from under the pointer, B-4, A-24). Below 1100px
 // the work column holds it all: the next step first, the doors after the lists, before Done today.
 const doorsNav = lines => lines.length ? `<nav class="t6-doors" aria-label="More about your work">${lines.join('')}</nav>` : '';
-const sideOf = ({ start = '', season = '', doors = '', rows = 0 }) => `${start}${season}${doors}${rows ? `<p class="t6-pick">${icon('arrow-left')}<span>Pick a row to see its steps</span></p>` : ''}`;
+// The hint ("Pick one to see its steps", listDetail's own words) only while the column has nothing else in it, which is
+// when it waits for a pick (Nate's walk: after an Undo it stood under Getting started and the season card).
+const sideOf = ({ start = '', season = '', doors = '', rows = 0 }) => `${start}${season}${doors}${rows && !start && !season && !doors ? `<p class="t6-pick">${icon('arrow-left')}<span>Pick one to see its steps</span></p>` : ''}`;
 function sideHTML(v, P) {
   return sideOf({ start: P.phone ? '' : startCard(v, { n: '-s' }),
     season: seasonCard(v, P.w, { where: 'side', hearings: P.others, drop: P.drop, skipH: P.skipH }),
-    doors: doorsNav(doorLines(P.w, v, { coal: !!P.next || !P.w.coal.size, lead: leadLine() })), rows: P.rows });
+    doors: doorsNav(doorLines(P.w, v, { coal: true, lead: leadLine() })), rows: P.rows });
 }
 const edgeHTML = (v = S.me) => sideHTML(v, plan(v));
 // Other people's testimony due today on the person's sittings is said on the big cards themselves (each bill's state and
@@ -941,11 +1086,11 @@ const ACTS = {
   },
   async send(el, it) {
     const a = it.a, n = S.tdAud?.[a.id], paused = S.emailCfg?.enabled === false, day = dailyWord();
-    const ok = await confirmSheet({ title: `Send at 4:30 pm to ${n != null ? plural(n, 'person', 'people') : 'the followers'}?`, ok: 'Send at 4:30 pm',
-      text: `${esc(a.subject)}<br><span class="small muted">${paused ? 'Email is paused, so it is held: it goes out in the first 4:30 pm email after an admin turns email on' : `It goes out ${day} at 4:30 pm`}, in each person’s one email of the day. You can take it back until then.</span>` });
+    const ok = await confirmSheet({ title: `Send at 4:30 PM to ${n != null ? plural(n, 'person', 'people') : 'the followers'}?`, ok: 'Send at 4:30 PM',
+      text: `${esc(a.subject)}<br><span class="small muted">${paused ? 'Email is paused, so it is held: it goes out in the first 4:30 PM email after an admin turns email on' : `It goes out ${day} at 4:30 PM`}, in each person’s one email of the day. You can take it back until then.</span>` });
     if (!ok) return;
     await busy(el, async () => { const r = await DB.alertStep(a.id, 'send'); redraw();
-      toast(paused ? `Held while email is paused. It goes to ${plural(r?.recipients ?? n ?? 0, 'person', 'people')} in the first 4:30 pm email after email is turned on.` : `In ${day}’s 4:30 pm email to ${plural(r?.recipients ?? n ?? 0, 'person', 'people')}.`,
+      toast(paused ? `Held while email is paused. It goes to ${plural(r?.recipients ?? n ?? 0, 'person', 'people')} in the first 4:30 PM email after email is turned on.` : `In ${day}’s 4:30 PM email to ${plural(r?.recipients ?? n ?? 0, 'person', 'people')}.`,
         { ok: true, undo: async () => { try { await DB.alertStep(a.id, 'unsend'); redraw(); toast('Taken back. It will not go out.'); } catch (e) { toast(e, { err: true }); } } }); });
   },
   async moveme(el, it) { await busy(el, () => moveMe(it.task, { toast, redraw })); },
@@ -957,7 +1102,7 @@ const drop = undo => { const i = DONE.findIndex(x => x.undo === undo); if (i >= 
 async function undoDone(i) {
   const x = doneToday()[i]; if (!x) return;
   try {
-    if (x.undo) return await x.undo();
+    if (x.undo) { await x.undo(); if (S.v6Done) S.v6Done = S.v6Done.filter(y => y !== x); return redraw(); }
     if (x.act === 'unfile') { await DB.transition(x.b.id, x.d.id, 'unfile'); toast('Filing undone. It is approved and ready to file again.'); }
     else if (x.act === 'unapprove') { await DB.transition(x.b.id, x.d.id, 'unapprove'); toast('Approval undone. It is waiting for approval again.'); }
     else if (x.act === 'withdraw') { await DB.transition(x.b.id, x.d.id, 'withdraw'); toast('Pulled back to draft. It is yours to send again.'); }

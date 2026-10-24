@@ -14,14 +14,12 @@ body.staff6 .hw-bar { display: flex; flex-wrap: wrap; align-items: center; justi
 body.staff6 .hw-bar .sv-seg { flex-wrap: wrap; max-width: 100%; }
 body.staff6 .hw-bar .hw-nav { margin: 0 0 0 auto; }
 @media (max-width: 380px) { body.staff6 .hw-bar .sv-seg { border-radius: var(--v6-r20); } body.staff6 .hw-bar .sv-seg button { padding: 0 12px; } }
-/* this week on a phone: the arrows go under the days (.hw-footnav), so the switch has the line to itself and the first
-   hearing comes sooner; each day's heading has its date. From 600px the foot's copy is not drawn. */
-body.staff6 .hw-footnav { display: none; }
+/* this week on a phone: the week's row with its arrows sits under the scope switch, its own line (spec 2: phones
+   first-class; Nate's walk: with the arrows hidden Patti could not look at next week) */
 @media (max-width: 599.98px) {
-  body.staff6 .hw-bar .hw-nav.now { display: none; }
-  body.staff6 .hw-footnav { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin: -8px 0 0; }
-  body.staff6 .hw-footnav .btn { min-height: 44px; margin: 0; }
+  body.staff6 .hw-bar .hw-nav { flex: 1 1 100%; justify-content: space-between; margin: 0; }
 }
+body.staff6 .hw-cap-n { color: var(--v6-action); }
 
 /* ---- This week ---- */
 /* the one line over the days: how many bills still need a hearing, opening Get hearings */
@@ -93,6 +91,9 @@ body.staff6 .hw-none, body.staff6 .hg-empty { display: flex; align-items: flex-s
   font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
 body.staff6 .hw-none svg, body.staff6 .hg-empty svg { width: 22px; height: 22px; flex: none; color: var(--v6-muted); margin-top: 1px; }
 body.staff6 .hw-mon { margin: -8px 0 0; }
+/* the monitored line names the bill and the time, so it wraps on a phone rather than cutting them */
+body.staff6 .hw-mon .btn { height: auto; min-height: 44px; white-space: normal; text-align: left; line-height: var(--v6-lh16, 24px); padding-top: 8px; padding-bottom: 8px; }
+body.staff6 .hw-mon .btn > svg { align-self: flex-start; margin-top: 3px; }
 body.staff6 .hg-auto { display: flex; align-items: flex-start; gap: 10px; margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
 body.staff6 .hg-auto svg { width: 20px; height: 20px; flex: none; margin-top: 2px; color: var(--v6-muted); }
 
@@ -123,7 +124,7 @@ body.staff6 .hg-dls { margin: 0; font-size: var(--v6-t16); line-height: var(--v6
 body.staff6 .hg-chair { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; padding: 8px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); min-width: 0; }
 body.staff6 .hg-chead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 12px 8px 8px; }
 body.staff6 .hg-cwho { flex: 1 1 260px; min-width: 0; }
-body.staff6 .hg-cname { margin: 0; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); color: var(--v6-ink); overflow-wrap: anywhere; }
+body.staff6 .hg-cname { margin: 0; font-family: Poppins, system-ui, sans-serif; font-weight: 500; font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); color: var(--v6-ink); overflow-wrap: anywhere; }
 body.staff6 .hg-csub { margin: 2px 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
 body.staff6 .hg-cacts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 body.staff6 .hg-cacts .btn { margin: 0; }
@@ -181,3 +182,10 @@ body.staff6 .hg-how a { display: inline-block; min-height: 24px; color: var(--v6
 @media (prefers-reduced-motion: reduce) { body.staff6 .hw-ask, body.staff6 .hw-earlier .hw-chev { transition: none; } }
 /* room between the camera and "Watch it live" at every width (the critic: they touched on a phone) */
 body.staff6 .hw-page .v6-hcard-watch a { display: inline-flex; gap: 8px; }
+/* the board's one "Asked another way? Log a talk", above the deadlines (no hairline: it is not a card's foot) */
+body.staff6 .hg-logtop { padding: 0 4px; margin: -8px 0 8px; }
+body.staff6 .hg-logtop::before { display: none; }
+/* "Who replied?" on a joint committee's reply sheet: one chair a line, Both chairs chosen (chairask.js replySheet) */
+body.staff6 .ca-whorep { margin: 0 4px 8px; padding: 0; border: 0; }
+body.staff6 .ca-whorep legend { padding: 0; margin: 0 0 4px; font-size: var(--v6-t16); font-weight: 700; color: var(--v6-ink); }
+body.staff6 .ca-whorep .ca-how { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }

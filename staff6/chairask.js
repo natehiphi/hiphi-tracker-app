@@ -93,11 +93,11 @@ export function sentSheet(e) {
   if (!e || sheetOpen?.()) return;
   const bills = e.items.map(x => billById(x.id)).filter(Boolean), what = bills.length === 1 ? sayWords(bills[0]) : plural(bills.length, 'bill');
   if (bills.length < 2) return menuSheet({ title: 'Did you send it?', items: [
-    { label: 'Yes, I sent it', icon: 'send', sub: `Saved for the team: you asked ${e.who} for ${e.decide ? 'decision making' : 'a hearing'}`, run: () => recordAsk(e.items, 'asked', { decide: e.decide }) },
+    { label: 'Yes, I sent it', icon: 'check', sub: `Saved for the team: you asked ${e.who} for ${e.decide ? 'decision making' : 'a hearing'}`, run: () => recordAsk(e.items, 'asked', { decide: e.decide }) },
     { label: 'Not yet', icon: 'clock', sub: 'Nothing is saved; the button stays', run: () => {} }] });
   openSheet({ title: 'Did you send it?', size: 'auto',
     body: `<div class="ca-sheet"><p class="ca-lead">${esc(`To ${e.who} · ${what}`)}</p>${billTicks(bills, 'Which bills did it ask about?')}<p class="err" id="ca-err" role="alert" hidden>${icon('circle-alert')}Tick the bills the email asked about.</p></div>`,
-    foot: `${btn('Not yet', { kind: 'text', attrs: { 'data-no': '1' } })}${btn('Yes, I sent it', { kind: 'primary', icon: 'send', attrs: { 'data-go': '1' } })}`,
+    foot: `${btn('Not yet', { kind: 'text', attrs: { 'data-no': '1' } })}${btn('Yes, I sent it', { kind: 'primary', icon: 'check', attrs: { 'data-go': '1' } })}`,
     wire: d => {
       d.querySelector('[data-no]').onclick = () => closeSheet();
       d.querySelector('[data-go]').onclick = async () => {
@@ -109,21 +109,41 @@ export function sentSheet(e) {
 }
 // The asker's Follow up (Get hearings, spec 6 and 8): the same mail again ("Following up: …"), or what the chair said,
 // in one sheet, so the reply is two clicks from the row (F136) and the follow-up mail is too.
+// The replies' words, the same in "They replied" and Follow up (C-10): "We left a message" is ours, never read as the
+// chair having left one, with what it does.
+const REPLY_LABEL = { left_message: 'We left a message' };
+const REPLY_SUB = { will_schedule: 'Record their reply', said_no: 'Record it, then see what to do next', left_message: 'Record it; the follow-up clock starts again' };
+const replies = () => ASK_ANSWERS.filter(([k]) => k !== 'asked').map(([k, label, ic]) => [k, REPLY_LABEL[k] || label, ic]);
+// A joint committee's ask went to two chairs: the sheet asks who replied (each chair, or both: "Both chairs" is chosen, so
+// the reply is still two clicks, spec 8), and the answer is saved for that chair alone (V24: one chair of a joint committee
+// marks only that chair; Nate's walk: HB 756's reply was saved for both Sen. Keohokalole and Sen. San Buenaventura).
+// askWords then asks the other chair by name. Items: [{ label, icon, sub, run(legs) }] (legs null: both chairs).
+function replySheet(b, code, { title, items }) {
+  const chairs = b ? chairsOf(b, code).filter(c => c.asked) : [];
+  if (chairs.length < 2) return menuSheet({ title, items: items.filter(Boolean).map(it => ({ ...it, run: () => it.run(null) })) });
+  const list = items.filter(Boolean);
+  openSheet({ title, pop: true, body: `<fieldset class="ca-fs ca-whorep"><legend>Who replied?</legend><div class="ca-how">${chairs.map(c => `<label class="ca-rd"><input type="radio" name="ca-rep" value="${esc(c.id)}"><span>${esc(c.who)}</span></label>`).join('')}<label class="ca-rd"><input type="radio" name="ca-rep" value="both" checked><span>Both chairs</span></label></div></fieldset>
+    <div class="sv-menu">${list.map((it, i) => `<button type="button" data-ri="${i}">${icon(it.icon || 'chevron-right')}<span class="body"><span class="title">${esc(it.label)}</span>${it.sub ? `<span class="sub">${esc(it.sub)}</span>` : ''}</span></button>`).join('')}</div>`,
+    wire: d => d.querySelectorAll('[data-ri]').forEach(el => el.onclick = async () => {
+      const v = d.querySelector('[name="ca-rep"]:checked')?.value || 'both', legs = v === 'both' || list[+el.dataset.ri].any ? null : [+v || v];
+      await closeSheet({ silent: true }); await list[+el.dataset.ri].run(legs);
+    }) });
+}
 export function followSheet(b, code, { mail = null } = {}) {
   if (!b || sheetOpen?.()) return;
   const m = chairMail(code), two = (m?.n || 1) > 1, a = chairAskOf(b, code);
-  const subs = { will_schedule: 'Record their reply', said_no: 'Record it, then see what to do next', left_message: 'Record it; the follow-up clock starts again' };
-  menuSheet({ title: esc(`Follow up with ${m?.who || 'the chair'}`), items: [
-    mail ? { label: `Email ${two ? 'the chairs' : 'the chair'} again`, icon: 'mail', sub: `Your mail again, its subject starting “Following up”${a ? ` (you asked ${dayAt(a.at)})` : ''}`, run: () => { location.href = mail.href; afterMail(mail.href); } } : null,
-    ...ASK_ANSWERS.filter(([k]) => k !== 'asked').map(([k, label, ic]) => ({ label, icon: ic, sub: subs[k] || '', run: () => recordAsk([{ id: b.id, code }], k) })),
+  replySheet(b, code, { title: esc(`Follow up with ${m?.who || 'the chair'}`), items: [
+    mail ? { label: `Email ${two ? 'the chairs' : 'the chair'} again`, icon: 'mail', sub: `Your mail again, its subject starting “Following up”${a ? ` (you asked ${dayAt(a.at)})` : ''}`, any: true, run: () => { location.href = mail.href; afterMail(mail.href); } } : null,
+    ...replies().map(([k, label, ic]) => ({ label, icon: ic, sub: REPLY_SUB[k] || '', run: legs => recordAsk([{ id: b.id, code, ...(legs ? { legs } : {}) }], k) })),
   ] });
 }
-// "They replied": the one-tap answers (Get hearings' Waiting on a reply rows, the step card, the "Asked by …" chip).
+// "They replied": the one-tap answers (Get hearings' Waiting on a reply rows, the step card, the "Asked by …" chip). For one
+// bill asked of a joint committee's two chairs, the sheet asks who replied as well.
 export function answerSheet(ids, code) {
   const bills = ids.map(billById).filter(Boolean), m = chairMail(code), a = bills.length === 1 ? chairAskOf(bills[0], code) : null;
-  menuSheet({ title: a ? `What did ${m?.who || 'the chair'} say?` : `Record the ask to ${m?.who || 'the chair'}`, items: ASK_ANSWERS
-    .filter(([k]) => !(a && k === 'asked'))
-    .map(([k, label, ic]) => ({ label, icon: ic, sub: k === 'asked' && bills.length > 1 ? `On all ${bills.length} bills` : k === 'said_no' ? 'Then see what to do next' : '', run: () => recordAsk(ids.map(id => ({ id, code })), k) })) });
+  const items = (a ? replies() : ASK_ANSWERS.map(([k, label, ic]) => [k, REPLY_LABEL[k] || label, ic]))
+    .map(([k, label, ic]) => ({ label, icon: ic, sub: k === 'asked' && bills.length > 1 ? `On all ${bills.length} bills` : REPLY_SUB[k] || '', run: legs => recordAsk(ids.map(id => ({ id, code, ...(legs ? { legs } : {}) })), k) }));
+  replySheet(a ? bills[0] : null, code, { title: a ? `What did ${m?.who || 'the chair'} say?` : `Record the ask to ${m?.who || 'the chair'}`, items });
 }
 export const askDone = (b, code) => answerSheet([b.id], code);
 

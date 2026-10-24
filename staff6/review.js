@@ -12,11 +12,11 @@
 // email asking supporters to testify on a bill that died. The draft itself stays in its Google Doc (Nate, 9/19).
 // The queue is worked out here (it was today.js's reviewQueue), so Review and Testimony › To approve count the same items.
 import { S, DB, esc, hooks, startedFromLine, raceLine } from './data.js';
-import { agoWords, alertTarget, alertsToReview, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn, draftHearing } from './model.js';
+import { agoWords, alertTarget, alertsToReview, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn, draftHearing, blurb } from './model.js';
 import { teamFirst, newOwnerTag, staleLine, filerOf, roomName, whenAt } from './model.js';
 import { icon, btn, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, keysUsed, posIcons, POS_WORD, ownerOf, docBtn } from './ui.js';
 import { emailPreview } from './composer.js';
-import { billStep, shownStatus, statusTile, whereWords, committeeName, numWords, nameWords, whoseStep, nw, sayWords } from './steps.js';
+import { billStep, shownStatus, statusTile, whereWords, committeeName, numWords, nameWords, whoseStep, nw, sayWords, testimonyState, orWords } from './steps.js';
 import { plainCodes } from './terms.js';
 
 const DAY = 864e5;
@@ -60,7 +60,9 @@ function session(route) {
     const q = queue({ only }).map(x => x.key);
     // Opened on one item (a row's Review button): that item first, then the rest of the queue.
     if (route.id && route.id !== 'done' && q.includes(route.id)) q.unshift(...q.splice(q.indexOf(route.id), 1));
-    r = S.tdRev = { keys: q, i: 0, log: [], skipped: [], done: false, only };
+    // Where it was opened from, so the end screen goes back there (B-4; X and Esc already do): Today, else Testimony.
+    const from = route.q?.from === 'today' || /^today$/i.test(String(history.state?.from || '')) ? 'today' : 'testimony';
+    r = S.tdRev = { keys: q, i: 0, log: [], skipped: [], done: false, only, from };
   }
   if (route.id && route.id !== 'done') {
     const at = r.keys.indexOf(route.id);
@@ -115,6 +117,9 @@ function header(r, total) {
     ${btn('Skip', { kind: 'text', iconEnd: 'chevron-right', attrs: { 'data-rvskip': '1' } })}</div>`;
 }
 const head = b => `<span class="rv6-name">${esc(nameWords(b, 120))}</span> <span class="rv6-num">${esc(numWords(b))}</span>`;
+// What the bill does, in one muted line under its name, so an approver need not leave Review to recall it (v5 showed it;
+// spec 7.9 keep every feature). Only when the name is a nickname: otherwise the name already is that line.
+const descOf = b => { const t = String(b?.nickname || '').trim() ? blurb(b, 160) : ''; return t && t !== b.nickname ? `<p class="rv6-desc">${esc(t)}</p>` : ''; };
 function draftBody(it) {
   const { d, b, h } = it, me = S.me || {}, own = d.submitted_by && d.submitted_by === me.id, two = d.status === 'second_review';
   // The one time to act (spec 5 actBy), or "Late, still accepted until 9:30 AM" in amber while the Capitol still takes it.
@@ -126,12 +131,12 @@ function draftBody(it) {
   const hear = h ? `${committeeName(h.committee) || h.committee} · ${h.status === 'cancelled' ? 'hearing cancelled, no new date yet' : `${whenAt(h.scheduled_at)}${h.room ? ` · ${roomName(h.room)}` : ''}`}` : '';
   const f = filerOf(d), filer = !f ? '' : f === me.id ? 'You file it once it is approved.' : `${cap(first(f))} files it once it is approved.`;
   return `<article class="rv6-card" aria-labelledby="rv6-b">
-    <p class="rv6-eb">${icon(two ? 'badge-check' : 'file-text')}<span>${two ? 'Second look' : own ? 'Your own testimony' : 'Testimony'}</span></p>
-    <h2 id="rv6-b" class="rv6-title">${head(b)}</h2>
+    <p class="rv6-eb">${icon(two ? 'badge-check' : 'file-text')}<span>${esc(`${testimonyState(d, b, { h })?.word || 'With an approver'}${own ? ' · your own testimony' : ''}`)}</span></p>
+    <h2 id="rv6-b" class="rv6-title">${head(b)}</h2>${descOf(b)}
     ${tile ? `<p class="rv6-when">${statusTile(tile)}</p>` : ''}
     ${hear ? `<p class="rv6-line">${icon('landmark')}<span>${nw(esc(hear))}</span></p>` : ''}
     ${factsLine(b)}
-    ${billState(b, { h })}
+    ${billState(b, { h }) || (hear ? '' : `<p class="rv6-line">${icon('route')}<span>${nw(esc(whereWords(b)))}</span></p>`)}
     <p class="rv6-line">${icon('user-round')}<span>${esc(who)}</span></p>
     ${from ? `<p class="rv6-line">${icon('copy')}<span>${plainCodes(esc(from))}</span></p>` : ''}
     ${late ? notice('info', 'triangle-alert', plainCodes(esc(late))) : ''}
@@ -146,7 +151,7 @@ function emailBody(it) {
   return `<article class="rv6-card" aria-labelledby="rv6-b">
     <p class="rv6-eb">${icon('mail')}<span>Email to supporters</span></p>
     <h2 id="rv6-b" class="rv6-title rv6-subj">${esc(a.subject || '(no subject)')}</h2>
-    ${it.b ? `<p class="rv6-bill">${head(it.b)}</p>${factsLine(it.b)}${billState(it.b, { email: true })}` : ''}
+    ${it.b ? `<p class="rv6-bill">${head(it.b)}</p>${descOf(it.b)}${factsLine(it.b)}${billState(it.b, { email: true })}` : ''}
     <p class="rv6-line">${icon('users')}<span>To ${n != null ? `${n} ${n === 1 ? 'person' : 'people'} who follow` : 'the people who follow'} ${it.b ? esc(numWords(it.b)) : plainCodes(esc(alertTarget(a)))}</span></p>
     <p class="rv6-line">${icon('user-round')}<span>Sent by ${esc(first(a.author_id))} ${esc(ago(a.submitted_at || a.created_at))}</span></p>
     ${S.emailCfg?.enabled === false ? notice('info', 'mail', 'Email is paused. You can approve; an approved email is held until email is turned on.') : ''}
@@ -162,7 +167,7 @@ function endScreen(r) {
   return `<div class="rv6 rv6-end"><div class="sv-phead"><h1 class="sv-h1 rv6-h">Review</h1></div>
     <div class="rv6-done"><p class="rv6-dt">${icon('circle-check')}<span>${esc(title)}</span></p>${text ? `<p class="rv6-dx">${esc(text)}</p>` : ''}</div>
     ${decided ? `<ul class="rv6-log" aria-label="What you decided">${r.log.map(x => `<li><span class="rv6-li">${icon(x.icon)}</span><span><b>${esc(x.num)}</b><span class="rv6-lw">${esc(x.what)}</span></span></li>`).join('')}</ul>` : ''}
-    <div class="rv6-endbtns">${skipped.length ? btn(`Review the ${skipped.length === 1 ? 'one' : skipped.length} you skipped`, { kind: 'primary', attrs: { 'data-again': '1' } }) : ''}${btn('Back to Testimony', { kind: skipped.length ? 'secondary' : 'primary', href: '#/testimony?view=approve', attrs: { 'data-home': '1' } })}</div></div>`;
+    <div class="rv6-endbtns">${skipped.length ? btn(`Review the ${skipped.length === 1 ? 'one' : skipped.length} you skipped`, { kind: 'primary', attrs: { 'data-again': '1' } }) : ''}${btn(r.from === 'today' ? 'Back to Today' : 'Back to Testimony', { kind: skipped.length ? 'secondary' : 'primary', href: r.from === 'today' ? '#/' : '#/testimony?view=approve', attrs: { 'data-home': '1' } })}</div></div>`;
 }
 
 function current(route) {
@@ -182,7 +187,8 @@ function render(route) {
   const mine = actionable(it);
   // A second approver standing in names who they stand in for (F44).
   const stand = mine && it.type === 'draft' && it.d.status === 'review' && standingIn(S.me, it.h);
-  const standFor = stand ? whoseStep(it.d, it.b, { h: it.h }).ids.filter(id => id !== S.me.id && (S.advocates || []).some(a => a.id === id && (a.is_admin || a.can_approve))).map(id => first(id)) : [];
+  // (whoseStep's own list, as Team and Testimony name it: rule 6)
+  const standFor = stand ? whoseStep(it.d, it.b, { h: it.h }).ids.filter(id => id !== S.me.id).map(id => first(id)) : [];
   return `<div class="rv6">${header(r, r.keys.length)}
     ${stand ? notice('info', 'clock', `<b>You are standing in${standFor.length ? ` for ${esc(standFor.length > 1 ? `${standFor.slice(0, -1).join(', ')} or ${standFor[standFor.length - 1]}` : standFor[0])}` : ''}.</b> Nobody has given the first approval yet and testimony is due soon, so you can approve it or send it back.`) : ''}
     ${mine ? '' : notice('info', 'info', it.type === 'email' ? 'This email is no longer waiting for your approval.' : `This testimony is no longer waiting for you. It is ${esc(STATE_SAID[it.d.status] || it.d.status)}.`)}
@@ -272,7 +278,11 @@ async function approve(route, el) {
     if (it.type === 'email') {
       await DB.alertStep(it.a.id, 'approve');
       const msg = `Approved. ${first(it.a.author_id)} can send it now.`, entry = { num: it.b ? `Email on ${sayWords(it.b)}` : 'Email', what: `Approved by you · ${first(it.a.author_id)} can send it now`, icon: 'check' };
-      toast(msg, { ok: true, undo: () => unapprove(r, it, entry) }); advance(r, entry);
+      // Today's Done today lists it with its Undo, so the Undo outlives the toast (spec 6, B-5; Kris's walk).
+      const key = 'rv:' + it.key, done = { key, by: S.me?.id, at: Date.now(), words: `Approved: ${first(it.a.author_id)}’s email${it.b ? ` on ${sayWords(it.b)}` : ''}`,
+        undo: async () => { await DB.alertStep(it.a.id, 'unapprove'); S.v6Done = (S.v6Done || []).filter(x => x.key !== key); hooks.render(); toast('Approval undone. It is waiting for approval again.'); } };
+      (S.v6Done ??= []).push(done);
+      toast(msg, { ok: true, undo: async () => { S.v6Done = (S.v6Done || []).filter(x => x.key !== key); await unapprove(r, it, entry); } }); advance(r, entry);
       return;
     }
     await DB.transition(it.b.id, it.d.id, 'approve'); markNotices(it.b.id);
@@ -336,7 +346,7 @@ function wire(route, root) {
     setTimeout(() => { if (ap.isConnected) { ap.removeAttribute('aria-disabled'); ap.classList.remove('rv6-arming'); } }, Math.max(0, ARM_MS - (performance.now() - shown.at)) + 20); }
   ap?.addEventListener('click', e => approve(route, e.currentTarget));
   root.querySelector('[data-changes]')?.addEventListener('click', () => changes(route));
-  root.querySelector('[data-again]')?.addEventListener('click', () => { const keys = stillSkipped(S.tdRev); S.tdRev = { keys, i: 0, log: [], skipped: [], done: false, only: S.tdRev?.only || '' }; S.go(`#/review/${encodeURIComponent(keys[0])}`, { replace: true }); });
+  root.querySelector('[data-again]')?.addEventListener('click', () => { const keys = stillSkipped(S.tdRev); S.tdRev = { keys, i: 0, log: [], skipped: [], done: false, only: S.tdRev?.only || '', from: S.tdRev?.from || 'testimony' }; S.go(`#/review/${encodeURIComponent(keys[0])}`, { replace: true }); });
   root.querySelector('[data-home]')?.addEventListener('click', () => { S.tdRev = null; });
 }
 

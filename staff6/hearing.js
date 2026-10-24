@@ -20,7 +20,7 @@ import { teamFirst, filerOf } from './model.js';
 import { legName, partyDist, legHref, wireLinks } from './pathway.js';
 import { rerender, viewIsNew } from './bill.js';
 import { movedGoingHTML, wireMoved, newSitting } from './moved.js';   // R-316 W53: still going to the sitting it moved to?
-import { hearingCard, committeeName, itemRow, nameWords, numWords, nw, dayWords, timeWords, wireSteps } from './steps.js';
+import { hearingCard, committeeName, itemRow, nameWords, numWords, nw, dayWords, timeWords, wireSteps, billStep, orWords } from './steps.js';
 
 const HR = 36e5, FOLD = 10;
 const hearingById = id => (S.hearings || []).find(h => String(h.id) === String(id)) || null;
@@ -93,26 +93,25 @@ const nameOf = h => `${committeeName(h.committee) || h.committee} ${isDecision(h
 // ---- pieces ----
 const section = (id, title, inner, { cls = '', extra = '' } = {}) => `<section class="hr-sec${cls ? ' ' + cls : ''}" aria-labelledby="${id}"><div class="hr-sech"><h2 id="${id}">${title}</h2>${extra}</div>${inner}</section>`;
 
-// The big card (V14). On its own page the card's door to the page would open the page again, so it is the committee's
-// name alone: shown on a phone (whose top bar may cut a long name), and on a laptop said once, by the page's h1 (A-14),
-// with the card's kept for screen readers. The line for the monitored bills goes, since they are listed below.
-// (Shared change asked: hearingCard({ self: true }) to draw it this way.)
+// The big card (V14), as steps.js draws it on a sitting's own page (self: the committee's name alone, no door to this page,
+// no monitored-bills line since they are listed below, and no "Watch it live" beside the page's own Watch on YouTube:
+// one link to one video, A-14), each bill with where we stand and whose it is (facts, F129).
 function cardHTML(c) {
-  let html = hearingCard(c.h, { big: true, id: 'hr-cardname' });
-  html = html.replace(/<h3 class="v6-hcard-name">[\s\S]*?<\/h3>/, `<h3 class="v6-hcard-name hr-cn" id="hr-cardname">${esc(nameOf(c.h))}</h3>`)
-    .replace(/<a class="v6-hcard-mon"[\s\S]*?<\/a>/, '');
+  let html = hearingCard(c.h, { big: true, id: 'hr-cardname', self: true, facts: factsOf });
   // An admin's "Send a teammate…" sits on the card's going line beside I'm going (F131): who is going is read and changed
   // in one place, not under a second "Who is going" heading lower down (the critic: A-14, A-20).
   if (S.me?.is_admin && !c.over && !c.cancelled) html = html.replace(/(<p class="v6-hcard-going">[\s\S]*?)(<\/p>)/, `$1${sendBtn()}$2`);
   // A cancelled sitting that the Capitol moved: say where it went, not "no new date yet" (W53).
   if (c.cancelled) { const n = newSitting(c.rows[0]); if (n) html = html.replace('Cancelled, no new date yet', `Cancelled · moved to ${esc(`${dayWords(n.scheduled_at)}, ${timeWords(n.scheduled_at)}`)}`); }
-  // On its own page, each bill also says where we stand and whose it is, and the public's numbers (v5's agenda did, F129;
-  // whoever goes to the Capitol, a stand-in too, needs "Strong support · Kevin's" at hand). Hearings' week and Today keep
-  // the card's one line. (Shared change asked: a hearingCard option for this line, so it is not set into the HTML here.)
+  // On a hearing day the person on each of our bills' steps is one quiet link away, "Message Kevin", beside the bill: the
+  // bill's Team talk with @Kevin typed in (A-16, B-3; Kris at the Capitol could not reach the filer from here).
   for (const x of c.items) { if (!isPos(x.b)) continue;
+    const s = billStep(x.b, { viewer: S.me, d: sittingDraft(x.h, x.b.id) || null, h: x.h });
+    const to = (s?.whose?.ids || []).filter(id => id && id !== S.me?.id && advocate(id)?.is_active !== false); if (!to.length || s.you || !s.state || ['filed', 'missed'].includes(s.state.key)) continue;
     const at = `<a class="v6-hcard-bl" href="${esc(billRoute(x.b))}">`, i = html.indexOf(at); if (i < 0) continue;
     const j = html.indexOf('</a>', i); if (j < 0) continue;
-    html = html.slice(0, j) + `<span class="hr-bfacts">${esc(factsOf(x.b))}</span>` + html.slice(j);
+    const link = `<a class="hr-msg" href="${esc(`${billRoute(x.b, 'talk')}?mention=${to.map(id => advocate(id)?.initials).filter(Boolean).join(',')}`)}">${icon('message-square')}<span>Message ${esc(orWords(to, null, { and: true }))}</span></a>`;
+    html = html.slice(0, j + 4) + link + html.slice(j + 4);
   }
   return html;
 }
@@ -122,7 +121,8 @@ function factsOf(b) {
   const own = (S.assignments?.[b.id] || [])[0], a = own && advocate(own);
   const whose = !own ? 'No owner yet' : own === S.me?.id ? 'Your bill' : a ? `${first(a)}’s bill` : '';
   const c = publicResponse(b) || {}, ten = n => (n || 0) >= 10;
-  const pub = [ten(c.followers) ? `${c.followers} follow` : '', ten(c.emails) ? `${c.emails} emailed` : '', ten(c.testimonies) ? `${c.testimonies} testified` : '', ten(c.attending) ? `${c.attending} plan to attend` : ''].filter(Boolean).join(', ');
+  // "followers", in Outreach's order of counts (followers, testified, emailed), one word for one fact (C-15, A-14).
+  const pub = [ten(c.followers) ? `${c.followers} followers` : '', ten(c.testimonies) ? `${c.testimonies} testified` : '', ten(c.emails) ? `${c.emails} emailed` : '', ten(c.attending) ? `${c.attending} plan to attend` : ''].filter(Boolean).join(', ');
   return [POS_WORD[b.position] || '', whose, pub ? `Public: ${pub}` : ''].filter(Boolean).join(' · ');
 }
 // When written testimony is due for the bills still to file: "Written testimony due Tue 3/17, 1:00 PM". Past the deadline
