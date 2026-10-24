@@ -955,7 +955,7 @@ body.staff6 .t6-startf { margin: 0; padding: 0 12px 8px; }
 
 /* Done today: a quiet band, wash ground, each with its Undo */
 body.staff6 .t6-done { background: var(--v6-wash); box-shadow: none; }
-body.staff6 .t6-donel { list-style: none; margin: 0; padding: 0 12px 8px 52px; }
+body.staff6 .t6-donel { list-style: none; margin: 0; padding: 0 12px 12px 52px; display: grid; gap: 4px; }   /* the tonal Undo pills never touch */
 body.staff6 .t6-donel li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; min-height: 44px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); }
 body.staff6 .t6-teamdue > .v6-list { box-shadow: none; padding: 0 8px 8px; }
 
