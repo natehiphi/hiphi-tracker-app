@@ -498,9 +498,12 @@ body.staff6 .i6-newic { display: none; }
 }
 body.staff6 .i6-lede { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
 /* where an issue's line names a time due today, the time is bold (D3); the line's first part alone carries a state colour */
-body.staff6 .i6-time { font-weight: 700; color: var(--v6-ink); }
-body.staff6 .i6-p1.t-late { color: var(--v6-late); font-weight: 700; }
-body.staff6 .i6-p1.t-overdue { color: var(--v6-bad); font-weight: 700; }
+/* times and labels at 500, never bold (spec 12.1: bold is names' headings, the page title and the filled button; My issues
+   at 320 was 27% bold against 25) */
+body.staff6 .i6-time { font-weight: 500; color: var(--v6-ink); }
+body.staff6 .i6-time .v6-tm { font-weight: inherit; }
+body.staff6 .i6-p1.t-late { color: var(--v6-late); font-weight: 500; }
+body.staff6 .i6-p1.t-overdue { color: var(--v6-bad); font-weight: 500; }
 body.staff6 .i6-p1.t-done { color: inherit; }   /* done says so with its green check alone: one colour fewer in view (spec 8) */
 body.staff6 .i6-row.i6-ic-late .v6-row-line > svg { color: var(--v6-late); }
 body.staff6 .i6-row.i6-ic-overdue .v6-row-line > svg { color: var(--v6-bad); }

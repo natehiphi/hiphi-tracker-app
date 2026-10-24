@@ -1331,7 +1331,7 @@ const AUTO = {
   'ss-email-on': { cfg: 'emailCfg', save: c => DB.saveEmailSettings({ enabled: c.enabled, changed_at: c.changed_at, changed_by: c.changed_by }),
     apply: (c, v) => ({ ...c, enabled: v, changed_at: new Date().toISOString(), changed_by: S.me?.initials || null }),
     confirm: v => { if (!v || S.emailCfgErr) return null; const n = (S.alerts || []).filter(a => a.status === 'approved' && a.scheduled_for).length;
-      return { title: 'Turn email on?', text: `Staff alerts, and alerts and hearing emails to the public, start going out again. Alerts held while it was paused are not sent.${n ? ` ${n === 1 ? 'One approved supporter email has' : `${n} approved supporter emails have`} waited, and ${n === 1 ? 'goes' : 'go'} out in the next 4:30 pm email.` : ''}`, ok: 'Turn email on' }; },
+      return { title: 'Turn email on?', text: `Staff alerts, and alerts and hearing emails to the public, start going out again. Alerts held while it was paused are not sent.${n ? ` ${n === 1 ? 'One approved supporter email has' : `${n} approved supporter emails have`} waited, and ${n === 1 ? 'goes' : 'go'} out in the next 4:30 PM email.` : ''}`, ok: 'Turn email on' }; },
     msg: v => v ? 'Saved. Email is on.' : 'Saved. Email is paused: nothing will be sent.' },
   'ss-wfdm': slackAuto('workflow_dm'), 'ss-health': slackAuto('health_dm'), 'ss-quiet': slackAuto('quiet_dm'),
   'ss-cal-on': { cfg: 'calCfg', save: c => DB.saveCalendarSettings(c), apply: (c, v) => ({ ...c, enabled: v }) },

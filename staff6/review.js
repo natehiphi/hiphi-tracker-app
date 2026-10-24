@@ -15,7 +15,7 @@ import { S, DB, esc, hooks, startedFromLine, raceLine } from './data.js';
 import { agoWords, alertTarget, alertsToReview, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn, draftHearing, blurb } from './model.js';
 import { teamFirst, newOwnerTag, staleLine, filerOf, roomName, whenAt } from './model.js';
 import { icon, btn, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, keysUsed, posIcons, POS_WORD, ownerOf, docBtn } from './ui.js';
-import { emailPreview } from './composer.js';
+import { emailPreview, HELD_NEXT } from './composer.js';
 import { billStep, shownStatus, statusTile, whereWords, committeeName, numWords, nameWords, whoseStep, nw, sayWords, testimonyState, orWords } from './steps.js';
 import { plainCodes } from './terms.js';
 
@@ -154,7 +154,7 @@ function emailBody(it) {
     ${it.b ? `<p class="rv6-bill">${head(it.b)}</p>${descOf(it.b)}${factsLine(it.b)}${billState(it.b, { email: true })}` : ''}
     <p class="rv6-line">${icon('users')}<span>To ${n != null ? `${n} ${n === 1 ? 'person' : 'people'} who follow` : 'the people who follow'} ${it.b ? esc(numWords(it.b)) : plainCodes(esc(alertTarget(a)))}</span></p>
     <p class="rv6-line">${icon('user-round')}<span>Sent by ${esc(first(a.author_id))} ${esc(ago(a.submitted_at || a.created_at))}</span></p>
-    ${S.emailCfg?.enabled === false ? notice('info', 'mail', 'Email is paused. You can approve; an approved email is held until email is turned on.') : ''}
+    ${S.emailCfg?.enabled === false ? notice('info', 'mail', `Email is paused. You can approve; an approved email is held while email is paused: ${HELD_NEXT}.`) : ''}
     <div class="rv6-mail">${emailPreview(a)}</div>
   </article>`;
 }
@@ -165,7 +165,7 @@ function endScreen(r) {
   const title = !r.keys.length ? 'Nothing waits for your approval.' : !decided ? 'Nothing reviewed yet.' : skipped.length ? `${decided} of ${r.keys.length} reviewed.` : r.keys.length === 1 ? 'Reviewed. Thank you.' : `All ${decided} reviewed. Thank you.`;
   const text = !r.keys.length ? 'Testimony and supporter emails that need you show up here.' : '';
   return `<div class="rv6 rv6-end"><div class="sv-phead"><h1 class="sv-h1 rv6-h">Review</h1></div>
-    <div class="rv6-done"><p class="rv6-dt">${icon('circle-check')}<span>${esc(title)}</span></p>${text ? `<p class="rv6-dx">${esc(text)}</p>` : ''}</div>
+    <div class="rv6-done"><h2 class="rv6-dt">${icon('circle-check')}<span>${esc(title)}</span></h2>${text ? `<p class="rv6-dx">${esc(text)}</p>` : ''}</div>
     ${decided ? `<ul class="rv6-log" aria-label="What you decided">${r.log.map(x => `<li><span class="rv6-li">${icon(x.icon)}</span><span><b>${esc(x.num)}</b><span class="rv6-lw">${esc(x.what)}</span></span></li>`).join('')}</ul>` : ''}
     <div class="rv6-endbtns">${skipped.length ? btn(`Review the ${skipped.length === 1 ? 'one' : skipped.length} you skipped`, { kind: 'primary', attrs: { 'data-again': '1' } }) : ''}${btn(r.from === 'today' ? 'Back to Today' : 'Back to Testimony', { kind: skipped.length ? 'secondary' : 'primary', href: r.from === 'today' ? '#/' : '#/testimony?view=approve', attrs: { 'data-home': '1' } })}</div></div>`;
 }

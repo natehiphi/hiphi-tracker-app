@@ -456,7 +456,6 @@ export function render() {
   document.title = (title ? title + ' · ' : '') + (shownT && shownT !== title ? shownT + ' · ' : '') + 'Bill Tracker staff';
   try { scr.wire && scr.wire(route, app); } catch (e) { console.error(e); reportError('error', e); }
   wireFrame(app);
-  ioFoot(route);
   const nav = app.querySelector('.sv-snav'); if (nav && navTop) nav.scrollTop = navTop;
   hdrShadow(); tabRows(app); fitHeader();
   if (inSearch && document.activeElement?.id !== 'hq') document.getElementById('hq')?.focus({ preventScroll: true });
@@ -465,20 +464,6 @@ export function render() {
   // One event per drawn page: the v6 router moves by pushState, which fires no hashchange, so anything that follows the
   // person's way through the app listens here (Help's Getting started ticks its look-only steps: spec 6 Today, A-16).
   try { window.dispatchEvent(new CustomEvent('v6:route', { detail: { name: route.name, hash: location.hash } })); } catch (e) { console.error(e); }
-}
-// More tools' "Supporters’ groups, import and export" opens #/outreach/supporters?io=1: Supporters at its admin foot (Import
-// CSV, Export), scrolled to and the first button focused, once per arrival (a later redraw leaves the page where it is), so
-// the row keeps its promise without a scroll and a search (C-6). Until OUTREACH reads ?io=1 in supporters.js itself.
-// Supporters loads its code and its people after the first draw, so the foot is looked for until it is there (4 s at most).
-let ioAt = '';
-function ioFoot(route) {
-  if (route.name !== 'supporters' || !route.q?.io) { ioAt = ''; return; }
-  if (ioAt === location.hash) return;
-  const at = ioAt = location.hash; let tries = 0;
-  const look = () => { if (location.hash !== at) return;
-    const sec = document.querySelector('main .sp-admin'); if (!sec) { if (++tries < 40) setTimeout(look, 100); return; }
-    sec.scrollIntoView({ block: 'center' }); sec.querySelector('button:not([disabled])')?.focus({ preventScroll: true }); };
-  requestAnimationFrame(look);
 }
 // A place with page tabs is titled by the place (spec 3.1, 5 placeHead): "Outreach", its open tab "This week's asks" under it,
 // never the tab's words twice and the place's name nowhere (A-14). Until each screen draws placeHead, the frame retitles a
@@ -537,12 +522,12 @@ function wireFrame(app) {
   const f = app.querySelector('[data-hsearch]');
   if (f) { f.onsubmit = e => { e.preventDefault(); const q = f.querySelector('input').value.trim(); const b = exactBill(q); go(b ? billRoute(b) : '#/search' + (q ? '?q=' + encodeURIComponent(q) : '')); };
     // Bills (tracked and not), issues, legislators and supporters listed as you type (R-032, the same list as the public
-    // header's). On the Search page the results under the box are the list. With nothing named that way, Search still
-    // looks through sponsors, owners and committees, so the last row says so. With nothing typed yet (Cmd/Ctrl-K, a click
+    // header's). On the Search page the results under the box are the list. The last row is always "See all results for
+    // “q”" (one wording for one door: Search also looks through sponsors, owners and committees). With nothing typed yet (Cmd/Ctrl-K, a click
     // in the box) it is the palette's start: the common steps and the places, each with its shortcut (V32).
     suggest(f.querySelector('input'), { source: headerHits, open: href => /^https?:/i.test(href) ? window.open(href, '_blank', 'noopener') : go(href), when: () => S.route?.name !== 'search', min: 0, label: 'Places, things to do, bills and people',   // R-277 fix 19: places first; v6 V32: the start list from no letters
       busy: 'Looking through every bill', empty: q => `No place, bill, issue, legislator or supporter matches “${q}”.`,
-      seeAll: (q, hits) => q.trim() ? { href: '#/search?q=' + encodeURIComponent(q), label: hits ? `See all results for “${q}”` : `Look for “${q}” in sponsors, owners and committees` } : null }); }
+      seeAll: (q, hits) => q.trim() ? { href: '#/search?q=' + encodeURIComponent(q), label: `See all results for “${q}”` } : null }); }
 }
 // v6: a place's page tabs wrap onto a second line rather than run off the side (staff.css .sv-tabrow), so every tab is in
 // sight. A row that still scrolls (a screen's own) fades at the edge that has more (B-9), and the open tab is scrolled into

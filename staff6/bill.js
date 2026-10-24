@@ -34,7 +34,7 @@ import { askedChip } from './chairask.js';
 import { teamFirst, teamName, newOwnerTag } from './model.js';
 import { logConversation } from './conversation.js';
 import { askTodoOf } from './push.js';
-import { stepCard, billStep, whereWords, numWords, sayWords, committeeName, hearingCard, nw, timeWords } from './steps.js';
+import { stepCard, billStep, whereWords, numWords, sayWords, committeeName, hearingCard, nw, timeWords, openCounts } from './steps.js';
 import { aboutBill } from './billpane.js';
 // A share to-do read as Today and Team read it (the rallier's public ask, by its own time), worked out once in today.js.
 import { shareTodoWords } from './today.js';
@@ -323,11 +323,14 @@ function pickPosition(b) {
     onPick: v => saveWithUndo(b, { position: v || null }, '[data-bwpos]', before => positionSaid(b, before.position, v || null)) });
 }
 // F60, F102: "Give HB 2121 to…" names who owns it now; a turned-off owner says so (R-316 W28).
-function pickOwner(b) {
+// Each person's row says their load, the open steps on their own Today ("6 open", steps.js openCounts, as Change owner and
+// Team count them), so a bill goes to someone with room (B-6). Read when the menu opens; a load not worked out says nothing.
+async function pickOwner(b) {
   const cur = (S.assignments[b.id] || [])[0] || '';
   const people = S.advocates.filter(a => a.is_active !== false || a.id === cur).slice().sort((x, y) => (y.id === S.me?.id) - (x.id === S.me?.id) || x.full_name.localeCompare(y.full_name));
+  const n = await openCounts(), sub = a => [a.id === cur ? 'Owns it now' : '', n[a.id] == null ? '' : `${n[a.id]} open`].filter(Boolean).join(' · ');
   pickerSheet({ title: `Give ${esc(numWords(b))} to…`, value: cur, help: 'The owner gets its drafts and alerts. Whoever sends the testimony for approval files it.',
-    options: [...people.map(a => [a.id, a.id === S.me?.id ? `${a.full_name} (you)` : teamName(a), 'user-round', a.id === cur ? 'Owns it now' : '']), ['', 'No owner', 'circle-dashed']],
+    options: [...people.map(a => [a.id, a.id === S.me?.id ? `${a.full_name} (you)` : teamName(a), 'user-round', sub(a)]), ['', 'No owner', 'circle-dashed']],
     onPick: async v => {
       if (v === cur) return;
       try {

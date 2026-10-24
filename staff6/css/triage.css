@@ -153,6 +153,8 @@
 .st-recb { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; font-size: var(--v6-t16); color: var(--v6-body); line-height: var(--v6-lh16); }
 .st-recb b { color: var(--v6-ink); }
 .st-recb .st-rect { color: var(--v6-ink); }
+.st-recb .st-rn { font-weight: 500; }
+.st-recb .st-rect .v6-row-num { font-size: var(--v6-t14); color: var(--v6-muted); white-space: nowrap; }
 .st-recb .st-rect + span { color: var(--v6-muted); font-size: var(--v6-t14); line-height: var(--v6-lh14); }
 .st-recb span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-reclist .btn { flex: none; }

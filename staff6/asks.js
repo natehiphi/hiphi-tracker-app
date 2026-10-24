@@ -18,7 +18,7 @@ import { sharePageUrl, liveAsk, billRoute, whenAt, hstDayOf, publicResponse, bil
 import { icon, btn, empty, toast, sectionNav, whoseSeg } from './ui.js';
 import { pageHead } from './lists.js';
 import { nameWords, numWords, committeeName, statusTile, nw } from './steps.js';
-import { emailDoor } from './composer.js';
+import { emailDoor, paused, dailyWord, HELD_HEAD } from './composer.js';
 import { weekLanding } from './firstvisit.js';
 import { markNewStep } from './help.js';   // Getting started's rallier steps tick from here (Write a public ask, Copy this week's newsletter)
 
@@ -155,10 +155,11 @@ function partnersHTML() {
   if (!isRallier()) return '';
   wantPartnerAsks();
   const on = (S.pAsks || []).filter(a => ASK_ON.includes(a.state)); if (!on.length) return '';
-  // One time format on the page (whenAt: "today 4:30 PM"), as every card says its times.
-  const when = a => a.state === 'going_out' ? `goes out ${whenAt(hst(new Date(a.scheduled_for).getTime()) + 'T16:30:00-10:00')}` : 'going out now';
-  return `<section class="ot-pasks" aria-labelledby="ot-pasks-h"><h2 class="ot-h2" id="ot-pasks-h">Partners’ asks going out</h2>
-    <ul class="ot-plist">${on.slice(0, 5).map(a => { const b = billById(a.bill_id); return `<li><span class="ot-ptop"><b>${esc(a.partner_name)}</b> on ${b ? `<a href="${esc(billRoute(b))}">${esc(nameWords(b, 1e4))}</a>` : esc(a.bill_number || 'a bill')}, ${esc(when(a))}</span>${a.ask ? `<span class="ot-pask">${esc(a.ask)}</span>` : ''}</li>`; }).join('')}</ul>
+  // The Partners screen's words for the same ask (partnergroups.js): "goes out today at 4:30 PM", and while email is paused
+  // nothing goes, so the heading says it is held (composer.js HELD_HEAD) and a line never promises a time.
+  const held = paused(), when = a => held && !a.sent ? '' : a.state === 'going_out' ? `goes out ${dailyWord(a.scheduled_for)} at 4:30 PM` : 'going out now';
+  return `<section class="ot-pasks" aria-labelledby="ot-pasks-h"><h2 class="ot-h2" id="ot-pasks-h">${held ? `Partners’ asks · ${HELD_HEAD.toLowerCase()}` : 'Partners’ asks going out'}</h2>
+    <ul class="ot-plist">${on.slice(0, 5).map(a => { const b = billById(a.bill_id); return `<li><span class="ot-ptop"><b>${esc(a.partner_name)}</b> on ${b ? `<a href="${esc(billRoute(b))}">${esc(nameWords(b, 1e4))}</a>` : esc(a.bill_number || 'a bill')}${when(a) ? `, ${esc(when(a))}` : ''}</span>${a.ask ? `<span class="ot-pask">${esc(a.ask)}</span>` : ''}</li>`; }).join('')}</ul>
     ${on.length > 5 ? `<p class="ot-note">and ${on.length - 5} more.</p>` : ''}</section>`;
 }
 

@@ -105,15 +105,16 @@ export function lastSlotBefore(code, dateStr, slots, st) {
 // Thu 3/19: bills sent to 3 or more committees must clear their first committee", C-10). Checked against the Public Access Room's calendar:
 // triple filing = a bill referred to three or more committees clears the first; lateral = it reaches its last
 // committee; decking = it clears the last one, ready for the floor vote; crossover and cross back = that chamber's vote;
-// final decking = conference drafts settled (Fiscal: the same for bills that spend money).
+// final decking = conference drafts settled (Fiscal: the same for bills that spend money), said as "the House and Senate
+// must agree", the conference season card's own words, rather than "settled in conference" (a Capitol word).
 const GATE_WORDS = [
   [/triple/i, one => `clear ${one ? 'its' : 'their'} first committee`, 'bills sent to 3 or more committees must clear their first committee'],
   [/lateral/i, one => `reach ${one ? 'its' : 'their'} last committee`, 'bills must reach their last committee'],
-  [/final decking/i, () => 'be settled in conference', 'House and Senate must settle one version'],
+  [/final decking/i, () => 'be agreed by the House and Senate', 'the House and Senate must agree on one version of each bill'],
   [/decking/i, one => `clear ${one ? 'its' : 'their'} last committee`, 'bills must clear their last committee'],
   [/cross ?back|second crossover/i, () => 'pass the second chamber', 'bills must pass the second chamber'],
   [/crossover/i, one => `pass ${one ? 'its' : 'their'} first chamber`, 'bills must pass their first chamber'],
-  [/fiscal/i, () => 'be settled in conference, if they spend money', 'bills that spend money must be settled in conference'],
+  [/fiscal/i, () => 'be agreed by the House and Senate, if they spend money', 'the House and Senate must agree on bills that spend money'],
   [/sine die/i, null, 'the session’s last day'],
   [/intro/i, null, 'the last day to introduce bills'],
 ];
@@ -362,9 +363,13 @@ export function askReach(b) {
 }
 // v4 (R-269, C-15): the public's counts say whose they are ("Public: …") and "plan to attend", so they never read as the
 // team's own "going" and "testimony filed" beside them on the hearing page.
+// The public's response in Outreach's words and order ("Public: 43 followers · 5 testified · 4 emailed · 2 plan to attend"),
+// one wording for one fact on the Public tab, the hearing page and This week's asks (C-15; it said "43 follow").
 export function publicWords(b) {
   const c = publicResponse(b); if (!c) return '';
-  const parts = [c.followers ? `${c.followers} follow` : '', c.emails ? `${c.emails} emailed` : '', c.testimonies ? `${c.testimonies} testified` : '', c.attending ? `${c.attending} ${c.attending === 1 ? 'plans' : 'plan'} to attend` : '', c.shares ? `${c.shares} shared` : ''].filter(Boolean);
+  const n = x => Number(x).toLocaleString();
+  const parts = [c.followers ? `${n(c.followers)} ${c.followers === 1 ? 'follower' : 'followers'}` : '', c.testimonies ? `${n(c.testimonies)} testified` : '', c.emails ? `${n(c.emails)} emailed` : '',
+    c.attending ? `${n(c.attending)} ${c.attending === 1 ? 'plans' : 'plan'} to attend` : '', c.shares ? `${n(c.shares)} shared` : ''].filter(Boolean);
   return parts.length ? `Public: ${parts.join(' · ')}` : '';
 }
 // The share kit (R-117): the bill's share page and a ready message, the ask from the Public tab, the deadline, the link.
@@ -794,10 +799,25 @@ export function chairAskOf(b, code, { chairId = null } = {}) {
   const rows = legNotesAll().filter(n => n.bill_id === b.id && ids.has(n.legislator_id) && (!n.committee || !code || n.committee === code) && isAskNote(n))
     .sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)));
   if (!rows.length) return null;
-  const first = rows[0], last = rows.at(-1), asked = new Set(rows.map(n => n.legislator_id)), missing = [...ids].filter(id => !asked.has(id));
-  return { by: first.advocate_id, at: new Date(first.created_at).getTime(), answer: last.answer || 'asked', last, n: first, rows, ...(missing.length ? { partial: true, missing } : {}) };
+  const first = rows[0], asked = new Set(rows.map(n => n.legislator_id)), missing = [...ids].filter(id => !asked.has(id));
+  // Each chair's own newest word: one chair of a joint committee saying "will schedule" answers for that chair only, so
+  // the ask stays open for the other ("no reply yet", with its follow-up clock from that chair's own last word: Kevin's
+  // HB 756, CPN/HHS). Both say they will schedule: answered. Either says no: said no.
+  const each = new Map(); for (const n of rows) each.set(n.legislator_id, n);
+  const word = n => n.answer || 'asked', per = [...each.values()];
+  let last = rows.at(-1), answer = word(last), waitOn = null;
+  if (per.length > 1) {
+    const quiet = per.filter(n => !['will_schedule', 'said_no'].includes(word(n)));
+    if (per.some(n => word(n) === 'said_no')) { last = per.filter(n => word(n) === 'said_no').at(-1); answer = 'said_no'; }
+    else if (!quiet.length) { last = per.sort((x, y) => String(x.created_at).localeCompare(String(y.created_at))).at(-1); answer = 'will_schedule'; }
+    else if (quiet.length < per.length) { last = quiet.sort((x, y) => String(x.created_at).localeCompare(String(y.created_at))).at(-1); answer = word(last); waitOn = quiet.map(n => n.legislator_id); }
+  }
+  return { by: first.advocate_id, at: new Date(first.created_at).getTime(), answer, last, n: first, rows, ...(waitOn ? { waitOn } : {}), ...(missing.length ? { partial: true, missing } : {}) };
 }
-export const askReply = a => ASK_REPLY[a?.answer] || ASK_REPLY.asked;
+// A joint committee with one chair answered says whose reply is still awaited ("no reply yet from Sen. San Buenaventura").
+const chairWho = id => { const l = legById(id); return l ? `${legTitle(l)} ${String(l.sort_name || l.name || '').split(',')[0]}` : ''; };
+export const askReply = a => { const w = ASK_REPLY[a?.answer] || ASK_REPLY.asked, who = (a?.waitOn || []).map(chairWho).filter(Boolean);
+  return who.length ? `${w} ${a.answer === 'left_message' ? 'for' : 'from'} ${who.join(' and ')}` : w; };
 // The two emails Nate approves (W3), used everywhere a chair is asked: the hearing request (one bill, or one email listing
 // all of a chair's bills) and, for a bill heard but not voted on, the request to schedule decision making. Each address
 // is remembered with its bills and committee, so a click on it anywhere can ask "Did you send it?" (chairask.js).

@@ -831,7 +831,7 @@ body.staff6 .t6-root *, body.staff6 .tm6-root * { min-width: 0; }
 body.staff6 .t6-head { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 16px; margin: 4px 0 20px; }
 body.staff6 .t6-head h1.v6-ptitle { margin: 0; }
 body.staff6 .t6-date { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-muted); }
-body.staff6 .t6-over { display: inline-flex; align-items: center; gap: 6px; color: var(--v6-bad); font-weight: 700; }
+body.staff6 .t6-over { display: inline-flex; align-items: center; gap: 6px; color: var(--v6-bad); font-weight: 500; }   /* a label: 500, never bold (spec 12.1); its colour, icon and word say it */
 body.staff6 .t6-over svg { width: 18px; height: 18px; flex: none; }
 
 /* the column and the item beside it (V17): the next step leads the work column at every width (A-13, P-2); from 1100px the
@@ -849,7 +849,9 @@ body.staff6 .t6-aside > * { margin: 0; }
      critic's 1: a Mac shows no scrollbar in an inner scroll area); a picked item stays in view beside the list, sticky,
      scrolling on its own when it is taller than the window */
   body.staff6 .t6-ld:not(.open) > .v6-ld-detail { position: static; max-height: none; overflow: visible; }
-  body.staff6 .t6-ld.open > .v6-ld-detail { top: 16px; padding: 0 4px 4px; max-height: calc(100vh - 32px); }
+  /* under the sticky search header (and the practice band), as Bills' open item (bills.css): at top 16px it slid under it */
+  body.staff6 .t6-ld.open > .v6-ld-detail { top: calc(var(--header) + 16px); padding: 0 4px 4px; max-height: calc(100vh - var(--header) - 32px); }
+  body.staff2:has(.band) .t6-ld.open > .v6-ld-detail { top: calc(var(--header) + 28px + 16px); max-height: calc(100vh - var(--header) - 28px - 32px); }
   /* the doors live in the side column while nothing is picked, and close the work column, after the lists, while something
      is (below every row, so the row just clicked never moves) */
   body.staff6 .t6-ld:not(.open) > .t6-col > .t6-edges { display: none; }
@@ -923,7 +925,8 @@ body.staff6 .t6-starth { display: flex; align-items: center; gap: 10px; margin: 
 body.staff6 .t6-starth > span:first-of-type { font-weight: 500; color: var(--v6-ink); }
 body.staff6 .t6-starth > svg { width: 20px; height: 20px; flex: none; color: var(--v6-action); }
 body.staff6 .t6-startn { color: var(--v6-muted); }
-body.staff6 .t6-startl .t6-line > svg:first-child { color: var(--v6-action); }
+body.staff6 .t6-startl .t6-line > svg:first-child, body.staff6 .t6-startln > svg:first-child { color: var(--v6-action); }
+@media (min-width: 1100px) { body.staff6 .t6-col .t6-startln { display: none; } }   /* the side column has the list */
 body.staff6 .t6-start, body.staff6 .t6-done, body.staff6 .t6-teamdue { border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
 body.staff6 .t6-start > summary, body.staff6 .t6-done > summary, body.staff6 .t6-teamdue > summary { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 20px;
   border-radius: var(--v6-r20); list-style: none; cursor: pointer; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
@@ -943,6 +946,10 @@ body.staff6 .t6-stp svg { width: 20px; height: 20px; flex: none; }
 body.staff6 .t6-stp.done { color: var(--v6-muted); }
 body.staff6 .t6-stp.done svg { color: var(--v6-leaf); }
 body.staff6 .t6-stp:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+/* the rest of Help's list, when more steps wait than the three shown: a quiet text link under them */
+body.staff6 .t6-startall { display: inline-flex; align-items: center; min-height: 44px; padding: 4px 12px; color: var(--v6-action); text-decoration: none; font-size: var(--v6-t16); }
+body.staff6 .t6-startall:hover { text-decoration: underline; }
+body.staff6 .t6-startall:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: var(--v6-r12); }
 @media (hover: hover) and (pointer: fine) { body.staff6 .t6-stp:hover { background: var(--v6-wash); } }
 body.staff6 .t6-startf { margin: 0; padding: 0 12px 8px; }
 
@@ -978,7 +985,11 @@ body.staff6 .t6-wacts { display: flex; flex-wrap: wrap; gap: 4px; }
 /* phones: the frame's 16px gutter; groups 32px apart; the title lives in the top bar */
 @media (max-width: 767px) {
   body.staff6 .t6-head { margin: 0 0 16px; }
-  body.staff6 .t6-col { gap: 28px; }
+  /* a phone shows the day itself and its top bar says Today: the line is drawn only for an overdue count (Nate's phone Today
+     ran 3.36 screens; integrator: trim what is not the person's own work) */
+  body.staff6 .t6-head:has(.t6-nolate) { display: none; }
+  body.staff6 .t6-date .t6-day { display: none; }
+  body.staff6 .t6-col { gap: 24px; }   /* the laptop's 24 (was 28): Patti's 320 Today ran past 2 screens by a few pixels */
   body.staff6 .t6-season { padding: 16px; }
   body.staff6 .t6-start > summary, body.staff6 .t6-done > summary, body.staff6 .t6-teamdue > summary { padding: 8px 16px; }
   body.staff6 .t6-donel { padding: 0 12px 8px 16px; }
@@ -1030,13 +1041,6 @@ body.staff6 .t6-hcteam > summary:focus-visible { outline: 3px solid var(--v6-act
   body.staff6 .t6-root .t6-list .v6-row-name { display: inline; }
   body.staff6 .t6-root .t6-list .v6-row-name::after { content: ' '; }   /* a breakable space: a number that wraps starts its line flush */
   body.staff6 .t6-root .t6-list .v6-row-num { display: inline; white-space: nowrap; margin-left: 2px; }
-}
-/* a phone from 360px: a row's short button (File, Review, Done) sits beside its words, not on a line of its own (Nate's
-   phone Today was 3.35 screens against 2); a long one, and every one below 360px, goes under them (steps.css) */
-@media (min-width: 360px) and (max-width: 420px) {
-  body.staff6 .t6-root .t6-list .v6-row.t6-sbtn, body.staff6 .tm6-root .v6-row.t6-sbtn { flex-wrap: nowrap; gap: 8px; }
-  body.staff6 .t6-root .t6-list .t6-sbtn .v6-row-main, body.staff6 .tm6-root .t6-sbtn .v6-row-main { flex: 1 1 auto; }
-  body.staff6 .t6-root .t6-list .t6-sbtn .v6-row-act, body.staff6 .tm6-root .t6-sbtn .v6-row-act { padding: 0; }
 }
 body.staff6 .t6-clgo { margin: 4px 0 0; }
 @media (min-width: 768px) { body.staff6 .t6-col { gap: 24px; } }
@@ -1143,6 +1147,22 @@ body.staff6 .pq6 .pq-sec + .pq-sec { border-top-color: var(--v6-hair); }
 body.staff6 .t6-edges { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
 body.staff6 .t6-edges > * { margin: 0; }
 /* (one column at every width: from 768 to 1099px a lone door beside This week left half the row empty; Nate's walk at 1024) */
+/* below 1100px the season card is compact and joins the doors in one card: what is not the person's own work is short lines,
+   its heading said to screen readers only (the lines say what they are) (integrator 23 Oct: doors as short lines, the season
+   card compact on phones; Patti's 1024 Today was 1.38 screens against 1.2, her 320 one 2.28 against 2). A hearing day's
+   sittings keep their card (.t6-hday). */
+@media (max-width: 1099px) {
+  body.staff6 .t6-edges .t6-season:not(.t6-hday) { gap: 0; padding: 6px; }
+  body.staff6 .t6-edges .t6-season:not(.t6-hday) > .t6-sh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  body.staff6 .t6-edges .t6-season:not(.t6-hday) > .t6-sl { gap: 12px; min-height: 48px; padding: 12px; }
+  body.staff6 .t6-edges .t6-season:not(.t6-hday) > .t6-sl + .t6-sl, body.staff6 .t6-edges .t6-season:not(.t6-hday) > .t6-line + .t6-sl { box-shadow: inset 0 1px 0 var(--v6-hair); }
+  body.staff6 .t6-edges .t6-season:not(.t6-hday) .t6-line { margin: 0; width: 100%; }
+  body.staff6 .t6-edges .t6-season:not(.t6-hday) > .t6-sacts { padding: 0 12px 10px 44px; }
+  body.staff6 .t6-edges:has(> .t6-doors + .t6-colonly) { gap: 0; padding: 6px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+  body.staff6 .t6-edges:has(> .t6-doors + .t6-colonly) > .t6-doors, body.staff6 .t6-edges:has(> .t6-doors + .t6-colonly) .t6-season:not(.t6-hday) { padding: 0; border-radius: 0; background: none; box-shadow: none; }
+  body.staff6 .t6-edges:has(> .t6-doors + .t6-colonly) > .t6-colonly { position: relative; }
+  body.staff6 .t6-edges:has(> .t6-doors + .t6-colonly) > .t6-colonly::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: var(--v6-hair); }
+}
 
 /* the partner card's "How it goes out", under its buttons: one fold among the card's folds, no rule above it */
 body.staff6 .pq6 .pq-askhow { margin: 0; padding: 0; border: 0; box-shadow: none; background: none; }

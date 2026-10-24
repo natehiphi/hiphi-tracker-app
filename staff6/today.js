@@ -44,7 +44,7 @@ import { isLead } from './more.js';
 import { newSteps, markNewStep } from './help.js';
 import { moveMe, notGoing, keepAskUp, seedMoved } from './moved.js';
 import { pqItems, pqOthers, wantQueue, wantAsks, admitsPartners, approvesPartners, pqRow, pqItem, pqCard, wirePartner } from './partnerq.js';
-import { dailyWord } from './composer.js';
+import { dailyWord, HELD_NEXT } from './composer.js';
 // OUTREACH's one rallier rule and due time, and the ask's one home (This week's asks), so Today and Outreach never disagree (V20).
 import { rallierOf, askDueAt, askCardHref } from './asks.js';
 
@@ -329,14 +329,9 @@ function badgeOf() {
 // ---- rows ----
 const REG = new Map();   // the items drawn this draw, by key (a button or a picked row finds its record here)
 // A row for one item: the name, the bill number small, one line (D15). `ro`: a teammate's list, read-only and never in colour.
-// A short button ("File", "Review", "Mark done") sits beside the row's words on a phone (.t6-sbtn, today.css); a long one
-// ("Open the ask card", "Email the chairs") keeps its line under them, so the words never squeeze into a narrow column.
-function rowOf(it, opts = {}) {
-  const html = rowOf0(it, opts), m = /<span class="v6-row-act">([\s\S]*)<\/span><\/div>\s*$/.exec(html);
-  const t = m ? m[1].replace(/<[^>]+>/g, '').trim() : '';
-  return t && t.length <= 9 ? html.replace('<div class="v6-row', '<div class="t6-sbtn v6-row') : html;
-}
-function rowOf0(it, { ro = false, v = S.me } = {}) {
+// Below 600px every row's button goes under its words (steps.css, A-8: one layout for every row on one screen; a short
+// button beside the words had squeezed them into a narrow column beside rows whose button sat below).
+function rowOf(it, { ro = false, v = S.me } = {}) {
   REG.set(it.key, it);
   const pick = it.key, b = it.b, sx = sitSuffix(it, v);
   if (it.s && b && ['chair', 'followask', 'stale'].indexOf(it.kind) < 0) {
@@ -585,7 +580,7 @@ function leadLine() {
 // Each door is one short line (integrator 23 Oct: "doors as short lines"): the subject and at most one more fact. A lead's
 // slipping line is the first door, wherever the doors are (the side column from 1100px; after the lists while an item is
 // open there, and below 1100px), never above the list: a row opened beside it never moves (the critic: B-4, A-24).
-function doorLines(w, v = S.me, { coal = true, lead = '' } = {}) {
+function doorLines(w, v = S.me, { coal = true, lead = '', leadShown = !!lead } = {}) {
   const out = lead ? [lead] : [];
   // An admin's one line when the bill sync has not finished in a day and a half (F65; live only, in plain words, D3).
   if (v.is_admin && v.id === S.me?.id && !DEMO && !SESSION_OVER) {
@@ -614,7 +609,9 @@ function doorLines(w, v = S.me, { coal = true, lead = '' } = {}) {
     .sort((x, y) => askDueAt(x.h) - askDueAt(y.h));
   if (rally.length) out.push(lineA('#/outreach', 'megaphone', `<b>${plural(rally.length, 'public ask')} to write</b> · ${rally.length > 1 ? 'first ' : ''}by ${nw(esc(whenAt(askDueAt(rally[0].h))))}`));
   // Whoever may hand them (an admin, an issue's owner): the same count and word as Team's block and bar (noOwnerBills).
-  const no = noOwnerBills(v);
+  // A lead reads the bills with no owner on Team (its own block, the slipping line's door just above), so the count is not a
+  // second door to Team here; an issue's owner, who has no Team, keeps the line to My issues.
+  const no = isLead(v) && leadShown ? [] : noOwnerBills(v);
   if (no.length) out.push(lineA(isLead(v) ? '#/team?who=none' : '#/my-issues', 'user-round', `<b>${plural(no.length, 'bill')} with no owner</b>`));
   if (admitsPartners(v)) {
     // The words to approve are this person's own rows here (Partner words to approve), so the line leaves them out.
@@ -630,8 +627,10 @@ export function partnersLine(v = S.me, { words = true } = {}) {
   if (!admitsPartners(v)) return '';
   const n = words && approvesPartners(v) ? pqItems().length : 0, o = pqOthers();
   const parts = [n ? `${plural(n, 'set')} of words to approve` : '', o.groups.length ? `${plural(o.groups.length, 'group')} to approve` : '',
-    o.requests.length ? `${plural(o.requests.length, 'group')} ${o.requests.length === 1 ? 'asks' : 'ask'} to join` : ''].filter(Boolean);
-  return parts.length ? lineA('#/partners', 'handshake', `<b>Partners</b> · ${esc(parts.join(' · '))}`) : '';
+    o.requests.length ? `${o.requests.length} asking to join` : ''].filter(Boolean);   // short: a door is one line (integrator)
+  // With words to approve it opens Partners on them (#/partners?view=approve: the first set open beside the list), so
+  // Team's "3 sets of words to approve" lands on what it counts.
+  return parts.length ? lineA(n ? '#/partners?view=approve' : '#/partners', 'handshake', `<b>Partners</b> · ${esc(parts.join(' · '))}`) : '';
 }
 
 // The next deadline that bills with no hearing yet are racing, from the viewer's own bills (Bills' Mine): sessionClock's.
@@ -703,7 +702,9 @@ function theirsOn(h, v) {
   return out;
 }
 function sittingCard(h, { v = S.me, big = false, id = '', drop = null, lead = null, own = null } = {}) {
-  let html = hearingCard(h, { viewer: v, big, from: 'today', id });
+  // No "Watch it live" here: a detail of the sitting (its page and Hearings › This week keep it), so Today keeps to the
+  // person's own work (integrator: trim what is not the person's own row; Nate's Today was 32 controls against 30).
+  let html = hearingCard(h, { viewer: v, big, from: 'today', id, watchLink: false });
   const hrefOf = b => esc(billRoute(b)), ids = x => new Set([...(x || [])].map(i => billById(i)).filter(Boolean).map(hrefOf));
   const gone = ids(drop), mine = ids(own ? [...own, ...theirsOn(h, v)] : null);
   const leadHref = lead?.b ? hrefOf(lead.b) : null, tone = lead?.s?.status?.tone;
@@ -736,7 +737,7 @@ function seasonBody(season, v, w, { skipH = null } = {}) {
     if (season === 'prep' && pt && !(w.prepIsNext)) {
       const left = pt.total - pt.ready, href = pt.back.length ? issueHref(pt.back[0], 'prep') : issueHref(pt.next, 'prep');
       const line = pt.own ? `${pt.ready} of ${plural(pt.total, 'issue')} ready${prepDue() < now ? ' · still to finish' : ` · due ${esc(dayWords(prepDue()))}`}` : `${esc(helpWords(pt))} ready${prepDue() < now ? ' · still to finish' : ` · due ${esc(dayWords(prepDue()))}`}`;
-      return { title: 'Getting ready for 2027', html: p(line, 'clipboard-list') + `<div class="t6-sacts">${btn(pt.back.length ? 'Open what came back' : left ? 'Open the next one' : 'See the list', { kind: 'secondary', href })}</div>${setupLine(v)}${ended}` };
+      return { title: 'Getting ready for 2027', html: lineA(href, 'clipboard-list', `<b>${pt.back.length ? 'Open what came back' : left ? 'Open the next one' : 'See the list'}</b> · ${line}`) + `${setupLine(v)}${ended}` };
     }
     if (season === 'prep' && !pt && (S.issues || []).some(i => i.owner_id === v.id || (S.issueHelpers || []).some(h => h.issue_id === i.id && h.advocate_id === v.id)))
       return { title: 'Getting ready for 2027', html: p('Your part is done. Mahalo.', 'circle-check') + setupLine(v) + ended };
@@ -746,9 +747,11 @@ function seasonBody(season, v, w, { skipH = null } = {}) {
   if (season === 'opening') {
     const sorts = v.is_admin || (S.bills || []).some(b => owns(v.id, b));
     const n = sorts ? S.tdTriage?.suggested || S.tdTriage?.undecided || 0 : 0;
-    if (n) return { title: 'New bills to sort', html: p(`${plural(n, 'new bill')} to decide on: support, oppose, monitor or leave.`, 'sparkles') + `<div class="t6-sacts">${btn('Sort new bills', { kind: 'secondary', href: '#/bills/new' })}</div>` };
-    return { title: 'The session opens', html: v.is_admin ? p('Check the session setup before the first hearings.', 'settings') + `<div class="t6-sacts">${btn('Open Session setup', { kind: 'secondary', href: '#/setup' })}</div>`
-      : p('Check how the tracker reaches you before the first hearings.', 'bell') + `<div class="t6-sacts">${btn('Open My settings', { kind: 'secondary', href: '#/me' })}</div>` };
+    // Each a one-line door, its subject first (integrator: the season card compact; a sentence and a button under it took two
+    // rows for one link).
+    if (n) return { title: 'New bills to sort', html: lineA('#/bills/new', 'sparkles', `<b>Sort new bills</b> · ${plural(n, 'new bill')} to decide on`) };
+    return { title: 'The session opens', html: v.is_admin ? lineA('#/setup', 'settings', '<b>Session setup</b> · check it before the first hearings')
+      : lineA('#/me', 'bell', '<b>My settings</b> · check how the tracker reaches you before the first hearings') };
   }
   if (season === 'conference') {
     const mine = (S.bills || []).filter(b => (owns(v.id, b) || inCoal(v, b)) && stopOf(b).phase === 'conference' && !diedish(b));
@@ -849,38 +852,26 @@ function startedAt(me) {
   if (DEMO) return NEW_IN_DEMO.has(me.initials) ? Date.now() : Date.now() - 90 * DAY;
   return null;
 }
-function startSteps(v = S.me) {
-  const drafts = Object.values(S.drafts || {}).flat(), notes = [...(S.demoNotes || []), ...Object.values(S.legNotes || {}).flat()];
-  const base = (() => { try { return newSteps(); } catch { return []; } })();
-  const set = base.find(s => s.k === 'settings') || { k: 'settings', done: false, title: 'Choose how the tracker reaches you', href: '#/me' };
-  const season = seasonOf(), ownsNone = !(S.bills || []).some(b => owns(v.id, b));
-  const steps = [{ k: 'settings', done: !!set.done, title: 'Choose how the tracker reaches you', href: '#/me' }];
-  if (season === 'prep' || season === 'between') {
-    const pt = prepTaskOf(v.id);
-    steps.push({ k: 'prep', done: !pt, title: 'Get your 2027 issue ready', href: pt ? issueHref(pt.back[0] || pt.next, 'prep') : prepListHref() });
-    steps.push({ k: 'bills', done: !!base.find(s => s.k === 'bill')?.done, title: ownsNone ? 'Look over your coalition’s bills' : 'Look over your bills', href: '#/bills' });
-  } else {
-    // The person's real job, ticked when it has been done once (V29: from history, not from what is on screen).
-    if (v.can_approve || v.is_reviewer || v.is_admin) steps.push({ k: 'job', done: drafts.some(d => d.approved_by === v.id || d.second_approved_by === v.id), title: 'Approve a testimony draft', href: '#/testimony?view=approve' });
-    else if (ownsNone && coalIds(v).length) steps.push({ k: 'job', done: drafts.some(d => d.submitted_by === v.id && d.submitted_at), title: 'Send a testimony draft for approval', href: '#/testimony' });
-    else steps.push({ k: 'job', done: notes.some(n => n.advocate_id === v.id && /^Asked for/.test(n.body || '')), title: 'Ask a chair for a hearing', href: '#/hearings/ask' });
-    steps.push({ k: 'week', done: !!base.find(s => s.k === 'week')?.done || Object.values(S.attend || {}).some(ids => ids.includes(v.id)), title: 'See this week’s hearings', href: '#/hearings' });
-  }
-  return steps;
-}
-function startCard(v = S.me, { line = false, n: sfx = '' } = {}) {
+// The one list is Help's (help.js newSteps: by season and by role, each ticking from what the person has done, the look-only
+// ones from the frame's 'v6:route'), so Today and Help say the same steps and the same count (A-14, one source).
+function startSteps() { try { return newSteps(); } catch (e) { console.error(e); return []; } }
+function startCard(v = S.me, { line = false, bare = false, n: sfx = '' } = {}) {
   if (!v || v.id !== S.me?.id || v.prefs?.firstrun?.hidden) return '';
   const at = startedAt(v); if (at == null || Date.now() - at > 45 * DAY) return '';
-  const steps = startSteps(v), n = steps.filter(s => s.done).length; if (n === steps.length) return '';
-  // After a week it is one line, the way back to the list in Help (V29: it fades); the first week it is the short list, one
-  // step a line, what is still to do first (the critic: a two-column grid put the done step in the middle). In the work
-  // column it is always the one line (R-316 W7), so the work under it stays on the first screen.
-  if (line || Date.now() - at > 7 * DAY) return `<nav class="t6-doors t6-startl" aria-label="Getting started"><a class="t6-line" href="#/help/new">${icon('sparkles')}<span class="t6-lt"><b>Getting started</b> · ${n} of ${steps.length} done</span>${icon('chevron-right', { cls: 't6-chev' })}</a></nav>`;
+  const steps = startSteps(), n = steps.filter(s => s.done).length; if (!steps.length || n === steps.length) return '';
+  // After a week it is one line, the way back to the list in Help (V29: it fades); the first week it is the short list: the
+  // first three steps still to do, one a line, under "<done> of <total> done" (Help's own count), and the whole list in
+  // Help. In the work column it is always the one line (R-316 W7), so the work under it stays on the first screen.
+  const a = `<a class="t6-line t6-startln" href="#/help/new">${icon('sparkles')}<span class="t6-lt"><b>Getting started</b> · ${n} of ${steps.length} done</span>${icon('chevron-right', { cls: 't6-chev' })}</a>`;
+  if (bare) return a;   // the line alone, the first of the doors (render: nothing listed between it and the next step)
+  if (line || Date.now() - at > 7 * DAY) return `<nav class="t6-doors t6-startl" aria-label="Getting started">${a}</nav>`;
   return `<section class="t6-start" aria-labelledby="t6-start-h${sfx}"><h2 class="t6-starth" id="t6-start-h${sfx}">${icon('sparkles')}<span>Getting started</span> <span class="t6-startn">${n} of ${steps.length} done</span></h2>
-    <ul class="t6-steps">${[...steps].sort((x, y) => x.done - y.done).map(s => `<li><a class="t6-stp${s.done ? ' done' : ''}" href="${esc(s.href)}" data-t6fr="${esc(s.k)}">${icon(s.done ? 'circle-check' : 'circle-dashed')}<span class="sr">${s.done ? 'Done: ' : 'To do: '}</span><span>${esc(s.title)}</span></a></li>`).join('')}</ul></section>`;
+    <ul class="t6-steps">${steps.filter(s => !s.done).slice(0, 3).map(s => `<li><a class="t6-stp" href="${esc(s.href)}"${s.ext ? ' target="_blank" rel="noopener"' : ''}>${icon('circle-dashed')}<span class="sr">To do: </span><span>${esc(s.title)}</span></a></li>`).join('')}</ul>
+    ${steps.length - n > 3 ? `<a class="t6-startall" href="#/help/new">See all ${steps.length} in Help</a>` : ''}</section>`;
 }
 
 // ---- Done today (a quiet band, Undo on each) ----
+// Each Undo is the toast's Undo (A-16: one look for one act): a tonal pill saying only "Undo", named for screen readers.
 // From the drafts' own times (filed, approved, sent for approval today by this person), plus what was done from Today
 // this visit (to-dos, follow-ups, the moved-hearing questions), each with its Undo.
 const DONE = [];   // { at, words, undo }
@@ -907,13 +898,13 @@ function doneBand(v = S.me) {
   const list = doneToday(v); if (!list.length) return '';
   const open = !!S.t6DoneOpen;
   return `<details class="t6-done"${open ? ' open' : ''} data-t6doneband><summary>${icon('circle-check')}<span><b>Done today</b> · ${list.length}</span>${icon('chevron-down', { cls: 't6-chev' })}</summary>
-    <ul class="t6-donel">${list.map((x, i) => `<li><span>${esc(x.words)}</span>${btn('Undo', { kind: 'text', sm: true, icon: 'undo-2', attrs: { 'data-t6undo': String(i) } })}</li>`).join('')}</ul></details>`;
+    <ul class="t6-donel">${list.map((x, i) => `<li><span>${esc(x.words)}</span>${btn('Undo', { kind: 'secondary', sm: true, attrs: { 'data-t6undo': String(i), 'aria-label': `Undo: ${x.words}` } })}</li>`).join('')}</ul></details>`;
 }
 
 // ---- the page ----
 function dateLine(bd) {
   const day = new Date().toLocaleDateString('en-US', { ...HST, weekday: 'short', month: 'short', day: 'numeric' });
-  return `<p class="t6-date"><span>${esc(day)}</span>${bd.lateN ? `<span class="t6-over">${icon('circle-alert')}${bd.lateN} overdue</span>` : ''}</p>`;
+  return `<p class="t6-date${bd.lateN ? '' : ' t6-nolate'}"><span class="t6-day">${esc(day)}</span>${bd.lateN ? `<span class="t6-over">${icon('circle-alert')}${bd.lateN} overdue</span>` : ''}</p>`;
 }
 const groupHTML = (id, title, rows, extra = '') => rows ? `<section class="t6-group" aria-labelledby="t6-g-${id}"><h2 class="t6-gh" id="t6-g-${id}">${esc(title)}</h2><div class="v6-list t6-list" role="list">${rows}</div>${extra}</section>` : '';
 
@@ -1003,7 +994,10 @@ function render(route) {
   // 1024 laptop's lists a sixth of a screen down; the line opens it in Help); from 1100px its short list leads the side
   // column (sideHTML) and the line is not drawn, so the rows start where they always do. At the Capitol on a phone's
   // hearing day it is not the job: it waits.
-  const start = phoneDay ? '' : startCard(v, { line: true });
+  // With nothing listed under the next step, its line is the first of the doors, which then follow the next step at once
+  // (one card fewer: Patti's 1024 Today was 1.38 screens against 1.2).
+  const startIn = !phoneDay && !P.rows ? startCard(v, { bare: true }) : '';
+  const start = phoneDay || startIn ? '' : startCard(v, { line: true });
   const picked = S.v6ld?.today?.key ?? null, item = picked === 'waiting' ? waitingItem(v) : picked === 'later' ? laterItem(v) : picked != null && REG.has(picked) ? itemFor(picked, v) : '';
   if (picked != null && !item) S.v6ld.today.key = null;
   // A phone's hearing day (V14): one big card per sitting first (time and room at a glance), the person's own step inside
@@ -1015,7 +1009,7 @@ function render(route) {
   // On a phone a lead's slipping line comes right under the next step, on the first screen (v5 had it there; Nate's walk:
   // it was the last thing on a 3.3-screen Today), not among the doors after the lists.
   const leadPh = phone && lead ? `<nav class="t6-doors t6-leadph" aria-label="The team">${lead}</nav>` : '';
-  const hday = P.others.length > 0 && !phone, doors = doorsNav(doorLines(w, v, { coal, lead: phone ? '' : lead }));
+  const hday = P.others.length > 0 && !phone, doors = doorsNav([...(startIn ? [startIn] : []), ...doorLines(w, v, { coal, lead: phone ? '' : lead, leadShown: !!lead })]);
   const edge = doors || (!hday && seasonCol) ? `<div class="t6-edges">${doors}${!hday && seasonCol ? `<div class="t6-colonly">${seasonCol}</div>` : ''}</div>` : '';
   // Nothing for the side column and nothing to list: one calm reading column (the side opens when a door does).
   const side = sideHTML(v, P), alone = !P.rows && !/t6-season|t6-doors|t6-start/.test(side);
@@ -1087,7 +1081,7 @@ const ACTS = {
   async send(el, it) {
     const a = it.a, n = S.tdAud?.[a.id], paused = S.emailCfg?.enabled === false, day = dailyWord();
     const ok = await confirmSheet({ title: `Send at 4:30 PM to ${n != null ? plural(n, 'person', 'people') : 'the followers'}?`, ok: 'Send at 4:30 PM',
-      text: `${esc(a.subject)}<br><span class="small muted">${paused ? 'Email is paused, so it is held: it goes out in the first 4:30 PM email after an admin turns email on' : `It goes out ${day} at 4:30 PM`}, in each person’s one email of the day. You can take it back until then.</span>` });
+      text: `${esc(a.subject)}<br><span class="small muted">${paused ? `Email is paused, so it is held while email is paused: ${HELD_NEXT}` : `It goes out ${day} at 4:30 PM`}, in each person’s one email of the day. You can take it back until then.</span>` });
     if (!ok) return;
     await busy(el, async () => { const r = await DB.alertStep(a.id, 'send'); redraw();
       toast(paused ? `Held while email is paused. It goes to ${plural(r?.recipients ?? n ?? 0, 'person', 'people')} in the first 4:30 PM email after email is turned on.` : `In ${day}’s 4:30 PM email to ${plural(r?.recipients ?? n ?? 0, 'person', 'people')}.`,
@@ -1182,8 +1176,6 @@ function balance(main) {
   card.classList.add('t6-moved');
   col.insertBefore(card, col.querySelector(':scope > .t6-done'));
 }
-// Getting started's steps that tick when visited (both copies: the work column's and the side column's).
-const wireStart = el => el.querySelectorAll('[data-t6fr]').forEach(a => a.addEventListener('click', () => { const k = a.dataset.t6fr; if (k === 'week' || k === 'moved' || k === 'bills') markNewStep({ [k === 'bills' ? 'bill' : k]: 1 }); }));
 function wire(route, root) {
   if (route?.place === 'hearings' || route?.q?.view === 'week' || route?.q?.view === 'ahead') return v5.wire(route, root);
   const main = root.querySelector('.t6-root'); if (!main) return;
@@ -1199,9 +1191,8 @@ function wire(route, root) {
   wireListDetail(main, { id: 'today', open: key => openItemHTML(key),
     // Closing the item puts Getting started, the season card and the doors back in that column (wireListDetail draws its
     // own hint there).
-    onChange: key => { if (key == null && aside) { aside.innerHTML = edge(); aside.setAttribute('aria-label', 'Your season'); wirePartner(aside); wireStart(aside); balance(main); } else if (aside) { aside.setAttribute('aria-label', 'The item you picked'); wirePartner(aside); } } });
+    onChange: key => { if (key == null && aside) { aside.innerHTML = edge(); aside.setAttribute('aria-label', 'Your season'); wirePartner(aside); balance(main); } else if (aside) { aside.setAttribute('aria-label', 'The item you picked'); wirePartner(aside); } } });
   main.querySelector('[data-t6doneband]')?.addEventListener('toggle', e => { S.t6DoneOpen = e.target.open; });
-  wireStart(main);
   balance(main);
   if (S.t6Refocus) { const el = main.querySelector(S.t6Refocus); S.t6Refocus = null; el?.focus({ preventScroll: true }); }
 }

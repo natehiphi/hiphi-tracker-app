@@ -167,9 +167,9 @@ function slipRow(x) {
   return itemRow({ key: x.key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(x.line)), icon: x.over ? 'circle-alert' : 'clock', tone: x.over ? 'overdue' : late ? 'late' : '', href: billRoute(x.b), button, cls: wideCls(button) });
 }
 // A long button ("Alert Lauren and Patti", "Alerted 9:00 AM · Undo") goes under the row's line below 1440px (css .tm6-wide),
-// so the name and its time never break onto lines of their own; a short one stays beside the words.
-// A short one ("File", "Review") sits beside the words on a phone too (today.css .t6-sbtn), so the list is shorter.
-const wideCls = html => { const n = strip(html).length; return n > 14 ? 'tm6-r tm6-wide' : n && n <= 9 ? 'tm6-r t6-sbtn' : 'tm6-r'; };
+// so the name and its time never break onto lines of their own; a short one stays beside the words. Below 600px every
+// row's button goes under its words (steps.css, A-8).
+const wideCls = html => strip(html).length > 14 ? 'tm6-r tm6-wide' : 'tm6-r';
 // The rows in their three kinds, each kind under its small heading once more than one is on the list; the late ones always
 // say "Late, still accepted" over them (v5's group).
 function slipRows(rows) {

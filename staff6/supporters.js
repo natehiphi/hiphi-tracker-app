@@ -302,8 +302,7 @@ export default {
 
 // More tools' "Supporters' groups, import and export" opens #/outreach/supporters?io=1: the admin foot (Import CSV, Export)
 // brought into view and its first button focused, once per arrival, so the row keeps its promise without a scroll (C-6). It
-// does nothing a second time for the same address (a redraw leaves the page where it is), so app.js's own ioFoot, until the
-// integrator removes it, only repeats the same scroll.
+// does nothing a second time for the same address (a redraw leaves the page where it is). The one place this is done.
 let ioSeen = '';
 function ioArrive(route, page) {
   if (!route?.q?.io) { ioSeen = ''; return; }

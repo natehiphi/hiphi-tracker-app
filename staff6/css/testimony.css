@@ -178,7 +178,8 @@ body.staff6 .rv6-keys { display: none; margin: 0; font-size: var(--v6-t14); colo
 body.staff6 .rv6-done { display: grid; gap: 4px; padding: 24px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
 /* The end screen's line is a calm sentence, not a heading-sized bold (spec 4 and 12.1: at most 25% bold; it was 28% of the
    screen alone) */
-body.staff6 .rv6-dt { display: flex; align-items: center; gap: 10px; margin: 0; font-family: Lato, system-ui, sans-serif; font-weight: 400; font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); color: var(--v6-ink); }
+/* the end screen's sentence is its heading (an h2 under Review's h1), in the item names' weight, 500 (spec 12.1) */
+body.staff6 .rv6-dt { display: flex; align-items: center; gap: 10px; margin: 0; font-family: Poppins, system-ui, sans-serif; font-weight: 500; font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); color: var(--v6-ink); }
 body.staff6 .rv6-dt svg { width: 28px; height: 28px; flex: none; color: var(--v6-leaf); }
 body.staff6 .rv6-dx { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
 body.staff6 .rv6-log { list-style: none; margin: 0; padding: 8px 16px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }

@@ -30,9 +30,14 @@ const segById = id => (S.segments || []).find(x => String(x.id) === String(id));
 export const paused = () => S.emailCfg?.enabled === false;
 // While email is paused an approved email is held, not on its way (Z1-3): the 4:30 PM job leaves it approved, and it goes
 // out in the first 4:30 PM email after email is turned on. Wherever an approved email's status shows, it says so.
+// One held wording on every staff screen (Nate's pick: email to the public stays off; an approved email or partner ask is
+// held until it is turned on): "held while email is paused" as the status, HELD_HEAD over a group, and HELD_NEXT saying
+// when it goes (Outreach, Partners, Emails, Review, Today and the partner words say these, never "goes out today 4:30 PM").
 export const HELD = 'Approved · held while email is paused';
+export const HELD_HEAD = 'Held while email is paused';
+export const HELD_NEXT = 'it goes out in the first 4:30 PM email after email is turned on';
 export const heldNow = a => a.status === 'approved' && paused();
-export const pausedNotice = () => paused() ? notice('info', 'mail', 'Email is paused. You can write and approve; an approved email is held until email is turned on.', S.me?.is_admin ? btn('Turn it on', { kind: 'text', sm: true, href: '#/setup/email' }) : '') : '';
+export const pausedNotice = () => paused() ? notice('info', 'mail', `Email is paused. You can write and approve; an approved email is held while email is paused: ${HELD_NEXT}.`, S.me?.is_admin ? btn('Turn it on', { kind: 'text', sm: true, href: '#/setup/email' }) : '') : '';
 export const ago = iso => agoWords(iso);   // R-277 fix 3: model.js, one way on every screen
 // Who may do what (the same rules as the database's policies and action_alert_step).
 export const canEdit = a => !a.id || (['draft', 'returned'].includes(a.status) && a.author_id === S.me?.id);
@@ -320,7 +325,7 @@ function lastPush(c) {
 }
 const pushWarn = c => { const r = lastPush(c); if (!r) return '';
   const name = (S.issues || []).find(i => i.id === r.iss.issue_id)?.name || 'one of this bill’s issues';
-  const when = r.a.status === 'sent' ? `went out ${ago(r.a.sent_at)}` : `goes out ${dailyWord(r.a.scheduled_for)} at 4:30 PM`;
+  const when = r.a.status === 'sent' ? `went out ${ago(r.a.sent_at)}` : paused() ? 'is held while email is paused' : `goes out ${dailyWord(r.a.scheduled_for)} at 4:30 PM`;
   return notice('warn', 'triangle-alert', `A big push on ${esc(name)} ${esc(when)}: “${esc(r.a.subject || '')}”. Another this week may be one text too many.`); };
 // A text of 59 characters or fewer, with the link, goes as one part; 60 to 110 goes as two, which costs more to send.
 const ONE_PART = 59;
@@ -429,7 +434,7 @@ function submitStep(c) {
       <li><span class="le-fn">2</span><span>${others.length ? esc(names) : 'Someone else who approves'} reads it, then approves it or sends it back to you with a note.</span></li>
       <li><span class="le-fn">3</span><span>Once it is approved, you come back here and press Send. Only then does it go out.</span></li>
     </ol>
-    ${paused() ? notice('info', 'mail', '<b>Email is paused.</b> You can send this for approval and it can be approved, but an approved email is held: it goes out only once an admin turns email on, in the next 4:30 PM email.') : ''}
+    ${paused() ? notice('info', 'mail', '<b>Email is paused.</b> You can send this for approval and it can be approved, but an approved email is held while email is paused: ' + HELD_NEXT + '.') : ''}
     ${others.length ? '' : notice('info', 'info', 'Nobody else on the team approves emails yet, so it cannot be approved. Every email needs someone other than its writer. An admin can make a teammate an approver under Session setup, Team.')}`;
 }
 
@@ -441,9 +446,9 @@ function statusView(a) {
     : own ? `Waiting for ${esc(appr)} to approve it.${approves(me) ? ' You cannot approve your own email.' : ''}` : `Waiting for ${esc(appr)} to approve ${esc(who)}’s email.`;
   else if (a.status === 'approved') line = `${a.approved_by ? `${a.approved_by === me.id ? 'You' : esc(first(a.approved_by))} approved it. ` : ''}${own ? 'Send it when you are ready.' : me.is_admin ? `It is ${esc(who)}’s to send; an admin can send it too.` : `Waiting for ${esc(who)} to send it.`}`;
   else if (a.status === 'sent') line = `Sent ${esc(fmtDT(a.sent_at))} to ${people(a.recipients || 0)}.`;
-  if (canWait(a)) line = heldNow(a) ? `It goes to ${people(a.recipients || 0)} in the first 4:30 PM email after an admin turns email on, in their one email of the day.${canUnsend(a) ? ' You can take it back until then.' : ''}`
+  if (canWait(a)) line = heldNow(a) ? `Held while email is paused: it goes to ${people(a.recipients || 0)} in the first 4:30 PM email after email is turned on, in their one email of the day.${canUnsend(a) ? ' You can take it back until then.' : ''}`
     : `It goes out ${esc(dailyWord(a.scheduled_for))} at 4:30 PM to ${people(a.recipients || 0)}, in their one email of the day.${canUnsend(a) ? ' You can take it back until then.' : ''}`;
-  else if (heldNow(a)) line += ' While email is paused, Send holds it until an admin turns email on.';
+  else if (heldNow(a)) line += ` While email is paused, Send holds it: ${HELD_NEXT}.`;
   else if (a.status === 'returned') line = `Sent back to ${esc(who)}. Only ${esc(who)} can change it.`;
   else if (!['submitted', 'approved', 'sent'].includes(a.status)) line = `${esc(who)} is still writing it. Only ${esc(who)} can change it.`;
   const stats = a.status === 'sent' ? `<p class="le-stats">${[`${a.opens || 0} opened`, `${a.clicks || 0} clicked`, `${a.bounces || 0} bounced`].map(s => `<span>${s}</span>`).join('')}</p>` : '';
@@ -694,7 +699,7 @@ function returnSheet(a) {
 async function sendNow(el, a) {
   const n = audCount(a), au = advocate(a.author_id), day = dailyWord();
   const ok = await confirmSheet({ title: n != null ? `Send at 4:30 PM to ${people(n)}?` : 'Send at 4:30 PM?', ok: 'Send at 4:30 PM',
-    text: `${esc(a.subject)}<br><span class="small muted">${paused() ? 'Email is paused, so it is held: it goes out in the first 4:30 PM email after an admin turns email on' : `It goes out ${day} at 4:30 PM`}, in each person’s one email of the day, with their hearing alerts. You can take it back until then. Followers who told us they are on the other side of this bill do not get it. Replies go to ${esc(au?.email || 'the writer')}.</span>` });
+    text: `${esc(a.subject)}<br><span class="small muted">${paused() ? `Email is paused, so it is held while email is paused: ${HELD_NEXT}` : `It goes out ${day} at 4:30 PM`}, in each person’s one email of the day, with their hearing alerts. You can take it back until then. Followers who told us they are on the other side of this bill do not get it. Replies go to ${esc(au?.email || 'the writer')}.</span>` });
   if (!ok) return;
   await afterClose();
   busy(el, true);

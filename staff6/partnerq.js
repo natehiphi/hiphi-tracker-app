@@ -22,7 +22,7 @@
 import { S, DB, esc, fmtDate, hooks } from './data.js';
 import { icon, btn, chip, toast, openSheet, closeSheet, groupHead, friendly, switchRow, POS_WORD, POS_ICON } from './ui.js';
 import { whenAt, billNum, billRoute, billById } from './model.js';
-import { dailyWord, paused } from './composer.js';   // which 4:30 PM email; while email is paused an approved ask is held, as HIPHI's own
+import { dailyWord, paused, HELD_NEXT } from './composer.js';   // which 4:30 PM email; while email is paused an approved ask is held, as HIPHI's own
 import { numWords } from './steps.js';   // Staff v6: the bill number as every row says it (D15)
 
 // ---- who ----
@@ -114,7 +114,7 @@ export const TEXT_MAX = 110, TEXT_MIN = 10;   // a text's room for the line (185
 const hstToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
 // Which email an ask joins, in words: "today’s 4:30 PM email" or "tomorrow’s…" (t: its scheduled_for; none: the next one).
 // While email is paused it is held, as HIPHI's own approved emails are (composer.js HELD).
-export const emailWord = (t = null) => paused() ? 'the first 4:30 PM email after email is turned on' : `${dailyWord(t)}’s 4:30 PM email`;
+export const emailWord = (t = null) => paused() ? 'the first 4:30 PM email after email is turned on' : `${dailyWord(t)}’s 4:30 PM email`;   // HELD_NEXT's words
 const curAsk = it => (S.pAsks || []).find(a => a.partner_slug === it.partner_slug && a.bill_id === it.bill_id && a.state !== 'replaced');
 // What approving does to the ask (partner_ask_on_approve): 'new' (it goes out at the next 4:30 PM), 'same' (the live
 // words' ask, approved before: it keeps its place and nobody gets it twice; cur when the list has it), 'over' (its end date
@@ -157,7 +157,7 @@ function askNow(it) {
     : c.state === 'going_out' ? `The same ask as their live words: it still goes out in ${emailWord(c.scheduled_for)}.`
     : c.state === 'sending' ? 'The same ask as their live words: it is already going out, and nobody gets it twice.'
     : c.state === 'taken_back' ? 'The same ask as their live words, which was taken back: it stays taken back.' : 'The same ask as their live words.';
-  return paused() ? 'Email is paused: once you approve, it is held for the first 4:30 PM email after email is turned on. You can take it back on Partners.'
+  return paused() ? `Email is paused. Once you approve, it is held while email is paused: ${HELD_NEXT}. You can take it back on Partners.`
     : `Once you approve, it goes out in ${emailWord()}. You can take it back on Partners until then.`;
 }
 // The Approve toast's second sentence, and the database's answer in the same words (only a new ask's email can differ: an

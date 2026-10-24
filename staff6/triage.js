@@ -115,12 +115,15 @@ function load() {
 // team set aside is listed again only when someone followed it after that decision (migration 074). A follow kept only
 // in a browser, without an account, never reaches the database, so it cannot be counted.
 const people = n => `${n} ${n === 1 ? 'person follows' : 'people follow'} it`;
+// A row's name as every v6 row says it (D15, R-271): the name in the item names' weight (500, spec 12.1), the bill number
+// small after it, never the number bold first.
+const recName = r => `<span class="st-rect"><span class="st-rn">${esc(titleCaseHI(r.title || '').replace(/^Relating to /i, '').replace(/\.$/, '') || spaced(r.bill_number))}</span> <span class="v6-row-num">${esc(spaced(r.bill_number))}</span></span>`;
 function followedPanel(t) {
   const onCard = t.rows?.[t.focus]?.id;
   const list = (t.followed || []).filter(r => r.id !== onCard && !S.bills.some(b => b.id === r.id));
   if (!list.length) return '';
   return `<section class="st-recent st-follow" aria-labelledby="st-folh"><h2 class="st-rech" id="st-folh">Followed on the public tracker</h2>
-    <ul class="st-reclist">${list.map(r => `<li><span class="st-recb"><span class="st-rect"><b>${esc(spaced(r.bill_number))}</b> ${esc(titleCaseHI(r.title || '').replace(/^Relating to /i, '').replace(/\.$/, ''))}</span><span>${people(r.followers)}${r.set_aside_at ? ` · set aside ${esc(fmtDate(r.set_aside_at))}` : ''}</span></span>${btn('Sort it', { kind: 'secondary', sm: true, attrs: { 'data-tfol': r.id, 'aria-label': `Sort ${r.bill_number}, which ${people(r.followers).replace(/ it$/, '')}` } })}</li>`).join('')}</ul></section>`;
+    <ul class="st-reclist">${list.map(r => `<li><span class="st-recb">${recName(r)}<span>${people(r.followers)}${r.set_aside_at ? ` · set aside ${esc(fmtDate(r.set_aside_at))}` : ''}</span></span>${btn('Sort it', { kind: 'secondary', sm: true, attrs: { 'data-tfol': r.id, 'aria-label': `Sort ${r.bill_number}, which ${people(r.followers).replace(/ it$/, '')}` } })}</li>`).join('')}</ul></section>`;
 }
 const campName = t => t.camp === 'mine' ? coalitionWords(sortCoalitions()) : t.camp ? (S.campaigns.find(x => x.id === t.camp)?.name || 'this coalition') : 'all coalitions';
 const campLabel = t => t.camp === 'mine' ? (sortCoalitions().length === 1 ? `${campName(t)} (yours)` : 'Your coalitions') : t.camp ? campName(t) : 'All coalitions';
@@ -147,7 +150,7 @@ const HIST_WORD = { track: h => `Tracked for ${h.camp || 'the tracker'}${h.pos &
 function recent(t) {
   const rows = t.hist.slice(0, 10), more = t.hist.length - rows.length;
   return `<section class="st-recent" aria-labelledby="st-rech"><h2 class="st-rech" id="st-rech">Recent decisions</h2>
-    ${rows.length ? `<ul class="st-reclist">${rows.map(h => `<li><span class="st-recb"><span class="st-rect"><b>${esc(spaced(h.row.bill_number))}</b> ${esc(titleCaseHI(h.row.title || '').replace(/^Relating to /i, '').replace(/\.$/, ''))}</span><span>${esc(HIST_WORD[h.kind](h))}</span></span>${btn('Undo', { kind: 'text', sm: true, icon: 'undo-2', attrs: { 'data-tundo': h.key, 'aria-label': `Undo ${h.row.bill_number}: ${HIST_WORD[h.kind](h)}` } })}</li>`).join('')}</ul>${more > 0 ? `<p class="st-recmore">and ${more} earlier. Undo works back through all of them.</p>` : ''}`
+    ${rows.length ? `<ul class="st-reclist">${rows.map(h => `<li><span class="st-recb">${recName(h.row)}<span>${esc(HIST_WORD[h.kind](h))}</span></span>${btn('Undo', { kind: 'text', sm: true, icon: 'undo-2', attrs: { 'data-tundo': h.key, 'aria-label': `Undo ${h.row.bill_number}: ${HIST_WORD[h.kind](h)}` } })}</li>`).join('')}</ul>${more > 0 ? `<p class="st-recmore">and ${more} earlier. Undo works back through all of them.</p>` : ''}`
       : '<p class="st-recnone">Nothing decided yet. Each decision shows here with its own Undo.</p>'}</section>`;
 }
 function why(r) {

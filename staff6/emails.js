@@ -18,7 +18,7 @@ import { alertsToReview } from './model.js';
 import { icon, btn, empty, sectionNav } from './ui.js';
 import { itemRow, nameWords, numWords } from './steps.js';
 import { pageHead, isDesk, isSide, thSort, sortBy, wireTable, DASH, plural, shortDate } from './lists.js';
-import { audienceOf, statusChip, approverNames, pausedNotice, ago, dailyWord, paused, heldNow, HELD } from './composer.js';
+import { audienceOf, statusChip, approverNames, pausedNotice, ago, dailyWord, paused, heldNow, HELD, HELD_HEAD } from './composer.js';
 
 const first = id => (advocate(id)?.full_name || 'Someone').split(' ')[0];
 const when = a => a.updated_at || a.submitted_at || a.created_at || '';
@@ -59,7 +59,7 @@ const colValue = (a, k) => k === 'subject' ? (a.subject || '').toLowerCase() : k
 // What happens next, in words, and whether it is the viewer's step (then it is said bold, first).
 function nextWords(a, rv) {
   const me = S.me?.id, mine = a.author_id === me, who = first(a.author_id);
-  if (heldNow(a)) return { words: mine ? 'Approved: held while email is paused' : `Approved: held while email is paused (${who}’s)`, you: false };
+  if (heldNow(a)) return { words: mine ? HELD : `${HELD} (${who}’s)`, you: false };
   if (a.status === 'submitted') return rv.has(a.id) ? { words: 'Yours to approve', you: true } : { words: `Waiting for ${approverNames(a.author_id) || 'someone who approves'} to approve ${mine ? 'it' : who + '’s email'}`, you: false };
   if (a.status === 'approved' && a.scheduled_for) return { words: `Goes out ${dailyWord(a.scheduled_for)} at 4:30 PM`, you: false };
   if (a.status === 'approved') return mine ? { words: 'Approved: ready for you to send', you: true } : { words: `Approved: waiting for ${who} to send it`, you: false };
@@ -107,7 +107,7 @@ export default {
         : desk ? `${needs ? `<p class="le-tsum" aria-live="polite"><b>${needs} ${needs === 1 ? 'needs' : 'need'} you</b>${v.sort ? '' : ', listed first'}</p>` : ''}${emailsTable([...review, ...ready, ...going, ...drafts, ...waiting, ...sent], v, rv)}`
         : group('review', 'Yours to approve', review, rv)
         + group('send', 'Ready to send', ready, rv)
-        + group('going', paused() ? 'Held while email is paused' : 'Going out at 4:30 PM', going, rv)
+        + group('going', paused() ? HELD_HEAD : 'Going out at 4:30 PM', going, rv)
         + group('drafts', 'Drafts and sent back', drafts, rv)
         + group('wait', 'Waiting on someone else', waiting, rv)
         + group('sent', 'Sent', sent, rv)}

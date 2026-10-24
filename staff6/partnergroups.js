@@ -25,7 +25,7 @@ import { icon, btn, toast, openSheet, closeSheet, pickerSheet, notice, skeleton,
 import { itemRow, placeHead, sayWords as billSay, numWords } from './steps.js';   // "Sugary drink fee (HB 2146)": the number spaced (D15)
 import { whenAt, billById, billRoute } from './model.js';
 import { admitsPartners, approvesPartners, firstName, otherApprovers, orList, wantQueue, queueChanged, wantAsks, emailWord, pqItems, pqRow, pqItem, wirePartner } from './partnerq.js';
-import { dailyWord, paused } from './composer.js';
+import { dailyWord, paused, HELD_HEAD } from './composer.js';
 
 const PUB = 'https://natehiphi.github.io/hiphi-tracker-app/track.html';
 const linkOf = slug => `${PUB}?via=${encodeURIComponent(slug)}`;
@@ -94,7 +94,7 @@ function askLine(a) {
   const when = a.state === 'taken_back' ? `Taken back ${whenAt(a.taken_back_at)}`
     : a.state === 'ended' ? (String(a.ask_until) < hstToday() ? `Ended ${dayWord(a.ask_until)}` : 'Ended: its words are off the tracker')
     : paused() && !a.sent ? `Approved${by} ${whenAt(a.approved_at)}`
-    : a.state === 'going_out' ? `Goes out ${dailyWord(a.scheduled_for)} at 4:30 pm`
+    : a.state === 'going_out' ? `Goes out ${dailyWord(a.scheduled_for)} at 4:30 PM`
     : `Going out since ${dayWord(a.scheduled_for)}${a.sent ? `: ${plural(a.sent, 'person', 'people')} so far` : ''}`;
   // "Email only" is the usual case and goes unsaid (spec 7.2: a row is at most four facts); a text as well is said.
   return [when, a.also_text ? 'also by text once texts are on' : '', a.state === 'ended' ? '' : `until ${dayWord(a.ask_until)}`.replace(/ /g, '\u00a0')].filter(Boolean).join(' · ');   // "until Wed 3/25" never splits
@@ -111,7 +111,7 @@ function asksHTML() {
   const all = S.pAsks || [], on = all.filter(a => ASK_ON.includes(a.state)), off = all.filter(a => ASK_OFF.includes(a.state));
   if (!on.length && !off.length) return '';
   return `<section class="pg-sec" aria-labelledby="${on.length ? 'pg-h-ask' : 'pg-h-askoff'}">
-    ${on.length ? `<h2 class="pg-h2" id="pg-h-ask">${paused() ? 'Held while email is paused' : 'Going out at 4:30 pm'}<span class="n">${on.length}</span></h2>${rowList('Partner asks', on.map(askRow))}` : ''}
+    ${on.length ? `<h2 class="pg-h2" id="pg-h-ask">${paused() ? HELD_HEAD : 'Going out at 4:30 PM'}<span class="n">${on.length}</span></h2>${rowList('Partner asks', on.map(askRow))}` : ''}
     ${off.length ? `<details class="pg-fold"${S.pgAskFold ? ' open' : ''}><summary id="pg-h-askoff">${icon('chevron-down', { cls: 'chev' })}<span>Asks taken back or ended</span><span class="n">${off.length}</span></summary>${rowList('Asks taken back or ended', off.map(askRow))}</details>` : ''}</section>`;
 }
 

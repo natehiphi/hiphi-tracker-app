@@ -200,15 +200,8 @@ export function wireDraftsFocus(pnl, b) {
   requestAnimationFrame(land);
   setTimeout(() => { const a = document.activeElement; if (!a || a === document.body || a.id === 'main') land(); }, 450);
 }
-// The public's response in Outreach's words and order ("43 followers · 5 testified · 4 emailed · 2 plan to attend"; model.js
-// publicWords says "43 follow"): one word per fact on the Public tab, the hearing page and This week's asks (C-15).
-function respWords(b) {
-  const c = publicResponse(b); if (!c) return '';
-  const n = x => Number(x).toLocaleString();
-  const parts = [c.followers ? `${n(c.followers)} ${c.followers === 1 ? 'follower' : 'followers'}` : '', c.testimonies ? `${n(c.testimonies)} testified` : '', c.emails ? `${n(c.emails)} emailed` : '',
-    c.attending ? `${n(c.attending)} ${c.attending === 1 ? 'plans' : 'plan'} to attend` : '', c.shares ? `${n(c.shares)} shared` : ''].filter(Boolean);
-  return parts.length ? `Public: ${parts.join(' · ')}` : '';
-}
+// The public's response in Outreach's words and order: model.js publicWords, the one wording (C-15).
+const respWords = b => publicWords(b);
 export function renderPublic(b) {
   const cls = pubStateCls(b), live = cls.includes('live'), warn = cls.includes('warn');
   const listed = b.is_public && b.tracked !== false, sum = valOf(b, 'public_summary'), ask = valOf(b, 'public_action'), nickname = valOf(b, 'nickname');

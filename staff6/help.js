@@ -418,8 +418,12 @@ function newSteps() {
 // The look-only steps tick when the person opens the place, however they got there (a link, the sidebar, a key, Back):
 // the frame announces each route it draws as window 'v6:route' with detail.hash (the v6 router moves by pushState, so
 // hashchange never fires). One key per step.
+// Hearings opened from the sidebar or the phone bar (#/hearings) shows This week or Get hearings by what the person has
+// (hearings.js viewOf): it counts as seeing this week's hearings only when This week is the tab drawn.
 const LOOKS = [[/^#\/hearings\/week(?:[?/]|$)/, 'hearings'], [/^#\/bills(?:\?|$)/, 'bills'], [/^#\/bill\/[^/?]+/, 'bill']];
-const lookAt = hash => { const h = String(hash || ''), x = h.startsWith('#') ? h : '#' + h.replace(/^\/?/, '/'), hit = LOOKS.find(([r]) => r.test(x));
+const weekDrawn = () => /^\s*This week\b/.test(document.querySelector('main .sv-secnav [aria-current="page"]')?.textContent || '');
+const lookAt = hash => { const h = String(hash || ''), x = h.startsWith('#') ? h : '#' + h.replace(/^\/?/, '/');
+  const hit = LOOKS.find(([r]) => r.test(x)) || (/^#\/hearings(?:\?|$)/.test(x) && weekDrawn() ? [null, 'hearings'] : null);
   if (hit && S.me && !frGet()[hit[1]]) frSet({ [hit[1]]: 1 }); };
 if (typeof window !== 'undefined') {
   addEventListener('v6:route', e => lookAt(e?.detail?.hash ?? location.hash));

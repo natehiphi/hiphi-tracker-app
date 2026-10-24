@@ -370,7 +370,10 @@ export function askWords(b, { viewer } = {}) {
     // again (the row still says who asked first, and when).
     const lastAt = ms(a.last?.created_at) ?? a.at;
     const followUp = quiet && (workingDays(lastAt, Date.now()) >= 3 || (!!aw && !aw.a.passed && workingDays(Date.now(), aw.a.at) <= 2));
-    return { ...words(w), key, words: w, code, asker: a.by, at: a.at, lastAt, answer: a.answer, followUp, decide, st, m, aw };
+    // One chair of a joint committee answered: the follow-up goes to the chair still to reply, by name (model.js waitOn).
+    if (a.waitOn?.length) { const k = codesOf(code).find(c => a.waitOn.includes(chairIdsOf(c)[0])), pm = k && chairMail(k);
+      if (pm) m = { ...pm, n: a.waitOn.length, legId: a.waitOn.length === 1 ? a.waitOn[0] : undefined }; }
+    return { ...words(w), key, words: w, code, asker: a.by, at: a.at, lastAt, answer: a.answer, followUp, decide, st, m, aw, waitOn: a.waitOn || null };
   }
   // One chair of a joint committee asked: the ask is to the others, by name, and its email goes to them alone.
   let partial = null;
@@ -542,7 +545,9 @@ export function hearingLine(s) {
 // for approval", "Resubmit", "Approve", "File".
 const SENT = { // the card's sentence, the viewer's own step
   nodraft: () => 'Make the draft', write: () => 'Write the testimony, then send it for approval', submit: () => 'Send the testimony for approval',
-  revise: () => 'Revise and resubmit the testimony',
+  // Says plainly that it came back, in the flag's own lower-case words (spec 12.6; a capitalised "Sent back" reads as a sixth
+  // state): Patti's first screen said only "Revise and resubmit" over "The approver's note", and nothing said it was sent back.
+  revise: () => 'Revise and resubmit: it was sent back',
   approve: (s, v) => `Approve ${s.d?.submitted_by ? (s.d.submitted_by === v?.id ? 'your own' : `${cap(firstWords(s.d.submitted_by, v))}’s`) : 'the'} testimony`,
   second: (s, v) => `Give the second look to ${s.d?.submitted_by && s.d.submitted_by !== v?.id ? `${cap(firstWords(s.d.submitted_by, v))}’s` : 'the'} testimony`,
   file: s => `File the ${s.status.tone === 'late' ? 'late ' : ''}testimony at the Capitol`,
@@ -574,7 +579,7 @@ const DOC_OPENED = new Set();
 // send it?" records that chair's ask only).
 const askMailOf = (s, o = {}) => { const a = s.ask; if (!a.m) return null;
   return chairAskMail(a.code, [s.b], { dl: a.st.deadline, ...(a.decide ? { heardAt: a.st.hearing?.scheduled_at || new Date().toISOString() } : {}),
-    ...(a.partial && a.m.legId ? { to: { who: a.m.who, email: a.m.email, legId: a.m.legId, n: 1 } } : {}), ...o }); };
+    ...((a.partial || a.waitOn) && a.m.legId ? { to: { who: a.m.who, email: a.m.email, legId: a.m.legId, n: 1 } } : {}), ...o }); };
 const telOf = ph => `tel:${String(ph).replace(/[^\d+]/g, '')}`;
 // The buttons of the viewer's own step: the first is the filled one where the card holds the screen's one filled button
 // (`primary`), else tonal; the rest tonal or text (spec section 4: at most 4 looks).
@@ -705,9 +710,12 @@ function actsFit(html) {
 }
 // Who may cover a teammate's filing or resubmit (v5 let them): an approver, a second approver or an admin.
 const covers = v => { const a = v && (advocate(v.id) || v); return !!a && a.is_active !== false && (!!a.is_admin || !!a.can_approve || !!a.is_reviewer); };
+// A sent-back draft may also be resubmitted by the bill's coalition helpers and its owners (v5's bill page let anyone on
+// the bill press Resubmit; keep every feature, rule 9): Patti can resubmit Lauren's HEAL draft when Lauren is out.
+const coversRevise = (v, b) => covers(v) || (!!v && (helpersOf(b).includes(v.id) || ownersOf(b).includes(v.id)));
 // Someone else's step on the card: Open Doc (a text button: the draft is not the viewer's to change), and, in the open item
 // and on the bill only (spec 11.1: a step's buttons live where it is done), File it for <the filer> and Resubmit for <the
-// writer> for whoever covers. Both are the filer's and the writer's own acts (the same filing card and Mark filed; the
+// writer> for whoever covers (Resubmit: a coalition helper or owner of the bill too). Both are the filer's and the writer's own acts (the same filing card and Mark filed; the
 // same Resubmit, sent at once, with Undo and the who's-next toast). The database makes whoever resubmits its sender, so
 // its filer: the line before Resubmit says so ({ who }).
 function coverButtons(s, v, where) {
@@ -716,7 +724,7 @@ function coverButtons(s, v, where) {
   const home = ['pane', 'bill', 'testimony'].includes(where), first = id => cap(firstWords(id, v)), mate = (s.whose.ids || []).find(id => id !== v?.id);
   if (home && mate && covers(v) && s.kind === 'file')
     out.push(btn(`File it for ${first(mate)}`, { kind: 'secondary', icon: 'clipboard-check', attrs: A('filed', s, { 'aria-haspopup': 'dialog' }) }));
-  if (home && mate && covers(v) && s.kind === 'revise' && d.status === 'draft') {
+  if (home && mate && coversRevise(v, s.b) && s.kind === 'revise' && d.status === 'draft') {
     out.push(btn(`Resubmit for ${first(mate)}`, { kind: 'secondary', icon: 'send', attrs: A('submit', s) }));
     who = `If you resubmit it for ${first(mate)}, you file it once it is approved.`;
   }
@@ -878,7 +886,7 @@ export async function openCounts() {
 // parts are joined by real spaces and " · " (screen readers and copied text read "Today · Room 430", not "TodayRoom 430").
 // A moved sitting says so ("Moved from Mon 3/9"); whether to still go is asked by Hearings' own strip (moved.js), of the
 // people who were going to the old one.
-export function hearingCard(sitting, { viewer, big = false, from = '', id = '', omit = null, lead = null, self = false, week = from === 'week', facts = null } = {}) {
+export function hearingCard(sitting, { viewer, big = false, from = '', id = '', omit = null, lead = null, self = false, week = from === 'week', facts = null, watchLink = true } = {}) {
   const h = sitting?.h || sitting; if (!h) return '';
   const v = meOf(viewer), rows = sittingRows(h), now = Date.now(), at = ms(h.scheduled_at), cancelled = rows.every(r => r.status === 'cancelled');
   const hid = id || `v6h-${esc(h.id)}`, href = `#/hearing/${encodeURIComponent(h.id)}${from ? `?from=${encodeURIComponent(from)}` : ''}`;
@@ -909,7 +917,8 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '', 
   const first1 = lead != null && pos.length && String(pos[0].b.id) === String(lead) ? pos[0] : null, rest = first1 ? pos.slice(1) : pos;
   // On the sitting's own page (self) its Notice and video says Watch on YouTube: one link to one video (A-14). The link has
   // its own class, so staff.css's bare-link rule (inline-block below 900px) cannot take its icon's gap away.
-  const stream = !cancelled && today && !self ? streamOf(h) : null;
+  // `watchLink: false` (Today's cards): the stream is the sitting page's and This week's detail, one tap away (Open the hearing).
+  const stream = !cancelled && today && !self && watchLink ? streamOf(h) : null;
   const watch = stream ? `<a class="v6-watch" href="${esc(stream.url)}" target="_blank" rel="noopener">${icon('video')}<span>Watch it live</span></a>` : '';
   const name = `${committeeName(h.committee) || h.committee}${isDecision(h) ? ' · decision making' : ''}`;
   const room = h.room && !cancelled ? `<span class="v6-hcard-sep"> · </span><span class="v6-hcard-room">${nw(esc(roomName(h.room)))}</span>` : '';
