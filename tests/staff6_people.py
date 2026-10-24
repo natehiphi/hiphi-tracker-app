@@ -131,7 +131,10 @@ def main():
     # ---- Patti: her sent-back draft and its deadline first, never "nothing of your own"; Hearings is HEAL's ----
     pg = b.page('PH'); pg.open('/'); txt = main_text(pg)
     check('Patti: no "Nothing of your own" over a draft due today', 'Nothing of your own' not in txt, '')
-    ok, y = first_screen(pg, r'sent back'); check('Patti: "sent back" on her first screen', ok, y)
+    # Where she acts on it, her own step says its verb, as OWN_STEP reads the states: "Revise and resubmit the testimony",
+    # with the approver's note under it, is her sent-back draft on her Today; elsewhere it carries the flag "sent back".
+    ok, y = first_screen(pg, r'sent back|revise and resubmit')
+    check('Patti: her sent-back draft on her first screen ("sent back", or her own step "Revise and resubmit")', ok, y)
     ok2, y2 = first_screen(pg, r'9:30'); check('Patti: its due time (9:30 AM) on her first screen', ok2, y2)
     m = pg.measure(); check("Patti: at most 4 labelled buttons in view (spec 8, D4)", m['labelled_buttons'] <= 4, f"{m['labelled_buttons']}: {', '.join(m['labelled_list'][:8])}", v6_only=True)
     nb = place(pg, hearings_route()); check("Patti: " + ('This week' if V5 else 'Hearings') + " shows HEAL's SB3234", re.search(r'SB\s?3234', main_text(pg)), '', skip=nb)

@@ -42,6 +42,40 @@ class Type:
   def __init__(self, boxes, note=''): self.boxes, self.note, self.unless, self.optional = boxes, note, None, False
   def label(self): return 'type into ' + ', '.join(self.boxes)[:50]
 
+class Field:
+  """A form field found by its label, as a person reads it (an open sheet first, then the work column): a text box is
+  typed into (not a click); a pick from a list (a select) or a date picked is one click. `value` is the words typed, the
+  option's words (a regex, the first option whose words match) or the date (YYYY-MM-DD). A label's words are matched as
+  written, case and all, and end where a lower-case letter does not follow: Playwright reads a label with its select's
+  options run on ("ForAnyoneYouJames..."), so a word boundary would not hold."""
+  def __init__(self, label, value, optional=False, note=''):
+    self.rx = label if isinstance(label, re.Pattern) else re.compile(r'^\s*' + re.escape(label) + r'(?![a-z])')
+    self.name = label.pattern if isinstance(label, re.Pattern) else label
+    self.value, self.optional, self.note, self.unless = value, optional, note, None
+  def label(self): return f'the field "{self.name[:40]}"'
+
+def field(pg, f):
+  """Fill one Field; returns (clicks it took, None) or (0, why it could not be filled)."""
+  box = None
+  for scope in ('dialog[open] >> nth=-1', 'main'):
+    try:
+      if scope.startswith('dialog') and not pg.page.locator('dialog[open]').count(): continue
+      loc = pg.page.locator(scope).get_by_label(f.rx)
+      for i in range(min(loc.count(), 8)):
+        if loc.nth(i).is_visible(): box = loc.nth(i); break
+    except Exception: pass
+    if box is not None: break
+  if box is None: return 0, f'{f.label()} is not on the page'
+  kind = box.evaluate("e => e.tagName.toLowerCase() === 'select' ? 'select' : (e.type || 'text')")
+  if kind == 'select':
+    opts = box.evaluate("e => [...e.options].map(o => [o.value, o.text.trim()])")
+    want = rx(f.value) if isinstance(f.value, str) else f.value
+    hit = next((v for v, t in opts if want.search(t)), None)
+    if hit is None: return 0, f'{f.label()} has no choice like "{f.value}" ({", ".join(t for _, t in opts[:6])})'
+    box.select_option(hit); pg.page.wait_for_timeout(250); return 1, None
+  box.fill(f.value); pg.page.wait_for_timeout(250)
+  return (1 if kind in ('date', 'datetime-local', 'time') else 0), None
+
 class J:
   def __init__(self, key, name, who, budget, steps6, done6, steps5=None, done5=None, start='/', extra='', size=(1440, 900),
                needs=(), v5=None, v5_note='', start5=None, extra5=None):
@@ -80,6 +114,12 @@ def walk(pg, steps, done):
         if not box.count() or not box.is_visible(): return clicks, False, f'step {i} ({s.label()}): {sel} is not on the page', s
         box.fill(txt); pg.page.wait_for_timeout(300)
       continue
+    if isinstance(s, Field):
+      k, why = field(pg, s)
+      if why:
+        if s.optional: continue
+        return clicks, False, f'step {i}: {why}', s
+      clicks += k; continue
     if s.fill is not None:
       box = pg.page.locator('dialog[open] textarea, dialog[open] input[type=text], dialog[open] input:not([type]), dialog[open] input[type=search]').first
       if box.count() and box.is_visible(): box.fill(s.fill)
@@ -99,11 +139,18 @@ QR_SHOWN = lambda pg: pg.page.evaluate("() => !![...document.querySelectorAll('m
 # What the toast says after the step (the page's own words can say "approved" or "sent back" about other items, so the
 # approve and send-back journeys read the toast only).
 TOAST = lambda rx_: (lambda pg: bool(re.search(rx_, pg.page.evaluate("() => document.getElementById('toast')?.innerText || ''"), re.I)))
-# Kris's testimony approval: the card's "Review and approve" first. A row's "Review" can be another approval (Kevin's
-# supporter email on her Do today), so it is the fallback, and the toast must say the testimony was approved.
-REVIEW6 = (r'^\s*Review and approve\s*$', r'^\s*(Review|Approve)\b')
+# Kris's testimony approval: the step card's button is "Review" (one name for the act on every screen, spec 8), the
+# first one in the page's order, so her next-step card's comes before a row's. A row's "Review" can be another approval
+# (Kevin's supporter email on her Do today), so the toast must say the testimony was approved. "Review and approve" and a
+# bare "Approve" are older names, tried after it.
+REVIEW6 = (r'^\s*Review\s*$', r'^\s*Review and approve\s*$', r'^\s*(Review|Approve)\b')
 # Kevin's HB 2121 filing on Today: a Coming up row with no button of its own (spec 11.1, 12.7), found by its words.
 FILE_ROW = rx(r'^\s*(Disposable e-cigarette ban|HB ?2121)\b.*\bFile by\b')
+# The open item's filing button, in the app's words (23 Oct: the step card says "File the testimony at the Capitol" and
+# its button "File", which opens the filing card; its step 4 is "Mark filed"). A button only: a link to the Capitol's site
+# would leave the app, and is not an in-app step. When the open item carries Mark filed itself, this step is skipped.
+FILE_BTN = Step(r'^\s*File\s*$', r'^\s*File at the Capitol\s*$', r'^\s*File it\s*$', roles=('button',), optional=True)
+FILE_DONE = r'Filed\.|is done|marked filed|Filed by Kevin'
 JOURNEYS = [
   J('approve', 'Approve testimony (Kris), from Today', 'KR', 2,
     [Step(*REVIEW6, in_view=True), Step('Approve$', wait=1300)], TOAST(r'^\s*Approved\b'),
@@ -129,10 +176,10 @@ JOURNEYS = [
   # Kevin's HB2121 is approved and his to file on the busy day; v5 folded it under "+2 on this bill" (X22). With D16 a
   # filing due Wednesday is a Coming up row with no button (11.1, 12.7): the row in view counts as found (0 clicks to find)
   # and opens the item, whose File opens the filing sheet (V25), whose Mark filed finishes it ("Filed. ..."): 3 clicks.
-  # File at the Capitol leaves the app. A confirm, if one is ever added, is followed.
+  # The Capitol's own page leaves the app. A confirm, if one is ever added, is followed.
   J('file', 'File testimony: 0 clicks to find, at most 3 steps (Kevin), from Today', 'KV', 3,
-    [Step(FILE_ROW, in_view=True), Step(r'^\s*File\b'), Step(r'^\s*Mark filed'), Step(r'^\s*Yes, mark filed\b', optional=True)],
-    r'Filed\.|is done|marked filed|Filed by Kevin',
+    [Step(FILE_ROW, in_view=True), FILE_BTN, Step(r'^\s*Mark filed'), Step(r'^\s*Yes, mark filed\b', optional=True)],
+    FILE_DONE,
     [Step(rx(r'\+\d+ on this bill'), in_view=True), Step(r'^\s*(Mark filed|File)\b'), Step('Mark filed')], needs=('#/', 'staff6/filing.js')),
   J('hearing-day-going', "Hearing day on a phone: I'm going in 1 tap (Kris, Fri 3/20)", 'KR', 1,
     [Step(r"^\s*I.m going", in_view=True)], r"Going: Kris|you.re going|You are going|You and|going",
@@ -146,6 +193,26 @@ JOURNEYS = [
   J('turn-off', 'Turn someone off and hand over their work (Nate)', 'NT', 4,
     [Step('People$', roles=('link',)), Step('James'), Step(r'^\s*Leaving or away'), Step(r'^\s*Hand over and turn off')], r'turned off|handed|was James',
     None, needs=('staff6/people.js',), v5=13, v5_note='assessment X24: 13 clicks, 2 scrolls, 4 screens (not replayed)'),
+  # B-2 on v6's "Set Away with a cover" (by hand until now). An "Away until" date waits for W30's migration (spec 6 People,
+  # D13), so away is the hand-over without a date: the People door, the person, "Leaving or away?", then one press that
+  # gives each part to its suggested cover (the coalition's other people, else Nate). The page's own away button is "Hand
+  # over, keep Lauren signed in" ("Back soon? Use Hand over, keep ... signed in"); "Hand over and turn off" is the
+  # fallback name. Done when a cover is named on what moved ("Patti now · was Lauren's"). DESIGN's budget is 3 from
+  # People; from Today, with the People door, 4.
+  J('away-cover', 'Set Away with a cover: hand over to the suggested covers, no date until W30 (Nate), from Today', 'NT', 4,
+    [Step('People$', roles=('link',)), Step('Lauren'), Step(r'^\s*Leaving or away'), Step(r'^\s*Hand over, keep\b', r'^\s*Hand over and turn off\b')],
+    lambda pg: bool(re.search(r'\b(?!You\b)[A-Z]\w+ now · was Lauren’s', pg.text('main') or '')) and bool(re.search(r'handed over|turned off|can still sign in', said(pg), re.I)),
+    None, needs=('staff6/people.js',), v5=None, v5_note='v5 had no away or cover: Session setup > Team, one bill at a time (assessment X24)'),
+  # B-2 on v6's "Give a to-do with a due date" (by hand until now): on the bill's page, the to-dos' door (or Add a to-do
+  # when the bill has some), the to-do typed (not a click), For: Kris (a pick, 1), Due: a date (a pick, 1), Add (1).
+  # Done when the toast says Kris has it with the date, and the row is on the bill.
+  J('todo-due', 'Give a to-do with a due date (Nate, on the bill\'s page)', 'NT', 4,
+    # (the door's summary reads "To-dos on this billNone yet" to Playwright's text match: its two spans touch, so no \b)
+    [Step(r'^\s*Add a to-do\b', r'^\s*To-dos on this bill'), Field('To-do', 'Call the chair’s office about the date'),
+     Field('For', r'^Kris\b'), Field('Due', '2026-03-19'), Step(r'^\s*Add\s*$', roles=('button',))],
+    lambda pg: bool(re.search(r'Kris has it now[\s\S]*\bDue Thu 3/19\b', pg.page.evaluate("() => document.getElementById('toast')?.innerText || ''")))
+      and bool(re.search(r'Call the chair’s office about the date[\s\S]{0,80}Due Thu 3/19 · Kris', pg.text('main') or '')),
+    None, start='/bill/HB1562', needs=('#/bill/HB1562',), v5=None, v5_note='not replayed in v5 (B-2 counted it by hand)'),
   # The prep steps run inline (V30): two "Looks right", the goal and three talking points typed (the next step opens as
   # soon as what is typed would do it), top issue yes or no, keep it, then Mark ready. Typing is not a click.
   J('prep-issue', 'Prepare one 2027 issue (Kevin, 5 Nov)', 'KV', 8,
@@ -259,12 +326,12 @@ def kb_walk(pg, steps, done, max_tabs=70):
   return tabs, enters, ok, '' if ok else f'after {enters} Enter presses the job is not done', noring
 
 KEYBOARD = [   # (key, name, who, steps, done, extra, size)
+  # the next-step card's Review comes before any row's in the Tab order
   ('approve', 'Approve testimony (Kris), from Today', 'KR',
-   [Step(r'^\s*Review and approve\s*$'), Step('Approve$', wait=1300)], TOAST(r'^\s*Approved\b'), '', (1440, 900)),
+   [Step(*REVIEW6[:2]), Step('Approve$', wait=1300)], TOAST(r'^\s*Approved\b'), '', (1440, 900)),
   # the row (it has no button: Enter opens the item), the item's File, the filing sheet's Mark filed (spec 12.7)
   ('file', 'File testimony (Kevin), from Today', 'KV',
-   [Step(FILE_ROW), Step(r'^\s*File\s*$'), Step(r'^\s*Mark filed')],
-   r'Filed\.|is done|marked filed|Filed by Kevin', '', (1440, 900)),
+   [Step(FILE_ROW), Step(*FILE_BTN.names), Step(r'^\s*Mark filed')], FILE_DONE, '', (1440, 900)),
   ('ask-chair', 'Ask a chair for a hearing and record it (Kevin), from Today', 'KV',
    [Step(r'^\s*Email the chairs?\b'), Step(r'^\s*Yes, I sent it')], r'asked|Saved', '', (1440, 900)),
 ]
