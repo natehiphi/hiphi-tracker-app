@@ -61,7 +61,8 @@ with sync_playwright() as p:
     pg.goto(f'{HOST}/track.html#/bill/HB380')
     pg.wait_for_timeout(6000)
     body = pg.locator('body').inner_text()
-    check('It passed its first 2 House committees, but the next one, the House Finance Committee, never scheduled a hearing on it.' in body,
+    # R-212 #45: the step line names the committee it got as far as, so the sentence under it does not say the name again (A-14).
+    check('Got as far as the House Finance Committee' in body and 'It passed its first 2 House committees, but the next one never scheduled a hearing on it.' in body,
           'HB 380\'s bill page says it passed its first 2 House committees')
     check(not errs, f'no page errors {errs}')
     br.close()
