@@ -104,8 +104,8 @@ with sync_playwright() as pw:
         p.reload(); p.wait_for_timeout(2500)
         ok(H(p) in ('#/', '') and screen(p) == 'home', f'{w}: a reload stays on Home, the welcome does not open again ({H(p)})')
         if w == 375:
-            p.go_back(); p.wait_for_timeout(1500)
-            ok(not p.url.startswith(BASE), f'Back from Home after "Just look around" leaves the site, as from any first page (B-4) ({p.url[:60]})')
+            p.go_back(); p.wait_for_timeout(1800)
+            ok(H(p) == '#/start/0' and p.locator('.st-hellobar [data-stleave]').count() == 1, f'Back from Home after "Just look around" returns to the welcome, both doors there (B-4) ({H(p)})')
         c.close()
     # between sessions too
     c, p = ctx(br, 375); begin(p, '&season=off'); p.click('.st-hellobar [data-stleave]')
@@ -135,9 +135,9 @@ with sync_playwright() as pw:
         ok(wiz(p).get('skipped') is True, f'{name}: the first visit is marked left')
         if name == 'alerts':
             p.screenshot(path=os.path.join(OUT, '375_home_after_leave.png'))
-            # Back after leaving (B-4): the step before the one left (Home took its place in history), with Leave on it again.
+            # Back after leaving (B-4, B-5): the step that was left (Home is a new page in history), with Leave on it again.
             p.go_back(); p.wait_for_timeout(1800)
-            ok(H(p) == '#/start/2' and p.locator('[data-stleave]').count() == 1, f'Back from Home after leaving the alerts goes to the step before it, with Leave there too ({H(p)})')
+            ok(H(p) == '#/start/3' and p.locator('#st-aform').count() == 1 and p.locator('[data-stleave]').count() == 1, f'Back from Home after leaving the alerts returns to the alerts, with Leave there too ({H(p)})')
             p.click('[data-stleave]'); ok(home(p), 'and Leave from there is Home again')
         p.reload(); p.wait_for_timeout(2500)
         ok(H(p) in ('#/', '') and screen(p) == 'home' and follows(p) == before, f'{name}: a reload stays on Home, follows kept ({H(p)})')
@@ -147,6 +147,10 @@ with sync_playwright() as pw:
     c, p = ctx(br, 375); begin(p); to_topics(p); fv0 = len(fv(p))
     p.click('.st-bar [data-stskip]'); p.wait_for_selector('.st-lesson', timeout=20000)
     ok(h1(p) == 'A bill’s story' and any(e.get('step') == 'topics' and e.get('event') == 'skip' for e in fv(p)[fv0:]), f'topics, nothing picked: Skip this part goes on to the story, counted as skip ({h1(p)})')
+    c.close()
+    c, p = ctx(br, 375); begin(p); to_topics(p); p.locator('.st-tile').nth(0).click(); p.wait_for_timeout(300); fv0 = len(fv(p))
+    p.click('.st-bar [data-stskip]'); p.wait_for_selector('.st-lesson', timeout=20000)
+    ok(h1(p) == 'A bill’s story' and follows(p) == 0, f'topics, a topic ticked: Skip this part skips the whole part to the story, nothing followed ({h1(p)}, {follows(p)})')
     c.close()
     c, p = ctx(br, 375); begin(p); to_topics(p); to_issues(p); to_alerts(p); fv0 = len(fv(p)); to_story(p)
     ok(h1(p) == 'A bill’s story' and any(e.get('step') == 'alerts' and e.get('event') == 'skip' for e in fv(p)[fv0:]), 'alerts: Skip this part goes on to the story')

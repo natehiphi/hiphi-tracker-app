@@ -184,12 +184,14 @@ export function finish() {
 // Counted as 'leave' on that step, as closing the tab is. Nothing is undone: what was followed or saved stays. The visit is
 // marked left, not done (wiz skipped: firstVisit() is false, so Home and a reload stay on Home; finishing it later from
 // Home's "Pick the issues I care about" still marks it done). The key is cleared so coming back to this step counts it again.
+// Home is a new page in the history, not in place of the step (finish() replaces, since that visit is over): the phone's
+// Back after a mistaken tap returns to the step that was left, Leave still on it (B-4, B-5).
 function leaveVisit(name) {
   track(name, 'leave');
   viewKey = ''; S.stBand = false;
   LZ?.lessonStop();
   wizSet({ skipped: true });
-  app.go('#/', { replace: true });
+  app.go('#/');
 }
 
 // ---------- the three named parts at the top: a signpost, not controls (A-12) ----------
@@ -517,11 +519,11 @@ function wire(route) {
   $$('[data-stskip]').forEach(el => el.onclick = () => {
     track(name, 'skip');
     if (name === 'bill' || name === 'voice') (S.stSkipped ??= new Set()).add('lesson');   // the strip shows the story as skipped, not done (R-249)
-    // Nothing picked on the first screen: the issues screen needs a pick, so Skip goes on to the story, which uses one
-    // of HIPHI's bills (R-019: Skip must never lead back to where it started).
-    // (It named the lesson's step, which the short version does not have, so there Skip went to #/start/0, the first
-    // screen again; now it is simply the screen after the issues: the story, or the short version's one page.)
-    if (name === 'topics' && !pickedIssues().length && !planOn()) { LZ?.lessonStop(); swap(() => app.go('#/start/' + (stepOf('issues', off) + 1)), 'fwd'); return; }
+    // "Skip this part" on the first screen skips the whole of "Your issues", a topic ticked or not (R-212 #46: with one
+    // ticked it used to open the issues screen, which is Next's job, so the words would not have been true): it goes on to
+    // the story, which uses one of HIPHI's bills (R-019: Skip must never lead back to where it started). It is simply the
+    // screen after the issues: the story, or the short version's one page. Nothing is followed (C-4).
+    if (name === 'topics' && !planOn()) { LZ?.lessonStop(); swap(() => app.go('#/start/' + (stepOf('issues', off) + 1)), 'fwd'); return; }
     // Skip on "Your issues" follows nothing (the approved prototype; C-4: nothing is followed without a yes). It used to
     // follow whatever was ticked, which with HIPHI's picks ticked for them followed several issues nobody chose (the
     // review, 9/21). Home asks again later, once.
