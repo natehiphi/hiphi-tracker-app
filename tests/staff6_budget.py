@@ -73,7 +73,21 @@ ROUTES = [
 BY = {r[0]: r for r in ROUTES}
 METRICS = ['controls', 'controls_page', 'filled', 'labelled_buttons', 'words', 'words_page', 'codes', 'row_codes', 'facts_max',
            'rows_over4', 'row_buttons_max', 'colors', 'bordered', 'radii', 'small_pct', 'px13_pct', 'bold_pct', 'marks',
-           'marks_unworded', 'screens', 'groups', 'side_rows', 'hscroll', 'filter_controls', 'setup_parts', 'setup_part_screens']
+           'marks_unworded', 'screens', 'groups', 'side_rows', 'hscroll', 'filter_controls', 'setup_parts', 'setup_part_screens',
+           'colors_status', 'colors_all', 'bold_all_pct', 'controls_net', 'screens_net']
+
+# Today's own rows (spec 13, R-274): every row of the person's own work is shown, even past the length target, so Today's
+# screens and first-screen controls are held to the targets net of them: the Do today, Coming up and Partner words groups
+# (.t6-group, with the "N more later" line), and a hearing card's row for the viewer's own step (the only card rows with a
+# button, spec 12.2). What is left, the next-step card, tiles, doors and season card, is held to 1.2 laptop and 2 phone
+# screens and 12 controls.
+OWN_ROWS = '.t6-group, .t6-later, .v6-hcard-bill:has(.btn, button)'
+NET_SCREENS = r"""(sel) => { const main = document.querySelector('main'); if (!main) return null;
+  const els = [...main.querySelectorAll(sel)].filter(e => !e.parentElement.closest(sel)), was = els.map(e => e.style.display);
+  els.forEach(e => { e.style.display = 'none'; });
+  const v = Math.round(100 * document.documentElement.scrollHeight / innerHeight) / 100;
+  els.forEach((e, i) => { e.style.display = was[i]; });
+  return v; }"""
 
 def plan(args):
   """The jobs: one tab per (person, size, clock), each walking its routes in turn."""
@@ -150,12 +164,14 @@ def _run_job(job):
       if first: pg.open(route, L.CLOCKS[clock]); first = False
       else: pg.nav(route)
       errs0 = len(pg.errors)
-      m = pg.measure(); mf = pg.measure(full=True)
+      m = pg.measure(own=OWN_ROWS if key == 'today' else None); mf = pg.measure(full=True)
       row = {k: m.get(k) for k in METRICS if k in m}
       row.update(controls_page=mf['controls'], words_page=mf['words'], groups=mf['groups'], codes_page=mf['codes'])
+      if key == 'today' and not L.V5:
+        row.update(controls_net=m['controls'] - m['controls_own'], screens_net=pg.page.evaluate(NET_SCREENS, OWN_ROWS))
       special(pg, key, row)
       row.update(h1=m['h1'], tabs=m['tabs'], worst_row=m['worst_row'], marks_list=m['marks_list'], labelled_list=m['labelled_list'][:12],
-                 colors_list=m.get('colors_list'), radii_where=m.get('radii_where'),
+                 colors_list=m.get('colors_list'), colors_status_list=m.get('colors_status_list'), radii_where=m.get('radii_where'),
                  errors=pg.errors[errs0:][:2], hash=pg.hash())
       if SHOTS: pg.shot(os.path.join(SHOTS, f'{L.APP}-{p}-{w}x{h}-{clock}-{key}.png'))
       out.append({'who': p, 'w': w, 'h': h, 'clock': clock, 'route': key, 'm': row})
@@ -173,15 +189,21 @@ def targets(r):
   def T(name, v, lim, ok=None):
     if v is None: return
     t.append((name, v, lim, (v <= lim) if ok is None else ok))
+  # Today's length (spec 13: R-274 wins over the target): each person's own rows are all shown, each with its one button, so
+  # screens and first-screen controls are measured net of them (OWN_ROWS) and only the rest is held to the target. Nate's
+  # Today is his own rows, so his screens, words and first-screen controls are not held to it; his whole page stays within
+  # 30 controls like everyone's.
+  own_today = who == 'NT'
   if key == 'today' and LAPTOP(r):
     T('Today laptop: controls on the whole page', m['controls_page'], 30)
-    T('Today laptop: words on the whole page', m['words_page'], 250)
-    T('Today laptop: screens', m['screens'], 1.2)
+    if not own_today:
+      T('Today laptop: words on the whole page', m['words_page'], 250)
+      T('Today laptop: screens, net of the person\'s own rows (spec 13)', m.get('screens_net', m['screens']), 1.2)
+      T('Today laptop: controls in the work column\'s first screen, net of own rows (spec 13)', m.get('controls_net', m['controls']), 12)
     T('Today laptop: groups', m['groups'], 4)
-    T('Today laptop: controls in the work column\'s first screen', m['controls'], 12)
     if r['clock'] == 'busy': T('Today laptop: exactly 1 filled button', m['filled'], 1, m['filled'] == 1)
   if key == 'today' and not LAPTOP(r) and r['w'] < 768:
-    T('Today phone: screens', m['screens'], 2)
+    if not own_today: T('Today phone: screens, net of the person\'s own rows (spec 13)', m.get('screens_net', m['screens']), 2)
     T('Today phone: controls on the whole page', m['controls_page'], 30)
   if key == 'today' and who == 'PH': T("Patti's Today: labelled buttons in view", m['labelled_buttons'], 4)
   if key == 'bills' and LAPTOP(r): T('Bills first laptop screen: controls', m['controls'], 25)
@@ -197,10 +219,10 @@ def targets(r):
   T('buttons per row (most, D16)', m['row_buttons_max'], 1)
   T('codes in rows (D15)', m['row_codes'], 0)
   T('text at 14px or under (%)', m['small_pct'], 30)
-  T('bold text (%)', m['bold_pct'], 25)
+  T('bold text (%, beyond spec 12.1\'s title, section headings, filled button and open tab)', m['bold_pct'], 25)
   T('bordered elements on the first screen', m['bordered'], 8)
   T('distinct corner radii', m['radii'], 3)
-  T('text colours in view', m['colors'], 5)
+  T('text colours in view (status colours apart, spec 13)', m['colors'], 5)
   T('filled buttons in the first screen (rule 1)', m['filled'], 1)
   T('amber/red marks with no word beside them (D3)', m['marks_unworded'], 0)
   if r['clock'] == 'off': T('amber/red marks on a day when nothing is late', m['marks'], 0)
@@ -243,8 +265,8 @@ def main():
   # ---- the table: per screen and window size, the most any person or clock reached ----
   cols = [('ctl', 'controls'), ('page', 'controls_page'), ('fill', 'filled'), ('btns', 'labelled_buttons'), ('words', 'words'),
           ('wpage', 'words_page'), ('codes', 'codes'), ('rowc', 'row_codes'), ('facts', 'facts_max'), ('r/btn', 'row_buttons_max'),
-          ('col', 'colors'), ('bord', 'bordered'), ('rad', 'radii'), ('<=14', 'small_pct'), ('bold', 'bold_pct'), ('marks', 'marks'),
-          ('bare', 'marks_unworded'), ('scr', 'screens'), ('grp', 'groups'), ('side', 'side_rows')]
+          ('col', 'colors'), ('stat', 'colors_status'), ('bord', 'bordered'), ('rad', 'radii'), ('<=14', 'small_pct'), ('bold', 'bold_pct'), ('marks', 'marks'),
+          ('bare', 'marks_unworded'), ('scr', 'screens'), ('net', 'screens_net'), ('ctl-n', 'controls_net'), ('grp', 'groups'), ('side', 'side_rows')]
   print(f"\n{'screen':15} {'size':9} {'n':>3} " + ' '.join(f'{c:>5}' for c, _ in cols) + '   (the most over people and clocks)')
   groups = {}
   for r in rows: groups.setdefault((r['route'], f"{r['w']}x{r['h']}"), []).append(r)
