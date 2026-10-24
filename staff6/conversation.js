@@ -415,16 +415,21 @@ export function logConversation({ bill = null, issueId = null, legislatorIds = [
       // "This was an ask for a hearing" (V24). From a bill: one tick; its help names the chairs picked under With whom
       // (only they are saved as asked). From a chair's page: the tick, then their bills waiting for a hearing to tick.
       const chairsIn = () => asking ? asking.ids.filter(id => picked.includes(id)) : [];
+      // The bills the tick starts on: the viewer's own asks with them (each its own tick), else their one bill waiting.
+      const startPick = cs => { const own = cs.filter(x => x.own || x.follow); return own.length ? own : cs.length === 1 ? cs : []; };
       const askHelp = () => {
         if (asking) { const c = chairsIn(); return c.length ? `Counts as the ask to ${chairNames(c)} on ${billSay(ctx)}, as an email to the chair does.` : `Add ${chairOr(asking.ids)} under With whom to count it as the ask.`; }
-        const bs = askBills(), cs = choices();
-        if (!askOn) return `For ${cs.length === 1 ? numWords(cs[0].b) : `their ${cs.length} bills waiting for a hearing`}: counts as the ask, as an email to the chair does.`;
-        return bs.length ? `Counts as the ask to ${chairNames([...new Set(cs.filter(x => askPick.has(x.b.id)).flatMap(x => x.ids))])} on ${andList(bs.map(numWords))}.` : 'Tick the bills you asked about.';
+        // C-6: say which bill it will count for before the tick (Kevin's help said "their 2 bills" and saving counted only
+        // his own SB 2175): the bills it starts on, by name and number; once ticked, exactly the bills ticked below.
+        const bs = askBills(), cs = choices(), d = startPick(cs);
+        if (!askOn) return d.length ? `Counts as the ask for a hearing on ${andList(d.map(x => billSay(x.b)))}${cs.length > d.length ? `. Once ticked, you can tick their other ${cs.length - d.length === 1 ? 'bill' : `${cs.length - d.length} bills`} too` : ''}.`
+          : `Once ticked, tick the bills you asked about: ${cs.length === 1 ? billSay(cs[0].b) : `${cs.length} of our bills wait on them for a hearing`}.`;
+        return bs.length ? `Counts as the ask for a hearing on ${andList(bs.map(billSay))}, to ${chairNames([...new Set(cs.filter(x => askPick.has(x.b.id)).flatMap(x => x.ids))])}.` : 'Tick the bills you asked about.';
       };
       const drawAsk = (focus = null) => {
         const cs = choices();
         if (!asking && !cs.length) { askW.innerHTML = ''; return; }
-        if (!asking && askOn && !askPick) { const own = cs.filter(x => x.own || x.follow); askPick = new Set((own.length ? own : cs.length === 1 ? cs : []).map(x => x.b.id)); }
+        if (!asking && askOn && !askPick) askPick = new Set(startPick(cs).map(x => x.b.id));
         // The viewer's own asks with them first; other people's bills (they may have asked about those too) after, past
         // three of them behind one button, so the sheet stays short.
         const ownN = cs.filter(x => x.own || x.follow || x.waitingMine).length, cut = ownN && !askAll && cs.length - ownN > 3 ? ownN : cs.length;

@@ -169,6 +169,21 @@ function countLine(rows = messageRows(), filtered = isFiltered()) {
   const un = rows.filter(i => i.unread).length;
   return `<p class="ib-count" aria-live="polite"><span>${plural(rows.length, 'message')}${un ? `, ${un} unread` : ', all read'}</span>${un ? '<button type="button" class="linkbtn" data-ibreadall>Mark all read</button>' : ''}${filtered ? '<button type="button" class="linkbtn" data-ibclear>Clear the filters</button>' : ''}</p>`;
 }
+// B-3, no dead ends: an empty Inbox still shows how to start a message (Kris, on a hearing day, wanting to ask Kevin
+// something). Messages start on a bill's Team talk, so the way is the viewer's next bill (soonest hearing), else Bills.
+function nextBill() {
+  // Hers: bills she owns or follows, and the bills of the sittings she said she is going to (an approver like Kris owns none).
+  const now = Date.now(), mine = (S.bills || []).filter(isMine), going = new Set(Object.entries(S.attend || {}).filter(([, ids]) => (ids || []).includes(S.me?.id)).map(([hid]) => String(hid)));
+  const soon = (S.hearings || []).filter(h => h.status !== 'cancelled' && new Date(h.scheduled_at).getTime() > now && (going.has(String(h.id)) || mine.some(b => b.id === h.bill_id)))
+    .sort((x, y) => new Date(x.scheduled_at) - new Date(y.scheduled_at))[0];
+  return soon ? billById(soon.bill_id) : mine[0] || null;
+}
+function emptyMessages() {
+  const b = nextBill();
+  return `<div class="ib-empty"><p class="ib-empty-h">No messages yet</p><p>Messages from teammates, @mentions and the tracker’s notes to you land here.</p>
+    <p>To ask a teammate something, open the bill and use Team talk: they get a message${b ? `, and it lands here when they answer` : ''}.</p>
+    ${b ? btn(`Team talk on ${esc(nameWords(b, 40))}`, { kind: 'secondary', icon: 'message-square', href: billRoute(b, 'talk') }) : ''}${btn('Open Bills', { kind: b ? 'text' : 'secondary', iconEnd: 'arrow-right', href: '#/bills' })}</div>`;
+}
 function messagesHTML() {
   const v = st(), all = (S.inbox || []).filter(isMsg), rows = messageRows(), un = rows.filter(i => i.unread).length;
   const filtered = !!(v.q.trim() || v.unreadOnly || v.from), showF = v.showFilters || filtered;
@@ -179,7 +194,7 @@ function messagesHTML() {
       <label class="check ib-unr"><input type="checkbox" id="ib-unread" ${v.unreadOnly ? 'checked' : ''}><span>Unread only</span></label>
     </div>` : '';
   const none = filtered ? `<div class="ib-empty"><p>Nothing matches these filters.</p>${btn('Clear the filters', { kind: 'secondary', attrs: { 'data-ibclear': 1 } })}</div>`
-    : '<div class="ib-empty"><p>Nothing here yet. Messages from teammates, @mentions and the tracker’s notes to you land here.</p></div>';
+    : emptyMessages();
   const list = rows.length ? listDetail({ id: 'ib-msg', label: 'Messages', rows: groupedMessages(rows), detail: ldPicked('ib-msg') ? msgDetail(ldPicked('ib-msg')) : '', empty: 'Pick a message to read it whole', back: 'Back to Messages' }) : none;
   const keys = hover() && keysOn() && keysUsed() && rows.length ? `<p class="ib-keys">${icon('keyboard')}<span>Keys: <kbd>j</kbd> and <kbd>k</kbd> move, <kbd>Enter</kbd> opens, <kbd>e</kbd> marks read or unread, <kbd>Shift</kbd>+<kbd>M</kbd> marks them all read.</span></p>` : '';
   // V26: v5's Inbox carried deadline reminders; v6 keeps them on the step, and says so once, quietly, for anyone looking.

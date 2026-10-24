@@ -79,8 +79,14 @@ export const STEPS = [
 ];
 const todoOf = s => typeof s.todo === 'function' ? s.todo() : s.todo;
 const doneN = i => STEPS.filter(s => s.done(i)).length;
-// A helper's part: the six steps done (only the owner marks the issue ready).
-const partDone = i => doneN(i) === STEPS.length;
+// A helper's part (no migration records one, D13): the materials, HIPHI's goal and the talking points. The public wording,
+// the top-issue answer and keep, merge or retire are the owner's to decide, and only the owner marks the issue ready. A
+// helper's steps say "Your part", the rest say whose they are, and the part closes "Your part is done" (spec 6; Julie read
+// six "To do · Open" lines and nothing said which were hers).
+const HELP_PART = ['goal', 'points'];
+const partSteps = () => STEPS.filter(s => HELP_PART.includes(s.k));
+const partDone = i => partSteps().every(s => s.done(i));
+const partWords = () => listWords(partSteps().map(s => s.label));
 // The state people see: the database keeps todo, ready, approved and sent_back; "In progress" is any step done.
 export function stateOf(i) {
   if (isDraft(i)) return 'draft';
@@ -330,7 +336,10 @@ const DRAFT = () => S.prDraft ??= {};
 // The one open step (the critic: six steps open at once made a card taller than a laptop screen): the one the person chose
 // (Open, Change), else the first still to do. Each step done opens the next by itself, so the clicks stay at most 8.
 const OPEN1 = () => S.prOpen1 ??= {};
-const openKey = (i, steps) => { const k = OPEN1()[i.id]; return (k && steps.some(s => s.k === k) ? k : steps.find(s => !s.done(i))?.k) || null; };
+const helperView = i => isHelper(i) && !isAdmin();
+const openKey = (i, steps) => { const k = OPEN1()[i.id]; if (k && steps.some(s => s.k === k)) return k;
+  // A helper's card opens on their own part first.
+  return (helperView(i) && steps.find(s => HELP_PART.includes(s.k) && !s.done(i))?.k) || steps.find(s => !s.done(i))?.k || null; };
 // The step after `k` still to do (wrapping), for "Next step"; null when none is left.
 const nextOpen = (i, steps, k) => { const at = steps.findIndex(s => s.k === k), l = [...steps.slice(at + 1), ...steps.slice(0, at)]; return l.find(s => !s.done(i))?.k || null; };
 // Under a typed step: "Next step" (or "Done"), but "Skip for now", in text style, while the goal is empty or the talking
@@ -370,13 +379,14 @@ function stepsHTML(i, steps, { work = false, draftCard = false } = {}) {
   return `<ol class="pr6-steps">${steps.map((s, n) => { const d = s.done(i), open = s.k === cur, peek = peeks.has(s.k);
     // An admin confirms a top issue right on its step (R-316 W16), as on the board's Top issues view.
     const conf = s.k === 'top' && isAdmin() && i.top_pick === 'yes' && !isDraft(i) ? topBtn(i) : '';
-    const said = d ? (s.k === 'points' ? plural(pointsOf(i).length, 'point') : clip(s.did(i), 90)) : work ? 'To do' : todoOf(s);
+    const mine = helperView(i) && HELP_PART.includes(s.k), theirs = helperView(i) && !HELP_PART.includes(s.k), own = ownerOfIssue(i);
+    const said = d ? (s.k === 'points' ? plural(pointsOf(i).length, 'point') : clip(s.did(i), 90)) : mine ? 'To do' : theirs ? `${own ? first(own) : 'The owner'}’s step` : work ? 'To do' : todoOf(s);
     const closedBtn = !work ? '' : d ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-prchange': s.k, 'aria-label': `Change: ${s.label}`, ...(['wording', 'outlook'].includes(s.k) ? { 'aria-haspopup': 'dialog' } : {}) } })
       : btn('Open', { kind: 'text', sm: true, attrs: { 'data-propen': s.k, 'aria-label': `Open: ${s.label}` } });
     const closed = `<p class="pr6-sd">${esc(said)}</p>${conf}`, body = `<p class="pr6-sd" id="pr6-d-${s.k}">${esc(todoOf(s))}</p>${openHTML(i, s, { draftCard, peek })}${conf}`;
     return `<li class="pr6-step${d ? ' done' : ''}${open ? ' open' : ''}" data-prk="${s.k}" data-prn="${n + 1}"${peek ? ` data-prpeek="${peeks.get(s.k)}"` : ''}>
       <span class="pr6-mark" aria-hidden="true">${d ? icon('circle-check') : `<span class="pr6-n">${n + 1}</span>`}</span>
-      <div class="pr6-sb"><p class="pr6-sl" id="pr6-l-${s.k}">${esc(s.label)}<span class="sr">${d ? ': done' : ': to do'}</span></p>
+      <div class="pr6-sb"><p class="pr6-sl" id="pr6-l-${s.k}">${esc(s.label)}${mine ? ' <span class="pr6-yourpart">Your part</span>' : ''}<span class="sr">${d ? ': done' : ': to do'}</span></p>
         ${open ? body : peek ? `<div class="pr6-closed">${closed}</div><div class="pr6-peekb" hidden>${body}</div>` : closed}</div>
       ${open ? '' : peek ? `<span class="pr6-closed">${closedBtn}</span>` : closedBtn}</li>`; }).join('')}</ol>`;
 }
@@ -399,7 +409,7 @@ function footHTML(i) {
   // A helper's part closes when the six steps are done (spec 6): it says so and opens their next issue, never one finished.
   if (isHelper(i)) { const nx = nextHelp(i);
     return partDone(i) ? { sticky: !!nx, html: `<span class="pr6-fs pr6-yours">${icon('circle-check')}<span>Your part is done. ${esc(who)} marks it ready.</span></span>${nx ? btn('Open the next', { iconEnd: 'arrow-right', href: issueHref(nx, walkFrom()) }) : ''}` }
-      : { html: `<span class="pr6-fs">${leftWords(left)} · ${esc(who)} marks it ready.</span>` }; }
+      : { html: `<span class="pr6-fs">Your part: ${esc(partWords())}, ${partSteps().filter(s => !s.done(i)).length} still to do · ${esc(who)} does the rest and marks it ready.</span>` }; }
   return { html: `<span class="pr6-fs">${esc(who)} marks it ready.</span>` };
 }
 // `outlook` (v3): in session the issue's page puts what the public reads between sessions in here, folded with the rest

@@ -19,11 +19,11 @@ body.staff6 .sp-find .sv-filter { flex: none; }
 body.staff6 .sp-groups { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin: 0 0 var(--s16); }
 body.staff6 .sp-gl { font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); margin-right: var(--s4); }
 body.staff6 .sp-page .chip .sp-cn, .sp-sheet .chip .sp-cn, .sp-sheet .sp-cn { font-size: var(--v6-t14); font-weight: 400; color: var(--v6-muted); margin-left: 4px; }
-body.staff6 .sp-page .chip[aria-pressed="true"] .sp-cn, .sp-sheet .chip[aria-pressed="true"] .sp-cn { color: var(--v6-action-press); }
+body.staff6 .sp-page .chip[aria-pressed="true"] .sp-cn, .sp-sheet .chip[aria-pressed="true"] .sp-cn { color: var(--v6-action); }
 body.staff6 .sp-page .chip .ic, .sp-sheet .chip .ic { width: 16px; height: 16px; }
 /* filters that are on, each a chip that takes itself off */
 body.staff6 .sp-active { display: flex; flex-wrap: wrap; gap: var(--s8); margin: 0 0 var(--s12); }
-body.staff6 .sp-fchip { gap: 6px; background: var(--v6-action-wash); color: var(--v6-action-press); }
+body.staff6 .sp-fchip { gap: 6px; background: var(--v6-action-wash); color: var(--v6-action); }
 body.staff6 .sp-fchip .ic { color: var(--v6-action); }
 /* the results bar: the count, then what to do with these people (V31) */
 body.staff6 .sp-rbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s16); margin: 0 0 var(--s12); padding: var(--s12) var(--s16); border-radius: var(--v6-r20);
@@ -165,7 +165,7 @@ body.staff6 .sp-adminb { display: flex; flex-wrap: wrap; gap: var(--s8); }
 .sp-person .sp-kv dd .chips { gap: 6px; }
 .sp-person .sp-kv .linkbtn { display: inline-flex; align-items: center; min-height: 44px; margin: -12px 0; font-weight: 700; }
 .sp-person .sp-lists { margin-bottom: var(--s8); gap: var(--s8); }
-.sp-person a.sp-listchip { min-height: 44px; padding: 8px 16px; border: 0; background: var(--v6-action-wash); color: var(--v6-action-press); font-size: var(--v6-t16); text-decoration: none; }
+.sp-person a.sp-listchip { min-height: 44px; padding: 8px 16px; border: 0; background: var(--v6-action-wash); color: var(--v6-action); font-size: var(--v6-t16); text-decoration: none; }
 .sp-person a.sp-listchip:hover { background: #D3E7E5; }
 .sp-person .sp-fbills .v6-row-line .ic { width: 18px; height: 18px; }
 .sp-person .sp-fbills + .btn { margin: var(--s8) 0 0 -12px; }
@@ -397,9 +397,14 @@ body.staff6 .ot-plist { list-style: none; margin: 0; padding: var(--s8) var(--s2
 body.staff6 .ot-plist li { position: relative; padding: var(--s12) 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); overflow-wrap: anywhere; }
 body.staff6 .ot-plist li + li::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
 body.staff6 .ot-plist b { color: var(--v6-ink); font-weight: 500; }
+body.staff6 .ot-plist .ot-ptop { display: block; }
+/* the partner's own ask, as their row's one line (v5's row showed it) */
+body.staff6 .ot-plist .ot-pask { display: block; margin-top: 2px; color: var(--v6-muted); }
+@media (max-width: 359.98px) { body.staff6 .ed-more { display: none; } }
 body.staff6 .ot-plist a { color: var(--v6-ink); text-underline-offset: 3px; }   /* a bill's name, as on the cards (one link colour less) */
 body.staff6 .ot-plist a:hover { color: var(--v6-action); }
-body.staff6 .ot-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s12); }
+/* the tiles share the whole column (auto-fit: three or four tiles stretch to its width instead of leaving 180px empty) */
+body.staff6 .ot-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--s12); }
 body.staff6 .ot-tile { display: flex; flex-direction: column; gap: 2px; padding: var(--s16); border-radius: var(--v6-r12); background: var(--v6-card); box-shadow: var(--v6-sh1); }
 body.staff6 .ot-tn { font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 body.staff6 .ot-tl { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }

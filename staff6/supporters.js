@@ -149,7 +149,9 @@ function barHTML(v, rows) {
   // A phone (A-1, the list in the first 400px): the bar is the buttons alone; the count sits in the "Sorted by" line, Clear
   // with the filter chips, and "Everyone" is the groups row's own first chip.
   if (!isDesk()) return `<div class="sp-rbar sp-rbarp"><div class="sp-racts">${acts.join('')}</div></div>`;
-  acts.push(btn(seg && !changed ? 'Everyone' : 'Clear', { kind: 'text', attrs: { 'data-sp': 'clear' } }));
+  // A group just as saved: the groups row's "Everyone" chip shows everyone again (a text button "Everyone" here repeated it
+  // and did not say what it did); with a filter changed, Clear.
+  if (!(seg && !changed)) acts.push(btn('Clear', { kind: 'text', attrs: { 'data-sp': 'clear' } }));
   return `<div class="sp-rbar"><p class="sp-rn" aria-live="polite"><b>${barWhat(v, rows)}</b></p><div class="sp-racts">${acts.join('')}</div></div>`;
 }
 const barWhat = (v, rows) => { const seg = segOf(v), n = rows.length, pristine = !!seg && norm(v.f) === norm(seg.filter);
@@ -287,6 +289,7 @@ export default {
     on('[data-sp="tag"]', () => tagSheet([...v.sel]));
     on('[data-sp="fup"]', () => followupSheet([...v.sel], { onDone: () => stopSelect() }));
     wireResults(root);
+    ioArrive(route, page);
     const file = page.querySelector('#sp-file');
     file.onchange = async () => {
       const f = file.files[0]; file.value = ''; if (!f) return;
@@ -296,6 +299,20 @@ export default {
     };
   },
 };
+
+// More tools' "Supporters' groups, import and export" opens #/outreach/supporters?io=1: the admin foot (Import CSV, Export)
+// brought into view and its first button focused, once per arrival, so the row keeps its promise without a scroll (C-6). It
+// does nothing a second time for the same address (a redraw leaves the page where it is), so app.js's own ioFoot, until the
+// integrator removes it, only repeats the same scroll.
+let ioSeen = '';
+function ioArrive(route, page) {
+  if (!route?.q?.io) { ioSeen = ''; return; }
+  if (!S.me?.is_admin || ioSeen === location.hash) return;
+  const sec = page.querySelector('.sp-admin'); if (!sec) return;
+  ioSeen = location.hash; S.scrollClaimed = true;
+  requestAnimationFrame(() => { const s = document.querySelector('main .sp-admin') || sec; if (!s.isConnected) return;
+    s.scrollIntoView({ block: 'center' }); s.querySelector('button:not([disabled])')?.focus({ preventScroll: true }); });
+}
 
 // What supporters say about themselves (R-156 E1, E2), folded at the foot: how many gave titles, a story, and said HIPHI
 // may quote them; the list titles by use; and the titles people wrote themselves, so the common ones join the list before

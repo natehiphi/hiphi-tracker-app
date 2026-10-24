@@ -3,7 +3,7 @@
 // "Show all N", C-15), each with
 //   - the deadline (when testimony closes), the position and the committee;
 //   - the ask's own words (the Public tab's "The ask"), or one line that says it is not written yet, whose it is and by
-//     when, with "Write the ask", which opens the box in place (saved to the same field);
+//     when, with "Write the public ask", which opens the box in place (saved to the same field);
 //   - once an ask exists, Copy link · Copy message · Copy post · Email followers in one row (the bill's and the hearing's
 //     share kits link here);
 //   - how it is landing: the bill's followers (and what people did, from 10 people, D4).
@@ -20,6 +20,7 @@ import { pageHead } from './lists.js';
 import { nameWords, numWords, committeeName, statusTile, nw } from './steps.js';
 import { emailDoor } from './composer.js';
 import { weekLanding } from './firstvisit.js';
+import { markNewStep } from './help.js';   // Getting started's rallier steps tick from here (Write a public ask, Copy this week's newsletter)
 
 const HR = 36e5, DAY = 864e5;
 const plural = (n, one, many = one + 's') => `${Number(n || 0).toLocaleString()} ${n === 1 ? one : many}`;
@@ -49,7 +50,7 @@ export function rallierOf(b) {
   return [...new Set(ids.length ? ids : own.slice(0, 1))];
 }
 // Someone who rallies for a coalition (Saya, a coalition's owner): they see the partners' asks going out (F187).
-const isRallier = (me = S.me) => !!me && (S.campaigns || []).some(c => leadOf(c) === me.id);
+export const isRallier = (me = S.me) => !!me && (S.campaigns || []).some(c => leadOf(c) === me.id);
 // Who may write a bill's ask here: its rallier, its owner, an admin (the Public tab is open to the same people).
 const mayWrite = b => !!S.me && (S.me.is_admin || rallierOf(b).includes(S.me.id) || (S.assignments?.[b.id] || []).includes(S.me.id));
 
@@ -82,14 +83,18 @@ const askOf = b => liveAsk(b).replace(/([^.!?])$/, '$1.');
 const link = (b, via = '') => `${sharePageUrl(b, 'testify')}${via ? `?via=${via}` : ''}`;
 // With no ask written, the message and the post say only the bill, its deadline and the link: never stock words in
 // place of the ask (X23), and the toast says so (A-16: a confirmation must be true).
+// An ask that already names the deadline's day ("Send testimony by Wed 3/18, 9:30 AM") is not followed by the same date
+// again (the message said it twice).
+const namesDue = (a, due) => { const md = /\d{1,2}\/\d{1,2}/.exec(fmtDT(due))?.[0]; return !!md && new RegExp(`(^|\\D)${md.replace('/', '\\/')}(\\D|$)`).test(a); };
+const dueLine = (a, due, word = 'Testimony is due') => namesDue(a, due) ? '' : ` ${word} ${fmtDT(due)}.`;
 const messageOf = x => { const a = askOf(x.b);
-  return a ? `${a} Testimony is due ${fmtDT(x.due)}. It takes a few minutes: ${link(x.b)}` : `${askName(x.b)}: testimony is due ${fmtDT(x.due)}. It takes a few minutes: ${link(x.b)}`; };
+  return a ? `${a}${dueLine(a, x.due)} It takes a few minutes: ${link(x.b)}` : `${askName(x.b)}: testimony is due ${fmtDT(x.due)}. It takes a few minutes: ${link(x.b)}`; };
 function postOf(x) {
   const url = link(x.b, 'social'), name = askName(x.b), a0 = askOf(x.b);
   if (!a0) return `${name}: testimony due ${fmtDT(x.due)}. ${url}`;
-  const due = `Testimony due ${fmtDT(x.due)}.`, room = 280 - (name.length + due.length + url.length + 4);
+  const due = dueLine(a0, x.due, 'Testimony due').trim(), room = 280 - (name.length + due.length + url.length + 4);
   let a = a0; if (a.length > room) a = a.slice(0, Math.max(room - 1, 20)).replace(/\s+\S*$/, '') + '…';
-  return `${name}: ${a} ${due} ${url}`;
+  return `${name}: ${a}${due ? ' ' + due : ''} ${url}`;
 }
 // Copy all: only bills with an ask written (a blank one is never filled with stock words, X23), and for the newsletter
 // none closing within 3 hours. leftOut() names what each leaves out and why.
@@ -97,9 +102,14 @@ function copyAll(items, kind) {
   const use = items.filter(x => askOf(x.b) && (kind === 'social' || !x.soon));
   if (kind === 'social') return { use, text: use.map(postOf).join('\n\n') };
   const head = `This week at the Legislature: ${use.length === 1 ? 'one bill on HIPHI’s issues needs' : `${use.length} bills on HIPHI’s issues need`} your voice. Each takes a few minutes.`;
-  return { use, text: head + '\n\n' + use.map(x => `${askName(x.b)} · ${ASK_SAYS[x.b.position] || 'HIPHI’s position'}\n${askOf(x.b)} Testimony is due ${fmtDT(x.due)}.\n${link(x.b, 'newsletter')}`).join('\n\n') };
+  return { use, text: head + '\n\n' + use.map(x => `${askName(x.b)} · ${ASK_SAYS[x.b.position] || 'HIPHI’s position'}\n${askOf(x.b)}${dueLine(askOf(x.b), x.due)}\n${link(x.b, 'newsletter')}`).join('\n\n') };
 }
 const listNums = xs => { const n = xs.map(x => pubNum(x.b)); return n.length <= 2 ? n.join(' and ') : `${n.slice(0, -1).join(', ')} and ${n[n.length - 1]}`; };
+// What a Copy all left out, for its toast: "SB 3076 and HB 1573 have no ask yet."
+function leftWords(items, kind) {
+  const blank = items.filter(x => !askOf(x.b)), late = kind === 'social' ? [] : items.filter(x => askOf(x.b) && x.soon);
+  return [blank.length ? `${listNums(blank)} ${blank.length === 1 ? 'has' : 'have'} no ask yet.` : '', late.length ? `${listNums(late)} ${late.length === 1 ? 'closes' : 'close'} within 3 hours, too soon for a newsletter.` : ''].filter(Boolean).join(' ');
+}
 function leftOut(items) {
   const blank = items.filter(x => !askOf(x.b)), late = items.filter(x => askOf(x.b) && x.soon), one = blank.length === 1;
   if (!blank.length && !late.length) return `Both cover all ${plural(items.length, 'bill')}.`;
@@ -114,8 +124,11 @@ function leftOut(items) {
 // people only the followers show, and the 10-person rule is said once, in the note at the foot (C-10, A-14). ----
 const followers = b => (publicResponse(b) || {}).followers || 0;
 function landLine(b) {
+  // The total who acted comes first, so the 10-person rule in the note under the cards is visibly met ("5 testified · 4
+  // emailed" read as 9, short of 10: the rest shared or said they would attend).
   const c = publicResponse(b) || {}, bits = [c.followers ? plural(c.followers, 'follower') : 'No followers yet'];
-  if ((c.people || 0) >= 10) { if (c.testimonies) bits.push(`${c.testimonies.toLocaleString()} testified`); if (c.emails) bits.push(`${c.emails.toLocaleString()} emailed a legislator`); }
+  if ((c.people || 0) >= 10) { const did = [c.testimonies ? `${c.testimonies.toLocaleString()} testified` : '', c.emails ? `${c.emails.toLocaleString()} emailed a legislator` : ''].filter(Boolean);
+    bits.push(`${c.people.toLocaleString()} acted${did.length ? ` (${did.join(', ')})` : ''}`); }
   return bits.join(' · ');
 }
 function landingHTML(items) {
@@ -124,7 +137,7 @@ function landingHTML(items) {
   const fv = weekLanding();
   const tile = (n, label) => `<div class="ot-tile"><span class="ot-tn">${Number(n).toLocaleString()}</span><span class="ot-tl">${label}</span></div>`;
   const tiles = [tile(sum.followers, 'follow these bills'), sum.testimonies ? tile(sum.testimonies, 'testified on them') : '', sum.emails ? tile(sum.emails, 'emailed a legislator about them') : '',
-    fv ? tile(fv.ours, `of ${plural(fv.visits, 'first visit')} this week came from the newsletter or a post`) : ''].filter(Boolean).join('');
+    fv ? tile(fv.ours, `of ${plural(fv.visits, 'first visit')} came from the newsletter or a post`) : ''].filter(Boolean).join('');
   return `<section class="ot-land" aria-labelledby="ot-land-h"><h2 class="ot-h2" id="ot-land-h">How it’s landing</h2>
     <div class="ot-tiles">${tiles}</div>
     <p class="ot-note">Counts only, never names. What people did on a bill shows once 10 people have acted on it; until then a card shows its followers.${DEMO ? ' The practice copy shows sample numbers.' : ''} <a href="#/my-issues/all?view=first-visit&amp;from=outreach">First visit numbers</a></p></section>`;
@@ -145,23 +158,30 @@ function partnersHTML() {
   // One time format on the page (whenAt: "today 4:30 PM"), as every card says its times.
   const when = a => a.state === 'going_out' ? `goes out ${whenAt(hst(new Date(a.scheduled_for).getTime()) + 'T16:30:00-10:00')}` : 'going out now';
   return `<section class="ot-pasks" aria-labelledby="ot-pasks-h"><h2 class="ot-h2" id="ot-pasks-h">Partners’ asks going out</h2>
-    <ul class="ot-plist">${on.slice(0, 5).map(a => { const b = billById(a.bill_id); return `<li><b>${esc(a.partner_name)}</b> on ${b ? `<a href="${esc(billRoute(b))}">${esc(nameWords(b, 1e4))}</a>` : esc(a.bill_number || 'a bill')}, ${esc(when(a))}</li>`; }).join('')}</ul>
+    <ul class="ot-plist">${on.slice(0, 5).map(a => { const b = billById(a.bill_id); return `<li><span class="ot-ptop"><b>${esc(a.partner_name)}</b> on ${b ? `<a href="${esc(billRoute(b))}">${esc(nameWords(b, 1e4))}</a>` : esc(a.bill_number || 'a bill')}, ${esc(when(a))}</span>${a.ask ? `<span class="ot-pask">${esc(a.ask)}</span>` : ''}</li>`; }).join('')}</ul>
     ${on.length > 5 ? `<p class="ot-note">and ${on.length - 5} more.</p>` : ''}</section>`;
 }
 
 // ---- one card: short (Nate: less on every screen). The bill, when testimony closes, then either the ask with its share
-// row, or one line that says the ask is not written yet with a "Write the ask" button that opens the box in place, then
+// row, or one line that says the ask is not written yet with a "Write the public ask" button that opens the box in place, then
 // the followers. The share row shows only once an ask exists (with none, there is nothing true to share yet). ----
 const cardId = b => 'ot-ask-' + String(b.bill_number).replace(/\s/g, '');
 const BASE = new Map();   // the ask as it was when its box was opened (DB.saveBillFields compares against it)
 const boxOpen = b => S.otOpen === b.id && mayWrite(b);
 // Whose ask it is to write and by when, for this viewer. "Mine": the viewer is its rallier (or, with no rallier, its owner).
+// `step`: the ask is a step on the viewer's Today, as today.js makes it (spec 13: the public ask row is for a strong position's
+// bill only). Only a step may be red when late, carry the overdue tile or the page's filled button (spec 11.4); the rallier's
+// other asks are optional and said in neutral words.
+const STRONG = ['strongly_support', 'strongly_oppose'];
 function askDue(x) {
   const b = x.b, due = askDueAt(x.h), r = rallierOf(b), me = S.me?.id;
-  return { due, past: due <= Date.now(), today: hst(due) === hst(Date.now()), mine: !!me && (r.length ? r.includes(me) : (S.assignments?.[b.id] || []).includes(me)), who: r.length ? first(r[0]) : '' };
+  const mine = !!me && (r.length ? r.includes(me) : (S.assignments?.[b.id] || []).includes(me));
+  return { due, past: due <= Date.now(), today: hst(due) === hst(Date.now()), mine, step: mine && STRONG.includes(b.position), who: r.length ? first(r[0]) : '' };
 }
+// The viewer's optional ask (not a step on Today): no red, no tile, a reason a post still helps.
+const optionalWords = x => `No ask yet · testimony closes ${whenAt(x.due)} · a post still helps`;
 // The viewer's own ask: red as a status tile with its icon and word once it is overdue (D3, addendum 4: the viewer's own
-// step); otherwise plain words with a clock, the time bold when it is due today (D3). Not a pill: beside "Write the ask"
+// step); otherwise plain words with a clock, the time bold when it is due today (D3). Not a pill: beside "Write the public ask"
 // a pencil pill read as a second button (A-12, spec 4: status never looks like a button), so the pencil is the button's.
 function ownTile(d) {
   if (d.past) return statusTile({ tone: 'overdue', icon: 'circle-alert', words: `Ask overdue · was due ${whenAt(d.due)}` });
@@ -176,13 +196,13 @@ function writeBox(x, d, lead) {
   const b = x.b, id = cardId(b) + '-w', a = liveAsk(b), changing = !!a;
   if (!BASE.has(b.id)) BASE.set(b.id, { public_action: b.public_action || null, public_action_until: b.public_action_until || null });
   const text = (S.otDraft || {})[b.id] ?? (changing ? b.public_action || '' : '');
-  const when = changing ? '' : d.mine ? ownTile(d) : `<span class="ot-wdue">${esc(otherWords(d).replace(/^No ask yet\. /, ''))}</span>`;
-  return `<div class="ot-write"><div class="ot-wtop"><label for="${id}">${changing ? 'Change the ask' : 'Write the ask'}</label>${when}</div>
+  const when = changing ? '' : d.step ? ownTile(d) : d.mine ? `<span class="ot-wdue">${nw(esc(optionalWords(x)))}</span>` : `<span class="ot-wdue">${esc(otherWords(d).replace(/^No ask yet\. /, ''))}</span>`;
+  return `<div class="ot-write"><div class="ot-wtop"><label for="${id}">${changing ? 'Change the public ask' : 'Write the public ask'}</label>${when}</div>
     <p class="ot-help" id="${id}-h">What should people do, and by when? A sentence or two. It shows on the public page and in the hearing alert.</p>
     <textarea id="${id}" rows="3" maxlength="280" aria-describedby="${id}-h ${id}-x ${id}-e" data-askbox="${esc(b.id)}">${esc(text)}</textarea>
     <p class="ot-ex" id="${id}-x">For example: “Send testimony by ${esc(fmtDT(x.due))}. Two sentences in your own words are enough.”</p>
     <div id="${id}-e" role="alert"></div>
-    <div class="ot-wacts">${btn('Save the ask', { kind: lead ? 'primary' : 'secondary', icon: 'check', attrs: { 'data-asksave': b.id } })}${btn('Cancel', { kind: 'text', attrs: { 'data-askcancel': b.id } })}</div></div>`;
+    <div class="ot-wacts">${btn('Save the public ask', { kind: lead ? 'primary' : 'secondary', icon: 'check', attrs: { 'data-asksave': b.id } })}${btn('Cancel', { kind: 'text', attrs: { 'data-askcancel': b.id } })}</div></div>`;
 }
 // Copy link · Copy message · Copy post, then the email door. On a phone the three read "Copy: Link Message Post" in one
 // row of compact buttons (the word "Copy" said once); each button's name still says it whole.
@@ -203,7 +223,7 @@ function cardHTML(x, { hl = false, lead = false } = {}) {
   let body = '', left = '';
   if (open) body = writeBox(x, d, true);
   else if (a) { body = `<blockquote class="ot-words"><p>${esc(a)}</p>${may ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-askopen': b.id, 'aria-label': `Change the ask for ${nameWords(b, 60)}` } }) : ''}</blockquote>`; left = shareHTML(x); }
-  else if (may) left = `<div class="ot-noask">${d.mine ? ownTile(d) : `<span class="ot-nw">${icon('clock')}<span>${nw(esc(otherWords(d)))}</span></span>`}${btn('Write the ask', { kind: lead ? 'primary' : 'secondary', sm: true, icon: 'pencil', attrs: { 'data-askopen': b.id, 'aria-label': `Write the ask for ${nameWords(b, 60)}` } })}</div>`;
+  else if (may) left = `<div class="ot-noask">${d.step ? ownTile(d) : `<span class="ot-nw">${icon('clock')}<span>${nw(esc(d.mine ? optionalWords(x) : otherWords(d)))}</span></span>`}${btn('Write the public ask', { kind: lead ? 'primary' : 'secondary', sm: true, icon: 'pencil', attrs: { 'data-askopen': b.id, 'aria-label': `Write the public ask for ${nameWords(b, 60)}` } })}</div>`;
   else left = `<p class="ot-nw">${icon('clock')}<span>${nw(esc(otherWords(d)))}</span></p>`;
   return `<section class="ot-card${hl ? ' hl' : ''}" id="${id}" aria-labelledby="${id}-h" tabindex="-1">
     <div class="ot-ctop"><h2 class="ot-name" id="${id}-h"><a href="${esc(billRoute(b, 'public'))}">${esc(nameWords(b, 1e4))}</a></h2><span class="ot-num">${esc(numWords(b))}</span></div>
@@ -212,11 +232,15 @@ function cardHTML(x, { hl = false, lead = false } = {}) {
     <div class="ot-foot">${left}<p class="ot-landl">${icon('users')}<span>${esc(landLine(b))}</span></p></div>
   </section>`;
 }
-// The page's one filled button (A-3, spec 4): Save in an open box; else "Write the ask" on the soonest card that is the
-// viewer's own to write; else none (copying is never the one thing to do now).
-function leadId(items) {
+// The page's one filled button (A-3, spec 4): Save in an open box; else "Write the public ask" on the card asked for, or on
+// the soonest card that is a step on the viewer's Today; else none (copying is never the one thing to do now).
+// Arriving for one card (?bill=, Today's "Open the ask card"), that card holds it; otherwise the step Today named (the soonest
+// strong-position ask that is the viewer's own), never an optional one above it.
+function leadId(items, want = null) {
   const o = items.find(x => boxOpen(x.b)); if (o) return o.b.id;
-  const w = items.find(x => !liveAsk(x.b) && mayWrite(x.b) && askDue(x).mine);
+  const open = x => !liveAsk(x.b) && mayWrite(x.b);
+  const picked = want && items.find(x => want.has(x.b.id) && open(x)); if (picked) return picked.b.id;
+  const w = items.find(x => open(x) && askDue(x).step);
   return w ? w.b.id : null;
 }
 
@@ -262,7 +286,7 @@ export default {
     const bar = nl + po ? `<div class="ot-copyall" role="group" aria-label="Copy every ask">
       <div class="ot-cabtns">${btn('Copy all for the newsletter', { kind: 'secondary', icon: 'copy', attrs: { 'data-askall': 'newsletter', ...(nl ? {} : { disabled: true }) } })}${btn('Copy all as posts', { kind: 'secondary', icon: 'copy', attrs: { 'data-askall': 'social', ...(po ? {} : { disabled: true }) } })}</div>
       <p class="ot-left">${esc(leftOut(items))}</p></div>` : '';
-    const lead = leadId(items), short = cut(items, want), shown = short ? items.slice(0, SHOW) : items;
+    const lead = leadId(items, want), short = cut(items, want), shown = short ? items.slice(0, SHOW) : items;
     const more = short ? `<p class="ot-more">${btn(`Show all ${items.length} asks`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-otmore': '1' } })}</p>` : '';
     return `<div class="le-page ot-page">${head}${bar}
       <div class="ot-cards">${shown.map(x => cardHTML(x, { hl: !!want && want.has(x.b.id), lead: x.b.id === lead })).join('')}</div>${more}
@@ -277,15 +301,16 @@ export default {
     root.querySelectorAll('[data-askall]').forEach(el => el.onclick = () => {
       const list = items(), { use, text } = copyAll(list, el.dataset.askall);
       if (!use.length) return;
-      const skip = list.length - use.length, left = skip ? `, ${skip} left out as the line under the buttons says` : '';
-      copy(text, el.dataset.askall === 'social' ? `Copied ${plural(use.length, 'post')}, each under a post’s length${left}. Paste, and change anything you like.` : `Copied ${plural(use.length, 'ask')} for the newsletter${left}. Paste, and change anything you like.`);
+      const left = leftWords(list, el.dataset.askall);
+      if (el.dataset.askall !== 'social') markNewStep({ newsletter: 1 });   // Getting started: Copy this week's newsletter
+      copy(text, el.dataset.askall === 'social' ? `Copied ${plural(use.length, 'post')}.${left ? ' ' + left : ''}` : `Copied ${plural(use.length, 'ask')} for the newsletter.${left ? ' ' + left : ''}`);
     });
     root.querySelectorAll('[data-askcopy]').forEach(el => el.onclick = () => {
       const x = weekAskItems().find(i => i.b.id === el.dataset.bill); if (!x) return;
       const k = el.dataset.askcopy, has = !!askOf(x.b), bare = 'Copied: the bill, its deadline and the link. No ask is written yet.';
       if (k === 'link') copy(link(x.b), 'Link copied: the bill’s page for testifying.');
       else if (k === 'message') copy(messageOf(x), has ? 'Message copied: the ask, the deadline and the link.' : bare);
-      else copy(postOf(x), has ? 'Post copied, under a post’s length.' : bare);
+      else copy(postOf(x), has ? 'Post copied. It fits in one post.' : bare);
     });
     // Write the ask / Change: the box opens in place, the cursor in it. Cancel closes it and puts focus back.
     root.querySelectorAll('[data-askopen]').forEach(el => el.onclick = () => { const id = el.dataset.askopen; S.otOpen = id; BASE.delete(id); redraw(`[data-askbox="${CSS.escape(id)}"]`); });
@@ -324,13 +349,13 @@ async function saveAsk(root, billId, el) {
   const b = billById(billId), ta = root.querySelector(`[data-askbox="${CSS.escape(billId)}"]`); if (!b || !ta) return;
   const text = ta.value.trim().replace(/\s+/g, ' '), err = document.getElementById(ta.id + '-e');
   const say = m => { err.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}<span>${esc(m)}</span></p>`; ta.setAttribute('aria-invalid', 'true'); ta.focus(); };
-  if (text.length < 10) return say('Write the ask first: what to do, and by when.');
+  if (text.length < 10) return say('Write the public ask first: what to do, and by when.');
   const x = weekAskItems().find(i => i.b.id === billId), until = x ? hst(new Date(x.h.scheduled_at).getTime()) : null;
   if (!until) return say('This bill has no hearing this week, so the ask would not show. Write it on the bill’s Public tab.');
   el.setAttribute('aria-busy', 'true'); el.disabled = true;
   try {
     const res = await DB.saveBillFields(b.id, { public_action: text, public_action_until: until }, BASE.get(b.id) || { public_action: b.public_action || null, public_action_until: b.public_action_until || null });
-    S.otOpen = null; if (S.otDraft) delete S.otDraft[b.id]; BASE.delete(b.id); redraw(`#${cardId(b)}`);
+    S.otOpen = null; if (S.otDraft) delete S.otDraft[b.id]; BASE.delete(b.id); markNewStep({ publicask: 1 }); redraw(`#${cardId(b)}`);
     if (res.conflicts.length) { toast('A teammate saved a different ask a moment ago. It shows on the card now; change it if you need to.', { err: true }); return; }
     toast(`Saved. The ask shows on the public page through ${fmtDT(until + 'T12:00:00-10:00').replace(/,.*$/, '')}.`, { ok: true, undo: async () => { await DB.updateBill(b.id, res.prev); redraw(`#${cardId(b)}`); toast('The ask is back as it was.'); } });
   } catch (e) { el.removeAttribute('aria-busy'); el.disabled = false; toast(e, { err: true }); }
