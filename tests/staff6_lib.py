@@ -140,7 +140,9 @@ class P:
     self.page.evaluate("r => { location.hash = r; }", route); self.page.wait_for_timeout(120)
     r = self.ready(max_wait); self.page.evaluate('scrollTo(0, 0)'); return r
   def ready(self, max_wait=6000): return self.page.evaluate(READY, max_wait)
-  def measure(self, full=False): return self.page.evaluate(MEASURE, {'codes': committee_codes(), 'full': full})
+  def measure(self, full=False, own=None):
+    """The numbers below; `own` (a CSS selector) also counts the controls inside those parts (Today's own rows, spec 13)."""
+    return self.page.evaluate(MEASURE, {'codes': committee_codes(), 'full': full, 'own': own})
   def text(self, sel='main'):
     el = self.page.query_selector(sel) or self.page.query_selector('body'); return el.inner_text() if el else ''
   def hash(self): return self.page.evaluate('location.hash')
@@ -196,6 +198,10 @@ def save_baseline(key, value):
 # Counted on the work column (<main>) unless a line says the whole window. "First screen" is what is in the window at the
 # top of the page (0 .. innerHeight); `full` counts the whole page. A closed fold's insides are not in view; screen-reader-
 # only words are not seen. Rows are the repeated items of a list (li, tr, .row, article, the v6-row...), outermost only.
+# Text colours are counted apart from the status colours (spec 13): `colors` is the rest (ink, body, muted, action and white
+# on the filled button: at most 5), `colors_status` the done / late / missed colours a status brings with it. Bold counts
+# only what spec 12.1 does not set at 600+: the page title, section headings (h2), the filled button and the open page tab
+# are left out of the bold share (`bold_pct`); `bold_all_pct` is every 600+ character, as before.
 MEASURE = r"""(arg) => {
   const W = innerWidth, H = arg.full ? 1e7 : innerHeight, CODES = new Set(arg.codes || []);
   const main = document.querySelector('main') || document.body;
@@ -216,17 +222,22 @@ MEASURE = r"""(arg) => {
   const btnLike = e => e.matches('button, a.btn, [role=button], summary, input[type=button], input[type=submit]');
   const label = e => (e.innerText || e.value || '').replace(/\s+/g, ' ').trim();
   const filled = ctrls.filter(e => btnLike(e) && strong(e));
+  // spec 12.1's own bold: 700 for the page title and the filled button, 600 for section headings, and the open page tab
+  // (spec 13: bold with a teal bar). A switch's picked side (Mine | Team) and item names are not on the list: they count.
+  const allowedBold = el => !!(el.closest('h1, h2, [role=heading][aria-level="1"], [role=heading][aria-level="2"]')
+    || el.closest('.sv-secnav a[aria-current], [role=tablist] [aria-current], [role=tab][aria-selected=true]')
+    || (() => { const b = el.closest('button, a.btn, [role=button], input[type=button], input[type=submit]'); return !!b && strong(b); })());
   const labelled = ctrls.filter(e => btnLike(e) && /[A-Za-z]{2}/.test(label(e)) && !e.matches('.iconbtn'));
 
   // ---- text: words, sizes, weight, colours ----
-  let words = 0, chars = 0, small = 0, tiny = 0, bold = 0; const colors = new Set(), colorEx = new Map(); let text = '';
+  let words = 0, chars = 0, small = 0, tiny = 0, bold = 0, boldAll = 0; const colors = new Set(), colorEx = new Map(); let text = '';
   const tw = document.createTreeWalker(main, NodeFilter.SHOW_TEXT); let n;
   while ((n = tw.nextNode())) { const v = n.nodeValue.replace(/\s+/g, ' ').trim(); if (!v) continue; const el = n.parentElement; if (!el || !inView(el) || el.closest('svg')) continue;
     const r = document.createRange(); r.selectNodeContents(n); const rects = [...r.getClientRects()].filter(q => q.width > 2 && q.height > 2 && q.top < H && q.bottom > (arg.full ? -1e7 : 30));
     if (!rects.length) continue; const s = getComputedStyle(el), frac = rects.filter(q => q.bottom <= H).length / rects.length;
     words += Math.round(v.split(/\s+/).filter(Boolean).length * frac); const c = Math.round(v.length * frac);
     chars += c; colors.add(s.color); if (!colorEx.has(s.color)) colorEx.set(s.color, v.slice(0, 24)); text += ' ' + v;
-    const fs = parseFloat(s.fontSize); if (fs <= 14.5) small += c; if (fs < 13.9) tiny += c; if (+s.fontWeight >= 600) bold += c; }
+    const fs = parseFloat(s.fontSize); if (fs <= 14.5) small += c; if (fs < 13.9) tiny += c; if (+s.fontWeight >= 600) { boldAll += c; if (!allowedBold(el)) bold += c; } }
 
   // ---- codes: version codes, committee codes and P1-P3 (bill numbers are allowed: D15) ----
   const codesIn = t => { const vc = (t.match(/\b(HD|SD|CD)\d\b/g) || []).length, p = (t.match(/\bP[1-3]\b/g) || []).length;
@@ -281,7 +292,14 @@ MEASURE = r"""(arg) => {
       if (/(warn|bad|late|danger|overdue|alert|err)/i.test(p) && !/(ink|text-on|on-)/i.test(p)) { const v = bs.getPropertyValue(p).trim(); if (v && !/var\(|^\d/.test(v)) toks.add(norm(v)); }
       if (/coral/i.test(p)) coral = norm(bs.getPropertyValue(p).trim()); } } };
     walk(rules); }
+  // The status colours (spec 13: counted apart from the text colours): done, late and missed with their washes and pressed
+  // values. v6: the leaf, late and bad tokens. v5 (the baseline): its ok / warn / bad / late tokens.
+  const STATUS = new Set();
+  if (V6) { for (const p of ['--v6-leaf', '--v6-leaf-wash', '--v6-leaf-press', '--v6-late', '--v6-late-wash', '--v6-late-press', '--v6-bad', '--v6-bad-wash', '--v6-bad-press', '--bad-press', '--ok-text', '--ok-wash', '--bad-text', '--bad-wash'])
+    { const v = bs.getPropertyValue(p).trim(); if (v) STATUS.add(norm(v)); } }
+  else { toks.forEach(c => STATUS.add(c)); for (const p of ['--ok-text', '--ok', '--ok-wash', '--success', '--success-text', '--done']) { const v = bs.getPropertyValue(p).trim(); if (v && !/var\(/.test(v)) STATUS.add(norm(v)); } }
   probe.remove();
+  const plainColors = [...colors].filter(c => !STATUS.has(c)), statusColors = [...colors].filter(c => STATUS.has(c));
   const hsl = c => { const m = rgb(c); if (!m || (m[3] ?? 1) < 0.3) return null; const [r, g, b] = m.map(x => x / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
     if (!d) return { h: 0, s: 0, l }; const s = d / (1 - Math.abs(2 * l - 1)); let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h = (h * 60 + 360) % 360; return { h, s, l }; };
   const hot = c => { if (!c || transparent(c) || c === coral || soft.has(c)) return false; if (toks.has(c)) return true; const q = hsl(c); return !!q && q.s > 0.55 && q.l > 0.2 && q.l < 0.6 && (q.h < 18 || q.h > 345 || (q.h > 28 && q.h < 48)); };
@@ -295,9 +313,10 @@ MEASURE = r"""(arg) => {
   // ---- the frame: sidebar rows, the phone's tab bar, sideways scroll ----
   const side = innerWidth < 768 ? null : [...document.querySelectorAll('aside, nav')].find(e => !main.contains(e) && vis(e) && e.getBoundingClientRect().height > 300 && e.getBoundingClientRect().left < 40 && e.getBoundingClientRect().width < 400 && !e.closest('dialog'));
   // Sidebar rows are the links to places (and You, the account door), not its furniture (spec 12.4): the Lead tools heading,
-  // the Collapse (Narrow / Widen) button, the "More below" cue (hidden from screen readers) and the brand are not rows.
+  // the Collapse (Narrow / Widen) button, the "More below" cue (hidden from screen readers), the brand and the live app's
+  // stale-data line (its Refresh now button, .sv-sync) are not rows.
   const sideRows = side ? [...side.querySelectorAll('a[href], button')].filter(e => vis(e) && !/collapse|expand|narrow|widen|skip to|more (above|below)/i.test(e.innerText + ' ' + (e.getAttribute('aria-label') || '') + ' ' + (e.getAttribute('title') || ''))
-    && e.getAttribute('aria-hidden') !== 'true' && !e.querySelector('.mark, svg.mark') && !e.matches('.sv-sbrand')).length : 0;
+    && e.getAttribute('aria-hidden') !== 'true' && !e.querySelector('.mark, svg.mark') && !e.matches('.sv-sbrand') && !e.closest('.sv-sync')).length : 0;
   const tabbar = [...document.querySelectorAll('nav')].find(e => !main.contains(e) && vis(e) && getComputedStyle(e).position === 'fixed' && Math.abs(e.getBoundingClientRect().bottom - innerHeight) < 4);
   const tabs = tabbar ? [...tabbar.querySelectorAll('a[href], button')].filter(vis).map(a => label(a).replace(/\s*\d+$/, '')) : [];
   const h2s = [...main.querySelectorAll('h2')].filter(e => vis(e) && seen(e.getBoundingClientRect())).map(e => label(e));
@@ -305,7 +324,11 @@ MEASURE = r"""(arg) => {
   return {
     controls: ctrls.length, filled: filled.length, labelled_buttons: labelled.length, labelled_list: labelled.map(label).slice(0, 40),
     words, chars, small_pct: chars ? Math.round(100 * small / chars) : 0, px13_pct: chars ? Math.round(100 * tiny / chars) : 0, bold_pct: chars ? Math.round(100 * bold / chars) : 0,
-    colors: colors.size, colors_list: [...colorEx].map(([c, t]) => `${c} ${t}`), codes: codes.total, codes_detail: codes, rows: rowInfo.length,
+    bold_all_pct: chars ? Math.round(100 * boldAll / chars) : 0,
+    colors: plainColors.length, colors_status: statusColors.length, colors_all: colors.size,
+    colors_list: [...colorEx].filter(([c]) => !STATUS.has(c)).map(([c, t]) => `${c} ${t}`), colors_status_list: statusColors.map(c => `${c} ${colorEx.get(c)}`),
+    controls_own: arg.own ? ctrls.filter(e => e.closest(arg.own)).length : 0,
+    codes: codes.total, codes_detail: codes, rows: rowInfo.length,
     facts_max: rowInfo.length ? Math.max(...rowInfo.map(r => r.facts)) : 0, facts_med: med(rowInfo.map(r => r.facts)), rows_over4: rowInfo.filter(r => r.facts > 4).length,
     row_buttons_max: rowInfo.length ? Math.max(...rowInfo.map(r => r.buttons)) : 0, rows_multi_button: rowInfo.filter(r => r.buttons > 1).length,
     row_codes: rowInfo.reduce((k, r) => k + r.codes, 0), worst_row: rowInfo.sort((a, b) => b.facts - a.facts)[0]?.text || '',

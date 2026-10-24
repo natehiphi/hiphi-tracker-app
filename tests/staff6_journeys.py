@@ -102,6 +102,8 @@ TOAST = lambda rx_: (lambda pg: bool(re.search(rx_, pg.page.evaluate("() => docu
 # Kris's testimony approval: the card's "Review and approve" first. A row's "Review" can be another approval (Kevin's
 # supporter email on her Do today), so it is the fallback, and the toast must say the testimony was approved.
 REVIEW6 = (r'^\s*Review and approve\s*$', r'^\s*(Review|Approve)\b')
+# Kevin's HB 2121 filing on Today: a Coming up row with no button of its own (spec 11.1, 12.7), found by its words.
+FILE_ROW = rx(r'^\s*(Disposable e-cigarette ban|HB ?2121)\b.*\bFile by\b')
 JOURNEYS = [
   J('approve', 'Approve testimony (Kris), from Today', 'KR', 2,
     [Step(*REVIEW6, in_view=True), Step('Approve$', wait=1300)], TOAST(r'^\s*Approved\b'),
@@ -125,11 +127,11 @@ JOURNEYS = [
     [Step(r'^\s*(Follow up|They replied)\b'), Step(r'^\s*(Will schedule|They will schedule)')], r'will schedule',
     None, start='/hearings/ask', needs=('staff6/hearings.js',), v5=4, v5_note="v5's This week deadline box: This week, the bill, Asked by you, Will schedule (as record-reply)"),
   # Kevin's HB2121 is approved and his to file on the busy day; v5 folded it under "+2 on this bill" (X22). With D16 a
-  # filing due Wednesday is a Coming up row with no button: the row in view counts as found (12.7) and opens the item,
-  # whose Mark filed opens the filing card (V25), whose Mark filed finishes it. File at the Capitol leaves the app.
+  # filing due Wednesday is a Coming up row with no button (11.1, 12.7): the row in view counts as found (0 clicks to find)
+  # and opens the item, whose File opens the filing sheet (V25), whose Mark filed finishes it ("Filed. ..."): 3 clicks.
+  # File at the Capitol leaves the app. A confirm, if one is ever added, is followed.
   J('file', 'File testimony: 0 clicks to find, at most 3 steps (Kevin), from Today', 'KV', 3,
-    [Step(r'^\s*(File|File it|File at the Capitol|File testimony|Mark filed)\b', rx(r'^\s*(Disposable e-cigarette ban|HB ?2121)\b.*\bFile by\b'), in_view=True),
-     Step(r'^\s*Mark filed', optional=True), Step(r'^\s*(Mark filed|Yes, mark filed|Filed)\b', optional=True)],
+    [Step(FILE_ROW, in_view=True), Step(r'^\s*File\b'), Step(r'^\s*Mark filed'), Step(r'^\s*Yes, mark filed\b', optional=True)],
     r'Filed\.|is done|marked filed|Filed by Kevin',
     [Step(rx(r'\+\d+ on this bill'), in_view=True), Step(r'^\s*(Mark filed|File)\b'), Step('Mark filed')], needs=('#/', 'staff6/filing.js')),
   J('hearing-day-going', "Hearing day on a phone: I'm going in 1 tap (Kris, Fri 3/20)", 'KR', 1,
@@ -207,6 +209,23 @@ TOOLS = ['Holding our bills', 'Session calendar', 'Earlier testimony', 'How to f
          'What moved', 'Keyboard shortcuts', r'Someone else.s list|See as (a )?teammate|See a teammate.s list']
 SEARCHES = [('inbox', r'Inbox'), ('QR code', r'QR|Make a link'), ('sort new bills', r'Sort new bills'), ('responding', r'respond|landing|First visit'),
             ('approve', r'approve|Testimony'), ('arrivals', r'arriv|First visit')]
+# The right place is the FIRST suggestion, not one somewhere in the list (spec 6 Search, V32): (who, typed, the first
+# suggestion as "title · where it sits" must match, must not match). Session setup's parts are found by admins only.
+FIRSTS = [('NT', 'coalitions', r'^Coalitions · ', None),
+          ('NT', 'partner update', r'^Partner update · ', None),
+          ('NT', 'turn on email', r'^Email on or paused, and its sender · ', None),
+          ('NT', 'email followers', r'\bOutreach\b', None),                       # the asks' Email followers (spec 6 Outreach)
+          ('NT', 'reassign', r'\bowner\b|^Hand an? bill|^Give\b', r'^Hand over someone')]   # the change-owner action, not People's hand-over
+NOT_OFFERED = [('KV', 'turn on email', r'^Email on or paused')]                  # Session setup is for admins (spec 3.1)
+SUGGESTED = r"""() => [...document.querySelectorAll('[role=listbox] [role=option], [role=option]')].filter(e => e.getClientRects().length)
+  .map(e => { const t = (e.innerText || '').split('\n').map(x => x.trim()).filter(Boolean); return (t[0] || '') + ' · ' + t.slice(1).join(' '); })
+  .filter(x => !/^(Look for|See all results)/.test(x)).slice(0, 12)"""
+def suggest(pg, q):
+  """Type into the header's search box; the suggestions as "title · where it sits", the "search everything" rows left out."""
+  box = pg.page.locator('header input[type=search], [role=search] input, #hq').first
+  if not box.count(): return None
+  box.fill(''); box.type(q, delay=20); pg.page.wait_for_timeout(900)
+  out = pg.page.evaluate(SUGGESTED); pg.page.keyboard.press('Escape'); return out
 
 # ---- accessibility (the assessment's critic, V06; spec 7.10) ----
 # The focused control: its accessible name (aria-label, its label, its words) and whether it shows a focus ring (a 2px or
@@ -242,8 +261,9 @@ def kb_walk(pg, steps, done, max_tabs=70):
 KEYBOARD = [   # (key, name, who, steps, done, extra, size)
   ('approve', 'Approve testimony (Kris), from Today', 'KR',
    [Step(r'^\s*Review and approve\s*$'), Step('Approve$', wait=1300)], TOAST(r'^\s*Approved\b'), '', (1440, 900)),
+  # the row (it has no button: Enter opens the item), the item's File, the filing sheet's Mark filed (spec 12.7)
   ('file', 'File testimony (Kevin), from Today', 'KV',
-   [Step(r'^\s*(File|Mark filed)\s*$', rx(r'^\s*(Disposable e-cigarette ban|HB ?2121)\b.*\bFile by\b')), Step(r'^\s*Mark filed'), Step(r'^\s*(Mark filed|Yes, mark filed)\b')],
+   [Step(FILE_ROW), Step(r'^\s*File\s*$'), Step(r'^\s*Mark filed')],
    r'Filed\.|is done|marked filed|Filed by Kevin', '', (1440, 900)),
   ('ask-chair', 'Ask a chair for a hearing and record it (Kevin), from Today', 'KV',
    [Step(r'^\s*Email the chairs?\b'), Step(r'^\s*Yes, I sent it')], r'asked|Saved', '', (1440, 900)),
@@ -363,15 +383,26 @@ def short_of(a, b):
   wa, wb = re.findall(r"[\w’']+", a), re.findall(r"[\w’']+", b)
   if len(wa) < 2 or len(wa) >= len(wb): return False
   it = iter(wb); return all(w in it for w in wa)
-def kept(c, zoomed, back):
-  """Is a control of the 100% page still on the 200% one? Same address, or its name inside a control's name; a Close or
-  Back button is kept by the frame's Back (the phone layout's top bar); a bill's step card (its button, the Capitol link,
-  Open Doc) is kept by any step button for the same bill (on a phone the hearing card's File opens the same filing card)."""
+def frag(h):
+  """A link's address from its '#' on: Today's picked rows carry the page's own path ('/staff6.html?demo=1&as=NT#/bill/
+  HB1562'), a card's link the bare address ('#/bill/HB1562'); both open the same place."""
+  return h[h.index('#'):] if h and '#' in h else (h or '')
+def kept(c, zoomed, back, heads=()):
+  """Is a control of the 100% page still on the 200% one? Same address (compared from its '#'), or its name inside a
+  control's name; a Close or Back button is kept by the frame's Back (the phone layout's top bar); a bill's step card (its
+  button, the Capitol link, Open Doc) is kept by any step button for the same bill (on a phone the hearing card's File opens
+  the same filing card); a link to a topic is kept when the 200% page shows the topic itself under a heading of the same
+  name (Help's front page at 640px shows Getting started as a section, not a side link)."""
   name, href, _, bill = c
-  if href and href != '#' and any(z[1] == href for z in zoomed): return True
+  f = frag(href)
+  if f and f != '#' and any(frag(z[1]) == f for z in zoomed): return True
   if name and any(name == z[0] or name in z[0] or short_of(z[0], name) for z in zoomed): return True
   if bill and any(z[2] == bill for z in zoomed): return True
+  if name and any(h == name or (h.startswith(name) and not h[len(name):len(name) + 1].isalnum()) for h in heads): return True
   return bool(back and re.match(r'^(close|back)\b', name))
+# the headings a page shows, named as CONTROLS names a control (lower case, no trailing count)
+HEADS = r"""() => [...document.querySelectorAll('h1, h2, h3, h4, [role=heading]')].filter(e => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' && !e.closest('details:not([open]) > :not(summary), .sr'))
+  .map(e => (e.innerText || '').replace(/\s+/g, ' ').replace(/\s*\d+$/, '').trim().toLowerCase()).filter(Boolean)"""
 
 def zoom(b, R, only):
   print(f'\n{L.APP}: 200% zoom at 1280x800 (a 640x400 window, twice the pixels): nothing lost')
@@ -387,7 +418,8 @@ def zoom(b, R, only):
     # a control may move into the frame at 200% (the phone's top bar or tab bar), so look for it on the whole page
     zoomed = pg.page.evaluate(CONTROLS.replace("main a[href], main button, main input:not([type=hidden]), main select, main textarea, main [role=tab], main [role=switch]", "a[href], button, input:not([type=hidden]), select, textarea, [role=tab], [role=switch]"))
     back = pg.page.evaluate("() => !![...document.querySelectorAll('a[data-back], .sv-back')].find(e => e.getClientRects().length)")
-    lost = sorted({c[0] or c[1] for c in full if not kept(c, zoomed, back) and len(c[0] or c[1]) > 1})
+    heads = pg.page.evaluate(HEADS)
+    lost = sorted({c[0] or c[1] for c in full if not kept(c, zoomed, back, heads) and len(c[0] or c[1]) > 1})
     out[key] = {'cut': c['n'], 'hscroll': c['hscroll'], 'lost': len(lost)}
     ok = not c['hscroll'] and not c['cut'] and not lost and not pg.errors
     R.check(f'200% zoom at 1280: {key} ({who}) loses nothing', ok, '' if ok else '; '.join(x for x in [
@@ -490,7 +522,24 @@ def main():
         if V5: print(f"  v5   \"{q}\": {'found' if found else 'not found'}  ({'; '.join(items[:4])[:100]})")
         else: R.check(f'search "{q}" finds its place', found, '; '.join(items[:4])[:100])
         pg.page.keyboard.press('Escape')
-      got['search'] = hits; pg.close()
+      pg.close()
+      print(f'\n{L.APP}: search puts the right place first')
+      for who in sorted({x[0] for x in FIRSTS + NOT_OFFERED}):
+        pg = b.page(who, 1440, 900); pg.open('/')
+        for w_, q, want, bad in [x for x in FIRSTS if x[0] == who]:
+          items = suggest(pg, q)
+          if items is None: R.check(f'search "{q}" as {L.NAMES[who]}', False, 'no search box'); continue
+          top = items[0] if items else ''
+          ok = bool(re.search(want, top)) and not (bad and re.search(bad, top)); hits[f'{q}|first'] = ok
+          if V5: print(f"  v5   \"{q}\" as {L.NAMES[who]}: first {top[:70] or 'nothing'}"); continue
+          R.check(f'search "{q}" as {L.NAMES[who]}: the right place first', ok, f'first: {top[:80]}' if top else 'no suggestion')
+        for w_, q, bad in [x for x in NOT_OFFERED if x[0] == who]:
+          items = suggest(pg, q) or []
+          ok = not any(re.search(bad, x) for x in items)
+          if V5: continue
+          R.check(f'search "{q}" as {L.NAMES[who]}: an admin-only part is not offered', ok, '; '.join(items[:3])[:100])
+        pg.close()
+      got['search'] = hits
     # ---- accessibility and landings (v6 only: v5 is the before for clicks, not for these) ----
     if not V5:
       if not only or 'keyboard' in only: got['keyboard'] = keyboard(b, R, only)

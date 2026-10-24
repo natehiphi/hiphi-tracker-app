@@ -42,7 +42,13 @@ def going_v5(pg, hid, asof):
   pg.nav('/')
 
 PLACE_FILE = {'/hearings': ('Hearings', 'staff6/hearings.js'), '/team': ('Team', 'staff6/team.js'),
-              '/testimony?view=approve': ('Testimony', 'staff6/testimonyplace.js')}
+              '/testimony?view=approve': ('Testimony', 'staff6/testimonyplace.js'), '/testimony': ('Testimony', 'staff6/testimonyplace.js')}
+# Testimony opens on the tab that holds the viewer's most urgent own step, late first; else To approve for an approver with
+# items; else To write (spec 13 Changed). On the busy practice day (Mon 16 Mar 2026, 9:00 am):
+OPENS = [('NT', 'Ready to file', 'HB 1562 is late, SB 3025 is due at 10:00'), ('KV', 'Sent back', 'his sent-back draft'),
+         ('KR', 'To approve', 'her approval due today'), ('SY', 'To write', 'nothing of her own to approve, send back or file')]
+LIT_TAB = r"""() => { const t = [...document.querySelectorAll('main .sv-secnav a[aria-current], main [role=tablist] [aria-current], main [role=tab][aria-selected=true]')].find(e => e.getClientRects().length);
+  return t ? (t.querySelector('.sv-tl')?.innerText || t.innerText || '').replace(/\s+/g, ' ').replace(/\s*\d+$/, '').trim() : ''; }"""
 def place(pg, route, extra=None):
   """Go to a v6 place. Returns None when it is there, else why not ("not built yet: ..."), so its checks are skipped
   rather than passed on the Today a missing route falls back to. v5's places are always there."""
@@ -186,6 +192,14 @@ def main():
     nb = place(pg, hearings_route(), '&asof=2026-02-23T09:00:00-10:00')
     check("Julie: " + ('This week' if V5 else 'Hearings') + " shows HIAPA's SB2463 (Fri 27 Feb)", re.search(r'SB\s?2463', main_text(pg)), '', skip=nb)
     pg.close()
+
+    # ---- Testimony opens where each person's most urgent own step is (spec 13 Changed; v6 only: v5 opened Review) ----
+    if not V5:
+      for who, tab, why in OPENS:
+        pg = b.page(who); nb = place(pg, '/testimony', ''); lit = pg.page.evaluate(LIT_TAB)
+        check(f'{L.NAMES[who]}: Testimony opens on {tab} ({why})', lit.lower() == tab.lower(), f'opens on "{lit or "no tab lit"}" at {pg.hash()}', skip=nb)
+        if pg.errors: check(f'{L.NAMES[who]}: Testimony: no page errors', False, pg.errors[:1])
+        pg.close()
 
     # ---- Two people in one tab (R-316 W38): Kevin sends a draft for approval and adds a to-do, switches to Nate from the
     # account menu ("You" at the sidebar's foot in v6), Nate finds both; Start over puts the practice day back. ----
