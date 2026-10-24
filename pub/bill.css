@@ -515,6 +515,11 @@
 .bl-rec .bl-rlist a .bl-rlt { color: var(--p700); }
 .bl-rec .bl-rlt .bl-ext { margin-left: 4px; vertical-align: -2px; }
 .bl-rec .bl-rls { display: block; color: var(--n700); font-size: var(--t13); margin-top: 2px; }
+/* Every official action is said in plain words (pub/capitol.js, R-212 #45): sentences, so not bold like a draft's name; the
+   Capitol's own wording is one quiet line under them, its link a full 44px target. */
+.bl-rec [data-bl-fold="rd-actions"] .bl-rlt { font-weight: 400; }
+.bl-rec .bl-rorig { margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n700); }
+.bl-rec .bl-rorig a { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: var(--p700); font-weight: 700; }
 /* Where do you stand? (quiet, flat, after the action: under Where it is now on a phone, under the action card on a wide
    screen) and Others following this bill, a fourth closed card (R-303). One filled button per screen stays the action's (A-3). */
 .bl-rec .bl-rstance { padding: var(--s16); }

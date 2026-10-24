@@ -6,6 +6,8 @@ import { topicOf } from './topics.js';
 import { rankAll, shortList, markShown, actedKind } from './rank.js';
 import { abEvent, abStep } from './variant.js';
 import { logSuggest } from './visitlog.js';
+// A committee step's name and the Capitol's action lines in plain words (R-212 #45, C-15): written once, in capitol.js.
+import { cmteName as stepName, theCmteName, cmteInfo, capitolWords } from './capitol.js';
 // Filled in by app.js: the screens call app.render() / app.go() without importing app.js (no import cycle).
 // The kernel (R-122): what the first screen needs lives in kernel.js and is re-exported here, so every screen keeps
 // importing from this module; the modules on the first load import from kernel.js and never from here.
@@ -758,9 +760,11 @@ export const hearingWhen = iso => {
 // last February (R-067).
 export const dateLong = iso => { const d = new Date(iso), other = hstDay(d).slice(0, 4) !== hstDay(Date.now()).slice(0, 4);
   return d.toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric', ...(other ? { year: 'numeric' } : {}) }); };
-// "Senate Health and Human Services Committee"; joint committees joined with "and" and "Committees".
+// "Senate Health and Human Services Committee"; joint committees joined with "and" and "Committees". For a sentence; a
+// committee step named on its own (the bill page's step line and steps, a hearing's title) is cmteWords below.
+// A 2025 committee the list no longer has (WTL, HRE, TCA) is named from capitol.js RETIRED, not shown as its code.
 export function cmteLabel(code, { short = false } = {}) {
-  const cs = codesOf(code).map(c => S.committees[c]).filter(Boolean);
+  const cs = codesOf(code).map(c => cmteInfo(c, S.committees)).filter(Boolean);
   if (!cs.length) return code ? `the ${code} committee` : 'a committee';
   const ch = CHAMBER_NAME[cs[0].chamber] || '';
   const names = cs.map(c => c.name);
@@ -769,6 +773,13 @@ export function cmteLabel(code, { short = false } = {}) {
   if (names.length > 1) return short ? names.join(' / ') : `${ch} ${names.map(n => n + ' Committee').join(' and ')}`.trim();
   return short ? names[0] : `${ch} ${names[0]} Committee`.trim();
 }
+// One committee step, named on its own, the same everywhere (C-15, R-212 #45): "Senate Judiciary Committee"; two or more
+// heard together, "two Senate committees: Health and Human Services, and Commerce and Consumer Protection". theCmteWords
+// adds "the" where one committee is named. Options as capitol.js cmteName (mid: in brackets, link: each name linked).
+export const cmteWords = (code, o) => stepName(code, S.committees, o);
+export const theCmteWords = (code, o) => theCmteName(code, S.committees, o);
+// The Capitol's own action line in plain words, committees named (C-15, C-10): capitol.js. chamber: 'H'/'S' when known.
+export const actionWords = (text, chamber = '') => capitolWords(text, S.committees, { chamber });
 export const roomLabel = r => { const x = clean(r); return /^Rm /.test(x) ? 'Room ' + x.slice(3) : x === 'room TBD' ? 'room to be announced' : x; };
 // Testimony deadline wording and urgency (A-5): amber within 24 hours, red once overdue.
 // html: the same line for a page; within a day an honest countdown leads it (R-046, Nate 9/30: only a real deadline, in
@@ -856,7 +867,11 @@ const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 // The rule each committee deadline sets, from the Legislature's deadline guide (the same rules stops.js follows, R-072).
 const RULE_OF = { triple: 'bills sent to three or more committees had to be through all but their last two', lateral: 'bills had to be through all but their last committee', decking: 'bills had to be through all their committees' };
 const theCmte = code => { const l = cmteLabel(code); return /^(the|a) /.test(l) ? l : `the ${l}`; };
-const shortCmte = code => { const c = S.committees[codesOf(code)[0]]; return c ? `${CHAMBER_NAME[c.chamber] || ''} ${cmteLabel(code, { short: true })}`.trim() : code; };
+// A list's few words: "Senate Health"; two heard together are "two Senate committees" (their names joined by "/" read as
+// "either", the critic on R-212 #3; the bill page names them, C-15). A retired 2025 code is named too (capitol.js RETIRED).
+const shortCmte = code => { const ks = codesOf(code), c = cmteInfo(ks[0], S.committees);
+  if (ks.length > 1) return `${['', 'one', 'two', 'three', 'four'][ks.length] || ks.length} ${c ? (CHAMBER_NAME[c.chamber] || '') + ' ' : ''}committees`;
+  return c ? `${CHAMBER_NAME[c.chamber] || ''} ${cmteLabel(code, { short: true })}`.trim() : `the ${code} committee`; };
 const sameCmte = (h, code) => codesOf(h.committee).some(k => codesOf(code).includes(k));
 export function stopFacts(b) {
   const origin = b.chamber || (String(b.bill_number || '').startsWith('S') ? 'S' : 'H'), other = origin === 'H' ? 'S' : 'H';
