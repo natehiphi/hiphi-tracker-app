@@ -112,7 +112,8 @@ function capDays(scope, mon) {
 // only what it means, "Thu 3/19: bills sent to 3 or more committees must clear their first committee" (C-15; Nate's walk:
 // helpers met "Triple filing" with no way to learn it).
 const capLine = ds => (ds || []).map(d => { const g = gateGloss(d.label);
-  if (plainDeadlines() && g) return `<p class="hw-cap">${icon('landmark')}<span>${nw(esc(`${dayWords(d.date)}: ${g.charAt(0).toLowerCase() + g.slice(1)}`))}</span></p>`;
+  // (the day's heading above says the day, so the gloss stands alone: A-14)
+  if (plainDeadlines() && g) return `<p class="hw-cap">${icon('landmark')}<span>${nw(esc(g.charAt(0).toUpperCase() + g.slice(1)))}</span></p>`;
   return `<p class="hw-cap">${icon('landmark')}<span>Capitol deadline: <a class="hw-cap-n" href="#/help/words?w=${encodeURIComponent(d.label)}">${esc(d.label)}</a>${g ? `<span class="hw-cap-g"> · ${esc(g)}</span>` : ''}</span></p>`; }).join('');
 
 // The one line under the days (it replaces v5's deadline box over the grid): how many bills still need a hearing, and

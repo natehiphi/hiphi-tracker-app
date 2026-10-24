@@ -241,7 +241,7 @@ export function renderPublic(b) {
         <textarea id="bw-psum" maxlength="280" rows="3" aria-describedby="bw-psum-n" placeholder="One sentence a neighbor would understand. No jargon, no bill numbers.">${esc(sum)}</textarea>${count(sum.length, 'bw-psum-n')}</div>
       ${card ? `<div class="field bw-askro"><p class="bw-asklabel">The ask</p>
         <p class="bw-asktext">${ask ? esc(ask) : '<span class="bw-quiet">Not written yet.</span>'}</p>
-        <p class="bw-askgo">${icon('megaphone')}<a href="${esc(card)}">Change it on This week’s asks</a></p>
+        <p class="bw-askgo">${icon('megaphone')}<a href="${esc(card)}">${ask ? 'Change it on This week’s asks' : 'Write the public ask on This week’s asks'}</a></p>
         <input id="bw-pact" type="hidden" value="${esc(ask)}"><input id="bw-puntil" type="hidden" value="${esc(valOf(b, 'public_action_until'))}"><span id="bw-pact-n" hidden></span><span id="bw-puntil-w" hidden></span></div>`
       : `<div class="field"><label for="bw-pact">The ask</label>
         <textarea id="bw-pact" maxlength="280" rows="3" aria-describedby="bw-pact-n" placeholder="What should someone do today? Leave it blank and the hearing itself is the ask.">${esc(ask)}</textarea>${count(ask.length, 'bw-pact-n')}</div>
