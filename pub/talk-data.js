@@ -19,6 +19,11 @@
 // and never only "24 hours" before: at least 24 hours, 48 for some Senate committees, and the tracker shows each
 // hearing's own deadline.
 
+// The six words for where a bill stands are written once, in stands.js (R-212 #44): the answer below is drawn from them,
+// so Help explains exactly the words the lists use.
+import { STANDS } from './stands.js';
+const W = Object.fromEntries(STANDS.map(x => [x.key, `**${x.word}:** ${x.means}`]));
+
 const PAR = '[(808) 587-0478](tel:+18085870478)';   // the Legislature's Public Access Room: free help with testifying
 const EMAIL = '[contact@hiphi.org](mailto:contact@hiphi.org)';
 
@@ -309,6 +314,14 @@ export const TALKS = [
     related: ['what-is-a-committee', 'session-deadlines', 'email-a-legislator'] },
 
   // ---------------- Words you'll see ----------------
+  { slug: 'where-a-bill-stands', group: 'words', title: 'What do labels like “Waiting for a hearing” mean?',
+    turns: [
+      { q: 'What do labels like “Waiting for a hearing” mean?', a: ['They say where a bill is right now.', W.hear, W.wait] },
+      { q: 'And once its committees pass it?', a: [W.vote, W.passed] },
+      { q: 'How does a bill end?', a: [W.law, W.dead] },
+    ],
+    related: ['how-a-bill-becomes-law', 'why-bills-stop', 'no-hearing-yet'] },
+
   { slug: 'deferred', group: 'words', title: 'What does “deferred” mean?',
     turns: [
       { q: 'What does “deferred” mean?', a: ['Put on hold. When a committee defers a bill, it usually won’t pass this year.'], art: 'deferred' },

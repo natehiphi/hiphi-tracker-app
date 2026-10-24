@@ -7,7 +7,7 @@
 // with Find (search, issue and category pages, HIPHI's lists, the suggestion rows), so a bill and an issue each look
 // and follow the same way everywhere. On a phone a bill row is a small stack; from 1100px the same markup lines up as
 // a table with a header row (bill, status, next date, stance, follow).
-import { S, D, DEMO, esc, icon, nick, blurb, spaced, billPath, alive, stopOf, plainStatus, dueInfo, dayWord, timeWord, hearingWhen, dateLong, hstDay,
+import { S, D, DEMO, esc, icon, nick, blurb, spaced, billPath, alive, endOf, MOVING, stopOf, plainStatus, dueInfo, dayWord, timeWord, hearingWhen, dateLong, hstDay,
   sessionInfo, issueIcon, findBill, posInfo, myStance, countOk, listBillsFor, app, toast, issueBills, issueFollowed, followedIssues, viaIssue,
   issuePos, setFollows, unfollowIssue, catOf, issuesIn, followSummary, HELD_RE, whyStoppedShort, roomLabel, CHAMBER_NAME, codesOf } from './core.js';
 import { btn, iconBtn, row, posChip, chip } from './ui.js';
@@ -30,11 +30,12 @@ export function what(b, n = 170) {
 }
 // How a bill is named in a sentence, a toast or a label: "Disposable e-cigarette ban (HB 2121)", else "HB 2121".
 export const nameOf = b => nick(b) ? `${nick(b)} (${spaced(b.bill_number)})` : spaced(b.bill_number);
-// Still in play: in committee, on the floor, in conference, or on the Governor's desk. (core's alive() also leaves
-// out the Governor's desk, but a bill waiting for a signature is not stopped, so it stays with the moving ones.)
-export const moving = b => alive(b) || b.stage === 'governor';
-export const becameLaw = b => b.stage === 'enacted';
-export const stopped = b => !moving(b) && !becameLaw(b);
+// Still in play, became law, did not advance: the one rule (core.js endOf, the words in stands.js; R-212 #44), so Find,
+// My issues and the issue pages count a bill where All bills groups it. Moving takes in a bill waiting for the
+// Governor and, since #44, a change to the constitution sent to the voters, which used to count as "did not advance".
+export const moving = b => MOVING.includes(endOf(b) || 'hear');
+export const becameLaw = b => endOf(b) === 'law';
+export const stopped = b => endOf(b) === 'dead';
 
 // The status chip: plainStatus in its short form. The hearing time is on the bill page and in the "Next date"
 // column; the chip only needs the day ("Hearing Tue · testimony due today"), so it stays one line on a phone.

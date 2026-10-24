@@ -36,9 +36,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      # The eight steps that need no browser are one list, tools/quick_checks.mjs, which also runs before every push from
+      # The steps that need no browser are one list, tools/quick_checks.mjs, which also runs before every push from
       # Nate's machine (backend/.githooks/pre-push, R-278); it runs them all and names every one that fails.
-      - name: "The quick checks: syntax, the staff apps' parity, the first load, the suggested bill, HIPHI's words, share cards, the quiz, the words list"
+      - name: "The quick checks: syntax, the staff apps' parity, the first load, the suggested bill, HIPHI's words, share cards, the quiz, the words list, where a bill stands, the Capitol's words"
         run: node tools/quick_checks.mjs
       - name: Playwright
         if: ${{ !cancelled() }}
@@ -53,6 +53,12 @@ jobs:
       - name: Every public screen, three kinds of person, sandbox and live
         if: ${{ !cancelled() }}
         run: python3 tests/screens_smoke.py
+      - name: "Where a bill stands: six words written once, one rule for every list, Help explains them (R-212 #44, R-333, R-309)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/stands_page.py
+      - name: "The step line in plain words: each committee named once, one way, and no committee code on the bill page (R-212 #45)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/step_line.py
       - name: "Staff v3 on a laptop (R-264, DESIGN A-24): one side panel, at most 5 things, 7 colours, 1 filled button in view"
         if: ${{ !cancelled() }}
         run: python3 tests/staff3_budget.py

@@ -184,6 +184,6 @@ html[data-fxdir="back"]::view-transition-new(fx-main) { animation-name: fx-in-l;
 .st-done.fit3 .st-fx .st-finro { --ro: 46; }
 .st-done.fit7 .st-fx .st-finro { --ro: 36; }
 /* The legislators found pop in at 112% (start.css .st-leg, fx-pop), a little wider than a phone: the browser then zooms the
-   page out for a moment and the bar at the bottom drops half off the screen, the moment the rooster plays there. On the
-   pages trying a moment, the list clips that overflow sideways (today's pages keep it until Nate decides; it is a live bug). */
-html.fx-try .st-legs { overflow-x: clip; }
+   page out for a moment and the bar at the bottom drops half off the screen. The list clips that overflow sideways on
+   every page (R-309, Nate's go 19 Oct; until then only the pages trying a moment had it). */
+.st-legs { overflow-x: clip; }

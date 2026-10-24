@@ -8,7 +8,7 @@
 // where it stands; Nate 9/29) narrow it without leaving the page. Nothing here is personal: every visitor sees the
 // same list.
 // B-1: a person comes here to see every bill HIPHI tracks and where each one stands with its hearing.
-import { S, D, DEMO, app, esc, icon, nick, plain, alive, stopOf, followYear, findBill, supa, spaced, isResolution, fmtDate, issuesOf } from './core.js';
+import { S, D, DEMO, app, esc, icon, nick, plain, stopOf, STANDS, standOf as standRule, followYear, findBill, supa, spaced, isResolution, fmtDate, issuesOf } from './core.js';
 import { topicOf } from './topics.js';
 import { billList, fold, wireRows, byUrgency, numCmp } from './mybills.js';
 import { ensureHearings, matchAll } from './find.js';
@@ -20,21 +20,13 @@ const A = S.ab ??= { yr: 0, rows: null, busy: false, err: '', q: '', topic: '', 
 const CAP = 40;   // rows shown per group before "Show all": 735 rows at once is a long wait on an older phone
 const hasPos = b => !!b.hiphi_position && b.hiphi_position !== 'monitor';
 
-// Where a bill stands, in hearing order. A bill put on hold (deferred) counts as stopped, as it does everywhere else
-// on the page (core's alive()); a bill on the Governor's desk or sent to the voters has passed the Legislature.
-const GROUPS0 = [['hear', 'Hearing scheduled'], ['wait', 'Waiting in committee'], ['vote', 'Waiting for a vote'],
-  ['passed', 'Passed the Legislature'], ['law', 'Became law'], ['dead', 'Did not advance']];
-// Under ?rec=1 (R-303) the group says what its rows say, "Waiting for a hearing" (one name per thing, C-15).
-const GROUPS = REC() ? GROUPS0.map(([k, t]) => [k, k === 'wait' ? 'Waiting for a hearing' : t]) : GROUPS0;
-const GROUP_ICON = { hear: 'calendar', wait: 'hourglass', vote: 'vote', passed: 'landmark', law: 'circle-check' };
-function groupOf(b) {
-  if (b.stage === 'enacted') return 'law';
-  if (b.stage === 'governor' || b.stage === 'ballot') return 'passed';
-  if (!alive(b)) return 'dead';
-  const st = stopOf(b);
-  if (st.hearingState === 'scheduled') return 'hear';
-  return st.phase === 'committee' ? 'wait' : 'vote';
-}
+// Where a bill stands, in hearing order: the six words and the one rule every screen uses (stands.js, core.js standOf;
+// R-212 #44), so a bill is in the same group here as on Find and My issues. ?rec=0 (R-303's way back to the old pages)
+// keeps the old page's "Waiting in committee"; everyone else reads "Waiting for a hearing", as its rows do (C-15).
+const GROUPS0 = STANDS.map(s => [s.key, s.word]);
+const GROUPS = REC() ? GROUPS0 : GROUPS0.map(([k, t]) => [k, k === 'wait' ? 'Waiting in committee' : t]);
+const GROUP_ICON = Object.fromEntries(STANDS.filter(s => s.key !== 'dead').map(s => [s.key, s.icon]));
+const groupOf = b => standRule(b);
 // A bill that became law: the day it did, since its group heading already says "Became law" (the Capitol writes
 // "Act 189, on 07/07/2026"; last_action_date is the fallback).
 function lawDay(b) {
@@ -211,8 +203,13 @@ function groupsHTML() {
     const label = `<span>${title} <span class="ab-n">· ${n}</span></span>`;
     // "Hearing scheduled · 35" counts every hearing set, weeks out too, beside Home's and Find's "this week" lists of a
     // few (R-212 #5): it says how many are in the next seven days.
-    const wk = k === 'hear' ? rows.filter(b => { const h = stopOf(b).hearing; return h && new Date(h.scheduled_at) - Date.now() < 7 * 864e5; }).length : 0;
-    const split = wk && wk < n ? `<p class="small muted ab-split">${wk} in the next 7 days, ${n - wk} later</p>` : '';
+    // Since #44 the group also holds bills heard in the last few days and waiting for the decision: said apart, never
+    // counted as "in the next 7 days".
+    const ahead = b => { const h = stopOf(b).hearing; return h ? new Date(h.scheduled_at) - Date.now() : Infinity; };
+    const wk = k === 'hear' ? rows.filter(b => { const t = ahead(b); return t >= 0 && t < 7 * 864e5; }).length : 0;
+    const heard = k === 'hear' ? rows.filter(b => ahead(b) < 0).length : 0, later = n - wk - heard;
+    const parts = [wk ? `${wk} in the next 7 days` : '', later ? `${later} later` : '', heard ? `${heard} heard, waiting for the decision` : ''].filter(Boolean);
+    const split = parts.length > 1 ? `<p class="small muted ab-split">${parts.join(', ')}</p>` : '';
     // Bills that stopped are the long tail of every session (most of them between sessions): folded, one press away,
     // and open when a search or filter asked for them.
     return k === 'dead' ? fold('ab-dead', label, inner, { ic: 'archive', open: asked })
@@ -230,6 +227,8 @@ function backRow() {
   const prev = history.state?.prev, name = prev && !/^#\/allbills/.test(prev) ? app.placeName?.(prev) : '';
   return recBack(name ? prev : '#/find', name || 'Find');
 }
+// Below the list: what each group's name means, said once in Help from the same words (stands.js; R-212 #44), then the embed.
+// Below, so the first bill keeps its place on a phone.
 function render() {
   readAddr();
   const yr = A.addrYr || followYear(), now = followYear();
@@ -254,6 +253,7 @@ function render() {
     ${n ? `<div class="ab-filters${open ? '' : ' shut'}" id="ab-filters">${filtersHTML()}</div>${setHTML()}
     <p class="sr" id="ab-count" aria-live="polite">${countLine()}</p>` : ''}
     <div id="ab-list">${n ? groupsHTML() : ''}</div>
+    ${n ? `<p class="rc-every ab-key">${btn('What the labels mean', { kind: 'text', icon: 'book-open', href: '#/help/where-a-bill-stands' })}</p>` : ''}
     <p class="rc-every ab-embed">${btn('Put these bills on your website', { kind: 'text', icon: 'code', href: '#/embed' })}</p>
   </div>`;   // R-212 #38
 }

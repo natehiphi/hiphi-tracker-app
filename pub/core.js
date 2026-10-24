@@ -6,12 +6,16 @@ import { topicOf } from './topics.js';
 import { rankAll, shortList, markShown, actedKind } from './rank.js';
 import { abEvent, abStep } from './variant.js';
 import { logSuggest } from './visitlog.js';
+// A committee step's name and the Capitol's action lines in plain words (R-212 #45, C-15): written once, in capitol.js.
+import { cmteName as stepName, theCmteName, cmteStack as stackOf, cmteInfo, capitolWords } from './capitol.js';
 // Filled in by app.js: the screens call app.render() / app.go() without importing app.js (no import cycle).
 // The kernel (R-122): what the first screen needs lives in kernel.js and is re-exported here, so every screen keeps
 // importing from this module; the modules on the first load import from kernel.js and never from here.
 import { app, SUPABASE_URL, SUPABASE_KEY, DEMO, LOCAL_KEY, SEASON_OFF, DEMO_ASOF, $, esc, HST, hstDay, toast, friendly, cleanDesc, nick, blurb, groups, S, LISTS_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, CONSENT_KEY, SUPABASE_JS, init, D, DONE_KEY, localDone, saveDone, doneKey, DONE_AT_KEY, localDoneAt, saveDoneAt, KINDS, STANCE_KEY, localStances, saveStances, localWatch, saveLocal, followYear, issueFollowed, issuesOf, viaIssue, issueBills, issuesIn, followedIssues, issuesLink, calendarUrl, restoreFollows, followsAnything, issuePos, recomputeWatch, loadCatalog, applyCachedCatalog, setFollows, loadUser, localListFollows, supa, onb, onbSet, bill, alive, nudgeOk, nudge, thirdWed, hiT, sessionInfo, myActions, wiz, wizSet, EMOJI_TO_ICON, issueIcon, issues, posInfo, firstVisit, readyForSession, yearPrefix, billRef, billPath, yearRef, spaced, syncText } from './kernel.js';
 export * from './kernel.js';
 export { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops, isResolution, isOneChamber, HELD_RE };
+// Where a bill stands, in six words, and the one rule for which (R-212 #44): stands.js holds the words, standOf below.
+export { STANDS, MOVING, standWord } from './stands.js';
 export const asDate = d => new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(d)) ? d + 'T12:00:00-10:00' : d);   // a date-only value is a Hawaiʻi day
 export const fmtDate = (d, o) => d ? asDate(d).toLocaleString('en-US', { timeZone: HST, month: 'numeric', day: 'numeric', ...o }) : '';
 export const fmtDT = d => fmtDate(d, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
@@ -24,22 +28,6 @@ export const headline = (b, n = 110) => nick(b) || blurb(b, n);
 // clearly starts with a verb (a summary that starts with a noun, "Counties may…", is left alone).
 export const asSentence = t => /^[A-Z][a-z]+s,? (?!(?:may|must|shall|will|can|are|is|who|that|and|or|of|with|in|on|under|for|from|at|by) )/.test(t) ? 'It ' + t[0].toLowerCase() + t.slice(1) : t;
 export const clean = r => (r || 'room TBD').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ').replace(/^CR\s+/i, 'Rm ');
-// The same stages in plain language, for people who do not live at the Capitol.
-export const STAGE_PLAIN = { introduced: 'Introduced and waiting to be sent to a committee',
-  first_triple: 'In its first committee; a triple-referred bill that must be heard before the Triple Filing deadline',
-  first_lateral: 'In a committee of its first chamber; it must be heard before the Lateral deadline',
-  first_decking: 'In the last committee of its first chamber; it must pass before the Decking deadline',
-  first_floor: 'Through its committees; waiting for a vote of the full chamber before the Crossover deadline',
-  first_crossover: 'Passed its first chamber; now in the other chamber',
-  second_triple: 'In its first committee of the second chamber; it must be heard before the Triple Filing deadline',
-  second_lateral: 'In a committee of the second chamber; it must be heard before the Lateral deadline',
-  second_decking: 'In the last committee of the second chamber; it must pass before the Decking deadline',
-  second_floor: 'Through the second chamber’s committees; waiting for a vote of the full chamber',
-  second_crossover: 'Passed both chambers in different versions; the first chamber decides whether to agree',
-  conference: 'House and Senate negotiators are reconciling their versions',
-  governor: 'On the Governor’s desk, waiting for signature or veto',
-  enacted: 'Signed into law', vetoed: 'Vetoed by the Governor', ballot: 'Passed the Legislature; the voters decide in November',
-  dead: 'Did not advance this session' };
 export const SMALL = new Set(['a','an','and','as','at','but','by','for','in','of','on','or','the','to','via','with','nor','per','from']);
 export const titleCase = t => String(t || '').toLowerCase().split(/\s+/).map((w, i, a) => (i && i < a.length - 1 && SMALL.has(w.replace(/[^a-z]/g, ''))) ? w : w.replace(/(^|[-("'/])([a-z])/g, (m, p, c) => p + c.toUpperCase())).join(' ');
 export const POS = { strongly_support: 'Strongly supports', support: 'Supports', support_amend: 'Supports with amendments', strongly_oppose: 'Strongly opposes', oppose: 'Opposes', neutral: 'Comments', monitor: 'Monitoring' };
@@ -202,7 +190,7 @@ export async function followList(slug, on, { quiet = false } = {}) {
     const r = on ? await S.supa.rpc('follow_list', { p_list: l.id }) : await S.supa.rpc('unfollow_list', { p_list: l.id });
     if (r.error) { toast(r.error, true); if (on) S.listFollows.delete(l.id); else S.listFollows.add(l.id); return; }
   } else saveListFollows();
-  const live = rows.filter(({ b }) => alive(b) || b.stage === 'governor');
+  const live = rows.filter(({ b }) => !['law', 'dead'].includes(endOf(b)));   // still moving (stands.js), the voters' amendments too
   if (on) { live.forEach(({ b }) => S.direct.add(b.id)); recomputeWatch(); saveLocal(); }
   l.followers = Math.max(0, (Number(l.followers) || 0) + (on ? 1 : -1));
   await loadBills();
@@ -613,6 +601,19 @@ export function stopOf(b) {
   return billStop(b, { hearings: hearingsOf(b), outcomes: S.outcomes || {},
     deadlineFor: key => deadlineOf(b, key) });
 }
+// Which of the six it is in (stands.js), the one rule every list and count uses (R-212 #44). endOf needs no hearings, so
+// Find and My issues can sort bills into moving, became law and did not advance before any hearing has loaded; standOf
+// splits the moving ones by their next step. A bill on the Governor's desk, or a change to the constitution sent to the
+// voters, has passed the Legislature; a bill put on hold (deferred), voted down or vetoed did not advance (core's alive()).
+export const endOf = b => b.stage === 'enacted' ? 'law' : b.stage === 'governor' || b.stage === 'ballot' ? 'passed' : !alive(b) ? 'dead' : '';
+export function standOf(b) {
+  const e = endOf(b); if (e) return e;
+  const st = stopOf(b);
+  // A bill heard in the last few days and waiting for the committee's decision is with its hearing, not "Waiting for a
+  // hearing" (its row says "Heard, waiting for the decision").
+  if (st.hearingState === 'scheduled' || st.hearingState === 'held') return 'hear';
+  return st.phase === 'committee' ? 'wait' : 'vote';
+}
 // A deadline row by its key, or the budget bills' own row that replaces it (Budget Decking 3/16 for HB1800 and HB2095,
 // migration 087; R-072). A row that lists bills never applies to any other bill.
 export function deadlineOf(b, key) {
@@ -759,9 +760,11 @@ export const hearingWhen = iso => {
 // last February (R-067).
 export const dateLong = iso => { const d = new Date(iso), other = hstDay(d).slice(0, 4) !== hstDay(Date.now()).slice(0, 4);
   return d.toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric', ...(other ? { year: 'numeric' } : {}) }); };
-// "Senate Health and Human Services Committee"; joint committees joined with "and" and "Committees".
+// "Senate Health and Human Services Committee"; joint committees joined with "and" and "Committees". For a sentence; a
+// committee step named on its own (the bill page's step line and steps, a hearing's title) is cmteWords below.
+// A 2025 committee the list no longer has (WTL, HRE, TCA) is named from capitol.js RETIRED, not shown as its code.
 export function cmteLabel(code, { short = false } = {}) {
-  const cs = codesOf(code).map(c => S.committees[c]).filter(Boolean);
+  const cs = codesOf(code).map(c => cmteInfo(c, S.committees)).filter(Boolean);
   if (!cs.length) return code ? `the ${code} committee` : 'a committee';
   const ch = CHAMBER_NAME[cs[0].chamber] || '';
   const names = cs.map(c => c.name);
@@ -770,6 +773,15 @@ export function cmteLabel(code, { short = false } = {}) {
   if (names.length > 1) return short ? names.join(' / ') : `${ch} ${names.map(n => n + ' Committee').join(' and ')}`.trim();
   return short ? names[0] : `${ch} ${names[0]} Committee`.trim();
 }
+// A committee step in words, the same everywhere (C-15, R-212 #45), from capitol.js: theCmteWords inside a sentence, "the
+// Senate Judiciary Committee", "the House Health Committee and the Human Services & Homelessness Committee, together"
+// (together: false for a subject); cmteWords the same without "the"; cmteStack, for committees heard together where a step
+// is named on its own, { head: "two House committees, together", names: [{ code, name }] }, one name per line (null for one).
+export const cmteWords = (code, o) => stepName(code, S.committees, o);
+export const theCmteWords = (code, o) => theCmteName(code, S.committees, o);
+export const cmteStack = code => stackOf(code, S.committees);
+// The Capitol's own action line in plain words, committees named (C-15, C-10): capitol.js. chamber: 'H'/'S' when known.
+export const actionWords = (text, chamber = '') => capitolWords(text, S.committees, { chamber });
 export const roomLabel = r => { const x = clean(r); return /^Rm /.test(x) ? 'Room ' + x.slice(3) : x === 'room TBD' ? 'room to be announced' : x; };
 // Testimony deadline wording and urgency (A-5): amber within 24 hours, red once overdue.
 // html: the same line for a page; within a day an honest countdown leads it (R-046, Nate 9/30: only a real deadline, in
@@ -855,9 +867,17 @@ const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 // notes need to be in the steps section"; the sentence at the top went back to whyStopped); whyStoppedShort is the
 // lists' few words.
 // The rule each committee deadline sets, from the Legislature's deadline guide (the same rules stops.js follows, R-072).
-const RULE_OF = { triple: 'bills sent to three or more committees had to be through all but their last two', lateral: 'bills had to be through all but their last committee', decking: 'bills had to be through all their committees' };
+// In C-15's own words for Lateral and Decking, so the stopped card and Help define them one way (the critic on R-212 #45):
+// "In the Senate, a bill had to reach its last committee by Mar 30, so it can’t pass this year."
+const RULE_OF = { triple: 'a bill sent to three or more committees had to reach its last two', lateral: 'a bill had to reach its last committee', decking: 'a bill had to get through all its committees' };
 const theCmte = code => { const l = cmteLabel(code); return /^(the|a) /.test(l) ? l : `the ${l}`; };
-const shortCmte = code => { const c = S.committees[codesOf(code)[0]]; return c ? `${CHAMBER_NAME[c.chamber] || ''} ${cmteLabel(code, { short: true })}`.trim() : code; };
+// A list's few words: "Senate Health"; two heard together, each name ending with "Committee" as in a sentence (C-15): "the
+// House Health Committee and the Human Services & Homelessness Committee" (joined by "/" they read as "either", the critic on
+// R-212 #3; "Health, and Human Services & Homelessness" as the Senate's Health and Human Services, R-212 #45). A retired
+// 2025 code is named too (capitol.js RETIRED).
+const shortCmte = code => { const ks = codesOf(code), c = cmteInfo(ks[0], S.committees);
+  if (ks.length > 1) return theCmteName(code, S.committees, { together: false });
+  return c ? `${CHAMBER_NAME[c.chamber] || ''} ${cmteLabel(code, { short: true })}`.trim() : `the ${code} committee`; };
 const sameCmte = (h, code) => codesOf(h.committee).some(k => codesOf(code).includes(k));
 export function stopFacts(b) {
   const origin = b.chamber || (String(b.bill_number || '').startsWith('S') ? 'S' : 'H'), other = origin === 'H' ? 'S' : 'H';
@@ -913,8 +933,8 @@ export function stopDetail(b) {
       : /^second/.test(f.d) ? `It did not pass the vote of the full ${CHAMBER_NAME[o === 'H' ? 'S' : 'H']}, so it can’t pass this year.`
       : /^first/.test(f.d) ? `It did not pass the vote of the full ${CHAMBER_NAME[o]}, so it can’t pass this year.` : 'Did not pass a vote.';
   }
-  // The rule it missed, as its own sentence: "In the Senate, bills had to be through all but their last committee by Mar 30,
-  // so it can’t pass this year." Resolutions and bills that stopped when the session ended have no other deadline.
+  // The rule it missed, as its own sentence: "In the Senate, a bill had to reach its last committee by Mar 30, so it can’t
+  // pass this year." Resolutions and bills that stopped when the session ended have no other deadline.
   const ended = f.res || /sine die/i.test(f.label);
   const rule = ended ? (f.when ? ` The session ended on ${f.when}, ${end}` : ` The session ended, ${end}`)
     : f.kind === 'floor' ? ` Bills had to pass the full ${f.ch} by ${f.when}, ${end}`

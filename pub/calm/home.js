@@ -179,7 +179,9 @@ function dueParts(c, e, hl, live) {
   // backfires (R-150's research; R-190 kept it on today's Home).
   const focus = !(c.welcome && !c.fin);
   const p = cardParts(actionCard(b, h, { focus, why: e.why, twin: S.hmTwins?.get(b.id) || null, heading: 'h2', quiet: !live }));
-  const differs = agrees(b) === false, opp = b.position === 'oppose';
+  // HIPHI's side is hiphi_position (the public view has no "position"), either strength (R-333: an opposed bill's card
+  // said "help it pass").
+  const differs = agrees(b) === false, opp = /oppose/.test(b.hiphi_position || '');
   const hears = `${whoHears(h.committee)} ${codesOf(h.committee).length > 1 ? 'hear' : 'hears'} it ${dayLong(h.scheduled_at)}${late ? ` at ${time(h.scheduled_at)}` : ''}.`;
   const why = e.why ? asSentence(e.why).replace(/([^.!?])$/, '$1.') + ' ' : '';
   const ask = late ? 'Late testimony is still taken, marked late.'
