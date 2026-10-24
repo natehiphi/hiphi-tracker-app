@@ -271,17 +271,18 @@ function build(v) {
   for (const it of out.own) note(it.b, it.h);
   for (const x of out.waiting) note(x.b, x.h);
   out.multi = new Set([...sits].filter(([, ks]) => ks.size > 1).map(([id]) => id));
-  for (const x of out.waiting) if (x.b && x.h && out.multi.has(x.b.id)) x.line += ` · ${forSit(x.h)}`;
+  for (const x of out.waiting) if (x.b && x.h && out.multi.has(x.b.id)) x.line += `, ${forSit(x.h)}`;
   return out;
 }
+// Said as part of the line's last part (", for the Fri 3/20 hearing"), so a row still holds four facts (spec 8).
 const forSit = h => `for the ${dayWords(h.scheduled_at)} hearing`;
-const sitSuffix = (it, v) => it.b && it.h && work(v).multi?.has(it.b.id) ? ` · ${forSit(it.h)}` : '';
+const sitSuffix = (it, v) => it.b && it.h && work(v).multi?.has(it.b.id) ? `, ${forSit(it.h)}` : '';
 // A hearing notice that posted in the last two days, for a draft not yet made: shown in Coming up whatever its due date,
 // "New hearing Tue 3/17: make the draft · send by Sun 3/15" (Nate's walk: Kevin's three new notices sat behind "3 more
 // later"; a writer starts the day the notice lands, spec 6 Testimony). The 7-day fold stays for everything else.
-// (A notice dated after the clock counts as just landed: only the practice copy's clock, moved back with &asof, can stand
-// before a notice its sitting already has.)
-const newNotice = it => it.kind === 'nodraft' && !!it.h?.notice_posted_at && Date.now() - ms(it.h.notice_posted_at) <= 2 * DAY;
+// (A notice dated after the clock has not landed: only the practice copy's clock, moved back with &asof, stands before
+// notices its sittings already carry, and counting those put 34 drafts on Nate's opening-season Today.)
+const newNotice = it => { const t = it.kind === 'nodraft' ? ms(it.h?.notice_posted_at) : null, now = Date.now(); return t != null && t <= now && now - t <= 2 * DAY; };
 // A testimony step: the viewer's own (a row), nobody's (one line for whoever may hand it), or someone else's on the
 // viewer's bill (Waiting on others). A draft written for an older version is the writer's row once it has left them.
 function testimony(out, b, d, h, s, v, mine) {

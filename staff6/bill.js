@@ -471,7 +471,7 @@ function headHTML(b, route, { hearing, says }) {
     ${follow ? `<div class="bw-hfollow">${follow}</div>` : ''}
     <div class="bw-hmore">${more}</div>
     <div class="bw-fline"><p class="bw-facts">${facts}</p>${iss ? `<p class="bw-fiss">${iss}</p>` : ''}</div>
-    <p class="bw-where${says ? ' bw-short' : ''}">${whereLine(b, { hearing, says })}</p>
+    <p class="bw-where${says ? ' bw-short' : ''}${tab === 'overview' ? ' bw-onstep' : ''}">${whereLine(b, { hearing, says })}</p>
   </header>`;
 }
 
