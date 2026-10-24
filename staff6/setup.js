@@ -35,6 +35,12 @@ const hhmm = t => { const m = /^(\d{1,2}):(\d{2})/.exec(t || ''); if (!m) return
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + 's'}`;
 // Server strings (readiness fixes) were written for the old screens and use arrows as path separators.
 const tidy = s => String(s || '').replace(/\s*[\u2192>]\s*/g, ', then ').replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]\uFE0F?/gu, '').trim();
+// Every status line starts with a capital, after "Expected from Jan 10." too (the server writes "not set", "none yet").
+const capFirst = s => String(s || '').replace(/^(\W*)([a-z])/, (m, a, c) => a + c.toUpperCase());
+// A page of the public tracker in words, never its route ("bill/HB1075" is "a bill page, HB 1075").
+const PAGE_WORDS = { bill: 'a bill page', issue: 'an issue page', list: 'a list page', start: 'the first visit', home: 'the home page', find: 'the find page', practice: 'the practice copy' };
+const placeWords = p => { const [k, rest] = String(p || '').split('/'); const w = PAGE_WORDS[k] || 'the page';
+  if (k === 'bill' && rest) return `${w}, ${rest.toUpperCase().replace(/^([A-Z]+)(\d)/, '$1 $2')}`; return w; };
 const sessionYear = () => SESSION_OVER ? SESSION_YEAR + 1 : SESSION_YEAR;
 const inSession = () => !SESSION_OVER && !!legislativeDay();   // R-316 W57: from opening day
 const POS_OPTS = [['strongly_support', 'Strongly support'], ['support', 'Support'], ['support_amend', 'Support with amendments'], ['strongly_oppose', 'Strongly oppose'], ['oppose', 'Oppose'], ['neutral', 'Comments'], ['monitor', 'Monitor']];
@@ -168,16 +174,19 @@ function readyRows() {
   // second approval that only two people can give, and neither could sign in. And once this session has ended, the next one's
   // committees and chairs must be loaded: the chairs change after the November election, and "Committees and chairs current"
   // only says the old ones are there.
+  // The approvers' first sign-in is said in the sign-in item itself (it was a second row repeating part of it).
   const L = st().logins;
   if (L) {
     const who = S.advocates.filter(a => a.is_active !== false && (a.is_admin || a.can_approve || a.is_reviewer)), out = who.filter(a => !L[a.id]?.last_sign_in_at);
-    rows.push({ key: 'approvers_in', level: 'warn', label: 'Everyone who approves testimony has signed in once', ok: !out.length,
-      detail: out.length ? `${out.map(a => (a.full_name || '').split(' ')[0]).join(', ')} ${out.length === 1 ? 'has' : 'have'} not signed in yet` : `${plural(who.length, 'approver')}, all signed in` });
+    const says = out.length ? `${andList(out.map(a => (a.full_name || '').split(' ')[0]))} ${out.length === 1 ? 'approves testimony and has' : 'approve testimony and have'} not signed in yet` : '';
+    const auth = rows.find(r => r.key === 'advocates_auth');
+    if (auth) { if (says) { auth.detail = auth.ok === true ? `Everyone has a sign-in. ${says}` : `${auth.detail}. ${says}`; if (auth.ok === true) { auth.ok = false; auth.level = 'warn'; } } }
+    else rows.push({ key: 'approvers_in', level: 'warn', label: 'Everyone who approves testimony has signed in once', ok: !out.length, detail: says || `${plural(who.length, 'approver')}, all signed in` });
   }
   if (SESSION_OVER) {
     const nx = SESSION_YEAR + 1, n = (S.committeeMembers || []).filter(m => +m.session_year === nx).length, jan = new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }) >= `${nx}-01-01`;
     rows.push({ key: 'committees_next', level: jan ? 'block' : 'warn', label: `${nx} committees and chairs loaded`, ok: n >= 100,
-      detail: n >= 100 ? `${n} members on ${nx} committees` : `${n ? n + ' members so far' : 'none yet'}; the chairs are named after the November election` });
+      detail: n >= 100 ? `${n} members on ${nx} committees` : `${n ? n + ' members so far' : 'None yet'}. The chairs are named after the November election.` });
   }
   // A session-start step the server dates ("expected" from a day in December or January): before that day it is not a problem,
   // only a thing coming, so it shows as "Expected from <date>", ranks last among the open rows and is left out of the counts (Z1-6).
@@ -936,7 +945,7 @@ function readyRowHTML(r) {
     ? btn(r.ok ? 'Undo' : 'Mark done', { kind: r.ok ? 'text' : 'secondary', sm: true, attrs: { 'data-rman': r.key, 'data-on': r.ok ? '' : '1', 'aria-label': `${r.ok ? 'Mark not done' : 'Mark done'}: ${r.label}` } })
     : r.key === 'public_copy' && !r.ok ? btn('See them', { kind: 'text', sm: true, iconEnd: 'chevron-right', attrs: { 'data-gaps': '1', 'aria-haspopup': 'dialog' } })
     : to ? btn(r.ok === false ? 'Fix' : 'Open', { kind: 'text', sm: true, iconEnd: 'chevron-right', href: to, attrs: { 'aria-label': `${r.ok === false ? 'Fix' : 'Open'}: ${r.label}` } }) : '';
-  const detail = r.waiting ? `Expected from ${new Date(String(r.expected).slice(0, 10) + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}. ${tidy(r.detail || '')}` : tidy(r.detail || '');
+  const detail = r.waiting ? `Expected from ${new Date(String(r.expected).slice(0, 10) + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}. ${capFirst(tidy(r.detail || ''))}` : capFirst(tidy(r.detail || ''));
   return `<li class="ss-check ${cls}"><span class="ss-cic">${icon(ic)}</span>
     <div class="ss-cbody"><span class="ss-ct">${cls === 'bad' || cls === 'warn' ? `<span class="ss-cword">${word}:</span> ` : `<span class="sr">${word}: </span>`}${esc(r.label)}</span>${detail ? `<span class="ss-cl">${esc(detail)}</span>` : ''}${fixText ? `<span class="ss-cfix">${esc(fixText)}</span>` : ''}</div>${act ? `<span class="ss-cact">${act}</span>` : ''}</li>`;
 }
@@ -953,11 +962,20 @@ function errorsHTML() {
   const words = n ? `${plural(n, 'error report')} from visitors’ browsers in the last 7 days, ${nToday} today${sb ? `, and ${sb} in the sandbox` : ''}.`
     : `None reported by visitors’ browsers in the last 7 days${sb ? ` (${sb} in the sandbox)` : ''}.`;
   const rowH = e => `<li class="ss-check info"><span class="ss-cic">${icon(e.day === today ? 'circle-alert' : 'info')}</span>
-    <div class="ss-cbody"><span class="ss-ct">${esc(errWords(e.message))}${e.place ? ` on ${esc(e.place)}` : ''}</span><span class="ss-cl">${esc([`${e.reports} ${e.reports === 1 ? 'report' : 'reports'}`, `the last ${fmtDate(e.last_at)}`].join(', '))}</span>
+    <div class="ss-cbody"><span class="ss-ct">${esc(errWords(e.message))}${e.place ? ` on ${esc(placeWords(e.place))}` : ''}</span><span class="ss-cl">${esc([`${e.reports} ${e.reports === 1 ? 'report' : 'reports'}`, `the last ${fmtDate(e.last_at)}`].join(', '))}</span>
       <details class="ss-errd"><summary>Details for Claude</summary><code>${esc([e.message, e.source].filter(Boolean).join('\n'))}</code></details></div></li>`;
   return `<p class="ss-sum">${icon(n ? 'circle-alert' : 'circle-check')}<span><b>${n ? (nToday ? 'Errors today.' : 'Errors this week.') : 'No errors.'}</b> ${esc(words)}</span></p>
     ${top.length ? `<ul class="ss-checks" role="list" aria-label="The errors">${top.map(rowH).join('')}</ul>` : ''}
     <p class="ss-note">A report names the screen that broke and the error, never the person; nothing is sent with the privacy signal. Admins get a Slack message when ten or more arrive in an hour. Ask Claude to fix what shows here.</p>`;
+}
+
+// The public page's error reports under the checklist, in a fold of their own that says the count when closed (Session
+// setup: no part over 1.5 screens; the reports made the prep-season checklist 1.9). Closed, its line still says today's count.
+function errorsFold() {
+  const s = st(); loadErrors();
+  const today = hstToday(), live = (s.errs || []).filter(e => !e.sandbox), n = live.reduce((a, e) => a + (e.reports || 0), 0), nToday = live.filter(e => e.day === today).reduce((a, e) => a + (e.reports || 0), 0);
+  const say = !s.errs ? (s.errsErr ? 'could not load' : 'loading') : n ? `${plural(n, 'report')} this week${nToday ? `, ${nToday} today` : ''}` : 'none this week';
+  return `<section class="ss-sec" aria-labelledby="ss-h-errs"><details class="ss-fold ss-errfold"${s.errOpen ? ' open' : ''}><summary>${icon('chevron-down', { cls: 'chev' })}<span id="ss-h-errs">The public page’s errors: ${esc(say)}</span></summary>${errorsHTML()}</details></section>`;
 }
 
 // ---- the front page: the season checklist ----
@@ -981,7 +999,7 @@ function renderIndex() {
       ${open.length ? `<ul class="ss-checks" role="list" aria-label="To fix or tick off">${open.map(readyRowHTML).join('')}</ul>` : ''}
       ${pass.length ? `<details class="ss-fold" data-pass${s.passOpen ? ' open' : ''}><summary>${icon('chevron-down', { cls: 'chev' })}<span>${plural(pass.length, 'check passes', 'checks pass')}</span></summary><ul class="ss-checks" role="list" aria-label="Passing">${pass.map(readyRowHTML).join('')}</ul></details>` : ''}`;
   }
-  const errs = `<section class="ss-sec" aria-labelledby="ss-h-errs"><h2 class="ss-h2" id="ss-h-errs">The public page’s errors</h2>${errorsHTML()}</section>`;
+  const errs = errorsFold();
   // From opening day the health checks lead ("Running well?") and the January checklist folds to one line (R-316 W57).
   if (inSession() && rows) {
     const health = rows.filter(r => !r.waiting && r.level !== 'manual' && r.ok === false);
@@ -1340,6 +1358,7 @@ function wirePage(route, root) {
   const s = st(), main = root.querySelector('.ss-page'); if (!main) return;
   main.querySelectorAll('[data-recheck]').forEach(b => b.onclick = () => { s.ready = null; loadReady(true); loadErrors(true); hooks.render(); });
   main.querySelector('[data-pass]')?.addEventListener('toggle', e => { s.passOpen = e.target.open; });
+  main.querySelector('.ss-errfold')?.addEventListener('toggle', e => { s.errOpen = e.target.open; });
   main.querySelectorAll('[data-rman]').forEach(b => b.onclick = async () => {
     const on = !!b.dataset.on, r = (s.ready || []).find(x => x.key === b.dataset.rman); b.setAttribute('aria-busy', 'true');
     try { await DB.saveReadinessManual(b.dataset.rman, on); if (r) r.ok = on; hooks.render(); toast(on ? 'Marked done.' : 'Marked not done.', { ok: on, undo: async () => { await DB.saveReadinessManual(b.dataset.rman, !on); if (r) r.ok = !on; hooks.render(); } }); }

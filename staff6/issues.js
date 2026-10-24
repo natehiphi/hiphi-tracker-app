@@ -101,6 +101,10 @@ function stanceNote(i, now) {
   const list = odd.slice(0, 3).map(b => `<a href="${billRoute(b)}">${esc(billWords(b))}</a> (HIPHI ${say(b)} it)`).join(', ') + (odd.length > 3 ? ` and ${odd.length - 3} more` : '');
   return `<p class="i6-line is6-stnote" role="note">${icon('info')}<span>${odd.length === 1 ? 'One bill on this issue goes' : `${odd.length} bills on this issue go`} against its stance, which says HIPHI ${word} it: ${list}. Each bill keeps its own position. If this is no longer the whole story, set the stance to Mixed.</span></p>`;
 }
+// Who changes the stance: the issue's owner and admins. Anyone else reads it in plain words (Julie, a new helper, met an
+// outlined "Support ▾" she could change; spec 4: no outlined pills, status never looks like a button).
+const mayStance = i => !!S.me && (S.me.is_admin || i.owner_id === S.me.id);
+const stanceWords = i => { const s = stanceOf(i); return `<span class="is6-stw">${icon(s ? s[2] : 'circle-dashed')}<span>${esc(s ? s[1] : 'No stance yet')}</span></span>`; };
 // The picker chip that shows the stance and changes it; `a` carries its data attribute.
 export const stanceChip = (i, a = {}) => { const s = stanceOf(i);
   return pickerChip(s ? s[1] : 'No stance', { 'aria-haspopup': 'dialog', 'aria-label': `HIPHI’s stance on ${i.name}: ${s ? s[1] : 'not set'}. Change`, ...a }, s ? s[2] : 'circle-dashed'); };
@@ -405,7 +409,7 @@ function pageRender(route) {
       <div class="is6-hbody"><h1 class="is6-h1">${esc(i.name)}</h1>
         ${i.description ? `<p class="is6-desc">${esc(i.description)}</p>` : ''}
         ${SESSION_OVER ? (prepHoldsOutlook(i) ? '' : outlook) : (i.goal || '').trim() ? `<p class="is6-desc"><span class="is6-dl">Our ${esc(SESSION_YEAR)} goal, staff only:</span> ${esc(i.goal)}</p>` : ''}
-        <p class="is6-meta"><span class="is6-stl">HIPHI’s stance</span>${stanceChip(i, { 'data-is': 'stance' })}<span class="is6-cat">${esc([c?.name || i.category, also.length ? `also in ${also.map(x => x.name).join(' and ')}` : '', i.recommended ? 'pre-ticked for new visitors' : ''].filter(Boolean).join(' · '))}</span></p>
+        <p class="is6-meta"><span class="is6-stl">HIPHI’s stance</span>${mayStance(i) ? stanceChip(i, { 'data-is': 'stance' }) : stanceWords(i)}<span class="is6-cat">${esc([c?.name || i.category, also.length ? `also in ${also.map(x => x.name).join(' and ')}` : '', i.recommended ? 'pre-ticked for new visitors' : ''].filter(Boolean).join(' · '))}</span></p>
         ${stanceNote(i, now)}
       </div>
       <div class="is6-hacts">${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', cls: 'is6-edit', attrs: { 'data-is': 'edit', 'aria-haspopup': 'dialog', 'aria-label': `Edit ${i.name}` } })}${iconBtn('ellipsis', `More for ${i.name}: merge, public page, archive`, { 'data-is': 'more', 'aria-haspopup': 'dialog' })}</div>
@@ -473,10 +477,10 @@ function linkSheet(i) {
 }
 // Conversations with legislators filed under this issue, from any of its bills or a legislator's page (R-022 wave 2 #9,
 // conversation.js): an issue carries across sessions where a bill does not.
-// With none yet, the section is one quiet line with Log one (the critic: an empty section explained itself in two sentences);
+// With none yet, the section is one quiet line with Log a talk, the act's one name (the critic: an empty section explained itself in two sentences);
 // the section itself shows once there is one (hideEmpty), and the line hides then.
 const convOpts = i => ({ id: 'is-cv', q: { issueIds: [i.id] }, here: { issueId: i.id }, kind: 'le', limit: 5, log: { issueId: i.id }, hideEmpty: true, none: 'None yet.' });
-const convLine = `<p class="i6-line is6-none" data-is="cvline">${icon('message-square')}<span>No conversations yet</span>${btn('Log one', { kind: 'text', sm: true, attrs: { 'data-is': 'cvlog', 'aria-haspopup': 'dialog', 'aria-label': 'Log a conversation about this issue' } })}</p>`;
+const convLine = `<p class="i6-line is6-none" data-is="cvline">${icon('message-square')}<span>No conversations yet</span>${btn('Log a talk', { kind: 'text', sm: true, attrs: { 'data-is': 'cvlog', 'aria-haspopup': 'dialog', 'aria-label': 'Log a conversation about this issue' } })}</p>`;
 async function takeOff(i, b) {
   try {
     await DB.setBillIssue(b.id, i.id, false); hooks.render();

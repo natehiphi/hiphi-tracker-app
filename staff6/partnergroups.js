@@ -24,7 +24,7 @@ import { S, DB, esc, hooks, fmtDate, partnerSlug } from './data.js';
 import { icon, btn, toast, openSheet, closeSheet, pickerSheet, notice, skeleton, friendly, field } from './ui.js';
 import { itemRow, placeHead, sayWords as billSay, numWords } from './steps.js';   // "Sugary drink fee (HB 2146)": the number spaced (D15)
 import { whenAt, billById, billRoute } from './model.js';
-import { admitsPartners, approvesPartners, firstName, otherApprovers, orList, wantQueue, queueChanged, wantAsks, emailWord } from './partnerq.js';
+import { admitsPartners, approvesPartners, firstName, otherApprovers, orList, wantQueue, queueChanged, wantAsks, emailWord, pqItems, pqRow, pqItem, wirePartner } from './partnerq.js';
 import { dailyWord, paused } from './composer.js';
 
 const PUB = 'https://natehiphi.github.io/hiphi-tracker-app/track.html';
@@ -115,11 +115,21 @@ function asksHTML() {
     ${off.length ? `<details class="pg-fold"${S.pgAskFold ? ' open' : ''}><summary id="pg-h-askoff">${icon('chevron-down', { cls: 'chev' })}<span>Asks taken back or ended</span><span class="n">${off.length}</span></summary>${rowList('Asks taken back or ended', off.map(askRow))}</details>` : ''}</section>`;
 }
 
+// ---- the words to approve (R-328, spec 2 and 7.5): the same rows and open item as Today's "Partner words to approve", here at
+// the top of Partners (#/partners?view=approve), so Team's "3 sets of words to approve" and a group's "2 waiting to be
+// approved" open somewhere. partnerq.js's exports draw and do them (Approve with its 10 seconds, Ask for a change). ----
+const wKey = it => `pq:${it.kind}:${it.id}`;   // partnerq.js keyOf's rule (it is not exported)
+const wHref = it => `#/partners?view=approve&w=${encodeURIComponent(wKey(it))}`;
+const wordsRows = sel => pqItems().map(it => { const r = pqRow(it, { short: true });
+  return itemRow({ key: 'w:' + wKey(it), name: r.name, num: r.num, line: esc(r.line), href: wHref(it), selected: sel === 'w:' + wKey(it) }); });
+// The open item, without its own "Open Partners" (this is Partners).
+const wordsItem = it => pqItem(it).replace(/<a class="btn text"[^>]*href="#\/partners"[^>]*>[\s\S]*?<\/a>/, '');
 function listHTML(sel) {
   const rq = requests(), gs = groups(), writing = gs.filter(g => g.status !== 'link'), links = gs.filter(g => g.status === 'link');
   const sec = (id, title, n, rows, more = '') => rows.length || more ? `<section class="pg-sec" aria-labelledby="pg-h-${id}"><h2 class="pg-h2" id="pg-h-${id}">${title}${n ? `<span class="n">${n}</span>` : ''}</h2>${rows.length ? rowList(title, rows) : ''}${more}</section>` : '';
   const gHref = g => `#/partners/${encodeURIComponent(g.slug)}`;
-  return asksHTML() + sec('rq', 'Asking to join', rq.length, rq.map(r => rowA('r:' + r.id, `#/partners/request/${r.id}`, sel === 'r:' + r.id, r.group_name, `From ${r.contact_name} · ${whenAt(r.created_at)}`)))
+  const words = approvesPartners() ? wordsRows(sel) : [];
+  return sec('wd', 'Words to approve', words.length, words) + asksHTML() + sec('rq', 'Asking to join', rq.length, rq.map(r => rowA('r:' + r.id, `#/partners/request/${r.id}`, sel === 'r:' + r.id, r.group_name, `From ${r.contact_name} · ${whenAt(r.created_at)}`)))
     + sec('gr', 'Groups that write', writing.length, writing.map(g => rowA('g:' + g.slug, gHref(g), sel === 'g:' + g.slug, g.name, rowLine(g))),
       writing.length ? '' : `<p class="pg-none">${admitsPartners() ? 'No groups yet. Add the first one, then its people.' : 'No groups yet.'}</p>`)
     + sec('ln', 'Link only', links.length, links.map(g => rowA('g:' + g.slug, gHref(g), sel === 'g:' + g.slug, g.name, rowLine(g))));
@@ -136,6 +146,9 @@ function peopleHTML(g) {
     ${ps.length ? `<ul class="pg-people">${ps.map(row).join('')}</ul>` : `<p class="pg-p">${can ? 'No one yet. The first person you add leads the group: they can invite their teammates.' : 'No one yet.'}</p>`}
     ${can ? `<p class="pg-addp">${btn('Add a person', { kind: 'text', icon: 'user-plus', attrs: { 'data-pgaddp': g.slug, 'aria-haspopup': 'dialog' } })}${ps.length ? btn('Take someone off', { kind: 'text', icon: 'x', attrs: { 'data-pgrmpick': g.slug, 'aria-haspopup': 'dialog' } }) : ''}</p>` : ''}</section>`;
 }
+// "2 waiting to be approved" opens them, for a partner approver (the words could be approved only from Today).
+const waitLink = g => { const its = approvesPartners() ? pqItems().filter(it => it.partner_slug === g.slug) : [];
+  return its.length ? ` · <a href="${esc(wHref(its[0]))}">Open ${its.length === 1 ? 'it' : 'them'}</a>` : ''; };
 function groupHTML(g) {
   const adm = admitsPartners(), cl = countsLine(g);
   // Every step on the group in sight (rule 3): Edit details, and Pause for a group that writes; Resume is on a paused one's notice.
@@ -157,7 +170,7 @@ function groupHTML(g) {
     <section class="pg-dsec" aria-labelledby="pg-lh"><h3 class="pg-h3" id="pg-lh">Its link</h3>
       <div class="pg-link"><code>${esc(linkOf(g.slug))}</code>${btn('Copy link', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-pgcopy': linkOf(g.slug) } })}</div>
       <p class="pg-p">${g.status === 'active' ? 'Opens the tracker with its bills first.' : 'Opens the tracker.'}${g.welcome ? ` People who arrive by it see its welcome line: “${esc(g.welcome)}”` : ''}</p>
-      ${cl.length ? `<p class="pg-counts">${esc(cl.join(' · '))}</p>` : ''}</section>
+      ${cl.length ? `<p class="pg-counts">${esc(cl.join(' · '))}${waitLink(g)}</p>` : ''}</section>
     ${g.status === 'link' ? '' : peopleHTML(g)}${acts}</article>`;
 }
 function requestHTML(r) {
@@ -172,8 +185,9 @@ function requestHTML(r) {
 }
 
 // ---- the page ----
-const titleOf = route => (route.req && requests().find(x => x.id === route.req)?.group_name) || (route.id && (S.pg?.groups || []).find(x => x.slug === route.id)?.name) || 'Partners';
+const titleOf = route => (route.q?.w && pqItems().some(x => wKey(x) === route.q.w) && 'Words to approve') || (route.req && requests().find(x => x.id === route.req)?.group_name) || (route.id && (S.pg?.groups || []).find(x => x.slug === route.id)?.name) || 'Partners';
 function selected(route) {
+  if (route.q?.w) { const it = pqItems().find(x => wKey(x) === route.q.w); if (it) return { k: 'w:' + wKey(it), html: wordsItem(it) }; }
   if (route.req) { const r = requests().find(x => x.id === route.req); return r ? { k: 'r:' + r.id, html: requestHTML(r) } : null; }
   if (route.id) { const g = (S.pg?.groups || []).find(x => x.slug === route.id); return g ? { k: 'g:' + g.slug, html: groupHTML(g) } : null; }
   return null;
@@ -195,13 +209,16 @@ function render(route) {
   // A laptop opens the first one (a request, else a group waiting, else the first group) so the panel is never empty; a
   // phone shows the list, and the picked one as its own page.
   let sel = selected(route);
-  if (!sel && !route.id && !route.req && wide()) { const r0 = requests()[0], g0 = groups()[0]; sel = r0 ? selected({ req: r0.id }) : g0 ? selected({ id: g0.slug }) : null; }
+  // Arriving for the words to approve (Team's line, a group's "waiting to be approved"), the first of them opens.
+  const w0 = approvesPartners() ? pqItems()[0] : null;
+  if (!sel && !route.id && !route.req && wide()) { const r0 = requests()[0], g0 = groups()[0];
+    sel = route.q?.view === 'approve' && w0 ? selected({ q: { w: wKey(w0) } }) : r0 ? selected({ req: r0.id }) : g0 ? selected({ id: g0.slug }) : null; }
   const gone = (route.id || route.req) && !sel ? notice('info', 'info', route.req ? 'That request has been handled.' : 'That group is not on the list.', btn('See all partners', { kind: 'text', sm: true, href: '#/partners' })) : '';
   // Its own page names the group in its h1, under Back (the card's own name shows only on a phone, where the h1 is the top bar).
-  if (!wide() && sel && (route.id || route.req)) return `<div class="pg-page pg-one">${backLink({ href: '#/partners', label: 'Partners' })}<h1 class="v6-ptitle sv-h1 pg-oneh">${esc(titleOf(route))}</h1>${sel.html}</div>`;
+  if (!wide() && sel && (route.id || route.req || route.q?.w)) return `<div class="pg-page pg-one">${backLink({ href: '#/partners', label: 'Partners' })}<h1 class="v6-ptitle sv-h1 pg-oneh">${esc(titleOf(route))}</h1>${sel.html}</div>`;
   const list = `<div class="pg-list">${listHTML(sel?.k)}</div>`;
   // One filled button in view (A-3): the open item's Approve or Add as a group, else Add a group.
-  const quiet = !!sel && wide() && /data-pgok|data-pgfromrq/.test(sel.html);
+  const quiet = !!sel && wide() && /data-pgok|data-pgfromrq|data-pqok/.test(sel.html);
   return `<div class="pg-page">${head(quiet)}${qerr}${gone}${sel && wide() ? `<div class="pg-cols">${list}<div class="pg-side">${sel.html}</div></div>` : list}</div>`;
 }
 
@@ -392,6 +409,7 @@ function wire(route, root) {
   on('[data-pgaskretry]', () => { asksReload(); redraw(); });
   // The fold of taken-back and ended asks stays as it was left when the page redraws (B-6).
   main.querySelectorAll('.pg-fold').forEach(d => d.addEventListener('toggle', () => { S.pgAskFold = d.open; }));
+  wirePartner(main);   // Approve and Ask for a change in the words' open item
 }
 // Redraw at the laptop width line: the list with its panel, or the list alone.
 let wasWide = null;

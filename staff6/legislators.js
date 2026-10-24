@@ -43,8 +43,9 @@ export function weekIndex() {
     const cs = codesOf(h.committee);
     for (const m of S.committeeMembers || []) {
       if (!cs.includes(m.committee)) continue;
-      const x = out.get(m.legislator_id) || { bills: new Set(), roles: {}, when: new Map(), hid: new Map() };
+      const x = out.get(m.legislator_id) || { bills: new Set(), roles: {}, when: new Map(), hid: new Map(), byCm: new Map() };
       x.bills.add(h.bill_id); x.roles[m.committee] = m.role;
+      if (!x.byCm.has(m.committee)) x.byCm.set(m.committee, new Set()); x.byCm.get(m.committee).add(h.bill_id);   // which committee hears which bill
       if (t < (x.when.get(h.bill_id) ?? Infinity)) { x.when.set(h.bill_id, t); x.hid.set(h.bill_id, h.id); }
       out.set(m.legislator_id, x);
     }
@@ -181,8 +182,12 @@ function askHTML(v) {
 // their committees, else their leadership title or the towns they represent (a supporter says "I live in Kaūmana").
 function roleWords(l, week) {
   const w = week.get(l.id);
-  if (w) { const lead = Object.values(w.roles).some(r => r === 'chair') ? 'Chairs a committee hearing' : 'Hears';
-    return `${lead} ${w.bills.size} of our bills this week`; }
+  // "Chairs a committee hearing 2 of our bills" was said of Rep. Takayama, who chairs House Health while one of the two
+  // was heard in Judiciary, where he is a member: the count is every committee of his, the chair only the ones he chairs.
+  if (w) { const chaired = Object.entries(w.roles).filter(([, r]) => r === 'chair').map(([c]) => c), n = w.bills.size;
+    const inChaired = new Set(chaired.flatMap(c => [...(w.byCm?.get(c) || [])]));
+    if (chaired.length && inChaired.size === n) return `Chairs ${chaired.map(c => committeeName(c)).join(' and ')}, hearing ${n === 1 ? 'one' : n} of our bills this week`;
+    return `Hears ${n === 1 ? 'one' : n} of our bills this week${chaired.length ? ` · chairs ${chaired.map(c => committeeName(c)).join(' and ')}` : ''}`; }
   const seats = seatsOf(l).map(m => m.committee), chairs = seatsOf(l).filter(m => m.role === 'chair').map(m => m.committee);
   let hold = 0, inCm = 0;
   for (const b of S.bills) { if (!ourBill(b) || diedish(b)) continue; const st = stopOf(b); if (st.phase !== 'committee' || !st.committee) continue;
@@ -282,7 +287,8 @@ function searchHTML(v) {
   }
   if (!ls.length) return addr + (/data-lg(place|addr)=/.test(addr) ? '' : empty({ title: `No one matches “${esc(q)}”`, text: 'Try a last name, a town, a district number or a committee such as Health.', action: btn('Clear the search', { kind: 'secondary', attrs: { 'data-lgclear': 'q' } }) }));
   const cap = c ? `<b>${esc(committeeName(c.code))}</b> · ${plural(ls.length, 'member')}, the chair first` : `${ls.length} of ${(S.legislators || []).length} ${ls.length === 1 ? 'matches' : 'match'} “${esc(q)}”`;
-  return `${addr}<div class="lg6-cap"><p>${icon(c ? 'users' : 'search')}<span>${cap}</span></p>${clear}</div><div class="v6-list lg6-list" role="list" aria-label="Legislators found">${ls.map(l => personRow(l, week, { q: c ? '' : q })).join('')}</div>`;
+  // Words in the box: the box's own X clears them (one clear control, not two).
+  return `${addr}<div class="lg6-cap"><p>${icon(c ? 'users' : 'search')}<span>${cap}</span></p></div><div class="v6-list lg6-list" role="list" aria-label="Legislators found">${ls.map(l => personRow(l, week, { q: c ? '' : q })).join('')}</div>`;
 }
 
 function bodyHTML(tab, v) {
@@ -306,7 +312,7 @@ export default {
         ${iconBtn('x', 'Clear the search', { 'data-lgclear': 'q', hidden: !v.q }, 'lg6-x')}
       </form>`;
     return `<div class="lg6" data-lgtab="${tab}">
-      <div class="sv-phead lg6-head"><h1 class="sv-h1">Legislators</h1><span class="sv-phr">${navHTML(tab)}</span></div>
+      <div class="sv-phead lg6-head"><h1 class="sv-h1">Legislators</h1><span class="sv-phr">${navHTML(searching(v) ? '' : tab)}</span></div>
       <div class="lg6-bar">${box}${toolsHTML(tab, v)}</div>
       <p class="sr" role="status" id="lg-status"></p>
       <div id="lg-body">${bodyHTML(tab, v)}</div>
@@ -325,6 +331,9 @@ export default {
       bar.insertAdjacentHTML('beforeend', toolsHTML(tab, v));
       if (keep) bar.querySelector(`.lg6-tools ${keep}`)?.focus();
       body.innerHTML = bodyHTML(tab, v); x.hidden = !inp.value;
+      // Search results are their own state: the find box searches everyone, so no tab stays underlined meanwhile (Kevin
+      // searched from Who to ask and read directory results under Who to ask's underline).
+      const phr = root.querySelector('.lg6-head .sv-phr'); if (phr) { const nav = navHTML(searching(v) ? '' : tab); if (phr.innerHTML !== nav) phr.innerHTML = nav; }
       const n = body.querySelectorAll('[data-lgrow], .lg6-grp, [data-v6row^="hold-"]').length;
       root.querySelector('#lg-status').textContent = searching(v) || tab === 'everyone' ? `${n} ${n === 1 ? 'legislator' : 'legislators'} listed` : '';
     };

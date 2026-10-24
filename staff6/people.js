@@ -130,7 +130,8 @@ const coverWho = x => !x ? 'no one' : isMe(x) ? 'you' : firstOf(x);
 
 // ---- the list ----
 function rowOf(a, sel) {
-  const n = holdings(a).bills.length, line = !live(a) ? 'Turned off' : [rolesWords(a), n ? plural(n, 'live bill') : '', signWords(a)].filter(Boolean).join(' · ');
+  // No email yet says the first thing to do (sign-in goes by email), as v5's row did; "No sign-in yet" alone hid why.
+  const n = holdings(a).bills.length, line = !live(a) ? 'Turned off' : [rolesWords(a), n ? plural(n, 'live bill') : '', a.email ? signWords(a) : 'No email yet'].filter(Boolean).join(' · ');
   return itemRow({ key: a.id, name: a.full_name + (isMe(a) ? ' (you)' : ''), line: esc(line), href: `#/people/${encodeURIComponent(a.id)}`, selected: sel === a.id });
 }
 function reachCard() {
@@ -190,6 +191,9 @@ function record(a, { head = true } = {}) {
     : held || h.going.length ? `<div class="pe-sec pe-leave"><h3 class="pe-h3">Their work</h3><p class="pe-p">${held ? `${esc(first)} holds ${esc(held)}.` : `${esc(first)} is going to ${plural(h.going.length, 'hearing')}.`}</p>
       ${btn('Leaving or away?', { kind: 'secondary', icon: 'log-out', href: `#/people/${encodeURIComponent(a.id)}?view=leaving` })}</div>`
     : `<div class="pe-sec pe-leave pe-quietoff"><p class="pe-p">${esc(first)} holds nothing that needs a new owner.</p>${btn('Turn off', { kind: 'text', icon: 'eye-off', attrs: { 'data-peoff': a.id } })}</div>`;
+  // Their work and Leaving or away? sit at the top, under the name (James's was below the fold at 900px); a quiet Turn off for
+  // someone who holds nothing stays last, the rarest step (A-13).
+  const quiet = !me && live(a) && !done && !(held || h.going.length);
   const sign = !live(a) ? '' : `<div class="pe-sec"><h3 class="pe-h3">Sign-in</h3><p class="pe-p">${esc(signWords(a))}.${a.email ? '' : ' Add their email first: it is how they sign in, and how Slack finds them.'}</p>
     ${!a.email ? btn('Add their email', { kind: 'secondary', icon: 'mail-plus', attrs: { 'data-peedit': a.id, 'data-pefocus': 'pe-email', 'aria-haspopup': 'dialog' } })
       : me || !s.logins ? '' : btn(signed ? 'New sign-in link' : l?.link_made_at ? 'Make a new link' : 'Make a sign-in link', { kind: signed ? 'text' : 'secondary', icon: 'link', attrs: { 'data-pelink': a.id } })}</div>`;
@@ -197,7 +201,7 @@ function record(a, { head = true } = {}) {
   return `<article class="pe-rec" aria-labelledby="pe-rec-h">
     ${head ? `<div class="pe-top">${avatar(a, 48)}<div class="pe-who"><h2 class="pe-name" id="pe-rec-h">${esc(a.full_name)}${me ? ' <span class="pe-you">(you)</span>' : ''}</h2><p class="pe-mail">${mail}</p></div></div>`
       : `<div class="pe-top">${avatar(a, 48)}<p class="pe-mail" id="pe-rec-h">${mail}</p></div>`}
-    ${sign}${live(a) ? roleSwitches(a) : ''}${slack}${leave}
+    ${quiet ? '' : leave}${sign}${live(a) ? roleSwitches(a) : ''}${slack}${quiet ? leave : ''}
   </article>`;
 }
 // A page under People names where Back goes, above its title, on a laptop too (B-4; the phone's top bar draws it there). It
@@ -311,7 +315,8 @@ async function handOver(a, el, { keep = false } = {}) {
   s.done[a.id] = { h, parts, at: Date.now(), undo, toldWords, keep };
   s.busy = ''; delete s.cover[a.id]; redraw();
   document.getElementById('pe-leave-h')?.focus({ preventScroll: true });
-  toast(gave.size ? `${keep ? `The work is handed over and ${first} can still sign in.` : `${first} is turned off and the work is handed over.`} ${toldWords}` : `${first} is turned off and can no longer sign in.`, { ok: true, undo: () => undoHandOver(a) });
+  // One Undo: the page's banner keeps it as long as the page is open, so the toast only confirms (two Undo controls for one act).
+  toast(gave.size ? `${keep ? `The work is handed over and ${first} can still sign in.` : `${first} is turned off and the work is handed over.`} ${toldWords}` : `${first} is turned off and can no longer sign in.`, { ok: true });
 }
 async function undoHandOver(a) {
   const s = P(), d = a && s.done[a.id]; if (!d) return;

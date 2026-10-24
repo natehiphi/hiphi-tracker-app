@@ -111,7 +111,7 @@ body.staff6 .hp-page .hp-h1 { margin: 4px 0 8px; font-family: Poppins, system-ui
 body.staff6 .hp-page .hp-h2, body.staff6 .hp-page .hp-ptitle { margin: 0 0 12px; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t22); line-height: var(--v6-lh22); color: var(--v6-ink); }
 body.staff6 .hp-page .hp-ptitle { margin-bottom: 4px; }
 body.staff6 .hp-page .hp-ptitle + .hp-lede[hidden] + #hp-res:not(:empty) { margin-top: 12px; }
-body.staff6 .hp-page .hp-h3 { margin: 0 0 8px; font-size: var(--v6-t18); line-height: var(--v6-lh18); font-weight: 700; color: var(--v6-ink); }
+body.staff6 .hp-page .hp-h3 { margin: 0 0 8px; font-family: Poppins, system-ui, sans-serif; font-size: var(--v6-t18); line-height: var(--v6-lh18); font-weight: 500; color: var(--v6-ink); }   /* a subhead: 500 (spec 12.1) */
 body.staff6 .hp-page .hp-sec { margin-top: 32px; }
 body.staff6 .hp-page .hp-sechead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 body.staff6 .hp-page .hp-sechead .hp-h2 { margin-bottom: 12px; }
@@ -135,7 +135,7 @@ body.staff6 .hp-page .hp-dli + .hp-dli::before { content: ''; position: absolute
 body.staff6 .hp-page .hp-dl dt { font-weight: 700; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); }
 body.staff6 .hp-page .hp-dl dd { margin: 4px 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); max-width: 70ch; overflow-wrap: anywhere; }
 body.staff6 .hp-page .hp-dl dd b { font-weight: 700; color: var(--v6-ink); }
-body.staff6 .hp-page .hp-dl a { color: var(--v6-action); font-weight: 700; }
+body.staff6 .hp-page .hp-dl a { color: var(--v6-action); font-weight: 400; }   /* links read at 400, underlined (P-1) */
 body.staff6 .hp-page .hp-dl mark { background: var(--v6-action-wash); color: var(--v6-ink); padding: 0 4px; border-radius: 6px; }
 body.staff6 .hp-page .hp-dli:focus { outline: none; }
 /* What moved: the v5 thing, then where it is now */
@@ -158,6 +158,34 @@ body.staff6 .hp-page .st-practice { margin-top: 8px; color: var(--v6-action); }
 body.staff6 .hp-page .hp-ask { display: grid; justify-items: start; gap: 8px; margin-top: 16px; padding: 20px 24px; border-radius: var(--v6-r20); background: var(--v6-wash); }
 body.staff6 .hp-page .hp-ask .btn { margin: 0; }
 body.staff6 .hp-page .hp-askw { font-size: var(--v6-t16); color: var(--v6-muted); overflow-wrap: anywhere; }
+/* Ask Nate in Slack, near the top of Help and at the foot of every guide: the tonal button with Copy my question beside it,
+   and one muted line saying where it goes */
+body.staff6 .hp-page .hp-askbar { margin: 24px 0 0; }
+body.staff6 .hp-page .hp-askbar.top { margin: 0 0 24px; }
+body.staff6 .hp-page .hp-askbtns { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+body.staff6 .hp-page .hp-askbtns .btn { margin: 0; }
+body.staff6 .hp-page .hp-askhint { margin: 6px 0 0; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+body.staff6 .hp-duo .hp-askbar.nav { margin: 0 0 4px; padding: 0 4px; }
+body.staff6 .hp-duo .hp-askbar.nav .hp-askbtns { gap: 4px; }
+body.staff6 .hp-duo .hp-askbar.nav .btn.secondary { width: 100%; justify-content: center; }
+body.staff6 .hp-page .hp-ask .hp-askbtns { margin-top: 4px; }
+body.staff6 .hp-page .hp-cta { margin: 16px 0 0; }
+body.staff6 .hp-page .hp-cta .btn { margin: 0; }
+/* folds that hold reference (All guides, What moved's v5 places): a labelled 44px control with its count, a chevron that turns */
+body.staff6 .hp-page .hp-chev { flex: none; width: 18px; height: 18px; color: var(--v6-muted); transition: transform 150ms ease-out; }
+body.staff6 .hp-page details[open] > summary .hp-chev { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { body.staff6 .hp-page .hp-chev { transition: none; } }
+body.staff6 .hp-page .hp-mn { margin-left: auto; padding-left: 8px; font-size: var(--v6-t14); line-height: var(--v6-lh14); font-weight: 400; color: var(--v6-muted); }
+body.staff6 .hp-page summary { list-style: none; cursor: pointer; }
+body.staff6 .hp-page summary::-webkit-details-marker { display: none; }
+body.staff6 .hp-page .hp-allsum, body.staff6 .hp-page .hp-mfold > summary { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 16px; border-radius: var(--v6-r12);
+  background: var(--v6-card); box-shadow: var(--v6-sh1); font-size: var(--v6-t16); line-height: var(--v6-lh16); font-weight: 500; color: var(--v6-ink); }
+body.staff6 .hp-page .hp-allsum:focus-visible, body.staff6 .hp-page .hp-mfold > summary:focus-visible, body.staff6 .hp-duo .hp-navsum:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .hp-page .hp-all[open] > .v6-list { margin-top: 8px; }
+body.staff6 .hp-page .hp-mfold { margin-top: 8px; }
+body.staff6 .hp-page .hp-mfold[open] > .hp-moved { margin-top: 8px; }
+body.staff6 .hp-duo .hp-navall { display: grid; gap: 2px; margin-top: 12px; }
+body.staff6 .hp-duo .hp-navsum { color: var(--v6-ink); }
 /* the quiet line at the foot of every Help page and under every list of results */
 body.staff6 .hp-page .hp-foot { display: flex; gap: 8px; align-items: flex-start; margin: 24px 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
 body.staff6 .hp-page .hp-foot svg { flex: none; width: 18px; height: 18px; margin-top: 3px; }
@@ -261,3 +289,7 @@ body.staff6 .me-page .me-times .field { margin: 0; }
 /* Updates: a bill's change wraps rather than being cut beside the open item at 1280 (nothing cut). Messages keep their one-line
    preview, the mail convention, since opening a row shows it whole. */
 body.staff6 .ib-page .ib-updrow .v6-row-name, body.staff6 .ib-page .ib-updrow .v6-row-line > span { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+body.staff6 .hp-page .hp-startsec .hp-steps + .hp-startl, body.staff6 .hp-page .hp-startsec .st-practice + .hp-startl { margin-top: 12px; }
+body.staff6 .hp-page .hp-h3a { color: inherit; text-decoration: none; }
+body.staff6 .hp-page .hp-h3a:hover { color: var(--v6-action); text-decoration: underline; }
+body.staff6 .hp-page .hp-h3a:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }

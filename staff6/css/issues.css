@@ -512,7 +512,7 @@ body.staff6 .i6-th { display: flex; align-items: center; gap: var(--s12); }
 body.staff6 .i6-catic { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: var(--v6-wash); color: var(--v6-body); flex: none; }
 body.staff6 .i6-catic .ic { width: 20px; height: 20px; }
 body.staff6 .i6-tc { margin: calc(-1 * var(--s8)) 0 var(--s12); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
-body.staff6 .i6-sub { margin: var(--s24) 0 var(--s8); font: 700 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-ink); }
+body.staff6 .i6-sub { margin: var(--s24) 0 var(--s8); font: 500 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-ink); }
 body.staff6 .i6-h + .i6-sub { margin-top: 0; }
 body.staff6 .i6-subw { font-weight: 400; color: var(--v6-body); }
 body.staff6 .i6-quiet { margin: var(--s8) 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
@@ -553,7 +553,7 @@ body.staff6 .i6-seg { flex: none; }
 /* folds: what is done, what is not moving, the rest of a long group (rule 3: never something to do) */
 body.staff6 .i6-fold, body.staff6 .i6-more { margin-top: var(--s16); }
 body.staff6 .i6-fold > summary, body.staff6 .i6-more > summary { list-style: none; display: inline-flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 0 var(--s12) 0 var(--s8);
-  border-radius: var(--v6-pill); font: 700 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-action); cursor: pointer; }
+  border-radius: var(--v6-pill); font: 500 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-action); cursor: pointer; }
 body.staff6 .i6-fold > summary::-webkit-details-marker, body.staff6 .i6-more > summary::-webkit-details-marker { display: none; }
 body.staff6 .i6-fold > summary:hover, body.staff6 .i6-more > summary:hover { background: var(--v6-action-wash); }
 body.staff6 .i6-fold > summary:focus-visible, body.staff6 .i6-more > summary:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
@@ -582,7 +582,7 @@ body.staff6 .i6-line { display: flex; flex-wrap: nowrap; align-items: center; ga
 body.staff6 .i6-lines .i6-line { margin: 0; }
 body.staff6 .i6-line > .ic { width: 20px; height: 20px; flex: none; color: var(--v6-muted); }
 body.staff6 .i6-line > span { flex: 0 1 auto; min-width: 0; }
-body.staff6 .i6-line a:not(.btn):not(.i6-inline) { color: var(--v6-action); font-weight: 700; text-decoration: none; }
+body.staff6 .i6-line a:not(.btn):not(.i6-inline) { color: var(--v6-action); font-weight: 400; text-decoration: none; }
 body.staff6 .i6-line a:not(.btn):not(.i6-inline):hover { text-decoration: underline; }
 body.staff6 .i6-weekq { display: flex; align-items: center; gap: var(--s12); }
 body.staff6 .i6-weekq > .ic { width: 20px; height: 20px; flex: none; color: var(--v6-muted); }
@@ -591,17 +591,17 @@ body.staff6 .pr6-page > .i6-line, body.staff6 .pr6-board > .i6-line { margin-top
 body.staff6 .is6-none { margin-top: var(--s24); }
 body.staff6 .is6-editb { margin-top: var(--s16); }
 body.staff6 .i6-line > .btn, body.staff6 .i6-line > .i6-inline { flex: none; }
-body.staff6 .i6-inline { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; color: var(--v6-action); text-decoration: none; }
+body.staff6 .i6-inline { display: inline-flex; align-items: center; min-height: 44px; font-weight: 400; color: var(--v6-action); text-decoration: none; }
 body.staff6 .i6-inline:hover { text-decoration: underline; }
 body.staff6 .i6-more-link { margin: var(--s8) 0 0; }
-body.staff6 .i6-more-link a { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 var(--s8); margin-left: calc(-1 * var(--s8)); border-radius: var(--v6-pill); font-weight: 700; color: var(--v6-action); text-decoration: none; }
+body.staff6 .i6-more-link a { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 var(--s8); margin-left: calc(-1 * var(--s8)); border-radius: var(--v6-pill); font-weight: 400; color: var(--v6-action); text-decoration: none; }
 body.staff6 .i6-more-link a:hover { background: var(--v6-action-wash); }
 body.staff6 .i6-more-link .ic { width: 18px; height: 18px; }
 body.staff6 .i6-hrow { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); margin: 0 0 var(--s12); }
 body.staff6 .i6-hrow .i6-h { margin: 0; }
 body.staff6 .i6-acts { display: flex; flex-wrap: wrap; gap: var(--s8); margin: var(--s12) 0 0; }
 body.staff6 .i6-links { display: flex; flex-wrap: wrap; gap: 0 var(--s24); }
-body.staff6 .i6-link { display: inline-flex; align-items: center; gap: var(--s8); min-height: 44px; font-weight: 700; color: var(--v6-action); text-decoration: none; }
+body.staff6 .i6-link { display: inline-flex; align-items: center; gap: var(--s8); min-height: 44px; font-weight: 400; color: var(--v6-action); text-decoration: none; }
 body.staff6 .i6-sheet .i6-quiet:first-child { margin-top: 0; }
 /* where it stands, said first on an issue's or a coalition's page: a sand tile with its icon and its words */
 body.staff6 .i6-lead { display: flex; align-items: flex-start; gap: var(--s12); margin: var(--s16) 0 0; padding: var(--s12) var(--s16); border-radius: var(--v6-r12); background: var(--v6-wash);
@@ -648,7 +648,7 @@ body.staff6 .is6-stnote { align-items: flex-start; }
 body.staff6 .pr6-card { display: block; margin-top: var(--s24); padding: var(--s24); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
 body.staff6 .pr6-head h2 { margin: 0; font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 body.staff6 .pr6-sub { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s16); margin: var(--s12) 0 0; font-size: var(--v6-t16); color: var(--v6-body); }
-body.staff6 .pr6-sub a { display: inline-flex; align-items: center; min-height: 44px; color: var(--v6-action); font-weight: 700; text-decoration: none; }
+body.staff6 .pr6-sub a { display: inline-flex; align-items: center; min-height: 44px; color: var(--v6-action); font-weight: 400; text-decoration: none; }
 body.staff6 .pr6-sub a:hover { text-decoration: underline; }
 body.staff6 .pr6-lede, body.staff6 .pr6-outlook { margin: var(--s12) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
 body.staff6 .pr6-note { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s8) var(--s12); margin: var(--s16) 0 0; padding: var(--s12) var(--s16); border-radius: var(--v6-r12); background: var(--v6-wash); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); }
@@ -667,7 +667,7 @@ body.staff6 .pr6-mark { display: inline-flex; flex: none; padding-top: 0; color:
 body.staff6 .pr6-mark .ic { width: 28px; height: 28px; }
 /* a step's number in a sand tile: says its place, never looks like a box to tick (the critic) */
 body.staff6 .pr6-n { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--v6-wash); font: 700 var(--v6-t14)/1 var(--font); color: var(--v6-body); }
-body.staff6 .pr6-step.open .pr6-n { background: var(--v6-action-wash); color: var(--v6-action-press); }
+body.staff6 .pr6-step.open .pr6-n { background: var(--v6-action-wash); color: var(--v6-action); }
 body.staff6 .pr6-boxfoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8) var(--s16); margin: var(--s8) 0 0; }
 body.staff6 .pr6-boxfoot .pr6-said { margin: 0; flex: 1 1 160px; }
 body.staff6 .pr6-step > .pr6-closed { flex: none; }
@@ -702,6 +702,7 @@ body.staff6 .pr6-fold > summary { list-style: none; display: flex; align-items: 
 body.staff6 .pr6-fold > summary::-webkit-details-marker { display: none; }
 body.staff6 .pr6-foldt { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); font-size: var(--v6-t16); color: var(--v6-ink); }
 body.staff6 .pr6-foldt > .ic { width: 20px; height: 20px; color: var(--v6-muted); }
+body.staff6 .pr6-foldt b { font-weight: 500; }   /* a fold's summary, not a heading (spec 12.1: 600 for h2 only) */
 body.staff6 .pr6-fold > summary:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: var(--v6-r12); }
 /* the prep list and the board */
 body.staff6 .pr6-top { margin: var(--s24) 0 0; }
@@ -714,7 +715,7 @@ body.staff6 .pr6-tell p { margin: var(--s8) 0 var(--s12); font-size: var(--v6-t1
 body.staff6 .pr6-per { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin: var(--s24) 0 0; }
 body.staff6 .pr6-perl { margin-right: var(--s4); color: var(--v6-muted); }
 body.staff6 .pr6-whob { min-height: 40px; padding: 0 var(--s12); border: 0; border-radius: var(--v6-pill); background: var(--v6-wash); font: 400 var(--v6-t16)/1 var(--font); color: var(--v6-ink); cursor: pointer; }
-body.staff6 .pr6-whob[aria-pressed="true"] { background: var(--v6-action-wash); color: var(--v6-action-press); font-weight: 700; }
+body.staff6 .pr6-whob[aria-pressed="true"] { background: var(--v6-action-wash); color: var(--v6-action); font-weight: 700; }
 body.staff6 .pr6-whob:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 @media (pointer: coarse), (max-width: 767px) { body.staff6 .pr6-whob { min-height: 44px; } }
 body.staff6 .pr6-filters { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); margin: var(--s24) 0 var(--s16); font-size: var(--v6-t16); color: var(--v6-body); }
@@ -733,3 +734,11 @@ body.staff6:has(#toast .toastmsg) .pr6-foot.sticky { bottom: calc(var(--tabbar) 
 @media (max-width: 599px) { body.staff6 .is6-edit { display: none; } }
 body.staff6 .is6-page > .pf-cares { margin-top: var(--s32); }
 
+
+/* Staff v6 polish (R-336 spec 12.1, P-1): links read at 400, subheads and fold summaries at 500; 600 stays for h2 section
+   headings. A helper's own steps on the prep card say "Your part" in a quiet label (a status, never a button), and HIPHI's
+   stance reads as plain words for anyone who cannot change it. */
+body.staff6 .pr6-yourpart { display: inline-flex; align-items: center; margin-left: var(--s8); padding: 0 10px; border-radius: var(--v6-pill); background: var(--v6-action-wash);
+  font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-action); vertical-align: 1px; }
+body.staff6 .is6-stw { display: inline-flex; align-items: center; gap: 6px; color: var(--v6-ink); }
+body.staff6 .is6-stw .ic { width: 18px; height: 18px; color: var(--v6-muted); }

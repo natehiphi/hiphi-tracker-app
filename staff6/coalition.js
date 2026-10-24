@@ -62,6 +62,9 @@ export function weekOfBills(bills) {
   return [...by.values()].sort((x, y) => x.t - y.t);
 }
 export const weekOf = c => weekOfBills(billsOf(c));
+// The coming week's hearings on a coalition's monitored bills, soonest first (their times).
+const monitorWeek = c => { const now = Date.now(), ids = new Set(billsOf(c).filter(b => b.position === 'monitor').map(b => b.id));
+  return (S.hearings || []).filter(h => h.status !== 'cancelled' && ids.has(h.bill_id)).map(h => new Date(h.scheduled_at).getTime()).filter(t => t > now && t - now <= WEEK).sort((x, y) => x - y); };
 // Your help: 'all' (Kris), a list of ids (Saya: CTFH), or nothing yet.
 const pref = () => S.me?.prefs?.coalitions;
 export const supports = c => { const v = pref(); return v === 'all' || (Array.isArray(v) && v.includes(c.id)); };
@@ -142,7 +145,10 @@ export function helpLineHTML() {
   if (!S.me || pref() === 'all') return '';
   const l = (S.campaigns || []).filter(c => supports(c) && !ownsCoal(c)).sort(byOrder); if (!l.length) return '';
   if (l.length > 2) return `<p class="i6-line">${icon('users')}<span>You help on ${l.length} coalitions</span><a class="i6-inline" href="#/my-issues/coalitions">See them</a></p>`;
-  const one = c => `<a href="${esc(coalHref(c))}">${esc(c.name)}</a>${nw(esc(` · ${hearWords(weekOf(c).length)}`))}`;
+  // A monitored bill's hearing is said, not hidden behind "no hearings this week" (Julie: HIAPA's SB 3142 was heard Wed 3/18).
+  const one = c => { const n = weekOf(c).length, mon = n ? [] : monitorWeek(c);
+    const w = n ? hearWords(n) : mon.length ? `no hearings on bills we support or oppose · ${mon.length} on ${mon.length === 1 ? 'a bill' : 'bills'} we monitor, ${dayWords(mon[0])}` : hearWords(0);
+    return `<a href="${esc(coalHref(c))}">${esc(c.name)}</a>${nw(esc(` · ${w}`))}`; };
   return `<p class="i6-line">${icon('users')}<span>${l.length === 1 ? 'Your coalition' : 'Your coalitions'}: ${l.map(one).join('; ')}</span></p>`;
 }
 function indexHTML() {

@@ -70,8 +70,9 @@ export function emailDoor(target, { kind = 'secondary', sm = false, label = 'Ema
   if (mayEmail(target)) return btn(label, { kind, sm, icon: 'mail', href: '#/email/new?' + (bill ? `bill=${encodeURIComponent(bill.id)}` : list ? `list=${encodeURIComponent(list.id)}` : `segment=${encodeURIComponent(segment.id)}`) });
   const who = askWho(target), name = who ? first(who) : 'an admin';
   const words = say || (bill ? `could you email the followers of ${String(bill.bill_number || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2')}?` : '');
-  if (bill && who) return btn(`Ask ${name} to email followers`, { kind, sm, icon: 'mail', href: `${billRoute(bill, 'activity')}?mention=${encodeURIComponent(advocate(who)?.initials || '')}`,
-    attrs: { 'data-mailask': bill.id, 'data-say': words } });
+  // Below 360px "followers" drops from the label (it wrapped to two lines inside a 44px pill at 320); its name stays whole.
+  if (bill && who) return btn(`Ask ${esc(name)} to email<span class="ed-more"> followers</span>`, { kind, sm, icon: 'mail', href: `${billRoute(bill, 'activity')}?mention=${encodeURIComponent(advocate(who)?.initials || '')}`,
+    attrs: { 'data-mailask': bill.id, 'data-say': words, 'aria-label': `Ask ${name} to email followers` } });
   return `<span class="ot-whose">${icon('mail')}<span>${esc(name)} emails its followers</span></span>`;
 }
 // "Ask Kevin to email followers": the sentence goes into the bill's talk box as its draft before the page opens; the talk

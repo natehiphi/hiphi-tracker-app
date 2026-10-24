@@ -137,12 +137,9 @@ export function chairLine(b, l) {
     const by = s.decide ? `for decision making${s.day ? ` by ${s.day}` : ''}` : `by ${s.day}`;
     const ids = (S.assignments?.[b.id] || []).filter(id => (S.advocates || []).some(a => a.id === id && a.is_active !== false));
     line = ids.length ? `${cap(orWords(ids))} ${ids.length > 1 ? 'ask' : 'asks'} the chair ${by}` : `No one holds it · ask the chair ${by}`;
-  } else if (s.key === 'giving' && s.who !== me) {
-    // A handed-over ask names whose bill it is, so it reads differently from the owner's own ("Rick asks the chair by
-    // Tue 3/24"): askWords' "Kris is asking · by Mon 3/23" with "for Rick" (asked of steps.js too, so Hearings says it).
-    const owners = (S.assignments?.[b.id] || []).filter(id => id !== s.who && (S.advocates || []).some(a => a.id === id && a.is_active !== false));
-    if (owners.length) line = `${cap(firstWords(s.who))} is asking for ${orWords(owners, undefined, { and: true })}${s.aw && !s.aw.a.passed ? ` · by ${s.aw.day}` : ''}`;
   }
+  // A handed-over ask keeps askWords' one wording ("Kris asks the chair for Rick · by Mon 3/23"), as Hearings and the bill
+  // say it (spec 7.6: one wording per fact; a third one here read "Kris is asking for Rick").
   const own = ownAsk(b, s) && s.key !== 'passed';
   return { s, line, own, follow, waitingMine: s.key === 'waiting' && (s.asker === me || mine(b)), at: s.by ?? s.aw?.a?.at ?? Infinity };
 }
@@ -158,9 +155,11 @@ export function chairEmail(l, rows, { kind = 'secondary', sm = true } = {}) {
   const hear = list.filter(x => !x.s?.decide), use = hear.length ? hear : list.slice(0, 1);   // the decision-making email names one bill
   const m = chairMailFor(l, use.map(x => x.b), { followUp: !ask.some(x => use.includes(x)) });
   if (!m) return '';
-  const nums = use.map(x => numWords(x.b)), names = use.length > 2 ? `${use.length} bills` : andList(nums.map(n => n.replace(' ', '\u00a0')));   // "HB 756" never breaks
-  const label = ask.some(x => use.includes(x)) ? `Email about ${names}` : `Email again about ${names}`;
-  return btn(label, { kind, sm, icon: 'mail', href: m.href, attrs: { 'aria-label': `${label}, to ${chairWho(l)}${use.length > 2 ? `: ${andList(nums)}` : ''}` } });
+  const nums = use.map(x => numWords(x.b));
+  // One name per act (spec 8): "Email the chair" and "Follow up", as Get hearings says them; the bills are in the label for
+  // screen readers and in the rows under it.
+  const fresh = ask.some(x => use.includes(x)), label = fresh ? 'Email the chair' : 'Follow up';
+  return btn(label, { kind, sm, icon: fresh ? 'mail' : 'clock', href: m.href, attrs: { 'aria-label': `${fresh ? `Email the chair, ${chairWho(l)},` : `Follow up with ${chairWho(l)}`} about ${andList(nums)}` } });
 }
 // "They replied" for one chair: the chair's answer, saved for that chair only (V24; chairask.js's answerSheet saves it
 // for every chair of the committee). One document listener, so any screen that draws the button wires nothing.

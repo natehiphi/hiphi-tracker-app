@@ -115,7 +115,6 @@ export default {
     </div>`;
   },
   wire(route, root) {
-    markNewStep({ settings: 1 });   // kept in their settings, so it follows them to the phone (R-316 W7)
     // Read every visible control plus the hidden values, and save the whole prefs object (as v5 did).
     const collect = () => {
       const { me, prefs, r, w } = current();
@@ -126,7 +125,9 @@ export default {
     };
     const save = async (slack_dm, prefs, msg = 'Saved.') => {
       const before = { slack_dm: S.me.slack_dm, prefs: S.me.prefs };
-      try { await DB.saveMyPrefs({ slack_dm, prefs }); toast(msg, { ok: true }); }
+      // Getting started's settings step ticks when a setting is saved, not from opening this page (kept in their settings,
+      // so it follows them to the phone, R-316 W7).
+      try { await DB.saveMyPrefs({ slack_dm, prefs }); toast(msg, { ok: true }); markNewStep({ settings: 1 }); }
       catch (e) { Object.assign(S.me, before); toast(e, { err: true }); }
       const y = window.scrollY, id = document.activeElement?.id; hooks.render(); window.scrollTo(0, y); if (id) document.getElementById(id)?.focus({ preventScroll: true });
     };

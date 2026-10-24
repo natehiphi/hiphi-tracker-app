@@ -119,7 +119,11 @@ function sampleSources(rows) {
 async function load(weeks, { force = false } = {}) {
   const v = V(), have = v.cache[weeks];
   if (v.loading === weeks || (!force && have && Date.now() - have.at < 5 * 60e3)) return;
-  if (DEMO) { const rows = sampleRows(+weeks); v.cache[weeks] = { rows, srcs: sampleSources(rows), back: sampleBack(+weeks), sugg: sampleSugg(+weeks), text: sampleText(), asks: sampleAsks(+weeks), at: Date.now() }; v.from = await DB.countsFrom(); return; }
+  if (DEMO) { const rows = sampleRows(+weeks); v.cache[weeks] = { rows, srcs: sampleSources(rows), back: sampleBack(+weeks), sugg: sampleSugg(+weeks), text: sampleText(), asks: sampleAsks(+weeks), at: Date.now() };
+    // The practice copy's clock is last March, so a counting day after it (the live tracker's Oct 1) would say its own sample
+    // numbers are not counted: it counts from the practice data's first day instead, unless a day before the clock was set.
+    const f = await DB.countsFrom(), today = new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }), first = rows.map(r => r.week).sort()[0];
+    v.from = !f || String(f).slice(0, 10) > today ? first || f : f; return; }
   v.loading = weeks; v.err = '';
   // Coming back (078) is its own call: if it fails, the first-visit numbers still show and that section says nothing.
   try { const [rows, srcs, back, from, sugg, text, asks] = await Promise.all([DB.firstVisitFunnel(+weeks), DB.firstVisitSources(+weeks), DB.visitCountsWeekly(+weeks).catch(() => null), DB.countsFrom().catch(() => v.from), DB.suggestSummary(+weeks).catch(() => null), DB.textSignupCounts(Math.max(30, +weeks * 7)).catch(() => null), DB.laterAsksWeekly(+weeks).catch(() => null)]); v.cache[weeks] = { rows: rows || [], srcs: srcs || [], back, sugg, text, asks, at: Date.now() }; v.from = from; }
@@ -366,7 +370,7 @@ function numbersHTML() {
     return `<div class="fv-loading" aria-busy="true" aria-label="Loading the numbers">${skeleton(3)}</div>`;
   }
   const rows = have.rows, shared = rows.filter(r => r.path === 'link').reduce((n, r) => n + (r.visits || 0), 0);
-  const sample = DEMO ? notice('info', 'info', '<b>Sample numbers.</b> The sandbox has no real visits.') : '';
+  const sample = DEMO ? notice('info', 'info', '<b>Sample numbers.</b> The practice copy has no real visits.') : '';
   if (!rows.length) return `${sample}${fromLine()}<div class="le-empty">${empty({ h: 'h2', title: 'No first visits counted yet', text: `Numbers appear here as newcomers walk through the first visit on the public page. Nothing is counted from the sandbox, or from a browser that asks not to be tracked.` })}</div>${backHTML(have.back)}${asksHTML(have.asks)}`;
   // Where they came from comes second: it is half of what this screen is for (B-1), and Make a link sends people here.
   return `${sample}${fromLine()}${tilesHTML(total(rows), shared)}${sourcesHTML(have.srcs || [])}${funnelsHTML(rows)}${weeksHTML(rows)}${backHTML(have.back)}${asksHTML(have.asks)}${textHTML(have.text)}${suggHTML(have.sugg)}${variantsHTML()}

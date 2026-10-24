@@ -4,20 +4,23 @@
 // names (Today, Hearings, Testimony, Outreach, Bills, Legislators, My issues, Inbox, More tools, You, the lead tools), and
 // tests/staff6_words.py checks that every place Help names is in the app's navigation. Facts that change are read from the
 // data, never typed in: who approves (the admin and approver flags), the deadlines (the session calendar), the coalitions
-// and the committees. Every Help page ends with "Still stuck? Ask Nate in Slack", a DM to Nate (Nate 10/22), and a search
-// that finds nothing offers it with the words ready to paste; #/help/ask is the same, for the palette.
+// and the committees. Ask Nate in Slack (a DM to Nate, Nate 10/22) sits near the top of Help and at the foot of every guide,
+// with Copy my question always beside it; #/help/ask is the same, for the palette.
 // From 1100px Help is two columns: the search and the guides stay in view on the left and the guide reads on the right;
 // narrower, Help is a list of guides and each opens as its own page with Back.
-// Getting started (V29) lives here too (Today shows the same steps at its top): the steps fit the season (between sessions:
-// settings, your bills, your 2027 issues, practice a March day; in session: settings, hearings, your testimony job, a
-// chair ask, a bill) and each ticks from what the person has done (sent testimony, approved, asked a chair), not from what
-// is on screen now, so Patti's step stays ticked after she resubmits (X25).
+// Getting started (V29) lives here: newSteps() is the one list, and Today shows its first three still to do. The steps fit
+// the season (between sessions: settings, your 2027 issues, your bills, practice a March day; in session: settings, the
+// person's job by role, this week's hearings, a chair ask for owners, a bill) and each ticks from what the person has done
+// (sent testimony, approved, asked a chair, saved a setting), not from what is on screen now, so Patti's step stays ticked
+// after she resubmits (X25). Look-only steps tick from the frame's 'v6:route' event.
 import { S, DB, DEMO, APP_URL, STAGES, SESSION_OVER, esc, isMine, DEADLINE_ROWS } from './data.js';
-import { glossStage, legislativeDay, PUBLIC_APP, plain, sessionGates, deadlineCalendar, gateGloss, legNotesAll } from './model.js';
+import { glossStage, legislativeDay, PUBLIC_APP, plain, sessionGates, deadlineCalendar, gateGloss, legNotesAll, billById } from './model.js';
 import { icon, btn, switchRow, toast, keysOn, setKeys } from './ui.js';
 import { WORDS, allWords, HOW_TO } from './terms.js';
-import { itemRow } from './steps.js';
-import { prepTaskOf } from './prep.js';
+import { admitsPartners } from './partnerq.js';
+import { itemRow, whoseStep } from './steps.js';
+import { prepTaskOf, issueHref } from './prep.js';
+import { isRallier } from './asks.js';
 export { HOW_TO };
 
 const DESK = () => { try { return matchMedia('(min-width: 1100px)').matches; } catch { return false; } };
@@ -46,7 +49,7 @@ const STAGE_EXTRA = { vetoed: 'Vetoed by the Governor. The Legislature can overr
 // ---- the guides. Each is { id, title, also? (more words search finds it by), icon, sub(), items() -> [[term, html]] or html() } ----
 const TOPICS = [
   { id: 'new', title: 'Getting started', also: 'new here start first day', icon: 'compass', sub: () => { const st = newSteps(), n = st.filter(s => s.done).length; return `${n} of ${st.length} done`; }, html: () => newHTML() },
-  { id: 'moved', title: 'What moved', also: 'v5 moved where is old app changed new places', icon: 'route', sub: () => 'Each v5 place and button, and where it is now', html: () => movedHTML() },
+  { id: 'moved', title: 'What moved', also: 'v5 moved where is old app changed new places', icon: 'route', sub: () => 'The changes everyone meets first, then each v5 place', html: route => movedHTML(route) },
   { id: 'words', title: 'Capitol words', icon: 'book-open', sub: () => `Lateral, decking, sine die and ${allWords().length - 3} more`, items: () => allWords().map(([t, d]) => [t, esc(d)]) },
   { id: 'coalitions', title: 'Coalitions', also: 'coalition short names groups', icon: 'users', sub: () => `What ${(S.campaigns || []).slice(0, 2).map(c => c.name).join(', ') || 'each short name'} and the rest stand for`, items: () => coalitionItems() },
   { id: 'stages', title: 'Stages and deadlines', icon: 'calendar-days', sub: () => { const ld = legislativeDay(); return ld ? ld.text : 'Where a bill can be, and the date it races'; },
@@ -82,7 +85,7 @@ const TOPICS = [
   { id: 'howto', title: 'How do I…', also: 'how to tasks everyday', icon: 'circle-help', sub: () => 'Everyday tasks, one line each',
     items: () => [['Step by step', 'For the bigger jobs: <a href="#/help/hearing">Getting a bill a hearing</a> · <a href="#/help/talk">Logging a talk with a legislator</a> · <a href="#/help/file">How to file at the Capitol</a> · <a href="#/help/changes">When the Capitol changes the plan</a> · <a href="#/help/versions">House and Senate versions</a> · <a href="#/help/moments">What to do at each moment</a> · <a href="#/help/calendar">Session calendar</a>.'],
       ['Approve or send back testimony', 'Testimony, then <b>To approve</b>: open it, read it in its Doc, then press <b>Approve</b>, or <b>Send back</b> with a note. Review shows one draft at a time and goes on to the next.'],
-      ['File testimony', 'Testimony, then <b>Ready to file</b>: the filing card has the PDF, the Capitol page for the hearing and the form’s answers to copy, then <b>Mark filed</b>. Steps: <a href="#/help/file">How to file at the Capitol</a>.'],
+      ['File testimony', 'Testimony, then <a href="#/testimony?view=file">Ready to file</a>: the filing card has the PDF, the Capitol page for the hearing and the form’s answers to copy, then <b>Mark filed</b>. Steps: <a href="#/help/file">How to file at the Capitol</a>.'],
       ['Revise testimony that was sent back', 'Testimony, then <b>Sent back</b>: the note, the Doc, and <b>Resubmit</b> once it is fixed.'],
       ['Log a call or meeting with a legislator', 'Open the legislator’s page (Legislators, or a name on a bill’s Committees) and press <b>Log a talk</b>. A bill’s Team talk can log one too. Steps: <a href="#/help/talk">Logging a talk with a legislator</a>.'],
       ['Say I’m going to a hearing', 'Press <b>I’m going</b> on the hearing’s card: on Hearings, the hearing’s page or the bill’s page. It can be undone for 10 seconds.'],
@@ -97,7 +100,7 @@ const TOPICS = [
     items: () => [['1. When', 'As soon as the bill is referred, and before its notice-by date. A committee must post a hearing 48 hours ahead (72 for a bill’s first Senate committee), so the chair has to say yes before then. <b>Get hearings</b> lists each bill still waiting with the day its notice must post by, soonest first; the bill’s page says it too.'],
       ['2. Whom', 'The chair of the committee the bill is in now: Get hearings groups the bills by that chair. A joint referral (two committees named together) has two chairs; ask both. The bill’s introducers can ask too: its Committees mark the members who introduced it or its companion. The money committees (Finance in the House, Ways and Means in the Senate) hear bills late, so ask their chairs early.'],
       ['3. How', 'On Hearings, then <b>Get hearings</b>, press <b>Email the chair</b>: one email asks about all of that chair’s bills. It is written for you and opens in your own mail: read it, then send it. To hand the ask to a teammate, press <b>Give this ask to…</b>; it becomes a row on their Today.'],
-      ['4. Record it', 'Back in the tracker, answer <b>Did you send it?</b> The bill then says “Asked by Kevin Mon 3/16 · no reply yet” for the whole team, so nobody asks twice. Asked by phone or in person? Press <b>Log it</b> under that chair on Get hearings, or log the talk on the chair’s page with “This was an ask for a hearing” ticked (<a href="#/help/talk">Logging a talk with a legislator</a>).'],
+      ['4. Record it', 'Back in the tracker, answer <b>Did you send it?</b> The bill then says “Asked by Kevin Mon 3/16 · no reply yet” for the whole team, so nobody asks twice. Asked by phone or in person? Press <b>Log a talk</b> under that chair on Get hearings, or log the talk on the chair’s page with “This was an ask for a hearing” ticked (<a href="#/help/talk">Logging a talk with a legislator</a>).'],
       ['5. The reply', 'When the chair answers, press <b>They replied</b> on Get hearings or on the bill: Will schedule, Said no (which offers next steps) or Left a message. With no reply after 3 working days, your Today offers a follow-up. When the hearing posts, the bill says Scheduled: a good moment to say mahalo.'],
       ['Too late?', 'Once the notice time for the last regular slot has passed, the bill says so. Call the chair’s office: only the chair can still help.'],
       ['Bills HIPHI opposes', 'They get no hearing ask anywhere in the tracker: HIPHI never asks a chair to hear a bill it opposes.']] },
@@ -159,15 +162,16 @@ const TOPICS = [
   { id: 'where', title: 'Drive, Slack and the calendar', also: 'drive slack calendar youtube questions ask nate', icon: 'map-pin', sub: () => 'Where drafts, alerts, hearings and video are kept, outside the app',
     items: () => [['Drafts', 'Google Drive, in Testimony, then the year, the coalition and the bill.'], ['Alerts', `Slack ${esc((S.slackCfg || {}).main_channel || '#hearing-alerts')} and each coalition’s channel. Your own steps come as DMs or email (<a href="#/me">My settings</a>).`],
       ['Calendar', 'The HIPHI Hearings Google Calendar.'], ['Video', 'The Senate and House YouTube channels.'],
-      ['Questions', 'Search Help first, or open <a href="#/help/howto">How do I…</a>. Still stuck? <a href="#/help/ask">Ask Nate in Slack</a>: the foot of every Help page has it, and a search that finds nothing offers it with your words ready to paste.']] },
+      ['Questions', 'Search Help first, or open <a href="#/help/howto">How do I…</a> (everyday tasks, one line each). Still stuck? <a href="#/help/ask">Ask Nate in Slack</a>: it is at the top of Help and at the foot of every guide, and Copy my question copies what you typed in the search.']] },
   // Ask Nate in Slack (Nate 10/22: "just a dm to me"): the palette's "Ask Nate in Slack" opens this page, and every Help page
   // ends with the same line. Not listed among the guides.
   { id: 'ask', title: 'Ask Nate in Slack', also: 'ask nate question stuck slack dm', icon: 'message-circle', hidden: true, sub: () => 'A direct message to Nate, for anything Help does not answer',
-    html: () => `<p class="hp-p">Most answers are in a guide: search Help first (the box ${DESK() ? 'on the left' : 'above'}), or open <a href="#/help/howto">How do I…</a>.</p>${askSlack('', { big: true })}` },
+    html: () => `<p class="hp-p">Most answers are in a guide: search Help first (the box ${DESK() ? 'on the left' : 'above'}), or open <a href="#/help/howto">How do I…</a> (everyday tasks, one line each).</p>${askSlack('', { big: true })}` },
   // R-277 fix 9: the steps nobody could find. The Capitol's own words, for HIPHI filing as an organization; the filing card
   // (Testimony, Ready to file) puts each one in order with its answers to copy (V25).
   { id: 'file', title: 'How to file at the Capitol', also: 'file filing submit testimony capitol website form', icon: 'landmark', sub: () => 'The filing card, the Capitol form, then Mark filed',
-    items: () => [['1. Open the filing card', 'Testimony, then <b>Ready to file</b> (or the row on your Today): the card holds everything below, in order.'],
+    cta: ['Open Ready to file', '#/testimony?view=file'],
+    items: () => [['1. Open the filing card', 'Testimony, then <a href="#/testimony?view=file">Ready to file</a> (or the row on your Today): the filing card there holds everything below, in order.'],
       ['2. Save it as a PDF', 'The card opens the approved Google Doc: File, Download, PDF.'],
       ['3. Open the hearing at the Capitol', 'The card’s File at the Capitol opens the hearing on the Capitol website. Log in (an account is free; they email a link to confirm; it logs you out after 60 minutes), choose Submit Testimony and pick the hearing.'],
       ['4. Fill in the form', 'The card shows each answer with a Copy button: your position (Support, Oppose or Comments), Organization, and the name it is signed with: HIPHI, or the coalition when the letter speaks for it (74 of 233 filings in 2026 went in a coalition’s name). In person if someone is going, otherwise Remote or Written testimony only. Upload the PDF and submit.'],
@@ -250,16 +254,18 @@ function momentItems() {
 // One line each, grouped by where it was in v5, with a link to where it is now. The words name the v5 thing plainly and
 // the v6 place by its label in the sidebar, the page tabs or More tools.
 const go = (label, href) => `<a href="${esc(href)}">${esc(label)}</a>`;
-const MOVED = () => [
+// A row's third element, when there is one, says who has that place (admins, leads, approvers, partner approvers): a row
+// about a place the viewer's role does not have is left out (spec 0: less on every screen).
+const MOVED_ALL = () => [
   ['Today', [
     ['Today’s This week switch', `${go('Hearings', '#/hearings')}, under This week: every sitting, day by day, with I’m going on each card.`],
     ['The deadline box (bills that still need a hearing)', `${go('Get hearings', '#/hearings/ask')}, on Hearings: one board, grouped by chair, soonest notice first.`],
-    ['Mark asked', `${go('Get hearings', '#/hearings/ask')}: after you press <b>Email the chair</b>, it asks <b>Did you send it?</b> Asked by phone or in person? Press <b>Log it</b> beside “Asked by phone or in person?”, on the same board.`],
+    ['Mark asked', `${go('Get hearings', '#/hearings/ask')}: after you press <b>Email the chair</b>, it asks <b>Did you send it?</b> Asked by phone or in person? Press <b>Log a talk</b> beside that chair, on the same board.`],
     ['The asked chip, to record what the chair said', `${go('Get hearings', '#/hearings/ask')}: <b>They replied</b>, on the ask that waits for a reply. Legislators’ Who to ask shows the same board.`],
     ['Give to… and I’ll ask, on a chair ask', `${go('Get hearings', '#/hearings/ask')}: <b>Give this ask to…</b> and <b>I’ll ask</b> beside each chair. Whoever takes it gets a row on Today.`],
     ['Also worth doing (suggestions)', `${go('Hearings', '#/hearings')}, at the foot of This week. Never counted, as before.`],
     ['The Mine and Team switch, and the person picker', `${isLeadish() ? `${go('Team', '#/team')} in the sidebar (leads), and ` : ''}${go('More tools', '#/tools')}, then See a teammate’s list, to read anyone’s list.`],
-    ['Slipping', isLeadish() ? `${go('Team', '#/team')}, first on the page. Today keeps one line, “7 slipping · Open Team”.` : 'Team, a lead tool for admins and second approvers.'],
+    ['Slipping', `${go('Team', '#/team')}, first on the page. Today keeps one line, “7 slipping · Open Team”.`, isLeadish],
     ['Your coalition’s week (for helpers): I’ll ask, Message Lauren', `One line on Today, “Lauren has 5 hearing asks this week · Offer to help”. It opens ${go('Get hearings', '#/hearings/ask?scope=coal')} for your coalitions.`],
     ['A coalition’s late or due cards (for helpers)', `Your own rows on Today, and ${go('Testimony', '#/testimony?view=write')} under To write.`],
     ['Messages from teammates, and the tracker’s notes', `${go('Inbox', '#/inbox')}, under Messages. A question to you that is not answered yet stays a row on Today.`],
@@ -272,7 +278,7 @@ const MOVED = () => [
     ['The legislative day, on Today’s date line', `${go('Session calendar', '#/help/calendar')}, in Help and in More tools.`],
     ['Getting started (New here?)', `The top of Today for someone new, and ${go('More tools', '#/tools')}, then Getting started.`]]],
   ['Testimony', [
-    ['Review, from Today’s approval card', `${go('Testimony', '#/testimony?view=approve')}, under To approve, opens Review: one draft at a time, as before. A note in the Inbox opens it too.`],
+    ['Review, from Today’s approval card', `${go('Testimony', '#/testimony?view=approve')}, under To approve, opens Review: one draft at a time, as before. A note in the Inbox opens it too.`, approves],
     ['Drafts sent back, and Resubmit', `${go('Testimony', '#/testimony?view=sent')}, under Sent back, with the note, the Doc and <b>Resubmit</b>. The writer’s Today has the row too.`],
     ['The Mark filed sheet', `${go('Testimony', '#/testimony?view=file')}, under Ready to file: the filing card, with the PDF, the Capitol page and the form’s answers to copy.`],
     ['Withdraw from review, in the bill’s hearing menu', `${go('Testimony', '#/testimony?view=approve')}, under To approve: open your draft that is with an approver, then <b>Withdraw from review</b>. The Undo right after Send for approval does it too.`],
@@ -292,7 +298,7 @@ const MOVED = () => [
     ['Committees, sponsors, coalitions and codes on Overview', 'About this bill and Committees, two labelled doors on the bill’s page.'],
     ['Our 2026 goal, under a bill’s heading', 'About this bill, on the bill’s page.'],
     ['Follow, in the bill’s menu', 'A <b>Follow</b> button in the bill’s header.'],
-    ['Correct the stage, in the bill’s menu (admins)', 'About this bill, on the bill’s page: <b>Correct the stage</b>.'],
+    ['Correct the stage, in the bill’s menu (admins)', 'About this bill, on the bill’s page: <b>Correct the stage</b>.', isAdmin],
     ['Mute, for a bill waiting for a hearing', 'Still in the bill’s menu (the three dots), where it reads <b>Not pushing this bill</b>. Unmute is on Bills’ Muted tab.'],
     ['The bill’s hearing menu: Watch, I’m going, Send a teammate, Fix the video link', '<b>Watch</b> and <b>I’m going</b> are on the hearing’s card; <b>Send a teammate…</b> and <b>Fix the video link</b> are on the hearing’s own page.'],
     ['The share kit, on a bill’s Public tab and on a hearing’s page', `${go('Outreach', '#/outreach')}, under This week’s asks: one card per bill with Copy link, Copy message, Copy post and Email followers. The bill and the hearing link to it.`],
@@ -306,33 +312,46 @@ const MOVED = () => [
   ['Outreach and My issues', [
     ['Outreach’s issues, first visit numbers and QR code', `${go('My issues', '#/my-issues/all')}, under All issues; ${go('More tools', '#/tools')} has First visit numbers and Make a link or QR code.`],
     ['Your issues for 2027 (the prep list)', `${go('My issues', '#/my-issues')} itself, between sessions.`],
-    ['The Prep board, in All issues’ menu (admins)', `${go('All issues', '#/my-issues/all?view=prep')}, its own switch beside the list (between sessions, or while something waits for you).`],
+    ['The Prep board, in All issues’ menu (admins)', `${go('All issues', '#/my-issues/all?view=prep')}, its own switch beside the list (between sessions, or while something waits for you).`, isAdmin],
     ['Coalitions (its own page)', `${go('My issues', '#/my-issues/coalitions')}, under Coalitions.`],
     ['Supporters’ menu: Save as segment, Email this segment', `${go('Outreach', '#/outreach/supporters')}, under Supporters: filter, then <b>Save as a group</b> or <b>Email these people</b> in the results bar. Segments are called groups now.`],
     ['Supporters’ menu: Select people, Import CSV, Export', '<b>Select</b> beside Add a person; <b>Import CSV</b> and <b>Export</b> at the foot of Supporters (admins).']]],
   ['Lead tools', [
-    ['Session setup’s people (Team)', S.me?.is_admin ? `${go('People', '#/people')}, a lead tool: each person’s roles, sign-in, and hand over and turn off.` : 'People, a lead tool for admins.'],
-    ['Partners’ menu: Invite a group, Make a link only', 'Buttons at the top of Partners.'],
-    ['Partners’ menu: Partner approvers', S.me?.is_admin ? `${go('People', '#/people')}: each person’s record, under Roles.` : 'People (admins): each person’s record, under Roles.'],
-    ['Session setup: Email, Hearing alerts, Message wording', 'Session setup, its Email and Slack tab: every Slack and email setting on one page, with the switch for email to the public.'],
-    ['Session setup: Coalitions, Session days and sync, Import, Committee map', 'Session setup, its Before each session tab.'],
-    ['Session setup: Connections, Keys', 'Session setup, its Connections tab (the keys under Technical details).'],
-    ['Session setup: Website embed, Tests, Tester sheet', 'Session setup, its Public page tab.'],
-    ['Session setup: People’s lists, Privacy and keeping', 'Session setup, its Privacy tab, with Forget a person.'],
-    ['Session setup’s Advanced', 'Gone: each of its parts is in one of the tabs above. Search finds each part by name.']]],
+    ['Session setup’s people (Team)', `${go('People', '#/people')}, a lead tool: each person’s roles, sign-in, and hand over and turn off.`, isAdmin],
+    ['Partners’ menu: Invite a group, Make a link only', 'Buttons at the top of Partners.', admitsPartners],
+    ['Partners’ menu: Partner approvers', `${go('People', '#/people')}: each person’s record, under Roles.`, isAdmin],
+    ['Session setup: Email, Hearing alerts, Message wording', 'Session setup, its Email and Slack tab: every Slack and email setting on one page, with the switch for email to the public.', isAdmin],
+    ['Session setup: Coalitions, Session days and sync, Import, Committee map', 'Session setup, its Before each session tab.', isAdmin],
+    ['Session setup: Connections, Keys', 'Session setup, its Connections tab (the keys under Technical details).', isAdmin],
+    ['Session setup: Website embed, Tests, Tester sheet', 'Session setup, its Public page tab.', isAdmin],
+    ['Session setup: People’s lists, Privacy and keeping', 'Session setup, its Privacy tab, with Forget a person.', isAdmin],
+    ['Session setup’s Advanced', 'Gone: each of its parts is in one of the tabs above. Search finds each part by name.', isAdmin]]],
   ['Around the app', [
     ['Your initials menu, top right', 'You, at the foot of the sidebar: My settings, Refresh and Sign out. On a phone, the last rows of More.'],
     ['Practice as someone else, Start the practice over', 'You, at the foot of the sidebar, on the practice copy.'],
     ['The Inbox, in that menu', `${go('Inbox', '#/inbox')}, in the sidebar with its count; on a phone, the bell at the top.`],
-    ['Help, My settings and Session setup at the sidebar’s foot', 'Help in the sidebar; My settings under You; Session setup under Lead tools (admins).'],
+    ['Help, My settings and Session setup at the sidebar’s foot', `Help in the sidebar; My settings under You${S.me?.is_admin ? '; Session setup under Lead tools' : ''}.`],
     ['The phone’s bar: Today, My issues, Bills, Legislators, Outreach', 'Today, Hearings, Testimony, Bills and More, where every other place is listed.'],
-    ['Open the current app, and version links', 'More tools, under Compare versions (admins).'],
+    ['Open the current app, and version links', 'More tools, under Compare versions (admins).', isAdmin],
     ['The search box', 'The same box, which now also finds places, setup parts and things to do. Cmd or Ctrl and K puts the cursor in it.'],
     ['Keyboard shortcuts', `All of v5’s, plus g h for Hearings, g w for Testimony and Cmd or Ctrl and K for search: ${go('Keyboard shortcuts', '#/help/keys')}.`]]],
 ];
 const isLeadish = () => !!S.me && (S.me.is_admin || S.me.is_reviewer);
-const movedHTML = () => `<p class="hp-p">v6 keeps everything v5 did, with fewer things on each screen. Each line is a v5 place or button, then where it is now.</p>
-  ${MOVED().map(([h, rows], k) => `<section class="hp-msec" aria-labelledby="hp-mv${k}"><h3 class="hp-h3" id="hp-mv${k}">${esc(h)}</h3>${dl(rows.map(([a, b]) => [esc(a), b]), '', 'hp-moved')}</section>`).join('')}`;
+const isAdmin = () => !!S.me?.is_admin;
+const approves = () => !!S.me && (S.me.is_admin || S.me.can_approve || S.me.is_reviewer);
+const MOVED = () => MOVED_ALL().map(([h, rows]) => [h, rows.filter(r => !r[2] || r[2]())]).filter(([, rows]) => rows.length);
+// What moved opens with the changes everyone meets (Julie read 70 rows over 11 phone screens); the rest wait in one fold per
+// v5 place. A search hit on a folded row opens with its fold open and the row marked (?w=, as Capitol words do).
+const TOP_MOVED = ['Today’s This week switch', 'The deadline box (bills that still need a hearing)', 'The Mine and Team switch, and the person picker',
+  'What changed since yesterday', 'Messages from teammates, and the tracker’s notes', 'Getting started (New here?)', 'A row’s menu (the three dots)'];
+const movedHTML = (route = {}) => { const groups = MOVED(), all = groups.flatMap(([, rows]) => rows), mark = markOf(route), lc = s => String(s || '').toLowerCase();
+  const top = TOP_MOVED.map(l => all.find(r => r[0] === l)).filter(Boolean), rows = rs => dl(rs.map(([a, b]) => [esc(a), b]), mark, 'hp-moved');
+  return `<p class="hp-p">v6 keeps everything v5 did, with fewer things on each screen.</p>
+  <section class="hp-msec" aria-labelledby="hp-mvtop"><h3 class="hp-h3" id="hp-mvtop">What everyone meets</h3>${rows(top)}</section>
+  <section class="hp-msec" aria-labelledby="hp-mvrest"><h3 class="hp-h3" id="hp-mvrest">Everything else, by where it was in v5</h3>
+  ${groups.map(([h, rs]) => { const rest = rs.filter(r => !TOP_MOVED.includes(r[0])); if (!rest.length) return '';
+    const open = mark && rest.some(r => lc(r[0]) === lc(mark)) ? ' open' : '';
+    return `<details class="hp-mfold"${open}><summary>${icon('chevron-right', { cls: 'hp-chev' })}<span>${esc(h)}</span><span class="hp-mn">${rest.length}</span></summary>${rows(rest)}</details>`; }).join('')}</section>`; };
 
 const topic = id => TOPICS.find(t => t.id === id && (!t.gate || t.gate()));
 // Someone who has not done Getting started's steps meets it first; everyone else lands on How do I….
@@ -340,7 +359,7 @@ const isNew = () => newSteps().some(x => !x.done);
 const homeTopic = () => topic(isNew() ? 'new' : HOW_TO() ? 'howto' : 'words');
 const visible = () => TOPICS.filter(t => !t.hidden && (!t.hover || HOVER()) && (!t.gate || t.gate()));
 
-// ---- Getting started (V29): the season's job, ticked from what the person has done ----
+// ---- Getting started (V29): the one list (Today draws its first three still to do from it), by season and by role ----
 const coalIds = me => { const c = me?.prefs?.coalitions; return c === 'all' ? null : new Set(Array.isArray(c) ? c : []); };
 const coalWord = me => { const c = me?.prefs?.coalitions;
   if (c === 'all') return 'your coalitions’';
@@ -348,45 +367,65 @@ const coalWord = me => { const c = me?.prefs?.coalitions;
   return ns.length === 1 ? `${ns[0]}’s` : ns.length ? 'your coalitions’' : ''; };
 const firstBillHref = me => { const ids = coalIds(me), b = S.bills.find(x => (S.assignments[x.id] || []).includes(me.id)) || S.bills.find(x => x.position && x.position !== 'monitor' && (!ids || (S.billCampaigns?.[x.id] || []).some(c => ids.has(c))));
   return b ? `#/bill/${encodeURIComponent(b.bill_number)}` : '#/bills'; };
-// The testimony job by role, ticked from the drafts' record (approved_by, second_approved_by, submitted_by), which keeps
-// what each person did after the draft moves on: an approver approves; a second approver gives the second look; an owner
-// or a coalition's writer sends testimony for approval (Resubmit counts).
-function testimonyStep(me, ownsNone) {
+// The person's testimony job, by role (spec 7.6: one wording per act, the same on Today and here). Each ticks from the
+// drafts' record (approved_by, second_approved_by, submitted_by), which keeps what each person did after the draft moves
+// on, so Patti's step stays ticked after she resubmits (X25):
+//   approvers (and admins, and a second approver who owns no bill): Approve a testimony draft;
+//   ralliers who own no bill (Saya): Write a public ask, then Copy this week's newsletter (asks.js ticks both);
+//   writers (an owner, or a coalition's helper with a draft to write or one sent before): Send a testimony draft for approval;
+//   helpers with nothing to write (Julie): Offer to help with a chair ask (never "Send a draft" leading to "Nothing for you
+//   to write right now").
+const ASK_TODO = /^Ask .+ for a hearing/;
+const askedChair = me => legNotesAll().some(n => n.advocate_id === me.id && (n.answer || /^Asked for a hearing/.test(n.body || '')));
+function jobSteps(me, ownsNone, o) {
   const drafts = Object.values(S.drafts || {}).flat();
-  if (me.can_approve || (me.is_admin && ownsNone)) return { k: 'job', done: drafts.some(d => d.approved_by === me.id || d.second_approved_by === me.id), title: 'Approve a testimony draft', sub: 'Testimony, then To approve: Approve, or Send back with a note', href: '#/testimony?view=approve' };
-  if (me.is_reviewer && ownsNone) return { k: 'job', done: drafts.some(d => d.second_approved_by === me.id || d.approved_by === me.id), title: 'Give a second look to a first testimony', sub: 'Testimony, then To approve', href: '#/testimony?view=approve' };
-  const co = ownsNone ? coalWord(me) : '';
-  return { k: 'job', done: drafts.some(d => d.submitted_by === me.id), title: co ? `Write ${co} testimony and send it for approval` : 'Send a testimony draft for approval',
-    sub: 'Testimony, then To write: the Doc, then Send for approval (or Resubmit)', href: '#/testimony?view=write' };
+  if (me.can_approve || me.is_admin || (me.is_reviewer && ownsNone))
+    return [{ k: 'job', done: drafts.some(d => d.approved_by === me.id || d.second_approved_by === me.id), title: 'Approve a testimony draft', sub: 'Testimony, then To approve: Approve, or Send back with a note', href: '#/testimony?view=approve' }];
+  if (ownsNone && isRallier(me))
+    return [{ k: 'publicask', done: !!o.publicask, title: 'Write a public ask', sub: 'Outreach, This week’s asks: what people should do, and by when', href: '#/outreach' },
+      { k: 'newsletter', done: !!o.newsletter, title: 'Copy this week’s newsletter', sub: 'Outreach: Copy all for the newsletter, then paste it', href: '#/outreach' }];
+  const writes = !ownsNone || drafts.some(d => d.submitted_by === me.id) || drafts.some(d => { const b = billById(d.bill_id); if (!b) return false;
+    try { const w = whoseStep(d, b, { viewer: me }); return w.role === 'write' && w.you; } catch { return false; } });
+  if (writes) return [{ k: 'job', done: drafts.some(d => d.submitted_by === me.id), title: 'Send a testimony draft for approval', sub: 'Testimony, then To write: the Doc, then Send for approval (or Resubmit)', href: '#/testimony?view=write' }];
+  const took = Object.values(S.todos || {}).flat().some(t => t && t.assignee_id === me.id && ASK_TODO.test(t.title || ''));
+  return [{ k: 'offer', done: took || askedChair(me), title: 'Offer to help with a chair ask', sub: 'Hearings, then Get hearings: I’ll ask beside a chair', href: '#/hearings/ask?scope=coal' }];
 }
 function newSteps() {
   const o = frGet(), me = S.me; if (!me) return [];
   const ownsNone = !S.bills.some(b => (S.assignments[b.id] || []).includes(me.id)), co = ownsNone ? coalWord(me) : '';
-  const steps = [{ k: 'settings', done: !!o.settings, title: 'Choose how the tracker reaches you', sub: 'My settings: Slack, email, or only in the app', href: '#/me' }];
+  // Ticks when a setting is saved (me.js), never from opening the page.
+  const steps = [{ k: 'settings', done: !!o.settings, title: 'Choose how the tracker reaches you', sub: 'My settings: Slack, email, or only in the app, then save', href: '#/me' }];
   // Someone who owns no bill, follows none and helps on no coalition starts by picking their coalition (R-316 W7, FR-3).
-  if (ownsNone && !co && !S.bills.some(b => S.follows?.has(b.id))) steps.push({ k: 'coal', done: false, title: 'Pick the coalition you help on', sub: 'My issues, then Coalitions: switch on I help on', href: '#/my-issues/coalitions' });
+  // An approver reviews every coalition's testimony, so the coalition pick is not their first step.
+  if (ownsNone && !co && !(me.can_approve || me.is_reviewer || me.is_admin) && !S.bills.some(b => S.follows?.has(b.id))) steps.push({ k: 'coal', done: false, title: 'Pick the coalition you help on', sub: 'My issues, then Coalitions: switch on I help on', href: '#/my-issues/coalitions' });
   if (SESSION_OVER) {
-    // November: your bills, your 2027 issues, and a practice day in last March's copy (V29).
-    steps.push({ k: 'bills', done: !!o.bills, title: co ? `Look over ${co} bills` : 'Look over your bills', sub: 'Bills: each one grouped by where it stands', href: '#/bills' });
+    // November: your 2027 issues first (the season's job), your bills, and (live only) a practice day in last March's copy.
     const t = prepTaskOf(me.id), hasIssue = (S.issues || []).some(i => i.owner_id === me.id) || !!t;
-    if (hasIssue) steps.push({ k: 'prep', done: !t || t.ready > 0, title: t && !t.own ? 'Help get your coalition’s issues ready for 2027' : 'Get an issue ready for 2027', sub: 'My issues: the six steps, then Mark ready', href: '#/my-issues' });
-    steps.push({ k: 'practice', done: !!o.practice, title: 'Practice a March day', sub: 'Last March’s practice copy: nothing reaches the team', href: practiceHref(), ext: true });
+    if (hasIssue) steps.push({ k: 'prep', done: !t || t.ready > 0, title: t && !t.own ? 'Help get your coalition’s issues ready for 2027' : 'Get your issues ready for 2027',
+      sub: 'My issues: the six steps, then Mark ready', href: t ? issueHref(t.back[0] || t.next, 'prep') : '#/my-issues' });
+    steps.push({ k: 'bills', done: !!o.bills, title: co ? `Look over ${co} bills` : 'Look over your bills', sub: 'Bills: each one grouped by where it stands', href: '#/bills' });
+    if (!DEMO) steps.push({ k: 'practice', done: !!o.practice, title: 'Practice a March day', sub: 'Last March’s practice copy: nothing reaches the team', href: practiceHref(), ext: true });
   } else {
-    // January to May: hearings, your testimony job and a chair ask (V29).
-    steps.push({ k: 'hearings', done: !!(o.hearings || o.week), title: co ? `See ${co} hearings this week` : 'See this week’s hearings', sub: 'Hearings: who is going, and where each testimony stands', href: '#/hearings' });
-    steps.push(testimonyStep(me, ownsNone));
-    if (!(me.can_approve && ownsNone)) {
-      const asked = legNotesAll().some(n => n.advocate_id === me.id && (n.answer || /^Asked for a hearing/.test(n.body || '')));
-      steps.push({ k: 'ask', done: asked, title: 'Ask a chair for a hearing', sub: 'Hearings, then Get hearings: Email the chair, then Did you send it?', href: '#/hearings/ask' });
-    }
+    // January to May: the person's job, this week's hearings, a chair ask (owners), a bill (V29).
+    steps.push(...jobSteps(me, ownsNone, o));
+    // v5 kept this tick as "week"; I'm going on any sitting counts too.
+    steps.push({ k: 'hearings', done: !!(o.hearings || o.week) || Object.values(S.attend || {}).some(ids => (ids || []).includes(me.id)), title: 'See this week’s hearings', sub: 'Hearings, This week: who is going, and where each testimony stands', href: '#/hearings/week' });
+    if (!ownsNone) steps.push({ k: 'ask', done: askedChair(me), title: 'Ask a chair for a hearing', sub: 'Hearings, then Get hearings: Email the chair, then Did you send it?', href: '#/hearings/ask' });
     steps.push({ k: 'bill', done: !!o.bill, title: 'Open a bill and read What’s next for you', sub: 'It says what the bill needs, by when, and whose step it is', href: firstBillHref(me) });
   }
   return steps;
 }
-// The look-only steps tick when the person opens the place, however they got there (a link, the sidebar, a key): reading
-// the address as it changes keeps the tick from depending on which button they used.
-const LOOKS = { '#/hearings': 'hearings', '#/bills': 'bills', '#/me': 'settings' };
-if (typeof window !== 'undefined') addEventListener('hashchange', () => { const k = LOOKS[location.hash.split('?')[0]]; if (k && S.me && !frGet()[k]) frSet({ [k]: 1 }); });
+// The look-only steps tick when the person opens the place, however they got there (a link, the sidebar, a key, Back):
+// the frame announces each route it draws as window 'v6:route' with detail.hash (the v6 router moves by pushState, so
+// hashchange never fires). One key per step.
+const LOOKS = [[/^#\/hearings\/week(?:[?/]|$)/, 'hearings'], [/^#\/bills(?:\?|$)/, 'bills'], [/^#\/bill\/[^/?]+/, 'bill']];
+const lookAt = hash => { const h = String(hash || ''), x = h.startsWith('#') ? h : '#' + h.replace(/^\/?/, '/'), hit = LOOKS.find(([r]) => r.test(x));
+  if (hit && S.me && !frGet()[hit[1]]) frSet({ [hit[1]]: 1 }); };
+if (typeof window !== 'undefined') {
+  addEventListener('v6:route', e => lookAt(e?.detail?.hash ?? location.hash));
+  // The practice step opens another tab, so no route is drawn here: its link ticks it, wherever it is (Help or Today).
+  document.addEventListener('click', e => { const a = e.target?.closest?.('a[href]'); if (a && !DEMO && S.me && a.getAttribute('href') === practiceHref() && !frGet().practice) frSet({ practice: 1 }); }, true);
+}
 // No progress bar (C-7: no homework bars): the ticks, and how many are done.
 function newHTML() {
   const steps = newSteps(), n = steps.filter(s => s.done).length;
@@ -439,42 +478,46 @@ const whole = (hay, x) => new RegExp(`(^|[^a-z0-9])${rx(x)}($|[^a-z0-9])`).test(
 const has = (hay, x) => x.length <= 3 ? whole(hay, x) : new RegExp(`(^|[^a-z0-9])${rx(x)}`).test(hay);
 // Entries hold HTML (escaped once already); results show plain text, escaped once (L-14).
 const unent = s => String(s).replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&#39;|&rsquo;/g, '’').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-const wordsOf = q => plain(q).replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(w => w && !STOP.has(w));
+const wordsOf = q => { const all = plain(q).replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(Boolean), ws = all.filter(w => !STOP.has(w));
+  return ws.length ? ws : all.length ? [all.join(' ')] : []; };
 const entriesOf = t => t.items ? t.items() : t.id === 'moved' ? MOVED().flatMap(([, rows]) => rows) : [[t.title, '']];
 // The meaning's first sentence, whole (A-1: never cut with a typed "…"), then the guide it is in.
 const firstSent = t => { t = String(t || ''); const m = /^.*?[.!?](?=\s|$)/.exec(t); return m && m[0].split(/\s+/).length >= 3 ? m[0] : t; };
-const hitRow = h => itemRow({ key: h.t.id + ':' + h.term, name: h.term, line: esc(`${h.def ? firstSent(h.def) + ' · ' : ''}${h.t.title}`), href: `#/help/${h.t.id}`, cls: 'hp-row' });
+const hitRow = h => itemRow({ key: h.t.id + ':' + h.term, name: h.term, line: esc(h.guide ? h.t.sub() : `${h.def ? firstSent(h.def) + ' · ' : ''}${h.t.title}`), icon: h.guide ? h.t.icon : undefined,
+  href: `#/help/${h.t.id}${!h.guide && ['words', 'moved'].includes(h.t.id) ? `?w=${encodeURIComponent(h.term)}` : ''}`, cls: 'hp-row' });
 function results(q) {
   const ws = wordsOf(q); if (!ws.length) return q.trim() ? '<p class="hp-none" role="status">Type a word, such as “file” or “alerts”.</p>' : '';
+  const exactQ = plain(q.trim());
   const alts = ws.map(synOf), hits = [], near = [], keyW = ws.reduce((k, w, i) => w.length > ws[k].length ? i : k, 0);
   for (const t of visible()) {
     // A guide whose own title (or other words) has every word comes first, above its own entries.
     const th = plain(`${t.title} ${t.also || ''}`);
-    if (alts.every(a => a.some(x => has(th, x)))) hits.push({ t, term: t.title, def: '', score: 100 + alts.reduce((n, a) => n + (whole(th, a[0]) ? 2 : 1), 0) });
+    if (alts.every(a => a.some(x => has(th, x)))) hits.push({ t, term: t.title, def: '', guide: true, score: 100 + alts.reduce((n, a) => n + (whole(th, a[0]) ? 2 : 1), 0) });
     for (const [term0, def] of entriesOf(t)) {
       if (term0 === 'Step by step') continue;   // How do I…'s list of links to the guides; the guides are found themselves
       const term = unent(term0), txt = unent(def), hay = plain(`${t.title} ${t.also || ''} ${term} ${txt}`), head = plain(`${t.title} ${t.also || ''} ${term}`);
       const got = alts.filter(a => a.some(x => has(hay, x))).length;
       // A near answer must hold the query's longest word, so "log in" is not offered for "log a call".
       if (got < alts.length) { if (got && got >= alts.length / 2 && alts[keyW].some(x => has(hay, x))) near.push({ t, term, def: txt, score: got * 10 + (alts.some(a => has(plain(`${t.title} ${term}`), a[0])) ? 1 : 0) }); continue; }
-      const tt = plain(`${t.title} ${t.also || ''}`), score = alts.reduce((n, a) => n + (whole(head, a[0]) ? 4 : a.some(x => whole(head, x)) ? 3 : a.some(x => has(head, x)) ? 2 : 1) + (whole(tt, a[0]) ? 1 : 0), 0);
+      // An entry named exactly what was typed comes first, a Capitol word above all ("decking" is the word, before the
+      // calendar's two deckings, as the top search ranks it); then the guides; the calendar's dated rows last.
+      const exact = plain(term) === exactQ ? (t.id === 'words' ? 1000 : 300) : 0;
+      const tt = plain(`${t.title} ${t.also || ''}`), score = exact - (t.id === 'calendar' ? 30 : 0) + alts.reduce((n, a) => n + (whole(head, a[0]) ? 4 : a.some(x => whole(head, x)) ? 3 : a.some(x => has(head, x)) ? 2 : 1) + (whole(tt, a[0]) ? 1 : 0), 0);
       if (term !== t.title || !hits.some(h => h.t === t && h.term === t.title)) hits.push({ t, term, def: txt, score });
     }
   }
   // When nothing has every word, the entries with most of them, under a plain label.
   if (!hits.length && near.length) { near.sort((x, y) => y.score - x.score);
-    return `<p class="hp-none" role="status">Nothing in Help has every word of “${esc(q.trim())}”. The closest answers:</p><div class="v6-list" role="list">${near.slice(0, 6).map(hitRow).join('')}</div>${askSlack(q, { big: true })}`; }
+    return `<p class="hp-none" role="status">Nothing in Help has every word of “${esc(q.trim())}”. The closest answers:</p><div class="v6-list" role="list">${near.slice(0, 6).map(hitRow).join('')}</div>`; }
   if (!hits.length) return missHTML(q);
   hits.sort((x, y) => y.score - x.score);
   const shown = hits.slice(0, 40);
-  return `<p class="sr" role="status">${hits.length} found</p><div class="v6-list" role="list" aria-label="What Help says">${shown.map(hitRow).join('')}</div>${hits.length > 40 ? `<p class="hp-note">Showing 40 of ${hits.length}. Add a word to narrow it down.</p>` : ''}${askSlack(q)}`;
+  return `<p class="sr" role="status">${hits.length} found</p><div class="v6-list" role="list" aria-label="What Help says">${shown.map(hitRow).join('')}</div>${hits.length > 40 ? `<p class="hp-note">Showing 40 of ${hits.length}. Add a word to narrow it down.</p>` : ''}`;
 }
 // A search that finds nothing offers the guides, then Ask Nate in Slack (Nate 10/22: "just a dm to me") with the words
 // filled in and "(from Help)" after them, so Nate can count what Help missed. A Slack link cannot carry a message, so the
 // button copies the words and opens the DM; nothing is sent until the person sends it.
 const GUIDES = ['howto', 'hearing', 'talk', 'changes', 'calendar', 'moved'];
-// Help's first page lists these first (W37): the jobs before the reference.
-const HOWTO_IDS = ['howto', 'hearing', 'talk', 'file', 'changes', 'versions', 'moments', 'calendar'];
 const START_IDS = ['new', 'moved'];
 // Nate's Slack account is linked the first time the tracker messages him (advocates.slack_user_id). Linked, the button opens
 // a direct message to him (Slack's app_redirect opens a DM from a user id) after copying the words; until then it copies
@@ -482,56 +525,77 @@ const START_IDS = ['new', 'moved'];
 // the team's busy alerts channel.
 const nateSlack = () => (S.advocates || []).find(a => a.initials === 'NT' && a.slack_user_id) || null;
 const isNate = () => S.me?.initials === 'NT';
-// big: under a search that found nothing (or only near answers), and on the Ask page; otherwise one quiet line at the foot of
-// every Help page and under every list of results ("Still stuck? Ask Nate in Slack").
-function askSlack(q = '', { big = false } = {}) {
+// Where the button goes: a direct message to Nate once his Slack id is on his staff record (that waits on Nate, spec 13);
+// until then Slack itself, and the words say to message Nate there. Never a channel: a beginner's question does not belong
+// in the team's busy alerts channel.
+const slackHref = () => { const n = nateSlack(); return n ? `https://slack.com/app_redirect?channel=${encodeURIComponent(n.slack_user_id)}` : 'https://app.slack.com/client'; };
+// What Copy my question copies: the words typed in Help's search, else the page's title to start from, with "(from Help)"
+// so Nate can count what Help missed.
+const askWordsOf = (q, title) => { const w = String(q || '').trim(); return w ? `${w} (from Help)` : title ? `About “${title}” (from Help): ` : 'A question (from Help): '; };
+// The tonal Ask Nate in Slack with Copy my question beside it, always (Julie, on a phone: the only way to a person was grey
+// text with no link, and Copy appeared only after a search, as the page's last line). Near the top of Help (`top`: its words
+// follow the search box as you type) and at the foot of every guide.
+function askBar(q = '', title = '', { top = false, nav = false } = {}) {
   if (isNate()) return '';
-  const words = q.trim() ? `${q.trim()} (from Help)` : '', n = nateSlack();
-  const dm = n ? `https://slack.com/app_redirect?channel=${encodeURIComponent(n.slack_user_id)}` : '';
-  const copy = words ? { 'data-askslack': words } : {};
-  if (!big) {
-    const act = dm ? `<a href="${esc(dm)}" target="_blank" rel="noopener" ${words ? `data-askslack="${esc(words)}"` : ''}>Ask Nate in Slack</a>`
-      : words ? `Ask Nate in a direct message in Slack. <button type="button" class="linkbtn" data-askslack="${esc(words)}">Copy my question</button>` : 'Ask Nate in a direct message in Slack.';
-    return `<p class="hp-foot">${icon('message-circle')}<span>Still stuck? ${act}</span></p>`;
-  }
-  const say = dm ? (words ? 'This copies your words and opens a direct message to Nate in Slack: paste them and send.' : 'This opens a direct message to Nate in Slack.')
-    : words ? 'Copy your words, then open Slack and send them to Nate in a direct message.' : 'Open Slack and send Nate a direct message.';
-  const button = dm ? btn('Ask Nate in Slack', { kind: 'secondary', icon: 'message-circle', iconEnd: 'external-link', href: dm, target: '_blank', attrs: copy })
-    : words ? btn('Copy my question', { kind: 'secondary', icon: 'copy', attrs: copy }) : '';
-  return `<div class="hp-ask"><p class="hp-p">Still stuck? Ask Nate. ${esc(say)}</p>${button}${words ? `<p class="hp-askw">“${esc(words)}”</p>` : ''}</div>`;
+  const words = askWordsOf(q, title), dm = !!nateSlack(), at = { 'data-asktitle': title };
+  return `<div class="hp-askbar${top ? ' top' : ''}${nav ? ' nav' : ''}" role="group" aria-label="Ask Nate in Slack">
+    <div class="hp-askbtns">${btn('Ask Nate in Slack', { kind: 'secondary', icon: 'message-circle', href: slackHref(), target: '_blank', attrs: { ...at, 'data-askslack': words, 'data-askto': dm ? 'dm' : 'slack' } })}${btn('Copy my question', { kind: 'text', icon: 'copy', attrs: { ...at, 'data-askslack': words, 'data-askto': 'copy' } })}</div>
+    <p class="hp-askhint">${dm ? 'Opens a direct message to Nate.' : 'Opens Slack: send Nate a direct message there.'}</p></div>`;
+}
+// big: under a search that found nothing, and on the Ask page: the words shown, the same two buttons.
+function askSlack(q = '', { big = false } = {}) {
+  if (isNate() || !big) return '';
+  const words = askWordsOf(q, ''), dm = !!nateSlack();
+  const say = dm ? 'The button copies your words and opens a direct message to Nate: paste them and send.' : 'The button copies your words and opens Slack: send them to Nate in a direct message.';
+  return `<div class="hp-ask"><p class="hp-p">Still stuck? Ask Nate. ${esc(say)}</p>
+    <div class="hp-askbtns">${btn('Ask Nate in Slack', { kind: 'secondary', icon: 'message-circle', iconEnd: 'external-link', href: slackHref(), target: '_blank', attrs: { 'data-askslack': words, 'data-askto': dm ? 'dm' : 'slack' } })}${btn('Copy my question', { kind: 'text', icon: 'copy', attrs: { 'data-askslack': words, 'data-askto': 'copy' } })}</div>
+    ${q.trim() ? `<p class="hp-askw">“${esc(words)}”</p>` : ''}</div>`;
 }
 const guideRow = t => itemRow({ key: t.id, name: t.title, line: esc(t.sub()), icon: t.icon, href: '#/help/' + t.id, cls: 'hp-row' });
-const missHTML = q => `<p class="hp-none" role="status">Nothing in Help mentions “${esc(q.trim())}”. Try another word, or one of these guides:</p>
-  <div class="v6-list" role="list" aria-label="Guides">${GUIDES.map(topic).filter(Boolean).map(guideRow).join('')}</div>${askSlack(q, { big: true })}`;
+// Ask Nate in Slack is already at the top of Help with these words in it, so a miss points there instead of drawing a second one.
+const missHTML = q => `<p class="hp-none" role="status">Nothing in Help mentions “${esc(q.trim())}”. Try another word or one of these guides${isNate() ? '' : `, or press Ask Nate in Slack ${DESK() ? 'on the left' : 'above'}: it copies your words`}.</p>
+  <div class="v6-list" role="list" aria-label="Guides">${GUIDES.map(topic).filter(Boolean).map(guideRow).join('')}</div>`;
 const dl = (items, mark = '', cls = '') => `<dl class="hp-dl${cls ? ' ' + cls : ''}">${items.map(([t, d]) => { const on = mark && unent(t).toLowerCase() === mark.toLowerCase();
   return `<div class="hp-dli"${on ? ' id="hp-wmark" tabindex="-1"' : ''}><dt>${on ? `<mark>${t}</mark>` : t}</dt><dd>${d}</dd></div>`; }).join('')}</dl>`;
 // A Capitol word opened from the top search (#/help/words?w=Sine die) is marked and scrolled to once per visit (a flag on
 // that history entry), so a redraw while reading does not jump back to it (R-316 W29).
-const markOf = route => route.topic === 'words' && route.q?.w ? String(route.q.w) : '';
+const markOf = route => ['words', 'moved'].includes(route?.topic) && route.q?.w ? String(route.q.w) : '';
 const freshMark = route => !!markOf(route) && !history.state?.wmark;
 
 // Keyboard shortcuts carries its own on-off switch, kept on this device (ui.js setKeys; F21).
 const keysNote = t => t.id !== 'keys' ? '' : `${HOVER() ? '' : `<p class="hp-note">${icon('info')}<span>These need a keyboard. They are off on touch screens.</span></p>`}
   <div class="hp-card hp-keyson">${switchRow('hp-keyson', 'Use keyboard shortcuts', keysOn(), 'Off means a stray letter never does anything. Approving always takes Shift+A. Kept on this device.', { 'data-keys': '1' })}</div>`;
-const bodyOf = (t, route) => t.html ? t.html() : `<div class="hp-card">${dl(t.items().map(([a, b]) => [esc(unent(a)), b]), markOf(route))}</div>`;
+const bodyOf = (t, route) => (t.html ? t.html(route) : `<div class="hp-card">${dl(t.items().map(([a, b]) => [esc(unent(a)), b]), markOf(route))}</div>`)
+  // A guide about a job ends with the way to it (the filing guide: Open Ready to file).
+  + (t.cta ? `<p class="hp-cta">${btn(esc(t.cta[0]), { kind: 'secondary', iconEnd: 'arrow-right', href: t.cta[1] })}</p>` : '');
 const searchBox = (q, ph) => `<form class="hp-search" role="search" data-hsform><label class="sr" for="hp-q">Search Help</label>${icon('search')}<input id="hp-q" type="search" placeholder="${esc(ph)}" autocomplete="off" enterkeyhint="search" value="${esc(q)}"></form>`;
 
-// Below 1100px: Help's own list of guides, and each guide as its own page with Back.
+// Help's guide list: Start here (Getting started, What moved), the guides people open most, and the rest folded under All
+// guides (the left list was 24 topics, a wall for the least confident people). Guides are reference, so a fold may hold
+// them (rule 7.3); the fold opens by itself when the guide on screen is in it.
+const MOST_IDS = ['howto', 'testimony', 'hearing', 'file', 'talk', 'words'];
+function guideGroups(list = visible()) {
+  const pick = ids => ids.map(id => list.find(x => x.id === id)).filter(Boolean);
+  const start = pick(START_IDS), most = pick(MOST_IDS), rest = list.filter(x => !start.includes(x) && !most.includes(x));
+  return { start, most, rest };
+}
+// Below 1100px: Help's own list of guides, and each guide as its own page with Back. Start here sits right under the search
+// box, as on a laptop (Julie: What moved was three phone screens down): Getting started's steps while some are left (the
+// laptop opens on them too), else its row, and What moved; then Ask Nate in Slack, then the guides.
 function renderIndex() {
-  const q = S.hpQ || '';
-  const four = ['Legislative day', 'Lateral', 'Decking', 'Crossover'].map(k => WORDS.find(w => w[0] === k)).filter(Boolean).map(([t, d]) => [esc(t), esc(d)]);
-  const rest = visible().filter(t => ![...START_IDS, ...(HOW_TO() ? HOWTO_IDS : []), 'words'].includes(t.id));
+  const q = S.hpQ || '', on = !!q.trim(), { start, most, rest } = guideGroups();
   return `<div class="hp-page">
     <h1 class="v6-ptitle sv-h1">Help</h1>
     ${searchBox(q, 'Search Help')}
+    <section class="hp-sec hp-startsec" id="hp-start" aria-labelledby="hp-hs" ${on ? 'hidden' : ''}><h2 class="hp-h2" id="hp-hs">Start here</h2>
+      ${isNew() ? `<h3 class="hp-h3"><a class="hp-h3a" href="#/help/new">Getting started</a></h3>${newHTML()}` : ''}
+      <div class="v6-list hp-startl" role="list" aria-label="Start here">${start.filter(x => !(isNew() && x.id === 'new')).map(guideRow).join('')}</div></section>
+    ${askBar(q, 'Help', { top: true })}
     <div id="hp-res" aria-live="polite">${results(q)}</div>
-    <div id="hp-default" ${q.trim() ? 'hidden' : ''}>
-      ${isNew() ? `<section class="hp-sec" aria-labelledby="hp-hn"><h2 class="hp-h2" id="hp-hn">Getting started</h2>${newHTML()}</section>` : ''}
-      ${HOW_TO() ? `<section class="hp-sec" aria-labelledby="hp-hh"><h2 class="hp-h2" id="hp-hh">How-to guides</h2><div class="v6-list" role="list" aria-label="How-to guides">${HOWTO_IDS.map(topic).filter(Boolean).map(guideRow).join('')}</div></section>` : ''}
-      <section class="hp-sec" aria-labelledby="hp-hw"><div class="hp-sechead"><h2 class="hp-h2" id="hp-hw">Capitol words</h2>${btn(`All ${allWords().length}`, { kind: 'text', iconEnd: 'chevron-right', href: '#/help/words', attrs: { 'aria-label': `All ${allWords().length} Capitol words` } })}</div>
-        <div class="hp-card">${dl(four)}</div></section>
-      <section class="hp-sec" aria-labelledby="hp-hg"><h2 class="hp-h2" id="hp-hg">Reference</h2><div class="v6-list" role="list" aria-label="Reference">${[topic('moved'), ...(isNew() ? [] : [topic('new')]), ...rest].filter(Boolean).map(guideRow).join('')}</div></section>
-      ${askSlack()}
+    <div id="hp-default" ${on ? 'hidden' : ''}>
+      <section class="hp-sec" aria-labelledby="hp-hm"><h2 class="hp-h2" id="hp-hm">Most used</h2><div class="v6-list" role="list" aria-label="Most used guides">${most.map(guideRow).join('')}</div></section>
+      ${rest.length ? `<details class="hp-sec hp-all"><summary class="hp-allsum">${icon('chevron-right', { cls: 'hp-chev' })}<span>All guides</span><span class="hp-mn">${rest.length}</span></summary>
+        <div class="v6-list" role="list" aria-label="All guides">${rest.map(guideRow).join('')}</div></details>` : ''}
     </div>
   </div>`;
 }
@@ -539,17 +603,16 @@ function renderTopic(t, route) {
   return `<div class="hp-page hp-sub">
     <a class="hp-crumb" href="#/help" data-back>${icon('arrow-left')}<span>Help</span></a>
     <h1 class="v6-ptitle hp-h1">${esc(t.title)}</h1>${t.sub && t.id !== 'new' ? `<p class="hp-lede">${esc(t.sub())}</p>` : ''}${keysNote(t)}${bodyOf(t, route)}
-    ${t.id === 'ask' ? '' : askSlack()}
+    ${t.id === 'ask' ? '' : askBar('', t.title)}
   </div>`;
 }
 // From 1100px: the search and the guides on the left (they stay in view), the guide on the right. One h1, "Help"; the guide's
 // title is the h2 under it (R-277 fix 10: every page's title sits at the same place).
 const navItem = (x, t, q) => `<a class="hp-navi" href="#/help/${x.id}"${x.id === t.id && !q.trim() ? ' aria-current="page"' : ''}>${icon(x.icon)}<span>${esc(x.title)}</span></a>`;
 function navList(list, t, q) {
-  const pick = ids => ids.map(id => list.find(x => x.id === id)).filter(Boolean);
-  const start = pick(START_IDS), how = HOW_TO() ? pick(HOWTO_IDS) : [], rest = list.filter(x => !start.includes(x) && !how.includes(x));
+  const { start, most, rest } = guideGroups(list);
   const grp = (h, xs) => xs.length ? `<p class="hp-navh">${esc(h)}</p>${xs.map(x => navItem(x, t, q)).join('')}` : '';
-  return `${grp('Start here', start)}${grp('How to', how)}${grp('Reference', rest)}`;
+  return `${grp('Start here', start)}${grp('Most used', most)}${rest.length ? `<details class="hp-navall"${rest.includes(t) ? ' open' : ''}><summary class="hp-navi hp-navsum">${icon('chevron-right', { cls: 'hp-chev' })}<span>All guides</span><span class="hp-mn">${rest.length}</span></summary>${rest.map(x => navItem(x, t, q)).join('')}</details>` : ''}`;
 }
 function renderDesk(route) {
   // A link from elsewhere to a guide opens that guide, not an old search's results (R-316 W29, L-14).
@@ -557,11 +620,11 @@ function renderDesk(route) {
   const q = S.hpQ || '', t = topic(route.topic) || homeTopic();
   const list = visible(); if (!list.includes(t)) list.push(t);   // a link to a guide this device does not list still shows where you are
   return `<div class="hp-page hp-duo"><h1 class="v6-ptitle sv-h1 hp-dh1">Help</h1><div class="hp-cols">
-    <nav class="hp-nav" aria-label="Help guides">${searchBox(q, 'Search Help')}${navList(list, t, q)}</nav>
+    <nav class="hp-nav" aria-label="Help guides">${searchBox(q, 'Search Help')}${t.id === 'ask' ? '' : askBar(q, t.title, { top: true, nav: true })}${navList(list, t, q)}</nav>
     <div class="hp-pane">
       <h2 id="hp-ph" class="hp-ptitle" data-title="${esc(t.title)}">${q.trim() ? 'Search results' : esc(t.title)}</h2><p class="hp-lede" id="hp-psub" ${q.trim() ? 'hidden' : ''}>${esc(t.sub && t.id !== 'new' ? t.sub() : '')}</p>
       <div id="hp-res" aria-live="polite">${results(q)}</div>
-      <div id="hp-default" ${q.trim() ? 'hidden' : ''}>${keysNote(t)}${bodyOf(t, route)}${t.id === 'ask' ? '' : askSlack()}</div>
+      <div id="hp-default" ${q.trim() ? 'hidden' : ''}>${keysNote(t)}${bodyOf(t, route)}${t.id === 'ask' ? '' : askBar('', t.title)}</div>
     </div>
   </div></div>`;
 }
@@ -571,9 +634,11 @@ function renderDesk(route) {
 function wireAsk(root) {
   const page = root.querySelector('.hp-page'); if (!page || page.__ask) return; page.__ask = true;
   page.addEventListener('click', e => { const a = e.target.closest('[data-askslack]'); if (!a) return;
-    const linked = a.tagName === 'A';
-    const miss = () => { if (!linked) toast('Could not copy here. Select your words and copy them, then send them to Nate in Slack.'); };
-    try { navigator.clipboard.writeText(a.dataset.askslack).then(() => toast(linked ? 'Copied. Paste it in Slack and send.' : 'Copied. Open Slack and send it to Nate in a direct message.', { ok: true }), miss); } catch { miss(); } });
+    const to = a.dataset.askto, words = a.dataset.askslack;
+    const said = to === 'dm' ? 'Copied your question. Paste it in the message to Nate and send.' : to === 'slack' ? 'Copied your question. In Slack, send it to Nate in a direct message.'
+      : `Copied: “${words.trim()}” Paste it in a direct message to Nate in Slack.`;
+    const miss = () => toast(to === 'copy' ? 'Could not copy here. Write your question to Nate in a direct message in Slack.' : 'Slack is opening. Send Nate a direct message with your question.');
+    try { navigator.clipboard.writeText(words).then(() => toast(said, { ok: true }), miss); } catch { miss(); } });
 }
 // Today shows these same steps as its Getting started list (R-106, V29).
 export { newSteps, frSet as markNewStep };
@@ -590,8 +655,6 @@ export default {
     const wm = root.querySelector('#hp-wmark');   // a Capitol word opened from the top search
     if (wm && freshMark(route)) { try { history.replaceState({ ...(history.state || {}), wmark: 1 }, ''); } catch { /* it lands again on a redraw */ }
       requestAnimationFrame(() => { if (!wm.isConnected) return; wm.scrollIntoView({ block: 'center' }); wm.focus({ preventScroll: true }); }); }
-    // Getting started's own rows: opening one is the step for the look-only ones (the rest tick from what was done).
-    root.querySelectorAll('.hp-step .v6-row-main').forEach(a => a.addEventListener('click', () => { const k = a.closest('[data-v6row]')?.dataset.v6row?.slice(3); if (k && ['bill', 'hearings', 'bills', 'settings', 'practice', 'week'].includes(k)) frSet({ [k]: 1 }); }));
     root.querySelectorAll('.hp-step.ext .v6-row-main').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
     const ks = root.querySelector('[data-keys]');
     if (ks) ks.onchange = () => { setKeys(ks.checked); toast(ks.checked ? 'Keyboard shortcuts are on.' : 'Keyboard shortcuts are off.', { ok: true }); };
@@ -601,6 +664,8 @@ export default {
     const wireRes = () => res.querySelectorAll('a[href^="#/"]').forEach(a => a.onclick = e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); if (desk) S.hpQ = ''; S.go(a.getAttribute('href')); });
     // Typing updates the results in place, so the box keeps its focus and the page does not jump.
     inp.oninput = () => { S.hpQ = inp.value; res.innerHTML = results(inp.value); const on = !!inp.value.trim(); def.hidden = on; wireRes();
+      const st = root.querySelector('#hp-start'); if (st) st.hidden = on;
+      root.querySelectorAll('.hp-askbar.top [data-askslack]').forEach(b => { b.dataset.askslack = askWordsOf(inp.value, b.dataset.asktitle); });
       if (desk) { const h = root.querySelector('#hp-ph'), sub = root.querySelector('#hp-psub'); h.textContent = on ? 'Search results' : h.dataset.title; sub.hidden = on;
         root.querySelectorAll('.hp-nav .hp-navi').forEach(a => { if (on) a.removeAttribute('aria-current'); else if (a.getAttribute('href') === '#/help/' + (topic(route.topic) || homeTopic()).id) a.setAttribute('aria-current', 'page'); }); } };
     f.onsubmit = e => { e.preventDefault(); res.querySelector('a')?.focus(); };

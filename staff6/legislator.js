@@ -19,7 +19,7 @@
 // for writing down what happened.
 import { S, DB, esc, hooks } from './data.js';
 import { stopOf, stanceOf, legById, legsForSponsors, codesOf, diedish, hearingAhead, billByRef, billRoute, chairIdsOf, hstDayOf } from './model.js';
-import { icon, btn, empty, toast } from './ui.js';
+import { icon, btn, iconBtn, empty, toast } from './ui.js';
 import { showAllBtn } from './ui.js';
 import { photo, legName, shortName, seatsOf, roleWord, legMail, openStance, wireLinks, STANCE_WORD, STANCE_ICON } from './pathway.js';
 import { ourBill, islandFor } from './legislators.js';
@@ -61,12 +61,15 @@ function waitingOn(l, from) {
 
 // The stance button: "Mark where they stand" until someone sets it, then the stance itself ("Leaning yes"); it opens BILL's
 // stance sheet (pathway.js openStance: stance, note, who on our team knows them).
+const unknownStance = (b, l) => { const x = stanceOf(b.id, l.id); return !x.stance || x.stance === 'unknown'; };
 function stanceBtn(b, l) {
   const x = stanceOf(b.id, l.id), word = STANCE_WORD[x.stance] || 'Unknown', none = !x.stance || x.stance === 'unknown';
-  // Unknown, it says what pressing does, with a pencil: the dashed circle is Who to ask's "Not asked yet" status, so it read
-  // as a status, not a button (A-12; Help calls it Mark where they stand).
-  return btn(none ? 'Mark where they stand' : word, { kind: 'text', sm: true, icon: none ? 'pencil' : STANCE_ICON[x.stance] || 'pencil',
-    attrs: { 'data-lgstance': `${b.id}|${l.id}`, 'aria-haspopup': 'dialog', 'aria-label': `Where ${shortName(l)} stands on ${billSay(b)}: ${none ? 'not known yet. Set it' : `${word}. Change it`}` } });
+  // Unknown, a small pencil whose name says the act and the bill: eight identical "Mark where they stand" buttons ran down
+  // Kevin's page, one per row (A-3, A-14); the section's line says once what the pencil does. Known, the stance itself, a
+  // text button that changes it (A-12: never a status tag that acts).
+  if (none) return iconBtn('pencil', `Mark where ${shortName(l)} stands on ${billSay(b)}`, { 'data-lgstance': `${b.id}|${l.id}`, 'aria-haspopup': 'dialog' }, 'lg6-standb');
+  return btn(word, { kind: 'text', sm: true, icon: STANCE_ICON[x.stance] || 'pencil',
+    attrs: { 'data-lgstance': `${b.id}|${l.id}`, 'aria-haspopup': 'dialog', 'aria-label': `Where ${shortName(l)} stands on ${billSay(b)}: ${word}. Change it` } });
 }
 // One of our bills with this legislator: the shared row (name, number, one line) and its one button. In "Waiting on them"
 // the line is the ask in Who to ask's words, and the viewer's own ask that waits for a reply carries "They replied" (that
@@ -111,15 +114,16 @@ const copyBtn = (what, value) => btn('Copy', { kind: 'text', sm: true, icon: 'co
 
 // The first actions: Email · Call · Log a talk. The filled one is the step the person came for (A-3, spec 4): with open
 // asks of their own with this chair (new ones, or a follow-up that is due), the approved chair email for those bills, to
-// this chair alone ("Email about HB 1563 and HB 756"; "Did you send it?" records it, X21); otherwise Log a talk. Opened
+// this chair alone ("Email the chair"; "Did you send it?" records it, X21); otherwise Log a talk. Opened
 // from a bill this chair holds, the approved email about that bill; else their own address.
 function actionsHTML(l, from, asks) {
   const own = chairEmail(l, asks, { kind: 'primary', sm: false });
   let mail = own;
   if (!mail) {
     const fx = from ? asks.find(x => x.b.id === from.id && ['ask', 'giving'].includes(x.s?.key)) : null, m = fx ? chairMailFor(l, [from]) : null;
-    mail = m ? btn(`Email about ${numWords(from)}`, { kind: 'secondary', icon: 'mail', href: m.href })
-      : l.email ? btn(from ? `Email about ${numWords(from)}` : 'Email', { kind: 'secondary', icon: 'mail', href: legMail(l, from) }) : '';
+    // One name per act (spec 8): the approved ask is "Email the chair" everywhere; the bill is in the label for screen readers.
+    mail = m ? btn('Email the chair', { kind: 'secondary', icon: 'mail', href: m.href, attrs: { 'aria-label': `Email the chair, ${shortName(l)}, about ${numWords(from)}` } })
+      : l.email ? btn('Email', { kind: 'secondary', icon: 'mail', href: legMail(l, from), attrs: from ? { 'aria-label': `Email ${shortName(l)} about ${numWords(from)}` } : {} }) : '';
   }
   const call = !l.phone ? '' : HOVER() ? `<span class="lg6-tel">${icon('phone')}<span>${esc(l.phone)}</span>${copyBtn('phone number', l.phone)}</span>` : btn('Call', { kind: 'secondary', icon: 'phone', href: `tel:${String(l.phone).replace(/[^\d+]/g, '')}` });
   const log = btn('Log a talk', { kind: own ? 'secondary' : 'primary', icon: 'message-square-plus', attrs: { 'data-lglog': '1', 'aria-haspopup': 'dialog' } });
@@ -147,9 +151,10 @@ function pageHTML(route, l, back) {
     ${PROFILES() ? profileTipHTML(l) : ''}
     ${section('lg6-s-talks', 'Asks and talks', n || null, talksHTML(l))}
     ${asks.length ? section('lg6-s-wait', 'Waiting on them for a hearing', asks.length, folded(`${l.id}|wait`, asks.map(x => standRow(x.b, l, { from: from?.id === x.b.id, ask: x })), `Our bills waiting on ${shortName(l)} for a hearing`,
-      { keep: asks.filter(x => x.own || x.follow || x.waitingMine || x.b.id === from?.id).length })) : ''}
+      { keep: asks.filter(x => x.own || x.follow || x.waitingMine || x.b.id === from?.id).length }), { sub: asks.some(x => !x.waitingMine && unknownStance(x.b, l)) ? 'The pencil beside a bill marks where they stand on it.' : '' }) : ''}
     ${seats.length ? section('lg6-s-bills', billsTitle, inCm.length + (fromRest ? 1 : 0) || null,
-      stand.length ? folded(`${l.id}|cm`, stand, `${billsTitle}, ${shortName(l)}`) : `<p class="lg6-none">${asks.length ? 'None besides the bills waiting on them.' : 'None of our live bills is in their committees right now.'}</p>`)
+      stand.length ? folded(`${l.id}|cm`, stand, `${billsTitle}, ${shortName(l)}`) : `<p class="lg6-none">${asks.length ? 'None besides the bills waiting on them.' : 'None of our live bills is in their committees right now.'}</p>`,
+      { sub: [...(fromRest ? [fromRest] : []), ...inCm].some(b => unknownStance(b, l)) ? 'The pencil beside a bill marks where they stand on it.' : '' })
       : section('lg6-s-bills', 'Our bills in their committees', null, `<p class="lg6-none">${noSeats(l)}</p>${fromRest ? listOf([standRow(fromRest, l, { from: true })], 'The bill you came from') : ''}`)}
     ${known.length ? section('lg6-s-known', 'Other bills they have a stance on', known.length, folded(`${l.id}|kn`, known.map(b => standRow(b, l)), 'Other bills they have a stance on')) : ''}
     ${PROFILES() ? profileHTML(l, { intro, tip: false }) : ''}

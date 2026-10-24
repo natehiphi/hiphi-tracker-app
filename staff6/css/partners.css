@@ -364,7 +364,7 @@ body.staff6 .ss-fs legend { padding: 0; margin-bottom: var(--s8); font: 700 var(
 body.staff6 .ss-checks2 { display: flex; flex-wrap: wrap; gap: var(--s8); }
 body.staff6 .ss-check2 { display: inline-flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 0 var(--s16) 0 var(--s12); border-radius: var(--v6-pill); background: var(--v6-wash); color: var(--v6-ink); font-size: var(--v6-t16); cursor: pointer; }
 body.staff6 .ss-check2 input { width: 20px; height: 20px; margin: 0; accent-color: var(--v6-action); }
-body.staff6 .ss-check2:has(input:checked) { background: var(--v6-action-wash); color: var(--v6-action-press); }
+body.staff6 .ss-check2:has(input:checked) { background: var(--v6-action-wash); color: var(--v6-action); }
 body.staff6 .ss-check2:has(input:focus-visible) { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 body.staff6 .ss-icons { display: grid; grid-template-columns: repeat(auto-fill, 48px); gap: var(--s8); }
 body.staff6 .ss-ic { position: relative; display: block; cursor: pointer; }
