@@ -8,7 +8,7 @@
 //     doing" ideas (F80: at most 5, never counted, never due, each says why, each can be done, put off or refused, with
 //     Undo). Hearings on bills we only monitor wait behind "+N on bills you monitor" (F68).
 //   Get hearings (#/hearings/ask): the ONE open board (push.js askBoard), under each deadline in words, grouped by chair,
-//     soonest notice first: Ask · Ask for decision making · Waiting on a reply (They replied) · Scheduled (Say mahalo).
+//     soonest notice first: Ask · Ask the chair to schedule a vote · Waiting on a reply (They replied) · Scheduled (Say mahalo).
 // Both have the same visible scope switch: Mine · My coalitions · Team (?scope=, remembered per person).
 // #/hearings with no tab opens Get hearings when the person has a bill waiting for a hearing and no hearing this week,
 // else This week (spec 3.3). Old addresses arrive here: #/?view=week&w=1 is #/hearings?w=1 (app.js).
@@ -19,7 +19,7 @@ import { S, DB, esc, hooks, SESSION_OVER } from './data.js';
 import { billById, suggestions, SUGGEST_CAP, setSugg, suggState, billRoute, codesOf, deadlineCalendar, gateApplies, gateGloss, plainDeadlines } from './model.js';
 import { icon, btn, iconBtn, toast, segmented, menuSheet } from './ui.js';
 import { hearingCard, nameWords, numWords, sayWords, nw, dayWords, timeWords, wireSteps } from './steps.js';
-import { askBoard, askSummary, scopesFor, defaultScope, scopeOk, whoseWords, coalOf, SCOPES, freshScope, toAskWords } from './push.js';
+import { askBoard, askSummary, scopesFor, defaultScope, scopeOk, whoseWords, coalOf, SCOPES, freshScope, toAskWords, decideWords, nwParts } from './push.js';
 import { movedAskHTML, wireMoved, oldSitting, seedMoved } from './moved.js';
 
 const HR = 36e5, DAY = 864e5;
@@ -122,10 +122,12 @@ const capLine = ds => (ds || []).map(d => { const g = gateGloss(d.label);
 // It says the tab's own count in the tab's words, push.js toAskWords ("20 to ask · first by Mon 3/23", the same on Today
 // and Bills: Nate's walk found "49 of your coalitions' bills need a hearing" beside a different tab count); with nothing
 // left to ask, no line (the tab has no count then either).
+// Bills heard but not voted on are not "to ask" (the board says them on their own line): with none left to ask, the line
+// says them in the board's own words, so Get hearings is still one tap away for them.
 function askLine(s, scope) {
-  const t = SESSION_OVER ? '' : toAskWords(s); if (!t || !tabCounts()) return '';
+  const t = SESSION_OVER ? '' : toAskWords(s) || decideWords(s?.decide || 0); if (!t || !tabCounts()) return '';
   const href = `#/hearings/ask${scope !== defaultScope() ? `?scope=${scope}` : ''}`;
-  return `<a class="hw-ask" href="${esc(href)}">${icon('flag')}<span class="hw-ask-t"><span class="hw-ask-n">${nw(esc(t))}</span></span><span class="hw-ask-go">Get hearings${icon('chevron-right', { cls: 'v6-chev' })}</span></a>`;
+  return `<a class="hw-ask" href="${esc(href)}">${icon('flag')}<span class="hw-ask-t"><span class="hw-ask-n">${nwParts(esc(t))}</span></span><span class="hw-ask-go">Get hearings${icon('chevron-right', { cls: 'v6-chev' })}</span></a>`;
 }
 // Someone who owns no bills has no pile of their own to ask: the tab carries no count for them, and the line is not drawn
 // (Nate's walk: Patti's Get hearings showed Lauren's 15 on every visit; D4's door on Today is the way to help).

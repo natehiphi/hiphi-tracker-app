@@ -32,7 +32,7 @@ import { GROUPS, groupKey } from './standing.js';
 import { billStep, billRow, listDetail, nameWords, numWords, dayWords, committeeName, whereWords, deadlineWords, nw, wireSteps } from './steps.js';
 import { openItem, closeBtn, aboutBill } from './billpane.js';
 import { billsHead, loadSortCount, refreshTabs } from './billshead.js';
-import { deadlineLine } from './push.js';   // Get hearings' counts for the bills still to ask (rule 6)
+import { deadlineLine, nwParts } from './push.js';   // Get hearings' counts for the bills still to ask (rule 6)
 
 // ---- groups, in stage order: GROUPS and groupKey live in standing.js, shared with an issue's page (R-226) ----
 const FOLDED = new Set(['mon', 'dead']);
@@ -178,7 +178,7 @@ function leadLine(list, groups) {
   // hearing by Mon 3/30 · 14 to ask · Get hearings" (Nate's 23 Oct walk: the long line with "decision making", "being
   // asked" and "will schedule" did not add up). Its first part is a link to exactly those bills (F95).
   let dl = null; try { dl = deadlineLine({ scope: { me: 'mine', coal: 'coal', all: 'team' }[bl().scope] || 'mine' }); } catch { dl = null; }
-  const words = dl ? `${link(dl.head, dl.date)}${dl.rest ? ` · ${esc(dl.rest)}` : ''}` : link(`${n} of ${whoseWords()} ${n === 1 ? 'needs' : 'need'} a hearing by ${dayWords(x.date)}`, x.date);
+  const words = dl ? `${link(dl.head, dl.date)}${dl.rest ? ` · ${nwParts(esc(dl.rest))}` : ''}` : link(`${n} of ${whoseWords()} ${n === 1 ? 'needs' : 'need'} a hearing by ${dayWords(x.date)}`, x.date);
   return `<p class="bl-dls">${icon('calendar-clock')}<span class="bl-dlw">${words} · ${go}</span></p>`;
 }
 // A filter in Mine (or My coalitions) says when the team has more, and offers the switch (F83 "N more under Team").

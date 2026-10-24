@@ -728,7 +728,7 @@ async function boot() {
     const r = parseRoute();
     if (r.legacy) { history.replaceState({ y: 0 }, '', '#/'); history.pushState({ y: 0 }, '', `#/bill/${r.num}`); }
     else if (r.legacyTo) { history.replaceState({ y: 0 }, '', r.legacyTo); if (r.note) setTimeout(() => toast(decodeURIComponent(r.note)), 300); }
-    wantQueue();   // a partner approver's words to approve count in Today's number on every page, so they are asked for at sign-in
+    wantQueue();   // a partner approver's words to approve count in Today's number on every page: live, loadAll read them beside the sign-in reads (this does nothing then); the practice copy's are asked for here
     render();
   } catch (e) {
     console.error(e); reportError('boot', e);

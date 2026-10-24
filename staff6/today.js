@@ -39,7 +39,7 @@ import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButton
 import { aboutBill, closeBtn } from './billpane.js';
 import { plainCodes } from './terms.js';   // codes in a to-do's or a note's own words become plain words (D15, V05)
 import { prepTaskOf, dueEnd as prepDue, issueHref, prepListHref } from './prep.js';
-import { askTodoOf, askSummary, toAskWords, deadlineLine, decideWords } from './push.js';
+import { askTodoOf, askSummary, toAskWords, deadlineLine, decideWords, nwParts } from './push.js';
 import { isLead } from './more.js';
 import { newSteps, markNewStep } from './help.js';
 import { moveMe, notGoing, keepAskUp, seedMoved } from './moved.js';
@@ -598,7 +598,7 @@ function doorLines(w, v = S.me, { coal = true, lead = '', leadShown = !!lead } =
   // One count for the pile, Get hearings' own (push.js toAskWords: "20 to ask · first by Mon 3/23"), the same on Bills and
   // Hearings; said once on the page: the season card's deadline line says it when it is drawn (w.askSaid).
   const sm = (S.bills || []).some(b => owns(v.id, b)) ? mineAsks(v) : null;
-  if (w.asks.length && !w.askSaid && sm?.toAsk) out.push(lineA('#/hearings/ask?scope=mine', 'landmark', boldLead(toAskWords(sm))));
+  if (w.asks.length && !w.askSaid && sm?.toAsk) out.push(lineA('#/hearings/ask?scope=mine', 'landmark', nwParts(boldLead(toAskWords(sm)))));
   if (w.coal.size && coal) {
     const owners = [...w.coal.entries()].sort((x, y) => y[1].n - x[1].n), n = owners.reduce((s, [, e]) => s + e.n, 0);
     const who = orWords(owners.map(([id]) => id), v, { and: true });
@@ -780,8 +780,8 @@ function seasonBody(season, v, w, { skipH = null } = {}) {
   const dk = ownsAny ? w.asks.filter(r => r.s?.ask?.decide).length : 0;
   if ((dlL && dlL.toAsk) || dk) w.askSaid = true;
   const parts = [said ? '' : nh ? p(`Your next hearing: ${nw(esc(whenAt(nh.scheduled_at)))} · ${esc(committeeName(nh.committee) || nh.committee)}`, 'landmark') : noHearingLine(v, w, p),
-    askT ? lineA('#/hearings/ask?scope=mine', 'calendar', `${nw(boldLead(askT))} · <span class="v6-nw">Get hearings</span>`) : dl ? p(`Next deadline ${nw(esc(dayWords(dl.date)))}: ${esc(dl.words)}`, 'calendar') : '',
-    dk ? lineA('#/hearings/ask?scope=mine', 'gavel', nw(boldLead(decideWords(dk)))) : ''];
+    askT ? lineA('#/hearings/ask?scope=mine', 'calendar', `${nwParts(boldLead(askT))} · <span class="v6-nw">Get hearings</span>`) : dl ? p(`Next deadline ${nw(esc(dayWords(dl.date)))}: ${esc(dl.words)}`, 'calendar') : '',
+    dk ? lineA('#/hearings/ask?scope=mine', 'gavel', nwParts(boldLead(decideWords(dk)))) : ''];
   if (!parts.join('')) return null;
   return { title: 'This week', html: parts.join('') };   // Hearings is a place in the sidebar and the phone bar, always in sight
 }

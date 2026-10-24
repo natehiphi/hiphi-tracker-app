@@ -5,7 +5,7 @@
 // Kila for a hearing on HB1 (TRN)"), with the email button; the owner's row then reads "Kris is asking".
 // Staff v6 (R-336 V13, V24, F79, F105, F134-F138): the same board, rebuilt as Hearings > Get hearings, ONE open board
 // (askBoard below): under each deadline in words, grouped by chair, soonest notice first, each bill in one plain state:
-// Ask (Email the chair, then "Did you send it?"), Ask for decision making (heard, not voted on), Waiting on a reply ("Asked
+// Ask (Email the chair, then "Did you send it?"), Ask the chair to schedule a vote (heard, not voted on), Waiting on a reply ("Asked
 // by Kevin Mon 3/16 · no reply yet", with They replied; Follow up after 3 working days with no reply), Scheduled (a calm
 // check and Say mahalo). Legislators > Who to ask draws the same board (askBoard({ scope })), so there is one board, not two
 // that list different bills (X7). The v5 board's exports (chairGroupHTML, chairBoardHTML, wirePush) stay for the screens
@@ -233,7 +233,7 @@ function actsOn(b, it, v, scope = 'mine') {
 }
 const ms = t => t == null ? null : typeof t === 'number' ? t : new Date(t).getTime();
 const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
-// The state a bill is in on the board. k: ask · decide (heard, waiting for decision making: F105) · giving (handed to
+// The state a bill is in on the board. k: ask · decide (heard, not voted on: ask the chair to schedule a vote, F105) · giving (handed to
 // someone) · follow (no reply in 3 working days, or 2 before the notice) · waiting · will (will schedule) · said_no ·
 // passed (the notice time is gone) · scheduled (asked, and the hearing posted: Say mahalo) · later (put off by this person
 // for two weeks, from the row's "…": it stays on the board, quiet and last, out of the email and the counts, never hidden).
@@ -267,14 +267,17 @@ export function boardItems({ scope = defaultScope(), bills = null, viewer = S.me
 // the Get hearings tab's, the bills still to ask (the critic: the tab said 46 and this line "49 need a hearing", two numbers
 // for one pile, A-14); with none left to ask, how many wait on a reply. `n` still counts every open one (to ask or waiting).
 // The ask-by day is the board's own word for it ("ask by Tue 3/24"), not the Capitol's "first notice" (C-10, one name per fact).
+// A bill heard and not voted on is never "to ask" (it needs a vote, not a hearing): `decide` counts them apart, as the
+// board's own line does (dlCounts), so the tab, This week's line and the board's first line give one number (KV's tab said
+// 3 to ask beside the board's "2 to ask" and its one bill heard but not voted on).
 export function askSummary({ scope = defaultScope(), viewer = S.me } = {}) {
   const open = boardItems({ scope, viewer }).filter(x => x.k !== 'scheduled' && x.k !== 'later');
   if (!open.length) return null;
-  const fx = open.filter(x => ['ask', 'decide', 'giving'].includes(x.k) && x.a.aw?.a.at && !x.a.aw.a.passed).sort((p, q) => p.a.aw.a.at - q.a.aw.a.at)[0] || null;
+  const fx = open.filter(x => x.k === 'ask' && x.a.aw?.a.at && !x.a.aw.a.passed).sort((p, q) => p.a.aw.a.at - q.a.aw.a.at)[0] || null;
   const first = fx ? fx.a.aw.a.notice || fx.a.aw.a.at : null;
   const dl = open.map(x => x.dl).sort((p, q) => p.date.localeCompare(q.date))[0];
-  const n = open.length, toAsk = open.filter(x => ['ask', 'decide'].includes(x.k)).length;
-  return { n, toAsk, first, firstDay: fx ? fx.a.aw.day : '', dl, words: toAsk ? `${countWords(toAsk, scope, viewer)} to ask` : `${countWords(n, scope, viewer)} asked, waiting for a hearing`, firstWords: fx ? `ask the first chair by ${fx.a.aw.day}` : '' };
+  const n = open.length, toAsk = open.filter(x => x.k === 'ask').length, decide = open.filter(x => x.k === 'decide').length;
+  return { n, toAsk, decide, first, firstDay: fx ? fx.a.aw.day : '', dl, words: toAsk ? `${countWords(toAsk, scope, viewer)} to ask` : `${countWords(n, scope, viewer)} asked, waiting for a hearing`, firstWords: fx ? `ask the first chair by ${fx.a.aw.day}` : '' };
 }
 // One count and one wording for the bills still to ask for a hearing, on Today, Bills and Hearings alike (rule 6, A-14;
 // Nate's walk: "20 of your bills to ask", "16 of your bills with no hearing yet", "No hearing yet 20" and "Get hearings 20"
@@ -304,6 +307,11 @@ const dlParts = c => [c.being ? `${c.being} being asked` : '', c.wait ? `${c.wai
 // Bills heard but not voted on (F105), on a short plain line of their own, only where they matter (Get hearings, Who to ask,
 // and Today when they are not already rows there): "9 bills were heard but not voted on · ask the chair to schedule a vote".
 export const decideWords = k => k ? `${k} ${k === 1 ? 'bill was' : 'bills were'} heard but not voted on · ask the chair to schedule a vote` : '';
+// A count line's " · " parts each kept on one line (the phone walk: "33 to / ask" broke at a line's end): a short part goes in
+// the no-wrap span (steps.css .v6-nw); a long one ("36 of your coalitions’ bills need a hearing") still wraps, or it would
+// run off a 320px phone, with its day kept whole (steps.js nw). `h` is escaped HTML, its parts joined by " · ".
+const NW_PART = 24;
+export const nwParts = h => String(h ?? '').split(' · ').map(p => p.replace(/<[^>]*>/g, '').replace(/&[a-z#0-9]+;/gi, 'x').length <= NW_PART && !/class="v6-nw/.test(p) ? `<span class="v6-nw">${p}</span>` : nw(p)).join(' · ');
 // THE deadline line, one function for Today, Bills and Legislators (Nate's 23 Oct walk: "36 of your coalitions' bills need
 // a hearing by Mon 3/30 · 33 to ask · 9 to ask for decision making · 1 being asked · 1 waiting on a reply · 1 will schedule"
 // was long, in Capitol words, and its parts did not add up: the 9 were outside the 36). One deadline's items ->
@@ -346,7 +354,7 @@ function rowLine(it, v, scope, { shared = false, hdrDay = '' } = {}) {
       // someone else's: whose first ("Nate's bill · not asked yet"; "No owner yet · not asked yet"), beside Take this ask
       : !own || !live(own) ? [`No owner yet · not asked yet`, 'circle-dashed'] : whose ? [`${advocate(own)?.full_name.split(' ')[0] || 'Someone'}’s bill · not asked yet`, 'circle-dashed'] : [`Not asked yet`, 'circle-dashed'];
     case 'later': return [`Not now · back on your list ${askDay(it.until)}${whose}`, 'clock'];
-    case 'decide': return [`Heard, not voted on · ask for decision making${a.day && !same(a.day) ? ` by ${a.day}` : ''}${whose}`, 'gavel'];
+    case 'decide': return [`Heard, not voted on · ask the chair to schedule a vote${a.day && !same(a.day) ? ` by ${a.day}` : ''}${whose}`, 'gavel'];
     // The handed-off ask's own day (2 working days before the notice, V24), said as the asker's ("Kris asks by Fri 3/20"),
     // so it never reads as a second deadline beside the chair's "ask by Tue 3/24" (A-14, one word per fact).
     case 'giving': { const due = a.todo?.due_date, me = a.todo?.assignee_id === v?.id, who = me ? 'You' : advocate(a.todo?.assignee_id)?.full_name.split(' ')[0] || 'Someone';
@@ -379,7 +387,7 @@ function rowButton(it, v, scope) {
   const name = numWords(b);
   if (k === 'decide') { if (!ownsBill(b, v)) return '';
     const r = chairAskMail(code, [b], { dl: a.st.deadline, heardAt: a.st.hearing?.scheduled_at || new Date().toISOString() });
-    return r ? mailBtn(r.m.n > 1 ? 'Email the chairs' : 'Email the chair', r.href, 'secondary', `Email ${r.m.who} for decision making on ${name}`) : ''; }
+    return r ? mailBtn(r.m.n > 1 ? 'Email the chairs' : 'Email the chair', r.href, 'secondary', `Email ${r.m.who} to schedule a vote on ${name}`) : ''; }
   // The asker's Follow up holds both ways on (spec 8, F136: the reply in 2 clicks): the mail again, or the chair's reply.
   if (k === 'follow' && a.asker === v.id) return btn('Follow up', { kind: 'secondary', sm: true, icon: 'clock', attrs: { 'data-hgact': 'follow', 'data-hgb': b.id, 'data-hgcode': code, 'aria-haspopup': 'dialog', 'aria-label': `Follow up: ${name}` } });
   if (['waiting', 'follow'].includes(k)) return btn('They replied', { kind: 'secondary', sm: true, icon: 'message-square', attrs: { 'data-v6act': 'replied', 'data-v6b': b.id, 'data-v6code': code, 'aria-haspopup': 'dialog', 'aria-label': `They replied: ${name}` } });
@@ -505,14 +513,18 @@ export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, 
     const head = cap(deadlineWords(d.dl.label, d.dl.date, { n: total }));
     const door = fold && di === 0 ? ` · <a class="hg-dlgo" href="#/hearings/ask?scope=${esc(scope)}">Get hearings</a>` : '';
     const subT = [nwd.words, ...(fold ? [] : dlParts(cn))].filter(Boolean).join(' · ');
-    const sub = `${subT ? `<p class="hg-dls">${nw(esc(subT))}${door}</p>` : ''}${nwd.decide ? `<p class="hg-dls hg-dld">${nw(esc(nwd.decide))}</p>` : ''}`;
+    const sub = `${subT ? `<p class="hg-dls">${nwParts(esc(subT))}${door}</p>` : ''}${nwd.decide ? `<p class="hg-dls hg-dld">${nwParts(esc(nwd.decide))}</p>` : ''}`;
     const gh = g => groupHTML(g, v, scope, { primary: g.key === pkey, shared }), open = groups.filter(g => !g.folded), shut = groups.filter(g => g.folded);
     const body = open.map(gh).join('');
-    const shutBills = shut.flatMap(g => g.rows).filter(x => !['scheduled', 'later'].includes(x.k)).length;
+    // A fold's bills are counted as the line above counts them (needWords): the bills still needing a hearing, with the ones
+    // heard but not voted on said apart (KR's "24 more chairs · 44 bills" sat under "36 ... need a hearing": the 9 heard
+    // were inside the 44). Every fold says its chairs first, then its bills ("4 chairs · 12 bills").
+    const shutRows = shut.flatMap(g => g.rows), shutC = { need: shutRows.filter(x => !['scheduled', 'later', 'decide'].includes(x.k)).length, decide: shutRows.filter(x => x.k === 'decide').length };
+    const foldWords = (chairs, c) => [chairs, c.need ? plural(c.need, 'bill') : '', c.decide ? `${c.decide} heard but not voted on` : ''].filter(Boolean).join(' · ');
     // The viewer's own chairs here open, the rest one line under them that opens in place.
-    const rest = !shut.length || folded ? '' : `<details class="hg-fold hg-foldrest" data-hgfold="${esc(fk)}"${FOLD_OPEN.has(fk) ? ' open' : ''}><summary class="hg-foldsum"><span class="hg-foldt">${esc([plural(shut.length, open.length ? 'more chair' : 'chair'), shutBills ? plural(shutBills, 'bill') : ''].filter(Boolean).join(' · '))}</span>${icon('chevron-down', { cls: 'hg-foldchev' })}</summary>
+    const rest = !shut.length || folded ? '' : `<details class="hg-fold hg-foldrest" data-hgfold="${esc(fk)}"${FOLD_OPEN.has(fk) ? ' open' : ''}><summary class="hg-foldsum"><span class="hg-foldt">${nwParts(esc(foldWords(plural(shut.length, open.length ? 'more chair' : 'chair'), shutC)))}</span>${icon('chevron-down', { cls: 'hg-foldchev' })}</summary>
       <div class="hg-foldin">${shut.map(gh).join('')}</div></details>`;
-    if (folded) return `<details class="hg-dl hg-fold" data-hgfold="${esc(fk)}"${FOLD_OPEN.has(fk) ? ' open' : ''}><summary class="hg-foldsum"><h2 id="${hid}">${esc(head)}</h2><span class="hg-foldn">${esc([nw0 ? plural(nw0, 'bill') : '', plural(groups.length, 'chair')].filter(Boolean).join(' · '))}</span>${icon('chevron-down', { cls: 'hg-foldchev' })}</summary>
+    if (folded) return `<details class="hg-dl hg-fold" data-hgfold="${esc(fk)}"${FOLD_OPEN.has(fk) ? ' open' : ''}><summary class="hg-foldsum"><h2 id="${hid}">${esc(head)}</h2><span class="hg-foldn">${nwParts(esc(foldWords(plural(groups.length, 'chair'), { need: nw0, decide: cn.decide })))}</span>${icon('chevron-down', { cls: 'hg-foldchev' })}</summary>
       <div class="hg-foldin">${sub}${shut.map(gh).join('')}</div></details>`;
     return `<section class="hg-dl" aria-labelledby="${hid}"><div class="hg-dlh"><h2 id="${hid}">${esc(head)}</h2>${sub}</div>${body}${rest}</section>`;
   }).join('');

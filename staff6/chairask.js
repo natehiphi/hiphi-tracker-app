@@ -55,7 +55,7 @@ export function chairsOf(b, code) {
 }
 
 const sentence = (answer, who, nums, code, decide) => {
-  const what = decide ? `decision making on ${nums}` : `a hearing on ${nums}`;
+  const what = decide ? `a vote on ${nums}` : `a hearing on ${nums}`;
   return answer === 'will_schedule' ? `${who} will schedule ${what} (${code}).`
     : answer === 'said_no' ? `${who} said no to ${what} (${code}).`
     : answer === 'left_message' ? `Left a message for ${who} about ${what} (${code}).`
@@ -93,7 +93,7 @@ export function sentSheet(e) {
   if (!e || sheetOpen?.()) return;
   const bills = e.items.map(x => billById(x.id)).filter(Boolean), what = bills.length === 1 ? sayWords(bills[0]) : plural(bills.length, 'bill');
   if (bills.length < 2) return menuSheet({ title: 'Did you send it?', items: [
-    { label: 'Yes, I sent it', icon: 'check', sub: `Saved for the team: you asked ${e.who} for ${e.decide ? 'decision making' : 'a hearing'}`, run: () => recordAsk(e.items, 'asked', { decide: e.decide }) },
+    { label: 'Yes, I sent it', icon: 'check', sub: `Saved for the team: you asked ${e.who} ${e.decide ? 'to schedule a vote' : 'for a hearing'}`, run: () => recordAsk(e.items, 'asked', { decide: e.decide }) },
     { label: 'Not yet', icon: 'clock', sub: 'Nothing is saved; the button stays', run: () => {} }] });
   openSheet({ title: 'Did you send it?', size: 'auto',
     body: `<div class="ca-sheet"><p class="ca-lead">${esc(`To ${e.who} · ${what}`)}</p>${billTicks(bills, 'Which bills did it ask about?')}<p class="err" id="ca-err" role="alert" hidden>${icon('circle-alert')}Tick the bills the email asked about.</p></div>`,
@@ -188,7 +188,7 @@ export function askAnotherWay(bills, code, { decide = false } = {}) {
     ${billTicks(list, 'Which bills was it about?')}
     <fieldset class="ca-fs"><legend>How did you ask?</legend><div class="ca-how">${HOW.map(([k, l], i) => `<label class="ca-rd"><input type="radio" name="ca-how" value="${k}"${i === 0 ? ' checked' : ''}><span>${esc(l)}</span></label>`).join('')}</div></fieldset>
     <div class="field"><label for="ca-note">What was said <span class="ca-sub">(optional)</span></label><textarea id="ca-note" rows="3" maxlength="1000" placeholder="They will look at it next week"></textarea></div>
-    <label class="ca-ck ca-was"><input type="checkbox" id="ca-was" checked><span>This was an ask for a ${decide ? 'decision-making date' : 'hearing'}</span></label>
+    <label class="ca-ck ca-was"><input type="checkbox" id="ca-was" checked><span>${decide ? 'This was an ask to schedule a vote' : 'This was an ask for a hearing'}</span></label>
     <p class="ca-hint" id="ca-hint" aria-live="polite">Saved as the ask: the team sees who asked and when.</p>
     <p class="err" id="ca-err" role="alert" hidden>${icon('circle-alert')}<span id="ca-err-t">Pick the chair you asked.</span></p>
   </div>`;

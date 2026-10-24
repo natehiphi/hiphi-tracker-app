@@ -102,7 +102,7 @@ export function chairAsk(b, chairId) {
   if (aw.key === 'waiting' || aw.key === 'said_no') {   // the other chair was asked; this one not yet
     if (aw.aw?.a.passed) return { ...aw, key: 'passed', words: 'Notice time passed · only the chair can help now', other: true };
     const day = aw.aw ? aw.aw.day : '';
-    return { ...aw, key: 'ask', words: aw.decide ? `Ask the chair for decision making${day ? ` by ${day}` : ''}` : `Ask the chair by ${day}`, day, by: aw.aw?.a.at ?? null, other: true };
+    return { ...aw, key: 'ask', words: aw.decide ? `Ask the chair to schedule a vote${day ? ` by ${day}` : ''}` : `Ask the chair by ${day}`, day, by: aw.aw?.a.at ?? null, other: true };
   }
   return aw;
 }
@@ -111,7 +111,7 @@ const mailOf = l => l.email || `${l.chamber === 'S' ? 'sen' : 'rep'}${String(l.s
 export const chairWho = l => `${l.chamber === 'S' ? 'Sen.' : 'Rep.'} ${String(l.sort_name || l.name).split(',')[0].trim()}`;
 // The approved chair-ask email (W3) for these bills, to this chair alone, so "Did you send it?" records only them (V24).
 // followUp: the same words, its subject starting "Following up:" (model.js chairAskMail). A bill heard but not voted on
-// gets the decision-making email (one bill a time: that email names one bill).
+// gets the email asking the chair to schedule a vote (one bill a time: that email names one bill).
 export function chairMailFor(l, bills, { followUp = false } = {}) {
   const aw = bills.length ? askWords(bills[0]) : null; if (!aw?.code) return null;
   const st = stopOf(bills[0]);
@@ -134,7 +134,7 @@ export function chairLine(b, l) {
   let line = s.words;
   if (follow) line = `Follow up with ${chairWho(l)} · asked ${dayWords(s.at)}, ${s.answer === 'left_message' ? 'left a message' : 'no reply'}`;
   else if (s.key === 'ask' && !mine(b)) {
-    const by = s.decide ? `for decision making${s.day ? ` by ${s.day}` : ''}` : `by ${s.day}`;
+    const by = s.decide ? `to schedule a vote${s.day ? ` by ${s.day}` : ''}` : `by ${s.day}`;
     const ids = (S.assignments?.[b.id] || []).filter(id => (S.advocates || []).some(a => a.id === id && a.is_active !== false));
     line = ids.length ? `${cap(orWords(ids))} ${ids.length > 1 ? 'ask' : 'asks'} the chair ${by}` : `No one holds it · ask the chair ${by}`;
   }
@@ -152,7 +152,7 @@ export const byChairOrder = (p, q) => RANK(p) - RANK(q) || p.at - q.at || p.b.bi
 export function chairEmail(l, rows, { kind = 'secondary', sm = true } = {}) {
   const ask = rows.filter(x => x.own), fu = rows.filter(x => x.follow), list = [...ask, ...fu];
   if (!list.length) return '';
-  const hear = list.filter(x => !x.s?.decide), use = hear.length ? hear : list.slice(0, 1);   // the decision-making email names one bill
+  const hear = list.filter(x => !x.s?.decide), use = hear.length ? hear : list.slice(0, 1);   // the email asking for a vote names one bill
   const m = chairMailFor(l, use.map(x => x.b), { followUp: !ask.some(x => use.includes(x)) });
   if (!m) return '';
   const nums = use.map(x => numWords(x.b));
@@ -247,13 +247,15 @@ export function chairRole(l, codes) {
 // to ask" beside "Email about HB 424 and HB 2233").
 function leftWords(rows) {
   const part = (xs, what) => { if (!xs.length) return ''; const who = xs.length > 2 ? plural(xs.length, 'bill') : andList(xs.map(x => numWords(x.b))); return `${who} ${what}`; };
-  const all = rows.filter(x => ['ask', 'giving'].includes(x.s?.key)), mineToo = rows.some(x => x.own || x.follow);
+  // A bill heard and not voted on is not "to ask" for a hearing (push.js askSummary): it is said apart, in the board's words.
+  const all = rows.filter(x => ['ask', 'giving'].includes(x.s?.key) && !x.s.decide), mineToo = rows.some(x => x.own || x.follow);
+  const heard = rows.filter(x => x.s?.key === 'ask' && x.s.decide && (!mineToo || x.own));
   const toAsk = mineToo ? all.filter(x => x.own) : all, day = toAsk.find(x => x.s.day || x.s.aw?.day);
   const theirs = new Map();
-  if (mineToo) for (const x of all.filter(y => !y.own)) { const o = (S.assignments?.[x.b.id] || [])[0], k = o ? firstWords(o) : 'no one'; (theirs.get(k) || theirs.set(k, []).get(k)).push(x); }
+  if (mineToo) for (const x of rows.filter(y => ['ask', 'giving'].includes(y.s?.key) && !y.own)) { const o = (S.assignments?.[x.b.id] || [])[0], k = o ? firstWords(o) : 'no one'; (theirs.get(k) || theirs.set(k, []).get(k)).push(x); }
   const others = [...theirs].map(([who, xs]) => { const n = xs.length > 2 ? plural(xs.length, 'bill') : andList(xs.map(x => numWords(x.b)));
     return who === 'no one' ? `${n} ${xs.length === 1 ? 'has' : 'have'} no owner` : `${n} ${xs.length === 1 ? 'is' : 'are'} ${who}’s`; });
-  return [part(toAsk, `to ask${day ? ` by ${day.s.day || day.s.aw.day}` : ''}`), ...others, part(rows.filter(x => x.follow), 'to follow up'),
+  return [part(toAsk, `to ask${day ? ` by ${day.s.day || day.s.aw.day}` : ''}`), part(heard, 'heard but not voted on'), ...others, part(rows.filter(x => x.follow), 'to follow up'),
     part(rows.filter(x => x.s?.key === 'waiting' && !x.follow), 'waiting on a reply'), part(rows.filter(x => x.s?.key === 'said_no'), 'said no'),
     part(rows.filter(x => x.s?.key === 'passed'), 'out of time')].filter(Boolean).join(', ');
 }

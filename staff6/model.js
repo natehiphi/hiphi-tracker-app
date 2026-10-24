@@ -788,7 +788,7 @@ export function legNotesAll() {
 // A conversation counts as an ask only when it was saved as one (V24): with its answer (recordAsk, logAsk, "This was an
 // ask for a hearing" ticked on Log a talk), or, from before migration 183, in the words the old Mark asked wrote ("Asked
 // for a hearing on HB 756 (HLT)."). A talk with the chair that is not an ask is the team's history, not an ask.
-const ASK_BODY = /^\s*(Asked for (a hearing|hearings|decision making) on|Left a message for)\b/i;
+const ASK_BODY = /^\s*(Asked for (a hearing|hearings|a vote|decision making) on|Left a message for)\b/i;   // "decision making": notes saved before 23 Oct
 export const isAskNote = n => !!n && (!!n.answer || ASK_BODY.test(String(n.body || '')));
 // The ask to this committee's chair on this bill: who asked first and when, and the newest answer. A row that names
 // another committee is a different ask. A joint committee (HHS/CPN) is asked when each chair is: with only some asked,

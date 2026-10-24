@@ -8,7 +8,7 @@
 //               for the owner, whose bill it is), and one "…" for the rare changes (position, owner, mute, copy link);
 //   the tabs:   Next step · Team talk · Public (keys 1, 2, 3; #/bill/X, #/bill/X/talk, #/bill/X/public);
 //   Next step:  "What's next for you", the ONE step card (steps.js stepCard, where 'bill': the viewer's own step with its
-//               filled button, someone else's as a status, a chair ask, Ask for decision making), the bill's to-dos under
+//               filled button, someone else's as a status, a chair ask, Ask the chair to schedule a vote), the bill's to-dos under
 //               it (F115), what else is coming (other sittings as hearing cards), then three labelled 44px doors:
 //               About this bill (codes, referrals, sponsors, coalitions, the stage), Committees (each stop and its
 //               members, pathway.js) and Earlier testimony (testimony.js).
@@ -496,7 +496,7 @@ const stepOf = b => { try { return billStep(b); } catch (e) { console.error(e); 
 const pageStep = b => { const s = stepOf(b), now = s?.kind === 'chair' && s.ask?.decide ? sittingNow(b) : null;
   return now ? { kind: 'none', b, d: null, h: now, you: false, heardNow: now } : s; };
 // A bill heard and not voted on, with no deadline in the record (askWords then has no ask to draw): the second email Nate
-// approved, asking the chair to schedule decision making (R-316 W3, W33; F105). With a deadline the step card says it.
+// approved, asking the chair to schedule a vote (R-316 W3, W33; F105). With a deadline the step card says it.
 // It is the owner's to send: the owner gets the filled button (the step is theirs, D16); anyone else reads whose it is,
 // with no button (spec 7.1).
 function decideCard(b) {
@@ -504,12 +504,12 @@ function decideCard(b) {
   if (!ASK_LOG() || diedish(b) || st.phase !== 'committee' || st.hearingState !== 'held' || !st.committee || !wantsHearing(b) || !b.position) return '';
   const asked = chairAskOf(b, st.committee), heard = st.hearing?.scheduled_at, own = isOwner(b), ow = ownerOf(b);
   const dm = asked || !own ? null : chairAskMail(st.committee, [b], { dl: null, heardAt: heard || new Date().toISOString() });
-  const what = asked ? 'Waiting for the chair to schedule decision making' : own ? 'Ask the chair to schedule decision making' : ow ? `${teamFirst(ow)} asks the chair to schedule decision making` : 'No one is asking the chair to schedule decision making yet';
+  const what = asked ? 'Waiting for the chair to schedule a vote' : own ? 'Ask the chair to schedule a vote' : ow ? `${teamFirst(ow)} asks the chair to schedule a vote` : 'No one is asking the chair to schedule a vote yet';
   return `<section class="v6-step ${own && !asked ? 'own' : 'others'} k-chair w-bill" aria-labelledby="bw-dm-h">
-    <p class="v6-step-eyebrow">Decision making · ${esc(committeeName(st.committee))}</p>
+    <p class="v6-step-eyebrow">Getting a vote · ${esc(committeeName(st.committee))}</p>
     <h3 class="v6-step-what" id="bw-dm-h">${esc(what)}</h3>
     ${heard ? `<p class="v6-step-when">Heard ${nw(esc(dayOf(heard)))}, no vote yet.</p>` : ''}
-    ${asked || dm ? `<div class="v6-step-acts">${asked ? askedChip(b, st.committee, asked) : btn('Ask for decision making', { kind: 'primary', icon: 'mail', href: dm.href })}</div>` : ''}
+    ${asked || dm ? `<div class="v6-step-acts">${asked ? askedChip(b, st.committee, asked) : btn(dm.m?.n > 1 ? 'Email the chairs' : 'Email the chair', { kind: 'primary', icon: 'mail', href: dm.href, attrs: { 'aria-label': `Email ${dm.m?.who || 'the chair'} to schedule a vote on ${numWords(b)}` } })}</div>` : ''}
   </section>`;
 }
 // A bill with nothing to do on it now says so calmly; a live bill with a position and no owner offers Take it (R-330 W42).
@@ -568,7 +568,7 @@ function chairLinked(b, card, code) {
 function whatsNext(b, s) {
   const dm = !s?.heardNow && (!s || s.kind === 'none') ? decideCard(b) : '';
   const mine = dm ? dm.includes('"v6-step own') : !!s?.you;
-  let card = s?.heardNow ? `<div class="bw-calm">${icon('landmark')}<p>If the committee does not vote at this hearing, asking the chair to schedule decision making comes next.</p></div>`
+  let card = s?.heardNow ? `<div class="bw-calm">${icon('landmark')}<p>If the committee does not vote at this hearing, asking the chair to schedule a vote comes next.</p></div>`
     : dm || (!s || s.kind === 'none' ? noneCard(b) : stepCard(b, { where: 'bill', from: b.bill_number }));
   if (s?.kind === 'chair') card = chairLinked(b, card, s.ask?.code);
   if (mine) card = yourStep(card);

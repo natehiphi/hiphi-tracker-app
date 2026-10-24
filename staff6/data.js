@@ -212,8 +212,20 @@ export const DB = {
         .order('occurred_at', { ascending: false }).order('id')),
       this.loadIssues(),
     ].map(p => Promise.resolve(p).catch(() => null)));
+    // The partners' queue (partner_queue, 184) goes out as soon as the advocates come back and say this person admits partners
+    // (an admin or a partner approver: partnerq.js admitsPartners), alongside the rest of the load, so a live first frame
+    // already counts their words to approve in Today's number (it was asked for after the load, and Today's count changed a
+    // moment after the page drew). One promise for the advocates read: a query is sent again each time it is awaited.
+    const advP = Promise.resolve(S.supa.from('advocates').select('*').order('full_name'));
+    // A failed read says so on Today's line, with Try again (partnerq.js wantQueue keeps the same three fields).
+    S.pqLoading = true; S.pqErr = false;
+    const pqP = advP.then(r => {
+      const rows = r?.data || [], me = rows.find(a => a.id === myId) || rows.find(a => a.email === S.session?.user?.email);
+      if (!me || me.is_active === false || !(me.is_admin || me.approves_partners)) return;
+      return this.partnerQueue().then(q => { S.pq = q; });
+    }).catch(e => { console.warn('partner_queue:', e?.message || e); S.pq = null; S.pqErr = true; }).finally(() => { S.pqLoading = false; });
     const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb, scal, pls, plb, plf, legs, cms, cps, sts, als, segs, fups, mut, pac, wc] = await Promise.all([
-      S.supa.from('advocates').select('*').order('full_name'),
+      advP,
       allRows(o => S.supa.from('bills').select('*', o).eq('tracked', true).order('bill_number').order('id')),
       allRows(o => S.supa.from('bill_assignments').select('bill_id,advocate_id', o).order('bill_id').order('advocate_id')),
       S.supa.from('campaigns').select('*').order('sort_order'),
@@ -325,6 +337,7 @@ export const DB = {
     if (S.me && S.owner === 'me' && !S.bills.some(isMine)) S.owner = 'all';
     // The four that went out with the main load, in the same order as above.
     const [sr, ev, rc, iss] = await extras;
+    await pqP;   // the partners' queue, read beside the load (above), is in before the first frame
     if (!sr || sr.error) S.loadFailed.push('the sync status');
     if (!ev || ev.error || !rc || rc.error) S.loadFailed.push('what changed lately');
     if (iss === 'failed') S.loadFailed.push('issues');

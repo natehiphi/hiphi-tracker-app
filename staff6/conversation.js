@@ -436,7 +436,7 @@ export function logConversation({ bill = null, issueId = null, legislatorIds = [
         const shown = cs.filter((x, i) => i < cut || askPick?.has(x.b.id));
         const list = !asking && askOn ? `<fieldset class="cv-askb"><legend class="sr">The bills you asked about</legend>${shown.map(x => `<label class="cv-askbill"><input type="checkbox" value="${esc(x.b.id)}"${askPick?.has(x.b.id) ? ' checked' : ''}><span class="cv-abt"><span class="cv-abname">${esc(nameWords(x.b, 1e4))}</span> <span class="cv-abn">${esc(numWords(x.b))}</span><span class="cv-abl">${esc(x.line)}</span></span></label>`).join('')}
           ${shown.length < cs.length ? btn(`Their other ${cs.length - shown.length} bills waiting for a hearing`, { kind: 'text', sm: true, icon: 'chevron-down', cls: 'cv-askmore', attrs: { 'data-cvaskall': '1' } }) : ''}</fieldset>` : '';
-        askW.innerHTML = `<div class="field cv-askf"><label class="cv-ask"><input type="checkbox" id="cv-ask"${askOn ? ' checked' : ''} aria-describedby="cv-ask-h cv-ask-e"><span>This was an ask for ${asking?.decide ? 'decision making' : 'a hearing'}</span></label>
+        askW.innerHTML = `<div class="field cv-askf"><label class="cv-ask"><input type="checkbox" id="cv-ask"${askOn ? ' checked' : ''} aria-describedby="cv-ask-h cv-ask-e"><span>${asking?.decide ? 'This was an ask to schedule a vote' : 'This was an ask for a hearing'}</span></label>
           <span class="help" id="cv-ask-h">${esc(askHelp())}</span>${list}
           <span class="err" id="cv-ask-e" hidden>${icon('circle-alert')}<span data-cvaskerr></span></span></div>`;
         const box = askW.querySelector('#cv-ask');
@@ -518,7 +518,7 @@ export function logConversation({ bill = null, issueId = null, legislatorIds = [
             for (const b of askedOn) { const t = askTodoOf(b); if (t) { try { await DB.updateTodo(b.id, t.id, { done: true }); closed.push([b.id, t.id]); } catch { /* the talk is saved; the to-do stays */ } } }
             if (nk) holdNote(nk, null);   // saved: the held words have done their job
             await closeSheet({ silent: true }); onDone();
-            toast(`Logged your talk with ${names}.${askedOn.length ? ` It counts as the ask for ${decide ? 'decision making' : 'a hearing'} on ${andList(askedOn.map(billSay))}.` : ''}`, { ok: true, undo: async () => {
+            toast(`Logged your talk with ${names}.${askedOn.length ? ` It counts as the ask ${decide ? 'to schedule a vote' : 'for a hearing'} on ${andList(askedOn.map(billSay))}.` : ''}`, { ok: true, undo: async () => {
               for (const r of made) await DB.delLegNote(r.id, r.legislator_id);
               for (const [bid, tid] of closed) await DB.updateTodo(bid, tid, { done: false }).catch(() => {});
               onDone(); toast('Removed.'); } });

@@ -347,7 +347,8 @@ function workingDays(from, to) {
 // hearing. One wording on every screen: "Ask the chair by Wed 3/25" (the day the notice must post, W1), "Kris is asking
 // for Rick · by Fri 3/20" (a handed ask: its to-do's own day, 2 working days before the notice, V24), "Asked by Kevin Mon
 // 3/16 · no reply yet" (chairask.js askLine, the record of W3), "Scheduled". A bill heard and not voted on waits for
-// decision making (W33): "Ask the chair for decision making"; not while it is still being heard (a sitting under three
+// a vote (W33): "Ask the chair to schedule a vote" (C-15: one name for the act; the Capitol's "decision making" is in Help's
+// Capitol words); not while it is still being heard (a sitting under three
 // hours old with no outcome, BILL's 1:12 PM finding: the ask came two minutes after a 1:10 PM start). A joint committee
 // with one chair asked asks the other by name ("Ask Sen. Keohokalole by Mon 3/23", V24). Never on a bill HIPHI opposes (W2).
 const BEING_HEARD = 3 * HR;
@@ -396,7 +397,7 @@ export function askWords(b, { viewer } = {}) {
   }
   if (aw?.a.passed) { const w = `Notice time passed · only ${chair} can help now`; return { ...words(w), key: 'passed', words: w, code, chair, decide, st, m, aw, partial, by: aw.a.at }; }
   const day = aw ? aw.day : decide ? '' : dayWords(st.deadline.date);
-  const w = decide ? `Ask ${chair} for decision making${day ? ` by ${day}` : ''}` : `Ask ${chair} by ${day}`;
+  const w = decide ? `Ask ${chair} to schedule a vote${day ? ` by ${day}` : ''}` : `Ask ${chair} by ${day}`;
   return { ...words(w), key: 'ask', words: w, day, code, chair, decide, st, m, aw, partial, by: aw?.a.at ?? null };
 }
 
@@ -511,7 +512,7 @@ function chairLine(s, v) {
   const a = s.ask, chair = a.m ? a.m.who : 'the chair', ask = a.chair || 'the chair';
   if ((a.key === 'waiting') && a.followUp && s.you) return `Follow up with ${chair} · asked ${dayWords(a.at)}, ${a.answer === 'left_message' ? 'left a message' : 'no reply'}`;
   if (a.key !== 'ask' || s.you) return a.words;
-  const by = a.decide ? `for decision making${a.day ? ` by ${a.day}` : ''}` : `by ${a.day}`;
+  const by = a.decide ? `to schedule a vote${a.day ? ` by ${a.day}` : ''}` : `by ${a.day}`;
   if (s.nobody) return `${NO_OWNER} · ask ${ask} ${by}`;
   return `${cap(s.whose.words)} ${s.whose.ids.length > 1 ? 'ask' : 'asks'} ${ask} ${by}`;
 }
@@ -583,7 +584,7 @@ const A = (act, s, extra = {}) => ({ 'data-v6act': act, 'data-v6b': s.b.id, ...(
 // mode ("Review", the row's and the hearing card's word for the same act: C-15); once read, Approve approves in place. One route, so the row's Review and the card's button
 // never do different things to one step.
 const DOC_OPENED = new Set();
-// The chair ask's email, with the hearing it follows for decision making (W33).
+// The chair ask's email, with the hearing it follows when asking the chair to schedule a vote (W33).
 // A joint committee with one chair already asked emails the other alone (V24; model.js remembers the chair, so "Did you
 // send it?" records that chair's ask only).
 const askMailOf = (s, o = {}) => { const a = s.ask; if (!a.m) return null;
@@ -680,7 +681,7 @@ export function stepCard(b, { viewer, where = 'pane', d, h, primary = true, big 
   const c = s.kind === 'chair' ? chairCard(s, v, own) : s.kind === 'none' ? { what: s.says || 'Nothing to do on it now' } : testimonyCard(s, v, own);
   if (title) c.what = title;
   // The committee is named once: by the hearing line under a testimony step, by this small line on a chair ask.
-  const eye = s.kind === 'chair' ? `${s.ask.decide ? 'Decision making' : 'Getting a hearing'}${s.ask.code ? ' · ' + committeeName(s.ask.code) : ''}` : s.kind === 'none' ? 'Where it stands' : '';
+  const eye = s.kind === 'chair' ? `${s.ask.decide ? 'Getting a vote' : 'Getting a hearing'}${s.ask.code ? ' · ' + committeeName(s.ask.code) : ''}` : s.kind === 'none' ? 'Where it stands' : '';
   const eyebrow = [lead ? `<span class="v6-step-lead">${esc(lead)}</span>` : '', eye ? esc(eye) : ''].filter(Boolean).join(' · ');
   // Someone else's step: Open Doc for everyone, and where the step is done (the open item, the bill) a teammate who may
   // approve covers it (File it for Kevin, Resubmit for Lauren: v5 kept both). The viewer's shared writing step: Message
@@ -824,7 +825,7 @@ function testimonyCard(s, v, own) {
 // Takayama for a hearing" with the reply as the tile; and the asker's own Follow up after 3 working days with no reply
 // (or 2 before the notice), with the office's phone when the Capitol lists it (V13, spec 6).
 function chairCard(s, v, own) {
-  const a = s.ask, chair = a.m ? a.m.who : 'the chair', what0 = a.decide ? 'to schedule decision making' : 'for a hearing';
+  const a = s.ask, chair = a.m ? a.m.who : 'the chair', what0 = a.decide ? 'to schedule a vote' : 'for a hearing';
   if (a.key === 'waiting' || a.key === 'said_no') {
     const reply = askReply(a), ph = phoneOf(a.code), asker = cap(firstWords(a.asker, v));
     const tile = { tone: 'neutral', icon: a.answer === 'said_no' ? 'circle-x' : a.answer === 'will_schedule' ? 'calendar' : 'hourglass', words: cap(reply) };

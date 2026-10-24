@@ -116,6 +116,8 @@ const ACTIONS = () => [
   { title: 'File testimony at the Capitol', href: '#/testimony?view=file', icon: 'clipboard-check', sub: 'Testimony › Ready to file', also: 'file filing mark filed submit capitol website', job: () => ownsBills() || me().is_admin },
   { title: 'Write testimony', href: '#/testimony?view=write', icon: 'square-pen', sub: 'Testimony › To write', key: KEY.testimony, also: 'write draft make the draft send for approval resubmit revise', job: writes },
   { title: 'Ask a chair for a hearing', href: '#/hearings/ask', icon: 'mail', sub: 'Hearings › Get hearings', also: 'ask chair email the chair hearing request push schedule', job: () => !(me().can_approve && !ownsBills()) },
+  // A bill heard and not voted on: the act's one name (C-15), found by the Capitol's own term too ("decision making").
+  { title: 'Ask a chair to schedule a vote', href: '#/hearings/ask', icon: 'gavel', sub: 'Hearings › Get hearings, for a bill heard but not voted on', also: 'vote voted decision making decision-making heard chair schedule', job: () => !(me().can_approve && !ownsBills()) },
   { title: 'Record a chair’s reply', href: '#/hearings/ask', icon: 'message-square', sub: 'Hearings › Get hearings › They replied', also: 'reply replied answer will schedule said no chair answer' },
   { title: 'Say I’m going to a hearing', href: '#/hearings/week', icon: 'calendar-check', sub: 'Hearings › This week, on the hearing', key: KEY.hearings, also: 'going attend attending im going i am going' },
   // "who is going", "hearings tomorrow": leads read Team's schedule for today and tomorrow (D5); everyone else This week.
