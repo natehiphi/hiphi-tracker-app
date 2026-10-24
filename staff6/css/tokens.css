@@ -73,7 +73,7 @@ body.staff6 {
   --n900: var(--v6-ink);
   --p50: var(--v6-action-wash);
   --p100: #C6E0DE;
-  --p200: #8FD3CF;      /* light teal: Undo on the dark toast (8.9 on ink) */
+  --p200: #8FD3CF;      /* light teal, kept for v5 rules that read it (the dark toast it lit is gone: every toast is the warm card) */
   --p300: #6AB5B3;
   --p400: #3B9A9B;
   --p500: #1C8388;

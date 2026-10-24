@@ -261,21 +261,57 @@ export function toast(msg, opt = {}) {
   // R-277 fix 8 (E-9): an error stays until it is closed. It vanished after 4 s, so a "Mark filed" that did not save
   // went by unread and the step quietly came back. A new message replaces the last one, but never an error still open
   // (a newer error replaces the older one, so they never pile up).
-  const clear = () => document.querySelectorAll(opt.err ? '.toastmsg' : '.toastmsg:not(.err)').forEach(t => t.remove());
-  clear();
-  const el = document.createElement('div'); el.className = 'toastmsg' + (opt.err ? ' err' : opt.ok ? ' yay' : '');
-  el.innerHTML = (opt.ok ? `<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9.5" fill="var(--ok-text)"/><path class="ck" d="M5.5 10.4l3 3 6-6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '')
-    + `<span>${esc(opt.err ? friendly(msg) : msg)}</span>` + (opt.undo ? '<button type="button" class="toastundo">Undo</button>' : '') + (opt.action ? `<button type="button" class="toastundo toastact">${esc(opt.action.label)}</button>` : '');
+  const clear = () => { document.querySelectorAll(opt.err ? '.toastmsg' : '.toastmsg:not(.err)').forEach(t => t.remove()); placeToast(); };
+  document.querySelectorAll(opt.err ? '.toastmsg' : '.toastmsg:not(.err)').forEach(t => t.remove());
+  // v6 (spec 4, A-15, A-16): one warm card for every message, its icon by tone: a leaf check for done, a neutral "i" for
+  // anything else (Send back, Pulled back to draft, Saved: said no), an alert for a save that failed. The dark slab is gone
+  // (it was the only cold surface in the app). The icon never shrinks beside a long sentence (staff.css: flex none, 20px).
+  const el = document.createElement('div'); el.className = 'toastmsg' + (opt.err ? ' err' : opt.ok ? ' yay' : ' note');
+  const mark = opt.ok ? `<svg class="v6-tic" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="9.5" fill="currentColor"/><path class="ck" d="M5.5 10.4l3 3 6-6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+    : icon(opt.err ? 'circle-alert' : 'info', { size: 20, cls: 'v6-tic' });
+  el.innerHTML = mark + `<span>${esc(opt.err ? friendly(msg) : msg)}</span>` + (opt.undo ? '<button type="button" class="toastundo">Undo</button>' : '') + (opt.action ? `<button type="button" class="toastundo toastact">${esc(opt.action.label)}</button>` : '');
+  // An Undo belongs to the page it was raised on (A-16, B-5): app.js closes it when the person moves to another page, so it
+  // can never quietly take back something from a page they have left. `at` lets the step's own move (Review's next item, a
+  // save that opens the bill) take it along.
+  if (opt.undo || opt.action) { el.dataset.undo = '1'; el.dataset.at = String(Math.round(performance.now())); }
   if (opt.undo) el.querySelector('.toastundo').onclick = async () => { clear(); try { await opt.undo(); } catch (e) { toast(e, true); } };
   if (opt.action) el.querySelector('.toastact').onclick = () => { clear(); opt.action.run(); };
   // One with a button can be closed (it could sit on top of the bill tabs for ten seconds), and any toast someone is
   // reading or reaching for stays put: its clock starts again when they leave it.
-  if (opt.undo || opt.action || opt.err) { el.insertAdjacentHTML('beforeend', `<button type="button" class="toastx" aria-label="Dismiss">${icon('x')}</button>`); el.querySelector('.toastx').onclick = () => el.remove(); }
-  if (opt.err) { el.setAttribute('role', 'alert'); host.appendChild(el); return; }   // no clock: it waits for its X
-  const arm = () => { clearTimeout(toast.t); toast.t = setTimeout(() => el.isConnected && el.remove(), opt.undo || opt.action ? 10000 : 4000); }, hold = () => clearTimeout(toast.t);
+  if (opt.undo || opt.action || opt.err) { el.insertAdjacentHTML('beforeend', `<button type="button" class="toastx" aria-label="Dismiss">${icon('x')}</button>`); el.querySelector('.toastx').onclick = () => { el.remove(); placeToast(); }; }
+  if (opt.err) { el.setAttribute('role', 'alert'); host.appendChild(el); stack(el); placeToast(); return; }   // no clock: it waits for its X
+  const arm = () => { clearTimeout(toast.t); toast.t = setTimeout(() => { if (el.isConnected) { el.remove(); placeToast(); } }, opt.undo || opt.action ? 10000 : 4000); }, hold = () => clearTimeout(toast.t);
   el.addEventListener('mouseenter', hold); el.addEventListener('mouseleave', arm); el.addEventListener('focusin', hold); el.addEventListener('focusout', arm);
   if (dlg) el.classList.add('insheet');
-  host.appendChild(el); arm();
+  host.appendChild(el); stack(el); arm(); placeToast();
+}
+// A long message on a narrow phone ran six lines beside its Undo (192px tall at 320px): past three lines, Undo moves under the
+// words and the words take the card's width (staff.css .stack), which is shorter from there on.
+function stack(el) { const t = el.querySelector(':scope > span'); if (t && el.querySelector('.toastundo') && t.offsetHeight > 76) el.classList.add('stack'); }
+// Below 768px the messages sit above the bottom tab bar AND any action bar showing over it (Review's Send back | Approve, or
+// a screen's own bar marked data-v6-bar), 8px clear, so a toast never covers the next step's buttons (spec 3.2, B-5, A-16).
+// The page also gets the messages' height again at its foot (staff.css reads --v6-toast-h), so whatever a toast does cover
+// can be scrolled out from under it. app.js calls this after every draw too: a bar can come or go under a toast.
+export function placeToast() {
+  const box = document.getElementById('toast'); if (!box) return;
+  const shown = [...box.children].some(t => t.getClientRects().length);
+  document.body.style.setProperty('--v6-toast-h', shown ? `${Math.ceil(box.getBoundingClientRect().height) + 8}px` : '0px');
+  if (innerWidth >= 768) { box.style.removeProperty('bottom'); return; }
+  let top = innerHeight;
+  document.querySelectorAll('.sv-tabs, main .actionbar, [data-v6-bar]').forEach(b => {
+    if (!b.getClientRects().length) return; const r = b.getBoundingClientRect();
+    if (r.height > 0 && r.top < top && r.top > innerHeight / 3 && r.bottom > innerHeight - 240) top = r.top;   // bars at the window's foot only
+  });
+  box.style.bottom = `${Math.round(innerHeight - top + 8)}px`;
+}
+// Leaving a page closes a message that carries an Undo (or a step's button): it would act on the page left behind, and it
+// sat over the next page's own messages (A-16, B-5). One raised in the last moment goes along (the step's own move to the
+// next item or page). A new message always replaces the last one (toast above); an error still waits for its X (R-277 fix 8).
+export function leavePageToasts() {
+  const now = performance.now();
+  let gone = false;
+  document.querySelectorAll('#toast .toastmsg[data-undo]').forEach(t => { if (now - (+t.dataset.at || 0) > 700) { t.remove(); gone = true; } });
+  if (gone) placeToast();
 }
 // Keyboard shortcuts can be switched off in My settings (a stray letter should never do anything for someone who does
 // not use them). Every keydown handler in v2 checks this first.
@@ -357,7 +393,16 @@ export function openSheet({ title, body, foot = '', size = 'half', onClose, wire
     e.preventDefault(); (e.key === 'Home' ? items[0] : e.key === 'End' ? items[items.length - 1] : items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]).focus();
   });
   if (wire) wire(d);
+  sheetFade(d);
   return d;
+}
+// A sheet taller than the window scrolls inside itself, under its head (staff.css caps it at the window), and its foot fades
+// while more is below, so the last choice ("No owner" in Give HB 2458 to...) is always in reach and something says so (A-1, B-4).
+function sheetFade(d) {
+  const body = d.querySelector('.sv-sh-body'); if (!body) return;
+  const ends = () => body.classList.toggle('v6-more-below', body.scrollHeight - body.clientHeight - body.scrollTop > 2);
+  ends(); body.addEventListener('scroll', ends, { passive: true });
+  try { const ro = new ResizeObserver(ends); ro.observe(body); [...body.children].forEach(c => ro.observe(c)); } catch { /* old browsers: the open and scroll checks still run */ }
 }
 // closeSheet(): from a button (steps history back once) or from Back (fromPop: the entry is already gone). It returns
 // a promise that settles once that Back has landed, so whatever comes next (a page, another sheet) is not undone by it.

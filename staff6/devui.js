@@ -47,7 +47,7 @@ export default {
         <div class="dv-row">${pickerChip('Strong support', { 'data-dv': 'pick' }, 'thumbs-up')}<button type="button" class="chip" aria-pressed="true">This week</button><button type="button" class="chip" aria-pressed="false">House</button></div>
         <div class="card">${switchRow('dv-sw1', 'Slack DM when someone mentions me', true, 'Off means only the Inbox')}${switchRow('dv-sw2', 'Hearing alerts', false)}</div>
         ${stepBar('review')}`)}
-      ${sec('sheet', 'Sheets and messages', `<div class="dv-row">${btn('Picker', { kind: 'secondary', attrs: { 'data-dv': 'pick' } })}${btn('Menu', { kind: 'secondary', attrs: { 'data-dv': 'menu' } })}${btn('Message with Undo', { kind: 'secondary', attrs: { 'data-dv': 'toast' } })}${btn('Error message', { kind: 'secondary', attrs: { 'data-dv': 'err' } })}</div>`)}
+      ${sec('sheet', 'Sheets and messages', `<div class="dv-row">${btn('Picker', { kind: 'secondary', attrs: { 'data-dv': 'pick' } })}${btn('Menu', { kind: 'secondary', attrs: { 'data-dv': 'menu' } })}${btn('Message with Undo', { kind: 'secondary', attrs: { 'data-dv': 'toast' } })}${btn('Neutral message', { kind: 'secondary', attrs: { 'data-dv': 'note' } })}${btn('Error message', { kind: 'secondary', attrs: { 'data-dv': 'err' } })}</div>`)}
       ${sec('empty', 'Empty and loading', `${empty({ title: 'All clear for today.', text: 'Your next hearing is Wed 3/18 at 2:00 PM.', action: btn('See this week', { kind: 'secondary', href: '#/hearings' }) })}${skeleton(2)}`)}
     </div>`;
   },
@@ -57,6 +57,8 @@ export default {
     on('menu', () => menuSheet({ items: [{ label: 'Open bill', icon: 'scroll-text', run: () => {} }, { label: 'Mute this bill', icon: 'bell-off', disabled: true, reason: 'This bill has a hearing on 3/18. It can be muted once that hearing is over.' }, { label: 'Stop tracking', icon: 'eye-off', run: () => {} }] }));
     on('confirm', async () => toast((await confirmSheet({ title: 'Delete this group?', text: 'The people stay; only the saved group goes.', ok: 'Delete', danger: true })) ? 'Deleted' : 'Kept'));
     on('toast', () => toast('Filed. HB 1562 is done for Senate Health.', { ok: true, undo: () => toast('Undone') }));
+    // one warm card for every message, its icon by tone (ui.js toast): done (leaf check), anything else (a neutral i), a failed save
+    on('note', () => toast('Sent back to Patti. She sees your note on her Today.', { undo: () => toast('Undone') }));
     on('err', () => toast('That did not save. Check your connection and try again.', { err: true }));
     root.querySelectorAll('[data-seg="dvseg"], [data-seg="dvwho"]').forEach(el => { el.onclick = () => el.parentElement.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === el))); });
     root.querySelectorAll('button.chip[aria-pressed]').forEach(el => { el.onclick = () => el.setAttribute('aria-pressed', String(el.getAttribute('aria-pressed') !== 'true')); });

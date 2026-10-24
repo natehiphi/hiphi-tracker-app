@@ -17,7 +17,7 @@
 // back, then retires. Screens are modules with
 // { render(route), wire(route, root), bar?(route), title(route), back?(route), tab, tabs?, wide?, narrow? }.
 import { S, DB, DEMO, DEMO_ASOF, LIVE_REFRESH, SESSION_OVER, APP_URL, LINK_ERR, LINK_TOKEN, RECOVERY, setRecovery, hooks, esc, advocate, clearPractice, practiceRestarted, undoStartOver } from './data.js';
-import { icon, btn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, takeSheetEntry, avatar, keysOn } from './ui.js';
+import { icon, btn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, takeSheetEntry, avatar, keysOn, placeToast, leavePageToasts } from './ui.js';
 import { MARK } from '../pub/art.js';
 import { reportError } from './errlog.js';
 import { installAskWatch, loadAsks } from './chairask.js';   // R-316 W3
@@ -164,13 +164,21 @@ const barOf = k => BAR.includes(k) ? k : k ? 'more' : '';
 
 // go('#/bills') pushes history (Back works); { replace: true } swaps the current entry.
 let depth = 0;   // in-app steps behind this page (history.state.d), so a back link knows whether real Back stays in the app
+// The link inside the page that was just followed (a click, or Enter on it, which a browser sends as a click), whoever routes
+// it (follow() below, or a screen's own S.go: Bills, Testimony, Hearings, Today). go() keeps its address in the page's history
+// entry, and Back puts the focus on it again (spec 7.10, B-4). Taken in the capture phase, before any screen's handler.
+let followed = '', followedAt = 0;
+document.addEventListener('click', e => { const a = e.target?.closest?.('main a[href^="#/"]'); if (a) { followed = a.getAttribute('href'); followedAt = performance.now(); } }, true);
 export function go(path, { replace = false, keepScroll = false, force = false } = {}) {
   // A screen with unsaved work can ask first, for the frame's own jumps too (your menu, the header search, a g
   // shortcut): it registers (S.leaveGuards ??= []).push(proceed => boolean). True means "I am asking; I will call
   // proceed() if they choose to leave". A guard must answer false at once when it has nothing unsaved.
   if (!force) for (const g of S.leaveGuards || []) { let held = false; try { held = g(() => go(path, { replace, keepScroll, force: true })) === true; } catch (e) { console.error(e); } if (held) return; }
+  const leaving = !replace;   // a new page, not the same step moving on in place (Review's next item replaces)
   const viaSheet = takeSheetEntry(); if (viaSheet) replace = true;   // the sheet's history entry becomes this page, so no late Back undoes it
-  try { history.replaceState({ ...(history.state || {}), y: window.scrollY }, ''); } catch { /* ignore */ }
+  const back = !replace && followed && performance.now() - followedAt < 1500 ? followed : ''; followed = '';
+  try { const st = { ...(history.state || {}), y: window.scrollY }; if (back) st.back = back; else if (!replace) delete st.back; history.replaceState(st, ''); } catch { /* ignore */ }
+  if (leaving) leavePageToasts();   // an Undo never follows the person to another page (A-16, B-5)
   // `from`: the title of the page this one was opened from, so a phone's Back names the page it returns to (B-4). A page
   // that took a sheet's entry is one step deeper than the page under the sheet, and that page is where Back goes.
   const from = S.shownTitle || '';
@@ -198,19 +206,36 @@ export function panelClosed() {
   if (panelAt === location.hash && history.state?.panel) { panelAt = null; panelSkip = true; history.back(); }
 }
 S.panelOpened = panelOpened; S.panelClosed = panelClosed;
+// The page part of an address (no query): a query change made in place (Search's typing, Bills' filters) is not a new page.
+const pageOf = h => String(h || '').split('?')[0] || '#/';
 window.addEventListener('popstate', e => {
-  if (popSheet()) return;                      // Back closed a sheet: the page underneath stays as it is
+  // Back closed a sheet: the page underneath stays as it is. But when the address moved to another page while a sheet was
+  // open (a pasted link, a goto), the sheet closes AND the new page is drawn: Today stayed on screen under #/hearings (B-4).
+  if (popSheet() && pageOf(location.hash) === pageOf(lastKey)) return;
   if (panelSkip) { panelSkip = false; return; }   // the screen's own X closed the panel and took its entry back
   // Back from a panel's entry to the same address: close the panel in place; the list does not move.
   if (panelAt && panelAt === location.hash && !e.state?.panel) { panelAt = null; const c = panelClose; panelClose = null; if (c) { try { c(); } catch (x) { console.error(x); render(); } return; } }
   // Forward (or Back from a bill page) onto a panel's entry: the screen draws its panel open again, as it was left.
   panelAt = e.state?.panel ? location.hash : null;
   depth = e.state?.d || 0;
+  if (location.hash !== lastKey) leavePageToasts();   // Back to another page: an Undo stays with the page it was raised on
   render(); const y = e.state?.y || 0;
+  // Focus returns to the link that opened the page just left (spec 7.10, B-4): Bills' row, a Testimony row, a hearing. A page
+  // that put the focus on its own row (Legislators) keeps it; only a page whose focus is still on <main> or nowhere gets it.
+  if (e.state?.back) refocus(e.state.back);
   // A page that scrolls to something itself (Today's "Write it" lands at the ask box, X10-3) claims the scroll with S.scrollClaimed; this restore, queued after it, would put the page back at the top.
   requestAnimationFrame(() => { if (S.scrollClaimed) { S.scrollClaimed = false; return; } window.scrollTo(0, y); });
 });
 try { history.scrollRestoration = 'manual'; } catch { /* ignore */ }
+// The row first (a list's link), then any link to the same address; tried again for a moment while a page draws its rows late.
+function refocus(href, tries = 0) {
+  const ae = document.activeElement;
+  if (ae && ae !== document.body && ae.id !== 'main') return;   // the page (or the person) has already put the focus somewhere
+  const all = [...document.querySelectorAll('main a[href]')].filter(a => a.getAttribute('href') === href && a.getClientRects().length);
+  const a = all.find(x => x.closest('.v6-row, .row, li, tr')) || all[0];
+  if (a) { a.focus({ preventScroll: true }); return; }
+  if (tries < 4) setTimeout(() => refocus(href, tries + 1), 150);
+}
 // R-277 fix 8 (E-9): "You're offline" while the browser has no connection, gone when it is back. Nothing said so, and a
 // change made meanwhile failed with a message that vanished. It sits with the messages at the foot of the page (#toast,
 // outside the redrawn page, so a redraw never takes it away) and stays until the connection returns.
@@ -238,15 +263,15 @@ function lateCount(bd) {
   try { return todayItems('mine').late || 1; } catch { return 1; }
 }
 const countWords = (bd, lateN) => `${bd.n} need${bd.n === 1 ? 's' : ''} you today${lateN ? `, ${lateN} of them overdue` : ''}`;
-// Today's count, the same on the sidebar, the rail and the phone's tab (D3, A-14): ONE number, "needs you today", on a
-// neutral sand badge. When some of it is overdue the badge carries the alert icon (never colour alone, A-5) and its name
-// says how many are overdue; Today itself says it in words at the top.
+// Today's count, the same on the sidebar, the rail and the phone's tab (D3, A-14, spec 3.1): ONE number, "needs you today",
+// on a neutral sand badge, always. No red and no icon on it: away from Today nothing visible said what the red meant (A-5:
+// red only with its word). Its name still says how many are overdue, and Today's own "1 overdue" line carries the red word.
 function todayBadge(bd, lateN, cls) {
   if (!bd.n) return '';
   const words = countWords(bd, lateN);
-  return `<span class="${cls}${lateN ? ' late' : ''}" role="img" aria-label="${esc(words)}" title="${esc(words)}">${lateN ? icon('circle-alert') : ''}<span>${bd.n > 99 ? '99+' : bd.n}</span></span>`;
+  return `<span class="${cls}" role="img" aria-label="${esc(words)}" title="${esc(words)}"><span>${bd.n > 99 ? '99+' : bd.n}</span></span>`;
 }
-// The header. A phone: Back (deeper than a place) or the mark, the page's title, Search and the Inbox bell with a dot. A laptop
+// The header. A phone: Back (deeper than a place) or the mark, the page's title, Search, Help and the Inbox bell with a dot. A laptop
 // or tablet (768px and wider): only the search box, which Cmd/Ctrl-K or "/" focuses (V32); the sidebar holds the rest.
 // Pages one level under More or More tools whose screens name no parent: a phone still shows Back to where they came from.
 const UNDER = { me: { href: '#/more', label: 'More' }, tools: { href: '#/more', label: 'More' }, devui: { href: '#/tools', label: 'More tools' } };   // tools: a phone only (spec 3.2); a laptop's sidebar has More tools as a place, and draws no Back
@@ -261,12 +286,16 @@ function header(route, scr, title) {
   // A long label shortens to "Back" on a phone, unless the screen marks it full (the issue page's "Back to SB2175" fits).
   const short = !!b && b.label.length > 14 && !b.full;
   const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
+  // Help is one visible tap on a phone, as the bell is for the Inbox (spec 8: "Inbox and Help 1 visible tap", B-13, D2); More's
+  // Help row stays. A laptop has Help in the sidebar, so the button is a phone's only (staff.css).
+  const help = placeOf(route) === 'help';
   return `<header class="sv-hdr">
     ${b ? `<a class="sv-back phone" href="${esc(b.href)}" data-back${short ? ` aria-label="${esc(/^Back\b/.test(b.label) ? b.label : 'Back to ' + b.label)}"` : ''}>${icon('chevron-left')}<span>${esc(short ? 'Back' : b.label)}</span></a>`
       : `<a class="sv-brand" href="#/" aria-label="Bill Tracker, Today">${MARK}</a>`}
     <span class="sv-title" aria-hidden="true">${esc(title)}</span>
     <form class="sv-search" role="search" data-hsearch><label class="sr" for="hq">Search bills, legislators, people and places</label>${icon('search')}<input id="hq" type="search" placeholder="Search bills, legislators, people" autocomplete="off" aria-keyshortcuts="${mac ? 'Meta+K' : 'Control+K'} /"><span class="sv-kbd" aria-hidden="true">${mac ? '⌘K' : 'Ctrl K'}</span></form>
     <a class="iconbtn sv-srchbtn" href="#/search" aria-label="Search">${icon('search')}</a>
+    <a class="iconbtn sv-helpbtn" href="#/help" aria-label="Help"${help ? ' aria-current="page"' : ''}>${icon('circle-help')}</a>
     <a class="iconbtn sv-bell" href="#/inbox" aria-label="Inbox${unread ? `, ${unread} unread` : ''}">${icon('bell')}${unread ? '<span class="sv-dot" aria-hidden="true"></span>' : ''}</a>
   </header>`;
 }
@@ -291,6 +320,9 @@ function sidebar(route) {
   const now = placeOf(route), bd = badge(), lateN = lateCount(bd), leads = leadKeys(), narrow = sideNarrow();
   let unread = 0; try { unread = messagesCount(); } catch { unread = 0; }
   const inboxN = unread ? `<span class="sv-sn" role="img" aria-label="${unread} unread">${unread > 99 ? '99+' : unread}</span>` : '';
+  // From 768 to 1099px the 216px sidebar shows "You" and the initials only (staff.css): the name was cut to "You · Lau…"
+  // (A-1, nothing cut). The whole name stays the button's name and its title.
+  const youFull = `You · ${S.me?.full_name || youName()}`;
   return `<aside class="sv-side" aria-label="Sidebar">
     <a class="sv-sbrand" href="#/" aria-label="Bill Tracker, Today">${MARK}<span>Bill Tracker<small>HIPHI staff</small></span></a>
     <nav class="sv-snav" aria-label="Places">${sideCue('up')}
@@ -300,7 +332,7 @@ function sidebar(route) {
       ${sideCue('down')}
     </nav>
     <div class="sv-sfoot">${syncNote()}${sideItem('tools', now)}
-      <div class="sv-you"><button type="button" class="sv-sitem sv-youbtn" data-you aria-haspopup="menu"${now === 'you' ? ' aria-current="page"' : ''}><span class="lbl"><span>You</span><span class="sv-youn">· ${esc(youName())}</span></span><span class="lbs" aria-hidden="true">You</span><span class="sv-youav" aria-hidden="true">${avatar(S.me, 28)}</span></button>
+      <div class="sv-you"><button type="button" class="sv-sitem sv-youbtn" data-you aria-haspopup="menu" aria-label="${esc(youFull)}" title="${esc(youFull)}"${now === 'you' ? ' aria-current="page"' : ''}><span class="lbl"><span>You</span><span class="sv-youn">· ${esc(youName())}</span></span><span class="lbs" aria-hidden="true">You</span><span class="sv-youav" aria-hidden="true">${avatar(S.me, 28)}</span></button>
         <button type="button" class="sv-scollapse" data-sidecol aria-pressed="${narrow}" aria-label="${narrow ? 'Expand the sidebar' : 'Collapse the sidebar'}" title="${narrow ? 'Expand the sidebar' : 'Collapse the sidebar'}">${icon(narrow ? 'panel-left-open' : 'panel-left-close')}</button></div>
     </div>
   </aside>`;
@@ -426,9 +458,13 @@ export function render() {
   wireFrame(app);
   ioFoot(route);
   const nav = app.querySelector('.sv-snav'); if (nav && navTop) nav.scrollTop = navTop;
-  hdrShadow(); tabRows(app);
+  hdrShadow(); tabRows(app); fitHeader();
   if (inSearch && document.activeElement?.id !== 'hq') document.getElementById('hq')?.focus({ preventScroll: true });
   if (location.hash !== lastKey) { lastKey = location.hash; if (!app.contains(document.activeElement) || document.activeElement === document.body) app.querySelector('main')?.focus({ preventScroll: true }); }
+  placeToast();   // a bar may have come or gone under a message that is showing (ui.js)
+  // One event per drawn page: the v6 router moves by pushState, which fires no hashchange, so anything that follows the
+  // person's way through the app listens here (Help's Getting started ticks its look-only steps: spec 6 Today, A-16).
+  try { window.dispatchEvent(new CustomEvent('v6:route', { detail: { name: route.name, hash: location.hash } })); } catch (e) { console.error(e); }
 }
 // More tools' "Supporters’ groups, import and export" opens #/outreach/supporters?io=1: Supporters at its admin foot (Import
 // CSV, Export), scrolled to and the first button focused, once per arrival (a later redraw leaves the page where it is), so
@@ -529,6 +565,19 @@ function tabRows(app) {
     ends(); if (!nav.dataset.w) { nav.dataset.w = '1'; nav.addEventListener('scroll', ends, { passive: true }); } }
 }
 addEventListener('resize', () => { const app = document.getElementById('app'); if (app && S.route) tabRows(app); }, { passive: true });
+// A phone's top bar holds Back, the title, Search, Help and the bell. When the title would be cut (a 320px phone, a long Back
+// label), Back keeps its arrow and its name for a screen reader but not its word ("tight"); if the title is still too long it
+// steps down to 16px over two lines ("tight2"). Nothing is cut (A-1) and every button keeps 44px (spec 3.2, 7.10).
+function fitHeader() {
+  const h = document.querySelector('.sv-hdr'); if (!h) return;
+  h.classList.remove('tight', 'tight2');
+  if (innerWidth >= 768) return;
+  const t = h.querySelector('.sv-title'); if (!t) return;
+  const over = () => t.scrollWidth > t.clientWidth || t.scrollHeight > t.clientHeight + 1;
+  if (over() && h.querySelector('.sv-back')) h.classList.add('tight');
+  if (over()) h.classList.add('tight2');
+}
+addEventListener('resize', () => { if (!fitHeader.raf) fitHeader.raf = requestAnimationFrame(() => { fitHeader.raf = 0; fitHeader(); placeToast(); }); }, { passive: true });
 // No rule under the header (V16): a soft shadow shows only once the page has scrolled under it.
 function hdrShadow() { const h = document.querySelector('.sv-hdr'); if (h) h.classList.toggle('scrolled', window.scrollY > 4); }
 addEventListener('scroll', () => { if (!hdrShadow.raf) hdrShadow.raf = requestAnimationFrame(() => { hdrShadow.raf = 0; hdrShadow(); }); }, { passive: true });

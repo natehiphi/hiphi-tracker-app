@@ -64,17 +64,24 @@ body.staff6 main h1.v6-ptitle { margin: var(--s8) 0 var(--s24); }
 .sv-hdr .sv-brand svg { width: 28px; height: 28px; }
 .sv-hdr .sv-back { display: inline-flex; align-items: center; gap: 2px; flex: none; min-height: 44px; max-width: 45%; padding: 0 var(--s8) 0 var(--s4); border-radius: var(--v6-pill);
   color: var(--v6-action); font: 400 var(--v6-t16)/1 var(--font); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sv-hdr .sv-back:hover { background: var(--v6-action-wash); }
+@media (hover: hover) and (pointer: fine) { .sv-hdr .sv-back:hover { background: var(--v6-action-wash); } }
 .sv-hdr .sv-back .ic { width: 22px; height: 22px; flex: none; }
 .sv-hdr .sv-title { flex: 1 1 auto; min-width: 0; margin: 0; font: 600 var(--v6-t18)/var(--v6-lh18) var(--font-h); color: var(--v6-ink); letter-spacing: -.005em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sv-hdr .sv-search { display: none; }
 .sv-hdr .iconbtn { color: var(--v6-body); }
-.sv-hdr .iconbtn:hover { background: var(--v6-wash); }
+@media (hover: hover) and (pointer: fine) { .sv-hdr .iconbtn:hover { background: var(--v6-wash); } }
+/* Help on Help is lit, as a tab is (the action teal), so the button says where you are. */
+.sv-hdr .sv-helpbtn[aria-current="page"] { color: var(--v6-action); }
 /* The Inbox bell: a dot when something is unread (spec 3.2); the number is in its label and on the Inbox page. */
 .sv-bell { position: relative; }
 .sv-bell .sv-dot { position: absolute; top: 9px; right: 9px; width: 10px; height: 10px; border-radius: 50%; background: var(--v6-action); box-shadow: 0 0 0 2px var(--v6-page); }
 @media (max-width: 280px) { .sv-hdr .sv-back { max-width: 60%; } }
+/* A narrow phone with Search, Help and the bell (app.js fitHeader): when the title would be cut, Back keeps its arrow (its
+   word is still its name for a screen reader), then the title steps down to 16px over two lines. Nothing cut (A-1). */
+.sv-hdr.tight .sv-back { min-width: 44px; justify-content: center; padding: 0; }
+.sv-hdr.tight .sv-back > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sv-hdr.tight2 .sv-title { font-size: var(--v6-t16); line-height: 20px; white-space: normal; text-overflow: clip; overflow-wrap: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 /* Search sits in the phone's top bar on every route (spec 3.2), Bills included: one rule on every page and every device.
    (css/bills.css hides it where Bills has its own box; this outranks it until BILLS drops that line.) */
 @media (max-width: 767px) { body.staff6 .sv-page .sv-hdr .sv-srchbtn { display: inline-flex; } }
@@ -90,12 +97,10 @@ body.staff6 main h1.v6-ptitle { margin: var(--s8) 0 var(--s24); }
 .sv-tabs a[aria-current="page"] { color: var(--v6-action); font-weight: 700; }
 .sv-tabs a[aria-current="page"] .pill { background: var(--v6-action-wash); }
 .sv-tabs a:focus-visible { outline-offset: -3px; }
-/* Today's count on the tab: the same sand badge as the sidebar's, one number ("needs you today"); with the alert icon when
-   some of it is overdue (D3, A-5: never colour alone; its name says how many are overdue, and Today says it in words). */
+/* Today's count on the tab: the same sand badge as the sidebar's, one number ("needs you today"), never red and never an
+   icon (D3, A-5: red only with its word; its name says how many are overdue, and Today says it in words). */
 .sv-badge { position: absolute; top: 0; left: calc(50% + 6px); display: inline-flex; align-items: center; justify-content: center; gap: 2px; min-width: 22px; height: 22px; padding: 0 6px;
   border-radius: 11px; background: var(--v6-wash); color: var(--v6-ink); box-shadow: 0 0 0 2px var(--v6-card); font: 700 var(--v6-t14)/22px var(--font); text-align: center; }
-.sv-badge.late { padding-left: 3px; }
-.sv-badge .ic { width: 16px; height: 16px; color: var(--v6-bad); flex: none; }
 body.staff6.withtabs .actionbar, body.staff6.hasbar.withtabs .actionbar { bottom: calc(var(--tabbar) + var(--safe-b)); padding-bottom: var(--s12); }
 @media (prefers-reduced-motion: reduce) { .sv-hdr, .sv-tabs a .pill { transition: none; } }
 
@@ -136,7 +141,7 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
     border: 0; border-radius: var(--v6-pill); background: var(--v6-wash); color: var(--v6-ink); font: 700 var(--v6-t14)/20px var(--font); cursor: pointer;
     box-shadow: 0 0 0 6px var(--v6-page); }
   .sv-smore .ic { width: 16px; height: 16px; flex: none; }
-  .sv-smore:hover { background: #E6DDCD; }
+  @media (hover: hover) and (pointer: fine) { .sv-smore:hover { background: #E6DDCD; } }
   .sv-smore.down { bottom: 0; order: 99; }
   .sv-smore.up { top: 0; order: -1; }
   .sv-snav:not(.ovf) .sv-smore, .sv-snav.atend .sv-smore.down, .sv-snav.atstart .sv-smore.up { display: none; }
@@ -146,17 +151,15 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
   .sv-sitem .ic { width: 20px; height: 20px; flex: none; color: var(--v6-muted); }
   .sv-sitem .lbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sv-sitem .lbs { display: none; }
-  .sv-sitem:hover { background: var(--v6-wash); color: var(--v6-ink); }
+  @media (hover: hover) and (pointer: fine) { .sv-sitem:hover { background: var(--v6-wash); color: var(--v6-ink); } }
   .sv-sitem[aria-current="page"] { background: var(--v6-action-wash); color: var(--v6-action); font-weight: 700; }
   .sv-sitem[aria-current="page"] .ic { color: var(--v6-action); }
   .sv-sitem:focus-visible { outline-offset: 2px; }
-  /* Exactly two counts in the sidebar, Today's and the Inbox's (spec 3.1): neutral sand, one number each; Today's carries
-     the alert icon when some of it is overdue (D3, A-5), the same badge as the phone's tab. */
+  /* Exactly two counts in the sidebar, Today's and the Inbox's (spec 3.1): neutral sand, one number each, never red (D3,
+     A-5: Today's "overdue" is said in words on Today and in the count's name), the same badge as the phone's tab. */
   .sv-sn { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; flex: none; min-width: 24px; height: 24px; padding: 0 8px; border-radius: var(--v6-pill);
     background: var(--v6-wash); color: var(--v6-ink); font: 700 var(--v6-t14)/24px var(--font); justify-content: center; }
   .sv-sitem[aria-current="page"] .sv-sn { background: var(--v6-card); }
-  .sv-sn.late { padding-left: 4px; }
-  .sv-sitem .sv-sn .ic, .sv-sitem[aria-current="page"] .sv-sn .ic { width: 16px; height: 16px; color: var(--v6-bad); }
   .sv-sfoot { display: flex; flex-direction: column; gap: 2px; flex: none; }
   @media (pointer: coarse) { .sv-sitem { min-height: 44px; } }
   .sv-you { display: flex; align-items: center; gap: var(--s4); }
@@ -168,11 +171,11 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
   .sv-youbtn .lbl > span { flex: none; }
   .sv-youbtn .lbl > .sv-youn { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sv-scollapse { flex: none; width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--v6-pill); color: var(--v6-muted); }
-  .sv-scollapse:hover { background: var(--v6-wash); color: var(--v6-ink); }
+  @media (hover: hover) and (pointer: fine) { .sv-scollapse:hover { background: var(--v6-wash); color: var(--v6-ink); } }
   .sv-scollapse .ic { width: 20px; height: 20px; }
   /* the laptop header: only the search box (spec 3.1); Cmd/Ctrl-K or "/" puts the cursor in it */
   .sv-hdr { padding: 0 var(--v6-gutter); gap: var(--s12); }
-  .sv-hdr .sv-brand, .sv-hdr .sv-back.phone, .sv-hdr .sv-srchbtn, .sv-hdr .sv-bell { display: none; }
+  .sv-hdr .sv-brand, .sv-hdr .sv-back.phone, .sv-hdr .sv-srchbtn, .sv-hdr .sv-helpbtn, .sv-hdr .sv-bell { display: none; }
   .sv-hdr .sv-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .sv-hdr .sv-search { display: block; position: relative; flex: 0 1 560px; min-width: 0; }
   .sv-hdr .sv-search input { width: 100%; min-height: 44px; padding: 10px 72px 10px 44px; border: 1px solid var(--v6-field); border-radius: var(--v6-r12);
@@ -208,8 +211,6 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
   body.staff6.sidenarrow .sv-smore .ic { width: 20px; height: 20px; }
   body.staff6.sidenarrow .sv-sitem .lbs { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   body.staff6.sidenarrow .sv-sn { position: absolute; top: 0; right: 4px; min-width: 20px; height: 20px; padding: 0 5px; line-height: 20px; }
-  body.staff6.sidenarrow .sv-sn.late { padding-left: 2px; }
-  body.staff6.sidenarrow .sv-sn .ic { width: 14px; height: 14px; }
   /* Collapsed rows keep 4px between them, so each icon has air under the short label above it (A-8). You and the collapse
      button share one row, as when expanded: the foot is no taller collapsed, so collapsing never hides a row the wide
      sidebar shows (B-13). */
@@ -218,6 +219,11 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
   body.staff6.sidenarrow .sv-you { flex-direction: row; align-items: center; gap: 0; }
   body.staff6.sidenarrow .sv-you .sv-youbtn { flex: 1 1 auto; min-width: 0; padding: 2px 0; }
   body.staff6.sidenarrow .sv-scollapse { width: 32px; height: 44px; margin-right: -4px; }
+}
+/* 768-1099px (the 216px sidebar): You shows "You" and the initials, never a cut name ("You · Lau…", A-1); the whole name is
+   the button's name and its title (app.js sidebar). */
+@media (min-width: 768px) and (max-width: 1099px) {
+  .sv-youbtn .lbl > .sv-youn { display: none; }
 }
 @media (min-width: 1100px) {
   .sv-side { padding-left: var(--s16); padding-right: var(--s16); }
@@ -248,28 +254,39 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
 :where(body.staff6) .btn { min-height: 44px; padding: 0 20px; gap: var(--s8); border-radius: var(--v6-pill); font: 400 var(--v6-t16)/1.2 var(--font); box-shadow: none; }
 :where(body.staff6) .btn .ic { width: 20px; height: 20px; }
 :where(body.staff6) .btn.primary { background: var(--v6-action); color: #fff; font-weight: 700; }
-:where(body.staff6) .btn.primary:hover { background: var(--v6-action-press); color: #fff; }
+@media (hover: hover) and (pointer: fine) { :where(body.staff6) .btn.primary:hover { background: var(--v6-action-press); color: #fff; } }
 :where(body.staff6) .btn.primary:active { background: var(--v6-action-press); transform: scale(.98); }
 /* Tonal: action text on action wash (5.1:1), the same teal as links and text buttons, so a screen with all three shows one
    teal, not two (spec 4, <=5 text colours). Hover and press keep 4.5:1 or more (4.7 on #D3E7E5); press also shrinks a little. */
 :where(body.staff6) .btn.secondary { background: var(--v6-action-wash); color: var(--v6-action); box-shadow: none; }
-:where(body.staff6) .btn.secondary:hover { background: #D3E7E5; color: var(--v6-action); }
+@media (hover: hover) and (pointer: fine) { :where(body.staff6) .btn.secondary:hover { background: #D3E7E5; color: var(--v6-action); } }
 :where(body.staff6) .btn.secondary:active { background: #D3E7E5; transform: scale(.98); }
 :where(body.staff6) .btn.text { min-height: 44px; padding: 0 12px; background: none; color: var(--v6-action); }
-:where(body.staff6) .btn.text:hover { background: var(--v6-action-wash); text-decoration: none; }
+@media (hover: hover) and (pointer: fine) { :where(body.staff6) .btn.text:hover { background: var(--v6-action-wash); text-decoration: none; } }
 :where(body.staff6) .btn.text:active { background: #D3E7E5; }
 :where(body.staff6) .btn.danger { background: var(--v6-bad); color: #fff; font-weight: 700; box-shadow: none; }
-:where(body.staff6) .btn.danger:hover, :where(body.staff6) .btn.danger:active { background: var(--bad-press); color: #fff; }
+:where(body.staff6) .btn.danger:active { background: var(--bad-press); color: #fff; }
+@media (hover: hover) and (pointer: fine) { :where(body.staff6) .btn.danger:hover { background: var(--bad-press); color: #fff; } }
 :where(body.staff6) .btn.sm { min-height: 40px; padding: 0 16px; font-size: var(--v6-t16); }
 :where(body.staff6) .btn.text.sm { padding: 0 10px; }
 :where(body.staff6) .btn:disabled, :where(body.staff6) .btn[aria-disabled="true"] { background: var(--v6-wash); color: var(--v6-muted); box-shadow: none; cursor: default; transform: none; }
 :where(body.staff6) .btn.text:disabled, :where(body.staff6) .btn.text[aria-disabled="true"] { background: none; }
 @media (pointer: coarse), (max-width: 767px) { :where(body.staff6) .btn.sm { min-height: 44px; } }
 :where(body.staff6) .iconbtn { color: var(--v6-body); }
-:where(body.staff6) .iconbtn:hover { background: var(--v6-wash); }
+@media (hover: hover) and (pointer: fine) { :where(body.staff6) .iconbtn:hover { background: var(--v6-wash); } }
 :where(body.staff6) .iconbtn.on { color: var(--v6-action); }
 :where(body.staff6) .linkbtn { color: var(--v6-action); }
 @media (prefers-reduced-motion: reduce) { :where(body.staff6) .btn { transition: none; } :where(body.staff6) .btn:active { transform: none; } }
+
+/* No hover look on a touch screen (spec 7.4, B-9): the frame's hovers above and below sit inside (hover: hover) and (pointer:
+   fine), and base.css's own grounds (rows, icon buttons, the filled button) are put back to the resting look here, so the thing
+   under the finger after a tap never keeps a ground as if it were picked. */
+@media not all and (hover: hover) and (pointer: fine) {
+  :where(body.staff6) :is(button.row, a.row):not(.sel):hover { background: var(--v6-card); }
+  :where(body.staff6) .iconbtn:hover { background: none; }
+  :where(body.staff6) .btn.primary:not(:active):not(:disabled):not([aria-disabled="true"]):hover { background: var(--v6-action); }
+  :where(body.staff6) .btn.text:hover { text-decoration: none; }
+}
 
 /* ---- status chips: tags, never buttons (A-12): small, a sand tile, no border, no hover, no pointer ---- */
 :where(body.staff6) .chip { min-height: 28px; padding: 4px 10px; gap: 6px; border-radius: var(--v6-pill); background: var(--v6-wash); color: var(--v6-body); font: 400 var(--v6-t14)/20px var(--font); }
@@ -286,7 +303,7 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
 .sv-chip.sm .ic { width: 14px; height: 14px; }
 /* A chip that IS a button (a filter toggle) looks like a button: a 40px pill, no outline; pressed is the selection teal. */
 :where(body.staff6) button.chip { min-height: 40px; padding: 8px 16px; border: 0; background: var(--v6-wash); color: var(--v6-ink); font-size: var(--v6-t16); cursor: pointer; }
-:where(body.staff6) button.chip:hover { background: #E6DDCD; }
+@media (hover: hover) and (pointer: fine) { :where(body.staff6) button.chip:hover { background: #E6DDCD; } }
 :where(body.staff6) button.chip[aria-pressed="true"] { padding: 8px 16px; border: 0; background: var(--v6-action-wash); color: var(--v6-action); font-weight: 700; }
 @media (pointer: coarse), (max-width: 767px) { :where(body.staff6) button.chip { min-height: 44px; } }
 
@@ -301,7 +318,7 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
 :where(body.staff6) .row { position: relative; min-height: var(--v6-row); gap: var(--s12); padding: var(--s12) var(--s16); background: var(--v6-card); }
 :where(body.staff6) .rows > .row + .row, :where(body.staff6) .rows > * + .row { border-top: 0; }
 :where(body.staff6) .rows > .row + .row::before, :where(body.staff6) .rows > * + .row::before { content: ''; position: absolute; left: var(--s16); right: var(--s16); top: 0; height: 1px; background: var(--v6-hair); }
-:where(body.staff6) button.row:hover, :where(body.staff6) a.row:hover { background: #FBF8F1; }
+@media (hover: hover) and (pointer: fine) { :where(body.staff6) button.row:hover, :where(body.staff6) a.row:hover { background: #FBF8F1; } }
 :where(body.staff6) .row .lead { width: 40px; height: 40px; background: var(--v6-action-wash); color: var(--v6-action); }
 :where(body.staff6) .row .title { font: 500 var(--v6-t18)/var(--v6-lh18) var(--font-h); color: var(--v6-ink); letter-spacing: -.005em; }   /* an item's name: 500 (spec 12.1) */
 :where(body.staff6) .row .sub { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
@@ -339,18 +356,47 @@ body.staff6 .td-root .td-h .sv-group .td-lateopen, body.staff6 .td-root .td-h .s
 .sv-notice { margin-bottom: var(--s16); align-items: center; }
 .sv-notice .btn { margin-left: auto; flex: none; }
 :where(body.staff6) .okmsg { color: var(--v6-leaf); }
-/* the message strip at the foot: one at a time, an aria-live region (#toast), Undo kept 10 seconds (ui.js toast, F16) */
+/* the message strip at the foot: one at a time, an aria-live region (#toast), Undo kept 10 seconds (ui.js toast, F16).
+   v6: ONE warm card for every message (spec 4, A-15, A-16): card ground, ink words, the sheet's shadow, its icon by tone (a
+   leaf check when done, a neutral "i" otherwise, an alert when a save failed). No dark slab: it was the only cold surface.
+   Undo and a step's button are one tonal pill everywhere. */
 :where(body.staff6) #toast { flex-direction: column; align-items: center; gap: var(--s8); }
-:where(body.staff6) .toastmsg { max-width: 520px; gap: var(--s12); padding: var(--s12) var(--s16); border-radius: var(--v6-r12); background: var(--v6-ink); color: var(--v6-card); box-shadow: var(--v6-sh3);
-  font: 400 var(--v6-t16)/var(--v6-lh16) var(--font); }
-:where(body.staff6) .toastmsg.yay { background: var(--v6-card); color: var(--v6-ink); border: 0; }
-:where(body.staff6) .toastundo { color: var(--p200); font-weight: 700; min-height: 44px; padding: 0 var(--s8); border-radius: var(--v6-pill); }
-:where(body.staff6) .toastmsg.yay .toastundo { color: var(--v6-action); }
-:where(body.staff6) .toastmsg.yay .toastundo:hover { background: var(--v6-action-wash); }
-.toastx { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: -8px -8px -8px 0; border-radius: var(--v6-pill); color: inherit; opacity: .8; flex: none; }
-.toastx:hover { opacity: 1; background: rgba(255, 255, 255, .12); }
-:where(body.staff6) .toastmsg.yay .toastx:hover { background: var(--v6-wash); }
+:where(body.staff6) .toastmsg, :where(body.staff6) .toastmsg.yay { max-width: 520px; gap: var(--s12); padding: var(--s12) var(--s12) var(--s12) var(--s16); border: 0; border-radius: var(--v6-r12);
+  background: var(--v6-card); color: var(--v6-ink); box-shadow: var(--v6-sh3); font: 400 var(--v6-t16)/var(--v6-lh16) var(--font); }
+:where(body.staff6) .toastmsg > span { flex: 1 1 auto; min-width: 0; }
+/* the icon keeps its 20px beside a long sentence (it was squashed to 6x20 on a phone after I'm going) */
+:where(body.staff6) .toastmsg > .v6-tic { flex: none; width: 20px; height: 20px; color: var(--v6-body); }
+:where(body.staff6) .toastmsg.yay > .v6-tic { color: var(--v6-leaf); }
+:where(body.staff6) .toastmsg.err > .v6-tic { color: var(--v6-bad); }
+:where(body.staff6) .toastundo { flex: none; min-height: 40px; padding: 0 var(--s16); border: 0; border-radius: var(--v6-pill); background: var(--v6-action-wash); color: var(--v6-action);
+  font: 400 var(--v6-t16)/1.2 var(--font); white-space: nowrap; cursor: pointer; }
+:where(body.staff6) .toastundo:active { background: #D3E7E5; }
+@media (pointer: coarse), (max-width: 767px) { :where(body.staff6) .toastundo { min-height: 44px; } }
+/* a long message (past three lines): the words take the card's width, the X stays top right, Undo sits under the words (ui.js) */
+:where(body.staff6) .toastmsg.stack { flex-wrap: wrap; align-items: flex-start; row-gap: var(--s8); }
+:where(body.staff6) .toastmsg.stack > .v6-tic { margin-top: 2px; }
+:where(body.staff6) .toastmsg.stack > span { flex: 1 1 calc(100% - 20px - 44px - 2 * var(--s12)); }
+:where(body.staff6) .toastmsg.stack > .toastx { order: 2; margin-top: -10px; }
+:where(body.staff6) .toastmsg.stack > .toastundo { order: 3; margin-left: calc(20px + var(--s12)); }
+.toastx { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: -8px -4px -8px -4px; border-radius: var(--v6-pill); color: var(--v6-muted); flex: none; }
 .toastx .ic { width: 18px; height: 18px; }
+@media (hover: hover) and (pointer: fine) {
+  :where(body.staff6) .toastundo:hover { background: #D3E7E5; }
+  .toastx:hover { background: var(--v6-wash); color: var(--v6-ink); }
+}
+/* Below 768px ui.js placeToast sets #toast's bottom above the tab bar and any action bar showing (spec 3.2, B-5); until it
+   has measured, the same from the classes. While a message shows, the page gets its height again at the foot, so nothing it
+   covers is out of reach (--v6-toast-h, set by placeToast). */
+@media (max-width: 767px) {
+  body.staff6 #toast { bottom: calc(var(--tabbar) + var(--safe-b) + var(--s8)); }
+  body.staff6.hasbar #toast { bottom: calc(var(--tabbar) + var(--safe-b) + 80px); }
+}
+body.staff6:has(#toast > *) main { padding-bottom: calc(var(--tabbar) + var(--safe-b) + var(--s32) + var(--v6-toast-h, 88px)); }
+body.staff6.hasbar:has(#toast > *) main { padding-bottom: calc(var(--tabbar) + var(--safe-b) + 104px + var(--v6-toast-h, 88px)); }
+@media (min-width: 768px) {
+  body.staff6:has(#toast > *) main { padding-bottom: calc(var(--s48) + var(--v6-toast-h, 88px)); }
+  body.staff6.hasbar:has(#toast > *) main { padding-bottom: calc(var(--s24) + var(--v6-toast-h, 88px)); }
+}
 @media (prefers-reduced-motion: reduce) { :where(body.staff6) .toastmsg { animation: none; } }
 /* "You're offline" sits with the messages until the connection is back: words and an icon, not a warning colour (D3). */
 .sv-offline { pointer-events: auto; max-width: 520px; width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: var(--s8); margin: 0; padding: var(--s12) var(--s16);
@@ -371,7 +417,7 @@ body.staff6 .td-root .td-h .sv-group .td-lateopen, body.staff6 .td-root .td-h .s
 /* A picker ("Strong support ▾") is a select in disguise, so it wears a field's edge, not a button's (A-12). */
 .sv-pick { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px 0 14px; border-radius: var(--v6-r12); background: var(--v6-card); border: 1px solid var(--v6-field);
   color: var(--v6-ink); font: 400 var(--v6-t16)/1.2 var(--font); }
-.sv-pick:hover { border-color: var(--v6-action); background: var(--v6-card); }
+@media (hover: hover) and (pointer: fine) { .sv-pick:hover { border-color: var(--v6-action); background: var(--v6-card); } }
 .sv-pick .ic { width: 18px; height: 18px; }
 .sv-pick .chev { width: 16px; height: 16px; color: var(--v6-muted); }
 .sv-pick.sv-toggle.on { border-color: var(--v6-action); background: var(--v6-action-wash); color: var(--v6-action); }
@@ -399,12 +445,14 @@ body.staff6 .td-root .td-h .sv-group .td-lateopen, body.staff6 .td-root .td-h .s
   font: 700 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-ink); text-align: left; }
 .sv-group .n { margin-left: auto; font: 400 var(--v6-t14) var(--font); color: var(--v6-muted); }
 .sv-group .chev { width: 18px; height: 18px; color: var(--v6-muted); }
-button.sv-group:hover { background: #FBF8F1; }
+@media (hover: hover) and (pointer: fine) { button.sv-group:hover { background: #FBF8F1; } }
 /* segmented: one list shown another way (A-12; page tabs are .sv-tabrow) */
 .sv-seg { display: inline-flex; background: var(--v6-wash); border-radius: var(--v6-pill); padding: 4px; gap: 2px; }
 .sv-seg button { min-height: 40px; padding: 0 16px; border-radius: var(--v6-pill); font: 400 var(--v6-t16)/1.2 var(--font); color: var(--v6-body); }
-.sv-seg button:hover { color: var(--v6-ink); }
-.sv-seg button[aria-pressed="true"] { background: var(--v6-card); color: var(--v6-ink); font-weight: 700; box-shadow: var(--v6-sh1); }
+@media (hover: hover) and (pointer: fine) { .sv-seg button:hover { color: var(--v6-ink); } }
+/* the picked side is said by its raised card and aria-pressed, not by bold: 700 is for page titles and the filled button, and
+   only the open page tab is bold (spec 4, 12.1, 13: at most a quarter of the text bold) */
+.sv-seg button[aria-pressed="true"] { background: var(--v6-card); color: var(--v6-ink); font-weight: 500; box-shadow: var(--v6-sh1); }
 @media (pointer: coarse), (max-width: 767px) { .sv-seg button { min-height: 44px; } }
 .sv-switchrow { display: flex; align-items: center; gap: var(--s12); min-height: 56px; padding: var(--s8) 0; cursor: pointer; position: relative; }
 .sv-switchrow .body { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; }
@@ -439,9 +487,9 @@ button.sv-group:hover { background: #FBF8F1; }
 .sv-tabrow::-webkit-scrollbar { display: none; }
 .sv-tabrow > a, .sv-tabrow > button { position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 var(--tp);
   border-radius: var(--v6-pill); background: none; box-shadow: none; color: var(--v6-body); font: 400 var(--v6-t16)/1.2 var(--font); text-decoration: none; white-space: nowrap; }
-.sv-tabrow > a:hover, .sv-tabrow > button:hover { background: #F1EBDF; color: var(--v6-ink); }
+@media (hover: hover) and (pointer: fine) { .sv-tabrow > a:hover, .sv-tabrow > button:hover { background: #F1EBDF; color: var(--v6-ink); } }
 .sv-tabrow > [aria-current="page"], .sv-tabrow > [aria-pressed="true"] { background: none; color: var(--v6-ink); font-weight: 700; box-shadow: none; }
-.sv-tabrow > [aria-current="page"]:hover, .sv-tabrow > [aria-pressed="true"]:hover { background: none; color: var(--v6-ink); }
+@media (hover: hover) and (pointer: fine) { .sv-tabrow > [aria-current="page"]:hover, .sv-tabrow > [aria-pressed="true"]:hover { background: none; color: var(--v6-ink); } }
 .sv-tabrow > [aria-current="page"]::after, .sv-tabrow > [aria-pressed="true"]::after { content: ''; position: absolute; left: var(--tp); right: var(--tp); bottom: 3px; height: 3px;
   border-radius: var(--v6-pill); background: var(--v6-action); pointer-events: none; }
 .sv-tabrow .sv-tn { font-weight: 400; color: var(--v6-muted); }
@@ -481,11 +529,14 @@ dialog.sv-sheet::backdrop { background: rgba(37, 34, 30, .38); }
 .sv-sh-head h2:focus { outline: none; }
 .sv-sh-body { padding: 0 var(--s24) var(--s24); overflow: auto; flex: 1 1 auto; }
 .sv-sh-help { margin-bottom: var(--s8); }
+/* More below: the foot of a sheet's list fades while it scrolls (ui.js sheetFade), so the last choice is known to be there. */
+.sv-sh-body.v6-more-below { -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 40px), transparent); }
+.sv-sh-body { min-height: 0; overscroll-behavior: contain; }
 .sv-sh-foot { display: flex; gap: var(--s8); justify-content: flex-end; padding: var(--s12) var(--s24) calc(var(--s12) + var(--safe-b)); border-top: 0; box-shadow: 0 -8px 16px -12px rgba(74, 52, 30, .2); flex: none; }
 .sv-sh-foot .btn.primary, .sv-sh-foot .btn.danger { flex: 1 1 auto; }
 .sv-pickl, .sv-menu { display: flex; flex-direction: column; }
 .sv-pickl button, .sv-menu button { display: flex; align-items: center; gap: var(--s12); min-height: 52px; padding: var(--s8) var(--s12); border-radius: var(--v6-r12); text-align: left; width: 100%; }
-.sv-pickl button:hover, .sv-menu button:hover { background: var(--v6-page); }
+@media (hover: hover) and (pointer: fine) { .sv-pickl button:hover, .sv-menu button:hover { background: var(--v6-page); } }
 .sv-pickl button[aria-checked="true"] { background: var(--v6-action-wash); color: var(--v6-action); }
 .sv-pickl .ic, .sv-menu .ic { width: 20px; height: 20px; color: var(--v6-muted); flex: none; }
 .sv-pickl .ic.on { color: var(--v6-action); margin-left: auto; }
@@ -506,7 +557,9 @@ dialog.sv-sheet::backdrop { background: rgba(37, 34, 30, .38); }
 }
 @media (min-width: 900px) {
   /* Anchored menus and pickers (ui.js positions them): a small panel by the button, no dimmed page behind it. */
-  dialog.sv-sheet.sv-pop { position: fixed; margin: 0; width: max-content; min-width: 260px; max-width: 360px; max-height: min(680px, calc(100vh - 32px)); border: 0; border-radius: var(--v6-r12); box-shadow: var(--v6-sh3); }
+  /* As tall as the window allows (16px clear top and bottom; ui.js place() keeps it inside): the list scrolls under the head
+     with a fade at its foot only when it must (Give HB 2458 to... cut No owner off at 680px tall, A-1). */
+  dialog.sv-sheet.sv-pop { position: fixed; margin: 0; width: max-content; min-width: 260px; max-width: 360px; max-height: calc(100vh - 32px); border: 0; border-radius: var(--v6-r12); box-shadow: var(--v6-sh3); }
   dialog.sv-sheet.sv-pop::backdrop { background: transparent; }
   dialog.sv-sheet.sv-pop .sv-sh-head { padding: var(--s8) var(--s8) 0 var(--s16); }
   dialog.sv-sheet.sv-pop .sv-sh-head h2 { font: 700 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-muted); }
@@ -579,7 +632,7 @@ body.staff6 main.sv-login, body.staff6 main.sv-load { width: 100%; max-width: 44
   border: 0; border-radius: var(--v6-pill); background: none; color: var(--v6-action); font: 400 var(--v6-t16)/20px var(--font); cursor: pointer; }
 .sv-hdr .sv-hback > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sv-hdr .sv-hback[hidden] { display: none; }
-.sv-hdr .sv-hback:hover { background: var(--v6-action-wash); }
+@media (hover: hover) and (pointer: fine) { .sv-hdr .sv-hback:hover { background: var(--v6-action-wash); } }
 .sv-hdr .sv-hback .ic { width: 20px; height: 20px; flex: none; }
 @media (max-width: 899px) { .sv-hdr .sv-hback { display: none; } }
 /* Placed (ui.js anchorRibbons): the caption sits centred under the current bar, the ends at the edges. */
@@ -646,7 +699,7 @@ dialog.sv-sheet.look .sv-sh-head h2 { position: absolute; width: 1px; height: 1p
 .v6-more-list > li { position: relative; }
 .v6-more-list > li + li::before { content: ''; position: absolute; left: 68px; right: var(--s12); top: 0; height: 1px; background: var(--v6-hair); }
 .v6-more-row { display: flex; align-items: center; gap: var(--s16); width: 100%; min-height: 56px; padding: var(--s8) var(--s12); border-radius: var(--v6-r12); color: inherit; text-decoration: none; text-align: left; background: none; border: 0; font: inherit; cursor: pointer; }
-.v6-more-row:hover { background: #FBF8F1; color: inherit; }
+@media (hover: hover) and (pointer: fine) { .v6-more-row:hover { background: #FBF8F1; color: inherit; } }
 .v6-more-row:focus-visible { outline-offset: 2px; }
 .v6-more-ic { display: flex; align-items: center; justify-content: center; flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--v6-wash); color: var(--v6-body); }
 .v6-more-ic .ic { width: 20px; height: 20px; }
@@ -723,7 +776,7 @@ dialog.sv-sheet .toastmsg.insheet { position: sticky; bottom: var(--s8); z-index
 .sv-sync .sv-syncgo { display: inline; padding: 0; border: 0; background: none; color: var(--v6-action); font: 700 var(--v6-t14)/var(--v6-lh14) var(--font); cursor: pointer;
   text-decoration: underline; text-underline-offset: 3px; position: relative; }
 .sv-sync .sv-syncgo::after { content: ''; position: absolute; inset: -6px -4px; }   /* a 32px target that never reaches the row below */
-.sv-sync .sv-syncgo:hover { color: var(--v6-action-press); }
+@media (hover: hover) and (pointer: fine) { .sv-sync .sv-syncgo:hover { color: var(--v6-action-press); } }
 .v6-more .sv-sync.v6-more-syncn { margin: 0 0 var(--s16); padding: var(--s8) 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); }
 .v6-more .sv-sync.v6-more-syncn > .ic { margin-top: 4px; }
 .v6-more .sv-sync.v6-more-syncn .sv-syncgo { font-size: var(--v6-t16); line-height: var(--v6-lh16); }
@@ -855,7 +908,7 @@ dialog.sv-sheet .toastmsg.insheet { position: sticky; bottom: var(--s8); z-index
 .ab-rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--n200); border-radius: var(--r12); background: var(--n0); overflow: hidden; }
 .ab-rows li + li { border-top: 1px solid var(--n200); }
 .ab-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 20px; gap: var(--s12); align-items: center; padding: var(--s8) var(--s12); min-height: 76px; color: inherit; text-decoration: none; }
-.ab-row:hover { background: var(--n50); }
+@media (hover: hover) and (pointer: fine) { .ab-row:hover { background: var(--n50); } }
 .ab-row:focus-visible { outline: 2px solid var(--p700); outline-offset: -2px; }
 .ab-row > .ic { width: 20px; height: 20px; color: var(--n500); }
 .ab-thumb { width: 44px; height: 60px; border-radius: var(--r8); overflow: hidden; background: var(--n100); border: 1px solid var(--n200); display: grid; place-items: center; color: var(--n500); }
@@ -932,7 +985,7 @@ dialog.sv-sheet .toastmsg.insheet { position: sticky; bottom: var(--s8); z-index
 .rm-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s8); }
 .rm-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s8); min-height: 120px; padding: var(--s16);
   border: 2px dashed var(--n300); border-radius: var(--r16); background: transparent; color: var(--p700); font: inherit; font-weight: 700; cursor: pointer; }
-.rm-add:hover { background: var(--p50); border-color: var(--p700); }
+@media (hover: hover) and (pointer: fine) { .rm-add:hover { background: var(--p50); border-color: var(--p700); } }
 .rm-add:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
 .rm-add .ic { width: 24px; height: 24px; }
 .rm-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8) var(--s16); margin-top: var(--s16); }
@@ -1053,7 +1106,7 @@ dialog.sv-sheet .toastmsg.insheet { position: sticky; bottom: var(--s8); z-index
 .ca-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--s8); margin-left: calc(-1 * var(--s8)); border: 0; border-radius: var(--r8, 8px); background: none; font: inherit; font-size: var(--t14, 14px); color: var(--p700); cursor: pointer; text-align: left; }
 .ca-chip .ca-chev { width: 14px; height: 14px; opacity: .7; }
 .ca-chip .ic { width: 16px; height: 16px; flex: none; }
-.ca-chip:hover { background: var(--n50, #F5F5F4); text-decoration: underline; }
+@media (hover: hover) and (pointer: fine) { .ca-chip:hover { background: var(--n50, #F5F5F4); text-decoration: underline; } }
 .ca-chip.ok { color: var(--ok-text, #1F7A4D); }
 .ca-chip.warn { color: var(--warn-text, #8A4B00); }
 .pb-end .ca-chip, .hb-end .ca-chip, .ah-act .ca-chip { min-height: 32px; font-size: var(--t13); }
@@ -1147,7 +1200,7 @@ body.staff2 .bp-name { margin: 0; font: 700 var(--t18)/24px var(--font-h); lette
 .bp-dw { font-size: var(--t14); line-height: 20px; color: var(--n500); }
 .bp-hear { margin-top: var(--s8); }
 .bp-hl { display: flex; align-items: center; gap: var(--s8); min-height: 36px; margin: 0 calc(-1 * var(--s8)); padding: 4px var(--s8); border-radius: var(--r8); font-size: var(--t14); line-height: 20px; color: var(--n700); text-decoration: none; }
-.bp-hl:hover { background: var(--n50); }
+@media (hover: hover) and (pointer: fine) { .bp-hl:hover { background: var(--n50); } }
 .bp-hl b { color: var(--n900); }
 .bp-hl > span { flex: 1 1 auto; min-width: 0; }
 .bp-hl .ic { width: 18px; height: 18px; flex: none; color: var(--n500); }
@@ -1163,7 +1216,7 @@ body.staff2 .bp-name { margin: 0; font: 700 var(--t18)/24px var(--font-h); lette
 .bp-acts .btn { min-height: 40px; padding: 0 var(--s16); font-size: var(--v6-t16); }
 .bp-acts .btn.text { padding: 0 var(--s8); }
 .bp-acts .btn .ic { width: 16px; height: 16px; }
-:is(.bp-acts, .bp-ab, .bp-go) .btn.text:hover { background: var(--p50); text-decoration: none; }
+@media (hover: hover) and (pointer: fine) { :is(.bp-acts, .bp-ab, .bp-go) .btn.text:hover { background: var(--p50); text-decoration: none; } }
 .bp-sec { margin-top: var(--s12); padding-top: var(--s12); border-top: 1px solid var(--n100); }
 body.staff2 .bp-h3 { margin: 0 0 var(--s4); font: 700 var(--t13)/18px var(--font); letter-spacing: 0; color: var(--n500); }
 .bp-also { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); }
@@ -1181,7 +1234,7 @@ body.staff2 .bp-h3 { margin: 0 0 var(--s4); font: 700 var(--t13)/18px var(--font
 .bp-facts .lk-kv { grid-template-columns: 96px minmax(0, 1fr); }
 .bp-open { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--s8); min-height: 44px; margin: var(--s12) calc(-1 * var(--s16)) 0; padding: 0 var(--s16);
   background: var(--n0); border-top: 1px solid var(--n100); font-size: var(--t14); font-weight: 700; color: var(--p700); text-decoration: none; }
-.bp-open:hover { background: var(--p50); }
+@media (hover: hover) and (pointer: fine) { .bp-open:hover { background: var(--p50); } }
 .bp-open .ic { width: 18px; height: 18px; }
 :is(.td-pane, .bl-dock).more .bp-open { box-shadow: 0 -8px 12px -8px rgb(20 43 53 / .22); }   /* more of the item is under the foot */
 @media (prefers-reduced-motion: reduce) { .bp-facts > summary .chev { transition: none; } }
@@ -1291,4 +1344,4 @@ body.staff6 :is(.td-asks, .ah-gate, .ah-top, .td-mrows, .hb-card, .ab-rows) { bo
 body.staff6 .bp-open { border-top: 0; box-shadow: 0 -8px 12px -10px rgba(74, 52, 30, .2); }
 body.staff6 :is(.td-pane, .bl-dock).more .bp-open { box-shadow: 0 -8px 12px -8px rgba(74, 52, 30, .22); }
 body.staff6 .cf-c { background: var(--v6-page); }
-body.staff6 .ca-chip:hover { background: var(--v6-page); }
+@media (hover: hover) and (pointer: fine) { body.staff6 .ca-chip:hover { background: var(--v6-page); } }
