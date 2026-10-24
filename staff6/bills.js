@@ -174,10 +174,9 @@ function leadLine(list, groups) {
   const n = x.noHearing.length;
   const link = (words, date) => isOn(`due:${date}`) ? `<b>${esc(words)}</b>` : `<button type="button" class="linkbtn bl-dlk" data-ft="due:${esc(date)}">${esc(words)}</button>`;
   const go = `<a class="bl-dlgo" href="#/hearings/ask">Get hearings</a>`;
-  // Today's line and Legislators' words, from the board's own counts (push.js deadlineLine): "16 of your bills need a
-  // hearing by Mon 3/30 · 14 to ask · 2 waiting on a reply" (the fresh-eyes check: "54 to ask; 36 face the Mon 3/30
-  // deadline" here beside Legislators' 45 and 42 for the same person and scope). Its first part is a link to exactly those
-  // bills (F95).
+  // The one deadline line (push.js deadlineLine, the same words on Today and Legislators): "16 of your bills need a
+  // hearing by Mon 3/30 · 14 to ask · Get hearings" (Nate's 23 Oct walk: the long line with "decision making", "being
+  // asked" and "will schedule" did not add up). Its first part is a link to exactly those bills (F95).
   let dl = null; try { dl = deadlineLine({ scope: { me: 'mine', coal: 'coal', all: 'team' }[bl().scope] || 'mine' }); } catch { dl = null; }
   const words = dl ? `${link(dl.head, dl.date)}${dl.rest ? ` · ${esc(dl.rest)}` : ''}` : link(`${n} of ${whoseWords()} ${n === 1 ? 'needs' : 'need'} a hearing by ${dayWords(x.date)}`, x.date);
   return `<p class="bl-dls">${icon('calendar-clock')}<span class="bl-dlw">${words} · ${go}</span></p>`;

@@ -39,7 +39,7 @@ import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButton
 import { aboutBill, closeBtn } from './billpane.js';
 import { plainCodes } from './terms.js';   // codes in a to-do's or a note's own words become plain words (D15, V05)
 import { prepTaskOf, dueEnd as prepDue, issueHref, prepListHref } from './prep.js';
-import { askTodoOf, askSummary, toAskWords, deadlineLine } from './push.js';
+import { askTodoOf, askSummary, toAskWords, deadlineLine, decideWords } from './push.js';
 import { isLead } from './more.js';
 import { newSteps, markNewStep } from './help.js';
 import { moveMe, notGoing, keepAskUp, seedMoved } from './moved.js';
@@ -771,14 +771,17 @@ function seasonBody(season, v, w, { skipH = null } = {}) {
   // opens Get hearings (B-3; Nate's walk: Kevin's "6 of your bills must reach their last committee" beside Bills' 3 and Get
   // hearings' 3, with no link). With nothing waiting it is the deadline itself, in words. (For someone who owns bills; a
   // helper's are D4's line.)
-  // In Legislators' words, from the board's own counts (push.js deadlineLine): "16 of your bills need a hearing by Mon 3/30
-  // · 14 to ask · 2 waiting on a reply" (the fresh-eyes check: "20 to ask; 16 face the Mon 3/30 deadline" said neither what
-  // was asked nor of whom, and Kevin's "2 to ask; 3 face" read as a contradiction; Bills says the same line).
+  // The one deadline line (push.js deadlineLine, the same words on Bills and Legislators): "16 of your bills need a hearing
+  // by Mon 3/30 · 14 to ask · Get hearings". Who is waiting on a reply is said on Get hearings itself (Nate's 23 Oct walk:
+  // the long line, its codes, and parts that did not add up).
   const ownsAny = (S.bills || []).some(b => owns(v.id, b)), dlL = ownsAny ? mineDeadline(v) : null;
   const askT = dlL ? dlL.words : '';
-  if (askT && (dlL.toAsk || dlL.decide)) w.askSaid = true;
+  // Bills heard but not voted on: a short line of their own, only for the ones that are not already rows above (decideWords).
+  const dk = ownsAny ? w.asks.filter(r => r.s?.ask?.decide).length : 0;
+  if ((dlL && dlL.toAsk) || dk) w.askSaid = true;
   const parts = [said ? '' : nh ? p(`Your next hearing: ${nw(esc(whenAt(nh.scheduled_at)))} · ${esc(committeeName(nh.committee) || nh.committee)}`, 'landmark') : noHearingLine(v, w, p),
-    askT ? lineA('#/hearings/ask?scope=mine', 'calendar', nw(boldLead(askT))) : dl ? p(`Next deadline ${nw(esc(dayWords(dl.date)))}: ${esc(dl.words)}`, 'calendar') : ''];
+    askT ? lineA('#/hearings/ask?scope=mine', 'calendar', `${nw(boldLead(askT))} · <span class="v6-nw">Get hearings</span>`) : dl ? p(`Next deadline ${nw(esc(dayWords(dl.date)))}: ${esc(dl.words)}`, 'calendar') : '',
+    dk ? lineA('#/hearings/ask?scope=mine', 'gavel', nw(boldLead(decideWords(dk)))) : ''];
   if (!parts.join('')) return null;
   return { title: 'This week', html: parts.join('') };   // Hearings is a place in the sidebar and the phone bar, always in sight
 }

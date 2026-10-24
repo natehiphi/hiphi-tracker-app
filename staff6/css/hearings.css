@@ -120,6 +120,8 @@ body.staff6 .hg-dl { display: grid; grid-template-columns: minmax(0, 1fr); gap: 
 body.staff6 .hg-dlh { display: grid; gap: 4px; }
 body.staff6 .hg-dlh h2 { margin: 0; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); color: var(--v6-ink); }
 body.staff6 .hg-dls { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
+/* The door to Get hearings at the end of Legislators' deadline line, as Bills' (bills.css .bl-dlgo). */
+body.staff6 .hg-dls .hg-dlgo { color: var(--v6-action); white-space: nowrap; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 /* Legislators' Who to ask: a later deadline folded to one line that opens it in place (push.js askBoard `fold`) */
 body.staff6 .hg-fold { display: block; }
 body.staff6 .hg-fold > summary { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-height: 56px; padding: 12px 16px;
