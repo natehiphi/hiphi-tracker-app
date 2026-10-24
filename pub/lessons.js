@@ -990,9 +990,9 @@ function roadPlay(pic, instant) {
 // hidden, not greyed, so nobody taps a dead button; the choices are the page's main action meanwhile.
 function wakeNext(ready) {
   $$('[data-stnext], [data-stlearnnext]').forEach(b => { b.hidden = !ready; });
-  // While Next sleeps the first visit's Skip stands where Next always was: it says what it does, so habit does not take it
-  // for "continue" (the critic). The lesson page has no Skip, so its empty bar goes until Next wakes.
-  $$('[data-stskip] span').forEach(s => { s.textContent = ready ? 'Skip' : 'Skip the rest'; });
+  // While Next sleeps the first visit's Skip stands where Next always was. It said "Skip the rest" then, so habit would not
+  // take it for "continue" (the critic); since R-212 #46 it always says "Skip this part" (start.js bar2), which says what it
+  // does at every stage, so one label serves both. The lesson page has no Skip, so its empty bar goes until Next wakes.
   const bar = document.querySelector('.actionbar'); if (bar) bar.classList.toggle('lx-asleep', !ready && !bar.querySelector('[data-stskip]'));
 }
 const saidHTML = (E, k, pick) => { const w = pickWords(E, k, pick);
