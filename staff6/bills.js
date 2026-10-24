@@ -172,7 +172,8 @@ function leadLine(list, groups) {
   const first = groups.find(g => g.open), ids = new Set(x.noHearing.map(b => b.id));
   if (first && first.all === ids.size && first.rows.every(b => ids.has(b.id))) return '';
   const n = x.noHearing.length;
-  const link = (words, date) => isOn(`due:${date}`) ? `<b>${esc(words)}</b>` : `<button type="button" class="linkbtn bl-dlk" data-ft="due:${esc(date)}">${esc(words)}</button>`;
+  // Its day never parts at a line's end inside the link ("by Mon / 3/30" on Kris's phone), as on every other line (steps.js nw).
+  const link = (words, date) => isOn(`due:${date}`) ? `<b>${nw(esc(words))}</b>` : `<button type="button" class="linkbtn bl-dlk" data-ft="due:${esc(date)}">${nw(esc(words))}</button>`;
   const go = `<a class="bl-dlgo" href="#/hearings/ask">Get hearings</a>`;
   // The one deadline line (push.js deadlineLine, the same words on Today and Legislators): "16 of your bills need a
   // hearing by Mon 3/30 · 14 to ask · Get hearings" (Nate's 23 Oct walk: the long line with "decision making", "being
