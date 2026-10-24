@@ -41,7 +41,8 @@ with sync_playwright() as pw:
     ok(p.inner_text('#st-h') == 'ILO Agsao para iti nasalun-at nga Hawaiʻi', f'the heading comes from the list ({p.inner_text("#st-h")!r})')
     t = p.inner_text('.st'); ok('ILO Bantayanmi' in t and 'ILO Mga 4 a minuto. Libre.' in t, 'the three lines and the time promise are translated')
     ok('We tell you when it’s your moment' in t, 'a word with no translation stays English, on the same screen')
-    ok('ILO Sumaruno' in p.inner_text('.st-bar') and 'ILO Lampasan' in p.inner_text('.st-bar'), 'the bar says Next and Skip in the language')
+    # The first question's bar is Next and "Leave, go to Home" (R-212 #46: no Skip there); Leave has no translation yet, so it stays English
+    ok('ILO Sumaruno' in p.inner_text('.st-bar') and 'Leave, go to Home' in p.inner_text('.st-bar'), 'the bar says Next in the language, and Leave (not yet translated) in English')
     ok('ILO 6 a banag a mapan' in t or 'ILO' in p.locator('.st-icount').first.inner_text(), f'a count fills {{values}} and plurals: {p.locator(".st-icount").first.inner_text()!r}')
     ok(p.locator('.lang-pick').count() == 0, 'a preview does not draw the picker (the language is not live)')
     # a tile still follows the English key

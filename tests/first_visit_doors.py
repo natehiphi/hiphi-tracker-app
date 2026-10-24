@@ -7,12 +7,14 @@
 #   - "Leave, go to Home" on every step after the welcome (topics, issues, alerts, the story, Coming up; the short version's
 #     page; a shared bill's "Follow this issue?") reaches Home in one tap, keeps what was followed before it and follows
 #     nothing more, and a reload stays on Home; not on the finale, nor over the "Mahalo!" cover, nor in a plan;
-#   - "Skip this part" is the bar's word on each step and still goes on to the next screen;
+#   - "Skip this part" is the bar's word on each step and still goes on to the next screen; on the topics, which have no Back,
+#     Leave stands in Skip's place in the bar instead of a row of its own (the critic: the row pushed the cards 36px down);
 #   - at 320, 375 and 1280 wide both new controls are in view, not clipped, at least 44px tall, and Leave shares its row
 #     with Back without wrapping or touching it;
 #   - the private counts get 'leave' for the step it was pressed on (and 'skip' for Skip): read from the sandbox's own
 #     printout (?debug), never sent. Every write to the database is refused and must not even be tried (a link that names a
 #     version carries &abrest, so the testers' path log stays off too).
+#   - Back from Home after leaving returns to the step that was left (B-4, B-5); after "Just look around", to the welcome.
 import json, os, re, sys
 from playwright.sync_api import sync_playwright
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832').rstrip('/')
@@ -121,9 +123,13 @@ with sync_playwright() as pw:
         for f in path: f(p)
         step = H(p)
         b = box(p, '[data-stleave]'); sk = p.locator('.st-bar [data-stskip], .st-bar [data-stnext].secondary')
-        ok(b and b['text'] == 'Leave, go to Home' and seen(b, 375) and not b['primary'], f'{name}: "Leave, go to Home" is at the top ({step}), in view, {b and round(b["h"])}px tall, a quiet text button')
-        ok(p.locator('.st-chapters [data-stleave]').count() == 0 and p.locator('.st-steps [data-stleave]').count() == 1, f'{name}: in the row under the strip, not in the strip (A-12)')
-        if name != 'soon':   # Coming up has no Skip in today's version: its bar is Next
+        ok(b and b['text'] == 'Leave, go to Home' and seen(b, 375) and not b['primary'], f'{name}: "Leave, go to Home" is there ({step}), in view, {b and round(b["h"])}px tall, a quiet text button')
+        if name == 'topics':   # no Back here: Leave takes Skip's quiet place in the bar, no row of its own above the cards (A-1)
+            ok(p.locator('.st-bar [data-stleave]').count() == 1 and p.locator('.st-steps [data-stleave], .st-chapters [data-stleave]').count() == 0 and sk.count() == 0,
+               'topics: Leave is in the bar beside Next, in Skip\'s place; no Skip and no row above the cards')
+        else:
+            ok(p.locator('.st-chapters [data-stleave]').count() == 0 and p.locator('.st-steps [data-stleave]').count() == 1, f'{name}: in the row under the strip, not in the strip (A-12)')
+        if name not in ('soon', 'topics'):   # Coming up has no Skip in today's version: its bar is Next
             ok(sk.count() == 1 and sk.first.inner_text().strip() == 'Skip this part', f'{name}: the bar says "Skip this part" ({sk.first.inner_text().strip() if sk.count() else None})')
         before, fv0 = follows(p), len(fv(p))
         if name == 'bill': p.screenshot(path=os.path.join(OUT, '375_story.png'))
@@ -143,14 +149,10 @@ with sync_playwright() as pw:
         ok(H(p) in ('#/', '') and screen(p) == 'home' and follows(p) == before, f'{name}: a reload stays on Home, follows kept ({H(p)})')
         c.close()
 
-    # "Skip this part" still goes on to the next screen
-    c, p = ctx(br, 375); begin(p); to_topics(p); fv0 = len(fv(p))
-    p.click('.st-bar [data-stskip]'); p.wait_for_selector('.st-lesson', timeout=20000)
-    ok(h1(p) == 'A bill’s story' and any(e.get('step') == 'topics' and e.get('event') == 'skip' for e in fv(p)[fv0:]), f'topics, nothing picked: Skip this part goes on to the story, counted as skip ({h1(p)})')
-    c.close()
-    c, p = ctx(br, 375); begin(p); to_topics(p); p.locator('.st-tile').nth(0).click(); p.wait_for_timeout(300); fv0 = len(fv(p))
-    p.click('.st-bar [data-stskip]'); p.wait_for_selector('.st-lesson', timeout=20000)
-    ok(h1(p) == 'A bill’s story' and follows(p) == 0, f'topics, a topic ticked: Skip this part skips the whole part to the story, nothing followed ({h1(p)}, {follows(p)})')
+    # "Skip this part" still goes on to the next screen; Next with nothing picked on the topics names the way out it has
+    c, p = ctx(br, 375); begin(p); to_topics(p)
+    p.click('.st-bar [data-stnext]'); p.wait_for_timeout(500)
+    ok('Leave, go to Home' in p.locator('#st-alert').inner_text(), f'topics, Next with nothing picked: the message names "Leave, go to Home" ({p.locator("#st-alert").inner_text()!r})')
     c.close()
     c, p = ctx(br, 375); begin(p); to_topics(p); to_issues(p); to_alerts(p); fv0 = len(fv(p)); to_story(p)
     ok(h1(p) == 'A bill’s story' and any(e.get('step') == 'alerts' and e.get('event') == 'skip' for e in fv(p)[fv0:]), 'alerts: Skip this part goes on to the story')
@@ -203,12 +205,13 @@ with sync_playwright() as pw:
     for w in (320, 375, 1280):
         c, p = ctx(br, w); begin(p); to_topics(p)
         b = box(p, '[data-stleave]')
-        ok(seen(b, w) and b['lines'] == 1, f'{w} topics: Leave in view, on one line, {b and round(b["h"])}px ({b and (round(b["x"]), round(b["r"]))})')
+        nx = box(p, '.st-bar [data-stnext]')
+        ok(seen(b, w) and b['lines'] == 1 and nx and (b['r'] <= nx['x'] or b['x'] >= nx['r']), f'{w} topics: Leave in the bar, in view, on one line, beside Next, {b and round(b["h"])}px ({b and (round(b["x"]), round(b["r"]))})')
         if w in (320, 1280): p.screenshot(path=os.path.join(OUT, f'{w}_topics.png'))
         to_issues(p); to_alerts(p); to_story(p)
         b, bk, sk, nx = box(p, '[data-stleave]'), box(p, '.st-back'), box(p, '.st-bar [data-stskip]'), box(p, '.st-bar [data-stnext]')
         ok(seen(b, w) and b['lines'] == 1 and bk and abs(bk['y'] - b['y']) <= 2 and bk['r'] <= b['x'], f'{w} story: Back and Leave share one row, apart, Leave on one line (Back {bk and round(bk["r"])} | Leave {b and round(b["x"])})')
-        ok(seen(sk, w) and sk['text'] == 'Skip this part' and nx and (sk['r'] <= nx['x'] or sk['x'] >= nx['r']), f'{w} story: "Skip this part" in view, {sk and round(sk["h"])}px, beside Next and not under it')
+        ok(seen(sk, w) and sk['text'] == 'Skip this part' and sk['lines'] == 1 and nx and (sk['r'] <= nx['x'] or sk['x'] >= nx['r']), f'{w} story: "Skip this part" in view, on one line, {sk and round(sk["h"])}px, beside Next and not under it')
         p.screenshot(path=os.path.join(OUT, f'{w}_story.png'))
         c.close()
 

@@ -20,8 +20,9 @@
 // doors besides it (R-212 #46: in the walk, someone who is not a newcomer, on a new phone, a partner, staff, needed about 5
 // taps to reach Home, since "Skip" only ever meant "the next page"):
 //   "Skip this part"      goes on to the next screen of the visit, as Skip always did (3.5); it names what it does (C-6).
-//   "Leave, go to Home"   (Nate's words) at the top of every step after the welcome but the finale: one tap to Home, the
-//                         first visit marked left (wiz skipped, so Home stops sending them back), nothing followed undone.
+//   "Leave, go to Home"   (Nate's words) at the top of every step after the welcome but the finale, and on the topics, which
+//                         have no Back, in Skip's place in the bar: one tap to Home, the first visit marked left (wiz skipped,
+//                         so Home stops sending them back), nothing followed undone; the phone's Back returns to the step.
 //   "Just look around"    the welcome's quiet second choice under Let's begin, the same door (C-2: a skip that costs
 //                         nothing and is not styled as failure). Both are counted as 'leave' on their step.
 // The plans (pub/onb*.js, practice only) keep their own words and have no Leave. Celebrations are in proportion (DESIGN C-7 as
@@ -246,7 +247,9 @@ const backBtn = step => btn(t('Back'), { kind: 'text', icon: 'arrow-left', cls: 
 const leaveBtn = () => btn(t('Leave, go to Home'), { kind: 'text', icon: 'house', cls: 'st-leave', attrs: { 'data-stleave': '1' } });
 export const topRow = (name, step) => {
   const lead = step > 1 ? backBtn(step) : step === 1 && name === 'topics' ? langPicker('st-lang') : '';
-  if (planOn() || name === 'done') return `${chaptersRow(name)}${step > 1 ? `<div class="steps st-steps">${lead}</div>` : lead}`;
+  // The topics have no Back, so a Leave there would be a row of its own, pushing the topic cards 36px down (on a 320px phone
+  // the second row no longer peeked, the critic's high, A-1): there it takes Skip's quiet place in the bar instead (topicsBar).
+  if (planOn() || name === 'done' || name === 'topics') return `${chaptersRow(name)}${step > 1 ? `<div class="steps st-steps">${lead}</div>` : lead}`;
   return `${chaptersRow(name)}<div class="steps st-steps st-toprow">${lead}${leaveBtn()}</div>`;
 };
 export const shell = (cls, intro, main, busy = false) => `<div class="st ${cls}"${busy ? ' aria-busy="true"' : ''}><div class="st-intro">${intro}</div><div class="st-main">${main}</div></div>`;
@@ -262,6 +265,10 @@ export const sureWide = (ic, sure) => `<p class="st-sure st-surewide">${icon(ic)
 // "Skip this part" (R-212 #46): it goes on to the next screen, and says so, beside "Leave, go to Home" at the top. One label
 // for one thing on every screen of today's visit (C-15); the plans keep their "Skip".
 export const skipWord = () => planOn() ? T('Skip') : T('Skip this part');
+// The first question's bar (R-212 #46): "Leave, go to Home" in the quiet place, and Next. Skipping "Your issues" from here
+// led to the story of a bill nobody picked; Home is the more useful way out, and it is one exit fewer on the first screen.
+const topicsBar = () => planOn() ? bar2(T('Next'), { iconEnd: 'arrow-right' }) : `<div class="st-bar"><div class="st-btns">
+  ${btn(t('Leave, go to Home'), { kind: 'text', cls: 'st-leave', attrs: { 'data-stleave': '1' } })}${btn(t('Next'), { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stnext': '1' } })}</div></div>`;
 export const bar2 = (label, opt = {}, attrs = { 'data-stnext': '1' }, skip = skipWord()) => `<div class="st-bar"><div class="st-btns">
   ${btn(t(skip), { kind: 'text', attrs: { 'data-stskip': '1' } })}${btn(t(label), { kind: 'primary', ...opt, attrs })}</div></div>`;
 // While the issues load the primary says so, and when they could not be loaded it is the way to try again, so the
@@ -519,11 +526,7 @@ function wire(route) {
   $$('[data-stskip]').forEach(el => el.onclick = () => {
     track(name, 'skip');
     if (name === 'bill' || name === 'voice') (S.stSkipped ??= new Set()).add('lesson');   // the strip shows the story as skipped, not done (R-249)
-    // "Skip this part" on the first screen skips the whole of "Your issues", a topic ticked or not (R-212 #46: with one
-    // ticked it used to open the issues screen, which is Next's job, so the words would not have been true): it goes on to
-    // the story, which uses one of HIPHI's bills (R-019: Skip must never lead back to where it started). It is simply the
-    // screen after the issues: the story, or the short version's one page. Nothing is followed (C-4).
-    if (name === 'topics' && !planOn()) { LZ?.lessonStop(); swap(() => app.go('#/start/' + (stepOf('issues', off) + 1)), 'fwd'); return; }
+    // The first question has no Skip (R-212 #46): "Leave, go to Home" stands in its place (topicsBar). In the plans it goes on.
     // Skip on "Your issues" follows nothing (the approved prototype; C-4: nothing is followed without a yes). It used to
     // follow whatever was ticked, which with HIPHI's picks ticked for them followed several issues nobody chose (the
     // review, 9/21). Home asks again later, once.
@@ -555,7 +558,7 @@ function wire(route) {
     });
     const nb = $('[data-stnext]');
     if (nb) nb.onclick = () => {
-      if (!pickedIssues().length) { flash(`Pick at least one, or select ${skipWord()}.`); return; }
+      if (!pickedIssues().length) { flash(planOn() ? 'Pick at least one, or select Skip.' : 'Pick at least one, or select “Leave, go to Home”.'); return; }
       track(name, 'next', { counts: { cats: pickedIssues().length } });
       // Plan 1 follows nothing here (R-164, Nate 10/10: one topic tick followed the whole topic, 17 issues and about 60 bills,
       // "that can't be right"; C-4: nothing beyond what the ask named). In session a topic only narrows the bills offered on
@@ -654,7 +657,7 @@ export default {
     const step = route.step || 1, off = isOff();
     if (redirectFor(step, off)) return '';
     const name = nameAt(step, off);
-    if (name === 'topics') return bar2(T('Next'), { iconEnd: 'arrow-right' });
+    if (name === 'topics') return topicsBar();
     if (planOn() && PLAN_STEPS.includes(name)) return ONB ? ONB.barStep(name, step, off) : '';
     return REST ? REST.barStep(name, step, off) : '';
   },
