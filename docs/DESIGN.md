@@ -913,6 +913,282 @@ the page (done versus Not now, counted since 10/11: backend 170, Staff v2's Firs
 met one come back less (`log_day` counts returns). A page on arrival costs a tap
 before Home, which is why it is one a visit, never in front of a deadline or a link, and always skippable.
 
+---
+
+## Staff v6 (body.staff6, R-336, 23 Oct 2026)
+
+These rules apply only inside `body.staff6` (`staff6.html` and `staff6/`). The public tracker and Staff v2 to v5 keep the
+rules above. Where a v6 rule and an older one differ, the v6 one wins inside staff6; where v6 says nothing, the rule above
+holds. Each entry names the rule it amends and carries its reason, so it can be applied to a screen it did not foresee (How
+to use this, point 3). The source is backend `docs/requests/R-336/V6-SPEC.md` (the build spec: sections 4, 7, 8, 12 and 13)
+and its assessment (`assessment.md` in the same folder). Nate's ask, which every rule here serves: "It still feels far too
+overwhelming with too many things to do in too many places" (R-336, 22 Oct), and the spec's one-line test for every choice:
+**details wait until asked for; the way to every job is always in sight, labelled.**
+
+### A-2 on v6: count controls in view, not kinds
+
+**Limit: 12 controls in the work column on the first laptop screen, for every person** (NT KV KR JS SY LR PH JMM in the
+practice copy, on their busiest day). Each control in view counts; a button repeated down a list counts every time it
+appears. Persistent navigation is still counted apart and judged by B-13.
+
+*Reason.* Nate named "many buttons, chips" as the cause of the overwhelm. Counting kinds misses exactly that: Patti's v5
+Today repeated "I'll ask" and "Message Lauren" on each chair-ask row and "I'm going" on each hearing (40 controls in view,
+`ph-today-1440.png` in the assessment), and A-2 as written called that one kind each.
+
+### A-3 on v6 (with D16): one filled button; a row carries at most one tonal button
+
+**One filled button per screen or region** (a region: the open item beside a list, a sheet, the phone's action bar), for the
+step this person takes now. **A row carries at most one tonal button**, and only when the step is the viewer's own and is
+due today, late, or a chair ask inside its notice window. Every other row opens on click, and the open item holds the
+actions. Never two buttons on a row. This narrows Nate's 9/20 amendment (one primary repeated per item in a list of equal
+items) inside staff6: the repeated button is tonal, and only on the rows that need it now.
+
+*Reason.* Less per screen without hiding anything: the action stays one click away in the open item. D16 settles the
+critic's contradiction between quiet rows (V04) and the two-click chair ask (V13): the viewer's own urgent step keeps its
+button on the row, so asking a chair stays 2 clicks from Today, and other people's steps stop crowding the list.
+
+### A-4 on v6: one step larger
+
+| Size | Face | For |
+|---|---|---|
+| 14/20 | Lato | labels, counts, times and bill numbers only |
+| 16/24 | Lato 400 | every sentence, row line, button and field |
+| 18/24 | Poppins 500 | item names: bill nicknames, issue names, people, in rows and cards (spec 12.1) |
+| 22/28 | Poppins 600 | section headings |
+| 28/34 | Poppins 700 | page titles |
+
+13px is never used (`--t13` reads as 14px inside body.staff6); the sizes are the same on a phone and a laptop. **Bold (600
+and heavier) only for headings, the page title and the filled button: at most 25% of the visible text.**
+
+*Reason.* Nate asked for larger type (R-336). In v5, 542 of 702 font-size uses were 13 or 14px; the same step up already
+made the first visit (R-174) and Home (R-295) feel warmer. Item names moved to 500 (12.1) because at 600 every row's name
+counted as bold: weight is for marking headings and the one button, and when every name is bold nothing stands out.
+
+### A-5 on v6: Palette B "Morning Reef", and status by exception
+
+The tokens live in `staff6/css/tokens.css`, loaded right after `pub/base.css` and before every v6 stylesheet, scoped to
+`body.staff6` (they also redefine `pub/base.css`'s names, so the CSS copied from v5 turns warm at once). Palettes A "Sand & Lagoon" and C "Golden Hour" are kept there as
+comments, so a swap is one edit (D6). Contrast is WCAG, on page / card / wash:
+
+| Token | Hex | Use | Contrast |
+|---|---|---|---|
+| page | #F7F3EA | the page ground (body, sidebar) | |
+| card | #FFFEFA | cards, list boxes, panels, sheets | |
+| wash | #EEE7DA | wells, tiles, selected tab ground, inputs' fill | |
+| hair | #E3DACB | inset hairlines only (decorative) | |
+| ink | #25221E | headings, names | 14.3 / 15.7 / 12.9 |
+| body | #433B33 | sentences | 9.9 / 10.9 / 8.9 |
+| muted | #685D52 | meta, times, bill numbers | 5.8 / 6.4 / 5.2 |
+| field | #8C7F70 | input borders, checkbox edges (UI) | 3.5 / 3.9 |
+| action | #0B6E73 | the filled button, links, focus ring, selection | 5.4 / 6.0 / 4.9; white on it 6.0 |
+| action-press | #095A5E | filled button hover and press | white on it 8.0 |
+| action-wash | #E2EFEE | tonal buttons, selected row, current place | action on it 5.1 |
+| leaf | #3A7533, leaf-wash #E5F0E1 | done, filed, approved (with a check icon) | 5.0 / 4.7 on its wash |
+| late | #955A00, late-wash #FBEFD9 | ONLY "Late, still accepted until …" (clock icon) | 5.1 / 4.9 on its wash |
+| bad | #AF3328, bad-wash #FBE9E5 | ONLY a step still to do whose deadline passed (alert icon and the word) | 5.7 / 5.4 on its wash |
+| coral | #EE7B4F | celebration fills only, ink text on it | 5.7 |
+| band | #3B332B | the practice-copy band | sand text on it 11.2 |
+
+- **Amber** only for "Late, still accepted until …" (R-250). **Red** only for a step still to do whose deadline passed.
+  **Missed** is said in neutral with a circle-x icon, never red (spec 11.4, amending D3). **Green** only for done.
+  **Coral** only for celebration.
+- **Due today** (or within 2 hours) is neutral: first in the list, the time in bold, a clock icon.
+- Every status has its icon AND its word, from one function (`steps.js` `status()`); never colour alone (WCAG 1.4.1).
+- **At most 5 text colours in view**: ink, body, muted, action and white on the filled button. Status colours are counted
+  apart, when a status is shown (spec 13).
+- Amber and red are measured by their real colours (the late and bad values), not by token name: the frame turned v5's
+  `--warn-*` tokens neutral on purpose (12.8).
+
+*Reason.* Nate chose warm island colours, "ocean teal and leaf green", with amber and red "only when truly late" (R-336).
+In v5 every row due within a day carried an amber chip ("4h to file", "59m"), so amber was spent on half the list and
+meant nothing. Red says "act now"; a missed hearing can no longer be acted on, so it is said plainly rather than alarmed.
+Whether "due within 2 hours" should earn amber is a guess for the cold test with Kris, Patti and Julie to settle.
+
+### A-6 on v6: 40px on a laptop too
+
+**Every control is at least 40px on a laptop, tables included, and 44px on a phone.** Only inline links in running text
+are exempt; A-6's 32px allowance for dense tables does not apply inside staff6.
+
+*Reason.* "Roomy and soft", and the three teammates least comfortable with new tools. Low priority: if Bills' Table loses
+too many rows to it, the table exemption may come back.
+
+### A-8 on v6: space and soft surfaces, not lines
+
+Sections are made by space and soft raised surfaces. **Three radii only: 12** (tiles, inputs, small panels), **20** (cards,
+list boxes, panels, sheets) **and pill** (buttons, tabs, chips). **Warm shadows** `--v6-sh1` (a resting card), `--v6-sh2`
+(hover, a sticky bar) and `--v6-sh3` (a sheet, a popover), **never a border on the same box**. **A list is one card**, its
+rows separated by space or an inset hair line (16px in from both sides). No border lines on cards, the sidebar edge, the
+header or under tabs. **At most 8 bordered elements on a first screen.**
+
+*Reason.* Nate asked for fewer lines and borders and gentle depth; v5's CSS held 243 one-pixel neutral borders. He chose
+the box itself for lists (R-303), so the box stays and only the lines inside it go. A guess until he and the cold test
+look at it.
+
+### A-12 addition on v6: page tabs never look like a switch
+
+Page tabs show the open tab bold with a teal bar under it, never a pill, so they never look like the Mine | Team switch
+(spec 13). Tab rows wrap on phones: never a row that scrolls sideways and hides tabs past the edge (12.3).
+
+*Reason.* A switch shows the same list another way; a tab goes to another page (C-15's Filter row). When the two look alike
+a person cannot tell which one they are pressing, which is what A-12 forbids. A tab row that scrolls sideways hides the
+tabs past the edge, and things hidden or hard to find are Nate's worst case.
+
+### A-20 on v6: "…" holds only what also lives somewhere else
+
+"…" holds only rare actions that also exist in the open item or on the bill page. **No step of a job (hand off, Undo filed,
+give an ask, change owner) is reachable only through "…".**
+
+*Reason.* R-277 found occasional jobs hiding behind "…" menus (Undo filed only under "More for this hearing", handing off
+a draft only in a Today row's "…"). Nate: being unable to find things "would be the worst".
+
+### A-24 on v6: every person, every place, the whole page
+
+On every person's busiest practice day, at 1280 and 1440 and on a 390 phone: **at most 3 things in the work column, no side
+panel until an item is picked, at most 5 text colours, 12 controls in view** (A-2 and A-5 above). Spec 8's targets, held by
+`tests/staff6_budget.py`:
+
+| Where | Target |
+|---|---|
+| Today, laptop | ≤30 controls, ≤250 words, ≤1.2 screens, ≤4 groups, 1 filled button |
+| Today, phone | ≤2 screens, ≤30 controls |
+| Patti's Today | ≤4 labelled buttons in view |
+| Bills, first laptop screen | ≤25 controls, 0 codes in rows |
+| Legislators | ≤25 controls, ≤180 words |
+| Supporters, first screen | ≤25 controls, ≤15 filter choices shown |
+| Session setup | 5 groups, no part over 1.5 screens |
+| Every row | ≤4 facts |
+| Every screen | ≤30% of text at 14px or under · ≤25% bold · ≤8 bordered elements on the first screen · 3 radii · ≤5 text colours · 0 amber or red marks on a day when nothing is late · 0 weekly-used pages behind a menu (a More-page destination counts as 2 taps) |
+| The sidebar | ≤11 rows for staff, ≤15 for leads; rows are the links only, not the Lead tools heading or Collapse (12.4) |
+
+**One exception (spec 13):** a person's own Today rows may run past the length target (screens and words), because R-274
+wins: each of a person's own items is its own row, never bundled. Recorded in `DESIGN-AUDIT.md` §4.
+
+*Reason.* R-264 and R-269 both found every first screen "inside budget" while the whole pages overwhelmed: v5 passed while
+Nate's Today was 1,978px, 658 words and 68 buttons or links and Patti's had 40 controls in view, because the test measured
+Nate's first screen only, so a helper's crowding was never counted. Nate asked for a per-screen count with lower limits
+than v5 (R-336), for everyone.
+
+### B-2 on v6: the staff journeys' budgets
+
+Clicks or taps from where the job starts (usually Today) until the job is done, by mouse and by keyboard, each at or below
+v5's measured count; v6 adds no steps to Approve, Mark filed and Undo (spec 2). Measured by `tests/staff6_journeys.py`.
+
+| Journey (Staff v6) | Budget |
+|---|---|
+| Approve a draft / send it back / resubmit | 2 / 3 / 1 |
+| Ask a chair for a hearing and record it | 2 clicks from Today |
+| Record the chair's reply | 2 |
+| File testimony | 0 clicks to find it, ≤3 steps in the app |
+| Hearing day on a phone | room and time 0 taps, I'm going 1, my approval 2 |
+| Turn someone off and hand over their work | 4 |
+| Prepare one 2027 issue | ≤8 |
+| Sort one new bill | ≤5 |
+| Save a supporter group | 5 |
+| A partner's QR link | 2 |
+| Inbox and Help | 1 visible tap |
+| Give a to-do with a due date | 4 (by hand until the test walks it) |
+| Set Away with a cover | 3 (by hand until the test walks it; until W30's migration, a hand-over without a date) |
+
+*Reason.* Nate asked for fewer steps per task than v5, proved by test (R-336). Only four staff journeys had budgets, and
+none covered chair asks, filing or covering for someone.
+
+### B-13 on v6: every job a role does has a visible, labelled door
+
+- **Laptop and tablet (768px and wider): the sidebar**, always shown, always labelled (spec 3.1): Today, Hearings,
+  Testimony, Outreach, Bills, Legislators, My issues, then Inbox and Help, then Lead tools by role, More tools and You.
+  **Exactly two counts**, Today's and Inbox's.
+- **Phone: the bar Today · Hearings · Testimony · Bills · More** on every route (D2). More is a labelled page, not a menu,
+  naming every other place; Search and the Inbox sit in the top bar.
+- **Rare tools together in More tools** (`#/tools`), the same at every width, never only inside an account menu.
+- **Places a role never uses are left out**, with D8's one quiet line saying they exist ("Admins also have: Session setup,
+  People. Ask Nate.").
+- Sub-pages are one row of page tabs at the top of the page, never in the sidebar as well (D12).
+
+*Reason.* Under v5's rule the Inbox sat only in the initials menu, Review had no door but Today's card, Sort new bills was
+behind Bills' "…", and four places moved into the initials menu below 1100px. Nate: "ease of navigation [is] extremely
+important. If people are unable to find things because they are hidden or hard to find, that would be the worst"; and
+features are kept for everyone and shown by role.
+
+### B-14 on v6: things to do are never folded away
+
+On Staff v6 too, **anything a person must do is never behind a closed fold, "Show more", hover or "…"**. Folds are only
+for detail inside one item, for what is done, and for reference. **One exception (spec 13, Nate's "straight through"
+picks, 23 Oct):** Today's Coming up shows the next 7 days in full, then one line "N more later · the first by …". Nothing
+due within 7 days is folded, and the line says when the first folded item is due. Recorded in `DESIGN-AUDIT.md` §4.
+
+*Reason.* Nate's "quiet until needed" covers details, not jobs. v5 folded Coming up, where the prep task had to be opened
+by hand (R-316), and folded Getting started. The 7-day line keeps a long season off the first screen while saying when
+the next folded thing falls due, so nothing is hidden on the day it matters.
+
+### C-14 on v6: a name and one short line
+
+**Each row is a name plus one short line** (the step, the time, and whose only when it is someone else's) at 16px or
+larger; everything else lives in the open item. **A first screen leads with one short sentence about what is next**, not a
+paragraph.
+
+*Reason.* Applying C-14 to Home made it feel warm and welcoming (R-295). Kris, Patti and Julie, the teammates least
+comfortable with new tools, read every word; Kris's v5 phone card held 7 lines per item.
+
+### C-15 on v6: words, not codes; one wording per state
+
+Rows and headings say things in words:
+- **Committees by their short names** ("House Transportation", `steps.js` `committeeName`).
+- **Deadlines as what they ask** ("must reach its last committee by Mon 3/30", `deadlineWords`).
+- **No version codes (HD1, SD2) and no P1** (P1 is the same fact as Strong support, R-175). The bill number stays, small and
+  plain, after the name ("HB 1562", D15; nickname first, R-271).
+- **Codes, versions and deadline names live in About this bill, the session calendar and Help** (deadline names also for
+  owners and admins). The legislative day moves from Today's header to the session calendar.
+- **One name per act** (spec 8), checked by `tests/staff6_words.py`.
+- **One wording per testimony state** (`steps.js` `testimonyState`): **Writing · With an approver · Second look · Ready to
+  file · Filed**, plus **Missed**. A draft not yet started is "Writing · not started"; **"sent back" is a lower-case flag**
+  on Writing that names nobody (11.5, 12.6).
+
+C-15's word list holds where it does not conflict; where it does (Waiting for approval, Sent back as a state, the
+legislative day, codes on staff screens), this wins inside staff6.
+
+*Reason.* Nate named codes like HD1, SD2 and P1 as part of the overwhelm (R-336). On the practice day v5 showed 19 code
+tokens on Patti's Today, 22 on Nate's, 18 on Kevin's This week ("Budget decking", "Second triple filing", "HHS/CPN") and 70
+on Legislators. One word per state means a person learns the pipeline once, wherever they meet it. "Sent back" names
+nobody because nothing records who sent it; naming them needs a migration.
+
+### A-25 (new, Staff v6): replace, don't add
+
+**A new thing on a daily staff screen (Today, This week, a bill, My issues) replaces something already there or goes
+elsewhere.** A build that adds one names what it removes, and the whole-page budget test (`tests/staff6_budget.py`) fails
+otherwise.
+
+*Reason.* Each review added and almost nothing left: staff5 grew from 19,719 to 23,935 lines of code between 13 and 22 Oct
+and from 46 to 55 modules, and its 18 switches were all additions. R-264's cause 2, "Added, never taken away", still held.
+A-23 already says the same for Home.
+
+### Rules every v6 builder keeps (spec 7)
+
+1. One filled button per screen or region; every other action tonal or text.
+2. Rows are a name plus one short line (D15, D16); everything else lives in the open item.
+3. Nothing a person must do is behind a closed fold, "Show more", hover or "…"; "…" holds only rare actions that also
+   exist in the open item or on the bill page.
+4. No hover-only controls (touch has no hover).
+5. Every action has one home (V07) plus at most its Today row; other screens show its status and link to the home.
+6. One word per fact (`steps.js`); C-15's word list stays where it does not conflict.
+7. Status by exception (D3, A-5 on v6).
+8. Replace, don't add (A-25): anything new on a daily screen names what it replaces.
+9. Keep every feature: each F-id in `features.json` (214) has a v6 home; one that cannot be housed is a blocker to report,
+   not a quiet loss.
+10. Accessibility: one h1, labels, visible focus, focus back on the row after Back, toasts in an aria-live region, 44px
+    targets on phones and 40px+ on laptops (inline text links excepted), nothing by colour alone, Reduce Motion, no
+    sideways scroll at 320, 390, 768, 1024, 1280 and 1440, nothing lost at 200% zoom at 1280.
+11. Vanilla ES modules, `S` and `render()`, Lucide icons through `icons.js` (add with `node tools/icons.mjs`), no emoji, no
+    frameworks; comments say why.
+12. Words plain, no codes in rows, "e-cigarettes", Nate's button words keep his casing.
+
+And three of the integrator's decisions (spec 12):
+- **Hearing cards may carry the viewer's own step button** (tonal) on Hearings › This week and on the sitting page,
+  besides the step's home, Today and the bill (12.2, amending 11.1): the card is where hearing-day work happens.
+- **Danger buttons only inside a confirm** (12.5).
+- **A step counts as found when its row is in view on Today** (12.7): the row opens the item that holds the button.
+
+---
+
 ## The review checklist
 
 `/design-review` walks this. By hand, in this order:
@@ -961,6 +1237,7 @@ before Home, which is why it is one a visit, never in front of a deadline or a l
 | Public reading grade (C-10) | 8 | 8 (content: no rise over the baseline) | `tests/words_test.mjs` |
 | Actions shown on a row or card (A-20) | 2 | 2 | review |
 | Instructions needed for a core journey (B-11) | 0 | 0 | cold-start test |
+| Staff v6, every person and place (Staff v6 section: A-24, B-2 on v6) | spec 8's targets | as budget | `tests/staff6_budget.py`, `tests/staff6_journeys.py` |
 
 ## Changing this document
 

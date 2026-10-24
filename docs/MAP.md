@@ -288,6 +288,62 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
   3. Progress is the person's own. Community numbers appear only inside one bill or hearing, from 10 people.
 - Parked at Nate's request: exact YouTube hearing links (needs a YouTube Data API key in Settings).
 
+## Staff v6 (`staff6.html` + `staff6/`), the calm rebuild (R-336, 23 Oct 2026)
+
+Nate: "It still feels far too overwhelming with too many things to do in too many places." Staff v5 rebuilt around the
+jobs (v5's data layer and sign-in kept): fewer things per screen and fewer steps per task than v5, by test, in a warm look.
+The build spec is backend `docs/requests/R-336/V6-SPEC.md` (the assessment, `features.json` and the critic beside it); the
+design rules are this repo's `docs/DESIGN.md`, section "Staff v6", and its accepted exceptions are in `docs/DESIGN-AUDIT.md`
+§4.
+
+**Address and practice copy.** The address is `staff6.html`; the practice copy is `staff6.html?demo=1&as=<initials>`.
+People: NT KV KR JS SY LR PH JMM (and RK MR JM PT). Patti (PH) and Julie (JMM) are added by `staff6/data.js` in demo mode
+only, never in `demo/snapshot.json` (other apps read it). Practice clocks: the default is Mon 16 Mar 2026 9:00 AM HST;
+`&asof=2026-03-17T08:00:00-10:00` (Lauren's hearing day); `&asof=2026-03-20T08:00:00-10:00` (the HHS/CPN hearing, Kris);
+`&asof=2026-03-18T08:00:00-10:00` (Kevin's deadline day); `&season=off&day=2026-11-05` (prep; `&season=off` alone is 18
+Sep); `&season=opening` (sorting, 22 Jan); an `&asof=` in late April or late June for conference and the governor. The
+`&season` and `&day` clocks are the app's own (`data.js` `DEMO_ASOF`); `&asof=` is honoured only by the walk tool
+(backend `docs/walks/v6_walk.py`) and the staff6 tests, which rewrite `DEMO_ASOF` as the files are served, so a plain
+browser ignores it.
+
+**Status.** v6 lives beside v5 and replaces it only after Nate's yes, the cold test (Kris, Patti, Julie), the spec 8
+targets and the old-links test (D7). **From 23 Oct every staff build goes into Staff v6; v5 gets bug fixes only** (Nate's
+answer on R-336).
+
+**Folders.** `staff6/` holds the modules and the frame's `staff.css`; `staff6/css/` the rest of the stylesheets.
+`tokens.css` is loaded right after `pub/base.css` and before the others, scoped to `body.staff6`: Palette B "Morning Reef"
+(A and C kept as comments), and it redefines `pub/base.css`'s token names so v5's copied CSS turns warm. Then one
+stylesheet per place (`today.css`, `hearings.css`, `hearing.css`, `testimony.css`, `bills.css`, `triage.css`, `bill.css`,
+`legislators.css`, `conversation.css`, `supporters.css`, `lists.css`, `partners.css`, `issues.css`, `coalition.css`,
+`inbox.css`, `search.css`) and `steps.css` for the shared parts.
+
+**Files by place** (spec section 9):
+- **The frame:** `staff6.html`, `app.js` (routes, the old addresses, the sidebar and the phone bar), `ui.js` (shared
+  controls, `sectionNav`, the page tabs), `staff.css`, `css/tokens.css`, `more.js` (the phone's More page, `#/more`),
+  `tools.js` (More tools, `#/tools`), `devui.js`, `errlog.js`, `conflict.js`.
+- **Today:** `today.js` (v6's Today), `today5.js` (v5's Today, kept whole for the exports other screens import through
+  `today.js`), `team.js` (Team, leads), `partnerq.js` (Partner words to approve).
+- **Hearings:** `hearings.js` (This week, Get hearings), `hearing.js` (a sitting), `push.js`, `chairask.js`, `moved.js`.
+- **Testimony:** `testimonyplace.js` (the place and its tabs), `review.js` (Review mode), `filing.js` (the filing card).
+- **Bills:** `bills.js`, `billshead.js` (the place head and tabs), `filters.js`, `bulk.js`, `look.js`, `triage.js` (Sort
+  new bills), `suggest_issue.js`, `untracked.js`.
+- **The bill:** `bill.js`, `activity.js` (Team talk), `public.js`, `pathway.js`, `standing.js` (where a group of bills
+  stands, shared with Bills, issues and coalitions), `testimony.js`.
+- **Legislators:** `legislators.js`, `legislator.js`, `conversation.js`, `profile.js`, `holding.js` (Holding our bills).
+- **Outreach:** `asks.js` (This week's asks), `memo.js` (Partner update), `emails.js`, `composer.js`, `supporters.js`,
+  `person.js`, `lists.js`, `list.js`, `qr.js`, `firstvisit.js`.
+- **Lead tools:** `setup.js` (Session setup), `partnergroups.js` (Partners), `people.js` (People, hand over and turn off).
+- **My issues:** `myissues.js`, `issues.js`, `issuestand.js`, `coalition.js`, `prep.js`.
+- **Inbox, Help, Search, You:** `inbox.js`, `help.js`, `search.js`, `me.js`.
+
+**The shared parts every screen uses.** `steps.js` with `css/steps.css`: the one word per fact and the one step card
+(`status`, `testimonyState`, `whoseStep`, `actBy`, `askWords`, `goingWords`, `committeeName`, `deadlineWords`, `stepCard`,
+`hearingCard`, `billRow` / `itemRow`, `listDetail` / `wireListDetail`, `placeHead`); buttons it draws carry `data-v6act`
+and need no wiring (one document listener handles them). `billpane.js` `openItem` (the open item beside a list).
+`terms.js` (Capitol words in plain words). `model.js` (derived logic, no DOM). `data.js` (the data calls as v5's, plus the
+practice seeds). `icons.js` (the repo's shared Lucide set, imported as `../icons.js`; add icons with `node tools/icons.mjs
+name1,name2`). Never delete or rename an export another `staff6/` module imports (grep `from './<file>.js'`).
+
 ## Staff v3 (`staff3.html` + `staff3/`), to compare (R-264, 12 Oct 2026)
 
 Nate: "Make all these changes, but make them on a staff v3 so I can explore and compare." A laptop-first, calmer copy of
@@ -610,3 +666,21 @@ line, from `demoLoad` in `pub/core.js`. It is the harness aborting the in-flight
 case reloads, not a regression — it appears with any snapshot, and a plain load of the same page has a clean
 console. Checked 9/19 against both the old and new snapshot. Investigate only if the count changes.
 A check that fails after an intended change is a test to update, not a reason to revert; say which and why.
+
+**Staff v6 (R-336).** These hold Staff v6 to backend `docs/requests/R-336/V6-SPEC.md` and DESIGN.md's Staff v6 section.
+`tests/staff6_lib.py` is their shared helper: it uses `http://localhost:8832` (or `HOST`) unless `V4_ROOT=<folder>` is
+set, which serves that folder straight into the browser at `https://v6.test` (a worktree; nothing reaches the network).
+Either way it rewrites `data.js`'s clock as the files are served, so `&asof=` moves the practice clock. `APP=staff5` runs
+the same checks on v5 for the before numbers.
+```bash
+APP=staff6 python3 tests/staff6_links.py               # every old address opens the right place (V36, spec 3.4): the moved ones and every other v5 address, at 1440 and 390
+APP=staff6 python3 tests/staff6_people.py              # each person's three most important things on their first screen (laptop, and Kris's and Lauren's hearing days on a phone)
+APP=staff6 python3 tests/staff6_journeys.py            # steps per job against spec 8 and v5, by mouse and by keyboard; focus back on the row after Back; the Undo toast read aloud; 200% zoom at 1280 loses nothing
+APP=staff6 python3 tests/staff6_words.py --workers 3   # no "vape", no programmer's notes, one wording per testimony state, one name per act, every place Help names exists
+APP=staff6 python3 tests/staff6_budget.py [--quick] [--workers 6]   # spec 8's per-screen counts for every person and clock; APP=staff5 records tests/staff6_baseline_v5.json
+node tests/staff6_steps_test.mjs                        # steps.js's word rules (status, testimonyState, actBy, committeeName...) on the practice data, no browser
+node tests/staff6_issues_test.mjs                       # finding an issue by a bill number as printed ("HB 2121", lower case, no space, digits alone), no browser
+```
+Latest counts, re-run on the merged build of 23 Oct (frontend a9a48ceb): links 55/55, people 42/42, journeys 95/102, words
+18/24, budget 8 spec 8 targets missed (542 misses on 500 of 2,586 screens, most of them the bold share, 406, and text
+colours, 75), steps 144/144, issues 14/14. The full budget run takes about 18 minutes at `--workers 6`.

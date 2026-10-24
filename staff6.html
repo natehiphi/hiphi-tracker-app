@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="only light"><!-- "only": phones that darken websites show the page as designed until dark mode is built (X9-1, DESIGN A-21) -->
+<meta name="theme-color" content="#F7F3EA"><!-- v6: the warm page ground (Palette B, staff6/css/tokens.css) -->
+<meta name="robots" content="noindex">
+<title>Bill Tracker staff v6</title>
+<link rel="icon" href="pub/icon-192.png">
+<link rel="apple-touch-icon" href="pub/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<!-- R-277 fix 15 (E-8): the modules the first screen needs, asked for at once. Without these the browser finds them one import
+     level at a time (app.js, then today.js, then bill.js...), a round trip each on slow Capitol wifi. Screens not needed on
+     arrival (Session setup, Outreach's supporters and emails, Sort new bills, the partner update, My settings) load when
+     opened (app.js lazy). tests/staff5_checks.py checks this list against app.js's imports. -->
+<link rel="modulepreload" href="staff6/app.js">
+<link rel="modulepreload" href="staff6/data.js">
+<link rel="modulepreload" href="staff6/ui.js">
+<link rel="modulepreload" href="pub/art.js">
+<link rel="modulepreload" href="staff6/errlog.js">
+<link rel="modulepreload" href="staff6/model.js">
+<link rel="modulepreload" href="staff6/today.js">
+<link rel="modulepreload" href="staff6/today5.js">
+<link rel="modulepreload" href="staff6/review.js">
+<link rel="modulepreload" href="staff6/inbox.js">
+<link rel="modulepreload" href="staff6/bill.js">
+<link rel="modulepreload" href="staff6/bills.js">
+<link rel="modulepreload" href="staff6/asks.js">
+<link rel="modulepreload" href="staff6/legislators.js">
+<link rel="modulepreload" href="staff6/legislator.js">
+<link rel="modulepreload" href="staff6/search.js">
+<link rel="modulepreload" href="pub/suggest.js">
+<link rel="modulepreload" href="pub/ui.js">
+<link rel="modulepreload" href="staff6/lists.js">
+<link rel="modulepreload" href="staff6/issues.js">
+<link rel="modulepreload" href="staff6/myissues.js">
+<link rel="modulepreload" href="staff6/composer.js">
+<link rel="modulepreload" href="staff6/help.js">
+<link rel="modulepreload" href="staff6/hearing.js">
+<link rel="modulepreload" href="staff6/coalition.js">
+<link rel="modulepreload" href="stops.js">
+<link rel="modulepreload" href="icons.js">
+<link rel="modulepreload" href="staff6/testimony.js">
+<link rel="modulepreload" href="staff6/look.js">
+<link rel="modulepreload" href="staff6/billpane.js">
+<link rel="modulepreload" href="staff6/steps.js">
+<link rel="modulepreload" href="staff6/prep.js">
+<link rel="modulepreload" href="staff6/pathway.js">
+<link rel="modulepreload" href="staff6/activity.js">
+<link rel="modulepreload" href="staff6/public.js">
+<link rel="modulepreload" href="staff6/conflict.js">
+<link rel="modulepreload" href="staff6/untracked.js">
+<link rel="modulepreload" href="staff6/standing.js">
+<link rel="modulepreload" href="staff6/filters.js">
+<link rel="modulepreload" href="staff6/bulk.js">
+<link rel="modulepreload" href="staff6/conversation.js">
+<link rel="modulepreload" href="pub/kernel.js">
+<link rel="modulepreload" href="staff6/firstvisit.js">
+<link rel="modulepreload" href="staff6/issuestand.js">
+<link rel="modulepreload" href="staff6/partnerq.js">
+<link rel="modulepreload" href="share-icon.js">
+<link rel="modulepreload" href="pub/i18n.js">
+<link rel="modulepreload" href="staff6/qr.js">
+<link rel="modulepreload" href="staff6/push.js">
+<link rel="modulepreload" href="staff6/holding.js">
+<link rel="modulepreload" href="staff6/moved.js">
+<link rel="modulepreload" href="staff6/terms.js">
+<link rel="modulepreload" href="pub/words/live.js">
+<link rel="modulepreload" href="staff6/more.js">
+<link rel="modulepreload" href="staff6/tools.js">
+<link rel="modulepreload" href="staff6/hearings.js">
+<link rel="modulepreload" href="staff6/testimonyplace.js">
+<link rel="modulepreload" href="staff6/team.js">
+<link rel="modulepreload" href="staff6/people.js">
+<link rel="stylesheet" href="pub/base.css">
+<!-- v6 (R-336): the look's tokens first, scoped to body.staff6, so everything after reads the warm palette -->
+<link rel="stylesheet" href="staff6/css/tokens.css">
+<link rel="stylesheet" href="staff6/staff.css">
+<link rel="stylesheet" href="staff6/css/steps.css">
+<link rel="stylesheet" href="staff6/css/today.css">
+<link rel="stylesheet" href="staff6/css/bill.css">
+<link rel="stylesheet" href="staff6/css/testimony.css">
+<link rel="stylesheet" href="staff6/css/bills.css">
+<link rel="stylesheet" href="staff6/css/legislators.css">
+<link rel="stylesheet" href="staff6/css/triage.css">
+<link rel="stylesheet" href="staff6/css/supporters.css">
+<link rel="stylesheet" href="staff6/css/lists.css">
+<link rel="stylesheet" href="staff6/css/issues.css">
+<link rel="stylesheet" href="staff6/css/conversation.css">
+<link rel="stylesheet" href="staff6/css/hearings.css">
+<link rel="stylesheet" href="staff6/css/hearing.css">
+<link rel="stylesheet" href="staff6/css/coalition.css">
+<link rel="stylesheet" href="staff6/css/inbox.css">
+<link rel="stylesheet" href="staff6/css/search.css">
+<link rel="stylesheet" href="staff6/css/partners.css">
+</head>
+<body class="staff2 staff3 staff4 staff5 staff6">
+<!-- Drawn by the page itself, before any script arrives: on a slow Capitol connection the 30-odd module files take
+     seconds, and an empty page reads as broken. If the code never arrives, this becomes "Try again". -->
+<style>
+/* v6 (R-336): the first thing anyone sees is in the warm look too (spec 4): sand ground, ink words, the teal button. */
+.boot0 { min-height: 100vh; display: flex; flex-direction: column; align-items: center; background: #F7F3EA; font-family: Lato, system-ui, sans-serif; color: #433B33; }
+.boot0 .bar { width: 100%; max-width: 440px; box-sizing: border-box; padding: 10vh 16px 0; display: flex; align-items: center; gap: 12px; margin: 0; }
+.boot0 .bar .mk { width: 48px; height: 48px; flex: none; }
+.boot0 .bar > span { display: flex; flex-direction: column; }
+.boot0 .bar b { font: 600 18px/1.25 Poppins, system-ui, sans-serif; color: #25221E; }
+.boot0 .bar .for { font-size: 14px; line-height: 20px; color: #685D52; }
+.boot0 .msg { padding: 16px 16px 32px; max-width: 440px; width: 100%; box-sizing: border-box; }
+body .boot0 main.msg { margin: 0 auto; }   /* the failure's <main>: centred like the brand line, whatever staff.css says of main */
+.boot0 h1 { font: 700 28px/34px Poppins, system-ui, sans-serif; color: #25221E; margin: 0 0 8px; }
+.boot0 p { margin: 0 0 16px; font-size: 16px; line-height: 24px; }
+.boot0 button { min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: #0B6E73; color: #fff; font: 700 16px Lato, system-ui, sans-serif; cursor: pointer; }
+.boot0 button:hover { background: #095A5E; }
+.boot0 button:focus-visible { outline: 3px solid #0B6E73; outline-offset: 2px; }
+</style>
+<!-- The same brand line as the signed-in failure screen (app.js markBrand): the mark, "HIPHI Bill Tracker", "for the HIPHI team". -->
+<div id="app"><div class="boot0" role="status"><p class="bar"><svg class="mk" viewBox="-32 49 330 330" aria-hidden="true" focusable="false"><path fill="#D67234" fill-rule="evenodd" d="M135.9,315.2c-36,13.8-76.3-4.2-90.1-40.2c-5.8-15-6-30.8-1.6-45.1c-13.5,24.8-16.5,55.1-5.6,83.5 c5,13,12.3,24.3,21.4,33.7c22.7,13.4,51,16.7,77.6,6.5c46.2-17.7,69.4-69.5,51.7-115.7c-7.8-20.5-22.4-36.4-40.2-46.3 c11.9,7.8,21.6,19.2,27,33.5C189.9,261.1,171.9,301.4,135.9,315.2z"/><path fill="#F18336" fill-rule="evenodd" d="M189.2,237.9c17.7,46.2-5.4,98-51.7,115.7c-26.5,10.1-54.9,6.9-77.6-6.5c27,27.9,69,38.6,107.5,23.8 c51.5-19.7,77.3-77.5,57.6-129c-6.9-17.9-18.3-32.8-32.6-43.6c-22.8-16.1-51.4-23-79.9-18.1c13,0.3,25.7,4.3,36.4,11.3 C166.9,201.5,181.4,217.4,189.2,237.9z"/><path fill="#3F9EB9" fill-rule="evenodd" d="M129.7,113.4c36-13.8,76.3,4.2,90.1,40.2c5.7,15,5.9,30.8,1.6,45.1c13.5-24.8,16.5-55.1,5.6-83.5 c-5-13-12.4-24.3-21.4-33.7c-22.7-13.4-51.1-16.7-77.6-6.5c-46.2,17.7-69.3,69.5-51.7,115.7c7.8,20.5,22.4,36.4,40.2,46.3 c-11.9-7.8-21.6-19.2-27.1-33.5C75.7,167.5,93.7,127.1,129.7,113.4z"/><path fill="#4DBCEA" fill-rule="evenodd" d="M76.3,190.7c-17.7-46.2,5.5-98,51.7-115.7c26.5-10.1,54.9-6.9,77.6,6.5c-27-27.9-69-38.6-107.5-23.8 c-51.5,19.7-77.3,77.5-57.6,129c6.9,17.9,18.4,32.8,32.6,43.6c22.8,16.1,51.4,23,79.9,18.1c-13-0.3-25.7-4.3-36.4-11.3 C98.7,227.1,84.2,211.2,76.3,190.7z"/></svg><span><b>HIPHI Bill Tracker</b><span class="for">for the HIPHI team</span></span></p><div class="msg"><p>Getting your day ready…</p></div></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+function bootFail() { var a = document.getElementById('app'); if (!a || !a.querySelector('.boot0 [role], .boot0')) return; if (a.querySelector('.boot0')) a.innerHTML = '<div class="boot0">' + a.querySelector('.boot0 .bar').outerHTML + '<main class="msg"><h1>We could not load the tracker</h1><p>Check your connection and try again.</p><button type="button" onclick="location.reload()">Try again</button></main></div>'; }
+window.__bootT = setTimeout(bootFail, 20000);
+</script>
+<script type="module" src="staff6/app.js" onerror="bootFail()"></script>
+</body>
+</html>

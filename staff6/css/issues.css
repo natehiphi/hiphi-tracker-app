@@ -1,0 +1,747 @@
+/* Outreach > Issues and one issue (063, R-018; staff/issues.js). The index and the issue page borrow the Lists look
+   (.le-page, and .le-list for the issue page: header, bill rows, the add search); only what is new is here. */
+
+/* ---- the index ---- */
+.is-index .is-needs { margin-top: var(--s16); border-color: var(--warn-wash); background: var(--n0); }
+.is-index .is-needs h2 { display: flex; align-items: flex-start; gap: var(--s8); font-size: var(--t18); line-height: 1.3; }
+.is-index .is-needs h2 .ic { width: 22px; height: 22px; margin-top: 1px; color: var(--warn-text); flex: none; }
+.is-index .is-needs > .small { margin: var(--s4) 0 var(--s12); color: var(--n700); }
+.is-index .is-nlist { list-style: none; margin: 0; padding: 0; box-shadow: none; }
+.is-index .is-nrow { display: flex; align-items: center; gap: var(--s8); min-height: 60px; padding: 0 var(--s12) 0 var(--s16); background: var(--n0); }
+.is-index .is-nrow + .is-nrow { border-top: 1px solid var(--n100); }
+.is-index .is-nmain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: var(--s8) 0; color: inherit; text-decoration: none; }
+.is-index .is-nmain .title { color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.is-index .is-nmain .title b { color: var(--n900); }
+.is-index .is-nmain .sub { font-size: var(--t14); color: var(--n500); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.is-index .is-nmain:hover .title b { color: var(--p700); text-decoration: underline; }
+.is-index .is-nrow .btn { flex: none; }
+.is-index .is-needs > .btn.text { margin: var(--s4) 0 0 calc(-1 * var(--s12)); }
+.is-index .is-find { margin-top: var(--s16); max-width: 440px; }
+.is-index .is-cat { margin-top: var(--s24); }
+.is-index .is-chead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s12); margin-bottom: var(--s8); }
+.is-index .is-chead h2 { display: flex; align-items: center; gap: var(--s8); font-size: var(--t18); }
+.is-catic { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--p50); color: var(--p700); flex: none; }
+.is-catic .ic { width: 18px; height: 18px; }
+/* v3 (R-264): an issue is one line, its name and at most a state; the rest is on its page */
+.is-index .is-row { min-height: 52px; }
+.is-index .is-row .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.is-index .is-row .end { gap: var(--s8); }
+.is-index .is-row .end .chip { flex: none; }
+.is-index .is-hw { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t13); font-weight: 700; color: var(--n700); white-space: nowrap; }
+.is-index .is-hw .ic { width: 16px; height: 16px; color: var(--n500); }
+.is-index .is-acts { display: flex; align-items: center; gap: var(--s8); margin-left: auto; }
+/* One row per category, opened on a click, one open at a time (issues.js). The category's name is a heading (A-19). */
+.is-index .is-cats { margin-top: var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
+.is-index .is-catf + .is-catf { border-top: 1px solid var(--n100); }
+.is-index .is-catf > summary { list-style: none; display: flex; align-items: center; gap: var(--s12); min-height: 60px; padding: var(--s8) var(--s16); cursor: pointer; }
+.is-index .is-catf > summary::-webkit-details-marker { display: none; }
+.is-index .is-catf > summary:hover { background: var(--n50); }
+.is-index .is-catf > summary:focus-visible { outline: 3px solid var(--p700); outline-offset: -3px; }
+.is-index .is-catb { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: var(--s12); }
+.is-index .is-catn { font: 600 var(--t18)/1.2 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+.is-index .is-catm { margin-left: auto; font-size: var(--t14); color: var(--n500); text-align: right; white-space: nowrap; }
+.is-index .is-catw { color: var(--n700); font-weight: 700; }
+.is-index .is-catf > summary .is-chev { flex: none; width: 20px; height: 20px; color: var(--n500); transition: transform .15s; }
+.is-index .is-catf[open] > summary .is-chev { transform: rotate(180deg); }
+.is-index .is-catf > .rows { margin: 0; border: 0; border-top: 1px solid var(--n100); border-radius: 0; box-shadow: none; }
+.is-index .is-catf > .le-none { padding: var(--s12) var(--s16); border-top: 1px solid var(--n100); }
+/* a phone: the count under the name, the hearings on a line of their own */
+@media (max-width: 599px) {
+  .is-index .is-catb { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .is-index .is-catm { margin-left: 0; text-align: left; white-space: normal; font-size: var(--t13); }
+  .is-index .is-catw { display: block; }
+  .is-index .is-catd { display: none; }
+}
+.is-arch { margin-top: var(--s24); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
+.is-arch > summary { list-style: none; display: flex; align-items: center; gap: var(--s12); min-height: 52px; padding: var(--s8) var(--s16); cursor: pointer; font-weight: 700; color: var(--n900); }
+.is-arch > summary::-webkit-details-marker { display: none; }
+.is-arch > summary .ic { width: 20px; height: 20px; color: var(--n500); flex: none; }
+.is-arch > summary .is-chev { margin-left: auto; transition: transform .15s; }
+.is-arch[open] > summary .is-chev { transform: rotate(180deg); }
+.is-arch > .rows, .is-arch > .le-bills { margin: 0; border: 0; border-top: 1px solid var(--n100); border-radius: 0; box-shadow: none; }
+
+/* The way to the first visit's numbers and links (R-023): a link of its own under the top line (A-12: it goes somewhere,
+   so it looks like a link, not a button), its icon kept with its words, one line at every width. On a touch screen the
+   target reaches 44px into the space around it (A-6) without pushing the list further down. */
+.fv-page .fv-golink, .mi-page .is-fvlink { display: flex; align-items: center; gap: 4px; width: fit-content; max-width: 100%; margin-top: var(--s8); font-size: var(--t14); color: var(--p700); font-weight: 700; text-decoration: none; }
+.mi-page .is-fvlink + .is-find, .mi-page .is-fvlink + .is-needs { margin-top: var(--s12); }
+.fv-page .fv-golink .ic, .mi-page .is-fvlink .ic { width: 16px; height: 16px; flex: none; }
+.fv-page .fv-golink:hover span, .mi-page .is-fvlink:hover span { text-decoration: underline; }
+.fv-page .fv-golink:focus-visible, .mi-page .is-fvlink:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+@media (max-width: 899px) { .mi-page .is-fvlink, .fv-page .fv-golink { padding: 12px 0; margin: -4px 0 -12px; } }
+
+/* ---- one issue (inside .le-page.le-list) ---- */
+/* v3 (R-264): its public side (followers, the first-visit switch) in a card; on a laptop it and Related issues are the
+   one side panel (.is-two), as sharing and support are on a coalition's page. */
+.is-page .is-folcard { margin-top: var(--s24); padding: var(--s12) var(--s16) var(--s4); }
+.is-page .is-folcard h2 { font-size: var(--t18); }
+.is-page .is-fol { margin: var(--s8) 0 var(--s4); font-size: var(--t14); color: var(--n700); }
+.is-page .is-fol .le-fol { display: inline-flex; align-items: flex-start; gap: 6px; }
+.is-page .is-fol .ic { width: 16px; height: 16px; margin-top: 2px; color: var(--n500); flex: none; }
+.is-page .is-folcard .sv-switchrow { border-top: 1px solid var(--n100); }
+.is-page > .sv-notice, .is-page .is-main > .sv-notice { margin: var(--s12) 0 0; }
+.is-page .le-brow .iconbtn { flex: none; }
+.is-page .is-sone { margin: 0; }
+/* A bill's one line: its number and name, then its stage and HIPHI's position at the right */
+.is-page .is-brow { padding-right: var(--s12); }
+.is-page .is-brow:has(.iconbtn) { padding-right: var(--s4); }
+.is-page .is-brow .le-bmain { padding: var(--s8) 0; }
+.is-page .is-brow .is-bt { -webkit-line-clamp: 1; }
+.is-page .is-bend { display: flex; align-items: center; gap: var(--s8); flex: none; margin-left: var(--s8); }
+.is-page .is-bstage { font-size: var(--t14); color: var(--n500); white-space: nowrap; }
+@media (max-width: 599px) {
+  .is-page .is-brow { flex-wrap: wrap; padding-bottom: var(--s8); }
+  .is-page .is-brow .le-bmain { flex-basis: calc(100% - 48px); padding-bottom: 0; }
+  .is-page .is-brow .is-bt { -webkit-line-clamp: 2; }
+  .is-page .is-bend { order: 2; flex-basis: 100%; margin: 0; }
+}
+/* the bills that did not advance, and earlier sessions': a quiet line under the list, not another card */
+.is-page .is-gone > summary { list-style: none; display: inline-flex; align-items: center; gap: var(--s4); min-height: 44px; font-size: var(--t14); color: var(--n500); cursor: pointer; }
+.is-page .is-gone > summary::-webkit-details-marker { display: none; }
+.is-page .is-gone > summary:hover span { text-decoration: underline; }
+.is-page .is-gone > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+.is-page .is-gone > summary .ic { width: 16px; height: 16px; }
+.is-page .is-gone[open] > summary .ic.ic-chevron-down { transform: rotate(180deg); }
+.is-page .is-gone > .le-bills { margin-top: 0; }
+.is-page .is-add { margin-top: var(--s12); }
+.is-page .is-editrow { margin-top: var(--s8); }
+.is-page .is-rell { margin: 0 0 var(--s8); }
+.is-page .pr-outlook { margin: var(--s4) 0 var(--s12); }
+@media (min-width: 1100px) {
+  .is-page.is-two { max-width: 1056px; margin: 0 auto; }
+  .is-page .is-main { min-width: 0; }
+  .is-page .is-side .is-folcard { margin-top: 0; }
+  .is-page .is-side .le-sec { margin-top: 0; }
+  .is-page .is-side .is-rel .le-bmain { padding: var(--s8) 0; }
+}
+/* A bill's line on My issues (R-226): where it stands, in the same size as the rest of the row. */
+.is-page .is-bstat { display: block; font-size: var(--t14); line-height: 1.4; color: var(--n700); overflow-wrap: anywhere; }
+.is-page .is-bmeta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); margin-top: 2px; }
+
+/* ---- the issue form and the picker (sheets) ---- */
+.is-form .is-for, .is-picker .is-for { margin: 0 0 var(--s12); }
+.is-form .is-cats { border: 0; margin: var(--s16) 0 0; padding: 0; min-width: 0; }
+.is-form .is-cats legend { padding: 0; margin-bottom: var(--s4); font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.is-form .is-opt { font-weight: 400; color: var(--n500); }
+.is-form .is-alsoh { margin: 0 0 var(--s4); }
+.is-form .is-cat { align-items: center; padding: 2px 0; min-height: 44px; }
+.is-form .is-cat input { margin: 0; }
+.is-form .is-cat[hidden] { display: none; }
+.is-form .sv-switchrow { margin-top: var(--s16); }
+/* The search box in a sheet: the same look as Lists' (whose rules are scoped to its page) */
+.is-psearch { position: relative; margin-bottom: var(--s8); }
+.is-psearch > .ic-search { position: absolute; left: 12px; top: 12px; width: 20px; height: 20px; color: var(--n500); pointer-events: none; }
+.is-psearch input { width: 100%; min-height: 44px; padding: 8px 16px 8px 40px; border: 1px solid var(--n400); border-radius: var(--pill); background: var(--n0);
+  color: var(--n900); font-size: var(--t16); -webkit-appearance: none; appearance: none; }
+.is-psearch input::-webkit-search-cancel-button { display: none; }
+.is-psearch input:focus { outline: none; border-color: var(--p700); box-shadow: 0 0 0 2px var(--p700); }
+.is-picker .is-gh, .is-page .is-gh { display: flex; align-items: center; gap: var(--s8); margin: var(--s16) 0 var(--s4); padding: 0 var(--s8); font: 700 var(--t14)/1.3 var(--font); color: var(--n500); }
+.is-picker .is-gh .ic { width: 16px; height: 16px; }
+.is-picker .is-gh:first-child { margin-top: var(--s4); }
+.is-picker .sv-pickl .sub { font-size: var(--t13); color: var(--n500); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.is-picker .sv-pickl .ic.on { color: var(--p700); }
+#is-mlist .sv-pickl .sub { font-size: var(--t13); color: var(--n500); }
+
+/* ---- a bill's Public tab: the issues it is on, each with HIPHI's stance (094, R-093) and × ---- */
+.bw-issues { align-items: center; }
+.bw-isslist { list-style: none; margin: var(--s8) 0 var(--s8); padding: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); overflow: hidden; }
+.bw-issrow { display: flex; align-items: center; gap: var(--s4); min-height: 56px; padding: var(--s4) var(--s4) var(--s4) var(--s12); }
+.bw-issrow + .bw-issrow { border-top: 1px solid var(--n100); }
+.bw-issname { flex: 1 1 auto; min-width: 0; margin-right: var(--s4); font-weight: 700; line-height: 1.3; color: var(--p700); text-decoration: none; overflow-wrap: anywhere; }
+.bw-issname:hover { text-decoration: underline; }
+.bw-issname:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+.bw-issrow .sv-pick { flex: none; }
+.bw-issrow .iconbtn { flex: none; }
+/* Phones and tablets (below A-9's 900): the name and × share the first line (× beside what it takes off, so it never
+   reads as clearing the stance), and the stance chip goes under them; a long name is not squeezed beside the chip. */
+@media (max-width: 899px) {
+  .bw-issrow { flex-wrap: wrap; padding-top: var(--s4); }
+  .bw-issname { flex: 1 1 calc(100% - 52px); margin-right: 0; }
+  .bw-issrow .iconbtn { order: 1; }
+  .bw-issrow .sv-pick { order: 2; margin-bottom: var(--s8); }
+}
+
+/* ---- HIPHI's stance on one issue: a labelled chip under its description, and the choice in the form ---- */
+.is-page .is-stline { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s4) var(--s8); margin: var(--s8) 0 var(--s4); }
+.is-page .is-stl { font-size: var(--t14); font-weight: 700; color: var(--n700); }
+.is-form .is-stance .is-cat { align-items: flex-start; padding: var(--s4) 0; }
+.is-form .is-stance .is-cat input { margin-top: 8px; }
+.is-form .is-stw { display: flex; flex-direction: column; gap: 0; }
+.is-form .is-sts { font-size: var(--t13); color: var(--n500); }
+
+/* ---- the first visit: its numbers, and a link for a partner (firstvisit.js, R-023; inside .le-page.fv-page) ---- */
+.fv-page .fv-head { margin: var(--s4) 0 var(--s16); }
+.fv-page .fv-head h1 { font-size: var(--t22); }
+.fv-page .fv-head .le-lede { margin: var(--s4) 0 0; max-width: 70ch; }
+.fv-controls { display: flex; flex-wrap: wrap; gap: var(--s8) var(--s12); margin-top: var(--s16); }
+.fv-page > .sv-notice { margin-bottom: var(--s16); }
+.fv-page > .le-empty .empty { margin-top: 0; }
+.fv-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s12); }
+.fv-tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: var(--s12) var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); }
+.fv-tile .fv-n { font: 700 var(--t22)/1.15 var(--font-h); letter-spacing: -.02em; color: var(--n900); font-variant-numeric: tabular-nums; }
+.fv-tile .fv-l { font-size: var(--t14); font-weight: 700; color: var(--n700); }
+.fv-tile .fv-s { font-size: var(--t13); color: var(--n500); }
+.fv-sec { margin-top: var(--s24); }
+.fv-sec .le-sechead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s12); margin-bottom: var(--s8); }
+.fv-sec .le-sechead h2 { font-size: var(--t18); }
+/* Screen by screen: on a phone each screen is a small block (name and count, the bar, skips and time); from 900px the
+   same list lines up as a table under a header row. The unit words are kept for screen readers there. */
+.fv-screens { list-style: none; margin: 0; padding: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); overflow: hidden; }
+.fv-srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name num" "bar bar" "skip time"; gap: 4px var(--s12); padding: var(--s12) var(--s16); }
+.fv-srow + .fv-srow { border-top: 1px solid var(--n100); }
+.fv-shead { display: none; }
+.fv-reach { display: contents; }
+.fv-sname { grid-area: name; font-weight: 700; color: var(--n900); font-size: var(--t14); }
+.fv-rn { grid-area: num; font-size: var(--t14); color: var(--n700); font-variant-numeric: tabular-nums; text-align: right; }
+.fv-rn b { color: var(--n900); }
+.fv-bar { grid-area: bar; display: block; height: 8px; border-radius: 4px; background: var(--n100); overflow: hidden; }
+.fv-bar i { display: block; height: 100%; min-width: 2px; border-radius: 4px; background: var(--p700); }
+.fv-skip { grid-area: skip; font-size: var(--t13); color: var(--n500); font-variant-numeric: tabular-nums; }
+.fv-time { grid-area: time; font-size: var(--t13); color: var(--n500); text-align: right; }
+.fv-srow .fv-none { display: none; }
+.fv-tablewrap { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r12); box-shadow: var(--sh1); overflow: hidden; }
+.fv-table { width: 100%; border-collapse: collapse; font-size: var(--t14); }
+.fv-table th, .fv-table td { padding: var(--s8) var(--s8); text-align: left; vertical-align: middle; border-top: 1px solid var(--n100); color: var(--n700); }
+.fv-table th:first-child { padding-left: var(--s16); }
+.fv-table th:last-child, .fv-table td:last-child { padding-right: var(--s16); }
+.fv-table thead th { height: 40px; border-top: 0; background: var(--n50); font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.fv-table tbody th { font-weight: 700; color: var(--n900); overflow-wrap: break-word; }
+.fv-table tr.fv-sub th, .fv-table tr.fv-sub td { border-top-color: var(--n50); font-size: var(--t13); }
+.fv-table tr.fv-sub th { padding-left: var(--s32); font-weight: 400; color: var(--n700); }
+.fv-table .fv-word.none { color: var(--n500); }
+.fv-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.fv-table .fv-kind { display: block; font-size: var(--t13); font-weight: 400; color: var(--n500); }
+.fv-table .fv-pc { display: block; font-size: var(--t13); color: var(--n500); }
+.fv-how { display: flex; align-items: flex-start; gap: var(--s8); margin: var(--s24) 0 0; max-width: 70ch; }
+.fv-how .ic { flex: none; margin-top: 2px; }
+/* When counting starts (097, R-109): above the tiles, with Change for admins. */
+.fv-from { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s8); margin: 0 0 var(--s16); max-width: 70ch; }
+.fv-from .ic { flex: none; }
+/* Make a link (a reading column on a desktop; the link and its QR code side by side from 900px) */
+.fv-card { padding: var(--s16); }
+.fv-none p { margin: 0 0 var(--s12); }
+.fv-card + .fv-card { margin-top: var(--s16); }
+.fv-card h2 { font-size: var(--t18); }
+.fv-card > .small.muted { margin: var(--s4) 0 var(--s12); }
+.fv-card .field + .field { margin-top: var(--s16); }
+.fv-card .is-opt { font-weight: 400; color: var(--n500); }
+.fv-prow { display: flex; align-items: center; gap: var(--s8); margin-top: var(--s4); }
+.fv-prow .sv-pick { flex: 1 1 auto; min-width: 0; justify-content: flex-start; }
+/* A long partner name wraps inside the picker rather than being cut at 320 (nothing cut). */
+.fv-prow .sv-pick { height: auto; min-height: 44px; padding-top: 6px; padding-bottom: 6px; }
+.fv-prow .sv-pick > span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; white-space: normal; text-align: left; }
+.fv-welcome { margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n700); }
+.fv-urlbox { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); margin-top: var(--s16); }
+.fv-urlbox .label { font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.fv-url { width: 100%; margin: 0; padding: var(--s8) var(--s12); background: var(--n50); border: 1px solid var(--n200); border-radius: var(--r8); font-size: var(--t14); color: var(--n900); overflow-wrap: anywhere; user-select: all; }
+.fv-qrbox { display: flex; align-items: center; justify-content: center; width: 208px; height: 208px; margin: var(--s12) auto; background: #fff; border: 1px solid var(--n200); border-radius: var(--r8); text-align: center; }
+.fv-qrbox svg { display: block; width: 192px; height: 192px; }
+.fv-qrerr { display: flex; flex-direction: column; align-items: center; gap: var(--s4); padding: var(--s12); color: var(--bad-text); }
+.fv-qracts { display: flex; justify-content: center; gap: var(--s8); }
+.fv-pform .field + .field { margin-top: var(--s16); }
+.fv-pform input[readonly] { background: var(--n50); color: var(--n700); }
+
+@media (min-width: 900px) {
+  .fv-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  /* the period sits beside the title, so the numbers start one row higher (A-1) */
+  .fv-page .fv-nhead { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s24); }
+  .fv-page .fv-nhead .fv-hmain { min-width: 0; }
+  .fv-page .fv-nhead .fv-controls { flex: none; margin-top: 0; }
+  .fv-linkgrid { display: grid; grid-template-columns: minmax(0, 1fr) 256px; gap: var(--s16); align-items: start; }
+  .fv-linkgrid .fv-card + .fv-card { margin-top: 0; }
+  .fv-linkgrid .fv-qrbox { width: 100%; max-width: 208px; }
+  .fv-srow { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.5fr) 84px 96px; grid-template-areas: none; align-items: center; min-height: 48px; padding: var(--s8) var(--s16); }
+  .fv-reach { display: flex; align-items: center; gap: var(--s12); min-width: 0; }
+  .fv-sname, .fv-rn, .fv-bar, .fv-skip, .fv-time { grid-area: auto; }
+  .fv-bar { flex: 1 1 auto; }
+  .fv-rn { flex: none; min-width: 76px; }
+  .fv-skip, .fv-time { font-size: var(--t14); color: var(--n700); text-align: right; }
+  .fv-srow .fv-none { display: inline; color: var(--n500); }
+  .fv-srow .fv-w { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .fv-shead { display: grid; min-height: 40px; padding-top: 0; padding-bottom: 0; background: var(--n50); font-size: var(--t13); font-weight: 700; color: var(--n500); }
+  .fv-shead span:nth-child(n+3) { text-align: right; }
+  .fv-table .fv-pc { display: inline; margin-left: 4px; }
+}
+
+/* ---- getting the issues ready for 2027 (R-088; staff/prep.js): the links, the card on an issue, My issues, the board ---- */
+.mi-page .pr-links { display: flex; flex-wrap: wrap; gap: 0 var(--s24); }
+.mi-page .pr-links .is-fvlink { margin-top: var(--s4); }
+.pr-card { margin-top: var(--s16); padding: var(--s16); }
+.pr-card .pr-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); flex-wrap: wrap; }
+.pr-card .pr-head h2 { font-size: var(--t18); }
+.pr-card .pr-lede { margin: var(--s4) 0 0; color: var(--n700); }
+.pr-card > .sv-notice { margin: var(--s12) 0 0; }
+.pr-people { display: flex; flex-wrap: wrap; gap: var(--s8) var(--s24); margin-top: var(--s12); padding: var(--s8) 0; border-top: 1px solid var(--n100); border-bottom: 1px solid var(--n100); }
+.pr-who { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s8); min-height: 44px; }
+.pr-who .pr-wl { font-size: var(--t13); font-weight: 700; color: var(--n500); text-transform: uppercase; letter-spacing: .04em; }
+.pr-helper { display: inline-flex; align-items: center; gap: var(--s4); min-height: 36px; padding: 2px var(--s8) 2px 2px; border: 1px solid var(--n200); border-radius: 999px; background: var(--n0); color: var(--n900); font: inherit; cursor: pointer; }
+.pr-helper:hover { border-color: var(--p700); }
+.pr-steps { list-style: none; margin: var(--s8) 0 0; padding: 0; }
+.pr-steps li + li { border-top: 1px solid var(--n100); }
+.pr-step { display: flex; align-items: center; gap: var(--s12); width: 100%; min-height: 56px; padding: var(--s8) 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.pr-step .pr-mark { width: 22px; height: 22px; flex: none; color: var(--n400, var(--n500)); }
+.pr-step.done .pr-mark { color: var(--ok-text, var(--p700)); }
+.pr-step .body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pr-step .title { font-weight: 700; color: var(--n900); }
+.pr-step .sub { font-size: var(--t14); color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pr-step .pr-go { flex: none; font-size: var(--t14); font-weight: 700; color: var(--p700); }
+.pr-step:hover .pr-go { text-decoration: underline; }
+.pr-step:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+/* R-316 W16: the talking points in full on their step (no two-line clamp), one per line with a quiet bar in front. */
+.pr-step .sub.pr-subl { display: block; -webkit-line-clamp: none; overflow: visible; }
+.pr-pts { display: flex; flex-direction: column; gap: var(--s4); margin-top: 2px; }
+.pr-pt { display: block; padding-left: var(--s8); border-left: 2px solid var(--n200); color: var(--n800, var(--n900)); }
+/* The top-issue step with an admin's Confirm beside it. */
+.pr-steps li.pr-hastop { display: flex; align-items: center; gap: var(--s12); }
+.pr-hastop .pr-step { flex: 1 1 auto; min-width: 0; }
+.pr-foot { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s8) var(--s12); margin-top: var(--s12); padding-top: var(--s12); border-top: 1px solid var(--n100); }
+.pr-foot .btn[aria-disabled="true"] { opacity: .55; }
+.pr-dots { display: inline-flex; gap: 3px; vertical-align: middle; }
+.pr-dot { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--n500); }
+.pr-dot.on { background: var(--p700); border-color: var(--p700); }
+.pr-page .le-sec, .pr-board .pr-cat { margin-top: var(--s24); }
+.pr-rows { list-style: none; margin: 0; padding: 0; }
+.pr-row { display: flex; align-items: center; gap: var(--s8) var(--s12); min-height: 60px; padding: 0 var(--s12) 0 var(--s16); background: var(--n0); }
+.pr-row + .pr-row { border-top: 1px solid var(--n100); }
+.pr-row .pr-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: var(--s8) 0; color: inherit; text-decoration: none; }
+.pr-row .pr-main .title { font-weight: 700; color: var(--n900); }
+.pr-row .pr-main:hover .title { color: var(--p700); text-decoration: underline; }
+.pr-row .pr-main .sub { display: flex; align-items: center; gap: var(--s8); font-size: var(--t13); color: var(--n500); }
+.pr-row .pr-end { flex: none; }
+.pr-ownbtn { flex: none; display: inline-flex; align-items: center; gap: var(--s4); min-height: 40px; padding: 2px var(--s8) 2px 2px; border: 1px solid var(--n200); border-radius: 999px; background: var(--n0); color: var(--n900); font: inherit; font-size: var(--t14); cursor: pointer; }
+.pr-ownbtn .chev { width: 14px; height: 14px; color: var(--n500); }
+.pr-ownbtn:hover { border-color: var(--p700); }
+.pr-tell { margin-top: var(--s16); padding: var(--s16); }
+.pr-tell h2 { font-size: var(--t18); }
+.pr-tell .small { margin: var(--s4) 0 var(--s12); color: var(--n700); }
+.pr-told { display: flex; align-items: center; gap: var(--s4); margin-top: var(--s12); }
+.pr-told .ic { width: 16px; height: 16px; }
+.pr-per { margin-top: var(--s12); }
+.pr-filters { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); margin-top: var(--s12); }   /* R-277 fix 20: the one Filter button */
+@media (max-width: 599px) {
+  .pr-brow { flex-wrap: wrap; padding-bottom: var(--s8); }
+  .pr-brow .pr-main { flex-basis: 100%; padding-bottom: 0; }
+}
+.pr-page .pr-top { margin: var(--s4) 0 var(--s8); }
+.pr-page .pr-top h1 { font-size: var(--t22); }
+.pr-page .pr-top .le-lede { margin: var(--s4) 0 0; max-width: 70ch; }
+/* A-6: 44px to a finger */
+@media (max-width: 899px) { .pr-ownbtn, .pr-helper { min-height: 44px; } }
+/* After the fresh-eyes review (9/29): the count beside the dots, a plain state (no pill: A-12), owners as filters, the
+   filter strip wrapping on a phone so Drafts is never cut off, and My issues' Next button. */
+.pr-n { font-size: var(--t13); color: var(--n500); }
+.pr-st { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t13); font-weight: 700; color: var(--n700); white-space: nowrap; }
+.pr-st .ic { width: 16px; height: 16px; }
+.pr-st.warn { color: var(--warn-text); } .pr-st.ok { color: var(--ok-text); } .pr-st.danger { color: var(--bad-text); }
+.pr-per { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); }
+.pr-whob { min-height: 32px; padding: 0 var(--s12); border: 1px solid var(--n200); border-radius: 999px; background: var(--n0); color: var(--n900); font: inherit; font-size: var(--t14); cursor: pointer; }
+.pr-whob[aria-pressed="true"] { background: var(--p50); border-color: var(--p700); color: var(--p700); font-weight: 700; }
+.pr-next { margin: var(--s12) 0 0; }
+.pr-next .btn { max-width: 100%; }
+.pr-next .btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 899px) {
+  .pr-whob { min-height: 44px; }
+}
+
+/* ---- My issues (R-263; v3, R-264): each issue a card whose first line is the issue, then its moving bills one line
+   each, inside .le-page.le-list.is-page ---- */
+.mi-page .mi-iss { margin-top: var(--s12); padding: 0; overflow: hidden; }
+.mi-page .le-tools + .mi-iss, .mi-page .pr-links + .mi-iss { margin-top: var(--s16); }
+.mi-page .mi-ihead { display: flex; align-items: center; flex-wrap: wrap; gap: 2px var(--s16); padding: var(--s8) var(--s16); }
+.mi-page .mi-iname { margin: 0; min-width: 0; font-size: var(--t18); }
+.mi-page .mi-iname a { display: inline-flex; align-items: center; gap: var(--s8); min-height: 40px; color: var(--n900); text-decoration: none; }
+.mi-page .mi-iname a:hover span:last-child { color: var(--p700); text-decoration: underline; }
+.mi-page .mi-iname a:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+.mi-page .mi-ic { display: inline-flex; color: var(--n500); }
+.mi-page .mi-ic .ic { width: 20px; height: 20px; }
+.mi-page .mi-soon { flex: 1 1 260px; min-width: 0; margin: 0; font-size: var(--t14); color: var(--n700); overflow-wrap: anywhere; }
+.mi-page .mi-soon a { color: var(--p700); font-weight: 700; }
+.mi-page .mi-soon b { color: var(--n900); }
+.mi-page .mi-cnt { margin: 0 0 0 auto; display: inline-flex; align-items: center; gap: var(--s8); font-size: var(--t14); color: var(--n500); white-space: nowrap; }
+.mi-page .mi-tag { font-size: var(--t13); font-weight: 700; color: var(--n700); }
+/* a bill: its number and nickname, then one short phrase at the right */
+.mi-page .mi-bills { list-style: none; margin: 0; padding: 0; }
+.mi-page .mi-brow { display: flex; align-items: center; gap: var(--s4) var(--s16); min-height: 44px; padding: var(--s4) var(--s16); border-top: 1px solid var(--n100); }
+.mi-page .mi-bmain { flex: 1 1 auto; min-width: 0; color: var(--n700); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mi-page .mi-bmain b { color: var(--n900); }
+.mi-page .mi-bmain .mi-bn { color: var(--n900); }
+.mi-page .mi-bmain:hover b, .mi-page .mi-bmain:hover .mi-bn { color: var(--p700); text-decoration: underline; }
+.mi-page .mi-bmain:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+.mi-page .mi-bend { flex: 0 1 auto; max-width: 58%; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: var(--s4) var(--s8); }
+.mi-page .mi-bph { font-size: var(--t14); color: var(--n700); text-align: right; }
+.mi-page .mi-reach { display: inline-flex; align-items: center; gap: 4px; font-size: var(--t13); font-weight: 700; color: var(--n700); white-space: nowrap; }
+.mi-page .mi-reach .ic { width: 16px; height: 16px; color: var(--n500); }
+.mi-page .mi-none { margin: 0; padding: var(--s8) var(--s16) var(--s12); border-top: 1px solid var(--n100); font-size: var(--t14); color: var(--n700); }
+.mi-page .mi-none a { color: var(--p700); font-weight: 700; }
+.mi-page .pr-links { margin-top: var(--s8); }
+/* "2 did not advance": a quiet line at the card's foot, opened in place */
+.mi-page .mi-gone { border-top: 1px solid var(--n100); }
+.mi-page .mi-gone > summary { list-style: none; display: flex; align-items: center; gap: var(--s4); min-height: 40px; padding: 0 var(--s16); font-size: var(--t14); color: var(--n500); cursor: pointer; }
+.mi-page .mi-gone > summary::-webkit-details-marker { display: none; }
+.mi-page .mi-gone > summary:hover span { text-decoration: underline; }
+.mi-page .mi-gone > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: -2px; }
+.mi-page .mi-gone > summary .ic { width: 16px; height: 16px; transition: transform .15s; }
+.mi-page .mi-gone[open] > summary .ic { transform: rotate(180deg); }
+.mi-page .mi-still { margin-top: var(--s24); }
+.mi-page .mi-stillin { padding: 0 var(--s16) var(--s16); }
+/* a phone: a bill's phrase goes under its name, and the issue's count under its name too */
+@media (max-width: 599px) {
+  .mi-page .mi-brow { flex-direction: column; align-items: stretch; gap: 2px; padding: var(--s8) var(--s16); }
+  .mi-page .mi-bmain { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .mi-page .mi-bend { max-width: none; justify-content: flex-start; }
+  .mi-page .mi-bph { text-align: left; }
+  .mi-page .mi-cnt { margin-left: 0; white-space: normal; }
+}
+/* the heading over its lede, not beside it, wherever the page's heading shows (900px and wider since v3) */
+@media (min-width: 900px) { .mi-page .le-tools { display: block; } .mi-page .le-h1 { margin: 0 0 var(--s4); } }
+/* An issue's rows have no drag handle, so they keep the 16px inset that a list's rows give up for theirs on a desktop
+   (lists.css); without it a bill's title sat 4px from the card's edge (R-263, on the issue page since R-226 too). */
+@media (min-width: 900px) { .is-page .le-brow { padding-left: var(--s16); } }
+/* v4 (R-269 P7): someone who owns no issue sees their coalitions here, a list of links, then the others with the
+   coalition page's support switch, one card of switch rows (sv-switchrow, staff.css). */
+.mi-page .mi-coal { margin-top: var(--s24); max-width: 760px; }   /* a switch stays near its name: width beyond a reading column is margin (A-24) */
+.mi-page .le-tools + .mi-coal { margin-top: var(--s16); }
+.mi-page .mi-coh { margin: 0 0 var(--s8); font-size: var(--t18); }
+.mi-page .mi-corow .lead { background: var(--n100); color: var(--n700); }
+.mi-page .mi-cosw { padding: 0 var(--s16); }
+.mi-page .mi-cosw .sv-switchrow + .sv-switchrow { border-top: 1px solid var(--n100); }
+
+/* ---- My issues and All issues: one line per issue, by deadline or by topic (R-272, issuestand.js) ---- */
+.ist-page .ist-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s12) var(--s16); margin-top: var(--s16); }
+.ist-page .ist-find { flex: 1 1 320px; max-width: 480px; }
+.ist-page .ist-seg { flex: none; }
+.ist-page .ist-sec { margin-top: var(--s24); }
+.ist-page .ist-h { display: flex; align-items: center; gap: var(--s8); margin: 0 0 var(--s8); font: 600 var(--t18)/1.2 var(--font-h); color: var(--n900); }
+.ist-page .ist-n { font: 700 var(--t14)/1 var(--font); color: var(--n500); }
+.ist-page .ist-th .is-catic { width: 28px; height: 28px; }
+.ist-page .ist-tc { margin-left: auto; font: 700 var(--t13)/1.3 var(--font); color: var(--n700); text-align: right; }
+.ist-page .ist-list { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); overflow: hidden; }
+.ist-page .is-catf > .ist-list { border: 0; border-top: 1px solid var(--n100); border-radius: 0; box-shadow: none; }
+.ist-page .ist-row { display: flex; align-items: center; gap: var(--s12); min-height: 56px; padding: var(--s8) var(--s16); color: var(--n900); text-decoration: none; }
+.ist-page .ist-row + .ist-row { border-top: 1px solid var(--n100); }
+.ist-page .ist-row:hover { background: var(--n50); }
+.ist-page .ist-row:hover .ist-nm { color: var(--p700); text-decoration: underline; }
+.ist-page .ist-row:focus-visible { outline: 3px solid var(--p700); outline-offset: -3px; }
+.ist-page .ist-ic { flex: none; display: inline-flex; color: var(--n500); }
+.ist-page .ist-ic .ic { width: 20px; height: 20px; }
+.ist-page .ist-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ist-page .ist-name { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px var(--s8); font-weight: 700; font-size: var(--t16); }
+.ist-page .ist-tag { font-size: var(--t13); font-weight: 700; color: var(--n500); }
+.ist-page .ist-marks { display: flex; flex-wrap: wrap; gap: 2px var(--s12); font-size: var(--t14); color: var(--n700); }
+.ist-page .ist-m { display: inline-flex; align-items: flex-start; gap: 4px; }
+.ist-page .ist-m .ic { flex: none; width: 16px; height: 16px; margin-top: 2px; }
+.ist-page .ist-risk { color: var(--bad-text); }
+.ist-page .ist-risk b { color: var(--bad-text); }
+.ist-page .ist-dying .ic, .ist-page .ist-dying b { color: var(--warn-text); }
+.ist-page .ist-safe .ic, .ist-page .ist-safe b { color: var(--ok-text); }
+.ist-page .ist-need { color: var(--n900); }
+.ist-page .ist-need .ic { color: var(--warn-text); }
+.ist-page .ist-hear .ic, .ist-page .ist-ahead .ic, .ist-page .ist-off .ic { color: var(--n500); }
+.ist-page .ist-hear { font-weight: 700; color: var(--n900); }
+.ist-page .ist-nb { white-space: nowrap; }
+.ist-page .ist-hear.ist-filed { font-weight: 400; color: var(--n700); }   /* R-316 W23: filed asks nothing more of you */
+.ist-page .ist-bills { font-size: var(--t13); color: var(--n500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ist-page .ist-row .chev { flex: none; width: 20px; height: 20px; color: var(--n400); }
+.ist-page .ist-empty, .ist-page .ist-off, .ist-page .ist-found { margin: 0; padding: var(--s8) 0; font-size: var(--t14); color: var(--n700); }
+.ist-page .ist-found { margin-top: var(--s16); }
+.ist-page .ist-fold { margin-top: var(--s16); }
+.ist-page .ist-fold > summary { list-style: none; display: flex; align-items: center; gap: var(--s4); min-height: 44px; font-size: var(--t14); font-weight: 700; color: var(--n700); cursor: pointer; }
+.ist-page .ist-fold > summary::-webkit-details-marker { display: none; }
+.ist-page .ist-fold > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+.ist-page .ist-fold > summary .is-chev { width: 18px; height: 18px; transition: transform .15s; }
+.ist-page .ist-fold[open] > summary .is-chev { transform: rotate(180deg); }
+.ist-page.is-index .is-cats, .ist-page.is-index #is-q-body > .is-catf:first-child { margin-top: var(--s16); }
+@media (max-width: 599px) {
+  .ist-page .ist-seg { width: 100%; }
+  .ist-page .ist-seg button { flex: 1 1 0; }
+  .ist-page .ist-row { padding: var(--s8) var(--s12); }
+}
+
+/* R-288: the Top issues filter's confirm button (pressed = pre-ticked), and the team's lists step. */
+.pr-topbtn { flex: none; display: inline-flex; align-items: center; gap: var(--s4); min-height: 40px; padding: 0 var(--s12); border: 1px solid var(--n200); border-radius: 999px; background: var(--n0); color: var(--n900); font: inherit; font-size: var(--t14); cursor: pointer; }
+.pr-topbtn svg { width: 16px; height: 16px; }
+.pr-topbtn:hover { border-color: var(--p700); }
+.pr-topbtn[aria-pressed="true"] { background: var(--p700); border-color: var(--p700); color: var(--n0); font-weight: 700; }
+.pr-lline { margin: var(--s12) 0 0; }
+.pr-toplede { margin: var(--s12) 0 0; }
+.pr-team .pr-lcount { margin-top: 0; }
+@media (max-width: 899px) { .pr-topbtn { min-height: 44px; } }
+/* R-316 W56 (FR-6): Next deadlines, one small heading per deadline (its date said once), and a long group folds after 8. */
+.ist-page .ist-sub { margin: var(--s16) 0 var(--s8); font: 700 var(--t14)/1.35 var(--font); color: var(--n900); }
+.ist-page .ist-h + .ist-sub { margin-top: 0; }
+.ist-page .ist-subw { font-weight: 600; color: var(--n700); }
+.ist-page .ist-subn { font-weight: 600; color: var(--n500); }
+.ist-page .ist-more { margin-top: var(--s4); }
+.ist-page .ist-more > summary { list-style: none; display: inline-flex; align-items: center; gap: var(--s4); min-height: 44px; font-size: var(--t14); font-weight: 700; color: var(--p700); cursor: pointer; }
+.ist-page .ist-more > summary::-webkit-details-marker { display: none; }
+.ist-page .ist-more > summary:focus-visible { outline: 2px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+.ist-page .ist-more[open] > summary .is-chev { transform: rotate(180deg); }
+
+/* ==== Staff v6 (R-336 spec 4 and 6): My issues, All issues, the Prep board, an issue's page and its 2027 prep card ====
+   From the tokens only (staff6/css/tokens.css): roomy and soft, no borders on cards (one warm shadow, 20px), rows of the
+   shared shape (steps.js .v6-row) inside one card per list, separated by an inset hairline. Type: 14 labels and counts, 16
+   sentences, 18 Poppins names, 22 Poppins section headings (V10, A-4). Every state is words and an icon, never colour
+   alone (A-5, D3). The rules above this section are v5's; the sheets (.is-form, .is-picker, .is-psearch), the first
+   visit (.fv-*, Outreach's) and the bill page's issues (.bw-iss*) still use them. */
+body.staff6 .i6-page .le-lede { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+/* the place's head, the same on My issues, Coalitions and All issues (spec 5 placeHead, A-8): the title and the page's one
+   button on one row, the tabs straight under it; a phone's top bar carries the title, so the tabs come first there */
+body.staff6 .i6-head { margin: 0 0 var(--s16); }
+body.staff6 .i6-htop { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8) var(--s16); min-height: 44px; margin: 0 0 var(--s12); }
+body.staff6 main .i6-h1 { margin: 0; font: 700 var(--v6-t28)/var(--v6-lh28) Poppins, system-ui, sans-serif; letter-spacing: -.015em; color: var(--v6-ink); }
+body.staff6 .i6-hacts { display: flex; flex-wrap: wrap; gap: var(--s8); align-items: center; }
+body.staff6 .i6-head > .sv-secnav { margin-bottom: 0; }
+body.staff6 .i6-newic { display: none; }
+@media (max-width: 767px) {
+  body.staff6 .i6-htop { display: none; }
+  body.staff6 .i6-newic { display: inline-flex; flex: none; }
+}
+body.staff6 .i6-lede { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+/* where an issue's line names a time due today, the time is bold (D3); the line's first part alone carries a state colour */
+/* times and labels at 500, never bold (spec 12.1: bold is names' headings, the page title and the filled button; My issues
+   at 320 was 27% bold against 25) */
+body.staff6 .i6-time { font-weight: 500; color: var(--v6-ink); }
+body.staff6 .i6-time .v6-tm { font-weight: inherit; }
+body.staff6 .i6-p1.t-late { color: var(--v6-late); font-weight: 500; }
+body.staff6 .i6-p1.t-overdue { color: var(--v6-bad); font-weight: 500; }
+body.staff6 .i6-p1.t-done { color: inherit; }   /* done says so with its green check alone: one colour fewer in view (spec 8) */
+body.staff6 .i6-row.i6-ic-late .v6-row-line > svg { color: var(--v6-late); }
+body.staff6 .i6-row.i6-ic-overdue .v6-row-line > svg { color: var(--v6-bad); }
+body.staff6 .i6-row.i6-ic-done .v6-row-line > svg { color: var(--v6-leaf); }
+body.staff6 .i6-sec { margin-top: var(--v6-gap); }
+body.staff6 .i6-sec:first-child { margin-top: 0; }
+body.staff6 .i6-h { margin: 0 0 var(--s12); font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; letter-spacing: -.01em; color: var(--v6-ink); }
+body.staff6 .i6-th { display: flex; align-items: center; gap: var(--s12); }
+body.staff6 .i6-catic { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: var(--v6-wash); color: var(--v6-body); flex: none; }
+body.staff6 .i6-catic .ic { width: 20px; height: 20px; }
+body.staff6 .i6-tc { margin: calc(-1 * var(--s8)) 0 var(--s12); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
+body.staff6 .i6-sub { margin: var(--s24) 0 var(--s8); font: 500 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-ink); }
+body.staff6 .i6-h + .i6-sub { margin-top: 0; }
+body.staff6 .i6-subw { font-weight: 400; color: var(--v6-body); }
+body.staff6 .i6-quiet { margin: var(--s8) 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .i6-found { margin: 0 0 var(--s8); font-size: var(--v6-t16); color: var(--v6-body); }
+/* a row's name and its line may take two lines rather than be cut (rule 10: nothing cut, at 320 too) */
+body.staff6 .i6-row .v6-row-top { flex-wrap: wrap; column-gap: var(--s8); row-gap: 0; }
+body.staff6 .i6-row .v6-row-name, body.staff6 .i6-row .v6-row-line > span { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+body.staff6 .i6-row .v6-row-num { white-space: normal; }
+body.staff6 .i6-row .v6-row-line { align-items: flex-start; }
+body.staff6 .i6-row .v6-row-line > svg { margin-top: 3px; }
+body.staff6 .i6-row .v6-row-line > svg { color: var(--v6-muted); }
+body.staff6 .i6-row .v6-row-line.t-late > svg, body.staff6 .i6-row .v6-row-line.t-overdue > svg, body.staff6 .i6-row .v6-row-line.t-done > svg { color: currentColor; }
+body.staff6 .i6-list + .i6-list { margin-top: var(--s12); }
+/* the filter box and the switch: side by side from 600px; on a phone one line, a Filter button that opens the box beside the
+   switch (and All issues' New issue at its end) */
+body.staff6 .i6-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s12) var(--s16); margin: var(--s12) 0 var(--s16); }
+body.staff6 .i6-tools-x { justify-content: flex-end; }
+body.staff6 .i6-findbtn { display: none; }
+body.staff6 .i6-find { position: relative; flex: 1 1 280px; max-width: 440px; min-width: 0; }
+body.staff6 .i6-find > .ic { position: absolute; left: 16px; top: 12px; width: 20px; height: 20px; color: var(--v6-muted); pointer-events: none; }
+body.staff6 .i6-find input { width: 100%; min-height: 44px; padding: 8px 44px; border: 0; border-radius: var(--v6-pill); background: var(--v6-wash); font: 400 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-ink); box-shadow: inset 0 0 0 1px var(--v6-field); }
+body.staff6 .i6-find input::placeholder { color: var(--v6-muted); }
+body.staff6 .i6-find input::-webkit-search-cancel-button { display: none; }
+body.staff6 .i6-find input:focus { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .i6-find .iconbtn { position: absolute; right: 0; top: 0; }
+body.staff6 .i6-seg { flex: none; }
+@media (max-width: 599px) {
+  body.staff6 .i6-tools { gap: var(--s8); flex-wrap: nowrap; }
+  body.staff6 .i6-tools.open { flex-wrap: wrap; }
+  body.staff6 .i6-findbtn { display: inline-flex; flex: none; }
+  body.staff6 .i6-tools.open .i6-findbtn, body.staff6 .i6-tools:not(.open) .i6-find { display: none; }
+  body.staff6 .i6-find { flex-basis: 100%; max-width: none; }
+  body.staff6 .i6-seg { display: flex; flex: 1 1 auto; min-width: 0; }
+  body.staff6 .i6-seg > * { flex: 1 1 0; min-width: 0; padding-left: var(--s8); padding-right: var(--s8); }
+}
+/* a 320 phone: "By deadline" stays on one line beside the two 44px buttons (14px is a label size, spec 4) */
+@media (max-width: 359px) { body.staff6 .i6-seg > * { padding-left: var(--s4); padding-right: var(--s4); font-size: var(--v6-t14); white-space: nowrap; } }
+/* folds: what is done, what is not moving, the rest of a long group (rule 3: never something to do) */
+body.staff6 .i6-fold, body.staff6 .i6-more { margin-top: var(--s16); }
+body.staff6 .i6-fold > summary, body.staff6 .i6-more > summary { list-style: none; display: inline-flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 0 var(--s12) 0 var(--s8);
+  border-radius: var(--v6-pill); font: 500 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-action); cursor: pointer; }
+body.staff6 .i6-fold > summary::-webkit-details-marker, body.staff6 .i6-more > summary::-webkit-details-marker { display: none; }
+body.staff6 .i6-fold > summary:hover, body.staff6 .i6-more > summary:hover { background: var(--v6-action-wash); }
+body.staff6 .i6-fold > summary:focus-visible, body.staff6 .i6-more > summary:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .i6-chev { width: 20px; height: 20px; flex: none; transition: transform .15s; }
+body.staff6 details[open] > summary .i6-chev { transform: rotate(180deg); }
+body.staff6 .i6-fold > .i6-list { margin-top: var(--s8); }
+/* All issues by topic: one card, a topic a row, one open at a time */
+body.staff6 .i6-cats { padding: var(--s8); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .i6-catf { position: relative; }
+body.staff6 .i6-catf + .i6-catf::before { content: ''; position: absolute; left: var(--s16); right: var(--s16); top: 0; height: 1px; background: var(--v6-hair); }
+body.staff6 .i6-catf > summary { list-style: none; display: flex; align-items: center; gap: var(--s12); min-height: 64px; padding: var(--s8); border-radius: var(--v6-r12); cursor: pointer; }
+body.staff6 .i6-catf > summary::-webkit-details-marker { display: none; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .i6-catf > summary:hover { background: var(--v6-wash); } }
+body.staff6 .i6-catf > summary:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .i6-catb { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+body.staff6 .i6-catn { font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+body.staff6 .i6-catm { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
+body.staff6 .i6-catf > summary .i6-chev { color: var(--v6-muted); }
+body.staff6 .i6-catf > .i6-list, body.staff6 .i6-catf > .i6-more > .i6-list { padding: 0; box-shadow: none; background: none; }
+body.staff6 .i6-catf > .i6-quiet { padding: 0 var(--s8) var(--s8); }
+/* one-line notes with an icon and at most one button: no box, no colour (X33, D3) */
+body.staff6 .i6-lines { display: grid; gap: var(--s4); margin: var(--s16) 0 0; }
+/* the icon, the sentence and its one button stay on one line: the sentence wraps inside, the button stays beside it (the
+   critic: the icon and "Take one" fell onto lines of their own on a phone) */
+body.staff6 .i6-line { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--s4) var(--s12); min-height: 44px; margin: var(--s8) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .i6-lines .i6-line { margin: 0; }
+body.staff6 .i6-line > .ic { width: 20px; height: 20px; flex: none; color: var(--v6-muted); }
+body.staff6 .i6-line > span { flex: 0 1 auto; min-width: 0; }
+body.staff6 .i6-line a:not(.btn):not(.i6-inline) { color: var(--v6-action); font-weight: 400; text-decoration: none; }
+body.staff6 .i6-line a:not(.btn):not(.i6-inline):hover { text-decoration: underline; }
+body.staff6 .i6-weekq { display: flex; align-items: center; gap: var(--s12); }
+body.staff6 .i6-weekq > .ic { width: 20px; height: 20px; flex: none; color: var(--v6-muted); }
+body.staff6 .i6-weekq + .i6-sec, body.staff6 .i6-weekq + .i6-fold { margin-top: var(--s24); }
+body.staff6 .pr6-page > .i6-line, body.staff6 .pr6-board > .i6-line { margin-top: var(--s24); }
+body.staff6 .is6-none { margin-top: var(--s24); }
+body.staff6 .is6-editb { margin-top: var(--s16); }
+body.staff6 .i6-line > .btn, body.staff6 .i6-line > .i6-inline { flex: none; }
+body.staff6 .i6-inline { display: inline-flex; align-items: center; min-height: 44px; font-weight: 400; color: var(--v6-action); text-decoration: none; }
+body.staff6 .i6-inline:hover { text-decoration: underline; }
+body.staff6 .i6-more-link { margin: var(--s8) 0 0; }
+body.staff6 .i6-more-link a { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 var(--s8); margin-left: calc(-1 * var(--s8)); border-radius: var(--v6-pill); font-weight: 400; color: var(--v6-action); text-decoration: none; }
+body.staff6 .i6-more-link a:hover { background: var(--v6-action-wash); }
+body.staff6 .i6-more-link .ic { width: 18px; height: 18px; }
+body.staff6 .i6-hrow { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); margin: 0 0 var(--s12); }
+body.staff6 .i6-hrow .i6-h { margin: 0; }
+body.staff6 .i6-acts { display: flex; flex-wrap: wrap; gap: var(--s8); margin: var(--s12) 0 0; }
+body.staff6 .i6-links { display: flex; flex-wrap: wrap; gap: 0 var(--s24); }
+body.staff6 .i6-link { display: inline-flex; align-items: center; gap: var(--s8); min-height: 44px; font-weight: 400; color: var(--v6-action); text-decoration: none; }
+body.staff6 .i6-sheet .i6-quiet:first-child { margin-top: 0; }
+/* where it stands, said first on an issue's or a coalition's page: a sand tile with its icon and its words */
+body.staff6 .i6-lead { display: flex; align-items: flex-start; gap: var(--s12); margin: var(--s16) 0 0; padding: var(--s12) var(--s16); border-radius: var(--v6-r12); background: var(--v6-wash);
+  font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); }
+body.staff6 .i6-lead > .ic { width: 20px; height: 20px; margin-top: 2px; flex: none; }
+/* the Prep board's place as a view of All issues (F165): links drawn as the segmented switch */
+body.staff6 .pr6-view { margin: 0 0 var(--s16); }
+body.staff6 .pr6-view a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: var(--v6-pill); font: 400 var(--v6-t16)/1.2 var(--font); color: var(--v6-body); text-decoration: none; }
+body.staff6 .pr6-view a[aria-pressed="true"] { background: var(--v6-card); color: var(--v6-ink); font-weight: 700; box-shadow: var(--v6-sh1); }
+body.staff6 .pr6-view a:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+@media (pointer: coarse), (max-width: 767px) { body.staff6 .pr6-view a { min-height: 44px; } }
+
+/* ---- an issue's page ---- */
+body.staff6 .is6-page .co6-back { margin-bottom: var(--s8); }
+body.staff6 .is6-cols { display: block; }
+@media (min-width: 1100px) {
+  body.staff6 .is6-cols { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--s48); align-items: start; max-width: 1280px; }
+  body.staff6 .is6-side > :first-child { margin-top: 0; }
+}
+body.staff6 .is6-head { display: flex; align-items: flex-start; gap: var(--s16); }
+body.staff6 .is6-icon { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; margin-top: 2px; border-radius: 50%; background: var(--v6-wash); color: var(--v6-body); flex: none; }
+body.staff6 .is6-icon .ic { width: 24px; height: 24px; }
+body.staff6 .is6-hbody { flex: 1 1 auto; min-width: 0; }
+body.staff6 main .is6-h1 { margin: 0; font: 700 var(--v6-t28)/var(--v6-lh28) Poppins, system-ui, sans-serif; letter-spacing: -.015em; color: var(--v6-ink); overflow-wrap: anywhere; }
+body.staff6 .is6-desc { margin: var(--s8) 0 0; max-width: 70ch; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .is6-dl { color: var(--v6-muted); }
+body.staff6 .is6-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin: var(--s12) 0 0; font-size: var(--v6-t16); color: var(--v6-body); }
+body.staff6 .is6-stl { color: var(--v6-muted); }
+body.staff6 .is6-cat { color: var(--v6-muted); }
+body.staff6 .is6-hacts { display: flex; align-items: center; gap: var(--s4); flex: none; }
+@media (max-width: 599px) { body.staff6 .is6-icon { display: none; } body.staff6 main .is6-h1 { font-size: var(--v6-t22); line-height: var(--v6-lh22); } }
+body.staff6 .is6-card { margin-top: var(--s24); padding: var(--s16) var(--s24); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .is6-side .is6-card:first-child { margin-top: 0; }
+body.staff6 .is6-card h2, body.staff6 .co6-card h2 { margin: 0 0 var(--s8); font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+body.staff6 .is6-pl { display: flex; align-items: flex-start; gap: var(--s8); margin: var(--s8) 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .is6-pl .ic { width: 20px; height: 20px; margin-top: 2px; color: var(--v6-muted); flex: none; }
+body.staff6 .is6-side .i6-sec, body.staff6 .is6-page > .i6-sec { margin-top: var(--s32); }
+body.staff6 .is6-side .pf-cares { margin-top: var(--s32); }
+body.staff6 .is6-main .cv-sec, body.staff6 .is6-page > .cv-sec { margin-top: var(--v6-gap); }
+body.staff6 .is6-page .is-add { margin-top: var(--s16); }
+body.staff6 .is6-stnote { align-items: flex-start; }
+
+/* ---- the 2027 prep card (inline steps, V30) ---- */
+body.staff6 .pr6-card { display: block; margin-top: var(--s24); padding: var(--s24); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .pr6-head h2 { margin: 0; font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+body.staff6 .pr6-sub { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s16); margin: var(--s12) 0 0; font-size: var(--v6-t16); color: var(--v6-body); }
+body.staff6 .pr6-sub a { display: inline-flex; align-items: center; min-height: 44px; color: var(--v6-action); font-weight: 400; text-decoration: none; }
+body.staff6 .pr6-sub a:hover { text-decoration: underline; }
+body.staff6 .pr6-lede, body.staff6 .pr6-outlook { margin: var(--s12) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .pr6-note { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s8) var(--s12); margin: var(--s16) 0 0; padding: var(--s12) var(--s16); border-radius: var(--v6-r12); background: var(--v6-wash); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); }
+body.staff6 .pr6-note > .ic { width: 20px; height: 20px; margin-top: 2px; flex: none; color: var(--v6-muted); }
+body.staff6 .pr6-note > span { flex: 1 1 200px; min-width: 0; }
+body.staff6 .pr6-people { display: flex; flex-wrap: wrap; gap: 0 var(--s32); margin: var(--s16) 0 0; }
+body.staff6 .pr6-who { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); min-height: 44px; margin: 0; font-size: var(--v6-t16); color: var(--v6-ink); }
+body.staff6 .pr6-wl { color: var(--v6-muted); }
+body.staff6 .pr6-helper { display: inline-flex; align-items: center; gap: var(--s8); min-height: 40px; padding: 0 var(--s12) 0 var(--s4); border: 0; border-radius: var(--v6-pill); background: var(--v6-wash); color: var(--v6-ink); font: inherit; cursor: pointer; }
+body.staff6 .pr6-helper:hover { background: #E6DDCD; }
+body.staff6 .pr6-helper:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .pr6-steps { list-style: none; margin: var(--s12) 0 0; padding: 0; }
+body.staff6 .pr6-step { position: relative; display: flex; align-items: flex-start; gap: var(--s12); padding: var(--s16) 0; }
+body.staff6 .pr6-step + .pr6-step::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
+body.staff6 .pr6-mark { display: inline-flex; flex: none; padding-top: 0; color: var(--v6-body); }
+body.staff6 .pr6-mark .ic { width: 28px; height: 28px; }
+/* a step's number in a sand tile: says its place, never looks like a box to tick (the critic) */
+body.staff6 .pr6-n { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--v6-wash); font: 700 var(--v6-t14)/1 var(--font); color: var(--v6-body); }
+body.staff6 .pr6-step.open .pr6-n { background: var(--v6-action-wash); color: var(--v6-action); }
+body.staff6 .pr6-boxfoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8) var(--s16); margin: var(--s8) 0 0; }
+body.staff6 .pr6-boxfoot .pr6-said { margin: 0; flex: 1 1 160px; }
+body.staff6 .pr6-step > .pr6-closed { flex: none; }
+body.staff6 .pr6-step > .pr6-closed[hidden], body.staff6 .pr6-sb > .pr6-closed[hidden] { display: none; }
+body.staff6 .pr6-step.done .pr6-mark { color: var(--v6-leaf); }
+body.staff6 .pr6-sb { flex: 1 1 auto; min-width: 0; }
+body.staff6 .pr6-sl { margin: 0; font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+body.staff6 .pr6-sd { margin: var(--s4) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); overflow-wrap: anywhere; }
+body.staff6 .pr6-step.done:not(.open) .pr6-sd { color: var(--v6-muted); }
+body.staff6 .pr6-step > .btn, body.staff6 .pr6-step > .pr6-closed > .btn { flex: none; margin-top: -6px; }
+body.staff6 .pr6-quote { display: flex; flex-direction: column; gap: var(--s4); margin: var(--s12) 0 0; padding: var(--s12) var(--s16); border-radius: var(--v6-r12); background: var(--v6-wash); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); overflow-wrap: anywhere; }
+body.staff6 .pr6-quote b { color: var(--v6-ink); }
+body.staff6 .pr6-none { color: var(--v6-muted); }
+body.staff6 .pr6-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin: var(--s12) 0 0; }
+/* the answer already given, when a step is changed: a check on sand, never a second filled button (spec 7 rule 1) */
+body.staff6 .pr6-acts .btn[aria-pressed="true"] { background: var(--v6-wash); color: var(--v6-ink); font-weight: 700; }
+body.staff6 .pr6-hint { margin: var(--s8) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
+body.staff6 .pr6-said { min-height: var(--v6-lh16); margin: var(--s4) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .pr6-box { display: block; width: 100%; margin: var(--s12) 0 0; padding: var(--s12) var(--s16); border: 0; border-radius: var(--v6-r12); background: var(--v6-card); box-shadow: inset 0 0 0 1px var(--v6-field);
+  font: 400 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-ink); resize: vertical; }
+body.staff6 .pr6-box:focus { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .pr6-box[aria-invalid="true"] { box-shadow: inset 0 0 0 2px var(--v6-bad); }
+body.staff6 .pr6-sb .pr-topbtn, body.staff6 .pr6-sb > .btn { margin-top: var(--s12); }
+/* the foot: the card's one filled button, sticky at the window's foot (above the phone's tab bar) while the card is in view */
+body.staff6 .pr6-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s16); margin: var(--s16) calc(-1 * var(--s12)) 0; padding: var(--s12); border-radius: var(--v6-r20); background: var(--v6-card); }
+body.staff6 .pr6-foot.sticky { position: sticky; bottom: calc(var(--tabbar) + var(--safe-b, 0px) + var(--s8)); z-index: 5; box-shadow: var(--v6-sh2); }
+@media (min-width: 768px) { body.staff6 .pr6-foot.sticky { bottom: var(--s16); } }
+body.staff6 .pr6-fs { flex: 1 1 200px; min-width: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .pr6-yours { display: flex; align-items: flex-start; gap: var(--s8); color: var(--v6-ink); }
+body.staff6 .pr6-yours > .ic { width: 20px; height: 20px; margin-top: 2px; color: var(--v6-leaf); flex: none; }
+body.staff6 .pr6-fold > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: var(--s12); min-height: 44px; cursor: pointer; }
+body.staff6 .pr6-fold > summary::-webkit-details-marker { display: none; }
+body.staff6 .pr6-foldt { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); font-size: var(--v6-t16); color: var(--v6-ink); }
+body.staff6 .pr6-foldt > .ic { width: 20px; height: 20px; color: var(--v6-muted); }
+body.staff6 .pr6-foldt b { font-weight: 500; }   /* a fold's summary, not a heading (spec 12.1: 600 for h2 only) */
+body.staff6 .pr6-fold > summary:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: var(--v6-r12); }
+/* the prep list and the board */
+body.staff6 .pr6-top { margin: var(--s24) 0 0; }
+body.staff6 .pr6-next { margin: var(--s16) 0 0; }
+body.staff6 .pr6-next .btn { max-width: 100%; white-space: normal; text-align: left; height: auto; min-height: 44px; padding-top: 10px; padding-bottom: 10px; }
+body.staff6 .pr6-board .pr6-lede { max-width: 72ch; }
+body.staff6 .pr6-tell { margin: var(--s24) 0 0; padding: var(--s16) var(--s24); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .pr6-tell h2 { margin: 0; font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+body.staff6 .pr6-tell p { margin: var(--s8) 0 var(--s12); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); max-width: 72ch; }
+body.staff6 .pr6-per { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin: var(--s24) 0 0; }
+body.staff6 .pr6-perl { margin-right: var(--s4); color: var(--v6-muted); }
+body.staff6 .pr6-whob { min-height: 40px; padding: 0 var(--s12); border: 0; border-radius: var(--v6-pill); background: var(--v6-wash); font: 400 var(--v6-t16)/1 var(--font); color: var(--v6-ink); cursor: pointer; }
+body.staff6 .pr6-whob[aria-pressed="true"] { background: var(--v6-action-wash); color: var(--v6-action); font-weight: 700; }
+body.staff6 .pr6-whob:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+@media (pointer: coarse), (max-width: 767px) { body.staff6 .pr6-whob { min-height: 44px; } }
+body.staff6 .pr6-filters { display: flex; align-items: center; justify-content: space-between; gap: var(--s12); margin: var(--s24) 0 var(--s16); font-size: var(--v6-t16); color: var(--v6-body); }
+body.staff6 .pr6-board .i6-sec { margin-top: var(--s32); }
+@media (max-width: 599px) {
+  body.staff6 .pr6-card { padding: var(--s16); }
+  body.staff6 .pr6-foot { margin-left: calc(-1 * var(--s8)); margin-right: calc(-1 * var(--s8)); padding: var(--s8); }
+  body.staff6 .pr6-foot .btn:not(.text) { flex: 1 1 100%; }
+}
+@media (prefers-reduced-motion: reduce) { body.staff6 .i6-chev { transition: none; } }
+/* the message strip (#toast) sits where the sticky foot does: while one shows, the foot rises above it, so its button is
+   never under the message (B-4) */
+body.staff6:has(#toast .toastmsg) .pr6-foot.sticky { bottom: calc(var(--tabbar) + var(--safe-b, 0px) + 96px); }
+@media (min-width: 768px) { body.staff6:has(#toast .toastmsg) .pr6-foot.sticky { bottom: 104px; } }
+/* a phone: the title keeps the width; Edit the issue is the first item of its "…" there (F155) */
+@media (max-width: 599px) { body.staff6 .is6-edit { display: none; } }
+body.staff6 .is6-page > .pf-cares { margin-top: var(--s32); }
+
+
+/* Staff v6 polish (R-336 spec 12.1, P-1): links read at 400, subheads and fold summaries at 500; 600 stays for h2 section
+   headings. A helper's own steps on the prep card say "Your part" in a quiet label (a status, never a button), and HIPHI's
+   stance reads as plain words for anyone who cannot change it. */
+body.staff6 .pr6-yourpart { display: inline-flex; align-items: center; margin-left: var(--s8); padding: 0 10px; border-radius: var(--v6-pill); background: var(--v6-action-wash);
+  font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-action); vertical-align: 1px; }
+body.staff6 .is6-stw { display: inline-flex; align-items: center; gap: 6px; color: var(--v6-ink); }
+body.staff6 .is6-stw .ic { width: 18px; height: 18px; color: var(--v6-muted); }

@@ -1,0 +1,158 @@
+/* Conversations with legislators, filed by issue (R-022 wave 2 #9): bill page, legislator page, issue page. */
+/* conversation.js draws one list and one dialog for all three pages; the section heads borrow each page's own look
+   (.bw-sech on a bill, .le-sechead on an issue, .lg-sech on a legislator). Tokens only; sizes 13/14/16/18/22; 44px
+   targets on touch widths. */
+
+/* ---- the list ---- */
+.cv-n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--n100); color: var(--n700); font: 700 var(--t13)/22px var(--font); text-align: center; letter-spacing: 0; }
+.cv-n[hidden] { display: none; }
+.cv-sec .bw-sech, .cv-sec .le-sechead { align-items: center; }
+.cv-sec .le-sechead .btn.text { margin-right: -12px; flex: none; }
+.cv-box { margin-top: var(--s4); }
+.cv-list { overflow: hidden; }
+.rows.cv-list > .row.cv-item { align-items: flex-start; gap: var(--s4); padding: var(--s12) var(--s4) var(--s12) var(--s16); min-height: 0; }
+/* R-316 H-15: the conversation a search result opened stays marked, calmly (no motion). */
+.rows.cv-list > .row.cv-item.cv-land { background: var(--p50); box-shadow: inset 3px 0 0 var(--p700); }
+.rows.cv-list > .row.cv-item.cv-land:focus { outline: none; }
+.rows.cv-list > .row.cv-item.cv-land:focus-visible { outline: 2px solid var(--p700); outline-offset: -2px; }
+.cv-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cv-names { font-size: var(--t16); line-height: 1.35; color: var(--n900); overflow-wrap: anywhere; }
+.cv-names a { font-weight: 700; text-underline-offset: 3px; }
+.cv-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s8); font-size: var(--t13); line-height: 1.4; color: var(--n500); }
+.cv-meta a { font-weight: 700; }
+.cv-meta .sv-chip { max-width: 100%; white-space: normal; }   /* its size is ui.js chip({ sm }) (R-277 fix 20) */
+.cv-text { margin-top: var(--s4); font-size: var(--t16); line-height: 1.45; color: var(--n900); white-space: pre-wrap; overflow-wrap: anywhere; max-width: 70ch; }
+.cv-more { margin-top: -6px; color: var(--n500); }
+.cv-more .ic { width: 20px; height: 20px; }
+.cv-all { margin: var(--s4) 0 0 -12px; }
+.cv-none { padding: var(--s8) 0; font-size: var(--t14); color: var(--n500); }
+.cv-wait { display: flex; align-items: center; gap: 6px; }
+.cv-wait .ic { width: 16px; height: 16px; animation: spin 1s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .cv-wait .ic { animation: none; } }
+/* On a legislator's page the list sits in its own section, where the page's rows are a card already. */
+.lg-sec .cv-box { margin-top: 0; }
+
+/* ---- the dialog ---- */
+.cv-sheet .cv-whof { gap: var(--s8); }
+.cv-picked:empty { display: none; }
+.cv-picked .cv-pk { gap: 4px; padding-right: 10px; }
+.cv-picked .cv-pk .ic { width: 16px; height: 16px; color: var(--n500); }
+.cv-picked .cv-pk:hover .ic { color: var(--bad-text); }
+.cv-find { position: relative; }
+.cv-find > .ic-search { position: absolute; left: 12px; top: 12px; width: 20px; height: 20px; color: var(--n500); pointer-events: none; }
+/* input[type=search] and the .field prefix out-rank pub/base.css's `.field input:not(...)`, which would take the room
+   the magnifier sits in */
+.cv-find input[type="search"], .field .cv-find input[type="search"] { width: 100%; min-height: 44px; padding: 8px 16px 8px 40px; border: 1px solid var(--n400); border-radius: var(--pill); background: var(--n0);
+  color: var(--n900); font-size: var(--t16); -webkit-appearance: none; appearance: none; }
+.cv-find input::-webkit-search-cancel-button { display: none; }
+.cv-find input:focus { outline: none; border-color: var(--p700); box-shadow: 0 0 0 2px var(--p700); }
+.cv-find input[aria-invalid="true"] { border-color: var(--bad-text); box-shadow: 0 0 0 1px var(--bad-text); }
+.cv-sgs:empty { display: none; }
+.cv-sgh { margin: var(--s4) 0 0 var(--s8); font: 700 var(--t13)/1.3 var(--font); color: var(--n500); }
+.cv-sgl button { min-height: 52px; }
+.cv-sgl .lg-ph { flex: none; }
+.cv-sgl .sub { font-size: var(--t13); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.cv-sgl .ic.cv-plus { margin-left: auto; color: var(--p700); }
+/* suggestions before anything is typed: one tap each, as chips */
+.cv-sgc { margin-top: 2px; }
+.cv-sgc .chip .ic { width: 16px; height: 16px; color: var(--p700); }
+.cv-role { font-weight: 400; color: var(--n500); }
+.cv-sgnone { padding: var(--s8); font-size: var(--t14); color: var(--n500); }
+.cv-sheet .cv-row2 { margin-top: var(--s16); }
+.cv-sheet .cv-row2 + .field { margin-top: var(--s16); }
+.cv-sheet select { text-overflow: ellipsis; }
+.cv-reach { margin-top: var(--s12); }
+/* "Filed under" has the whole width: its bill numbers are the point of it (R-022 review), so "When" goes under it, as
+   wide as a date needs. */
+.cv-sheet .cv-row2 > .field + .field { margin-top: var(--s16); }
+.cv-sheet .cv-dayf input { max-width: 220px; }
+
+/* The small-phone floor (A-9): "Conversations" and "Log a conversation" do not fit on one 320px line, so the button
+   goes under the heading, lined up with it. */
+@media (max-width: 359px) {
+  .cv-sec .bw-sech, .cv-sec .le-sechead { flex-wrap: wrap; row-gap: 0; }
+  .cv-sec .bw-sech .btn.text, .cv-sec .le-sechead .btn.text { margin-left: -12px; }
+}
+
+@media (min-width: 900px) {
+  .rows.cv-list > .row.cv-item { padding-top: var(--s8); padding-bottom: var(--s12); }
+  .cv-sheet button.chip.cv-pk { min-height: 36px; padding: 4px 10px 4px 12px; }
+  .cv-sgl button { min-height: 44px; }
+  .cv-sheet .cv-sgc button.chip { min-height: 36px; padding: 4px 12px 4px 10px; }
+}
+@media (hover: hover) and (pointer: fine) {
+  .cv-names a:hover, .cv-meta a:hover { color: var(--p800); }
+  .cv-more:hover { color: var(--n900); }
+}
+
+/* R-277 fix 8: "Your note from before, kept until you save it." */
+.cv-held { display: flex; align-items: center; gap: 6px; }
+.cv-held .ic { flex: none; width: 16px; height: 16px; }
+
+/* R-335 (practice copy): a corrected entry's "edited" opens its earlier wording; the Add a note sheet names whom it is about. */
+.cv-meta .cv-ed { color: var(--n500); font-weight: 400; }
+.cv-meta .cv-ed:hover { color: var(--n900); }
+.cv-nfor { margin-bottom: var(--s12); }
+.cv-sheet .cv-nfor + .field + .cv-dayf { margin-top: var(--s16); }
+
+/* ---- Staff v6 (R-336): the talks list and the Log a talk sheet in the warm look; 14px only for labels (no 13px) ---- */
+body.staff6 .cv-n { min-width: 24px; height: 24px; border-radius: 12px; background: var(--v6-wash); color: var(--v6-body); font: 700 var(--v6-t14)/24px Lato, system-ui, sans-serif; }
+body.staff6 .rows.cv-list > .row.cv-item { padding: 14px 8px 14px 20px; gap: 4px; }
+body.staff6 .rows.cv-list > .row.cv-item + .row.cv-item::before { left: 20px; right: 20px; }
+body.staff6 .rows.cv-list > .row.cv-item.cv-land { background: var(--v6-action-wash); box-shadow: none; }
+body.staff6 .cv-names { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); }
+body.staff6 .cv-names a { color: var(--v6-ink); }
+body.staff6 .cv-meta { font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+body.staff6 .cv-meta a { color: var(--v6-action); }
+body.staff6 .cv-meta .cv-ed { color: var(--v6-muted); }
+body.staff6 .cv-text { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); margin-top: 4px; }
+body.staff6 .cv-more { color: var(--v6-muted); }
+body.staff6 .cv-none { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .cv-all { margin: 8px 0 0; }
+body.staff6 .cv-sgh { margin: 4px 0 0 8px; font: 700 var(--v6-t14)/var(--v6-lh14) Lato, system-ui, sans-serif; color: var(--v6-muted); }
+body.staff6 .cv-sgl .sub, body.staff6 .cv-ipick .sub { font-size: var(--v6-t14); }
+body.staff6 .cv-role { color: var(--v6-muted); }
+body.staff6 .cv-sgnone { font-size: var(--v6-t16); color: var(--v6-body); }
+body.staff6 .cv-find input[type="search"], body.staff6 .field .cv-find input[type="search"] { border-color: var(--v6-field); background: var(--v6-card); color: var(--v6-ink); }
+body.staff6 .cv-find input:focus { outline: 3px solid var(--v6-action); outline-offset: 2px; border-color: var(--v6-field); box-shadow: none; }
+body.staff6 .cv-find > svg { position: absolute; left: 12px; top: 12px; width: 20px; height: 20px; color: var(--v6-muted); pointer-events: none; }
+body.staff6 .cv-reach { margin: 12px 0 0; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+body.staff6 .cv-nfor { margin: 0 0 12px; font-size: var(--v6-t14); color: var(--v6-muted); }
+body.staff6 .cv-sheet > .field + .field, body.staff6 .cv-sheet > .field + fieldset, body.staff6 .cv-sheet > fieldset + .field { margin-top: 20px; }
+/* "Filed under": two choices as radios, then a search for any other issue (V23). */
+body.staff6 .cv-aboutf { margin: 20px 0 0; padding: 0; border: 0; min-width: 0; }
+body.staff6 .cv-aboutf legend { padding: 0; margin: 0 0 8px; font: 700 var(--v6-t14)/var(--v6-lh14) Lato, system-ui, sans-serif; color: var(--v6-ink); }
+body.staff6 .cv-opts { display: grid; gap: 4px; margin: 0 0 8px; }
+body.staff6 .cv-opt { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; padding: 10px 12px; border-radius: var(--v6-r12); background: var(--v6-wash);
+  font: 400 var(--v6-t16)/var(--v6-lh16) Lato, system-ui, sans-serif; color: var(--v6-ink); cursor: pointer; }
+body.staff6 .cv-opt input { flex: none; width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--v6-action); }
+body.staff6 .cv-opt:has(input:checked) { background: var(--v6-action-wash); font-weight: 700; }
+body.staff6 .cv-opt:has(input:focus-visible) { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .cv-ilist:empty { display: none; }
+body.staff6 .cv-ilist { margin-top: 4px; }
+body.staff6 .cv-ipick button { min-height: 48px; }
+body.staff6 .cv-ipick .cv-plus { margin-left: auto; color: var(--v6-action); }
+/* "This was an ask for a hearing" (V24). */
+body.staff6 .cv-ask { display: flex; align-items: center; gap: 12px; min-height: 44px; font: 700 var(--v6-t16)/var(--v6-lh16) Lato, system-ui, sans-serif; color: var(--v6-ink); cursor: pointer; }
+body.staff6 .cv-ask input { flex: none; width: 22px; height: 22px; margin: 0; accent-color: var(--v6-action); }
+body.staff6 .cv-askf .help { display: block; margin-left: 34px; }
+body.staff6 .cv-askf .err { margin-left: 34px; }
+/* From a chair's page, the bills to tick as the ask: name, number, and the line Who to ask says for this chair (V24). */
+body.staff6 .cv-askb { display: grid; gap: 4px; margin: 8px 0 0 34px; padding: 0; border: 0; min-width: 0; }
+body.staff6 .cv-askbill { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; padding: 10px 12px; border-radius: var(--v6-r12); background: var(--v6-wash); cursor: pointer; }
+body.staff6 .cv-askbill input { flex: none; width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--v6-action); }
+body.staff6 .cv-askbill:has(input:checked) { background: var(--v6-action-wash); }
+body.staff6 .cv-askbill:has(input:focus-visible) { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .cv-abt { min-width: 0; font: 400 var(--v6-t16)/var(--v6-lh16) Lato, system-ui, sans-serif; color: var(--v6-ink); overflow-wrap: anywhere; }
+body.staff6 .cv-abname { font-weight: 700; }
+body.staff6 .cv-abn { font-size: var(--v6-t14); color: var(--v6-muted); white-space: nowrap; }
+body.staff6 .cv-abl { display: block; color: var(--v6-body); }
+/* A lone "Filed under" choice is said, not offered as a radio that does nothing. */
+body.staff6 .cv-lone { margin: 0; padding: 10px 0; font: 400 var(--v6-t16)/var(--v6-lh16) Lato, system-ui, sans-serif; color: var(--v6-ink); }
+/* "Not a talk? Add a note instead" (R-335, practice copy): one quiet line at the top of the sheet. */
+body.staff6 .cv-alt { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 16px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .cv-alt > svg { width: 20px; height: 20px; flex: none; margin-top: 2px; color: var(--v6-muted); }
+body.staff6 .cv-alt .linkbtn { font-weight: 700; text-decoration: underline; text-underline-offset: 3px; min-height: 0; padding: 0; }
+/* A stance's note in Asks and talks: the same card row, with Change beside it. */
+body.staff6 .rows.cv-list > .row.cv-item.cv-stance { align-items: flex-start; }
+body.staff6 .cv-stance > .btn { flex: none; align-self: center; }

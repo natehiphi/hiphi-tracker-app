@@ -1,0 +1,526 @@
+/* HIPHI Staff v6 · the bill page (bill.js, activity.js, public.js, pathway.js's Committees, testimony.js's door). R-336
+   V22, spec sections 4 and 6. One column, roomy and soft, from the tokens only (css/tokens.css): no borders on cards (one
+   warm shadow and the 20px radius), rows parted by space or an inset hairline, three radii (12, 20, pill), type at
+   14 (labels, times, numbers) / 16 (sentences) / 18 Poppins (names) / 22 Poppins (section headings) / 28 Poppins (the
+   bill's name), never 13. The step card, hearing card, rows and tabs are steps.css's; this file places them.
+   Phone first; from 768px the page's own Back row shows (the phone's top bar has Back); the column is at most 800px
+   (extra width is margin, A-24). Every selector starts .bw- (the v3 page's prefix, kept so untracked.js, conversation.js
+   and today.js, which borrow a few, still look right). */
+
+/* ---- the page ---- */
+.bw-page { max-width: 800px; padding-bottom: var(--s48); color: var(--v6-body); }
+.bw-page p, .bw-page h1, .bw-page h2, .bw-page h3, .bw-page ul, .bw-page dl { margin: 0; }
+.bw-quiet { color: var(--v6-muted); font-size: var(--v6-t14); line-height: var(--v6-lh14); }
+.bw-page .bw-inline { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: var(--v6-action); font-weight: 700; text-decoration: none; }
+.bw-page .bw-inline:hover { text-decoration: underline; text-underline-offset: 3px; }
+.bw-page .bw-inline .ic { width: 16px; height: 16px; }
+.bw-chev { width: 20px; height: 20px; flex: none; color: var(--v6-muted); transition: transform 150ms ease; }
+
+/* ---- the header: back row, the name, the facts in words (position and owner are quiet buttons), the issue, where it
+   stands. From 481px Follow and "…" sit beside the name; on a phone "…" stays beside the name and Follow rides on the
+   issue's line, so neither takes a row of its own (A-1, fresh-eyes review). ---- */
+.bw-head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "top top top" "title follow more" "fline fline fline" "where where where";
+  column-gap: var(--s8); row-gap: var(--s8); padding-top: var(--s4); }
+.bw-head > .bw-top { grid-area: top; }
+.bw-head > .bw-titlerow { grid-area: title; min-width: 0; padding-right: var(--s4); }
+.bw-head > .bw-hfollow { grid-area: follow; align-self: start; }
+.bw-head > .bw-hmore { grid-area: more; align-self: start; }
+.bw-head > .bw-fline { grid-area: fline; display: flex; flex-wrap: wrap; align-items: center; min-width: 0; }
+.bw-head > .bw-where { grid-area: where; }
+.bw-fline > .bw-fiss { display: inline-flex; flex-wrap: wrap; align-items: center; min-width: 0; }
+.bw-fline > .bw-fiss::before { content: '·'; margin: 0 8px; color: var(--v6-muted); }
+@media (max-width: 480px) {
+  /* Follow spans the last two columns, so the narrow "…" column alone sets how much room the name gives up */
+  .bw-head { grid-template-areas: "title title more" "facts facts facts" "iss follow follow" "where where where"; row-gap: var(--s4); }
+  .bw-head:not(.bw-hasiss) { grid-template-areas: "title title more" "facts facts facts" "follow follow follow" "where where where"; }
+  /* the owner has no Follow: the issue stays on the facts' line when it fits. On a phone the facts are buttons with
+     chevrons, so space parts them instead of dots, and a wrapped line never starts with a lone dot. */
+  .bw-head:not(.bw-hasfollow) { grid-template-areas: "title title more" "fline fline fline" "where where where"; }
+  .bw-head .bw-fline, .bw-head .bw-facts { column-gap: var(--s16); }
+  .bw-head .bw-facts .bw-f::before, .bw-head .bw-fline > .bw-fiss::before { display: none; }
+  .bw-head.bw-hasfollow > .bw-fline { display: contents; }
+  .bw-hasfollow .bw-fline > .bw-facts { grid-area: facts; }
+  .bw-hasfollow .bw-fline > .bw-fiss { grid-area: iss; }
+  .bw-head > .bw-hfollow { align-self: center; justify-self: end; }
+  .bw-head:not(.bw-hasiss) > .bw-hfollow { justify-self: start; }
+  .bw-head > .bw-where { margin-top: var(--s4); }
+}
+/* The phone's top bar carries Back and the number; the page's own back row shows from 768px (spec 3.1: the laptop header
+   holds only search). Previous / Next ride on it when the bill was opened from a list. */
+.bw-top { display: none; }
+.bw-back { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; margin-left: -8px; padding: 0 16px 0 4px; border-radius: var(--v6-pill);
+  color: var(--v6-action); font-size: var(--v6-t16); font-weight: 400; text-decoration: none; max-width: 60%; }
+.bw-back span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bw-back .ic { width: 22px; height: 22px; flex: none; }
+.bw-nav { display: flex; align-items: center; gap: var(--s4); margin-left: auto; }
+.bw-pn { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; padding: 0 12px; border-radius: var(--v6-pill); color: var(--v6-action);
+  font-size: var(--v6-t16); text-decoration: none; }
+.bw-pn .ic { width: 18px; height: 18px; }
+.bw-pos { font-size: var(--v6-t14); color: var(--v6-muted); white-space: nowrap; }
+.bw-h1 { font: 700 var(--v6-t28)/var(--v6-lh28) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); letter-spacing: -.01em;
+  overflow-wrap: anywhere; outline: none; }
+/* a name that is a sentence (a bill with no nickname: its summary or the Capitol's words, R-271) is set a size down */
+.bw-h1.bw-long { font: 600 var(--v6-t22)/var(--v6-lh22) var(--font-h, Poppins, system-ui, sans-serif); letter-spacing: 0; }
+.bw-hmore .iconbtn { color: var(--v6-body); }
+.bw-follow[aria-pressed="true"] { background: var(--v6-wash); color: var(--v6-ink); }
+/* the facts, in words: "HB 2121 · Strong support ⌄ · Kevin owns it ⌄" (D15: the number small and plain) */
+.bw-facts { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 2px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+.bw-facts { column-gap: 0; }
+.bw-f { display: inline-flex; align-items: center; white-space: nowrap; }
+.bw-f + .bw-f::before { content: '·'; margin: 0 8px; color: var(--v6-muted); font-weight: 400; }
+.bw-fiss { white-space: normal; flex-wrap: wrap; }
+.bw-fiss > .bw-issue + .bw-issue { margin-left: var(--s16); }
+.bw-facts .bw-num { color: var(--v6-muted); font-size: var(--v6-t14); }
+.bw-dot { color: var(--v6-muted); }
+/* the position and the owner: the words themselves, quiet, with a chevron that says a choice opens (A-12) */
+/* (they act: 40px on a laptop, 44px on a phone, spec 7.10; Nate's walk: 32px) */
+.bw-fbtn { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; margin: 0 -6px; padding: 0 6px; border: 0; border-radius: var(--v6-r12);
+  background: none; font: inherit; color: var(--v6-body); cursor: pointer; white-space: nowrap; }
+.bw-fbtn .bw-fchev { width: 16px; height: 16px; flex: none; color: var(--v6-muted); }
+.bw-fbtn:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .bw-fbtn:hover { background: var(--v6-wash); color: var(--v6-ink); } .bw-fbtn:hover .bw-fchev { color: var(--v6-ink); } }
+@media (pointer: coarse), (max-width: 767.98px) { .bw-fbtn { min-height: 44px; } }
+/* a phone's top bar shows the number: the facts start with the position */
+@media (max-width: 767.98px) { .bw-facts .bw-num { display: none; } .bw-facts .bw-num + .bw-f::before { display: none; } }
+.bw-muted { display: inline-flex; align-items: center; gap: 4px; }
+.bw-muted .ic { width: 16px; height: 16px; color: var(--v6-muted); }
+.bw-where { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); max-width: 68ch; }
+.bw-nw { white-space: nowrap; }
+.bw-issue { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; max-width: 100%; color: var(--v6-action); font-weight: 400;
+  font-size: var(--v6-t16); text-decoration: none; border-radius: var(--v6-r12); }
+@media (pointer: coarse), (max-width: 767.98px) { .bw-issue { min-height: 44px; } }
+@media (hover: hover) and (pointer: fine) { .bw-issue:hover { text-decoration: underline; text-underline-offset: 3px; } .bw-back:hover, .bw-pn:hover { background: var(--v6-action-wash); } }
+.bw-issue > span { overflow-wrap: anywhere; }
+.bw-issue > .ic:first-child { width: 16px; height: 16px; flex: none; }
+.bw-issue .bw-chev { color: var(--v6-action); width: 16px; height: 16px; }
+/* the nickname, edited in the header (V22) */
+.bw-nickform { display: grid; gap: var(--s8); }
+.bw-nicklab { font-size: var(--v6-t14); font-weight: 700; color: var(--v6-muted); }
+.bw-nickform .input { font: 600 var(--v6-t22)/var(--v6-lh22) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); min-height: 52px; }
+.bw-nickform .help { font-size: var(--v6-t14); color: var(--v6-muted); }
+.bw-nickform .err { display: flex; align-items: center; gap: 6px; color: var(--v6-bad); font-size: var(--v6-t14); }
+.bw-nickform .err[hidden] { display: none; }
+.bw-nickacts { display: flex; flex-wrap: wrap; gap: var(--s8); }
+
+/* ---- the tabs (steps.css .v6-tabs): Next step · Team talk · Public ---- */
+.bw-tabs { margin: var(--s16) 0 0 -2px; }
+.bw-head + .bw-tabs { margin-top: var(--s20, 20px); }
+.bw-panel { padding-top: var(--s24); }
+@keyframes bw-in { from { opacity: 0; transform: translateY(4px); } }
+.bw-panel.bw-in { animation: bw-in 200ms ease-out; }
+
+/* ---- sections ---- */
+.bw-sec + .bw-sec { margin-top: var(--v6-gap); }
+.bw-h2 { font: 600 var(--v6-t22)/var(--v6-lh22) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); margin-bottom: var(--s12) !important; }
+.bw-h3 { display: flex; align-items: center; gap: var(--s8); font: 600 var(--v6-t18)/var(--v6-lh18) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); }
+.bw-h3 .ic { width: 18px; height: 18px; color: var(--v6-muted); }
+.bw-sub { font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-muted); }
+.bw-sech { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); }
+.bw-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin-top: var(--s12); }
+.bw-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s16); }
+
+/* ---- what's next ---- */
+/* "Your step" leads the card's top line (bill.js yourStep); the chair's name in a chair ask's sentence is a link */
+.bw-yours { color: var(--v6-ink); font-weight: 500; }   /* a tag, not a heading (spec 12.1) */
+/* the step the bill is on, in ink at 500 (steps.css bolds it at 700; the bill page's track is one of its lines) */
+body.staff6 .bw-page .v6-track .cur { font-weight: 500; }
+.bw-page .bw-chairl { color: var(--v6-action); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+.bw-page .bw-chairl:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }
+/* Team talk and Public: "Your step: File by Wed 3/18, 7:30 AM · Next step ›" (B-7), and a dot on the Next step tab */
+.bw-yourstep { margin-bottom: var(--s12) !important; }
+.bw-ysl { display: inline-flex; align-items: center; gap: var(--s8); min-height: 40px; margin-left: -8px; padding: 0 8px; border-radius: var(--v6-r12);
+  font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); text-decoration: none; }
+.bw-ysl > .ic:first-child { width: 18px; height: 18px; flex: none; color: var(--v6-action); }
+.bw-ysl b { color: var(--v6-ink); }
+.bw-ysl .bw-yschev { width: 18px; height: 18px; flex: none; color: var(--v6-action); }
+.bw-ysl:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+@media (pointer: coarse), (max-width: 767.98px) { .bw-ysl { min-height: 44px; } }
+@media (hover: hover) and (pointer: fine) { .bw-ysl:hover { background: var(--v6-action-wash); } }
+.bw-tdot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--v6-action); }
+/* under a writer's step: Borrow from earlier testimony, the committee report, the video on the day */
+.bw-stepx { display: flex; flex-wrap: wrap; gap: 0 var(--s8); margin: var(--s8) 0 0 -4px; }
+.bw-calm { display: flex; align-items: center; gap: var(--s12); padding: var(--s16) var(--s24); border-radius: var(--v6-r20); background: var(--v6-wash);
+  color: var(--v6-body); font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+.bw-calm .ic { width: 22px; height: 22px; flex: none; color: var(--v6-muted); }
+.bw-noown { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin-top: var(--s12); font-size: var(--v6-t16); }
+.bw-noown > .ic { width: 20px; height: 20px; color: var(--v6-muted); }
+
+/* ---- to-dos on this bill (F115): one list card, a row each ---- */
+.bw-todos { list-style: none; padding: 8px !important; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+.bw-todo { position: relative; display: flex; align-items: center; gap: var(--s4); min-height: var(--v6-row); padding: 4px 4px 4px 0; }
+.bw-todo + .bw-todo::before { content: ''; position: absolute; left: 8px; right: 8px; top: 0; height: 1px; background: var(--v6-hair); }
+.bw-tick { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: var(--v6-r12); color: var(--v6-action); }
+.bw-tick .ic { width: 22px; height: 22px; }
+.bw-tbody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px 0; }
+.bw-ttl { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); overflow-wrap: anywhere; }
+.bw-tmeta { display: flex; align-items: flex-start; gap: 6px; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+.bw-tmeta .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.bw-tmeta.soon { color: var(--v6-ink); font-weight: 700; }
+.bw-tmeta.t-overdue { color: var(--v6-bad); font-weight: 700; }
+.bw-todo.done .bw-ttl { color: var(--v6-muted); text-decoration: line-through; }
+.bw-todo .iconbtn { flex: none; color: var(--v6-body); }
+.bw-done { margin-top: var(--s12); }
+.bw-done > summary { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px 0 8px; border-radius: var(--v6-pill); color: var(--v6-body);
+  font-size: var(--v6-t16); cursor: pointer; list-style: none; }
+.bw-done > summary::-webkit-details-marker { display: none; }
+.bw-done[open] > summary .bw-chev { transform: rotate(180deg); }
+.bw-done .bw-todos { margin-top: var(--s8); box-shadow: none; background: var(--v6-wash); }
+.bw-todoadd { margin: var(--s8) 0 0 -4px; }
+.bw-todo0 .bw-todoadd { margin-top: 0; }
+.bw-todo0 + .bw-sec { margin-top: var(--s24); }
+.bw-addrow { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s8); margin-top: var(--s12); padding: var(--s16); border-radius: var(--v6-r20); background: var(--v6-wash); }
+/* To-do, For and Due: three labelled fields of one height, so their labels share a line (A-8) */
+.bw-tdf { display: flex; flex-direction: column; gap: 4px; flex: 1 1 140px; min-width: 0; }
+.bw-tdf.bw-tdw { flex: 2 1 220px; }
+.bw-tdf .input { box-sizing: border-box; height: 44px; min-height: 44px; width: 100%; }
+.bw-addrow .btn { flex: none; }
+
+/* ---- the doors: About this bill, Committees, Earlier testimony (V22: each a labelled 44px door) ---- */
+.bw-doors { display: grid; grid-template-columns: minmax(0, 1fr); padding: 8px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+.bw-door { position: relative; min-width: 0; }
+.bw-door + .bw-door::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: var(--v6-hair); }
+.bw-doorsum { display: flex; align-items: center; gap: var(--s12); min-height: 56px; padding: 0 12px; border-radius: var(--v6-r12); color: var(--v6-ink);
+  font-size: var(--v6-t16); line-height: var(--v6-lh16); cursor: pointer; list-style: none; }
+.bw-doorsum::-webkit-details-marker { display: none; }
+.bw-doorsum > .ic:first-child { width: 22px; height: 22px; flex: none; color: var(--v6-muted); }
+.bw-doorl { flex: none; color: var(--v6-ink); }
+.bw-doorh { flex: 1 1 auto; min-width: 0; font-size: var(--v6-t14); color: var(--v6-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bw-doorsum .bw-chev { margin-left: auto; }
+.bw-door[open] > .bw-doorsum .bw-chev { transform: rotate(180deg); }
+.bw-doorsum:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+.bw-doorbody { padding: var(--s8) 12px var(--s16); min-width: 0; }
+@media (hover: hover) and (pointer: fine) { .bw-doorsum:hover { background: var(--v6-wash); } }
+
+/* About this bill: the stage, the facts in words with their codes small (billpane.js aboutBill), then the rest */
+.bw-rib { display: grid; gap: var(--s4); margin-bottom: var(--s16); }
+.bw-rib .btn { justify-self: start; margin-left: -12px; }
+.bw-stset { display: flex; align-items: center; gap: 6px; font-size: var(--v6-t14); color: var(--v6-muted); }
+.bw-stset .ic { width: 16px; height: 16px; flex: none; }
+.bw-doorbody .v6-facts + .v6-facts { margin-top: var(--s12); }
+.bw-ddrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--s8); }
+.bw-ddrow .btn { flex: none; }
+.bw-comp { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0 6px; margin-right: var(--s16); }
+.bw-links { display: flex; flex-wrap: wrap; gap: 0 var(--s8); margin: var(--s12) 0 0 -12px; }
+.bw-page .v6-facts dd a.bw-inline { min-height: 32px; }
+
+/* Committees (pathway.js, in its door): a line per stop, the current one open; an open stop lists its hearings, results,
+   recordings and our filed testimony, and for a stop still ahead its members and where each stands. */
+.bw-cmlist { list-style: none; padding: 0 !important; margin: 0 -12px !important; }
+.bw-cmlist > li { position: relative; }
+.bw-cmlist > li + li::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: var(--v6-hair); }
+.bw-cmh3 { margin: 0; font-size: var(--v6-t16); }
+.bw-cmrow { display: flex; align-items: center; gap: var(--s8); width: 100%; min-height: 56px; padding: var(--s8) 12px; border-radius: var(--v6-r12); text-align: left;
+  background: none; border: 0; font: inherit; color: inherit; cursor: pointer; }
+.bw-cmst { flex: none; display: inline-flex; align-items: center; gap: 4px; min-width: 72px; font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-muted); }
+.bw-cmst .ic { width: 16px; height: 16px; }
+.is-current .bw-cmst { color: var(--v6-action); font-weight: 700; }
+.bw-cmname { flex: 1 1 auto; min-width: 0; font: 600 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-ink); }
+.is-passed .bw-cmname, .is-ended .bw-cmname, .is-other .bw-cmname, .is-predicted .bw-cmname { font-weight: 400; color: var(--v6-body); }
+.bw-cmcode { font: 400 var(--v6-t14)/1 var(--font); color: var(--v6-muted); }
+.bw-cmfact { flex: none; font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-muted); white-space: nowrap; }
+.bw-cmrow .lg-chev { flex: none; width: 20px; height: 20px; color: var(--v6-muted); }
+.bw-cmrow[aria-expanded="true"] .bw-cmfact.held { visibility: hidden; }
+.bw-cmbody { padding: 0 12px var(--s12) 92px; min-width: 0; }
+.bw-cmh { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--s12); row-gap: 2px; min-height: 40px; font-size: var(--v6-t14); }
+.bw-cmwhen { display: inline-flex; align-items: center; gap: 6px; color: var(--v6-body); }
+.bw-cmwhen > .ic { width: 16px; height: 16px; color: var(--v6-muted); flex: none; }
+.bw-cmtally { margin: var(--s8) 0 var(--s4) !important; font-size: var(--v6-t14); color: var(--v6-body); }
+.bw-cmpred { padding: var(--s8) 12px; font: 700 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-muted); }
+.bw-cmnone { padding: var(--s8) 0; }
+.bw-cmall { margin: var(--s4) 0 0 -12px; }
+.bw-cmfold { white-space: normal; text-align: left; justify-content: flex-start; height: auto; padding-top: 6px; padding-bottom: 6px; }
+.bw-cmfold .ic { flex: none; }
+.bw-cmmem { margin: 0 -12px; }
+.bw-joint, .bw-how { display: flex; align-items: center; gap: var(--s4); margin: 0 0 var(--s8) !important; color: var(--v6-body); }
+@media (max-width: 767.98px) {
+  .bw-cmrow { display: grid; grid-template-columns: 72px minmax(0, 1fr) 20px; grid-template-areas: "st nm ch" ". ft ch"; column-gap: var(--s8); row-gap: 0; }
+  .bw-cmst { grid-area: st; }
+  .bw-cmname { grid-area: nm; }
+  .bw-cmfact { grid-area: ft; white-space: normal; }
+  .bw-cmrow .lg-chev { grid-area: ch; }
+  .bw-cmbody { padding-left: 12px; }
+}
+@media (hover: hover) and (pointer: fine) { .bw-cmrow:hover { background: var(--v6-wash); } }
+/* a stop's members as a table (pathway.js draws it from 900px) */
+.bw-pwfold, .bw-prev { display: none; }
+.bw-pwt { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--v6-t14); }
+.bw-pwt thead th { height: 40px; padding: 0 8px; font-size: var(--v6-t14); font-weight: 700; color: var(--v6-muted); text-align: left; white-space: nowrap; }
+.bw-sortb { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; margin: 0 -6px; padding: 0 6px; border-radius: var(--v6-r12); font: inherit; font-weight: 700; color: var(--v6-muted); background: none; border: 0; cursor: pointer; }
+.bw-sortb:hover { background: var(--v6-wash); color: var(--v6-ink); }
+.bw-pwt th[aria-sort="ascending"] .bw-sortb, .bw-pwt th[aria-sort="descending"] .bw-sortb { color: var(--v6-ink); }
+.bw-sortb .ic { width: 14px; height: 14px; }
+.bw-pwt tbody th, .bw-pwt td { height: 52px; padding: 4px 8px; border-top: 1px solid var(--v6-hair); vertical-align: middle; text-align: left; font-weight: 400; color: var(--v6-body); }
+.bw-pwt tbody th { position: relative; }
+.bw-pwnm { font-weight: 700; color: var(--v6-ink); text-decoration: none; overflow-wrap: anywhere; }
+.bw-pwnm::after { content: ''; position: absolute; inset: 0; }
+.bw-pwnm:hover { color: var(--v6-action); text-decoration: underline; text-underline-offset: 3px; }
+.bw-pwt tr.lead .bw-pwc-role { font-weight: 700; color: var(--v6-ink); }
+.bw-pwsub { display: block; font-size: var(--v6-t14); color: var(--v6-muted); }
+.bw-pwc-name { width: 30%; }
+.bw-pwc-role { width: 92px; }
+.bw-pwc-stance { width: 164px; }
+.bw-pwc-act { width: 92px; }
+.bw-pwt td.bw-pwc-act { padding: 0 4px 0 0; text-align: right; white-space: nowrap; }
+.bw-pwt td.bw-pwc-act .iconbtn { width: 40px; height: 40px; color: var(--v6-body); }
+.bw-pwt .sv-pick { width: 100%; min-height: 40px; padding: 0 8px 0 10px; justify-content: space-between; }
+.bw-pwt .sv-pick > span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.bw-pwnote { display: flex; flex-direction: column; justify-content: center; gap: 1px; width: calc(100% + 16px); min-height: 40px; margin: 0 -8px; padding: 2px 8px;
+  border-radius: var(--v6-r12); text-align: left; background: none; border: 0; font: inherit; color: inherit; cursor: pointer; }
+.bw-pwnote:hover { background: var(--v6-action-wash); }
+.bw-pwnote.none { flex-direction: row; justify-content: flex-start; align-items: center; gap: 4px; font-size: var(--v6-t14); color: var(--v6-action); }
+.bw-pwnote.none .ic { width: 16px; height: 16px; }
+.bw-pwntx { color: var(--v6-ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.bw-pwmeta { font-size: var(--v6-t14); color: var(--v6-muted); }
+/* the door's body is narrower than the window: Role and Note fold into the name cell under 640px of it */
+.bw-doorbody { container: bwd / inline-size; }
+@container bwd (max-width: 639px) {
+  .bw-pwt .bw-pwc-role, .bw-pwt .bw-pwc-note { display: none; }
+  .bw-pwt span.bw-pwfold { display: inline; }
+  .bw-pwt span.bw-pwinl { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; font-size: var(--v6-t14); color: var(--v6-body); overflow-wrap: anywhere; }
+  .bw-pwt .iconbtn.bw-pwfold { display: inline-flex; }
+  .bw-pwc-name { width: auto; }
+  .bw-pwc-stance { width: 148px; }
+  .bw-pwt .sv-pick .ic:not(.chev) { display: none; }
+}
+
+/* Earlier testimony in its door (testimony.js; its rows are testimony.css's): no second box inside the door's card, a
+   draft per row parted by a hairline, as the to-do list on the same page (spec 4, D15) */
+.bw-page .bw-door.tm .tm-part > h3 { font: 600 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-ink); }
+.bw-page .bw-door.tm .tm-rows { gap: 0; }
+.bw-page .bw-door.tm .tm-row, .bw-page .bw-door.tm .tm-group, .bw-page .bw-door.tm .tm-cat { border: 0; background: none; border-radius: 0; }
+.bw-page .bw-door.tm .tm-row, .bw-page .bw-door.tm .tm-group { position: relative; padding-left: 0; padding-right: 0; }
+.bw-page .bw-door.tm .tm-rows > * + *::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
+.bw-page .bw-door.tm .tm-ghead { background: none; border: 0; padding: 0; }
+.bw-page .bw-door.tm .tm-crow { padding-left: 0; border-color: var(--v6-hair); }
+.bw-page .bw-door.tm .tm-iss > summary { padding: 0; }
+.bw-page .bw-door.tm .tm-iss + .tm-iss { border-color: var(--v6-hair); }
+.bw-page .tm-st { display: inline-flex; padding: 2px 10px; border-radius: var(--v6-r12); background: var(--v6-card); font-size: var(--v6-t14); color: var(--v6-body); white-space: nowrap; }
+.bw-page .tm-search { border-radius: var(--v6-r12); }
+
+/* ---- Team talk (activity.js) ---- */
+/* the team note, pinned: a quiet card that reads like a pinned message */
+.bw-tnote { padding: var(--s16) var(--s24); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+.bw-tnote .bw-sech { margin-bottom: var(--s8); }
+.bw-notetx { color: var(--v6-ink); font-size: var(--v6-t16); line-height: var(--v6-lh16); white-space: pre-wrap; overflow-wrap: anywhere; max-width: 68ch; }
+.bw-noteby { margin-top: var(--s8) !important; font-size: var(--v6-t14); color: var(--v6-muted); }
+.bw-noteby:empty { display: none; }
+.bw-tnote textarea#bw-note { min-height: 96px; }
+.bw-note0 .btn { margin-left: -4px; }
+.bw-tnote + .bw-act, .bw-note0 + .bw-act { margin-top: var(--s24); }
+/* the one box: what it is, the words, Send */
+.bw-box { padding: var(--s16); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); margin-bottom: var(--s24); }
+.bw-composer { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s12); min-width: 0; }
+.bw-composer .sv-seg { justify-self: start; flex-wrap: wrap; max-width: 100%; }
+.bw-crow { display: flex; align-items: flex-end; gap: var(--s8); }
+.bw-crow textarea { flex: 1 1 auto; min-width: 0; min-height: 48px; max-height: 200px; padding: 12px 16px; border: 1px solid var(--v6-field); border-radius: var(--v6-r12);
+  background: var(--v6-card); font: 400 var(--v6-t16)/24px var(--font); color: var(--v6-ink); resize: none; overflow-y: auto; }
+.bw-crow textarea::placeholder { color: var(--v6-muted); opacity: 1; }
+.bw-crow textarea:focus { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+.bw-send { width: 48px; height: 48px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: var(--v6-pill);
+  background: var(--v6-action-wash); color: var(--v6-action); cursor: pointer; }
+.bw-send:hover { background: var(--v6-action); color: var(--v6-card); }
+.bw-send .ic { width: 22px; height: 22px; }
+.bw-send[aria-busy="true"] { opacity: .6; }
+.bw-ntype { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); font-size: var(--v6-t14); color: var(--v6-muted); }
+.bw-ntype .input { width: auto; min-height: 44px; }
+.bw-mention { display: flex; flex-wrap: wrap; gap: var(--s8); }
+.bw-mention[hidden] { display: none; }
+.bw-at-pick { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px 0 6px; border: 0; border-radius: var(--v6-pill);
+  background: var(--v6-action-wash); color: var(--v6-action); font: 700 var(--v6-t16)/1 var(--font); cursor: pointer; }
+.bw-at-pick .sv-av { font-size: var(--v6-t14); }
+/* the stream, newest first */
+.bw-stream { display: flex; flex-direction: column; }
+.bw-page h3.bw-day { display: flex; align-items: center; gap: var(--s12); margin: var(--s24) 0 var(--s8); font: 700 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-muted); }
+.bw-page h3.bw-day::after { content: ''; flex: 1 1 auto; height: 1px; background: var(--v6-hair); }
+.bw-stream > h3.bw-day:first-child { margin-top: 0; }
+.bw-msg, .bw-log { display: flex; align-items: flex-start; gap: var(--s12); padding: var(--s8) 0; }
+.bw-msgb { flex: 1 1 auto; min-width: 0; }
+.bw-msgh { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--s8); font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+.bw-msgh b { color: var(--v6-ink); }
+.bw-msgt { margin-top: 2px !important; color: var(--v6-ink); font-size: var(--v6-t16); line-height: var(--v6-lh16); overflow-wrap: anywhere; max-width: 68ch; }
+.bw-msgt a { font-weight: 700; color: var(--v6-action); }
+.bw-msgd { margin-top: 2px !important; color: var(--v6-body); font-size: var(--v6-t16); line-height: var(--v6-lh16); max-width: 68ch; overflow-wrap: anywhere; }
+.bw-at { background: var(--v6-action-wash); border-radius: var(--v6-pill); padding: 0 6px; color: var(--v6-action); }
+.bw-new { display: inline-flex; padding: 0 8px; border-radius: var(--v6-pill); background: var(--v6-action-wash); color: var(--v6-action); font-size: var(--v6-t14); font-weight: 700; }
+.bw-msgacts { margin: 2px 0 0 -12px !important; }
+.bw-msgmore { flex: none; color: var(--v6-muted); }
+.bw-msg .sv-av { margin-top: 2px; font-size: var(--v6-t14); }
+.bw-logic { width: 32px; height: 32px; border-radius: 50%; background: var(--v6-wash); color: var(--v6-body); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.bw-logic .ic { width: 18px; height: 18px; }
+.bw-off summary { display: flex; align-items: center; gap: var(--s12); min-height: 48px; padding: var(--s4) 0; cursor: pointer; list-style: none; border-radius: var(--v6-r12); }
+.bw-off summary::-webkit-details-marker { display: none; }
+.bw-offt { flex: 1 1 auto; min-width: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); overflow-wrap: anywhere; }
+.bw-offt b { color: var(--v6-ink); margin-right: 2px; }
+.bw-off .chev { width: 18px; height: 18px; flex: none; color: var(--v6-muted); transition: transform 150ms ease; }
+.bw-off[open] .chev { transform: rotate(180deg); }
+.bw-off ul { list-style: none; margin: 0 0 var(--s8) 44px; padding: 0; }
+.bw-off li { padding: var(--s8) 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); border-top: 1px solid var(--v6-hair); overflow-wrap: anywhere; }
+.bw-more-act { align-self: flex-start; margin-top: var(--s12); }
+.bw-loading { display: flex; align-items: center; gap: 6px; padding: var(--s8) 0; }
+.bw-loading .ic { width: 16px; height: 16px; animation: spin 1s linear infinite; }
+.bw-none { padding: var(--s16) 0; font-size: var(--v6-t16); color: var(--v6-muted); }
+@media (hover: hover) and (pointer: fine) { .bw-off summary:hover { background: var(--v6-wash); } }
+
+/* ---- Public (public.js) ---- */
+.bw-kit .bw-acts { margin-top: var(--s8); }
+.bw-resp { display: flex; gap: 8px; align-items: flex-start; color: var(--v6-ink); font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+.bw-resp > .ic { width: 20px; height: 20px; margin-top: 2px; flex: none; color: var(--v6-muted); }
+.bw-spreadacts + p:empty { display: none; }
+.bw-spreadacts .btn[aria-disabled="true"] { background: var(--v6-wash); color: var(--v6-muted); }
+.bw-spreadacts + .bw-quiet { margin-top: var(--s8); }
+.bw-pubnow { display: flex; gap: 8px; align-items: flex-start; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+.bw-pubnow > .ic { width: 20px; height: 20px; margin-top: 2px; flex: none; color: var(--v6-muted); }
+.bw-pubnow .bw-inline { min-height: 0; }
+.bw-pubform { display: grid; gap: var(--s16); margin-top: var(--s16); padding: var(--s24); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); min-width: 0; }
+.bw-pubform .field { margin: 0; }
+/* a field's name is a label, not a heading: 16 regular in ink, so the bold on the page is the headings and Save (spec 4) */
+.bw-pubform .field > label, .bw-pubform .sv-switchrow .title, .bw-nickform .bw-nicklab, .bw-tdf > span { font-weight: 400; color: var(--v6-ink); font-size: var(--v6-t16); }
+.bw-pubform .sv-switchrow { border-bottom: 0; margin: 0; }
+.bw-pubform .help, .bw-pubform .bw-count { font-size: var(--v6-t14); color: var(--v6-muted); }
+.bw-pubsave { margin-top: 0; }
+.bw-untilwarn:empty { display: none; }
+.bw-untilwarn { color: var(--v6-ink); }
+.bw-reach { margin: 0; padding: var(--s12) var(--s16); border-radius: var(--v6-r12); background: var(--v6-wash); }
+.bw-reach p { font-size: var(--v6-t14); line-height: var(--v6-lh14); }
+.bw-drpart { margin-top: var(--s32); }
+.bw-drpart > h3 { font: 600 var(--v6-t18)/var(--v6-lh18) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); margin-bottom: var(--s12) !important; }
+.bw-drlist { list-style: none; padding: 8px 16px !important; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); display: grid; gap: 0 !important; }
+.bw-drrow { position: relative; display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--s8) var(--s12); padding: var(--s12) 0; }
+.bw-drrow + .bw-drrow::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
+.bw-drbody { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+.bw-drbody b { color: var(--v6-ink); }
+.bw-drbig, .bw-drsug { display: flex; gap: 6px; align-items: flex-start; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-body); }
+.bw-drbig .ic, .bw-drsug .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.bw-dracts { display: flex; flex-wrap: wrap; gap: 0 4px; }
+.bw-pblk + .bw-pblk { margin-top: var(--v6-gap); }
+.bw-where { margin-top: var(--v6-gap); }
+.bw-where > summary { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--s12); row-gap: 2px; min-height: 48px; cursor: pointer; list-style: none; border-radius: var(--v6-r12); }
+.bw-where > summary::-webkit-details-marker { display: none; }
+.bw-where > summary .bw-h2 { margin: 0 !important; }
+.bw-wsum { flex: 1 1 12em; min-width: 0; font-size: var(--v6-t14); color: var(--v6-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bw-where[open] > summary .bw-chev { transform: rotate(180deg); }
+.bw-wbody { display: grid; gap: var(--s24); margin-top: var(--s12); padding: var(--s24); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+.bw-wpart > h3 { font: 600 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-ink); margin-bottom: var(--s8) !important; }
+.bw-whynot { display: flex; gap: 6px; align-items: flex-start; font-size: var(--v6-t14); color: var(--v6-body); margin-bottom: var(--s8) !important; }
+.bw-whynot .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--v6-muted); }
+.bw-isslist { list-style: none; padding: 0 !important; }
+.bw-issrow { display: flex; align-items: center; gap: var(--s8); min-height: 52px; }
+.bw-issb { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bw-issname { font-weight: 700; color: var(--v6-action); text-decoration: none; }
+.bw-isst { font-size: var(--v6-t14); color: var(--v6-muted); }
+.bw-ispick { margin-top: var(--s8); }
+.bw-lists { display: flex; flex-wrap: wrap; gap: var(--s8); margin-top: var(--s8); }
+/* a list the bill is on or off: a toggle (pressed says it is on), never a status tag (A-12) */
+.bw-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 16px 0 12px; border: 0; border-radius: var(--v6-pill);
+  background: var(--v6-wash); color: var(--v6-body); font: 400 var(--v6-t16)/1.2 var(--font); cursor: pointer; }
+.bw-toggle .ic { width: 16px; height: 16px; flex: none; }
+.bw-toggle[aria-pressed="true"] { background: var(--v6-action-wash); color: var(--v6-action); font-weight: 700; }
+.bw-toggle[aria-disabled="true"] { color: var(--v6-muted); cursor: default; }
+.bw-draft { font-weight: 400; color: var(--v6-muted); }
+.bw-prevh { font-size: var(--v6-t14); font-weight: 700; color: var(--v6-muted); }
+.bw-prevcard { margin-top: var(--s8); padding: var(--s16); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+.bw-prevcard.off { box-shadow: none; background: var(--v6-wash); }
+.bw-pnum { font-size: var(--v6-t14); color: var(--v6-muted); }
+.bw-pname { margin-top: var(--s4) !important; font: 600 var(--v6-t18)/var(--v6-lh18) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); overflow-wrap: anywhere; }
+.bw-pname.bw-long { font: 400 var(--v6-t16)/var(--v6-lh16) var(--font); }
+.bw-plede { margin-top: var(--s4) !important; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); overflow-wrap: anywhere; }
+.bw-pask { display: flex; gap: var(--s8); margin-top: var(--s12) !important; padding: var(--s8) var(--s12); border-radius: var(--v6-r12); background: var(--v6-action-wash); color: var(--v6-ink);
+  font-size: var(--v6-t16); line-height: var(--v6-lh16); overflow-wrap: anywhere; }
+.bw-pask.off { background: var(--v6-wash); color: var(--v6-muted); }
+.bw-pask .ic { width: 18px; height: 18px; margin-top: 3px; flex: none; }
+.bw-pnote { display: flex; gap: 6px; margin-top: var(--s8) !important; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+.bw-pnote .ic { width: 16px; height: 16px; margin-top: 2px; flex: none; }
+.bw-panel { container: bwp / inline-size; }
+@container bwp (min-width: 640px) {
+  .bw-pubcols { display: grid; grid-template-columns: minmax(0, 1fr) 232px; gap: var(--s24); align-items: start; }
+  .bw-prev { display: block; position: sticky; top: calc(var(--header) + 44px); margin-top: var(--s16); }
+}
+
+/* ---- sheets opened from this page ---- */
+.bw-shlink { margin: var(--s8) 0 0 -12px; }
+.bw-shhelp { margin-bottom: var(--s8); }
+
+/* ---- an untracked bill's page (untracked.js, BILLS) borrows the page's frame and a few of its parts ---- */
+.ut-page .bw-head { grid-template-columns: minmax(0, 1fr); grid-template-areas: none; gap: var(--s4); }
+.ut-page h1.bw-num, .ut-page .bw-num { font: 700 var(--v6-t28)/var(--v6-lh28) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); }
+.ut-page .bw-title { font-size: var(--v6-t18); color: var(--v6-ink); }
+.ut-page .bw-sec > h2 { font: 600 var(--v6-t22)/var(--v6-lh22) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); margin-bottom: var(--s12); }
+.bw-dl { margin: 0; padding: 4px var(--s16); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+.bw-dt { padding: var(--s12) 0; font-size: var(--v6-t16); }
+.bw-dt + .bw-dt { border-top: 1px solid var(--v6-hair); }
+.bw-dt dt { font-size: var(--v6-t14); font-weight: 700; color: var(--v6-muted); margin-bottom: 2px; }
+.bw-dt dd { margin: 0; color: var(--v6-ink); overflow-wrap: anywhere; }
+.bw-n { min-width: 22px; padding: 0 6px; border-radius: var(--v6-pill); background: var(--v6-wash); color: var(--v6-body); font: 700 var(--v6-t14)/22px var(--font); text-align: center; }
+.bw-page ul.bw-allh { list-style: none; margin: 0; padding: 0; }
+.bw-page .bw-ah { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s4) var(--s12); padding: var(--s8) 0; border-bottom: 1px solid var(--v6-hair); }
+.bw-linkrow { display: flex; flex-wrap: wrap; column-gap: var(--s24); }
+
+/* ---- 768px and wider: the page's own back row ---- */
+@media (min-width: 768px) {
+  .bw-top { display: flex; align-items: center; gap: var(--s8); min-height: 44px; }
+  .bw-head { padding-top: 0; }
+  .bw-back { min-height: 40px; }
+}
+/* ---- phones ---- */
+@media (max-width: 767.98px) {
+  .bw-page { padding-bottom: var(--s32); }
+  .bw-h1 { font-size: var(--v6-t22); line-height: var(--v6-lh22); }   /* the top bar already carries the page's name in 18 */
+  .bw-h1.bw-long { font-size: var(--v6-t18); line-height: var(--v6-lh18); }
+  .bw-tabs, .bw-head + .bw-tabs { margin-top: var(--s12); }
+  .bw-panel { padding-top: var(--s12); }
+  .bw-tnote, .bw-box, .bw-pubform, .bw-wbody { padding: var(--s16); }
+  .bw-calm { padding: var(--s16); }
+  .bw-addrow { padding: var(--s12); }
+  .bw-doorbody { padding: var(--s8) 8px var(--s12); }
+  .bw-cmlist { margin: 0 -8px !important; }
+}
+/* the third kind's short words on a phone ("Legislator talk"), so the switch stays one even row (C-15 review) */
+.bw-seg-s { display: none; }
+@media (max-width: 480px) {
+  .bw-tdf { flex-basis: 100%; }
+  .bw-seg-l { display: none; }
+  .bw-seg-s { display: inline; }
+  /* three even parts side by side; a long kind takes two lines in its own part rather than a row of its own */
+  .bw-composer .sv-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); justify-self: stretch; border-radius: var(--v6-r20); }
+  .bw-composer .sv-seg button { padding: 4px 8px; white-space: normal; line-height: 20px; text-align: center; justify-content: center; border-radius: var(--v6-r12); }
+}
+.bw-doorh.bw-ifnarrow { display: none; }
+@media (max-width: 360px) {
+  /* the narrowest phones: the stage line on Next step gives way to the step itself; the Committees door says it (on Team
+     talk and Public, which have no step card, the one status line stays) */
+  .bw-where.bw-short.bw-onstep { display: none; }
+  .bw-doorh.bw-ifnarrow { display: block; }
+  body.staff6 .bw-tabs { gap: 4px; }
+  body.staff6 .bw-tabs a { padding: 0 10px; }
+  /* Team talk's switch: each kind in at most two lines ("Log what / happened" took three at 320) */
+  .bw-composer .sv-seg button { padding: 4px 6px; font-size: var(--v6-t14); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bw-panel.bw-in { animation: none; }
+  .bw-chev, .bw-off .chev { transition: none; }
+}
+
+/* ---- Review cards (review.js, R-022): the bill's facts on one line that wraps. Here because review.js had no stylesheet
+   of its own (TESTIMONY may move these to testimony.css). ---- */
+.td-rv .td-rvfacts { flex-wrap: wrap; row-gap: 2px; }
+.td-rv .td-rvfacts > span { display: inline-flex; align-items: center; gap: 4px; }
+.td-rv .td-rvfacts .ic { width: 16px; height: 16px; color: var(--v6-muted); }
+.td-rv .td-rvdot { color: var(--v6-muted); }
+/* a character count under a box (public.js; prep.js borrows it) */
+.bw-count { font-size: var(--v6-t14); color: var(--v6-muted); }
+
+/* Earlier testimony at 320: a row's state and its Open Doc share the words' column (156px), so they wrap instead of
+   running past the window's edge (fresh-eyes walk, 320x640). */
+.bw-page .bw-door.tm .tm-acts { flex-wrap: wrap; row-gap: var(--s4); }
+/* A name that holds "e-cigarette" keeps it on one line in a span (the frame's wrapper); testimony.css greys every span in
+   an issue's summary and a bill's heading, which greyed that one word inside the bold name. */
+.tm-iss > summary b .nobr, .tm-ghead a .nobr { color: inherit; white-space: nowrap; }
+
+/* The Public tab's ask when the bill has a card on This week's asks: read here, written there (its one home, spec 7.5) */
+.bw-askro { display: grid; gap: var(--s4); }
+.bw-asklabel { margin: 0; font-size: var(--v6-t16); font-weight: 700; color: var(--v6-ink); }
+.bw-asktext { margin: 0; padding: var(--s12) var(--s16); border-radius: var(--v6-r12); background: var(--v6-wash); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); white-space: pre-wrap; }
+.bw-askno { color: var(--v6-muted); }
+.bw-askgo { display: flex; align-items: center; gap: var(--s8); margin: 0; min-height: 40px; font-size: var(--v6-t16); }
+.bw-askgo .ic { width: 18px; height: 18px; color: var(--v6-action); flex: none; }
+.bw-askgo a { color: var(--v6-action); }

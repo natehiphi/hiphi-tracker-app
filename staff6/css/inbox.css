@@ -1,0 +1,299 @@
+/* Staff v6 (R-336): the HELP builder's reading places, Inbox (.ib-page), Help (.hp-page) and My settings (.me-page). Search
+   and its palette are in css/search.css. Spec section 4: roomy and soft, from the v6 tokens only (css/tokens.css), no
+   borders on cards (one warm shadow and the 20px radius), rows separated by space or an inset hairline, type 14 (labels,
+   times) / 16 (sentences) / 18 Poppins (names) / 22 (section headings) / 28 (the page title), three radii (12, 20, pill),
+   every control 44px tall on a phone and 40px or more on a laptop (A-6), focus a 3px action ring, nothing moves under
+   Reduce Motion (A-10). Every rule is scoped to its page's class, so no other screen changes. */
+
+/* ======================================================================================================================
+   Inbox (#/inbox, #/inbox?view=updates)
+   ====================================================================================================================== */
+body.staff6 .ib-page { padding-bottom: 24px; color: var(--v6-body); }
+body.staff6 .ib-page .sv-phead { margin-bottom: 16px; }
+/* the count line and the one Filter button: one quiet row above the list */
+body.staff6 .ib-page .ib-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 0 0 12px; }
+body.staff6 .ib-page .ib-count { display: flex; flex-wrap: wrap; align-items: center; gap: 0 16px; margin: 0; min-height: 40px;
+  font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
+body.staff6 .ib-page .ib-count .linkbtn { display: inline-flex; align-items: center; min-height: 44px; font-size: var(--v6-t16); color: var(--v6-action); }
+body.staff6 .ib-page .ib-bar .btn { margin: 0; }
+/* the filters, once opened: a filter box, who it is from, unread only */
+body.staff6 .ib-page .ib-filters, body.staff6 .ib-page .ib-ubar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin: 0 0 16px; }
+body.staff6 .ib-page .ib-q { position: relative; flex: 1 1 240px; min-width: 0; max-width: 420px; display: flex; align-items: center; }
+body.staff6 .ib-page .ib-q > svg { position: absolute; left: 14px; width: 18px; height: 18px; color: var(--v6-muted); pointer-events: none; }
+body.staff6 .ib-page .ib-q input { width: 100%; min-height: 44px; padding: 0 16px 0 42px; border: 1px solid var(--v6-field); border-radius: var(--v6-pill);
+  background: var(--v6-card); color: var(--v6-ink); font: inherit; font-size: var(--v6-t16); }
+body.staff6 .ib-page .ib-q input:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .ib-page .ib-unr { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0; font-size: var(--v6-t16); }
+body.staff6 .ib-page .ib-unr input { margin: 0; width: 20px; height: 20px; accent-color: var(--v6-action); }
+body.staff6 .ib-page .ib-ubar .sv-seg { flex: 0 1 auto; }
+/* How far back: full words from 768px, short ones on a phone so each choice stays on one line */
+body.staff6 .ib-page .ib-since .ib-sh { display: none; }
+@media (max-width: 767.98px) { body.staff6 .ib-page .ib-since .ib-lg { display: none; } body.staff6 .ib-page .ib-since .ib-sh { display: inline; white-space: nowrap; } }
+/* the boxes' own clear button (×) in the action colour, not the browser's blue */
+body.staff6 .ib-page input[type="search"]::-webkit-search-cancel-button, body.staff6 .hp-page input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none; appearance: none; width: 20px; height: 20px; margin-left: 8px; cursor: pointer; background: var(--v6-action);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E") center / 18px no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E") center / 18px no-repeat; }
+body.staff6 .ib-page .ib-ubar + .ib-count { margin: -4px 0 8px; min-height: 0; font-size: var(--v6-t14); line-height: var(--v6-lh14); }
+
+/* the rows: steps.js itemRow, plus the unread mark (a teal dot before the name, and "Unread." for screen readers: A-3) */
+body.staff6 .ib-page .ib-row .v6-row-line svg { color: var(--v6-muted); }
+/* read rows step back: their names in the reading face, unread ones keep the name's weight (an inbox's usual cue) */
+body.staff6 .ib-page .ib-msgrow:not(.ib-unread) .v6-row-name { font-family: Lato, system-ui, sans-serif; font-weight: 400; color: var(--v6-body); }
+body.staff6 .ib-page .ib-unread .v6-row-name { color: var(--v6-ink); }
+body.staff6 .ib-page .ib-unread .v6-row-top::before { content: ''; flex: none; align-self: center; width: 10px; height: 10px; border-radius: 50%; background: var(--v6-action); }
+body.staff6 .ib-page .ib-unread .v6-row-line { color: var(--v6-ink); }
+body.staff6 .ib-page .ib-read { width: 44px; height: 44px; min-width: 44px; border-radius: var(--v6-pill); color: var(--v6-muted); }
+body.staff6 .ib-page .ib-unread .ib-read { color: var(--v6-action); }
+body.staff6 .ib-page .ib-read:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .ib-page .ib-read:hover { background: var(--v6-action-wash); color: var(--v6-action); } }
+body.staff6 .ib-page .ib-plain { min-height: 56px; }
+
+/* the open item beside the list (or its own page below 1100px) */
+body.staff6 .ib-page .ib-item { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 24px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); min-width: 0; }
+body.staff6 .ib-page .ib-item > * { margin: 0; min-width: 0; }
+body.staff6 .ib-page .ib-item-num, body.staff6 .ib-page .ib-item-sub { font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+body.staff6 .ib-page .ib-item-num + .ib-item-h { margin-top: -10px; }
+body.staff6 .ib-page .ib-item-h { font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t22); line-height: var(--v6-lh22); color: var(--v6-ink); outline: none; overflow-wrap: anywhere; }
+body.staff6 .ib-page .ib-item-p { font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+body.staff6 .ib-page .ib-item-p b { color: var(--v6-ink); }
+/* what a note says: a plain quote (a quiet bar at its left), never a sand box that looks like a field */
+body.staff6 .ib-page .ib-item-q { margin: 0; padding: 2px 0 2px 16px; box-shadow: inset 3px 0 0 var(--v6-hair); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); overflow-wrap: anywhere; white-space: pre-line; }
+body.staff6 .ib-page .ib-thread { list-style: none; padding: 0; display: grid; gap: 4px; }
+body.staff6 .ib-page .ib-msg { display: grid; gap: 2px; padding: 12px 16px; border-radius: var(--v6-r12); }
+body.staff6 .ib-page .ib-msg + .ib-msg { position: relative; }
+body.staff6 .ib-page .ib-msg + .ib-msg::before { content: ''; position: absolute; left: 16px; right: 16px; top: -2px; height: 1px; background: var(--v6-hair); }
+body.staff6 .ib-page .ib-msg.this { background: var(--v6-action-wash); }
+body.staff6 .ib-page .ib-msg.this::before, body.staff6 .ib-page .ib-msg.this + .ib-msg::before { background: transparent; }
+body.staff6 .ib-page .ib-msg p { margin: 0; }
+body.staff6 .ib-page .ib-msg-who { font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+body.staff6 .ib-page .ib-msg-t { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); overflow-wrap: anywhere; white-space: pre-line; }
+body.staff6 .ib-page .ib-item-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-top: 4px; }
+body.staff6 .ib-page .ib-item-acts .btn { margin: 0; }
+body.staff6 .ib-page .ib-sub { box-shadow: none; padding: 0; background: none; }
+body.staff6 .ib-page .v6-ld-detail .v6-ld-empty { min-height: 200px; }
+
+/* the empty states and the quiet notes: a calm sentence on sand (spec 4, empty states) */
+body.staff6 .ib-page .ib-empty { display: grid; justify-items: start; gap: 8px; padding: 24px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .ib-page .ib-empty p { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+body.staff6 .ib-page .ib-empty .ib-empty-h { font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t18); line-height: var(--v6-lh18); color: var(--v6-ink); }
+body.staff6 .ib-page .ib-empty .btn { margin: 4px 0 0; }
+/* A long button ("Team talk on Tax liquor by alcohol content") wraps inside the card at every phone width, and the card's one
+   column never grows past its box (the fresh-eyes check: at 390 the button set the column to 411px and cut both sentences). */
+body.staff6 .ib-page .ib-empty { grid-template-columns: minmax(0, 1fr); }
+body.staff6 .ib-page .ib-empty .btn { max-width: 100%; height: auto; min-height: 44px; white-space: normal; text-align: start; padding-top: 8px; padding-bottom: 8px; }
+body.staff6 .ib-page .ib-note { display: flex; gap: 8px; align-items: flex-start; margin: 16px 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
+body.staff6 .ib-page .ib-note svg { flex: none; width: 18px; height: 18px; margin-top: 3px; }
+body.staff6 .ib-page .ib-notes { margin-top: 32px; }
+body.staff6 .ib-page .ib-h2 { margin: 0 0 12px; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t22); line-height: var(--v6-lh22); color: var(--v6-ink); }
+body.staff6 .ib-page .ib-keys { display: flex; gap: 8px; align-items: flex-start; margin: 16px 0 0; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+body.staff6 .ib-page .ib-keys svg { flex: none; width: 16px; height: 16px; margin-top: 2px; }
+body.staff6 .ib-page kbd, body.staff6 .hp-page kbd { font: 700 var(--v6-t14)/1 Lato, system-ui, sans-serif; color: var(--v6-ink); background: var(--v6-wash); border-radius: 6px; padding: 3px 7px; }
+
+@media (max-width: 767.98px) {
+  body.staff6 .ib-page .ib-item { padding: 16px; }
+  body.staff6 .ib-page .ib-q { max-width: none; flex-basis: 100%; }
+  body.staff6 .ib-page .ib-ubar .sv-seg { flex: 1 1 100%; }
+  body.staff6 .ib-page .ib-ubar .sv-seg button { flex: 1 1 auto; }
+}
+/* the 320px phone: the read tick sits at the line's end rather than taking a line of its own */
+@media (max-width: 420px) {
+  body.staff6 .ib-page .ib-row { flex-wrap: nowrap; }
+  body.staff6 .ib-page .ib-row .v6-row-main { flex: 1 1 auto; }
+  body.staff6 .ib-page .ib-row .v6-row-act { padding: 0; }
+}
+@media (prefers-reduced-motion: reduce) { body.staff6 .ib-page * { transition: none !important; } }
+
+/* ======================================================================================================================
+   Help (#/help, #/help/<topic>, #/help/moved)
+   ====================================================================================================================== */
+body.staff6 .hp-page { padding-bottom: 24px; color: var(--v6-body); }
+body.staff6 .hp-page p { margin: 0; }
+body.staff6 .hp-page .hp-p, body.staff6 .hp-page .hp-lede { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); max-width: 70ch; }
+body.staff6 .hp-page .hp-lede { color: var(--v6-muted); margin: -4px 0 20px; }
+body.staff6 .hp-page .hp-h1 { margin: 4px 0 8px; font-family: Poppins, system-ui, sans-serif; font-weight: 700; font-size: var(--v6-t28); line-height: var(--v6-lh28); color: var(--v6-ink); letter-spacing: -.01em; }
+body.staff6 .hp-page .hp-h2, body.staff6 .hp-page .hp-ptitle { margin: 0 0 12px; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t22); line-height: var(--v6-lh22); color: var(--v6-ink); }
+body.staff6 .hp-page .hp-ptitle { margin-bottom: 4px; }
+body.staff6 .hp-page .hp-ptitle + .hp-lede[hidden] + #hp-res:not(:empty) { margin-top: 12px; }
+body.staff6 .hp-page .hp-h3 { margin: 0 0 8px; font-family: Poppins, system-ui, sans-serif; font-size: var(--v6-t18); line-height: var(--v6-lh18); font-weight: 500; color: var(--v6-ink); }   /* a subhead: 500 (spec 12.1) */
+body.staff6 .hp-page .hp-sec { margin-top: 32px; }
+body.staff6 .hp-page .hp-sechead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+body.staff6 .hp-page .hp-sechead .hp-h2 { margin-bottom: 12px; }
+body.staff6 .hp-page .hp-sechead .btn { margin: 0 0 12px; }
+/* the one search box */
+body.staff6 .hp-page .hp-search { position: relative; display: flex; align-items: center; margin: 0 0 16px; }
+body.staff6 .hp-page .hp-search > svg { position: absolute; left: 14px; width: 18px; height: 18px; color: var(--v6-muted); pointer-events: none; }
+body.staff6 .hp-page .hp-search input { width: 100%; min-height: 48px; padding: 0 16px 0 42px; border: 1px solid var(--v6-field); border-radius: var(--v6-pill);
+  background: var(--v6-card); color: var(--v6-ink); font: inherit; font-size: var(--v6-t16); }
+body.staff6 .hp-page .hp-search input:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .hp-page #hp-res:not(:empty) { margin-bottom: 24px; }
+body.staff6 .hp-page .hp-none { margin: 0 0 12px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .hp-page .hp-note { display: flex; gap: 8px; align-items: flex-start; margin: 12px 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
+body.staff6 .hp-page .hp-note svg { flex: none; width: 18px; height: 18px; margin-top: 3px; }
+body.staff6 .hp-page .hp-row .v6-row-line svg { color: var(--v6-muted); }
+/* a guide's entries: one card, each term (bold 16) over its words (16), separated by an inset hairline */
+body.staff6 .hp-page .hp-card { padding: 8px 24px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .hp-page .hp-dl { margin: 0; }
+body.staff6 .hp-page .hp-dli { position: relative; padding: 16px 0; }
+body.staff6 .hp-page .hp-dli + .hp-dli::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
+body.staff6 .hp-page .hp-dl dt { font-weight: 700; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); }
+body.staff6 .hp-page .hp-dl dd { margin: 4px 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); max-width: 70ch; overflow-wrap: anywhere; }
+body.staff6 .hp-page .hp-dl dd b { font-weight: 700; color: var(--v6-ink); }
+body.staff6 .hp-page .hp-dl a { color: var(--v6-action); font-weight: 400; }   /* links read at 400, underlined (P-1) */
+body.staff6 .hp-page .hp-dl mark { background: var(--v6-action-wash); color: var(--v6-ink); padding: 0 4px; border-radius: 6px; }
+body.staff6 .hp-page .hp-dli:focus { outline: none; }
+/* What moved: the v5 thing, then where it is now */
+body.staff6 .hp-page .hp-msec { margin-top: 24px; }
+body.staff6 .hp-page .hp-moved { padding: 8px 24px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .hp-page .hp-moved dt { font-weight: 400; color: var(--v6-muted); }
+body.staff6 .hp-page .hp-moved dd { margin-top: 2px; color: var(--v6-ink); }
+/* Getting started: ticks, no bar (C-7) */
+body.staff6 .hp-page .hp-steps { margin-top: 12px; }
+/* A step is an instruction, not the name of a bill, an issue or a category (A-19), so it reads in the reading face, as
+   Today's Getting started shows the same steps (one step, one face on both screens); ink for the step, muted for the
+   line under it. The ones done step back (the tick says done, with the word for screen readers). */
+body.staff6 .hp-page .hp-step .v6-row-name { font-family: Lato, system-ui, sans-serif; font-weight: 400; color: var(--v6-ink); }
+body.staff6 .hp-page .hp-step .v6-row-line svg { color: var(--v6-muted); }
+body.staff6 .hp-page .hp-step.done .v6-row-name { color: var(--v6-body); }
+body.staff6 .hp-page .hp-step.done .v6-row-line { color: var(--v6-muted); font-weight: 400; }
+body.staff6 .hp-page .hp-step.done .v6-row-line svg { color: var(--v6-leaf); }
+body.staff6 .hp-page .st-practice { margin-top: 8px; color: var(--v6-action); }
+/* Ask Nate in Slack */
+body.staff6 .hp-page .hp-ask { display: grid; justify-items: start; gap: 8px; margin-top: 16px; padding: 20px 24px; border-radius: var(--v6-r20); background: var(--v6-wash); }
+body.staff6 .hp-page .hp-ask .btn { margin: 0; }
+body.staff6 .hp-page .hp-askw { font-size: var(--v6-t16); color: var(--v6-muted); overflow-wrap: anywhere; }
+/* Ask Nate in Slack, near the top of Help and at the foot of every guide: the tonal button with Copy my question beside it,
+   and one muted line saying where it goes */
+body.staff6 .hp-page .hp-askbar { margin: 24px 0 0; }
+body.staff6 .hp-page .hp-askbar.top { margin: 0 0 24px; }
+body.staff6 .hp-page .hp-askbtns { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+body.staff6 .hp-page .hp-askbtns .btn { margin: 0; }
+body.staff6 .hp-page .hp-askhint { margin: 6px 0 0; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+body.staff6 .hp-duo .hp-askbar.nav { margin: 0 0 4px; padding: 0 4px; }
+body.staff6 .hp-duo .hp-askbar.nav .hp-askbtns { gap: 4px; }
+body.staff6 .hp-duo .hp-askbar.nav .btn.secondary { width: 100%; justify-content: center; }
+body.staff6 .hp-page .hp-ask .hp-askbtns { margin-top: 4px; }
+body.staff6 .hp-page .hp-cta { margin: 16px 0 0; }
+body.staff6 .hp-page .hp-cta .btn { margin: 0; }
+/* folds that hold reference (All guides, What moved's v5 places): a labelled 44px control with its count, a chevron that turns */
+body.staff6 .hp-page .hp-chev { flex: none; width: 18px; height: 18px; color: var(--v6-muted); transition: transform 150ms ease-out; }
+body.staff6 .hp-page details[open] > summary .hp-chev { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { body.staff6 .hp-page .hp-chev { transition: none; } }
+body.staff6 .hp-page .hp-mn { margin-left: auto; padding-left: 8px; font-size: var(--v6-t14); line-height: var(--v6-lh14); font-weight: 400; color: var(--v6-muted); }
+body.staff6 .hp-page summary { list-style: none; cursor: pointer; }
+body.staff6 .hp-page summary::-webkit-details-marker { display: none; }
+body.staff6 .hp-page .hp-allsum, body.staff6 .hp-page .hp-mfold > summary { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 16px; border-radius: var(--v6-r12);
+  background: var(--v6-card); box-shadow: var(--v6-sh1); font-size: var(--v6-t16); line-height: var(--v6-lh16); font-weight: 500; color: var(--v6-ink); }
+body.staff6 .hp-page .hp-allsum:focus-visible, body.staff6 .hp-page .hp-mfold > summary:focus-visible, body.staff6 .hp-duo .hp-navsum:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .hp-page .hp-all[open] > .v6-list { margin-top: 8px; }
+body.staff6 .hp-page .hp-mfold { margin-top: 8px; }
+body.staff6 .hp-page .hp-mfold[open] > .hp-moved { margin-top: 8px; }
+body.staff6 .hp-duo .hp-navall { display: grid; gap: 2px; margin-top: 12px; }
+body.staff6 .hp-duo .hp-navsum { color: var(--v6-ink); }
+/* the quiet line at the foot of every Help page and under every list of results */
+body.staff6 .hp-page .hp-foot { display: flex; gap: 8px; align-items: flex-start; margin: 24px 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
+body.staff6 .hp-page .hp-foot svg { flex: none; width: 18px; height: 18px; margin-top: 3px; }
+body.staff6 .hp-page .hp-foot a, body.staff6 .hp-page .hp-foot .linkbtn { display: inline; min-height: 0; padding: 12px 0; margin: -12px 0; color: var(--v6-action); font: inherit; text-decoration: underline; text-underline-offset: 3px; }
+body.staff6 .hp-page .hp-foot a:focus-visible, body.staff6 .hp-page .hp-foot .linkbtn:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }
+body.staff6 .hp-page .hp-keyson { margin-bottom: 16px; padding: 4px 16px; }
+/* a guide on its own page (below 1100px): Back to Help, then the title */
+body.staff6 .hp-page .hp-crumb { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px 0 8px; margin: 0 0 8px; border-radius: var(--v6-pill);
+  background: var(--v6-action-wash); color: var(--v6-action); font-weight: 700; font-size: var(--v6-t16); text-decoration: none; }
+body.staff6 .hp-page .hp-crumb svg { width: 20px; height: 20px; }
+/* a phone's top bar has Back and the guide's title (spec 3.2), so the page's own pair would say them twice */
+@media (max-width: 767.98px) { body.staff6 .hp-page .hp-crumb { display: none; } }
+body.staff6 main h1.v6-ptitle.hp-h1 { margin: 4px 0 8px; }
+/* two columns from 1100px: the guides on the left, the guide reads on the right */
+body.staff6 .hp-duo .hp-cols { display: grid; grid-template-columns: 264px minmax(0, 1fr); gap: 32px; align-items: start; }
+/* the guide list is in the page and scrolls with it: a box of its own hid half the guides below its fold, with no scrollbar
+   to say so on a Mac (Nate's worst case: hidden or hard to find) */
+body.staff6 .hp-duo .hp-nav { display: grid; gap: 2px; padding: 4px 4px 16px; }
+body.staff6 .hp-duo .hp-nav .hp-search { margin-bottom: 8px; }
+body.staff6 .hp-duo .hp-navh { margin: 16px 12px 4px; font-size: var(--v6-t14); line-height: var(--v6-lh14); font-weight: 400; color: var(--v6-muted); }
+body.staff6 .hp-duo .hp-navi { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 8px 12px; border-radius: var(--v6-r12); color: var(--v6-body); text-decoration: none;
+  font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+body.staff6 .hp-duo .hp-navi svg { flex: none; width: 18px; height: 18px; color: var(--v6-muted); }
+body.staff6 .hp-duo .hp-navi[aria-current="page"] { background: var(--v6-action-wash); color: var(--v6-ink); }
+body.staff6 .hp-duo .hp-navi[aria-current="page"] svg { color: var(--v6-action); }
+body.staff6 .hp-duo .hp-navi:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .hp-duo .hp-navi:not([aria-current]):hover { background: var(--v6-wash); } }
+body.staff6 .hp-duo .hp-pane { min-width: 0; max-width: 760px; }
+@media (max-width: 767.98px) {
+  body.staff6 .hp-page .hp-card, body.staff6 .hp-page .hp-moved { padding: 4px 16px; }
+  body.staff6 .hp-page .hp-ask { padding: 16px; }
+  body.staff6 .hp-page .hp-sec { margin-top: 24px; }
+  body.staff6 .hp-page .hp-h1 { font-size: var(--v6-t22); line-height: var(--v6-lh22); }
+}
+
+/* ======================================================================================================================
+   My settings (#/me)
+   ====================================================================================================================== */
+body.staff6 .me-page { padding-bottom: 24px; color: var(--v6-body); }
+body.staff6 .me-page p { margin: 0; }
+body.staff6 .me-page .me-sec + .me-sec { margin-top: 40px; }
+body.staff6 .me-page .me-h2 { margin: 0 0 8px; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t22); line-height: var(--v6-lh22); color: var(--v6-ink); }
+body.staff6 .me-page .me-h3 { margin: 24px 0 8px; font-size: var(--v6-t18); line-height: var(--v6-lh18); font-weight: 700; color: var(--v6-ink); }
+body.staff6 .me-page .me-lede { margin: 0 0 16px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .me-page .me-note { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 12px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
+body.staff6 .me-page .me-note svg { flex: none; width: 18px; height: 18px; margin-top: 3px; }
+body.staff6 .me-page .me-inline { margin: 0; align-self: center; }
+body.staff6 .me-page .me-fs { margin: 0; padding: 0; border: 0; min-width: 0; }
+/* the three ways, one card; the picked one on the action wash, with a filled dot (never colour alone: the dot and the wash) */
+body.staff6 .me-page .me-opts-card, body.staff6 .me-page .me-card { padding: 8px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .me-page .me-opt { position: relative; display: flex; align-items: flex-start; gap: 14px; min-height: 64px; padding: 14px 16px; border-radius: var(--v6-r12); cursor: pointer; }
+body.staff6 .me-page .me-opt + .me-opt::before { content: ''; position: absolute; left: 16px; right: 16px; top: 0; height: 1px; background: var(--v6-hair); }
+body.staff6 .me-page .me-opt:has(input:checked)::before, body.staff6 .me-page .me-opt:has(input:checked) + .me-opt::before { background: transparent; }
+body.staff6 .me-page .me-opt input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+body.staff6 .me-page .me-dot { flex: none; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--v6-field); background: var(--v6-card); display: flex; align-items: center; justify-content: center; }
+body.staff6 .me-page .me-opt input:checked + .me-dot { box-shadow: inset 0 0 0 2px var(--v6-action); }
+body.staff6 .me-page .me-opt input:checked + .me-dot::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--v6-action); }
+body.staff6 .me-page .me-opt input:focus-visible + .me-dot { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .me-page .me-opt:has(input:checked) { background: var(--v6-action-wash); }
+@media (hover: hover) and (pointer: fine) { body.staff6 .me-page .me-opt:not(:has(input:checked)):hover { background: var(--v6-wash); } }
+body.staff6 .me-page .me-optx { display: grid; gap: 2px; min-width: 0; }
+body.staff6 .me-page .me-optt { font-family: Poppins, system-ui, sans-serif; font-weight: 500; font-size: var(--v6-t18); line-height: var(--v6-lh18); color: var(--v6-ink); }
+body.staff6 .me-page .me-opts { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); overflow-wrap: anywhere; }
+body.staff6 .me-page .me-opts b { color: var(--v6-ink); }
+body.staff6 .me-page .me-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 16px; }
+body.staff6 .me-page .me-acts .btn { margin: 0; }
+/* where each alert goes: a quiet list, an icon, the kind, then where it goes */
+body.staff6 .me-page .me-routes { list-style: none; margin: 0; padding: 8px 24px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .me-page .me-route { position: relative; display: flex; align-items: flex-start; gap: 14px; padding: 14px 0; }
+body.staff6 .me-page .me-route + .me-route::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
+body.staff6 .me-page .me-route > svg { flex: none; width: 20px; height: 20px; margin-top: 2px; color: var(--v6-muted); }
+body.staff6 .me-page .me-rtx { display: grid; gap: 2px; min-width: 0; }
+body.staff6 .me-page .me-rn { font-weight: 400; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); }
+body.staff6 .me-page .me-rt { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); overflow-wrap: anywhere; }
+/* the fold: closed until opened (details wait until asked for) */
+body.staff6 .me-page .me-fine { margin-top: 16px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .me-page .me-fine > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 0 24px; cursor: pointer; list-style: none;
+  font-weight: 700; font-size: var(--v6-t16); color: var(--v6-ink); border-radius: var(--v6-r20); }
+body.staff6 .me-page .me-fine > summary::-webkit-details-marker { display: none; }
+body.staff6 .me-page .me-fine > summary:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .me-page .me-fchev { flex: none; width: 20px; height: 20px; color: var(--v6-muted); transition: transform 150ms ease; }
+body.staff6 .me-page .me-fine[open] .me-fchev { transform: rotate(180deg); }
+body.staff6 .me-page .me-finein { padding: 0 24px 24px; }
+body.staff6 .me-page .me-finein > .me-h3:first-child { margin-top: 4px; }
+body.staff6 .me-page .me-finein .me-card { box-shadow: none; background: var(--v6-page); padding: 4px 16px; }
+body.staff6 .me-page .me-times { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px 16px; padding: 16px; }
+body.staff6 .me-page .me-times .field { margin: 0; }
+@media (max-width: 767.98px) {
+  body.staff6 .me-page .me-routes { padding: 4px 16px; }
+  body.staff6 .me-page .me-fine > summary { padding: 0 16px; }
+  body.staff6 .me-page .me-finein { padding: 0 16px 16px; }
+  body.staff6 .me-page .me-sec + .me-sec { margin-top: 32px; }
+}
+@media (prefers-reduced-motion: reduce) { body.staff6 .me-page .me-fchev { transition: none; } }
+
+/* Today's What changed (today.js, TODAY's file) ended with the way to the Inbox; kept until TODAY removes that fold
+   (What changed now lives in Inbox › Updates, spec 6). */
+.td-dinbox { display: flex; align-items: center; gap: var(--s8); margin: var(--s8) 0 0; font-size: var(--t14); color: var(--n500); }
+.td-dinbox .ic { flex: none; width: 16px; height: 16px; }
+.td-dinbox a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
+/* Updates: a bill's change wraps rather than being cut beside the open item at 1280 (nothing cut). Messages keep their one-line
+   preview, the mail convention, since opening a row shows it whole. */
+body.staff6 .ib-page .ib-updrow .v6-row-name, body.staff6 .ib-page .ib-updrow .v6-row-line > span { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+body.staff6 .hp-page .hp-startsec .hp-steps + .hp-startl, body.staff6 .hp-page .hp-startsec .st-practice + .hp-startl { margin-top: 12px; }
+body.staff6 .hp-page .hp-h3a { color: inherit; text-decoration: none; }
+body.staff6 .hp-page .hp-h3a:hover { color: var(--v6-action); text-decoration: underline; }
+body.staff6 .hp-page .hp-h3a:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }

@@ -1,0 +1,102 @@
+/* Hearings > Get hearings, This week and the chair-ask sheets live in hearings.css. staff6.html links this file only, so
+   it brings that one in (shared change asked: link staff6/css/hearings.css in staff6.html, then drop this line). */
+@import url('hearings.css');
+
+/* each bill's position, whose it is and the public's numbers, on the sitting's own card (F129) */
+body.staff6 .hr-page .hr-bfacts { display: block; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
+/* a committee member's row opens their page: a quiet chevron says so (critic A-12) */
+body.staff6 .hr-page .hr-mrow .v6-row-main { position: relative; padding-right: 36px; }
+body.staff6 .hr-page .hr-mrow .v6-row-main::after { content: ''; position: absolute; right: 8px; top: 50%; width: 20px; height: 20px; margin-top: -10px; background: var(--v6-muted);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") center / 20px 20px no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") center / 20px 20px no-repeat; }
+
+/* Staff v6 · one sitting, #/hearing/<id> (R-336 spec 4 and 6; F107, F129, F131, F133). Led by the big hearing card
+   (steps.css .v6-hcard.big), then the deadline, the results, the monitored bills, the doors to the notice, the video and
+   This week's asks, admins' who is going, and the members. One reading column, roomy and soft: tokens only
+   (staff6/css/tokens.css), no borders on cards (one warm shadow), rows parted by an inset hairline (steps.css .v6-list),
+   type 14 labels / 16 sentences / 18 names / 22 section headings / 28 the title, 44px targets on phones (A-6). */
+body.staff6 .hr-page { max-width: 880px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; min-width: 0; }
+body.staff6 .hr-page > * { margin: 0; min-width: 0; }
+/* the laptop's way back (a phone's is in the top bar) */
+body.staff6 .hr-deskback { display: none; align-items: center; gap: 4px; justify-self: start; min-height: 44px; margin: 0 0 -16px -8px; padding: 0 16px 0 6px;
+  border-radius: var(--v6-pill); color: var(--v6-action); font-size: var(--v6-t16); font-weight: 700; text-decoration: none; }
+body.staff6 .hr-deskback svg { width: 20px; height: 20px; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .hr-deskback:hover { background: var(--v6-action-wash); } }
+body.staff6 main .hr-page h1.hr-h1 { margin: 0; }
+/* the card's own name: a phone shows it (its top bar may cut a long name); a laptop says it once, in the h1 */
+@media (min-width: 768px) {
+  body.staff6 .hr-deskback { display: inline-flex; }
+  body.staff6 .hr-page .v6-hcard.self .v6-hcard-name { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+}
+body.staff6 .hr-page .v6-hcard.self .v6-hcard-name { font-family: Poppins, system-ui, sans-serif; font-weight: 500; font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); color: var(--v6-ink); overflow-wrap: anywhere; }
+/* "Message Kevin" beside one of our bills whose step is someone else's (a quiet text link, 44px tall on a phone) */
+body.staff6 .hr-page .hr-msg { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; margin: 0 0 4px; padding: 0 4px; color: var(--v6-action); font-size: var(--v6-t16); text-decoration: none; }
+body.staff6 .hr-page .hr-msg svg { width: 18px; height: 18px; flex: none; }
+body.staff6 .hr-page .hr-msg:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: var(--v6-r12); }
+@media (max-width: 767px) { body.staff6 .hr-page .hr-msg { min-height: 44px; } }
+/* the bill's facts line on the sitting's card (steps.js facts) */
+body.staff6 .hr-page .v6-hcard-facts { display: block; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
+
+/* the deadline line under the card */
+body.staff6 .hr-due { display: flex; align-items: flex-start; gap: 10px; padding: 0 4px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-ink); }
+body.staff6 .hr-due svg { width: 20px; height: 20px; flex: none; margin-top: 2px; color: var(--v6-muted); }
+
+/* sections: a 22px heading, then a list card or doors */
+body.staff6 .hr-sec { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+body.staff6 .hr-sech { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+body.staff6 .hr-sech h2 { margin: 0; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); color: var(--v6-ink); }
+body.staff6 .hr-p { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
+body.staff6 .hr-p a { color: var(--v6-action); }
+body.staff6 .hr-more, body.staff6 .hr-fix, body.staff6 .hr-gacts { margin: 0; }
+
+/* the monitored bills: one quiet line that opens to their rows */
+body.staff6 .hr-fold > summary { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; margin: 0 -12px; width: fit-content; max-width: 100%;
+  border-radius: var(--v6-pill); color: var(--v6-action); font-size: var(--v6-t16); font-weight: 700; cursor: pointer; list-style: none; }
+body.staff6 .hr-fold > summary::-webkit-details-marker { display: none; }
+body.staff6 .hr-fold > summary svg { width: 20px; height: 20px; flex: none; }
+body.staff6 .hr-fold > summary .hr-chev { transition: transform 150ms ease; }
+body.staff6 .hr-fold[open] > summary .hr-chev { transform: rotate(180deg); }
+body.staff6 .hr-fold > .v6-list { margin-top: 8px; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .hr-fold > summary:hover { background: var(--v6-action-wash); } }
+
+/* doors: the notice, the video, This week's asks (labelled, the whole width, 56px: B-9, A-6) */
+body.staff6 .hr-doors { display: grid; grid-template-columns: minmax(0, 1fr); padding: 8px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .hr-door, body.staff6 .hr-share { position: relative; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 12px; border-radius: var(--v6-r12);
+  color: var(--v6-ink); text-decoration: none; }
+body.staff6 .hr-door + .hr-door::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: var(--v6-hair); }
+body.staff6 .hr-share { background: var(--v6-card); box-shadow: var(--v6-sh1); border-radius: var(--v6-r20); padding: 12px 20px; }
+body.staff6 .hr-door > svg:first-child, body.staff6 .hr-share > svg:first-child { width: 22px; height: 22px; flex: none; color: var(--v6-muted); }
+body.staff6 .hr-door-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+body.staff6 .hr-door-l { font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-action); }
+body.staff6 .hr-door-s { font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
+body.staff6 .hr-ext, body.staff6 .hr-share .v6-chev { width: 18px; height: 18px; flex: none; color: var(--v6-muted); }
+body.staff6 .hr-door:focus-visible, body.staff6 .hr-share:focus-visible, body.staff6 .hr-deskback:focus-visible, body.staff6 .hr-fold > summary:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  body.staff6 .hr-door:hover { background: var(--v6-wash); }
+  body.staff6 .hr-door:hover::before, body.staff6 .hr-door:hover + .hr-door::before { background: transparent; }
+  body.staff6 .hr-share { transition: box-shadow 150ms ease; }
+  body.staff6 .hr-share:hover { box-shadow: var(--v6-sh2); }
+}
+
+/* who is going (admins) */
+body.staff6 .hr-goers { list-style: none; margin: 0; padding: 4px 20px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .hr-goers li { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; }
+body.staff6 .hr-goers li + li::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
+body.staff6 .hr-gname { min-width: 0; font-size: var(--v6-t16); color: var(--v6-ink); overflow-wrap: anywhere; }
+
+/* a cancelled sitting that moved: still going? (W53) */
+body.staff6 .hr-moved { padding: 16px 20px; border-radius: var(--v6-r20); background: var(--v6-wash); }
+body.staff6 .mv-ask { margin: 0 0 8px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-ink); }
+body.staff6 .mv-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mv-ask { margin: var(--s8) 0 var(--s4); font-weight: 600; }   /* R-316 W53, outside v6 */
+.mv-acts { display: flex; flex-wrap: wrap; gap: var(--s8); }
+
+@media (max-width: 767.98px) {
+  body.staff6 .hr-page { gap: 20px; }
+  body.staff6 .hr-share { padding: 12px 16px; }
+}
+@media (prefers-reduced-motion: reduce) { body.staff6 .hr-fold > summary .hr-chev, body.staff6 .hr-share { transition: none; } }
+/* the card's going line: Going, I'm going and an admin's Send a teammate… wrap as one line of controls (F131, A-14) */
+body.staff6 .hr-page .v6-hcard-going { flex-wrap: wrap; row-gap: 4px; }
+/* room between the camera and "Watch it live" at every width (the critic: they touched on a phone) */
+body.staff6 .hr-page .v6-hcard-watch a { display: inline-flex; gap: 8px; }
