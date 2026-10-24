@@ -268,7 +268,7 @@ export const skipWord = () => planOn() ? T('Skip') : T('Skip this part');
 // The first question's bar (R-212 #46): "Leave, go to Home" in the quiet place, and Next. Skipping "Your issues" from here
 // led to the story of a bill nobody picked; Home is the more useful way out, and it is one exit fewer on the first screen.
 const topicsBar = () => planOn() ? bar2(T('Next'), { iconEnd: 'arrow-right' }) : `<div class="st-bar"><div class="st-btns">
-  ${btn(t('Leave, go to Home'), { kind: 'text', cls: 'st-leave', attrs: { 'data-stleave': '1' } })}${btn(t('Next'), { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stnext': '1' } })}</div></div>`;
+  ${btn(t('Leave, go to Home'), { kind: 'text', icon: 'house', cls: 'st-leave', attrs: { 'data-stleave': '1' } })}${btn(t('Next'), { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stnext': '1' } })}</div></div>`;
 export const bar2 = (label, opt = {}, attrs = { 'data-stnext': '1' }, skip = skipWord()) => `<div class="st-bar"><div class="st-btns">
   ${btn(t(skip), { kind: 'text', attrs: { 'data-stskip': '1' } })}${btn(t(label), { kind: 'primary', ...opt, attrs })}</div></div>`;
 // While the issues load the primary says so, and when they could not be loaded it is the way to try again, so the

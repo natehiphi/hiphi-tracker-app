@@ -334,7 +334,9 @@ button.st-way:active { transform: scale(.99); }
 /* Below 360px the primary's leading picture gives way (the star, the message), so "Skip this part" keeps one line beside it
    instead of breaking under its neighbour's (the critic, A-13); the words carry the meaning. */
 @media (max-width: 359px) { .st-bar .st-btns { gap: var(--s8); } .st-bar .st-btns .btn.text { white-space: nowrap; padding-inline: 8px; }
-  .st-bar .st-btns .btn.primary > .ic:first-child { display: none; } }
+  .st-bar .st-btns .btn.primary > .ic:first-child, .st-bar .st-btns .btn.st-leave > .ic { display: none; } }
+/* The topics' Leave carries the same house as at the top of later steps, so it reads as the same button (the critic). */
+.st-bar .btn.st-leave { gap: 6px; } .st-bar .btn.st-leave .ic { width: 18px; height: 18px; }
 /* The story's last stage in the ending on Home hides its Skip (R-293): the one button then takes the whole bar, like .st-one. */
 .st-btns.st-solo { grid-template-columns: minmax(0, 1fr); }
 .st-one { display: flex; }
