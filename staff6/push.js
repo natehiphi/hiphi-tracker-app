@@ -16,7 +16,7 @@ import { askLine, askedChip, answerSheet, ASK_TODO, askTodoOf, chairsOf, chairWh
 import { askWords as stepAsk, committeeName, deadlineWords, nameWords, numWords, sayWords, itemRow, nw, helpersOf, timeWords, dayWords, billStep } from './steps.js';   // v6 words (spec 5)
 import { isMine, isMuted, hooks } from './data.js';
 import { stopOf, whenAt, suggState, setSugg } from './model.js';
-import { icon, btn, iconBtn, avatar, toast, pickerSheet, menuSheet } from './ui.js';
+import { icon, btn, iconBtn, avatar, toast, pickerSheet, menuSheet, WHOSE } from './ui.js';
 
 export const PUSH_BOARD = () => true;   // live 10/22 at Nate's go, after W3 (R-329)
 export const GIVE_ASK = () => true;   // live 10/22 at Nate's go, after W3 (R-329)
@@ -175,7 +175,8 @@ export function coalOf(a = S.me) {
   return ids.length ? { all: false, ids: new Set(ids), names: ids.map(id => S.campaigns.find(x => x.id === id).name) } : null;
 }
 const inCoal = (b, co) => !!co && (S.billCampaigns?.[b.id] || []).some(id => co.ids.has(id));
-export const SCOPES = { mine: 'My bills', coal: 'My coalitions', team: 'Team' };
+// The switch's words are ui.js WHOSE, the one constant (C-15: Mine · My coalitions · Team on every list that has it).
+export const SCOPES = WHOSE;
 // My bills holds every bill the person has a step on, not only the ones they own or follow (critic, B-6): Patti writes
 // SB 3234 for Lauren, so its hearing and its ask are hers under My bills, where they were missing ("No hearings on your
 // bills this week" while her Resubmit was due that morning). A step: she writes, approves or files its testimony, was
@@ -285,6 +286,36 @@ export function toAskWords(sum, { dlN = null, dlDay = '' } = {}) {
   return `${n} to ask${sum.firstDay ? ` · first by ${sum.firstDay}` : ''}`;
 }
 
+// One set of counts per deadline, the board's own: the line under each deadline here (Get hearings, Legislators' Who to ask)
+// and the one line on Today and Bills (deadlineLine) are worked out by this, so no two screens give two numbers for one
+// pile (P-4, C-10; the fresh-eyes check: Kris's Bills said "54 to ask; 36 face the Mon 3/30 deadline" beside Legislators'
+// "45 need a hearing · 42 to ask"). A bill heard and not voted on does not need a hearing: it is named apart, "to ask for
+// decision making". `need` is every bill still waiting for its hearing (to ask, being asked, waiting, will schedule, said
+// no or out of time), so the parts after it add up to it.
+function dlCounts(items) {
+  const c = k => items.filter(x => k.includes(x.k)).length;
+  return { toAsk: c(['ask']), decide: c(['decide']), being: c(['giving']), wait: c(['waiting', 'follow']), yes: c(['will']), later: c(['later']), no: c(['said_no', 'passed']),
+    sch: c(['scheduled']), total: items.length, need: items.filter(x => !['scheduled', 'later', 'decide'].includes(x.k)).length };
+}
+// The parts after "N need a hearing", in the rows' own words ("will schedule": the chair replied, so not "waiting on a
+// reply", B-7; spec 5).
+const dlParts = (c, { all = true } = {}) => [c.toAsk ? `${c.toAsk} to ask` : '', c.decide ? `${c.decide} to ask for decision making` : '', c.being ? `${c.being} being asked` : '',
+  c.wait ? `${c.wait} waiting on a reply` : '', c.yes ? `${c.yes} will schedule` : '', all && c.later ? `${c.later} put off` : '', c.no ? `${c.no} said no or out of time` : '',
+  all && c.sch ? `${c.sch} scheduled` : ''].filter(Boolean);
+// deadlineLine({ scope, viewer }) -> { date, day, need, toAsk, ..., head, rest, words } for the first deadline that still has
+// bills waiting, in Legislators' words: "16 of your bills need a hearing by Mon 3/30 · 14 to ask · 2 waiting on a reply"
+// (`head` is the part before the first " · ", which Bills links to exactly those bills). null when nothing waits.
+export function deadlineLine({ scope = defaultScope(), viewer = S.me } = {}) {
+  const by = new Map();
+  for (const x of boardItems({ scope, viewer })) { if (!by.has(x.dl.date)) by.set(x.dl.date, []); by.get(x.dl.date).push(x); }
+  const hit = [...by].sort((p, q) => p[0].localeCompare(q[0])).map(([date, xs]) => ({ date, c: dlCounts(xs) })).find(d => d.c.need || d.c.decide);
+  if (!hit) return null;
+  const { date, c } = hit, day = dayWords(date);
+  const head = c.need ? `${countWords(c.need, scope, viewer)} ${c.need === 1 ? 'needs' : 'need'} a hearing by ${day}` : `${countWords(c.decide, scope, viewer)} to ask for decision making by ${day}`;
+  const rest = dlParts(c, { all: false }).filter(s => c.need || !/decision making/.test(s)).join(' · ');
+  return { date, day, ...c, head, rest, words: rest ? `${head} · ${rest}` : head };
+}
+
 // Each row's one line (V19: the same words as the step card and Today) and its icon.
 // `shared`: every bill under this deadline is one teammate's, and the deadline's line says so once, so no row repeats
 // "Lauren's bill" (A-14). `hdrMine`: the chair's line already gives the viewer's own ask-by day, so the row does not.
@@ -304,7 +335,9 @@ function rowLine(it, v, scope, { shared = false, hdrMine = false } = {}) {
       // "You are asking" here beside "Ask the chair by" on Today). That it was given to them is said in its open item.
       // (askWords' own words, with who and when: "Ask the chair for Lauren · by Tue 3/24"; it read "Ask the chair" alone)
       if (me) return [a.words || (due ? `Ask the chair by ${askDay(due + 'T12:00:00-10:00')}` : 'Ask the chair'), 'user-round'];
-      return [due ? `${who} asks by ${askDay(due + 'T12:00:00-10:00')}` : a.words, 'user-round']; }
+      // Someone else's: askWords' own line, as Bills says it ("Kris asks the chairs for Rick · by Mon 3/23"; the fresh-eyes
+      // check found "Kris asks by Mon 3/23" here beside Bills' longer words for the same ask, C-15).
+      return [a.words || (due ? `${who} asks by ${askDay(due + 'T12:00:00-10:00')}` : ''), 'user-round']; }
     case 'follow': return [`${a.words} · time to follow up`, 'clock'];
     case 'waiting': return [a.words, 'hourglass'];
     case 'will': return [a.words, 'calendar-check'];
@@ -406,7 +439,14 @@ function groupHTML(g, v, scope, { primary, shared }) {
 // chair's group, soonest notice first. Nothing is folded (V13: one open board). LEGISLATORS' Who to ask calls this with
 // `primary: false` when another filled button owns its screen; buttons need no wiring (one document listener, below, and
 // steps.js's).
-export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, primary = true, id = 'hg', empty = null } = {}) {
+// `fold` (Legislators' Who to ask): the first deadline in full, each later one a single line that opens it in place
+// ("Must clear their last committee by Fri 4/10 · 12 bills · 4 chairs"): other people's asks are not the viewer's to-dos, and Kris's
+// coalitions put 42 asks on 15 phone screens (the fresh-eyes check, A-1, A-2). In a later deadline the chairs holding a
+// step of the viewer's own stay open and only the others fold ("12 more chairs · 30 bills"), so nothing they must do is
+// behind a fold (rule 7.3); no step moves into "…". Get hearings stays one open board (V13).
+const ownStep = (x, v) => mineGiven(x, v) || (x.k === 'follow' && x.a.asker === v?.id) || (['ask', 'decide', 'follow', 'later'].includes(x.k) && (S.assignments?.[x.b.id] || []).includes(v?.id));
+const FOLD_OPEN = new Set();   // the later deadlines opened this visit (id|date), kept across redraws
+export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, primary = true, id = 'hg', empty = null, fold = false } = {}) {
   BOARD = new Map();
   const v = viewer, items = boardItems({ scope, bills, viewer: v });
   if (!items.length) return empty ?? `<p class="hg-empty">${icon('circle-check')}<span>${esc(scope === 'team' ? 'No bill of the team’s is waiting for a hearing right now.' : `None of ${whoseWords(scope, v)} is waiting for a hearing right now.`)}</span></p>`;
@@ -414,32 +454,37 @@ export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, 
   for (const x of items) { const k = x.dl.date; if (!dls.has(k)) dls.set(k, { dl: x.dl, groups: new Map(), items: [] }); const d = dls.get(k); d.items.push(x);
     if (!d.groups.has(x.code)) d.groups.set(x.code, []); d.groups.get(x.code).push(x); }
   let n = 0;
-  const secs = [...dls.values()].sort((p, q) => p.dl.date.localeCompare(q.dl.date)).map(d => {
-    const hid = `${id}-d${n++}`;
+  const secs = [...dls.values()].sort((p, q) => p.dl.date.localeCompare(q.dl.date)).map((d, di) => {
+    const hid = `${id}-d${n++}`, fk = `${id}|${d.dl.date}`;
+    const later = fold && di > 0;
     const groups = [...d.groups].map(([code, rows]) => ({ code, rows: rows.sort((p, q) => ORDER[p.k] - ORDER[q.k] || p.b.bill_number.localeCompare(q.b.bill_number, 'en', { numeric: true })),
       at: Math.min(...rows.map(x => ['scheduled', 'later'].includes(x.k) ? Infinity : x.at)) }))
       .sort((p, q) => p.at - q.at || p.code.localeCompare(q.code))
-      .map((g, i) => { const key = `${d.dl.date}|${g.code}`, gid = `${hid}-${i}`; const gg = { ...g, key, id: gid, dl: d.dl, scope }; BOARD.set(key, gg); return gg; });
-    return { d, hid, groups };
+      .map((g, i) => { const key = `${d.dl.date}|${g.code}`, gid = `${hid}-${i}`; const gg = { ...g, key, id: gid, dl: d.dl, scope, folded: later && !g.rows.some(x => ownStep(x, v)) }; BOARD.set(key, gg); return gg; });
+    return { d, hid, groups, folded: groups.every(g => g.folded), fk };
   });
   // The screen's one filled button (rule 7.1, A-3): the email for an ask handed to this person first (what they just took
   // on keeps the focus: critic A-13), else the first chair this person emails about their own bills. A helper with nothing
   // taken on yet has none: "I'll ask" is tonal, and the filled button would invite asking a teammate's chair unannounced.
-  const all = secs.flatMap(s => s.groups);
-  const pkey = !primary ? null : (all.find(g => g.rows.some(x => mineGiven(x, v))) || all.find(g => groupRoles(g, v, scope).mail.length))?.key || null;
-  const out = secs.map(({ d, hid, groups }) => {
-    const c = k => d.items.filter(x => k.includes(x.k)).length, toAsk = c(['ask', 'decide']), being = c(['giving']), wait = c(['waiting', 'follow']), yes = c(['will']), later = c(['later']), no = c(['said_no', 'passed']), sch = c(['scheduled']);
-    const total = d.items.length, nw0 = d.items.filter(x => !['scheduled', 'later'].includes(x.k)).length;
+  const all = secs.flatMap(s => s.groups), seen = all.filter(g => !g.folded);   // never the filled button inside a fold
+  const pkey = !primary ? null : (seen.find(g => g.rows.some(x => mineGiven(x, v))) || seen.find(g => groupRoles(g, v, scope).mail.length))?.key || null;
+  const out = secs.map(({ d, hid, groups, folded, fk }) => {
+    const cn = dlCounts(d.items), total = cn.total, nw0 = cn.need;
     // Every bill here one teammate's: said once on this line ("16 of Lauren's bills"), not on every row (A-14).
     const owners = new Set(d.items.map(x => (S.assignments?.[x.b.id] || [])[0] || '')), only = owners.size === 1 ? [...owners][0] : '';
     const shared = !!only && only !== v?.id && !!advocate(only);
     const whose = shared ? `${nw0} of ${advocate(only).full_name.split(' ')[0]}’s bills` : countWords(nw0, scope, v);
     const head = cap(deadlineWords(d.dl.label, d.dl.date, { n: total }));
-    const sub = [nw0 ? `${whose} ${nw0 === 1 ? 'needs' : 'need'} a hearing` : '',
-      // "will schedule": the chair replied (so not "waiting on a reply", B-7), in the rows' own words (spec 5)
-      toAsk ? `${toAsk} to ask` : '', being ? `${being} being asked` : '', wait ? `${wait} waiting on a reply` : '', yes ? `${yes} will schedule` : '', later ? `${later} put off` : '', no ? `${no} said no or out of time` : '', sch ? `${sch} scheduled` : ''].filter(Boolean).join(' · ');
-    const body = groups.map(g => groupHTML(g, v, scope, { primary: g.key === pkey, shared })).join('');
-    return `<section class="hg-dl" aria-labelledby="${hid}"><div class="hg-dlh"><h2 id="${hid}">${esc(head)}</h2>${sub ? `<p class="hg-dls">${nw(esc(sub))}</p>` : ''}</div>${body}</section>`;
+    const sub = [nw0 ? `${whose} ${nw0 === 1 ? 'needs' : 'need'} a hearing` : '', ...dlParts(cn)].filter(Boolean).join(' · ');
+    const gh = g => groupHTML(g, v, scope, { primary: g.key === pkey, shared }), open = groups.filter(g => !g.folded), shut = groups.filter(g => g.folded);
+    const body = open.map(gh).join('');
+    const shutBills = shut.flatMap(g => g.rows).filter(x => !['scheduled', 'later'].includes(x.k)).length;
+    // The viewer's own chairs here open, the rest one line under them that opens in place.
+    const rest = !shut.length || folded ? '' : `<details class="hg-fold hg-foldrest" data-hgfold="${esc(fk)}"${FOLD_OPEN.has(fk) ? ' open' : ''}><summary class="hg-foldsum"><span class="hg-foldt">${esc([plural(shut.length, 'more chair'), shutBills ? plural(shutBills, 'bill') : ''].filter(Boolean).join(' · '))}</span>${icon('chevron-down', { cls: 'hg-foldchev' })}</summary>
+      <div class="hg-foldin">${shut.map(gh).join('')}</div></details>`;
+    if (folded) return `<details class="hg-dl hg-fold" data-hgfold="${esc(fk)}"${FOLD_OPEN.has(fk) ? ' open' : ''}><summary class="hg-foldsum"><h2 id="${hid}">${esc(head)}</h2><span class="hg-foldn">${esc([nw0 ? plural(nw0, 'bill') : '', plural(groups.length, 'chair')].filter(Boolean).join(' · '))}</span>${icon('chevron-down', { cls: 'hg-foldchev' })}</summary>
+      <div class="hg-foldin">${sub ? `<p class="hg-dls">${nw(esc(sub))}</p>` : ''}${shut.map(gh).join('')}</div></details>`;
+    return `<section class="hg-dl" aria-labelledby="${hid}"><div class="hg-dlh"><h2 id="${hid}">${esc(head)}</h2>${sub ? `<p class="hg-dls">${nw(esc(sub))}</p>` : ''}</div>${body}${rest}</section>`;
   }).join('');
   // One "Asked another way? Log a talk" for the whole board, not under every chair (Nate's walk: 11 times on Lauren's My
   // bills; C-15, one name per act). It opens the chair to pick when more than one ask is the viewer's to log.
@@ -473,6 +518,11 @@ function rowMenu(b, code) {
 // The board's own buttons, delegated once for the whole app (as steps.js and chairask.js do), so a screen that draws the
 // board wires nothing. After an action the page redraws (hooks.render), with the action's Undo in its toast.
 const after = () => hooks.render();
+// A later deadline opened in place stays open when the page redraws (a Take this ask, a switch), until the visit ends.
+if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('toggle', e => {
+  const el = e.target; if (!el?.matches?.('details[data-hgfold]')) return;
+  if (el.open) FOLD_OPEN.add(el.dataset.hgfold); else FOLD_OPEN.delete(el.dataset.hgfold);
+}, true);
 if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('click', e => {
   const el = e.target?.closest?.('[data-hgact]'); if (!el) return;
   e.preventDefault();

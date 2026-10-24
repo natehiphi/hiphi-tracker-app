@@ -31,7 +31,7 @@
 import { S, DB, DEMO, SESSION_OVER, DEADLINE_ROWS, esc, advocate, isMine, hooks } from './data.js';
 import v5, { todayItems, slipNow, slipWho } from './today5.js';
 import { draftHearing, hearingAhead, diedish, stopOf, wantsHearing, whenAt, billRoute, billById, liveAsk, attendees, chairMail,
-  legislativeDay, deadlineName, blurb, approves, canFirstApprove, filerOf, offTag, gateNeed, gateGloss, sessionClock } from './model.js';
+  legislativeDay, deadlineName, blurb, approves, canFirstApprove, filerOf, offTag, gateNeed, gateGloss } from './model.js';
 import { icon, btn, toast, openSheet, closeSheet, pickerSheet, confirmSheet, docBtn, keysOn } from './ui.js';
 import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButtonOK, statusTile, status, shownStatus, nw,
   numWords, nameWords, sayWords, firstWords, orWords, dayWords, timeWords, committeeName, versionWords, deadlineWords,
@@ -39,7 +39,7 @@ import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButton
 import { aboutBill, closeBtn } from './billpane.js';
 import { plainCodes } from './terms.js';   // codes in a to-do's or a note's own words become plain words (D15, V05)
 import { prepTaskOf, dueEnd as prepDue, issueHref, prepListHref } from './prep.js';
-import { askTodoOf, askSummary, toAskWords } from './push.js';
+import { askTodoOf, askSummary, toAskWords, deadlineLine } from './push.js';
 import { isLead } from './more.js';
 import { newSteps, markNewStep } from './help.js';
 import { moveMe, notGoing, keepAskUp, seedMoved } from './moved.js';
@@ -345,10 +345,11 @@ function rowOf(it, { ro = false, v = S.me } = {}) {
     }
     return billRow(b, { viewer: v, step: s, pick, button: ro ? false : undefined });
   }
-  // A chair ask given to the viewer reads like every other chair ask, "Ask the chair by Mon 3/23" (C-15: one name per act;
-  // the critic: Kris's "You are asking · by Mon 3/23" beside Kevin's "Ask the chair by Wed 3/25"); its open item says who gave it.
+  // A chair ask given to the viewer reads like every other chair ask, "Ask the chair by Mon 3/23", a joint committee's "Ask
+  // the chairs" beside its Email the chairs (C-15: one name per act; the critic: Kris's "You are asking · by Mon 3/23" beside
+  // Kevin's "Ask the chair by Wed 3/25"); its open item says who gave it.
   if (it.kind === 'chair') { const a = it.s.ask, given = !ro && it.s.you && a.key === 'giving' && a.by != null;
-    return billRow(b, { viewer: v, step: ro ? { ...it.s, mine: false } : it.s, pick, button: ro ? false : rowButton(it.s), ...(given ? { line: nw(esc(`Ask the chair by ${dayWords(a.by)}`)) } : {}) }); }
+    return billRow(b, { viewer: v, step: ro ? { ...it.s, mine: false } : it.s, pick, button: ro ? false : rowButton(it.s), ...(given ? { line: nw(esc(`Ask ${a.chair || 'the chair'} by ${dayWords(a.by)}`)) } : {}) }); }
   // The asker's follow-up: the row's button is the step itself, "Follow up", the same button and sheet as Get hearings'
   // (push.js's listener, chairask.js followSheet): the mail again, or what the chair said, so sending the follow-up and
   // recording the reply are each two clicks from Today (spec 8; the critic: the row offered only They replied, A-12, D16).
@@ -377,12 +378,12 @@ function miniOf(it, v = S.me) {
     case 'todo': {
       // The database's share to-do ("Send the ask to HIPHI's list and partners for the HHS/CPN hearing 3/20", migration 112)
       // is the rallier's public ask, said with the rally row's one verb and its hearing by day: "Write the public ask for
-      // the Fri 3/20 hearing" (C-15, spec 8: one name per act). Its row's button is the step itself, Open the ask card; Mark
+      // the Fri 3/20 hearing" (C-15, spec 8: one name per act). Its row's button is the step itself, Write the public ask; Mark
       // done is in the open item, so nobody ticks it without doing it (the critic: "✓ Done" read as a finished tag). An
       // ordinary to-do's button says what it does, "Mark done", with no check mark (a check means done, D3).
       const title = it.share ? `Write the public ask for the ${it.h ? dayWords(it.h.scheduled_at) : 'next'} hearing` : it.t.title;
       const doneBtn = (k = 'secondary') => btn('Mark done', { kind: k, sm: k !== 'primary', attrs: { 'data-t6act': 'todo', 'data-t6k': it.key } });
-      const card = askCardHref(b), askBtn = (k = 'secondary') => btn(card ? 'Open the ask card' : 'Write the public ask', { kind: k, sm: k !== 'primary', icon: k === 'primary' ? 'megaphone' : '', href: card || `${billRoute(b, 'public')}?focus=ask` });
+      const card = askCardHref(b), askBtn = (k = 'secondary') => btn('Write the public ask', { kind: k, sm: k !== 'primary', icon: k === 'primary' ? 'megaphone' : '', href: card || `${billRoute(b, 'public')}?focus=ask` });
       return { name: nameWords(b), num: numWords(b), line: [when, clip(title, 64)].filter(Boolean).join(' · '), href: billRoute(b), what: title,
         rowBtn: it.share ? askBtn() : doneBtn(), buttons: k => [it.share ? askBtn(k) : doneBtn(k), it.share ? doneBtn(k === 'primary' ? 'secondary' : 'text') : '',
           // Give to… lives in the open item; the next-step card keeps to the step itself (V01: the first screen stays small)
@@ -419,7 +420,7 @@ function miniOf(it, v = S.me) {
     case 'rally': {
       // The ask is written on its card in This week's asks (OUTREACH, V20), which also copies it out; the bill's Public tab
       // only when the bill has no card this week.
-      const card = askCardHref(b), write = card || `${billRoute(b, 'public')}?focus=ask`, by = actBy({ kind: 'due', due: it.due, verb: 'Write the public ask' }).words, label = card ? 'Open the ask card' : 'Write the public ask';
+      const card = askCardHref(b), write = card || `${billRoute(b, 'public')}?focus=ask`, by = actBy({ kind: 'due', due: it.due, verb: 'Write the public ask' }).words, label = 'Write the public ask';   // Outreach's button for the same act, wherever it opens (C-15)
       // The database's share to-do on the same bill is this act (build): its Mark done sits in the open item.
       const done = it.t ? k => btn('Mark done', { kind: k, sm: true, attrs: { 'data-t6act': 'todo', 'data-t6k': it.key } }) : null;
       return { name: nameWords(b), num: numWords(b), line: by, href: write, what: 'Write the public ask', sub: `For the ${committeeName(it.h.committee) || it.h.committee} hearing ${whenAt(it.h.scheduled_at)}.`,
@@ -633,11 +634,8 @@ export function partnersLine(v = S.me, { words = true } = {}) {
   return parts.length ? lineA(n ? '#/partners?view=approve' : '#/partners', 'handshake', `<b>Partners</b> · ${esc(parts.join(' · '))}`) : '';
 }
 
-// The next deadline that bills with no hearing yet are racing, from the viewer's own bills (Bills' Mine): sessionClock's.
-function noHearingClock(v) {
-  let c; try { c = sessionClock((S.bills || []).filter(b => b.tracked !== false && (v.id === S.me?.id ? isMine(b) : owns(v.id, b)))); } catch { return null; }
-  return !c ? null : c.noHearing.length ? c : c.then && c.then.noHearing.length ? c.then : null;
-}
+// The viewer's own bills racing their first deadline, worked out once a draw (the board's counts, as Legislators says them).
+const mineDeadline = v => v.id === S.me?.id ? memo('dl:' + v.id, () => { try { return deadlineLine({ scope: 'mine', viewer: v }); } catch (e) { console.error(e); return null; } }) : null;
 // The viewer's own bills still to ask, worked out once a draw (Get hearings' My bills count).
 const mineAsks = v => v.id === S.me?.id ? memo('asks:' + v.id, () => { try { return askSummary({ scope: 'mine', viewer: v }); } catch (e) { console.error(e); return null; } }) : null;
 // "20 to ask · first by Mon 3/23" with its count part in ink ("<b>20 to ask</b> · …").
@@ -766,14 +764,16 @@ function seasonBody(season, v, w, { skipH = null } = {}) {
   }
   // Hearings, February to April: the person's next hearing and the next deadline, in words (V05).
   const nh = nextHearing(v, w), dl = nextDeadline(v), said = !!nh && skipH === sitKey(nh);
-  // The deadline line leads with the number that needs action, the bills still to ask, in Get hearings' words, and opens
-  // Get hearings (B-3; Nate's walk: Kevin's "6 of your bills must reach their last committee" beside Bills' 3 and Get
-  // hearings' 3, with no link). With nothing to ask it is the deadline itself, in words.
-  // (for someone who owns bills; a helper's are D4's line) The deadline's count is Bills' own: the bills with no hearing yet
-  // racing the next deadline that leaves any (model.js sessionClock, Bills' banner), so the two screens say one thing.
-  const ownsAny = (S.bills || []).some(b => owns(v.id, b)), sm = ownsAny ? mineAsks(v) : null, ck = sm?.toAsk ? noHearingClock(v) : null;
-  const askT = !sm?.toAsk ? '' : ck ? toAskWords(sm, { dlN: ck.noHearing.length, dlDay: dayWords(ck.date) }) : toAskWords(sm);
-  if (askT) w.askSaid = true;
+  // The deadline line says how many of the person's bills need a hearing by the first deadline and what is left to do, and
+  // opens Get hearings (B-3; Nate's walk: Kevin's "6 of your bills must reach their last committee" beside Bills' 3 and Get
+  // hearings' 3, with no link). With nothing waiting it is the deadline itself, in words. (For someone who owns bills; a
+  // helper's are D4's line.)
+  // In Legislators' words, from the board's own counts (push.js deadlineLine): "16 of your bills need a hearing by Mon 3/30
+  // · 14 to ask · 2 waiting on a reply" (the fresh-eyes check: "20 to ask; 16 face the Mon 3/30 deadline" said neither what
+  // was asked nor of whom, and Kevin's "2 to ask; 3 face" read as a contradiction; Bills says the same line).
+  const ownsAny = (S.bills || []).some(b => owns(v.id, b)), dlL = ownsAny ? mineDeadline(v) : null;
+  const askT = dlL ? dlL.words : '';
+  if (askT && (dlL.toAsk || dlL.decide)) w.askSaid = true;
   const parts = [said ? '' : nh ? p(`Your next hearing: ${nw(esc(whenAt(nh.scheduled_at)))} · ${esc(committeeName(nh.committee) || nh.committee)}`, 'landmark') : noHearingLine(v, w, p),
     askT ? lineA('#/hearings/ask?scope=mine', 'calendar', nw(boldLead(askT))) : dl ? p(`Next deadline ${nw(esc(dayWords(dl.date)))}: ${esc(dl.words)}`, 'calendar') : ''];
   if (!parts.join('')) return null;

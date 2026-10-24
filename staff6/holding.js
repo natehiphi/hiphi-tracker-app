@@ -1,7 +1,7 @@
 // Holding our bills (#/legislators?view=holding, F139), who introduced a bill (F140), and the ask model every Legislators
 // screen shares. R-316 W41, live 10/22 (R-329); Staff v6 (R-336 spec 6, V23, V24).
 // - The ask model, one path for Who to ask, Holding our bills and a legislator's page (X7): the bills waiting for a hearing
-//   in a scope (askItems: My bills · My coalitions · Team, the same switch and the same bills as Hearings > Get hearings,
+//   in a scope (askItems: Mine · My coalitions · Team, the same switch and the same bills as Hearings > Get hearings,
 //   push.js's when it is there), grouped by chair (chairGroups). Each bill under each chair reads one way everywhere
 //   (chairLine): steps.js's words (askWords and the row line), said of that one chair. On a joint committee each chair is
 //   asked on their own: asking one never marks the other (V24, chairAsk), and every email goes to that chair alone.
@@ -17,7 +17,7 @@
 // - Last contact (lastContact, contactWords, ensureContacts): the newest logged talk or ask, for every Legislators tab.
 import { S, DB, DEMO, DEADLINES, esc, isMine } from './data.js';
 import { codesOf, stopOf, billByNum, companionsOf, plain, chairIdsOf, legNotesAll, chairAskMail, legById, ASK_ANSWERS } from './model.js';
-import { icon, btn, menuSheet } from './ui.js';
+import { icon, btn, menuSheet, WHOSE } from './ui.js';
 import * as PUSH from './push.js';
 import { wirePush } from './push.js';
 import { askWords, billStep, committeeName, dayWords, firstWords, orWords, numWords, itemRow, nw } from './steps.js';
@@ -183,7 +183,7 @@ if (typeof document !== 'undefined' && !globalThis.__lgReply) {
 // The scope switch is Hearings > Get hearings' own (push.js scopesFor, defaultScope, scopeOk) when it is there, so both
 // places list the same bills; until then the same rules here: My bills (owned, followed or on my issue), My coalitions
 // (helpers), Team.
-export const SCOPE_WORDS = { mine: 'My bills', coal: 'My coalitions', team: 'Team' };
+export const SCOPE_WORDS = WHOSE;   // ui.js's one constant (C-15)
 function coalOf(a = S.me) {
   const c = a?.prefs?.coalitions;
   if (c === 'all') return { ids: new Set((S.campaigns || []).map(x => x.id)) };

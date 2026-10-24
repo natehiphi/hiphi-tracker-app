@@ -32,7 +32,7 @@ import { GROUPS, groupKey } from './standing.js';
 import { billStep, billRow, listDetail, nameWords, numWords, dayWords, committeeName, whereWords, deadlineWords, nw, wireSteps } from './steps.js';
 import { openItem, closeBtn, aboutBill } from './billpane.js';
 import { billsHead, loadSortCount, refreshTabs } from './billshead.js';
-import { askSummary, toAskWords } from './push.js';   // Get hearings' one count for the bills still to ask (rule 6)
+import { deadlineLine } from './push.js';   // Get hearings' counts for the bills still to ask (rule 6)
 
 // ---- groups, in stage order: GROUPS and groupKey live in standing.js, shared with an issue's page (R-226) ----
 const FOLDED = new Set(['mon', 'dead']);
@@ -154,8 +154,8 @@ const rowStep = b => { const s = stepOf(b); if (!s) return s;
 const whoseWords = () => ({ me: 'your bills', coal: 'your coalitions’ bills', all: 'the team’s bills' })[bl().scope] || 'your bills';
 function scopeSwitch() {
   const v = bl(), three = scopeOpts().length > 2;
-  // "My bills", the word Hearings and Legislators use for the same switch (C-15; ui.js WHOSE says "Mine").
-  return whoseSeg('blscope', { mine: 'me', coal: three ? 'coal' : null, team: 'all' }, v.scope, { label: 'Whose bills' }).replace(/(data-whose="mine"[^>]*>)Mine</, '$1My bills<');
+  // C-15's words from ui.js WHOSE, as Hearings, Legislators and Outreach say them ("Mine · My coalitions · Team").
+  return whoseSeg('blscope', { mine: 'me', coal: three ? 'coal' : null, team: 'all' }, v.scope, { label: 'Whose bills' });
 }
 // The one line about the next deadline (F95, V19: bills needing a hearing always name the deadline). It names the first
 // deadline that leaves work, the count a link to exactly those bills (filters.js due:), and the way to the job, Hearings ›
@@ -171,15 +171,15 @@ function leadLine(list, groups) {
   if (!x) return `<p class="bl-dls">${icon('calendar-check')}<span>Every one of ${esc(whoseWords())} racing the next deadline has a hearing.</span></p>`;
   const first = groups.find(g => g.open), ids = new Set(x.noHearing.map(b => b.id));
   if (first && first.all === ids.size && first.rows.every(b => ids.has(b.id))) return '';
-  const n = x.noHearing.length, on = isOn(`due:${x.date}`);
-  const link = words => on ? `<b>${esc(words)}</b>` : `<button type="button" class="linkbtn bl-dlk" data-ft="due:${esc(x.date)}">${esc(words)}</button>`;
+  const n = x.noHearing.length;
+  const link = (words, date) => isOn(`due:${date}`) ? `<b>${esc(words)}</b>` : `<button type="button" class="linkbtn bl-dlk" data-ft="due:${esc(date)}">${esc(words)}</button>`;
   const go = `<a class="bl-dlgo" href="#/hearings/ask">Get hearings</a>`;
-  // One count for the pile, Get hearings' own, in its words, with this deadline's count beside it in the same words (push.js
-  // toAskWords: "20 to ask; 16 face the Mon 3/30 deadline"; Nate's walk: Today, Bills and Hearings each had their own
-  // number). The deadline's count is a link to exactly those bills (F95).
-  let sum = null; try { sum = askSummary({ scope: { me: 'mine', coal: 'coal', all: 'team' }[bl().scope] || 'mine' }); } catch { sum = null; }
-  const ask = sum?.toAsk ? toAskWords(sum, { dlN: n, dlDay: dayWords(x.date) }) : '', cut = ask.indexOf('; ');
-  const words = ask ? `${esc(ask.slice(0, cut))}; ${link(ask.slice(cut + 2))}` : `${link(`${n} with no hearing yet ${n === 1 ? 'faces' : 'face'} the ${dayWords(x.date)} deadline`)}`;
+  // Today's line and Legislators' words, from the board's own counts (push.js deadlineLine): "16 of your bills need a
+  // hearing by Mon 3/30 · 14 to ask · 2 waiting on a reply" (the fresh-eyes check: "54 to ask; 36 face the Mon 3/30
+  // deadline" here beside Legislators' 45 and 42 for the same person and scope). Its first part is a link to exactly those
+  // bills (F95).
+  let dl = null; try { dl = deadlineLine({ scope: { me: 'mine', coal: 'coal', all: 'team' }[bl().scope] || 'mine' }); } catch { dl = null; }
+  const words = dl ? `${link(dl.head, dl.date)}${dl.rest ? ` · ${esc(dl.rest)}` : ''}` : link(`${n} of ${whoseWords()} ${n === 1 ? 'needs' : 'need'} a hearing by ${dayWords(x.date)}`, x.date);
   return `<p class="bl-dls">${icon('calendar-clock')}<span class="bl-dlw">${words} · ${go}</span></p>`;
 }
 // A filter in Mine (or My coalitions) says when the team has more, and offers the switch (F83 "N more under Team").

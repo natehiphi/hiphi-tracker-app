@@ -25,6 +25,7 @@ import { markNewStep } from './help.js';   // Getting started's rallier steps ti
 const HR = 36e5, DAY = 864e5;
 const plural = (n, one, many = one + 's') => `${Number(n || 0).toLocaleString()} ${n === 1 ? one : many}`;
 const first = id => (advocate(id)?.full_name || '').split(' ')[0] || 'someone';
+const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
 const live = id => !!id && advocate(id)?.is_active !== false;
 // When the public's written testimony closes (the hearing's deadline, else a day before it), as Today counts it.
 const testDue = h => h && h.status !== 'cancelled' ? new Date(h.testimony_deadline || new Date(h.scheduled_at).getTime() - DAY).getTime() : null;
@@ -177,10 +178,12 @@ const STRONG = ['strongly_support', 'strongly_oppose'];
 function askDue(x) {
   const b = x.b, due = askDueAt(x.h), r = rallierOf(b), me = S.me?.id;
   const mine = !!me && (r.length ? r.includes(me) : (S.assignments?.[b.id] || []).includes(me));
-  return { due, past: due <= Date.now(), today: hst(due) === hst(Date.now()), mine, step: mine && STRONG.includes(b.position), who: r.length ? first(r[0]) : '' };
+  const strong = STRONG.includes(b.position);
+  return { due, past: due <= Date.now(), today: hst(due) === hst(Date.now()), mine, strong, step: mine && strong, who: r.length ? first(r[0]) : '' };
 }
-// The viewer's optional ask (not a step on Today): no red, no tile, a reason a post still helps.
-const optionalWords = x => `No ask yet · testimony closes ${whenAt(x.due)} · a post still helps`;
+// The viewer's optional ask (not a step on Today): no red, no tile, a reason a post still helps. No time: the card's first
+// line already says when testimony closes (the fresh-eyes check: two times three lines apart read as two deadlines, A-14).
+const optionalWords = () => 'No ask yet · a post still helps';
 // The viewer's own ask: red as a status tile with its icon and word once it is overdue (D3, addendum 4: the viewer's own
 // step); otherwise plain words with a clock, the time bold when it is due today (D3). Not a pill: beside "Write the public ask"
 // a pencil pill read as a second button (A-12, spec 4: status never looks like a button), so the pencil is the button's.
@@ -189,7 +192,10 @@ function ownTile(d) {
   return `<span class="ot-nw">${icon('clock')}<span>Ask due ${d.today ? `<b class="v6-nw">${esc(whenAt(d.due))}</b>` : nw(esc(whenAt(d.due)))}</span></span>`;
 }
 // Someone else's ask, in plain words with the right tense ("writes it by" ahead, "it was Lauren's to write by" once past).
+// An optional ask (not a strong position, so not a step on anyone's Today) reads the same neutral way for everyone: Saya's
+// own card calls it optional, so a teammate is never told she missed it (P-5; the fresh-eyes check's SB 3076).
 function otherWords(d) {
+  if (!d.strong) return `No ask yet · ${d.who ? `${d.who} can post one · ` : ''}a post still helps`;
   if (!d.who) return d.past ? `No ask yet. It was due ${whenAt(d.due)}.` : `No ask yet. It is due ${whenAt(d.due)}.`;
   return d.past ? `No ask yet. It was ${d.who}’s to write by ${whenAt(d.due)}.` : `No ask yet. ${d.who} writes it by ${whenAt(d.due)}.`;
 }
@@ -197,7 +203,7 @@ function writeBox(x, d, lead) {
   const b = x.b, id = cardId(b) + '-w', a = liveAsk(b), changing = !!a;
   if (!BASE.has(b.id)) BASE.set(b.id, { public_action: b.public_action || null, public_action_until: b.public_action_until || null });
   const text = (S.otDraft || {})[b.id] ?? (changing ? b.public_action || '' : '');
-  const when = changing ? '' : d.step ? ownTile(d) : d.mine ? `<span class="ot-wdue">${nw(esc(optionalWords(x)))}</span>` : `<span class="ot-wdue">${esc(otherWords(d).replace(/^No ask yet\. /, ''))}</span>`;
+  const when = changing ? '' : d.step ? ownTile(d) : d.mine ? `<span class="ot-wdue">${nw(esc(cap(optionalWords(x).replace(/^No ask yet · /, ''))))}</span>` : `<span class="ot-wdue">${esc(cap(otherWords(d).replace(/^No ask yet(\. | · )/, '')))}</span>`;
   return `<div class="ot-write"><div class="ot-wtop"><label for="${id}">${changing ? 'Change the public ask' : 'Write the public ask'}</label>${when}</div>
     <p class="ot-help" id="${id}-h">What should people do, and by when? A sentence or two. It shows on the public page and in the hearing alert.</p>
     <textarea id="${id}" rows="3" maxlength="280" aria-describedby="${id}-h ${id}-x ${id}-e" data-askbox="${esc(b.id)}">${esc(text)}</textarea>
@@ -235,7 +241,7 @@ function cardHTML(x, { hl = false, lead = false } = {}) {
 }
 // The page's one filled button (A-3, spec 4): Save in an open box; else "Write the public ask" on the card asked for, or on
 // the soonest card that is a step on the viewer's Today; else none (copying is never the one thing to do now).
-// Arriving for one card (?bill=, Today's "Open the ask card"), that card holds it; otherwise the step Today named (the soonest
+// Arriving for one card (?bill=, Today's "Write the public ask"), that card holds it; otherwise the step Today named (the soonest
 // strong-position ask that is the viewer's own), never an optional one above it.
 function leadId(items, want = null) {
   const o = items.find(x => boxOpen(x.b)); if (o) return o.b.id;

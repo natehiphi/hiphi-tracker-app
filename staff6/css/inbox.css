@@ -78,6 +78,10 @@ body.staff6 .ib-page .ib-empty { display: grid; justify-items: start; gap: 8px; 
 body.staff6 .ib-page .ib-empty p { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); }
 body.staff6 .ib-page .ib-empty .ib-empty-h { font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t18); line-height: var(--v6-lh18); color: var(--v6-ink); }
 body.staff6 .ib-page .ib-empty .btn { margin: 4px 0 0; }
+/* A long button ("Team talk on Tax liquor by alcohol content") wraps inside the card at every phone width, and the card's one
+   column never grows past its box (the fresh-eyes check: at 390 the button set the column to 411px and cut both sentences). */
+body.staff6 .ib-page .ib-empty { grid-template-columns: minmax(0, 1fr); }
+body.staff6 .ib-page .ib-empty .btn { max-width: 100%; height: auto; min-height: 44px; white-space: normal; text-align: start; padding-top: 8px; padding-bottom: 8px; }
 body.staff6 .ib-page .ib-note { display: flex; gap: 8px; align-items: flex-start; margin: 16px 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
 body.staff6 .ib-page .ib-note svg { flex: none; width: 18px; height: 18px; margin-top: 3px; }
 body.staff6 .ib-page .ib-notes { margin-top: 32px; }

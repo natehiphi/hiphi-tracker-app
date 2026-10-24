@@ -2,7 +2,7 @@
 // address, and one find box on every tab (F143):
 //   Who to ask (#/legislators, ?view=ask): the Get hearings board, the same component as Hearings > Get hearings (push.js
 //     askBoard, drawn here since the integration: one board, so the two doors never disagree, X7; holding.js's own board
-//     below is kept only as the fallback should askBoard fail). My bills · My coalitions · Team is a visible switch, the same as Hearings'.
+//     below is kept only as the fallback should askBoard fail). Mine · My coalitions · Team is a visible switch, the same as Hearings'.
 //     Each chair carries ONE email button: the viewer's own asks with them, to them alone, named by bill (V24).
 //   Everyone (?view=everyone): the directory, a name and one line per legislator (district and island, their role on our
 //     bills, last contact), with the "Hearing our bills this week" preset (F142, v5's This week view), the Filter sheet
@@ -168,7 +168,7 @@ function groupHTML(g) {
 function askHTML(v) {
   if (SESSION_OVER) return empty({ title: 'No asks between sessions', text: 'Asking chairs for hearings starts when the session opens in January.', action: btn('See everyone', { kind: 'secondary', href: '#/legislators?view=everyone' }) });
   const scope = askScope(v.ask);
-  if (typeof PUSH.askBoard === 'function') { try { return PUSH.askBoard({ scope, primary: true, id: 'lg' }); } catch (e) { console.warn('askBoard', e); } }
+  if (typeof PUSH.askBoard === 'function') { try { return PUSH.askBoard({ scope, primary: true, id: 'lg', fold: true }); } catch (e) { console.warn('askBoard', e); } }
   const { items, scheduled: n } = askItems(scope), whose = scopeWhose(scope);
   const heard = n ? `<p class="lg6-foot">${icon('calendar-check')}<span>${esc(`${n} of ${whose} ${n === 1 ? 'has' : 'have'} a hearing set.`)} <a href="#/hearings">See Hearings</a></span></p>` : '';
   if (!items.length) return empty({ title: `None of ${whose} is waiting for a hearing`, text: 'When one is referred to a committee, its chair shows here with the day to ask by.', action: btn('See everyone', { kind: 'secondary', href: '#/legislators?view=everyone' }) }) + heard;
@@ -245,7 +245,7 @@ function everyoneHTML(v) {
   }
   return `<div class="lg6-cap"><p>${esc(cap)}.</p>${clear}</div><div class="v6-list lg6-list" role="list" aria-label="Legislators">${ls.map(l => personRow(l, week)).join('')}</div>`;
 }
-// Who to ask's and Holding's switch: My bills · My coalitions · Team, the same choices as Hearings > Get hearings
+// Who to ask's and Holding's switch: Mine · My coalitions · Team, the same choices as Hearings > Get hearings
 // (holding.js askScopes), so the two tabs always show the same bills (X7).
 function askTools(v) {
   if (SESSION_OVER) return '';

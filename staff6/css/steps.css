@@ -203,7 +203,6 @@ body.staff6 .v6-row { position: relative; display: flex; align-items: center; ga
   border-radius: var(--v6-r12); transition: background-color 150ms ease; min-width: 0; }
 body.staff6 .v6-row + .v6-row::before { content: ''; position: absolute; left: 8px; right: 8px; top: 0; height: 1px; background: var(--v6-hair); }
 body.staff6 .v6-row.sel::before, body.staff6 .v6-row.sel + .v6-row::before { background: transparent; }
-@media (min-width: 1100px) { body.staff6 .v6-ld .v6-row.hint + .v6-row::before { background: transparent; } }
 body.staff6 .v6-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 10px 8px; margin: 0 -8px; border: 0; border-radius: var(--v6-r12);
   background: none; color: inherit; font: inherit; text-align: left; text-decoration: none; cursor: pointer; }
 body.staff6 .v6-row-top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
@@ -229,8 +228,8 @@ body.staff6 .v6-row-line.t-done svg { color: var(--v6-leaf); }
 body.staff6 .v6-row-act { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 body.staff6 .v6-row-act .btn { margin: 0; }
 body.staff6 .v6-row.sel { background: var(--v6-action-wash); }
-/* the first row hints where to start only where the panel waits beside the list (1100px and wider) */
-@media (min-width: 1100px) { body.staff6 .v6-ld .v6-row.hint { background: var(--v6-wash); } body.staff6 .v6-ld .v6-row.hint::before { background: transparent; } }
+/* No wash on the first row while the panel waits ("Pick one…"): a filled row read as picked beside an empty panel, which
+   looked broken (A-12: a selected look means selected; the fresh-eyes check). The .hint class stays as a hook only. */
 body.staff6 .v6-row-main:focus-visible, body.staff6 .v6-step-hl:focus-visible, body.staff6 .v6-hcard a:focus-visible,
 body.staff6 .v6-tabs a:focus-visible, body.staff6 .v6-ld-back:focus-visible, body.staff6 .v6-item-open:focus-visible {
   outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: var(--v6-r12); }
@@ -405,6 +404,8 @@ body.staff6 .v6-step-acts.v6-fit > .btn { flex: 0 1 max(0px, calc((var(--v6-fit)
   body.staff6 .v6-hcard-body:has(> .v6-hcard-lead1, > .v6-hcard-bills > .t6-hc-lead) > * { order: 2; }
   body.staff6 .v6-hcard-body:has(> .v6-hcard-lead1, > .v6-hcard-bills > .t6-hc-lead) > .v6-hcard-name { order: 0; }
   body.staff6 .v6-hcard-body > .v6-hcard-lead1, body.staff6 .v6-hcard-body > .v6-hcard-bills:has(> .t6-hc-lead) { order: 1; }
+  /* the late window, said once, stays right over the rows it is about (it comes first in the card's own order) */
+  body.staff6 .v6-hcard-body:has(> .v6-hcard-lead1, > .v6-hcard-bills > .t6-hc-lead) > .v6-hcard-late { order: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
   body.staff6 .v6-row, body.staff6 .v6-item-door, body.staff6 .v6-tabs a, body.staff6 .v6-item-det > summary > svg:last-child, body.staff6 .btn.v6-fin { transition: none; }

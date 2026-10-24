@@ -525,14 +525,23 @@ function chairLine(s, v) {
 // late, still accepted until 9:30 AM today"): on a hearing day those are the people to nudge, so the person is never
 // dropped. The flags of Writing replace the who ("not started"; "sent back, due today 2:00 PM", the time Testimony says
 // too); the card's own time says when the sitting is (A-14). Four facts: name, number, state, one more part (spec 8).
-export function hearingLine(s) {
+// `lateSaid`: the card says the late window once over its rows ("Late, still accepted until the hearing starts"), so a
+// late row gives only its state and step ("With an approver · you approve", "Ready to file · Kevin files it"): Kris's
+// 9:30 AM card said "late, still accepted until 9:30 AM today" on three rows under a heading that already said 9:30 AM
+// (the fresh-eyes check, A-14). The viewer's own draft that came back carries the flag in its own lower-case words, as
+// someone else's does ("Writing · sent back, you resubmit now"; spec 12.6), where Hearings had said only "Writing · you
+// resubmit now" beside Today's and Testimony's Sent back. `toned`: the row is drawn in the late colour (the viewer's own,
+// or a teammate's on their bill), so it keeps the one word "late" beside its colour (D3), never the time again.
+export function hearingLine(s, { lateSaid = false, toned = false } = {}) {
   if (!s) return '';
   if (s.kind === 'chair' || s.kind === 'none' || !s.state) return s.line || '';
-  const st = s.state, tone = s.status?.tone;
+  const st = s.state, tone = s.status?.tone, hush = lateSaid && tone === 'late';
   if (st.key === 'filed' || st.key === 'missed' || s.off) return s.line;
+  const own = `${st.word} · ${st.sentBack ? 'sent back, ' : ''}you `;
+  if (s.you && hush) return own + lc(s.kind === 'nodraft' ? 'Make the draft' : s.act?.verb || 'act on it') + (toned ? ', late' : '');
   // The row's parts joined by a comma ("you file now, due today 10:00 AM"; "you approve, late, still accepted until …").
-  if (s.you) return `${st.word} · you ${lc(String(s.line || '')).replace(/ · /g, ', ')}`;
-  const when = tone === 'late' ? lateLine(s.until, { lower: true }) : tone === 'overdue' ? `was due ${whenAt(s.due)}` : '';
+  if (s.you) return own + lc(String(s.line || '')).replace(/ · /g, ', ');
+  const when = tone === 'late' ? (!hush ? lateLine(s.until, { lower: true }) : toned ? 'late' : '') : tone === 'overdue' ? `was due ${whenAt(s.due)}` : '';
   if (s.nobody) return `${st.word} · ${lc(NO_OWNER)}${when ? `, ${when}` : ''}`;
   if (!when && st.noDraft) return `${st.word} · not started`;
   if (!when && st.sentBack) return `${st.word} · sent back${s.due != null ? `, due ${whenAt(s.due)}` : ''}`;
@@ -900,7 +909,10 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '', 
   // says what the approver asked ("Sent back: …", quiet, under the line) and opens the Doc beside Resubmit or Send for
   // approval, as the step card does (P-3, P-4, B-11; spec 2's P1 reads the draft first). Lauren's hearing-day phone
   // showed only "Writing · late" and a filled Resubmit, so one tap sent the unrevised draft back (the critic's high).
-  const bill = x => { const d = sittingDraft(x.h, x.b.id), s = billStep(x.b, { viewer: v, d: d || null, h: x.h }), first = lead != null && String(x.b.id) === String(lead);
+  const steps = new Map(), stepOf = x => { if (!steps.has(x)) steps.set(x, billStep(x.b, { viewer: v, d: sittingDraft(x.h, x.b.id) || null, h: x.h })); return steps.get(x); };
+  // The late window said once, over the rows (A-14; the card's time is the hearing's, which is when the window closes).
+  const lateAny = !past && !cancelled && pos.some(x => { const s = stepOf(x); return !!s?.state && !['filed', 'missed'].includes(s.state.key) && !s.off && s.status?.tone === 'late'; });
+  const bill = x => { const s = stepOf(x), first = lead != null && String(x.b.id) === String(lead);
     // Wherever the card offers Resubmit, the note is beside it (Hearings › This week too), so the button resubmits at once.
     const ok = rowButtonOK(s), home = (first || big) && s.you && ['revise', 'write', 'submit'].includes(s.kind);
     const sbOn = s.you && s.kind === 'revise' && !!s.state?.sentBack && !!s.d?.review_note && (home || ok);
@@ -910,7 +922,7 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '', 
     const btnHtml = (ok ? rowButton(s, { ...(first ? { kind: 'primary', sm: false } : {}), confirm: !sbOn }) : rowButtonFor(s)) + doc, t = lineTone(s);
     const more = facts ? facts(x.b) : '';
     return `<li class="v6-hcard-bill${first ? ' lead' : ''}"><a class="v6-hcard-bl" href="${esc(billRoute(x.b))}"><span class="v6-row-top"><span class="v6-row-name">${esc(fullName(x.b))}</span> <span class="v6-row-num">${esc(numWords(x.b))}</span></span>
-      <span class="v6-row-line${t.tone !== 'neutral' ? ' t-' + esc(t.tone) : ''}${t.bold ? ' soon' : ''}">${t.icon ? icon(t.icon) : ''}<span>${nw(esc(hearingLine(s)))}</span></span>${more ? `<span class="v6-hcard-facts">${nw(esc(more))}</span>` : ''}</a>${sb ? ` ${sb}` : ''}${btnHtml ? ` <span class="v6-row-act">${btnHtml}</span>` : ''}</li>`; };
+      <span class="v6-row-line${t.tone !== 'neutral' ? ' t-' + esc(t.tone) : ''}${t.bold ? ' soon' : ''}">${t.icon ? icon(t.icon) : ''}<span>${nw(esc(hearingLine(s, { lateSaid: lateAny, toned: t.tone === 'late' })))}</span></span>${more ? `<span class="v6-hcard-facts">${nw(esc(more))}</span>` : ''}</a>${sb ? ` ${sb}` : ''}${btnHtml ? ` <span class="v6-row-act">${btnHtml}</span>` : ''}</li>`; };
   const going = past || cancelled ? '' : goingBtn(goingOn(h, v), { 'data-v6act': 'going', 'data-v6h': leadRow(h).id }, { kind: 'secondary', sm: !big });
   // The lead bill (the viewer's own step, Today's hearing day) in a list of its own, so the narrowest phones can draw it
   // right under the committee, before Going: at 320x640 Kris's Review sat under the bottom bar (steps.css, below 380px).
@@ -930,6 +942,7 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '', 
     <div class="v6-hcard-body">
       ${head}
       ${cancelled ? '<p class="v6-hcard-note">Cancelled, no new date yet</p>' : moved ? `<p class="v6-hcard-note">${icon('calendar')}<span>Moved from ${nw(esc(moved))}</span></p>` : ''}
+      ${lateAny ? `<p class="v6-hcard-note v6-hcard-late">${icon('clock')}<span>Late, still accepted until the hearing starts</span></p>` : ''}
       ${cancelled ? '' : `<p class="v6-hcard-going">${icon('users')}<span>${esc(goingWords(h, { viewer: v }))}${week && watch ? ` <span class="v6-hcard-watchin"><span class="v6-hcard-wdot">· </span>${watch}</span>` : ''}</span> ${going}</p>`}
       ${first1 ? `<ul class="v6-hcard-bills v6-hcard-lead1">${bill(first1)}</ul>` : ''}${rest.length ? `<ul class="v6-hcard-bills">${rest.map(bill).join('')}</ul>` : ''}
       ${mon.length && !self ? `<a class="v6-hcard-mon" href="${esc(href)}"><span>${pos.length ? 'Also heard: ' : ''}${mon.length === 1 ? '1 bill we monitor' : `${mon.length} bills we monitor`}</span>${icon('chevron-right', { cls: 'v6-chev' })}</a>` : ''}

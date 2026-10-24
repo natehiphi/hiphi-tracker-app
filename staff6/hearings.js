@@ -9,7 +9,7 @@
 //     Undo). Hearings on bills we only monitor wait behind "+N on bills you monitor" (F68).
 //   Get hearings (#/hearings/ask): the ONE open board (push.js askBoard), under each deadline in words, grouped by chair,
 //     soonest notice first: Ask · Ask for decision making · Waiting on a reply (They replied) · Scheduled (Say mahalo).
-// Both have the same visible scope switch: My bills · My coalitions · Team (?scope=, remembered per person).
+// Both have the same visible scope switch: Mine · My coalitions · Team (?scope=, remembered per person).
 // #/hearings with no tab opens Get hearings when the person has a bill waiting for a hearing and no hearing this week,
 // else This week (spec 3.3). Old addresses arrive here: #/?view=week&w=1 is #/hearings?w=1 (app.js).
 // What it replaces (A-25, rule 7.8): v5's This week grid (testimony-deadline cards, hearing blocks, Other to-dos: the

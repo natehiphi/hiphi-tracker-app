@@ -161,7 +161,8 @@ def main():
     check("Saya: Outreach opens on this week's asks", re.search(r'asks', heads, re.I) and not re.match(r'\s*Supporters', heads), heads[:80])
     txt = main_text(pg); check("Saya: the asks are CTFH's, not every coalition's", re.search(r'HB\s?2121', txt) and not re.search(r'SB\s?3234', txt), '')
     pg.nav('/')
-    share = L.find(pg.page, re.compile(r'share|copy (link|message|post)|this week.s asks|open the ask', re.I), roles=('link', 'button'), in_view=True)
+    # (Today's button for the ask is Outreach's own name for it, "Write the public ask", and opens its card: C-15, one name per act)
+    share = L.find(pg.page, re.compile(r'share|copy (link|message|post)|this week.s asks|open the ask|write the public ask', re.I), roles=('link', 'button'), in_view=True)
     check('Saya: sharing one click from Today', share is not None, '')
     pg.close()
 

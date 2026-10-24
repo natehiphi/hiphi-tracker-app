@@ -7,15 +7,16 @@
 //   - Hearings at risk (D2): a working day or less from the day the notice must post, nobody has asked; no owner first;
 //   - today's and tomorrow's hearings as a plain schedule (D5): time, room, "Going: Kris" / "Going: no one yet", no counts,
 //     no colour, no to-do rows (R-276);
-//   - Who is on what: one bar per person counting everything on their Today, support work included, so Patti, Saya and
-//     Julie never read 0; a bar opens that person's list;
+//   - Who is on what: one bar per person counting what they hold, each step once (their own steps, their chair asks, the
+//     public asks they write); a helper with nothing of their own says whom they help ("helps HEAL"), never 0; a bar
+//     opens that person's list;
 //   - by season: the 2027 issues (admins), the partners' groups (partner approvers), the bills with no owner.
 // #/team?who=<id> is "See as teammate" for everyone (More tools links it): that person's Today, read-only, never in colour,
 // worked out by today.js exactly as their own Today is. #/team?who=none lists the steps nobody holds yet ("Anyone can take
 // these steps"). Someone who is not a lead and opens #/team gets the picker, never an error.
 import { S, DB, SESSION_OVER, esc, advocate, hooks } from './data.js';
 import { work, listHTML, t6Season, t6Groups, t6Fresh, T6REG, noOwnerBills, slipList, shareAsk, partnersLine } from './today.js';
-import { billRoute, billById, whenAt, lateLine, roomName, diedish, wantsHearing, standingIn } from './model.js';
+import { billRoute, billById, whenAt, lateLine, roomName, diedish, wantsHearing, standingIn, liveAsk } from './model.js';
 import { icon, btn, toast, pickerSheet, avatar } from './ui.js';
 import { billStep, billRow, itemRow, rowButton, rowButtonOK, shownStatus, nameWords, numWords, sayWords, firstWords, orWords, dayWords, timeWords,
   committeeName, goingWords, askWords, nw, wireSteps, othersWords, NO_OWNER, takeFor } from './steps.js';
@@ -120,9 +121,11 @@ function slipping() {
   let sl; try { sl = slipList(); } catch (e) { console.error(e); return []; }
   const me = S.me?.id, now = Date.now();
   const out = sl.rows.filter(r => r.b && (r.p || r.nob)).map(r => {
-    // Testimony nobody holds (today.js slipList): "No owner yet · file by tomorrow 11:00 AM".
+    // Testimony nobody holds (today.js slipList): the row's own words, "No owner yet · due tomorrow 1:00 PM", the time
+    // Testimony and Bills give the same bill (the fresh-eyes check: Team's "file by tomorrow 11:00 AM" beside their 1:00 PM
+    // read as two deadlines; the filer's earlier time is in the open item). Sorted still by the time to act.
     if (r.nob) { const s = r.nob;
-      return { key: r.key, b: r.b, p: null, s, ids: [], mine: false, line: [NO_OWNER, lc(s.act.words)].join(' · '), over: s.act.kind === 'overdue', lateOk: s.act.kind === 'late', at: s.act.at }; }
+      return { key: r.key, b: r.b, p: null, s, ids: [], mine: false, line: s.line || [NO_OWNER, lc(s.act.words)].join(' · '), over: s.act.kind === 'overdue', lateOk: s.act.kind === 'late', at: s.act.at }; }
     // A share to-do is the rallier's public ask, by OUTREACH's time, only where the rallier has that row (today.js shareAsk;
     // spec 11.6): said and alerted as theirs. Anywhere else it is its owner's own to-do, in its own words and time.
     const sh = shareAsk(r.p), p = sh ? { ...r.p, due: sh.due ?? r.p.due } : r.p, b = r.b, ids = sh?.rl.length ? sh.rl : r.ids || [];
@@ -231,24 +234,43 @@ function nobodySteps() {
   return noOwnerBills().map(b => ({ b, s: billStep(b, { viewer: S.me }) })).filter(x => x.s)
     .sort((x, y) => (x.s.due ?? Infinity) - (y.s.due ?? Infinity) || String(x.b.bill_number).localeCompare(String(y.b.bill_number), 'en', { numeric: true }));
 }
-// Each says its step and its one time to act, as Slipping does ("File by tomorrow 11:00 AM", spec 5 actBy); the list's
-// title says no one holds it.
-const nobodyLine = s => s?.state && s.act?.words && !['missed', 'filed'].includes(s.state.key) && !s.off ? (s.kind === 'nodraft' ? `Make the draft · ${lc(s.act.words)}` : s.act.words) : unheld(s);
+// Each says its step and the one time every screen gives it ("File testimony · due tomorrow 1:00 PM", the deadline Slipping,
+// Testimony and Bills say for a step nobody holds; the filer's earlier time is in the open item); the list's title says no
+// one holds it.
+const NOBODY_STEP = { nodraft: 'Make the draft', write: 'Send testimony for approval', submit: 'Send testimony for approval', revise: 'Resubmit testimony',
+  approve: 'Approve testimony', second: 'Second look', file: 'File testimony' };
+const nobodyLine = s => { const u = unheld(s);
+  if (!s?.state || !NOBODY_STEP[s.kind] || ['missed', 'filed'].includes(s.state.key) || s.off) return u;
+  return `${NOBODY_STEP[s.kind]} · ${s.kind === 'nodraft' && /^due /i.test(u) ? 'testimony ' : ''}${lc(u)}`; };
 const nobodyRow = x => billRow(x.b, { viewer: S.me, step: { ...x.s, mine: false }, line: nw(esc(nobodyLine(x.s))), button: noOwnBtn(x.b), cls: 'tm6-r' });
 
-// ---- Who is on what: everything on each person's Today, support work included ----
+// ---- Who is on what: everything each person holds, each step counted once ----
 // The people with nothing open are one line, "Everyone else: nothing open" (spec 0: less on every screen; between sessions
 // 12 rows read 0).
+// Each step counts once, on the person who holds it (A-14, B-7; the fresh-eyes check: Patti, who owns nothing, read 16 from
+// Lauren's 15 unasked chair asks, while Lauren, with 17 chair asks of her own, read 1): their own steps (what they write,
+// approve or were given), their chair asks past Today's three rows (D1's line), and the public asks they still have to
+// write this week. A coalition helper with nothing of their own is never an empty 0: the row says whom they help, in
+// words ("helps HEAL"), not as a number (V15).
+const campName = id => (S.campaigns || []).find(c => c.id === id)?.name || '';
+function helpsWords(a) {
+  const c = a?.prefs?.coalitions;
+  if (c === 'all') return 'helps every coalition';
+  const names = (Array.isArray(c) ? c : []).map(campName).filter(Boolean);
+  return names.length ? `helps ${names.length > 2 ? `${names.slice(0, 2).join(', ')} and ${names.length - 2} more` : names.join(' and ')}` : '';
+}
 function loads() {
-  // Their own steps, plus what they help others with: a coalition's hearing asks (D4) and the public asks they rally (W22),
-  // so a helper's bar is never an empty 0 while they carry a coalition's week (V15).
-  const helpN = w => [...w.coal.values()].reduce((s, e) => s + e.n, 0) + new Set(w.rally.map(x => x.b.id)).size;
-  return teammates().map(a => { const w = work(a); return { a, n: w.own.length + helpN(w) }; }).sort((x, y) => y.n - x.n || x.a.full_name.localeCompare(y.a.full_name));
+  return teammates().map(a => { const w = work(a), onToday = new Set(w.own.filter(i => i.kind === 'rally' || (i.kind === 'todo' && i.share)).map(i => i.b?.id));
+    const rally = new Set(w.rally.filter(x => !liveAsk(x.b) && !onToday.has(x.b.id)).map(x => x.b.id)).size;
+    const n = w.own.length + w.asks.length + rally;
+    return { a, n, helps: n ? '' : helpsWords(a) }; }).sort((x, y) => y.n - x.n || !!y.helps - !!x.helps || x.a.full_name.localeCompare(y.a.full_name));
 }
 function loadHTML(rows = loads()) {
-  const none = nobodySteps().length, busy = rows.filter(r => r.n > 0), idle = rows.length - busy.length, max = Math.max(1, none, ...rows.map(r => r.n));
-  const bar = (href, av, name, n, title) => `<a class="tm6-load" href="${esc(href)}" aria-label="${esc(`${title}: ${n}`)}">${av}<span class="tm6-ln">${esc(name)}</span><span class="tm6-bar" aria-hidden="true"><i style="width:${Math.round(n / max * 100)}%"></i></span><span class="tm6-n" aria-hidden="true">${n}</span></a>`;
-  return `<div class="tm6-loads">${busy.map(({ a, n }) => bar(`#/team?who=${encodeURIComponent(a.id)}`, avatar(a, 28), a.id === S.me?.id ? 'You' : a.full_name, n, a.id === S.me?.id ? 'Your list' : `${a.full_name}’s list`)).join('')}
+  const none = nobodySteps().length, busy = rows.filter(r => r.n > 0 || r.helps), idle = rows.length - busy.length, max = Math.max(1, none, ...rows.map(r => r.n));
+  const bar = (href, av, name, n, title, helps = '') => helps
+    ? `<a class="tm6-load tm6-helps" href="${esc(href)}" aria-label="${esc(`${title}: nothing of their own open, ${helps}`)}">${av}<span class="tm6-ln">${esc(name)}</span><span class="tm6-hw">${esc(helps)}</span></a>`
+    : `<a class="tm6-load" href="${esc(href)}" aria-label="${esc(`${title}: ${plural(n, 'step')}`)}">${av}<span class="tm6-ln">${esc(name)}</span><span class="tm6-bar" aria-hidden="true"><i style="width:${Math.round(n / max * 100)}%"></i></span><span class="tm6-n" aria-hidden="true">${n}</span></a>`;
+  return `<div class="tm6-loads">${busy.map(({ a, n, helps }) => bar(`#/team?who=${encodeURIComponent(a.id)}`, avatar(a, 28), a.id === S.me?.id ? 'You' : a.full_name, n, a.id === S.me?.id ? 'Your list' : `${a.full_name}’s list`, helps)).join('')}
     ${none ? bar('#/team?who=none', avatar(null, 28), 'No owner', none, 'Bills with no owner') : ''}
     ${idle ? `<p class="tm6-idle">${icon('circle-check')}<span>${busy.length || none ? 'Everyone else' : 'Everyone'}: nothing open</span></p>` : ''}</div>`;
 }
@@ -256,11 +278,14 @@ function loadHTML(rows = loads()) {
 // ---- the seasonal blocks ----
 // Bills with a position and no owner (W42): the first few, soonest step first, each with Give to… (admins) or Take it, and
 // the full list.
-function noOwner() {
+// The preview leaves out a bill Slipping already shows (the fresh-eyes check: HB 2300 twice on one page, each with Give
+// to…); the count and the full list still hold every one.
+function noOwner(shown = new Set()) {
   const list = nobodySteps(); if (!list.length) return '';
-  return block('noown', 'Bills with no owner', `<p class="tm6-sub">${plural(list.length, 'bill with a position has', 'bills with a position have')} no owner.</p>
-      <div class="v6-list" role="list">${list.slice(0, 3).map(nobodyRow).join('')}</div>
-      ${list.length > 3 ? door('#/team?who=none', 'user-round', `<b>All ${list.length} bills with no owner</b>`) : ''}`);
+  const prev = list.filter(x => !shown.has(x.b.id)).slice(0, 3);
+  return block('noown', 'Bills with no owner', `<p class="tm6-sub">${plural(list.length, 'bill with a position has', 'bills with a position have')} no owner.${prev.length ? '' : ` ${list.length === 1 ? 'It is' : 'Each is'} under Slipping.`}</p>
+      ${prev.length ? `<div class="v6-list" role="list">${prev.map(nobodyRow).join('')}</div>` : ''}
+      ${list.length > prev.length ? door('#/team?who=none', 'user-round', `<b>All ${list.length} bills with no owner</b>`) : ''}`);
 }
 const block = (id, title, body, { count = '' } = {}) => `<section class="tm6-block" data-block="${esc(id)}" aria-labelledby="tm6-${esc(id)}"><h2 class="tm6-h" id="tm6-${esc(id)}">${esc(title)}${count !== '' ? ` <span class="tm6-c">${esc(count)}</span>` : ''}</h2>${body}</section>`;
 const quiet = (ic, text) => `<p class="t6-quiet">${icon(ic)}<span>${esc(text)}</span></p>`;
@@ -301,8 +326,8 @@ function teamPage() {
     : quiet('calendar', 'No hearings on our bills today or tomorrow.'));
   const rows = loads();
   const who = phone ? `<details class="tm6-fold t6-doors" data-block="who"${S.tmWhoOpen ? ' open' : ''} data-tmwho><summary class="t6-line">${icon('users')}<span class="t6-lt"><b>Who is on what</b> · ${plural(rows.length, 'person', 'people')}</span>${icon('chevron-down', { cls: 't6-chev' })}</summary><div class="tm6-foldin">${loadHTML(rows)}</div></details>`
-    : block('who', 'Who is on what', `<p class="tm6-sub">Each person’s steps, with what they write, approve and ask for others.</p>${loadHTML(rows)}`);
-  const nob = nobodySteps().length, noown = phone ? (nob ? `<nav class="t6-doors" data-block="noown" aria-label="Bills with no owner">${door('#/team?who=none', 'user-round', `<b>No owner</b> · ${plural(nob, 'bill')}`)}</nav>` : '') : noOwner();
+    : block('who', 'Who is on what', `<p class="tm6-sub">Each person’s open steps, chair asks included, each counted once for whoever holds it.</p>${loadHTML(rows)}`);
+  const nob = nobodySteps().length, noown = phone ? (nob ? `<nav class="t6-doors" data-block="noown" aria-label="Bills with no owner">${door('#/team?who=none', 'user-round', `<b>No owner</b> · ${plural(nob, 'bill')}`)}</nav>` : '') : noOwner(new Set(shown.filter(x => !x.ids.length).map(x => x.b.id)));
   return `<div class="tm6-root${phone ? ' ph' : ''}">
     <header class="t6-head"><h1 class="v6-ptitle sv-h1" id="tm6-h1" tabindex="-1">Team</h1><p class="t6-date">${esc(new Date().toLocaleDateString('en-US', { ...HST, weekday: 'short', month: 'short', day: 'numeric' }))}</p></header>
     <div class="tm6-grid"><div class="tm6-main">${prepBlock()}${slip}${riskB}${noown}</div><div class="tm6-side">${sched}${who}${partnersHTML()}</div></div></div>`;

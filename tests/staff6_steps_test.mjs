@@ -310,7 +310,11 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
     const off = [], two = [];
     for (const who of people) for (const b of S.bills) { const s = X.billStep(b, { viewer: who }); if (!s?.state || ['filed', 'missed'].includes(s.state.key) || s.off) continue;
       const hl = X.hearingLine(s);
-      if (s.you && hl !== `${s.state.word} · you ${s.line[0].toLowerCase()}${s.line.slice(1).replace(/ · /g, ', ')}`) off.push(`${who.initials} ${b.bill_number}: "${s.line}" / "${hl}"`);
+      // (a draft that came back carries the flag in its lower-case words first, as someone else's does: spec 12.6)
+      if (s.you && hl !== `${s.state.word} · ${s.state.sentBack ? 'sent back, ' : ''}you ${s.line[0].toLowerCase()}${s.line.slice(1).replace(/ · /g, ', ')}`) off.push(`${who.initials} ${b.bill_number}: "${s.line}" / "${hl}"`);
+      // On a card that says the late window once, a late row gives its state and step only (A-14, the fresh-eyes check)
+      if (s.status?.tone === 'late') { const hs = X.hearingLine(s, { lateSaid: true });
+        if (/still accepted/.test(hs) || !STATE.test(hs) || (s.you && !/ · (sent back, )?you /.test(hs))) off.push(`${who.initials} ${b.bill_number}: late on a card "${hs}"`); }
       // someone else's late or overdue step keeps whose it is (Kris nudges them on the hearing day)
       if (!s.you && !s.nobody && ['late', 'overdue'].includes(s.status.tone) && !hl.includes(X.othersWords(s))) off.push(`${who.initials} ${b.bill_number}: ${hl} (no one named)`);
       if (!s.you && s.kind === 'second' && !/^Second look from /.test(s.line)) two.push(`${who.initials} ${b.bill_number}: ${s.line}`);
@@ -347,7 +351,9 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   const lrS = S.bills.map(b => ({ b, s: X.billStep(b, { viewer: LR }) })).find(x => x.s.you && x.s.h && X.rowButtonOK(x.s));
   if (lrS) { const c = X.hearingCard(lrS.s.h, { viewer: LR, big: true, lead: lrS.b.id });
     ok((c.match(/btn primary/g) || []).length === 1, `Lauren's hearing day: her own step leads the card with the one filled button (${lrS.b.bill_number})`);
-    ok(STATE.test(strip(c)) && /430/.test(strip(c)), `her card says the room and where the testimony stands: "${strip(c).slice(0, 90)}"`); }
+    ok(STATE.test(strip(c)) && /430/.test(strip(c)), `her card says the room and where the testimony stands: "${strip(c).slice(0, 90)}"`);
+    // The late window is said once, over the rows, never on each row under a heading that gives the same time (A-14).
+    if (lrS.s.status?.tone === 'late') ok((strip(c).match(/still accepted/g) || []).length === 1 && /Late, still accepted until the hearing starts/.test(strip(c)), `her card says the late window once: "${strip(c).slice(0, 160)}"`); }
   // Her sent-back testimony on that card (the critic's high): the approver's note, Open Doc beside Resubmit, and "sent
   // back" said, whether Today passes `lead` or draws the big card and moves the row itself.
   const sb = S.bills.map(b => ({ b, s: X.billStep(b, { viewer: LR }) })).find(x => x.s.you && x.s.kind === 'revise' && x.s.h && x.s.d?.review_note);

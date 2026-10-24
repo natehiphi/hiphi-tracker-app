@@ -198,7 +198,7 @@ function messagesHTML() {
   const list = rows.length ? listDetail({ id: 'ib-msg', label: 'Messages', rows: groupedMessages(rows), detail: ldPicked('ib-msg') ? msgDetail(ldPicked('ib-msg')) : '', empty: 'Pick a message to read it whole', back: 'Back to Messages' }) : none;
   const keys = hover() && keysOn() && keysUsed() && rows.length ? `<p class="ib-keys">${icon('keyboard')}<span>Keys: <kbd>j</kbd> and <kbd>k</kbd> move, <kbd>Enter</kbd> opens, <kbd>e</kbd> marks read or unread, <kbd>Shift</kbd>+<kbd>M</kbd> marks them all read.</span></p>` : '';
   // V26: v5's Inbox carried deadline reminders; v6 keeps them on the step, and says so once, quietly, for anyone looking.
-  const where = all.length ? `<p class="ib-note">${icon('clock')}<span>Testimony deadline reminders are not kept here: each step says its own time, on Today and in Testimony.</span></p>` : '';
+  const where = all.length ? `<p class="ib-note">${icon('clock')}<span>Testimony deadline alerts are not kept here: each step says its own time, on Today and in Testimony.</span></p>` : '';
   // The Filter button only once there is enough to filter (or a filter is on): two messages need none.
   const fBtn = all.length > 5 || filtered || v.showFilters;
   return `${all.length ? `<div class="ib-bar">${count}${!fBtn ? '' : btn('Filter', { kind: 'secondary', sm: true, icon: 'sliders-horizontal', attrs: { 'data-ibfilters': '1', 'aria-expanded': String(!!showF), 'aria-controls': 'ib-filters' } })}</div>` : ''}

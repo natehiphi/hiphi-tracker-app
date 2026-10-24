@@ -1066,6 +1066,8 @@ body.staff6 .tm6-ln { overflow: hidden; text-overflow: ellipsis; white-space: no
 body.staff6 .tm6-bar { display: block; height: 8px; border-radius: var(--v6-pill); background: var(--v6-wash); overflow: hidden; }
 body.staff6 .tm6-bar i { display: block; height: 100%; min-width: 2px; border-radius: var(--v6-pill); background: var(--v6-action); }
 body.staff6 .tm6-n { text-align: right; font-variant-numeric: tabular-nums; color: var(--v6-ink); }
+/* A helper with nothing of their own: whom they help, in words, across the bar's and the number's columns (never a 0). */
+body.staff6 .tm6-hw { grid-column: 3 / span 2; text-align: right; color: var(--v6-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 body.staff6 .tm6-load:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 @media (hover: hover) and (pointer: fine) { body.staff6 .tm6-load:hover { background: var(--v6-wash); } }
 /* a teammate's list: read-only, said once at the top */
