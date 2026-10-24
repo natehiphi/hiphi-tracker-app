@@ -23,7 +23,7 @@
 // calls the same data functions v5's Today, bill page and Review call, with the same Undo and who's-next toast (P2, P3).
 // The old word lists in model.js, today.js and hearing.js stay until each screen switches to these (spec section 5).
 import { S, DB, esc, advocate, capitolUrl, hooks, SESSION_OVER } from './data.js';
-import { stopOf, diedish, wantsHearing, hearingAhead, draftHearing, sittingDraft, filerOf, canFirstApprove, canSecondApprove,
+import { stopOf, diedish, wantsHearing, hearingAhead, draftHearing, sittingDraft, filerOf, canFirstApprove, canSecondApprove, standingIn,
   attendees, chairMail, chairAskOf, chairAskMail, chairIdsOf, askWords as stopAsk, gateNeed,
   whenAt, clockDay, lateLine, spanOf, roomName, blurb, billRoute, billYearPart, codesOf, movedFrom, isDecision,
   streamOf, billById, offTag, legById, askReply } from './model.js';
@@ -58,6 +58,17 @@ export const timeWords = t => new Date(t).toLocaleTimeString('en-US', { ...HST, 
 export const numWords = b => b ? `${String(b.bill_number || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2')}${billYearPart(b) ? ` (${b.session_year})` : ''}` : '';
 // A bill's name in a row: its nickname, else (a bill we only monitor) its short description (R-271).
 export const nameWords = (b, n = 72) => b ? (String(b.nickname || '').trim() || blurb(b, n) || numWords(b)) : '';
+// A row's or a card's name in full (A-1, nothing cut; rows wrap): the nickname, else the bill's whole description (R-271).
+// One longer than about 170 characters ends at its last clause before 160 (a ";", "," or ":"), else its last word, with
+// no typed "…" (a monitored bill's "Department of Health…" cut its subject off mid-name).
+export function fullName(b) {
+  if (!b) return '';
+  const nick = String(b.nickname || '').trim(); if (nick) return nick;
+  const t = blurb(b, 1e4); if (!t) return numWords(b);
+  if (t.length <= 170) return t;
+  const cut = t.slice(0, 160), at = Math.max(cut.lastIndexOf('; '), cut.lastIndexOf(', '), cut.lastIndexOf(': '));
+  return (at > 80 ? cut.slice(0, at) : cut.replace(/\s\S*$/, '')).replace(/[\s,;:]+$/, '');
+}
 // A teammate's first name, "you" for the viewer, and "(turned off)" for someone who is (R-316 W28).
 export const firstWords = (id, viewer) => { const v = meOf(viewer); if (v && id === v.id) return 'you';
   const a = advocate(id); return a ? (String(a.full_name || '').split(' ')[0] || 'Someone') + offTag(a) : 'Someone'; };
@@ -503,27 +514,27 @@ function chairLine(s, v) {
 }
 // A hearing card's line for one of its bills (spec 5: "each of our bills on it with its testimony state"; the people
 // test: every card says where its testimony stands): the state first, then one more part, so the row keeps four facts.
-// Same words, same order as the row on Today and Bills (spec 5, V19; the critic found "Resubmit by today 4:00 PM" on Today
-// beside "you resubmit it by today 4:00 PM" here): the viewer's own step is the state and the row's own words ("Writing ·
-// resubmit by today 4:00 PM", "Ready to file · file now, due today 10:00 AM", "Writing · make the draft, send for approval
-// by tomorrow 4:00 PM"; late, "Writing · resubmit late, still accepted until 9:30 AM today"). Someone else's: the state
-// and othersWords ("With an approver · Kris or Nate approves it", "Second look from Jaylen or Jess"); the card's own time
-// says when the sitting is, and the open item when its testimony is due (A-14). The flags of Writing ("not started",
-// "sent back") replace the who, since the writer is who has it either way.
+// Same words, same order as the row on Today and Bills (spec 5, V19): the viewer's own step is the state, "you" and the
+// row's own words ("Writing · you resubmit by today 4:00 PM", "Ready to file · you file now, due today 10:00 AM"; late,
+// "With an approver · you approve, late, still accepted until 9:30 AM today": without the "you" it read as someone else's
+// job, Kris's finding). Someone else's: the state and othersWords ("With an approver · Kris or Nate approves it", "Second
+// look from Jaylen or Jess"), and when it is late or overdue, the time after the person ("Ready to file · Kevin files it,
+// late, still accepted until 9:30 AM today"): on a hearing day those are the people to nudge, so the person is never
+// dropped. The flags of Writing replace the who ("not started"; "sent back, due today 2:00 PM", the time Testimony says
+// too); the card's own time says when the sitting is (A-14). Four facts: name, number, state, one more part (spec 8).
 export function hearingLine(s) {
   if (!s) return '';
   if (s.kind === 'chair' || s.kind === 'none' || !s.state) return s.line || '';
   const st = s.state, tone = s.status?.tone;
   if (st.key === 'filed' || st.key === 'missed' || s.off) return s.line;
-  // The row's parts joined by a comma, and "late" straight after the verb ("file late, still accepted until 1:10 PM").
-  if (s.you) return `${st.word} · ${lc(String(s.line || '')).replace(/ · late, /, ' late, ').replace(/ · /g, ', ')}`;
-  if (tone === 'late') return `${st.word}${st.sentBack ? ', sent back' : ''} · ${lateLine(s.until, { lower: true })}`;
-  if (tone === 'overdue') return `${st.word} · was due ${whenAt(s.due)}`;
-  if (s.nobody) return `${st.word} · ${lc(NO_OWNER)}`;
-  if (st.noDraft) return `${st.word} · not started`;
-  if (st.sentBack) return `${st.word} · sent back`;
-  const who = othersWords(s);
-  return who.startsWith(st.word) ? who : `${st.word} · ${who}`;
+  // The row's parts joined by a comma ("you file now, due today 10:00 AM"; "you approve, late, still accepted until …").
+  if (s.you) return `${st.word} · you ${lc(String(s.line || '')).replace(/ · /g, ', ')}`;
+  const when = tone === 'late' ? lateLine(s.until, { lower: true }) : tone === 'overdue' ? `was due ${whenAt(s.due)}` : '';
+  if (s.nobody) return `${st.word} · ${lc(NO_OWNER)}${when ? `, ${when}` : ''}`;
+  if (!when && st.noDraft) return `${st.word} · not started`;
+  if (!when && st.sentBack) return `${st.word} · sent back${s.due != null ? `, due ${whenAt(s.due)}` : ''}`;
+  const who = othersWords(s), lead = who.startsWith(st.word) ? who : `${st.word} · ${who}`;
+  return when ? `${lead}, ${when}` : lead;
 }
 
 // ---- the one step card (V07, V11, V22) ----
@@ -541,6 +552,8 @@ const OTHERS = { // someone else's step: who, then what
   revise: w => `${w} revises the testimony`, approve: w => `${w} approves the testimony`, second: w => `${w} gives the testimony its second look`,
   file: w => `${w} files the testimony at the Capitol`,
 };
+// The words over an approver's note (the step card, the hearing card's row, the Resubmit sheet): not a state word.
+const NOTE_HEAD = 'The approver’s note';
 const TRACK = [['write', 'Write'], ['approve', 'Approve'], ['second', 'Second look'], ['file', 'File']];
 // The Write -> Approve -> File track: done steps ticked, the current one named for screen readers (aria-current="step").
 // A quiet line, not tabs (V35: the v5 step bar read as tabs). The second look shows only when this bill needs one.
@@ -553,7 +566,7 @@ function trackHTML(s) {
 }
 const A = (act, s, extra = {}) => ({ 'data-v6act': act, 'data-v6b': s.b.id, ...(s.d ? { 'data-v6d': s.d.id } : {}), ...(s.h ? { 'data-v6h': s.h.id } : {}), ...extra });
 // P1 (review mode reads the draft first): until its Doc has been opened here, an approval's filled button opens Review
-// mode ("Review and approve"); once read, Approve approves in place. One route, so the row's Review and the card's button
+// mode ("Review", the row's and the hearing card's word for the same act: C-15); once read, Approve approves in place. One route, so the row's Review and the card's button
 // never do different things to one step.
 const DOC_OPENED = new Set();
 // The chair ask's email, with the hearing it follows for decision making (W33).
@@ -574,7 +587,7 @@ function stepButtons(s, v, primary) {
     case 'revise': out.push(btn('Resubmit', { kind: k, icon: 'send', attrs: A('submit', s) }), doc()); break;
     case 'approve': case 'second': {
       const read = !d?.doc_url || DOC_OPENED.has(String(d.id));
-      out.push(read ? btn('Approve', { kind: k, icon: 'check', attrs: A('approve', s) }) : btn('Review and approve', { kind: k, icon: 'check', href: `#/review/${encodeURIComponent(d.id)}` }),
+      out.push(read ? btn('Approve', { kind: k, icon: 'check', attrs: A('approve', s) }) : btn('Review', { kind: k, icon: 'check', href: `#/review/${encodeURIComponent(d.id)}` }),
         btn('Send back', { kind: 'secondary', icon: 'undo-2', attrs: A('sendback', s) }), doc('text'));
       break;
     }
@@ -589,7 +602,7 @@ function stepButtons(s, v, primary) {
     case 'chair': {
       const a = s.ask, m = a.m, to = m ? (m.n > 1 ? 'Email the chairs' : 'Email the chair') : '';
       const replied = kind => btn('They replied', { kind, icon: 'message-square', attrs: A('replied', s, { 'data-v6code': a.code, 'aria-haspopup': 'dialog' }) });
-      if (a.key === 'ask') { const ml = askMailOf(s); if (ml) out.push(btn(to, { kind: k, icon: 'mail', href: ml.href }), btn('Give to…', { kind: 'text', icon: 'user-round', attrs: A('giveask', s, { 'data-v6code': a.code, 'aria-haspopup': 'dialog' }) })); }
+      if (a.key === 'ask') { const ml = askMailOf(s); if (ml) out.push(btn(to, { kind: k, icon: 'mail', href: ml.href }), btn('Give this ask to…', { kind: 'text', icon: 'user-round', attrs: A('giveask', s, { 'data-v6code': a.code, 'aria-haspopup': 'dialog' }) })); }
       else if (a.key === 'giving') { const ml = askMailOf(s); if (ml) out.push(btn(to, { kind: k, icon: 'mail', href: ml.href }), btn('Done, I asked', { kind: 'secondary', icon: 'check', attrs: A('askdone', s, { 'data-v6code': a.code }) })); }
       // Spec 6: after 3 working days with no reply (or 2 before the notice) the asker follows up: the same approved email
       // again (its subject says it follows up), or a call to the office when the Capitol lists its number.
@@ -655,20 +668,91 @@ export function stepCard(b, { viewer, where = 'pane', d, h, primary = true, big 
   // The committee is named once: by the hearing line under a testimony step, by this small line on a chair ask.
   const eye = s.kind === 'chair' ? `${s.ask.decide ? 'Decision making' : 'Getting a hearing'}${s.ask.code ? ' · ' + committeeName(s.ask.code) : ''}` : s.kind === 'none' ? 'Where it stands' : '';
   const eyebrow = [lead ? `<span class="v6-step-lead">${esc(lead)}</span>` : '', eye ? esc(eye) : ''].filter(Boolean).join(' · ');
-  const acts = actsHTML != null ? actsHTML : own || (s.kind === 'filed' && !ro) ? stepButtons(s, v, primary) : '';
+  // Someone else's step: Open Doc for everyone, and where the step is done (the open item, the bill) a teammate who may
+  // approve covers it (File it for Kevin, Resubmit for Lauren: v5 kept both). The viewer's shared writing step: Message
+  // the other writer, to say "I've got it" (v5's "Message Lauren").
+  const more = actsHTML != null || ro ? { html: '' } : own ? { html: sharedMsg(s, v, where) } : coverButtons(s, v, where);
+  const acts = actsHTML != null ? actsHTML : (own || (s.kind === 'filed' && !ro) ? stepButtons(s, v, primary) : '') + more.html;
+  if (more.who) c.who = more.who;
   const back = from ?? (where === 'bill' ? b.bill_number : where === 'pane' ? 'today' : where);
   const hear = where === 'hearing' || s.kind === 'chair' ? '' : hearingLineHTML(s.h, v, back, { going: showGoing });
   const rem = own ? reminderHTML(s) : '';
+  // Who sent the draft and who else may act on it: said on every card, Today's compact one too (its own class: Today hides
+  // .v6-step-who), so the bill's owner and a stand-in know whose draft it is without opening Review (v5's card said it).
+  const sent = sentWords(s, v);
+  const fit = actsHTML == null ? actsFit(acts) : '';
   return `<section class="v6-step ${own ? 'own' : 'others'} k-${esc(s.kind)}${big ? ' big' : ''}${s.kind === 'missed' ? ' closing' : ''}${showName ? ' named' : ''} w-${esc(where)}" data-v6step="${esc(b.id)}" aria-labelledby="${hid}">
-    ${showName ? `<p class="v6-step-bill"><span class="v6-step-bn">${esc(nameWords(b))}</span> <span class="v6-row-num">${esc(numWords(b))}</span></p>` : ''}
+    ${showName ? `<p class="v6-step-bill"><span class="v6-step-bn">${esc(fullName(b))}</span> <span class="v6-row-num">${esc(numWords(b))}</span></p>` : ''}
     ${eyebrow ? `<p class="v6-step-eyebrow">${eyebrow}</p>` : ''}
     <h3 class="v6-step-what" id="${hid}">${nw(esc(c.what))}${showName ? `<span class="sr">, ${esc(sayWords(b))}</span>` : ''}</h3>
     ${c.tile?.words || c.when || rem ? `<div class="v6-step-meta">${[statusTile(c.tile), rem, c.when ? `<span class="v6-step-when">${nw(esc(c.when))}</span>` : ''].filter(Boolean).join(' ')}</div>` : ''}
+    ${sent ? `<p class="v6-step-sent">${nw(esc(sent))}</p>` : ''}
     ${s.kind === 'chair' || s.kind === 'none' || !showTrack ? '' : trackHTML(s)}${c.note || ''}
     ${c.who && showWho ? `<p class="v6-step-who">${nw(esc(c.who))}</p>` : ''}
-    ${acts ? `<div class="v6-step-acts">${acts}</div>` : ''}
+    ${acts ? `<div class="v6-step-acts${fit ? ' v6-fit' : ''}"${fit ? ` style="--v6-fit:${fit}px"` : ''}>${acts}</div>` : ''}
     ${s.nobody ? nobodyHTML(s, ro) : noOwnerHTML(b, v, ro)}${hear}
   </section>`;
+}
+// The width a card's buttons need on one line, about (Lato 16, the buttons' padding, icons and gaps; a little over, never
+// under): below it they all stack, full width, so a row never leaves one button alone on a line of its own (A-8: "Open
+// Doc" dropped alone under Review and Send back at 1280). '' for a single button, which needs no rule.
+function actsFit(html) {
+  const btns = String(html).match(/<(?:a|button)\b[^>]*class="btn[\s\S]*?<\/(?:a|button)>/g) || [];
+  if (btns.length < 2) return '';
+  const w = btns.reduce((n, x) => { const label = (x.match(/<span>([^<]*)<\/span>/) || ['', ''])[1].replace(/&[a-z#0-9]+;/gi, 'x');
+    return n + Math.ceil(label.length * 8.6) + 40 + (x.match(/<svg/g) || []).length * 28; }, 0);
+  return Math.round(w + 12 * (btns.length - 1));
+}
+// Who may cover a teammate's filing or resubmit (v5 let them): an approver, a second approver or an admin.
+const covers = v => { const a = v && (advocate(v.id) || v); return !!a && a.is_active !== false && (!!a.is_admin || !!a.can_approve || !!a.is_reviewer); };
+// Someone else's step on the card: Open Doc (a text button: the draft is not the viewer's to change), and, in the open item
+// and on the bill only (spec 11.1: a step's buttons live where it is done), File it for <the filer> and Resubmit for <the
+// writer> for whoever covers. Both are the filer's and the writer's own acts (the same filing card and Mark filed; the
+// same Resubmit, sent at once, with Undo and the who's-next toast). The database makes whoever resubmits its sender, so
+// its filer: the line before Resubmit says so ({ who }).
+function coverButtons(s, v, where) {
+  const out = [], d = s.d; let who = '';
+  if (!d || !s.state || s.you || s.nobody || !s.b) return { html: '' };
+  const home = ['pane', 'bill', 'testimony'].includes(where), first = id => cap(firstWords(id, v)), mate = (s.whose.ids || []).find(id => id !== v?.id);
+  if (home && mate && covers(v) && s.kind === 'file')
+    out.push(btn(`File it for ${first(mate)}`, { kind: 'secondary', icon: 'clipboard-check', attrs: A('filed', s, { 'aria-haspopup': 'dialog' }) }));
+  if (home && mate && covers(v) && s.kind === 'revise' && d.status === 'draft') {
+    out.push(btn(`Resubmit for ${first(mate)}`, { kind: 'secondary', icon: 'send', attrs: A('submit', s) }));
+    who = `If you resubmit it for ${first(mate)}, you file it once it is approved.`;
+  }
+  if (d.doc_url && s.state.key !== 'filed') out.push(docBtn(d.doc_url, { kind: 'text', attrs: { 'data-v6doc': d.id } }));
+  return { html: out.join(''), who };
+}
+// The viewer's writing step that another writer shares ("Shared with Lauren: whoever does it first", Today): a text
+// button opens the bill's Team talk with them @-named, to say "I've got it" (Testimony's "Message Kevin" does the same).
+function sharedMsg(s, v, where) {
+  const wh = s.whose; if (!wh || wh.role !== 'write' || ['hearing', 'team'].includes(where)) return '';
+  const to = (wh.ids || []).filter(id => id && id !== v?.id && advocate(id));
+  if (!to.length) return '';
+  const ini = to.map(id => advocate(id)?.initials).filter(Boolean).join(',');
+  return btn(`Message ${orWords(to, v, { and: true })}`, { kind: 'text', icon: 'message-square', href: `${billRoute(s.b, 'activity')}?mention=${encodeURIComponent(ini)}` });
+}
+// "Patti sent it today 6:00 AM" on With an approver, with who else may give the approval when it is the viewer's own
+// ("· Jess or Nate can approve it too"; a second approver standing in, "· you’re standing in for Kris or Nate"); a second
+// look says who approved it ("Kris approved it today 7:00 AM · Jaylen can give it too"). Someone else's card names who
+// approves in its sentence already, so its line is who sent it (A-14). model.js approverWords and draftWho say the same.
+function sentWords(s, v) {
+  const d = s.d; if (!d || !['approve', 'second'].includes(s.kind)) return '';
+  const name = id => id === v?.id ? 'You' : cap(firstWords(id, v));
+  const others = (s.whose.ids || []).filter(id => id !== v?.id);
+  if (s.kind === 'approve') {
+    const by = d.submitted_by ? `${name(d.submitted_by)} sent it${d.submitted_at ? ' ' + whenAt(d.submitted_at) : ''}` : '';
+    let rest = '';
+    if (s.you) {
+      const me = advocate(v.id) || v;
+      if (standingIn(me, s.h)) { const main = others.filter(id => { const a = advocate(id); return a && (a.is_admin || a.can_approve); });
+        rest = main.length ? `you’re standing in for ${orWords(main, v)}` : 'you’re standing in'; }
+      else if (others.length) rest = `${orWords(others, v)} can approve it too`;
+    }
+    return [by, rest].filter(Boolean).join(' · ');
+  }
+  const by = d.approved_by ? `${name(d.approved_by)} approved it${d.approved_at ? ' ' + whenAt(d.approved_at) : ''}` : '';
+  return [by, s.you && others.length ? `${orWords(others, v)} can give it too` : ''].filter(Boolean).join(' · ');
 }
 // F49 (V26): the deadline reminders the tracker sent the viewer about this step (Inbox items of kind 'deadline' on this
 // bill, for this draft's committee), unread. The Inbox no longer lists them; they are cleared when the step is done.
@@ -713,7 +797,9 @@ function testimonyCard(s, v, own) {
   if (s.off) when = 'The hearing was cancelled; no new date yet.';
   else if (s.due != null && (own ? s.act.kind === 'hand' : s.status.tone !== 'late')) when = `Testimony is due ${whenAt(s.due)}.`;
   let note = '';
-  if (st.sentBack) note = `<blockquote class="v6-step-note"><span class="v6-step-nl">Sent back</span>${esc(s.d.review_note)}</blockquote>`;
+  // Headed with words that are not a state: a capitalised "Sent back" over the note read as a sixth state beside the tile's
+  // "Writing · sent back" (spec 12.6: "sent back", lower case, is the flag on Writing; C-15).
+  if (st.sentBack) note = `<blockquote class="v6-step-note"><span class="v6-step-nl">${NOTE_HEAD}</span>${esc(s.d.review_note)}</blockquote>`;
   if (st.stale && st.key === 'write') note += `<p class="v6-step-warn">${icon('triangle-alert')}<span>The bill is now ${esc(versionWords(s.b.current_version))}: check the testimony before it goes out.</span></p>`;
   return { tile, what, when, note, who: filerWords(s.d, s.b, v, own) };
 }
@@ -751,6 +837,24 @@ function noOwnerHTML(b, v, ro) {
   if (ro || !v || ownersOf(b).length || !b.position || b.position === 'monitor' || b.tracked === false || diedish(b)) return '';
   const io = issueOwnerOf(b), give = v.is_admin || io === v.id;
   return `<p class="v6-step-noown">${icon('user-round')}<span>${esc(io ? `${NO_OWNER} · ${io === v.id ? 'you own' : cap(firstWords(io, v)) + ' owns'} its issue` : NO_OWNER)}</span>${btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-v6act': 'take', 'data-v6b': b.id } })}${give ? btn('Give to…', { kind: 'text', sm: true, attrs: { 'data-v6act': 'giveto', 'data-v6b': b.id, 'aria-haspopup': 'dialog' } }) : ''}</p>`;
+}
+
+// The bill's owner in the open item (Bills' panel, the quick look): "Lauren owns it", with Change owner for an admin and the
+// owner of the bill's issue (who may hand a bill, R-330), so changing an owner takes no trip to the bill (A-24, B-6). A bill
+// with no owner says so on its card already (Take it, Give to…), so this says nothing for it.
+export function ownerLine(b, { viewer } = {}) {
+  const v = meOf(viewer), owners = b ? ownersOf(b) : []; if (!owners.length) return '';
+  const words = owners.length === 1 ? (owners[0] === v?.id ? 'You own it' : `${cap(firstWords(owners[0], v))} owns it`) : `${cap(orWords(owners, v, { and: true }))} own it`;
+  const may = !!v && (!!v.is_admin || issueOwnerOf(b) === v.id);
+  return `<p class="v6-item-owner">${icon('user-round')}<span>${esc(words)}</span>${may ? btn('Change owner', { kind: 'text', sm: true, attrs: { 'data-v6act': 'giveto', 'data-v6b': b.id, 'aria-haspopup': 'dialog' } }) : ''}</p>`;
+}
+// Each active teammate's open steps (their own Today's, as Team counts them), for a menu that hands a bill on: { id: n }.
+// bill.js's "Give HB 2458 to…" can show the same load as Change owner here (B-6).
+export async function openCounts() {
+  const out = {};
+  try { const { work } = await import('./today.js');
+    for (const a of (S.advocates || []).filter(x => x.is_active !== false)) { try { out[a.id] = work(a).own.length; } catch { /* no count for them */ } } } catch { /* no counts */ }
+  return out;
 }
 
 // ---- the hearing card (V13, V14) ----
@@ -792,13 +896,17 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '', 
     // Wherever the card offers Resubmit, the note is beside it (Hearings › This week too), so the button resubmits at once.
     const ok = rowButtonOK(s), home = (first || big) && s.you && ['revise', 'write', 'submit'].includes(s.kind);
     const sbOn = s.you && s.kind === 'revise' && !!s.state?.sentBack && !!s.d?.review_note && (home || ok);
-    const sb = sbOn ? `<p class="v6-hcard-sb"><span class="v6-hcard-sbl">Sent back:</span> ${esc(s.d.review_note)}</p>` : '';
-    const doc = (home || sbOn) && s.d?.doc_url ? docBtn(s.d.doc_url, { kind: 'text', sm: true, attrs: { 'data-v6doc': s.d.id } }) : '';
+    const sb = sbOn ? `<p class="v6-hcard-sb"><span class="v6-hcard-sbl">${NOTE_HEAD}:</span> ${esc(s.d.review_note)}</p>` : '';
+    // Open Doc in the step card's own look beside Resubmit (tonal: the Doc is where the writer revises; Patti's finding)
+    const doc = (home || sbOn) && s.d?.doc_url ? docBtn(s.d.doc_url, { kind: 'secondary', sm: true, attrs: { 'data-v6doc': s.d.id } }) : '';
     const btnHtml = (ok ? rowButton(s, { ...(first ? { kind: 'primary', sm: false } : {}), confirm: !sbOn }) : rowButtonFor(s)) + doc, t = lineTone(s);
     const more = facts ? facts(x.b) : '';
-    return `<li class="v6-hcard-bill${first ? ' lead' : ''}"><a class="v6-hcard-bl" href="${esc(billRoute(x.b))}"><span class="v6-row-top"><span class="v6-row-name">${esc(nameWords(x.b))}</span> <span class="v6-row-num">${esc(numWords(x.b))}</span></span>
+    return `<li class="v6-hcard-bill${first ? ' lead' : ''}"><a class="v6-hcard-bl" href="${esc(billRoute(x.b))}"><span class="v6-row-top"><span class="v6-row-name">${esc(fullName(x.b))}</span> <span class="v6-row-num">${esc(numWords(x.b))}</span></span>
       <span class="v6-row-line${t.tone !== 'neutral' ? ' t-' + esc(t.tone) : ''}${t.bold ? ' soon' : ''}">${t.icon ? icon(t.icon) : ''}<span>${nw(esc(hearingLine(s)))}</span></span>${more ? `<span class="v6-hcard-facts">${nw(esc(more))}</span>` : ''}</a>${sb ? ` ${sb}` : ''}${btnHtml ? ` <span class="v6-row-act">${btnHtml}</span>` : ''}</li>`; };
   const going = past || cancelled ? '' : goingBtn(goingOn(h, v), { 'data-v6act': 'going', 'data-v6h': leadRow(h).id }, { kind: 'secondary', sm: !big });
+  // The lead bill (the viewer's own step, Today's hearing day) in a list of its own, so the narrowest phones can draw it
+  // right under the committee, before Going: at 320x640 Kris's Review sat under the bottom bar (steps.css, below 380px).
+  const first1 = lead != null && pos.length && String(pos[0].b.id) === String(lead) ? pos[0] : null, rest = first1 ? pos.slice(1) : pos;
   // On the sitting's own page (self) its Notice and video says Watch on YouTube: one link to one video (A-14). The link has
   // its own class, so staff.css's bare-link rule (inline-block below 900px) cannot take its icon's gap away.
   const stream = !cancelled && today && !self ? streamOf(h) : null;
@@ -814,7 +922,7 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '', 
       ${head}
       ${cancelled ? '<p class="v6-hcard-note">Cancelled, no new date yet</p>' : moved ? `<p class="v6-hcard-note">${icon('calendar')}<span>Moved from ${nw(esc(moved))}</span></p>` : ''}
       ${cancelled ? '' : `<p class="v6-hcard-going">${icon('users')}<span>${esc(goingWords(h, { viewer: v }))}${week && watch ? ` <span class="v6-hcard-watchin"><span class="v6-hcard-wdot">· </span>${watch}</span>` : ''}</span> ${going}</p>`}
-      ${pos.length ? `<ul class="v6-hcard-bills">${pos.map(bill).join('')}</ul>` : ''}
+      ${first1 ? `<ul class="v6-hcard-bills v6-hcard-lead1">${bill(first1)}</ul>` : ''}${rest.length ? `<ul class="v6-hcard-bills">${rest.map(bill).join('')}</ul>` : ''}
       ${mon.length && !self ? `<a class="v6-hcard-mon" href="${esc(href)}"><span>${pos.length ? 'Also heard: ' : ''}${mon.length === 1 ? '1 bill we monitor' : `${mon.length} bills we monitor`}</span>${icon('chevron-right', { cls: 'v6-chev' })}</a>` : ''}
       ${watch && !week ? `<p class="v6-hcard-watch">${watch}</p>` : ''}
     </div>
@@ -876,7 +984,7 @@ export function billRow(b, { viewer, line, button, href, pick, selected = false,
   const v = meOf(viewer), s = step || billStep(b, { viewer: v }), t = line == null ? lineTone(s) : { tone: '', icon: '', bold: false };
   const text = line != null ? line : nw(esc(s.line));
   const btnHtml = button === false ? '' : button ? button : rowButtonFor(s);
-  return rowHTML({ key: b.id, name: nameWords(b), num: numWords(b), line: text, tone: t.tone, icon: t.icon, bold: t.bold, href: href || billRoute(b), pick, selected, hint, button: btnHtml, cls, bill: b.id });
+  return rowHTML({ key: b.id, name: fullName(b), num: numWords(b), line: text, tone: t.tone, icon: t.icon, bold: t.bold, href: href || billRoute(b), pick, selected, hint, button: btnHtml, cls, bill: b.id });
 }
 // itemRow({ key, name, num, line, tone, icon, href, pick, button, selected, hint, cls }) -> any other item (a to-do, an
 // email, a person) in the same shape. `line` is HTML (escape it); `name` and `num` are text.
@@ -911,22 +1019,49 @@ const wide = () => { try { return matchMedia('(min-width: 1100px)').matches; } c
 // An item under about 1.3 windows tall grows with the page instead, sticking by its foot once that is in view (LEAD's
 // People record), so nothing of it is cut at the panel's edge (the critic: Testimony at 1280x800 cut "3:00 PM · Room 229"
 // through the line); a taller one scrolls inside with a 24px fade at its foot (.v6-ld-more), never a hard cut (A-8).
-function fitPanel(box) {
+// A growing item opens with its top in view (Back and its name: the critic landed mid-item, "Keiki Smiles Alliance on SB
+// 2345" above the window, when it stuck by its foot from the start), then moves with the page as the person scrolls,
+// until its foot shows, and sticks there; scrolling back up brings its top back the same way (B-4). Where it sits is kept
+// per list and item (PTOP), so a redraw after a step leaves it in place; `fresh` (just opened) starts at the top.
+const PTOP = new Map();
+// Where a panel's top may rest: the screen's own sticky top (Today 16px, Bills under the header), and never under the
+// app's sticky header (a growing item's Back and name hid under it).
+function panelBase(aside) {
+  if (aside.dataset.v6base == null) { const was = aside.style.top; aside.style.removeProperty('top');
+    aside.dataset.v6base = String(parseFloat(getComputedStyle(aside).top) || 24); if (was) aside.style.top = was; }
+  const hdr = document.querySelector('.sv-hdr'), hb = hdr && /sticky|fixed/.test(getComputedStyle(hdr).position) ? Math.max(0, hdr.getBoundingClientRect().bottom) : 0;
+  return Math.round(Math.max(+aside.dataset.v6base, hb ? hb + 16 : 0));
+}
+function fitPanel(box, { fresh = false } = {}) {
   const aside = box?.querySelector?.('.v6-ld-detail'); if (!aside) return;
-  // Only a top this function set is taken back (People sets its own for a record it lets grow).
-  const untop = () => { if (aside.dataset.v6top) { aside.style.removeProperty('top'); delete aside.dataset.v6top; } };
+  const id = box.dataset?.v6ld || '', key = S.v6ld?.[id]?.key ?? null;
+  // Only a top (and a room below the list) this function set is taken back (People sets its own for a record it lets grow).
+  const unroom = () => { if (box.dataset.v6room) { box.style.removeProperty('min-height'); delete box.dataset.v6room; } };
+  const untop = () => { PTOP.delete(id); unroom(); if (aside.dataset.v6top) { aside.style.removeProperty('top'); delete aside.dataset.v6top; } };
   if (!wide()) { aside.style.removeProperty('--v6-ld-max'); aside.classList.remove('v6-ld-grow', 'v6-ld-more'); untop(); return; }
+  if (fresh) unroom();
   const top = Math.max(24, aside.getBoundingClientRect().top), avail = Math.max(240, Math.round(innerHeight - top - 24));
   aside.style.setProperty('--v6-ld-max', `${avail}px`);
   const h = aside.scrollHeight, grow = h > avail + 1 && h <= 1.3 * innerHeight;
   aside.classList.toggle('v6-ld-grow', grow);
-  if (grow && h > innerHeight - 48) { aside.style.top = `${Math.round(innerHeight - h - 24)}px`; aside.dataset.v6top = '1'; } else untop();
+  if (grow && h > innerHeight - 48) {
+    const base = panelBase(aside), lo = Math.min(base, Math.round(innerHeight - h - 24)), y = window.scrollY, p = !fresh && PTOP.get(id);
+    const tp = Math.min(base, Math.max(lo, p && p.key === key ? p.t - (y - p.y) : base));
+    aside.style.top = `${tp}px`; aside.dataset.v6top = '1'; PTOP.set(id, { key, t: tp, y });
+    // A sticky panel never leaves its list's box: opened from a row near the list's end, the box ended before the panel
+    // could, so it rode up past the window's top. The box gets the room the panel needs while it is open (kept, never
+    // shrunk, so the panel does not jump), and gives it back when the item closes.
+    // Only while its top is still showing: once its foot is in view it scrolls on with the list's end, so the page never
+    // grows as the person scrolls.
+    const need = Math.ceil(tp + h - box.getBoundingClientRect().top);
+    if (tp > lo && need > box.offsetHeight) { box.style.minHeight = `${need}px`; box.dataset.v6room = '1'; }
+  } else untop();
   // The fade only where the panel itself scrolls (a screen may let a tall item grow its own way: People's pe-tall).
   let scrolls = false; try { scrolls = !grow && aside.scrollHeight > aside.clientHeight + 1 && getComputedStyle(aside).overflowY !== 'visible'; } catch { /* no styles: no fade */ }
   aside.classList.toggle('v6-ld-more', scrolls);
 }
 let fitting = null;
-const fitAll = () => { if (fitting) return; fitting = requestAnimationFrame(() => { fitting = null; document.querySelectorAll?.('.v6-ld.open').forEach(fitPanel); }); };
+const fitAll = () => { if (fitting) return; fitting = requestAnimationFrame(() => { fitting = null; document.querySelectorAll?.('.v6-ld.open').forEach(b => fitPanel(b)); }); };
 if (typeof window !== 'undefined' && window.addEventListener) { window.addEventListener('scroll', fitAll, { passive: true }); window.addEventListener('resize', fitAll); }
 // wireListDetail(root, { id, open: key => html, onChange }) -> { open(key), close() } : a click on a row's [data-v6pick]
 // opens it beside the list (or as its own page below 1100px); Back (the browser's, the phone's gesture or the Back
@@ -942,10 +1077,11 @@ export function wireListDetail(root, { id, open, onChange } = {}) {
     const aside = box.querySelector('.v6-ld-detail'), html = key != null ? open?.(key) || '' : '';
     box.classList.toggle('open', !!html);
     box.querySelectorAll('.v6-row').forEach(r => { const on = r.querySelector('[data-v6pick]')?.dataset.v6pick === String(key); r.classList.toggle('sel', on); r.classList.remove('hint'); r.querySelector('[data-v6pick]')?.toggleAttribute('aria-current', on); });
-    if (!html) { const f = box.querySelector('.v6-row'); f?.classList.add('hint'); aside.innerHTML = emptyHTML(emptyText); aside.style.removeProperty('--v6-ld-max'); aside.classList.remove('v6-ld-grow', 'v6-ld-more'); if (aside.dataset.v6top) { aside.style.removeProperty('top'); delete aside.dataset.v6top; } return; }
+    if (!html) { const f = box.querySelector('.v6-row'); f?.classList.add('hint'); aside.innerHTML = emptyHTML(emptyText); aside.style.removeProperty('--v6-ld-max'); aside.classList.remove('v6-ld-grow', 'v6-ld-more'); if (aside.dataset.v6top) { aside.style.removeProperty('top'); delete aside.dataset.v6top; }
+      if (box.dataset.v6room) { box.style.removeProperty('min-height'); delete box.dataset.v6room; } return; }
     aside.innerHTML = `${backBtn(backLabel)}${html}`;
     wireClose();
-    aside.scrollTop = 0; fitPanel(box);
+    aside.scrollTop = 0; fitPanel(box, { fresh: true });
     const head = aside.querySelector('h2, h3'); if (head) { head.setAttribute('tabindex', '-1'); head.focus({ preventScroll: true }); }
     if (!wide()) window.scrollTo(0, Math.max(0, box.getBoundingClientRect().top + window.scrollY - 72));
   };
@@ -1027,7 +1163,7 @@ let approvedAt = -1e4;
 // card's own Resubmit, with the note above it, sends at once.
 function confirmResubmit(el, b, d) {
   openSheet({ title: 'Did you make the changes?', size: 'auto',
-    body: `<blockquote class="v6-step-note"><span class="v6-step-nl">Sent back</span>${esc(d.review_note)}</blockquote>${d.doc_url ? `<p class="v6-rs-doc">${docBtn(d.doc_url, { kind: 'secondary', attrs: { 'data-v6doc': d.id } })}</p>` : ''}`,
+    body: `<blockquote class="v6-step-note"><span class="v6-step-nl">${NOTE_HEAD}</span>${esc(d.review_note)}</blockquote>${d.doc_url ? `<p class="v6-rs-doc">${docBtn(d.doc_url, { kind: 'secondary', attrs: { 'data-v6doc': d.id } })}</p>` : ''}`,
     foot: btn('Resubmit', { kind: 'primary', icon: 'send', attrs: { 'data-go': '1' } }),
     wire: dlg => { dlg.querySelector('[data-go]').onclick = () => { closeSheet({ silent: true }); delete el.dataset.v6confirm; ACTS.submit(el, b, d); }; } });
 }
@@ -1052,7 +1188,7 @@ const ACTS = {
   sendback(el, b, d) {
     const to = d.submitted_by && d.submitted_by !== S.me?.id ? cap(firstWords(d.submitted_by)) : '';
     openSheet({ title: 'What should change?', size: 'auto',
-      body: `<div class="field"><label for="v6-sb">${to ? `Your note for ${esc(to)}` : 'Your note'}</label><textarea id="v6-sb" rows="4" required aria-describedby="v6-sb-e" placeholder="Say what to fix, so the next version is the last one."></textarea><span class="err" id="v6-sb-e" hidden>${icon('circle-alert')}Write what should change first.</span></div>`,
+      body: `<div class="field"><label for="v6-sb">${to ? `Your note for ${esc(to)}` : 'Your note'}</label><textarea id="v6-sb" rows="4" required aria-describedby="v6-sb-e" placeholder="${to ? `What should ${esc(to)} change?` : 'What should change?'}"></textarea><span class="err" id="v6-sb-e" hidden>${icon('circle-alert')}Write what should change first.</span></div>`,
       foot: btn(to ? `Send back to ${esc(to)}` : 'Send it back', { kind: 'primary', icon: 'undo-2', attrs: { 'data-go': '1' } }),
       wire: dlg => {
         const ta = dlg.querySelector('#v6-sb'), er = dlg.querySelector('#v6-sb-e'); ta.value = (S.v6Held ??= {})['sb:' + d.id] || ''; ta.focus();
@@ -1119,18 +1255,21 @@ const ACTS = {
     toast(`You own ${sayWords(b)} now.`, { ok: true, undo: async () => { await DB.setOwner(b.id, null); redraw(); } }); }); },
   // As v5's Give to… on Today: the toast names who owns it now and promises no message (migration 064 messages a
   // to-do or a hearing given to someone, not an owner change), and the draft stays with whoever sent it.
-  giveto(el, b) {
+  // Each person's row says their load, the open steps on their own Today ("6 open", as Team counts them: today.js work),
+  // so a bill goes to someone with room (B-6). Read when the menu opens; a load that cannot be worked out says nothing.
+  async giveto(el, b) {
     const owner = ownersOf(b)[0] || '', s = billStep(b), by = s?.d?.submitted_by && live(s.d.submitted_by) ? s.d.submitted_by : null;
+    const n = await openCounts();
+    const sub = a => [a.id === owner ? 'Owns it now' : '', n[a.id] == null ? '' : `${n[a.id]} open`].filter(Boolean).join(' · ');
     pickerSheet({ title: `Who owns ${esc(sayWords(b))}?`, value: owner, help: by ? esc(`The draft stays with ${cap(firstWords(by))}, who sent it.`) : '',
-      options: (S.advocates || []).filter(a => a.is_active !== false).map(a => [a.id, a.id === S.me?.id ? `${a.full_name} (you)` : a.full_name, 'user-round', a.id === owner ? 'Owns it now' : '']),
+      options: (S.advocates || []).filter(a => a.is_active !== false).map(a => [a.id, a.id === S.me?.id ? `${a.full_name} (you)` : a.full_name, 'user-round', sub(a)]),
       onPick: async id => { if (id === owner) return; try { await DB.setOwner(b.id, id); redraw(); toast(id === S.me?.id ? `You own ${sayWords(b)} now.` : `${cap(firstWords(id))} owns ${sayWords(b)} now.`, { ok: true, undo: async () => { await DB.setOwner(b.id, owner || null); redraw(); } }); } catch (e) { toast(e, { err: true }); } } });
   },
 };
 // Delegated once (capture is not needed: nothing here sits inside another clickable row's handler, and a row's button
 // sits beside its link, never inside it).
 if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('click', e => {
-  // P1: an approver who opened the Doc from a card has read it, so its filled button turns from "Review and approve"
-  // into Approve (after the new tab opens).
+  // P1: an approver who opened the Doc from a card has read it, so its filled button turns from "Review" into Approve (after the new tab opens).
   const doc = e.target?.closest?.('[data-v6doc]');
   if (doc) { DOC_OPENED.add(String(doc.dataset.v6doc)); setTimeout(redraw, 400); return; }
   const el = e.target?.closest?.('[data-v6act]'); if (!el || el.tagName === 'A') return;

@@ -7,11 +7,11 @@
 // repeated the row it came from (assessment X16: 10 repeated texts between row and panel); this one adds only what the row
 // did not say. Its buttons need no wiring (steps.js delegates them), so the same item works wherever it is drawn.
 // The v5 parts below (billPane, bpHearing, bpFacts, bpOpen) stay for today.js and bills.js until those screens switch.
-import { S, esc } from './data.js';
+import { S, esc, startedFromLine } from './data.js';
 import { icon, iconBtn, goingBtn } from './ui.js';
 import { billNum, blurb, hearingWhen, billRoute, stopOf, hearingAhead, diedish, deadlineName, legislativeDay } from './model.js';
-import { TERMS_TAP, termBtn } from './terms.js';   // R-316 W40: the codes still shown tap open what they mean
-import { stepCard, billStep, whereWords, committeeName, versionWords, deadlineWords, numWords, nameWords } from './steps.js';
+import { TERMS_TAP, termBtn, plainCodes } from './terms.js';   // R-316 W40: the codes still shown tap open what they mean
+import { stepCard, billStep, whereWords, committeeName, versionWords, deadlineWords, numWords, nameWords, ownerLine } from './steps.js';
 
 // ---- v6: the open item ----
 // openItem(b, { viewer, where, close, headId, about, primary, from, also, d, h }) -> HTML.
@@ -34,7 +34,11 @@ export function openItem(b, { viewer, where = 'pane', close = '', headId = 'v6-i
   const s = billStep(b, { viewer, ...pick }), h = hearingAhead(b);
   // The step card's hearing line already says the hearing ahead: About does not say it again (A-14).
   const shown = !!(s?.h && h && s.kind !== 'chair' && where !== 'hearing' && s.h.committee === h.committee && s.h.scheduled_at === h.scheduled_at);
-  const facts = about ?? aboutBill(b, { hearing: !shown });
+  // Where the draft came from, in About (v5's card said it; v6 kept it only in Review, which only approvers open): "Started
+  // from HIPHI’s House Judiciary testimony, …".
+  const origin = s?.d ? startedFromLine(b, s.d) : '';
+  const facts = (about ?? aboutBill(b, { hearing: !shown })) + (origin ? `<p class="v6-item-from">${plainCodes(esc(origin))}</p>` : '');
+  const owner = ownerLine(b, { viewer });
   const alsoList = Array.isArray(also) ? also.filter(Boolean).map(x => `<li class="v6-also-item"><span class="v6-also-t">${x.text || ''}</span>${x.button || ''}</li>`).join('') : '';
   const alsoHTML = alsoList ? `<ul class="v6-also-list">${alsoList}</ul>` : typeof also === 'string' ? also : '';
   return `<div class="v6-item" data-v6item="${esc(b.id)}">
@@ -43,7 +47,7 @@ export function openItem(b, { viewer, where = 'pane', close = '', headId = 'v6-i
     ${sum ? `<p class="v6-item-sum">${esc(sum)}</p>` : ''}
     ${stepCard(b, { viewer, where, primary, named: false, ...pick, ...(from !== undefined ? { from } : {}) })}
     ${alsoHTML ? `<section class="v6-also" aria-labelledby="${esc(headId)}-also"><h3 class="v6-also-h" id="${esc(headId)}-also">Also on this bill</h3>${alsoHTML}</section>` : ''}
-    ${facts ? `<div class="v6-item-doors"><details class="v6-item-det"${S.v6About?.[b.id] ? ' open' : ''} data-v6about="${esc(b.id)}"><summary class="v6-item-door">${icon('info')}<span>About this bill</span>${icon('chevron-down')}</summary><div class="v6-item-about">${facts}</div></details></div>` : ''}
+    ${facts || owner ? `<div class="v6-item-doors">${owner}${facts ? `<details class="v6-item-det"${S.v6About?.[b.id] ? ' open' : ''} data-v6about="${esc(b.id)}"><summary class="v6-item-door">${icon('info')}<span>About this bill</span>${icon('chevron-down')}</summary><div class="v6-item-about">${facts}</div></details>` : ''}</div>` : ''}
   </div>`;
 }
 export const closeBtn = (attrs = {}) => iconBtn('x', 'Close', attrs, 'v6-item-close');

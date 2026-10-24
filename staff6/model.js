@@ -100,19 +100,20 @@ export function lastSlotBefore(code, dateStr, slots, st) {
 // ---- the Capitol's deadline names, in a few plain words (R-005, DESIGN-AUDIT G-13) ----
 // Staff use the Capitol's names with the Capitol and with each other, so the name stays and a few words ride along
 // saying what a bill must do by that date. Same meanings as STAGE_GLOSS and Help's glossary, cut to a phrase:
-// gateNeed(label, n) finishes "N bills must ... by then" (n === 1: "its"), gateGloss(label) follows a name standing
-// alone ("Second lateral: bills reach their last committee"). Checked against the Public Access Room's calendar:
+// gateNeed(label, n) finishes "N bills must ... by then" (n === 1: "its"), gateGloss(label) follows a name or a day
+// standing alone, as a whole sentence ("Second lateral: bills must reach their last committee"; Today's "Next deadline
+// Thu 3/19: bills sent to 3 or more committees must clear their first committee", C-10). Checked against the Public Access Room's calendar:
 // triple filing = a bill referred to three or more committees clears the first; lateral = it reaches its last
 // committee; decking = it clears the last one, ready for the floor vote; crossover and cross back = that chamber's vote;
 // final decking = conference drafts settled (Fiscal: the same for bills that spend money).
 const GATE_WORDS = [
-  [/triple/i, one => `clear ${one ? 'its' : 'their'} first committee`, 'bills with 3 or more committees clear the first'],
-  [/lateral/i, one => `reach ${one ? 'its' : 'their'} last committee`, 'bills reach their last committee'],
-  [/final decking/i, () => 'be settled in conference', 'House and Senate settle one version'],
-  [/decking/i, one => `clear ${one ? 'its' : 'their'} last committee`, 'bills clear their last committee'],
-  [/cross ?back|second crossover/i, () => 'pass the second chamber', 'bills pass the second chamber'],
-  [/crossover/i, one => `pass ${one ? 'its' : 'their'} first chamber`, 'bills pass their first chamber'],
-  [/fiscal/i, () => 'be settled in conference, if they spend money', 'the same, for bills that spend money'],
+  [/triple/i, one => `clear ${one ? 'its' : 'their'} first committee`, 'bills sent to 3 or more committees must clear their first committee'],
+  [/lateral/i, one => `reach ${one ? 'its' : 'their'} last committee`, 'bills must reach their last committee'],
+  [/final decking/i, () => 'be settled in conference', 'House and Senate must settle one version'],
+  [/decking/i, one => `clear ${one ? 'its' : 'their'} last committee`, 'bills must clear their last committee'],
+  [/cross ?back|second crossover/i, () => 'pass the second chamber', 'bills must pass the second chamber'],
+  [/crossover/i, one => `pass ${one ? 'its' : 'their'} first chamber`, 'bills must pass their first chamber'],
+  [/fiscal/i, () => 'be settled in conference, if they spend money', 'bills that spend money must be settled in conference'],
   [/sine die/i, null, 'the session’s last day'],
   [/intro/i, null, 'the last day to introduce bills'],
 ];
