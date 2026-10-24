@@ -459,7 +459,8 @@ export function memoData() {
     : `${coal ? coalName + ': w' : 'W'}eek of ${monday}${g ? `, ${g.days <= 0 ? g.name + ' is today' : `${when(g)} to ${g.name.toLowerCase()}`}` : ''}`;
   const ld = legislativeDay(), p1 = bills.filter(b => b.priority === 1).length;
   // The next two deadlines, as Bills shows them (decision 3).
-  const race = (x, then) => `${x.racing}${then ? '' : ` must ${gateNeed(x.name, x.racing)}`} by   // R-316 W33: not "clear committee" for a floor or conference deadline ${x.name.toLowerCase()} on ${memoDay(x.date)}${x.noHearing.length ? ` (${x.noHearing.length} with no hearing yet)` : ''}`;
+  // R-316 W33: not "clear committee" for a floor or conference deadline (gateNeed says what each deadline asks).
+  const race = (x, then) => `${x.racing}${then ? '' : ` must ${gateNeed(x.name, x.racing)}`} by ${x.name.toLowerCase()} on ${memoDay(x.date)}${x.noHearing.length ? ` (${x.noHearing.length} with no hearing yet)` : ''}`;
   const races = clock && clock.racing ? ` ${race(clock)}${clock.then ? `, and ${race(clock.then, true)}` : ''}.` : '';
   // Partners: "The next Capitol deadline is Thu 3/19: by then 1 of these bills must clear its first committee (it has a hearing)."
   const racePlain = x => `by ${memoDay(x.date)}, ${x.racing === 1 ? '1 of these bills' : `${x.racing} of these bills`} must ${gateNeed(x.name, x.racing)}${x.noHearing.length ? ` (${x.noHearing.length} with no hearing yet)` : ''}`;
