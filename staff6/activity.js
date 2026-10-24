@@ -167,13 +167,13 @@ function convOpts(b) {
     none: `No conversations with legislators logged yet${n ? ` for this bill or ${n === 1 ? 'its issue' : 'its issues'}` : ''}.` };
 }
 
-// The one box: what it is (Message · Log what happened · Talk with a legislator, v5's own words), the words, and Send.
-// Remembered per bill for the visit, with the words typed (B-6).
-const KINDS = [['msg', 'Message'], ['note', 'Log what happened'], ['talk', 'Talk with a legislator']];
+// The one box: what it is (Message · Log what happened · Log a talk), the words, and Send. "Log a talk" is the act's one
+// name everywhere (C-15, spec 8; it was "Talk with a legislator" on a laptop and "Legislator talk" on a phone), the same at
+// every width. Remembered per bill for the visit, with the words typed (B-6).
+const KINDS = [['msg', 'Message'], ['note', 'Log what happened'], ['talk', 'Log a talk']];
 const HINT = { msg: 'Message the team. Type @ to notify someone.', note: 'What happened? It goes in the bill’s record.', talk: 'What was said? Next you pick who it was with.' };
 const SEND = { msg: 'Send message', note: 'Add it to the bill’s record', talk: 'Next: who was it with?' };
-// Under 480px the third switch says "Legislator talk", so the three stay one even row (bill.css shows one of the two).
-const segWords = html => html.replace('>Talk with a legislator</button>', '><span class="bw-seg-l">Talk with a legislator</span><span class="bw-seg-s">Legislator talk</span></button>');
+const segWords = html => html;   // (one label at every width now)
 const kindOf = b => (S.bwKind ??= {})[b.id] || 'msg';
 const NOTE_TYPES = ['note', 'testimony', 'coalition', 'action_alert'].map(v => [v, NOTE_WORD[v]]);   // a meeting with a legislator is a talk; with anyone else, something else
 export function renderActivity(b, { inline = true } = {}) {
@@ -252,7 +252,13 @@ export function wireActivity(pnl, b, route, root) {
     if (k === 'talk') { logConversation({ bill: b, text: body, onDone: () => { drafts.delete(key); refreshConversations(); rerender('#bw-chat'); } }); return; }
     const send = form.querySelector('.bw-send'); send.setAttribute('aria-busy', 'true'); ta.readOnly = true;
     try {
-      if (k === 'msg') { await DB.sendMessage(b.id, body); drafts.delete(key); rerender('#bw-chat'); requestAnimationFrame(toTop); return; }
+      // It says who was told (A-16: an action says so; Nate's walk: after Send nothing did, and an old toast could still be
+      // showing): "Sent. Kevin sees it in their Inbox." for each @name, else "Sent to the bill's team".
+      if (k === 'msg') { await DB.sendMessage(b.id, body); drafts.delete(key); rerender('#bw-chat'); requestAnimationFrame(toTop);
+        const told = people.filter(a => new RegExp(`(^|\\s)@${firstName(a).replace(/[^\\wʻ'-]/g, '')}\\b`, 'i').test(body)).map(a => firstName(a));
+        const names = told.length > 1 ? `${told.slice(0, -1).join(', ')} and ${told[told.length - 1]}` : told[0];
+        toast(told.length ? `Sent. ${names} ${told.length > 1 ? 'see' : 'sees'} it in their Inbox.` : 'Sent to the bill’s team.', { ok: true });
+        return; }
       // A note: its first line is what happened (the record's line, up to 200 characters), the rest its details.
       const [first, ...rest] = body.split('\n'), title = first.trim().slice(0, 200), more = [first.trim().slice(200), ...rest].join('\n').trim();
       const type = form.querySelector('#bw-ntype')?.value || 'note';

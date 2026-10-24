@@ -11,9 +11,9 @@
 //   4. Mark filed, with the Capitol's confirmation link if there is one. In the open item Mark filed stays in reach at the
 //      foot of the screen (the panel's on a laptop, above the tab bar on a phone) while steps 1 to 3 scroll, as the sheet's
 //      foot does (spec 3.2).
-// The name it is signed with is HIPHI. A coalition's exact sign-off name is stored nowhere (campaigns.public_name is a topic
-// label, "General Public Health" is HIPHI's own catch-all group), so the card never offers one to copy: a bill in a
-// coalition says who to ask for it (fresh-eyes review 23 Oct, C-15).
+// The name it is signed with is HIPHI; a bill on a coalition also offers that coalition's name, as the public page shows it
+// (campaigns.public_name: "Tobacco-Free Hawaiʻi" for CTFH), as a second answer with its own Copy (B-6: the app remembers;
+// Nate's walk: Kevin was told to look it up). HIPHI's own catch-all group is no coalition anyone signs for.
 // Step 2 names the hearing by its code too ("HHS/CPN"), small beside the words: the Capitol's hearing picker lists
 // committees by code (spec 5: codes beside the words where the Capitol uses them).
 // The same steps are a sheet (the row's File and the card's Mark filed anywhere in the app: setStepHook('file')) and the
@@ -35,13 +35,6 @@ export const pdfUrl = url => { const m = /docs\.google\.com\/document\/d\/([^/?#
 // The bill's coalitions, less HIPHI's own catch-all group (General HIPHI), which is not a coalition anyone signs for.
 const coalitionsOf = b => (S.billCampaigns?.[b.id] || []).map(id => (S.campaigns || []).find(c => c.id === id))
   .filter(c => c && c.name !== 'General HIPHI' && c.slug !== 'general-hiphi');
-// Who knows the coalition's exact sign-off name: the bill's owner, else the coalition's lead (never the viewer).
-function signAsk(b, coals) {
-  const me = S.me?.id, own = ownerOf(b);
-  if (own && own.id !== me) return `Ask ${firstWords(own.id)} (the bill’s owner) for its exact name.`;
-  const lead = coals.map(c => c.owner_id).find(id => id && id !== me);
-  return lead ? `Ask ${firstWords(lead)} (the coalition’s lead) for its exact name.` : 'Use the exact name the coalition signs its letters with.';
-}
 const sittingRows = h => (S.hearings || []).filter(x => x.committee === h.committee && x.scheduled_at === h.scheduled_at);
 const goers = h => { const seen = new Set(); return h ? sittingRows(h).flatMap(r => attendees(r)).filter(a => !seen.has(a.id) && seen.add(a.id)).map(a => a.id) : []; };
 // The form's choice, from who is going (V25 weak point: "written only" would steer Kris and Lauren wrong).
@@ -77,7 +70,8 @@ export function filingSteps(b, d, { inline = false, primary = true, going = '' }
       <dl class="tf-answers">
         ${answer('Position', pos ? esc(pos) : esc(POS_WORD[b.position] || 'Ask the bill’s owner'), pos ? copyBtn(pos, 'the position') : '')}
         ${answer('Organization', esc(HIPHI), copyBtn(HIPHI, 'the organization'))}
-        ${answer('Signed with', `HIPHI${coals.length ? `<span class="tf-sub">Signing for a coalition? ${esc(signAsk(b, coals))}</span>` : ''}`, copyBtn('HIPHI', 'the name it is signed with'), 'tf-signed')}
+        ${answer('Signed with', 'HIPHI', copyBtn('HIPHI', 'the name it is signed with'), 'tf-signed')}
+        ${coals.map(c => { const n = String(c.public_name || c.name || '').trim(); return n ? answer(coals.length > 1 ? `Or for ${c.name}` : 'Or for the coalition', esc(n), copyBtn(n, `the coalition’s name, ${n}`), 'tf-signed') : ''; }).join('')}
         ${answer('How we testify', `${esc(choice.words)}<span class="tf-sub">${choice.going ? 'Speaking by video instead? Choose Remote.' : 'Someone speaking? Choose In person, or Remote by video.'}</span>`, '', 'tf-how', going ? `<div class="tf-going">${going}</div>` : '')}
         ${stream ? answer('Watch', `<a href="${esc(stream.url)}" target="_blank" rel="noopener">${icon('video')}<span>${esc(stream.label)}</span></a>`) : ''}
       </dl>

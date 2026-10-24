@@ -200,6 +200,15 @@ export function wireDraftsFocus(pnl, b) {
   requestAnimationFrame(land);
   setTimeout(() => { const a = document.activeElement; if (!a || a === document.body || a.id === 'main') land(); }, 450);
 }
+// The public's response in Outreach's words and order ("43 followers · 5 testified · 4 emailed · 2 plan to attend"; model.js
+// publicWords says "43 follow"): one word per fact on the Public tab, the hearing page and This week's asks (C-15).
+function respWords(b) {
+  const c = publicResponse(b); if (!c) return '';
+  const n = x => Number(x).toLocaleString();
+  const parts = [c.followers ? `${n(c.followers)} ${c.followers === 1 ? 'follower' : 'followers'}` : '', c.testimonies ? `${n(c.testimonies)} testified` : '', c.emails ? `${n(c.emails)} emailed` : '',
+    c.attending ? `${n(c.attending)} ${c.attending === 1 ? 'plans' : 'plan'} to attend` : '', c.shares ? `${n(c.shares)} shared` : ''].filter(Boolean);
+  return parts.length ? `Public: ${parts.join(' · ')}` : '';
+}
 export function renderPublic(b) {
   const cls = pubStateCls(b), live = cls.includes('live'), warn = cls.includes('warn');
   const listed = b.is_public && b.tracked !== false, sum = valOf(b, 'public_summary'), ask = valOf(b, 'public_action'), nickname = valOf(b, 'nickname');
@@ -214,9 +223,9 @@ export function renderPublic(b) {
   // under the editor); "Write it" on Today still lands on the ask below it (?focus=ask, wirePublic).
   const spread = `<section class="bw-sec bw-pblk bw-kit" aria-labelledby="bw-spread-h">
     <h2 class="bw-h2" id="bw-spread-h">Share kit</h2>
-    <p class="bw-resp">${publicWords(b) ? `${icon('users')}<span>${esc(publicWords(b))}.${DEMO ? ' <span class="bw-quiet">(sample numbers)</span>' : ''}${!((publicResponse(b) || {}).people >= 10) ? ' <span class="bw-quiet">Actions show from 10 people.</span>' : ''}</span>` : `${icon('users')}<span class="bw-quiet">No public counts yet: actions are counted from 10 people.</span>`}</p>
+    <p class="bw-resp">${respWords(b) ? `${icon('users')}<span>${esc(respWords(b))}.${DEMO ? ' <span class="bw-quiet">(sample numbers)</span>' : ''}${!((publicResponse(b) || {}).people >= 10) ? ' <span class="bw-quiet">Actions show from 10 people.</span>' : ''}</span>` : `${icon('users')}<span class="bw-quiet">No public counts yet: actions are counted from 10 people.</span>`}</p>
     <div class="bw-acts bw-spreadacts">${card ? btn('This week’s ask card', { kind: 'secondary', sm: true, icon: 'megaphone', href: card })
-      : listed ? `${btn('Copy share link', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-kit': 'link' } })}${btn('Copy a ready message', { kind: 'secondary', sm: true, icon: 'message-square', attrs: { 'data-kit': 'msg' } })}` : ''}${emailOk ? emailDoor({ bill: b }, { kind: 'secondary', sm: true })
+      : listed ? `${btn('Copy link', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-kit': 'link' } })}${btn('Copy a ready message', { kind: 'secondary', sm: true, icon: 'message-square', attrs: { 'data-kit': 'msg' } })}` : ''}${emailOk ? emailDoor({ bill: b }, { kind: 'secondary', sm: true })
       : btn('Email followers', { kind: 'secondary', sm: true, icon: 'mail', attrs: { 'data-email': '1', 'aria-disabled': 'true' } })}</div>
     <p class="bw-quiet">${[listed ? '' : 'Make it public to get its share link.', emailOk ? 'Someone who approves emails checks it before it sends.' : b.position === 'monitor' ? 'Monitor bills get no supporter emails. Take a position first.' : ''].filter(Boolean).join(' ')}</p>
   </section>`;
@@ -230,11 +239,15 @@ export function renderPublic(b) {
         <input id="bw-nick" type="text" maxlength="40" autocomplete="off" value="${esc(nickname)}" aria-describedby="bw-nick-n" placeholder="Disposable e-cigarette ban">${count(nickname.length, 'bw-nick-n', 40)}</div>
       <div class="field"><label for="bw-psum">Public summary</label>
         <textarea id="bw-psum" maxlength="280" rows="3" aria-describedby="bw-psum-n" placeholder="One sentence a neighbor would understand. No jargon, no bill numbers.">${esc(sum)}</textarea>${count(sum.length, 'bw-psum-n')}</div>
-      <div class="field"><label for="bw-pact">The ask</label>
+      ${card ? `<div class="field bw-askro"><p class="bw-asklabel">The ask</p>
+        <p class="bw-asktext">${ask ? esc(ask) : '<span class="bw-quiet">Not written yet.</span>'}</p>
+        <p class="bw-askgo">${icon('megaphone')}<a href="${esc(card)}">Change it on This week’s asks</a></p>
+        <input id="bw-pact" type="hidden" value="${esc(ask)}"><input id="bw-puntil" type="hidden" value="${esc(valOf(b, 'public_action_until'))}"><span id="bw-pact-n" hidden></span><span id="bw-puntil-w" hidden></span></div>`
+      : `<div class="field"><label for="bw-pact">The ask</label>
         <textarea id="bw-pact" maxlength="280" rows="3" aria-describedby="bw-pact-n" placeholder="What should someone do today? Leave it blank and the hearing itself is the ask.">${esc(ask)}</textarea>${count(ask.length, 'bw-pact-n')}</div>
       <div class="field"><label for="bw-puntil">Show the ask through</label>
         <input id="bw-puntil" type="date" value="${esc(valOf(b, 'public_action_until'))}" aria-describedby="bw-puntil-w">
-        <span class="help bw-untilwarn" id="bw-puntil-w" role="status">${esc(untilWarn(b, ask, valOf(b, 'public_action_until')))}</span></div>
+        <span class="help bw-untilwarn" id="bw-puntil-w" role="status">${esc(untilWarn(b, ask, valOf(b, 'public_action_until')))}</span></div>`}
       ${reachNote(b)}
       <div class="field"><label for="bw-ptp">Talking points for testimony</label>
         <textarea id="bw-ptp" rows="5" aria-describedby="bw-ptp-h bw-ptp-n" placeholder="One point per line, up to five.">${esc(valOf(b, 'talking_points'))}</textarea>

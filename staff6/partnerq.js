@@ -15,14 +15,14 @@
 //   - Approve is one tap (Nate). It takes 10 seconds to reach the database so Undo can stop it (B-5; the same delay
 //     Today's suggestion log uses): approved words cannot be put back to waiting once they are live.
 //   - The reading grade beside each talking point is the same arithmetic as tests/words_test.mjs (C-10 asks grade 8).
-//   - Words that carry an ask (R-328 batch G, backend 185): the card shows the ask on its own, says which 4:30 pm email
+//   - Words that carry an ask (R-328 batch G, backend 185): the card shows the ask on its own, says which 4:30 PM email
 //     it joins once approved, and has one switch, "Also by text" (off: partner asks are email only unless Nate or Jess
 //     switches it on for one ask). An ask longer than a text (110 characters) needs a line of its own for the text. The
-//     approved ask then shows on the Partners screen as "Going out at 4:30 pm" with Take it back, like HIPHI's own.
+//     approved ask then shows on the Partners screen as "Going out at 4:30 PM" with Take it back, like HIPHI's own.
 import { S, DB, esc, fmtDate, hooks } from './data.js';
 import { icon, btn, chip, toast, openSheet, closeSheet, groupHead, friendly, switchRow, POS_WORD, POS_ICON } from './ui.js';
 import { whenAt, billNum, billRoute, billById } from './model.js';
-import { dailyWord, paused } from './composer.js';   // which 4:30 pm email; while email is paused an approved ask is held, as HIPHI's own
+import { dailyWord, paused } from './composer.js';   // which 4:30 PM email; while email is paused an approved ask is held, as HIPHI's own
 import { numWords } from './steps.js';   // Staff v6: the bill number as every row says it (D15)
 
 // ---- who ----
@@ -70,10 +70,12 @@ export function fkGrade(text) {
   const syl = words.reduce((n, w) => n + syllables(w), 0);
   return Math.max(1, Math.round(0.39 * (words.length / sents.length) + 11.8 * (syl / words.length) - 15.59));
 }
-const gradeTag = t => { const g = fkGrade(t); return g == null ? '' : `<span class="pq-grade${g > 8 ? ' hi' : ''}">grade ${g}${g > 8 ? ', above 8' : ''}</span>`; };
+// Staff v6: the reading level is said only when it is over the target, in plain words (Nate's walk: "grade 11, above 8"
+// and "grade 6" read like codes beside every line; D15). The arithmetic is unchanged (C-10 asks grade 8).
+const gradeTag = t => { const g = fkGrade(t); return g != null && g > 8 ? `<span class="pq-grade hi">${icon('info')}<span>Harder to read than we aim for</span></span>` : ''; };
 const pointsSum = pts => { const n = pts.length; if (!n) return 'none';
   const hi = pts.filter(p => (fkGrade(p) ?? 0) > 8).length;
-  return `${n}, ${hi ? `${hi} above grade 8` : n === 1 ? 'at grade 8 or below' : 'all at grade 8 or below'}`; };
+  return `${n}${hi ? ` · ${hi === n ? (n === 1 ? 'harder' : 'all harder') : `${hi} harder`} to read than we aim for` : ''}`; };
 
 // ---- the queue ----
 // partner_queue() (184): { bills, issues, groups, requests }. Asked once a visit (and again after Refresh: loadAll clears
@@ -98,7 +100,7 @@ export function pqOthers() {
 }
 
 // ---- the asks (R-328 G, backend 185) ----
-// partner_asks_list(): every current partner ask, for the Partners screen's "Going out at 4:30 pm" and for a card whose
+// partner_asks_list(): every current partner ask, for the Partners screen's "Going out at 4:30 PM" and for a card whose
 // words keep an ask already approved. Asked once a visit, like the queue; any staff member may read it.
 export function wantAsks({ force = false } = {}) {
   if (S.pAsksLoading) { if (force) S.pAsksAgain = true; return; }   // a change while a read is on its way reads once more after it
@@ -110,11 +112,11 @@ export function wantAsks({ force = false } = {}) {
 export const asksChanged = () => { S.pAsks = undefined; };
 export const TEXT_MAX = 110, TEXT_MIN = 10;   // a text's room for the line (185: 10 to 110 characters, as HIPHI's big push)
 const hstToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
-// Which email an ask joins, in words: "today’s 4:30 pm email" or "tomorrow’s…" (t: its scheduled_for; none: the next one).
+// Which email an ask joins, in words: "today’s 4:30 PM email" or "tomorrow’s…" (t: its scheduled_for; none: the next one).
 // While email is paused it is held, as HIPHI's own approved emails are (composer.js HELD).
-export const emailWord = (t = null) => paused() ? 'the first 4:30 pm email after email is turned on' : `${dailyWord(t)}’s 4:30 pm email`;
+export const emailWord = (t = null) => paused() ? 'the first 4:30 PM email after email is turned on' : `${dailyWord(t)}’s 4:30 PM email`;
 const curAsk = it => (S.pAsks || []).find(a => a.partner_slug === it.partner_slug && a.bill_id === it.bill_id && a.state !== 'replaced');
-// What approving does to the ask (partner_ask_on_approve): 'new' (it goes out at the next 4:30 pm), 'same' (the live
+// What approving does to the ask (partner_ask_on_approve): 'new' (it goes out at the next 4:30 PM), 'same' (the live
 // words' ask, approved before: it keeps its place and nobody gets it twice; cur when the list has it), 'over' (its end date
 // has passed: it goes nowhere), 'ends' (these words drop an ask still going out), or null (no ask either way).
 function askFate(it) {
@@ -155,7 +157,7 @@ function askNow(it) {
     : c.state === 'going_out' ? `The same ask as their live words: it still goes out in ${emailWord(c.scheduled_for)}.`
     : c.state === 'sending' ? 'The same ask as their live words: it is already going out, and nobody gets it twice.'
     : c.state === 'taken_back' ? 'The same ask as their live words, which was taken back: it stays taken back.' : 'The same ask as their live words.';
-  return paused() ? 'Email is paused: once you approve, it is held for the first 4:30 pm email after email is turned on. You can take it back on Partners.'
+  return paused() ? 'Email is paused: once you approve, it is held for the first 4:30 PM email after email is turned on. You can take it back on Partners.'
     : `Once you approve, it goes out in ${emailWord()}. You can take it back on Partners until then.`;
 }
 // The Approve toast's second sentence, and the database's answer in the same words (only a new ask's email can differ: an
@@ -214,7 +216,9 @@ const head = (it, h = 'h3', id = '') => {
   const b = it.kind === 'bill' ? billOf(it) : null;
   return `<${h} class="pq-name"${id ? ` id="${id}"` : ''}><a class="pq-grp" href="${groupHref(it.partner_slug)}">${esc(it.partner_name)}</a>${b ? ` <span class="pq-on">on</span> <a class="pq-bill" href="${esc(billLink(it))}">${esc(billNum(b))}</a>` : ` <span class="pq-on">· its own issue</span>`}</${h}>`;
 };
-const sideOf = it => it.kind === 'issue' ? stanceChip(it.words?.stance) : sideChip(it.words?.side);
+// The side they take, in plain words: a status, never shaped like a button (spec 4; the bordered "Support" pill with its
+// thumbs-up read as one). sideChip and stanceChip stay for the Partners screen's own look.
+const sideOf = it => { const w = it.kind === 'issue' ? STANCE[it.words?.stance]?.[0] : sideWord(it.words?.side); return w ? `<span class="pq-side">${esc(it.kind === 'issue' ? w : `Side: ${w}`)}</span>` : ''; };
 const acts = (it, primary) => `${btn('Approve', { kind: primary ? 'primary' : 'secondary', icon: 'check', attrs: { 'data-pqok': keyOf(it) } })}${btn('Ask for a change', { kind: 'text', icon: 'message-square', attrs: { 'data-pqask': keyOf(it), 'aria-haspopup': 'dialog' } })}`;
 const errLine = m => `<p class="inlinemsg">${icon('circle-alert')}<span>${esc(m)}</span></p>`;
 // The ask on its own, just above Approve (R-328 G): what it says and until when, what approving does with it, and Also by
@@ -323,12 +327,16 @@ export function pqRow(it, { short = false } = {}) {
 // The next-step card: the group, what to approve, the closer-look flag, the ask, then Approve; every word, and how the ask
 // goes out, one fold away under the buttons (Nate's November card put Approve below a 320 phone's first screen; the doors'
 // Partners line is the way to the Partners screen, so the card leaves out Open Partners).
+// It leads with what the words are about, the bill's name and its number ("Sugary drink fee SB 2345"), and the partner is
+// in the line, "Keiki Smiles Alliance’s words to approve" (Nate's walk: "Keiki Smiles Alliance SB 2345" read the number
+// as the partner's; D15).
 export function pqCard(it, { id = 't6-next-h' } = {}) {
-  const r = pqRow(it), w = it.words || {};
+  const r = pqRow(it, { short: true }), w = it.words || {};
   const ask = askHTML(it, 'c', { fold: true }), how = ask.match(/<details class="pq-more pq-how"[\s\S]*?<\/details>/)?.[0] || '';
+  const whatW = it.kind === 'issue' ? `${it.partner_name}’s new issue to approve` : `${it.partner_name}’s words to approve`;
   return `<section class="v6-step own named w-today t6-mini pq6" aria-labelledby="${id}" data-pqcard="${esc(keyOf(it))}">
     <p class="v6-step-bill"><span class="v6-step-bn">${esc(r.name)}</span>${r.num ? ` <span class="v6-row-num">${esc(r.num)}</span>` : ''}</p>
-    <h3 class="v6-step-what" id="${id}">${esc(r.what)}</h3>
+    <h3 class="v6-step-what" id="${id}">${esc(whatW)}</h3>
     <p class="v6-step-when">${esc(sentLine(it))}</p>
     ${it.kind === 'bill' ? flagLine(it.flag) : ''}
     ${how ? ask.replace(how, '') : ask}
@@ -348,12 +356,13 @@ export function pqItem(it, { close = '' } = {}) {
     ${it.live ? `${changes(w, it.live)}<details class="pq-more"><summary>${icon('chevron-down', { cls: 'chev' })}<span>All the words, as they would go live</span></summary><div class="pq-sec">${wordsHTML(it, { ask: false })}</div></details>`
       : `<div class="pq-sec">${wordsHTML(it, { ask: false })}</div>`}
     ${askHTML(it, 'p')}
-    <div class="pq-acts v6-step-acts">${acts(it, false)}${pqOpen()}</div></div>`;
+    <div class="pq-acts v6-step-acts">${acts(it, false)}</div>
+    <p class="pq-openp">${pqOpen()}</p></div>`;
 }
 
 // ---- doing ----
 const itemBy = k => [...(S.pq?.bills || []), ...(S.pq?.issues || [])].find(it => keyOf(it) === k);
-const what = it => it.kind === 'issue' ? `${it.partner_name}’s issue “${it.words?.name || ''}”` : `${it.partner_name}’s words on ${billNum(billOf(it))}`;
+const what = it => it.kind === 'issue' ? `${it.partner_name}’s issue “${it.words?.name || ''}”` : `${it.partner_name}’s words on ${numWords(billOf(it))}`;
 const drop = it => { if (!S.pq) return; S.pq.bills = (S.pq.bills || []).filter(x => x !== it); S.pq.issues = (S.pq.issues || []).filter(x => x !== it); };
 async function commit(k) {
   const h = HOLD.get(k); if (!h) return; HOLD.delete(k); clearTimeout(h.t);
@@ -389,17 +398,24 @@ function approve(k) {
   const said = askSaid(it), fate = askFate(it)?.kind, asks = fate === 'new' || fate === 'same';
   const t = setTimeout(() => commit(k), 10000);
   HOLD.set(k, { it, t, opt, said, fate });
-  S.tdRefocus = null; hooks.render();
-  toast(`${it.kind === 'issue' ? `Approved: ${what(it)} goes live.` : `Approved: ${what(it)} go live.`}${said ? ' ' + said : ''}`, { ok: true, undo: () => {
+  // The open item moves on to the next words still waiting, as Review does after Approve (spec 2: auto-advance); with none
+  // left it closes.
+  const ld = S.v6ld?.today; if (ld && ld.key === k) ld.key = pqItems()[0] ? keyOf(pqItems()[0]) : null;
+  const undo = () => {
     const h = HOLD.get(k);
     // Past the 10 seconds the words are live and cannot wait again; an ask can still be taken back (B-5).
     if (!h) { toast(`Too late to undo: ${it.kind === 'issue' ? 'it is' : 'they are'} already live.${asks ? ' To stop the ask, Take it back on Partners.' : ''}`, asks ? { action: { label: 'Open Partners', run: () => S.go('#/partners') } } : {}); return; }
-    clearTimeout(h.t); HOLD.delete(k); hooks.render(); toast('Undone. It waits for approval again.'); } });
+    clearTimeout(h.t); HOLD.delete(k); dropDone(k); hooks.render(); toast('Undone. It waits for approval again.'); };
+  // Today's Done today band lists it with its Undo, so the Undo outlives the toast (spec 6, B-5).
+  (S.v6Done ??= []).push({ key: k, by: S.me?.id, at: Date.now(), words: `Approved: ${what(it)}`, undo });
+  S.tdRefocus = null; hooks.render();
+  toast(`${it.kind === 'issue' ? `Approved: ${what(it)} goes live.` : `Approved: ${what(it)} go live.`}${said ? ' ' + said : ''}`, { ok: true, undo });
 }
+const dropDone = k => { if (S.v6Done) S.v6Done = S.v6Done.filter(x => x.key !== k); };
 function askChange(k) {
   const it = itemBy(k); if (!it) return;
   openSheet({ title: `Ask ${esc(it.partner_name)} for a change`, size: 'auto',
-    body: `<p class="pq-shp">${esc(it.kind === 'issue' ? `On its issue “${it.words?.name || ''}”.` : `On ${billNum(billOf(it))}, ${nameOf(it)}.`)} ${it.live ? 'Their live words stay up meanwhile.' : 'Nothing of theirs shows on it meanwhile.'}</p>
+    body: `<p class="pq-shp">${esc(it.kind === 'issue' ? `On its issue “${it.words?.name || ''}”.` : `On ${numWords(billOf(it))}, ${nameOf(it)}.`)} ${it.live ? 'Their live words stay up meanwhile.' : 'Nothing of theirs shows on it meanwhile.'}</p>
       <div class="field"><label for="pq-note">What to change</label><textarea id="pq-note" rows="4" maxlength="400" aria-describedby="pq-note-help" autofocus></textarea>
       <span class="help" id="pq-note-help">The group sees this note with their words. Say what to change and why, in a sentence or two.</span></div><div id="pq-note-err" role="alert"></div>`,
     foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-no': '1' } })}${btn('Send the note', { icon: 'send', attrs: { 'data-go': '1' } })}`,

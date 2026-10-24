@@ -16,10 +16,10 @@
 // deadlines are on each bill's line in the cards now, and to-dos are Today's), v5's deadline box with its push board, the
 // Team switch's week, and the two "who to ask" boards (this one and Holding's: Legislators > Who to ask draws askBoard).
 import { S, DB, esc, hooks, SESSION_OVER } from './data.js';
-import { billById, suggestions, SUGGEST_CAP, setSugg, suggState, billRoute, codesOf, deadlineCalendar, gateApplies, gateGloss } from './model.js';
+import { billById, suggestions, SUGGEST_CAP, setSugg, suggState, billRoute, codesOf, deadlineCalendar, gateApplies, gateGloss, plainDeadlines } from './model.js';
 import { icon, btn, iconBtn, toast, segmented, menuSheet } from './ui.js';
-import { hearingCard, nameWords, numWords, sayWords, nw, dayWords, wireSteps } from './steps.js';
-import { askBoard, askSummary, scopesFor, defaultScope, scopeOk, whoseWords, coalOf, SCOPES, freshScope } from './push.js';
+import { hearingCard, nameWords, numWords, sayWords, nw, dayWords, timeWords, wireSteps } from './steps.js';
+import { askBoard, askSummary, scopesFor, defaultScope, scopeOk, whoseWords, coalOf, SCOPES, freshScope, toAskWords } from './push.js';
 import { movedAskHTML, wireMoved, oldSitting, seedMoved } from './moved.js';
 
 const HR = 36e5, DAY = 864e5;
@@ -84,8 +84,14 @@ const dayHead = d => { const now = Date.now(); return d === hst(now) ? `Today ·
 // its own; from 600px I'm going sits on the committee's line (hearings.css), so the going words need no row of their own
 // height. About 75px less on today's cards, 25px on the rest. (Shared change asked of steps.js: a hearingCard option for
 // this, so it is not done on the card's HTML here.)
+// The bills only monitored are named on the card ("Also heard: SB 3142"), so a sitting with only those says which (Nate's
+// walk: Julie's card said "1 bill we monitor" and named nothing).
+const monNums = h => [...new Set((S.hearings || []).filter(r => r.committee === h.committee && r.scheduled_at === h.scheduled_at && r.status !== 'cancelled')
+  .map(r => billById(r.bill_id)).filter(b => b && b.tracked !== false && isMon(b)).map(b => numWords(b)))];
 function weekCard(h) {
   let html = hearingCard(h, { from: 'week' });
+  const nums = monNums(h);
+  if (nums.length && nums.length <= 3) html = html.replace(/(<a class="v6-hcard-mon"[^>]*><span>[^<]*?)(?:\d+ bills? we monitor)/, `$1${nums.length === 1 ? '1 bill' : `${nums.length} bills`} we monitor: ${esc(nums.join(', '))}`);
   html = html.replace(/(<p class="v6-hcard-day">)[^<]*/, '$1');
   // "Going: Jaylen · Watch it live": the link goes inside the going words, so it never takes a line of its own
   const watch = html.match(/<p class="v6-hcard-watch">([\s\S]*?)<\/p>/);
@@ -102,16 +108,27 @@ function capDays(scope, mon) {
   for (const d of deadlineCalendar()) if (d.date >= mon && d.date <= sun && gateApplies(d, list)) { if (!out.has(d.date)) out.set(d.date, []); out.get(d.date).push(d); }
   return out;
 }
-const capLine = ds => (ds || []).map(d => `<p class="hw-cap">${icon('landmark')}<span>${nw(esc(`Capitol deadline: ${d.label}`))}${gateGloss(d.label) ? `<span class="hw-cap-g"> · ${esc(gateGloss(d.label))}</span>` : ''}</span></p>`).join('');
+// The deadline's Capitol name only for people who own bills and admins, linked to Help's Capitol words; anyone else reads
+// only what it means, "Thu 3/19: bills sent to 3 or more committees must clear their first committee" (C-15; Nate's walk:
+// helpers met "Triple filing" with no way to learn it).
+const capLine = ds => (ds || []).map(d => { const g = gateGloss(d.label);
+  if (plainDeadlines() && g) return `<p class="hw-cap">${icon('landmark')}<span>${nw(esc(`${dayWords(d.date)}: ${g.charAt(0).toLowerCase() + g.slice(1)}`))}</span></p>`;
+  return `<p class="hw-cap">${icon('landmark')}<span>Capitol deadline: <a class="hw-cap-n" href="#/help/words?w=${encodeURIComponent(d.label)}">${esc(d.label)}</a>${g ? `<span class="hw-cap-g"> · ${esc(g)}</span>` : ''}</span></p>`; }).join('');
 
 // The one line under the days (it replaces v5's deadline box over the grid): how many bills still need a hearing, and
 // the day to ask the first chair by, opening Get hearings. Under the days, not over them: who comes to see today's
 // hearing sees it first (critic A-1, P-1: the first card was at 460px on a phone); the tab carries the count too.
+// It says the tab's own count in the tab's words, push.js toAskWords ("20 to ask · first by Mon 3/23", the same on Today
+// and Bills: Nate's walk found "49 of your coalitions' bills need a hearing" beside a different tab count); with nothing
+// left to ask, no line (the tab has no count then either).
 function askLine(s, scope) {
-  if (SESSION_OVER || !s) return '';
+  const t = SESSION_OVER ? '' : toAskWords(s); if (!t || !tabCounts()) return '';
   const href = `#/hearings/ask${scope !== defaultScope() ? `?scope=${scope}` : ''}`;
-  return `<a class="hw-ask" href="${esc(href)}">${icon('flag')}<span class="hw-ask-t"><span class="hw-ask-n">${esc(s.words)}</span>${s.firstWords ? `<span class="hw-ask-s">${nw(esc(s.firstWords))}</span>` : ''}</span><span class="hw-ask-go">Get hearings${icon('chevron-right', { cls: 'v6-chev' })}</span></a>`;
+  return `<a class="hw-ask" href="${esc(href)}">${icon('flag')}<span class="hw-ask-t"><span class="hw-ask-n">${nw(esc(t))}</span></span><span class="hw-ask-go">Get hearings${icon('chevron-right', { cls: 'v6-chev' })}</span></a>`;
 }
+// Someone who owns no bills has no pile of their own to ask: the tab carries no count for them, and the line is not drawn
+// (Nate's walk: Patti's Get hearings showed Lauren's 15 on every visit; D4's door on Today is the way to help).
+const tabCounts = () => !!S.me?.is_admin || (S.bills || []).some(b => (S.assignments?.[b.id] || []).includes(S.me?.id));
 
 // ---- "Also worth doing" (F80): fenced off, at the foot, never counted, never due ----
 // Good ways to spend a quiet hour, from each bill's own pathway (model.js suggestions): a plain summary for the public
@@ -166,22 +183,41 @@ function weekNav(route) {
 }
 // On a phone, this week's Previous and Next sit under the days instead (the first hearing comes first, critic A-1; a
 // three-way switch and the arrows do not fit one phone line). Another week keeps them at the top, where its dates are.
-const footNav = route => weekOff(route) ? '' : `<p class="hw-footnav">${btn('Last week', { kind: 'text', sm: true, icon: 'chevron-left', attrs: { 'data-hweek': -1 } })}${btn('Next week', { kind: 'text', sm: true, iconEnd: 'chevron-right', attrs: { 'data-hweek': 1 } })}</p>`;
+// (a phone keeps the week row with its arrows under the scope switch, as every width does: Nate's walk, Patti could not
+// look at next week; the foot copy is gone)
+const footNav = () => '';
 function weekHTML(route, scope, sum) {
   const now = Date.now(), off = weekOff(route), mon = addDays(mondayOf(now), off * 7), today = hst(now);
   const all = weekSittings(scope, mon), monN = all.filter(x => x.mon).length, shown = all.filter(x => !x.mon || monOn()), caps = capDays(scope, mon);
+  // Sittings on bills only monitored, while hidden, are one quiet line under their own day naming the bill and the time
+  // ("+1 hearing on a bill you monitor: SB 3142, 2:00 PM"), never a line after the last day, where it read as that day's.
+  const monHid = monOn() ? [] : all.filter(x => x.mon), monDay = d => monHid.filter(x => x.day === d);
   // Days already over this week fold into one line ("Earlier this week: 2 hearings held"): what is done may fold (7.3).
-  const days = [...new Set([...shown.map(x => x.day), ...caps.keys()])].sort();
+  const days = [...new Set([...shown.map(x => x.day), ...caps.keys(), ...monHid.map(x => x.day)])].sort();
   const past = off === 0 ? days.filter(d => d < today) : [], ahead = days.filter(d => !past.includes(d));
-  const dayHTML = d => `<section class="hw-day${d === today ? ' today' : ''}" aria-labelledby="hw-d-${d}"><h2 class="hw-dh" id="hw-d-${d}">${esc(dayHead(d))}</h2>${capLine(caps.get(d))}${shown.filter(x => x.day === d).map(slot).join('')}</section>`;
+  const who = scope === 'team' ? 'the team monitors' : 'you monitor';
+  const monLine = d => { const xs = monDay(d); if (!xs.length) return '';
+    const said = xs.map(x => `${monNums(x.h).join(', ')}, ${timeWords(x.h.scheduled_at)}`).join('; ');
+    return `<p class="hw-mon">${btn(`+${plural(xs.length, 'hearing')} on ${xs.length === 1 ? 'a bill' : 'bills'} ${who}: ${said}`, { kind: 'text', sm: true, icon: 'eye', attrs: { 'data-hwmon': '1', 'aria-pressed': 'false' } })}</p>`; };
+  const dayHTML = d => `<section class="hw-day${d === today ? ' today' : ''}" aria-labelledby="hw-d-${d}"><h2 class="hw-dh" id="hw-d-${d}">${esc(dayHead(d))}</h2>${capLine(caps.get(d))}${shown.filter(x => x.day === d).map(slot).join('')}${monLine(d)}</section>`;
   const n = d => shown.filter(x => x.day === d).length, np = past.reduce((k, d) => k + n(d), 0);
   const earlier = past.length ? `<details class="hw-earlier"${S.hwEarlier ? ' open' : ''}><summary>${icon('history')}<span>${esc(np ? `Earlier this week: ${plural(np, 'hearing')} held` : 'Earlier this week')}</span>${icon('chevron-down', { cls: 'hw-chev' })}</summary>${past.map(dayHTML).join('')}</details>` : '';
   const whose = scope === 'team' ? 'the team’s bills' : whoseWords(scope);
   const when = off === 0 ? 'this week' : off === 1 ? 'next week' : off === -1 ? 'last week' : 'that week';
-  const anyAhead = ahead.some(d => n(d));
-  const none = !anyAhead ? `<p class="hw-none">${icon('calendar')}<span>${esc(np ? `No more hearings on ${whose} ${when}.` : `No hearings on ${whose} ${when}.`)}</span></p>` : '';
-  const monBtn = monN ? `<p class="hw-mon">${btn(monOn() ? `Hide the ${plural(monN, 'hearing')} on bills ${scope === 'team' ? 'the team monitors' : 'you monitor'}` : `+${plural(monN, 'hearing')} on bills ${scope === 'team' ? 'the team monitors' : 'you monitor'}`, { kind: 'text', sm: true, icon: monOn() ? 'eye-off' : 'eye', attrs: { 'data-hwmon': '1', 'aria-pressed': String(monOn()) } })}</p>` : '';
+  const anyAhead = ahead.some(d => n(d)), monAhead = ahead.some(d => monDay(d).length);
+  // Between sessions, said so, with what to do meanwhile (Nate's walk: "No hearings on HEAL bills this week" in November).
+  const none = SESSION_OVER && !anyAhead ? `<p class="hw-none">${icon('calendar')}<span>The Legislature is between sessions. Hearings start after opening day, ${esc(dayWords(openingDay()))}. Until then: <a href="#/my-issues">get your issues ready</a>.</span></p>`
+    : !anyAhead ? `<p class="hw-none">${icon('calendar')}<span>${esc(`${np ? 'No more hearings' : 'No hearings'} on ${whose}${monAhead ? ' we support or oppose' : ''} ${when}.`)}</span></p>` : '';
+  const monBtn = monN && monOn() ? `<p class="hw-mon">${btn(`Hide the ${plural(monN, 'hearing')} on bills ${who}`, { kind: 'text', sm: true, icon: 'eye-off', attrs: { 'data-hwmon': '1', 'aria-pressed': 'true' } })}</p>` : '';
   return `${earlier}${none}${ahead.map(dayHTML).join('')}${monBtn}${footNav(route)}${off === 0 ? askLine(sum, scope) : ''}${off === 0 ? suggHTML(suggList(scope)) : ''}`;
+}
+
+// The next session's opening day: the calendar's, else the third Wednesday in January (the Hawaiʻi Constitution's day).
+function openingDay() {
+  const today = hst(Date.now()), cal = (S.sessionCal || []).map(c => c.opening_day).filter(d => d && String(d).slice(0, 10) > today).sort()[0];
+  if (cal) return String(cal).slice(0, 10);
+  const y = +today.slice(0, 4) + (+today.slice(5, 7) >= 2 ? 1 : 0), d1 = new Date(`${y}-01-01T12:00:00-10:00`).getUTCDay();
+  return `${y}-01-${String(1 + ((3 - d1 + 7) % 7) + 14).padStart(2, '0')}`;
 }
 
 // ---- Get hearings ----
@@ -202,7 +238,7 @@ const boardHas = scope => !!askSummary({ scope });
 // rule above, so the tabs name their views). Get hearings carries how many bills are still to ask (sectionNav's count), so
 // the number is in view without a card over the week (critic A-1).
 function tabs(view, sum) {
-  const n = sum?.toAsk || 0;
+  const n = tabCounts() ? sum?.toAsk || 0 : 0;
   return `<nav class="sv-tabrow sv-secnav" aria-label="Hearings"><a href="#/hearings/week"${view === 'week' ? ' aria-current="page"' : ''}>This week</a><a href="#/hearings/ask"${view === 'ask' ? ' aria-current="page"' : ''}>Get hearings${n ? ` <span class="sv-tn" aria-hidden="true">${n}</span><span class="sr">, ${esc(plural(n, 'bill'))} to ask</span>` : ''}</a></nav>`;
 }
 

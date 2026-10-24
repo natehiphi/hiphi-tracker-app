@@ -73,7 +73,8 @@
 .bw-facts .bw-num { color: var(--v6-muted); font-size: var(--v6-t14); }
 .bw-dot { color: var(--v6-muted); }
 /* the position and the owner: the words themselves, quiet, with a chevron that says a choice opens (A-12) */
-.bw-fbtn { display: inline-flex; align-items: center; gap: 2px; min-height: 32px; margin: 0 -6px; padding: 0 6px; border: 0; border-radius: var(--v6-r12);
+/* (they act: 40px on a laptop, 44px on a phone, spec 7.10; Nate's walk: 32px) */
+.bw-fbtn { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; margin: 0 -6px; padding: 0 6px; border: 0; border-radius: var(--v6-r12);
   background: none; font: inherit; color: var(--v6-body); cursor: pointer; white-space: nowrap; }
 .bw-fbtn .bw-fchev { width: 16px; height: 16px; flex: none; color: var(--v6-muted); }
 .bw-fbtn:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
@@ -85,7 +86,7 @@
 .bw-muted .ic { width: 16px; height: 16px; color: var(--v6-muted); }
 .bw-where { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); max-width: 68ch; }
 .bw-nw { white-space: nowrap; }
-.bw-issue { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; max-width: 100%; color: var(--v6-action); font-weight: 400;
+.bw-issue { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; max-width: 100%; color: var(--v6-action); font-weight: 400;
   font-size: var(--v6-t16); text-decoration: none; border-radius: var(--v6-r12); }
 @media (pointer: coarse), (max-width: 767.98px) { .bw-issue { min-height: 44px; } }
 @media (hover: hover) and (pointer: fine) { .bw-issue:hover { text-decoration: underline; text-underline-offset: 3px; } .bw-back:hover, .bw-pn:hover { background: var(--v6-action-wash); } }
@@ -120,7 +121,9 @@
 
 /* ---- what's next ---- */
 /* "Your step" leads the card's top line (bill.js yourStep); the chair's name in a chair ask's sentence is a link */
-.bw-yours { color: var(--v6-ink); font-weight: 700; }
+.bw-yours { color: var(--v6-ink); font-weight: 500; }   /* a tag, not a heading (spec 12.1) */
+/* the step the bill is on, in ink at 500 (steps.css bolds it at 700; the bill page's track is one of its lines) */
+body.staff6 .bw-page .v6-track .cur { font-weight: 500; }
 .bw-page .bw-chairl { color: var(--v6-action); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
 .bw-page .bw-chairl:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }
 /* Team talk and Public: "Your step: File by Wed 3/18, 7:30 AM · Next step ›" (B-7), and a dot on the Next step tab */
@@ -511,3 +514,11 @@
 /* A name that holds "e-cigarette" keeps it on one line in a span (the frame's wrapper); testimony.css greys every span in
    an issue's summary and a bill's heading, which greyed that one word inside the bold name. */
 .tm-iss > summary b .nobr, .tm-ghead a .nobr { color: inherit; white-space: nowrap; }
+
+/* The Public tab's ask when the bill has a card on This week's asks: read here, written there (its one home, spec 7.5) */
+.bw-askro { display: grid; gap: var(--s4); }
+.bw-asklabel { margin: 0; font-size: var(--v6-t16); font-weight: 700; color: var(--v6-ink); }
+.bw-asktext { margin: 0; padding: var(--s12) var(--s16); border-radius: var(--v6-r12); background: var(--v6-wash); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); white-space: pre-wrap; }
+.bw-askgo { display: flex; align-items: center; gap: var(--s8); margin: 0; min-height: 40px; font-size: var(--v6-t16); }
+.bw-askgo .ic { width: 18px; height: 18px; color: var(--v6-action); flex: none; }
+.bw-askgo a { color: var(--v6-action); }

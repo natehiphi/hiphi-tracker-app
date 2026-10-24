@@ -28,6 +28,7 @@ const hday = t => new Date(t).toLocaleDateString('en-CA', HST);
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 const firstOf = id => (advocate(id)?.full_name || 'Someone').split(' ')[0];
 const isMeId = id => !!id && id === S.me?.id;
+const live = id => { const a = id && advocate(id); return !!a && a.is_active !== false; };
 // "today", "yesterday", "Mon", then "Mon 3/9": when an ask was made, said the short way.
 function whenWord(t) {
   const d = hday(t), now = Date.now();
@@ -120,7 +121,10 @@ export async function assignAsk(rows, code, id, after) {
   const m = chairMail(code), aw = rows.map(x => askWords(x.st)).filter(Boolean).sort((p, q) => p.a.at - q.a.at)[0];
   // V24: a handed-off ask is due 2 working days before the notice must post (it was due the notice day, 8.5 hours after
   // the notice time on 16 Mar), never before today.
-  const due = aw && !aw.a.passed ? handDue(aw.a.at) : null, who = m ? m.who : 'the chair', made = [];
+  // Taken by the viewer, the to-do is due the ask's own day, the one the card showed, so the date never moves (Nate's walk:
+  // Rep. Kila's "ask by Tue 3/24" became "you ask by Fri 3/20", then went back once sent); the two-working-day lead is
+  // only for an ask given to someone else.
+  const due = aw && !aw.a.passed ? (isMeId(id) ? hday(aw.a.at) : handDue(aw.a.at)) : null, who = m ? m.who : 'the chair', made = [];
   try {
     for (const x of rows) {
       const was = askTodoOf(x.b);
@@ -136,9 +140,12 @@ export async function assignAsk(rows, code, id, after) {
 }
 export function giveAsk(rows, code, after) {
   const m = chairMail(code), aw = rows.map(x => askWords(x.st)).filter(Boolean).sort((p, q) => p.a.at - q.a.at)[0];
-  const people = (S.advocates || []).filter(a => a.is_active !== false).sort((x, y) => (y.id === S.me?.id) - (x.id === S.me?.id) || x.full_name.localeCompare(y.full_name));
+  // The bills' own coalition people first (its helpers and owners), then everyone else A to Z (Nate's walk: on a CTFH bill
+  // Saya was last, below a phone's fold).
+  const near = new Set(rows.flatMap(x => [...helpersOf(x.b), ...(S.assignments?.[x.b.id] || [])]));
+  const people = (S.advocates || []).filter(a => a.is_active !== false).sort((x, y) => (y.id === S.me?.id) - (x.id === S.me?.id) || near.has(y.id) - near.has(x.id) || x.full_name.localeCompare(y.full_name));
   pickerSheet({ title: `Who should ask ${esc(m ? m.who : 'the chair')}?`, value: '', help: esc(`${rows.length === 1 ? sayWords(rows[0].b) : plural(rows.length, 'bill')}${aw && !aw.a.passed ? ` · ask by ${aw.day}` : ''}`),
-    options: people.map(a => [a.id, a.id === S.me?.id ? 'You' : a.full_name, a.id === S.me?.id ? 'user-check' : 'user-round', a.id === S.me?.id ? 'I’ll ask' : '']),
+    options: people.map(a => [a.id, a.id === S.me?.id ? 'You' : a.full_name, a.id === S.me?.id ? 'user-check' : 'user-round', a.id === S.me?.id ? 'I’ll ask' : near.has(a.id) ? 'Works on this bill' : '']),
     onPick: id => assignAsk(rows, code, id, after) });
 }
 // The asker's Done on an ask to-do is the ask made: it is logged with the chair, so everyone's row says "Asked by Kris".
@@ -266,7 +273,16 @@ export function askSummary({ scope = defaultScope(), viewer = S.me } = {}) {
   const first = fx ? fx.a.aw.a.notice || fx.a.aw.a.at : null;
   const dl = open.map(x => x.dl).sort((p, q) => p.date.localeCompare(q.date))[0];
   const n = open.length, toAsk = open.filter(x => ['ask', 'decide'].includes(x.k)).length;
-  return { n, toAsk, first, dl, words: toAsk ? `${countWords(toAsk, scope, viewer)} to ask` : `${countWords(n, scope, viewer)} asked, waiting for a hearing`, firstWords: fx ? `ask the first chair by ${fx.a.aw.day}` : '' };
+  return { n, toAsk, first, firstDay: fx ? fx.a.aw.day : '', dl, words: toAsk ? `${countWords(toAsk, scope, viewer)} to ask` : `${countWords(n, scope, viewer)} asked, waiting for a hearing`, firstWords: fx ? `ask the first chair by ${fx.a.aw.day}` : '' };
+}
+// One count and one wording for the bills still to ask for a hearing, on Today, Bills and Hearings alike (rule 6, A-14;
+// Nate's walk: "20 of your bills to ask", "16 of your bills with no hearing yet", "No hearing yet 20" and "Get hearings 20"
+// for one pile): "20 to ask · first by Mon 3/23". Where a deadline's count is said too, both together in the same words:
+// "20 to ask; 16 face the Mon 3/30 deadline". '' when nothing is left to ask.
+export function toAskWords(sum, { dlN = null, dlDay = '' } = {}) {
+  const n = sum?.toAsk || 0; if (!n) return '';
+  if (dlN != null && dlDay) return `${n} to ask; ${dlN} ${dlN === 1 ? 'faces' : 'face'} the ${dlDay} deadline`;
+  return `${n} to ask${sum.firstDay ? ` · first by ${sum.firstDay}` : ''}`;
 }
 
 // Each row's one line (V19: the same words as the step card and Today) and its icon.
@@ -277,7 +293,8 @@ function rowLine(it, v, scope, { shared = false, hdrMine = false } = {}) {
   const asked = c => `asked ${c.who} ${askDay(c.asked.at)}`;
   switch (k) {
     case 'ask': return it.left?.length ? [`${cap(it.chairs.filter(c => c.asked).map(asked).join(', '))} · ${it.left.map(c => c.who).join(' and ')} not asked yet`, 'circle-dashed']
-      : [`Not asked yet${whose}`, 'circle-dashed'];
+      // someone else's: whose first ("Nate's bill · not asked yet"; "No owner yet · not asked yet"), beside Take this ask
+      : !own || !live(own) ? [`No owner yet · not asked yet`, 'circle-dashed'] : whose ? [`${advocate(own)?.full_name.split(' ')[0] || 'Someone'}’s bill · not asked yet`, 'circle-dashed'] : [`Not asked yet`, 'circle-dashed'];
     case 'later': return [`Not now · back on your list ${askDay(it.until)}${whose}`, 'clock'];
     case 'decide': return [`Heard, not voted on · ask for decision making${a.day ? ` by ${a.day}` : ''}${whose}`, 'gavel'];
     // The handed-off ask's own day (2 working days before the notice, V24), said as the asker's ("Kris asks by Fri 3/20"),
@@ -285,7 +302,8 @@ function rowLine(it, v, scope, { shared = false, hdrMine = false } = {}) {
     case 'giving': { const due = a.todo?.due_date, me = a.todo?.assignee_id === v?.id, who = me ? 'You' : advocate(a.todo?.assignee_id)?.full_name.split(' ')[0] || 'Someone';
       // The viewer's own: "Ask the chair by Fri 3/20", the words every chair-ask row uses (C-15: one name per act; the critic:
       // "You are asking" here beside "Ask the chair by" on Today). That it was given to them is said in its open item.
-      if (me) return [hdrMine || !due ? 'Ask the chair' : `Ask the chair by ${askDay(due + 'T12:00:00-10:00')}`, 'user-round'];
+      // (askWords' own words, with who and when: "Ask the chair for Lauren · by Tue 3/24"; it read "Ask the chair" alone)
+      if (me) return [a.words || (due ? `Ask the chair by ${askDay(due + 'T12:00:00-10:00')}` : 'Ask the chair'), 'user-round'];
       return [due ? `${who} asks by ${askDay(due + 'T12:00:00-10:00')}` : a.words, 'user-round']; }
     case 'follow': return [`${a.words} · time to follow up`, 'clock'];
     case 'waiting': return [a.words, 'hourglass'];
@@ -313,6 +331,12 @@ function rowButton(it, v, scope) {
   if (k === 'follow' && a.asker === v.id) return btn('Follow up', { kind: 'secondary', sm: true, icon: 'clock', attrs: { 'data-hgact': 'follow', 'data-hgb': b.id, 'data-hgcode': code, 'aria-haspopup': 'dialog', 'aria-label': `Follow up: ${name}` } });
   if (['waiting', 'follow'].includes(k)) return btn('They replied', { kind: 'secondary', sm: true, icon: 'message-square', attrs: { 'data-v6act': 'replied', 'data-v6b': b.id, 'data-v6code': code, 'aria-haspopup': 'dialog', 'aria-label': `They replied: ${name}` } });
   if ((k === 'ask' && !it.left?.length || k === 'later') && ownsBill(b, v)) return iconBtn('ellipsis', `More for ${name}`, { 'data-hgact': 'row', 'data-hgb': b.id, 'data-hgcode': code, 'aria-haspopup': 'dialog' }, 'hg-more');
+  // Someone else's bill still to ask: the take-over is on its own row (the chair's line keeps Email the chair and Give this
+  // ask to…): "Take this ask" (it becomes the viewer's, due the ask's own day), or for a bill with no owner, "Take it" (the
+  // bill itself, R-330), after which Email the chair is theirs. Two people never ask one chair unannounced (R-329).
+  if (k === 'ask' && !ownsBill(b, v)) return !(S.assignments?.[b.id] || []).some(id => advocate(id)?.is_active !== false)
+    ? btn('Take it', { kind: 'secondary', sm: true, icon: 'user-round', attrs: { 'data-v6act': 'take', 'data-v6b': b.id, 'aria-label': `Take ${name}: it has no owner` } })
+    : btn('Take this ask', { kind: 'secondary', sm: true, icon: 'user-check', attrs: { 'data-hgact': 'mine1', 'data-hgb': b.id, 'data-hgcode': code, 'aria-label': `Take the ask for ${name}` } });
   if (k === 'said_no') return btn('Next steps', { kind: 'secondary', sm: true, icon: 'arrow-right', attrs: { 'data-hgact': 'next', 'data-hgb': b.id, 'data-hgcode': code, 'aria-haspopup': 'dialog', 'aria-label': `Next steps: ${name}` } });
   // "Say mahalo" once the hearing posts (spec 6): your own mail, a subject only, the words yours (no new wording to approve).
   if (k === 'scheduled' && (it.asked.by === v.id || (S.assignments?.[b.id] || []).includes(v.id))) {
@@ -361,10 +385,15 @@ function groupHTML(g, v, scope, { primary, shared }) {
     const label = to ? `Email ${to.who}` : r.m.n > 1 ? 'Email the chairs' : 'Email the chair', kind = first ? 'primary' : 'secondary'; first = false;
     return mailBtn(label, r.href, kind, `${label}${to ? '' : ` (${r.m.who})`} about ${p.rows.length === 1 ? numWords(p.rows[0].b) : `${p.rows.length} bills`}`);
   }).join('');
-  const acts = `${mails}${R.give.length ? btn('Give this ask to…', { kind: 'text', sm: true, attrs: { 'data-hgact': 'give', 'data-hgk': g.key, 'aria-haspopup': 'dialog' } }) : ''}${R.claim.length
-    ? btn('I’ll ask', { kind: 'secondary', sm: true, icon: 'user-check', attrs: { 'data-hgact': 'mine', 'data-hgk': g.key, 'aria-label': `I’ll ask ${m ? m.who : 'the chair'} about ${R.claim.length === 1 ? numWords(R.claim[0].b) : `${R.claim.length} bills`}` } }) : ''}`;
+  // The chair's line holds Email the chair and Give this ask to… only, on every card; a take-over is on the bill's own row
+  // (rowButton: Take this ask, or Take it). A helper gets "Message Lauren" here, the bill's Team talk with @Lauren typed in
+  // (v5's Message Rick on a coalition's chair ask; D4).
+  const owners = [...new Set(R.claim.map(x => (S.assignments?.[x.b.id] || []).find(id => live(id) && id !== v?.id)).filter(Boolean))];
+  const msg = owners.slice(0, 2).map(id => { const x = R.claim.find(r => (S.assignments?.[r.b.id] || []).includes(id));
+    return btn(`Message ${firstOf(id)}`, { kind: 'text', sm: true, icon: 'message-square', href: `${billRoute(x.b, 'talk')}?mention=${advocate(id)?.initials || ''}` }); }).join('');
+  const acts = `${mails}${R.give.length ? btn('Give this ask to…', { kind: 'text', sm: true, attrs: { 'data-hgact': 'give', 'data-hgk': g.key, 'aria-haspopup': 'dialog' } }) : ''}${msg}`;
   const who = m ? m.who : 'No chair listed yet', cn = committeeName(g.code) || g.code;
-  const foot = R.log.length ? `<p class="hg-log"><span>Asked by phone or in person?</span>${btn('Log it', { kind: 'text', sm: true, attrs: { 'data-hgact': 'another', 'data-hgk': g.key, 'aria-haspopup': 'dialog', 'aria-label': `Log an ask to ${who} made by phone, in person or another way` } })}</p>` : '';
+  const foot = '';   // "Asked another way? Log a talk" is said once, at the top of the board (askBoard)
   const rows = g.rows.map(x => { const [line, ic] = rowLine(x, v, scope, { shared, hdrMine: !!mineDue }), mine = ['follow', 'giving'].includes(x.k) && (x.a.asker === v?.id || x.a.todo?.assignee_id === v?.id);
     return itemRow({ key: x.b.id, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(line)), icon: ic, tone: x.k === 'scheduled' ? 'done' : '', bold: mine, href: billRoute(x.b), button: rowButton(x, v, scope), cls: `hg-r k-${x.k}` }); }).join('');
   const when = mineDue ? `you ask by ${askDay(mineDue + 'T12:00:00-10:00')}` : day ? `ask by ${day}` : g.rows.every(x => x.k === 'scheduled') ? 'scheduled' : '';
@@ -412,7 +441,11 @@ export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, 
     const body = groups.map(g => groupHTML(g, v, scope, { primary: g.key === pkey, shared })).join('');
     return `<section class="hg-dl" aria-labelledby="${hid}"><div class="hg-dlh"><h2 id="${hid}">${esc(head)}</h2>${sub ? `<p class="hg-dls">${nw(esc(sub))}</p>` : ''}</div>${body}</section>`;
   }).join('');
-  return `<div class="hg-board" data-hgboard="${esc(id)}">${out}</div>`;
+  // One "Asked another way? Log a talk" for the whole board, not under every chair (Nate's walk: 11 times on Lauren's My
+  // bills; C-15, one name per act). It opens the chair to pick when more than one ask is the viewer's to log.
+  const logs = all.filter(g => groupRoles(g, v, scope).log.length);
+  const top = logs.length ? `<p class="hg-log hg-logtop"><span>Asked another way?</span>${btn('Log a talk', { kind: 'text', sm: true, icon: 'message-square', attrs: { 'data-hgact': 'anotherall', 'data-hgboard': id, 'aria-haspopup': 'dialog', 'aria-label': 'Log a talk: an ask made by phone, in person or another way' } })}</p>` : '';
+  return `<div class="hg-board" data-hgboard="${esc(id)}">${top}${out}</div>`;
 }
 // A row's "…" (an owner's bill still to ask, or one put off): this bill alone in the email, when the chair's email names
 // others; Not now (back in two weeks, with Undo); Ask now (for one put off); Not pushing this bill (its owner: the bill
@@ -449,6 +482,16 @@ if (typeof document !== 'undefined' && document.addEventListener) document.addEv
   if (act === 'follow') { const b = bill(); if (!b) return; const dl = stopOf(b).deadline;
     return followSheet(b, el.dataset.hgcode, { mail: chairAskMail(el.dataset.hgcode, [b], { dl, followUp: true }) }); }
   if (act === 'row') { const b = bill(); if (b) rowMenu(b, el.dataset.hgcode); return; }
+  // Take this ask (a teammate's bill's row): it becomes the viewer's, due the ask's own day.
+  if (act === 'mine1') { const b = bill(), x = b && [...BOARD.values()].flatMap(gg => gg.rows).find(r => r.b.id === b.id); if (x) assignAsk([{ b: x.b, st: x.a.st }], x.code, v.id, after); return; }
+  // The board's one Log a talk: the chair first when more than one has an ask to log.
+  if (act === 'anotherall') {
+    const gs = [...BOARD.values()].filter(gg => groupRoles(gg, v, gg.scope).log.length);
+    const open = gg => { const L = groupRoles(gg, v, gg.scope).log; askAnotherWay(L.map(x => x.b), gg.code, { decide: L.every(x => x.k === 'decide') }); };
+    if (gs.length === 1) return open(gs[0]);
+    return pickerSheet({ title: 'Which chair did you ask?', value: '', options: gs.map(gg => [gg.key, chairMail(gg.code)?.who || 'The chair', 'user-round', `${committeeName(gg.code) || gg.code} · ${plural(groupRoles(gg, v, gg.scope).log.length, 'bill')}`]),
+      onPick: k => { const gg = BOARD.get(k); if (gg) setTimeout(() => open(gg), 300); } });
+  }
   if (!g) return;
   const R = groupRoles(g, v, g.scope);
   if (act === 'another') return askAnotherWay(R.log.map(x => x.b), g.code, { decide: !!R.log.length && R.log.every(x => x.k === 'decide') });

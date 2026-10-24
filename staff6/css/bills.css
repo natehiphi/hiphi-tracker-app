@@ -30,11 +30,10 @@
 /* the two links in the line: underlined, not bold (the share of bold text, spec 4) */
 .bl-dls .bl-dlk { font: inherit; font-weight: 400; color: var(--v6-action); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .bl-dls .bl-dlgo { font-weight: 400; color: var(--v6-action); white-space: nowrap; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
-.bl-dln { display: none; }
+/* (one line at every width now, in Get hearings' words: "20 to ask; 16 face the Mon 3/30 deadline · Get hearings") */
 @media (max-width: 767px) {
   .bl-dls { margin-bottom: var(--s8); }
-  .bl-dls > .ic, .bl-dlw { display: none; }
-  .bl-dln { display: inline; }
+  .bl-dls > .ic { display: none; }
 }
 .bl-sum { font-size: var(--v6-t16); color: var(--v6-muted); margin: 0 0 var(--s12); }
 .bl-sum:not(:has(button)) { margin: 0; }
@@ -108,7 +107,7 @@ body.staff6 .bl-page .v6-ld-list.bl-groups { padding: 0; background: none; box-s
    due today **10:00 AM**"), not the whole line (bold text was 49% of Nate's first screen, spec 4: 25%). A shared change asks
    steps.css to do the same in every list. */
 body.staff6 .bl-page .v6-row-line.soon { font-weight: 400; }
-body.staff6 .bl-page .v6-row-line.soon .v6-nw { font-weight: 700; }
+body.staff6 .bl-page .v6-row-line.soon .v6-tm { font-weight: 700; }   /* the time only, never a day or a room */
 /* the row the keys are on: a bar at its left (never colour alone: the focus is on it too) */
 body.staff6 .bl-page .v6-row.bl-cur { box-shadow: inset 3px 0 0 var(--v6-action); }
 /* phones: the rows are a press-and-hold away from picking, so a long press does not open the browser's menu */
@@ -218,9 +217,10 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   dialog.sv-sheet .bl-colsep { height: 1px; background: var(--v6-hair); margin: var(--s4) 0; }
 }
 
-/* ---- the table (D9: Rows | Table, anyone, on a laptop). Roomy rows give every text cell two lines; compact rows one. The
-   toolbar stays under the header while the table scrolls; the table's header and group rows hold under it (--bl-sh). ---- */
-@media (min-width: 900px) {
+/* ---- the table (D9: Rows | Table, anyone, at any width: below 900px it scrolls sideways in its own box, spec 7.10).
+   Roomy rows give every text cell two lines; compact rows one. The toolbar stays under the header while the table scrolls;
+   the table's header and group rows hold under it (--bl-sh). ---- */
+@media (min-width: 0px) {
   .bl-tablev .bl-stick { position: sticky; top: var(--bl-top0); z-index: 8; background: var(--v6-page); margin: 0 calc(-1 * var(--s8)); padding: var(--s8) var(--s8) var(--s4); }
   .bl-tablev .bl-stick > :last-child, .bl-tablev .bl-stick #bl-chips > :last-child { margin-bottom: var(--s8); }
   .bl-table { --bl-th: 44px; width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; background: var(--v6-card); border-radius: var(--v6-r20); box-shadow: var(--v6-sh1); font-size: var(--v6-t14); line-height: 1.4; }

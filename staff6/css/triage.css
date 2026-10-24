@@ -110,7 +110,7 @@
 .st-tl1 h2 { margin: 0; font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 .st-tl1 h2:focus { outline: none; }
 .st-tl1 .st-cap { margin-left: auto; margin-right: -10px; color: var(--v6-action); }
-.st-ttitle { margin: var(--s8) 0 0; font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+.st-ttitle { margin: var(--s8) 0 0; font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 .st-tdesc { margin: var(--s8) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); max-width: 70ch; overflow-wrap: anywhere; }
 .st-tdesc.clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .st-tcard [data-tmore] { margin: 0 0 -8px -12px; }
@@ -127,7 +127,7 @@
 .st-tcard .st-decidep { position: relative; margin: var(--s16) 0 0; padding: var(--s16) 0 0; border-radius: 0; background: none; box-shadow: none; }
 .st-tcard .st-decidep::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--v6-hair); }
 .st-tcard .st-decidep + .st-tdesc { margin-top: var(--s16); }
-.st-triage .st-rech { margin: 0 0 var(--s8); font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+.st-triage .st-rech { margin: 0 0 var(--s8); font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 .st-tpick { display: flex; flex-direction: column; gap: var(--s12); }
 .st-pickrow { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: var(--s4) var(--s8); }
 .st-pickrow .st-lab { font-size: var(--v6-t16); color: var(--v6-muted); }

@@ -32,6 +32,7 @@ import { GROUPS, groupKey } from './standing.js';
 import { billStep, billRow, listDetail, nameWords, numWords, dayWords, committeeName, whereWords, deadlineWords, nw, wireSteps } from './steps.js';
 import { openItem, closeBtn, aboutBill } from './billpane.js';
 import { billsHead, loadSortCount, refreshTabs } from './billshead.js';
+import { askSummary, toAskWords } from './push.js';   // Get hearings' one count for the bills still to ask (rule 6)
 
 // ---- groups, in stage order: GROUPS and groupKey live in standing.js, shared with an issue's page (R-226) ----
 const FOLDED = new Set(['mon', 'dead']);
@@ -110,7 +111,10 @@ function viewMode() {
   if (v.modeFor !== who) { let m = S.me?.prefs?.billsView; if (!m) { try { m = localStorage.getItem(VKEY()); } catch { m = null; } } v.mode = m === 'table' ? 'table' : 'rows'; v.modeFor = who; }
   return v.mode;
 }
-export const tableOn = () => wideNow() && viewMode() === 'table';
+// Anyone may have the table at any width (D9; spec 7.10: 200% zoom at 1280 is 640px wide, and lost the switch and its
+// Columns, Edit and Export): it scrolls inside its own box when it does not fit (data tables are exempt from reflow).
+export const tableOn = () => viewMode() === 'table';
+const switchNow = () => matchMedia('(min-width: 600px)').matches;
 function setMode(m) {
   const v = bl(); viewMode(); if (v.mode === m) return;
   v.mode = m; v.look = null; v.edit = false; v.sort = v.sort || null;
@@ -122,25 +126,24 @@ function setMode(m) {
 // the number, what, when). Someone else's testimony step reads "Kris or Nate approves it · due today 3:00 PM" (spec 6,
 // Testimony's example), not the state, who and when as three; the viewer's own step and everything else are steps.js's
 // own line. ----
-const VERB_OTHER = { nodraft: 'makes the draft', write: 'writes it', submit: 'sends it for approval', revise: 'revises it', approve: 'approves it',
-  second: 'gives it the second look', file: 'files it' };
-const NOBODY = { nodraft: 'is making the draft', write: 'is writing it', submit: 'is writing it', revise: 'is revising it', approve: 'is approving it',
-  second: 'is giving it the second look', file: 'is filing it' };
-const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
+// Someone else's step in steps.js's one phrase (othersWords: "Patti or Lauren revises it", "Second look from Jaylen or
+// Jess", "No owner yet"), the same on Today, Team, Testimony and the hearing cards (rule 6, spec 5; Nate's walk found
+// "gives it the second look" and "No one is filing it yet" here only). steps.js's row line already says it so.
 export function lineFor(s) {
-  if (!s) return '';
-  if (s.you || !s.state || !VERB_OTHER[s.kind] || s.off) return s.line;
-  const late = s.status?.tone === 'late', when = late ? lateLine(s.until, { lower: true }) : s.due != null ? `due ${whenAt(s.due)}` : '';
-  const what = s.nobody ? `No one ${NOBODY[s.kind]} yet` : `${cap(s.whose.words)} ${VERB_OTHER[s.kind]}`;
-  return [what, when].filter(Boolean).join(' · ');
+  return s ? s.line : '';
 }
-// A bill that stopped: the reason, short, with its date ("Missed the second lateral 3/6 · in House Finance").
+// A bill that stopped: the reason in plain words, with its day as every row says a day ("Missed the deadline to reach its
+// last committee, Fri 2/20"; Nate's walk: "Missed the lateral deadline 2/20/26" was jargon in another date format), and
+// the session's end said so ("Did not pass before the session ended", never "the Sine die deadline."). No full stop: a
+// row's line is a phrase (D15, C-15).
 function stoppedLine(b) {
-  const m = /^(.*?)\s+(\d+\/\d+\/\d+)$/.exec(b.died_deadline || '');
-  if (m) { const at = stoppedAt(b); return `Missed the ${m[1].toLowerCase()} deadline ${m[2].replace(/\/\d{2}(\d{2})$/, '')}${at ? ` · in ${committeeName(at.committee)}` : ''}`; }
+  const dd = String(b.died_deadline || ''), m = /^(.*?)\s+(\d+)\/(\d+)\/(\d+)$/.exec(dd);
+  if (/sine die/i.test(dd)) return 'Did not pass before the session ended';
+  if (m) { const y = m[4].length === 2 ? '20' + m[4] : m[4], iso = `${y}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+    return `Missed the deadline to ${gateNeed(m[1], 1)}, ${dayWords(iso)}`; }
   if (HELD_RE.test(b.last_action || '') && !/failed to pass/i.test(b.last_action || '') && !b.died_deadline) return 'Deferred by the committee';
   if (/failed to pass/i.test(b.last_action || '') && !b.died_deadline) return 'Failed a floor vote';
-  return String(whyDead(b)).replace(/<[^>]+>/g, '');
+  return String(whyDead(b)).replace(/<[^>]+>/g, '').replace(/\.$/, '');
 }
 const rowStep = b => { const s = stepOf(b); if (!s) return s;
   const line = factsOf(b).stand === 'dead' && s.kind === 'none' ? stoppedLine(b) : lineFor(s);
@@ -150,7 +153,8 @@ const rowStep = b => { const s = stepOf(b); if (!s) return s;
 const whoseWords = () => ({ me: 'your bills', coal: 'your coalitions’ bills', all: 'the team’s bills' })[bl().scope] || 'your bills';
 function scopeSwitch() {
   const v = bl(), three = scopeOpts().length > 2;
-  return whoseSeg('blscope', { mine: 'me', coal: three ? 'coal' : null, team: 'all' }, v.scope, { label: 'Whose bills' });
+  // "My bills", the word Hearings and Legislators use for the same switch (C-15; ui.js WHOSE says "Mine").
+  return whoseSeg('blscope', { mine: 'me', coal: three ? 'coal' : null, team: 'all' }, v.scope, { label: 'Whose bills' }).replace(/(data-whose="mine"[^>]*>)Mine</, '$1My bills<');
 }
 // The one line about the next deadline (F95, V19: bills needing a hearing always name the deadline). It names the first
 // deadline that leaves work, the count a link to exactly those bills (filters.js due:), and the way to the job, Hearings ›
@@ -166,11 +170,16 @@ function leadLine(list, groups) {
   if (!x) return `<p class="bl-dls">${icon('calendar-check')}<span>Every one of ${esc(whoseWords())} racing the next deadline has a hearing.</span></p>`;
   const first = groups.find(g => g.open), ids = new Set(x.noHearing.map(b => b.id));
   if (first && first.all === ids.size && first.rows.every(b => ids.has(b.id))) return '';
-  const n = x.noHearing.length, day = `<span class="v6-nw">${esc(dayWords(x.date))}</span>`, on = isOn(`due:${x.date}`);
+  const n = x.noHearing.length, on = isOn(`due:${x.date}`);
   const link = words => on ? `<b>${esc(words)}</b>` : `<button type="button" class="linkbtn bl-dlk" data-ft="due:${esc(x.date)}">${esc(words)}</button>`;
   const go = `<a class="bl-dlgo" href="#/hearings/ask">Get hearings</a>`;
-  return `<p class="bl-dls">${icon('calendar-clock')}<span class="bl-dlw">By ${day}, ${link(`${n} of ${whoseWords()}`)} with no hearing yet must ${esc(gateNeed(x.label, n === 1 ? 1 : 2))} · ${go}</span>`
-    + `<span class="bl-dln">${link(`${n} bill${n === 1 ? '' : 's'}`)} ${n === 1 ? 'has' : 'have'} no hearing yet · deadline ${day} · ${go}</span></p>`;
+  // One count for the pile, Get hearings' own, in its words, with this deadline's count beside it in the same words (push.js
+  // toAskWords: "20 to ask; 16 face the Mon 3/30 deadline"; Nate's walk: Today, Bills and Hearings each had their own
+  // number). The deadline's count is a link to exactly those bills (F95).
+  let sum = null; try { sum = askSummary({ scope: { me: 'mine', coal: 'coal', all: 'team' }[bl().scope] || 'mine' }); } catch { sum = null; }
+  const ask = sum?.toAsk ? toAskWords(sum, { dlN: n, dlDay: dayWords(x.date) }) : '', cut = ask.indexOf('; ');
+  const words = ask ? `${esc(ask.slice(0, cut))}; ${link(ask.slice(cut + 2))}` : `${link(`${n} with no hearing yet ${n === 1 ? 'faces' : 'face'} the ${dayWords(x.date)} deadline`)}`;
+  return `<p class="bl-dls">${icon('calendar-clock')}<span class="bl-dlw">${words} · ${go}</span></p>`;
 }
 // A filter in Mine (or My coalitions) says when the team has more, and offers the switch (F83 "N more under Team").
 const moreLine = (n, more, q) => `<p class="bl-sum">${more ? `<button type="button" class="linkbtn" data-scopeall="1">${more} more under Team</button>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span></p>`;
@@ -181,9 +190,13 @@ function toolbar() {
   // Nothing to pick or lay out in an empty list: Select and Rows | Table wait for bills (Jess's empty Mine, A-24).
   const has = shownBills().length > 0, sel = v.selecting || !has ? '' : `<span class="bl-tsel">${selectBtn()}</span>`;
   const tools = tbl ? `<span class="bl-ttools">${btn('Columns', { kind: 'text', sm: true, icon: 'columns-3', attrs: { 'data-cols': '1', 'aria-haspopup': 'dialog' } })}${btn(v.edit ? 'Done editing' : 'Edit', { kind: v.edit ? 'secondary' : 'text', sm: true, icon: v.edit ? 'check' : 'square-pen', attrs: { 'data-tedit': '1', 'aria-pressed': v.edit ? 'true' : 'false', title: v.edit ? 'Stop editing in the table' : 'Change positions and owners right in the table' } })}${btn('Export', { kind: 'text', sm: true, icon: 'download', attrs: { 'data-export': '1', title: 'These bills, with your filters, as a spreadsheet file' } })}</span>` : '';
-  const sw = wide && (has || tbl) ? `<div class="sv-seg bl-viewsw" role="group" aria-label="Show bills as">${[['rows', 'Rows', 'rows-3'], ['table', 'Table', 'table-2']].map(([k, l, ic]) => `<button type="button" data-blview="${k}" aria-pressed="${mode === k}">${icon(ic)}<span>${l}</span></button>`).join('')}</div>` : '';
+  // Rows | Table from 600px; below that the same two and Export are in the toolbar's menu (D9: anyone, at any width).
+  const sw = !(has || tbl) ? '' : switchNow() ? `<div class="sv-seg bl-viewsw" role="group" aria-label="Show bills as">${[['rows', 'Rows', 'rows-3'], ['table', 'Table', 'table-2']].map(([k, l, ic]) => `<button type="button" data-blview="${k}" aria-pressed="${mode === k}">${icon(ic)}<span>${l}</span></button>`).join('')}</div>`
+    : iconBtn('ellipsis', 'Show as a table, or export', { 'data-blmenu': '1', 'aria-haspopup': 'dialog' });
   return `<div class="bl-tools" role="group" aria-label="This list">${box}${filterBtn(n, { 'data-filter': '' })}${sel}<span class="bl-sp"></span>${tools}${sw}</div>`;
 }
+let BACK_AT = 0;   // when the browser's Back (or the top bar's) last landed, for the focus above
+if (typeof addEventListener === 'function') addEventListener('popstate', () => { BACK_AT = Date.now(); });
 const selectBtn = () => btn('Select', { kind: 'secondary', sm: true, icon: 'square-check-big', attrs: { 'data-blselect': '1', title: 'Pick bills to change several at once' } });
 // Filters that are on, each a chip that comes off in one click, and Clear all; a saved view says its name first.
 function onRow() {
@@ -240,7 +253,7 @@ function rowsView(groups) {
   if (!pick) return `<div class="bl-groups bl-selecting">${html}</div>${keysHint()}`;
   const b = v.look ? S.bills.find(x => x.id === v.look) : null;
   // listDetail's one list becomes one card per group, so the list box itself carries no role (each group's card is the list).
-  return listDetail({ id: 'bills', label: 'Bills', rows: html, picked: b ? b.id : null, detail: b ? itemHTML(b) : '', empty: 'Pick a bill to see its next step', back: 'Back to the bills' })
+  return listDetail({ id: 'bills', label: 'Bills', rows: html, picked: b ? b.id : null, detail: b ? itemHTML(b) : '', empty: 'Pick one to see its steps', back: 'Back to the bills' })
     .replace('class="v6-ld-list" role="list" aria-label="Bills"', 'class="v6-ld-list bl-groups"') + keysHint();
 }
 // The open bill (billpane.js openItem): its step card holds this screen's one filled button when the step is the viewer's.
@@ -265,7 +278,7 @@ const COLS = [
 ];
 let MEASURED = null;
 const DOCK_W = 380, DOCK_GAP = 24;   // the open item's width beside the table: listDetail's (steps.css)
-const estimateAvail = () => { const w = document.documentElement.clientWidth || innerWidth, page = w >= 1100 ? w - 248 - 64 : w - 216 - 48; return (docked() ? page - DOCK_W - DOCK_GAP : page) - 2; };
+const estimateAvail = () => { const w = document.documentElement.clientWidth || innerWidth, page = w >= 1100 ? w - 248 - 64 : w >= 768 ? w - 216 - 48 : w - 32; return (docked() ? page - DOCK_W - DOCK_GAP : page) - 2; };
 const measureKey = () => `${innerWidth}:${docked()}`;
 const tableAvail = () => MEASURED && MEASURED.key === measureKey() ? MEASURED.avail : estimateAvail();
 function widths(cols, avail, ci) {
@@ -524,7 +537,7 @@ function drawItem() {
   box.classList.toggle('open', !!b);
   box.querySelectorAll('.v6-row').forEach(r => { const on = !!b && r.dataset.v6row === b.id; r.classList.toggle('sel', on); r.classList.remove('hint'); r.querySelector('[data-v6pick]')?.toggleAttribute('aria-current', on); });
   document.querySelector('.bl-page')?.classList.toggle('bl-itemopen', !!b);
-  if (!b) { box.querySelector('.v6-row')?.classList.add('hint'); aside.innerHTML = `<p class="v6-ld-empty">${icon('arrow-left')}<span>Pick a bill to see its next step</span></p>`; return; }
+  if (!b) { box.querySelector('.v6-row')?.classList.add('hint'); aside.innerHTML = `<p class="v6-ld-empty">${icon('arrow-left')}<span>Pick one to see its steps</span></p>`; return; }
   aside.innerHTML = `<button type="button" class="v6-ld-back" data-v6ldback>${icon('chevron-left')}<span>Back to the bills</span></button>${itemHTML(b)}`;
   aside.scrollTop = 0; wireItem(aside);
 }
@@ -730,6 +743,10 @@ export default {
     const page = root.querySelector('.bl-page'); if (!page) return;
     if (route.muted) return wireMuted(page);
     const v = bl();
+    // Back from a bill's page puts the focus on the row that opened it (spec 7.10, B-4), not on the page: the bill opened
+    // by a row is remembered, and Back (popstate, a moment ago) finds its row again.
+    page.addEventListener('click', e => { const a = e.target?.closest?.('a[data-bill]'); if (a) S.blLast = a.dataset.bill; }, true);
+    if (S.blLast && Date.now() - BACK_AT < 2000) { const a = page.querySelector(`a[data-bill="${CSS.escape(S.blLast)}"]`); if (a) a.focus({ preventScroll: true }); }
     // A step taken in the open bill redraws the list and keeps the bill open; once Bills is left, the page that is showing.
     wireSteps(root, { after: () => document.querySelector('main .bl-page:not(.bl-muted) #bl-dyn') ? repaintDyn() : hooks.render() });
     wireDyn(page);
@@ -738,6 +755,10 @@ export default {
     page.addEventListener('click', e => { if (e.target.closest('a[data-bill]')) S.billNav = NAV.slice(); }, true);
     page.querySelectorAll('[data-seg="blscope"]').forEach(el => el.onclick = () => { if (v.scope === el.dataset.val) return; v.scope = el.dataset.val; v.look = null; changed(); repaint(`[data-seg="blscope"][data-val="${v.scope}"]`); });
     page.querySelectorAll('[data-blview]').forEach(el => el.onclick = () => { setMode(el.dataset.blview); repaint(`[data-blview="${el.dataset.blview}"]`); });
+    page.querySelector('[data-blmenu]')?.addEventListener('click', () => menuSheet({ title: 'This list', items: [
+      tableOn() ? { label: 'Show as rows', icon: 'rows-3', sub: 'Two-line rows, grouped by where they stand', run: () => { setMode('rows'); repaint('[data-blmenu]'); } }
+        : { label: 'Show as a table', icon: 'table-2', sub: 'Every column; it scrolls sideways in its own box', run: () => { setMode('table'); repaint('[data-blmenu]'); } },
+      { label: 'Export', icon: 'download', sub: 'These bills, with your filters, as a spreadsheet file', run: () => exportSheet() }] }));
     const qi = page.querySelector('#bl-q'), qx = page.querySelector('[data-qclear]');
     qi.oninput = () => { v.q = qi.value; v.folds = {}; qx.hidden = !qi.value; repaintDyn(); };
     qi.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); qi.blur(); } if (e.key === 'Escape' && qi.value) { e.stopPropagation(); qi.value = ''; qi.oninput(); } };

@@ -26,9 +26,16 @@ body.staff6 main .hr-page h1.hr-h1 { margin: 0; }
 /* the card's own name: a phone shows it (its top bar may cut a long name); a laptop says it once, in the h1 */
 @media (min-width: 768px) {
   body.staff6 .hr-deskback { display: inline-flex; }
-  body.staff6 .hr-page .hr-cn { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  body.staff6 .hr-page .v6-hcard.self .v6-hcard-name { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 }
-body.staff6 .hr-page .hr-cn { font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); color: var(--v6-ink); overflow-wrap: anywhere; }
+body.staff6 .hr-page .v6-hcard.self .v6-hcard-name { font-family: Poppins, system-ui, sans-serif; font-weight: 500; font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); color: var(--v6-ink); overflow-wrap: anywhere; }
+/* "Message Kevin" beside one of our bills whose step is someone else's (a quiet text link, 44px tall on a phone) */
+body.staff6 .hr-page .hr-msg { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; margin: 0 0 4px; padding: 0 4px; color: var(--v6-action); font-size: var(--v6-t16); text-decoration: none; }
+body.staff6 .hr-page .hr-msg svg { width: 18px; height: 18px; flex: none; }
+body.staff6 .hr-page .hr-msg:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: var(--v6-r12); }
+@media (max-width: 767px) { body.staff6 .hr-page .hr-msg { min-height: 44px; } }
+/* the bill's facts line on the sitting's card (steps.js facts) */
+body.staff6 .hr-page .v6-hcard-facts { display: block; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
 
 /* the deadline line under the card */
 body.staff6 .hr-due { display: flex; align-items: flex-start; gap: 10px; padding: 0 4px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-ink); }
