@@ -12,6 +12,8 @@ import { logSuggest } from './visitlog.js';
 import { app, SUPABASE_URL, SUPABASE_KEY, DEMO, LOCAL_KEY, SEASON_OFF, DEMO_ASOF, $, esc, HST, hstDay, toast, friendly, cleanDesc, nick, blurb, groups, S, LISTS_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, CONSENT_KEY, SUPABASE_JS, init, D, DONE_KEY, localDone, saveDone, doneKey, DONE_AT_KEY, localDoneAt, saveDoneAt, KINDS, STANCE_KEY, localStances, saveStances, localWatch, saveLocal, followYear, issueFollowed, issuesOf, viaIssue, issueBills, issuesIn, followedIssues, issuesLink, calendarUrl, restoreFollows, followsAnything, issuePos, recomputeWatch, loadCatalog, applyCachedCatalog, setFollows, loadUser, localListFollows, supa, onb, onbSet, bill, alive, nudgeOk, nudge, thirdWed, hiT, sessionInfo, myActions, wiz, wizSet, EMOJI_TO_ICON, issueIcon, issues, posInfo, firstVisit, readyForSession, yearPrefix, billRef, billPath, yearRef, spaced, syncText } from './kernel.js';
 export * from './kernel.js';
 export { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops, isResolution, isOneChamber, HELD_RE };
+// Where a bill stands, in six words, and the one rule for which (R-212 #44): stands.js holds the words, standOf below.
+export { STANDS, MOVING, standWord } from './stands.js';
 export const asDate = d => new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(d)) ? d + 'T12:00:00-10:00' : d);   // a date-only value is a Hawaiʻi day
 export const fmtDate = (d, o) => d ? asDate(d).toLocaleString('en-US', { timeZone: HST, month: 'numeric', day: 'numeric', ...o }) : '';
 export const fmtDT = d => fmtDate(d, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
@@ -24,22 +26,6 @@ export const headline = (b, n = 110) => nick(b) || blurb(b, n);
 // clearly starts with a verb (a summary that starts with a noun, "Counties may…", is left alone).
 export const asSentence = t => /^[A-Z][a-z]+s,? (?!(?:may|must|shall|will|can|are|is|who|that|and|or|of|with|in|on|under|for|from|at|by) )/.test(t) ? 'It ' + t[0].toLowerCase() + t.slice(1) : t;
 export const clean = r => (r || 'room TBD').replace(/\s*via videoconference/i, '').replace(/^Conference Room\s+/i, 'Rm ').replace(/^CR\s+/i, 'Rm ');
-// The same stages in plain language, for people who do not live at the Capitol.
-export const STAGE_PLAIN = { introduced: 'Introduced and waiting to be sent to a committee',
-  first_triple: 'In its first committee; a triple-referred bill that must be heard before the Triple Filing deadline',
-  first_lateral: 'In a committee of its first chamber; it must be heard before the Lateral deadline',
-  first_decking: 'In the last committee of its first chamber; it must pass before the Decking deadline',
-  first_floor: 'Through its committees; waiting for a vote of the full chamber before the Crossover deadline',
-  first_crossover: 'Passed its first chamber; now in the other chamber',
-  second_triple: 'In its first committee of the second chamber; it must be heard before the Triple Filing deadline',
-  second_lateral: 'In a committee of the second chamber; it must be heard before the Lateral deadline',
-  second_decking: 'In the last committee of the second chamber; it must pass before the Decking deadline',
-  second_floor: 'Through the second chamber’s committees; waiting for a vote of the full chamber',
-  second_crossover: 'Passed both chambers in different versions; the first chamber decides whether to agree',
-  conference: 'House and Senate negotiators are reconciling their versions',
-  governor: 'On the Governor’s desk, waiting for signature or veto',
-  enacted: 'Signed into law', vetoed: 'Vetoed by the Governor', ballot: 'Passed the Legislature; the voters decide in November',
-  dead: 'Did not advance this session' };
 export const SMALL = new Set(['a','an','and','as','at','but','by','for','in','of','on','or','the','to','via','with','nor','per','from']);
 export const titleCase = t => String(t || '').toLowerCase().split(/\s+/).map((w, i, a) => (i && i < a.length - 1 && SMALL.has(w.replace(/[^a-z]/g, ''))) ? w : w.replace(/(^|[-("'/])([a-z])/g, (m, p, c) => p + c.toUpperCase())).join(' ');
 export const POS = { strongly_support: 'Strongly supports', support: 'Supports', support_amend: 'Supports with amendments', strongly_oppose: 'Strongly opposes', oppose: 'Opposes', neutral: 'Comments', monitor: 'Monitoring' };
@@ -202,7 +188,7 @@ export async function followList(slug, on, { quiet = false } = {}) {
     const r = on ? await S.supa.rpc('follow_list', { p_list: l.id }) : await S.supa.rpc('unfollow_list', { p_list: l.id });
     if (r.error) { toast(r.error, true); if (on) S.listFollows.delete(l.id); else S.listFollows.add(l.id); return; }
   } else saveListFollows();
-  const live = rows.filter(({ b }) => alive(b) || b.stage === 'governor');
+  const live = rows.filter(({ b }) => !['law', 'dead'].includes(endOf(b)));   // still moving (stands.js), the voters' amendments too
   if (on) { live.forEach(({ b }) => S.direct.add(b.id)); recomputeWatch(); saveLocal(); }
   l.followers = Math.max(0, (Number(l.followers) || 0) + (on ? 1 : -1));
   await loadBills();
@@ -612,6 +598,19 @@ export const hearingsOf = b => [...new Map([...S.hearings, ...((S.pool || {}).he
 export function stopOf(b) {
   return billStop(b, { hearings: hearingsOf(b), outcomes: S.outcomes || {},
     deadlineFor: key => deadlineOf(b, key) });
+}
+// Which of the six it is in (stands.js), the one rule every list and count uses (R-212 #44). endOf needs no hearings, so
+// Find and My issues can sort bills into moving, became law and did not advance before any hearing has loaded; standOf
+// splits the moving ones by their next step. A bill on the Governor's desk, or a change to the constitution sent to the
+// voters, has passed the Legislature; a bill put on hold (deferred), voted down or vetoed did not advance (core's alive()).
+export const endOf = b => b.stage === 'enacted' ? 'law' : b.stage === 'governor' || b.stage === 'ballot' ? 'passed' : !alive(b) ? 'dead' : '';
+export function standOf(b) {
+  const e = endOf(b); if (e) return e;
+  const st = stopOf(b);
+  // A bill heard in the last few days and waiting for the committee's decision is with its hearing, not "Waiting for a
+  // hearing" (its row says "Heard, waiting for the decision").
+  if (st.hearingState === 'scheduled' || st.hearingState === 'held') return 'hear';
+  return st.phase === 'committee' ? 'wait' : 'vote';
 }
 // A deadline row by its key, or the budget bills' own row that replaces it (Budget Decking 3/16 for HB1800 and HB2095,
 // migration 087; R-072). A row that lists bills never applies to any other bill.

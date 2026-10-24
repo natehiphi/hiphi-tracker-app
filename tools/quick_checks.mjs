@@ -30,6 +30,7 @@ const CHECKS = [
   ['The share cards lead with the ask and open it (R-169)', 'tests/share_cards_test.mjs'],
   ['What kind of advocate are you? Its words and its scoring (R-217, a draft)', 'tests/quiz_test.mjs'],
   ['The words list for the checker panel is current (R-166 step 3)', 'tools/words_extract.mjs', '--check'],
+  ['Where a bill stands: six words, written once (R-212 #44)', 'tests/stands_test.mjs'],
 ];
 
 const failed = [];

@@ -53,6 +53,9 @@ jobs:
       - name: Every public screen, three kinds of person, sandbox and live
         if: ${{ !cancelled() }}
         run: python3 tests/screens_smoke.py
+      - name: "Where a bill stands: six words written once, one rule for every list, Help explains them (R-212 #44, R-333, R-309)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/stands_page.py
       - name: "Staff v3 on a laptop (R-264, DESIGN A-24): one side panel, at most 5 things, 7 colours, 1 filled button in view"
         if: ${{ !cancelled() }}
         run: python3 tests/staff3_budget.py
