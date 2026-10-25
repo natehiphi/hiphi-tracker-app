@@ -68,6 +68,9 @@ jobs:
       - name: "Printing: a clean paper copy of a bill, the walkthrough's letter and the lists, and Print this page in the bill's menu (R-212 #48)"
         if: ${{ !cancelled() }}
         run: python3 tests/print_pages.py http://localhost:8832 /tmp
+      - name: "When a screen cannot load: one message in plain words next to the thing, Try again that asks again in place, nothing typed lost (R-212 #49)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/load_fail.py http://localhost:8832 /tmp
       - name: "Staff v3 on a laptop (R-264, DESIGN A-24): one side panel, at most 5 things, 7 colours, 1 filled button in view"
         if: ${{ !cancelled() }}
         run: python3 tests/staff3_budget.py
