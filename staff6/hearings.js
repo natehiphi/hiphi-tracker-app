@@ -287,7 +287,8 @@ function calWeek(scope, mon) {
 const capCal = ds => (ds || []).map(d => { const g = gateGloss(d.label);
   if (plainDeadlines() && g) return `<p class="hc-cap">${icon('landmark')}<span>${esc(g.charAt(0).toUpperCase() + g.slice(1))}</span></p>`;
   return `<p class="hc-cap">${icon('landmark')}<span><a href="#/help/words?w=${encodeURIComponent(d.label)}" aria-label="${esc(`Capitol deadline: ${d.label}`)}">${esc(d.label)}</a>${g ? `<span class="hc-capg">${esc(g)}</span>` : ''}</span></p>`; }).join('');
-// One entry. Times are the first thing on each line (the day's order is time order).
+// One entry. Times are the first thing on each line (the day's order is time order). A testimony deadline says "Due 3:00 PM",
+// so its time never reads as an event, and it carries a thin action rule: it is the part of the day someone acts on (critic).
 function calEntry(e, { wkend = false } = {}) {
   const when = `${wkend ? `${new Date(e.t).toLocaleDateString('en-US', { ...HST, weekday: 'short' })} ` : ''}${timeWords(e.t)}`;
   const tm = `<span class="hc-t">${esc(when)}</span>`;
@@ -295,7 +296,7 @@ function calEntry(e, { wkend = false } = {}) {
     const h = e.x.h, cn = committeeName(h.committee) || h.committee, room = h.room ? roomName(h.room) : '';
     const going = goingTo(e.x.rows), label = `Hearing ${when}, ${cn}${room ? `, ${room}` : ''}${e.cancelled ? ', cancelled' : ''}. Open the hearing`;
     const bills = e.bills.map(y => { const st = stepOfB(y.r, y.b);
-      return `<li><span class="hc-bn">${esc(billShort(y.b))}</span>${st.word ? `<span class="hc-st${st.tone === 'late' ? ' late' : ''}">${st.tone === 'late' ? icon('clock') : ''}${esc(st.word)}</span>` : ''}</li>`; }).join('');
+      return `<li><span class="hc-bn">${esc(billShort(y.b))}</span>${st.word ? `<span class="hc-st${st.tone === 'late' ? ' late' : ''}">${st.tone === 'late' ? icon('clock') : ''}${esc(st.tone === 'late' ? `${st.word} · late` : st.word)}</span>` : ''}</li>`; }).join('');
     return `<li class="hc-e hc-h${e.cancelled ? ' off' : ''}"><a class="hc-hl" href="#/hearing/${encodeURIComponent(h.id)}?from=week" aria-label="${esc(label)}">
       <span class="hc-hh">${tm}<span class="hc-hk">Hearing</span>${going ? `<span class="hc-going">${icon('user-check')}<span>You’re going</span></span>` : ''}</span>
       <span class="hc-cn">${esc(cn)}</span>${room || e.cancelled ? `<span class="hc-room">${esc(e.cancelled ? 'Cancelled, no new date yet' : room)}</span>` : ''}
@@ -305,7 +306,7 @@ function calEntry(e, { wkend = false } = {}) {
     const h = e.h, cn = committeeName(h.committee) || h.committee, what = `for ${weekdayLong(h.scheduled_at)}’s ${cn} hearing`;
     const bills = e.bills.map(y => `<li><a class="hc-dl${y.tone === 'late' ? ' late' : ''}" href="${esc(billRoute(y.b))}" aria-label="${esc(`${sayWords(y.b)}: testimony due ${when}, ${what}. ${y.word}${y.tone === 'late' ? ', late, still accepted until the hearing starts' : ''}`)}">
       <span class="hc-bn">${esc(billShort(y.b))}</span><span class="hc-st${y.tone === 'late' ? ' late' : ''}">${y.tone === 'late' ? icon('clock') : ''}${esc(y.tone === 'late' ? `${y.word} · late` : y.word)}</span></a></li>`).join('');
-    return `<li class="hc-e hc-due${e.late ? ' past' : ''}"><p class="hc-eh">${tm}<span class="hc-ek">${icon('file-text')}Testimony due</span></p><p class="hc-es">${esc(what)}</p><ul class="hc-dls">${bills}</ul></li>`;
+    return `<li class="hc-e hc-due${e.late ? ' past' : ''}"><p class="hc-eh"><span class="hc-t">${esc(`Due ${when}`)}</span><span class="hc-ek">${icon('file-text')}Testimony</span></p><p class="hc-es">${esc(what)}</p><ul class="hc-dls">${bills}</ul></li>`;
   }
   const ic = e.k === 'fu' ? 'phone' : 'list-todo', sub = e.k === 'todo' && e.b ? numWords(e.b) : e.sub ? clipW(e.sub, 48) : '';
   return `<li class="hc-e hc-todo"><a class="hc-tl" href="${esc(e.href)}"><span class="hc-eh">${tm}<span class="hc-ek">${icon(ic)}${esc(e.k === 'fu' ? 'Follow-up' : 'To-do')}</span></span>

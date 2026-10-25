@@ -253,6 +253,7 @@ body.staff6 .hc-bills li { display: grid; gap: 0; font-size: var(--v6-t14); line
 body.staff6 .hc-h.off .hc-cn { color: var(--v6-body); text-decoration: line-through; text-decoration-thickness: 1px; }
 /* testimony due and the person's own to-dos: one quiet line each, on the day's ground */
 body.staff6 .hc-due, body.staff6 .hc-todo { padding: 4px 4px; }
+body.staff6 .hc-due { padding-left: 10px; box-shadow: inset 3px 0 0 var(--v6-action); border-radius: 2px; }
 body.staff6 .hc-dls { display: grid; gap: 0; margin: 2px 0 0; padding: 0; list-style: none; }
 body.staff6 .hc-dl, body.staff6 .hc-tl { display: grid; gap: 0; min-height: 40px; padding: 4px 0; align-content: center; font-size: var(--v6-t14); line-height: 20px; color: var(--v6-body); }
 body.staff6 .hc-dl .hc-bn { color: var(--v6-action); }

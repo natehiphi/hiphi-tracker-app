@@ -28,7 +28,7 @@ with L.browser() as B:
   mon = day_text(pg, '2026-03-16')
   R.check("Nate's Monday: the Senate HHS hearing at 1:10 PM in Room 225 with HB 1562", all(x in mon for x in ['1:10 PM', 'Senate Health and Human Services', 'Room 225', 'HB 1562']), mon[:200])
   R.check('Monday is marked Today', 'Today' in mon and pg.page.query_selector(".hc-day[data-hcday='2026-03-16'][aria-current='date']") is not None)
-  R.check('a testimony due entry, with its state', 'Testimony due' in pg.text('.hc-cal') and re.search(r'Writing|With an approver|Second look|Ready to file', pg.text('.hc-cal')) is not None)
+  R.check('a testimony due entry, with its state', bool(pg.page.query_selector('.hc-due')) and re.search(r'Due \d{1,2}:\d{2} [AP]M', pg.text('.hc-cal')) is not None and re.search(r'Writing|With an approver|Second look|Ready to file', pg.text('.hc-cal')) is not None)
   R.check('the hearing block opens the sitting', bool(pg.page.query_selector(".hc-day[data-hcday='2026-03-16'] a.hc-hl[href^='#/hearing/']")))
   thu = day_text(pg, '2026-03-19')
   R.check('Capitol deadline Triple filing on Thu 3/19', 'Triple filing' in thu, thu[:120])
