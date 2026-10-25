@@ -276,16 +276,21 @@ export function askSummary({ scope = defaultScope(), viewer = S.me } = {}) {
   const fx = open.filter(x => x.k === 'ask' && x.a.aw?.a.at && !x.a.aw.a.passed).sort((p, q) => p.a.aw.a.at - q.a.aw.a.at)[0] || null;
   const first = fx ? fx.a.aw.a.notice || fx.a.aw.a.at : null;
   const dl = open.map(x => x.dl).sort((p, q) => p.date.localeCompare(q.date))[0];
-  const n = open.length, toAsk = open.filter(x => x.k === 'ask').length, decide = open.filter(x => x.k === 'decide').length;
-  return { n, toAsk, decide, first, firstDay: fx ? fx.a.aw.day : '', dl, words: toAsk ? `${countWords(toAsk, scope, viewer)} to ask` : `${countWords(n, scope, viewer)} asked, waiting for a hearing`, firstWords: fx ? `ask the first chair by ${fx.a.aw.day}` : '' };
+  const n = open.length, asks = open.filter(x => x.k === 'ask'), toAsk = asks.length, decide = open.filter(x => x.k === 'decide').length;
+  // The bills still to ask under the soonest deadline that has any: the board's first "to ask" count (dlCounts), with its day.
+  const d0 = asks.map(x => x.dl.date).sort()[0], firstDl = d0 ? { date: d0, day: dayWords(d0), toAsk: asks.filter(x => x.dl.date === d0).length } : null;
+  return { n, toAsk, decide, first, firstDay: fx ? fx.a.aw.day : '', firstDl, dl, words: toAsk ? `${countWords(toAsk, scope, viewer)} to ask` : `${countWords(n, scope, viewer)} asked, waiting for a hearing`, firstWords: fx ? `ask the first chair by ${fx.a.aw.day}` : '' };
 }
 // One count and one wording for the bills still to ask for a hearing, on Today, Bills and Hearings alike (rule 6, A-14;
 // Nate's walk: "20 of your bills to ask", "16 of your bills with no hearing yet", "No hearing yet 20" and "Get hearings 20"
-// for one pile): "20 to ask · first by Mon 3/23". Where a deadline's count is said too, both together in the same words:
-// "20 to ask; 16 face the Mon 3/30 deadline". '' when nothing is left to ask.
-export function toAskWords(sum, { dlN = null, dlDay = '' } = {}) {
+// for one pile): "20 to ask · first by Mon 3/23". When the pile runs past the first deadline, the first deadline's share is
+// said beside it, "20 to ask · 16 by Mon 3/30", so the tab's 20 and the board's first "16 to ask" (under its Mon 3/30
+// heading, the other 4 under a later one) read as one pile (R-336: the tab and This week said 20 beside the board's 16).
+// '' when nothing is left to ask.
+export function toAskWords(sum) {
   const n = sum?.toAsk || 0; if (!n) return '';
-  if (dlN != null && dlDay) return `${n} to ask; ${dlN} ${dlN === 1 ? 'faces' : 'face'} the ${dlDay} deadline`;
+  const d = sum.firstDl;
+  if (d && d.toAsk < n) return `${n} to ask · ${d.toAsk} by ${d.day}`;
   return `${n} to ask${sum.firstDay ? ` · first by ${sum.firstDay}` : ''}`;
 }
 

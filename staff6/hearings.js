@@ -119,7 +119,7 @@ const capLine = ds => (ds || []).map(d => { const g = gateGloss(d.label);
 // The one line under the days (it replaces v5's deadline box over the grid): how many bills still need a hearing, and
 // the day to ask the first chair by, opening Get hearings. Under the days, not over them: who comes to see today's
 // hearing sees it first (critic A-1, P-1: the first card was at 460px on a phone); the tab carries the count too.
-// It says the tab's own count in the tab's words, push.js toAskWords ("20 to ask · first by Mon 3/23", the same on Today
+// It says the tab's own count in the tab's words, push.js toAskWords ("20 to ask · 16 by Mon 3/30", the same on Today
 // and Bills: Nate's walk found "49 of your coalitions' bills need a hearing" beside a different tab count); with nothing
 // left to ask, no line (the tab has no count then either).
 // Bills heard but not voted on are not "to ask" (the board says them on their own line): with none left to ask, the line

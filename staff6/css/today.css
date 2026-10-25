@@ -1099,6 +1099,7 @@ body.staff6 .tm6-fold > summary::-webkit-details-marker { display: none; }
 body.staff6 .tm6-fold[open] > summary .t6-chev { transform: rotate(180deg); }
 body.staff6 .tm6-foldin { padding: 4px 0 0; }
 body.staff6 .tm6-foldin .tm6-loads { padding: 0; box-shadow: none; }
+body.staff6 .tm6-foldin .tm6-sub { margin: 0 0 4px; padding: 0 10px; }   /* in line with the rows' avatars under it */
 /* One column below 1100px: Slipping, then Today and tomorrow, then the rest (Nate's walk: the schedule was 2.5 screens
    down at 1024, 3 on a phone) */
 @media (max-width: 1099px) {
