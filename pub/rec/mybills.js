@@ -34,9 +34,10 @@ function targetOf(r) {
 // partners.js rowLine: "Keiki Smiles Alliance supports it too", or "From a partner: ..." where HIPHI has no side).
 // A bill on the row with a new draft (R-212 #50, pub/newdraft.js) adds one quiet line under all that, in session and not
 // while editing: its own link, beside the row's in the same <li> (never inside it), to that bill's drafts ("New draft of HB
-// 2121 · Fri"), or to the issue's page when two or more changed, where each is marked. The row itself is Home's, unchanged.
+// 2121 · Fri"), or to the issue's page when two or more changed, where each is marked. The row itself is Home's, unchanged;
+// its status is passed along so a row that already says "Passed a committee with changes" is not given a second day.
 function rowHtml(r, edit) {
-  const t = edit ? targetOf(r) : null, pl = r.b ? rowLine(r.b) : '', nd = edit ? '' : draftLink(rowDrafts(r), { own: !!r.b, issue: r.i });
+  const t = edit ? targetOf(r) : null, pl = r.b ? rowLine(r.b) : '', nd = edit ? '' : draftLink(rowDrafts(r), { own: !!r.b, issue: r.i, stat: r.text });
   const a = `<a class="rc-row" href="${esc(r.href)}"><span class="rc-rtext"><span class="rc-rname">${r.fresh ? '<span class="rc-new" title="New since your last visit"><span class="sr">New since your last visit: </span></span>' : ''}${esc(r.name)}</span>
     ${r.text ? `<span class="rc-rstat${r.warn ? ' warn' : ''}">${esc(keep(r.text))}</span>` : ''}${pl ? `<span class="rc-rpart">${esc(pl)}</span>` : ''}</span>${t ? '' : icon('chevron-right', { cls: 'rc-chev' })}</a>`;
   return `<li${t ? ' class="rc-frow"' : ''}>${a}${nd}${t ? btn('Stop following', { kind: 'text', sm: true, cls: 'rc-stop', attrs: { 'data-rc-stop': `${t.kind}:${t.id}`, 'aria-label': `Stop following ${t.label}` } }) : ''}</li>`;

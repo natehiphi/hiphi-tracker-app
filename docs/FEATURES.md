@@ -414,19 +414,26 @@ the next hearing's walkthrough.
   with the Governor, was held or did not advance (no letter can be sent on it again).
 - **My issues** (`pub/rec/mybills.js`, not while editing): one more line under the row's status, its own link beside the
   row's: "New draft of HB 2121 · Fri" (or "Your letter is for an older draft of HB 2121") to that bill's drafts; "New drafts of
-  HB 2121 and SB 2175" / "New drafts of HB 1839 and 2 more bills" (letter bills first) to the issue's page; a bill followed
-  on its own, "New draft · Fri" / "Your letter is for an older draft". Days in Home's words looking back (today, yesterday,
-  Thu, Mar 6). Home's rows themselves are unchanged. **The issue page** (`pub/rec/issue.js` `bRow`): each changed bill's
-  row has the bill's own line.
+  HB 2121 and SB 2175" / "New drafts of HB 1839 and 2 more bills" (letter bills first) to the issue's page at its bills; a bill
+  followed on its own, "New draft · Fri" / "Your letter is for an older draft". A row whose status already says the committee
+  changed the bill ("Passed a committee with changes Tue") about the decision that made this draft gives no second day for
+  the same amendment (A-14, the critic's second look): "See what changed" on a bill's own row, "See what changed in HB 1850"
+  on an issue's. Days in Home's words looking back (today, yesterday, Thu, Mar 6). Home's rows themselves are unchanged.
+- **The issue page** (`pub/rec/issue.js` `bRow`): each changed bill's row has the bill's own line, except the letter's on
+  the bill whose action card is on the page: the card's own line says it beside "Send my letter again", "You wrote testimony
+  on this bill on Feb 18, for an older draft." (`pub/letters.js` `againLine`, on every action card, the bill page's too).
+  **`#/issue/<slug>/drafts`** (the two-or-more line's address) lands on "Bills on this issue", focused, once per arrival.
 - **`#/bill/<year>/<NUM>/changes`** (`pub/app.js`, `pub/bill.js` `showDrafts`): the calm page opens "About the bill" at
   "What each draft changed" when HIPHI's note on the current draft has come (waits up to 3 s), else "More details" at
-  "Drafts of the bill" on the current draft's row; `?rec=0`, "Draft history", else More details. Opened for this visit only
-  (never written to `hiphi_recfold`), no toast. It lands on each arrival at the address (the line tapped again after Back
-  lands again), never on a redraw while there.
+  "Drafts of the bill", where one line above the list, on that landing only, says "We haven’t summed up what House draft 2
+  changed yet. The committee’s report, on the Capitol bill page, says what it changed." (the Capitol bill page its link);
+  `?rec=0`, "Draft history", else More details. Opened for this visit only (never written to `hiphi_recfold`), no toast. Both
+  landings happen on each arrival at the address (a mark on the history entry: the line tapped again after Back or after the
+  My issues tab lands again), never on a redraw there.
 - Sandbox: its latest drafts are from 5-6 March, ten days before its clock, so `?letter` (HB 2121's letter for House draft
   1) shows the letter case; the date case needs a last visit before then (`tests/new_draft.py` plants one).
-  `tests/new_draft.py` (87 checks: the words, links, 44px, editing, between sessions, the landing on both pages and again
-  after Back, the honesty rule on made-up lines).
+  `tests/new_draft.py` (99 checks: the words, links, 44px, editing, between sessions, the card's line, the landings on both
+  pages and again after Back or a tab, the line with no note, the honesty rule on made-up lines).
 
 ## Emails offered again, and one reminder to the same chair (R-153; 4 Oct 2026, HANDOFF 3.88)
 

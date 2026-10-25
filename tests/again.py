@@ -141,11 +141,12 @@ with sync_playwright() as p:
         pg.click('[data-hp="again-undo"]'); pg.wait_for_timeout(600)
         ok(HB2121 in stored(pg) and 'Your letter is ready' in body(pg), f'{tag}: Undo brings the letter back (B-5)')
         c.close()
-        # the card says when they wrote; the button says it is ready (A-14)
+        # the card says when they wrote, and (the letter is for House draft 1, the bill is at House draft 2) that it was for an
+        # older draft (R-212 #50); the button says it is ready (A-14)
         c, pg, errs = ctx_for(plant(), route=no_tick)
         pg.goto(BASE + '/track.html?demo=1#/issue/disposable-e-cigarette-ban'); pg.wait_for_timeout(3000)
         card = pg.locator('.acard:has(.again)').first
-        ok(card.count() == 1 and 'You wrote testimony on this bill on Feb 18.' in card.inner_text() and 'Send my letter again' in card.inner_text(), f'{tag}: the card says when they wrote, and its button "Send my letter again"')
+        ok(card.count() == 1 and 'You wrote testimony on this bill on Feb 18, for an older draft.' in card.inner_text() and 'Send my letter again' in card.inner_text(), f'{tag}: the card says when they wrote, and for an older draft, and its button "Send my letter again"')
         ok(not errs, f'{tag}: no page errors (cases) ' + '; '.join(errs[:2])); c.close()
 
         # ---- Staff v2: the tick, Claude's suggestion, Undo ----

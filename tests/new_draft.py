@@ -3,22 +3,26 @@
 # 5-6 March (the decking deadline), ten days before its clock, so "new" needs a last visit before then (hiphi_onb lastVisit, 2
 # March here); ?letter plants a testimony letter on HB 2121 written for House draft 1 (docs/FEATURES.md, R-148).
 #   N1  My issues, last visit 2 Mar: an issue with two changed bills says "New drafts of HB 2121 and SB 2175" and opens the
-#       issue's page; three, "New drafts of HB 1839 and 2 more bills"; one, "New draft of HB 1671 · Mar 6" and opens
-#       #/bill/2026/HB1671/changes; an issue with none has no line; a bill followed on its own says "New draft · Mar 6" (its
-#       number is on the row already, A-14). Each line is its own link beside the row's link in the same <li> (never inside
+#       issue's page at its bills (#/issue/<slug>/drafts); three, "New drafts of HB 1839 and 2 more bills"; one, "New draft of
+#       HB 1671 · Mar 6" and opens #/bill/2026/HB1671/changes; an issue with none has no line; HB 1850, followed on its own,
+#       whose row already says "Passed a committee with changes Tue" (the decision that made House draft 2), says only "See
+#       what changed" (no second day for the same amendment, A-14; its number is on the row already). Each line is its own link beside the row's link in the same <li> (never inside
 #       it), 44px tall (A-6), in the status line's size (A-4), link blue (never amber, A-5), with an accessible name that says
 #       the bill and where it goes; beside its words a tap still opens the row (no dead strip); the rows' own names, words and
 #       order are Home's (calm/home.js myRows), untouched.
 #   N2  while editing, no line
 #   N3  the letter case, no recent visit: "Your letter is for an older draft of HB 2121" (the date window alone would show nothing);
 #       a letter on SB 2175 as well names the letter's bills first
-#   N4  the issue page: each changed bill's row is marked ("Your letter is for an older draft", "New draft · Mar 6"), the same
-#       link to its /changes
+#   N4  the issue page: each changed bill's row is marked ("New draft · Mar 6"), the same link to its /changes; the bill whose
+#       card is on the page says "You wrote testimony on this bill on Feb 18, for an older draft." on the card, beside "Send my
+#       letter again", and its row has no line (A-14); the bill page's own card says it too
 #   N5  between sessions (&season=off): no line anywhere
-#   N6  the links: tapping the one-bill line lands on that bill's drafts, and again when tapped again after Back; the
-#       two-bill line opens the issue's page
+#   N6  the links: tapping the one-bill line lands on that bill's drafts, and again when tapped again after Back or after the
+#       My issues tab (once per arrival); the two-bill line opens the issue's page at "Bills on this issue", focused and in view
 #   N7  #/bill/<year>/<NUM>/changes: on the calm page "About the bill" opens at "What each draft changed" when HIPHI has a note
-#       on the current draft (HB 2121), else "More details" at "Drafts of the bill" on the current draft's row (HB 1671); with
+#       on the current draft (HB 2121), else "More details" at "Drafts of the bill", where one line above the list says "We
+#       haven’t summed up what House draft 2 changed yet. The committee’s report, on the Capitol bill page, says what it
+#       changed." (HB 1671; that landing only, never on the plain bill page); with
 #       ?rec=0 "Draft history", else More details. In view, focused, no toast, and the folds a person keeps open on this
 #       device (hiphi_recfold) are left exactly as they were; the short form #/bill/HB2121/changes works too
 #   N8  the honesty rule, on newdraft.js with made-up official lines: a draft named on the bill's earliest line in hand is not
@@ -84,16 +88,17 @@ with sync_playwright() as p:
         c, pg = page(scene(LAST), w, h); rows = mine(pg)
         two, three, one, none = row(rows, 'Disposable e-cigarette ban'), row(rows, 'Safety for immigrant families'), row(rows, 'Hygienists can place'), row(rows, 'Free bus rides for kids')
         own = next((r for r in rows if r['stat'].startswith('HB 1850')), None)
-        ok(two and two['line'] == 'New drafts of HB 2121 and SB 2175' and two['href'] == '#/issue/disposable-e-cigarette-ban', f'N1 {tag}: two changed bills: "{two and two["line"]}" opens the issue’s page')
-        ok(three and three['line'] == 'New drafts of HB 1839 and 2 more bills' and three['href'] == '#/issue/safety-for-immigrant-families', f'N1 {tag}: three: "{three and three["line"]}"')
+        ok(two and two['line'] == 'New drafts of HB 2121 and SB 2175' and two['href'] == '#/issue/disposable-e-cigarette-ban/drafts', f'N1 {tag}: two changed bills: "{two and two["line"]}" opens the issue’s page at its bills')
+        ok(three and three['line'] == 'New drafts of HB 1839 and 2 more bills' and three['href'] == '#/issue/safety-for-immigrant-families/drafts', f'N1 {tag}: three: "{three and three["line"]}"')
         ok(one and one['line'] == 'New draft of HB 1671 · Mar 6' and one['href'] == '#/bill/2026/HB1671/changes', f'N1 {tag}: one: "{one and one["line"]}" opens {one and one["href"]}')
         ok(none and not none['line'], f'N1 {tag}: an issue with no new draft has no line')
-        ok(own and own['line'] == 'New draft · Mar 6' and own['href'] == '#/bill/2026/HB1850/changes', f'N1 {tag}: a bill followed on its own: "{own and own["line"]}" (its number is on the row already)')
+        ok(own and own['line'] == 'See what changed' and own['href'] == '#/bill/2026/HB1850/changes' and 'Passed a committee with changes' in own['stat'],
+           f'N1 {tag}: a bill followed on its own whose row says "{own and own["stat"]}": "{own and own["line"]}", no second day for the same amendment (A-14)')
         lines = [r for r in rows if r['line']]
         ok(len(lines) == 4 and all(r['sib'] and r['n'] == 1 for r in lines), f'N1 {tag}: each line is its own link beside the row’s, in the same <li>, never inside it ({len(lines)} lines)')
         ok(all(r['h'] >= 44 for r in lines), f'N1 {tag}: each line is at least 44px tall (A-6): {[round(r["h"]) for r in lines]}')
         ok(all(r['size'] == r['statSize'] and r['color'] == BLUE for r in lines), f'N1 {tag}: the status line’s size, link blue, never amber ({lines[0]["size"]}, {lines[0]["color"]})')
-        ok(one and one['label'] == 'New draft of HB 1671, Mar 6: see what changed' and own and own['label'] == 'New draft, Mar 6: see what changed in HB 1850'
+        ok(one and one['label'] == 'New draft of HB 1671, Mar 6: see what changed' and own and own['label'] == 'See what changed in HB 1850'
            and two and two['label'] == 'New drafts of HB 2121 and SB 2175: see them on the page for Disposable e-cigarette ban', f'N1 {tag}: each link’s name says the bill and where it goes ({own and own["label"]!r})')
         # the row's link runs under the line too: beside the line's words a tap opens the row, on them the line (no dead strip)
         cover = pg.evaluate("""() => { const out = [...document.querySelectorAll('.rc-mine .rc-mrows > li > .rc-draft')].map(d => { d.scrollIntoView({ block: 'center' });
@@ -112,15 +117,29 @@ with sync_playwright() as p:
         # N6 the links (the phone taps, the laptop clicks)
         pg.locator('.rc-draft[href="#/bill/2026/HB1671/changes"]').click(); pg.wait_for_selector('.bl-head', timeout=30000); pg.wait_for_timeout(2500)
         st = pg.evaluate("() => ({ hash: location.hash, open: [...document.querySelectorAll('#main details[open]')].map(d => d.dataset.blRfold || d.dataset.blFold), f: document.activeElement?.textContent.trim().slice(0, 40) })")
-        ok(st['hash'] == '#/bill/2026/HB1671/changes' and 'more' in st['open'] and 'rd-drafts' in st['open'] and st['f'].startswith('House draft 2'), f'N6 {tag}: the one-bill line lands on HB 1671’s drafts ({st})')
+        ok(st['hash'] == '#/bill/2026/HB1671/changes' and 'more' in st['open'] and 'rd-drafts' in st['open'] and st['f'].startswith('We haven’t summed up what House draft 2'), f'N6 {tag}: the one-bill line lands on HB 1671’s drafts ({st})')
         pg.go_back(); pg.wait_for_selector('.rc-mine', timeout=30000); pg.wait_for_timeout(1000)
         # the same line tapped again later in the visit lands on the drafts again (once per arrival, not once per visit)
         pg.locator('.rc-draft[href="#/bill/2026/HB1671/changes"]').click(); pg.wait_for_selector('.bl-head', timeout=30000); pg.wait_for_timeout(2500)
         st = pg.evaluate("() => ({ y: scrollY, f: document.activeElement?.textContent.trim().slice(0, 40) })")
-        ok(st['y'] > 0 and st['f'].startswith('House draft 2'), f'N6 {tag}: tapped again after Back, it lands on the drafts again ({st})')
+        ok(st['y'] > 0 and st['f'].startswith('We haven’t summed up'), f'N6 {tag}: tapped again after Back, it lands on the drafts again ({st})')
+        # and after the My issues tab (an in-app link: a new history entry, no hashchange)
+        pg.evaluate("window.scrollTo(0, 0)"); pg.locator('a[href="#/bills"]:visible').first.click(); pg.wait_for_selector('.rc-mine .rc-draft', timeout=30000); pg.wait_for_timeout(1000)
+        pg.locator('.rc-draft[href="#/bill/2026/HB1671/changes"]').click(); pg.wait_for_selector('.bl-head', timeout=30000); pg.wait_for_timeout(2500)
+        st = pg.evaluate("() => ({ y: scrollY, f: document.activeElement?.textContent.trim().slice(0, 40) })")
+        ok(st['y'] > 0 and st['f'].startswith('We haven’t summed up'), f'N6 {tag}: tapped again after the My issues tab, it lands again ({st})')
         pg.go_back(); pg.wait_for_selector('.rc-mine', timeout=30000); pg.wait_for_timeout(1000)
-        pg.locator('.rc-draft[href="#/issue/disposable-e-cigarette-ban"]').click(); pg.wait_for_selector('.rc-iss[data-shape]', timeout=30000)
-        ok(pg.evaluate('location.hash') == '#/issue/disposable-e-cigarette-ban', f'N6 {tag}: the two-bill line opens the issue’s page')
+        pg.locator('.rc-draft[href="#/issue/disposable-e-cigarette-ban/drafts"]').click(); pg.wait_for_selector('.rc-iss[data-shape]', timeout=30000); pg.wait_for_timeout(1500)
+        st = pg.evaluate("""() => { const a = document.activeElement, r = a.getBoundingClientRect(), hdr = document.querySelector('.hdr');
+          const top = hdr && /sticky|fixed/.test(getComputedStyle(hdr).position) ? hdr.offsetHeight : 0, bar = document.querySelector('.actionbar');
+          const under = bar && bar.getClientRects().length ? bar.getBoundingClientRect().top : innerHeight;
+          return { hash: location.hash, y: Math.round(scrollY), f: a.id, seen: r.top >= top - 1 && r.bottom <= under + 1,
+            marked: [...document.querySelectorAll('.rc-iss .rc-draft')].filter(d => { const q = d.getBoundingClientRect(); return q.top >= top && q.bottom <= under; }).length }; }""")
+        ok(st['hash'] == '#/issue/disposable-e-cigarette-ban/drafts' and st['f'] == 'rc-ibills-h' and st['seen'] and (st['y'] > 0 or tag == 'laptop') and st['marked'] >= 1,
+           f'N6 {tag}: the two-bill line opens the issue’s page at "Bills on this issue", focused and in view, a marked row in sight ({st})')
+        pg.wait_for_timeout(1500); y2 = pg.evaluate('Math.round(scrollY)')
+        ok(y2 == st['y'], f'N6 {tag}: and it lands once: a redraw leaves it where it is ({st["y"]} -> {y2})')
+        if tag == 'phone': pg.screenshot(path=os.path.join(OUT, 'issue-drafts-phone.png'))
         c.close()
 
         # N3 the letter case, no recent visit (the 7-day window alone shows nothing in the practice copy)
@@ -142,12 +161,19 @@ with sync_playwright() as p:
         pg.goto(f'{BASE}/track.html?demo=1&letter#/issue/disposable-e-cigarette-ban'); pg.wait_for_selector('.rc-iss[data-shape]', timeout=60000); pg.wait_for_timeout(2000)
         irows = pg.evaluate(LINES, '.rc-iss .rc-rows > li')
         hb, sb = next((r for r in irows if 'HB 2121' in r['name']), None), next((r for r in irows if 'SB 2175' in r['name']), None)
-        ok(hb and hb['line'] == 'Your letter is for an older draft' and hb['href'] == '#/bill/2026/HB2121/changes' and hb['label'] == 'Your letter is for an older draft: see what changed in HB 2121',
-           f'N4 {tag}: the issue page marks HB 2121: "{hb and hb["line"]}"')
-        ok(sb and sb['line'] == 'New draft · Mar 6' and sb['href'] == '#/bill/2026/SB2175/changes', f'N4 {tag}: and SB 2175: "{sb and sb["line"]}"')
-        ok(hb and sb and hb['sib'] and sb['sib'] and hb['h'] >= 44 and sb['h'] >= 44 and hb['color'] == BLUE, f'N4 {tag}: the same link as on My issues (beside the row’s, 44px, link blue)')
-        d = pg.locator('.rc-iss .rc-draft').first; d.scroll_into_view_if_needed(); pg.wait_for_timeout(300)
-        pg.screenshot(path=os.path.join(OUT, f'issue-{tag}.png'))
+        card = pg.evaluate("() => (document.querySelector('.rc-iss .rc-iact .again')?.textContent || '').trim()")
+        ok(card == 'You wrote testimony on this bill on Feb 18, for an older draft.' and pg.locator('.rc-iss .rc-iact', has_text='Send my letter again').count() == 1,
+           f'N4 {tag}: HB 2121’s card says its letter is for an older draft, beside "Send my letter again" ("{card}")')
+        ok(hb and not hb['line'], f'N4 {tag}: so HB 2121’s row does not say it again ("{hb and hb["line"]}")')
+        ok(sb and sb['line'] == 'New draft · Mar 6' and sb['href'] == '#/bill/2026/SB2175/changes', f'N4 {tag}: SB 2175’s row is marked: "{sb and sb["line"]}"')
+        ok(sb and sb['sib'] and sb['h'] >= 44 and sb['color'] == BLUE, f'N4 {tag}: the same link as on My issues (beside the row’s, 44px, link blue)')
+        pg.screenshot(path=os.path.join(OUT, f'issue-{tag}.png'), full_page=True)   # the card's line and the marked row together
+        c.close()
+        # the bill page's own card says it too
+        c, pg = page(scene(LAST), w, h)
+        pg.goto(f'{BASE}/track.html?demo=1&letter#/bill/2026/HB2121'); pg.wait_for_selector('.bl-head', timeout=60000); pg.wait_for_timeout(2000)
+        card = pg.evaluate("() => [...document.querySelectorAll('#main .again, .actionbar .again')].map(e => e.textContent.trim())")
+        ok('You wrote testimony on this bill on Feb 18, for an older draft.' in card, f'N4 {tag}: the bill page’s card says it too ({card})')
         c.close()
         # the issue page with one moving bill: its full-record row is marked
         c, pg = page(scene(LAST), w, h)
@@ -171,7 +197,7 @@ with sync_playwright() as p:
           return { hash: location.hash, open: [...document.querySelectorAll('#main details[open]')].map(d => d.dataset.blRfold || d.dataset.blFold),
             f: a ? a.tagName + ' ' + a.textContent.trim().slice(0, 60) : '', seen: !!r && r.top >= bars - 1 && r.bottom <= under + 1,
             toast: (document.querySelector('#toast')?.innerText || '').trim(), kept: localStorage.getItem('hiphi_recfold') }; }"""
-        for num, q, want, focus, name in (('HB2121', '', ['about'], 'H3 What each draft changed', 'changes-calm'), ('HB1671', '', ['more', 'rd-drafts'], 'A House draft 2', 'changes-calm-more'),
+        for num, q, want, focus, name in (('HB2121', '', ['about'], 'H3 What each draft changed', 'changes-calm'), ('HB1671', '', ['more', 'rd-drafts'], 'P We haven’t summed up what House draft 2 changed yet.', 'changes-nonote'),
                                           ('HB2121', '&rec=0', ['drafts'], 'SUMMARY Draft history', 'changes-rec0'), ('HB1671', '&rec=0', ['more'], 'SUMMARY More details', 'changes-rec0-more')):
             c, pg = page(scene(folds=['who']), w, h)
             pg.goto(f'{BASE}/track.html?demo=1{q}#/bill/2026/{num}/changes'); pg.wait_for_selector('.bl-head', timeout=60000); pg.wait_for_timeout(2000)
@@ -180,7 +206,18 @@ with sync_playwright() as p:
             ok(all(x in s['open'] for x in want) and s['f'].startswith(focus) and s['seen'], f'N7 {tag}: {num}/changes on {page_}: {want} open, "{focus}" focused and in view ({s["open"]}, {s["f"][:40]!r}, seen {s["seen"]})')
             ok(not s['toast'] and not s2['toast'] and s2['open'] == s['open'] and s2['f'] == s['f'], f'N7 {tag}: {num} on {page_}: no toast, and still so two seconds later')
             ok(s2['kept'] == '["who"]', f'N7 {tag}: {num} on {page_}: the folds kept on this device are as they were ({s2["kept"]})')
-            if name in ('changes-calm', 'changes-rec0') and (tag == 'laptop' or name == 'changes-calm'): pg.screenshot(path=os.path.join(OUT, f'{name}-{tag}.png'))
+            if name in ('changes-calm', 'changes-rec0', 'changes-nonote') and (tag == 'laptop' or name != 'changes-rec0') and not (name == 'changes-nonote' and tag == 'laptop'):
+                pg.screenshot(path=os.path.join(OUT, f'{name}-{tag}.png'))
+            if name == 'changes-nonote':
+                # the line: the letters' words, the Capitol bill page as its link, the list's own size; that landing only
+                nn = pg.evaluate("""() => { const p = document.querySelector('#main .bl-rnonote'), li = document.querySelector('#main .bl-rlist li');
+                  return p && { t: p.textContent.replace(/\\s+/g, ' ').trim(), href: p.querySelector('a')?.getAttribute('href') || '', size: getComputedStyle(p).fontSize, li: getComputedStyle(li).fontSize,
+                    above: !!(p.compareDocumentPosition(document.querySelector('#main details[data-bl-fold="rd-drafts"] .bl-rlist')) & 4) }; }""")
+                ok(nn and nn['t'].replace(' ,', ',') == 'We haven’t summed up what House draft 2 changed yet. The committee’s report, on the Capitol bill page, says what it changed.'
+                   and 'capitol.hawaii.gov' in nn['href'] and nn['size'] == nn['li'] and nn['above'], f'N7 {tag}: HB 1671 has no HIPHI note: one line above the list says so, its link the Capitol bill page ({nn})')
+                pg.evaluate("location.hash = '#/bill/2026/HB1671'"); pg.wait_for_timeout(1500)
+                pg.evaluate("""() => { for (const s of ['details[data-bl-rfold="more"]', 'details[data-bl-fold="rd-drafts"]']) { const d = document.querySelector('#main ' + s); if (d) d.open = true; } }"""); pg.wait_for_timeout(300)
+                ok(pg.locator('#main details[data-bl-fold="rd-drafts"]').count() == 1 and pg.locator('#main .bl-rnonote').count() == 0, f'N7 {tag}: the plain bill page, its drafts opened by hand, has no such line')
             if num == 'HB2121' and not q:
                 # closed by hand, then the bill again (a later visit): About is closed, nothing was remembered
                 pg.locator('details[data-bl-rfold="about"] > summary').click(); pg.wait_for_timeout(300)

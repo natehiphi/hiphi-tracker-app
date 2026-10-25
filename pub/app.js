@@ -157,7 +157,9 @@ export function parseRoute(h = location.hash) {
     case 'next': return { name: 'next', kind: seg[1] || '' };
     case 'bills': return { name: 'bills' };
     case 'find': return seg[1] === 'issue' ? { name: 'issue', slug: seg[2] || '' } : seg[1] === 'category' ? { name: 'category', key: seg[2] || '' } : { name: 'find', q: q.get('q') || '' };
-    case 'issue': return { name: 'issue', slug: seg[1] || '' };
+    // #/issue/<slug>/drafts (R-212 #50): My issues' "New drafts of HB 2121 and SB 2175" lands on the issue's bills, where each
+    // changed one is marked (rec/issue.js landDrafts), not on the page's top.
+    case 'issue': return { name: 'issue', slug: seg[1] || '', open: seg[2] === 'drafts' ? 'drafts' : undefined };
     case 'list': return { name: 'list', slug: seg[1] || '' };
     case 'mylist': return { name: 'mylist', id: seg[1] || '' };   // a person's own list, or one shared with them (R-013, pub/mylists.js)
     case 'l': return { name: 'shared', token: seg[1] || '' };      // a list shared by its link

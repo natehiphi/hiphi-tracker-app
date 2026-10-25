@@ -70,6 +70,15 @@ export function newDraft(b) {
   return { b, v, name: draftName(v), at, letter };
 }
 
+// A committee "passed it with changes" (Home's RESULT, core.js's "passed it with changes"); never HIPHI's "supports with
+// changes", which is a position, not an amendment.
+const AMENDED = /\bpassed\b[^·]*\bwith changes\b/i;
+// The draft is the one that decision made: a passed-with-changes decision on this bill in Home's 14 days, on or before the
+// draft's day (the report comes days after the vote). A decision after the draft is a newer change still to come.
+const madeBy = (b, at) => { if (!at) return false; const day = hstDay(at), now = Date.now();
+  return Object.values(S.outcomes || {}).some(o => o.bill_id === b.id && o.outcome === 'passed_amended'
+    && (t => t > now - 14 * DAY && hstDay(t) <= day)(Date.parse(o.reported_at || o.scheduled_at || 0))); };
+
 // A row's new drafts: a bill row's bill, or each followed bill of an issue row (Home's rows, calm/home.js myRows), the ones
 // written after a letter first, then the newest.
 export function rowDrafts(r) {
@@ -91,17 +100,23 @@ export function dayAgo(iso) {
 // where each one is marked. A letter written for an older draft says so, with no day ("Your letter is for an older draft of
 // HB 2121"): "HB 2121 changed after your letter · Mar 6" could be read as the letter changing the bill, or as the letter's
 // day (the critic, 25 Oct; C-10). { text, label, href }; label is the link's accessible name: the words shown, then where it
-// goes.
-export function draftWords(items, { own = false, issue = null } = {}) {
+// goes. stat: the row's own status line. When it already says the committee changed the bill ("Passed a committee with
+// changes Tue", Home's RESULT) and this draft is what that decision made, a second day for the same amendment reads as a
+// second change (A-14, the critic's second look, 25 Oct): the line only offers the changes, "See what changed".
+export function draftWords(items, { own = false, issue = null, stat = '' } = {}) {
   if (!items?.length) return null;
   if (items.length === 1 || own) {
     const d = items[0], num = spaced(d.b.bill_number), day = d.at && !d.letter ? ` · ${dayAgo(d.at)}` : '';
+    if (!d.letter && AMENDED.test(stat || '') && madeBy(d.b, d.at)) {
+      return { text: own ? 'See what changed' : `See what changed in ${num}`, label: `See what changed in ${num}`, href: `${billPath(d.b)}/changes` };
+    }
     const text = (d.letter ? `Your letter is for an older draft${own ? '' : ` of ${num}`}` : own ? 'New draft' : `New draft of ${num}`) + day;
     return { text, label: `${text.replace(' · ', ', ')}: see what changed${own ? ` in ${num}` : ''}`, href: `${billPath(d.b)}/changes` };
   }
   const nums = items.map(d => spaced(d.b.bill_number));
   const text = `New drafts of ${nums[0]} and ${items.length === 2 ? nums[1] : `${items.length - 1} more bills`}`;
-  return { text, label: `${text}: see them on ${issue ? `the page for ${issue.name}` : 'the issue’s page'}`, href: issue ? `#/issue/${issue.slug}` : '#/bills' };
+  // The issue's page at its bills (#/issue/<slug>/drafts, rec/issue.js), where each one is marked, not at its top (B-3).
+  return { text, label: `${text}: see them on ${issue ? `the page for ${issue.name}` : 'the issue’s page'}`, href: issue ? `#/issue/${issue.slug}/drafts` : '#/bills' };
 }
 // The line itself: its own link, a sibling of the row's link inside the same <li> (never inside it), styled in rec.css
 // (.rc-draft: the status line's size, link blue, 44px of target).

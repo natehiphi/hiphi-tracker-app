@@ -17,6 +17,7 @@ body.rec .rc-hrow .rc-link .ic { width: 18px; height: 18px; }
 
 body.rec .rc-sec { margin-top: var(--s32); }
 body.rec .rc-h2 { margin: 0 0 var(--s8); font: 600 var(--t18)/1.2 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+body.rec .rc-h2[tabindex="-1"]:focus { outline: none; }   /* focused by a #/issue/<slug>/drafts link only, so a screen reader starts there; not a control */
 body.rec .rc-note { margin: calc(-1 * var(--s4)) 0 var(--s8); font-size: var(--t14); color: var(--n700); }
 body.rec .rc-card { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: var(--s16); }
 body.rec .rc-card + .rc-card { margin-top: var(--s12); }
