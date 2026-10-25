@@ -28,12 +28,12 @@ const TOPICS = [
       { key: 'sugary',       name: 'Sugary drinks', re: /sugary drink|soda/i },
       { key: 'grocery',      name: 'Grocery costs', re: /grocer|excise tax on|period products/i },
     ] },
-  { key: 'tobacco', name: 'Tobacco, Nicotine & Alcohol', icon: 'cigarette',
+  { key: 'tobacco', name: 'Tobacco, Nicotine & Alcohol', icon: 'cigarette-off',
     desc: 'E-cigarettes, flavors, taxes and drunk driving.', subs: [
       { key: 'tobacco-vaping', name: 'Tobacco & nicotine', re: /tobacco|vape|nicotine|cigarette|smoking/i },
       { key: 'alcohol',        name: 'Alcohol & impaired driving', re: /dui|liquor|alcohol|blood alcohol|substance misuse/i },
     ] },
-  { key: 'care', name: 'Health Care & Rights', icon: 'heart-pulse',
+  { key: 'care', name: 'Health Care & Rights', icon: 'stethoscope',
     desc: 'Getting care, paying for it, and the rights that come with it.', subs: [
       { key: 'workforce',    name: 'Health workforce', re: /health students|community health worker|hygienist|workers.{0,3} comp|new grads/i },
       { key: 'repro',        name: 'Reproductive & gender-affirming care', re: /reproductive|abortion|gender-affirming|sex marker/i },

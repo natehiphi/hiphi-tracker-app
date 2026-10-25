@@ -248,9 +248,10 @@ function selRow(b) {
 // heading icon on the card's left edge on phones (CSS).
 const ICONS_ON = (() => { try { return /[?&]icons=1\b/.test(location.search); } catch { return false; } })();
 const STAGE_IC = { risk: 'triangle-alert', hear: 'calendar-check', wait: 'hourglass', thru: 'route', done: 'landmark', mon: 'eye', dead: 'circle-x' };
-// Staff-only swaps (fix 3): the categories table and the public topics keep their icons until Nate picks (R-339 review sheet).
-// An apple and a cigarette are hard to read at 20px; a pulse line reads as a hospital monitor, not care and rights.
-const STAFF_TOPIC_IC = { apple: 'salad', cigarette: 'cigarette-off', 'heart-pulse': 'heart-handshake' };
+// Staff-only swaps (fix 3) for glyphs unclear at 20px. Nate's picks of 10/25 (cigarette-off, stethoscope) are in the
+// categories table itself since migration 187, so Staff and the public show the same icons; the apple stays swapped for a
+// salad on Staff until he picks Food's new icon on the round-2 sheet (R-339).
+const STAFF_TOPIC_IC = { apple: 'salad' };
 const ghIcon = k => ICONS_ON && STAGE_IC[k] ? `<span class="bl-ghic" aria-hidden="true">${icon(STAGE_IC[k])}</span>` : '';
 // The one category of a bill's live issues; none when it has no issue, or issues in two categories (fix 2: a picture that is
 // right for one of two topics is wrong for the bill).
