@@ -473,9 +473,11 @@ function sharedWords(it, v = S.me) {
 }
 function shared(html, it, v = S.me) {
   const words = sharedWords(it, v); if (!words) return html;
-  const note = `<p class="t6-shared">${icon('users')}<span>${esc(words)}</span></p>`;
+  const inner = `${icon('users')}<span>${esc(words)}</span>`;
+  // It joins the card's meta line (the due tile), which wraps: side by side where there is room, its own line on a phone.
+  // On its own line it made Patti's 1024x768 Today 1.23 screens against spec 8's 1.2 (R-336).
   // (the meta line holds spans only, so its first </div> is its own)
-  return /<div class="v6-step-meta">/.test(html) ? html.replace(/(<div class="v6-step-meta">[\s\S]*?<\/div>)/, `$1${note}`) : html.replace(/(<h3 class="v6-step-what"[\s\S]*?<\/h3>)/, `$1${note}`);
+  return /<div class="v6-step-meta">/.test(html) ? html.replace(/(<div class="v6-step-meta">[\s\S]*?)(<\/div>)/, `$1<span class="t6-shared">${inner}</span>$2`) : html.replace(/(<h3 class="v6-step-what"[\s\S]*?<\/h3>)/, `$1<p class="t6-shared">${inner}</p>`);
 }
 function miniCard(it, { primary = true, v = S.me, id = 't6-next-h' } = {}) {
   if (it.kind === 'stale') {

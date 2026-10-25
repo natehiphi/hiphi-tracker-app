@@ -325,8 +325,10 @@ function teamPage() {
   const sched = off ? '' : block('sched', 'Today and tomorrow', sch.some(d => d.rows.length) ? sch.map(d => d.rows.length ? `<h3 class="tm6-day">${d.label}</h3><div class="v6-list" role="list">${d.rows.map(sitRow).join('')}</div>` : '').join('')
     : quiet('calendar', 'No hearings on our bills today or tomorrow.'));
   const rows = loads();
-  const who = phone ? `<details class="tm6-fold t6-doors" data-block="who"${S.tmWhoOpen ? ' open' : ''} data-tmwho><summary class="t6-line">${icon('users')}<span class="t6-lt"><b>Who is on what</b> · ${plural(rows.length, 'person', 'people')}</span>${icon('chevron-down', { cls: 't6-chev' })}</summary><div class="tm6-foldin">${loadHTML(rows)}</div></details>`
-    : block('who', 'Who is on what', `<p class="tm6-sub">Each person’s open steps, chair asks included, each counted once for whoever holds it.</p>${loadHTML(rows)}`);
+  // What the numbers count, said once on a laptop and inside the phone's fold alike (R-336: the phone's had no such line).
+  const whoSub = `<p class="tm6-sub">Each person’s open steps, chair asks included.</p>`;
+  const who = phone ? `<details class="tm6-fold t6-doors" data-block="who"${S.tmWhoOpen ? ' open' : ''} data-tmwho><summary class="t6-line">${icon('users')}<span class="t6-lt"><b>Who is on what</b> · ${plural(rows.length, 'person', 'people')}</span>${icon('chevron-down', { cls: 't6-chev' })}</summary><div class="tm6-foldin">${whoSub}${loadHTML(rows)}</div></details>`
+    : block('who', 'Who is on what', `${whoSub}${loadHTML(rows)}`);
   const nob = nobodySteps().length, noown = phone ? (nob ? `<nav class="t6-doors" data-block="noown" aria-label="Bills with no owner">${door('#/team?who=none', 'user-round', `<b>No owner</b> · ${plural(nob, 'bill')}`)}</nav>` : '') : noOwner(new Set(shown.filter(x => !x.ids.length).map(x => x.b.id)));
   return `<div class="tm6-root${phone ? ' ph' : ''}">
     <header class="t6-head"><h1 class="v6-ptitle sv-h1" id="tm6-h1" tabindex="-1">Team</h1><p class="t6-date">${esc(new Date().toLocaleDateString('en-US', { ...HST, weekday: 'short', month: 'short', day: 'numeric' }))}</p></header>
