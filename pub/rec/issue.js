@@ -50,10 +50,11 @@ const numbers = bills => { const ns = bills.map(b => num(b) + (+b.session_year &
 // The kit's own row (recRow) when no partner writes on it, so those rows are exactly as before. r.b is the row's bill.
 // A followed bill with a new draft (R-212 #50, pub/newdraft.js; in session only) gets My issues' line under it, its own link
 // to the bill's drafts beside the row's in the same <li>: "New draft · Fri", "Your letter is for an older draft" (the row
-// names the bill already, A-14). The letter's line is left off the bill whose card on this page already says "You wrote
-// testimony on this bill on Feb 18, for an older draft" beside "Send my letter again" (cardOlder, set by issuePage; A-14).
+// names the bill already, A-14). The bill whose card on this page already says "You wrote testimony on this bill on Feb 18,
+// for an older draft" beside "Send my letter again" (cardOlder, set by issuePage) keeps only "See what changed" on its row,
+// so the warning is said once and what changed is still one tap away before sending again (A-14, B-3; ui-critic 10/25).
 let cardOlder = '';
-const bRow = r => { const d = r.b ? newDraft(r.b) : null, mine = d && !(d.letter && r.b.id === cardOlder) ? [d] : [];
+const bRow = r => { const d = r.b ? newDraft(r.b) : null, mine = d ? [d.letter && r.b.id === cardOlder ? { ...d, see: true } : d] : [];
   const pl = r.b ? rowLine(r.b) : '', nd = draftLink(mine, { own: true, stat: r.text });
   const li = pl ? `<li><a class="rc-row" href="${esc(r.href)}">${r.lead ? `<span class="rc-lead">${icon(r.lead)}</span>` : ''}
   <span class="rc-rtext"><span class="rc-rname">${esc(r.name)}</span>${r.text ? `<span class="rc-rstat${r.warn ? ' warn' : ''}">${esc(keep(r.text))}</span>` : ''}<span class="rc-rpart">${esc(pl)}</span></span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>` : recRow(r);

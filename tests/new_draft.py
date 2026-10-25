@@ -15,14 +15,14 @@
 #       a letter on SB 2175 as well names the letter's bills first
 #   N4  the issue page: each changed bill's row is marked ("New draft · Mar 6"), the same link to its /changes; the bill whose
 #       card is on the page says "You wrote testimony on this bill on Feb 18, for an older draft." on the card, beside "Send my
-#       letter again", and its row has no line (A-14); the bill page's own card says it too
+#       letter again", and its row says only "See what changed" (A-14, B-3); the bill page's own card says it too
 #   N5  between sessions (&season=off): no line anywhere
 #   N6  the links: tapping the one-bill line lands on that bill's drafts, and again when tapped again after Back or after the
 #       My issues tab (once per arrival); the two-bill line opens the issue's page at "Bills on this issue", focused and in view
 #   N7  #/bill/<year>/<NUM>/changes: on the calm page "About the bill" opens at "What each draft changed" when HIPHI has a note
 #       on the current draft (HB 2121), else "More details" at "Drafts of the bill", where one line above the list says "We
-#       haven’t summed up what House draft 2 changed yet. The committee’s report, on the Capitol bill page, says what it
-#       changed." (HB 1671; that landing only, never on the plain bill page); with
+#       haven’t summed up House draft 2 yet. The committee’s report, on the Capitol bill page, explains the
+#       changes." (HB 1671; that landing only, never on the plain bill page); with
 #       ?rec=0 "Draft history", else More details. In view, focused, no toast, and the folds a person keeps open on this
 #       device (hiphi_recfold) are left exactly as they were; the short form #/bill/HB2121/changes works too
 #   N8  the honesty rule, on newdraft.js with made-up official lines: a draft named on the bill's earliest line in hand is not
@@ -117,7 +117,7 @@ with sync_playwright() as p:
         # N6 the links (the phone taps, the laptop clicks)
         pg.locator('.rc-draft[href="#/bill/2026/HB1671/changes"]').click(); pg.wait_for_selector('.bl-head', timeout=30000); pg.wait_for_timeout(2500)
         st = pg.evaluate("() => ({ hash: location.hash, open: [...document.querySelectorAll('#main details[open]')].map(d => d.dataset.blRfold || d.dataset.blFold), f: document.activeElement?.textContent.trim().slice(0, 40) })")
-        ok(st['hash'] == '#/bill/2026/HB1671/changes' and 'more' in st['open'] and 'rd-drafts' in st['open'] and st['f'].startswith('We haven’t summed up what House draft 2'), f'N6 {tag}: the one-bill line lands on HB 1671’s drafts ({st})')
+        ok(st['hash'] == '#/bill/2026/HB1671/changes' and 'more' in st['open'] and 'rd-drafts' in st['open'] and st['f'].startswith('We haven’t summed up House draft 2'), f'N6 {tag}: the one-bill line lands on HB 1671’s drafts ({st})')
         pg.go_back(); pg.wait_for_selector('.rc-mine', timeout=30000); pg.wait_for_timeout(1000)
         # the same line tapped again later in the visit lands on the drafts again (once per arrival, not once per visit)
         pg.locator('.rc-draft[href="#/bill/2026/HB1671/changes"]').click(); pg.wait_for_selector('.bl-head', timeout=30000); pg.wait_for_timeout(2500)
@@ -164,7 +164,8 @@ with sync_playwright() as p:
         card = pg.evaluate("() => (document.querySelector('.rc-iss .rc-iact .again')?.textContent || '').trim()")
         ok(card == 'You wrote testimony on this bill on Feb 18, for an older draft.' and pg.locator('.rc-iss .rc-iact', has_text='Send my letter again').count() == 1,
            f'N4 {tag}: HB 2121’s card says its letter is for an older draft, beside "Send my letter again" ("{card}")')
-        ok(hb and not hb['line'], f'N4 {tag}: so HB 2121’s row does not say it again ("{hb and hb["line"]}")')
+        ok(hb and hb['line'] == 'See what changed' and hb['href'] == '#/bill/2026/HB2121/changes',
+           f'N4 {tag}: so HB 2121’s row does not say it again, but still links to what changed ("{hb and hb["line"]}")')
         ok(sb and sb['line'] == 'New draft · Mar 6' and sb['href'] == '#/bill/2026/SB2175/changes', f'N4 {tag}: SB 2175’s row is marked: "{sb and sb["line"]}"')
         ok(sb and sb['sib'] and sb['h'] >= 44 and sb['color'] == BLUE, f'N4 {tag}: the same link as on My issues (beside the row’s, 44px, link blue)')
         pg.screenshot(path=os.path.join(OUT, f'issue-{tag}.png'), full_page=True)   # the card's line and the marked row together
@@ -197,7 +198,7 @@ with sync_playwright() as p:
           return { hash: location.hash, open: [...document.querySelectorAll('#main details[open]')].map(d => d.dataset.blRfold || d.dataset.blFold),
             f: a ? a.tagName + ' ' + a.textContent.trim().slice(0, 60) : '', seen: !!r && r.top >= bars - 1 && r.bottom <= under + 1,
             toast: (document.querySelector('#toast')?.innerText || '').trim(), kept: localStorage.getItem('hiphi_recfold') }; }"""
-        for num, q, want, focus, name in (('HB2121', '', ['about'], 'H3 What each draft changed', 'changes-calm'), ('HB1671', '', ['more', 'rd-drafts'], 'P We haven’t summed up what House draft 2 changed yet.', 'changes-nonote'),
+        for num, q, want, focus, name in (('HB2121', '', ['about'], 'H3 What each draft changed', 'changes-calm'), ('HB1671', '', ['more', 'rd-drafts'], 'P We haven’t summed up House draft 2 yet.', 'changes-nonote'),
                                           ('HB2121', '&rec=0', ['drafts'], 'SUMMARY Draft history', 'changes-rec0'), ('HB1671', '&rec=0', ['more'], 'SUMMARY More details', 'changes-rec0-more')):
             c, pg = page(scene(folds=['who']), w, h)
             pg.goto(f'{BASE}/track.html?demo=1{q}#/bill/2026/{num}/changes'); pg.wait_for_selector('.bl-head', timeout=60000); pg.wait_for_timeout(2000)
@@ -213,7 +214,7 @@ with sync_playwright() as p:
                 nn = pg.evaluate("""() => { const p = document.querySelector('#main .bl-rnonote'), li = document.querySelector('#main .bl-rlist li');
                   return p && { t: p.textContent.replace(/\\s+/g, ' ').trim(), href: p.querySelector('a')?.getAttribute('href') || '', size: getComputedStyle(p).fontSize, li: getComputedStyle(li).fontSize,
                     above: !!(p.compareDocumentPosition(document.querySelector('#main details[data-bl-fold="rd-drafts"] .bl-rlist')) & 4) }; }""")
-                ok(nn and nn['t'].replace(' ,', ',') == 'We haven’t summed up what House draft 2 changed yet. The committee’s report, on the Capitol bill page, says what it changed.'
+                ok(nn and nn['t'].replace(' ,', ',') == 'We haven’t summed up House draft 2 yet. The committee’s report, on the Capitol bill page, explains the changes.'
                    and 'capitol.hawaii.gov' in nn['href'] and nn['size'] == nn['li'] and nn['above'], f'N7 {tag}: HB 1671 has no HIPHI note: one line above the list says so, its link the Capitol bill page ({nn})')
                 pg.evaluate("location.hash = '#/bill/2026/HB1671'"); pg.wait_for_timeout(1500)
                 pg.evaluate("""() => { for (const s of ['details[data-bl-rfold="more"]', 'details[data-bl-fold="rd-drafts"]']) { const d = document.querySelector('#main ' + s); if (d) d.open = true; } }"""); pg.wait_for_timeout(300)

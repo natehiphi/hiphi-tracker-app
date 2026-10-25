@@ -107,7 +107,8 @@ export function draftWords(items, { own = false, issue = null, stat = '' } = {})
   if (!items?.length) return null;
   if (items.length === 1 || own) {
     const d = items[0], num = spaced(d.b.bill_number), day = d.at && !d.letter ? ` · ${dayAgo(d.at)}` : '';
-    if (!d.letter && AMENDED.test(stat || '') && madeBy(d.b, d.at)) {
+    // d.see: the issue page's card already says the letter is for an older draft, so the row only points to what changed.
+    if (d.see || (!d.letter && AMENDED.test(stat || '') && madeBy(d.b, d.at))) {
       return { text: own ? 'See what changed' : `See what changed in ${num}`, label: `See what changed in ${num}`, href: `${billPath(d.b)}/changes` };
     }
     const text = (d.letter ? `Your letter is for an older draft${own ? '' : ` of ${num}`}` : own ? 'New draft' : `New draft of ${num}`) + day;

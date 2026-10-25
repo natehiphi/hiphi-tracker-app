@@ -421,12 +421,12 @@ the next hearing's walkthrough.
   on an issue's. Days in Home's words looking back (today, yesterday, Thu, Mar 6). Home's rows themselves are unchanged.
 - **The issue page** (`pub/rec/issue.js` `bRow`): each changed bill's row has the bill's own line, except the letter's on
   the bill whose action card is on the page: the card's own line says it beside "Send my letter again", "You wrote testimony
-  on this bill on Feb 18, for an older draft." (`pub/letters.js` `againLine`, on every action card, the bill page's too).
+  on this bill on Feb 18, for an older draft." (`pub/letters.js` `againLine`, on every action card, the bill page's too), and that bill's row says only "See what changed".
   **`#/issue/<slug>/drafts`** (the two-or-more line's address) lands on "Bills on this issue", focused, once per arrival.
 - **`#/bill/<year>/<NUM>/changes`** (`pub/app.js`, `pub/bill.js` `showDrafts`): the calm page opens "About the bill" at
   "What each draft changed" when HIPHI's note on the current draft has come (waits up to 3 s), else "More details" at
-  "Drafts of the bill", where one line above the list, on that landing only, says "We haven’t summed up what House draft 2
-  changed yet. The committee’s report, on the Capitol bill page, says what it changed." (the Capitol bill page its link);
+  "Drafts of the bill", where one line above the list, on that landing only, says "We haven’t summed up House draft 2
+  yet. The committee’s report, on the Capitol bill page, explains the changes." (the Capitol bill page its link);
   `?rec=0`, "Draft history", else More details. Opened for this visit only (never written to `hiphi_recfold`), no toast. Both
   landings happen on each arrival at the address (a mark on the history entry: the line tapped again after Back or after the
   My issues tab lands again), never on a redraw there.
