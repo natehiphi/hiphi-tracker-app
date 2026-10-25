@@ -13,6 +13,8 @@ body.staff6 .hw-page > .sv-secnav { margin: -16px -4px -8px; }
 body.staff6 .hw-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-width: 0; }
 body.staff6 .hw-bar .sv-seg { flex-wrap: wrap; max-width: 100%; }
 body.staff6 .hw-bar .hw-nav { margin: 0 0 0 auto; }
+body.staff6 .hw-bar .hw-pile { margin: 0 0 0 auto; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }   /* Get hearings: the tab's pile in words (R-336) */
+@media (max-width: 379px) { body.staff6 .hw-bar .hw-pile { margin: 0; flex: 1 1 100%; } }   /* its own line under the switch there: read from the left */
 @media (max-width: 380px) { body.staff6 .hw-bar .sv-seg { border-radius: var(--v6-r20); } body.staff6 .hw-bar .sv-seg button { padding: 0 12px; } }
 /* this week on a phone: the week's row with its arrows sits under the scope switch, its own line (spec 2: phones
    first-class; Nate's walk: with the arrows hidden Patti could not look at next week) */

@@ -286,12 +286,13 @@ export function askSummary({ scope = defaultScope(), viewer = S.me } = {}) {
 // for one pile): "20 to ask · first by Mon 3/23". When the pile runs past the first deadline, the first deadline's share is
 // said beside it, "20 to ask · 16 by Mon 3/30", so the tab's 20 and the board's first "16 to ask" (under its Mon 3/30
 // heading, the other 4 under a later one) read as one pile (R-336: the tab and This week said 20 beside the board's 16).
-// '' when nothing is left to ask.
-export function toAskWords(sum) {
+// '' when nothing is left to ask; with `split`, '' too unless the pile runs past the first deadline (Get hearings' own row:
+// there the tab and the board say the rest).
+export function toAskWords(sum, { split = false } = {}) {
   const n = sum?.toAsk || 0; if (!n) return '';
   const d = sum.firstDl;
   if (d && d.toAsk < n) return `${n} to ask · ${d.toAsk} by ${d.day}`;
-  return `${n} to ask${sum.firstDay ? ` · first by ${sum.firstDay}` : ''}`;
+  return split ? '' : `${n} to ask${sum.firstDay ? ` · first by ${sum.firstDay}` : ''}`;
 }
 
 // One set of counts per deadline, the board's own: the line under each deadline here (Get hearings, Legislators' Who to ask)
