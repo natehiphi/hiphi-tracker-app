@@ -297,3 +297,29 @@ body.staff6 .hp-page .hp-startsec .hp-steps + .hp-startl, body.staff6 .hp-page .
 body.staff6 .hp-page .hp-h3a { color: inherit; text-decoration: none; }
 body.staff6 .hp-page .hp-h3a:hover { color: var(--v6-action); text-decoration: underline; }
 body.staff6 .hp-page .hp-h3a:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }
+
+/* ---- My settings, Colors (Nate 10/25): each choice drawn in its own palette; picking it changes the app at once ---- */
+body.staff6 .me-page .me-colsum { display: flex; align-items: center; gap: 14px; min-width: 0; }
+body.staff6 .me-page .me-colsum .me-pv { width: 56px; height: 40px; }
+body.staff6 .me-page .me-colcur { color: var(--v6-ink); }
+body.staff6 .me-page .me-colfam { margin: 24px 0 8px; font: 700 var(--v6-t14)/var(--v6-lh14) Lato, system-ui, sans-serif; color: var(--v6-muted); }
+body.staff6 .me-page .me-colfam:first-of-type { margin-top: 8px; }
+body.staff6 .me-page .me-colback { margin: 0 0 8px; }
+body.staff6 .me-page .me-colgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 8px; }
+body.staff6 .me-page .me-col { position: relative; display: flex; align-items: center; gap: 14px; min-height: 72px; padding: 12px; border-radius: var(--v6-r12); cursor: pointer; }
+body.staff6 .me-page .me-col input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+body.staff6 .me-page .me-col:has(input:checked) { background: var(--v6-action-wash); box-shadow: inset 0 0 0 2px var(--v6-action); }
+body.staff6 .me-page .me-col:has(input:focus-visible) { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .me-page .me-col:not(:has(input:checked)):hover { background: var(--v6-wash); } }
+body.staff6 .me-page .me-colx { display: grid; gap: 2px; min-width: 0; }
+body.staff6 .me-page .me-coln { font-family: Poppins, system-ui, sans-serif; font-weight: 500; font-size: var(--v6-t18); line-height: var(--v6-lh18); color: var(--v6-ink); }
+body.staff6 .me-page .me-colt { font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+/* the little drawing, filled by the palette (the ui-critic, 10/25): the page ground with a small card (a name and the
+   selected-row wash), then a full-width band of the button colour beside the done and celebrate colours */
+body.staff6 .me-page .me-pv { flex: none; display: grid; grid-template-rows: 1fr 16px; width: 80px; height: 56px; border-radius: 10px; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(var(--v6-ink-rgb), .12); }
+body.staff6 .me-page .me-pvc { align-self: center; justify-self: center; display: grid; gap: 4px; width: 62%; padding: 5px 6px; border-radius: 5px; box-shadow: 0 1px 2px rgba(0, 0, 0, .1); }
+body.staff6 .me-page .me-pvc > i { display: block; height: 4px; border-radius: 2px; }
+body.staff6 .me-page .me-pvc > i + i { height: 6px; }
+body.staff6 .me-page .me-pvb { display: grid; grid-template-columns: 1fr 14px 14px; }
+body.staff6 .me-page .me-pvb > * { display: block; }
+body.staff6 .me-page .me-colsum .me-pv { width: 64px; height: 44px; grid-template-rows: 1fr 12px; }

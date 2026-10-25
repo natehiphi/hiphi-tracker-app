@@ -1,4 +1,5 @@
-/* Staff v6 (R-336): the look's tokens, Palette B "Morning Reef" (decision D6: Nate's "ocean teal and leaf green").
+/* Staff v6 (R-336): the look's tokens. Colours: HIPHI Family by default (Nate 10/25, "number 2"; Morning Reef read as too beige);
+   each person can pick another palette in My settings, Colors (staff6/css/palettes.css, made by tools/staff6_palettes.js).
    Loaded right after pub/base.css and scoped to body.staff6, so the public tracker and Staff v2-v5 never change.
    Two layers:
    1. --v6-* names, for v6's own styles (spec section 4; every builder uses only these).
@@ -6,46 +7,49 @@
       copied from v5 turns warm at once, before each screen is rebuilt. --t13 becomes 14px: v6 has no 13px text (V10, A-4
       as amended for v6: 14/16/18/22/28).
    Contrast (WCAG) is measured against page / card / wash; every text pair passes 4.5:1, UI edges 3:1 (A-7).
-   A swap of palette is one edit: replace the 19 values in layer 1 with A or C below (layer 2 reads layer 1). */
+   The colours sit between palette:start and palette:end, written by tools/staff6_palettes.js (never by hand). */
 
-/* Palette A "Sand & Lagoon" (kept for a swap):
-   page #FAF6EF  card #FFFDF9  wash #F2EBDF  hair #E8DFD0  ink #2A2520  body #463D35  muted #6B6055  field #8F8273
-   action #00698E  action-press #00546F  action-wash #E3EFF3  leaf #2E7650  leaf-wash #E3F0E8
-   late #9A5B00  late-wash #FBEFD9  bad #B3362B  bad-wash #FBE9E5  coral #EE7B4F  band #3B332B
-   Palette C "Golden Hour" (kept for a swap):
-   page #F4ECDF  card #FFFBF4  wash #EADFCD  hair #E0D3BE  ink #2C2621  body #473C32  muted #665A4D  field #8A7C6B
-   action #00637F  action-press #004F66  action-wash #E0ECEE  leaf #2D7049  leaf-wash #E2EEE4
-   late #8F5600  late-wash #F8EBD3  bad #AA3127  bad-wash #F8E6E0  coral #EE7B4F  band #3B332B */
 
 body.staff6 {
   /* ---- layer 1: the v6 names ---- */
-  --v6-page: #F7F3EA;          /* the page ground (body, sidebar, header) */
-  --v6-card: #FFFEFA;          /* cards, list boxes, panels, sheets */
-  --v6-wash: #EEE7DA;          /* wells, tiles, selected tab ground, the status tile, inputs' fill */
-  --v6-hair: #E3DACB;          /* inset hairlines only (decorative, never a box edge) */
-  --v6-ink: #25221E;           /* headings, names: 14.3 / 15.7 / 12.9 */
-  --v6-body: #433B33;          /* sentences: 9.9 / 10.9 / 8.9 */
-  --v6-muted: #685D52;         /* meta, times, bill numbers: 5.8 / 6.4 / 5.2 */
-  --v6-field: #8C7F70;         /* input borders, checkbox edges (UI, 3:1): 3.5 / 3.9 */
-  --v6-action: #0B6E73;        /* the filled button, links, focus ring, selection: 5.4 / 6.0 / 4.9; white on it 6.0 */
-  --v6-action-press: #095A5E;  /* filled button hover and press: white on it 8.0 */
-  --v6-action-wash: #E2EFEE;   /* tonal buttons, the selected row, the current place: action on it 5.1 */
-  --v6-leaf: #3A7533;          /* done, filed, approved (always with a check): 5.0 */
-  --v6-leaf-wash: #E5F0E1;     /* leaf on it 4.7 */
-  --v6-late: #955A00;          /* ONLY "Late, still accepted until ..." (clock icon): 5.1 (D3) */
-  --v6-late-wash: #FBEFD9;     /* late on it 4.9 */
-  --v6-bad: #AF3328;           /* ONLY missed / overdue (alert icon and the word): 5.7 (D3) */
-  --v6-bad-wash: #FBE9E5;      /* bad on it 5.4 */
-  --v6-coral: #EE7B4F;         /* celebration fills only, ink text on it 5.7 */
-  --v6-band: #3B332B;          /* the practice-copy band: sand text on it 11.2 */
+  /* palette:start (written by tools/staff6_palettes.js: change the list there and run it, never by hand) */
+  /* HIPHI Family, the default (Nate 10/25). Contrast, least of page / card / wells: body 8.2, small grey 4.8, button 6.2, links 5.3, field edges 3.3. */
+  --v6-page: #F4F7F9;
+  --v6-card: #FFFFFF;
+  --v6-wash: #E9EFF2;
+  --v6-hair: #E8EAEB;
+  --v6-ink: #142B35;
+  --v6-body: #344852;
+  --v6-muted: #5B6B71;
+  --v6-field: #7F898E;
+  --v6-action: #00698E;
+  --v6-action-press: #005674;
+  --v6-action-wash: #E0EDF1;
+  --v6-action-hover: #D1E4EB;
+  --v6-leaf: #2E7650;
+  --v6-leaf-wash: #E6EFEA;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #F28C28;
+  --v6-band: #132932;
+  --v6-hover: #FAFBFC;
+  --v6-wash-hover: #DEE5E9;
+  --v6-shimmer: #EFF3F6;
+  --v6-tab-hover: #ECF1F4;
+  --v6-shadow: 14, 62, 80; --v6-ink-rgb: 20, 43, 53; --v6-page-rgb: 244, 247, 249; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 19, 41, 50;
+  --n300: #C7CED2; --p100: #C7DEE6; --p200: #8CBCCC; --p300: #66A5BB; --p400: #408FAA; --p500: #1F7B9C; --p600: #0F7295; --p900: #003A4E;
+  --o50: #FDEEDF; --o200: #F9CB9E; --o600: #9C5A1A; --o700: #854D16; --bad-press: #8C2920;
+  /* palette:end */
 
   /* shape and depth: three radii (12, 20, pill) and three warm shadows, never with a border on the same box (A-17, V16) */
   --v6-r12: 12px;
   --v6-r20: 20px;
   --v6-pill: 999px;
-  --v6-sh1: 0 1px 2px rgba(74, 52, 30, .05), 0 2px 8px rgba(74, 52, 30, .05);     /* a resting card */
-  --v6-sh2: 0 2px 4px rgba(74, 52, 30, .05), 0 8px 24px rgba(74, 52, 30, .08);    /* hover, a sticky bar */
-  --v6-sh3: 0 16px 48px rgba(74, 52, 30, .18);                                    /* a sheet, a popover */
+  --v6-sh1: 0 1px 2px rgba(var(--v6-shadow), .05), 0 2px 8px rgba(var(--v6-shadow), .05);     /* a resting card */
+  --v6-sh2: 0 2px 4px rgba(var(--v6-shadow), .05), 0 8px 24px rgba(var(--v6-shadow), .08);    /* hover, a sticky bar */
+  --v6-sh3: 0 16px 48px rgba(var(--v6-shadow), .18);                                    /* a sheet, a popover */
 
   /* type: Lato for reading, Poppins for names and headings; the same sizes on phone and laptop; 13px never (V10) */
   --v6-t14: .875rem;   /* 14/20: labels, counts, times, bill numbers only */
@@ -66,26 +70,14 @@ body.staff6 {
   --n50: var(--v6-page);
   --n100: var(--v6-wash);
   --n200: var(--v6-hair);
-  --n300: #D2C6B4;      /* between hair and field: the off switch track, a soft edge */
   --n400: var(--v6-field);
   --n500: var(--v6-muted);
   --n700: var(--v6-body);
   --n900: var(--v6-ink);
   --p50: var(--v6-action-wash);
-  --p100: #C6E0DE;
-  --p200: #8FD3CF;      /* light teal, kept for v5 rules that read it (the dark toast it lit is gone: every toast is the warm card) */
-  --p300: #6AB5B3;
-  --p400: #3B9A9B;
-  --p500: #1C8388;
-  --p600: #12787D;
   --p700: var(--v6-action);
   --p800: var(--v6-action-press);
-  --p900: #073F42;
-  --o50: #FDEEE6;
-  --o200: #F8C6AE;
   --o400: var(--v6-coral);
-  --o600: #A84A22;
-  --o700: #8C3C19;
   --ok-wash: var(--v6-leaf-wash);
   --ok-text: var(--v6-leaf);
   /* D3: v5's "warn" meant due soon, sent back or paused, and none of those is late, so in v6 it is neutral: ink on sand.
@@ -95,7 +87,6 @@ body.staff6 {
   --warn-text: var(--v6-ink);
   --bad-wash: var(--v6-bad-wash);
   --bad-text: var(--v6-bad);
-  --bad-press: #8E281F;
   --t13: .875rem;       /* no 13px in v6: what v5 set at 13 reads at 14 */
   --t14: .875rem;
   --t16: 1rem;

@@ -19,6 +19,7 @@
 import { S, DB, DEMO, DEMO_ASOF, LIVE_REFRESH, SESSION_OVER, APP_URL, LINK_ERR, LINK_TOKEN, RECOVERY, setRecovery, hooks, esc, advocate, clearPractice, practiceRestarted, undoStartOver } from './data.js';
 import { icon, btn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, takeSheetEntry, avatar, keysOn, placeToast, leavePageToasts } from './ui.js';
 import { MARK } from '../pub/art.js';
+import { PALETTES, DEFAULT_PALETTE } from './palettes.js';   // My settings, Colors (Nate 10/25)
 import { reportError } from './errlog.js';
 import { installAskWatch, loadAsks } from './chairask.js';   // R-316 W3
 import { exactBill, billRoute, FACTS, draftFor, diedish } from './model.js';
@@ -354,6 +355,20 @@ function sidebar(route) {
 // following them to their phone (where there is no sidebar at all).
 export const sideNarrow = () => { try { return localStorage.getItem('sv_side') === 'narrow'; } catch { return false; } };
 const setSideNarrow = on => { try { on ? localStorage.setItem('sv_side', 'narrow') : localStorage.removeItem('sv_side'); } catch { /* private window: this visit only */ } };
+// Colors (Nate 10/25): each person's palette, kept in their settings (advocates.prefs.palette) so it follows them to the
+// phone, with this browser's copy for the practice copy and for staff6.html's first paint. The default needs no attribute.
+const PKEY = () => `hiphi6_palette_${S.me?.id || ''}${DEMO ? '_demo' : ''}`;
+export function myPalette() {
+  let p = S.me?.prefs?.palette;
+  if (!p) { try { p = localStorage.getItem(PKEY()); } catch { p = null; } }
+  return PALETTES.some(x => x.id === p) ? p : DEFAULT_PALETTE;
+}
+export function applyPalette(p = myPalette(), { save = false } = {}) {
+  const el = document.documentElement, pal = PALETTES.find(x => x.id === p) || PALETTES.find(x => x.id === DEFAULT_PALETTE);
+  if (pal.id === DEFAULT_PALETTE) el.removeAttribute('data-palette'); else if (el.getAttribute('data-palette') !== pal.id) el.setAttribute('data-palette', pal.id);
+  const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.content = pal.sw[0];
+  try { localStorage.setItem('hiphi6_palette', pal.id); if (save) localStorage.setItem(PKEY(), pal.id); } catch { /* private window: this visit only */ }
+}
 // The phone bar (below 768px): Today · Hearings · Testimony · Bills · More, on every route (D2, V21). One word each.
 function tabbar(route) {
   const now = barOf(placeOf(route)), bd = badge(), lateN = lateCount(bd);
@@ -437,6 +452,7 @@ export function render() {
   if (!/<h1[\s>]/i.test(main || '') && title) main = `<h1 class="v6-ptitle">${esc(title)}</h1>` + main;
   const cls = document.body.classList;
   // v6: the phone bar shows on every route (V21), so `withtabs` always; a screen's v5 `tabs: false` no longer hides it.
+  if (S.me) applyPalette();   // before sign-in, staff6.html's first-paint copy stands
   cls.add('staff2', 'staff6'); cls.toggle('sidenarrow', sideNarrow()); cls.remove('notabs'); cls.add('withtabs'); cls.toggle('hasbar', !!bar); cls.toggle('wide', !!(scr.wide && scr.wide(route)));
   document.body.dataset.screen = route.name;
   document.body.dataset.place = placeOf(route) || 'none';

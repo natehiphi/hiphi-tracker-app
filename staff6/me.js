@@ -6,7 +6,9 @@
 //      a bill's owner (queue_deadline_reminders); stand-ins for an approver always come; new hearings post in channels.
 //   3. Fine-tune what you are told, and when: each kind on or off, and the alert times (one closed fold: details wait until
 //      asked for).
-//   4. Sign out.
+//   4. Colors (Nate 10/25): the app's palette, this person's own; HIPHI Family unless they pick another. One closed fold,
+//      each choice drawn in its own colours; it changes the moment it is picked and saves to advocates.prefs.palette.
+//   5. Sign out.
 // Same data and calls as v5: advocates.slack_dm and advocates.prefs ({ reminders, workflow }) through DB.saveMyPrefs, and
 // DB.slackTest. "Only in the app" is every kind switched off, which the database reads as "send nothing". Email is described
 // as working (CLAUDE.md rule 14: it is on before the public uses the tracker).
@@ -14,6 +16,8 @@ import { S, DB, DEMO, esc, hooks } from './data.js';
 import { WORKFLOW_KINDS, hearingAhead, diedish } from './model.js';
 import { icon, btn, switchRow, field, toast } from './ui.js';
 import { markNewStep } from './help.js';
+import { PALETTES, FAMILIES, DEFAULT_PALETTE } from './palettes.js';
+import { myPalette, applyPalette } from './app.js';
 // Settings the database reads besides the seven kinds, each on unless switched off: a to-do given to you (065), "put you down
 // for the hearing" (065), an issue made yours (091), a draft moved to you (088). "Only in the app" turns these off too.
 const MORE_KINDS = ['todo', 'hearing', 'issue', 'draft_moved'];
@@ -69,6 +73,24 @@ function routes() {
   ];
 }
 
+// ---- Colors: a small drawing of the app in each palette (page, a card with a name and a line, the button, a done check) ----
+const swatch = sw => { const [page, card, action, awash, leaf, coral, ink] = sw;
+  return `<span class="me-pv" aria-hidden="true" style="background:${page}"><span class="me-pvc" style="background:${card}"><i style="background:${ink}"></i><i style="background:${awash}"></i></span><span class="me-pvb"><b style="background:${action}"></b><em style="background:${leaf}"></em><em style="background:${coral}"></em></span></span>`; };
+function colors() {
+  const now = myPalette(), cur = PALETTES.find(p => p.id === now);
+  const opt = p => `<label class="me-col"><input type="radio" name="me-col" value="${p.id}" ${p.id === now ? 'checked' : ''}>${swatch(p.sw)}<span class="me-colx"><span class="me-coln">${esc(p.name)}</span><span class="me-colt">${esc(p.note)}</span></span></label>`;
+  return `<section class="me-sec" aria-labelledby="me-colh">
+        <h2 class="me-h2" id="me-colh">Colors</h2>
+        <p class="me-lede">Pick the colors you like to work in. Only you see them. Teammates see their own.</p>
+        ${now !== DEFAULT_PALETTE ? `<div class="me-acts me-colback">${btn('Back to HIPHI Family', { kind: 'text', icon: 'rotate-ccw', attrs: { 'data-coldef': '1' } })}</div>` : ''}
+        <details class="me-fine me-colors"${S.meColors ? ' open' : ''}><summary><span class="me-colsum">${swatch(cur.sw)}<span>Your colors: <b class="me-colcur">${esc(cur.name)}</b></span></span>${icon('chevron-down', { cls: 'me-fchev' })}</summary><div class="me-finein">
+          <fieldset class="me-fs"><legend class="sr">Colors</legend>
+          ${FAMILIES.map(f => `<h3 class="me-colfam">${esc(f)}</h3><div class="me-colgrid">${PALETTES.filter(p => p.family === f).map(opt).join('')}</div>`).join('')}
+          </fieldset>
+        </div></details>
+      </section>`;
+}
+
 export default {
   tab: 'you', narrow: true,   // a form: a reading column on a wide screen
   title: () => 'My settings',
@@ -108,6 +130,7 @@ export default {
         <ul class="me-routes" role="list">${rt.map(([ic, name, to]) => `<li class="me-route">${icon(ic)}<span class="me-rtx"><span class="me-rn">${esc(name)}</span><span class="me-rt">${esc(to)}</span></span></li>`).join('')}</ul>
         ${fine}
       </section>
+      ${colors()}
       <section class="me-sec" aria-labelledby="me-acc">
         <h2 class="sr" id="me-acc">Account</h2>
         <div class="me-acts">${btn('Sign out', { kind: 'text', icon: 'log-out', attrs: { 'data-signout': '1' } })}${DEMO ? '<span class="me-note me-inline">In the practice copy this starts it over.</span>' : ''}</div>
@@ -149,7 +172,25 @@ export default {
       if (i.dataset.remv === 'hours_before' && !(Number(i.value) >= 0.5 && Number(i.value) <= 48)) { toast('Use a number of hours from 0.5 to 48.', { err: true }); return; }
       save(me.slack_dm !== false, { ...prefs, reminders: rem, workflow: wf });
     });
-    root.querySelector('.me-fine')?.addEventListener('toggle', e => { S.meFine = e.currentTarget.open; });
+    root.querySelector('.me-fine:not(.me-colors)')?.addEventListener('toggle', e => { S.meFine = e.currentTarget.open; });
+    root.querySelector('.me-colors')?.addEventListener('toggle', e => { S.meColors = e.currentTarget.open; });
+    // A pick shows at once (no Save) and goes to their settings; if the save is refused it stays in this browser.
+    const pickColors = (id, { now = false } = {}) => {
+      const p = PALETTES.find(x => x.id === id); if (!p) return;
+      if (S.colWas == null) S.colWas = myPalette();   // what they had before this run of picks, for Undo
+      applyPalette(id, { save: true });
+      const cur = root.querySelector('.me-colcur'); if (cur) cur.textContent = p.name;
+      clearTimeout(S.colT);
+      S.colT = setTimeout(async () => {
+        const was = S.colWas; S.colWas = null;
+        let msg = `Your colors: ${p.name}.`;
+        try { await DB.patchPrefs({ palette: id }); markNewStep({ settings: 1 }); } catch { msg = `Your colors: ${p.name}, on this computer. They could not be saved to your settings.`; }
+        toast(msg, { ok: true, undo: was && was !== id ? () => pickColors(was, { now: true }) : null });
+        const y = window.scrollY; hooks.render(); window.scrollTo(0, y);
+        document.querySelector(`input[name="me-col"][value="${id}"]`)?.focus({ preventScroll: true });
+      }, now ? 0 : 800);
+    };    root.querySelectorAll('input[name="me-col"]').forEach(i => i.onchange = () => pickColors(i.value));
+    const cd = root.querySelector('[data-coldef]'); if (cd) cd.onclick = () => pickColors(DEFAULT_PALETTE);
     const t = root.querySelector('[data-test]');
     if (t) t.onclick = async () => { t.setAttribute('aria-busy', 'true');
       try { await DB.slackTest(); toast(DEMO ? 'Practice copy: a test DM would be on its way.' : 'Test DM on its way. Check Slack.', { ok: true }); } catch (e) { toast(e, { err: true }); }

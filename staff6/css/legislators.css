@@ -505,7 +505,7 @@ body.staff6 .lg6-find .lg6-x { position: absolute; right: 2px; top: 50%; margin-
 body.staff6 .lg6-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 /* A preset is a quick choice of the list: the same tonal pill as Filter and Sort (ui.js btn secondary), never an outline
    or a status tag (spec 4); on, it says so with a check, aria-pressed and a deeper wash. */
-body.staff6 .lg6-tools .btn.lg6-preset[aria-pressed="true"] { background: #CDE3E1; color: var(--v6-action); }
+body.staff6 .lg6-tools .btn.lg6-preset[aria-pressed="true"] { background: var(--v6-action-hover); color: var(--v6-action); }
 body.staff6 .lg6-tools .btn.lg6-preset[aria-pressed="true"]:hover { background: #BFDAD8; }
 /* The town chips a practice address offers (the find box's own choices). */
 body.staff6 .lg6-chips .lg6-preset { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px; border: 0; border-radius: var(--v6-pill);
