@@ -4,8 +4,10 @@
 // v5 put the step in a side column 480px down, Follow in a "…" menu, and codes, referrals, sponsors and members on the
 // first screen (assessment X28, X27, X4: 26 controls on the first laptop screen). v6, one column, top to bottom:
 //   the header: the bill's name (nickname, edited in the header), its number, the position and owner in words, its issue,
-//               where it stands in one plain sentence (steps.js whereWords, no codes), Follow as a visible button (not
-//               for the owner, whose bill it is), and one "…" for the rare changes (position, owner, mute, copy link);
+//               Follow as a visible button (not for the owner, whose bill it is), and one "…" for the rare changes
+//               (position, owner, mute, copy link);
+//   the stage tracker (tracker.js, R-336): a bar of the bill's stops with the deadlines still ahead and two short lines
+//               of words, on every tab (it took over the header's "where it stands" line);
 //   the tabs:   Next step · Team talk · Public (keys 1, 2, 3; #/bill/X, #/bill/X/talk, #/bill/X/public);
 //   Next step:  "What's next for you", the ONE step card (steps.js stepCard, where 'bill': the viewer's own step with its
 //               filled button, someone else's as a status, a chair ask, Ask the chair to schedule a vote), the bill's to-dos under
@@ -19,7 +21,7 @@ import { CHAMBER_NAME } from '../stops.js';
 import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteName, blurb, titleCaseTitle, sponsorName, legsOf, legTitle, legById,
   unreadCount, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, draftHearing, billRef, streamOf } from './model.js';
 import { personById, SESSION_OVER, SESSION_YEAR } from './data.js';
-import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, POS_SUB, ownerOf, stageRibbon, empty, toast, openSheet, closeSheet,
+import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, POS_SUB, ownerOf, empty, toast, openSheet, closeSheet,
   pickerSheet, menuSheet, confirmSheet, field, keysOn, docBtn } from './ui.js';
 import { renderCommittees, wireCommittees } from './pathway.js';
 import { renderActivity, wireActivity, loadTimeline, shortAction, noteByText } from './activity.js';
@@ -36,6 +38,7 @@ import { logConversation } from './conversation.js';
 import { askTodoOf } from './push.js';
 import { stepCard, billStep, whereWords, numWords, sayWords, committeeName, hearingCard, nw, timeWords, openCounts } from './steps.js';
 import { aboutBill } from './billpane.js';
+import { trackerHTML, wireTracker } from './tracker.js';
 // A share to-do read as Today and Team read it (the rallier's public ask, by its own time), worked out once in today.js.
 import { shareTodoWords } from './today.js';
 
@@ -229,37 +232,6 @@ function chairLinks(b, code) {
   if (!found.length) return '';
   return found.length === 1 ? `<span class="bw-chair">Chair ${found[0][1]}</span>` : `Chairs ${found.map(([, x]) => `<span class="bw-chair">${x}</span>`).join(' and ')}`;
 }
-// The header's line (V05): plain words, no codes. A live bill says where it waits and what its deadline asks (steps.js
-// whereWords), after "Passed the House" when it is on its second chamber; the hearing ahead is the step card's to say
-// (A-14). A bill that stopped says why, with the committee in words.
-// `says` (Next step): what the step card under it already says, the committee (a chair ask's top line, a testimony
-// step's hearing line), the deadline it races and that it was heard. Then the line keeps only the stage, "Passed the
-// House · Senate committee 1 of 2" (A-14, fresh-eyes review: the committee and the deadline were said twice within
-// 300px, and the phone's step card started 418-496px down, over A-1's 400).
-function whereLine(b, { hearing, says }) {
-  const st = stopOf(b);
-  if (diedish(b) || st.phase === 'dead') return deadWords(b);
-  const second = st.leg === 'second' && (st.phase === 'committee' || st.phase === 'floor');
-  const passed = second ? `Passed the ${st.chamber === 'H' ? 'Senate' : 'House'}` : '';
-  const now = sittingNow(b), ch = CHAMBER_NAME[st.chamber] || '';
-  if (says && st.phase === 'committee' && st.committee) {
-    // The missed card ("The hearing started today 1:10 PM") says when it started; the line does not say it again (A-14).
-    const at = now ? (says.started ? '' : `its hearing started ${timeWords(now.scheduled_at)}`) : st.hearingState === 'held' && !says.heard ? 'heard, waiting for its vote' : '';
-    const of = st.stops > 1 ? `${ch} committee ${st.stop} of ${st.stops}`.trim() : ch ? `in its only ${ch} committee` : '';
-    const dl = !says.deadline && st.deadline && !st.deadline.missed ? deadlineOf(b) : '';
-    const parts = [passed, at, of, dl].filter(Boolean);
-    // A short part keeps its words together, so a phone breaks the line between parts ("Senate committee 1 of 2", not "…1 / of 2").
-    if (parts.length) { parts[0] = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
-      return parts.map(x => x.length <= 28 ? `<span class="bw-nw">${esc(x)}</span>` : esc(x)).join(' · '); }
-  }
-  // The step card's hearing line says when (A-14): the header keeps where it waits and what its deadline asks.
-  let w = whereWords(b, { hearing }).replace(/, its hearing set/, '');
-  // Minutes into a sitting the Capitol has no result yet: it is being heard, not "heard, waiting for its vote".
-  if (now) w = w.replace(/^Heard in (.+?), waiting for its vote/, (m, c) => `In ${c}, its hearing started ${timeWords(now.scheduled_at)}`);
-  return esc(passed ? `${passed} · ${w.replace(/^In /, 'in ')}` : w);
-}
-// The deadline part of whereWords ("must reach its last committee by Mon 3/30"), for the short line.
-const deadlineOf = b => (whereWords(b, { hearing: false }).split(' · ').slice(1).find(x => /\bby\b/.test(x)) || '');
 // A sitting of this bill that started within the last three hours and has no result yet: it is being heard now.
 function sittingNow(b) {
   const t = Date.now();
@@ -441,7 +413,7 @@ function ownerWords(b) {
   if (a) return a.id === S.me?.id ? 'You own it' : `${teamFirst(a)} owns it${newOwnerTag(a)}`;
   return b.position && b.position !== 'monitor' && !diedish(b) ? 'No owner yet' : 'No owner';
 }
-function headHTML(b, route, { hearing, says }) {
+function headHTML(b, route) {
   const o = origin(route), nb = neighbours(b), tab = tabOf(route), own = isOwner(b), following = !!S.follows?.has(b.id);
   const editing = S.bwNick.has(b.id) || drafts.has(b.id + ':nick');
   // Follow is a visible button (V22: one click). The owner has the bill already; for everyone else it says what is true
@@ -474,7 +446,6 @@ function headHTML(b, route, { hearing, says }) {
     ${follow ? `<div class="bw-hfollow">${follow}</div>` : ''}
     <div class="bw-hmore">${more}</div>
     <div class="bw-fline"><p class="bw-facts">${facts}</p>${iss ? `<p class="bw-fiss">${iss}</p>` : ''}</div>
-    <p class="bw-where${says ? ' bw-short' : ''}${tab === 'overview' ? ' bw-onstep' : ''}">${whereLine(b, { hearing, says })}</p>
   </header>`;
 }
 
@@ -577,7 +548,7 @@ function whatsNext(b, s) {
     ${card}${stepExtras(b, s, card)}
   </section>`;
 }
-// What the step card says, so the header does not say it again (whereLine's `says`): the committee, the deadline it races
+// What the step card says, so the tracker's caption does not say it again (tracker.js `says`): the committee, the deadline it races
 // (a chair ask's notice line) and that it was heard (a decision-making ask). Null when the card names no committee.
 function cardSays(b, s) {
   const st = stopOf(b);
@@ -728,7 +699,8 @@ function stageRow(b) {
   const auto = STAGE_LABEL[b.stage || 'introduced'] || b.stage;
   const set = b.stage_override ? `<p class="bw-stset">${icon('pencil')}<span>Set by hand; the Capitol’s record says ${esc(auto)}.</span></p>` : '';
   const act = S.me?.is_admin ? btn(b.stage_override ? 'Change the stage' : 'Correct the stage', { kind: 'text', sm: true, attrs: { 'data-stage': '1', 'aria-haspopup': 'dialog' } }) : '';
-  return `<div class="bw-rib">${stageRibbon(b)}${set}${act}</div>`;
+  // The bar of stops is the tracker at the top of the page, on every tab (tracker.js); About keeps only the correction.
+  return set || act ? `<div class="bw-rib">${set}${act}</div>` : '';
 }
 function aboutBody(b) {
   const sp = sponsorList(b), all = !!S.bwSponsAll?.[b.id], st0 = stopOf(b);
@@ -954,12 +926,12 @@ export default {
   render(route) {
     const b = billOf(route); if (!b) return route.num ? untrackedHTML(route, notFound) : notFound(route);
     const tab = tabOf(route), s = pageStep(b), next = tab === 'overview';
-    // One status line for the bill on every tab, the Next step one (A-14; Nate's walk: "House committee 1 of 2" on Next
-    // step, "Waiting in House Health · must reach its last committee by Mon 3/30" on Team talk). The header names the
-    // hearing only when the step card does not, and keeps only the stage when the card names the committee (cardSays).
-    const hearing = !(s && s.h && s.kind !== 'chair');
+    // Where it is, on every tab (R-336): the stage tracker under the name (tracker.js), whose caption took over the header's
+    // line. On Next step, when the step card names the committee and its hearing (cardSays), the caption keeps only where it
+    // is among the chamber's committees (A-14); the other tabs have no step card, so it names them.
     return `<div class="bw-page" data-bw="${esc(b.id)}">
-      ${headHTML(b, route, { hearing, says: cardSays(b, s) })}
+      ${headHTML(b, route)}
+      ${trackerHTML(b, { says: next ? cardSays(b, s) : null, cardDeadline: next && s?.kind === 'chair' && !!cardSays(b, s)?.deadline, heardNow: sittingNow(b), dead: diedish(b) ? deadWords(b) : '' })}
       ${tabsNav(b, tab, s)}
       <div class="bw-panel${fresh ? ' bw-in' : ''}" id="bw-panel" data-panel="${tab}">${next ? '' : yourStepLine(b, s)}${panel(b, tab)}</div>
     </div>`;
@@ -980,6 +952,7 @@ export default {
     page.querySelector('[data-bwowner]')?.addEventListener('click', () => pickOwner(b));
     page.querySelector('[data-bwfollow]')?.addEventListener('click', () => toggleFollow(b));
     wireNick(page, b);
+    wireTracker(page, b);
     // Previous / Next replace this entry, so Back still goes to the list.
     page.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); e.stopImmediatePropagation(); const nb = neighbours(b), to = nb && (a.dataset.nav === 'prev' ? nb.prev : nb.next); if (to) goBill(to); }));
     // Tabs replace the entry too (Back leaves the bill).
