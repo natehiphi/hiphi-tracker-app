@@ -2,9 +2,10 @@
 # improved). On the practice copy (Mon 16 Mar 2026, HB 1562 in Senate HHS with a hearing at 1:10 PM).
 #   1. HB 1562 on a laptop: the stops in order (House committees, House vote, Senate committees, Senate vote, Conference,
 #      Governor), done / now / still to come, the House | Senate | Final steps heading; the header's old "where" line gone.
-#   2. The flags: only deadlines still ahead and not yet beaten, each at the edge of the stop it needs passed; the next one
-#      named with its day, the others a short date; the caption's line says what it asks. Patti (no bills of her own) reads
-#      the day without the Capitol's name (C-15).
+#   2. The flags: only deadlines still ahead and not yet beaten, each a line under the last stop it needs passed ("by 4/10");
+#      the next one in bold; the caption's line is the one that names it and says what it asks (the bar names it only when
+#      a chair ask's card took the caption's line). Patti (no bills of her own) reads the day without the Capitol's name
+#      (C-15).
 #   3. The phone: the slim bar, "Step 4 of 8", the next deadline, See every step opening the list; the step card's title
 #      still on the first screen; no sideways scroll at 390 and 320.
 #   4. A Senate bill starts with the Senate; a bill in conference; a budget bill's own deadlines (replaces).
@@ -18,16 +19,19 @@ import staff6_lib as L
 
 R = L.Results()
 def overflow(pg): return pg.page.evaluate('document.documentElement.scrollWidth - innerWidth')
-# What the tracker shows: the stops (label, state), the group headings, the flags (text, edge, next) and the caption lines.
+# What the tracker shows: the stops (label, state, title), the group headings, the deadlines under them and the caption lines.
 STATE = """() => { const t = document.querySelector('.tk'); if (!t) return null;
   const vis = e => !!e && e.offsetParent !== null && getComputedStyle(e).display !== 'none';
   return {
     stops: [...t.querySelectorAll('.tk-seg')].map(s => [s.querySelector('.tk-l').textContent.trim(), (s.className.match(/is-(\\w+)/) || [])[1], s.title]),
     slim: [...t.querySelectorAll('.tk-slim i')].map(i => (i.className.match(/is-(\\w+)/) || [])[1]),
     groups: [...t.querySelectorAll('.tk-grp')].map(g => g.textContent.trim()),
-    flags: [...t.querySelectorAll('.tk-flag')].map(f => ({ text: f.querySelector('.tk-ft').textContent.trim(), title: f.title, edge: +f.dataset.edge,
-      next: f.classList.contains('is-next'), x: f.querySelector('.tk-fi').getBoundingClientRect().left + 3 })),
-    gaps: [...t.querySelectorAll('.tk-seg')].map(s => [s.getBoundingClientRect().left, s.getBoundingClientRect().right]),
+    // each deadline ahead: the stop it sits under (index and label), its words, and whether it is the next; its name is in the stop's title
+    flags: [...t.querySelectorAll('.tk-seg')].map((s, i) => [s, i]).filter(([s]) => s.querySelector('.tk-d')).map(([s, i]) => ({ at: i,
+      stop: s.querySelector('.tk-l').textContent.trim(), text: s.querySelector('.tk-d').textContent.trim(), title: s.title.split(' · ').slice(-1)[0],
+      next: s.querySelector('.tk-d').classList.contains('is-next'),
+      below: s.querySelector('.tk-d').getBoundingClientRect().top >= s.querySelector('.tk-l').getBoundingClientRect().bottom - 1,
+      inside: s.querySelector('.tk-d').getBoundingClientRect().left >= s.getBoundingClientRect().left - 1 && s.querySelector('.tk-d').getBoundingClientRect().right <= s.getBoundingClientRect().right + 1 })),
     caption: [...t.querySelectorAll('.tk-cap > p')].filter(vis).map(p => p.innerText.replace(/\\s+/g, ' ').trim()),
     wide: vis(t.querySelector('.tk-wide')), slimShown: vis(t.querySelector('.tk-slim')), more: vis(t.querySelector('[data-tkmore]')),
     oldWhere: !!document.querySelector('.bw-head .bw-where'),
@@ -44,19 +48,19 @@ with L.browser() as B:
   # ---- 1 and 2. HB 1562 on a laptop ----
   pg = B.page('NT', 1440, 900); pg.open('/bill/HB1562'); s = pg.page.evaluate(STATE)
   labels = [x[0] for x in s['stops']]
-  R.check('HB 1562: the stops in order', labels == ['HLT/HSH', 'FIN', 'House vote', 'HHS', 'WAM', 'Senate vote', 'Conference', 'Governor'], labels)
+  R.check('HB 1562: the stops in order (each vote is "Vote", under its chamber\'s heading)', labels == ['HLT/HSH', 'FIN', 'Vote', 'HHS', 'WAM', 'Vote', 'Conference', 'Governor'], labels)
   R.check('HB 1562: three done, HHS now, four still to come', [x[1] for x in s['stops']] == ['done'] * 3 + ['now'] + ['next'] * 4, [x[1] for x in s['stops']])
   R.check('HB 1562: the committee\'s full name is the segment\'s title', s['stops'][3][2].startswith('Senate Health and Human Services'), s['stops'][3][2])
   R.check('the group headings: House | Senate | Final steps', s['groups'] == ['House', 'Senate', 'Final steps'], s['groups'])
   R.check('the header\'s old "where" line is gone (the caption says it, A-14)', not s['oldWhere'])
   fl = s['flags']
   R.check('flags: only deadlines still ahead (no First lateral, First decking, Crossover)', fl and not any(re.search(r'First|^Crossover', f['title']) for f in fl), [f['title'] for f in fl])
-  R.check('flags: four ahead (Second lateral, Second decking, Cross back, Fiscal)', [f['title'].split(',')[0] for f in fl] == ['Second lateral', 'Second decking', 'Cross back', 'Fiscal'], [f['title'] for f in fl])
-  R.check('flags: exactly one is next, and it is named with its day', sum(f['next'] for f in fl) == 1 and fl[0]['next'] and fl[0]['text'] == 'Second lateral · Mon 3/30', [f['text'] for f in fl])
-  R.check('flags: the others say a short date', [f['text'] for f in fl[1:]] == ['4/10', '4/16', '5/1'], [f['text'] for f in fl[1:]])
-  R.check('flags: each at the edge of the stop it gates (lateral after HHS, decking after WAM, cross back after the Senate vote, fiscal after conference)',
-          [f['edge'] for f in fl] == [4, 5, 6, 7], [f['edge'] for f in fl])
-  g = s['gaps']; R.check('flags: the next flag\'s pole sits in the gap between HHS and WAM', g[3][1] - 2 <= fl[0]['x'] <= g[4][0] + 2, (g[3], g[4], fl[0]['x']))
+  R.check('flags: four ahead (Second lateral, Second decking, Cross back, Fiscal)', [' '.join(f['title'].split(' ')[:-2]) for f in fl] == ['Second lateral', 'Second decking', 'Cross back', 'Fiscal'], [f['title'] for f in fl])
+  R.check('flags: exactly one is next, in bold, its date only (the caption names it)', sum(f['next'] for f in fl) == 1 and fl[0]['next'] and fl[0]['text'] == 'by 3/30', [f['text'] for f in fl])
+  R.check('flags: the others say a short date', [f['text'] for f in fl[1:]] == ['by 4/10', 'by 4/16', 'by 5/1'], [f['text'] for f in fl[1:]])
+  R.check('flags: each under the stop it gates (lateral HHS, decking WAM, cross back the Senate vote, fiscal Conference)',
+          [f['at'] for f in fl] == [3, 4, 5, 6], [(f['at'], f['stop']) for f in fl])
+  R.check('flags: each a line under its stop\'s label, inside the stop', all(f['below'] and f['inside'] for f in fl), [(f['stop'], f['below'], f['inside']) for f in fl])
   cap = s['caption']
   R.check('caption: where it is, in words (the step card names the hearing, so the line does not repeat it)', cap[0] == 'Now: Senate committee 1 of 2.', cap)
   R.check('caption: the next deadline and what it asks', any(c == 'Next deadline Second lateral, Mon 3/30: must pass the committee it is in now.' for c in cap), cap)
@@ -77,7 +81,7 @@ with L.browser() as B:
     pg = B.page('NT', w, h); pg.open('/bill/HB1562'); s = pg.page.evaluate(STATE)
     R.check(f'{w}: the slim bar only (no labels), 8 segments, the 4th now', not s['wide'] and s['slimShown'] and s['slim'] == ['done'] * 3 + ['now'] + ['next'] * 4, s['slim'])
     # at 320 the words after the step number give way on Next step (the card names the committee)
-    R.check(f'{w}: "Step 4 of 8" and the next deadline', (s['caption'][0].startswith('Step 4 of 8 · ') if w > 320 else s['caption'][0] == 'Step 4 of 8') and any(c.startswith('Next deadline Second lateral, Mon 3/30') for c in s['caption']), s['caption'])
+    R.check(f'{w}: "Step 4 of 8 · in Senate Health and Human Services" and the next deadline', (s['caption'][0] == 'Step 4 of 8 · in Senate Health and Human Services' if w > 320 else s['caption'][0] == 'Step 4 of 8') and any(c.startswith('Next deadline Second lateral, Mon 3/30') for c in s['caption']), s['caption'])
     top = pg.page.evaluate("document.querySelector('.v6-step-what').getBoundingClientRect().bottom")
     R.check(f'{w}: the step card\'s title is still on the first screen', top <= h - 56, round(top))
     R.check(f'{w}: See every step is shown, the list folded', s['more'] and pg.page.evaluate("document.getElementById('tk-list').hidden"))
@@ -93,18 +97,19 @@ with L.browser() as B:
 
   # ---- 4. a Senate bill, a bill in conference, a budget bill ----
   pg = B.page('NT', 1440, 900); pg.open('/bill/SB1250'); s = pg.page.evaluate(STATE)
-  R.check('SB 1250: the Senate first', s['groups'] == ['Senate', 'House', 'Final steps'] and [x[0] for x in s['stops']][:3] == ['AEN', 'WAM', 'Senate vote'], (s['groups'], [x[0] for x in s['stops']]))
-  R.check('SB 1250: now in House Finance, its next deadline Second decking', [x[0] for x in s['stops'] if x[1] == 'now'] == ['FIN'] and s['flags'][0]['text'] == 'Second decking · Fri 4/10', (s['stops'], s['flags'][:1]))
+  R.check('SB 1250: the Senate first', s['groups'] == ['Senate', 'House', 'Final steps'] and [x[0] for x in s['stops']][:3] == ['AEN', 'WAM', 'Vote'], (s['groups'], [x[0] for x in s['stops']]))
+  R.check('SB 1250: now in House Finance, its next deadline Second decking', [x[0] for x in s['stops'] if x[1] == 'now'] == ['FIN'] and s['flags'][0]['stop'] == 'FIN', (s['stops'], s['flags'][:1]))
+  R.check('SB 1250: with no caption line for it, the bar\'s next deadline keeps its name', s['flags'][0]['text'] == 'Second decking 4/10', s['flags'][:1])
   R.check('SB 1250: the chair ask\'s card says the deadline, so the caption does not repeat it (A-14)', not any(c.startswith('Next deadline') for c in s['caption']) and 'It must clear its last committee by Fri 4/10' in pg.text(), s['caption'])
   pg.close()
   pg = B.page('NT', 1440, 900); pg.open('/bill/HB244'); s = pg.page.evaluate(STATE)
   R.check('HB 244: in conference, all before it done', [x[1] for x in s['stops']] == ['done'] * 6 + ['now', 'next'], [x[1] for x in s['stops']])
-  R.check('HB 244: one flag, Fiscal (it went to FIN), after conference', [(f['text'], f['edge']) for f in s['flags']] == [('Fiscal · Fri 5/1', 7)], s['flags'])
+  R.check('HB 244: one flag, Fiscal (it went to FIN), after conference', [(f['text'], f['stop'], f['title']) for f in s['flags']] == [('by 5/1', 'Conference', 'Fiscal Fri 5/1')], s['flags'])
   R.check('HB 244: the caption says conference and what the deadline asks', s['caption'][0].startswith('Now: in conference') and 'must be agreed by the House and Senate' in s['caption'][-1], s['caption'])
   pg.close()
   pg = variant(B, 1440, 900, 'HB1562', {'stage': 'first_decking', 'referrals': ['FIN'], 'origin_stops': 1, 'second_stops': 0}, 'HB1800'); s = pg.page.evaluate(STATE)
   R.check('a budget bill: its own decking and crossover (replaces), Budget decking today is next',
-          [f['title'].split(',')[0] for f in s['flags']][:2] == ['Budget decking', 'Budget crossover'] and s['flags'][0]['next'] and 'Mon 3/16' in s['flags'][0]['text'], [f['title'] for f in s['flags']])
+          [f['title'].split(' ')[:2] for f in s['flags']][:2] == [['Budget', 'decking'], ['Budget', 'crossover']] and s['flags'][0]['next'] and s['flags'][0]['text'] in ('by 3/16', 'Budget decking 3/16'), [(f['title'], f['text']) for f in s['flags']])
   R.check('a budget bill: no general First decking or Crossover', not any(re.match(r'(First decking|Crossover)', f['title']) for f in s['flags']), [f['title'] for f in s['flags']])
   R.check('a chamber with no referral yet: one "Committees" stop', 'Committees' in [x[0] for x in s['stops']], [x[0] for x in s['stops']])
   pg.close()
@@ -122,10 +127,10 @@ with L.browser() as B:
     ('a law', 'HB244', {'stage': 'enacted'}, None, lambda s: all(x[1] == 'done' for x in s['stops']) and s['caption'] == ['Signed into law.'] and not s['flags']),
     ('a veto', 'HB244', {'stage': 'vetoed'}, None, lambda s: [x[1] for x in s['stops']][-2:] == ['done', 'stopped'] and s['caption'] == ['Vetoed by the Governor.'] and not s['flags']),
     ('on the Governor\'s desk', 'HB244', {'stage': 'governor'}, None, lambda s: [x[1] for x in s['stops']][-1] == 'now' and s['caption'][0] == 'Now: on the Governor’s desk.' and not s['flags']),
-    ('a concurrent resolution adopted', 'HB1562', {'stage': 'enacted'}, 'HCR6', lambda s: [x[0] for x in s['stops']] == ['HLT/HSH', 'FIN', 'House vote', 'HHS', 'WAM', 'Senate vote'] and s['caption'] == ['Adopted.'] and s['groups'] == ['House', 'Senate']),
-    ('a House resolution: one chamber, no flags', 'HB1562', {'referrals': ['HLT'], 'origin_stops': 1, 'second_stops': 0, 'stage': 'first_lateral'}, 'HR7', lambda s: [x[0] for x in s['stops']] == ['HLT', 'House vote'] and not s['flags']),
+    ('a concurrent resolution adopted', 'HB1562', {'stage': 'enacted'}, 'HCR6', lambda s: [x[0] for x in s['stops']] == ['HLT/HSH', 'FIN', 'Vote', 'HHS', 'WAM', 'Vote'] and s['caption'] == ['Adopted.'] and s['groups'] == ['House', 'Senate']),
+    ('a House resolution: one chamber, no flags', 'HB1562', {'referrals': ['HLT'], 'origin_stops': 1, 'second_stops': 0, 'stage': 'first_lateral'}, 'HR7', lambda s: [x[0] for x in s['stops']] == ['HLT', 'Vote'] and not s['flags']),
     ('stopped with no record of where: no stop marked', 'HB1084', {'died_at_stage': None}, None, lambda s: all(x[1] == 'next' for x in s['stops']) and s['caption'][0].startswith('Stopped: ')),
-    ('a stage set by the team says so', 'HB1562', {'stage_override': 'first_floor'}, None, lambda s: [x[0] for x in s['stops'] if x[1] == 'now'] == ['House vote'] and '(set by the team)' in s['caption'][0]),
+    ('a stage set by the team says so', 'HB1562', {'stage_override': 'first_floor'}, None, lambda s: [x[2] for x in s['stops'] if x[1] == 'now'] == ['A vote of the full House'] and '(set by the team)' in s['caption'][0]),
   ]
   for name, num, patch, as_, ok in cases:
     pg = variant(B, 1440, 900, num, patch, as_); s = pg.page.evaluate(STATE)

@@ -11,15 +11,17 @@
 // reader's sentence; the caption names it in words.
 //
 // The flags (Nate's "improve or remove"; the mockup listed all seven deadlines, past ones included, in a row of their own):
-// only Capitol deadlines still ahead, and only the ones this bill has not already beaten, each a small flag on the bar at
-// the edge of the stop the deadline needs it to be past. A deadline behind it is history: the bill made it. Hawaiʻi's rules
+// only Capitol deadlines still ahead, and only the ones this bill has not already beaten, each a flag and a date as a
+// second line under the last stop the deadline needs it to be past ("WAM", then "by 4/10"). A deadline behind it is history: the bill made it. Hawaiʻi's rules
 // (Public Access Room; model.js GATE_WORDS): Triple filing (3 or more committees) = all but the last two committees in that
 // chamber; Lateral = all but the last; Decking = all of them; Crossover / Cross back = that chamber's vote; Final decking
-// (Fiscal for a bill sent to FIN or WAM, stops.js) = conference. The next deadline carries its name and day ("Second
-// lateral · Mon 3/30"), the others a short date ("4/10"), and the caption's second line says what it asks.
+// (Fiscal for a bill sent to FIN or WAM, stops.js) = conference. The next one is in bold ("by 3/30"), the others plain
+// ("by 4/10"), short so each fits under its stop; the caption's second line is the one place that names it and says what it asks.
+// (First drawn in the gaps between stops, where a date read as the next stop's: fresh-eyes review, 25 Oct.) Each vote is
+// labelled "Vote": the chamber's heading over it says whose ("House vote" wrapped onto two lines).
 //
 // Phones (the tracker narrower than 600px, a container query, so a tablet with the sidebar gets it too): the slim bar with
-// no labels, "Step 4 of 8 · …", the next deadline's line, and "See every step", which opens every stop as a list, each with
+// no labels, "Step 4 of 8 · in Senate Health and Human Services", the next deadline's line, and "See every step", which opens every stop as a list, each with
 // its day when it passed and the deadlines ahead under the stop they gate.
 //
 // Stopped bills, vetoes, laws and resolutions follow ui.js stageRibbon's hard-won rules: a stopped bill is marked where it
@@ -68,7 +70,7 @@ function stopsOf(b) {
     if (list.length) list.forEach(c => out.push({ kind: 'cmte', group: ch, code: c, label: c, full: cmteFull(c), leg }));
     else out.push({ kind: 'cmtes', group: ch, label: 'Committees', full: `${CHAMBER_NAME[ch]} committees (not sent to one yet)`, leg });
     runs[leg] = { start, n: list.length || null, vote: out.length };
-    out.push({ kind: 'vote', group: ch, label: `${CHAMBER_NAME[ch]} vote`, full: `A vote of the full ${CHAMBER_NAME[ch]}`, leg });
+    out.push({ kind: 'vote', group: ch, label: 'Vote', full: `A vote of the full ${CHAMBER_NAME[ch]}`, leg });
   };
   chamber(origin, 'first');
   if (!one) chamber(other, 'second');
@@ -199,6 +201,18 @@ function nowWords(b, model, place, { says, heardNow } = {}) {
   if (st.phase === 'ballot') return 'Passed the Legislature; <b>the voters decide</b> in November.';
   return esc(st.says || '');
 }
+// The phone's step line names the place, the step number being the one count ("Step 4 of 8 · in Senate Health and Human
+// Services"; fresh-eyes review: "Step 4 of 8 · Senate committee 1 of 2" gave two counts and no place).
+function placeWords(place) {
+  const { st } = place, ch = CHAMBER_NAME[st.chamber] || '';
+  if (place.state !== 'live') return '';
+  if (st.phase === 'committee') return st.committee ? `in ${cmteFull(st.committee)}` : `waiting to be sent to a ${ch} committee`;
+  if (st.phase === 'floor') return `waiting for a vote of the full ${ch}`;
+  if (st.phase === 'conference') return 'in conference';
+  if (st.phase === 'governor') return 'on the Governor’s desk';
+  if (st.phase === 'ballot') return 'the voters decide in November';
+  return '';
+}
 // "Stopped at House Transportation: did not reach its last committee by Fri 2/20." (`dead`: bill.js deadWords, escaped.)
 function stoppedWords(model, place, dead) {
   const s = model.stops[place.at], why = String(dead || '').replace(/\s*\(it was waiting in [^)]*\)/, '');
@@ -222,7 +236,7 @@ export function trackerModel(b, opts = {}) {
   const next = flags.find(f => f.next) || null;
   return { ...model, place, flags, next, cur, n: model.stops.length,
     now: place.state === 'stopped' ? stoppedWords(model, place, opts.dead) : nowWords(b, model, place, opts),
-    must: next ? mustOf(next, model, place) : '' };
+    must: next ? mustOf(next, model, place) : '', where: placeWords(place) };
 }
 
 const GROUP = { H: 'House', S: 'Senate', F: 'Final steps' };
@@ -236,15 +250,19 @@ export function trackerHTML(b, opts = {}) {
   const plain = plainDeadlines();
   const { stops, flags, next, n } = m;
   const set = b.stage_override ? ' <span class="tk-set">(set by the team)</span>' : '';
-  const flagName = f => plain ? dayWords(f.date) : `${f.name} · ${dayWords(f.date)}`;
   // Screen readers get one sentence for the bar, and the stop list; the drawn bar is for the eye (its titles for a mouse).
   const sr = `${m.place.state === 'live' && m.cur >= 0 ? `Step ${m.cur + 1} of ${n}. ` : ''}${stops.map(s => `${s.full}: ${STATE_WORD[s.state]}`).join('; ')}.${flags.length ? ` Deadlines ahead: ${flags.map(f => `${plain ? '' : f.name + ', '}${dayWords(f.date)}`).join('; ')}.` : ''}`;
   const col = `grid-template-columns: repeat(${n}, minmax(0, 1fr))`;
-  // A flag sits in the 4px gap at the left edge of stop `edge`: left = edge × (100% + gap) / n − gap / 2.
-  const at = e => `left: calc(${e} * (100% + 4px) / ${n} - 2px)`;
+  // Each deadline ahead is a second line under the stop it gates (the last stop it needs passed), "by 4/10", the next one in
+  // bold. Drawn in the gaps between stops, a date read as the next stop's (fresh-eyes review: HB 1562's 4/10,
+  // WAM's decking, sat over Senate vote). The caption is the one place that names the next deadline and says what it asks;
+  // when the caption leaves it to a chair ask's card, the bar's next one keeps its name. A stop gates one deadline at most
+  // (the earliest: Lateral and Decking share an unreferred chamber's one "Committees" stop).
+  const gate = i => flags.find(f => Math.ceil(f.edge) - 1 === i);
+  const dl = f => !f ? '' : `<span class="tk-d${f.next ? ' is-next' : ''}">${icon('flag', { cls: 'tk-fi' })}<span>${esc(f.next
+    && opts.cardDeadline && !plain ? `${f.name} ${shortDate(f.date)}` : `by ${shortDate(f.date)}`)}</span></span>`;
   const heads = groupsOf(stops).map(([g, i, k]) => `<span class="tk-grp" style="grid-column: ${i + 1} / span ${k}">${GROUP[g]}</span>`).join('');
-  const segs = stops.map(s => `<span class="tk-seg is-${s.state}" title="${esc(s.full)}${s.day ? ` · passed ${esc(s.day)}` : ''}"><i class="tk-b"></i><span class="tk-l">${s.state === 'done' ? icon('check', { cls: 'tk-li-ic' }) : s.state === 'stopped' ? icon('circle-minus', { cls: 'tk-li-ic' }) : ''}${esc(s.label)}</span></span>`).join('');
-  const marks = flags.map(f => `<span class="tk-flag${f.next ? ' is-next' : ''}" style="${at(f.edge)}" title="${esc(`${f.name}, ${dayWords(f.date)}`)}" data-edge="${f.edge}">${icon('flag', { cls: 'tk-fi' })}<span class="tk-ft">${esc(f.next ? flagName(f) : shortDate(f.date))}</span></span>`).join('');
+  const segs = stops.map((s, i) => `<span class="tk-seg is-${s.state}" title="${esc(s.full)}${s.day ? ` · passed ${esc(s.day)}` : ''}${gate(i) ? ` · ${esc(gate(i).name)} ${esc(dayWords(gate(i).date))}` : ''}"><i class="tk-b"></i><span class="tk-l">${s.state === 'done' ? icon('check', { cls: 'tk-li-ic' }) : s.state === 'stopped' ? icon('circle-minus', { cls: 'tk-li-ic' }) : ''}${esc(s.label)}</span>${dl(gate(i))}</span>`).join('');
   // A chair ask's card says the deadline it races ("It must clear its last committee by Fri 4/10"): the flag on the bar
   // still marks it, the caption does not say it again (A-14).
   const nextLine = next && !opts.cardDeadline ? `<p class="tk-next">${icon('flag', { cls: 'tk-fi' })}<span>Next deadline <b>${esc(plain ? dayWords(next.date) : `${next.name}, ${dayWords(next.date)}`)}</b>: ${esc(m.must)}.</span></p>` : '';
@@ -252,7 +270,7 @@ export function trackerHTML(b, opts = {}) {
   const nowLine = m.now ? `<p class="tk-now">${done}<span>${m.now}${set}</span></p>` : '';
   // The phone's step line: "Step 4 of 8 · Senate committee 1 of 2" (the full words are the first caption line's, which
   // the phone leaves out but for a stopped or finished bill).
-  const stepLine = m.place.state === 'live' && m.cur >= 0 ? `<p class="tk-step"><span>Step ${m.cur + 1} of ${n}</span>${m.now ? `<span class="tk-sw"> · ${m.now.replace(/^Now: /, '')}</span>` : ''}${set}</p>` : nowLine;
+  const stepLine = m.place.state === 'live' && m.cur >= 0 ? `<p class="tk-step"><span>Step ${m.cur + 1} of ${n}</span>${m.where ? `<span class="tk-sw"> · ${esc(m.where)}</span>` : ''}${set}</p>` : nowLine;
   // Every stop as a list (the phone's "See every step"): its day when it passed, the deadlines ahead under the stop they gate.
   let g0 = '';
   const list = stops.map((s, i) => {
@@ -266,7 +284,7 @@ export function trackerHTML(b, opts = {}) {
     <h2 class="sr" id="tk-h">Where it is</h2><p class="sr">${esc(sr)}</p>
     <div class="tk-in"><div class="tk-wide" aria-hidden="true">
       <div class="tk-heads" style="${col}">${heads}</div>
-      <div class="tk-track">${flags.length ? `<div class="tk-flags">${marks}</div>` : ''}<div class="tk-bar" style="${col}">${segs}</div></div>
+      <div class="tk-bar" style="${col}">${segs}</div>
     </div>
     <div class="tk-slim" aria-hidden="true" style="${col}">${stops.map(s => `<i class="is-${s.state}"></i>`).join('')}</div>
     <div class="tk-cap">${nowLine.replace('class="tk-now"', 'class="tk-now tk-onwide"')}${stepLine.replace(/class="tk-(step|now)"/, 'class="tk-$1 tk-onslim"')}${nextLine}</div>
@@ -275,30 +293,9 @@ export function trackerHTML(b, opts = {}) {
   </section>`;
 }
 
-// After each paint: the next flag's name sits to the left of its flag (over the stops already behind it, where no flag is
-// left), or to the right when there is no room; a short date that would touch another flag's words is left to its title.
-export function fitTracker(root = document) {
-  for (const t of root.querySelectorAll('.tk-flags')) {
-    const box = t.getBoundingClientRect(); if (!box.width) continue;
-    const fl = [...t.querySelectorAll('.tk-flag')];
-    fl.forEach(f => { f.classList.remove('tk-right'); f.querySelector('.tk-ft').hidden = false; });
-    const nx = t.querySelector('.tk-flag.is-next');
-    if (nx && nx.getBoundingClientRect().left < box.left) nx.classList.add('tk-right');
-    let prev = null;
-    for (const f of fl.sort((a, b) => +a.dataset.edge - +b.dataset.edge)) {
-      const r = f.getBoundingClientRect();
-      if (prev && r.left < prev.right + 6 && !f.classList.contains('is-next')) { f.querySelector('.tk-ft').hidden = true; continue; }
-      if (r.right > box.right + 8 && !f.classList.contains('is-next')) { f.querySelector('.tk-ft').hidden = true; continue; }
-      prev = r;
-    }
-  }
-}
-let fitting = false;
 // "See every step" opens and closes the list in place (remembered for the visit), with no redraw.
 export function wireTracker(root, b) {
   const t = root?.querySelector('.tk'); if (!t) return;
-  fitTracker(t);
-  if (!fitting) { fitting = true; addEventListener('resize', () => fitTracker()); }
   const b0 = t.querySelector('[data-tkmore]'), list = t.querySelector('#tk-list');
   if (b0 && list) b0.onclick = () => {
     const open = list.hidden; list.hidden = !open; b0.setAttribute('aria-expanded', String(open));

@@ -546,8 +546,8 @@ body.staff6 .bw-page .v6-track .cur { font-weight: 500; }
 
 /* ---- the stage tracker (tracker.js, R-336; Nate's pick C, "the named bar", with the flags improved): under the name and
    its facts, above the tabs, on every tab. A bar of the bill's stops: done in leaf green with a check, the one it is at in
-   the action colour with its label bold, the rest hairline; the deadlines still ahead as flags in the gaps between stops,
-   the next one named. Two short lines of words under it. Under 600px of its own width (a container query: a phone, or a
+   the action colour with its label bold, the rest hairline; the deadlines still ahead as a flag and a date under the stop each
+   gates, the next in bold. Two short lines of words under it. Under 600px of its own width (a container query: a phone, or a
    tablet beside the sidebar) the slim bar alone, "Step 4 of 8", the next deadline and See every step (A-1: the step card's
    title stays on the phone's first screen). Type 16 for the stops' names and the sentences, 14 only for the flags' dates (A-4 on v6; at 14 the labels put 37% of a laptop's first screen at 14px, over spec 8's 30); one radius, the
    pill (A-8 on v6); no borders; green only for done, neutral for stopped (A-5 on v6). ---- */
@@ -556,21 +556,15 @@ body.staff6 .bw-page .v6-track .cur { font-weight: 500; }
 .tk p { margin: 0; }
 .tk-heads { display: grid; column-gap: 4px; margin-bottom: var(--s4); }
 .tk-grp { text-align: center; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
-.tk-flags { position: relative; height: 22px; }
-.tk-flag { position: absolute; bottom: 0; display: inline-flex; align-items: flex-end; gap: 2px; transform: translateX(-3px);
-  font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); white-space: nowrap; }
-.tk-flag .tk-fi { width: 16px; height: 16px; flex: none; }
-/* the next deadline's name reads leftwards from its flag, over the stops behind it, where no flag is left (fitTracker
-   turns it rightwards when there is no room) */
-.tk-flag.is-next { flex-direction: row-reverse; transform: translateX(calc(-100% + 13px)); color: var(--v6-ink); font-weight: 700; }
-.tk-flag.is-next.tk-right { flex-direction: row; transform: translateX(-3px); }
-.tk-flag .tk-ft[hidden] { display: none; }
 .tk-bar { display: grid; column-gap: 4px; }
 .tk-seg { display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .tk-b { display: block; width: 100%; height: 10px; border-radius: var(--v6-pill); background: var(--v6-hair); }
 .tk-l { display: block; max-width: 100%; margin-top: 6px; font-size: var(--v6-t16);
   line-height: var(--v6-lh16); color: var(--v6-muted); text-align: center; overflow-wrap: anywhere; }
 .tk-l .tk-li-ic { width: 16px; height: 16px; margin-right: 2px; vertical-align: -2px; }
+.tk-d { display: block; margin-top: 2px; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); text-align: center; white-space: nowrap; }
+.tk-d .tk-fi { width: 14px; height: 14px; margin-right: 2px; vertical-align: -2px; }
+.tk-d.is-next { color: var(--v6-ink); font-weight: 700; white-space: normal; }
 .tk-seg.is-done .tk-b, .tk-slim .is-done { background: var(--v6-leaf); }
 .tk-seg.is-done .tk-l { color: var(--v6-body); }
 .tk-seg.is-done .tk-li-ic { color: var(--v6-leaf); }

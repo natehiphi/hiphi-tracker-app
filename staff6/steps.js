@@ -110,16 +110,18 @@ const cmteOf = c => { const k = String(c || '').trim().toUpperCase(), t = COMMIT
   if (t) return { code: k, ch: row?.chamber || t[0], name: t[1] };
   if (row) return { code: k, ch: row.chamber, name: String(row.name || k).replace(/\s*&\s*/g, ' and ') };
   return null; };
-// "House Transportation"; a joint referral names its committees together: "Senate Health and Human Services, and Commerce"
-// (the comma keeps "and" inside a name from reading as the join). `chamber: false` leaves the chamber out.
+// "House Transportation"; a joint referral names each of its committees in full, chamber and all: "House Health and House
+// Human Services", "Senate Health and Human Services and Senate Commerce", "House Health, House Human Services and House
+// Consumer Protection". It read "House Health, and Human Services", which still sounded like one committee (fresh-eyes
+// review of the stage tracker, R-336); the chamber repeated marks where one name ends. `chamber: false` leaves the chamber
+// out (one committee's name, "Health"; several keep the comma before the last, "Health, and Human Services").
 export function committeeName(code, { chamber = true } = {}) {
   const cs = codesOf(code); if (!cs.length) return '';
   const ks = cs.map(c => cmteOf(c) || { code: c, ch: '', name: c });
-  const chs = uniq(ks.map(k => k.ch)), one = chs.length === 1, names = ks.map(k => k.name);
-  const join = xs => xs.length < 2 ? xs[0] : xs.length === 2 ? `${xs[0]}, and ${xs[1]}` : `${xs.slice(0, -1).join(', ')}, and ${xs[xs.length - 1]}`;
-  if (!chamber) return join(names);
-  if (one) return `${CHAMBER[chs[0]] ? CHAMBER[chs[0]] + ' ' : ''}${join(names)}`;
-  return join(ks.map(k => `${CHAMBER[k.ch] ? CHAMBER[k.ch] + ' ' : ''}${k.name}`));
+  const names = ks.map(k => k.name);
+  if (!chamber) return names.length < 2 ? names[0] : `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+  const full = ks.map(k => `${CHAMBER[k.ch] ? CHAMBER[k.ch] + ' ' : ''}${k.name}`);
+  return full.length < 2 ? full[0] : `${full.slice(0, -1).join(', ')} and ${full[full.length - 1]}`;
 }
 // "HD1" -> "House draft 1"; "SD2" -> "Senate draft 2"; "CD1" -> "Conference draft 1"; none -> "As introduced".
 const VER = { H: 'House draft', S: 'Senate draft', C: 'Conference draft', F: 'Floor draft' };
