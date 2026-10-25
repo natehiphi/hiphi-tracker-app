@@ -558,16 +558,6 @@ body.staff6 .hb-intro svg { width: 16px; height: 16px; flex: none; color: var(--
   body.staff6 .lg6-gname { font-size: var(--v6-t18); line-height: var(--v6-lh18); }
   body.staff6 .lg6-gact { flex: 0 1 auto; margin-left: 0; max-width: 100%; }
 }
-/* Below 400px: Filter beside the find box, the preset on its own line under them, and Sort inside the Filter sheet, so
-   the first legislator starts within the first 400px (A-1). */
-@media (max-width: 399px) {
-  body.staff6 .lg6-bar { gap: 12px 8px; }
-  body.staff6 .lg6-bar .lg6-etools { display: contents; }
-  body.staff6 .lg6-bar:has(.lg6-etools) .lg6-find { flex: 1 1 0; min-width: 140px; }
-  body.staff6 .lg6-etools .sv-filter { order: 1; }
-  body.staff6 .lg6-etools .lg6-preset { order: 2; }
-  body.staff6 .lg6-etools .lg6-sortb { display: none; }
-}
 /* A narrow phone: a long email button ("Email about HB 1563 and HB 756") wraps between bills inside its row or chair
    heading rather than running past the screen's edge (each "HB 1563" is kept whole by a no-break space). */
 @media (max-width: 420px) {
@@ -685,26 +675,43 @@ body.staff6 .lg6-rph .lg-ph { position: absolute; inset: 0; width: 40px; height:
    the top of the face (the .lg-ph object-position), the name at 18px, the district and one line at 16px (A-4 on v6). A card
    is the card ground and the resting shadow, no border (A-8 on v6): radius 20, the photo round, the switch a pill. About
    five cards a row in the 920px column of a 1440 laptop, two on a 390 phone. */
-body.staff6 .lg6-chcap { gap: 8px 16px; }
+body.staff6 .lg6-chcap { gap: 8px 16px; margin-bottom: 20px; }
+/* Everyone takes the laptop's whole content column (1440: about 1100px), so five cards a row are wide enough for a name
+   on two lines; the other tabs keep their reading width. */
+body.staff6 .lg6[data-lgtab="everyone"] { max-width: 1120px; }
+body.staff6 .lg6[data-lgtab="everyone"] .lg6-bar { margin-bottom: 16px; }
 body.staff6 .lg6-chcap .sv-seg { flex: none; }
-body.staff6 .lg6-groups { display: flex; flex-direction: column; gap: 32px; }
-body.staff6 .lg6-sh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 12px; }
+body.staff6 .lg6-groups { display: flex; flex-direction: column; gap: 28px; }
+body.staff6 .lg6-sh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 10px; }
 body.staff6 .lg6-sh h2 { margin: 0; font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 body.staff6 .lg6-sn { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
-body.staff6 .lg6-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 16px; }
+body.staff6 .lg6-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(184px, 1fr)); gap: 12px; }
 body.staff6 .lg6-cell { display: flex; flex-direction: column; min-width: 0; }
-body.staff6 .lg6-card { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; padding: 20px 12px 16px;
+body.staff6 .lg6-card { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; gap: 0; min-width: 0; padding: 12px 8px;
   border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); color: inherit; text-align: center; text-decoration: none;
   transition: box-shadow .15s ease-out; }
 body.staff6 .lg6-card:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
-body.staff6 .lg6-rph.lg6-cph { width: 96px; height: 96px; margin: 0 0 8px; font: 400 36px/1 Poppins, system-ui, sans-serif; }
+body.staff6 .lg6-rph.lg6-cph { width: 96px; height: 96px; margin: 0 0 6px; font: 400 36px/1 Poppins, system-ui, sans-serif; }
 body.staff6 .lg6-rph.lg6-cph .lg-ph { width: 96px; height: 96px; object-fit: cover; object-position: 50% 20%; }
 body.staff6 .lg6-cname { font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); overflow-wrap: anywhere; }
 body.staff6 .lg6-cdist { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
-body.staff6 .lg6-cline { margin-top: 4px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
-/* A to Z: one grid, the letter over the first card of each letter; every cell keeps the letter's room so a row lines up. */
-body.staff6 .lg6-let { height: 32px; margin: 0; font: 600 var(--v6-t22)/32px Poppins, system-ui, sans-serif; color: var(--v6-ink); padding-left: 4px; }
-body.staff6 .lg6-az .lg6-cell:not(:has(.lg6-let))::before { content: ''; display: block; height: 32px; }
+body.staff6 .lg6-cline { margin-top: 2px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+/* The jump chips (one per group: an island, a letter, a committee): quiet wash pills that scroll to the group's heading;
+   they wrap on a laptop and slide sideways on a phone, the edge fading where more wait (as the page tabs, A-12 on v6). */
+body.staff6 .lg6-jump { flex: 1 1 auto; min-width: 0; margin: 0; }
+body.staff6 .lg6-jrow { display: flex; flex-wrap: wrap; gap: 8px; }
+body.staff6 .lg6-jchip { display: inline-flex; align-items: center; gap: 6px; flex: none; min-height: 40px; padding: 0 16px; border: 0; border-radius: var(--v6-pill);
+  background: var(--v6-wash); color: var(--v6-ink); font: 400 var(--v6-t16)/1.2 Lato, system-ui, sans-serif; white-space: nowrap; cursor: pointer; }
+body.staff6 .lg6-jchip:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .lg6-jn { color: var(--v6-muted); }
+@media (hover: hover) and (pointer: fine) { body.staff6 .lg6-jchip:hover { background: var(--v6-action-wash); color: var(--v6-action); } }
+/* The page already keeps the header's height clear when scrolling to a place (base.css scroll-padding-top); the band
+   above the laptop's header needs a little more. */
+body.staff6 .lg6-sec6 { scroll-margin-top: 40px; }
+body.staff6 .lg6-sh h2:focus { outline: none; }
+body.staff6 .lg6-sh h2:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }
+body.staff6 .lg6-lead { margin: 0; }
+body.staff6 .lg6-cline.strong { font-weight: 700; color: var(--v6-ink); }
 @media (hover: hover) and (pointer: fine) {
   body.staff6 .lg6-card:hover { box-shadow: var(--v6-sh2); }
   body.staff6 .lg6-card:hover .lg6-cname { text-decoration: underline; text-underline-offset: 4px; }
@@ -713,7 +720,26 @@ body.staff6 .lg6-az .lg6-cell:not(:has(.lg6-let))::before { content: ''; display
 @media (max-width: 767px) {
   body.staff6 .lg6-groups { gap: 24px; }
   body.staff6 .lg6-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  body.staff6 .lg6-card { padding: 16px 8px 12px; }
+  body.staff6 .lg6-card { padding: 12px 8px; }
+  /* The group's heading stays under the top bar while its cards pass (critic: on a phone a group runs several screens). */
+  body.staff6 .lg6-sh { position: sticky; top: var(--header); z-index: 3; margin: 0 -16px 8px; padding: 8px 16px; background: var(--v6-page); }
+  body.staff6 .lg6-sec6 { scroll-margin-top: -8px; }
+  body.staff6 .lg6-jump { flex-basis: 100%; }
+  body.staff6 .lg6-chcap { margin-bottom: 16px; }
+  body.staff6 .lg6-jrow { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; scroll-padding-inline: 16px; }
+  body.staff6 .lg6-jrow::-webkit-scrollbar { display: none; }
+  body.staff6 .lg6-jrow.ovf { -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
+  body.staff6 .lg6-jrow.ovf.atstart { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); }
+  body.staff6 .lg6-jrow.ovf.atend { -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px); mask-image: linear-gradient(90deg, transparent, #000 24px); }
+  body.staff6 .lg6-jrow.ovf.atstart.atend { -webkit-mask-image: none; mask-image: none; }
+  body.staff6 .lg6-jchip { min-height: 44px; }
+  /* The directory's tools on a phone: the find box and Filter on one line, the preset and Sort on the next. */
+  body.staff6 .lg6-bar .lg6-etools { display: contents; }
+  body.staff6 .lg6-bar:has(.lg6-etools) { gap: 12px 8px; }
+  body.staff6 .lg6-bar:has(.lg6-etools) .lg6-find { flex: 1 1 0; min-width: 55%; }
+  body.staff6 .lg6-etools .sv-filter { order: 1; }
+  body.staff6 .lg6-etools .lg6-preset { order: 2; }
+  body.staff6 .lg6-etools .lg6-sortb { order: 3; }
   body.staff6 .lg6-rph.lg6-cph, body.staff6 .lg6-rph.lg6-cph .lg-ph { width: 80px; height: 80px; }
   body.staff6 .lg6-rph.lg6-cph { font-size: 30px; }
   body.staff6 .lg6-sh h2 { font-size: var(--v6-t18); line-height: var(--v6-lh18); }
