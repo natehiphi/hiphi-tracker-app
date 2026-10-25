@@ -239,14 +239,33 @@ function selRow(b) {
   return `<div class="v6-row bl-selrow${on ? ' sel' : ''}${v.cur === b.id ? ' bl-cur' : ''}" role="listitem" data-v6row="${esc(b.id)}"><button type="button" class="v6-row-main bl-selmain" data-blsel="${esc(b.id)}" aria-pressed="${on}">
     <span class="bl-check" aria-hidden="true">${icon(on ? 'square-check-big' : 'square')}</span><span class="bl-seltx"><span class="v6-row-top"><span class="v6-row-name">${esc(nameWords(b))}</span><span class="v6-row-num">${esc(numWords(b))}</span></span>${s?.line ? `<span class="v6-row-line"><span>${nw(esc(s.line))}</span></span>` : ''}</span></button></div>`;
 }
+// ---- R-339 trial (Nate 10/25): icons to soften a long list of words, off unless the address has ?icons=1 ----
+// A heading gets its stage's icon; a row gets one quiet topic icon (its first issue's category, the same icon Issues
+// uses), in a soft disc in the row's leading slot. No chips (Nate 10/13: chips made Today's rows too dense). Neutral ink
+// only: colour stays urgency (A-5). The icons are guesses until the team uses them; a side-by-side settles the look.
+const ICONS_ON = (() => { try { return /[?&]icons=1\b/.test(location.search); } catch { return false; } })();
+const STAGE_IC = { risk: 'triangle-alert', hear: 'calendar-check', wait: 'hourglass', thru: 'route', done: 'landmark', mon: 'eye', dead: 'circle-x' };
+const ghIcon = k => ICONS_ON && STAGE_IC[k] ? `<span class="bl-ghic" aria-hidden="true">${icon(STAGE_IC[k])}</span>` : '';
+function topicOf(b) {
+  const on = new Set((S.billIssues || []).filter(x => x.bill_id === b.id).map(x => x.issue_id));
+  const iss = (S.issues || []).filter(i => on.has(i.id) && !i.archived_at).sort((x, y) => String(x.name).localeCompare(String(y.name)));
+  for (const i of iss) { const c = (S.categories || []).find(c => c.key === i.category); if (c) return c; }
+  return null;
+}
+// A bill on no issue keeps the slot empty, so every name starts at the same place.
+function topicLead(b) {
+  if (!ICONS_ON) return '';
+  const c = topicOf(b);
+  return c ? `<span class="v6-row-lead" title="${esc(c.name)}">${icon(c.icon || 'tag')}<span class="sr">${esc(c.name)}: </span></span>` : '<span class="v6-row-lead none" aria-hidden="true"></span>';
+}
 const groupHead = g => FOLDED.has(g.k)
-  ? `<h2 class="bl-gh" id="bl-g-${g.k}"><button type="button" class="bl-ghb" data-fold="${g.k}" aria-expanded="${g.open}"><span>${esc(g.title)}</span><span class="bl-gn">${g.all}</span>${icon(g.open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button></h2>`
-  : `<h2 class="bl-gh" id="bl-g-${g.k}"><span>${esc(g.title)}</span><span class="bl-gn">${g.all}</span></h2>`;
+  ? `<h2 class="bl-gh" id="bl-g-${g.k}"><button type="button" class="bl-ghb" data-fold="${g.k}" aria-expanded="${g.open}">${ghIcon(g.k)}<span>${esc(g.title)}</span><span class="bl-gn">${g.all}</span>${icon(g.open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button></h2>`
+  : `<h2 class="bl-gh" id="bl-g-${g.k}">${ghIcon(g.k)}<span>${esc(g.title)}</span><span class="bl-gn">${g.all}</span></h2>`;
 function rowsView(groups) {
   const v = bl(), pick = !v.selecting;
   // No step buttons in Bills' rows (spec 11, settled 1): a viewer's own step has its button in the open bill beside the list,
   // on Today and on the bill's page; a row here says the step and opens the bill.
-  const rowOf = b => v.selecting ? selRow(b) : billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: v.cur === b.id ? 'bl-cur' : '' });
+  const rowOf = b => v.selecting ? selRow(b) : billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: v.cur === b.id ? 'bl-cur' : '', lead: topicLead(b) });
   // A phone's toolbar holds the filter box and Filter only; Select (F91: a visible tonal button) sits at the right of the
   // first group's heading, where a list's Select usually is on a phone (CSS shows it below 768px only).
   const selBtn = pick ? `<span class="bl-ghsel">${selectBtn()}</span>` : '';
