@@ -16,7 +16,7 @@ import { askLine, askedChip, answerSheet, ASK_TODO, askTodoOf, chairsOf, chairWh
 import { askWords as stepAsk, committeeName, deadlineWords, nameWords, numWords, sayWords, itemRow, nw, helpersOf, timeWords, dayWords, billStep } from './steps.js';   // v6 words (spec 5)
 import { isMine, isMuted, hooks } from './data.js';
 import { stopOf, whenAt, suggState, setSugg } from './model.js';
-import { icon, btn, iconBtn, avatar, toast, pickerSheet, menuSheet, WHOSE } from './ui.js';
+import { icon, btn, iconBtn, avatar, toast, pickerSheet, menuSheet, WHOSE, ASK_TAB, andWords } from './ui.js';
 
 export const PUSH_BOARD = () => true;   // live 10/22 at Nate's go, after W3 (R-329)
 export const GIVE_ASK = () => true;   // live 10/22 at Nate's go, after W3 (R-329)
@@ -218,7 +218,7 @@ export function scopeOk(scope, v = S.me) {
 export const countWords = (n, scope, v = S.me) => { const w = whoseWords(scope, v); return `${n} ${/^(your|the) /.test(w) ? 'of ' : ''}${w}`; };
 export function whoseWords(scope, v = S.me) {
   if (scope === 'team') return 'the team’s bills';
-  if (scope === 'coal') { const co = coalOf(v); return co && !co.all ? `${co.names.join(' and ')} bills` : 'your coalitions’ bills'; }
+  if (scope === 'coal') { const co = coalOf(v); return co && !co.all ? `${andWords(co.names)} bills` : 'your coalitions’ bills'; }
   return owns(v) ? 'your bills' : 'the bills you follow or work on';
 }
 
@@ -354,7 +354,7 @@ function rowLine(it, v, scope, { shared = false, hdrDay = '' } = {}) {
   const same = d => !!d && !!hdrDay && d === hdrDay;
   const noDay = s => same(a.day) ? String(s || '').replace(` · by ${a.day}`, '').replace(` by ${a.day}`, '') : s;
   switch (k) {
-    case 'ask': return it.left?.length ? [`${cap(it.chairs.filter(c => c.asked).map(asked).join(', '))} · ${it.left.map(c => c.who).join(' and ')} not asked yet`, 'circle-dashed']
+    case 'ask': return it.left?.length ? [`${cap(it.chairs.filter(c => c.asked).map(asked).join(', '))} · ${andWords(it.left.map(c => c.who))} not asked yet`, 'circle-dashed']
       // someone else's: whose first ("Nate's bill · not asked yet"; "No owner yet · not asked yet"), beside Take this ask
       : !own || !live(own) ? [`No owner yet · not asked yet`, 'circle-dashed'] : whose ? [`${advocate(own)?.full_name.split(' ')[0] || 'Someone'}’s bill · not asked yet`, 'circle-dashed'] : [`Not asked yet`, 'circle-dashed'];
     case 'later': return [`Not now · back on your list ${askDay(it.until)}${whose}`, 'clock'];
@@ -518,7 +518,7 @@ export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, 
     const nwd = needWords(d.items, { scope, viewer: v, day: false }), cn = nwd.c, total = cn.total, nw0 = cn.need;
     const shared = !!nwd.only;   // every bill here one teammate's: said once on this line, not on every row (A-14)
     const head = cap(deadlineWords(d.dl.label, d.dl.date, { n: total }));
-    const door = fold && di === 0 ? ` · <a class="hg-dlgo" href="#/hearings/ask?scope=${esc(scope)}">Get hearings</a>` : '';
+    const door = fold && di === 0 ? ` · <a class="hg-dlgo" href="#/hearings/ask?scope=${esc(scope)}">${ASK_TAB}</a>` : '';
     // Get hearings says each deadline's share of the tab's pile ("16 of the 20 to ask", toAskOf); the rest stop at "16 to ask".
     const askT = nwd.rest ? toAskOf(cn.toAsk, pile) : '';
     const subT = [nwd.head, askT, ...(fold ? [] : dlParts(cn))].filter(Boolean).join(' · ');

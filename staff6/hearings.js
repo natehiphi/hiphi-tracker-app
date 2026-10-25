@@ -17,7 +17,7 @@
 // Team switch's week, and the two "who to ask" boards (this one and Holding's: Legislators > Who to ask draws askBoard).
 import { S, DB, esc, hooks, SESSION_OVER } from './data.js';
 import { billById, suggestions, SUGGEST_CAP, setSugg, suggState, billRoute, codesOf, deadlineCalendar, gateApplies, gateGloss, plainDeadlines } from './model.js';
-import { icon, btn, iconBtn, toast, segmented, menuSheet } from './ui.js';
+import { icon, btn, iconBtn, toast, segmented, menuSheet, ASK_TAB } from './ui.js';
 import { hearingCard, nameWords, numWords, sayWords, nw, dayWords, timeWords, wireSteps } from './steps.js';
 import { askBoard, askSummary, scopesFor, defaultScope, scopeOk, whoseWords, coalOf, SCOPES, freshScope, toAskWords, decideWords, nwParts } from './push.js';
 import { movedAskHTML, wireMoved, oldSitting, seedMoved } from './moved.js';
@@ -127,7 +127,7 @@ const capLine = ds => (ds || []).map(d => { const g = gateGloss(d.label);
 function askLine(s, scope) {
   const t = SESSION_OVER ? '' : toAskWords(s) || decideWords(s?.decide || 0); if (!t || !tabCounts()) return '';
   const href = `#/hearings/ask${scope !== defaultScope() ? `?scope=${scope}` : ''}`;
-  return `<a class="hw-ask" href="${esc(href)}">${icon('flag')}<span class="hw-ask-t"><span class="hw-ask-n">${nwParts(esc(t))}</span></span><span class="hw-ask-go">Get hearings${icon('chevron-right', { cls: 'v6-chev' })}</span></a>`;
+  return `<a class="hw-ask" href="${esc(href)}">${icon('flag')}<span class="hw-ask-t"><span class="hw-ask-n">${nwParts(esc(t))}</span></span><span class="hw-ask-go">${ASK_TAB}${icon('chevron-right', { cls: 'v6-chev' })}</span></a>`;
 }
 // Someone who owns no bills has no pile of their own to ask: the tab carries no count for them, and the line is not drawn
 // (Nate's walk: Patti's Get hearings showed Lauren's 15 on every visit; D4's door on Today is the way to help).
@@ -242,7 +242,9 @@ const boardHas = scope => !!askSummary({ scope });
 // the number is in view without a card over the week (critic A-1).
 function tabs(view, sum) {
   const n = tabCounts() ? sum?.toAsk || 0 : 0;
-  return `<nav class="sv-tabrow sv-secnav" aria-label="Hearings"><a href="#/hearings/week"${view === 'week' ? ' aria-current="page"' : ''}>This week</a><a href="#/hearings/ask"${view === 'ask' ? ' aria-current="page"' : ''}>Get hearings${n ? ` <span class="sv-tn" aria-hidden="true">${n}</span><span class="sr">, ${esc(plural(n, 'bill'))} to ask</span>` : ''}</a></nav>`;
+  // Each label keeps room for its bold self (staff.css .sv-tl, as sectionNav's), so the row never shifts when a tab is picked.
+  const tl = l => `<span class="sv-tl" data-label="${esc(l)}">${esc(l)}</span>`;
+  return `<nav class="sv-tabrow sv-secnav" aria-label="Hearings"><a href="#/hearings/week"${view === 'week' ? ' aria-current="page"' : ''}>${tl('This week')}</a><a href="#/hearings/ask"${view === 'ask' ? ' aria-current="page"' : ''}>${tl(ASK_TAB)}${n ? ` <span class="sv-tn" aria-hidden="true">${n}</span><span class="sr">, ${esc(plural(n, 'bill'))} to ask</span>` : ''}</a></nav>`;
 }
 
 export default {

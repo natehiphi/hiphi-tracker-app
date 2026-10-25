@@ -15,7 +15,7 @@
 import { S, DB, DEMO, esc, advocate, hooks } from './data.js';
 import { ASK_LOG, ASK_ANSWERS, ASK_MAILS, chairAskOf, chairIdsOf, askReply, billById, chairMail, legById, legsOf,
   legNotesAll, companionsOf, billByNum, billRoute, hearingAhead, codesOf, whenAt } from './model.js';
-import { icon, btn, toast, menuSheet, sheetOpen, openSheet, closeSheet } from './ui.js';
+import { icon, btn, toast, menuSheet, sheetOpen, openSheet, closeSheet, ASK_TAB } from './ui.js';
 import { sayWords } from './steps.js';   // a bill as staff say it, with no draft code (D15); steps.js imports this file too (used in functions only)
 
 const HST = { timeZone: 'Pacific/Honolulu' };
@@ -162,7 +162,7 @@ export function saidNoSheet(bills, code) {
     comp ? { label: `Back its companion, ${sayWords(comp)}`, icon: 'link', sub: `Heard ${whenAt(hearingAhead(comp).scheduled_at)}`, run: go(billRoute(comp)) } : null,
     owner ? { label: 'Not pushing this bill', icon: 'bell-off', sub: 'Off your lists and alerts until it gets a hearing', run: () => notPushing(b) } : null,
     { label: 'How to ask for a hearing', icon: 'circle-help', sub: 'Who else can help, step by step', run: go('#/help/hearing') },
-    { label: 'Leave it for now', icon: 'clock', sub: 'It stays on Get hearings as Said no', run: () => {} },
+    { label: 'Leave it for now', icon: 'clock', sub: 'It stays on ' + ASK_TAB + ' as Said no', run: () => {} },
   ] });
 }
 // V24: on a bill waiting for a hearing, Mute reads "Not pushing this bill" (the same call as the bill page's Mute).

@@ -13,7 +13,7 @@
 // opens one, Esc returns to the box (they are the list's own keys, not shortcuts).
 import { S, DB, DEMO, esc, hooks, fmtDate, owners, effStage, STAGE_LABEL, POSITIONS, SESSION_YEAR, advocate } from './data.js';
 import { plain, diedish, personName, titleCaseSmart, exactBill, legNotesAll, legById, billById, hstDayOf, ASK_ANSWERS, askReply, billRoute, blurb } from './model.js';
-import { icon, btn, toast, showAllBtn, keysUsed, keysOn } from './ui.js';
+import { icon, btn, toast, showAllBtn, keysUsed, keysOn, ASK_TAB } from './ui.js';
 import { shortName } from './pathway.js';
 import { matchLegs, weekIndex, districtQ } from './legislators.js';
 import { helpTopics, synOf, practiceHref } from './help.js';   // Help's guides are places too; one list of everyday words
@@ -71,7 +71,7 @@ const SETUP_PARTS = [
 const PLACES = () => [
   { title: 'Today', href: '#/', icon: 'list-todo', sub: 'Your next step and what is due', key: KEY.today, also: 'home start my list to-do todo tasks due mine' },
   { title: 'Hearings', href: '#/hearings', icon: 'calendar-days', sub: 'This week’s hearings', key: KEY.hearings, also: 'this week week sittings calendar going attend' },
-  { title: 'Get hearings', href: '#/hearings/ask', icon: 'megaphone', sub: 'Hearings › ask the chairs, by deadline', also: 'chair asks push board deadline box hearing request ask the chair' },
+  { title: ASK_TAB, href: '#/hearings/ask', icon: 'megaphone', sub: 'Hearings › ask the chairs, by deadline', also: 'get hearings chair asks push board deadline box hearing request ask the chair' },
   { title: 'Testimony', href: '#/testimony', icon: 'file-text', sub: 'Write, approve and file', key: KEY.testimony, also: 'drafts draft letters write' },
   { title: 'To approve', href: '#/testimony?view=approve', icon: 'user-check', sub: 'Testimony › To approve, then Review', key: KEY.review, also: 'review approval approvals second look sign off queue' },
   { title: 'Ready to file', href: '#/testimony?view=file', icon: 'clipboard-check', sub: 'Testimony › the filing card', also: 'file filing capitol submit mark filed' },
@@ -115,10 +115,10 @@ const ACTIONS = () => [
   { title: 'Approve testimony', href: '#/testimony?view=approve', icon: 'user-check', sub: 'Testimony › To approve, then Review', key: KEY.review, also: 'approve approval sign off review second look send back', who: () => me().is_admin || me().can_approve || me().is_reviewer },
   { title: 'File testimony at the Capitol', href: '#/testimony?view=file', icon: 'clipboard-check', sub: 'Testimony › Ready to file', also: 'file filing mark filed submit capitol website', job: () => ownsBills() || me().is_admin },
   { title: 'Write testimony', href: '#/testimony?view=write', icon: 'square-pen', sub: 'Testimony › To write', key: KEY.testimony, also: 'write draft make the draft send for approval resubmit revise', job: writes },
-  { title: 'Ask a chair for a hearing', href: '#/hearings/ask', icon: 'mail', sub: 'Hearings › Get hearings', also: 'ask chair email the chair hearing request push schedule', job: () => !(me().can_approve && !ownsBills()) },
+  { title: 'Ask a chair for a hearing', href: '#/hearings/ask', icon: 'mail', sub: 'Hearings › ' + ASK_TAB, also: 'ask chair email the chair hearing request push schedule', job: () => !(me().can_approve && !ownsBills()) },
   // A bill heard and not voted on: the act's one name (C-15), found by the Capitol's own term too ("decision making").
-  { title: 'Ask a chair to schedule a vote', href: '#/hearings/ask', icon: 'gavel', sub: 'Hearings › Get hearings, for a bill heard but not voted on', also: 'vote voted decision making decision-making heard chair schedule', job: () => !(me().can_approve && !ownsBills()) },
-  { title: 'Record a chair’s reply', href: '#/hearings/ask', icon: 'message-square', sub: 'Hearings › Get hearings › They replied', also: 'reply replied answer will schedule said no chair answer' },
+  { title: 'Ask a chair to schedule a vote', href: '#/hearings/ask', icon: 'gavel', sub: 'Hearings › ' + ASK_TAB + ', for a bill heard but not voted on', also: 'vote voted decision making decision-making heard chair schedule', job: () => !(me().can_approve && !ownsBills()) },
+  { title: 'Record a chair’s reply', href: '#/hearings/ask', icon: 'message-square', sub: 'Hearings › ' + ASK_TAB + ' › They replied', also: 'reply replied answer will schedule said no chair answer' },
   { title: 'Say I’m going to a hearing', href: '#/hearings/week', icon: 'calendar-check', sub: 'Hearings › This week, on the hearing', key: KEY.hearings, also: 'going attend attending im going i am going' },
   // "who is going", "hearings tomorrow": leads read Team's schedule for today and tomorrow (D5); everyone else This week.
   { title: 'Tomorrow’s hearings: who is going', href: isLead() ? '#/team' : '#/hearings/week', icon: 'calendar-days', sub: isLead() ? 'Team › Today and tomorrow' : 'Hearings › This week', also: 'tomorrow tomorrows today hearings who is going going attending schedule sittings' },

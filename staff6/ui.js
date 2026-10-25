@@ -450,10 +450,20 @@ export function confirmSheet({ title, text = '', ok = 'OK', danger = false }) {
 // places only). v6 (R-336, spec 3.3, D12): every place with sub-pages has its row here, in the spec's order and words, so
 // placeHead (steps.js) and the screens draw the same tabs. Each tab: [key, address, label]. Addresses are the v6 ones; the
 // old ones (#/outreach/issues, #/coalition) still open the same pages (app.js parseRoute redirects them).
+// The Hearings tab that lists the bills still waiting for a hearing, in Nate's words and his title case (Nate 25 Oct walk 1:
+// "Bills That Need Hearings", was "Get hearings"). One constant, so the tab, This week's line, Today's line, search and Help
+// say the same name (C-15: one name per place). Its address stays #/hearings/ask.
+export const ASK_TAB = 'Bills That Need Hearings';
+// A list of names said as a list: "Sen. Lee, Sen. Chang and Sen. Richards", "and" only before the last (Nate 25 Oct walk 1:
+// a chair card read "Sen. Lee and Sen. Chang and Sen. Richards"). Two names stay "A and B"; when a name holds its own "and"
+// (a committee, "Health and Human Services") the last join takes a comma, as steps.js committeeName does, so it reads as two.
+export const andWords = xs => { xs = (xs || []).filter(Boolean); if (xs.length < 2) return xs[0] || '';
+  const inner = xs.some(x => / and /.test(x)) ? ', and ' : ' and ';
+  return `${xs.slice(0, -1).join(', ')}${inner}${xs[xs.length - 1]}`; };
 const SECTIONS = {
   // This week names its view (#/hearings/week): the bare #/hearings applies the opening rule (Get hearings when bills wait and
   // no hearing is this week, spec 3.3), so a tab to it could not always reach This week.
-  hearings: ['Hearings', [['week', '#/hearings/week', 'This week'], ['ask', '#/hearings/ask', 'Get hearings']]],
+  hearings: ['Hearings', [['week', '#/hearings/week', 'This week'], ['ask', '#/hearings/ask', ASK_TAB]]],
   testimony: ['Testimony', [['write', '#/testimony?view=write', 'To write'], ['approve', '#/testimony?view=approve', 'To approve'], ['sent', '#/testimony?view=sent', 'Sent back'],
     ['file', '#/testimony?view=file', 'Ready to file'], ['filed', '#/testimony?view=filed', 'Filed'], ['missed', '#/testimony?view=missed', 'Missed']]],
   // v4 (R-269): Outreach is for rallying, so it opens on this week's asks; v6 adds Lists as its last tab (spec 3.3).
