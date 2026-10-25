@@ -65,6 +65,9 @@ jobs:
       - name: "Follow from a shared bill returns to the bill: Save your profile, the Mahalo! over it, the story in one quiet line (R-212 #47)"
         if: ${{ !cancelled() }}
         run: python3 tests/follow_returns.py http://localhost:8832 /tmp
+      - name: "Printing: a clean paper copy of a bill, the walkthrough's letter and the lists, and Print this page in the bill's menu (R-212 #48)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/print_pages.py http://localhost:8832 /tmp
       - name: "Staff v3 on a laptop (R-264, DESIGN A-24): one side panel, at most 5 things, 7 colours, 1 filled button in view"
         if: ${{ !cancelled() }}
         run: python3 tests/staff3_budget.py
