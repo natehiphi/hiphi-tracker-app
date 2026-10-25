@@ -15,6 +15,7 @@ import { nameOf, letGo } from '../mybills.js';
 import { ownLists, followedLists, localFollowed, myListsSection, wireMyLists, canMake } from '../mylists.js';
 import { EMPTY_ART } from '../art.js';
 import { rowLine } from '../partners.js';
+import { rowDrafts, draftLink } from '../newdraft.js';
 
 // What a row lets go of in Edit: the issue, the bill followed on its own, or (between sessions, when Home's rows name it) a
 // whole topic.
@@ -31,11 +32,14 @@ function targetOf(r) {
 // small dot before it when something changed since the last visit, one status line, amber only inside a day (A-5). A bill
 // followed on its own that a HIPHI partner writes on has one more line naming the partner, as on Find (R-328 batch D,
 // partners.js rowLine: "Keiki Smiles Alliance supports it too", or "From a partner: ..." where HIPHI has no side).
+// A bill on the row with a new draft (R-212 #50, pub/newdraft.js) adds one quiet line under all that, in session and not
+// while editing: its own link, beside the row's in the same <li> (never inside it), to that bill's drafts ("New draft of HB
+// 2121 · Fri"), or to the issue's page when two or more changed, where each is marked. The row itself is Home's, unchanged.
 function rowHtml(r, edit) {
-  const t = edit ? targetOf(r) : null, pl = r.b ? rowLine(r.b) : '';
+  const t = edit ? targetOf(r) : null, pl = r.b ? rowLine(r.b) : '', nd = edit ? '' : draftLink(rowDrafts(r), { own: !!r.b, issue: r.i });
   const a = `<a class="rc-row" href="${esc(r.href)}"><span class="rc-rtext"><span class="rc-rname">${r.fresh ? '<span class="rc-new" title="New since your last visit"><span class="sr">New since your last visit: </span></span>' : ''}${esc(r.name)}</span>
     ${r.text ? `<span class="rc-rstat${r.warn ? ' warn' : ''}">${esc(keep(r.text))}</span>` : ''}${pl ? `<span class="rc-rpart">${esc(pl)}</span>` : ''}</span>${t ? '' : icon('chevron-right', { cls: 'rc-chev' })}</a>`;
-  return `<li${t ? ' class="rc-frow"' : ''}>${a}${t ? btn('Stop following', { kind: 'text', sm: true, cls: 'rc-stop', attrs: { 'data-rc-stop': `${t.kind}:${t.id}`, 'aria-label': `Stop following ${t.label}` } }) : ''}</li>`;
+  return `<li${t ? ' class="rc-frow"' : ''}>${a}${nd}${t ? btn('Stop following', { kind: 'text', sm: true, cls: 'rc-stop', attrs: { 'data-rc-stop': `${t.kind}:${t.id}`, 'aria-label': `Stop following ${t.label}` } }) : ''}</li>`;
 }
 // The person's own lists, the lists shared with them and HIPHI's lists they follow, as quiet rows. myListsSection is called
 // for what it starts (loading their lists, and the shared ones this browser follows, then redrawing this page); its own

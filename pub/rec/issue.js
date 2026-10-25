@@ -28,6 +28,7 @@ import { shareIssue } from '../actions.js';
 import { billParts, wireBillParts, recDock, situation, recLine } from '../bill.js';
 import { logAct } from '../visitlog.js';
 import { rowLine } from '../partners.js';
+import { newDraft, draftLink } from '../newdraft.js';
 
 const WIDE = window.matchMedia('(min-width: 1100px)');
 const wide = () => WIDE.matches;
@@ -47,9 +48,13 @@ const numbers = bills => { const ns = bills.map(b => num(b) + (+b.session_year &
 // 10/21: rows keep their shape, one more line naming the partner, "Keiki Smiles Alliance supports it too", or on a bill HIPHI
 // has no side on "From a partner: Keiki Smiles Alliance supports it", so it never reads as HIPHI's; partners.js rowLine).
 // The kit's own row (recRow) when no partner writes on it, so those rows are exactly as before. r.b is the row's bill.
-const bRow = r => { const pl = r.b ? rowLine(r.b) : ''; if (!pl) return recRow(r);
-  return `<li><a class="rc-row" href="${esc(r.href)}">${r.lead ? `<span class="rc-lead">${icon(r.lead)}</span>` : ''}
-  <span class="rc-rtext"><span class="rc-rname">${esc(r.name)}</span>${r.text ? `<span class="rc-rstat${r.warn ? ' warn' : ''}">${esc(keep(r.text))}</span>` : ''}<span class="rc-rpart">${esc(pl)}</span></span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`; };
+// A followed bill with a new draft (R-212 #50, pub/newdraft.js; in session only) gets My issues' line under it, its own link
+// to the bill's drafts beside the row's in the same <li>: "New draft · Fri", "Your letter is for an older draft" (the row
+// names the bill already, A-14).
+const bRow = r => { const pl = r.b ? rowLine(r.b) : '', nd = r.b ? draftLink([newDraft(r.b)].filter(Boolean), { own: true }) : '';
+  const li = pl ? `<li><a class="rc-row" href="${esc(r.href)}">${r.lead ? `<span class="rc-lead">${icon(r.lead)}</span>` : ''}
+  <span class="rc-rtext"><span class="rc-rname">${esc(r.name)}</span>${r.text ? `<span class="rc-rstat${r.warn ? ' warn' : ''}">${esc(keep(r.text))}</span>` : ''}<span class="rc-rpart">${esc(pl)}</span></span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>` : recRow(r);
+  return nd ? li.replace(/<\/li>$/, `${nd}</li>`) : li; };
 const bRows = (rows, cls = '') => rows.length ? `<ul class="rc-rows${cls ? ' ' + cls : ''}" role="list">${rows.map(bRow).join('')}</ul>` : '';   // kit.js recRows, with bRow
 
 // ---------------- the issue's bills ----------------

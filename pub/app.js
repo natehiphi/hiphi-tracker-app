@@ -166,7 +166,8 @@ export function parseRoute(h = location.hash) {
     // #/bill/HB1780/testify (or /email) opens the bill with its walkthrough already open: for emails, texts and the calendar feed (R-124).
     // /ask, /floor, /conference and /governor open those asks the same way: the share pages' links (R-169, bill.js openAsk).
     // /attend (R-205) opens the hearing's when-and-where, for a friend asked to come to it.
-    case 'bill': { const yr = /^\d{4}$/.test(seg[1] || '') ? +seg[1] : 0, open = seg[yr ? 3 : 2]; return { name: 'bill', num: String((yr ? seg[2] : seg[1]) || '').toUpperCase(), year: yr || undefined, open: ['testify', 'email', 'attend', 'ask', 'floor', 'conference', 'governor'].includes(open) ? open : undefined }; }
+    // /changes (R-212 #50) brings the bill's drafts into view: My issues' and the issue page's "New draft" line (pub/newdraft.js).
+    case 'bill': { const yr = /^\d{4}$/.test(seg[1] || '') ? +seg[1] : 0, open = seg[yr ? 3 : 2]; return { name: 'bill', num: String((yr ? seg[2] : seg[1]) || '').toUpperCase(), year: yr || undefined, open: ['testify', 'email', 'attend', 'ask', 'floor', 'conference', 'governor', 'changes'].includes(open) ? open : undefined }; }
     // #/follow/flavored-tobacco-ban,cat:keiki: a "My issues link" (R-123): follows those issues in this browser, then Home.
     // ?f=1: sent by a friend ("Send my issues to a friend", R-212 #37), so the arrival says whose issues these are.
     case 'follow': return { name: 'follow', slugs: String(seg[1] || '').split(',').map(x => x.trim()).filter(Boolean), friend: q.get('f') === '1' };

@@ -397,6 +397,37 @@ His answers: the public and HIPHI's own drafts; the letter kept with the profile
 - Sandbox: `?letter` plants a letter on HB 2121 from its 18 Feb House Health hearing (House draft 1); its 20 Mar hearing
   is on House draft 2, ticked in `demo/drafts.json`. `tests/again.py` (70 checks).
 
+## "New draft" on My issues and the issue page (R-212 Tier 2 #50; 25 Oct 2026)
+
+The walks' Capitol Regular and Clinician wanted to know when a bill they follow changes, before they write or speak again;
+the drafts were only in the bill page's last folds (R-060 above), and a kept letter (R-148) learned of a new draft only at
+the next hearing's walkthrough.
+
+- **Which bills** (`pub/newdraft.js` `newDraft`): a followed bill, in session only, whose current draft
+  (`bills.current_version`) is new: the committee report that made it ("Reported from CPC ... as amended in HD 2") is in the
+  official lines in hand (`public_activity`: the last 30 days, 300 lines at most) after an earlier line, dated within the
+  last 7 days, or back to the person's last visit when that was longer ago (`S.prevVisit`, as Home's dot; at most 30 days).
+  A draft first named by a repeat (a floor vote, "Received from Senate ... in amended form") or on the bill's earliest line
+  in hand has no day and is never "new": a false "new" is worse than a missed one (in the 2026 record one report day names
+  each bill's current draft for 2,514 of 2,529 bills). A bill whose kept testimony letter was written for an earlier draft
+  counts whatever the day while the bill can still move; a twin's letter does not, nor one on a bill that became law, is
+  with the Governor, was held or did not advance (no letter can be sent on it again).
+- **My issues** (`pub/rec/mybills.js`, not while editing): one more line under the row's status, its own link beside the
+  row's: "New draft of HB 2121 · Fri" (or "Your letter is for an older draft of HB 2121") to that bill's drafts; "New drafts of
+  HB 2121 and SB 2175" / "New drafts of HB 1839 and 2 more bills" (letter bills first) to the issue's page; a bill followed
+  on its own, "New draft · Fri" / "Your letter is for an older draft". Days in Home's words looking back (today, yesterday,
+  Thu, Mar 6). Home's rows themselves are unchanged. **The issue page** (`pub/rec/issue.js` `bRow`): each changed bill's
+  row has the bill's own line.
+- **`#/bill/<year>/<NUM>/changes`** (`pub/app.js`, `pub/bill.js` `showDrafts`): the calm page opens "About the bill" at
+  "What each draft changed" when HIPHI's note on the current draft has come (waits up to 3 s), else "More details" at
+  "Drafts of the bill" on the current draft's row; `?rec=0`, "Draft history", else More details. Opened for this visit only
+  (never written to `hiphi_recfold`), no toast. It lands on each arrival at the address (the line tapped again after Back
+  lands again), never on a redraw while there.
+- Sandbox: its latest drafts are from 5-6 March, ten days before its clock, so `?letter` (HB 2121's letter for House draft
+  1) shows the letter case; the date case needs a last visit before then (`tests/new_draft.py` plants one).
+  `tests/new_draft.py` (87 checks: the words, links, 44px, editing, between sessions, the landing on both pages and again
+  after Back, the honesty rule on made-up lines).
+
 ## Emails offered again, and one reminder to the same chair (R-153; 4 Oct 2026, HANDOFF 3.88)
 
 Nate: "Can we replicate this for emails to chairs to hear a bill if they've already done that before?" His answers: "all of

@@ -411,12 +411,15 @@
 .bl-page .bl-drafts > summary .bl-chev { color: var(--n500); margin-left: auto; }
 .bl-page .bl-drafts .bl-drsum { display: flex; flex-direction: column; min-width: 0; }
 .bl-page .bl-drafts .bl-drhint { font-size: var(--t14); font-weight: 400; color: var(--n700); line-height: 1.35; }
-.bl-page .bl-drafts .bl-drlist { margin: 0; padding: var(--s16) 0 var(--s8); border-top: 1px solid var(--n100); list-style: none; display: flex; flex-direction: column; gap: var(--s16); }
-.bl-page .bl-drafts .bl-drlist li { margin: 0; }
+/* The same list inside the calm page's "About the bill" (.bl-rdrafts, bill.js recPage), where it had no rules and drew as bullets
+   with "LatestHouse draft 2" run together; a #/bill/.../changes link lands on it (R-212 #50). */
+.bl-page :is(.bl-drafts, .bl-rdrafts) .bl-drlist { margin: 0; padding: var(--s16) 0 var(--s8); border-top: 1px solid var(--n100); list-style: none; display: flex; flex-direction: column; gap: var(--s16); }
+.bl-page :is(.bl-drafts, .bl-rdrafts) .bl-drlist li { margin: 0; }
 /* who made the change and when, on its own line above what it did (Nate 10/5: the committee and date first) */
-.bl-page .bl-drafts .bl-drwho { margin: 0 0 var(--s4); color: var(--n900); line-height: 1.35; }
-.bl-page .bl-drafts .bl-drwhat { margin: 0; line-height: 1.5; }
-.bl-page .bl-drafts .bl-drnow { display: inline-block; margin-right: var(--s8); font-size: var(--t13); font-weight: 700; color: var(--p700); }
+.bl-page :is(.bl-drafts, .bl-rdrafts) .bl-drwho { margin: 0 0 var(--s4); color: var(--n900); line-height: 1.35; }
+.bl-page :is(.bl-drafts, .bl-rdrafts) .bl-drwhat { margin: 0; line-height: 1.5; }
+.bl-page :is(.bl-drafts, .bl-rdrafts) .bl-drnow { display: inline-block; margin-right: var(--s8); font-size: var(--t13); font-weight: 700; color: var(--p700); }
+.bl-page .bl-rdrafts .bl-drlist { padding-top: var(--s8); border-top: 0; }   /* under its own heading, not a card's summary */
 
 /* X4-4: a stopped bill whose same idea became law, under the stopped label. */
 .bl-page .bl-sameidea { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s8) 0 0; font-size: var(--t14); line-height: 1.45; color: var(--n900); font-weight: 700; }
@@ -505,6 +508,7 @@
 .bl-rec .bl-rav { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1px dashed var(--n300); display: grid; place-items: center; color: var(--n700); }
 .bl-rec .bl-rav .ic { width: 18px; height: 18px; }
 .bl-rec .bl-rdrafts { margin-top: var(--s16); }
+.bl-rec .bl-rdrafts > h3:focus { outline: none; }   /* focused by a /changes link only so a screen reader starts there; not a control */
 .bl-rec .bl-rin .bl-more, .bl-rec .bl-rin dl { margin-top: 0; }
 .bl-rec .bl-rin dl { border-top: 0; }
 .bl-rec .bl-rgrps { border-top: 1px solid var(--n100); }

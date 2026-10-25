@@ -614,6 +614,7 @@ export function shareAsk(b, x = situation(b)) {
 // so. The legislators and committees load a moment after the bill, so the chairs are waited for (up to 8 seconds).
 const refReady = () => S.deadlines.length > 0 && (S.legislators || []).length > 0;
 function openAsk(b, want, tries = 0) {
+  if (want === 'changes') return showDrafts(b);   // needs no chairs or deadlines: not waited for
   if (!refReady() && tries < 20) return setTimeout(() => openAsk(b, want, tries + 1), 400);
   const here = new RegExp(`^#/bill/(\\d{4}/)?${String(b.bill_number).replace(/\s/g, '')}(/|$)`, 'i');
   if (S.helper || !here.test(location.hash)) return;   // they moved on while it waited, or a walkthrough is open
@@ -641,6 +642,56 @@ function openAsk(b, want, tries = 0) {
   toast(want === 'testify' ? 'Testimony on this bill has closed. Here’s what you can do now.'
     : want === 'ask' ? 'This bill isn’t waiting for a hearing any more. Here’s what you can do now.'
     : 'That step has passed. Here’s what you can do now.');
+}
+
+// #/bill/<year>/<NUM>/changes (R-212 #50): My issues' and the issue page's "New draft" line (pub/newdraft.js) lands on the
+// bill's drafts. On the calm page, when HIPHI's note on the current draft has come (up to about 3 s; draftNotes is asked once
+// per bill), "About the bill" opens at "What each draft changed"; without one, "More details" opens at "Drafts of the bill",
+// on the current draft's row (its Capitol link). On the older page (?rec=0), "Draft history", else its More details. What it
+// opens stays open for this visit only (S.blRShow, S.blOpen) and is never remembered for the next (saveFold); no toast.
+function showDrafts(b) {
+  const here = new RegExp(`^#/bill/(\\d{4}/)?${String(b.bill_number).replace(/\s/g, '')}/changes$`, 'i');
+  const gone = () => !here.test(location.hash) || !!S.helper;   // they moved on while it waited
+  // Once per arrival, not once per visit: the line stays on My issues, and a second tap on it later in the same visit lands
+  // here again (S.blOpened held the address for good, so that tap opened the page's top). Redraws while here still do not.
+  // Only this bill's: a tap from here to another bill's /changes keeps that one's mark, or its redraws would land again.
+  const num = normNum(b.bill_number);
+  const leave = () => { if (here.test(location.hash)) return; removeEventListener('hashchange', leave);
+    [...(S.blOpened || [])].filter(k => k === num + 'changes' || k.endsWith('/' + num + 'changes')).forEach(k => S.blOpened.delete(k)); };
+  addEventListener('hashchange', leave);
+  // The heading or row is put just under the page's top bars (the header and the bill's own row stay on top while scrolling).
+  const bring = el => { if (!el) return false;
+    const bars = [document.querySelector('.hdr'), document.querySelector('.bl-top')].reduce((n, e) => n + (e && getComputedStyle(e).position.match(/sticky|fixed/) ? e.offsetHeight : 0), 0);
+    if (!el.matches('a, button, summary, [tabindex]')) el.setAttribute('tabindex', '-1');
+    window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - bars - 16), behavior: 'auto' });
+    el.focus({ preventScroll: true }); return true; };
+  const vis = sel => [...document.querySelectorAll(sel)].find(e => e.getClientRects().length) || null;
+  const openRec = name => { const k = `${b.id}|${name}`, d = document.querySelector(`#main details[data-bl-rfold="${name}"]`); if (!d) return null;
+    if (!d.open) { S.blRShow.add(k); d.open = true; } return d; };
+  const land = notes => {
+    if (gone()) return;
+    if (REC()) {
+      // About opens only when its drafts heading is drawn, so it is never left open beside More details for nothing.
+      const now = b.current_version || '';
+      if (now && notes.some(n => n.version === now) && document.querySelector('#main details[data-bl-rfold="about"] .bl-rdrafts > h3') && openRec('about')) {
+        if (bring(vis('#main .bl-rdrafts > h3'))) return;
+      }
+      if (!openRec('more')) return;
+      const g = document.querySelector('#main details[data-bl-fold="rd-drafts"]');
+      if (g && !g.open) { S.blOpen.add(`${b.id}|rd-drafts`); g.open = true; }
+      const rows = [...document.querySelectorAll('#main details[data-bl-fold="rd-drafts"] .bl-rlist a')];
+      bring(rows.find(a => /The current draft/.test(a.textContent)) || rows[0] || g?.querySelector('summary'));
+      return;
+    }
+    // The older page: Draft history when it is drawn (only with a note), else More details.
+    const d = document.querySelector('#main details[data-bl-fold="drafts"]') || document.querySelector('#main details[data-bl-fold="more"]'); if (!d) return;
+    if (!d.open) { S.blOpen.add(`${b.id}|${d.dataset.blFold}`); d.open = true; }
+    bring(d.querySelector('summary'));
+  };
+  // Wait for the notes (a redraw puts them in the page once they come, loadDrafts), at most about 3 seconds; the rest of the
+  // page's data may redraw it meanwhile, which the open cards survive.
+  const wait = new Promise(res => setTimeout(() => res(null), 3000));
+  Promise.race([draftNotes(b).catch(() => []), wait]).then(rows => requestAnimationFrame(() => land(rows || S.blDrafts?.get(b.id) || [])));
 }
 
 // ---------------- a friend's link (R-212 #34) ----------------
@@ -1170,7 +1221,10 @@ const REC = () => new URLSearchParams(location.search).get('rec') !== '0';   // 
 const RFOLD = 'hiphi_recfold';
 const recFolds = () => { try { const a = JSON.parse(localStorage.getItem(RFOLD) || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
 const saveFold = (name, open) => { try { const s = new Set(recFolds()); if (open) s.add(name); else s.delete(name); localStorage.setItem(RFOLD, JSON.stringify([...s])); } catch { /* private mode: closed next time */ } };
-const recFold = (name, title, prev, inner) => `<details class="bl-rfold" data-bl-rfold="${name}"${recFolds().includes(name) ? ' open' : ''}><summary><span><span class="bl-rft">${esc(title)}</span>${prev ? `<span class="bl-rfp">${esc(prev)}</span>` : ''}</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary><div class="bl-rin">${inner}</div></details>`;
+// A card opened by a #/bill/.../changes link (R-212 #50, showDrafts) stays open through this visit's redraws, and is never
+// remembered for the next: the person did not open it. "<bill id>|<name>"; closing it by hand takes it out.
+S.blRShow ??= new Set();
+const recFold = (name, title, prev, inner, b = null) => `<details class="bl-rfold" data-bl-rfold="${name}"${recFolds().includes(name) || (b && S.blRShow.has(`${b.id}|${name}`)) ? ' open' : ''}><summary><span><span class="bl-rft">${esc(title)}</span>${prev ? `<span class="bl-rfp">${esc(prev)}</span>` : ''}</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary><div class="bl-rin">${inner}</div></details>`;
 // "Mon 3/30"; a deadline row's date is a plain day, read at noon in Hawaiʻi.
 const dayLongD = d => dateLong(/^\d{4}-\d{2}-\d{2}$/.test(d) ? d + 'T12:00:00-10:00' : d);   // "Mon, Mar 30", Home's (calm/home.js stateOf)
 const dayShort = d => fmtDate(/^\d{4}-\d{2}-\d{2}$/.test(d) ? d + 'T12:00:00-10:00' : d, { weekday: 'short' }).replace(',', '');
@@ -1391,9 +1445,9 @@ function recPage(num, b, x) {
   // Others following this bill: group numbers only from 10 people (countOk); no card at all without one.
   const others = othersBlock(b, { bare: true, noEmails: doCard && RMAIL.includes(x.kind) });
   const folds = recFold('who', 'Who decides next', recWhoPrev(x), recWho(b, x))
-    + recFold('about', 'About the bill', `In the Legislature’s words, ${why}${theirs}what each draft changed`, aboutBill(b, { reasons: true, pfx: 'bl-rab', partners: aboutHtml(b) }) + draftsSection(b).replace(/^<details[^>]*><summary>[\s\S]*?<\/summary>/, '<div class="bl-rdrafts"><h3 class="ab-h">What each draft changed</h3>').replace(/<\/details>$/, '</div>'))
+    + recFold('about', 'About the bill', `In the Legislature’s words, ${why}${theirs}what each draft changed`, aboutBill(b, { reasons: true, pfx: 'bl-rab', partners: aboutHtml(b) }) + draftsSection(b).replace(/^<details[^>]*><summary>[\s\S]*?<\/summary>/, '<div class="bl-rdrafts"><h3 class="ab-h">What each draft changed</h3>').replace(/<\/details>$/, '</div>'), b)
     // "every ... official action" only when the list is there to open (most visitors' pages have only the Capitol's link).
-    + recFold('more', 'More details', `Official title, ${companionsOf(b).length ? `companion ${spaced(companionsOf(b)[0])}, ` : ''}every draft${billActs(b).length ? ' and official action' : ''}`, recDetails(b, x))
+    + recFold('more', 'More details', `Official title, ${companionsOf(b).length ? `companion ${spaced(companionsOf(b)[0])}, ` : ''}every draft${billActs(b).length ? ' and official action' : ''}`, recDetails(b, x), b)
     + (others ? recFold('others', 'Others following this bill', 'How people lean and what they have done', others) : '');
   // Where do you stand? (R-303, Nate 19 Oct: back on the calm page) A quiet card after the action, never above it: on a
   // phone under Where it is now, on a wide screen under the action card in the side panel. Only while the bill can move.
@@ -1596,7 +1650,10 @@ export default {
     // "and 6 others": every name in place; focus goes to the second name, the first one the button hid.
     root.querySelectorAll('[data-bl-spons]').forEach(el => el.onclick = () => { (S.blSpons ??= new Set()).add(b.id); app.render();
       requestAnimationFrame(() => document.querySelectorAll('.bl-rspons a')[1]?.focus()); });
-    root.querySelectorAll('details[data-bl-rfold]').forEach(d => d.addEventListener('toggle', () => saveFold(d.dataset.blRfold, d.open)));
+    // A card opened by a /changes link (showDrafts) is not remembered, nor is its redraw; closed by hand it is let go.
+    root.querySelectorAll('details[data-bl-rfold]').forEach(d => d.addEventListener('toggle', () => { const k = `${b.id}|${d.dataset.blRfold}`;
+      if (d.open && S.blRShow.has(k)) return;
+      S.blRShow.delete(k); saveFold(d.dataset.blRfold, d.open); }));
     document.body.classList.toggle('bl-rec', REC()); recDock();
     root.querySelector('[data-bl-star]')?.addEventListener('click', async e => {
       e.currentTarget.setAttribute('aria-busy', 'true');
