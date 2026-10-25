@@ -326,7 +326,7 @@ function teamPage() {
     : quiet('calendar', 'No hearings on our bills today or tomorrow.'));
   const rows = loads();
   // What the numbers count, said once on a laptop and inside the phone's fold alike (R-336: the phone's had no such line).
-  const whoSub = `<p class="tm6-sub">Each person’s open steps, chair asks included, each counted once for whoever holds it.</p>`;
+  const whoSub = `<p class="tm6-sub">Each person’s open steps, chair asks included.</p>`;
   const who = phone ? `<details class="tm6-fold t6-doors" data-block="who"${S.tmWhoOpen ? ' open' : ''} data-tmwho><summary class="t6-line">${icon('users')}<span class="t6-lt"><b>Who is on what</b> · ${plural(rows.length, 'person', 'people')}</span>${icon('chevron-down', { cls: 't6-chev' })}</summary><div class="tm6-foldin">${whoSub}${loadHTML(rows)}</div></details>`
     : block('who', 'Who is on what', `${whoSub}${loadHTML(rows)}`);
   const nob = nobodySteps().length, noown = phone ? (nob ? `<nav class="t6-doors" data-block="noown" aria-label="Bills with no owner">${door('#/team?who=none', 'user-round', `<b>No owner</b> · ${plural(nob, 'bill')}`)}</nav>` : '') : noOwner(new Set(shown.filter(x => !x.ids.length).map(x => x.b.id)));

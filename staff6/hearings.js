@@ -119,7 +119,7 @@ const capLine = ds => (ds || []).map(d => { const g = gateGloss(d.label);
 // The one line under the days (it replaces v5's deadline box over the grid): how many bills still need a hearing, and
 // the day to ask the first chair by, opening Get hearings. Under the days, not over them: who comes to see today's
 // hearing sees it first (critic A-1, P-1: the first card was at 460px on a phone); the tab carries the count too.
-// It says the tab's own count in the tab's words, push.js toAskWords ("20 to ask · 16 by Mon 3/30", the same on Today
+// It says the tab's own count in the tab's words, push.js toAskWords ("20 to ask · first by Mon 3/23", the same on Today
 // and Bills: Nate's walk found "49 of your coalitions' bills need a hearing" beside a different tab count); with nothing
 // left to ask, no line (the tab has no count then either).
 // Bills heard but not voted on are not "to ask" (the board says them on their own line): with none left to ask, the line
@@ -132,13 +132,6 @@ function askLine(s, scope) {
 // Someone who owns no bills has no pile of their own to ask: the tab carries no count for them, and the line is not drawn
 // (Nate's walk: Patti's Get hearings showed Lauren's 15 on every visit; D4's door on Today is the way to help).
 const tabCounts = () => !!S.me?.is_admin || (S.bills || []).some(b => (S.assignments?.[b.id] || []).includes(S.me?.id));
-// Get hearings' own row, beside Mine | Team: when the pile runs past the first deadline, the tab's count and the first
-// deadline's share in This week's words ("20 to ask · 16 by Mon 3/30"), so the tab's 20 over the board's first "16 to ask"
-// reads as one pile (R-336). Nothing when they are one number (the tab and the board already agree).
-function pileLine(sum) {
-  const t = tabCounts() ? toAskWords(sum, { split: true }) : '';
-  return t ? `<p class="hw-pile">${nwParts(esc(t))}</p>` : '';
-}
 
 // ---- "Also worth doing" (F80): fenced off, at the foot, never counted, never due ----
 // Good ways to spend a quiet hour, from each bill's own pathway (model.js suggestions): a plain summary for the public
@@ -263,7 +256,7 @@ export default {
     return `<div class="hw-page v-${view}">
       <h1 class="v6-ptitle sv-h1">Hearings</h1>
       ${tabs(view, sum)}
-      <div class="hw-bar">${switcher(scope)}${view === 'week' ? weekNav(route) : pileLine(sum)}</div>
+      <div class="hw-bar">${switcher(scope)}${view === 'week' ? weekNav(route) : ''}</div>
       ${view === 'ask' ? askHTML(scope, route.view !== 'ask') : weekHTML(route, scope, sum)}
     </div>`;
   },
