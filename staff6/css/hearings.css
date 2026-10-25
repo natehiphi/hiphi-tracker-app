@@ -287,3 +287,10 @@ body.staff6 .hc-pick { display: none; }
 body.staff6 .hc-bn, body.staff6 .hc-es, body.staff6 .hc-cap, body.staff6 .hc-bills li, body.staff6 .hc-dl, body.staff6 .hc-tl, body.staff6 .hc-nothing { font-size: var(--v6-t16); line-height: 22px; }
 body.staff6 .hc-st, body.staff6 .hc-room { font-size: var(--v6-t14); line-height: 20px; }
 @media (prefers-reduced-motion: reduce) { body.staff6 .hc-hl { transition: none; } }
+
+/* A chair card's header leads with the chair's photo (both chairs, overlapped, on a joint referral), an initial when there
+   is none (R-336 walk 2: Nate asked for photos on Who to ask; the same board is Hearings > Bills That Need Hearings). */
+body.staff6 .hg-cph { flex: none; display: inline-flex; align-self: flex-start; }
+body.staff6 .hg-cph .lg-ph { width: 40px; height: 40px; border: 2px solid var(--v6-card); box-sizing: content-box; background: var(--v6-wash); color: var(--v6-body); font: 400 var(--v6-t16)/1 Poppins, system-ui, sans-serif; }
+body.staff6 .hg-cph.two .lg-ph + .lg-ph { margin-left: -14px; }
+body.staff6 .hg-chead:has(.hg-cph) .hg-cwho { flex: 1 1 200px; }

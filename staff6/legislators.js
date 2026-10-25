@@ -202,11 +202,16 @@ function roleWords(l, week) {
 const islandWords = l => { const i = islandFor(l); return i === 'Hawaiʻi' ? 'Hawaiʻi Island' : i; };
 const districtWords = l => [`District ${l.district}`, islandWords(l)].filter(Boolean).join(', ');
 // A row: the name, the district and island, and one line: their role on our bills and the last contact; found by a town,
-// the towns of theirs that match come first ("Covers Kailua and Lanikai").
+// the towns of theirs that match come first ("Covers Kailua and Lanikai"). Their photo leads the row (R-336 walk 2: the
+// directory showed no faces; it used to be legRow's, which this list no longer draws).
+// The row's face: the photo over its initial. The initial is drawn by CSS (legislators.css .lg6-rph::before) rather than as
+// text, so a row whose photo fails still reads as its name, district and one line (the budget's four facts to a row,
+// tests/staff6_budget.py); a photo that fails to load removes itself and the initial shows.
+const face = l => `<span class="lg6-rph" aria-hidden="true" data-i="${esc((l.name || '?')[0])}">${l.photo_url ? `<img class="lg-ph s40" src="${esc(l.photo_url)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span>`;
 function personRow(l, week, { from = '', q = '' } = {}) {
   const towns = q ? townHits(l, q) : [];
   const line = (towns.length ? [`Covers ${andList(towns.slice(0, 2))}${towns.length > 2 ? ' and more' : ''}`, roleWords(l, week)] : [roleWords(l, week), contactWords(l)]).filter(Boolean).join(' · ');
-  return `<div class="v6-row lg6-wrap" role="listitem" data-v6row="lg${l.id}" data-lgrow="${l.id}"><a class="v6-row-main" href="${legHref(l)}${from ? `?from=${from}` : ''}" data-lglink="${l.id}"><span class="v6-row-top"><span class="v6-row-name">${esc(legName(l))}</span><span class="v6-row-num">${esc(districtWords(l))}</span></span>${line ? `<span class="v6-row-line"><span>${nw(esc(line))}</span></span>` : ''}</a></div>`;
+  return `<div class="v6-row lg6-wrap" role="listitem" data-v6row="lg${l.id}" data-lgrow="${l.id}"><a class="v6-row-main lg6-prow" href="${legHref(l)}${from ? `?from=${from}` : ''}" data-lglink="${l.id}">${face(l)}<span class="lg6-rtx"><span class="v6-row-top"><span class="v6-row-name">${esc(legName(l))}</span><span class="v6-row-num">${esc(districtWords(l))}</span></span>${line ? `<span class="v6-row-line"><span>${nw(esc(line))}</span></span>` : ''}</span></a></div>`;
 }
 const SORTS = [['district', 'District'], ['name', 'Name'], ['island', 'Island'], ['chairs', 'Chairs first'], ['week', 'Our bills this week'], ['contact', 'Last contact']];
 const sortOf = v => v.sort || (v.week ? 'week' : 'district');

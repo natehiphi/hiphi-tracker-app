@@ -672,3 +672,12 @@ body.staff6 :is(.lg6-gph, .lg6-pph) .lg-ph.none { font-weight: 400; }
   body.staff6 .lg6-hold .lg6-sum { margin-bottom: 8px; }   /* the first chair within 400px with three switch choices (A-1) */
 }
 body.staff6 .lg6-stand .iconbtn.lg6-standb { width: 44px; height: 44px; color: var(--v6-action); }
+
+/* Legislators > Everyone: each row leads with the legislator's photo, an initial when there is none (R-336 walk 2). The
+   name, district and line sit in a column beside it, so every name still starts at the same place. */
+body.staff6 .v6-row-main.lg6-prow { flex-direction: row; align-items: center; gap: 12px; }
+body.staff6 .lg6-rph { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%;
+  background: var(--v6-wash); color: var(--v6-body); font: 400 var(--v6-t16)/1 Poppins, system-ui, sans-serif; }
+body.staff6 .lg6-rph::before { content: attr(data-i); }
+body.staff6 .lg6-rph .lg-ph { position: absolute; inset: 0; width: 40px; height: 40px; background: var(--v6-wash); }
+body.staff6 .lg6-rtx { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
