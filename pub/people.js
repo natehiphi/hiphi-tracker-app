@@ -309,7 +309,7 @@ const backLink = (href, label) => `<a class="btn text pp-back" href="${esc(href)
 
 // ---------------- the finder ----------------
 export const legsFailed = () => refFailed('legislators') || !(S.legislators || []).length;
-export const legsFail = what => S.refBusy ? skeleton(3) : loadFail({ what, retry: { 'data-reref': '1' } });
+export const legsFail = what => S.refBusy ? skeleton(3) : loadFail({ what, align: 'start', retry: { 'data-reref': '1' } });
 export function finderPage(route) {
   const from = billNum(route), b = fromBill(from), sv = saved();
   // The lawmakers did not load (core.js S.refErr): the one card, with a Try again that asks again in place (R-212 #49).

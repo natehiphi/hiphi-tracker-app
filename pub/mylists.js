@@ -223,7 +223,7 @@ function myListPage(id) {
   if (UL.mine === null) { loadMyLists().then(() => app.render()); return `<div class="fd ul">${back('#/bills', 'My issues')}${skeleton(3)}</div>`; }
   const l = myList(id);
   // Their lists did not load (UL.err): that is said, never "We couldn't find that list" (R-212 #49).
-  if (!l && UL.err) return `<div class="fd ul">${back('#/bills', 'My issues')}${loadFail({ what: 'your list', retry: { 'data-ulmine': '1' } })}</div>`;
+  if (!l && UL.err) return `<div class="fd ul">${back('#/bills', 'My issues')}${loadFail({ what: 'your list', align: 'start', retry: { 'data-ulmine': '1' } })}</div>`;
   if (!l) return `<div class="fd ul">${back('#/bills', 'My issues')}${emptyBox({ h: 'h1', title: 'We couldn’t find that list', text: canMake() ? 'It may have been removed. Your lists are in My issues.' : 'Sign in to see your lists.',
     action: btn(canMake() ? 'Go to My issues' : 'Sign in', { kind: 'primary', href: canMake() ? '#/bills' : '#/signin', attrs: canMake() ? {} : { 'data-ulsignin-page': '1' } }) })}</div>`;
   return l.mine ? minePage(l) : followedPage(l);
@@ -232,7 +232,7 @@ function sharedPage(token) {
   const sl = UL.shared[token];
   if (sl === undefined) loadShared(token);
   if (sl === undefined || sl === 'loading') return `<div class="fd ul" data-page="shared">${back('#/', 'Home')}${skeleton(3)}</div>`;
-  if (sl === 'err') return `<div class="fd ul">${back('#/', 'Home')}${loadFail({ what: 'this list', id: 'ul-err', retry: { 'data-ulretry': token } })}</div>`;
+  if (sl === 'err') return `<div class="fd ul">${back('#/', 'Home')}${loadFail({ what: 'this list', id: 'ul-err', align: 'start', retry: { 'data-ulretry': token } })}</div>`;
   if (!sl) return `<div class="fd ul">${back('#/', 'Home')}${emptyBox({ h: 'h1', title: 'This list isn’t available', text: 'The person who made it may have stopped sharing it, or the link was cut short.', action: btn('Browse issues', { kind: 'primary', icon: 'search', href: '#/find' }) })}</div>`;
   if (sl.mine) return myList(sl.id) ? minePage(myList(sl.id)) : myListPage(sl.id);   // the maker opening their own link sees their own page
   const n = (sl.bill_ids || []).length, following = sl.following || localFollowed().has(token);

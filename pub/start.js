@@ -441,10 +441,12 @@ function stepTopics(step) {
 export const skel = (step, said = 'Finding HIPHI’s issues for you') => shell('', `<p class="sr" role="status">${said}</p>
   <div class="skel" style="height:34px;width:80%"></div><div class="skel" style="height:64px"></div>`, '<div class="skel" style="height:96px"></div>'.repeat(3), true);   // short enough to fit a phone too (R-265)
 // The issues could not be loaded: the one card (ui.js loadFail, R-212 #49), its Try again in the bar below (barRetry).
-export const loadErr = step => shell('', `${topRow('issues', step)}`, loadFail({ what: 'the issues', id: 'st-h', cls: 'st-err', button: false }));
+// On a laptop it sits where the step's heading would, in the left column, with its Try again under it (st-onecol below):
+// in the right column it left the left half empty (the ui-critic's review, A-8).
+export const loadErr = step => shell('', `${topRow('issues', step)}${loadFail({ what: 'the issues', id: 'st-h', cls: 'st-err', button: false })}`, '');
 // The lesson's bill could not be loaded (between sessions it comes from last session's bills, core.js ensureRecapPool): the
 // card and its own Try again, where a skeleton used to stay for good (R-212 #49). intro: the screen's own top row, the way out.
-export const lessonErr = (intro = '') => shell('st-lesson', intro, loadFail({ what: 'this lesson', id: 'st-h', cls: 'st-err', retry: { 'data-stretry': '1' } }));
+export const lessonErr = (intro = '') => shell('st-lesson', `${intro}${loadFail({ what: 'this lesson', id: 'st-h', cls: 'st-err', retry: { 'data-stretry': '1' } })}`, '');
 const LEARN = ['story', 'bill', 'session', 'hearing'];
 const STEPS = ['issues', 'alerts', 'bill', 'voice', 'you', 'soon', 'done', 'followask'];   // the steps start-rest.js draws
 export const learnName = route => LEARN.includes(route.lesson) ? route.lesson : 'bill';
@@ -526,7 +528,7 @@ function wire(route) {
   document.body.classList.toggle('st-lessonpage', name === 'bill');
   // The "Mahalo!" page with no card beside it (Skip, or nothing asked) is one column too: its Next sits under the words,
   // not alone in an empty right column (the review, 11 Oct).
-  document.body.classList.toggle('st-onecol', name === 'followask' || (thanksUp(name) && !(textSaved() || mailSent())));
+  document.body.classList.toggle('st-onecol', name === 'followask' || (thanksUp(name) && !(textSaved() || mailSent())) || !!document.querySelector('#main .st-intro .st-err'));
   const key = `${pathKey()}|${name}`, fresh = key !== viewKey;
   if (fresh) {
     viewKey = key; viewAt = Date.now(); tickChapter(name, back);

@@ -114,10 +114,12 @@ with sync_playwright() as p:
     r.close('the start, never answered')
 
     # 2. A 500 at the start: the card at once, never a page drawn from nothing (Home, My issues for a follower, an issue link).
-    for hash_, follow, what in [('#/', True, 'the tracker'), ('#/bills', True, 'the tracker'), ('#/issue/free-school-meals-for-every-student', False, 'the tracker'), ('#/bill/SB963', False, 'this bill')]:
+    for hash_, follow, what in [('#/', True, 'the tracker'), ('#/bills', True, 'the tracker'), ('#/issue/free-school-meals-for-every-student', False, 'this issue'), ('#/bill/SB963', False, 'this bill')]:
         r = Run(br, follow=follow); r.ctx.route(SB, h500); r.go(hash_)
         t, s = r.failed(10, f'We couldn’t load {what}')
         ok(t is not None and not LIES.search(s['t']) and r.pg.evaluate('location.hash') == hash_, f'a 500 at the start on {hash_}: "We couldn’t load {what}" in {t} s, the address kept, nothing drawn from nothing')
+        if hash_ == '#/bills': ok('What you follow is still saved.' in s['t'], 'My issues’ card says what they follow is still saved')
+        ok(not r.pg.locator('.hdr .hnav, .hdr .hsearch, .hdr .hsearchbtn').evaluate_all('els => els.filter(e => e.getClientRects().length).length'), f'{hash_}: the card’s header has no tabs or search (they would only draw the card again)')
         if hash_ == '#/bills': r.shot('mybills-500-phone')
         r.close(f'500 at the start, {hash_}')
 
@@ -155,7 +157,7 @@ with sync_playwright() as p:
     r.close('All bills')
     # (A page of its own: All bills brought every bill into the page, the issue's among them.)
     r = Run(br); r.ready('#/'); r.ctx.route(SB, hang); r.to('#/issue/free-school-meals-for-every-student')
-    t, s = r.failed(16, 'We couldn’t load its bills')
+    t, s = r.failed(16, 'We couldn’t load this issue’s bills')
     ok(t is not None and 'Free school meals for every student' in s['t'], f'an issue whose bills never answer: the line under its name in {t} s, not a skeleton for good')
     r.ctx.unroute(SB); r.press()
     good, s = recovered(r, lambda s: 'couldn’t load' not in s['t'] and 'Free school meals' in s['t'])

@@ -12,7 +12,7 @@ const CHAMBER_NAME = { S: 'Senate', H: 'House' };
 // The committees did not load (core.js S.refErr, R-212 #49): said, with a Try again that asks again in place, never "We
 // couldn't find that committee" or "the link may be old". Both layouts (rec/committees.js too).
 export const cmteFailed = () => refFailed('committees') || !Object.keys(S.committees || {}).length;
-export const cmteFail = (what, h = 'h1') => S.refBusy ? skeleton(3) : loadFail({ what, h, retry: { 'data-reref': '1' } });
+export const cmteFail = (what, h = 'h1') => S.refBusy ? skeleton(3) : loadFail({ what, h, align: 'start', retry: { 'data-reref': '1' } });
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const roleWord = r => ({ chair: 'Chair', vice_chair: 'Vice chair', member: 'Member' })[r] || 'Member';

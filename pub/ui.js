@@ -78,8 +78,13 @@ export const failWords = (again = 'press Try again') => navigator.onLine === fal
 //   inline: true, for one part of a drawn page (an issue's bills, a search, a fold): one line and a secondary Try again.
 // button: false leaves the button out, for a screen whose own bar holds its Try again (the first visit). Every Try again
 // carries data-loadfail, which app.js presses once when the connection comes back.
-export function loadFail({ what = 'this page', retry = {}, inline = false, h = 'h1', id = 'loadfail-msg', cls = '', button = true } = {}) {
+// Where it sits (the ui-critic's review, 25 Oct; A-8): a card that is the whole screen (the start, a bill, All bills) is
+// centred; one in a page's column (under its h1 or its back row: Committees, a lawmaker, My issues) takes align: 'start'
+// and lines up with the page's own heading, so it reads as part of the page. note: one more sentence after the words.
+// The inline line says what failed in the alert's red and the rest in body grey (A-5); the whole line is the alert.
+export function loadFail({ what = 'this page', retry = {}, inline = false, h = 'h1', id = 'loadfail-msg', cls = '', button = true, align = '', note = '' } = {}) {
   const again = button ? btn('Try again', { kind: inline ? 'secondary' : 'primary', icon: 'rotate-ccw', attrs: { 'data-loadfail': '', ...retry } }) : '';
-  if (inline) return `<div class="loadfail inline${cls ? ' ' + cls : ''}">${inlineErr(id, `We couldn’t load ${what}. ${failWords()}`)}${again}</div>`;
-  return `<div class="empty loadfail${cls ? ' ' + cls : ''}" role="alert">${errArt()}<${h} id="${id}">We couldn’t load ${esc(what)}</${h}><p>${failWords()}</p>${again}</div>`;
+  const c = `${align === 'start' ? ' start' : ''}${cls ? ' ' + cls : ''}`;
+  if (inline) return `<div class="loadfail inline${c}"><div class="inlinemsg" id="${id}" role="alert">${icon('circle-alert')}<span><span class="lf-what">We couldn’t load ${esc(what)}.</span> <span class="lf-words">${failWords()}${note ? ' ' + esc(note) : ''}</span></span></div>${again}</div>`;
+  return `<div class="empty loadfail${c}" role="alert">${errArt()}<${h} id="${id}">We couldn’t load ${esc(what)}</${h}><p>${failWords()}${note ? ' ' + esc(note) : ''}</p>${again}</div>`;
 }

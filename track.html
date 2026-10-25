@@ -245,16 +245,18 @@ try {
   window.addEventListener('unhandledrejection', function (e) { if (!E.handled && E.early.length < 5) E.early.push({ kind: 'rejection', message: text(e), source: '' }); });
   setTimeout(function () {
     // The app's code never started (R-212 #49): instead of a skeleton that never goes away, the page says so, to everyone
-    // (only the report below waits on the privacy signal), in the app's own words and look (pub/ui.js loadFail), and its
-    // Try again reloads the page. In English: the app's words in other languages (pub/i18n.js) are out of reach here.
+    // (only the report below waits on the privacy signal), in the app's own look (pub/ui.js loadFail), and its Try again
+    // reloads the page. Its own words (the ui-critic's review): the usual cause is a slow connection or a Wi-Fi sign-in page,
+    // where the browser still says it is online, so this one does say to check the connection. In English: the app's words
+    // in other languages (pub/i18n.js) are out of reach here.
     if (!E.ran && !E.booted) {
       try {
-        var box = document.getElementById('app'), off = navigator.onLine === false;
+        var box = document.getElementById('app');
         var el = function (tag, cls, txt) { var n = document.createElement(tag); if (cls) n.className = cls; if (txt) n.textContent = txt; return n; };
         var top = el('div', 'boot0top', 'Bill Tracker'); top.appendChild(el('small', '', 'Hawaiʻi health bills · from HIPHI'));
         var card = el('div', 'empty loadfail'); card.setAttribute('role', 'alert');
         card.appendChild(el('h1', '', 'We couldn’t load the tracker'));
-        card.appendChild(el('p', '', off ? 'You’re offline. When your connection is back, press Try again.' : 'The tracker can’t reach its data right now. It’s not you. Try again in a minute.'));
+        card.appendChild(el('p', '', 'The tracker is taking too long to start. Check your connection, then press Try again.'));
         var again = el('a', 'btn primary', 'Try again'); again.href = location.href; again.onclick = function (e) { e.preventDefault(); location.reload(); };
         card.appendChild(again);
         var main = el('main', 'boot0'); main.id = 'main'; main.appendChild(card);

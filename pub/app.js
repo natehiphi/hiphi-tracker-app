@@ -305,6 +305,7 @@ export function render() {
   // The start could not finish (R-212 #49): every draw is the card until the page is reloaded, so a later redraw (a
   // language's words arriving, the first visit's own timers) never puts back a screen with nothing to draw from.
   if (bootFailed) { drawBootCard(); return; }
+  document.body.classList.remove('bootfail');
   let route = parseRoute();
   // A "My issues link" (R-123): follow its issues, say so, and land on Home (the first visit is skipped: they have a setup).
   // The redraw after the restore (R-187): restoreFollows loads the followed bills after this first draw, so without it Home
@@ -410,9 +411,14 @@ function wireFrame() {
 // opening, in the honest words (offline is the person's connection; anything else is ours, and says so). Its Try again
 // reloads the page: the library or the first screen's code may be what failed, and a browser keeps those as failed.
 let bootFailed = false;
-const bootCard = () => loadFail({ what: parseRoute().name === 'bill' ? 'this bill' : 'the tracker', retry: { onclick: 'location.reload()' } });
+// Named for the link it was opening: a bill, an issue, else the tracker. On My issues it also says the follows are safe: they
+// are kept in this browser (or the account) and a start that fails never changes them (kernel.js loadUser reads them only).
+const BOOT_WHAT = { bill: 'this bill', issue: 'this issue' };
+const bootCard = () => { const n = parseRoute().name;
+  return loadFail({ what: BOOT_WHAT[n] || 'the tracker', note: n === 'bills' ? 'What you follow is still saved.' : '', retry: { onclick: 'location.reload()' } }); };
 function drawBootCard() {
-  document.body.classList.add('notabs'); document.body.classList.remove('withtabs', 'hasbar');
+  // No tabs, search or sign-in in the header (the ui-critic's review, A-12): each would only draw this card again.
+  document.body.classList.add('notabs', 'bootfail'); document.body.classList.remove('withtabs', 'hasbar');
   $app().innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${header({ name: 'error' }, {})}<main id="main" tabindex="-1">${bootCard()}</main>`;
   document.title = 'HIPHI Bill Tracker';
   wireFrame();

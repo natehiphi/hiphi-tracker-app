@@ -249,6 +249,14 @@ body.hasbar #toast { bottom: calc(var(--safe-b) + 96px); }
 .loadfail.inline { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s12); margin-top: var(--s16); }
 .loadfail.inline .inlinemsg { margin-top: 0; align-items: flex-start; }
 .loadfail.inline .inlinemsg .ic { flex: none; margin-top: 2px; }
+.loadfail.inline .lf-words { color: var(--n700); font-weight: 400; }   /* what failed in red, the rest in body grey (A-5) */
+/* In a page's column (align: 'start'): lined up with the page's own heading, not centred in the column (A-8). */
+.loadfail.start { align-items: flex-start; text-align: left; padding-left: 0; padding-right: 0; }
+.loadfail.start .ro-art { margin-left: 0; }
+@media (min-width: 900px) { .loadfail.st-err .ro-art { margin-left: 0; } }   /* the first visit's, left-aligned on a laptop (start.css .st-err) */
+/* The start's card is the only thing on the page: the header keeps only the name (its tabs and search would only draw the
+   same card again). */
+body.bootfail .hdr :is(.hnav, .hsearch, .hsearchbtn, .hbtn.hacct) { display: none; }
 .skel { background: linear-gradient(90deg, var(--n100) 25%, var(--n50) 37%, var(--n100) 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; border-radius: var(--r12); }
 @keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
 .skelpage { display: flex; flex-direction: column; gap: var(--s12); padding-top: var(--s16); }

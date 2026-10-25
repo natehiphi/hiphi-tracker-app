@@ -70,7 +70,7 @@ function load() {
 function render() {
   load();
   const head = recHead({ title: 'This week’s asks', lede: 'Testimony due in the next 7 days on bills HIPHI takes a stand on.' });
-  if (!S.pool) return `<div class="rc wk">${backRow()}${head}${W.err ? loadFail({ what: 'this week’s asks', h: 'h2', retry: { 'data-wk-retry': '' } }) : skeleton(4)}</div>`;
+  if (!S.pool) return `<div class="rc wk">${backRow()}${head}${W.err ? loadFail({ what: 'this week’s asks', h: 'h2', align: 'start', retry: { 'data-wk-retry': '' } }) : skeleton(4)}</div>`;
   const si = sessionInfo(), items = si.phase === 'in' ? weekAsks() : [];
   // A group that passes the week on may want the bills on its own site too (R-212 #38, the Partner Staffer).
   const every = `<p class="rc-every">${btn('See every bill HIPHI tracks', { kind: 'text', iconEnd: 'chevron-right', href: '#/allbills' })}</p>

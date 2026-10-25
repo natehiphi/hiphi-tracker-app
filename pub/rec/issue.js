@@ -210,7 +210,7 @@ function billRows(m) {
 function issuePage(i) {
   const m = model(i), top = topRow(i);
   if (m.state !== 'ready') {
-    const body = m.state === 'err' ? loadFail({ inline: true, what: 'its bills', id: 'rc-ierr', cls: 'rc-err', retry: { 'data-rc-retry': i.id } }) : skeleton(2);
+    const body = m.state === 'err' ? loadFail({ inline: true, what: 'this issue’s bills', id: 'rc-ierr', cls: 'rc-err', retry: { 'data-rc-retry': i.id } }) : skeleton(2);
     return `<div class="bl-page bl-rec rc-iss${wide() ? ' bl-wide' : ''}">${top}${nameBlock(i, '')}${body}</div>`;
   }
   let head, side, rest;
@@ -269,7 +269,7 @@ function catRow(i, st = issueStatus(i)) {
 // The catalog could not be asked for this visit (kernel.js S.catalogErr: the copy kept from the last visit is in use, and may
 // not have a new issue or topic yet). An address that names nothing in hand is then said to have failed, with Try again,
 // never sent to Find or called "We couldn't find that" (R-212 #49).
-const catFail = what => `<div class="rc rc-cat">${recBack('#/find', 'Find')}${S.rcCatBusy ? skeleton(3) : loadFail({ what, retry: { 'data-rc-recat': '1' } })}</div>`;
+const catFail = what => `<div class="rc rc-cat">${recBack('#/find', 'Find')}${S.rcCatBusy ? skeleton(3) : loadFail({ what, align: 'start', retry: { 'data-rc-recat': '1' } })}</div>`;
 function categoryPage(key) {
   const c = catOf(key);
   if (!c && (S.catalogErr || S.rcCatBusy)) return catFail('this topic');

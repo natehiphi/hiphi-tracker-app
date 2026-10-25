@@ -499,7 +499,7 @@ function issuePageNew(i) {
     ${off && i.outlook ? `<p class="fd-outlook">${icon('history')}<span>${esc(i.outlook)}</span></p>` : ''}
     <p class="fd-share">${btn(S.chips['share:' + i.id] ? 'Shared' : 'Share', { kind: 'text', sm: true, icon: S.chips['share:' + i.id] ? 'check' : 'share-2', attrs: { 'data-shareissue': i.id } })}${DEMO ? '' : ` · ${btn('Add hearings to my calendar', { kind: 'text', sm: true, icon: 'calendar-plus', href: calendarUrl(i), attrs: { 'data-calissue': i.id } })}`}</p></header>`;   // is it alive? (R-067, staff edit it); Share: R-113
   if (!ready) return `<div class="fd" data-page="issue">${back(c ? `#/find/category/${c.key}` : '#/find', c ? esc(c.name) : 'Find')}<div class="fd-lhead">${head}${cta}</div>
-    ${data === 'err' ? loadFail({ inline: true, what: 'its bills', id: 'fd-ierr', cls: 'fd-err', retry: { 'data-reissuebills': i.id } }) : skeleton(2)}</div>`;
+    ${data === 'err' ? loadFail({ inline: true, what: 'this issue’s bills', id: 'fd-ierr', cls: 'fd-err', retry: { 'data-reissuebills': i.id } }) : skeleton(2)}</div>`;
   // The one thing to do this week, as a full card (R-067: someone arriving on an issue link saw only a "Hearing Fri" chip
   // and no way to act). The soonest hearing whose testimony is not past due; everything else stays in the list.
   const act = off ? null : openActions(mv, mv.flatMap(hearingsOf)).filter(x => !x.late)[0] || null;
@@ -623,7 +623,7 @@ function loadList(slug) {
 function listPage(slug) {
   const l = listBySlug(slug);
   // HIPHI's lists did not load (core.js S.listsErr): that is said, never "We couldn't find that list" (R-212 #49).
-  if (!l && (S.listsErr || F.listsBusy)) return `<div class="fd" data-page="list">${back('#/find', 'Find')}${F.listsBusy ? skeleton(3) : loadFail({ what: 'this list', retry: { 'data-relists': '1' } })}</div>`;
+  if (!l && (S.listsErr || F.listsBusy)) return `<div class="fd" data-page="list">${back('#/find', 'Find')}${F.listsBusy ? skeleton(3) : loadFail({ what: 'this list', align: 'start', retry: { 'data-relists': '1' } })}</div>`;
   if (!l) return `<div class="fd" data-page="list">${back('#/find', 'Find')}${emptyBox({ h: 'h1', title: 'We couldn’t find that list', text: 'HIPHI may have retired it. Here are the lists and issues you can follow now.', action: btn('See all lists', { kind: 'primary', href: '#/find' }) })}</div>`;
   if (F.lists[slug] === undefined) loadList(slug);
   const rows = F.lists[slug] === 'ready' ? S.listBills[slug] || [] : null;
@@ -631,7 +631,7 @@ function listPage(slug) {
   const header = `<header class="fd-ihead"><span class="fd-icon">${icon(issueIcon(l.icon, 'list'))}</span><h1 class="hero">${esc(l.title)}</h1>
     ${l.description ? `<p class="lede">${esc(l.description)}</p>` : ''}
     <p class="meta">Picked by ${esc(l.curated_by || 'HIPHI')}${rows ? ` · ${plural(rows.length, 'bill')}` : ''}${fans ? ` · ${fans} people follow it` : ''}</p></header>`;
-  if (!rows) return `<div class="fd" data-page="list">${back('#/find', 'All lists')}${header}${F.lists[slug] === 'err' ? loadFail({ inline: true, what: 'its bills', id: 'fd-lerr', cls: 'fd-err', retry: { 'data-relist': slug } }) : skeleton(3)}</div>`;
+  if (!rows) return `<div class="fd" data-page="list">${back('#/find', 'All lists')}${header}${F.lists[slug] === 'err' ? loadFail({ inline: true, what: 'this list’s bills', id: 'fd-lerr', cls: 'fd-err', retry: { 'data-relist': slug } }) : skeleton(3)}</div>`;
   const note = Object.fromEntries(rows.map(r => [r.b.id, r.note || '']));
   const mv = byUrgency(rows.map(r => r.b).filter(moving)), law = rows.map(r => r.b).filter(becameLaw), gone = rows.map(r => r.b).filter(stopped);
   const si = sessionInfo(), off = si.phase !== 'in', on = S.listFollows.has(l.id), account = !!(S.user && !DEMO);
