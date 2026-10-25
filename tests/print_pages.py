@@ -19,8 +19,15 @@
 #     walkthrough's Zoom checklist: no tab bar, no button but those kept on purpose ("and 13 others" read as words, the
 #     open "How to get there" as its list's name), nothing fixed, nothing past the right edge, the line at the end, and
 #     within their pages
-#   - "Print this page", last in the bill page's ⋯ menu (A-20), on a phone (both layouts) and a laptop: it closes the menu
-#     and prints
+#   - "Print this page", last in the bill page's ⋯ menu (A-20), on a phone (both layouts) and a laptop: it closes the menu,
+#     readies the page itself (folds open, the line filled: track.html's window.__hiphiPrint) and prints
+#   - round 2 (the ui-critic, 24 Oct): the day it was printed, with its weekday, after the brand at the top of page 1 and of
+#     a sheet printed alone (the deadlines keep "today" and "tomorrow"; docs/DESIGN-AUDIT.md section 4); the lessons print
+#     every step one after another ("1 of 4" to "4 of 4", both outcomes of each choice; "Reading a bill"'s two parts), gone
+#     again on screen; How to get there ends "Before you leave, check the latest online" on paper and "Check here before
+#     you leave" on screen; the calm bill page leaves out "What each draft changed" and every official action (the steps say
+#     them, A-14); the walkthrough leaves out its part and the letter's instruction line, and its last page the celebration;
+#     folds print open even when no print signal reached the script (::details-content)
 #   - no page or console errors, nothing written to the database
 # Pictures and PDFs in [out] (default tests/out/print_pages): <screen>.pdf and <screen>-print.png (816px wide, print
 # emulated), menu-phone.png and menu-laptop.png. Page counts are printed; the limits leave room for the wider fonts of the
@@ -70,7 +77,8 @@ def ready(p, sel='main'):
 def go(p, route, q='', sel='main'):
     p.goto(f'{BASE}/track.html?demo=1{q}#{route}'); ready(p, sel)
 def printing(p, on=True):
-    p.emulate_media(media='print' if on else 'screen'); p.wait_for_timeout(350)
+    # Off is no emulation at all ('null'): an emulated 'screen' would also hold for page.pdf, which then prints the screen's CSS.
+    p.emulate_media(media='print' if on else 'null'); p.wait_for_timeout(350)
 def pages(b): return len(re.findall(rb'/Type\s*/Page(?!s)', b))   # pypdf is not on the runner
 
 SHOWN = "const shown = e => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';"
@@ -85,11 +93,13 @@ STATE = "() => { " + SHOWN + """
   const band = document.querySelector('.band');
   return { fixed, ctl, line: shown(line) ? line.innerText.trim() : '', lineTop: line.getBoundingClientRect().top, lastBottom: Math.max(0, ...bottoms),
     lineInSheet: !!dlg && dlg.contains(line), over: document.documentElement.scrollWidth - innerWidth, tabs: shown(document.querySelector('.tabs')),
-    band: shown(band) ? band.innerText.trim() : '', closed: document.querySelectorAll('details:not([open])').length, folds: document.querySelectorAll('details').length }; }"""
+    band: shown(band) ? band.innerText.trim() : '', closed: document.querySelectorAll('details:not([open])').length, folds: document.querySelectorAll('details').length,
+    top: dlg ? getComputedStyle(dlg, '::before').content : (b => b && shown(b) ? b.innerText + getComputedStyle(b, '::after').content : '')(document.querySelector('.hdr .bname small')) }; }"""
 HIDDEN = "sels => { " + SHOWN + " return sels.map(s => [s, document.querySelectorAll(s).length, [...document.querySelectorAll(s)].some(shown)]); }"
 FOLDS = "() => [...document.querySelectorAll('details')].map(d => d.open)"
 STORE = "() => JSON.stringify([Object.entries(localStorage).sort(), Object.entries(sessionStorage).sort()])"
-DATE = r'Printed [A-Z][a-z]{2} \d{1,2}, \d{4} from HIPHI’s Bill Tracker\. For the latest: '
+DAY = 'Printed Mon, Mar 16, 2026'   # the practice copy's day, with its weekday
+DATE = r'Printed [A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2}, \d{4} from HIPHI’s Bill Tracker\. For the latest: '
 
 def hidden_ok(p, tag, sels, maybe=()):
     for s, n, vis in p.evaluate(HIDDEN, list(sels) + list(maybe)):
@@ -104,6 +114,7 @@ def paper(p, tag, addr=None):
     ok(s['closed'] == 0, f'{tag}: every fold open ({s["folds"]} folds)')
     ok(re.match(DATE, s['line']) is not None and (addr is None or s['line'].endswith(addr)), f'{tag}: the line says where it came from ({s["line"][-70:]!r})')
     ok(s['lineTop'] >= s['lastBottom'] - 1, f'{tag}: the line comes last ({round(s["lineTop"])} >= {round(s["lastBottom"])})')
+    ok('Hawai' in s['top'] and DAY in s['top'], f'{tag}: the day it was printed is at the top, after the brand ({s["top"][-60:]!r})')
     return s
 
 def proof(p, name, limit):
@@ -180,8 +191,14 @@ with sync_playwright() as pw:
         printing(p)
         # (the older page has no tab bar while its docked bar shows)
         hidden_ok(p, tag, ['[data-bl-share]', '[data-bl-menu]', '[data-bl-back]', '[data-bl-stance]', '[data-bl-go="testify"]'], ['.tabs', '.actionbar'])
+        if not q: hidden_ok(p, tag, ['.bl-rdrafts', 'details[data-bl-fold="rd-actions"]'])   # said by the steps (A-14)
         s = paper(p, tag, f'{HOST}/track.html?demo=1#/bill/2026/HB2121')
         ok(s['band'].startswith('Sandbox · Mon, Mar 16, 2026'), f'{tag}: the sandbox band prints, so the made-up day is marked ({s["band"][:44]!r})')
+        # As if no print signal had reached track.html's script: its folds shut again while still printing, and their words
+        # still print (::details-content).
+        p.evaluate('window.__hiphiPrint.end()'); p.wait_for_timeout(200)
+        sh = p.evaluate("() => [...document.querySelectorAll('details:not([open])')].filter(d => d.getClientRects().length > 0).map(d => [...d.children].filter(c => c.tagName !== 'SUMMARY').some(c => c.getClientRects().length > 0))")
+        ok(sh and all(sh), f'{tag}: folds shut while printing still print their words ({sum(sh)} of {len(sh)})')
         printing(p, False); p.wait_for_timeout(300)
         ok(p.evaluate(FOLDS) == before, f'{tag}: on screen again each fold is as it was')
         ok(p.evaluate(STORE) == store, f'{tag}: nothing was stored by opening and closing them (the screen never heard it)')
@@ -199,7 +216,8 @@ with sync_playwright() as pw:
     printing(p, False)
     b = p.pdf(format='Letter'); at = p.evaluate('window.__atPrint || {}')
     ok(at.get('all', 0) > 5 and at.get('closed') == 0 and re.match(DATE, at.get('line', '')), f'bill, laptop: the page redrawn for the paper still prints every fold open ({at.get("all")} folds, {at.get("closed")} shut)')
-    n = pages(b); ok(n <= 7, f'bill, laptop: {n} Letter pages, at most 7')
+    # Chromium counts the pages before the page draws itself again for the paper, so a laptop's print can end on a blank sheet.
+    n = pages(b); ok(n <= 5, f'bill, laptop: {n} Letter pages, at most 5')
     p.wait_for_timeout(500)
     ok(p.evaluate("document.querySelectorAll('details[open]').length") == 0 and p.locator('.pr-copy').count() == 0, 'bill, laptop: after printing, the folds are shut again')
     c.close()
@@ -210,7 +228,8 @@ with sync_playwright() as pw:
         go(p, '/bill/HB2121', '&letter=1', '[data-bl-go="testify"]'); to_letter(p)
         text = p.input_value('#hp-letter')
         printing(p)
-        hidden_ok(p, tag, ['main', '.tabs', '.hp-x', '.hp-foot', '[data-hp="next"]', '#hp-letter'])
+        hidden_ok(p, tag, ['main', '.tabs', '.hp-x', '.hp-foot', '[data-hp="next"]', '#hp-letter', '.hp-count', '#hp-lsub'])
+        ok(p.evaluate("(e => !!e && e.getClientRects().length > 0 && e.innerText.trim().endsWith('Your letter'))(document.querySelector('#hp-sh'))"), f'{tag}: "Your letter" heads it')
         sh = p.evaluate("() => { const d = document.querySelector('dialog[open]'), r = d.getBoundingClientRect(), cs = getComputedStyle(d); return { pos: cs.position, w: Math.round(r.width), vw: innerWidth, shadow: cs.boxShadow }; }")
         ok(sh['pos'] == 'absolute' and sh['w'] >= sh['vw'] - 1 and sh['shadow'] == 'none', f'{tag}: the sheet is in the page, full width, no shadow ({sh})')
         cp = p.evaluate("""() => { const c = document.querySelector('#hp-dlg .pr-copy'); if (!c) return null; const r = c.getBoundingClientRect();
@@ -230,11 +249,11 @@ with sync_playwright() as pw:
     # ---- 5. every screen on paper, 816px wide (the width of a Letter page), with its PDF and picture ----
     LEG = f'{HOST}/track.html?demo=1#/legislator/71'   # opened from a bill: the line leaves out where it was opened from (?from=)
     SCREENS = [  # name, route, query, wait for, prepare, page limit (measured on a Mac, plus room)
-        ('bill', '/bill/HB2121', '', '[data-bl-menu]', None, 7),
+        ('bill', '/bill/HB2121', '', '[data-bl-menu]', None, 4),
         ('bill-rec0', '/bill/HB2121', '&rec=0', '[data-bl-menu]', None, 7),
         ('letter', '/bill/HB2121', '&letter=1', '[data-bl-go="testify"]', to_letter, 2),
-        ('going', '/bill/HB1523', '', '[data-moreways]', going, 6),
-        ('zoom', '/', '&codes=0', 'main', to_zoom, 3),
+        ('going', '/bill/HB1523', '', '[data-moreways]', going, 5),
+        ('zoom', '/', '&codes=0', 'main', to_zoom, 2),
         ('week', '/week', '', '.wk-row', None, 3),
         ('bills', '/bills', '', 'main', None, 2),
         ('list', '/list/keiki-health', '', 'main', None, 3),
@@ -242,8 +261,8 @@ with sync_playwright() as pw:
         ('legislator', '/legislator/71?from=HB2121', '', 'main', None, 5),
         ('committee', '/committee/HHS', '', 'main', None, 3),
         ('home', '/', '', 'main', None, 2),
-        ('learn', '/learn/story', '', '#lx-story', None, 2),
-        ('learn-bill', '/learn', '', 'main', lambda p: p.wait_for_function("() => !!document.querySelector('link[href=\"pub/bill.css\"]')?.sheet", timeout=20000), 2),   # its little bill page's dots are bill.css's, which comes a moment after the screen
+        ('learn', '/learn/story', '', '#lx-story', None, 3),
+        ('learn-bill', '/learn', '', 'main', lambda p: p.wait_for_function("() => !!document.querySelector('link[href=\"pub/bill.css\"]')?.sheet", timeout=20000), 3),   # its little bill page's dots are bill.css's, which comes a moment after the screen
     ]
     counts = {}
     for name, route, q, sel, prep, limit in SCREENS:
@@ -255,10 +274,24 @@ with sync_playwright() as pw:
         if name == 'going':
             g = p.evaluate("() => { const d = document.querySelector('.godir'); return d && d.getClientRects().length ? d.innerText : ''; }")
             ok('Arrive by' in g and 'Room 229' in g and 'How to get there' in p.evaluate("document.querySelector('.goline').innerText"), 'going: "How to get there" prints, named, with the room and when to arrive')
+            ok('Before you leave, check the latest online (the address is at the end).' in g and 'Check here' not in g, f'going: on paper it says to check the latest online, not "here" ({g[-90:]!r})')
         if name == 'zoom':
             z = p.evaluate("() => { const d = document.querySelector('#hp-dlg .zoomdir'); return d && d.getClientRects().length ? d.innerText : ''; }")
             ok('Speaking on Zoom' in z and 'Join' in z, 'zoom: the Zoom checklist prints, the sheet alone')
+            hidden_ok(p, 'zoom', ['.hp-mahalo', '.hp-badge'])
+        if name in ('learn', 'learn-bill'):
+            st = p.evaluate("() => { const pp = document.querySelector('.lx-paper'), cap = document.querySelector('#lx-cap'); return { shown: !!pp && pp.getClientRects().length > 0, steps: pp ? [...pp.querySelectorAll('.lx-pstep')].map(x => x.innerText.trim()) : [], cap: !!cap && cap.getClientRects().length > 0 }; }")
+            t = '\n'.join(st['steps'])
+            if name == 'learn':
+                ok(st['shown'] and not st['cap'] and [x.split('\n')[0] for x in st['steps']] == ['1 of 4', '2 of 4', '3 of 4', '4 of 4'], f'learn: every stage prints, one after another ({[x.split(chr(10))[0] for x in st["steps"]]})')
+                ok(all(w in t for w in ('Ask the chair for a hearing.', 'Send testimony.')) and t.count('Do nothing.') == 2, 'learn: each choice prints both of its outcomes')
+            else:
+                ok(st['shown'] and not st['cap'] and len(st['steps']) == 2 and 'What it is' in t and 'Where it is, and how to help' in t, f'learn-bill: both parts of "Reading a bill" print ({len(st["steps"])})')
         counts[name] = proof(p, name, limit)
+        if name in ('learn', 'learn-bill', 'going'):
+            printing(p, False)
+            ok(p.locator('.lx-paper').count() == 0 and (name != 'going' or p.evaluate("document.querySelector('.godir p.small').innerText.trim()") == 'Hearings sometimes move or run late. Check here before you leave.'),
+               f'{name}: on screen again, the screen\'s own words only')
         c.close()
     print('pages:', ', '.join(f'{k} {v}' for k, v in counts.items()))
 
@@ -266,15 +299,20 @@ with sync_playwright() as pw:
     for w, h, q, tag in ((390, 844, '', 'phone'), (390, 844, '&rec=0', 'phone, rec=0'), (1280, 900, '', 'laptop')):
         c, p = ctx(br, w, h)
         go(p, '/bill/HB2121', q, '[data-bl-menu]')
-        p.evaluate("() => { window.__printed = 0; window.print = () => { window.__printed++; }; }")
+        before = p.evaluate(FOLDS)
+        p.evaluate("() => { window.__printed = []; window.print = () => { window.__printed.push({ shut: document.querySelectorAll('details:not([open])').length, line: document.getElementById('pr-from').textContent }); }; }")
         p.click('[data-bl-menu]'); p.wait_for_timeout(300)
         items = p.evaluate("[...document.querySelectorAll('#bl-menu .bl-mi')].map(e => e.innerText.trim())")
         last = p.locator('#bl-menu .bl-mi').last
         ok(items and items[-1] == 'Print this page' and last.locator('.ic-printer').count() == 1, f'menu, {tag}: "Print this page" is last, with the printer icon ({items})')
         if q == '': p.screenshot(path=os.path.join(OUT, f'menu-{tag}.png'))
         last.click(); p.wait_for_timeout(300)
-        ok(p.evaluate('window.__printed') == 1 and p.evaluate("document.getElementById('bl-menu').hidden") and p.get_attribute('[data-bl-menu]', 'aria-expanded') == 'false',
+        pr = p.evaluate('window.__printed')
+        ok(len(pr) == 1 and p.evaluate("document.getElementById('bl-menu').hidden") and p.get_attribute('[data-bl-menu]', 'aria-expanded') == 'false',
            f'menu, {tag}: tapping it closes the menu and prints')
+        ok(pr and pr[0]['shut'] == 0 and re.match(DATE, pr[0]['line']), f'menu, {tag}: the page is ready for paper before the browser is asked (folds open, the line filled)')
+        p.evaluate('window.__hiphiPrint.end()'); p.wait_for_timeout(300)
+        ok(p.evaluate(FOLDS) == before and p.evaluate("document.getElementById('pr-from').textContent") == '', f'menu, {tag}: when printing ends the page is as it was')
         c.close()
     br.close()
 
