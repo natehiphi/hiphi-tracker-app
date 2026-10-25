@@ -13,6 +13,7 @@
 /* ---- the paper: white, dark text, no shadows (A-7: the light greys print faint, so they are a step darker) ---- */
 :root { --n400: #5F6F76; --n500: #46555C; --sh1: none; --sh2: none; --sh3: none; }
 html, body { background: #fff !important; overflow: visible !important; }   /* body.hp-lock holds the page still behind a sheet */
+html { font-size: 15px; }   /* reading text at about 11pt, a printed page's size (the type scale is in rem, so it keeps its steps) */
 body { color: var(--n700); }
 main { padding: 0 !important; max-width: none !important; }
 
@@ -31,7 +32,10 @@ main { padding: 0 !important; max-width: none !important; }
 .hdr .brand svg { width: 24px; height: 24px; }
 .hdr .bname { flex-direction: row !important; align-items: baseline; gap: 8px; }
 .hdr .bname small { overflow: visible !important; white-space: normal !important; color: var(--n700) !important; }
-.hdr .bname small::before { content: '· '; }
+.hdr .bname small::before { content: '\00B7  '; }
+/* The day it was printed, after the brand at the top of page 1 (track.html sets --pr-day while printing): the page's
+   deadlines keep the screen's "today", "tomorrow" and weekdays, and this says which day they mean (DESIGN-AUDIT section 4). */
+.hdr .bname small::after { content: var(--pr-day, ''); }
 /* The practice copy's band keeps printing, at the top, so the made-up dates on the page are marked as such; dark on white,
    since backgrounds do not print. Its "Next day" is a control. */
 .band { background: none !important; color: var(--n900) !important; border: 1px solid var(--n700); border-radius: 6px; padding: 4px 8px !important; margin: 0 0 8px; }
@@ -43,18 +47,27 @@ body[data-screen] .actionbar { position: static !important; }
 /* ---- controls that only work on a screen ---- */
 .btn, .iconbtn, button.chip, .linkbtn, .explain, .searchbox, input, select, .bl-menuwrap, .bl-sharebtn { display: none !important; }
 /* A fold's own handle: its chevron goes; the summary that names the section stays as its heading. */
-summary { list-style: none; cursor: auto; min-height: 0 !important; }
+summary { list-style: none; cursor: auto; min-height: 0 !important; color: var(--n900) !important; }
+summary .ic, summary .rc-wic { display: none !important; }
 .bl-page details > summary { margin-left: 0 !important; margin-right: 0 !important; padding-left: 0 !important; padding-right: 0 !important; }
 summary::-webkit-details-marker { display: none; }
 /* Arrows to somewhere a screen can go: external-link marks, the chevrons of rows and folds, Back links. No focus rings. */
 .ic-external-link, .ic-chevron-right, .ic-chevron-left, .ic-chevron-down, .ic-chevron-up, .chev, [data-back], .rc-back { display: none !important; }
 :focus, :focus-visible { outline: none !important; }
 
+/* Folds print open even if no print signal reached track.html's script (where the browser knows ::details-content). */
+details::details-content { content-visibility: visible; display: block; }
+
 /* ---- keep things together on a page ---- */
 h1, h2, h3, h4, summary, .sechead { break-after: avoid; page-break-after: avoid; }
 /* Small things stay whole; a long section or an open fold may run on to the next page (holding those whole left half pages empty). */
 li, .row, .notice, .bl-kv, .bl-chair, .bl-rper, img, svg { break-inside: avoid; page-break-inside: avoid; }
 p { orphans: 3; widows: 3; }
+/* Nothing cut short with "…": the screens' two- and three-line clamps are off on paper. */
+.acard .acwhat, .bl-page .bl-head h1, body.rec .rc-topics .rc-rstat, .hm .hm-askt, .hm .rows .row .title, .hm .rows .row .sub, .hm .hm-pick .title,
+.hm .hm-impt, .hm .hm-gnt, .lx-msum, .mb-row .mb-head, .mb-row .mb-what, .mb-clamp, .mb-list .mb-where, .pp .pp-billrow .title,
+.pp .pp-billrow .sub > .pp-what, .pp .pp-grid .pp-lrow .sub, body.rec .yu-pv .rc-fp {
+  display: block !important; -webkit-line-clamp: none !important; line-clamp: none !important; overflow: visible !important; }
 
 /* ---- the hearing card (pub/actions.js), wherever it is drawn: the facts and "You plan to go" with How to get there stay;
    More ways to help and the profile ask are things to do on a screen. The open "How to get there" handle names its list. ---- */
@@ -63,8 +76,12 @@ p { orphans: 3; widows: 3; }
   background: none !important; color: var(--n900) !important; font: 700 var(--t16)/1.3 var(--font) !important; text-align: left; }
 .goline .btn[aria-expanded="true"] .ic { display: none !important; }
 
+/* Words for paper in place of the screen's (pub/actions.js: "Check here before you leave" points at the screen). */
+.pr-screen { display: none !important; }
+.pr-paper[hidden] { display: inline !important; }
+
 /* ---- where it came from, at the end (track.html fills it while printing) ---- */
-#pr-from { display: block !important; margin: 24px 0 0; padding-top: 8px; border-top: 1px solid var(--n400); font: 400 11px/1.4 var(--font); color: var(--n700); break-inside: avoid; overflow-wrap: anywhere; }
+#pr-from { display: block !important; margin: 24px 0 0; padding-top: 8px; border-top: 1px solid var(--n400); font: 400 13px/1.4 var(--font); color: var(--n700); break-inside: avoid; overflow-wrap: anywhere; }
 
 /* ---- an open sheet prints alone (the walkthrough, Share, "Save your profile", a list's sheet) ---- */
 html.pr-sheet body > :not(dialog):not(#app):not(#pr-from), html.pr-sheet #app > :not(dialog) { display: none !important; }
@@ -72,11 +89,19 @@ dialog[open] { position: absolute !important; inset: 0 auto auto 0 !important; w
   max-height: none !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; border: 0 !important; border-radius: 0 !important;
   box-shadow: none !important; transform: none !important; background: #fff !important; }
 dialog::backdrop { display: none !important; background: none !important; }
+/* A sheet printed alone carries the brand and the day at its top, as a page does. */
+dialog[data-pr-sheet]::before { content: 'Bill Tracker \00B7  Hawai\2BB i health bills \00B7  from HIPHI' var(--pr-day, ''); display: block; margin: 0 0 12px;
+  padding: 0 0 6px; border-bottom: 1px solid var(--n400); font: 700 13px/1.4 var(--font); color: var(--n900); }
 dialog[open] * { max-height: none !important; }
 dialog[open] :is(.hp-frame, .hp-body, .af-body, .al-body) { display: block !important; height: auto !important; overflow: visible !important; }
 /* The walkthrough: its title and part, then the screen; no X, no progress bar (the part says it), no footer of buttons. */
 .hp-dlg .hp-head { position: static !important; padding: 0 0 8px !important; border-bottom: 1px solid var(--n400); }
-.hp-dlg .hp-x, .hp-dlg .hp-prog, .hp-dlg .hp-foot { display: none !important; }
+.hp-dlg .hp-x, .hp-dlg .hp-prog, .hp-dlg .hp-foot, .hp-dlg .hp-count { display: none !important; }
+/* The letter's "Read it over and change anything you like" line is for the screen; "Your letter" heads it on paper. */
+.hp-dlg #hp-lsub { display: none !important; }
+/* The last page: no celebration (the flower, "Mahalo!", the badges), so How to get there or the Zoom checklist fits one
+   page, and none of its asks (a friend, the inbox, a story, the next bill). */
+.hp-dlg :is(.hp-badge, .hp-mahalo, .hp-miles, .hp-friend, .hp-inbox, .hp-storyask, .hp-nextup) { display: none !important; }
 .hp-dlg .hp-in { max-width: none !important; padding: 12px 0 0 !important; }
 /* The letter prints whole: track.html's script puts a copy of its words beside each box while printing (a box would cut it
    off at its own height) and hides the box; if the script has not run, the box grows to its text where browsers can. */
@@ -100,20 +125,38 @@ textarea.pr-hascopy { display: none !important; }
    print open), a fold's preview line (the fold prints open under it, A-14), "Read the bill" and the other ways out to the
    Capitol's pages (the drafts there, a committee's report, a hearing's video). */
 .bl-page :is(.bl-stance, .bl-learn, .bl-tour, .bl-stnote, .bl-newbie, .bl-rfp, .bl-rread, .bl-rlinks, .bl-rorig, .ab-read),
-.bl-page :is(.bl-steps, .bl-members) > summary, .bl-page details[data-bl-fold="rd-drafts"] { display: none !important; }
+.bl-page :is(.bl-steps, .bl-members) > summary { display: none !important; }
 .bl-page .bl-drnow { margin-right: 6px; }
 /* "and 13 others": the names open only on a tap (they are not in the page until then), so on paper it is words. */
 .bl-page .bl-rsmore { padding: 0 !important; color: inherit !important; font-weight: 400 !important; }
 .bl-page .bl-rsmore .ic { display: none !important; }
-/* Every official action, as a list of dates and lines (each row was two lines and a tap's height). */
-.bl-rec .bl-rlist li { display: grid; grid-template-columns: 4.5em minmax(0, 1fr); gap: 0 8px; padding: 3px 0 !important; }
-.bl-rec .bl-rlist li > * { min-height: 0 !important; }
-.bl-rec .bl-rlist .bl-rls { grid-column: 1; grid-row: 1; margin: 0 !important; }
-.bl-rec .bl-rlist .bl-rlt { grid-column: 2; grid-row: 1; }
+/* Said once (A-14): the steps already carry each draft's note word for word and each committee's date and vote, so "What
+   each draft changed" and the folds of drafts and of every official action stay on the screen. */
+.bl-rec .bl-rdrafts, .bl-rec .bl-rgrps { display: none !important; }
+/* A little denser on paper: rows sized for a fingertip on screen keep their order and words, with less air. */
+.bl-page :is(.bl-mem, .bl-who) { min-height: 0 !important; padding-top: 2px !important; padding-bottom: 2px !important; }
+.bl-page .bl-photo { width: 40px !important; height: 40px !important; }
+.bl-page .bl-photo.sm { width: 32px !important; height: 32px !important; }
+.bl-page .bl-chair + .bl-chair { margin-top: 6px !important; padding-top: 6px !important; }
+.bl-rec .bl-rsteps > li { padding-bottom: 6px !important; }
+.bl-rec .bl-rx { margin: 0 0 4px !important; padding: 0 0 0 12px !important; }
+.bl-page .bl-head { margin-top: 8px !important; }
+.bl-rec .bl-rh, .bl-page .sechead { margin-top: 20px !important; }
+.bl-rec .bl-rfold > summary { padding-top: 8px !important; padding-bottom: 8px !important; }
+.bl-rec .bl-rin { padding-bottom: 8px !important; }
+/* Asks for a screen: the time a message takes, "Your own senator and representative" when it names nobody. */
+.bl-page .bl-rmore, .bl-page .bl-rper:has(a[href^="#/legislators"]) { display: none !important; }
 
 /* ---- the calm pages' kit (pub/rec/kit.js) and the screens drawn with it ---- */
 /* Follow and Share pills, "More ways to help", ways out to other sites, Email the chair. */
 .rc-fpill, .rc-aways, .rc-showall, a.rc-way[target="_blank"], .cmt-mail, .wk-share, button.rc-link { display: none !important; }
+/* Asks and tips for a screen: a lawmaker's "Ask Rep. X to support …" (its button is screen-only), the time a message takes,
+   My issues' "Open a bill and choose Add to a list", a list's Follow with "New bills HIPHI adds will follow too". A
+   committee's "Speak up for …" card stays: it holds the hearing's day, time and room, and its bill's row says "In the card
+   above". */
+.pp .rc-act, .rc-amore, .rc-ulhint, .fd-follow { display: none !important; }
+/* The page's column runs the paper's width, flush with the header and the closing line. */
+body.rec .rc, .cm, .cm > .cm-issues, .cm > .cm-lines { max-width: none !important; margin-left: 0 !important; margin-right: 0 !important; }
 /* A fold's preview line: the fold prints open under it (A-14). */
 .rc-fp { display: none !important; }
 /* This week: "Change the message first" is the tool for sharing the list, not the list. */
@@ -123,9 +166,16 @@ textarea.pr-hascopy { display: none !important; }
 /* All bills: the search and sort tools. */
 .ab-tools { display: none !important; }
 
-/* The lessons ("How a bill becomes law", #/learn): the drawing at a handout's size, so its words stay on its page; the step
-   dots are a pager, and the room kept for a longer caption is not needed on paper. */
+/* The lessons ("How a bill becomes law", #/learn): the drawing once, at a handout's size, then every step's words one
+   after another (pub/lessons.js adds them while printing, .lx-paper) in place of the screen's one step, its choices, its
+   month buttons, its quiz and its dots. "Reading a bill"'s little page shows both its parts, with their numbers. */
 .lx-pic { max-width: 440px; margin-left: auto !important; margin-right: auto !important; }
 .lx-beats { display: none !important; }
 .lx-caption { min-height: 0 !important; }
+.lx-paper[hidden] { display: block !important; }
+.lx:has(> .lx-paper) > :is(#lx-cap, .lx-months, .lx-hextra) { display: none !important; }
+.lx-pstep { margin-top: 16px; break-inside: avoid; }
+.lx-mini .lx-msec { opacity: 1 !important; transform: none !important; box-shadow: none !important; }
+.lx-mini .lx-pin { opacity: 1 !important; transform: none !important; }
+.lx-capnum, .lx-pin { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 

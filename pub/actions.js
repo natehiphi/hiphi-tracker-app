@@ -330,7 +330,7 @@ export function goDirections(b, h, { hp = false } = {}) {
     <div class="btnrow">${btn('Directions', { kind: 'secondary', sm: true, icon: 'map', iconEnd: 'external-link', href: DIRECTIONS, attrs: { target: '_blank', rel: 'noopener', 'data-godir': '1' } })}
       ${btn('Add to my calendar', { kind: 'text', sm: true, icon: 'calendar-plus', attrs: hp ? { 'data-hp': 'goics' } : { 'data-ics': k } })}</div>
     ${ics ? `<p class="okmsg" role="status">${icon('circle-check')}<span>Saved. Open the file to add it to your calendar.</span></p>` : ''}
-    <p class="small muted">Hearings sometimes move or run late. Check here before you leave.</p>
+    <p class="small muted">Hearings sometimes move or run late. <span class="pr-screen">Check here before you leave.</span><span class="pr-paper" hidden>Before you leave, check the latest online (the address is at the end).</span></p>
   </section>`;
 }
 // Home (R-142): every hearing they plan to go to that is still ahead, within a week, and not already drawn as a card on the
