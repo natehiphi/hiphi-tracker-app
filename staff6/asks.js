@@ -191,19 +191,17 @@ function ownTile(d) {
   if (d.past) return statusTile({ tone: 'overdue', icon: 'circle-alert', words: `Ask overdue · was due ${whenAt(d.due)}` });
   return `<span class="ot-nw">${icon('clock')}<span>Ask due ${d.today ? `<b class="v6-nw">${esc(whenAt(d.due))}</b>` : nw(esc(whenAt(d.due)))}</span></span>`;
 }
-// Someone else's ask, in plain words with the right tense ("writes it by" ahead, "it was Lauren's to write by" once past).
-// An optional ask (not a strong position, so not a step on anyone's Today) reads the same neutral way for everyone: Saya's
-// own card calls it optional, so a teammate is never told she missed it (P-5; the fresh-eyes check's SB 3076).
+// Someone else's ask, said one way everywhere (R-336 walk 2: "No ask yet" was said three ways). While a strong position's
+// ask is still ahead and someone is named to write it: "No ask yet · Saya writes it by Tue 9:00 AM". Otherwise the same
+// neutral line as the viewer's own optional ask, so a teammate is never told she missed it (P-5; the fresh-eyes check's SB 3076).
 function otherWords(d) {
-  if (!d.strong) return `No ask yet · ${d.who ? `${d.who} can post one · ` : ''}a post still helps`;
-  if (!d.who) return d.past ? `No ask yet. It was due ${whenAt(d.due)}.` : `No ask yet. It is due ${whenAt(d.due)}.`;
-  return d.past ? `No ask yet. It was ${d.who}’s to write by ${whenAt(d.due)}.` : `No ask yet. ${d.who} writes it by ${whenAt(d.due)}.`;
+  return d.strong && d.who && !d.past ? `No ask yet · ${d.who} writes it by ${whenAt(d.due)}` : optionalWords();
 }
 function writeBox(x, d, lead) {
   const b = x.b, id = cardId(b) + '-w', a = liveAsk(b), changing = !!a;
   if (!BASE.has(b.id)) BASE.set(b.id, { public_action: b.public_action || null, public_action_until: b.public_action_until || null });
   const text = (S.otDraft || {})[b.id] ?? (changing ? b.public_action || '' : '');
-  const when = changing ? '' : d.step ? ownTile(d) : d.mine ? `<span class="ot-wdue">${nw(esc(cap(optionalWords(x).replace(/^No ask yet · /, ''))))}</span>` : `<span class="ot-wdue">${esc(cap(otherWords(d).replace(/^No ask yet(\. | · )/, '')))}</span>`;
+  const when = changing ? '' : d.step ? ownTile(d) : d.mine ? `<span class="ot-wdue">${nw(esc(cap(optionalWords(x).replace(/^No ask yet · /, ''))))}</span>` : `<span class="ot-wdue">${esc(cap(otherWords(d).replace(/^No ask yet · /, '')))}</span>`;
   return `<div class="ot-write"><div class="ot-wtop"><label for="${id}">${changing ? 'Change the public ask' : 'Write the public ask'}</label>${when}</div>
     <p class="ot-help" id="${id}-h">What should people do, and by when? A sentence or two. It shows on the public page and in the hearing alert.</p>
     <textarea id="${id}" rows="3" maxlength="280" aria-describedby="${id}-h ${id}-x ${id}-e" data-askbox="${esc(b.id)}">${esc(text)}</textarea>
