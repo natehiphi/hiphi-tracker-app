@@ -422,7 +422,12 @@ body.staff6 .v6-row-lead { grid-column: 1; grid-row: 1 / span 2; display: inline
 body.staff6 .v6-row-lead svg { width: 20px; height: 20px; }
 body.staff6 .bl-gh .bl-ghic { display: inline-flex; align-self: center; color: var(--v6-muted); }
 body.staff6 .bl-gh .bl-ghic svg { width: 24px; height: 24px; }   /* A-18: 24px beside the 22px heading */
-@media (max-width: 480px) {
-  body.staff6 .v6-row-main.has-lead { grid-template-columns: 18px minmax(0, 1fr); column-gap: 10px; }
-  body.staff6 .v6-row-lead svg { width: 18px; height: 18px; }
+/* Fix 4 (Nate 10/25): no row icon below 600px. A phone's bill names need the 32px the icon and its gap take. */
+@media (max-width: 599.98px) {
+  body.staff6 .v6-row-main.has-lead { display: flex; }
+  body.staff6 .v6-row-main.has-lead > .v6-row-lead { display: none; }
 }
+/* Fix 5 (Nate 10/25): the heading's icon lines up with the card below it. A Lucide glyph draws 2px inside its 24px box, so
+   the box steps 2px left to put the drawn line on the card's edge. Centred in the 44px heading it sat 6px under the words'
+   middle; a 5px nudge up (position, so the heading's words do not move) puts it level with them. */
+body.staff6 .bl-gh .bl-ghic { position: relative; top: -5px; margin-left: -2px; margin-right: -2px; }
