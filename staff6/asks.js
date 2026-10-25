@@ -191,12 +191,17 @@ function ownTile(d) {
   if (d.past) return statusTile({ tone: 'overdue', icon: 'circle-alert', words: `Ask overdue · was due ${whenAt(d.due)}` });
   return `<span class="ot-nw">${icon('clock')}<span>Ask due ${d.today ? `<b class="v6-nw">${esc(whenAt(d.due))}</b>` : nw(esc(whenAt(d.due)))}</span></span>`;
 }
-// Someone else's ask, said one way everywhere (R-336 walk 2: "No ask yet" was said three ways). While a strong position's
-// ask is still ahead and someone is named to write it: "No ask yet · Saya writes it by Tue 9:00 AM". Otherwise the same
-// neutral line as the viewer's own optional ask, so a teammate is never told she missed it (P-5; the fresh-eyes check's SB 3076).
+// Someone else's ask, said one way everywhere (R-336 walk 2: "No ask yet" was said three ways), one neutral line per state:
+// a strong position's ask ahead with a writer named, "No ask yet · Saya writes it by Tue 9:00 AM"; with nobody named,
+// "No ask yet · due Tue 9:00 AM"; once past, "No ask yet · was due Tue 9:00 AM" (no name and no red: only the writer's own
+// Today step is red, P-5; the fresh-eyes check's SB 3076). An optional ask (not a strong position) reads as the viewer's own.
 function otherWords(d) {
-  return d.strong && d.who && !d.past ? `No ask yet · ${d.who} writes it by ${whenAt(d.due)}` : optionalWords();
+  if (!d.strong) return optionalWords();
+  if (d.past) return `No ask yet · was due ${whenAt(d.due)}`;
+  return d.who ? `No ask yet · ${d.who} writes it by ${whenAt(d.due)}` : `No ask yet · due ${whenAt(d.due)}`;
 }
+// The clock goes with a time; "a post still helps" has none, so it stands alone.
+const noAskLine = w => w === optionalWords() ? `<span>${nw(esc(w))}</span>` : `${icon('clock')}<span>${nw(esc(w))}</span>`;
 function writeBox(x, d, lead) {
   const b = x.b, id = cardId(b) + '-w', a = liveAsk(b), changing = !!a;
   if (!BASE.has(b.id)) BASE.set(b.id, { public_action: b.public_action || null, public_action_until: b.public_action_until || null });
@@ -228,8 +233,8 @@ function cardHTML(x, { hl = false, lead = false } = {}) {
   let body = '', left = '';
   if (open) body = writeBox(x, d, true);
   else if (a) { body = `<blockquote class="ot-words"><p>${esc(a)}</p>${may ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-askopen': b.id, 'aria-label': `Change the ask for ${nameWords(b, 60)}` } }) : ''}</blockquote>`; left = shareHTML(x); }
-  else if (may) left = `<div class="ot-noask">${d.step ? ownTile(d) : `<span class="ot-nw">${icon('clock')}<span>${nw(esc(d.mine ? optionalWords(x) : otherWords(d)))}</span></span>`}${btn('Write the public ask', { kind: lead ? 'primary' : 'secondary', sm: true, icon: 'pencil', attrs: { 'data-askopen': b.id, 'aria-label': `Write the public ask for ${nameWords(b, 60)}` } })}</div>`;
-  else left = `<p class="ot-nw">${icon('clock')}<span>${nw(esc(otherWords(d)))}</span></p>`;
+  else if (may) left = `<div class="ot-noask">${d.step ? ownTile(d) : `<span class="ot-nw">${noAskLine(d.mine ? optionalWords(x) : otherWords(d))}</span>`}${btn('Write the public ask', { kind: lead ? 'primary' : 'secondary', sm: true, icon: 'pencil', attrs: { 'data-askopen': b.id, 'aria-label': `Write the public ask for ${nameWords(b, 60)}` } })}</div>`;
+  else left = `<p class="ot-nw">${noAskLine(otherWords(d))}</p>`;
   return `<section class="ot-card${hl ? ' hl' : ''}" id="${id}" aria-labelledby="${id}-h" tabindex="-1">
     <div class="ot-ctop"><h2 class="ot-name" id="${id}-h"><a href="${esc(billRoute(b, 'public'))}">${esc(nameWords(b, 1e4))}</a></h2><span class="ot-num">${esc(numWords(b))}</span></div>
     <p class="ot-when">${icon('clock')}<span>${closes} · ${esc(ASK_SAYS[b.position] || 'HIPHI has a position')} · ${esc(committeeName(h.committee))}</span></p>

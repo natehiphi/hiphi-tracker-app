@@ -145,13 +145,14 @@ function pageHTML(route, l, back) {
   const ours = intro.filter(b => ourBill(b)).length;
   const billsTitle = asks.length ? 'Our other bills in their committees' : 'Our bills in their committees';
   // The pencil's hint is said once, over the first list that has a pencil (R-336 walk 2: it was printed over both).
-  const PENCIL = 'The pencil beside a bill marks where they stand on it.';
+  const PENCIL = 'The pencil on a bill marks where they stand on it.';   // on a phone it sits under the bill, not beside it
   const waitPencil = asks.length > 0 && asks.some(x => !x.waitingMine && unknownStance(x.b, l));
   const cmPencil = !waitPencil && [...(fromRest ? [fromRest] : []), ...inCm].some(b => unknownStance(b, l));
-  // A bill they introduced with no nickname shows its official description, which ran to two bold lines (R-336 walk 2). It is
-  // cut at a word to about a nickname's length (40 characters), the whole of it in the name's title. A word cut rather than
-  // a CSS ellipsis, so nothing is hidden by a box at 200% zoom (tests/staff6_journeys.py); a nickname is left as it is.
-  const cutName = t => t.length <= 44 ? t : t.slice(0, 41).replace(/[\s,;:.(-]+\S*$/, '').replace(/([\s,;:.(-]+(and|or|of|the|a|an|to|for|with|in|on|by))+$/i, '').replace(/[\s,;:.(-]+$/, '') + '…';   // never ends on "and…"
+  // A bill they introduced with no nickname shows its summary, which ran to two bold lines (R-336 walk 2). It is cut at a
+  // word near 70 characters, which keeps the words that tell the bill apart ("Funds studies, monitoring and independent
+  // testing of water affected…"; the Capitol's short title says only "Red Hill"), the whole of it in the name's title. A
+  // word cut rather than a CSS ellipsis, so nothing is hidden by a box at 200% zoom (tests/staff6_journeys.py).
+  const cutName = t => t.length <= 76 ? t : t.slice(0, 71).replace(/[\s,;:.(-]+\S*$/, '').replace(/([\s,;:.(-]+(and|or|of|the|a|an|to|for|with|in|on|by))+$/i, '').replace(/[\s,;:.(-]+$/, '') + '…';   // never ends on "and…"
   const unesc = t => t.replace(/&(amp|lt|gt|quot|#39);/g, (m, k) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" }[k]));
   const introRow = b => { const row = billRow(b, { line: nw(esc(whereWords(b, { deadline: false }))), button: false, cls: b.nickname ? 'lg6-wrap' : 'lg6-wrap lg6-intro' });
     return b.nickname ? row : row.replace(/<span class="v6-row-name">([^<]*)<\/span>/, (m, t) => { const full = unesc(t), cut = cutName(full);
