@@ -220,7 +220,17 @@ with sync_playwright() as p:
     ok(good, 'back online, it draws by itself, with no reload')
     r.close('offline after load')
 
-    # 12. pub/app.js never arrives: the page says so after 20 s.
+    # 12. The Supabase library never arrives (its CDN blocked), on a first visit: the card, and it stays (the first visit's
+    # own redraws used to put its welcome back over it, with nothing behind it); its Try again reloads.
+    r = Run(br, back=False); r.ctx.route(LIB, lambda x: x.abort()); r.go('#/')
+    t, s = r.failed(15, 'We couldn’t load the tracker')
+    r.pg.wait_for_timeout(2000)
+    ok(t is not None and 'We couldn’t load the tracker' in r.st()['t'], f'the library never arriving: "We couldn’t load the tracker" in {t} s, and it stays')
+    r.ctx.unroute(LIB); r.press(); r.pg.wait_for_selector('main#main h1', timeout=45000); r.pg.wait_for_timeout(1500)
+    ok('couldn’t load' not in r.st()['t'], 'its Try again reloads into the first visit')
+    r.close('the library never arriving')
+
+    # 13. pub/app.js never arrives: the page says so after 20 s.
     r = Run(br); r.ctx.route(re.compile(r'.*/pub/app\.js.*'), lambda x: x.abort()); r.go('#/')
     t, s = r.until(lambda s: 'We couldn’t load the tracker' in s['t'], 24)
     ok(t is not None and s['h1'] == 'We couldn’t load the tracker' and 'Try again' in s['t'], f'the app’s code never arriving: the page says so in {t} s, with Try again')
