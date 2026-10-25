@@ -480,9 +480,10 @@ body.staff6 .bw-page .v6-track .cur { font-weight: 500; }
   .bw-tdf { flex-basis: 100%; }
   .bw-seg-l { display: none; }
   .bw-seg-s { display: inline; }
-  /* three even parts side by side; a long kind takes two lines in its own part rather than a row of its own */
-  .bw-composer .sv-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); justify-self: stretch; border-radius: var(--v6-r20); }
-  .bw-composer .sv-seg button { padding: 4px 8px; white-space: normal; line-height: 20px; text-align: center; justify-content: center; border-radius: var(--v6-r12); }
+  /* three parts side by side, each as wide as its words (R-336 walk 2: even thirds wrapped "What happened" at 390px); on
+     the narrowest phones a kind may still take two lines in its own part rather than a row of its own */
+  .bw-composer .sv-seg { display: flex; flex-wrap: nowrap; justify-self: stretch; border-radius: var(--v6-r20); }
+  .bw-composer .sv-seg button { flex: 1 1 auto; min-width: 0; padding: 4px 8px; white-space: normal; line-height: 20px; text-align: center; justify-content: center; border-radius: var(--v6-r12); }
 }
 .bw-doorh.bw-ifnarrow { display: none; }
 @media (max-width: 360px) {
@@ -524,3 +525,24 @@ body.staff6 .bw-page .v6-track .cur { font-weight: 500; }
 .bw-askgo { display: flex; align-items: center; gap: var(--s8); margin: 0; min-height: 40px; font-size: var(--v6-t16); }
 .bw-askgo .ic { width: 18px; height: 18px; color: var(--v6-action); flex: none; }
 .bw-askgo a { color: var(--v6-action); }
+
+/* Talking points, one box each (R-336 walk 2: the public sees them one at a time, so the team writes them one at a time).
+   Each box grows to fit its words; the remove control sits beside its box; "Add a point" is a quiet text button (A-3). */
+.bw-ptps { border: 0; padding: 0; min-width: 0; display: grid; gap: var(--s8); }
+.bw-ptps > legend { padding: 0; margin-bottom: var(--s4); font-size: var(--v6-t16); font-weight: 400; color: var(--v6-ink); }
+.bw-ptlist { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s12); }
+.bw-ptrow { display: grid; gap: var(--s4); min-width: 0; }
+.bw-ptrow > label { font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-body); }
+.bw-ptbox { display: flex; align-items: flex-start; gap: var(--s4); min-width: 0; }
+.bw-ptbox .bw-pt { flex: 1 1 auto; min-width: 0; min-height: 44px; resize: none; overflow: hidden; }
+.bw-ptbox .iconbtn { flex: none; }
+.bw-ptfoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8); }
+.bw-ptrow .bw-count:empty { display: none; }
+/* The preview: the points as the testimony helper lists them, each on its own with its own Add (pub/helper.js hp-ptrow). */
+.bw-pvh { font: 600 var(--v6-t16)/var(--v6-lh16) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); }
+.bw-pvsub { margin-top: 2px !important; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+.bw-pvlist { list-style: none; margin: var(--s8) 0 0; padding: 0; display: grid; gap: var(--s8); }
+.bw-pvlist li { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s4); padding: var(--s8) var(--s12); border-radius: var(--v6-r12); background: var(--v6-wash);
+  font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-ink); overflow-wrap: anywhere; }
+.bw-pvadd { flex: none; display: inline-flex; align-items: center; gap: 2px; font-weight: 700; color: var(--v6-action); }
+.bw-pvadd .ic { width: 14px; height: 14px; }
