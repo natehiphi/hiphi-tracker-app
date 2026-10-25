@@ -454,12 +454,14 @@ function welcomeBack() {
 }
 // Android's "add to home screen" prompt, kept for Home's card rather than shown when the browser chooses.
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.installPrompt = e; });
-// One clock for the whole start (R-212 #49): from the moment this script runs, a start that has not finished in 12 seconds
+// One clock for the whole start (R-212 #49): from the moment this script runs, a start that has not finished in 20 seconds
 // ends in the card with Try again. There were two clocks one after the other (the catalog's 10 seconds in track.html, then
-// the start's own 12), so a connection that hung kept Home's skeleton up for 22 seconds. A later start (a sign-in or a
-// sign-out starts again) gets a clock of its own. The practice copy is one big file (about 6 MB; the testers' links), so it
-// keeps its own, far longer, clocks, as before (R-122).
-const START_MS = 12000;
+// the start's own 12), so a connection that hung kept Home's skeleton up for 22 seconds. 20 rather than 12 (Nate's
+// coordinator, 25 Oct): the old 12 started only once the code had arrived, so a slow phone still gets about the time it
+// had, and is not told the tracker failed while it is only slow. A later start (a sign-in or a sign-out starts again) gets
+// a clock of its own. The practice copy is one big file (about 6 MB; the testers' links), so it keeps its own, far longer,
+// clocks, as before (R-122).
+const START_MS = 20000;
 const clock = ms => { const p = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms)); p.catch(() => {}); return p; };
 let firstClock = DEMO ? null : clock(START_MS);
 async function boot() {

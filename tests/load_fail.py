@@ -5,8 +5,9 @@
 #   python3 -m http.server 8832   (in this folder, once)
 #   python3 tests/load_fail.py [base] [out]   base defaults to http://localhost:8832; pictures go to [out]
 # Checks, one browser at a time (the privacy signal is set, so nothing is counted or reported):
-#   - the start: one clock, so a database that never answers ends in "We couldn't load the tracker" by about 12 s (it was
-#     22 s on Home), an h1, the honest words ("It's not you"), and Try again reloads; on a bill, "We couldn't load this bill"
+#   - the start: one clock from the script's start, so a database that never answers ends in "We couldn't load the tracker"
+#     by about 20 s (pub/app.js START_MS; a slow phone keeps about the time it had), an h1, the honest words ("It's not
+#     you"), and Try again reloads; on a bill, "We couldn't load this bill"
 #   - a database that answers 500 at the start: the card, never a Home, Find, My issues or issue page drawn from nothing
 #   - after the page loaded: the bill page (both layouts), a search, All bills, an issue's bills, a shared list, a committee's
 #     next hearing, a lawmaker's bills: one card or one line in place, and Try again draws the real screen with no reload
@@ -101,10 +102,11 @@ def recovered(r, test, secs=15):
 with sync_playwright() as p:
     br = p.chromium.launch()
 
-    # 1. The start never answered: the card by about 12 s on Home (one clock), the honest words, and Try again reloads.
+    # 1. The start never answered: the card by about 20 s on Home (one clock from the script's start), the honest words, and
+    # Try again reloads.
     r = Run(br); r.ctx.route(SB, hang); t0 = time.time(); r.go('#/')
-    t, s = r.failed(17, 'We couldn’t load the tracker')
-    ok(t is not None and t <= 15, f'a database that never answers: Home says "We couldn’t load the tracker" in {t} s (one 12-second clock; it was 22)')
+    t, s = r.failed(26, 'We couldn’t load the tracker')
+    ok(t is not None and t <= 23, f'a database that never answers: Home says "We couldn’t load the tracker" in {t} s (one 20-second clock from the start)')
     ok(s['h1'] == 'We couldn’t load the tracker' and 'It’s not you' in s['t'] and 'Check your connection' not in s['t'], f'the card is the page’s h1, in the honest words ({s["h1"]!r})')
     r.shot('home-hang-phone')
     r.ctx.unroute(SB); r.press(); r.pg.wait_for_selector('main#main h1', timeout=45000); r.pg.wait_for_timeout(1500)
