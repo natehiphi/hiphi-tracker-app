@@ -169,13 +169,26 @@ export async function linkText() {
 // track.html preloads this same address; change both together.
 export const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm';
 // One client, however many ask first (init() and supa() used to make their own, and two auth clients fight over storage).
-let clientP = null;
+// A failed load is forgotten, so a later ask tries again (R-212 #49), under a fresh address: a browser keeps a module that
+// failed to arrive as failed for the rest of the page's life. Its parts may have failed with it, so a screen whose Try again
+// needs the library reloads the page once it has failed (libFailed; start.js).
+let clientP = null, libFails = 0;
+export const libFailed = () => libFails > 0;
 // The library names its parts only once it has arrived, and they name theirs: three round trips in a row. track.html
 // preloads them all for a returning browser; a first visit leaves them out so its first screen goes first, and asks for
 // them here, together, when the library is wanted (10/5: on a slow line the full catalog came 5 s after the topics).
 const preloadLib = () => { for (const href of window.__hiphiLib || []) { if (document.querySelector(`link[rel="modulepreload"][href="${href}"]`)) continue;
   const l = document.createElement('link'); l.rel = 'modulepreload'; l.href = href; l.crossOrigin = 'anonymous'; document.head.appendChild(l); } };
-const makeClient = () => clientP ??= (preloadLib(), import(SUPABASE_JS)).then(({ createClient }) => (S.supa = createClient(SUPABASE_URL, SUPABASE_KEY, AUTH)));
+const makeClient = () => clientP ??= (preloadLib(), import(libFails ? `${SUPABASE_JS}?r=${libFails}` : SUPABASE_JS)).then(({ createClient }) => (S.supa = createClient(SUPABASE_URL, SUPABASE_KEY, AUTH)))
+  .catch(e => { clientP = null; libFails++; throw e; });
+// A request that never answers ends in "We couldn’t load" (ui.js loadFail), never in a skeleton that never goes away
+// (R-212 #49, DESIGN B-8). The request itself is left to finish; its answer is simply no longer waited for.
+export function timed(p, ms = 12000) {
+  let t; return Promise.race([p, new Promise((_, rej) => { t = setTimeout(() => rej(new Error('timeout')), ms); })]).finally(() => clearTimeout(t));
+}
+// The Supabase client hands back a failed request as { error }, not a throw. must() throws it, so a failure is never read
+// as "nothing there" ("not found", "0 bills", "not following any issues": R-212 #49).
+export const must = r => { if (r && r.error) throw r.error; return r; };
 export async function init() {
   if (DEMO) { await (await import('./demo.js')).demoLoad(); return; }   // the sandbox's data, loaded only with ?demo=1 (R-122)
   await makeClient();
@@ -283,10 +296,17 @@ export async function loadCatalog() {
     // full rows. 10/4: a first visit opened at #/start/1, a reload half-way through, or a stored sign-in skips the early
     // path, so boot() took the slim answer itself and kept it: no issue had a bill, and every count said 0 (R-136).
     if (window.__hiphiCatalog && !S.catalogLive && !S.supa) { try { [cats, issues, links] = await window.__hiphiCatalog; got = Array.isArray(cats) && Array.isArray(issues); slim = got && !!issues.length && !('bill_ids' in issues[0]); } catch { got = false; } }
+    // A failed answer is never applied or marked (R-212 #49): an empty catalog read as "not following any issues yet", sent a
+    // shared issue link to Find with no topics, and replaced the copy kept from the last visit. S.catalogErr says it failed,
+    // so boot() can say so (app.js) and a Try again asks again.
     if (!got && S.supa) {
-      try { const [c, i, l] = await Promise.all([S.supa.from('public_categories').select('*').order('sort_order'), S.supa.from('public_issues').select('*').order('sort_order'),
-          S.supa.from('public_issue_links').select('issue_a,issue_b')]);
+      try { const [c, i, l] = await timed(Promise.all([S.supa.from('public_categories').select('*').order('sort_order'), S.supa.from('public_issues').select('*').order('sort_order'),
+          S.supa.from('public_issue_links').select('issue_a,issue_b')]));
+        must(c); must(i); must(l);
         cats = c.data || []; issues = i.data || []; links = l.data || []; got = true; } catch (e) { console.error(e); }
+      S.catalogErr = !got;
+      // Only the slim rows in hand (no bill lists, so every count would say 0): the kept copy is better, when there is one.
+      if (!got && S.catalogLive === 'slim' && applyCachedCatalog()) S.catalogLive = '';
     }
     if (!got) return;   // the early path without a network answer: boot() asks again with the library
   }
@@ -324,10 +344,13 @@ function applyCatalog(cats, issues, links) {
   S.issuesByBill = new Map();
   for (const i of S.issues) for (const id of i.bill_ids) (S.issuesByBill.get(id) || S.issuesByBill.set(id, []).get(id)).push(i);
 }
-// The catalog kept from the last visit, no older than a week: true when it was applied (R-122).
+// The catalog kept from the last visit, no older than a week: true when it was applied (R-122). S.catalogKept: the page
+// has it, so a failed network answer still leaves a catalog to draw from (app.js boot, R-212 #49).
 export function applyCachedCatalog() {
-  try { const c = JSON.parse(localStorage.getItem(CATALOG_KEY) || 'null'); if (!c || !c.cats?.length || Date.now() - c.at > 7 * 864e5) return false; applyCatalog(c.cats, c.issues || [], c.links || []); return true; } catch { return false; }
+  try { const c = JSON.parse(localStorage.getItem(CATALOG_KEY) || 'null'); if (!c || !c.cats?.length || Date.now() - c.at > 7 * 864e5) return false; applyCatalog(c.cats, c.issues || [], c.links || []); S.catalogKept = true; return true; } catch { return false; }
 }
+// The catalog this page can trust: the full rows from the network, or the copy kept from the last visit.
+export const catalogReady = () => DEMO || S.catalogLive === 'full' || (!!S.catalogKept && S.catalogLive !== 'slim');
 // HIPHI's own database text in the person's language (R-166 step 3): the passed translations of the language, read through the
 // read-only view public_translations (migration 137), 1,000 rows a page. English until they arrive; a failure leaves English.
 export async function loadDbTranslations() {

@@ -42,9 +42,9 @@
 // The lessons, and the bill page's helpers they draw with, load once the topics screen is up (R-122): a newcomer's first
 // screen does not need them, and on a slow phone every file competes for the same thin pipe. Until they are in, a step
 // that needs the example bill shows a skeleton and is drawn again when they land; wire() asks for them at the first step.
-import { errArt, S, D, DEMO, app, esc, icon, alive, sessionInfo, wiz, wizSet, HST, nudge, loadCatalog, recomputeWatch, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, issuePos, issuesOf, textSaved } from './kernel.js';
+import { S, D, DEMO, app, esc, icon, alive, sessionInfo, wiz, wizSet, HST, nudge, loadCatalog, recomputeWatch, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, issuePos, issuesOf, textSaved, supa, libFailed } from './kernel.js';
 import { WEIGHT, SOON_DAYS, sidePoints } from './rank.js';
-import { btn } from './ui.js';
+import { btn, loadFail } from './ui.js';
 import { t, tn, T, trText } from './i18n.js';
 import { langPicker, wireLangPicker } from './langpick.js';
 import { CAPITOL, VOICES, HELLO, islands, flower } from './art.js';
@@ -274,7 +274,7 @@ export const bar2 = (label, opt = {}, attrs = { 'data-stnext': '1' }, skip = ski
 // While the issues load the primary says so, and when they could not be loaded it is the way to try again, so the
 // one button on the screen is never a dead one.
 export const barBusy = () => bar2('Finding issues…', { icon: 'loader-circle' }, { 'data-stnext': '1', 'aria-busy': 'true' });
-export const barRetry = () => bar2('Try again', { icon: 'rotate-ccw' }, { 'data-stretry': '1' });
+export const barRetry = () => bar2('Try again', { icon: 'rotate-ccw' }, { 'data-stretry': '1', 'data-loadfail': '' });   // data-loadfail: pressed by itself when the connection is back (app.js, R-212 #49)
 export const bar1 = (label, ic = 'arrow-right', attrs = { 'data-stnext': '1' }) => `<div class="st-bar st-one">${btn(label, { kind: 'primary', iconEnd: ic, attrs })}</div>`;
 // Only Skip, as a quiet full-width button: an optional screen before anything is done on it (A-3: no primary yet).
 export const barSkip = () => `<div class="st-bar st-one">${btn(t(skipWord()), { kind: 'secondary', attrs: { 'data-stskip': '1' } })}</div>`;
@@ -440,7 +440,11 @@ function stepTopics(step) {
 // "Follow all" per category, which also brings issues HIPHI takes up there later (R-018).
 export const skel = (step, said = 'Finding HIPHI’s issues for you') => shell('', `<p class="sr" role="status">${said}</p>
   <div class="skel" style="height:34px;width:80%"></div><div class="skel" style="height:64px"></div>`, '<div class="skel" style="height:96px"></div>'.repeat(3), true);   // short enough to fit a phone too (R-265)
-export const loadErr = step => shell('', `${topRow('issues', step)}`, `<div class="empty st-err">${errArt({ size: 88 })}<h1 class="st-errh" id="st-h">We couldn’t load the issues</h1><p>Check your connection and try again.</p></div>`);
+// The issues could not be loaded: the one card (ui.js loadFail, R-212 #49), its Try again in the bar below (barRetry).
+export const loadErr = step => shell('', `${topRow('issues', step)}`, loadFail({ what: 'the issues', id: 'st-h', cls: 'st-err', button: false }));
+// The lesson's bill could not be loaded (between sessions it comes from last session's bills, core.js ensureRecapPool): the
+// card and its own Try again, where a skeleton used to stay for good (R-212 #49). intro: the screen's own top row, the way out.
+export const lessonErr = (intro = '') => shell('st-lesson', intro, loadFail({ what: 'this lesson', id: 'st-h', cls: 'st-err', retry: { 'data-stretry': '1' } }));
 const LEARN = ['story', 'bill', 'session', 'hearing'];
 const STEPS = ['issues', 'alerts', 'bill', 'voice', 'you', 'soon', 'done', 'followask'];   // the steps start-rest.js draws
 export const learnName = route => LEARN.includes(route.lesson) ? route.lesson : 'bill';
@@ -495,10 +499,21 @@ function redirectFor(step, off) {
 // A lesson on its own: Next walks it; after its last step the button says Done and goes back where they came from.
 // The story's three stages: its button says Next, then Done on the last stage; Back steps back a stage before it leaves.
 // The page can be drawn again while it is open (its bill's hearings landing): the story then keeps its stage.
+// Try again asks again, in place (R-212 #49): for the catalog when it did not come, and for last session's bills (the issues
+// screen, a lesson's bill). When the library itself could not come, a browser keeps it as failed for the rest of the page's
+// life, so only a reload asks for it again; the picks so far are kept in this browser (wiz), so nothing chosen is lost (C-9).
+function wireRetry() {
+  document.querySelectorAll('[data-stretry]').forEach(el => el.onclick = async () => {
+    if (libFailed()) { location.reload(); return; }
+    el.setAttribute('aria-busy', 'true'); S.recapFailed = null;
+    try { if (!DEMO && !S.supa) await supa(); if (!S.issues.length || S.catalogErr) { await loadCatalog(); recomputeWatch(); } }
+    catch (e) { console.error(e); if (libFailed()) { location.reload(); return; } }
+    app.render(); });
+}
 function wire(route) {
   // After this screen's own paint: the rest of the first visit, the bill-level code and the lessons (R-122).
   if (!REST || !C || !LZ) setTimeout(() => Promise.all([restLoad(), coreLoad()]).then(() => { if (!LZ) lessonsLoad().catch(() => {}); app.render(); }).catch(e => console.error(e)), 400);
-  if (route.name === 'learn') { if (REST) REST.wireLearn(route); return; }
+  if (route.name === 'learn') { if (REST) REST.wireLearn(route); wireRetry(); return; }
   document.body.classList.toggle('st-hello', route.step === 0);
   if (route.step === 0) { wireHello(); return; }
   const step = route.step || 1, off = isOff(), name = nameAt(step, off);
@@ -541,9 +556,7 @@ function wire(route) {
   // A link straight to a named step (the empty "Coming up" page's way back to the tiles, R-249): backwards, like Back, without
   // Back's step arithmetic.
   $$('[data-stgo]').forEach(el => el.onclick = () => { track(name, 'back'); LZ?.lessonStop(); S.stBack = true; swap(() => app.go('#/start/' + el.dataset.stgo), 'back'); });
-  $$('[data-stretry]').forEach(el => el.onclick = async () => { S.recapFailed = null;
-    if (!S.issues.length) { try { await loadCatalog(); recomputeWatch(); } catch (e) { console.error(e); } }
-    app.render(); });
+  wireRetry();
   $$('[data-stdone]').forEach(el => el.onclick = () => finish());
   $$('[data-sthome]').forEach(el => el.onclick = () => { track(name, 'skip'); LZ?.lessonStop(); finish(); });   // R-114: after acting from a link, Home now
   wireShareLine(document); wireLangPicker(document);
@@ -651,7 +664,7 @@ export default {
   bar(route) {
     // A lesson on its own: Next, and on the story's last stage Done (wireLearn changes the words), which goes back where
     // it was opened.
-    if (route.name === 'learn') return bar1('Next', 'arrow-right', { 'data-stlearnnext': '1' });
+    if (route.name === 'learn') return REST?.learnFailed() ? '' : bar1('Next', 'arrow-right', { 'data-stlearnnext': '1' });   // no Next on a lesson that could not load (R-212 #49)
     // The welcome's two doors (R-212 #46): Let's begin, and under it the quiet "Just look around", straight to Home (C-2).
     if (route.step === 0) return helloOn() ? `<div class="st-bar st-one st-hellobar">${btn(t('Let’s begin'), { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stnext': '1' } })}${btn(t('Just look around'), { kind: 'text', attrs: { 'data-stleave': '1' } })}</div>` : '';
     const step = route.step || 1, off = isOff();

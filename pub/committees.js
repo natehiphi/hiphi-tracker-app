@@ -2,13 +2,17 @@
 // and current bills. No migration - public_committees, public_committee_members and
 // public_committee_slots already exist and are already loaded into S.committees/S.committeeMembers/
 // S.slots by core.js's loadBills(); this is new screens over data the app already has on boot.
-import { S, esc, icon, blurb, nick, spaced, billPath, alive, stopOf, codesOf, cmteLabel, legsOf, legTitle, legPhoto, plainStatus, sessionWords } from './core.js';
-import { btn, row, empty } from './ui.js';
+import { S, esc, icon, blurb, nick, spaced, billPath, alive, stopOf, codesOf, cmteLabel, legsOf, legTitle, legPhoto, plainStatus, sessionWords, refFailed, retryReference } from './core.js';
+import { btn, row, empty, skeleton, loadFail } from './ui.js';
 // The calm redesign (R-303), only with ?rec=1: pub/rec/committees.js lays these pages out; taking it away brings today's back.
 import { REC } from './rec/kit.js';
 import { recList, recDetail, wireRec } from './rec/committees.js';
 
 const CHAMBER_NAME = { S: 'Senate', H: 'House' };
+// The committees did not load (core.js S.refErr, R-212 #49): said, with a Try again that asks again in place, never "We
+// couldn't find that committee" or "the link may be old". Both layouts (rec/committees.js too).
+export const cmteFailed = () => refFailed('committees') || !Object.keys(S.committees || {}).length;
+export const cmteFail = (what, h = 'h1') => S.refBusy ? skeleton(3) : loadFail({ what, h, retry: { 'data-reref': '1' } });
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const roleWord = r => ({ chair: 'Chair', vice_chair: 'Vice chair', member: 'Member' })[r] || 'Member';
@@ -44,7 +48,7 @@ function committeeRow(c) {
 function listPage() {
   const cs = allCommittees(), senate = cs.filter(c => c.chamber === 'S'), house = cs.filter(c => c.chamber === 'H');
   const rest = cs.filter(c => c.chamber !== 'S' && c.chamber !== 'H');
-  if (!cs.length) return `<div class="cmt">${empty({ title: 'We couldn’t load the committees', text: 'Check your connection and try again.' })}</div>`;
+  if (!cs.length || cmteFailed()) return `<div class="cmt">${cmteFail('the committees')}</div>`;
   return `<div class="cmt">
     <div class="pagehead"><h1 class="hero">Committees</h1><p class="lede">Every Senate and House committee. A bill needs a "yes" from each one it is sent to before the full chamber votes.</p></div>
     ${senate.length ? `<div class="sechead"><h2>Senate</h2></div><div class="rows">${senate.map(committeeRow).join('')}</div>` : ''}
@@ -68,6 +72,7 @@ const backLink = () => `<a class="btn text cm-back" href="#/committees" data-bac
 
 function detailPage(route) {
   const c = (S.committees || {})[route.code];
+  if (!c && cmteFailed()) return `<div class="cmt">${backLink()}${cmteFail('this committee')}</div>`;
   if (!c) return `<div class="cmt">${backLink()}${empty({ h: 'h1', title: 'We couldn’t find that committee', text: 'The link may be old. Every committee is on the Committees page.', action: btn('See all committees', { kind: 'primary', href: '#/committees' }) })}</div>`;
   const members = legsOf(c.code), slot = slotOf(c.code), bills = billsAt(c.code);
   return `<div class="cmt">
@@ -83,7 +88,7 @@ function detailPage(route) {
 
 export default {
   tab: 'more',
-  title: route => route.name === 'committee' ? (S.committees?.[route.code] ? cmteLabel(route.code, { short: true }) : 'Committee not found') : 'Committees',   // not "the ZZZ committee" for a bad link (R-067)
+  title: route => route.name === 'committee' ? (S.committees?.[route.code] ? cmteLabel(route.code, { short: true }) : cmteFailed() ? 'Committee' : 'Committee not found') : 'Committees',   // not "the ZZZ committee" for a bad link (R-067)
   render(route) { return REC() ? (route.name === 'committee' ? recDetail(route) : recList()) : route.name === 'committee' ? detailPage(route) : listPage(); },
-  wire(route) { if (REC()) wireRec(route); },
+  wire(route) { if (REC()) wireRec(route); document.querySelector('#main [data-reref]')?.addEventListener('click', retryReference); },
 };

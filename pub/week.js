@@ -8,8 +8,8 @@
 // Each row opens the bill, and its Share opens the ask-a-friend sheet for that bill's testimony (askfriend.js). Under the list
 // the whole week as one message they can change, with one button to copy it (A-20: the one filled button). Its links are the
 // bills' share pages tagged ?via=week, so arrivals from a passed-on list are counted apart from one-to-one shares (R-113).
-import { S, app, esc, icon, nick, blurb, spaced, billPath, alive, posInfo, hearingWhen, dueWords, sessionInfo, billShareUrl, loadPool, DEMO } from './core.js';
-import { btn, skeleton } from './ui.js';
+import { S, app, esc, icon, nick, blurb, spaced, billPath, alive, posInfo, hearingWhen, dueWords, sessionInfo, billShareUrl, loadPool, DEMO, timed } from './core.js';
+import { btn, skeleton, loadFail } from './ui.js';
 import { recHead, recBack, recSec, recEmpty, recFold, wireKit, keep, BOX } from './rec/kit.js';
 
 const DAY = 864e5;
@@ -61,15 +61,16 @@ function backRow() {
   return recBack(name ? prev : '#/find', name || 'Find');
 }
 function load() {
-  if (S.pool || W.busy) return;
+  if (S.pool || W.busy || W.err) return;   // after a failure only Try again asks again (each redraw would otherwise ask)
   W.busy = true; W.err = false;
-  loadPool().catch(e => { console.error(e); W.err = true; }).finally(() => { W.busy = false; app.render(); });
+  // A failed or silent answer is said, with Try again (R-212 #49): the pool used to come back empty and read "No testimony is due".
+  timed(loadPool()).catch(e => { console.error(e); W.err = true; }).finally(() => { W.busy = false; app.render(); });
 }
 
 function render() {
   load();
   const head = recHead({ title: 'This week’s asks', lede: 'Testimony due in the next 7 days on bills HIPHI takes a stand on.' });
-  if (!S.pool) return `<div class="rc wk">${backRow()}${head}${W.err ? recEmpty('The list didn’t load just now. Check your connection and try again.', btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-wk-retry': '' } })) : skeleton(4)}</div>`;
+  if (!S.pool) return `<div class="rc wk">${backRow()}${head}${W.err ? loadFail({ what: 'this week’s asks', h: 'h2', retry: { 'data-wk-retry': '' } }) : skeleton(4)}</div>`;
   const si = sessionInfo(), items = si.phase === 'in' ? weekAsks() : [];
   // A group that passes the week on may want the bills on its own site too (R-212 #38, the Partner Staffer).
   const every = `<p class="rc-every">${btn('See every bill HIPHI tracks', { kind: 'text', iconEnd: 'chevron-right', href: '#/allbills' })}</p>

@@ -11,8 +11,8 @@
 // panel at the side), bills named by their nickname when they have one, and the remembered districts now carry the
 // person's island ('hiphi_districts' = { senate, house, label, island }) so other screens can highlight it.
 import { S, app, esc, icon, blurb, nick, spaced, billPath, pickBill, alive, plainStatus, posInfo, cmteLabel, codesOf, stopOf, hearingsOf,
-  ensureBill, legById, legTitle, legPhoto, looksLikeAddress, legLookupAddress, markDone, yay, sessionInfo, HST } from './core.js';
-import { btn, chip, notice, inlineErr, empty, row } from './ui.js';
+  ensureBill, legById, legTitle, legPhoto, looksLikeAddress, legLookupAddress, markDone, yay, sessionInfo, HST, refFailed, retryReference } from './core.js';
+import { btn, chip, notice, inlineErr, empty, row, skeleton, loadFail, failWords } from './ui.js';
 import { islands } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { helloFacts, helloLetter, helloSubject, districtWords, vary, townWord, whoLine, ownLine } from './hello.js';   // the hello letter, the same one helper.js writes (R-172)
@@ -308,11 +308,12 @@ export function fromBill(ref) {
 const backLink = (href, label) => `<a class="btn text pp-back" href="${esc(href)}" data-back>${icon('arrow-left')}<span>${esc(label)}</span></a>`;
 
 // ---------------- the finder ----------------
+export const legsFailed = () => refFailed('legislators') || !(S.legislators || []).length;
+export const legsFail = what => S.refBusy ? skeleton(3) : loadFail({ what, retry: { 'data-reref': '1' } });
 export function finderPage(route) {
   const from = billNum(route), b = fromBill(from), sv = saved();
-  if (!seated().length) return `<div class="pp">${from ? backLink('#/bill/' + from, `Back to ${spaced(numOnly(from))}`) : ''}
-    <div class="pagehead"><h1 class="hero">Your legislators</h1></div>${notice('bad', 'circle-alert', 'We couldn’t load the list of legislators. Check your connection and try again.')}
-    <div class="pp-retry">${btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { 'data-pp-reload': '' } })}</div></div>`;
+  // The lawmakers did not load (core.js S.refErr): the one card, with a Try again that asks again in place (R-212 #49).
+  if (!seated().length || refFailed('legislators')) return `<div class="pp">${from ? backLink('#/bill/' + from, `Back to ${spaced(numOnly(from))}`) : ''}${legsFail(REC() ? 'the list of lawmakers' : 'the list of legislators')}</div>`;
   const pick = P.pick || (!P.changing && sv ? savedPick(sv) : null);
   return `<div class="pp pp-finder">
     ${from ? backLink('#/bill/' + from, `Back to ${spaced(numOnly(from))}`) : ''}
@@ -474,6 +475,7 @@ const SHOWN = 6;
 const opensWord = () => { const n = sessionInfo().nextOpen; return n ? new Date(n + 'T12:00:00-10:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: HST }) : ''; };
 export function personPage(route) {
   const l = legById(route.id), from = billNum(route), b = fromBill(from);
+  if (!l && legsFailed()) return `<div class="pp">${backLink('#/legislators', 'All legislators')}${legsFail('this legislator')}</div>`;   // never "the link may be old" (R-212 #49)
   if (!l) return `<div class="pp">${backLink('#/legislators', 'All legislators')}${empty({ h: 'h1', title: 'We couldn’t find that legislator', text: 'The link may be old. Every senator and representative is on the Legislators page.', action: btn('See all legislators', { kind: 'primary', href: '#/legislators' }) })}</div>`;
   const sv = saved(), k = 'p' + l.id, roles = rolesOf(l), committeeBills = billsIn(roles), last = `${legTitle(l)} ${surname(l)}`;
   const onBill = b && billAt(b, roles), yours = mine(l) ? chip(yoursWord(l), 'info', 'user-check') : '';
@@ -583,7 +585,8 @@ async function choose(x) {
     const a = x.kind === 'addr' ? x : addrSug({ label: r.matched || x.q });
     setPick({ kind: 'addr', label: a.town || a.street || r.matched, display: a.label || r.matched, town: a.town, ids: r.ids });
   } catch {
-    P.finding = null; P.err = 'We couldn’t look that up. Check your connection and try again, or pick your town instead.'; app.render();
+    // The honest words (ui.js failWords, R-212 #49): offline is their connection; anything else is ours. What they typed stays (C-9).
+    P.finding = null; P.err = `We couldn’t look that up. ${failWords('press Enter to look it up again')} Or pick your town instead.`; app.render();
   }
 }
 export function setPick(pick) {
@@ -617,7 +620,7 @@ function wire(route) {
   const again = () => { P.pick = null; P.changing = true; P.q = ''; P.err = ''; P.mail = null; app.render(); requestAnimationFrame(() => $('#pp-q')?.focus()); };
   root.querySelectorAll('[data-pp-change], [data-pp-street]').forEach(el => el.onclick = again);
   $('[data-pp-show]') && ($('[data-pp-show]').onclick = () => { P.changing = false; P.pick = null; app.render(); });
-  $('[data-pp-reload]') && ($('[data-pp-reload]').onclick = () => location.reload());
+  $('[data-reref]')?.addEventListener('click', retryReference);
   const rem = $('#pp-remember');
   if (rem) rem.onchange = () => {
     P.remember = rem.checked;

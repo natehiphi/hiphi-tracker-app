@@ -2,12 +2,13 @@
 // Every screen is a module with { render(route), wire(route), bar?(route), tabs, tab }. This file decides which one
 // shows, draws the header, the sandbox band and the bottom tab bar, and owns Back, scroll and the first load.
 import { reportError } from './errlog.js';   // first, so its handlers are in place before the screens' code runs (R-111)
-import { errArt, initLang, isEn, loadDbTranslations, S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, onb, onbSet, wiz, firstVisit, readyForSession, sessionInfo, loadCatalog, applyCachedCatalog, followsAnything, hstDay, restoreFollows, issueFollowed } from './kernel.js';
+import { initLang, isEn, loadDbTranslations, S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, onb, onbSet, wiz, firstVisit, readyForSession, sessionInfo, loadCatalog, applyCachedCatalog, catalogReady, followsAnything, hstDay, restoreFollows, issueFollowed } from './kernel.js';
 import { MARK } from './art.js';
-import { skeleton, btn, keepWordsWhole } from './ui.js';
+import { skeleton, keepWordsWhole, loadFail, failWords } from './ui.js';
 import { logDay, logAct } from './visitlog.js';
 import { abSettled, armOf, abSeen } from './variant.js';
 import { testerActive } from './testerlog.js';   // a tester's path (R-193): starts itself on a tester-sheet link
+if (window.__hiphiErrs) window.__hiphiErrs.ran = true;   // track.html's 20-second message is not needed: this code started (R-212 #49)
 app.onAct = logAct;   // markDone (core.js) calls it: an action marked done, counted by its kind only
 
 // Screens load on first use (R-122, the assessment's P5): a newcomer's first load carries the first visit and not Home,
@@ -15,11 +16,20 @@ app.onAct = logAct;   // markDone (core.js) calls it: an action marked done, cou
 // the right one from what this browser remembers, so the first screen costs no extra round trip); the committee pages,
 // every bill, the tour and the walkthrough (helper.js, the largest module, which sets app.openHelper and app.openMail
 // itself once loaded) come when first asked for. Until a module is in, a stand-in draws a skeleton under the right tab
-// and asks for it; `load()` fetches it once and puts it in SCREENS in the stand-in's place.
-const lazy = (key, load, o = {}) => {
-  const ph = { tab: o.tab || 'find', tabs: o.tabs !== false, title: () => o.title || 'Loading', wire() {},
-    load() { if (!ph.p) ph.p = load().then(m => { for (const n of Object.keys(SCREENS)) if (SCREENS[n] === ph) SCREENS[n] = m.default; return m; }).catch(e => { ph.p = null; throw e; }); return ph.p; },
-    render() { ph.load().then(() => render()).catch(e => { console.error(e); reportError('render', e); }); return `<div class="skelpage">${skeleton(4)}</div>`; } };
+// and asks for it; `load()` fetches it once and puts it in SCREENS in the stand-in's place. path() names the module.
+// When its code cannot come (the connection dropped after the page loaded), the stand-in says so under its own header
+// instead of a skeleton that never goes away (R-212 #49, DESIGN B-8). A browser keeps a module that failed to arrive as
+// failed for the rest of the page's life, so Try again asks for it under a fresh address (?r=1); if that fails too, the
+// next Try again reloads the page, which keeps the address.
+const lazy = (key, path, o = {}) => {
+  const ph = { tab: o.tab || 'find', tabs: o.tabs !== false, title: () => o.title || 'Loading', failed: false, tries: 0,
+    load() { if (!ph.p) ph.p = import(path() + (ph.tries ? `?r=${ph.tries}` : '')).then(m => { for (const n of Object.keys(SCREENS)) if (SCREENS[n] === ph) SCREENS[n] = m.default; return m; }).catch(e => { ph.p = null; throw e; }); return ph.p; },
+    render() {
+      if (ph.failed) return loadFail({ what: 'this page', retry: { 'data-lazyretry': key } });
+      ph.load().then(() => render()).catch(e => { console.error(e); reportError('render', e); ph.failed = true; if ((SCREENS[parseRoute().name] || SCREENS.home) === ph) render(); });
+      return `<div class="skelpage">${skeleton(4)}</div>`;
+    },
+    wire() { const b = document.querySelector(`#main [data-lazyretry="${key}"]`); if (b) b.onclick = () => { if (ph.tries >= 1) { location.reload(); return; } ph.failed = false; ph.tries = 1; render(); }; } };
   return ph;
 };
 // The layout test (R-187, pub/variant.js 'layout'): a browser on version A gets its Home and its bill page (pub/a/), which
@@ -33,26 +43,26 @@ const oldA = () => !REC() && armOf('layout') === 'a';   // the layout test ended
 // everyone's since Nate's 19 Oct "make the new rec version the main version"; ?rec=0 brings back the old pages everywhere.
 const REC = () => new URLSearchParams(location.search).get('rec') !== '0';   // everyone's since 19 Oct (Nate); ?rec=0 brings back the old pages
 const calmHome = () => REC() || armOf('layout') === 'calm';   // the redesign is built on the calm Home (everyone's since 11 Oct)
-const start = lazy('start', () => import('./start.js'), { tabs: false, title: 'Welcome' }), home = lazy('home', () => oldA() ? import('./a/home.js') : calmHome() ? import('./calm/home.js') : import('./home.js'), { tab: 'home', title: 'Home' });
-const find = lazy('find', () => REC() ? import('./rec/find.js') : import('./find.js'), { tab: 'find', title: 'Find' }), people = lazy('people', () => import('./people.js'), { tab: 'more', title: 'Your legislators' });
-const more = lazy('more', () => import('./more.js'), { tab: 'more', title: 'More' });
-const profile = lazy('profile', () => import('./profile.js'), { tab: 'more', title: 'Your profile' });   // R-147
-const nextask = lazy('next', () => import('./nextask.js'), { tabs: false, title: 'Welcome back' });   // R-237
-const quiz = lazy('quiz', () => import('./quiz.js'), { tab: 'more', title: 'What kind of advocate are you?' });   // R-217, a draft: the practice copy only (parseRoute)
-const bill = lazy('bill', () => oldA() ? import('./a/bill.js') : import('./bill.js'), { tabs: false, title: 'Bill' }), mybills = lazy('mybills', () => REC() ? import('./rec/mybills.js') : import('./mybills.js'), { tab: 'bills', title: 'My issues' });
-const mylists = lazy('mylists', () => import('./mylists.js'), { tab: 'bills', title: 'A list' });
-const committees = lazy('committees', () => import('./committees.js')), allbills = lazy('allbills', () => import('./allbills.js'));
-const week = lazy('week', () => import('./week.js'), { tab: 'find', title: 'This week’s asks' });   // R-212 #36, a row on Find
-const embed = lazy('embed', () => import('./embedcode.js'), { tab: 'find', title: 'Put bills on your website' });   // R-212 #38, a row on Find
+const start = lazy('start', () => './start.js', { tabs: false, title: 'Welcome' }), home = lazy('home', () => oldA() ? './a/home.js' : calmHome() ? './calm/home.js' : './home.js', { tab: 'home', title: 'Home' });
+const find = lazy('find', () => REC() ? './rec/find.js' : './find.js', { tab: 'find', title: 'Find' }), people = lazy('people', () => './people.js', { tab: 'more', title: 'Your legislators' });
+const more = lazy('more', () => './more.js', { tab: 'more', title: 'More' });
+const profile = lazy('profile', () => './profile.js', { tab: 'more', title: 'Your profile' });   // R-147
+const nextask = lazy('next', () => './nextask.js', { tabs: false, title: 'Welcome back' });   // R-237
+const quiz = lazy('quiz', () => './quiz.js', { tab: 'more', title: 'What kind of advocate are you?' });   // R-217, a draft: the practice copy only (parseRoute)
+const bill = lazy('bill', () => oldA() ? './a/bill.js' : './bill.js', { tabs: false, title: 'Bill' }), mybills = lazy('mybills', () => REC() ? './rec/mybills.js' : './mybills.js', { tab: 'bills', title: 'My issues' });
+const mylists = lazy('mylists', () => './mylists.js', { tab: 'bills', title: 'A list' });
+const committees = lazy('committees', () => './committees.js'), allbills = lazy('allbills', () => './allbills.js');
+const week = lazy('week', () => './week.js', { tab: 'find', title: 'This week’s asks' });   // R-212 #36, a row on Find
+const embed = lazy('embed', () => './embedcode.js', { tab: 'find', title: 'Put bills on your website' });   // R-212 #38, a row on Find
 // A partner group's corner (R-328, Nate 10/22): its bills and words for HIPHI to approve, under You (pub/partner.js).
-const partner = lazy('partner', () => import('./partner.js'), { tab: 'more', title: 'Your group' });
+const partner = lazy('partner', () => './partner.js', { tab: 'more', title: 'Your group' });
 // For advocacy groups, its request form, and the sign-in link HIPHI copies for a partner person (R-328 batch H, pub/groups.js).
-const groups = lazy('groups', () => import('./groups.js'), { tab: 'more', title: 'For advocacy groups' });
+const groups = lazy('groups', () => './groups.js', { tab: 'more', title: 'For advocacy groups' });
 // A HIPHI partner's own public page and its issues (R-328 batch D, pub/partnerpub.js): #/from/<slug>[/<issue slug>].
-const from = lazy('from', () => import('./partnerpub.js'), { tab: 'find', title: 'Partner' });
+const from = lazy('from', () => './partnerpub.js', { tab: 'find', title: 'Partner' });
 // The calm redesign's issue page (R-302's option A) and category page (R-303), behind ?rec=1: their own module, so today's
 // find.js draws them as before without it.
-const recIssue = lazy('issue', () => import('./rec/issue.js'), { tab: 'find', title: 'Issue' });
+const recIssue = lazy('issue', () => './rec/issue.js', { tab: 'find', title: 'Issue' });
 // Each screen's stylesheet comes with it (R-122): track.html loads the base and the first screen's own, the rest come on
 // first use, and all of them a moment after the first screen so a later tap never waits. The order of the original list
 // is kept (a later file may override an earlier one; wide.css, the last, overrides them all).
@@ -292,6 +302,9 @@ function nextDay() {
 
 let lastRouteKey = '';
 export function render() {
+  // The start could not finish (R-212 #49): every draw is the card until the page is reloaded, so a later redraw (a
+  // language's words arriving, the first visit's own timers) never puts back a screen with nothing to draw from.
+  if (bootFailed) { drawBootCard(); return; }
   let route = parseRoute();
   // A "My issues link" (R-123): follow its issues, say so, and land on Home (the first visit is skipped: they have a setup).
   // The redraw after the restore (R-187): restoreFollows loads the followed bills after this first draw, so without it Home
@@ -320,7 +333,7 @@ export function render() {
   if (!styled) ensureCss(need).then(() => render()).catch(e => console.error(e));
   const draw = styled ? scr : { render: () => `<div class="skelpage">${skeleton(4)}</div>`, wire() {} };
   let main;
-  try { main = draw.render(route); } catch (e) { console.error(e); reportError('render', e); main = errorCard(); }
+  try { main = draw.render(route); } catch (e) { console.error(e); reportError('render', e); main = loadFail({ what: 'this page', retry: { onclick: 'location.reload()' } }); }
   const keep = location.hash === lastRouteKey ? focusKey(document.activeElement) : null;
   // The sticky action bar is part of the page's main content (it holds the page's main button), so it sits inside <main>.
   $app().innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${header(route, scr)}
@@ -381,15 +394,32 @@ function wireFrame() {
     // Matching issues and bills listed as you type (R-032). On Find itself the results under the page's box are the list.
     // Find's search code loads at the first letters typed, and the suggestions are asked for again once it is in; the
     // combobox itself (suggest.js) loads when the box is first focused (R-122: the first screen has no search box).
-    const source = q => { if (findMod) return findMod.headerSuggest(q); find.load().then(m => { findMod = m; inp.dispatchEvent(new Event('input', { bubbles: true })); }).catch(e => console.error(e)); return { groups: [] }; };
+    // While that code is on its way the box says it is looking; when it cannot come (offline), the box says so (R-212 #49),
+    // where it used to say that nothing matched.
+    const source = q => { if (findMod) return findMod.headerSuggest(q);
+      const p = find.load().then(m => { findMod = m; inp.dispatchEvent(new Event('input', { bubbles: true })); return new Promise(() => {}); });
+      p.catch(e => console.error(e)); return { groups: [], more: p }; };
     const arm = () => suggestLoad().then(({ suggest }) => suggest(inp, { source, open: go, min: 3, wait: 200, when: () => parseRoute().name !== 'find', label: 'Suggested issues and bills',
-      busy: 'Looking for bills', failed: 'Search didn’t work just now. Check your connection and try again.',
+      // Said when it is shown, so it follows the connection as it is then (ui.js failWords).
+      busy: 'Looking for bills', failed: { toString: () => `We couldn’t search just now. ${failWords('search again')}` },
       empty: q => `No issues, bills or legislators match “${q}”. Try one word, like e-cigarettes, a bill number or a name.`,
       seeAll: (q, hits) => hits ? { href: '#/find?q=' + encodeURIComponent(q), label: `See all results for “${q}”` } : { href: '#/find', label: 'Browse all issues', icon: 'arrow-right' } })).catch(e => console.error(e));
     if (suggestMod) arm(); else inp.addEventListener('focus', arm, { once: true }); }
 }
-// Honest words (R-122): offline is the person's connection; anything else is ours, and says so.
-const errorCard = () => `<div class="empty">${errArt()}<h2>We couldn’t load the bills</h2><p>${navigator.onLine === false ? 'You’re offline. Check your connection and try again.' : 'The tracker can’t reach its data right now. It’s not you. Check your connection and try again in a minute.'}</p>${btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { onclick: 'location.reload()' } })}</div>`;
+// The start could not finish (R-122, R-212 #49): ui.js loadFail's page size under the header, named for the screen it was
+// opening, in the honest words (offline is the person's connection; anything else is ours, and says so). Its Try again
+// reloads the page: the library or the first screen's code may be what failed, and a browser keeps those as failed.
+let bootFailed = false;
+const bootCard = () => loadFail({ what: parseRoute().name === 'bill' ? 'this bill' : 'the tracker', retry: { onclick: 'location.reload()' } });
+function drawBootCard() {
+  document.body.classList.add('notabs'); document.body.classList.remove('withtabs', 'hasbar');
+  $app().innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${header({ name: 'error' }, {})}<main id="main" tabindex="-1">${bootCard()}</main>`;
+  document.title = 'HIPHI Bill Tracker';
+  wireFrame();
+}
+// Back on a signal: a "We couldn't load" on the page asks again by itself, once, as its Try again would (R-212 #49). Only
+// when one is showing, so otherwise nothing is redrawn and nothing is asked for.
+window.addEventListener('online', () => { const b = $app()?.querySelector('[data-loadfail]'); if (b) b.click(); });
 
 // ---- keyboard (people with a keyboard only; Help lists these) ----
 document.addEventListener('keydown', e => {
@@ -424,10 +454,18 @@ function welcomeBack() {
 }
 // Android's "add to home screen" prompt, kept for Home's card rather than shown when the browser chooses.
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.installPrompt = e; });
+// One clock for the whole start (R-212 #49): from the moment this script runs, a start that has not finished in 12 seconds
+// ends in the card with Try again. There were two clocks one after the other (the catalog's 10 seconds in track.html, then
+// the start's own 12), so a connection that hung kept Home's skeleton up for 22 seconds. A later start (a sign-in or a
+// sign-out starts again) gets a clock of its own. The practice copy is one big file (about 6 MB; the testers' links), so it
+// keeps its own, far longer, clocks, as before (R-122).
+const START_MS = 12000;
+const clock = ms => { const p = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms)); p.catch(() => {}); return p; };
+let firstClock = DEMO ? null : clock(START_MS);
 async function boot() {
+  bootFailed = false;
   await initLang(); if (!isEn()) loadDbTranslations();   // the person's language (R-166 step 3): English at once; another language waits for its words, so no screen is drawn half in each
-  // The practice copy is one big file (about 6 MB; the testers' links), so it gets far longer than the live page (R-122).
-  const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), DEMO ? 45000 : 12000));
+  const timeout = firstClock || clock(DEMO ? 45000 : START_MS); firstClock = null;
   try {
     // The issues come first: what a person follows is worked out from them (063, R-018). HIPHI's live bills and the
     // session's reference data do not depend on that, so they start now, alongside (R-067 speed).
@@ -443,6 +481,10 @@ async function boot() {
     const early = () => { if (!DEMO && !S.session && firstVisit() && parseRoute().name === 'home') start.load().then(() => render()).catch(e => console.error(e)); };
     if (!DEMO && applyCachedCatalog()) { await loadUser(); early(); }
     await Promise.race([(async () => { await loadCatalog(); await loadUser(); early(); await C.loadLists(); await C.loadBills(); })(), timeout]);
+    // What Home and the first screen are made of must be in, or the start says it could not load (R-212 #49): an empty
+    // catalog read as "You're not following any issues yet" and sent a shared issue link to Find with no topics. The copy
+    // kept from the last visit will do (kernel.js catalogReady); HIPHI's moving bills (the pool) throw in loadBills.
+    if (!catalogReady()) throw new Error('The catalog did not load');
     // The practice copy follows the real A/B switches (R-192): its first screen waits for them (they come in a moment,
     // long before the practice copy's one big file), so a version never changes under the person.
     if (DEMO) await abSettled(5000);
@@ -489,7 +531,7 @@ async function boot() {
     lists?.finishPlace(place);
   } catch (e) {
     console.error(e); reportError('boot', e);
-    $app().innerHTML = `${header({ name: 'error' }, {})}<main id="main">${errorCard()}</main>`;
+    bootFailed = true; drawBootCard();
   }
 }
 app.boot = boot;
@@ -511,7 +553,8 @@ async function earlyFirst() {
   if (applyCachedCatalog()) await draw();
   if (window.__hiphiCatalog) { await loadCatalog(); if (S.cats.length) await draw(); }
 }
-const initP = () => Promise.race([init(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), DEMO ? 60000 : 15000))]);
+// The library and the session, on the start's one clock (the practice copy: its own minute, as before).
+const initP = () => Promise.race([init(), firstClock || clock(DEMO ? 60000 : START_MS)]);
 // An ended tester link (R-204): track.html is already on its way to test-ended.html, so the app does not start.
-if (!(DEMO && new URLSearchParams(location.search).has('ended'))) earlyFirst().catch(e => console.error(e)).then(initP).then(boot)
-  .catch(e => { console.error(e); reportError('boot', e); $app().innerHTML = `<main id="main">${errorCard()}</main>`; });
+if (!(DEMO && new URLSearchParams(location.search).has('ended'))) (firstClock ? Promise.race([earlyFirst(), firstClock]) : earlyFirst()).catch(e => console.error(e)).then(initP).then(boot)
+  .catch(e => { console.error(e); reportError('boot', e); bootFailed = true; drawBootCard(); });

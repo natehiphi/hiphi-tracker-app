@@ -2,7 +2,7 @@
 // why your voice counts, your legislators, the email ask, the finale, and the lessons' own pages. start.js draws the
 // frame and the topics screen with the kernel alone and loads this module right after that first paint; every helper
 // shared with it is imported from start.js (a read-only view of its state: the lessons through lessons()).
-import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, skipWord, lessons, stepOf, coverOn } from './start.js';
+import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, lessonErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, skipWord, lessons, stepOf, coverOn } from './start.js';
 import { situation } from './bill.js';   // the bill page's own reading of where a bill is (R-255: the story leans to one still waiting for a hearing)
 import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind, textSaved,
   openActions, waitingBills, chairContacts, askedChair, agrees, dateLong } from './core.js';
@@ -268,14 +268,19 @@ function stepVoice(step) {
 export function stepLearn(route) {
   S.learnBill = route.bill || '';
   const name = learnName(route), E = example();
+  if (!E && lessonFailed()) return lessonErr(`<div class="steps st-steps">${btn('Back', { kind: 'text', icon: 'arrow-left', cls: 'st-back', attrs: { 'data-stlearnback': '1' } })}</div>`);
   if (!E) return skel(1, 'Finding a bill to show you');
   const L = lessons().lessonHTML(name, E);
   return shell('st-lesson st-learn', `<div class="steps st-steps">${btn('Back', { kind: 'text', icon: 'arrow-left', cls: 'st-back', attrs: { 'data-stlearnback': '1' } })}</div>${L.intro}`, L.main);
 }
 
+// Last session's bills, which the lesson's bill comes from between sessions, did not load (core.js ensureRecapPool).
+const lessonFailed = () => isOff() && S.recapFailed === sessionInfo().recapYear;
+export const learnFailed = () => !example() && lessonFailed();
 // The first visit's one lesson: the flow calls the screen 'bill' (the recorded step name), the lesson is the story.
 function stepLesson(step) {
   const E = example();
+  if (!E && lessonFailed()) return lessonErr(topRow('bill', step));
   if (!E) return skel(step, 'Finding a bill to show you');   // last session's bills are still on their way
   const L = lessons().lessonHTML('story', E);
   return shell('st-lesson', `${topRow('bill', step)}${mahaloBand()}${L.intro}`, L.main);
@@ -842,7 +847,9 @@ async function commitIssues(m) {
 }
 let learnWired = '';
 export function wireLearn(route) {
-  const name = learnName(route), E = example(); if (!E) return;
+  const name = learnName(route), E = example();
+  // No bill to teach on (still on its way, or it could not load): Back still leaves (R-212 #49).
+  if (!E) { document.querySelector('[data-stlearnback]')?.addEventListener('click', () => { if (history.length > 1) history.back(); else app.go('#/'); }); return; }
   document.body.classList.add('st-lessonpage');
   const key = `${location.hash}|${E.id}`, redraw = name === 'story' && key === learnWired; learnWired = key;
   lessons().lessonStart(name, E, { redraw });

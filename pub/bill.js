@@ -17,7 +17,7 @@ const sendTo = x => { const ch = CHAMBER_NAME[S.committees[(x.code || '').split(
 import { pickTitle } from './titles.js';
 import { vary, townWord, whoLine, standLine, ownLine } from './hello.js';   // the words every letter shares (R-259)   // who is writing (R-147; one title by default, R-165)
 import { myName, myTitles, signedIn } from './myprofile.js';   // one name and the profile's titles (R-156)
-import { btn, iconBtn, chip, skeleton, posChip } from './ui.js';
+import { btn, iconBtn, chip, skeleton, posChip, loadFail } from './ui.js';
 import { stoppedAt } from '../stops.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing } from './actions.js';
 import { flower } from './art.js';
@@ -107,8 +107,7 @@ function load(num, year) {
     .finally(() => { clearTimeout(timer); S.blLoading.delete(key); if (keyFromHash() === key) app.render(); });
 }
 const retry = key => { S.blErr.delete(key); S.blMissing.delete(key); S.blTried.delete(key); app.render(); };
-// Back on a signal: the bill that failed loads by itself.
-window.addEventListener('online', () => { const key = keyFromHash(); if (onBill() && S.blErr.has(key)) retry(key); });
+// Back on a signal, the bill that failed loads by itself: app.js presses any Try again on the page once (R-212 #49).
 // The numbers for one bill (its followers' stances, actions taken on it) load with the followed set. A bill opened by
 // link needs its own two small reads. They are decoration: a failure is silent.
 function loadSocial(b) {
@@ -1423,7 +1422,8 @@ window.addEventListener('scroll', recDock, { passive: true });
 const loading = () => `<div class="bl-skel">${skeleton(4)}</div>`;
 const shell = (num, inner) => `<div class="bl-page${wide() ? ' bl-wide' : ''}">${topbar(num, null)}${inner}</div>`;
 const missing = (num, year) => `<div class="empty bl-empty">${errArt()}<h1>We couldn’t find ${esc(spaced(num) || 'that bill')}${year ? ` from the ${year} session` : ''}</h1><p>Check the number, or search for the bill by a word like e-cigarettes.</p>${btn('Search bills', { kind: 'primary', icon: 'search', href: `#/find?q=${encodeURIComponent(num)}` })}</div>`;
-const failed = () => `<div class="empty bl-empty" role="alert">${errArt()}<h1>We couldn’t load this bill</h1><p>Check your connection and try again.</p>${btn('Try again', { kind: 'primary', icon: 'rotate-ccw', attrs: { 'data-bl-retry': '1' } })}</div>`;
+// The one card every screen uses (ui.js loadFail, R-212 #49): our side's failure is never "check your connection".
+const failed = () => loadFail({ what: 'this bill', cls: 'bl-empty', retry: { 'data-bl-retry': '1' } });
 
 // ---------------- actions ----------------
 // Scroll something into view under the bars that stay on screen. Nothing moves when it is already in view (on a wide

@@ -238,12 +238,29 @@ try {
    otherwise go unreported. The same rules as errlog.js: nothing with the privacy signal or from a test run, nothing
    personal. The address and key are pub/core.js's SUPABASE_URL and SUPABASE_KEY (tests/errlog.py checks they match). */
 (function () {
-  var E = window.__hiphiErrs = { early: [], handled: false, booted: false };
+  var E = window.__hiphiErrs = { early: [], handled: false, booted: false, ran: false };   // ran: pub/app.js started (R-212 #49)
   var text = function (e) { try { var r = e && (e.reason || e.error); return String((e && e.message) || (r && r.message) || r || '').slice(0, 200); } catch (x) { return ''; } };
   var file = function (e) { try { return e && e.filename ? String(e.filename).replace(/^https?:\/\/[^/]+/, '').split('?')[0] + ':' + (e.lineno || 0) + ':' + (e.colno || 0) : ''; } catch (x) { return ''; } };
   window.addEventListener('error', function (e) { if (!E.handled && E.early.length < 5) E.early.push({ kind: 'error', message: text(e), source: file(e) }); });
   window.addEventListener('unhandledrejection', function (e) { if (!E.handled && E.early.length < 5) E.early.push({ kind: 'rejection', message: text(e), source: '' }); });
   setTimeout(function () {
+    // The app's code never started (R-212 #49): instead of a skeleton that never goes away, the page says so, to everyone
+    // (only the report below waits on the privacy signal), in the app's own words and look (pub/ui.js loadFail), and its
+    // Try again reloads the page. In English: the app's words in other languages (pub/i18n.js) are out of reach here.
+    if (!E.ran && !E.booted) {
+      try {
+        var box = document.getElementById('app'), off = navigator.onLine === false;
+        var el = function (tag, cls, txt) { var n = document.createElement(tag); if (cls) n.className = cls; if (txt) n.textContent = txt; return n; };
+        var top = el('div', 'boot0top', 'Bill Tracker'); top.appendChild(el('small', '', 'Hawaiʻi health bills · from HIPHI'));
+        var card = el('div', 'empty loadfail'); card.setAttribute('role', 'alert');
+        card.appendChild(el('h1', '', 'We couldn’t load the tracker'));
+        card.appendChild(el('p', '', off ? 'You’re offline. When your connection is back, press Try again.' : 'The tracker can’t reach its data right now. It’s not you. Try again in a minute.'));
+        var again = el('a', 'btn primary', 'Try again'); again.href = location.href; again.onclick = function (e) { e.preventDefault(); location.reload(); };
+        card.appendChild(again);
+        var main = el('main', 'boot0'); main.id = 'main'; main.appendChild(card);
+        if (box) { box.textContent = ''; box.appendChild(top); box.appendChild(main); }
+      } catch (x) { /* nothing to draw into */ }
+    }
     if (E.handled || E.booted) return;
     var quiet = false;
     try { quiet = navigator.globalPrivacyControl === true || navigator.doNotTrack === '1' || window.doNotTrack === '1' || ((navigator.webdriver === true || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) && window.__hiphiCountTests !== true); } catch (x) { quiet = true; }

@@ -6,8 +6,8 @@
 // blurbs, chips, counts or buttons; then "Your lists" when there are any; then two quiet links. "Edit" at the top right is the
 // tidying: each row gets "Stop following" (Undo in the toast, as today), and a topic followed whole says so, with "Stop
 // following all".
-import { S, DEMO, app, esc, icon, unfollowIssue, setFollows, catOf, sessionInfo, issuesLink } from '../core.js';
-import { btn } from '../ui.js';
+import { S, DEMO, app, esc, icon, unfollowIssue, setFollows, catOf, sessionInfo, issuesLink, followsAnything, loadCatalog, recomputeWatch } from '../core.js';
+import { btn, skeleton, loadFail } from '../ui.js';
 import { recRow, recEmpty, wireKit, BOX } from './kit.js';
 import { myRows, keep } from '../calm/home.js';
 import { followToggle } from '../actions.js';
@@ -69,6 +69,10 @@ function render() {
   const head = `<header class="rc-head rc-mhead"><h1 class="rc-h1">My issues</h1>${send}${rows.length ? `<button type="button" class="btn text rc-edit" data-rc-edit aria-label="${edit ? 'Done editing' : 'Edit what you follow'}">${edit ? 'Done' : 'Edit'}</button>` : ''}</header>`;
   const links = `<div class="rc-links">${btn(off ? `What you did in ${si.recapYear}` : 'What you’ve done this session', { kind: 'text', iconEnd: 'chevron-right', href: '#/recap' })}
     ${btn('Follow more issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/find' })}</div>`;
+  // Something is followed on this device but the issues could not be loaded this visit (kernel.js S.catalogErr: the copy
+  // kept from the last visit is in use, and lacks them): said, with Try again, never "You're not following any issues yet"
+  // (R-212 #49).
+  if (!rows.length && !lists.length && (S.catalogErr || S.rcCatBusy) && followsAnything()) return `<div class="rc rc-mine" data-mbroot>${head}${S.rcCatBusy ? skeleton(3) : loadFail({ what: 'your issues', h: 'h2', retry: { 'data-rc-recat': '1' } })}</div>`;
   // Nothing followed: the lanai drawing, the line, the buttons (A-13; R-311, Nate 10/20), as the old page's empty box.
   if (!rows.length && !lists.length) return `<div class="rc rc-mine" data-mbroot>${head}<div class="art rc-eart">${EMPTY_ART}</div>${recEmpty('You’re not following any issues yet. Follow one and it shows up here, with where it stands and what you can do.',
     `<div class="rc-ebtns">${btn('Pick what you care about', { kind: 'primary', icon: 'list-checks', href: '#/start/1' })}${btn('Browse issues', { kind: 'text', href: '#/find' })}</div>`)}</div>`;
@@ -102,6 +106,8 @@ export default {
   wire() {
     const root = document.querySelector('.rc-mine'); if (!root) return;
     wireKit(root); wireMyLists(root);
+    root.querySelector('[data-rc-recat]')?.addEventListener('click', () => { S.rcCatBusy = true; app.render();
+      loadCatalog().then(() => recomputeWatch()).catch(e => console.error(e)).finally(() => { S.rcCatBusy = false; app.render(); }); });
     root.querySelector('[data-rc-mine]')?.addEventListener('click', async () => { (await import('../askfriend.js')).askFriend({ mine: true }); });
     const ed = root.querySelector('[data-rc-edit]');
     if (ed) ed.onclick = () => { S.rcEdit = !S.rcEdit; S.rcFocus = '[data-rc-edit]'; app.render(); };

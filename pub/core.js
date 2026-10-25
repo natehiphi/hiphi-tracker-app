@@ -11,7 +11,7 @@ import { cmteName as stepName, theCmteName, cmteStack as stackOf, cmteInfo, capi
 // Filled in by app.js: the screens call app.render() / app.go() without importing app.js (no import cycle).
 // The kernel (R-122): what the first screen needs lives in kernel.js and is re-exported here, so every screen keeps
 // importing from this module; the modules on the first load import from kernel.js and never from here.
-import { app, SUPABASE_URL, SUPABASE_KEY, DEMO, LOCAL_KEY, SEASON_OFF, DEMO_ASOF, $, esc, HST, hstDay, toast, friendly, cleanDesc, nick, blurb, groups, S, LISTS_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, CONSENT_KEY, SUPABASE_JS, init, D, DONE_KEY, localDone, saveDone, doneKey, DONE_AT_KEY, localDoneAt, saveDoneAt, KINDS, STANCE_KEY, localStances, saveStances, localWatch, saveLocal, followYear, issueFollowed, issuesOf, viaIssue, issueBills, issuesIn, followedIssues, issuesLink, calendarUrl, restoreFollows, followsAnything, issuePos, recomputeWatch, loadCatalog, applyCachedCatalog, setFollows, loadUser, localListFollows, supa, onb, onbSet, bill, alive, nudgeOk, nudge, thirdWed, hiT, sessionInfo, myActions, wiz, wizSet, EMOJI_TO_ICON, issueIcon, issues, posInfo, firstVisit, readyForSession, yearPrefix, billRef, billPath, yearRef, spaced, syncText } from './kernel.js';
+import { app, SUPABASE_URL, SUPABASE_KEY, DEMO, LOCAL_KEY, SEASON_OFF, DEMO_ASOF, $, esc, HST, hstDay, toast, friendly, cleanDesc, nick, blurb, groups, S, LISTS_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, CONSENT_KEY, SUPABASE_JS, init, D, DONE_KEY, localDone, saveDone, doneKey, DONE_AT_KEY, localDoneAt, saveDoneAt, KINDS, STANCE_KEY, localStances, saveStances, localWatch, saveLocal, followYear, issueFollowed, issuesOf, viaIssue, issueBills, issuesIn, followedIssues, issuesLink, calendarUrl, restoreFollows, followsAnything, issuePos, recomputeWatch, loadCatalog, applyCachedCatalog, setFollows, loadUser, localListFollows, supa, onb, onbSet, bill, alive, nudgeOk, nudge, thirdWed, hiT, sessionInfo, myActions, wiz, wizSet, EMOJI_TO_ICON, issueIcon, issues, posInfo, firstVisit, readyForSession, yearPrefix, billRef, billPath, yearRef, spaced, syncText, timed, must } from './kernel.js';
 export * from './kernel.js';
 export { billStop, COLUMNS, BOARD_EXPLAINER, CHAMBER_NAME, hearingStream, pathwayStops, isResolution, isOneChamber, HELD_RE };
 // Where a bill stands, in six words, and the one rule for which (R-212 #44): stands.js holds the words, standOf below.
@@ -167,7 +167,10 @@ export function unfollowIssue(i) {
 export function saveListFollows() { try { localStorage.setItem(LISTS_KEY, JSON.stringify([...S.listFollows])); } catch {} }
 export async function loadLists() {
   if (DEMO) { S.lists = D.lists.map(l => ({ ...l, bills: D.listBills.filter(x => x.list_id === l.id).length, followers: l.followers || 0, curated_by: 'HIPHI' })); }
-  else { const { data } = await S.supa.from('public_lists_v').select('*').order('featured', { ascending: false }).order('sort_order'); S.lists = data || []; }
+  // HIPHI's lists are not something the first screen needs, so a failure does not stop the page (R-212 #49): it is marked
+  // (S.listsErr), a list's page says it could not load instead of "We couldn't find that list", and Try again asks here again.
+  else { const { data, error } = await S.supa.from('public_lists_v').select('*').order('featured', { ascending: false }).order('sort_order');
+    S.listsErr = !!error; if (!error || !S.lists) S.lists = data || []; }
   if (!S.user) S.listFollows = localListFollows();
 }
 export async function listBillsFor(slug) {
@@ -175,8 +178,8 @@ export async function listBillsFor(slug) {
   const l = S.lists.find(x => x.slug === slug); if (!l) return null;
   let rows, bills;
   if (DEMO) { rows = D.listBills.filter(x => x.list_id === l.id); bills = D.bills.filter(b => rows.some(r => r.bill_id === b.id)); }
-  else { const r = await S.supa.from('public_list_bills_v').select('*').eq('slug', slug); rows = r.data || [];
-    const ids = rows.map(x => x.bill_id); bills = ids.length ? (await S.supa.from('public_all_bills').select('*').in('id', ids)).data || [] : []; }
+  else { const r = must(await S.supa.from('public_list_bills_v').select('*').eq('slug', slug)); rows = r.data || [];
+    const ids = rows.map(x => x.bill_id); bills = ids.length ? must(await S.supa.from('public_all_bills').select('*').in('id', ids)).data || [] : []; }
   const out = rows.sort((a, b) => a.sort_order - b.sort_order || String(a.added_at).localeCompare(String(b.added_at))).map(x => ({ note: x.note, b: bills.find(b => b.id === x.bill_id) })).filter(x => x.b);
   out.forEach(({ b }) => { S.extra[b.id] = b; });
   S.listBills[slug] = out; return out;
@@ -266,10 +269,10 @@ export async function filedBy(l) {
       lead = mine.filter(isLead); also = mine.filter(b => !isLead(b) && posInfo(b)); alsoN = mine.length - lead.length;
     } else {
       const sb = await supa(), named = forms.map(f => `sponsors.cs.${JSON.stringify([{ n: f }])}`).join(',');
-      const [a, c, n] = await Promise.all([
+      const [a, c, n] = await timed(Promise.all([   // a question that never answers ends in "could not load", with Try again (R-212 #49)
         sb.from('public_all_bills').select(FILED_COLS).eq('chamber', l.chamber).eq('session_year', year).in('sponsors->0->>n', forms).order('bill_number').limit(1000),
         sb.from('public_all_bills').select(FILED_COLS).eq('chamber', l.chamber).eq('session_year', year).or(named).not('hiphi_position', 'is', null).limit(300),
-        sb.from('public_all_bills').select('id', { count: 'exact', head: true }).eq('chamber', l.chamber).eq('session_year', year).or(named)]);
+        sb.from('public_all_bills').select('id', { count: 'exact', head: true }).eq('chamber', l.chamber).eq('session_year', year).or(named)]));
       if (a.error || c.error || n.error) throw a.error || c.error || n.error;
       lead = (a.data || []).filter(isLead); also = (c.data || []).filter(b => !isLead(b) && posInfo(b));
       alsoN = Math.max(0, (n.count || 0) - lead.length);
@@ -293,12 +296,13 @@ export async function nextSitting(code) {
     else {
       const sb = await supa();
       // "%ABC%" also matches "XABC/..."; codesOf keeps only this committee's own rows.
-      const r = await sb.from('public_all_hearings').select('*').ilike('committee', `%${code}%`).eq('status', 'scheduled').gt('scheduled_at', now).order('scheduled_at').limit(200);
+      // A question that never answers ends in "could not load", with Try again (R-212 #49).
+      const r = await timed(sb.from('public_all_hearings').select('*').ilike('committee', `%${code}%`).eq('status', 'scheduled').gt('scheduled_at', now).order('scheduled_at').limit(200));
       if (r.error) throw r.error;
       hs = (r.data || []).filter(here);
       const first = hs.reduce((m, h) => !m || h.scheduled_at < m ? h.scheduled_at : m, '');
       const ids = [...new Set(hs.filter(h => h.scheduled_at === first).map(h => h.bill_id))];
-      const bs = ids.length ? await sb.from('public_all_bills').select(FILED_COLS).in('id', ids) : { data: [] };
+      const bs = ids.length ? await timed(sb.from('public_all_bills').select(FILED_COLS).in('id', ids)) : { data: [] };
       if (bs.error) throw bs.error;
       byId = new Map((bs.data || []).map(b => [b.id, b]));
     }
@@ -320,7 +324,9 @@ export async function legLookupAddress(q, pt) {
   if (pt && pt.sd && pt.hd) return { matched: pt.label, ids: byDistrict(pt.sd, pt.hd) };
   if (pt) { const { data } = await (await supa()).rpc('districts_at', { lat: pt.lat, lon: pt.lon }); const d = data?.[0]; if (d?.sd || d?.hd) return { matched: pt.label, ids: byDistrict(d.sd, d.hd) }; }
   // The address goes in the request's body, never its web address: the hosting logs keep web addresses (R-151).
-  const r = await fetch(`${SUPABASE_URL}/functions/v1/geo-lookup`, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'content-type': 'application/json' }, body: JSON.stringify({ address: q }) });
+  // A failed or silent lookup throws (R-212 #49): an error answer read as "We couldn't find that address".
+  const r = await timed(fetch(`${SUPABASE_URL}/functions/v1/geo-lookup`, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'content-type': 'application/json' }, body: JSON.stringify({ address: q }) }), 20000);   // the Census lookup behind it waits up to 15 s itself
+  if (!r.ok) throw new Error('lookup failed: ' + r.status);
   const j = await r.json(); if (!j.found) return { none: true };
   return { matched: j.matched || q, ids: byDistrict(j.senate, j.house) };
 }
@@ -334,7 +340,9 @@ export function legDraft(l, b) {
 }
 export async function loadBills() {
   const ids = [...S.watch];
-  if (!S.pool) { try { await loadPool(); } catch { S.pool = { bills: [], hearings: [] }; } }
+  // HIPHI's moving bills and their hearings are what Home and the first screen are made of, so a failure stops the start
+  // and says so (app.js boot, R-212 #49): an empty pool read as "Nothing needs you this week" and "No testimony is due".
+  if (!S.pool) await loadPool();
   if (!S.featured) { try { await loadFeatured(); } catch { S.featured = { hearings: [], bills: [] }; } }
   if (DEMO) {
     const w = new Set(ids);
@@ -357,13 +365,8 @@ export async function loadBills() {
     Object.assign(S.outcomes, Object.fromEntries(o.map(x => [x.hearing_id, x])));
   }
   try { await loadActions([...ids, ...((S.featured || {}).bills || []).map(b => b.id)]); } catch { /* counts are decoration */ }
-  if (!S.deadlines.length) {
-    const [d, c, sl, co, lg, cm, cp] = await loadReference();
-    S.legislators = lg.data || []; S.committeeMembers = cm.data || []; S.counterparts = cp.data || [];
-    S.slots = sl.data || [];
-    S.deadlines = (d.data || []).sort((x, y) => x.deadline_date.localeCompare(y.deadline_date));
-    S.committees = Object.fromEntries((c.data || []).map(x => [x.code, x]));
-    S.coalitions = (co.data || []).filter(x => x.bills > 0);
+  if (!S.deadlines.length || S.refErr?.any) {
+    applyReference(await loadReference());
     // The session dates are known now; if they change which session's bills an issue brings, load those instead.
     const had = [...S.watch].sort().join(); recomputeWatch();
     if ([...S.watch].sort().join() !== had) return loadBills();
@@ -388,6 +391,30 @@ export function loadReference() {
     S.supa.from('public_legislators').select('*').order('chamber').order('district'), S.supa.from('public_committee_members').select('*'), S.supa.from('public_committee_counterparts').select('*')])
     .catch(e => { S.refP = null; throw e; });
 }
+// The lawmakers and committees are not what Home or the first screen needs, so a failure does not stop the page (R-212 #49):
+// whatever came is used, what failed keeps what the page had, and S.refErr says which failed, so Committees, a committee,
+// Your lawmakers and a lawmaker say "We couldn't load" (never "not found" or "the link may be old") and their Try again asks
+// again (reloadReference). The answer that failed is not kept, so the next ask goes to the network.
+const refKeep = (r, had, fn) => r.error ? had : fn(r.data || []);
+function applyReference([d, c, sl, co, lg, cm, cp]) {
+  const bad = [d, c, sl, co, lg, cm, cp].some(r => r?.error);
+  S.refErr = { any: bad, legislators: !!lg.error, committees: !!(c.error || cm.error || sl.error) };
+  if (bad) S.refP = null;
+  S.legislators = refKeep(lg, S.legislators || [], x => x); S.committeeMembers = refKeep(cm, S.committeeMembers || [], x => x);
+  S.counterparts = refKeep(cp, S.counterparts || [], x => x); S.slots = refKeep(sl, S.slots || [], x => x);
+  S.deadlines = refKeep(d, S.deadlines || [], x => x.sort((a, b) => a.deadline_date.localeCompare(b.deadline_date)));
+  S.committees = refKeep(c, S.committees || {}, x => Object.fromEntries(x.map(y => [y.code, y])));
+  S.coalitions = refKeep(co, S.coalitions || [], x => x.filter(y => y.bills > 0));
+}
+export async function reloadReference() { S.refP = null; applyReference(await timed(loadReference())); }
+// The screens' Try again for them (a data-reref button): S.refBusy shows the skeleton while it asks, then the page is drawn
+// again with whatever came. refFailed(key): what that screen needs did not load ('committees' or 'legislators').
+export function retryReference() {
+  if (S.refBusy) return;
+  S.refBusy = true; app.render();
+  reloadReference().catch(e => { console.error(e); S.refErr = { ...(S.refErr || {}), any: true }; }).finally(() => { S.refBusy = false; app.render(); });
+}
+export const refFailed = key => !!S.refBusy || !!S.refErr?.[key];
 export async function loadPool() {
   if (!DEMO) { S.poolP ??= loadPool0().finally(() => { S.poolP = null; }); return S.poolP; }
   return loadPool0();
@@ -399,9 +426,10 @@ async function loadPool0() {
     const ids = new Set(bills.map(b => b.id));
     S.pool = { bills, hearings: D.hearings.filter(h => ids.has(h.bill_id) && h.status === 'scheduled' && h.scheduled_at < until) }; return;
   }
-  const { data: bills } = await S.supa.from('public_all_bills').select('*').not('hiphi_position', 'is', null).neq('hiphi_position', 'monitor').not('stage', 'in', '("dead","vetoed","enacted","governor")').limit(500);
+  // A failed answer throws (must): an empty pool read as "No testimony is due" and "Nothing needs you this week" (R-212 #49).
+  const { data: bills } = must(await S.supa.from('public_all_bills').select('*').not('hiphi_position', 'is', null).neq('hiphi_position', 'monitor').not('stage', 'in', '("dead","vetoed","enacted","governor")').limit(500));
   const ids = (bills || []).map(b => b.id);
-  const { data: hs } = ids.length ? await S.supa.from('public_all_hearings').select('*').in('bill_id', ids).eq('status', 'scheduled').gt('scheduled_at', new Date(now - 864e5).toISOString()).lt('scheduled_at', until) : { data: [] };
+  const { data: hs } = ids.length ? must(await S.supa.from('public_all_hearings').select('*').in('bill_id', ids).eq('status', 'scheduled').gt('scheduled_at', new Date(now - 864e5).toISOString()).lt('scheduled_at', until)) : { data: [] };
   S.pool = { bills: (bills || []).filter(alive), hearings: hs || [] };
 }
 // Every bill HIPHI took a position on in one session, whatever became of it. The pool above holds only bills still
@@ -433,7 +461,8 @@ export const winsIn = yr => S.recapPool && S.recapPool.yr === yr ? S.recapPool.b
 export function ensureRecapPool(yr) {
   if ((S.recapPool && S.recapPool.yr === yr) || S.recapLoading || S.recapFailed === yr) return;
   S.recapLoading = true;
-  loadRecapPool(yr).catch(e => { console.error(e); S.recapFailed = yr; }).finally(() => { S.recapLoading = false; app.render(); });
+  // One that never answers fails too (R-212 #49): the lesson's bill waited for it behind a skeleton that never went away.
+  timed(loadRecapPool(yr)).catch(e => { console.error(e); S.recapFailed = yr; }).finally(() => { S.recapLoading = false; app.render(); });
 }
 // The topic keys picked in the guided start ('food', 'tobacco'...). Since 9/20 the start stores topics, not
 // coalition names, so anything matching picks against b.coalitions has to ask topicOf() as well (R-019).

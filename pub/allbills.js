@@ -8,12 +8,12 @@
 // where it stands; Nate 9/29) narrow it without leaving the page. Nothing here is personal: every visitor sees the
 // same list.
 // B-1: a person comes here to see every bill HIPHI tracks and where each one stands with its hearing.
-import { S, D, DEMO, app, esc, icon, nick, plain, stopOf, STANDS, standOf as standRule, followYear, findBill, supa, spaced, isResolution, fmtDate, issuesOf } from './core.js';
+import { S, D, DEMO, app, esc, icon, nick, plain, stopOf, STANDS, standOf as standRule, followYear, findBill, supa, spaced, isResolution, fmtDate, issuesOf, timed } from './core.js';
 import { topicOf } from './topics.js';
 import { billList, fold, wireRows, byUrgency, numCmp } from './mybills.js';
 import { ensureHearings, matchAll } from './find.js';
 import { REC, recBack } from './rec/kit.js';
-import { btn, skeleton, empty } from './ui.js';
+import { btn, skeleton, empty, loadFail } from './ui.js';
 
 const A = S.ab ??= { yr: 0, rows: null, busy: false, err: '', q: '', topic: '', pos: '', stand: '', fOpen: false, all: {},
   hay: new Map(), twins: new Map(), topics: new Map(), grp: new Map() };
@@ -59,7 +59,7 @@ async function fetchYear(yr) {
 function load(yr) {
   if (A.busy || (A.yr === yr && A.rows) || (A.yr === yr && A.err)) return;
   A.busy = true; A.err = ''; A.yr = yr;
-  (async () => {
+  const work = (async () => {
     // The rows are My issues' (mybills.css), which app.js does not bring with this page: opened directly, they drew unstyled
     // and 484px wide on a 390px phone until the other styles came 2.5 seconds later. Under ?rec=1 the list waits for them
     // (R-303; the frame's SCREEN_CSS fixes it for everyone).
@@ -71,7 +71,11 @@ function load(yr) {
     for (const b of rows) if (!findBill(b.id)) S.extra[b.id] = b;
     A.rows = rows; A.hay.clear(); A.twins.clear(); A.topics.clear(); A.grp.clear();
     for (const b of rows) { const nm = nick(b); if (nm) (A.twins.get(nm) || A.twins.set(nm, []).get(nm)).push(b); }
-  })().catch(e => { console.error(e); A.err = 'We couldn’t load the bills.'; }).finally(() => { A.busy = false; app.render(); });
+  })();
+  // A list that never answers ends in "We couldn't load the bills", with Try again (R-212 #49): its skeleton stayed for good.
+  // About 735 bills and their hearings, so it gets longer than a single question; an answer that comes later still draws.
+  timed(work, 20000).catch(e => { console.error(e); A.err = 'failed'; }).finally(() => { A.busy = false; app.render(); });
+  work.then(() => { if (A.err && A.yr === yr) { A.err = ''; app.render(); } }, () => {});
 }
 
 // ---- the search: every word must appear in the number, the nickname or what the bill does ----
@@ -235,7 +239,7 @@ function render() {
   load(yr);
   if (A.rows && A.yr === yr) dropUnknownTopic();
   const head = `${backRow()}<header class="pagehead"><h1 class="hero">Every bill HIPHI tracks</h1>`;
-  if (A.err && !A.rows) return `<div class="ab">${head}</header>${empty({ title: A.err, text: 'Check your connection and try again.', action: btn('Try again', { kind: 'primary', attrs: { 'data-ab-retry': '' } }) })}</div>`;
+  if (A.err && !A.rows) return `<div class="ab">${head}</header>${loadFail({ what: 'the bills', h: 'h2', retry: { 'data-ab-retry': '' } })}</div>`;
   if (!A.rows || A.yr !== yr) return `<div class="ab">${head}</header>${skeleton(6)}</div>`;
   const n = A.rows.length, open = A.fOpen;
   // One line on a phone, so the first bill starts high (DESIGN A-1). An earlier session's list (an old link) says so and

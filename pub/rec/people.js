@@ -9,12 +9,12 @@
 //   HIPHI bill in them, office and contact: the phone said once).
 // Street addresses never reach a web address and are never kept (people.js): only the districts and the town are.
 import { S, app, esc, icon, spaced, nick, billPath, filedBy, legById, legTitle, legPhoto, posInfo, cmteLabel, codesOf, stopOf, alive, agrees, didKind, hearingWhen, CHAMBER_NAME, sessionInfo, HST } from '../core.js';
-import { btn, chip, notice } from '../ui.js';
+import { btn, chip, notice, loadFail } from '../ui.js';
 import { recHead, recBack, recSec, recRows, recMore, recFold, recFolds, recWay, recEmpty, wireKit, BOX } from './kit.js';
 import { recAct, dueOf, byDue, billRow, billWords, pillFor, daysLeft, backRow, atWords } from './act.js';
 import { slotsOf, slotLine } from '../committees.js';
 import { P, seated, saved, savedPick, forget, remember, mine, yoursWord, legHref, billNum, fromBill, numOnly, rolesOf, billAt, billsIn, composer,
-  searchHTML, findingHTML, browseHTML, cover, surname, townOf, PARTY, ISLAND_NAME, islandOf, bySeat, roleWord, finderPage } from '../people.js';
+  searchHTML, findingHTML, browseHTML, cover, surname, townOf, PARTY, ISLAND_NAME, islandOf, bySeat, roleWord, finderPage, legsFailed, legsFail } from '../people.js';
 
 const who = l => `${legTitle(l)} ${surname(l)}`;
 const full = l => `${legTitle(l)} ${l.name}`;
@@ -182,6 +182,7 @@ export function recPerson(route) {
   // Opened from a committee's "Email the chair" (R-212 #42), the email is about the bill (?from=) but back goes to the committee.
   const viaCmt = /^#\/committee\//.test(history.state?.prev || '');
   const back = from ? backRow('#/bill/' + from, spaced(numOnly(from)), !viaCmt) : backRow('#/legislators');
+  if (!l && legsFailed()) return `<div class="pp rc pp-rec">${back}${legsFail('this lawmaker')}</div>`;   // never "the link may be old" (R-212 #49)
   if (!l) return `<div class="pp rc pp-rec">${back}${recHead({ title: 'We couldn’t find that lawmaker' })}${recEmpty('The link may be old. Every senator and representative is on Your lawmakers.', btn('Your lawmakers', { kind: 'secondary', href: '#/legislators' }))}</div>`;
   const sv = saved(), own = mine(l, sv), roles = rolesOf(l), k = 'a' + l.id;
   // The card: the bill they came from, else the most pressing followed bill in their committees, else the hello.
@@ -235,8 +236,10 @@ function filedCard(l) {
   const f = S.filed?.[l.id];
   if (f === undefined) filedBy(l).then(() => { if (new RegExp(`^#/legislator/${l.id}(\\?|$)`).test(location.hash)) app.render(); });
   if (!f || f === 'loading') return recFold('pp-filed', 'Bills they introduced', 'Looking them up…', `<p class="rc-note pp-rnote">Looking up the bills they introduced…</p>`);
-  if (f === 'error') return recFold('pp-filed', 'Bills they introduced', 'Could not load just now',
-    `<p class="rc-note pp-rnote">The list could not load just now. Try again in a minute${l.capitol_url ? ', or see them on the Capitol website' : ''}.</p>`
+  // It did not load, or did not answer in time (core.js filedBy): the one line and Try again, in the fold (R-212 #49), with
+  // the Capitol's own page beside it.
+  if (f === 'error') return recFold('pp-filed', 'Bills they introduced', 'Couldn’t load',
+    loadFail({ inline: true, what: 'the bills they introduced', id: 'pp-filederr', retry: { 'data-pp-filed': l.id } })
     + (l.capitol_url ? recWay('external-link', 'Their page on the Capitol website', 'Bills they introduced and their votes', { href: l.capitol_url, target: '_blank', rel: 'noopener' }) : ''));
   const { lead, also, alsoN, year } = f, ours = lead.filter(b => posInfo(b)).length;
   const row = b => billRow(b, dueOf(b), { href: billPath(b) });
@@ -253,6 +256,7 @@ function filedCard(l) {
 export function wireRec() {
   const root = document.querySelector('.pp-rec'); if (!root) return;
   wireKit(root);
+  root.querySelectorAll('[data-pp-filed]').forEach(el => el.onclick = () => { delete S.filed[el.dataset.ppFiled]; app.render(); });
   root.querySelectorAll('[data-pp-dir]').forEach(el => el.onclick = () => { P.dir = !P.dir; app.render();
     requestAnimationFrame(() => { document.querySelector('[data-pp-dir]')?.focus({ preventScroll: true }); if (P.dir) document.getElementById('pp-dir')?.scrollIntoView({ block: 'nearest' }); }); });
   root.querySelectorAll('[data-pp-forget]').forEach(el => el.onclick = () => { const sv = saved(); if (!P.pick && sv) P.pick = savedPick(sv); P.remember = false; forget(); app.render();
