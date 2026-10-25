@@ -59,7 +59,7 @@ body.staff6 main h1.v6-ptitle { margin: var(--s8) 0 var(--s24); }
 .sv-hdr { position: sticky; top: 0; z-index: 40; height: var(--header); display: flex; align-items: center; gap: var(--s4); padding: 0 var(--s4) 0 var(--s8);
   background: var(--v6-page); transition: box-shadow .15s ease-out; }
 /* No rule under the header (V16): once the page scrolls under it, a soft shadow says where the page goes (app.js .scrolled). */
-.sv-hdr.scrolled { box-shadow: 0 8px 16px -12px rgba(74, 52, 30, .3); }
+.sv-hdr.scrolled { box-shadow: 0 8px 16px -12px rgba(var(--v6-shadow), .3); }
 .sv-hdr .sv-brand { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; border-radius: var(--v6-pill); text-decoration: none; }
 .sv-hdr .sv-brand svg { width: 28px; height: 28px; }
 .sv-hdr .sv-back { display: inline-flex; align-items: center; gap: 2px; flex: none; min-height: 44px; max-width: 45%; padding: 0 var(--s8) 0 var(--s4); border-radius: var(--v6-pill);
@@ -87,7 +87,7 @@ body.staff6 main h1.v6-ptitle { margin: var(--s8) 0 var(--s24); }
 @media (max-width: 767px) { body.staff6 .sv-page .sv-hdr .sv-srchbtn { display: inline-flex; } }
 
 .sv-tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; padding: 4px 4px calc(4px + var(--safe-b)); background: var(--v6-card);
-  box-shadow: 0 -1px 2px rgba(74, 52, 30, .04), 0 -6px 18px rgba(74, 52, 30, .07); }
+  box-shadow: 0 -1px 2px rgba(var(--v6-shadow), .04), 0 -6px 18px rgba(var(--v6-shadow), .07); }
 /* Each tab takes its word's width and shares what is left, so "Testimony" fits at 320px without shrinking below 14px
    (the icon's pill gives way first: 56px at most, 40px at least). */
 .sv-tabs a { position: relative; flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; padding: 0 2px;
@@ -112,7 +112,7 @@ body.staff6.withtabs .actionbar, body.staff6.hasbar.withtabs .actionbar { bottom
   body.staff6.hasbar main { padding-bottom: calc(var(--safe-b) + 88px); }
 }
 /* the action bar (Approve / Send back, Send): above the tab bar on a phone, no rule, a soft shadow (V21) */
-body.staff6 .actionbar { background: var(--v6-card); border-top: 0; box-shadow: 0 -1px 2px rgba(74, 52, 30, .04), 0 -6px 18px rgba(74, 52, 30, .08); }
+body.staff6 .actionbar { background: var(--v6-card); border-top: 0; box-shadow: 0 -1px 2px rgba(var(--v6-shadow), .04), 0 -6px 18px rgba(var(--v6-shadow), .08); }
 body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48px; }
 
 /* ---- laptop and tablet frame (768px and wider): the sidebar, labelled, always shown (spec 3.1, D11, D12, V02, V03) ---- */
@@ -141,7 +141,7 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
     border: 0; border-radius: var(--v6-pill); background: var(--v6-wash); color: var(--v6-ink); font: 700 var(--v6-t14)/20px var(--font); cursor: pointer;
     box-shadow: 0 0 0 6px var(--v6-page); }
   .sv-smore .ic { width: 16px; height: 16px; flex: none; }
-  @media (hover: hover) and (pointer: fine) { .sv-smore:hover { background: #E6DDCD; } }
+  @media (hover: hover) and (pointer: fine) { .sv-smore:hover { background: var(--v6-wash-hover); } }
   .sv-smore.down { bottom: 0; order: 99; }
   .sv-smore.up { top: 0; order: -1; }
   .sv-snav:not(.ovf) .sv-smore, .sv-snav.atend .sv-smore.down, .sv-snav.atstart .sv-smore.up { display: none; }
@@ -195,7 +195,7 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
   body.staff6.hasbar main { padding-bottom: var(--s24); }
   /* the action bar sits right under the content it acts on, sticky at the window's foot on a long page */
   body.staff6 main > .actionbar, body.staff6.hasbar.withtabs main > .actionbar { position: sticky; bottom: 0; left: auto; right: auto; z-index: 30; margin: var(--s24) calc(-1 * var(--s8)) 0;
-    padding: var(--s12) var(--s8); background: linear-gradient(180deg, rgba(247, 243, 234, 0) 0, var(--v6-page) 12px); border-top: 0; box-shadow: none; }
+    padding: var(--s12) var(--s8); background: linear-gradient(180deg, rgba(var(--v6-page-rgb), 0) 0, var(--v6-page) 12px); border-top: 0; box-shadow: none; }
   body.staff6 main > .actionbar .inner { max-width: none; justify-content: flex-end; }
   body.staff6 main > .actionbar .btn { flex: 0 0 auto; min-width: 140px; }
   #toast { left: calc(var(--v6-side) + var(--v6-gutter)); right: auto; bottom: var(--s24); justify-content: flex-start; align-items: flex-start; }
@@ -257,13 +257,13 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
 @media (hover: hover) and (pointer: fine) { :where(body.staff6) .btn.primary:hover { background: var(--v6-action-press); color: #fff; } }
 :where(body.staff6) .btn.primary:active { background: var(--v6-action-press); transform: scale(.98); }
 /* Tonal: action text on action wash (5.1:1), the same teal as links and text buttons, so a screen with all three shows one
-   teal, not two (spec 4, <=5 text colours). Hover and press keep 4.5:1 or more (4.7 on #D3E7E5); press also shrinks a little. */
+   teal, not two (spec 4, <=5 text colours). Hover and press keep 4.5:1 or more (4.7 on var(--v6-action-hover)); press also shrinks a little. */
 :where(body.staff6) .btn.secondary { background: var(--v6-action-wash); color: var(--v6-action); box-shadow: none; }
-@media (hover: hover) and (pointer: fine) { :where(body.staff6) .btn.secondary:hover { background: #D3E7E5; color: var(--v6-action); } }
-:where(body.staff6) .btn.secondary:active { background: #D3E7E5; transform: scale(.98); }
+@media (hover: hover) and (pointer: fine) { :where(body.staff6) .btn.secondary:hover { background: var(--v6-action-hover); color: var(--v6-action); } }
+:where(body.staff6) .btn.secondary:active { background: var(--v6-action-hover); transform: scale(.98); }
 :where(body.staff6) .btn.text { min-height: 44px; padding: 0 12px; background: none; color: var(--v6-action); }
 @media (hover: hover) and (pointer: fine) { :where(body.staff6) .btn.text:hover { background: var(--v6-action-wash); text-decoration: none; } }
-:where(body.staff6) .btn.text:active { background: #D3E7E5; }
+:where(body.staff6) .btn.text:active { background: var(--v6-action-hover); }
 :where(body.staff6) .btn.danger { background: var(--v6-bad); color: #fff; font-weight: 700; box-shadow: none; }
 :where(body.staff6) .btn.danger:active { background: var(--bad-press); color: #fff; }
 @media (hover: hover) and (pointer: fine) { :where(body.staff6) .btn.danger:hover { background: var(--bad-press); color: #fff; } }
@@ -303,7 +303,7 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
 .sv-chip.sm .ic { width: 14px; height: 14px; }
 /* A chip that IS a button (a filter toggle) looks like a button: a 40px pill, no outline; pressed is the selection teal. */
 :where(body.staff6) button.chip { min-height: 40px; padding: 8px 16px; border: 0; background: var(--v6-wash); color: var(--v6-ink); font-size: var(--v6-t16); cursor: pointer; }
-@media (hover: hover) and (pointer: fine) { :where(body.staff6) button.chip:hover { background: #E6DDCD; } }
+@media (hover: hover) and (pointer: fine) { :where(body.staff6) button.chip:hover { background: var(--v6-wash-hover); } }
 :where(body.staff6) button.chip[aria-pressed="true"] { padding: 8px 16px; border: 0; background: var(--v6-action-wash); color: var(--v6-action); font-weight: 700; }
 @media (pointer: coarse), (max-width: 767px) { :where(body.staff6) button.chip { min-height: 44px; } }
 
@@ -318,7 +318,7 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
 :where(body.staff6) .row { position: relative; min-height: var(--v6-row); gap: var(--s12); padding: var(--s12) var(--s16); background: var(--v6-card); }
 :where(body.staff6) .rows > .row + .row, :where(body.staff6) .rows > * + .row { border-top: 0; }
 :where(body.staff6) .rows > .row + .row::before, :where(body.staff6) .rows > * + .row::before { content: ''; position: absolute; left: var(--s16); right: var(--s16); top: 0; height: 1px; background: var(--v6-hair); }
-@media (hover: hover) and (pointer: fine) { :where(body.staff6) button.row:hover, :where(body.staff6) a.row:hover { background: #FBF8F1; } }
+@media (hover: hover) and (pointer: fine) { :where(body.staff6) button.row:hover, :where(body.staff6) a.row:hover { background: var(--v6-hover); } }
 :where(body.staff6) .row .lead { width: 40px; height: 40px; background: var(--v6-action-wash); color: var(--v6-action); }
 :where(body.staff6) .row .title { font: 500 var(--v6-t18)/var(--v6-lh18) var(--font-h); color: var(--v6-ink); letter-spacing: -.005em; }   /* an item's name: 500 (spec 12.1) */
 :where(body.staff6) .row .sub { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
@@ -370,7 +370,7 @@ body.staff6 .td-root .td-h .sv-group .td-lateopen, body.staff6 .td-root .td-h .s
 :where(body.staff6) .toastmsg.err > .v6-tic { color: var(--v6-bad); }
 :where(body.staff6) .toastundo { flex: none; min-height: 40px; padding: 0 var(--s16); border: 0; border-radius: var(--v6-pill); background: var(--v6-action-wash); color: var(--v6-action);
   font: 400 var(--v6-t16)/1.2 var(--font); white-space: nowrap; cursor: pointer; }
-:where(body.staff6) .toastundo:active { background: #D3E7E5; }
+:where(body.staff6) .toastundo:active { background: var(--v6-action-hover); }
 @media (pointer: coarse), (max-width: 767px) { :where(body.staff6) .toastundo { min-height: 44px; } }
 /* a long message (past three lines): the words take the card's width, the X stays top right, Undo sits under the words (ui.js) */
 :where(body.staff6) .toastmsg.stack { flex-wrap: wrap; align-items: flex-start; row-gap: var(--s8); }
@@ -381,7 +381,7 @@ body.staff6 .td-root .td-h .sv-group .td-lateopen, body.staff6 .td-root .td-h .s
 .toastx { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: -8px -4px -8px -4px; border-radius: var(--v6-pill); color: var(--v6-muted); flex: none; }
 .toastx .ic { width: 18px; height: 18px; }
 @media (hover: hover) and (pointer: fine) {
-  :where(body.staff6) .toastundo:hover { background: #D3E7E5; }
+  :where(body.staff6) .toastundo:hover { background: var(--v6-action-hover); }
   .toastx:hover { background: var(--v6-wash); color: var(--v6-ink); }
 }
 /* Below 768px ui.js placeToast sets #toast's bottom above the tab bar and any action bar showing (spec 3.2, B-5); until it
@@ -405,7 +405,7 @@ body.staff6.hasbar:has(#toast > *) main { padding-bottom: calc(var(--tabbar) + v
 :where(body.staff6) .empty { padding: var(--s32) var(--s16); gap: var(--s12); }
 :where(body.staff6) .empty h2, :where(body.staff6) .empty h3 { font: 600 var(--v6-t18)/var(--v6-lh18) var(--font-h); color: var(--v6-ink); }
 :where(body.staff6) .empty p { color: var(--v6-body); }
-:where(body.staff6) .skel { background: linear-gradient(90deg, var(--v6-wash) 25%, #F3EEE3 37%, var(--v6-wash) 63%); background-size: 400% 100%; border-radius: var(--v6-r12); }
+:where(body.staff6) .skel { background: linear-gradient(90deg, var(--v6-wash) 25%, var(--v6-shimmer) 37%, var(--v6-wash) 63%); background-size: 400% 100%; border-radius: var(--v6-r12); }
 @media (prefers-reduced-motion: reduce) { :where(body.staff6) .skel { animation: none; } }
 
 /* ---- shared parts from ui.js ---- */
@@ -445,7 +445,7 @@ body.staff6.hasbar:has(#toast > *) main { padding-bottom: calc(var(--tabbar) + v
   font: 700 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-ink); text-align: left; }
 .sv-group .n { margin-left: auto; font: 400 var(--v6-t14) var(--font); color: var(--v6-muted); }
 .sv-group .chev { width: 18px; height: 18px; color: var(--v6-muted); }
-@media (hover: hover) and (pointer: fine) { button.sv-group:hover { background: #FBF8F1; } }
+@media (hover: hover) and (pointer: fine) { button.sv-group:hover { background: var(--v6-hover); } }
 /* segmented: one list shown another way (A-12; page tabs are .sv-tabrow) */
 .sv-seg { display: inline-flex; background: var(--v6-wash); border-radius: var(--v6-pill); padding: 4px; gap: 2px; }
 .sv-seg button { min-height: 40px; padding: 0 16px; border-radius: var(--v6-pill); font: 400 var(--v6-t16)/1.2 var(--font); color: var(--v6-body); }
@@ -487,7 +487,7 @@ body.staff6.hasbar:has(#toast > *) main { padding-bottom: calc(var(--tabbar) + v
 .sv-tabrow::-webkit-scrollbar { display: none; }
 .sv-tabrow > a, .sv-tabrow > button { position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 var(--tp);
   border-radius: var(--v6-pill); background: none; box-shadow: none; color: var(--v6-body); font: 400 var(--v6-t16)/1.2 var(--font); text-decoration: none; white-space: nowrap; }
-@media (hover: hover) and (pointer: fine) { .sv-tabrow > a:hover, .sv-tabrow > button:hover { background: #F1EBDF; color: var(--v6-ink); } }
+@media (hover: hover) and (pointer: fine) { .sv-tabrow > a:hover, .sv-tabrow > button:hover { background: var(--v6-tab-hover); color: var(--v6-ink); } }
 .sv-tabrow > [aria-current="page"], .sv-tabrow > [aria-pressed="true"] { background: none; color: var(--v6-ink); font-weight: 700; box-shadow: none; }
 @media (hover: hover) and (pointer: fine) { .sv-tabrow > [aria-current="page"]:hover, .sv-tabrow > [aria-pressed="true"]:hover { background: none; color: var(--v6-ink); } }
 .sv-tabrow > [aria-current="page"]::after, .sv-tabrow > [aria-pressed="true"]::after { content: ''; position: absolute; left: var(--tp); right: var(--tp); bottom: 3px; height: 3px;
@@ -522,7 +522,7 @@ dialog.sv-sheet { border: 0; padding: 0; margin: auto auto 0; width: 100%; max-w
   box-shadow: var(--v6-sh3); display: flex; flex-direction: column; }
 dialog.sv-sheet:not([open]) { display: none; }
 dialog.sv-sheet.full { height: 92vh; }
-dialog.sv-sheet::backdrop { background: rgba(37, 34, 30, .38); }
+dialog.sv-sheet::backdrop { background: rgba(var(--v6-ink-rgb), .38); }
 .sv-sh-grab { width: 40px; height: 4px; border-radius: 2px; background: var(--v6-hair); margin: 8px auto 0; flex: none; }
 .sv-sh-head { display: flex; align-items: center; gap: var(--s8); padding: var(--s8) var(--s8) var(--s8) var(--s24); flex: none; }
 .sv-sh-head h2 { flex: 1 1 auto; font: 600 var(--v6-t18)/var(--v6-lh18) var(--font-h); }
@@ -532,7 +532,7 @@ dialog.sv-sheet::backdrop { background: rgba(37, 34, 30, .38); }
 /* More below: the foot of a sheet's list fades while it scrolls (ui.js sheetFade), so the last choice is known to be there. */
 .sv-sh-body.v6-more-below { -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 40px), transparent); }
 .sv-sh-body { min-height: 0; overscroll-behavior: contain; }
-.sv-sh-foot { display: flex; gap: var(--s8); justify-content: flex-end; padding: var(--s12) var(--s24) calc(var(--s12) + var(--safe-b)); border-top: 0; box-shadow: 0 -8px 16px -12px rgba(74, 52, 30, .2); flex: none; }
+.sv-sh-foot { display: flex; gap: var(--s8); justify-content: flex-end; padding: var(--s12) var(--s24) calc(var(--s12) + var(--safe-b)); border-top: 0; box-shadow: 0 -8px 16px -12px rgba(var(--v6-shadow), .2); flex: none; }
 .sv-sh-foot .btn.primary, .sv-sh-foot .btn.danger { flex: 1 1 auto; }
 .sv-pickl, .sv-menu { display: flex; flex-direction: column; }
 .sv-pickl button, .sv-menu button { display: flex; align-items: center; gap: var(--s12); min-height: 52px; padding: var(--s8) var(--s12); border-radius: var(--v6-r12); text-align: left; width: 100%; }
@@ -699,7 +699,7 @@ dialog.sv-sheet.look .sv-sh-head h2 { position: absolute; width: 1px; height: 1p
 .v6-more-list > li { position: relative; }
 .v6-more-list > li + li::before { content: ''; position: absolute; left: 68px; right: var(--s12); top: 0; height: 1px; background: var(--v6-hair); }
 .v6-more-row { display: flex; align-items: center; gap: var(--s16); width: 100%; min-height: 56px; padding: var(--s8) var(--s12); border-radius: var(--v6-r12); color: inherit; text-decoration: none; text-align: left; background: none; border: 0; font: inherit; cursor: pointer; }
-@media (hover: hover) and (pointer: fine) { .v6-more-row:hover { background: #FBF8F1; color: inherit; } }
+@media (hover: hover) and (pointer: fine) { .v6-more-row:hover { background: var(--v6-hover); color: inherit; } }
 .v6-more-row:focus-visible { outline-offset: 2px; }
 .v6-more-ic { display: flex; align-items: center; justify-content: center; flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--v6-wash); color: var(--v6-body); }
 .v6-more-ic .ic { width: 20px; height: 20px; }
@@ -1341,7 +1341,7 @@ body.staff2 .st-duo .st-navh { margin: var(--s12) 0 2px; padding: 0 var(--s12); 
 /* ---- v6 (R-336): the boxes above lose their edges for a soft shadow (V16, A-17); the screens' own files do the same as
    each is rebuilt. Lines inside a panel stay only as inset hairlines. ---- */
 body.staff6 :is(.td-asks, .ah-gate, .ah-top, .td-mrows, .hb-card, .ab-rows) { border: 0; border-radius: var(--v6-r20); box-shadow: var(--v6-sh1); background: var(--v6-card); }
-body.staff6 .bp-open { border-top: 0; box-shadow: 0 -8px 12px -10px rgba(74, 52, 30, .2); }
-body.staff6 :is(.td-pane, .bl-dock).more .bp-open { box-shadow: 0 -8px 12px -8px rgba(74, 52, 30, .22); }
+body.staff6 .bp-open { border-top: 0; box-shadow: 0 -8px 12px -10px rgba(var(--v6-shadow), .2); }
+body.staff6 :is(.td-pane, .bl-dock).more .bp-open { box-shadow: 0 -8px 12px -8px rgba(var(--v6-shadow), .22); }
 body.staff6 .cf-c { background: var(--v6-page); }
 @media (hover: hover) and (pointer: fine) { body.staff6 .ca-chip:hover { background: var(--v6-page); } }

@@ -1,0 +1,724 @@
+/* Staff v6 (R-336): the palettes a person can pick in My settings, Colors (Nate 10/25). Written by
+   tools/staff6_palettes.js; never edit by hand. The default, HIPHI Family, is in tokens.css. app.js puts the person's pick on
+   <html data-palette="..."> (staff6.html does it before the first paint from this browser's copy). Each rule wins over
+   tokens.css's body.staff6 because it is more specific; layout tokens are not touched. */
+/* Lagoon Clear: White cards on a cool mist, coral for celebrations. body 9.5, small grey 5.0, button 6.2, links 5.3, field edges 3.1 */
+:root[data-palette="lagoon-clear"] body.staff6 {
+  --v6-page: #F4F7F8;
+  --v6-card: #FFFFFF;
+  --v6-wash: #E8EFF1;
+  --v6-hair: #E7E9EA;
+  --v6-ink: #13262E;
+  --v6-body: #2C3F47;
+  --v6-muted: #566870;
+  --v6-field: #848D90;
+  --v6-action: #00698E;
+  --v6-action-press: #005674;
+  --v6-action-wash: #E0EDF1;
+  --v6-action-hover: #D1E4EB;
+  --v6-leaf: #2E7650;
+  --v6-leaf-wash: #E6EFEA;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #F07A55;
+  --v6-band: #12242C;
+  --v6-hover: #FAFBFC;
+  --v6-wash-hover: #DDE5E7;
+  --v6-shimmer: #EEF3F5;
+  --v6-tab-hover: #ECF1F3;
+  --v6-shadow: 13, 58, 75; --v6-ink-rgb: 19, 38, 46; --v6-page-rgb: 244, 247, 248; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 18, 36, 44;
+  --n300: #C7CDD0; --p100: #C7DEE6; --p200: #8CBCCC; --p300: #66A5BB; --p400: #408FAA; --p500: #1F7B9C; --p600: #0F7295; --p900: #003A4E;
+  --o50: #FDEBE6; --o200: #F8C3B3; --o600: #A1523A; --o700: #84432F; --bad-press: #8C2920;
+}
+/* Seafoam: A breath of green in the white, sunny yellow accent. body 9.5, small grey 5.0, button 6.0, links 5.1, field edges 3.2 */
+:root[data-palette="seafoam"] body.staff6 {
+  --v6-page: #F2F7F5;
+  --v6-card: #FFFFFF;
+  --v6-wash: #E3EFEA;
+  --v6-hair: #E7E9E9;
+  --v6-ink: #13261F;
+  --v6-body: #2B3F38;
+  --v6-muted: #55685F;
+  --v6-field: #838D89;
+  --v6-action: #0B6E73;
+  --v6-action-press: #095A5E;
+  --v6-action-wash: #E2EEEE;
+  --v6-action-hover: #D3E5E6;
+  --v6-leaf: #2D753C;
+  --v6-leaf-wash: #E6EEE8;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #F5B841;
+  --v6-band: #12241D;
+  --v6-hover: #F9FBFA;
+  --v6-wash-hover: #D9E5E0;
+  --v6-shimmer: #EBF3F0;
+  --v6-tab-hover: #E8F1ED;
+  --v6-shadow: 17, 60, 56; --v6-ink-rgb: 19, 38, 31; --v6-page-rgb: 242, 247, 245; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 18, 36, 29;
+  --n300: #C5CDCA; --p100: #C9DFE0; --p200: #91BEC0; --p300: #6DA8AB; --p400: #489296; --p500: #287F84; --p600: #1A777B; --p900: #063D3F;
+  --o50: #FEF4E3; --o200: #FBDFAA; --o600: #816122; --o700: #876524; --bad-press: #8C2920;
+}
+/* Trade Wind: Airy blue-white with a true ocean blue. body 9.8, small grey 5.1, button 6.5, links 5.5, field edges 3.2 */
+:root[data-palette="trade-wind"] body.staff6 {
+  --v6-page: #F5F7FB;
+  --v6-card: #FFFFFF;
+  --v6-wash: #E8EDF5;
+  --v6-hair: #E8E9EA;
+  --v6-ink: #141E2E;
+  --v6-body: #2E3A4D;
+  --v6-muted: #586477;
+  --v6-field: #858A92;
+  --v6-action: #1F5FA6;
+  --v6-action-press: #194E88;
+  --v6-action-wash: #E4ECF4;
+  --v6-action-hover: #D7E2EF;
+  --v6-leaf: #2E7650;
+  --v6-leaf-wash: #E6EFEA;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #F07A55;
+  --v6-band: #131D2C;
+  --v6-hover: #FAFBFD;
+  --v6-wash-hover: #DDE3EB;
+  --v6-shimmer: #EFF2F8;
+  --v6-tab-hover: #ECF0F7;
+  --v6-shadow: 23, 50, 82; --v6-ink-rgb: 20, 30, 46; --v6-page-rgb: 245, 247, 251; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 19, 29, 44;
+  --n300: #C8CCD2; --p100: #CEDCEB; --p200: #9AB7D7; --p300: #799FCA; --p400: #5787BC; --p500: #3A72B1; --p600: #2C69AB; --p900: #11345B;
+  --o50: #FDEBE6; --o200: #F8C3B3; --o600: #A1523A; --o700: #84432F; --bad-press: #8C2920;
+}
+/* Paper White: Plain white and neutral grey, teal buttons. body 9.9, small grey 5.4, button 6.0, links 5.1, field edges 3.3 */
+:root[data-palette="paper-white"] body.staff6 {
+  --v6-page: #F6F6F6;
+  --v6-card: #FFFFFF;
+  --v6-wash: #ECECEC;
+  --v6-hair: #E8E8E9;
+  --v6-ink: #1C1C1E;
+  --v6-body: #38383B;
+  --v6-muted: #5F5F64;
+  --v6-field: #888889;
+  --v6-action: #0B6E73;
+  --v6-action-press: #095A5E;
+  --v6-action-wash: #E2EEEE;
+  --v6-action-hover: #D3E5E6;
+  --v6-leaf: #2E7650;
+  --v6-leaf-wash: #E6EFEA;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #EE7B4F;
+  --v6-band: #1B1B1D;
+  --v6-hover: #FBFBFB;
+  --v6-wash-hover: #E2E2E2;
+  --v6-shimmer: #F1F1F1;
+  --v6-tab-hover: #EFEFEF;
+  --v6-shadow: 23, 53, 56; --v6-ink-rgb: 28, 28, 30; --v6-page-rgb: 246, 246, 246; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 27, 27, 29;
+  --n300: #CACACB; --p100: #C9DFE0; --p200: #91BEC0; --p300: #6DA8AB; --p400: #489296; --p500: #287F84; --p600: #1A777B; --p900: #063D3F;
+  --o50: #FCEBE5; --o200: #F7C4B0; --o600: #A05335; --o700: #83442B; --bad-press: #8C2920;
+}
+/* Kona Sky: Pale sky ground, deep sky-blue buttons. body 9.3, small grey 4.9, button 7.0, links 5.8, field edges 3.2 */
+:root[data-palette="kona-sky"] body.staff6 {
+  --v6-page: #F0F5FA;
+  --v6-card: #FFFFFF;
+  --v6-wash: #E2ECF5;
+  --v6-hair: #E7E9EB;
+  --v6-ink: #122435;
+  --v6-body: #2B3D50;
+  --v6-muted: #55677A;
+  --v6-field: #828B94;
+  --v6-action: #1A5C96;
+  --v6-action-press: #154B7B;
+  --v6-action-wash: #E4EBF2;
+  --v6-action-hover: #D6E2EC;
+  --v6-leaf: #2C714D;
+  --v6-leaf-wash: #E6EEEA;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #F2A541;
+  --v6-band: #112232;
+  --v6-hover: #F8FAFD;
+  --v6-wash-hover: #D8E2EB;
+  --v6-shimmer: #E9F1F8;
+  --v6-tab-hover: #E6EFF7;
+  --v6-shadow: 20, 53, 82; --v6-ink-rgb: 18, 36, 53; --v6-page-rgb: 240, 245, 250; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 17, 34, 50;
+  --n300: #C4CBD3; --p100: #CDDBE8; --p200: #98B6D0; --p300: #769DC0; --p400: #5385B0; --p500: #3570A3; --p600: #28669C; --p900: #0E3353;
+  --o50: #FDF2E3; --o200: #F9D7AA; --o600: #8A5F24; --o700: #855B24; --bad-press: #8C2920;
+}
+/* Hibiscus: Soft blush white, deep teal, hibiscus pink. body 10.0, small grey 5.5, button 6.2, links 5.3, field edges 3.2 */
+:root[data-palette="hibiscus"] body.staff6 {
+  --v6-page: #FBF7F8;
+  --v6-card: #FFFFFF;
+  --v6-wash: #F3EAEE;
+  --v6-hair: #EAE8E9;
+  --v6-ink: #2A1C22;
+  --v6-body: #45333B;
+  --v6-muted: #6C5961;
+  --v6-field: #90898C;
+  --v6-action: #0E6B78;
+  --v6-action-press: #0B5862;
+  --v6-action-wash: #E2EDEF;
+  --v6-action-hover: #D4E4E7;
+  --v6-leaf: #2E7650;
+  --v6-leaf-wash: #E6EFEA;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #E0457B;
+  --v6-band: #281B20;
+  --v6-hover: #FDFBFC;
+  --v6-wash-hover: #E9E0E4;
+  --v6-shimmer: #F7F1F3;
+  --v6-tab-hover: #F5EEF1;
+  --v6-shadow: 34, 52, 60; --v6-ink-rgb: 42, 28, 34; --v6-page-rgb: 251, 247, 248; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 40, 27, 32;
+  --n300: #D1CBCD; --p100: #CADEE1; --p200: #93BCC2; --p300: #6EA6AE; --p400: #4A909A; --p500: #2B7D88; --p600: #1C7480; --p900: #083B42;
+  --o50: #FAE3EB; --o200: #F1ABC4; --o600: #9D3056; --o700: #7B2644; --bad-press: #8C2920;
+}
+/* Plumeria: Clean white, deep lagoon, plumeria yellow. body 9.6, small grey 5.1, button 6.4, links 5.5, field edges 3.2 */
+:root[data-palette="plumeria"] body.staff6 {
+  --v6-page: #F7F8F6;
+  --v6-card: #FFFFFF;
+  --v6-wash: #ECEEEA;
+  --v6-hair: #E8E9E9;
+  --v6-ink: #1B2321;
+  --v6-body: #333D3A;
+  --v6-muted: #5C6662;
+  --v6-field: #898D8B;
+  --v6-action: #00687A;
+  --v6-action-press: #005564;
+  --v6-action-wash: #E0EDEF;
+  --v6-action-hover: #D1E4E7;
+  --v6-leaf: #3A7533;
+  --v6-leaf-wash: #E7EEE7;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #F6C445;
+  --v6-band: #1A211F;
+  --v6-hover: #FBFCFB;
+  --v6-wash-hover: #E2E4E0;
+  --v6-shimmer: #F2F3F0;
+  --v6-tab-hover: #EFF1EE;
+  --v6-shadow: 19, 56, 60; --v6-ink-rgb: 27, 35, 33; --v6-page-rgb: 247, 248, 246; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 26, 33, 31;
+  --n300: #CBCDCB; --p100: #C7DEE2; --p200: #8CBBC3; --p300: #66A4AF; --p400: #408E9B; --p500: #1F7A8A; --p600: #0F7182; --p900: #003943;
+  --o50: #FEF6E3; --o200: #FBE4AB; --o600: #7C6422; --o700: #876C26; --bad-press: #8C2920;
+}
+/* Lilikoʻi: Passion-fruit purple with a golden accent. body 10.4, small grey 5.7, button 7.9, links 6.7, field edges 3.3 */
+:root[data-palette="lilikoi"] body.staff6 {
+  --v6-page: #F7F6FA;
+  --v6-card: #FFFFFF;
+  --v6-wash: #ECEAF3;
+  --v6-hair: #E9E8EA;
+  --v6-ink: #1F1A2B;
+  --v6-body: #383146;
+  --v6-muted: #5F586E;
+  --v6-field: #8A8890;
+  --v6-action: #5E3F99;
+  --v6-action-press: #4D347D;
+  --v6-action-wash: #ECE8F3;
+  --v6-action-hover: #E2DCED;
+  --v6-leaf: #2E7650;
+  --v6-leaf-wash: #E6EFEA;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #F2B33D;
+  --v6-band: #1D1929;
+  --v6-hover: #FBFBFD;
+  --v6-wash-hover: #E2E0E9;
+  --v6-shimmer: #F2F0F7;
+  --v6-tab-hover: #EFEEF5;
+  --v6-shadow: 50, 37, 76; --v6-ink-rgb: 31, 26, 43; --v6-page-rgb: 247, 246, 250; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 29, 25, 41;
+  --n300: #CCCAD1; --p100: #DCD5E9; --p200: #B7A9D1; --p300: #9E8CC2; --p400: #866FB3; --p500: #7156A5; --p600: #684B9F; --p900: #342354;
+  --o50: #FDF4E2; --o200: #F9DDA8; --o600: #846222; --o700: #856222; --bad-press: #8C2920;
+}
+/* Ube: Lavender mist and a soft violet. body 10.2, small grey 5.6, button 7.6, links 6.3, field edges 3.3 */
+:root[data-palette="ube"] body.staff6 {
+  --v6-page: #F6F5FB;
+  --v6-card: #FFFFFF;
+  --v6-wash: #EBE9F6;
+  --v6-hair: #E9E8EA;
+  --v6-ink: #1E1B30;
+  --v6-body: #36324C;
+  --v6-muted: #5C5874;
+  --v6-field: #898793;
+  --v6-action: #4F48A0;
+  --v6-action-press: #413B83;
+  --v6-action-wash: #EAE9F4;
+  --v6-action-hover: #DFDEEE;
+  --v6-leaf: #2C714D;
+  --v6-leaf-wash: #E6EEEA;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #F09A6B;
+  --v6-band: #1D1A2E;
+  --v6-hover: #FBFAFD;
+  --v6-wash-hover: #E1DFEC;
+  --v6-shimmer: #F1EFF9;
+  --v6-tab-hover: #EEEDF8;
+  --v6-shadow: 45, 41, 82; --v6-ink-rgb: 30, 27, 48; --v6-page-rgb: 246, 245, 251; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 29, 26, 46;
+  --n300: #CBC9D2; --p100: #D8D7EA; --p200: #B0ADD4; --p300: #9591C6; --p400: #7B76B8; --p500: #645EAB; --p600: #5A53A6; --p900: #2B2858;
+  --o50: #FDF0E9; --o200: #F8D2BC; --o600: #8F5C3F; --o700: #84553B; --bad-press: #8C2920;
+}
+/* Lehua: Navy buttons, lehua red-coral to celebrate. body 10.3, small grey 5.4, button 10.1, links 8.5, field edges 3.3 */
+:root[data-palette="lehua"] body.staff6 {
+  --v6-page: #F5F6F9;
+  --v6-card: #FFFFFF;
+  --v6-wash: #E9ECF2;
+  --v6-hair: #E8E8EA;
+  --v6-ink: #151B2C;
+  --v6-body: #2E3548;
+  --v6-muted: #585F72;
+  --v6-field: #858890;
+  --v6-action: #22407A;
+  --v6-action-press: #1C3464;
+  --v6-action-wash: #E4E8EF;
+  --v6-action-hover: #D7DDE7;
+  --v6-leaf: #2E7650;
+  --v6-leaf-wash: #E6EFEA;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #E5533F;
+  --v6-band: #141A2A;
+  --v6-hover: #FAFBFC;
+  --v6-wash-hover: #DEE2E8;
+  --v6-shimmer: #EFF1F6;
+  --v6-tab-hover: #EDEFF4;
+  --v6-shadow: 25, 38, 67; --v6-ink-rgb: 21, 27, 44; --v6-page-rgb: 245, 246, 249; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 20, 26, 42;
+  --n300: #C8CAD0; --p100: #CED5E2; --p200: #9CA9C3; --p300: #7A8CAF; --p400: #59709B; --p500: #3D578A; --p600: #2F4B82; --p900: #132343;
+  --o50: #FBE5E2; --o200: #F3B2A9; --o600: #A03A2C; --o700: #7E2E23; --bad-press: #8C2920;
+}
+/* Teal Pop: Brighter teal and a lively coral. body 9.6, small grey 5.1, button 5.5, links 4.7, field edges 3.1 */
+:root[data-palette="teal-pop"] body.staff6 {
+  --v6-page: #F2F8F8;
+  --v6-card: #FFFFFF;
+  --v6-wash: #E1F0F0;
+  --v6-hair: #E7E9E9;
+  --v6-ink: #0F2627;
+  --v6-body: #273F40;
+  --v6-muted: #506869;
+  --v6-field: #828E8E;
+  --v6-action: #007575;
+  --v6-action-press: #006060;
+  --v6-action-wash: #E0EEEE;
+  --v6-action-hover: #D1E6E6;
+  --v6-leaf: #2D753C;
+  --v6-leaf-wash: #E6EEE8;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #FF7A59;
+  --v6-band: #0E2425;
+  --v6-hover: #F9FCFC;
+  --v6-wash-hover: #D7E6E6;
+  --v6-shimmer: #EAF4F4;
+  --v6-tab-hover: #E6F2F2;
+  --v6-shadow: 11, 62, 62; --v6-ink-rgb: 15, 38, 39; --v6-page-rgb: 242, 248, 248; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 14, 36, 37;
+  --n300: #C5CECE; --p100: #C7E1E1; --p200: #8CC1C1; --p300: #66ACAC; --p400: #409898; --p500: #1F8686; --p600: #0F7D7D; --p900: #004040;
+  --o50: #FFEBE6; --o200: #FFC3B4; --o600: #A54F3A; --o700: #8C4331; --bad-press: #8C2920;
+}
+/* Sunrise: Peach-tinged white, indigo, apricot. body 10.2, small grey 5.7, button 7.9, links 6.8, field edges 3.2 */
+:root[data-palette="sunrise"] body.staff6 {
+  --v6-page: #FBF8F7;
+  --v6-card: #FFFFFF;
+  --v6-wash: #F3ECE9;
+  --v6-hair: #E9E8EA;
+  --v6-ink: #221C28;
+  --v6-body: #3B3442;
+  --v6-muted: #625A68;
+  --v6-field: #8E8A8E;
+  --v6-action: #3A4D91;
+  --v6-action-press: #303F77;
+  --v6-action-wash: #E7EAF2;
+  --v6-action-hover: #DCDFEB;
+  --v6-leaf: #2E7650;
+  --v6-leaf-wash: #E6EFEA;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #F59E6B;
+  --v6-band: #201B26;
+  --v6-hover: #FDFCFB;
+  --v6-wash-hover: #E9E2DF;
+  --v6-shimmer: #F7F2F0;
+  --v6-tab-hover: #F5F0ED;
+  --v6-shadow: 41, 43, 72; --v6-ink-rgb: 34, 28, 40; --v6-page-rgb: 251, 248, 247; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 32, 27, 38;
+  --n300: #D0CCCE; --p100: #D4D8E7; --p200: #A6AFCE; --p300: #8994BD; --p400: #6B7AAD; --p500: #52629E; --p600: #465898; --p900: #202A50;
+  --o50: #FEF0E9; --o200: #FBD3BC; --o600: #8C5B3C; --o700: #87573B; --bad-press: #8C2920;
+}
+/* Deep Reef: Deep navy with a bright reef teal. body 10.2, small grey 5.3, button 8.9, links 7.4, field edges 3.3 */
+:root[data-palette="deep-reef"] body.staff6 {
+  --v6-page: #F3F6F8;
+  --v6-card: #FFFFFF;
+  --v6-wash: #E6ECF0;
+  --v6-hair: #E7E9EA;
+  --v6-ink: #0E1E2C;
+  --v6-body: #273746;
+  --v6-muted: #516170;
+  --v6-field: #828990;
+  --v6-action: #0F4C81;
+  --v6-action-press: #0C3E6A;
+  --v6-action-wash: #E2EAF0;
+  --v6-action-hover: #D4DFE8;
+  --v6-leaf: #2E7650;
+  --v6-leaf-wash: #E6EFEA;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #2BB3A3;
+  --v6-band: #0D1D2A;
+  --v6-hover: #F9FBFC;
+  --v6-wash-hover: #DBE2E6;
+  --v6-shimmer: #EDF1F4;
+  --v6-tab-hover: #EAEFF2;
+  --v6-shadow: 14, 44, 70; --v6-ink-rgb: 14, 30, 44; --v6-page-rgb: 243, 246, 248; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 13, 29, 42;
+  --n300: #C5CBCF; --p100: #CAD8E3; --p200: #93AEC6; --p300: #6F94B3; --p400: #4B79A1; --p500: #2C6190; --p600: #1D5789; --p900: #082A47;
+  --o50: #DFF4F1; --o200: #A0DDD6; --o600: #1C7369; --o700: #18625A; --bad-press: #8C2920;
+}
+/* Ocean Blue: Classic clear blue, very readable. body 10.4, small grey 5.4, button 7.2, links 6.1, field edges 3.3 */
+:root[data-palette="ocean-blue"] body.staff6 {
+  --v6-page: #F4F7FA;
+  --v6-card: #FFFFFF;
+  --v6-wash: #E7EDF3;
+  --v6-hair: #E7E8EA;
+  --v6-ink: #111C28;
+  --v6-body: #2A3644;
+  --v6-muted: #54606E;
+  --v6-field: #848990;
+  --v6-action: #005B96;
+  --v6-action-press: #004B7B;
+  --v6-action-wash: #E0EBF2;
+  --v6-action-hover: #D1E1EC;
+  --v6-leaf: #2E7650;
+  --v6-leaf-wash: #E6EFEA;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #F07A55;
+  --v6-band: #101B26;
+  --v6-hover: #FAFBFD;
+  --v6-wash-hover: #DCE3E9;
+  --v6-shimmer: #EEF2F7;
+  --v6-tab-hover: #EBF0F5;
+  --v6-shadow: 12, 47, 73; --v6-ink-rgb: 17, 28, 40; --v6-page-rgb: 244, 247, 250; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 16, 27, 38;
+  --n300: #C7CBD0; --p100: #C7DBE8; --p200: #8CB5D0; --p300: #669DC0; --p400: #4084B0; --p500: #1F6FA3; --p600: #0F659C; --p900: #003253;
+  --o50: #FDEBE6; --o200: #F8C3B3; --o600: #A1523A; --o700: #84432F; --bad-press: #8C2920;
+}
+/* Indigo Aloha: Calm indigo on cool grey. body 10.3, small grey 5.5, button 7.8, links 6.5, field edges 3.3 */
+:root[data-palette="indigo-aloha"] body.staff6 {
+  --v6-page: #F5F6FA;
+  --v6-card: #FFFFFF;
+  --v6-wash: #E9EBF3;
+  --v6-hair: #E8E8EA;
+  --v6-ink: #171A2C;
+  --v6-body: #303446;
+  --v6-muted: #595D70;
+  --v6-field: #868890;
+  --v6-action: #3B4BA0;
+  --v6-action-press: #303E83;
+  --v6-action-wash: #E7E9F4;
+  --v6-action-hover: #DCDFEE;
+  --v6-leaf: #2E7650;
+  --v6-leaf-wash: #E6EFEA;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #F2A541;
+  --v6-band: #16192A;
+  --v6-hover: #FAFBFD;
+  --v6-wash-hover: #DFE1E9;
+  --v6-shimmer: #EFF1F7;
+  --v6-tab-hover: #EDEEF5;
+  --v6-shadow: 34, 41, 79; --v6-ink-rgb: 23, 26, 44; --v6-page-rgb: 245, 246, 250; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 22, 25, 42;
+  --n300: #C9CAD1; --p100: #D4D7EA; --p200: #A7AED4; --p300: #8993C6; --p400: #6C78B8; --p500: #5361AB; --p600: #4756A6; --p900: #202958;
+  --o50: #FDF2E3; --o200: #F9D7AA; --o600: #8A5F24; --o700: #855B24; --bad-press: #8C2920;
+}
+/* Black Sand: Strongest contrast: near-black type on white. body 12.9, small grey 6.6, button 7.4, links 6.3, field edges 3.2 */
+:root[data-palette="black-sand"] body.staff6 {
+  --v6-page: #F7F7F7;
+  --v6-card: #FFFFFF;
+  --v6-wash: #EDEDED;
+  --v6-hair: #E7E7E7;
+  --v6-ink: #0F0F10;
+  --v6-body: #262628;
+  --v6-muted: #525256;
+  --v6-field: #8A8A8A;
+  --v6-action: #0A5F63;
+  --v6-action-press: #084E51;
+  --v6-action-wash: #E2ECEC;
+  --v6-action-hover: #D3E2E3;
+  --v6-leaf: #2E7650;
+  --v6-leaf-wash: #E6EFEA;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #EE7B4F;
+  --v6-band: #0E0E0F;
+  --v6-hover: #FBFBFB;
+  --v6-wash-hover: #E2E2E2;
+  --v6-shimmer: #F2F2F2;
+  --v6-tab-hover: #F0F0F0;
+  --v6-shadow: 14, 39, 41; --v6-ink-rgb: 15, 15, 16; --v6-page-rgb: 247, 247, 247; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 14, 14, 15;
+  --n300: #C9C9C9; --p100: #C9DCDD; --p200: #91B7B9; --p300: #6C9FA1; --p400: #47878A; --p500: #277276; --p600: #19696C; --p900: #063436;
+  --o50: #FCEBE5; --o200: #F7C4B0; --o600: #A05335; --o700: #83442B; --bad-press: #8C2920;
+}
+/* Fern: Faint green ground, forest-teal buttons. body 9.7, small grey 5.1, button 6.4, links 5.4, field edges 3.2 */
+:root[data-palette="fern"] body.staff6 {
+  --v6-page: #F4F7F3;
+  --v6-card: #FFFFFF;
+  --v6-wash: #E7EEE5;
+  --v6-hair: #E8E9E8;
+  --v6-ink: #18231A;
+  --v6-body: #303D32;
+  --v6-muted: #59665B;
+  --v6-field: #868C86;
+  --v6-action: #2F6A4A;
+  --v6-action-press: #27573D;
+  --v6-action-wash: #E6EDE9;
+  --v6-action-hover: #DAE4DE;
+  --v6-leaf: #3A7533;
+  --v6-leaf-wash: #E7EEE7;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #E8A13A;
+  --v6-band: #172119;
+  --v6-hover: #FAFBF9;
+  --v6-wash-hover: #DDE4DB;
+  --v6-shimmer: #EEF3EC;
+  --v6-tab-hover: #EBF1E9;
+  --v6-shadow: 31, 56, 40; --v6-ink-rgb: 24, 35, 26; --v6-page-rgb: 244, 247, 243; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 23, 33, 25;
+  --n300: #C8CDC8; --p100: #D1DED7; --p200: #A1BCAE; --p300: #82A692; --p400: #638F77; --p500: #487C60; --p600: #3B7355; --p900: #1A3A29;
+  --o50: #FCF1E1; --o200: #F5D5A6; --o600: #8A6023; --o700: #805920; --bad-press: #8C2920;
+}
+/* Monstera: Deeper leaf green, mango accent. body 9.9, small grey 5.1, button 7.7, links 6.4, field edges 3.2 */
+:root[data-palette="monstera"] body.staff6 {
+  --v6-page: #F2F6F2;
+  --v6-card: #FFFFFF;
+  --v6-wash: #E3EDE4;
+  --v6-hair: #E7E9E8;
+  --v6-ink: #132117;
+  --v6-body: #2B3B2F;
+  --v6-muted: #546658;
+  --v6-field: #838B84;
+  --v6-action: #1F5E3B;
+  --v6-action-press: #194D30;
+  --v6-action-wash: #E4ECE7;
+  --v6-action-hover: #D7E2DC;
+  --v6-leaf: #2D753C;
+  --v6-leaf-wash: #E6EEE8;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #F0A33A;
+  --v6-band: #121F16;
+  --v6-hover: #F9FBF9;
+  --v6-wash-hover: #D9E3DA;
+  --v6-shimmer: #EBF2EB;
+  --v6-tab-hover: #E8F0E8;
+  --v6-shadow: 23, 51, 34; --v6-ink-rgb: 19, 33, 23; --v6-page-rgb: 242, 246, 242; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 18, 31, 22;
+  --n300: #C5CBC6; --p100: #CEDCD4; --p200: #9AB7A7; --p300: #799E89; --p400: #57866C; --p500: #3A7153; --p600: #2C6847; --p900: #113420;
+  --o50: #FDF1E1; --o200: #F8D6A6; --o600: #895D22; --o700: #845A20; --bad-press: #8C2920;
+}
+/* Palm: Green-teal with clear white. body 9.9, small grey 5.2, button 6.4, links 5.4, field edges 3.2 */
+:root[data-palette="palm"] body.staff6 {
+  --v6-page: #F5F8F7;
+  --v6-card: #FFFFFF;
+  --v6-wash: #E7EFEC;
+  --v6-hair: #E7E9E9;
+  --v6-ink: #132320;
+  --v6-body: #2C3C38;
+  --v6-muted: #566662;
+  --v6-field: #848D8B;
+  --v6-action: #1E6B5A;
+  --v6-action-press: #19584A;
+  --v6-action-wash: #E4EDEB;
+  --v6-action-hover: #D7E4E1;
+  --v6-leaf: #3A7533;
+  --v6-leaf-wash: #E7EEE7;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #F07A55;
+  --v6-band: #12211E;
+  --v6-hover: #FAFCFB;
+  --v6-wash-hover: #DCE5E2;
+  --v6-shimmer: #EEF4F2;
+  --v6-tab-hover: #EBF2EF;
+  --v6-shadow: 22, 57, 49; --v6-ink-rgb: 19, 35, 32; --v6-page-rgb: 245, 248, 247; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 18, 33, 30;
+  --n300: #C8CDCC; --p100: #CEDEDB; --p200: #9ABCB5; --p300: #78A69C; --p400: #569083; --p500: #397D6E; --p600: #2C7464; --p900: #113B32;
+  --o50: #FDEBE6; --o200: #F8C3B3; --o600: #A1523A; --o700: #84432F; --bad-press: #8C2920;
+}
+/* Sea Glass: Frosted sea-glass ground, gentle teal. body 9.4, small grey 5.0, button 5.8, links 4.9, field edges 3.2 */
+:root[data-palette="sea-glass"] body.staff6 {
+  --v6-page: #F1F7F7;
+  --v6-card: #FFFFFF;
+  --v6-wash: #E0EEEE;
+  --v6-hair: #E7E9E9;
+  --v6-ink: #122627;
+  --v6-body: #2A3F40;
+  --v6-muted: #536869;
+  --v6-field: #828D8E;
+  --v6-action: #286F73;
+  --v6-action-press: #215B5E;
+  --v6-action-wash: #E5EEEE;
+  --v6-action-hover: #D8E5E6;
+  --v6-leaf: #2D753C;
+  --v6-leaf-wash: #E6EEE8;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #7CC6BB;
+  --v6-band: #112425;
+  --v6-hover: #F8FBFB;
+  --v6-wash-hover: #D6E4E4;
+  --v6-shimmer: #E9F3F3;
+  --v6-tab-hover: #E5F1F1;
+  --v6-shadow: 25, 60, 62; --v6-ink-rgb: 18, 38, 39; --v6-page-rgb: 241, 247, 247; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 17, 36, 37;
+  --n300: #C4CDCD; --p100: #D0DFE0; --p200: #9EBEC0; --p300: #7EA9AB; --p400: #5E9396; --p500: #428084; --p600: #35787B; --p900: #163D3F;
+  --o50: #EBF6F5; --o200: #C4E5E0; --o600: #456C67; --o700: #446D67; --bad-press: #8C2920;
+}
+/* Slate and Sea: Quiet cool grey, muted slate-teal. body 9.4, small grey 5.0, button 7.0, links 5.8, field edges 3.2 */
+:root[data-palette="slate-sea"] body.staff6 {
+  --v6-page: #F3F5F6;
+  --v6-card: #FFFFFF;
+  --v6-wash: #E7EBED;
+  --v6-hair: #E8E9E9;
+  --v6-ink: #182227;
+  --v6-body: #313C42;
+  --v6-muted: #5A656B;
+  --v6-field: #858A8D;
+  --v6-action: #335F70;
+  --v6-action-press: #2A4E5C;
+  --v6-action-wash: #E7ECEE;
+  --v6-action-hover: #DAE2E5;
+  --v6-leaf: #2C714D;
+  --v6-leaf-wash: #E6EEEA;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #E9906A;
+  --v6-band: #172025;
+  --v6-hover: #F9FAFB;
+  --v6-wash-hover: #DDE1E3;
+  --v6-shimmer: #EDF0F2;
+  --v6-tab-hover: #EBEEF0;
+  --v6-shadow: 32, 52, 61; --v6-ink-rgb: 24, 34, 39; --v6-page-rgb: 243, 245, 246; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 23, 32, 37;
+  --n300: #C7CBCD; --p100: #D2DCE0; --p200: #A3B7BF; --p300: #859FA9; --p400: #668794; --p500: #4B7281; --p600: #3F6979; --p900: #1C343E;
+  --o50: #FCEEE9; --o200: #F5CDBC; --o600: #905941; --o700: #804F3A; --bad-press: #8C2920;
+}
+/* Mānoa Mist: Misty blue-grey, soft periwinkle. body 9.4, small grey 5.0, button 6.0, links 5.0, field edges 3.2 */
+:root[data-palette="manoa-mist"] body.staff6 {
+  --v6-page: #F3F6F8;
+  --v6-card: #FFFFFF;
+  --v6-wash: #E6ECF1;
+  --v6-hair: #E8E9EA;
+  --v6-ink: #172230;
+  --v6-body: #303C4A;
+  --v6-muted: #596574;
+  --v6-field: #858B91;
+  --v6-action: #3F649C;
+  --v6-action-press: #345280;
+  --v6-action-wash: #E8ECF3;
+  --v6-action-hover: #DCE3ED;
+  --v6-leaf: #2E7650;
+  --v6-leaf-wash: #E6EFEA;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #F2A541;
+  --v6-band: #16202E;
+  --v6-hover: #F9FBFC;
+  --v6-wash-hover: #DCE2E7;
+  --v6-shimmer: #EDF1F5;
+  --v6-tab-hover: #EAEFF3;
+  --v6-shadow: 35, 54, 80; --v6-ink-rgb: 23, 34, 48; --v6-page-rgb: 243, 246, 248; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 22, 32, 46;
+  --n300: #C7CCD0; --p100: #D5DDE9; --p200: #A9B9D2; --p300: #8CA2C4; --p400: #6F8BB5; --p500: #5677A8; --p600: #4B6DA2; --p900: #233756;
+  --o50: #FDF2E3; --o200: #F9D7AA; --o600: #8A5F24; --o700: #855B24; --bad-press: #8C2920;
+}
+/* Cloud: Pure white page, soft grey wells, ocean teal. body 10.8, small grey 5.6, button 6.4, links 5.7, field edges 3.3 */
+:root[data-palette="cloud"] body.staff6 {
+  --v6-page: #FFFFFF;
+  --v6-card: #FFFFFF;
+  --v6-wash: #F1F3F4;
+  --v6-hair: #E8E8E9;
+  --v6-ink: #1A1D1F;
+  --v6-body: #33373A;
+  --v6-muted: #5C6166;
+  --v6-field: #8D8E8F;
+  --v6-action: #00697A;
+  --v6-action-press: #005664;
+  --v6-action-wash: #E0EDEF;
+  --v6-action-hover: #D1E4E7;
+  --v6-leaf: #2E7650;
+  --v6-leaf-wash: #E6EFEA;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #F07A55;
+  --v6-band: #191C1D;
+  --v6-hover: #FFFFFF;
+  --v6-wash-hover: #E6E8E9;
+  --v6-shimmer: #F8F9FA;
+  --v6-tab-hover: #F5F7F7;
+  --v6-shadow: 18, 52, 58; --v6-ink-rgb: 26, 29, 31; --v6-page-rgb: 255, 255, 255; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 25, 28, 29;
+  --n300: #D1D2D2; --p100: #C7DEE2; --p200: #8CBCC3; --p300: #66A5AF; --p400: #408F9B; --p500: #1F7B8A; --p600: #0F7282; --p900: #003A43;
+  --o50: #FDEBE6; --o200: #F8C3B3; --o600: #A8553C; --o700: #84432F; --bad-press: #8C2920;
+}
+/* Morning Reef: Warm sand, ocean teal and leaf green. body 8.9, small grey 5.2, button 6.0, links 4.9, field edges 3.5 */
+:root[data-palette="morning-reef"] body.staff6 {
+  --v6-page: #F7F3EA;
+  --v6-card: #FFFEFA;
+  --v6-wash: #EEE7DA;
+  --v6-hair: #E3DACB;
+  --v6-ink: #25221E;
+  --v6-body: #433B33;
+  --v6-muted: #685D52;
+  --v6-field: #8C7F70;
+  --v6-action: #0B6E73;
+  --v6-action-press: #095A5E;
+  --v6-action-wash: #E2EFEE;
+  --v6-action-hover: #D3E7E5;
+  --v6-leaf: #3A7533;
+  --v6-leaf-wash: #E5F0E1;
+  --v6-late: #955A00;
+  --v6-late-wash: #FBEFD9;
+  --v6-bad: #AF3328;
+  --v6-bad-wash: #FBE9E5;
+  --v6-coral: #EE7B4F;
+  --v6-band: #3B332B;
+  --v6-hover: #FBF8F1;
+  --v6-wash-hover: #E6DDCD;
+  --v6-shimmer: #F3EEE3;
+  --v6-tab-hover: #F1EBDF;
+  --v6-shadow: 74, 52, 30; --v6-ink-rgb: 37, 34, 30; --v6-page-rgb: 247, 243, 234; --v6-card-rgb: 255, 254, 250; --v6-band-rgb: 59, 51, 43;
+  --n300: #D2C6B4; --p100: #C6E0DE; --p200: #8FD3CF; --p300: #6AB5B3; --p400: #3B9A9B; --p500: #1C8388; --p600: #12787D; --p900: #073F42;
+  --o50: #FDEEE6; --o200: #F8C6AE; --o600: #A84A22; --o700: #8C3C19; --bad-press: #8E281F;
+}

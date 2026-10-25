@@ -661,7 +661,7 @@ body.staff6 .pr6-people { display: flex; flex-wrap: wrap; gap: 0 var(--s32); mar
 body.staff6 .pr6-who { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); min-height: 44px; margin: 0; font-size: var(--v6-t16); color: var(--v6-ink); }
 body.staff6 .pr6-wl { color: var(--v6-muted); }
 body.staff6 .pr6-helper { display: inline-flex; align-items: center; gap: var(--s8); min-height: 40px; padding: 0 var(--s12) 0 var(--s4); border: 0; border-radius: var(--v6-pill); background: var(--v6-wash); color: var(--v6-ink); font: inherit; cursor: pointer; }
-body.staff6 .pr6-helper:hover { background: #E6DDCD; }
+body.staff6 .pr6-helper:hover { background: var(--v6-wash-hover); }
 body.staff6 .pr6-helper:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 body.staff6 .pr6-steps { list-style: none; margin: var(--s12) 0 0; padding: 0; }
 body.staff6 .pr6-step { position: relative; display: flex; align-items: flex-start; gap: var(--s12); padding: var(--s16) 0; }

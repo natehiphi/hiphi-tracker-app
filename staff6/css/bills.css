@@ -218,7 +218,7 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
 .bl-vinput { width: 100%; }
 @media (min-width: 900px) {
   dialog.sv-sheet.bl-pop { position: fixed; margin: 0; right: auto; bottom: auto; min-height: 0; height: auto; border-radius: var(--v6-r20); box-shadow: var(--v6-sh3); }
-  dialog.sv-sheet.bl-pop::backdrop { background: rgba(59, 51, 43, .12); }
+  dialog.sv-sheet.bl-pop::backdrop { background: rgba(var(--v6-band-rgb), .12); }
   dialog.sv-sheet .bl-colsep { height: 1px; background: var(--v6-hair); margin: var(--s4) 0; }
 }
 
@@ -303,7 +303,7 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-tnote { display: flex; align-items: center; gap: 6px; margin: 0 0 var(--s8); font-size: var(--v6-t14); color: var(--v6-muted); }
   .bl-tnote .ic { width: 16px; height: 16px; flex: none; }
   .bl-twrap { position: relative; }
-  .bl-twrap::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 28px; border-radius: 0 var(--v6-r20) var(--v6-r20) 0; background: linear-gradient(90deg, rgba(74, 52, 30, 0), rgba(74, 52, 30, .08)); pointer-events: none; transition: opacity .15s; }
+  .bl-twrap::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 28px; border-radius: 0 var(--v6-r20) var(--v6-r20) 0; background: linear-gradient(90deg, rgba(var(--v6-shadow), 0), rgba(var(--v6-shadow), .08)); pointer-events: none; transition: opacity .15s; }
   .bl-twrap.bl-end::after { opacity: 0; }
   .bl-tscroll { overflow-x: auto; overflow-y: hidden; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
   .bl-tscroll .bl-table { border-radius: 0; box-shadow: none; }

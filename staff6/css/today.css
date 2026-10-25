@@ -1132,7 +1132,7 @@ body.staff6 .pq6 .pq-t .pq-side::before { content: '· '; }
 /* The open item's Approve and Ask for a change stay in reach at its foot, sticky as Review's bar is (Nate's walk: they sat
    330px below the fold at 1440x900); above the phone's bar on a phone. */
 body.staff6 .t6-item.pq6 > .pq-acts { position: sticky; bottom: 0; z-index: 3; margin: 8px -16px 0; padding: 12px 16px; background: var(--v6-card);
-  box-shadow: 0 -12px 16px -14px rgba(74, 52, 30, .28); border-radius: 0 0 var(--v6-r20) var(--v6-r20); }
+  box-shadow: 0 -12px 16px -14px rgba(var(--v6-shadow), .28); border-radius: 0 0 var(--v6-r20) var(--v6-r20); }
 @media (max-width: 767px) { body.staff6 .t6-item.pq6 > .pq-acts { bottom: calc(var(--tabbar, 64px) + var(--safe-b, 0px)); border-radius: var(--v6-r12); } }
 body.staff6 .pq6 .pq-meta { color: var(--v6-muted); }
 body.staff6 .pq6 .pq-flag, body.staff6 .pq6 .pq-askwhen { color: var(--v6-body); }
