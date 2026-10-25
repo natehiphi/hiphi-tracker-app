@@ -144,6 +144,18 @@ function pageHTML(route, l, back) {
   const sub = [PARTY[l.party] || l.party, `${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}`, island === 'Hawaiʻi' ? 'Hawaiʻi Island' : island].filter(Boolean).join(' · ');
   const ours = intro.filter(b => ourBill(b)).length;
   const billsTitle = asks.length ? 'Our other bills in their committees' : 'Our bills in their committees';
+  // The pencil's hint is said once, over the first list that has a pencil (R-336 walk 2: it was printed over both).
+  const PENCIL = 'The pencil beside a bill marks where they stand on it.';
+  const waitPencil = asks.length > 0 && asks.some(x => !x.waitingMine && unknownStance(x.b, l));
+  const cmPencil = !waitPencil && [...(fromRest ? [fromRest] : []), ...inCm].some(b => unknownStance(b, l));
+  // A bill they introduced with no nickname shows its official description, which ran to two bold lines (R-336 walk 2). It is
+  // cut at a word to about a nickname's length (40 characters), the whole of it in the name's title. A word cut rather than
+  // a CSS ellipsis, so nothing is hidden by a box at 200% zoom (tests/staff6_journeys.py); a nickname is left as it is.
+  const cutName = t => t.length <= 44 ? t : t.slice(0, 41).replace(/[\s,;:.(-]+\S*$/, '').replace(/([\s,;:.(-]+(and|or|of|the|a|an|to|for|with|in|on|by))+$/i, '').replace(/[\s,;:.(-]+$/, '') + '…';   // never ends on "and…"
+  const unesc = t => t.replace(/&(amp|lt|gt|quot|#39);/g, (m, k) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" }[k]));
+  const introRow = b => { const row = billRow(b, { line: nw(esc(whereWords(b, { deadline: false }))), button: false, cls: b.nickname ? 'lg6-wrap' : 'lg6-wrap lg6-intro' });
+    return b.nickname ? row : row.replace(/<span class="v6-row-name">([^<]*)<\/span>/, (m, t) => { const full = unesc(t), cut = cutName(full);
+      return cut === full ? m : `<span class="v6-row-name" title="${esc(full)}">${esc(cut)}</span>`; }); };
   return `<div class="lg6-page">
     <a class="lg6-back" href="${esc(back.href)}" data-back>${icon('chevron-left')}<span>${esc(back.label)}</span></a>
     <header class="lg6-phead"><span class="lg6-pph" aria-hidden="true">${photo(l, 64)}</span><div class="lg6-pt"><h1>${esc(legName(l))}</h1><p class="lg6-psub">${esc(sub)}</p>${l.title ? `<p class="lg6-psub">${esc(l.title)}</p>` : ''}</div></header>
@@ -151,14 +163,14 @@ function pageHTML(route, l, back) {
     ${PROFILES() ? profileTipHTML(l) : ''}
     ${section('lg6-s-talks', 'Asks and talks', n || null, talksHTML(l))}
     ${asks.length ? section('lg6-s-wait', 'Waiting on them for a hearing', asks.length, folded(`${l.id}|wait`, asks.map(x => standRow(x.b, l, { from: from?.id === x.b.id, ask: x })), `Our bills waiting on ${shortName(l)} for a hearing`,
-      { keep: asks.filter(x => x.own || x.follow || x.waitingMine || x.b.id === from?.id).length }), { sub: asks.some(x => !x.waitingMine && unknownStance(x.b, l)) ? 'The pencil beside a bill marks where they stand on it.' : '' }) : ''}
+      { keep: asks.filter(x => x.own || x.follow || x.waitingMine || x.b.id === from?.id).length }), { sub: waitPencil ? PENCIL : '' }) : ''}
     ${seats.length ? section('lg6-s-bills', billsTitle, inCm.length + (fromRest ? 1 : 0) || null,
       stand.length ? folded(`${l.id}|cm`, stand, `${billsTitle}, ${shortName(l)}`) : `<p class="lg6-none">${asks.length ? 'None besides the bills waiting on them.' : 'None of our live bills is in their committees right now.'}</p>`,
-      { sub: [...(fromRest ? [fromRest] : []), ...inCm].some(b => unknownStance(b, l)) ? 'The pencil beside a bill marks where they stand on it.' : '' })
+      { sub: cmPencil ? PENCIL : '' })
       : section('lg6-s-bills', 'Our bills in their committees', null, `<p class="lg6-none">${noSeats(l)}</p>${fromRest ? listOf([standRow(fromRest, l, { from: true })], 'The bill you came from') : ''}`)}
     ${known.length ? section('lg6-s-known', 'Other bills they have a stance on', known.length, folded(`${l.id}|kn`, known.map(b => standRow(b, l)), 'Other bills they have a stance on')) : ''}
     ${PROFILES() ? profileHTML(l, { intro, tip: false }) : ''}
-    ${section('lg6-s-intro', 'Bills they introduced', intro.length || null, intro.length ? folded(`${l.id}|in`, intro.map(b => billRow(b, { line: nw(esc(whereWords(b, { deadline: false }))), button: false, cls: 'lg6-wrap' })), `Bills ${shortName(l)} introduced`) : `<p class="lg6-none">None of the bills on the tracker.</p>`,
+    ${section('lg6-s-intro', 'Bills they introduced', intro.length || null, intro.length ? folded(`${l.id}|in`, intro.map(introRow), `Bills ${shortName(l)} introduced`) : `<p class="lg6-none">None of the bills on the tracker.</p>`,
       { sub: intro.length ? (ours ? `${ours} of them ${ours === 1 ? 'has' : 'have'} our position` : 'None of them has our position') : '' })}
     ${seats.length ? section('lg6-s-cm', 'Committees', null, `<ul class="lg6-facts">${seats.map(m => `<li><span>${esc(committeeName(m.committee))}</span>${m.role !== 'member' ? `<span class="lg6-role">${esc(roleWord(m.role))}</span>` : ''}</li>`).join('')}</ul>`) : ''}
     ${section('lg6-s-office', 'Contact', null, `<ul class="lg6-facts lg6-contact">
