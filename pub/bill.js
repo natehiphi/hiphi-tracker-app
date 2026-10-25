@@ -569,6 +569,10 @@ export function railHTML(b, x) {
       <p class="bl-learn"><a href="#/learn/session/${esc(b.id)}">${icon('play')}<span>Watch this bill’s trip through the Capitol, about a minute</span></a></p></details>`;   // the lesson, in the moment (R-067 #11)
 }
 
+// "Print this page", last in either page's ⋯ menu (R-212 #48, the Teacher's walk: "no print"; A-20: a phone has no print
+// button of its own). It prints the page as pub/print.css lays it out on paper, with every fold open (track.html).
+const printItem = `<button type="button" class="bl-mi" data-bl-print="1">${icon('printer')}<span>Print this page</span></button>`;
+
 // ---------------- the page ----------------
 // Phones: Back, the number, Share, the follow star and a small menu, in a bar that stays at the top. Wide screens: Back,
 // the number and Share in a plain row (follow and "Add to a list" sit in the side panel, which stays in view).
@@ -583,6 +587,7 @@ function topbar(num, b) {
         <div class="bl-menu" id="bl-menu" hidden>
           <button type="button" class="bl-mi" data-bl-addto="1">${icon('list-plus')}<span>Add to a list</span></button>
           <a class="bl-mi" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" data-bl-close="1" data-ab-go="capitol">${icon('landmark')}<span>Capitol bill page</span>${icon('external-link', { cls: 'bl-ext' })}</a>
+          ${printItem}
         </div></div>` : '';
   const to = backName();
   return `<div class="bl-top${w ? ' bl-topw' : ''}"><button type="button" class="btn text bl-back" data-bl-back="1"${to ? ` aria-label="Back to ${esc(to)}"` : ''}>${icon('arrow-left')}<span>${esc(to || 'Back')}</span></button>
@@ -1319,6 +1324,7 @@ function recTop(b) {
           <button type="button" class="bl-mi" data-bl-star="1" aria-pressed="${on}">${icon(on ? 'check' : 'star')}<span>${on ? `Following this bill${alone}` : `Follow this bill${alone}`}</span></button>
           <button type="button" class="bl-mi" data-bl-addto="1">${icon('list-plus')}<span>Add to a list</span></button>
           <a class="bl-mi" href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" data-bl-close="1" data-ab-go="capitol">${icon('landmark')}<span>Capitol bill page</span>${icon('external-link', { cls: 'bl-ext' })}</a>
+          ${printItem}
         </div></div></div></div>`;
 }
 function recHead(b, x) {
@@ -1615,6 +1621,7 @@ export default {
     root.querySelector('[data-bl-menu]')?.addEventListener('click', e => { e.stopPropagation(); setMenu(document.getElementById('bl-menu').hidden); });
     root.querySelectorAll('[data-bl-addto]').forEach(el => el.addEventListener('click', () => { setMenu(false); openAddTo(b); }));
     root.querySelector('[data-bl-close]')?.addEventListener('click', () => setMenu(false));
+    root.querySelector('[data-bl-print]')?.addEventListener('click', () => { setMenu(false, true); window.print(); });
     each('[data-bl-newlater]', el => el.addEventListener('click', () => { logVisit('arrive', 'skip', { path: 'link' }); S.blLooking.add(b.id); app.render(); }));
     each('[data-bl-tour]', el => el.addEventListener('click', () => viaStart(b, { viaSkipAsk: true })));
     each('[data-bl-billtour]', el => el.addEventListener('click', () => app.billTour?.()));
