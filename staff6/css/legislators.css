@@ -673,11 +673,48 @@ body.staff6 :is(.lg6-gph, .lg6-pph) .lg-ph.none { font-weight: 400; }
 }
 body.staff6 .lg6-stand .iconbtn.lg6-standb { width: 44px; height: 44px; color: var(--v6-action); }
 
-/* Legislators > Everyone: each row leads with the legislator's photo, an initial when there is none (R-336 walk 2). The
-   name, district and line sit in a column beside it, so every name still starts at the same place. */
-body.staff6 .v6-row-main.lg6-prow { flex-direction: row; align-items: center; gap: 12px; }
+/* A legislator's face on Everyone's cards: the photo over its initial, the initial showing when there is no photo or it
+   fails to load (R-336 walk 2). Sized for the card below (.lg6-cph). */
 body.staff6 .lg6-rph { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%;
   background: var(--v6-wash); color: var(--v6-body); font: 400 var(--v6-t16)/1 Poppins, system-ui, sans-serif; }
 body.staff6 .lg6-rph::before { content: attr(data-i); }
 body.staff6 .lg6-rph .lg-ph { position: absolute; inset: 0; width: 40px; height: 40px; background: var(--v6-wash); }
-body.staff6 .lg6-rtx { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+
+/* Legislators > Everyone as a grid of faces (R-336 walk 2, Nate: "Profile pictures, easy to identify. Not one big long
+   list?"). One chamber at a time, in groups (an island, a committee) or A to Z; each card one link: a 96px photo framed at
+   the top of the face (the .lg-ph object-position), the name at 18px, the district and one line at 16px (A-4 on v6). A card
+   is the card ground and the resting shadow, no border (A-8 on v6): radius 20, the photo round, the switch a pill. About
+   five cards a row in the 920px column of a 1440 laptop, two on a 390 phone. */
+body.staff6 .lg6-chcap { gap: 8px 16px; }
+body.staff6 .lg6-chcap .sv-seg { flex: none; }
+body.staff6 .lg6-groups { display: flex; flex-direction: column; gap: 32px; }
+body.staff6 .lg6-sh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 12px; }
+body.staff6 .lg6-sh h2 { margin: 0; font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+body.staff6 .lg6-sn { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
+body.staff6 .lg6-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 16px; }
+body.staff6 .lg6-cell { display: flex; flex-direction: column; min-width: 0; }
+body.staff6 .lg6-card { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; padding: 20px 12px 16px;
+  border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); color: inherit; text-align: center; text-decoration: none;
+  transition: box-shadow .15s ease-out; }
+body.staff6 .lg6-card:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .lg6-rph.lg6-cph { width: 96px; height: 96px; margin: 0 0 8px; font: 400 36px/1 Poppins, system-ui, sans-serif; }
+body.staff6 .lg6-rph.lg6-cph .lg-ph { width: 96px; height: 96px; object-fit: cover; object-position: 50% 20%; }
+body.staff6 .lg6-cname { font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); overflow-wrap: anywhere; }
+body.staff6 .lg6-cdist { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
+body.staff6 .lg6-cline { margin-top: 4px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+/* A to Z: one grid, the letter over the first card of each letter; every cell keeps the letter's room so a row lines up. */
+body.staff6 .lg6-let { height: 32px; margin: 0; font: 600 var(--v6-t22)/32px Poppins, system-ui, sans-serif; color: var(--v6-ink); padding-left: 4px; }
+body.staff6 .lg6-az .lg6-cell:not(:has(.lg6-let))::before { content: ''; display: block; height: 32px; }
+@media (hover: hover) and (pointer: fine) {
+  body.staff6 .lg6-card:hover { box-shadow: var(--v6-sh2); }
+  body.staff6 .lg6-card:hover .lg6-cname { text-decoration: underline; text-underline-offset: 4px; }
+}
+@media (prefers-reduced-motion: reduce) { body.staff6 .lg6-card { transition: none; } }
+@media (max-width: 767px) {
+  body.staff6 .lg6-groups { gap: 24px; }
+  body.staff6 .lg6-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  body.staff6 .lg6-card { padding: 16px 8px 12px; }
+  body.staff6 .lg6-rph.lg6-cph, body.staff6 .lg6-rph.lg6-cph .lg-ph { width: 80px; height: 80px; }
+  body.staff6 .lg6-rph.lg6-cph { font-size: 30px; }
+  body.staff6 .lg6-sh h2 { font-size: var(--v6-t18); line-height: var(--v6-lh18); }
+}
