@@ -1027,7 +1027,7 @@ look at it.
 ### A-12 addition on v6: page tabs never look like a switch
 
 Page tabs show the open tab bold with a teal bar under it, never a pill, so they never look like the Mine | Team switch
-(spec 13). Tab rows wrap on phones: never a row that scrolls sideways and hides tabs past the edge (12.3).
+(spec 13). Tab rows on phones are one row that slides sideways, the open tab scrolled into view and the edge with more tabs faded (Nate 25 Oct, walk 1: Testimony's five tabs wrapped onto two lines; this replaces the earlier "tab rows wrap" rule, 12.3).
 
 *Reason.* A switch shows the same list another way; a tab goes to another page (C-15's Filter row). When the two look alike
 a person cannot tell which one they are pressing, which is what A-12 forbids. A tab row that scrolls sideways hides the
