@@ -134,9 +134,10 @@
     if (i >= 0) { var q = new URLSearchParams(h.slice(i + 1)); q.delete('from'); h = h.slice(0, i) + (String(q) ? '?' + q : ''); }
     return location.host + location.pathname + (/[?&]demo=1(&|$)/.test(location.search) ? '?demo=1' : '') + h;
   }
-  // The app's own clock and date style ("Mar 16, 2026"): the practice copy's printed day is its made-up one, as its band says.
+  // The app's own clock and date style, with the weekday ("Mon, Mar 16, 2026"), so the page's own "today", "tomorrow" and
+  // weekdays can be read on paper; the practice copy's printed day is its made-up one, as its band says.
   function today() {
-    try { return new Date().toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', month: 'short', day: 'numeric', year: 'numeric' }); }
+    try { return new Date().toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }); }
     catch (e) { return new Date().toDateString(); }
   }
   // What the paper needs, for everything on the page now and again whenever a screen draws itself while printing (a laptop's
@@ -160,7 +161,11 @@
   }
   function start() {
     if (on) return; on = true;
-    if (line) line.textContent = 'Printed ' + today() + ' from HIPHI\u2019s Bill Tracker. For the latest: ' + where();
+    var day = today();
+    // The day at the top of page 1 too, after the brand (pub/print.css puts it there and on a sheet printed alone): the page's
+    // deadlines say "today", "tomorrow" or a weekday, and this is the day they mean (docs/DESIGN-AUDIT.md, section 4).
+    document.documentElement.style.setProperty('--pr-day', JSON.stringify(' \u00b7 Printed ' + day));
+    if (line) line.textContent = 'Printed ' + day + ' from HIPHI\u2019s Bill Tracker. For the latest: ' + where();
     sweep();
     try { mo = new MutationObserver(sweep); mo.observe(document.body, { childList: true, subtree: true }); } catch (e) { mo = null; }
   }
@@ -172,7 +177,7 @@
     for (i = 0; i < copies.length; i++) copies[i].remove();
     opened = []; boxes = []; copies = [];
     if (sheet) sheet.removeAttribute('data-pr-sheet');
-    sheet = null; document.documentElement.classList.remove('pr-sheet');
+    sheet = null; document.documentElement.classList.remove('pr-sheet'); document.documentElement.style.removeProperty('--pr-day');
     if (line) { line.textContent = ''; spot.insertBefore(line, after && after.parentNode === spot ? after : null); }
   }
   // A fold opened or closed for the paper is not the person's: its toggle event stops here, before any screen hears it.
@@ -183,6 +188,9 @@
   }, true);
   window.addEventListener('beforeprint', start);
   window.addEventListener('afterprint', end);
+  // The bill page's "Print this page" starts it before asking the browser to print (pub/bill.js), for a phone whose browser
+  // may not say it is about to print; the end still comes from afterprint or the print media query.
+  window.__hiphiPrint = { start: start, end: end };
   try {
     var mq = window.matchMedia('print'), f = function (e) { if (e.matches) start(); else end(); };
     if (mq.addEventListener) mq.addEventListener('change', f); else mq.addListener(f);

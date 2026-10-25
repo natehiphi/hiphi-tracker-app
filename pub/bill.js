@@ -1621,7 +1621,7 @@ export default {
     root.querySelector('[data-bl-menu]')?.addEventListener('click', e => { e.stopPropagation(); setMenu(document.getElementById('bl-menu').hidden); });
     root.querySelectorAll('[data-bl-addto]').forEach(el => el.addEventListener('click', () => { setMenu(false); openAddTo(b); }));
     root.querySelector('[data-bl-close]')?.addEventListener('click', () => setMenu(false));
-    root.querySelector('[data-bl-print]')?.addEventListener('click', () => { setMenu(false, true); window.print(); });
+    root.querySelector('[data-bl-print]')?.addEventListener('click', () => { setMenu(false, true); window.__hiphiPrint?.start(); window.print(); });
     each('[data-bl-newlater]', el => el.addEventListener('click', () => { logVisit('arrive', 'skip', { path: 'link' }); S.blLooking.add(b.id); app.render(); }));
     each('[data-bl-tour]', el => el.addEventListener('click', () => viaStart(b, { viaSkipAsk: true })));
     each('[data-bl-billtour]', el => el.addEventListener('click', () => app.billTour?.()));
