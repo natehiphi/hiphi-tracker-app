@@ -14,10 +14,12 @@
 #   4. between sessions, a stopped bill's main button "Follow the issue: ..." asks the same.
 #   5. testimony from a shared link: on the "Mahalo" screen the ask is right under the thank-you, above "What happens
 #      next", and its box is on the first phone screen above the Done bar; the line is the letter's (send it again).
-#   6. a bill page's "New here?" Follow: the first visit's screen says "Save your profile".
+#   6. a bill page's "New here?" Follow (the old pages, ?rec=0): "Save your profile" in the sheet over the bill, as after
+#      every follow, then the "Mahalo!" over the bill (R-212 #47, 24 Oct; it was the first visit's screen).
 #   7. someone who already gave a number is never asked.
-#   8. the backup (?ab=save.alerts): no sheet after an issue's Follow (the toast only), "Get alerts on your issue" on the
-#      first visit's screen, and the letter's ask under "What happens next", as before 6 Oct.
+#   8. the backup (?ab=save.alerts): no sheet after an issue's Follow (the toast only), nor after a bill page's "New here?"
+#      Follow, which plays its "Mahalo!" over the bill (R-212 #47; it was "Get alerts on your issue" on the first visit's
+#      screen), and the letter's ask under "What happens next", as before 6 Oct.
 #  10. the practice copy's direct link ?demo=1&fvstep=save (R-188, pub/fvjump.js): opens "Save your profile" with two sample
 #      issues followed (the sentence says "your 2 issues"), Back and Next walk it, the box texts a code, a reload keeps the
 #      run; without demo=1 or with an unknown name nothing jumps.
@@ -169,14 +171,19 @@ with sync_playwright() as pw:
     ok(p.locator('#hp-dlg .nudgecard').count() == 0 and p.locator('#hp-dlg .hp-friend').count() == 1 and bar == ['Done', '*Ask a friend to speak up'], f'5: Not now: the profile card goes and the share ask takes its place ({bar})')
     c.close()
 
-    # ---- 6. a bill page's "New here?" Follow: the first visit's screen ----
+    # ---- 6. a bill page's "New here?" Follow: the sheet over the bill (R-212 #47) ----
+    # The card is the old pages' (?rec=0). Since R-212 #47 its Follow stays on the bill: the sheet first, as after every
+    # follow, then the "Mahalo!" over the bill. It went on to the first visit's screen, which said "Save your profile".
     c, p = ctx(br)
-    p.goto(f'{BASE}?demo=1&restart&via=share#/bill/2026/HB1573'); p.wait_for_timeout(3000)
+    p.goto(f'{BASE}?demo=1&restart&via=share&rec=0#/bill/2026/HB1573'); p.wait_for_timeout(3000)
     if p.locator('#hp-dlg[open]').count(): p.evaluate("document.getElementById('hp-dlg').close()"); p.wait_for_timeout(400)
     p.click('[data-bl-newfollow]'); p.wait_for_timeout(1000)
-    p.locator('#fx-moment button').first.click(); p.wait_for_timeout(1500)
-    h = p.inner_text('#st-h') if p.locator('#st-h').count() else ''
-    ok(h == 'Save your profile' and p.locator('#st-a-phone').count() == 1, f'6: the first visit’s screen says "Save your profile" ({h!r})')
+    s = sheet(p)
+    ok('Save your profile' in s and 'You’re following “FDA proof required to sell e-cigarettes”.' in s and p.locator('#al-sh-phone').count() == 1 and '#/bill/' in p.url and p.locator('#st-h').count() == 0,
+       f'6: "Save your profile" in the sheet over the bill, not the first visit’s screen ({s[:70]!r})')
+    p.click('[data-alshno]'); p.wait_for_timeout(300)
+    mo = p.evaluate("(() => { const m = document.getElementById('fx-moment'); return m && !m.hidden ? m.innerText : ''; })()")
+    ok(mo.startswith('Mahalo!') and '#/bill/' in p.url and onb(p).get('nudgeNo') == 1, f'6: Not now (recorded), then the "Mahalo!" over the bill ({mo[:60]!r})')
     c.close()
 
     # ---- 7. a number already given: never asked ----
@@ -199,13 +206,14 @@ with sync_playwright() as pw:
       return !!a && !!n && !!(n.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING); }""")
     ok(order and 'Get alerts on your issues' in d, '8: backup: the letter’s ask is "Get alerts", under "What happens next"')
     c.close()
+    # A bill page's "New here?" Follow (?rec=0): the backup asks nothing there either, and the "Mahalo!" plays over the bill
+    # (R-212 #47; it went on to the first visit's screen, which said "Get alerts").
     c, p = ctx(br)
-    p.goto(f'{BASE}?demo=1&restart&via=share&ab=save.alerts#/bill/2026/HB1573'); p.wait_for_timeout(3000)
+    p.goto(f'{BASE}?demo=1&restart&via=share&rec=0&ab=save.alerts#/bill/2026/HB1573'); p.wait_for_timeout(3000)
     if p.locator('#hp-dlg[open]').count(): p.evaluate("document.getElementById('hp-dlg').close()"); p.wait_for_timeout(400)
-    p.click('[data-bl-newfollow]'); p.wait_for_timeout(1000)
-    p.locator('#fx-moment button').first.click(); p.wait_for_timeout(1500)
-    h = p.inner_text('#st-h') if p.locator('#st-h').count() else ''
-    ok(h.startswith('Get alerts on your'), f'8: backup: the first visit’s screen says "Get alerts" ({h!r})')
+    p.click('[data-bl-newfollow]'); p.wait_for_timeout(300)
+    mo = p.evaluate("(() => { const m = document.getElementById('fx-moment'); return m && !m.hidden ? m.innerText : ''; })()")
+    ok(sheet(p) == '' and mo.startswith('Mahalo!') and '#/bill/' in p.url and p.locator('#st-h').count() == 0, f'8: backup: a bill page’s Follow asks nothing and stays on the bill ({mo[:60]!r})')
     c.close()
 
     # ---- a laptop: the sheet sits in the middle ----

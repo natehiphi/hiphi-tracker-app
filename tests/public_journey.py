@@ -238,7 +238,9 @@ with sync_playwright() as pw:
     c.close()
 
     # ---- 1b. a shared bill (R-023 decision 7): the easiest action first, "Follow this issue" second ----
-    c, p = ctx(b); fresh(p); visit(p, '/bill/HB2121', wait=3000)
+    # The "New here?" card is the old pages' (?rec=0) since the calm page became everyone's on 19 Oct (its action card does
+    # the card's job), so this part opens them.
+    c, p = ctx(b); fresh(p); visit(p, '/bill/HB2121', extra='&rec=0', wait=3000)
     ok(p.locator('.bl-newbie').count() == 1 and 'New here?' in text(p), 'a newcomer on a shared bill gets the "New here?" card')
     ok('testimony' in p.inner_text('.actionbar').lower(), 'testimony leads wherever there is a hearing (R-068)')
     ok(p.get_by_role('button', name='Follow this issue', exact=True).count() == 1 and 'instead' not in text(p), '"Follow this issue" once, without "instead"')
@@ -249,13 +251,18 @@ with sync_playwright() as pw:
     ok(p.evaluate('location.hash') in ('#/bill/HB2121', '#/bill/2026/HB2121') and p.locator('.bl-newbie').count() == 0 and p.locator('[data-bl-tour]').count() == 1, f"Just looking stays on the bill, with the tour one tap away ({p.evaluate('location.hash')})")
     p.locator('[data-bl-tour]').click(); p.wait_for_timeout(2000)
     ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story' and 'HB 2121' in text(p).replace('\xa0', ' '), f"the tour goes on to the story, on the bill they opened ({p.evaluate('location.hash')})")
-    fresh(p); visit(p, '/bill/HB2121', wait=3000); p.locator('[data-bl-newfollow]').click(); p.wait_for_timeout(300)
+    # R-212 #47 (24 Oct): following from the card stays on the bill: "Save your profile" over it first (R-184), then the
+    # "Mahalo!" over the bill, and the visit is finished there, the story of a bill offered in one quiet line where the
+    # card was. It went on to the alerts screen and the story of that bill, then Home (tests/follow_returns.py walks it all).
+    fresh(p); visit(p, '/bill/HB2121', extra='&rec=0', wait=3000); p.locator('[data-bl-newfollow]').click(); p.wait_for_timeout(600)
+    sh = p.evaluate("document.querySelector('dialog.al-sheet[open]')?.innerText || ''")
+    ok('Save your profile' in sh and 'Disposable e-cigarette ban' in sh, f'"Follow this issue" first asks "Save your profile", over the bill (R-184, R-212 #47) ({sh[:60]!r})')
+    p.click('[data-alshno]'); p.wait_for_timeout(300)
     ok(p.locator('#fx-moment:not([hidden])').count() == 1 and 'Disposable e-cigarette ban' in p.inner_text('#fx-moment'), '"Follow this issue" gets the Mahalo moment')
-    p.wait_for_timeout(1800)   # the moment leaves on its own and goes on to the alerts (R-140)
-    ok(p.locator('.st-alertspage').count() == 1, f"then the alerts on that issue (R-146) ({p.evaluate('location.hash')})")
-    p.locator('[data-stskip]').click(); p.wait_for_timeout(2000)
-    ok(p.evaluate("document.querySelector('main h1')?.innerText || ''") == 'A bill’s story' and 'just followed' in text(p), 'following from the card goes on to the story of that bill, without asking again')
-    std(p, 'link_lesson', axe=True)
+    p.wait_for_timeout(1800)   # the moment leaves on its own (R-140)
+    ok(p.evaluate('location.hash') in ('#/bill/HB2121', '#/bill/2026/HB2121') and p.locator('.st-alertspage').count() == 0 and p.locator('.bl-newbie').count() == 0, f"then it stays on the bill, the card gone (R-212 #47) ({p.evaluate('location.hash')})")
+    ok('New to this? See how a bill becomes law, about a minute.' in text(p), 'following from the card offers the story of a bill in one quiet line, where the card was')
+    std(p, 'link_followed', axe=True)
     fresh(p); p.evaluate("localStorage.setItem('hiphi_wiz', JSON.stringify({step:1, via:'HB2121', issues:[]}))"); visit(p, '/start/1', wait=3000)
     ok('Want us to tell you next time?' in text(p), 'after a quick email, "Want us to tell you next time?" asks about following'); std(p, 'followask', axe=True)
     # R-171: the "Mahalo!" after a newcomer's first action from a shared bill (app.newcomerActed) celebrates the act and
