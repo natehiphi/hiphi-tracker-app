@@ -206,3 +206,80 @@ body.staff6 .hg-logtop::before { display: none; }
 body.staff6 .ca-whorep { margin: 0 4px 8px; padding: 0; border: 0; }
 body.staff6 .ca-whorep legend { padding: 0; margin: 0 0 4px; font-size: var(--v6-t16); font-weight: 700; color: var(--v6-ink); }
 body.staff6 .ca-whorep .ca-how { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+
+/* ---- This week as a calendar (.hc-*, hearings.js calHTML; Nate 25 Oct walk 1) ----
+   Monday to Friday as five equal columns inside the work column (which widens for it: the list keeps its 880px), the
+   weekend in one strip below, a phone one day at a time with a row of day buttons. Calm (A-8, A-24 on v6): the days sit
+   on the page ground, today's column on the card ground; one quiet line per entry; only a hearing is a soft card (sh1, no
+   border); tokens only; nothing moves under Reduce Motion (A-10). */
+body.staff6 .hw-page.m-cal { max-width: none; }
+body.staff6 .hw-bar .sv-seg[aria-label="Show the week as"] { flex-wrap: nowrap; }
+body.staff6 .hc-cal { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
+body.staff6 .hc-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; min-width: 0; align-items: stretch; }
+body.staff6 .hc-day, body.staff6 .hc-wkend { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 12px; border-radius: var(--v6-r20); background: var(--v6-wash); }
+body.staff6 .hc-day.today { background: var(--v6-action-wash); }
+body.staff6 .hc-dh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; margin: 0; padding: 0 4px; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); color: var(--v6-ink); }
+body.staff6 .hc-dd { font-family: var(--font); font-weight: 400; font-size: var(--v6-t16); color: var(--v6-muted); }
+body.staff6 .hc-today { font-family: var(--font); font-weight: 700; font-size: var(--v6-t14); line-height: 20px; color: var(--v6-action); }
+body.staff6 .hc-day.past .hc-dh { color: var(--v6-body); }
+body.staff6 .hc-cap { display: flex; align-items: flex-start; gap: 6px; margin: 0; padding: 0 4px; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-body); }
+body.staff6 .hc-cap svg { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--v6-muted); }
+body.staff6 .hc-cap > span { min-width: 0; overflow-wrap: anywhere; }
+body.staff6 .hc-cap a { color: var(--v6-action); font-weight: 500; }
+body.staff6 .hc-capg { display: block; color: var(--v6-muted); }
+body.staff6 .hc-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; min-width: 0; }
+body.staff6 .hc-nothing { margin: 0; padding: 0 4px; font-size: var(--v6-t14); line-height: 20px; color: var(--v6-muted); }
+body.staff6 .hc-e { min-width: 0; }
+body.staff6 .hc-e a { color: inherit; text-decoration: none; }
+body.staff6 .hc-e a:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .hc-t { font-size: var(--v6-t14); line-height: 20px; font-weight: 700; color: var(--v6-ink); white-space: nowrap; }
+body.staff6 .hc-eh, body.staff6 .hc-hh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; margin: 0; }
+body.staff6 .hc-ek, body.staff6 .hc-hk { display: inline-flex; align-items: center; gap: 4px; font-size: var(--v6-t14); line-height: 20px; color: var(--v6-muted); }
+body.staff6 .hc-ek svg { width: 14px; height: 14px; flex: none; }
+body.staff6 .hc-es { display: block; margin: 0; font-size: var(--v6-t14); line-height: 20px; color: var(--v6-muted); overflow-wrap: anywhere; }
+body.staff6 .hc-bn { display: block; min-width: 0; overflow-wrap: anywhere; }
+body.staff6 .hc-st { display: inline-flex; align-items: center; gap: 4px; font-size: var(--v6-t14); line-height: 20px; color: var(--v6-muted); }
+body.staff6 .hc-st svg { width: 14px; height: 14px; flex: none; }
+body.staff6 .hc-st.late { color: var(--v6-late); font-weight: 700; }
+/* a hearing: the one soft card in a day */
+body.staff6 .hc-hl { display: grid; gap: 2px; padding: 10px 12px; border-radius: var(--v6-r12); background: var(--v6-card); box-shadow: var(--v6-sh1); transition: box-shadow 150ms ease; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .hc-hl:hover { box-shadow: var(--v6-sh2); } body.staff6 .hc-hl:hover .hc-cn { text-decoration: underline; text-underline-offset: 3px; } }
+body.staff6 .hc-cn { font-family: Poppins, system-ui, sans-serif; font-weight: 500; font-size: var(--v6-t16); line-height: 22px; color: var(--v6-ink); overflow-wrap: anywhere; }
+body.staff6 .hc-room { font-size: var(--v6-t14); line-height: 20px; color: var(--v6-muted); }
+body.staff6 .hc-going { display: inline-flex; align-items: center; gap: 4px; font-size: var(--v6-t14); line-height: 20px; color: var(--v6-action); }
+body.staff6 .hc-going svg { width: 14px; height: 14px; }
+body.staff6 .hc-bills { display: grid; gap: 6px; margin: 6px 0 0; padding: 6px 0 0; list-style: none; border-top: 1px solid var(--v6-hair); }
+body.staff6 .hc-bills li { display: grid; gap: 0; font-size: var(--v6-t14); line-height: 20px; color: var(--v6-body); }
+body.staff6 .hc-h.off .hc-cn { color: var(--v6-body); text-decoration: line-through; text-decoration-thickness: 1px; }
+/* testimony due and the person's own to-dos: one quiet line each, on the day's ground */
+body.staff6 .hc-due, body.staff6 .hc-todo { padding: 4px 4px; }
+body.staff6 .hc-dls { display: grid; gap: 0; margin: 2px 0 0; padding: 0; list-style: none; }
+body.staff6 .hc-dl, body.staff6 .hc-tl { display: grid; gap: 0; min-height: 40px; padding: 4px 0; align-content: center; font-size: var(--v6-t14); line-height: 20px; color: var(--v6-body); }
+body.staff6 .hc-dl .hc-bn { color: var(--v6-action); }
+body.staff6 .hc-tl .hc-tw { font-size: var(--v6-t16); line-height: 22px; color: var(--v6-action); overflow-wrap: anywhere; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .hc-dl:hover .hc-bn, body.staff6 .hc-tl:hover .hc-tw { text-decoration: underline; text-underline-offset: 3px; } }
+/* the weekend: one strip under the days, its entries side by side when there is room */
+body.staff6 .hc-wkend .hc-list { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 16px; }
+/* a phone's day buttons: hidden on a laptop, where every day is in view */
+body.staff6 .hc-pick { display: none; }
+@media (max-width: 1099.98px) and (min-width: 768px) { body.staff6 .hc-grid { gap: 8px; } body.staff6 .hc-day { padding: 10px 8px; } body.staff6 .hc-hl { padding: 8px 10px; } }
+@media (max-width: 767.98px) {
+  body.staff6 .hc-pick { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+  body.staff6 .hc-pick button { position: relative; display: grid; justify-items: center; gap: 0; min-height: 60px; padding: 6px 0 14px; border-radius: var(--v6-r12); background: var(--v6-wash);
+    color: var(--v6-body); font: 400 var(--v6-t14)/20px var(--font); cursor: pointer; }
+  body.staff6 .hc-pick .hc-pw { font-weight: 700; color: var(--v6-ink); }
+  /* the picked day as the segmented switch shows its picked side (raised on the card ground, a 3px action bar under it),
+     never a filled button: one filled button per screen (A-3 on v6) */
+  body.staff6 .hc-pick button[aria-pressed="true"] { background: var(--v6-card); box-shadow: var(--v6-sh1), inset 0 -3px 0 var(--v6-action); color: var(--v6-ink); }
+  body.staff6 .hc-pick button:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+  body.staff6 .hc-dot { position: absolute; bottom: 6px; width: 6px; height: 6px; border-radius: 50%; background: transparent; }
+  body.staff6 .hc-dot.on { background: var(--v6-action); }
+  body.staff6 .hc-grid { grid-template-columns: minmax(0, 1fr); }
+  body.staff6 .hc-day:not(.on) { display: none; }
+  body.staff6 .hc-day { padding: 16px; }
+  body.staff6 .hc-dh { font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); }
+  body.staff6 .hc-hl { padding: 12px 16px; }
+  body.staff6 .hc-dl, body.staff6 .hc-tl { min-height: 44px; }
+  body.staff6 .hc-wkend .hc-list { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) { body.staff6 .hc-hl { transition: none; } }

@@ -44,7 +44,8 @@ STATES = [   # a leading "=" keeps the case (a capitalised label); the rest igno
 ]
 # ---- 4: the names of places a Help page might use, the v5 ones v6 retires included ----
 # ("Review" is left out: it is a button and a mode opened from To approve, not a place.)
-PLACES = ['Today', 'This week', 'Hearings', 'Get hearings', 'Testimony', 'To write', 'To approve', 'Sent back', 'Ready to file',
+# 'Get hearings' is the tab's old name (Nate 25 Oct walk 1: "Bills That Need Hearings"), kept so a Help page still using it is caught
+PLACES = ['Today', 'This week', 'Hearings', 'Bills That Need Hearings', 'Get hearings', 'Testimony', 'To write', 'To approve', 'Sent back', 'Ready to file',
   'Outreach', 'This week’s asks', 'Partner update', 'Emails', 'Supporters', 'Lists', 'Bills', 'Sort new bills', 'Muted bills',
   'Legislators', 'Who to ask', 'Everyone', 'Holding our bills', 'My issues', 'Coalitions', 'All issues', 'Inbox', 'Messages', 'Updates',
   'Help', 'What moved', 'Team', 'People', 'Partners', 'Session setup', 'More tools', 'My settings', 'Weekly memo', 'Your menu', 'Tasks',
