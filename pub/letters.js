@@ -150,10 +150,13 @@ export const testifyLabel = (b, h, late = false) => { if (testimonyDraft(h)) ret
 // An email button's words (R-153): "Send my email again" when their email on this bill from another step is ready;
 // otherwise the button's own words (an email written from their testimony is offered inside, as a twin's is).
 export const mailLabel = (b, key, words, again = 'Send my email again') => { const r = readyMail(b, key); return r && !r.twin && !r.from ? again : words; };
-// One line under a hearing's details when a letter is ready: when they wrote (the button says it is ready; A-14).
+// One line under a hearing's details when a letter is ready: when they wrote (the button says it is ready; A-14). A letter
+// written for an earlier draft than the bill's now says so on this same line, beside "Send my letter again" (R-212 #50, the
+// critic 25 Oct: the warning sat on a row far below the button); data-older lets the issue page leave its row's line off.
 export function againLine(b, h) {
   const r = readyLetter(b, h, didKind(b, h, 'testimony'));
   if (!r || r.from || testimonyDraft(h)) return '';
-  return `<p class="again">${icon('notebook-pen')}<span>${r.twin ? `Your letter on its twin, ${esc(spaced(r.rec.num))}, can be used here.`
-    : `You wrote testimony on this bill${r.rec.at ? ` on ${esc(new Date(r.rec.at).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', month: 'short', day: 'numeric' }))}` : ''}.`}</span></p>`;
+  const now = b.current_version || '', older = !r.twin && /^(HD|SD|CD|FD)\d+$/.test(now) && rankOf(b, r.rec.draft || '') < rankOf(b, now);
+  return `<p class="again"${older ? ` data-older="${esc(b.id)}"` : ''}>${icon('notebook-pen')}<span>${r.twin ? `Your letter on its twin, ${esc(spaced(r.rec.num))}, can be used here.`
+    : `You wrote testimony on this bill${r.rec.at ? ` on ${esc(new Date(r.rec.at).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', month: 'short', day: 'numeric' }))}` : ''}${older ? ', for an older draft' : ''}.`}</span></p>`;
 }

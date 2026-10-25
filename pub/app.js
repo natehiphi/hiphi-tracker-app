@@ -157,7 +157,9 @@ export function parseRoute(h = location.hash) {
     case 'next': return { name: 'next', kind: seg[1] || '' };
     case 'bills': return { name: 'bills' };
     case 'find': return seg[1] === 'issue' ? { name: 'issue', slug: seg[2] || '' } : seg[1] === 'category' ? { name: 'category', key: seg[2] || '' } : { name: 'find', q: q.get('q') || '' };
-    case 'issue': return { name: 'issue', slug: seg[1] || '' };
+    // #/issue/<slug>/drafts (R-212 #50): My issues' "New drafts of HB 2121 and SB 2175" lands on the issue's bills, where each
+    // changed one is marked (rec/issue.js landDrafts), not on the page's top.
+    case 'issue': return { name: 'issue', slug: seg[1] || '', open: seg[2] === 'drafts' ? 'drafts' : undefined };
     case 'list': return { name: 'list', slug: seg[1] || '' };
     case 'mylist': return { name: 'mylist', id: seg[1] || '' };   // a person's own list, or one shared with them (R-013, pub/mylists.js)
     case 'l': return { name: 'shared', token: seg[1] || '' };      // a list shared by its link
@@ -166,7 +168,8 @@ export function parseRoute(h = location.hash) {
     // #/bill/HB1780/testify (or /email) opens the bill with its walkthrough already open: for emails, texts and the calendar feed (R-124).
     // /ask, /floor, /conference and /governor open those asks the same way: the share pages' links (R-169, bill.js openAsk).
     // /attend (R-205) opens the hearing's when-and-where, for a friend asked to come to it.
-    case 'bill': { const yr = /^\d{4}$/.test(seg[1] || '') ? +seg[1] : 0, open = seg[yr ? 3 : 2]; return { name: 'bill', num: String((yr ? seg[2] : seg[1]) || '').toUpperCase(), year: yr || undefined, open: ['testify', 'email', 'attend', 'ask', 'floor', 'conference', 'governor'].includes(open) ? open : undefined }; }
+    // /changes (R-212 #50) brings the bill's drafts into view: My issues' and the issue page's "New draft" line (pub/newdraft.js).
+    case 'bill': { const yr = /^\d{4}$/.test(seg[1] || '') ? +seg[1] : 0, open = seg[yr ? 3 : 2]; return { name: 'bill', num: String((yr ? seg[2] : seg[1]) || '').toUpperCase(), year: yr || undefined, open: ['testify', 'email', 'attend', 'ask', 'floor', 'conference', 'governor', 'changes'].includes(open) ? open : undefined }; }
     // #/follow/flavored-tobacco-ban,cat:keiki: a "My issues link" (R-123): follows those issues in this browser, then Home.
     // ?f=1: sent by a friend ("Send my issues to a friend", R-212 #37), so the arrival says whose issues these are.
     case 'follow': return { name: 'follow', slugs: String(seg[1] || '').split(',').map(x => x.trim()).filter(Boolean), friend: q.get('f') === '1' };

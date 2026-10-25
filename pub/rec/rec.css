@@ -17,6 +17,7 @@ body.rec .rc-hrow .rc-link .ic { width: 18px; height: 18px; }
 
 body.rec .rc-sec { margin-top: var(--s32); }
 body.rec .rc-h2 { margin: 0 0 var(--s8); font: 600 var(--t18)/1.2 var(--font-h); letter-spacing: -.01em; color: var(--n900); }
+body.rec .rc-h2[tabindex="-1"]:focus { outline: none; }   /* focused by a #/issue/<slug>/drafts link only, so a screen reader starts there; not a control */
 body.rec .rc-note { margin: calc(-1 * var(--s4)) 0 var(--s8); font-size: var(--t14); color: var(--n700); }
 body.rec .rc-card { background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); box-shadow: var(--sh1); padding: var(--s16); }
 body.rec .rc-card + .rc-card { margin-top: var(--s12); }
@@ -38,6 +39,23 @@ body.rec .rc-lead .none { display: grid; place-items: center; font-weight: 700; 
 body.rec .rc-card .rc-rows { margin: calc(-1 * var(--s8)) 0; }
 body.rec .rc-card .rc-row { margin: 0 calc(-1 * var(--s8)); padding: var(--s8); }
 @media (hover: hover) { body.rec .rc-card .rc-row:hover { background: var(--n50); } }
+/* A new draft of a bill they follow (R-212 #50, pub/newdraft.js), on My issues and the issue page: one more line under a row's
+   status, its own link beside the row's (never inside it). The status line's size (A-4), link blue because it is a link (A-5,
+   A-12; never amber, which is only inside a day; regular weight, so a row's own "Testimony due" stays what the eye meets first,
+   A-13), its icon at the 14px text's 1.25em as the kit's quiet lines (A-18), 44px of target (A-6). The row's link runs the
+   whole height of the row, under the line too (its bottom padding is the line's 44px), and the line sits on top of it: beside
+   or below the line's words a tap still opens the row, so the row has no dead strip and its hover is whole (the critic). */
+body.rec .rc-rows .rc-row:has(+ .rc-draft) { padding-bottom: 44px; }
+body.rec .rc-draft { position: relative; z-index: 1; display: flex; align-items: flex-start; gap: 6px; width: fit-content; max-width: 100%; min-height: 44px; margin-top: -44px;
+  padding: 2px 0 var(--s12); color: var(--p700); font: 400 var(--t14)/20px var(--font); text-decoration: none; }
+body.rec .rc-draft .ic { flex: none; width: 18px; height: 18px; margin-top: 1px; }
+body.rec .rc-draft:hover span, body.rec .rc-draft:active span { text-decoration: underline; }
+body.rec .rc-draft:active { color: var(--p800); }
+body.rec .rc-draft:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; border-radius: var(--r8); }
+body.rec .rc-row:has(.rc-lead) + .rc-draft { margin-left: calc(40px + var(--s12)); }   /* under the words, past a row's round icon */
+body.rec .rc-box .rc-draft { margin-left: var(--s16); }   /* the box's rows start their words 16px in */
+body.rec .rc-box .rc-row:has(.rc-lead) + .rc-draft { margin-left: calc(var(--s16) + 40px + var(--s12)); }
+body.rec .rc-box .rc-draft:focus-visible { outline-offset: -3px; }   /* inside the box's edge, as its rows' ring */
 body.rec .rc-showall { margin: var(--s4) 0 0 calc(-1 * var(--s12)); }
 body.rec .rc-rows > li[hidden] { display: none; }   /* the rest of a "Show all" list (kit.js laterRow); a row's own display wins over [hidden] */
 

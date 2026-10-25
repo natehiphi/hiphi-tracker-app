@@ -28,6 +28,7 @@ import { shareIssue } from '../actions.js';
 import { billParts, wireBillParts, recDock, situation, recLine } from '../bill.js';
 import { logAct } from '../visitlog.js';
 import { rowLine } from '../partners.js';
+import { newDraft, draftLink } from '../newdraft.js';
 
 const WIDE = window.matchMedia('(min-width: 1100px)');
 const wide = () => WIDE.matches;
@@ -47,9 +48,17 @@ const numbers = bills => { const ns = bills.map(b => num(b) + (+b.session_year &
 // 10/21: rows keep their shape, one more line naming the partner, "Keiki Smiles Alliance supports it too", or on a bill HIPHI
 // has no side on "From a partner: Keiki Smiles Alliance supports it", so it never reads as HIPHI's; partners.js rowLine).
 // The kit's own row (recRow) when no partner writes on it, so those rows are exactly as before. r.b is the row's bill.
-const bRow = r => { const pl = r.b ? rowLine(r.b) : ''; if (!pl) return recRow(r);
-  return `<li><a class="rc-row" href="${esc(r.href)}">${r.lead ? `<span class="rc-lead">${icon(r.lead)}</span>` : ''}
-  <span class="rc-rtext"><span class="rc-rname">${esc(r.name)}</span>${r.text ? `<span class="rc-rstat${r.warn ? ' warn' : ''}">${esc(keep(r.text))}</span>` : ''}<span class="rc-rpart">${esc(pl)}</span></span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`; };
+// A followed bill with a new draft (R-212 #50, pub/newdraft.js; in session only) gets My issues' line under it, its own link
+// to the bill's drafts beside the row's in the same <li>: "New draft · Fri", "Your letter is for an older draft" (the row
+// names the bill already, A-14). The bill whose card on this page already says "You wrote testimony on this bill on Feb 18,
+// for an older draft" beside "Send my letter again" (cardOlder, set by issuePage) keeps only "See what changed" on its row,
+// so the warning is said once and what changed is still one tap away before sending again (A-14, B-3; ui-critic 10/25).
+let cardOlder = '';
+const bRow = r => { const d = r.b ? newDraft(r.b) : null, mine = d ? [d.letter && r.b.id === cardOlder ? { ...d, see: true } : d] : [];
+  const pl = r.b ? rowLine(r.b) : '', nd = draftLink(mine, { own: true, stat: r.text });
+  const li = pl ? `<li><a class="rc-row" href="${esc(r.href)}">${r.lead ? `<span class="rc-lead">${icon(r.lead)}</span>` : ''}
+  <span class="rc-rtext"><span class="rc-rname">${esc(r.name)}</span>${r.text ? `<span class="rc-rstat${r.warn ? ' warn' : ''}">${esc(keep(r.text))}</span>` : ''}<span class="rc-rpart">${esc(pl)}</span></span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>` : recRow(r);
+  return nd ? li.replace(/<\/li>$/, `${nd}</li>`) : li; };
 const bRows = (rows, cls = '') => rows.length ? `<ul class="rc-rows${cls ? ' ' + cls : ''}" role="list">${rows.map(bRow).join('')}</ul>` : '';   // kit.js recRows, with bRow
 
 // ---------------- the issue's bills ----------------
@@ -214,15 +223,18 @@ function issuePage(i) {
     return `<div class="bl-page bl-rec rc-iss${wide() ? ' bl-wide' : ''}">${top}${nameBlock(i, '')}${body}</div>`;
   }
   let head, side, rest;
+  // The bill whose card here says its letter is for an older draft (letters.js againLine, data-older): its row is not told so
+  // again (bRow). Read off the card itself, so it holds exactly when the card's line is drawn.
+  const older = html => (/data-older="([^"]+)"/.exec(html) || [])[1] || '';
   if (m.shape === 3) {
     const w = whatCard(m);
     head = nameBlock(i, stanceChip(m.now, i), issueFollowed(i) || !!w.b);
-    side = w.html;
+    side = w.html; cardOlder = older(side);
     rest = folds(m, { goneOpen: wide() });
   } else {
     const b = m.lead.b, p = billParts(b, { lead: leadLine(b, m), where: `Where ${num(b)} is now` });
     head = nameBlock(i, stanceChip(m.mv, i));
-    side = `<div class="rc-iact">${p.act}</div>`;
+    side = `<div class="rc-iact">${p.act}</div>`; cardOlder = older(side);
     rest = m.shape === 1 ? `${p.where}${recordRow(b, i)}${folds(m)}` : `${billRows(m)}${folds(m)}`;
   }
   if (!wide()) return `<div class="bl-page bl-rec rc-iss" data-shape="${m.shape}">${top}${head}${side}<div class="rc-irest">${rest}</div></div>`;
@@ -333,6 +345,24 @@ const closeMenus = (focus = false) => {
 };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && onIssue() && document.querySelector('#rc-imenu:not([hidden]), #rc-fmenu:not([hidden])')) { e.preventDefault(); closeMenus(true); } });
 document.addEventListener('click', e => { if (onIssue() && !e.target.closest('.bl-menuwrap, .rc-fwrap')) closeMenus(); });
+// #/issue/<slug>/drafts (R-212 #50, the critic: B-3): My issues' "New drafts of HB 2121 and SB 2175" lands on "Bills on this
+// issue", where each changed bill is marked, once the bills are drawn, not on the page's top a screen above them. Once per
+// arrival, as a bill's /changes (bill.js): a mark on the history entry, so a redraw or Back to it does not land again, and an
+// in-memory one, so a reload does. Without that section (one bill moving, or none), the first marked row.
+const landed = new Set();
+function landDrafts(root, i, r) {
+  if (r.open !== 'drafts' || !root.matches('[data-shape]') || (landed.has(i.id) && history.state?.drafts === i.id)) return;
+  landed.add(i.id); try { history.replaceState({ ...(history.state || {}), drafts: i.id }, ''); } catch { /* ignore */ }
+  requestAnimationFrame(() => {
+    if (pathOf(location.hash) !== `#/issue/${i.slug}/drafts`) return;   // they moved on
+    const el = document.querySelector('#main #rc-ibills-h') || [...document.querySelectorAll('#main .rc-draft')].find(e => e.getClientRects().length); if (!el) return;
+    const hdr = document.querySelector('.hdr'), bars = hdr && /sticky|fixed/.test(getComputedStyle(hdr).position) ? hdr.offsetHeight : 0;
+    if (!el.matches('a, [tabindex]')) el.setAttribute('tabindex', '-1');
+    window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - bars - 16), behavior: 'auto' });
+    el.focus({ preventScroll: true });
+  });
+}
+const pathOf = h => String(h || '').split('?')[0];
 function wireFollows(root) {
   root.querySelectorAll('[data-fdissue]').forEach(el => el.onclick = async () => {
     const i = S.issueById.get(el.dataset.fdissue); if (!i || el.getAttribute('aria-busy') === 'true') return;
@@ -391,7 +421,7 @@ export default {
     // The catalog, asked for again in place (R-212 #49).
     root.querySelector('[data-rc-recat]')?.addEventListener('click', () => { S.rcCatBusy = true; app.render();
       loadCatalog().then(() => recomputeWatch()).catch(e => console.error(e)).finally(() => { S.rcCatBusy = false; app.render(); }); });
-    if (r.name === 'issue') { const i = S.issueBySlug.get(r.slug); if (i) wireIssue(root, i); }
+    if (r.name === 'issue') { const i = S.issueBySlug.get(r.slug); if (i) { wireIssue(root, i); landDrafts(root, i, r); } }
     else { wireFollows(root); wireKit(root); }
     if (S.rcFocus) { const t = root.querySelector(S.rcFocus); S.rcFocus = null; t?.focus({ preventScroll: true }); }
   },
