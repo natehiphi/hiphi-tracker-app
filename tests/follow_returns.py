@@ -14,8 +14,11 @@
 #     that stays to be read both say the profile is saved;
 #   - a bill on no issue (HB 1079, HIPHI only watches it) says "Follow this bill" and returns the same way;
 #   - today's page (layout 3): a stopped bill's main "Follow the issue" for a newcomer (HB 10) returns the same way, the
-#     line where the card would be, under the bill's name on a phone and atop the side panel on a laptop;
+#     line right under the action card (the critic, 24 Oct: the page's action first, A-13, and not where Continue was),
+#     "Part of <issue>" with "✓ Following the issue" in the bill's head after it (the critic's high: once the toast went,
+#     nothing said they follow), and "Stop following" on the toast, which stops it;
 #   - the backup ?ab=save.alerts asks nothing and still returns to the bill;
+#   - Back with the sheet open closes it and stays on the bill (B-4), and "Not now" leaves no extra step or scroll jump;
 #   - the line reads well at 320, 375 and 1280 (no sideways scroll, every line box inside the page), axe finds nothing
 #     serious, and nothing is written to the database, nor tried.
 # Pictures in [out] (default tests/out/follow_returns).
@@ -189,15 +192,31 @@ with sync_playwright() as pw:
         c, p = ctx(br, w)
         arrive(p, 'HB10')
         follow_flow(p, f'{w} stopped', 'HB10', 'Cigars shipped by mail', 'Follow the issue', shots=f'{w}_stopped')
-        where = p.evaluate("(() => { const e = document.querySelector('.bl-storyline'); if (!e) return ''; const h = document.querySelector('.bl-rhead'), a = document.querySelector('.bl-side');"
-                           " return a && a.contains(e) ? (a.firstElementChild === e || e.previousElementSibling?.classList.contains('bl-friend') ? 'side top' : 'side') : h && (h.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING) ? 'under the name' : 'elsewhere'; })()")
-        ok(where == ('under the name' if w < 700 else 'side top'), f'{w} stopped: the line under the bill\'s name on a phone, atop the side panel on a laptop ({where})')
+        where = p.evaluate("(() => { const e = document.querySelector('.bl-storyline'); if (!e) return ''; const a = document.querySelector('.bl-side');"
+                           " return e.previousElementSibling?.classList.contains('bl-ract') ? (a && a.contains(e) ? 'side, under the card' : 'under the card') : 'elsewhere'; })()")
+        ok(where == ('under the card' if w < 700 else 'side, under the card'), f'{w} stopped: the line right under the action card ({where})')
+        iss = p.evaluate("(() => { const e = document.querySelector('.bl-rhead .bl-issue'); return e && e.offsetParent ? e.innerText.replace(/\\s+/g, ' ').trim() : ''; })()")
+        ok('Part of Cigars shipped by mail' in iss and 'Following the issue' in iss, f'{w} stopped: the head says "Part of" the issue, "Following the issue", after the toast has gone ({iss!r})')
         main = p.evaluate("[...document.querySelectorAll('.bl-ract .btn.primary, .actionbar .btn.primary')].filter(e => e.offsetParent !== null).map(e => e.innerText.trim())")
         ok(not any(m == 'Follow the issue' for m in main), f'{w} stopped: the main button no longer asks to follow ({main})')
         r = checks.page_report(p, f'{w} stopped', do_axe=True)
         ok(not r['overflow'] and not r.get('axe'), f'{w} stopped: no sideways scroll and axe finds nothing serious ({r["overflow"]} {str(r.get("axe"))[:160]})')
         line_fits(p, f'{w} stopped')
         c.close()
+    # "Stop following" on the toast after the moment (B-5)
+    c, p = ctx(br, 375)
+    arrive(p, 'HB10')
+    tap_follow(p); p.wait_for_selector('dialog.al-sheet[open]', timeout=6000); p.click('[data-alshno]'); p.wait_for_timeout(300)
+    p.click('#fx-mgo'); p.wait_for_timeout(300)
+    # a late tap meant for Continue lands on the issue line's toggle: it must not stop the follow (the critic, 24 Oct)
+    p.locator('.bl-rhead [data-bl-unfollowissue]').first.click(); p.wait_for_timeout(300)
+    ok(p.locator('.bl-rhead [data-bl-unfollowissue][aria-pressed="true"]').count() == 1, 'a tap on "Following the issue" right after the moment does not stop the follow')
+    stop = p.locator('#toast button', has_text='Stop following')
+    ok(stop.count() == 1, f'the toast after the moment offers "Stop following" ({toast(p)[:80]!r})')
+    if stop.count(): stop.first.click(); p.wait_for_timeout(800)
+    main = p.evaluate("[...document.querySelectorAll('.bl-ract .btn.primary, .actionbar .btn.primary')].filter(e => e.offsetParent !== null).map(e => e.innerText.trim())")
+    ok(any(m == 'Follow the issue' for m in main) and on_bill(p, 'HB10'), f'"Stop following" stops it: the main button asks to follow again, on the bill ({main})')
+    c.close()
 
     # ---- 5. the backup ?ab=save.alerts: no sheet, and still back on the bill ----
     c, p = ctx(br, 375)
@@ -219,6 +238,37 @@ with sync_playwright() as pw:
         p.evaluate("document.querySelector('.bl-storyline')?.scrollIntoView({ block: 'center' })"); p.wait_for_timeout(200)
         p.screenshot(path=os.path.join(OUT, f'320_{num}_after.png'))
         c.close()
+
+    # ---- 6b. the old page on a phone: the card folds to one line, and the line stays in view under the sticky bars ----
+    c, p = ctx(br, 375)
+    arrive(p, 'HB2121', '&rec=0')
+    tap_follow(p); p.wait_for_selector('dialog.al-sheet[open]', timeout=6000); p.click('[data-alshno]'); gone_moment(p)
+    pos = p.evaluate("(() => { const e = document.querySelector('.bl-storyline'); if (!e) return null; const bars = Math.max(0, ...[...document.querySelectorAll('.hdr, .bl-top')].map(x => x.getBoundingClientRect().bottom));"
+                     " const r = e.getBoundingClientRect(); return [Math.round(r.top), Math.round(bars), Math.round(r.bottom), innerHeight]; })()")
+    ok(bool(pos) and pos[0] >= pos[1] and pos[2] <= pos[3], f'old page, phone: after the card folds, the story line is in view under the sticky bars ({pos})')
+    c.close()
+
+    # ---- 7. Back closes the sheet (B-4): the friend's link is often the only page, so Back used to leave the site ----
+    c, p = ctx(br, 375)
+    arrive(p, 'HB10')
+    tap_follow(p); p.wait_for_selector('dialog.al-sheet[open]', timeout=6000); p.wait_for_timeout(300)
+    p.go_back(); p.wait_for_timeout(500)
+    mo = moment(p)
+    ok(sheet(p) == '' and on_bill(p, 'HB10') and mo.startswith('Mahalo!'), f'Back with the sheet open closes it, stays on the bill and the "Mahalo!" plays ({H(p)} {mo[:40]!r})')
+    gone_moment(p)
+    ok(p.evaluate(NEWTO) == [STORY], 'after Back, the story line is there')
+    c.close()
+    c, p = ctx(br, 375)
+    arrive(p, 'HB10')
+    p.evaluate('window.scrollTo(0, 120)'); p.wait_for_timeout(150)
+    y0 = p.evaluate('scrollY')
+    tap_follow(p); p.wait_for_selector('dialog.al-sheet[open]', timeout=6000); p.wait_for_timeout(300)
+    ok(p.evaluate('history.state?.als') == 1, 'the open sheet has its own step in the history')
+    p.click('[data-alshno]'); p.wait_for_timeout(600)
+    st = p.evaluate('history.state || {}')
+    ok(on_bill(p, 'HB10') and not st.get('als'), f'"Not now" takes the sheet\'s step back: the bill, no step left over ({H(p)} {st})')
+    ok(abs(p.evaluate('scrollY') - y0) <= 4, f'closing the sheet keeps the page where it was ({y0} -> {p.evaluate("scrollY")})')
+    c.close()
 
     br.close()
 

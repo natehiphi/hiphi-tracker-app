@@ -815,7 +815,12 @@ ask but keep it as a backup to test later.
 - **24 Oct 2026 (R-212 #47, "Follow from a bill returns to the bill"):** the "New here?" card's Follow no longer leads to
   the first visit's alerts screen (above, as it was on 6 Oct). It calls `followAsk` too: the sheet over the bill with
   "You're following ...", then the "Mahalo!" over the bill (with `profileSaved` as its small line and a toast after it
-  when something was saved), and the visit ends there, on the bill. `tests/follow_returns.py`.
+  when something was saved), and the visit ends there, on the bill. After the fresh-eyes review: the toast after the
+  moment carries "Stop following"; today's page shows the issue's line ("Part of ..." and "✓ Following the issue") in the
+  bill's head for the rest of the visit, the story line sits under the action card (the old pages keep it where the card
+  was, scrolled into view under the sticky bars when the card folds); and Back closes this sheet and stays on the page
+  (`openAlertsSheet({ back: true })`, for every follow's ask: the sheet takes one history step, B-4).
+  `tests/follow_returns.py`.
 - **The backup**: the test `save` (`variant.js`, backend 148), off, its FIRST version the new ask; `?ab=save.alerts`
   shows the old one (no sheet after an issue's Follow, "Get alerts", the letter's card under "What happens next").
   Staff v2 > Session setup > Tests lists it with a practice link.

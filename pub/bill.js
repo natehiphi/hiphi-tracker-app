@@ -772,7 +772,7 @@ const notNow = () => btn('Just looking', { kind: 'text', attrs: { 'data-bl-newla
 // The page's main button is an ask (not following or sharing): "Just looking" sits beside it in the bar instead.
 const asking = x => !!x.act || ['ask', 'hold', 'remind', 'floor', 'conference', 'governor'].includes(x.kind);
 // On to the rest of the first visit, on this bill: the tour offered after "Just looking" (no longer after a follow, R-212 #47).
-const viaStart =(b, extra = {}) => { wizSet({ via: b.bill_number, viaId: b.id, viaName: nick(b) || spaced(b.bill_number), step: 1, ...extra }); app.go('#/start/1'); };
+const viaStart = (b, extra = {}) => { wizSet({ via: b.bill_number, viaId: b.id, viaName: nick(b) || spaced(b.bill_number), step: 1, ...extra }); app.go('#/start/1'); };
 // After a first action from a shared link, the visit ends on that success, at Home (X10-2, R-180; the confirmation-page
 // pattern, C-6). It used to go on into the rest of the first visit: the story of the bill, whose last page promised
 // "We'll show you how" of the thing they had just done, then six more taps before Home, which never said they had acted.
@@ -798,6 +798,12 @@ const followedHere = b => {
   logVisit('done', 'done', { path: 'link' }); abEvent('finished');
   S.blFollowedNew.add(b.id);
   app.render();
+  // The card above folds to one line while the scroll stays, so what was under the person's thumb jumps up, the follow's
+  // proof under the sticky bars (the old pages, ?rec=0; the critic, 24 Oct). Bring the story line, where the card was, back
+  // into view under them. Done now, before the sheet keeps this scroll for its way back (alerts.js).
+  const el = document.querySelector('.bl-storyline'); if (!el) return;
+  const top = Math.max(0, ...[...document.querySelectorAll('.hdr, .bl-top')].map(e => e.getBoundingClientRect().bottom)) + 12;
+  const r = el.getBoundingClientRect(); if (r.top < top) window.scrollBy(0, r.top - top);
 };
 // A first visit that began on this bill: the first action gets its moment (C-7), is counted, then Home. Called by the
 // bar's "Yes, I sent it" (it once gave only a toast, so the quick email from a link was never counted or celebrated,
@@ -1322,8 +1328,10 @@ function recHead(b, x) {
     !x.live && (mine === 'support' || mine === 'oppose') ? chip(mine === 'support' ? 'You supported it' : 'You opposed it', '', 'user-check') : ''].filter(Boolean).join('');
   // "Read the bill" opens the Capitol's text for now; the reading view in the app waits for its migration (R-302).
   const read = `<a class="bl-rread" href="${esc(billTextUrl(b))}" target="_blank" rel="noopener" data-ab-go="text">${icon('book-open')}<span>Read the bill</span>${icon('external-link', { cls: 'bl-ext' })}</a>`;
+  // The issue's line (Part of ..., ✓ Following the issue) for a text's link, and after a newcomer's follow here (R-212
+  // #47, the critic's high, 24 Oct): once the toast has gone it is what says they follow the issue, and stops it (B-5).
   return `<div class="bl-head bl-rhead"><p class="bl-reye">${esc(spaced(b.bill_number))}</p><h1 class="${name ? 'hero bl-nick' : 'bl-what'}">${esc(name || plainHead(b))}</h1>
-    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}<div class="bl-rhrow">${chips}${read}</div>${pw}${sponsorLine(b)}${textIssue(b) ? issueLine(b, x) : ''}${onListsLine(b)}</div>`;
+    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}<div class="bl-rhrow">${chips}${read}</div>${pw}${sponsorLine(b)}${textIssue(b) || S.blFollowedNew.has(b.id) ? issueLine(b, x) : ''}${onListsLine(b)}</div>`;
 }
 // Who introduced it, up top (R-212 #41: sponsors were on 734 of 734 bills, folded under More details and cut at six). The first
 // name links to their page; "and 6 others" opens every name in place, each linked (S.blSpons, for the visit).
@@ -1386,10 +1394,12 @@ function recPage(num, b, x) {
   // phone under Where it is now, on a wide screen under the action card in the side panel. Only while the bill can move.
   const stance = x.live ? `<section class="card flat bl-stance bl-rstance" aria-labelledby="bl-stance-h">${stanceInner(b, x, { said: cardSays })}</section>` : '';
   const rest = `${note}${recWhere(b, x)}${wide() ? '' : stance}<div class="bl-rfolds">${folds}</div>`;
-  if (!wide()) return `<div class="bl-page bl-rec">${recTop(b)}${welcomeLine(b)}${recHead(b, x)}${friendCard(b, x)}${storyLine(b)}${recAct(b, x)}${rest}</div>`;
+  // The story line after a newcomer's follow (R-212 #47) comes under the action card, not over it: the page's one action
+  // first (A-13), and not where the moment's Continue was a second before (the critic, 24 Oct).
+  if (!wide()) return `<div class="bl-page bl-rec">${recTop(b)}${welcomeLine(b)}${recHead(b, x)}${friendCard(b, x)}${recAct(b, x)}${storyLine(b)}${rest}</div>`;
   return `<div class="bl-page bl-wide bl-rec">${recTop(b)}<div class="cols bl-cols">
     <div class="bl-main">${welcomeLine(b)}${recHead(b, x)}</div>
-    <aside class="side bl-side" aria-label="Take part">${friendCard(b, x)}${storyLine(b)}${recAct(b, x)}${stance}</aside>
+    <aside class="side bl-side" aria-label="Take part">${friendCard(b, x)}${recAct(b, x)}${storyLine(b)}${stance}</aside>
     <div class="bl-main bl-main2">${rest}</div></div></div>`;
 }
 // Once the action card's button has scrolled up under the top bars, it docks above the tab bar (the mockup's check()).
@@ -1477,6 +1487,9 @@ export function wireBillParts(roots, b, { bar = null, x = situation(b) } = {}) {
   rs.forEach(r => { const slot = r.querySelector('.bl-slot'), col = r.querySelector('.bl-act .acard > .btncol'); if (slot && col) col.prepend(slot); wireActions(r); wireNudge(r); });
   inPage('details[data-bl-fold]', d => d.addEventListener('toggle', () => { const k = `${b.id}|${d.dataset.blFold}`; if (d.open) S.blOpen.add(k); else S.blOpen.delete(k); }));
   each('[data-bl-unfollowissue]', el => el.addEventListener('click', async () => {
+    // Just after a newcomer's "Mahalo!" (R-212 #47) this toggle sits under where its Continue was on a phone: a late tap
+    // meant for Continue must not stop the follow it celebrated (the critic, 24 Oct). The toast's Stop following still works.
+    if (Date.now() < (S.blQuietUntil || 0)) return;
     const i = S.issueById.get(el.dataset.blUnfollowissue); if (!i || el.getAttribute('aria-busy') === 'true') return;
     el.setAttribute('aria-busy', 'true');
     if (await setFollows({ issuesOff: [i.id] })) toast(`You no longer follow ${i.name}.`, { undo: async () => { await setFollows({ issuesOn: [i.id] }); app.render(); } });
@@ -1610,8 +1623,8 @@ export default {
     each('[data-bl-newfollow]', el => el.addEventListener('click', async () => {
       if (el.getAttribute('aria-busy') === 'true') return;
       el.setAttribute('aria-busy', 'true');
-      const i = issuesOf(b)[0], asked = S.nudgedThisVisit;
-      const ok = i ? await setFollows({ issuesOn: [i.id] }) : (S.watch.has(b.id) || await toggleWatch(b.id) !== false);
+      const i = issuesOf(b)[0], asked = S.nudgedThisVisit, had = !i && S.watch.has(b.id);
+      const ok = i ? await setFollows({ issuesOn: [i.id] }) : (had || await toggleWatch(b.id) !== false);
       if (!ok) { el.removeAttribute('aria-busy'); return; }
       // A bill on no issue: toggleWatch kept the visit's one profile ask for Home's line (core.js nudge). It is asked here,
       // over the bill, instead (R-184: the first thing seen after a follow; C-3: still once a visit).
@@ -1628,9 +1641,13 @@ export default {
         // Something saved: its words are the moment's small line and, once the moment has gone, a toast that stays to be
         // read (the moment's own toast carries only its title and line). `then` runs when it moves on; the timer covers a
         // tap through to a control or a scroll, which do not.
+        // "Stop following" rides on the toast that follows the moment (B-5; as an action from a link, X10-4): with the
+        // saved words when there are some, otherwise on the moment's own toast (alt).
         const saved = r ? profileSaved(r) : '';
-        let said = false; const say = () => { if (saved && !said) { said = true; toast(saved, { yay: true }); } };
-        moment({ title: 'Mahalo!', sub: `You’re following ${name}.`,
+        const stop = had ? null : { label: 'Stop following', act: async () => { await (i ? setFollows({ issuesOff: [i.id] }) : toggleWatch(b.id)); app.render(); } };
+        let said = false; const say = () => { if (saved && !said) { said = true; toast(saved, { yay: true, ...(stop ? { also: { label: stop.label, action: stop.act } } : {}) }); } };
+        S.blQuietUntil = Date.now() + MOMENT_MS + 700;   // the issue line's toggle waits out the moment (above)
+        moment({ title: 'Mahalo!', sub: `You’re following ${name}.`, alt: saved ? null : stop,
           small: saved || (moving > 1 ? `That’s ${moving} bills this session. We’ll watch every one.` : 'We’ll tell you when there’s a hearing or a way to help.') }, say);
         if (saved) setTimeout(say, MOMENT_MS + 60);
       };
