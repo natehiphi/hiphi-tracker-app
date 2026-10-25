@@ -2,7 +2,7 @@
 # pictures, easy to identify. Not one big long list?"). On the practice copy (Mon 16 Mar 2026).
 #   1. A House | Senate switch, the Senate first (the calmer page), remembered for the person.
 #   2. By island (the default): Hawaiʻi Island, Maui County, Oʻahu, Kauaʻi, each a heading over its grid of cards.
-#   3. A to Z: a heading row for each letter. By committee: each committee a group, chair first.
+#   3. A to Z: one continuous grid, a small letter badge on the first card of each letter. By committee: each committee a group, chair first.
 #   3a. A row of jump chips, one per group, that brings its heading to the top (critic, R-336 walk 2); on a phone the row
 #       slides sideways and the group headings stay under the top bar.
 #   4. Each card is one link: a photo (or the initial), the name, the district, at most one line of what they hold of ours.
@@ -101,12 +101,23 @@ with L.browser() as B:
 
     # ---- 3. A to Z, By committee ----
     sort(pg, 'A to Z'); cs = cards(pg)
-    lets = heads(pg)
+    lets = pg.page.evaluate("[...document.querySelectorAll('.lg6-badge')].map(b => b.innerText.trim())")
     R.check(f'{w}: A to Z, the chip row says so', jumplabel(pg) == 'All 52 representatives, A to Z: go to', jumplabel(pg))
     R.check(f'{w}: A to Z keeps every representative', len(cs) == sum(1 for l in legs if l['ch'] == 'H'))
-    R.check(f'{w}: a heading row for each letter, in order, the chips the same letters', len(lets) >= 10 and lets == sorted(set(lets)) and all(len(x) == 1 for x in lets) and chips(pg) == lets, lets)
+    R.check(f'{w}: one continuous grid, no heading rows', pg.page.evaluate("document.querySelectorAll('#lg-body .lg6-grid').length") == 1 and not heads(pg))
+    R.check(f'{w}: a badge on the first card of each letter, in order, the chips the same letters', len(lets) >= 10 and lets == sorted(set(lets)) and all(len(x) == 1 for x in lets) and chips(pg) == lets, lets)
+    bd = pg.page.evaluate("(() => { const b = document.querySelector('.lg6-badge'), c = b.closest('.lg6-card').getBoundingClientRect(), r = b.getBoundingClientRect(); return [b.closest('.lg6-cell').id, Math.round(r.left - c.left), Math.round(r.top - c.top), getComputedStyle(b).color === getComputedStyle(document.querySelector('.lg6-cdist')).color, b.tagName, b.getAttribute('aria-hidden')]; })()")
+    R.check(f'{w}: the badge sits in the card\'s top-left corner, muted, not a heading', bd[0] == 'lg6-g-A' and bd[1] <= 16 and bd[2] <= 12 and bd[3] and bd[4] == 'SPAN' and bd[5] == 'true', bd)
+    sc = pg.page.evaluate("document.documentElement.scrollHeight / innerHeight")
+    R.check(f'{w}: A to Z (52 representatives) is no longer than By island (not one row per letter)', sc <= (4.2 if w >= 768 else 11), round(sc, 2))
+    pg.page.click('.lg6-jchip >> nth=4'); pg.page.wait_for_timeout(900)
+    jz = pg.page.evaluate("(() => { const cs = [...document.querySelectorAll('.lg6-jchip')]; const k = cs[4].innerText.trim(); const c = document.querySelector('#lg6-g-' + k); const r = c.getBoundingClientRect(); return [k, Math.round(r.top), document.activeElement === c.querySelector('a'), c.querySelector('.lg6-badge')?.innerText]; })()")
+    R.check(f'{w}: a letter chip brings the first card of its letter clear of the top bar, focus on it', jz[2] and jz[0] == jz[3] and ((92 < jz[1] <= 130) if w >= 768 else (56 <= jz[1] <= 90)), jz)
+    pg.page.evaluate('scrollTo(0, 0)')
     first = lambda l: unicodedata.normalize('NFD', (l['sort'] or l['name']).split(',')[0].strip())[0].upper()
-    R.check(f'{w}: everyone under their own surname\'s letter', all(c['group'] == first(by[c['id']]) for c in cs), [(c['name'], c['group']) for c in cs if c['group'] != first(by[c['id']])][:3])
+    ks = [first(by[c['id']]) for c in cs]
+    marks = dict(pg.page.evaluate("[...document.querySelectorAll('.lg6-badge')].map(b => [+b.closest('.lg6-card').dataset.lglink, b.innerText.trim()])"))
+    R.check(f'{w}: cards in surname order, the badge on the first of each letter', ks == sorted(ks) and all((c['id'] in marks) == (i == 0 or ks[i] != ks[i - 1]) and marks.get(c['id'], ks[i]) == ks[i] for i, c in enumerate(cs)), ks[:6])
     sort(pg, 'By committee'); cs = cards(pg)
     gs = heads(pg)
     R.check(f'{w}: by committee, each a group, House committees only', len(gs) >= 10 and all(g.startswith('House ') for g in gs), gs[:3])

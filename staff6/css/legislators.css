@@ -711,6 +711,10 @@ body.staff6 .lg6-sec6 { scroll-margin-top: 40px; }
 body.staff6 .lg6-sh h2:focus { outline: none; }
 body.staff6 .lg6-sh h2:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }
 body.staff6 .lg6-lead { margin: 0; }
+/* A to Z: the letter in the corner of the first card of each letter (muted, a marker for the eye, not a heading). */
+body.staff6 .lg6-card { position: relative; }
+body.staff6 .lg6-badge { position: absolute; top: 8px; left: 12px; font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-muted); }
+body.staff6 .lg6-cell[id] { scroll-margin-top: 40px; }
 body.staff6 .lg6-cline.strong { font-weight: 700; color: var(--v6-ink); }
 @media (hover: hover) and (pointer: fine) {
   body.staff6 .lg6-card:hover { box-shadow: var(--v6-sh2); }
@@ -724,6 +728,7 @@ body.staff6 .lg6-cline.strong { font-weight: 700; color: var(--v6-ink); }
   /* The group's heading stays under the top bar while its cards pass (critic: on a phone a group runs several screens). */
   body.staff6 .lg6-sh { position: sticky; top: var(--header); z-index: 3; margin: 0 -16px 8px; padding: 8px 16px; background: var(--v6-page); }
   body.staff6 .lg6-sec6 { scroll-margin-top: -8px; }
+  body.staff6 .lg6-cell[id] { scroll-margin-top: 0; }
   body.staff6 .lg6-jump { flex-basis: 100%; }
   body.staff6 .lg6-chcap { margin-bottom: 16px; }
   body.staff6 .lg6-jrow { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; scroll-padding-inline: 16px; }

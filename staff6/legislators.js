@@ -215,12 +215,13 @@ const ISLAND_ORDER = ['Hawaiʻi', 'Maui', 'Oʻahu', 'Kauaʻi'];
 const face = l => `<span class="lg6-rph lg6-cph" aria-hidden="true" data-i="${esc((l.name || '?')[0])}">${l.photo_url ? `<img class="lg-ph" src="${esc(l.photo_url)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</span>`;
 // One card. `place`: the district line (the island left out under an island heading); `line`: what they hold of ours, or
 // the towns a search matched; `full`: the name with Rep. or Sen., for a list that mixes the chambers (search results).
-function personCard(l, week, { from = '', q = '', place = null, line = null, full = false } = {}) {
+function personCard(l, week, { from = '', q = '', place = null, line = null, full = false, letter = '' } = {}) {
   const towns = q ? townHits(l, q) : [];
   const [ln, strong] = line != null ? [line, false] : towns.length ? [`Covers ${andList(towns.slice(0, 2))}${towns.length > 2 ? ' and more' : ''}`, false] : cardLine(l, week);
   const dist = place ?? [`District ${l.district}`, islandWords(l)].filter(Boolean).join(' · ');
   const name = full ? legName(l) : l.name;
-  return `<div class="lg6-cell" role="listitem" data-lgrow="${l.id}"><a class="lg6-card" href="${legHref(l)}${from ? `?from=${from}` : ''}" data-lglink="${l.id}">${face(l)}<span class="lg6-cname">${esc(name)}</span><span class="lg6-cdist">${nw(esc(dist))}</span>${ln ? `<span class="lg6-cline${strong ? ' strong' : ''}">${esc(ln)}</span>` : ''}</a></div>`;
+  // A to Z: the first card of each letter carries the letter as a small badge in its corner and is the letter chip's target.
+  return `<div class="lg6-cell" role="listitem" data-lgrow="${l.id}"${letter ? ` id="lg6-g-${letter}"` : ''}><a class="lg6-card" href="${legHref(l)}${from ? `?from=${from}` : ''}" data-lglink="${l.id}">${letter ? `<span class="lg6-badge" aria-hidden="true">${esc(letter)}</span>` : ''}${face(l)}<span class="lg6-cname">${esc(name)}</span><span class="lg6-cdist">${nw(esc(dist))}</span>${ln ? `<span class="lg6-cline${strong ? ' strong' : ''}">${esc(ln)}</span>` : ''}</a></div>`;
 }
 const grid = (inner, label, cls = '') => `<div class="lg6-grid${cls ? ' ' + cls : ''}" role="list" aria-label="${esc(label)}">${inner}</div>`;
 const cards = (ls, week, opts = {}) => ls.map(l => personCard(l, week, opts)).join('');
@@ -260,7 +261,8 @@ function groupsOf(v, ls, week, ch) {
   if (key === 'name') {
     const by = new Map();
     for (const l of ls.slice().sort(byName)) { const k = plain(surname(l))[0]?.toUpperCase() || '#'; if (!by.has(k)) by.set(k, []); by.get(k).push(l); }
-    return [...by].map(([k, g]) => ({ id: `lg6-g-${k}`, title: k, chip: k, count: '', inner: cards(g, week) }));
+    // One continuous grid (Nate's point: not a long list): the letters are chips and corner badges, not heading rows.
+    return [...by].map(([k, g]) => ({ id: `lg6-g-${k}`, title: k, chip: k, count: '', flow: true, inner: g.map((l, i) => personCard(l, week, { letter: i ? '' : k })).join('') }));
   }
   if (key === 'committee') {
     const ids = new Set(ls.map(l => l.id));
@@ -304,7 +306,7 @@ function everyoneHTML(v) {
   // The lead shows only when something narrows the list; "All 52 representatives" is what the switch already says, so it is
   // the chip row's name for a screen reader instead, with the order (A-14). The chips sit beside the switch on a laptop.
   const nav = jumpHTML(gs, `${lead}, ${order}${sortOf(v) === 'committee' ? ', the chair first' : ''}: go to`);
-  return `${head(`${on || v.week ? `<p class="lg6-lead">${esc(lead)}</p>${clear}` : ''}${nav}`)}${nav || on || v.week ? '' : `<p class="sr">${esc(lead)}, ${esc(order)}.</p>`}<div class="lg6-groups">${gs.map(groupOf).join('')}</div>`;
+  return `${head(`${on || v.week ? `<p class="lg6-lead">${esc(lead)}</p>${clear}` : ''}${nav}`)}${nav || on || v.week ? '' : `<p class="sr">${esc(lead)}, ${esc(order)}.</p>`}<div class="lg6-groups">${gs[0]?.flow ? grid(gs.map(g => g.inner).join(''), `${lead}, A to Z`) : gs.map(groupOf).join('')}</div>`;
 }
 // Who to ask's and Holding's switch: Mine · My coalitions · Team, the same choices as Hearings > Get hearings
 // (holding.js askScopes), so the two tabs always show the same bills (X7).
@@ -466,8 +468,9 @@ export default {
       if (t.closest('[data-lgsort]')) { pickSort(); return; }
       // A jump chip: its group's heading to the top (under the phone's sticky bar), focus on it so Tab carries on there.
       const jp = t.closest('[data-lgjump]');
+      // A to Z's chip goes to the first card of its letter, and focus to that card's link.
       if (jp) { const h = root.querySelector(`#${jp.dataset.lgjump}`); if (h) { const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
-        h.closest('section').scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' }); h.focus({ preventScroll: true }); } return; }
+        (h.closest('section') || h).scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' }); (h.matches('h2') ? h : h.querySelector('a'))?.focus({ preventScroll: true }); } return; }
       const ad = t.closest('[data-lgaddr]');
       if (ad) { const a = v.addr?.results?.[+ad.dataset.lgaddr]; if (a) pickAddress(a); return; }
       const pl = t.closest('[data-lgplace]');
