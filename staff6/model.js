@@ -769,7 +769,9 @@ export function chairMail(code) {
     const last = surname.toLowerCase().replace(/[^a-z]/g, '');
     return { name: c.chair, last: surname, title: c.chamber === 'S' ? 'Sen.' : 'Rep.', email: lg?.email || `${c.chamber === 'S' ? 'sen' : 'rep'}${last}@capitol.hawaii.gov` }; });
   if (!out.length) return null;
-  return { ...out[0], n: out.length, email: out.map(x => x.email).join(','), who: out.map(x => `${x.title} ${x.last}`).join(' and ') };
+  // Said as a list, "Sen. Lee, Sen. Chang and Sen. Richards": "and" only before the last (Nate 25 Oct walk 1)
+  const ws = out.map(x => `${x.title} ${x.last}`), who = ws.length < 2 ? ws[0] : `${ws.slice(0, -1).join(', ')} and ${ws[ws.length - 1]}`;
+  return { ...out[0], n: out.length, email: out.map(x => x.email).join(','), who };
 }
 // R-316 W3 (practice copy until Nate's yes and migration 183): every ask to a chair is a conversation with the chair,
 // saved with its answer (asked, will_schedule, said_no, left_message) and the committee it was asked in. A reply is a new

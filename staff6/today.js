@@ -32,14 +32,14 @@ import { S, DB, DEMO, SESSION_OVER, DEADLINE_ROWS, esc, advocate, isMine, hooks 
 import v5, { todayItems, slipNow, slipWho } from './today5.js';
 import { draftHearing, hearingAhead, diedish, stopOf, wantsHearing, whenAt, billRoute, billById, liveAsk, attendees, chairMail,
   legislativeDay, deadlineName, blurb, approves, canFirstApprove, filerOf, offTag, gateNeed, gateGloss } from './model.js';
-import { icon, btn, toast, openSheet, closeSheet, pickerSheet, confirmSheet, docBtn, keysOn } from './ui.js';
+import { icon, btn, toast, openSheet, closeSheet, pickerSheet, confirmSheet, docBtn, keysOn, ASK_TAB, andWords } from './ui.js';
 import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButtonOK, statusTile, status, shownStatus, nw,
   numWords, nameWords, sayWords, firstWords, orWords, dayWords, timeWords, committeeName, versionWords, deadlineWords,
   testimonyState, whoseStep, notFiled, wireListDetail, wireSteps, finish, helpersOf, actBy, takeFor } from './steps.js';
 import { aboutBill, closeBtn } from './billpane.js';
 import { plainCodes } from './terms.js';   // codes in a to-do's or a note's own words become plain words (D15, V05)
 import { prepTaskOf, dueEnd as prepDue, issueHref, prepListHref } from './prep.js';
-import { askTodoOf, askSummary, toAskWords, deadlineLine, decideWords, nwParts } from './push.js';
+import { askTodoOf, askSummary, toAskWords, decideWords, nwParts } from './push.js';
 import { isLead } from './more.js';
 import { newSteps, markNewStep } from './help.js';
 import { moveMe, notGoing, keepAskUp, seedMoved } from './moved.js';
@@ -440,7 +440,7 @@ function miniOf(it, v = S.me) {
       const label = pt.back.length ? 'Open what came back' : left ? 'Open the next one' : 'See the list';
       // A prep date that has passed is "Still to finish", never red (spec 6, My issues; V30).
       const when = prepDue() < Date.now() ? 'still to finish' : `due ${dayWords(prepDue())}`;
-      return { name: pt.own ? 'Your issues for 2027' : `Helping ${pt.owners.map(a => first(a.id)).join(' and ')}`, num: '', line: `${pt.ready} of ${plural(pt.total, 'issue')} ready · ${when}`, href, pick: false,
+      return { name: pt.own ? 'Your issues for 2027' : `Helping ${andWords(pt.owners.map(a => first(a.id)))}`, num: '', line: `${pt.ready} of ${plural(pt.total, 'issue')} ready · ${when}`, href, pick: false,
         what: pt.own ? 'Get your issues ready for 2027' : `${helpWords(pt)} ready`, sub: `${pt.ready} of ${plural(pt.total, 'issue')} ready.${pt.back.length ? ` ${first(pt.back[0].prep_by)} sent back ${pt.back[0].name}.` : pt.next ? ` Next: ${pt.next.name}.` : ''}`,
         buttons: k => [btn(label, { kind: k, icon: 'arrow-right', href }), btn('See the list', { kind: 'text', href: list })] };
     }
@@ -450,7 +450,7 @@ function miniOf(it, v = S.me) {
 
 // A helper's part of the 2027 prep, about the issues, not the person: "Help Rick get 2 issues ready" (Nate's walk: "Help
 // Rick get their issues ready" read oddly about one named person). The issues still to finish that they help on.
-const helpWords = pt => `Help ${pt.owners.map(a => first(a.id)).join(' and ')} get ${plural(Math.max(1, pt.total - pt.ready), 'issue')}`;
+const helpWords = pt => `Help ${andWords(pt.owners.map(a => first(a.id)))} get ${plural(Math.max(1, pt.total - pt.ready), 'issue')}`;
 
 // ---- the card and the open item ----
 // "Your next step": the step card with the screen's one filled button (V11). Testimony and chair asks are steps.js's card;
@@ -639,8 +639,6 @@ export function partnersLine(v = S.me, { words = true } = {}) {
   return parts.length ? lineA(n ? '#/partners?view=approve' : '#/partners', 'handshake', `<b>Partners</b> · ${esc(parts.join(' · '))}`) : '';
 }
 
-// The viewer's own bills racing their first deadline, worked out once a draw (the board's counts, as Legislators says them).
-const mineDeadline = v => v.id === S.me?.id ? memo('dl:' + v.id, () => { try { return deadlineLine({ scope: 'mine', viewer: v }); } catch (e) { console.error(e); return null; } }) : null;
 // The viewer's own bills still to ask, worked out once a draw (Get hearings' My bills count).
 const mineAsks = v => v.id === S.me?.id ? memo('asks:' + v.id, () => { try { return askSummary({ scope: 'mine', viewer: v }); } catch (e) { console.error(e); return null; } }) : null;
 // "20 to ask · first by Mon 3/23" with its count part in ink ("<b>20 to ask</b> · …").
@@ -769,20 +767,17 @@ function seasonBody(season, v, w, { skipH = null } = {}) {
   }
   // Hearings, February to April: the person's next hearing and the next deadline, in words (V05).
   const nh = nextHearing(v, w), dl = nextDeadline(v), said = !!nh && skipH === sitKey(nh);
-  // The deadline line says how many of the person's bills need a hearing by the first deadline and what is left to do, and
-  // opens Get hearings (B-3; Nate's walk: Kevin's "6 of your bills must reach their last committee" beside Bills' 3 and Get
-  // hearings' 3, with no link). With nothing waiting it is the deadline itself, in words. (For someone who owns bills; a
-  // helper's are D4's line.)
-  // The one deadline line (push.js deadlineLine, the same words on Bills and Legislators): "16 of your bills need a hearing
-  // by Mon 3/30 · 14 to ask · Get hearings". Who is waiting on a reply is said on Get hearings itself (Nate's 23 Oct walk:
-  // the long line, its codes, and parts that did not add up).
-  const ownsAny = (S.bills || []).some(b => owns(v.id, b)), dlL = ownsAny ? mineDeadline(v) : null;
-  const askT = dlL ? dlL.words : '';
+  // The one line for the bills still to ask is Hearings' own, in its words and its count (push.js toAskWords of the person's
+  // own pile: "20 to ask · first by Mon 3/23 · Bills That Need Hearings"), opening that tab on My bills. Nate 25 Oct walk 1:
+  // Today said "16 of your bills need a hearing by Mon 3/30 · 16 to ask" beside the phone's and Hearings' "20 to ask · first
+  // by Mon 3/23" (rule 6, A-14: one count and one wording for one pile). With nothing left to ask it is the next deadline,
+  // in words. (For someone who owns bills; a helper's are D4's line.)
+  const ownsAny = (S.bills || []).some(b => owns(v.id, b)), askT = ownsAny ? toAskWords(mineAsks(v)) : '';
   // Bills heard but not voted on: a short line of their own, only for the ones that are not already rows above (decideWords).
   const dk = ownsAny ? w.asks.filter(r => r.s?.ask?.decide).length : 0;
-  if ((dlL && dlL.toAsk) || dk) w.askSaid = true;
+  if (askT || dk) w.askSaid = true;
   const parts = [said ? '' : nh ? p(`Your next hearing: ${nw(esc(whenAt(nh.scheduled_at)))} · ${esc(committeeName(nh.committee) || nh.committee)}`, 'landmark') : noHearingLine(v, w, p),
-    askT ? lineA('#/hearings/ask?scope=mine', 'calendar', `${nwParts(boldLead(askT))} · <span class="v6-nw">Get hearings</span>`) : dl ? p(`Next deadline ${nw(esc(dayWords(dl.date)))}: ${esc(dl.words)}`, 'calendar') : '',
+    askT ? lineA('#/hearings/ask?scope=mine', 'calendar', `${nwParts(boldLead(askT))} · <span class="v6-nw">${ASK_TAB}</span>`) : dl ? p(`Next deadline ${nw(esc(dayWords(dl.date)))}: ${esc(dl.words)}`, 'calendar') : '',
     dk ? lineA('#/hearings/ask?scope=mine', 'gavel', nwParts(boldLead(decideWords(dk)))) : ''];
   if (!parts.join('')) return null;
   return { title: 'This week', html: parts.join('') };   // Hearings is a place in the sidebar and the phone bar, always in sight
@@ -804,7 +799,7 @@ function noHearingLine(v, w, p) {
   }
   for (const k of pos.keys()) mon.delete(k);
   if (!ownsAny && pos.size) return lineA('#/hearings/week?scope=coal', 'landmark', `<b>${plural(pos.size, 'hearing')} on your coalitions’ bills this week</b> · Hearings`);
-  const label = ownsAny ? 'your bills' : names.length ? `${names.join(' and ')} bills` : 'your coalitions’ bills';
+  const label = ownsAny ? 'your bills' : names.length ? `${andWords(names)} bills` : 'your coalitions’ bills';
   const m = [...mon.values()].sort((x, y) => ms(x.h.scheduled_at) - ms(y.h.scheduled_at));
   if (!m.length) return !ownsAny && !names.length && !all ? '' : p(`No hearings on ${esc(label)} this week.`, 'landmark');
   const at = ms(m[0].h.scheduled_at), when = `${dayWords(at)}, ${timeWords(at)}`;

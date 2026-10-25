@@ -169,8 +169,8 @@ JOURNEYS = [
   J('record-reply', "Record the chair's reply (Kevin), from Today", 'KV', 2,
     [Step(r'^\s*(They replied|Follow up|Record the reply|Asked by)\b'), Step(r'^\s*(Will schedule|They will schedule)')], r'will schedule',
     [Step('This week$'), Step(rx(r'bills? needs? a hearing')), Step('Asked by you'), Step('Will schedule')], needs=('#/', 'staff6/hearings.js')),
-  # The same reply recorded on the Get hearings board, with no help from Today (the critic: a reply on a follow-up row).
-  J('record-reply-board', "Record the chair's reply on Get hearings (Kevin)", 'KV', 2,
+  # The same reply recorded on the Bills That Need Hearings board (was Get hearings), with no help from Today (the critic: a reply on a follow-up row).
+  J('record-reply-board', "Record the chair's reply on Bills That Need Hearings (Kevin)", 'KV', 2,
     [Step(r'^\s*(Follow up|They replied)\b'), Step(r'^\s*(Will schedule|They will schedule)')], r'will schedule',
     None, start='/hearings/ask', needs=('staff6/hearings.js',), v5=4, v5_note="v5's This week deadline box: This week, the bill, Asked by you, Will schedule (as record-reply)"),
   # Kevin's HB2121 is approved and his to file on the busy day; v5 folded it under "+2 on this bill" (X22). With D16 a

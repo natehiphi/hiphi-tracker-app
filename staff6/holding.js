@@ -17,7 +17,7 @@
 // - Last contact (lastContact, contactWords, ensureContacts): the newest logged talk or ask, for every Legislators tab.
 import { S, DB, DEMO, DEADLINES, esc, isMine } from './data.js';
 import { codesOf, stopOf, billByNum, companionsOf, plain, chairIdsOf, legNotesAll, chairAskMail, legById, ASK_ANSWERS } from './model.js';
-import { icon, btn, menuSheet, WHOSE } from './ui.js';
+import { icon, btn, menuSheet, WHOSE, andWords } from './ui.js';
 import * as PUSH from './push.js';
 import { wirePush } from './push.js';
 import { askWords, billStep, committeeName, dayWords, firstWords, orWords, numWords, itemRow, nw } from './steps.js';
@@ -238,7 +238,7 @@ export function introLine() {
 // Services"); a joint referral names only the half they chair.
 export function chairRole(l, codes) {
   const cs = [...new Set(codes.flatMap(codesOf))].filter(k => (S.committeeMembers || []).some(m => m.committee === k && m.role === 'chair' && m.legislator_id === l.id));
-  return cs.length ? `Chair, ${cs.map(c => committeeName(c)).join(' and ')}` : '';
+  return cs.length ? `Chair, ${andWords(cs.map(c => committeeName(c)))}` : '';
 }
 // What is left with one chair, in the board's words: "HB 1563 to ask by Fri 3/27, HB 756 to follow up", or counts once
 // there are more than two bills of a kind ("4 bills to ask by Tue 3/24"). One fact: the parts are joined by commas.

@@ -17,7 +17,7 @@
 import { S, DB, DEMO, SESSION_OVER, hooks, esc, advocate } from './data.js';
 import { diedish, riskOf, PUBLIC_APP, hiToday, billById, wantsHearing, billRoute, sittingDraft, whenAt } from './model.js';
 import { ownerFirst, ownerName } from './model.js';   // R-316 W28: "Lauren (turned off)"
-import { icon, btn, empty, toast, switchRow, openSheet } from './ui.js';
+import { icon, btn, empty, toast, switchRow, openSheet, ASK_TAB, andWords } from './ui.js';
 import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { plural, afterClose, iconName } from './lists.js';
 import { issuesOfBill } from './issues.js';
@@ -28,7 +28,7 @@ import { itemRow, billStep, shownStatus, testimonyState, goingWords, committeeNa
 const WEEK = 7 * 864e5, FOLD = 6;
 const DESK = () => { try { return matchMedia('(min-width: 1100px)').matches; } catch { return false; } };
 const coalById = id => (S.campaigns || []).find(c => String(c.id) === String(id)) || null;
-const andList = xs => xs.length < 2 ? xs.join('') : xs.length === 2 ? `${xs[0]} and ${xs[1]}` : `${xs.slice(0, -1).join(', ')}, and ${xs[xs.length - 1]}`;
+const andList = andWords;   // ui.js's one list join, "A, B and C" (Nate 25 Oct walk 1)
 const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
 // A bill in a sentence (a toast, a button's label): its name and its number as the rows say them, "Easier local food buying
 // for schools (SB 659)", never model.js billSay's "SB659 HD1" (D15; the critic).
@@ -230,7 +230,7 @@ function needsSecs(key, w, { take = false } = {}) {
     return out + (all ? '' : showAllBtn(lines.length, { 'data-comore': mk }));
   };
   return [...by].sort(([p], [q]) => p.localeCompare(q)).map(([d, g], i) => sec(`co6-n-${esc(key)}-${i}`, `${g.risk ? 'At risk: needs' : 'Needs'} a hearing by ${esc(dayWords(d))}`,
-    group(d, g.rows), { more: i === by.size - 1 ? `<p class="i6-more-link"><a href="#/hearings/ask">Ask on Get hearings${icon('chevron-right')}</a></p>` : '' })).join('');
+    group(d, g.rows), { more: i === by.size - 1 ? `<p class="i6-more-link"><a href="#/hearings/ask">Ask on ${ASK_TAB}${icon('chevron-right')}</a></p>` : '' })).join('');
 }
 // The lead line: where it stands, said once (status by exception, D3; words and an icon, never colour alone, A-5).
 export function standLeadHTML(bills, { clear = [] } = {}) {

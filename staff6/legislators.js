@@ -16,7 +16,7 @@
 // Everyone, Holding and Everyone's this-week preset.
 import { S, esc, DEMO, islandOf, SESSION_OVER } from './data.js';
 import { plain, codesOf, geoSuggest, geoDistricts, ISLANDS, chairIdsOf, stopOf, diedish, legById } from './model.js';
-import { icon, btn, iconBtn, empty, toast, segmented, pickerSheet, menuSheet, keysOn, filterBtn, sectionNav } from './ui.js';
+import { icon, btn, iconBtn, empty, toast, segmented, pickerSheet, menuSheet, keysOn, filterBtn, sectionNav, andWords } from './ui.js';
 import { HOLDING, holdingHTML, contactWords, lastContact, ensureContacts, chairRole, chairEmail, replyBtn, chairGroups, askItems, askScopes, askScope, scopeWhose } from './holding.js';
 import * as PUSH from './push.js';   // Hearings > Get hearings' board (askBoard), drawn here (spec 6: one component)
 import { photo, legName, legHref, seatsOf, roleWord, RANK, wireLinks, surname } from './pathway.js';
@@ -186,8 +186,8 @@ function roleWords(l, week) {
   // was heard in Judiciary, where he is a member: the count is every committee of his, the chair only the ones he chairs.
   if (w) { const chaired = Object.entries(w.roles).filter(([, r]) => r === 'chair').map(([c]) => c), n = w.bills.size;
     const inChaired = new Set(chaired.flatMap(c => [...(w.byCm?.get(c) || [])]));
-    if (chaired.length && inChaired.size === n) return `Chairs ${chaired.map(c => committeeName(c)).join(' and ')}, hearing ${n === 1 ? 'one' : n} of our bills this week`;
-    return `Hears ${n === 1 ? 'one' : n} of our bills this week${chaired.length ? ` · chairs ${chaired.map(c => committeeName(c)).join(' and ')}` : ''}`; }
+    if (chaired.length && inChaired.size === n) return `Chairs ${andWords(chaired.map(c => committeeName(c)))}, hearing ${n === 1 ? 'one' : n} of our bills this week`;
+    return `Hears ${n === 1 ? 'one' : n} of our bills this week${chaired.length ? ` · chairs ${andWords(chaired.map(c => committeeName(c)))}` : ''}`; }
   const seats = seatsOf(l).map(m => m.committee), chairs = seatsOf(l).filter(m => m.role === 'chair').map(m => m.committee);
   let hold = 0, inCm = 0;
   for (const b of S.bills) { if (!ourBill(b) || diedish(b)) continue; const st = stopOf(b); if (st.phase !== 'committee' || !st.committee) continue;

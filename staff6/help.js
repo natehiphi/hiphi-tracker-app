@@ -15,7 +15,7 @@
 // after she resubmits (X25). Look-only steps tick from the frame's 'v6:route' event.
 import { S, DB, DEMO, APP_URL, STAGES, SESSION_OVER, esc, isMine, DEADLINE_ROWS } from './data.js';
 import { glossStage, legislativeDay, PUBLIC_APP, plain, sessionGates, deadlineCalendar, gateGloss, legNotesAll, billById } from './model.js';
-import { icon, btn, switchRow, toast, keysOn, setKeys } from './ui.js';
+import { icon, btn, switchRow, toast, keysOn, setKeys, ASK_TAB, andWords } from './ui.js';
 import { WORDS, allWords, HOW_TO } from './terms.js';
 import { admitsPartners } from './partnerq.js';
 import { itemRow, whoseStep } from './steps.js';
@@ -69,7 +69,7 @@ const TOPICS = [
         ['A new version', 'If the bill changes (House draft 1 to House draft 2) after the draft was written, the writer’s Today says “The bill changed: check your testimony”.']]; } },
   { id: 'tabs', title: 'What each place is for', also: 'places sidebar map where', icon: 'list-todo', sub: () => 'Today, Hearings, Testimony, Outreach, Bills and the rest',
     items: () => [['Today', 'Your next step first, then what to do today, what is coming up, and one line for what waits on others. Each step is its own row; the one you pick opens beside the list on a laptop, with its button. A question a teammate asked you is a row too, until you answer it. On a phone on a hearing day, your hearing comes first, with its time and room.'],
-      ['Hearings', '<b>This week</b>: every sitting with our bills, day by day, who is going (<b>I’m going</b> is on each card) and where each bill’s testimony stands. <b>Get hearings</b>: the bills still waiting for a hearing, grouped by chair, soonest notice first, with Email the chair.'],
+      ['Hearings', '<b>This week</b>: every sitting with our bills, day by day, who is going (<b>I’m going</b> is on each card) and where each bill’s testimony stands. <b>' + ASK_TAB + '</b>: the bills still waiting for a hearing, grouped by chair, soonest notice first, with Email the chair.'],
       ['Testimony', 'Every draft by where it stands: <b>To write</b>, <b>To approve</b>, <b>Sent back</b>, <b>Ready to file</b> and <b>Filed</b>. Approvers open Review from To approve, one draft at a time.'],
       ['Outreach', 'Rallying the public and partners: <b>This week’s asks</b> (each bill’s ask, its deadline and the words to copy), <b>Partner update</b>, <b>Emails</b> to supporters, <b>Supporters</b> and <b>Lists</b>.'],
       ['Bills', 'Every tracked bill, grouped by where it stands, or as a table; filter it, or select several to change at once. <b>Sort new bills</b> (in the opening weeks) and <b>Muted</b> are its other tabs. A bill’s page has three tabs: <b>Next step</b> (What’s next for you), <b>Team talk</b> (messages, notes and talks with legislators) and <b>Public</b>.'],
@@ -89,19 +89,19 @@ const TOPICS = [
       ['Revise testimony that was sent back', 'Testimony, then <b>Sent back</b>: the note, the Doc, and <b>Resubmit</b> once it is fixed.'],
       ['Log a call or meeting with a legislator', 'Open the legislator’s page (Legislators, or a name on a bill’s Committees) and press <b>Log a talk</b>. A bill’s Team talk can log one too. Steps: <a href="#/help/talk">Logging a talk with a legislator</a>.'],
       ['Say I’m going to a hearing', 'Press <b>I’m going</b> on the hearing’s card: on Hearings, the hearing’s page or the bill’s page. It can be undone for 10 seconds.'],
-      ['Ask the chair for a hearing', 'Hearings, then <b>Get hearings</b>: each chair with the bills waiting for them, and <b>Email the chair</b>. The email is written for you and opens in your own mail; send it, then answer <b>Did you send it?</b> so the team sees who asked. Steps: <a href="#/help/hearing">Getting a bill a hearing</a>.'],
-      ['Hand a bill or a to-do to someone', 'Give to… beside a bill’s owner (on its page) or on a to-do hands it to a teammate, who gets a Slack message. A chair ask: Give this ask to… on Get hearings. Someone leaving or away: an admin hands over all they hold, from People.'],
+      ['Ask the chair for a hearing', 'Hearings, then <b>' + ASK_TAB + '</b>: each chair with the bills waiting for them, and <b>Email the chair</b>. The email is written for you and opens in your own mail; send it, then answer <b>Did you send it?</b> so the team sees who asked. Steps: <a href="#/help/hearing">Getting a bill a hearing</a>.'],
+      ['Hand a bill or a to-do to someone', 'Give to… beside a bill’s owner (on its page) or on a to-do hands it to a teammate, who gets a Slack message. A chair ask: Give this ask to… on ' + ASK_TAB + '. Someone leaving or away: an admin hands over all they hold, from People.'],
       ['Send this week’s ask', 'Outreach, <b>This week’s asks</b>: each bill’s ask and its deadline, with Copy link, Copy message, Copy post and Email followers.'],
       ['See what I owe today', 'Today: your next step first, then what to do today. The number beside Today in the sidebar counts it.'],
       ['Cover for a teammate', 'More tools, then See a teammate’s list: their Today, to read. Leads also have Team.'],
       ['Find anything', 'Type in the search box at the top, or press Cmd or Ctrl and K. It finds bills, people, places and things to do.']] },
   // R-316 W37: short guides in the app's own words, each linked from the screen where its job happens.
   { id: 'hearing', gate: HOW_TO, title: 'Getting a bill a hearing', also: 'ask the chair hearing request schedule notice push', icon: 'megaphone', sub: () => 'When to ask, whom, how, and how to record it',
-    items: () => [['1. When', 'As soon as the bill is referred, and before its notice-by date. A committee must post a hearing 48 hours ahead (72 for a bill’s first Senate committee), so the chair has to say yes before then. <b>Get hearings</b> lists each bill still waiting with the day its notice must post by, soonest first; the bill’s page says it too.'],
-      ['2. Whom', 'The chair of the committee the bill is in now: Get hearings groups the bills by that chair. A joint referral (two committees named together) has two chairs; ask both. The bill’s introducers can ask too: its Committees mark the members who introduced it or its companion. The money committees (Finance in the House, Ways and Means in the Senate) hear bills late, so ask their chairs early.'],
-      ['3. How', 'On Hearings, then <b>Get hearings</b>, press <b>Email the chair</b>: one email asks about all of that chair’s bills. It is written for you and opens in your own mail: read it, then send it. To hand the ask to a teammate, press <b>Give this ask to…</b>; it becomes a row on their Today.'],
-      ['4. Record it', 'Back in the tracker, answer <b>Did you send it?</b> The bill then says “Asked by Kevin Mon 3/16 · no reply yet” for the whole team, so nobody asks twice. Asked by phone or in person? Press <b>Log a talk</b> under that chair on Get hearings, or log the talk on the chair’s page with “This was an ask for a hearing” ticked (<a href="#/help/talk">Logging a talk with a legislator</a>).'],
-      ['5. The reply', 'When the chair answers, press <b>They replied</b> on Get hearings or on the bill: Will schedule, Said no (which offers next steps) or Left a message. With no reply after 3 working days, your Today offers a follow-up. When the hearing posts, the bill says Scheduled: a good moment to say mahalo.'],
+    items: () => [['1. When', 'As soon as the bill is referred, and before its notice-by date. A committee must post a hearing 48 hours ahead (72 for a bill’s first Senate committee), so the chair has to say yes before then. <b>' + ASK_TAB + '</b> lists each bill still waiting with the day its notice must post by, soonest first; the bill’s page says it too.'],
+      ['2. Whom', 'The chair of the committee the bill is in now: ' + ASK_TAB + ' groups the bills by that chair. A joint referral (two committees named together) has two chairs; ask both. The bill’s introducers can ask too: its Committees mark the members who introduced it or its companion. The money committees (Finance in the House, Ways and Means in the Senate) hear bills late, so ask their chairs early.'],
+      ['3. How', 'On Hearings, then <b>' + ASK_TAB + '</b>, press <b>Email the chair</b>: one email asks about all of that chair’s bills. It is written for you and opens in your own mail: read it, then send it. To hand the ask to a teammate, press <b>Give this ask to…</b>; it becomes a row on their Today.'],
+      ['4. Record it', 'Back in the tracker, answer <b>Did you send it?</b> The bill then says “Asked by Kevin Mon 3/16 · no reply yet” for the whole team, so nobody asks twice. Asked by phone or in person? Press <b>Log a talk</b> under that chair on ' + ASK_TAB + ', or log the talk on the chair’s page with “This was an ask for a hearing” ticked (<a href="#/help/talk">Logging a talk with a legislator</a>).'],
+      ['5. The reply', 'When the chair answers, press <b>They replied</b> on ' + ASK_TAB + ' or on the bill: Will schedule, Said no (which offers next steps) or Left a message. With no reply after 3 working days, your Today offers a follow-up. When the hearing posts, the bill says Scheduled: a good moment to say mahalo.'],
       ['Too late?', 'Once the notice time for the last regular slot has passed, the bill says so. Call the chair’s office: only the chair can still help.'],
       ['Bills HIPHI opposes', 'They get no hearing ask anywhere in the tracker: HIPHI never asks a chair to hear a bill it opposes.']] },
   { id: 'talk', gate: HOW_TO, title: 'Logging a talk with a legislator', also: 'log call meeting conversation visit talked', icon: 'message-square-plus', sub: () => 'A call, a meeting or a visit, kept where the team finds it',
@@ -218,7 +218,7 @@ function calendarItems() {
   const my = new Map(sessionGates(mine).map(g => [kOf(g), g])), team = sessionGates(S.bills);
   if (!team.length) return [['No calendar yet', 'The session’s deadlines are loaded each December.']];
   const ld = legislativeDay();
-  const head = ['How to read it', `Each deadline with its day, what a bill must do by then, and how many bills race it: yours (bills you own or follow) and the team’s. A bill races the next deadline it has to meet. ${ld?.text ? `Today is ${esc(ld.text)}.` : ''} The bills that still need a hearing for the next deadline are on Hearings, under <b>Get hearings</b> (<a href="#/help/hearing">Getting a bill a hearing</a>).`];
+  const head = ['How to read it', `Each deadline with its day, what a bill must do by then, and how many bills race it: yours (bills you own or follow) and the team’s. A bill races the next deadline it has to meet. ${ld?.text ? `Today is ${esc(ld.text)}.` : ''} The bills that still need a hearing for the next deadline are on Hearings, under <b>${ASK_TAB}</b> (<a href="#/help/hearing">Getting a bill a hearing</a>).`];
   return [head, ...team.map(g => {
     const m = my.get(kOf(g)), w = gateGloss(g.label), gld = legislativeDay(new Date(g.date + 'T12:00:00-10:00').getTime());
     const what = w ? `${w[0].toUpperCase()}${w.slice(1)}.` : '';
@@ -227,7 +227,7 @@ function calendarItems() {
       : ` ${m && m.racing.length ? `${nBills(m.racing.length)} of yours race it${m.noHearing.length ? `, ${m.noHearing.length} with no hearing yet` : ''}` : 'None of your bills race it'}; ${g.racing.length} on the team${g.noHearing.length ? ` (${g.noHearing.length} with no hearing yet)` : ''}.`;
     // The House and the Senate can each have their own day for one deadline (Triple filing 2/11 and 2/12): say whose.
     const ch = team.filter(x => x.name === g.name).length > 1 ? (DEADLINE_ROWS || []).find(r => r.label === g.label && String(r.deadline_date).slice(0, 10) === g.date)?.chamber : '';
-    return [`${g.name}${ch ? ` (${ch === 'S' ? 'Senate' : 'House'})` : ''} · ${mdDay(g.date)}`, `${what} ${when}${race}${g.bills ? ` Only for ${esc(g.bills.join(' and '))}.` : ''}`.trim()];
+    return [`${g.name}${ch ? ` (${ch === 'S' ? 'Senate' : 'House'})` : ''} · ${mdDay(g.date)}`, `${what} ${when}${race}${g.bills ? ` Only for ${esc(andWords(g.bills))}.` : ''}`.trim()];
   })];
 }
 // ---- what to do at each moment, one line per moment and per role, with this session's dates (R-316 W37, M-15) ----
@@ -237,7 +237,7 @@ function momentItems() {
   return [
     ['Before opening day', 'Owners: get your issues ready (<a href="#/help/prep">Getting your issues ready</a>). Admins: the season checklist in Session setup. Everyone: choose how the tracker reaches you (<a href="#/me">My settings</a>).'],
     [by('Opening weeks, to Intro cutoff', at('introduced')), 'New bills arrive every day. <b>Sort new bills</b> asks for one decision on each: track it, with its coalition, owner, position and issue, or pass. Owners: check each of your issues has a bill.'],
-    [by('To the first lateral', at('first_lateral')), 'The big push for hearings. Owners: ask each chair before the notice time, from Hearings, then <b>Get hearings</b> (<a href="#/help/hearing">Getting a bill a hearing</a>). Writers: a draft appears within minutes of each notice; Send for approval 12 hours before testimony is due, and file it 2 hours before.'],
+    [by('To the first lateral', at('first_lateral')), 'The big push for hearings. Owners: ask each chair before the notice time, from Hearings, then <b>' + ASK_TAB + '</b> (<a href="#/help/hearing">Getting a bill a hearing</a>). Writers: a draft appears within minutes of each notice; Send for approval 12 hours before testimony is due, and file it 2 hours before.'],
     [by('To first decking', at('first_decking')), 'Bills must clear their last committee, often the money committee (Finance in the House, Ways and Means in the Senate). Owners: ask the money committee’s chair early.'],
     [by('Crossover', at('first_crossover')), 'Floor votes in the first chamber; there is no testimony on a floor vote. A bill that passes moves to the other chamber, with new committees and new chairs: owners, read its What’s next for you and ask the new chair early.'],
     [by('To second lateral and decking', [at('second_lateral'), at('second_decking')].filter(Boolean).join(' and ')), 'The same push in the second chamber, with less time. Writers: a bill that changed (House draft 1 to Senate draft 1) needs its testimony checked against the new version (<a href="#/help/versions">House and Senate versions</a>).'],
@@ -259,14 +259,14 @@ const go = (label, href) => `<a href="${esc(href)}">${esc(label)}</a>`;
 const MOVED_ALL = () => [
   ['Today', [
     ['Today’s This week switch', `${go('Hearings', '#/hearings')}, under This week: every sitting, day by day, with I’m going on each card.`],
-    ['The deadline box (bills that still need a hearing)', `${go('Get hearings', '#/hearings/ask')}, on Hearings: one board, grouped by chair, soonest notice first.`],
-    ['Mark asked', `${go('Get hearings', '#/hearings/ask')}: after you press <b>Email the chair</b>, it asks <b>Did you send it?</b> Asked by phone or in person? Press <b>Log a talk</b> beside that chair, on the same board.`],
-    ['The asked chip, to record what the chair said', `${go('Get hearings', '#/hearings/ask')}: <b>They replied</b>, on the ask that waits for a reply. Legislators’ Who to ask shows the same board.`],
-    ['Give to… and I’ll ask, on a chair ask', `${go('Get hearings', '#/hearings/ask')}: <b>Give this ask to…</b> and <b>I’ll ask</b> beside each chair. Whoever takes it gets a row on Today.`],
+    ['The deadline box (bills that still need a hearing)', `${go(ASK_TAB, '#/hearings/ask')}, on Hearings: one board, grouped by chair, soonest notice first.`],
+    ['Mark asked', `${go(ASK_TAB, '#/hearings/ask')}: after you press <b>Email the chair</b>, it asks <b>Did you send it?</b> Asked by phone or in person? Press <b>Log a talk</b> beside that chair, on the same board.`],
+    ['The asked chip, to record what the chair said', `${go(ASK_TAB, '#/hearings/ask')}: <b>They replied</b>, on the ask that waits for a reply. Legislators’ Who to ask shows the same board.`],
+    ['Give to… and I’ll ask, on a chair ask', `${go(ASK_TAB, '#/hearings/ask')}: <b>Give this ask to…</b> and <b>I’ll ask</b> beside each chair. Whoever takes it gets a row on Today.`],
     ['Also worth doing (suggestions)', `${go('Hearings', '#/hearings')}, at the foot of This week. Never counted, as before.`],
     ['The Mine and Team switch, and the person picker', `${isLeadish() ? `${go('Team', '#/team')} in the sidebar (leads), and ` : ''}${go('More tools', '#/tools')}, then See a teammate’s list, to read anyone’s list.`],
     ['Slipping', `${go('Team', '#/team')}, first on the page. Today keeps one line, “7 slipping · Open Team”.`, isLeadish],
-    ['Your coalition’s week (for helpers): I’ll ask, Message Lauren', `One line on Today, “Lauren has 5 hearing asks this week · Offer to help”. It opens ${go('Get hearings', '#/hearings/ask?scope=coal')} for your coalitions.`],
+    ['Your coalition’s week (for helpers): I’ll ask, Message Lauren', `One line on Today, “Lauren has 5 hearing asks this week · Offer to help”. It opens ${go(ASK_TAB, '#/hearings/ask?scope=coal')} for your coalitions.`],
     ['A coalition’s late or due cards (for helpers)', `Your own rows on Today, and ${go('Testimony', '#/testimony?view=write')} under To write.`],
     ['Messages from teammates, and the tracker’s notes', `${go('Inbox', '#/inbox')}, under Messages. A question to you that is not answered yet stays a row on Today.`],
     ['Write the public ask', `${go('Outreach', '#/outreach')}, under This week’s asks: the bill’s card has the box. It is still a row on Today two days before it is due.`],
@@ -388,7 +388,7 @@ function jobSteps(me, ownsNone, o) {
     try { const w = whoseStep(d, b, { viewer: me }); return w.role === 'write' && w.you; } catch { return false; } });
   if (writes) return [{ k: 'job', done: drafts.some(d => d.submitted_by === me.id), title: 'Send a testimony draft for approval', sub: 'Testimony, then To write: the Doc, then Send for approval (or Resubmit)', href: '#/testimony?view=write' }];
   const took = Object.values(S.todos || {}).flat().some(t => t && t.assignee_id === me.id && ASK_TODO.test(t.title || ''));
-  return [{ k: 'offer', done: took || askedChair(me), title: 'Offer to help with a chair ask', sub: 'Hearings, then Get hearings: I’ll ask beside a chair', href: '#/hearings/ask?scope=coal' }];
+  return [{ k: 'offer', done: took || askedChair(me), title: 'Offer to help with a chair ask', sub: 'Hearings, then ' + ASK_TAB + ': I’ll ask beside a chair', href: '#/hearings/ask?scope=coal' }];
 }
 function newSteps() {
   const o = frGet(), me = S.me; if (!me) return [];
@@ -410,7 +410,7 @@ function newSteps() {
     steps.push(...jobSteps(me, ownsNone, o));
     // v5 kept this tick as "week"; I'm going on any sitting counts too.
     steps.push({ k: 'hearings', done: !!(o.hearings || o.week) || Object.values(S.attend || {}).some(ids => (ids || []).includes(me.id)), title: 'See this week’s hearings', sub: 'Hearings, This week: who is going, and where each testimony stands', href: '#/hearings/week' });
-    if (!ownsNone) steps.push({ k: 'ask', done: askedChair(me), title: 'Ask a chair for a hearing', sub: 'Hearings, then Get hearings: Email the chair, then Did you send it?', href: '#/hearings/ask' });
+    if (!ownsNone) steps.push({ k: 'ask', done: askedChair(me), title: 'Ask a chair for a hearing', sub: 'Hearings, then ' + ASK_TAB + ': Email the chair, then Did you send it?', href: '#/hearings/ask' });
     steps.push({ k: 'bill', done: !!o.bill, title: 'Open a bill and read What’s next for you', sub: 'It says what the bill needs, by when, and whose step it is', href: firstBillHref(me) });
   }
   return steps;

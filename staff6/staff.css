@@ -505,6 +505,16 @@ body.staff6 .sv-tabrow.sv-secnav > a { flex: 0 0 auto; white-space: nowrap; line
    44px height stays (A-6). */
 @media (max-width: 767px) { body.staff6 .sv-tabrow { --tp: var(--s8); } }
 @media (max-width: 359px) { body.staff6 .sv-tabrow { --tp: 7px; column-gap: 0; } }
+/* A phone's page tabs are ONE row that scrolls sideways (Nate 25 Oct walk 1: Testimony's five tabs wrapped onto two lines;
+   this amends A-12 on v6 / spec 12.3 for phones). No scrollbar is drawn; the edge that has more fades (.ovf, app.js
+   tabRows, B-9) and the open tab is scrolled into view on load, so no tab is lost past the edge without a sign. Touch
+   swipes it, and Tab moves focus along it (the browser brings the focused tab into view). The focus ring sits just inside
+   the tab here, because a row that scrolls clips anything drawn outside its 4px of padding. Each label keeps its bold
+   width (.sv-tl), so the row never shifts when a tab is picked. Laptops keep the row as it was. */
+@media (max-width: 767.98px) {
+  body.staff6 .sv-tabrow.sv-secnav { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scroll-padding-inline: 24px; }
+  body.staff6 .sv-tabrow.sv-secnav > a:focus-visible { outline-offset: -3px; }
+}
 .sv-tabrow.ovf { -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
 .sv-tabrow.ovf.atstart { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); }
 .sv-tabrow.ovf.atend { -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px); mask-image: linear-gradient(90deg, transparent, #000 24px); }
