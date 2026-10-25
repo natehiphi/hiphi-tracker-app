@@ -538,11 +538,12 @@ body.staff6 .bw-page .v6-track .cur { font-weight: 500; }
 .bw-ptbox .iconbtn { flex: none; }
 .bw-ptfoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8); }
 .bw-ptrow .bw-count:empty { display: none; }
-/* The preview: the points as the testimony helper lists them, each on its own with its own Add (pub/helper.js hp-ptrow). */
+/* The preview: the points as the public page's letter writer lists them, each on its own with its own Add (pub/helper.js hp-ptrow). */
 .bw-pvh { font: 600 var(--v6-t16)/var(--v6-lh16) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); }
 .bw-pvsub { margin-top: 2px !important; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
 .bw-pvlist { list-style: none; margin: var(--s8) 0 0; padding: 0; display: grid; gap: var(--s8); }
 .bw-pvlist li { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s4); padding: var(--s8) var(--s12); border-radius: var(--v6-r12); background: var(--v6-wash);
   font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-ink); overflow-wrap: anywhere; }
-.bw-pvadd { flex: none; display: inline-flex; align-items: center; gap: 2px; font-weight: 700; color: var(--v6-action); }
-.bw-pvadd .ic { width: 14px; height: 14px; }
+.bw-pvadd { flex: none; display: inline-flex; align-items: center; padding: 0 10px; border: 1px solid var(--v6-field); border-radius: var(--v6-pill); background: var(--v6-card);
+  font-size: var(--v6-t14); line-height: 22px; font-weight: 400; color: var(--v6-muted); }   /* a picture of the public's button: muted, never the app's teal (A-12) */
+.bw-pterr:empty { display: none; }

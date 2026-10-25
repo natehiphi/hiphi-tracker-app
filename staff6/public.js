@@ -43,13 +43,14 @@ const saved = (b, k) => BOOL.has(k) ? !!b[k] : k === 'talking_points' ? (b.talki
 const pointsIn = v => String(v || '').split(/\n+/).map(s => s.trim().replace(/\s+/g, ' ')).filter(Boolean);
 const pointsCount = v => { const n = pointsIn(v).length; return `${n} of 5 points`; };
 // One field per talking point (R-336 walk 2, Nate: "one at a time, not all in the same box, as that's how they will be
-// viewed by the public"): the testimony helper lists each point on its own with its own Add. The draft still keeps the
+// viewed by the public"): the public page's letter writer lists each point on its own with its own Add. The draft still keeps the
 // points as one string, a line each, so saving, the conflict check and Undo work as before.
 const MAX_PTS = 5, PT_MAX = 200;
 const ptField = (t, i) => `<li class="bw-ptrow"><label for="bw-ptp-${i}">Point ${i + 1}</label>
-  <div class="bw-ptbox"><textarea id="bw-ptp-${i}" class="bw-pt" rows="1" data-pt aria-describedby="bw-ptp-h bw-ptp-${i}-n">${esc(t)}</textarea>
+  <div class="bw-ptbox"><textarea id="bw-ptp-${i}" class="bw-pt" rows="1" data-pt aria-describedby="bw-ptp-h bw-ptp-${i}-n bw-ptp-${i}-e">${esc(t)}</textarea>
   ${iconBtn('x', `Remove point ${i + 1}`, { 'data-ptrm': String(i) })}</div>
-  <span class="help bw-count" id="bw-ptp-${i}-n" aria-live="polite">${countText(t.length, PT_MAX)}</span></li>`;
+  <span class="help bw-count" id="bw-ptp-${i}-n" aria-live="polite">${countText(t.length, PT_MAX)}</span>
+  <div class="bw-pterr" id="bw-ptp-${i}-e" role="alert"></div></li>`;
 const ptFields = v => { const pts = String(v || '').split('\n').filter(x => x.trim()); return (pts.length ? pts : ['']).map(ptField).join(''); };
 // Typed but unsaved values survive the re-render a list change causes; they live here until Save.
 const draftOf = b => drafts.get(b.id + ':pub') || {};
@@ -105,8 +106,8 @@ function previewInner(b, v) {
       ${ask ? `<p class="bw-pask${askOn ? '' : ' off'}">${icon('megaphone')}<span><b>HIPHI asks:</b> ${esc(ask)}</span></p>` : ''}
     </div>
     ${pts.length ? `<div class="card bw-prevcard bw-pvpts${v.is_public ? '' : ' off'}"><p class="bw-pvh">Points you can make</p>
-      <p class="bw-pvsub">In the testimony helper, each with its own Add</p>
-      <ul class="bw-pvlist">${pts.map(p => `<li><span class="bw-pvt">${esc(p)}</span><span class="bw-pvadd" aria-hidden="true">${icon('plus')}Add</span></li>`).join('')}</ul></div>` : ''}
+      <p class="bw-pvsub">In the public page’s letter writer, each with its own Add</p>
+      <ul class="bw-pvlist">${pts.map(p => `<li><span class="bw-pvt">${esc(p)}</span><span class="bw-pvadd" aria-hidden="true">Add</span></li>`).join('')}</ul></div>` : ''}
     ${note ? `<p class="bw-pnote">${icon(note[0])}<span>${esc(note[1])}</span></p>` : ''}`;
 }
 const valuesOf = b => Object.fromEntries(FIELDS.map(k => [k, valOf(b, k)]));
@@ -255,7 +256,7 @@ export function renderPublic(b) {
         <span class="help bw-untilwarn" id="bw-puntil-w" role="status">${esc(untilWarn(b, ask, valOf(b, 'public_action_until')))}</span></div>`}
       ${reachNote(b)}
       <fieldset class="field bw-ptps"><legend>Talking points for testimony</legend>
-        <span class="help" id="bw-ptp-h">One point to a box, up to five. People writing testimony tap each one into a letter sent in their own name, so keep them true.${b.talking_points?.length && !b.talking_points_edited_at ? ' <b>Drafted by Claude from the bill’s record: please check them.</b>' : ''}</span>
+        <span class="help" id="bw-ptp-h">One point to a box. People writing testimony tap each one into a letter sent in their own name, so keep them true.${b.talking_points?.length && !b.talking_points_edited_at ? ' <b>Drafted by Claude from the bill’s record: please check them.</b>' : ''}</span>
         <ol class="bw-ptlist" id="bw-ptp">${ptFields(valOf(b, 'talking_points'))}</ol>
         <div class="bw-ptfoot">${btn('Add a point', { kind: 'text', sm: true, icon: 'plus', attrs: { 'data-ptadd': '1', ...(pointsIn(valOf(b, 'talking_points')).length >= MAX_PTS ? { hidden: '' } : {}) } })}
         <span class="help bw-count" id="bw-ptp-n" aria-live="polite">${pointsCount(valOf(b, 'talking_points'))}</span></div></fieldset>
@@ -296,12 +297,25 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
   ptBoxes().forEach(grow);
   const ptChanged = () => { note(); paint(); errBox.innerHTML = ''; form.querySelector('#bw-ptp-n').textContent = pointsCount(ptVal()); };
   ptList.addEventListener('input', e => { const t = e.target.closest('[data-pt]'); if (!t) return;
-    grow(t); t.removeAttribute('aria-invalid'); form.querySelector(`#${t.id}-n`).textContent = countText(t.value.length, PT_MAX); ptChanged(); });
+    grow(t); t.removeAttribute('aria-invalid'); form.querySelector(`#${t.id}-e`).innerHTML = ''; form.querySelector(`#${t.id}-n`).textContent = countText(t.value.length, PT_MAX); ptChanged(); });
   // A point is one paragraph: Enter starts the next point instead of a new line inside this one.
   ptList.addEventListener('keydown', e => { const t = e.target.closest('[data-pt]'); if (!t || e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
     e.preventDefault(); const i = ptBoxes().indexOf(t); if (ptBoxes().length < MAX_PTS && t.value.trim()) { const v = ptRaw(); v.splice(i + 1, 0, ''); ptDraw(v, i + 1); } });
   ptList.addEventListener('click', e => { const x = e.target.closest('[data-ptrm]'); if (!x) return;
-    const i = +x.dataset.ptrm, v = ptRaw(); v.splice(i, 1); ptDraw(v, Math.max(0, i - 1)); ptChanged(); });
+    const i = +x.dataset.ptrm, v = ptRaw(), [gone] = v.splice(i, 1); ptDraw(v, Math.max(0, i - 1)); ptChanged();
+    // The usual Undo (A-16): the point goes back where it was, while this form is still on screen.
+    if (gone.trim()) toast(`Point ${i + 1} removed.`, { undo: () => { if (!ptList.isConnected) return;
+      let w = ptRaw(); if (w.length === 1 && !w[0].trim()) w = []; w.splice(Math.min(i, w.length), 0, gone);
+      ptDraw(w.filter((y, k) => k < MAX_PTS || y.trim()).slice(0, MAX_PTS), i); ptChanged(); toast('Put back.'); } }); });
+  // Pasting several lines into a box fills that box and the ones after it, a line each, as Enter does; past the fifth box
+  // the rest joins the last one, so nothing pasted is lost.
+  ptList.addEventListener('paste', e => { const t = e.target.closest('[data-pt]'); if (!t) return;
+    const lines = (e.clipboardData?.getData('text/plain') || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean); if (lines.length < 2) return;
+    e.preventDefault(); const i = ptBoxes().indexOf(t), v = ptRaw(), before = t.value.slice(0, t.selectionStart), after = t.value.slice(t.selectionEnd);
+    const fill = [before + lines[0], ...lines.slice(1)]; fill[fill.length - 1] += after;
+    const room = MAX_PTS - (v.length - 1) - 1;   // boxes this paste may add after the one it lands in
+    const keep = fill.slice(0, room + 1); if (fill.length > keep.length) keep[keep.length - 1] += ' ' + fill.slice(keep.length).join(' ');
+    v.splice(i, 1, ...keep); ptDraw(v, i + keep.length - 1); ptChanged(); });
   ptAdd.onclick = () => { const v = ptRaw(); if (v.length >= MAX_PTS) return; ptDraw([...v, ''], v.length); };
   const errBox = form.querySelector('#bw-perr');
   const note = () => { const d = {}; for (const k of FIELDS) { const v = k === 'talking_points' ? ptVal() : BOOL.has(k) ? f[k].checked : f[k].value; if (v !== saved(b, k)) d[k] = v; }
@@ -326,10 +340,11 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
     // The database wants a nickname of 3 to 60 characters; the field stops at 40 so it fits one line on a phone.
     const nickname = f.nickname.value.trim().replace(/\s+/g, ' ');
     if (nickname && nickname.length < 3) { errBox.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}A nickname needs at least 3 characters.</p>`; f.nickname.setAttribute('aria-invalid', 'true'); f.nickname.focus(); return; }
-    // Each point is checked in its own box, and the one too long is the one marked and focused.
-    const pts = pointsIn(ptVal()), boxes = ptBoxes().filter(t => t.value.trim()), long = pts.findIndex(p => p.length > PT_MAX);
-    const ptBad = pts.length > MAX_PTS ? `Up to five talking points. There are ${pts.length}: take some out.` : long >= 0 ? `Point ${long + 1} is ${pts[long].length} characters. Keep each one under 200.` : '';
-    if (ptBad) { const t = boxes[long >= 0 ? long : MAX_PTS] || boxes[0]; errBox.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}${esc(ptBad)}</p>`; if (t) { t.setAttribute('aria-invalid', 'true'); t.focus(); } return; }
+    // Each point is checked in its own box: the one too long is named by its box's label, marked, focused and told under it.
+    const pts = pointsIn(ptVal()), raw = ptRaw().map(x => x.trim().replace(/\s+/g, ' ')), li = raw.findIndex(p => p.length > PT_MAX);
+    if (li >= 0) { const t = ptBoxes()[li]; form.querySelector(`#${t.id}-e`).innerHTML = `<p class="inlinemsg">${icon('circle-alert')}Point ${li + 1} is ${raw[li].length} characters. Keep it under 200.</p>`;
+      t.setAttribute('aria-invalid', 'true'); t.focus(); return; }
+    if (pts.length > MAX_PTS) { errBox.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}Up to five talking points. There are ${pts.length}: take some out.</p>`; return; }
     if (bad) { errBox.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}${esc(bad)}</p>`; f.public_action_until.setAttribute('aria-invalid', 'true'); f.public_action_until.focus(); return; }
     const sub = form.querySelector('[type="submit"]'); sub.setAttribute('aria-busy', 'true');
     // Only what changed is written, compared with what the form held when editing began, and a teammate's newer save of the
