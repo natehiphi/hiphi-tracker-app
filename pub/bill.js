@@ -22,7 +22,7 @@ import { stoppedAt } from '../stops.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActing } from './actions.js';
 import { flower } from './art.js';
 import { followAsk, profileSaved, levelLine, levelBox, wireLevelLine } from './alerts.js';   // the profile ask after a follow (R-184); how much an issue texts (R-299)
-import { celebrate as moment, fxOn, rooster } from './fx.js';
+import { celebrate as moment, fxOn, rooster, MOMENT_MS } from './fx.js';
 import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
 import { abEvent } from './variant.js';
 import { legMoments, planFor } from './speakup.js';   // the floor vote's email to their own legislator (R-169); the walkthrough a button opens
@@ -385,7 +385,8 @@ function mainButton(b, x) {
       // A stopped bill is not the end of its issue: follow the issue and its next bills come to you (R-018). Between
       // sessions too (B3-1, R-199): following the issue is what brings its new bills in January, so it leads, and "Find
       // your legislators" is the second choice beside the line that says what happens next (stoppedNext). A newcomer from
-      // a link gets their card's own follow here (its moment, then the rest of the first visit), so the page asks once.
+      // a link gets their card's own follow here (the profile ask, its moment, and the visit ends on this bill: R-212 #47),
+      // so the page asks once.
       const off = sessionInfo().phase !== 'in', bi = issuesOf(b)[0];
       if (bi && !issueFollowed(bi)) return btn('Follow the issue', { kind: 'primary', icon: 'star', full: true, attrs: { [newbie(b) ? 'data-bl-newfollow' : 'data-bl-followissue']: newbie(b) ? '1' : bi.id, 'aria-label': `Follow the issue: ${bi.name}` }, cls: 'bl-barbtn' });
       if (off && !myDistricts()) return btn('Find your legislators', { kind: 'primary', icon: 'map-pin', full: true, href: `#/legislators?from=${encodeURIComponent(billRef(b))}` });
@@ -703,10 +704,14 @@ function friendCard(b, x) {
 // ---------------- a newcomer on a shared bill (R-023, decision 7): the easiest action first, following second ----------------
 // Someone whose first visit starts on a bill someone sent them sees what the bill is, then this card: help right now (the
 // page's own main button, "Send a quick email · 2 min" when there is a hearing), "Follow this issue" (no "instead", Nate
-// 9/21), or "Not now". Whatever they choose, the rest of the first visit follows on THIS bill (start.js, wiz().via):
-// follow it next time?, the lessons on this bill, who speaks for you, coming up, and the finale. On a phone the card sits
-// under the bill's name with the main button in the bottom bar; on a laptop it tops the side panel, right above the
-// main button (Nate 9/21: "Send a quick email" was hidden at the bottom of the page).
+// 9/21), or "Just looking". Each one ends where it should: acting ends the visit on that success, at Home (homeAfterAct,
+// X10-2); "Just looking" closes the card and stays on the bill (R-067); following stays on the bill too (R-212 #47,
+// followedHere): "Save your profile" over the page, the "Mahalo!", the visit counted as finished, and the story of a bill
+// offered in one quiet line where the card was (storyLine). Following used to go on into the rest of the first visit on
+// this bill (start.js, wiz().via), seven more taps that ended at Home, never back at the bill they came to read (the
+// power users' walk, 8 Oct: "EASY then annoying"). On a phone the card sits under the bill's name with the main button
+// in the bottom bar; on a laptop it tops the side panel, right above the main button (Nate 9/21: "Send a quick email"
+// was hidden at the bottom of the page).
 S.blNew ??= new Set();
 const whenWord = iso => { const days = (new Date(iso) - Date.now()) / 864e5, d = dayWord(iso);
   return /^(today|tomorrow)/.test(d) ? d.replace(/\s*\(.*\)$/, '') : days < 7 ? `on ${new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'long' })}` : `on ${d}`; };
@@ -746,17 +751,27 @@ function newcomer(b, x) {
 // The tips about this page, offered in one quiet line to someone they no longer start for by themselves (X10-4, R-180;
 // core.js billTourHeld): they came here to act, or the first visit already told them a bill's story. It goes once the
 // tips are seen (tour.js), so a person who never wants them sees one line, not a tour over the button they came for.
-function tourOffer() {
-  if (firstVisit() || !billTourHeld() || billTourSeen()) return '';
+// Not on a bill a newcomer has just followed, for the rest of this visit: its story line is that page's one "New to
+// this?" (A-14; R-212 #47). It can come back on a later visit.
+function tourOffer(b) {
+  if (firstVisit() || !billTourHeld() || billTourSeen() || S.blFollowedNew.has(b?.id)) return '';
   return `<p class="bl-tourline">${icon('sparkles')}<span>New to this? ${btn('Take the tour', { kind: 'text', sm: true, attrs: { 'data-bl-billtour': '1' } })}</span></p>`;
 }
+// After a newcomer's Follow on a shared bill (R-212 #47) the visit ends on the bill, and the part of the first visit they
+// skipped, the story of a bill, is offered in one quiet line where the card was, with Home's words for it (home.js
+// loopCard, after an action): for the rest of this visit, until it is opened (wiz().viaLearned, as Home's line). A link in
+// the sentence, as Home's, so the comma and the words after it wrap as text. The lesson's Back and Done go back in
+// history, to this bill.
+S.blFollowedNew ??= new Set();   // bills a newcomer followed from this visit
+const storyLine = b => S.blFollowedNew.has(b.id) && !wiz().viaLearned
+  ? `<p class="bl-tourline bl-storyline">${icon('sparkles')}<span>New to this? <a href="#/learn/story/${esc(b.id)}" data-bl-learn="1">See how a bill becomes law</a>, about a minute.</span></p>` : '';
 // "Just looking" (was "Not now") sits beside the main button (the phone bar; the side panel on a laptop). It used to
 // start the whole first visit, 13 taps, for someone who only wanted to read the bill (R-067). Now it closes the card
 // and stays on the bill; one quiet line offers the tour, which is what "Not now" used to start.
 const notNow = () => btn('Just looking', { kind: 'text', attrs: { 'data-bl-newlater': '1' } });
 // The page's main button is an ask (not following or sharing): "Just looking" sits beside it in the bar instead.
 const asking = x => !!x.act || ['ask', 'hold', 'remind', 'floor', 'conference', 'governor'].includes(x.kind);
-// On to the rest of the first visit, on this bill.
+// On to the rest of the first visit, on this bill: the tour offered after "Just looking" (no longer after a follow, R-212 #47).
 const viaStart = (b, extra = {}) => { wizSet({ via: b.bill_number, viaId: b.id, viaName: nick(b) || spaced(b.bill_number), step: 1, ...extra }); app.go('#/start/1'); };
 // After a first action from a shared link, the visit ends on that success, at Home (X10-2, R-180; the confirmation-page
 // pattern, C-6). It used to go on into the rest of the first visit: the story of the bill, whose last page promised
@@ -771,6 +786,24 @@ const homeAfterAct = b => {
   try { sessionStorage.setItem('hiphi_welcome', '1'); } catch { /* private mode: Home's everyday shape */ }
   logVisit('act', 'done', { path: 'link' }); logVisit('done', 'done', { path: 'link' }); abEvent('finished');
   app.go('#/');
+};
+// After a newcomer's Follow on a shared bill, the visit is finished there, on the bill (R-212 #47; "Just looking" stays
+// too, R-067), and counted as homeAfterAct counts an action. done: Home and a reload never send them into #/start;
+// viaFollowed: the bill and that it was followed are remembered; hiphi_welcome: Home keeps its calm first-visit shape for
+// the rest of this visit. The redraw shows the follow as on, the card gone (firstVisit() is false once anything is
+// followed) and the story line in its place.
+const followedHere = b => {
+  wizSet({ via: b.bill_number, viaId: b.id, viaName: nick(b) || spaced(b.bill_number), viaFollowed: true, done: true, step: 1 });
+  try { sessionStorage.setItem('hiphi_welcome', '1'); } catch { /* private mode: Home's everyday shape */ }
+  logVisit('done', 'done', { path: 'link' }); abEvent('finished');
+  S.blFollowedNew.add(b.id);
+  app.render();
+  // The card above folds to one line while the scroll stays, so what was under the person's thumb jumps up, the follow's
+  // proof under the sticky bars (the old pages, ?rec=0; the critic, 24 Oct). Bring the story line, where the card was, back
+  // into view under them. Done now, before the sheet keeps this scroll for its way back (alerts.js).
+  const el = document.querySelector('.bl-storyline'); if (!el) return;
+  const top = Math.max(0, ...[...document.querySelectorAll('.hdr, .bl-top')].map(e => e.getBoundingClientRect().bottom)) + 12;
+  const r = el.getBoundingClientRect(); if (r.top < top) window.scrollBy(0, r.top - top);
 };
 // A first visit that began on this bill: the first action gets its moment (C-7), is counted, then Home. Called by the
 // bar's "Yes, I sent it" (it once gave only a toast, so the quick email from a link was never counted or celebrated,
@@ -1108,17 +1141,17 @@ function page(num, b) {
   const x = situation(b);
   if (REC()) return recPage(num, b, x);
   const note = b.sandbox_untracked ? `<div class="notice info bl-note">${icon('info')}<div>This bill is not on HIPHI’s list, so the sandbox has only its number and title. The live tracker shows every bill in full.</div></div>` : '';
-  if (!wide()) return `<div class="bl-page">${topbar(num, b)}${welcomeLine(b, newbie(b))}${head(b, x)}${friendCard(b, x)}${newcomer(b, x)}${tourOffer()}
+  if (!wide()) return `<div class="bl-page">${topbar(num, b)}${welcomeLine(b, newbie(b))}${head(b, x)}${friendCard(b, x)}${newcomer(b, x)}${storyLine(b)}${tourOffer(b)}
     ${x.live ? `<section class="card bl-stance" aria-labelledby="bl-stance-h">${stanceInner(b, x)}</section>` : ''}${note}
     ${statusCard(b, x)}${actionSection(b, x)}${othersBlock(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}${draftsSection(b)}</div>`;
   // Reading and keyboard order (R-067: the main action was the 11th Tab stop on a laptop): the bill's name and what it
   // does, then the side panel with the action, then the rest. The grid puts the side panel on the right for the whole
   // height (bill.css .bl-cols), so the page looks as before.
   return `<div class="bl-page bl-wide">${topbar(num, b)}<div class="cols bl-cols">
-    <div class="bl-main">${welcomeLine(b, newbie(b))}${head(b, x)}${tourOffer()}</div>
+    <div class="bl-main">${welcomeLine(b, newbie(b))}${head(b, x)}${tourOffer(b)}</div>
     <aside class="side bl-side" aria-label="Take part">
       <p class="bl-sidenum">${esc(spaced(b.bill_number))}</p>
-      ${friendCard(b, x)}${newcomer(b, x)}${actionSection(b, x) || doCard(b, x)}
+      ${friendCard(b, x)}${newcomer(b, x)}${storyLine(b)}${actionSection(b, x) || doCard(b, x)}
       <section class="card bl-you" ${x.live ? 'aria-labelledby="bl-stance-h"' : 'aria-label="Follow and share"'}>${x.live ? stanceInner(b, x) : ''}${sideTools(b)}</section>
     </aside>
     <div class="bl-main bl-main2">${note}${statusCard(b, x)}${othersBlock(b)}${whoDecides(b, x)}${hearingsSection(b, x)}${details(b, x)}${draftsSection(b)}</div></div></div>`;
@@ -1295,8 +1328,10 @@ function recHead(b, x) {
     !x.live && (mine === 'support' || mine === 'oppose') ? chip(mine === 'support' ? 'You supported it' : 'You opposed it', '', 'user-check') : ''].filter(Boolean).join('');
   // "Read the bill" opens the Capitol's text for now; the reading view in the app waits for its migration (R-302).
   const read = `<a class="bl-rread" href="${esc(billTextUrl(b))}" target="_blank" rel="noopener" data-ab-go="text">${icon('book-open')}<span>Read the bill</span>${icon('external-link', { cls: 'bl-ext' })}</a>`;
+  // The issue's line (Part of ..., ✓ Following the issue) for a text's link, and after a newcomer's follow here (R-212
+  // #47, the critic's high, 24 Oct): once the toast has gone it is what says they follow the issue, and stops it (B-5).
   return `<div class="bl-head bl-rhead"><p class="bl-reye">${esc(spaced(b.bill_number))}</p><h1 class="${name ? 'hero bl-nick' : 'bl-what'}">${esc(name || plainHead(b))}</h1>
-    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}<div class="bl-rhrow">${chips}${read}</div>${pw}${sponsorLine(b)}${textIssue(b) ? issueLine(b, x) : ''}${onListsLine(b)}</div>`;
+    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}<div class="bl-rhrow">${chips}${read}</div>${pw}${sponsorLine(b)}${textIssue(b) || S.blFollowedNew.has(b.id) ? issueLine(b, x) : ''}${onListsLine(b)}</div>`;
 }
 // Who introduced it, up top (R-212 #41: sponsors were on 734 of 734 bills, folded under More details and cut at six). The first
 // name links to their page; "and 6 others" opens every name in place, each linked (S.blSpons, for the visit).
@@ -1359,10 +1394,12 @@ function recPage(num, b, x) {
   // phone under Where it is now, on a wide screen under the action card in the side panel. Only while the bill can move.
   const stance = x.live ? `<section class="card flat bl-stance bl-rstance" aria-labelledby="bl-stance-h">${stanceInner(b, x, { said: cardSays })}</section>` : '';
   const rest = `${note}${recWhere(b, x)}${wide() ? '' : stance}<div class="bl-rfolds">${folds}</div>`;
-  if (!wide()) return `<div class="bl-page bl-rec">${recTop(b)}${welcomeLine(b)}${recHead(b, x)}${friendCard(b, x)}${recAct(b, x)}${rest}</div>`;
+  // The story line after a newcomer's follow (R-212 #47) comes under the action card, not over it: the page's one action
+  // first (A-13), and not where the moment's Continue was a second before (the critic, 24 Oct).
+  if (!wide()) return `<div class="bl-page bl-rec">${recTop(b)}${welcomeLine(b)}${recHead(b, x)}${friendCard(b, x)}${recAct(b, x)}${storyLine(b)}${rest}</div>`;
   return `<div class="bl-page bl-wide bl-rec">${recTop(b)}<div class="cols bl-cols">
     <div class="bl-main">${welcomeLine(b)}${recHead(b, x)}</div>
-    <aside class="side bl-side" aria-label="Take part">${friendCard(b, x)}${recAct(b, x)}${stance}</aside>
+    <aside class="side bl-side" aria-label="Take part">${friendCard(b, x)}${recAct(b, x)}${storyLine(b)}${stance}</aside>
     <div class="bl-main bl-main2">${rest}</div></div></div>`;
 }
 // Once the action card's button has scrolled up under the top bars, it docks above the tab bar (the mockup's check()).
@@ -1450,6 +1487,9 @@ export function wireBillParts(roots, b, { bar = null, x = situation(b) } = {}) {
   rs.forEach(r => { const slot = r.querySelector('.bl-slot'), col = r.querySelector('.bl-act .acard > .btncol'); if (slot && col) col.prepend(slot); wireActions(r); wireNudge(r); });
   inPage('details[data-bl-fold]', d => d.addEventListener('toggle', () => { const k = `${b.id}|${d.dataset.blFold}`; if (d.open) S.blOpen.add(k); else S.blOpen.delete(k); }));
   each('[data-bl-unfollowissue]', el => el.addEventListener('click', async () => {
+    // Just after a newcomer's "Mahalo!" (R-212 #47) this toggle sits under where its Continue was on a phone: a late tap
+    // meant for Continue must not stop the follow it celebrated (the critic, 24 Oct). The toast's Stop following still works.
+    if (Date.now() < (S.blQuietUntil || 0)) return;
     const i = S.issueById.get(el.dataset.blUnfollowissue); if (!i || el.getAttribute('aria-busy') === 'true') return;
     el.setAttribute('aria-busy', 'true');
     if (await setFollows({ issuesOff: [i.id] })) toast(`You no longer follow ${i.name}.`, { undo: async () => { await setFollows({ issuesOn: [i.id] }); app.render(); } });
@@ -1583,17 +1623,38 @@ export default {
     each('[data-bl-newfollow]', el => el.addEventListener('click', async () => {
       if (el.getAttribute('aria-busy') === 'true') return;
       el.setAttribute('aria-busy', 'true');
-      const i = issuesOf(b)[0];
-      const ok = i ? await setFollows({ issuesOn: [i.id] }) : (S.watch.has(b.id) || await toggleWatch(b.id) !== false);
+      const i = issuesOf(b)[0], asked = S.nudgedThisVisit, had = !i && S.watch.has(b.id);
+      const ok = i ? await setFollows({ issuesOn: [i.id] }) : (had || await toggleWatch(b.id) !== false);
       if (!ok) { el.removeAttribute('aria-busy'); return; }
+      // A bill on no issue: toggleWatch kept the visit's one profile ask for Home's line (core.js nudge). It is asked here,
+      // over the bill, instead (R-184: the first thing seen after a follow; C-3: still once a visit).
+      if (!asked && S.nudge === 'follow') { S.nudge = null; S.nudgedThisVisit = false; }
       logVisit('arrive', 'next', { path: 'link' });
       const moving = i ? (i.bill_ids || []).filter(id => S.watch.has(id)).map(id => S.bills.find(y => y.id === id)).filter(y => y && alive(y)).length : 1;
-      // The walkthrough's first screen first, then the moment over it (R-140, fix 10/10): the bill's own page with its live
-      // bar is not left under the veil.
-      viaStart(b);
-      moment({ title: 'Mahalo!', sub: `You’re following ${i ? i.name : nick(b) || spaced(b.bill_number)}.`,
-        small: moving > 1 ? `That’s ${moving} bills this session. We’ll watch every one.` : 'We’ll tell you when there’s a hearing or a way to help.' });
+      const name = i ? i.name : nick(b) || spaced(b.bill_number);
+      // The page moves on first (R-140, fix 10/10): the bill after the follow, finished there (R-212 #47; it went on into
+      // #/start, seven taps, and ended at Home). Then "Save your profile" over it, the first thing seen after a follow
+      // (R-184, C-3), and the "Mahalo!" once that closes (C-7, A-10); straight to the moment when nothing is asked (a
+      // profile already saved, a recent "Not now", the backup ?ab=save.alerts).
+      followedHere(b);
+      const mahalo = r => {
+        // Something saved: its words are the moment's small line and, once the moment has gone, a toast that stays to be
+        // read (the moment's own toast carries only its title and line). `then` runs when it moves on; the timer covers a
+        // tap through to a control or a scroll, which do not.
+        // "Stop following" rides on the toast that follows the moment (B-5; as an action from a link, X10-4): with the
+        // saved words when there are some, otherwise on the moment's own toast (alt).
+        const saved = r ? profileSaved(r) : '';
+        const stop = had ? null : { label: 'Stop following', act: async () => { await (i ? setFollows({ issuesOff: [i.id] }) : toggleWatch(b.id)); app.render(); } };
+        let said = false; const say = () => { if (saved && !said) { said = true; toast(saved, { yay: true, ...(stop ? { also: { label: stop.label, action: stop.act } } : {}) }); } };
+        S.blQuietUntil = Date.now() + MOMENT_MS + 700;   // the issue line's toggle waits out the moment (above)
+        moment({ title: 'Mahalo!', sub: `You’re following ${name}.`, alt: saved ? null : stop,
+          small: saved || (moving > 1 ? `That’s ${moving} bills this session. We’ll watch every one.` : 'We’ll tell you when there’s a hearing or a way to help.') }, say);
+        if (saved) setTimeout(say, MOMENT_MS + 60);
+      };
+      if (!followAsk(name, mahalo)) mahalo(null);
     }));
+    // The story line (storyLine): opened is learned, as Home's line (home.js data-hm-learn).
+    root.querySelectorAll('[data-bl-learn]').forEach(el => el.addEventListener('click', () => wizSet({ viaLearned: true })));
     sideWatch?.disconnect();
     const side = root.querySelector('.bl-side');
     if (side) { fitSide(); sideWatch?.observe(side); }

@@ -8,7 +8,8 @@
 # finale says "Almost set" (the number is not confirmed yet: D1-4, R-180; tests/d1_status.py checks the rule everywhere).
 # Email: the swap, "Email me", the "Mahalo!" says where the link went, the finale's row.
 # Skip: the "Mahalo!" with the bills line, the quiet line on Coming up. Between sessions: the January line. A visit from
-# a shared bill: Follow on the bill (its own "Mahalo!") -> the alerts screen -> the story, no second "Mahalo!". Home's card after a skipped first
+# a shared bill (R-212 #47): Follow on the bill -> "Save your profile" over it -> one "Mahalo!" saying so, and the visit stays on the bill
+# (it went on to the alerts screen, then the story). Home's card after a skipped first
 # visit, on the next load: the phone box, "You're set" after, nothing on the load after. More: "Get alerts" -> the page ->
 # "Alerts almost set" -> Change number -> Stop texts (Undo) -> the box again. The privacy page names numbers. Nothing
 # reaches the database (the sandbox). No console errors.
@@ -158,13 +159,21 @@ with sync_playwright() as pw:
     c.close()
 
     # ---- 5. a visit from a shared bill ----
+    # R-212 #47 (24 Oct): the "New here?" card's Follow (the old pages, ?rec=0) stays on the bill. The box comes in the sheet
+    # over it, "Save your profile" as after every follow (R-184), and its one "Mahalo!" plays over the bill once the sheet
+    # closes, saying the number was kept. It used to go on to the first visit's alerts screen and then the story.
     c, p = ctx(b)
-    p.goto(BASE + '?demo=1&codes=0&restart&fv=full&end=today#/bill/HB2121'); p.wait_for_selector('[data-bl-newfollow]', timeout=15000); p.wait_for_timeout(800)
-    p.locator('[data-bl-newfollow]').first.click(); p.wait_for_selector('#fx-mgo', timeout=8000); p.wait_for_timeout(400)
-    p.click('#fx-mgo'); p.wait_for_timeout(2000)
-    ok(p.locator('.st-alertspage').count() == 1, f'from a shared bill: the alerts screen comes right after "Follow this issue?" ({p.url[-10:]})')
-    p.fill('#st-a-phone', '8085550155'); p.click('#st-send'); p.wait_for_timeout(1500)
-    ok(moment(p) == '' and p.locator('.st-thanks').count() == 0 and p.locator('.lx-count, .st-lessonpage, .st-voicepage').count() >= 1, f'from a shared bill: no second "Mahalo!", straight on to the story ({p.url[-10:]})')
+    p.goto(BASE + '?demo=1&codes=0&restart&rec=0&fv=full&end=today#/bill/HB2121'); p.wait_for_selector('[data-bl-newfollow]', timeout=15000); p.wait_for_timeout(800)
+    p.locator('[data-bl-newfollow]').first.click(); p.wait_for_selector('dialog.al-sheet[open]', timeout=8000); p.wait_for_timeout(400)
+    sh = p.evaluate("document.querySelector('dialog.al-sheet[open]')?.innerText || ''")
+    ok('Save your profile' in sh and 'You’re following “Disposable e-cigarette ban”.' in sh and p.locator('.st-alertspage').count() == 0 and '#/bill/' in p.url,
+       f'from a shared bill: "Save your profile" over the bill right after "Follow this issue", not the first visit\'s alerts screen (R-212 #47) ({p.url[-24:]})')
+    p.fill('#al-sh-phone', '8085550155'); p.click('#al-sh-send'); p.wait_for_selector('#fx-moment:not([hidden])', timeout=8000); p.wait_for_timeout(200)
+    mo = moment(p)
+    ok(mo.startswith('Mahalo!') and 'Your profile is saved. We’ll text (808) 555-0155 to confirm it’s your number.' in mo and p.locator('.st-thanks, .st-alertspage').count() == 0 and '#/bill/' in p.url,
+       f'from a shared bill: one "Mahalo!", over the bill, saying the profile is saved ({mo[:120]!r})')
+    p.wait_for_timeout(2200)
+    ok(moment(p) == '' and '#/bill/' in p.url and p.locator('.lx-count, .st-lessonpage, .st-voicepage').count() == 0, f'from a shared bill: the visit stays on the bill, no story pushed after it ({p.url[-24:]})')
     c.close()
 
     # ---- 6. More > Get alerts ----

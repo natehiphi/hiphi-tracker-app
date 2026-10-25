@@ -71,8 +71,12 @@ the week's first hearing with "See how to help". **Who speaks for you** (the str
 on 10/11 (R-232, Nate: "needs to move to an activity after onboarding for future visits"): it is a later visit's full page
 (R-237, "Later visits' asks" below); between sessions Home's "Get ready for January" card also offers it. The screen itself
 stays for Plans 1 (between sessions) and 3. A newcomer who opens a shared bill gets a "New here?" card on the bill
-page (`newcomer()` in `pub/bill.js`: the easiest action, "Follow this issue", "Not now"); `wiz().via` then runs the
-shorter flow on that bill. Motion and celebration are `pub/fx.js` (`burst`, `celebrate`, `travel`, `swap`; DESIGN A-10
+page (`newcomer()` in `pub/bill.js`, on the old pages, `?rec=0`, since 19 Oct: the easiest action, "Follow this issue",
+"Just looking"); since 24 Oct (R-212 #47)
+its Follow, and a stopped bill's main "Follow the issue" for a newcomer, stay on the bill: "Save your profile" over the
+page, the "Mahalo!", the visit counted as finished (`followedHere`), and "New to this? See how a bill becomes law, about a
+minute." in one quiet line where the card was (`storyLine`); `wiz().via` runs the shorter flow on that bill only from
+the tour line after "Just looking". Motion and celebration are `pub/fx.js` (`burst`, `celebrate`, `travel`, `swap`; DESIGN A-10
 and C-7 rewritten 9/21). The visit is counted privately by `pub/visitlog.js` (`log_first_visit`, migrations 067-068;
 staff see it in Outreach > Issues > First visit). Testimony is "due", never "closes", in the first visit (late testimony
 is still taken, marked late). **Its words are a step larger and short (R-174, 10/5, DESIGN A-4 and C-14):** `pub/base.css`
@@ -179,7 +183,8 @@ who cares about <issue>? Send it" (`shareLine`/`wireShareLine` in start.js, also
 share pages and `404.html` pass a partner's `?via=` and the `utm_` words on in place of `via=share` (W1). A newcomer on
 a shared link: no automatic bill tour (`BILL.wants` in tour.js; the "New here?" card's quiet line offers it), the deadline
 on the card and as a "Testimony due" chip in the head, no partner welcome for `via=share`, one email ask per visit (the
-Coming-up screen stays quiet once the walkthrough asked, `S.nudgedThisVisit`), and after acting Done goes to Home (X10-2,
+Coming-up screen stays quiet once the walkthrough asked, `S.nudgedThisVisit`), after following the visit ends on the bill
+(R-212 #47, 24 Oct), and after acting Done goes to Home (X10-2,
 wave 1 below; it went on to the "voice" step's "Go to my home page", since R-190 "See How I Can Help", or "Show me how it works (2 min)"). Tests: `tests/share_links.py` (24 checks, with Staff v2's
 hearing back link and the Help words from R-112).
 
@@ -807,6 +812,15 @@ ask but keep it as a backup to test later.
   every "Not now" is (quiet 14 days, then 60), once a visit, never for someone signed in or with a number or email given.
   Called by `find.js` (an issue's and a category's Follow) and `bill.js` ("Follow the issue", a stopped bill's main
   button). After a letter the card sits right under the Mahalo (`helper.js` doneScreen, mailDoneScreen).
+- **24 Oct 2026 (R-212 #47, "Follow from a bill returns to the bill"):** the "New here?" card's Follow no longer leads to
+  the first visit's alerts screen (above, as it was on 6 Oct). It calls `followAsk` too: the sheet over the bill with
+  "You're following ...", then the "Mahalo!" over the bill (with `profileSaved` as its small line and a toast after it
+  when something was saved), and the visit ends there, on the bill. After the fresh-eyes review: the toast after the
+  moment carries "Stop following"; today's page shows the issue's line ("Part of ..." and "✓ Following the issue") in the
+  bill's head for the rest of the visit, the story line sits under the action card (the old pages keep it where the card
+  was, scrolled into view under the sticky bars when the card folds); and Back closes this sheet and stays on the page
+  (`openAlertsSheet({ back: true })`, for every follow's ask: the sheet takes one history step, B-4).
+  `tests/follow_returns.py`.
 - **The backup**: the test `save` (`variant.js`, backend 148), off, its FIRST version the new ask; `?ab=save.alerts`
   shows the old one (no sheet after an issue's Follow, "Get alerts", the letter's card under "What happens next").
   Staff v2 > Session setup > Tests lists it with a practice link.

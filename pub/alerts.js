@@ -65,13 +65,15 @@ export function profileSaved(r) {
 // the sheet closes (r: what was given, or null), so the follow's own toast, with its Undo, comes after the sheet instead of
 // under it. Returns false, without calling after, when it does not ask (the old version, or nothing to ask).
 // The source recorded with a number is 'home' (backend 121 knows four): outside the first visit, not after an action.
+// Back closes this sheet (back: B-4, "Closing a sheet is Back"): a newcomer from a friend's link meets it on the bill they
+// opened (R-212 #47), often their only page, where Back used to leave the site with the sheet still asking.
 export function followAsk(name, after, { many = false, receipt = '' } = {}) {
   if (S.session || alertsGiven() || !nudgeOk()) return false;
   abSeen('save');   // where the two versions differ: the old one asked nothing here
   if (!profileAsk()) return false;
   S.nudgedThisVisit = true; S.nudge = null;
   let got = null;
-  openAlertsSheet({ source: 'home', profile: 'follow', lede: profileLede('follow', { many }), receipt: receipt || (name ? `You’re following “${name}”.` : 'You’re following it.'),
+  openAlertsSheet({ source: 'home', back: true, profile: 'follow', lede: profileLede('follow', { many }), receipt: receipt || (name ? `You’re following “${name}”.` : 'You’re following it.'),
     onNo: () => { const n = (onb().nudgeNo || 0) + 1; onbSet({ nudgeNo: n, nudgeNoAt: new Date().toISOString() }); },
     onDone: r => { got = r; }, onClose: () => after && after(got) });
   return true;
@@ -495,13 +497,22 @@ export const changeBtn = (attr, label) => btn(label, { kind: 'text', sm: true, a
 // the heading (C-3: the ask follows a success, and says so). onNo: "Not now" was pressed (it closes the sheet as before).
 let sheet = null;
 const SH = 'al-sh';
-export function openAlertsSheet({ source = 'more', onDone, onClose, onNo, profile = '', lede = '', receipt = '' } = {}) {
+// back: the sheet takes one step in the history, so the phone's Back (button or swipe) and the browser's close it and
+// stay on the page (B-4). The page's scroll is kept on its own step first, since app.js scrolls to it on the way back.
+// Closed by its own buttons or Esc, the step is taken back. A link in the lede leaves the step as it is (a second copy
+// of this page's address behind the next one) rather than race the link's own move.
+let sheetStep = false;
+window.addEventListener('popstate', e => { if (sheetStep && !e.state?.als) { sheetStep = false; if (sheet?.open) sheet.close(); } });
+export function openAlertsSheet({ source = 'more', onDone, onClose, onNo, profile = '', lede = '', receipt = '', back = false } = {}) {
   if (S.alertCode && S.alertCode.pfx !== SH) S.alertCode.pfx = SH;
   if (!sheet) {
     sheet = document.createElement('dialog'); sheet.className = 'sheet al-sheet'; sheet.setAttribute('aria-labelledby', `${SH}-h`);
     document.body.appendChild(sheet);
   }
-  sheet.onclose = () => { onClose && onClose(); };
+  sheet.onclose = () => { if (sheetStep) { sheetStep = false; if (history.state?.als) history.back(); } onClose && onClose(); };
+  if (back && !history.state?.als) {
+    try { history.replaceState({ ...(history.state || {}), y: window.scrollY }, ''); history.pushState({ ...(history.state || {}), als: 1 }, ''); sheetStep = true; } catch { /* no history: Esc and Not now still close it */ }
+  }
   const paint = () => {
     const code = codeStep(SH), mail = !!(S.session && myEmail());
     if (mail) S.alertMode = 'phone';   // a signed-in email's alerts are its two choices in the profile (as on More > Get alerts)
@@ -514,7 +525,7 @@ export function openAlertsSheet({ source = 'more', onDone, onClose, onNo, profil
       <div class="al-shbtns">${btn(b.label, { kind: 'primary', icon: b.icon, attrs: { type: 'submit', id: `${SH}-send` } })}${btn('Not now', { kind: 'text', attrs: { 'data-alshno': '1' } })}</div>
     </form>`;
     sheet.querySelector('[data-alshno]').onclick = () => { onNo && onNo(); sheet.close(); };
-    sheet.querySelectorAll('.al-shlede a').forEach(a => a.addEventListener('click', () => sheet.close()));
+    sheet.querySelectorAll('.al-shlede a').forEach(a => a.addEventListener('click', () => { sheetStep = false; sheet.close(); }));
     wireAlertForm(sheet.querySelector('form'), { pfx: SH, source, onSwap: paint, onDone: r => { sheet.close(); onDone && onDone(r); } });
   };
   paint();

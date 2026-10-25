@@ -379,6 +379,11 @@
 .bl-page .bl-tourline { display: flex; align-items: center; gap: var(--s8); margin: var(--s12) 0 0; color: var(--n700); font-size: var(--t14); }
 .bl-page .bl-tourline > .ic { color: var(--p700); flex: none; }
 .bl-page .bl-tourline .btn.text { min-height: 44px; padding: 0 4px; }
+/* After a newcomer's Follow (R-212 #47): the story offered where the card was, a link in the sentence as on Home
+   (home.css .hm-looplearn). Its padding makes the tap area about 44px tall without moving the line (inline padding). */
+.bl-page .bl-storyline { min-height: 44px; }
+.bl-page .bl-storyline a { padding-block: 12px; color: var(--p700); font-weight: 700; }
+.bl-page .bl-side .bl-storyline { margin: 0; }
 
 /* The lessons, in the moment they help (R-067 #11) */
 .bl-page .bl-learn { margin: var(--s8) 0 0; font-size: var(--t14); }
