@@ -94,21 +94,24 @@ function build() {
   if (fz) { const have = new Set(list.map(b => b.id)); for (const id of fz.order) if (!have.has(id)) { const b = S.bills.find(x => x.id === id); if (b) list.push(b); } }
   for (const b of list) by[fz?.group.get(b.id) || groupKey(b)].push(b);
   const srt = sorter(), at = b => fz.pos.get(b.id) ?? 1e9;
-  const groups = GROUPS.map(([k, title]) => ({ k, title: TITLE[k] || title, rows: by[k].sort(fz ? (a, b) => at(a) - at(b) : srt || NATURAL[k]) })).filter(g => g.rows.length);
+  // A sort in the spreadsheet is one list (critic, R-336): sorting inside each group read as no sort at all. "Where it stands"
+  // still says each bill's place; stopping the sort (the heading's third click) brings the groups back.
+  const groups = srt ? [{ k: 'all', title: 'Every bill', flat: true, rows: (fz ? list.slice().sort((a, b) => at(a) - at(b)) : list.slice().sort(srt)) }].filter(g => g.rows.length)
+    : GROUPS.map(([k, title]) => ({ k, title: TITLE[k] || title, rows: by[k].sort(fz ? (a, b) => at(a) - at(b) : NATURAL[k]) })).filter(g => g.rows.length);
   if (hold && !fz) { const order = groups.flatMap(g => g.rows.map(b => b.id));
     v.frozen = { key: fk, order, group: new Map(groups.flatMap(g => g.rows.map(b => [b.id, g.k]))), pos: new Map(order.map((id, i) => [id, i])) }; }
   if (!hold) v.frozen = null;
   // Monitoring and Did not advance start folded only in the plain list: once a search or a filter asks for something,
   // every bill it found is on screen.
   const asked = !!v.q.trim() || activeFilters().length > 0, only = groups.length === 1;
-  for (const g of groups) g.open = v.folds[g.k] ?? (asked || only || !FOLDED.has(g.k));
+  for (const g of groups) g.open = g.flat || (v.folds[g.k] ?? (asked || only || !FOLDED.has(g.k)));
   const cap = foldAt();
   // Nothing a person must do waits behind "Show all" (spec 7 rule 3): the viewer's own steps always show, in their place,
   // and only the other rows count toward the fold.
   // A fold that would hide 3 bills or fewer is no fold (Nate's walk: "No hearing yet" showed 19 of 20 and then "Show all
   // 20 bills" for one): the whole group shows, with no Show all (P-5, A-14).
   for (const g of groups) { g.all = g.rows.length; let k = 0;
-    let folded = g.rows.length > cap ? g.rows.filter(b => ownStep(b) || k++ < cap) : g.rows;
+    let folded = g.rows.length > cap && !g.flat ? g.rows.filter(b => ownStep(b) || k++ < cap) : g.rows;
     if (g.rows.length - folded.length <= 3) folded = g.rows;
     g.hides = g.rows.length - folded.length; g.shown = g.hides && !(v.full ??= {})[g.k] ? folded : g.rows; }
   NAV = groups.filter(g => g.open).flatMap(g => g.shown.map(b => b.id));
@@ -199,8 +202,8 @@ function toolbar() {
   const has = shownBills().length > 0, sel = v.selecting || !has ? '' : `<span class="bl-tsel">${selectBtn()}</span>`;
   // The spreadsheet's three tools (F88, F92): Columns, Export (a file) and Copy (R-336: "copy out to Excel / Google Sheets",
   // pasted straight in). No Edit mode: a team cell is a button that opens its picker, so editing needs no mode to enter.
-  const tools = tbl ? `<span class="bl-ttools">${btn('Columns', { kind: 'text', sm: true, icon: 'columns-3', attrs: { 'data-cols': '1', 'aria-haspopup': 'dialog' } })}${btn('Export', { kind: 'text', sm: true, icon: 'download', attrs: { 'data-export': '1', title: 'These bills, with your filters, as a spreadsheet file' } })}${btn(COPY_LABEL, { kind: 'text', sm: true, icon: 'copy', attrs: { 'data-copy': '1', title: 'The rows and columns shown, ready to paste into Google Sheets or Excel' } })}</span>` : '';
-  // Rows | Spreadsheet from 600px; below that the two and (for rows) Export are in the toolbar's menu (D9: anyone, any width).
+  const tools = tbl && switchNow() ? `<span class="bl-ttools">${btn('Columns', { kind: 'text', sm: true, icon: 'columns-3', attrs: { 'data-cols': '1', 'aria-haspopup': 'dialog' } })}${btn('Export', { kind: 'text', sm: true, icon: 'download', attrs: { 'data-export': '1', title: 'These bills, with your filters, as a spreadsheet file' } })}${btn(COPY_LABEL, { kind: 'text', sm: true, icon: 'copy', attrs: { 'data-copy': '1', title: 'The rows and columns shown, ready to paste into Google Sheets or Excel' } })}</span>` : '';
+  // Rows | Spreadsheet and its tools from 600px; below that they are all in the toolbar's menu (D9: anyone, any width).
   const sw = !(has || tbl) ? '' : switchNow() ? `<div class="sv-seg bl-viewsw" role="group" aria-label="Show bills as">${[['rows', 'Rows', 'rows-3'], ['table', 'Spreadsheet', 'table-2']].map(([k, l, ic]) => `<button type="button" data-blview="${k}" aria-pressed="${mode === k}">${icon(ic)}<span>${l}</span></button>`).join('')}</div>`
     : iconBtn('ellipsis', 'Show as a spreadsheet, or export', { 'data-blmenu': '1', 'aria-haspopup': 'dialog' });
   return `<div class="bl-tools" role="group" aria-label="This list">${box}${filterBtn(n, { 'data-filter': '' })}${sel}<span class="bl-sp"></span>${tools}${sw}</div>`;
@@ -335,6 +338,8 @@ const COLS = [
   { k: 'cmte', label: 'Committees', min: [148, 148], ideal: [220, 220], opt: 1, sort: 'cmte' }, { k: 'coal', label: 'Coalitions', min: [128, 128], ideal: [176, 168], opt: 1, sort: 'coal' },
   { k: 'last', label: 'Last action', min: [172, 172], ideal: [320, 300], opt: 1, sort: 'last' }, { k: 'pulse', label: 'Team pulse', w: [112, 112], opt: 1, sort: 'pulse' },
 ];
+// Lucide's arrow-up-down, drawn here (icons.js is shared): every sortable heading shows it faintly, so sorting is seen at rest.
+const UPDOWN = '<svg class="ic ic-arrow-up-down" width="1.25em" height="1.25em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg>';
 let MEASURED = null, SHOWN_COLS = [];   // the columns the spreadsheet drew last, in order (Copy copies those)
 const DOCK_W = 380, DOCK_GAP = 24;   // the open item's width beside the table: listDetail's (steps.css)
 const estimateAvail = () => { const w = document.documentElement.clientWidth || innerWidth, page = w >= 1100 ? w - 248 - 64 : w >= 768 ? w - 216 - 48 : w - 32; return (docked() ? page - DOCK_W - DOCK_GAP : page) - 2; };
@@ -412,17 +417,27 @@ function tableView(groups) {
   const owns = new Set(groups.filter(g => g.open).flatMap(g => g.shown).map(b => ownerOf(b)?.id || ''));
   const oneOwner = owns.size === 1 && !owns.has('') && !offTag([...owns][0]), mine = colsOf();
   let cols = COLS.filter(c => (c.k !== 'sel' || v.selecting) && (!c.opt || mine.has(c.k)) && (c.k !== 'own' || (v.scope !== 'me' && !oneOwner)))
-    .map(c => c.k === 'own' && (owns.has('') || [...owns].some(id => offTag(id))) ? { ...c, w: [112, 112] } : c);
+    .map(c => c.k === 'own' && (owns.has('') || [...owns].some(id => offTag(id))) ? { ...c, w: [112, 112] } : c)
+    // Mine marks the bills it follows with a small icon after the number: the column makes room for it (critic: it was cut).
+    .map(c => c.k === 'bill' && v.scope === 'me' ? { ...c, min: [116, 116], ideal: [124, 124] } : c);
+  // With Nickname on, it comes right after the bill and the Title column is the Description (critic, R-336).
+  if (cols.some(c => c.k === 'nick')) { const nk = cols.find(c => c.k === 'nick'), at = cols.findIndex(c => c.k === 'bill') + 1;
+    cols = cols.filter(c => c !== nk); cols.splice(at, 0, nk); cols = cols.map(c => c.k === 'title' ? { ...c, label: 'Description' } : c); }
+  // A phone: the columns a person changes (position, owner) come before the Capitol's, so they start on screen.
+  const phone = !switchNow();
+  if (phone) { const ed = cols.filter(c => c.k === 'pos' || c.k === 'own'), ti = cols.findIndex(c => c.k === 'title');
+    cols = cols.filter(c => !ed.includes(c)); cols.splice(ti + 1, 0, ...ed); }
   // With the bill open beside the table, the table gives up, in turn, what the open bill also says: the added columns,
   // the position's word, "Where it stands", then the owner.
   if (dk) { const room = cs => least(cs) + 124 + (cs.some(c => c.k === 'pos' && !c.icon) ? 60 : 0) <= avail;
     const steps = [cs => cs.filter(c => !c.opt), cs => cs.map(c => c.k === 'pos' ? { ...c, w: [124, 120], icon: 1 } : c), cs => cs.filter(c => c.k !== 'where'), cs => cs.filter(c => c.k !== 'own')];
     for (const step of steps) if (!room(cols)) cols = step(cols); }
   const std = cols.filter(c => !c.opt), nickCol = cols.some(c => c.k === 'nick');
-  SHOWN_COLS = cols.filter(c => c.k !== 'sel').map(c => c.k);
+  SHOWN_COLS = cols.filter(c => c.k !== 'sel').map(c => [c.k, c.label]);
   const fits = least(cols) <= avail, tight = fits ? null : squeezed(cols, avail, ci), scroll = !fits && !tight, fitsStd = least(std) <= avail;
   const W = tight || (scroll ? (fitsStd ? widths(std, avail, ci) : squeezed(std, avail, ci) || widths(std, least(std), ci)) : widths(cols, avail, ci));
   if (scroll) for (const c of cols) if (c.opt) W.set(c.k, c.w ? c.w[ci] : c.ideal[ci]);
+  if (scroll && phone && W.has('title')) W.set('title', 132);   // a narrow title, so Position starts on a phone's screen
   const total = cols.reduce((t, c) => t + W.get(c.k), 0), capW = !scroll && !dk && total < avail - 1 ? Math.round(total) + 2 : 0;
   const colg = `<colgroup>${cols.map(c => `<col style="width:${scroll ? Math.round(W.get(c.k)) + 'px' : (W.get(c.k) / total * 100).toFixed(3) + '%'}">`).join('')}</colgroup>`;
   const rowsShown = groups.filter(g => g.open).flatMap(g => g.shown), selShown = rowsShown.filter(b => v.sel.has(b.id)).length;
@@ -430,8 +445,8 @@ function tableView(groups) {
   const th = c => {
     if (c.k === 'sel') return `<th scope="col" class="bl-ck"><label title="Pick every bill shown"><input type="checkbox" id="bl-all" ${rowsShown.length && selShown === rowsShown.length ? 'checked' : ''} aria-label="Pick every bill shown"></label></th>`;
     if (!c.sort) return `<th scope="col" class="bl-h-${c.k}">${c.label}</th>`;
-    const on = sk === c.sort, l = c.label.toLowerCase(), tip = !on ? `Sort by ${l}` : sd > 0 ? `Sorted by ${l}, first to last. Click for last to first` : `Sorted by ${l}, last to first. Click to stop sorting`;
-    return `<th scope="col" class="bl-h-${c.k}" aria-sort="${on ? (sd > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="bl-sort${on ? ' on' : ''}" data-sort="${c.sort}" title="${tip}"><span>${c.label}</span>${icon(on && sd < 0 ? 'move-down' : 'move-up')}</button></th>`;
+    const on = sk === c.sort, l = c.label.toLowerCase(), tip = !on ? `Sort every bill by ${l}, in one list` : sd > 0 ? `Sorted by ${l}, first to last, in one list. Click for last to first` : `Sorted by ${l}, last to first. Click to stop sorting and see the groups again`;
+    return `<th scope="col" class="bl-h-${c.k}" aria-sort="${on ? (sd > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="bl-sort${on ? ' on' : ''}" data-sort="${c.sort}" title="${tip}"><span>${c.label}</span>${on ? icon(sd < 0 ? 'move-down' : 'move-up') : UPDOWN}</button></th>`;
   };
   const two = (html, t) => `<span class="bl-c2"${t ? ` title="${esc(t)}"` : ''}>${html}</span>`;
   const lines = ([l1, l2, t]) => `<span class="bl-lns"${t ? ` title="${esc(t)}"` : ''}><span class="bl-ln">${l1}</span>${l2 ? `<span class="bl-ln bl-l2">${l2}</span>` : ''}</span>`;
@@ -446,7 +461,7 @@ function tableView(groups) {
       // With a Nickname column the title says the summary only: the nickname is said once, in its own cell (A-14).
       case 'title': return `<td class="bl-ti">${nickCol ? two(esc(summaryOf(b)), summaryOf(b)) : two(ci ? (b.nickname ? `<b>${esc(b.nickname)}</b>` : esc(summaryOf(b))) : `${b.nickname ? `<b>${esc(b.nickname)}</b> <br>` : ''}${esc(summaryOf(b))}`, fullTitle(b))}</td>`;
       case 'pri': return `<td><span title="It follows the position: Strong support is the top tier">${b.priority ? esc(PRI_WORD[b.priority] || 'Standard') : none}</span></td>`;
-      case 'nick': return `<td><button type="button" class="bl-cell bl-nick" data-edit="nick" data-id="${b.id}" aria-label="Nickname of ${esc(billSay(b))}: ${esc(b.nickname || 'none')}. Change it">${b.nickname ? `<span>${esc(b.nickname)}</span>` : '<span class="bl-dash">None</span>'}</button></td>`;
+      case 'nick': return `<td><button type="button" class="bl-cell bl-nick" data-edit="nick" data-id="${b.id}" aria-label="Nickname of ${esc(billSay(b))}: ${esc(b.nickname || 'none')}. Change it">${b.nickname ? `<span>${esc(b.nickname)}</span>` : '<span class="bl-dash">None</span>'}${icon('chevron-down', { cls: 'bl-chev' })}</button></td>`;
       case 'where': return `<td>${lines(whereCell(b))}</td>`;
       case 'next': { const c0 = nextCell(b), s = stepOf(b), c3 = ci && c0[1] ? [c0[3] || `${c0[0]} · ${c0[1]}`, '', c0[2]] : ci && c0[3] ? [c0[3], '', c0[2]] : c0;   // a compact row: one line, the time first
         return `<td${s?.state ? ` data-step="${esc(s.state.word)}" data-due="${esc(s.due ? new Date(s.due).toISOString() : '')}"` : ''}>${c3[0] ? lines(c3) : none}</td>`; }
@@ -454,18 +469,18 @@ function tableView(groups) {
       case 'coal': { const n = coalNames(b); return `<td>${n ? two(esc(n), n) : none}</td>`; }
       case 'last': return `<td>${b.last_action ? two(`${b.last_action_date ? `<span class="bl-date">${fmtDate(b.last_action_date)}</span> ` : ''}${esc(b.last_action)}`, b.last_action) : none}</td>`;
       case 'pulse': return `<td>${pulseText(b)}</td>`;
-      case 'pos': { const p = b.position || '', w = p ? POS_WORD[p] || p : posWord(''); return `<td><button type="button" class="bl-cell" data-edit="pos" data-id="${b.id}" aria-label="Position for ${esc(billSay(b))}: ${esc(w)}. Change it"${c.icon ? ` title="${esc(w)}"` : ''}>${posIcons(p)}<span>${esc(c.icon ? POS_SHORT[p] ?? w : w)}</span></button></td>`; }
+      case 'pos': { const p = b.position || '', w = p ? POS_WORD[p] || p : posWord(''); return `<td><button type="button" class="bl-cell" data-edit="pos" data-id="${b.id}" aria-label="Position for ${esc(billSay(b))}: ${esc(w)}. Change it"${c.icon ? ` title="${esc(w)}"` : ''}>${posIcons(p)}<span>${esc(c.icon ? POS_SHORT[p] ?? w : w)}</span>${icon('chevron-down', { cls: 'bl-chev' })}</button></td>`; }
       case 'own': { const o = ownerOf(b);
-        return `<td><button type="button" class="bl-cell bl-own" data-edit="own" data-id="${b.id}" aria-label="Owner of ${esc(billSay(b))}: ${esc(o ? (o.id === S.me?.id ? 'you' : `${teamName(o)}${newOwnerTag(o)}`) : 'nobody')}. Change it">${o ? offTag(o) ? `<span class="bl-noown">${ownAv(o, 20)}<span class="bl-noword">Turned off</span></span>` : `<span>${esc(firstOf(o))}</span>` : `<span class="bl-noown">${icon('circle-dashed')}<span class="bl-noword">No owner</span></span>`}</button></td>`; }
+        return `<td><button type="button" class="bl-cell bl-own" data-edit="own" data-id="${b.id}" aria-label="Owner of ${esc(billSay(b))}: ${esc(o ? (o.id === S.me?.id ? 'you' : `${teamName(o)}${newOwnerTag(o)}`) : 'nobody')}. Change it">${o ? offTag(o) ? `<span class="bl-noown">${ownAv(o, 20)}<span class="bl-noword">Turned off</span></span>` : `<span>${esc(firstOf(o))}</span>` : `<span class="bl-noown">${icon('circle-dashed')}<span class="bl-noword">No owner</span></span>`}${icon('chevron-down', { cls: 'bl-chev' })}</button></td>`; }
     }
     return '<td></td>';
   };
   const n = cols.length, pin = W.get('sel') || 0, extra = cols.filter(c => c.opt).map(c => c.label);
   const words = extra.length > 1 ? `${extra.slice(0, -1).join(', ')} and ${extra[extra.length - 1]}` : extra[0];
-  const table = `${scroll ? `<p class="bl-tnote" id="bl-tnote">${icon('arrow-right')}<span>${extra.length ? `${esc(words)} ${extra.length === 1 ? 'is' : 'are'} to the right: this window is too narrow for every column, so the spreadsheet scrolls sideways.` : 'This window is too narrow for the whole spreadsheet, so it scrolls sideways.'}</span></p>
-    <div class="bl-twrap"><div class="bl-tscroll" role="region" aria-label="Bills spreadsheet" aria-describedby="bl-tnote" tabindex="0" style="--bl-pin:${pin}px">` : ''}<table class="bl-table${v.compact ? ' bl-compact' : ''}${tight || scroll && !fitsStd ? ' bl-tight' : ''}"${scroll ? ` style="width:${Math.round(total)}px"` : capW ? ` style="max-width:${capW}px"` : ''}>${colg}<caption class="sr">Bills, grouped by where they stand</caption>
+  const table = `${scroll ? `<p class="bl-tnote" id="bl-tnote">${icon('arrow-right')}<span>${phone ? 'Scroll sideways for more columns.' : extra.length ? `${esc(words)} ${extra.length === 1 ? 'is' : 'are'} to the right: this window is too narrow for every column, so the spreadsheet scrolls sideways.` : 'This window is too narrow for the whole spreadsheet, so it scrolls sideways.'}</span></p>
+    <div class="bl-twrap"><div class="bl-tscroll" role="region" aria-label="Bills spreadsheet" aria-describedby="bl-tnote" tabindex="0" style="--bl-pin:${pin}px">` : ''}<table class="bl-table${v.compact ? ' bl-compact' : ''}${tight || scroll && !fitsStd ? ' bl-tight' : ''}"${scroll ? ` style="width:${Math.round(total)}px"` : capW ? ` style="max-width:${capW}px"` : ''}>${colg}<caption class="sr">${groups[0]?.flat ? 'Bills, sorted' : 'Bills, grouped by where they stand'}</caption>
     <thead><tr>${cols.map(th).join('')}</tr></thead>
-    ${groups.map(g => `<tbody class="bl-tg"><tr class="bl-gr"><th colspan="${n}" scope="colgroup"><button type="button" class="sv-group bl-grb" data-fold="${g.k}" aria-expanded="${g.open}"${scroll ? ` style="width:${avail}px"` : ''}><span>${esc(g.title)}</span><span class="n">${g.rows.length}</span>${icon(g.open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button></th></tr>
+    ${groups.map(g => `<tbody class="bl-tg${g.flat ? ' bl-flat' : ''}">${g.flat ? '' : `<tr class="bl-gr"><th colspan="${n}" scope="colgroup"><button type="button" class="sv-group bl-grb" data-fold="${g.k}" aria-expanded="${g.open}"${scroll ? ` style="width:${avail}px"` : ''}><span>${esc(g.title)}</span><span class="n">${g.rows.length}</span>${icon(g.open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button></th></tr>`}
       ${g.open ? g.shown.map(b => { const lk = dk && v.look === b.id;
         return `<tr data-row="${b.id}" data-num="${esc(billRef(b))}" class="${v.selecting && v.sel.has(b.id) ? 'sel' : ''}${v.cur === b.id ? ' bl-cur' : ''}${lk ? ' bl-look' : ''}"${lk ? ' aria-current="true"' : ''}>${cols.map(c => cell(c, b)).join('')}</tr>`; }).join('') + (moreRows(g) ? `<tr class="bl-morer"><td colspan="${n}">${moreRows(g)}</td></tr>` : '') : ''}</tbody>`).join('')}
   </table>${scroll ? '</div></div>' : ''}${keysHint()}`;
@@ -508,16 +523,13 @@ function exportCSV(list) {
   toast(`Downloaded ${list.length} bill${list.length === 1 ? '' : 's'} as a spreadsheet file.`);
 }
 const listInOrder = () => build().groups.flatMap(g => g.rows);
-// More tools › Export (#/bills?export=1) and the table's Export: what it will download, then the one button.
-function exportSheet() {
-  const n = shownBills().length, f = activeFilters().length;
-  menuSheet({ title: 'Export', items: [{ label: 'Export CSV', icon: 'download', sub: `The ${n} bill${n === 1 ? '' : 's'} in this list${f ? ', with your filters' : ''}, as a spreadsheet file`, run: () => exportCSV(listInOrder()) }] });
-  setTimeout(() => document.querySelector('dialog[open] .sv-menu button')?.focus(), 30);
-}
+// More tools › Export (#/bills?export=1), the spreadsheet's Export and the phone's menu: the file downloads at once, and the
+// message says how many bills it holds (critic: a sheet with one item in it was a step for nothing).
+const exportSheet = () => exportCSV(listInOrder());
 function columnsSheet(anchor) {
   const v = bl();
   colsOf();
-  openSheet({ title: 'Columns and rows', size: 'auto bl-pop', body: `<p class="small muted bl-colhelp">Bill, title, where it stands, next, position and owner always show. These come after them, and stay as you leave them.</p>${OPT_COLS.map(([k, l, help]) => switchRow('bl-col-' + k, l, v.cols.has(k), help, { 'data-col': k })).join('')}
+  openSheet({ title: 'Columns', size: 'auto bl-pop', body: `<p class="small muted bl-colhelp">Bill, title, where it stands, next, position and owner always show. These come after them, and stay as you leave them.</p>${OPT_COLS.map(([k, l, help]) => switchRow('bl-col-' + k, l, v.cols.has(k), help, { 'data-col': k })).join('')}
       <div class="bl-colsep"></div>${switchRow('bl-compact', 'Compact rows', v.compact, 'One line a bill, so more bills fit on the screen', { 'data-compact': '1' })}`,
     wire: d => { placePop(d, anchor);
       d.querySelectorAll('[data-col]').forEach(el => el.onchange = () => { el.checked ? v.cols.add(el.dataset.col) : v.cols.delete(el.dataset.col); saveCols(); hooks.render(); });
@@ -590,16 +602,15 @@ const wordOf = (field, v) => !v || v === 'none' ? (field === 'own' ? 'no owner' 
 const firstNames = () => { const act = S.advocates.filter(a => a.is_active !== false), fn = a => a.full_name.split(' ')[0];
   return new Map(act.map(a => [a.id, act.filter(x => fn(x) === fn(a)).length > 1 ? `${fn(a)} ${(a.full_name.split(' ')[1] || '')[0] || ''}.` : fn(a)])); };
 
-// ---- Copy for Google Sheets (R-336, Nate: "copy out to Excel / Google Sheets"): the rows and the columns shown, as
-// tab-separated plain words with a header row, which both paste into cells as they are. Folded groups and rows behind
-// "Show all" are not shown, so they are not copied; Export has every bill in the list. ----
+// ---- Copy for Google Sheets (R-336, Nate: "copy out to Excel / Google Sheets"): every bill in the list (as Export, folded
+// groups and rows behind "Show all" too), in the order and with the columns shown, as tab-separated plain words with a
+// header row, which both paste into cells as they are. ----
 const COPY_LABEL = 'Copy for Google Sheets';
 const plain = h => { const d = document.createElement('div'); d.innerHTML = String(h ?? ''); return d.textContent.replace(/\s+/g, ' ').trim(); };
-const LABEL_OF = Object.fromEntries(COLS.filter(c => c.label).map(c => [c.k, c.label]));
 function copyValue(k, b) {
   switch (k) {
     case 'bill': return numWords(b);
-    case 'title': return SHOWN_COLS.includes('nick') ? summaryOf(b) : fullTitle(b);
+    case 'title': return SHOWN_COLS.some(([k]) => k === 'nick') ? summaryOf(b) : fullTitle(b);
     case 'where': { const [a, c] = whereCell(b); return [plain(a), plain(c)].filter(Boolean).join(', '); }
     case 'next': { const c = nextCell(b); return c[2] ? plain(c[2]) : [plain(c[0]), plain(c[1])].filter(Boolean).join(' '); }
     case 'pos': return b.position ? POS_WORD[b.position] || b.position : posWord('');
@@ -614,9 +625,9 @@ function copyValue(k, b) {
   return '';
 }
 export function sheetText() {
-  const m = new Map(S.bills.map(b => [b.id, b])), rows = NAV.map(id => m.get(id)).filter(Boolean), cols = SHOWN_COLS.length ? SHOWN_COLS : ['bill', 'title', 'where', 'next', 'pos', 'own'];
+  const rows = listInOrder(), cols = SHOWN_COLS.length ? SHOWN_COLS : COLS.filter(c => c.label && !c.opt).map(c => [c.k, c.label]);
   const cellOf = t => String(t ?? '').replace(/[\t\r\n]+/g, ' ').trim();
-  return { n: rows.length, text: [cols.map(k => LABEL_OF[k] || k), ...rows.map(b => cols.map(k => cellOf(copyValue(k, b))))].map(r => r.join('\t')).join('\n') };
+  return { n: rows.length, text: [cols.map(([, l]) => l), ...rows.map(b => cols.map(([k]) => cellOf(copyValue(k, b))))].map(r => r.join('\t')).join('\n') };
 }
 async function copySheet() {
   const { n, text } = sheetText();
@@ -882,8 +893,10 @@ export default {
     page.querySelector('[data-blmenu]')?.addEventListener('click', () => menuSheet({ title: 'This list', items: [
       tableOn() ? { label: 'Show as rows', icon: 'rows-3', sub: 'Two-line rows, grouped by where they stand', run: () => { setMode('rows'); repaint('[data-blmenu]'); } }
         : { label: 'Show as a spreadsheet', icon: 'table-2', sub: 'Every column, sorted and edited in place; it scrolls sideways in its own box', run: () => { setMode('table'); repaint('[data-blmenu]'); } },
-      // The spreadsheet's own line has Export and Copy for Google Sheets, so the menu does not say them again (A-14).
-      tableOn() ? null : { label: 'Export', icon: 'download', sub: 'These bills, with your filters, as a spreadsheet file', run: () => exportSheet() }] }));
+      // Below 600px the spreadsheet's tools live here (A-20 on v6: the phone has no room for their line).
+      tableOn() ? { label: 'Columns', icon: 'columns-3', sub: 'Pick the columns, and compact or roomy rows', run: () => columnsSheet(page.querySelector('[data-blmenu]')) } : null,
+      { label: 'Export', icon: 'download', sub: 'These bills, with your filters, as a spreadsheet file', run: () => exportSheet() },
+      tableOn() ? { label: COPY_LABEL, icon: 'copy', sub: 'Every bill in this list, ready to paste', run: () => copySheet() } : null] }));
     const qi = page.querySelector('#bl-q'), qx = page.querySelector('[data-qclear]');
     qi.oninput = () => { v.q = qi.value; v.folds = {}; qx.hidden = !qi.value; repaintDyn(); };
     qi.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); qi.blur(); } if (e.key === 'Escape' && qi.value) { e.stopPropagation(); qi.value = ''; qi.oninput(); } };

@@ -76,6 +76,7 @@ with L.browser() as B:
   # ---- c. the spreadsheet, on a laptop ----
   pg = B.page('NT', 1440, 900); pg.open('/bills')
   sw = pg.page.evaluate("[...document.querySelectorAll('[data-blview]')].map(b => b.innerText.trim())")
+  y_rows = pg.page.evaluate("Math.round(document.querySelector('.bl-search').getBoundingClientRect().top)")
   R.check('the switch reads Rows | Spreadsheet', sw == ['Rows', 'Spreadsheet'], sw)
   pg.page.click('[data-blview="table"]'); pg.ready(); pg.page.wait_for_timeout(300)
   R.check('Spreadsheet is on, its table drawn', pg.page.evaluate("document.querySelector('[data-blview=table]').getAttribute('aria-pressed') === 'true' && !!document.querySelector('.bl-table tr[data-row]')"))
@@ -86,19 +87,35 @@ with L.browser() as B:
   R.check('its tools: Columns, Export, Copy for Google Sheets', tools == ['Columns', 'Export', 'Copy for Google Sheets'], tools)
   sw_top = pg.page.evaluate("(r => Math.abs((r(document.querySelector('.bl-viewsw')).top + r(document.querySelector('.bl-viewsw')).bottom) / 2 - (r(document.querySelector('.bl-search')).top + r(document.querySelector('.bl-search')).bottom) / 2) < 4)(e => e.getBoundingClientRect())")
   R.check('Rows | Spreadsheet stays on the filter box line', sw_top)
+  y_sheet = pg.page.evaluate("Math.round(document.querySelector('.bl-search').getBoundingClientRect().top)")
+  R.check('the toolbar does not move between Rows and Spreadsheet', abs(y_rows - y_sheet) <= 1, [y_rows, y_sheet])
+  look = pg.page.evaluate('''(() => { const cells = [...document.querySelectorAll('.bl-table [data-edit]')];
+    const plain = [...document.querySelectorAll('.bl-table td')].filter(td => !td.querySelector('[data-edit]') && td.querySelector('.ic-chevron-down'));
+    const num = document.querySelector('.bl-table td.bl-num a'), w = getComputedStyle(num).fontWeight, ti = document.querySelector('.bl-table td.bl-ti b');
+    const cut = [...document.querySelectorAll('.bl-table td.bl-num')].filter(td => td.querySelector('.bl-fol') && td.querySelector('.bl-fol').getBoundingClientRect().right > td.getBoundingClientRect().right + 0.5).length;
+    return { all: cells.length > 0 && cells.every(c => c.querySelector('.ic-chevron-down')), plain: plain.length, num: w, name: ti ? getComputedStyle(ti).fontWeight : '500', cut,
+      faint: [...document.querySelectorAll('.bl-sort:not(.on) .ic')].every(i => +getComputedStyle(i).opacity >= .4),
+      tall: [...document.querySelectorAll('.bl-sort')].every(b => b.getBoundingClientRect().height >= 40) }; })()''')
+  R.check('editable cells show a drop-down chevron at rest; read-only cells none', look['all'] and look['plain'] == 0, look)
+  R.check('every sortable heading shows its arrows at rest, and is 40px tall', look['faint'] and look['tall'], look)
+  R.check('bill numbers at 400, names at 500 (as in Rows)', look['num'] == '400' and look['name'] == '500', look)
+  R.check('the follow/issue icon after a bill number is not cut', look['cut'] == 0, look)
   shot(pg, 'sheet-1440.png')
 
   # every column sorts by its header
   heads = pg.page.evaluate("[...document.querySelectorAll('.bl-table thead th')].filter(th => !th.classList.contains('bl-ck')).map(th => [th.innerText.trim(), !!th.querySelector('[data-sort]')])")
   R.check('every column header sorts', heads and all(h[1] for h in heads), heads)
+  ngroups = pg.page.evaluate("document.querySelectorAll('.bl-table tr.bl-gr').length")
   pg.page.click('[data-sort="title"]'); pg.ready(); pg.page.wait_for_timeout(200)
-  first = pg.page.evaluate("[...document.querySelector('tbody.bl-tg').querySelectorAll('tr[data-row] td.bl-ti')].map(t => t.innerText.trim().toLowerCase())")
-  R.check('Title sorts A to Z inside a group', first == sorted(first) and len(first) > 2, first[:5])
+  first = pg.page.evaluate("[...document.querySelectorAll('.bl-table tr[data-row] td.bl-ti')].map(t => t.innerText.trim().toLowerCase())")
+  R.check('a sort is one list: no group rows', pg.page.evaluate("document.querySelectorAll('.bl-table tr.bl-gr').length") == 0 and ngroups > 1, ngroups)
+  R.check('Title sorts A to Z, every bill in the list', first == sorted(first) and len(first) > 33, [len(first)] + first[:4])
   R.check('its header says so (aria-sort ascending)', pg.page.evaluate("document.querySelector('[data-sort=title]').closest('th').getAttribute('aria-sort')") == 'ascending')
   pg.page.click('[data-sort="title"]'); pg.ready(); pg.page.wait_for_timeout(200)
-  first = pg.page.evaluate("[...document.querySelector('tbody.bl-tg').querySelectorAll('tr[data-row] td.bl-ti')].map(t => t.innerText.trim().toLowerCase())")
+  first = pg.page.evaluate("[...document.querySelectorAll('.bl-table tr[data-row] td.bl-ti')].map(t => t.innerText.trim().toLowerCase())")
   R.check('again: Z to A', first == sorted(first, reverse=True), first[:5])
   pg.page.click('[data-sort="title"]'); pg.ready(); pg.page.wait_for_timeout(200)
+  R.check('a third click stops sorting: the groups come back', pg.page.evaluate("document.querySelectorAll('.bl-table tr.bl-gr').length") == ngroups, ngroups)
 
   # a team cell: Enter opens its picker, Escape closes it; a pick saves, with Undo
   cell = '.bl-table [data-edit="pos"]'
@@ -120,12 +137,14 @@ with L.browser() as B:
 
   # Columns: Priority and Nickname, remembered after a reload
   pg.page.click('[data-cols]'); pg.page.wait_for_timeout(300)
+  R.check('the panel is called Columns, as its button', pg.page.evaluate("document.querySelector('dialog[open] #sv-sh-t').innerText.trim()") == 'Columns')
   for k in ['pri', 'nick']:
     if not pg.page.is_checked(f'dialog[open] [data-col="{k}"]'): pg.page.click(f'dialog[open] label[for="bl-col-{k}"], dialog[open] [data-col="{k}"]')
     pg.page.wait_for_timeout(200)
   pg.page.keyboard.press('Escape'); pg.page.wait_for_timeout(300)
   heads = pg.page.evaluate("[...document.querySelectorAll('.bl-table thead th')].map(th => th.innerText.trim())")
   R.check('Priority and Nickname join the columns', 'Priority' in heads and 'Nickname' in heads, heads)
+  R.check('Nickname comes right after Bill; Title is then Description', heads[:3] == ['Bill', 'Nickname', 'Description'], heads)
   pri = set(pg.page.evaluate("[...document.querySelectorAll('.bl-table tbody tr[data-row]')].map(tr => tr.children[[...document.querySelectorAll('.bl-table thead th')].findIndex(th => th.innerText.trim() === 'Priority')].innerText.trim())"))
   R.check('Priority says Top tier or Standard in words (never P1)', pri and pri <= {'Top tier', 'Standard', 'None'}, pri)
   # a nickname, changed in its cell, with Undo
@@ -142,14 +161,19 @@ with L.browser() as B:
   # Copy for Google Sheets
   pg.page.click('[data-copy]'); pg.page.wait_for_timeout(500)
   clip = pg.page.evaluate("navigator.clipboard.readText()")
-  lines = clip.split('\n'); n = pg.page.evaluate("document.querySelectorAll('.bl-table tr[data-row]').length")
+  lines = clip.split('\n')
+  n = pg.page.evaluate("[...document.querySelectorAll('.bl-table .bl-grb .n')].reduce((t, x) => t + +x.textContent, 0)")
   heads = pg.page.evaluate("[...document.querySelectorAll('.bl-table thead th')].filter(th => !th.classList.contains('bl-ck')).map(th => th.innerText.trim())")
   R.check('the clipboard: a header row of the columns shown', lines[0].split('\t') == heads, [lines[0], heads])
-  R.check(f'and one line per bill shown ({n})', len(lines) - 1 == n, len(lines) - 1)
+  R.check(f'and one line per bill in the list, folded groups too ({n})', len(lines) - 1 == n, len(lines) - 1)
   R.check('each line has every column, plain words (no HTML)', all(len(l.split('\t')) == len(heads) for l in lines) and '<' not in clip, lines[1][:120] if len(lines) > 1 else '')
   num0 = pg.page.evaluate("document.querySelector('.bl-table tr[data-row] td.bl-num').innerText.trim()")
   R.check('the first line is the first bill', len(lines) > 1 and lines[1].split('\t')[0] == num0, [lines[1][:40] if len(lines) > 1 else '', num0])
   R.check(f'the message: "Copied {n} bills. Paste into Google Sheets or Excel."', wait_toast(pg, re.escape(f'Copied {n} bills. Paste into Google Sheets or Excel.')), toast(pg))
+
+  with pg.page.expect_download() as dl: pg.page.click('[data-export]')
+  R.check('Export downloads the file at once, with no menu', dl.value.suggested_filename == 'hiphi-bill-tracker.csv' and not dialog_open(pg), dl.value.suggested_filename)
+  R.check('and says so', wait_toast(pg, r'Downloaded \d+ bills'), toast(pg))
 
   # remembered after a reload: the spreadsheet and the columns
   pg.page.reload(); pg.page.wait_for_timeout(600); pg.ready()
@@ -169,13 +193,15 @@ with L.browser() as B:
   R.check('phone: the spreadsheet opens', pg.page.query_selector('.bl-table') is not None)
   R.check('phone: no sideways page scroll (the sheet scrolls in its own box)', overflow(pg) <= 0, overflow(pg))
   shot(pg, 'sheet-390.png')
-  tools = pg.page.evaluate("[...document.querySelectorAll('.bl-ttools .btn')].filter(b => b.getBoundingClientRect().width > 0).map(b => b.innerText.trim())")
-  R.check('phone: Columns, Export and Copy for Google Sheets on a line of their own', tools == ['Columns', 'Export', 'Copy for Google Sheets'], tools)
+  R.check('phone: the note says "Scroll sideways for more columns."', pg.page.evaluate("document.querySelector('#bl-tnote')?.innerText.trim()") == 'Scroll sideways for more columns.')
+  pos = pg.page.evaluate("(document.querySelector('.bl-table thead th.bl-h-pos')?.getBoundingClientRect().left || 9999)")
+  R.check('phone: Position starts on screen', pos < 390 - 40, pos)
+  R.check('phone: no tools line (they are in the menu)', not pg.page.query_selector('.bl-ttools'))
   box = pg.page.evaluate("document.querySelector('.bl-search').getBoundingClientRect().width")
   R.check('phone: the filter box keeps its room beside Filter', box >= 150, box)
   pg.page.click('[data-blmenu]'); pg.page.wait_for_timeout(300)
   items = pg.page.evaluate("[...document.querySelectorAll('dialog[open] .sv-menu .title')].map(t => t.innerText.trim())")
-  R.check('phone menu then offers Show as rows (Export and Copy are on the line, said once)', items == ['Show as rows'], items)
+  R.check('phone menu then: Show as rows, Columns, Export, Copy for Google Sheets', items == ['Show as rows', 'Columns', 'Export', 'Copy for Google Sheets'], items)
   pg.page.keyboard.press('Escape'); pg.page.wait_for_timeout(200)
   R.check('phone: no page errors', not pg.errors, pg.errors[:2]); pg.close()
 
