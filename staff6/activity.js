@@ -5,7 +5,7 @@
 // v6: ONE box at the top for anything the team wants on the bill (spec section 6): a message to the team (Type @ to notify
 // someone), a note for the bill's record (a note, testimony filed, a coalition step, a supporter email), or a talk with a
 // legislator (it opens Log a conversation with the words already in it, so it shows on their page too). v3 had a message
-// box, a "Log what happened" button and a "Log a talk" button, three ways in. The box sits at the top on a phone too:
+// box, a "What happened" button and a "Log a talk" button, three ways in. The box sits at the top on a phone too:
 // the newest entry is there, and a fixed box over the tab bar took a fifth of a small screen.
 // Above the stream, the conversations with legislators logged on this bill or under any of its issues (R-022 wave 2 #9,
 // conversation.js), shown once there is one. A message shows Reply; Copy text and Delete are in its "…" (F121).
@@ -167,10 +167,12 @@ function convOpts(b) {
     none: `No conversations with legislators logged yet${n ? ` for this bill or ${n === 1 ? 'its issue' : 'its issues'}` : ''}.` };
 }
 
-// The one box: what it is (Message · Log what happened · Log a talk), the words, and Send. "Log a talk" is the act's one
+// The one box: what it is (Message · What happened · Log a talk), the words, and Send. "What happened" is short so the
+// three fit one line on a 390px phone (R-336 walk 2: "Log what happened" wrapped); the box itself keeps the longer name. "Log a talk" is the act's one
 // name everywhere (C-15, spec 8; it was "Talk with a legislator" on a laptop and "Legislator talk" on a phone), the same at
 // every width. Remembered per bill for the visit, with the words typed (B-6).
-const KINDS = [['msg', 'Message'], ['note', 'Log what happened'], ['talk', 'Log a talk']];
+const KINDS = [['msg', 'Message'], ['note', 'What happened'], ['talk', 'Log a talk']];
+const BOX_NAME = { msg: 'Message', note: 'Log what happened', talk: 'Log a talk' };   // the box's own (screen-reader) label
 const HINT = { msg: 'Message the team. Type @ to notify someone.', note: 'What happened? It goes in the bill’s record.', talk: 'What was said? Next you pick who it was with.' };
 const SEND = { msg: 'Send message', note: 'Add it to the bill’s record', talk: 'Next: who was it with?' };
 const segWords = html => html;   // (one label at every width now)
@@ -195,10 +197,10 @@ export function composerBar(b) {
   return `<form class="bw-composer" data-bill="${esc(b.id)}" data-kind="${k}" novalidate>
     ${segWords(segmented('bwkind', KINDS, k, 'What is it?'))}
     <div class="bw-mention" role="group" aria-label="Notify a teammate" hidden></div>
-    <div class="bw-crow"><label class="sr" for="bw-chat">${esc(KINDS.find(x => x[0] === k)[1])}</label>
+    <div class="bw-crow"><label class="sr" for="bw-chat">${esc(BOX_NAME[k])}</label>
       <textarea id="bw-chat" rows="${k === 'msg' ? 1 : 3}" maxlength="4000" placeholder="${esc(HINT[k])}">${esc(d)}</textarea>
       <button type="submit" class="bw-send" aria-label="${esc(SEND[k])}" title="${esc(SEND[k])}">${icon(k === 'talk' ? 'arrow-right' : 'send')}</button></div>
-    ${k === 'note' ? `<label class="bw-ntype"><span>What happened</span><select id="bw-ntype" class="input">${NOTE_TYPES.map(([v, l]) => `<option value="${v}"${v === nt ? ' selected' : ''}>${esc(NOTE_WORD[v] || LOG_LABEL[v] || l)}</option>`).join('')}</select></label>` : ''}
+    ${k === 'note' ? `<label class="bw-ntype"><span>What kind</span><select id="bw-ntype" class="input">${NOTE_TYPES.map(([v, l]) => `<option value="${v}"${v === nt ? ' selected' : ''}>${esc(NOTE_WORD[v] || LOG_LABEL[v] || l)}</option>`).join('')}</select></label>` : ''}
   </form>`;
 }
 const toTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
