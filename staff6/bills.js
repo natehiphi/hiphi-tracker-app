@@ -240,23 +240,34 @@ function selRow(b) {
     <span class="bl-check" aria-hidden="true">${icon(on ? 'square-check-big' : 'square')}</span><span class="bl-seltx"><span class="v6-row-top"><span class="v6-row-name">${esc(nameWords(b))}</span><span class="v6-row-num">${esc(numWords(b))}</span></span>${s?.line ? `<span class="v6-row-line"><span>${nw(esc(s.line))}</span></span>` : ''}</span></button></div>`;
 }
 // ---- R-339 trial (Nate 10/25): icons to soften a long list of words, off unless the address has ?icons=1 ----
-// A heading gets its stage's icon; a row gets one quiet topic icon (its first issue's category, the same icon Issues
-// uses), in a soft disc in the row's leading slot. No chips (Nate 10/13: chips made Today's rows too dense). Neutral ink
-// only: colour stays urgency (A-5). The icons are guesses until the team uses them; a side-by-side settles the look.
+// A heading gets its stage's icon; on Team a row gets one quiet topic icon (its issues' category, the same icon Issues
+// uses) in the row's leading slot. No chips (Nate 10/13: chips made Today's rows too dense). Neutral ink only: colour stays
+// urgency (A-5). The icons are guesses until the team uses them; a side-by-side settles the look. Nate's five fixes (10/25):
+// rows on Team only (Mine is mostly one topic, so one picture repeated; its headings carry the landmark), no icon when a
+// bill's issues span two topics, three staff-only swaps for glyphs that are unclear at 20px, none below 600px (CSS), and the
+// heading icon on the card's left edge on phones (CSS).
 const ICONS_ON = (() => { try { return /[?&]icons=1\b/.test(location.search); } catch { return false; } })();
 const STAGE_IC = { risk: 'triangle-alert', hear: 'calendar-check', wait: 'hourglass', thru: 'route', done: 'landmark', mon: 'eye', dead: 'circle-x' };
+// Staff-only swaps (fix 3): the categories table and the public topics keep their icons until Nate picks (R-339 review sheet).
+// An apple and a cigarette are hard to read at 20px; a pulse line reads as a hospital monitor, not care and rights.
+const STAFF_TOPIC_IC = { apple: 'salad', cigarette: 'cigarette-off', 'heart-pulse': 'heart-handshake' };
 const ghIcon = k => ICONS_ON && STAGE_IC[k] ? `<span class="bl-ghic" aria-hidden="true">${icon(STAGE_IC[k])}</span>` : '';
+// The one category of a bill's live issues; none when it has no issue, or issues in two categories (fix 2: a picture that is
+// right for one of two topics is wrong for the bill).
 function topicOf(b) {
   const on = new Set((S.billIssues || []).filter(x => x.bill_id === b.id).map(x => x.issue_id));
-  const iss = (S.issues || []).filter(i => on.has(i.id) && !i.archived_at).sort((x, y) => String(x.name).localeCompare(String(y.name)));
-  for (const i of iss) { const c = (S.categories || []).find(c => c.key === i.category); if (c) return c; }
-  return null;
+  const keys = new Set((S.issues || []).filter(i => on.has(i.id) && !i.archived_at && i.category).map(i => i.category));
+  if (keys.size !== 1) return null;
+  const [k] = keys;
+  return (S.categories || []).find(c => c.key === k) || null;
 }
-// A bill on no issue keeps the slot empty, so every name starts at the same place.
+// Team only (fix 1). A bill with no single topic keeps the slot empty, so every name starts at the same place.
 function topicLead(b) {
-  if (!ICONS_ON) return '';
+  if (!ICONS_ON || bl().scope !== 'all') return '';
   const c = topicOf(b);
-  return c ? `<span class="v6-row-lead" title="${esc(c.name)}">${icon(c.icon || 'tag')}<span class="sr">${esc(c.name)}: </span></span>` : '<span class="v6-row-lead none" aria-hidden="true"></span>';
+  if (!c) return '<span class="v6-row-lead none" aria-hidden="true"></span>';
+  const ic = STAFF_TOPIC_IC[c.icon] || c.icon || 'tag';
+  return `<span class="v6-row-lead" title="${esc(c.name)}">${icon(ic)}<span class="sr">${esc(c.name)}: </span></span>`;
 }
 const groupHead = g => FOLDED.has(g.k)
   ? `<h2 class="bl-gh" id="bl-g-${g.k}"><button type="button" class="bl-ghb" data-fold="${g.k}" aria-expanded="${g.open}">${ghIcon(g.k)}<span>${esc(g.title)}</span><span class="bl-gn">${g.all}</span>${icon(g.open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button></h2>`
