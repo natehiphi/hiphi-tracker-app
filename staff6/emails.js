@@ -16,7 +16,7 @@
 import { S, esc, fmtDT, fmtDate, advocate } from './data.js';
 import { alertsToReview } from './model.js';
 import { icon, btn, empty, sectionNav } from './ui.js';
-import { itemRow, nameWords, numWords } from './steps.js';
+import { itemRow } from './steps.js';
 import { pageHead, isDesk, isSide, thSort, sortBy, wireTable, DASH, plural, shortDate } from './lists.js';
 import { audienceOf, statusChip, approverNames, pausedNotice, ago, dailyWord, paused, heldNow, HELD, HELD_HEAD } from './composer.js';
 
@@ -24,13 +24,14 @@ const first = id => (advocate(id)?.full_name || 'Someone').split(' ')[0];
 const when = a => a.updated_at || a.submitted_at || a.created_at || '';
 const newest = (x, y) => String(when(y)).localeCompare(String(when(x)));
 
-// "Followers of Let people cross during the countdown (HB 1523)", "Oʻahu testifiers": who it goes to, in one phrase.
-const toWords = a => { const u = audienceOf(a); return u.b ? `Followers of ${nameWords(u.b, 1e4)}${u.b.nickname ? ` (${numWords(u.b)})` : ''}` : u.l ? `Followers of the list ${u.l.title}` : u.sg ? `The group ${u.sg.name}` : 'Nobody yet'; };
+// Who it goes to, said one way on a phone's row and a laptop's table (R-336 walk 2: the two used to differ): "HB 1523's
+// followers", "the list Keiki health", "the group Oʻahu testifiers". Short, so a phone's row keeps to its one line; the
+// table's Goes to column starts it with a capital.
+const lowTo = a => { const u = audienceOf(a); return u.b ? `${u.name}’s followers` : u.l ? `the list ${u.l.title}` : u.sg ? `the group ${u.sg.name}` : 'nobody yet'; };
+const toWords = a => { const w = lowTo(a); return w.charAt(0).toUpperCase() + w.slice(1); };
 // A phone's row: the subject, then one line that says what happens next (marked when it is yours). Under a heading that
 // already says it ("Yours to approve", "Ready to send", "Going out at 4:30 PM"), the line says who sent it, when, and who
 // it goes to instead of the heading's words again (A-14).
-// Short, so the row keeps to its one line: "to HB 1523's followers", "to the list Keiki health", "to the group Oʻahu testifiers".
-const lowTo = a => { const u = audienceOf(a); return u.b ? `${u.name}’s followers` : u.l ? `the list ${u.l.title}` : u.sg ? `the group ${u.sg.name}` : 'nobody yet'; };
 function groupLine(a, gid, rv) {
   if (gid === 'review') return { words: `${first(a.author_id)} sent it ${ago(a.submitted_at || when(a))} · to ${lowTo(a)}`, you: true };
   if (gid === 'send') return { words: `Approved ${ago(a.approved_at || when(a))} · to ${lowTo(a)}`, you: true };

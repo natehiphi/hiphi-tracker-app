@@ -37,7 +37,7 @@ export const HELD = 'Approved · held while email is paused';
 export const HELD_HEAD = 'Held while email is paused';
 export const HELD_NEXT = 'it goes out in the first 4:30 PM email after email is turned on';
 export const heldNow = a => a.status === 'approved' && paused();
-export const pausedNotice = () => paused() ? notice('info', 'mail', `Email is paused. You can write and approve; an approved email is held while email is paused: ${HELD_NEXT}.`, S.me?.is_admin ? btn('Turn it on', { kind: 'text', sm: true, href: '#/setup/email' }) : '') : '';
+export const pausedNotice = () => paused() ? notice('info', 'mail', 'Email is paused. You can still write and approve; approved emails go out in the first 4:30 PM email after it is turned on.', S.me?.is_admin ? btn('Turn it on', { kind: 'text', sm: true, href: '#/setup/email' }) : '') : '';
 export const ago = iso => agoWords(iso);   // R-277 fix 3: model.js, one way on every screen
 // Who may do what (the same rules as the database's policies and action_alert_step).
 export const canEdit = a => !a.id || (['draft', 'returned'].includes(a.status) && a.author_id === S.me?.id);

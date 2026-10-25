@@ -165,8 +165,8 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   const bad = [...codes].filter(c => { const n = X.committeeName(c); return !n || /\b[A-Z]{2,4}\b/.test(n.replace(/\b(House|Senate)\b/g, '')) || !/^(House|Senate) /.test(n); });
   ok(!bad.length, `all ${codes.size} committee codes in the snapshot (joint ones too) have a short plain name with its chamber${bad.length ? '; missing: ' + bad.join(', ') : ''}`);
   ok(X.committeeName('TRN') === 'House Transportation' && X.committeeName('TRS') === 'Senate Transportation', 'TRN and TRS: House Transportation and Senate Transportation');
-  ok(X.committeeName('HHS/CPN') === 'Senate Health and Human Services, and Commerce', `a joint referral: "${X.committeeName('HHS/CPN')}"`);
-  ok(X.committeeName('HLT/HSH/CPC') === 'House Health, Human Services, and Consumer Protection', `three together: "${X.committeeName('HLT/HSH/CPC')}"`);
+  ok(X.committeeName('HHS/CPN') === 'Senate Health and Human Services and Senate Commerce', `a joint referral: "${X.committeeName('HHS/CPN')}"`);
+  ok(X.committeeName('HLT/HSH/CPC') === 'House Health, House Human Services and House Consumer Protection', `three together: "${X.committeeName('HLT/HSH/CPC')}"`);
   ok(X.committeeName('HLT', { chamber: false }) === 'Health', 'without the chamber: "Health"');
   ok(X.committeeName('ZZQ') === 'ZZQ' && X.committeeName('') === '', 'an unknown code stays as it is (still searchable); none says nothing');
 }
