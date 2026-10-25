@@ -6,8 +6,8 @@
 // A list starts private. Share makes a link nobody can guess; whoever opens it sees the list and can follow it. Only bills
 // HIPHI tracks and shows can go on a list (the database checks). The maker follows the bills they put on their list.
 // The sandbox has no sign-in, so there the lists live in this browser and the whole flow can be practised.
-import { S, D, DEMO, app, esc, icon, toast, spaced, nick, alive, findBill, countOk, recomputeWatch, saveLocal, loadBills, nudge } from './core.js';
-import { btn, iconBtn, skeleton, inlineErr, row } from './ui.js';
+import { S, D, DEMO, app, esc, icon, toast, spaced, nick, alive, findBill, countOk, recomputeWatch, saveLocal, loadBills, nudge, timed, must } from './core.js';
+import { btn, iconBtn, skeleton, inlineErr, row, loadFail } from './ui.js';
 import { billList, emptyBox, moving, becameLaw, stopped, byUrgency, fold, wireRows } from './mybills.js';
 
 const UL = S.ul ??= { mine: null, loading: false, err: false, shared: {}, editing: null, taking: null, showLink: null, sheetFor: null };   // editing / taking: the id of the list being renamed / having bills taken off
@@ -36,7 +36,8 @@ async function ensureBills(ids) {
   const need = [...new Set(ids)].filter(id => !findBill(id) && !S.extra[id]);
   if (!need.length) return;
   if (DEMO) { for (const b of D.bills.filter(b => need.includes(b.id))) S.extra[b.id] = b; return; }
-  const { data } = await S.supa.from('public_all_bills').select('*').in('id', need);
+  // A failed answer throws (must): a list drawn without its bills read as "Nothing on this list yet" (R-212 #49).
+  const { data } = must(await S.supa.from('public_all_bills').select('*').in('id', need));
   for (const b of data || []) S.extra[b.id] = b;
 }
 const billOf = id => findBill(id) || S.extra[id] || (DEMO ? D.bills.find(b => b.id === id) : null);
@@ -128,11 +129,16 @@ async function remove(l, back = false) {
 // ---- following a shared list ----
 async function loadShared(token) {
   UL.shared[token] = 'loading';
+  // One that never answers ends in "We couldn't load this list", with Try again (R-212 #49): its skeleton stayed for good.
   try {
-    if (DEMO) { const l = readJSON(DEMO_KEY, []).find(x => x.share_token === token);
-      UL.shared[token] = l ? { id: l.id, title: l.title, note: l.note, bill_ids: l.bill_ids, followers: null, mine: true, following: true } : null; }
-    else { const { data, error } = await S.supa.rpc('shared_user_list', { p_token: token }); if (error) throw error; UL.shared[token] = data?.[0] || null; }
-    if (UL.shared[token]) await ensureBills(UL.shared[token].bill_ids || []);
+    UL.shared[token] = await timed((async () => {
+      let sl;
+      if (DEMO) { const l = readJSON(DEMO_KEY, []).find(x => x.share_token === token);
+        sl = l ? { id: l.id, title: l.title, note: l.note, bill_ids: l.bill_ids, followers: null, mine: true, following: true } : null; }
+      else { const { data, error } = await S.supa.rpc('shared_user_list', { p_token: token }); if (error) throw error; sl = data?.[0] || null; }
+      if (sl) await ensureBills(sl.bill_ids || []);
+      return sl;
+    })());
   } catch (e) { console.error(e); UL.shared[token] = 'err'; }
   app.render();
 }
@@ -216,6 +222,8 @@ function followedPage(l) {
 function myListPage(id) {
   if (UL.mine === null) { loadMyLists().then(() => app.render()); return `<div class="fd ul">${back('#/bills', 'My issues')}${skeleton(3)}</div>`; }
   const l = myList(id);
+  // Their lists did not load (UL.err): that is said, never "We couldn't find that list" (R-212 #49).
+  if (!l && UL.err) return `<div class="fd ul">${back('#/bills', 'My issues')}${loadFail({ what: 'your list', align: 'start', retry: { 'data-ulmine': '1' } })}</div>`;
   if (!l) return `<div class="fd ul">${back('#/bills', 'My issues')}${emptyBox({ h: 'h1', title: 'We couldn’t find that list', text: canMake() ? 'It may have been removed. Your lists are in My issues.' : 'Sign in to see your lists.',
     action: btn(canMake() ? 'Go to My issues' : 'Sign in', { kind: 'primary', href: canMake() ? '#/bills' : '#/signin', attrs: canMake() ? {} : { 'data-ulsignin-page': '1' } }) })}</div>`;
   return l.mine ? minePage(l) : followedPage(l);
@@ -224,7 +232,7 @@ function sharedPage(token) {
   const sl = UL.shared[token];
   if (sl === undefined) loadShared(token);
   if (sl === undefined || sl === 'loading') return `<div class="fd ul" data-page="shared">${back('#/', 'Home')}${skeleton(3)}</div>`;
-  if (sl === 'err') return `<div class="fd ul">${back('#/', 'Home')}<div class="fd-err">${inlineErr('ul-err', 'We couldn’t load this list. Check your connection and try again.')}${btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-ulretry': token } })}</div></div>`;
+  if (sl === 'err') return `<div class="fd ul">${back('#/', 'Home')}${loadFail({ what: 'this list', id: 'ul-err', align: 'start', retry: { 'data-ulretry': token } })}</div>`;
   if (!sl) return `<div class="fd ul">${back('#/', 'Home')}${emptyBox({ h: 'h1', title: 'This list isn’t available', text: 'The person who made it may have stopped sharing it, or the link was cut short.', action: btn('Browse issues', { kind: 'primary', icon: 'search', href: '#/find' }) })}</div>`;
   if (sl.mine) return myList(sl.id) ? minePage(myList(sl.id)) : myListPage(sl.id);   // the maker opening their own link sees their own page
   const n = (sl.bill_ids || []).length, following = sl.following || localFollowed().has(token);
@@ -398,6 +406,7 @@ function wire(r) {
   const item = (sel, fn) => root.querySelectorAll(sel).forEach(el => el.onclick = e => { setMenu(false); fn(el, e); });
   root.querySelector('[data-ulmenu]')?.addEventListener('click', e => { e.stopPropagation(); setMenu(document.getElementById('ul-menu').hidden); });
   root.querySelectorAll('[data-ulretry]').forEach(el => el.onclick = () => { delete UL.shared[el.dataset.ulretry]; app.render(); });
+  root.querySelector('[data-ulmine]')?.addEventListener('click', () => { UL.mine = null; UL.err = false; app.render(); });
   root.querySelectorAll('[data-ulcopy]').forEach(el => el.onclick = () => copy(el.dataset.ulcopy));
   item('[data-ulshare]', async el => { const l = here(); try { await navigator.share({ title: l?.title || 'A list of bills', url: shareUrl(el.dataset.ulshare) }); } catch { /* closed */ } });
   item('[data-uledit]', () => { UL.editing = lid; UL.taking = null; app.render(); document.getElementById('ul-t')?.focus(); });

@@ -18,8 +18,8 @@
 // (#/find/issue/ctfh) opens its category.
 // A bill a HIPHI partner writes on (R-328 batch D) says so in one more line on its row (bRow), as Find's rows do.
 import { S, D, DEMO, app, esc, icon, toast, nick, spaced, billPath, issueFollowed, issuePos, posInfo, setFollows, unfollowIssue, sessionInfo, findBill, supa,
-  catOf, calendarUrl, dateLong, stopOf, plainStatus, hearingsOf, openActions, hearingWhen, hiT, fmtDate, issueShareUrl, stopFacts, issuesIn, HST } from '../core.js';
-import { btn, iconBtn, posChip, skeleton, inlineErr } from '../ui.js';
+  catOf, calendarUrl, dateLong, stopOf, plainStatus, hearingsOf, openActions, hearingWhen, hiT, fmtDate, issueShareUrl, stopFacts, issuesIn, HST, timed, loadCatalog, recomputeWatch } from '../core.js';
+import { btn, iconBtn, posChip, skeleton, loadFail } from '../ui.js';
 import { recHead, recBack, recSec, recRow, recFold, recFolds, recEmpty, recFollow, wireKit, BOX, keep } from './kit.js';
 import { moving, becameLaw, stopped, numCmp, byUrgency, stoppedWhy, what, billsOfIssue, issueOrder } from '../mybills.js';
 import { ensureHearings } from '../find.js';
@@ -59,12 +59,13 @@ const L = S.rcIss ??= {};
 function loadBills(i) {
   L[i.id] = 'loading';
   const ids = (i.bill_ids || []).filter(id => !findBill(id));
-  (async () => {
+  // One that never answers ends in "We couldn't load its bills", with Try again (R-212 #49): its skeleton stayed for good.
+  timed((async () => {
     if (ids.length && !DEMO) { const { data, error } = await (await supa()).from('public_all_bills').select('*').in('id', ids); if (error) throw error; (data || []).forEach(b => { S.extra[b.id] = b; }); }
     const rows = (i.bill_ids || []).map(id => findBill(id) || (DEMO ? D.bills.find(b => b.id === id) : null)).filter(Boolean);
     rows.forEach(b => { if (!S.bills.some(x => x.id === b.id)) S.extra[b.id] ??= b; });
-    await ensureHearings(rows); L[i.id] = rows;
-  })().catch(e => { console.error(e); L[i.id] = 'err'; }).finally(() => { if (onIssue()) app.render(); });
+    await ensureHearings(rows); return rows;
+  })()).then(rows => { L[i.id] = rows; }).catch(e => { console.error(e); L[i.id] = 'err'; }).finally(() => { if (onIssue()) app.render(); });
 }
 
 // The soonest ask among the moving bills, picked as Home picks the thing it shows (calm/home.js deckOf): testimony due and
@@ -209,7 +210,7 @@ function billRows(m) {
 function issuePage(i) {
   const m = model(i), top = topRow(i);
   if (m.state !== 'ready') {
-    const body = m.state === 'err' ? `<div class="rc-err">${inlineErr('rc-ierr', 'We couldn’t load its bills. Check your connection and try again.')}${btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-rc-retry': i.id } })}</div>` : skeleton(2);
+    const body = m.state === 'err' ? loadFail({ inline: true, what: 'this issue’s bills', id: 'rc-ierr', cls: 'rc-err', retry: { 'data-rc-retry': i.id } }) : skeleton(2);
     return `<div class="bl-page bl-rec rc-iss${wide() ? ' bl-wide' : ''}">${top}${nameBlock(i, '')}${body}</div>`;
   }
   let head, side, rest;
@@ -265,8 +266,13 @@ function catRow(i, st = issueStatus(i)) {
   const on = issueFollowed(i), side = issueSide(i), follow = recFollow(i, on);
   return `<li class="rc-irow"><a class="rc-row" href="#/issue/${esc(i.slug)}"><span class="rc-rtext"><span class="rc-rname">${esc(i.name)}</span><span class="rc-rstat">${st.warn ? `<b class="rc-warn">${esc(st.text)}</b>` : esc(st.text)}${side ? ` · ${esc(side)}` : ''}</span></span></a>${follow}</li>`;
 }
+// The catalog could not be asked for this visit (kernel.js S.catalogErr: the copy kept from the last visit is in use, and may
+// not have a new issue or topic yet). An address that names nothing in hand is then said to have failed, with Try again,
+// never sent to Find or called "We couldn't find that" (R-212 #49).
+const catFail = what => `<div class="rc rc-cat">${recBack('#/find', 'Find')}${S.rcCatBusy ? skeleton(3) : loadFail({ what, align: 'start', retry: { 'data-rc-recat': '1' } })}</div>`;
 function categoryPage(key) {
   const c = catOf(key);
+  if (!c && (S.catalogErr || S.rcCatBusy)) return catFail('this topic');
   if (!c) return `<div class="rc rc-cat">${recHead({ title: 'We couldn’t find that', lede: 'Here is everything HIPHI works on.', back: recBack('#/find', 'Find') })}${btn('See all issues', { kind: 'secondary', href: '#/find' })}</div>`;
   const all = issueOrder(issuesIn(c.key)).map((i, n) => ({ i, n, st: issueStatus(i) }))
     .sort((x, y) => x.st.g - y.st.g || (x.st.t ?? Infinity) - (y.st.t ?? Infinity) || x.n - y.n), whole = S.catFollows.has(c.key);
@@ -369,7 +375,7 @@ export default {
   render(r) {
     if (r.name === 'category') return categoryPage(r.key);
     const i = S.issueBySlug.get(r.slug);
-    return i ? issuePage(i) : redirect(r.slug);
+    return i ? issuePage(i) : S.catalogErr || S.rcCatBusy ? catFail('this issue') : redirect(r.slug);
   },
   // The phone's docked bar (R-302): the card's own main button, shown once the card has scrolled away (bill.js recDock).
   // It names its bill and its moment (the fresh-eyes review, 10/18: docked under the list of other bills, or under the bills
@@ -382,6 +388,9 @@ export default {
   },
   wire(r) {
     const root = document.querySelector('#main .rc-iss, #main .rc-cat'); if (!root) return;
+    // The catalog, asked for again in place (R-212 #49).
+    root.querySelector('[data-rc-recat]')?.addEventListener('click', () => { S.rcCatBusy = true; app.render();
+      loadCatalog().then(() => recomputeWatch()).catch(e => console.error(e)).finally(() => { S.rcCatBusy = false; app.render(); }); });
     if (r.name === 'issue') { const i = S.issueBySlug.get(r.slug); if (i) wireIssue(root, i); }
     else { wireFollows(root); wireKit(root); }
     if (S.rcFocus) { const t = root.querySelector(S.rcFocus); S.rcFocus = null; t?.focus({ preventScroll: true }); }

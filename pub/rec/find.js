@@ -18,7 +18,7 @@
 // issue and category pages under rec).
 import { S, app, esc, icon, nick, plain, spaced, billPath, sessionInfo, issuesOf, issueFollowed, stopOf, alive, plainStatus, dateLong,
   dismissed, suggestionList, recommendations, noteShown, reasonOf, issueIcon, findBill } from '../core.js';
-import { btn, skeleton, inlineErr } from '../ui.js';
+import { btn, skeleton, loadFail } from '../ui.js';
 import F0, { parse, startSearch, searchNote, capNote, issueMatches, peopleMatches, findHooks, wireSearch, wireIssues, offSeason, byDue,
   hiphis, shows, ensureHearings } from '../find.js';
 import { moving, becameLaw, stopped, billsOfIssue, what, stoppedWhy, numCmp } from '../mybills.js';
@@ -249,7 +249,7 @@ function resultsBody(q, res) {
 }
 function results(q) {
   const P = parse(q), ready = F.key === P.key && !F.busy;
-  if (ready && F.err) return `<div class="fd-err">${inlineErr('fd-err', 'Search didn’t work just now. Check your connection and try again.')}${btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-retry': '1' } })}</div>`;
+  if (ready && F.err) return loadFail({ inline: true, what: 'the results', id: 'fd-err', cls: 'fd-err', retry: { 'data-retry': '1' } });   // R-212 #49
   if (!ready || !F.res) return F.shown ? `<div class="fd-stale" inert>${resultsBody(F.shown.q, F.shown.res)}</div>` : skeleton(3);
   F.shown = { q, res: F.res };
   return resultsBody(q, F.res);

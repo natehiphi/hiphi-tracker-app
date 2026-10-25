@@ -523,6 +523,11 @@ working. Nothing ever looks finished before it is.
 Never a code, never blame, never a dead end. If a save fails because of a column grant, the message
 says what could not be saved and what to do — not "permission denied".
 
+A public screen, or one part of it, that cannot load uses `loadFail` in `pub/ui.js` (R-212 #49, 25 Oct 2026): "We couldn’t
+load {the thing}", the one sentence from `failWords` (offline says it is the connection; otherwise "It’s not you"), and a
+Try again that asks again in place. A failed load is never drawn as "not found", "nothing here" or a count of 0.
+`tests/load_fail.py` checks every screen with the data blocked, failing or hanging.
+
 *Reason.* NN/g heuristic 9, WCAG 3.3.1/3.3.3.
 
 ### B-9 Nothing important lives behind hover

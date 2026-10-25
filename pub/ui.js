@@ -1,6 +1,6 @@
 // Shared building blocks for every public screen: buttons, chips, rows, empty states, skeletons, the step bar.
 // Screens compose these so a button, a chip or a row looks and behaves the same everywhere.
-import { esc, icon, posInfo, issueIcon } from './kernel.js';
+import { esc, icon, posInfo, issueIcon, errArt } from './kernel.js';
 
 const attrs = a => Object.entries(a || {}).filter(([, v]) => v !== undefined && v !== null && v !== false)
   .map(([k, v]) => v === true ? ` ${k}` : ` ${k}="${esc(v)}"`).join('');
@@ -63,3 +63,28 @@ export function keepWordsWhole(root = document.body) {
   } catch { /* without the observer every word still shows, only with the browser's own line breaks */ }
 }
 export const inlineErr = (id, text) => `<div class="inlinemsg" id="${id}" role="alert">${icon('circle-alert')}<span>${esc(text)}</span></div>`;
+
+// ---- a screen, or one part of it, that could not load (R-212 #49; DESIGN B-8) ----
+// One way everywhere: what happened, in plain words, next to the thing, and the way out. Offline is the person's
+// connection and says so; anything else is ours ("It’s not you"), so "Check your connection" is never said to someone who
+// is online when it is our side that failed. again: what to press, for a box whose way out is not a Try again button.
+export const failWords = (again = 'press Try again') => navigator.onLine === false
+  ? `You’re offline. When your connection is back, ${again}.`
+  : 'The tracker can’t reach its data right now. It’s not you. Try again in a minute.';
+// loadFail({ what: 'this bill', retry: { 'data-bl-retry': '1' } }) draws "We couldn’t load this bill", the words above and a
+// Try again that asks again in place (the screen wires its own data- hook). Two sizes, today's two looks:
+//   the page (default): the rooster, the heading, the words and a primary Try again, in the screen's place under its own
+//     header and back row, so the way out stays. h: 'h1' when it is the screen's only heading, 'h2' under a page's own h1.
+//   inline: true, for one part of a drawn page (an issue's bills, a search, a fold): one line and a secondary Try again.
+// button: false leaves the button out, for a screen whose own bar holds its Try again (the first visit). Every Try again
+// carries data-loadfail, which app.js presses once when the connection comes back.
+// Where it sits (the ui-critic's review, 25 Oct; A-8): a card that is the whole screen (the start, a bill, All bills) is
+// centred; one in a page's column (under its h1 or its back row: Committees, a lawmaker, My issues) takes align: 'start'
+// and lines up with the page's own heading, so it reads as part of the page. note: one more sentence after the words.
+// The inline line says what failed in the alert's red and the rest in body grey (A-5); the whole line is the alert.
+export function loadFail({ what = 'this page', retry = {}, inline = false, h = 'h1', id = 'loadfail-msg', cls = '', button = true, align = '', note = '' } = {}) {
+  const again = button ? btn('Try again', { kind: inline ? 'secondary' : 'primary', icon: 'rotate-ccw', attrs: { 'data-loadfail': '', ...retry } }) : '';
+  const c = `${align === 'start' ? ' start' : ''}${cls ? ' ' + cls : ''}`;
+  if (inline) return `<div class="loadfail inline${c}"><div class="inlinemsg" id="${id}" role="alert">${icon('circle-alert')}<span><span class="lf-what">We couldn’t load ${esc(what)}.</span> <span class="lf-words">${failWords()}${note ? ' ' + esc(note) : ''}</span></span></div>${again}</div>`;
+  return `<div class="empty loadfail${c}" role="alert">${errArt()}<${h} id="${id}">We couldn’t load ${esc(what)}</${h}><p>${failWords()}${note ? ' ' + esc(note) : ''}</p>${again}</div>`;
+}

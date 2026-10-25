@@ -5,10 +5,10 @@
 // the soonest followed or HIPHI bill), HIPHI's bills here by what is due, and the members closed. Every meeting day is said
 // (committees.js slotLine; taking only the first was a live bug).
 import { S, app, esc, icon, nextSitting, nick, spaced, billPath, billRef, posInfo, alive, stopOf, legTitle, legsOf, legPhoto, codesOf, hearingWhen, roomLabel, CHAMBER_NAME, sessionInfo, HST } from '../core.js';
-import { btn } from '../ui.js';
+import { btn, loadFail } from '../ui.js';
 import { recHead, recSec, recRows, recMore, recFold, recFolds, recEmpty, wireKit, BOX } from './kit.js';
 import { recAct, dueOf, byDue, billRow, billWords, pillFor, backRow, atWords } from './act.js';
-import { allCommittees, billsAt, slotsOf, slotLine } from '../committees.js';
+import { allCommittees, billsAt, slotsOf, slotLine, cmteFailed, cmteFail } from '../committees.js';
 
 const WEEK = 7 * 864e5;
 // HIPHI's side, said at the end of a sentence about the bill.
@@ -46,7 +46,8 @@ function hearingsAt(code, until = Infinity) {
 // ---------------- every committee ----------------
 export function recList() {
   const cs = allCommittees(), back = backRow('#/legislators', 'Your lawmakers');
-  if (!cs.length) return `<div class="cmt rc cmt-rec">${back}${recHead({ title: 'Committees' })}${recEmpty('We couldn’t load the committees. Check your connection and try again.')}</div>`;
+  // They did not load (R-212 #49): said under the page's name, with Try again (committees.js cmteFail).
+  if (!cs.length || cmteFailed()) return `<div class="cmt rc cmt-rec">${back}${recHead({ title: 'Committees' })}${cmteFail('the committees', 'h2')}</div>`;
   // This week's hearings on followed and HIPHI bills, one row per committee sitting (a joint hearing once), naming the bill
   // (the fresh-eyes review: six committee names said nothing about which hearing matters), the person's own bills first.
   const until = Date.now() + WEEK, sit = new Map();
@@ -76,6 +77,7 @@ export function recList() {
 // ---------------- one committee ----------------
 export function recDetail(route) {
   const c = (S.committees || {})[route.code], back = backRow('#/committees', 'Committees');
+  if (!c && cmteFailed()) return `<div class="cmt rc cmt-rec">${back}${cmteFail('this committee')}</div>`;   // never "the link may be old" (R-212 #49)
   if (!c) return `<div class="cmt rc cmt-rec">${back}${recHead({ title: 'We couldn’t find that committee' })}${recEmpty('The link may be old. Every committee is on the Committees page.', btn('Committees', { kind: 'secondary', href: '#/committees' }))}</div>`;
   const members = legsOf(c.code), chair = members.find(m => m.role === 'chair'), next = hearingsAt(c.code)[0];
   // The card: the soonest hearing here for a followed or HIPHI bill.
@@ -134,7 +136,9 @@ function noneWords() {
 function nextLine(code, cardAt = '') {
   const n = sitting(code);
   if (n && typeof n === 'object' && n.at === cardAt) return '';
-  const text = n === undefined || n === 'loading' ? 'Looking up the next hearing…' : n === 'error' ? 'The next hearing could not load just now.'
+  // It did not load, or did not answer in time (core.js nextSitting): one line and Try again, in its place (R-212 #49).
+  if (n === 'error') return loadFail({ inline: true, what: 'the next hearing', id: 'cmt-nexterr', cls: 'cmt-next', retry: { 'data-cmt-next': code } });
+  const text = n === undefined || n === 'loading' ? 'Looking up the next hearing…'
     : !n ? noneWords()
     : `Next hearing ${hearingWhen(n.at)}${n.room ? ` · ${roomLabel(n.room)}` : ''}`;   // how many bills: the fold below (A-14)
   return `<p class="cmt-next${n && typeof n === 'object' ? '' : ' muted'}">${icon('calendar')}<span>${esc(text)}</span></p>`;
@@ -153,4 +157,8 @@ function agendaFold(code) {
       text: [spaced(b.bill_number), posInfo(b)?.text || '', S.watch?.has(b.id) ? 'You follow it' : ''].filter(Boolean).join(' · ') })), 8, 'cmt-agenda'));
 }
 
-export function wireRec() { const root = document.querySelector('.cmt-rec'); if (root) wireKit(root); }
+export function wireRec() {
+  const root = document.querySelector('.cmt-rec'); if (!root) return;
+  wireKit(root);
+  root.querySelectorAll('[data-cmt-next]').forEach(el => el.onclick = () => { delete S.cmteNext[el.dataset.cmtNext]; app.render(); });
+}

@@ -13,8 +13,8 @@
 import { S, D, DEMO, app, esc, icon, nick, posInfo, countOk, issues, issueIcon, groupNames, wiz, sessionInfo, suggestionList, recommendations, reasonOf, noteShown, dismissed,
   browseCoalition, curate, listBillsFor, followList, toggleWatch, loadBills, saveLocal, saveListFollows, nudge, toast, supa, plain, POS_RANK,
   pickedTopic, findBill, stopOf, dayWord, issueBills, issuesIn, issueFollowed, issuePos, setFollows, unfollowIssue, ensureRecapPool,
-  recomputeWatch, plainStatus, spaced, billPath, issuesOf, openActions, hearingsOf, legTitle, CHAMBER_NAME, sessionWords, stopFacts, ensureHistory } from './core.js';
-import { btn, row, skeleton, notice, inlineErr, chip, posChip } from './ui.js';
+  recomputeWatch, plainStatus, spaced, billPath, issuesOf, openActions, hearingsOf, legTitle, CHAMBER_NAME, sessionWords, stopFacts, ensureHistory, timed, loadLists } from './core.js';
+import { btn, row, skeleton, notice, inlineErr, chip, posChip, loadFail } from './ui.js';
 import { actionCard, wireActions, shareIssue } from './actions.js';
 import { calendarUrl } from './core.js';   // the calendar feed (R-125)
 import { followAsk, profileSaved, levelLine, levelBox, wireLevelLine, getsAlerts } from './alerts.js';   // the profile ask after a follow (R-184); how much it sends (R-299)
@@ -226,11 +226,14 @@ export function startSearch(q) {
   F.key = P.key; F.err = false;
   if (F.cache.has(P.key)) { F.res = F.cache.get(P.key); F.busy = false; return; }
   F.res = null; F.busy = true; const my = ++F.seq;
+  // A search that never answers ends in "We couldn't load the results", with Try again (R-212 #49): it said "Searching"
+  // for as long as the page stayed open. The older bills' histories are only for their "What happened" line, so a slow one
+  // is not waited for.
   (async () => {
     let res;
     if (DEMO) res = rank([...D.bills, ...D.index], P);
-    else { res = await liveRank(P); }
-    await ensureHearings(res.slice(0, 40)); await ensureStopHistory(res.slice(40));
+    else { res = await timed(liveRank(P)); }
+    await timed(ensureHearings(res.slice(0, 40))); await timed(ensureStopHistory(res.slice(40))).catch(() => {});
     return res;
   })().then(res => { if (my !== F.seq) return; F.cache.set(P.key, res); if (F.cache.size > 20) F.cache.delete(F.cache.keys().next().value); F.res = res; })
     .catch(e => { if (my !== F.seq) return; console.error(e); F.err = true; })
@@ -340,7 +343,7 @@ function findPage(q) {
 }
 function resultsHTML(q) {
   const P = parse(q), ready = F.key === P.key && !F.busy;
-  if (ready && F.err) return `<div class="fd-err">${inlineErr('fd-err', 'Search didn’t work just now. Check your connection and try again.')}${btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-retry': '1' } })}</div>`;
+  if (ready && F.err) return loadFail({ inline: true, what: 'the results', id: 'fd-err', cls: 'fd-err', retry: { 'data-retry': '1' } });
   if (!ready || !F.res) return F.shown ? `<div class="fd-stale" inert>${resultsBody(F.shown.q, F.shown.res)}</div>` : skeleton(3);
   F.shown = { q, res: F.res };
   return resultsBody(q, F.res);
@@ -382,7 +385,7 @@ function browseHTML() {
 // ---------------- an issue's page ----------------
 function loadIssue(g) {
   F.issues[g.key] = 'loading';
-  browseCoalition(g.key).then(async () => { const rows = (S.browse?.rows || []).slice(); await ensureHearings(rows); F.issues[g.key] = rows; })
+  timed(browseCoalition(g.key).then(async () => { const rows = (S.browse?.rows || []).slice(); await ensureHearings(rows); return rows; })).then(rows => { F.issues[g.key] = rows; })
     .catch(e => { console.error(e); F.issues[g.key] = 'err'; })
     .finally(() => app.render());
 }
@@ -396,7 +399,7 @@ function issuePage(slug) {
   // Where the issue stands, in one line (bills, not people, so small numbers are fine). The recap card says it between sessions.
   const tally = ready && !off ? [data.length ? sessionWords(data) : '', mv.length ? `${mv.length} moving` : '', law.length ? `${law.length} became law` : '', gone.length ? `${gone.length} did not advance` : ''].filter(Boolean).join(' · ') : '';
   const head = `${back('#/find', 'All issues')}<header class="fd-ihead"><span class="fd-icon">${icon(g.icon)}</span><h1 class="hero">${esc(g.key)}</h1>${g.description ? `<p class="lede">${esc(g.description)}</p>` : ''}${tally ? `<p class="meta">${esc(tally)}</p>` : ''}</header>`;
-  if (!ready) return `<div class="fd" data-page="issue">${head}${data === 'err' ? `<div class="fd-err">${inlineErr('fd-ierr', 'We couldn’t load these bills. Check your connection and try again.')}${btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-reissue': g.key } })}</div>` : skeleton(3)}</div>`;
+  if (!ready) return `<div class="fd" data-page="issue">${head}${data === 'err' ? loadFail({ inline: true, what: 'these bills', id: 'fd-ierr', cls: 'fd-err', retry: { 'data-reissue': g.key } }) : skeleton(3)}</div>`;
   // HIPHI's picks are its strongest positions; among them, the one with the soonest hearing or deadline leads.
   const picks = byUrgency(curate(data, 3).picks);
   const others = mv.filter(b => !picks.includes(b));
@@ -465,11 +468,12 @@ function categoryPage(key) {
 function loadIssueBills(i) {
   F.iss[i.id] = 'loading';
   const ids = i.bill_ids.filter(id => !findBill(id));
-  (async () => {
+  // One that never answers ends in "We couldn't load its bills", with Try again (R-212 #49).
+  timed((async () => {
     if (ids.length && !DEMO) { const { data, error } = await (await supa()).from('public_all_bills').select('*').in('id', ids); if (error) throw error; (data || []).forEach(b => { S.extra[b.id] = b; }); }
     const rows = i.bill_ids.map(id => findBill(id) || (DEMO ? D.bills.find(b => b.id === id) : null)).filter(Boolean);
-    await ensureHearings(rows); F.iss[i.id] = rows;
-  })().catch(e => { console.error(e); F.iss[i.id] = 'err'; }).finally(() => app.render());
+    await ensureHearings(rows); return rows;
+  })()).then(rows => { F.iss[i.id] = rows; }).catch(e => { console.error(e); F.iss[i.id] = 'err'; }).finally(() => app.render());
 }
 function issuePageNew(i) {
   const data = F.iss[i.id]; if (data === undefined) loadIssueBills(i);
@@ -495,7 +499,7 @@ function issuePageNew(i) {
     ${off && i.outlook ? `<p class="fd-outlook">${icon('history')}<span>${esc(i.outlook)}</span></p>` : ''}
     <p class="fd-share">${btn(S.chips['share:' + i.id] ? 'Shared' : 'Share', { kind: 'text', sm: true, icon: S.chips['share:' + i.id] ? 'check' : 'share-2', attrs: { 'data-shareissue': i.id } })}${DEMO ? '' : ` · ${btn('Add hearings to my calendar', { kind: 'text', sm: true, icon: 'calendar-plus', href: calendarUrl(i), attrs: { 'data-calissue': i.id } })}`}</p></header>`;   // is it alive? (R-067, staff edit it); Share: R-113
   if (!ready) return `<div class="fd" data-page="issue">${back(c ? `#/find/category/${c.key}` : '#/find', c ? esc(c.name) : 'Find')}<div class="fd-lhead">${head}${cta}</div>
-    ${data === 'err' ? `<div class="fd-err">${inlineErr('fd-ierr', 'We couldn’t load its bills. Check your connection and try again.')}${btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-reissuebills': i.id } })}</div>` : skeleton(2)}</div>`;
+    ${data === 'err' ? loadFail({ inline: true, what: 'this issue’s bills', id: 'fd-ierr', cls: 'fd-err', retry: { 'data-reissuebills': i.id } }) : skeleton(2)}</div>`;
   // The one thing to do this week, as a full card (R-067: someone arriving on an issue link saw only a "Hearing Fri" chip
   // and no way to act). The soonest hearing whose testimony is not past due; everything else stays in the list.
   const act = off ? null : openActions(mv, mv.flatMap(hearingsOf)).filter(x => !x.late)[0] || null;
@@ -611,12 +615,15 @@ async function followCatNow(key, on) {
 // ---------------- a HIPHI list's page ----------------
 function loadList(slug) {
   F.lists[slug] = 'loading';
-  listBillsFor(slug).then(async rows => { await ensureHearings((rows || []).map(r => r.b)); F.lists[slug] = 'ready'; })
+  // One that never answers ends in "We couldn't load this list", with Try again (R-212 #49).
+  timed(listBillsFor(slug).then(rows => ensureHearings((rows || []).map(r => r.b)))).then(() => { F.lists[slug] = 'ready'; })
     .catch(e => { console.error(e); F.lists[slug] = 'err'; })
     .finally(() => app.render());
 }
 function listPage(slug) {
   const l = listBySlug(slug);
+  // HIPHI's lists did not load (core.js S.listsErr): that is said, never "We couldn't find that list" (R-212 #49).
+  if (!l && (S.listsErr || F.listsBusy)) return `<div class="fd" data-page="list">${back('#/find', 'Find')}${F.listsBusy ? skeleton(3) : loadFail({ what: 'this list', align: 'start', retry: { 'data-relists': '1' } })}</div>`;
   if (!l) return `<div class="fd" data-page="list">${back('#/find', 'Find')}${emptyBox({ h: 'h1', title: 'We couldn’t find that list', text: 'HIPHI may have retired it. Here are the lists and issues you can follow now.', action: btn('See all lists', { kind: 'primary', href: '#/find' }) })}</div>`;
   if (F.lists[slug] === undefined) loadList(slug);
   const rows = F.lists[slug] === 'ready' ? S.listBills[slug] || [] : null;
@@ -624,7 +631,7 @@ function listPage(slug) {
   const header = `<header class="fd-ihead"><span class="fd-icon">${icon(issueIcon(l.icon, 'list'))}</span><h1 class="hero">${esc(l.title)}</h1>
     ${l.description ? `<p class="lede">${esc(l.description)}</p>` : ''}
     <p class="meta">Picked by ${esc(l.curated_by || 'HIPHI')}${rows ? ` · ${plural(rows.length, 'bill')}` : ''}${fans ? ` · ${fans} people follow it` : ''}</p></header>`;
-  if (!rows) return `<div class="fd" data-page="list">${back('#/find', 'All lists')}${header}${F.lists[slug] === 'err' ? `<div class="fd-err">${inlineErr('fd-lerr', 'We couldn’t load this list. Check your connection and try again.')}${btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-relist': slug } })}</div>` : skeleton(3)}</div>`;
+  if (!rows) return `<div class="fd" data-page="list">${back('#/find', 'All lists')}${header}${F.lists[slug] === 'err' ? loadFail({ inline: true, what: 'this list’s bills', id: 'fd-lerr', cls: 'fd-err', retry: { 'data-relist': slug } }) : skeleton(3)}</div>`;
   const note = Object.fromEntries(rows.map(r => [r.b.id, r.note || '']));
   const mv = byUrgency(rows.map(r => r.b).filter(moving)), law = rows.map(r => r.b).filter(becameLaw), gone = rows.map(r => r.b).filter(stopped);
   const si = sessionInfo(), off = si.phase !== 'in', on = S.listFollows.has(l.id), account = !!(S.user && !DEMO);
@@ -723,6 +730,9 @@ function wirePage(root) {
     document.querySelector(`[data-grp="${CSS.escape(k)}"] .mb-row:nth-child(${from + 1}) .mb-main`)?.focus({ preventScroll: true }); });
   root.querySelectorAll('[data-reissue]').forEach(el => el.onclick = () => { delete F.issues[el.dataset.reissue]; app.render(); });
   root.querySelectorAll('[data-relist]').forEach(el => el.onclick = () => { delete F.lists[el.dataset.relist]; app.render(); });
+  // HIPHI's lists themselves did not load: ask for them again, in place (R-212 #49).
+  root.querySelectorAll('[data-relists]').forEach(el => el.onclick = () => { F.listsBusy = true; app.render();
+    timed(loadLists()).catch(e => console.error(e)).finally(() => { F.listsBusy = false; app.render(); }); });
   root.querySelectorAll('[data-followpicks]').forEach(el => el.onclick = async () => {
     const ids = el.dataset.followpicks.split(',').filter(id => !S.watch.has(id)); if (!ids.length) return;
     el.setAttribute('aria-busy', 'true'); el.innerHTML = `${icon('loader-circle')}<span>Following…</span>`;
