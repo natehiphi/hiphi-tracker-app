@@ -410,3 +410,19 @@ body.staff6 .v6-step-acts.v6-fit > .btn { flex: 0 1 max(0px, calc((var(--v6-fit)
 @media (prefers-reduced-motion: reduce) {
   body.staff6 .v6-row, body.staff6 .v6-item-door, body.staff6 .v6-tabs a, body.staff6 .v6-item-det > summary > svg:last-child, body.staff6 .btn.v6-fin { transition: none; }
 }
+
+/* ---- R-339 trial (?icons=1): a quiet topic icon before a bill's name, a stage icon before a Bills heading ---- */
+/* A bare 20px glyph in muted ink (A-18: 20px beside 16-18px text), no disc: a filled circle at the front of a row read as
+   an owner's avatar or a "like" button (the fresh-eyes critic, 10/25). Neutral only (A-5: colour is urgency). The row's
+   words sit in a second column, so names line up with or without an icon. */
+body.staff6 .v6-row-main.has-lead { display: grid; grid-template-columns: 20px minmax(0, 1fr); column-gap: 12px; row-gap: 2px; align-items: start; }
+body.staff6 .v6-row-main.has-lead > :not(.v6-row-lead) { grid-column: 2; }
+body.staff6 .v6-row-lead { grid-column: 1; grid-row: 1 / span 2; display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 24px; color: var(--v6-muted); }
+body.staff6 .v6-row-lead svg { width: 20px; height: 20px; }
+body.staff6 .bl-gh .bl-ghic { display: inline-flex; align-self: center; color: var(--v6-muted); }
+body.staff6 .bl-gh .bl-ghic svg { width: 24px; height: 24px; }   /* A-18: 24px beside the 22px heading */
+@media (max-width: 480px) {
+  body.staff6 .v6-row-main.has-lead { grid-template-columns: 18px minmax(0, 1fr); column-gap: 10px; }
+  body.staff6 .v6-row-lead svg { width: 18px; height: 18px; }
+}

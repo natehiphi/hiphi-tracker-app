@@ -1002,20 +1002,22 @@ function lineTone(s) {
 // number small, and one 16px line; the whole row opens it (a link, or `pick` for a list with the item beside it). No
 // tiles, no "+N on this bill", no room, codes or history (those live in the open item). `line` and `button` override
 // what the step says; `button: false` draws none. Rows sit in a role="list" box (.v6-list, or listDetail's).
-export function billRow(b, { viewer, line, button, href, pick, selected = false, hint = false, step, cls = '' } = {}) {
+export function billRow(b, { viewer, line, button, href, pick, selected = false, hint = false, step, cls = '', lead = '' } = {}) {
   if (!b) return '';
   const v = meOf(viewer), s = step || billStep(b, { viewer: v }), t = line == null ? lineTone(s) : { tone: '', icon: '', bold: false };
   const text = line != null ? line : nw(esc(s.line));
   const btnHtml = button === false ? '' : button ? button : rowButtonFor(s);
-  return rowHTML({ key: b.id, name: fullName(b), num: numWords(b), line: text, tone: t.tone, icon: t.icon, bold: t.bold, href: href || billRoute(b), pick, selected, hint, button: btnHtml, cls, bill: b.id });
+  return rowHTML({ key: b.id, name: fullName(b), num: numWords(b), line: text, tone: t.tone, icon: t.icon, bold: t.bold, href: href || billRoute(b), pick, selected, hint, button: btnHtml, cls, bill: b.id, lead });
 }
 // itemRow({ key, name, num, line, tone, icon, href, pick, button, selected, hint, cls }) -> any other item (a to-do, an
 // email, a person) in the same shape. `line` is HTML (escape it); `name` and `num` are text.
 export const itemRow = o => rowHTML(o);
-function rowHTML({ key = '', name = '', num = '', line = '', tone = '', icon: ic = '', bold = false, href = '', pick, selected = false, hint = false, button = '', cls = '', bill = '' }) {
+// `lead` (R-339, a trial behind ?icons=1): HTML for a small mark before the name, inside the link so it opens the row too;
+// the row's text moves into a second column so every name still starts at the same place.
+function rowHTML({ key = '', name = '', num = '', line = '', tone = '', icon: ic = '', bold = false, href = '', pick, selected = false, hint = false, button = '', cls = '', bill = '', lead = '' }) {
   const tag = href ? 'a' : 'button', attr = `${href ? `href="${esc(href)}"` : 'type="button"'}${pick != null ? ` data-v6pick="${esc(pick)}"` : ''}${selected ? ' aria-current="true"' : ''}${bill ? ` data-bill="${esc(bill)}"` : ''}`;
   return `<div class="v6-row${selected ? ' sel' : ''}${hint ? ' hint' : ''}${cls ? ' ' + cls : ''}" role="listitem"${key ? ` data-v6row="${esc(key)}"` : ''}>
-    <${tag} class="v6-row-main" ${attr}><span class="v6-row-top"><span class="v6-row-name">${esc(name)}</span>${num ? ` <span class="v6-row-num">${esc(num)}</span>` : ''}</span>${line ? ` <span class="v6-row-line${tone && tone !== 'neutral' ? ' t-' + esc(tone) : ''}${bold ? ' soon' : ''}">${ic ? icon(ic) : ''}<span>${line}</span></span>` : ''}</${tag}>${button ? `<span class="v6-row-act">${button}</span>` : ''}</div>`;
+    <${tag} class="v6-row-main${lead ? ' has-lead' : ''}" ${attr}>${lead}<span class="v6-row-top"><span class="v6-row-name">${esc(name)}</span>${num ? ` <span class="v6-row-num">${esc(num)}</span>` : ''}</span>${line ? ` <span class="v6-row-line${tone && tone !== 'neutral' ? ' t-' + esc(tone) : ''}${bold ? ' soon' : ''}">${ic ? icon(ic) : ''}<span>${line}</span></span>` : ''}</${tag}>${button ? `<span class="v6-row-act">${button}</span>` : ''}</div>`;
 }
 
 // ---- the list with the picked item beside it (V17) ----
