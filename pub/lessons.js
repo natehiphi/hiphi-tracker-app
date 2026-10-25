@@ -1147,3 +1147,25 @@ export function lessonStop() {
   removeEventListener('resize', onResize); cancelAnimationFrame(resizeRaf);
   stopTravel(document.getElementById('lx-mine')); stopTravel(document.getElementById('lx-letter'));
 }
+
+// ---------------------------------------------------------------- on paper (R-212 #48)
+// A lesson shows one step at a time; printed, every step's words come one after another under the drawing, each with its
+// own heading ("2 of 4"), so a teacher's handout has the whole lesson (pub/print.css hides the screen's caption, its
+// choices and its dots). The story's two choices print both outcomes, each under its door's words. The block is added
+// while the page prints, from the browser's own signals, and taken away after, so the screen's markup never changes; it
+// carries `hidden` as well, so it never shows on a screen even if a browser misses the signal that ends printing.
+function paperHTML(name, E) {
+  if (name === 'story') return [1, 2, 3, 4].map(k => `<div class="lx-pstep lx-scap"><p class="lx-count">${k} of ${LAST.story}</p><h2>${esc(stageTitle(E, k))}</h2>${k < 3 ? stageBody(E, k)
+    : `<p class="lx-now">${k === 3 ? 'What should people do?' : 'Now what should people do?'}</p>${PICKS[k].map(([v, label]) => `<p><b>${label}.</b> ${pickWords(E, k, v).said}</p>`).join('')}${k === 4 ? `<p class="lx-turn">${esc(turnWords(E))}</p>` : ''}`}</div>`).join('');
+  const caps = name === 'bill' ? billCaps(E) : name === 'session' ? sessionCaps(E) : hearCaps(E), num = name === 'bill';
+  return caps.map((c, i) => `<div class="lx-pstep lx-caption${num ? '' : ' lx-nonum'}">${capHTML(c, num ? i + 1 : 0)}</div>`).join('');
+}
+function onPaper(on) {
+  $$('.lx-paper').forEach(p => p.remove());
+  const root = on && L.name && L.E && rootOf(L.name); if (!root) return;
+  const div = document.createElement('div'); div.className = 'lx-paper'; div.hidden = true; div.innerHTML = paperHTML(L.name, L.E);
+  root.appendChild(div);
+}
+addEventListener('beforeprint', () => onPaper(true));
+addEventListener('afterprint', () => onPaper(false));
+try { matchMedia('print').addEventListener('change', e => onPaper(e.matches)); } catch { /* beforeprint and afterprint do it */ }

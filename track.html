@@ -106,11 +106,97 @@
 .boot0 i:first-child { height: 96px; }
 .boot0top { position: fixed; top: 0; left: 0; right: 0; height: 56px; background: #fff; border-bottom: 1px solid #DBE3E7; display: flex; flex-direction: column; justify-content: center; padding: 0 16px; font: 700 18px/1.1 system-ui, sans-serif; color: #142B35; }
 .boot0top small { font: 400 13px/1.3 system-ui, sans-serif; color: #5F6F76; }
+/* Paper only (pub/print.css shows them; the script at the end of <body> fills them while the page prints). */
+#pr-from, .pr-copy { display: none; }
 </style>
 </head>
 <body>
 <div id="app"><div class="boot0top">Bill Tracker<small>Hawaiʻi health bills · from HIPHI</small></div><div class="boot0" aria-busy="true" aria-label="Loading"><i></i><i></i><i></i><i></i></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
+<!-- On paper (R-212 #48): its own stylesheet, here in <body> so it comes after every screen's (pub/app.js adds those to
+     <head> as they are needed), and the line that says where a printed page came from. -->
+<link rel="stylesheet" href="pub/print.css" media="print">
+<p id="pr-from"></p>
+<script>
+/* Printing (R-212 #48; the look is pub/print.css). While the page prints: every closed fold opens, and closes again after,
+   exactly as it was, without the screens' own fold listeners hearing it (so nothing is remembered as opened or counted);
+   a box of text prints as a copy of its words (a box would cut a letter off at its own height); an open sheet prints alone,
+   with the line under it; and the line says where the page came from. Both signals are heard: beforeprint/afterprint and
+   the print media query (Safari, and a test's emulated print, send only that). The line is in English: this runs outside
+   the app's modules, so their words (pub/i18n.js) are out of reach, and no other language is live yet. */
+(function () {
+  var on = false, opened = [], quiet = new WeakSet(), boxes = [], copies = [], sheet = null, mo = null;
+  var line = document.getElementById('pr-from'), spot = line && line.parentNode, after = line && line.nextSibling;
+  // Where to find it again: this address without its one-time parts (restart, via, ...), the practice copy kept, and the
+  // screen's own address without the screen it was opened from (?from=).
+  function where() {
+    var h = location.hash || '', i = h.indexOf('?');
+    if (i >= 0) { var q = new URLSearchParams(h.slice(i + 1)); q.delete('from'); h = h.slice(0, i) + (String(q) ? '?' + q : ''); }
+    return location.host + location.pathname + (/[?&]demo=1(&|$)/.test(location.search) ? '?demo=1' : '') + h;
+  }
+  // The app's own clock and date style, with the weekday ("Mon, Mar 16, 2026"), so the page's own "today", "tomorrow" and
+  // weekdays can be read on paper; the practice copy's printed day is its made-up one, as its band says.
+  function today() {
+    try { return new Date().toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }); }
+    catch (e) { return new Date().toDateString(); }
+  }
+  // What the paper needs, for everything on the page now and again whenever a screen draws itself while printing (a laptop's
+  // bill page redraws for the paper's narrower page, pub/bill.js WIDE): folds open, boxes of text copied, the sheet marked.
+  function sweep() {
+    var all = document.querySelectorAll('details:not([open])'), i;
+    for (i = 0; i < all.length; i++) { quiet.add(all[i]); all[i].open = true; opened.push(all[i]); }
+    var tas = document.querySelectorAll('textarea:not(.pr-hascopy)');
+    for (i = 0; i < tas.length; i++) {
+      var t = tas[i]; t.classList.add('pr-hascopy'); boxes.push(t);
+      if (!t.value.trim()) continue;
+      var c = document.createElement('div'); c.className = 'pr-copy'; c.textContent = t.value; t.parentNode.insertBefore(c, t.nextSibling); copies.push(c);
+    }
+    var open = document.querySelectorAll('dialog[open]'), s = open.length ? open[open.length - 1] : null;
+    if (s !== sheet) {
+      if (sheet) sheet.removeAttribute('data-pr-sheet');
+      sheet = s; if (sheet) sheet.setAttribute('data-pr-sheet', '');
+      document.documentElement.classList.toggle('pr-sheet', !!sheet);
+    }
+    if (line && line.parentNode !== (sheet || spot)) (sheet || spot).appendChild(line);
+  }
+  function start() {
+    if (on) return; on = true;
+    var day = today();
+    // The day at the top of page 1 too, after the brand (pub/print.css puts it there and on a sheet printed alone): the page's
+    // deadlines say "today", "tomorrow" or a weekday, and this is the day they mean (docs/DESIGN-AUDIT.md, section 4).
+    document.documentElement.style.setProperty('--pr-day', JSON.stringify(' \u00b7 Printed ' + day));
+    if (line) line.textContent = 'Printed ' + day + ' from HIPHI\u2019s Bill Tracker. For the latest: ' + where();
+    sweep();
+    try { mo = new MutationObserver(sweep); mo.observe(document.body, { childList: true, subtree: true }); } catch (e) { mo = null; }
+  }
+  function end() {
+    if (!on) return; on = false;
+    if (mo) { mo.disconnect(); mo = null; }
+    for (var i = 0; i < opened.length; i++) opened[i].open = false;
+    for (i = 0; i < boxes.length; i++) boxes[i].classList.remove('pr-hascopy');
+    for (i = 0; i < copies.length; i++) copies[i].remove();
+    opened = []; boxes = []; copies = [];
+    if (sheet) sheet.removeAttribute('data-pr-sheet');
+    sheet = null; document.documentElement.classList.remove('pr-sheet'); document.documentElement.style.removeProperty('--pr-day');
+    if (line) { line.textContent = ''; spot.insertBefore(line, after && after.parentNode === spot ? after : null); }
+  }
+  // A fold opened or closed for the paper is not the person's: its toggle event stops here, before any screen hears it.
+  window.addEventListener('toggle', function (e) {
+    var d = e.target; if (!quiet.has(d)) return;
+    e.stopImmediatePropagation();
+    if (!on && !d.open) quiet.delete(d);
+  }, true);
+  window.addEventListener('beforeprint', start);
+  window.addEventListener('afterprint', end);
+  // The bill page's "Print this page" starts it before asking the browser to print (pub/bill.js), for a phone whose browser
+  // may not say it is about to print; the end still comes from afterprint or the print media query.
+  window.__hiphiPrint = { start: start, end: end };
+  try {
+    var mq = window.matchMedia('print'), f = function (e) { if (e.matches) start(); else end(); };
+    if (mq.addEventListener) mq.addEventListener('change', f); else mq.addListener(f);
+  } catch (e) { /* no media queries to hear: beforeprint and afterprint do it */ }
+})();
+</script>
 <script>
 /* ?demo=1&restart: a practice first visit from the very beginning (R-098: two links for the testers, today's ending and
    the new one, tried one after the other on the same phone). Only the sandbox's own storage (hiphi_*_demo) is cleared,
