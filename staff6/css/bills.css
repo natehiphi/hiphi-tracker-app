@@ -55,10 +55,16 @@
 .bl-viewsw button { display: inline-flex; align-items: center; gap: 6px; }
 .bl-viewsw .ic { width: 18px; height: 18px; }
 .bl-ttools { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--s4); }
-/* a narrow window with the table: the filter box keeps its line, the table's tools take one of their own under it */
+/* The spreadsheet's tools (Columns, Export, Copy for Google Sheets) take a line of their own under the toolbar at every width,
+   so Rows | Spreadsheet stays where it is in both views (R-336: the switch wrapped under the box once Copy joined). */
+.bl-tablev .bl-ttools { order: 5; flex: 1 1 100%; gap: var(--s4) var(--s8); }
+/* a narrow window with the spreadsheet: the filter box keeps its line too; a phone's box shares it with Filter and the menu */
 @media (max-width: 899px) {
   .bl-tablev .bl-search { flex: 1 1 100%; max-width: none; }
-  .bl-tablev .bl-ttools { order: 5; flex: 1 1 100%; }
+}
+@media (max-width: 767px) {
+  .bl-tablev .bl-tools { flex-wrap: wrap; }
+  .bl-tablev .bl-search { flex: 1 1 0; }
 }
 @media (max-width: 899px) {
   .bl-search { flex: 1 1 200px; max-width: none; }
@@ -291,14 +297,6 @@ dialog.sv-sheet .bl-colhelp { margin-bottom: var(--s8); }
   .bl-table.bl-compact .bl-gr .sv-group { min-height: 40px; padding: 0 8px; }
   .bl-table.bl-compact .bl-ck label { width: 40px; height: 40px; }
   .bl-table.bl-compact .bl-cell > span:not(.sv-av):not(.bl-noown) { display: block; white-space: nowrap; text-overflow: ellipsis; }
-  /* the edit in place (R-106): native dropdowns */
-  .bl-table .bl-sel { width: 100%; min-width: 0; min-height: 40px; padding: 4px 28px 4px 10px; border: 1px solid var(--v6-field); border-radius: var(--v6-r12); background: var(--v6-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23685D52' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;
-    appearance: none; -webkit-appearance: none; font-size: var(--v6-t14); color: var(--v6-ink); text-overflow: ellipsis; cursor: pointer; }
-  .bl-table .bl-sel:hover { border-color: var(--v6-action); }
-  .bl-table .bl-sel:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
-  .bl-table .bl-selwrap { display: flex; align-items: center; gap: 6px; min-width: 0; }
-  .bl-table .bl-selwrap > .ic { flex: none; color: var(--v6-muted); width: 18px; height: 18px; }
-  .bl-table .bl-selwrap .bl-sel { flex: 1 1 auto; }
   /* optional columns in a window too small for them: only this box scrolls sideways, the tick box and the number pinned */
   .bl-tnote { display: flex; align-items: center; gap: 6px; margin: 0 0 var(--s8); font-size: var(--v6-t14); color: var(--v6-muted); }
   .bl-tnote .ic { width: 16px; height: 16px; flex: none; }
