@@ -25,18 +25,17 @@
 //                               moves on once it is through), and one on the Governor's desk or law is past every one.
 //   Cleared                     an issue with a bill already past its next deadline: it survives that deadline whatever
 //                               else happens.
-//   At risk                     no bill on it is past its next deadline yet, and that deadline is 14 days away or less
-//                               (model.js RADAR_DAYS, the "dying quietly" radar): if none clears it, the issue stops.
-//   Not yet                     no bill past it yet, the deadline more than 14 days away.
-//   Needs you                   a live issue with a step now: testimony on its leading hearing not yet filed and due (or
-//                               the hearing) within 7 days; or At risk; or a bill that must get a hearing for a deadline
-//                               14 days away or less while no bill of its chamber is past it (a split: someone has to ask
-//                               the chair). On track: every other live issue, so On track is always Cleared or Not yet,
-//                               never At risk. Stopped: no bill on HIPHI's side still moving, or no bill this session.
+//   At risk                     issuestand.js's meaning: no bill on it is past its next deadline yet, the deadline is 14
+//                               days away or less (model.js RADAR_DAYS), and no bill racing it has a hearing set or held:
+//                               if none gets one, the issue stops.
+//   Not yet                     no bill past it yet, but a hearing is set or held, or the deadline is further off.
+//   Needs you                   testimony on its leading hearing not yet filed and due (or the hearing) within 7 days, or
+//                               At risk. "Needs you today": those due within 24 hours. On track: every other live issue,
+//                               so always Cleared or Not yet. Stopped: no bill on HIPHI's side still moving, or none.
 // Nothing here is amber or red: a step of the viewer's own that is late keeps its colour from steps.js (shownStatus), and
 // "At risk" is a word and an icon (D3, A-5). Calm budgets (staff6_budget.py): names at 500, numbers at 500, labels 14px.
 import { S, DB, DEMO, SESSION_YEAR, esc } from './data.js';
-import { stopOf, hearingAhead, deadlineName, plainDeadlines, deadlineCalendar, gateApplies, gateName, whenAt, RADAR_DAYS } from './model.js';
+import { stopOf, hearingAhead, deadlineName, plainDeadlines, deadlineCalendar, gateApplies, gateName, gateGloss, whenAt, RADAR_DAYS } from './model.js';
 import { icon, iconBtn, toast } from './ui.js';
 import { plural } from './lists.js';
 import { numWords, dayWords, committeeName, nw } from './steps.js';
@@ -58,6 +57,9 @@ const PLAIN = () => plainDeadlines();
 const dn = D => PLAIN() ? `the ${dayWords(D.date)} deadline` : deadlineName(D);
 // "Second lateral yet (Mon 3/30)": the day rides at the end, so the sentence reads straight on.
 const dayTail = D => PLAIN() ? '' : ` (${dayWords(D.date)})`;
+// What a deadline asks, in the app's one set of words (model.js gateGloss, the same as Help and Today's season card):
+// under each Deadlines column, and as the title of a line that names a deadline.
+export const glossOf = D => { const g = D ? gateGloss(D.label) : ''; return g ? g[0].toUpperCase() + g.slice(1) : ''; };
 
 // ---- one issue, judged for these views ----
 // x: issuestand.js standOf(i) with `own`. Returns what every view draws from, so they all say the same thing.
@@ -77,7 +79,11 @@ export function judge(x) {
   const alive = !['stopped', 'none', 'off'].includes(x.state) && bills.length > 0;
   const kind = !alive ? 'stopped' : oppose ? 'oppose' : H.length && Sn.length ? 'both' : 'one';
   const cleared = bills.filter(y => y.past);
-  const dstate = !alive || oppose ? '' : !D ? (cleared.length ? 'cleared' : '') : cleared.length ? 'cleared' : daysTo(D.date) <= RADAR_DAYS ? 'risk' : 'notyet';
+  // At risk keeps issuestand.js's meaning (the critic): no bill past D, D two weeks away or less (RADAR_DAYS), and no bill
+  // racing D has a hearing set or held (each still in the board's "needs a hearing" column). A hearing set: Not yet.
+  const racing = D ? bills.filter(y => y.dl?.date === D.date) : [];
+  const noHearing = racing.length > 0 && racing.every(y => y.st.column === 'a' && !hearingAhead(y.b));
+  const dstate = !alive || oppose ? '' : !D ? (cleared.length ? 'cleared' : '') : cleared.length ? 'cleared' : daysTo(D.date) <= RADAR_DAYS && noHearing ? 'risk' : 'notyet';
   // Bills that must still get a hearing for D, in a chamber with no bill past D yet: someone has to ask a chair.
   const chPast = c => bills.some(y => y.ch === c && y.past);
   const ask = !alive || oppose || !D ? [] : bills.filter(y => !y.past && y.dl?.date === D.date && y.st.column === 'a' && !hearingAhead(y.b) && !chPast(y.ch));
@@ -85,9 +91,12 @@ export function judge(x) {
   const open = hp && hp.s && !['filed', 'missed'].includes(hp.s.state?.key);
   // The testimony's own due time when it has one (a Monday hearing's testimony is due the day before), else the hearing.
   const soon = !!(x.hear && new Date(hp?.s?.due ?? x.hear.h.scheduled_at) - Date.now() <= WEEK);
-  const needs = alive && !oppose && ((open && soon) || dstate === 'risk' || (ask.length > 0 && daysTo(D.date) <= RADAR_DAYS));
-  const j = { x, i, own: x.own, D, bills, H, S: Sn, goneH: goneOf('H'), goneS: goneOf('S'), alive, kind, cleared, dstate, ask, hp, needs };
+  const needs = alive && !oppose && ((open && soon) || dstate === 'risk');
+  // When it is due, for "Needs you today": the testimony's due time (late: now), else the end of an At risk deadline's day.
+  const dueAt = !needs ? null : open && soon ? (hp.late ? Date.now() : new Date(hp.s.due ?? x.hear.h.scheduled_at).getTime()) : endOf(D.date);
+  const j = { x, i, own: x.own, D, bills, H, S: Sn, goneH: goneOf('H'), goneS: goneOf('S'), alive, kind, cleared, dstate, ask, hp, needs, dueAt };
   j.health = healthOf(j); j.next = nextOf(j); j.dline = deadlineLine(j);
+  if (D && !PLAIN()) { j.health.title = glossOf(D); if (j.dline) j.dline.title = glossOf(D); }
   return j;
 }
 
@@ -142,26 +151,11 @@ function whereNow(st) {
   if (st.phase === 'law') return 'law';
   return '';
 }
-// A bill's state against the issue's next deadline: past it, or what it still needs by when.
-function billState(y, D) {
-  const { st } = y;
-  if (st.phase === 'law') return { ic: 'circle-check', tone: 'done', text: 'Signed into law' };
-  if (THROUGH.has(st.phase)) return { ic: 'circle-check', tone: 'done', text: 'Passed the Legislature' };
-  if (D && y.past) return { ic: 'circle-check', tone: 'done', text: `Past ${dn(D)}` };
-  const by = y.dl ? ` by ${dayWords(y.dl.date)}` : '';
-  if (st.phase === 'committee') {
-    if (st.hearingState === 'scheduled') return { ic: 'calendar-days', text: `Hearing ${whenAt(st.hearing.scheduled_at)}` };
-    if (st.hearingState === 'held') return { ic: 'hourglass', text: 'Heard, waiting for the vote' };
-    if (st.hearingState === 'decided') return { ic: 'circle-dot', text: /passed/.test(st.decided || '') ? 'Passed its committee' : 'Decided by its committee' };
-    return { ic: 'clock', text: `Needs a hearing${by}` };
-  }
-  if (st.phase === 'floor') return { ic: 'clock', text: `Needs a floor vote${by}` };
-  if (st.phase === 'conference') return { ic: 'clock', text: `House and Senate must agree${by}` };
-  return { ic: 'circle-dot', text: st.says || '' };
-}
-const lineSpan = (p, cls = 'mi-ln') => p ? `<span class="${cls}${p.tone ? ' t-' + p.tone : ''}${p.quiet ? ' q' : ''}">${p.ic && ICONS[p.ic] ? icon(p.ic) : ''}<span>${p.html || nw(esc(p.text))}</span></span>` : '';
-const tagsOf = j => [j.own ? '' : 'You help', j.next?.you ? 'Your step' : ''].filter(Boolean);
-const tagHTML = j => tagsOf(j).map(t => `<span class="mi-tag">${esc(t)}</span>`).join('');
+const lineSpan = (p, cls = 'mi-ln') => p ? `<span class="${cls}${p.tone ? ' t-' + p.tone : ''}${p.quiet ? ' q' : ''}"${p.title ? ` title="${esc(p.title)}"` : ''}>${p.ic && ICONS[p.ic] ? icon(p.ic) : ''}<span>${p.html || nw(esc(p.text))}</span></span>` : '';
+const tagsOf = j => [j.own ? '' : 'You help', !j.needs && j.next?.you ? 'Your step' : ''].filter(Boolean);
+// "Needs you" is a clear mark (a word and an icon on the teal wash, A-5: never colour alone), not a grey tag (the critic).
+const needMark = j => j.needs ? `<span class="mi-need">${icon('hand')}Needs you</span>` : '';
+const tagHTML = j => `${needMark(j)}${tagsOf(j).map(t => `<span class="mi-tag">${esc(t)}</span>`).join('')}`;
 const catOf = i => (S.categories || []).find(c => c.key === i.category);
 const topicIc = (i, cls = 'mi-tic') => { const c = catOf(i); return `<span class="${cls} mi-c-${esc(i.category || 'none')}" aria-hidden="true">${icon(c?.icon || 'tag')}</span>`; };
 
@@ -207,40 +201,70 @@ export function bodyHTML(list, { q = '', opts = {} } = {}) {
   }
 }
 const sortUrgent = l => [...l].sort((a, b) => (a.needs ? 0 : 1) - (b.needs ? 0 : 1) || byUrgency(a.x, b.x));
-const stoppedFold = (l, opts, title = 'Stopped') => l.length ? `<details class="i6-fold mi-stopped" data-fold="mi-stopped"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${esc(title)} (${l.length})</span></summary>
+const stoppedFold = (l, opts, title = 'Stopped') => l.length ? `<details class="i6-fold mi-stopped" id="mi-g-stopped" data-fold="mi-stopped"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${esc(title)} (${l.length})</span></summary>
   <div class="v6-list i6-list" role="list">${l.map(j => rowOf(j.x, { from: 'mine', tags: opts.tagsOf ? opts.tagsOf(j.x) : [] })).join('')}</div></details>` : '';
 export const counts = js => ({ both: js.filter(j => j.kind === 'both').length, one: js.filter(j => j.kind === 'one').length, stopped: js.filter(j => j.kind === 'stopped').length,
   none: js.filter(j => j.kind === 'stopped' && j.x.state === 'none').length, oppose: js.filter(j => j.kind === 'oppose').length });
 
 // ---- Coverage (the default) ----
+// A bill's state in a few words, for a cell (the critic: one line a bill; the health sentence is the one place the deadline
+// is put in words, and where each bill is now lives on the issue page and in the Spreadsheet).
+function billShort(y, D) {
+  const { st } = y;
+  if (st.phase === 'law') return 'law';
+  if (st.phase === 'governor' || st.phase === 'ballot') return 'passed the Legislature';
+  if (D && y.past) return `past ${dn(D)}`;
+  if (st.phase === 'committee') {
+    if (st.hearingState === 'scheduled') { const w = whenAt(st.hearing.scheduled_at).split(' ')[0]; return `hearing ${/^(today|tomorrow)$/.test(w) ? w : dayWords(st.hearing.scheduled_at)}`; }
+    if (st.hearingState === 'held') return 'heard, waiting for the vote';
+    if (st.hearingState === 'decided') return /passed/.test(st.decided || '') ? 'passed its committee' : 'decided';
+    return 'needs a hearing';
+  }
+  if (st.phase === 'floor') return 'needs a floor vote';
+  if (st.phase === 'conference') return 'in conference';
+  return '';
+}
+// A cell (mockup 5's shape): a glyph and "From the House" (where its bills started), then one line a bill. The glyph: a tick
+// on green when a bill from that chamber is past the next deadline, a teal dot when one is alive, a grey ring when none is;
+// the words beside it say the same (A-5).
 function cellHTML(j, c) {
-  const l = c === 'H' ? j.H : j.S, g = c === 'H' ? j.goneH : j.goneS;
-  // "Started in the House" (the issue page's words, the coordinator's fresh-eyes note: "House bills" read as where a bill is
-  // now); a phone says "From the House".
-  const head = `<span class="mi-chh"><span class="mi-chl">Started in the ${CH[c]}</span><span class="mi-chs" aria-hidden="true">From the ${CH[c]}</span></span>`;
-  if (!l.length) return `<div class="mi-cell off">${head}<span class="mi-cl q">${icon('circle-dashed')}<span>${g.length ? `No bill that started in the ${CH[c]} is still alive (${g.length} stopped)` : `No bill started in the ${CH[c]} in ${SESSION_YEAR}`}</span></span></div>`;
+  const l = c === 'H' ? j.H : j.S, g = c === 'H' ? j.goneH : j.goneS, st = !l.length ? 'no' : l.some(y => y.past) ? 'ok' : 'on';
+  const head = `<span class="mi-chh"><span class="mi-gl ${st}" aria-hidden="true">${st === 'ok' ? icon('check') : ''}</span>From the ${CH[c]}</span>`;
+  if (!l.length) return `<div class="mi-cell no">${head}<span class="mi-cl q">${g.length ? `None alive, ${g.length} stopped` : `None in ${SESSION_YEAR}`}</span></div>`;
   const shown = l.slice(0, 2), more = l.length - shown.length;
-  return `<div class="mi-cell${l.some(y => y.past) ? ' ok' : ''}">${head}${shown.map(y => { const s = billState(y, j.D), w = whereNow(y.st);
-    return `<span class="mi-cb"><span class="mi-cn">${esc(num(y.b))}${w ? ` <span class="mi-cw">· ${esc(w)}</span>` : ''}</span>${lineSpan(s, 'mi-cl')}</span>`; }).join('')}${more ? `<span class="mi-cmore">and ${plural(more, 'more bill')}</span>` : ''}</div>`;
+  return `<div class="mi-cell ${st}">${head}${shown.map(y => `<span class="mi-cl"><span class="mi-cn">${esc(num(y.b))}</span> ${esc(billShort(y, j.D))}</span>`).join('')}${more ? `<span class="mi-cmore">and ${plural(more, 'more bill')}</span>` : ''}</div>`;
 }
 function covItem(j) {
   return `<a class="mi-cov" href="${href(j.i)}" data-mirow="${esc(j.i.id)}">${topicIc(j.i)}
     <span class="mi-cvt"><span class="mi-name">${esc(j.i.name)}${tagHTML(j)}</span>${lineSpan(j.health)}${lineSpan(j.next)}</span>
     <span class="mi-cells">${cellHTML(j, 'H')}${cellHTML(j, 'S')}</span></a>`;
 }
+// "Needs you today" (the critic): up to three one-line rows, the issue and its step, for what is due within 24 hours.
+const DAY = 864e5;
+function todayHTML(js) {
+  const l = js.filter(j => j.needs && j.dueAt != null && j.dueAt - Date.now() <= DAY).sort((a, b) => a.dueAt - b.dueAt);
+  if (!l.length) return '';
+  const row = j => `<a class="mi-trow" href="${href(j.i)}" data-mirow="${esc(j.i.id)}"><span class="mi-trn">${esc(j.i.name)}</span>${lineSpan(j.dstate === 'risk' && !(j.hp && j.hp.s) ? j.dline : j.next)}</a>`;
+  return `<section class="mi-today" aria-labelledby="mi-today-h"><h2 class="mi-todayh" id="mi-today-h">${icon('hand')}Needs you today</h2>
+    ${l.slice(0, 3).map(row).join('')}${l.length > 3 ? `<p class="mi-tmore">${esc(`and ${l.length - 3} more due today, each marked Needs you below`)}</p>` : ''}</section>`;
+}
 function coverHTML(js, opts) {
   const n = counts(js), both = sortUrgent(js.filter(j => j.kind === 'both')), one = sortUrgent(js.filter(j => j.kind === 'one'));
   const opp = sortUrgent(js.filter(j => j.kind === 'oppose')), stop = js.filter(j => j.kind === 'stopped').sort((a, b) => a.i.name.localeCompare(b.i.name));
-  const tile = (mark, k, words) => `<p class="mi-tile">${mark}<span class="mi-tn">${k}</span><span class="mi-tw">${words}</span></p>`;
-  const grp = (id, t, sub, l) => l.length ? `<section class="i6-sec mi-grp" aria-labelledby="mi-g-${id}"><h2 class="i6-h" id="mi-g-${id}">${esc(t)}</h2><p class="mi-sub">${esc(sub)}</p>
+  // Each count is a way to its group (the critic): Stopped opens its fold. A count of 0 has nowhere to go, so it is text.
+  const tile = (go, mark, k, words) => { const inner = `<span class="mi-tk">${mark}<span class="mi-tn">${k}</span></span><span class="mi-tw">${words}</span>`;
+    return k ? `<button type="button" class="mi-tile" data-migo="${go}">${inner}</button>` : `<p class="mi-tile">${inner}</p>`; };
+  const grp = (id, t, sub, l) => l.length ? `<section class="i6-sec mi-grp" id="mi-g-${id}" aria-labelledby="mi-gh-${id}"><h2 class="i6-h" id="mi-gh-${id}">${esc(t)}</h2><p class="mi-sub">${esc(sub)}</p>
     <div class="mi-card">${l.map(covItem).join('')}</div></section>` : '';
+  // One chamber first (the critic): those issues have one chance left, so they are where work is.
   return `<div class="mi-tiles" role="group" aria-label="Your issues at a glance">
-      ${tile(`<span class="mi-dot full">${icon('check')}</span>`, n.both, 'alive in both chambers')}
-      ${tile('<span class="mi-dot half"></span>', n.one, 'alive in one chamber')}
-      ${tile('<span class="mi-dot none"></span>', n.stopped, n.none ? 'stopped or no bill yet' : 'stopped this session')}
+      ${tile('one', '<span class="mi-dot half"></span>', n.one, 'alive in one chamber')}
+      ${tile('both', `<span class="mi-dot full">${icon('check')}</span>`, n.both, 'alive in both chambers')}
+      ${tile('stopped', '<span class="mi-dot none"></span>', n.stopped, n.none ? 'stopped or no bill yet' : 'stopped this session')}
     </div>
-    ${grp('both', 'Both chambers', 'A bill that started in the House and one that started in the Senate are still alive: two chances.', both)}
+    ${todayHTML(js)}
     ${grp('one', 'One chamber', 'Only bills that started in one chamber are still alive: one chance left.', one)}
+    ${grp('both', 'Both chambers', 'A bill that started in the House and one that started in the Senate are still alive: two chances.', both)}
     ${grp('opp', 'HIPHI opposes', 'Here HIPHI wants the bills to stop.', opp)}
     ${!both.length && !one.length && !opp.length ? `<p class="i6-quiet">None of your issues has a bill moving now.</p>` : ''}
     ${stoppedFold(stop, opts)}`;
@@ -258,7 +282,7 @@ function boardOf(js) {
     if (byDate.has(g.date)) continue;
     const l = live.filter(j => j.D?.date === g.date), main = MAIN.has(g.phase) || (g.phase === 'conference' && /final/i.test(g.label));
     if (!l.length && !main) continue;
-    const col = { name: nameOf(g), date: g.date, label: g.label, l: sortUrgent(l) }; byDate.set(g.date, col); cols.push(col);
+    const col = { name: nameOf(g), date: g.date, label: g.label, gloss: glossOf(g), l: sortUrgent(l) }; byDate.set(g.date, col); cols.push(col);
   }
   const rest = live.filter(j => !j.D || !byDate.has(j.D.date));
   if (rest.length) cols.push({ name: 'No committee deadline ahead', date: null, l: sortUrgent(rest) });
@@ -278,7 +302,7 @@ function deadlinesHTML(js) {
       <span class="mi-pasts">${esc(`${live.length} of ${plural(js.length, 'issue')} still alive`)}${stopped ? `, ${stopped} stopped` : ''}</span></div>
     ${cols.length > 1 ? `<div class="mi-btabs" role="group" aria-label="Go to a deadline">${cols.map((c, k) => `<button type="button" data-micol="${k}" aria-pressed="${k === 0}">${esc(c.name)} <span class="mi-q">${c.l.length}</span></button>`).join('')}</div>` : ''}
     <div class="mi-board" data-miboard>${cols.map((c, k) => `<section class="mi-col" data-colk="${k}" aria-labelledby="mi-col-${k}"><h2 class="mi-colh" id="mi-col-${k}">${esc(c.name)}${c === first ? '<span class="mi-next">Next</span>' : ''}</h2>
-      <p class="mi-cols">${c.date ? esc(`${dayWords(c.date)} · in ${plural(Math.max(0, daysTo(c.date)), 'day')} · ${plural(c.l.length, 'issue')}`) : esc(plural(c.l.length, 'issue'))}</p>
+      ${c.gloss ? `<p class="mi-gloss">${esc(c.gloss)}</p>` : ''}<p class="mi-cols">${c.date ? esc(`${dayWords(c.date)} · in ${plural(Math.max(0, daysTo(c.date)), 'day')} · ${plural(c.l.length, 'issue')}`) : esc(plural(c.l.length, 'issue'))}</p>
       ${c.l.length ? c.l.map(j => boardCard(j, c)).join('') : '<p class="mi-empty">No issue waits on this deadline yet. Issues move here as their bills clear the ones before.</p>'}</section>`).join('')}</div>`;
 }
 
@@ -291,10 +315,10 @@ function statusHTML(js, opts) {
   const need = sortUrgent(js.filter(j => j.needs)), ok = sortUrgent(js.filter(j => j.alive && !j.needs)), stop = js.filter(j => !j.alive).sort((a, b) => a.i.name.localeCompare(b.i.name));
   const sec = (id, t, sub, l, empty) => `<section class="i6-sec mi-ssec" aria-labelledby="mi-s-${id}"><h2 class="i6-h" id="mi-s-${id}">${esc(t)}</h2><p class="mi-sub">${esc(sub)}</p>
     ${l.length ? `<div class="v6-list i6-list" role="list">${l.map(statusRow).join('')}</div>` : `<p class="i6-quiet">${esc(empty)}</p>`}</section>`;
-  return `<p class="mi-def">Cleared: a bill on it is already past its next deadline. At risk: none is yet, and the deadline is two weeks away or less. Not yet: none is, with more time.</p>
+  return `<p class="mi-def">Cleared: a bill on it is already past its next deadline. At risk: none is yet, the deadline is two weeks away or less, and no bill racing it has a hearing set. Not yet: none is past it, but a hearing is set or there is more time.</p>
     <div class="mi-status">
-      ${sec('need', 'Needs you', `${plural(need.length, 'issue')}: testimony this week, at risk, or a chamber still to clear its deadline`, need, 'Nothing on your issues needs you this week.')}
-      <div class="mi-sside">${sec('ok', 'On track', `${plural(ok.length, 'issue')}: cleared, or the deadline more than two weeks away`, ok, 'No other issue is moving.')}
+      ${sec('need', 'Needs you', `${plural(need.length, 'issue')}: testimony due this week, or at risk`, need, 'Nothing on your issues needs you this week.')}
+      <div class="mi-sside">${sec('ok', 'On track', `${plural(ok.length, 'issue')}: cleared, a hearing set, or more time`, ok, 'No other issue is moving.')}
       ${stop.length ? `<section class="i6-sec mi-ssec"><h2 class="i6-h">Stopped</h2><p class="mi-sub">${esc(plural(stop.length, 'issue'))}: nothing moving this session</p>${stoppedFold(stop, opts, 'Show them')}</section>` : ''}</div>
     </div>`;
 }
@@ -320,10 +344,10 @@ const ownerName = i => i.owner_id && i.owner_id === S.me?.id ? 'You' : (S.advoca
 const DSTATE = { cleared: 'Cleared', risk: 'At risk', notyet: 'Not yet' };
 const COLS = [
   ['issue', 'Issue', j => j.i.name],
-  ['house', 'Alive, started in the House', j => j.H.length ? j.H.map(y => numWords(y.b)).join(', ') : `none${j.goneH.length ? ` · ${j.goneH.length} stopped` : ''}`],
-  ['senate', 'Alive, started in the Senate', j => j.S.length ? j.S.map(y => numWords(y.b)).join(', ') : `none${j.goneS.length ? ` · ${j.goneS.length} stopped` : ''}`],
+  ['house', 'House-started', j => j.H.length ? j.H.map(y => [numWords(y.b), whereNow(y.st)].filter(Boolean).join(', ')).join('; ') : `none${j.goneH.length ? ` · ${j.goneH.length} stopped` : ''}`],
+  ['senate', 'Senate-started', j => j.S.length ? j.S.map(y => [numWords(y.b), whereNow(y.st)].filter(Boolean).join(', ')).join('; ') : `none${j.goneS.length ? ` · ${j.goneS.length} stopped` : ''}`],
   ['deadline', 'Next deadline', j => j.D && j.alive ? `${dayWords(j.D.date)} ${PLAIN() ? '' : deadlineName(j.D)}`.trim() : ''],
-  ['state', 'Cleared?', j => j.alive ? (j.kind === 'oppose' ? 'HIPHI opposes' : DSTATE[j.dstate] || '') : 'Stopped'],
+  ['state', 'Cleared', j => j.alive ? (j.kind === 'oppose' ? 'HIPHI opposes' : DSTATE[j.dstate] || '') : 'Stopped'],
   ['next', 'Next step', j => j.next?.text || j.health.text],
   ['owner', 'Owner', j => ownerName(j.i)],
 ];
@@ -370,6 +394,10 @@ export function wireBody(root, { paint }) {
   body.querySelectorAll('[data-misort]').forEach(b => b.onclick = () => { const k = b.dataset.misort, s = S.miSort;
     S.miSort = s && s[0] === k ? (s[1] > 0 ? [k, -1] : null) : [k, 1]; paint(); root.querySelector(`[data-misort="${k}"]`)?.focus(); });
   body.querySelector('[data-micopy]')?.addEventListener('click', copySheet);
+  body.querySelectorAll('[data-migo]').forEach(b => b.onclick = () => { const g = body.querySelector(`#mi-g-${b.dataset.migo}`); if (!g) return;
+    if (g.tagName === 'DETAILS') g.open = true;
+    g.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    const f = g.querySelector('h2') || g.querySelector('summary'); if (f) { if (f.tagName === 'H2') f.setAttribute('tabindex', '-1'); f.focus({ preventScroll: true }); } });
   body.querySelectorAll('[data-mijump]').forEach(b => b.onclick = () => { const t = body.querySelector(`#mi-t-${CSS.escape(b.dataset.mijump)}`);
     if (t) { t.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); t.querySelector('h2')?.setAttribute('tabindex', '-1'); t.querySelector('h2')?.focus({ preventScroll: true }); } });
   // The board: the tabs scroll to their column; scrolling the board marks the column in view (a phone's swipe).

@@ -1134,6 +1134,14 @@ paragraph.
 *Reason.* Applying C-14 to Home made it feel warm and welcoming (R-295). Kris, Patti and Julie, the teammates least
 comfortable with new tools, read every word; Kris's v5 phone card held 7 lines per item.
 
+**One exception (Nate's pick, 25 Oct, R-336 walk 3): an issue card on My issues' Coverage view** may hold its name, one
+health line (whether a bill is past the next deadline in each chamber), its next step and two chamber cells (From the House
+| From the Senate, one short line a bill). These are cards, not list rows; every other view of My issues keeps a name and
+one or two short lines. *Reason.* Nate's goal for an issue is one bill through, ideally one per chamber, understood "along
+with what to do next in a quick glance"; a split (one chamber past the deadline, the other not) cannot be seen on one line,
+and he chose this card from twelve mockups drawn with real practice data. The cells say each bill's state only; the
+deadline is put in words once, in the health line.
+
 ### C-15 on v6: words, not codes; one wording per state
 
 Rows and headings say things in words:
