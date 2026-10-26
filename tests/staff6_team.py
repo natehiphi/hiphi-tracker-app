@@ -44,7 +44,7 @@ def main():
     red = p.evaluate(f"""() => [...document.querySelectorAll('main *')].filter(e => e.getClientRects().length && e.childElementCount === 0 && e.textContent.trim() && getComputedStyle(e).color === '{BAD}')
       .map(e => (e.closest('.v6-row-line') || e).innerText.trim()).filter((t, i, a) => a.indexOf(t) === i)""")
     check('1440: red only on an overdue step', all(t.startswith('Overdue') for t in red), red[:3])
-    # Today's "N slipping" and Team's list: the same rows plus the hearings at risk (said once each)
+    # Today's "N slipping" door and Team's heading say one number (walk 4 critic: 7 on Today opened "Slipping 8")
     pg.nav('/'); today = num(r'(\d+)\s+slipping', pg.text('main'))
     pg.nav('/team')
     # See all N
@@ -59,7 +59,7 @@ def main():
       first3 = p.evaluate("() => [...document.querySelectorAll('[data-block=\"slip\"] .v6-list > *')].slice(0, 3).map(e => e.innerText.split('\\n').slice(0, 3).join(' | '))")
       check('1440: See all keeps one card, the first 3 rows unchanged in place', lists == 1 and first3 == [r['t'] for r in top], f'{lists} lists')
       risk = p.evaluate("() => [...document.querySelectorAll('[data-block=\"slip\"] .v6-list > *')].filter(e => /Hearing at risk/.test(e.innerText)).length")
-      check("1440: the list is Today's slipping rows plus the hearings at risk", today is not None and n == today + risk, f'Today {today}, at risk {risk}, Team {n}')
+      check("1440: Today's door says Team's count (its slipping rows and the hearings at risk)", today is not None and n == today and risk >= 0, f'Today {today}, at risk {risk}, Team {n}')
       fewer = p.get_by_role('button', name='Show fewer')
       if fewer.count(): fewer.click(); pg.ready()
       check('1440: Show fewer goes back to 3', p.evaluate(ROWS, '[data-block="slip"] .v6-list > *') == min(3, n), '')

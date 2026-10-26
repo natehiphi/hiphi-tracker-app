@@ -398,6 +398,11 @@ function wire(route, root) {
 }
 const titleOf = route => route?.who === 'none' ? 'No owner' : route?.who && advocate(route.who) ? `${first(route.who)}’s list` : isLead() ? 'Team' : 'A teammate’s list';
 
+// What Team's Slipping heading counts (its ranked rows plus the 2027 prep line), so Today's door says the same number.
+export function teamSlipCount() {
+  const off = SESSION_OVER;
+  return ranked(slipping(), off ? [] : atRisk()).length + (prepSlip() ? 1 : 0);
+}
 export default {
   tab: 'team',
   title: titleOf,

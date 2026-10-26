@@ -41,6 +41,7 @@ import { plainCodes } from './terms.js';   // codes in a to-do's or a note's own
 import { prepTaskOf, dueEnd as prepDue, issueHref, prepListHref } from './prep.js';
 import { askTodoOf, askSummary, toAskWords, decideWords, nwParts } from './push.js';
 import { isLead } from './more.js';
+import { teamSlipCount } from './team.js';   // a cycle (team.js reads today.js), safe: used only when a page draws
 import { newSteps, markNewStep } from './help.js';
 import { moveMe, notGoing, keepAskUp, seedMoved } from './moved.js';
 import { pqItems, pqOthers, wantQueue, wantAsks, admitsPartners, approvesPartners, pqRow, pqItem, pqCard, wirePartner } from './partnerq.js';
@@ -581,7 +582,9 @@ function leadLine() {
   const n = sl.rows.length; if (!n) return '';
   const now = Date.now(), over = sl.rows.filter(r => r.nob ? r.nob.act?.kind === 'overdue' : r.p && r.p.due != null && r.p.due <= now && !(r.p.h && ms(r.p.h.scheduled_at) > now && /file|review|revise|submit|write/.test(r.p.kind))).length;
   // Someone else's late step is said in words, never in colour (D3): the lead's own late work is on their own rows.
-  return lineA('#/team', 'users', `<b>${n} slipping</b> on the team${over ? ` · ${over} overdue` : ''}`, { cls: 't6-lead' });
+  // Team's own count (its ranked list adds the hearings at risk), so the door and the page it opens agree (walk 4 critic).
+  let all = n; try { all = teamSlipCount(); } catch (e) { console.error(e); }
+  return lineA('#/team', 'users', `<b>${all} slipping</b> on the team${over ? ` · ${over} overdue` : ''}`, { cls: 't6-lead' });
 }
 // Each door is one short line (integrator 23 Oct: "doors as short lines"): the subject and at most one more fact. A lead's
 // slipping line is the first door, wherever the doors are (the side column from 1100px; after the lists while an item is
