@@ -431,6 +431,10 @@ export function prepCardHTML(i, { outlook = '' } = {}) {
     </section>`;
   }
   const st = stateOf(i), by = advocate(i.prep_by), work = canWork(i) && ['todo', 'started', 'sent_back'].includes(st);
+  // During session the folded "Getting ready for 2027 · No steps done yet" card is left out unless someone has started
+  // it (R-336 walk 3, item 7): a November job sat on the page of an issue being fought for now. It comes back when the
+  // session ends (SESSION_OVER), when the prep is the work again.
+  if (!SESSION_OVER && st === 'todo') return '';
   const note = st === 'sent_back' ? `<p class="pr6-note">${icon('undo-2')}<span><b>${esc(by ? first(by) : 'An admin')} asked for changes:</b> ${esc(i.prep_note || '')}</span></p>`
     : st === 'approved' ? `<p class="pr6-note">${icon('circle-check')}<span><b>Approved${by ? ` by ${esc(first(by))}` : ''}.</b>${i.prep_note ? ` ${esc(i.prep_note)}` : ''}</span>${isAdmin() ? btn('Undo', { kind: 'text', sm: true, attrs: { 'data-pr': 'undo', 'aria-label': 'Undo the approval' } }) : ''}</p>` : '';
   const foot = footHTML(i);
