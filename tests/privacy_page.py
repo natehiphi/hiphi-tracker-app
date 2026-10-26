@@ -19,6 +19,8 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out'); os.makedi
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html')
 passes, fails, errors = [], [], []
 LEADS = ['Just looking:', 'A mobile number:', 'Your email:', 'Your story:', 'Testimony:', 'Your address:', 'Never sold:', 'Delete it:']
+# With sign-in by text code the number and email lines are one (a number keeps the same account as an email): seven.
+LEADS_CODES = ['Just looking:', 'Your number or email:', 'Your story:', 'Testimony:', 'Your address:', 'Never sold:', 'Delete it:']
 def ok(c, m): (passes if c else fails).append(('PASS ' if c else 'FAIL ') + m)
 with sync_playwright() as pw:
     b = pw.chromium.launch()
@@ -31,21 +33,28 @@ with sync_playwright() as pw:
         first = p.locator('.yu-pv .yu-short')
         items = [' '.join(x.split()) for x in first.locator('li').all_inner_texts()]
         leads = first.evaluate("s => [...s.querySelectorAll('li')].map(li => li.firstElementChild?.tagName === 'B' && li.textContent.trim().startsWith(li.firstElementChild.textContent) ? li.firstElementChild.textContent.trim() : '')")
-        ok(len(items) == 8, f'{tag}: eight lines in short ({len(items)})')
-        ok(leads == LEADS, f'{tag}: each line starts with its bold lead words ({leads})')
-        line = dict(zip(LEADS, items + [''] * 8))
-        ok('contact@hiphi.org' in items[-1] and '10 business days' in items[-1] and 'delete your account any time' in items[-1], f'{tag}: the last says you can delete your account, with the contact and the 10 business days')
+        want = LEADS_CODES if codes == '&codes' else LEADS
+        ok(len(items) == len(want), f'{tag}: {len(want)} lines in short ({len(items)})')
+        ok(leads == want, f'{tag}: each line starts with its bold lead words ({leads})')
+        line = dict(zip(want, items + [''] * 8))
+        ok('contact@hiphi.org' in items[-1] and '10 business days' in items[-1] and 'any time, from your profile under You' in items[-1] and 'Texts are separate: reply STOP' in items[-1] and 'everything we hold removed' in items[-1], f'{tag}: the last says delete it from your profile, texts are separate, the contact and the 10 business days')
+        words = len(' '.join(items).split())
+        ok(words <= 200, f'{tag}: the card stays short ({words} words, 200 at most)')
         ok(first.locator('a[href="mailto:contact@hiphi.org"]').count() == 1, f'{tag}: the contact is a link')
-        ok('the Capitol posts your name and letter online' in line['Testimony:'] and 'HIPHI staff can’t see them' in line['Testimony:'], f'{tag}: testimony is public on the Capitol site; the copies kept are only yours')
+        ok('the Capitol posts your name and letter for anyone to read' in line['Testimony:'] and 'stays there if you delete your account here' in line['Testimony:'] and 'only for you, not HIPHI staff' in line['Testimony:'], f'{tag}: testimony is public on the Capitol site and stays there; the copies kept are only yours')
         ok('never kept' in line['Your address:'] and 'just your districts' in line['Your address:'], f'{tag}: the address is never kept, staff see just the districts')
-        ok('quotes it only if you say yes' in line['Your story:'] and 'asks you again before any public use' in line['Your story:'], f'{tag}: the story line names the quote choice')
-        ok('never sell' in line['Never sold:'], f'{tag}: never sold')
+        # A saved story starts the "why" of each new letter (helper.js), so the line says a sent letter is public (ui-critic).
+        ok('quotes it only if you say yes' in line['Your story:'] and 'It goes into your letters, and a letter you send is public' in line['Your story:'], f'{tag}: the story line says it goes into letters, which are public, and names the quote choice')
+        ok('don’t sell your information' in line['Never sold:'], f'{tag}: never sold')
         if codes == '&codes':
-            ok('it signs you in' in line['A mobile number:'] and 'never the number' in line['A mobile number:'] and 'Your account keeps your profile' in line['A mobile number:'], f'{tag}: with codes, the number signs you in and the account keeps the rest, never the number shown')
-            ok('until you add your email or number;' in line['Your story:'], f'{tag}: with codes, the story joins the account with an email or a number')
+            ok('never your number' in line['Your number or email:'] and 'with your profile' in line['Your number or email:'], f'{tag}: with codes, one line for a number or an email; staff never see the number')
+            ok('once you add your email or number,' in line['Your story:'], f'{tag}: with codes, the story joins the account with an email or a number')
         else:
-            ok('signs you in' not in line['A mobile number:'] and 'Staff never see the number' in line['A mobile number:'], f'{tag}: before codes, the number line keeps the number from staff and signs no one in')
-            ok('until you add your email;' in line['Your story:'], f'{tag}: before codes, the story stays on this device until an email')
+            ok('Staff never see the number' in line['A mobile number:'] and 'their own notes' in line['Your email:'], f'{tag}: before codes, the number is kept from staff; the email line names staff notes')
+            ok('once you add your email,' in line['Your story:'], f'{tag}: before codes, staff read the story only once there is an email')
+        # The closed cards that hold the exceptions preview what is inside, not the short card's sentence again (A-14).
+        pv = ' '.join(p.locator('.yu-pv .rc-fold').all_text_contents())
+        ok('Who we do share with, and when' in pv and 'What deleting erases, and what it can’t' in pv, f'{tag}: the sharing and deleting cards preview what they hold')
         for h in ('Accessibility', 'Notes staff keep', 'How long we keep things', 'Delete it, or ask us to', 'What we count', 'If you add your email'):
             ok(h in heads, f'{tag}: a section "{h}"')
         t = p.locator('.yu-pv').text_content()
@@ -71,7 +80,7 @@ with sync_playwright() as pw:
         p.goto(BASE + f'?rec=0&demo=1{codes}#/privacy'); p.wait_for_selector('.mr-facts', timeout=30000); p.wait_for_timeout(500)
         t = p.locator('.mr-privacy').text_content()
         leads = p.evaluate("[...document.querySelectorAll('.mr-facts > section:first-child li')].map(li => li.firstElementChild?.tagName === 'B' ? li.firstElementChild.textContent.trim() : '')")
-        ok(leads == LEADS, f'{tag}: the same eight lines in short ({leads})')
+        ok(leads == (LEADS_CODES if codes == '&codes' else LEADS), f'{tag}: the same lines in short ({leads})')
         ok('under You' not in t and 'from your profile under More' in t and 'use Alerts in your profile, under More' in t, f'{tag}: the old page names the tab "More" and the profile\'s Alerts')
         ok(not p.evaluate('document.documentElement.scrollWidth > innerWidth + 1'), f'{tag}: no sideways scroll')
         c.close()

@@ -149,14 +149,14 @@ const body = p => Array.isArray(p) ? `<ul class="mr-factlist">${p.map(x => `<li>
 // The short card's lines drop their bullets (you.css: the bold lead words do the scanning, R-212 #52), and Safari's
 // VoiceOver stops calling an unbulleted list a list unless it says so.
 const shortList = p => Array.isArray(p) ? `<ul class="mr-factlist" role="list">${p.map(x => `<li>${x}</li>`).join('')}</ul>` : body(p);
-export function privacyRec({ rows, updated, policy, a11y }) {
+export function privacyRec({ rows, updated, policy, a11y, previews = {} }) {
   const [[, t0, p0], ...rest] = rows;
   return `<div class="mr mr-privacy rc yu yu-pv">
     ${backFrom('#/more', 'You')}
     ${recHead({ title: 'Privacy', lede: 'What we keep, who sees it, and how to remove it.' })}
     <section class="rc-card yu-short" aria-labelledby="mr-pv-0"><h2 class="rc-h2" id="mr-pv-0">${t0}</h2>${shortList(p0)}</section>
     ${recFolds([`<div id="mr-access">${recFold('privacy-access', 'Accessibility', firstLine(plain(a11y)), a11y)}</div>`,
-      ...rest.map(([ic, ti, p]) => recFold(`privacy-${ic}`, plain(ti), firstLine(p), body(p)))])}
+      ...rest.map(([ic, ti, p]) => recFold(`privacy-${ic}`, plain(ti), previews[ic] || firstLine(p), body(p)))])}
     <p class="small muted yu-upd">Updated ${esc(updated)}.</p>
     <p class="mr-ext"><a class="btn text" href="${esc(policy)}" target="_blank" rel="noopener">${icon('external-link')}<span>HIPHI’s website privacy policy</span></a></p>
   </div>`;

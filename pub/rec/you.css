@@ -129,6 +129,8 @@ body.rec .yu-pv .mr-factlist li { line-height: 1.5; max-width: 65ch; }
    lines than inside one, so each reads as its own answer on a phone rather than one wall. */
 body.rec .yu-short .mr-factlist { list-style: none; padding-left: 0; gap: var(--s12); }
 body.rec .yu-short .mr-factlist b { color: var(--n900); }
+/* The card's lines run its full width on a laptop, as the closed cards' previews below do (A-8, ui-critic). */
+body.rec .yu-short .mr-factlist li { max-width: none; }
 body.rec .yu-pv .rc-fin { color: var(--n700); }
 body.rec .yu-pv .rc-fin > * + * { margin-top: var(--s8); }
 body.rec .yu-pv .rc-fin p { margin: 0; max-width: 65ch; line-height: 1.5; }

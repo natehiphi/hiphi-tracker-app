@@ -703,22 +703,24 @@ const MAIL = `<a href="mailto:${EMAIL}">${EMAIL}</a>`;
 // one plain line per question a person asks, each the short form of a section below with its lead words bold for scanning
 // (the house's <b> lead-in, as Zoom's steps in actions.js): change a section, change its line. The rest is the detail, in
 // the order a person would ask. Lines 2 and 4 change once sign-in by text code is on (PRIVACY_CODES below).
-const QUOTE_LINE = 'HIPHI quotes it only if you say yes, and asks you again before any public use.';   // profile's quote choice starts at No
-const shortLines = (number, story) => [
-  '<b>Just looking:</b> nothing about you. What you follow stays on this device. We count how the tracker is used, never who you are.',
-  number,
-  '<b>Your email:</b> we keep your email, what you follow, where you stand, the actions you mark and your profile. Staff see these, and which of our emails you open. They may also keep notes about you.',
+// A saved story starts the "why" of each new letter (helper.js), and sent testimony is public at the Capitol, so the story
+// and testimony lines say both (ui-critic, R-212 #52): a story-sharer must not read "quoted only if you say yes" as "never
+// public". Deleting here cannot take testimony off the Capitol's site, and deleting an account leaves texts (text_signups,
+// backend 159), so the last line says both. About 180 words, so "Delete it" starts near the first phone screen's foot.
+const STORY_LINE = who => `<b>Your story:</b> once you add your ${who}, staff can read it. It goes into your letters, and a letter you send is public. HIPHI itself quotes it only if you say yes.`;
+const shortLines = (contact, story) => [
+  '<b>Just looking:</b> we don’t know who you are. What you follow stays on this device.',
+  ...contact,
   story,
-  // "once you send it": a letter stays on the phone until it is sent on the Capitol's site; the kept copies are the
-  // person's own (my_letters, backend 124), as the profile's Your data says: "Only you can see those."
-  '<b>Testimony:</b> once you send it, the Capitol posts your name and letter online. The copies we keep of your letters and emails to lawmakers are only for you: HIPHI staff can’t see them.',
-  '<b>Your address:</b> used only to find your districts, and never kept. Staff see just your districts.',
-  '<b>Never sold:</b> we never sell your information or give it to other groups.',
-  `<b>Delete it:</b> delete your account any time, from your profile. To see what we have, or to have everything removed, email ${MAIL}. We answer within 10 business days.`];
+  '<b>Testimony:</b> the Capitol posts your name and letter for anyone to read, and it stays there if you delete your account here. Our copies are only for you, not HIPHI staff.',
+  '<b>Your address:</b> used only to find your districts, never kept. Staff see just your districts.',
+  '<b>Never sold:</b> we don’t sell your information or give it to other groups.',
+  `<b>Delete it:</b> any time, from your profile under More. Texts are separate: reply STOP. To have everything we hold removed, email ${MAIL}. We answer within 10 business days.`];
 const PRIVACY = [
-  ['eye', 'What we have on you, in short', shortLines(
-    '<b>A mobile number:</b> we keep the number, what you follow and when you agreed to texts. Staff never see the number.',
-    `<b>Your story:</b> it stays on this device until you add your email; then it is kept with your account and staff can read it. ${QUOTE_LINE}`)],
+  ['eye', 'What we have on you, in short', shortLines([
+    '<b>A mobile number:</b> we keep it, what you follow and when you agreed to texts. Staff never see the number.',
+    '<b>Your email:</b> we keep it, what you follow, where you stand, the actions you mark and your profile. Staff see these, which of our emails you open, and their own notes about you.'],
+    STORY_LINE('email'))],
   ['lock', 'If you don’t add your email', 'We don’t know who you are. The issues and bills you follow, where you stand on them and the actions you mark stay in this browser, on this device. Clearing your browser data erases them.'],
   ['message-square', 'If you add your mobile number', [
     'We keep your number, what you follow, when you agreed to texts and the words you agreed to. We use them only to send you those texts.',
@@ -789,10 +791,11 @@ const PRIVACY_UPDATED = '25 October 2026';   // change it with any sentence abov
 // sections say so. Change the date to the day codes were switched on (backend docs/TEXT-SIGN-IN.md, step 6).
 const PRIVACY_CODES_UPDATED = '25 October 2026';
 const PRIVACY_CODES = {
-  // The short card's number and story lines, in the words of the 'message-square' section below.
-  eye: ['What we have on you, in short', shortLines(
-    '<b>A mobile number:</b> it signs you in. We keep the number and when you agreed to texts. Your account keeps your profile, what you follow, where you stand and the actions you mark: staff see those, never the number.',
-    `<b>Your story:</b> it stays on this device until you add your email or number; then it is kept with your account and staff can read it. ${QUOTE_LINE}`)],
+  // With codes a number signs people in and keeps the same account as an email, so the two lines are one (the
+  // 'message-square' section below): seven lines.
+  eye: ['What we have on you, in short', shortLines([
+    '<b>Your number or email:</b> we keep it with your profile, what you follow, where you stand and the actions you mark. Staff see those (never your number), which of our emails you open, and their own notes about you.'],
+    STORY_LINE('email or number'))],
   lock: ['If you don’t add your email or number', 'We don’t know who you are. The issues and bills you follow, where you stand on them and the actions you mark stay in this browser, on this device. Clearing your browser data erases them.'],
   'message-square': ['If you add your mobile number', [
     'We text you a 6-digit code to be sure the number is yours, and from then on the number signs you in, the way an email does.',
@@ -812,11 +815,15 @@ const ACCESS = () => `<p>We want everyone in Hawaiʻi to be able to use this tra
 // "under More" names the old fourth tab. Since 19 Oct everyone's is "You" (pub/app.js TABS_A), whose "Your alerts" row (on
 // You and at the top of the profile, rec/you.js) is where texts stop; the old profile's section was "Alerts". So the calm
 // page says those, and ?rec=0 keeps the old page's words.
+// A closed card's preview is its own first sentence, unless that sentence is the short card's again (A-14, ui-critic R-212
+// #52): these cards hold the exceptions, so their previews say what is inside.
+const PREVIEWS = { lock: 'What this device keeps, and how to clear it', 'map-pin': 'How we find your districts, and who else sees the address',
+  'shield-check': 'Who we do share with, and when', 'trash-2': 'What deleting erases, and what it can’t' };
 const YOU_WORDS = [['use Alerts in your profile, under More', 'use Your alerts, under You'], ['under More', 'under You']];
 const youWords = s => YOU_WORDS.reduce((x, [a, b]) => x.replaceAll(a, b), s);
 function privacyView() {
   const rows = codesOn() ? PRIVACY.map(([ic, t, p]) => PRIVACY_CODES[ic] ? [ic, ...PRIVACY_CODES[ic]] : [ic, t, p]) : PRIVACY;
-  if (REC()) return privacyRec({ rows: rows.map(([ic, t, p]) => [ic, t, Array.isArray(p) ? p.map(youWords) : youWords(p)]), updated: codesOn() ? PRIVACY_CODES_UPDATED : PRIVACY_UPDATED, policy: HIPHI.privacy, a11y: ACCESS() });
+  if (REC()) return privacyRec({ rows: rows.map(([ic, t, p]) => [ic, t, Array.isArray(p) ? p.map(youWords) : youWords(p)]), updated: codesOn() ? PRIVACY_CODES_UPDATED : PRIVACY_UPDATED, policy: HIPHI.privacy, a11y: ACCESS(), previews: PREVIEWS });
   return `<div class="mr mr-privacy">
     <header class="pagehead"><h1 class="hero">Privacy</h1><p class="lede">What we keep, who sees it, and how to remove it.</p></header>
     <div class="card mr-facts">${rows.map(([ic, t, p], i) => `<section aria-labelledby="mr-pv-${i}"><span class="mr-factic">${icon(ic)}</span><div><h2 id="mr-pv-${i}">${t}</h2>${Array.isArray(p) ? `<ul class="mr-factlist">${p.map(x => `<li>${x}</li>`).join('')}</ul>` : p.split("\n\n").map(x => `<p>${x}</p>`).join("")}</div></section>`).join('')}</div>
