@@ -855,8 +855,6 @@ body.staff6 .ip6-hs > .ic { width: 22px; height: 22px; margin-top: 3px; flex: no
 body.staff6 .ip6-hs b { font-weight: 600; }
 body.staff6 .ip6-hn { display: block; color: var(--v6-body); }   /* Next: on a line of its own, so the tile reads in two parts */
 body.staff6 .ip6-sec { margin-top: var(--s32); }
-body.staff6 .ip6-side > .ip6-sec:first-child { margin-top: 0; }
-body.staff6 .ip6-bills { margin-top: var(--s24); }
 body.staff6 .ip6-h { margin: 0 0 var(--s12); font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; letter-spacing: -.01em; color: var(--v6-ink); }
 body.staff6 .i6-hrow .ip6-h { margin: 0; }
 body.staff6 .ip6-h3 { margin: var(--s16) 0 var(--s8); font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
@@ -893,9 +891,6 @@ body.staff6 .ip6-fold > summary:hover { background: var(--v6-action-wash); }
 body.staff6 .ip6-fold > summary:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 body.staff6 .ip6-fold > .v6-list { margin-top: var(--s8); }
 /* last year's result is a section that folds by its heading (reference) */
-body.staff6 .ip6-lyf { margin-top: var(--s32); }
-body.staff6 .ip6-lyf > summary { color: var(--v6-ink); padding-left: 0; }
-body.staff6 .ip6-lyf > summary .i6-chev { color: var(--v6-muted); }
 body.staff6 .ip6-hin { margin: 0; }
 /* who is working on it: a person and one line, no button (the steps' buttons are in What to do next) */
 body.staff6 .ip6-pmain { display: flex; flex-direction: column; gap: 2px; padding: 10px 0; min-width: 0; }
@@ -921,9 +916,6 @@ body.staff6 .ip6-src { margin: 0 0 var(--s4); font-size: var(--v6-t14); line-hei
 body.staff6 .ip6-card { padding: var(--s16) var(--s24); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
 body.staff6 .ip6-card .ip6-h { font-size: var(--v6-t22); }
 body.staff6 .ip6-edit { margin-top: var(--s16); }
-@media (min-width: 1100px) {
-  body.staff6 .ip6-wide { grid-template-columns: minmax(0, 1fr) 380px; gap: var(--s32); max-width: 1320px; }
-}
 /* a bill's name second, when two of the issue's bills share it (the number leads) */
 body.staff6 .ip6-twin { flex: 0 1 auto; white-space: normal; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
 /* a joint committee's name is long; three lines keep the hearing's time in view instead of cutting it at an ellipsis */
@@ -945,3 +937,36 @@ body.staff6 .ip6-lline + .ip6-lline { margin-top: var(--s12); }
 body.staff6 .ip6-hlink { display: inline; min-height: 0; padding: 0; font: inherit; vertical-align: baseline; }
 body.staff6 .ip6-face { display: inline-flex; align-items: center; justify-content: center; }
 body.staff6 .ip6-brow .v6-row-top { flex-wrap: wrap; row-gap: 0; }   /* a shared name after the number wraps to its own line, not hanging beside it */
+/* ---- one reading column (R-336 walk 4, Nate: "one column on a laptop"): the top four open, then the folded sections, each
+   a heading and its one-line summary on the closed line. Space between them, an inset hair line, no boxes (A-8 on v6);
+   the folded headings are a step smaller than the open ones (A-19), and where legislators stand and related issues are
+   quieter still (Nate: "should not be as prominent"). ---- */
+body.staff6 .ip6-page .ip6-health + .ip6-sec { margin-top: var(--s24); }
+body.staff6 .ip6-page .ip6-sec { margin-top: var(--s32); }
+body.staff6 .ip6-folds { margin-top: var(--s48); }
+body.staff6 .ip6-sf + .ip6-sf { box-shadow: inset 0 1px 0 var(--v6-hair); }
+body.staff6 .ip6-sf > summary { list-style: none; display: flex; align-items: flex-start; gap: var(--s12); min-height: 56px; padding: var(--s16) var(--s8); margin: 0 calc(-1 * var(--s8));
+  border-radius: var(--v6-r12); cursor: pointer; }
+body.staff6 .ip6-sf > summary::-webkit-details-marker { display: none; }
+body.staff6 .ip6-sf > summary:hover { background: var(--v6-action-wash); }
+body.staff6 .ip6-sf > summary:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .ip6-sf > summary .i6-chev { width: 20px; height: 20px; margin-top: 4px; flex: none; color: var(--v6-muted); transition: transform .16s ease; }
+body.staff6 .ip6-sf[open] > summary .i6-chev { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { body.staff6 .ip6-sf > summary .i6-chev { transition: none; } }
+body.staff6 .ip6-sft { min-width: 0; font-size: var(--v6-t16); line-height: 28px; color: var(--v6-body); }
+body.staff6 .ip6-sfh { display: inline; margin: 0; font: 600 var(--v6-t18)/28px Poppins, system-ui, sans-serif; letter-spacing: -.005em; color: var(--v6-ink); }
+body.staff6 .ip6-sf.is-quiet .ip6-sfh { font-weight: 500; color: var(--v6-body); }
+body.staff6 .ip6-sfs { color: var(--v6-body); }
+body.staff6 .ip6-sfb { padding: 0 0 var(--s24) var(--s32); }
+@media (max-width: 599px) { body.staff6 .ip6-sfb { padding-left: 0; } }
+body.staff6 .ip6-sfb > :first-child, body.staff6 .ip6-sfb > .ip6-legs > :first-child { margin-top: 0; }
+body.staff6 .ip6-sfa { display: flex; align-items: center; gap: var(--s12); margin: 0 0 var(--s8); }
+body.staff6 .ip6-sfa.i6-hrow { justify-content: space-between; }
+body.staff6 .ip6-sfa .ip6-quiet { margin: 0; }
+body.staff6 .ip6-sfb .ip6-h3:first-child { margin-top: 0; }
+body.staff6 .ip6-pub + .ip6-h3 { margin-top: var(--s24); }
+/* a partner's position: its name, the stance in words, then its note and who set it, quietly */
+body.staff6 .ip6-pp .v6-row-main { display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: 100%; padding-top: 12px; padding-bottom: 12px; text-align: left; }
+body.staff6 .ip6-ppn { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .ip6-ppby { font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+body.staff6 .ip6-pp + .ip6-sfa, body.staff6 .v6-list + .ip6-sfa { margin-top: var(--s8); }
