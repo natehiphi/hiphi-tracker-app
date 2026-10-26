@@ -278,6 +278,18 @@ with sync_playwright() as p:
     ok(not r['law'], 'N8 nor a letter on a bill that can no longer move (became law): no letter can be sent on it again')
     c.close()
 
+    # N10 someone whose first bill page is a /changes landing (a new phone): the bill page's tips do not start over it, since
+    # the page has scrolled to the drafts and the tips at its top would dim it with nothing in view (live check, 10/25). A
+    # plain first bill page still gets them.
+    fresh = """(() => { if (sessionStorage.getItem('__set')) return; sessionStorage.setItem('__set', '1');
+      for (const k of Object.keys(localStorage)) if (k.startsWith('hiphi_')) localStorage.removeItem(k); })();"""
+    for hp, want in (('#/bill/2026/HB2121/changes', False), ('#/bill/2026/SB2175', True)):
+        c, pg = page(fresh, 390, 844)
+        pg.goto(f'{BASE}/track.html?demo=1&letter{hp}'); pg.wait_for_selector('.bl-page .bl-head', timeout=60000); pg.wait_for_timeout(3500)
+        tip = pg.evaluate("() => { const t = document.querySelector('.tr-tip'); return !!t && t.getBoundingClientRect().height > 0; }")
+        ok(tip == want, f'N10 a first bill page at {hp}: the tips {"start" if want else "do not start"} ({tip})')
+        c.close()
+
     ok(not errs, f'N9 no page errors ({errs[:2]})')
     br.close()
 print(f'{sum(res)}/{len(res)} passed'); sys.exit(0 if all(res) else 1)
