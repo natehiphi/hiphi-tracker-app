@@ -405,16 +405,24 @@ const saveFile = (blob, name) => { const url = URL.createObjectURL(blob), a = do
 // make the same events with the same UIDs: a hearing added on its own and then again with the week is updated in the
 // calendar, not doubled. due: whether to add the "Testimony due" event before it.
 function hearingEvents(b, h, { due = false } = {}) {
-  const url = `${location.origin}${location.pathname}${billPath(b)}`, short = nick(b) || blurb(b, 60);
+  const url = `${location.origin}${location.pathname}${billPath(b)}`, num = spaced(b.bill_number), name = nick(b);
+  // A bill with no nickname (one HIPHI only watches) is named by its number alone: its summary cut to fit a title stopped
+  // mid-sentence ("Creates a working group to recommend ways to stabilize…"), so the summary leads the description instead
+  // (R-212 #51, the ui-critic).
+  const title = name ? `${num} (${name})` : num, about = name ? '' : `${blurb(b, 200).replace(/([^.!?…])$/, '$1.')} `;
   // Someone who plans to go (R-142) gets the directions in the hearing's event, its floor in the place, and a reminder to
   // leave an hour and a half before; everyone else, the hearing as it was.
   const going = didKind(b, h, 'attend'), zoom = !going && onZoom(b, h);
-  const ev = (uid, start, mins, title, desc, alarm) => ['BEGIN:VEVENT', `UID:${uid}@bills.hiphi.org`, `DTSTAMP:${stamp(Date.now())}`, `DTSTART:${stamp(start)}`, `DTEND:${stamp(new Date(start).getTime() + mins * 6e4)}`,
-    `SUMMARY:${esc2(title)}`, `DESCRIPTION:${esc2(desc)}`, `LOCATION:${esc2(CAPITOL + ', ' + (going ? roomFloor(h) : roomLabel(h.room)))}`, `URL:${url}`,
-    ...(alarm ? ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc2(title)}`, `TRIGGER:${alarm}`, 'END:VALARM'] : []), 'END:VEVENT'];
-  return [...(due ? ev(h.id + '-due', h.testimony_deadline, 15, `Testimony due: ${spaced(b.bill_number)} (${short})`, `Send testimony in 5 minutes: ${url}`, '-PT2H') : []),
-    ...ev(h.id + '-hearing', h.scheduled_at, 60, `Hearing: ${spaced(b.bill_number)} (${short})`,
-      going ? `${cmteLabel(h.committee)}. ${goText(b, h)} ${url}` : zoom ? `${cmteLabel(h.committee)}. ${zoomText(h)} ${url}` : `${cmteLabel(h.committee)}. Anyone can attend. ${url}`, going ? '-PT90M' : zoom ? '-PT30M' : '')];
+  // where: the hearing's room only. Testimony is sent online, and a room on the deadline's event read as "be in Room 229 at
+  // 1:00 PM" (a phone may even offer a time to leave), so that event has no place (R-212 #51, the ui-critic).
+  const ev = (uid, start, mins, sum, desc, alarm, where) => ['BEGIN:VEVENT', `UID:${uid}@bills.hiphi.org`, `DTSTAMP:${stamp(Date.now())}`, `DTSTART:${stamp(start)}`, `DTEND:${stamp(new Date(start).getTime() + mins * 6e4)}`,
+    `SUMMARY:${esc2(sum)}`, `DESCRIPTION:${esc2(desc)}`, ...(where ? [`LOCATION:${esc2(where)}`] : []), `URL:${url}`,
+    ...(alarm ? ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc2(sum)}`, `TRIGGER:${alarm}`, 'END:VALARM'] : []), 'END:VEVENT'];
+  // A file added to a calendar never updates itself, so the hearing says to check the bill before going (the ui-critic).
+  return [...(due ? ev(h.id + '-due', h.testimony_deadline, 15, `Testimony due: ${title}`, `${about}Send your testimony online. It takes a few minutes: ${url}`, '-PT2H', '') : []),
+    ...ev(h.id + '-hearing', h.scheduled_at, 60, `Hearing: ${title}`,
+      `${about}${cmteLabel(h.committee)}. ${going ? goText(b, h) : zoom ? zoomText(h) : 'Anyone can attend.'} Times can change: check the bill before you go. ${url}`,
+      going ? '-PT90M' : zoom ? '-PT30M' : '', CAPITOL + ', ' + (going ? roomFloor(h) : roomLabel(h.room)))];
 }
 const calFile = events => new Blob([['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//HIPHI//Bill Tracker//EN', 'CALSCALE:GREGORIAN', ...events, 'END:VCALENDAR'].join('\r\n')], { type: 'text/calendar' });
 // The testimony deadline is still ahead. Date.now() is the practice copy's clock there (kernel.js), as everywhere.
@@ -437,7 +445,7 @@ export function downloadIcs(b, h) {
 const WEEK = 7 * 864e5;
 export const weekStart = () => hstDay(Date.now());
 // "Testimony due" goes in only where the app asks for testimony and it can still be sent: HIPHI takes a side on the bill
-// (posInfo; a bill HIPHI only watches has no testimony button, R-101, so "Send testimony in 5 minutes" would lead nowhere),
+// (posInfo; a bill HIPHI only watches has no testimony button, R-101, so a reminder to send testimony would lead nowhere),
 // the deadline is ahead, and the person has not settled it (settledOn, Home's rule: testimony sent, or an email to the chair
 // once testimony is not theirs to send). The same three tests as Home's "due this week" (calm/home.js dueAll on openActions).
 const dueIn = (b, h) => dueAhead(h) && !!posInfo(b) && !settledOn(b, h);

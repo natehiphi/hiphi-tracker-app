@@ -12,17 +12,24 @@
 #       only for a hearing whose deadline is ahead. Everything the page promises this week is in the file: every deadline
 #       Home and My issues count as due this week (dueAll's rule) has its "Testimony due", and each row's "Testimony due ...,
 #       and 3 more this week" or "Hearing Wed ..." has that many deadlines and hearings of its own bills in the file
-#   W3  the line then says "Calendar file ready" and what the file held ("6 hearings, Wed to Mar 23"), focused, and the rows
-#       below have not moved; it stays so after a redraw
+#       The deadline's event has no place (testimony is sent online) and says "Send your testimony online. It takes a few
+#       minutes: <link>"; the hearing's says "Times can change: check the bill before you go." before its link
+#   W3  the line then says "Calendar file ready", the next step "Open it to add 6 hearings, Wed to Mon, Mar 23" and a quiet
+#       "Save again" (44px, lined up under Edit) that saves the file once more; focused; the rows below have not moved, at 390
+#       or 1366, after either press; it stays so after a redraw
 #   W4  while editing, no line; Done brings it back; a bill followed after the press with a hearing this week: offered again
 #   W5  testimony already sent on HB 2121's hearing: its hearing is in the file, its "Testimony due" is not; HB 1965, a bill
 #       HIPHI only watches (no testimony button, R-101), followed on its own: its hearing, no "Testimony due"; HB 1780, which
 #       they plan to go to: its hearing event is exactly the one-hearing file's (the directions, the 90-minute reminder);
-#       HB 1573, a plan to go on a bill they do not follow: in the file too
+#       HB 1573, a plan to go on a bill they do not follow: in the file too; HB 1965 has no nickname: its title is "Hearing:
+#       HB 1965", its summary leads the description (never a title cut mid-sentence)
 #   W6  no line when nothing they follow has a hearing in the week, nor between sessions (&season=off)
-#   W7  the one-hearing file from a bill page's "Add to my calendar" is what main's code made before the refactor, line for
-#       line but DTSTAMP (a plain hearing, and one they plan to go to)
+#   W7  the one-hearing file from a bill page's "Add to my calendar" is what main's code made before R-212 #51, line for line
+#       but DTSTAMP and exactly the ui-critic's changes to the shared events (the deadline's place and words, the hearing's
+#       "Times can change" line), for a plain hearing and one they plan to go to
 #   W8  no page errors, no console errors
+#   W9  in Instagram's or Facebook's own browser (which drop a saved file): one grey line, "To save a calendar file, open
+#       this page in Safari or Chrome.", and no button
 #   python3 tests/week_cal.py [base] [outdir]    base defaults to http://localhost:8832; pictures go to [outdir]
 import json, os, re, sys
 from datetime import datetime, timezone
@@ -117,6 +124,17 @@ GOLD = {'plain': [
     'END:VEVENT',
     'END:VCALENDAR']}
 
+def expected(name):   # main's one-hearing file with exactly the ui-critic's changes (R-212 #51), and nothing else
+    out, kind = [], ''
+    for l in GOLD[name]:
+        l = l.replace('{BASE}', BASE)
+        if l.startswith('UID:'): kind = 'due' if l.endswith('-due@bills.hiphi.org') else 'hearing'
+        if l == 'BEGIN:VALARM': kind = 'alarm'
+        if kind == 'due' and l.startswith('LOCATION:'): continue
+        if kind == 'due' and l.startswith('DESCRIPTION:Send testimony in 5 minutes: '): l = 'DESCRIPTION:Send your testimony online. It takes a few minutes: ' + l.split(': ', 1)[1]
+        if kind == 'hearing' and l.startswith('DESCRIPTION:'): head, url = l.rsplit(' ', 1); l = f'{head} Times can change: check the bill before you go. {url}'
+        out.append(l)
+    return out
 def events(text):   # [{ 'lines': [...], 'UID': ..., ... }] for each VEVENT
     out = []
     for m in re.finditer(r'BEGIN:VEVENT\r\n(.*?)\r\nEND:VEVENT', text, re.S):
@@ -139,13 +157,15 @@ PROMISE = """async () => { const h = await import('./pub/calm/home.js'), c = awa
   return { rows, due }; }"""
 DAYW = r'(today|tomorrow|Mon|Tue|Wed|Thu|Fri|Sat|Sun) '
 LINE = """() => { const root = document.querySelector('.rc-mine'), ls = root ? [...root.querySelectorAll('.rc-wkcal')] : [], l = ls[0];
-  const b = l && l.querySelector('button'), h1 = root && root.querySelector('.rc-h1'), head = root && root.querySelector('.rc-mhead'), rows = root && root.querySelector('.rc-mrows');
+  const b = l && l.querySelector('.rc-wkbtn'), a = l && l.querySelector('.rc-wkagain'), ed = root && root.querySelector('[data-rc-edit]'), h1 = root && root.querySelector('.rc-h1'), head = root && root.querySelector('.rc-mhead'), rows = root && root.querySelector('.rc-mrows');
   const bi = b && b.querySelector('.ic');
   return { n: ls.length, text: l ? l.textContent.replace(/\\u00a0/g, ' ').trim() : '', btn: !!b, cls: b ? b.className : '', h: l ? l.getBoundingClientRect().height : 0, bh: b ? b.getBoundingClientRect().height : 0,
     between: !!(l && head && rows && (head.compareDocumentPosition(l) & 4) && (l.compareDocumentPosition(rows) & 4)),
     iconX: bi ? Math.round(bi.getBoundingClientRect().left) : null, h1X: h1 ? Math.round(h1.getBoundingClientRect().left) : null,
     rowsTop: rows ? Math.round(rows.getBoundingClientRect().top + scrollY) : null, chip: !!(l && l.querySelector('.chip.ok')),
     what: l && l.querySelector('.rc-wkwhat') ? l.querySelector('.rc-wkwhat').textContent.replace(/\\u00a0/g, ' ') : '',
+    again: !!a, againH: a ? a.getBoundingClientRect().height : 0, againX: a ? Math.round(a.querySelector('span').getBoundingClientRect().right) : null,
+    editX: ed ? Math.round(ed.getBoundingClientRect().right - parseFloat(getComputedStyle(ed).paddingRight)) : null, againFocused: !!(a && document.activeElement === a), note: !!(l && l.classList.contains('rc-wknote')),
     focused: !!(l && document.activeElement === l), sideways: document.documentElement.scrollWidth > innerWidth }; }"""
 
 with sync_playwright() as p:
@@ -207,6 +227,9 @@ with sync_playwright() as p:
         inwk = [now < ics_time(e['DTSTART']) and (ics_time(e['DTSTART']) <= end or duet.get(e['UID'][:-len('-hearing@bills.hiphi.org')], end) < end) for e in hear]
         ok(all(inwk), f'W2 {tag}: every hearing ahead, inside [now, now + 7 days] by the practice clock or its deadline inside them')
         promises(pg, ev, 'W2', tag)
+        ok(all('LOCATION' not in e and e['DESCRIPTION'].startswith('Send your testimony online. It takes a few minutes: ') for e in dues) and all('LOCATION' in e for e in hear),
+           f'W2 {tag}: the deadline’s event has no place and says to send testimony online; each hearing has its room')
+        ok(all(re.search(r' Times can change: check the bill before you go\. http\S+$', e['DESCRIPTION']) for e in hear), f'W2 {tag}: each hearing says to check the bill before going, before its link')
         ok(all(e['SUMMARY'].startswith('Hearing: ') for e in hear) and all(e['SUMMARY'].startswith('Testimony due: ') for e in dues), f'W2 {tag}: the summaries are the one-hearing file’s')
         byhid = {x['hid']: x for x in wk['list']}
         ok(dues and all(byhid.get(e['UID'][:-len('-due@bills.hiphi.org')], {}).get('pos') not in ('', 'monitor') and ics_time(e['DTSTART']) > now for e in dues),
@@ -215,10 +238,17 @@ with sync_playwright() as p:
         # W3 the done line
         L = pg.evaluate(LINE)
         ok(L['n'] == 1 and L['chip'] and L['text'].startswith('Calendar file ready') and not L['btn'], f'W3 {tag}: the line says "{L["text"]}"')
-        ok(L['what'] == '6 hearings, Wed to Mar 23', f'W3 {tag}: what the file held: "{L["what"]}"')
+        ok(L['what'] == 'Open it to add 6 hearings, Wed to Mon, Mar 23', f'W3 {tag}: the next step: "{L["what"]}"')
+        ok(L['again'] and L['againH'] >= 44 and L['againX'] is not None and abs(L['againX'] - L['editX']) <= 2, f'W3 {tag}: "Save again" at the line’s end, 44px, under Edit ({L["againH"]}, {L["againX"]} vs {L["editX"]})')
         ok(L['focused'], f'W3 {tag}: the done line has the focus (a screen reader says it)')
         ok(L['rowsTop'] == before and L['h'] >= 44, f'W3 {tag}: the rows did not move ({before} -> {L["rowsTop"]})')
         pg.screenshot(path=os.path.join(OUT, f'mine-after-{tag}.png'), full_page=True)
+        got = []; pg.on('download', lambda d_: got.append(d_))
+        with pg.expect_download() as dl2: pg.locator('.rc-mine .rc-wkagain').click()
+        pg.wait_for_timeout(800); L2 = pg.evaluate(LINE)
+        ok(len(got) == 1 and dl2.value.suggested_filename == d.suggested_filename and len(events(open(dl2.value.path(), newline='', encoding='utf-8').read())) == len(ev),
+           f'W3 {tag}: "Save again" saves the same file once more ({dl2.value.suggested_filename})')
+        ok(L2['what'] == L['what'] and L2['again'] and L2['againFocused'] and L2['rowsTop'] == before, f'W3 {tag}: and the line stays, the focus on Save again, the rows where they were ({L2["rowsTop"]})')
         pg.evaluate("async () => (await import('./pub/core.js')).app.render()"); pg.wait_for_timeout(400)
         ok(pg.evaluate(LINE)['text'].startswith('Calendar file ready'), f'W3 {tag}: and still after a redraw')
         # W4 editing
@@ -243,14 +273,17 @@ with sync_playwright() as p:
         ok(f'{HID["6266ffd5"]}-due@bills.hiphi.org' in uids, f'W5 {tag}: HB 1870, testimony still open: its "Testimony due" is in')
         ok(f'{H1573}-hearing@bills.hiphi.org' in uids and 'HB1573' in [x['num'] for x in wk['list']], f'W5 {tag}: HB 1573, a plan to go on a bill not followed: in the file')
         g = next((e for e in ev if e['UID'] == f'{H1780}-hearing@bills.hiphi.org'), None)
-        gold = [l.replace('{BASE}', BASE) for l in GOLD['going']]
+        gold = expected('going')
         ghear = gold[gold.index(f'UID:{H1780}-hearing@bills.hiphi.org'):]; ghear = ghear[:ghear.index('END:VEVENT')]
         ok(g and nostamp(g['lines']) == ghear, f'W5 {tag}: HB 1780, going: its hearing event is the one-hearing file’s, line for line (directions, TRIGGER:-PT90M)')
         gd = next((e for e in ev if e['UID'] == f'{H1780}-due@bills.hiphi.org'), None)
         gdue = gold[gold.index(f'UID:{H1780}-due@bills.hiphi.org'):]; gdue = gdue[:gdue.index('END:VEVENT')]
         ok(gd and nostamp(gd['lines']) == gdue, f'W5 {tag}: and its "Testimony due" is the one-hearing file’s too')
-        ok(pg.evaluate(LINE)['what'] == pg.evaluate("async () => (await import('./pub/rec/mybills.js')).weekWords((await import('./pub/actions.js')).weekHearings())"),
+        ok(pg.evaluate(LINE)['what'] == 'Open it to add ' + pg.evaluate("async () => (await import('./pub/rec/mybills.js')).weekWords((await import('./pub/actions.js')).weekHearings())"),
            f'W5 {tag}: the done line says what this file held ("{pg.evaluate(LINE)["what"]}")')
+        nn = next((e for e in ev if e['UID'] == f'{H1965}-hearing@bills.hiphi.org'), {})
+        ok(nn.get('SUMMARY') == 'Hearing: HB 1965' and nn.get('DESCRIPTION', '').startswith('Creates a working group') and '…' not in nn.get('SUMMARY', ''),
+           f'W5 {tag}: HB 1965 has no nickname: "{nn.get("SUMMARY")}", its summary leads the description ("{nn.get("DESCRIPTION", "")[:60]}…")')
         if tag == 'phone': open(os.path.join(OUT, 'week-cases.ics'), 'w', newline='', encoding='utf-8').write(text)
         c.close()
 
@@ -270,10 +303,20 @@ with sync_playwright() as p:
             if not pg.locator(sel).count(): pg.locator('[data-moreways]').first.click(); pg.wait_for_timeout(500)
             with pg.expect_download() as dl: pg.locator(sel).first.click()
             t = open(dl.value.path(), newline='', encoding='utf-8').read()
-            ok(dl.value.suggested_filename == f'{num}-hearing.ics' and nostamp(t.split('\r\n')) == [l.replace('{BASE}', BASE) for l in GOLD[name]],
-               f'W7 {tag}: {num}’s own file ({name}) is main’s, line for line but DTSTAMP')
+            ok(dl.value.suggested_filename == f'{num}-hearing.ics' and nostamp(t.split('\r\n')) == expected(name),
+               f'W7 {tag}: {num}’s own file ({name}) is main’s, line for line but DTSTAMP and the ui-critic’s changes')
             c.close()
 
+    # W9 Instagram's and Facebook's own browsers
+    for app_, ua in (('Instagram', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 330.0.0.40.92 (iPhone14,5; iOS 17_5; en_US; en; scale=3.00; 1170x2532; 590000000)'),
+                     ('Facebook', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/470.0.0.40.92;FBBV/600000000;FBDV/iPhone14,5;FBMD/iPhone;FBSN/iOS;FBSV/17.5;FBSS/3;FBID/phone;FBLC/en_US;FBOP/5]')):
+        c = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True, user_agent=ua); c.add_init_script(scene())
+        pg = c.new_page(); pg.on('pageerror', lambda e: errs.append('page: ' + str(e)[:200])); mine(pg)
+        L = pg.evaluate(LINE)
+        ok(L['n'] == 1 and L['note'] and L['text'] == 'To save a calendar file, open this page in Safari or Chrome.' and not L['btn'] and not pg.locator('.rc-wkcal button').count(),
+           f'W9 {app_}’s own browser: "{L["text"]}", no button')
+        if app_ == 'Instagram': pg.screenshot(path=os.path.join(OUT, 'mine-instagram-phone.png'), clip={'x': 0, 'y': 0, 'width': 390, 'height': 420})
+        c.close()
     ok(not errs, f'W8 no page or console errors ({errs[:3]})')
     br.close()
 print(f'{sum(res)}/{len(res)} passed'); sys.exit(0 if all(res) else 1)
