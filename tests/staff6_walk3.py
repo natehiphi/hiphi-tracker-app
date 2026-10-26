@@ -1,8 +1,9 @@
 # Staff v6: the walk 3 fix to Bills That Need Hearings' deadline line (R-336, Nate's walk 3). On the practice copy (Mon 16 Mar 2026).
 #   The line under each deadline said the same number twice: "16 of your bills need a hearing · 16 to ask". Now:
 #     every one still to ask   -> "16 of your bills need a hearing · none asked yet"
-#     some asked already       -> "3 of your bills need a hearing · 2 still to ask" (on Get hearings, when the tab's pile runs
-#                                 past this deadline, its share of it: "33 of the 46 still to ask")
+#     some asked already       -> "3 of your bills need a hearing · 2 still to ask" (this deadline's bills only, never a share
+#                                 of the tab's total: "12 of the 20 still to ask" mixed two totals, the critic)
+#   On a phone the "·" before the Bills That Need Hearings link goes with the link, never left at a line's end.
 #   Today, Bills and Hearings keep their one top line, "20 to ask · first by Mon 3/23", and its number is the board's to-ask
 #   bills added up over the deadlines, so no two screens give two numbers for one pile.
 #
@@ -12,7 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import staff6_lib as L
 
 R = L.Results()
-LINE = re.compile(r'^(\d+) of (?:your|your coalitions’|the team’s|[A-Z][a-z]+’s) bills? needs? a hearing · (none asked yet|(\d+) (?:of the (\d+) )?still to ask)(?: · |$)')
+LINE = re.compile(r'^(\d+) of (?:your|your coalitions’|the team’s|[A-Z][a-z]+’s) bills? needs? a hearing · (none asked yet|(\d+) still to ask)(?: · |$)')
 TOP = re.compile(r'(\d+) to ask · first by (?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d+/\d+')
 def dls(pg): return pg.page.evaluate("[...document.querySelectorAll('.hg-dlh .hg-dls:not(.hg-dld)')].map(e => e.innerText.replace(/\\s+/g, ' ').trim())")
 def toask(lines):
@@ -64,6 +65,10 @@ with L.browser() as B:
   pg = B.page('NT', 390, 844); pg.open('/legislators?view=ask')
   ls = dls(pg)
   R.check('390: Who to ask says "none asked yet" on the first deadline', ls and 'none asked yet' in ls[0], ls[:1])
+  dot = pg.page.evaluate("[...document.querySelectorAll('.hg-dlgo')].map(a => { const t = a.previousSibling; return t && t.nodeType === 3 && t.nodeValue.endsWith('·\\u00a0'); })")
+  R.check('390: the "·" before Bills That Need Hearings is held to the link (a no-break space)', dot and all(dot), dot)
+  rr = pg.page.evaluate("(() => { const a = document.querySelector('.hg-dlgo'), p = a.closest('.hg-dls'), r = document.createRange(); const t = a.previousSibling; r.setStart(t, t.nodeValue.length - 2); r.setEnd(t, t.nodeValue.length - 1); const d = r.getBoundingClientRect(), l = a.getClientRects()[0]; return [Math.round(d.top), Math.round(l.top)]; })()")
+  R.check('390: the "·" sits on the link\'s line', abs(rr[0] - rr[1]) <= 4, rr)
   R.check('390: no sideways scroll', pg.page.evaluate('document.documentElement.scrollWidth - innerWidth') <= 0)
   pg.close()
 

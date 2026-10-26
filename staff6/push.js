@@ -288,11 +288,6 @@ export function toAskWords(sum) {
   const n = sum?.toAsk || 0; if (!n) return '';
   return `${n} to ask${sum.firstDay ? ` · first by ${sum.firstDay}` : ''}`;
 }
-// The board's "to ask" under one deadline, said against the tab's whole pile when the pile runs past it: "16 of the 20 to
-// ask" (the tab says 20; the other 4 sit under a later deadline's heading). `total` is the pile's count (askSummary's
-// toAsk); a deadline holding the whole pile, or none of it, says plainly "16 to ask" (R-336: the tab's 20 over the board's
-// first "16 to ask" read as two numbers for one pile, A-14).
-export const toAskOf = (n, total) => n && total > n ? `${n} of the ${total} to ask` : n ? `${n} to ask` : '';
 
 // One set of counts per deadline, the board's own: the line under each deadline here (Get hearings, Legislators' Who to ask)
 // and the one line on Today and Bills (deadlineLine) are worked out by this, so no two screens give two numbers for one
@@ -490,9 +485,6 @@ const FOLD_OPEN = new Set();   // the later deadlines opened this visit (id|date
 export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, primary = true, id = 'hg', empty = null, fold = false } = {}) {
   BOARD = new Map();
   const v = viewer, items = boardItems({ scope, bills, viewer: v });
-  // The pile the Get hearings tab counts (askSummary's toAsk: every bill still to ask in this scope); Legislators' folded
-  // board and a given list of bills have no such tab.
-  const pile = !bills && !fold ? items.filter(x => x.k === 'ask').length : 0;
   if (!items.length) return empty ?? `<p class="hg-empty">${icon('circle-check')}<span>${esc(scope === 'team' ? 'No bill of the team’s is waiting for a hearing right now.' : `None of ${whoseWords(scope, v)} is waiting for a hearing right now.`)}</span></p>`;
   const dls = new Map();
   for (const x of items) { const k = x.dl.date; if (!dls.has(k)) dls.set(k, { dl: x.dl, groups: new Map(), items: [] }); const d = dls.get(k); d.items.push(x);
@@ -522,11 +514,11 @@ export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, 
     const nwd = needWords(d.items, { scope, viewer: v, day: false }), cn = nwd.c, total = cn.total, nw0 = cn.need;
     const shared = !!nwd.only;   // every bill here one teammate's: said once on this line, not on every row (A-14)
     const head = cap(deadlineWords(d.dl.label, d.dl.date, { n: total }));
-    const door = fold && di === 0 ? ` · <a class="hg-dlgo" href="#/hearings/ask?scope=${esc(scope)}">${ASK_TAB}</a>` : '';
+    const door = fold && di === 0 ? ` ·&nbsp;<a class="hg-dlgo" href="#/hearings/ask?scope=${esc(scope)}">${ASK_TAB}</a>` : '';
     // The ask part never repeats the count before it (Nate's walk 3: "16 of your bills need a hearing · 16 to ask"): when
-    // every bill here is still to ask it says "none asked yet"; otherwise how many are still to ask, "12 still to ask", and
-    // on Get hearings, when the tab's pile runs past this deadline, its share of it ("12 of the 20 still to ask", A-14).
-    const askT = !nwd.rest ? '' : cn.toAsk >= cn.need ? 'none asked yet' : toAskOf(cn.toAsk, pile).replace(/ to ask$/, ' still to ask');
+    // every bill here is still to ask it says "none asked yet"; otherwise how many are still to ask, "12 still to ask". Only
+    // this deadline's bills, never a share of the tab's total ("12 of the 20" mixed two totals: the critic, walk 3, A-14).
+    const askT = !nwd.rest ? '' : cn.toAsk >= cn.need ? 'none asked yet' : `${cn.toAsk} still to ask`;
     const subT = [nwd.head, askT, ...(fold ? [] : dlParts(cn))].filter(Boolean).join(' · ');
     const sub = `${subT ? `<p class="hg-dls">${nwParts(esc(subT))}${door}</p>` : ''}${nwd.decide ? `<p class="hg-dls hg-dld">${nwParts(esc(nwd.decide))}</p>` : ''}`;
     const gh = g => groupHTML(g, v, scope, { primary: g.key === pkey, shared }), open = groups.filter(g => !g.folded), shut = groups.filter(g => g.folded);
