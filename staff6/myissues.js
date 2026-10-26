@@ -14,8 +14,9 @@
 // Between sessions My issues is the 2027 prep list (W16, prep.js), as Nate chose for Staff v2 on 10/16.
 // Someone who owns and helps on no issue (Patti, Julie, Saya, Kris, Jess) sees their coalitions instead (v4, R-269 P7):
 // the ones they help on as rows, then the others, each with an I help switch (coalition.js).
-// v6 walk 3 (Nate 25 Oct, twelve mockups): the list is handed to myviews.js, which draws five views behind one remembered
-// switch: Coverage (the default: House and Senate bills alive and past the next deadline), Deadlines, Status, Topics and
+// v6 walk 3 (Nate 25 Oct, twelve mockups): the list is handed to myviews.js, which draws its views behind one remembered
+// switch. Walk 4 (Nate, the same day): the default is Deadlines, each issue under the deadline it must beat next with its
+// From the House | From the Senate cells (walk 3's Coverage and the column board folded into it), then Status, Topics and
 // Spreadsheet. This file keeps the page: the head, the lines above, the filter, the prep list and the coalition fallback.
 import { S, DB, DEADLINES, SESSION_OVER, hooks, esc, myIssueIds } from './data.js';
 import { diedish } from './model.js';
