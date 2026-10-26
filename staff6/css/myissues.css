@@ -49,23 +49,29 @@ body.staff6 .mi-c-care { --mi-tint: var(--v6-topic-care-wash); --mi-ink: var(--v
 body.staff6 .mi-c-family { --mi-tint: var(--v6-topic-family-wash); --mi-ink: var(--v6-topic-family-ink); }
 body.staff6 .mi-c-around { --mi-tint: var(--v6-topic-around-wash); --mi-ink: var(--v6-topic-around-ink); }
 body.staff6 .mi-c-climate { --mi-tint: var(--v6-topic-climate-wash); --mi-ink: var(--v6-topic-climate-ink); }
-body.staff6 a.mi-cov:focus-visible, body.staff6 a.mi-bc:focus-visible, body.staff6 a.mi-tcard:focus-visible, body.staff6 .mi-tlink:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 a.mi-cov:focus-visible, body.staff6 a.mi-tcard:focus-visible, body.staff6 .mi-tlink:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 body.staff6 .mi-stopped { margin-top: var(--s24); }
 
-/* ---- Coverage ---- */
-body.staff6 .mi-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s16); margin: 0 0 var(--s24); }
-body.staff6 .mi-tile { display: flex; align-items: center; gap: var(--s12); width: 100%; margin: 0; padding: var(--s16); border: 0; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); font: 400 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-body); text-align: left; }
-button.mi-tile { cursor: pointer; }
-@media (hover: hover) and (pointer: fine) { body.staff6 button.mi-tile:hover { box-shadow: var(--v6-sh2); } body.staff6 button.mi-tile:hover .mi-tw { color: var(--v6-action); } }
-body.staff6 button.mi-tile:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
-body.staff6 .mi-tk { display: inline-flex; align-items: center; gap: var(--s8); flex: none; }
-body.staff6 .mi-tn { font: 500 var(--v6-t28)/var(--v6-lh28) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
-body.staff6 .mi-dot { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--v6-pill); flex: none; }
-body.staff6 .mi-dot.full { background: var(--v6-leaf); color: #fff; } body.staff6 .mi-dot.full .ic { width: 18px; height: 18px; stroke-width: 3; }
-body.staff6 .mi-dot.half { background: linear-gradient(90deg, var(--v6-leaf) 50%, var(--v6-leaf-wash) 50%); }
-body.staff6 .mi-dot.none { background: var(--v6-wash); box-shadow: inset 0 0 0 2px var(--v6-field); }
+/* ---- Deadlines (the default, R-336 walk 4): one quiet line of counts, a heading a deadline, rows with two cells ---- */
+body.staff6 .mi-sum { margin: 0 0 var(--s16); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
+body.staff6 .mi-sumb { display: inline; min-height: 0; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: var(--v6-action); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+body.staff6 .mi-sumb:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }
+body.staff6 .mi-dhm { font-weight: 400; color: var(--v6-muted); white-space: nowrap; }
+/* on a phone the day and count take their own line under the deadline's name, without the leading dot */
+@media (max-width: 599px) { body.staff6 .mi-dhm { display: block; margin-top: 2px; font-size: var(--v6-t16); line-height: var(--v6-lh16); } body.staff6 .mi-dhd { display: none; } }
+body.staff6 .mi-grp h2:focus { outline: none; }
+body.staff6 .mi-dsec { scroll-margin-top: var(--s16); }
+/* where a bill is now, once it has crossed over: its own quiet line in the cell */
+body.staff6 .mi-cw { color: var(--v6-muted); }
+body.staff6 .mi-cl .mi-cn { font-weight: 500; }
+/* None alive: an empty slot, no fill, the label and words muted, so the eye sees the missing chamber at once (the critic, A-5:
+   the ring and the words say it, not the fill alone) */
+body.staff6 .mi-cell.no { background: transparent; }
+body.staff6 .mi-cell.no .mi-chh { color: var(--v6-muted); font-weight: 400; }
+/* the name and its marks: one wrapping row from the name's left edge, so a wrapped mark lines up under it */
+body.staff6 .mi-cov .mi-name { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); }
+body.staff6 .mi-cov .mi-name > .mi-need, body.staff6 .mi-cov .mi-name > .mi-tag { margin-left: 0; vertical-align: 0; }
 body.staff6 .mi-grp { margin-top: var(--v6-gap); }
-body.staff6 .mi-tiles + .mi-grp { margin-top: 0; }
 body.staff6 .mi-card { padding: var(--s4) var(--s16); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
 body.staff6 a.mi-cov { position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1.1fr); gap: var(--s12) var(--s16); align-items: start; padding: var(--s16) var(--s8); border-radius: var(--v6-r12); color: inherit; text-decoration: none; }
 body.staff6 a.mi-cov + a.mi-cov::before { content: ''; position: absolute; left: var(--s8); right: var(--s8); top: 0; height: 1px; background: var(--v6-hair); }
@@ -86,43 +92,11 @@ body.staff6 .mi-cl.q { color: var(--v6-muted); }
 body.staff6 .mi-cmore { font-size: var(--v6-t14); color: var(--v6-muted); }
 @media (max-width: 1100px) { body.staff6 a.mi-cov { grid-template-columns: 40px minmax(0, 1fr); } body.staff6 .mi-cells { grid-column: 2; } }
 @media (max-width: 599px) {
-  body.staff6 .mi-tiles { gap: var(--s8); margin-bottom: var(--s16); }
-  body.staff6 .mi-tile { flex-direction: column; align-items: flex-start; gap: 2px; padding: var(--s12); }
-  body.staff6 .mi-tile .mi-dot { width: 22px; height: 22px; } body.staff6 .mi-dot.full .ic { width: 14px; height: 14px; }
-  body.staff6 .mi-tn { font-size: var(--v6-t22); line-height: var(--v6-lh22); }
   body.staff6 .mi-card { padding: var(--s4) var(--s8); }
   body.staff6 a.mi-cov { grid-template-columns: 32px minmax(0, 1fr); gap: var(--s8) var(--s12); padding: var(--s12) var(--s4); }
   body.staff6 a.mi-cov > .mi-tic { width: 32px; height: 32px; } body.staff6 a.mi-cov > .mi-tic .ic { width: 18px; height: 18px; }
   body.staff6 .mi-cells { grid-column: 1 / -1; }
   body.staff6 .mi-cell { padding: var(--s8); }
-}
-
-/* ---- Deadlines (the board) ---- */
-body.staff6 .mi-past { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s24); margin: 0 0 var(--s16); padding: var(--s12) var(--s16); border-radius: var(--v6-r20); background: var(--v6-leaf-wash); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); }
-body.staff6 .mi-pastl { font-weight: 500; }
-body.staff6 .mi-pastd { display: inline-flex; align-items: center; gap: 6px; }
-body.staff6 .mi-pastd .ic { width: 18px; height: 18px; color: var(--v6-leaf); }
-body.staff6 .mi-pasts { margin-left: auto; }
-body.staff6 .mi-btabs { display: none; }
-body.staff6 .mi-board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(250px, 1fr); gap: var(--s16); align-items: start; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; padding-bottom: var(--s8); }
-body.staff6 .mi-col { scroll-snap-align: start; display: grid; gap: var(--s8); padding: var(--s12); border-radius: var(--v6-r20); background: var(--v6-wash); min-width: 0; }
-body.staff6 .mi-colh { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin: var(--s4) var(--s4) 0; font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
-body.staff6 .mi-next { padding: 0 10px; border-radius: var(--v6-pill); background: var(--v6-action-wash); font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-action); }
-body.staff6 .mi-cols { margin: 0 var(--s4) var(--s4); font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
-body.staff6 a.mi-bc { display: flex; align-items: flex-start; gap: var(--s12); padding: var(--s12); border-radius: var(--v6-r12); background: var(--v6-card); box-shadow: var(--v6-sh1); color: inherit; text-decoration: none; }
-@media (hover: hover) and (pointer: fine) { body.staff6 a.mi-bc:hover { box-shadow: var(--v6-sh2); } body.staff6 a.mi-bc:hover .mi-name { color: var(--v6-action); } }
-body.staff6 .mi-bct { min-width: 0; }
-body.staff6 .mi-bc .mi-name { font-size: var(--v6-t16); line-height: var(--v6-lh16); }
-body.staff6 .mi-empty { margin: 0; padding: var(--s12); border-radius: var(--v6-r12); background: var(--v6-card); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
-@media (max-width: 767px) {
-  body.staff6 .mi-pasts { margin-left: 0; flex-basis: 100%; }
-  body.staff6 .mi-btabs { display: flex; gap: var(--s8); overflow-x: auto; margin: 0 calc(-1 * var(--v6-gutter, 16px)) var(--s12); padding: 2px var(--v6-gutter, 16px); scrollbar-width: none; }
-  body.staff6 .mi-btabs::-webkit-scrollbar { display: none; }
-  body.staff6 .mi-btabs button { flex: none; min-height: 44px; padding: 0 16px; border: 0; border-radius: var(--v6-pill); background: var(--v6-card); box-shadow: var(--v6-sh1); font: 400 var(--v6-t16)/1.2 var(--font); color: var(--v6-ink); white-space: nowrap; cursor: pointer; }
-  body.staff6 .mi-btabs button[aria-pressed="true"] { background: var(--v6-action-wash); color: var(--v6-action); }
-  body.staff6 .mi-btabs button:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
-  body.staff6 .mi-board { grid-auto-columns: 86%; gap: var(--s12); scroll-snap-type: x mandatory; margin-right: calc(-1 * var(--v6-gutter, 16px)); padding-right: var(--v6-gutter, 16px); scrollbar-width: none; }
-  body.staff6 .mi-board::-webkit-scrollbar { display: none; }
 }
 
 /* ---- Status ---- */
@@ -218,6 +192,3 @@ body.staff6 a.mi-trow:hover .mi-trn { color: var(--v6-action); text-decoration: 
 body.staff6 a.mi-trow:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: var(--v6-r12); }
 body.staff6 a.mi-trow .mi-ln { margin: 0; }
 body.staff6 .mi-tmore { margin: var(--s4) 0 0; font-size: var(--v6-t16); color: var(--v6-body); }
-/* a deadline's plain words under its column's name */
-/* a sentence, so 16px (A-4 on v6; at 14 the board ran past the 30% small-text budget) */
-body.staff6 .mi-gloss { margin: 0 var(--s4); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }

@@ -1,12 +1,14 @@
-// My issues' five views (R-336 walk 3, Nate 25 Oct, from twelve mockups drawn on the practice copy). His goal for an issue:
-// "The goal is to get one of the bills through and having as many options as possible is key, but having at least one per
-// chamber is ideal, no more than that is necessary. Being able to understand that along with what to do next in a quick
-// glance is crucial." His picks:
-//   Coverage (the default, mockup 5 with mockup 6's health check): three counts (alive in both chambers, in one, stopped),
-//     then each issue with its one-sentence health check, its next step, and a House bills | Senate bills pair of cells
-//     that say each alive bill's place and whether it is past the next Capitol deadline. "Deadlines are crucial. If an
-//     issue has one bill that cleared the next deadline in the house but not the senate, that needs to be clear."
-//   Deadlines (mockup 1): a column per upcoming Capitol deadline, the ones already behind us ticked on top.
+// My issues' views (R-336 walk 3, Nate 25 Oct, from twelve mockups drawn on the practice copy; walk 4 the same day). His goal
+// for an issue: "The goal is to get one of the bills through and having as many options as possible is key, but having at
+// least one per chamber is ideal, no more than that is necessary. Being able to understand that along with what to do next
+// in a quick glance is crucial." His picks:
+//   Deadlines (the default, walk 4: "I've changed my mind about sorting by number of chambers that are alive. Issues should
+//     be sorted by needed deadline, and it should be easy to tell from there whether there is another bill in the other
+//     chamber that is alive or not"): one quiet line of counts, Needs you today, then a heading a deadline in date order
+//     ("Must clear Second lateral · Mon 3/30 · in 14 days · 14 issues"), each issue under the deadline it must beat next
+//     with its next step and walk 3's From the House | From the Senate cells, read against the heading (Cleared, Not yet:
+//     hearing Fri 3/20, None alive). Stopped issues last, folded. It replaces walk 3's Coverage (grouped by how many
+//     chambers are alive, with three count tiles) and the column board that was the Deadlines view.
 //   Status (mockups 7 and 8 together): Needs you · On track · Stopped, each row saying Cleared, At risk or Not yet.
 //   Topics (mockup 9): shelves by topic with big icons on soft tints and jump chips.
 //   Spreadsheet (mockup 12): one row per issue, sortable headers, Copy for Google Sheets (as Bills' spreadsheet).
@@ -34,8 +36,8 @@
 //                               so always Cleared or Not yet. Stopped: no bill on HIPHI's side still moving, or none.
 // Nothing here is amber or red: a step of the viewer's own that is late keeps its colour from steps.js (shownStatus), and
 // "At risk" is a word and an icon (D3, A-5). Calm budgets (staff6_budget.py): names at 500, numbers at 500, labels 14px.
-import { S, DB, DEMO, SESSION_YEAR, esc } from './data.js';
-import { stopOf, hearingAhead, deadlineName, plainDeadlines, deadlineCalendar, gateApplies, gateName, gateGloss, whenAt, RADAR_DAYS } from './model.js';
+import { S, DB, DEMO, esc } from './data.js';
+import { stopOf, hearingAhead, deadlineName, plainDeadlines, gateGloss, whenAt, RADAR_DAYS } from './model.js';
 import { icon, iconBtn, toast } from './ui.js';
 import { plural } from './lists.js';
 import { numWords, dayWords, committeeName, nw } from './steps.js';
@@ -126,11 +128,11 @@ function nextOf(j) {
   const { hp, ask, D, kind, x } = j;
   if (kind === 'stopped') return null;
   if (hp) return { ic: hp.ic, html: hp.tone ? `<span class="i6-p1 t-${hp.tone}">${hp.html}</span>` : hp.html, text: hp.text, tone: hp.tone, you: !!(hp.you && (hp.soon || hp.late || hp.tone)) };
-  if (ask.length) { const t = `Get ${names(ask.map(y => y.b))} a hearing by ${dayWords(D.date)}`; return { ic: 'calendar-plus', html: nw(esc(t)), text: t }; }
+  if (ask.length) { const t = `Get ${names(ask.map(y => y.b))} a hearing by ${dayWords(D.date)}`; return { ic: 'calendar-plus', html: nw(esc(t)), text: t, ask: `${names(ask.map(y => y.b))} a hearing` }; }
   if (kind === 'oppose') return null;
   const later = j.bills.map(y => y.dl).filter(d => d && (!D || d.date > D.date || j.dstate !== 'cleared')).sort((a, b) => a.date.localeCompare(b.date))[0] || D;
   const t = later ? `Nothing to do yet: next deadline ${dayWords(later.date)}` : 'Nothing to do yet';
-  return { ic: 'eye', html: nw(esc(t)), text: t, quiet: true };
+  return { ic: 'eye', html: nw(esc(t)), text: t, quiet: true, at: later?.date || null };
 }
 // Cleared / At risk / Not yet for the next deadline, with the reason (mockup 8).
 function deadlineLine(j) {
@@ -160,12 +162,15 @@ const catOf = i => (S.categories || []).find(c => c.key === i.category);
 const topicIc = (i, cls = 'mi-tic') => { const c = catOf(i); return `<span class="${cls} mi-c-${esc(i.category || 'none')}" aria-hidden="true">${icon(c?.icon || 'tag')}</span>`; };
 
 // ---- the switch (remembered for the person) ----
-export const VIEWS = [['cover', 'Coverage', 'scale'], ['deadlines', 'Deadlines', 'flag'], ['status', 'Status', 'list-checks'], ['topics', 'Topics', 'tag'], ['sheet', 'Spreadsheet', 'table-2']];
+// Walk 4 (Nate): the default sorts by deadline and keeps the chamber cells, so it covers both Coverage and the old
+// Deadlines board; one fewer tab. A saved "cover" (walk 3's default) lands on it (OLD).
+export const VIEWS = [['deadlines', 'Deadlines', 'flag'], ['status', 'Status', 'list-checks'], ['topics', 'Topics', 'tag'], ['sheet', 'Spreadsheet', 'table-2']];
+const OLD = { cover: 'deadlines' };
 const VKEY = () => `hiphi6_miview_${S.me?.id || ''}${DEMO ? '_demo' : ''}`;
 export function viewNow() {
   const who = S.me?.id || '', st = (S.miView ??= {});
   if (st.for !== who) { let m = S.me?.prefs?.myIssuesView; if (!m) { try { m = localStorage.getItem(VKEY()); } catch { m = null; } }
-    st.v = VIEWS.some(([k]) => k === m) ? m : 'cover'; st.for = who; }
+    m = OLD[m] || m; st.v = VIEWS.some(([k]) => k === m) ? m : 'deadlines'; st.for = who; }
   return st.v;
 }
 export function setViewNow(m) {
@@ -193,11 +198,10 @@ export function bodyHTML(list, { q = '', opts = {} } = {}) {
   if (q.trim()) return searchHTML(list, q, opts);
   const js = list.map(judge);
   switch (viewNow()) {
-    case 'deadlines': return deadlinesHTML(js);
     case 'status': return statusHTML(js, opts);
     case 'topics': return topicsHTML(js);
     case 'sheet': return sheetHTML(js);
-    default: return coverHTML(js, opts);
+    default: return deadlinesHTML(js, opts);
   }
 }
 const sortUrgent = l => [...l].sort((a, b) => (a.needs ? 0 : 1) - (b.needs ? 0 : 1) || byUrgency(a.x, b.x));
@@ -206,37 +210,70 @@ const stoppedFold = (l, opts, title = 'Stopped') => l.length ? `<details class="
 export const counts = js => ({ both: js.filter(j => j.kind === 'both').length, one: js.filter(j => j.kind === 'one').length, stopped: js.filter(j => j.kind === 'stopped').length,
   none: js.filter(j => j.kind === 'stopped' && j.x.state === 'none').length, oppose: js.filter(j => j.kind === 'oppose').length });
 
-// ---- Coverage (the default) ----
-// A bill's state in a few words, for a cell (the critic: one line a bill; the health sentence is the one place the deadline
-// is put in words, and where each bill is now lives on the issue page and in the Spreadsheet).
-function billShort(y, D) {
+// ---- Deadlines (the default, R-336 walk 4) ----
+// Nate, walk 4: "Issues should be sorted by needed deadline, and it should be easy to tell from there whether there is
+// another bill in the other chamber that is alive or not." So the issues stand under the deadline each must beat next (D,
+// issuestand.js standOf's own `deadline`: the one place that rule lives), one heading a deadline in date order, and each
+// row keeps the two chamber cells, read against its heading: Cleared, Not yet (and what it still needs), or None alive.
+// A bill's state in a few words for a cell, without the deadline (the heading says it once).
+function billShort(y) {
   const { st } = y;
   if (st.phase === 'law') return 'law';
   if (st.phase === 'governor' || st.phase === 'ballot') return 'passed the Legislature';
-  if (D && y.past) return `past ${dn(D)}`;
   if (st.phase === 'committee') {
     if (st.hearingState === 'scheduled') { const w = whenAt(st.hearing.scheduled_at).split(' ')[0]; return `hearing ${/^(today|tomorrow)$/.test(w) ? w : dayWords(st.hearing.scheduled_at)}`; }
     if (st.hearingState === 'held') return 'heard, waiting for the vote';
-    if (st.hearingState === 'decided') return /passed/.test(st.decided || '') ? 'passed its committee' : 'decided';
+    if (st.hearingState === 'decided') return /passed/.test(st.decided || '') ? 'passed a committee' : 'decided';
     return 'needs a hearing';
   }
   if (st.phase === 'floor') return 'needs a floor vote';
   if (st.phase === 'conference') return 'in conference';
   return '';
 }
-// A cell (mockup 5's shape): a glyph and "From the House" (where its bills started), then one line a bill. The glyph: a tick
-// on green when a bill from that chamber is past the next deadline, a teal dot when one is alive, a grey ring when none is;
-// the words beside it say the same (A-5).
-function cellHTML(j, c) {
-  const l = c === 'H' ? j.H : j.S, g = c === 'H' ? j.goneH : j.goneS, st = !l.length ? 'no' : l.some(y => y.past) ? 'ok' : 'on';
-  const head = `<span class="mi-chh"><span class="mi-gl ${st}" aria-hidden="true">${st === 'ok' ? icon('check') : ''}</span>From the ${CH[c]}</span>`;
-  if (!l.length) return `<div class="mi-cell no">${head}<span class="mi-cl q">${g.length ? `None alive, ${g.length} stopped` : `None in ${SESSION_YEAR}`}</span></div>`;
-  const shown = l.slice(0, 2), more = l.length - shown.length;
-  return `<div class="mi-cell ${st}">${head}${shown.map(y => `<span class="mi-cl"><span class="mi-cn">${esc(num(y.b))}</span> ${esc(billShort(y, j.D))}</span>`).join('')}${more ? `<span class="mi-cmore">and ${plural(more, 'more bill')}</span>` : ''}</div>`;
+// The bill against the heading's deadline: "Cleared" (past it: racing a later one, or through the Legislature), "Not yet:
+// hearing Fri 3/20" (still racing it), else its state alone (no deadline ahead, or one sooner than the heading's).
+function billState(y, D) {
+  if (D && y.past) return 'Cleared';
+  const s = billShort(y);
+  if (D && y.dl?.date === D.date) return s ? `Not yet: ${s}` : 'Not yet';
+  return s ? s[0].toUpperCase() + s.slice(1) : '';
 }
-function covItem(j) {
+// Where the bill is now, only once it has left the chamber it started in: "From the House" is where it started (HB), and by
+// mid-March every live bill has crossed over (the coordinator's note), so the cell adds "now in the Senate". The chamber
+// alone, not its committees: a bill sent to two committees named them both and ran to three lines in a phone's cell (the
+// issue page names them). Conference and the Governor's desk in whereNow's words.
+function whereLine(y, c) {
+  const { st } = y;
+  if (st.phase === 'committee' || st.phase === 'floor') return st.chamber && st.chamber !== c ? `now in the ${CH[st.chamber]}` : '';
+  return st.phase === 'conference' ? 'being settled by both chambers' : st.phase === 'governor' ? whereNow(st) : '';
+}
+// A cell: a glyph and "From the House", then one line a bill (two at most). The glyph: a tick on green when a bill from that
+// chamber cleared the heading's deadline, a teal dot when one is alive, a grey ring when none is; the words say the same
+// (A-5: never colour alone), so a missing backup bill reads plainly as a ring and "None alive".
+function cellHTML(j, c) {
+  const l = c === 'H' ? j.H : j.S, st = !l.length ? 'no' : l.some(y => y.past) ? 'ok' : 'on';
+  const head = `<span class="mi-chh"><span class="mi-gl ${st}" aria-hidden="true">${st === 'ok' ? icon('check') : ''}</span>From the ${CH[c]}</span>`;
+  if (!l.length) return `<div class="mi-cell no" data-cell="${c}">${head}<span class="mi-cl q">None alive</span></div>`;
+  // One bill a cell, the furthest along (a cleared one first), so a cell stays one or two lines (the critic, C-14 on v6).
+  const shown = [...l].sort((a, b) => (b.past ? 1 : 0) - (a.past ? 1 : 0)).slice(0, 1), more = l.length - shown.length;
+  return `<div class="mi-cell ${st}" data-cell="${c}">${head}${shown.map(y => { const w = whereLine(y, c);
+    return `<span class="mi-cl"><span class="mi-cn">${esc(num(y.b))}</span> · ${esc(billState(y, j.D))}${w ? `<span class="mi-cw"> · ${esc(w)}</span>` : ''}</span>`; }).join('')}${more ? `<span class="mi-cmore">and ${plural(more, 'more bill')}</span>` : ''}</div>`;
+}
+// A row: the topic icon, the name with its marks, the next step, and the two cells. No health sentence here: the heading
+// says the deadline and the cells say each chamber, so a third line would only repeat them (C-14 on v6: fewer lines).
+// Under a heading the step drops the heading's own date ("Get HB 1880 a hearing", "Nothing to do yet"): the deadline is
+// put in words once (the critic). At risk (issuestand.js's meaning, judge's dstate) leads the step line in a word and its
+// icon, so a row carries one mark, "Needs you", and never colour alone (D3, A-5).
+function stepUnder(j, under) {
+  const nx = j.next; if (!nx) return null;
+  if (nx.quiet && under && nx.at === under) return { ...nx, html: '', text: 'Nothing to do yet' };
+  if (!nx.ask) return nx;
+  const t = `${j.dstate === 'risk' ? 'At risk: get' : 'Get'} ${nx.ask}${under ? '' : ` by ${dayWords(j.D.date)}`}`;
+  return { ...nx, ic: j.dstate === 'risk' ? 'triangle-alert' : nx.ic, html: nw(esc(t)), text: t };
+}
+function covItem(j, under) {
   return `<a class="mi-cov" href="${href(j.i)}" data-mirow="${esc(j.i.id)}">${topicIc(j.i)}
-    <span class="mi-cvt"><span class="mi-name">${esc(j.i.name)}${tagHTML(j)}</span>${lineSpan(j.health)}${lineSpan(j.next)}</span>
+    <span class="mi-cvt"><span class="mi-name">${esc(j.i.name)}${tagHTML(j)}</span>${lineSpan(stepUnder(j, under) || j.health)}</span>
     <span class="mi-cells">${cellHTML(j, 'H')}${cellHTML(j, 'S')}</span></a>`;
 }
 // "Needs you today" (the critic): up to three one-line rows, the issue and its step, for what is due within 24 hours.
@@ -248,62 +285,43 @@ function todayHTML(js) {
   return `<section class="mi-today" aria-labelledby="mi-today-h"><h2 class="mi-todayh" id="mi-today-h">${icon('hand')}Needs you today</h2>
     ${l.slice(0, 3).map(row).join('')}${l.length > 3 ? `<p class="mi-tmore">${esc(`and ${l.length - 3} more due today, each marked Needs you below`)}</p>` : ''}</section>`;
 }
-function coverHTML(js, opts) {
-  const n = counts(js), both = sortUrgent(js.filter(j => j.kind === 'both')), one = sortUrgent(js.filter(j => j.kind === 'one'));
-  const opp = sortUrgent(js.filter(j => j.kind === 'oppose')), stop = js.filter(j => j.kind === 'stopped').sort((a, b) => a.i.name.localeCompare(b.i.name));
-  // Each count is a way to its group (the critic): Stopped opens its fold. A count of 0 has nowhere to go, so it is text.
-  const tile = (go, mark, k, words) => { const inner = `<span class="mi-tk">${mark}<span class="mi-tn">${k}</span></span><span class="mi-tw">${words}</span>`;
-    return k ? `<button type="button" class="mi-tile" data-migo="${go}">${inner}</button>` : `<p class="mi-tile">${inner}</p>`; };
-  const grp = (id, t, sub, l) => l.length ? `<section class="i6-sec mi-grp" id="mi-g-${id}" aria-labelledby="mi-gh-${id}"><h2 class="i6-h" id="mi-gh-${id}">${esc(t)}</h2><p class="mi-sub">${esc(sub)}</p>
-    <div class="mi-card">${l.map(covItem).join('')}</div></section>` : '';
-  // One chamber first (the critic): those issues have one chance left, so they are where work is.
-  return `<div class="mi-tiles" role="group" aria-label="Your issues at a glance">
-      ${tile('one', '<span class="mi-dot half"></span>', n.one, 'alive in one chamber')}
-      ${tile('both', `<span class="mi-dot full">${icon('check')}</span>`, n.both, 'alive in both chambers')}
-      ${tile('stopped', '<span class="mi-dot none"></span>', n.stopped, n.none ? 'stopped or no bill yet' : 'stopped this session')}
-    </div>
+// Inside a heading: what needs your hand first, soonest due first (testimony due, then an At risk deadline: dueAt), because
+// that is what someone opening the page came to do; then the issues not past the deadline yet (they can still die on it),
+// then the cleared ones (safe whatever happens on that day); then by name, so a long heading stays findable and steady.
+const RANK = j => j.needs ? 0 : j.dstate === 'cleared' ? 2 : 1;
+const inHeading = l => [...l].sort((a, b) => RANK(a) - RANK(b) || (a.needs ? a.dueAt - b.dueAt : 0) || a.i.name.localeCompare(b.i.name));
+// The heading's deadline by name for owners and admins ("Must clear Second lateral"), by its day for someone who owns no
+// bills (C-15 on v6, as dn does); its day, how far off and how many issues ride after it, quiet.
+function deadlineSec(D, l, k) {
+  const id = `mi-d-${k}`, days = Math.max(0, daysTo(D.date));
+  const t = PLAIN() ? `Must clear the ${dayWords(D.date)} deadline` : `Must clear ${deadlineName(D)}`;
+  const meta = [PLAIN() ? '' : dayWords(D.date), days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`, plural(l.length, 'issue')].filter(Boolean).join(' · ');
+  return `<section class="i6-sec mi-grp mi-dsec" id="${id}" data-dl="${esc(D.date)}" aria-labelledby="${id}-h"><h2 class="i6-h mi-dh" id="${id}-h">${esc(t)} <span class="mi-dhm"><span class="mi-dhd" aria-hidden="true">· </span>${esc(meta)}</span></h2>
+    ${glossOf(D) ? `<p class="mi-sub">${esc(glossOf(D))}.</p>` : ''}<div class="mi-card">${inHeading(l).map(j => covItem(j, D.date)).join('')}</div></section>`;
+}
+const plainSec = (id, t, sub, l) => l.length ? `<section class="i6-sec mi-grp" id="mi-g-${id}" aria-labelledby="mi-gh-${id}"><h2 class="i6-h" id="mi-gh-${id}">${esc(t)} <span class="mi-dhm"><span class="mi-dhd" aria-hidden="true">· </span>${esc(plural(l.length, 'issue'))}</span></h2>${sub ? `<p class="mi-sub">${esc(sub)}</p>` : ''}
+    <div class="mi-card">${inHeading(l).map(j => covItem(j, null)).join('')}</div></section>` : '';
+function deadlinesHTML(js, opts) {
+  const n = counts(js), live = js.filter(j => j.alive && j.kind !== 'oppose'), opp = js.filter(j => j.kind === 'oppose');
+  const stop = js.filter(j => j.kind === 'stopped').sort((a, b) => a.i.name.localeCompare(b.i.name));
+  const byDate = new Map();
+  for (const j of live.filter(j => j.D)) { const g = byDate.get(j.D.date) || { D: j.D, l: [] }; g.l.push(j); byDate.set(j.D.date, g); }
+  const groups = [...byDate.values()].sort((a, b) => a.D.date.localeCompare(b.D.date));
+  const rest = live.filter(j => !j.D);
+  // One quiet line in place of the three count tiles (Nate, walk 4: calm and roomy, fewer things a screen); "11 stopped"
+  // still opens its fold (the walk 3 critic: a count is a way to its group).
+  const facts = [plural(js.length, 'issue'), n.both ? `${n.both} alive in both chambers` : '', n.one ? `${n.one} in one` : '', n.oppose ? `${n.oppose} HIPHI opposes` : ''].filter(Boolean);
+  const stopWords = n.none ? `${n.stopped} stopped or no bill yet` : `${n.stopped} stopped`;
+  const sum = `<p class="mi-sum">${esc(facts.join(' · '))}${n.stopped ? ` · <button type="button" class="mi-sumb" data-migo="stopped">${esc(stopWords)}</button>` : ''}</p>`;
+  const foldTitle = n.none ? `${n.stopped} stopped or with no bill yet` : `${n.stopped} stopped this session`;
+  return `${sum}
     ${todayHTML(js)}
-    ${grp('one', 'One chamber', 'Only bills that started in one chamber are still alive: one chance left.', one)}
-    ${grp('both', 'Both chambers', 'A bill that started in the House and one that started in the Senate are still alive: two chances.', both)}
-    ${grp('opp', 'HIPHI opposes', 'Here HIPHI wants the bills to stop.', opp)}
-    ${!both.length && !one.length && !opp.length ? `<p class="i6-quiet">None of your issues has a bill moving now.</p>` : ''}
-    ${stoppedFold(stop, opts)}`;
-}
-
-// ---- Deadlines (the board) ----
-const MAIN = new Set(['first_lateral', 'first_decking', 'first_crossover', 'second_lateral', 'second_decking', 'second_crossover']);
-function boardOf(js) {
-  const live = js.filter(j => j.alive), bills = live.flatMap(j => j.bills.map(y => y.b)), now = Date.now();
-  const cal = deadlineCalendar().filter(g => gateApplies(g, bills) && !['introduced', 'governor'].includes(g.phase));
-  const nameOf = g => gateName(g), seen = new Set(), past = [];
-  for (const g of cal.filter(g => endOf(g.date) < now)) { const n = nameOf(g); if (!seen.has(n)) { seen.add(n); past.push({ name: n, date: g.date }); } }
-  const cols = [], byDate = new Map();
-  for (const g of cal.filter(g => endOf(g.date) >= now)) {
-    if (byDate.has(g.date)) continue;
-    const l = live.filter(j => j.D?.date === g.date), main = MAIN.has(g.phase) || (g.phase === 'conference' && /final/i.test(g.label));
-    if (!l.length && !main) continue;
-    const col = { name: nameOf(g), date: g.date, label: g.label, gloss: glossOf(g), l: sortUrgent(l) }; byDate.set(g.date, col); cols.push(col);
-  }
-  const rest = live.filter(j => !j.D || !byDate.has(j.D.date));
-  if (rest.length) cols.push({ name: 'No committee deadline ahead', date: null, l: sortUrgent(rest) });
-  return { past, cols, live };
-}
-function boardCard(j, col) {
-  const others = col.date ? j.bills.filter(y => y.past) : [];
-  const racing = col.date ? j.bills.filter(y => y.dl?.date === col.date) : j.bills;
-  const facts = [racing.length ? `${names(racing.map(y => y.b))} ${racing.length === 1 ? 'races' : 'race'} it` : '', others.length ? `${names(others.map(y => y.b))} already past it` : ''].filter(Boolean).join('; ');
-  return `<a class="mi-bc" href="${href(j.i)}" data-mirow="${esc(j.i.id)}">${topicIc(j.i, 'mi-tic sm')}<span class="mi-bct"><span class="mi-name">${esc(j.i.name)}${tagHTML(j)}</span>
-    ${others.length ? lineSpan({ ic: 'circle-check', tone: 'done', text: `Cleared: ${names(others.map(y => y.b))} already past it` }) : j.next?.quiet || !j.next ? lineSpan({ ic: 'circle-dot', text: facts || j.health.text }) : ''}${lineSpan(j.next)}</span></a>`;
-}
-function deadlinesHTML(js) {
-  const { past, cols, live } = boardOf(js), stopped = js.length - live.length;
-  const first = cols.find(c => c.date);
-  return `<div class="mi-past">${past.length ? `<span class="mi-pastl">Behind us</span>${past.map(p => `<span class="mi-pastd">${icon('circle-check')}${esc(p.name)} <span class="mi-q">${esc(dayWords(p.date))}</span></span>`).join('')}` : ''}
-      <span class="mi-pasts">${esc(`${live.length} of ${plural(js.length, 'issue')} still alive`)}${stopped ? `, ${stopped} stopped` : ''}</span></div>
-    ${cols.length > 1 ? `<div class="mi-btabs" role="group" aria-label="Go to a deadline">${cols.map((c, k) => `<button type="button" data-micol="${k}" aria-pressed="${k === 0}">${esc(c.name)} <span class="mi-q">${c.l.length}</span></button>`).join('')}</div>` : ''}
-    <div class="mi-board" data-miboard>${cols.map((c, k) => `<section class="mi-col" data-colk="${k}" aria-labelledby="mi-col-${k}"><h2 class="mi-colh" id="mi-col-${k}">${esc(c.name)}${c === first ? '<span class="mi-next">Next</span>' : ''}</h2>
-      ${c.gloss ? `<p class="mi-gloss">${esc(c.gloss)}</p>` : ''}<p class="mi-cols">${c.date ? esc(`${dayWords(c.date)} · in ${plural(Math.max(0, daysTo(c.date)), 'day')} · ${plural(c.l.length, 'issue')}`) : esc(plural(c.l.length, 'issue'))}</p>
-      ${c.l.length ? c.l.map(j => boardCard(j, c)).join('') : '<p class="mi-empty">No issue waits on this deadline yet. Issues move here as their bills clear the ones before.</p>'}</section>`).join('')}</div>`;
+    ${groups.map((g, k) => deadlineSec(g.D, g.l, k)).join('')}
+    ${plainSec('rest', 'No committee deadline ahead', 'Through their committees: floor votes, conference or the Governor next.', rest)}
+    ${plainSec('opp', 'HIPHI opposes', 'Here HIPHI wants the bills to stop.', opp)}
+    ${!live.length && !opp.length ? `<p class="i6-quiet">None of your issues has a bill moving now.</p>` : ''}
+    ${stop.length ? `<details class="i6-fold mi-stopped" id="mi-g-stopped" data-fold="mi-stopped"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${esc(foldTitle)}</span></summary>
+      <div class="v6-list i6-list" role="list">${stop.map(j => rowOf(j.x, { from: 'mine', tags: opts.tagsOf ? opts.tagsOf(j.x) : [] })).join('')}</div></details>` : ''}`;
 }
 
 // ---- Status: Needs you · On track · Stopped, each with Cleared / At risk / Not yet ----
@@ -400,16 +418,6 @@ export function wireBody(root, { paint }) {
     const f = g.querySelector('h2') || g.querySelector('summary'); if (f) { if (f.tagName === 'H2') f.setAttribute('tabindex', '-1'); f.focus({ preventScroll: true }); } });
   body.querySelectorAll('[data-mijump]').forEach(b => b.onclick = () => { const t = body.querySelector(`#mi-t-${CSS.escape(b.dataset.mijump)}`);
     if (t) { t.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); t.querySelector('h2')?.setAttribute('tabindex', '-1'); t.querySelector('h2')?.focus({ preventScroll: true }); } });
-  // The board: the tabs scroll to their column; scrolling the board marks the column in view (a phone's swipe).
-  const board = body.querySelector('[data-miboard]'), tabs = [...body.querySelectorAll('[data-micol]')];
-  if (board && tabs.length) {
-    const mark = k => tabs.forEach(t => t.setAttribute('aria-pressed', String(+t.dataset.micol === k)));
-    tabs.forEach(t => t.onclick = () => { const col = board.querySelector(`[data-colk="${t.dataset.micol}"]`); if (!col) return;
-      board.scrollTo({ left: col.offsetLeft - board.offsetLeft, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); mark(+t.dataset.micol); });
-    let tick = 0; board.addEventListener('scroll', () => { cancelAnimationFrame(tick); tick = requestAnimationFrame(() => {
-      const cols = [...board.querySelectorAll('[data-colk]')], x = board.scrollLeft + board.offsetLeft;
-      const k = cols.reduce((best, c) => Math.abs(c.offsetLeft - x) < Math.abs(best.offsetLeft - x) ? c : best, cols[0]); if (k) mark(+k.dataset.colk); }); }, { passive: true });
-  }
 }
 export function wireSwitch(root, { paint }) {
   const pick = v => { setViewNow(v); root.querySelectorAll('[data-miview]').forEach(o => o.setAttribute('aria-pressed', String(o.dataset.miview === v)));
