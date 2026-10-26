@@ -24,6 +24,8 @@ import { issuesOfBill } from './issues.js';
 import { headHTML as tabsHead, rememberRow, restoreRow, numNb } from './issuestand.js';
 import { isPos, byPri, waitingOfBills } from './standing.js';
 import { itemRow, billStep, shownStatus, testimonyState, goingWords, committeeName, numWords, nameWords, dayWords, nw } from './steps.js';
+import { cardHTML, picHTML, monogram, groupHTML, restoreCard, topicIcons } from './issuegrid.js';   // R-336 walk 3: the index as cards
+import { ICONS } from '../icons.js';
 
 const WEEK = 7 * 864e5, FOLD = 6;
 const DESK = () => { try { return matchMedia('(min-width: 1100px)').matches; } catch { return false; } };
@@ -116,7 +118,7 @@ export function coalRow(c, { button = '' } = {}) {
 // The I help switch: a toggle button (aria-pressed), the one control a row may carry (D16), on every coalition its owner is
 // not (the owner has its work on Today already). Its name stays "I help" either way (WCAG 2.5.3); pressed, it shows a check.
 export const helpBtn = (c, on = supports(c)) => btn('I help', { kind: 'secondary', sm: true, icon: on ? 'check' : 'user-plus', cls: 'co6-help',
-  attrs: { 'data-misup': c.id, 'aria-pressed': String(on), 'aria-label': `I help on ${c.name}` } });
+  attrs: { 'data-misup': c.id, 'aria-pressed': String(on), 'aria-label': `I help on ${c.name}`, title: 'Adds you as a helper: its bills show on your Today' } });
 // This visit's switches: a coalition switched here stays in the section it was in until the next visit, showing its new
 // state, so the row under the pointer never changes (the critic: pressing I help moved the row up and slid the next one's
 // I help under the pointer). A visit is this history entry; a redraw keeps it, arriving again starts afresh.
@@ -151,10 +153,38 @@ export function helpLineHTML() {
     return `<a href="${esc(coalHref(c))}">${esc(c.name)}</a>${nw(esc(` · ${w}`))}`; };
   return `<p class="i6-line">${icon('users')}<span>${l.length === 1 ? 'Your coalition' : 'Your coalitions'}: ${l.map(one).join('; ')}</span></p>`;
 }
+// ---- the index as cards (R-336 walk 3, Nate: "Maybe a similar card and image sorting as well here") ----
+// The same card as All issues (issuegrid.js): the coalition's icon (campaigns.icon, set in Session setup; lists.js iconName
+// reads an emoji left from v5 too) on a soft tint, or a monogram when it has none; its short name; its full name, which
+// says what it is (X25: "HEAL" alone said nothing to Patti); its owner; and one line of its week, "6 live bills, 2 hearings
+// this week". The I help button stays on the card, outside its link (D16: the one button a card may carry), and the card is
+// otherwise one link to the coalition. Your coalitions first, then the others, in Session setup's order: with nine
+// coalitions a sort would add a control and find nothing faster (A-25), so there is none.
+const ownerLine = c => { const o = advocate(c.owner_id); return o ? (o.id === S.me?.id ? 'You own it' : `Owner: ${ownerFirst(o)}`) : 'No owner yet'; };
+const weekWords = c => { const f = facts(c); return `${f.live ? plural(f.live, 'live bill') : 'No live bills'}, ${hearWords(f.hear)}`; };
+function coalCard(c) {
+  // An icon Lucide has, or an emoji v5 kept that iconName knows; anything else gets the monogram, not iconName's stand-in.
+  // A topic's icon (HEAL's salad, CTFH's crossed-out cigarette) means that topic on All issues, so here it is a monogram.
+  const has = !!c.icon && (!!ICONS[c.icon] || iconName(c.icon) !== 'heart-pulse'), ic = has && !topicIcons().has(iconName(c.icon)) ? iconName(c.icon) : '';
+  // The full name leads ("Community Health Workers"), the short name after it, small (the critic: "CHW" alone says nothing).
+  const words = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ''), full = c.public_name || c.name, short = words(full) !== words(c.name) ? c.name : '';
+  return cardHTML({ key: c.id, href: coalHref(c), name: full, after: short, title: c.description || '', cls: 'co6-cell',
+    pic: picHTML({ ic, mono: monogram(full), tint: null }),
+    lines: [[esc(ownerLine(c)), 'ig6-desc co6-own'], [`${icon('calendar-days')}<span>${nw(esc(weekWords(c)))}</span>`, 'ig6-stat']],
+    foot: ownsCoal(c) ? '' : helpBtn(c) });
+}
+export function coalCardsHTML({ yoursTitle = '' } = {}) {
+  const all = (S.campaigns || []).slice().sort(byOrder), st = stays();
+  const isMine = c => st.has(c.id) ? st.get(c.id) : supports(c) || ownsCoal(c);
+  const mine = all.filter(isMine), rest = all.filter(c => !isMine(c));
+  const sec = (id, title, l) => groupHTML({ id, title, inner: l.map(c => coalCard(c)).join('') });
+  return `<div class="ig6-groups co6-groups">${mine.length ? sec('co6-yh', yoursTitle || (mine.length === 1 ? 'Your coalition' : 'Your coalitions'), mine) : ''}
+    ${rest.length ? sec('co6-oh', mine.length ? 'Other coalitions' : 'Coalitions', rest) : ''}</div>`;
+}
 function indexHTML() {
   const v = pref(), list = (S.campaigns || []).slice().sort(byOrder), head = tabsHead('coalitions');
   if (!list.length) return `<div class="le-page co6-index">${head}<div class="le-empty">${empty({ title: 'No coalitions yet', text: 'An admin adds them in Session setup.', action: S.me?.is_admin ? btn('Open Session setup', { href: '#/setup/coalitions' }) : '' })}</div></div>`;
-  return `<div class="le-page co6-index">${head}${coalSectionsHTML({ yoursTitle: v === 'all' ? 'You help on every coalition' : '' })}</div>`;
+  return `<div class="le-page co6-index">${head}${coalCardsHTML({ yoursTitle: v === 'all' ? 'You help on every coalition' : '' })}</div>`;
 }
 
 // ============================================================================================ one coalition
@@ -379,7 +409,7 @@ export default {
     return pageHTML(c);
   },
   wire(route, app) {
-    if (!route.id) { wireHelpBtns(app); restoreRow(app); return; }
+    if (!route.id) { wireHelpBtns(app); restoreCard(app); return; }
     const c = coalById(route.id), root = app.querySelector('.co6-page'); if (!c || !root) return;
     rememberRow(c.id);
     const sw = root.querySelector('#co-sup'); if (sw) sw.onchange = () => setSupport(c, sw.checked);

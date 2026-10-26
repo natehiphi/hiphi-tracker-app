@@ -4,9 +4,9 @@
 //     askBoard, drawn here since the integration: one board, so the two doors never disagree, X7; holding.js's own board
 //     below is kept only as the fallback should askBoard fail). Mine · My coalitions · Team is a visible switch, the same as Hearings'.
 //     Each chair carries ONE email button: the viewer's own asks with them, to them alone, named by bill (V24).
-//   Everyone (?view=everyone): the directory as a grid of photo cards, one chamber at a time (a House | Senate switch,
-//     remembered per person), grouped by island, A to Z or by committee (Sort); each card a photo, the name, the district
-//     and one line of what they hold of ours. With the "Hearing our bills this week" preset (F142, v5's This week view) and
+//   Everyone (?view=everyone): the directory as a grid of photo cards, both chambers or one (an All | House | Senate
+//     switch, All first, remembered per person), grouped by island, A to Z or by committee (Sort); each card a photo, the
+//     name, the district, its main towns and one line of what they hold of ours. With the "Hearing our bills this week" preset (F142, v5's This week view) and
 //     the Filter sheet (island, committee, and Cares about on the practice copy, R-335). j and k walk the cards. Between
 //     sessions #/legislators opens here (P10).
 //   Holding our bills (?view=holding): the compact view of the same board, one row per chair (holding.js, F139, F141),
@@ -181,8 +181,8 @@ function askHTML(v) {
 
 // ---- Everyone: the directory as a grid of faces (F142, F144; R-336 walk 2, Nate: "can this be better organized? Profile
 // pictures, easy to identify. Not one big long list?") ----
-// One chamber at a time (the House | Senate switch, remembered per person), grouped by island in Hawaiʻi's district order
-// (Hawaiʻi Island, Maui County, Oʻahu, Kauaʻi, Nate's order), A to Z under a heading for each letter, or by
+// Both chambers or one (the All | House | Senate switch, All first, remembered per person), grouped by island (Hawaiʻi
+// Island, Maui County, Kauaʻi, Oʻahu, Nate's order), A to Z under a heading for each letter, or by
 // committee (the chair first, then the vice chair, then members; a legislator appears under each committee they sit on),
 // with a row of jump chips, one per group, over them.
 // Each card is one link: a large photo, the name, the district (and the island, unless the group's heading already says
@@ -208,38 +208,66 @@ function cardLine(l, week) {
 }
 // Hawaiʻi has a Kailua on Oʻahu and a Kailua-Kona on Hawaiʻi Island, so the island tells two towns apart (F143).
 const islandWords = l => { const i = islandFor(l); return i === 'Hawaiʻi' ? 'Hawaiʻi Island' : i === 'Maui' ? 'Maui County' : i; };
-const ISLAND_ORDER = ['Hawaiʻi', 'Maui', 'Oʻahu', 'Kauaʻi'];
+// Nate's order (R-336 walk 3: "Kauai should be listed between Maui and Oahu"): the neighbour islands south-east to
+// north-west, then Oʻahu, the biggest group, last.
+const ISLAND_ORDER = ['Hawaiʻi', 'Maui', 'Kauaʻi', 'Oʻahu'];
+// The district's main towns for the card (R-336 walk 3, Nate: "The main neighborhoods should be listed on each legislators
+// card"): the first three the Capitol lists, each whole ("Portions of Keaʻau and Kurtistown" is two towns), a name too long
+// for a phone card's line left out rather than cut. Typed with the Capitol's ‘ or ' for the ʻokina; shown with the ʻokina.
+const okina = t => t.replace(/(^|[\s\p{L}])['‘’](?=\p{L})/gu, '$1ʻ');
+const PORTION = /^(a\s+)?portions?\s+of\s+/i;
+const townsOf = l => String(l.places || '').split(/,\s*/).flatMap(x => { const t = x.trim().replace(/^and\s+/i, '');
+  return PORTION.test(t) ? t.replace(PORTION, '').split(/\s+and\s+/) : [t]; }).map(x => okina(x.trim())).filter(Boolean);
+// About what one name may take: a 390 phone's card holds 16 characters a line, a laptop's about 22.
+const townMax = () => narrow() ? 16 : 22;
+function townLine(l, q = '') {
+  const all = [...new Set(townsOf(l))]; if (!all.length) return '';
+  // A search that named a town puts it first ("Kailua"), so the card says why it was found.
+  const hits = q ? new Set(townHits(l, q).map(okina)) : new Set();
+  const order = [...all.filter(t => hits.has(t)), ...all.filter(t => !hits.has(t))];
+  const pick = order.filter(t => t.length <= townMax() || hits.has(t)).slice(0, 3);
+  const shown = pick.length ? pick : order.slice(0, 1);
+  // One line: each name is kept whole (no wrap inside it) and the line may break only between names (a zero-width space);
+  // a name that would start a second line is hidden by the line's height (legislators.css .lg6-ctw), so a narrow card shows
+  // two and a wide one three, never a name cut in half. It stays one run of text, one fact on the card. The full list is
+  // the title; a screen reader hears the names offered.
+  return `<span class="lg6-ctown" title="${esc(okina(String(l.places || '').trim()))}"><span class="sr">Covers ${esc(andList(shown))}. </span><span class="lg6-ctw" aria-hidden="true">${shown.map((t, i) => `<span>${i ? ', ' : ''}${esc(t)}</span>`).join('&#8203;')}</span></span>`;
+}
 // The card's face: the photo over its initial. The initial is drawn by CSS (legislators.css .lg6-rph::before) rather than as
 // text, so the card still reads as its name, district and one line; a photo that fails to load removes itself and the
 // initial shows (no broken image).
 const face = l => `<span class="lg6-rph lg6-cph" aria-hidden="true" data-i="${esc((l.name || '?')[0])}">${l.photo_url ? `<img class="lg-ph" src="${esc(l.photo_url)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</span>`;
-// One card. `place`: the district line (the island left out under an island heading); `line`: what they hold of ours, or
-// the towns a search matched; `full`: the name with Rep. or Sen., for a list that mixes the chambers (search results).
+// One card. `place`: the district line (the island left out under an island heading); the district's main towns (the
+// towns a search matched first); `line`: what they hold of ours; `full`: the name with Rep. or Sen., for a list that mixes
+// the chambers (All, search results).
 function personCard(l, week, { from = '', q = '', place = null, line = null, full = false, letter = '' } = {}) {
-  const towns = q ? townHits(l, q) : [];
-  const [ln, strong] = line != null ? [line, false] : towns.length ? [`Covers ${andList(towns.slice(0, 2))}${towns.length > 2 ? ' and more' : ''}`, false] : cardLine(l, week);
+  const [ln, strong] = line != null ? [line, false] : cardLine(l, week);
   const dist = place ?? [`District ${l.district}`, islandWords(l)].filter(Boolean).join(' · ');
   const name = full ? legName(l) : l.name;
   // A to Z: the first card of each letter carries the letter as a small badge in its corner and is the letter chip's target.
-  return `<div class="lg6-cell" role="listitem" data-lgrow="${l.id}"${letter ? ` id="lg6-g-${letter}"` : ''}><a class="lg6-card" href="${legHref(l)}${from ? `?from=${from}` : ''}" data-lglink="${l.id}">${letter ? `<span class="lg6-badge" aria-hidden="true">${esc(letter)}</span>` : ''}${face(l)}<span class="lg6-cname">${esc(name)}</span><span class="lg6-cdist">${nw(esc(dist))}</span>${ln ? `<span class="lg6-cline${strong ? ' strong' : ''}">${esc(ln)}</span>` : ''}</a></div>`;
+  return `<div class="lg6-cell" role="listitem" data-lgrow="${l.id}"${letter ? ` id="lg6-g-${letter}"` : ''}><a class="lg6-card" href="${legHref(l)}${from ? `?from=${from}` : ''}" data-lglink="${l.id}">${letter ? `<span class="lg6-badge" aria-hidden="true">${esc(letter)}</span>` : ''}${face(l)}<span class="lg6-cname">${esc(name)}</span><span class="lg6-cdist">${nw(esc(dist))}</span>${townLine(l, q)}${ln ? `<span class="lg6-cline${strong ? ' strong' : ''}">${esc(ln)}</span>` : ''}</a></div>`;
 }
 const grid = (inner, label, cls = '') => `<div class="lg6-grid${cls ? ' ' + cls : ''}" role="list" aria-label="${esc(label)}">${inner}</div>`;
 const cards = (ls, week, opts = {}) => ls.map(l => personCard(l, week, opts)).join('');
 // A group: its heading (22px, its count beside it in plain words when it helps), a target for its jump chip; and its grid.
 const groupOf = g => `<section class="lg6-sec6" aria-labelledby="${g.id}"><div class="lg6-sh"><h2 id="${g.id}" tabindex="-1">${esc(g.title)}</h2>${g.count ? `<span class="lg6-sn">${esc(g.count)}</span>` : ''}</div>${grid(g.inner, g.title)}</section>`;
-// ---- House | Senate: from the address (?ch=house|senate), else the person's last pick, else the Senate ----
-// The Senate is the default because it is the calmer page: its 25 senators fit about two laptop screens, the House's 52
-// about four. The pick is saved in the person's settings (prefs.lgch) and this browser, as Hearings' switches are (B-6).
+// ---- All | House | Senate: from the address (?ch=all|house|senate), else the person's last pick, else All ----
+// All is the default (R-336 walk 3, Nate: "The page should default to \"all legislators\", and could be changes to just
+// house or just senate"); a House or Senate pick saved before keeps being honoured. The pick is saved in the person's
+// settings (prefs.lgch) and this browser, as Hearings' switches are (B-6). 'A' stands for All.
 const CHKEY = () => `hiphi6_lgch_${S.me?.id || ''}`;
 const chSaved = () => { try { return localStorage.getItem(CHKEY()) || ''; } catch { return ''; } };
 async function rememberCh(ch) {
   try { localStorage.setItem(CHKEY(), ch); } catch { /* a private window: this visit only */ }
   try { await DB.patchPrefs({ lgch: ch }); } catch { /* kept for this visit */ }
 }
-const chOfWord = x => { const k = String(x || '').toLowerCase(); return k === 'h' || k === 'house' ? 'H' : k === 's' || k === 'senate' ? 'S' : ''; };
-const chamberOf = v => v.ch || (v.ch = [S.me?.prefs?.lgch, chSaved()].map(chOfWord).find(Boolean) || 'S');
-const chSwitch = v => segmented('lgch', [['H', 'House'], ['S', 'Senate']], chamberOf(v), 'Chamber');
-const whoOf = (ch, n) => ch === 'H' ? (n === 1 ? 'representative' : 'representatives') : (n === 1 ? 'senator' : 'senators');
+const chOfWord = x => { const k = String(x || '').toLowerCase(); return k === 'h' || k === 'house' ? 'H' : k === 's' || k === 'senate' ? 'S' : k === 'a' || k === 'all' ? 'A' : ''; };
+const chamberOf = v => v.ch || (v.ch = [S.me?.prefs?.lgch, chSaved()].map(chOfWord).find(Boolean) || 'A');
+const chSwitch = v => segmented('lgch', [['A', 'All'], ['H', 'House'], ['S', 'Senate']], chamberOf(v), 'Chamber');
+const whoOf = (ch, n) => ch === 'H' ? (n === 1 ? 'representative' : 'representatives') : ch === 'S' ? (n === 1 ? 'senator' : 'senators') : (n === 1 ? 'legislator' : 'legislators');
+const inCh = (l, ch) => ch === 'A' || l.chamber === ch;
+// Under an island in All: the senators first, then the representatives from a new row (see groupsOf).
+const senFirst = (a, b) => (a.chamber === 'S' ? 0 : 1) - (b.chamber === 'S' ? 0 : 1) || a.district - b.district;
 
 const SORTS = [['island', 'By island'], ['name', 'A to Z'], ['committee', 'By committee']];
 const sortOf = v => SORTS.some(x => x[0] === v.sort) ? v.sort : 'island';
@@ -248,7 +276,7 @@ const byName = (a, b) => plain(surname(a)).localeCompare(plain(surname(b))) || p
 const filtersN = v => [v.island, v.cmte, caresOn(v)].filter(Boolean).length;
 // Everyone in the chosen chamber who passes the filters and the preset, in district order.
 function everyoneList(v, week, ch = chamberOf(v)) {
-  const keep = l => l.chamber === ch && (!v.island || islandFor(l) === v.island) && (!v.cmte || seatsOf(l).some(m => m.committee === v.cmte));
+  const keep = l => inCh(l, ch) && (!v.island || islandFor(l) === v.island) && (!v.cmte || seatsOf(l).some(m => m.committee === v.cmte));
   let ls = (S.legislators || []).filter(keep);
   if (caresOn(v)) { const ids = caresIds(v.cares); ls = ls.filter(l => ids.has(l.id)); }
   if (v.week) ls = ls.filter(l => week.has(l.id));
@@ -257,45 +285,57 @@ function everyoneList(v, week, ch = chamberOf(v)) {
 // The groups for a sort, each { id, title, chip, n, count, inner }: islands in Nate's order, letters, or committees.
 const shortCm = code => committeeName(code).replace(/^(House|Senate) /, '');
 function groupsOf(v, ls, week, ch) {
-  const key = sortOf(v);
+  const key = sortOf(v), full = ch === 'A';   // All mixes the chambers: each card's name says Sen. or Rep.
   if (key === 'name') {
     const by = new Map();
     for (const l of ls.slice().sort(byName)) { const k = plain(surname(l))[0]?.toUpperCase() || '#'; if (!by.has(k)) by.set(k, []); by.get(k).push(l); }
     // One continuous grid (Nate's point: not a long list): the letters are chips and corner badges, not heading rows.
-    return [...by].map(([k, g]) => ({ id: `lg6-g-${k}`, title: k, chip: k, count: '', flow: true, inner: g.map((l, i) => personCard(l, week, { letter: i ? '' : k })).join('') }));
+    return [...by].map(([k, g]) => ({ id: `lg6-g-${k}`, title: k, chip: k, count: '', flow: true, inner: g.map((l, i) => personCard(l, week, { letter: i ? '' : k, full })).join('') }));
   }
   if (key === 'committee') {
     const ids = new Set(ls.map(l => l.id));
-    const cms = Object.values(S.committees || {}).filter(c => c.chamber === ch && (!v.cmte || c.code === v.cmte)).sort((a, b) => committeeName(a.code).localeCompare(committeeName(b.code)));
+    // In All, the House's committees and then the Senate's, each A to Z (their names begin "House " and "Senate ").
+    const cms = Object.values(S.committees || {}).filter(c => inCh(c, ch) && (!v.cmte || c.code === v.cmte)).sort((a, b) => committeeName(a.code).localeCompare(committeeName(b.code)));
     return cms.map(c => {
       const ms = (S.committeeMembers || []).filter(m => m.committee === c.code && ids.has(m.legislator_id)).map(m => [m, legById(m.legislator_id)]).filter(([, l]) => l)
         .sort(([a, la], [b, lb]) => RANK[a.role] - RANK[b.role] || byName(la, lb));
       // The role takes the island's place on the chair's and vice chair's cards; a member's card reads as anywhere else.
-      return ms.length ? { id: `lg6-g-${c.code}`, title: committeeName(c.code), chip: shortCm(c.code), count: plural(ms.length, 'member'),
-        inner: ms.map(([m, l]) => personCard(l, week, { place: m.role === 'member' ? null : `${roleWord(m.role)} · District ${l.district}` })).join('') } : null;
+      // In All a chip keeps the chamber: both have a Health committee.
+      return ms.length ? { id: `lg6-g-${c.code}`, title: committeeName(c.code), chip: full ? committeeName(c.code) : shortCm(c.code), count: plural(ms.length, 'member'),
+        inner: ms.map(([m, l]) => personCard(l, week, { full, place: m.role === 'member' ? null : `${roleWord(m.role)} · District ${l.district}` })).join('') } : null;
     }).filter(Boolean);
   }
+  // In All, each island's senators first and then its representatives, the first of them starting a new row under a small
+  // muted "Representatives" (so the gap after the senators never reads as a missing card): calmer than mixing them in
+  // district order, where Senate District 1 and House District 1 would sit side by side as two "District 1" cards. The
+  // senators need no label: they lead, every name says Sen., and the island's count names both ("4 senators, 8
+  // representatives"). The label is for the eye (aria-hidden); a screen reader hears Sen. or Rep. in each name.
   return ISLAND_ORDER.map(i => { const g = ls.filter(l => islandFor(l) === i); if (!g.length) return null;
     const t = i === 'Hawaiʻi' ? 'Hawaiʻi Island' : i === 'Maui' ? 'Maui County' : i;
-    return { id: `lg6-g-${plain(i).replace(/[^a-z]/g, '')}`, title: t, chip: t, n: g.length, count: plural(g.length, whoOf(ch, 1), whoOf(ch, 2)), inner: g.map(l => personCard(l, week, { place: `District ${l.district}` })).join('') };
+    if (full) g.sort(senFirst);
+    const nS = g.filter(l => l.chamber === 'S').length, nH = g.length - nS;
+    const count = full ? [nS ? plural(nS, 'senator') : '', nH ? plural(nH, 'representative') : ''].filter(Boolean).join(', ') : plural(g.length, whoOf(ch, 1), whoOf(ch, 2));
+    // A phone's chips say the island alone ("Hawaiʻi 12"), so all four fit 358px without sliding; the headings keep the full name.
+    return { id: `lg6-g-${plain(i).replace(/[^a-z]/g, '')}`, title: t, chip: t, short: i, n: g.length, count,
+      inner: g.map((l, k) => (full && k > 0 && l.chamber === 'H' && g[k - 1].chamber === 'S' ? '<div class="lg6-glabel" aria-hidden="true">Representatives</div>' : '') + personCard(l, week, { full, place: `District ${l.district}` })).join('') };
   }).filter(Boolean);
 }
 // The jump chips: one per group, each scrolling to its heading (critic: three screens of one sort read as a long list
 // again). They replace the caption sentence; what it said (the chamber, the count, the order) is the row's name for a
 // screen reader and the short lead before the switch. One row that slides sideways on a phone, like the page tabs.
 const jumpHTML = (gs, label) => gs.length < 2 ? '' : `<nav class="lg6-jump" aria-label="${esc(label)}"><div class="lg6-jrow">${gs.map(g =>
-  `<button type="button" class="lg6-jchip" data-lgjump="${g.id}">${esc(g.chip)}${g.n ? ` <span class="lg6-jn">${g.n}</span>` : ''}</button>`).join('')}</div></nav>`;
+  `<button type="button" class="lg6-jchip" data-lgjump="${g.id}">${g.short ? `<span class="lg6-jl">${esc(g.chip)}</span><span class="lg6-js">${esc(g.short)}</span>` : esc(g.chip)}${g.n ? ` <span class="lg6-jn">${g.n}</span>` : ''}</button>`).join('')}</div></nav>`;
 function everyoneHTML(v) {
-  const week = weekIndex(), ch = chamberOf(v), ls = everyoneList(v, week), all = (S.legislators || []).filter(l => l.chamber === ch).length;
-  const on = filtersN(v), who = whoOf(ch, ls.length), other = ch === 'H' ? 'S' : 'H';
+  const week = weekIndex(), ch = chamberOf(v), ls = everyoneList(v, week), all = (S.legislators || []).filter(l => inCh(l, ch)).length;
+  const on = filtersN(v), who = whoOf(ch, ls.length), other = ch === 'H' ? 'S' : ch === 'S' ? 'H' : '';
   const bits = [v.island ? `from ${v.island === 'Hawaiʻi' ? 'Hawaiʻi Island' : v.island === 'Maui' ? 'Maui County' : v.island}` : '', v.cmte ? `on ${committeeName(v.cmte)}` : '', caresOn(v) ? `who care about ${caresName(v)}` : ''].filter(Boolean).join(' ');
-  // With the preset on, the other chamber's count is said too, so a switch never hides who hears our bills.
-  const otherN = v.week ? everyoneList(v, week, other).length : 0;
+  // With the preset on, the other chamber's count is said too, so a switch never hides who hears our bills (All shows both).
+  const otherN = v.week && other ? everyoneList(v, week, other).length : 0;
   // The lead: who is shown, in a few words; the order is the chips' own name (and the Sort button's).
   const lead = v.week ? `${ls.length} ${who}${bits ? ' ' + bits : ''} ${ls.length === 1 ? 'hears' : 'hear'} our bills this week${otherN ? ` · ${otherN} ${whoOf(other, otherN)} too` : ''}`
     : ls.length === all && !on ? `All ${all} ${who}` : `${ls.length} ${who}${bits ? ' ' + bits : ''}`;
   const clear = on ? btn('Clear filters', { kind: 'text', sm: true, icon: 'x', attrs: { 'data-lgclear': 'filters' } }) : '';
-  const head = body => `<div class="lg6-cap lg6-chcap">${chSwitch(v)}${body}</div>`;
+  const head = body => `<div class="lg6-cap lg6-chcap">${narrow() ? '' : chSwitch(v)}${body}</div>`;
   if (!ls.length) {
     const seeOther = otherN ? btn(`See the ${other === 'H' ? 'House' : 'Senate'}`, { kind: 'secondary', attrs: { 'data-seg': 'lgch', 'data-val': other } }) : '';
     if (v.week && !on) return head('') + empty({ title: `No ${whoOf(ch, 1)} hears our bills this week`, text: otherN ? `${otherN} ${whoOf(other, otherN)} ${otherN === 1 ? 'does' : 'do'}.` : 'Nothing is scheduled in the next 7 days.', action: seeOther || btn('See everyone', { kind: 'secondary', attrs: { 'data-lgweek': '0' } }) });
@@ -303,7 +343,7 @@ function everyoneHTML(v) {
     return head('') + empty({ title: 'No one fits these filters', text: v.week ? `No ${whoOf(ch, 1)} with these filters hears our bills in the next 7 days.` : 'Try one filter fewer.', action: btn('Clear filters', { kind: 'secondary', attrs: { 'data-lgclear': 'filters' } }) });
   }
   const gs = groupsOf(v, ls, week, ch), order = sortWords(sortOf(v));
-  // The lead shows only when something narrows the list; "All 52 representatives" is what the switch already says, so it is
+  // The lead shows only when something narrows the list; "All 77 legislators" is what the switch already says, so it is
   // the chip row's name for a screen reader instead, with the order (A-14). The chips sit beside the switch on a laptop.
   const nav = jumpHTML(gs, `${lead}, ${order}${sortOf(v) === 'committee' ? ', the chair first' : ''}: go to`);
   return `${head(`${on || v.week ? `<p class="lg6-lead">${esc(lead)}</p>${clear}` : ''}${nav}`)}${nav || on || v.week ? '' : `<p class="sr">${esc(lead)}, ${esc(order)}.</p>`}<div class="lg6-groups">${gs[0]?.flow ? grid(gs.map(g => g.inner).join(''), `${lead}, A to Z`) : gs.map(groupOf).join('')}</div>`;
@@ -321,12 +361,21 @@ const toolsHTML = (tab, v) => searching(v) ? '' : tab === 'everyone' ? everyoneT
 // preset never pushes the row onto two lines. On a phone Filter sits beside the box, and the preset and Sort share the
 // next line (Sort used to move into the Filter sheet below 400px, so a 390 iPhone never saw it: critic, R-336 walk 2).
 const narrow = () => { try { return matchMedia('(max-width: 767px)').matches; } catch { return false; } };
+// Between sessions nothing is heard, so the preset is left out (one control fewer on the first screen, A-2; the All
+// choice of walk 3 took that place).
+// On a phone (the critic, walk 3: the first card began 452px down) Sort is an icon beside Filter on the find box's line,
+// and the All | House | Senate switch shares the next line with the preset, called "This week" there (its full name stays
+// its accessible name); on a laptop the switch stays over the grid, beside the jump chips.
+const UPDOWN = '<svg class="ic ic-arrow-up-down" width="1.25em" height="1.25em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg>';
 function everyoneTools(v) {
-  const sort = sortWords(sortOf(v));
+  const sort = sortWords(sortOf(v)), ph = narrow();
+  const preset = SESSION_OVER && !v.week ? '' : btn(ph ? 'This week' : 'Hearing our bills this week', { kind: 'secondary', sm: true, icon: v.week ? 'check' : 'calendar', cls: 'lg6-preset', attrs: { 'data-lgweek': v.week ? '0' : '1', 'aria-pressed': String(!!v.week), 'aria-label': ph ? 'Hearing our bills this week' : undefined } });
+  const sortB = ph ? `<button type="button" class="iconbtn lg6-sortb lg6-sorti" data-lgsort="1" aria-haspopup="dialog" aria-label="Sort, now ${esc(sort)}" title="Sort, now ${esc(sort)}">${UPDOWN}</button>`
+    : btn('Sort', { kind: 'secondary', sm: true, iconEnd: 'chevron-down', cls: 'lg6-sortb', attrs: { 'data-lgsort': '1', 'aria-haspopup': 'dialog', 'aria-label': `Sort, now ${sort}` } });
   return `<div class="lg6-tools lg6-etools" role="group" aria-label="Show">
-    ${btn('Hearing our bills this week', { kind: 'secondary', sm: true, icon: v.week ? 'check' : 'calendar', cls: 'lg6-preset', attrs: { 'data-lgweek': v.week ? '0' : '1', 'aria-pressed': String(!!v.week) } })}
+    ${ph ? '' : preset}
     ${filterBtn(filtersN(v), { 'data-lgfilter': '1' })}
-    ${btn('Sort', { kind: 'secondary', sm: true, iconEnd: 'chevron-down', cls: 'lg6-sortb', attrs: { 'data-lgsort': '1', 'aria-haspopup': 'dialog', 'aria-label': `Sort, now ${sort}` } })}
+    ${sortB}${ph ? chSwitch(v) + preset : ''}
   </div>`;
 }
 
@@ -372,7 +421,7 @@ export default {
     const box = `<form class="lg6-find" role="search" data-lgform novalidate>
         <label class="sr" for="lg-q">Find a legislator by name, town, district, committee or street address</label>
         ${icon('search')}
-        <input id="lg-q" class="input" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${narrow() ? 'Name, town or district' : 'Name, town, district or committee'}" value="${esc(v.q)}" aria-controls="lg-body">
+        <input id="lg-q" class="input" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${narrow() ? 'Name or town' : 'Name, town, district or committee'}" value="${esc(v.q)}" aria-controls="lg-body">
         ${iconBtn('x', 'Clear the search', { 'data-lgclear': 'q', hidden: !v.q }, 'lg6-x')}
       </form>`;
     return `<div class="lg6" data-lgtab="${tab}">
@@ -407,6 +456,7 @@ export default {
       const set = () => { const over = r.scrollWidth > r.clientWidth + 1; r.classList.toggle('ovf', over); r.classList.toggle('atstart', r.scrollLeft <= 1); r.classList.toggle('atend', r.scrollLeft + r.clientWidth >= r.scrollWidth - 1); };
       set(); r.addEventListener('scroll', set, { passive: true }); };
     fadeJump();
+    try { const mq = matchMedia('(max-width: 767px)'), re = () => { if (!root.isConnected) return mq.removeEventListener('change', re); paint(); }; mq.addEventListener('change', re); } catch { /* no matchMedia: laptop layout */ }
     wireLinks(root);
     ensureContacts(() => { if (root.isConnected && !document.querySelector('dialog[open]')) paint(); });
     // Back from a legislator: the row you opened has the focus again, so j and k carry on from there.
@@ -443,7 +493,7 @@ export default {
       onPick: id => { v.cares = id; paint(); root.querySelector('[data-lgfilter]')?.focus(); } });
     const pick = key => {
       const week = weekIndex(), hearing = new Set([...week.values()].flatMap(w => Object.keys(w.roles)));
-      const cmtes = Object.values(S.committees || {}).filter(c => c.chamber === chamberOf(v) && (!v.week || hearing.has(c.code) || c.code === v.cmte))
+      const cmtes = Object.values(S.committees || {}).filter(c => inCh(c, chamberOf(v)) && (!v.week || hearing.has(c.code) || c.code === v.cmte))
         .sort((a, b) => committeeName(a.code).localeCompare(committeeName(b.code)));
       const options = key === 'island' ? [['', 'Any island'], ...ISLAND_ORDER.filter(i => ISLANDS.includes(i)).map(i => [i, i === 'Hawaiʻi' ? 'Hawaiʻi Island' : i === 'Maui' ? 'Maui County' : i])]
         : [['', 'Any committee'], ...cmtes.map(c => [c.code, committeeName(c.code)])];
@@ -457,10 +507,10 @@ export default {
       const t = e.target;
       const seg = t.closest('[data-seg="lgask"]');
       if (seg) { v.ask = seg.dataset.val; paint(); return; }
-      // House | Senate: remembered for the person; a committee filter of the other chamber no longer applies.
+      // All | House | Senate: remembered for the person; a committee filter of the other chamber no longer applies.
       const chb = t.closest('[data-seg="lgch"]');
-      if (chb) { const ch = chb.dataset.val; if (ch !== chamberOf(v)) { v.ch = ch; if (v.cmte && S.committees?.[v.cmte]?.chamber !== ch) v.cmte = ''; rememberCh(ch); paint(); }
-        root.querySelector(`.lg6-chcap [data-seg="lgch"][data-val="${ch}"]`)?.focus(); return; }
+      if (chb) { const ch = chb.dataset.val; if (ch !== chamberOf(v)) { v.ch = ch; if (v.cmte && ch !== 'A' && S.committees?.[v.cmte]?.chamber !== ch) v.cmte = ''; rememberCh(ch); paint(); }
+        root.querySelector(`[data-seg="lgch"][data-val="${ch}"]`)?.focus(); return; }
       const wk = t.closest('[data-lgweek]');
       if (wk) { v.week = wk.dataset.lgweek === '1'; if (!v.week && v.sort === 'week') v.sort = ''; paint(); return; }
       if (t.closest('[data-lgfilter]')) { menuSheet({ title: 'Filter', items: [...['island', 'cmte', ...(PROFILES() ? ['cares'] : [])].map(k => ({ label: { island: 'Island', cmte: 'Committee', cares: 'Cares about' }[k], sub: FWORD[k](), icon: { island: 'map-pin', cmte: 'users', cares: 'tag' }[k], run: async () => { await afterBack(); if (k === 'cares') pickCares(); else pick(k); } }))] }); return; }

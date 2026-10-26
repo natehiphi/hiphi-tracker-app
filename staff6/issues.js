@@ -30,6 +30,7 @@ import { weekOfBills, standWeekHTML, wireWeek, billLineRow, billWords } from './
 import { standOf, markOf, bodyHTML, toolsHTML, wireTools, listBox, headHTML, rememberRow, restoreRow } from './issuestand.js';
 import { PROFILES, caresSecHTML, caresLegs } from './profile.js';   // R-335 (practice copy): "Legislators who care about this"
 import { itemRow, nw, dayWords } from './steps.js';
+import { gridBody, toolsHTML as gridTools, wireJump, fitLines, pickSort, restoreCard } from './issuegrid.js';   // R-336 walk 3: All issues as cards
 
 // Where an issue's Back goes (R-316 W16): to the prep list or the Prep board it was opened from, to My issues, else All issues.
 const backTo = route => route.q?.from === 'prep' ? { href: prepListHref(), label: 'Your issues for 2027' } : route.q?.from === 'board' ? { href: BOARD_HREF, label: 'Prep board' }
@@ -240,13 +241,15 @@ function needsSheet() {
     body: `<div class="i6-sheet"><p class="i6-quiet">Put each on an issue, so the people who follow it hear about the bill.</p>${listBox(need.map(b => billLineRow(b, { line: whyNot(b) || 'No issue yet', button: btn('Choose', { kind: 'secondary', sm: true, attrs: { 'data-ispick': b.id, 'aria-haspopup': 'dialog', 'aria-label': `Choose issues for ${billWords(b)}` } }) })).join(''))}</div>`,
     wire: d => d.querySelectorAll('[data-ispick]').forEach(el => el.onclick = async () => { const b = billById(el.dataset.ispick); if (!b) return; await closeSheet({ silent: true }); await afterClose(); openIssuePicker(b); }) });
 }
-// R-272: the same body as My issues (issuestand.js): By deadline by default, By topic with the switch (the topics folded,
-// one open at a time), and a search that matches any word a person would use. Archived issues wait in their fold.
+// R-336 walk 3 (Nate: "This needs to be the most organized ... organized like the legislator list"): a grid of cards
+// (issuegrid.js) grouped by topic by default, with jump chips and three sorts (By topic, A to Z, By next deadline: R-272's
+// order). The find box matches any word a person would use and bill numbers (issuestand.js searcher). Archived issues wait
+// in their fold, as rows: they are reference, not the list.
 function indexBody(v) {
   const t = plain(v.q.trim()), gone = (S.issues || []).filter(i => i.archived_at && (!t || plain(`${i.name} ${i.description || ''}`).includes(t))).sort(byName);
   const arch = gone.length ? `<details class="i6-fold" data-fold="arch"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>Archived (${gone.length})</span></summary>${listBox(gone.map(i => itemRow({ key: i.id, name: i.name, line: 'Archived: the public does not see it', href: '#/issue/' + encodeURIComponent(i.id), cls: 'i6-row' })).join(''))}</details>` : '';
-  const list = live().map(standOf), tagsOf = x => [isDraft(x.i) ? 'Not public yet' : '', !inFirstVisit(x.i) ? 'Not in the first visit' : ''].filter(Boolean);
-  return `${bodyHTML(list, { q: v.q, folded: true, open: v.open, tagsOf })}${arch}`;
+  const tagsOf = x => [isDraft(x.i) ? 'Not public yet' : '', !inFirstVisit(x.i) ? 'Not in the first visit' : ''].filter(Boolean);
+  return `${gridBody(live(), { q: v.q, tagsOf })}${arch}`;
 }
 const index = {
   tab: 'myissues',   // All issues is the third tab of My issues
@@ -260,7 +263,7 @@ const index = {
     const v = V();
     // New issue on the title's row (a phone: an icon button at the end of the filter line, where the title is the top bar's).
     const acts = btn('New issue', { kind: 'secondary', icon: 'plus', attrs: { 'data-is': 'new', 'aria-haspopup': 'dialog' } });
-    const phoneNew = iconBtn('plus', 'New issue', { 'data-is': 'new', 'aria-haspopup': 'dialog' }, 'i6-newic');
+    const phoneNew = btn('New', { kind: 'secondary', sm: true, icon: 'plus', cls: 'i6-newic', attrs: { 'data-is': 'new', 'aria-haspopup': 'dialog', 'aria-label': 'New issue' } });   // labelled, not a bare + (the critic)
     if (!(S.categories || []).length) return `<div class="le-page i6-page">${headHTML('all')}<div class="le-empty">${empty({ title: 'Issues are not set up yet', text: 'They arrive with migration 063. Ask Claude to load the list.' })}</div></div>`;
     // The admins' All issues · Prep board switch (F165) shows between sessions, when the prep is the work, or while an issue
     // waits for an admin; in session a November job never sits over the list (the critic). Today's line and Team link the
@@ -270,7 +273,7 @@ const index = {
       ${headHTML('all', { action: acts })}
       ${sw}
       ${needsLine()}
-      ${toolsHTML(v.q, 'is-q', { label: 'Filter all issues', extra: phoneNew })}
+      ${gridTools(v.q, { extra: phoneNew })}
       <div id="is-q-body">${indexBody(v)}</div>
     </div>`;
   },
@@ -280,322 +283,19 @@ const index = {
     const v = V();
     root.querySelectorAll('[data-is="new"]').forEach(el => el.onclick = () => openIssueForm());
     root.querySelector('[data-is="needs"]')?.addEventListener('click', needsSheet);
-    const body = root.querySelector('#is-q-body');
-    // One topic open at a time: opening one closes the one before, and the page remembers which for this visit.
-    const wireCats = () => body.querySelectorAll('.i6-catf').forEach(d => d.addEventListener('toggle', () => {
-      if (d.open) { v.open = d.dataset.cat; body.querySelectorAll('.i6-catf[open]').forEach(o => { if (o !== d) o.open = false; }); }
-      else if (v.open === d.dataset.cat) v.open = null;
-    }));
-    const paint = () => { body.innerHTML = indexBody(v); wireCats(); };
-    wireCats();
+    const body = root.querySelector('#is-q-body'), sortB = root.querySelector('[data-igsort]');
+    // Redraw the cards only, so typing keeps the focus in the box; Sort hides while a search shows its matches.
+    const paint = () => { body.innerHTML = indexBody(v); wireJump(body); fitLines(body); if (sortB) sortB.hidden = !!v.q.trim(); };
+    wireJump(body); fitLines(body);
     wireTools(root, 'is-q', { get: () => v.q, set: x => { v.q = x; }, paint });
-    restoreRow(root);
+    if (sortB) sortB.onclick = () => pickSort(root, paint);
+    restoreCard(root);
   },
 };
 export default index;
 
-// ---- one issue (F154) ----
-const P = () => S.isPage ??= { q: {}, edit: {}, rel: {} };
-function hits(i, q) {
-  const t = plain(q.trim()), tn = t.replace(/\s+/g, ''); if (t.length < 2) return [];
-  const on = new Set(billsOn(i).map(b => b.id)), pool = S.bills.filter(b => b.tracked !== false && !on.has(b.id));
-  const num = pool.filter(b => b.bill_number.toLowerCase().includes(tn)), words = pool.filter(b => !num.includes(b) && [b.nickname, b.title, b.public_summary, b.description].some(x => plain(x).includes(t)));
-  // Bills that would reach followers first: a position, this session.
-  const rank = b => (b.position && b.position !== 'monitor' ? 0 : 2) + (thisSession(b) ? 0 : 1);
-  return [...num, ...words].sort((a, b) => rank(a) - rank(b)).slice(0, 8);
-}
-function hitsHTML(i, q) {
-  if (q.trim().length < 2) return '';
-  const rows = hits(i, q);
-  if (!rows.length) return `<p class="le-none">No tracked bill matches “${esc(q.trim())}”.</p>`;
-  return `<div class="rows le-hits" role="listbox" id="is-hitlist" aria-label="Tracked bills that match">${rows.map((b, k) => `<div class="row le-hit" role="option" id="is-hit-${k}" aria-selected="false" data-add="${esc(b.id)}"><span class="le-plus">${icon('plus')}</span><span class="body">${billName(b, 90)}</span></div>`).join('')}</div>`;
-}
-// The deadline's words, as the coalition and Today say them: "14 days left", "last day today"; and its day, "Mon 3/30".
-const leftWord = dl => dl.days <= 0 ? 'last day today' : `${dl.days} day${dl.days === 1 ? '' : 's'} left`;
-const dayAt = d => dayWords(d);
-// v5's lines for a bill on an issue, kept for any caller (the issue page now uses the shared rows, coalition.js billLineRow).
-export function standLine(b, { owner = 'all' } = {}) {
-  if (diedish(b)) return 'Did not advance';
-  const st = stopOf(b), h = hearingAhead(b), parts = [STAGE_LABEL[effStage(b)] || ''];
-  if (h) {
-    parts.push(`Hearing ${whenAt(h.scheduled_at)}${h.committee ? ` · ${h.committee}` : ''}`);
-    if (isPos(b)) { const t = testimonyOf(h, b); parts.push(t.filed ? 'Testimony filed' : t.word === 'not started' ? `Testimony due ${dueWhen(dueOf(h))}` : 'Testimony drafted'); }
-  } else if (st.deadline?.missed) parts.push(`Missed the ${st.deadline.label} deadline`);
-  else if (st.phase === 'committee' && st.deadline) parts.push(`${riskOf(b) ? 'At risk: needs' : 'Needs'} a hearing${st.committee ? ` in ${st.committee}` : ''} by ${dayAt(st.deadline.date)}, ${leftWord(st.deadline)}`);
-  else if (st.deadline) parts.push(`${st.deadline.label} ${dayAt(st.deadline.date)}, ${leftWord(st.deadline)}`);
-  else if (st.committee) parts.push(`In ${st.committee}`);
-  const who = ownerOf(b);
-  if (owner === 'others') { if (who && who.id !== S.me?.id) parts.push(`Owner: ${ownerFirst(who)}`); }
-  else parts.push(who ? `Owner: ${who.id === S.me?.id ? 'You' : ownerFirst(who)}` : 'No owner');
-  return parts.filter(Boolean).join(' · ');
-}
-export const testimonyWords = (h, b) => { const t = testimonyOf(h, b); return t.filed ? 'testimony filed' : t.word === 'not started' ? `testimony due ${dueWhen(dueOf(h))}` : `testimony ${t.word}`; };
-export function nextPhrase(b) {
-  let say;
-  if (diedish(b)) say = 'Did not advance';
-  else { const st = stopOf(b), h = hearingAhead(b);
-    say = h ? `Hearing ${whenAt(h.scheduled_at)}` : st.deadline?.missed ? `Missed the ${st.deadline.label} deadline` : st.phase === 'committee' && st.deadline ? `Needs a hearing by ${dayAt(st.deadline.date)}` : st.deadline ? `${st.deadline.label} ${dayAt(st.deadline.date)}` : STAGE_LABEL[effStage(b)] || ''; }
-  const who = ownerOf(b);
-  return who && who.id !== S.me?.id ? `${say} · Owner: ${ownerFirst(who)}` : say;
-}
-// A bill's row on the issue's page: its name, its number small, and one line, its step in the shared words (V19); a bill
-// whose followers do not get it says why. While editing, the × takes it off (its row's one button).
-function billRowOf(i, b, edit) {
-  const why = whyNot(b);
-  const line = !thisSession(b) ? `${b.session_year} session${diedish(b) ? ', did not advance' : ''}` : diedish(b) ? 'Did not advance' : null;
-  return billLineRow(b, { line: line ?? (why && !hearingAhead(b) ? why : undefined), button: edit ? iconBtn('x', `Take ${billWords(b)} off ${i.name}`, { 'data-isrm': b.id }) : '' });
-}
-// A bill the week above already lists (its hearing this week, or needing a hearing) is not listed again under Bills (A-14);
-// "Edit bills" shows them all.
-function shownAbove(list) {
-  if (SESSION_OVER) return new Set();
-  const w = waitingOfBills(list);
-  return new Set([...weekOfBills(list).flatMap(x => x.rows.map(h => h.bill_id)), ...[...w.risk, ...w.race].filter(x => wantsHearing(x.b)).map(x => x.b.id)]);
-}
-function billsHTML(i, now, earlier) {
-  const st = P(), q = st.q[i.id] || '', edit = !!st.edit[i.id] || !(now.length + earlier.length);
-  const above = edit ? new Set() : shownAbove(now.filter(b => b.tracked !== false));
-  const moving = (SESSION_OVER ? now : now.filter(b => !diedish(b))).filter(b => !above.has(b.id)), gone = SESSION_OVER ? [] : now.filter(diedish);
-  const add = `<div class="le-add is-add">
-      <label class="sr" for="is-bq">Put a bill on this issue: number or words</label>
-      <div class="le-search">${icon('search')}<input id="is-bq" type="search" role="combobox" aria-expanded="false" aria-autocomplete="list" placeholder="Put a bill on it: number or words" value="${esc(q)}" autocomplete="off" enterkeyhint="search" aria-controls="is-hits">${iconBtn('x', 'Clear the search', { 'data-is': 'bqclear', hidden: !q })}</div>
-      <div id="is-hits">${hitsHTML(i, q)}</div>
-      <p class="sr" id="is-hitn" role="status"></p>
-    </div>`;
-  const fold = (id, label, list) => list.length ? `<details class="i6-fold" data-fold="${id}"${edit ? ' open' : ''}><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${label}</span></summary>${listBox(list.map(b => billRowOf(i, b, edit)).join(''))}</details>` : '';
-  const editBtn = now.length + earlier.length ? btn(edit ? 'Done' : 'Edit bills', { kind: 'text', sm: true, icon: edit ? 'check' : 'pencil', attrs: { 'data-is': 'editbills', 'aria-expanded': String(edit) } }) : '';
-  // Every bill already has its row above (its hearing this week, or needing one): no heading over nothing, only Edit bills
-  // (the critic: "Its other bills · All 2 of its bills are listed above" was a heading for nothing; A-14).
-  if (!edit && now.length && !moving.length && !gone.length && !earlier.length) return `<p class="i6-acts is6-editb">${editBtn}</p>`;
-  return `<section class="i6-sec is6-bills" aria-labelledby="is-bh">
-      <div class="i6-hrow"><h2 class="i6-h" id="is-bh">${above.size ? 'Its other bills' : 'Its bills'}</h2>${editBtn}</div>
-      ${moving.length ? listBox(moving.map(b => billRowOf(i, b, edit)).join('')) : now.length ? '' : `<p class="i6-quiet">No ${esc(SESSION_YEAR)} bills on it yet.</p>`}
-      ${fold('gone', `Did not advance (${gone.length})`, gone)}
-      ${fold('earlier', `Earlier sessions (${earlier.length})`, earlier)}
-      ${edit ? add : ''}
-    </section>`;
-}
-// Followers and the first-visit switch: what the public side of the issue is. Only its owner or an admin changes it
-// (V18, X27); everyone else reads it.
-function publicCard(i) {
-  if (isDraft(i)) return '';
-  const f = followers(i);
-  const fol = !f ? 'Counting followers…' : `${f.own ? plural(f.own, 'person follows', 'people follow') + ' it' : 'Nobody follows it on its own yet'}${f.via ? `; ${plural(f.via, 'more person gets', 'more people get')} it with a whole category` : ''}`;
-  const fv = i.archived_at ? '' : mayPublic(i) ? switchRow('is-fv', 'Show in the first visit', inFirstVisit(i), inFirstVisit(i) ? 'Newcomers can follow it on their first visit.' : 'Left out of a newcomer’s first visit. People can still find and follow it.')
-    : `<p class="is6-pl">${icon(inFirstVisit(i) ? 'eye' : 'eye-off')}<span>${inFirstVisit(i) ? 'In the first visit' : 'Left out of the first visit'}</span></p>`;
-  return `<section class="is6-card" aria-labelledby="is-ph"><h2 id="is-ph">On the public page</h2>
-    <p class="is6-pl">${icon('users')}<span>${esc(fol)}</span></p>${fv}</section>`;
-}
-// The lead: where the issue stands, said first, in words with an icon (issuestand.js, R-272's marks).
-function leadHTML(i) {
-  if (i.archived_at) return '';
-  if (SESSION_OVER) return '';
-  const x = standOf(i), m = markOf(x);
-  // "SB 2175 needs a hearing by Mon 3/30" over the heading "Needs a hearing by Mon 3/30" and that same bill says it twice
-  // (the critic, A-14): the section says it.
-  if (x.state === 'ahead' && x.facing?.length) return '';
-  return m ? `<p class="i6-lead">${m.ic ? icon(m.ic) : ''}<span>${nw(esc(m.text))}</span></p>` : '';
-}
-function pageRender(route) {
-  const i = issueById(route.id);
-  if (!i) return `<div class="le-page i6-page">${empty({ h: 'h1', title: 'This issue is not here', text: 'It may have been merged into another, or the link is old.', action: btn('See all issues', { kind: 'secondary', href: '#/my-issues/all' }) })}</div>`;
-  wantPeople();
-  const c = catByKey(i.category), also = alsoIn(i).map(catByKey).filter(Boolean), bills = billsOn(i).sort(byNum), now = bills.filter(thisSession), earlier = bills.filter(b => !thisSession(b));
-  const from = billFrom(route), bk = backTo(route), wide = (() => { try { return matchMedia('(min-width: 1100px)').matches; } catch { return false; } })();
-  // The outlook is what the public reads between sessions: under the name then, and in session inside the 2027 card.
-  const outlook = i.outlook ? `<p class="is6-desc"><span class="is6-dl">Between sessions, the public reads:</span> ${esc(i.outlook)}</p>` : '';
-  const head = `<header class="is6-head">
-      <span class="is6-icon" aria-hidden="true">${icon(c?.icon || 'tag')}</span>
-      <div class="is6-hbody"><h1 class="is6-h1">${esc(i.name)}</h1>
-        ${i.description ? `<p class="is6-desc">${esc(i.description)}</p>` : ''}
-        ${SESSION_OVER ? (prepHoldsOutlook(i) ? '' : outlook) : (i.goal || '').trim() ? `<p class="is6-desc"><span class="is6-dl">Our ${esc(SESSION_YEAR)} goal, staff only:</span> ${esc(i.goal)}</p>` : ''}
-        <p class="is6-meta"><span class="is6-stl">HIPHI’s stance</span>${mayStance(i) ? stanceChip(i, { 'data-is': 'stance' }) : stanceWords(i)}<span class="is6-cat">${esc([c?.name || i.category, also.length ? `also in ${also.map(x => x.name).join(' and ')}` : '', i.recommended ? 'pre-ticked for new visitors' : ''].filter(Boolean).join(' · '))}</span></p>
-        ${stanceNote(i, now)}
-      </div>
-      <div class="is6-hacts">${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', cls: 'is6-edit', attrs: { 'data-is': 'edit', 'aria-haspopup': 'dialog', 'aria-label': `Edit ${i.name}` } })}${iconBtn('ellipsis', `More for ${i.name}: merge, public page, archive`, { 'data-is': 'more', 'aria-haspopup': 'dialog' })}</div>
-    </header>
-    ${i.archived_at ? `<p class="i6-line">${icon('archive')}<span><b>Archived.</b> The public does not see it, and its followers do not get its bills.</span>${btn('Restore', { kind: 'secondary', sm: true, attrs: { 'data-is': 'restore' } })}</p>` : ''}`;
-  // R-316 W16: between sessions the 2027 prep is the work, so its card comes first; once approved it folds and goes under the bills.
-  const prep = prepCardHTML(i, { outlook: SESSION_OVER ? '' : outlook }), prepFirst = SESSION_OVER && !isDraft(i) && !i.archived_at && stateOf(i) !== 'approved';
-  const week = i.archived_at || SESSION_OVER ? '' : standWeekHTML(now.filter(b => b.tracked !== false), { key: 'is' + i.id, byBill: true });
-  const work = prepFirst || isDraft(i) ? `${prep}${week}${billsHTML(i, now, earlier)}` : `${leadHTML(i)}${week}${billsHTML(i, now, earlier)}${prep}`;
-  // Legislators who care (R-335, practice copy): its list when there is one, else one quiet line, no instructions (the critic).
-  const cares = !PROFILES() || i.archived_at ? '' : caresLegs(i.id).length ? caresSecHTML(i) : `<p class="i6-line is6-none">${icon('landmark')}<span>Legislators who care about this: none yet</span></p>`;
-  const aside = `${publicCard(i)}${i.archived_at ? '' : relatedHTML(i)}${cares}`;
-  const back = `<a class="co6-back" href="${from ? billRoute(from) : bk.href}" data-back${from ? ` aria-label="Back to ${esc(from.bill_number)}"` : ''}>${icon('chevron-left')}<span>${from ? `Back to ${esc(from.bill_number)}` : esc(bk.label)}</span></a>`;
-  // A laptop: the issue and its week on the left; its public side and related issues in the one side panel (as a
-  // coalition's page keeps sharing there). A phone reads it all in one column, the work first.
-  const conv = `${convSectionHTML(convOpts(i))}${convLine}`;
-  if (wide) return `<div class="le-page is6-page">${back}<div class="is6-cols">
-      <div class="is6-main">${head}${work}${conv}</div>
-      <aside class="is6-side" aria-label="On the public page, and related issues">${aside}</aside></div></div>`;
-  return `<div class="le-page is6-page">${back}${head}${work}${aside}${conv}</div>`;
-}
-// A link works both ways: unlinking here unlinks it on the other issue's page too. Each row is the other issue's name and
-// one line (its category when it is another one, "Linked by staff" for links nobody's wording found).
-function relatedHTML(i) {
-  const { on, off } = relatedOf(i), edit = !!P().rel[i.id];
-  // A row's line only when it says something (the critic: every row said "Same topic"): another topic, or linked by staff.
-  const cap1 = t => t ? t[0].toUpperCase() + t.slice(1) : t;
-  const about = (o, staff) => cap1([o.category === i.category ? '' : catByKey(o.category)?.name || o.category, staff ? 'linked by staff' : ''].filter(Boolean).join(', '));
-  const who = c => { const a = c.set_by && advocate(c.set_by); return `unlinked${a ? ` by ${a.full_name.split(' ')[0]}` : ''}${c.set_at ? ` ${fmtDate(c.set_at)}` : ''}`; };
-  const row = (o, line, button = '') => itemRow({ key: o.id, name: o.name, line: line ? esc(line) : '', href: `#/issue/${encodeURIComponent(o.id)}`, button, cls: 'i6-row' });
-  return `<section class="i6-sec is6-rel" aria-labelledby="is-rh">
-    <div class="i6-hrow"><h2 class="i6-h" id="is-rh">Related issues</h2>${btn(edit ? 'Done' : 'Edit', { kind: 'text', sm: true, attrs: { 'data-is': 'reledit', 'aria-expanded': String(edit), 'aria-label': edit ? 'Done editing related issues' : 'Edit related issues' } })}</div>
-    <p class="i6-quiet">Followers of either one see the other’s bills first.</p>
-    ${on.length ? listBox(on.map(({ o, staff }) => row(o, about(o, staff), edit ? iconBtn('x', `Unlink ${o.name} from ${i.name}`, { 'data-isunlink': o.id }) : '')).join('')) : '<p class="i6-quiet">None yet.</p>'}
-    ${edit ? `<p class="i6-acts">${btn('Link another issue', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-is': 'link', 'aria-haspopup': 'dialog' } })}</p>
-    ${off.length ? `<details class="i6-fold" data-fold="unlinked"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>Unlinked by staff (${off.length})</span></summary>
-      ${listBox(off.map(({ o, c }) => row(o, cap1([about(o), who(c)].filter(Boolean).join(', ')), btn('Link again', { kind: 'text', sm: true, attrs: { 'data-isrelink': o.id } }))).join(''))}</details>` : ''}` : ''}
-  </section>`;
-}
-async function setLink(i, o, on) {
-  const redraw = () => { const y = scrollY; hooks.render(); if (Math.abs(scrollY - y) > 1) scrollTo(0, y); document.getElementById('is-rh')?.closest('section')?.querySelector('[data-is="link"], [data-is="reledit"]')?.focus({ preventScroll: true }); };
-  try {
-    await DB.setIssueLink(i.id, o.id, on); redraw();
-    toast(on ? `Linked ${o.name} and ${i.name}.` : `Unlinked ${o.name} and ${i.name}.`, { ok: on, undo: async () => { await DB.setIssueLink(i.id, o.id, !on); redraw(); } });
-  } catch (e) { toast(e, { err: true }); }
-}
-function linkSheet(i) {
-  let q = '';
-  const have = new Set(relatedOf(i).on.map(x => x.o.id));
-  const list = () => { const t = plain(q.trim()); const l = live().filter(x => x.id !== i.id && !have.has(x.id) && (!t || plain(x.name).includes(t)))
-      .sort((a, b) => (a.category === i.category ? 0 : 1) - (b.category === i.category ? 0 : 1) || byName(a, b)).slice(0, 30);
-    return l.length ? `<div class="sv-pickl">${l.map(x => `<button type="button" data-linkto="${esc(x.id)}">${icon(catIcon(x.category))}<span class="body"><span class="title">${esc(x.name)}</span><span class="sub">${esc(catByKey(x.category)?.name || '')} · ${plural(billsOn(x).length, 'bill')}</span></span></button>`).join('')}</div>` : '<p class="le-none">No other issue matches.</p>'; };
-  openSheet({ title: `Link to ${esc(i.name)}`, pop: true,
-    body: `<p class="small muted is-for">Pick an issue whose bills are about the same thing. When we ask people to act, anyone following either one is shown the other’s bills first.</p>
-      <div class="le-search is-psearch">${icon('search')}<input id="is-lq" type="search" placeholder="Find the issue" autocomplete="off" aria-label="Find the issue to link"></div><div id="is-llist">${list()}</div>`,
-    wire: d => {
-      const box = d.querySelector('#is-llist');
-      const wireList = () => box.querySelectorAll('[data-linkto]').forEach(el => el.onclick = async () => {
-        const o = issueById(el.dataset.linkto); if (!o) return;
-        await closeSheet({ silent: true }); await afterClose(); setLink(i, o, true);
-      });
-      wireList();
-      d.querySelector('#is-lq').oninput = e => { q = e.target.value; box.innerHTML = list(); wireList(); };
-    } });
-}
-// Conversations with legislators filed under this issue, from any of its bills or a legislator's page (R-022 wave 2 #9,
-// conversation.js): an issue carries across sessions where a bill does not.
-// With none yet, the section is one quiet line with Log a talk, the act's one name (the critic: an empty section explained itself in two sentences);
-// the section itself shows once there is one (hideEmpty), and the line hides then.
-const convOpts = i => ({ id: 'is-cv', q: { issueIds: [i.id] }, here: { issueId: i.id }, kind: 'le', limit: 5, log: { issueId: i.id }, hideEmpty: true, none: 'None yet.' });
-const convLine = `<p class="i6-line is6-none" data-is="cvline">${icon('message-square')}<span>No conversations yet</span>${btn('Log a talk', { kind: 'text', sm: true, attrs: { 'data-is': 'cvlog', 'aria-haspopup': 'dialog', 'aria-label': 'Log a conversation about this issue' } })}</p>`;
-async function takeOff(i, b) {
-  try {
-    await DB.setBillIssue(b.id, i.id, false); hooks.render();
-    toast(`Took ${billWords(b)} off ${i.name}.`, { undo: async () => { await DB.setBillIssue(b.id, i.id, true); hooks.render(); } });
-  } catch (e) { toast(e, { err: true }); }
-}
-async function putOn(i, b) {
-  try {
-    await DB.setBillIssue(b.id, i.id, true); P().q[i.id] = ''; hooks.render();
-    document.getElementById('is-bq')?.focus();
-    const why = whyNot(b);
-    toast(`Put ${billWords(b)} on ${i.name}.${why ? ` ${why.split(',')[0]}, so followers get it once that changes.` : ''}`, { ok: !why, undo: async () => { await DB.setBillIssue(b.id, i.id, false); hooks.render(); } });
-  } catch (e) { toast(e, { err: true }); }
-}
-function mergeSheet(i) {
-  let q = '';
-  const list = () => { const t = plain(q.trim()); const l = live().filter(x => x.id !== i.id && (!t || plain(x.name).includes(t))).sort((a, b) => (a.category === i.category ? 0 : 1) - (b.category === i.category ? 0 : 1) || byName(a, b)).slice(0, 30);
-    return l.length ? `<div class="sv-pickl">${l.map(x => `<button type="button" data-into="${esc(x.id)}">${icon(catIcon(x.category))}<span class="body"><span class="title">${esc(x.name)}</span><span class="sub">${esc(catByKey(x.category)?.name || '')} · ${plural(billsOn(x).length, 'bill')}</span></span></button>`).join('')}</div>` : '<p class="le-none">No other issue matches.</p>'; };
-  openSheet({ title: `Merge ${esc(i.name)} into…`, pop: true,
-    body: `<p class="small muted is-for">Pick the issue to keep. ${esc(i.name)}’s bills and followers move to it, and ${esc(i.name)} is archived. Nobody loses a bill.</p>
-      <div class="le-search is-psearch">${icon('search')}<input id="is-mq" type="search" placeholder="Find the issue to keep" autocomplete="off" aria-label="Find the issue to keep"></div><div id="is-mlist">${list()}</div>`,
-    wire: d => {
-      const box = d.querySelector('#is-mlist');
-      const wireList = () => box.querySelectorAll('[data-into]').forEach(el => el.onclick = async () => {
-        const into = issueById(el.dataset.into); if (!into) return;
-        await closeSheet({ silent: true }); await afterClose();
-        const n = billsOn(i).length, f = followers(i);
-        const ok = await confirmSheet({ title: `Merge into ${esc(into.name)}?`, ok: 'Merge', danger: true,
-          text: `${esc(i.name)}’s ${plural(n, 'bill')}${f && f.own ? ` and ${plural(f.own, 'follower')}` : ''} move to ${esc(into.name)}, and ${esc(i.name)} is archived. A merge cannot be undone from here.` });
-        if (!ok) return;
-        try { await DB.mergeIssues(i.id, into.id); S.go('#/issue/' + encodeURIComponent(into.id), { replace: true }); toast(`Merged into ${into.name}.`, { ok: true }); }
-        catch (e) { toast(e, { err: true }); }
-      });
-      wireList();
-      d.querySelector('#is-mq').oninput = e => { q = e.target.value; box.innerHTML = list(); wireList(); };
-    } });
-}
-// "Show in the first visit" (066, R-023). Off leaves the issue out of a newcomer's first visit only: it is still on Find
-// and its own page, and everyone following it still gets its bills. The page is redrawn with the switch still in focus.
-async function setFirstVisit(i, on) {
-  const redraw = () => { const y = scrollY; hooks.render(); document.getElementById('is-fv')?.focus({ preventScroll: true }); if (Math.abs(scrollY - y) > 1) scrollTo(0, y); };
-  try {
-    await DB.updateIssue(i.id, { first_visit: on }); redraw();
-    toast(on ? `${i.name} is back in the first visit.` : `Left out of the first visit.${i.recommended ? ' Its pre-tick does nothing while it is left out.' : ''}`,
-      { ok: on, undo: async () => { await DB.updateIssue(i.id, { first_visit: !on }); redraw(); } });
-  } catch (e) { redraw(); toast(e, { err: true }); }
-}
-async function archive(i, on) {
-  if (on) {
-    const f = followers(i);
-    const ok = await confirmSheet({ title: `Archive ${esc(i.name)}?`, ok: 'Archive', danger: true,
-      text: `The public stops seeing it${f && f.own ? `, and the ${plural(f.own, 'person', 'people')} following it stop getting its bills` : ''}. You can restore it from All issues, under Archived. If it is really the same as another issue, merge it instead: its followers move over.` });
-    if (!ok) return;
-  }
-  try {
-    await DB.updateIssue(i.id, { archived_at: on ? new Date().toISOString() : null }); hooks.render();
-    toast(on ? `Archived ${i.name}.` : `Restored ${i.name}.`, { undo: async () => { await DB.updateIssue(i.id, { archived_at: on ? null : new Date().toISOString() }); hooks.render(); } });
-  } catch (e) { toast(e, { err: true }); }
-}
-export const issuePage = {
-  tab: 'myissues',   // issues are under My issues
-  // "Back to SB2175" fits on a phone too (R-226), so it keeps its words there: full. From My issues (R-263), Back returns there.
-  title: route => issueById(route.id)?.name || 'Issue',
-  back: route => { const from = billFrom(route); return from ? { href: billRoute(from), label: `Back to ${from.bill_number}`, full: true } : backTo(route); },
-  wide: () => { try { return matchMedia('(min-width: 1100px)').matches; } catch { return false; } },
-  render: pageRender,
-  wire(route, root) {
-    const i = issueById(route.id); if (!i) return;
-    rememberRow(i.id);
-    wireConvSection(root, convOpts(i));
-    // The one-line "No conversations yet" shows while the section is hidden (empty), and hides once it shows.
-    const cvSec = root.querySelector('[data-cvsec="is-cv"]'), cvLine = root.querySelector('[data-is="cvline"]');
-    if (cvSec && cvLine) { const sync = () => { cvLine.hidden = !cvSec.hidden; }; sync(); new MutationObserver(sync).observe(cvSec, { attributes: true, attributeFilter: ['hidden'] }); }
-    root.querySelector('[data-is="cvlog"]')?.addEventListener('click', () => logConversation({ issueId: i.id, onDone: () => { refreshConversations(); hooks.render(); } }));
-    wirePrepCard(i, root);
-    const st = P();
-    // The "…" holds the rare actions (F155); Edit is also a visible text button beside it.
-    root.querySelector('[data-is="edit"]')?.addEventListener('click', () => openIssueForm(i));
-    root.querySelector('[data-is="more"]')?.addEventListener('click', () => menuSheet({ title: esc(i.name), items: [
-      { label: 'Edit the issue', icon: 'pencil', sub: 'Name, description, stance, between sessions, category, pre-tick', run: async () => { await afterClose(); openIssueForm(i); } },
-      { label: 'Merge into another issue', icon: 'arrow-right', disabled: !!i.archived_at, reason: 'Restore it first.', sub: 'When two issues are really one', run: async () => { await afterClose(); mergeSheet(i); } },
-      { label: 'Open the public page', icon: 'external-link', disabled: !!i.archived_at || isDraft(i), reason: isDraft(i) ? 'An issue that is not public yet has no public page.' : 'An archived issue has no public page.', run: () => { window.open(`${PUBLIC_APP()}#/issue/${i.slug}`, '_blank', 'noopener'); } },
-      i.archived_at ? { label: 'Restore', icon: 'rotate-ccw', run: () => archive(i, false) } : { label: 'Archive', icon: 'archive', danger: true, run: async () => { await afterClose(); archive(i, true); } },
-    ] }));
-    root.querySelector('[data-is="restore"]')?.addEventListener('click', () => archive(i, false));
-    wireWeek(root);
-    // Edit bills and Related's Edit: each opens its own tools in place, and focus goes where the next step is.
-    const toggle = (k, focus) => { st[k][i.id] = !st[k][i.id]; const y = scrollY; hooks.render(); if (Math.abs(scrollY - y) > 1) scrollTo(0, y); document.querySelector(focus(st[k][i.id]))?.focus({ preventScroll: true }); };
-    root.querySelector('[data-is="editbills"]')?.addEventListener('click', () => toggle('edit', on => on ? '#is-bq' : '[data-is="editbills"]'));
-    root.querySelector('[data-is="reledit"]')?.addEventListener('click', () => toggle('rel', on => on ? '[data-is="link"]' : '[data-is="reledit"]'));
-    root.querySelector('[data-is="link"]')?.addEventListener('click', () => linkSheet(i));
-    root.querySelectorAll('[data-isunlink]').forEach(el => el.onclick = () => { const o = issueById(el.dataset.isunlink); if (o) setLink(i, o, false); });
-    root.querySelectorAll('[data-isrelink]').forEach(el => el.onclick = () => { const o = issueById(el.dataset.isrelink); if (o) setLink(i, o, true); });
-    root.querySelectorAll('[data-is="stance"]').forEach(el => el.addEventListener('click', () => pickStance(i, { after: () => { hooks.render(); document.querySelector('[data-is="stance"]')?.focus(); } })));
-    const fv = root.querySelector('#is-fv'); if (fv) fv.onchange = () => setFirstVisit(i, fv.checked);
-    root.querySelectorAll('[data-isrm]').forEach(el => el.onclick = () => { const b = billById(el.dataset.isrm); if (b) takeOff(i, b); });
-    // The add search: a combobox like a list's (arrow keys move the highlight, Enter adds, Esc clears).
-    const q = root.querySelector('#is-bq'), clear = root.querySelector('[data-is="bqclear"]'), box = root.querySelector('#is-hits'), said = root.querySelector('#is-hitn');
-    if (!q) return;
-    let hi = -1;
-    const opts = () => [...box.querySelectorAll('[data-add]')];
-    const mark = k => { opts().forEach((o, n) => { o.classList.toggle('hi', n === k); o.setAttribute('aria-selected', String(n === k)); }); hi = k; if (k >= 0) q.setAttribute('aria-activedescendant', `is-hit-${k}`); else q.removeAttribute('aria-activedescendant'); };
-    const paint = () => { box.innerHTML = hitsHTML(i, q.value); const n = opts().length; q.setAttribute('aria-expanded', String(n > 0)); hi = -1; q.removeAttribute('aria-activedescendant');
-      said.textContent = q.value.trim().length < 2 ? '' : n ? plural(n, 'bill') + ' found' : 'No bill found'; box.querySelectorAll('[data-add]').forEach(el => el.onclick = () => { const b = billById(el.dataset.add); if (b) putOn(i, b); }); };
-    q.oninput = () => { st.q[i.id] = q.value; clear.hidden = !q.value; paint(); };
-    q.onkeydown = e => {
-      const n = opts().length;
-      if (e.key === 'ArrowDown' && n) { e.preventDefault(); mark((hi + 1) % n); }
-      else if (e.key === 'ArrowUp' && n) { e.preventDefault(); mark(hi <= 0 ? n - 1 : hi - 1); }
-      else if (e.key === 'Enter') { e.preventDefault(); const el = opts()[hi >= 0 ? hi : 0]; if (el) el.click(); }
-      else if (e.key === 'Escape' && q.value) { e.preventDefault(); q.value = ''; st.q[i.id] = ''; clear.hidden = true; paint(); }
-    };
-    clear.onclick = () => { q.value = ''; st.q[i.id] = ''; clear.hidden = true; paint(); q.focus(); };
-    paint();
-  },
-};
+// ---- one issue (F154): its page lives in issuepage.js (R-336 walk 3); re-exported here so app.js and any caller keep
+// their import ----
+export { issuePage, standLine, testimonyWords, nextPhrase } from './issuepage.js';
 // v5's door to the first visit, kept for any caller (More tools links it now).
 export const FIRST_VISIT_HREF = FV_HREF;
