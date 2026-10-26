@@ -401,7 +401,10 @@ const goText = (b, h) => [`You plan to go. Arrive by ${arriveBy(h)} with a photo
 const stamp = d => new Date(d).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 const esc2 = t => String(t).replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
 const saveFile = (blob, name) => { const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000); };
-function icsFor(b, h) {
+// One hearing's events, as the lines of a calendar file. Written once so the one-hearing file and the week's file (R-212 #51)
+// make the same events with the same UIDs: a hearing added on its own and then again with the week is updated in the
+// calendar, not doubled. due: whether to add the "Testimony due" event before it.
+function hearingEvents(b, h, { due = false } = {}) {
   const url = `${location.origin}${location.pathname}${billPath(b)}`, short = nick(b) || blurb(b, 60);
   // Someone who plans to go (R-142) gets the directions in the hearing's event, its floor in the place, and a reminder to
   // leave an hour and a half before; everyone else, the hearing as it was.
@@ -409,12 +412,15 @@ function icsFor(b, h) {
   const ev = (uid, start, mins, title, desc, alarm) => ['BEGIN:VEVENT', `UID:${uid}@bills.hiphi.org`, `DTSTAMP:${stamp(Date.now())}`, `DTSTART:${stamp(start)}`, `DTEND:${stamp(new Date(start).getTime() + mins * 6e4)}`,
     `SUMMARY:${esc2(title)}`, `DESCRIPTION:${esc2(desc)}`, `LOCATION:${esc2(CAPITOL + ', ' + (going ? roomFloor(h) : roomLabel(h.room)))}`, `URL:${url}`,
     ...(alarm ? ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc2(title)}`, `TRIGGER:${alarm}`, 'END:VALARM'] : []), 'END:VEVENT'];
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//HIPHI//Bill Tracker//EN', 'CALSCALE:GREGORIAN',
-    ...(h.testimony_deadline && new Date(h.testimony_deadline) > Date.now() ? ev(h.id + '-due', h.testimony_deadline, 15, `Testimony due: ${spaced(b.bill_number)} (${short})`, `Send testimony in 5 minutes: ${url}`, '-PT2H') : []),
+  return [...(due ? ev(h.id + '-due', h.testimony_deadline, 15, `Testimony due: ${spaced(b.bill_number)} (${short})`, `Send testimony in 5 minutes: ${url}`, '-PT2H') : []),
     ...ev(h.id + '-hearing', h.scheduled_at, 60, `Hearing: ${spaced(b.bill_number)} (${short})`,
-      going ? `${cmteLabel(h.committee)}. ${goText(b, h)} ${url}` : zoom ? `${cmteLabel(h.committee)}. ${zoomText(h)} ${url}` : `${cmteLabel(h.committee)}. Anyone can attend. ${url}`, going ? '-PT90M' : zoom ? '-PT30M' : ''), 'END:VCALENDAR'];
-  return new Blob([lines.join('\r\n')], { type: 'text/calendar' });
+      going ? `${cmteLabel(h.committee)}. ${goText(b, h)} ${url}` : zoom ? `${cmteLabel(h.committee)}. ${zoomText(h)} ${url}` : `${cmteLabel(h.committee)}. Anyone can attend. ${url}`, going ? '-PT90M' : zoom ? '-PT30M' : '')];
 }
+const calFile = events => new Blob([['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//HIPHI//Bill Tracker//EN', 'CALSCALE:GREGORIAN', ...events, 'END:VCALENDAR'].join('\r\n')], { type: 'text/calendar' });
+// The testimony deadline is still ahead. Date.now() is the practice copy's clock there (kernel.js), as everywhere.
+const dueAhead = h => !!h.testimony_deadline && new Date(h.testimony_deadline) > Date.now();
+// The one-hearing file, as it has always been: the deadline's event whenever the deadline is ahead.
+const icsFor = (b, h) => calFile(hearingEvents(b, h, { due: dueAhead(h) }));
 // The calendar file, saved; the walkthrough's directions use it too (R-142).
 export function downloadIcs(b, h) {
   saveFile(icsFor(b, h), `${b.bill_number}-hearing.ics`);
