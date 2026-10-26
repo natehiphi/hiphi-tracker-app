@@ -180,3 +180,15 @@ body.staff6 .co6-row .v6-row-act .co6-help[aria-pressed="true"] { background: va
 body.staff6 .co6-help[aria-pressed="true"] .ic { color: var(--v6-leaf); }
 /* for someone who is not one of the coalition's own people, the I help switch takes the partner update's place under the lead */
 body.staff6 .co6-page .co6-card.co6-slot { margin-top: var(--s16); }
+
+/* ---- the Coalitions tab as cards (R-336 walk 3, Nate: "Maybe a similar card and image sorting as well here") ----
+   All issues' card (issues.css .ig6-*): the coalition's icon on its tint (or a monogram), its short name, its full name and
+   owner in the muted line's colour, and its week on the status line. The I help button sits on the card under its link, the
+   card's one button (D16); pressed, it reads as a quiet "on" with a leaf check, as on the rows it replaces. */
+body.staff6 .co6-groups { margin-top: 0; }
+body.staff6 .co6-groups .co6-full { color: var(--v6-body); }
+body.staff6 .co6-groups .co6-own { max-height: var(--v6-lh16); }
+body.staff6 .ig6-foot { display: flex; padding: 0 16px 16px; }
+body.staff6 .ig6-foot .co6-help { flex: none; }
+body.staff6 .ig6-foot .co6-help[aria-pressed="true"] { background: var(--v6-wash); color: var(--v6-ink); font-weight: 700; }
+@media (max-width: 767px) { body.staff6 .ig6-foot { padding: 0 12px 12px; } body.staff6 .ig6-foot .co6-help { flex: 1 1 auto; justify-content: center; } }
