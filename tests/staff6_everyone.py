@@ -1,11 +1,15 @@
 # Staff v6: Legislators > Everyone as a grid of faces (R-336 walk 2, Nate: "can this be better organized? Profile
 # pictures, easy to identify. Not one big long list?"). On the practice copy (Mon 16 Mar 2026).
-#   1. A House | Senate switch, the Senate first (the calmer page), remembered for the person.
-#   2. By island (the default): Hawaiʻi Island, Maui County, Oʻahu, Kauaʻi, each a heading over its grid of cards.
+#   1. An All | House | Senate switch, All first (R-336 walk 3, Nate), remembered for the person; a saved House or Senate
+#      pick stays honoured. In All the names say Sen. or Rep.; under an island the senators come first, then the
+#      representatives from a new row; By committee lists the House's committees, then the Senate's.
+#   2. By island (the default): Hawaiʻi Island, Maui County, Kauaʻi, Oʻahu (Kauaʻi between Maui and Oʻahu, Nate's walk 3),
+#      each a heading over its grid of cards, the jump chips in the same order.
 #   3. A to Z: one continuous grid, a small letter badge on the first card of each letter. By committee: each committee a group, chair first.
 #   3a. A row of jump chips, one per group, that brings its heading to the top (critic, R-336 walk 2); on a phone the row
 #       slides sideways and the group headings stay under the top bar.
-#   4. Each card is one link: a photo (or the initial), the name, the district, at most one line of what they hold of ours.
+#   4. Each card is one link: a photo (or the initial), the name, the district, the district's main towns on one line (two
+#      or three whole names, the full list in the title; walk 3), at most one line of what they hold of ours.
 #   5. About five cards a row on a 1440 laptop, two on a 390 phone; no sideways scroll.
 #   6. The find box, the "Hearing our bills this week" preset and Filter still narrow the grid; Sort is in view on a phone.
 #
@@ -18,18 +22,22 @@ import staff6_lib as L
 
 R = L.Results()
 EV = '/legislators?view=everyone'
-ISL = ['Hawaiʻi Island', 'Maui County', 'Oʻahu', 'Kauaʻi']
+ISL = ['Hawaiʻi Island', 'Maui County', 'Kauaʻi', 'Oʻahu']
 def overflow(pg): return pg.page.evaluate('document.documentElement.scrollWidth - innerWidth')
 def heads(pg): return pg.page.evaluate("[...document.querySelectorAll('.lg6-groups .lg6-sh h2')].map(h => h.innerText.trim())")
 def cards(pg): return pg.page.evaluate("""[...document.querySelectorAll('#lg-body .lg6-card')].map(a => ({ id: +a.dataset.lglink, href: a.getAttribute('href'),
   name: a.querySelector('.lg6-cname')?.innerText.trim(), dist: a.querySelector('.lg6-cdist')?.innerText.trim(), line: a.querySelector('.lg6-cline')?.innerText.trim() || '',
-  links: a.querySelectorAll('a, button').length, ph: (() => { const p = a.querySelector('.lg6-cph'); const r = p.getBoundingClientRect(); const img = p.querySelector('img');
+  links: a.querySelectorAll('a, button').length, town: (() => { const t = a.querySelector('.lg6-ctown'); if (!t) return null; const w = t.querySelector('.lg6-ctw'), k = [...w.children];
+    const top = k[0].offsetTop; return { shown: k.filter(c => c.offsetTop === top).map(c => c.innerText.replace(/^, /, '')), all: k.length, title: t.title, cut: (() => { const r = w.getBoundingClientRect(); return k.some(c => c.offsetTop === top && (c.getBoundingClientRect().left < r.left - 1 || c.getBoundingClientRect().right > r.right + 1)); })(),
+      h: Math.round(w.getBoundingClientRect().height), sr: t.querySelector('.sr')?.textContent || '' }; })(), ph: (() => { const p = a.querySelector('.lg6-cph'); const r = p.getBoundingClientRect(); const img = p.querySelector('img');
     return { w: Math.round(r.width), h: Math.round(r.height), img: !!img && img.complete && img.naturalWidth > 0, init: getComputedStyle(p, '::before').content.replace(/"/g, '') }; })(),
   group: a.closest('section')?.querySelector('h2')?.innerText.trim() || '' }))""")
 def picked(pg): return pg.page.evaluate("document.querySelector('[data-seg=\"lgch\"][aria-pressed=\"true\"]')?.dataset.val")
 def per_row(pg): return pg.page.evaluate("(() => { const c = [...document.querySelectorAll('#lg-body .lg6-card')]; const t = c[0].getBoundingClientRect().top; return c.filter(x => Math.abs(x.getBoundingClientRect().top - t) < 2).length; })()")
 def chips(pg): return pg.page.evaluate("[...document.querySelectorAll('.lg6-jchip')].map(b => b.innerText.replace(/\\s+/g, ' ').trim())")
 def jumplabel(pg): return pg.page.evaluate("document.querySelector('.lg6-jump')?.getAttribute('aria-label') || ''")
+isl = lambda l: ('Hawaiʻi Island' if l['d'] <= 4 else 'Maui County' if l['d'] <= 7 else 'Kauaʻi' if l['d'] == 8 else 'Oʻahu') if l['ch'] == 'S' else \
+  ('Hawaiʻi Island' if l['d'] <= 8 else 'Maui County' if l['d'] <= 14 else 'Kauaʻi' if l['d'] <= 17 else 'Oʻahu')
 def sort(pg, label):
   pg.page.click('[data-lgsort]')
   pg.page.wait_for_timeout(500); pg.page.click(f'dialog[open] >> text="{label}"'); pg.page.wait_for_timeout(500); pg.ready()
@@ -40,9 +48,47 @@ with L.browser() as B:
     legs = pg.page.evaluate("import('./staff6/data.js').then(m => m.S.legislators.map(l => ({ id: l.id, ch: l.chamber, d: l.district, name: l.name, sort: l.sort_name })))")
     by = {l['id']: l for l in legs}
 
-    # ---- 1. House | Senate ----
-    R.check(f'{w}: the switch reads House | Senate', pg.page.evaluate("[...document.querySelectorAll('[data-seg=\"lgch\"]')].map(b => b.innerText.trim())") == ['House', 'Senate'])
-    R.check(f'{w}: the Senate is shown first (the calmer page)', picked(pg) == 'S', picked(pg))
+    # ---- 1. All | House | Senate ----
+    R.check(f'{w}: the switch reads All | House | Senate', pg.page.evaluate("[...document.querySelectorAll('[data-seg=\"lgch\"]')].map(b => b.innerText.trim())") == ['All', 'House', 'Senate'])
+    R.check(f'{w}: All is shown first', picked(pg) == 'A', picked(pg))
+    cs = cards(pg)
+    R.check(f'{w}: All shows every legislator once', sorted(c['id'] for c in cs) == sorted(l['id'] for l in legs), len(cs))
+    R.check(f'{w}: All: the chip row says so', jumplabel(pg) == f'All {len(legs)} legislators, by island: go to', jumplabel(pg))
+    R.check(f'{w}: All: islands in Nate\'s order, Kauaʻi between Maui and Oʻahu', heads(pg) == ISL, heads(pg))
+    nS = lambda i: sum(1 for l in legs if isl(l) == i and l['ch'] == 'S'); nH = lambda i: sum(1 for l in legs if isl(l) == i and l['ch'] == 'H')
+    R.check(f'{w}: All: the jump chips in the same order, both chambers counted', chips(pg) == [f'{i} {nS(i) + nH(i)}' for i in ISL], chips(pg))
+    sn = pg.page.evaluate("[...document.querySelectorAll('.lg6-groups .lg6-sn')].map(e => e.innerText.trim())")
+    R.check(f'{w}: All: each island counts its senators and representatives', sn == [f"{nS(i)} {'senator' if nS(i) == 1 else 'senators'}, {nH(i)} {'representative' if nH(i) == 1 else 'representatives'}" for i in ISL], sn)
+    R.check(f'{w}: All: each name says Sen. or Rep.', all(c['name'] == ('Sen. ' if by[c['id']]['ch'] == 'S' else 'Rep. ') + by[c['id']]['name'] for c in cs), [c['name'] for c in cs][:3])
+    R.check(f'{w}: All: each legislator under their own island', all(c['group'] == isl(by[c['id']]) for c in cs))
+    ok = True
+    for i in ISL:
+      g = [by[c['id']] for c in cs if c['group'] == i]; chs = [l['ch'] for l in g]
+      ok = ok and chs == sorted(chs, key=lambda x: x != 'S') and all(a['d'] <= b['d'] for a, b in zip(g, g[1:]) if a['ch'] == b['ch'])
+    R.check(f'{w}: All: under an island the senators first, then the representatives, each in district order', ok)
+    brk = pg.page.evaluate("[...document.querySelectorAll('.lg6-brk')].map(c => { const p = c.previousElementSibling; return [c.querySelector('.lg6-cname').innerText.startsWith('Rep.'), p.querySelector('.lg6-cname').innerText.startsWith('Sen.'), Math.round(c.getBoundingClientRect().left) === Math.round(c.parentElement.firstElementChild.getBoundingClientRect().left), c.getBoundingClientRect().top > p.getBoundingClientRect().top]; })")
+    R.check(f'{w}: All: an island\'s first representative starts a new row', len(brk) == 4 and all(all(x) for x in brk), brk)
+    # the district's main towns (walk 3)
+    tw = [c['town'] for c in cs]
+    R.check(f'{w}: every card lists its district\'s main towns', all(t and t['shown'] for t in tw), [c['name'] for c in cs if not (c['town'] and c['town']['shown'])][:3])
+    R.check(f'{w}: the towns sit on one line, two or three whole names, none cut', all(t['h'] == 24 and 1 <= len(t['shown']) <= 3 and not t['cut'] for t in tw), [t for t in tw if not (t['h'] == 24 and 1 <= len(t['shown']) <= 3 and not t['cut'])][:2])
+    R.check(f'{w}: most cards with several towns show at least two', sum(1 for t in tw if t['all'] >= 2 and len(t['shown']) >= 2) >= 0.6 * sum(1 for t in tw if t['all'] >= 2), sum(1 for t in tw if len(t['shown']) >= 2))
+    R.check(f'{w}: the full list is the title, the ʻokina shown as ʻ', all(t['title'] and "'" not in t['title'] and '‘' not in t['title'] for t in tw) and all("'" not in x and '‘' not in x for t in tw for x in t['shown']), [t['title'] for t in tw if "'" in t['title'] or '‘' in t['title']][:2])
+    hd5 = next(c for c in cs if by[c['id']]['ch'] == 'H' and by[c['id']]['d'] == 5)['town']
+    R.check(f'{w}: a "Portions of Keaʻau and Kurtistown" district reads "Keaʻau, Kurtistown"', hd5['shown'][:2] == ['Keaʻau', 'Kurtistown'], hd5)
+    R.check(f'{w}: a screen reader hears the names the card offers', all(t['sr'].startswith('Covers ') for t in tw), tw[0]['sr'])
+    R.check(f'{w}: All: no sideways scroll', overflow(pg) <= 0, overflow(pg))
+    sort(pg, 'By committee'); gs = heads(pg)
+    nh = sum(1 for g in gs if g.startswith('House '))
+    R.check(f'{w}: All by committee: the House\'s committees, then the Senate\'s, each A to Z', nh >= 10 and gs[:nh] == sorted(gs[:nh]) and all(g.startswith('Senate ') for g in gs[nh:]) and len(gs) - nh >= 8 and gs[nh:] == sorted(gs[nh:]), gs[:2] + gs[nh:nh + 2])
+    R.check(f'{w}: All by committee: the chips keep the chamber (both have a Health committee)', chips(pg) == gs, chips(pg)[:3])
+    sort(pg, 'A to Z'); cs2 = cards(pg)
+    R.check(f'{w}: All A to Z: everyone in one grid, names with Sen. or Rep.', len(cs2) == len(legs) and pg.page.evaluate("document.querySelectorAll('#lg-body .lg6-grid').length") == 1 and all(re.match(r'(Sen|Rep)\. ', c['name']) for c in cs2))
+    sort(pg, 'By island')
+    pg.page.click('[data-seg="lgch"][data-val="S"]'); pg.page.wait_for_timeout(300); pg.ready()
+    R.check(f'{w}: Senate is picked', picked(pg) == 'S', picked(pg))
+    pg.open(EV)
+    R.check(f'{w}: a saved Senate pick is honoured', picked(pg) == 'S', picked(pg))
     cs = cards(pg)
     R.check(f'{w}: the Senate shows all its senators, no one else', sorted(c['id'] for c in cs) == sorted(l['id'] for l in legs if l['ch'] == 'S'), len(cs))
     R.check(f'{w}: the chip row is named for who and the order', jumplabel(pg) == 'All 25 senators, by island: go to', jumplabel(pg))
@@ -52,7 +98,7 @@ with L.browser() as B:
 
     # ---- 2. By island ----
     R.check(f'{w}: grouped by island in order', heads(pg) == ISL, heads(pg))
-    R.check(f'{w}: a jump chip per island, with its count', chips(pg) == ['Hawaiʻi Island 4', 'Maui County 3', 'Oʻahu 17', 'Kauaʻi 1'], chips(pg))
+    R.check(f'{w}: a jump chip per island, with its count', chips(pg) == ['Hawaiʻi Island 4', 'Maui County 3', 'Kauaʻi 1', 'Oʻahu 17'], chips(pg))
     pg.page.click('.lg6-jchip >> nth=1'); pg.page.wait_for_timeout(900)
     jt = pg.page.evaluate("(() => { const h = document.querySelector('#lg6-g-maui'); const r = h.getBoundingClientRect(); return [Math.round(r.top), document.activeElement === h, Math.round(innerHeight)]; })()")
     R.check(f'{w}: a chip brings its group to the top, clear of the top bar, and moves focus there', jt[1] and ((92 < jt[0] <= 130) if w >= 768 else (56 <= jt[0] <= 90)), jt)
@@ -61,8 +107,6 @@ with L.browser() as B:
       st = pg.page.evaluate("(() => { const r = document.querySelector('#lg6-g-oahu').closest('.lg6-sh').getBoundingClientRect(); return [Math.round(r.top), Math.round(r.bottom)]; })()")
       R.check(f'{w}: on a phone the group heading stays under the top bar while its cards pass', 40 <= st[0] <= 70, st)
     pg.page.evaluate('scrollTo(0, 0)')
-    isl = lambda l: ('Hawaiʻi Island' if l['d'] <= 4 else 'Maui County' if l['d'] <= 7 else 'Kauaʻi' if l['d'] == 8 else 'Oʻahu') if l['ch'] == 'S' else \
-      ('Hawaiʻi Island' if l['d'] <= 8 else 'Maui County' if l['d'] <= 14 else 'Kauaʻi' if l['d'] <= 17 else 'Oʻahu')
     R.check(f'{w}: each senator under their own island', all(c['group'] == isl(by[c['id']]) for c in cs), [(c['name'], c['group']) for c in cs if c['group'] != isl(by[c['id']])][:3])
     R.check(f'{w}: in district order inside an island', all(by[a['id']]['d'] < by[b['id']]['d'] for a, b in zip(cs, cs[1:]) if a['group'] == b['group']))
     R.check(f'{w}: under an island the card says the district only (the heading says the island, A-14)', all(re.fullmatch(r'District \d+', c['dist']) for c in cs), cs[0]['dist'])
@@ -79,7 +123,7 @@ with L.browser() as B:
     cs = cards(pg)
     R.check(f'{w}: each card is one link to that legislator', all(c['links'] == 0 and c['href'].startswith(f"#/legislator/{c['id']}") for c in cs))
     R.check(f'{w}: each card names them', all(c['name'] == by[c['id']]['name'] for c in cs))
-    size = 96 if w >= 768 else 80
+    size = 88 if w >= 768 else 80
     R.check(f'{w}: each photo is {size}px and round', all(c['ph']['w'] == size and c['ph']['h'] == size for c in cs) and pg.page.evaluate("getComputedStyle(document.querySelector('.lg6-cph')).borderRadius") == '50%', cs[0]['ph'])
     R.check(f'{w}: a card with no photo (or a failed one) shows the initial, never a broken image',
       all(c['ph']['img'] or c['ph']['init'] == by[c['id']]['name'][0] for c in cs) and not pg.page.evaluate("[...document.querySelectorAll('.lg6-cph img')].some(i => i.complete && i.naturalWidth === 0)"))
@@ -139,7 +183,8 @@ with L.browser() as B:
     pg.page.fill('#lg-q', 'Kailua'); pg.page.wait_for_timeout(300)
     cs = cards(pg)
     R.check(f'{w}: the find box shows its matches as cards, both chambers', len(cs) >= 2 and {by[c['id']]['ch'] for c in cs} == {'H', 'S'}, len(cs))
-    R.check(f'{w}: a found card says the chamber and the town it matched', all(re.match(r'(Rep|Sen)\. ', c['name']) for c in cs) and any(c['line'].startswith('Covers Kailua') for c in cs), [(c['name'], c['line']) for c in cs][:2])
+    R.check(f'{w}: a found card says the chamber, the town it matched first in its towns line', all(re.match(r'(Rep|Sen)\. ', c['name']) for c in cs) and any(c['town']['shown'][0] == 'Kailua' for c in cs), [(c['name'], c['town']['shown']) for c in cs][:2])
+    R.check(f'{w}: and no second "Covers" line', not any(c['line'].startswith('Covers') for c in cs), [c['line'] for c in cs][:2])
     R.check(f'{w}: no switch while searching (the box searches everyone)', not pg.page.query_selector('[data-seg="lgch"]'))
     pg.page.fill('#lg-q', 'HD 20'); pg.page.wait_for_timeout(300); cs = cards(pg)
     R.check(f'{w}: a district finds its representative', len(cs) == 1 and by[cs[0]['id']]['d'] == 20)
@@ -162,5 +207,13 @@ with L.browser() as B:
     pg.page.click('.lg6-cap [data-lgclear="filters"]'); pg.page.wait_for_timeout(300)
     R.check(f'{w}: Clear filters brings everyone back', len(cards(pg)) == sum(1 for l in legs if l['ch'] == 'H'))
     R.check(f'{w}: no page errors', not pg.errors, pg.errors[:2]); pg.close()
+
+  # Between sessions nothing is heard: no "Hearing our bills this week" preset; ?ch=senate in a link still picks the chamber.
+  pg = B.page('NT', 1440, 900); pg.open(EV, '&season=off&day=2026-11-05')
+  R.check('between sessions: no "Hearing our bills this week" preset, Filter and Sort stay', not pg.page.query_selector('[data-lgweek]') and pg.page.query_selector('[data-lgfilter]') and pg.page.query_selector('[data-lgsort]'))
+  R.check('between sessions: All first', picked(pg) == 'A', picked(pg))
+  pg.nav('/legislators?view=everyone&ch=senate')
+  R.check('a link may name the chamber (?ch=senate)', picked(pg) == 'S', picked(pg))
+  R.check('between sessions: no page errors', not pg.errors, pg.errors[:2]); pg.close()
 
 R.done()
