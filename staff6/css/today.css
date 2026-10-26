@@ -1045,13 +1045,27 @@ body.staff6 .t6-hcteam > summary:focus-visible { outline: 3px solid var(--v6-act
 body.staff6 .t6-clgo { margin: 4px 0 0; }
 @media (min-width: 768px) { body.staff6 .t6-col { gap: 24px; } }
 
-/* ---- Team (#/team, V15, D2, D5): open blocks, the work on the left, the schedule and the people on the right ---- */
-body.staff6 .tm6-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; align-items: start; }
-body.staff6 .tm6-main, body.staff6 .tm6-side { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; align-content: start; }
-@media (min-width: 1100px) { body.staff6 .tm6-grid { grid-template-columns: minmax(0, 1fr) 360px; gap: 32px; } }
+/* ---- Team (#/team, V15, D2, D5): one reading column (Nate's walk 4, "One list, top 3": calm and roomy, A-13 one focal
+   point). Slipping's three most urgent rows first, then one card of quiet lines that open in place (A-8 space, not lines). */
+body.staff6 .tm6-one { display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; max-width: 760px; }
+body.staff6 .tm6-one > .t6-head { margin-bottom: -16px; }   /* the title sits close to the list it heads */
+body.staff6 .tm6-more { margin: 12px 0 0; }
+body.staff6 .tm6-lines > .t6-quiet { padding: 10px 12px; min-height: 48px; }
+/* each line after the first: an inset hairline above it (A-8 on v6), as between the door lines */
+body.staff6 .tm6-lines > * + * { position: relative; }
+body.staff6 .tm6-lines > * + *::before { content: ''; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: var(--v6-hair); }
+body.staff6 .tm6-lines > .tm6-fold[open] { padding-bottom: 8px; }
+body.staff6 .tm6-one > .tm6-lines { margin-top: -12px; }   /* tied to the list above it, still apart (the critic: 60px read as a break) */
+/* a line that wraps (a phone): its icons on the first line, not centred on the block */
+body.staff6 .tm6-lines .t6-line { align-items: flex-start; }
+body.staff6 .tm6-lines .t6-line > svg { margin-top: 2px; }
+body.staff6 .tm6-lines .tm6-foldin > .t6-line { margin-top: 4px; }
+body.staff6 .tm6-lines .tm6-foldin { padding: 4px 6px 8px; }
+body.staff6 .tm6-lines .tm6-foldin > .v6-list, body.staff6 .tm6-lines .tm6-foldin .tm6-loads { padding: 0; box-shadow: none; background: none; }
+body.staff6 .tm6-lines .tm6-foldin .tm6-sub, body.staff6 .tm6-lines .tm6-foldin .tm6-day { margin: 4px 0 8px; padding: 0 10px; }
+@media (max-width: 767px) { body.staff6 .tm6-one { gap: 32px; } body.staff6 .tm6-one > .t6-head { margin-bottom: -12px; } }
 body.staff6 .tm6-block { margin: 0; }
 body.staff6 .tm6-h { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); color: var(--v6-ink); }
-body.staff6 .tm6-side .tm6-h { font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); }
 body.staff6 .tm6-c { font-family: Lato, system-ui, sans-serif; font-weight: 400; font-size: var(--v6-t16); color: var(--v6-muted); }
 body.staff6 .tm6-sub { margin: -4px 0 12px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-muted); }
 body.staff6 .tm6-day { margin: 16px 0 8px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); font-weight: 700; color: var(--v6-body); }
@@ -1093,27 +1107,15 @@ body.staff6 .tm6-back svg { width: 20px; height: 20px; }
 body.staff6 .tm6-back:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 @media (hover: hover) and (pointer: fine) { body.staff6 .tm6-back:hover { background: var(--v6-action-wash); } }
 @media (max-width: 767px) { body.staff6 .tm6-back { display: none; } }   /* the phone's top bar has Back */
-/* A phone's labelled door that opens Who is on what */
+/* A quiet line that opens its list in place (Hearings, Who is on what, No owner) */
 body.staff6 .tm6-fold > summary { list-style: none; cursor: pointer; }
 body.staff6 .tm6-fold > summary::-webkit-details-marker { display: none; }
 body.staff6 .tm6-fold[open] > summary .t6-chev { transform: rotate(180deg); }
 body.staff6 .tm6-foldin { padding: 4px 0 0; }
-body.staff6 .tm6-foldin .tm6-loads { padding: 0; box-shadow: none; }
-body.staff6 .tm6-foldin .tm6-sub { margin: 0 0 4px; padding: 0 10px; }   /* in line with the rows' avatars under it */
-/* One column below 1100px: Slipping, then Today and tomorrow, then the rest (Nate's walk: the schedule was 2.5 screens
-   down at 1024, 3 on a phone) */
-@media (max-width: 1099px) {
-  body.staff6 .tm6-grid { display: flex; flex-direction: column; align-items: stretch; gap: 28px; }
-  body.staff6 .tm6-main, body.staff6 .tm6-side { display: contents; }
-  body.staff6 .tm6-grid [data-block] { order: 3; }
-  body.staff6 .tm6-grid [data-block="prep"] { order: 0; }
-  body.staff6 .tm6-grid [data-block="slip"] { order: 1; }
-  body.staff6 .tm6-grid [data-block="sched"] { order: 2; }
-  body.staff6 .tm6-side .tm6-h { font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); }
-}
-/* Below 1440px a Team row's button goes under its line, so a long "Alert Lauren and Patti" never squeezes the name and the
-   time onto broken lines (Nate's walk at 1280); the names stay, never "Alert them". */
-@media (max-width: 1439px) {
+/* Below 900px a Team row's long button goes under its line (the reading column leaves room for it beside above), so a long "Alert
+   Lauren and Patti" never squeezes the name and the time onto broken lines (Nate's walk at 1280); the names stay, never
+   "Alert them". */
+@media (max-width: 899px) {
   body.staff6 .tm6-root .tm6-wide { flex-wrap: wrap; row-gap: 0; }
   body.staff6 .tm6-root .tm6-wide > .v6-row-main { flex: 1 1 100%; }
   body.staff6 .tm6-root .tm6-wide > .v6-row-act { flex: 1 1 100%; padding: 0 0 12px; }

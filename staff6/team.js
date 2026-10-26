@@ -11,6 +11,8 @@
 //     public asks they write); a helper with nothing of their own says whom they help ("helps HEAL"), never 0; a bar
 //     opens that person's list;
 //   - by season: the 2027 issues (admins), the partners' groups (partner approvers), the bills with no owner.
+//   Slipping and Hearings at risk are one ranked list (top 3 shown); the schedule, Who is on what and No owner are quiet
+//   lines that open in place.
 // #/team?who=<id> is "See as teammate" for everyone (More tools links it): that person's Today, read-only, never in colour,
 // worked out by today.js exactly as their own Today is. #/team?who=none lists the steps nobody holds yet ("Anyone can take
 // these steps"). Someone who is not a lead and opens #/team gets the picker, never an error.
@@ -38,10 +40,6 @@ const teammates = () => (S.advocates || []).filter(a => a.is_active !== false);
 const ownerOf = b => (S.assignments?.[b?.id] || []).find(live) || null;
 const isPos = b => !!b && !!b.position && b.position !== 'monitor' && b.tracked !== false;
 const redraw = () => hooks.render();
-const mq = q => { try { return matchMedia(q).matches; } catch { return false; } };
-// A phone (a touch screen under 768px, or any screen under 480px) folds Who is on what and the no-owner list into one line
-// each; a laptop zoomed to 200% (640px, a mouse) keeps them open, so zooming loses nothing (spec 7.10).
-const PHONE = () => mq('(max-width: 767px) and (pointer: coarse)') || mq('(max-width: 479px)');
 const prepSeason = () => SESSION_OVER && t6Season() === 'prep';
 // Working days from now to a moment (weekends out): "a working day or less from notice" (D2).
 function workDaysTo(t) {
@@ -173,13 +171,6 @@ function slipRow(x) {
 // so the name and its time never break onto lines of their own; a short one stays beside the words. Below 600px every
 // row's button goes under its words (steps.css, A-8).
 const wideCls = html => strip(html).length > 14 ? 'tm6-r tm6-wide' : 'tm6-r';
-// The rows in their three kinds, each kind under its small heading once more than one is on the list; the late ones always
-// say "Late, still accepted" over them (v5's group).
-function slipRows(rows) {
-  // (the overdue rows lead under Slipping's own heading: each says "Overdue since …" in its own words and colour)
-  const late = rows.filter(x => !x.over && x.lateOk), kinds = [['over', '', rows.filter(x => x.over)], ['late', 'Late, still accepted', late], ['due', late.length ? 'Due within a day' : '', rows.filter(x => !x.over && !x.lateOk)]].filter(k => k[2].length);
-  return kinds.map(([k, t, xs]) => `${t ? `<h3 class="tm6-slipsub" id="tm6-ss-${k}">${esc(t)}</h3>` : ''}<div class="v6-list" role="list"${t ? ` aria-labelledby="tm6-ss-${k}"` : ''}>${xs.map(slipRow).join('')}</div>`).join('');
-}
 // Between sessions the team's one deadline is the 2027 issues: due within a day, it is said in Slipping in soft words, no
 // red (a prep date is "Still to finish", spec 6 My issues; Nate's walk: on 5 Nov "Nothing is slipping" with 91 of 91 to
 // finish the next day).
@@ -200,14 +191,16 @@ function atRisk() {
   }
   return out.sort((x, y) => !!x.owner - !!y.owner || x.a.by - y.a.by);
 }
-// "James owns it · ask Rep. Hashem and Rep. Belatti by Tue 3/17" (the critic: "James's · ask…" read as a fragment).
+// "Hearing at risk: ask Rep. Hashem and Rep. Belatti by Tue 3/17 · James owns it": its kind first, as the ranked list's
+// other rows say theirs, in two parts (a row is a name and one short line, at most 4 facts; the critic: "James's · ask…"
+// read as a fragment).
 function riskRow(x) {
   const key = 'ar:' + x.b.id, chair = x.a.m ? x.a.m.who : 'the chair';
   let button;
   if (!x.owner) button = noOwnBtn(x.b);
   else if (x.owner === S.me?.id) button = rowButton(billStep(x.b, { viewer: S.me, d: null, h: null }));
   else { ALERTS.set(key, { b: x.b, ids: [x.owner], what: `the hearing notice must post by ${dayWords(x.a.by)} and nobody has asked ${chair} yet` }); button = alertBtn(key, [x.owner]); }
-  return itemRow({ key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(`${!x.owner ? NO_OWNER : x.owner === S.me?.id ? 'You own it' : `${first(x.owner)} owns it`} · ask ${chair} by ${dayWords(x.a.by)}`)), href: billRoute(x.b), button, cls: wideCls(button) });
+  return itemRow({ key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(`Hearing at risk: ask ${chair} by ${dayWords(x.a.by)} · ${!x.owner ? NO_OWNER : x.owner === S.me?.id ? 'You own it' : `${first(x.owner)} owns it`}`)), icon: 'calendar-clock', href: billRoute(x.b), button, cls: wideCls(button) });
 }
 
 // ---- today's and tomorrow's hearings (D5): a plain schedule ----
@@ -242,7 +235,9 @@ const NOBODY_STEP = { nodraft: 'Make the draft', write: 'Send testimony for appr
 const nobodyLine = s => { const u = unheld(s);
   if (!s?.state || !NOBODY_STEP[s.kind] || ['missed', 'filed'].includes(s.state.key) || s.off) return u;
   return `${NOBODY_STEP[s.kind]} · ${s.kind === 'nodraft' && /^due /i.test(u) ? 'testimony ' : ''}${lc(u)}`; };
-const nobodyRow = x => billRow(x.b, { viewer: S.me, step: { ...x.s, mine: false }, line: nw(esc(nobodyLine(x.s))), button: noOwnBtn(x.b), cls: 'tm6-r' });
+const nobodyRow = (x, { button = noOwnBtn(x.b) } = {}) => billRow(x.b, { viewer: S.me, step: { ...x.s, mine: false }, line: nw(esc(nobodyLine(x.s))), button, cls: 'tm6-r' });
+// A step due by the end of tomorrow (Slipping's window): its row keeps its button in Team's No owner fold.
+const soonStep = x => { const d = x.s?.act?.at ?? x.s?.due; return d != null && hday(d) <= hday(Date.now() + DAY); };
 
 // ---- Who is on what: everything each person holds, each step counted once ----
 // The people with nothing open are one line, "Everyone else: nothing open" (spec 0: less on every screen; between sessions
@@ -266,27 +261,16 @@ function loads() {
     return { a, n, helps: n ? '' : helpsWords(a) }; }).sort((x, y) => y.n - x.n || !!y.helps - !!x.helps || x.a.full_name.localeCompare(y.a.full_name));
 }
 function loadHTML(rows = loads()) {
-  const none = nobodySteps().length, busy = rows.filter(r => r.n > 0 || r.helps), idle = rows.length - busy.length, max = Math.max(1, none, ...rows.map(r => r.n));
+  // (no No owner bar: Team's own No owner line, just below, says it and opens it; A-14)
+  const busy = rows.filter(r => r.n > 0 || r.helps), idle = rows.length - busy.length, max = Math.max(1, ...rows.map(r => r.n));
   const bar = (href, av, name, n, title, helps = '') => helps
     ? `<a class="tm6-load tm6-helps" href="${esc(href)}" aria-label="${esc(`${title}: nothing of their own open, ${helps}`)}">${av}<span class="tm6-ln">${esc(name)}</span><span class="tm6-hw">${esc(helps)}</span></a>`
     : `<a class="tm6-load" href="${esc(href)}" aria-label="${esc(`${title}: ${plural(n, 'step')}`)}">${av}<span class="tm6-ln">${esc(name)}</span><span class="tm6-bar" aria-hidden="true"><i style="width:${Math.round(n / max * 100)}%"></i></span><span class="tm6-n" aria-hidden="true">${n}</span></a>`;
   return `<div class="tm6-loads">${busy.map(({ a, n, helps }) => bar(`#/team?who=${encodeURIComponent(a.id)}`, avatar(a, 28), a.id === S.me?.id ? 'You' : a.full_name, n, a.id === S.me?.id ? 'Your list' : `${a.full_name}’s list`, helps)).join('')}
-    ${none ? bar('#/team?who=none', avatar(null, 28), 'No owner', none, 'Bills with no owner') : ''}
-    ${idle ? `<p class="tm6-idle">${icon('circle-check')}<span>${busy.length || none ? 'Everyone else' : 'Everyone'}: nothing open</span></p>` : ''}</div>`;
+    ${idle ? `<p class="tm6-idle">${icon('circle-check')}<span>${busy.length ? 'Everyone else' : 'Everyone'}: nothing open</span></p>` : ''}</div>`;
 }
 
 // ---- the seasonal blocks ----
-// Bills with a position and no owner (W42): the first few, soonest step first, each with Give to… (admins) or Take it, and
-// the full list.
-// The preview leaves out a bill Slipping already shows (the fresh-eyes check: HB 2300 twice on one page, each with Give
-// to…); the count and the full list still hold every one.
-function noOwner(shown = new Set()) {
-  const list = nobodySteps(); if (!list.length) return '';
-  const prev = list.filter(x => !shown.has(x.b.id)).slice(0, 3);
-  return block('noown', 'Bills with no owner', `<p class="tm6-sub">${plural(list.length, 'bill with a position has', 'bills with a position have')} no owner.${prev.length ? '' : ` ${list.length === 1 ? 'It is' : 'Each is'} under Slipping.`}</p>
-      ${prev.length ? `<div class="v6-list" role="list">${prev.map(nobodyRow).join('')}</div>` : ''}
-      ${list.length > prev.length ? door('#/team?who=none', 'user-round', `<b>All ${list.length} bills with no owner</b>`) : ''}`);
-}
 const block = (id, title, body, { count = '' } = {}) => `<section class="tm6-block" data-block="${esc(id)}" aria-labelledby="tm6-${esc(id)}"><h2 class="tm6-h" id="tm6-${esc(id)}">${esc(title)}${count !== '' ? ` <span class="tm6-c">${esc(count)}</span>` : ''}</h2>${body}</section>`;
 const quiet = (ic, text) => `<p class="t6-quiet">${icon(ic)}<span>${esc(text)}</span></p>`;
 const door = (href, ic, html) => `<a class="t6-line" href="${esc(href)}">${icon(ic)}<span class="t6-lt">${html}</span>${icon('chevron-right', { cls: 't6-chev' })}</a>`;
@@ -304,35 +288,64 @@ function prepBlock() {
 function partnersHTML() {
   if (!admitsPartners(S.me)) return '';
   wantQueue();
-  const l = partnersLine(S.me); return l ? `<nav class="t6-doors" data-block="partners" aria-label="Partners">${l}</nav>` : '';
+  return partnersLine(S.me) || '';
 }
 
 // ---- the pages ----
-const SLIP_SHOWN = 8;   // the whole of Slipping on Nate's first screen (staff6_people); the rest one labelled tap away
-// Below 1100px the blocks are one column in this order: Slipping, Today and tomorrow, then the rest (css: .tm6-grid's
-// `order`; Nate's walk: at 1024 the schedule was 2.5 screens down). On a phone Who is on what and Bills with no owner are
-// one labelled line each that opens its list (spec 6 phone; 4.4 screens at 390 before).
+// Nate's walk 4 (R-336, Team): "It's still too crowded. This needs to be more calm and roomy. I'm not sure where I'm
+// supposed to look." His pick, "One list, top 3": one reading column (A-13, one focal point). Slipping and Hearings at risk
+// are one ranked list (overdue, then late but still accepted, then a hearing a working day from its notice with nobody
+// asking, then what is due within a day), its three most urgent rows shown with their one action each, and "See all N"
+// opening the rest in place under their small headings. The schedule, Who is on what and the bills with no owner are one
+// quiet line each that opens its list where it is (A-14: each count is the number of rows it opens), the Partners line
+// last. The same order on a phone (spec 6 phone).
+const TOP = 3;
+const RANK = { over: 0, late: 1, risk: 2, due: 3 };
+const kindOf = x => x.risk ? 'risk' : x.over ? 'over' : x.lateOk ? 'late' : 'due';
+// The ranked list: Slipping's rows (today.js slipList, the count Today's "N slipping" line gives) and the hearings at risk.
+function ranked(sl, risk) {
+  const rows = [...sl, ...risk.map(r => ({ ...r, risk: true, key: 'ar:' + r.b.id, at: r.a.by }))];
+  // a stable sort: inside each kind the order slipping() and atRisk() already give (by the time to act; no owner first)
+  return rows.map((x, i) => [x, i]).sort(([x, i], [y, j]) => RANK[kindOf(x)] - RANK[kindOf(y)] || i - j).map(([x]) => x);
+}
+const anyRow = x => x.risk ? riskRow(x) : slipRow(x);
+// One card, the same in both states: "See all" appends the rest under the same three, so no row moves or changes its words
+// (the critic: the list jumped into four headed cards when opened). Each row's line says its kind ("Overdue since…",
+// "late, still accepted until…", "Hearing at risk ·…", a clock and its time).
+const rankedHTML = (rows, all) => `<div class="v6-list" role="list">${(all ? rows : rows.slice(0, TOP)).map(anyRow).join('')}</div>`;
+// One quiet line that opens its list in place: a <details> whose summary is a door line (its state kept across redraws).
+S.tmOpen ??= {};
+const fold = (id, ic, html, body) => `<details class="tm6-fold" data-block="${esc(id)}" data-tmfold="${esc(id)}"${S.tmOpen[id] ? ' open' : ''}><summary class="t6-line">${icon(ic)}<span class="t6-lt">${html}</span>${icon('chevron-down', { cls: 't6-chev' })}</summary><div class="tm6-foldin">${body}</div></details>`;
+// "2 today, 4 tomorrow · no one going yet": the sittings the fold opens, and whether anyone is down to go.
+function schedLine(sch) {
+  const [t, m] = sch.map(d => d.rows.length), all = sch.flatMap(d => d.rows), alone = all.filter(h => /no one/i.test(goingWords(h, { viewer: S.me }))).length;
+  const when = [t ? `${t} today` : '', m ? `${m} tomorrow` : ''].filter(Boolean).join(', ');
+  return `<b>${all.length === 1 ? 'Hearing' : 'Hearings'}</b> · ${esc(when)}${alone ? ` · ${alone === all.length ? 'no one going yet' : `${alone} with no one going`}` : ''}`;
+}
 function teamPage() {
   ALERTS.clear(); reachOf(null);   // who Slack can reach, asked once (admins), so an Alert's words are right the first time
-  const off = SESSION_OVER, phone = PHONE();
-  const sl = slipping(), risk = off ? [] : atRisk(), sch = schedule(), all = !!S.tmSlipAll, prep = prepSlip();
-  const shown = all ? sl : sl.slice(0, SLIP_SHOWN);
-  const slip = block('slip', 'Slipping', sl.length || prep ? `${prep}${sl.length ? slipRows(shown) : ''}${sl.length > SLIP_SHOWN ? `<p class="t6-more">${btn(all ? 'Show fewer' : `Show all ${sl.length}`, { kind: 'text', icon: all ? 'chevron-up' : 'chevron-down', attrs: { 'data-tmslipall': '1', 'aria-expanded': String(all) } })}</p>` : ''}`
-    : quiet('circle-check', 'Nothing is slipping: nothing late or due within a day.'), { count: sl.length + (prep ? 1 : 0) || '' });
-  // Between sessions there are no hearings to be at risk and none to schedule: the blocks are left out (spec 0).
-  const riskB = off ? '' : block('risk', 'Hearings at risk', risk.length ? `<p class="tm6-sub">A working day or less until the notice must post, and nobody has asked the chair.</p><div class="v6-list" role="list">${risk.map(riskRow).join('')}</div>`
-    : quiet('circle-check', 'No bill is a working day from its notice without an ask.'));
-  const sched = off ? '' : block('sched', 'Today and tomorrow', sch.some(d => d.rows.length) ? sch.map(d => d.rows.length ? `<h3 class="tm6-day">${d.label}</h3><div class="v6-list" role="list">${d.rows.map(sitRow).join('')}</div>` : '').join('')
+  const off = SESSION_OVER;
+  const sl = slipping(), risk = off ? [] : atRisk(), sch = off ? [] : schedule(), prep = prepSlip();
+  const rows = ranked(sl, risk), all = !!S.tmSlipAll || rows.length <= TOP, n = rows.length + (prep ? 1 : 0);
+  const more = rows.length > TOP ? `<p class="tm6-more">${btn(S.tmSlipAll ? 'Show fewer' : `See all ${rows.length}`, { kind: 'text', icon: S.tmSlipAll ? 'chevron-up' : 'chevron-down', attrs: { 'data-tmslipall': '1', 'aria-expanded': String(!!S.tmSlipAll) } })}</p>` : '';
+  const slip = block('slip', 'Slipping', n ? `${prep}${rows.length ? rankedHTML(rows, all) : ''}${more}`
+    : quiet('circle-check', off ? 'Nothing is slipping: nothing late or due within a day.' : 'Nothing is slipping: nothing late or due within a day, and every hearing a day from its notice has an ask.'), { count: n || '' });
+  // the quiet lines, one card
+  const lines = [];
+  if (!off) lines.push(sch.some(d => d.rows.length)
+    ? fold('sched', 'calendar', schedLine(sch), sch.map(d => d.rows.length ? `<h3 class="tm6-day">${d.label}</h3><div class="v6-list" role="list">${d.rows.map(sitRow).join('')}</div>` : '').join(''))
     : quiet('calendar', 'No hearings on our bills today or tomorrow.'));
-  const rows = loads();
-  // What the numbers count, said once on a laptop and inside the phone's fold alike (R-336: the phone's had no such line).
-  const whoSub = `<p class="tm6-sub">Each person’s open steps, chair asks included.</p>`;
-  const who = phone ? `<details class="tm6-fold t6-doors" data-block="who"${S.tmWhoOpen ? ' open' : ''} data-tmwho><summary class="t6-line">${icon('users')}<span class="t6-lt"><b>Who is on what</b> · ${plural(rows.length, 'person', 'people')}</span>${icon('chevron-down', { cls: 't6-chev' })}</summary><div class="tm6-foldin">${whoSub}${loadHTML(rows)}</div></details>`
-    : block('who', 'Who is on what', `${whoSub}${loadHTML(rows)}`);
-  const nob = nobodySteps().length, noown = phone ? (nob ? `<nav class="t6-doors" data-block="noown" aria-label="Bills with no owner">${door('#/team?who=none', 'user-round', `<b>No owner</b> · ${plural(nob, 'bill')}`)}</nav>` : '') : noOwner(new Set(shown.filter(x => !x.ids.length).map(x => x.b.id)));
-  return `<div class="tm6-root${phone ? ' ph' : ''}">
+  const people = loads(), busy = people.filter(r => r.n > 0).length;
+  lines.push(fold('who', 'users', `<b>Who is on what</b> · ${busy ? `${plural(busy, 'person', 'people')} with open steps` : 'nothing open'}`,
+    `<p class="tm6-sub">Each person’s open steps, chair asks included.</p>${loadHTML(people)}`));
+  const nob = nobodySteps();
+  if (nob.length) lines.push(fold('noown', 'user-round', `<b>No owner</b> · ${plural(nob.length, 'bill')} with a position`,
+    `<div class="v6-list" role="list">${nob.map(x => soonStep(x) ? nobodyRow(x) : nobodyRow(x, { button: false })).join('')}</div>${door('#/team?who=none', 'user-round', `<b>${S.me?.is_admin ? 'Give them out' : 'Take one'}</b> on the No owner list`)}`));
+  const partners = partnersHTML();
+  return `<div class="tm6-root tm6-one">
     <header class="t6-head"><h1 class="v6-ptitle sv-h1" id="tm6-h1" tabindex="-1">Team</h1><p class="t6-date">${esc(new Date().toLocaleDateString('en-US', { ...HST, weekday: 'short', month: 'short', day: 'numeric' }))}</p></header>
-    <div class="tm6-grid"><div class="tm6-main">${prepBlock()}${slip}${riskB}${noown}</div><div class="tm6-side">${sched}${who}${partnersHTML()}</div></div></div>`;
+    ${prepBlock()}${slip}
+    <div class="t6-doors tm6-lines" role="group" aria-label="More on the team">${lines.join('')}${partners}</div></div>`;
 }
 // The way back above the title (B-4; the sitting page opened from Team has one): Team for a lead, More tools for anyone else.
 const backLink = () => { const b = isLead() ? { href: '#/team', label: 'Team' } : { href: '#/tools', label: 'More tools' };
@@ -378,7 +391,7 @@ function wire(route, root) {
   main.querySelectorAll('[data-tmalert]').forEach(b => b.onclick = () => alertThem(b, b.dataset.tmalert));
   main.querySelectorAll('[data-tmundo]').forEach(b => b.onclick = () => unalert(b.dataset.tmundo));
   main.querySelector('[data-tmslipall]')?.addEventListener('click', () => { S.tmSlipAll = !S.tmSlipAll; redraw(); });
-  main.querySelector('[data-tmwho]')?.addEventListener('toggle', e => { S.tmWhoOpen = e.target.open; });
+  main.querySelectorAll('[data-tmfold]').forEach(d => d.addEventListener('toggle', () => { S.tmOpen[d.dataset.tmfold] = d.open; }));
   main.querySelector('[data-tmpick]')?.addEventListener('click', () => pickerSheet({ title: 'See a teammate’s list', value: route?.who || '',
     options: [...teammates().filter(a => a.id !== S.me?.id).sort((x, y) => x.full_name.localeCompare(y.full_name)).map(a => [a.id, a.full_name, 'user-round', '']), ['none', 'No owner', 'user-round', 'Bills with no owner']],
     onPick: id => S.go(`#/team?who=${encodeURIComponent(id)}`) }));
