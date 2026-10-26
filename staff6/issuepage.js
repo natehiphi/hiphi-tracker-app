@@ -503,20 +503,21 @@ function ppRedraw(i, focus) {
 const ppSay = r => { const b = r.bill_id ? billById(r.bill_id) : null; return `${r.partner_name}: ${(PP_WORD[r.stance] || PP_WORD.unknown).toLowerCase()}${b ? ` on ${numWords(b)}` : ''}`; };
 // The names to suggest: the partner groups the app knows (Partners, partner_queue, partner links) and names already used on
 // any issue this visit. Free text is fine: many partners (the Heart Association, a retailers' group) have no login here.
-function ppNames() {
-  const out = new Set();
+function ppNames(i, r) {
+  // A partner already set on this issue is changed from its row, so it is not offered again (ui-critic).
+  const here = new Set((PP()[i.id]?.rows || []).filter(x => x.id !== r?.id).map(x => x.partner_name.toLowerCase())), out = new Set();
   for (const g of S.pg?.groups || []) out.add(g.name);
   for (const p of S.partners || []) out.add(p.name);
   for (const x of S.pq?.bills || []) out.add(x.partner_name);
   for (const box of Object.values(PP())) for (const r of box.rows || []) out.add(r.partner_name);
-  return [...out].filter(Boolean).filter(n => !/\(sample\)$/.test(n)).sort((a, b) => a.localeCompare(b));
+  return [...out].filter(n => n && !/\(sample\)$/.test(n) && !here.has(n.toLowerCase())).sort((a, b) => a.localeCompare(b));
 }
 function ppSheet(i, r = null) {
   const { now, earlier } = billsSplit(i), bills = [...now, ...earlier];
-  if (!S.pg && !S.pgLoading) DB.loadPartnerGroups().then(() => { const dl = document.getElementById('ip-ppnames'); if (dl) dl.innerHTML = ppNames().map(n => `<option value="${esc(n)}"></option>`).join(''); }).catch(() => {});
+  if (!S.pg && !S.pgLoading) DB.loadPartnerGroups().then(() => { const dl = document.getElementById('ip-ppnames'); if (dl) dl.innerHTML = ppNames(i, r).map(n => `<option value="${esc(n)}"></option>`).join(''); }).catch(() => {});
   const body = `<div class="le-sheet is-form ip6-ppform">
-    <div class="field"><label for="ip-ppname">Partner</label><input id="ip-ppname" maxlength="120" autocomplete="off" list="ip-ppnames" value="${esc(r?.partner_name || '')}" placeholder="American Heart Association" aria-describedby="ip-ppname-h ip-ppname-err">
-      <datalist id="ip-ppnames">${ppNames().map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
+    <div class="field"><label for="ip-ppname">Partner</label><input id="ip-ppname" maxlength="120" autocomplete="off" list="ip-ppnames" value="${esc(r?.partner_name || '')}" placeholder="Type or pick a group" aria-describedby="ip-ppname-h ip-ppname-err">
+      <datalist id="ip-ppnames">${ppNames(i, r).map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
       <span class="help" id="ip-ppname-h">A partner group’s name. Pick one the app knows, or type any group.</span><div id="ip-ppname-err" role="alert"></div></div>
     <fieldset class="is-cats"><legend>Where they stand</legend>
       ${PP_ORDER.map(k => `<label class="check is-cat"><input type="radio" name="ip-ppst" value="${k}" ${r?.stance === k ? 'checked' : ''}><span>${PP_WORD[k]}</span></label>`).join('')}</fieldset>
@@ -763,7 +764,7 @@ function pageRender(route) {
   // One reading column at every width (Nate, walk 4: "one column on a laptop", read top to bottom; the screen is a 760px
   // column, `narrow`). The top four stay open: how it stands, what to do next, its bills, who is working on it. Everything
   // after is folded with a one-line summary, in Nate's order; where legislators stand sits quiet, last before the timeline
-  // ("the where legislators stand section should not be as prominent"). Related issues end it, quietest.
+  // ("the where legislators stand section should not be as prominent"). Related issues end it, quiet too.
   const folds = [
     foldSec('points', 'ip-mh', 'Talking points and materials', pointsHTML(i, now, earlier)),
     foldSec('public', 'ip-ph', pub.title, pub),

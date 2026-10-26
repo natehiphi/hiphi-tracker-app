@@ -955,7 +955,14 @@ body.staff6 .ip6-sf[open] > summary .i6-chev { transform: rotate(180deg); }
 @media (prefers-reduced-motion: reduce) { body.staff6 .ip6-sf > summary .i6-chev { transition: none; } }
 body.staff6 .ip6-sft { min-width: 0; font-size: var(--v6-t16); line-height: 28px; color: var(--v6-body); }
 body.staff6 .ip6-sfh { display: inline; margin: 0; font: 600 var(--v6-t18)/28px Poppins, system-ui, sans-serif; letter-spacing: -.005em; color: var(--v6-ink); }
-body.staff6 .ip6-sf.is-quiet .ip6-sfh { font-weight: 500; color: var(--v6-body); }
+/* the quiet folds step down in size, weight and row height, so they visibly recede (ui-critic, Nate: "not as prominent") */
+body.staff6 .ip6-sf.is-quiet > summary { min-height: 48px; padding-top: var(--s12); padding-bottom: var(--s12); }
+body.staff6 .ip6-sf.is-quiet .ip6-sft { line-height: 24px; }
+body.staff6 .ip6-sf.is-quiet > summary .i6-chev { margin-top: 2px; }
+body.staff6 .ip6-sf.is-quiet .ip6-sfh { font: 500 var(--v6-t16)/24px Lato, system-ui, sans-serif; letter-spacing: 0; color: var(--v6-body); }
+body.staff6 .ip6-sf.is-quiet .ip6-sfs { color: var(--v6-muted); }
+/* the partner sheet: the stance choices keep the same space below them as every other field */
+body.staff6 .ip6-ppform fieldset { margin-bottom: var(--s24); }
 body.staff6 .ip6-sfs { color: var(--v6-body); }
 body.staff6 .ip6-sfb { padding: 0 0 var(--s24) var(--s32); }
 @media (max-width: 599px) { body.staff6 .ip6-sfb { padding-left: 0; } }
