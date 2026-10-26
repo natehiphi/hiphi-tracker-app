@@ -14,13 +14,17 @@
 // Between sessions My issues is the 2027 prep list (W16, prep.js), as Nate chose for Staff v2 on 10/16.
 // Someone who owns and helps on no issue (Patti, Julie, Saya, Kris, Jess) sees their coalitions instead (v4, R-269 P7):
 // the ones they help on as rows, then the others, each with an I help switch (coalition.js).
+// v6 walk 3 (Nate 25 Oct, twelve mockups): the list is handed to myviews.js, which draws five views behind one remembered
+// switch: Coverage (the default: House and Senate bills alive and past the next deadline), Deadlines, Status, Topics and
+// Spreadsheet. This file keeps the page: the head, the lines above, the filter, the prep list and the coalition fallback.
 import { S, DB, DEADLINES, SESSION_OVER, hooks, esc, myIssueIds } from './data.js';
 import { diedish } from './model.js';
 import { icon, btn, empty, toast, openSheet, closeSheet } from './ui.js';
 import { plural } from './lists.js';
 import { isDraft, myIssuesPrep, renderMinePrep, wireMinePrep } from './prep.js';
 import { coalSectionsHTML, wireHelpBtns, billLineRow, helpLineHTML, billWords } from './coalition.js';
-import { standOf, bodyHTML, toolsHTML, wireTools, headHTML, restoreRow } from './issuestand.js';
+import { standOf, wireTools, headHTML, restoreRow, backRecent } from './issuestand.js';
+import { toolsHTML, bodyHTML, wireBody, wireSwitch, restoreMine } from './myviews.js';
 import { isPos } from './standing.js';
 import { dayWords, itemRow } from './steps.js';
 
@@ -105,16 +109,18 @@ export default {
     return `<div class="le-page i6-page mi6-page">
       ${head}
       ${lede || lines ? `<div class="i6-lines">${lede}${lines}</div>` : ''}
-      ${toolsHTML(Q().q, 'mi-q', { label: 'Filter your issues', count: list.length })}
-      <div id="mi-q-body">${bodyHTML(list, opts())}</div>
+      ${toolsHTML(Q().q, list.length)}
+      <div id="mi-q-body" class="mi-body">${bodyHTML(list, { q: Q().q, opts: opts() })}</div>
     </div>`;
   },
   wire(route, app) {
     if (myIssuesPrep()) return wireMinePrep(app);
     wireHelpBtns(app);
-    wireTools(app, 'mi-q', { get: () => Q().q, set: v => { Q().q = v; }, paint: () => { const b = app.querySelector('#mi-q-body'); if (b) b.innerHTML = bodyHTML(myIssues(), opts()); } });
+    const paint = () => { const b = app.querySelector('#mi-q-body'); if (b) { b.innerHTML = bodyHTML(myIssues(), { q: Q().q, opts: opts() }); wireBody(app, { paint }); } };
+    wireTools(app, 'mi-q', { get: () => Q().q, set: v => { Q().q = v; }, paint });
+    wireSwitch(app, { paint }); wireBody(app, { paint });
     app.querySelector('[data-mi="unowned"]')?.addEventListener('click', unownedSheet);
     app.querySelector('[data-mi="tops"]')?.addEventListener('click', topsSheet);
-    restoreRow(app);
+    if (!restoreMine(app, backRecent)) restoreRow(app);
   },
 };
