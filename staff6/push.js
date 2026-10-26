@@ -523,8 +523,10 @@ export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, 
     const shared = !!nwd.only;   // every bill here one teammate's: said once on this line, not on every row (A-14)
     const head = cap(deadlineWords(d.dl.label, d.dl.date, { n: total }));
     const door = fold && di === 0 ? ` · <a class="hg-dlgo" href="#/hearings/ask?scope=${esc(scope)}">${ASK_TAB}</a>` : '';
-    // Get hearings says each deadline's share of the tab's pile ("16 of the 20 to ask", toAskOf); the rest stop at "16 to ask".
-    const askT = nwd.rest ? toAskOf(cn.toAsk, pile) : '';
+    // The ask part never repeats the count before it (Nate's walk 3: "16 of your bills need a hearing · 16 to ask"): when
+    // every bill here is still to ask it says "none asked yet"; otherwise how many are still to ask, "12 still to ask", and
+    // on Get hearings, when the tab's pile runs past this deadline, its share of it ("12 of the 20 still to ask", A-14).
+    const askT = !nwd.rest ? '' : cn.toAsk >= cn.need ? 'none asked yet' : toAskOf(cn.toAsk, pile).replace(/ to ask$/, ' still to ask');
     const subT = [nwd.head, askT, ...(fold ? [] : dlParts(cn))].filter(Boolean).join(' · ');
     const sub = `${subT ? `<p class="hg-dls">${nwParts(esc(subT))}${door}</p>` : ''}${nwd.decide ? `<p class="hg-dls hg-dld">${nwParts(esc(nwd.decide))}</p>` : ''}`;
     const gh = g => groupHTML(g, v, scope, { primary: g.key === pkey, shared }), open = groups.filter(g => !g.folded), shut = groups.filter(g => g.folded);
