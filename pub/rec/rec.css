@@ -59,23 +59,25 @@ body.rec .rc-box .rc-draft:focus-visible { outline-offset: -3px; }   /* inside t
 /* "Add this week’s hearings to my calendar" on My issues (R-212 #51, pub/rec/mybills.js weekLine): one quiet line between the
    header and the rows. The house text button (A-3; link blue, A-5), its 20px icon lined up with the h1's left edge (the
    button's 16px of padding taken back) and 44px tall (A-6). Its words may wrap on a narrow phone rather than run past the edge.
-   Pressed, the line holds the done chip, the next step in grey and "Save again" at its end, lined up under Edit. On a laptop
-   that is one 44px row, as the button was; on a phone it is two rows (the chip and Save again, then the next step), so there
-   the line keeps 64px before the press too, and the rows below never move (at 320px a long next step can wrap once more). */
+   Pressed, the line holds the done chip, the next step in grey and "Save again". From 900px (A-9) that is one 44px row, as
+   the button was, with Save again right after the sentence it belongs to; below 900 it is two rows (the chip and Save again,
+   lined up under Edit, then the next step), so there the line keeps 64px before the press too, and the rows below never move
+   (at 320px a long next step can wrap once more). */
 body.rec .rc-wkcal { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s8); min-height: 44px; margin: calc(-1 * var(--s4)) 0 var(--s8); }
 body.rec .rc-wkcal .rc-wkbtn { margin-left: -16px; white-space: normal; text-align: left; justify-content: flex-start; }
 body.rec .rc-wkcal .rc-wkbtn .ic { flex: none; }
-body.rec .rc-wkdone { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "chip what again"; align-items: center; column-gap: var(--s8); }
+body.rec .rc-wkdone { display: grid; grid-template-columns: auto minmax(0, max-content) auto; justify-content: start; grid-template-areas: "chip what again"; align-items: center; column-gap: var(--s8); }
 body.rec .rc-wkdone > .chip { grid-area: chip; justify-self: start; }
 body.rec .rc-wkwhat { grid-area: what; font-size: var(--t14); line-height: 20px; color: var(--n700); }
-body.rec .rc-wkdone > .rc-wkagain { grid-area: again; margin-right: -16px; }
+body.rec .rc-wkdone > .rc-wkagain { grid-area: again; }
 body.rec .rc-wkcal[tabindex="-1"]:focus { outline: none; }   /* focused only so a screen reader says it after the press; not a control */
 /* In Instagram's or Facebook's own browser: where the file can be saved, in grey, with no button (it would save nothing) */
 body.rec .rc-wknote { flex-wrap: nowrap; align-items: flex-start; padding: var(--s12) 0; font-size: var(--t14); line-height: 20px; color: var(--n700); }
 body.rec .rc-wknote .ic { flex: none; width: 18px; height: 18px; margin-top: 1px; }
-@media (max-width: 699px) {
+@media (max-width: 899px) {
   body.rec .rc-wkcal:not(.rc-wknote) { min-height: 64px; }
-  body.rec .rc-wkdone { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "chip again" "what what"; }
+  body.rec .rc-wkdone { grid-template-columns: minmax(0, 1fr) auto; justify-content: stretch; grid-template-areas: "chip again" "what what"; }
+  body.rec .rc-wkdone > .rc-wkagain { margin-right: -16px; }
 }
 body.rec .rc-showall { margin: var(--s4) 0 0 calc(-1 * var(--s12)); }
 body.rec .rc-rows > li[hidden] { display: none; }   /* the rest of a "Show all" list (kit.js laterRow); a row's own display wins over [hidden] */

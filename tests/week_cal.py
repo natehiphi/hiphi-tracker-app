@@ -15,7 +15,8 @@
 #       The deadline's event has no place (testimony is sent online) and says "Send your testimony online. It takes a few
 #       minutes: <link>"; the hearing's says "Times can change: check the bill before you go." before its link
 #   W3  the line then says "Calendar file ready", the next step "Open it to add 6 hearings, Wed to Mon, Mar 23" and a quiet
-#       "Save again" (44px, lined up under Edit) that saves the file once more; focused; the rows below have not moved, at 390
+#       "Save again" (44px; on a phone lined up under Edit, from 900px right after the next step) that saves the file once
+#       more; focused; the rows below have not moved, at 390
 #       or 1366, after either press; it stays so after a redraw
 #   W4  while editing, no line; Done brings it back; a bill followed after the press with a hearing this week: offered again
 #   W5  testimony already sent on HB 2121's hearing: its hearing is in the file, its "Testimony due" is not; HB 1965, a bill
@@ -165,6 +166,8 @@ LINE = """() => { const root = document.querySelector('.rc-mine'), ls = root ? [
     rowsTop: rows ? Math.round(rows.getBoundingClientRect().top + scrollY) : null, chip: !!(l && l.querySelector('.chip.ok')),
     what: l && l.querySelector('.rc-wkwhat') ? l.querySelector('.rc-wkwhat').textContent.replace(/\\u00a0/g, ' ') : '',
     again: !!a, againH: a ? a.getBoundingClientRect().height : 0, againX: a ? Math.round(a.querySelector('span').getBoundingClientRect().right) : null,
+    againL: a ? Math.round(a.querySelector('span').getBoundingClientRect().left) : null, whatR: l && l.querySelector('.rc-wkwhat') ? Math.round(l.querySelector('.rc-wkwhat').getBoundingClientRect().right) : null,
+    againTop: a ? Math.round(a.getBoundingClientRect().top) : null, whatTop: l && l.querySelector('.rc-wkwhat') ? Math.round(l.querySelector('.rc-wkwhat').getBoundingClientRect().top) : null,
     editX: ed ? Math.round(ed.getBoundingClientRect().right - parseFloat(getComputedStyle(ed).paddingRight)) : null, againFocused: !!(a && document.activeElement === a), note: !!(l && l.classList.contains('rc-wknote')),
     focused: !!(l && document.activeElement === l), sideways: document.documentElement.scrollWidth > innerWidth }; }"""
 
@@ -239,7 +242,13 @@ with sync_playwright() as p:
         L = pg.evaluate(LINE)
         ok(L['n'] == 1 and L['chip'] and L['text'].startswith('Calendar file ready') and not L['btn'], f'W3 {tag}: the line says "{L["text"]}"')
         ok(L['what'] == 'Open it to add 6 hearings, Wed to Mon, Mar 23', f'W3 {tag}: the next step: "{L["what"]}"')
-        ok(L['again'] and L['againH'] >= 44 and L['againX'] is not None and abs(L['againX'] - L['editX']) <= 2, f'W3 {tag}: "Save again" at the line’s end, 44px, under Edit ({L["againH"]}, {L["againX"]} vs {L["editX"]})')
+        # Below 900px (A-9) Save again is lined up under Edit, over the next step; from 900 it follows the next step on its
+        # line, within the button's own padding and the gap (16 + 8px), so it is not read as part of the header.
+        if tag == 'laptop':
+            ok(L['again'] and L['againH'] >= 44 and L['againL'] is not None and L['whatR'] is not None and 0 < L['againL'] - L['whatR'] <= 32 and abs(L['againTop'] + 22 - (L['whatTop'] + 10)) <= 4,
+               f'W3 {tag}: "Save again" right after the next step on its line, 44px ({L["againH"]}, {L["againL"]} after {L["whatR"]})')
+        else:
+            ok(L['again'] and L['againH'] >= 44 and L['againX'] is not None and abs(L['againX'] - L['editX']) <= 2, f'W3 {tag}: "Save again" at the line’s end, 44px, under Edit ({L["againH"]}, {L["againX"]} vs {L["editX"]})')
         ok(L['focused'], f'W3 {tag}: the done line has the focus (a screen reader says it)')
         ok(L['rowsTop'] == before and L['h'] >= 44, f'W3 {tag}: the rows did not move ({before} -> {L["rowsTop"]})')
         pg.screenshot(path=os.path.join(OUT, f'mine-after-{tag}.png'), full_page=True)
