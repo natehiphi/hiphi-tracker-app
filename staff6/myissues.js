@@ -97,7 +97,8 @@ export default {
     const list = myIssues(), head = headHTML('mine');
     const owned = list.filter(x => x.own).length, helped = list.length - owned;
     // Someone with no issue: their coalitions, where their week is (Patti: HEAL in one click).
-    if (!list.length && (S.campaigns || []).length) return `<div class="le-page i6-page mi6-page">${head}${coalSectionsHTML()}</div>`;
+    // The critic: say why the page shows coalitions, and how an issue would come to be here.
+    if (!list.length && (S.campaigns || []).length) return `<div class="le-page i6-page mi6-page">${head}<p class="i6-lede mi-noiss">No issues are yours yet. Owning or helping on an issue adds it here; helping a coalition shows its week below.</p>${coalSectionsHTML()}</div>`;
     if (!list.length) return `<div class="le-page i6-page mi6-page">${head}
       <div class="le-empty">${empty({ title: 'No issues are yours yet', text: 'When you own or help on an issue, it shows here with where it stands.', action: btn('See all issues', { kind: 'secondary', href: '#/my-issues/all' }) })}</div></div>`;
     // Under the tabs, one line only when it says something the list does not (the critic: "You own 10 issues" counted the

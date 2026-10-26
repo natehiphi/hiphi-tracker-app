@@ -34,7 +34,7 @@ PICK = """v => { const b = document.querySelector(`[data-miview=${v}]`), s = doc
 PRESSED = "() => (document.querySelector('[data-miview][aria-pressed=true]') || {}).dataset?.miview || document.querySelector('[data-misel]')?.value"
 SPLITS = r"""() => [...document.querySelectorAll('a.mi-cov')].map(a => { const cells = [...a.querySelectorAll('.mi-cell')];
   return { name: a.querySelector('.mi-name').firstChild.textContent.trim(), health: a.querySelector('.mi-cvt .mi-ln').innerText.trim(),
-    ok: cells.map(c => c.classList.contains('ok')), off: cells.map(c => c.classList.contains('off')), cells: cells.map(c => c.innerText.replace(/\s+/g, ' ').trim()) }; })"""
+    ok: cells.map(c => c.classList.contains('ok')), off: cells.map(c => c.classList.contains('no')), cells: cells.map(c => c.innerText.replace(/\s+/g, ' ').trim()) }; })"""
 HSCROLL = '() => document.scrollingElement.scrollWidth > innerWidth + 1'
 
 def budgets(R, pg, label):
@@ -70,9 +70,16 @@ def main():
     split = [x for x in items if not any(x['off']) and x['ok'].count(True) == 1]
     R.check('a split-chamber issue exists in the practice data (one chamber past the next deadline, the other not)', bool(split), [x['name'] for x in split][:3])
     R.check('every split issue says "Split:" and names which chamber is past', all(x['health'].startswith('Split:') and ' past ' in x['health'] for x in split), [x['health'] for x in split][:2])
-    R.check('in a split, the cleared cell says "Past ..." and the other what it still needs', all(any('Past ' in c for c, o in zip(x['cells'], x['ok']) if o) and any(re.search(r'Needs a|Hearing|Heard|floor vote|must agree', c) for c, o in zip(x['cells'], x['ok']) if not o) for x in split), split[:1])
-    R.check('cells head "Started in the House" and "Started in the Senate" and say where each bill is now', all(x['cells'][0].startswith('Started in the House') and x['cells'][1].startswith('Started in the Senate') for x in items)
-            and any(' now in Senate ' in x['cells'][0] for x in items), items[0]['cells'] if items else None)
+    R.check('in a split, the cleared cell says "past ..." and the other what it still needs', all(any(' past ' in c for c, o in zip(x['cells'], x['ok']) if o) and any(re.search(r'needs a|hearing|heard|floor vote|conference', c) for c, o in zip(x['cells'], x['ok']) if not o) for x in split), split[:1])
+    R.check('cells head "From the House" and "From the Senate", one short line a bill, no committee names', all(x['cells'][0].startswith('From the House') and x['cells'][1].startswith('From the Senate') and ' now in ' not in ' '.join(x['cells']) for x in items), items[0]['cells'] if items else None)
+    R.check('the counts read One chamber first, then Both, then Stopped, and the groups follow that order', [w.split()[-1] if 'stopped' not in w else 'stopped' for n, w in tiles][:2] == ['chamber', 'chambers']
+            and pg.page.evaluate("() => [...document.querySelectorAll('main .mi-grp h2')].map(h => h.innerText.trim()).slice(0, 2).join('|')") == 'One chamber|Both chambers', tiles)
+    today = pg.page.evaluate("() => [...document.querySelectorAll('.mi-today a.mi-trow')].map(a => a.innerText.replace(/\\s+/g, ' ').trim())")
+    R.check('"Needs you today": at most 3 one-line rows, each naming an issue and its step', len(today) <= 3 and all(len(r) > 10 for r in today), today)
+    R.check('cards that need you carry the "Needs you" mark (a word and an icon)', pg.page.evaluate("() => [...document.querySelectorAll('a.mi-cov .mi-need')].every(m => m.innerText.trim() === 'Needs you' && m.querySelector('svg'))") and pg.page.evaluate("() => document.querySelectorAll('a.mi-cov .mi-need').length") > 0)
+    pg.page.click('[data-migo="stopped"]'); pg.page.wait_for_timeout(600)
+    R.check('the Stopped count opens its fold', pg.page.evaluate("() => document.querySelector('details.mi-stopped').open"))
+    pg.page.evaluate("() => { document.querySelector('details.mi-stopped').open = false; scrollTo(0, 0); }")
     R.check('every issue item links to its issue page', pg.page.evaluate("() => [...document.querySelectorAll('a.mi-cov')].every(a => /^#\\/issue\\/.+\\?from=mine$/.test(a.getAttribute('href')))"))
     R.check('stopped issues are in a closed fold', pg.page.evaluate("() => { const d = document.querySelector('details.mi-stopped'); return !!d && !d.open; }"))
     line = pg.text('.i6-lines') if pg.page.query_selector('.i6-lines') else ''
@@ -83,7 +90,7 @@ def main():
     budgets(R, pg, 'Coverage 1440'); shot(pg, 'NT-cover-1440.png')
     for v in VIEWS[1:]:
       e0 = len(pg.errors); pg.page.evaluate(PICK, v); pg.page.wait_for_timeout(500)
-      ok = {'deadlines': "() => document.querySelectorAll('.mi-col').length >= 2 && !!document.querySelector('.mi-past')",
+      ok = {'deadlines': "() => document.querySelectorAll('.mi-col').length >= 2 && !!document.querySelector('.mi-past') && [...document.querySelectorAll('.mi-col[data-colk]')].filter(c => c.querySelector('.mi-cols') && !/No committee/.test(c.innerText)).every(c => /^Bills|^The House/.test((c.querySelector('.mi-gloss') || {}).innerText || ''))",
             'status': "() => [...document.querySelectorAll('main h2')].map(h => h.innerText).join('|').includes('Needs you') && !!document.querySelector('.mi-def')",
             'topics': "() => document.querySelectorAll('.mi-shelf').length >= 2 && document.querySelectorAll('[data-mijump]').length >= 2",
             'sheet': "() => document.querySelectorAll('.mi-tbl tbody tr').length"}[v]
@@ -94,13 +101,14 @@ def main():
     # Status: On track is never At risk (the definitions say why)
     pg.page.evaluate(PICK, 'status'); pg.page.wait_for_timeout(300)
     R.check('Status: no On track issue reads At risk', pg.page.evaluate("() => ![...document.querySelectorAll('#mi-s-ok ~ .i6-list .mi-dl')].some(e => /^At risk/.test(e.innerText.trim()))"))
+    R.check('Status: an At risk row names bills that need a hearing, never one that has a hearing', pg.page.evaluate("() => [...document.querySelectorAll('.mi-dl')].filter(e => /^At risk/.test(e.innerText.trim())).every(e => !/has a hearing|have a hearing/.test(e.innerText))"))
     # the spreadsheet sorts and copies
     pg.page.evaluate(PICK, 'sheet'); pg.page.wait_for_timeout(300)
     pg.page.click('[data-misort="deadline"]'); pg.page.wait_for_timeout(300)
     R.check('the spreadsheet sorts by a heading', pg.page.evaluate("() => document.querySelector('th.mi-th-deadline').getAttribute('aria-sort')") == 'ascending')
     pg.page.click('[data-micopy]'); pg.page.wait_for_timeout(400)
     clip = pg.page.evaluate("async () => { try { return await navigator.clipboard.readText(); } catch (e) { return 'ERR ' + e; } }")
-    R.check('Copy for Google Sheets copies a header and one row per issue', clip.startswith('Issue\tAlive, started in the House\tAlive, started in the Senate') and clip.count('\n') == pg.page.evaluate("async () => (await import('/staff6/data.js')).myIssueIds().size"), clip[:60])
+    R.check('Copy for Google Sheets copies a header and one row per issue', clip.startswith('Issue\tHouse-started\tSenate-started\tNext deadline\tCleared') and clip.count('\n') == pg.page.evaluate("async () => (await import('/staff6/data.js')).myIssueIds().size"), clip[:60])
     # remembered
     pg.page.evaluate(PICK, 'status'); pg.page.wait_for_timeout(300); pg.open('/my-issues')
     R.check('the view is remembered after a reload', pg.page.evaluate(PRESSED) == 'status', pg.page.evaluate(PRESSED))
@@ -130,6 +138,9 @@ def main():
       R.check('phone: a deadline tab slides the board to its column', ph.page.evaluate("() => document.querySelector('[data-miboard]').scrollLeft > 100") and tabs[1].get_attribute('aria-pressed') == 'true')
     else: R.check('phone: deadline tabs', False, 'fewer than two columns')
     ph.page.evaluate(PICK, 'cover'); ph.page.wait_for_timeout(300)
+    hs = ph.page.evaluate("() => [...document.querySelectorAll('a.mi-cov')].map(a => Math.round(a.getBoundingClientRect().height)).sort((x, y) => x - y)")
+    R.check('phone: a Coverage card is well under 370px (the median; the tallest said)', bool(hs) and hs[len(hs) // 2] < 300, f'median {hs[len(hs) // 2] if hs else None}, tallest {hs[-1] if hs else None}')
+    R.check('phone: the count tiles keep their glyphs', ph.page.evaluate("() => [...document.querySelectorAll('.mi-tile .mi-dot')].every(d => d.getBoundingClientRect().width >= 16)"))
     R.check('phone: the counts sit above the first issue', ph.page.evaluate("() => document.querySelector('.mi-tiles').getBoundingClientRect().bottom < document.querySelector('a.mi-cov').getBoundingClientRect().top"))
     R.check('no page errors as Nate on a phone', not ph.errors, ph.errors[:2])
     ph.close()
@@ -137,6 +148,7 @@ def main():
     # ---- someone with no issues: their coalitions (Saya) ----
     for w, h in ((1440, 900), (390, 844)):
       sy = b.page('SY', w, h); sy.open('/my-issues')
+      R.check(f'Saya ({w}): one line says why she sees coalitions', 'No issues are yours yet.' in sy.text())
       R.check(f'Saya ({w}): no issues, so her coalitions show and no switch', not sy.page.query_selector('[data-miview], [data-misel]') and bool(sy.page.query_selector('main')) and 'My issues' in sy.text(), sy.text()[:80])
       shot(sy, f'SY-{w}.png'); R.check(f'Saya ({w}): no page errors', not sy.errors, sy.errors[:2]); sy.close()
   R.done()
