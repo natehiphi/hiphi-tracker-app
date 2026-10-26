@@ -6,11 +6,12 @@
 // blurbs, chips, counts or buttons; then "Your lists" when there are any; then two quiet links. "Edit" at the top right is the
 // tidying: each row gets "Stop following" (Undo in the toast, as today), and a topic followed whole says so, with "Stop
 // following all".
-import { S, DEMO, app, esc, icon, unfollowIssue, setFollows, catOf, sessionInfo, issuesLink, followsAnything, loadCatalog, recomputeWatch } from '../core.js';
-import { btn, skeleton, loadFail } from '../ui.js';
+import { S, DEMO, app, esc, icon, unfollowIssue, setFollows, catOf, sessionInfo, issuesLink, followsAnything, loadCatalog, recomputeWatch, timeWord, HST } from '../core.js';
+import { btn, chip, skeleton, loadFail } from '../ui.js';
 import { recRow, recEmpty, wireKit, BOX } from './kit.js';
-import { myRows, keep } from '../calm/home.js';
-import { followToggle } from '../actions.js';
+import { myRows, keep, when } from '../calm/home.js';
+import { followToggle, weekHearings, downloadWeekIcs, weekStart } from '../actions.js';
+import { logAct } from '../visitlog.js';
 import { nameOf, letGo } from '../mybills.js';
 import { ownLists, followedLists, localFollowed, myListsSection, wireMyLists, canMake } from '../mylists.js';
 import { EMPTY_ART } from '../art.js';
@@ -65,6 +66,39 @@ function listsPart(lists) {
   return canMake() ? `<div class="rc-ulhint"><p>${icon('list-checks')}<span>Keep bills together in a list, and share it by a link if you like. Open a bill and choose <b>Add to a list</b>.</span></p>${make('New list')}</div>` : '';
 }
 
+// "Add this week’s hearings to my calendar" (R-212 Tier 2 #51; actions.js weekHearings, downloadWeekIcs): one quiet line
+// between the header and the rows, in session, not while editing, and only when a hearing on a bill they follow (or one they
+// plan to go to), or its testimony deadline, falls inside the next seven days. Here and not on Home, which has a budget
+// (A-23: a new thing goes elsewhere, My issues among them). A text button (A-3: no new filled button), with no count in
+// it (Nate, on Home's greeting: "If it's a lot it can be overwhelming"). Pressed, it saves one calendar file and says what it
+// did (A-16): the done chip the bill page's "Add to calendar" turns into (bill.js; "Calendar file ready", C-15), then the
+// next step, "Open it to add 6 hearings, Wed to Mon, Mar 23", and a quiet "Save again" at its end for a file that went
+// astray (B-3; the ui-critic). The chip stays for the visit, as the bill page's does; the button comes back the next day (a
+// new week: S.chips is keyed by the week's first day) or when a hearing joins the week that the file did not hold (a bill
+// followed since). One that has started since is no reason.
+// A day as Home says one (calm/home.js when, without the time): "today", "tomorrow", "Wed"; further out, with its weekday,
+// "Mon, Mar 23", so the far end of "Wed to Mon, Mar 23" reads as a day like the near one (the ui-critic).
+const dayOf = iso => { const d = when(iso).slice(0, -(timeWord(iso).length + 1));
+  return /^(today|tomorrow|[A-Z][a-z]{2})$/.test(d) ? d : new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric' }); };
+const idsOf = list => list.map(x => x.h.id);
+const weekKey = () => `week|${weekStart()}ics`;
+export function weekWords(list) {
+  const a = dayOf(list[0].h.scheduled_at), z = dayOf(list[list.length - 1].h.scheduled_at);
+  return `${list.length} ${list.length === 1 ? 'hearing' : 'hearings'}, ${a === z ? a : `${a} to ${z}`}`;
+}
+// Instagram's and Facebook's own browsers (where a link opened in those apps lands) mostly drop a file saved from the page
+// without an error, so the line would say "Calendar file ready" with nothing saved (the ui-critic). There it says where the
+// file can be saved instead, with no button. kernel.js names Instagram's browser only in a comment (the My issues link), with
+// no test to reuse, so the apps' own marks in the browser's name are tested here.
+const inAppBrowser = () => { try { return /\bInstagram\b|FBAN\/|FBAV\/|FB_IAB\//.test(navigator.userAgent || ''); } catch { return false; } };
+function weekLine() {
+  const list = weekHearings(); if (!list.length) return '';
+  if (inAppBrowser()) return `<p class="rc-wkcal rc-wknote">${icon('calendar-plus')}<span>To save a calendar file, open this page in Safari or Chrome.</span></p>`;
+  const done = S.chips[weekKey()];
+  if (done && list.every(x => done.ids.includes(x.h.id))) return `<div class="rc-wkcal rc-wkdone" role="status" tabindex="-1" data-rc-wkdone>${chip('Calendar file ready', 'ok', 'check')}<span class="rc-wkwhat">${esc(keep(`Open it to add ${done.text}`))}</span>${btn('Save again', { kind: 'text', sm: true, cls: 'rc-wkagain', attrs: { 'data-rc-wkagain': '1' } })}</div>`;
+  return `<p class="rc-wkcal">${btn('Add this week’s hearings to my calendar', { kind: 'text', sm: true, icon: 'calendar-plus', cls: 'rc-wkbtn', attrs: { 'data-rc-wkcal': '1' } })}</p>`;
+}
+
 function render() {
   if (!document.querySelector('.rc-mine')) S.rcEdit = false;   // arriving afresh: not editing
   const si = sessionInfo(), off = si.phase !== 'in', rows = myRows(), lists = listRows();
@@ -86,6 +120,7 @@ function render() {
   const wholes = edit && !off ? (S.cats || []).filter(c => S.catFollows.has(c.key)) : [];
   const whole = wholes.map(c => `<p class="rc-whole"><span>Following all of ${esc(c.name)}, and new ones</span>${btn('Stop following all', { kind: 'text', sm: true, attrs: { 'data-rc-stopcat': c.key, 'aria-label': `Stop following all of ${c.name}` } })}</p>`).join('');
   return `<div class="rc rc-mine${edit ? ' editing' : ''}" data-mbroot>${head}
+    ${!edit && !off ? weekLine() : ''}
     ${whole ? `<div class="rc-wholes">${whole}</div>` : ''}
     ${rows.length ? `<ul class="rc-rows rc-mrows ${BOX}" role="list" aria-label="What you follow">${rows.map(r => rowHtml(r, edit)).join('')}</ul>` : `<p class="rc-note rc-none">You’re not following any issues yet.</p>`}
     ${listsPart(lists)}
@@ -114,6 +149,17 @@ export default {
     root.querySelector('[data-rc-recat]')?.addEventListener('click', () => { S.rcCatBusy = true; app.render();
       loadCatalog().then(() => recomputeWatch()).catch(e => console.error(e)).finally(() => { S.rcCatBusy = false; app.render(); }); });
     root.querySelector('[data-rc-mine]')?.addEventListener('click', async () => { (await import('../askfriend.js')).askFriend({ mine: true }); });
+    // The week's calendar file (R-212 #51), and "Save again". Counted as the plans' calendar step is (onb-p4.js
+    // logAct('calendar')): the kind only, with no bill and no new kind, so the database takes it as it is (078, 114, 124). The
+    // focus goes to the done line, or stays on Save again.
+    // Save again has an attribute of its own: the app keeps the focus on an element with the pressed one's first data-
+    // attribute after a redraw (app.js focusKey), which would have taken it from the done line to Save again.
+    root.querySelectorAll('[data-rc-wkcal], [data-rc-wkagain]').forEach(el => el.addEventListener('click', () => {
+      const list = weekHearings(); if (!list.length) return;
+      try { downloadWeekIcs(list); } catch (err) { console.error(err); return; }
+      S.chips[weekKey()] = { ids: idsOf(list), text: weekWords(list) };
+      logAct('calendar'); S.rcFocus = el.dataset.rcWkagain ? '[data-rc-wkagain]' : '[data-rc-wkdone]'; app.render();
+    }));
     const ed = root.querySelector('[data-rc-edit]');
     if (ed) ed.onclick = () => { S.rcEdit = !S.rcEdit; S.rcFocus = '[data-rc-edit]'; app.render(); };
     // After a row goes, the focus moves to the next row's Stop (or the one before, or Done), never to the top of the page.

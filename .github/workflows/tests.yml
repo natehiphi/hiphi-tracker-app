@@ -74,6 +74,9 @@ jobs:
       - name: "A new draft on My issues and the issue page: its words and links, the letter case, 44px, none in Edit or between sessions, /changes lands on the drafts, the honesty rule (R-212 #50)"
         if: ${{ !cancelled() }}
         run: python3 tests/new_draft.py http://localhost:8832 /tmp
+      - name: "This week's hearings in one calendar file on My issues: the line, the file (the one-hearing file's events and UIDs, Testimony due only where it can be sent), the done line, none in Edit, with nothing in the week or between sessions; the one-hearing file unchanged (R-212 #51)"
+        if: ${{ !cancelled() }}
+        run: python3 tests/week_cal.py http://localhost:8832 /tmp
       - name: "Staff v3 on a laptop (R-264, DESIGN A-24): one side panel, at most 5 things, 7 colours, 1 filled button in view"
         if: ${{ !cancelled() }}
         run: python3 tests/staff3_budget.py
