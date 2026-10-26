@@ -6,15 +6,17 @@
 // that (the health check: "On track: alive in both chambers. Next: HB 1779 needs a hearing by Mon 3/30."), in neutral, no
 // colour alarm (A-5 on v6: status by exception), then the bills in two columns, House | Senate, each with a slim stage bar
 // (tracker.js trackerModel, the bill page's bar without its labels, so no committee codes in rows: C-15 on v6), the alive
-// ones first and the stopped ones quiet with when and why. On a laptop the side column opens with What to do next (the
-// steps.js rows Today and the bill use, each with its one button where the app already offers one: D16), so the first
-// screen holds all three (Nate: "Being able to understand that along with what to do next in a quick glance is crucial").
+// ones first and the stopped ones quiet with when and why.
 //
-// Below, or folded with a label: who is working on it (owner, helpers, coalitions, who holds which step); where
-// legislators stand (the chairs and members of the committees holding the alive bills, with pathway.js's stances and
-// photos); the issue's timeline across all its bills (newest first, folded after five); public interest and where partners
-// stand; the goal, talking points and materials; last year's result; related issues; and the 2027 prep card (prep.js; in
-// session it is left out until someone starts it, item 7 of walk 3).
+// Walk 4 (Nate, 25 Oct: "filling the issue page with content both in the middle and on the right can be too crowded. Also
+// the where legislators stand section should not be as prominent"): one reading column at every width, read top to
+// bottom. The top four are open: the health check, What to do next (the steps.js rows Today and the bill use, each with its
+// one button where the app already offers one: D16), its bills, and who is working on it (with the coalition line).
+// Everything after is folded, each with a one-line summary on its closed line, in Nate's order: talking points and
+// materials; public interest and where partners stand (issue_partner_positions, migration 189, added and changed here);
+// where legislators stand, quiet, last before the timeline; the timeline (newest first, folded again after five); last
+// year's result; related issues, quietest. The 2027 prep card (prep.js) ends the page in session (left out until someone
+// starts it, item 7 of walk 3) and leads it between sessions.
 //
 // Replaced, not added (A-25): the lead mark (issuestand.js) and Hearings this week (coalition.js standWeekHTML) gave way to
 // the health check, the chamber columns and What to do next; "On the public page" became Public interest (with partners);
@@ -305,8 +307,12 @@ function legsHTML(i, xs) {
   }).join('');
   const fl = floor.length ? `<p class="ip6-pl">${icon('landmark')}<span>${esc(floor.map(x => `${numWords(x.b)} waits for a vote of the full ${CH[x.st.chamber] || 'chamber'}`).join('; '))}</span></p>` : '';
   const cares = !PROFILES() || i.archived_at ? '' : caresLegs(i.id).length ? caresSecHTML(i) : `<p class="ip6-pl">${icon('landmark')}<span>Legislators who care about this: none yet</span></p>`;
-  if (!groups && !fl) return `<section class="ip6-sec" aria-labelledby="ip-lh"><h2 class="ip6-h" id="ip-lh">Where legislators stand</h2><p class="ip6-quiet">No committee holds one of its bills right now.</p>${cares}</section>`;
-  return `<section class="ip6-sec ip6-legs" aria-labelledby="ip-lh"><h2 class="ip6-h" id="ip-lh">Where legislators stand</h2>${groups}${fl}${cares}</section>`;
+  // The closed line's summary (walk 4): how many committees hold its bills, and whether any stance is known.
+  const known = [...by.values()].reduce((n, g) => n + legsOf(g.code).filter(m => stanceFor(m.l, g.bills).s !== 'unknown').length, 0);
+  const sum = !by.size && !floor.length ? 'No committee holds its bills now'
+    : [by.size ? plural(by.size, 'committee') : '', floor.length ? `${plural(floor.length, 'bill')} at a floor vote` : '', known ? plural(known, 'stance') + ' known' : 'no stances known yet'].filter(Boolean).join(' · ');
+  const body = !groups && !fl ? `<p class="ip6-quiet">No committee holds one of its bills right now.</p>${cares}` : `${groups}${fl}${cares}`;
+  return { sum, body: `<div class="ip6-legs">${body}</div>` };
 }
 
 // ---- the timeline: hearings and their results, testimony filed, talks logged, floor votes and the team's notes, across
@@ -363,9 +369,15 @@ function tlBody(i, bills) {
   const first = ev.slice(0, TL_SHOWN), rest = ev.slice(TL_SHOWN);
   return `<ol class="ip6-tl" role="list">${first.map(li).join('')}</ol>${rest.length ? `<details class="ip6-fold" data-fold="tl"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>Earlier: ${plural(rest.length, 'more event')}</span></summary><ol class="ip6-tl" role="list">${rest.map(li).join('')}</ol></details>` : ''}`;
 }
+// The closed line: how many events, and the newest one's day.
+function tlSum(i, bills) {
+  const box = TL()[i.id];
+  if (!box || box.state === 'loading') return 'Loading…';
+  const ev = events(i, bills); return ev.length ? `${plural(ev.length, 'event')} · newest ${dayAny(ev[0].at)}` : 'Nothing has happened on its bills yet';
+}
 function tlHTML(i, bills) {
-  return `<section class="ip6-sec" aria-labelledby="ip-th"><div class="i6-hrow"><h2 class="ip6-h" id="ip-th">Timeline</h2>${btn('Log a talk', { kind: 'text', sm: true, icon: 'message-square', attrs: { 'data-ip': 'cvlog', 'aria-haspopup': 'dialog', 'aria-label': 'Log a talk with a legislator about this issue' } })}</div>
-    <div data-ip-late="tl">${tlBody(i, bills)}</div></section>`;
+  return { sum: tlSum(i, bills), body: `<p class="ip6-sfa">${btn('Log a talk', { kind: 'text', sm: true, icon: 'message-square', attrs: { 'data-ip': 'cvlog', 'aria-haspopup': 'dialog', 'aria-label': 'Log a talk with a legislator about this issue' } })}</p>
+    <div data-ip-late="tl">${tlBody(i, bills)}</div>` };
 }
 
 // ---- last year's result: what happened to its bills in the session before this one ----
@@ -385,53 +397,169 @@ function lastYearRows(i, bills, earlier) {
   }
   return rows;
 }
-// The fold's summary says the result (the fresh-eyes review): the bill that went farthest ("HB 244 passed the House").
+// The fold's summary says the result (the fresh-eyes review): the bill that went farthest ("2025: HB 244 passed the House").
 function lastYearSum(i, bills, earlier) {
   const prev = +SESSION_YEAR - 1, rows = lastYearRows(i, bills, earlier), box = TL()[i.id];
-  if (!rows.length) return box?.state === 'loading' ? `Last year (${prev})` : `Last year (${prev}): nothing on record`;
+  if (!rows.length) return box?.state === 'loading' ? `${prev}: loading…` : `${prev}: nothing on record`;
   const best = [...rows].sort((x, y) => y.rank - x.rank)[0];
-  return `Last year (${prev}): ${numWords(best.b)} ${best.short}${rows.length > 1 ? `; ${plural(rows.length - 1, 'more bill')} inside` : ''}`;
+  return `${prev}: ${numWords(best.b)} ${best.short}${rows.length > 1 ? `; ${plural(rows.length - 1, 'more bill')} inside` : ''}`;
 }
 function lastYearBody(i, bills, earlier) {
   const prev = +SESSION_YEAR - 1, box = TL()[i.id], rows = lastYearRows(i, bills, earlier);
   if (!rows.length) return box?.state === 'loading' ? '<p class="ip6-quiet" aria-busy="true">Loading…</p>' : `<p class="ip6-quiet">Nothing on record for its bills in ${prev}.</p>`;
   return `<ul class="ip6-ly" role="list">${rows.map(r => `<li><a href="${esc(billRoute(r.b))}">${esc(numWords(r.b))}</a> <span>${esc(r.text)}</span></li>`).join('')}</ul>`;
 }
-function lastYearHTML(i, bills, earlier) {
-  const prev = +SESSION_YEAR - 1;
-  return `<details class="ip6-sec ip6-fold ip6-lyf" data-fold="lastyear"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<h2 class="ip6-h ip6-hin" id="ip-yh" data-ip-late="lysum">${esc(lastYearSum(i, bills, earlier))}</h2></summary>
-    <div data-ip-late="ly">${lastYearBody(i, bills, earlier)}</div></details>`;
-}
+const lastYearHTML = (i, bills, earlier) => ({ sum: lastYearSum(i, bills, earlier), body: `<div data-ip-late="ly">${lastYearBody(i, bills, earlier)}</div>` });
 // The parts that wait for the activity paint in place when it arrives, so nothing moves under the reader (no full redraw).
 function paintLate(i) {
   if (S.route?.name !== 'issue' || String(S.route.id) !== String(i.id)) return;
   const { now, earlier } = billsSplit(i);
   const tl = document.querySelector('[data-ip-late="tl"]'); if (tl) tl.innerHTML = tlBody(i, now.concat(earlier));
   const ly = document.querySelector('[data-ip-late="ly"]'); if (ly) ly.innerHTML = lastYearBody(i, now, earlier);
-  const ls = document.querySelector('[data-ip-late="lysum"]'); if (ls) ls.textContent = lastYearSum(i, now, earlier);
+  const ls = document.querySelector('[data-ip-late="lastyearsum"]'); if (ls) ls.textContent = lastYearSum(i, now, earlier);
+  const ts = document.querySelector('[data-ip-late="tlsum"]'); if (ts) ts.textContent = tlSum(i, now.concat(earlier));
 }
 
 // ---- public interest, and where partners stand ----
-function publicHTML(i, now) {
-  if (isDraft(i)) return '';
-  const f = followers(i);
-  const fol = !f ? 'Counting followers…' : `${f.own ? plural(f.own, 'person follows', 'people follow') + ' it' : 'Nobody follows it on its own yet'}${f.via ? `; ${plural(f.via, 'more person gets', 'more people get')} it with a whole category` : ''}`;
+// Where partners stand (issue_partner_positions, migration 189, Nate's yes on walk 4): staff record each partner group's
+// position on the issue, or on one of its bills, for a session. Read once per visit; a failed read shows the older lines
+// (the partner groups writing on its bills) and no editor, so nothing is claimed that could not be read.
+const PP = () => S.ipPP ??= {};
+const PP_WORD = { support: 'Supports', oppose: 'Opposes', amend: 'Wants changes', comments: 'Comments', unknown: 'Not known' };
+const PP_ORDER = ['support', 'amend', 'comments', 'oppose', 'unknown'];
+// Anyone who can edit the issue (the header's Edit is there for every signed-in advocate; the table lets active staff write).
+const mayPP = i => !!S.me && !i.archived_at;
+function wantPP(i) {
+  const had = PP()[i.id]; if (had) return had;
+  const box = PP()[i.id] = { state: 'loading', rows: [] };
+  DB.partnerPositions(i.id).then(r => { box.rows = r; box.state = 'done'; })
+    .catch(e => { console.warn('issue_partner_positions:', e?.message || e); box.state = 'err'; })
+    .finally(() => paintPP(i));
+  return box;
+}
+const ppRows = i => [...(PP()[i.id]?.rows || [])].sort((x, y) => (y.session_year - x.session_year) || (PP_ORDER.indexOf(x.stance) - PP_ORDER.indexOf(y.stance)) || x.partner_name.localeCompare(y.partner_name));
+const setByWords = r => { const a = r.set_by && advocate(r.set_by), who = !a ? '' : a.id === S.me?.id ? 'you' : a.full_name.split(' ')[0];
+  return [who ? `Set by ${who}` : '', r.set_at ? dayAny(r.set_at) : '', r.source === 'testimony' ? 'from their testimony' : ''].filter(Boolean).join(' · '); };
+function ppRow(i, r, edit) {
+  const b = r.bill_id ? billById(r.bill_id) : null;
+  const line = [PP_WORD[r.stance] || PP_WORD.unknown, b ? `on ${numWords(b)}` : 'the whole issue', String(r.session_year)].join(' · ');
+  const inner = `<span class="v6-row-top"><span class="v6-row-name">${esc(r.partner_name)}</span></span><span class="v6-row-line"><span>${esc(line)}</span></span>
+    ${r.note ? `<span class="ip6-ppn">${esc(r.note)}</span>` : ''}<span class="ip6-ppby">${esc(setByWords(r))}</span>`;
+  return `<div class="v6-row ip6-pp" role="listitem" data-pp="${esc(r.id)}">${edit
+    ? `<button type="button" class="v6-row-main" data-ipp="edit" data-ppid="${esc(r.id)}" aria-label="${esc(`${r.partner_name}: ${line}. Change or remove`)}">${inner}</button>`
+    : `<span class="v6-row-main">${inner}</span>`}</div>`;
+}
+// The partner groups writing on its bills (partner_queue, read for partner approvers): a quiet line under the positions.
+function writingLines(now) {
+  const ids = new Set(now.map(b => b.id)), side = { support: 'supports', oppose: 'opposes', amend: 'asks to amend', comments: 'comments on' };
+  return [...new Set((S.pq?.bills || []).filter(x => ids.has(x.bill_id)).map(x => `${x.partner_name} ${side[(x.words || x.live)?.side] || 'writes about'} ${numWords(billById(x.bill_id))}${x.live ? '' : ' (words waiting for approval)'}`))];
+}
+function ppBody(i, now) {
+  const box = PP()[i.id], pw = writingLines(now);
+  const writing = pw.length ? `<p class="ip6-pl">${icon('handshake')}<span>Writing on its bills: ${esc(pw.join('; '))}</span></p>` : '';
+  if (!box || box.state === 'loading') return `<p class="ip6-quiet" aria-busy="true">Loading partners’ positions…</p>${writing}`;
+  if (box.state === 'err') return `${writing || `<p class="ip6-pl">${icon('handshake')}<span>Partners’ positions: none on record yet</span></p>`}`;
+  const edit = mayPP(i), rows = ppRows(i);
+  return `${rows.length ? listBox(rows.map(r => ppRow(i, r, edit)).join('')) : `<p class="ip6-quiet">No partner’s position recorded yet.</p>`}
+    ${edit ? `<p class="ip6-sfa">${btn('Add a partner', { kind: 'text', sm: true, icon: 'plus', attrs: { 'data-ipp': 'add', 'aria-haspopup': 'dialog', 'aria-label': `Add a partner’s position on ${i.name}` } })}</p>` : ''}
+    ${writing}`;
+}
+const ppCount = i => { const box = PP()[i.id]; return !box || box.state === 'loading' ? null : box.state === 'err' ? -1 : box.rows.length; };
+function publicSum(i, now) {
+  const n = ppCount(i), f = sumPub(now).followers;
+  const pp = n == null ? '' : n < 0 ? '' : n ? plural(n, 'partner position') : 'no partner positions yet';
+  return [isDraft(i) ? '' : `${f.toLocaleString()} following its bills`, pp].filter(Boolean).join(' · ') || 'loading…';
+}
+function sumPub(now) {
   const sum = { followers: 0, testimonies: 0, emails: 0, attending: 0 };
   for (const b of now) { const c = S.pubCounts?.[b.id]; if (!c) continue; sum.followers += c.followers || 0; if ((c.people || 0) >= 10) { sum.testimonies += c.testimonies || 0; sum.emails += c.emails || 0; sum.attending += c.attending || 0; } }
-  const acts = [ sum.testimonies ? `${sum.testimonies} testified` : '', sum.emails ? `${sum.emails} emailed a legislator` : '', sum.attending ? `${sum.attending} plan to attend` : ''].filter(Boolean);
+  return sum;
+}
+function publicHTML(i, now) {
+  wantPP(i);
+  const pp = `<h3 class="ip6-h3">Where partners stand</h3><div data-ip-late="pp">${ppBody(i, now)}</div>`;
+  // A draft has no public page yet: only where partners stand.
+  if (isDraft(i)) return { title: 'Where partners stand', sum: publicSum(i, now), body: `<div data-ip-late="pp">${ppBody(i, now)}</div>` };
+  const f = followers(i), sum = sumPub(now);
+  const acts = [sum.testimonies ? `${sum.testimonies} testified` : '', sum.emails ? `${sum.emails} emailed a legislator` : '', sum.attending ? `${sum.attending} plan to attend` : ''].filter(Boolean);
   // The first-visit switch is a setting, so it moved to the issue's "…" (the fresh-eyes review); here its state, in words.
   const fv = i.archived_at ? '' : `<p class="ip6-pl">${icon(inFirstVisit(i) ? 'eye' : 'eye-off')}<span>${inFirstVisit(i) ? 'Shown in the first visit' : 'Left out of the first visit'}</span></p>`;
-  // Partners: the partner groups writing on its bills (partner_queue, read for partner approvers); positions from earlier
-  // testimony and staff notes have no table yet (the report proposes one), so nothing more is claimed.
-  const ids = new Set(now.map(b => b.id)), side = { support: 'support', oppose: 'oppose', amend: 'ask to amend', comments: 'comment on' };
-  const pw = (S.pq?.bills || []).filter(x => ids.has(x.bill_id)).map(x => `${x.partner_name} ${side[(x.words || x.live)?.side] || 'write about'} ${numWords(billById(x.bill_id))}${x.live ? '' : ' (words waiting for approval)'}`);
-  const partners = pw.length ? `<ul class="ip6-ly" role="list">${[...new Set(pw)].map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : `<p class="ip6-pl">${icon('handshake')}<span>Partners’ positions: none on record yet</span></p>`;
-  return `<section class="ip6-sec ip6-card" aria-labelledby="ip-ph"><h2 class="ip6-h" id="ip-ph">Public interest</h2>
+  return { title: 'Public interest and where partners stand', sum: publicSum(i, now), body: `<div class="ip6-pub">
     <p class="ip6-pl">${icon('users')}<span>${esc(f ? `Following this issue: ${f.own}${f.via ? ` (${f.via} more with its whole topic)` : ''} · following its bills: ${sum.followers}` : 'Counting followers…')}</span></p>
     ${acts.length ? `<p class="ip6-pl">${icon('megaphone')}<span>${esc(cap(acts.join(' · ')))}</span></p>` : ''}
-    ${fv}
-    <h3 class="ip6-h3">Where partners stand</h3>${partners}
-  </section>`;
+    ${fv}</div>${pp}` };
+}
+// The positions arrive after the first draw: painted in place (no full redraw under the reader), then wired.
+function paintPP(i) {
+  if (S.route?.name !== 'issue' || String(S.route.id) !== String(i.id)) return;
+  const { now } = billsSplit(i);
+  document.querySelectorAll('[data-ip-late="pp"]').forEach(el => { el.innerHTML = ppBody(i, now); wirePP(i, el); });
+  const s = document.querySelector('[data-ip-late="publicsum"]'); if (s) s.textContent = publicSum(i, now);
+}
+function ppRedraw(i, focus) {
+  const y = scrollY; hooks.render(); if (Math.abs(scrollY - y) > 1) scrollTo(0, y);
+  (focus && document.querySelector(focus) || document.querySelector('[data-ipp="add"]'))?.focus({ preventScroll: true });
+}
+const ppSay = r => { const b = r.bill_id ? billById(r.bill_id) : null; return `${r.partner_name}: ${(PP_WORD[r.stance] || PP_WORD.unknown).toLowerCase()}${b ? ` on ${numWords(b)}` : ''}`; };
+// The names to suggest: the partner groups the app knows (Partners, partner_queue, partner links) and names already used on
+// any issue this visit. Free text is fine: many partners (the Heart Association, a retailers' group) have no login here.
+function ppNames(i, r) {
+  // A partner already set on this issue is changed from its row, so it is not offered again (ui-critic).
+  const here = new Set((PP()[i.id]?.rows || []).filter(x => x.id !== r?.id).map(x => x.partner_name.toLowerCase())), out = new Set();
+  for (const g of S.pg?.groups || []) out.add(g.name);
+  for (const p of S.partners || []) out.add(p.name);
+  for (const x of S.pq?.bills || []) out.add(x.partner_name);
+  for (const box of Object.values(PP())) for (const r of box.rows || []) out.add(r.partner_name);
+  return [...out].filter(n => n && !/\(sample\)$/.test(n) && !here.has(n.toLowerCase())).sort((a, b) => a.localeCompare(b));
+}
+function ppSheet(i, r = null) {
+  const { now, earlier } = billsSplit(i), bills = [...now, ...earlier];
+  if (!S.pg && !S.pgLoading) DB.loadPartnerGroups().then(() => { const dl = document.getElementById('ip-ppnames'); if (dl) dl.innerHTML = ppNames(i, r).map(n => `<option value="${esc(n)}"></option>`).join(''); }).catch(() => {});
+  const body = `<div class="le-sheet is-form ip6-ppform">
+    <div class="field"><label for="ip-ppname">Partner</label><input id="ip-ppname" maxlength="120" autocomplete="off" list="ip-ppnames" value="${esc(r?.partner_name || '')}" placeholder="Type or pick a group" aria-describedby="ip-ppname-h ip-ppname-err">
+      <datalist id="ip-ppnames">${ppNames(i, r).map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
+      <span class="help" id="ip-ppname-h">A partner group’s name. Pick one the app knows, or type any group.</span><div id="ip-ppname-err" role="alert"></div></div>
+    <fieldset class="is-cats"><legend>Where they stand</legend>
+      ${PP_ORDER.map(k => `<label class="check is-cat"><input type="radio" name="ip-ppst" value="${k}" ${r?.stance === k ? 'checked' : ''}><span>${PP_WORD[k]}</span></label>`).join('')}</fieldset>
+    <div class="field"><label for="ip-ppbill">On</label><select id="ip-ppbill"><option value="">The whole issue</option>${bills.map(b => `<option value="${esc(b.id)}" ${r?.bill_id === b.id ? 'selected' : ''}>${esc(`${numWords(b)}${thisSession(b) ? '' : ` (${b.session_year})`} · ${nameWords(b)}`)}</option>`).join('')}</select></div>
+    <div class="field"><label for="ip-ppnote">Note <span class="is-opt">(optional)</span></label><textarea id="ip-ppnote" rows="3" maxlength="2000" aria-describedby="ip-ppnote-h">${esc(r?.note || '')}</textarea>
+      <span class="help" id="ip-ppnote-h">What they said or asked for. Staff only. For the ${esc(r?.session_year || SESSION_YEAR)} session.</span></div>
+  </div>`;
+  openSheet({ title: r ? `${esc(r.partner_name)}’s position` : 'Add a partner’s position', size: 'auto', body,
+    foot: `${r ? btn('Remove', { kind: 'text', icon: 'trash-2', attrs: { 'data-ppx': '1' } }) : ''}${btn(r ? 'Save changes' : 'Add', { icon: r ? 'check' : 'plus', attrs: { 'data-ppsave': '1' } })}`,
+    wire: d => {
+      const name = d.querySelector('#ip-ppname'), err = d.querySelector('#ip-ppname-err'), go = d.querySelector('[data-ppsave]');
+      if (!r) name.focus();
+      const bad = t => { name.setAttribute('aria-invalid', 'true'); err.innerHTML = `<span class="err">${icon('circle-alert')}${esc(t)}</span>`; name.focus(); };
+      name.oninput = () => { name.removeAttribute('aria-invalid'); err.innerHTML = ''; };
+      go.onclick = async () => {
+        const p = { id: r?.id, issue_id: i.id, partner_name: name.value.trim().replace(/\s+/g, ' '), stance: d.querySelector('input[name="ip-ppst"]:checked')?.value || 'unknown',
+          bill_id: d.querySelector('#ip-ppbill').value || null, note: d.querySelector('#ip-ppnote').value, source: r?.source || 'staff', session_year: r?.session_year || +SESSION_YEAR };
+        if (p.partner_name.length < 2) return bad('Give the partner’s name.');
+        go.setAttribute('aria-busy', 'true'); go.disabled = true;
+        try {
+          const saved = await DB.savePartnerPosition(p), box = PP()[i.id], before = r ? { ...r } : null;
+          box.rows = [...box.rows.filter(x => x.id !== saved.id), saved];
+          await closeSheet({ silent: true }); await afterClose();
+          ppRedraw(i, `[data-ppid="${saved.id}"]`);
+          toast(r ? `Saved. ${ppSay(saved)}.` : `Added. ${ppSay(saved)}.`, { ok: true, undo: async () => {
+            if (before) { const back = await DB.savePartnerPosition(before); box.rows = [...box.rows.filter(x => x.id !== back.id), back]; }
+            else { await DB.removePartnerPosition(saved.id); box.rows = box.rows.filter(x => x.id !== saved.id); }
+            ppRedraw(i); } });
+        } catch (e) { go.removeAttribute('aria-busy'); go.disabled = false; if (e?.code === '23505') bad(e.message); else toast(e, { err: true }); }
+      };
+      d.querySelector('[data-ppx]')?.addEventListener('click', async () => {
+        try {
+          await DB.removePartnerPosition(r.id); const box = PP()[i.id]; box.rows = box.rows.filter(x => x.id !== r.id);
+          await closeSheet({ silent: true }); await afterClose(); ppRedraw(i);
+          toast(`Removed ${r.partner_name}’s position.`, { undo: async () => { const back = await DB.savePartnerPosition({ ...r }, { insert: true }); box.rows = [...box.rows, back]; ppRedraw(i, `[data-ppid="${back.id}"]`); } });
+        } catch (e) { toast(e, { err: true }); }
+      });
+    } });
+}
+function wirePP(i, root) {
+  root.querySelectorAll('[data-ipp="add"]').forEach(el => el.onclick = () => ppSheet(i));
+  root.querySelectorAll('[data-ipp="edit"]').forEach(el => el.onclick = () => { const r = PP()[i.id]?.rows.find(x => x.id === el.dataset.ppid); if (r) ppSheet(i, r); });
 }
 
 // ---- the goal, talking points and materials ----
@@ -452,14 +580,14 @@ function pointsHTML(i, now, earlier) {
     docs.push(`<li><a href="${esc(d.doc_url || d.filed_url)}" target="_blank" rel="noopener">${esc(`${numWords(b)} testimony for ${cw(d.committee)}`)}${icon('external-link')}</a> <span class="ip6-evd">${esc(at ? (d.status === 'filed' ? 'filed ' : '') + dayAny(at) : '')}</span></li>`); }
   const folders = [...new Set(drafts.map(d => d.folder_id).filter(Boolean))].map(f => `<li><a href="https://drive.google.com/drive/folders/${encodeURIComponent(f)}" target="_blank" rel="noopener">Drive folder${icon('external-link')}</a></li>`);
   const docList = [...folders, ...docs];
-  return `<section class="ip6-sec" aria-labelledby="ip-mh"><h2 class="ip6-h" id="ip-mh">Talking points and materials</h2>
-    ${goal}
+  // The closed line (walk 4): "3 points, 6 documents".
+  const np = shown.length + more.length, sum = [np ? plural(np, 'point') : 'no talking points yet', docList.length ? plural(docList.length, 'document') : ''].filter(Boolean).join(', ');
+  return { sum: cap(sum), body: `${goal}
     ${shown.length ? `${src}<ul class="ip6-pts" role="list">${shown.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : `<p class="ip6-quiet">No talking points yet.</p>`}
     ${more.length ? `<details class="ip6-fold" data-fold="pts"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${plural(more.length, 'more point')} from its bills</span></summary><ul class="ip6-pts" role="list">${more.map(([b, t]) => `<li>${esc(t)}${b ? ` <span class="ip6-evd">${esc(numWords(b))}</span>` : ''}</li>`).join('')}</ul></details>` : ''}
     ${docList.length ? `<h3 class="ip6-h3">Testimony to borrow from</h3><ul class="ip6-docs" role="list">${docList.slice(0, DOCS_SHOWN).join('')}</ul>
       ${docList.length > DOCS_SHOWN ? `<details class="ip6-fold" data-fold="docs"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${plural(docList.length - DOCS_SHOWN, 'more document')}</span></summary><ul class="ip6-docs" role="list">${docList.slice(DOCS_SHOWN).join('')}</ul></details>` : ''}` : ''}
-    <p class="ip6-pl">${icon('book-open')}<span><a href="#/testimony?view=library">Earlier testimony library</a></span></p>
-  </section>`;
+    <p class="ip6-pl">${icon('book-open')}<span><a href="#/testimony?view=library">Earlier testimony library</a></span></p>` };
 }
 
 // ---- the header: name, description, stance, topic; Edit and "…" ----
@@ -506,17 +634,16 @@ function relatedHTML(i) {
   const about = (o, staff) => cap([o.category === i.category ? '' : catByKey(o.category)?.name || o.category, staff ? 'linked by staff' : ''].filter(Boolean).join(', '));
   const who = c => { const a = c.set_by && advocate(c.set_by); return `unlinked${a ? ` by ${a.full_name.split(' ')[0]}` : ''}${c.set_at ? ` ${fmtDate(c.set_at)}` : ''}`; };
   const row = (o, line, button = '') => itemRow({ key: o.id, name: o.name, line: line ? esc(line) : '', href: `#/issue/${encodeURIComponent(o.id)}`, button, cls: 'i6-row' });
-  return `<section class="ip6-sec is6-rel" aria-labelledby="is-rh">
-    <div class="i6-hrow"><h2 class="ip6-h" id="is-rh">Related issues</h2>${btn(edit ? 'Done' : 'Edit', { kind: 'text', sm: true, attrs: { 'data-is': 'reledit', 'aria-expanded': String(edit), 'aria-label': edit ? 'Done editing related issues' : 'Edit related issues' } })}</div>
-    <p class="ip6-quiet">Followers of either one see the other’s bills first.</p>
+  return { sum: on.length ? plural(on.length, 'linked issue') : 'none yet', body: `<div class="is6-rel">
+    <div class="i6-hrow ip6-sfa"><p class="ip6-quiet">Followers of either one see the other’s bills first.</p>${btn(edit ? 'Done' : 'Edit', { kind: 'text', sm: true, attrs: { 'data-is': 'reledit', 'aria-expanded': String(edit), 'aria-label': edit ? 'Done editing related issues' : 'Edit related issues' } })}</div>
     ${on.length ? listBox(on.map(({ o, staff }) => row(o, about(o, staff), edit ? iconBtn('x', `Unlink ${o.name} from ${i.name}`, { 'data-isunlink': o.id }) : '')).join('')) : '<p class="ip6-quiet">None yet.</p>'}
     ${edit ? `<p class="i6-acts">${btn('Link another issue', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-is': 'link', 'aria-haspopup': 'dialog' } })}</p>
     ${off.length ? `<details class="i6-fold" data-fold="unlinked"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>Unlinked by staff (${off.length})</span></summary>
       ${listBox(off.map(({ o, c }) => row(o, cap([about(o), who(c)].filter(Boolean).join(', ')), btn('Link again', { kind: 'text', sm: true, attrs: { 'data-isrelink': o.id } }))).join(''))}</details>` : ''}` : ''}
-  </section>`;
+  </div>` };
 }
 async function setLink(i, o, on) {
-  const redraw = () => { const y = scrollY; hooks.render(); if (Math.abs(scrollY - y) > 1) scrollTo(0, y); document.getElementById('is-rh')?.closest('section')?.querySelector('[data-is="link"], [data-is="reledit"]')?.focus({ preventScroll: true }); };
+  const redraw = () => { const y = scrollY; hooks.render(); if (Math.abs(scrollY - y) > 1) scrollTo(0, y); document.querySelector('.is6-rel')?.querySelector('[data-is="link"], [data-is="reledit"]')?.focus({ preventScroll: true }); };
   try {
     await DB.setIssueLink(i.id, o.id, on); redraw();
     toast(on ? `Linked ${o.name} and ${i.name}.` : `Unlinked ${o.name} and ${i.name}.`, { ok: on, undo: async () => { await DB.setIssueLink(i.id, o.id, !on); redraw(); } });
@@ -594,13 +721,19 @@ async function putOn(i, b) {
 
 // ---- the page ----
 const billsSplit = i => { const bills = billsOn(i).sort(byNum); return { now: bills.filter(thisSession), earlier: bills.filter(b => !thisSession(b)) }; };
-const wideNow = () => { try { return matchMedia('(min-width: 1100px)').matches; } catch { return false; } };
+// A folded section (Nate, walk 4: "filling the issue page with content both in the middle and on the right can be too
+// crowded"): its heading and a one-line summary on the closed line ("Talking points and materials · 3 points, 6
+// documents"), opened with a tap; the fold remembers being open for the visit (wire). Folds hold reference, never a step
+// to take (B-14 on v6: What to do next stays open above).
+const foldSec = (key, hid, title, { sum = '', body = '' }, { late = key + 'sum', quiet = false } = {}) => `<details class="ip6-sf${quiet ? ' is-quiet' : ''}" data-fold="${key}">
+  <summary>${icon('chevron-down', { cls: 'i6-chev' })}<span class="ip6-sft"><h2 class="ip6-sfh" id="${hid}">${esc(title)}</h2>${sum ? `<span class="ip6-sfs"> · <span data-ip-late="${late}">${esc(sum)}</span></span>` : ''}</span></summary>
+  <div class="ip6-sfb">${body}</div></details>`;
 function pageRender(route) {
   const i = issueById(route.id);
   if (!i) return `<div class="le-page i6-page">${empty({ h: 'h1', title: 'This issue is not here', text: 'It may have been merged into another, or the link is old.', action: btn('See all issues', { kind: 'secondary', href: '#/my-issues/all' }) })}</div>`;
   wantPeople();
   const c = catByKey(i.category), also = alsoIn(i).map(catByKey).filter(Boolean), { now, earlier } = billsSplit(i);
-  const from = billFrom(route), bk = backTo(route), wide = wideNow();
+  const from = billFrom(route), bk = backTo(route);
   wantTl(i, now.concat(earlier));
   const xs = now.map(placeOfBill), names = new Map(); for (const x of xs) { const n = plain(nameWords(x.b)); names.set(n, (names.get(n) || 0) + 1); }
   for (const x of xs) x.twin = names.get(plain(nameWords(x.b))) > 1;
@@ -626,16 +759,21 @@ function pageRender(route) {
   // R-316 W16: between sessions the 2027 prep is the work, so its card comes first; in session it waits at the end (and is
   // left out until someone starts it: prep.js, walk 3 item 7).
   const prep = prepCardHTML(i, { outlook: SESSION_OVER ? '' : outlook, always: hc.k === 'stopped' }), prepFirst = (SESSION_OVER && !isDraft(i) && !i.archived_at && stateOf(i) !== 'approved') || isDraft(i);
-  const next = nextHTML(steps, now.length > 0), who = whoHTML(i, xs, steps), legs = legsHTML(i, xs), tl = tlHTML(i, now.concat(earlier));
-  const pub = publicHTML(i, now), pts = pointsHTML(i, now, earlier), ly = lastYearHTML(i, now, earlier), rel = i.archived_at ? '' : relatedHTML(i);
+  const next = nextHTML(steps, now.length > 0), who = whoHTML(i, xs, steps), pub = publicHTML(i, now);
   const back = `<a class="co6-back" href="${from ? billRoute(from) : bk.href}" data-back${from ? ` aria-label="Back to ${esc(from.bill_number)}"` : ''}>${icon('chevron-left')}<span>${from ? `Back to ${esc(from.bill_number)}` : esc(bk.label)}</span></a>`;
-  const lead = `${prepFirst ? prep : ''}${hc.html}${billsSec}`;
-  // A laptop: the issue, its bills and the people around them on the left; What to do next opens the side column, so the
-  // first screen holds the health check, both chambers and the first steps. A phone reads one column, in Nate's order.
-  if (wide) return `<div class="le-page is6-page ip6-page">${back}<div class="is6-cols ip6-wide">
-      <div class="is6-main">${head}${lead}${legs}${tl}${ly}${prepFirst ? '' : prep}</div>
-      <aside class="is6-side ip6-side" aria-label="What to do next, who is working on it, public interest, talking points and related issues">${next}${who}${pub}${pts}${rel}</aside></div></div>`;
-  return `<div class="le-page is6-page ip6-page">${back}${head}${lead}${next}${who}${legs}${tl}${pub}${pts}${ly}${rel}${prepFirst ? '' : prep}</div>`;
+  // One reading column at every width (Nate, walk 4: "one column on a laptop", read top to bottom; the screen is a 760px
+  // column, `narrow`). The top four stay open: how it stands, what to do next, its bills, who is working on it. Everything
+  // after is folded with a one-line summary, in Nate's order; where legislators stand sits quiet, last before the timeline
+  // ("the where legislators stand section should not be as prominent"). Related issues end it, quiet too.
+  const folds = [
+    foldSec('points', 'ip-mh', 'Talking points and materials', pointsHTML(i, now, earlier)),
+    foldSec('public', 'ip-ph', pub.title, pub),
+    foldSec('legs', 'ip-lh', 'Where legislators stand', legsHTML(i, xs), { quiet: true }),
+    foldSec('timeline', 'ip-th', 'Timeline', tlHTML(i, now.concat(earlier)), { late: 'tlsum' }),
+    foldSec('lastyear', 'ip-yh', 'Last year’s result', lastYearHTML(i, now, earlier), { late: 'lastyearsum' }),
+    i.archived_at ? '' : foldSec('related', 'is-rh', 'Related issues', relatedHTML(i), { quiet: true }),
+  ].join('');
+  return `<div class="le-page is6-page ip6-page">${back}${head}${prepFirst ? prep : ''}${hc.html}${next}${billsSec}${who}<div class="ip6-folds">${folds}</div>${prepFirst ? '' : prep}</div>`;
 }
 
 export const issuePage = {
@@ -643,12 +781,13 @@ export const issuePage = {
   // "Back to SB2175" fits on a phone too (R-226), so it keeps its words there: full. From My issues (R-263), Back returns there.
   title: route => issueById(route.id)?.name || 'Issue',
   back: route => { const from = billFrom(route); return from ? { href: billRoute(from), label: `Back to ${from.bill_number}`, full: true } : backTo(route); },
-  wide: wideNow,
+  narrow: true,   // one reading column, about 760px, at every width (walk 4)
   render: pageRender,
   wire(route, root) {
     const i = issueById(route.id); if (!i) return;
     rememberRow(i.id);
     wirePrepCard(i, root);
+    root.querySelectorAll('[data-ip-late="pp"]').forEach(el => wirePP(i, el));
     const st = P();
     root.querySelector('[data-ip="prep"]')?.addEventListener('click', () => { const c = root.querySelector('.pr6-card'); if (!c) return;
       if (c.tagName === 'DETAILS') c.open = true; c.scrollIntoView({ block: 'start', behavior: 'smooth' }); c.querySelector('summary, h2, [data-prfocus]')?.focus({ preventScroll: true }); });

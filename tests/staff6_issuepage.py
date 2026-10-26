@@ -5,12 +5,16 @@
 #      conference."), every bill stopped ("Stopped: every bill on this issue stopped this session."), and no bills;
 #   2. the bills House | Senate: both headings, a column with none alive says so ("No House bill alive"), alive bills carry
 #      the slim stage bar, stopped ones say when and why ("Stopped 2/20: ...");
-#   3. What to do next: the rows in date order, and on a laptop the health check, both columns and the first step are on
-#      the first screen;
+#   3. What to do next: the rows in date order, and on a laptop the health check and the first step are on the first screen;
+#      walk 4 (Nate, 25 Oct): one column at 1440 (no right column, a reading column of 760px at most), the top four open in
+#      order (health check, What to do next, Its bills, Who is working on it), then the folds closed, each with a summary on
+#      its closed line, in his order, where legislators stand last before the timeline;
 #   4. the timeline shows five events and folds the rest under "Earlier";
 #   5. the prep card (walk 3 item 7): in session left out while nobody has started it, shown once a step is done, and back
 #      between sessions;
-#   6. on a phone the columns stack, House then Senate, with no sideways scroll; no codes in rows; no page errors.
+#   6. on a phone the columns stack, House then Senate, with no sideways scroll; no codes in rows; no page errors;
+#   7. where partners stand (issue_partner_positions, 189): the practice rows show, and add, change and remove each work
+#      with Undo in the toast.
 #
 #   V4_ROOT=/path/to/worktree python3 tests/staff6_issuepage.py     exits 1 when a check fails
 import os, re, sys
@@ -26,6 +30,7 @@ SHOTS = os.environ.get('ISSUEPAGE_SHOTS', '')
 R = L.Results()
 def health(pg): return pg.page.evaluate("document.querySelector('.ip6-hs')?.innerText.replace(/\\s+/g, ' ').trim() || ''")
 def in_view(pg, sel): return pg.page.evaluate("""s => { const e = document.querySelector(s); if (!e) return false; const r = e.getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight && r.height > 0; }""", sel)
+def open_folds(pg): pg.page.evaluate("document.querySelectorAll('details.ip6-sf').forEach(d => d.open = true)"); pg.page.wait_for_timeout(100)
 def shot(pg, name):
   if SHOTS: pg.shot(os.path.join(SHOTS, f'{name}-{pg.w}.png')); pg.shot(os.path.join(SHOTS, f'{name}-{pg.w}-full.png'), full=True)
 
@@ -62,9 +67,19 @@ with L.browser() as B:
       R.check(f'{where}: at most one filled button in view', m['filled'] <= 1, m['filled'])
       R.check(f'{where}: bold at most 25%, small text at most 30%', m['bold_pct'] <= 25 and m['small_pct'] <= 30, (m['bold_pct'], m['small_pct']))
       if w == 1440:
-        ok = all(in_view(pg, s) for s in ['.ip6-health', '[data-ip-col="H"]', '[data-ip-col="S"]', '.ip6-next h2'])
+        ok = all(in_view(pg, s) for s in ['.ip6-health', '.ip6-next h2'])
         first_row = in_view(pg, '.ip6-next .v6-row') or in_view(pg, '.ip6-next .ip6-quiet')
-        R.check(f'{where}: the first laptop screen holds the health check, both columns and the first next step', ok and first_row)
+        R.check(f'{where}: the first laptop screen holds the health check and the first next step', ok and first_row)
+        lay = pg.page.evaluate("""(() => { const p = document.querySelector('.ip6-page'), r = p.getBoundingClientRect();
+          return { side: !!document.querySelector('.ip6-side, .is6-side, .is6-cols'), w: Math.round(document.querySelector('main').getBoundingClientRect().width),
+            lefts: [...p.querySelectorAll(':scope > .ip6-health, :scope > .ip6-sec, :scope > .ip6-folds')].map(e => Math.round(e.getBoundingClientRect().left)) }; })()""")
+        R.check(f'{where}: one column, no right column, at most 760px wide', not lay['side'] and lay['w'] <= 760 and len(set(lay['lefts'])) == 1, lay)
+      top = pg.page.evaluate("""[...document.querySelectorAll('.ip6-page > .ip6-health, .ip6-page > .ip6-sec')].map(e => e.classList.contains('ip6-health') ? 'health' : e.classList.contains('ip6-next') ? 'next' : e.classList.contains('ip6-bills') ? 'bills' : e.getAttribute('aria-labelledby') === 'ip-wh' ? 'who' : e.className)""")
+      R.check(f'{where}: the top four open, in order: health check, What to do next, Its bills, Who is working on it', top == ['health', 'next', 'bills', 'who'], top)
+      folds = pg.page.evaluate("[...document.querySelectorAll('.ip6-folds > details.ip6-sf')].map(d => [d.dataset.fold, d.open, d.querySelector('summary').innerText.replace(/\\s+/g, ' ').trim()])")
+      keys = [f[0] for f in folds]
+      R.check(f'{where}: then the folds, in Nate\'s order, where legislators stand right before the timeline', keys == ['points', 'public', 'legs', 'timeline', 'lastyear', 'related'], keys)
+      R.check(f'{where}: every fold starts closed with a summary on its closed line', all(not o and ' · ' in t and len(t.split(' · ', 1)[1]) > 3 for _, o, t in folds), folds)
       shot(pg, name.replace(' ', '-'))
     # alive in one chamber: the other column says so plainly; alive bills carry the bar
     pg.nav('/issue/' + ONE)
@@ -100,17 +115,22 @@ with L.browser() as B:
     R.check(f'next steps {w}: the step leads each row and the bill number follows', rows and all(not n.startswith('Disposable') and re.match(r'^(HB|SB) \d+', l) for n, l in rows), rows)
     R.check(f'next steps {w}: the health check\'s Next is never cut', '…' not in health(pg) and 'Next: Kevin:' not in health(pg), health(pg))
     # legislators: with no stance known, one line per committee naming its chairs by surname
+    legsum = pg.page.evaluate("document.querySelector('details[data-fold=\"legs\"] summary').innerText.replace(/\\s+/g, ' ').trim()")
+    R.check(f'legislators {w}: the closed line says "2 committees · no stances known yet"', legsum == 'Where legislators stand · 2 committees · no stances known yet', legsum)
+    quiet = pg.page.evaluate("[...document.querySelectorAll('.ip6-sfh')].map(h => [h.closest('details').dataset.fold, +getComputedStyle(h).fontWeight])")
+    R.check(f'legislators {w}: its heading is quieter than the others', dict(quiet)['legs'] < dict(quiet)['points'], quiet)
+    open_folds(pg)
     ll = pg.page.evaluate("[...document.querySelectorAll('.ip6-lline')].map(e => e.innerText.trim())")
     R.check(f'legislators {w}: one line per committee when no stance is known', ll and all('no stances known yet' in x and 'chair' in x for x in ll) and not pg.page.query_selector('.ip6-lrow'), ll)
     # the first-visit switch is in the "…" now; Public interest says its state in words
     R.check(f'public {w}: no first-visit switch on the page', pg.page.query_selector('#is-fv') is None)
-    pub = pg.page.evaluate("document.querySelector('[aria-labelledby=\"ip-ph\"]')?.innerText || ''")
+    pub = pg.page.evaluate("document.querySelector('.ip6-pub')?.innerText || ''")
     R.check(f'public {w}: "Following this issue: N · following its bills: N"', re.search(r'Following this issue: \d+.* · following its bills: \d+', pub) is not None, pub[:120])
-    ly = pg.page.evaluate("document.getElementById('ip-yh')?.innerText.trim()")
-    R.check(f'last year {w}: the fold says the result', re.match(r'^Last year \(2025\): \S', ly or '') is not None, ly)
+    ly = pg.page.evaluate("document.querySelector('[data-ip-late=\"lastyearsum\"]')?.innerText.trim()")
+    R.check(f'last year {w}: the fold says the result', re.match(r'^2025: \S', ly or '') is not None, ly)
     R.check(f'documents {w}: "more documents", never "Docs"', 'more Doc' not in pg.text())
     # the timeline: five events, then a fold labelled Earlier
-    pg.nav('/issue/' + BOTH); pg.page.wait_for_timeout(500)
+    pg.nav('/issue/' + BOTH); pg.page.wait_for_timeout(500); open_folds(pg)
     tl = pg.page.evaluate("""() => { const sec = document.querySelector('[data-ip-late="tl"]'); const d = sec?.querySelector('details[data-fold="tl"]');
       return { shown: sec ? sec.querySelectorAll(':scope > ol > li').length : -1, fold: d ? d.querySelector('summary').innerText.trim() : '', open: d ? d.open : null, inside: d ? d.querySelectorAll('li').length : 0 }; }""")
     R.check(f'timeline {w}: five events shown, the rest folded under "Earlier"', tl['shown'] == 5 and tl['fold'].startswith('Earlier:') and tl['open'] is False and tl['inside'] > 0, tl)
@@ -118,6 +138,37 @@ with L.browser() as B:
     md = pg.page.evaluate("[...document.querySelectorAll('[data-ip-late=\"tl\"] > ol > .ip6-ev .ip6-evd')].map(e => e.innerText.trim())")
     nums = [tuple(int(x) for x in re.search(r'(\d+)/(\d+)', d).groups()) for d in md if re.fullmatch(r'\w{3} \d+/\d+', d)]
     R.check(f'timeline {w}: newest first', nums == sorted(nums, reverse=True) and len(nums) >= 2, md)
+    # where partners stand: the practice rows, then add, change and remove, each with Undo
+    pp = lambda: pg.page.evaluate("[...document.querySelectorAll('.ip6-pp')].map(r => r.innerText.replace(/\\s+/g, ' ').trim())")
+    rows = pp()
+    R.check(f'partners {w}: the practice positions show, stance in words, with who set them', len(rows) == 3 and any(r.startswith('American Heart Association Supports · the whole issue · 2026') for r in rows) and any('Opposes · on SB 2175' in r for r in rows) and all('Set by' in r for r in rows), rows)
+    R.check(f'partners {w}: the closed line counts them', '3 partner positions' in pg.page.evaluate("document.querySelector('details[data-fold=\"public\"] summary').innerText"))
+    def undo():
+      pg.page.click('#toast .toastundo'); pg.page.wait_for_timeout(400)
+    pg.page.click('[data-ipp="add"]'); pg.page.wait_for_timeout(400)
+    pg.page.fill('#ip-ppname', 'Hawaii Public Health Institute Youth Council')
+    pg.page.check('input[name="ip-ppst"][value="amend"]'); pg.page.select_option('#ip-ppbill', index=1); pg.page.fill('#ip-ppnote', 'Want a longer phase-in.')
+    pg.page.click('[data-ppsave]'); pg.page.wait_for_timeout(500)
+    rows = pp()
+    R.check(f'partners {w}: Add puts the new position on the list', len(rows) == 4 and any(r.startswith('Hawaii Public Health Institute Youth Council Wants changes · on ') and 'Want a longer phase-in.' in r and 'Set by you' in r for r in rows), rows)
+    R.check(f'partners {w}: the toast offers Undo', pg.page.query_selector('#toast .toastundo') is not None)
+    undo(); R.check(f'partners {w}: Undo takes the new position off', len(pp()) == 3, pp())
+    pg.page.click('[data-ipp="add"]'); pg.page.wait_for_timeout(400)
+    pg.page.fill('#ip-ppname', 'american heart association'); pg.page.click('[data-ppsave]'); pg.page.wait_for_timeout(400)
+    err = pg.page.evaluate("document.getElementById('ip-ppname-err')?.innerText.trim() || ''")
+    R.check(f'partners {w}: a second position for the same partner and bill says so next to the name', 'already has a position' in err, err)
+    pg.page.keyboard.press('Escape'); pg.page.wait_for_timeout(400)
+    pg.page.click('.ip6-pp [data-ipp="edit"] >> nth=0'); pg.page.wait_for_timeout(400)
+    pg.page.check('input[name="ip-ppst"][value="comments"]'); pg.page.click('[data-ppsave]'); pg.page.wait_for_timeout(500)
+    R.check(f'partners {w}: a change shows on its row', any('Comments · the whole issue' in r for r in pp()), pp())
+    undo(); R.check(f'partners {w}: Undo puts the old stance back', any(r.startswith('American Heart Association Supports') for r in pp()), pp())
+    before = pp()[0]
+    pg.page.click('.ip6-pp [data-ipp="edit"] >> nth=0'); pg.page.wait_for_timeout(400)
+    pg.page.click('[data-ppx]'); pg.page.wait_for_timeout(500)
+    R.check(f'partners {w}: Remove takes it off', len(pp()) == 2 and not any(r.startswith('American Heart') for r in pp()), pp())
+    undo(); R.check(f'partners {w}: Undo brings it back as it was', len(pp()) == 3 and before in pp(), (before, pp()))
+    if SHOTS:
+      el = pg.page.query_selector('details[data-fold="public"]'); el.scroll_into_view_if_needed(); el.screenshot(path=os.path.join(SHOTS, f'partners-{w}.png'))
     # the prep card: in session, left out while nobody started it; shown once a step is done
     R.check(f'prep {w}: in session the unstarted "Getting ready for 2027" card is left out', pg.page.query_selector('.pr6-card') is None)
     pg.page.evaluate(f"""async () => {{ const D = await import('./staff6/data.js'); await D.DB.updateIssue('{BOTH}', {{ goal: 'Keep disposable e-cigarettes off the shelves.' }}); D.hooks.render(); }}""")

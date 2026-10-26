@@ -994,6 +994,37 @@ export const DB = {
     const { error } = await S.supa.from('issue_link_choices').upsert(row, { onConflict: 'issue_a,issue_b' });
     if (error) { if (before) Object.assign(was, before); else S.issueLinkChoices = S.issueLinkChoices.filter(c => c !== row); throw error; }
   },
+  // ---- where partners stand on an issue (issue_partner_positions, migration 189, R-336 walk 4) ----
+  // One row per partner, per session year, per bill (bill_id null: the issue as a whole). set_by and set_at are filled by
+  // the database from the signed-in advocate, so they are never sent. The practice copy keeps the rows in memory only.
+  async partnerPositions(issueId) {
+    if (DEMO) return demoPositions().filter(r => r.issue_id === issueId).map(r => ({ ...r }));
+    const { data, error } = await S.supa.from('issue_partner_positions').select('*').eq('issue_id', issueId);
+    if (error) throw error; return data || [];
+  },
+  // p: { id?, issue_id, partner_name, stance, source, bill_id, note, session_year }. Without an id it is added; with one it
+  // is changed; insert: true with an id puts a removed row back (the Undo of a removal).
+  async savePartnerPosition(p, { insert = !p.id } = {}) {
+    const row = { issue_id: p.issue_id, partner_name: String(p.partner_name || '').trim().replace(/\s+/g, ' '), stance: p.stance || 'unknown',
+      source: p.source || 'staff', session_year: +(p.session_year || SESSION_YEAR), bill_id: p.bill_id || null, note: String(p.note || '').trim().slice(0, 2000) || null };
+    const twice = () => `${row.partner_name} already has a position for ${row.session_year} ${row.bill_id ? 'on that bill' : 'on the issue as a whole'}. Change that one instead.`;
+    if (DEMO) {
+      const all = demoPositions(), key = r => [r.issue_id, r.partner_name.toLowerCase(), r.session_year, r.bill_id || ''].join('|');
+      if (all.some(r => r.id !== p.id && key(r) === key(row))) throw Object.assign(new Error(twice()), { code: '23505' });
+      const was = !insert && all.find(r => r.id === p.id), stamp = { set_by: S.me?.id || null, set_at: new Date().toISOString() };
+      if (was) { Object.assign(was, row, stamp); return { ...was }; }
+      const out = { id: p.id || crypto.randomUUID(), ...row, ...(p.set_at ? { set_by: p.set_by || null, set_at: p.set_at } : stamp) };
+      all.push(out); return { ...out };
+    }
+    const t = S.supa.from('issue_partner_positions');
+    const { data, error } = await (insert ? t.insert(p.id ? { id: p.id, ...row } : row) : t.update(row).eq('id', p.id)).select().single();
+    if (error) { if (error.code === '23505') error.message = twice(); throw error; }
+    return data;
+  },
+  async removePartnerPosition(id) {
+    if (DEMO) { const all = demoPositions(), k = all.findIndex(r => r.id === id); if (k >= 0) all.splice(k, 1); return; }
+    const { error } = await S.supa.from('issue_partner_positions').delete().eq('id', id); if (error) throw error;
+  },
   // via (R-088 part 2, migration 119): 'suggested' or 'changed' from Sort new bills' suggestion, else 'staff'.
   async setBillIssue(billId, issueId, on, { via = 'staff' } = {}) {
     const had = S.billIssues.some(x => x.bill_id === billId && x.issue_id === issueId);
@@ -1995,6 +2026,21 @@ export const partnerSlug = s => String(s || '').toLowerCase().replace(/[āēīō
 // (SB 2345, warning labels on sugary drinks), new words on a bill HIPHI has no position on (SB 2073, water fluoridation,
 // untracked), an issue of its own, a request to join and a group waiting for approval (added by Jess, so Nate can
 // practise Approve; one he adds himself waits for Jess). Times are set from the practice clock when first asked for.
+// Where partners stand (issue_partner_positions, 189, R-336 walk 4): three sample rows on the Disposable e-cigarette ban, so
+// the issue page's list and its Add, change and remove can be practised. In memory only, like every practice change here.
+function demoPositions() {
+  if (S.ppDemo) return S.ppDemo;
+  const id = x => S.advocates.find(a => a.initials === x)?.id || null, bill = n => S.bills.find(b => b.bill_number === n)?.id || null;
+  const iss = '66a32660-b0a7-4a90-a71f-231963619b44', at = d => `${d}T10:00:00-10:00`;
+  return S.ppDemo = [
+    { id: 'aaaaaaaa-0000-4000-8000-0000000c0001', issue_id: iss, partner_name: 'American Heart Association', stance: 'support', source: 'staff', session_year: 2026, bill_id: null,
+      note: 'Will send a member to the Senate hearing.', set_by: id('KV'), set_at: at('2026-03-02') },
+    { id: 'aaaaaaaa-0000-4000-8000-0000000c0002', issue_id: iss, partner_name: 'American Lung Association', stance: 'support', source: 'testimony', session_year: 2026, bill_id: bill('HB2121'),
+      note: null, set_by: id('KV'), set_at: at('2026-03-03') },
+    { id: 'aaaaaaaa-0000-4000-8000-0000000c0003', issue_id: iss, partner_name: 'Island Convenience Retailers', stance: 'oppose', source: 'testimony', session_year: 2026, bill_id: bill('SB2175'),
+      note: 'Says a ban costs small stores; asks for a later start date.', set_by: id('NT'), set_at: at('2026-02-27') },
+  ];
+}
 const KS = 'keiki-smiles';   // the same slug as the public practice copy's sample group (pub/partners.js), so ?via= links match
 function demoPartners() {
   if (S.pDemo) return S.pDemo;
