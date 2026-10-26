@@ -333,6 +333,8 @@ export const headHTML = (cur, { action = '' } = {}) => `<header class="i6-head">
 let popAt = 0;
 try { addEventListener('popstate', () => { popAt = Date.now(); }); } catch { /* not a browser */ }
 export const rememberRow = id => { S.i6Back = String(id); };
+// My issues' own views (myviews.js) restore their items themselves; they ask whether Back just happened.
+export const backRecent = () => Date.now() - popAt <= 2500;
 export function restoreRow(root) {
   const id = S.i6Back; if (!id) return; S.i6Back = null;
   setTimeout(() => {
