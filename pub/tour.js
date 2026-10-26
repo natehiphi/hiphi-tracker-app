@@ -267,8 +267,9 @@ const BILL = { key: 'hiphi_tour_bill', label: 'Reading a bill', route: 'bill', o
   // Never by itself for someone who arrived on a shared link (R-114): they came for the bill, and the "New here?" card
   // (bill.js) offers the tour in one quiet line. Nor, since X10-4 (R-180), for anyone who finished the first visit or
   // opened this bill from Home to act (core.js billTourHeld): the bill page's own line "New to this? Take the tour"
-  // starts it (startBill, below), and goes once the tips are seen.
-  above: ['.hdr', '.bl-page .bl-top'], below: ['.actionbar'], wants: () => !(S.blNew && S.blNew.size) && !(S.blLooking && S.blLooking.size) && !billTourHeld(), delay: () => 450,
+  // starts it (startBill, below), and goes once the tips are seen. Nor on a bill opened at its drafts (#/bill/.../changes,
+  // R-212 #50): that page has scrolled down to what changed, so the tips at its top would dim it with nothing in view.
+  above: ['.hdr', '.bl-page .bl-top'], below: ['.actionbar'], wants: () => !(S.blNew && S.blNew.size) && !(S.blLooking && S.blLooking.size) && !billTourHeld() && !/\/changes$/i.test(location.hash), delay: () => 450,
   done: () => { S.billTourDone = true; document.querySelector('.bl-tourline [data-bl-billtour]')?.closest('.bl-tourline')?.remove(); } };
 
 // Home's tips (R-098) never start over a dialog or the testimony walkthrough.
