@@ -8,7 +8,7 @@ import { errArt, S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, blu
   dueInfo, dayWord, timeWord, hearingWhen, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
   pickBill, billRef, billPath, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
-  issuesOf, issueFollowed, setFollows, catOf, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber, billTourHeld, billTourSeen, sameIdeaLaw, sameIdeaWords, sponsorsOf,
+  issuesOf, issueFollowed, setFollows, issueLead, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber, billTourHeld, billTourSeen, sameIdeaLaw, sameIdeaWords, sponsorsOf,
   codesOf, cmteWords, theCmteWords, cmteStack, actionWords } from './core.js';
 import { actionRank } from './capitol.js';   // a same-day action's place in the day (R-212 #45)
 import { draftName, draftRank, draftLabel, draftNotes, testifyLabel, mailLabel, letterOn } from './letters.js';
@@ -944,13 +944,13 @@ function issueLine(b, x) {
   const iss = issuesOf(b); if (!iss.length) return '';
   const t = textIssue(b), i = t || iss[0], tx = t ? ` <span class="bl-txt">${levelLine(t, TXT)}</span>` : '', box = t ? levelBox(t, TXT) : '';
   // A stopped bill's main button is already "Follow the issue": the line keeps the issue's name and drops its own button.
-  if (x && followIsMain(b, x)) return `<div class="bl-issue">${icon(catOf(i.category)?.icon || 'heart-pulse')}<p class="bl-issue-t">Part of <a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a>${tx}</p>${box}</div>`;
-  const on = issueFollowed(i), cat = catOf(i.category);
+  if (x && followIsMain(b, x)) return `<div class="bl-issue">${icon(issueLead(i))}<p class="bl-issue-t">Part of <a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a>${tx}</p>${box}</div>`;
+  const on = issueFollowed(i);
   // One follow button per bill page, and it is the issue's (R-067; R-061: "Following" must look followed, not like the
   // Follow button with another word). Pressing Following stops following the issue, with Undo.
   // The switch is inside the row, so on a phone it comes right under its line, before the follow button (the critic, 17 Oct:
   // under a filled "Following the issue" it read as the switch's Done, and pressing that stops following; bill.css).
-  return `<div class="bl-issue">${icon(cat?.icon || 'heart-pulse')}<p class="bl-issue-t">Part of <a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a>${tx}</p>
+  return `<div class="bl-issue">${icon(issueLead(i))}<p class="bl-issue-t">Part of <a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a>${tx}</p>
     ${firstVisit() ? '' : on ? btn('Following the issue', { kind: 'secondary', sm: true, icon: 'check', cls: 'on', attrs: { 'data-bl-unfollowissue': i.id, 'aria-pressed': 'true', title: 'Following. Press to stop following.' } })
       : btn('Follow the issue', { kind: 'secondary', sm: true, icon: 'star', attrs: { 'data-bl-followissue': i.id, 'aria-pressed': 'false' } })}${box}</div>`;   // a newcomer has it on their own card (A-14)
 }

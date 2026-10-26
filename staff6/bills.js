@@ -24,6 +24,7 @@
 import { S, DB, DEMO, esc, fmtDate, effStage, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks } from './data.js';
 import { factsOf, stopOf, whyDead, billNum, sessionClock, gateNeed, billSay, deadlineName, billRoute, billRef, whenAt, lateLine } from './model.js';
 import { HELD_RE, stoppedAt } from '../stops.js';
+import { ICONS } from '../icons.js';
 import { icon, btn, iconBtn, empty, toast, menuSheet, pickerSheet, openSheet, closeSheet, switchRow, avatar, ownerOf, keysOn, keysUsed, POS_WORD, posIcons, whoseSeg, showAllBtn, filterBtn, ASK_TAB } from './ui.js';
 import { bl, save, setCompact, shownBills, freshFacts, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, hoverNow, typingIn,
   views, curView, viewName, openEditViews, scopeOpts, posWord, openCoalition, viewState } from './filters.js';
@@ -258,9 +259,9 @@ function selRow(b) {
 // heading icon on the card's left edge on phones (CSS).
 const ICONS_ON = (() => { try { return /[?&]icons=1\b/.test(location.search); } catch { return false; } })();
 const STAGE_IC = { risk: 'triangle-alert', hear: 'calendar-check', wait: 'hourglass', thru: 'route', done: 'landmark', mon: 'eye', dead: 'circle-x' };
-// Staff-only swaps (fix 3) for glyphs unclear at 20px. Nate's picks of 10/25 (cigarette-off, stethoscope) are in the
-// categories table itself since migration 187, so Staff and the public show the same icons; the apple stays swapped for a
-// salad on Staff until he picks Food's new icon on the round-2 sheet (R-339).
+// Staff-only swaps (fix 3) for glyphs unclear at 20px. Nate's picks of 10/25 are in the categories table itself
+// (cigarette-off and stethoscope since migration 187; Food's lunch tray and Climate's earth since 188), so Staff and the
+// public show the same icons; an apple left in the data (before 188 is applied) still shows as the salad (R-339).
 const STAFF_TOPIC_IC = { apple: 'salad' };
 const ghIcon = k => ICONS_ON && STAGE_IC[k] ? `<span class="bl-ghic" aria-hidden="true">${icon(STAGE_IC[k])}</span>` : '';
 // The one category of a bill's live issues; none when it has no issue, or issues in two categories (fix 2: a picture that is
@@ -272,13 +273,22 @@ function topicOf(b) {
   const [k] = keys;
   return (S.categories || []).find(c => c.key === k) || null;
 }
-// Team only (fix 1). A bill with no single topic keeps the slot empty, so every name starts at the same place.
+// The icon its live issues share, when every one has the same icon of its own (issues.icon, migration 188); else none.
+// Its label is the issue's name (or the topic's, when two issues share the icon).
+function issueIconOf(b) {
+  const on = new Set((S.billIssues || []).filter(x => x.bill_id === b.id).map(x => x.issue_id));
+  const iss = (S.issues || []).filter(i => on.has(i.id) && !i.archived_at);
+  const own = new Set(iss.map(i => (i.icon && ICONS[i.icon]) ? i.icon : ''));
+  return own.size === 1 && [...own][0] ? { ic: [...own][0], name: iss.length === 1 ? iss[0].name : '' } : null;
+}
+// Team only (fix 1). A bill with no single topic keeps the slot empty, so every name starts at the same place. The
+// picture is its issue's own icon when its issues share one (Nate's issue picks, R-339), else the topic's.
 function topicLead(b) {
   if (!ICONS_ON || bl().scope !== 'all') return '';
   const c = topicOf(b);
   if (!c) return '<span class="v6-row-lead none" aria-hidden="true"></span>';
-  const ic = STAFF_TOPIC_IC[c.icon] || c.icon || 'tag';
-  return `<span class="v6-row-lead" title="${esc(c.name)}">${icon(ic)}<span class="sr">${esc(c.name)}: </span></span>`;
+  const own = issueIconOf(b), ic = own?.ic || STAFF_TOPIC_IC[c.icon] || c.icon || 'tag', name = own?.name || c.name;
+  return `<span class="v6-row-lead" title="${esc(name)}">${icon(ic)}<span class="sr">${esc(name)}: </span></span>`;
 }
 const groupHead = g => FOLDED.has(g.k)
   ? `<h2 class="bl-gh" id="bl-g-${g.k}"><button type="button" class="bl-ghb" data-fold="${g.k}" aria-expanded="${g.open}">${ghIcon(g.k)}<span>${esc(g.title)}</span><span class="bl-gn">${g.all}</span>${icon(g.open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button></h2>`

@@ -761,6 +761,12 @@ export function curate(rows, cap = 6) {
 }
 // ---------- the guided start: pick issues -> pick bills -> done ----------
 export const countOk = n => (Number(n) >= 10 ? Number(n) : 0);   // a group number is shown only from 10 people
+// An issue's own icon when it has one the app can draw (issues.icon, migration 188, R-339), else its topic's. Rows and
+// headers that stand for one issue use it; a topic's heading keeps the topic's icon (issueOf).
+const ownIcon = i => (i?.icon && issueIcon(i.icon) === i.icon ? i.icon : '');
+export const issueLead = i => ownIcon(i) || catOf(i?.category)?.icon || 'heart-pulse';
+// The picture a bill's row leads with: its first issue's own icon, else the topic's (issueOf).
+export const billLead = b => ownIcon(issuesOf(b)[0]) || issueOf(b)?.icon || '';
 export function issueOf(b) {
   const iss = issuesOf(b)[0], cat = iss && catOf(iss.category);
   if (cat) return { key: cat.name, names: [cat.key], icon: cat.icon };

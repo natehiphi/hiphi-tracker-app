@@ -16,7 +16,7 @@ import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive
   actedOn, settledOn, didKind, agrees, doneKey, KINDS, dismissed, suggestionList, reasonOf, noteShown, wiz, groupNames, sessionInfo, myActions, MILESTONES,
   nudge, CONSENT_KEY, textSaved, countOk, anyBill, anyHearing, outcomeOf, plainStatus, whyStopped, cmteLabel, codesOf, CHAMBER_NAME,
   issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, hearingWhen, dateLong, hstDay, hiT, pickedTopic, followSummary, followedIssues,
-  issueFollowed, issueBills, catOf, setFollows, app, toast, roomLabel, viaIssue, followsAnything, ensureRecapPool, winsIn, EARLIER_WINS, supa, HELD_RE,
+  issueFollowed, issueBills, catOf, issueLead, billLead, setFollows, app, toast, roomLabel, viaIssue, followsAnything, ensureRecapPool, winsIn, EARLIER_WINS, supa, HELD_RE,
   results, RESULT_MILESTONES, isResolution, sideOf, streamOf, wizSet, myStance } from './core.js';
 import { burst, celebrate, petals, later, fxOn, rooster, cheer } from './fx.js';
 import { alertStatus, openAlertsSheet, profileAsk, profileLede, PROFILE_H } from './alerts.js';   // the one status rule for alerts (D1-4)
@@ -493,11 +493,11 @@ function askCard({ b, st }, primary) {
 // not a red "deadline passed" inside "things you can do" (the fresh-eyes review of R-190; version A's words).
 const actRow = x => { const d = dueInfo(x.h);
   const due = d?.late ? `Late testimony still accepted · hearing ${dayWord(x.h.scheduled_at)} at ${timeWord(x.h.scheduled_at)}` : d ? d.text : hearingText(x.h);
-  return row({ lead: issueOf(x.b)?.icon || 'landmark', title: esc(headline(x.b, 200)), href: billPath(x.b), attrs: { 'data-hm-act': '1' },
+  return row({ lead: billLead(x.b) || 'landmark', title: esc(headline(x.b, 200)), href: billPath(x.b), attrs: { 'data-hm-act': '1' },
     sub: `${esc(spaced(x.b.bill_number))} · <span class="hm-due${d?.tone && !d.late ? ' ' + d.tone : ''}">${esc(due)}</span>` }); };
 // One line per bill that needs a hearing, its topic's icon like the testimony rows. same: every row shares one cut-off,
 // said once over the rows instead of "14 days left" on each (A-14; the review of R-190 counted 13 in a row).
-const askRow = ({ b, st }, same = false) => row({ lead: issueOf(b)?.icon || 'hourglass', title: esc(headline(b, 200)), href: billPath(b), attrs: { 'data-hm-act': '1' },
+const askRow = ({ b, st }, same = false) => row({ lead: billLead(b) || 'hourglass', title: esc(headline(b, 200)), href: billPath(b), attrs: { 'data-hm-act': '1' },
   sub: `${esc(spaced(b.bill_number))}${same ? '' : ` · <span class="hm-due${st.deadline.days <= 7 ? ' warn' : ''}">${esc(daysLeft(st.deadline.days))}</span>`}` });
 const oneCutoff = asks => asks.length > 1 && asks.every(x => x.st.deadline.date === asks[0].st.deadline.date) ? asks[0].st.deadline : null;
 const cutoffLine = (d, n) => `<p class="small hm-cutoff">${icon('hourglass')}<span>${n === 2 ? 'Both' : `All ${n}`} need a hearing by ${esc(dateLong(d.date + 'T12:00:00-10:00'))} or can’t pass this year.</span></p>`;
@@ -829,7 +829,7 @@ function finFx() {
 // On the first visit these are bills to follow, one line each, not cards with a "send an email" button: nothing is
 // pushed on a first visit. After that the cards are the same as everywhere else.
 const pickRow = x => { const on = S.watch.has(x.b.id), num = spaced(x.b.bill_number);
-  return `<div class="hm-pick"><a class="hm-pickmain" href="${billPath(x.b)}"><span class="lead">${icon(issueOf(x.b)?.icon || 'landmark')}</span>
+  return `<div class="hm-pick"><a class="hm-pickmain" href="${billPath(x.b)}"><span class="lead">${icon(billLead(x.b) || 'landmark')}</span>
     <span class="body"><span class="title">${esc(headline(x.b, 200))}</span><span class="sub">${esc(num)} · Hearing ${esc(dayWord(x.h.scheduled_at))}</span></span></a>
     ${btn(on ? 'Following' : 'Follow', { kind: 'secondary', sm: true, icon: on ? 'check' : 'star', cls: 'hm-star' + (on ? ' on' : ''), attrs: { 'data-follow': x.b.id, 'aria-pressed': on ? 'true' : 'false', 'aria-label': `${on ? 'Following' : 'Follow'} ${num}`, title: on ? 'Following. Press to stop following.' : null } })}</div>`; };
 function exploreView() {
@@ -874,7 +874,7 @@ function myIssues(yr) {
   for (const i of followedIssues().filter(i => S.issueFollows.has(i.id) && !i.categories.some(k => S.catFollows.has(k)))) {
     const ids = issueBills(i), nb = ids.length, law = ids.filter(id => anyBill(id)?.stage === 'enacted').length;   // a win shows on the row (R-067)
     // The outlook says whether the issue is alive (R-067: "7 bills in 2026" did not); staff edit it in Staff v2.
-    rows.push({ lead: catOf(i.category)?.icon || 'heart-pulse', title: i.name, sub: i.outlook || (nb ? `${plural(nb, 'bill')} in ${yr}${law ? ` · ${law} became law` : ''}` : ''), href: `#/issue/${i.slug}` });
+    rows.push({ lead: issueLead(i), title: i.name, sub: i.outlook || (nb ? `${plural(nb, 'bill')} in ${yr}${law ? ` · ${law} became law` : ''}` : ''), href: `#/issue/${i.slug}` });
   }
   if (!rows.length) for (const k of wiz().issues || []) { const c = catOf(k); if (c) rows.push({ lead: c.icon, title: c.name, sub: 'Pick the issues to follow', href: `#/find/category/${c.key}` }); }
   return rows;

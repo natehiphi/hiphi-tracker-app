@@ -20,7 +20,7 @@
 // topic therefore matters: the narrower rule goes above the broader one.
 
 const TOPICS = [
-  { key: 'food', name: 'Food & Nutrition', icon: 'apple',
+  { key: 'food', name: 'Food & Nutrition', icon: 'tray-front',
     desc: 'School meals, SNAP, local food and sugary drinks.', subs: [
       { key: 'school-meals', name: 'School meals', re: /school meal|school lunch|charter school meal|meal price|unpaid bill|denied over|quarter cost/i },
       { key: 'snap',         name: 'SNAP & food assistance', re: /snap|wic|food aid|food stamp|shutdown food|nutrition education|surge pricing/i },
@@ -56,7 +56,7 @@ const TOPICS = [
       { key: 'transit',   name: 'Buses & transit', re: /bus pass|transit|bus rides|ride free|rideshare|youth ride/i },
       { key: 'saferoutes',name: 'Safe Routes & speed', re: /safe routes|speed camera|red-light|car fee|delivery fee/i },
     ] },
-  { key: 'climate', name: 'Climate & Environment', icon: 'leaf',
+  { key: 'climate', name: 'Climate & Environment', icon: 'earth',
     desc: 'Pesticides, heat, wildfire and clean water.', subs: [
       { key: 'pesticides', name: 'Pesticides', re: /pesticide|neonicotinoid|telone|buffer/i },
       { key: 'heat',       name: 'Heat, wildfire & climate', re: /heat|wildfire|climate|invasive species|clean environment/i },

@@ -16,7 +16,7 @@ import { S, D, DEMO, app, esc, icon, nick, posInfo, countOk, issues, issueIcon, 
   recomputeWatch, plainStatus, spaced, billPath, issuesOf, openActions, hearingsOf, legTitle, CHAMBER_NAME, sessionWords, stopFacts, ensureHistory, timed, loadLists } from './core.js';
 import { btn, row, skeleton, notice, inlineErr, chip, posChip, loadFail } from './ui.js';
 import { actionCard, wireActions, shareIssue } from './actions.js';
-import { calendarUrl } from './core.js';   // the calendar feed (R-125)
+import { calendarUrl, issueLead } from './core.js';   // the calendar feed (R-125)
 import { followAsk, profileSaved, levelLine, levelBox, wireLevelLine, getsAlerts } from './alerts.js';   // the profile ask after a follow (R-184); how much it sends (R-299)
 import { logAct } from './visitlog.js';
 import { billList, fold, wireRows, emptyBox, moving, becameLaw, stopped, numCmp, byUrgency, listCards, listPromise, nextYear,
@@ -492,7 +492,7 @@ function issuePageNew(i) {
         <p class="small muted">Its bills come to you: this session’s, later ones and next session’s.</p></div>`;
   // The back link already names the issue's own category (A-14); a second one it also sits in is said once, in words.
   const also = (i.categories || []).filter(k => k !== i.category).map(catBySlug).filter(Boolean);
-  const head = `<header class="fd-ihead"><span class="fd-icon">${icon(c?.icon || 'heart-pulse')}</span><h1 class="hero">${esc(i.name)}</h1>
+  const head = `<header class="fd-ihead"><span class="fd-icon">${icon(issueLead(i))}</span><h1 class="hero">${esc(i.name)}</h1>
     ${i.description ? `<p class="lede">${esc(i.description)}</p>` : ''}
     ${pos ? `<div class="chips">${posChip({ hiphi_position: pos })}</div>` : ''}
     ${also.length ? `<p class="small fd-also">Also part of ${also.map(k => `<a href="#/find/category/${esc(k.key)}">${esc(k.name)}</a>`).join(' and ')}</p>` : ''}
@@ -557,7 +557,7 @@ export function headerSuggest(q) {
     return { href: `#/find/category/${c.key}`, title: c.name, sub: off ? plural(n, 'issue') : n ? `${plural(n, 'issue')} moving` : 'Quiet now', icon: issueIcon(c.icon) }; });
   // An issue's line is what it is about (its topic would repeat the row above it, or the topic's own row).
   const issueRow = i => ({ href: `#/issue/${i.slug}`, title: i.name,
-    sub: [issueFollowed(i) ? 'Following' : '', i.description || catBySlug(i.category)?.name].filter(Boolean).join(' · '), icon: issueIcon(catBySlug(i.category)?.icon) });
+    sub: [issueFollowed(i) ? 'Following' : '', i.description || catBySlug(i.category)?.name].filter(Boolean).join(' · '), icon: issueLead(i) });
   const direct = issueMatches(q);
   const groups = found => {
     const bills = found.map((b, k) => [b, k]).sort((x, y) => bucket(x[0]) - bucket(y[0]) || x[1] - y[1]).map(x => x[0]);

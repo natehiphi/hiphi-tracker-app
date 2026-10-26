@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Regenerates icons.js from Lucide (lucide-static, pinned), keeping every icon already in it.
+// Regenerates icons.js from Lucide (lucide-static, pinned), keeping every icon already in it. The icons drawn for HIPHI
+// live in icons-drawn.js (edited by hand) and are merged in by the generated file, so a regeneration keeps them.
 //   node tools/icons.mjs                 re-fetch the current set
 //   node tools/icons.mjs star,calendar   add icons by name (see https://lucide.dev/icons)
 // Inline SVG paths, so the pages need no icon font and make no request for icons. Lucide is ISC-licensed; the
@@ -22,7 +23,10 @@ const out = `// Interface icons: Lucide v${VER} (https://lucide.dev), ISC licenc
 // software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this
 // permission notice appear in all copies.
 import { shareMarkup } from './share-icon.js';
+import { DRAWN } from './icons-drawn.js';
 export const ICONS = ${JSON.stringify(paths, null, 0).replace(/","/g, '",\n"')};
+// The icons drawn for HIPHI in Lucide's style (icons-drawn.js, R-339) join the set after Lucide's.
+Object.assign(ICONS, DRAWN);
 // icon('calendar') -> an inline SVG sized to the text (1.25em), decorative unless a label is given.
 export function icon(name, { size = '1.25em', label = '', cls = '' } = {}) {
   // Both share names draw the device's own share icon (share-icon.js, R-205), so no share icon is a copy of another.
