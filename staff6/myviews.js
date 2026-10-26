@@ -41,6 +41,7 @@ import { plural } from './lists.js';
 import { numWords, dayWords, committeeName, nw } from './steps.js';
 import { hearPart, markOf, byUrgency, rowOf, searchHTML, FEW } from './issuestand.js';
 import { ICONS } from '../icons.js';
+import { issueIcon } from './issuegrid.js';
 
 const AGAINST = new Set(['strongly_oppose', 'oppose']);
 const THROUGH = new Set(['governor', 'law', 'ballot']);
@@ -157,7 +158,8 @@ const tagsOf = j => [j.own ? '' : 'You help', !j.needs && j.next?.you ? 'Your st
 const needMark = j => j.needs ? `<span class="mi-need">${icon('hand')}Needs you</span>` : '';
 const tagHTML = j => `${needMark(j)}${tagsOf(j).map(t => `<span class="mi-tag">${esc(t)}</span>`).join('')}`;
 const catOf = i => (S.categories || []).find(c => c.key === i.category);
-const topicIc = (i, cls = 'mi-tic') => { const c = catOf(i); return `<span class="${cls} mi-c-${esc(i.category || 'none')}" aria-hidden="true">${icon(c?.icon || 'tag')}</span>`; };
+// The issue's own icon, else its topic's (issuegrid.js issueIcon, R-339); the tint stays the topic's.
+const topicIc = (i, cls = 'mi-tic') => `<span class="${cls} mi-c-${esc(i.category || 'none')}" aria-hidden="true">${icon(issueIcon(i))}</span>`;
 
 // ---- the switch (remembered for the person) ----
 export const VIEWS = [['cover', 'Coverage', 'scale'], ['deadlines', 'Deadlines', 'flag'], ['status', 'Status', 'list-checks'], ['topics', 'Topics', 'tag'], ['sheet', 'Spreadsheet', 'table-2']];
@@ -330,7 +332,7 @@ function topicsHTML(js) {
   if (other.length) cats.push({ c: { key: 'none', name: 'Other', icon: 'tag' }, l: other });
   const badge = j => j.kind === 'both' ? `<span class="mi-badge ok">${icon('circle-check')}Both chambers</span>` : j.kind === 'one' ? `<span class="mi-badge">${icon('circle-dot')}One chamber</span>`
     : j.kind === 'oppose' ? `<span class="mi-badge">${icon('circle-x')}HIPHI opposes</span>` : `<span class="mi-badge">${icon('circle-minus')}Stopped</span>`;
-  const card = j => `<a class="mi-tcard${j.alive ? '' : ' off'}" href="${href(j.i)}" data-mirow="${esc(j.i.id)}"><span class="mi-tart mi-c-${esc(j.i.category || 'none')}">${badge(j)}${icon(catOf(j.i)?.icon || 'tag')}</span>
+  const card = j => `<a class="mi-tcard${j.alive ? '' : ' off'}" href="${href(j.i)}" data-mirow="${esc(j.i.id)}"><span class="mi-tart mi-c-${esc(j.i.category || 'none')}">${badge(j)}${icon(issueIcon(j.i))}</span>
     <span class="mi-tbody"><span class="mi-name">${esc(j.i.name)}${tagHTML(j)}</span>${lineSpan(j.alive ? j.next || j.health : j.health)}</span></a>`;
   return `${cats.length > 1 ? `<div class="mi-jump" role="group" aria-label="Jump to a topic">${cats.map(g => `<button type="button" data-mijump="${esc(g.c.key)}"><span class="mi-jic mi-c-${esc(g.c.key)}" aria-hidden="true">${icon(g.c.icon || 'tag')}</span>${esc(g.c.name)} <span class="mi-q">${g.l.length}</span></button>`).join('')}</div>` : ''}
     ${cats.map(g => { const live = g.l.filter(j => j.alive).length, l = [...g.l].sort((a, b) => (a.alive ? 0 : 1) - (b.alive ? 0 : 1) || byUrgency(a.x, b.x));

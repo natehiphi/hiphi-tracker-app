@@ -22,6 +22,7 @@ import { PROFILES, profileHits, quoteOf, sentenceWith } from './profile.js';   /
 import { itemRow, billRow, nameWords, numWords, whereWords, committeeName, nw } from './steps.js';
 import { isLead } from './more.js';
 import { admitsPartners } from './partnerq.js';
+import { issueIcon } from './issuegrid.js';
 
 // This page's look (css/search.css). staff6.html links the screens' style sheets; until it links this one (shared_changes),
 // the module adds it once, before the first page is drawn.
@@ -325,7 +326,7 @@ export function headerHits(q) {
     .sort((x, y) => lead(x[0]) - lead(y[0]) || (lead(x[0]) === 1 ? diedish(x[0]) - diedish(y[0]) || byNum(x[0], y[0]) : x[1] - y[1])).map(([b]) => ({
       href: billRoute(b), title: name(b), icon: 'scroll-text', inline: true, sub: [numWords(b), stageWords(b)].filter(Boolean).join(' · ') }));
   const cat = k => (S.categories || []).find(c => c.key === k);
-  const issues = issueHits(q).map(i => ({ href: `#/issue/${encodeURIComponent(i.id)}`, title: i.name, sub: cat(i.category)?.name || 'Issue', icon: cat(i.category)?.icon || 'tag' }));
+  const issues = issueHits(q).map(i => ({ href: `#/issue/${encodeURIComponent(i.id)}`, title: i.name, sub: cat(i.category)?.name || 'Issue', icon: issueIcon(i) }));
   const legs = coalKeep(q, matchLegs(q), l => l.name).map(l => ({ href: `#/legislator/${l.id}`, title: l.name, sub: `${l.chamber === 'S' ? 'Senate' : 'House'} district ${l.district || ''}`.trim(), icon: 'landmark' }));
   const team = teamHits(q).map(a => ({ href: teamHref(a), title: a.full_name, sub: `${ROLE(a)} · their list`, icon: 'user-round' }));
   loadAllNotes();

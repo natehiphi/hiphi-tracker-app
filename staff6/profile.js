@@ -19,6 +19,7 @@ import { icon, btn, iconBtn, toast, openSheet, closeSheet, menuSheet } from './u
 import { showAllBtn } from './ui.js';   // U-4: one "Show all" on every screen
 import { photo, shortName, legName, partyDist, legHref } from './pathway.js';
 import { issueById, catByKey } from './issues.js';
+import { issueIcon } from './issuegrid.js';
 // A sheet opened from a menu waits for the menu's Back to land (else that Back would close the new sheet).
 const afterBack = () => new Promise(res => { if (!history.state?.sheet) return res(); let done = false; const run = () => { if (done) return; done = true; removeEventListener('popstate', run); res(); }; addEventListener('popstate', run); setTimeout(run, 500); });
 
@@ -99,7 +100,7 @@ function lineHTML(l, x) {
 function issuesHTML(l, p) {
   const chips = p.issues.map(x => { const i = issueById(x.issue_id); if (!i) return '';
     const rm = mayChange(x) ? `<button type="button" class="pf-irm" data-pfirm="${esc(i.id)}" aria-label="${esc(`Remove ${i.name} from what ${shortName(l)} cares about`)}" title="Remove">${icon('x')}</button>` : '';
-    return `<li class="pf-ichip"><a href="#/issue/${encodeURIComponent(i.id)}" title="${esc(`Added by ${firstOf(x.by)}, ${dayOf(x.at)}`)}">${icon(catByKey(i.category)?.icon || 'tag')}<span>${esc(i.name)}</span></a>${rm}</li>`; }).join('');
+    return `<li class="pf-ichip"><a href="#/issue/${encodeURIComponent(i.id)}" title="${esc(`Added by ${firstOf(x.by)}, ${dayOf(x.at)}`)}">${icon(issueIcon(i))}<span>${esc(i.name)}</span></a>${rm}</li>`; }).join('');
   // "Add an issue" is drawn as an empty chip, the shape of what it makes, so it does not read as the section's other Add (A-12).
   return `<div class="pf-iss">${chips ? `<ul class="pf-ichips" aria-label="${esc(`Issues ${shortName(l)} cares about`)}">${chips}</ul>` : ''}<button type="button" class="pf-iadd" data-pfiadd="1" aria-haspopup="dialog" aria-label="${esc(`Add an issue ${shortName(l)} cares about`)}">${icon('plus')}<span>Add an issue</span></button></div>`;
 }
@@ -246,7 +247,7 @@ export function issueSheet({ title, value = '', any = false, exclude = new Set()
     const t = plain(q.trim());
     const is = liveIssues().filter(i => !exclude.has(i.id) && (!t || plain(i.name).includes(t)))
       .sort((a, b) => (counts ? (counts.get(b.id) || 0) - (counts.get(a.id) || 0) : 0) || a.name.localeCompare(b.name));
-    const rows = is.map(i => opt(i.id, i.name, [catByKey(i.category)?.name, counts?.get(i.id) ? `${plural(counts.get(i.id), 'legislator')} care` : ''].filter(Boolean).join(' · '), catByKey(i.category)?.icon || 'tag')).join('');
+    const rows = is.map(i => opt(i.id, i.name, [catByKey(i.category)?.name, counts?.get(i.id) ? `${plural(counts.get(i.id), 'legislator')} care` : ''].filter(Boolean).join(' · '), issueIcon(i))).join('');
     return (any && !t ? opt('', 'Any issue', 'Show everyone again', 'circle-dashed') : '') + (rows || `<p class="pf-none">No issue matches “${esc(q.trim())}”.</p>`);
   };
   openSheet({ title: esc(title), pop: true,

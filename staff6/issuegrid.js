@@ -39,6 +39,9 @@ export const staffIcon = name => { const n = STAFF_IC[name] || name; return ICON
 export const topicIcons = () => new Set((S.categories || []).flatMap(c => [c.icon, staffIcon(c.icon)]).filter(Boolean));
 const catOf = k => (S.categories || []).find(c => c.key === k) || null;
 const catIndex = k => (S.categories || []).findIndex(c => c.key === k);
+// An issue's picture wherever an issue is shown (R-339): its own icon (issues.icon, migration 188; Nate's picks) when that
+// name is drawn in ICONS, else its topic's, else the tag. Topic headings keep the topic's icon.
+export const issueIcon = i => staffIcon(i?.icon || '') || staffIcon(catOf(i?.category)?.icon || '') || 'tag';
 // The picture: the icon, or a monogram ("FS" for Farm to School) when there is none. Decorative: the card's name says it,
 // so the monogram is drawn by CSS (issues.css .ig6-mono::before), as Everyone draws a missing photo's initial, and is not
 // read as one more fact of the card.
@@ -176,8 +179,8 @@ function issueCard(x, { tags = [], why = null, letter = '', anchor = '' } = {}) 
   // about that issue, and the card stays four facts and the same height (the description is still the title).
   const line = tags.length ? [esc(tags.join(', ')), 'ig6-desc ig6-tag'] : [desc ? esc(desc) : '', 'ig6-desc', desc];
   return cardHTML({ key: i.id, href: '#/issue/' + encodeURIComponent(i.id), name: i.name, title: i.description || '', letter, anchor, cls: 'ig6-issue',
-    // The topic's icon (Nate's pick). Hook for R-339: an issue that gets its own icon (issues.icon) shows that instead.
-    pic: picHTML({ ic: staffIcon(i.icon || '') || staffIcon(c?.icon || '') || 'tag', tint: Math.max(catIndex(i.category), 0) }),
+    // The issue's own icon (Nate's R-339 picks), else its topic's.
+    pic: picHTML({ ic: issueIcon(i), tint: Math.max(catIndex(i.category), 0) }),
     lines: [line, statusHTML(st)] });
 }
 
