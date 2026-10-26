@@ -12,7 +12,10 @@ body.staff6 .mi-sel select { width: 100%; min-height: 44px; padding: 0 44px 0 16
 body.staff6 .mi-sel select:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 body.staff6 .mi-sel > .ic { position: absolute; right: 16px; top: 12px; width: 20px; height: 20px; color: var(--v6-muted); pointer-events: none; }
 @media (max-width: 1180px) and (min-width: 768px) { body.staff6 .mi-seg .ic { display: none; } body.staff6 .mi-seg button { padding: 0 12px; } }
-@media (max-width: 767px) {
+/* the select only on a phone-sized window (under 600px): at 200% zoom on a 1280 laptop (640px) the five buttons stay,
+   wrapping if they must (spec 7.10: nothing lost at 200% zoom) */
+body.staff6 .mi-seg { flex-wrap: wrap; max-width: 100%; }
+@media (max-width: 599px) {
   body.staff6 .mi-seg { display: none; }
   body.staff6 .mi-sel { display: block; }
   body.staff6 .mi-tools:not(.open) .mi-sel { flex: 1 1 auto; }
