@@ -68,13 +68,14 @@ function listsPart(lists) {
 
 // "Add this week’s hearings to my calendar" (R-212 Tier 2 #51; actions.js weekHearings, downloadWeekIcs): one quiet line
 // between the header and the rows, in session, not while editing, and only when a hearing on a bill they follow (or one they
-// plan to go to) is set inside the next seven days. Here and not on Home, which has a budget (A-23: a new thing goes
-// elsewhere, My issues among them). A text button (A-3: no new filled button), with no count in it (Nate, on Home's
-// greeting: "If it's a lot it can be overwhelming"). Pressed, it saves one calendar file and says what it did (A-16): the
-// done chip the bill page's "Add to calendar" turns into (bill.js), and what the file held, "3 hearings, Wed to Fri", in
-// Home's words for a day (calm/home.js when, without the time: "today", "tomorrow", "Wed", "Mar 23"). The chip stays for the
-// visit, as the bill page's does; it is offered again the next day (a new week: S.chips is keyed by the week's first day) or
-// when a hearing joins the week that the file did not hold (a bill followed since). One that has started since is no reason.
+// plan to go to), or its testimony deadline, falls inside the next seven days. Here and not on Home, which has a budget
+// (A-23: a new thing goes elsewhere, My issues among them). A text button (A-3: no new filled button), with no count in
+// it (Nate, on Home's greeting: "If it's a lot it can be overwhelming"). Pressed, it saves one calendar file and says what it
+// did (A-16): the done chip the bill page's "Add to calendar" turns into (bill.js), and what the file held, "3 hearings,
+// Wed to Fri", in Home's words for a day (calm/home.js when, without the time: "today", "tomorrow", "Wed", "Mar 23"). The
+// chip stays for the visit, as the bill page's does; it is offered again the next day (a new week: S.chips is keyed by the
+// week's first day) or when a hearing joins the week that the file did not hold (a bill followed since). One that has
+// started since is no reason.
 const dayOf = iso => when(iso).slice(0, -(timeWord(iso).length + 1));
 const idsOf = list => list.map(x => x.h.id);
 const weekKey = () => `week|${weekStart()}ics`;

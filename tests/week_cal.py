@@ -6,9 +6,13 @@
 #       within 320px on a phone (A-1)
 #   W2  pressing it saves one file, hiphi-hearings-2026-03-16.ics (the week's first day): CRLF line ends, one VCALENDAR, no
 #       calendar name (an import, not a calendar of its own), one hearing VEVENT per hearing weekHearings() gives, with the
-#       one-hearing file's UIDs (<hearing id>-hearing@bills.hiphi.org), every hearing inside [now, now + 7 days] by the
-#       practice clock, soonest first; "Testimony due" (<hearing id>-due@...) only for a hearing whose deadline is ahead
-#   W3  the line then says "Calendar file ready" and what the file held ("3 hearings, Wed to Fri"), focused, and the rows
+#       one-hearing file's UIDs (<hearing id>-hearing@bills.hiphi.org), soonest first, every hearing ahead and either inside
+#       [now, now + 7 days] by the practice clock or with its testimony deadline inside them (HB 1839, HB 1886 and HB 2540:
+#       testimony closes Sun 3:00 PM, the hearing is Mon 3:00 PM, just after the week); "Testimony due" (<hearing id>-due@...)
+#       only for a hearing whose deadline is ahead. Everything the page promises this week is in the file: every deadline
+#       Home and My issues count as due this week (dueAll's rule) has its "Testimony due", and each row's "Testimony due ...,
+#       and 3 more this week" or "Hearing Wed ..." has that many deadlines and hearings of its own bills in the file
+#   W3  the line then says "Calendar file ready" and what the file held ("6 hearings, Wed to Mar 23"), focused, and the rows
 #       below have not moved; it stays so after a redraw
 #   W4  while editing, no line; Done brings it back; a bill followed after the press with a hearing this week: offered again
 #   W5  testimony already sent on HB 2121's hearing: its hearing is in the file, its "Testimony due" is not; HB 1965, a bill
@@ -127,6 +131,13 @@ nostamp = lambda lines: [l for l in lines if not l.startswith('DTSTAMP:')]
 
 WEEK = """async () => { const a = await import('./pub/actions.js'); return { now: Date.now(), start: a.weekStart(),
   list: a.weekHearings().map(({ b, h }) => ({ num: b.bill_number, hid: h.id, at: h.scheduled_at, due: h.testimony_deadline, pos: b.hiphi_position || '' })) }; }"""
+# What My issues' rows say (calm/home.js myRows) and their bills, and the deadlines Home's dueAll counts as due this week (its
+# rule on core.js openActions: on time, not settled, closing inside seven days).
+PROMISE = """async () => { const h = await import('./pub/calm/home.js'), c = await import('./pub/core.js'), now = Date.now();
+  const rows = h.myRows().map(r => ({ name: r.name, text: String(r.text || '').replace(/\\u00a0/g, ' '), ids: r.b ? [r.b.id] : r.i ? [...c.issueBills(r.i)] : [] }));
+  const due = c.openActions(c.S.bills, c.S.hearings).filter(x => !x.late && !c.settledOn(x.b, x.h) && x.h.testimony_deadline && Date.parse(x.h.testimony_deadline) < now + 7 * 864e5).map(x => x.h.id);
+  return { rows, due }; }"""
+DAYW = r'(today|tomorrow|Mon|Tue|Wed|Thu|Fri|Sat|Sun) '
 LINE = """() => { const root = document.querySelector('.rc-mine'), ls = root ? [...root.querySelectorAll('.rc-wkcal')] : [], l = ls[0];
   const b = l && l.querySelector('button'), h1 = root && root.querySelector('.rc-h1'), head = root && root.querySelector('.rc-mhead'), rows = root && root.querySelector('.rc-mrows');
   const bi = b && b.querySelector('.ic');
@@ -145,6 +156,20 @@ with sync_playwright() as p:
         pg.on('console', lambda m: m.type == 'error' and errs.append('console: ' + m.text[:200])); return c, pg
     def mine(pg, q=''):
         pg.goto(f'{BASE}/track.html?demo=1{q}#/bills'); pg.wait_for_selector('.rc-mine', timeout=60000); pg.wait_for_timeout(2500)
+    def promises(pg, ev, when, tag):   # everything the page says is happening this week is in the file
+        P = pg.evaluate(PROMISE)
+        duev = {e['UID'][:-len('-due@bills.hiphi.org')] for e in ev if e['UID'].endswith('-due@bills.hiphi.org')}
+        hearv = {e['UID'][:-len('-hearing@bills.hiphi.org')] for e in ev if e['UID'].endswith('-hearing@bills.hiphi.org')}
+        ok(P['due'] and set(P['due']) <= duev, f'{when} {tag}: every deadline counted as due this week has its "Testimony due" in the file ({len(P["due"])}; missing {sorted(NUM[HEAR[x]["bill_id"]] for x in set(P["due"]) - duev)})')
+        short, said = [], 0
+        for r in P['rows']:
+            m = re.search(r'and (\d+) more this week', r['text'])
+            n_due = int(m.group(1)) + 1 if m else (1 if re.match(r'(Testimony due|Your letter is started · due) ' + DAYW, r['text']) else 0)
+            n_hear = 1 if re.search(r'(^|· )[Hh]earing ' + DAYW, r['text']) else 0
+            ids = set(r['ids']); said += n_due + n_hear
+            got_due = sum(1 for x in duev if HEAR.get(x, {}).get('bill_id') in ids); got_hear = sum(1 for x in hearv if HEAR.get(x, {}).get('bill_id') in ids)
+            if got_due < n_due or got_hear < max(n_due, n_hear): short.append((r['name'], r['text'], got_due, got_hear))
+        ok(said and not short, f'{when} {tag}: each row’s "this week" is in the file, its deadlines and hearings ({said} promised; short: {short})')
     def press(pg):
         got = []; pg.on('download', lambda d: got.append(d))
         with pg.expect_download() as dl: pg.locator('.rc-mine [data-rc-wkcal]').click()
@@ -164,6 +189,7 @@ with sync_playwright() as p:
         ok(not L['sideways'], f'W1 {tag}: no sideways scroll')
         nums = [x['num'] for x in wk['list']]
         ok({'HB2121', 'HB1870', 'HB1780'} <= set(nums), f'W1 {tag}: the week’s hearings on followed bills: {nums}')
+        ok({'HB1839', 'HB1886', 'HB2540'} <= set(nums), f'W1 {tag}: and the Monday-afternoon hearings whose testimony closes on Sunday, inside the week')
         pg.screenshot(path=os.path.join(OUT, f'mine-before-{tag}.png'), full_page=True)
         before = L['rowsTop']
         # W2 the file
@@ -177,8 +203,10 @@ with sync_playwright() as p:
         ok(len(hear) == len(wk['list']) and [e['UID'] for e in hear] == [f'{x["hid"]}-hearing@bills.hiphi.org' for x in wk['list']],
            f'W2 {tag}: one hearing event per hearing in the week, the one-hearing file’s UIDs, soonest first ({len(hear)})')
         ok(len(ev) == len(hear) + len(dues), f'W2 {tag}: nothing else in it')
-        now = wk['now']; inwk = [now <= ics_time(e['DTSTART']) <= now + 7 * 864e5 for e in hear]
-        ok(all(inwk), f'W2 {tag}: every hearing inside [now, now + 7 days] by the practice clock')
+        now, end = wk['now'], wk['now'] + 7 * 864e5; duet = {e['UID'][:-len('-due@bills.hiphi.org')]: ics_time(e['DTSTART']) for e in dues}
+        inwk = [now < ics_time(e['DTSTART']) and (ics_time(e['DTSTART']) <= end or duet.get(e['UID'][:-len('-hearing@bills.hiphi.org')], end) < end) for e in hear]
+        ok(all(inwk), f'W2 {tag}: every hearing ahead, inside [now, now + 7 days] by the practice clock or its deadline inside them')
+        promises(pg, ev, 'W2', tag)
         ok(all(e['SUMMARY'].startswith('Hearing: ') for e in hear) and all(e['SUMMARY'].startswith('Testimony due: ') for e in dues), f'W2 {tag}: the summaries are the one-hearing file’s')
         byhid = {x['hid']: x for x in wk['list']}
         ok(dues and all(byhid.get(e['UID'][:-len('-due@bills.hiphi.org')], {}).get('pos') not in ('', 'monitor') and ics_time(e['DTSTART']) > now for e in dues),
@@ -187,7 +215,7 @@ with sync_playwright() as p:
         # W3 the done line
         L = pg.evaluate(LINE)
         ok(L['n'] == 1 and L['chip'] and L['text'].startswith('Calendar file ready') and not L['btn'], f'W3 {tag}: the line says "{L["text"]}"')
-        ok(L['what'] == '3 hearings, Wed to Fri', f'W3 {tag}: what the file held: "{L["what"]}"')
+        ok(L['what'] == '6 hearings, Wed to Mar 23', f'W3 {tag}: what the file held: "{L["what"]}"')
         ok(L['focused'], f'W3 {tag}: the done line has the focus (a screen reader says it)')
         ok(L['rowsTop'] == before and L['h'] >= 44, f'W3 {tag}: the rows did not move ({before} -> {L["rowsTop"]})')
         pg.screenshot(path=os.path.join(OUT, f'mine-after-{tag}.png'), full_page=True)
@@ -209,6 +237,7 @@ with sync_playwright() as p:
         c, pg = page(scene(own=(ID['HB1850'], ID['HB1965']), done=(done('HB2121', H2121, 'testimony'), done('HB1780', H1780, 'attend'), done('HB1573', H1573, 'attend'))), w, h); mine(pg)
         wk = pg.evaluate(WEEK); d, text, n = press(pg); ev = events(text)
         uids = [e['UID'] for e in ev]
+        promises(pg, ev, 'W5', tag)
         ok(f'{H2121}-hearing@bills.hiphi.org' in uids and f'{H2121}-due@bills.hiphi.org' not in uids, f'W5 {tag}: testimony sent on HB 2121: its hearing, no "Testimony due"')
         ok(f'{H1965}-hearing@bills.hiphi.org' in uids and f'{H1965}-due@bills.hiphi.org' not in uids, f'W5 {tag}: HB 1965, watched only: its hearing, no "Testimony due"')
         ok(f'{HID["6266ffd5"]}-due@bills.hiphi.org' in uids, f'W5 {tag}: HB 1870, testimony still open: its "Testimony due" is in')

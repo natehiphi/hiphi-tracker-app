@@ -436,15 +436,25 @@ export function downloadIcs(b, h) {
 // in Hawaiʻi, names the file and keys its done state (S.chips), so the next day offers a new week.
 const WEEK = 7 * 864e5;
 export const weekStart = () => hstDay(Date.now());
+// "Testimony due" goes in only where the app asks for testimony and it can still be sent: HIPHI takes a side on the bill
+// (posInfo; a bill HIPHI only watches has no testimony button, R-101, so "Send testimony in 5 minutes" would lead nowhere),
+// the deadline is ahead, and the person has not settled it (settledOn, Home's rule: testimony sent, or an email to the chair
+// once testimony is not theirs to send). The same three tests as Home's "due this week" (calm/home.js dueAll on openActions).
+const dueIn = (b, h) => dueAhead(h) && !!posInfo(b) && !settledOn(b, h);
 // What goes in: every hearing on a bill they follow (S.watch: their issues' bills and bills followed on their own, less
-// "Not for me") and every hearing they plan to go to or speak at on Zoom (goingPlans), on a bill that can still move, set
-// for a time ahead inside the week. Never one cancelled, decided (an outcome: a deferral is one), or already started.
+// "Not for me"; S.hearings, the same hearings My issues' rows are read from) and every hearing they plan to go to or speak at
+// on Zoom (goingPlans), on a bill that can still move, still ahead. Never one cancelled, decided (an outcome: a deferral is
+// one), or already started. In the week: the hearing itself, or its testimony deadline. My issues' rows count a deadline
+// inside the seven days as due this week ("Testimony due Wed 3:05 PM, and 3 more this week") even when its hearing is a day
+// after the week ends (a Monday-afternoon hearing whose testimony closes on Sunday), so the file holds that hearing and its
+// deadline too; leaving them out left the deadlines the page had just named out of the calendar (the coordinator's review).
 // [{ b, h }], soonest first.
 export function weekHearings() {
   const now = Date.now(), end = now + WEEK, seen = new Set(), out = [];
   const add = (b, h) => {
     if (!b || !h || seen.has(h.id) || h.status !== 'scheduled' || S.outcomes?.[h.id]?.outcome || !alive(b)) return;
-    const t = Date.parse(h.scheduled_at); if (!(t > now && t <= end)) return;
+    const t = Date.parse(h.scheduled_at); if (!(t > now)) return;
+    if (!(t <= end || (dueIn(b, h) && Date.parse(h.testimony_deadline) < end))) return;
     seen.add(h.id); out.push({ b, h });
   };
   for (const h of S.hearings || []) if (S.watch?.has(h.bill_id)) add(S.bills.find(b => b.id === h.bill_id), h);
@@ -452,14 +462,12 @@ export function weekHearings() {
   return out.sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at) || x.b.bill_number.localeCompare(y.b.bill_number));
 }
 // The week's file: each hearing's event exactly as its own file makes it (hearingEvents), the reminder for someone going or
-// on Zoom included. "Testimony due" only where the app asks for testimony and it can still be sent: HIPHI takes a side on
-// the bill (posInfo; a bill HIPHI only watches has no testimony button, R-101, so "Send testimony in 5 minutes" would lead
-// nowhere), the deadline is ahead, and the person has not settled it (settledOn, Home's rule: testimony sent, or an email to
-// the chair once testimony is not theirs to send). No calendar name (X-WR-CALNAME): it is added to their own calendar, not
-// kept as one of its own. Public hearing facts only, and nothing about the person the one-hearing file does not say too.
+// on Zoom included, and "Testimony due" where dueIn says. No calendar name (X-WR-CALNAME): it is added to their own
+// calendar, not kept as one of its own. Public hearing facts only, and nothing about the person the one-hearing file does
+// not say too.
 export function downloadWeekIcs(list = weekHearings()) {
   if (!list.length) return [];
-  saveFile(calFile(list.flatMap(({ b, h }) => hearingEvents(b, h, { due: dueAhead(h) && !!posInfo(b) && !settledOn(b, h) }))), `hiphi-hearings-${weekStart()}.ics`);
+  saveFile(calFile(list.flatMap(({ b, h }) => hearingEvents(b, h, { due: dueIn(b, h) }))), `hiphi-hearings-${weekStart()}.ics`);
   return list;
 }
 // A bill waiting for a hearing (the calm Home's hearing ask, R-300): its committee's cut-off as one event at 9 AM that day,
