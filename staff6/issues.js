@@ -30,6 +30,7 @@ import { weekOfBills, standWeekHTML, wireWeek, billLineRow, billWords } from './
 import { standOf, markOf, bodyHTML, toolsHTML, wireTools, listBox, headHTML, rememberRow, restoreRow } from './issuestand.js';
 import { PROFILES, caresSecHTML, caresLegs } from './profile.js';   // R-335 (practice copy): "Legislators who care about this"
 import { itemRow, nw, dayWords } from './steps.js';
+import { gridBody, toolsHTML as gridTools, wireJump, fitLines, pickSort, restoreCard } from './issuegrid.js';   // R-336 walk 3: All issues as cards
 
 // Where an issue's Back goes (R-316 W16): to the prep list or the Prep board it was opened from, to My issues, else All issues.
 const backTo = route => route.q?.from === 'prep' ? { href: prepListHref(), label: 'Your issues for 2027' } : route.q?.from === 'board' ? { href: BOARD_HREF, label: 'Prep board' }
@@ -240,13 +241,15 @@ function needsSheet() {
     body: `<div class="i6-sheet"><p class="i6-quiet">Put each on an issue, so the people who follow it hear about the bill.</p>${listBox(need.map(b => billLineRow(b, { line: whyNot(b) || 'No issue yet', button: btn('Choose', { kind: 'secondary', sm: true, attrs: { 'data-ispick': b.id, 'aria-haspopup': 'dialog', 'aria-label': `Choose issues for ${billWords(b)}` } }) })).join(''))}</div>`,
     wire: d => d.querySelectorAll('[data-ispick]').forEach(el => el.onclick = async () => { const b = billById(el.dataset.ispick); if (!b) return; await closeSheet({ silent: true }); await afterClose(); openIssuePicker(b); }) });
 }
-// R-272: the same body as My issues (issuestand.js): By deadline by default, By topic with the switch (the topics folded,
-// one open at a time), and a search that matches any word a person would use. Archived issues wait in their fold.
+// R-336 walk 3 (Nate: "This needs to be the most organized ... organized like the legislator list"): a grid of cards
+// (issuegrid.js) grouped by topic by default, with jump chips and three sorts (By topic, A to Z, By next deadline: R-272's
+// order). The find box matches any word a person would use and bill numbers (issuestand.js searcher). Archived issues wait
+// in their fold, as rows: they are reference, not the list.
 function indexBody(v) {
   const t = plain(v.q.trim()), gone = (S.issues || []).filter(i => i.archived_at && (!t || plain(`${i.name} ${i.description || ''}`).includes(t))).sort(byName);
   const arch = gone.length ? `<details class="i6-fold" data-fold="arch"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>Archived (${gone.length})</span></summary>${listBox(gone.map(i => itemRow({ key: i.id, name: i.name, line: 'Archived: the public does not see it', href: '#/issue/' + encodeURIComponent(i.id), cls: 'i6-row' })).join(''))}</details>` : '';
-  const list = live().map(standOf), tagsOf = x => [isDraft(x.i) ? 'Not public yet' : '', !inFirstVisit(x.i) ? 'Not in the first visit' : ''].filter(Boolean);
-  return `${bodyHTML(list, { q: v.q, folded: true, open: v.open, tagsOf })}${arch}`;
+  const tagsOf = x => [isDraft(x.i) ? 'Not public yet' : '', !inFirstVisit(x.i) ? 'Not in the first visit' : ''].filter(Boolean);
+  return `${gridBody(live(), { q: v.q, tagsOf })}${arch}`;
 }
 const index = {
   tab: 'myissues',   // All issues is the third tab of My issues
@@ -270,7 +273,7 @@ const index = {
       ${headHTML('all', { action: acts })}
       ${sw}
       ${needsLine()}
-      ${toolsHTML(v.q, 'is-q', { label: 'Filter all issues', extra: phoneNew })}
+      ${gridTools(v.q, { extra: phoneNew })}
       <div id="is-q-body">${indexBody(v)}</div>
     </div>`;
   },
@@ -280,16 +283,13 @@ const index = {
     const v = V();
     root.querySelectorAll('[data-is="new"]').forEach(el => el.onclick = () => openIssueForm());
     root.querySelector('[data-is="needs"]')?.addEventListener('click', needsSheet);
-    const body = root.querySelector('#is-q-body');
-    // One topic open at a time: opening one closes the one before, and the page remembers which for this visit.
-    const wireCats = () => body.querySelectorAll('.i6-catf').forEach(d => d.addEventListener('toggle', () => {
-      if (d.open) { v.open = d.dataset.cat; body.querySelectorAll('.i6-catf[open]').forEach(o => { if (o !== d) o.open = false; }); }
-      else if (v.open === d.dataset.cat) v.open = null;
-    }));
-    const paint = () => { body.innerHTML = indexBody(v); wireCats(); };
-    wireCats();
+    const body = root.querySelector('#is-q-body'), sortB = root.querySelector('[data-igsort]');
+    // Redraw the cards only, so typing keeps the focus in the box; Sort hides while a search shows its matches.
+    const paint = () => { body.innerHTML = indexBody(v); wireJump(body); fitLines(body); if (sortB) sortB.hidden = !!v.q.trim(); };
+    wireJump(body); fitLines(body);
     wireTools(root, 'is-q', { get: () => v.q, set: x => { v.q = x; }, paint });
-    restoreRow(root);
+    if (sortB) sortB.onclick = () => pickSort(root, paint);
+    restoreCard(root);
   },
 };
 export default index;
