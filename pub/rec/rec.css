@@ -56,6 +56,16 @@ body.rec .rc-row:has(.rc-lead) + .rc-draft { margin-left: calc(40px + var(--s12)
 body.rec .rc-box .rc-draft { margin-left: var(--s16); }   /* the box's rows start their words 16px in */
 body.rec .rc-box .rc-row:has(.rc-lead) + .rc-draft { margin-left: calc(var(--s16) + 40px + var(--s12)); }
 body.rec .rc-box .rc-draft:focus-visible { outline-offset: -3px; }   /* inside the box's edge, as its rows' ring */
+/* "Add this week’s hearings to my calendar" on My issues (R-212 #51, pub/rec/mybills.js weekLine): one quiet line between the
+   header and the rows. The house text button (A-3; link blue, A-5), its 20px icon lined up with the h1's left edge (the
+   button's 16px of padding taken back) and 44px tall (A-6). Its words may wrap on a narrow phone rather than run past the edge.
+   Pressed, the same 44px holds the done chip and a grey line of what the file held, so the rows below do not move (at 320px
+   the grey line drops under the chip, 5px more). */
+body.rec .rc-wkcal { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s8); min-height: 44px; margin: calc(-1 * var(--s4)) 0 var(--s8); }
+body.rec .rc-wkcal .rc-wkbtn { margin-left: -16px; white-space: normal; text-align: left; justify-content: flex-start; }
+body.rec .rc-wkcal .rc-wkbtn .ic { flex: none; }
+body.rec .rc-wkwhat { font-size: var(--t14); color: var(--n700); }
+body.rec .rc-wkcal[tabindex="-1"]:focus { outline: none; }   /* focused only so a screen reader says it after the press; not a control */
 body.rec .rc-showall { margin: var(--s4) 0 0 calc(-1 * var(--s12)); }
 body.rec .rc-rows > li[hidden] { display: none; }   /* the rest of a "Show all" list (kit.js laterRow); a row's own display wins over [hidden] */
 

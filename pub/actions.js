@@ -426,6 +426,42 @@ export function downloadIcs(b, h) {
   saveFile(icsFor(b, h), `${b.bill_number}-hearing.ics`);
   S.chips[key(b, h) + 'ics'] = true;
 }
+// ---- this week's hearings, as one file (R-212 Tier 2 #51) ----
+// In the walks the Capitol Regular follows and testifies on many bills a week, and could only add hearings to a calendar one
+// at a time, or subscribe to a whole issue's feed (cal/<issue>.ics, R-125), which is a lot for someone who follows many
+// issues and stays one opt-in tap per issue (Nate 10/11: following never adds anything to a calendar by itself). So My issues
+// offers one file, saved once and opened by the person: an import, not a subscription (the live feed is a later item).
+// The week starts now and runs seven days on, by the app's clock (the practice copy's frozen clock there, kernel.js), the
+// same arithmetic as Home's "due this week" (calm/home.js dueAll) and This week's asks (week.js weekAsks); its first day,
+// in Hawaiʻi, names the file and keys its done state (S.chips), so the next day offers a new week.
+const WEEK = 7 * 864e5;
+export const weekStart = () => hstDay(Date.now());
+// What goes in: every hearing on a bill they follow (S.watch: their issues' bills and bills followed on their own, less
+// "Not for me") and every hearing they plan to go to or speak at on Zoom (goingPlans), on a bill that can still move, set
+// for a time ahead inside the week. Never one cancelled, decided (an outcome: a deferral is one), or already started.
+// [{ b, h }], soonest first.
+export function weekHearings() {
+  const now = Date.now(), end = now + WEEK, seen = new Set(), out = [];
+  const add = (b, h) => {
+    if (!b || !h || seen.has(h.id) || h.status !== 'scheduled' || S.outcomes?.[h.id]?.outcome || !alive(b)) return;
+    const t = Date.parse(h.scheduled_at); if (!(t > now && t <= end)) return;
+    seen.add(h.id); out.push({ b, h });
+  };
+  for (const h of S.hearings || []) if (S.watch?.has(h.bill_id)) add(S.bills.find(b => b.id === h.bill_id), h);
+  for (const p of goingPlans()) add(p.b, p.h);
+  return out.sort((x, y) => x.h.scheduled_at.localeCompare(y.h.scheduled_at) || x.b.bill_number.localeCompare(y.b.bill_number));
+}
+// The week's file: each hearing's event exactly as its own file makes it (hearingEvents), the reminder for someone going or
+// on Zoom included. "Testimony due" only where the app asks for testimony and it can still be sent: HIPHI takes a side on
+// the bill (posInfo; a bill HIPHI only watches has no testimony button, R-101, so "Send testimony in 5 minutes" would lead
+// nowhere), the deadline is ahead, and the person has not settled it (settledOn, Home's rule: testimony sent, or an email to
+// the chair once testimony is not theirs to send). No calendar name (X-WR-CALNAME): it is added to their own calendar, not
+// kept as one of its own. Public hearing facts only, and nothing about the person the one-hearing file does not say too.
+export function downloadWeekIcs(list = weekHearings()) {
+  if (!list.length) return [];
+  saveFile(calFile(list.flatMap(({ b, h }) => hearingEvents(b, h, { due: dueAhead(h) && !!posInfo(b) && !settledOn(b, h) }))), `hiphi-hearings-${weekStart()}.ics`);
+  return list;
+}
 // A bill waiting for a hearing (the calm Home's hearing ask, R-300): its committee's cut-off as one event at 9 AM that day,
 // with a reminder the day before, so "ask the chair" is not forgotten until it is too late. date: 'YYYY-MM-DD' (Hawaiʻi).
 export function downloadCutoffIcs(b, date) {
