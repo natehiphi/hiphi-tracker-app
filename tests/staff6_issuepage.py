@@ -30,10 +30,10 @@ def shot(pg, name):
   if SHOTS: pg.shot(os.path.join(SHOTS, f'{name}-{pg.w}.png')); pg.shot(os.path.join(SHOTS, f'{name}-{pg.w}-full.png'), full=True)
 
 CASES = [
-  ('both chambers', BOTH, r'^On track: alive in both chambers\. Next: \S.+$'),
-  ('one chamber', ONE, r'^At risk: 4 bills alive, all House bills\. Next: \S.+$'),
-  ('past both chambers', PAST, r'^On track: HB 244 is in conference\. Next: \S.+$'),
-  ('every bill stopped', STOPPED, r'^Stopped: every bill on this issue stopped this session\.$'),
+  ('both chambers', BOTH, r'^On track: bills that started in each chamber are still alive\. Next: [A-Z]\S* [a-z].+\.$'),
+  ('one chamber', ONE, r'^At risk: all 4 alive bills started in the House\. If they stop in the Senate, the issue ends this year\. Next: \S.+\.$'),
+  ('past both chambers', PAST, r'^On track: HB 244 is in conference\. Next: \S.+\.$'),
+  ('every bill stopped', STOPPED, r'^Stopped: every bill on this issue stopped this session\. Next: get it ready for 2027\.$'),
 ]
 with L.browser() as B:
   for (w, h) in [(1440, 900), (390, 844)]:
@@ -47,14 +47,14 @@ with L.browser() as B:
       t = health(pg)
       R.check(f'{where}: the health check says it in one sentence', re.match(rx, t) is not None, t)
       R.check(f'{where}: no colour alarm on the health check (no late or bad colour)', pg.measure()['marks'] == 0)
-      cols = pg.page.evaluate("[...document.querySelectorAll('.ip6-colh')].map(e => e.innerText.split(/\\s/)[0])")
-      R.check(f'{where}: House and Senate columns, in that order', cols == ['House', 'Senate'], cols)
+      cols = pg.page.evaluate("[...document.querySelectorAll('.ip6-col')].map(e => e.dataset.ipCol)")
+      R.check(f'{where}: House and Senate columns, in that order', cols == ['H', 'S'], cols)
       heads = pg.page.evaluate("[...document.querySelectorAll('.ip6-colh')].map(e => e.firstChild.textContent.trim())")
-      R.check(f'{where}: the columns are "House bills" and "Senate bills"', heads == ['House bills', 'Senate bills'], heads)
+      R.check(f'{where}: the columns are "Started in the House" and "Started in the Senate"', heads == ['Started in the House', 'Started in the Senate'], heads)
       origin = pg.page.evaluate("[...document.querySelectorAll('.ip6-col')].map(c => [c.dataset.ipCol, [...c.querySelectorAll('.ip6-brow')].map(r => r.innerText.match(/\\b(HB|SB|HCR|SCR|HR|SR) \\d+/)?.[1] || '')])")
       R.check(f'{where}: each bill sits in the chamber it started in', all(all((n.startswith('H') if side == 'H' else n.startswith('S')) for n in ns) for side, ns in origin), origin)
       hl = pg.page.evaluate("(() => { const e = document.querySelector('.ip6-hs > span'); return e ? Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e.parentElement).lineHeight)) : 0; })()")
-      lim = 2 if w >= 768 else 4   # a laptop: the sentence and its Next on two lines; a phone: two short lines each
+      lim = 4 if w >= 768 else 6   # the verdict says what is at stake, then Next on its own line, never cut
       R.check(f'{where}: the health check is at most {lim} lines', 1 <= hl <= lim, hl)
       m = pg.measure()
       R.check(f'{where}: no committee codes in rows', m['row_codes'] == 0, m['worst_row'])
@@ -69,7 +69,7 @@ with L.browser() as B:
     # alive in one chamber: the other column says so plainly; alive bills carry the bar
     pg.nav('/issue/' + ONE)
     none = pg.page.evaluate("document.querySelector('[data-ip-none=\"S\"]')?.innerText.trim()")
-    R.check(f'one chamber {w}: "No Senate bill alive"', none == 'No Senate bill alive', none)
+    R.check(f'one chamber {w}: "No bill that started in the Senate is still alive"', none == 'No bill that started in the Senate is still alive', none)
     bars = pg.page.evaluate("[...document.querySelectorAll('[data-ip-col=\"H\"] .ip6-brow:not(.is-stop)')].map(r => !!r.querySelector('.ip6-bar'))")
     R.check(f'one chamber {w}: each alive House bill has its stage bar', bars and all(bars), bars)
     now = pg.page.evaluate("[...document.querySelectorAll('[data-ip-col=\"H\"] .ip6-brow:not(.is-stop) .v6-row-line')].map(e => e.innerText.trim())")
@@ -81,7 +81,10 @@ with L.browser() as B:
     pg.nav('/issue/' + STOPPED)
     lines = pg.page.evaluate("[...document.querySelectorAll('.ip6-brow.is-stop .v6-row-line')].map(e => e.innerText.trim())")
     R.check(f'every bill stopped {w}: stopped bills say when and why', lines and all(re.match(r'^Stopped( \d+/\d+)?: \S', x) for x in lines), lines)
-    R.check(f'every bill stopped {w}: no "Next:" when nothing can move', 'Next:' not in health(pg))
+    R.check(f'every bill stopped {w}: no "none alive" box over the stopped cards', pg.page.query_selector('.ip6-none') is None)
+    R.check(f'every bill stopped {w}: its next step is getting it ready for 2027', pg.page.query_selector('.ip6-health [data-ip="prep"]') is not None and pg.page.query_selector('.pr6-card') is not None)
+    pg.page.click('.ip6-health [data-ip="prep"]'); pg.page.wait_for_timeout(600)
+    R.check(f'every bill stopped {w}: "get it ready for 2027" opens the prep card', pg.page.evaluate("(() => { const c = document.querySelector('.pr6-card'); const r = c.getBoundingClientRect(); return (c.tagName !== 'DETAILS' || c.open) && r.top < innerHeight && r.bottom > 0; })()"))
     if w < 768:
       y = pg.page.evaluate("[...document.querySelectorAll('.ip6-col')].map(c => [c.getBoundingClientRect().top, c.getBoundingClientRect().bottom, c.getBoundingClientRect().left])")
       R.check('phone: the columns stack, House above Senate', len(y) == 2 and y[1][0] >= y[0][1] - 1 and abs(y[0][2] - y[1][2]) < 2, y)
@@ -92,6 +95,20 @@ with L.browser() as B:
     pg.nav('/issue/' + BOTH)
     names = pg.page.evaluate("[...document.querySelectorAll('.ip6-brow .v6-row-name')].map(e => e.innerText.trim())")
     R.check(f'same name {w}: each card leads with its bill number', names and all(re.match(r'^(HB|SB) \d+$', n) for n in names), names)
+    # What to do next: the step leads each row ("Kevin files testimony"), the bill number and the time second; never the issue's name
+    rows = pg.page.evaluate("[...document.querySelectorAll('.ip6-next .ip6-step')].map(r => [r.querySelector('.v6-row-name').innerText.trim(), r.querySelector('.v6-row-line')?.innerText.trim() || ''])")
+    R.check(f'next steps {w}: the step leads each row and the bill number follows', rows and all(not n.startswith('Disposable') and re.match(r'^(HB|SB) \d+', l) for n, l in rows), rows)
+    R.check(f'next steps {w}: the health check\'s Next is never cut', '…' not in health(pg) and 'Next: Kevin:' not in health(pg), health(pg))
+    # legislators: with no stance known, one line per committee naming its chairs by surname
+    ll = pg.page.evaluate("[...document.querySelectorAll('.ip6-lline')].map(e => e.innerText.trim())")
+    R.check(f'legislators {w}: one line per committee when no stance is known', ll and all('no stances known yet' in x and 'chair' in x for x in ll) and not pg.page.query_selector('.ip6-lrow'), ll)
+    # the first-visit switch is in the "…" now; Public interest says its state in words
+    R.check(f'public {w}: no first-visit switch on the page', pg.page.query_selector('#is-fv') is None)
+    pub = pg.page.evaluate("document.querySelector('[aria-labelledby=\"ip-ph\"]')?.innerText || ''")
+    R.check(f'public {w}: "Following this issue: N · following its bills: N"', re.search(r'Following this issue: \d+.* · following its bills: \d+', pub) is not None, pub[:120])
+    ly = pg.page.evaluate("document.getElementById('ip-yh')?.innerText.trim()")
+    R.check(f'last year {w}: the fold says the result', re.match(r'^Last year \(2025\): \S', ly or '') is not None, ly)
+    R.check(f'documents {w}: "more documents", never "Docs"', 'more Doc' not in pg.text())
     # the timeline: five events, then a fold labelled Earlier
     pg.nav('/issue/' + BOTH); pg.page.wait_for_timeout(500)
     tl = pg.page.evaluate("""() => { const sec = document.querySelector('[data-ip-late="tl"]'); const d = sec?.querySelector('details[data-fold="tl"]');

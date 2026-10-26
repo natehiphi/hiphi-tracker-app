@@ -832,3 +832,20 @@ body.staff6 .ip6-edit { margin-top: var(--s16); }
 body.staff6 .ip6-twin { flex: 0 1 auto; white-space: normal; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
 /* a joint committee's name is long; three lines keep the hearing's time in view instead of cutting it at an ellipsis */
 body.staff6 .ip6-brow .v6-row-line > span { -webkit-line-clamp: 3; line-clamp: 3; }
+/* the stage bar's halves: a gap at the crossover and the chamber's name under each half */
+body.staff6 .ip6-barw { display: block; max-width: 320px; margin: 6px 0 4px; }
+body.staff6 .ip6-barw .ip6-bar { margin: 0; max-width: none; }
+body.staff6 .ip6-bar .ip6-split { margin-left: 6px; }
+body.staff6 .ip6-barl { display: grid; column-gap: 3px; margin-top: 2px; font-size: var(--v6-t14); line-height: 18px; color: var(--v6-muted); }
+body.staff6 .ip6-barl > span { min-width: 0; }
+/* bill numbers never wrap */
+body.staff6 .ip6-brow .v6-row-num, body.staff6 .ip6-brow .v6-row-name { overflow-wrap: normal; }
+body.staff6 .ip6-brow .v6-row-top > :first-child:not(.ip6-twin) { min-width: 0; }
+body.staff6 .ip6-brow .v6-row-num:not(.ip6-twin), body.staff6 .ip6-step .v6-row-line { white-space: normal; }
+body.staff6 .ip6-num { white-space: nowrap; }
+/* a legislator's committee in one line, and the stopped issue's "get it ready" link inside the sentence */
+body.staff6 .ip6-lname { font-weight: 500; color: var(--v6-ink); }
+body.staff6 .ip6-lline + .ip6-lline { margin-top: var(--s12); }
+body.staff6 .ip6-hlink { display: inline; min-height: 0; padding: 0; font: inherit; vertical-align: baseline; }
+body.staff6 .ip6-face { display: inline-flex; align-items: center; justify-content: center; }
+body.staff6 .ip6-brow .v6-row-top { flex-wrap: wrap; row-gap: 0; }   /* a shared name after the number wraps to its own line, not hanging beside it */
