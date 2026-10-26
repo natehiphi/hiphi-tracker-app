@@ -15,6 +15,7 @@ import { followupSheet, afterSheet } from './supporters.js';
 import { titleLabel, isOwn } from '../pub/titles.js';   // the public profile's "I'm a..." (R-147)
 import { issueById, catByKey } from './issues.js';
 import { billRoute, whenAt, hearingWhen, roomName } from './model.js';
+import { issueIcon } from './issuegrid.js';
 
 const FEED_STEP = 20, BILLS_FIRST = 5;
 const isTwo = () => matchMedia('(min-width: 1100px)').matches;
@@ -142,7 +143,7 @@ function follows(p) {
   // One line: where they said they stand on it (an icon and the word), else that they follow it.
   const sum = b => { const k = ownStance(p, b); return k ? `${icon(STANCE[k][0])} ${esc(STANCE[k][1])}` : 'Follows it; no stance given'; };
   return `<section class="sp-sec" aria-labelledby="sp-h-fol"><div class="sechead"><h2 id="sp-h-fol">Follows</h2>${head ? `<span class="meta">${head}</span>` : ''}</div>
-    ${cats.length || iss.length ? `<div class="chips sp-lists sp-issues">${cats.map(c => `<a class="chip sp-listchip" href="#/my-issues/all">${icon(c.icon || 'tag')}All of ${esc(c.name)}</a>`).join('')}${iss.map(i => `<a class="chip sp-listchip" href="#/issue/${encodeURIComponent(i.id)}">${icon('tag')}${esc(i.name)}</a>`).join('')}</div>` : ''}
+    ${cats.length || iss.length ? `<div class="chips sp-lists sp-issues">${cats.map(c => `<a class="chip sp-listchip" href="#/my-issues/all">${icon(c.icon || 'tag')}All of ${esc(c.name)}</a>`).join('')}${iss.map(i => `<a class="chip sp-listchip" href="#/issue/${encodeURIComponent(i.id)}">${icon(issueIcon(i))}${esc(i.name)}</a>`).join('')}</div>` : ''}
     ${lists.length ? `<div class="chips sp-lists">${lists.map(l => `<a class="chip sp-listchip" href="#/list/${encodeURIComponent(l.id)}">${icon('list')}${esc(l.title)}</a>`).join('')}</div>` : ''}
     ${bills.length ? `<div class="v6-list sp-fbills" role="list" aria-label="Bills they follow">${(showAll ? bills : bills.slice(0, firstN)).map(b => followRow(b, sum(b))).join('')}</div>
       ${showAll ? '' : showAllBtn(bills.length, { 'data-pp': 'billsall' }, { what: 'bills' })}`
