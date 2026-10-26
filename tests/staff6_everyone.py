@@ -12,6 +12,9 @@
 #      or three whole names, the full list in the title; walk 3), at most one line of what they hold of ours.
 #   5. About five cards a row on a 1440 laptop, two on a 390 phone; no sideways scroll.
 #   6. The find box, the "Hearing our bills this week" preset and Filter still narrow the grid; Sort is in view on a phone.
+#   7. On a phone (critic, walk 3): Sort is a 44px icon beside Filter on the find box's line, the switch shares the next line
+#      with the preset ("This week"), the island chips say the island alone ("Hawaiʻi 12") and all four fit 358px, and the
+#      first card starts at or above 400px. In All a small muted "Representatives" opens the representatives' row.
 #
 #   V4_ROOT=/path/to/worktree python3 tests/staff6_everyone.py     exits 1 when a check fails
 # (V4_ROOT blocks outside addresses, so the Capitol's photos fail there and every card shows its initial: that is the
@@ -56,7 +59,8 @@ with L.browser() as B:
     R.check(f'{w}: All: the chip row says so', jumplabel(pg) == f'All {len(legs)} legislators, by island: go to', jumplabel(pg))
     R.check(f'{w}: All: islands in Nate\'s order, Kauaʻi between Maui and Oʻahu', heads(pg) == ISL, heads(pg))
     nS = lambda i: sum(1 for l in legs if isl(l) == i and l['ch'] == 'S'); nH = lambda i: sum(1 for l in legs if isl(l) == i and l['ch'] == 'H')
-    R.check(f'{w}: All: the jump chips in the same order, both chambers counted', chips(pg) == [f'{i} {nS(i) + nH(i)}' for i in ISL], chips(pg))
+    short = {'Hawaiʻi Island': 'Hawaiʻi', 'Maui County': 'Maui'}
+    R.check(f'{w}: All: the jump chips in the same order, both chambers counted{"" if w >= 768 else ", the island alone on a phone"}', chips(pg) == [f'{i if w >= 768 else short.get(i, i)} {nS(i) + nH(i)}' for i in ISL], chips(pg))
     sn = pg.page.evaluate("[...document.querySelectorAll('.lg6-groups .lg6-sn')].map(e => e.innerText.trim())")
     R.check(f'{w}: All: each island counts its senators and representatives', sn == [f"{nS(i)} {'senator' if nS(i) == 1 else 'senators'}, {nH(i)} {'representative' if nH(i) == 1 else 'representatives'}" for i in ISL], sn)
     R.check(f'{w}: All: each name says Sen. or Rep.', all(c['name'] == ('Sen. ' if by[c['id']]['ch'] == 'S' else 'Rep. ') + by[c['id']]['name'] for c in cs), [c['name'] for c in cs][:3])
@@ -66,8 +70,11 @@ with L.browser() as B:
       g = [by[c['id']] for c in cs if c['group'] == i]; chs = [l['ch'] for l in g]
       ok = ok and chs == sorted(chs, key=lambda x: x != 'S') and all(a['d'] <= b['d'] for a, b in zip(g, g[1:]) if a['ch'] == b['ch'])
     R.check(f'{w}: All: under an island the senators first, then the representatives, each in district order', ok)
-    brk = pg.page.evaluate("[...document.querySelectorAll('.lg6-brk')].map(c => { const p = c.previousElementSibling; return [c.querySelector('.lg6-cname').innerText.startsWith('Rep.'), p.querySelector('.lg6-cname').innerText.startsWith('Sen.'), Math.round(c.getBoundingClientRect().left) === Math.round(c.parentElement.firstElementChild.getBoundingClientRect().left), c.getBoundingClientRect().top > p.getBoundingClientRect().top]; })")
-    R.check(f'{w}: All: an island\'s first representative starts a new row', len(brk) == 4 and all(all(x) for x in brk), brk)
+    brk = pg.page.evaluate("""[...document.querySelectorAll('.lg6-glabel')].map(g => { const c = g.nextElementSibling, p = g.previousElementSibling, r = g.getBoundingClientRect();
+      return [g.innerText.trim(), g.getAttribute('aria-hidden'), c.querySelector('.lg6-cname').innerText.startsWith('Rep.'), p.querySelector('.lg6-cname').innerText.startsWith('Sen.'),
+        Math.round(c.getBoundingClientRect().left) === Math.round(g.parentElement.firstElementChild.getBoundingClientRect().left), r.top >= p.getBoundingClientRect().bottom - 1, c.getBoundingClientRect().top >= r.bottom - 1,
+        getComputedStyle(g).color === getComputedStyle(document.querySelector('.lg6-cdist')).color]; })""")
+    R.check(f'{w}: All: a muted "Representatives" opens each island\'s representatives\' row, after its senators', len(brk) == 4 and all(b[0] == 'Representatives' and b[1] == 'true' and all(b[2:]) for b in brk), brk)
     # the district's main towns (walk 3)
     tw = [c['town'] for c in cs]
     R.check(f'{w}: every card lists its district\'s main towns', all(t and t['shown'] for t in tw), [c['name'] for c in cs if not (c['town'] and c['town']['shown'])][:3])
@@ -92,13 +99,25 @@ with L.browser() as B:
     cs = cards(pg)
     R.check(f'{w}: the Senate shows all its senators, no one else', sorted(c['id'] for c in cs) == sorted(l['id'] for l in legs if l['ch'] == 'S'), len(cs))
     R.check(f'{w}: the chip row is named for who and the order', jumplabel(pg) == 'All 25 senators, by island: go to', jumplabel(pg))
-    R.check(f'{w}: the find box says what it finds', pg.page.get_attribute('#lg-q', 'placeholder') == ('Name, town, district or committee' if w >= 768 else 'Name, town or district'), pg.page.get_attribute('#lg-q', 'placeholder'))
-    sb = pg.page.evaluate("(() => { const s = document.querySelector('[data-lgsort]'), p = document.querySelector('[data-lgweek]'); if (!s || !s.getClientRects().length) return null; return Math.abs(s.getBoundingClientRect().top - p.getBoundingClientRect().top) < 4; })()")
-    R.check(f'{w}: Sort is in view, on the preset\'s line', sb is True, sb)
+    R.check(f'{w}: the find box says what it finds', pg.page.get_attribute('#lg-q', 'placeholder') == ('Name, town, district or committee' if w >= 768 else 'Name or town'), pg.page.get_attribute('#lg-q', 'placeholder'))
+    if w >= 768:
+      sb = pg.page.evaluate("(() => { const s = document.querySelector('[data-lgsort]'), p = document.querySelector('[data-lgweek]'); if (!s || !s.getClientRects().length) return null; return Math.abs(s.getBoundingClientRect().top - p.getBoundingClientRect().top) < 4; })()")
+      R.check(f'{w}: Sort is in view, on the preset\'s line', sb is True, sb)
+    else:
+      lay = pg.page.evaluate("""(() => { const T = s => { const e = document.querySelector(s); const r = e.getBoundingClientRect(); return [Math.round(r.top), Math.round(r.bottom), Math.round(r.width), Math.round(r.height), Math.round(r.right)]; };
+        const f = T('.lg6-find'), fi = T('[data-lgfilter]'), so = T('[data-lgsort]'), sg = T('.lg6-bar [data-seg="lgch"]'), pr = T('[data-lgweek]'), cd = T('#lg-body .lg6-card');
+        return { sortRow: Math.abs(so[0] - fi[0]) < 4 && Math.abs(fi[0] - f[0]) < 8, sortSize: [so[2], so[3]], sortLabel: document.querySelector('[data-lgsort]').getAttribute('aria-label'), sortText: document.querySelector('[data-lgsort]').innerText.trim(),
+          switchRow: Math.abs(sg[0] - pr[0]) < 8 && sg[0] > f[1], preset: document.querySelector('[data-lgweek]').innerText.trim(), presetName: document.querySelector('[data-lgweek]').getAttribute('aria-label'),
+          right: Math.max(so[4], pr[4]), card: cd[0] }; })()""")
+      R.check(f'{w}: Sort is a 44px icon beside Filter on the find box\'s line, named for the order', lay['sortRow'] and lay['sortSize'] == [44, 44] and not lay['sortText'] and lay['sortLabel'] == 'Sort, now by island', lay)
+      R.check(f'{w}: the switch shares the next line with the preset, "This week" (its full name kept for screen readers)', lay['switchRow'] and lay['preset'] == 'This week' and lay['presetName'] == 'Hearing our bills this week' and lay['right'] <= w - 16, lay)
+      R.check(f'{w}: the first card starts at or above 400px', lay['card'] <= 400, lay['card'])
+      jr = pg.page.evaluate("(() => { const r = document.querySelector('.lg6-jrow'); return [r.scrollWidth - r.clientWidth, Math.round([...r.children].pop().getBoundingClientRect().right)]; })()")
+      R.check(f'{w}: the four island chips fit without sliding', jr[0] <= 0 and jr[1] <= w - 16, jr)
 
     # ---- 2. By island ----
     R.check(f'{w}: grouped by island in order', heads(pg) == ISL, heads(pg))
-    R.check(f'{w}: a jump chip per island, with its count', chips(pg) == ['Hawaiʻi Island 4', 'Maui County 3', 'Kauaʻi 1', 'Oʻahu 17'], chips(pg))
+    R.check(f'{w}: a jump chip per island, with its count', chips(pg) == (['Hawaiʻi Island 4', 'Maui County 3', 'Kauaʻi 1', 'Oʻahu 17'] if w >= 768 else ['Hawaiʻi 4', 'Maui 3', 'Kauaʻi 1', 'Oʻahu 17']), chips(pg))
     pg.page.click('.lg6-jchip >> nth=1'); pg.page.wait_for_timeout(900)
     jt = pg.page.evaluate("(() => { const h = document.querySelector('#lg6-g-maui'); const r = h.getBoundingClientRect(); return [Math.round(r.top), document.activeElement === h, Math.round(innerHeight)]; })()")
     R.check(f'{w}: a chip brings its group to the top, clear of the top bar, and moves focus there', jt[1] and ((92 < jt[0] <= 130) if w >= 768 else (56 <= jt[0] <= 90)), jt)
